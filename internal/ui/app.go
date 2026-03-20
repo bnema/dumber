@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
-	"strconv"
 	"strings"
 	"sync"
 	"unsafe"
@@ -268,11 +267,7 @@ func (a *App) onActivate(ctx context.Context) {
 	log := logging.FromContext(ctx)
 	log.Debug().Msg("GTK application activated")
 
-	if cefMultiThreadedLoopEnabled() {
-		log.Warn().Msg("skipping GTK color scheme preference while testing CEF multi-threaded loop")
-	} else {
-		a.applyGTKColorSchemePreference(ctx)
-	}
+	a.applyGTKColorSchemePreference(ctx)
 	// Configure pool background color early (prevents white flash), but avoid
 	// synchronous prewarming that delays the first navigation on cold start.
 	a.setupPoolBackgroundColor(ctx)
@@ -473,16 +468,6 @@ func (a *App) installCrashReportNotifier(ctx context.Context) {
 	a.deps.OnCrashReportsDetected = func(paths []string) {
 		a.showCrashReportToast(ctx, paths)
 	}
-}
-
-func cefMultiThreadedLoopEnabled() bool {
-	value, ok := os.LookupEnv("DUMBER_CEF_MULTI_THREADED_MESSAGE_LOOP")
-	if !ok || value == "" {
-		return false
-	}
-
-	enabled, err := strconv.ParseBool(value)
-	return err == nil && enabled
 }
 
 func (a *App) initFocusAndBorderOverlay() {

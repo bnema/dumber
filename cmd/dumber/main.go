@@ -7,7 +7,6 @@ import (
 	"os"
 	"os/signal"
 	"runtime"
-	"strconv"
 	"syscall"
 
 	"github.com/bnema/dumber/internal/application/port"
@@ -114,7 +113,7 @@ func runGUI() int {
 	}
 	timer.MarkDuration("parallel_phase", initResult.Duration)
 
-	if multiThreadedCEFLoopEnabled() {
+	if cfg.Engine.CEF.CEFMultiThreadedMessageLoop() && resolveEngineType(cfg) == "cef" {
 		logging.FromContext(ctx).Info().Msg("pre-initializing libadwaita before CEF multi-threaded loop")
 		ui.EnsureAdwaitaInitialized()
 		if initResult.AdwaitaDetector != nil {
@@ -253,14 +252,16 @@ func initStartupContext(cfg *config.Config) context.Context {
 	return ctx
 }
 
-func multiThreadedCEFLoopEnabled() bool {
-	value, ok := os.LookupEnv("DUMBER_CEF_MULTI_THREADED_MESSAGE_LOOP")
-	if !ok || value == "" {
-		return false
+// resolveEngineType returns the effective engine type from config + env override.
+func resolveEngineType(cfg *config.Config) string {
+	engineType := cfg.Engine.Type
+	if engineType == "" {
+		engineType = "webkit"
 	}
-
-	enabled, err := strconv.ParseBool(value)
-	return err == nil && enabled
+	if envEngine := os.Getenv("DUMBER_ENGINE"); envEngine != "" {
+		engineType = envEngine
+	}
+	return engineType
 }
 
 func initStackAndRepos(

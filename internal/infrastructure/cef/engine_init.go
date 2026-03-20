@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
-	"strconv"
 
 	purecef "github.com/bnema/purego-cef/cef"
 
@@ -16,13 +15,19 @@ import (
 // NewEngine initializes the CEF runtime and returns a ready-to-use Engine.
 func NewEngine(ctx context.Context, cfg config.CEFEngineConfig) (*Engine, error) {
 	logger := logging.FromContext(ctx)
+
+	// Resolve pump mode from config (with defaults).
+	multiThreaded := cfg.CEFMultiThreadedMessageLoop()
+	manualPumpMs := cfg.CEFManualPumpIntervalMs()
+
 	// 1. Initialize CEF.
 	settings := purecef.DefaultSettings()
-	settings.MultiThreadedMessageLoop = parseBoolEnv("DUMBER_CEF_MULTI_THREADED_MESSAGE_LOOP", false)
-	settings.ExternalMessagePump = parseBoolEnv("DUMBER_CEF_EXTERNAL_PUMP", settings.ExternalMessagePump)
-	if settings.MultiThreadedMessageLoop {
-		settings.ExternalMessagePump = false
-	}
+	settings.MultiThreadedMessageLoop = multiThreaded
+	// External message pump is disabled: purego-cef has a bug where
+	// OnScheduleMessagePumpWork is never called after cef_initialize
+	// (double-wrapping of BrowserProcessHandler in NewApp).
+	// When multi-threaded is false, we use a manual glib timer instead.
+	settings.ExternalMessagePump = false
 	if cfg.CEFDir != "" {
 		settings.CEFDir = cfg.CEFDir
 	}
@@ -57,15 +62,13 @@ func NewEngine(ctx context.Context, cfg config.CEFEngineConfig) (*Engine, error)
 	// 2. Build the engine early so the App can reference it for the pump callback.
 	eng := &Engine{
 		ctx:                      ctx,
-		multiThreadedMessageLoop: settings.MultiThreadedMessageLoop,
-		externalMessagePump:      settings.ExternalMessagePump,
-		manualPumpInterval:       parseInt64Env("DUMBER_CEF_MANUAL_PUMP_MS", 10),
+		multiThreadedMessageLoop: multiThreaded,
+		manualPumpInterval:       manualPumpMs,
 	}
 
 	logger.Info().
-		Bool("multi_threaded_message_loop", settings.MultiThreadedMessageLoop).
-		Bool("external_message_pump", settings.ExternalMessagePump).
-		Int64("manual_pump_interval_ms", eng.manualPumpInterval).
+		Bool("multi_threaded_message_loop", multiThreaded).
+		Int64("manual_pump_interval_ms", manualPumpMs).
 		Msg("cef: configured message pump mode")
 
 	// Create the CEF App with a BrowserProcessHandler that drives the
@@ -122,30 +125,4 @@ func findHelperBinary() string {
 		return helper
 	}
 	return ""
-}
-
-func parseBoolEnv(name string, fallback bool) bool {
-	value, ok := os.LookupEnv(name)
-	if !ok || value == "" {
-		return fallback
-	}
-
-	parsed, err := strconv.ParseBool(value)
-	if err != nil {
-		return fallback
-	}
-	return parsed
-}
-
-func parseInt64Env(name string, fallback int64) int64 {
-	value, ok := os.LookupEnv(name)
-	if !ok || value == "" {
-		return fallback
-	}
-
-	parsed, err := strconv.ParseInt(value, 10, 64)
-	if err != nil || parsed <= 0 {
-		return fallback
-	}
-	return parsed
 }

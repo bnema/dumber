@@ -69,6 +69,28 @@ type CEFEngineConfig struct {
 	// WindowlessFrameRate is the maximum frame rate for off-screen rendering.
 	// Default: 30. Higher values increase CPU usage.
 	WindowlessFrameRate int32 `mapstructure:"windowless_frame_rate" toml:"windowless_frame_rate" yaml:"windowless_frame_rate"`
+	// MultiThreadedMessageLoop lets CEF run its own message loop thread.
+	// Default: true. When false, the host drives the pump via a manual timer.
+	MultiThreadedMessageLoop *bool `mapstructure:"multi_threaded_message_loop" toml:"multi_threaded_message_loop" yaml:"multi_threaded_message_loop"` //nolint:lll
+	// ManualPumpIntervalMs is the polling interval (ms) for CefDoMessageLoopWork
+	// when MultiThreadedMessageLoop is false. Default: 10.
+	ManualPumpIntervalMs int64 `mapstructure:"manual_pump_interval_ms" toml:"manual_pump_interval_ms" yaml:"manual_pump_interval_ms"`
+}
+
+// CEFMultiThreadedMessageLoop returns the effective value with default true.
+func (c CEFEngineConfig) CEFMultiThreadedMessageLoop() bool {
+	if c.MultiThreadedMessageLoop != nil {
+		return *c.MultiThreadedMessageLoop
+	}
+	return true
+}
+
+// CEFManualPumpIntervalMs returns the effective value with default 10.
+func (c CEFEngineConfig) CEFManualPumpIntervalMs() int64 {
+	if c.ManualPumpIntervalMs > 0 {
+		return c.ManualPumpIntervalMs
+	}
+	return 10
 }
 
 // PerformanceConfigFromEngine constructs a PerformanceConfig from the
