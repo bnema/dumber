@@ -29,6 +29,9 @@ type Engine struct {
 	factory *WebViewFactory
 	pool    *WebViewPool
 
+	externalMessagePump bool
+	manualPumpInterval  int64
+
 	// nextWorkAtMs is the next deadline, in Unix milliseconds, when
 	// CefDoMessageLoopWork should run. It is written from any Chromium thread
 	// via OnScheduleMessagePumpWork and read on the GTK main thread.
@@ -148,7 +151,10 @@ func (e *Engine) ConfigureDownloads(_ context.Context, _ string, _ port.Download
 // Starts the persistent pump timer on the GTK main thread.
 func (e *Engine) OnToolkitReady(_ context.Context) error {
 	log := logging.FromContext(e.ctx)
-	log.Debug().Msg("cef: OnToolkitReady called, starting message pump")
+	log.Debug().
+		Bool("external_message_pump", e.externalMessagePump).
+		Int64("manual_pump_interval_ms", e.manualPumpInterval).
+		Msg("cef: OnToolkitReady called, starting message pump")
 	e.startMessagePump()
 	return nil
 }
@@ -289,6 +295,10 @@ func (e *Engine) maybeLogBrowserCreateStall() {
 // thread. It updates the earliest due deadline atomically and signals the GTK
 // main thread when it needs to re-evaluate timer state.
 func (e *Engine) scheduleMessagePumpWork(delayMs int64) {
+	if !e.externalMessagePump {
+		return
+	}
+
 	nowMs := time.Now().UnixMilli()
 	dueAtMs := nowMs
 	if delayMs > 0 {
@@ -334,6 +344,14 @@ func (e *Engine) scheduleMessagePumpWork(delayMs int64) {
 }
 
 func (e *Engine) startMessagePump() {
+	if e.externalMessagePump {
+		e.startExternalMessagePump()
+		return
+	}
+	e.startManualMessagePump()
+}
+
+func (e *Engine) startExternalMessagePump() {
 	if e.pumpEnabled.Load() {
 		return
 	}
@@ -377,6 +395,66 @@ func (e *Engine) startMessagePump() {
 	e.pumpEnabled.Store(true)
 	e.nextWorkAtMs.Store(time.Now().UnixMilli())
 	e.signalPump()
+}
+
+func (e *Engine) startManualMessagePump() {
+	if e.pumpEnabled.Load() {
+		return
+	}
+
+	intervalMs := e.manualPumpInterval
+	if intervalMs <= 0 {
+		intervalMs = 10
+	}
+
+	cb := glib.SourceFunc(func(_ uintptr) bool {
+		if e.pumpClosing.Load() || !e.pumpEnabled.Load() {
+			return glib.SOURCE_REMOVE
+		}
+
+		nowMs := time.Now().UnixMilli()
+		e.pumpWakeCount++
+		e.pumpWorkCount++
+		e.maybeLogBrowserCreateStall()
+		if e.pumpWorkCount <= 20 || e.pumpWorkCount%100 == 0 {
+			logging.FromContext(e.ctx).Debug().
+				Uint64("wake", e.pumpWakeCount).
+				Uint64("work", e.pumpWorkCount).
+				Int64("interval_ms", intervalMs).
+				Int64("now_ms", nowMs).
+				Msg("cef: manual pump doing work")
+		}
+
+		workStartedAt := time.Now()
+		purecef.DoMessageLoopWork()
+		workDuration := time.Since(workStartedAt)
+		e.pumpWorkTotalNs += uint64(workDuration)
+		if workDuration.Nanoseconds() > e.pumpWorkMaxNs {
+			e.pumpWorkMaxNs = workDuration.Nanoseconds()
+		}
+		if workDuration >= 2*time.Millisecond {
+			e.pumpSlowCount++
+		}
+		e.maybeLogPumpDiagnostics()
+
+		return glib.SOURCE_CONTINUE
+	})
+
+	sourceID := glib.TimeoutAdd(uint(intervalMs), &cb, 0)
+	if sourceID == 0 {
+		logging.FromContext(e.ctx).Error().
+			Int64("interval_ms", intervalMs).
+			Msg("cef: failed to start manual pump timer")
+		return
+	}
+
+	e.pumpClosing.Store(false)
+	e.pumpEnabled.Store(true)
+	e.pumpTimerSource.Store(uint64(sourceID))
+	e.pumpTimerDueAtMs.Store(time.Now().UnixMilli() + intervalMs)
+	logging.FromContext(e.ctx).Info().
+		Int64("interval_ms", intervalMs).
+		Msg("cef: started manual CEF pump")
 }
 
 func (e *Engine) stopMessagePump() {
