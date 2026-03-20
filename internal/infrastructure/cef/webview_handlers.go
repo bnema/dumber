@@ -99,14 +99,30 @@ func (h *handlerSet) OnPopupShow(_ purecef.Browser, _ int32) {}
 func (h *handlerSet) OnPopupSize(_ purecef.Browser, _ *purecef.Rect) {}
 
 // OnPaint receives the BGRA pixel buffer from CEF and forwards dirty rects
-// to the render pipeline for GPU upload.
+// to the render pipeline for GPU upload. With a multi-threaded CEF UI loop we
+// must first copy the transient CEF buffer before hopping back to GTK.
 func (h *handlerSet) OnPaint(
 	_ purecef.Browser, _ purecef.PaintElementType,
 	dirtyRects []purecef.Rect, buffer unsafe.Pointer, width, height int32,
 ) {
+	if buffer == nil || width <= 0 || height <= 0 {
+		return
+	}
 	rects := make([]rect, len(dirtyRects))
 	for i, dr := range dirtyRects {
 		rects[i] = rect{X: dr.X, Y: dr.Y, Width: dr.Width, Height: dr.Height}
+	}
+	if h.wv.engine != nil && h.wv.engine.multiThreadedMessageLoop {
+		bufSize := int(width) * int(height) * 4
+		if bufSize <= 0 {
+			return
+		}
+		pixels := make([]byte, bufSize)
+		copy(pixels, unsafe.Slice((*byte)(buffer), bufSize))
+		h.wv.runOnGTK(func() {
+			h.wv.pipeline.handlePaint(unsafe.Pointer(&pixels[0]), width, height, rects)
+		})
+		return
 	}
 	h.wv.pipeline.handlePaint(buffer, width, height, rects)
 }
@@ -170,10 +186,14 @@ func (h *handlerSet) OnFullscreenModeChange(_ purecef.Browser, fullscreen int32)
 		return
 	}
 	if entering && cb.OnEnterFullscreen != nil {
-		cb.OnEnterFullscreen()
+		h.wv.runOnGTK(func() {
+			cb.OnEnterFullscreen()
+		})
 	}
 	if !entering && cb.OnLeaveFullscreen != nil {
-		cb.OnLeaveFullscreen()
+		h.wv.runOnGTK(func() {
+			cb.OnLeaveFullscreen()
+		})
 	}
 }
 
@@ -185,7 +205,9 @@ func (h *handlerSet) OnStatusMessage(_ purecef.Browser, value string) {
 	cb := h.wv.callbacks
 	h.wv.mu.RUnlock()
 	if cb != nil && cb.OnLinkHover != nil {
-		cb.OnLinkHover(value)
+		h.wv.runOnGTK(func() {
+			cb.OnLinkHover(value)
+		})
 	}
 }
 
@@ -202,7 +224,9 @@ func (h *handlerSet) OnLoadingProgressChange(_ purecef.Browser, progress float64
 
 func (h *handlerSet) OnCursorChange(_ purecef.Browser, _ uintptr, cursorType purecef.CursorType, _ *purecef.CursorInfo) int32 {
 	name := cefCursorToGDKName(cursorType)
-	h.wv.pipeline.glArea.SetCursorFromName(&name)
+	h.wv.runOnGTK(func() {
+		h.wv.pipeline.glArea.SetCursorFromName(&name)
+	})
 	return 1 // handled
 }
 
@@ -226,9 +250,13 @@ func (h *handlerSet) OnLoadingStateChange(_ purecef.Browser, isloading, cangobac
 	h.wv.mu.RUnlock()
 	if cb != nil && cb.OnLoadChanged != nil {
 		if loading {
-			cb.OnLoadChanged(port.LoadStarted)
+			h.wv.runOnGTK(func() {
+				cb.OnLoadChanged(port.LoadStarted)
+			})
 		} else {
-			cb.OnLoadChanged(port.LoadFinished)
+			h.wv.runOnGTK(func() {
+				cb.OnLoadChanged(port.LoadFinished)
+			})
 		}
 	}
 }
@@ -245,7 +273,9 @@ func (h *handlerSet) OnLoadStart(_ purecef.Browser, frame purecef.Frame, _ purec
 	cb := h.wv.callbacks
 	h.wv.mu.RUnlock()
 	if cb != nil && cb.OnLoadChanged != nil {
-		cb.OnLoadChanged(port.LoadCommitted)
+		h.wv.runOnGTK(func() {
+			cb.OnLoadChanged(port.LoadCommitted)
+		})
 	}
 }
 
@@ -268,10 +298,14 @@ func (h *handlerSet) OnLoadEnd(_ purecef.Browser, frame purecef.Frame, httpStatu
 	h.wv.mu.RUnlock()
 	if cb != nil {
 		if cb.OnLoadChanged != nil {
-			cb.OnLoadChanged(port.LoadFinished)
+			h.wv.runOnGTK(func() {
+				cb.OnLoadChanged(port.LoadFinished)
+			})
 		}
 		if cb.OnProgressChanged != nil {
-			cb.OnProgressChanged(1.0)
+			h.wv.runOnGTK(func() {
+				cb.OnProgressChanged(1.0)
+			})
 		}
 	}
 }
@@ -316,13 +350,19 @@ func (h *handlerSet) OnAfterCreated(browser purecef.Browser) {
 	if h.wv.engine != nil {
 		h.wv.engine.recordBrowserAfterCreated(browser)
 	}
+	host := browser.GetHost()
+
+	h.wv.mu.Lock()
 	h.wv.browser = browser
-	h.wv.host = browser.GetHost()
-	h.wv.input.setHost(h.wv.host)
+	h.wv.host = host
+	uri := h.wv.pendingURI
+	h.wv.pendingURI = ""
+	h.wv.mu.Unlock()
+
+	h.wv.input.setHost(host)
 
 	// Replay any navigation that was requested before the browser existed.
-	if uri := h.wv.pendingURI; uri != "" {
-		h.wv.pendingURI = ""
+	if uri != "" {
 		browser.GetMainFrame().LoadURL(uri)
 	}
 }
@@ -338,7 +378,9 @@ func (h *handlerSet) OnBeforeClose(_ purecef.Browser) {
 	cb := h.wv.callbacks
 	h.wv.mu.RUnlock()
 	if cb != nil && cb.OnClose != nil {
-		cb.OnClose()
+		h.wv.runOnGTK(func() {
+			cb.OnClose()
+		})
 	}
 }
 
@@ -424,7 +466,9 @@ func (h *handlerSet) OnRenderProcessTerminated(_ purecef.Browser, status purecef
 	uri := h.wv.uri
 	h.wv.mu.RUnlock()
 	if cb != nil && cb.OnWebProcessTerminated != nil {
-		cb.OnWebProcessTerminated(reason, label, uri)
+		h.wv.runOnGTK(func() {
+			cb.OnWebProcessTerminated(reason, label, uri)
+		})
 	}
 }
 

@@ -109,8 +109,11 @@ func (f *WebViewFactory) Create(ctx context.Context) (port.WebView, error) {
 
 	// On subsequent resizes, notify CEF so it re-queries GetViewRect.
 	pipeline.onResizeCB = func(_, _ int32) {
-		if wv.host != nil {
-			wv.host.WasResized()
+		wv.mu.RLock()
+		host := wv.host
+		wv.mu.RUnlock()
+		if host != nil {
+			host.WasResized()
 		}
 	}
 

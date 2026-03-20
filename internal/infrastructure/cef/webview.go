@@ -9,6 +9,7 @@ import (
 	"unsafe"
 
 	purecef "github.com/bnema/purego-cef/cef"
+	"github.com/jwijenbergh/puregotk/v4/glib"
 
 	"github.com/bnema/dumber/internal/application/port"
 )
@@ -92,12 +93,16 @@ func (wv *WebView) LoadURI(_ context.Context, uri string) error {
 	if wv.destroyed.Load() {
 		return errDestroyed
 	}
-	if wv.browser == nil {
+	wv.mu.Lock()
+	browser := wv.browser
+	if browser == nil {
 		// Browser not yet created — queue the URI for OnAfterCreated.
 		wv.pendingURI = uri
+		wv.mu.Unlock()
 		return nil
 	}
-	wv.browser.GetMainFrame().LoadURL(uri)
+	wv.mu.Unlock()
+	browser.GetMainFrame().LoadURL(uri)
 	return nil
 }
 
@@ -106,11 +111,14 @@ func (wv *WebView) LoadHTML(_ context.Context, content, _ string) error {
 	if wv.destroyed.Load() {
 		return errDestroyed
 	}
-	if wv.browser == nil {
+	wv.mu.RLock()
+	browser := wv.browser
+	wv.mu.RUnlock()
+	if browser == nil {
 		return errNoBrowser
 	}
 	dataURL := "data:text/html;base64," + base64.StdEncoding.EncodeToString([]byte(content))
-	wv.browser.GetMainFrame().LoadURL(dataURL)
+	browser.GetMainFrame().LoadURL(dataURL)
 	return nil
 }
 
@@ -119,10 +127,13 @@ func (wv *WebView) Reload(_ context.Context) error {
 	if wv.destroyed.Load() {
 		return errDestroyed
 	}
-	if wv.browser == nil {
+	wv.mu.RLock()
+	browser := wv.browser
+	wv.mu.RUnlock()
+	if browser == nil {
 		return errNoBrowser
 	}
-	wv.browser.Reload()
+	browser.Reload()
 	return nil
 }
 
@@ -131,10 +142,13 @@ func (wv *WebView) ReloadBypassCache(_ context.Context) error {
 	if wv.destroyed.Load() {
 		return errDestroyed
 	}
-	if wv.browser == nil {
+	wv.mu.RLock()
+	browser := wv.browser
+	wv.mu.RUnlock()
+	if browser == nil {
 		return errNoBrowser
 	}
-	wv.browser.ReloadIgnoreCache()
+	browser.ReloadIgnoreCache()
 	return nil
 }
 
@@ -143,10 +157,13 @@ func (wv *WebView) Stop(_ context.Context) error {
 	if wv.destroyed.Load() {
 		return errDestroyed
 	}
-	if wv.browser == nil {
+	wv.mu.RLock()
+	browser := wv.browser
+	wv.mu.RUnlock()
+	if browser == nil {
 		return errNoBrowser
 	}
-	wv.browser.StopLoad()
+	browser.StopLoad()
 	return nil
 }
 
@@ -155,10 +172,13 @@ func (wv *WebView) GoBack(_ context.Context) error {
 	if wv.destroyed.Load() {
 		return errDestroyed
 	}
-	if wv.browser == nil {
+	wv.mu.RLock()
+	browser := wv.browser
+	wv.mu.RUnlock()
+	if browser == nil {
 		return errNoBrowser
 	}
-	wv.browser.GoBack()
+	browser.GoBack()
 	return nil
 }
 
@@ -167,10 +187,13 @@ func (wv *WebView) GoForward(_ context.Context) error {
 	if wv.destroyed.Load() {
 		return errDestroyed
 	}
-	if wv.browser == nil {
+	wv.mu.RLock()
+	browser := wv.browser
+	wv.mu.RUnlock()
+	if browser == nil {
 		return errNoBrowser
 	}
-	wv.browser.GoForward()
+	browser.GoForward()
 	return nil
 }
 
@@ -295,10 +318,16 @@ func (wv *WebView) SetCallbacks(cb *port.WebViewCallbacks) {
 
 // RunJavaScript executes a script in the main world. Fire-and-forget.
 func (wv *WebView) RunJavaScript(_ context.Context, script string) {
-	if wv.destroyed.Load() || wv.browser == nil {
+	if wv.destroyed.Load() {
 		return
 	}
-	wv.browser.GetMainFrame().ExecuteJavaScript(script, "", 0)
+	wv.mu.RLock()
+	browser := wv.browser
+	wv.mu.RUnlock()
+	if browser == nil {
+		return
+	}
+	browser.GetMainFrame().ExecuteJavaScript(script, "", 0)
 }
 
 // SetBackgroundColor is a no-op in Phase 1.
@@ -321,8 +350,11 @@ func (wv *WebView) Destroy() {
 	if !wv.destroyed.CompareAndSwap(false, true) {
 		return
 	}
-	if wv.host != nil {
-		wv.host.CloseBrowser(1)
+	wv.mu.RLock()
+	host := wv.host
+	wv.mu.RUnlock()
+	if host != nil {
+		host.CloseBrowser(1)
 	}
 	if wv.pipeline != nil {
 		wv.pipeline.destroy()
@@ -354,7 +386,9 @@ func (wv *WebView) updateURI(uri string) {
 	cb := wv.callbacks
 	wv.mu.RUnlock()
 	if cb != nil && cb.OnURIChanged != nil {
-		cb.OnURIChanged(uri)
+		wv.runOnGTK(func() {
+			cb.OnURIChanged(uri)
+		})
 	}
 }
 
@@ -367,7 +401,9 @@ func (wv *WebView) updateTitle(title string) {
 	cb := wv.callbacks
 	wv.mu.RUnlock()
 	if cb != nil && cb.OnTitleChanged != nil {
-		cb.OnTitleChanged(title)
+		wv.runOnGTK(func() {
+			cb.OnTitleChanged(title)
+		})
 	}
 }
 
@@ -380,7 +416,9 @@ func (wv *WebView) updateProgress(progress float64) {
 	cb := wv.callbacks
 	wv.mu.RUnlock()
 	if cb != nil && cb.OnProgressChanged != nil {
-		cb.OnProgressChanged(progress)
+		wv.runOnGTK(func() {
+			cb.OnProgressChanged(progress)
+		})
 	}
 }
 
@@ -390,6 +428,21 @@ func (wv *WebView) updateLoadState(loading, back, fwd bool) {
 	wv.canGoBack = back
 	wv.canGoFwd = fwd
 	wv.mu.Unlock()
+}
+
+func (wv *WebView) runOnGTK(fn func()) {
+	if fn == nil {
+		return
+	}
+	if wv.engine == nil || !wv.engine.multiThreadedMessageLoop {
+		fn()
+		return
+	}
+
+	cb := glib.SourceOnceFunc(func(_ uintptr) {
+		fn()
+	})
+	glib.IdleAddOnce(&cb, 0)
 }
 
 // suppress unused import for unsafe (used by NativeWidget via GoPointer).

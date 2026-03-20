@@ -18,7 +18,11 @@ func NewEngine(ctx context.Context, cfg config.CEFEngineConfig) (*Engine, error)
 	logger := logging.FromContext(ctx)
 	// 1. Initialize CEF.
 	settings := purecef.DefaultSettings()
+	settings.MultiThreadedMessageLoop = parseBoolEnv("DUMBER_CEF_MULTI_THREADED_MESSAGE_LOOP", false)
 	settings.ExternalMessagePump = parseBoolEnv("DUMBER_CEF_EXTERNAL_PUMP", settings.ExternalMessagePump)
+	if settings.MultiThreadedMessageLoop {
+		settings.ExternalMessagePump = false
+	}
 	if cfg.CEFDir != "" {
 		settings.CEFDir = cfg.CEFDir
 	}
@@ -52,12 +56,14 @@ func NewEngine(ctx context.Context, cfg config.CEFEngineConfig) (*Engine, error)
 
 	// 2. Build the engine early so the App can reference it for the pump callback.
 	eng := &Engine{
-		ctx:                 ctx,
-		externalMessagePump: settings.ExternalMessagePump,
-		manualPumpInterval:  parseInt64Env("DUMBER_CEF_MANUAL_PUMP_MS", 10),
+		ctx:                      ctx,
+		multiThreadedMessageLoop: settings.MultiThreadedMessageLoop,
+		externalMessagePump:      settings.ExternalMessagePump,
+		manualPumpInterval:       parseInt64Env("DUMBER_CEF_MANUAL_PUMP_MS", 10),
 	}
 
 	logger.Info().
+		Bool("multi_threaded_message_loop", settings.MultiThreadedMessageLoop).
 		Bool("external_message_pump", settings.ExternalMessagePump).
 		Int64("manual_pump_interval_ms", eng.manualPumpInterval).
 		Msg("cef: configured message pump mode")

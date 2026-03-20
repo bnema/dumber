@@ -29,8 +29,9 @@ type Engine struct {
 	factory *WebViewFactory
 	pool    *WebViewPool
 
-	externalMessagePump bool
-	manualPumpInterval  int64
+	multiThreadedMessageLoop bool
+	externalMessagePump      bool
+	manualPumpInterval       int64
 
 	// nextWorkAtMs is the next deadline, in Unix milliseconds, when
 	// CefDoMessageLoopWork should run. It is written from any Chromium thread
@@ -152,6 +153,7 @@ func (e *Engine) ConfigureDownloads(_ context.Context, _ string, _ port.Download
 func (e *Engine) OnToolkitReady(_ context.Context) error {
 	log := logging.FromContext(e.ctx)
 	log.Debug().
+		Bool("multi_threaded_message_loop", e.multiThreadedMessageLoop).
 		Bool("external_message_pump", e.externalMessagePump).
 		Int64("manual_pump_interval_ms", e.manualPumpInterval).
 		Msg("cef: OnToolkitReady called, starting message pump")
@@ -344,6 +346,10 @@ func (e *Engine) scheduleMessagePumpWork(delayMs int64) {
 }
 
 func (e *Engine) startMessagePump() {
+	if e.multiThreadedMessageLoop {
+		logging.FromContext(e.ctx).Info().Msg("cef: multi-threaded message loop enabled, skipping external/manual pump")
+		return
+	}
 	if e.externalMessagePump {
 		e.startExternalMessagePump()
 		return
@@ -458,6 +464,9 @@ func (e *Engine) startManualMessagePump() {
 }
 
 func (e *Engine) stopMessagePump() {
+	if e.multiThreadedMessageLoop {
+		return
+	}
 	e.pumpClosing.Store(true)
 	e.pumpEnabled.Store(false)
 	e.nextWorkAtMs.Store(0)
