@@ -2,6 +2,7 @@ package cef
 
 import (
 	"context"
+	"os"
 	"sync/atomic"
 	"time"
 
@@ -39,8 +40,10 @@ type Engine struct {
 	pumpEnabled atomic.Bool
 	pumpClosing atomic.Bool
 
-	pumpWakeQueued   atomic.Bool
-	pumpIdleSourceID atomic.Uint64
+	pumpSignalPending atomic.Bool
+	pumpSignalSource  atomic.Uint64
+	pumpSignalRead    *os.File
+	pumpSignalWrite   *os.File
 
 	pumpTimerDueAtMs atomic.Int64
 	pumpTimerSource  atomic.Uint64
@@ -266,14 +269,15 @@ func (e *Engine) maybeLogBrowserCreateStall() {
 // CEF message pump — thread-safe via atomic deadlines
 //
 // OnScheduleMessagePumpWork can be called from ANY Chromium thread (UI, IO,
-// GPU compositor, etc.). It updates the next due time atomically and coalesces
-// a wake-up on the GTK main loop. When work is not yet due, a one-shot GLib
-// timeout is armed for the exact deadline instead of polling every few ms.
+// GPU compositor, etc.). It updates the next due time atomically and signals a
+// persistent GLib fd watch via a wakeup pipe. This closely follows the Linux
+// external-message-pump strategy used by upstream cefclient and avoids
+// creating/destroying GLib sources from Chromium threads.
 // ---------------------------------------------------------------------------
 
 // scheduleMessagePumpWork is called by OnScheduleMessagePumpWork from any
-// thread. It updates the earliest due deadline atomically and queues a wake-up
-// if the main loop needs to re-evaluate timer state.
+// thread. It updates the earliest due deadline atomically and signals the GTK
+// main thread when it needs to re-evaluate timer state.
 func (e *Engine) scheduleMessagePumpWork(delayMs int64) {
 	nowMs := time.Now().UnixMilli()
 	dueAtMs := nowMs
@@ -315,7 +319,7 @@ func (e *Engine) scheduleMessagePumpWork(delayMs int64) {
 
 	armedDueAtMs := e.pumpTimerDueAtMs.Load()
 	if dueAtMs <= nowMs || armedDueAtMs == 0 || dueAtMs < armedDueAtMs {
-		e.queuePumpWake()
+		e.signalPump()
 	}
 }
 
@@ -324,10 +328,45 @@ func (e *Engine) startMessagePump() {
 		return
 	}
 
+	readFile, writeFile, err := os.Pipe()
+	if err != nil {
+		logging.FromContext(e.ctx).Error().Err(err).Msg("cef: failed to create wakeup pipe")
+		return
+	}
+
+	cb := glib.UnixFDSourceFunc(func(_ int, _ glib.IOCondition, _ uintptr) bool {
+		e.pumpSignalPending.Store(false)
+		e.drainPumpSignal()
+		if e.pumpClosing.Load() || !e.pumpEnabled.Load() {
+			return glib.SOURCE_REMOVE
+		}
+		e.onPumpWake()
+		return glib.SOURCE_CONTINUE
+	})
+
+	sourceID := glib.UnixFdAddFull(
+		glib.PRIORITY_DEFAULT_IDLE,
+		int(readFile.Fd()),
+		glib.GIoInValue|glib.GIoHupValue|glib.GIoErrValue,
+		&cb,
+		0,
+		nil,
+	)
+
+	if sourceID == 0 {
+		_ = readFile.Close()
+		_ = writeFile.Close()
+		logging.FromContext(e.ctx).Error().Msg("cef: failed to attach wakeup pipe source")
+		return
+	}
+
+	e.pumpSignalRead = readFile
+	e.pumpSignalWrite = writeFile
+	e.pumpSignalSource.Store(uint64(sourceID))
 	e.pumpClosing.Store(false)
 	e.pumpEnabled.Store(true)
 	e.nextWorkAtMs.Store(time.Now().UnixMilli())
-	e.queuePumpWake()
+	e.signalPump()
 }
 
 func (e *Engine) stopMessagePump() {
@@ -335,11 +374,19 @@ func (e *Engine) stopMessagePump() {
 	e.pumpEnabled.Store(false)
 	e.nextWorkAtMs.Store(0)
 	e.pumpTimerDueAtMs.Store(0)
-	if sourceID := uint(e.pumpIdleSourceID.Swap(0)); sourceID != 0 {
-		glib.SourceRemove(sourceID)
-	}
 	if sourceID := uint(e.pumpTimerSource.Swap(0)); sourceID != 0 {
 		glib.SourceRemove(sourceID)
+	}
+	if sourceID := uint(e.pumpSignalSource.Swap(0)); sourceID != 0 {
+		glib.SourceRemove(sourceID)
+	}
+	if e.pumpSignalRead != nil {
+		_ = e.pumpSignalRead.Close()
+		e.pumpSignalRead = nil
+	}
+	if e.pumpSignalWrite != nil {
+		_ = e.pumpSignalWrite.Close()
+		e.pumpSignalWrite = nil
 	}
 }
 
@@ -350,25 +397,33 @@ func (e *Engine) scheduleFallbackPumpWork(nowMs int64) {
 	e.nextWorkAtMs.CompareAndSwap(0, nowMs+cefFallbackPumpDelayMS)
 }
 
-func (e *Engine) queuePumpWake() {
+func (e *Engine) signalPump() {
 	if e.pumpClosing.Load() || !e.pumpEnabled.Load() {
 		return
 	}
-	if !e.pumpWakeQueued.CompareAndSwap(false, true) {
+	if !e.pumpSignalPending.CompareAndSwap(false, true) {
 		return
 	}
 
-	cb := glib.SourceOnceFunc(func(_ uintptr) {
-		e.pumpIdleSourceID.Store(0)
-		e.pumpWakeQueued.Store(false)
-		if e.pumpClosing.Load() || !e.pumpEnabled.Load() {
-			return
-		}
-		e.onPumpWake()
-	})
+	if e.pumpSignalWrite == nil {
+		e.pumpSignalPending.Store(false)
+		return
+	}
 
-	sourceID := glib.IdleAddOnce(&cb, 0)
-	e.pumpIdleSourceID.Store(uint64(sourceID))
+	var wakeByte [1]byte
+	wakeByte[0] = 1
+	if _, err := e.pumpSignalWrite.Write(wakeByte[:]); err != nil {
+		e.pumpSignalPending.Store(false)
+	}
+}
+
+func (e *Engine) drainPumpSignal() {
+	if e.pumpSignalRead == nil {
+		return
+	}
+
+	var buf [64]byte
+	_, _ = e.pumpSignalRead.Read(buf[:])
 }
 
 func (e *Engine) armPumpTimer(dueAtMs, nowMs int64) {
@@ -389,6 +444,9 @@ func (e *Engine) armPumpTimer(dueAtMs, nowMs int64) {
 	if delayMs <= 0 {
 		delayMs = 1
 	}
+	if delayMs > cefFallbackPumpDelayMS {
+		delayMs = cefFallbackPumpDelayMS
+	}
 
 	cb := glib.SourceOnceFunc(func(_ uintptr) {
 		e.pumpTimerSource.Store(0)
@@ -401,7 +459,7 @@ func (e *Engine) armPumpTimer(dueAtMs, nowMs int64) {
 
 	sourceID := glib.TimeoutAddOnce(uint(delayMs), &cb, 0)
 	e.pumpTimerSource.Store(uint64(sourceID))
-	e.pumpTimerDueAtMs.Store(dueAtMs)
+	e.pumpTimerDueAtMs.Store(nowMs + delayMs)
 }
 
 func (e *Engine) disarmPumpTimer() {
@@ -442,12 +500,16 @@ func (e *Engine) onPumpWake() {
 			Int64("now_ms", nowMs).
 			Msg("cef: pump doing work")
 	}
-	e.performMessageLoopWork()
+	wasReentrant := e.performMessageLoopWork()
 
 	// Match the upstream external-pump reference behavior: if CEF did not
 	// request another deadline, keep a placeholder wakeup so async work such as
 	// browser creation can continue progressing.
 	nowMs = time.Now().UnixMilli()
+	if wasReentrant {
+		e.signalPump()
+		return
+	}
 	e.scheduleFallbackPumpWork(nowMs)
 
 	nextDueAtMs := e.nextWorkAtMs.Load()
@@ -455,17 +517,18 @@ func (e *Engine) onPumpWake() {
 		return
 	}
 	if nextDueAtMs <= nowMs {
-		e.queuePumpWake()
+		e.signalPump()
 		return
 	}
 	e.armPumpTimer(nextDueAtMs, nowMs)
 }
 
 // performMessageLoopWork calls DoMessageLoopWork with reentrancy protection.
-func (e *Engine) performMessageLoopWork() {
+// It returns true when re-entrant work was detected and should be reposted.
+func (e *Engine) performMessageLoopWork() bool {
 	if e.pumpActive {
 		e.pumpReentry = true
-		return
+		return false
 	}
 
 	e.pumpActive = true
@@ -473,12 +536,5 @@ func (e *Engine) performMessageLoopWork() {
 	purecef.DoMessageLoopWork()
 	e.pumpActive = false
 
-	// If CEF re-entered during the call, run one more pass immediately. Any
-	// follow-up callback will have already published a fresh deadline.
-	if e.pumpReentry {
-		e.pumpActive = true
-		e.pumpReentry = false
-		purecef.DoMessageLoopWork()
-		e.pumpActive = false
-	}
+	return e.pumpReentry
 }
