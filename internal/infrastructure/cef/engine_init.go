@@ -148,7 +148,7 @@ func appendIfMissing(args []string, flag string) []string {
 // to connect to the dead process.
 func cleanStaleSingletonLocks(logger *zerolog.Logger) {
 	// CEF defaults to ~/.config/cef_user_data when no root_cache_path is set.
-	dir := filepath.Join(os.Getenv("HOME"), ".config", "cef_user_data")
+	dir := filepath.Clean(filepath.Join(os.Getenv("HOME"), ".config", "cef_user_data"))
 
 	lockPath := filepath.Join(dir, "SingletonLock")
 	target, err := os.Readlink(lockPath)
