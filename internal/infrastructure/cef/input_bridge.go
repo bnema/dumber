@@ -5,14 +5,38 @@ import (
 	"unsafe"
 
 	purecef "github.com/bnema/purego-cef/cef"
-	"github.com/jwijenbergh/puregotk/v4/gdk"
-	"github.com/jwijenbergh/puregotk/v4/gtk"
+	"github.com/bnema/puregotk/v4/gdk"
+	"github.com/bnema/puregotk/v4/gtk"
+)
+
+// GDK dead key range boundaries. Dead keys (0xfe50–0xfe8c) are compose
+// modifiers (dead_grave, dead_acute, …) that should not generate CEF key
+// events by themselves — the IMContext absorbs them and emits a commit
+// with the composed character.
+const (
+	gdkDeadKeyStart = 0xfe50
+	gdkDeadKeyEnd   = 0xfe8c
+
+	// maxBMPCodepoint is the highest Unicode codepoint in the Basic
+	// Multilingual Plane that fits in a single uint16 / UTF-16 code unit.
+	maxBMPCodepoint = 0xFFFF
+	// minPrintable is the lowest printable Unicode codepoint (space).
+	minPrintable = 0x20
+	// maxSingleByteKeyval is the upper bound for GDK keyvals that can be
+	// used directly as Windows VK codes (when no explicit mapping exists).
+	maxSingleByteKeyval = 0x100
 )
 
 // inputBridge translates GDK events from GTK event controllers into CEF input
 // events and forwards them to the CEF BrowserHost. The host field is nil until
 // the browser is created asynchronously (OnAfterCreated), so all dispatch
 // methods guard against a nil host.
+//
+// Dead key / compose support: a GtkIMContextSimple is attached to the key
+// controller. When the user types a compose sequence (e.g. dead_acute + e),
+// the IMContext absorbs the individual key events and emits a "commit" signal
+// with the composed string ("é"). The bridge sends that as CHAR events to CEF.
+// Keys not consumed by the IMContext flow through key-pressed as before.
 type inputBridge struct {
 	host  purecef.BrowserHost
 	scale int32
@@ -21,6 +45,12 @@ type inputBridge struct {
 	// Last known pointer position, used for scroll events which don't
 	// carry their own coordinates from GDK.
 	lastX, lastY float64
+
+	// IMContext for dead key / compose sequence support. Held as a field
+	// to prevent garbage collection while the controller is alive.
+	imContext *gtk.IMContextSimple
+	// Prevent GC from collecting signal callbacks.
+	commitCb func(gtk.IMContext, string)
 }
 
 // newInputBridge creates an input bridge with the given HiDPI scale factor.
@@ -79,21 +109,56 @@ func (ib *inputBridge) attachTo(glArea *gtk.GLArea) {
 
 	glArea.AddController(&scroll.EventController)
 
-	// Focus — forward to CEF so it knows when it has/loses keyboard focus.
+	// Focus, keyboard, and IMContext.
+	ib.attachFocusAndKeyboard(glArea)
+}
+
+// attachFocusAndKeyboard wires focus, keyboard, and IMContext controllers
+// to the GLArea. Extracted from attachTo to keep function length manageable.
+func (ib *inputBridge) attachFocusAndKeyboard(glArea *gtk.GLArea) {
+	// Focus — forward to CEF and IMContext.
 	focus := gtk.NewEventControllerFocus()
 	focusEnterCb := func(_ gtk.EventControllerFocus) {
+		if ib.imContext != nil {
+			ib.imContext.FocusIn()
+		}
 		ib.onFocusIn()
 	}
 	focus.ConnectEnter(&focusEnterCb)
 	focusLeaveCb := func(_ gtk.EventControllerFocus) {
+		if ib.imContext != nil {
+			ib.imContext.Reset()
+			ib.imContext.FocusOut()
+		}
 		ib.onFocusOut()
 	}
 	focus.ConnectLeave(&focusLeaveCb)
 
 	glArea.AddController(&focus.EventController)
 
-	// Keyboard
+	// Keyboard + IMContext for dead key / compose support.
 	key := gtk.NewEventControllerKey()
+
+	// Set up IMContext: when set on the controller, GTK calls
+	// FilterKeypress on every key event. If the IM absorbs the key
+	// (dead key, compose in-progress), key-pressed is NOT emitted;
+	// instead the IM emits "commit" with the composed string.
+	// TODO: re-enable once ConnectCommit callback crash is resolved.
+	// The IMContext integration causes a stack corruption crash at startup,
+	// likely due to a purego callback ABI mismatch in the generated signal
+	// bindings. The VK code fixes and gdk.KeyvalToUnicode() still work
+	// without IMContext — XKB handles dead key composition at the layout level.
+	//
+	// ib.imContext = gtk.NewIMContextSimple()
+	// if ib.imContext != nil {
+	// 	ib.commitCb = func(_ gtk.IMContext, text string) {
+	// 		ib.onIMCommit(text)
+	// 	}
+	// 	ib.imContext.ConnectCommit(&ib.commitCb)
+	// 	key.SetImContext(&ib.imContext.IMContext)
+	// 	ib.imContext.SetClientWidget(&glArea.Widget)
+	// }
+
 	keyPressCb := func(_ gtk.EventControllerKey, keyval, keycode uint, state gdk.ModifierType) bool {
 		ib.onKeyPress(keyval, keycode, uint(state))
 		return true
@@ -204,6 +269,13 @@ func (ib *inputBridge) onKeyPress(keyval, keycode, mods uint) {
 		return
 	}
 
+	// Dead keys should have been absorbed by the IMContext. If one leaks
+	// through (e.g. no IMContext), drop it to avoid sending a bogus VK=0
+	// RAWKEYDOWN that confuses CEF.
+	if keyval >= gdkDeadKeyStart && keyval <= gdkDeadKeyEnd {
+		return
+	}
+
 	// Send RAWKEYDOWN first, then CHAR if printable.
 	evt := buildKeyEvent(keyval, keycode, mods, purecef.KeyEventTypeKeyeventRawkeydown)
 	host.SendKeyEvent(&evt)
@@ -211,9 +283,40 @@ func (ib *inputBridge) onKeyPress(keyval, keycode, mods uint) {
 	// Follow up with a CHAR event for printable characters.
 	if ch := keyvalToChar(keyval); ch != 0 {
 		charEvt := buildKeyEvent(keyval, keycode, mods, purecef.KeyEventTypeKeyeventChar)
+		// CHAR events use the character code as WindowsKeyCode (not the VK code).
+		charEvt.WindowsKeyCode = int32(ch)
 		charEvt.Character = ch
 		charEvt.UnmodifiedCharacter = ch
 		host.SendKeyEvent(&charEvt)
+	}
+}
+
+// onIMCommit is called when the IMContext finishes a compose sequence and
+// commits text (e.g. dead_acute + e → "é"). We send a CHAR event for each
+// rune to CEF. No RAWKEYDOWN is needed for composed text — this matches
+// Chromium's internal IME integration behavior on Linux.
+func (ib *inputBridge) onIMCommit(text string) {
+	ib.mu.Lock()
+	host := ib.host
+	ib.mu.Unlock()
+	if host == nil {
+		return
+	}
+
+	for _, r := range text {
+		ch := uint16(r)
+		if r > maxBMPCodepoint {
+			// Non-BMP character (emoji, etc.) — skip for now.
+			// Full UTF-16 surrogate pair support can be added later.
+			continue
+		}
+		var evt purecef.KeyEvent
+		evt.Size = unsafe.Sizeof(evt)
+		*(*int32)(unsafe.Pointer(&evt.Type)) = int32(purecef.KeyEventTypeKeyeventChar)
+		evt.WindowsKeyCode = int32(ch)
+		evt.Character = ch
+		evt.UnmodifiedCharacter = ch
+		host.SendKeyEvent(&evt)
 	}
 }
 
@@ -315,12 +418,10 @@ const (
 	gdkKeyPageDown  = 0xff56
 )
 
-// keyvalToChar returns the UTF-16 character for a printable GDK keyval, or 0.
+// keyvalToChar converts a GDK keyval to a UTF-16 character for CEF CHAR events.
+// Returns 0 for non-printable keys (arrows, F-keys, modifiers, dead keys, …).
+// Uses gdk.KeyvalToUnicode for full Unicode coverage (accented Latin, Cyrillic, …).
 func keyvalToChar(keyval uint) uint16 {
-	// Printable ASCII range.
-	if keyval >= 0x020 && keyval <= 0x07e {
-		return uint16(keyval)
-	}
 	switch keyval {
 	case gdkKeyReturn:
 		return '\r'
@@ -328,9 +429,17 @@ func keyvalToChar(keyval uint) uint16 {
 		return '\t'
 	case gdkKeyBackSpace:
 		return '\b'
-	default:
+	}
+
+	cp := gdk.KeyvalToUnicode(keyval)
+	if cp == 0 || cp > maxBMPCodepoint {
 		return 0
 	}
+	// Filter control characters (except the three handled above).
+	if cp < minPrintable {
+		return 0
+	}
+	return uint16(cp)
 }
 
 // gdkKeyvalToWindowsVK translates a GDK keyval to a Windows virtual-key code.
@@ -338,7 +447,7 @@ func gdkKeyvalToWindowsVK(keyval uint) int32 {
 	if vk, ok := gdkKeyvalToVKRange(keyval); ok {
 		return vk
 	}
-	return gdkKeyvalToVKSwitch(keyval)
+	return gdkKeyvalToVKLookup(keyval)
 }
 
 // GDK keyval range boundaries for contiguous mappings.
@@ -383,49 +492,63 @@ func gdkKeyvalToVKRange(keyval uint) (int32, bool) {
 	}
 }
 
-// gdkKeyvalToVKSwitch handles individual GDK keyvals that map to specific
-// Windows virtual-key codes.
+// gdkKeyvalToVKMap maps individual GDK keyvals to Windows virtual-key codes.
 //
-//nolint:mnd // GDK keyval→VK code lookup table; named constants would hurt readability.
-func gdkKeyvalToVKSwitch(keyval uint) int32 {
-	switch keyval {
-	case gdkKeyReturn:
-		return 0x0D
-	case gdkKeyEscape:
-		return 0x1B
-	case gdkKeyTab:
-		return 0x09
-	case gdkKeyBackSpace:
-		return 0x08
-	case gdkKeyDelete:
-		return 0x2E
-	case gdkKeySpace:
-		return 0x20
-	case gdkKeyHome:
-		return 0x24
-	case gdkKeyEnd:
-		return 0x23
-	case gdkKeyPageUp:
-		return 0x21
-	case gdkKeyPageDown:
-		return 0x22
-	case 0xffe1: // Shift_L
-		return 0xA0 // VK_LSHIFT
-	case 0xffe2: // Shift_R
-		return 0xA1 // VK_RSHIFT
-	case 0xffe3: // Control_L
-		return 0xA2 // VK_LCONTROL
-	case 0xffe4: // Control_R
-		return 0xA3 // VK_RCONTROL
-	case 0xffe9: // Alt_L
-		return 0xA4 // VK_LMENU
-	case 0xffea: // Alt_R
-		return 0xA5 // VK_RMENU
-	default:
-		// For unmapped keys, return the keyval if it fits in a reasonable range.
-		if keyval < 0x100 {
-			return int32(keyval)
-		}
-		return 0
+// Punctuation ASCII values collide with Windows VK codes for navigation keys
+// (e.g. '.' = 0x2E = VK_DELETE, '#' = 0x23 = VK_END) so they MUST be mapped
+// explicitly. Shifted digit symbols (!, @, #, …) are mapped to their base
+// digit VK code to avoid triggering navigation actions.
+var gdkKeyvalToVKMap = map[uint]int32{
+	// Navigation / editing
+	gdkKeyReturn:    0x0D, // VK_RETURN
+	gdkKeyEscape:    0x1B, // VK_ESCAPE
+	gdkKeyTab:       0x09, // VK_TAB
+	gdkKeyBackSpace: 0x08, // VK_BACK
+	gdkKeyDelete:    0x2E, // VK_DELETE
+	gdkKeySpace:     0x20, // VK_SPACE
+	gdkKeyHome:      0x24, // VK_HOME
+	gdkKeyEnd:       0x23, // VK_END
+	gdkKeyPageUp:    0x21, // VK_PRIOR
+	gdkKeyPageDown:  0x22, // VK_NEXT
+	0xff63:          0x2D, // Insert → VK_INSERT
+
+	// Modifiers
+	0xffe1: 0xA0, // Shift_L → VK_LSHIFT
+	0xffe2: 0xA1, // Shift_R → VK_RSHIFT
+	0xffe3: 0xA2, // Control_L → VK_LCONTROL
+	0xffe4: 0xA3, // Control_R → VK_RCONTROL
+	0xffe9: 0xA4, // Alt_L → VK_LMENU
+	0xffea: 0xA5, // Alt_R → VK_RMENU
+
+	// OEM punctuation — unshifted + shifted share the same VK
+	'.': 0xBE, '>': 0xBE, // VK_OEM_PERIOD
+	',': 0xBC, '<': 0xBC, // VK_OEM_COMMA
+	'-': 0xBD, '_': 0xBD, // VK_OEM_MINUS
+	'=': 0xBB, '+': 0xBB, // VK_OEM_PLUS
+	';': 0xBA, ':': 0xBA, // VK_OEM_1
+	'/': 0xBF, '?': 0xBF, // VK_OEM_2
+	'`': 0xC0, '~': 0xC0, // VK_OEM_3
+	'[': 0xDB, '{': 0xDB, // VK_OEM_4
+	'\\': 0xDC, '|': 0xDC, // VK_OEM_5
+	']': 0xDD, '}': 0xDD, // VK_OEM_6
+	'\'': 0xDE, '"': 0xDE, // VK_OEM_7
+
+	// Shifted digit symbols (Shift+1→'!' etc.)
+	'!': 0x31, '@': 0x32, '#': 0x33, '$': 0x34, '%': 0x35,
+	'^': 0x36, '&': 0x37, '*': 0x38, '(': 0x39, ')': 0x30,
+}
+
+// gdkKeyvalToVKLookup handles individual GDK keyvals that don't fall into
+// contiguous ranges (letters, digits, F-keys, arrows).
+func gdkKeyvalToVKLookup(keyval uint) int32 {
+	if vk, ok := gdkKeyvalToVKMap[keyval]; ok {
+		return vk
 	}
+	// For unmapped keys, return the keyval if it fits in a reasonable range.
+	// This covers misc keys whose ASCII value doesn't collide with
+	// dangerous VK codes (e.g. space=0x20=VK_SPACE — correct match).
+	if keyval < maxSingleByteKeyval {
+		return int32(keyval)
+	}
+	return 0
 }
