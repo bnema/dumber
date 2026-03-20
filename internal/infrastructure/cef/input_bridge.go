@@ -91,13 +91,15 @@ func (ib *inputBridge) attachTo(glArea *gtk.GLArea) {
 
 	pressedCb := func(g gtk.GestureClick, nPress int, x, y float64) {
 		btn := g.GetCurrentButton()
-		ib.onMousePress(x, y, btn, uint(0), nPress)
+		mods := uint(g.GetCurrentEventState())
+		ib.onMousePress(x, y, btn, mods, nPress)
 	}
 	click.ConnectPressed(&pressedCb)
 
 	releasedCb := func(g gtk.GestureClick, nPress int, x, y float64) {
 		btn := g.GetCurrentButton()
-		ib.onMouseRelease(x, y, btn, uint(0), nPress)
+		mods := uint(g.GetCurrentEventState())
+		ib.onMouseRelease(x, y, btn, mods, nPress)
 	}
 	click.ConnectReleased(&releasedCb)
 
@@ -318,12 +320,12 @@ func (ib *inputBridge) onIMCommit(text string) {
 	}
 
 	for _, r := range text {
-		ch := uint16(r)
 		if r > maxBMPCodepoint {
 			// Non-BMP character (emoji, etc.) — skip for now.
 			// Full UTF-16 surrogate pair support can be added later.
 			continue
 		}
+		ch := uint16(r)
 		var evt purecef.KeyEvent
 		evt.Size = unsafe.Sizeof(evt)
 		*(*int32)(unsafe.Pointer(&evt.Type)) = int32(purecef.KeyEventTypeKeyeventChar)
