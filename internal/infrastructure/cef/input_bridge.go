@@ -17,6 +17,10 @@ type inputBridge struct {
 	host  purecef.BrowserHost
 	scale int32
 	mu    sync.Mutex
+
+	// Last known pointer position, used for scroll events which don't
+	// carry their own coordinates from GDK.
+	lastX, lastY float64
 }
 
 // newInputBridge creates an input bridge with the given HiDPI scale factor.
@@ -75,6 +79,19 @@ func (ib *inputBridge) attachTo(glArea *gtk.GLArea) {
 
 	glArea.AddController(&scroll.EventController)
 
+	// Focus — forward to CEF so it knows when it has/loses keyboard focus.
+	focus := gtk.NewEventControllerFocus()
+	focusEnterCb := func(_ gtk.EventControllerFocus) {
+		ib.onFocusIn()
+	}
+	focus.ConnectEnter(&focusEnterCb)
+	focusLeaveCb := func(_ gtk.EventControllerFocus) {
+		ib.onFocusOut()
+	}
+	focus.ConnectLeave(&focusLeaveCb)
+
+	glArea.AddController(&focus.EventController)
+
 	// Keyboard
 	key := gtk.NewEventControllerKey()
 	keyPressCb := func(_ gtk.EventControllerKey, keyval, keycode uint, state gdk.ModifierType) bool {
@@ -102,6 +119,10 @@ func (ib *inputBridge) attachTo(glArea *gtk.GLArea) {
 func (ib *inputBridge) onMouseMove(x, y float64, mods uint, leave bool) {
 	ib.mu.Lock()
 	host := ib.host
+	if !leave {
+		ib.lastX = x
+		ib.lastY = y
+	}
 	ib.mu.Unlock()
 	if host == nil {
 		return
@@ -144,14 +165,35 @@ func (ib *inputBridge) onMouseRelease(x, y float64, button, mods uint, clickCoun
 func (ib *inputBridge) onScroll(dx, dy float64) {
 	ib.mu.Lock()
 	host := ib.host
+	x, y := ib.lastX, ib.lastY
 	ib.mu.Unlock()
 	if host == nil {
 		return
 	}
 
-	evt := buildMouseEvent(0, 0, 0, ib.scale)
+	evt := buildMouseEvent(x, y, 0, ib.scale)
 	deltaX, deltaY := translateScrollDeltas(dx, dy)
 	host.SendMouseWheelEvent(&evt, deltaX, deltaY)
+}
+
+func (ib *inputBridge) onFocusIn() {
+	ib.mu.Lock()
+	host := ib.host
+	ib.mu.Unlock()
+	if host == nil {
+		return
+	}
+	host.SetFocus(1)
+}
+
+func (ib *inputBridge) onFocusOut() {
+	ib.mu.Lock()
+	host := ib.host
+	ib.mu.Unlock()
+	if host == nil {
+		return
+	}
+	host.SetFocus(0)
 }
 
 func (ib *inputBridge) onKeyPress(keyval, keycode, mods uint) {

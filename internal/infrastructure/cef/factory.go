@@ -36,13 +36,14 @@ func newWebViewFactory(gl *glLoader, scale int32) *WebViewFactory {
 // Create builds a new CEF off-screen browser WebView. The browser is created
 // asynchronously; the returned WebView is usable immediately but navigation
 // will fail with errNoBrowser until OnAfterCreated fires.
-func (f *WebViewFactory) Create(_ context.Context) (port.WebView, error) {
+func (f *WebViewFactory) Create(ctx context.Context) (port.WebView, error) {
 	id := port.WebViewID(f.nextID.Add(1))
 
 	pipeline := newRenderPipeline(f.gl, f.scale)
 
 	wv := &WebView{
 		id:       id,
+		ctx:      ctx,
 		pipeline: pipeline,
 	}
 

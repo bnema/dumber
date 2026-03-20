@@ -29,6 +29,7 @@ var errNoBrowser = errors.New("cef: browser not yet created")
 // through a renderPipeline and driven by an inputBridge.
 type WebView struct {
 	id       port.WebViewID
+	ctx      context.Context
 	browser  purecef.Browser
 	host     purecef.BrowserHost
 	client   purecef.Client // prevent GC from collecting the client before CEF AddRef's it

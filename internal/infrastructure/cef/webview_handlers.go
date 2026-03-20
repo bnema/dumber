@@ -1,13 +1,12 @@
 package cef
 
 import (
-	"fmt"
-	"os"
 	"unsafe"
 
 	purecef "github.com/bnema/purego-cef/cef"
 
 	"github.com/bnema/dumber/internal/application/port"
+	"github.com/bnema/dumber/internal/logging"
 )
 
 // handlerSet implements all CEF handler interfaces and dispatches events to the
@@ -65,8 +64,6 @@ func (h *handlerSet) GetRootScreenRect(_ purecef.Browser, _ *purecef.Rect) int32
 // GetViewRect fills the rect struct with the pipeline dimensions.
 // The rect pointer points to a cef_rect_t: {HostLayout padding, X, Y, Width, Height} all int32.
 // The HostLayout field occupies 0 bytes on most platforms but we use the Rect type alias to be safe.
-var getViewRectCount uint64
-
 func (h *handlerSet) GetViewRect(_ purecef.Browser, rect *purecef.Rect) {
 	if rect == nil {
 		return
@@ -83,11 +80,6 @@ func (h *handlerSet) GetViewRect(_ purecef.Browser, rect *purecef.Rect) {
 	}
 	if ht <= 0 {
 		ht = 1
-	}
-
-	getViewRectCount++
-	if getViewRectCount <= 5 {
-		fmt.Fprintf(os.Stderr, "cef-debug: GetViewRect call=%d w=%d h=%d\n", getViewRectCount, w, ht)
 	}
 
 	rect.X = 0
@@ -108,17 +100,10 @@ func (h *handlerSet) OnPopupSize(_ purecef.Browser, _ *purecef.Rect) {}
 
 // OnPaint receives the BGRA pixel buffer from CEF and forwards dirty rects
 // to the render pipeline for GPU upload.
-var onPaintCount uint64
-
 func (h *handlerSet) OnPaint(
 	_ purecef.Browser, _ purecef.PaintElementType,
 	dirtyRects []purecef.Rect, buffer unsafe.Pointer, width, height int32,
 ) {
-	onPaintCount++
-	if onPaintCount <= 3 {
-		fmt.Fprintf(os.Stderr, "cef-debug: OnPaint call=%d w=%d h=%d dirtyRects=%d buffer_nil=%v\n",
-			onPaintCount, width, height, len(dirtyRects), buffer == nil)
-	}
 	rects := make([]rect, len(dirtyRects))
 	for i, dr := range dirtyRects {
 		rects[i] = rect{X: dr.X, Y: dr.Y, Width: dr.Width, Height: dr.Height}
@@ -209,8 +194,10 @@ func (h *handlerSet) OnLoadingProgressChange(_ purecef.Browser, progress float64
 	h.wv.updateProgress(progress)
 }
 
-func (h *handlerSet) OnCursorChange(_ purecef.Browser, _ uintptr, _ purecef.CursorType, _ *purecef.CursorInfo) int32 {
-	return 0
+func (h *handlerSet) OnCursorChange(_ purecef.Browser, _ uintptr, cursorType purecef.CursorType, _ *purecef.CursorInfo) int32 {
+	name := cefCursorToGDKName(cursorType)
+	h.wv.pipeline.glArea.SetCursorFromName(&name)
+	return 1 // handled
 }
 
 func (h *handlerSet) OnMediaAccessChange(_ purecef.Browser, _, _ int32) {}
@@ -258,8 +245,12 @@ func (h *handlerSet) OnLoadStart(_ purecef.Browser, frame purecef.Frame, _ purec
 
 // OnLoadEnd fires LoadFinished and sets progress to 1.0 for the main frame.
 func (h *handlerSet) OnLoadEnd(_ purecef.Browser, frame purecef.Frame, httpStatusCode int32) {
-	fmt.Fprintf(os.Stderr, "cef-debug: OnLoadEnd frame_nil=%v is_main=%v http_status=%d\n",
-		frame == nil, frame != nil && frame.IsMain(), httpStatusCode)
+	log := logging.FromContext(h.wv.ctx)
+	log.Debug().
+		Bool("frame_nil", frame == nil).
+		Bool("is_main", frame != nil && frame.IsMain()).
+		Int32("http_status", httpStatusCode).
+		Msg("cef: OnLoadEnd")
 	if frame == nil || !frame.IsMain() {
 		return
 	}
@@ -306,7 +297,10 @@ func (h *handlerSet) OnBeforeDevToolsPopup(
 
 // OnAfterCreated stores the browser and host references and enables input.
 func (h *handlerSet) OnAfterCreated(browser purecef.Browser) {
-	fmt.Fprintf(os.Stderr, "cef-debug: OnAfterCreated browser_nil=%v\n", browser == nil)
+	log := logging.FromContext(h.wv.ctx)
+	log.Debug().
+		Bool("browser_nil", browser == nil).
+		Msg("cef: OnAfterCreated")
 	h.wv.browser = browser
 	h.wv.host = browser.GetHost()
 	h.wv.input.setHost(h.wv.host)
@@ -420,3 +414,69 @@ func (h *handlerSet) OnRenderProcessTerminated(_ purecef.Browser, status purecef
 }
 
 func (h *handlerSet) OnDocumentAvailableInMainFrame(_ purecef.Browser) {}
+
+// cefCursorToGDKName maps CEF cursor types to GDK/CSS cursor names.
+//
+//nolint:mnd,cyclop // cursor type lookup table
+func cefCursorToGDKName(ct purecef.CursorType) string {
+	switch ct {
+	case purecef.CursorTypeCtPointer:
+		return "default"
+	case purecef.CursorTypeCtCross:
+		return "crosshair"
+	case purecef.CursorTypeCtHand:
+		return "pointer"
+	case purecef.CursorTypeCtIbeam:
+		return "text"
+	case purecef.CursorTypeCtWait:
+		return "wait"
+	case purecef.CursorTypeCtHelp:
+		return "help"
+	case purecef.CursorTypeCtEastresize:
+		return "e-resize"
+	case purecef.CursorTypeCtNorthresize:
+		return "n-resize"
+	case purecef.CursorTypeCtNortheastresize:
+		return "ne-resize"
+	case purecef.CursorTypeCtNorthwestresize:
+		return "nw-resize"
+	case purecef.CursorTypeCtSouthresize:
+		return "s-resize"
+	case purecef.CursorTypeCtSoutheastresize:
+		return "se-resize"
+	case purecef.CursorTypeCtSouthwestresize:
+		return "sw-resize"
+	case purecef.CursorTypeCtWestresize:
+		return "w-resize"
+	case purecef.CursorTypeCtNorthsouthresize:
+		return "ns-resize"
+	case purecef.CursorTypeCtEastwestresize:
+		return "ew-resize"
+	case purecef.CursorTypeCtNortheastsouthwestresize:
+		return "nesw-resize"
+	case purecef.CursorTypeCtNorthwestsoutheastresize:
+		return "nwse-resize"
+	case purecef.CursorTypeCtColumnresize:
+		return "col-resize"
+	case purecef.CursorTypeCtRowresize:
+		return "row-resize"
+	case purecef.CursorTypeCtMove:
+		return "move"
+	case purecef.CursorTypeCtProgress:
+		return "progress"
+	case purecef.CursorTypeCtNodrop:
+		return "no-drop"
+	case purecef.CursorTypeCtNotallowed:
+		return "not-allowed"
+	case purecef.CursorTypeCtGrab:
+		return "grab"
+	case purecef.CursorTypeCtGrabbing:
+		return "grabbing"
+	case purecef.CursorTypeCtZoomin:
+		return "zoom-in"
+	case purecef.CursorTypeCtZoomout:
+		return "zoom-out"
+	default:
+		return "default"
+	}
+}

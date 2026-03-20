@@ -34,6 +34,8 @@ const (
 	glClampToEdge      = 0x812F
 	glTextureWrapS     = 0x2802
 	glTextureWrapT     = 0x2803
+
+	glUnpackRowLength = 0x0CF2
 )
 
 // glLoader holds dynamically loaded OpenGL function pointers.
@@ -81,6 +83,9 @@ type glLoader struct {
 	deleteVertexArrays      func(n int32, arrays *uint32)
 	vertexAttribPointer     func(index uint32, size int32, xtype uint32, normalized bool, stride int32, pointer uintptr)
 	enableVertexAttribArray func(index uint32)
+
+	// Pixel store
+	pixelStorei func(pname uint32, param int32)
 
 	// Draw / state functions
 	clear      func(mask uint32)
@@ -150,6 +155,9 @@ func (gl *glLoader) registerAll() (retErr error) {
 	purego.RegisterLibFunc(&gl.deleteVertexArrays, gl.handle, "glDeleteVertexArrays")
 	purego.RegisterLibFunc(&gl.vertexAttribPointer, gl.handle, "glVertexAttribPointer")
 	purego.RegisterLibFunc(&gl.enableVertexAttribArray, gl.handle, "glEnableVertexAttribArray")
+
+	// Pixel store
+	purego.RegisterLibFunc(&gl.pixelStorei, gl.handle, "glPixelStorei")
 
 	// Draw / state
 	purego.RegisterLibFunc(&gl.clear, gl.handle, "glClear")

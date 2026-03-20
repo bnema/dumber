@@ -2,21 +2,23 @@ package cef
 
 import (
 	"context"
+	"sync"
 
 	purecef "github.com/bnema/purego-cef/cef"
 	"github.com/jwijenbergh/puregotk/v4/glib"
-	"github.com/rs/zerolog"
 
 	"github.com/bnema/dumber/internal/application/port"
+	"github.com/bnema/dumber/internal/logging"
 )
 
 // Compile-time interface check.
 var _ port.Engine = (*Engine)(nil)
 
-// cefPumpIntervalMS matches CEF's own kMaxTimerDelay (1000/30 ≈ 33ms) used in
-// the reference external message pump implementation. This is a conservative
-// fallback; Phase 2 will use OnScheduleMessagePumpWork for precise scheduling.
-const cefPumpIntervalMS uint = 33
+// cefMaxTimerDelayMS is the maximum delay between pump ticks.
+// Set to 33ms (30fps) as a balance between responsiveness and CPU cost.
+// With --disable-gpu-compositing, Chromium rasterizes in software so
+// every pump tick has significant CPU cost.
+const cefMaxTimerDelayMS int64 = 33
 
 // Engine implements port.Engine for the CEF browser backend.
 // It manages the CEF lifecycle and provides access to all engine subsystems.
@@ -25,14 +27,17 @@ type Engine struct {
 	gl      *glLoader
 	factory *WebViewFactory
 	pool    *WebViewPool
-	logger  zerolog.Logger
 
-	// Message pump state. The pump is a repeating glib.TimeoutAdd source
-	// started from OnToolkitReady (not before GTK init).
-	pumpCB       glib.SourceFunc
-	pumpSourceID uint
-	pumpStarted  bool
-	pumpClosing  bool
+	// Adaptive message pump state. OnScheduleMessagePumpWork schedules
+	// one-shot glib sources; pumpSourceID tracks the pending source so it
+	// can be cancelled when CEF requests a different delay.
+	pumpMu         sync.Mutex
+	pumpCB         glib.SourceFunc // kept alive for GC
+	pumpSourceID   uint
+	pumpReady      bool // set true once GTK main loop is running
+	pumpClosing    bool
+	pumpHasPending bool  // an OnScheduleMessagePumpWork arrived before pumpReady
+	pumpPendingMs  int64 // delay from the last pre-ready request
 
 	// Reentrancy guard: DoMessageLoopWork can trigger callbacks that
 	// re-enter the pump. The reference implementation detects this and
@@ -100,11 +105,26 @@ func (e *Engine) ConfigureDownloads(_ context.Context, _ string, _ port.Download
 }
 
 // OnToolkitReady is called after the UI toolkit has initialized.
-// This is the earliest safe point to start the CEF message pump — GTK and
-// libadwaita are fully initialized, and the GLib main context is running.
+// Marks the pump as ready so that OnScheduleMessagePumpWork callbacks
+// (which may have arrived during cef_initialize) start scheduling work.
 func (e *Engine) OnToolkitReady(_ context.Context) error {
-	e.logger.Debug().Msg("cef: OnToolkitReady called, starting message pump")
-	e.startMessagePump()
+	log := logging.FromContext(e.ctx)
+	log.Debug().Msg("cef: OnToolkitReady called, pump is now ready")
+
+	e.pumpMu.Lock()
+	e.pumpReady = true
+	hasPending := e.pumpHasPending
+	pendingMs := e.pumpPendingMs
+	e.pumpHasPending = false
+	e.pumpMu.Unlock()
+
+	// Replay any buffered OnScheduleMessagePumpWork that arrived before GTK
+	// was ready, or kick an immediate pump if none was buffered.
+	if hasPending {
+		e.scheduleMessagePumpWork(pendingMs)
+	} else {
+		e.scheduleMessagePumpWork(0)
+	}
 	return nil
 }
 
@@ -124,36 +144,60 @@ func (e *Engine) SetHandlerContext(ctx context.Context) {
 }
 
 // ---------------------------------------------------------------------------
-// CEF message pump (fixed-interval fallback, Phase 1)
+// Adaptive CEF message pump (demand-driven via OnScheduleMessagePumpWork)
 // ---------------------------------------------------------------------------
 
-func (e *Engine) startMessagePump() {
-	if e.pumpStarted || e.pumpClosing {
+// scheduleMessagePumpWork is called by the BrowserProcessHandler when CEF
+// has work to process, and by performMessageLoopWork to re-schedule after
+// each pump tick. It replaces any pending one-shot timer with a new one
+// matching the requested delay.
+func (e *Engine) scheduleMessagePumpWork(delayMs int64) {
+	e.pumpMu.Lock()
+	defer e.pumpMu.Unlock()
+
+	if e.pumpClosing {
 		return
 	}
 
+	// Buffer requests that arrive before the GTK main loop is running.
+	if !e.pumpReady {
+		e.pumpHasPending = true
+		e.pumpPendingMs = delayMs
+		return
+	}
+
+	// Cancel any pending scheduled work.
+	if e.pumpSourceID != 0 {
+		glib.SourceRemove(e.pumpSourceID)
+		e.pumpSourceID = 0
+	}
+
+	// Cap the delay at the maximum tick interval.
+	if delayMs > cefMaxTimerDelayMS {
+		delayMs = cefMaxTimerDelayMS
+	}
+
+	// The callback is one-shot (returns false).
 	e.pumpCB = glib.SourceFunc(func(_ uintptr) bool {
-		if e.pumpClosing {
-			e.pumpSourceID = 0
-			return false // remove the source
-		}
+		e.pumpMu.Lock()
+		e.pumpSourceID = 0
+		e.pumpMu.Unlock()
+
 		e.performMessageLoopWork()
-		return !e.pumpClosing
+		return false
 	})
 
-	e.pumpSourceID = glib.TimeoutAdd(cefPumpIntervalMS, &e.pumpCB, 0)
-	if e.pumpSourceID == 0 {
-		e.logger.Error().Msg("cef: failed to install message pump timer")
-		return
+	if delayMs <= 0 {
+		e.pumpSourceID = glib.IdleAdd(&e.pumpCB, 0)
+	} else {
+		e.pumpSourceID = glib.TimeoutAdd(uint(delayMs), &e.pumpCB, 0)
 	}
-
-	e.pumpStarted = true
-	e.logger.Debug().
-		Uint("interval_ms", cefPumpIntervalMS).
-		Msg("cef: started message pump")
 }
 
 func (e *Engine) stopMessagePump() {
+	e.pumpMu.Lock()
+	defer e.pumpMu.Unlock()
+
 	e.pumpClosing = true
 	if e.pumpSourceID != 0 {
 		glib.SourceRemove(e.pumpSourceID)
@@ -161,21 +205,15 @@ func (e *Engine) stopMessagePump() {
 	}
 }
 
-// performMessageLoopWork calls DoMessageLoopWork with reentrancy protection.
-// Matches the pattern from CEF's main_message_loop_external_pump.cc:
-// if we're already inside DoMessageLoopWork, just flag reentrancy and return.
-var pumpCallCount uint64
-
+// performMessageLoopWork calls DoMessageLoopWork with reentrancy protection
+// and re-schedules follow-up work. Matches the pattern from CEF's
+// main_message_loop_external_pump.cc: the host must always re-schedule
+// after each DoMessageLoopWork call because CEF does not call
+// OnScheduleMessagePumpWork after returning from DoMessageLoopWork.
 func (e *Engine) performMessageLoopWork() {
 	if e.pumpActive {
-		e.logger.Warn().Msg("cef: pump reentrancy detected, deferring")
 		e.pumpReentry = true
 		return
-	}
-
-	pumpCallCount++
-	if pumpCallCount <= 5 {
-		e.logger.Debug().Uint64("call", pumpCallCount).Msg("cef: DoMessageLoopWork enter")
 	}
 
 	e.pumpActive = true
@@ -183,17 +221,13 @@ func (e *Engine) performMessageLoopWork() {
 	purecef.DoMessageLoopWork()
 	e.pumpActive = false
 
-	if pumpCallCount <= 5 {
-		e.logger.Debug().Uint64("call", pumpCallCount).Bool("reentry", e.pumpReentry).Msg("cef: DoMessageLoopWork exit")
-	}
-
-	// If CEF re-entered during the call, do one more pass immediately.
-	// Cap at one extra pass to avoid unbounded recursion.
 	if e.pumpReentry {
-		e.logger.Debug().Msg("cef: pump reentry follow-up pass")
-		e.pumpReentry = false
-		e.pumpActive = true
-		purecef.DoMessageLoopWork()
-		e.pumpActive = false
+		// CEF called OnScheduleMessagePumpWork re-entrantly during
+		// DoMessageLoopWork — schedule immediate follow-up.
+		e.scheduleMessagePumpWork(0)
+	} else {
+		// No re-entrant request — schedule at the max timer delay
+		// to keep the pump alive for pending work.
+		e.scheduleMessagePumpWork(cefMaxTimerDelayMS)
 	}
 }

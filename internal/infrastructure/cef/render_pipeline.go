@@ -1,8 +1,6 @@
 package cef
 
 import (
-	"fmt"
-	"os"
 	"sync"
 	"unsafe"
 
@@ -150,7 +148,11 @@ func (rp *renderPipeline) handlePaint(buffer unsafe.Pointer, width, height int32
 		}
 	}
 
-	rp.dirtyRects = append(rp.dirtyRects[:0], rects...)
+	// Accumulate dirty rects across multiple OnPaint calls between renders.
+	// If we replaced instead of appending, paints that arrive before the
+	// next GL render would lose their dirty rect metadata — the pixels are
+	// in staging but never uploaded to the texture, causing trails/ghosts.
+	rp.dirtyRects = append(rp.dirtyRects, rects...)
 	rp.needsUpload = true
 
 	rp.mu.Unlock()
@@ -159,8 +161,6 @@ func (rp *renderPipeline) handlePaint(buffer unsafe.Pointer, width, height int32
 }
 
 // onGLRender is the GTK "render" signal handler. GL context is current.
-var glRenderCount uint64
-
 func (rp *renderPipeline) onGLRender() bool {
 	rp.mu.Lock()
 
@@ -168,17 +168,12 @@ func (rp *renderPipeline) onGLRender() bool {
 	sizeChanged := rp.sizeChanged
 	rp.needsUpload = false
 
-	glRenderCount++
-	if glRenderCount <= 5 {
-		fmt.Fprintf(os.Stderr, "cef-debug: onGLRender call=%d needsUpload=%v sizeChanged=%v glReady=%v\n",
-			glRenderCount, needsUpload, sizeChanged, rp.glReady)
-	}
-
-	// Snapshot dirty rects for upload.
+	// Snapshot dirty rects for upload and clear the accumulator.
 	var dirtyRects []rect
 	if needsUpload {
 		dirtyRects = make([]rect, len(rp.dirtyRects))
 		copy(dirtyRects, rp.dirtyRects)
+		rp.dirtyRects = rp.dirtyRects[:0]
 	}
 
 	rp.mu.Unlock()
@@ -258,16 +253,16 @@ func (rp *renderPipeline) uploadToPBO(dirtyRects []rect, fullUpload bool) {
 	if fullUpload {
 		gl.texSubImage2D(glTexture2D, 0, 0, 0, w, h, glBGRA, glUnsignedByte, nil)
 	} else {
+		// Use GL_UNPACK_ROW_LENGTH so GL understands the PBO's full-width
+		// stride, allowing one glTexSubImage2D per dirty rect instead of
+		// one per row.
+		gl.pixelStorei(glUnpackRowLength, w)
 		for _, r := range dirtyRects {
-			// For sub-rect uploads with stride mismatches we must upload row by row
-			// because glTexSubImage2D with a PBO reads contiguous memory from the
-			// offset, but our rows in the PBO follow the full-width stride.
-			for row := r.Y; row < r.Y+r.Height; row++ {
-				rowOffset := uintptr(int(row)*stride + int(r.X)*4)
-				gl.texSubImage2D(glTexture2D, 0, r.X, row, r.Width, 1, glBGRA, glUnsignedByte,
-					pboOffset(rowOffset))
-			}
+			offset := uintptr(int(r.Y)*stride + int(r.X)*4)
+			gl.texSubImage2D(glTexture2D, 0, r.X, r.Y, r.Width, r.Height,
+				glBGRA, glUnsignedByte, pboOffset(offset))
 		}
+		gl.pixelStorei(glUnpackRowLength, 0)
 	}
 	gl.bindTexture(glTexture2D, 0)
 

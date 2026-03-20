@@ -7,13 +7,14 @@ import (
 	"path/filepath"
 
 	purecef "github.com/bnema/purego-cef/cef"
-	"github.com/rs/zerolog"
 
 	"github.com/bnema/dumber/internal/infrastructure/config"
+	"github.com/bnema/dumber/internal/logging"
 )
 
 // NewEngine initializes the CEF runtime and returns a ready-to-use Engine.
-func NewEngine(ctx context.Context, cfg config.CEFEngineConfig, logger zerolog.Logger) (*Engine, error) {
+func NewEngine(ctx context.Context, cfg config.CEFEngineConfig) (*Engine, error) {
+	logger := logging.FromContext(ctx)
 	// 1. Initialize CEF.
 	settings := purecef.DefaultSettings()
 	if cfg.CEFDir != "" {
@@ -46,41 +47,44 @@ func NewEngine(ctx context.Context, cfg config.CEFEngineConfig, logger zerolog.L
 	// --no-zygote: Disable the zygote process which uses fork(). Go's runtime
 	//   does not survive fork cleanly, causing renderer crashes. Without zygote,
 	//   CEF launches each subprocess as a fresh exec of the helper binary.
+	// --no-zygote: Disable the zygote process which uses fork(). Go's runtime
+	//   does not survive fork cleanly, causing renderer crashes. Without zygote,
+	//   CEF launches each subprocess as a fresh exec of the helper binary.
 	savedArgs := os.Args
-	os.Args = appendIfMissing(os.Args, "--in-process-gpu")
 	os.Args = appendIfMissing(os.Args, "--no-zygote")
 
-	logger.Debug().Msg("cef: calling Init")
-	if err := purecef.Init(settings); err != nil {
+	// 2. Build the engine early so the App can reference it for the pump callback.
+	eng := &Engine{
+		ctx: ctx,
+	}
+
+	// Create the CEF App with a BrowserProcessHandler that drives the
+	// adaptive message pump via OnScheduleMessagePumpWork.
+	app := newDumberApp(eng)
+
+	logger.Debug().Msg("cef: calling InitWithApp")
+	if err := purecef.InitWithApp(settings, app); err != nil {
 		os.Args = savedArgs
-		return nil, fmt.Errorf("cef.Init: %w", err)
+		return nil, fmt.Errorf("cef.InitWithApp: %w", err)
 	}
 	os.Args = savedArgs
-	logger.Debug().Msg("cef: Init returned OK")
+	logger.Debug().Msg("cef: InitWithApp returned OK")
 
-	// 2. Load GL.
+	// 3. Load GL.
 	gl, err := newGLLoader()
 	if err != nil {
 		purecef.Shutdown()
 		return nil, fmt.Errorf("GL loader: %w", err)
 	}
 
-	// 3. Create factory + pool.
+	// 4. Create factory + pool and wire them into the engine.
 	scale := int32(1) // TODO: detect from GDK
 	factory := newWebViewFactory(gl, scale)
 	pool := newWebViewPool(factory)
 
-	// 4. Build the engine. The CEF message pump is started later from
-	//    OnToolkitReady, after GTK/libadwaita have fully initialized.
-	//    Starting it here (before the GTK main loop) causes a SIGSEGV with
-	//    --in-process-gpu because Chromium GPU bootstrap runs too early.
-	eng := &Engine{
-		ctx:     ctx,
-		gl:      gl,
-		factory: factory,
-		pool:    pool,
-		logger:  logger,
-	}
+	eng.gl = gl
+	eng.factory = factory
+	eng.pool = pool
 
 	return eng, nil
 }
