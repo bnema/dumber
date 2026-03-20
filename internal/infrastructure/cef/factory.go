@@ -7,6 +7,7 @@ import (
 	purecef "github.com/bnema/purego-cef/cef"
 
 	"github.com/bnema/dumber/internal/application/port"
+	"github.com/bnema/dumber/internal/logging"
 )
 
 // Compile-time interface check.
@@ -16,6 +17,7 @@ var _ port.WebViewFactory = (*WebViewFactory)(nil)
 // gets a unique ID, its own renderPipeline and inputBridge, and an
 // asynchronously-created CEF browser (via BrowserHostCreateBrowser).
 type WebViewFactory struct {
+	engine *Engine
 	gl     *glLoader
 	nextID atomic.Uint64
 	scale  int32
@@ -23,13 +25,14 @@ type WebViewFactory struct {
 
 // newWebViewFactory returns a factory that will create WebViews using the
 // given GL loader and HiDPI scale factor.
-func newWebViewFactory(gl *glLoader, scale int32) *WebViewFactory {
+func newWebViewFactory(engine *Engine, gl *glLoader, scale int32) *WebViewFactory {
 	if scale < 1 {
 		scale = 1
 	}
 	return &WebViewFactory{
-		gl:    gl,
-		scale: scale,
+		engine: engine,
+		gl:     gl,
+		scale:  scale,
 	}
 }
 
@@ -44,6 +47,7 @@ func (f *WebViewFactory) Create(ctx context.Context) (port.WebView, error) {
 	wv := &WebView{
 		id:       id,
 		ctx:      ctx,
+		engine:   f.engine,
 		pipeline: pipeline,
 	}
 
@@ -77,10 +81,12 @@ func (f *WebViewFactory) Create(ctx context.Context) (port.WebView, error) {
 	}
 
 	// When the GL area gets its first non-zero size, create the browser.
-	pipeline.onFirstResize = func(_, _ int32) {
+	pipeline.onFirstResize = func(w, h int32) {
+		log := logging.FromContext(ctx)
+		log.Debug().Int32("w", w).Int32("h", h).Msg("cef: onFirstResize fired, creating browser")
 		if pc := wv.pendingCreate; pc != nil {
 			wv.pendingCreate = nil
-			purecef.BrowserHostCreateBrowser(
+			result := purecef.BrowserHostCreateBrowser(
 				pc.windowInfo,
 				pc.client,
 				"about:blank",
@@ -88,6 +94,16 @@ func (f *WebViewFactory) Create(ctx context.Context) (port.WebView, error) {
 				nil, // extraInfo
 				nil, // requestContext
 			)
+			if f.engine != nil {
+				f.engine.recordBrowserCreateRequest(w, h, result)
+			}
+			log.Debug().
+				Int32("result", result).
+				Int32("windowless", pc.windowInfo.WindowlessRenderingEnabled).
+				Int32("shared_texture", pc.windowInfo.SharedTextureEnabled).
+				Int32("external_begin_frame", pc.windowInfo.ExternalBeginFrameEnabled).
+				Bool("client_nil", pc.client == nil).
+				Msg("cef: BrowserHostCreateBrowser call completed")
 		}
 	}
 

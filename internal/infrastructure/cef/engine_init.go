@@ -74,7 +74,7 @@ func NewEngine(ctx context.Context, cfg config.CEFEngineConfig) (*Engine, error)
 
 	// 4. Create factory + pool and wire them into the engine.
 	scale := int32(1) // TODO: detect from GDK
-	factory := newWebViewFactory(gl, scale)
+	factory := newWebViewFactory(eng, gl, scale)
 	pool := newWebViewPool(factory)
 
 	eng.gl = gl

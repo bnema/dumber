@@ -299,9 +299,17 @@ func (h *handlerSet) OnBeforeDevToolsPopup(
 // OnAfterCreated stores the browser and host references and enables input.
 func (h *handlerSet) OnAfterCreated(browser purecef.Browser) {
 	log := logging.FromContext(h.wv.ctx)
+	browserID := int32(0)
+	if browser != nil {
+		browserID = browser.GetIdentifier()
+	}
 	log.Debug().
 		Bool("browser_nil", browser == nil).
+		Int32("browser_id", browserID).
 		Msg("cef: OnAfterCreated")
+	if h.wv.engine != nil {
+		h.wv.engine.recordBrowserAfterCreated(browser)
+	}
 	h.wv.browser = browser
 	h.wv.host = browser.GetHost()
 	h.wv.input.setHost(h.wv.host)
