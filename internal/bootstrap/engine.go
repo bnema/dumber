@@ -27,7 +27,6 @@ type EngineInput struct {
 }
 
 // BuildEngine constructs a port.Engine for the engine type specified in cfg.Engine.Type.
-// Currently only "webkit" is supported; "cef" and other types return an error.
 func BuildEngine(input EngineInput) (port.Engine, error) {
 	cfg := input.Config
 	engineType := cfg.Engine.Type

@@ -16,10 +16,11 @@ func TestBuildEngine_UnknownType(t *testing.T) {
 	require.Contains(t, err.Error(), "unknown engine type")
 }
 
-func TestBuildEngine_CEF_NotImplemented(t *testing.T) {
+func TestBuildEngine_CEF_ReturnsErrorWhenRuntimeUnavailable(t *testing.T) {
 	cfg := config.DefaultConfig()
 	cfg.Engine.Type = "cef"
+	cfg.Engine.CEF.CEFDir = t.TempDir()
 	_, err := BuildEngine(EngineInput{Config: cfg, Ctx: context.Background()})
 	require.Error(t, err)
-	require.Contains(t, err.Error(), "not yet implemented")
+	require.Contains(t, err.Error(), "cef: open library")
 }

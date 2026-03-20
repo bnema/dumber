@@ -15,7 +15,9 @@ type dumberApp struct {
 // adaptive message pump.
 func newDumberApp(engine *Engine) purecef.App {
 	app := &dumberApp{engine: engine}
-	app.bph = purecef.NewBrowserProcessHandler(&dumberBPH{engine: engine})
+	// Keep the raw Go implementation here. NewApp will wrap it exactly once
+	// when GetBrowserProcessHandler is queried by CEF.
+	app.bph = &dumberBPH{engine: engine}
 	return purecef.NewApp(app)
 }
 

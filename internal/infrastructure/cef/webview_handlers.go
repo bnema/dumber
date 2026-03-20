@@ -256,6 +256,7 @@ func (h *handlerSet) OnLoadEnd(_ purecef.Browser, frame purecef.Frame, httpStatu
 	}
 	// Successful load — reset the consecutive crash counter.
 	h.wv.crashCount = 0
+
 	h.wv.mu.RLock()
 	cb := h.wv.callbacks
 	h.wv.mu.RUnlock()
@@ -415,68 +416,42 @@ func (h *handlerSet) OnRenderProcessTerminated(_ purecef.Browser, status purecef
 
 func (h *handlerSet) OnDocumentAvailableInMainFrame(_ purecef.Browser) {}
 
-// cefCursorToGDKName maps CEF cursor types to GDK/CSS cursor names.
-//
-//nolint:mnd,cyclop // cursor type lookup table
+// cefCursorNames maps CEF cursor types to GDK/CSS cursor names.
+var cefCursorNames = map[purecef.CursorType]string{
+	purecef.CursorTypeCtPointer:                  "default",
+	purecef.CursorTypeCtCross:                    "crosshair",
+	purecef.CursorTypeCtHand:                     "pointer",
+	purecef.CursorTypeCtIbeam:                    "text",
+	purecef.CursorTypeCtWait:                     "wait",
+	purecef.CursorTypeCtHelp:                     "help",
+	purecef.CursorTypeCtEastresize:               "e-resize",
+	purecef.CursorTypeCtNorthresize:              "n-resize",
+	purecef.CursorTypeCtNortheastresize:          "ne-resize",
+	purecef.CursorTypeCtNorthwestresize:          "nw-resize",
+	purecef.CursorTypeCtSouthresize:              "s-resize",
+	purecef.CursorTypeCtSoutheastresize:          "se-resize",
+	purecef.CursorTypeCtSouthwestresize:          "sw-resize",
+	purecef.CursorTypeCtWestresize:               "w-resize",
+	purecef.CursorTypeCtNorthsouthresize:         "ns-resize",
+	purecef.CursorTypeCtEastwestresize:           "ew-resize",
+	purecef.CursorTypeCtNortheastsouthwestresize: "nesw-resize",
+	purecef.CursorTypeCtNorthwestsoutheastresize: "nwse-resize",
+	purecef.CursorTypeCtColumnresize:             "col-resize",
+	purecef.CursorTypeCtRowresize:                "row-resize",
+	purecef.CursorTypeCtMove:                     "move",
+	purecef.CursorTypeCtProgress:                 "progress",
+	purecef.CursorTypeCtNodrop:                   "no-drop",
+	purecef.CursorTypeCtNotallowed:               "not-allowed",
+	purecef.CursorTypeCtGrab:                     "grab",
+	purecef.CursorTypeCtGrabbing:                 "grabbing",
+	purecef.CursorTypeCtZoomin:                   "zoom-in",
+	purecef.CursorTypeCtZoomout:                  "zoom-out",
+}
+
+// cefCursorToGDKName maps a CEF cursor type to a GDK/CSS cursor name.
 func cefCursorToGDKName(ct purecef.CursorType) string {
-	switch ct {
-	case purecef.CursorTypeCtPointer:
-		return "default"
-	case purecef.CursorTypeCtCross:
-		return "crosshair"
-	case purecef.CursorTypeCtHand:
-		return "pointer"
-	case purecef.CursorTypeCtIbeam:
-		return "text"
-	case purecef.CursorTypeCtWait:
-		return "wait"
-	case purecef.CursorTypeCtHelp:
-		return "help"
-	case purecef.CursorTypeCtEastresize:
-		return "e-resize"
-	case purecef.CursorTypeCtNorthresize:
-		return "n-resize"
-	case purecef.CursorTypeCtNortheastresize:
-		return "ne-resize"
-	case purecef.CursorTypeCtNorthwestresize:
-		return "nw-resize"
-	case purecef.CursorTypeCtSouthresize:
-		return "s-resize"
-	case purecef.CursorTypeCtSoutheastresize:
-		return "se-resize"
-	case purecef.CursorTypeCtSouthwestresize:
-		return "sw-resize"
-	case purecef.CursorTypeCtWestresize:
-		return "w-resize"
-	case purecef.CursorTypeCtNorthsouthresize:
-		return "ns-resize"
-	case purecef.CursorTypeCtEastwestresize:
-		return "ew-resize"
-	case purecef.CursorTypeCtNortheastsouthwestresize:
-		return "nesw-resize"
-	case purecef.CursorTypeCtNorthwestsoutheastresize:
-		return "nwse-resize"
-	case purecef.CursorTypeCtColumnresize:
-		return "col-resize"
-	case purecef.CursorTypeCtRowresize:
-		return "row-resize"
-	case purecef.CursorTypeCtMove:
-		return "move"
-	case purecef.CursorTypeCtProgress:
-		return "progress"
-	case purecef.CursorTypeCtNodrop:
-		return "no-drop"
-	case purecef.CursorTypeCtNotallowed:
-		return "not-allowed"
-	case purecef.CursorTypeCtGrab:
-		return "grab"
-	case purecef.CursorTypeCtGrabbing:
-		return "grabbing"
-	case purecef.CursorTypeCtZoomin:
-		return "zoom-in"
-	case purecef.CursorTypeCtZoomout:
-		return "zoom-out"
-	default:
-		return "default"
+	if name, ok := cefCursorNames[ct]; ok {
+		return name
 	}
+	return "default"
 }
