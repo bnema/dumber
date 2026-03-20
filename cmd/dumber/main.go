@@ -7,6 +7,7 @@ import (
 	"os"
 	"os/signal"
 	"runtime"
+	"strconv"
 	"syscall"
 
 	"github.com/bnema/dumber/internal/application/port"
@@ -112,6 +113,14 @@ func runGUI() int {
 		return 1
 	}
 	timer.MarkDuration("parallel_phase", initResult.Duration)
+
+	if multiThreadedCEFLoopEnabled() {
+		logging.FromContext(ctx).Info().Msg("pre-initializing libadwaita before CEF multi-threaded loop")
+		ui.EnsureAdwaitaInitialized()
+		if initResult.AdwaitaDetector != nil {
+			initResult.AdwaitaDetector.MarkAvailable()
+		}
+	}
 
 	needsEagerDB := restoreSessionID != "" || cfg.Session.AutoRestore
 
@@ -242,6 +251,16 @@ func initStartupContext(cfg *config.Config) context.Context {
 		Msg("starting dumber")
 	ctx := logging.WithContext(context.Background(), bootstrapLogger)
 	return ctx
+}
+
+func multiThreadedCEFLoopEnabled() bool {
+	value, ok := os.LookupEnv("DUMBER_CEF_MULTI_THREADED_MESSAGE_LOOP")
+	if !ok || value == "" {
+		return false
+	}
+
+	enabled, err := strconv.ParseBool(value)
+	return err == nil && enabled
 }
 
 func initStackAndRepos(

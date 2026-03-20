@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"sync"
 	"unsafe"
@@ -48,6 +49,15 @@ const (
 
 func gtkApplicationFlags() gio.ApplicationFlags {
 	return gio.GApplicationNonUniqueValue
+}
+
+var adwaitaInitOnce sync.Once
+
+// EnsureAdwaitaInitialized initializes libadwaita and GTK exactly once.
+func EnsureAdwaitaInitialized() {
+	adwaitaInitOnce.Do(func() {
+		adw.Init()
+	})
 }
 
 // App wraps the GTK Application and manages the browser lifecycle.
@@ -210,7 +220,7 @@ func (a *App) Run(ctx context.Context, args []string) int {
 
 	// Initialize libadwaita once (required before using StyleManager).
 	// This also initializes GTK implicitly.
-	adw.Init()
+	EnsureAdwaitaInitialized()
 	logging.Trace().Mark("gtk_init")
 
 	// Mark adwaita detector as available now that adw.Init() is complete.
@@ -258,7 +268,11 @@ func (a *App) onActivate(ctx context.Context) {
 	log := logging.FromContext(ctx)
 	log.Debug().Msg("GTK application activated")
 
-	a.applyGTKColorSchemePreference(ctx)
+	if cefMultiThreadedLoopEnabled() {
+		log.Warn().Msg("skipping GTK color scheme preference while testing CEF multi-threaded loop")
+	} else {
+		a.applyGTKColorSchemePreference(ctx)
+	}
 	// Configure pool background color early (prevents white flash), but avoid
 	// synchronous prewarming that delays the first navigation on cold start.
 	a.setupPoolBackgroundColor(ctx)
@@ -459,6 +473,16 @@ func (a *App) installCrashReportNotifier(ctx context.Context) {
 	a.deps.OnCrashReportsDetected = func(paths []string) {
 		a.showCrashReportToast(ctx, paths)
 	}
+}
+
+func cefMultiThreadedLoopEnabled() bool {
+	value, ok := os.LookupEnv("DUMBER_CEF_MULTI_THREADED_MESSAGE_LOOP")
+	if !ok || value == "" {
+		return false
+	}
+
+	enabled, err := strconv.ParseBool(value)
+	return err == nil && enabled
 }
 
 func (a *App) initFocusAndBorderOverlay() {
