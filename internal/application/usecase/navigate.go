@@ -241,6 +241,7 @@ func (uc *NavigateUseCase) historyWorker() {
 	}
 
 	flushPending := func() {
+
 		for historyURL, visits := range pendingVisits {
 			uc.persistHistory(uc.ctx, historyRecord{url: historyURL, visits: visits})
 		}

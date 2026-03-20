@@ -5,8 +5,12 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strconv"
+	"strings"
+	"syscall"
 
 	purecef "github.com/bnema/purego-cef/cef"
+	"github.com/rs/zerolog"
 
 	"github.com/bnema/dumber/internal/infrastructure/config"
 	"github.com/bnema/dumber/internal/logging"
@@ -15,6 +19,11 @@ import (
 // NewEngine initializes the CEF runtime and returns a ready-to-use Engine.
 func NewEngine(ctx context.Context, cfg config.CEFEngineConfig) (*Engine, error) {
 	logger := logging.FromContext(ctx)
+
+	// Clean up stale CEF singleton locks from previous unclean shutdowns.
+	// When the process is killed (Ctrl+C, SIGSEGV), CEF leaves SingletonLock
+	// files that cause the next instance to crash on startup.
+	cleanStaleSingletonLocks(logger)
 
 	// Resolve pump mode from config (with defaults).
 	multiThreaded := cfg.CEFMultiThreadedMessageLoop()
@@ -117,6 +126,48 @@ func appendIfMissing(args []string, flag string) []string {
 
 // findHelperBinary looks for the cef-helper binary next to the running
 // executable. Returns empty string if not found.
+// cleanStaleSingletonLocks removes CEF's SingletonLock/Socket/Cookie files
+// if the owning process is no longer running. CEF leaves these behind on
+// unclean shutdown (SIGKILL, SIGSEGV) and the next instance crashes trying
+// to connect to the dead process.
+func cleanStaleSingletonLocks(logger *zerolog.Logger) {
+	// CEF defaults to ~/.config/cef_user_data when no root_cache_path is set.
+	dir := filepath.Join(os.Getenv("HOME"), ".config", "cef_user_data")
+
+	lockPath := filepath.Join(dir, "SingletonLock")
+	target, err := os.Readlink(lockPath)
+	if err != nil {
+		return // No lock file or not a symlink — nothing to clean.
+	}
+
+	// SingletonLock is a symlink to "hostname-pid".
+	parts := strings.SplitN(target, "-", 2)
+	if len(parts) != 2 {
+		return
+	}
+	pid, err := strconv.Atoi(parts[1])
+	if err != nil || pid <= 0 {
+		return
+	}
+
+	// Check if the process is still alive.
+	proc, err := os.FindProcess(pid)
+	if err == nil {
+		if err := proc.Signal(syscall.Signal(0)); err == nil {
+			// Process is alive — don't touch the lock.
+			return
+		}
+	}
+
+	// Stale lock — remove singleton files.
+	for _, name := range []string{"SingletonLock", "SingletonSocket", "SingletonCookie"} {
+		p := filepath.Join(dir, name)
+		if err := os.Remove(p); err == nil {
+			logger.Info().Str("path", p).Msg("cef: removed stale singleton file")
+		}
+	}
+}
+
 func findHelperBinary() string {
 	exe, err := os.Executable()
 	if err != nil {

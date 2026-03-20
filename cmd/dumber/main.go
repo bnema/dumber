@@ -406,13 +406,20 @@ func handleAutoRestore(
 
 func setupSignalHandler(ctx context.Context, app *ui.App) {
 	log := logging.FromContext(ctx)
-	sigCh := make(chan os.Signal, 1)
+	sigCh := make(chan os.Signal, 2)
 	signal.Notify(sigCh, os.Interrupt, syscall.SIGTERM)
 	go func() {
 		sig := <-sigCh
-		signal.Stop(sigCh)
-		log.Info().Str("signal", sig.String()).Msg("received interrupt, quitting")
+		log.Info().Str("signal", sig.String()).Msg("received interrupt, quitting gracefully")
 		app.Quit()
+
+		// Second signal: force exit. Keep listening so a second Ctrl+C
+		// doesn't go to the default handler (immediate process kill)
+		// before GTK shutdown + CEF cleanup can finish.
+		sig = <-sigCh
+		log.Warn().Str("signal", sig.String()).Msg("received second interrupt, forcing exit")
+		signal.Stop(sigCh)
+		os.Exit(1)
 	}()
 }
 
