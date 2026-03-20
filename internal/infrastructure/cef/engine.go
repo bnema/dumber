@@ -53,9 +53,12 @@ type Engine struct {
 	pumpReentry bool
 
 	// Diagnostic counters (temporary).
-	pumpWakeCount uint64
-	pumpWorkCount uint64
-	scheduleCount atomic.Uint64 // incremented from any thread — read from main thread only
+	pumpWakeCount   uint64
+	pumpWorkCount   uint64
+	pumpWorkTotalNs uint64
+	pumpWorkMaxNs   int64
+	pumpSlowCount   uint64
+	scheduleCount   atomic.Uint64 // incremented from any thread — read from main thread only
 
 	scheduleImmediateCount atomic.Uint64
 	scheduleDelayedCount   atomic.Uint64
@@ -74,6 +77,13 @@ type Engine struct {
 	browserCreateLastWidth   atomic.Int32
 	browserCreateLastHeight  atomic.Int32
 	lastStallLoggedCreateSeq uint64
+
+	pumpDiagLastLogAt       time.Time
+	pumpDiagLastWakeCount   uint64
+	pumpDiagLastWorkCount   uint64
+	pumpDiagLastSchedule    uint64
+	pumpDiagLastWorkTotalNs uint64
+	pumpDiagLastSlowCount   uint64
 }
 
 // Factory returns the WebViewFactory for creating new WebView instances.
@@ -500,7 +510,16 @@ func (e *Engine) onPumpWake() {
 			Int64("now_ms", nowMs).
 			Msg("cef: pump doing work")
 	}
+	workStartedAt := time.Now()
 	wasReentrant := e.performMessageLoopWork()
+	workDuration := time.Since(workStartedAt)
+	e.pumpWorkTotalNs += uint64(workDuration)
+	if workDuration.Nanoseconds() > e.pumpWorkMaxNs {
+		e.pumpWorkMaxNs = workDuration.Nanoseconds()
+	}
+	if workDuration >= 2*time.Millisecond {
+		e.pumpSlowCount++
+	}
 
 	// Match the upstream external-pump reference behavior: if CEF did not
 	// request another deadline, keep a placeholder wakeup so async work such as
@@ -518,9 +537,11 @@ func (e *Engine) onPumpWake() {
 	}
 	if nextDueAtMs <= nowMs {
 		e.signalPump()
+		e.maybeLogPumpDiagnostics()
 		return
 	}
 	e.armPumpTimer(nextDueAtMs, nowMs)
+	e.maybeLogPumpDiagnostics()
 }
 
 // performMessageLoopWork calls DoMessageLoopWork with reentrancy protection.
@@ -537,4 +558,54 @@ func (e *Engine) performMessageLoopWork() bool {
 	e.pumpActive = false
 
 	return e.pumpReentry
+}
+
+func (e *Engine) maybeLogPumpDiagnostics() {
+	now := time.Now()
+	if !e.pumpDiagLastLogAt.IsZero() && now.Sub(e.pumpDiagLastLogAt) < 3*time.Second {
+		return
+	}
+
+	wakeDelta := e.pumpWakeCount - e.pumpDiagLastWakeCount
+	workDelta := e.pumpWorkCount - e.pumpDiagLastWorkCount
+	scheduleTotal := e.scheduleCount.Load()
+	scheduleDelta := scheduleTotal - e.pumpDiagLastSchedule
+	workTotalNsDelta := e.pumpWorkTotalNs - e.pumpDiagLastWorkTotalNs
+	slowDelta := e.pumpSlowCount - e.pumpDiagLastSlowCount
+	if wakeDelta == 0 && workDelta == 0 && scheduleDelta == 0 {
+		return
+	}
+
+	elapsed := now.Sub(e.pumpDiagLastLogAt)
+	if e.pumpDiagLastLogAt.IsZero() || elapsed <= 0 {
+		elapsed = time.Second
+	}
+	elapsedSec := elapsed.Seconds()
+
+	avgWorkUs := float64(0)
+	if workDelta > 0 {
+		avgWorkUs = float64(workTotalNsDelta) / float64(workDelta) / 1_000
+	}
+
+	logging.FromContext(e.ctx).Debug().
+		Float64("wake_hz", float64(wakeDelta)/elapsedSec).
+		Float64("work_hz", float64(workDelta)/elapsedSec).
+		Float64("schedule_hz", float64(scheduleDelta)/elapsedSec).
+		Uint64("wake_delta", wakeDelta).
+		Uint64("work_delta", workDelta).
+		Uint64("schedule_delta", scheduleDelta).
+		Float64("avg_do_work_us", avgWorkUs).
+		Float64("max_do_work_us", float64(e.pumpWorkMaxNs)/1_000).
+		Uint64("slow_do_work_delta", slowDelta).
+		Uint64("wake_total", e.pumpWakeCount).
+		Uint64("work_total", e.pumpWorkCount).
+		Uint64("schedule_total", scheduleTotal).
+		Msg("cef: pump activity")
+
+	e.pumpDiagLastLogAt = now
+	e.pumpDiagLastWakeCount = e.pumpWakeCount
+	e.pumpDiagLastWorkCount = e.pumpWorkCount
+	e.pumpDiagLastSchedule = scheduleTotal
+	e.pumpDiagLastWorkTotalNs = e.pumpWorkTotalNs
+	e.pumpDiagLastSlowCount = e.pumpSlowCount
 }

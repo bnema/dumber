@@ -42,7 +42,7 @@ func newWebViewFactory(engine *Engine, gl *glLoader, scale int32) *WebViewFactor
 func (f *WebViewFactory) Create(ctx context.Context) (port.WebView, error) {
 	id := port.WebViewID(f.nextID.Add(1))
 
-	pipeline := newRenderPipeline(f.gl, f.scale)
+	pipeline := newRenderPipeline(ctx, f.gl, f.scale)
 
 	wv := &WebView{
 		id:       id,

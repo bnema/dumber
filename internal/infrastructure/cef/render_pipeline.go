@@ -1,9 +1,12 @@
 package cef
 
 import (
+	"context"
 	"sync"
+	"time"
 	"unsafe"
 
+	"github.com/bnema/dumber/internal/logging"
 	"github.com/jwijenbergh/puregotk/v4/gtk"
 )
 
@@ -20,6 +23,7 @@ type rect struct {
 // The GL render signal uploads from staging → PBO → texture, then draws a
 // fullscreen quad. Two PBOs alternate so GPU DMA and CPU writes overlap.
 type renderPipeline struct {
+	ctx    context.Context
 	gl     *glLoader
 	glArea *gtk.GLArea
 
@@ -45,6 +49,35 @@ type renderPipeline struct {
 
 	// GL initialized flag.
 	glReady bool
+
+	// Diagnostics (main thread only).
+	paintCount            uint64
+	acceleratedPaintCount uint64
+	queueRenderCount      uint64
+	glRenderCount         uint64
+	uploadCount           uint64
+	fullUploadCount       uint64
+	paintBytes            uint64
+	uploadBytes           uint64
+	dirtyRectCount        uint64
+	paintCopyTotalNs      uint64
+	uploadTotalNs         uint64
+	renderTotalNs         uint64
+	maxPaintCopyNs        int64
+	maxUploadNs           int64
+	maxRenderNs           int64
+	diagLastLogAt         time.Time
+	diagLastPaintCount    uint64
+	diagLastAccelCount    uint64
+	diagLastQueueCount    uint64
+	diagLastRenderCount   uint64
+	diagLastUploadCount   uint64
+	diagLastFullUploads   uint64
+	diagLastPaintBytes    uint64
+	diagLastUploadBytes   uint64
+	diagLastPaintCopyNs   uint64
+	diagLastUploadNs      uint64
+	diagLastRenderNs      uint64
 
 	// onFirstResize is called once when the first non-zero resize occurs.
 	onFirstResize func(width, height int32)
@@ -84,12 +117,13 @@ var quadVertices = [16]float32{
 
 // newRenderPipeline creates a GtkGLArea and wires up the render and resize
 // signals. The returned pipeline is ready to receive handlePaint calls.
-func newRenderPipeline(gl *glLoader, scale int32) *renderPipeline {
+func newRenderPipeline(ctx context.Context, gl *glLoader, scale int32) *renderPipeline {
 	if scale < 1 {
 		scale = 1
 	}
 
 	rp := &renderPipeline{
+		ctx:   ctx,
 		gl:    gl,
 		scale: scale,
 	}
@@ -122,10 +156,12 @@ func (rp *renderPipeline) handlePaint(buffer unsafe.Pointer, width, height int32
 		return
 	}
 
+	startedAt := time.Now()
 	rp.mu.Lock()
 
 	bufSize := int(width) * int(height) * 4
 	srcSlice := unsafe.Slice((*byte)(buffer), bufSize)
+	copiedBytes := uint64(0)
 
 	// Detect size change, or first paint (staging not yet allocated).
 	if width != rp.width || height != rp.height || rp.staging == nil {
@@ -135,6 +171,7 @@ func (rp *renderPipeline) handlePaint(buffer unsafe.Pointer, width, height int32
 		rp.sizeChanged = true
 		// On size change, copy the entire buffer.
 		copy(rp.staging, srcSlice)
+		copiedBytes = uint64(bufSize)
 	} else {
 		// Copy only dirty rect rows.
 		stride := int(width) * 4
@@ -144,6 +181,7 @@ func (rp *renderPipeline) handlePaint(buffer unsafe.Pointer, width, height int32
 				dstOff := srcOff
 				rowBytes := int(r.Width) * 4
 				copy(rp.staging[dstOff:dstOff+rowBytes], srcSlice[srcOff:srcOff+rowBytes])
+				copiedBytes += uint64(rowBytes)
 			}
 		}
 	}
@@ -157,11 +195,23 @@ func (rp *renderPipeline) handlePaint(buffer unsafe.Pointer, width, height int32
 
 	rp.mu.Unlock()
 
+	copyDuration := time.Since(startedAt)
+	rp.paintCount++
+	rp.queueRenderCount++
+	rp.paintBytes += copiedBytes
+	rp.dirtyRectCount += uint64(len(rects))
+	rp.paintCopyTotalNs += uint64(copyDuration)
+	if copyDuration.Nanoseconds() > rp.maxPaintCopyNs {
+		rp.maxPaintCopyNs = copyDuration.Nanoseconds()
+	}
+
 	rp.glArea.QueueRender()
+	rp.maybeLogDiagnostics()
 }
 
 // onGLRender is the GTK "render" signal handler. GL context is current.
 func (rp *renderPipeline) onGLRender() bool {
+	renderStartedAt := time.Now()
 	rp.mu.Lock()
 
 	needsUpload := rp.needsUpload
@@ -185,11 +235,29 @@ func (rp *renderPipeline) onGLRender() bool {
 	}
 
 	if !rp.glReady {
+		rp.glRenderCount++
+		renderDuration := time.Since(renderStartedAt)
+		rp.renderTotalNs += uint64(renderDuration)
+		if renderDuration.Nanoseconds() > rp.maxRenderNs {
+			rp.maxRenderNs = renderDuration.Nanoseconds()
+		}
+		rp.maybeLogDiagnostics()
 		return true
 	}
 
 	if needsUpload {
-		rp.uploadToPBO(dirtyRects, sizeChanged)
+		uploadStartedAt := time.Now()
+		uploadedBytes := rp.uploadToPBO(dirtyRects, sizeChanged)
+		uploadDuration := time.Since(uploadStartedAt)
+		rp.uploadCount++
+		if sizeChanged {
+			rp.fullUploadCount++
+		}
+		rp.uploadBytes += uploadedBytes
+		rp.uploadTotalNs += uint64(uploadDuration)
+		if uploadDuration.Nanoseconds() > rp.maxUploadNs {
+			rp.maxUploadNs = uploadDuration.Nanoseconds()
+		}
 	}
 
 	// Draw fullscreen quad.
@@ -203,12 +271,20 @@ func (rp *renderPipeline) onGLRender() bool {
 	gl.bindTexture(glTexture2D, 0)
 	gl.useProgram(0)
 
+	rp.glRenderCount++
+	renderDuration := time.Since(renderStartedAt)
+	rp.renderTotalNs += uint64(renderDuration)
+	if renderDuration.Nanoseconds() > rp.maxRenderNs {
+		rp.maxRenderNs = renderDuration.Nanoseconds()
+	}
+	rp.maybeLogDiagnostics()
+
 	return true
 }
 
 // uploadToPBO uploads dirty regions from the staging buffer into a PBO, then
 // transfers to the GL texture via async DMA.
-func (rp *renderPipeline) uploadToPBO(dirtyRects []rect, fullUpload bool) {
+func (rp *renderPipeline) uploadToPBO(dirtyRects []rect, fullUpload bool) uint64 {
 	gl := rp.gl
 
 	rp.mu.Lock()
@@ -227,20 +303,23 @@ func (rp *renderPipeline) uploadToPBO(dirtyRects []rect, fullUpload bool) {
 	mapped := gl.mapBuffer(glPixelUnpackBuffer, glWriteOnly)
 	if mapped == nil {
 		gl.bindBuffer(glPixelUnpackBuffer, 0)
-		return
+		return 0
 	}
 
 	mappedSlice := unsafe.Slice((*byte)(mapped), int(bufSize))
+	uploadedBytes := uint64(0)
 
 	rp.mu.Lock()
 	if fullUpload {
 		copy(mappedSlice, rp.staging)
+		uploadedBytes = uint64(bufSize)
 	} else {
 		for _, r := range dirtyRects {
 			for row := r.Y; row < r.Y+r.Height; row++ {
 				off := int(row)*stride + int(r.X)*4
 				rowBytes := int(r.Width) * 4
 				copy(mappedSlice[off:off+rowBytes], rp.staging[off:off+rowBytes])
+				uploadedBytes += uint64(rowBytes)
 			}
 		}
 	}
@@ -270,6 +349,7 @@ func (rp *renderPipeline) uploadToPBO(dirtyRects []rect, fullUpload bool) {
 	rp.pboIndex = 1 - rp.pboIndex
 
 	gl.bindBuffer(glPixelUnpackBuffer, 0)
+	return uploadedBytes
 }
 
 // initGL creates or recreates all GL resources for the current surface size.
@@ -342,6 +422,91 @@ func (rp *renderPipeline) initGL() {
 	gl.useProgram(0)
 
 	rp.glReady = true
+}
+
+func (rp *renderPipeline) recordAcceleratedPaint() uint64 {
+	rp.acceleratedPaintCount++
+	rp.maybeLogDiagnostics()
+	return rp.acceleratedPaintCount
+}
+
+func (rp *renderPipeline) maybeLogDiagnostics() {
+	now := time.Now()
+	if !rp.diagLastLogAt.IsZero() && now.Sub(rp.diagLastLogAt) < 2*time.Second {
+		return
+	}
+
+	paintDelta := rp.paintCount - rp.diagLastPaintCount
+	accelDelta := rp.acceleratedPaintCount - rp.diagLastAccelCount
+	queueDelta := rp.queueRenderCount - rp.diagLastQueueCount
+	renderDelta := rp.glRenderCount - rp.diagLastRenderCount
+	uploadDelta := rp.uploadCount - rp.diagLastUploadCount
+	fullUploadDelta := rp.fullUploadCount - rp.diagLastFullUploads
+	paintBytesDelta := rp.paintBytes - rp.diagLastPaintBytes
+	uploadBytesDelta := rp.uploadBytes - rp.diagLastUploadBytes
+	paintCopyNsDelta := rp.paintCopyTotalNs - rp.diagLastPaintCopyNs
+	uploadNsDelta := rp.uploadTotalNs - rp.diagLastUploadNs
+	renderNsDelta := rp.renderTotalNs - rp.diagLastRenderNs
+	if paintDelta == 0 && accelDelta == 0 && queueDelta == 0 && renderDelta == 0 && uploadDelta == 0 {
+		return
+	}
+
+	elapsed := now.Sub(rp.diagLastLogAt)
+	if rp.diagLastLogAt.IsZero() || elapsed <= 0 {
+		elapsed = time.Second
+	}
+	elapsedSec := elapsed.Seconds()
+
+	paintAvgUs := float64(0)
+	if paintDelta > 0 {
+		paintAvgUs = float64(paintCopyNsDelta) / float64(paintDelta) / 1_000
+	}
+	uploadAvgUs := float64(0)
+	if uploadDelta > 0 {
+		uploadAvgUs = float64(uploadNsDelta) / float64(uploadDelta) / 1_000
+	}
+	renderAvgUs := float64(0)
+	if renderDelta > 0 {
+		renderAvgUs = float64(renderNsDelta) / float64(renderDelta) / 1_000
+	}
+
+	logging.FromContext(rp.ctx).Debug().
+		Float64("paint_hz", float64(paintDelta)/elapsedSec).
+		Float64("queue_hz", float64(queueDelta)/elapsedSec).
+		Float64("render_hz", float64(renderDelta)/elapsedSec).
+		Float64("upload_hz", float64(uploadDelta)/elapsedSec).
+		Uint64("paint_delta", paintDelta).
+		Uint64("accelerated_paint_delta", accelDelta).
+		Uint64("queue_delta", queueDelta).
+		Uint64("render_delta", renderDelta).
+		Uint64("upload_delta", uploadDelta).
+		Uint64("full_upload_delta", fullUploadDelta).
+		Float64("paint_mb", float64(paintBytesDelta)/(1024*1024)).
+		Float64("upload_mb", float64(uploadBytesDelta)/(1024*1024)).
+		Float64("avg_paint_copy_us", paintAvgUs).
+		Float64("avg_upload_us", uploadAvgUs).
+		Float64("avg_render_us", renderAvgUs).
+		Float64("max_paint_copy_us", float64(rp.maxPaintCopyNs)/1_000).
+		Float64("max_upload_us", float64(rp.maxUploadNs)/1_000).
+		Float64("max_render_us", float64(rp.maxRenderNs)/1_000).
+		Uint64("paint_total", rp.paintCount).
+		Uint64("accelerated_paint_total", rp.acceleratedPaintCount).
+		Uint64("render_total", rp.glRenderCount).
+		Uint64("upload_total", rp.uploadCount).
+		Msg("cef: render pipeline activity")
+
+	rp.diagLastLogAt = now
+	rp.diagLastPaintCount = rp.paintCount
+	rp.diagLastAccelCount = rp.acceleratedPaintCount
+	rp.diagLastQueueCount = rp.queueRenderCount
+	rp.diagLastRenderCount = rp.glRenderCount
+	rp.diagLastUploadCount = rp.uploadCount
+	rp.diagLastFullUploads = rp.fullUploadCount
+	rp.diagLastPaintBytes = rp.paintBytes
+	rp.diagLastUploadBytes = rp.uploadBytes
+	rp.diagLastPaintCopyNs = rp.paintCopyTotalNs
+	rp.diagLastUploadNs = rp.uploadTotalNs
+	rp.diagLastRenderNs = rp.renderTotalNs
 }
 
 // buildShaderProgram compiles and links the vertex+fragment shaders.

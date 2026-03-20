@@ -112,6 +112,12 @@ func (h *handlerSet) OnPaint(
 }
 
 func (h *handlerSet) OnAcceleratedPaint(_ purecef.Browser, _ purecef.PaintElementType, _ []purecef.Rect, _ *purecef.AcceleratedPaintInfo) {
+	count := h.wv.pipeline.recordAcceleratedPaint()
+	if count <= 5 || count%100 == 0 {
+		logging.FromContext(h.wv.ctx).Info().
+			Uint64("count", count).
+			Msg("cef: OnAcceleratedPaint")
+	}
 }
 
 func (h *handlerSet) GetTouchHandleSize(_ purecef.Browser, _ purecef.HorizontalAlignment, _ *purecef.Size) {
