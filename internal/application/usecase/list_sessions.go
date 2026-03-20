@@ -13,19 +13,16 @@ import (
 type ListSessionsUseCase struct {
 	sessionRepo repository.SessionRepository
 	stateRepo   repository.SessionStateRepository
-	lockDir     string // Directory where lock files are stored
 }
 
 // NewListSessionsUseCase creates a new ListSessionsUseCase.
 func NewListSessionsUseCase(
 	sessionRepo repository.SessionRepository,
 	stateRepo repository.SessionStateRepository,
-	lockDir string,
 ) *ListSessionsUseCase {
 	return &ListSessionsUseCase{
 		sessionRepo: sessionRepo,
 		stateRepo:   stateRepo,
-		lockDir:     lockDir,
 	}
 }
 
@@ -73,7 +70,7 @@ func (uc *ListSessionsUseCase) Execute(ctx context.Context, currentSessionID ent
 		info := entity.SessionInfo{
 			Session:   session,
 			IsCurrent: session.ID == currentSessionID,
-			IsActive:  session.IsActive() || uc.hasActiveLock(session.ID),
+			IsActive:  session.IsActive(),
 		}
 
 		if state, ok := snapshotMap[session.ID]; ok {
@@ -92,11 +89,6 @@ func (uc *ListSessionsUseCase) Execute(ctx context.Context, currentSessionID ent
 	sortSessionInfos(result, currentSessionID)
 
 	return &ListSessionsOutput{Sessions: result}, nil
-}
-
-// hasActiveLock checks if a session has an active lock file.
-func (uc *ListSessionsUseCase) hasActiveLock(sessionID entity.SessionID) bool {
-	return isSessionLocked(uc.lockDir, sessionID)
 }
 
 // sortSessionInfos sorts sessions by: current first, then active, then by UpdatedAt descending.
@@ -149,7 +141,7 @@ func (uc *ListSessionsUseCase) GetSessionInfo(
 	info := &entity.SessionInfo{
 		Session:   session,
 		IsCurrent: session.ID == currentSessionID,
-		IsActive:  session.IsActive() || uc.hasActiveLock(session.ID),
+		IsActive:  session.IsActive(),
 		UpdatedAt: session.StartedAt,
 	}
 

@@ -19,19 +19,16 @@ var (
 type DeleteSessionUseCase struct {
 	stateRepo   repository.SessionStateRepository
 	sessionRepo repository.SessionRepository
-	lockDir     string
 }
 
 // NewDeleteSessionUseCase creates a new DeleteSessionUseCase.
 func NewDeleteSessionUseCase(
 	stateRepo repository.SessionStateRepository,
 	sessionRepo repository.SessionRepository,
-	lockDir string,
 ) *DeleteSessionUseCase {
 	return &DeleteSessionUseCase{
 		stateRepo:   stateRepo,
 		sessionRepo: sessionRepo,
-		lockDir:     lockDir,
 	}
 }
 
@@ -60,8 +57,8 @@ func (uc *DeleteSessionUseCase) Execute(ctx context.Context, input DeleteSession
 		return ErrSessionNotFound
 	}
 
-	// Check not active (EndedAt is nil OR has lock file)
-	if session.IsActive() || isSessionLocked(uc.lockDir, input.SessionID) {
+	// Don't delete active sessions.
+	if session.IsActive() {
 		return ErrCannotDeleteActiveSession
 	}
 
