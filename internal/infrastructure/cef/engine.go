@@ -16,10 +16,13 @@ import (
 var _ port.Engine = (*Engine)(nil)
 
 // pumpTickMS is the interval of the persistent glib timer that checks
-// for pending CEF work. This is a polling interval, NOT the frame rate —
-// when there's no pending work, the tick is a single atomic load (near-zero
-// CPU). When work is pending, it calls DoMessageLoopWork immediately.
+// whether CEF work is due. This is a polling interval, NOT the frame rate.
 const pumpTickMS uint = 4
+
+// cefFallbackPumpDelayMS mirrors the upstream external message pump fallback:
+// even when no new callback arrives we still re-enter CefDoMessageLoopWork
+// periodically so async browser creation and IPC continue to make progress.
+const cefFallbackPumpDelayMS int64 = 1000 / 30
 
 // Engine implements port.Engine for the CEF browser backend.
 // It manages the CEF lifecycle and provides access to all engine subsystems.
@@ -29,11 +32,11 @@ type Engine struct {
 	factory *WebViewFactory
 	pool    *WebViewPool
 
-	// pumpRequested is set atomically by OnScheduleMessagePumpWork (which
-	// can be called from ANY thread — GPU, IO, renderer, etc.). The
-	// persistent glib timer on the main thread reads and clears this flag.
-	// Value: 0 = no work, 1 = work requested.
-	pumpRequested atomic.Int32
+	// nextWorkAtMs is the next deadline, in Unix milliseconds, when
+	// CefDoMessageLoopWork should run. It is written from any Chromium thread
+	// via OnScheduleMessagePumpWork and read on the GTK main thread.
+	// Value: 0 means "nothing scheduled right now".
+	nextWorkAtMs atomic.Int64
 
 	// Pump lifecycle managed only from the main GTK thread.
 	pumpCB       glib.SourceFunc
@@ -254,6 +257,7 @@ func (e *Engine) maybeLogBrowserCreateStall() {
 		Uint64("schedule_delayed", e.scheduleDelayedCount.Load()).
 		Int64("last_schedule_delay_ms", e.scheduleLastDelayMs.Load()).
 		Int64("max_schedule_delay_ms", e.scheduleMaxDelayMs.Load()).
+		Int64("next_work_in_ms", e.nextWorkAtMs.Load()-time.Now().UnixMilli()).
 		Uint64("context_initialized", e.contextInitializedCount.Load()).
 		Uint64("renderer_launches", e.childLaunchRenderer.Load()).
 		Uint64("gpu_launches", e.childLaunchGPU.Load()).
@@ -262,23 +266,29 @@ func (e *Engine) maybeLogBrowserCreateStall() {
 }
 
 // ---------------------------------------------------------------------------
-// CEF message pump — thread-safe via atomic signaling
+// CEF message pump — thread-safe via atomic deadlines
 //
 // OnScheduleMessagePumpWork can be called from ANY Chromium thread (UI, IO,
 // GPU compositor, etc.). It MUST NOT call any glib/GTK functions. Instead it
-// sets an atomic flag. A persistent glib timer on the main GTK thread polls
-// this flag and calls DoMessageLoopWork when work is pending.
+// updates the next due time atomically. A persistent glib timer on the main
+// GTK thread polls that due time and calls DoMessageLoopWork when necessary.
 //
-// CPU cost when idle: one atomic load per tick (4ms) = negligible.
+// CPU cost when idle: one atomic load and one clock read per tick.
 // Latency: max 4ms before CEF work is processed.
 // ---------------------------------------------------------------------------
 
 // scheduleMessagePumpWork is called by OnScheduleMessagePumpWork from any
-// thread. It only sets an atomic flag — no glib calls, no allocations.
+// thread. It only updates the due deadline atomically.
 // IMPORTANT: No logging, no context access, no allocations here — this can
 // be called from native CEF threads (GPU, IO, renderer).
 func (e *Engine) scheduleMessagePumpWork(delayMs int64) {
-	e.pumpRequested.Store(1)
+	nowMs := time.Now().UnixMilli()
+	dueAtMs := nowMs
+	if delayMs > 0 {
+		dueAtMs += delayMs
+	}
+
+	e.nextWorkAtMs.Store(dueAtMs)
 	e.scheduleCount.Add(1)
 	e.scheduleLastDelayMs.Store(delayMs)
 	if delayMs <= 0 {
@@ -303,8 +313,9 @@ func (e *Engine) startMessagePump() {
 		return
 	}
 
-	// Ensure there's a pending request so the first tick does work.
-	e.pumpRequested.Store(1)
+	// Ensure the first tick enters CEF even if the only startup callback
+	// happened before GTK finished activating.
+	e.nextWorkAtMs.Store(time.Now().UnixMilli())
 
 	e.pumpCB = glib.SourceFunc(func(_ uintptr) bool {
 		if e.pumpClosing {
@@ -320,31 +331,55 @@ func (e *Engine) startMessagePump() {
 
 func (e *Engine) stopMessagePump() {
 	e.pumpClosing = true
+	e.nextWorkAtMs.Store(0)
 	if e.pumpSourceID != 0 {
 		glib.SourceRemove(e.pumpSourceID)
 		e.pumpSourceID = 0
 	}
 }
 
+func (e *Engine) scheduleFallbackPumpWork(nowMs int64) {
+	if e.nextWorkAtMs.Load() != 0 {
+		return
+	}
+	e.nextWorkAtMs.CompareAndSwap(0, nowMs+cefFallbackPumpDelayMS)
+}
+
 // pumpTick is called on the GTK main thread by the persistent timer.
-// It checks if CEF requested work and processes it.
+// It checks if CEF work is due and processes it.
 func (e *Engine) pumpTick() {
 	e.pumpTickCount++
 	e.maybeLogBrowserCreateStall()
-	// Check if work was requested (from any thread).
-	if e.pumpRequested.Swap(0) == 0 {
-		return // nothing to do
+
+	dueAtMs := e.nextWorkAtMs.Load()
+	if dueAtMs == 0 {
+		return
 	}
 
+	nowMs := time.Now().UnixMilli()
+	if nowMs < dueAtMs {
+		return
+	}
+
+	// Consume the current deadline before entering CEF. Any new callback that
+	// happens during DoMessageLoopWork will publish a fresh deadline.
+	e.nextWorkAtMs.Store(0)
 	e.pumpWorkCount++
 	if e.pumpWorkCount <= 20 || e.pumpWorkCount%100 == 0 {
 		logging.FromContext(e.ctx).Debug().
 			Uint64("tick", e.pumpTickCount).
 			Uint64("work", e.pumpWorkCount).
 			Uint64("schedule_calls", e.scheduleCount.Load()).
+			Int64("due_at_ms", dueAtMs).
+			Int64("now_ms", nowMs).
 			Msg("cef: pump doing work")
 	}
 	e.performMessageLoopWork()
+
+	// Match the upstream external-pump reference behavior: if CEF did not
+	// request another deadline, keep a placeholder wakeup so async work such as
+	// browser creation can continue progressing.
+	e.scheduleFallbackPumpWork(time.Now().UnixMilli())
 }
 
 // performMessageLoopWork calls DoMessageLoopWork with reentrancy protection.
@@ -359,10 +394,8 @@ func (e *Engine) performMessageLoopWork() {
 	purecef.DoMessageLoopWork()
 	e.pumpActive = false
 
-	// If CEF re-entered during the call (called OnScheduleMessagePumpWork
-	// from within DoMessageLoopWork), the atomic flag is already set.
-	// The next timer tick (within 4ms) will pick it up.
-	// For immediate re-entrant work, do one more pass now.
+	// If CEF re-entered during the call, run one more pass immediately. Any
+	// follow-up callback will have already published a fresh deadline.
 	if e.pumpReentry {
 		e.pumpActive = true
 		e.pumpReentry = false
