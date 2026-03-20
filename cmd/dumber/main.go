@@ -7,6 +7,7 @@ import (
 	"os"
 	"os/signal"
 	"runtime"
+	"strings"
 	"syscall"
 
 	"github.com/bnema/dumber/internal/application/port"
@@ -55,9 +56,6 @@ var restoreSessionID string
 func main() {
 	enableCrashForensics()
 
-	// Debug: dump args at entry to identify subprocess leakage.
-	fmt.Fprintf(os.Stderr, "cef-debug: main() entry, pid=%d args=%v\n", os.Getpid(), os.Args)
-
 	// CEF subprocess handling: when CEF re-launches the binary with
 	// --type=renderer/gpu/etc, we must call ExecuteProcess before anything
 	// else (Cobra, config, arg stripping). We detect subprocesses by the
@@ -65,9 +63,7 @@ func main() {
 	// var, because subprocesses may not inherit the environment and the
 	// engine can also be selected via config.
 	if isCEFSubprocess() {
-		fmt.Fprintf(os.Stderr, "cef: detected subprocess, args=%v\n", os.Args)
 		cef.MaybeExitSubprocess()
-		fmt.Fprintf(os.Stderr, "cef: MaybeExitSubprocess returned (browser process)\n")
 	}
 
 	// Run GUI mode for browse command
@@ -113,7 +109,7 @@ func runGUI() int {
 	}
 	timer.MarkDuration("parallel_phase", initResult.Duration)
 
-	if cfg.Engine.CEF.CEFMultiThreadedMessageLoop() && resolveEngineType(cfg) == "cef" {
+	if cfg.Engine.CEF.CEFMultiThreadedMessageLoop() && cfg.Engine.ResolveEngineType() == "cef" {
 		logging.FromContext(ctx).Info().Msg("pre-initializing libadwaita before CEF multi-threaded loop")
 		ui.EnsureAdwaitaInitialized()
 		if initResult.AdwaitaDetector != nil {
@@ -250,18 +246,6 @@ func initStartupContext(cfg *config.Config) context.Context {
 		Msg("starting dumber")
 	ctx := logging.WithContext(context.Background(), bootstrapLogger)
 	return ctx
-}
-
-// resolveEngineType returns the effective engine type from config + env override.
-func resolveEngineType(cfg *config.Config) string {
-	engineType := cfg.Engine.Type
-	if engineType == "" {
-		engineType = "webkit"
-	}
-	if envEngine := os.Getenv("DUMBER_ENGINE"); envEngine != "" {
-		engineType = envEngine
-	}
-	return engineType
 }
 
 func initStackAndRepos(
@@ -538,7 +522,7 @@ func createUseCases(repos *repositories, cfg *config.Config) *useCases {
 // this process was spawned by CEF as a renderer, GPU, or utility subprocess.
 func isCEFSubprocess() bool {
 	for _, arg := range os.Args {
-		if len(arg) > 7 && arg[:7] == "--type=" {
+		if strings.HasPrefix(arg, "--type=") {
 			return true
 		}
 	}

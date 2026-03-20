@@ -159,7 +159,7 @@ func (rp *renderPipeline) handlePaint(buffer unsafe.Pointer, width, height int32
 	startedAt := time.Now()
 	rp.mu.Lock()
 
-	bufSize := int(width) * int(height) * 4
+	bufSize := int(int64(width) * int64(height) * 4)
 	srcSlice := unsafe.Slice((*byte)(buffer), bufSize)
 	copiedBytes := uint64(0)
 

@@ -380,11 +380,9 @@ func (wv *WebView) NativeWidget() uintptr {
 func (wv *WebView) updateURI(uri string) {
 	wv.mu.Lock()
 	wv.uri = uri
+	cb := wv.callbacks
 	wv.mu.Unlock()
 
-	wv.mu.RLock()
-	cb := wv.callbacks
-	wv.mu.RUnlock()
 	if cb != nil && cb.OnURIChanged != nil {
 		wv.runOnGTK(func() {
 			cb.OnURIChanged(uri)
@@ -395,11 +393,9 @@ func (wv *WebView) updateURI(uri string) {
 func (wv *WebView) updateTitle(title string) {
 	wv.mu.Lock()
 	wv.title = title
+	cb := wv.callbacks
 	wv.mu.Unlock()
 
-	wv.mu.RLock()
-	cb := wv.callbacks
-	wv.mu.RUnlock()
 	if cb != nil && cb.OnTitleChanged != nil {
 		wv.runOnGTK(func() {
 			cb.OnTitleChanged(title)
@@ -410,11 +406,9 @@ func (wv *WebView) updateTitle(title string) {
 func (wv *WebView) updateProgress(progress float64) {
 	wv.mu.Lock()
 	wv.progress = progress
+	cb := wv.callbacks
 	wv.mu.Unlock()
 
-	wv.mu.RLock()
-	cb := wv.callbacks
-	wv.mu.RUnlock()
 	if cb != nil && cb.OnProgressChanged != nil {
 		wv.runOnGTK(func() {
 			cb.OnProgressChanged(progress)

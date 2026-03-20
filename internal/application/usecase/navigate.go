@@ -330,6 +330,10 @@ func (uc *NavigateUseCase) persistHistory(ctx context.Context, record historyRec
 func (uc *NavigateUseCase) persistTitleUpdate(ctx context.Context, historyURL, title string) {
 	log := logging.FromContext(ctx)
 
+	if title == "" {
+		return
+	}
+
 	entry, err := uc.historyRepo.FindByURL(ctx, historyURL)
 	if err != nil {
 		log.Warn().Err(err).Str("url", historyURL).Msg("failed to find history entry for title update")
@@ -354,12 +358,12 @@ func (uc *NavigateUseCase) persistTitleUpdate(ctx context.Context, historyURL, t
 // UpdateHistoryTitle queues a title update for a history entry. The actual
 // DB write happens in the background historyWorker to avoid concurrent
 // repo access from the GTK main thread and the worker goroutine.
-func (uc *NavigateUseCase) UpdateHistoryTitle(_ context.Context, historyURL, title string) error {
+func (uc *NavigateUseCase) UpdateHistoryTitle(_ context.Context, historyURL, title string) {
 	historyURL = canonicalizeURLForHistory(historyURL, historyCanonicalizationOptions{
 		StripTrackingParams: stripTrackingParamsForHistoryDedup,
 	})
 	if historyURL == "" {
-		return nil
+		return
 	}
 
 	// Non-blocking send — same queue as visit records.
@@ -368,7 +372,6 @@ func (uc *NavigateUseCase) UpdateHistoryTitle(_ context.Context, historyURL, tit
 	default:
 		// Queue full — title update is best-effort.
 	}
-	return nil
 }
 
 // Reload reloads the current page.

@@ -79,8 +79,7 @@ func TestUpdateHistoryTitle_UsesMetadataUpdateWithoutIncrementingVisits(t *testi
 	require.NotNil(t, before)
 
 	uc := NewNavigateUseCase(repo, nil, entity.ZoomDefault)
-	err = uc.UpdateHistoryTitle(ctx, "https://example.com/article", "New")
-	require.NoError(t, err)
+	uc.UpdateHistoryTitle(ctx, "https://example.com/article", "New")
 	uc.Close()
 
 	after, err := repo.FindByURL(ctx, "https://example.com/article")

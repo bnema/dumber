@@ -357,14 +357,13 @@ func (h *handlerSet) OnAfterCreated(browser purecef.Browser) {
 	h.wv.host = host
 	uri := h.wv.pendingURI
 	h.wv.pendingURI = ""
-	h.wv.mu.Unlock()
-
 	h.wv.input.setHost(host)
 
 	// Replay any navigation that was requested before the browser existed.
 	if uri != "" {
 		browser.GetMainFrame().LoadURL(uri)
 	}
+	h.wv.mu.Unlock()
 }
 
 // DoClose returns false to allow the default close behavior.

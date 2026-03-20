@@ -32,7 +32,7 @@ type Engine struct {
 	pumpTimerSource atomic.Uint64
 
 	// Diagnostic counters.
-	pumpWorkCount uint64
+	pumpWorkCount atomic.Uint64
 	scheduleCount atomic.Uint64 // OnScheduleMessagePumpWork call count (currently always 0)
 
 	contextInitializedCount atomic.Uint64
@@ -171,12 +171,12 @@ func (e *Engine) recordBrowserCreateRequest(width, height, result int32) {
 	e.browserCreateLastWidth.Store(width)
 	e.browserCreateLastHeight.Store(height)
 
-	log := logging.FromContext(e.ctx).Debug().
+	logging.FromContext(e.ctx).Debug().
 		Uint64("request_count", count).
 		Int32("width", width).
 		Int32("height", height).
 		Int32("result", result).
-		Msg
+		Msg("cef: BrowserHostCreateBrowser returned")
 	if result != 1 {
 		logging.FromContext(e.ctx).Warn().
 			Uint64("request_count", count).
@@ -184,9 +184,7 @@ func (e *Engine) recordBrowserCreateRequest(width, height, result int32) {
 			Int32("height", height).
 			Int32("result", result).
 			Msg("cef: BrowserHostCreateBrowser returned non-success")
-		return
 	}
-	log("cef: BrowserHostCreateBrowser returned")
 }
 
 func (e *Engine) recordBrowserAfterCreated(browser purecef.Browser) {
@@ -226,7 +224,7 @@ func (e *Engine) maybeLogBrowserCreateStall() {
 		Int32("last_create_result", e.browserCreateLastResult.Load()).
 		Int32("last_create_width", e.browserCreateLastWidth.Load()).
 		Int32("last_create_height", e.browserCreateLastHeight.Load()).
-		Uint64("pump_work", e.pumpWorkCount).
+		Uint64("pump_work", e.pumpWorkCount.Load()).
 		Uint64("schedule_calls", e.scheduleCount.Load()).
 		Uint64("context_initialized", e.contextInitializedCount.Load()).
 		Uint64("renderer_launches", e.childLaunchRenderer.Load()).
@@ -269,11 +267,11 @@ func (e *Engine) startManualMessagePump() {
 			return glib.SOURCE_REMOVE
 		}
 
-		e.pumpWorkCount++
+		count := e.pumpWorkCount.Add(1)
 		e.maybeLogBrowserCreateStall()
-		if e.pumpWorkCount <= 20 || e.pumpWorkCount%100 == 0 {
+		if count <= 20 || count%100 == 0 {
 			logging.FromContext(e.ctx).Debug().
-				Uint64("work", e.pumpWorkCount).
+				Uint64("work", count).
 				Int64("interval_ms", intervalMs).
 				Msg("cef: manual pump doing work")
 		}

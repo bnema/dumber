@@ -56,6 +56,9 @@ func NewEngine(ctx context.Context, cfg config.CEFEngineConfig) (*Engine, error)
 	// --no-zygote: Disable the zygote process which uses fork(). Go's runtime
 	//   does not survive fork cleanly, causing renderer crashes. Without zygote,
 	//   CEF launches each subprocess as a fresh exec of the helper binary.
+	//
+	// Thread-safety: safe because this runs during single-threaded startup
+	// before any concurrent goroutines are spawned.
 	savedArgs := os.Args
 	os.Args = appendIfMissing(os.Args, "--no-zygote")
 

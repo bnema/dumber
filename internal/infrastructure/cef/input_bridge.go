@@ -409,12 +409,18 @@ func gdkKeyvalToVKSwitch(keyval uint) int32 {
 		return 0x21
 	case gdkKeyPageDown:
 		return 0x22
-	case 0xffe1, 0xffe2: // Shift_L, Shift_R
-		return 0xA0
-	case 0xffe3, 0xffe4: // Control_L, Control_R
-		return 0xA2
-	case 0xffe9, 0xffea: // Alt_L, Alt_R
-		return 0xA4
+	case 0xffe1: // Shift_L
+		return 0xA0 // VK_LSHIFT
+	case 0xffe2: // Shift_R
+		return 0xA1 // VK_RSHIFT
+	case 0xffe3: // Control_L
+		return 0xA2 // VK_LCONTROL
+	case 0xffe4: // Control_R
+		return 0xA3 // VK_RCONTROL
+	case 0xffe9: // Alt_L
+		return 0xA4 // VK_LMENU
+	case 0xffea: // Alt_R
+		return 0xA5 // VK_RMENU
 	default:
 		// For unmapped keys, return the keyval if it fits in a reasonable range.
 		if keyval < 0x100 {

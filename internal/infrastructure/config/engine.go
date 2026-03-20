@@ -1,5 +1,21 @@
 package config
 
+import "os"
+
+// ResolveEngineType returns the effective engine type from config + env override.
+// It defaults to "webkit" when no type is configured, and allows DUMBER_ENGINE
+// to override the configured value for smoke testing.
+func (e *EngineConfig) ResolveEngineType() string {
+	engineType := e.Type
+	if engineType == "" {
+		engineType = "webkit"
+	}
+	if envEngine := os.Getenv("DUMBER_ENGINE"); envEngine != "" {
+		engineType = envEngine
+	}
+	return engineType
+}
+
 // EngineConfig holds engine selection and universal engine options.
 type EngineConfig struct {
 	Type             string             `mapstructure:"type" toml:"type" yaml:"type"`

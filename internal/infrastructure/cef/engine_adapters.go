@@ -18,19 +18,11 @@ type webViewFactoryAdapter struct {
 }
 
 func (a *webViewFactoryAdapter) Create(ctx context.Context) (port.WebView, error) {
-	wv, err := a.factory.Create(ctx)
-	if err != nil {
-		return nil, err
-	}
-	return wv, nil
+	return a.factory.Create(ctx)
 }
 
 func (a *webViewFactoryAdapter) CreateRelated(ctx context.Context, parentID port.WebViewID) (port.WebView, error) {
-	wv, err := a.factory.CreateRelated(ctx, parentID)
-	if err != nil {
-		return nil, err
-	}
-	return wv, nil
+	return a.factory.CreateRelated(ctx, parentID)
 }
 
 // --- WebViewPool adapter ---

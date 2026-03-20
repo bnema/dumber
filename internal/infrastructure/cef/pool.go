@@ -3,9 +3,11 @@ package cef
 import (
 	"context"
 	"errors"
+	"fmt"
 	"sync"
 
 	"github.com/bnema/dumber/internal/application/port"
+	"github.com/bnema/dumber/internal/logging"
 )
 
 // Compile-time interface check.
@@ -67,15 +69,20 @@ func (p *WebViewPool) Prewarm(count int) {
 	}
 
 	ctx := context.Background()
+	log := logging.FromContext(ctx)
 	views := make([]*WebView, 0, count)
 	for range count {
 		wv, err := p.factory.Create(ctx)
 		if err != nil {
+			log.Warn().Err(err).Msg("cef: pool prewarm failed to create WebView")
 			continue
 		}
-		if cefWV, ok := wv.(*WebView); ok {
-			views = append(views, cefWV)
+		cefWV, ok := wv.(*WebView)
+		if !ok {
+			log.Warn().Str("concrete_type", fmt.Sprintf("%T", wv)).Msg("cef: pool prewarm got unexpected WebView type")
+			continue
 		}
+		views = append(views, cefWV)
 	}
 
 	p.mu.Lock()

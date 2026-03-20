@@ -124,5 +124,6 @@ func (f *WebViewFactory) Create(ctx context.Context) (port.WebView, error) {
 // TODO(phase2): look up the parent browser by parentID and use the same
 // request context so cookies and session state are shared.
 func (f *WebViewFactory) CreateRelated(ctx context.Context, _ port.WebViewID) (port.WebView, error) {
+	logging.FromContext(ctx).Warn().Msg("cef: CreateRelated does not yet support session sharing, creating independent WebView")
 	return f.Create(ctx)
 }
