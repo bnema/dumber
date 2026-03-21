@@ -31,7 +31,6 @@ const scrollbarCSS = `
 ::-webkit-scrollbar-thumb {
   background: transparent;
   border-radius: 3px;
-  transition: background 0.3s ease;
 }
 .dumber-scrolling ::-webkit-scrollbar-thumb {
   background: var(--primary, rgba(128, 128, 128, 0.4));
@@ -62,7 +61,7 @@ const scrollbarAutoHideJS = `(function(){
   }
   window.addEventListener('scroll', show, {passive:true,capture:true});
   window.addEventListener('wheel', show, {passive:true});
-  window.addEventListener('mouseenter', function(e){
+  el.addEventListener('mouseenter', function(){
     if(el.scrollHeight > el.clientHeight) show();
   });
 })();`
