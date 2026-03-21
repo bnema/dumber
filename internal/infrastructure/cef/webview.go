@@ -13,12 +13,14 @@ import (
 	"github.com/bnema/puregotk/v4/glib"
 
 	"github.com/bnema/dumber/internal/application/port"
+	"github.com/bnema/dumber/internal/logging"
 )
 
 // Compile-time interface checks.
 var (
 	_ port.WebView              = (*WebView)(nil)
 	_ port.NativeWidgetProvider = (*WebView)(nil)
+	_ port.DevToolsOpener       = (*WebView)(nil)
 )
 
 // errDestroyed is returned when an operation is attempted on a destroyed WebView.
@@ -324,9 +326,34 @@ func (wv *WebView) SetZoomLevel(_ context.Context, factor float64) error {
 	if host == nil {
 		return errNoBrowser
 	}
-	host.SetZoomLevel(cefZoomFromFactor(factor))
+	cefLevel := cefZoomFromFactor(factor)
+	logging.FromContext(wv.ctx).Debug().
+		Float64("factor", factor).
+		Float64("cef_level", cefLevel).
+		Msg("cef: SetZoomLevel")
+	host.SetZoomLevel(cefLevel)
 	wv.zoomFactor.Store(factor)
 	return nil
+}
+
+// ---------------------------------------------------------------------------
+// DevTools
+// ---------------------------------------------------------------------------
+
+// OpenDevTools opens the Chromium DevTools in a separate window.
+func (wv *WebView) OpenDevTools() {
+	if wv.destroyed.Load() {
+		return
+	}
+	wv.mu.RLock()
+	host := wv.host
+	wv.mu.RUnlock()
+	if host == nil {
+		return
+	}
+	windowInfo := purecef.DefaultWindowInfo()
+	settings := purecef.DefaultBrowserSettings()
+	host.ShowDevTools(&windowInfo, nil, &settings, nil)
 }
 
 // ---------------------------------------------------------------------------

@@ -331,16 +331,38 @@ func (h *handlerSet) OnLoadError(_ purecef.Browser, _ purecef.Frame, _ purecef.E
 // LifeSpanHandler (6 methods)
 // ===========================================================================
 
-// OnBeforePopup blocks all popups.
+// OnBeforePopup intercepts popup requests (target="_blank", window.open).
+// CEF OSR cannot create popup windows, so we fire the OnCreate callback
+// to let the coordinator open the link in a new stacked pane.
 //
 //nolint:gocritic // signature imposed by purecef.LifeSpanHandler interface
 func (h *handlerSet) OnBeforePopup(
-	_ purecef.Browser, _ purecef.Frame, _ int32, _, _ string,
-	_ purecef.WindowOpenDisposition, _ int32, _ *purecef.PopupFeatures,
+	_ purecef.Browser, _ purecef.Frame, _ int32, targetURL, targetFrameName string,
+	_ purecef.WindowOpenDisposition, userGesture int32, _ *purecef.PopupFeatures,
 	_ *purecef.WindowInfo, _ *purecef.Client, _ *purecef.BrowserSettings,
 	_ *purecef.DictionaryValue, _ *bool,
 ) bool {
-	return true // block
+	if targetURL == "" {
+		return true
+	}
+
+	h.wv.mu.RLock()
+	cb := h.wv.callbacks
+	h.wv.mu.RUnlock()
+
+	if cb != nil && cb.OnCreate != nil {
+		req := port.PopupRequest{
+			TargetURI:     targetURL,
+			FrameName:     targetFrameName,
+			IsUserGesture: userGesture != 0,
+			ParentViewID:  h.wv.id,
+		}
+		h.wv.runOnGTK(func() {
+			cb.OnCreate(req)
+		})
+	}
+
+	return true // always block CEF popup; the coordinator handles the new pane
 }
 
 func (h *handlerSet) OnBeforePopupAborted(_ purecef.Browser, _ int32) {}
