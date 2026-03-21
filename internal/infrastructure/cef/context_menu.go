@@ -6,15 +6,6 @@ import (
 	"github.com/bnema/puregotk/v4/gtk"
 )
 
-// Compile-time interface check.
-var _ purecef.ContextMenuHandler = (*contextMenuHandler)(nil)
-
-// contextMenuHandler builds a native GTK4 popover from CEF's menu model.
-// In OSR mode CEF cannot render its own context menu.
-type contextMenuHandler struct {
-	wv *WebView
-}
-
 // menuEntry holds a snapshot of one CEF menu item.
 type menuEntry struct {
 	label     string
@@ -22,10 +13,14 @@ type menuEntry struct {
 	isSep     bool
 }
 
-func (h *contextMenuHandler) OnBeforeContextMenu(_ purecef.Browser, _ purecef.Frame, _ purecef.ContextMenuParams, _ purecef.MenuModel) {
+// ===========================================================================
+// ContextMenuHandler (implemented on handlerSet)
+// ===========================================================================
+
+func (h *handlerSet) OnBeforeContextMenu(_ purecef.Browser, _ purecef.Frame, _ purecef.ContextMenuParams, _ purecef.MenuModel) {
 }
 
-func (h *contextMenuHandler) RunContextMenu(
+func (h *handlerSet) RunContextMenu(
 	_ purecef.Browser, _ purecef.Frame,
 	params purecef.ContextMenuParams, model purecef.MenuModel,
 	callback purecef.RunContextMenuCallback,
@@ -60,19 +55,18 @@ func (h *contextMenuHandler) RunContextMenu(
 	y := params.GetYcoord()
 
 	h.wv.runOnGTK(func() {
-		h.showMenu(items, x, y, callback)
+		showContextMenu(h.wv, items, x, y, callback)
 	})
 	return 1
 }
 
-func (h *contextMenuHandler) showMenu(items []menuEntry, x, y int32, callback purecef.RunContextMenuCallback) {
-	glArea := h.wv.pipeline.glArea
+func showContextMenu(wv *WebView, items []menuEntry, x, y int32, callback purecef.RunContextMenuCallback) {
+	glArea := wv.pipeline.glArea
 	if glArea == nil {
 		callback.Cancel()
 		return
 	}
 
-	// Build a vertical box of buttons inside a popover.
 	box := gtk.NewBox(gtk.OrientationVerticalValue, 0)
 	box.AddCssClass("context-menu")
 
@@ -122,24 +116,24 @@ func (h *contextMenuHandler) showMenu(items []menuEntry, x, y int32, callback pu
 	popover.Popup()
 }
 
-func (h *contextMenuHandler) OnContextMenuCommand(
+func (h *handlerSet) OnContextMenuCommand(
 	_ purecef.Browser, _ purecef.Frame, _ purecef.ContextMenuParams,
 	_ int32, _ purecef.EventFlags,
 ) int32 {
 	return 0
 }
 
-func (h *contextMenuHandler) OnContextMenuDismissed(_ purecef.Browser, _ purecef.Frame) {}
+func (h *handlerSet) OnContextMenuDismissed(_ purecef.Browser, _ purecef.Frame) {}
 
-func (h *contextMenuHandler) RunQuickMenu(
+func (h *handlerSet) RunQuickMenu(
 	_ purecef.Browser, _ purecef.Frame, _ *purecef.Point, _ *purecef.Size,
 	_ purecef.QuickMenuEditStateFlags, _ purecef.RunQuickMenuCallback,
 ) int32 {
 	return 0
 }
 
-func (h *contextMenuHandler) OnQuickMenuCommand(_ purecef.Browser, _ purecef.Frame, _ int32, _ purecef.EventFlags) int32 {
+func (h *handlerSet) OnQuickMenuCommand(_ purecef.Browser, _ purecef.Frame, _ int32, _ purecef.EventFlags) int32 {
 	return 0
 }
 
-func (h *contextMenuHandler) OnQuickMenuDismissed(_ purecef.Browser, _ purecef.Frame) {}
+func (h *handlerSet) OnQuickMenuDismissed(_ purecef.Browser, _ purecef.Frame) {}

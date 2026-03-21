@@ -16,39 +16,38 @@ type handlerSet struct {
 
 // Compile-time interface checks.
 var (
-	_ purecef.Client          = (*handlerSet)(nil)
-	_ purecef.RenderHandler   = (*handlerSet)(nil)
-	_ purecef.DisplayHandler  = (*handlerSet)(nil)
-	_ purecef.LoadHandler     = (*handlerSet)(nil)
-	_ purecef.LifeSpanHandler = (*handlerSet)(nil)
-	_ purecef.RequestHandler  = (*handlerSet)(nil)
-	_ purecef.AudioHandler    = (*handlerSet)(nil)
+	_ purecef.Client             = (*handlerSet)(nil)
+	_ purecef.RenderHandler      = (*handlerSet)(nil)
+	_ purecef.DisplayHandler     = (*handlerSet)(nil)
+	_ purecef.LoadHandler        = (*handlerSet)(nil)
+	_ purecef.LifeSpanHandler    = (*handlerSet)(nil)
+	_ purecef.RequestHandler     = (*handlerSet)(nil)
+	_ purecef.AudioHandler       = (*handlerSet)(nil)
+	_ purecef.ContextMenuHandler = (*handlerSet)(nil)
 )
 
 // ===========================================================================
 // Client
 // ===========================================================================
 
-func (h *handlerSet) GetAudioHandler() purecef.AudioHandler     { return h }
-func (h *handlerSet) GetCommandHandler() purecef.CommandHandler { return nil }
-func (h *handlerSet) GetContextMenuHandler() purecef.ContextMenuHandler {
-	return &contextMenuHandler{wv: h.wv}
-}
-func (h *handlerSet) GetDialogHandler() purecef.DialogHandler         { return nil }
-func (h *handlerSet) GetDisplayHandler() purecef.DisplayHandler       { return h }
-func (h *handlerSet) GetDownloadHandler() purecef.DownloadHandler     { return nil }
-func (h *handlerSet) GetDragHandler() purecef.DragHandler             { return nil }
-func (h *handlerSet) GetFindHandler() purecef.FindHandler             { return nil }
-func (h *handlerSet) GetFocusHandler() purecef.FocusHandler           { return nil }
-func (h *handlerSet) GetFrameHandler() purecef.FrameHandler           { return nil }
-func (h *handlerSet) GetPermissionHandler() purecef.PermissionHandler { return nil }
-func (h *handlerSet) GetJsdialogHandler() purecef.JsdialogHandler     { return nil }
-func (h *handlerSet) GetKeyboardHandler() purecef.KeyboardHandler     { return nil }
-func (h *handlerSet) GetLifeSpanHandler() purecef.LifeSpanHandler     { return h }
-func (h *handlerSet) GetLoadHandler() purecef.LoadHandler             { return h }
-func (h *handlerSet) GetPrintHandler() purecef.PrintHandler           { return nil }
-func (h *handlerSet) GetRenderHandler() purecef.RenderHandler         { return h }
-func (h *handlerSet) GetRequestHandler() purecef.RequestHandler       { return h }
+func (h *handlerSet) GetAudioHandler() purecef.AudioHandler             { return h }
+func (h *handlerSet) GetCommandHandler() purecef.CommandHandler         { return nil }
+func (h *handlerSet) GetContextMenuHandler() purecef.ContextMenuHandler { return h }
+func (h *handlerSet) GetDialogHandler() purecef.DialogHandler           { return nil }
+func (h *handlerSet) GetDisplayHandler() purecef.DisplayHandler         { return h }
+func (h *handlerSet) GetDownloadHandler() purecef.DownloadHandler       { return nil }
+func (h *handlerSet) GetDragHandler() purecef.DragHandler               { return nil }
+func (h *handlerSet) GetFindHandler() purecef.FindHandler               { return nil }
+func (h *handlerSet) GetFocusHandler() purecef.FocusHandler             { return nil }
+func (h *handlerSet) GetFrameHandler() purecef.FrameHandler             { return nil }
+func (h *handlerSet) GetPermissionHandler() purecef.PermissionHandler   { return nil }
+func (h *handlerSet) GetJsdialogHandler() purecef.JsdialogHandler       { return nil }
+func (h *handlerSet) GetKeyboardHandler() purecef.KeyboardHandler       { return nil }
+func (h *handlerSet) GetLifeSpanHandler() purecef.LifeSpanHandler       { return h }
+func (h *handlerSet) GetLoadHandler() purecef.LoadHandler               { return h }
+func (h *handlerSet) GetPrintHandler() purecef.PrintHandler             { return nil }
+func (h *handlerSet) GetRenderHandler() purecef.RenderHandler           { return h }
+func (h *handlerSet) GetRequestHandler() purecef.RequestHandler         { return h }
 
 func (h *handlerSet) OnProcessMessageReceived(_ purecef.Browser, _ purecef.Frame, _ purecef.ProcessID, _ purecef.ProcessMessage) int32 {
 	return 0
