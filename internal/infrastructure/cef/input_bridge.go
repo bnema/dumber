@@ -162,11 +162,17 @@ func (ib *inputBridge) attachFocusAndKeyboard(glArea *gtk.GLArea) {
 		mods := uint(state)
 		ib.onKeyPress(keyval, keycode, mods)
 
-		// Let Ctrl/Alt modified key combos propagate to the window's
-		// ShortcutController so that app shortcuts (Ctrl+L, Ctrl+F, …)
-		// still fire. Only consume unmodified / Shift-only keys that
-		// are text input destined for CEF.
+		// Let modifier combos and function keys propagate to the window's
+		// ShortcutController so that app shortcuts (Ctrl+L, F12, Escape, …)
+		// still fire. Only consume plain text input keys.
 		if mods&uint(gdk.ControlMaskValue) != 0 || mods&uint(gdk.AltMaskValue) != 0 {
+			return false
+		}
+		// F-keys (F1–F12) and Escape are app shortcuts, not text input.
+		if keyval >= gdkKeyF1Start && keyval <= gdkKeyF12End {
+			return false
+		}
+		if keyval == gdkKeyEscape {
 			return false
 		}
 		return true

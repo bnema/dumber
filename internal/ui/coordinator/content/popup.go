@@ -316,16 +316,24 @@ func (c *Coordinator) handlePopupCreate(
 		pc.SetOnClose(func() {
 			c.handlePopupClose(ctx, popupID)
 		})
+		log.Info().
+			Uint64("popup_id", uint64(popupID)).
+			Str("pane_id", string(paneID)).
+			Str("popup_type", popupType.String()).
+			Str("target_uri", logging.TruncateURL(req.TargetURI, logURLMaxLen)).
+			Msg("popup inserted (hidden), awaiting ready-to-show for visibility")
 	} else {
-		log.Warn().Uint64("popup_id", uint64(popupID)).Msg("webview does not support popup lifecycle callbacks (PopupCapable)")
+		// Engine does not support PopupCapable (e.g. CEF OSR where we create
+		// an independent browser, not a real CEF popup). The WebView is ready
+		// immediately — fire ready-to-show inline.
+		log.Info().
+			Uint64("popup_id", uint64(popupID)).
+			Str("pane_id", string(paneID)).
+			Str("popup_type", popupType.String()).
+			Str("target_uri", logging.TruncateURL(req.TargetURI, logURLMaxLen)).
+			Msg("popup inserted, immediately ready (no PopupCapable)")
+		c.handlePopupReadyToShow(ctx, popupID)
 	}
-
-	log.Info().
-		Uint64("popup_id", uint64(popupID)).
-		Str("pane_id", string(paneID)).
-		Str("popup_type", popupType.String()).
-		Str("target_uri", logging.TruncateURL(req.TargetURI, logURLMaxLen)).
-		Msg("popup inserted (hidden), awaiting ready-to-show for visibility")
 
 	return popupWV
 }
@@ -354,12 +362,15 @@ func (c *Coordinator) handlePopupReadyToShow(ctx context.Context, popupID port.W
 		Str("popup_type", pending.PopupType.String()).
 		Msg("popup ready to show - making visible")
 
-	// Make the WebView visible now that it's ready
+	// Make the WebView visible now that it's ready.
 	if pending.WebView != nil {
 		if pc, ok := pending.WebView.(port.PopupCapable); ok {
 			pc.Show()
-		} else {
-			log.Warn().Uint64("popup_id", uint64(popupID)).Msg("webview does not support Show() (PopupCapable)")
+		}
+		// For engines that create independent browsers (not real popups),
+		// the WebView has no pending navigation — load the target URI.
+		if pending.TargetURI != "" && !pending.WebView.IsLoading() && pending.WebView.URI() == "" {
+			_ = pending.WebView.LoadURI(ctx, pending.TargetURI)
 		}
 	}
 
