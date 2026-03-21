@@ -97,5 +97,5 @@ func (n *noopSettingsApplier) ApplyToAll(_ context.Context, _ []port.WebView) {}
 type noopFaviconDatabase struct{}
 
 func (n *noopFaviconDatabase) GetFaviconAsync(_ string, callback func(port.Texture)) {
-	callback(nil)
+	go callback(nil)
 }

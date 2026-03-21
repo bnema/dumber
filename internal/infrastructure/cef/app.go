@@ -23,11 +23,17 @@ func newDumberApp(engine *Engine) purecef.App {
 	return purecef.NewApp(app)
 }
 
+// maxCmdLineLogLen limits logged command line length to avoid leaking sensitive paths.
+const maxCmdLineLogLen = 200
+
 func (a *dumberApp) OnBeforeCommandLineProcessing(processType string, commandLine purecef.CommandLine) {
 	log := logging.FromContext(a.engine.ctx)
 	cmdline := ""
 	if commandLine != nil {
 		cmdline = commandLine.GetCommandLineString()
+		if len(cmdline) > maxCmdLineLogLen {
+			cmdline = cmdline[:maxCmdLineLogLen] + "…"
+		}
 	}
 	log.Debug().
 		Str("process_type", processType).

@@ -241,16 +241,27 @@ func (uc *NavigateUseCase) historyWorker() {
 	}
 
 	flushPending := func() {
-
-		for historyURL, visits := range pendingVisits {
-			uc.persistHistory(uc.ctx, historyRecord{url: historyURL, visits: visits})
+		visitCount := len(pendingVisits)
+		titleCount := len(pendingTitles)
+		if visitCount == 0 && titleCount == 0 {
+			return
 		}
-		clear(pendingVisits)
 
-		for historyURL, title := range pendingTitles {
+		log.Debug().Int("visits", visitCount).Int("titles", titleCount).Msg("flushing pending history")
+
+		// Swap maps to avoid concurrent iteration/write issues
+		// (persist callbacks may re-enqueue records).
+		visits := pendingVisits
+		titles := pendingTitles
+		pendingVisits = make(map[string]int)
+		pendingTitles = make(map[string]string)
+
+		for historyURL, v := range visits {
+			uc.persistHistory(uc.ctx, historyRecord{url: historyURL, visits: v})
+		}
+		for historyURL, title := range titles {
 			uc.persistTitleUpdate(uc.ctx, historyURL, title)
 		}
-		clear(pendingTitles)
 	}
 
 	drainQueue := func() {
@@ -371,7 +382,7 @@ func (uc *NavigateUseCase) UpdateHistoryTitle(_ context.Context, historyURL, tit
 	select {
 	case uc.historyQueue <- historyRecord{url: historyURL, title: title}:
 	default:
-		// Queue full — title update is best-effort.
+		logging.FromContext(uc.ctx).Warn().Str("url", historyURL).Msg("history queue full, title update dropped")
 	}
 }
 

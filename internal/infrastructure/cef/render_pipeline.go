@@ -528,6 +528,7 @@ func (rp *renderPipeline) buildShaderProgram() uint32 {
 }
 
 // compileShader compiles a single GLSL shader and returns its GL handle.
+// TODO: add glGetShaderiv + glGetShaderInfoLog to gl_loader to check compilation status.
 func compileShader(gl *glLoader, shaderType uint32, source string) uint32 {
 	shader := gl.createShader(shaderType)
 

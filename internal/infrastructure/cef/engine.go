@@ -46,7 +46,7 @@ type Engine struct {
 	browserCreateLastResult  atomic.Int32
 	browserCreateLastWidth   atomic.Int32
 	browserCreateLastHeight  atomic.Int32
-	lastStallLoggedCreateSeq uint64
+	lastStallLoggedCreateSeq atomic.Uint64
 }
 
 // Factory returns the WebViewFactory for creating new WebView instances.
@@ -79,9 +79,12 @@ func (e *Engine) FaviconDatabase() port.FaviconDatabase {
 	return &noopFaviconDatabase{}
 }
 
+// internalSchemePath is the URI scheme used for internal app resources.
+const internalSchemePath = "cef://dumber/"
+
 // InternalSchemePath returns the URI scheme used for internal app resources.
 func (e *Engine) InternalSchemePath() string {
-	return "cef://dumber/"
+	return internalSchemePath
 }
 
 // Close releases all resources held by the engine.
@@ -205,7 +208,7 @@ func (e *Engine) recordBrowserAfterCreated(browser purecef.Browser) {
 
 func (e *Engine) maybeLogBrowserCreateStall() {
 	createCount := e.browserCreateRequests.Load()
-	if createCount == 0 || createCount == e.browserAfterCreated.Load() || createCount == e.lastStallLoggedCreateSeq {
+	if createCount == 0 || createCount == e.browserAfterCreated.Load() || createCount == e.lastStallLoggedCreateSeq.Load() {
 		return
 	}
 
@@ -219,7 +222,7 @@ func (e *Engine) maybeLogBrowserCreateStall() {
 		return
 	}
 
-	e.lastStallLoggedCreateSeq = createCount
+	e.lastStallLoggedCreateSeq.Store(createCount)
 	logging.FromContext(e.ctx).Warn().
 		Uint64("create_requests", createCount).
 		Uint64("after_created", e.browserAfterCreated.Load()).

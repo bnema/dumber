@@ -68,7 +68,7 @@ func (p *WebViewPool) Prewarm(count int) {
 		return
 	}
 
-	ctx := context.Background()
+	ctx := p.factory.engine.ctx
 	log := logging.FromContext(ctx)
 	views := make([]*WebView, 0, count)
 	for range count {
@@ -80,6 +80,7 @@ func (p *WebViewPool) Prewarm(count int) {
 		cefWV, ok := wv.(*WebView)
 		if !ok {
 			log.Warn().Str("concrete_type", fmt.Sprintf("%T", wv)).Msg("cef: pool prewarm got unexpected WebView type")
+			wv.Destroy()
 			continue
 		}
 		views = append(views, cefWV)

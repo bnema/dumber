@@ -219,8 +219,9 @@ func (ib *inputBridge) onMousePress(x, y float64, button, mods uint, clickCount 
 	}
 
 	// Middle-click on a link opens in a new tab instead of sending to CEF.
+	// The URI is resolved by the callback closure (factory wiring reads wv.lastHoverURI).
 	if button == 2 && middleCB != nil {
-		middleCB("")
+		go middleCB("")
 		return
 	}
 

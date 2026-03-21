@@ -105,17 +105,20 @@ func NewEngine(ctx context.Context, cfg config.CEFEngineConfig) (*Engine, error)
 
 	// 4. Detect HiDPI scale from the primary monitor.
 	scale := int32(1)
-	if display := gdk.DisplayGetDefault(); display != nil {
-		if monitors := display.GetMonitors(); monitors != nil {
-			obj := monitors.GetObject(0)
-			if obj != nil {
-				mon := &gdk.Monitor{}
-				mon.SetGoPointer(obj.GoPointer())
-				if s := mon.GetScaleFactor(); s > 0 {
-					scale = int32(s)
-					logger.Info().Int32("scale", scale).Msg("cef: detected HiDPI scale from monitor")
-				}
-			}
+	if display := gdk.DisplayGetDefault(); display == nil {
+		logger.Debug().Msg("cef: no GDK display available, using scale=1")
+	} else if monitors := display.GetMonitors(); monitors == nil {
+		logger.Debug().Msg("cef: no monitors found, using scale=1")
+	} else if obj := monitors.GetObject(0); obj == nil {
+		logger.Debug().Msg("cef: primary monitor not available, using scale=1")
+	} else {
+		mon := &gdk.Monitor{}
+		mon.SetGoPointer(obj.GoPointer())
+		if s := mon.GetScaleFactor(); s > 0 {
+			scale = int32(s)
+			logger.Info().Int32("scale", scale).Msg("cef: detected HiDPI scale from monitor")
+		} else {
+			logger.Debug().Msg("cef: monitor scale factor <= 0, using scale=1")
 		}
 	}
 
@@ -140,8 +143,6 @@ func appendIfMissing(args []string, flag string) []string {
 	return append(args, flag)
 }
 
-// findHelperBinary looks for the cef-helper binary next to the running
-// executable. Returns empty string if not found.
 // cleanStaleSingletonLocks removes CEF's SingletonLock/Socket/Cookie files
 // if the owning process is no longer running. CEF leaves these behind on
 // unclean shutdown (SIGKILL, SIGSEGV) and the next instance crashes trying
@@ -156,12 +157,13 @@ func cleanStaleSingletonLocks(logger *zerolog.Logger) {
 		return // No lock file or not a symlink — nothing to clean.
 	}
 
-	// SingletonLock is a symlink to "hostname-pid".
-	parts := strings.SplitN(target, "-", 2)
-	if len(parts) != 2 {
+	// SingletonLock is a symlink to "hostname-pid". Split from the right
+	// because hostnames may contain hyphens.
+	lastDash := strings.LastIndex(target, "-")
+	if lastDash < 0 || lastDash == len(target)-1 {
 		return
 	}
-	pid, err := strconv.Atoi(parts[1])
+	pid, err := strconv.Atoi(target[lastDash+1:])
 	if err != nil || pid <= 0 {
 		return
 	}
@@ -184,6 +186,8 @@ func cleanStaleSingletonLocks(logger *zerolog.Logger) {
 	}
 }
 
+// findHelperBinary looks for the cef-helper binary next to the running
+// executable. Returns empty string if not found.
 func findHelperBinary() string {
 	exe, err := os.Executable()
 	if err != nil {

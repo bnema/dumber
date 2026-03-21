@@ -48,7 +48,7 @@ type WebView struct {
 
 	// crashCount tracks consecutive renderer crashes to prevent infinite
 	// crash → redirect → crash loops.
-	crashCount int32
+	crashCount atomic.Int32
 
 	// Callbacks set by use case layer.
 	mu        sync.RWMutex
@@ -108,7 +108,9 @@ func (wv *WebView) LoadURI(_ context.Context, uri string) error {
 		return nil
 	}
 	wv.mu.Unlock()
-	browser.GetMainFrame().LoadURL(uri)
+	if frame := browser.GetMainFrame(); frame != nil {
+		frame.LoadURL(uri)
+	}
 	return nil
 }
 
@@ -124,7 +126,9 @@ func (wv *WebView) LoadHTML(_ context.Context, content, _ string) error {
 		return errNoBrowser
 	}
 	dataURL := "data:text/html;base64," + base64.StdEncoding.EncodeToString([]byte(content))
-	browser.GetMainFrame().LoadURL(dataURL)
+	if frame := browser.GetMainFrame(); frame != nil {
+		frame.LoadURL(dataURL)
+	}
 	return nil
 }
 
@@ -360,7 +364,9 @@ func (wv *WebView) RunJavaScript(_ context.Context, script string) {
 	if browser == nil {
 		return
 	}
-	browser.GetMainFrame().ExecuteJavaScript(script, "", 0)
+	if frame := browser.GetMainFrame(); frame != nil {
+		frame.ExecuteJavaScript(script, "", 0)
+	}
 }
 
 // colorScale converts a 0.0–1.0 color component to an 8-bit integer.
@@ -496,8 +502,10 @@ func (wv *WebView) runOnGTK(fn func()) {
 		return
 	}
 
-	cb := glib.SourceOnceFunc(func(_ uintptr) {
+	// Heap-allocate the callback so it survives until glib invokes it.
+	cb := new(glib.SourceOnceFunc)
+	*cb = func(_ uintptr) {
 		fn()
-	})
-	glib.IdleAddOnce(&cb, 0)
+	}
+	glib.IdleAddOnce(cb, 0)
 }

@@ -304,7 +304,7 @@ func (h *handlerSet) OnLoadEnd(_ purecef.Browser, frame purecef.Frame, httpStatu
 		return
 	}
 	// Successful load — reset the consecutive crash counter.
-	h.wv.crashCount = 0
+	h.wv.crashCount.Store(0)
 
 	h.wv.mu.RLock()
 	cb := h.wv.callbacks
@@ -355,12 +355,12 @@ func (h *handlerSet) OnBeforeDevToolsPopup(
 // OnAfterCreated stores the browser and host references and enables input.
 func (h *handlerSet) OnAfterCreated(browser purecef.Browser) {
 	log := logging.FromContext(h.wv.ctx)
-	browserID := int32(0)
-	if browser != nil {
-		browserID = browser.GetIdentifier()
+	if browser == nil {
+		log.Warn().Msg("cef: OnAfterCreated called with nil browser")
+		return
 	}
+	browserID := browser.GetIdentifier()
 	log.Debug().
-		Bool("browser_nil", browser == nil).
 		Int32("browser_id", browserID).
 		Msg("cef: OnAfterCreated")
 	if h.wv.engine != nil {
@@ -377,7 +377,9 @@ func (h *handlerSet) OnAfterCreated(browser purecef.Browser) {
 
 	// Replay any navigation that was requested before the browser existed.
 	if uri != "" {
-		browser.GetMainFrame().LoadURL(uri)
+		if frame := browser.GetMainFrame(); frame != nil {
+			frame.LoadURL(uri)
+		}
 	}
 	h.wv.mu.Unlock()
 }
@@ -451,8 +453,7 @@ const maxConsecutiveCrashes = 3
 
 // OnRenderProcessTerminated fires the OnWebProcessTerminated callback with a mapped reason.
 func (h *handlerSet) OnRenderProcessTerminated(_ purecef.Browser, status purecef.TerminationStatus, _ int32, _ string) {
-	h.wv.crashCount++
-	if h.wv.crashCount > maxConsecutiveCrashes {
+	if h.wv.crashCount.Add(1) > maxConsecutiveCrashes {
 		return // suppress to break the loop
 	}
 
