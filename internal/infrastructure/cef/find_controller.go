@@ -16,7 +16,6 @@ type cefFindController struct {
 	mu        sync.RWMutex
 	host      purecef.BrowserHost
 	searchTxt string
-	lastID    int32 // incremental identifier for the current search
 	matchCase int32 // cached from most recent Search call
 
 	// counting tracks whether the current search is a CountMatches request
@@ -48,7 +47,6 @@ func (fc *cefFindController) setHost(host purecef.BrowserHost) {
 func (fc *cefFindController) Search(text string, opts port.FindOptions, _ uint) {
 	fc.mu.Lock()
 	fc.searchTxt = text
-	fc.lastID++
 	fc.counting = false
 	mc := matchCaseFromOpts(opts)
 	fc.matchCase = mc
@@ -65,7 +63,6 @@ func (fc *cefFindController) Search(text string, opts port.FindOptions, _ uint) 
 func (fc *cefFindController) CountMatches(text string, opts port.FindOptions, _ uint) {
 	fc.mu.Lock()
 	fc.searchTxt = text
-	fc.lastID++
 	fc.counting = true
 	mc := matchCaseFromOpts(opts)
 	fc.matchCase = mc
@@ -206,14 +203,18 @@ func (fc *cefFindController) handleFindResult(_, count, _, finalUpdate int32) {
 	}
 	fc.mu.RUnlock()
 
+	var safeCount uint
+	if count > 0 {
+		safeCount = uint(count)
+	}
 	for _, cb := range foundCBs {
-		cb(uint(count))
+		cb(safeCount)
 	}
 	for _, cb := range failedCBs {
 		cb()
 	}
 	for _, cb := range countedCBs {
-		cb(uint(count))
+		cb(safeCount)
 	}
 }
 

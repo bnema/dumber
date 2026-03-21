@@ -33,6 +33,7 @@ func NewEngine(ctx context.Context, cfg config.CEFEngineConfig) (*Engine, error)
 	settings := prepareCEFSettings(cfg, logger)
 
 	// Inject --no-zygote temporarily for cef_initialize, then restore.
+	// Safe: runs during single-threaded startup before concurrent goroutines.
 	savedArgs := os.Args
 	os.Args = appendIfMissing(os.Args, "--no-zygote")
 
@@ -144,7 +145,11 @@ func wireEngine(
 	schemeHandler.setAssets(assets.WebUIAssets)
 
 	result := purecef.RegisterSchemeHandlerFactory("dumb", "", purecef.NewSchemeHandlerFactory(schemeHandler))
-	logger.Info().Int32("result", result).Msg("cef: registered dumb:// scheme handler factory")
+	if result != 1 {
+		logger.Error().Int32("result", result).Msg("cef: failed to register dumb:// scheme handler factory")
+	} else {
+		logger.Info().Msg("cef: registered dumb:// scheme handler factory")
+	}
 
 	eng.messageRouter = messageRouter
 	eng.schemeHandler = schemeHandler

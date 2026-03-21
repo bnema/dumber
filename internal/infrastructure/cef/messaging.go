@@ -64,7 +64,9 @@ func (r *MessageRouter) SetBaseContext(ctx context.Context) {
 	if ctx == nil {
 		ctx = context.Background()
 	}
+	r.mu.Lock()
 	r.baseCtx = ctx
+	r.mu.Unlock()
 }
 
 // RegisterHandler registers a handler for a message type.
@@ -108,7 +110,10 @@ func (r *MessageRouter) RegisterHandlerWithCallbacks(msgType, callback, errorCal
 // HandleMessage decodes a raw JSON message body and routes it to the correct handler.
 // Returns the JSON-encoded response. Called by the scheme handler for /api/message POST.
 func (r *MessageRouter) HandleMessage(ctx context.Context, webviewID uint64, body []byte) ([]byte, error) {
-	log := logging.FromContext(r.baseCtx).With().Str("component", "message-router").Logger()
+	r.mu.RLock()
+	baseCtx := r.baseCtx
+	r.mu.RUnlock()
+	log := logging.FromContext(baseCtx).With().Str("component", "message-router").Logger()
 
 	var msg Message
 	if err := json.Unmarshal(body, &msg); err != nil {
@@ -133,14 +138,14 @@ func (r *MessageRouter) HandleMessage(ctx context.Context, webviewID uint64, bod
 		return json.Marshal(map[string]string{"error": "unknown message type: " + msg.Type})
 	}
 
-	log.Info().
+	log.Debug().
 		Str("type", msg.Type).
 		Uint64("webview_id", msg.WebViewID).
 		Int("payload_len", len(msg.Payload)).
 		Msg("dispatching message to handler")
 
 	if ctx == nil {
-		ctx = r.baseCtx
+		ctx = baseCtx
 	}
 	resp, err := entry.handler.Handle(ctx, msg.WebViewID, msg.Payload)
 	if err != nil {

@@ -36,6 +36,7 @@ type dumbSchemeHandler struct {
 	ctx           context.Context
 	messageRouter *MessageRouter
 	assets        embed.FS
+	assetsSet     bool
 	assetDir      string
 	logger        zerolog.Logger
 	mu            sync.RWMutex
@@ -57,6 +58,7 @@ func (h *dumbSchemeHandler) setAssets(assets embed.FS) {
 	h.mu.Lock()
 	defer h.mu.Unlock()
 	h.assets = assets
+	h.assetsSet = true
 	h.logger.Debug().Msg("assets filesystem configured")
 }
 
@@ -129,7 +131,7 @@ func (h *dumbSchemeHandler) handleConfigAPI(cfg *config.Config) purecef.Resource
 // handleAsset serves static files from the embedded filesystem.
 func (h *dumbSchemeHandler) handleAsset(u *url.URL) purecef.ResourceHandler {
 	h.mu.RLock()
-	hasAssets := h.assets != (embed.FS{})
+	hasAssets := h.assetsSet
 	assetDir := h.assetDir
 	h.mu.RUnlock()
 
@@ -265,12 +267,16 @@ func (h *dumbSchemeHandler) newRawResourceHandler(status int, contentType string
 }
 
 func (h *dumbSchemeHandler) newErrorResourceHandler(status int, msg string) purecef.ResourceHandler {
-	body := fmt.Sprintf(`<!DOCTYPE html><html><body><h1>%d</h1><p>%s</p></body></html>`, status, msg)
+	escaped := strings.ReplaceAll(strings.ReplaceAll(msg, "&", "&amp;"), "<", "&lt;")
+	body := fmt.Sprintf(`<!DOCTYPE html><html><body><h1>%d</h1><p>%s</p></body></html>`, status, escaped)
 	return h.newRawResourceHandler(status, "text/html; charset=utf-8", []byte(body))
 }
 
 func (h *dumbSchemeHandler) newJSONResourceHandler(status int, v any) purecef.ResourceHandler {
-	data, _ := json.Marshal(v)
+	data, err := json.Marshal(v)
+	if err != nil {
+		return h.newErrorResourceHandler(http.StatusInternalServerError, "JSON encoding failed")
+	}
 	return h.newRawResourceHandler(status, "application/json", data)
 }
 

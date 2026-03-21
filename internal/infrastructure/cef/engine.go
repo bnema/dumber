@@ -97,9 +97,7 @@ func (e *Engine) FaviconDatabase() port.FaviconDatabase {
 // engine creation (e.g., from bootstrap wiring).
 func (e *Engine) SetColorResolver(resolver port.ColorSchemeResolver) {
 	if e.contentInj != nil {
-		e.contentInj.mu.Lock()
-		e.contentInj.colorResolver = resolver
-		e.contentInj.mu.Unlock()
+		e.contentInj.setColorResolver(resolver)
 	}
 }
 
@@ -138,15 +136,13 @@ func (e *Engine) RegisterHandlers(ctx context.Context, deps port.HandlerDependen
 		return nil
 	}
 	log := logging.FromContext(ctx)
-	log.Debug().Msg("cef: registering message handlers (deps available, handler wiring pending)")
-
 	// TODO: Wire homepage, config, keybindings, and clipboard handlers
 	// into e.messageRouter. Each handler implements MessageHandler and is
 	// registered by message type (e.g. "get_recent_history", "get_favorites").
 	// The CEF MessageRouter dispatches based on Message.Type from the JS bridge.
 	_ = deps
 
-	log.Info().Msg("cef: message handlers registered")
+	log.Warn().Msg("cef: RegisterHandlers stub — handler wiring not yet implemented")
 	return nil
 }
 

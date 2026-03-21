@@ -15,7 +15,7 @@ var _ port.ContentInjector = (*contentInjector)(nil)
 
 // internalSchemePrefix is used to detect internal pages that receive dark mode
 // and message bridge scripts. Must match the engine's InternalSchemePath prefix.
-const internalSchemePrefix = "cef://dumber"
+const internalSchemePrefix = "dumb://"
 
 // contentInjector implements port.ContentInjector for the CEF engine.
 // It stores CSS strings and injects them into webviews via ExecuteJavaScript.
@@ -27,6 +27,13 @@ type contentInjector struct {
 	findHighlightCSS string
 	engine           *Engine
 	colorResolver    port.ColorSchemeResolver
+}
+
+// setColorResolver updates the color scheme resolver used for dark mode detection.
+func (ci *contentInjector) setColorResolver(resolver port.ColorSchemeResolver) {
+	ci.mu.Lock()
+	defer ci.mu.Unlock()
+	ci.colorResolver = resolver
 }
 
 // newContentInjector creates a content injector wired to the given engine.
@@ -125,12 +132,13 @@ func (ci *contentInjector) onLoadEnd(wv *WebView) {
 
 // injectCSS injects a CSS string as a <style> element via JavaScript.
 func (ci *contentInjector) injectCSS(wv *WebView, id, css string) {
+	escapedID := escapeForJSString(id)
 	escaped := escapeForJSString(css)
 	script := fmt.Sprintf(`(function(){
   var el = document.getElementById('%s');
   if (!el) { el = document.createElement('style'); el.id = '%s'; document.head.appendChild(el); }
   el.textContent = '%s';
-})();`, id, id, escaped)
+})();`, escapedID, escapedID, escaped)
 
 	wv.RunJavaScript(context.Background(), script)
 }
@@ -191,24 +199,10 @@ func (ci *contentInjector) injectDarkModeScript(wv *WebView, prefersDark bool) {
 
 // injectMessageBridgeShim injects the window.dumber.postMessage JS client shim
 // so internal pages can communicate with Go handlers via fetch.
+// The message body is base64-encoded into the X-Dumber-Body header to work
+// around purego-cef's unexported PostData element wrapper.
 func (ci *contentInjector) injectMessageBridgeShim(wv *WebView) {
-	const script = `(function() {
-  window.dumber = window.dumber || {};
-  window.dumber.postMessage = function(msg) {
-    return fetch('/api/message', {
-      method: 'POST',
-      headers: {'Content-Type': 'application/json'},
-      body: JSON.stringify(msg)
-    }).then(function(r) { return r.json(); }).then(function(resp) {
-      if (resp && resp._callback && window[resp._callback]) {
-        window[resp._callback](resp.data);
-      }
-      return resp;
-    });
-  };
-})();`
-
-	wv.RunJavaScript(context.Background(), script)
+	wv.RunJavaScript(context.Background(), MessageBridgeJS)
 }
 
 // escapeForJSString escapes a string for use inside a JS single-quoted string literal.
@@ -217,5 +211,7 @@ func escapeForJSString(s string) string {
 	s = strings.ReplaceAll(s, "'", "\\'")
 	s = strings.ReplaceAll(s, "\n", "\\n")
 	s = strings.ReplaceAll(s, "\r", "\\r")
+	s = strings.ReplaceAll(s, "\u2028", "\\u2028")
+	s = strings.ReplaceAll(s, "\u2029", "\\u2029")
 	return s
 }
