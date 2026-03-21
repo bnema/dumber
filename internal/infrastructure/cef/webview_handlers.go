@@ -30,7 +30,7 @@ var (
 // Client
 // ===========================================================================
 
-func (h *handlerSet) GetAudioHandler() purecef.AudioHandler             { return h }
+func (h *handlerSet) GetAudioHandler() purecef.AudioHandler             { return nil }
 func (h *handlerSet) GetCommandHandler() purecef.CommandHandler         { return nil }
 func (h *handlerSet) GetContextMenuHandler() purecef.ContextMenuHandler { return nil }
 func (h *handlerSet) GetDialogHandler() purecef.DialogHandler           { return nil }
