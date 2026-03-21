@@ -8,7 +8,6 @@ import (
 	"time"
 
 	"github.com/bnema/dumber/internal/domain/entity"
-	"github.com/bnema/dumber/internal/domain/repository"
 	repomocks "github.com/bnema/dumber/internal/domain/repository/mocks"
 	"github.com/bnema/dumber/internal/infrastructure/persistence/sqlite"
 	"github.com/stretchr/testify/mock"
@@ -94,138 +93,61 @@ func TestUpdateHistoryTitle_UsesMetadataUpdateWithoutIncrementingVisits(t *testi
 
 func TestHistoryWorker_ReenqueueDuringFlushIsPersistedOnShutdown(t *testing.T) {
 	ctx := context.Background()
-	repo := newHistoryWorkerRegressionRepo()
 
+	// Stateful store — Save writes here, FindByURL reads from here.
+	var mu sync.Mutex
+	store := make(map[string]*entity.HistoryEntry)
+
+	// Fires once during the first Save to re-enqueue a title update while
+	// the flush is in progress. This is the exact race that caused the
+	// concurrent map crash (fixed by swapping maps in flushPending).
+	var saveOnce sync.Once
 	var uc *NavigateUseCase
-	repo.onSave = func(entry *entity.HistoryEntry) {
-		if entry.URL != "https://example.com/article" {
-			return
-		}
-		uc.UpdateHistoryTitle(ctx, entry.URL, "Queued title")
-	}
+
+	repo := repomocks.NewMockHistoryRepository(t)
+
+	repo.EXPECT().FindByURL(mock.Anything, mock.Anything).RunAndReturn(
+		func(_ context.Context, url string) (*entity.HistoryEntry, error) {
+			mu.Lock()
+			defer mu.Unlock()
+			e := store[url]
+			if e == nil {
+				return nil, nil
+			}
+			clone := *e
+			return &clone, nil
+		},
+	).Maybe()
+
+	repo.EXPECT().Save(mock.Anything, mock.Anything).RunAndReturn(
+		func(_ context.Context, entry *entity.HistoryEntry) error {
+			clone := *entry
+			mu.Lock()
+			store[entry.URL] = &clone
+			mu.Unlock()
+
+			// Re-enqueue a title update during the first Save.
+			saveOnce.Do(func() {
+				if entry.URL == "https://example.com/article" {
+					uc.UpdateHistoryTitle(ctx, entry.URL, "Queued title")
+				}
+			})
+			return nil
+		},
+	).Maybe()
 
 	uc = NewNavigateUseCase(repo, nil, entity.ZoomDefault)
 	uc.RecordHistory(ctx, "pane-1", "https://example.com/article")
 
-	// The history worker flushes on a timer; there is no exported sync/flush
-	// mechanism we can hook into, so we sleep for 3× the flush interval to
-	// give it a comfortable margin before shutting down.
+	// The history worker flushes on a timer; there is no exported sync
+	// mechanism, so sleep 3× the flush interval before shutting down.
 	time.Sleep(historyWorkerFlushInterval * 3)
 	uc.Close()
 
-	entry, err := repo.FindByURL(ctx, "https://example.com/article")
-	require.NoError(t, err)
+	mu.Lock()
+	entry := store["https://example.com/article"]
+	mu.Unlock()
 	require.NotNil(t, entry)
 	require.Equal(t, int64(1), entry.VisitCount)
 	require.Equal(t, "Queued title", entry.Title)
 }
-
-// historyWorkerRegressionRepo is a hand-rolled fake instead of a mockery
-// mock because mockery cannot express the re-enqueue-during-Save callback
-// pattern needed for this regression test (onSave fires a second write
-// back into the use-case while the first Save is still in progress).
-type historyWorkerRegressionRepo struct {
-	mu     sync.Mutex
-	byURL  map[string]*entity.HistoryEntry
-	saveMu sync.Once
-	onSave func(*entity.HistoryEntry)
-}
-
-func newHistoryWorkerRegressionRepo() *historyWorkerRegressionRepo {
-	return &historyWorkerRegressionRepo{
-		byURL: make(map[string]*entity.HistoryEntry),
-	}
-}
-
-func (r *historyWorkerRegressionRepo) Save(_ context.Context, entry *entity.HistoryEntry) error {
-	clone := *entry
-
-	r.mu.Lock()
-	r.byURL[entry.URL] = &clone
-	r.mu.Unlock()
-
-	if r.onSave != nil {
-		r.saveMu.Do(func() {
-			r.onSave(&clone)
-		})
-	}
-	return nil
-}
-
-func (r *historyWorkerRegressionRepo) FindByURL(_ context.Context, url string) (*entity.HistoryEntry, error) {
-	r.mu.Lock()
-	defer r.mu.Unlock()
-	entry := r.byURL[url]
-	if entry == nil {
-		return nil, nil
-	}
-	clone := *entry
-	return &clone, nil
-}
-
-func (*historyWorkerRegressionRepo) Search(context.Context, string, int) ([]entity.HistoryMatch, error) {
-	return nil, nil
-}
-
-func (*historyWorkerRegressionRepo) GetRecent(context.Context, int, int) ([]*entity.HistoryEntry, error) {
-	return nil, nil
-}
-
-func (*historyWorkerRegressionRepo) GetRecentSince(context.Context, int) ([]*entity.HistoryEntry, error) {
-	return nil, nil
-}
-
-func (*historyWorkerRegressionRepo) GetMostVisited(context.Context, int) ([]*entity.HistoryEntry, error) {
-	return nil, nil
-}
-
-func (*historyWorkerRegressionRepo) GetAllRecentHistory(context.Context) ([]*entity.HistoryEntry, error) {
-	return nil, nil
-}
-
-func (*historyWorkerRegressionRepo) GetAllMostVisited(context.Context) ([]*entity.HistoryEntry, error) {
-	return nil, nil
-}
-
-func (r *historyWorkerRegressionRepo) IncrementVisitCount(_ context.Context, url string) error {
-	r.mu.Lock()
-	defer r.mu.Unlock()
-	if entry := r.byURL[url]; entry != nil {
-		entry.VisitCount++
-	}
-	return nil
-}
-
-func (*historyWorkerRegressionRepo) Delete(context.Context, int64) error {
-	return nil
-}
-
-func (*historyWorkerRegressionRepo) DeleteOlderThan(context.Context, time.Time) error {
-	return nil
-}
-
-func (*historyWorkerRegressionRepo) DeleteAll(context.Context) error {
-	return nil
-}
-
-func (*historyWorkerRegressionRepo) DeleteByDomain(context.Context, string) error {
-	return nil
-}
-
-func (*historyWorkerRegressionRepo) GetStats(context.Context) (*entity.HistoryStats, error) {
-	return nil, nil
-}
-
-func (*historyWorkerRegressionRepo) GetDomainStats(context.Context, int) ([]*entity.DomainStat, error) {
-	return nil, nil
-}
-
-func (*historyWorkerRegressionRepo) GetHourlyDistribution(context.Context) ([]*entity.HourlyDistribution, error) {
-	return nil, nil
-}
-
-func (*historyWorkerRegressionRepo) GetDailyVisitCount(context.Context, string) ([]*entity.DailyVisitCount, error) {
-	return nil, nil
-}
-
-var _ repository.HistoryRepository = (*historyWorkerRegressionRepo)(nil)
