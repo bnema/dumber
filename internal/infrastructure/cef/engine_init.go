@@ -257,6 +257,8 @@ func prepareCEFLogFile(cfg config.CEFEngineConfig) (string, error) {
 		return runtimeLogFile, nil
 	}
 
+	// Dev-mode default: logs go into .dev/dumber/logs/ relative to CWD.
+	// Production deployments should set cfg.LogFile explicitly.
 	cwd, cwdErr := os.Getwd()
 	if cwdErr != nil {
 		return "", fmt.Errorf("getwd: %w", cwdErr)

@@ -107,8 +107,10 @@ func TestHistoryWorker_ReenqueueDuringFlushIsPersistedOnShutdown(t *testing.T) {
 	uc = NewNavigateUseCase(repo, nil, entity.ZoomDefault)
 	uc.RecordHistory(ctx, "pane-1", "https://example.com/article")
 
-	// Give the worker enough time to hit the periodic flush before shutdown.
-	time.Sleep(historyWorkerFlushInterval * 2)
+	// The history worker flushes on a timer; there is no exported sync/flush
+	// mechanism we can hook into, so we sleep for 3× the flush interval to
+	// give it a comfortable margin before shutting down.
+	time.Sleep(historyWorkerFlushInterval * 3)
 	uc.Close()
 
 	entry, err := repo.FindByURL(ctx, "https://example.com/article")
@@ -118,6 +120,10 @@ func TestHistoryWorker_ReenqueueDuringFlushIsPersistedOnShutdown(t *testing.T) {
 	require.Equal(t, "Queued title", entry.Title)
 }
 
+// historyWorkerRegressionRepo is a hand-rolled fake instead of a mockery
+// mock because mockery cannot express the re-enqueue-during-Save callback
+// pattern needed for this regression test (onSave fires a second write
+// back into the use-case while the first Save is still in progress).
 type historyWorkerRegressionRepo struct {
 	mu     sync.Mutex
 	byURL  map[string]*entity.HistoryEntry
