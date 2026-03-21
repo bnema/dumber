@@ -7,8 +7,7 @@ import (
 	"unicode/utf8"
 
 	"github.com/bnema/dumber/internal/application/port"
-	"github.com/bnema/dumber/internal/infrastructure/webkit"
-	"github.com/bnema/dumber/internal/infrastructure/webkit/handlers/homepage"
+	"github.com/bnema/dumber/internal/infrastructure/handlers/homepage"
 )
 
 // AccentKeyHandler is implemented by the InsertAccentUseCase to receive
@@ -17,49 +16,43 @@ import (
 // Deprecated: use port.AccentKeyHandler instead. This alias is kept for compatibility.
 type AccentKeyHandler = port.AccentKeyHandler
 
-// Config holds all dependencies for message handlers.
-type Config struct {
-	HistoryUC      port.HomepageHistory
-	FavoritesUC    port.HomepageFavorites
-	Clipboard      port.Clipboard
-	AutoCopyConfig port.AutoCopyConfig
-	SaveConfig     func(context.Context, port.WebUIConfig) error // Pre-built by bootstrap (usecase.SaveWebUIConfigUseCase.Execute)
-	// KeybindingsHandler is required (not optional like other handlers) because the WebUI
-	// always needs keybinding read/write support regardless of configuration.
-	KeybindingsHandler *KeybindingsHandler // Pre-built by bootstrap
-	OnClipboardCopied  func(textLen int)   // Called when auto-copy completes (for toast notification)
-}
-
 // RegisterAll registers all message handlers with the router.
-func RegisterAll(ctx context.Context, router *webkit.MessageRouter, cfg Config) error {
+// The router can be any engine's message router that implements port.WebUIHandlerRouter.
+func RegisterAll(ctx context.Context, router port.WebUIHandlerRouter, deps port.HandlerDependencies) error {
 	// Homepage handlers (history, favorites, folders, tags)
-	if cfg.HistoryUC != nil && cfg.FavoritesUC != nil {
+	if deps.HistoryUC != nil && deps.FavoritesUC != nil {
 		if err := homepage.RegisterHandlers(ctx, router, homepage.Config{
-			HistoryUC:   cfg.HistoryUC,
-			FavoritesUC: cfg.FavoritesUC,
+			HistoryUC:   deps.HistoryUC,
+			FavoritesUC: deps.FavoritesUC,
 		}); err != nil {
 			return err
 		}
 	}
 
 	// Configuration handlers
-	if cfg.SaveConfig != nil {
-		if err := RegisterConfigHandlers(ctx, router, cfg.SaveConfig); err != nil {
+	if deps.SaveConfig != nil {
+		if err := RegisterConfigHandlers(ctx, router, deps.SaveConfig); err != nil {
 			return err
 		}
 	}
 
 	// Keybindings handlers (always available)
-	if cfg.KeybindingsHandler == nil {
-		return fmt.Errorf("KeybindingsHandler is required")
+	if deps.KeybindingsGetter == nil {
+		return fmt.Errorf("KeybindingsGetter is required")
 	}
-	if err := RegisterKeybindingsHandlers(ctx, router, cfg.KeybindingsHandler); err != nil {
+	kbHandler := NewKeybindingsHandler(
+		deps.KeybindingsGetter,
+		deps.KeybindingSetter,
+		deps.KeybindingResetter,
+		deps.AllKeybindingsResetter,
+	)
+	if err := RegisterKeybindingsHandlers(ctx, router, kbHandler); err != nil {
 		return err
 	}
 
 	// Clipboard handlers (for auto-copy on selection feature)
-	if cfg.Clipboard != nil && cfg.AutoCopyConfig != nil {
-		if err := RegisterClipboardHandlers(ctx, router, cfg.Clipboard, cfg.AutoCopyConfig, cfg.OnClipboardCopied); err != nil {
+	if deps.Clipboard != nil && deps.AutoCopyConfig != nil {
+		if err := RegisterClipboardHandlers(ctx, router, deps.Clipboard, deps.AutoCopyConfig, deps.OnClipboardCopied); err != nil {
 			return err
 		}
 	}
@@ -69,7 +62,7 @@ func RegisterAll(ctx context.Context, router *webkit.MessageRouter, cfg Config) 
 
 // RegisterAccentHandlers registers accent key press/release handlers with the router.
 // Must be called after the AccentKeyHandler is initialized (i.e., after initAccentPicker).
-func RegisterAccentHandlers(_ context.Context, router *webkit.MessageRouter, handler AccentKeyHandler) error {
+func RegisterAccentHandlers(_ context.Context, router port.WebUIHandlerRouter, handler AccentKeyHandler) error {
 	if router == nil {
 		return fmt.Errorf("RegisterAccentHandlers: router must not be nil")
 	}
@@ -77,8 +70,8 @@ func RegisterAccentHandlers(_ context.Context, router *webkit.MessageRouter, han
 		return fmt.Errorf("RegisterAccentHandlers: handler must not be nil")
 	}
 
-	if err := router.RegisterHandler("accent_key_press", webkit.MessageHandlerFunc(
-		func(ctx context.Context, _ webkit.WebViewID, payload json.RawMessage) (any, error) {
+	if err := router.RegisterHandler("accent_key_press", port.WebUIMessageHandlerFunc(
+		func(ctx context.Context, _ port.WebViewID, payload json.RawMessage) (any, error) {
 			var p struct {
 				Char  string `json:"char"`
 				Shift bool   `json:"shift"`
@@ -95,8 +88,8 @@ func RegisterAccentHandlers(_ context.Context, router *webkit.MessageRouter, han
 		return err
 	}
 
-	if err := router.RegisterHandler("accent_key_release", webkit.MessageHandlerFunc(
-		func(ctx context.Context, _ webkit.WebViewID, payload json.RawMessage) (any, error) {
+	if err := router.RegisterHandler("accent_key_release", port.WebUIMessageHandlerFunc(
+		func(ctx context.Context, _ port.WebViewID, payload json.RawMessage) (any, error) {
 			var p struct {
 				Char string `json:"char"`
 			}

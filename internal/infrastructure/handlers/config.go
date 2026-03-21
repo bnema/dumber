@@ -6,7 +6,6 @@ import (
 	"fmt"
 
 	"github.com/bnema/dumber/internal/application/port"
-	"github.com/bnema/dumber/internal/infrastructure/webkit"
 	"github.com/bnema/dumber/internal/logging"
 )
 
@@ -25,7 +24,7 @@ func NewConfigHandler(saveConfig func(context.Context, port.WebUIConfig) error) 
 }
 
 // Handle processes the save_config message.
-func (h *ConfigHandler) Handle(ctx context.Context, _ webkit.WebViewID, payload json.RawMessage) (any, error) {
+func (h *ConfigHandler) Handle(ctx context.Context, _ port.WebViewID, payload json.RawMessage) (any, error) {
 	if h == nil {
 		return nil, fmt.Errorf("config handler is nil")
 	}
@@ -52,7 +51,7 @@ func (h *ConfigHandler) Handle(ctx context.Context, _ webkit.WebViewID, payload 
 
 // RegisterConfigHandlers registers configuration handlers with the router.
 func RegisterConfigHandlers(
-	ctx context.Context, router *webkit.MessageRouter,
+	ctx context.Context, router port.WebUIHandlerRouter,
 	saveConfig func(context.Context, port.WebUIConfig) error,
 ) error {
 	handler := NewConfigHandler(saveConfig)

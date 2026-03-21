@@ -6,7 +6,6 @@ import (
 
 	"github.com/bnema/dumber/internal/application/port"
 	"github.com/bnema/dumber/internal/domain/entity"
-	"github.com/bnema/dumber/internal/infrastructure/webkit"
 	"github.com/bnema/dumber/internal/logging"
 )
 
@@ -21,8 +20,8 @@ func NewTagHandlers(favoritesUC port.HomepageFavorites) *TagHandlers {
 }
 
 // HandleList handles tag_list messages.
-func (h *TagHandlers) HandleList() webkit.MessageHandler {
-	return webkit.MessageHandlerFunc(func(ctx context.Context, _ webkit.WebViewID, payload json.RawMessage) (any, error) {
+func (h *TagHandlers) HandleList() port.WebUIMessageHandler {
+	return port.WebUIMessageHandlerFunc(func(ctx context.Context, _ port.WebViewID, payload json.RawMessage) (any, error) {
 		log := logging.FromContext(ctx)
 
 		requestID := ParseRequestID(payload)
@@ -48,8 +47,8 @@ type createTagRequest struct {
 }
 
 // HandleCreate handles tag_create messages.
-func (h *TagHandlers) HandleCreate() webkit.MessageHandler {
-	return webkit.MessageHandlerFunc(func(ctx context.Context, _ webkit.WebViewID, payload json.RawMessage) (any, error) {
+func (h *TagHandlers) HandleCreate() port.WebUIMessageHandler {
+	return port.WebUIMessageHandlerFunc(func(ctx context.Context, _ port.WebViewID, payload json.RawMessage) (any, error) {
 		log := logging.FromContext(ctx)
 
 		var req createTagRequest
@@ -83,8 +82,8 @@ type deleteTagRequest struct {
 }
 
 // HandleDelete handles tag_delete messages.
-func (h *TagHandlers) HandleDelete() webkit.MessageHandler {
-	return webkit.MessageHandlerFunc(func(ctx context.Context, _ webkit.WebViewID, payload json.RawMessage) (any, error) {
+func (h *TagHandlers) HandleDelete() port.WebUIMessageHandler {
+	return port.WebUIMessageHandlerFunc(func(ctx context.Context, _ port.WebViewID, payload json.RawMessage) (any, error) {
 		log := logging.FromContext(ctx)
 
 		var req deleteTagRequest
@@ -115,8 +114,8 @@ type updateTagRequest struct {
 
 // HandleUpdate handles tag_update messages.
 // NOTE: This requires UpdateTag() method to be added to ManageFavoritesUseCase.
-func (h *TagHandlers) HandleUpdate() webkit.MessageHandler {
-	return webkit.MessageHandlerFunc(func(ctx context.Context, _ webkit.WebViewID, payload json.RawMessage) (any, error) {
+func (h *TagHandlers) HandleUpdate() port.WebUIMessageHandler {
+	return port.WebUIMessageHandlerFunc(func(ctx context.Context, _ port.WebViewID, payload json.RawMessage) (any, error) {
 		log := logging.FromContext(ctx)
 
 		var req updateTagRequest
@@ -154,17 +153,17 @@ type tagAssignRequest struct {
 }
 
 // HandleAssign handles tag_assign messages.
-func (h *TagHandlers) HandleAssign() webkit.MessageHandler {
+func (h *TagHandlers) HandleAssign() port.WebUIMessageHandler {
 	return handleTagAssign("tag_assign", h.favoritesUC.TagFavorite)
 }
 
 // HandleRemove handles tag_remove messages.
-func (h *TagHandlers) HandleRemove() webkit.MessageHandler {
+func (h *TagHandlers) HandleRemove() port.WebUIMessageHandler {
 	return handleTagAssign("tag_remove", h.favoritesUC.UntagFavorite)
 }
 
-func handleTagAssign(action string, op func(context.Context, entity.FavoriteID, entity.TagID) error) webkit.MessageHandler {
-	return webkit.MessageHandlerFunc(func(ctx context.Context, _ webkit.WebViewID, payload json.RawMessage) (any, error) {
+func handleTagAssign(action string, op func(context.Context, entity.FavoriteID, entity.TagID) error) port.WebUIMessageHandler {
+	return port.WebUIMessageHandlerFunc(func(ctx context.Context, _ port.WebViewID, payload json.RawMessage) (any, error) {
 		log := logging.FromContext(ctx)
 
 		var req tagAssignRequest

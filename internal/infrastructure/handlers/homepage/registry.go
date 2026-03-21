@@ -5,7 +5,6 @@ import (
 	"fmt"
 
 	"github.com/bnema/dumber/internal/application/port"
-	"github.com/bnema/dumber/internal/infrastructure/webkit"
 	"github.com/bnema/dumber/internal/logging"
 )
 
@@ -16,7 +15,7 @@ type Config struct {
 }
 
 // RegisterHandlers registers all homepage message handlers with the router.
-func RegisterHandlers(ctx context.Context, router *webkit.MessageRouter, cfg Config) error {
+func RegisterHandlers(ctx context.Context, router port.WebUIHandlerRouter, cfg Config) error {
 	log := logging.FromContext(ctx)
 	log.Debug().Msg("registering homepage message handlers")
 
@@ -25,7 +24,7 @@ func RegisterHandlers(ctx context.Context, router *webkit.MessageRouter, cfg Con
 	const errorCallback = "__dumber_error"
 	const worldName = "" // main world
 
-	handlers := make(map[string]webkit.MessageHandler)
+	handlers := make(map[string]port.WebUIMessageHandler)
 
 	// History handlers
 	historyHandlers := NewHistoryHandlers(cfg.HistoryUC)

@@ -206,7 +206,6 @@ type SchemeHandler interface {
 	RegisterScheme(scheme string, handler func(uri string) ([]byte, string, error))
 }
 
-
 // SettingsApplier defines the port interface for applying browser settings to WebViews.
 // Implementations apply engine-specific settings (security, features, etc.) uniformly
 // across a set of WebView instances.

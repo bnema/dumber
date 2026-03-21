@@ -7,8 +7,12 @@ import (
 	"fmt"
 	"sync"
 
+	"github.com/bnema/dumber/internal/application/port"
 	"github.com/bnema/dumber/internal/logging"
 )
+
+// Compile-time check: MessageRouter implements port.WebUIHandlerRouter.
+var _ port.WebUIHandlerRouter = (*MessageRouter)(nil)
 
 // Message represents a JS -> Go message envelope sent via fetch to /api/message.
 type Message struct {
@@ -70,7 +74,8 @@ func (r *MessageRouter) SetBaseContext(ctx context.Context) {
 }
 
 // RegisterHandler registers a handler for a message type.
-func (r *MessageRouter) RegisterHandler(msgType string, handler MessageHandler) error {
+// Satisfies port.WebUIHandlerRouter.
+func (r *MessageRouter) RegisterHandler(msgType string, handler port.WebUIMessageHandler) error {
 	if msgType == "" {
 		return errors.New("message type cannot be empty")
 	}
@@ -79,14 +84,17 @@ func (r *MessageRouter) RegisterHandler(msgType string, handler MessageHandler) 
 	}
 	r.mu.Lock()
 	defer r.mu.Unlock()
-	r.handlers[msgType] = handlerEntry{handler: handler}
+	r.handlers[msgType] = handlerEntry{handler: portHandlerAdapter{handler}}
 	return nil
 }
 
 // RegisterHandlerWithCallbacks registers a handler with response callback names.
 // callback is invoked on success, errorCallback (optional) on failure.
 // worldName allows targeting a specific script world (unused in CEF fetch bridge).
-func (r *MessageRouter) RegisterHandlerWithCallbacks(msgType, callback, errorCallback, worldName string, handler MessageHandler) error {
+// Satisfies port.WebUIHandlerRouter.
+func (r *MessageRouter) RegisterHandlerWithCallbacks(
+	msgType, callback, errorCallback, worldName string, handler port.WebUIMessageHandler,
+) error {
 	if msgType == "" {
 		return errors.New("message type cannot be empty")
 	}
@@ -99,12 +107,37 @@ func (r *MessageRouter) RegisterHandlerWithCallbacks(msgType, callback, errorCal
 	r.mu.Lock()
 	defer r.mu.Unlock()
 	r.handlers[msgType] = handlerEntry{
-		handler:       handler,
+		handler:       portHandlerAdapter{handler},
 		callback:      callback,
 		errorCallback: errorCallback,
 		world:         worldName,
 	}
 	return nil
+}
+
+// registerInternalHandler registers a CEF-internal handler for a message type.
+// Used for engine-internal handlers that work directly with uint64 webview IDs.
+func (r *MessageRouter) registerInternalHandler(msgType string, handler MessageHandler) error {
+	if msgType == "" {
+		return errors.New("message type cannot be empty")
+	}
+	if handler == nil {
+		return errors.New("message handler cannot be nil")
+	}
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	r.handlers[msgType] = handlerEntry{handler: handler}
+	return nil
+}
+
+// portHandlerAdapter wraps a port.WebUIMessageHandler as a cef.MessageHandler,
+// converting the WebViewID type.
+type portHandlerAdapter struct {
+	inner port.WebUIMessageHandler
+}
+
+func (a portHandlerAdapter) Handle(ctx context.Context, webviewID uint64, payload json.RawMessage) (any, error) {
+	return a.inner.Handle(ctx, port.WebViewID(webviewID), payload)
 }
 
 // HandleMessage decodes a raw JSON message body and routes it to the correct handler.

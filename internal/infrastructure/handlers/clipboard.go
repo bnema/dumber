@@ -5,7 +5,6 @@ import (
 	"encoding/json"
 
 	"github.com/bnema/dumber/internal/application/port"
-	"github.com/bnema/dumber/internal/infrastructure/webkit"
 	"github.com/bnema/dumber/internal/logging"
 )
 
@@ -32,8 +31,8 @@ type autoCopyRequest struct {
 
 // HandleAutoCopySelection handles the auto_copy_selection message from JS.
 // It copies the selected text to the clipboard if the feature is enabled.
-func (h *ClipboardHandler) HandleAutoCopySelection() webkit.MessageHandler {
-	return webkit.MessageHandlerFunc(func(ctx context.Context, _ webkit.WebViewID, payload json.RawMessage) (any, error) {
+func (h *ClipboardHandler) HandleAutoCopySelection() port.WebUIMessageHandler {
+	return port.WebUIMessageHandlerFunc(func(ctx context.Context, _ port.WebViewID, payload json.RawMessage) (any, error) {
 		log := logging.FromContext(ctx)
 
 		// Check if feature is enabled
@@ -71,7 +70,7 @@ func (h *ClipboardHandler) HandleAutoCopySelection() webkit.MessageHandler {
 // RegisterClipboardHandlers registers clipboard handlers with the router.
 func RegisterClipboardHandlers(
 	ctx context.Context,
-	router *webkit.MessageRouter,
+	router port.WebUIHandlerRouter,
 	clipboard port.Clipboard,
 	autoCopyConfig port.AutoCopyConfig,
 	onCopied func(textLen int),

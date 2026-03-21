@@ -8,8 +8,8 @@ import (
 	"github.com/bnema/dumber/internal/application/usecase"
 	"github.com/bnema/dumber/internal/infrastructure/cef"
 	"github.com/bnema/dumber/internal/infrastructure/config"
+	"github.com/bnema/dumber/internal/infrastructure/handlers"
 	"github.com/bnema/dumber/internal/infrastructure/webkit"
-	"github.com/bnema/dumber/internal/infrastructure/webkit/handlers"
 	"github.com/bnema/dumber/internal/ui/theme"
 	"github.com/rs/zerolog"
 )
@@ -38,10 +38,10 @@ func BuildEngine(input EngineInput) (port.Engine, error) {
 		}
 		wkCfg := webkit.EngineConfigFromConfig(cfg.Engine.WebKit)
 
-		// Pre-build keybindings handler for handler registration.
-		keybindingsHandler, err := buildKeybindingsHandler()
+		// Pre-build keybinding use cases for handler registration.
+		keybindingDeps, err := buildKeybindingDeps()
 		if err != nil {
-			return nil, fmt.Errorf("failed to build keybindings handler: %w", err)
+			return nil, fmt.Errorf("failed to build keybinding deps: %w", err)
 		}
 
 		// Pre-build config save function for handler registration.
@@ -53,18 +53,18 @@ func BuildEngine(input EngineInput) (port.Engine, error) {
 		return webkit.NewEngine(
 			input.Ctx, cfg, opts, wkCfg,
 			input.ThemeManager, input.ColorResolver, input.Logger,
-			func(ctx context.Context, router *webkit.MessageRouter, deps port.HandlerDependencies) error {
-				return handlers.RegisterAll(ctx, router, handlers.Config{
-					HistoryUC:          deps.HistoryUC,
-					FavoritesUC:        deps.FavoritesUC,
-					Clipboard:          deps.Clipboard,
-					AutoCopyConfig:     deps.AutoCopyConfig,
-					SaveConfig:         saveConfigFunc,
-					KeybindingsHandler: keybindingsHandler,
-					OnClipboardCopied:  deps.OnClipboardCopied,
-				})
+			func(ctx context.Context, router port.WebUIHandlerRouter, deps port.HandlerDependencies) error {
+				// Inject pre-built dependencies that come from bootstrap, not from the engine.
+				deps.SaveConfig = saveConfigFunc
+				deps.KeybindingsGetter = keybindingDeps.KeybindingsGetter
+				deps.KeybindingSetter = keybindingDeps.KeybindingSetter
+				deps.KeybindingResetter = keybindingDeps.KeybindingResetter
+				deps.AllKeybindingsResetter = keybindingDeps.AllKeybindingsResetter
+				return handlers.RegisterAll(ctx, router, deps)
 			},
-			handlers.RegisterAccentHandlers,
+			func(ctx context.Context, router port.WebUIHandlerRouter, handler port.AccentKeyHandler) error {
+				return handlers.RegisterAccentHandlers(ctx, router, handler)
+			},
 		)
 	case "cef":
 		cefCfg := cfg.Engine.CEF
@@ -74,8 +74,16 @@ func BuildEngine(input EngineInput) (port.Engine, error) {
 	}
 }
 
-// buildKeybindingsHandler constructs the keybindings handler using the config manager.
-func buildKeybindingsHandler() (*handlers.KeybindingsHandler, error) {
+// keybindingDeps holds keybinding use cases built at bootstrap time.
+type keybindingDeps struct {
+	KeybindingsGetter      port.KeybindingsGetter
+	KeybindingSetter       port.KeybindingSetter
+	KeybindingResetter     port.KeybindingResetter
+	AllKeybindingsResetter port.AllKeybindingsResetter
+}
+
+// buildKeybindingDeps constructs keybinding use cases using the config manager.
+func buildKeybindingDeps() (*keybindingDeps, error) {
 	mgr := config.GetManager()
 	if mgr == nil {
 		return nil, fmt.Errorf("config manager not initialized")
@@ -83,12 +91,12 @@ func buildKeybindingsHandler() (*handlers.KeybindingsHandler, error) {
 
 	gateway := config.NewKeybindingsGateway(mgr)
 
-	return handlers.NewKeybindingsHandler(
-		usecase.NewGetKeybindingsUseCase(gateway),
-		usecase.NewSetKeybindingUseCase(gateway, gateway),
-		usecase.NewResetKeybindingUseCase(gateway),
-		usecase.NewResetAllKeybindingsUseCase(gateway),
-	), nil
+	return &keybindingDeps{
+		KeybindingsGetter:      usecase.NewGetKeybindingsUseCase(gateway),
+		KeybindingSetter:       usecase.NewSetKeybindingUseCase(gateway, gateway),
+		KeybindingResetter:     usecase.NewResetKeybindingUseCase(gateway),
+		AllKeybindingsResetter: usecase.NewResetAllKeybindingsUseCase(gateway),
+	}, nil
 }
 
 // buildSaveConfigFunc constructs the config save function using the config manager.

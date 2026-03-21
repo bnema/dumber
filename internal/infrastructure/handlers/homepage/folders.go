@@ -6,7 +6,6 @@ import (
 
 	"github.com/bnema/dumber/internal/application/port"
 	"github.com/bnema/dumber/internal/domain/entity"
-	"github.com/bnema/dumber/internal/infrastructure/webkit"
 	"github.com/bnema/dumber/internal/logging"
 )
 
@@ -21,8 +20,8 @@ func NewFolderHandlers(favoritesUC port.HomepageFavorites) *FolderHandlers {
 }
 
 // HandleList handles folder_list messages.
-func (h *FolderHandlers) HandleList() webkit.MessageHandler {
-	return webkit.MessageHandlerFunc(func(ctx context.Context, _ webkit.WebViewID, payload json.RawMessage) (any, error) {
+func (h *FolderHandlers) HandleList() port.WebUIMessageHandler {
+	return port.WebUIMessageHandlerFunc(func(ctx context.Context, _ port.WebViewID, payload json.RawMessage) (any, error) {
 		log := logging.FromContext(ctx)
 
 		requestID := ParseRequestID(payload)
@@ -48,8 +47,8 @@ type createFolderRequest struct {
 }
 
 // HandleCreate handles folder_create messages.
-func (h *FolderHandlers) HandleCreate() webkit.MessageHandler {
-	return webkit.MessageHandlerFunc(func(ctx context.Context, _ webkit.WebViewID, payload json.RawMessage) (any, error) {
+func (h *FolderHandlers) HandleCreate() port.WebUIMessageHandler {
+	return port.WebUIMessageHandlerFunc(func(ctx context.Context, _ port.WebViewID, payload json.RawMessage) (any, error) {
 		log := logging.FromContext(ctx)
 
 		var req createFolderRequest
@@ -86,8 +85,8 @@ type deleteFolderRequest struct {
 }
 
 // HandleDelete handles folder_delete messages.
-func (h *FolderHandlers) HandleDelete() webkit.MessageHandler {
-	return webkit.MessageHandlerFunc(func(ctx context.Context, _ webkit.WebViewID, payload json.RawMessage) (any, error) {
+func (h *FolderHandlers) HandleDelete() port.WebUIMessageHandler {
+	return port.WebUIMessageHandlerFunc(func(ctx context.Context, _ port.WebViewID, payload json.RawMessage) (any, error) {
 		log := logging.FromContext(ctx)
 
 		var req deleteFolderRequest
@@ -118,8 +117,8 @@ type updateFolderRequest struct {
 
 // HandleUpdate handles folder_update messages.
 // It delegates to the port.HomepageFavorites interface's UpdateFolder method.
-func (h *FolderHandlers) HandleUpdate() webkit.MessageHandler {
-	return webkit.MessageHandlerFunc(func(ctx context.Context, _ webkit.WebViewID, payload json.RawMessage) (any, error) {
+func (h *FolderHandlers) HandleUpdate() port.WebUIMessageHandler {
+	return port.WebUIMessageHandlerFunc(func(ctx context.Context, _ port.WebViewID, payload json.RawMessage) (any, error) {
 		log := logging.FromContext(ctx)
 
 		var req updateFolderRequest

@@ -7,7 +7,6 @@ import (
 
 	"github.com/bnema/dumber/internal/application/port"
 	"github.com/bnema/dumber/internal/domain/entity"
-	"github.com/bnema/dumber/internal/infrastructure/webkit"
 	"github.com/bnema/dumber/internal/logging"
 )
 
@@ -29,8 +28,8 @@ type timelineRequest struct {
 }
 
 // HandleTimeline handles history_timeline messages.
-func (h *HistoryHandlers) HandleTimeline() webkit.MessageHandler {
-	return webkit.MessageHandlerFunc(func(ctx context.Context, _ webkit.WebViewID, payload json.RawMessage) (any, error) {
+func (h *HistoryHandlers) HandleTimeline() port.WebUIMessageHandler {
+	return port.WebUIMessageHandlerFunc(func(ctx context.Context, _ port.WebViewID, payload json.RawMessage) (any, error) {
 		log := logging.FromContext(ctx)
 
 		var req timelineRequest
@@ -61,8 +60,8 @@ type searchRequest struct {
 }
 
 // HandleSearchFTS handles history_search_fts messages.
-func (h *HistoryHandlers) HandleSearchFTS() webkit.MessageHandler {
-	return webkit.MessageHandlerFunc(func(ctx context.Context, _ webkit.WebViewID, payload json.RawMessage) (any, error) {
+func (h *HistoryHandlers) HandleSearchFTS() port.WebUIMessageHandler {
+	return port.WebUIMessageHandlerFunc(func(ctx context.Context, _ port.WebViewID, payload json.RawMessage) (any, error) {
 		log := logging.FromContext(ctx)
 
 		var req searchRequest
@@ -100,8 +99,8 @@ type deleteEntryRequest struct {
 }
 
 // HandleDeleteEntry handles history_delete_entry messages.
-func (h *HistoryHandlers) HandleDeleteEntry() webkit.MessageHandler {
-	return webkit.MessageHandlerFunc(func(ctx context.Context, _ webkit.WebViewID, payload json.RawMessage) (any, error) {
+func (h *HistoryHandlers) HandleDeleteEntry() port.WebUIMessageHandler {
+	return port.WebUIMessageHandlerFunc(func(ctx context.Context, _ port.WebViewID, payload json.RawMessage) (any, error) {
 		log := logging.FromContext(ctx)
 
 		var req deleteEntryRequest
@@ -129,8 +128,8 @@ type deleteRangeRequest struct {
 }
 
 // HandleDeleteRange handles history_delete_range messages.
-func (h *HistoryHandlers) HandleDeleteRange() webkit.MessageHandler {
-	return webkit.MessageHandlerFunc(func(ctx context.Context, _ webkit.WebViewID, payload json.RawMessage) (any, error) {
+func (h *HistoryHandlers) HandleDeleteRange() port.WebUIMessageHandler {
+	return port.WebUIMessageHandlerFunc(func(ctx context.Context, _ port.WebViewID, payload json.RawMessage) (any, error) {
 		log := logging.FromContext(ctx)
 
 		var req deleteRangeRequest
@@ -160,8 +159,8 @@ func (h *HistoryHandlers) HandleDeleteRange() webkit.MessageHandler {
 }
 
 // HandleClearAll handles history_clear_all messages.
-func (h *HistoryHandlers) HandleClearAll() webkit.MessageHandler {
-	return webkit.MessageHandlerFunc(func(ctx context.Context, _ webkit.WebViewID, payload json.RawMessage) (any, error) {
+func (h *HistoryHandlers) HandleClearAll() port.WebUIMessageHandler {
+	return port.WebUIMessageHandlerFunc(func(ctx context.Context, _ port.WebViewID, payload json.RawMessage) (any, error) {
 		log := logging.FromContext(ctx)
 
 		requestID := ParseRequestID(payload)
@@ -199,8 +198,8 @@ func rangeToTime(r string) time.Time {
 }
 
 // HandleAnalytics handles history_analytics messages.
-func (h *HistoryHandlers) HandleAnalytics() webkit.MessageHandler {
-	return webkit.MessageHandlerFunc(func(ctx context.Context, _ webkit.WebViewID, payload json.RawMessage) (any, error) {
+func (h *HistoryHandlers) HandleAnalytics() port.WebUIMessageHandler {
+	return port.WebUIMessageHandlerFunc(func(ctx context.Context, _ port.WebViewID, payload json.RawMessage) (any, error) {
 		log := logging.FromContext(ctx)
 
 		requestID := ParseRequestID(payload)
@@ -225,8 +224,8 @@ type domainStatsRequest struct {
 }
 
 // HandleDomainStats handles history_domain_stats messages.
-func (h *HistoryHandlers) HandleDomainStats() webkit.MessageHandler {
-	return webkit.MessageHandlerFunc(func(ctx context.Context, _ webkit.WebViewID, payload json.RawMessage) (any, error) {
+func (h *HistoryHandlers) HandleDomainStats() port.WebUIMessageHandler {
+	return port.WebUIMessageHandlerFunc(func(ctx context.Context, _ port.WebViewID, payload json.RawMessage) (any, error) {
 		log := logging.FromContext(ctx)
 
 		var req domainStatsRequest
@@ -255,8 +254,8 @@ type deleteDomainRequest struct {
 }
 
 // HandleDeleteDomain handles history_delete_domain messages.
-func (h *HistoryHandlers) HandleDeleteDomain() webkit.MessageHandler {
-	return webkit.MessageHandlerFunc(func(ctx context.Context, _ webkit.WebViewID, payload json.RawMessage) (any, error) {
+func (h *HistoryHandlers) HandleDeleteDomain() port.WebUIMessageHandler {
+	return port.WebUIMessageHandlerFunc(func(ctx context.Context, _ port.WebViewID, payload json.RawMessage) (any, error) {
 		log := logging.FromContext(ctx)
 
 		var req deleteDomainRequest

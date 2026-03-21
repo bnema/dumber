@@ -12,6 +12,7 @@ import (
 	"github.com/bnema/puregotk/v4/glib"
 
 	"github.com/bnema/dumber/internal/application/port"
+	"github.com/bnema/dumber/internal/infrastructure/handlers"
 	"github.com/bnema/dumber/internal/logging"
 )
 
@@ -135,15 +136,7 @@ func (e *Engine) RegisterHandlers(ctx context.Context, deps port.HandlerDependen
 	if e.messageRouter == nil {
 		return nil
 	}
-	log := logging.FromContext(ctx)
-	// TODO: Wire homepage, config, keybindings, and clipboard handlers
-	// into e.messageRouter. Each handler implements MessageHandler and is
-	// registered by message type (e.g. "get_recent_history", "get_favorites").
-	// The CEF MessageRouter dispatches based on Message.Type from the JS bridge.
-	_ = deps
-
-	log.Warn().Msg("cef: RegisterHandlers stub — handler wiring not yet implemented")
-	return nil
+	return handlers.RegisterAll(ctx, e.messageRouter, deps)
 }
 
 // RegisterAccentHandlers registers accent/dead-key input handlers with the message router.
@@ -153,7 +146,7 @@ func (e *Engine) RegisterAccentHandlers(ctx context.Context, handler port.Accent
 	}
 	log := logging.FromContext(ctx)
 
-	if err := e.messageRouter.RegisterHandler("accent_key_press", MessageHandlerFunc(
+	if err := e.messageRouter.registerInternalHandler("accent_key_press", MessageHandlerFunc(
 		func(ctx context.Context, _ uint64, payload json.RawMessage) (any, error) {
 			var p struct {
 				Char  string `json:"char"`
@@ -171,7 +164,7 @@ func (e *Engine) RegisterAccentHandlers(ctx context.Context, handler port.Accent
 		return err
 	}
 
-	if err := e.messageRouter.RegisterHandler("accent_key_release", MessageHandlerFunc(
+	if err := e.messageRouter.registerInternalHandler("accent_key_release", MessageHandlerFunc(
 		func(ctx context.Context, _ uint64, payload json.RawMessage) (any, error) {
 			var p struct {
 				Char string `json:"char"`

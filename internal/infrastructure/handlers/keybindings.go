@@ -6,7 +6,6 @@ import (
 	"fmt"
 
 	"github.com/bnema/dumber/internal/application/port"
-	"github.com/bnema/dumber/internal/infrastructure/webkit"
 	"github.com/bnema/dumber/internal/logging"
 )
 
@@ -34,12 +33,12 @@ func NewKeybindingsHandler(
 }
 
 // HandleGetKeybindings returns all keybindings grouped by mode.
-func (h *KeybindingsHandler) HandleGetKeybindings(ctx context.Context, _ webkit.WebViewID, _ json.RawMessage) (any, error) {
+func (h *KeybindingsHandler) HandleGetKeybindings(ctx context.Context, _ port.WebViewID, _ json.RawMessage) (any, error) {
 	return h.getUC.Execute(ctx)
 }
 
 // HandleSetKeybinding updates a single keybinding.
-func (h *KeybindingsHandler) HandleSetKeybinding(ctx context.Context, _ webkit.WebViewID, payload json.RawMessage) (any, error) {
+func (h *KeybindingsHandler) HandleSetKeybinding(ctx context.Context, _ port.WebViewID, payload json.RawMessage) (any, error) {
 	log := logging.FromContext(ctx).With().Str("handler", "keybindings").Logger()
 	log.Debug().RawJSON("payload", payload).Msg("HandleSetKeybinding called")
 
@@ -61,7 +60,7 @@ func (h *KeybindingsHandler) HandleSetKeybinding(ctx context.Context, _ webkit.W
 }
 
 // HandleResetKeybinding resets a keybinding to default.
-func (h *KeybindingsHandler) HandleResetKeybinding(ctx context.Context, _ webkit.WebViewID, payload json.RawMessage) (any, error) {
+func (h *KeybindingsHandler) HandleResetKeybinding(ctx context.Context, _ port.WebViewID, payload json.RawMessage) (any, error) {
 	log := logging.FromContext(ctx).With().Str("handler", "keybindings").Logger()
 
 	var req port.ResetKeybindingRequest
@@ -79,7 +78,7 @@ func (h *KeybindingsHandler) HandleResetKeybinding(ctx context.Context, _ webkit
 }
 
 // HandleResetAllKeybindings resets all keybindings to defaults.
-func (h *KeybindingsHandler) HandleResetAllKeybindings(ctx context.Context, _ webkit.WebViewID, _ json.RawMessage) (any, error) {
+func (h *KeybindingsHandler) HandleResetAllKeybindings(ctx context.Context, _ port.WebViewID, _ json.RawMessage) (any, error) {
 	log := logging.FromContext(ctx).With().Str("handler", "keybindings").Logger()
 	log.Info().Msg("resetting all keybindings to defaults")
 
@@ -91,7 +90,7 @@ func (h *KeybindingsHandler) HandleResetAllKeybindings(ctx context.Context, _ we
 }
 
 // RegisterKeybindingsHandlers registers keybindings handlers with the router.
-func RegisterKeybindingsHandlers(ctx context.Context, router *webkit.MessageRouter, handler *KeybindingsHandler) error {
+func RegisterKeybindingsHandlers(ctx context.Context, router port.WebUIHandlerRouter, handler *KeybindingsHandler) error {
 	log := logging.FromContext(ctx).With().Str("component", "handlers").Logger()
 
 	// Get all keybindings
@@ -100,7 +99,7 @@ func RegisterKeybindingsHandlers(ctx context.Context, router *webkit.MessageRout
 		"__dumber_keybindings_loaded",
 		"__dumber_keybindings_error",
 		"",
-		webkit.MessageHandlerFunc(handler.HandleGetKeybindings),
+		port.WebUIMessageHandlerFunc(handler.HandleGetKeybindings),
 	); err != nil {
 		return err
 	}
@@ -111,7 +110,7 @@ func RegisterKeybindingsHandlers(ctx context.Context, router *webkit.MessageRout
 		"__dumber_keybinding_set",
 		"__dumber_keybinding_set_error",
 		"",
-		webkit.MessageHandlerFunc(handler.HandleSetKeybinding),
+		port.WebUIMessageHandlerFunc(handler.HandleSetKeybinding),
 	); err != nil {
 		return err
 	}
@@ -122,7 +121,7 @@ func RegisterKeybindingsHandlers(ctx context.Context, router *webkit.MessageRout
 		"__dumber_keybinding_reset",
 		"__dumber_keybinding_reset_error",
 		"",
-		webkit.MessageHandlerFunc(handler.HandleResetKeybinding),
+		port.WebUIMessageHandlerFunc(handler.HandleResetKeybinding),
 	); err != nil {
 		return err
 	}
@@ -133,7 +132,7 @@ func RegisterKeybindingsHandlers(ctx context.Context, router *webkit.MessageRout
 		"__dumber_keybindings_reset_all",
 		"__dumber_keybindings_reset_all_error",
 		"",
-		webkit.MessageHandlerFunc(handler.HandleResetAllKeybindings),
+		port.WebUIMessageHandlerFunc(handler.HandleResetAllKeybindings),
 	); err != nil {
 		return err
 	}
