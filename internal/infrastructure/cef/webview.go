@@ -333,6 +333,10 @@ func (wv *WebView) SetZoomLevel(_ context.Context, factor float64) error {
 		Msg("cef: SetZoomLevel")
 	host.SetZoomLevel(cefLevel)
 	wv.zoomFactor.Store(factor)
+	// Force CEF to re-render at the new zoom level. In OSR mode, SetZoomLevel
+	// alone doesn't trigger a repaint — WasResized makes CEF re-query
+	// GetViewRect and issue a fresh OnPaint.
+	host.WasResized()
 	return nil
 }
 
