@@ -17,6 +17,56 @@ var _ port.ContentInjector = (*contentInjector)(nil)
 // and message bridge scripts. Must match the engine's InternalSchemePath prefix.
 const internalSchemePrefix = "dumb://"
 
+// scrollbarCSS styles the scrollbar with auto-hide behavior: invisible by
+// default, fades in on scroll, widens on hover, fades out after 1s idle.
+// Uses --primary theme color for the thumb.
+const scrollbarCSS = `
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: transparent;
+  border-radius: 3px;
+  transition: background 0.3s ease;
+}
+.dumber-scrolling ::-webkit-scrollbar-thumb {
+  background: var(--primary, rgba(128, 128, 128, 0.4));
+}
+.dumber-scrolling ::-webkit-scrollbar:hover {
+  width: 10px;
+  height: 10px;
+}
+.dumber-scrolling ::-webkit-scrollbar-track:hover {
+  background: rgba(128, 128, 128, 0.1);
+}
+.dumber-scrolling ::-webkit-scrollbar-thumb:hover {
+  background: var(--primary, rgba(128, 128, 128, 0.6));
+}
+::-webkit-scrollbar-corner {
+  background: transparent;
+}
+`
+
+// scrollbarAutoHideJS adds/removes the .dumber-scrolling class on <html>
+// on scroll activity, with a 1s fade-out timeout after scrolling stops.
+const scrollbarAutoHideJS = `(function(){
+  var t, el = document.documentElement;
+  function show() {
+    el.classList.add('dumber-scrolling');
+    clearTimeout(t);
+    t = setTimeout(function(){ el.classList.remove('dumber-scrolling'); }, 1000);
+  }
+  window.addEventListener('scroll', show, {passive:true,capture:true});
+  window.addEventListener('wheel', show, {passive:true});
+  window.addEventListener('mouseenter', function(e){
+    if(el.scrollHeight > el.clientHeight) show();
+  });
+})();`
+
 // contentInjector implements port.ContentInjector for the CEF engine.
 // It stores CSS strings and injects them into webviews via ExecuteJavaScript.
 // Thread-safe: InjectThemeCSS may be called from the UI thread while OnLoadEnd
@@ -128,6 +178,10 @@ func (ci *contentInjector) onLoadEnd(wv *WebView) {
 	if findCSS != "" {
 		ci.injectCSS(wv, "dumber-find-highlight", findCSS)
 	}
+
+	// All pages get custom scrollbar styling with auto-hide.
+	ci.injectCSS(wv, "dumber-scrollbar", scrollbarCSS)
+	wv.RunJavaScript(context.Background(), scrollbarAutoHideJS)
 }
 
 // injectCSS injects a CSS string as a <style> element via JavaScript.
