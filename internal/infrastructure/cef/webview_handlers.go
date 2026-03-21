@@ -26,6 +26,7 @@ var (
 	_ purecef.RequestHandler     = (*handlerSet)(nil)
 	_ purecef.AudioHandler       = (*handlerSet)(nil)
 	_ purecef.ContextMenuHandler = (*handlerSet)(nil)
+	_ purecef.FindHandler        = (*handlerSet)(nil)
 )
 
 // ===========================================================================
@@ -49,7 +50,7 @@ func (h *handlerSet) GetDialogHandler() purecef.DialogHandler         { return n
 func (h *handlerSet) GetDisplayHandler() purecef.DisplayHandler       { return h }
 func (h *handlerSet) GetDownloadHandler() purecef.DownloadHandler     { return nil }
 func (h *handlerSet) GetDragHandler() purecef.DragHandler             { return nil }
-func (h *handlerSet) GetFindHandler() purecef.FindHandler             { return nil }
+func (h *handlerSet) GetFindHandler() purecef.FindHandler             { return h }
 func (h *handlerSet) GetFocusHandler() purecef.FocusHandler           { return nil }
 func (h *handlerSet) GetFrameHandler() purecef.FrameHandler           { return nil }
 func (h *handlerSet) GetPermissionHandler() purecef.PermissionHandler { return nil }
@@ -340,6 +341,11 @@ func (h *handlerSet) OnLoadEnd(_ purecef.Browser, frame purecef.Frame, httpStatu
 	// Successful load — reset the consecutive crash counter.
 	h.wv.crashCount.Store(0)
 
+	// Inject scripts and styles after page load.
+	if h.wv.engine != nil && h.wv.engine.contentInj != nil {
+		h.wv.engine.contentInj.onLoadEnd(h.wv)
+	}
+
 	h.wv.mu.RLock()
 	cb := h.wv.callbacks
 	h.wv.mu.RUnlock()
@@ -423,6 +429,7 @@ func (h *handlerSet) OnAfterCreated(browser purecef.Browser) {
 		Msg("cef: OnAfterCreated")
 	if h.wv.engine != nil {
 		h.wv.engine.recordBrowserAfterCreated(browser)
+		h.wv.engine.registerWebView(h.wv)
 	}
 	host := browser.GetHost()
 
@@ -432,6 +439,9 @@ func (h *handlerSet) OnAfterCreated(browser purecef.Browser) {
 	uri := h.wv.pendingURI
 	h.wv.pendingURI = ""
 	h.wv.input.setHost(host)
+	if h.wv.findCtrl != nil {
+		h.wv.findCtrl.setHost(host)
+	}
 
 	// Replay any navigation that was requested before the browser existed.
 	if uri != "" {
@@ -451,10 +461,16 @@ func (h *handlerSet) DoClose(_ purecef.Browser) bool {
 
 // OnBeforeClose fires the OnClose callback.
 func (h *handlerSet) OnBeforeClose(_ purecef.Browser) {
+	if h.wv.engine != nil {
+		h.wv.engine.unregisterWebView(h.wv)
+	}
 	h.wv.mu.Lock()
 	h.wv.browser = nil
 	h.wv.host = nil
 	h.wv.input.setHost(nil)
+	if h.wv.findCtrl != nil {
+		h.wv.findCtrl.setHost(nil)
+	}
 	h.wv.mu.Unlock()
 	h.wv.scheduleStopBeginFrameLoop()
 
@@ -577,6 +593,17 @@ func (h *handlerSet) OnAudioStreamStopped(_ purecef.Browser) {
 
 func (h *handlerSet) OnAudioStreamError(_ purecef.Browser, _ string) {
 	h.wv.setAudioPlaying(false)
+}
+
+// ===========================================================================
+// FindHandler (1 method)
+// ===========================================================================
+
+// OnFindResult dispatches CEF find results to the WebView's FindController.
+func (h *handlerSet) OnFindResult(_ purecef.Browser, identifier, count int32, _ *purecef.Rect, activematchordinal, finalupdate int32) {
+	if h.wv.findCtrl != nil {
+		h.wv.findCtrl.handleFindResult(identifier, count, activematchordinal, finalupdate)
+	}
 }
 
 // cefCursorNames maps CEF cursor types to GDK/CSS cursor names.

@@ -72,13 +72,15 @@ func (ib *inputBridge) setHost(host purecef.BrowserHost) {
 func (ib *inputBridge) attachTo(glArea *gtk.GLArea) {
 	// Motion (mouse move + enter/leave)
 	motion := gtk.NewEventControllerMotion()
-	motionCb := func(_ gtk.EventControllerMotion, x, y float64) {
-		ib.onMouseMove(x, y, 0, false)
+	motionCb := func(g gtk.EventControllerMotion, x, y float64) {
+		mods := uint(g.GetCurrentEventState())
+		ib.onMouseMove(x, y, mods, false)
 	}
 	motion.ConnectMotion(&motionCb)
 
-	leaveCb := func(_ gtk.EventControllerMotion) {
-		ib.onMouseMove(0, 0, 0, true)
+	leaveCb := func(g gtk.EventControllerMotion) {
+		mods := uint(g.GetCurrentEventState())
+		ib.onMouseMove(0, 0, mods, true)
 	}
 	motion.ConnectLeave(&leaveCb)
 

@@ -42,6 +42,7 @@ type WebView struct {
 	pipeline *renderPipeline
 	input    *inputBridge
 	handlers *handlerSet
+	findCtrl *cefFindController
 
 	// beginFrameTick drives CEF external BeginFrame requests while the GTK
 	// widget is visible. Access is guarded by mu.
@@ -384,9 +385,12 @@ func (wv *WebView) OpenDevTools() {
 // Find
 // ---------------------------------------------------------------------------
 
-// GetFindController returns nil (Phase 1 stub).
+// GetFindController returns the find-in-page controller.
 func (wv *WebView) GetFindController() port.FindController {
-	return nil
+	if wv.findCtrl == nil {
+		return nil
+	}
+	return wv.findCtrl
 }
 
 // ---------------------------------------------------------------------------

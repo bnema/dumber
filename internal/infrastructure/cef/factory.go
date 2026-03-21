@@ -81,6 +81,7 @@ func (f *WebViewFactory) Create(ctx context.Context) (port.WebView, error) {
 		enableContextMenuHandler: f.enableContextMenuHandler,
 	}
 	wv.handlers = handlers
+	wv.findCtrl = newFindController()
 
 	input := newInputBridge(f.scale)
 	input.attachTo(pipeline.glArea)

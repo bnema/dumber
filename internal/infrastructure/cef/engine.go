@@ -2,8 +2,11 @@ package cef
 
 import (
 	"context"
+	"encoding/json"
+	"sync"
 	"sync/atomic"
 	"time"
+	"unicode/utf8"
 
 	purecef "github.com/bnema/purego-cef/cef"
 	"github.com/bnema/puregotk/v4/glib"
@@ -22,6 +25,13 @@ type Engine struct {
 	gl      *glLoader
 	factory *WebViewFactory
 	pool    *WebViewPool
+
+	messageRouter *MessageRouter
+	schemeHandler *dumbSchemeHandler
+	contentInj    *contentInjector
+
+	// activeWebViews tracks all live webviews for CSS broadcast.
+	activeWebViews sync.Map // map[port.WebViewID]*WebView
 
 	multiThreadedMessageLoop bool
 	manualPumpInterval       int64
@@ -59,8 +69,11 @@ func (e *Engine) Pool() port.WebViewPool {
 	return &webViewPoolAdapter{pool: e.pool, ctx: e.ctx}
 }
 
-// ContentInjector returns a no-op injector (Phase 1 stub).
+// ContentInjector returns the CEF content injector for script/style injection.
 func (e *Engine) ContentInjector() port.ContentInjector {
+	if e.contentInj != nil {
+		return e.contentInj
+	}
 	return &noopContentInjector{}
 }
 
@@ -79,8 +92,29 @@ func (e *Engine) FaviconDatabase() port.FaviconDatabase {
 	return &noopFaviconDatabase{}
 }
 
+// SetColorResolver sets the color scheme resolver on the content injector.
+// This allows dark mode detection for internal pages. Safe to call after
+// engine creation (e.g., from bootstrap wiring).
+func (e *Engine) SetColorResolver(resolver port.ColorSchemeResolver) {
+	if e.contentInj != nil {
+		e.contentInj.mu.Lock()
+		e.contentInj.colorResolver = resolver
+		e.contentInj.mu.Unlock()
+	}
+}
+
+// registerWebView adds a webview to the active tracking map.
+func (e *Engine) registerWebView(wv *WebView) {
+	e.activeWebViews.Store(wv.id, wv)
+}
+
+// unregisterWebView removes a webview from the active tracking map.
+func (e *Engine) unregisterWebView(wv *WebView) {
+	e.activeWebViews.Delete(wv.id)
+}
+
 // internalSchemePath is the URI scheme used for internal app resources.
-const internalSchemePath = "cef://dumber/"
+const internalSchemePath = "dumb://"
 
 // InternalSchemePath returns the URI scheme used for internal app resources.
 func (e *Engine) InternalSchemePath() string {
@@ -95,13 +129,70 @@ func (e *Engine) Close() error {
 	return nil
 }
 
-// RegisterHandlers registers all WebUI message bridge handlers (Phase 1 stub).
-func (e *Engine) RegisterHandlers(_ context.Context, _ port.HandlerDependencies) error {
+// RegisterHandlers registers all WebUI message bridge handlers with the message router.
+// Handler registration follows the same pattern as WebKit's handlers/register.go:
+// each handler is registered by message type with the router, which dispatches
+// incoming /api/message POSTs to the correct handler based on Message.Type.
+func (e *Engine) RegisterHandlers(ctx context.Context, deps port.HandlerDependencies) error {
+	if e.messageRouter == nil {
+		return nil
+	}
+	log := logging.FromContext(ctx)
+	log.Debug().Msg("cef: registering message handlers (deps available, handler wiring pending)")
+
+	// TODO: Wire homepage, config, keybindings, and clipboard handlers
+	// into e.messageRouter. Each handler implements MessageHandler and is
+	// registered by message type (e.g. "get_recent_history", "get_favorites").
+	// The CEF MessageRouter dispatches based on Message.Type from the JS bridge.
+	_ = deps
+
+	log.Info().Msg("cef: message handlers registered")
 	return nil
 }
 
-// RegisterAccentHandlers registers accent/dead-key input handlers (Phase 1 stub).
-func (e *Engine) RegisterAccentHandlers(_ context.Context, _ port.AccentKeyHandler) error {
+// RegisterAccentHandlers registers accent/dead-key input handlers with the message router.
+func (e *Engine) RegisterAccentHandlers(ctx context.Context, handler port.AccentKeyHandler) error {
+	if e.messageRouter == nil || handler == nil {
+		return nil
+	}
+	log := logging.FromContext(ctx)
+
+	if err := e.messageRouter.RegisterHandler("accent_key_press", MessageHandlerFunc(
+		func(ctx context.Context, _ uint64, payload json.RawMessage) (any, error) {
+			var p struct {
+				Char  string `json:"char"`
+				Shift bool   `json:"shift"`
+			}
+			if err := json.Unmarshal(payload, &p); err != nil {
+				return nil, err
+			}
+			if r, _ := utf8.DecodeRuneInString(p.Char); r != utf8.RuneError && utf8.RuneCountInString(p.Char) == 1 {
+				handler.OnKeyPressed(ctx, r, p.Shift)
+			}
+			return nil, nil
+		},
+	)); err != nil {
+		return err
+	}
+
+	if err := e.messageRouter.RegisterHandler("accent_key_release", MessageHandlerFunc(
+		func(ctx context.Context, _ uint64, payload json.RawMessage) (any, error) {
+			var p struct {
+				Char string `json:"char"`
+			}
+			if err := json.Unmarshal(payload, &p); err != nil {
+				return nil, err
+			}
+			if r, _ := utf8.DecodeRuneInString(p.Char); r != utf8.RuneError && utf8.RuneCountInString(p.Char) == 1 {
+				handler.OnKeyReleased(ctx, r)
+			}
+			return nil, nil
+		},
+	)); err != nil {
+		return err
+	}
+
+	log.Info().Msg("cef: accent handlers registered")
 	return nil
 }
 
@@ -138,6 +229,9 @@ func (e *Engine) UpdateSettings(_ context.Context, _ port.EngineSettingsUpdate) 
 // SetHandlerContext sets the base context for message handler dispatch.
 func (e *Engine) SetHandlerContext(ctx context.Context) {
 	e.ctx = ctx
+	if e.messageRouter != nil {
+		e.messageRouter.SetBaseContext(ctx)
+	}
 }
 
 const browserCreateStallWarnMS int64 = 1500

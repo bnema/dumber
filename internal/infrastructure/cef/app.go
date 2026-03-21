@@ -40,7 +40,15 @@ func (a *dumberApp) OnBeforeCommandLineProcessing(processType string, commandLin
 		Str("command_line", cmdline).
 		Msg("cef: OnBeforeCommandLineProcessing")
 }
-func (a *dumberApp) OnRegisterCustomSchemes(_ purecef.SchemeRegistrar)       {}
+func (a *dumberApp) OnRegisterCustomSchemes(registrar purecef.SchemeRegistrar) {
+	options := int32(purecef.SchemeOptionsSchemeOptionStandard |
+		purecef.SchemeOptionsSchemeOptionLocal |
+		purecef.SchemeOptionsSchemeOptionSecure |
+		purecef.SchemeOptionsSchemeOptionCorsEnabled |
+		purecef.SchemeOptionsSchemeOptionFetchEnabled)
+	registrar.AddCustomScheme("dumb", options)
+	logging.FromContext(a.engine.ctx).Debug().Msg("cef: registered dumb:// custom scheme")
+}
 func (a *dumberApp) GetResourceBundleHandler() purecef.ResourceBundleHandler { return nil }
 func (a *dumberApp) GetBrowserProcessHandler() purecef.BrowserProcessHandler { return a.bph }
 func (a *dumberApp) GetRenderProcessHandler() purecef.RenderProcessHandler   { return nil }

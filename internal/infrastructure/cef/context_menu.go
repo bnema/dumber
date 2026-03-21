@@ -87,7 +87,7 @@ func showContextMenu(wv *WebView, items []menuEntry, x, y int32, callback purece
 		cmdID := item.commandID
 		// clickCb captures popover by reference; this is safe because the
 		// button cannot be clicked until after Popup() is called below,
-		// at which point popover is fully initialised.
+		// at which point popover is fully initialized.
 		clickCb := func(_ gtk.Button) {
 			selected = true
 			callback.Cont(cmdID, 0)
