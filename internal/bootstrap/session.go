@@ -156,7 +156,7 @@ func StartBrowserSession(
 			}
 
 			// Background cleanup of old sessions.
-			go runSessionCleanup(persistCtx, sessionUC, cleanupUC, cfg, log)
+			go runSessionCleanup(persistCtx, sessionUC, cleanupUC, cfg, session.ID, log)
 		})
 		return persistErr
 	}
@@ -310,6 +310,7 @@ func runSessionCleanup(
 	sessionUC *usecase.ManageSessionUseCase,
 	cleanupUC *usecase.CleanupSessionsUseCase,
 	cfg *config.Config,
+	currentSessionID entity.SessionID,
 	log *zerolog.Logger,
 ) {
 	bgCtx := context.WithoutCancel(startupCtx)
@@ -323,7 +324,10 @@ func runSessionCleanup(
 	} else {
 		now := time.Now()
 		for _, s := range recent {
-			if s != nil && s.Type == entity.SessionTypeBrowser && s.IsActive() {
+			if s != nil &&
+				s.ID != currentSessionID &&
+				s.Type == entity.SessionTypeBrowser &&
+				s.IsActive() {
 				_ = sessionUC.EndSession(bgCtx, s.ID, now)
 			}
 		}

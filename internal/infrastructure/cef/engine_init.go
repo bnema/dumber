@@ -17,6 +17,8 @@ import (
 	"github.com/bnema/dumber/internal/logging"
 )
 
+const puregoCEFInitTraceEnvVar = "PUREGO_CEF_INIT_TRACE"
+
 // NewEngine initializes the CEF runtime and returns a ready-to-use Engine.
 func NewEngine(ctx context.Context, cfg config.CEFEngineConfig) (*Engine, error) {
 	logger := logging.FromContext(ctx)
@@ -29,6 +31,9 @@ func NewEngine(ctx context.Context, cfg config.CEFEngineConfig) (*Engine, error)
 	// Resolve pump mode from config (with defaults).
 	multiThreaded := cfg.CEFMultiThreadedMessageLoop()
 	manualPumpMs := cfg.CEFManualPumpIntervalMs()
+	windowlessFrameRate := cfg.CEFWindowlessFrameRate()
+
+	purecef.SetHandlerTraceEnabled(cfg.TraceHandlers)
 
 	// 1. Initialize CEF.
 	settings := purecef.DefaultSettings()
@@ -40,6 +45,20 @@ func NewEngine(ctx context.Context, cfg config.CEFEngineConfig) (*Engine, error)
 	settings.ExternalMessagePump = false
 	if cfg.CEFDir != "" {
 		settings.CEFDir = cfg.CEFDir
+	}
+	if runtimeLogFile, err := prepareCEFLogFile(cfg); err != nil {
+		logger.Warn().Err(err).Msg("cef: failed to prepare runtime log file")
+	} else {
+		settings.LogFile = runtimeLogFile
+	}
+	if bootstrapLogFile, err := prepareCEFInitTraceFile(cfg); err != nil {
+		logger.Warn().Err(err).Msg("cef: failed to prepare init trace file")
+	} else if bootstrapLogFile != "" {
+		settings.InitTraceFile = bootstrapLogFile
+		logger.Info().
+			Str("bootstrap_log_file", bootstrapLogFile).
+			Str("env_var", puregoCEFInitTraceEnvVar).
+			Msg("cef: init bootstrap diagnostics enabled")
 	}
 	if cfg.LogSeverity != 0 {
 		settings.LogSeverity = cfg.LogSeverity
@@ -82,19 +101,37 @@ func NewEngine(ctx context.Context, cfg config.CEFEngineConfig) (*Engine, error)
 	logger.Info().
 		Bool("multi_threaded_message_loop", multiThreaded).
 		Int64("manual_pump_interval_ms", manualPumpMs).
-		Msg("cef: configured message pump mode")
+		Int32("windowless_frame_rate", windowlessFrameRate).
+		Bool("trace_handlers", cfg.TraceHandlers).
+		Bool("enable_audio_handler", cfg.EnableAudioHandler).
+		Bool("enable_context_menu_handler", cfg.EnableContextMenuHandler).
+		Msg("cef: configured engine")
 
-	// Create the CEF App with a BrowserProcessHandler that drives the
-	// adaptive message pump via OnScheduleMessagePumpWork.
-	app := newDumberApp(eng)
-
-	logger.Debug().Msg("cef: calling InitWithApp")
-	if err := purecef.InitWithApp(settings, app); err != nil {
+	if multiThreaded {
+		// In multi-threaded message loop mode CEF owns the browser UI thread, so
+		// Dumber does not rely on BrowserProcessHandler callbacks to drive the
+		// message pump. Initializing without a CefApp avoids the current
+		// purego-cef app bridge issue that causes cef_initialize() to fail early.
+		logger.Debug().Msg("cef: calling Init")
+		if err := purecef.Init(settings); err != nil {
+			os.Args = savedArgs
+			return nil, fmt.Errorf("cef.Init: %w", err)
+		}
 		os.Args = savedArgs
-		return nil, fmt.Errorf("cef.InitWithApp: %w", err)
+		logger.Debug().Msg("cef: Init returned OK")
+	} else {
+		// Create the CEF App with a BrowserProcessHandler that drives the
+		// adaptive message pump via OnScheduleMessagePumpWork.
+		app := newDumberApp(eng)
+
+		logger.Debug().Msg("cef: calling InitWithApp")
+		if err := purecef.InitWithApp(settings, app); err != nil {
+			os.Args = savedArgs
+			return nil, fmt.Errorf("cef.InitWithApp: %w", err)
+		}
+		os.Args = savedArgs
+		logger.Debug().Msg("cef: InitWithApp returned OK")
 	}
-	os.Args = savedArgs
-	logger.Debug().Msg("cef: InitWithApp returned OK")
 
 	// 3. Load GL.
 	gl, err := newGLLoader()
@@ -123,7 +160,12 @@ func NewEngine(ctx context.Context, cfg config.CEFEngineConfig) (*Engine, error)
 	}
 
 	// 5. Create factory + pool and wire them into the engine.
-	factory := newWebViewFactory(eng, gl, scale)
+	factory := newWebViewFactory(eng, gl, webViewFactoryOptions{
+		scale:                    scale,
+		windowlessFrameRate:      windowlessFrameRate,
+		enableAudioHandler:       cfg.EnableAudioHandler,
+		enableContextMenuHandler: cfg.EnableContextMenuHandler,
+	})
 	pool := newWebViewPool(factory)
 
 	eng.gl = gl
@@ -199,4 +241,58 @@ func findHelperBinary() string {
 		return helper
 	}
 	return ""
+}
+
+func prepareCEFLogFile(cfg config.CEFEngineConfig) (string, error) {
+	if cfg.LogFile != "" {
+		runtimeLogFile := filepath.Clean(cfg.LogFile)
+		if err := os.MkdirAll(filepath.Dir(runtimeLogFile), 0o755); err != nil {
+			return "", fmt.Errorf("mkdir %s: %w", filepath.Dir(runtimeLogFile), err)
+		}
+		return runtimeLogFile, nil
+	}
+
+	cwd, cwdErr := os.Getwd()
+	if cwdErr != nil {
+		return "", fmt.Errorf("getwd: %w", cwdErr)
+	}
+	runtimeLogFile := filepath.Join(cwd, ".dev", "dumber", "logs", "cef_runtime.log")
+	if err := os.MkdirAll(filepath.Dir(runtimeLogFile), 0o755); err != nil {
+		return "", fmt.Errorf("mkdir %s: %w", filepath.Dir(runtimeLogFile), err)
+	}
+	return runtimeLogFile, nil
+}
+
+func prepareCEFInitTraceFile(cfg config.CEFEngineConfig) (string, error) {
+	if !puregoCEFInitTraceEnabled() {
+		return "", nil
+	}
+
+	runtimeLogFile := cfg.LogFile
+	if runtimeLogFile != "" {
+		runtimeLogFile = filepath.Clean(runtimeLogFile)
+	} else {
+		cwd, cwdErr := os.Getwd()
+		if cwdErr != nil {
+			return "", fmt.Errorf("getwd: %w", cwdErr)
+		}
+		runtimeLogFile = filepath.Join(cwd, ".dev", "dumber", "logs", "cef_runtime.log")
+	}
+	bootstrapLogFile := strings.TrimSuffix(runtimeLogFile, filepath.Ext(runtimeLogFile)) + ".bootstrap.log"
+	if err := os.MkdirAll(filepath.Dir(bootstrapLogFile), 0o755); err != nil {
+		return "", fmt.Errorf("mkdir %s: %w", filepath.Dir(bootstrapLogFile), err)
+	}
+	if err := os.WriteFile(bootstrapLogFile, nil, 0o644); err != nil {
+		return "", fmt.Errorf("reset %s: %w", bootstrapLogFile, err)
+	}
+	return bootstrapLogFile, nil
+}
+
+func puregoCEFInitTraceEnabled() bool {
+	switch strings.ToLower(strings.TrimSpace(os.Getenv(puregoCEFInitTraceEnvVar))) {
+	case "1", "true", "yes", "on":
+		return true
+	default:
+		return false
+	}
 }

@@ -11,7 +11,9 @@ import (
 // owning WebView. A single struct is used so that the Client's Get*Handler
 // methods can return the same receiver, avoiding extra allocations.
 type handlerSet struct {
-	wv *WebView
+	wv                       *WebView
+	enableAudioHandler       bool
+	enableContextMenuHandler bool
 }
 
 // Compile-time interface checks.
@@ -30,24 +32,34 @@ var (
 // Client
 // ===========================================================================
 
-func (h *handlerSet) GetAudioHandler() purecef.AudioHandler             { return nil }
-func (h *handlerSet) GetCommandHandler() purecef.CommandHandler         { return nil }
-func (h *handlerSet) GetContextMenuHandler() purecef.ContextMenuHandler { return nil }
-func (h *handlerSet) GetDialogHandler() purecef.DialogHandler           { return nil }
-func (h *handlerSet) GetDisplayHandler() purecef.DisplayHandler         { return h }
-func (h *handlerSet) GetDownloadHandler() purecef.DownloadHandler       { return nil }
-func (h *handlerSet) GetDragHandler() purecef.DragHandler               { return nil }
-func (h *handlerSet) GetFindHandler() purecef.FindHandler               { return nil }
-func (h *handlerSet) GetFocusHandler() purecef.FocusHandler             { return nil }
-func (h *handlerSet) GetFrameHandler() purecef.FrameHandler             { return nil }
-func (h *handlerSet) GetPermissionHandler() purecef.PermissionHandler   { return nil }
-func (h *handlerSet) GetJsdialogHandler() purecef.JsdialogHandler       { return nil }
-func (h *handlerSet) GetKeyboardHandler() purecef.KeyboardHandler       { return nil }
-func (h *handlerSet) GetLifeSpanHandler() purecef.LifeSpanHandler       { return h }
-func (h *handlerSet) GetLoadHandler() purecef.LoadHandler               { return h }
-func (h *handlerSet) GetPrintHandler() purecef.PrintHandler             { return nil }
-func (h *handlerSet) GetRenderHandler() purecef.RenderHandler           { return h }
-func (h *handlerSet) GetRequestHandler() purecef.RequestHandler         { return h }
+func (h *handlerSet) GetAudioHandler() purecef.AudioHandler {
+	if h.enableAudioHandler {
+		return h
+	}
+	return nil
+}
+func (h *handlerSet) GetCommandHandler() purecef.CommandHandler { return nil }
+func (h *handlerSet) GetContextMenuHandler() purecef.ContextMenuHandler {
+	if h.enableContextMenuHandler {
+		return h
+	}
+	return nil
+}
+func (h *handlerSet) GetDialogHandler() purecef.DialogHandler         { return nil }
+func (h *handlerSet) GetDisplayHandler() purecef.DisplayHandler       { return h }
+func (h *handlerSet) GetDownloadHandler() purecef.DownloadHandler     { return nil }
+func (h *handlerSet) GetDragHandler() purecef.DragHandler             { return nil }
+func (h *handlerSet) GetFindHandler() purecef.FindHandler             { return nil }
+func (h *handlerSet) GetFocusHandler() purecef.FocusHandler           { return nil }
+func (h *handlerSet) GetFrameHandler() purecef.FrameHandler           { return nil }
+func (h *handlerSet) GetPermissionHandler() purecef.PermissionHandler { return nil }
+func (h *handlerSet) GetJsdialogHandler() purecef.JsdialogHandler     { return nil }
+func (h *handlerSet) GetKeyboardHandler() purecef.KeyboardHandler     { return nil }
+func (h *handlerSet) GetLifeSpanHandler() purecef.LifeSpanHandler     { return h }
+func (h *handlerSet) GetLoadHandler() purecef.LoadHandler             { return h }
+func (h *handlerSet) GetPrintHandler() purecef.PrintHandler           { return nil }
+func (h *handlerSet) GetRenderHandler() purecef.RenderHandler         { return h }
+func (h *handlerSet) GetRequestHandler() purecef.RequestHandler       { return h }
 
 func (h *handlerSet) OnProcessMessageReceived(_ purecef.Browser, _ purecef.Frame, _ purecef.ProcessID, _ purecef.ProcessMessage) int32 {
 	return 0
@@ -69,10 +81,20 @@ func (h *handlerSet) GetViewRect(_ purecef.Browser, rect *purecef.Rect) {
 	h.wv.pipeline.mu.Lock()
 	w := h.wv.pipeline.width
 	ht := h.wv.pipeline.height
+	s := h.wv.pipeline.scale
 	h.wv.pipeline.mu.Unlock()
 
-	// CEF requires a non-empty rect. Return a 1x1 fallback if the GL area
-	// has not been realized yet.
+	// CEF expects view geometry in DIP coordinates while OnPaint dimensions are
+	// in device pixels. The render pipeline tracks device pixels, so convert
+	// back to DIP before answering GetViewRect/GetScreenInfo.
+	if s <= 0 {
+		s = 1
+	}
+	w /= s
+	ht /= s
+
+	// CEF requires a non-empty rect. Return a 1x1 fallback if the GL area has
+	// not been realized yet.
 	if w <= 0 {
 		w = 1
 	}
@@ -99,6 +121,17 @@ func (h *handlerSet) GetScreenInfo(_ purecef.Browser, info *purecef.ScreenInfo) 
 	ht := h.wv.pipeline.height
 	s := h.wv.pipeline.scale
 	h.wv.pipeline.mu.Unlock()
+	if s <= 0 {
+		s = 1
+	}
+	w /= s
+	ht /= s
+	if w <= 0 {
+		w = 1
+	}
+	if ht <= 0 {
+		ht = 1
+	}
 
 	const (
 		screenDepth             = 24
@@ -385,6 +418,8 @@ func (h *handlerSet) OnAfterCreated(browser purecef.Browser) {
 	browserID := browser.GetIdentifier()
 	log.Debug().
 		Int32("browser_id", browserID).
+		Bool("audio_handler_enabled", h.enableAudioHandler).
+		Bool("context_menu_handler_enabled", h.enableContextMenuHandler).
 		Msg("cef: OnAfterCreated")
 	if h.wv.engine != nil {
 		h.wv.engine.recordBrowserAfterCreated(browser)
@@ -405,6 +440,8 @@ func (h *handlerSet) OnAfterCreated(browser purecef.Browser) {
 		}
 	}
 	h.wv.mu.Unlock()
+
+	h.wv.scheduleStartBeginFrameLoop()
 }
 
 // DoClose returns false to allow the default close behavior.
@@ -414,6 +451,13 @@ func (h *handlerSet) DoClose(_ purecef.Browser) bool {
 
 // OnBeforeClose fires the OnClose callback.
 func (h *handlerSet) OnBeforeClose(_ purecef.Browser) {
+	h.wv.mu.Lock()
+	h.wv.browser = nil
+	h.wv.host = nil
+	h.wv.input.setHost(nil)
+	h.wv.mu.Unlock()
+	h.wv.scheduleStopBeginFrameLoop()
+
 	h.wv.mu.RLock()
 	cb := h.wv.callbacks
 	h.wv.mu.RUnlock()

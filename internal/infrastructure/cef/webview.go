@@ -11,6 +11,7 @@ import (
 
 	purecef "github.com/bnema/purego-cef/cef"
 	"github.com/bnema/puregotk/v4/glib"
+	"github.com/bnema/puregotk/v4/gtk"
 
 	"github.com/bnema/dumber/internal/application/port"
 	"github.com/bnema/dumber/internal/logging"
@@ -41,6 +42,11 @@ type WebView struct {
 	pipeline *renderPipeline
 	input    *inputBridge
 	handlers *handlerSet
+
+	// beginFrameTick drives CEF external BeginFrame requests while the GTK
+	// widget is visible. Access is guarded by mu.
+	beginFrameTick   *gtk.TickCallback
+	beginFrameTickID uint
 
 	// pendingCreate holds browser creation params until the GL area is realized.
 	pendingCreate *pendingBrowserCreate
@@ -307,6 +313,12 @@ func cefZoomFromFactor(factor float64) float64 {
 	return math.Log(factor) / math.Log(chromiumZoomBase)
 }
 
+// factorFromCEFZoom converts a Chromium/CEF logarithmic zoom level back to a
+// linear zoom factor.
+func factorFromCEFZoom(level float64) float64 {
+	return math.Pow(chromiumZoomBase, level)
+}
+
 // GetZoomLevel returns the current linear zoom factor.
 func (wv *WebView) GetZoomLevel() float64 {
 	if v := wv.zoomFactor.Load(); v != nil {
@@ -340,6 +352,11 @@ func (wv *WebView) SetZoomLevel(_ context.Context, factor float64) error {
 	// SynchronizeVisualProperties cycle, which makes the renderer produce
 	// a new compositor frame at the new zoom level.
 	host.NotifyScreenInfoChanged()
+	// Zoom is applied asynchronously in the renderer process. Request a couple
+	// of follow-up refreshes on the CEF UI thread so OSR captures the updated
+	// compositor frame after the zoom IPC has been processed.
+	wv.scheduleZoomRefresh()
+	wv.scheduleZoomReadback(factor, cefLevel)
 	return nil
 }
 
@@ -435,6 +452,7 @@ func (wv *WebView) Destroy() {
 	if !wv.destroyed.CompareAndSwap(false, true) {
 		return
 	}
+	wv.scheduleStopBeginFrameLoop()
 	wv.mu.RLock()
 	host := wv.host
 	wv.mu.RUnlock()
@@ -525,6 +543,122 @@ func (wv *WebView) updateHoverURI(uri string) {
 	wv.mu.Lock()
 	wv.lastHoverURI = uri
 	wv.mu.Unlock()
+}
+
+type cefTaskFunc func()
+
+func (f cefTaskFunc) Execute() {
+	if f != nil {
+		f()
+	}
+}
+
+func (wv *WebView) scheduleZoomRefresh() {
+	for _, delayMs := range [...]int64{16, 48} {
+		delayMs := delayMs
+		purecef.PostDelayedTask(purecef.ThreadIDTidUi, purecef.NewTask(cefTaskFunc(func() {
+			if wv.destroyed.Load() {
+				return
+			}
+			wv.mu.RLock()
+			host := wv.host
+			wv.mu.RUnlock()
+			if host == nil {
+				return
+			}
+			host.Invalidate(purecef.PaintElementTypePetView)
+		})), delayMs)
+	}
+}
+
+func (wv *WebView) scheduleZoomReadback(expectedFactor, expectedLevel float64) {
+	for _, delayMs := range [...]int64{0, 64} {
+		delayMs := delayMs
+		purecef.PostDelayedTask(purecef.ThreadIDTidUi, purecef.NewTask(cefTaskFunc(func() {
+			if wv.destroyed.Load() {
+				return
+			}
+			wv.mu.RLock()
+			host := wv.host
+			wv.mu.RUnlock()
+			if host == nil {
+				return
+			}
+			actualLevel := host.GetZoomLevel()
+			logging.FromContext(wv.ctx).Debug().
+				Int64("delay_ms", delayMs).
+				Float64("expected_factor", expectedFactor).
+				Float64("expected_cef_level", expectedLevel).
+				Float64("actual_factor", factorFromCEFZoom(actualLevel)).
+				Float64("actual_cef_level", actualLevel).
+				Msg("cef: zoom level readback")
+		})), delayMs)
+	}
+}
+
+func (wv *WebView) scheduleStartBeginFrameLoop() {
+	wv.runOnGTK(func() {
+		wv.startBeginFrameLoop()
+	})
+}
+
+func (wv *WebView) scheduleStopBeginFrameLoop() {
+	wv.runOnGTK(func() {
+		wv.stopBeginFrameLoop()
+	})
+}
+
+func (wv *WebView) startBeginFrameLoop() {
+	if wv.destroyed.Load() || wv.pipeline == nil || wv.pipeline.glArea == nil {
+		return
+	}
+
+	wv.mu.Lock()
+	if wv.beginFrameTickID != 0 || wv.host == nil {
+		wv.mu.Unlock()
+		return
+	}
+
+	glArea := wv.pipeline.glArea
+	cb := new(gtk.TickCallback)
+	*cb = func(_, _, _ uintptr) bool {
+		if wv.destroyed.Load() {
+			return false
+		}
+		wv.mu.RLock()
+		host := wv.host
+		wv.mu.RUnlock()
+		if host == nil {
+			return false
+		}
+		host.SendExternalBeginFrame()
+		return true
+	}
+	wv.beginFrameTick = cb
+	wv.beginFrameTickID = glArea.Widget.AddTickCallback(cb, 0, nil)
+	host := wv.host
+	wv.mu.Unlock()
+
+	if host != nil {
+		host.SendExternalBeginFrame()
+	}
+}
+
+func (wv *WebView) stopBeginFrameLoop() {
+	if wv.pipeline == nil || wv.pipeline.glArea == nil {
+		return
+	}
+
+	wv.mu.Lock()
+	tickID := wv.beginFrameTickID
+	wv.beginFrameTickID = 0
+	wv.beginFrameTick = nil
+	glArea := wv.pipeline.glArea
+	wv.mu.Unlock()
+
+	if tickID != 0 {
+		glArea.Widget.RemoveTickCallback(tickID)
+	}
 }
 
 func (wv *WebView) runOnGTK(fn func()) {

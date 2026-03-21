@@ -59,3 +59,58 @@ func TestOnLoadStartFiresCommittedAndUpdatesURI(t *testing.T) {
 	require.Equal(t, port.LoadCommitted, gotEvents[0])
 	require.Equal(t, "https://google.com", wv.URI())
 }
+
+func TestGetViewRectUsesDIPCoordinates(t *testing.T) {
+	rect := &purecef.Rect{}
+	h := &handlerSet{
+		wv: &WebView{
+			pipeline: &renderPipeline{
+				width:  800,
+				height: 600,
+				scale:  2,
+			},
+		},
+	}
+
+	h.GetViewRect(nil, rect)
+
+	require.Equal(t, int32(0), rect.X)
+	require.Equal(t, int32(0), rect.Y)
+	require.Equal(t, int32(400), rect.Width)
+	require.Equal(t, int32(300), rect.Height)
+}
+
+func TestGetScreenInfoUsesDIPRectAndScale(t *testing.T) {
+	info := &purecef.ScreenInfo{}
+	h := &handlerSet{
+		wv: &WebView{
+			pipeline: &renderPipeline{
+				width:  1500,
+				height: 900,
+				scale:  3,
+			},
+		},
+	}
+
+	ok := h.GetScreenInfo(nil, info)
+
+	require.Equal(t, int32(1), ok)
+	require.Equal(t, float32(3), info.DeviceScaleFactor)
+	require.Equal(t, int32(500), info.Rect.Width)
+	require.Equal(t, int32(300), info.Rect.Height)
+	require.Equal(t, int32(500), info.AvailableRect.Width)
+	require.Equal(t, int32(300), info.AvailableRect.Height)
+}
+
+func TestOptionalHandlersRespectFactoryFlags(t *testing.T) {
+	h := &handlerSet{}
+
+	require.Nil(t, h.GetAudioHandler())
+	require.Nil(t, h.GetContextMenuHandler())
+
+	h.enableAudioHandler = true
+	h.enableContextMenuHandler = true
+
+	require.Same(t, h, h.GetAudioHandler())
+	require.Same(t, h, h.GetContextMenuHandler())
+}

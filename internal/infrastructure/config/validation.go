@@ -33,6 +33,7 @@ func validateConfig(config *Config) error {
 	validationErrors = append(validationErrors, validateColorScheme(config)...)
 	validationErrors = append(validationErrors, validateSession(config)...)
 	validationErrors = append(validationErrors, validatePerformanceProfile(config)...)
+	validationErrors = append(validationErrors, validateCEF(config)...)
 
 	// If there are validation errors, return them
 	if len(validationErrors) > 0 {
@@ -322,6 +323,29 @@ func validateLogging(config *Config) []string {
 			config.Logging.Format,
 		))
 	}
+	return validationErrors
+}
+
+func validateCEF(config *Config) []string {
+	var validationErrors []string
+
+	switch config.Engine.CEF.LogSeverity {
+	case 0, 1, 2, 3, 4, 99:
+	default:
+		validationErrors = append(validationErrors, fmt.Sprintf(
+			"engine.cef.log_severity must be one of: 0, 1, 2, 3, 4, 99 (got: %d)",
+			config.Engine.CEF.LogSeverity,
+		))
+	}
+
+	if config.Engine.CEF.WindowlessFrameRate < 0 {
+		validationErrors = append(validationErrors, "engine.cef.windowless_frame_rate must be >= 0")
+	}
+
+	if config.Engine.CEF.ManualPumpIntervalMs < 0 {
+		validationErrors = append(validationErrors, "engine.cef.manual_pump_interval_ms must be >= 0")
+	}
+
 	return validationErrors
 }
 

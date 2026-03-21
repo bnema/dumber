@@ -67,6 +67,8 @@ const (
 	// Performance defaults
 	defaultZoomCacheSize           = 256 // domains to cache (~20KB memory)
 	defaultWebViewPoolPrewarmCount = 4   // WebViews to pre-create at startup
+	defaultCEFWindowlessFrameRate  = 60  // OSR frame rate for CEF
+	defaultCEFManualPumpIntervalMs = 10  // CEF manual message pump interval
 
 	// Skia threading defaults (0 = unset, -1 = unset for GPU threads)
 	defaultSkiaCPUPaintingThreads = 0
@@ -84,6 +86,8 @@ func getDefaultLogDir() string {
 
 // DefaultConfig returns the default configuration values for dumber.
 func DefaultConfig() *Config {
+	defaultCEFMultiThreadedMessageLoop := true
+
 	return &Config{
 		Database: DatabaseConfig{
 			// Path is set dynamically in config.Load()
@@ -151,6 +155,12 @@ func DefaultConfig() *Config {
 			// third-party cookie isolation more intelligently. Using Always + ITP
 			// matches Epiphany's model and avoids a misleading setting.
 			CookiePolicy: CookiePolicyAlways,
+			CEF: CEFEngineConfig{
+				WindowlessFrameRate:      defaultCEFWindowlessFrameRate,
+				MultiThreadedMessageLoop: &defaultCEFMultiThreadedMessageLoop,
+				ManualPumpIntervalMs:     defaultCEFManualPumpIntervalMs,
+				LogFile:                  "",
+			},
 			WebKit: WebKitEngineConfig{
 				ITPEnabled:             true,
 				SkiaCPUPaintingThreads: defaultSkiaCPUPaintingThreads,

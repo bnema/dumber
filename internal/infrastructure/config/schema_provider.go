@@ -847,6 +847,41 @@ func (*SchemaProvider) getDebugKeys(defaults *Config) []entity.ConfigKeyInfo {
 			Description: "Enable browser developer tools (F12)",
 			Section:     SectionDebug,
 		},
+		{
+			Key:         "engine.cef.log_file",
+			Type:        "string",
+			Default:     defaults.Engine.CEF.LogFile,
+			Description: "Path to the CEF runtime log file written during startup and browser process execution",
+			Section:     SectionDebug,
+		},
+		{
+			Key:         "engine.cef.log_severity",
+			Type:        "int32",
+			Default:     fmt.Sprintf("%d", defaults.Engine.CEF.LogSeverity),
+			Description: "CEF internal log verbosity (0=default, 1=verbose, 2=info, 3=warning, 4=error, 99=disable)",
+			Section:     SectionDebug,
+		},
+		{
+			Key:         "engine.cef.trace_handlers",
+			Type:        "bool",
+			Default:     fmt.Sprintf("%t", defaults.Engine.CEF.TraceHandlers),
+			Description: "Trace purego-cef handler wrapping and refcount activity",
+			Section:     SectionDebug,
+		},
+		{
+			Key:         "engine.cef.enable_audio_handler",
+			Type:        "bool",
+			Default:     fmt.Sprintf("%t", defaults.Engine.CEF.EnableAudioHandler),
+			Description: "Enable the experimental CEF audio handler bridge",
+			Section:     SectionDebug,
+		},
+		{
+			Key:         "engine.cef.enable_context_menu_handler",
+			Type:        "bool",
+			Default:     fmt.Sprintf("%t", defaults.Engine.CEF.EnableContextMenuHandler),
+			Description: "Enable the experimental CEF context menu handler bridge",
+			Section:     SectionDebug,
+		},
 	}
 }
 
@@ -874,6 +909,29 @@ func (*SchemaProvider) getPerformanceKeys(defaults *Config) []entity.ConfigKeyIn
 			Default:     fmt.Sprintf("%d", defaults.Engine.PoolPrewarmCount),
 			Description: "WebViews to pre-create at startup",
 			Range:       ">=0",
+			Section:     SectionPerformance,
+		},
+		{
+			Key:         "engine.cef.windowless_frame_rate",
+			Type:        "int32",
+			Default:     fmt.Sprintf("%d", defaults.Engine.CEF.CEFWindowlessFrameRate()),
+			Description: "Maximum off-screen frame rate for the CEF engine",
+			Range:       ">=1",
+			Section:     SectionPerformance,
+		},
+		{
+			Key:         "engine.cef.multi_threaded_message_loop",
+			Type:        "bool",
+			Default:     fmt.Sprintf("%t", defaults.Engine.CEF.CEFMultiThreadedMessageLoop()),
+			Description: "Let CEF drive its own UI/message loop thread",
+			Section:     SectionPerformance,
+		},
+		{
+			Key:         "engine.cef.manual_pump_interval_ms",
+			Type:        "int64",
+			Default:     fmt.Sprintf("%d", defaults.Engine.CEF.CEFManualPumpIntervalMs()),
+			Description: "Manual CEF message pump interval when multi-threaded mode is disabled",
+			Range:       ">=1",
 			Section:     SectionPerformance,
 		},
 		{
@@ -968,6 +1026,13 @@ func (*SchemaProvider) getPerformanceKeys(defaults *Config) []entity.ConfigKeyIn
 
 func (*SchemaProvider) getRuntimeKeys(defaults *Config) []entity.ConfigKeyInfo {
 	return []entity.ConfigKeyInfo{
+		{
+			Key:         "engine.cef.cef_dir",
+			Type:        "string",
+			Default:     defaults.Engine.CEF.CEFDir,
+			Description: "Custom CEF runtime directory containing libcef and Resources",
+			Section:     SectionRuntime,
+		},
 		{
 			Key:         "engine.webkit.prefix",
 			Type:        "string",

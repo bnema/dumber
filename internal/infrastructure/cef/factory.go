@@ -17,23 +17,39 @@ var _ port.WebViewFactory = (*WebViewFactory)(nil)
 // gets a unique ID, its own renderPipeline and inputBridge, and an
 // asynchronously-created CEF browser (via BrowserHostCreateBrowser).
 type WebViewFactory struct {
-	engine  *Engine
-	gl      *glLoader
-	nextID  atomic.Uint64
-	scale   int32
-	bgColor atomic.Uint32 // packed ARGB for BrowserSettings.BackgroundColor
+	engine                   *Engine
+	gl                       *glLoader
+	nextID                   atomic.Uint64
+	scale                    int32
+	windowlessFrameRate      int32
+	enableAudioHandler       bool
+	enableContextMenuHandler bool
+	bgColor                  atomic.Uint32 // packed ARGB for BrowserSettings.BackgroundColor
+}
+
+type webViewFactoryOptions struct {
+	scale                    int32
+	windowlessFrameRate      int32
+	enableAudioHandler       bool
+	enableContextMenuHandler bool
 }
 
 // newWebViewFactory returns a factory that will create WebViews using the
 // given GL loader and HiDPI scale factor.
-func newWebViewFactory(engine *Engine, gl *glLoader, scale int32) *WebViewFactory {
-	if scale < 1 {
-		scale = 1
+func newWebViewFactory(engine *Engine, gl *glLoader, opts webViewFactoryOptions) *WebViewFactory {
+	if opts.scale < 1 {
+		opts.scale = 1
+	}
+	if opts.windowlessFrameRate < 1 {
+		opts.windowlessFrameRate = 60
 	}
 	return &WebViewFactory{
-		engine: engine,
-		gl:     gl,
-		scale:  scale,
+		engine:                   engine,
+		gl:                       gl,
+		scale:                    opts.scale,
+		windowlessFrameRate:      opts.windowlessFrameRate,
+		enableAudioHandler:       opts.enableAudioHandler,
+		enableContextMenuHandler: opts.enableContextMenuHandler,
 	}
 }
 
@@ -59,7 +75,11 @@ func (f *WebViewFactory) Create(ctx context.Context) (port.WebView, error) {
 		pipeline: pipeline,
 	}
 
-	handlers := &handlerSet{wv: wv}
+	handlers := &handlerSet{
+		wv:                       wv,
+		enableAudioHandler:       f.enableAudioHandler,
+		enableContextMenuHandler: f.enableContextMenuHandler,
+	}
 	wv.handlers = handlers
 
 	input := newInputBridge(f.scale)
@@ -89,10 +109,11 @@ func (f *WebViewFactory) Create(ctx context.Context) (port.WebView, error) {
 	// Configure WindowInfo for off-screen rendering (OSR).
 	windowInfo := purecef.DefaultWindowInfo()
 	windowInfo.WindowlessRenderingEnabled = 1
+	windowInfo.ExternalBeginFrameEnabled = 1
 
 	// Configure BrowserSettings.
 	settings := purecef.DefaultBrowserSettings()
-	settings.WindowlessFrameRate = 60
+	settings.WindowlessFrameRate = f.windowlessFrameRate
 	if bg := f.bgColor.Load(); bg != 0 {
 		settings.BackgroundColor = bg
 	}
@@ -126,6 +147,7 @@ func (f *WebViewFactory) Create(ctx context.Context) (port.WebView, error) {
 			log.Debug().
 				Int32("result", result).
 				Int32("windowless", pc.windowInfo.WindowlessRenderingEnabled).
+				Int32("windowless_frame_rate", pc.settings.WindowlessFrameRate).
 				Int32("shared_texture", pc.windowInfo.SharedTextureEnabled).
 				Int32("external_begin_frame", pc.windowInfo.ExternalBeginFrameEnabled).
 				Bool("client_nil", pc.client == nil).

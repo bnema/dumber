@@ -42,6 +42,7 @@ Thumbs.db
 *.tmp
 *.temp
 *.log
+__debug_bin*
 
 # Database files
 *.db

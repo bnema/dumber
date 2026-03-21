@@ -568,6 +568,17 @@ func (m *Manager) setEngineDefaults(defaults *Config) {
 	m.viper.SetDefault("engine.zoom_cache_size", e.ZoomCacheSize)
 	m.viper.SetDefault("engine.cookie_policy", string(e.CookiePolicy))
 
+	ce := e.CEF
+	m.viper.SetDefault("engine.cef.cef_dir", ce.CEFDir)
+	m.viper.SetDefault("engine.cef.log_file", ce.LogFile)
+	m.viper.SetDefault("engine.cef.log_severity", ce.LogSeverity)
+	m.viper.SetDefault("engine.cef.windowless_frame_rate", ce.CEFWindowlessFrameRate())
+	m.viper.SetDefault("engine.cef.multi_threaded_message_loop", ce.CEFMultiThreadedMessageLoop())
+	m.viper.SetDefault("engine.cef.manual_pump_interval_ms", ce.CEFManualPumpIntervalMs())
+	m.viper.SetDefault("engine.cef.enable_audio_handler", ce.EnableAudioHandler)
+	m.viper.SetDefault("engine.cef.enable_context_menu_handler", ce.EnableContextMenuHandler)
+	m.viper.SetDefault("engine.cef.trace_handlers", ce.TraceHandlers)
+
 	wk := e.WebKit
 	m.viper.SetDefault("engine.webkit.itp_enabled", wk.ITPEnabled)
 	m.viper.SetDefault("engine.webkit.skia_cpu_painting_threads", wk.SkiaCPUPaintingThreads)

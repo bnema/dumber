@@ -79,11 +79,14 @@ type CEFEngineConfig struct {
 	// CEFDir is the path to the CEF framework directory containing
 	// libcef.so and the Resources/locales subdirectories.
 	CEFDir string `mapstructure:"cef_dir" toml:"cef_dir" yaml:"cef_dir"`
+	// LogFile overrides the CEF internal log destination. When empty,
+	// Dumber writes CEF startup logs to .dev/dumber/logs/cef_runtime.log.
+	LogFile string `mapstructure:"log_file" toml:"log_file" yaml:"log_file"`
 	// LogSeverity controls CEF's internal log verbosity.
 	// 0 = default, 1 = verbose, 2 = info, 3 = warning, 4 = error, 99 = disable.
 	LogSeverity int32 `mapstructure:"log_severity" toml:"log_severity" yaml:"log_severity"`
 	// WindowlessFrameRate is the maximum frame rate for off-screen rendering.
-	// Default: 30. Higher values increase CPU usage.
+	// Default: 60. Higher values increase CPU usage.
 	WindowlessFrameRate int32 `mapstructure:"windowless_frame_rate" toml:"windowless_frame_rate" yaml:"windowless_frame_rate"`
 	// MultiThreadedMessageLoop lets CEF run its own message loop thread.
 	// Default: true. When false, the host drives the pump via a manual timer.
@@ -91,6 +94,12 @@ type CEFEngineConfig struct {
 	// ManualPumpIntervalMs is the polling interval (ms) for CefDoMessageLoopWork
 	// when MultiThreadedMessageLoop is false. Default: 10.
 	ManualPumpIntervalMs int64 `mapstructure:"manual_pump_interval_ms" toml:"manual_pump_interval_ms" yaml:"manual_pump_interval_ms"`
+	// EnableAudioHandler opts into the experimental CEF AudioHandler bridge.
+	EnableAudioHandler bool `mapstructure:"enable_audio_handler" toml:"enable_audio_handler" yaml:"enable_audio_handler"`
+	// EnableContextMenuHandler opts into the experimental CEF ContextMenuHandler bridge.
+	EnableContextMenuHandler bool `mapstructure:"enable_context_menu_handler" toml:"enable_context_menu_handler" yaml:"enable_context_menu_handler"` //nolint:lll
+	// TraceHandlers enables purego-cef handler/refcount tracing for diagnostics.
+	TraceHandlers bool `mapstructure:"trace_handlers" toml:"trace_handlers" yaml:"trace_handlers"`
 }
 
 // CEFMultiThreadedMessageLoop returns the effective value with default true.
@@ -106,7 +115,15 @@ func (c CEFEngineConfig) CEFManualPumpIntervalMs() int64 {
 	if c.ManualPumpIntervalMs > 0 {
 		return c.ManualPumpIntervalMs
 	}
-	return 10
+	return defaultCEFManualPumpIntervalMs
+}
+
+// CEFWindowlessFrameRate returns the effective OSR frame rate with default 60.
+func (c CEFEngineConfig) CEFWindowlessFrameRate() int32 {
+	if c.WindowlessFrameRate > 0 {
+		return c.WindowlessFrameRate
+	}
+	return defaultCEFWindowlessFrameRate
 }
 
 // PerformanceConfigFromEngine constructs a PerformanceConfig from the

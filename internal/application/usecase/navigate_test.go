@@ -3,9 +3,12 @@ package usecase
 import (
 	"context"
 	"path/filepath"
+	"sync"
 	"testing"
+	"time"
 
 	"github.com/bnema/dumber/internal/domain/entity"
+	"github.com/bnema/dumber/internal/domain/repository"
 	repomocks "github.com/bnema/dumber/internal/domain/repository/mocks"
 	"github.com/bnema/dumber/internal/infrastructure/persistence/sqlite"
 	"github.com/stretchr/testify/mock"
@@ -88,3 +91,135 @@ func TestUpdateHistoryTitle_UsesMetadataUpdateWithoutIncrementingVisits(t *testi
 	require.Equal(t, "New", after.Title)
 	require.Equal(t, before.VisitCount, after.VisitCount)
 }
+
+func TestHistoryWorker_ReenqueueDuringFlushIsPersistedOnShutdown(t *testing.T) {
+	ctx := context.Background()
+	repo := newHistoryWorkerRegressionRepo()
+
+	var uc *NavigateUseCase
+	repo.onSave = func(entry *entity.HistoryEntry) {
+		if entry.URL != "https://example.com/article" {
+			return
+		}
+		uc.UpdateHistoryTitle(ctx, entry.URL, "Queued title")
+	}
+
+	uc = NewNavigateUseCase(repo, nil, entity.ZoomDefault)
+	uc.RecordHistory(ctx, "pane-1", "https://example.com/article")
+
+	// Give the worker enough time to hit the periodic flush before shutdown.
+	time.Sleep(historyWorkerFlushInterval * 2)
+	uc.Close()
+
+	entry, err := repo.FindByURL(ctx, "https://example.com/article")
+	require.NoError(t, err)
+	require.NotNil(t, entry)
+	require.Equal(t, int64(1), entry.VisitCount)
+	require.Equal(t, "Queued title", entry.Title)
+}
+
+type historyWorkerRegressionRepo struct {
+	mu     sync.Mutex
+	byURL  map[string]*entity.HistoryEntry
+	saveMu sync.Once
+	onSave func(*entity.HistoryEntry)
+}
+
+func newHistoryWorkerRegressionRepo() *historyWorkerRegressionRepo {
+	return &historyWorkerRegressionRepo{
+		byURL: make(map[string]*entity.HistoryEntry),
+	}
+}
+
+func (r *historyWorkerRegressionRepo) Save(_ context.Context, entry *entity.HistoryEntry) error {
+	clone := *entry
+
+	r.mu.Lock()
+	r.byURL[entry.URL] = &clone
+	r.mu.Unlock()
+
+	if r.onSave != nil {
+		r.saveMu.Do(func() {
+			r.onSave(&clone)
+		})
+	}
+	return nil
+}
+
+func (r *historyWorkerRegressionRepo) FindByURL(_ context.Context, url string) (*entity.HistoryEntry, error) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	entry := r.byURL[url]
+	if entry == nil {
+		return nil, nil
+	}
+	clone := *entry
+	return &clone, nil
+}
+
+func (*historyWorkerRegressionRepo) Search(context.Context, string, int) ([]entity.HistoryMatch, error) {
+	return nil, nil
+}
+
+func (*historyWorkerRegressionRepo) GetRecent(context.Context, int, int) ([]*entity.HistoryEntry, error) {
+	return nil, nil
+}
+
+func (*historyWorkerRegressionRepo) GetRecentSince(context.Context, int) ([]*entity.HistoryEntry, error) {
+	return nil, nil
+}
+
+func (*historyWorkerRegressionRepo) GetMostVisited(context.Context, int) ([]*entity.HistoryEntry, error) {
+	return nil, nil
+}
+
+func (*historyWorkerRegressionRepo) GetAllRecentHistory(context.Context) ([]*entity.HistoryEntry, error) {
+	return nil, nil
+}
+
+func (*historyWorkerRegressionRepo) GetAllMostVisited(context.Context) ([]*entity.HistoryEntry, error) {
+	return nil, nil
+}
+
+func (r *historyWorkerRegressionRepo) IncrementVisitCount(_ context.Context, url string) error {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	if entry := r.byURL[url]; entry != nil {
+		entry.VisitCount++
+	}
+	return nil
+}
+
+func (*historyWorkerRegressionRepo) Delete(context.Context, int64) error {
+	return nil
+}
+
+func (*historyWorkerRegressionRepo) DeleteOlderThan(context.Context, time.Time) error {
+	return nil
+}
+
+func (*historyWorkerRegressionRepo) DeleteAll(context.Context) error {
+	return nil
+}
+
+func (*historyWorkerRegressionRepo) DeleteByDomain(context.Context, string) error {
+	return nil
+}
+
+func (*historyWorkerRegressionRepo) GetStats(context.Context) (*entity.HistoryStats, error) {
+	return nil, nil
+}
+
+func (*historyWorkerRegressionRepo) GetDomainStats(context.Context, int) ([]*entity.DomainStat, error) {
+	return nil, nil
+}
+
+func (*historyWorkerRegressionRepo) GetHourlyDistribution(context.Context) ([]*entity.HourlyDistribution, error) {
+	return nil, nil
+}
+
+func (*historyWorkerRegressionRepo) GetDailyVisitCount(context.Context, string) ([]*entity.DailyVisitCount, error) {
+	return nil, nil
+}
+
+var _ repository.HistoryRepository = (*historyWorkerRegressionRepo)(nil)

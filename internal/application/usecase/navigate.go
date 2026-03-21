@@ -249,18 +249,28 @@ func (uc *NavigateUseCase) historyWorker() {
 
 		log.Debug().Int("visits", visitCount).Int("titles", titleCount).Msg("flushing pending history")
 
-		// Swap maps to avoid concurrent iteration/write issues
-		// (persist callbacks may re-enqueue records).
+		// Swap maps first, then materialize immutable slices before invoking
+		// persistence callbacks. This keeps any re-enqueued records isolated to
+		// the fresh pending maps for the next flush cycle.
 		visits := pendingVisits
 		titles := pendingTitles
 		pendingVisits = make(map[string]int)
 		pendingTitles = make(map[string]string)
 
+		visitRecords := make([]historyRecord, 0, len(visits))
 		for historyURL, v := range visits {
-			uc.persistHistory(uc.ctx, historyRecord{url: historyURL, visits: v})
+			visitRecords = append(visitRecords, historyRecord{url: historyURL, visits: v})
 		}
+		titleUpdates := make([]historyRecord, 0, len(titles))
 		for historyURL, title := range titles {
-			uc.persistTitleUpdate(uc.ctx, historyURL, title)
+			titleUpdates = append(titleUpdates, historyRecord{url: historyURL, title: title})
+		}
+
+		for _, record := range visitRecords {
+			uc.persistHistory(uc.ctx, record)
+		}
+		for _, record := range titleUpdates {
+			uc.persistTitleUpdate(uc.ctx, record.url, record.title)
 		}
 	}
 

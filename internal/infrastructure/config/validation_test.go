@@ -34,3 +34,72 @@ func TestValidateConfig_EngineCookiePolicy(t *testing.T) {
 		})
 	}
 }
+
+func TestValidateConfig_CEFConfig(t *testing.T) {
+	tests := []struct {
+		name     string
+		mutate   func(*Config)
+		wantErr  bool
+		wantText string
+	}{
+		{
+			name: "valid defaults",
+			mutate: func(_ *Config) {
+			},
+			wantErr: false,
+		},
+		{
+			name: "invalid log severity",
+			mutate: func(cfg *Config) {
+				cfg.Engine.CEF.LogSeverity = 7
+			},
+			wantErr:  true,
+			wantText: "engine.cef.log_severity",
+		},
+		{
+			name: "zero frame rate uses default",
+			mutate: func(cfg *Config) {
+				cfg.Engine.CEF.WindowlessFrameRate = 0
+			},
+			wantErr: false,
+		},
+		{
+			name: "zero manual pump interval uses default",
+			mutate: func(cfg *Config) {
+				cfg.Engine.CEF.ManualPumpIntervalMs = 0
+			},
+			wantErr: false,
+		},
+		{
+			name: "negative frame rate",
+			mutate: func(cfg *Config) {
+				cfg.Engine.CEF.WindowlessFrameRate = -1
+			},
+			wantErr:  true,
+			wantText: "engine.cef.windowless_frame_rate",
+		},
+		{
+			name: "negative manual pump interval",
+			mutate: func(cfg *Config) {
+				cfg.Engine.CEF.ManualPumpIntervalMs = -1
+			},
+			wantErr:  true,
+			wantText: "engine.cef.manual_pump_interval_ms",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			cfg := DefaultConfig()
+			tt.mutate(cfg)
+
+			err := validateConfig(cfg)
+			if tt.wantErr {
+				require.Error(t, err)
+				assert.Contains(t, err.Error(), tt.wantText)
+				return
+			}
+			require.NoError(t, err)
+		})
+	}
+}
