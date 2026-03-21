@@ -151,8 +151,8 @@ func newRenderPipeline(ctx context.Context, gl *glLoader, scale int32) *renderPi
 // handlePaint is called from CEF's OnPaint callback (on GTK main thread via
 // IdleAdd). It copies dirty rect regions from the CEF buffer into the staging
 // buffer and queues a GL redraw.
-func (rp *renderPipeline) handlePaint(buffer unsafe.Pointer, width, height int32, rects []rect) {
-	if buffer == nil || width <= 0 || height <= 0 {
+func (rp *renderPipeline) handlePaint(buffer []byte, width, height int32, rects []rect) {
+	if len(buffer) == 0 || width <= 0 || height <= 0 {
 		return
 	}
 
@@ -160,7 +160,6 @@ func (rp *renderPipeline) handlePaint(buffer unsafe.Pointer, width, height int32
 	rp.mu.Lock()
 
 	bufSize := int(int64(width) * int64(height) * 4)
-	srcSlice := unsafe.Slice((*byte)(buffer), bufSize)
 	copiedBytes := uint64(0)
 
 	// Detect size change, or first paint (staging not yet allocated).
@@ -170,7 +169,7 @@ func (rp *renderPipeline) handlePaint(buffer unsafe.Pointer, width, height int32
 		rp.staging = make([]byte, bufSize)
 		rp.sizeChanged = true
 		// On size change, copy the entire buffer.
-		copy(rp.staging, srcSlice)
+		copy(rp.staging, buffer)
 		copiedBytes = uint64(bufSize)
 	} else {
 		// Copy only dirty rect rows.
@@ -180,7 +179,7 @@ func (rp *renderPipeline) handlePaint(buffer unsafe.Pointer, width, height int32
 				srcOff := int(row)*stride + int(r.X)*4
 				dstOff := srcOff
 				rowBytes := int(r.Width) * 4
-				copy(rp.staging[dstOff:dstOff+rowBytes], srcSlice[srcOff:srcOff+rowBytes])
+				copy(rp.staging[dstOff:dstOff+rowBytes], buffer[srcOff:srcOff+rowBytes])
 				copiedBytes += uint64(rowBytes)
 			}
 		}

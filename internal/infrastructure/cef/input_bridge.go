@@ -2,7 +2,6 @@ package cef
 
 import (
 	"sync"
-	"unsafe"
 
 	purecef "github.com/bnema/purego-cef/cef"
 	"github.com/bnema/puregotk/v4/gdk"
@@ -326,10 +325,7 @@ func (ib *inputBridge) onIMCommit(text string) {
 			continue
 		}
 		ch := uint16(r)
-		var evt purecef.KeyEvent
-		evt.Size = unsafe.Sizeof(evt)
-		*(*int32)(unsafe.Pointer(&evt.Type)) = int32(purecef.KeyEventTypeKeyeventChar)
-		evt.WindowsKeyCode = int32(ch)
+		evt := purecef.NewKeyEvent(purecef.KeyEventTypeKeyeventChar, int32(ch), 0, 0)
 		evt.Character = ch
 		evt.UnmodifiedCharacter = ch
 		host.SendKeyEvent(&evt)
@@ -361,14 +357,12 @@ func buildMouseEvent(x, y float64, gdkMods uint, scale int32) purecef.MouseEvent
 }
 
 func buildKeyEvent(keyval, keycode, gdkMods uint, eventType purecef.KeyEventType) purecef.KeyEvent {
-	var evt purecef.KeyEvent
-	evt.Size = unsafe.Sizeof(evt)
-	// Use unsafe to set Type field — the underlying types are both int32 but
-	// the struct field uses an internal (unexportable) named type.
-	*(*int32)(unsafe.Pointer(&evt.Type)) = int32(eventType)
-	evt.Modifiers = translateModifiers(gdkMods)
-	evt.WindowsKeyCode = gdkKeyvalToWindowsVK(keyval)
-	evt.NativeKeyCode = int32(keycode)
+	evt := purecef.NewKeyEvent(
+		eventType,
+		gdkKeyvalToWindowsVK(keyval),
+		int32(keycode),
+		translateModifiers(gdkMods),
+	)
 	return evt
 }
 

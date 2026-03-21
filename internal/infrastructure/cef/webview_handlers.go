@@ -1,8 +1,6 @@
 package cef
 
 import (
-	"unsafe"
-
 	purecef "github.com/bnema/purego-cef/cef"
 
 	"github.com/bnema/dumber/internal/application/port"
@@ -63,8 +61,6 @@ func (h *handlerSet) GetAccessibilityHandler() purecef.AccessibilityHandler { re
 func (h *handlerSet) GetRootScreenRect(_ purecef.Browser, _ *purecef.Rect) int32 { return 0 }
 
 // GetViewRect fills the rect struct with the pipeline dimensions.
-// The rect pointer points to a cef_rect_t: {HostLayout padding, X, Y, Width, Height} all int32.
-// The HostLayout field occupies 0 bytes on most platforms but we use the Rect type alias to be safe.
 func (h *handlerSet) GetViewRect(_ purecef.Browser, rect *purecef.Rect) {
 	if rect == nil {
 		return
@@ -89,7 +85,7 @@ func (h *handlerSet) GetViewRect(_ purecef.Browser, rect *purecef.Rect) {
 	rect.Height = ht
 }
 
-func (h *handlerSet) GetScreenPoint(_ purecef.Browser, _, _ int32, _, _ unsafe.Pointer) int32 {
+func (h *handlerSet) GetScreenPoint(_ purecef.Browser, _, _ int32, _, _ *int32) int32 {
 	return 0
 }
 
@@ -103,15 +99,12 @@ func (h *handlerSet) GetScreenInfo(_ purecef.Browser, info *purecef.ScreenInfo) 
 	s := h.wv.pipeline.scale
 	h.wv.pipeline.mu.Unlock()
 
-	info.Size = unsafe.Sizeof(*info)
-	info.DeviceScaleFactor = float32(s)
-	info.Depth = 24
-	info.DepthPerComponent = 8
-	info.Rect.X = 0
-	info.Rect.Y = 0
-	info.Rect.Width = w
-	info.Rect.Height = ht
-	info.AvailableRect = info.Rect
+	const (
+		screenDepth             = 24
+		screenDepthPerComponent = 8
+	)
+	r := purecef.Rect{X: 0, Y: 0, Width: w, Height: ht}
+	*info = purecef.NewScreenInfo(float32(s), screenDepth, screenDepthPerComponent, false, r, r)
 	return 1
 }
 
@@ -124,9 +117,9 @@ func (h *handlerSet) OnPopupSize(_ purecef.Browser, _ *purecef.Rect) {}
 // must first copy the transient CEF buffer before hopping back to GTK.
 func (h *handlerSet) OnPaint(
 	_ purecef.Browser, _ purecef.PaintElementType,
-	dirtyRects []purecef.Rect, buffer unsafe.Pointer, width, height int32,
+	dirtyRects []purecef.Rect, buffer []byte, width, height int32,
 ) {
-	if buffer == nil || width <= 0 || height <= 0 {
+	if len(buffer) == 0 || width <= 0 || height <= 0 {
 		return
 	}
 	rects := make([]rect, len(dirtyRects))
@@ -134,14 +127,10 @@ func (h *handlerSet) OnPaint(
 		rects[i] = rect{X: dr.X, Y: dr.Y, Width: dr.Width, Height: dr.Height}
 	}
 	if h.wv.engine != nil && h.wv.engine.multiThreadedMessageLoop {
-		bufSize := int(width) * int(height) * 4
-		if bufSize <= 0 {
-			return
-		}
-		pixels := make([]byte, bufSize)
-		copy(pixels, unsafe.Slice((*byte)(buffer), bufSize))
+		pixels := make([]byte, len(buffer))
+		copy(pixels, buffer)
 		h.wv.runOnGTK(func() {
-			h.wv.pipeline.handlePaint(unsafe.Pointer(&pixels[0]), width, height, rects)
+			h.wv.pipeline.handlePaint(pixels, width, height, rects)
 		})
 		return
 	}
@@ -334,7 +323,7 @@ func (h *handlerSet) OnLoadEnd(_ purecef.Browser, frame purecef.Frame, httpStatu
 	}
 }
 
-// OnLoadError is a no-op in Phase 1.
+// OnLoadError is a no-op.
 func (h *handlerSet) OnLoadError(_ purecef.Browser, _ purecef.Frame, _ purecef.Errorcode, _, _ string) {
 }
 
@@ -342,21 +331,24 @@ func (h *handlerSet) OnLoadError(_ purecef.Browser, _ purecef.Frame, _ purecef.E
 // LifeSpanHandler (6 methods)
 // ===========================================================================
 
-// OnBeforePopup blocks all popups in Phase 1.
+// OnBeforePopup blocks all popups.
+//
+//nolint:gocritic // signature imposed by purecef.LifeSpanHandler interface
 func (h *handlerSet) OnBeforePopup(
 	_ purecef.Browser, _ purecef.Frame, _ int32, _, _ string,
 	_ purecef.WindowOpenDisposition, _ int32, _ *purecef.PopupFeatures,
-	_ *purecef.WindowInfo, _ unsafe.Pointer, _ *purecef.BrowserSettings,
-	_, _ unsafe.Pointer,
+	_ *purecef.WindowInfo, _ *purecef.Client, _ *purecef.BrowserSettings,
+	_ *purecef.DictionaryValue, _ *bool,
 ) bool {
 	return true // block
 }
 
 func (h *handlerSet) OnBeforePopupAborted(_ purecef.Browser, _ int32) {}
 
+//nolint:gocritic // signature imposed by purecef.LifeSpanHandler interface
 func (h *handlerSet) OnBeforeDevToolsPopup(
-	_ purecef.Browser, _ *purecef.WindowInfo, _ unsafe.Pointer,
-	_ *purecef.BrowserSettings, _, _ unsafe.Pointer,
+	_ purecef.Browser, _ *purecef.WindowInfo, _ *purecef.Client,
+	_ *purecef.BrowserSettings, _ *purecef.DictionaryValue, _ *bool,
 ) {
 }
 
@@ -421,7 +413,7 @@ func (h *handlerSet) OnOpenUrlfromTab(_ purecef.Browser, _ purecef.Frame, _ stri
 
 func (h *handlerSet) GetResourceRequestHandler(
 	_ purecef.Browser, _ purecef.Frame, _ purecef.Request,
-	_, _ int32, _ string, _ unsafe.Pointer,
+	_, _ int32, _ string, _ *int32,
 ) purecef.ResourceRequestHandler {
 	return nil
 }
@@ -438,8 +430,8 @@ func (h *handlerSet) OnCertificateError(_ purecef.Browser, _ purecef.Errorcode, 
 }
 
 func (h *handlerSet) OnSelectClientCertificate(
-	_ purecef.Browser, _ int32, _ string, _ int32, _ int,
-	_ unsafe.Pointer, _ purecef.SelectClientCertificateCallback,
+	_ purecef.Browser, _ int32, _ string, _ int32,
+	_ []purecef.X509Certificate, _ purecef.SelectClientCertificateCallback,
 ) int32 {
 	return 0
 }
@@ -509,7 +501,7 @@ func (h *handlerSet) OnAudioStreamStarted(_ purecef.Browser, _ *purecef.AudioPar
 	h.wv.setAudioPlaying(true)
 }
 
-func (h *handlerSet) OnAudioStreamPacket(_ purecef.Browser, _ unsafe.Pointer, _ int32, _ int64) {}
+func (h *handlerSet) OnAudioStreamPacket(_ purecef.Browser, _ [][]float32, _ int32, _ int64) {}
 
 func (h *handlerSet) OnAudioStreamStopped(_ purecef.Browser) {
 	h.wv.setAudioPlaying(false)

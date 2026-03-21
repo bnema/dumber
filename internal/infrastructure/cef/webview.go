@@ -8,7 +8,6 @@ import (
 	"math"
 	"sync"
 	"sync/atomic"
-	"unsafe"
 
 	purecef "github.com/bnema/purego-cef/cef"
 	"github.com/bnema/puregotk/v4/glib"
@@ -502,6 +501,3 @@ func (wv *WebView) runOnGTK(fn func()) {
 	})
 	glib.IdleAddOnce(&cb, 0)
 }
-
-// suppress unused import for unsafe (used by NativeWidget via GoPointer).
-var _ = unsafe.Pointer(nil)
