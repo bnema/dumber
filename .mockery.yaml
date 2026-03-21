@@ -35,7 +35,8 @@ packages:
       Engine: {}
       ContentInjector: {}
       SchemeHandler: {}
-      MessageRouter: {}
+      WebUIMessageHandler: {}
+      WebUIHandlerRouter: {}
       SettingsApplier: {}
       FilterApplier: {}
       FaviconDatabase: {}

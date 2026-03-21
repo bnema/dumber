@@ -115,8 +115,9 @@ func (r *MessageRouter) RegisterHandlerWithCallbacks(
 	return nil
 }
 
-// registerInternalHandler registers a CEF-internal handler for a message type.
-// Used for engine-internal handlers that work directly with uint64 webview IDs.
+// registerInternalHandler registers a CEF-internal handler that works with bare
+// uint64 webview IDs (e.g. accent key handlers in engine.go). External callers
+// should use RegisterHandler/RegisterHandlerWithCallbacks (port.WebUIHandlerRouter).
 func (r *MessageRouter) registerInternalHandler(msgType string, handler MessageHandler) error {
 	if msgType == "" {
 		return errors.New("message type cannot be empty")
