@@ -16,4 +16,3 @@ func TestZoomConversionsRoundTrip(t *testing.T) {
 		}
 	}
 }
-

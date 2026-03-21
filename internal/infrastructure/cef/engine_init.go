@@ -243,10 +243,15 @@ func findHelperBinary() string {
 	return ""
 }
 
+const (
+	dirPerm  = 0o755
+	filePerm = 0o644
+)
+
 func prepareCEFLogFile(cfg config.CEFEngineConfig) (string, error) {
 	if cfg.LogFile != "" {
 		runtimeLogFile := filepath.Clean(cfg.LogFile)
-		if err := os.MkdirAll(filepath.Dir(runtimeLogFile), 0o755); err != nil {
+		if err := os.MkdirAll(filepath.Dir(runtimeLogFile), dirPerm); err != nil {
 			return "", fmt.Errorf("mkdir %s: %w", filepath.Dir(runtimeLogFile), err)
 		}
 		return runtimeLogFile, nil
@@ -257,7 +262,7 @@ func prepareCEFLogFile(cfg config.CEFEngineConfig) (string, error) {
 		return "", fmt.Errorf("getwd: %w", cwdErr)
 	}
 	runtimeLogFile := filepath.Join(cwd, ".dev", "dumber", "logs", "cef_runtime.log")
-	if err := os.MkdirAll(filepath.Dir(runtimeLogFile), 0o755); err != nil {
+	if err := os.MkdirAll(filepath.Dir(runtimeLogFile), dirPerm); err != nil {
 		return "", fmt.Errorf("mkdir %s: %w", filepath.Dir(runtimeLogFile), err)
 	}
 	return runtimeLogFile, nil
@@ -279,10 +284,10 @@ func prepareCEFInitTraceFile(cfg config.CEFEngineConfig) (string, error) {
 		runtimeLogFile = filepath.Join(cwd, ".dev", "dumber", "logs", "cef_runtime.log")
 	}
 	bootstrapLogFile := strings.TrimSuffix(runtimeLogFile, filepath.Ext(runtimeLogFile)) + ".bootstrap.log"
-	if err := os.MkdirAll(filepath.Dir(bootstrapLogFile), 0o755); err != nil {
+	if err := os.MkdirAll(filepath.Dir(bootstrapLogFile), dirPerm); err != nil {
 		return "", fmt.Errorf("mkdir %s: %w", filepath.Dir(bootstrapLogFile), err)
 	}
-	if err := os.WriteFile(bootstrapLogFile, nil, 0o644); err != nil {
+	if err := os.WriteFile(bootstrapLogFile, nil, filePerm); err != nil {
 		return "", fmt.Errorf("reset %s: %w", bootstrapLogFile, err)
 	}
 	return bootstrapLogFile, nil

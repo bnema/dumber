@@ -555,7 +555,6 @@ func (f cefTaskFunc) Execute() {
 
 func (wv *WebView) scheduleZoomRefresh() {
 	for _, delayMs := range [...]int64{16, 48} {
-		delayMs := delayMs
 		purecef.PostDelayedTask(purecef.ThreadIDTidUi, purecef.NewTask(cefTaskFunc(func() {
 			if wv.destroyed.Load() {
 				return
@@ -573,7 +572,6 @@ func (wv *WebView) scheduleZoomRefresh() {
 
 func (wv *WebView) scheduleZoomReadback(expectedFactor, expectedLevel float64) {
 	for _, delayMs := range [...]int64{0, 64} {
-		delayMs := delayMs
 		purecef.PostDelayedTask(purecef.ThreadIDTidUi, purecef.NewTask(cefTaskFunc(func() {
 			if wv.destroyed.Load() {
 				return
@@ -635,7 +633,7 @@ func (wv *WebView) startBeginFrameLoop() {
 		return true
 	}
 	wv.beginFrameTick = cb
-	wv.beginFrameTickID = glArea.Widget.AddTickCallback(cb, 0, nil)
+	wv.beginFrameTickID = glArea.AddTickCallback(cb, 0, nil)
 	host := wv.host
 	wv.mu.Unlock()
 
@@ -657,7 +655,7 @@ func (wv *WebView) stopBeginFrameLoop() {
 	wv.mu.Unlock()
 
 	if tickID != 0 {
-		glArea.Widget.RemoveTickCallback(tickID)
+		glArea.RemoveTickCallback(tickID)
 	}
 }
 

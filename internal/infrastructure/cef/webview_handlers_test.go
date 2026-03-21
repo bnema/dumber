@@ -95,7 +95,7 @@ func TestGetScreenInfoUsesDIPRectAndScale(t *testing.T) {
 	ok := h.GetScreenInfo(nil, info)
 
 	require.Equal(t, int32(1), ok)
-	require.Equal(t, float32(3), info.DeviceScaleFactor)
+	require.InEpsilon(t, float32(3), info.DeviceScaleFactor, 0.001)
 	require.Equal(t, int32(500), info.Rect.Width)
 	require.Equal(t, int32(300), info.Rect.Height)
 	require.Equal(t, int32(500), info.AvailableRect.Width)
