@@ -3,7 +3,10 @@
 // remain independent of specific implementations (WebKit, GTK, etc.).
 package port
 
-import "context"
+import (
+	"context"
+	"encoding/json"
+)
 
 // CookiePolicy controls cookie acceptance behavior for the engine's network session.
 type CookiePolicy string
@@ -157,13 +160,40 @@ type EngineSettingsUpdate struct {
 	Raw any //nolint:iface // intentional: see type comment above
 }
 
+// WebUIMessageHandler handles a decoded message payload from the JS bridge.
+// Used by both WebKit and CEF message routers via the shared handlers package.
+type WebUIMessageHandler interface {
+	Handle(ctx context.Context, webviewID WebViewID, payload json.RawMessage) (any, error)
+}
+
+// WebUIMessageHandlerFunc adapts a function to the WebUIMessageHandler interface.
+type WebUIMessageHandlerFunc func(ctx context.Context, webviewID WebViewID, payload json.RawMessage) (any, error)
+
+// Handle calls f(ctx, webviewID, payload).
+func (f WebUIMessageHandlerFunc) Handle(ctx context.Context, webviewID WebViewID, payload json.RawMessage) (any, error) {
+	return f(ctx, webviewID, payload)
+}
+
+// WebUIHandlerRouter registers message handlers for the JS↔Go bridge.
+// Both WebKit's MessageRouter and CEF's MessageRouter implement this interface,
+// allowing shared handler registration code.
+type WebUIHandlerRouter interface {
+	RegisterHandler(msgType string, handler WebUIMessageHandler) error
+	RegisterHandlerWithCallbacks(msgType, callback, errorCallback, worldName string, handler WebUIMessageHandler) error
+}
+
 // HandlerDependencies holds use cases needed by WebUI message handlers.
 type HandlerDependencies struct {
-	HistoryUC         HomepageHistory
-	FavoritesUC       HomepageFavorites
-	Clipboard         Clipboard
-	AutoCopyConfig    AutoCopyConfig
-	OnClipboardCopied func(textLen int)
+	HistoryUC              HomepageHistory
+	FavoritesUC            HomepageFavorites
+	Clipboard              Clipboard
+	AutoCopyConfig         AutoCopyConfig
+	OnClipboardCopied      func(textLen int)
+	SaveConfig             func(context.Context, WebUIConfig) error
+	KeybindingsGetter      KeybindingsGetter
+	KeybindingSetter       KeybindingSetter
+	KeybindingResetter     KeybindingResetter
+	AllKeybindingsResetter AllKeybindingsResetter
 }
 
 // SchemeHandler defines the port interface for registering custom URI schemes.
@@ -176,18 +206,6 @@ type SchemeHandler interface {
 	RegisterScheme(scheme string, handler func(uri string) ([]byte, string, error))
 }
 
-// MessageRouter defines the port interface for bidirectional JS-to-Go messaging.
-// It allows JavaScript running in a WebView to invoke named Go handlers,
-// and allows Go code to post messages back to a specific WebView.
-type MessageRouter interface {
-	// RegisterHandler registers a named message handler callable from JavaScript.
-	// The handler receives a JSON-encoded message string and returns a
-	// JSON-encoded response string.
-	RegisterHandler(name string, handler func(message string) (string, error))
-
-	// PostMessage sends a message to the JavaScript context of the given WebView.
-	PostMessage(webviewID WebViewID, message string) error
-}
 
 // SettingsApplier defines the port interface for applying browser settings to WebViews.
 // Implementations apply engine-specific settings (security, features, etc.) uniformly
