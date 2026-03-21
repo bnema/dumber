@@ -32,7 +32,7 @@ var (
 
 func (h *handlerSet) GetAudioHandler() purecef.AudioHandler             { return h }
 func (h *handlerSet) GetCommandHandler() purecef.CommandHandler         { return nil }
-func (h *handlerSet) GetContextMenuHandler() purecef.ContextMenuHandler { return h }
+func (h *handlerSet) GetContextMenuHandler() purecef.ContextMenuHandler { return nil }
 func (h *handlerSet) GetDialogHandler() purecef.DialogHandler           { return nil }
 func (h *handlerSet) GetDisplayHandler() purecef.DisplayHandler         { return h }
 func (h *handlerSet) GetDownloadHandler() purecef.DownloadHandler       { return nil }
