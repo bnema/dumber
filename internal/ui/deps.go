@@ -38,6 +38,9 @@ type Dependencies struct {
 	// Engine (replaces individual webkit fields)
 	Engine port.Engine
 
+	// Handler dependencies built by bootstrap (keybindings, config save).
+	HandlerDeps port.HandlerDeps
+
 	// Repositories
 	HistoryRepo    repository.HistoryRepository
 	FavoriteRepo   repository.FavoriteRepository

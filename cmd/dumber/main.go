@@ -223,11 +223,14 @@ func buildAndConfigureApp(
 	idleInhibitor port.IdleInhibitor,
 	browserSession *bootstrap.BrowserSession,
 ) (*ui.App, error) {
-	uiDeps := buildUIDependencies(
+	uiDeps, err := buildUIDependencies(
 		ctx, cfg, initResult.ThemeManager,
 		initResult.ColorResolver, initResult.AdwaitaDetector,
 		engine, repos, useCases, idleInhibitor, browserSession.Session.ID, browserSession.CrashReports(),
 	)
+	if err != nil {
+		return nil, err
+	}
 	configureDeferredInit(uiDeps, cfg, browserSession)
 	return ui.New(uiDeps)
 }
@@ -548,10 +551,15 @@ func buildUIDependencies(
 	idleInhibitor port.IdleInhibitor,
 	currentSessionID entity.SessionID,
 	startupCrashReports []string,
-) *ui.Dependencies {
+) (*ui.Dependencies, error) {
 	var filterManager port.FilterManager
 	if fmp, ok := engine.(port.FilterManagerProvider); ok {
 		filterManager = fmp.InternalFilterManager()
+	}
+
+	handlerDeps, err := bootstrap.BuildHandlerDeps(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("failed to build handler deps: %w", err)
 	}
 
 	focusProvider := textinput.NewFocusProvider()
@@ -620,7 +628,8 @@ func buildUIDependencies(
 		},
 		LaunchExternalURL: desktop.LaunchExternalURL,
 		ConfigMigrator:    config.NewMigrator(),
+		HandlerDeps:       *handlerDeps,
 	}
 
-	return uiDeps
+	return uiDeps, nil
 }
