@@ -24,6 +24,14 @@ BUILD_DATE=$(shell date -u +"%Y-%m-%dT%H:%M:%SZ")
 # Linker flags
 LDFLAGS=-ldflags "-s -w -X main.version=$(VERSION) -X main.commit=$(COMMIT) -X main.buildDate=$(BUILD_DATE)"
 
+# Disable optimizations and inlining for ALL packages. purego callbacks
+# create mixed Go/C stack frames; the Go runtime (stack growth, GC,
+# scheduler) cannot reliably traverse optimised frames across these
+# boundaries. -N prevents register-only variables and stack slot reuse
+# that corrupt the runtime's stack walker. -l prevents inlining across
+# package boundaries. Both are required — -l alone is insufficient.
+GCFLAGS=-gcflags 'all=-N -l'
+
 # Default target
 help: ## Show this help message
 	@echo "Available targets:"
@@ -33,7 +41,7 @@ help: ## Show this help message
 build: build-frontend ## Build the application (pure Go, no CGO)
 	@echo "Building $(BINARY_NAME) $(VERSION) using $(NPROCS) cores..."
 	@mkdir -p $(DIST_DIR)
-	CGO_ENABLED=0 go build -p $(NPROCS) $(LDFLAGS) -o $(DIST_DIR)/$(BINARY_NAME) $(MAIN_PATH)
+	CGO_ENABLED=0 go build -p $(NPROCS) $(GCFLAGS) $(LDFLAGS) -o $(DIST_DIR)/$(BINARY_NAME) $(MAIN_PATH)
 	@echo "Build successful! Binary: $(DIST_DIR)/$(BINARY_NAME)"
 
 build-frontend: ## Build homepage and error pages
@@ -44,7 +52,7 @@ build-frontend: ## Build homepage and error pages
 build-quick: ## Build without frontend (faster for backend development)
 	@echo "Building $(BINARY_NAME) $(VERSION) (quick, no frontend)..."
 	@mkdir -p $(DIST_DIR)
-	CGO_ENABLED=0 go build -p $(NPROCS) $(LDFLAGS) -o $(DIST_DIR)/$(BINARY_NAME) $(MAIN_PATH)
+	CGO_ENABLED=0 go build -p $(NPROCS) $(GCFLAGS) $(LDFLAGS) -o $(DIST_DIR)/$(BINARY_NAME) $(MAIN_PATH)
 	CGO_ENABLED=0 go build -p $(NPROCS) -ldflags "-s -w" -o $(DIST_DIR)/cef-helper ./cmd/cef-helper
 	@echo "Build successful! Binary: $(DIST_DIR)/$(BINARY_NAME)"
 

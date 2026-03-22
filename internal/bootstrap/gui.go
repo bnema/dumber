@@ -148,7 +148,7 @@ func RunParallelInit(input ParallelInitInput) (*ParallelInitResult, error) {
 }
 
 // RunDeferredInit runs deferred initialization checks off the critical path.
-// This includes SQLite WASM precompile, runtime requirements, and media checks.
+// This includes runtime requirements and media checks.
 func RunDeferredInit(input DeferredInitInput) DeferredInitResult {
 	var (
 		runtimeErr error

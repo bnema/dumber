@@ -122,10 +122,84 @@ func (e *Engine) InternalSchemePath() string {
 
 // Close releases all resources held by the engine.
 func (e *Engine) Close() error {
+	log := logging.FromContext(e.ctx)
+	activeBefore := e.activeWebViewCount()
+	log.Debug().
+		Int("active_webviews", activeBefore).
+		Msg("cef: engine close started")
+
 	e.stopMessagePump()
+	e.closeActiveWebViews()
 	e.pool.Close()
+
+	if activeAfter := e.activeWebViewCount(); activeAfter > 0 {
+		log.Warn().
+			Int("remaining_active_webviews", activeAfter).
+			Msg("cef: shutting down with active webviews still registered")
+	}
+
 	purecef.Shutdown()
+	log.Debug().Msg("cef: engine close completed")
 	return nil
+}
+
+const (
+	cefShutdownWaitStep    = 10 * time.Millisecond
+	cefShutdownWaitTimeout = 2 * time.Second
+)
+
+func (e *Engine) activeWebViewCount() int {
+	count := 0
+	e.activeWebViews.Range(func(_, _ any) bool {
+		count++
+		return true
+	})
+	return count
+}
+
+func (e *Engine) closeActiveWebViews() {
+	if e == nil {
+		return
+	}
+
+	log := logging.FromContext(e.ctx)
+	webViews := make([]*WebView, 0, e.activeWebViewCount())
+	e.activeWebViews.Range(func(_, value any) bool {
+		wv, ok := value.(*WebView)
+		if ok && wv != nil {
+			webViews = append(webViews, wv)
+		}
+		return true
+	})
+
+	if len(webViews) == 0 {
+		return
+	}
+
+	log.Debug().
+		Int("count", len(webViews)).
+		Msg("cef: closing active webviews before shutdown")
+
+	for _, wv := range webViews {
+		wv.Destroy()
+	}
+
+	deadline := time.Now().Add(cefShutdownWaitTimeout)
+	for {
+		remaining := e.activeWebViewCount()
+		if remaining == 0 {
+			log.Debug().Msg("cef: all active webviews closed before shutdown")
+			return
+		}
+		if time.Now().After(deadline) {
+			log.Warn().
+				Int("remaining", remaining).
+				Str("timeout", cefShutdownWaitTimeout.String()).
+				Msg("cef: timed out waiting for OnBeforeClose before shutdown")
+			return
+		}
+		time.Sleep(cefShutdownWaitStep)
+	}
 }
 
 // RegisterHandlers registers all WebUI message bridge handlers with the message router.

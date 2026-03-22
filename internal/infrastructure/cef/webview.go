@@ -90,6 +90,14 @@ type pendingBrowserCreate struct {
 	settings   *purecef.BrowserSettings
 }
 
+type cefTaskFunc func()
+
+func (fn cefTaskFunc) Execute() {
+	if fn != nil {
+		fn()
+	}
+}
+
 // ---------------------------------------------------------------------------
 // Identity
 // ---------------------------------------------------------------------------
@@ -549,14 +557,6 @@ func (wv *WebView) updateHoverURI(uri string) {
 	wv.mu.Unlock()
 }
 
-type cefTaskFunc func()
-
-func (f cefTaskFunc) Execute() {
-	if f != nil {
-		f()
-	}
-}
-
 func (wv *WebView) scheduleZoomRefresh() {
 	for _, delayMs := range [...]int64{16, 48} {
 		purecef.PostDelayedTask(purecef.ThreadIDTidUi, purecef.NewTask(cefTaskFunc(func() {
@@ -678,4 +678,12 @@ func (wv *WebView) runOnGTK(fn func()) {
 		fn()
 	}
 	glib.IdleAddOnce(cb, 0)
+}
+
+func (wv *WebView) takePendingCreate() *pendingBrowserCreate {
+	wv.mu.Lock()
+	defer wv.mu.Unlock()
+	pc := wv.pendingCreate
+	wv.pendingCreate = nil
+	return pc
 }

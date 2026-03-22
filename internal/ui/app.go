@@ -385,11 +385,18 @@ func (a *App) prewarmWebViewPoolAsync(ctx context.Context) {
 }
 
 func (a *App) createMainWindow(ctx context.Context) error {
+	log := logging.FromContext(ctx)
 	mainWindow, err := window.New(ctx, a.gtkApp, a.deps.Config.Workspace.TabBarPosition)
 	if err != nil {
 		return err
 	}
 	a.mainWindow = mainWindow
+
+	closeRequestCb := func(_ gtk.Window) bool {
+		log.Info().Msg("main window close requested")
+		return false
+	}
+	a.mainWindow.Window().ConnectCloseRequest(&closeRequestCb)
 
 	// Create permission popup and dialog presenter
 	if a.deps != nil && a.deps.PermissionUC != nil {

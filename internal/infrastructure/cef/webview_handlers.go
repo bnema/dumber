@@ -79,18 +79,12 @@ func (h *handlerSet) GetViewRect(_ purecef.Browser, rect *purecef.Rect) {
 	if rect == nil {
 		return
 	}
-	h.wv.pipeline.mu.Lock()
-	w := h.wv.pipeline.width
-	ht := h.wv.pipeline.height
-	s := h.wv.pipeline.scale
-	h.wv.pipeline.mu.Unlock()
+	callSeq := h.wv.pipeline.nextViewRectSeq()
+	w, ht, s := h.wv.pipeline.viewRectSize()
 
 	// CEF expects view geometry in DIP coordinates while OnPaint dimensions are
 	// in device pixels. The render pipeline tracks device pixels, so convert
 	// back to DIP before answering GetViewRect/GetScreenInfo.
-	if s <= 0 {
-		s = 1
-	}
 	w /= s
 	ht /= s
 
@@ -107,6 +101,14 @@ func (h *handlerSet) GetViewRect(_ purecef.Browser, rect *purecef.Rect) {
 	rect.Y = 0
 	rect.Width = w
 	rect.Height = ht
+	if h.wv != nil && h.wv.ctx != nil {
+		logging.FromContext(h.wv.ctx).Debug().
+			Uint64("view_rect_seq", callSeq).
+			Int32("width", rect.Width).
+			Int32("height", rect.Height).
+			Int32("scale", s).
+			Msg("cef: GetViewRect")
+	}
 }
 
 func (h *handlerSet) GetScreenPoint(_ purecef.Browser, _, _ int32, _, _ *int32) int32 {
@@ -117,14 +119,8 @@ func (h *handlerSet) GetScreenInfo(_ purecef.Browser, info *purecef.ScreenInfo) 
 	if info == nil {
 		return 0
 	}
-	h.wv.pipeline.mu.Lock()
-	w := h.wv.pipeline.width
-	ht := h.wv.pipeline.height
-	s := h.wv.pipeline.scale
-	h.wv.pipeline.mu.Unlock()
-	if s <= 0 {
-		s = 1
-	}
+	callSeq := h.wv.pipeline.nextScreenInfoSeq()
+	w, ht, s := h.wv.pipeline.viewRectSize()
 	w /= s
 	ht /= s
 	if w <= 0 {
@@ -140,6 +136,14 @@ func (h *handlerSet) GetScreenInfo(_ purecef.Browser, info *purecef.ScreenInfo) 
 	)
 	r := purecef.Rect{X: 0, Y: 0, Width: w, Height: ht}
 	*info = purecef.NewScreenInfo(float32(s), screenDepth, screenDepthPerComponent, false, r, r)
+	if h.wv != nil && h.wv.ctx != nil {
+		logging.FromContext(h.wv.ctx).Debug().
+			Uint64("screen_info_seq", callSeq).
+			Int32("width", w).
+			Int32("height", ht).
+			Int32("scale", s).
+			Msg("cef: GetScreenInfo")
+	}
 	return 1
 }
 
@@ -157,6 +161,16 @@ func (h *handlerSet) OnPaint(
 	if len(buffer) == 0 || width <= 0 || height <= 0 {
 		return
 	}
+	paintSeq := h.wv.pipeline.nextPaintSeq()
+	if h.wv != nil && h.wv.ctx != nil {
+		logging.FromContext(h.wv.ctx).Debug().
+			Uint64("paint_seq", paintSeq).
+			Int32("width", width).
+			Int32("height", height).
+			Int("dirty_rect_count", len(dirtyRects)).
+			Int("buffer_len", len(buffer)).
+			Msg("cef: OnPaint begin")
+	}
 	rects := make([]rect, len(dirtyRects))
 	for i, dr := range dirtyRects {
 		rects[i] = rect{X: dr.X, Y: dr.Y, Width: dr.Width, Height: dr.Height}
@@ -165,11 +179,21 @@ func (h *handlerSet) OnPaint(
 		pixels := make([]byte, len(buffer))
 		copy(pixels, buffer)
 		h.wv.runOnGTK(func() {
-			h.wv.pipeline.handlePaint(pixels, width, height, rects)
+			h.wv.pipeline.handlePaint(pixels, width, height, rects, paintSeq)
 		})
+		if h.wv != nil && h.wv.ctx != nil {
+			logging.FromContext(h.wv.ctx).Debug().
+				Uint64("paint_seq", paintSeq).
+				Msg("cef: OnPaint queued to GTK")
+		}
 		return
 	}
-	h.wv.pipeline.handlePaint(buffer, width, height, rects)
+	h.wv.pipeline.handlePaint(buffer, width, height, rects, paintSeq)
+	if h.wv != nil && h.wv.ctx != nil {
+		logging.FromContext(h.wv.ctx).Debug().
+			Uint64("paint_seq", paintSeq).
+			Msg("cef: OnPaint handled inline")
+	}
 }
 
 func (h *handlerSet) OnAcceleratedPaint(_ purecef.Browser, _ purecef.PaintElementType, _ []purecef.Rect, _ *purecef.AcceleratedPaintInfo) {
@@ -342,8 +366,12 @@ func (h *handlerSet) OnLoadEnd(_ purecef.Browser, frame purecef.Frame, httpStatu
 	h.wv.crashCount.Store(0)
 
 	// Inject scripts and styles after page load.
+	// Must run on GTK thread — OnLoadEnd fires on the CEF IO thread,
+	// and JavaScript injection requires the main thread.
 	if h.wv.engine != nil && h.wv.engine.contentInj != nil {
-		h.wv.engine.contentInj.onLoadEnd(h.wv)
+		h.wv.runOnGTK(func() {
+			h.wv.engine.contentInj.onLoadEnd(h.wv)
+		})
 	}
 
 	h.wv.mu.RLock()

@@ -131,9 +131,17 @@ func (f *WebViewFactory) Create(ctx context.Context) (port.WebView, error) {
 	// When the GL area gets its first non-zero size, create the browser.
 	pipeline.onFirstResize = func(w, h int32) {
 		log := logging.FromContext(ctx)
-		log.Debug().Int32("w", w).Int32("h", h).Msg("cef: onFirstResize fired, creating browser")
-		if pc := wv.pendingCreate; pc != nil {
-			wv.pendingCreate = nil
+		log.Debug().Int32("w", w).Int32("h", h).Msg("cef: onFirstResize fired, scheduling browser creation")
+		pc := wv.takePendingCreate()
+		if pc == nil {
+			return
+		}
+
+		task := purecef.NewTask(cefTaskFunc(func() {
+			if wv.destroyed.Load() {
+				log.Debug().Msg("cef: skipping browser creation for destroyed webview")
+				return
+			}
 			result := purecef.BrowserHostCreateBrowser(
 				pc.windowInfo,
 				pc.client,
@@ -152,7 +160,19 @@ func (f *WebViewFactory) Create(ctx context.Context) (port.WebView, error) {
 				Int32("shared_texture", pc.windowInfo.SharedTextureEnabled).
 				Int32("external_begin_frame", pc.windowInfo.ExternalBeginFrameEnabled).
 				Bool("client_nil", pc.client == nil).
-				Msg("cef: BrowserHostCreateBrowser call completed")
+				Msg("cef: BrowserHostCreateBrowser call completed on CEF UI thread")
+		}))
+
+		postResult := purecef.PostTask(purecef.ThreadIDTidUi, task)
+		if postResult != 1 {
+			wv.mu.Lock()
+			if wv.pendingCreate == nil {
+				wv.pendingCreate = pc
+			}
+			wv.mu.Unlock()
+			log.Error().
+				Int32("result", postResult).
+				Msg("cef: failed to post initial browser creation to CEF UI thread")
 		}
 	}
 
