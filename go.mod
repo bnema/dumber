@@ -29,6 +29,8 @@ replace github.com/ebitengine/purego => github.com/bnema/purego v0.0.0-202603230
 
 replace github.com/bnema/purego-cef => ../purego-cef
 
+replace github.com/ebitengine/purego => ../purego
+
 require (
 	github.com/atotto/clipboard v0.1.4 // indirect
 	github.com/aymanbagabas/go-osc52/v2 v2.0.1 // indirect

@@ -5,6 +5,7 @@ import (
 	"context"
 	"os"
 	"sync"
+	"time"
 
 	"github.com/bnema/dumber/internal/application/port"
 	domainurl "github.com/bnema/dumber/internal/domain/url"
@@ -136,7 +137,7 @@ func (a *FaviconAdapter) GetOrFetch(ctx context.Context, pageURL string, callbac
 	}
 
 	// Check service cache (memory + disk) and convert to texture
-	if data, ok := a.service.GetCached(domain); ok && len(data) > 0 {
+	if data, ok := a.service.GetCached(ctx, domain); ok && len(data) > 0 {
 		log.Debug().
 			Str("domain", domain).
 			Int("bytes", len(data)).
@@ -333,9 +334,9 @@ func (a *FaviconAdapter) saveFaviconToDisk(ctx context.Context, domain string, t
 
 // PreloadFromCache attempts to load a favicon from cache without fetching.
 // Returns the texture if found in memory or disk cache, nil otherwise.
-func (a *FaviconAdapter) PreloadFromCache(pageURL string) *gdk.Texture {
+func (a *FaviconAdapter) PreloadFromCache(ctx context.Context, pageURL string) *gdk.Texture {
 	if a.disabled {
-		logging.FromContext(context.Background()).Debug().
+		logging.FromContext(ctx).Debug().
 			Str("page_url", pageURL).
 			Str("env", disableFaviconsEnv).
 			Msg("favicon: PreloadFromCache skipped because favicon pipeline is disabled")
@@ -345,7 +346,7 @@ func (a *FaviconAdapter) PreloadFromCache(pageURL string) *gdk.Texture {
 	if domain == "" {
 		return nil
 	}
-	log := logging.FromContext(context.Background())
+	log := logging.FromContext(ctx)
 	log.Debug().
 		Str("page_url", pageURL).
 		Str("domain", domain).
@@ -358,7 +359,7 @@ func (a *FaviconAdapter) PreloadFromCache(pageURL string) *gdk.Texture {
 	}
 
 	// Check service cache (memory + disk)
-	if data, ok := a.service.GetCached(domain); ok && len(data) > 0 {
+	if data, ok := a.service.GetCached(ctx, domain); ok && len(data) > 0 {
 		log.Debug().
 			Str("domain", domain).
 			Int("bytes", len(data)).
@@ -510,8 +511,8 @@ func (a *FaviconAdapter) textureFromBytesOnGTK(data []byte) *gdk.Texture {
 		Int("bytes", len(data)).
 		Msg("favicon: textureFromBytesOnGTK begin")
 
-	ctx := glib.MainContextDefault()
-	if ctx != nil && ctx.IsOwner() {
+	glibCtx := glib.MainContextDefault()
+	if glibCtx != nil && glibCtx.IsOwner() {
 		texture := bytesToTexture(data)
 		log.Debug().Bool("texture_nil", texture == nil).Msg("favicon: textureFromBytesOnGTK inline")
 		return texture
@@ -523,9 +524,14 @@ func (a *FaviconAdapter) textureFromBytesOnGTK(data []byte) *gdk.Texture {
 		resultCh <- textureResult{texture: bytesToTexture(data)}
 	})
 	glib.IdleAddOnce(&cb, 0)
-	result := <-resultCh
-	log.Debug().Bool("texture_nil", result.texture == nil).Msg("favicon: textureFromBytesOnGTK end")
-	return result.texture
+	select {
+	case result := <-resultCh:
+		log.Debug().Bool("texture_nil", result.texture == nil).Msg("favicon: textureFromBytesOnGTK end")
+		return result.texture
+	case <-time.After(5 * time.Second):
+		log.Error().Msg("textureFromBytesOnGTK timeout - possible deadlock")
+		return nil
+	}
 }
 
 // bytesToTexture converts raw favicon bytes to a GDK texture.

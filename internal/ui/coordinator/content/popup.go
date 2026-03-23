@@ -370,7 +370,11 @@ func (c *Coordinator) handlePopupReadyToShow(ctx context.Context, popupID port.W
 		// For engines that create independent browsers (not real popups),
 		// the WebView has no pending navigation — load the target URI.
 		if pending.TargetURI != "" && !pending.WebView.IsLoading() && pending.WebView.URI() == "" {
-			_ = pending.WebView.LoadURI(ctx, pending.TargetURI)
+			if err := pending.WebView.LoadURI(ctx, pending.TargetURI); err != nil {
+				log.Warn().Err(err).
+					Str("uri", logging.TruncateURL(pending.TargetURI, logURLMaxLen)).
+					Msg("failed to load target URI in popup")
+			}
 		}
 	}
 

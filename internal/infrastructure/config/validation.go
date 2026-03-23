@@ -3,7 +3,6 @@ package config
 import (
 	"fmt"
 	"net/url"
-	"os"
 	"sort"
 	"strings"
 
@@ -467,12 +466,8 @@ func validatePerformanceProfile(config *Config) []string {
 	var validationErrors []string
 
 	// Performance profiles and webkit-specific tuning only apply to the webkit engine.
-	// Check both config and DUMBER_ENGINE env var override.
-	engineType := config.Engine.Type
-	if envEngine := os.Getenv("DUMBER_ENGINE"); envEngine != "" {
-		engineType = envEngine
-	}
-	if engineType != "" && engineType != "webkit" {
+	engineType := config.Engine.ResolveEngineType()
+	if engineType != "webkit" {
 		return nil
 	}
 

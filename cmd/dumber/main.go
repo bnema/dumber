@@ -64,6 +64,7 @@ func main() {
 	// engine can also be selected via config.
 	if isCEFSubprocess() {
 		cef.MaybeExitSubprocess()
+		os.Exit(1)
 	}
 
 	// Run GUI mode for browse command

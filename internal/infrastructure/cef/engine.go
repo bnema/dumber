@@ -231,6 +231,8 @@ func (e *Engine) RegisterAccentHandlers(ctx context.Context, handler port.Accent
 			}
 			if r, _ := utf8.DecodeRuneInString(p.Char); r != utf8.RuneError && utf8.RuneCountInString(p.Char) == 1 {
 				handler.OnKeyPressed(ctx, r, p.Shift)
+			} else {
+				log.Debug().Str("char", p.Char).Msg("cef: ignoring invalid accent_key_press char")
 			}
 			return nil, nil
 		},
@@ -248,6 +250,8 @@ func (e *Engine) RegisterAccentHandlers(ctx context.Context, handler port.Accent
 			}
 			if r, _ := utf8.DecodeRuneInString(p.Char); r != utf8.RuneError && utf8.RuneCountInString(p.Char) == 1 {
 				handler.OnKeyReleased(ctx, r)
+			} else {
+				log.Debug().Str("char", p.Char).Msg("cef: ignoring invalid accent_key_release char")
 			}
 			return nil, nil
 		},

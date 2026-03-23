@@ -4425,8 +4425,8 @@ func (_c *MockFaviconService_Get_Call) RunAndReturn(run func(ctx context.Context
 }
 
 // GetCached provides a mock function for the type MockFaviconService
-func (_mock *MockFaviconService) GetCached(domain string) ([]byte, bool) {
-	ret := _mock.Called(domain)
+func (_mock *MockFaviconService) GetCached(ctx context.Context, domain string) ([]byte, bool) {
+	ret := _mock.Called(ctx, domain)
 
 	if len(ret) == 0 {
 		panic("no return value specified for GetCached")
@@ -4434,18 +4434,18 @@ func (_mock *MockFaviconService) GetCached(domain string) ([]byte, bool) {
 
 	var r0 []byte
 	var r1 bool
-	if returnFunc, ok := ret.Get(0).(func(string) ([]byte, bool)); ok {
-		return returnFunc(domain)
+	if returnFunc, ok := ret.Get(0).(func(context.Context, string) ([]byte, bool)); ok {
+		return returnFunc(ctx, domain)
 	}
-	if returnFunc, ok := ret.Get(0).(func(string) []byte); ok {
-		r0 = returnFunc(domain)
+	if returnFunc, ok := ret.Get(0).(func(context.Context, string) []byte); ok {
+		r0 = returnFunc(ctx, domain)
 	} else {
 		if ret.Get(0) != nil {
 			r0 = ret.Get(0).([]byte)
 		}
 	}
-	if returnFunc, ok := ret.Get(1).(func(string) bool); ok {
-		r1 = returnFunc(domain)
+	if returnFunc, ok := ret.Get(1).(func(context.Context, string) bool); ok {
+		r1 = returnFunc(ctx, domain)
 	} else {
 		r1 = ret.Get(1).(bool)
 	}
@@ -4458,19 +4458,25 @@ type MockFaviconService_GetCached_Call struct {
 }
 
 // GetCached is a helper method to define mock.On call
+//   - ctx context.Context
 //   - domain string
-func (_e *MockFaviconService_Expecter) GetCached(domain interface{}) *MockFaviconService_GetCached_Call {
-	return &MockFaviconService_GetCached_Call{Call: _e.mock.On("GetCached", domain)}
+func (_e *MockFaviconService_Expecter) GetCached(ctx interface{}, domain interface{}) *MockFaviconService_GetCached_Call {
+	return &MockFaviconService_GetCached_Call{Call: _e.mock.On("GetCached", ctx, domain)}
 }
 
-func (_c *MockFaviconService_GetCached_Call) Run(run func(domain string)) *MockFaviconService_GetCached_Call {
+func (_c *MockFaviconService_GetCached_Call) Run(run func(ctx context.Context, domain string)) *MockFaviconService_GetCached_Call {
 	_c.Call.Run(func(args mock.Arguments) {
-		var arg0 string
+		var arg0 context.Context
 		if args[0] != nil {
-			arg0 = args[0].(string)
+			arg0 = args[0].(context.Context)
+		}
+		var arg1 string
+		if args[1] != nil {
+			arg1 = args[1].(string)
 		}
 		run(
 			arg0,
+			arg1,
 		)
 	})
 	return _c
@@ -4481,7 +4487,7 @@ func (_c *MockFaviconService_GetCached_Call) Return(bytes []byte, b bool) *MockF
 	return _c
 }
 
-func (_c *MockFaviconService_GetCached_Call) RunAndReturn(run func(domain string) ([]byte, bool)) *MockFaviconService_GetCached_Call {
+func (_c *MockFaviconService_GetCached_Call) RunAndReturn(run func(ctx context.Context, domain string) ([]byte, bool)) *MockFaviconService_GetCached_Call {
 	_c.Call.Return(run)
 	return _c
 }

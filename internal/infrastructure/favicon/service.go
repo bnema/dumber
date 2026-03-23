@@ -47,7 +47,7 @@ func (s *Service) Get(ctx context.Context, domain string) ([]byte, error) {
 	}
 
 	// Check cache first (memory + disk)
-	if data, ok := s.cache.Get(domain); ok {
+	if data, ok := s.cache.Get(ctx, domain); ok {
 		log.Debug().
 			Str("domain", domain).
 			Int("bytes", len(data)).
@@ -64,7 +64,7 @@ func (s *Service) Get(ctx context.Context, domain string) ([]byte, error) {
 
 	// Store in cache if we got data
 	if len(data) > 0 {
-		s.cache.Set(domain, data)
+		s.cache.Set(ctx, domain, data)
 	}
 	log.Debug().
 		Str("domain", domain).
@@ -86,9 +86,9 @@ func GetLogoBytes() []byte {
 }
 
 // GetCached returns favicon bytes only if already cached (no external fetch).
-func (s *Service) GetCached(domain string) ([]byte, bool) {
-	data, ok := s.cache.Get(domain)
-	logging.FromContext(context.Background()).Debug().
+func (s *Service) GetCached(ctx context.Context, domain string) ([]byte, bool) {
+	data, ok := s.cache.Get(ctx, domain)
+	logging.FromContext(ctx).Debug().
 		Str("domain", domain).
 		Bool("hit", ok).
 		Int("bytes", len(data)).
@@ -97,8 +97,8 @@ func (s *Service) GetCached(domain string) ([]byte, bool) {
 }
 
 // Store saves favicon bytes for a domain to cache.
-func (s *Service) Store(domain string, data []byte) error {
-	s.cache.Set(domain, data)
+func (s *Service) Store(ctx context.Context, domain string, data []byte) error {
+	s.cache.Set(ctx, domain, data)
 	return nil
 }
 
@@ -150,7 +150,7 @@ func (s *Service) EnsureDiskCache(ctx context.Context, domain string) {
 	}
 
 	if len(data) > 0 {
-		s.cache.Set(domain, data)
+		s.cache.Set(ctx, domain, data)
 	}
 	log.Debug().
 		Str("domain", domain).

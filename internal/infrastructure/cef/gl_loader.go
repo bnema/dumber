@@ -96,6 +96,14 @@ type glLoader struct {
 	disable    func(cap uint32)
 }
 
+// Close releases the OpenGL library handle.
+func (gl *glLoader) Close() error {
+	if gl.handle != 0 {
+		return purego.Dlclose(gl.handle)
+	}
+	return nil
+}
+
 // newGLLoader opens libGL.so.1 and loads all required OpenGL function pointers.
 func newGLLoader() (*glLoader, error) {
 	handle, err := purego.Dlopen("libGL.so.1", purego.RTLD_LAZY)

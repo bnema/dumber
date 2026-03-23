@@ -1,6 +1,7 @@
 package cef
 
 import (
+	"context"
 	"testing"
 
 	purecef "github.com/bnema/purego-cef/cef"
@@ -44,7 +45,7 @@ func (f stubFrame) CreateUrlrequest(purecef.Request, purecef.UrlrequestClient) p
 }
 
 func TestOnLoadStartFiresCommittedAndUpdatesURI(t *testing.T) {
-	wv := &WebView{}
+	wv := &WebView{ctx: context.Background()}
 	var gotEvents []port.LoadEvent
 	wv.SetCallbacks(&port.WebViewCallbacks{
 		OnLoadChanged: func(event port.LoadEvent) {
@@ -64,6 +65,7 @@ func TestGetViewRectUsesDIPCoordinates(t *testing.T) {
 	rect := &purecef.Rect{}
 	h := &handlerSet{
 		wv: &WebView{
+			ctx: context.Background(),
 			pipeline: &renderPipeline{
 				width:  800,
 				height: 600,
@@ -84,6 +86,7 @@ func TestGetScreenInfoUsesDIPRectAndScale(t *testing.T) {
 	info := &purecef.ScreenInfo{}
 	h := &handlerSet{
 		wv: &WebView{
+			ctx: context.Background(),
 			pipeline: &renderPipeline{
 				width:  1500,
 				height: 900,

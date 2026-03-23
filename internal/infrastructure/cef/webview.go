@@ -132,9 +132,15 @@ func (wv *WebView) LoadURI(_ context.Context, uri string) error {
 }
 
 // LoadHTML loads HTML content with an optional base URI (ignored in Phase 1).
-func (wv *WebView) LoadHTML(_ context.Context, content, _ string) error {
+func (wv *WebView) LoadHTML(ctx context.Context, content, _ string) error {
 	if wv.destroyed.Load() {
 		return errDestroyed
+	}
+	const maxDataURLSize = 1 << 20 // 1MB
+	if len(content) > maxDataURLSize {
+		logging.FromContext(ctx).Warn().
+			Int("content_len", len(content)).
+			Msg("cef: LoadHTML content exceeds 1MB, data URL may fail")
 	}
 	wv.mu.RLock()
 	browser := wv.browser
@@ -557,6 +563,13 @@ func (wv *WebView) updateHoverURI(uri string) {
 	wv.mu.Unlock()
 }
 
+// scheduleZoomRefresh posts two invalidation requests to the CEF UI thread:
+//   - 16ms delay: one frame at 60fps, gives the renderer time to process
+//     the zoom IPC before we request the first repaint.
+//   - 48ms delay: three frames at 60fps, a second invalidation to catch
+//     any compositor frame that was still in-flight during the first.
+//
+// These values are empirically tuned for CEF's async zoom application.
 func (wv *WebView) scheduleZoomRefresh() {
 	for _, delayMs := range [...]int64{16, 48} {
 		purecef.PostDelayedTask(purecef.ThreadIDTidUi, purecef.NewTask(cefTaskFunc(func() {
@@ -574,6 +587,13 @@ func (wv *WebView) scheduleZoomRefresh() {
 	}
 }
 
+// scheduleZoomReadback posts two diagnostic readbacks to verify zoom applied:
+//   - 0ms delay: immediate check on the CEF UI thread to log the zoom level
+//     right after SetZoomLevel returns (usually still the old value).
+//   - 64ms delay: four frames at 60fps, enough time for the renderer to
+//     process the zoom IPC and reflect the new level back to the browser.
+//
+// These values are empirically tuned for CEF's async zoom application.
 func (wv *WebView) scheduleZoomReadback(expectedFactor, expectedLevel float64) {
 	for _, delayMs := range [...]int64{0, 64} {
 		purecef.PostDelayedTask(purecef.ThreadIDTidUi, purecef.NewTask(cefTaskFunc(func() {

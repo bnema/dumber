@@ -6,6 +6,7 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
+	"html"
 	"io/fs"
 	"mime"
 	"net/http"
@@ -267,7 +268,7 @@ func (h *dumbSchemeHandler) newRawResourceHandler(status int, contentType string
 }
 
 func (h *dumbSchemeHandler) newErrorResourceHandler(status int, msg string) purecef.ResourceHandler {
-	escaped := strings.ReplaceAll(strings.ReplaceAll(msg, "&", "&amp;"), "<", "&lt;")
+	escaped := html.EscapeString(msg)
 	body := fmt.Sprintf(`<!DOCTYPE html><html><body><h1>%d</h1><p>%s</p></body></html>`, status, escaped)
 	return h.newRawResourceHandler(status, "text/html; charset=utf-8", []byte(body))
 }

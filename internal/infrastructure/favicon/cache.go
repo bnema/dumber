@@ -53,11 +53,11 @@ func NewCache(diskDir string) *Cache {
 // Get retrieves favicon bytes for a domain.
 // Checks memory cache first, then disk cache.
 // Returns the bytes and true if found, nil and false otherwise.
-func (c *Cache) Get(domain string) ([]byte, bool) {
+func (c *Cache) Get(ctx context.Context, domain string) ([]byte, bool) {
 	if domain == "" {
 		return nil, false
 	}
-	log := logging.FromContext(context.Background())
+	log := logging.FromContext(ctx)
 
 	// Check memory cache first
 	c.mu.RLock()
@@ -91,11 +91,11 @@ func (c *Cache) Get(domain string) ([]byte, bool) {
 
 // Set stores favicon bytes for a domain.
 // Writes to memory cache immediately and queues async disk write.
-func (c *Cache) Set(domain string, data []byte) {
+func (c *Cache) Set(ctx context.Context, domain string, data []byte) {
 	if domain == "" || len(data) == 0 {
 		return
 	}
-	logging.FromContext(context.Background()).Debug().
+	logging.FromContext(ctx).Debug().
 		Str("domain", domain).
 		Int("bytes", len(data)).
 		Msg("favicon: Cache.Set")

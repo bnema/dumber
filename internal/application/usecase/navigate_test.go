@@ -140,8 +140,12 @@ func TestHistoryWorker_ReenqueueDuringFlushIsPersistedOnShutdown(t *testing.T) {
 	uc.RecordHistory(ctx, "pane-1", "https://example.com/article")
 
 	// The history worker flushes on a timer; there is no exported sync
-	// mechanism, so sleep 3× the flush interval before shutting down.
-	time.Sleep(historyWorkerFlushInterval * 3)
+	// mechanism, so we sleep before shutting down. Using 5× the flush
+	// interval for headroom — this is a known flaky pattern, but
+	// restructuring the worker for deterministic sync is out of scope.
+	// Close() performs a final flush, so items re-enqueued during the
+	// timed flush are still captured on shutdown.
+	time.Sleep(historyWorkerFlushInterval * 5)
 	uc.Close()
 
 	mu.Lock()

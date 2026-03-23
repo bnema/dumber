@@ -392,11 +392,13 @@ func (rp *renderPipeline) uploadToPBO(dirtyRects []rect, fullUpload bool, render
 	rp.mu.Unlock()
 
 	if !gl.unmapBuffer(glPixelUnpackBuffer) {
-		logging.FromContext(rp.ctx).Error().
-			Int32("width", w).
-			Int32("height", h).
-			Bool("full_upload", fullUpload).
-			Msg("cef: glUnmapBuffer reported corrupted PBO contents; dropping frame")
+		if rp.ctx != nil {
+			logging.FromContext(rp.ctx).Error().
+				Int32("width", w).
+				Int32("height", h).
+				Bool("full_upload", fullUpload).
+				Msg("cef: glUnmapBuffer reported corrupted PBO contents; dropping frame")
+		}
 		gl.bindBuffer(glPixelUnpackBuffer, 0)
 		return 0
 	}
@@ -693,10 +695,10 @@ func clampDirtyRect(r rect, width, height int32) (rect, bool) {
 		return rect{}, false
 	}
 
-	x0 := maxInt32(r.X, 0)
-	y0 := maxInt32(r.Y, 0)
-	x1 := minInt32(r.X+r.Width, width)
-	y1 := minInt32(r.Y+r.Height, height)
+	x0 := max(r.X, 0)
+	y0 := max(r.Y, 0)
+	x1 := min(r.X+r.Width, width)
+	y1 := min(r.Y+r.Height, height)
 
 	if x1 <= x0 || y1 <= y0 {
 		return rect{}, false
@@ -708,20 +710,6 @@ func clampDirtyRect(r rect, width, height int32) (rect, bool) {
 		Width:  x1 - x0,
 		Height: y1 - y0,
 	}, true
-}
-
-func minInt32(a, b int32) int32 {
-	if a < b {
-		return a
-	}
-	return b
-}
-
-func maxInt32(a, b int32) int32 {
-	if a > b {
-		return a
-	}
-	return b
 }
 
 // destroy releases all GL resources.

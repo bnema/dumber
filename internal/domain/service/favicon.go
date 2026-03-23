@@ -12,10 +12,10 @@ type FaviconService interface {
 
 	// GetCached returns favicon bytes only if already cached (no external fetch).
 	// Returns the bytes and true if found, nil and false otherwise.
-	GetCached(domain string) ([]byte, bool)
+	GetCached(ctx context.Context, domain string) ([]byte, bool)
 
 	// Store saves favicon bytes for a domain to cache.
-	Store(domain string, data []byte) error
+	Store(ctx context.Context, domain string, data []byte) error
 
 	// DiskPath returns the filesystem path where a domain's favicon is cached (ICO).
 	DiskPath(domain string) string

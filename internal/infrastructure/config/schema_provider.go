@@ -916,7 +916,7 @@ func (*SchemaProvider) getPerformanceKeys(defaults *Config) []entity.ConfigKeyIn
 			Type:        "int32",
 			Default:     fmt.Sprintf("%d", defaults.Engine.CEF.CEFWindowlessFrameRate()),
 			Description: "Maximum off-screen frame rate for the CEF engine",
-			Range:       ">=1",
+			Range:       ">=0",
 			Section:     SectionPerformance,
 		},
 		{

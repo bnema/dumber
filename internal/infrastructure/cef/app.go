@@ -32,7 +32,10 @@ func (a *dumberApp) OnBeforeCommandLineProcessing(processType string, commandLin
 	if commandLine != nil {
 		cmdline = commandLine.GetCommandLineString()
 		if len(cmdline) > maxCmdLineLogLen {
-			cmdline = cmdline[:maxCmdLineLogLen] + "…"
+			runes := []rune(cmdline)
+			if len(runes) > maxCmdLineLogLen {
+				cmdline = string(runes[:maxCmdLineLogLen]) + "…"
+			}
 		}
 	}
 	log.Debug().
