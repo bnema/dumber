@@ -127,6 +127,14 @@ func wireEngine(
 
 	scale := detectHiDPIScale(logger)
 
+	// If frame rate is the static default (60), try to match the monitor's
+	// actual refresh rate for smoother scrolling on high-refresh displays.
+	if windowlessFrameRate == 60 {
+		if hz := detectMonitorRefreshRate(logger); hz > 0 {
+			windowlessFrameRate = hz
+		}
+	}
+
 	factory := newWebViewFactory(eng, gl, webViewFactoryOptions{
 		scale:                    scale,
 		windowlessFrameRate:      windowlessFrameRate,
@@ -182,6 +190,32 @@ func detectHiDPIScale(logger *zerolog.Logger) int32 {
 	}
 	logger.Debug().Msg("cef: monitor scale factor <= 0, using scale=1")
 	return 1
+}
+
+// detectMonitorRefreshRate queries the primary GDK monitor for its refresh rate.
+// Returns the rate in Hz (e.g., 120 for a 120Hz display), or 0 if detection fails.
+func detectMonitorRefreshRate(logger *zerolog.Logger) int32 {
+	display := gdk.DisplayGetDefault()
+	if display == nil {
+		return 0
+	}
+	monitors := display.GetMonitors()
+	if monitors == nil {
+		return 0
+	}
+	obj := monitors.GetObject(0)
+	if obj == nil {
+		return 0
+	}
+	mon := &gdk.Monitor{}
+	mon.SetGoPointer(obj.GoPointer())
+	milliHz := mon.GetRefreshRate()
+	if milliHz <= 0 {
+		return 0
+	}
+	hz := int32(milliHz / 1000)
+	logger.Info().Int32("refresh_rate_hz", hz).Msg("cef: detected monitor refresh rate")
+	return hz
 }
 
 // appendIfMissing appends flag to args if it's not already present.

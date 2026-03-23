@@ -28,20 +28,29 @@ const maxCmdLineLogLen = 200
 
 func (a *dumberApp) OnBeforeCommandLineProcessing(processType string, commandLine purecef.CommandLine) {
 	log := logging.FromContext(a.engine.ctx)
-	cmdline := ""
 	if commandLine != nil {
-		cmdline = commandLine.GetCommandLineString()
+		// Enable Chromium's built-in smooth scrolling animation — without this,
+		// mouse wheel scroll jumps in discrete steps with no momentum/easing.
+		commandLine.AppendSwitch("enable-smooth-scrolling")
+
+		// Allow video autoplay without requiring user gesture — sites like
+		// Reddit autoplay muted videos in the feed; without this policy
+		// Chromium blocks them, showing an infinite spinner.
+		commandLine.AppendSwitchWithValue("autoplay-policy", "no-user-gesture-required")
+
+
+		cmdline := commandLine.GetCommandLineString()
 		if len(cmdline) > maxCmdLineLogLen {
 			runes := []rune(cmdline)
 			if len(runes) > maxCmdLineLogLen {
 				cmdline = string(runes[:maxCmdLineLogLen]) + "…"
 			}
 		}
+		log.Debug().
+			Str("process_type", processType).
+			Str("command_line", cmdline).
+			Msg("cef: OnBeforeCommandLineProcessing")
 	}
-	log.Debug().
-		Str("process_type", processType).
-		Str("command_line", cmdline).
-		Msg("cef: OnBeforeCommandLineProcessing")
 }
 func (a *dumberApp) OnRegisterCustomSchemes(registrar purecef.SchemeRegistrar) {
 	options := int32(purecef.SchemeOptionsSchemeOptionStandard |

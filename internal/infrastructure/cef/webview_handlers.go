@@ -34,10 +34,11 @@ var (
 // ===========================================================================
 
 func (h *handlerSet) GetAudioHandler() purecef.AudioHandler {
-	if h.enableAudioHandler {
-		return h
-	}
-	return nil
+	// Always return the audio handler — without it, CEF has no audio output
+	// path and refuses to start media decoding, breaking all video playback.
+	// The handler accepts audio but discards packets (no-op) until a real
+	// audio backend (PipeWire/PulseAudio) is wired up.
+	return h
 }
 func (h *handlerSet) GetCommandHandler() purecef.CommandHandler { return nil }
 func (h *handlerSet) GetContextMenuHandler() purecef.ContextMenuHandler {

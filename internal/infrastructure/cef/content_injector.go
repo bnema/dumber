@@ -66,6 +66,100 @@ const scrollbarAutoHideJS = `(function(){
   });
 })();`
 
+// videoDiagnosticJS monitors all <video> elements on the page and logs their
+// state changes to the console. This helps diagnose playback issues in CEF OSR.
+// TODO: remove once video playback is stable.
+const videoDiagnosticJS = `(function(){
+  var tag = '[VIDEO-DIAG]';
+  var events = ['loadstart','loadedmetadata','loadeddata','canplay','canplaythrough',
+    'play','playing','pause','waiting','stalled','error','abort','emptied','suspend'];
+
+  function monitor(v, label) {
+    if (v._dumberDiag) return;
+    v._dumberDiag = true;
+    console.warn(tag, label, 'src:', (v.src||'').substring(0,80),
+      'currentSrc:', (v.currentSrc||'').substring(0,80),
+      'readyState:', v.readyState, 'networkState:', v.networkState,
+      'preload:', v.preload, 'autoplay:', v.autoplay);
+    events.forEach(function(evt) {
+      v.addEventListener(evt, function() {
+        var err = v.error ? ('code='+v.error.code+' msg='+v.error.message) : 'none';
+        console.warn(tag, evt, label, 'ready:', v.readyState, 'net:', v.networkState,
+          'paused:', v.paused, 'error:', err, 'src:', (v.currentSrc||v.src||'').substring(0,80));
+      });
+    });
+  }
+
+  // Recursively scan a root (document or shadowRoot) for video elements.
+  function scanRoot(root, label) {
+    root.querySelectorAll('video').forEach(function(v, i) { monitor(v, label+'#'+i); });
+    // Pierce shadow DOMs.
+    root.querySelectorAll('*').forEach(function(el) {
+      if (el.shadowRoot) {
+        scanRoot(el.shadowRoot, label+'>'+el.tagName.toLowerCase());
+        // Observe inside shadow root too.
+        observeRoot(el.shadowRoot, label+'>'+el.tagName.toLowerCase());
+      }
+    });
+  }
+
+  function observeRoot(root, label) {
+    new MutationObserver(function(muts) {
+      muts.forEach(function(m) {
+        m.addedNodes.forEach(function(n) {
+          if (n.nodeName === 'VIDEO') monitor(n, label+'-dyn');
+          if (n.querySelectorAll) {
+            n.querySelectorAll('video').forEach(function(v) { monitor(v, label+'-nested'); });
+          }
+          // New element might have shadow root.
+          if (n.shadowRoot) {
+            scanRoot(n.shadowRoot, label+'>'+n.tagName.toLowerCase());
+            observeRoot(n.shadowRoot, label+'>'+n.tagName.toLowerCase());
+          }
+        });
+      });
+    }).observe(root, {childList:true, subtree:true});
+  }
+
+  // Patch attachShadow to automatically observe new shadow roots.
+  var origAttach = Element.prototype.attachShadow;
+  Element.prototype.attachShadow = function(opts) {
+    var sr = origAttach.call(this, opts);
+    console.warn(tag, 'shadowRoot attached on', this.tagName.toLowerCase());
+    observeRoot(sr, 'shadow>'+this.tagName.toLowerCase());
+    return sr;
+  };
+
+  // Also intercept MediaSource to trace usage.
+  if (window.MediaSource) {
+    var origAddSB = MediaSource.prototype.addSourceBuffer;
+    MediaSource.prototype.addSourceBuffer = function(mime) {
+      console.warn(tag, 'MediaSource.addSourceBuffer:', mime,
+        'supported:', MediaSource.isTypeSupported(mime));
+      try { return origAddSB.call(this, mime); }
+      catch(e) { console.error(tag, 'addSourceBuffer FAILED:', e.message, 'mime:', mime); throw e; }
+    };
+    var origURL = URL.createObjectURL;
+    URL.createObjectURL = function(obj) {
+      var url = origURL.call(this, obj);
+      if (obj instanceof MediaSource) {
+        console.warn(tag, 'URL.createObjectURL(MediaSource):', url.substring(0,80));
+      }
+      return url;
+    };
+  }
+
+  // Initial scan.
+  scanRoot(document, 'doc');
+
+  // Observe document for new elements.
+  observeRoot(document.documentElement, 'doc');
+
+  console.warn(tag, 'diagnostic active, MSE:', !!window.MediaSource,
+    'h264:', MediaSource ? MediaSource.isTypeSupported('video/mp4; codecs="avc1.4d401e"') : 'n/a',
+    'aac:', MediaSource ? MediaSource.isTypeSupported('audio/mp4; codecs="mp4a.40.2"') : 'n/a');
+})();`
+
 // contentInjector implements port.ContentInjector for the CEF engine.
 // It stores CSS strings and injects them into webviews via ExecuteJavaScript.
 // Thread-safe: InjectThemeCSS may be called from the UI thread while OnLoadEnd
@@ -181,6 +275,10 @@ func (ci *contentInjector) onLoadEnd(wv *WebView) {
 	// All pages get custom scrollbar styling with auto-hide.
 	ci.injectCSS(wv, "dumber-scrollbar", scrollbarCSS)
 	wv.RunJavaScript(context.Background(), scrollbarAutoHideJS)
+
+	// Video playback diagnostic — logs video element state changes.
+	// TODO: remove once video playback is stable.
+	wv.RunJavaScript(context.Background(), videoDiagnosticJS)
 }
 
 // injectCSS injects a CSS string as a <style> element via JavaScript.

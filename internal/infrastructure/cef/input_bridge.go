@@ -107,7 +107,7 @@ func (ib *inputBridge) attachTo(glArea *gtk.GLArea) {
 	glArea.AddController(&click.EventController)
 
 	// Scroll
-	scroll := gtk.NewEventControllerScroll(gtk.EventControllerScrollBothAxesValue)
+	scroll := gtk.NewEventControllerScroll(gtk.EventControllerScrollBothAxesValue | gtk.EventControllerScrollKineticValue)
 	scrollCb := func(_ gtk.EventControllerScroll, dx, dy float64) bool {
 		ib.onScroll(dx, dy)
 		return true
