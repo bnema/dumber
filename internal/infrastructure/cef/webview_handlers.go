@@ -471,6 +471,10 @@ func (h *handlerSet) OnAfterCreated(browser purecef.Browser) {
 		h.wv.findCtrl.setHost(host)
 	}
 
+	// Mark browser as visible — CEF OSR starts in hidden state and suppresses
+	// UI elements like the text caret until explicitly told the browser is shown.
+	host.WasHidden(0)
+
 	// Replay any navigation that was requested before the browser existed.
 	if uri != "" {
 		if frame := browser.GetMainFrame(); frame != nil {
