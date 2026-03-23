@@ -22,7 +22,6 @@ type WebViewFactory struct {
 	nextID                   atomic.Uint64
 	scale                    int32
 	windowlessFrameRate      int32
-	enableAudioHandler       bool
 	enableContextMenuHandler bool
 	bgColor                  atomic.Uint32 // packed ARGB for BrowserSettings.BackgroundColor
 }
@@ -30,7 +29,6 @@ type WebViewFactory struct {
 type webViewFactoryOptions struct {
 	scale                    int32
 	windowlessFrameRate      int32
-	enableAudioHandler       bool
 	enableContextMenuHandler bool
 }
 
@@ -48,7 +46,6 @@ func newWebViewFactory(engine *Engine, gl *glLoader, opts webViewFactoryOptions)
 		gl:                       gl,
 		scale:                    opts.scale,
 		windowlessFrameRate:      opts.windowlessFrameRate,
-		enableAudioHandler:       opts.enableAudioHandler,
 		enableContextMenuHandler: opts.enableContextMenuHandler,
 	}
 }
@@ -77,7 +74,6 @@ func (f *WebViewFactory) Create(ctx context.Context) (port.WebView, error) {
 
 	handlers := &handlerSet{
 		wv:                       wv,
-		enableAudioHandler:       f.enableAudioHandler,
 		enableContextMenuHandler: f.enableContextMenuHandler,
 	}
 	wv.handlers = handlers

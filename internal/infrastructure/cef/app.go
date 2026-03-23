@@ -38,7 +38,6 @@ func (a *dumberApp) OnBeforeCommandLineProcessing(processType string, commandLin
 		// Chromium blocks them, showing an infinite spinner.
 		commandLine.AppendSwitchWithValue("autoplay-policy", "no-user-gesture-required")
 
-
 		cmdline := commandLine.GetCommandLineString()
 		if len(cmdline) > maxCmdLineLogLen {
 			runes := []rune(cmdline)

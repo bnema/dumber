@@ -12,7 +12,6 @@ import (
 // methods can return the same receiver, avoiding extra allocations.
 type handlerSet struct {
 	wv                       *WebView
-	enableAudioHandler       bool
 	enableContextMenuHandler bool
 }
 
@@ -453,7 +452,6 @@ func (h *handlerSet) OnAfterCreated(browser purecef.Browser) {
 	browserID := browser.GetIdentifier()
 	log.Debug().
 		Int32("browser_id", browserID).
-		Bool("audio_handler_enabled", h.enableAudioHandler).
 		Bool("context_menu_handler_enabled", h.enableContextMenuHandler).
 		Msg("cef: OnAfterCreated")
 	if h.wv.engine != nil {

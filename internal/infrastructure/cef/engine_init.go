@@ -127,18 +127,20 @@ func wireEngine(
 
 	scale := detectHiDPIScale(logger)
 
-	// If frame rate is the static default (60), try to match the monitor's
-	// actual refresh rate for smoother scrolling on high-refresh displays.
-	if windowlessFrameRate == 60 {
+	// Auto-detect frame rate from monitor when config uses the default (0 = auto).
+	// CEFWindowlessFrameRate() returns 0 when the user hasn't explicitly set a value,
+	// allowing us to match the monitor's refresh rate for smoother scrolling.
+	if windowlessFrameRate == 0 {
 		if hz := detectMonitorRefreshRate(logger); hz > 0 {
 			windowlessFrameRate = hz
+		} else {
+			windowlessFrameRate = 60 // safe fallback
 		}
 	}
 
 	factory := newWebViewFactory(eng, gl, webViewFactoryOptions{
 		scale:                    scale,
 		windowlessFrameRate:      windowlessFrameRate,
-		enableAudioHandler:       cfg.EnableAudioHandler,
 		enableContextMenuHandler: cfg.EnableContextMenuHandler,
 	})
 	pool := newWebViewPool(factory)
@@ -165,25 +167,32 @@ func wireEngine(
 	return eng, nil
 }
 
-// detectHiDPIScale queries the primary GDK monitor for its scale factor.
-func detectHiDPIScale(logger *zerolog.Logger) int32 {
+// getPrimaryMonitor returns the primary GDK monitor, or nil if unavailable.
+func getPrimaryMonitor() *gdk.Monitor {
 	display := gdk.DisplayGetDefault()
 	if display == nil {
-		logger.Debug().Msg("cef: no GDK display available, using scale=1")
-		return 1
+		return nil
 	}
 	monitors := display.GetMonitors()
 	if monitors == nil {
-		logger.Debug().Msg("cef: no monitors found, using scale=1")
-		return 1
+		return nil
 	}
 	obj := monitors.GetObject(0)
 	if obj == nil {
-		logger.Debug().Msg("cef: primary monitor not available, using scale=1")
-		return 1
+		return nil
 	}
 	mon := &gdk.Monitor{}
 	mon.SetGoPointer(obj.GoPointer())
+	return mon
+}
+
+// detectHiDPIScale queries the primary GDK monitor for its scale factor.
+func detectHiDPIScale(logger *zerolog.Logger) int32 {
+	mon := getPrimaryMonitor()
+	if mon == nil {
+		logger.Debug().Msg("cef: no primary monitor, using scale=1")
+		return 1
+	}
 	if s := mon.GetScaleFactor(); s > 0 {
 		logger.Info().Int32("scale", int32(s)).Msg("cef: detected HiDPI scale from monitor")
 		return int32(s)
@@ -195,25 +204,15 @@ func detectHiDPIScale(logger *zerolog.Logger) int32 {
 // detectMonitorRefreshRate queries the primary GDK monitor for its refresh rate.
 // Returns the rate in Hz (e.g., 120 for a 120Hz display), or 0 if detection fails.
 func detectMonitorRefreshRate(logger *zerolog.Logger) int32 {
-	display := gdk.DisplayGetDefault()
-	if display == nil {
+	mon := getPrimaryMonitor()
+	if mon == nil {
 		return 0
 	}
-	monitors := display.GetMonitors()
-	if monitors == nil {
-		return 0
-	}
-	obj := monitors.GetObject(0)
-	if obj == nil {
-		return 0
-	}
-	mon := &gdk.Monitor{}
-	mon.SetGoPointer(obj.GoPointer())
 	milliHz := mon.GetRefreshRate()
 	if milliHz <= 0 {
 		return 0
 	}
-	hz := int32(milliHz / 1000)
+	hz := int32((milliHz + 500) / 1000) // round to nearest Hz
 	logger.Info().Int32("refresh_rate_hz", hz).Msg("cef: detected monitor refresh rate")
 	return hz
 }

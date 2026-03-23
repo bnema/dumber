@@ -118,12 +118,13 @@ func (c CEFEngineConfig) CEFManualPumpIntervalMs() int64 {
 	return defaultCEFManualPumpIntervalMs
 }
 
-// CEFWindowlessFrameRate returns the effective OSR frame rate with default 60.
+// CEFWindowlessFrameRate returns the configured OSR frame rate.
+// Returns 0 (auto-detect from monitor) when the user hasn't set an explicit value.
 func (c CEFEngineConfig) CEFWindowlessFrameRate() int32 {
 	if c.WindowlessFrameRate > 0 {
 		return c.WindowlessFrameRate
 	}
-	return defaultCEFWindowlessFrameRate
+	return 0 // auto-detect from monitor refresh rate
 }
 
 // PerformanceConfigFromEngine constructs a PerformanceConfig from the

@@ -108,12 +108,11 @@ func TestGetScreenInfoUsesDIPRectAndScale(t *testing.T) {
 func TestOptionalHandlersRespectFactoryFlags(t *testing.T) {
 	h := &handlerSet{}
 
-	require.Nil(t, h.GetAudioHandler())
+	// AudioHandler is always enabled (required for media decoding).
+	require.Same(t, h, h.GetAudioHandler())
 	require.Nil(t, h.GetContextMenuHandler())
 
-	h.enableAudioHandler = true
 	h.enableContextMenuHandler = true
 
-	require.Same(t, h, h.GetAudioHandler())
 	require.Same(t, h, h.GetContextMenuHandler())
 }
