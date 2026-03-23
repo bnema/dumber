@@ -247,6 +247,20 @@ func getMimeType(filename string) string {
 	}
 }
 
+// splitMimeCharset splits "text/html; charset=utf-8" into ("text/html", "utf-8").
+// If no charset parameter is present, charset is empty.
+func splitMimeCharset(contentType string) (mimeType, charset string) {
+	parts := strings.SplitN(contentType, ";", 2)
+	mimeType = strings.TrimSpace(parts[0])
+	if len(parts) > 1 {
+		param := strings.TrimSpace(parts[1])
+		if strings.HasPrefix(strings.ToLower(param), "charset=") {
+			charset = strings.TrimSpace(param[len("charset="):])
+		}
+	}
+	return
+}
+
 // ---------------------------------------------------------------------------
 // ResourceHandler implementation
 // ---------------------------------------------------------------------------
@@ -294,9 +308,15 @@ func (rh *staticResourceHandler) ProcessRequest(_ purecef.Request, _ purecef.Cal
 }
 
 // GetResponseHeaders sets status code, MIME type, and content length.
+// CEF's SetMimeType expects the MIME type without charset parameters;
+// the charset must be set separately via SetCharset.
 func (rh *staticResourceHandler) GetResponseHeaders(response purecef.Response, responseLength unsafe.Pointer, _ uintptr) {
 	response.SetStatus(int32(rh.statusCode))
-	response.SetMimeType(rh.contentType)
+	mimeType, charset := splitMimeCharset(rh.contentType)
+	response.SetMimeType(mimeType)
+	if charset != "" {
+		response.SetCharset(charset)
+	}
 	*(*int64)(responseLength) = int64(len(rh.data))
 }
 
