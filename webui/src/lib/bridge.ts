@@ -18,11 +18,13 @@ interface WebKitBridge {
 }
 
 /**
- * Get the WebKit message handler bridge, if available.
+ * Get the native bridge, if available.
+ * WebKit exposes `window.webkit.messageHandlers.dumber` while CEF injects
+ * `window.dumber.postMessage`.
  */
 export function getWebKitBridge(): WebKitBridge | null {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const bridge = (window as any).webkit?.messageHandlers?.dumber;
+  const bridge = (window as any).webkit?.messageHandlers?.dumber ?? (window as any).dumber;
   return bridge && typeof bridge.postMessage === "function" ? bridge : null;
 }
 
@@ -50,7 +52,7 @@ export function toPlainObject<T>(obj: T): T {
 }
 
 /**
- * Post a message to the Go backend via WebKit bridge.
+ * Post a message to the Go backend via the native bridge.
  *
  * Automatically:
  * - Converts Svelte 5 Proxy objects to plain objects
@@ -62,7 +64,7 @@ export function toPlainObject<T>(obj: T): T {
 export function postMessage(msg: BridgeMessage): void {
   const bridge = getWebKitBridge();
   if (!bridge) {
-    throw new Error("WebKit bridge not available");
+    throw new Error("Dumber bridge not available");
   }
 
   // Ensure webviewId is set

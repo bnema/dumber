@@ -74,60 +74,6 @@ type DumbSchemeHandler struct {
 	ctx        context.Context
 }
 
-type configAppearancePayload struct {
-	SansFont        string              `json:"sans_font"`
-	SerifFont       string              `json:"serif_font"`
-	MonospaceFont   string              `json:"monospace_font"`
-	DefaultFontSize int                 `json:"default_font_size"`
-	ColorScheme     string              `json:"color_scheme"`
-	LightPalette    config.ColorPalette `json:"light_palette"`
-	DarkPalette     config.ColorPalette `json:"dark_palette"`
-}
-
-type configHardwarePayload struct {
-	CPUCores   int    `json:"cpu_cores"`
-	CPUThreads int    `json:"cpu_threads"`
-	TotalRAMMB int    `json:"total_ram_mb"`
-	GPUVendor  string `json:"gpu_vendor"`
-	GPUName    string `json:"gpu_name"`
-	VRAMMB     int    `json:"vram_mb"`
-}
-
-type configPerformancePayload struct {
-	Profile  string                    `json:"profile"`
-	Custom   configCustomPerformance   `json:"custom"`
-	Resolved configResolvedPerformance `json:"resolved"`
-	Hardware configHardwarePayload     `json:"hardware"`
-}
-
-// configCustomPerformance holds user-editable fields for custom profile.
-type configCustomPerformance struct {
-	SkiaCPUThreads         int `json:"skia_cpu_threads"`
-	SkiaGPUThreads         int `json:"skia_gpu_threads"`
-	WebProcessMemoryMB     int `json:"web_process_memory_mb"`
-	NetworkProcessMemoryMB int `json:"network_process_memory_mb"`
-	WebViewPoolPrewarm     int `json:"webview_pool_prewarm"`
-}
-
-// configResolvedPerformance shows the actual values that will be applied at startup.
-type configResolvedPerformance struct {
-	SkiaCPUThreads         int     `json:"skia_cpu_threads"`
-	SkiaGPUThreads         int     `json:"skia_gpu_threads"`
-	WebProcessMemoryMB     int     `json:"web_process_memory_mb"`
-	NetworkProcessMemoryMB int     `json:"network_process_memory_mb"`
-	WebViewPoolPrewarm     int     `json:"webview_pool_prewarm"`
-	ConservativeThreshold  float64 `json:"conservative_threshold"`
-	StrictThreshold        float64 `json:"strict_threshold"`
-}
-
-type configPayload struct {
-	Appearance          configAppearancePayload          `json:"appearance"`
-	Performance         configPerformancePayload         `json:"performance"`
-	DefaultUIScale      float64                          `json:"default_ui_scale"`
-	DefaultSearchEngine string                           `json:"default_search_engine"`
-	SearchShortcuts     map[string]config.SearchShortcut `json:"search_shortcuts"`
-}
-
 // NewDumbSchemeHandler creates a new handler for the dumb:// scheme.
 func NewDumbSchemeHandler(ctx context.Context) *DumbSchemeHandler {
 	log := logging.FromContext(ctx)
@@ -346,44 +292,7 @@ func (h *DumbSchemeHandler) buildConfigResponse(cfg *config.Config) *SchemeRespo
 		hw = &hwInfo
 	}
 
-	// Resolve performance profile with hardware info
-	perfCfg := config.PerformanceConfigFromEngine(&cfg.Engine)
-	resolved := config.ResolvePerformanceProfile(&perfCfg, hw)
-
-	resp := configPayload{
-		DefaultUIScale:      cfg.DefaultUIScale,
-		DefaultSearchEngine: cfg.DefaultSearchEngine,
-		SearchShortcuts:     cfg.SearchShortcuts,
-		Appearance: configAppearancePayload{
-			SansFont:        cfg.Appearance.SansFont,
-			SerifFont:       cfg.Appearance.SerifFont,
-			MonospaceFont:   cfg.Appearance.MonospaceFont,
-			DefaultFontSize: cfg.Appearance.DefaultFontSize,
-			ColorScheme:     cfg.Appearance.ColorScheme,
-			LightPalette:    cfg.Appearance.LightPalette,
-			DarkPalette:     cfg.Appearance.DarkPalette,
-		},
-		Performance: configPerformancePayload{
-			Profile: string(cfg.Engine.Profile),
-			Custom: configCustomPerformance{
-				SkiaCPUThreads:         cfg.Engine.WebKit.SkiaCPUPaintingThreads,
-				SkiaGPUThreads:         cfg.Engine.WebKit.SkiaGPUPaintingThreads,
-				WebProcessMemoryMB:     cfg.Engine.WebKit.WebProcessMemoryLimitMB,
-				NetworkProcessMemoryMB: cfg.Engine.WebKit.NetworkProcessMemoryLimitMB,
-				WebViewPoolPrewarm:     cfg.Engine.PoolPrewarmCount,
-			},
-			Resolved: configResolvedPerformance{
-				SkiaCPUThreads:         resolved.SkiaCPUPaintingThreads,
-				SkiaGPUThreads:         resolved.SkiaGPUPaintingThreads,
-				WebProcessMemoryMB:     resolved.WebProcessMemoryLimitMB,
-				NetworkProcessMemoryMB: resolved.NetworkProcessMemoryLimitMB,
-				WebViewPoolPrewarm:     resolved.WebViewPoolPrewarmCount,
-				ConservativeThreshold:  resolved.WebProcessMemoryConservativeThreshold,
-				StrictThreshold:        resolved.WebProcessMemoryStrictThreshold,
-			},
-			Hardware: buildHardwarePayload(hw),
-		},
-	}
+	resp := config.BuildWebUIConfigPayload(cfg, hw)
 
 	data, err := json.Marshal(resp)
 	if err != nil {
@@ -398,21 +307,6 @@ func (h *DumbSchemeHandler) buildConfigResponse(cfg *config.Config) *SchemeRespo
 		Data:        data,
 		ContentType: "application/json",
 		StatusCode:  http.StatusOK,
-	}
-}
-
-// buildHardwarePayload converts HardwareInfo to JSON payload.
-func buildHardwarePayload(hw *port.HardwareInfo) configHardwarePayload {
-	if hw == nil {
-		return configHardwarePayload{}
-	}
-	return configHardwarePayload{
-		CPUCores:   hw.CPUCores,
-		CPUThreads: hw.CPUThreads,
-		TotalRAMMB: hw.TotalRAMMB(),
-		GPUVendor:  string(hw.GPUVendor),
-		GPUName:    hw.GPUName,
-		VRAMMB:     hw.VRAMMB(),
 	}
 }
 

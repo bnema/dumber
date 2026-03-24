@@ -77,6 +77,8 @@ declare global {
     __dumber_webview_id?: number;
     /** WebKit message handlers for native bridge */
     webkit?: DumberWebKit;
+    /** CEF bridge shim injected on internal pages */
+    dumber?: DumberBridge;
 
     // ─────────────────────────────────────────────────────────────────────────
     // Config Page Callbacks
@@ -139,6 +141,10 @@ declare global {
     __dumber_color_scheme_manager?: ColorSchemeManager;
     /** Legacy theme setter */
     __dumber_setTheme?: (theme: ThemeMode) => void;
+    /** Resolved prefers-dark state injected by the backend */
+    __dumber_cef_prefers_dark?: boolean;
+    /** Resolved prefers-dark state injected by the backend */
+    __dumber_gtk_prefers_dark?: boolean;
   }
 
   interface Document {

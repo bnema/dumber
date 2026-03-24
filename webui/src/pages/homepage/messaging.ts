@@ -1,6 +1,6 @@
 // ═══════════════════════════════════════════════════════════════════════════════
-// Homepage WebKit Bridge
-// Communication layer between frontend and Go backend via WebKit message handlers
+// Homepage bridge
+// Communication layer between frontend and Go backend via WebKit or CEF bridge.
 // ═══════════════════════════════════════════════════════════════════════════════
 
 import type {
@@ -43,7 +43,7 @@ let callbacksInitialized = false;
 // ═══════════════════════════════════════════════════════════════════════════════
 
 function getWebKitBridge(): DumberBridge | null {
-  const bridge = window.webkit?.messageHandlers?.dumber;
+  const bridge = window.webkit?.messageHandlers?.dumber ?? window.dumber;
   if (bridge && typeof bridge.postMessage === 'function') {
     return bridge;
   }
@@ -178,7 +178,7 @@ async function sendMessage<T = unknown>(
 
   const bridge = getWebKitBridge();
   if (!bridge) {
-    throw new Error('WebKit message handler not available');
+    throw new Error('Dumber bridge not available');
   }
 
   const requestId = generateRequestId(type);

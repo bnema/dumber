@@ -54,7 +54,7 @@
     error = null;
 
     if (!getWebKitBridge()) {
-      error = "WebKit bridge not available";
+      error = "Dumber bridge not available";
       loading = false;
       return;
     }
@@ -93,7 +93,7 @@
     if (!editingBinding) return;
 
     if (!getWebKitBridge()) {
-      error = "WebKit bridge not available";
+      error = "Dumber bridge not available";
       return;
     }
 
