@@ -14,8 +14,6 @@ import (
 	"runtime"
 
 	cef "github.com/bnema/purego-cef/cef"
-
-	dumbercef "github.com/bnema/dumber/internal/infrastructure/cef"
 )
 
 func main() {
@@ -27,7 +25,7 @@ func main() {
 	// If it returns (code < 0), this is not a subprocess — shouldn't
 	// happen in normal operation since CEF only launches this binary
 	// with --type= flags.
-	cef.MaybeExitSubprocessWithApp(dumbercef.NewSubprocessApp())
+	cef.MaybeExitSubprocess()
 
 	// If we get here, something went wrong.
 	os.Exit(1)
