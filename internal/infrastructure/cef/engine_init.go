@@ -14,7 +14,9 @@ import (
 	"github.com/rs/zerolog"
 
 	"github.com/bnema/dumber/assets"
+	"github.com/bnema/dumber/internal/application/port"
 	"github.com/bnema/dumber/internal/infrastructure/config"
+	transcoderpkg "github.com/bnema/dumber/internal/infrastructure/transcoder"
 	"github.com/bnema/dumber/internal/logging"
 )
 
@@ -138,10 +140,26 @@ func wireEngine(
 		}
 	}
 
+	// Initialize GPU transcoder if enabled in the global config.
+	var mediaTranscoder port.MediaTranscoder
+	if appCfg := config.Get(); appCfg != nil && appCfg.Transcoding.Enabled {
+		tc := transcoderpkg.New(appCfg.Transcoding, logger)
+		if tc.Available() {
+			mediaTranscoder = tc
+			logger.Info().
+				Str("api", tc.Capabilities().API).
+				Strs("encoders", tc.Capabilities().Encoders).
+				Msg("cef: GPU transcoding available")
+		} else {
+			logger.Warn().Msg("cef: GPU transcoding enabled but no compatible GPU found — feature disabled")
+		}
+	}
+
 	factory := newWebViewFactory(eng, gl, webViewFactoryOptions{
 		scale:                    scale,
 		windowlessFrameRate:      windowlessFrameRate,
 		enableContextMenuHandler: cfg.EnableContextMenuHandler,
+		transcoder:               mediaTranscoder,
 	})
 	pool := newWebViewPool(factory)
 

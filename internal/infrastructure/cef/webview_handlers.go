@@ -13,6 +13,7 @@ import (
 type handlerSet struct {
 	wv                       *WebView
 	enableContextMenuHandler bool
+	transcodingHandler       purecef.ResourceRequestHandler
 }
 
 // Compile-time interface checks.
@@ -559,6 +560,9 @@ func (h *handlerSet) GetResourceRequestHandler(
 	_ purecef.Browser, _ purecef.Frame, _ purecef.Request,
 	_, _ int32, _ string, _ *int32,
 ) purecef.ResourceRequestHandler {
+	if h.transcodingHandler != nil {
+		return h.transcodingHandler
+	}
 	return nil
 }
 

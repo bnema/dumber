@@ -98,6 +98,8 @@ type Config struct {
 	Downloads DownloadsConfig `mapstructure:"downloads" yaml:"downloads" toml:"downloads"`
 	// Engine holds engine selection and unified engine options.
 	Engine EngineConfig `mapstructure:"engine" toml:"engine" yaml:"engine"`
+	// Transcoding controls GPU-accelerated media transcoding for proprietary codecs.
+	Transcoding TranscodingConfig `mapstructure:"transcoding" yaml:"transcoding" toml:"transcoding"`
 }
 
 // CookiePolicy controls cookie acceptance behavior.
@@ -361,4 +363,21 @@ type DownloadsConfig struct {
 	// Path is the directory where downloads are saved.
 	// Empty string means use XDG_DOWNLOAD_DIR or ~/Downloads.
 	Path string `mapstructure:"path" yaml:"path" toml:"path"`
+}
+
+// TranscodingConfig controls GPU-accelerated media transcoding.
+// When enabled, proprietary video formats (H.264, HEVC) are transcoded
+// to open codecs (VP9, AV1) that CEF can decode natively.
+type TranscodingConfig struct {
+	// Enabled controls whether transcoding is active (default: false).
+	Enabled bool `mapstructure:"enabled" yaml:"enabled" toml:"enabled"`
+	// HWAccel selects the hardware acceleration API: "auto", "vaapi", or "nvenc".
+	// Default: "auto" (tries VAAPI first, then CUDA).
+	HWAccel string `mapstructure:"hwaccel" yaml:"hwaccel" toml:"hwaccel"`
+	// MaxConcurrent is the maximum number of simultaneous transcode sessions.
+	// Default: 2.
+	MaxConcurrent int `mapstructure:"max_concurrent" yaml:"max_concurrent" toml:"max_concurrent"`
+	// Quality controls the encode quality preset: "low", "medium", or "high".
+	// Default: "medium".
+	Quality string `mapstructure:"quality" yaml:"quality" toml:"quality"`
 }

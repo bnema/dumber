@@ -24,12 +24,14 @@ type WebViewFactory struct {
 	windowlessFrameRate      int32
 	enableContextMenuHandler bool
 	bgColor                  atomic.Uint32 // packed ARGB for BrowserSettings.BackgroundColor
+	transcoder               port.MediaTranscoder
 }
 
 type webViewFactoryOptions struct {
 	scale                    int32
 	windowlessFrameRate      int32
 	enableContextMenuHandler bool
+	transcoder               port.MediaTranscoder
 }
 
 // newWebViewFactory returns a factory that will create WebViews using the
@@ -47,6 +49,7 @@ func newWebViewFactory(engine *Engine, gl *glLoader, opts webViewFactoryOptions)
 		scale:                    opts.scale,
 		windowlessFrameRate:      opts.windowlessFrameRate,
 		enableContextMenuHandler: opts.enableContextMenuHandler,
+		transcoder:               opts.transcoder,
 	}
 }
 
@@ -72,9 +75,15 @@ func (f *WebViewFactory) Create(ctx context.Context) (port.WebView, error) {
 		pipeline: pipeline,
 	}
 
+	var transcodingHandler purecef.ResourceRequestHandler
+	if f.transcoder != nil {
+		transcodingHandler = newTranscodingRequestHandler(f.transcoder)
+	}
+
 	handlers := &handlerSet{
 		wv:                       wv,
 		enableContextMenuHandler: f.enableContextMenuHandler,
+		transcodingHandler:       transcodingHandler,
 	}
 	wv.handlers = handlers
 	wv.findCtrl = newFindController()
