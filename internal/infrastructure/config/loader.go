@@ -606,6 +606,12 @@ func (m *Manager) setEngineDefaults(defaults *Config) {
 	m.viper.SetDefault("engine.webkit.network_process_memory_poll_interval_sec", wk.NetworkProcessMemoryPollIntervalSec)
 	m.viper.SetDefault("engine.webkit.network_process_memory_conservative_threshold", wk.NetworkProcessMemoryConservativeThreshold)
 	m.viper.SetDefault("engine.webkit.network_process_memory_strict_threshold", wk.NetworkProcessMemoryStrictThreshold)
+
+	// Transcoding defaults.
+	m.viper.SetDefault("transcoding.enabled", true)
+	m.viper.SetDefault("transcoding.hwaccel", "auto")
+	m.viper.SetDefault("transcoding.max_concurrent", 3)
+	m.viper.SetDefault("transcoding.quality", "medium")
 }
 
 // New returns a new default configuration instance.

@@ -369,7 +369,7 @@ type DownloadsConfig struct {
 // When enabled, proprietary video formats (H.264, HEVC) are transcoded
 // to open codecs (VP9, AV1) that CEF can decode natively.
 type TranscodingConfig struct {
-	// Enabled controls whether transcoding is active (default: false).
+	// Enabled controls whether transcoding is active (default: true).
 	Enabled bool `mapstructure:"enabled" yaml:"enabled" toml:"enabled"`
 	// HWAccel selects the hardware acceleration API: "auto", "vaapi", or "nvenc".
 	// Default: "auto" (tries VAAPI first, then CUDA).
