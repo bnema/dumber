@@ -18,7 +18,9 @@ import (
 
 	purecef "github.com/bnema/purego-cef/cef"
 
+	"github.com/bnema/dumber/internal/application/port"
 	"github.com/bnema/dumber/internal/infrastructure/config"
+	"github.com/bnema/dumber/internal/infrastructure/env"
 	"github.com/bnema/dumber/internal/logging"
 	"github.com/rs/zerolog"
 )
@@ -32,7 +34,8 @@ const (
 	indexHTML  = "index.html"
 )
 
-// dumbSchemeHandler implements purecef.SchemeHandlerFactory for the dumb:// scheme.
+// dumbSchemeHandler serves both the conceptual dumb:// URLs and the actual
+// internal https://dumber.invalid origin used by CEF.
 type dumbSchemeHandler struct {
 	ctx           context.Context
 	messageRouter *MessageRouter
@@ -40,10 +43,11 @@ type dumbSchemeHandler struct {
 	assetsSet     bool
 	assetDir      string
 	logger        zerolog.Logger
+	hwSurveyor    *env.HardwareSurveyor
 	mu            sync.RWMutex
 }
 
-// newDumbSchemeHandler creates a handler for the dumb:// scheme.
+// newDumbSchemeHandler creates a handler for internal CEF pages.
 func newDumbSchemeHandler(ctx context.Context, router *MessageRouter) *dumbSchemeHandler {
 	log := logging.FromContext(ctx)
 	return &dumbSchemeHandler{
@@ -51,6 +55,7 @@ func newDumbSchemeHandler(ctx context.Context, router *MessageRouter) *dumbSchem
 		messageRouter: router,
 		assetDir:      "webui",
 		logger:        log.With().Str("component", "scheme-handler").Logger(),
+		hwSurveyor:    env.NewHardwareSurveyor(),
 	}
 }
 
@@ -63,8 +68,8 @@ func (h *dumbSchemeHandler) setAssets(assets embed.FS) {
 	h.logger.Debug().Msg("assets filesystem configured")
 }
 
-// Create implements purecef.SchemeHandlerFactory. Called on CEF IO thread for each
-// request to the dumb:// scheme. Returns a ResourceHandler to serve the response.
+// Create implements purecef.SchemeHandlerFactory. Called on the CEF IO thread
+// for requests to either dumb:// or the internal https origin.
 func (h *dumbSchemeHandler) Create(_ purecef.Browser, _ purecef.Frame, _ string, request purecef.Request) purecef.ResourceHandler {
 	reqURL := request.GetURL()
 	method := request.GetMethod()
@@ -80,12 +85,22 @@ func (h *dumbSchemeHandler) Create(_ purecef.Browser, _ purecef.Frame, _ string,
 		return h.newErrorResourceHandler(http.StatusBadRequest, "Invalid URL")
 	}
 
+	if isCEFCrashPageURL(u) {
+		originalURI := sanitizeCEFCrashPageOriginalURI(strings.TrimSpace(u.Query().Get("url")))
+		return h.newRawResourceHandler(http.StatusOK, "text/html; charset=utf-8", []byte(buildCEFCrashPageHTML(originalURI)))
+	}
+
+	// Keep dumb:// as the app-level abstraction, but redirect CEF loads to a
+	// normal HTTPS origin so Chromium applies the standard web security model.
+	if isConceptualInternalURL(reqURL) {
+		targetURL := toActualInternalURL(reqURL)
+		if targetURL != "" && targetURL != reqURL {
+			return h.newRedirectResourceHandler(http.StatusTemporaryRedirect, targetURL)
+		}
+	}
+
 	// Route API requests.
 	path := u.Path
-	if path == "" && u.Opaque != "" {
-		// Handle opaque URLs like dumb:home — no path component.
-		path = ""
-	}
 
 	if strings.HasPrefix(path, "/api/") {
 		return h.handleAPI(method, path, request)
@@ -122,11 +137,27 @@ func (h *dumbSchemeHandler) handleAPI(method, path string, request purecef.Reque
 
 // handleConfigAPI returns a JSON response with the given config.
 func (h *dumbSchemeHandler) handleConfigAPI(cfg *config.Config) purecef.ResourceHandler {
-	data, err := json.Marshal(cfg)
+	var hwInfo *port.HardwareInfo
+	if h.hwSurveyor != nil {
+		survey := h.hwSurveyor.Survey(context.Background())
+		hwInfo = &survey
+	}
+	data, err := json.Marshal(config.BuildWebUIConfigPayload(cfg, hwInfo))
 	if err != nil {
 		return h.newJSONResourceHandler(http.StatusInternalServerError, map[string]string{"error": err.Error()})
 	}
 	return h.newRawResourceHandler(http.StatusOK, "application/json", data)
+}
+
+func (h *dumbSchemeHandler) newRedirectResourceHandler(status int, location string) purecef.ResourceHandler {
+	return purecef.NewResourceHandler(&staticResourceHandler{
+		contentType: "text/plain; charset=utf-8",
+		statusCode:  status,
+		headers: map[string]string{
+			"Location":      location,
+			"Cache-Control": "no-store",
+		},
+	})
 }
 
 // handleAsset serves static files from the embedded filesystem.
@@ -162,8 +193,21 @@ func (h *dumbSchemeHandler) handleAsset(u *url.URL) purecef.ResourceHandler {
 	return h.newRawResourceHandler(http.StatusOK, contentType, data)
 }
 
-// resolveAssetPath maps a dumb:// URL to a relative asset path.
+// resolveAssetPath maps either a dumb:// URL or the actual internal HTTPS URL
+// to a relative asset path inside assets/webui.
 func resolveAssetPath(u *url.URL) (string, bool) {
+	if u == nil {
+		return "", false
+	}
+
+	if strings.EqualFold(u.Scheme, actualInternalScheme) && strings.EqualFold(u.Host, actualInternalHost) {
+		return resolveActualAssetPath(u)
+	}
+
+	return resolveConceptualAssetPath(u)
+}
+
+func resolveConceptualAssetPath(u *url.URL) (string, bool) {
 	if u == nil {
 		return "", false
 	}
@@ -200,6 +244,159 @@ func resolveAssetPath(u *url.URL) (string, bool) {
 	default:
 		return "", false
 	}
+}
+
+func resolveActualAssetPath(u *url.URL) (string, bool) {
+	if u == nil {
+		return "", false
+	}
+
+	path := strings.Trim(u.Path, "/")
+	if path == "" {
+		return "", false
+	}
+
+	rootByPath := map[string]string{
+		homePath:   indexHTML,
+		configPath: "config.html",
+		webrtcPath: "webrtc.html",
+		errorPath:  "error.html",
+	}
+	if root, ok := rootByPath[path]; ok {
+		return root, true
+	}
+
+	if strings.HasPrefix(path, "api/") {
+		return "", false
+	}
+
+	parts := strings.SplitN(path, "/", 2)
+	if len(parts) == 2 && isInternalPageHost(parts[0]) {
+		if parts[1] == "crash" && parts[0] == homePath {
+			return "", false
+		}
+	}
+
+	// Serve root assets like homepage.min.js, style.css and favicon.png.
+	return path, true
+}
+
+func isCEFCrashPageURL(u *url.URL) bool {
+	if u == nil {
+		return false
+	}
+
+	switch {
+	case strings.EqualFold(u.Scheme, actualInternalScheme) && strings.EqualFold(u.Host, actualInternalHost):
+		return strings.Trim(u.Path, "/") == homePath+"/crash"
+	case strings.EqualFold(u.Scheme, "dumb") && u.Host == homePath:
+		return strings.Trim(u.Path, "/") == "crash"
+	default:
+		return false
+	}
+}
+
+func sanitizeCEFCrashPageOriginalURI(originalURI string) string {
+	if originalURI == "" {
+		return ""
+	}
+	parsed, err := url.Parse(originalURI)
+	if err != nil {
+		return ""
+	}
+	switch strings.ToLower(parsed.Scheme) {
+	case "http", "https":
+		if parsed.Host == "" {
+			return ""
+		}
+		return parsed.String()
+	case "dumb":
+		if parsed.Host == "" && parsed.Opaque == "" {
+			return ""
+		}
+		return parsed.String()
+	default:
+		return ""
+	}
+}
+
+func buildCEFCrashPageHTML(originalURI string) string {
+	escapedURI := html.EscapeString(originalURI)
+	return fmt.Sprintf(`<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Renderer crashed</title>
+    <style>
+        :root { color-scheme: dark; font-family: "IBM Plex Sans", "Segoe UI", sans-serif; }
+        body {
+            margin: 0;
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: radial-gradient(circle at top, #253447, #101622 55%%);
+            color: #f2f6fa;
+            padding: 24px;
+        }
+        .card {
+            width: min(640px, 100%%);
+            background: rgba(10, 16, 26, 0.86);
+            border: 1px solid rgba(144, 173, 205, 0.35);
+            border-radius: 16px;
+            box-shadow: 0 24px 64px rgba(0, 0, 0, 0.45);
+            padding: 28px;
+        }
+        .url {
+            margin: 16px 0 20px;
+            padding: 12px;
+            border-radius: 10px;
+            background: rgba(26, 38, 56, 0.85);
+            border: 1px solid rgba(139, 167, 194, 0.28);
+            font-family: "IBM Plex Mono", "Fira Code", monospace;
+            overflow-wrap: anywhere;
+        }
+        .actions { display: flex; gap: 12px; flex-wrap: wrap; }
+        button {
+            border: 0;
+            border-radius: 10px;
+            padding: 10px 16px;
+            cursor: pointer;
+            font-size: 0.95rem;
+            font-weight: 600;
+        }
+        .primary { background: #4dd0e1; color: #061018; }
+        .secondary { background: #233346; color: #d6e5f5; }
+    </style>
+</head>
+<body>
+    <div class="card">
+        <h1>Renderer process ended</h1>
+        <p>The current page was interrupted. You can reload it to continue browsing.</p>
+        <div class="url">%s</div>
+        <div class="actions">
+            <button class="primary" id="reload-btn" data-target="%s">Reload page</button>
+            <button class="secondary" id="stay-btn">Stay on this page</button>
+        </div>
+    </div>
+    <script>
+        const reloadButton = document.getElementById('reload-btn');
+        const targetUrl = (reloadButton.getAttribute('data-target') || '').trim();
+        reloadButton.addEventListener('click', function() {
+            if (targetUrl) {
+                window.location.href = targetUrl;
+                return;
+            }
+            window.location.reload();
+        });
+        document.getElementById('stay-btn').addEventListener('click', function() {
+            this.disabled = true;
+            this.textContent = 'Staying on page';
+        });
+    </script>
+</body>
+</html>`, escapedURI, escapedURI)
 }
 
 // getMimeType determines the MIME type for a given file path.
@@ -270,6 +467,7 @@ type staticResourceHandler struct {
 	data        []byte
 	contentType string
 	statusCode  int
+	headers     map[string]string
 	offset      int
 }
 
@@ -312,10 +510,16 @@ func (rh *staticResourceHandler) ProcessRequest(_ purecef.Request, _ purecef.Cal
 // the charset must be set separately via SetCharset.
 func (rh *staticResourceHandler) GetResponseHeaders(response purecef.Response, responseLength unsafe.Pointer, _ uintptr) {
 	response.SetStatus(int32(rh.statusCode))
+	if text := http.StatusText(rh.statusCode); text != "" {
+		response.SetStatusText(text)
+	}
 	mimeType, charset := splitMimeCharset(rh.contentType)
 	response.SetMimeType(mimeType)
 	if charset != "" {
 		response.SetCharset(charset)
+	}
+	for name, value := range rh.headers {
+		response.SetHeaderByName(name, value, 1)
 	}
 	*(*int64)(responseLength) = int64(len(rh.data))
 }

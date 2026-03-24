@@ -6,6 +6,38 @@ import (
 	"github.com/bnema/dumber/internal/logging"
 )
 
+const dumbSchemeName = "dumb"
+
+func dumbSchemeOptions() int32 {
+	return int32(purecef.SchemeOptionsSchemeOptionStandard |
+		purecef.SchemeOptionsSchemeOptionSecure |
+		purecef.SchemeOptionsSchemeOptionCorsEnabled |
+		purecef.SchemeOptionsSchemeOptionCspBypassing |
+		purecef.SchemeOptionsSchemeOptionFetchEnabled)
+}
+
+func registerDumbScheme(registrar purecef.SchemeRegistrar) {
+	if registrar == nil {
+		return
+	}
+	registrar.AddCustomScheme(dumbSchemeName, dumbSchemeOptions())
+}
+
+func configureCommandLine(commandLine purecef.CommandLine) {
+	if commandLine == nil {
+		return
+	}
+
+	// Enable Chromium's built-in smooth scrolling animation — without this,
+	// mouse wheel scroll jumps in discrete steps with no momentum/easing.
+	commandLine.AppendSwitch("enable-smooth-scrolling")
+
+	// Allow video autoplay without requiring user gesture — sites like
+	// Reddit autoplay muted videos in the feed; without this policy
+	// Chromium blocks them, showing an infinite spinner.
+	commandLine.AppendSwitchWithValue("autoplay-policy", "no-user-gesture-required")
+}
+
 // dumberApp implements purecef.App to provide a BrowserProcessHandler with
 // demand-driven message pump scheduling (OnScheduleMessagePumpWork).
 type dumberApp struct {
@@ -23,20 +55,19 @@ func newDumberApp(engine *Engine) purecef.App {
 	return purecef.NewApp(app)
 }
 
+// NewSubprocessApp returns a lightweight App for helper processes so CEF sees
+// the same custom scheme registration in renderer/GPU/utility processes.
+func NewSubprocessApp() purecef.App {
+	return purecef.NewApp(&subprocessApp{})
+}
+
 // maxCmdLineLogLen limits logged command line length to avoid leaking sensitive paths.
 const maxCmdLineLogLen = 200
 
 func (a *dumberApp) OnBeforeCommandLineProcessing(processType string, commandLine purecef.CommandLine) {
 	log := logging.FromContext(a.engine.ctx)
 	if commandLine != nil {
-		// Enable Chromium's built-in smooth scrolling animation — without this,
-		// mouse wheel scroll jumps in discrete steps with no momentum/easing.
-		commandLine.AppendSwitch("enable-smooth-scrolling")
-
-		// Allow video autoplay without requiring user gesture — sites like
-		// Reddit autoplay muted videos in the feed; without this policy
-		// Chromium blocks them, showing an infinite spinner.
-		commandLine.AppendSwitchWithValue("autoplay-policy", "no-user-gesture-required")
+		configureCommandLine(commandLine)
 
 		cmdline := commandLine.GetCommandLineString()
 		if len(cmdline) > maxCmdLineLogLen {
@@ -52,17 +83,24 @@ func (a *dumberApp) OnBeforeCommandLineProcessing(processType string, commandLin
 	}
 }
 func (a *dumberApp) OnRegisterCustomSchemes(registrar purecef.SchemeRegistrar) {
-	options := int32(purecef.SchemeOptionsSchemeOptionStandard |
-		purecef.SchemeOptionsSchemeOptionLocal |
-		purecef.SchemeOptionsSchemeOptionSecure |
-		purecef.SchemeOptionsSchemeOptionCorsEnabled |
-		purecef.SchemeOptionsSchemeOptionFetchEnabled)
-	registrar.AddCustomScheme("dumb", options)
+	registerDumbScheme(registrar)
 	logging.FromContext(a.engine.ctx).Debug().Msg("cef: registered dumb:// custom scheme")
 }
 func (a *dumberApp) GetResourceBundleHandler() purecef.ResourceBundleHandler { return nil }
 func (a *dumberApp) GetBrowserProcessHandler() purecef.BrowserProcessHandler { return a.bph }
 func (a *dumberApp) GetRenderProcessHandler() purecef.RenderProcessHandler   { return nil }
+
+type subprocessApp struct{}
+
+func (a *subprocessApp) OnBeforeCommandLineProcessing(_ string, commandLine purecef.CommandLine) {
+	configureCommandLine(commandLine)
+}
+func (a *subprocessApp) OnRegisterCustomSchemes(registrar purecef.SchemeRegistrar) {
+	registerDumbScheme(registrar)
+}
+func (a *subprocessApp) GetResourceBundleHandler() purecef.ResourceBundleHandler { return nil }
+func (a *subprocessApp) GetBrowserProcessHandler() purecef.BrowserProcessHandler { return nil }
+func (a *subprocessApp) GetRenderProcessHandler() purecef.RenderProcessHandler   { return nil }
 
 // dumberBPH implements purecef.BrowserProcessHandler. Only
 // OnScheduleMessagePumpWork carries real logic; the rest are no-ops.

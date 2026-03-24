@@ -154,11 +154,25 @@ func wireEngine(
 	schemeHandler := newDumbSchemeHandler(ctx, messageRouter)
 	schemeHandler.setAssets(assets.WebUIAssets)
 
-	result := purecef.RegisterSchemeHandlerFactory("dumb", "", purecef.NewSchemeHandlerFactory(schemeHandler))
+	schemeFactory := purecef.NewSchemeHandlerFactory(schemeHandler)
+
+	result := purecef.RegisterSchemeHandlerFactory("dumb", "", schemeFactory)
 	if result != 1 {
 		logger.Error().Int32("result", result).Msg("cef: failed to register dumb:// scheme handler factory")
 	} else {
 		logger.Info().Msg("cef: registered dumb:// scheme handler factory")
+	}
+
+	result = purecef.RegisterSchemeHandlerFactory(actualInternalScheme, actualInternalHost, schemeFactory)
+	if result != 1 {
+		logger.Error().
+			Int32("result", result).
+			Str("origin", actualInternalOrigin).
+			Msg("cef: failed to register internal https handler factory")
+	} else {
+		logger.Info().
+			Str("origin", actualInternalOrigin).
+			Msg("cef: registered internal https handler factory")
 	}
 
 	eng.messageRouter = messageRouter
