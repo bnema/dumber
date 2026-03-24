@@ -116,17 +116,18 @@ func (wv *WebView) LoadURI(_ context.Context, uri string) error {
 	if wv.destroyed.Load() {
 		return errDestroyed
 	}
+	actualURI := toActualInternalURL(uri)
 	wv.mu.Lock()
 	browser := wv.browser
 	if browser == nil {
 		// Browser not yet created — queue the URI for OnAfterCreated.
-		wv.pendingURI = uri
+		wv.pendingURI = actualURI
 		wv.mu.Unlock()
 		return nil
 	}
 	wv.mu.Unlock()
 	if frame := browser.GetMainFrame(); frame != nil {
-		frame.LoadURL(uri)
+		frame.LoadURL(actualURI)
 	}
 	return nil
 }
@@ -444,7 +445,7 @@ const colorScale = 255
 // SetBackgroundColor sets the background via JS injection (CEF has no runtime API).
 func (wv *WebView) SetBackgroundColor(r, g, b, a float64) {
 	script := fmt.Sprintf(
-		`document.documentElement.style.backgroundColor='rgba(%d,%d,%d,%.2f)'`,
+		`(function(){ if (document.documentElement) { document.documentElement.style.backgroundColor='rgba(%d,%d,%d,%.2f)'; } })()`,
 		int(r*colorScale), int(g*colorScale), int(b*colorScale), a,
 	)
 	wv.RunJavaScript(context.Background(), script)
@@ -453,7 +454,7 @@ func (wv *WebView) SetBackgroundColor(r, g, b, a float64) {
 // ResetBackgroundToDefault clears the injected background color.
 func (wv *WebView) ResetBackgroundToDefault() {
 	wv.RunJavaScript(context.Background(),
-		`document.documentElement.style.backgroundColor=''`)
+		`(function(){ if (document.documentElement) { document.documentElement.style.backgroundColor=''; } })()`)
 }
 
 // ---------------------------------------------------------------------------
@@ -499,6 +500,7 @@ func (wv *WebView) NativeWidget() uintptr {
 // ---------------------------------------------------------------------------
 
 func (wv *WebView) updateURI(uri string) {
+	uri = toConceptualInternalURL(uri)
 	wv.mu.Lock()
 	wv.uri = uri
 	cb := wv.callbacks

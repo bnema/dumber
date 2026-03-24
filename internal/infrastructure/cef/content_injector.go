@@ -13,10 +13,6 @@ import (
 // Compile-time interface check.
 var _ port.ContentInjector = (*contentInjector)(nil)
 
-// internalSchemePrefix is used to detect internal pages that receive dark mode
-// and message bridge scripts. Must match the engine's InternalSchemePath prefix.
-const internalSchemePrefix = "dumb://"
-
 // scrollbarCSS styles the scrollbar with auto-hide behavior: invisible by
 // default, fades in on scroll, widens on hover, fades out after 1s idle.
 // Uses --primary theme color for the thumb.
@@ -247,7 +243,7 @@ func (ci *contentInjector) RefreshScripts(ctx context.Context, wv port.WebView) 
 // It injects the appropriate scripts based on whether the page is internal.
 func (ci *contentInjector) onLoadEnd(wv *WebView) {
 	uri := wv.URI()
-	isInternal := strings.HasPrefix(uri, internalSchemePrefix)
+	isInternal := isConceptualInternalURL(uri) || isActualInternalURL(uri)
 
 	ci.mu.RLock()
 	themeCSS := ci.themeCSS

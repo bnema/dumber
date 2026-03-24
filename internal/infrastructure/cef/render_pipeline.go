@@ -29,12 +29,13 @@ type renderPipeline struct {
 	glArea *gtk.GLArea
 
 	// GL resources (created on first render).
-	texture  uint32
-	pbo      [2]uint32
-	pboIndex int
-	program  uint32
-	vao      uint32
-	vbo      uint32
+	texture      uint32
+	popupTexture uint32
+	pbo          [2]uint32
+	pboIndex     int
+	program      uint32
+	vao          uint32
+	vbo          uint32
 
 	// Surface dimensions (in device pixels, i.e. scaled).
 	width  int32
@@ -51,6 +52,15 @@ type renderPipeline struct {
 	dirtyRects  []rect
 	needsUpload bool
 	sizeChanged bool
+
+	// Popup staging for native CEF widgets like <select> menus.
+	popupVisible     bool
+	popupRect        rect
+	popupStaging     []byte
+	popupWidth       int32
+	popupHeight      int32
+	popupNeedsUpload bool
+	popupSizeChanged bool
 
 	// GL initialized flag.
 	glReady bool
@@ -179,12 +189,16 @@ func (rp *renderPipeline) handlePaint(buffer []byte, width, height int32, rects 
 	}
 	rp.mu.Lock()
 
-	bufSize := int(int64(width) * int64(height) * 4)
+	bufSize, ok := bgraBufferSize(width, height)
+	if !ok {
+		rp.mu.Unlock()
+		return
+	}
 	copiedBytes := uint64(0)
 	sizeChanged := false
 
 	// Detect size change, or first paint (staging not yet allocated).
-	if width != rp.width || height != rp.height || rp.staging == nil {
+	if stagingNeedsReset(rp.staging, rp.width, rp.height, width, height, bufSize) {
 		rp.width = width
 		rp.height = height
 		rp.widthAtomic.Store(width)
@@ -193,27 +207,20 @@ func (rp *renderPipeline) handlePaint(buffer []byte, width, height int32, rects 
 		rp.sizeChanged = true
 		sizeChanged = true
 		// On size change, copy the entire buffer.
-		copy(rp.staging, buffer)
-		copiedBytes = uint64(bufSize)
+		copiedBytes = uint64(copy(rp.staging, buffer))
 	} else {
 		// Copy only dirty rect rows.
-		stride := int(width) * 4
-		sanitized := make([]rect, 0, len(rects))
-		for _, rawRect := range rects {
-			r, ok := clampDirtyRect(rawRect, width, height)
-			if !ok {
-				continue
-			}
-			sanitized = append(sanitized, r)
-			for row := r.Y; row < r.Y+r.Height; row++ {
-				srcOff := int(row)*stride + int(r.X)*4
-				dstOff := srcOff
-				rowBytes := int(r.Width) * 4
-				copy(rp.staging[dstOff:dstOff+rowBytes], buffer[srcOff:srcOff+rowBytes])
-				copiedBytes += uint64(rowBytes)
-			}
+		var truncated bool
+		copiedBytes, rects, truncated = copyDirtyRectsIntoStaging(rp.staging, buffer, width, height, rects)
+		if truncated && rp.ctx != nil {
+			logging.FromContext(rp.ctx).Warn().
+				Uint64("paint_seq", paintSeq).
+				Int32("width", width).
+				Int32("height", height).
+				Int("buffer_len", len(buffer)).
+				Int("expected_len", bufSize).
+				Msg("cef: truncated paint buffer while copying dirty rects")
 		}
-		rects = sanitized
 	}
 
 	// Accumulate dirty rects across multiple OnPaint calls between renders.
@@ -237,6 +244,15 @@ func (rp *renderPipeline) handlePaint(buffer []byte, width, height int32, rects 
 
 	rp.glArea.QueueRender()
 	if rp.ctx != nil {
+		if sizeChanged && copiedBytes < uint64(bufSize) {
+			logging.FromContext(rp.ctx).Warn().
+				Uint64("paint_seq", paintSeq).
+				Int32("width", width).
+				Int32("height", height).
+				Int("buffer_len", len(buffer)).
+				Int("expected_len", bufSize).
+				Msg("cef: truncated full paint buffer on resize")
+		}
 		logging.FromContext(rp.ctx).Debug().
 			Uint64("paint_seq", paintSeq).
 			Uint64("copied_bytes", copiedBytes).
@@ -306,16 +322,16 @@ func (rp *renderPipeline) onGLRender() bool {
 		}
 	}
 
-	// Draw fullscreen quad.
+	// Draw the main view texture.
+	w, h, _ := rp.viewRectSize()
+	gl.viewport(0, 0, w, h)
 	gl.clearColor(0, 0, 0, 1)
 	gl.clear(glColorBufferBit)
-	gl.useProgram(rp.program)
-	gl.bindTexture(glTexture2D, rp.texture)
-	gl.bindVertexArray(rp.vao)
-	gl.drawArrays(glTriangleStrip, 0, 4)
-	gl.bindVertexArray(0)
-	gl.bindTexture(glTexture2D, 0)
-	gl.useProgram(0)
+	rp.drawTexture(rp.texture)
+
+	if rp.uploadPopupTexture(renderSeq, paintSeq) {
+		rp.drawPopupOverlay(w, h)
+	}
 
 	rp.glRenderCount++
 	renderDuration := time.Since(renderStartedAt)
@@ -335,6 +351,20 @@ func (rp *renderPipeline) onGLRender() bool {
 	}
 
 	return true
+}
+
+func (rp *renderPipeline) drawTexture(texture uint32) {
+	if texture == 0 {
+		return
+	}
+	gl := rp.gl
+	gl.useProgram(rp.program)
+	gl.bindTexture(glTexture2D, texture)
+	gl.bindVertexArray(rp.vao)
+	gl.drawArrays(glTriangleStrip, 0, 4)
+	gl.bindVertexArray(0)
+	gl.bindTexture(glTexture2D, 0)
+	gl.useProgram(0)
 }
 
 // uploadToPBO uploads dirty regions from the staging buffer into a PBO, then
@@ -373,8 +403,11 @@ func (rp *renderPipeline) uploadToPBO(dirtyRects []rect, fullUpload bool, render
 
 	rp.mu.Lock()
 	if fullUpload {
-		copy(mappedSlice, rp.staging)
-		uploadedBytes = uint64(bufSize)
+		copied := copy(mappedSlice, rp.staging)
+		if copied < len(mappedSlice) {
+			clear(mappedSlice[copied:])
+		}
+		uploadedBytes = uint64(copied)
 	} else {
 		for _, rawRect := range dirtyRects {
 			r, ok := clampDirtyRect(rawRect, w, h)
@@ -438,6 +471,84 @@ func (rp *renderPipeline) uploadToPBO(dirtyRects []rect, fullUpload bool, render
 			Msg("cef: uploadToPBO end")
 	}
 	return uploadedBytes
+}
+
+func (rp *renderPipeline) uploadPopupTexture(renderSeq, paintSeq uint64) bool {
+	rp.mu.Lock()
+	defer rp.mu.Unlock()
+
+	if !rp.popupVisible || rp.popupWidth <= 0 || rp.popupHeight <= 0 || len(rp.popupStaging) == 0 {
+		return false
+	}
+
+	if !rp.popupNeedsUpload && !rp.popupSizeChanged && rp.popupTexture != 0 {
+		return true
+	}
+
+	gl := rp.gl
+
+	if rp.popupTexture == 0 {
+		gl.genTextures(1, &rp.popupTexture)
+		gl.bindTexture(glTexture2D, rp.popupTexture)
+		gl.texParameteri(glTexture2D, glTextureMinFilter, int32(glLinear))
+		gl.texParameteri(glTexture2D, glTextureMagFilter, int32(glLinear))
+		gl.texParameteri(glTexture2D, glTextureWrapS, int32(glClampToEdge))
+		gl.texParameteri(glTexture2D, glTextureWrapT, int32(glClampToEdge))
+	} else {
+		gl.bindTexture(glTexture2D, rp.popupTexture)
+	}
+
+	pixels := unsafe.Pointer(&rp.popupStaging[0])
+	if rp.popupSizeChanged {
+		gl.texImage2D(glTexture2D, 0, int32(glRGBA), rp.popupWidth, rp.popupHeight, 0, glBGRA, glUnsignedByte, pixels)
+	} else {
+		gl.texSubImage2D(glTexture2D, 0, 0, 0, rp.popupWidth, rp.popupHeight, glBGRA, glUnsignedByte, pixels)
+	}
+	gl.bindTexture(glTexture2D, 0)
+
+	rp.popupNeedsUpload = false
+	rp.popupSizeChanged = false
+
+	if rp.ctx != nil {
+		logging.FromContext(rp.ctx).Debug().
+			Uint64("render_seq", renderSeq).
+			Uint64("paint_seq", paintSeq).
+			Int32("popup_width", rp.popupWidth).
+			Int32("popup_height", rp.popupHeight).
+			Msg("cef: popup texture uploaded")
+	}
+
+	return true
+}
+
+func (rp *renderPipeline) drawPopupOverlay(viewWidth, viewHeight int32) {
+	rp.mu.Lock()
+	popupVisible := rp.popupVisible
+	popupRect := rp.popupRect
+	popupWidth := rp.popupWidth
+	popupHeight := rp.popupHeight
+	texture := rp.popupTexture
+	rp.mu.Unlock()
+
+	if !popupVisible || texture == 0 || popupWidth <= 0 || popupHeight <= 0 || viewWidth <= 0 || viewHeight <= 0 {
+		return
+	}
+
+	popupRect.Width = popupWidth
+	popupRect.Height = popupHeight
+	popupRect, ok := clampDirtyRect(popupRect, viewWidth, viewHeight)
+	if !ok {
+		return
+	}
+
+	viewportY := viewHeight - popupRect.Y - popupRect.Height
+	if viewportY < 0 {
+		viewportY = 0
+	}
+
+	rp.gl.viewport(popupRect.X, viewportY, popupRect.Width, popupRect.Height)
+	rp.drawTexture(texture)
+	rp.gl.viewport(0, 0, viewWidth, viewHeight)
 }
 
 // initGL creates or recreates all GL resources for the current surface size.
@@ -662,6 +773,70 @@ func (rp *renderPipeline) onResize(width, height int32) {
 	}
 }
 
+func (rp *renderPipeline) setPopupVisible(show bool) {
+	rp.mu.Lock()
+	rp.popupVisible = show
+	if !show {
+		rp.popupStaging = nil
+		rp.popupWidth = 0
+		rp.popupHeight = 0
+		rp.popupNeedsUpload = false
+		rp.popupSizeChanged = false
+	}
+	rp.mu.Unlock()
+	rp.glArea.QueueRender()
+}
+
+func (rp *renderPipeline) setPopupRect(popup rect) {
+	rp.mu.Lock()
+	rp.popupRect = rect{
+		X:      popup.X * rp.scale,
+		Y:      popup.Y * rp.scale,
+		Width:  popup.Width * rp.scale,
+		Height: popup.Height * rp.scale,
+	}
+	rp.mu.Unlock()
+	rp.glArea.QueueRender()
+}
+
+func (rp *renderPipeline) handlePopupPaint(buffer []byte, width, height int32, paintSeq uint64) {
+	if len(buffer) == 0 || width <= 0 || height <= 0 {
+		return
+	}
+
+	bufSize, ok := bgraBufferSize(width, height)
+	if !ok {
+		return
+	}
+
+	rp.mu.Lock()
+	if len(rp.popupStaging) != bufSize {
+		rp.popupStaging = make([]byte, bufSize)
+		rp.popupSizeChanged = true
+	} else if rp.popupWidth != width || rp.popupHeight != height {
+		rp.popupSizeChanged = true
+	}
+	copied := copy(rp.popupStaging, buffer)
+	if copied < len(rp.popupStaging) {
+		clear(rp.popupStaging[copied:])
+	}
+	rp.popupWidth = width
+	rp.popupHeight = height
+	rp.popupNeedsUpload = true
+	rp.popupVisible = true
+	rp.mu.Unlock()
+
+	if rp.ctx != nil {
+		logging.FromContext(rp.ctx).Debug().
+			Uint64("paint_seq", paintSeq).
+			Int32("popup_width", width).
+			Int32("popup_height", height).
+			Msg("cef: handlePopupPaint")
+	}
+
+	rp.glArea.QueueRender()
+}
+
 func (rp *renderPipeline) viewRectSize() (width, height, scale int32) {
 	width = rp.widthAtomic.Load()
 	height = rp.heightAtomic.Load()
@@ -728,6 +903,10 @@ func (rp *renderPipeline) deleteGLResources() {
 		gl.deleteTextures(1, &rp.texture)
 		rp.texture = 0
 	}
+	if rp.popupTexture != 0 {
+		gl.deleteTextures(1, &rp.popupTexture)
+		rp.popupTexture = 0
+	}
 	for i := 0; i < 2; i++ {
 		if rp.pbo[i] != 0 {
 			gl.deleteBuffers(1, &rp.pbo[i])
@@ -748,6 +927,89 @@ func (rp *renderPipeline) deleteGLResources() {
 		// glDeleteProgram to glLoader if needed.
 		rp.program = 0
 	}
+}
+
+func bgraBufferSize(width, height int32) (int, bool) {
+	if width <= 0 || height <= 0 {
+		return 0, false
+	}
+	size64 := int64(width) * int64(height) * 4
+	if size64 <= 0 {
+		return 0, false
+	}
+	return int(size64), true
+}
+
+func stagingNeedsReset(staging []byte, currentWidth, currentHeight, nextWidth, nextHeight int32, expectedBytes int) bool {
+	return staging == nil ||
+		len(staging) != expectedBytes ||
+		currentWidth != nextWidth ||
+		currentHeight != nextHeight
+}
+
+func copyDirtyRectsIntoStaging(dst, src []byte, width, height int32, rects []rect) (uint64, []rect, bool) {
+	if len(dst) == 0 || len(src) == 0 || width <= 0 || height <= 0 {
+		return 0, nil, false
+	}
+
+	stride := int(width) * 4
+	copiedBytes := uint64(0)
+	truncated := false
+	sanitized := make([]rect, 0, len(rects))
+
+	for _, rawRect := range rects {
+		r, ok := clampDirtyRect(rawRect, width, height)
+		if !ok {
+			continue
+		}
+		sanitized = append(sanitized, r)
+
+		for row := r.Y; row < r.Y+r.Height; row++ {
+			dstOff := int(row)*stride + int(r.X)*4
+			if dstOff < 0 || dstOff >= len(dst) {
+				truncated = true
+				break
+			}
+
+			rowBytes := int(r.Width) * 4
+			dstEnd := dstOff + rowBytes
+			if dstEnd > len(dst) {
+				dstEnd = len(dst)
+				truncated = true
+			}
+
+			srcOff := int(row)*stride + int(r.X)*4
+			if srcOff < 0 || srcOff >= len(src) {
+				clear(dst[dstOff:dstEnd])
+				truncated = true
+				continue
+			}
+
+			srcEnd := srcOff + rowBytes
+			if srcEnd > len(src) {
+				srcEnd = len(src)
+				truncated = true
+			}
+
+			copyLen := srcEnd - srcOff
+			maxDstLen := dstEnd - dstOff
+			if copyLen > maxDstLen {
+				copyLen = maxDstLen
+				truncated = true
+			}
+
+			if copyLen > 0 {
+				copy(dst[dstOff:dstOff+copyLen], src[srcOff:srcOff+copyLen])
+				copiedBytes += uint64(copyLen)
+			}
+
+			if dstOff+copyLen < dstEnd {
+				clear(dst[dstOff+copyLen : dstEnd])
+			}
+		}
+	}
+
+	return copiedBytes, sanitized, truncated
 }
 
 // pboOffset converts a byte offset into an unsafe.Pointer for use with

@@ -147,15 +147,35 @@ func (h *handlerSet) GetScreenInfo(_ purecef.Browser, info *purecef.ScreenInfo) 
 	return 1
 }
 
-func (h *handlerSet) OnPopupShow(_ purecef.Browser, _ int32) {}
+func (h *handlerSet) OnPopupShow(_ purecef.Browser, show int32) {
+	if h.wv == nil || h.wv.pipeline == nil {
+		return
+	}
+	h.wv.runOnGTK(func() {
+		h.wv.pipeline.setPopupVisible(show != 0)
+	})
+}
 
-func (h *handlerSet) OnPopupSize(_ purecef.Browser, _ *purecef.Rect) {}
+func (h *handlerSet) OnPopupSize(_ purecef.Browser, popupRect *purecef.Rect) {
+	if h.wv == nil || h.wv.pipeline == nil || popupRect == nil {
+		return
+	}
+	popup := rect{
+		X:      popupRect.X,
+		Y:      popupRect.Y,
+		Width:  popupRect.Width,
+		Height: popupRect.Height,
+	}
+	h.wv.runOnGTK(func() {
+		h.wv.pipeline.setPopupRect(popup)
+	})
+}
 
 // OnPaint receives the BGRA pixel buffer from CEF and forwards dirty rects
 // to the render pipeline for GPU upload. With a multi-threaded CEF UI loop we
 // must first copy the transient CEF buffer before hopping back to GTK.
 func (h *handlerSet) OnPaint(
-	_ purecef.Browser, _ purecef.PaintElementType,
+	_ purecef.Browser, elementType purecef.PaintElementType,
 	dirtyRects []purecef.Rect, buffer []byte, width, height int32,
 ) {
 	if len(buffer) == 0 || width <= 0 || height <= 0 {
@@ -179,6 +199,10 @@ func (h *handlerSet) OnPaint(
 		pixels := make([]byte, len(buffer))
 		copy(pixels, buffer)
 		h.wv.runOnGTK(func() {
+			if elementType == purecef.PaintElementTypePetPopup {
+				h.wv.pipeline.handlePopupPaint(pixels, width, height, paintSeq)
+				return
+			}
 			h.wv.pipeline.handlePaint(pixels, width, height, rects, paintSeq)
 		})
 		if h.wv != nil && h.wv.ctx != nil {
@@ -186,6 +210,10 @@ func (h *handlerSet) OnPaint(
 				Uint64("paint_seq", paintSeq).
 				Msg("cef: OnPaint queued to GTK")
 		}
+		return
+	}
+	if elementType == purecef.PaintElementTypePetPopup {
+		h.wv.pipeline.handlePopupPaint(buffer, width, height, paintSeq)
 		return
 	}
 	h.wv.pipeline.handlePaint(buffer, width, height, rects, paintSeq)

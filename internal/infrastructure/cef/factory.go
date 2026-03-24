@@ -111,6 +111,7 @@ func (f *WebViewFactory) Create(ctx context.Context) (port.WebView, error) {
 	// Configure BrowserSettings.
 	settings := purecef.DefaultBrowserSettings()
 	settings.WindowlessFrameRate = f.windowlessFrameRate
+	settings.LocalStorage = 1 // CEF_STATE_ENABLED
 	if bg := f.bgColor.Load(); bg != 0 {
 		settings.BackgroundColor = bg
 	}
