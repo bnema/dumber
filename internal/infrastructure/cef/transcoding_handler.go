@@ -3,6 +3,7 @@ package cef
 import (
 	"context"
 	"sync"
+	"time"
 	"unsafe"
 
 	purecef "github.com/bnema/purego-cef/cef"
@@ -72,11 +73,9 @@ func (rh *transcodingResourceHandler) Read(
 		return 0
 	}
 
-	buf := make([]byte, bytesToRead)
-	n, err := rh.session.Read(buf)
+	dst := unsafe.Slice((*byte)(dataOut), int(bytesToRead))
+	n, err := rh.session.Read(dst)
 	if n > 0 {
-		dst := unsafe.Slice((*byte)(dataOut), n)
-		copy(dst, buf[:n])
 		*(*int32)(bytesRead) = int32(n)
 		return 1
 	}
@@ -177,9 +176,12 @@ func (h *transcodingRequestHandler) GetResourceHandler(_ purecef.Browser, _ pure
 	if !ok {
 		return nil
 	}
-	info := val.(requestInfo)
+	info, ok := val.(requestInfo)
+	if !ok {
+		return nil
+	}
 
-	ctx, cancel := context.WithCancel(context.Background())
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Minute)
 	return purecef.NewResourceHandler(&transcodingResourceHandler{
 		transcoder: h.transcoder,
 		sourceURL:  url,

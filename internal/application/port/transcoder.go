@@ -30,4 +30,6 @@ type MediaTranscoder interface {
 	// Start begins a GPU transcode session, fetching from sourceURL.
 	// Headers are forwarded to the source HTTP request (cookies, auth).
 	Start(ctx context.Context, sourceURL string, headers map[string]string) (TranscodeSession, error)
+	// Close shuts down all active transcode sessions and releases resources.
+	Close()
 }

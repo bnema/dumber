@@ -1,8 +1,6 @@
 package transcoder
 
 import (
-	"unsafe"
-
 	"github.com/bnema/purego-ffmpeg/ffmpeg"
 	"github.com/rs/zerolog"
 
@@ -90,7 +88,7 @@ func probeProfile(p hwProfile, logger *zerolog.Logger) port.HWCapabilities {
 	}
 	// Free the probing device context; a long-lived one will be
 	// created per transcode session (or shared across sessions).
-	defer ffmpeg.BufferUnref(unsafe.Pointer(&deviceCtx))
+	defer ffmpeg.BufferUnref(&deviceCtx)
 
 	logger.Info().
 		Str("api", p.api).

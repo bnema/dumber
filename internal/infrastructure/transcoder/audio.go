@@ -6,6 +6,7 @@ import (
 	"unsafe"
 
 	"github.com/bnema/purego-ffmpeg/ffmpeg"
+	"github.com/rs/zerolog"
 )
 
 // opusSampleRate is the standard output sample rate for Opus encoding.
@@ -26,6 +27,8 @@ type audioTranscoder struct {
 	encoder   unsafe.Pointer // AVCodecContext* for Opus encoding
 	resampler unsafe.Pointer // SwrContext* (nil if no resampling needed)
 	frame     unsafe.Pointer // reusable AVFrame for resampled output
+	decFrame  unsafe.Pointer // reusable AVFrame for decoded output
+	encPkt    unsafe.Pointer // reusable AVPacket for encoded output
 	inStream  int            // input stream index in the source container
 	outStream int            // output stream index in the muxer
 }
@@ -81,13 +84,7 @@ func newAudioTranscoder(inCodecPar, outFmtCtx unsafe.Pointer, inStreamIdx int) (
 	// Set time base to 1/sample_rate for audio.
 	ffmpeg.CodecCtxSetTimeBase(encCtx, ffmpeg.AVRational{Num: 1, Den: opusSampleRate})
 
-	// If the output format requires global headers, set the flag on the encoder.
-	outFlags := ffmpeg.FmtCtxFlags(outFmtCtx)
-	oformat := ffmpeg.FmtCtxOformat(outFmtCtx)
-	if oformat != nil {
-		// Check output format flags via the format context flags.
-		_ = outFlags // Format flags are on FmtCtx, not oformat.
-	}
+	// Note: WebM container does not require AV_CODEC_FLAG_GLOBAL_HEADER for Opus.
 
 	if ret := ffmpeg.CodecOpen2(encCtx, enc, nil); ret < 0 {
 		ffmpeg.CodecFreeContext(unsafe.Pointer(&encCtx))
@@ -161,11 +158,40 @@ func newAudioTranscoder(inCodecPar, outFmtCtx unsafe.Pointer, inStreamIdx int) (
 		codecCtxCopyChLayout(resampledFrame, decCtx)
 	}
 
+	decFrame := ffmpeg.FrameAlloc()
+	if decFrame == nil {
+		if resampledFrame != nil {
+			ffmpeg.FrameFree(unsafe.Pointer(&resampledFrame))
+		}
+		if swr != nil {
+			ffmpeg.SwrFree(unsafe.Pointer(&swr))
+		}
+		ffmpeg.CodecFreeContext(unsafe.Pointer(&encCtx))
+		ffmpeg.CodecFreeContext(unsafe.Pointer(&decCtx))
+		return nil, errors.New("failed to allocate audio decode frame")
+	}
+
+	encPkt := ffmpeg.PacketAlloc()
+	if encPkt == nil {
+		ffmpeg.FrameFree(unsafe.Pointer(&decFrame))
+		if resampledFrame != nil {
+			ffmpeg.FrameFree(unsafe.Pointer(&resampledFrame))
+		}
+		if swr != nil {
+			ffmpeg.SwrFree(unsafe.Pointer(&swr))
+		}
+		ffmpeg.CodecFreeContext(unsafe.Pointer(&encCtx))
+		ffmpeg.CodecFreeContext(unsafe.Pointer(&decCtx))
+		return nil, errors.New("failed to allocate audio encode packet")
+	}
+
 	return &audioTranscoder{
 		decoder:   decCtx,
 		encoder:   encCtx,
 		resampler: swr,
 		frame:     resampledFrame,
+		decFrame:  decFrame,
+		encPkt:    encPkt,
 		inStream:  inStreamIdx,
 		outStream: outStreamIdx,
 	}, nil
@@ -180,17 +206,8 @@ func (a *audioTranscoder) processPacket(pkt, outFmtCtx unsafe.Pointer) error {
 		return fmt.Errorf("audio decode send packet: %d", ret)
 	}
 
-	frame := ffmpeg.FrameAlloc()
-	if frame == nil {
-		return errors.New("failed to allocate audio decode frame")
-	}
-	defer ffmpeg.FrameFree(unsafe.Pointer(&frame))
-
-	encPkt := ffmpeg.PacketAlloc()
-	if encPkt == nil {
-		return errors.New("failed to allocate audio encode packet")
-	}
-	defer ffmpeg.PacketFree(unsafe.Pointer(&encPkt))
+	frame := a.decFrame
+	encPkt := a.encPkt
 
 	for {
 		ret = ffmpeg.CodecReceiveFrame(a.decoder, frame)
@@ -272,21 +289,14 @@ func (a *audioTranscoder) processPacket(pkt, outFmtCtx unsafe.Pointer) error {
 }
 
 // flush drains remaining frames from the decoder and encoder.
-func (a *audioTranscoder) flush(outFmtCtx unsafe.Pointer) error {
+// The logger parameter is used to report non-fatal resampling errors
+// that occur during flush (we continue flushing rather than aborting).
+func (a *audioTranscoder) flush(outFmtCtx unsafe.Pointer, logger zerolog.Logger) error {
 	// Flush decoder by sending NULL packet.
 	ffmpeg.CodecSendPacket(a.decoder, nil)
 
-	frame := ffmpeg.FrameAlloc()
-	if frame == nil {
-		return errors.New("failed to allocate frame for audio flush")
-	}
-	defer ffmpeg.FrameFree(unsafe.Pointer(&frame))
-
-	encPkt := ffmpeg.PacketAlloc()
-	if encPkt == nil {
-		return errors.New("failed to allocate packet for audio flush")
-	}
-	defer ffmpeg.PacketFree(unsafe.Pointer(&encPkt))
+	frame := a.decFrame
+	encPkt := a.encPkt
 
 	// Drain decoded frames.
 	for {
@@ -304,6 +314,7 @@ func (a *audioTranscoder) flush(outFmtCtx unsafe.Pointer) error {
 
 			frameSetNbSamples(a.frame, opusFrameSize)
 			if ret := ffmpeg.FrameGetBuffer(a.frame, 0); ret < 0 {
+				logger.Warn().Int32("ret", ret).Msg("failed to allocate resampled frame buffer during flush")
 				ffmpeg.FrameUnref(frame)
 				continue
 			}
@@ -314,6 +325,7 @@ func (a *audioTranscoder) flush(outFmtCtx unsafe.Pointer) error {
 				unsafe.Pointer(inData), inSamples,
 			)
 			if converted < 0 {
+				logger.Warn().Int32("ret", converted).Msg("audio resample failed during flush")
 				ffmpeg.FrameUnref(frame)
 				continue
 			}
@@ -358,6 +370,12 @@ func (a *audioTranscoder) flush(outFmtCtx unsafe.Pointer) error {
 
 // close frees all FFmpeg resources owned by the audio transcoder.
 func (a *audioTranscoder) close() {
+	if a.encPkt != nil {
+		ffmpeg.PacketFree(unsafe.Pointer(&a.encPkt))
+	}
+	if a.decFrame != nil {
+		ffmpeg.FrameFree(unsafe.Pointer(&a.decFrame))
+	}
 	if a.frame != nil {
 		ffmpeg.FrameFree(unsafe.Pointer(&a.frame))
 	}

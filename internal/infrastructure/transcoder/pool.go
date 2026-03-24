@@ -49,7 +49,7 @@ var errPoolAtCapacity = errors.New("transcoder: session pool at capacity")
 
 // sessionPool tracks active transcode sessions with a concurrency limit.
 type sessionPool struct {
-	mu       sync.Mutex
+	mu       sync.RWMutex
 	sessions map[string]*session
 	maxConc  int
 }
@@ -83,8 +83,8 @@ func (p *sessionPool) remove(id string) {
 
 // count returns the number of active sessions.
 func (p *sessionPool) count() int {
-	p.mu.Lock()
-	defer p.mu.Unlock()
+	p.mu.RLock()
+	defer p.mu.RUnlock()
 	return len(p.sessions)
 }
 

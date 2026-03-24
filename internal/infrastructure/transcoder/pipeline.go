@@ -9,7 +9,11 @@ import (
 	"strings"
 	"unsafe"
 
+	"net"
+	"time"
+
 	"github.com/ebitengine/purego"
+	"github.com/rs/zerolog"
 
 	"github.com/bnema/purego-ffmpeg/ffmpeg"
 
@@ -31,19 +35,32 @@ type pipeline struct {
 	quality   string
 	pw        *io.PipeWriter
 	cancel    context.CancelFunc
+	logger    zerolog.Logger
 
 	// Prevent GC of callback closures and uintptrs.
 	readCb  uintptr
 	writeCb uintptr
 }
 
-func newPipeline(hwCaps port.HWCapabilities, sourceURL string, headers map[string]string, quality string, pw *io.PipeWriter) *pipeline {
+// httpClient is used for fetching source media. It has connect/TLS/header
+// timeouts but no overall Timeout so that long-lived streaming responses
+// are not killed. The session context handles cancellation.
+var httpClient = &http.Client{
+	Transport: &http.Transport{
+		DialContext:           (&net.Dialer{Timeout: 10 * time.Second}).DialContext,
+		TLSHandshakeTimeout:   10 * time.Second,
+		ResponseHeaderTimeout: 15 * time.Second,
+	},
+}
+
+func newPipeline(hwCaps port.HWCapabilities, sourceURL string, headers map[string]string, quality string, pw *io.PipeWriter, logger zerolog.Logger) *pipeline {
 	return &pipeline{
 		hwCaps:    hwCaps,
 		sourceURL: sourceURL,
 		headers:   headers,
 		quality:   quality,
 		pw:        pw,
+		logger:    logger,
 	}
 }
 
@@ -70,7 +87,7 @@ func (p *pipeline) doRun(ctx context.Context) error {
 		req.Header.Set(k, v)
 	}
 
-	resp, err := http.DefaultClient.Do(req)
+	resp, err := httpClient.Do(req)
 	if err != nil {
 		return fmt.Errorf("fetch source: %w", err)
 	}
@@ -150,7 +167,7 @@ func (p *pipeline) doRun(ctx context.Context) error {
 		return fmt.Errorf("open video encoder: %w", err)
 	}
 	if hwDeviceCtx != nil {
-		defer ffmpeg.BufferUnref(unsafe.Pointer(&hwDeviceCtx))
+		defer ffmpeg.BufferUnref(&hwDeviceCtx)
 	}
 	defer ffmpeg.CodecFreeContext(unsafe.Pointer(&vidEncCtx))
 
@@ -302,7 +319,7 @@ func (p *pipeline) doRun(ctx context.Context) error {
 
 	// Flush audio.
 	if audioTx != nil {
-		audioTx.flush(outFmtCtx)
+		audioTx.flush(outFmtCtx, p.logger)
 	}
 
 	// --- Step 15: Write trailer ---
@@ -388,13 +405,13 @@ func (p *pipeline) openVideoEncoder(decCtx unsafe.Pointer) (hwDeviceCtx unsafe.P
 		}
 	}
 	if enc == nil {
-		ffmpeg.BufferUnref(unsafe.Pointer(&hwDeviceCtx))
+		ffmpeg.BufferUnref(&hwDeviceCtx)
 		return nil, nil, errors.New("no usable encoder codec found")
 	}
 
 	encCtx = ffmpeg.CodecAllocContext3(enc)
 	if encCtx == nil {
-		ffmpeg.BufferUnref(unsafe.Pointer(&hwDeviceCtx))
+		ffmpeg.BufferUnref(&hwDeviceCtx)
 		return nil, nil, errors.New("failed to allocate video encoder context")
 	}
 
@@ -434,7 +451,7 @@ func (p *pipeline) openVideoEncoder(decCtx unsafe.Pointer) (hwDeviceCtx unsafe.P
 	hwDeviceRef := ffmpeg.BufferRef(hwDeviceCtx)
 	if hwDeviceRef == nil {
 		ffmpeg.CodecFreeContext(unsafe.Pointer(&encCtx))
-		ffmpeg.BufferUnref(unsafe.Pointer(&hwDeviceCtx))
+		ffmpeg.BufferUnref(&hwDeviceCtx)
 		return nil, nil, errors.New("failed to ref HW device context for encoder")
 	}
 	ffmpeg.CodecCtxSetHwDeviceCtx(encCtx, hwDeviceRef)
@@ -444,7 +461,7 @@ func (p *pipeline) openVideoEncoder(decCtx unsafe.Pointer) (hwDeviceCtx unsafe.P
 		framesRef := ffmpeg.HWFrameCtxAlloc(hwDeviceCtx)
 		if framesRef == nil {
 			ffmpeg.CodecFreeContext(unsafe.Pointer(&encCtx))
-			ffmpeg.BufferUnref(unsafe.Pointer(&hwDeviceCtx))
+			ffmpeg.BufferUnref(&hwDeviceCtx)
 			return nil, nil, errors.New("failed to allocate HW frames context")
 		}
 
@@ -478,9 +495,9 @@ func (p *pipeline) openVideoEncoder(decCtx unsafe.Pointer) (hwDeviceCtx unsafe.P
 		}
 
 		if ret := ffmpeg.HWFrameCtxInit(framesRef); ret < 0 {
-			ffmpeg.BufferUnref(unsafe.Pointer(&framesRef))
+			ffmpeg.BufferUnref(&framesRef)
 			ffmpeg.CodecFreeContext(unsafe.Pointer(&encCtx))
-			ffmpeg.BufferUnref(unsafe.Pointer(&hwDeviceCtx))
+			ffmpeg.BufferUnref(&hwDeviceCtx)
 			return nil, nil, fmt.Errorf("init HW frames context: %d", ret)
 		}
 
@@ -489,7 +506,7 @@ func (p *pipeline) openVideoEncoder(decCtx unsafe.Pointer) (hwDeviceCtx unsafe.P
 
 	if ret := ffmpeg.CodecOpen2(encCtx, enc, nil); ret < 0 {
 		ffmpeg.CodecFreeContext(unsafe.Pointer(&encCtx))
-		ffmpeg.BufferUnref(unsafe.Pointer(&hwDeviceCtx))
+		ffmpeg.BufferUnref(&hwDeviceCtx)
 		return nil, nil, fmt.Errorf("open video encoder %s: %d", encoderName, ret)
 	}
 

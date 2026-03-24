@@ -111,7 +111,7 @@ func (t *Transcoder) Start(ctx context.Context, sourceURL string, headers map[st
 		return nil, fmt.Errorf("transcoder: %w", err)
 	}
 
-	p := newPipeline(t.hwCaps, sourceURL, headers, t.cfg.Quality, pw)
+	p := newPipeline(t.hwCaps, sourceURL, headers, t.cfg.Quality, pw, t.logger)
 
 	t.logger.Info().
 		Str("session_id", id).
@@ -120,11 +120,16 @@ func (t *Transcoder) Start(ctx context.Context, sourceURL string, headers map[st
 		Msg("starting transcode session")
 
 	go func() {
+		defer func() {
+			t.pool.remove(id)
+			t.logger.Info().Str("session_id", id).Msg("transcode session finished")
+		}()
+		defer func() {
+			if r := recover(); r != nil {
+				t.logger.Error().Str("session_id", id).Interface("panic", r).Msg("transcode session panicked")
+			}
+		}()
 		p.run(sessionCtx)
-		t.pool.remove(id)
-		t.logger.Info().
-			Str("session_id", id).
-			Msg("transcode session finished")
 	}()
 
 	return s, nil
