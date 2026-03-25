@@ -224,16 +224,27 @@ func normalizeEngineConfig(config *Config) {
 		config.Engine.WebKit.GSKRenderer = GSKRendererAuto
 	}
 
-	// Normalize cookie policy (engine)
+	// Normalize cookie policy (engine).
+	// When no value (or an invalid value) is set, respect the ITP setting: if ITP is
+	// disabled the effective default is to block third-party cookies; if ITP is enabled
+	// all cookies are accepted by default.  An explicit "always" value always wins.
+	itpDefault := func() CookiePolicy {
+		if config.Engine.WebKit.ITPEnabled {
+			return CookiePolicyAlways
+		}
+		return CookiePolicyNoThirdParty
+	}
 	switch strings.ToLower(string(config.Engine.CookiePolicy)) {
-	case "", string(CookiePolicyNoThirdParty):
-		config.Engine.CookiePolicy = CookiePolicyNoThirdParty
+	case "":
+		config.Engine.CookiePolicy = itpDefault()
 	case string(CookiePolicyAlways):
 		config.Engine.CookiePolicy = CookiePolicyAlways
+	case string(CookiePolicyNoThirdParty):
+		config.Engine.CookiePolicy = CookiePolicyNoThirdParty
 	case string(CookiePolicyNever):
 		config.Engine.CookiePolicy = CookiePolicyNever
 	default:
-		config.Engine.CookiePolicy = CookiePolicyNoThirdParty
+		config.Engine.CookiePolicy = itpDefault()
 	}
 
 	// Normalize performance profile (engine)

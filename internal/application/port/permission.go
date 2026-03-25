@@ -26,11 +26,14 @@ type PermissionDialogPresenter interface {
 	//   - ctx: context for cancellation and logging
 	//   - origin: the website origin requesting permission (e.g., "https://meet.example.com")
 	//   - permTypes: the types of permissions being requested
+	//   - metadata: permission-type-specific context; for website_data_access both
+	//     entity.PermissionMetadataKeyRequestingDomain and entity.PermissionMetadataKeyCurrentDomain must be set
 	//   - callback: invoked when the user makes a decision or dialog is dismissed
 	ShowPermissionDialog(
 		ctx context.Context,
 		origin string,
 		permTypes []entity.PermissionType,
+		metadata entity.PermissionMetadata,
 		callback func(result PermissionDialogResult),
 	)
 }

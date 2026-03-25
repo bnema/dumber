@@ -5,7 +5,7 @@ import (
 	"testing"
 
 	"github.com/bnema/dumber/internal/domain/entity"
-	"github.com/jwijenbergh/puregotk/v4/gdk"
+	"github.com/bnema/puregotk/v4/gdk"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )

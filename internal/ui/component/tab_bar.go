@@ -4,7 +4,7 @@ import (
 	"sync"
 
 	"github.com/bnema/dumber/internal/domain/entity"
-	"github.com/jwijenbergh/puregotk/v4/gtk"
+	"github.com/bnema/puregotk/v4/gtk"
 )
 
 // TabBar represents the horizontal tab bar widget.

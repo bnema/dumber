@@ -7,7 +7,7 @@ import (
 
 	"github.com/bnema/dumber/internal/logging"
 	"github.com/bnema/puregotk-webkit/webkit"
-	"github.com/jwijenbergh/puregotk/v4/gio"
+	"github.com/bnema/puregotk/v4/gio"
 )
 
 // Store wraps webkit.UserContentFilterStore with Go-friendly async operations.

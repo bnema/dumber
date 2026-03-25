@@ -7,7 +7,7 @@ import (
 	"github.com/bnema/dumber/internal/application/port"
 	"github.com/bnema/dumber/internal/infrastructure/filtering"
 	"github.com/bnema/dumber/internal/logging"
-	"github.com/jwijenbergh/puregotk/v4/gio"
+	"github.com/bnema/puregotk/v4/gio"
 )
 
 // --- WebViewFactory adapter ---

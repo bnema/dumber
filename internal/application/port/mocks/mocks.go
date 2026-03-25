@@ -8211,8 +8211,8 @@ func (_m *MockPermissionDialogPresenter) EXPECT() *MockPermissionDialogPresenter
 }
 
 // ShowPermissionDialog provides a mock function for the type MockPermissionDialogPresenter
-func (_mock *MockPermissionDialogPresenter) ShowPermissionDialog(ctx context.Context, origin string, permTypes []entity.PermissionType, callback func(result port.PermissionDialogResult)) {
-	_mock.Called(ctx, origin, permTypes, callback)
+func (_mock *MockPermissionDialogPresenter) ShowPermissionDialog(ctx context.Context, origin string, permTypes []entity.PermissionType, metadata entity.PermissionMetadata, callback func(result port.PermissionDialogResult)) {
+	_mock.Called(ctx, origin, permTypes, metadata, callback)
 	return
 }
 
@@ -8225,12 +8225,13 @@ type MockPermissionDialogPresenter_ShowPermissionDialog_Call struct {
 //   - ctx context.Context
 //   - origin string
 //   - permTypes []entity.PermissionType
+//   - metadata entity.PermissionMetadata
 //   - callback func(result port.PermissionDialogResult)
-func (_e *MockPermissionDialogPresenter_Expecter) ShowPermissionDialog(ctx interface{}, origin interface{}, permTypes interface{}, callback interface{}) *MockPermissionDialogPresenter_ShowPermissionDialog_Call {
-	return &MockPermissionDialogPresenter_ShowPermissionDialog_Call{Call: _e.mock.On("ShowPermissionDialog", ctx, origin, permTypes, callback)}
+func (_e *MockPermissionDialogPresenter_Expecter) ShowPermissionDialog(ctx interface{}, origin interface{}, permTypes interface{}, metadata interface{}, callback interface{}) *MockPermissionDialogPresenter_ShowPermissionDialog_Call {
+	return &MockPermissionDialogPresenter_ShowPermissionDialog_Call{Call: _e.mock.On("ShowPermissionDialog", ctx, origin, permTypes, metadata, callback)}
 }
 
-func (_c *MockPermissionDialogPresenter_ShowPermissionDialog_Call) Run(run func(ctx context.Context, origin string, permTypes []entity.PermissionType, callback func(result port.PermissionDialogResult))) *MockPermissionDialogPresenter_ShowPermissionDialog_Call {
+func (_c *MockPermissionDialogPresenter_ShowPermissionDialog_Call) Run(run func(ctx context.Context, origin string, permTypes []entity.PermissionType, metadata entity.PermissionMetadata, callback func(result port.PermissionDialogResult))) *MockPermissionDialogPresenter_ShowPermissionDialog_Call {
 	_c.Call.Run(func(args mock.Arguments) {
 		var arg0 context.Context
 		if args[0] != nil {
@@ -8244,15 +8245,20 @@ func (_c *MockPermissionDialogPresenter_ShowPermissionDialog_Call) Run(run func(
 		if args[2] != nil {
 			arg2 = args[2].([]entity.PermissionType)
 		}
-		var arg3 func(result port.PermissionDialogResult)
+		var arg3 entity.PermissionMetadata
 		if args[3] != nil {
-			arg3 = args[3].(func(result port.PermissionDialogResult))
+			arg3 = args[3].(entity.PermissionMetadata)
+		}
+		var arg4 func(result port.PermissionDialogResult)
+		if args[4] != nil {
+			arg4 = args[4].(func(result port.PermissionDialogResult))
 		}
 		run(
 			arg0,
 			arg1,
 			arg2,
 			arg3,
+			arg4,
 		)
 	})
 	return _c
@@ -8263,7 +8269,7 @@ func (_c *MockPermissionDialogPresenter_ShowPermissionDialog_Call) Return() *Moc
 	return _c
 }
 
-func (_c *MockPermissionDialogPresenter_ShowPermissionDialog_Call) RunAndReturn(run func(ctx context.Context, origin string, permTypes []entity.PermissionType, callback func(result port.PermissionDialogResult))) *MockPermissionDialogPresenter_ShowPermissionDialog_Call {
+func (_c *MockPermissionDialogPresenter_ShowPermissionDialog_Call) RunAndReturn(run func(ctx context.Context, origin string, permTypes []entity.PermissionType, metadata entity.PermissionMetadata, callback func(result port.PermissionDialogResult))) *MockPermissionDialogPresenter_ShowPermissionDialog_Call {
 	_c.Run(run)
 	return _c
 }
