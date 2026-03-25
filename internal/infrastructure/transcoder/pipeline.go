@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"sort"
 	"strings"
 	"unsafe"
 
@@ -29,6 +30,7 @@ const avioBufSize = 32 * 1024
 // Opus via libopus, and muxes the result into WebM written to an
 // io.PipeWriter.
 type pipeline struct {
+	sessionID string
 	hwCaps    port.HWCapabilities
 	sourceURL string
 	headers   map[string]string
@@ -53,8 +55,9 @@ var httpClient = &http.Client{
 	},
 }
 
-func newPipeline(hwCaps port.HWCapabilities, sourceURL string, headers map[string]string, quality string, pw *io.PipeWriter, logger zerolog.Logger) *pipeline {
+func newPipeline(sessionID string, hwCaps port.HWCapabilities, sourceURL string, headers map[string]string, quality string, pw *io.PipeWriter, logger zerolog.Logger) *pipeline {
 	return &pipeline{
+		sessionID: sessionID,
 		hwCaps:    hwCaps,
 		sourceURL: sourceURL,
 		headers:   headers,
@@ -69,8 +72,21 @@ func newPipeline(hwCaps port.HWCapabilities, sourceURL string, headers map[strin
 func (p *pipeline) run(ctx context.Context) {
 	err := p.doRun(ctx)
 	if err != nil {
+		log := p.logger.With().
+			Str("session_id", p.sessionID).
+			Str("source_url", p.sourceURL).
+			Logger()
+		if errors.Is(err, context.Canceled) {
+			log.Debug().Err(err).Msg("transcode pipeline cancelled")
+		} else {
+			log.Error().Err(err).Msg("transcode pipeline failed")
+		}
 		p.pw.CloseWithError(err)
 	} else {
+		p.logger.Debug().
+			Str("session_id", p.sessionID).
+			Str("source_url", p.sourceURL).
+			Msg("transcode pipeline completed")
 		p.pw.Close()
 	}
 }
@@ -78,80 +94,26 @@ func (p *pipeline) run(ctx context.Context) {
 // doRun contains the actual pipeline logic. Errors are returned, and
 // the caller (run) closes the pipe writer accordingly.
 func (p *pipeline) doRun(ctx context.Context) error {
-	// --- Step 1: HTTP GET the source ---
-	req, err := http.NewRequestWithContext(ctx, http.MethodGet, p.sourceURL, nil)
+	// --- Step 1-3: Open the input using the appropriate strategy ---
+	inFmtCtx, closeInput, err := p.openInputFormatContext(ctx)
 	if err != nil {
-		return fmt.Errorf("create request: %w", err)
+		return err
 	}
-	for k, v := range p.headers {
-		req.Header.Set(k, v)
-	}
-
-	resp, err := httpClient.Do(req)
-	if err != nil {
-		return fmt.Errorf("fetch source: %w", err)
-	}
-	defer resp.Body.Close()
-
-	if resp.StatusCode != http.StatusOK && resp.StatusCode != http.StatusPartialContent {
-		return fmt.Errorf("source returned HTTP %d", resp.StatusCode)
-	}
-
-	// --- Step 2: Create read AVIO callback from HTTP body ---
-	body := resp.Body
-	readFn := func(_ unsafe.Pointer, buf unsafe.Pointer, bufSize int32) int32 {
-		if bufSize <= 0 {
-			return -1
-		}
-		goBuf := unsafe.Slice((*byte)(buf), int(bufSize))
-		n, readErr := body.Read(goBuf)
-		if n > 0 {
-			return int32(n)
-		}
-		if readErr != nil {
-			// Return AVERROR_EOF for EOF, generic error otherwise.
-			return averrorEOF
-		}
-		return -1
-	}
-	p.readCb = purego.NewCallback(readFn)
-
-	readAVIO := ffmpeg.AvioAllocContext(avioBufSize, false, nil, p.readCb, 0, 0)
-	if readAVIO == nil {
-		return errors.New("failed to allocate read AVIO context")
-	}
-	defer ffmpeg.AvioContextFree(unsafe.Pointer(&readAVIO))
-
-	// --- Step 3: Open input format context with custom AVIO ---
-	inFmtCtx := ffmpeg.FormatAllocContext()
-	if inFmtCtx == nil {
-		return errors.New("failed to allocate input format context")
-	}
-
-	ffmpeg.FmtCtxSetPB(inFmtCtx, readAVIO)
-	ffmpeg.FmtCtxSetFlags(inFmtCtx, ffmpeg.FmtCtxFlags(inFmtCtx)|ffmpeg.AVFMT_FLAG_CUSTOM_IO)
-
-	if ret := ffmpeg.FormatOpenInput(unsafe.Pointer(&inFmtCtx), "", nil, nil); ret < 0 {
-		ffmpeg.FormatFreeContext(inFmtCtx)
-		return fmt.Errorf("open input: %d", ret)
-	}
-	defer ffmpeg.FormatCloseInput(unsafe.Pointer(&inFmtCtx))
+	defer closeInput()
 
 	// --- Step 4: Find stream info ---
 	if ret := ffmpeg.FormatFindStreamInfo(inFmtCtx, nil); ret < 0 {
 		return fmt.Errorf("find stream info: %d", ret)
 	}
 
-	// --- Step 5: Find best video and audio streams ---
-	videoIdx := ffmpeg.FindBestStream(inFmtCtx, int32(ffmpeg.AVMEDIA_TYPE_VIDEO), -1, -1, nil, 0)
-	audioIdx := ffmpeg.FindBestStream(inFmtCtx, int32(ffmpeg.AVMEDIA_TYPE_AUDIO), -1, -1, nil, 0)
-
-	if videoIdx < 0 {
-		return errors.New("no video stream found in source")
+	// --- Step 5: Select input video/audio streams ---
+	videoIdx, audioIdx, err := p.selectInputStreams(inFmtCtx)
+	if err != nil {
+		return err
 	}
 
-	videoStream := ffmpeg.FmtCtxStream(inFmtCtx, int(videoIdx))
-	videoStreamWrap := (*ffmpeg.Stream)(videoStream)
+	videoStream := ffmpeg.FmtCtxStream(inFmtCtx, videoIdx)
+	videoStreamWrap := ffmpeg.WrapStream(videoStream)
 	videoCodecPar := videoStreamWrap.Codecpar()
 
 	// --- Step 6: Open video decoder ---
@@ -207,7 +169,7 @@ func (p *pipeline) doRun(ctx context.Context) error {
 	if outVideoStream == nil {
 		return errors.New("failed to create output video stream")
 	}
-	outVideoStreamWrap := (*ffmpeg.Stream)(outVideoStream)
+	outVideoStreamWrap := ffmpeg.WrapStream(outVideoStream)
 	outVideoIdx := int(outVideoStreamWrap.Index())
 
 	if ret := ffmpeg.CodecParametersFromContext(outVideoStreamWrap.Codecpar(), vidEncCtx); ret < 0 {
@@ -217,8 +179,8 @@ func (p *pipeline) doRun(ctx context.Context) error {
 	// --- Step 11b: Add audio output stream (if audio present) ---
 	var audioTx *audioTranscoder
 	if audioIdx >= 0 {
-		audioStream := ffmpeg.FmtCtxStream(inFmtCtx, int(audioIdx))
-		audioStreamWrap := (*ffmpeg.Stream)(audioStream)
+		audioStream := ffmpeg.FmtCtxStream(inFmtCtx, audioIdx)
+		audioStreamWrap := ffmpeg.WrapStream(audioStream)
 		audioCodecPar := audioStreamWrap.Codecpar()
 
 		var txErr error
@@ -271,7 +233,7 @@ func (p *pipeline) doRun(ctx context.Context) error {
 			break
 		}
 
-		streamIdx := pktStreamIndex(pkt)
+		streamIdx := int(pktStreamIndex(pkt))
 
 		switch {
 		case streamIdx == videoIdx:
@@ -311,7 +273,7 @@ func (p *pipeline) doRun(ctx context.Context) error {
 		}
 		pktSetStreamIndex(encPkt, int32(outVideoIdx))
 		outVidStream := ffmpeg.FmtCtxStream(outFmtCtx, outVideoIdx)
-		outVidStreamWrap := (*ffmpeg.Stream)(outVidStream)
+		outVidStreamWrap := ffmpeg.WrapStream(outVidStream)
 		ffmpeg.PacketRescaleTs(encPkt, ffmpeg.CodecCtxTimeBase(vidEncCtx), outVidStreamWrap.TimeBase())
 		ffmpeg.InterleavedWriteFrame(outFmtCtx, encPkt)
 		ffmpeg.PacketUnref(encPkt)
@@ -328,6 +290,235 @@ func (p *pipeline) doRun(ctx context.Context) error {
 	}
 
 	return nil
+}
+
+func (p *pipeline) selectInputStreams(inFmtCtx unsafe.Pointer) (videoIdx int, audioIdx int, err error) {
+	videoIdx = -1
+	audioIdx = -1
+	bestVideoPixels := int64(-1)
+
+	streamCount := int(ffmpeg.FmtCtxNbStreams(inFmtCtx))
+	for i := 0; i < streamCount; i++ {
+		stream := ffmpeg.FmtCtxStream(inFmtCtx, i)
+		if stream == nil {
+			continue
+		}
+		streamWrap := ffmpeg.WrapStream(stream)
+		codecPar := streamWrap.Codecpar()
+		if codecPar == nil {
+			continue
+		}
+
+		switch ffmpeg.CodecParCodecType(codecPar) {
+		case int32(ffmpeg.AVMEDIA_TYPE_VIDEO):
+			width := int64(ffmpeg.CodecParWidth(codecPar))
+			height := int64(ffmpeg.CodecParHeight(codecPar))
+			pixels := width * height
+			if videoIdx == -1 || pixels > bestVideoPixels {
+				videoIdx = i
+				bestVideoPixels = pixels
+			}
+		case int32(ffmpeg.AVMEDIA_TYPE_AUDIO):
+			if audioIdx == -1 {
+				audioIdx = i
+			}
+		}
+	}
+
+	if videoIdx < 0 {
+		return -1, audioIdx, errors.New("no video stream found in source")
+	}
+
+	videoCodecPar := ffmpeg.WrapStream(ffmpeg.FmtCtxStream(inFmtCtx, videoIdx)).Codecpar()
+	log := p.logger.With().
+		Str("session_id", p.sessionID).
+		Str("source_url", p.sourceURL).
+		Int("video_stream_index", videoIdx).
+		Int32("video_codec_id", ffmpeg.CodecParCodecID(videoCodecPar)).
+		Int32("video_width", ffmpeg.CodecParWidth(videoCodecPar)).
+		Int32("video_height", ffmpeg.CodecParHeight(videoCodecPar)).
+		Logger()
+	if audioIdx >= 0 {
+		audioCodecPar := ffmpeg.WrapStream(ffmpeg.FmtCtxStream(inFmtCtx, audioIdx)).Codecpar()
+		log.Info().
+			Int("audio_stream_index", audioIdx).
+			Int32("audio_codec_id", ffmpeg.CodecParCodecID(audioCodecPar)).
+			Msg("transcode pipeline selected input streams")
+	} else {
+		log.Info().Msg("transcode pipeline selected input streams")
+	}
+
+	return videoIdx, audioIdx, nil
+}
+
+func (p *pipeline) openInputFormatContext(ctx context.Context) (unsafe.Pointer, func(), error) {
+	if IsStreamingManifestURL(p.sourceURL) {
+		return p.openManifestInputContext()
+	}
+	return p.openCustomIOInputContext(ctx)
+}
+
+func (p *pipeline) openCustomIOInputContext(ctx context.Context) (unsafe.Pointer, func(), error) {
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, p.sourceURL, nil)
+	if err != nil {
+		return nil, nil, fmt.Errorf("create request: %w", err)
+	}
+	for k, v := range p.headers {
+		req.Header.Set(k, v)
+	}
+
+	resp, err := httpClient.Do(req)
+	if err != nil {
+		return nil, nil, fmt.Errorf("fetch source: %w", err)
+	}
+
+	if resp.StatusCode != http.StatusOK && resp.StatusCode != http.StatusPartialContent {
+		resp.Body.Close()
+		return nil, nil, fmt.Errorf("source returned HTTP %d", resp.StatusCode)
+	}
+
+	body := resp.Body
+	readFn := func(_ unsafe.Pointer, buf unsafe.Pointer, bufSize int32) int32 {
+		if bufSize <= 0 {
+			return -1
+		}
+		goBuf := unsafe.Slice((*byte)(buf), int(bufSize))
+		n, readErr := body.Read(goBuf)
+		if n > 0 {
+			return int32(n)
+		}
+		if readErr != nil {
+			// Return AVERROR_EOF for EOF, generic error otherwise.
+			return averrorEOF
+		}
+		return -1
+	}
+	p.readCb = purego.NewCallback(readFn)
+
+	readAVIO := ffmpeg.AvioAllocContext(avioBufSize, false, nil, p.readCb, 0, 0)
+	if readAVIO == nil {
+		resp.Body.Close()
+		return nil, nil, errors.New("failed to allocate read AVIO context")
+	}
+
+	inFmtCtx := ffmpeg.FormatAllocContext()
+	if inFmtCtx == nil {
+		ffmpeg.AvioContextFree(unsafe.Pointer(&readAVIO))
+		resp.Body.Close()
+		return nil, nil, errors.New("failed to allocate input format context")
+	}
+
+	ffmpeg.FmtCtxSetPB(inFmtCtx, readAVIO)
+	ffmpeg.FmtCtxSetFlags(inFmtCtx, ffmpeg.FmtCtxFlags(inFmtCtx)|ffmpeg.AVFMT_FLAG_CUSTOM_IO)
+
+	if ret := ffmpeg.FormatOpenInput(unsafe.Pointer(&inFmtCtx), p.sourceURL, nil, nil); ret < 0 {
+		ffmpeg.AvioContextFree(unsafe.Pointer(&readAVIO))
+		resp.Body.Close()
+		ffmpeg.FormatFreeContext(inFmtCtx)
+		return nil, nil, fmt.Errorf("open input: %d", ret)
+	}
+
+	cleanup := func() {
+		ffmpeg.FormatCloseInput(unsafe.Pointer(&inFmtCtx))
+		ffmpeg.AvioContextFree(unsafe.Pointer(&readAVIO))
+		resp.Body.Close()
+	}
+	return inFmtCtx, cleanup, nil
+}
+
+func (p *pipeline) openManifestInputContext() (unsafe.Pointer, func(), error) {
+	inFmtCtx := ffmpeg.FormatAllocContext()
+	if inFmtCtx == nil {
+		return nil, nil, errors.New("failed to allocate input format context")
+	}
+
+	var opts unsafe.Pointer
+	defer freeInputOptions(&opts)
+
+	if err := setInputOption(&opts, "protocol_whitelist", "file,http,https,tcp,tls,crypto"); err != nil {
+		ffmpeg.FormatFreeContext(inFmtCtx)
+		return nil, nil, err
+	}
+	if userAgent := p.headers["User-Agent"]; userAgent != "" {
+		if err := setInputOption(&opts, "user_agent", userAgent); err != nil {
+			ffmpeg.FormatFreeContext(inFmtCtx)
+			return nil, nil, err
+		}
+	}
+	if referer := p.headers["Referer"]; referer != "" {
+		if err := setInputOption(&opts, "referer", referer); err != nil {
+			ffmpeg.FormatFreeContext(inFmtCtx)
+			return nil, nil, err
+		}
+	}
+
+	headerLines := formatHTTPHeaderOptions(p.headers)
+	if headerLines != "" {
+		if err := setInputOption(&opts, "headers", headerLines); err != nil {
+			ffmpeg.FormatFreeContext(inFmtCtx)
+			return nil, nil, err
+		}
+	}
+
+	if ret := ffmpeg.FormatOpenInput(unsafe.Pointer(&inFmtCtx), p.sourceURL, nil, unsafe.Pointer(&opts)); ret < 0 {
+		ffmpeg.FormatFreeContext(inFmtCtx)
+		return nil, nil, fmt.Errorf("open manifest input: %d", ret)
+	}
+
+	return inFmtCtx, func() {
+		ffmpeg.FormatCloseInput(unsafe.Pointer(&inFmtCtx))
+	}, nil
+}
+
+func freeInputOptions(opts *unsafe.Pointer) {
+	if opts == nil || *opts == nil {
+		return
+	}
+	// av_dict_free expects an AVDictionary**. Passing the dictionary pointer
+	// itself corrupts memory and can crash inside libavutil during cleanup.
+	ffmpeg.DictFree(unsafe.Pointer(opts))
+	*opts = nil
+}
+
+func setInputOption(opts *unsafe.Pointer, key, value string) error {
+	if value == "" {
+		return nil
+	}
+	if ret := ffmpeg.DictSet(unsafe.Pointer(opts), key, value, 0); ret < 0 {
+		return fmt.Errorf("set input option %q: %d", key, ret)
+	}
+	return nil
+}
+
+func formatHTTPHeaderOptions(headers map[string]string) string {
+	if len(headers) == 0 {
+		return ""
+	}
+
+	keys := make([]string, 0, len(headers))
+	for key, value := range headers {
+		if strings.TrimSpace(value) == "" {
+			continue
+		}
+		if strings.EqualFold(key, "User-Agent") || strings.EqualFold(key, "Referer") {
+			continue
+		}
+		keys = append(keys, key)
+	}
+	if len(keys) == 0 {
+		return ""
+	}
+
+	sort.Strings(keys)
+
+	var builder strings.Builder
+	for _, key := range keys {
+		builder.WriteString(key)
+		builder.WriteString(": ")
+		builder.WriteString(headers[key])
+		builder.WriteString("\r\n")
+	}
+	return builder.String()
 }
 
 // openVideoDecoder creates and opens a decoder context for the video stream.
@@ -394,28 +585,50 @@ func (p *pipeline) openVideoEncoder(decCtx unsafe.Pointer) (hwDeviceCtx unsafe.P
 		return nil, nil, fmt.Errorf("create HW device: %w", hwErr)
 	}
 
-	// Find the first working encoder.
-	var enc unsafe.Pointer
-	var encoderName string
+	width := ffmpeg.CodecCtxWidth(decCtx)
+	height := ffmpeg.CodecCtxHeight(decCtx)
+
+	var lastErr error
 	for _, name := range p.hwCaps.Encoders {
-		enc = ffmpeg.CodecFindEncoderByName(name)
-		if enc != nil {
-			encoderName = name
-			break
+		enc := ffmpeg.CodecFindEncoderByName(name)
+		if enc == nil {
+			continue
 		}
-	}
-	if enc == nil {
-		ffmpeg.BufferUnref(&hwDeviceCtx)
-		return nil, nil, errors.New("no usable encoder codec found")
+
+		encCtx, err = p.tryOpenVideoEncoder(decCtx, hwDeviceCtx, name, enc)
+		if err == nil {
+			p.logger.Info().
+				Str("session_id", p.sessionID).
+				Str("source_url", p.sourceURL).
+				Str("encoder", name).
+				Str("api", p.hwCaps.API).
+				Int32("width", width).
+				Int32("height", height).
+				Msg("transcode pipeline selected video encoder")
+			return hwDeviceCtx, encCtx, nil
+		}
+		lastErr = err
+		p.logger.Warn().
+			Str("session_id", p.sessionID).
+			Str("source_url", p.sourceURL).
+			Str("encoder", name).
+			Err(err).
+			Msg("transcode pipeline encoder candidate failed")
 	}
 
-	encCtx = ffmpeg.CodecAllocContext3(enc)
+	ffmpeg.BufferUnref(&hwDeviceCtx)
+	if lastErr != nil {
+		return nil, nil, fmt.Errorf("no usable encoder codec found: %w", lastErr)
+	}
+	return nil, nil, errors.New("no usable encoder codec found")
+}
+
+func (p *pipeline) tryOpenVideoEncoder(decCtx, hwDeviceCtx unsafe.Pointer, encoderName string, enc unsafe.Pointer) (unsafe.Pointer, error) {
+	encCtx := ffmpeg.CodecAllocContext3(enc)
 	if encCtx == nil {
-		ffmpeg.BufferUnref(&hwDeviceCtx)
-		return nil, nil, errors.New("failed to allocate video encoder context")
+		return nil, errors.New("failed to allocate video encoder context")
 	}
 
-	// Copy dimensions and framerate from decoder.
 	width := ffmpeg.CodecCtxWidth(decCtx)
 	height := ffmpeg.CodecCtxHeight(decCtx)
 	ffmpeg.CodecCtxSetWidth(encCtx, width)
@@ -428,77 +641,50 @@ func (p *pipeline) openVideoEncoder(decCtx unsafe.Pointer) (hwDeviceCtx unsafe.P
 	ffmpeg.CodecCtxSetFramerate(encCtx, framerate)
 	ffmpeg.CodecCtxSetTimeBase(encCtx, ffmpeg.AVRational{Num: framerate.Den, Den: framerate.Num})
 
-	// Set pixel format based on the API.
 	if p.hwCaps.API == "vaapi" {
 		ffmpeg.CodecCtxSetPixFmt(encCtx, int32(ffmpeg.PixelFormatPixFmtVaapi))
 	} else {
-		// CUDA/NVENC uses NV12.
 		ffmpeg.CodecCtxSetPixFmt(encCtx, int32(ffmpeg.PixelFormatPixFmtNv12))
 	}
 
-	// Set GOP size to 2 seconds worth of frames.
 	gopSize := int32(framerate.Num / framerate.Den * 2)
 	if gopSize <= 0 {
 		gopSize = 60
 	}
 	codecCtxSetGopSize(encCtx, gopSize)
-
-	// Set quality/bitrate based on quality parameter.
 	p.applyQualityPreset(encCtx, encoderName, width, height)
 
-	// Attach HW device context. Use BufferRef to create a new reference
-	// since the encoder will take ownership of one ref.
 	hwDeviceRef := ffmpeg.BufferRef(hwDeviceCtx)
 	if hwDeviceRef == nil {
 		ffmpeg.CodecFreeContext(unsafe.Pointer(&encCtx))
-		ffmpeg.BufferUnref(&hwDeviceCtx)
-		return nil, nil, errors.New("failed to ref HW device context for encoder")
+		return nil, errors.New("failed to ref HW device context for encoder")
 	}
 	ffmpeg.CodecCtxSetHwDeviceCtx(encCtx, hwDeviceRef)
 
-	// For VAAPI encoders, we need a HW frames context.
 	if p.hwCaps.API == "vaapi" {
 		framesRef := ffmpeg.HWFrameCtxAlloc(hwDeviceCtx)
 		if framesRef == nil {
 			ffmpeg.CodecFreeContext(unsafe.Pointer(&encCtx))
-			ffmpeg.BufferUnref(&hwDeviceCtx)
-			return nil, nil, errors.New("failed to allocate HW frames context")
+			return nil, errors.New("failed to allocate HW frames context")
 		}
 
-		// Configure the frames context. The HWFramesContext struct starts
-		// with an AVBufferRef header. The actual AVHWFramesContext data is
-		// accessible after dereferencing. We configure via av_opt or direct
-		// offset access. For simplicity, use the known offsets:
-		// AVHWFramesContext (within the AVBufferRef->data):
-		//   format (sw_format) at offset 8, width at 12, height at 16,
-		//   sw_format at 20, initial_pool_size at 24.
-		// Actually, the buffer ref data pointer leads to AVHWFramesContext.
-		// The fields are: AVClass* (8), AVBufferRef* device_ref (8),
-		//   AVBufferPool* pool (8), int initial_pool_size (4),
-		//   enum AVPixelFormat format (4), enum AVPixelFormat sw_format (4),
-		//   int width (4), int height (4).
-		// So from the data pointer:
-		//   offset 24: initial_pool_size (int32)
-		//   offset 28: format (int32) — the HW pixel format
-		//   offset 32: sw_format (int32) — the SW pixel format
-		//   offset 36: width (int32)
-		//   offset 40: height (int32)
-		//
-		// We access data via the AVBufferRef at offset 0 (data field at offset 0).
-		hwFramesData := *(*unsafe.Pointer)(framesRef) // AVBufferRef->data
-		if hwFramesData != nil {
-			*(*int32)(unsafe.Add(hwFramesData, 24)) = 20 // initial_pool_size
-			*(*int32)(unsafe.Add(hwFramesData, 28)) = int32(ffmpeg.PixelFormatPixFmtVaapi)
-			*(*int32)(unsafe.Add(hwFramesData, 32)) = int32(ffmpeg.PixelFormatPixFmtNv12) // sw_format
-			*(*int32)(unsafe.Add(hwFramesData, 36)) = width
-			*(*int32)(unsafe.Add(hwFramesData, 40)) = height
+		hwFramesData := ffmpeg.BufferRefData(framesRef)
+		if hwFramesData == nil {
+			ffmpeg.BufferUnref(&framesRef)
+			ffmpeg.CodecFreeContext(unsafe.Pointer(&encCtx))
+			return nil, errors.New("failed to access HW frames context payload")
 		}
+
+		ffmpeg.HWFramesCtxSetInitialPoolSize(hwFramesData, 20)
+		ffmpeg.HWFramesCtxSetFormat(hwFramesData, int32(ffmpeg.PixelFormatPixFmtVaapi))
+		ffmpeg.HWFramesCtxSetSWFormat(hwFramesData, int32(ffmpeg.PixelFormatPixFmtNv12))
+		ffmpeg.HWFramesCtxSetWidth(hwFramesData, width)
+		ffmpeg.HWFramesCtxSetHeight(hwFramesData, height)
 
 		if ret := ffmpeg.HWFrameCtxInit(framesRef); ret < 0 {
 			ffmpeg.BufferUnref(&framesRef)
 			ffmpeg.CodecFreeContext(unsafe.Pointer(&encCtx))
-			ffmpeg.BufferUnref(&hwDeviceCtx)
-			return nil, nil, fmt.Errorf("init HW frames context: %d", ret)
+			return nil, fmt.Errorf("init HW frames context: %d", ret)
 		}
 
 		ffmpeg.CodecCtxSetHwFramesCtx(encCtx, framesRef)
@@ -506,11 +692,10 @@ func (p *pipeline) openVideoEncoder(decCtx unsafe.Pointer) (hwDeviceCtx unsafe.P
 
 	if ret := ffmpeg.CodecOpen2(encCtx, enc, nil); ret < 0 {
 		ffmpeg.CodecFreeContext(unsafe.Pointer(&encCtx))
-		ffmpeg.BufferUnref(&hwDeviceCtx)
-		return nil, nil, fmt.Errorf("open video encoder %s: %d", encoderName, ret)
+		return nil, fmt.Errorf("open video encoder %s: %d", encoderName, ret)
 	}
 
-	return hwDeviceCtx, encCtx, nil
+	return encCtx, nil
 }
 
 // applyQualityPreset sets bitrate and encoder options based on the
@@ -582,12 +767,18 @@ func (p *pipeline) transcodeVideoPacket(pkt, frame, encPkt, decCtx, encCtx, outF
 // encodeAndWriteVideoFrame sends a decoded frame to the encoder and
 // writes any resulting packets to the output.
 func (p *pipeline) encodeAndWriteVideoFrame(frame, encPkt, encCtx, outFmtCtx unsafe.Pointer, inStreamWrap *ffmpeg.Stream, outVideoIdx int) error {
-	// If the frame is in SW format and the encoder expects HW format,
-	// we would need to upload. For now, send directly — the HW encoder
-	// with hw_device_ctx set should handle format conversion internally
-	// when the decoder outputs SW frames.
+	encFrame := frame
+	var cleanup func()
+	if p.hwCaps.API == "vaapi" {
+		var err error
+		encFrame, cleanup, err = p.uploadVideoFrameToVAAPI(frame, encCtx)
+		if err != nil {
+			return err
+		}
+		defer cleanup()
+	}
 
-	ret := ffmpeg.CodecSendFrame(encCtx, frame)
+	ret := ffmpeg.CodecSendFrame(encCtx, encFrame)
 	if ret < 0 {
 		return fmt.Errorf("video encode send frame: %d", ret)
 	}
@@ -601,7 +792,7 @@ func (p *pipeline) encodeAndWriteVideoFrame(frame, encPkt, encCtx, outFmtCtx uns
 		pktSetStreamIndex(encPkt, int32(outVideoIdx))
 
 		outVidStream := ffmpeg.FmtCtxStream(outFmtCtx, outVideoIdx)
-		outVidStreamWrap := (*ffmpeg.Stream)(outVidStream)
+		outVidStreamWrap := ffmpeg.WrapStream(outVidStream)
 		ffmpeg.PacketRescaleTs(encPkt, ffmpeg.CodecCtxTimeBase(encCtx), outVidStreamWrap.TimeBase())
 
 		if wret := ffmpeg.InterleavedWriteFrame(outFmtCtx, encPkt); wret < 0 {
@@ -612,6 +803,51 @@ func (p *pipeline) encodeAndWriteVideoFrame(frame, encPkt, encCtx, outFmtCtx uns
 	}
 
 	return nil
+}
+
+func (p *pipeline) uploadVideoFrameToVAAPI(frame, encCtx unsafe.Pointer) (unsafe.Pointer, func(), error) {
+	if frameFormat(frame) == int32(ffmpeg.PixelFormatPixFmtVaapi) {
+		return frame, func() {}, nil
+	}
+
+	hwFramesCtx := ffmpeg.CodecCtxHwFramesCtx(encCtx)
+	if hwFramesCtx == nil {
+		return nil, nil, errors.New("video encoder missing hw_frames_ctx")
+	}
+
+	hwFrame := ffmpeg.FrameAlloc()
+	if hwFrame == nil {
+		return nil, nil, errors.New("failed to allocate VAAPI frame")
+	}
+
+	cleanup := func() {
+		if hwFrame != nil {
+			ffmpeg.FrameFree(unsafe.Pointer(&hwFrame))
+		}
+	}
+
+	frameSetFormat(hwFrame, int32(ffmpeg.PixelFormatPixFmtVaapi))
+	frameSetWidth(hwFrame, frameWidth(frame))
+	frameSetHeight(hwFrame, frameHeight(frame))
+	frameSetPts(hwFrame, framePts(frame))
+
+	hwFramesRef := ffmpeg.BufferRef(hwFramesCtx)
+	if hwFramesRef == nil {
+		cleanup()
+		return nil, nil, errors.New("failed to ref encoder hw frames context")
+	}
+	frameSetHWFramesCtx(hwFrame, hwFramesRef)
+
+	if ret := ffmpeg.HWFrameGetBuffer(hwFramesCtx, hwFrame, 0); ret < 0 {
+		cleanup()
+		return nil, nil, fmt.Errorf("allocate VAAPI frame buffer: %d", ret)
+	}
+	if ret := ffmpeg.HWFrameTransferData(hwFrame, frame, 0); ret < 0 {
+		cleanup()
+		return nil, nil, fmt.Errorf("upload frame to VAAPI: %d", ret)
+	}
+
+	return hwFrame, cleanup, nil
 }
 
 // averrorEOF is the AVERROR_EOF constant.

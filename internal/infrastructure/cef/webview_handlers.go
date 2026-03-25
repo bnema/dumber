@@ -1,9 +1,12 @@
 package cef
 
 import (
+	"strings"
+
 	purecef "github.com/bnema/purego-cef/cef"
 
 	"github.com/bnema/dumber/internal/application/port"
+	"github.com/bnema/dumber/internal/infrastructure/transcoder"
 	"github.com/bnema/dumber/internal/logging"
 )
 
@@ -312,7 +315,22 @@ func (h *handlerSet) OnStatusMessage(_ purecef.Browser, value string) {
 	}
 }
 
-func (h *handlerSet) OnConsoleMessage(_ purecef.Browser, _ purecef.LogSeverity, _, _ string, _ int32) int32 {
+func (h *handlerSet) OnConsoleMessage(_ purecef.Browser, level purecef.LogSeverity, message, source string, line int32) int32 {
+	if h.wv != nil && h.wv.ctx != nil && (strings.Contains(message, "[VIDEO-DIAG]") || strings.Contains(message, "[REDDIT-VIDEO-PATCH]")) {
+		log := logging.FromContext(h.wv.ctx).With().
+			Str("component", "cef-console").
+			Str("source", source).
+			Int32("line", line).
+			Logger()
+		switch level {
+		case purecef.LogSeverityLogseverityError, purecef.LogSeverityLogseverityFatal:
+			log.Error().Str("message", message).Msg("cef: console message")
+		case purecef.LogSeverityLogseverityWarning:
+			log.Warn().Str("message", message).Msg("cef: console message")
+		default:
+			log.Info().Str("message", message).Msg("cef: console message")
+		}
+	}
 	return 0
 }
 
@@ -557,9 +575,17 @@ func (h *handlerSet) OnOpenUrlfromTab(_ purecef.Browser, _ purecef.Frame, _ stri
 }
 
 func (h *handlerSet) GetResourceRequestHandler(
-	_ purecef.Browser, _ purecef.Frame, _ purecef.Request,
-	_, _ int32, _ string, _ *int32,
+	_ purecef.Browser, _ purecef.Frame, request purecef.Request,
+	_, _ int32, _ string, disableDefaultHandling *int32,
 ) purecef.ResourceRequestHandler {
+	if h.transcodingHandler != nil && request != nil && disableDefaultHandling != nil && transcoder.IsEagerTranscodeURL(request.GetURL()) {
+		*disableDefaultHandling = 1
+		if h.wv != nil && h.wv.ctx != nil {
+			logging.FromContext(h.wv.ctx).Info().
+				Str("url", logging.TruncateURL(request.GetURL(), 240)).
+				Msg("cef: disabled default handling for eager transcode candidate")
+		}
+	}
 	if h.transcodingHandler != nil {
 		return h.transcodingHandler
 	}

@@ -27,28 +27,30 @@ func pktSetStreamIndex(pkt unsafe.Pointer, idx int32) {
 }
 
 // ---------------------------------------------------------------------------
-// AVFrame field offsets (FFmpeg 7.x, libavutil 60)
+// AVFrame field offsets (FFmpeg 8.x, libavutil 60)
 // Layout (relevant fields):
-//   data[8]      at offset 0    (8 pointers = 64 bytes)
-//   linesize[8]  at offset 64   (8 x int32 = 32 bytes)
+//   data[8]       at offset 0    (8 pointers = 64 bytes)
+//   linesize[8]   at offset 64   (8 x int32 = 32 bytes)
 //   ...
-//   width        at offset 268
-//   height       at offset 272
-//   nb_samples   at offset 276
-//   format       at offset 280
-//   pts          at offset 328
-//   ...
-//   sample_rate  at offset 432
-//   ch_layout    at offset 440  (AVChannelLayout, 24 bytes)
+//   width         at offset 104
+//   height        at offset 108
+//   nb_samples    at offset 112
+//   format        at offset 116
+//   pts           at offset 136
+//   sample_rate   at offset 180
+//   hw_frames_ctx at offset 328 (AVBufferRef*)
+//   ch_layout     at offset 384 (AVChannelLayout, 24 bytes)
+//   hw_frames_ctx at offset 328 (AVBufferRef*)
 // ---------------------------------------------------------------------------
 
 const (
-	offsetFrameWidth      = 268
-	offsetFrameHeight     = 272
-	offsetFrameNbSamples  = 276
-	offsetFrameFormat     = 280
-	offsetFramePts        = 328
-	offsetFrameSampleRate = 432
+	offsetFrameWidth       = 104
+	offsetFrameHeight      = 108
+	offsetFrameNbSamples   = 112
+	offsetFrameFormat      = 116
+	offsetFrameHWFramesCtx = 328
+	offsetFramePts         = 136
+	offsetFrameSampleRate  = 180
 )
 
 func frameWidth(f unsafe.Pointer) int32 {
@@ -83,6 +85,10 @@ func frameSetFormat(f unsafe.Pointer, v int32) {
 	*(*int32)(unsafe.Add(f, offsetFrameFormat)) = v
 }
 
+func frameSetHWFramesCtx(f unsafe.Pointer, v unsafe.Pointer) {
+	*(*unsafe.Pointer)(unsafe.Add(f, offsetFrameHWFramesCtx)) = v
+}
+
 func framePts(f unsafe.Pointer) int64 {
 	return *(*int64)(unsafe.Add(f, offsetFramePts))
 }
@@ -101,14 +107,14 @@ func frameSetSampleRate(f unsafe.Pointer, v int32) {
 
 // ---------------------------------------------------------------------------
 // AVCodecContext additional offsets
-// flags at offset 72 (int32, but stored as uint32 in practice)
+// Verified against the installed libavcodec headers via offsetof().
 // ---------------------------------------------------------------------------
 
 const (
-	offsetCodecCtxFlags    = 72
-	offsetCodecCtxGopSize  = 120
-	offsetCodecCtxBitRate  = 28
-	offsetCodecCtxChLayout = 368 // AVChannelLayout struct (24 bytes)
+	offsetCodecCtxFlags    = 64
+	offsetCodecCtxGopSize  = 332
+	offsetCodecCtxBitRate  = 56
+	offsetCodecCtxChLayout = 352 // AVChannelLayout struct (24 bytes)
 )
 
 // AV_CODEC_FLAG_GLOBAL_HEADER indicates the codec uses global headers
@@ -136,7 +142,7 @@ func codecCtxSetBitRate(ctx unsafe.Pointer, v int64) {
 func codecCtxCopyChLayout(dst, src unsafe.Pointer) {
 	dstLayout := unsafe.Add(dst, offsetCodecCtxChLayout)
 	srcLayout := unsafe.Add(src, offsetCodecCtxChLayout)
-	// AVChannelLayout is 24 bytes in FFmpeg 7.x.
+	// AVChannelLayout is 24 bytes in FFmpeg 8.x.
 	copy(
 		unsafe.Slice((*byte)(dstLayout), 24),
 		unsafe.Slice((*byte)(srcLayout), 24),
@@ -149,7 +155,7 @@ func codecCtxCopyChLayout(dst, src unsafe.Pointer) {
 
 const (
 	offsetCodecParSampleRate = 152
-	offsetCodecParChLayout   = 56 // AVChannelLayout (24 bytes) at offset 56
+	offsetCodecParChLayout   = 128 // AVChannelLayout (24 bytes)
 )
 
 func codecParSampleRate(par unsafe.Pointer) int32 {

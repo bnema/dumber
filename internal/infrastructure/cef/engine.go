@@ -58,6 +58,21 @@ type Engine struct {
 	browserCreateLastWidth   atomic.Int32
 	browserCreateLastHeight  atomic.Int32
 	lastStallLoggedCreateSeq atomic.Uint64
+
+	transcoderState       transcoderStartupState
+	transcoderStateLogged atomic.Bool
+}
+
+type transcoderStartupState struct {
+	ConfigEnabled  bool
+	ProbeAttempted bool
+	HWAccel        string
+	MaxConcurrent  int
+	Quality        string
+	Status         string
+	API            string
+	Encoders       []string
+	Decoders       []string
 }
 
 // Factory returns the WebViewFactory for creating new WebView instances.
@@ -299,6 +314,7 @@ func (e *Engine) SetHandlerContext(ctx context.Context) {
 	if e.messageRouter != nil {
 		e.messageRouter.SetBaseContext(ctx)
 	}
+	e.logTranscoderStartupState()
 }
 
 const browserCreateStallWarnMS int64 = 1500
@@ -398,6 +414,43 @@ func (e *Engine) maybeLogBrowserCreateStall() {
 		Uint64("gpu_launches", e.childLaunchGPU.Load()).
 		Uint64("other_launches", e.childLaunchOther.Load()).
 		Msg("cef: browser creation appears stalled")
+}
+
+func (e *Engine) currentContext() context.Context {
+	if e == nil || e.ctx == nil {
+		return context.Background()
+	}
+	return e.ctx
+}
+
+func (e *Engine) logTranscoderStartupState() {
+	if e == nil || !e.transcoderStateLogged.CompareAndSwap(false, true) {
+		return
+	}
+
+	state := e.transcoderState
+	log := logging.FromContext(e.currentContext())
+	event := log.Info().
+		Str("component", "cef-transcoder").
+		Bool("config_enabled", state.ConfigEnabled).
+		Bool("probe_attempted", state.ProbeAttempted).
+		Str("hwaccel", state.HWAccel).
+		Int("max_concurrent", state.MaxConcurrent).
+		Str("quality", state.Quality).
+		Str("status", state.Status).
+		Bool("request_handler_enabled", e.factory != nil && e.factory.transcoder != nil)
+
+	if state.API != "" {
+		event = event.Str("api", state.API)
+	}
+	if len(state.Encoders) > 0 {
+		event = event.Strs("encoders", state.Encoders)
+	}
+	if len(state.Decoders) > 0 {
+		event = event.Strs("decoders", state.Decoders)
+	}
+
+	event.Msg("cef: transcoder startup state")
 }
 
 // ---------------------------------------------------------------------------

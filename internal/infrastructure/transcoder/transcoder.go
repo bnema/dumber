@@ -111,7 +111,7 @@ func (t *Transcoder) Start(ctx context.Context, sourceURL string, headers map[st
 		return nil, fmt.Errorf("transcoder: %w", err)
 	}
 
-	p := newPipeline(t.hwCaps, sourceURL, headers, t.cfg.Quality, pw, t.logger)
+	p := newPipeline(id, t.hwCaps, sourceURL, headers, t.cfg.Quality, pw, t.logger)
 
 	t.logger.Info().
 		Str("session_id", id).

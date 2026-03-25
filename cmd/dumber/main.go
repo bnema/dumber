@@ -200,10 +200,10 @@ func initBrowserSession(
 		bootstrapLog.Fatal().Err(err).Msg("failed to start session")
 	}
 	cleanup := func() {
+		_ = browserSession.End(sessionCtx)
 		if browserSession.LogCleanup != nil {
 			browserSession.LogCleanup()
 		}
-		_ = browserSession.End(sessionCtx)
 	}
 	return sessionCtx, browserSession, cleanup
 }

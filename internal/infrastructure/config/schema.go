@@ -375,7 +375,7 @@ type TranscodingConfig struct {
 	// Default: "auto" (tries VAAPI first, then CUDA).
 	HWAccel string `mapstructure:"hwaccel" yaml:"hwaccel" toml:"hwaccel"`
 	// MaxConcurrent is the maximum number of simultaneous transcode sessions.
-	// Default: 2.
+	// Default: 3.
 	MaxConcurrent int `mapstructure:"max_concurrent" yaml:"max_concurrent" toml:"max_concurrent"`
 	// Quality controls the encode quality preset: "low", "medium", or "high".
 	// Default: "medium".

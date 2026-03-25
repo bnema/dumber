@@ -42,7 +42,7 @@ func BuildEngine(input EngineInput) (port.Engine, error) {
 		)
 	case "cef":
 		cefCfg := cfg.Engine.CEF
-		return cef.NewEngine(input.Ctx, cefCfg)
+		return cef.NewEngine(input.Ctx, cefCfg, cfg.Transcoding)
 	default:
 		return nil, fmt.Errorf("unknown engine type: %q", engineType)
 	}

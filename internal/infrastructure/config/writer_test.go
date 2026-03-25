@@ -43,6 +43,13 @@ func TestWriteConfigOrdered(t *testing.T) {
 		}
 	}
 
+	if !strings.Contains(string(content), "[transcoding]") {
+		t.Fatalf("expected transcoding section in generated config, got:\n%s", string(content))
+	}
+	if !strings.Contains(string(content), "enabled = true") {
+		t.Fatalf("expected transcoding.enabled default in generated config, got:\n%s", string(content))
+	}
+
 	t.Logf("Found %d sections, all sorted", len(sections))
 
 	// Print first 50 lines for debugging

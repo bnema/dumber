@@ -70,6 +70,12 @@ const (
 	defaultCEFWindowlessFrameRate  = 60  // OSR frame rate for CEF
 	defaultCEFManualPumpIntervalMs = 10  // CEF manual message pump interval
 
+	// Transcoding defaults
+	defaultTranscodingEnabled       = true
+	defaultTranscodingHWAccel       = "auto"
+	defaultTranscodingMaxConcurrent = 3
+	defaultTranscodingQuality       = "medium"
+
 	// Skia threading defaults (0 = unset, -1 = unset for GPU threads)
 	defaultSkiaCPUPaintingThreads = 0
 	defaultSkiaGPUPaintingThreads = -1 // -1 means unset; 0 would disable GPU tile painting
@@ -314,6 +320,12 @@ func DefaultConfig() *Config {
 		},
 		Downloads: DownloadsConfig{
 			Path: "", // Empty = use XDG_DOWNLOAD_DIR or ~/Downloads
+		},
+		Transcoding: TranscodingConfig{
+			Enabled:       defaultTranscodingEnabled,
+			HWAccel:       defaultTranscodingHWAccel,
+			MaxConcurrent: defaultTranscodingMaxConcurrent,
+			Quality:       defaultTranscodingQuality,
 		},
 	}
 }

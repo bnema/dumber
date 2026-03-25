@@ -77,7 +77,12 @@ func (f *WebViewFactory) Create(ctx context.Context) (port.WebView, error) {
 
 	var transcodingHandler purecef.ResourceRequestHandler
 	if f.transcoder != nil {
-		transcodingHandler = newTranscodingRequestHandler(f.transcoder)
+		transcodingHandler = newTranscodingRequestHandler(f.transcoder, func() context.Context {
+			if f.engine != nil {
+				return f.engine.currentContext()
+			}
+			return ctx
+		})
 	}
 
 	handlers := &handlerSet{

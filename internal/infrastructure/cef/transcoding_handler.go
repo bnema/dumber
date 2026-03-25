@@ -2,6 +2,8 @@ package cef
 
 import (
 	"context"
+	"io"
+	"strings"
 	"sync"
 	"time"
 	"unsafe"
@@ -10,6 +12,8 @@ import (
 
 	"github.com/bnema/dumber/internal/application/port"
 	"github.com/bnema/dumber/internal/infrastructure/transcoder"
+	"github.com/bnema/dumber/internal/logging"
+	"github.com/rs/zerolog"
 )
 
 // ---------------------------------------------------------------------------
@@ -32,6 +36,8 @@ type transcodingResourceHandler struct {
 	session    port.TranscodeSession
 	ctx        context.Context
 	cancel     context.CancelFunc
+	logf       func() zerolog.Logger
+	totalBytes int64
 }
 
 // Open starts the transcode session asynchronously. CEF will call
@@ -40,14 +46,28 @@ func (rh *transcodingResourceHandler) Open(_ purecef.Request, handleRequest unsa
 	// Signal async handling: set handleRequest = 0.
 	*(*int32)(handleRequest) = 0
 
+	log := rh.logger()
+	log.Info().
+		Str("source_url", logging.TruncateURL(rh.sourceURL, 240)).
+		Int("forwarded_header_count", len(rh.headers)).
+		Msg("cef: starting transcoding resource stream")
+
 	go func() {
 		session, err := rh.transcoder.Start(rh.ctx, rh.sourceURL, rh.headers)
 		if err != nil {
+			log.Error().
+				Err(err).
+				Str("source_url", logging.TruncateURL(rh.sourceURL, 240)).
+				Msg("cef: failed to start transcoding resource stream")
 			// Let CEF know we failed — Cancel will be called.
 			rh.cancel()
 			return
 		}
 		rh.session = session
+		log.Info().
+			Str("source_url", logging.TruncateURL(rh.sourceURL, 240)).
+			Str("content_type", session.ContentType()).
+			Msg("cef: transcoding resource stream ready")
 		callback.Cont()
 	}()
 
@@ -60,6 +80,8 @@ func (rh *transcodingResourceHandler) GetResponseHeaders(response purecef.Respon
 	response.SetStatusText("OK")
 	response.SetMimeType("video/webm")
 	response.SetHeaderByName("Accept-Ranges", "none", 1)
+	response.SetHeaderByName("Access-Control-Allow-Origin", "*", 1)
+	response.SetHeaderByName("Cache-Control", "no-store", 1)
 	// Streaming — unknown length.
 	*(*int64)(responseLength) = -1
 }
@@ -76,10 +98,29 @@ func (rh *transcodingResourceHandler) Read(
 	dst := unsafe.Slice((*byte)(dataOut), int(bytesToRead))
 	n, err := rh.session.Read(dst)
 	if n > 0 {
+		rh.totalBytes += int64(n)
+		if rh.totalBytes == int64(n) {
+			rh.logger().Info().
+				Str("source_url", logging.TruncateURL(rh.sourceURL, 240)).
+				Int("first_chunk_bytes", n).
+				Msg("cef: transcoding resource stream produced first bytes")
+		}
 		*(*int32)(bytesRead) = int32(n)
 		return 1
 	}
 	if err != nil {
+		log := rh.logger().With().
+			Str("source_url", logging.TruncateURL(rh.sourceURL, 240)).
+			Int64("total_bytes", rh.totalBytes).
+			Logger()
+		switch {
+		case err == io.EOF && rh.totalBytes == 0:
+			log.Warn().Msg("cef: transcoding resource stream ended before producing data")
+		case err == io.EOF:
+			log.Debug().Msg("cef: transcoding resource stream reached EOF")
+		default:
+			log.Error().Err(err).Msg("cef: transcoding resource stream read failed")
+		}
 		return 0 // EOF or error
 	}
 	return 0
@@ -87,6 +128,10 @@ func (rh *transcodingResourceHandler) Read(
 
 // Cancel aborts the transcode session and releases resources.
 func (rh *transcodingResourceHandler) Cancel() {
+	rh.logger().Debug().
+		Str("source_url", logging.TruncateURL(rh.sourceURL, 240)).
+		Int64("total_bytes", rh.totalBytes).
+		Msg("cef: transcoding resource stream cancelled")
 	if rh.session != nil {
 		rh.session.Close()
 	}
@@ -112,12 +157,14 @@ func (rh *transcodingResourceHandler) Skip(_ int64, _ unsafe.Pointer, _ purecef.
 
 // ---------------------------------------------------------------------------
 // transcodingRequestHandler — ResourceRequestHandler that intercepts
-// proprietary video responses and restarts them through the transcoder
+// proprietary video responses and streaming manifests, then restarts them
+// through the transcoder
 // ---------------------------------------------------------------------------
 
 type transcodingRequestHandler struct {
 	transcoder       port.MediaTranscoder
 	transcodableURLs sync.Map // url string -> requestInfo
+	ctxf             func() context.Context
 }
 
 type requestInfo struct {
@@ -125,69 +172,112 @@ type requestInfo struct {
 }
 
 // newTranscodingRequestHandler creates a ResourceRequestHandler that detects
-// proprietary video MIME types and restarts those requests through a GPU
-// transcoding ResourceHandler.
-func newTranscodingRequestHandler(tc port.MediaTranscoder) purecef.ResourceRequestHandler {
+// proprietary video containers and HLS/DASH manifest entrypoints, then
+// restarts those requests through a GPU transcoding ResourceHandler.
+func newTranscodingRequestHandler(tc port.MediaTranscoder, ctxf func() context.Context) purecef.ResourceRequestHandler {
 	return purecef.NewResourceRequestHandler(&transcodingRequestHandler{
 		transcoder: tc,
+		ctxf:       ctxf,
 	})
 }
 
-// OnResourceResponse inspects the MIME type of every response. If it matches
-// a proprietary video format (H.264, HEVC, etc.), it stores the request info
-// and returns 1 to restart the request — at which point GetResourceHandler
-// will provide the transcoding handler.
+// OnResourceResponse inspects the MIME type and URL of every response. If it
+// matches a proprietary video format or a streaming manifest entrypoint, it
+// stores the request info and returns 1 to restart the request — at which
+// point GetResourceHandler will provide the transcoding handler.
 func (h *transcodingRequestHandler) OnResourceResponse(_ purecef.Browser, _ purecef.Frame, request purecef.Request, response purecef.Response) int32 {
-	if response == nil {
+	if response == nil || request == nil {
 		return 0
 	}
 	mimeType := response.GetMimeType()
-	if !transcoder.IsProprietaryVideoMIME(mimeType) {
+	url := request.GetURL()
+
+	log := h.logger()
+	isProprietary := transcoder.IsProprietaryVideoMIME(mimeType)
+	isAlreadyOpen := transcoder.IsOpenVideoMIME(mimeType)
+	isManifest := !isAlreadyOpen && (transcoder.IsStreamingManifestMIME(mimeType) || transcoder.IsStreamingManifestURL(url))
+	if isLikelyMediaResponse(url, mimeType) {
+		log.Debug().
+			Str("url", logging.TruncateURL(url, 240)).
+			Str("mime_type", mimeType).
+			Bool("proprietary_match", isProprietary).
+			Bool("already_open", isAlreadyOpen).
+			Bool("manifest_match", isManifest).
+			Msg("cef: OnResourceResponse observed media response")
+	}
+
+	if isAlreadyOpen {
 		return 0
 	}
 
-	// Extract relevant headers from the original request so the transcoder
-	// can authenticate with the source server.
-	headers := make(map[string]string)
-	if cookie := request.GetHeaderByName("Cookie"); cookie != "" {
-		headers["Cookie"] = cookie
-	}
-	if auth := request.GetHeaderByName("Authorization"); auth != "" {
-		headers["Authorization"] = auth
-	}
-	if referer := request.GetHeaderByName("Referer"); referer != "" {
-		headers["Referer"] = referer
+	if !isProprietary && !isManifest {
+		return 0
 	}
 
-	url := request.GetURL()
-	h.transcodableURLs.Store(url, requestInfo{headers: headers})
+	info := buildRequestInfo(request)
+	h.transcodableURLs.Store(url, info)
+	reason := "proprietary-container"
+	if isManifest {
+		reason = "streaming-manifest"
+	}
+	log.Info().
+		Str("url", logging.TruncateURL(url, 240)).
+		Str("mime_type", mimeType).
+		Str("transcode_reason", reason).
+		Int("forwarded_header_count", len(info.headers)).
+		Msg("cef: media response marked for transcoding")
 
 	return 1 // restart request
 }
 
 // GetResourceHandler returns a transcoding ResourceHandler for URLs that were
-// previously identified as proprietary video by OnResourceResponse.
+// either identified eagerly by URL heuristics or marked by OnResourceResponse.
 func (h *transcodingRequestHandler) GetResourceHandler(_ purecef.Browser, _ purecef.Frame, request purecef.Request) purecef.ResourceHandler {
 	if request == nil {
 		return nil
 	}
 	url := request.GetURL()
 	val, ok := h.transcodableURLs.LoadAndDelete(url)
-	if !ok {
-		return nil
-	}
-	info, ok := val.(requestInfo)
-	if !ok {
+	info := requestInfo{}
+	eager := false
+	sourceURL := url
+	if ok {
+		cached, typeOK := val.(requestInfo)
+		if !typeOK {
+			return nil
+		}
+		info = cached
+	} else if syntheticSourceURL, referer, origin, synthetic := transcoder.ParseSyntheticTranscodeURL(url); synthetic {
+		eager = true
+		sourceURL = syntheticSourceURL
+		info = buildRequestInfo(request)
+		if referer != "" && info.headers["Referer"] == "" {
+			info.headers["Referer"] = referer
+		}
+		if origin != "" && info.headers["Origin"] == "" {
+			info.headers["Origin"] = origin
+		}
+	} else if transcoder.IsEagerTranscodeURL(url) {
+		eager = true
+		info = buildRequestInfo(request)
+	} else {
 		return nil
 	}
 
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Minute)
+	h.logger().Info().
+		Str("url", logging.TruncateURL(url, 240)).
+		Str("source_url", logging.TruncateURL(sourceURL, 240)).
+		Bool("eager_match", eager).
+		Int("forwarded_header_count", len(info.headers)).
+		Msg("cef: GetResourceHandler returning transcoding resource handler")
 	return purecef.NewResourceHandler(&transcodingResourceHandler{
 		transcoder: h.transcoder,
-		sourceURL:  url,
+		sourceURL:  sourceURL,
 		headers:    info.headers,
 		ctx:        ctx,
 		cancel:     cancel,
+		logf:       h.logf,
 	})
 }
 
@@ -212,4 +302,58 @@ func (h *transcodingRequestHandler) OnResourceLoadComplete(_ purecef.Browser, _ 
 }
 
 func (h *transcodingRequestHandler) OnProtocolExecution(_ purecef.Browser, _ purecef.Frame, _ purecef.Request, _ unsafe.Pointer) {
+}
+
+func isLikelyMediaResponse(rawURL, mimeType string) bool {
+	return strings.HasPrefix(mimeType, "video/") ||
+		strings.HasPrefix(mimeType, "audio/") ||
+		transcoder.IsStreamingManifestMIME(mimeType) ||
+		transcoder.IsStreamingManifestURL(rawURL)
+}
+
+func buildRequestInfo(request purecef.Request) requestInfo {
+	headers := make(map[string]string)
+	if request == nil {
+		return requestInfo{headers: headers}
+	}
+	if cookie := request.GetHeaderByName("Cookie"); cookie != "" {
+		headers["Cookie"] = cookie
+	}
+	if auth := request.GetHeaderByName("Authorization"); auth != "" {
+		headers["Authorization"] = auth
+	}
+	if referer := request.GetHeaderByName("Referer"); referer != "" {
+		headers["Referer"] = referer
+	}
+	if userAgent := request.GetHeaderByName("User-Agent"); userAgent != "" {
+		headers["User-Agent"] = userAgent
+	}
+	if origin := request.GetHeaderByName("Origin"); origin != "" {
+		headers["Origin"] = origin
+	}
+	return requestInfo{headers: headers}
+}
+
+func (h *transcodingRequestHandler) logger() *zerolog.Logger {
+	logger := h.logf()
+	return &logger
+}
+
+func (h *transcodingRequestHandler) logf() zerolog.Logger {
+	ctx := context.Background()
+	if h != nil && h.ctxf != nil {
+		if provided := h.ctxf(); provided != nil {
+			ctx = provided
+		}
+	}
+	return logging.FromContext(ctx).With().Str("component", "cef-transcoding").Logger()
+}
+
+func (rh *transcodingResourceHandler) logger() *zerolog.Logger {
+	if rh != nil && rh.logf != nil {
+		logger := rh.logf().With().Str("source_url", logging.TruncateURL(rh.sourceURL, 240)).Logger()
+		return &logger
+	}
+	logger := logging.FromContext(context.Background()).With().Str("component", "cef-transcoding").Logger()
+	return &logger
 }

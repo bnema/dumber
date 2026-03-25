@@ -156,6 +156,216 @@ const videoDiagnosticJS = `(function(){
     'aac:', MediaSource ? MediaSource.isTypeSupported('audio/mp4; codecs="mp4a.40.2"') : 'n/a');
 })();`
 
+// redditDirectVideoJS replaces Reddit's blob/MSE playback path with a direct
+// HLS source when MP4 MSE buffers are unsupported. This lets the browser issue
+// a normal media request that our transcoding handler can answer with WebM.
+const redditDirectVideoJS = `(function(){
+  var tag = '[REDDIT-VIDEO-PATCH]';
+  if (!/(\.|^)reddit\.com$/i.test(location.hostname)) return;
+  if (!window.MediaSource) return;
+  if (MediaSource.isTypeSupported('video/mp4; codecs="avc1.4d401e"') &&
+      MediaSource.isTypeSupported('audio/mp4; codecs="mp4a.40.2"')) {
+    return;
+  }
+
+  console.warn(tag, 'active for unsupported Reddit MSE playback');
+
+  function ensureStyle() {
+    if (document.getElementById('dumber-reddit-direct-video-style')) return;
+    var style = document.createElement('style');
+    style.id = 'dumber-reddit-direct-video-style';
+    style.textContent =
+      'shreddit-player[data-dumber-direct-video="1"] { position: relative !important; }' +
+      'shreddit-player[data-dumber-direct-video="1"] > .dumber-direct-video {' +
+      ' position: absolute !important; inset: 0 !important; width: 100% !important; height: 100% !important;' +
+      ' object-fit: contain !important; background: #000 !important; z-index: 2147483647 !important;' +
+      ' display: block !important; }';
+    document.head.appendChild(style);
+  }
+
+  function candidateRoots(video) {
+    var roots = [];
+    var seen = [];
+    function add(root) {
+      if (!root) return;
+      if (seen.indexOf(root) !== -1) return;
+      seen.push(root);
+      roots.push(root);
+    }
+
+    var current = video;
+    while (current) {
+      add(current);
+      if (current.shadowRoot) add(current.shadowRoot);
+      current = current.parentElement;
+    }
+    add(document);
+    return roots;
+  }
+
+  function findHlsSource(video) {
+    var selectors = [
+      'source[type="application/vnd.apple.mpegURL"][src]',
+      'source[type="application/x-mpegURL"][src]',
+      'source[src*="HLSPlaylist.m3u8"]',
+      '[src*="HLSPlaylist.m3u8"]'
+    ];
+
+    var roots = candidateRoots(video);
+    for (var i = 0; i < roots.length; i++) {
+      var root = roots[i];
+      if (!root.querySelector) continue;
+      for (var j = 0; j < selectors.length; j++) {
+        var el = root.querySelector(selectors[j]);
+        if (el && el.src) return el.src;
+      }
+      if (root.querySelectorAll) {
+        var all = root.querySelectorAll('*');
+        for (var k = 0; k < all.length; k++) {
+          if (all[k].shadowRoot) {
+            roots.push(all[k].shadowRoot);
+          }
+        }
+      }
+    }
+    return '';
+  }
+
+  function buildPlaybackURL(hlsURL) {
+    return location.origin + '/__dumber__/transcode.webm?src=' + encodeURIComponent(hlsURL) +
+      '&referer=' + encodeURIComponent(location.href) +
+      '&origin=' + encodeURIComponent(location.origin);
+  }
+
+  function getPlayerRoot(video) {
+    return video.closest('shreddit-player') || video.parentElement;
+  }
+
+  function monitorReplacement(video) {
+    if (!video || video._dumberReplacementDiag) return;
+    video._dumberReplacementDiag = true;
+    ['loadstart','loadedmetadata','loadeddata','canplay','playing','waiting','stalled','suspend','abort','emptied','error'].forEach(function(evt) {
+      video.addEventListener(evt, function() {
+        var err = video.error ? ('code=' + video.error.code + ' msg=' + video.error.message) : 'none';
+        console.warn(tag, 'replacement', evt, 'ready:', video.readyState, 'net:', video.networkState,
+          'paused:', video.paused, 'error:', err, 'src:', (video.currentSrc || video.src || '').substring(0, 120));
+      });
+    });
+  }
+
+  function ensureReplacement(video, playbackURL) {
+    var root = getPlayerRoot(video);
+    if (!root) return null;
+    ensureStyle();
+
+    var replacement = root.querySelector(':scope > .dumber-direct-video');
+    if (!replacement) {
+      replacement = document.createElement('video');
+      replacement.className = 'dumber-direct-video';
+      replacement.controls = true;
+      replacement.playsInline = true;
+      replacement.preload = 'auto';
+      replacement.autoplay = true;
+      replacement.muted = true;
+      replacement.loop = video.loop;
+      root.setAttribute('data-dumber-direct-video', '1');
+      root.appendChild(replacement);
+    }
+
+    replacement.poster = video.poster || replacement.poster || '';
+    monitorReplacement(replacement);
+    if (replacement.src !== playbackURL) {
+      replacement.src = playbackURL;
+      replacement.load();
+    }
+    return replacement;
+  }
+
+  function shouldForce(video) {
+    var current = video.currentSrc || video.src || '';
+    return current.indexOf('blob:') === 0;
+  }
+
+  function forceDirectPlayback(video) {
+    if (!video || !shouldForce(video)) return;
+
+    var hlsURL = findHlsSource(video);
+    if (!hlsURL) {
+      console.warn(tag, 'blob video found without HLS source');
+      return;
+    }
+    var playbackURL = buildPlaybackURL(hlsURL);
+    if (video._dumberPlaybackURL === playbackURL) return;
+    video._dumberPlaybackURL = playbackURL;
+
+    console.warn(tag, 'forcing replacement video source:', playbackURL.substring(0, 120), 'from:', hlsURL.substring(0, 120));
+
+    var replacement = ensureReplacement(video, playbackURL);
+    if (!replacement) return;
+
+    var root = getPlayerRoot(video);
+    if (root && root.querySelectorAll) {
+      root.querySelectorAll('video').forEach(function(candidate) {
+        if (candidate === replacement) return;
+        try { candidate.pause(); } catch (e) {}
+        try { candidate.removeAttribute('src'); } catch (e) {}
+        try { candidate.srcObject = null; } catch (e) {}
+        try { candidate.load(); } catch (e) {}
+        candidate.style.display = 'none';
+      });
+    } else {
+      try { video.pause(); } catch (e) {}
+      try { video.removeAttribute('src'); } catch (e) {}
+      try { video.srcObject = null; } catch (e) {}
+      try { video.load(); } catch (e) {}
+      video.style.display = 'none';
+    }
+
+    var playPromise = replacement.play();
+    if (playPromise && typeof playPromise.catch === 'function') {
+      playPromise.catch(function(err) {
+        console.warn(tag, 'replacement video.play() rejected:', err && err.message ? err.message : err);
+      });
+    }
+  }
+
+  function patchTree(root) {
+    if (!root || !root.querySelectorAll) return;
+    root.querySelectorAll('video').forEach(forceDirectPlayback);
+    root.querySelectorAll('*').forEach(function(el) {
+      if (el.shadowRoot) patchTree(el.shadowRoot);
+    });
+  }
+
+  new MutationObserver(function(mutations) {
+    mutations.forEach(function(mutation) {
+      if (mutation.type === 'attributes' && mutation.target && mutation.target.nodeName === 'VIDEO') {
+        forceDirectPlayback(mutation.target);
+      }
+      mutation.addedNodes.forEach(function(node) {
+        if (node.nodeName === 'VIDEO') forceDirectPlayback(node);
+        patchTree(node);
+        if (node.shadowRoot) patchTree(node.shadowRoot);
+      });
+    });
+  }).observe(document.documentElement, {
+    subtree: true,
+    childList: true,
+    attributes: true,
+    attributeFilter: ['src']
+  });
+
+  var origAttach = Element.prototype.attachShadow;
+  Element.prototype.attachShadow = function(opts) {
+    var sr = origAttach.call(this, opts);
+    patchTree(sr);
+    return sr;
+  };
+
+  patchTree(document);
+  setInterval(function() { patchTree(document); }, 1000);
+})();`
+
 // contentInjector implements port.ContentInjector for the CEF engine.
 // It stores CSS strings and injects them into webviews via ExecuteJavaScript.
 // Thread-safe: InjectThemeCSS may be called from the UI thread while OnLoadEnd
@@ -275,6 +485,10 @@ func (ci *contentInjector) onLoadEnd(wv *WebView) {
 	// Video playback diagnostic — logs video element state changes.
 	// TODO: remove once video playback is stable.
 	wv.RunJavaScript(context.Background(), videoDiagnosticJS)
+
+	if strings.Contains(uri, "reddit.com") {
+		wv.RunJavaScript(context.Background(), redditDirectVideoJS)
+	}
 }
 
 // injectCSS injects a CSS string as a <style> element via JavaScript.

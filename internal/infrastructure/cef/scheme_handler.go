@@ -14,6 +14,7 @@ import (
 	"path/filepath"
 	"strings"
 	"sync"
+	"time"
 	"unsafe"
 
 	purecef "github.com/bnema/purego-cef/cef"
@@ -39,6 +40,7 @@ const (
 type dumbSchemeHandler struct {
 	ctx           context.Context
 	messageRouter *MessageRouter
+	transcoder    port.MediaTranscoder
 	assets        embed.FS
 	assetsSet     bool
 	assetDir      string
@@ -48,11 +50,12 @@ type dumbSchemeHandler struct {
 }
 
 // newDumbSchemeHandler creates a handler for internal CEF pages.
-func newDumbSchemeHandler(ctx context.Context, router *MessageRouter) *dumbSchemeHandler {
+func newDumbSchemeHandler(ctx context.Context, router *MessageRouter, transcoder port.MediaTranscoder) *dumbSchemeHandler {
 	log := logging.FromContext(ctx)
 	return &dumbSchemeHandler{
 		ctx:           ctx,
 		messageRouter: router,
+		transcoder:    transcoder,
 		assetDir:      "webui",
 		logger:        log.With().Str("component", "scheme-handler").Logger(),
 		hwSurveyor:    env.NewHardwareSurveyor(),
@@ -130,9 +133,64 @@ func (h *dumbSchemeHandler) handleAPI(method, path string, request purecef.Reque
 	case path == "/api/config/default" && (method == "" || strings.EqualFold(method, "GET")):
 		return h.handleConfigAPI(config.DefaultConfig())
 
+	case path == "/api/transcode" && (method == "" || strings.EqualFold(method, "GET")):
+		return h.handleTranscodeAPI(request)
+
 	default:
 		return h.newJSONResourceHandler(http.StatusNotFound, map[string]string{"error": "not found"})
 	}
+}
+
+func (h *dumbSchemeHandler) handleTranscodeAPI(request purecef.Request) purecef.ResourceHandler {
+	if h.transcoder == nil {
+		return h.newJSONResourceHandler(http.StatusServiceUnavailable, map[string]string{"error": "transcoder unavailable"})
+	}
+
+	reqURL := request.GetURL()
+	parsed, err := url.Parse(reqURL)
+	if err != nil {
+		return h.newJSONResourceHandler(http.StatusBadRequest, map[string]string{"error": "invalid request URL"})
+	}
+
+	sourceURL := strings.TrimSpace(parsed.Query().Get("src"))
+	if sourceURL == "" {
+		return h.newJSONResourceHandler(http.StatusBadRequest, map[string]string{"error": "missing src"})
+	}
+
+	sourceParsed, err := url.Parse(sourceURL)
+	if err != nil || sourceParsed.Host == "" || (sourceParsed.Scheme != "http" && sourceParsed.Scheme != "https") {
+		return h.newJSONResourceHandler(http.StatusBadRequest, map[string]string{"error": "invalid src"})
+	}
+
+	headers := make(map[string]string)
+	if userAgent := request.GetHeaderByName("User-Agent"); userAgent != "" {
+		headers["User-Agent"] = userAgent
+	}
+	if referer := strings.TrimSpace(parsed.Query().Get("referer")); referer != "" {
+		headers["Referer"] = referer
+	} else if referer := request.GetReferrerURL(); referer != "" {
+		headers["Referer"] = referer
+	}
+	if origin := strings.TrimSpace(parsed.Query().Get("origin")); origin != "" {
+		headers["Origin"] = origin
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Minute)
+	h.logger.Info().
+		Str("source_url", logging.TruncateURL(sourceURL, 240)).
+		Int("forwarded_header_count", len(headers)).
+		Msg("scheme handler returning transcoding stream")
+
+	return purecef.NewResourceHandler(&transcodingResourceHandler{
+		transcoder: h.transcoder,
+		sourceURL:  sourceURL,
+		headers:    headers,
+		ctx:        ctx,
+		cancel:     cancel,
+		logf: func() zerolog.Logger {
+			return h.logger.With().Str("component", "scheme-transcoding").Logger()
+		},
+	})
 }
 
 // handleConfigAPI returns a JSON response with the given config.

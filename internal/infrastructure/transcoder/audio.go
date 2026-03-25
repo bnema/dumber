@@ -100,7 +100,7 @@ func newAudioTranscoder(inCodecPar, outFmtCtx unsafe.Pointer, inStreamIdx int) (
 		return nil, errors.New("failed to create output audio stream")
 	}
 
-	outStreamWrap := (*ffmpeg.Stream)(outStreamPtr)
+	outStreamWrap := ffmpeg.WrapStream(outStreamPtr)
 	outStreamIdx := int(outStreamWrap.Index())
 
 	// Copy encoder parameters to the output stream's codecpar.
@@ -271,7 +271,7 @@ func (a *audioTranscoder) processPacket(pkt, outFmtCtx unsafe.Pointer) error {
 
 			// Rescale timestamps from encoder time base to output stream time base.
 			outStream := ffmpeg.FmtCtxStream(outFmtCtx, a.outStream)
-			outStreamWrap := (*ffmpeg.Stream)(outStream)
+			outStreamWrap := ffmpeg.WrapStream(outStream)
 			ffmpeg.PacketRescaleTs(encPkt, ffmpeg.CodecCtxTimeBase(a.encoder), outStreamWrap.TimeBase())
 
 			if wret := ffmpeg.InterleavedWriteFrame(outFmtCtx, encPkt); wret < 0 {
@@ -341,7 +341,7 @@ func (a *audioTranscoder) flush(outFmtCtx unsafe.Pointer, logger zerolog.Logger)
 			}
 			pktSetStreamIndex(encPkt, int32(a.outStream))
 			outStream := ffmpeg.FmtCtxStream(outFmtCtx, a.outStream)
-			outStreamWrap := (*ffmpeg.Stream)(outStream)
+			outStreamWrap := ffmpeg.WrapStream(outStream)
 			ffmpeg.PacketRescaleTs(encPkt, ffmpeg.CodecCtxTimeBase(a.encoder), outStreamWrap.TimeBase())
 			ffmpeg.InterleavedWriteFrame(outFmtCtx, encPkt)
 			ffmpeg.PacketUnref(encPkt)
@@ -359,7 +359,7 @@ func (a *audioTranscoder) flush(outFmtCtx unsafe.Pointer, logger zerolog.Logger)
 		}
 		pktSetStreamIndex(encPkt, int32(a.outStream))
 		outStream := ffmpeg.FmtCtxStream(outFmtCtx, a.outStream)
-		outStreamWrap := (*ffmpeg.Stream)(outStream)
+		outStreamWrap := ffmpeg.WrapStream(outStream)
 		ffmpeg.PacketRescaleTs(encPkt, ffmpeg.CodecCtxTimeBase(a.encoder), outStreamWrap.TimeBase())
 		ffmpeg.InterleavedWriteFrame(outFmtCtx, encPkt)
 		ffmpeg.PacketUnref(encPkt)

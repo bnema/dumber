@@ -23,7 +23,7 @@ import (
 const puregoCEFInitTraceEnvVar = "PUREGO_CEF_INIT_TRACE"
 
 // NewEngine initializes the CEF runtime and returns a ready-to-use Engine.
-func NewEngine(ctx context.Context, cfg config.CEFEngineConfig) (*Engine, error) {
+func NewEngine(ctx context.Context, cfg config.CEFEngineConfig, transcodingCfg config.TranscodingConfig) (*Engine, error) {
 	logger := logging.FromContext(ctx)
 	cleanStaleSingletonLocks(logger)
 
@@ -60,7 +60,7 @@ func NewEngine(ctx context.Context, cfg config.CEFEngineConfig) (*Engine, error)
 	}
 	os.Args = savedArgs
 
-	return wireEngine(ctx, eng, cfg, windowlessFrameRate, logger)
+	return wireEngine(ctx, eng, cfg, transcodingCfg, windowlessFrameRate, logger)
 }
 
 // prepareCEFSettings builds purecef.Settings from the engine config.
@@ -118,7 +118,7 @@ func initializeCEF(eng *Engine, settings purecef.Settings, multiThreaded bool, l
 
 // wireEngine creates GL loader, factory, pool, and scheme handler after CEF init.
 func wireEngine(
-	ctx context.Context, eng *Engine, cfg config.CEFEngineConfig,
+	ctx context.Context, eng *Engine, cfg config.CEFEngineConfig, transcodingCfg config.TranscodingConfig,
 	windowlessFrameRate int32, logger *zerolog.Logger,
 ) (*Engine, error) {
 	gl, err := newGLLoader()
@@ -140,17 +140,25 @@ func wireEngine(
 		}
 	}
 
-	// Initialize GPU transcoder if enabled in the global config.
+	// Initialize the GPU transcoder when enabled in the loaded app config.
 	var mediaTranscoder port.MediaTranscoder
-	if appCfg := config.Get(); appCfg != nil && appCfg.Transcoding.Enabled {
-		tc := transcoderpkg.New(appCfg.Transcoding, logger)
+	transcoderState := buildTranscoderStartupState(transcodingCfg)
+	if transcodingCfg.Enabled {
+		transcoderState.ProbeAttempted = true
+		tc := transcoderpkg.New(transcodingCfg, logger)
+		caps := tc.Capabilities()
+		transcoderState.API = caps.API
+		transcoderState.Encoders = append([]string(nil), caps.Encoders...)
+		transcoderState.Decoders = append([]string(nil), caps.Decoders...)
 		if tc.Available() {
 			mediaTranscoder = tc
+			transcoderState.Status = "available"
 			logger.Info().
 				Str("api", tc.Capabilities().API).
 				Strs("encoders", tc.Capabilities().Encoders).
 				Msg("cef: GPU transcoding available")
 		} else {
+			transcoderState.Status = "unavailable_no_compatible_gpu"
 			logger.Warn().Msg("cef: GPU transcoding enabled but no compatible GPU found — feature disabled")
 		}
 	}
@@ -167,9 +175,10 @@ func wireEngine(
 	eng.factory = factory
 	eng.pool = pool
 	eng.contentInj = newContentInjector(eng, nil)
+	eng.transcoderState = transcoderState
 
 	messageRouter := NewMessageRouter(ctx)
-	schemeHandler := newDumbSchemeHandler(ctx, messageRouter)
+	schemeHandler := newDumbSchemeHandler(ctx, messageRouter, mediaTranscoder)
 	schemeHandler.setAssets(assets.WebUIAssets)
 
 	schemeFactory := purecef.NewSchemeHandlerFactory(schemeHandler)
@@ -197,6 +206,36 @@ func wireEngine(
 	eng.schemeHandler = schemeHandler
 
 	return eng, nil
+}
+
+func buildTranscoderStartupState(cfg config.TranscodingConfig) transcoderStartupState {
+	hwaccel := cfg.HWAccel
+	if hwaccel == "" {
+		hwaccel = "auto"
+	}
+
+	maxConcurrent := cfg.MaxConcurrent
+	if maxConcurrent <= 0 {
+		maxConcurrent = 2
+	}
+
+	quality := cfg.Quality
+	if quality == "" {
+		quality = "medium"
+	}
+
+	status := "disabled_in_config"
+	if cfg.Enabled {
+		status = "configured_enabled"
+	}
+
+	return transcoderStartupState{
+		ConfigEnabled: cfg.Enabled,
+		HWAccel:       hwaccel,
+		MaxConcurrent: maxConcurrent,
+		Quality:       quality,
+		Status:        status,
+	}
 }
 
 // getPrimaryMonitor returns the primary GDK monitor, or nil if unavailable.

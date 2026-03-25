@@ -84,3 +84,98 @@ func TestIsOpenVideoMIME(t *testing.T) {
 		})
 	}
 }
+
+func TestIsStreamingManifestMIME(t *testing.T) {
+	tests := []struct {
+		name        string
+		contentType string
+		want        bool
+	}{
+		{name: "hls apple", contentType: "application/vnd.apple.mpegURL", want: true},
+		{name: "hls x-mpegurl", contentType: "application/x-mpegURL", want: true},
+		{name: "dash", contentType: "application/dash+xml", want: true},
+		{name: "dash with charset", contentType: "application/dash+xml; charset=utf-8", want: true},
+		{name: "mp4", contentType: "video/mp4", want: false},
+		{name: "json", contentType: "application/json", want: false},
+		{name: "empty", contentType: "", want: false},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := IsStreamingManifestMIME(tt.contentType)
+			if got != tt.want {
+				t.Errorf("IsStreamingManifestMIME(%q) = %v, want %v", tt.contentType, got, tt.want)
+			}
+		})
+	}
+}
+
+func TestIsStreamingManifestURL(t *testing.T) {
+	tests := []struct {
+		name   string
+		rawURL string
+		want   bool
+	}{
+		{name: "hls manifest", rawURL: "https://v.redd.it/abc/HLSPlaylist.m3u8?f=sd&v=1", want: true},
+		{name: "dash manifest", rawURL: "https://example.com/video/manifest.mpd", want: true},
+		{name: "uppercase extension", rawURL: "https://example.com/PLAYLIST.M3U8", want: true},
+		{name: "segment ts", rawURL: "https://example.com/chunk.ts", want: false},
+		{name: "plain mp4", rawURL: "https://example.com/video.mp4", want: false},
+		{name: "empty", rawURL: "", want: false},
+		{name: "invalid but obvious", rawURL: "not a url but playlist.m3u8", want: true},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := IsStreamingManifestURL(tt.rawURL)
+			if got != tt.want {
+				t.Errorf("IsStreamingManifestURL(%q) = %v, want %v", tt.rawURL, got, tt.want)
+			}
+		})
+	}
+}
+
+func TestIsEagerTranscodeURL(t *testing.T) {
+	tests := []struct {
+		name   string
+		rawURL string
+		want   bool
+	}{
+		{name: "hls manifest", rawURL: "https://v.redd.it/abc/HLSPlaylist.m3u8?f=sd&v=1", want: true},
+		{name: "dash manifest", rawURL: "https://example.com/video/manifest.mpd", want: true},
+		{name: "mp4 file", rawURL: "https://example.com/video.mp4", want: true},
+		{name: "mov file", rawURL: "https://example.com/video.mov", want: true},
+		{name: "mkv uppercase", rawURL: "https://example.com/VIDEO.MKV", want: true},
+		{name: "hls segment", rawURL: "https://example.com/chunk.ts", want: false},
+		{name: "webm open codec", rawURL: "https://example.com/video.webm", want: false},
+		{name: "synthetic transcode", rawURL: "https://www.reddit.com/__dumber__/transcode.webm?src=https%3A%2F%2Fv.redd.it%2Fabc%2FHLSPlaylist.m3u8", want: true},
+		{name: "empty", rawURL: "", want: false},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := IsEagerTranscodeURL(tt.rawURL)
+			if got != tt.want {
+				t.Errorf("IsEagerTranscodeURL(%q) = %v, want %v", tt.rawURL, got, tt.want)
+			}
+		})
+	}
+}
+
+func TestParseSyntheticTranscodeURL(t *testing.T) {
+	rawURL := "https://www.reddit.com/__dumber__/transcode.webm?src=https%3A%2F%2Fv.redd.it%2Fabc%2FHLSPlaylist.m3u8&referer=https%3A%2F%2Fwww.reddit.com%2Fr%2FOpenAI&origin=https%3A%2F%2Fwww.reddit.com"
+
+	sourceURL, referer, origin, ok := ParseSyntheticTranscodeURL(rawURL)
+	if !ok {
+		t.Fatalf("ParseSyntheticTranscodeURL(%q) = !ok, want ok", rawURL)
+	}
+	if sourceURL != "https://v.redd.it/abc/HLSPlaylist.m3u8" {
+		t.Fatalf("sourceURL = %q", sourceURL)
+	}
+	if referer != "https://www.reddit.com/r/OpenAI" {
+		t.Fatalf("referer = %q", referer)
+	}
+	if origin != "https://www.reddit.com" {
+		t.Fatalf("origin = %q", origin)
+	}
+}
