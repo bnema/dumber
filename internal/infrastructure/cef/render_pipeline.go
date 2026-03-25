@@ -179,7 +179,7 @@ func (rp *renderPipeline) handlePaint(buffer []byte, width, height int32, rects 
 	startedAt := time.Now()
 	rp.lastQueuedPaintSeq.Store(paintSeq)
 	if rp.ctx != nil {
-		logging.FromContext(rp.ctx).Debug().
+		logging.FromContext(rp.ctx).Trace().
 			Uint64("paint_seq", paintSeq).
 			Int32("width", width).
 			Int32("height", height).
@@ -253,7 +253,7 @@ func (rp *renderPipeline) handlePaint(buffer []byte, width, height int32, rects 
 				Int("expected_len", bufSize).
 				Msg("cef: truncated full paint buffer on resize")
 		}
-		logging.FromContext(rp.ctx).Debug().
+		logging.FromContext(rp.ctx).Trace().
 			Uint64("paint_seq", paintSeq).
 			Uint64("copied_bytes", copiedBytes).
 			Bool("size_changed", sizeChanged).
@@ -269,7 +269,7 @@ func (rp *renderPipeline) onGLRender() bool {
 	paintSeq := rp.lastQueuedPaintSeq.Load()
 	renderStartedAt := time.Now()
 	if rp.ctx != nil {
-		logging.FromContext(rp.ctx).Debug().
+		logging.FromContext(rp.ctx).Trace().
 			Uint64("render_seq", renderSeq).
 			Uint64("paint_seq", paintSeq).
 			Msg("cef: onGLRender begin")
@@ -341,7 +341,7 @@ func (rp *renderPipeline) onGLRender() bool {
 	}
 	rp.maybeLogDiagnostics()
 	if rp.ctx != nil {
-		logging.FromContext(rp.ctx).Debug().
+		logging.FromContext(rp.ctx).Trace().
 			Uint64("render_seq", renderSeq).
 			Uint64("paint_seq", paintSeq).
 			Dur("render_duration", renderDuration).
@@ -374,7 +374,7 @@ func (rp *renderPipeline) uploadToPBO(dirtyRects []rect, fullUpload bool, render
 
 	w, h, _ := rp.viewRectSize()
 	if rp.ctx != nil {
-		logging.FromContext(rp.ctx).Debug().
+		logging.FromContext(rp.ctx).Trace().
 			Uint64("render_seq", renderSeq).
 			Uint64("paint_seq", paintSeq).
 			Int32("width", w).
@@ -463,7 +463,7 @@ func (rp *renderPipeline) uploadToPBO(dirtyRects []rect, fullUpload bool, render
 
 	gl.bindBuffer(glPixelUnpackBuffer, 0)
 	if rp.ctx != nil {
-		logging.FromContext(rp.ctx).Debug().
+		logging.FromContext(rp.ctx).Trace().
 			Uint64("render_seq", renderSeq).
 			Uint64("paint_seq", paintSeq).
 			Uint64("uploaded_bytes", uploadedBytes).

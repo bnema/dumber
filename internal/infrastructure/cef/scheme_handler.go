@@ -217,8 +217,11 @@ func (h *dumbSchemeHandler) handleConfigAPI(cfg *config.Config) purecef.Resource
 // handleClipboardSet receives copied text from JS copy/cut events and writes
 // it to the system clipboard via the engine callback.
 func (h *dumbSchemeHandler) handleClipboardSet(request purecef.Request) purecef.ResourceHandler {
+	h.logger.Debug().Msg("cef: /api/clipboard-set request received")
+
 	body := readBodyFromHeader(request)
 	if body == nil {
+		h.logger.Debug().Msg("cef: clipboard-set — empty body (no X-Dumber-Body header)")
 		return h.newJSONResourceHandler(http.StatusBadRequest, map[string]string{"error": "empty body"})
 	}
 
@@ -226,11 +229,16 @@ func (h *dumbSchemeHandler) handleClipboardSet(request purecef.Request) purecef.
 		Text string `json:"text"`
 	}
 	if err := json.Unmarshal(body, &payload); err != nil || payload.Text == "" {
+		h.logger.Debug().Int("body_len", len(body)).Msg("cef: clipboard-set — invalid or empty payload")
 		return h.newJSONResourceHandler(http.StatusBadRequest, map[string]string{"error": "invalid payload"})
 	}
 
+	h.logger.Debug().Int("text_len", len(payload.Text)).Msg("cef: clipboard-set — forwarding to GDK clipboard")
+
 	if h.onClipboardSet != nil {
 		h.onClipboardSet(payload.Text)
+	} else {
+		h.logger.Warn().Msg("cef: clipboard-set — onClipboardSet callback not wired")
 	}
 
 	return h.newJSONResourceHandler(http.StatusOK, map[string]any{"ok": true})

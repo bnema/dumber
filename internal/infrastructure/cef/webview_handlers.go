@@ -193,7 +193,7 @@ func (h *handlerSet) OnPaint(
 	}
 	paintSeq := h.wv.pipeline.nextPaintSeq()
 	if h.wv != nil && h.wv.ctx != nil {
-		logging.FromContext(h.wv.ctx).Debug().
+		logging.FromContext(h.wv.ctx).Trace().
 			Uint64("paint_seq", paintSeq).
 			Int32("width", width).
 			Int32("height", height).
@@ -216,7 +216,7 @@ func (h *handlerSet) OnPaint(
 			h.wv.pipeline.handlePaint(pixels, width, height, rects, paintSeq)
 		})
 		if h.wv != nil && h.wv.ctx != nil {
-			logging.FromContext(h.wv.ctx).Debug().
+			logging.FromContext(h.wv.ctx).Trace().
 				Uint64("paint_seq", paintSeq).
 				Msg("cef: OnPaint queued to GTK")
 		}
@@ -228,7 +228,7 @@ func (h *handlerSet) OnPaint(
 	}
 	h.wv.pipeline.handlePaint(buffer, width, height, rects, paintSeq)
 	if h.wv != nil && h.wv.ctx != nil {
-		logging.FromContext(h.wv.ctx).Debug().
+		logging.FromContext(h.wv.ctx).Trace().
 			Uint64("paint_seq", paintSeq).
 			Msg("cef: OnPaint handled inline")
 	}

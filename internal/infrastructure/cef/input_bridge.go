@@ -1,12 +1,15 @@
 package cef
 
 import (
+	"context"
 	"sync"
 
 	purecef "github.com/bnema/purego-cef/cef"
 	"github.com/bnema/puregotk/v4/gdk"
 	"github.com/bnema/puregotk/v4/gio"
 	"github.com/bnema/puregotk/v4/gtk"
+
+	"github.com/bnema/dumber/internal/logging"
 )
 
 // GDK dead key range boundaries. Dead keys (0xfe50–0xfe8c) are compose
@@ -40,6 +43,7 @@ const (
 type inputBridge struct {
 	host  purecef.BrowserHost
 	scale int32
+	ctx   context.Context
 	mu    sync.Mutex
 
 	// Last known pointer position, used for scroll events which don't
@@ -63,8 +67,8 @@ type inputBridge struct {
 }
 
 // newInputBridge creates an input bridge with the given HiDPI scale factor.
-func newInputBridge(scale int32) *inputBridge {
-	return &inputBridge{scale: scale}
+func newInputBridge(ctx context.Context, scale int32) *inputBridge {
+	return &inputBridge{ctx: ctx, scale: scale}
 }
 
 // setHost is called once the browser is created to enable event dispatch.
@@ -80,6 +84,13 @@ func (ib *inputBridge) attachTo(glArea *gtk.GLArea) {
 	// Wayland clipboard, so we bridge it via GDK → ImeCommitText.
 	if display := gdk.DisplayGetDefault(); display != nil {
 		ib.clipboard = display.GetClipboard()
+		if ib.clipboard != nil {
+			logging.FromContext(ib.ctx).Debug().Msg("cef: GDK clipboard acquired for paste bridge")
+		} else {
+			logging.FromContext(ib.ctx).Warn().Msg("cef: GDK display found but GetClipboard returned nil")
+		}
+	} else {
+		logging.FromContext(ib.ctx).Warn().Msg("cef: no GDK display — clipboard paste will not work")
 	}
 
 	// Motion (mouse move + enter/leave)
@@ -180,6 +191,10 @@ func (ib *inputBridge) attachFocusAndKeyboard(glArea *gtk.GLArea) {
 		// ImeCommitText instead of letting CEF handle the paste.
 		if mods&uint(gdk.ControlMaskValue) != 0 &&
 			(keyval == gdkKeyLowercaseV || keyval == gdkKeyUppercaseV) {
+			logging.FromContext(ib.ctx).Debug().
+				Uint("keyval", keyval).
+				Uint("mods", mods).
+				Msg("cef: clipboard paste intercepted (Ctrl+V)")
 			ib.pasteFromClipboard()
 			return true
 		}
@@ -380,23 +395,39 @@ func (ib *inputBridge) onKeyRelease(keyval, keycode, mods uint) {
 // injects it into the focused CEF input via ImeCommitText. This bridges the
 // gap where CEF OSR mode cannot read the Wayland/X11 system clipboard.
 func (ib *inputBridge) pasteFromClipboard() {
+	log := logging.FromContext(ib.ctx)
+
 	cb := ib.clipboard
 	if cb == nil {
+		log.Warn().Msg("cef: paste aborted — no GDK clipboard reference")
 		return
 	}
 	ib.mu.Lock()
 	host := ib.host
 	ib.mu.Unlock()
 	if host == nil {
+		log.Warn().Msg("cef: paste aborted — no browser host")
 		return
 	}
 
+	log.Debug().Msg("cef: calling ReadTextAsync on GDK clipboard")
+
 	asyncCb := gio.AsyncReadyCallback(func(_, resultPtr, _ uintptr) {
+		log.Debug().Uint64("result_ptr", uint64(resultPtr)).Msg("cef: ReadTextAsync callback fired")
+
 		result := &gio.AsyncResultBase{Ptr: resultPtr}
 		text, err := cb.ReadTextFinish(result)
-		if err != nil || text == "" {
+		if err != nil {
+			log.Warn().Err(err).Msg("cef: ReadTextFinish failed")
 			return
 		}
+		if text == "" {
+			log.Debug().Msg("cef: clipboard text is empty, nothing to paste")
+			return
+		}
+
+		log.Debug().Int("text_len", len(text)).Msg("cef: injecting clipboard text via ImeCommitText")
+
 		// The GLib async callback runs on the main loop (UI thread),
 		// which is the correct thread for CEF ImeCommitText.
 		ib.mu.Lock()
@@ -404,10 +435,14 @@ func (ib *inputBridge) pasteFromClipboard() {
 		ib.mu.Unlock()
 		if h != nil {
 			h.ImeCommitText(text, nil, 0)
+			log.Debug().Msg("cef: ImeCommitText completed")
+		} else {
+			log.Warn().Msg("cef: paste — host became nil before ImeCommitText")
 		}
 	})
 
 	cb.ReadTextAsync(nil, &asyncCb, 0)
+	log.Debug().Msg("cef: ReadTextAsync dispatched")
 }
 
 // ---------------------------------------------------------------------------

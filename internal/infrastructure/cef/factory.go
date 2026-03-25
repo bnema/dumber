@@ -93,7 +93,7 @@ func (f *WebViewFactory) Create(ctx context.Context) (port.WebView, error) {
 	wv.handlers = handlers
 	wv.findCtrl = newFindController()
 
-	input := newInputBridge(f.scale)
+	input := newInputBridge(ctx, f.scale)
 	input.attachTo(pipeline.glArea)
 	wv.input = input
 
