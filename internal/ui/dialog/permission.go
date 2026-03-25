@@ -21,6 +21,7 @@ type permissionDialogRequest struct {
 	ctx       context.Context
 	origin    string
 	permTypes []entity.PermissionType
+	metadata  entity.PermissionMetadata
 	callback  func(result port.PermissionDialogResult)
 }
 
@@ -48,12 +49,14 @@ func (d *PermissionDialog) ShowPermissionDialog(
 	ctx context.Context,
 	origin string,
 	permTypes []entity.PermissionType,
+	metadata entity.PermissionMetadata,
 	callback func(result port.PermissionDialogResult),
 ) {
 	req := permissionDialogRequest{
 		ctx:       ctx,
 		origin:    origin,
 		permTypes: permTypes,
+		metadata:  metadata,
 		callback:  callback,
 	}
 
@@ -94,7 +97,7 @@ func (d *PermissionDialog) showRequest(req permissionDialogRequest) {
 
 	// Build dialog text
 	heading := d.buildHeading(permTypes)
-	body := d.buildBody(origin, permTypes)
+	body := d.buildBody(origin, permTypes, req.metadata)
 
 	d.popup.Show(ctx, heading, body, func(allowed, persistent bool) {
 		log.Debug().
@@ -198,7 +201,7 @@ func (d *PermissionDialog) buildHeading(
 
 // buildBody creates the dialog body text.
 func (d *PermissionDialog) buildBody(
-	origin string, permTypes []entity.PermissionType,
+	origin string, permTypes []entity.PermissionType, metadata entity.PermissionMetadata,
 ) string {
 	f := parsePermFlags(permTypes)
 	var parts []string
@@ -213,9 +216,14 @@ func (d *PermissionDialog) buildBody(
 		parts = append(parts, "share your screen")
 	}
 	if f.dataAccess {
-		if len(parts) == 0 {
-			parts = append(parts,
-				"access its stored data while you browse this site")
+		reqDomain := metadata["requesting_domain"]
+		curDomain := metadata["current_domain"]
+		if reqDomain != "" && curDomain != "" {
+			parts = append(parts, fmt.Sprintf(
+				"allow %s to access its data (including cookies) while you browse %s",
+				reqDomain, curDomain))
+		} else if len(parts) == 0 {
+			parts = append(parts, "access its stored data while you browse this site")
 		} else {
 			parts = append(parts, "access its stored data")
 		}

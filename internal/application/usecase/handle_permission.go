@@ -79,11 +79,13 @@ func (uc *HandlePermissionUseCase) getDialog() port.PermissionDialogPresenter {
 //   - ctx: context for cancellation and logging
 //   - origin: the website origin (URI) requesting permission
 //   - permTypes: the types of permissions being requested
+//   - metadata: permission-type-specific context (e.g., "requesting_domain" for website_data_access)
 //   - callback: callbacks to allow or deny the request (must call one)
 func (uc *HandlePermissionUseCase) HandlePermissionRequest(
 	ctx context.Context,
 	origin string,
 	permTypes []entity.PermissionType,
+	metadata entity.PermissionMetadata,
 	callback PermissionCallback,
 ) {
 	log := uc.logger(ctx).With().
@@ -135,7 +137,7 @@ func (uc *HandlePermissionUseCase) HandlePermissionRequest(
 	}
 
 	// Show dialog for undecided permissions
-	uc.showPermissionDialog(ctx, origin, permTypes, callback)
+	uc.showPermissionDialog(ctx, origin, permTypes, metadata, callback)
 }
 
 // QueryPermissionState returns the current permission state for the W3C Permissions API.
@@ -249,6 +251,7 @@ func (uc *HandlePermissionUseCase) showPermissionDialog(
 	ctx context.Context,
 	origin string,
 	permTypes []entity.PermissionType,
+	metadata entity.PermissionMetadata,
 	callback PermissionCallback,
 ) {
 	log := uc.logger(ctx)
@@ -262,7 +265,7 @@ func (uc *HandlePermissionUseCase) showPermissionDialog(
 		return
 	}
 
-	dialog.ShowPermissionDialog(ctx, origin, permTypes, func(result port.PermissionDialogResult) {
+	dialog.ShowPermissionDialog(ctx, origin, permTypes, metadata, func(result port.PermissionDialogResult) {
 		if result.Allowed {
 			log.Debug().Bool("persistent", result.Persistent).Msg("user allowed permission")
 			callback.Allow()

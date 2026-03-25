@@ -162,7 +162,8 @@ type WebView struct {
 	// PermissionRequest is called when a site requests permission (mic, camera, screen sharing).
 	// Return true to indicate the request was handled. Call allow()/deny() to respond.
 	// The permission types are determined from the request object.
-	OnPermissionRequest func(origin string, permTypes []string, allow, deny func()) bool
+	// The metadata map carries permission-type-specific context (e.g., "requesting_domain" for website_data_access).
+	OnPermissionRequest func(origin string, permTypes []string, metadata map[string]string, allow, deny func()) bool
 
 	logger zerolog.Logger
 	mu     sync.RWMutex
@@ -998,13 +999,10 @@ func (wv *WebView) connectPermissionRequestSignal() {
 		}
 
 		// Determine permission types from the request
-		permTypes, originOverride := wv.determinePermissionTypes(ctx, requestPtr)
+		permTypes, metadata := wv.determinePermissionTypes(ctx, requestPtr)
 		if len(permTypes) == 0 {
 			wv.logger.Warn().Msg("permission request with unknown type, denying")
 			return false
-		}
-		if originOverride != "" {
-			origin = originOverride
 		}
 
 		// Ref the request object to prevent use-after-free
@@ -1039,7 +1037,7 @@ func (wv *WebView) connectPermissionRequestSignal() {
 		}
 
 		// Call the handler
-		return wv.OnPermissionRequest(origin, permTypes, allow, deny)
+		return wv.OnPermissionRequest(origin, permTypes, metadata, allow, deny)
 	}
 
 	sigID := wv.inner.ConnectPermissionRequest(&permissionCb)
@@ -1051,13 +1049,13 @@ func (wv *WebView) connectPermissionRequestSignal() {
 // We use GObject property accessors for audio/video request flags. Display detection
 // uses the dedicated WebKit API because this WebKit build does not expose an
 // "is-for-display-device" GObject property.
-func (wv *WebView) determinePermissionTypes(ctx context.Context, requestPtr uintptr) (types []string, originOverride string) {
+func (wv *WebView) determinePermissionTypes(ctx context.Context, requestPtr uintptr) (types []string, metadata map[string]string) {
 	requestKind := detectPermissionRequestKind(ctx, requestPtr)
 	switch requestKind {
 	case permissionRequestKindUserMedia:
 		userMediaReq := webkit.UserMediaPermissionRequestNewFromInternalPtr(requestPtr)
 		if userMediaReq == nil {
-			return nil, ""
+			return nil, nil
 		}
 
 		// Use GObject property accessors — more reliable than the C function wrappers
@@ -1072,13 +1070,13 @@ func (wv *WebView) determinePermissionTypes(ctx context.Context, requestPtr uint
 			Bool("is_display", isDisplay).
 			Msg("permission request type detection")
 
-		return classifyPermissionRequestTypes(ctx, requestKind, isAudio, isVideo, isDisplay), ""
+		return classifyPermissionRequestTypes(ctx, requestKind, isAudio, isVideo, isDisplay), nil
 	case permissionRequestKindDeviceInfo:
-		return classifyPermissionRequestTypes(ctx, requestKind, false, false, false), ""
+		return classifyPermissionRequestTypes(ctx, requestKind, false, false, false), nil
 	case permissionRequestKindWebsiteDataAccess:
 		wdaReq := webkit.WebsiteDataAccessPermissionRequestNewFromInternalPtr(requestPtr)
 		if wdaReq == nil {
-			return nil, ""
+			return nil, nil
 		}
 		currentDomain := wdaReq.GetCurrentDomain()
 		requestingDomain := wdaReq.GetRequestingDomain()
@@ -1086,7 +1084,11 @@ func (wv *WebView) determinePermissionTypes(ctx context.Context, requestPtr uint
 			Str("current_domain", currentDomain).
 			Str("requesting_domain", requestingDomain).
 			Msg("website data access permission request")
-		return classifyPermissionRequestTypes(ctx, requestKind, false, false, false), ""
+		meta := map[string]string{
+			"requesting_domain": requestingDomain,
+			"current_domain":    currentDomain,
+		}
+		return classifyPermissionRequestTypes(ctx, requestKind, false, false, false), meta
 	default:
 		if requestPtr != 0 {
 			typeName := permissionRequestTypeName(ctx, requestPtr)
@@ -1098,7 +1100,7 @@ func (wv *WebView) determinePermissionTypes(ctx context.Context, requestPtr uint
 		}
 		// Unknown permission type - could be clipboard, notifications, geolocation, etc.
 		// For now, return empty to trigger denial. Future phases will add these types.
-		return nil, ""
+		return nil, nil
 	}
 }
 

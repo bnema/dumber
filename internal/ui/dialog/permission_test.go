@@ -51,6 +51,7 @@ func TestPermissionDialog_QueuesRequestsWhilePopupVisible(t *testing.T) {
 		context.Background(),
 		"https://example.com",
 		[]entity.PermissionType{entity.PermissionTypeMicrophone},
+		nil,
 		func(result port.PermissionDialogResult) {
 			firstCalled = true
 			firstResult = result
@@ -63,6 +64,7 @@ func TestPermissionDialog_QueuesRequestsWhilePopupVisible(t *testing.T) {
 		context.Background(),
 		"https://example.com",
 		[]entity.PermissionType{entity.PermissionTypeCamera},
+		nil,
 		func(result port.PermissionDialogResult) {
 			secondCalled = true
 			secondResult = result
@@ -98,6 +100,7 @@ func TestPermissionDialog_NoPopup_DeniesRequest(t *testing.T) {
 		context.Background(),
 		"https://example.com",
 		[]entity.PermissionType{entity.PermissionTypeMicrophone},
+		nil,
 		func(r port.PermissionDialogResult) {
 			called = true
 			result = r
@@ -153,7 +156,17 @@ func TestPermissionDialog_BuildHeadingAndBody_DisplayCombinations(t *testing.T) 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			assert.Equal(t, tt.expectHeading, d.buildHeading(tt.permTypes))
-			assert.Equal(t, origin+" wants to "+tt.expectedAction+".", d.buildBody(origin, tt.permTypes))
+			assert.Equal(t, origin+" wants to "+tt.expectedAction+".", d.buildBody(origin, tt.permTypes, nil))
 		})
 	}
+
+	// Test website_data_access with populated metadata (Epiphany-style rich message)
+	t.Run("website data access with both domains", func(t *testing.T) {
+		meta := entity.PermissionMetadata{
+			"requesting_domain": "accounts.google.com",
+			"current_domain":    "shop.example.com",
+		}
+		body := d.buildBody(origin, []entity.PermissionType{entity.PermissionTypeWebsiteDataAccess}, meta)
+		assert.Equal(t, origin+" wants to allow accounts.google.com to access its data (including cookies) while you browse shop.example.com.", body)
+	})
 }

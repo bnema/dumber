@@ -107,7 +107,8 @@ type WebViewCallbacks struct {
 	// OnPermissionRequest is called when a site requests permission (mic, camera, screen sharing).
 	// Return true to indicate the request was handled. Call allow()/deny() to respond.
 	// The permission types are passed as strings ("microphone", "camera", "display", etc.).
-	OnPermissionRequest func(origin string, permTypes []string, allow, deny func()) bool
+	// The metadata map carries permission-type-specific context (e.g., "requesting_domain" for website_data_access).
+	OnPermissionRequest func(origin string, permTypes []string, metadata map[string]string, allow, deny func()) bool
 
 	// OnLinkMiddleClick is called when a link is middle-clicked.
 	// Return true if handled (blocks default navigation).

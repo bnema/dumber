@@ -38,6 +38,10 @@ const (
 	PermissionTypeWebsiteDataAccess PermissionType = "website_data_access"
 )
 
+// PermissionMetadata carries extra context for specific permission types.
+// Keys are permission-type-specific (e.g., "requesting_domain" for website_data_access).
+type PermissionMetadata map[string]string
+
 // PermissionDecision represents the user's decision for a permission.
 type PermissionDecision string
 
