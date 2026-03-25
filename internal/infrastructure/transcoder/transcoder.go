@@ -128,6 +128,7 @@ func (t *Transcoder) Start(ctx context.Context, sourceURL string, headers map[st
 		defer func() {
 			if r := recover(); r != nil {
 				t.logger.Error().Str("session_id", id).Interface("panic", r).Msg("transcode session panicked")
+				pw.CloseWithError(fmt.Errorf("transcode session panicked: %v", r))
 			}
 		}()
 		p.run(sessionCtx)

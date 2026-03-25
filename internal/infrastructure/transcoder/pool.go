@@ -106,7 +106,6 @@ func (p *sessionPool) closeAll() {
 
 	// Close sessions outside the lock.
 	for _, s := range snapshot {
-		s.cancel()
-		s.pr.Close()
+		s.Close()
 	}
 }

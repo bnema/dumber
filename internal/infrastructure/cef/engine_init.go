@@ -190,7 +190,12 @@ func wireEngine(
 			if display := gdk.DisplayGetDefault(); display != nil {
 				if cb := display.GetClipboard(); cb != nil {
 					cb.SetText(text)
+					logger.Debug().Msg("cef: clipboard set via GDK")
+				} else {
+					logger.Debug().Msg("cef: clipboard set failed — no GDK clipboard")
 				}
+			} else {
+				logger.Debug().Msg("cef: clipboard set failed — no GDK display")
 			}
 		})
 		glib.IdleAddOnce(&fn, 0)

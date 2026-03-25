@@ -233,7 +233,7 @@ func (h *dumbSchemeHandler) handleClipboardSet(request purecef.Request) purecef.
 		h.onClipboardSet(payload.Text)
 	}
 
-	return h.newJSONResourceHandler(http.StatusOK, map[string]string{"ok": "true"})
+	return h.newJSONResourceHandler(http.StatusOK, map[string]any{"ok": true})
 }
 
 func (h *dumbSchemeHandler) newRedirectResourceHandler(status int, location string) purecef.ResourceHandler {

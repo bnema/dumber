@@ -3,6 +3,7 @@ package cef
 import (
 	"context"
 	"fmt"
+	"net/url"
 	"os"
 	"strings"
 	"sync"
@@ -539,8 +540,11 @@ func (ci *contentInjector) onLoadEnd(wv *WebView) {
 		wv.RunJavaScript(context.Background(), videoDiagnosticJS)
 	}
 
-	if strings.Contains(uri, "reddit.com") {
-		wv.RunJavaScript(context.Background(), redditDirectVideoJS)
+	if parsed, err := url.Parse(uri); err == nil {
+		host := parsed.Hostname()
+		if host == "reddit.com" || strings.HasSuffix(host, ".reddit.com") {
+			wv.RunJavaScript(context.Background(), redditDirectVideoJS)
+		}
 	}
 }
 

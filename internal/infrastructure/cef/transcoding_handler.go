@@ -61,6 +61,7 @@ func (rh *transcodingResourceHandler) Open(_ purecef.Request, handleRequest unsa
 				Msg("cef: failed to start transcoding resource stream")
 			// Let CEF know we failed — Cancel will be called.
 			rh.cancel()
+			callback.Cont()
 			return
 		}
 		rh.session = session

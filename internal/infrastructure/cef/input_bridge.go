@@ -392,8 +392,7 @@ func (ib *inputBridge) pasteFromClipboard() {
 	}
 
 	asyncCb := gio.AsyncReadyCallback(func(_, resultPtr, _ uintptr) {
-		result := &gio.AsyncResultBase{}
-		result.SetGoPointer(resultPtr)
+		result := &gio.AsyncResultBase{Ptr: resultPtr}
 		text, err := cb.ReadTextFinish(result)
 		if err != nil || text == "" {
 			return

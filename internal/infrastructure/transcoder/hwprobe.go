@@ -40,8 +40,11 @@ var vaAPIProfile = hwProfile{
 var nvencProfile = hwProfile{
 	api:        "nvenc",
 	deviceType: ffmpeg.AV_HWDEVICE_TYPE_CUDA,
-	encoders:   []string{"av1_nvenc", "hevc_nvenc", "h264_nvenc"},
-	decoders:   []string{"h264_cuvid", "hevc_cuvid"},
+	// hevc_nvenc and h264_nvenc are probed for logging/diagnostic purposes
+	// but filtered as non-usable by isUsableEncoder (only open codecs like
+	// AV1 and VP9 are usable in CEF's minimal build).
+	encoders: []string{"av1_nvenc", "hevc_nvenc", "h264_nvenc"},
+	decoders: []string{"h264_cuvid", "hevc_cuvid"},
 }
 
 // ProbeGPU detects available GPU hardware encoding capabilities.
