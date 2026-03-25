@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/bnema/dumber/internal/application/port"
+	"github.com/bnema/dumber/internal/domain/entity"
 	urlutil "github.com/bnema/dumber/internal/domain/url"
 	"github.com/bnema/dumber/internal/infrastructure/desktop"
 	"github.com/bnema/dumber/internal/logging"
@@ -162,7 +163,8 @@ type WebView struct {
 	// PermissionRequest is called when a site requests permission (mic, camera, screen sharing).
 	// Return true to indicate the request was handled. Call allow()/deny() to respond.
 	// The permission types are determined from the request object.
-	// The metadata map carries permission-type-specific context (e.g., "requesting_domain" for website_data_access).
+	// The metadata map carries permission-type-specific context; for website_data_access both
+	// entity.PermissionMetadataKeyRequestingDomain and entity.PermissionMetadataKeyCurrentDomain are populated.
 	OnPermissionRequest func(origin string, permTypes []string, metadata map[string]string, allow, deny func()) bool
 
 	logger zerolog.Logger
@@ -979,15 +981,17 @@ func (wv *WebView) connectWebProcessTerminatedSignal() {
 // connectPermissionRequestSignal sets up the permission-request signal handler.
 // This is emitted when a site calls getUserMedia() or getDisplayMedia().
 func (wv *WebView) connectPermissionRequestSignal() {
-	permissionCb := func(_ webkit.WebView, requestPtr uintptr) bool {
+	permissionCb := func(inner webkit.WebView, requestPtr uintptr) bool {
 		ctx := logging.WithContext(context.Background(), wv.logger)
 
 		if wv.OnPermissionRequest == nil {
 			return false // Not handled, WebKit will deny by default
 		}
 
-		// Extract and normalize origin from current URI
-		uri := wv.URI()
+		// Use the live URI from the signal's WebView rather than the cached wv.URI(),
+		// so permission lookups use the current page origin even if navigation has
+		// occurred since the last load-changed signal.
+		uri := inner.GetUri()
 		if uri == "" {
 			wv.logger.Debug().Msg("permission request with empty origin, denying")
 			return false
@@ -1085,8 +1089,8 @@ func (wv *WebView) determinePermissionTypes(ctx context.Context, requestPtr uint
 			Str("requesting_domain", requestingDomain).
 			Msg("website data access permission request")
 		meta := map[string]string{
-			"requesting_domain": requestingDomain,
-			"current_domain":    currentDomain,
+			entity.PermissionMetadataKeyRequestingDomain: requestingDomain,
+			entity.PermissionMetadataKeyCurrentDomain:    currentDomain,
 		}
 		return classifyPermissionRequestTypes(ctx, requestKind, false, false, false), meta
 	default:

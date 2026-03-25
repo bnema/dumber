@@ -38,8 +38,21 @@ const (
 	PermissionTypeWebsiteDataAccess PermissionType = "website_data_access"
 )
 
+// Metadata keys for PermissionMetadata.
+const (
+	// PermissionMetadataKeyRequestingDomain is the origin that is requesting cross-site
+	// data access (i.e. the third-party domain asking for its cookies/storage).
+	PermissionMetadataKeyRequestingDomain = "requesting_domain"
+
+	// PermissionMetadataKeyCurrentDomain is the first-party domain currently loaded in
+	// the WebView — the context in which the cross-site request is happening.
+	PermissionMetadataKeyCurrentDomain = "current_domain"
+)
+
 // PermissionMetadata carries extra context for specific permission types.
-// Keys are permission-type-specific (e.g., "requesting_domain" for website_data_access).
+// For website_data_access, callers must populate both keys:
+//   - PermissionMetadataKeyRequestingDomain: the origin requesting cross-site data access
+//   - PermissionMetadataKeyCurrentDomain: the domain currently loaded in the WebView
 type PermissionMetadata map[string]string
 
 // PermissionDecision represents the user's decision for a permission.

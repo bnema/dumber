@@ -163,8 +163,8 @@ func TestPermissionDialog_BuildHeadingAndBody_DisplayCombinations(t *testing.T) 
 	// Test website_data_access with populated metadata (Epiphany-style rich message)
 	t.Run("website data access with both domains", func(t *testing.T) {
 		meta := entity.PermissionMetadata{
-			"requesting_domain": "accounts.google.com",
-			"current_domain":    "shop.example.com",
+			entity.PermissionMetadataKeyRequestingDomain: "accounts.google.com",
+			entity.PermissionMetadataKeyCurrentDomain:    "shop.example.com",
 		}
 		body := d.buildBody(origin, []entity.PermissionType{entity.PermissionTypeWebsiteDataAccess}, meta)
 		assert.Equal(t, origin+" wants to allow accounts.google.com to access its data (including cookies) while you browse shop.example.com.", body)

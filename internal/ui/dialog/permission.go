@@ -216,8 +216,8 @@ func (d *PermissionDialog) buildBody(
 		parts = append(parts, "share your screen")
 	}
 	if f.dataAccess {
-		reqDomain := metadata["requesting_domain"]
-		curDomain := metadata["current_domain"]
+		reqDomain := metadata[entity.PermissionMetadataKeyRequestingDomain]
+		curDomain := metadata[entity.PermissionMetadataKeyCurrentDomain]
 		if reqDomain != "" && curDomain != "" {
 			parts = append(parts, fmt.Sprintf(
 				"allow %s to access its data (including cookies) while you browse %s",

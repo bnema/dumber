@@ -552,8 +552,8 @@ func TestHandlePermissionUseCase_WebsiteDataAccess_ShowsDialogAndPersists(t *tes
 	}
 
 	meta := entity.PermissionMetadata{
-		"requesting_domain": "accounts.google.com",
-		"current_domain":    "shop.example.com",
+		entity.PermissionMetadataKeyRequestingDomain: "accounts.google.com",
+		entity.PermissionMetadataKeyCurrentDomain:    "shop.example.com",
 	}
 
 	// Dialog shows and user clicks "Always Allow"
@@ -605,7 +605,7 @@ func TestHandlePermissionUseCase_WebsiteDataAccess_UsesStoredGrant(t *testing.T)
 
 	uc.HandlePermissionRequest(ctx, "https://shop.example.com", []entity.PermissionType{
 		entity.PermissionTypeWebsiteDataAccess,
-	}, entity.PermissionMetadata{"requesting_domain": "accounts.google.com", "current_domain": "shop.example.com"}, callback)
+	}, entity.PermissionMetadata{entity.PermissionMetadataKeyRequestingDomain: "accounts.google.com", entity.PermissionMetadataKeyCurrentDomain: "shop.example.com"}, callback)
 
 	assert.True(t, allowed, "should use stored granted permission without dialog")
 	dialog.AssertNotCalled(t, "ShowPermissionDialog")

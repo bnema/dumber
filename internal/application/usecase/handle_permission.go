@@ -79,7 +79,9 @@ func (uc *HandlePermissionUseCase) getDialog() port.PermissionDialogPresenter {
 //   - ctx: context for cancellation and logging
 //   - origin: the website origin (URI) requesting permission
 //   - permTypes: the types of permissions being requested
-//   - metadata: permission-type-specific context (e.g., "requesting_domain" for website_data_access)
+//   - metadata: permission-type-specific context; for website_data_access both keys must be present:
+//     entity.PermissionMetadataKeyRequestingDomain — the origin requesting cross-site data access
+//     entity.PermissionMetadataKeyCurrentDomain    — the domain currently loaded in the WebView
 //   - callback: callbacks to allow or deny the request (must call one)
 func (uc *HandlePermissionUseCase) HandlePermissionRequest(
 	ctx context.Context,
