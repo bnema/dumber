@@ -1086,20 +1086,7 @@ func (wv *WebView) determinePermissionTypes(ctx context.Context, requestPtr uint
 			Str("current_domain", currentDomain).
 			Str("requesting_domain", requestingDomain).
 			Msg("website data access permission request")
-		override := ""
-		if requestingDomain != "" {
-			candidate := "https://" + requestingDomain
-			if normalized, err := urlutil.ExtractOrigin(candidate); err == nil {
-				override = normalized
-			} else {
-				wv.logger.Warn().
-					Str("requesting_domain", requestingDomain).
-					Err(err).
-					Msg("website data access: failed to normalize requesting domain, using raw")
-				override = candidate
-			}
-		}
-		return classifyPermissionRequestTypes(ctx, requestKind, false, false, false), override
+		return classifyPermissionRequestTypes(ctx, requestKind, false, false, false), ""
 	default:
 		if requestPtr != 0 {
 			typeName := permissionRequestTypeName(ctx, requestPtr)
