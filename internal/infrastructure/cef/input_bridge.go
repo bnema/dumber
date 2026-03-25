@@ -62,6 +62,11 @@ type inputBridge struct {
 	// Prevent GC from collecting signal callbacks.
 	commitCb func(gtk.IMContext, string)
 
+	// glArea is stored so we can GrabFocus on click. Without explicit
+	// focus grab, GTK may not fire the focus-enter signal and CEF won't
+	// show the text caret.
+	glArea *gtk.GLArea
+
 	// onMiddleClick is called when button 2 (middle) is pressed on a link.
 	// The callback receives the hovered URI. Set by the factory.
 	onMiddleClick func(uri string)
@@ -81,6 +86,8 @@ func (ib *inputBridge) setHost(host purecef.BrowserHost) {
 
 // attachTo creates GDK event controllers and connects them to the given GLArea.
 func (ib *inputBridge) attachTo(glArea *gtk.GLArea) {
+	ib.glArea = glArea
+
 	// Acquire GDK clipboard for paste support. CEF OSR can't access the
 	// Wayland clipboard, so we bridge it via GDK → ImeCommitText.
 	if display := gdk.DisplayGetDefault(); display != nil {
@@ -115,6 +122,12 @@ func (ib *inputBridge) attachTo(glArea *gtk.GLArea) {
 	click.SetButton(0) // listen to all buttons
 
 	pressedCb := func(g gtk.GestureClick, nPress int, x, y float64) {
+		// Ensure the GLArea has GTK focus so CEF receives SetFocus(1)
+		// and renders the text caret. Without this, clicking an input
+		// field may not show the blinking cursor.
+		if ib.glArea != nil {
+			ib.glArea.GrabFocus()
+		}
 		btn := g.GetCurrentButton()
 		mods := uint(g.GetCurrentEventState())
 		ib.onMousePress(x, y, btn, mods, nPress)

@@ -527,6 +527,13 @@ func (h *handlerSet) OnAfterCreated(browser purecef.Browser) {
 	// UI elements like the text caret until explicitly told the browser is shown.
 	host.WasHidden(0)
 
+	// If the GLArea already has GTK focus (cold start race), tell CEF now.
+	// The focus-enter event fired before the browser existed, so SetFocus
+	// was never called and the caret won't blink until the user clicks.
+	if h.wv.input != nil && h.wv.input.glArea != nil && h.wv.input.glArea.HasFocus() {
+		host.SetFocus(1)
+	}
+
 	// Replay any navigation that was requested before the browser existed.
 	if uri != "" {
 		if frame := browser.GetMainFrame(); frame != nil {
