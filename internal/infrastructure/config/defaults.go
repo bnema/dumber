@@ -147,7 +147,7 @@ func DefaultConfig() *Config {
 			Profile:          ProfileDefault,
 			PoolPrewarmCount: defaultWebViewPoolPrewarmCount,
 			ZoomCacheSize:    defaultZoomCacheSize,
-			CookiePolicy:     CookiePolicyNoThirdParty,
+			CookiePolicy:     CookiePolicyAlways,
 			WebKit: WebKitEngineConfig{
 				ITPEnabled:             true,
 				SkiaCPUPaintingThreads: defaultSkiaCPUPaintingThreads,

@@ -15,7 +15,7 @@ func TestDefaultConfig_CoreDefaults(t *testing.T) {
 	// Engine defaults (replaces old Performance/Privacy sections)
 	assert.Equal(t, "webkit", cfg.Engine.Type)
 	assert.Equal(t, ProfileDefault, cfg.Engine.Profile)
-	assert.Equal(t, CookiePolicyNoThirdParty, cfg.Engine.CookiePolicy)
+	assert.Equal(t, CookiePolicyAlways, cfg.Engine.CookiePolicy)
 	assert.True(t, cfg.Engine.WebKit.ITPEnabled)
 
 	// Old sections (Rendering, Privacy, Performance, Runtime) have been removed from Config.

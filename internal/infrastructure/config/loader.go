@@ -226,14 +226,14 @@ func normalizeEngineConfig(config *Config) {
 
 	// Normalize cookie policy (engine)
 	switch strings.ToLower(string(config.Engine.CookiePolicy)) {
-	case "", string(CookiePolicyNoThirdParty):
-		config.Engine.CookiePolicy = CookiePolicyNoThirdParty
-	case string(CookiePolicyAlways):
+	case "", string(CookiePolicyAlways):
 		config.Engine.CookiePolicy = CookiePolicyAlways
+	case string(CookiePolicyNoThirdParty):
+		config.Engine.CookiePolicy = CookiePolicyNoThirdParty
 	case string(CookiePolicyNever):
 		config.Engine.CookiePolicy = CookiePolicyNever
 	default:
-		config.Engine.CookiePolicy = CookiePolicyNoThirdParty
+		config.Engine.CookiePolicy = CookiePolicyAlways
 	}
 
 	// Normalize performance profile (engine)

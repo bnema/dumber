@@ -14,7 +14,7 @@ func TestSetEngineDefaults(t *testing.T) {
 	// Universal engine fields
 	assert.Equal(t, "webkit", mgr.viper.GetString("engine.type"))
 	assert.Equal(t, "default", mgr.viper.GetString("engine.profile"))
-	assert.Equal(t, "no_third_party", mgr.viper.GetString("engine.cookie_policy"))
+	assert.Equal(t, "always", mgr.viper.GetString("engine.cookie_policy"))
 	assert.Equal(t, 4, mgr.viper.GetInt("engine.pool_prewarm_count"))
 	assert.Equal(t, 256, mgr.viper.GetInt("engine.zoom_cache_size"))
 
@@ -37,5 +37,5 @@ func TestNormalizeConfig_EngineCookiePolicy(t *testing.T) {
 
 	normalizeConfig(cfg)
 
-	assert.Equal(t, CookiePolicyNoThirdParty, cfg.Engine.CookiePolicy)
+	assert.Equal(t, CookiePolicyAlways, cfg.Engine.CookiePolicy)
 }
