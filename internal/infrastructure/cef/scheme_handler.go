@@ -47,6 +47,10 @@ type dumbSchemeHandler struct {
 	logger        zerolog.Logger
 	hwSurveyor    *env.HardwareSurveyor
 	mu            sync.RWMutex
+
+	// onClipboardSet is called when JS sends copied text via /api/clipboard-set.
+	// Set by the engine to write to the GDK system clipboard.
+	onClipboardSet func(text string)
 }
 
 // newDumbSchemeHandler creates a handler for internal CEF pages.
@@ -136,6 +140,9 @@ func (h *dumbSchemeHandler) handleAPI(method, path string, request purecef.Reque
 	case path == "/api/transcode" && (method == "" || strings.EqualFold(method, "GET")):
 		return h.handleTranscodeAPI(request)
 
+	case path == "/api/clipboard-set" && strings.EqualFold(method, "POST"):
+		return h.handleClipboardSet(request)
+
 	default:
 		return h.newJSONResourceHandler(http.StatusNotFound, map[string]string{"error": "not found"})
 	}
@@ -205,6 +212,28 @@ func (h *dumbSchemeHandler) handleConfigAPI(cfg *config.Config) purecef.Resource
 		return h.newJSONResourceHandler(http.StatusInternalServerError, map[string]string{"error": err.Error()})
 	}
 	return h.newRawResourceHandler(http.StatusOK, "application/json", data)
+}
+
+// handleClipboardSet receives copied text from JS copy/cut events and writes
+// it to the system clipboard via the engine callback.
+func (h *dumbSchemeHandler) handleClipboardSet(request purecef.Request) purecef.ResourceHandler {
+	body := readBodyFromHeader(request)
+	if body == nil {
+		return h.newJSONResourceHandler(http.StatusBadRequest, map[string]string{"error": "empty body"})
+	}
+
+	var payload struct {
+		Text string `json:"text"`
+	}
+	if err := json.Unmarshal(body, &payload); err != nil || payload.Text == "" {
+		return h.newJSONResourceHandler(http.StatusBadRequest, map[string]string{"error": "invalid payload"})
+	}
+
+	if h.onClipboardSet != nil {
+		h.onClipboardSet(payload.Text)
+	}
+
+	return h.newJSONResourceHandler(http.StatusOK, map[string]string{"ok": "true"})
 }
 
 func (h *dumbSchemeHandler) newRedirectResourceHandler(status int, location string) purecef.ResourceHandler {

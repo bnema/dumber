@@ -11,6 +11,7 @@ import (
 
 	purecef "github.com/bnema/purego-cef/cef"
 	"github.com/bnema/puregotk/v4/gdk"
+	"github.com/bnema/puregotk/v4/glib"
 	"github.com/rs/zerolog"
 
 	"github.com/bnema/dumber/assets"
@@ -180,6 +181,20 @@ func wireEngine(
 	messageRouter := NewMessageRouter(ctx)
 	schemeHandler := newDumbSchemeHandler(ctx, messageRouter, mediaTranscoder)
 	schemeHandler.setAssets(assets.WebUIAssets)
+
+	// Bridge clipboard writes from CEF JS → GDK system clipboard.
+	// The callback is invoked on the CEF IO thread, so we schedule the
+	// GDK write on the GTK main loop via glib.IdleAddOnce.
+	schemeHandler.onClipboardSet = func(text string) {
+		fn := glib.SourceOnceFunc(func(_ uintptr) {
+			if display := gdk.DisplayGetDefault(); display != nil {
+				if cb := display.GetClipboard(); cb != nil {
+					cb.SetText(text)
+				}
+			}
+		})
+		glib.IdleAddOnce(&fn, 0)
+	}
 
 	schemeFactory := purecef.NewSchemeHandlerFactory(schemeHandler)
 

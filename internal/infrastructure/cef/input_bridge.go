@@ -5,6 +5,7 @@ import (
 
 	purecef "github.com/bnema/purego-cef/cef"
 	"github.com/bnema/puregotk/v4/gdk"
+	"github.com/bnema/puregotk/v4/gio"
 	"github.com/bnema/puregotk/v4/gtk"
 )
 
@@ -45,6 +46,11 @@ type inputBridge struct {
 	// carry their own coordinates from GDK.
 	lastX, lastY float64
 
+	// GDK clipboard for paste support. CEF in OSR mode cannot access the
+	// Wayland clipboard directly, so we read from GDK and inject via
+	// ImeCommitText. Set once during attachTo, read-only afterwards.
+	clipboard *gdk.Clipboard
+
 	// IMContext for dead key / compose sequence support. Held as a field
 	// to prevent garbage collection while the controller is alive.
 	imContext *gtk.IMContextSimple
@@ -70,6 +76,12 @@ func (ib *inputBridge) setHost(host purecef.BrowserHost) {
 
 // attachTo creates GDK event controllers and connects them to the given GLArea.
 func (ib *inputBridge) attachTo(glArea *gtk.GLArea) {
+	// Acquire GDK clipboard for paste support. CEF OSR can't access the
+	// Wayland clipboard, so we bridge it via GDK → ImeCommitText.
+	if display := gdk.DisplayGetDefault(); display != nil {
+		ib.clipboard = display.GetClipboard()
+	}
+
 	// Motion (mouse move + enter/leave)
 	motion := gtk.NewEventControllerMotion()
 	motionCb := func(g gtk.EventControllerMotion, x, y float64) {
@@ -162,6 +174,16 @@ func (ib *inputBridge) attachFocusAndKeyboard(glArea *gtk.GLArea) {
 
 	keyPressCb := func(_ gtk.EventControllerKey, keyval, keycode uint, state gdk.ModifierType) bool {
 		mods := uint(state)
+
+		// Intercept Ctrl+V / Ctrl+Shift+V: CEF OSR cannot access the
+		// Wayland/X11 clipboard, so we read from GDK and inject via
+		// ImeCommitText instead of letting CEF handle the paste.
+		if mods&uint(gdk.ControlMaskValue) != 0 &&
+			(keyval == gdkKeyLowercaseV || keyval == gdkKeyUppercaseV) {
+			ib.pasteFromClipboard()
+			return true
+		}
+
 		ib.onKeyPress(keyval, keycode, mods)
 
 		// Let modifier combos and function keys propagate to the window's
@@ -354,6 +376,41 @@ func (ib *inputBridge) onKeyRelease(keyval, keycode, mods uint) {
 	host.SendKeyEvent(&evt)
 }
 
+// pasteFromClipboard reads text from the GDK clipboard asynchronously and
+// injects it into the focused CEF input via ImeCommitText. This bridges the
+// gap where CEF OSR mode cannot read the Wayland/X11 system clipboard.
+func (ib *inputBridge) pasteFromClipboard() {
+	cb := ib.clipboard
+	if cb == nil {
+		return
+	}
+	ib.mu.Lock()
+	host := ib.host
+	ib.mu.Unlock()
+	if host == nil {
+		return
+	}
+
+	asyncCb := gio.AsyncReadyCallback(func(_, resultPtr, _ uintptr) {
+		result := &gio.AsyncResultBase{}
+		result.SetGoPointer(resultPtr)
+		text, err := cb.ReadTextFinish(result)
+		if err != nil || text == "" {
+			return
+		}
+		// The GLib async callback runs on the main loop (UI thread),
+		// which is the correct thread for CEF ImeCommitText.
+		ib.mu.Lock()
+		h := ib.host
+		ib.mu.Unlock()
+		if h != nil {
+			h.ImeCommitText(text, nil, 0)
+		}
+	})
+
+	cb.ReadTextAsync(nil, &asyncCb, 0)
+}
+
 // ---------------------------------------------------------------------------
 // Translation helpers
 // ---------------------------------------------------------------------------
@@ -436,6 +493,10 @@ const (
 	gdkKeyEnd       = 0xff57
 	gdkKeyPageUp    = 0xff55
 	gdkKeyPageDown  = 0xff56
+
+	// Clipboard shortcut keyvals.
+	gdkKeyLowercaseV = 0x076
+	gdkKeyUppercaseV = 0x056
 )
 
 // keyvalToChar converts a GDK keyval to a UTF-16 character for CEF CHAR events.
