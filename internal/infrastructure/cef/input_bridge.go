@@ -2,6 +2,7 @@ package cef
 
 import (
 	"context"
+	"strings"
 	"sync"
 
 	purecef "github.com/bnema/purego-cef/cef"
@@ -392,8 +393,9 @@ func (ib *inputBridge) onKeyRelease(keyval, keycode, mods uint) {
 }
 
 // pasteFromClipboard reads text from the GDK clipboard asynchronously and
-// injects it into the focused CEF input via ImeCommitText. This bridges the
-// gap where CEF OSR mode cannot read the Wayland/X11 system clipboard.
+// injects it into the focused CEF input via document.execCommand('insertText').
+// ImeCommitText only works during active IME compositions, so we use JS
+// injection which works for any focused editable element.
 func (ib *inputBridge) pasteFromClipboard() {
 	log := logging.FromContext(ib.ctx)
 
@@ -426,23 +428,47 @@ func (ib *inputBridge) pasteFromClipboard() {
 			return
 		}
 
-		log.Debug().Int("text_len", len(text)).Msg("cef: injecting clipboard text via ImeCommitText")
+		log.Debug().Int("text_len", len(text)).Msg("cef: injecting clipboard text via JS execCommand")
 
-		// The GLib async callback runs on the main loop (UI thread),
-		// which is the correct thread for CEF ImeCommitText.
 		ib.mu.Lock()
 		h := ib.host
 		ib.mu.Unlock()
-		if h != nil {
-			h.ImeCommitText(text, nil, 0)
-			log.Debug().Msg("cef: ImeCommitText completed")
-		} else {
-			log.Warn().Msg("cef: paste — host became nil before ImeCommitText")
+		if h == nil {
+			log.Warn().Msg("cef: paste — host became nil before JS injection")
+			return
 		}
+
+		browser := h.GetBrowser()
+		if browser == nil {
+			log.Warn().Msg("cef: paste — GetBrowser returned nil")
+			return
+		}
+		frame := browser.GetMainFrame()
+		if frame == nil {
+			log.Warn().Msg("cef: paste — GetMainFrame returned nil")
+			return
+		}
+
+		// Escape the text for embedding in a JS string literal.
+		escaped := escapeForJSInsert(text)
+		js := "document.execCommand('insertText',false,'" + escaped + "')"
+		frame.ExecuteJavaScript(js, "", 0)
+		log.Debug().Msg("cef: paste JS executed")
 	})
 
 	cb.ReadTextAsync(nil, &asyncCb, 0)
 	log.Debug().Msg("cef: ReadTextAsync dispatched")
+}
+
+// escapeForJSInsert escapes text for safe embedding in a JS single-quoted string.
+func escapeForJSInsert(s string) string {
+	s = strings.ReplaceAll(s, "\\", "\\\\")
+	s = strings.ReplaceAll(s, "'", "\\'")
+	s = strings.ReplaceAll(s, "\n", "\\n")
+	s = strings.ReplaceAll(s, "\r", "\\r")
+	s = strings.ReplaceAll(s, "\u2028", "\\u2028")
+	s = strings.ReplaceAll(s, "\u2029", "\\u2029")
+	return s
 }
 
 // ---------------------------------------------------------------------------
