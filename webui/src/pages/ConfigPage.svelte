@@ -158,7 +158,7 @@
   }
 
   function isPerformanceSupported(cfg: ConfigDTO | null): boolean {
-    return cfg?.engine_type !== "cef";
+    return cfg != null && cfg.engine_type !== "cef";
   }
 
   // Load config from API

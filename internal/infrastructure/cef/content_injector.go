@@ -3,6 +3,7 @@ package cef
 import (
 	"context"
 	"fmt"
+	"os"
 	"strings"
 	"sync"
 
@@ -118,7 +119,12 @@ const videoDiagnosticJS = `(function(){
   }
 
   // Patch attachShadow to automatically observe new shadow roots.
-  var origAttach = Element.prototype.attachShadow;
+  // Use a marker to avoid double-patching if redditDirectVideoJS also patches.
+  var origAttach = Element.prototype.__dumberOrigAttachShadow || Element.prototype.attachShadow;
+  if (!Element.prototype.__dumberPatched) {
+    Element.prototype.__dumberOrigAttachShadow = origAttach;
+    Element.prototype.__dumberPatched = true;
+  }
   Element.prototype.attachShadow = function(opts) {
     var sr = origAttach.call(this, opts);
     console.warn(tag, 'shadowRoot attached on', this.tagName.toLowerCase());
@@ -355,15 +361,22 @@ const redditDirectVideoJS = `(function(){
     attributeFilter: ['src']
   });
 
-  var origAttach = Element.prototype.attachShadow;
+  // Chain to existing attachShadow patch (e.g. videoDiagnosticJS) instead of overwriting.
+  var prevAttach = Element.prototype.attachShadow;
   Element.prototype.attachShadow = function(opts) {
-    var sr = origAttach.call(this, opts);
+    var sr = prevAttach.call(this, opts);
     patchTree(sr);
     return sr;
   };
 
   patchTree(document);
-  setInterval(function() { patchTree(document); }, 1000);
+  var pollCount = 0;
+  var maxPolls = 30;
+  var pollID = setInterval(function() {
+    patchTree(document);
+    pollCount++;
+    if (pollCount >= maxPolls) clearInterval(pollID);
+  }, 1000);
 })();`
 
 // contentInjector implements port.ContentInjector for the CEF engine.
@@ -371,11 +384,12 @@ const redditDirectVideoJS = `(function(){
 // Thread-safe: InjectThemeCSS may be called from the UI thread while OnLoadEnd
 // fires on the CEF IO thread.
 type contentInjector struct {
-	mu               sync.RWMutex
-	themeCSS         string
-	findHighlightCSS string
-	engine           *Engine
-	colorResolver    port.ColorSchemeResolver
+	mu                      sync.RWMutex
+	themeCSS                string
+	findHighlightCSS        string
+	engine                  *Engine
+	colorResolver           port.ColorSchemeResolver
+	videoDiagnosticsEnabled bool
 }
 
 // setColorResolver updates the color scheme resolver used for dark mode detection.
@@ -386,10 +400,17 @@ func (ci *contentInjector) setColorResolver(resolver port.ColorSchemeResolver) {
 }
 
 // newContentInjector creates a content injector wired to the given engine.
+// Video diagnostics are enabled when DUMBER_VIDEO_DIAG=1 is set.
 func newContentInjector(engine *Engine, resolver port.ColorSchemeResolver) *contentInjector {
+	diagEnabled := false
+	switch strings.ToLower(strings.TrimSpace(os.Getenv("DUMBER_VIDEO_DIAG"))) {
+	case "1", "true", "yes", "on":
+		diagEnabled = true
+	}
 	return &contentInjector{
-		engine:        engine,
-		colorResolver: resolver,
+		engine:                  engine,
+		colorResolver:           resolver,
+		videoDiagnosticsEnabled: diagEnabled,
 	}
 }
 
@@ -483,8 +504,10 @@ func (ci *contentInjector) onLoadEnd(wv *WebView) {
 	wv.RunJavaScript(context.Background(), scrollbarAutoHideJS)
 
 	// Video playback diagnostic — logs video element state changes.
-	// TODO: remove once video playback is stable.
-	wv.RunJavaScript(context.Background(), videoDiagnosticJS)
+	// Gated behind DUMBER_VIDEO_DIAG=1 environment variable.
+	if ci.videoDiagnosticsEnabled {
+		wv.RunJavaScript(context.Background(), videoDiagnosticJS)
+	}
 
 	if strings.Contains(uri, "reddit.com") {
 		wv.RunJavaScript(context.Background(), redditDirectVideoJS)

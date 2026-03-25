@@ -114,6 +114,9 @@ func (d *Dependencies) Validate() error {
 	if d.Engine == nil {
 		return ErrMissingDependency("Engine")
 	}
+	if d.HandlerDeps.SaveConfig == nil {
+		return ErrMissingDependency("HandlerDeps.SaveConfig")
+	}
 	// Use cases are optional - can be nil if not needed
 	return nil
 }

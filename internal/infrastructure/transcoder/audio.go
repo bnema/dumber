@@ -132,8 +132,13 @@ func newAudioTranscoder(inCodecPar, outFmtCtx unsafe.Pointer, inStreamIdx int) (
 		ffmpeg.AVOptSet(swr, "in_sample_fmt", ffmpeg.GetSampleFmtName(inSampleFmt), 0)
 		ffmpeg.AVOptSet(swr, "out_sample_fmt", ffmpeg.GetSampleFmtName(int32(ffmpeg.SampleFormatSampleFmtFltp)), 0)
 
-		// Channel layout is inherited from the decoder context via av_opt.
-		// SwrContext reads in_chlayout / out_chlayout — we keep them identical.
+		// Modern FFmpeg (8.x) requires explicit channel layout configuration
+		// on the SwrContext. Without it, swr_init may succeed but the resampler
+		// operates with 0 channels and produces silence. Copy the decoder's
+		// channel layout to both in and out (we keep them identical — same
+		// number of channels, only sample rate/format changes).
+		swrSetChLayoutFromCodecCtx(swr, decCtx, offsetSwrInChLayout)
+		swrSetChLayoutFromCodecCtx(swr, decCtx, offsetSwrOutChLayout)
 
 		if ret := ffmpeg.SwrInit(swr); ret < 0 {
 			ffmpeg.SwrFree(unsafe.Pointer(&swr))
@@ -221,8 +226,11 @@ func (a *audioTranscoder) processPacket(pkt, outFmtCtx unsafe.Pointer) error {
 		if a.resampler != nil {
 			encFrame = a.frame
 
-			// Get the decoded frame's data and linesize pointers.
-			// Frame data[0] is at offset 0, linesize is not needed for swr.
+			// AVFrame.data[0] is the first field at offset 0, so casting the
+			// frame pointer to *unsafe.Pointer yields &data[0]. This is the
+			// standard FFmpeg pattern for passing data pointers to swr_convert.
+			// purego-ffmpeg does not expose typed accessors for the data array,
+			// so raw pointer arithmetic is the only option.
 			inData := (*unsafe.Pointer)(frame)
 			outData := (*unsafe.Pointer)(a.frame)
 			inSamples := frameNbSamples(frame)
@@ -291,7 +299,7 @@ func (a *audioTranscoder) processPacket(pkt, outFmtCtx unsafe.Pointer) error {
 // flush drains remaining frames from the decoder and encoder.
 // The logger parameter is used to report non-fatal resampling errors
 // that occur during flush (we continue flushing rather than aborting).
-func (a *audioTranscoder) flush(outFmtCtx unsafe.Pointer, logger zerolog.Logger) error {
+func (a *audioTranscoder) flush(outFmtCtx unsafe.Pointer, logger zerolog.Logger) {
 	// Flush decoder by sending NULL packet.
 	ffmpeg.CodecSendPacket(a.decoder, nil)
 
@@ -308,6 +316,8 @@ func (a *audioTranscoder) flush(outFmtCtx unsafe.Pointer, logger zerolog.Logger)
 		encFrame := frame
 		if a.resampler != nil {
 			encFrame = a.frame
+			// See processPacket for why these casts are safe: AVFrame.data[0]
+			// is at offset 0, so the frame pointer itself is &data[0].
 			inData := (*unsafe.Pointer)(frame)
 			outData := (*unsafe.Pointer)(a.frame)
 			inSamples := frameNbSamples(frame)
@@ -364,8 +374,6 @@ func (a *audioTranscoder) flush(outFmtCtx unsafe.Pointer, logger zerolog.Logger)
 		ffmpeg.InterleavedWriteFrame(outFmtCtx, encPkt)
 		ffmpeg.PacketUnref(encPkt)
 	}
-
-	return nil
 }
 
 // close frees all FFmpeg resources owned by the audio transcoder.

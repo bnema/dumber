@@ -32,19 +32,24 @@ function getBridgeBootstrap(): string {
             return nativeBridge.postMessage(msg);
           }
 
-          const encoded = btoa(unescape(encodeURIComponent(JSON.stringify(msg))));
-          const response = await fetch("/api/message", {
-            method: "POST",
-            headers: {
-              "Content-Type": "application/json",
-              "X-Dumber-Body": encoded
+          try {
+            const encoded = btoa(unescape(encodeURIComponent(JSON.stringify(msg))));
+            const response = await fetch("/api/message", {
+              method: "POST",
+              headers: {
+                "Content-Type": "application/json",
+                "X-Dumber-Body": encoded
+              }
+            });
+            const payload = await response.json();
+            if (payload && payload._callback && typeof window[payload._callback] === "function") {
+              window[payload._callback](payload.data);
             }
-          });
-          const payload = await response.json();
-          if (payload && payload._callback && typeof window[payload._callback] === "function") {
-            window[payload._callback](payload.data);
+            return payload;
+          } catch (err) {
+            console.error("[dumber:bridge] fetch bridge error:", err);
+            return { error: err instanceof Error ? err.message : String(err) };
           }
-          return payload;
         }
       };
 

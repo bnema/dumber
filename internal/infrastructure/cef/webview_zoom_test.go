@@ -2,8 +2,9 @@ package cef
 
 import (
 	"fmt"
-	"math"
 	"testing"
+
+	"github.com/stretchr/testify/assert"
 )
 
 func TestZoomConversionsRoundTrip(t *testing.T) {
@@ -12,9 +13,7 @@ func TestZoomConversionsRoundTrip(t *testing.T) {
 		t.Run(fmt.Sprintf("factor_%.1f", factor), func(t *testing.T) {
 			level := cefZoomFromFactor(factor)
 			got := factorFromCEFZoom(level)
-			if math.Abs(got-factor) > 1e-9 {
-				t.Errorf("round-trip mismatch for factor %.6f: level %.6f -> factor %.12f", factor, level, got)
-			}
+			assert.InDelta(t, factor, got, 1e-9, "round-trip mismatch for factor %.6f: level %.6f -> factor %.12f", factor, level, got)
 		})
 	}
 }

@@ -98,6 +98,9 @@ type glLoader struct {
 
 // Close releases the OpenGL library handle.
 func (gl *glLoader) Close() error {
+	if gl == nil {
+		return nil
+	}
 	if gl.handle != 0 {
 		err := purego.Dlclose(gl.handle)
 		gl.handle = 0

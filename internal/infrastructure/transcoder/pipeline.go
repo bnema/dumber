@@ -191,9 +191,14 @@ func (p *pipeline) doRun(ctx context.Context) error {
 			audioIdx = -1
 		}
 	}
-	if audioTx != nil {
-		defer audioTx.close()
-	}
+	// Use a closure so the defer sees the current value of audioTx at
+	// cleanup time. This allows us to close and nil-out audioTx mid-loop
+	// (e.g., on audio processing error) without double-closing.
+	defer func() {
+		if audioTx != nil {
+			audioTx.close()
+		}
+	}()
 
 	// --- Step 12: Write header ---
 	if ret := ffmpeg.FormatWriteHeader(outFmtCtx, nil); ret < 0 {
@@ -244,8 +249,16 @@ func (p *pipeline) doRun(ctx context.Context) error {
 
 		case audioTx != nil && streamIdx == audioIdx:
 			if err := audioTx.processPacket(pkt, outFmtCtx); err != nil {
-				ffmpeg.PacketUnref(pkt)
-				return fmt.Errorf("audio transcode: %w", err)
+				// Audio errors are non-fatal: log warning, disable audio,
+				// and continue with video-only output. This matches the
+				// non-fatal handling of audio init failure above.
+				p.logger.Warn().
+					Str("session_id", p.sessionID).
+					Err(err).
+					Msg("audio processing failed, continuing with video only")
+				audioTx.close()
+				audioTx = nil
+				audioIdx = -1
 			}
 		}
 
@@ -383,15 +396,20 @@ func (p *pipeline) openCustomIOInputContext(ctx context.Context) (unsafe.Pointer
 			return -1
 		}
 		goBuf := unsafe.Slice((*byte)(buf), int(bufSize))
-		n, readErr := body.Read(goBuf)
-		if n > 0 {
-			return int32(n)
+		// Retry up to 3 times for the edge case where body.Read returns
+		// n=0, err=nil (allowed by the io.Reader contract but unusual).
+		for tries := 0; tries < 3; tries++ {
+			n, readErr := body.Read(goBuf)
+			if n > 0 {
+				return int32(n)
+			}
+			if readErr != nil {
+				// Return AVERROR_EOF for EOF, generic error otherwise.
+				return averrorEOF
+			}
+			// n == 0 && err == nil: retry
 		}
-		if readErr != nil {
-			// Return AVERROR_EOF for EOF, generic error otherwise.
-			return averrorEOF
-		}
-		return -1
+		return averrorEOF
 	}
 	p.readCb = purego.NewCallback(readFn)
 

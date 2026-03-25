@@ -36,13 +36,14 @@ func New(cfg config.TranscodingConfig, logger *zerolog.Logger) *Transcoder {
 		maxConc = 2
 	}
 
-	quality := cfg.Quality
-	if quality == "" {
-		quality = "medium"
-	}
-	cfg.Quality = quality
+	// Work on a local copy to avoid mutating a potentially shared config.
+	localCfg := cfg
 
-	hwaccel := cfg.HWAccel
+	if localCfg.Quality == "" {
+		localCfg.Quality = "medium"
+	}
+
+	hwaccel := localCfg.HWAccel
 	if hwaccel == "" {
 		hwaccel = "auto"
 	}
@@ -62,7 +63,7 @@ func New(cfg config.TranscodingConfig, logger *zerolog.Logger) *Transcoder {
 	}
 
 	return &Transcoder{
-		cfg:    cfg,
+		cfg:    localCfg,
 		hwCaps: hwCaps,
 		pool:   newSessionPool(maxConc),
 		logger: l,

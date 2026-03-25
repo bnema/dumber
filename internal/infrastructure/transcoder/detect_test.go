@@ -163,19 +163,90 @@ func TestIsEagerTranscodeURL(t *testing.T) {
 }
 
 func TestParseSyntheticTranscodeURL(t *testing.T) {
-	rawURL := "https://www.reddit.com/__dumber__/transcode.webm?src=https%3A%2F%2Fv.redd.it%2Fabc%2FHLSPlaylist.m3u8&referer=https%3A%2F%2Fwww.reddit.com%2Fr%2FOpenAI&origin=https%3A%2F%2Fwww.reddit.com"
+	tests := []struct {
+		name     string
+		rawURL   string
+		wantSrc  string
+		wantRef  string
+		wantOrig string
+		wantOK   bool
+	}{
+		{
+			name:     "valid with all params",
+			rawURL:   "https://www.reddit.com/__dumber__/transcode.webm?src=https%3A%2F%2Fv.redd.it%2Fabc%2FHLSPlaylist.m3u8&referer=https%3A%2F%2Fwww.reddit.com%2Fr%2FOpenAI&origin=https%3A%2F%2Fwww.reddit.com",
+			wantSrc:  "https://v.redd.it/abc/HLSPlaylist.m3u8",
+			wantRef:  "https://www.reddit.com/r/OpenAI",
+			wantOrig: "https://www.reddit.com",
+			wantOK:   true,
+		},
+		{
+			name:     "valid without referer and origin",
+			rawURL:   "https://example.com/__dumber__/transcode.webm?src=https%3A%2F%2Fcdn.example.com%2Fvideo.mp4",
+			wantSrc:  "https://cdn.example.com/video.mp4",
+			wantRef:  "",
+			wantOrig: "",
+			wantOK:   true,
+		},
+		{
+			name:   "empty URL",
+			rawURL: "",
+			wantOK: false,
+		},
+		{
+			name:   "missing src parameter",
+			rawURL: "https://example.com/__dumber__/transcode.webm?referer=https%3A%2F%2Fexample.com",
+			wantOK: false,
+		},
+		{
+			name:   "wrong path",
+			rawURL: "https://example.com/other/path?src=https%3A%2F%2Fcdn.example.com%2Fvideo.mp4",
+			wantOK: false,
+		},
+		{
+			name:   "src with no host",
+			rawURL: "https://example.com/__dumber__/transcode.webm?src=not-a-url",
+			wantOK: false,
+		},
+		{
+			name:   "src with non-http scheme",
+			rawURL: "https://example.com/__dumber__/transcode.webm?src=ftp%3A%2F%2Fcdn.example.com%2Fvideo.mp4",
+			wantOK: false,
+		},
+		{
+			name:   "src is empty string",
+			rawURL: "https://example.com/__dumber__/transcode.webm?src=",
+			wantOK: false,
+		},
+		{
+			name:   "src is whitespace",
+			rawURL: "https://example.com/__dumber__/transcode.webm?src=%20%20",
+			wantOK: false,
+		},
+		{
+			name:   "unparseable URL",
+			rawURL: "://invalid",
+			wantOK: false,
+		},
+	}
 
-	sourceURL, referer, origin, ok := ParseSyntheticTranscodeURL(rawURL)
-	if !ok {
-		t.Fatalf("ParseSyntheticTranscodeURL(%q) = !ok, want ok", rawURL)
-	}
-	if sourceURL != "https://v.redd.it/abc/HLSPlaylist.m3u8" {
-		t.Fatalf("sourceURL = %q", sourceURL)
-	}
-	if referer != "https://www.reddit.com/r/OpenAI" {
-		t.Fatalf("referer = %q", referer)
-	}
-	if origin != "https://www.reddit.com" {
-		t.Fatalf("origin = %q", origin)
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			src, ref, orig, ok := ParseSyntheticTranscodeURL(tt.rawURL)
+			if ok != tt.wantOK {
+				t.Fatalf("ParseSyntheticTranscodeURL(%q) ok = %v, want %v", tt.rawURL, ok, tt.wantOK)
+			}
+			if !tt.wantOK {
+				return
+			}
+			if src != tt.wantSrc {
+				t.Errorf("sourceURL = %q, want %q", src, tt.wantSrc)
+			}
+			if ref != tt.wantRef {
+				t.Errorf("referer = %q, want %q", ref, tt.wantRef)
+			}
+			if orig != tt.wantOrig {
+				t.Errorf("origin = %q, want %q", orig, tt.wantOrig)
+			}
+		})
 	}
 }

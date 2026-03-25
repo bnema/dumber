@@ -80,6 +80,9 @@ func (rh *transcodingResourceHandler) GetResponseHeaders(response purecef.Respon
 	response.SetStatusText("OK")
 	response.SetMimeType("video/webm")
 	response.SetHeaderByName("Accept-Ranges", "none", 1)
+	// CORS wildcard is required because transcoded streams are loaded by <video>
+	// elements on arbitrary origins (e.g. reddit.com). The streams contain no
+	// sensitive data — they are re-encoded from publicly-accessible media URLs.
 	response.SetHeaderByName("Access-Control-Allow-Origin", "*", 1)
 	response.SetHeaderByName("Cache-Control", "no-store", 1)
 	// Streaming — unknown length.
@@ -264,7 +267,13 @@ func (h *transcodingRequestHandler) GetResourceHandler(_ purecef.Browser, _ pure
 		return nil
 	}
 
-	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Minute)
+	parentCtx := context.Background()
+	if h.ctxf != nil {
+		if provided := h.ctxf(); provided != nil {
+			parentCtx = provided
+		}
+	}
+	ctx, cancel := context.WithTimeout(parentCtx, 5*time.Minute)
 	h.logger().Info().
 		Str("url", logging.TruncateURL(url, 240)).
 		Str("source_url", logging.TruncateURL(sourceURL, 240)).

@@ -175,7 +175,7 @@ func (h *dumbSchemeHandler) handleTranscodeAPI(request purecef.Request) purecef.
 		headers["Origin"] = origin
 	}
 
-	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Minute)
+	ctx, cancel := context.WithTimeout(h.ctx, 5*time.Minute)
 	h.logger.Info().
 		Str("source_url", logging.TruncateURL(sourceURL, 240)).
 		Int("forwarded_header_count", len(headers)).

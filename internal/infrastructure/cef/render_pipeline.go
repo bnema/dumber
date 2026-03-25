@@ -474,47 +474,73 @@ func (rp *renderPipeline) uploadToPBO(dirtyRects []rect, fullUpload bool, render
 }
 
 func (rp *renderPipeline) uploadPopupTexture(renderSeq, paintSeq uint64) bool {
+	// Copy staging data under lock, then release to avoid holding the mutex
+	// during GL upload calls which may block on GPU synchronization.
 	rp.mu.Lock()
-	defer rp.mu.Unlock()
 
 	if !rp.popupVisible || rp.popupWidth <= 0 || rp.popupHeight <= 0 || len(rp.popupStaging) == 0 {
+		rp.mu.Unlock()
 		return false
 	}
 
 	if !rp.popupNeedsUpload && !rp.popupSizeChanged && rp.popupTexture != 0 {
+		rp.mu.Unlock()
 		return true
 	}
 
+	// Snapshot the staging data and dimensions while holding the lock.
+	pixelsCopy := make([]byte, len(rp.popupStaging))
+	copy(pixelsCopy, rp.popupStaging)
+	popupW := rp.popupWidth
+	popupH := rp.popupHeight
+	sizeChanged := rp.popupSizeChanged
+	needsCreate := rp.popupTexture == 0
+
+	rp.mu.Unlock()
+
+	// Perform GL operations without the lock.
 	gl := rp.gl
 
-	if rp.popupTexture == 0 {
-		gl.genTextures(1, &rp.popupTexture)
-		gl.bindTexture(glTexture2D, rp.popupTexture)
+	if needsCreate {
+		var tex uint32
+		gl.genTextures(1, &tex)
+		gl.bindTexture(glTexture2D, tex)
 		gl.texParameteri(glTexture2D, glTextureMinFilter, int32(glLinear))
 		gl.texParameteri(glTexture2D, glTextureMagFilter, int32(glLinear))
 		gl.texParameteri(glTexture2D, glTextureWrapS, int32(glClampToEdge))
 		gl.texParameteri(glTexture2D, glTextureWrapT, int32(glClampToEdge))
+
+		// Store the texture ID under lock.
+		rp.mu.Lock()
+		rp.popupTexture = tex
+		rp.mu.Unlock()
 	} else {
-		gl.bindTexture(glTexture2D, rp.popupTexture)
+		rp.mu.Lock()
+		tex := rp.popupTexture
+		rp.mu.Unlock()
+		gl.bindTexture(glTexture2D, tex)
 	}
 
-	pixels := unsafe.Pointer(&rp.popupStaging[0])
-	if rp.popupSizeChanged {
-		gl.texImage2D(glTexture2D, 0, int32(glRGBA), rp.popupWidth, rp.popupHeight, 0, glBGRA, glUnsignedByte, pixels)
+	pixels := unsafe.Pointer(&pixelsCopy[0])
+	if sizeChanged {
+		gl.texImage2D(glTexture2D, 0, int32(glRGBA), popupW, popupH, 0, glBGRA, glUnsignedByte, pixels)
 	} else {
-		gl.texSubImage2D(glTexture2D, 0, 0, 0, rp.popupWidth, rp.popupHeight, glBGRA, glUnsignedByte, pixels)
+		gl.texSubImage2D(glTexture2D, 0, 0, 0, popupW, popupH, glBGRA, glUnsignedByte, pixels)
 	}
 	gl.bindTexture(glTexture2D, 0)
 
+	// Update state under lock.
+	rp.mu.Lock()
 	rp.popupNeedsUpload = false
 	rp.popupSizeChanged = false
+	rp.mu.Unlock()
 
 	if rp.ctx != nil {
 		logging.FromContext(rp.ctx).Debug().
 			Uint64("render_seq", renderSeq).
 			Uint64("paint_seq", paintSeq).
-			Int32("popup_width", rp.popupWidth).
-			Int32("popup_height", rp.popupHeight).
+			Int32("popup_width", popupW).
+			Int32("popup_height", popupH).
 			Msg("cef: popup texture uploaded")
 	}
 

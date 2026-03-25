@@ -10,6 +10,12 @@ import (
 	"github.com/bnema/dumber/internal/logging"
 )
 
+// Console message markers used by injected JavaScript for log filtering.
+const (
+	consoleMarkerVideoDiag        = "[VIDEO-DIAG]"
+	consoleMarkerRedditVideoPatch = "[REDDIT-VIDEO-PATCH]"
+)
+
 // handlerSet implements all CEF handler interfaces and dispatches events to the
 // owning WebView. A single struct is used so that the Client's Get*Handler
 // methods can return the same receiver, avoiding extra allocations.
@@ -316,7 +322,7 @@ func (h *handlerSet) OnStatusMessage(_ purecef.Browser, value string) {
 }
 
 func (h *handlerSet) OnConsoleMessage(_ purecef.Browser, level purecef.LogSeverity, message, source string, line int32) int32 {
-	if h.wv != nil && h.wv.ctx != nil && (strings.Contains(message, "[VIDEO-DIAG]") || strings.Contains(message, "[REDDIT-VIDEO-PATCH]")) {
+	if h.wv != nil && h.wv.ctx != nil && (strings.Contains(message, consoleMarkerVideoDiag) || strings.Contains(message, consoleMarkerRedditVideoPatch)) {
 		log := logging.FromContext(h.wv.ctx).With().
 			Str("component", "cef-console").
 			Str("source", source).

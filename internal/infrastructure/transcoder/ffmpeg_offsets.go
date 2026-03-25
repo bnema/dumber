@@ -1,13 +1,20 @@
 package transcoder
 
 // Offset-based accessors for FFmpeg struct fields not yet exposed
-// by purego-ffmpeg. These offsets are for FFmpeg 7.x (libavcodec 62,
-// libavformat 62). Verified against the same headers used by purego-ffmpeg.
+// by purego-ffmpeg.
+//
+// Validated against:
+//   FFmpeg 8.1 (n8.1)
+//   libavcodec   62.28.100
+//   libavformat  62.12.100
+//   libavutil    60.26.100
+//
+// All offsets verified via offsetof() on the installed headers.
 
 import "unsafe"
 
 // ---------------------------------------------------------------------------
-// AVPacket field offsets (FFmpeg 7.x)
+// AVPacket field offsets (FFmpeg 8.x, libavcodec 62)
 // Layout: AVBufferRef* buf (0), int64 pts (8), int64 dts (16),
 //         uint8* data (24), int size (32), int stream_index (36), int flags (40)
 // ---------------------------------------------------------------------------
@@ -40,7 +47,6 @@ func pktSetStreamIndex(pkt unsafe.Pointer, idx int32) {
 //   sample_rate   at offset 180
 //   hw_frames_ctx at offset 328 (AVBufferRef*)
 //   ch_layout     at offset 384 (AVChannelLayout, 24 bytes)
-//   hw_frames_ctx at offset 328 (AVBufferRef*)
 // ---------------------------------------------------------------------------
 
 const (
@@ -106,8 +112,7 @@ func frameSetSampleRate(f unsafe.Pointer, v int32) {
 }
 
 // ---------------------------------------------------------------------------
-// AVCodecContext additional offsets
-// Verified against the installed libavcodec headers via offsetof().
+// AVCodecContext additional offsets (FFmpeg 8.x, libavcodec 62)
 // ---------------------------------------------------------------------------
 
 const (
@@ -150,7 +155,29 @@ func codecCtxCopyChLayout(dst, src unsafe.Pointer) {
 }
 
 // ---------------------------------------------------------------------------
-// AVCodecParameters additional offsets
+// SwrContext channel layout offsets (FFmpeg 8.x, libswresample)
+// SwrContext is opaque; offsets verified by writing known AVChannelLayout
+// values via av_opt_set_chlayout and scanning the resulting memory.
+// ---------------------------------------------------------------------------
+
+const (
+	offsetSwrInChLayout  = 192 // AVChannelLayout (24 bytes)
+	offsetSwrOutChLayout = 216 // AVChannelLayout (24 bytes)
+)
+
+// swrCopyChLayoutFromCodecCtx copies an AVChannelLayout (24 bytes) from
+// an AVCodecContext's ch_layout field into the SwrContext's in/out ch_layout.
+func swrSetChLayoutFromCodecCtx(swr, codecCtx unsafe.Pointer, swrOffset int) {
+	dst := unsafe.Add(swr, swrOffset)
+	src := unsafe.Add(codecCtx, offsetCodecCtxChLayout)
+	copy(
+		unsafe.Slice((*byte)(dst), 24),
+		unsafe.Slice((*byte)(src), 24),
+	)
+}
+
+// ---------------------------------------------------------------------------
+// AVCodecParameters additional offsets (FFmpeg 8.x, libavcodec 62)
 // ---------------------------------------------------------------------------
 
 const (

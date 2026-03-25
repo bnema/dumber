@@ -88,13 +88,25 @@ func (p *sessionPool) count() int {
 	return len(p.sessions)
 }
 
-// closeAll cancels and closes every active session.
+// closeAll cancels and closes every active session. It collects sessions
+// under the lock, clears the map, then releases the lock before calling
+// Close on each session to avoid holding the lock during potentially
+// blocking I/O.
 func (p *sessionPool) closeAll() {
 	p.mu.Lock()
-	defer p.mu.Unlock()
-	for id, s := range p.sessions {
+	snapshot := make([]*session, 0, len(p.sessions))
+	for _, s := range p.sessions {
+		snapshot = append(snapshot, s)
+	}
+	// Clear the map while holding the lock.
+	for id := range p.sessions {
+		delete(p.sessions, id)
+	}
+	p.mu.Unlock()
+
+	// Close sessions outside the lock.
+	for _, s := range snapshot {
 		s.cancel()
 		s.pr.Close()
-		delete(p.sessions, id)
 	}
 }

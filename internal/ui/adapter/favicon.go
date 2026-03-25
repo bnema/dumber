@@ -113,7 +113,7 @@ func (a *FaviconAdapter) GetOrFetch(ctx context.Context, pageURL string, callbac
 
 	// Handle internal dumb:// scheme URLs - use app logo
 	if a.isInternalURL != nil && a.isInternalURL(pageURL) {
-		texture := a.textureFromBytesOnGTK(a.getLogoBytes())
+		texture := a.textureFromBytesOnGTK(ctx, a.getLogoBytes())
 		if texture != nil {
 			a.setTexture(a.internalDomain, texture)
 		}
@@ -142,7 +142,7 @@ func (a *FaviconAdapter) GetOrFetch(ctx context.Context, pageURL string, callbac
 			Str("domain", domain).
 			Int("bytes", len(data)).
 			Msg("favicon: service cache hit")
-		texture := a.textureFromBytesOnGTK(data)
+		texture := a.textureFromBytesOnGTK(ctx, data)
 		if texture != nil {
 			a.setTexture(domain, texture)
 			// Ensure sized PNG exists for CLI tools (async, idempotent)
@@ -188,7 +188,7 @@ func (a *FaviconAdapter) GetOrFetch(ctx context.Context, pageURL string, callbac
 				Str("domain", domain).
 				Int("bytes", len(data)).
 				Msg("favicon: fetchViaService fetched data")
-			texture := a.textureFromBytesOnGTK(data)
+			texture := a.textureFromBytesOnGTK(ctx, data)
 			if texture != nil {
 				a.setTexture(domain, texture)
 			}
@@ -364,7 +364,7 @@ func (a *FaviconAdapter) PreloadFromCache(ctx context.Context, pageURL string) *
 			Str("domain", domain).
 			Int("bytes", len(data)).
 			Msg("favicon: PreloadFromCache service hit")
-		texture := a.textureFromBytesOnGTK(data)
+		texture := a.textureFromBytesOnGTK(ctx, data)
 		if texture != nil {
 			a.setTexture(domain, texture)
 			return texture
@@ -483,7 +483,7 @@ func (a *FaviconAdapter) logWarningDedup(
 
 // getOrCreateLogoTexture returns the app logo texture, creating it if needed.
 // The texture is cached under the internalDomain key.
-func (a *FaviconAdapter) getOrCreateLogoTexture() *gdk.Texture {
+func (a *FaviconAdapter) getOrCreateLogoTexture(ctx context.Context) *gdk.Texture {
 	if a.internalDomain == "" || a.getLogoBytes == nil {
 		return nil
 	}
@@ -495,18 +495,18 @@ func (a *FaviconAdapter) getOrCreateLogoTexture() *gdk.Texture {
 
 	// Create texture from logo bytes
 	logoBytes := a.getLogoBytes()
-	texture := a.textureFromBytesOnGTK(logoBytes)
+	texture := a.textureFromBytesOnGTK(ctx, logoBytes)
 	if texture != nil {
 		a.setTexture(a.internalDomain, texture)
 	}
 	return texture
 }
 
-func (a *FaviconAdapter) textureFromBytesOnGTK(data []byte) *gdk.Texture {
+func (a *FaviconAdapter) textureFromBytesOnGTK(ctx context.Context, data []byte) *gdk.Texture {
 	if len(data) == 0 {
 		return nil
 	}
-	log := logging.FromContext(context.Background())
+	log := logging.FromContext(ctx)
 	log.Debug().
 		Int("bytes", len(data)).
 		Msg("favicon: textureFromBytesOnGTK begin")

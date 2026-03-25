@@ -34,6 +34,10 @@ type Engine struct {
 	// activeWebViews tracks all live webviews for CSS broadcast.
 	activeWebViews sync.Map // map[port.WebViewID]*WebView
 
+	// shutdownNotify is signalled when the active webview count reaches 0
+	// during shutdown, replacing the busy-wait poll in closeActiveWebViews.
+	shutdownNotify chan struct{}
+
 	multiThreadedMessageLoop bool
 	manualPumpInterval       int64
 
@@ -123,8 +127,15 @@ func (e *Engine) registerWebView(wv *WebView) {
 }
 
 // unregisterWebView removes a webview from the active tracking map.
+// If the count reaches 0 and a shutdown is in progress, it signals shutdownNotify.
 func (e *Engine) unregisterWebView(wv *WebView) {
 	e.activeWebViews.Delete(wv.id)
+	if e.shutdownNotify != nil && e.activeWebViewCount() == 0 {
+		select {
+		case e.shutdownNotify <- struct{}{}:
+		default:
+		}
+	}
 }
 
 // internalSchemePath is the URI scheme used for internal app resources.
@@ -158,10 +169,7 @@ func (e *Engine) Close() error {
 	return nil
 }
 
-const (
-	cefShutdownWaitStep    = 10 * time.Millisecond
-	cefShutdownWaitTimeout = 2 * time.Second
-)
+const cefShutdownWaitTimeout = 2 * time.Second
 
 func (e *Engine) activeWebViewCount() int {
 	count := 0
@@ -195,25 +203,28 @@ func (e *Engine) closeActiveWebViews() {
 		Int("count", len(webViews)).
 		Msg("cef: closing active webviews before shutdown")
 
+	// Set up the shutdown notification channel before destroying webviews.
+	e.shutdownNotify = make(chan struct{}, 1)
+
 	for _, wv := range webViews {
 		wv.Destroy()
 	}
 
-	deadline := time.Now().Add(cefShutdownWaitTimeout)
-	for {
-		remaining := e.activeWebViewCount()
-		if remaining == 0 {
-			log.Debug().Msg("cef: all active webviews closed before shutdown")
-			return
-		}
-		if time.Now().After(deadline) {
-			log.Warn().
-				Int("remaining", remaining).
-				Str("timeout", cefShutdownWaitTimeout.String()).
-				Msg("cef: timed out waiting for OnBeforeClose before shutdown")
-			return
-		}
-		time.Sleep(cefShutdownWaitStep)
+	// Check immediately in case all webviews closed synchronously.
+	if e.activeWebViewCount() == 0 {
+		log.Debug().Msg("cef: all active webviews closed before shutdown")
+		return
+	}
+
+	// Wait for unregisterWebView to signal that all webviews are gone, or timeout.
+	select {
+	case <-e.shutdownNotify:
+		log.Debug().Msg("cef: all active webviews closed before shutdown")
+	case <-time.After(cefShutdownWaitTimeout):
+		log.Warn().
+			Int("remaining", e.activeWebViewCount()).
+			Str("timeout", cefShutdownWaitTimeout.String()).
+			Msg("cef: timed out waiting for OnBeforeClose before shutdown")
 	}
 }
 
