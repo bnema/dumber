@@ -2,7 +2,6 @@ package cef
 
 import (
 	"context"
-	"strings"
 	"sync"
 
 	purecef "github.com/bnema/purego-cef/cef"
@@ -463,7 +462,7 @@ func (ib *inputBridge) pasteFromClipboard() {
 		}
 
 		// Escape the text for embedding in a JS string literal.
-		escaped := escapeForJSInsert(text)
+		escaped := escapeForJSString(text)
 		js := "document.execCommand('insertText',false,'" + escaped + "')"
 		frame.ExecuteJavaScript(js, "", 0)
 		log.Debug().Msg("cef: paste JS executed")
@@ -473,16 +472,7 @@ func (ib *inputBridge) pasteFromClipboard() {
 	log.Debug().Msg("cef: ReadTextAsync dispatched")
 }
 
-// escapeForJSInsert escapes text for safe embedding in a JS single-quoted string.
-func escapeForJSInsert(s string) string {
-	s = strings.ReplaceAll(s, "\\", "\\\\")
-	s = strings.ReplaceAll(s, "'", "\\'")
-	s = strings.ReplaceAll(s, "\n", "\\n")
-	s = strings.ReplaceAll(s, "\r", "\\r")
-	s = strings.ReplaceAll(s, "\u2028", "\\u2028")
-	s = strings.ReplaceAll(s, "\u2029", "\\u2029")
-	return s
-}
+// escapeForJSString is defined in content_injector.go — reused here.
 
 // ---------------------------------------------------------------------------
 // Translation helpers

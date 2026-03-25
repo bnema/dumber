@@ -216,6 +216,8 @@ func (h *dumbSchemeHandler) handleConfigAPI(cfg *config.Config) purecef.Resource
 
 // handleClipboardSet receives copied text from JS copy/cut events and writes
 // it to the system clipboard via the engine callback.
+const maxClipboardBytes = 10 << 20 // 10 MB
+
 func (h *dumbSchemeHandler) handleClipboardSet(request purecef.Request) purecef.ResourceHandler {
 	h.logger.Debug().Msg("cef: /api/clipboard-set request received")
 
@@ -223,6 +225,10 @@ func (h *dumbSchemeHandler) handleClipboardSet(request purecef.Request) purecef.
 	if body == nil {
 		h.logger.Debug().Msg("cef: clipboard-set — empty body (no X-Dumber-Body header)")
 		return h.newJSONResourceHandler(http.StatusBadRequest, map[string]string{"error": "empty body"})
+	}
+	if len(body) > maxClipboardBytes {
+		h.logger.Warn().Int("body_len", len(body)).Msg("cef: clipboard-set — payload too large")
+		return h.newJSONResourceHandler(http.StatusRequestEntityTooLarge, map[string]string{"error": "payload too large"})
 	}
 
 	var payload struct {
