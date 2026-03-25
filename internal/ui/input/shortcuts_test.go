@@ -3,7 +3,7 @@ package input
 import (
 	"testing"
 
-	"github.com/jwijenbergh/puregotk/v4/gdk"
+	"github.com/bnema/puregotk/v4/gdk"
 )
 
 func TestParseKeyString_SingleKeys(t *testing.T) {

@@ -5,9 +5,9 @@ import (
 	"sync"
 
 	"github.com/bnema/dumber/internal/logging"
-	"github.com/jwijenbergh/purego"
-	"github.com/jwijenbergh/puregotk/pkg/core"
-	gtypes "github.com/jwijenbergh/puregotk/v4/gobject/types"
+	"github.com/bnema/puregotk/pkg/core"
+	gtypes "github.com/bnema/puregotk/v4/gobject/types"
+	"github.com/ebitengine/purego"
 )
 
 var (

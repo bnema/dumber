@@ -11,7 +11,7 @@ import (
 
 	"github.com/bnema/dumber/internal/logging"
 	"github.com/bnema/puregotk-webkit/webkit"
-	"github.com/jwijenbergh/puregotk/v4/glib"
+	"github.com/bnema/puregotk/v4/glib"
 )
 
 // ErrPoolClosed is returned when operations are attempted on a closed pool.

@@ -9,7 +9,7 @@ import (
 	"github.com/bnema/dumber/internal/application/usecase"
 	"github.com/bnema/dumber/internal/domain/entity"
 	"github.com/bnema/dumber/internal/logging"
-	"github.com/jwijenbergh/puregotk/v4/gdk"
+	"github.com/bnema/puregotk/v4/gdk"
 )
 
 // internalSchemePath is the path used in dumb:// URIs (replaces webkit.HomePath).

@@ -147,7 +147,10 @@ func DefaultConfig() *Config {
 			Profile:          ProfileDefault,
 			PoolPrewarmCount: defaultWebViewPoolPrewarmCount,
 			ZoomCacheSize:    defaultZoomCacheSize,
-			CookiePolicy:     CookiePolicyAlways,
+			// With ITP enabled, WebKit ignores ACCEPT_NO_THIRD_PARTY — ITP handles
+			// third-party cookie isolation more intelligently. Using Always + ITP
+			// matches Epiphany's model and avoids a misleading setting.
+			CookiePolicy: CookiePolicyAlways,
 			WebKit: WebKitEngineConfig{
 				ITPEnabled:             true,
 				SkiaCPUPaintingThreads: defaultSkiaCPUPaintingThreads,

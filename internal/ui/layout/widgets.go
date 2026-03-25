@@ -3,7 +3,7 @@
 package layout
 
 import (
-	"github.com/jwijenbergh/puregotk/v4/gtk"
+	"github.com/bnema/puregotk/v4/gtk"
 )
 
 // Orientation represents the orientation for layout widgets.
