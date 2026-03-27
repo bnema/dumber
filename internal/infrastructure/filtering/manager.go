@@ -568,7 +568,10 @@ func (m *Manager) Clear(ctx context.Context) error {
 	m.filterMu.Unlock()
 
 	// Remove all compiled filter parts
-	identifiers, _ := m.store.FetchIdentifiers(ctx)
+	identifiers, err := m.store.FetchIdentifiers(ctx)
+	if err != nil {
+		log.Warn().Err(err).Msg("failed to fetch identifiers for cleanup")
+	}
 	for _, id := range identifiers {
 		if strings.HasPrefix(id, FilterIdentifierPrefix) {
 			if err := m.store.Remove(ctx, id); err != nil {
