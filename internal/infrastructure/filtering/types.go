@@ -48,21 +48,16 @@ type CombinedInfo struct {
 	Files      []string `json:"files"`
 }
 
-// FilterFiles defines the files to download from GitHub releases.
+// FilterFiles defines the well-known file names for GitHub releases.
 var FilterFiles = struct {
 	Manifest string
-	Combined []string
 }{
 	Manifest: "manifest.json",
-	Combined: []string{
-		"combined-part1.json",
-		"combined-part2.json",
-		"combined-part3.json",
-	},
 }
 
-// FilterIdentifier is the identifier used when storing/loading compiled filters.
-const FilterIdentifier = "ublock-combined"
+// FilterIdentifierPrefix is the prefix used when storing/loading compiled filters.
+// Each part file gets its own identifier: "ublock-combined-0", "ublock-combined-1", etc.
+const FilterIdentifierPrefix = "ublock-combined"
 
 // GitHubReleaseURL is the base URL for downloading filter files.
 const GitHubReleaseURL = "https://github.com/bnema/ublock-webkit-filters/releases/latest/download"

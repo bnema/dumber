@@ -106,8 +106,8 @@ type DownloadProgress struct {
 	BytesTotal int64
 }
 
-// DownloadFilters downloads filter JSON files from GitHub releases.
-// Returns the paths to the downloaded files.
+// DownloadFilters fetches the manifest to discover which filter files exist,
+// then downloads them. Returns the paths to the downloaded files.
 func (d *Downloader) DownloadFilters(ctx context.Context, onProgress func(DownloadProgress)) ([]string, error) {
 	log := logging.FromContext(ctx).With().
 		Str("component", "filter-downloader").
@@ -118,7 +118,22 @@ func (d *Downloader) DownloadFilters(ctx context.Context, onProgress func(Downlo
 		return nil, fmt.Errorf("failed to create cache dir: %w", err)
 	}
 
-	files := FilterFiles.Combined
+	// Fetch manifest to discover which combined files to download
+	manifest, err := d.FetchManifest(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("failed to fetch manifest: %w", err)
+	}
+	if len(manifest.Combined.Files) == 0 {
+		return nil, fmt.Errorf("manifest contains no combined filter files")
+	}
+
+	log.Info().
+		Int("files", len(manifest.Combined.Files)).
+		Int("total_rules", manifest.Combined.TotalRules).
+		Str("version", manifest.Version).
+		Msg("manifest lists filter files")
+
+	files := manifest.Combined.Files
 	paths := make([]string, 0, len(files))
 	var totalBytes int64
 
@@ -149,10 +164,9 @@ func (d *Downloader) DownloadFilters(ctx context.Context, onProgress func(Downlo
 		log.Debug().Str("file", filename).Int64("bytes", bytesDownloaded).Msg("downloaded filter file")
 	}
 
-	// Also download and cache the manifest
-	if err := d.downloadAndCacheManifest(ctx); err != nil {
+	// Cache the manifest we already fetched
+	if err := d.cacheManifest(manifest); err != nil {
 		log.Warn().Err(err).Msg("failed to cache manifest")
-		// Non-fatal, continue
 	}
 
 	log.Info().Int("files", len(paths)).Int64("total_bytes", totalBytes).Msg("filter download complete")
@@ -223,13 +237,8 @@ func (*Downloader) renameTempFile(tmpPath, localPath string) error {
 	return nil
 }
 
-// downloadAndCacheManifest downloads and caches the manifest.
-func (d *Downloader) downloadAndCacheManifest(ctx context.Context) error {
-	manifest, err := d.FetchManifest(ctx)
-	if err != nil {
-		return err
-	}
-
+// cacheManifest writes an already-fetched manifest to disk.
+func (d *Downloader) cacheManifest(manifest *Manifest) error {
 	data, err := json.MarshalIndent(manifest, "", "  ")
 	if err != nil {
 		return fmt.Errorf("failed to marshal manifest: %w", err)
@@ -244,10 +253,15 @@ func (d *Downloader) downloadAndCacheManifest(ctx context.Context) error {
 }
 
 // GetCachedFilterPaths returns paths to cached filter JSON files.
-// Returns nil if any files are missing.
+// Reads the cached manifest to discover which files should exist.
+// Returns nil if the manifest is missing or any filter file is missing.
 func (d *Downloader) GetCachedFilterPaths() []string {
-	paths := make([]string, 0, len(FilterFiles.Combined))
-	for _, filename := range FilterFiles.Combined {
+	manifest, err := d.GetCachedManifest()
+	if err != nil || manifest == nil || len(manifest.Combined.Files) == 0 {
+		return nil
+	}
+	paths := make([]string, 0, len(manifest.Combined.Files))
+	for _, filename := range manifest.Combined.Files {
 		path := filepath.Join(d.cacheDir, filename)
 		if _, err := os.Stat(path); err != nil {
 			return nil
