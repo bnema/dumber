@@ -96,7 +96,6 @@ type Omnibox struct {
 	// Ghost text state
 	realInput        string // What user actually typed (without ghost suffix)
 	ghostSuffix      string // Completion suffix currently displayed
-	hasGhostText     bool   // Quick check for Tab behavior
 	insertCompletion bool   // True on character insert, false on delete — gates ghost completion
 	isSettingGhost   bool   // Guard flag: skip onEntryChanged during programmatic SetText
 
@@ -678,7 +677,7 @@ func (o *Omnibox) setupFocusCallbacks(onFocusIn func(*gtk.SearchEntry), onFocusO
 func (o *Omnibox) hasGhost() bool {
 	o.mu.RLock()
 	defer o.mu.RUnlock()
-	return o.hasGhostText
+	return o.ghostSuffix != ""
 }
 
 // hasUserNavigated returns whether user has navigated with arrow keys.
@@ -836,14 +835,10 @@ func (o *Omnibox) handleCtrlNumberShortcut(keyval, keycode uint, ctrl bool) bool
 // selected and the user typed, the selection was replaced naturally by GTK.
 // We must NOT call clearGhostText() here (that would delete real user text).
 func (o *Omnibox) onEntryChanged() {
-	log := logging.FromContext(o.ctx)
-
-	// Skip if we're programmatically setting ghost text (synchronous guard).
 	o.mu.RLock()
 	isSettingGhost := o.isSettingGhost
 	o.mu.RUnlock()
 	if isSettingGhost {
-		log.Debug().Msg("ghost: onEntryChanged skipped (isSettingGhost)")
 		return
 	}
 
@@ -851,15 +846,15 @@ func (o *Omnibox) onEntryChanged() {
 
 	// Detect debounced echo from our own SetText in setGhostText.
 	// search-changed is debounced by GtkSearchEntry, so it fires AFTER
-	// the isSettingGhost guard is already off. Recognize it by checking
-	// if the entry text matches realInput + ghostSuffix exactly.
+	// the isSettingGhost guard is already off.
 	o.mu.RLock()
-	if o.hasGhostText && o.ghostSuffix != "" && entryText == o.realInput+o.ghostSuffix {
+	if o.ghostSuffix != "" && entryText == o.realInput+o.ghostSuffix {
 		o.mu.RUnlock()
-		log.Debug().Str("entryText", entryText).Msg("ghost: onEntryChanged skipped (debounced echo)")
 		return
 	}
 	o.mu.RUnlock()
+
+	log := logging.FromContext(o.ctx)
 	if trimmed := url.TrimLeadingSpacesIfURL(entryText); trimmed != entryText {
 		o.withGhostGuard(func() {
 			o.entry.SetText(trimmed)
@@ -872,7 +867,7 @@ func (o *Omnibox) onEntryChanged() {
 	o.mu.Lock()
 	oldGhost := o.ghostSuffix
 	o.hasNavigated = false
-	o.hasGhostText = false
+
 	o.ghostSuffix = ""
 	o.realInput = entryText
 	shouldComplete := o.insertCompletion
@@ -941,7 +936,7 @@ func (o *Omnibox) setGhostText(originalInput, suffix string) {
 	o.mu.Lock()
 	o.realInput = originalInput
 	o.ghostSuffix = suffix
-	o.hasGhostText = true
+
 	o.mu.Unlock()
 
 	o.withGhostGuard(func() {
@@ -956,11 +951,11 @@ func (o *Omnibox) setGhostText(originalInput, suffix string) {
 func (o *Omnibox) clearGhostText() {
 	log := logging.FromContext(o.ctx)
 	o.mu.Lock()
-	hadGhost := o.hasGhostText
+	hadGhost := o.ghostSuffix != ""
 	ghostSuffix := o.ghostSuffix
 	realInput := o.realInput
 	o.ghostSuffix = ""
-	o.hasGhostText = false
+
 	o.mu.Unlock()
 
 	if !hadGhost || ghostSuffix == "" || o.entry == nil {
@@ -1007,13 +1002,13 @@ func (o *Omnibox) clearGhostTextIfInput(expectedInput string) {
 func (o *Omnibox) acceptGhostCompletion() {
 	log := logging.FromContext(o.ctx)
 	o.mu.Lock()
-	if !o.hasGhostText || o.ghostSuffix == "" {
+	if o.ghostSuffix == "" {
 		o.mu.Unlock()
 		log.Debug().Msg("ghost: acceptGhostCompletion — no ghost to accept")
 		return
 	}
 	suffix := o.ghostSuffix
-	o.hasGhostText = false
+
 	o.ghostSuffix = ""
 	o.mu.Unlock()
 	log.Debug().Str("suffix", suffix).Msg("ghost: acceptGhostCompletion")
@@ -1069,7 +1064,7 @@ func (o *Omnibox) updateGhostFromURL(userInput, targetURL string) bool {
 func (o *Omnibox) updateGhostFromSelection() {
 	o.mu.RLock()
 	realInput := o.realInput
-	hasGhost := o.hasGhostText
+	hasGhost := o.ghostSuffix != ""
 	o.mu.RUnlock()
 
 	entryText := ""
@@ -1287,7 +1282,7 @@ func (o *Omnibox) performSearch() {
 	visible := o.visible
 	mode := o.viewMode
 	realInput := o.realInput
-	hasGhost := o.hasGhostText
+	hasGhost := o.ghostSuffix != ""
 	o.mu.RUnlock()
 
 	// Skip search if omnibox is hidden
@@ -1849,7 +1844,7 @@ func (o *Omnibox) attachRowHoverSelection(row *gtk.ListBoxRow, index int) {
 	enterCb := func(_ gtk.EventControllerMotion, _ float64, _ float64) {
 		o.mu.RLock()
 		realInput := o.realInput
-		hasGhostText := o.hasGhostText
+		hasGhostText := o.ghostSuffix != ""
 		hasNavigated := o.hasNavigated
 		o.mu.RUnlock()
 
@@ -2314,7 +2309,7 @@ func (o *Omnibox) Show(ctx context.Context, query string) {
 	// Initialize ghost text state
 	o.realInput = query
 	o.ghostSuffix = ""
-	o.hasGhostText = false
+
 	o.insertCompletion = false
 	o.mu.Unlock()
 
