@@ -951,14 +951,13 @@ func (o *Omnibox) setGhostText(originalInput, suffix string) {
 func (o *Omnibox) clearGhostText() {
 	log := logging.FromContext(o.ctx)
 	o.mu.Lock()
-	hadGhost := o.ghostSuffix != ""
 	ghostSuffix := o.ghostSuffix
 	realInput := o.realInput
 	o.ghostSuffix = ""
 
 	o.mu.Unlock()
 
-	if !hadGhost || ghostSuffix == "" || o.entry == nil {
+	if ghostSuffix == "" || o.entry == nil {
 		return
 	}
 

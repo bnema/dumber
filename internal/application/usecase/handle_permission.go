@@ -58,8 +58,6 @@ func (uc *HandlePermissionUseCase) logger(ctx context.Context) *zerolog.Logger {
 	return log
 }
 
-const maxPermissionLogURLLen = 96
-
 func isWebsiteDataAccessPermission(permTypes []entity.PermissionType) bool {
 	for _, permType := range permTypes {
 		if permType == entity.PermissionTypeWebsiteDataAccess {
@@ -76,10 +74,10 @@ func permissionLoggerWithMetadata(log *zerolog.Logger, metadata entity.Permissio
 	}
 	ctx := log.With()
 	if requesting := metadata[entity.PermissionMetadataKeyRequestingDomain]; requesting != "" {
-		ctx = ctx.Str("requesting_domain", logging.TruncateURL(requesting, maxPermissionLogURLLen))
+		ctx = ctx.Str("requesting_domain", logging.TruncateURL(requesting, logging.PermissionLogURLMaxLen))
 	}
 	if current := metadata[entity.PermissionMetadataKeyCurrentDomain]; current != "" {
-		ctx = ctx.Str("current_domain", logging.TruncateURL(current, maxPermissionLogURLLen))
+		ctx = ctx.Str("current_domain", logging.TruncateURL(current, logging.PermissionLogURLMaxLen))
 	}
 	enriched := ctx.Logger()
 	return &enriched
