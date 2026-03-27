@@ -190,6 +190,9 @@ func ParseLevel(level string) zerolog.Level {
 	}
 }
 
+// PermissionLogURLMaxLen is the standard max length for permission-related URL logging.
+const PermissionLogURLMaxLen = 96
+
 // TruncateURL truncates a URL to maxLen characters for logging.
 func TruncateURL(url string, maxLen int) string {
 	if len(url) <= maxLen {
