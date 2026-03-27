@@ -609,6 +609,7 @@ func (wv *WebView) connectFaviconSignal() {
 
 // progressThrottleInterval limits progress callbacks to ~60fps to reduce UI overhead.
 const progressThrottleInterval = 16 * time.Millisecond
+const maxPermissionLogURLLen = 96
 
 func (wv *WebView) connectProgressSignal() {
 	progressCb := func() {
@@ -1050,8 +1051,8 @@ func (wv *WebView) connectPermissionRequestSignal() {
 		if len(permTypes) == 1 && permTypes[0] == "website_data_access" {
 			wv.logger.Info().
 				Str("origin", origin).
-				Str("requesting_domain", logging.TruncateURL(metadata[entity.PermissionMetadataKeyRequestingDomain], 96)).
-				Str("current_domain", logging.TruncateURL(metadata[entity.PermissionMetadataKeyCurrentDomain], 96)).
+				Str("requesting_domain", logging.TruncateURL(metadata[entity.PermissionMetadataKeyRequestingDomain], maxPermissionLogURLLen)).
+				Str("current_domain", logging.TruncateURL(metadata[entity.PermissionMetadataKeyCurrentDomain], maxPermissionLogURLLen)).
 				Msg("website data access permission requested")
 		}
 

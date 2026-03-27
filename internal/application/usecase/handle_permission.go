@@ -58,9 +58,11 @@ func (uc *HandlePermissionUseCase) logger(ctx context.Context) *zerolog.Logger {
 	return log
 }
 
-func containsPermissionType(permTypes []entity.PermissionType, target entity.PermissionType) bool {
+const maxPermissionLogURLLen = 96
+
+func isWebsiteDataAccessPermission(permTypes []entity.PermissionType) bool {
 	for _, permType := range permTypes {
-		if permType == target {
+		if permType == entity.PermissionTypeWebsiteDataAccess {
 			return true
 		}
 	}
@@ -74,10 +76,10 @@ func permissionLoggerWithMetadata(log *zerolog.Logger, metadata entity.Permissio
 	}
 	ctx := log.With()
 	if requesting := metadata[entity.PermissionMetadataKeyRequestingDomain]; requesting != "" {
-		ctx = ctx.Str("requesting_domain", logging.TruncateURL(requesting, 96))
+		ctx = ctx.Str("requesting_domain", logging.TruncateURL(requesting, maxPermissionLogURLLen))
 	}
 	if current := metadata[entity.PermissionMetadataKeyCurrentDomain]; current != "" {
-		ctx = ctx.Str("current_domain", logging.TruncateURL(current, 96))
+		ctx = ctx.Str("current_domain", logging.TruncateURL(current, maxPermissionLogURLLen))
 	}
 	enriched := ctx.Logger()
 	return &enriched
@@ -153,7 +155,7 @@ func (uc *HandlePermissionUseCase) HandlePermissionRequest(
 	decision := uc.checkStoredPermissions(ctx, origin, permTypes)
 	switch decision {
 	case entity.PermissionGranted:
-		if containsPermissionType(permTypes, entity.PermissionTypeWebsiteDataAccess) {
+		if isWebsiteDataAccessPermission(permTypes) {
 			permissionLoggerWithMetadata(&log, metadata).Info().
 				Msg("using stored website data access permission: granted")
 		}
@@ -161,7 +163,7 @@ func (uc *HandlePermissionUseCase) HandlePermissionRequest(
 		callback.Allow()
 		return
 	case entity.PermissionDenied:
-		if containsPermissionType(permTypes, entity.PermissionTypeWebsiteDataAccess) {
+		if isWebsiteDataAccessPermission(permTypes) {
 			permissionLoggerWithMetadata(&log, metadata).Info().
 				Msg("using stored website data access permission: denied")
 		}
@@ -303,7 +305,7 @@ func (uc *HandlePermissionUseCase) showPermissionDialog(
 
 	dialog.ShowPermissionDialog(ctx, origin, permTypes, metadata, func(result port.PermissionDialogResult) {
 		if result.Allowed {
-			if containsPermissionType(permTypes, entity.PermissionTypeWebsiteDataAccess) {
+			if isWebsiteDataAccessPermission(permTypes) {
 				permissionLoggerWithMetadata(log, metadata).Info().
 					Bool("persistent", result.Persistent).
 					Msg("website data access permission allowed")
@@ -316,7 +318,7 @@ func (uc *HandlePermissionUseCase) showPermissionDialog(
 				uc.persistPermission(ctx, origin, permTypes, entity.PermissionGranted)
 			}
 		} else {
-			if containsPermissionType(permTypes, entity.PermissionTypeWebsiteDataAccess) {
+			if isWebsiteDataAccessPermission(permTypes) {
 				permissionLoggerWithMetadata(log, metadata).Info().
 					Bool("persistent", result.Persistent).
 					Msg("website data access permission denied")

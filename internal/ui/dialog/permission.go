@@ -13,6 +13,8 @@ import (
 	"github.com/bnema/dumber/internal/ui/component"
 )
 
+const maxPermissionLogURLLen = 96
+
 type permissionPopup interface {
 	Show(ctx context.Context, heading, body string, callback func(allowed, persistent bool))
 }
@@ -103,8 +105,8 @@ func (d *PermissionDialog) showRequest(req permissionDialogRequest) {
 	if parsePermFlags(permTypes).dataAccess {
 		log.Info().
 			Str("origin", origin).
-			Str("requesting_domain", logging.TruncateURL(metadata[entity.PermissionMetadataKeyRequestingDomain], 96)).
-			Str("current_domain", logging.TruncateURL(metadata[entity.PermissionMetadataKeyCurrentDomain], 96)).
+			Str("requesting_domain", logging.TruncateURL(metadata[entity.PermissionMetadataKeyRequestingDomain], maxPermissionLogURLLen)).
+			Str("current_domain", logging.TruncateURL(metadata[entity.PermissionMetadataKeyCurrentDomain], maxPermissionLogURLLen)).
 			Msg("showing website data access permission dialog")
 	}
 
@@ -112,8 +114,8 @@ func (d *PermissionDialog) showRequest(req permissionDialogRequest) {
 		if parsePermFlags(permTypes).dataAccess {
 			log.Info().
 				Str("origin", origin).
-				Str("requesting_domain", logging.TruncateURL(metadata[entity.PermissionMetadataKeyRequestingDomain], 96)).
-				Str("current_domain", logging.TruncateURL(metadata[entity.PermissionMetadataKeyCurrentDomain], 96)).
+				Str("requesting_domain", logging.TruncateURL(metadata[entity.PermissionMetadataKeyRequestingDomain], maxPermissionLogURLLen)).
+				Str("current_domain", logging.TruncateURL(metadata[entity.PermissionMetadataKeyCurrentDomain], maxPermissionLogURLLen)).
 				Bool("allowed", allowed).
 				Bool("persistent", persistent).
 				Msg("website data access permission dialog response")

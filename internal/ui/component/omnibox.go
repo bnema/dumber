@@ -863,11 +863,11 @@ func (o *Omnibox) onEntryChanged() {
 		entryText = trimmed
 	}
 
-	// Reset ghost state (the buffer is already correct — GTK handled it).
+	// Reset ghost and selection state (the buffer is already correct — GTK handled it).
 	o.mu.Lock()
 	oldGhost := o.ghostSuffix
 	o.hasNavigated = false
-
+	o.selectedIndex = -1
 	o.ghostSuffix = ""
 	o.realInput = entryText
 	shouldComplete := o.insertCompletion
