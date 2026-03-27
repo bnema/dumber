@@ -418,6 +418,7 @@ func (wv *WebView) connectSignals() {
 	wv.connectURISignal()
 	wv.connectFaviconSignal()
 	wv.connectProgressSignal()
+	wv.connectLoadFailedSignal()
 	wv.connectDecidePolicySignal()
 	wv.connectEnterFullscreenSignal()
 	wv.connectLeaveFullscreenSignal()
@@ -461,6 +462,21 @@ func (wv *WebView) connectLoadChangedSignal() {
 		}
 	}
 	sigID := wv.inner.ConnectLoadChanged(&loadChangedCb)
+	wv.signalIDs = append(wv.signalIDs, uintptr(sigID))
+}
+
+func (wv *WebView) connectLoadFailedSignal() {
+	loadFailedCb := func(_ webkit.WebView, event webkit.LoadEvent, failingURI string, _ uintptr) bool {
+		// Note: error details are a raw uintptr (GError*) — see bnema/puregotk#6
+		// for tracking proper *glib.Error conversion in signal callbacks.
+		wv.logger.Warn().
+			Str("component", "webview").
+			Str("uri", failingURI).
+			Int("load_event", int(event)).
+			Msg("load failed")
+		return false
+	}
+	sigID := wv.inner.ConnectLoadFailed(&loadFailedCb)
 	wv.signalIDs = append(wv.signalIDs, uintptr(sigID))
 }
 
