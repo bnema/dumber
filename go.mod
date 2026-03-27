@@ -3,7 +3,7 @@ module github.com/bnema/dumber
 go 1.26.1
 
 require (
-	github.com/bnema/purego-sqlite v0.1.0
+	github.com/bnema/purego-sqlite v0.1.1
 	github.com/bnema/puregotk v0.2.0
 	github.com/bnema/puregotk-webkit v0.0.15
 	github.com/charmbracelet/bubbles v1.0.0
@@ -23,10 +23,7 @@ require (
 	gopkg.in/yaml.v3 v3.0.1
 )
 
-replace (
-	github.com/bnema/purego-sqlite => ../purego-sqlite
-	github.com/ebitengine/purego => github.com/bnema/purego v0.0.0-20260323095903-91aa177a2704
-)
+replace github.com/ebitengine/purego => github.com/bnema/purego v0.0.0-20260323095903-91aa177a2704
 
 require (
 	github.com/atotto/clipboard v0.1.4 // indirect
