@@ -55,8 +55,9 @@ var FilterFiles = struct {
 	Manifest: "manifest.json",
 }
 
-// FilterIdentifier is the identifier used when storing/loading compiled filters.
-const FilterIdentifier = "ublock-combined"
+// FilterIdentifierPrefix is the prefix used when storing/loading compiled filters.
+// Each part file gets its own identifier: "ublock-combined-0", "ublock-combined-1", etc.
+const FilterIdentifierPrefix = "ublock-combined"
 
 // GitHubReleaseURL is the base URL for downloading filter files.
 const GitHubReleaseURL = "https://github.com/bnema/ublock-webkit-filters/releases/latest/download"

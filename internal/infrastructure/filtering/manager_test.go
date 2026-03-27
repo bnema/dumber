@@ -5,6 +5,7 @@ import (
 	"errors"
 	"os"
 	"path/filepath"
+	"strings"
 	"sync"
 	"testing"
 	"time"
@@ -39,14 +40,14 @@ func TestManager_LoadAsync_ChecksCacheFirst(t *testing.T) {
 	mockStore := mocks.NewMockFilterStore(t)
 	mockDownloader := mocks.NewMockFilterDownloader(t)
 
-	// Setup expectations: filter exists in store but returns nil (can't create real filter in tests)
-	// This verifies the cache check path is taken
+	// Setup expectations: filter identifier exists in store but Load returns nil
+	// This verifies the cache check path is taken, then falls back to download
 	mockStore.EXPECT().
-		HasCompiledFilter(mock.Anything, filtering.FilterIdentifier).
-		Return(true)
+		FetchIdentifiers(mock.Anything).
+		Return([]string{"ublock-combined-0"}, nil).Once()
 
 	mockStore.EXPECT().
-		Load(mock.Anything, filtering.FilterIdentifier).
+		Load(mock.Anything, "ublock-combined-0").
 		Return(nil, nil) // nil filter triggers fallback to download
 
 	// Fallback: download will be triggered since Load returned nil filter
@@ -55,7 +56,7 @@ func TestManager_LoadAsync_ChecksCacheFirst(t *testing.T) {
 		Return([]string{jsonFile}, nil)
 
 	mockStore.EXPECT().
-		Compile(mock.Anything, filtering.FilterIdentifier, mock.Anything).
+		Compile(mock.Anything, mock.MatchedBy(func(s string) bool { return strings.HasPrefix(s, filtering.FilterIdentifierPrefix) }), mock.Anything).
 		Return(&webkit.UserContentFilter{}, nil)
 
 	mockDownloader.EXPECT().
@@ -135,8 +136,8 @@ func TestManager_LoadAsync_DownloadsWhenCacheMiss(t *testing.T) {
 
 	// Setup expectations: no filter in store
 	mockStore.EXPECT().
-		HasCompiledFilter(mock.Anything, filtering.FilterIdentifier).
-		Return(false)
+		FetchIdentifiers(mock.Anything).
+		Return([]string{}, nil)
 
 	// Download should be triggered
 	mockDownloader.EXPECT().
@@ -145,7 +146,7 @@ func TestManager_LoadAsync_DownloadsWhenCacheMiss(t *testing.T) {
 
 	// Compile should be called
 	mockStore.EXPECT().
-		Compile(mock.Anything, filtering.FilterIdentifier, mock.Anything).
+		Compile(mock.Anything, "ublock-combined-0", mock.Anything).
 		Return(&webkit.UserContentFilter{}, nil)
 
 	// GetCachedManifest for version
@@ -242,7 +243,7 @@ func TestManager_CheckForUpdates_DownloadsWhenNewVersionAvailable(t *testing.T) 
 
 	// Compile called
 	mockStore.EXPECT().
-		Compile(mock.Anything, filtering.FilterIdentifier, mock.Anything).
+		Compile(mock.Anything, "ublock-combined-0", mock.Anything).
 		Return(&webkit.UserContentFilter{}, nil)
 
 	// GetCachedManifest for version
@@ -363,9 +364,15 @@ func TestManager_Clear_RemovesFilterAndCache(t *testing.T) {
 	mockStore := mocks.NewMockFilterStore(t)
 	mockDownloader := mocks.NewMockFilterDownloader(t)
 
-	// Remove should be called
+	// FetchIdentifiers + Remove should be called for each part
 	mockStore.EXPECT().
-		Remove(mock.Anything, filtering.FilterIdentifier).
+		FetchIdentifiers(mock.Anything).
+		Return([]string{"ublock-combined-0", "ublock-combined-1"}, nil)
+	mockStore.EXPECT().
+		Remove(mock.Anything, "ublock-combined-0").
+		Return(nil)
+	mockStore.EXPECT().
+		Remove(mock.Anything, "ublock-combined-1").
 		Return(nil)
 
 	// ClearCache should be called
@@ -443,16 +450,16 @@ func TestManager_StatusCallback_CalledOnStateChange(t *testing.T) {
 
 	// Setup for a load with fallback to download (since we can't return real filter)
 	mockStore.EXPECT().
-		HasCompiledFilter(mock.Anything, filtering.FilterIdentifier).
-		Return(true)
+		FetchIdentifiers(mock.Anything).
+		Return([]string{"ublock-combined-0"}, nil).Once()
 	mockStore.EXPECT().
-		Load(mock.Anything, filtering.FilterIdentifier).
+		Load(mock.Anything, "ublock-combined-0").
 		Return(nil, nil) // nil triggers download fallback
 	mockDownloader.EXPECT().
 		DownloadFilters(mock.Anything, mock.Anything).
 		Return([]string{jsonFile}, nil)
 	mockStore.EXPECT().
-		Compile(mock.Anything, filtering.FilterIdentifier, mock.Anything).
+		Compile(mock.Anything, "ublock-combined-0", mock.Anything).
 		Return(&webkit.UserContentFilter{}, nil)
 	mockDownloader.EXPECT().
 		GetCachedManifest().
@@ -510,8 +517,8 @@ func TestManager_LoadAsync_QuarantinesInvalidDownloadedPayload(t *testing.T) {
 	mockDownloader := mocks.NewMockFilterDownloader(t)
 
 	mockStore.EXPECT().
-		HasCompiledFilter(mock.Anything, filtering.FilterIdentifier).
-		Return(false)
+		FetchIdentifiers(mock.Anything).
+		Return([]string{}, nil)
 
 	mockDownloader.EXPECT().
 		DownloadFilters(mock.Anything, mock.Anything).
@@ -561,19 +568,21 @@ func TestManager_CheckForUpdates_CompileFailureKeepsActiveFilter(t *testing.T) {
 
 	activeFilter := &webkit.UserContentFilter{}
 
+	// loadFromCache succeeds — returns activeFilter
 	mockStore.EXPECT().
-		HasCompiledFilter(mock.Anything, filtering.FilterIdentifier).
-		Return(true).Once()
+		FetchIdentifiers(mock.Anything).
+		Return([]string{"ublock-combined-0"}, nil).Once()
 	mockStore.EXPECT().
-		Load(mock.Anything, filtering.FilterIdentifier).
+		Load(mock.Anything, "ublock-combined-0").
 		Return(activeFilter, nil).Once()
 	mockDownloader.EXPECT().
 		GetCachedManifest().
-		Return(&filtering.Manifest{Version: "2025.12.19"}, nil).Once()
+		Return(&filtering.Manifest{Version: "2025.12.19"}, nil)
 	mockDownloader.EXPECT().
 		IsCacheStale(filtering.CacheMaxAge).
 		Return(false).Once()
 
+	// CheckForUpdates: compile fails, should keep active filter
 	mockDownloader.EXPECT().
 		NeedsUpdate(mock.Anything).
 		Return(true, nil).Once()
@@ -581,7 +590,7 @@ func TestManager_CheckForUpdates_CompileFailureKeepsActiveFilter(t *testing.T) {
 		DownloadFilters(mock.Anything, mock.Anything).
 		Return([]string{jsonFile}, nil).Once()
 	mockStore.EXPECT().
-		Compile(mock.Anything, filtering.FilterIdentifier, mock.Anything).
+		Compile(mock.Anything, "ublock-combined-0", mock.Anything).
 		Return(nil, errors.New("compile failed")).Once()
 
 	mgr, err := filtering.NewManager(filtering.ManagerConfig{
@@ -599,11 +608,12 @@ func TestManager_CheckForUpdates_CompileFailureKeepsActiveFilter(t *testing.T) {
 	mgr.LoadAsync(ctx)
 
 	require.Eventually(t, func() bool {
-		return mgr.GetFilter() != nil && mgr.Status().State == filtering.StateActive
+		return len(mgr.GetFilters()) > 0 && mgr.Status().State == filtering.StateActive
 	}, 3*time.Second, 50*time.Millisecond)
 
 	err = mgr.CheckForUpdates(ctx)
 	require.ErrorIs(t, err, filtering.ErrUpdateSkipped)
-	assert.Same(t, activeFilter, mgr.GetFilter())
+	require.Len(t, mgr.GetFilters(), 1)
+	assert.Same(t, activeFilter, mgr.GetFilters()[0])
 	assert.Equal(t, filtering.StateActive, mgr.Status().State)
 }
