@@ -39,7 +39,7 @@ func TestHandlePermissionUseCase_AutoAllowDisplayCapture(t *testing.T) {
 	// Display capture should be auto-allowed (portal handles UI)
 	uc.HandlePermissionRequest(ctx, "https://meet.example.com", []entity.PermissionType{
 		entity.PermissionTypeDisplay,
-	}, callback)
+	}, nil, callback)
 
 	assert.True(t, allowed, "display capture should be auto-allowed")
 	assert.False(t, denied)
@@ -65,7 +65,7 @@ func TestHandlePermissionUseCase_AutoAllowDeviceInfo(t *testing.T) {
 	// Device info should be auto-allowed
 	uc.HandlePermissionRequest(ctx, "https://example.com", []entity.PermissionType{
 		entity.PermissionTypeDeviceInfo,
-	}, callback)
+	}, nil, callback)
 
 	assert.True(t, allowed, "device info should be auto-allowed")
 }
@@ -94,7 +94,7 @@ func TestHandlePermissionUseCase_StoredPermissionGranted(t *testing.T) {
 
 	uc.HandlePermissionRequest(ctx, "https://meet.example.com", []entity.PermissionType{
 		entity.PermissionTypeMicrophone,
-	}, callback)
+	}, nil, callback)
 
 	assert.True(t, allowed, "should use stored granted permission")
 	dialog.AssertNotCalled(t, "ShowPermissionDialog")
@@ -124,7 +124,7 @@ func TestHandlePermissionUseCase_StoredPermissionDenied(t *testing.T) {
 
 	uc.HandlePermissionRequest(ctx, "https://meet.example.com", []entity.PermissionType{
 		entity.PermissionTypeCamera,
-	}, callback)
+	}, nil, callback)
 
 	assert.True(t, denied, "should use stored denied permission")
 	dialog.AssertNotCalled(t, "ShowPermissionDialog")
@@ -150,13 +150,13 @@ func TestHandlePermissionUseCase_ShowDialogForPrompt(t *testing.T) {
 	// Dialog shows and user clicks Allow (not persistent)
 	dialog.EXPECT().ShowPermissionDialog(mock.Anything, "https://meet.example.com", []entity.PermissionType{
 		entity.PermissionTypeMicrophone,
-	}, mock.Anything).Run(func(_ context.Context, _ string, _ []entity.PermissionType, callback func(port.PermissionDialogResult)) {
+	}, mock.Anything, mock.Anything).Run(func(_ context.Context, _ string, _ []entity.PermissionType, _ entity.PermissionMetadata, callback func(port.PermissionDialogResult)) {
 		callback(port.PermissionDialogResult{Allowed: true, Persistent: false})
 	})
 
 	uc.HandlePermissionRequest(ctx, "https://meet.example.com", []entity.PermissionType{
 		entity.PermissionTypeMicrophone,
-	}, callback)
+	}, nil, callback)
 
 	assert.True(t, allowed, "user allowed permission")
 	// Should not persist since Persistent=false
@@ -183,7 +183,7 @@ func TestHandlePermissionUseCase_PersistAllowed(t *testing.T) {
 	// Dialog shows and user clicks "Always Allow"
 	dialog.EXPECT().ShowPermissionDialog(mock.Anything, "https://meet.example.com", []entity.PermissionType{
 		entity.PermissionTypeMicrophone,
-	}, mock.Anything).Run(func(_ context.Context, _ string, _ []entity.PermissionType, cb func(port.PermissionDialogResult)) {
+	}, mock.Anything, mock.Anything).Run(func(_ context.Context, _ string, _ []entity.PermissionType, _ entity.PermissionMetadata, cb func(port.PermissionDialogResult)) {
 		cb(port.PermissionDialogResult{Allowed: true, Persistent: true})
 	})
 
@@ -197,7 +197,7 @@ func TestHandlePermissionUseCase_PersistAllowed(t *testing.T) {
 
 	uc.HandlePermissionRequest(ctx, "https://meet.example.com", []entity.PermissionType{
 		entity.PermissionTypeMicrophone,
-	}, callback)
+	}, nil, callback)
 
 	assert.True(t, allowed)
 }
@@ -222,7 +222,7 @@ func TestHandlePermissionUseCase_PersistDenied(t *testing.T) {
 	// Dialog shows and user clicks "Always Deny"
 	dialog.EXPECT().ShowPermissionDialog(mock.Anything, "https://meet.example.com", []entity.PermissionType{
 		entity.PermissionTypeCamera,
-	}, mock.Anything).Run(func(_ context.Context, _ string, _ []entity.PermissionType, cb func(port.PermissionDialogResult)) {
+	}, mock.Anything, mock.Anything).Run(func(_ context.Context, _ string, _ []entity.PermissionType, _ entity.PermissionMetadata, cb func(port.PermissionDialogResult)) {
 		// User denied but wants to persist this decision
 		cb(port.PermissionDialogResult{Allowed: false, Persistent: true})
 	})
@@ -235,7 +235,7 @@ func TestHandlePermissionUseCase_PersistDenied(t *testing.T) {
 
 	uc.HandlePermissionRequest(ctx, "https://meet.example.com", []entity.PermissionType{
 		entity.PermissionTypeCamera,
-	}, callback)
+	}, nil, callback)
 
 	assert.True(t, denied)
 }
@@ -256,7 +256,7 @@ func TestHandlePermissionUseCase_EmptyOrigin(t *testing.T) {
 	// Empty origin should be denied
 	uc.HandlePermissionRequest(ctx, "", []entity.PermissionType{
 		entity.PermissionTypeMicrophone,
-	}, callback)
+	}, nil, callback)
 
 	assert.True(t, denied, "empty origin should be denied")
 }
@@ -292,7 +292,7 @@ func TestHandlePermissionUseCase_CombinedPermissions(t *testing.T) {
 	uc.HandlePermissionRequest(ctx, "https://meet.example.com", []entity.PermissionType{
 		entity.PermissionTypeMicrophone,
 		entity.PermissionTypeCamera,
-	}, callback)
+	}, nil, callback)
 
 	assert.True(t, denied, "if any permission is denied, whole request is denied")
 }
@@ -398,7 +398,7 @@ func TestHandlePermissionUseCase_NonPersistableNotSaved(t *testing.T) {
 
 	uc.HandlePermissionRequest(ctx, "https://meet.example.com", []entity.PermissionType{
 		entity.PermissionTypeDisplay,
-	}, callback)
+	}, nil, callback)
 
 	assert.True(t, allowed)
 	permRepo.AssertNotCalled(t, "Set")
@@ -423,7 +423,7 @@ func TestHandlePermissionUseCase_NoDialogPresenter(t *testing.T) {
 
 	uc.HandlePermissionRequest(ctx, "https://meet.example.com", []entity.PermissionType{
 		entity.PermissionTypeMicrophone,
-	}, callback)
+	}, nil, callback)
 
 	assert.True(t, denied, "should deny when no dialog presenter is available")
 }
@@ -450,7 +450,7 @@ func TestHandlePermissionUseCase_DisplayOverrideDenied(t *testing.T) {
 
 	uc.HandlePermissionRequest(ctx, "https://meet.example.com", []entity.PermissionType{
 		entity.PermissionTypeDisplay,
-	}, callback)
+	}, nil, callback)
 
 	assert.True(t, denied, "display should be denied when manual override is denied")
 	dialog.AssertNotCalled(t, "ShowPermissionDialog")
@@ -526,7 +526,7 @@ func TestHandlePermissionUseCase_UsesInjectedLoggerFactory(t *testing.T) {
 	}
 
 	uc := usecase.NewHandlePermissionUseCase(permRepo, dialog, loggerFactory)
-	uc.HandlePermissionRequest(ctx, "", []entity.PermissionType{entity.PermissionTypeMicrophone}, usecase.PermissionCallback{
+	uc.HandlePermissionRequest(ctx, "", []entity.PermissionType{entity.PermissionTypeMicrophone}, nil, usecase.PermissionCallback{
 		Allow: func() {},
 		Deny:  func() {},
 	})
@@ -542,7 +542,7 @@ func TestHandlePermissionUseCase_WebsiteDataAccess_ShowsDialogAndPersists(t *tes
 	uc := usecase.NewHandlePermissionUseCase(permRepo, dialog, permissionLoggerFromContext)
 
 	// No stored permission
-	permRepo.EXPECT().Get(mock.Anything, "https://accounts.google.com", entity.PermissionTypeWebsiteDataAccess).
+	permRepo.EXPECT().Get(mock.Anything, "https://shop.example.com", entity.PermissionTypeWebsiteDataAccess).
 		Return(nil, nil)
 
 	allowed := false
@@ -551,27 +551,33 @@ func TestHandlePermissionUseCase_WebsiteDataAccess_ShowsDialogAndPersists(t *tes
 		Deny:  func() {},
 	}
 
+	meta := entity.PermissionMetadata{
+		entity.PermissionMetadataKeyRequestingDomain: "accounts.google.com",
+		entity.PermissionMetadataKeyCurrentDomain:    "shop.example.com",
+	}
+
 	// Dialog shows and user clicks "Always Allow"
 	dialog.EXPECT().ShowPermissionDialog(
 		mock.Anything,
-		"https://accounts.google.com",
+		"https://shop.example.com",
 		[]entity.PermissionType{entity.PermissionTypeWebsiteDataAccess},
+		meta,
 		mock.Anything,
-	).Run(func(_ context.Context, _ string, _ []entity.PermissionType, cb func(port.PermissionDialogResult)) {
+	).Run(func(_ context.Context, _ string, _ []entity.PermissionType, _ entity.PermissionMetadata, cb func(port.PermissionDialogResult)) {
 		cb(port.PermissionDialogResult{Allowed: true, Persistent: true})
 	})
 
 	// Should persist the granted permission
 	permRepo.EXPECT().Set(mock.Anything, mock.AnythingOfType("*entity.PermissionRecord")).
 		Run(func(_ context.Context, r *entity.PermissionRecord) {
-			assert.Equal(t, "https://accounts.google.com", r.Origin)
+			assert.Equal(t, "https://shop.example.com", r.Origin)
 			assert.Equal(t, entity.PermissionTypeWebsiteDataAccess, r.Type)
 			assert.Equal(t, entity.PermissionGranted, r.Decision)
 		}).Return(nil)
 
-	uc.HandlePermissionRequest(ctx, "https://accounts.google.com", []entity.PermissionType{
+	uc.HandlePermissionRequest(ctx, "https://shop.example.com", []entity.PermissionType{
 		entity.PermissionTypeWebsiteDataAccess,
-	}, callback)
+	}, meta, callback)
 
 	assert.True(t, allowed)
 }
@@ -584,9 +590,9 @@ func TestHandlePermissionUseCase_WebsiteDataAccess_UsesStoredGrant(t *testing.T)
 	uc := usecase.NewHandlePermissionUseCase(permRepo, dialog, permissionLoggerFromContext)
 
 	// Stored granted permission
-	permRepo.EXPECT().Get(mock.Anything, "https://accounts.google.com", entity.PermissionTypeWebsiteDataAccess).
+	permRepo.EXPECT().Get(mock.Anything, "https://shop.example.com", entity.PermissionTypeWebsiteDataAccess).
 		Return(&entity.PermissionRecord{
-			Origin:   "https://accounts.google.com",
+			Origin:   "https://shop.example.com",
 			Type:     entity.PermissionTypeWebsiteDataAccess,
 			Decision: entity.PermissionGranted,
 		}, nil)
@@ -597,9 +603,9 @@ func TestHandlePermissionUseCase_WebsiteDataAccess_UsesStoredGrant(t *testing.T)
 		Deny:  func() {},
 	}
 
-	uc.HandlePermissionRequest(ctx, "https://accounts.google.com", []entity.PermissionType{
+	uc.HandlePermissionRequest(ctx, "https://shop.example.com", []entity.PermissionType{
 		entity.PermissionTypeWebsiteDataAccess,
-	}, callback)
+	}, entity.PermissionMetadata{entity.PermissionMetadataKeyRequestingDomain: "accounts.google.com", entity.PermissionMetadataKeyCurrentDomain: "shop.example.com"}, callback)
 
 	assert.True(t, allowed, "should use stored granted permission without dialog")
 	dialog.AssertNotCalled(t, "ShowPermissionDialog")

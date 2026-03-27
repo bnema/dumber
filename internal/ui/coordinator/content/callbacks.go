@@ -117,8 +117,8 @@ func (c *Coordinator) setupWebViewCallbacks(ctx context.Context, paneID entity.P
 					Msg("failed to load crash page after web process termination")
 			}
 		},
-		OnPermissionRequest: func(origin string, permTypes []string, allow, deny func()) bool {
-			return c.handlePermissionRequest(ctx, origin, permTypes, allow, deny)
+		OnPermissionRequest: func(origin string, permTypes []string, metadata map[string]string, allow, deny func()) bool {
+			return c.handlePermissionRequest(ctx, origin, permTypes, metadata, allow, deny)
 		},
 	}
 
@@ -191,6 +191,7 @@ func (c *Coordinator) handlePermissionRequest(
 	ctx context.Context,
 	origin string,
 	permTypes []string,
+	metadata map[string]string,
 	allow, deny func(),
 ) bool {
 	log := logging.FromContext(ctx)
@@ -264,7 +265,7 @@ func (c *Coordinator) handlePermissionRequest(
 		Deny:  wrappedDeny,
 	}
 
-	c.permissionUC.HandlePermissionRequest(ctx, origin, entityTypes, callback)
+	c.permissionUC.HandlePermissionRequest(ctx, origin, entityTypes, entity.PermissionMetadata(metadata), callback)
 	return true
 }
 
