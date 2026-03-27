@@ -10,7 +10,7 @@ import (
 	"github.com/bnema/dumber/internal/ui/component"
 	"github.com/bnema/dumber/internal/ui/input"
 	"github.com/bnema/dumber/internal/ui/layout"
-	"github.com/jwijenbergh/puregotk/v4/gtk"
+	"github.com/bnema/puregotk/v4/gtk"
 )
 
 // EnsureWebView acquires or reuses a WebView for the given pane.

@@ -1,17 +1,17 @@
 module github.com/bnema/dumber
 
-go 1.26
+go 1.26.1
 
 require (
-	github.com/bnema/puregotk-webkit v0.0.14
+	github.com/bnema/purego-sqlite v0.1.0
+	github.com/bnema/puregotk v0.2.0
+	github.com/bnema/puregotk-webkit v0.0.15
 	github.com/charmbracelet/bubbles v1.0.0
 	github.com/charmbracelet/bubbletea v1.3.10
 	github.com/charmbracelet/lipgloss v1.1.0
+	github.com/ebitengine/purego v0.10.0
 	github.com/fsnotify/fsnotify v1.9.0
 	github.com/godbus/dbus/v5 v5.2.2
-	github.com/jwijenbergh/purego v0.0.0-20251017112123-b71757b9ba42
-	github.com/jwijenbergh/puregotk v0.0.0-20260212181341-fb13c245f9f0
-	github.com/ncruces/go-sqlite3 v0.32.0
 	github.com/pelletier/go-toml/v2 v2.2.4
 	github.com/pressly/goose/v3 v3.27.0
 	github.com/rs/zerolog v1.34.0
@@ -23,7 +23,10 @@ require (
 	gopkg.in/yaml.v3 v3.0.1
 )
 
-replace github.com/jwijenbergh/puregotk => github.com/bnema/puregotk v0.1.0
+replace (
+	github.com/bnema/purego-sqlite => ../purego-sqlite
+	github.com/ebitengine/purego => github.com/bnema/purego v0.0.0-20260323095903-91aa177a2704
+)
 
 require (
 	github.com/atotto/clipboard v0.1.4 // indirect
@@ -49,7 +52,6 @@ require (
 	github.com/muesli/ansi v0.0.0-20230316100256-276c6243b2f6 // indirect
 	github.com/muesli/cancelreader v0.2.2 // indirect
 	github.com/muesli/termenv v0.16.0 // indirect
-	github.com/ncruces/julianday v1.0.0 // indirect
 	github.com/pmezard/go-difflib v1.0.0 // indirect
 	github.com/rivo/uniseg v0.4.7 // indirect
 	github.com/russross/blackfriday/v2 v2.1.0 // indirect
@@ -61,7 +63,6 @@ require (
 	github.com/spf13/pflag v1.0.10 // indirect
 	github.com/stretchr/objx v0.5.3 // indirect
 	github.com/subosito/gotenv v1.6.0 // indirect
-	github.com/tetratelabs/wazero v1.11.0 // indirect
 	github.com/xo/terminfo v0.0.0-20220910002029-abceb7e1c41e // indirect
 	go.uber.org/multierr v1.11.0 // indirect
 	go.yaml.in/yaml/v3 v3.0.4 // indirect

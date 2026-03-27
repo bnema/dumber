@@ -15,12 +15,12 @@ import (
 	"github.com/bnema/dumber/internal/infrastructure/desktop"
 	"github.com/bnema/dumber/internal/logging"
 	"github.com/bnema/puregotk-webkit/webkit"
-	"github.com/jwijenbergh/puregotk/v4/gdk"
-	"github.com/jwijenbergh/puregotk/v4/gio"
-	"github.com/jwijenbergh/puregotk/v4/glib"
-	"github.com/jwijenbergh/puregotk/v4/gobject"
-	gtypes "github.com/jwijenbergh/puregotk/v4/gobject/types"
-	"github.com/jwijenbergh/puregotk/v4/gtk"
+	"github.com/bnema/puregotk/v4/gdk"
+	"github.com/bnema/puregotk/v4/gio"
+	"github.com/bnema/puregotk/v4/glib"
+	"github.com/bnema/puregotk/v4/gobject"
+	gtypes "github.com/bnema/puregotk/v4/gobject/types"
+	"github.com/bnema/puregotk/v4/gtk"
 	"github.com/rs/zerolog"
 )
 

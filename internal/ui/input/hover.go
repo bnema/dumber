@@ -7,7 +7,7 @@ import (
 
 	"github.com/bnema/dumber/internal/domain/entity"
 	"github.com/bnema/dumber/internal/logging"
-	"github.com/jwijenbergh/puregotk/v4/gtk"
+	"github.com/bnema/puregotk/v4/gtk"
 )
 
 const (

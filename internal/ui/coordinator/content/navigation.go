@@ -9,7 +9,7 @@ import (
 	"github.com/bnema/dumber/internal/domain/entity"
 	urlutil "github.com/bnema/dumber/internal/domain/url"
 	"github.com/bnema/dumber/internal/logging"
-	"github.com/jwijenbergh/puregotk/v4/gtk"
+	"github.com/bnema/puregotk/v4/gtk"
 )
 
 // onLoadCommitted re-applies zoom when page content starts loading and records history.

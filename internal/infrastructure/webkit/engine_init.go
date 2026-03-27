@@ -12,7 +12,7 @@ import (
 	"github.com/bnema/dumber/internal/infrastructure/filtering"
 	"github.com/bnema/dumber/internal/logging"
 	"github.com/bnema/dumber/internal/ui/theme"
-	"github.com/jwijenbergh/puregotk/v4/gdk"
+	"github.com/bnema/puregotk/v4/gdk"
 	"github.com/rs/zerolog"
 )
 

@@ -3,7 +3,7 @@ package ui
 import (
 	"testing"
 
-	"github.com/jwijenbergh/puregotk/v4/gio"
+	"github.com/bnema/puregotk/v4/gio"
 	"github.com/stretchr/testify/assert"
 )
 

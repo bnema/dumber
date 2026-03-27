@@ -10,7 +10,7 @@ import (
 	"github.com/bnema/dumber/internal/application/port"
 	"github.com/bnema/dumber/internal/domain/entity"
 	"github.com/bnema/dumber/internal/logging"
-	"github.com/jwijenbergh/puregotk/v4/glib"
+	"github.com/bnema/puregotk/v4/glib"
 )
 
 // oauthFlowPatterns are URL patterns that indicate an OAuth flow is in progress.

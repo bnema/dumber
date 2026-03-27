@@ -4,8 +4,8 @@ package component
 import (
 	"sync"
 
-	"github.com/jwijenbergh/puregotk/v4/glib"
-	"github.com/jwijenbergh/puregotk/v4/gtk"
+	"github.com/bnema/puregotk/v4/glib"
+	"github.com/bnema/puregotk/v4/gtk"
 
 	"github.com/bnema/dumber/internal/ui/layout"
 )
