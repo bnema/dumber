@@ -8,8 +8,7 @@ import (
 	"path/filepath"
 
 	"github.com/bnema/dumber/internal/logging"
-	_ "github.com/ncruces/go-sqlite3/driver" // SQLite driver (pure Go)
-	_ "github.com/ncruces/go-sqlite3/embed"  // Embed SQLite WASM binary
+	_ "github.com/bnema/purego-sqlite/driver" // SQLite driver (purego, no WASM/CGo)
 )
 
 // NewConnection creates a new SQLite database connection with optimized settings.

@@ -9,6 +9,11 @@ import (
 	"time"
 	"unicode/utf8"
 
+	"github.com/bnema/puregotk/v4/gdk"
+	"github.com/bnema/puregotk/v4/glib"
+	"github.com/bnema/puregotk/v4/graphene"
+	"github.com/bnema/puregotk/v4/gtk"
+
 	"github.com/bnema/dumber/internal/application/usecase"
 	"github.com/bnema/dumber/internal/domain/autocomplete"
 	"github.com/bnema/dumber/internal/domain/entity"
@@ -18,10 +23,6 @@ import (
 	"github.com/bnema/dumber/internal/ui/input"
 	"github.com/bnema/dumber/internal/ui/layout"
 	"github.com/bnema/dumber/internal/ui/mainloop"
-	"github.com/bnema/puregotk/v4/gdk"
-	"github.com/bnema/puregotk/v4/glib"
-	"github.com/bnema/puregotk/v4/graphene"
-	"github.com/bnema/puregotk/v4/gtk"
 )
 
 const (

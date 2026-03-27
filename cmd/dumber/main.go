@@ -342,9 +342,6 @@ func handleParallelInitError(ctx context.Context, err error) {
 
 func logDeferredInitResults(ctx context.Context, result bootstrap.DeferredInitResult) {
 	log := logging.FromContext(ctx)
-	if result.SQLiteErr != nil {
-		log.Warn().Err(result.SQLiteErr).Msg("deferred sqlite wasm init failed")
-	}
 	if result.RuntimeErr != nil {
 		if runtimeErr, ok := result.RuntimeErr.(*bootstrap.RuntimeRequirementsError); ok {
 			runtimeErr.LogDetails(ctx)

@@ -20,7 +20,6 @@ import (
 	"github.com/bnema/dumber/internal/infrastructure/persistence/sqlite"
 	"github.com/bnema/dumber/internal/logging"
 	"github.com/bnema/dumber/internal/ui/theme"
-	sqlite3 "github.com/ncruces/go-sqlite3"
 )
 
 // DatabaseResult holds database connection and cleanup function.
@@ -43,7 +42,6 @@ type ParallelInitResult struct {
 type DeferredInitResult struct {
 	RuntimeErr error
 	MediaErr   error
-	SQLiteErr  error
 	Duration   time.Duration
 }
 
@@ -155,17 +153,11 @@ func RunDeferredInit(input DeferredInitInput) DeferredInitResult {
 	var (
 		runtimeErr error
 		mediaErr   error
-		sqliteErr  error
 		wg         sync.WaitGroup
 	)
 
 	start := time.Now()
-	wg.Add(3)
-
-	go func() {
-		defer wg.Done()
-		sqliteErr = sqlite3.Initialize()
-	}()
+	wg.Add(2)
 
 	go func() {
 		defer wg.Done()
@@ -182,7 +174,6 @@ func RunDeferredInit(input DeferredInitInput) DeferredInitResult {
 	return DeferredInitResult{
 		RuntimeErr: runtimeErr,
 		MediaErr:   mediaErr,
-		SQLiteErr:  sqliteErr,
 		Duration:   time.Since(start),
 	}
 }
