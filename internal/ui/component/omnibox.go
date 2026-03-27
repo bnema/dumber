@@ -910,16 +910,20 @@ func (o *Omnibox) setGhostText(originalInput, suffix string) {
 		return
 	}
 
-	// Verify the user hasn't typed since this ghost was computed.
+	// Verify the buffer hasn't been modified by user typing since this ghost
+	// was computed. We check the actual buffer — not realInput, which may be
+	// stale due to debounced search-changed signal.
+	currentBuffer := o.entry.GetText()
 	o.mu.RLock()
-	currentInput := o.realInput
+	existingGhost := o.ghostSuffix
 	o.mu.RUnlock()
-	if currentInput != originalInput {
+	expectedWithGhost := originalInput + existingGhost
+	if currentBuffer != originalInput && currentBuffer != expectedWithGhost {
 		log.Debug().
-			Str("staleInput", originalInput).
-			Str("currentInput", currentInput).
+			Str("originalInput", originalInput).
+			Str("currentBuffer", currentBuffer).
 			Str("suffix", suffix).
-			Msg("ghost: setGhostText skipped (stale input)")
+			Msg("ghost: setGhostText skipped (buffer modified by user)")
 		return
 	}
 
