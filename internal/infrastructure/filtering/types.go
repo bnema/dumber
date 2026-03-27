@@ -48,17 +48,11 @@ type CombinedInfo struct {
 	Files      []string `json:"files"`
 }
 
-// FilterFiles defines the files to download from GitHub releases.
+// FilterFiles defines the well-known file names for GitHub releases.
 var FilterFiles = struct {
 	Manifest string
-	Combined []string
 }{
 	Manifest: "manifest.json",
-	Combined: []string{
-		"combined-part1.json",
-		"combined-part2.json",
-		"combined-part3.json",
-	},
 }
 
 // FilterIdentifier is the identifier used when storing/loading compiled filters.
