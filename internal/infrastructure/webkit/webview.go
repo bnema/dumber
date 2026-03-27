@@ -467,13 +467,12 @@ func (wv *WebView) connectLoadChangedSignal() {
 }
 
 func (wv *WebView) connectLoadFailedSignal() {
-	loadFailedCb := func(_ webkit.WebView, event webkit.LoadEvent, failingURI string, _ uintptr) bool {
-		// Note: error details are a raw uintptr (GError*) — see bnema/puregotk#6
-		// for tracking proper *glib.Error conversion in signal callbacks.
+	loadFailedCb := func(_ webkit.WebView, event webkit.LoadEvent, failingURI string, gerr *glib.Error) bool {
 		wv.logger.Warn().
 			Str("component", "webview").
 			Str("uri", failingURI).
 			Int("load_event", int(event)).
+			Str("error", gerr.MessageGo()).
 			Msg("load failed")
 		return false
 	}

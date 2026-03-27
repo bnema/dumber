@@ -10,6 +10,7 @@ import (
 	downloadutil "github.com/bnema/dumber/internal/domain/download"
 	"github.com/bnema/dumber/internal/logging"
 	"github.com/bnema/puregotk-webkit/webkit"
+	"github.com/bnema/puregotk/v4/glib"
 )
 
 const (
@@ -114,7 +115,7 @@ func (h *DownloadHandler) HandleDownload(ctx context.Context, download *webkit.D
 	download.ConnectDecideDestination(&decideDestCb)
 
 	// Handle failed signal.
-	failedCb := func(d webkit.Download, _ uintptr) {
+	failedCb := func(d webkit.Download, gerr *glib.Error) {
 		state.mu.Lock()
 		state.failed = true
 		state.mu.Unlock()
@@ -123,7 +124,7 @@ func (h *DownloadHandler) HandleDownload(ctx context.Context, download *webkit.D
 		filename := downloadutil.ExtractFilenameFromDestination(dest)
 
 		// Create error for the failed download.
-		downloadErr := fmt.Errorf("download failed: %s", filename)
+		downloadErr := fmt.Errorf("download failed: %s: %s", filename, gerr.MessageGo())
 
 		if eventHandler != nil {
 			eventHandler.OnDownloadEvent(ctx, port.DownloadEvent{
