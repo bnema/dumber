@@ -84,6 +84,7 @@ func (d *PermissionDialog) showRequest(req permissionDialogRequest) {
 	ctx := req.ctx
 	origin := req.origin
 	permTypes := req.permTypes
+	metadata := req.metadata
 	callback := req.callback
 
 	log := logging.FromContext(ctx)
@@ -97,9 +98,26 @@ func (d *PermissionDialog) showRequest(req permissionDialogRequest) {
 
 	// Build dialog text
 	heading := d.buildHeading(permTypes)
-	body := d.buildBody(origin, permTypes, req.metadata)
+	body := d.buildBody(origin, permTypes, metadata)
+
+	if parsePermFlags(permTypes).dataAccess {
+		log.Info().
+			Str("origin", origin).
+			Str("requesting_domain", logging.TruncateURL(metadata[entity.PermissionMetadataKeyRequestingDomain], 96)).
+			Str("current_domain", logging.TruncateURL(metadata[entity.PermissionMetadataKeyCurrentDomain], 96)).
+			Msg("showing website data access permission dialog")
+	}
 
 	d.popup.Show(ctx, heading, body, func(allowed, persistent bool) {
+		if parsePermFlags(permTypes).dataAccess {
+			log.Info().
+				Str("origin", origin).
+				Str("requesting_domain", logging.TruncateURL(metadata[entity.PermissionMetadataKeyRequestingDomain], 96)).
+				Str("current_domain", logging.TruncateURL(metadata[entity.PermissionMetadataKeyCurrentDomain], 96)).
+				Bool("allowed", allowed).
+				Bool("persistent", persistent).
+				Msg("website data access permission dialog response")
+		}
 		log.Debug().
 			Bool("allowed", allowed).
 			Bool("persistent", persistent).

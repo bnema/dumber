@@ -4,7 +4,7 @@ go 1.26.1
 
 require (
 	github.com/bnema/purego-sqlite v0.1.1
-	github.com/bnema/puregotk v0.2.0
+	github.com/bnema/puregotk v0.2.1
 	github.com/bnema/puregotk-webkit v0.0.15
 	github.com/charmbracelet/bubbles v1.0.0
 	github.com/charmbracelet/bubbletea v1.3.10
@@ -24,6 +24,8 @@ require (
 )
 
 replace github.com/ebitengine/purego => github.com/bnema/purego v0.0.0-20260323095903-91aa177a2704
+
+replace github.com/bnema/puregotk => /home/brice/dev/projects/puregotk
 
 require (
 	github.com/atotto/clipboard v0.1.4 // indirect

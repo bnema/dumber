@@ -44,51 +44,22 @@ func TestResetSearchSessionState(t *testing.T) {
 	}
 }
 
-func TestShouldUpdateGhostImmediately(t *testing.T) {
+func TestIsDeletionKey(t *testing.T) {
 	tests := []struct {
-		name          string
-		previousInput string
-		entryText     string
-		want          bool
+		name string
+		key  uint
+		want bool
 	}{
-		{name: "typing forward", previousInput: "goo", entryText: "goog", want: true},
-		{name: "same length replace", previousInput: "goo", entryText: "gaa", want: true},
-		{name: "backspace", previousInput: "goog", entryText: "goo", want: false},
-		{name: "clear input", previousInput: "goo", entryText: "", want: false},
+		{name: "backspace is deletion", key: uint(gdk.KEY_BackSpace), want: true},
+		{name: "delete is deletion", key: uint(gdk.KEY_Delete), want: true},
+		{name: "typing key is not deletion", key: uint(gdk.KEY_g), want: false},
+		{name: "arrow key is not deletion", key: uint(gdk.KEY_Left), want: false},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			if got := shouldUpdateGhostImmediately(tt.previousInput, tt.entryText); got != tt.want {
-				t.Fatalf(
-					"shouldUpdateGhostImmediately(%q, %q) = %v, want %v",
-					tt.previousInput,
-					tt.entryText,
-					got,
-					tt.want,
-				)
-			}
-		})
-	}
-}
-
-func TestNextGhostSuppressionState(t *testing.T) {
-	tests := []struct {
-		name    string
-		current bool
-		key     uint
-		want    bool
-	}{
-		{name: "backspace enables suppression", current: false, key: uint(gdk.KEY_BackSpace), want: true},
-		{name: "delete enables suppression", current: false, key: uint(gdk.KEY_Delete), want: true},
-		{name: "typing key disables suppression", current: true, key: uint(gdk.KEY_g), want: false},
-		{name: "arrow key disables suppression", current: true, key: uint(gdk.KEY_Left), want: false},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			if got := nextGhostSuppressionState(tt.key); got != tt.want {
-				t.Fatalf("nextGhostSuppressionState(%v, %d) = %v, want %v", tt.current, tt.key, got, tt.want)
+			if got := isDeletionKey(tt.key); got != tt.want {
+				t.Fatalf("isDeletionKey(%d) = %v, want %v", tt.key, got, tt.want)
 			}
 		})
 	}

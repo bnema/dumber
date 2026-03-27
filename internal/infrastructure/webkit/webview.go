@@ -419,6 +419,7 @@ func (wv *WebView) connectSignals() {
 	wv.connectFaviconSignal()
 	wv.connectProgressSignal()
 	wv.connectLoadFailedSignal()
+	wv.connectWebProcessResponsiveSignal()
 	wv.connectDecidePolicySignal()
 	wv.connectEnterFullscreenSignal()
 	wv.connectLeaveFullscreenSignal()
@@ -477,6 +478,28 @@ func (wv *WebView) connectLoadFailedSignal() {
 		return false
 	}
 	sigID := wv.inner.ConnectLoadFailed(&loadFailedCb)
+	wv.signalIDs = append(wv.signalIDs, uintptr(sigID))
+}
+
+func (wv *WebView) connectWebProcessResponsiveSignal() {
+	responsiveCb := func() {
+		responsive := wv.inner.GetPropertyIsWebProcessResponsive()
+		event := wv.logger.With().
+			Uint64("id", uint64(wv.id)).
+			Str("uri", wv.inner.GetUri()).
+			Bool("responsive", responsive).
+			Logger()
+		if responsive {
+			event.Info().Msg("web process responsiveness changed")
+			return
+		}
+		event.Warn().Msg("web process became unresponsive")
+	}
+	sigID := gobject.SignalConnect(
+		wv.inner.GoPointer(),
+		"notify::is-web-process-responsive",
+		glib.NewCallback(&responsiveCb),
+	)
 	wv.signalIDs = append(wv.signalIDs, uintptr(sigID))
 }
 
@@ -1023,6 +1046,13 @@ func (wv *WebView) connectPermissionRequestSignal() {
 		if len(permTypes) == 0 {
 			wv.logger.Warn().Msg("permission request with unknown type, denying")
 			return false
+		}
+		if len(permTypes) == 1 && permTypes[0] == "website_data_access" {
+			wv.logger.Info().
+				Str("origin", origin).
+				Str("requesting_domain", logging.TruncateURL(metadata[entity.PermissionMetadataKeyRequestingDomain], 96)).
+				Str("current_domain", logging.TruncateURL(metadata[entity.PermissionMetadataKeyCurrentDomain], 96)).
+				Msg("website data access permission requested")
 		}
 
 		// Ref the request object to prevent use-after-free
