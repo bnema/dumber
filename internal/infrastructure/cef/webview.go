@@ -391,8 +391,8 @@ func (wv *WebView) OpenDevTools() {
 	if host == nil {
 		return
 	}
-	windowInfo := purecef.WindowInfo{}
-	settings := purecef.BrowserSettings{}
+	windowInfo := purecef.NewWindowInfo()
+	settings := purecef.NewBrowserSettings()
 	host.ShowDevTools(&windowInfo, nil, &settings, nil)
 }
 

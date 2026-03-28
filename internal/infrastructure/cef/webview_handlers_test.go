@@ -83,7 +83,8 @@ func TestGetViewRectUsesDIPCoordinates(t *testing.T) {
 }
 
 func TestGetScreenInfoUsesDIPRectAndScale(t *testing.T) {
-	info := &purecef.ScreenInfo{}
+	si := purecef.NewScreenInfo()
+	info := &si
 	h := &handlerSet{
 		wv: &WebView{
 			ctx: context.Background(),

@@ -145,13 +145,13 @@ func (h *handlerSet) GetScreenInfo(_ purecef.Browser, info *purecef.ScreenInfo) 
 		screenDepthPerComponent = 8
 	)
 	r := purecef.Rect{X: 0, Y: 0, Width: w, Height: ht}
-	*info = purecef.ScreenInfo{
-		DeviceScaleFactor: float32(s),
-		Depth:             screenDepth,
-		DepthPerComponent: screenDepthPerComponent,
-		Rect:              r,
-		AvailableRect:     r,
-	}
+	si := purecef.NewScreenInfo()
+	si.DeviceScaleFactor = float32(s)
+	si.Depth = screenDepth
+	si.DepthPerComponent = screenDepthPerComponent
+	si.Rect = r
+	si.AvailableRect = r
+	*info = si
 	if h.wv != nil && h.wv.ctx != nil {
 		logging.FromContext(h.wv.ctx).Debug().
 			Uint64("screen_info_seq", callSeq).

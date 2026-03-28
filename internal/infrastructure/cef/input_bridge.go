@@ -385,12 +385,11 @@ func (ib *inputBridge) onIMCommit(text string) {
 			continue
 		}
 		ch := uint16(r)
-		evt := purecef.KeyEvent{
-			Type:                purecef.KeyEventTypeKeyeventChar,
-			WindowsKeyCode:      int32(ch),
-			Character:           ch,
-			UnmodifiedCharacter: ch,
-		}
+		evt := purecef.NewKeyEvent()
+		evt.Type = purecef.KeyEventTypeKeyeventChar
+		evt.WindowsKeyCode = int32(ch)
+		evt.Character = ch
+		evt.UnmodifiedCharacter = ch
 		host.SendKeyEvent(&evt)
 	}
 }
@@ -490,12 +489,12 @@ func buildMouseEvent(x, y float64, gdkMods uint, scale int32) purecef.MouseEvent
 }
 
 func buildKeyEvent(keyval, keycode, gdkMods uint, eventType purecef.KeyEventType) purecef.KeyEvent {
-	return purecef.KeyEvent{
-		Type:           eventType,
-		WindowsKeyCode: gdkKeyvalToWindowsVK(keyval),
-		NativeKeyCode:  int32(keycode),
-		Modifiers:      translateModifiers(gdkMods),
-	}
+	evt := purecef.NewKeyEvent()
+	evt.Type = eventType
+	evt.WindowsKeyCode = gdkKeyvalToWindowsVK(keyval)
+	evt.NativeKeyCode = int32(keycode)
+	evt.Modifiers = translateModifiers(gdkMods)
+	return evt
 }
 
 // translateModifiers maps GDK modifier masks to CEF EventFlags values.
