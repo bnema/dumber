@@ -27,15 +27,15 @@ type handlerSet struct {
 
 // Compile-time interface checks.
 var (
-	_ purecef.Client             = (*handlerSet)(nil)
-	_ purecef.RenderHandler      = (*handlerSet)(nil)
-	_ purecef.DisplayHandler     = (*handlerSet)(nil)
-	_ purecef.LoadHandler        = (*handlerSet)(nil)
-	_ purecef.LifeSpanHandler    = (*handlerSet)(nil)
-	_ purecef.RequestHandler     = (*handlerSet)(nil)
-	_ purecef.AudioHandler       = (*handlerSet)(nil)
-	_ purecef.ContextMenuHandler = (*handlerSet)(nil)
-	_ purecef.FindHandler        = (*handlerSet)(nil)
+	_ purecef.SafeClient          = (*handlerSet)(nil)
+	_ purecef.RenderHandler       = (*handlerSet)(nil)
+	_ purecef.DisplayHandler      = (*handlerSet)(nil)
+	_ purecef.LoadHandler         = (*handlerSet)(nil)
+	_ purecef.SafeLifeSpanHandler = (*handlerSet)(nil)
+	_ purecef.RequestHandler      = (*handlerSet)(nil)
+	_ purecef.AudioHandler        = (*handlerSet)(nil)
+	_ purecef.ContextMenuHandler  = (*handlerSet)(nil)
+	_ purecef.FindHandler         = (*handlerSet)(nil)
 )
 
 // ===========================================================================
@@ -66,7 +66,7 @@ func (h *handlerSet) GetFrameHandler() purecef.FrameHandler           { return n
 func (h *handlerSet) GetPermissionHandler() purecef.PermissionHandler { return nil }
 func (h *handlerSet) GetJsdialogHandler() purecef.JsdialogHandler     { return nil }
 func (h *handlerSet) GetKeyboardHandler() purecef.KeyboardHandler     { return nil }
-func (h *handlerSet) GetLifeSpanHandler() purecef.LifeSpanHandler     { return h }
+func (h *handlerSet) GetLifeSpanHandler() purecef.SafeLifeSpanHandler { return h }
 func (h *handlerSet) GetLoadHandler() purecef.LoadHandler             { return h }
 func (h *handlerSet) GetPrintHandler() purecef.PrintHandler           { return nil }
 func (h *handlerSet) GetRenderHandler() purecef.RenderHandler         { return h }
@@ -145,7 +145,13 @@ func (h *handlerSet) GetScreenInfo(_ purecef.Browser, info *purecef.ScreenInfo) 
 		screenDepthPerComponent = 8
 	)
 	r := purecef.Rect{X: 0, Y: 0, Width: w, Height: ht}
-	*info = purecef.NewScreenInfo(float32(s), screenDepth, screenDepthPerComponent, false, r, r)
+	*info = purecef.ScreenInfo{
+		DeviceScaleFactor: float32(s),
+		Depth:             screenDepth,
+		DepthPerComponent: screenDepthPerComponent,
+		Rect:              r,
+		AvailableRect:     r,
+	}
 	if h.wv != nil && h.wv.ctx != nil {
 		logging.FromContext(h.wv.ctx).Debug().
 			Uint64("screen_info_seq", callSeq).

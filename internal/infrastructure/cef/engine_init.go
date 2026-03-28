@@ -31,7 +31,6 @@ func NewEngine(ctx context.Context, cfg config.CEFEngineConfig, transcodingCfg c
 	multiThreaded := cfg.CEFMultiThreadedMessageLoop()
 	manualPumpMs := cfg.CEFManualPumpIntervalMs()
 	windowlessFrameRate := cfg.CEFWindowlessFrameRate()
-	purecef.SetHandlerTraceEnabled(cfg.TraceHandlers)
 
 	settings := prepareCEFSettings(cfg, logger)
 

@@ -169,6 +169,20 @@ func (m *Manager) loadAsyncWorker(ctx context.Context) {
 		return
 	}
 
+	// If local JSON files exist on disk, compile from them directly instead
+	// of downloading. This respects auto_update=false on cold start with an
+	// empty compiled store and allows testing with patched local JSON.
+	if paths := m.downloader.GetCachedFilterPaths(); len(paths) > 0 {
+		log.Info().Int("files", len(paths)).Msg("compiling filters from local JSON (skipping download)")
+		filters, err := m.compileFilterParts(ctx, paths)
+		if err == nil {
+			version := m.setActiveFilters(filters, "Filters active")
+			log.Info().Str("version", version).Int("parts", len(filters)).Msg("filters compiled from local JSON")
+			return
+		}
+		log.Warn().Err(err).Msg("failed to compile local JSON, falling back to download")
+	}
+
 	m.downloadCompileAndActivate(ctx)
 }
 

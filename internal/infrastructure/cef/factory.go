@@ -118,12 +118,12 @@ func (f *WebViewFactory) Create(ctx context.Context) (port.WebView, error) {
 	wv.client = client
 
 	// Configure WindowInfo for off-screen rendering (OSR).
-	windowInfo := purecef.DefaultWindowInfo()
+	windowInfo := purecef.WindowInfo{}
 	windowInfo.WindowlessRenderingEnabled = 1
 	windowInfo.ExternalBeginFrameEnabled = 1
 
 	// Configure BrowserSettings.
-	settings := purecef.DefaultBrowserSettings()
+	settings := purecef.BrowserSettings{}
 	settings.WindowlessFrameRate = f.windowlessFrameRate
 	settings.LocalStorage = 1 // CEF_STATE_ENABLED
 	if bg := f.bgColor.Load(); bg != 0 {
