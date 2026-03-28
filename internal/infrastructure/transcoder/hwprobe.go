@@ -32,14 +32,14 @@ type hwProfile struct {
 
 var vaAPIProfile = hwProfile{
 	api:        "vaapi",
-	deviceType: ffmpeg.AV_HWDEVICE_TYPE_VAAPI,
+	deviceType: int32(ffmpeg.HwdeviceTypeVaapi),
 	encoders:   []string{"av1_vaapi", "vp9_vaapi", "h264_vaapi"},
 	decoders:   []string{"h264_vaapi", "hevc_vaapi"},
 }
 
 var nvencProfile = hwProfile{
 	api:        "nvenc",
-	deviceType: ffmpeg.AV_HWDEVICE_TYPE_CUDA,
+	deviceType: int32(ffmpeg.HwdeviceTypeCuda),
 	// hevc_nvenc and h264_nvenc are probed for logging/diagnostic purposes
 	// but filtered as non-usable by isUsableEncoder (only open codecs like
 	// AV1 and VP9 are usable in CEF's minimal build).

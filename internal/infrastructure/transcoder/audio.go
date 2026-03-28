@@ -74,7 +74,7 @@ func newAudioTranscoder(inCodecPar, outFmtCtx unsafe.Pointer, inStreamIdx int) (
 	}
 
 	// Opus always works with float planar samples.
-	ffmpeg.CodecCtxSetSampleFmt(encCtx, int32(ffmpeg.SampleFormatSampleFmtFltp))
+	ffmpeg.CodecCtxSetSampleFmt(encCtx, int32(ffmpeg.SampleFmtFltp))
 	ffmpeg.CodecCtxSetSampleRate(encCtx, opusSampleRate)
 	codecCtxSetBitRate(encCtx, opusBitrate)
 
@@ -116,7 +116,7 @@ func newAudioTranscoder(inCodecPar, outFmtCtx unsafe.Pointer, inStreamIdx int) (
 
 	inSampleRate := ffmpeg.CodecCtxSampleRate(decCtx)
 	inSampleFmt := ffmpeg.CodecCtxSampleFmt(decCtx)
-	needResample := inSampleRate != opusSampleRate || inSampleFmt != int32(ffmpeg.SampleFormatSampleFmtFltp)
+	needResample := inSampleRate != opusSampleRate || inSampleFmt != int32(ffmpeg.SampleFmtFltp)
 
 	if needResample {
 		swr = ffmpeg.SwrAlloc()
@@ -130,7 +130,7 @@ func newAudioTranscoder(inCodecPar, outFmtCtx unsafe.Pointer, inStreamIdx int) (
 		ffmpeg.AVOptSetInt(swr, "in_sample_rate", int64(inSampleRate), 0)
 		ffmpeg.AVOptSetInt(swr, "out_sample_rate", int64(opusSampleRate), 0)
 		ffmpeg.AVOptSet(swr, "in_sample_fmt", ffmpeg.GetSampleFmtName(inSampleFmt), 0)
-		ffmpeg.AVOptSet(swr, "out_sample_fmt", ffmpeg.GetSampleFmtName(int32(ffmpeg.SampleFormatSampleFmtFltp)), 0)
+		ffmpeg.AVOptSet(swr, "out_sample_fmt", ffmpeg.GetSampleFmtName(int32(ffmpeg.SampleFmtFltp)), 0)
 
 		// Modern FFmpeg (8.x) requires explicit channel layout configuration
 		// on the SwrContext. Without it, swr_init may succeed but the resampler
@@ -156,7 +156,7 @@ func newAudioTranscoder(inCodecPar, outFmtCtx unsafe.Pointer, inStreamIdx int) (
 			return nil, errors.New("failed to allocate resampled frame")
 		}
 
-		frameSetFormat(resampledFrame, int32(ffmpeg.SampleFormatSampleFmtFltp))
+		frameSetFormat(resampledFrame, int32(ffmpeg.SampleFmtFltp))
 		frameSetSampleRate(resampledFrame, opusSampleRate)
 		frameSetNbSamples(resampledFrame, opusFrameSize)
 		// Copy channel layout from decoder to the resampled frame.

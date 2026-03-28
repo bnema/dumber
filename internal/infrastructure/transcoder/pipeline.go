@@ -591,9 +591,9 @@ func (p *pipeline) openVideoEncoder(decCtx unsafe.Pointer) (hwDeviceCtx unsafe.P
 	var deviceType int32
 	switch p.hwCaps.API {
 	case "vaapi":
-		deviceType = ffmpeg.AV_HWDEVICE_TYPE_VAAPI
+		deviceType = int32(ffmpeg.HwdeviceTypeVaapi)
 	case "nvenc":
-		deviceType = ffmpeg.AV_HWDEVICE_TYPE_CUDA
+		deviceType = int32(ffmpeg.HwdeviceTypeCuda)
 	default:
 		return nil, nil, fmt.Errorf("unknown HW API: %s", p.hwCaps.API)
 	}
@@ -660,9 +660,9 @@ func (p *pipeline) tryOpenVideoEncoder(decCtx, hwDeviceCtx unsafe.Pointer, encod
 	ffmpeg.CodecCtxSetTimeBase(encCtx, ffmpeg.AVRational{Num: framerate.Den, Den: framerate.Num})
 
 	if p.hwCaps.API == "vaapi" {
-		ffmpeg.CodecCtxSetPixFmt(encCtx, int32(ffmpeg.PixelFormatPixFmtVaapi))
+		ffmpeg.CodecCtxSetPixFmt(encCtx, int32(ffmpeg.PixFmtVaapi))
 	} else {
-		ffmpeg.CodecCtxSetPixFmt(encCtx, int32(ffmpeg.PixelFormatPixFmtNv12))
+		ffmpeg.CodecCtxSetPixFmt(encCtx, int32(ffmpeg.PixFmtNv12))
 	}
 
 	gopSize := int32(framerate.Num / framerate.Den * 2)
@@ -694,8 +694,8 @@ func (p *pipeline) tryOpenVideoEncoder(decCtx, hwDeviceCtx unsafe.Pointer, encod
 		}
 
 		ffmpeg.HWFramesCtxSetInitialPoolSize(hwFramesData, 20)
-		ffmpeg.HWFramesCtxSetFormat(hwFramesData, int32(ffmpeg.PixelFormatPixFmtVaapi))
-		ffmpeg.HWFramesCtxSetSWFormat(hwFramesData, int32(ffmpeg.PixelFormatPixFmtNv12))
+		ffmpeg.HWFramesCtxSetFormat(hwFramesData, int32(ffmpeg.PixFmtVaapi))
+		ffmpeg.HWFramesCtxSetSWFormat(hwFramesData, int32(ffmpeg.PixFmtNv12))
 		ffmpeg.HWFramesCtxSetWidth(hwFramesData, width)
 		ffmpeg.HWFramesCtxSetHeight(hwFramesData, height)
 
@@ -759,7 +759,7 @@ func (p *pipeline) applyQualityPreset(encCtx unsafe.Pointer, encoderName string,
 
 // transcodeVideoPacket decodes a video packet, encodes the resulting
 // frames, and writes them to the output.
-func (p *pipeline) transcodeVideoPacket(pkt, frame, encPkt, decCtx, encCtx, outFmtCtx unsafe.Pointer, inStreamWrap *ffmpeg.Stream, outVideoIdx int) error {
+func (p *pipeline) transcodeVideoPacket(pkt, frame, encPkt, decCtx, encCtx, outFmtCtx unsafe.Pointer, inStreamWrap ffmpeg.Stream, outVideoIdx int) error {
 	ret := ffmpeg.CodecSendPacket(decCtx, pkt)
 	if ret < 0 {
 		return fmt.Errorf("video decode send packet: %d", ret)
@@ -784,7 +784,7 @@ func (p *pipeline) transcodeVideoPacket(pkt, frame, encPkt, decCtx, encCtx, outF
 
 // encodeAndWriteVideoFrame sends a decoded frame to the encoder and
 // writes any resulting packets to the output.
-func (p *pipeline) encodeAndWriteVideoFrame(frame, encPkt, encCtx, outFmtCtx unsafe.Pointer, inStreamWrap *ffmpeg.Stream, outVideoIdx int) error {
+func (p *pipeline) encodeAndWriteVideoFrame(frame, encPkt, encCtx, outFmtCtx unsafe.Pointer, inStreamWrap ffmpeg.Stream, outVideoIdx int) error {
 	encFrame := frame
 	var cleanup func()
 	if p.hwCaps.API == "vaapi" {
@@ -824,7 +824,7 @@ func (p *pipeline) encodeAndWriteVideoFrame(frame, encPkt, encCtx, outFmtCtx uns
 }
 
 func (p *pipeline) uploadVideoFrameToVAAPI(frame, encCtx unsafe.Pointer) (unsafe.Pointer, func(), error) {
-	if frameFormat(frame) == int32(ffmpeg.PixelFormatPixFmtVaapi) {
+	if frameFormat(frame) == int32(ffmpeg.PixFmtVaapi) {
 		return frame, func() {}, nil
 	}
 
@@ -844,7 +844,7 @@ func (p *pipeline) uploadVideoFrameToVAAPI(frame, encCtx unsafe.Pointer) (unsafe
 		}
 	}
 
-	frameSetFormat(hwFrame, int32(ffmpeg.PixelFormatPixFmtVaapi))
+	frameSetFormat(hwFrame, int32(ffmpeg.PixFmtVaapi))
 	frameSetWidth(hwFrame, frameWidth(frame))
 	frameSetHeight(hwFrame, frameHeight(frame))
 	frameSetPts(hwFrame, framePts(frame))
