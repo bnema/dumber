@@ -4,8 +4,8 @@ go 1.26.1
 
 require (
 	github.com/bnema/purego-sqlite v0.1.1
-	github.com/bnema/puregotk v0.2.2
-	github.com/bnema/puregotk-webkit v0.0.16
+	github.com/bnema/puregotk v0.3.0
+	github.com/bnema/puregotk-webkit v0.0.17
 	github.com/charmbracelet/bubbles v1.0.0
 	github.com/charmbracelet/bubbletea v1.3.10
 	github.com/charmbracelet/lipgloss v1.1.0
@@ -14,7 +14,7 @@ require (
 	github.com/godbus/dbus/v5 v5.2.2
 	github.com/pelletier/go-toml/v2 v2.3.0
 	github.com/pressly/goose/v3 v3.27.0
-	github.com/rs/zerolog v1.34.0
+	github.com/rs/zerolog v1.35.0
 	github.com/spf13/cobra v1.10.2
 	github.com/spf13/viper v1.21.0
 	github.com/stretchr/testify v1.11.1
