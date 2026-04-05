@@ -110,7 +110,7 @@ func runGUI() int {
 	}
 	timer.MarkDuration("parallel_phase", initResult.Duration)
 
-	if cfg.Engine.CEF.CEFMultiThreadedMessageLoop() && cfg.Engine.ResolveEngineType() == "cef" {
+	if cfg.Engine.ResolveEngineType() == config.EngineTypeCEF {
 		logging.FromContext(ctx).Info().Msg("pre-initializing libadwaita before CEF multi-threaded loop")
 		ui.EnsureAdwaitaInitialized()
 		if initResult.AdwaitaDetector != nil {

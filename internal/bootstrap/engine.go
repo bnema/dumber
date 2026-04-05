@@ -28,7 +28,7 @@ func BuildEngine(input EngineInput) (port.Engine, error) {
 	cfg := input.Config
 	engineType := cfg.Engine.ResolveEngineType()
 	switch engineType {
-	case "webkit":
+	case config.EngineTypeWebKit:
 		opts := port.EngineOptions{
 			DataDir:      input.DataDir,
 			CacheDir:     input.CacheDir,
@@ -40,7 +40,7 @@ func BuildEngine(input EngineInput) (port.Engine, error) {
 			input.Ctx, cfg, opts, wkCfg,
 			input.ThemeManager, input.ColorResolver, input.Logger,
 		)
-	case "cef":
+	case config.EngineTypeCEF:
 		cefCfg := cfg.Engine.CEF
 		return cef.NewEngine(input.Ctx, cefCfg, cfg.Transcoding)
 	default:

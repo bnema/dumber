@@ -341,10 +341,6 @@ func validateCEF(config *Config) []string {
 		validationErrors = append(validationErrors, "engine.cef.windowless_frame_rate must be >= 0")
 	}
 
-	if config.Engine.CEF.ManualPumpIntervalMs < 0 {
-		validationErrors = append(validationErrors, "engine.cef.manual_pump_interval_ms must be >= 0")
-	}
-
 	return validationErrors
 }
 

@@ -2,14 +2,11 @@ package cef
 
 import (
 	"context"
-	"encoding/json"
 	"sync"
 	"sync/atomic"
 	"time"
-	"unicode/utf8"
 
 	purecef "github.com/bnema/purego-cef/cef"
-	"github.com/bnema/puregotk/v4/glib"
 
 	"github.com/bnema/dumber/internal/application/port"
 	"github.com/bnema/dumber/internal/infrastructure/handlers"
@@ -33,23 +30,13 @@ type Engine struct {
 
 	// activeWebViews tracks all live webviews for CSS broadcast.
 	activeWebViews sync.Map // map[port.WebViewID]*WebView
+	activeCount    atomic.Int32
 
 	// shutdownNotify is signalled when the active webview count reaches 0
 	// during shutdown, replacing the busy-wait poll in closeActiveWebViews.
 	shutdownNotify chan struct{}
 
-	multiThreadedMessageLoop bool
-	manualPumpInterval       int64
-
-	// Pump lifecycle (manual pump mode only).
-	pumpEnabled     atomic.Bool
-	pumpClosing     atomic.Bool
-	pumpTimerSource atomic.Uint64
-
 	// Diagnostic counters.
-	pumpWorkCount atomic.Uint64
-	scheduleCount atomic.Uint64 // OnScheduleMessagePumpWork call count (currently always 0)
-
 	contextInitializedCount atomic.Uint64
 	childLaunchRenderer     atomic.Uint64
 	childLaunchGPU          atomic.Uint64
@@ -62,6 +49,7 @@ type Engine struct {
 	browserCreateLastWidth   atomic.Int32
 	browserCreateLastHeight  atomic.Int32
 	lastStallLoggedCreateSeq atomic.Uint64
+	browserCreateComplete    atomic.Bool
 
 	transcoderState       transcoderStartupState
 	transcoderStateLogged atomic.Bool
@@ -79,17 +67,14 @@ type transcoderStartupState struct {
 	Decoders       []string
 }
 
-// Factory returns the WebViewFactory for creating new WebView instances.
 func (e *Engine) Factory() port.WebViewFactory {
 	return &webViewFactoryAdapter{factory: e.factory}
 }
 
-// Pool returns the WebViewPool for acquiring pre-warmed WebView instances.
 func (e *Engine) Pool() port.WebViewPool {
 	return &webViewPoolAdapter{pool: e.pool, ctx: e.ctx}
 }
 
-// ContentInjector returns the CEF content injector for script/style injection.
 func (e *Engine) ContentInjector() port.ContentInjector {
 	if e.contentInj != nil {
 		return e.contentInj
@@ -124,13 +109,14 @@ func (e *Engine) SetColorResolver(resolver port.ColorSchemeResolver) {
 // registerWebView adds a webview to the active tracking map.
 func (e *Engine) registerWebView(wv *WebView) {
 	e.activeWebViews.Store(wv.id, wv)
+	e.activeCount.Add(1)
 }
 
 // unregisterWebView removes a webview from the active tracking map.
 // If the count reaches 0 and a shutdown is in progress, it signals shutdownNotify.
 func (e *Engine) unregisterWebView(wv *WebView) {
 	e.activeWebViews.Delete(wv.id)
-	if e.shutdownNotify != nil && e.activeWebViewCount() == 0 {
+	if e.activeCount.Add(-1) == 0 && e.shutdownNotify != nil {
 		select {
 		case e.shutdownNotify <- struct{}{}:
 		default:
@@ -154,7 +140,6 @@ func (e *Engine) Close() error {
 		Int("active_webviews", activeBefore).
 		Msg("cef: engine close started")
 
-	e.stopMessagePump()
 	e.closeActiveWebViews()
 	e.pool.Close()
 
@@ -172,12 +157,7 @@ func (e *Engine) Close() error {
 const cefShutdownWaitTimeout = 2 * time.Second
 
 func (e *Engine) activeWebViewCount() int {
-	count := 0
-	e.activeWebViews.Range(func(_, _ any) bool {
-		count++
-		return true
-	})
-	return count
+	return int(e.activeCount.Load())
 }
 
 func (e *Engine) closeActiveWebViews() {
@@ -239,54 +219,11 @@ func (e *Engine) RegisterHandlers(ctx context.Context, deps port.HandlerDependen
 	return handlers.RegisterAll(ctx, e.messageRouter, deps)
 }
 
-// RegisterAccentHandlers registers accent/dead-key input handlers with the message router.
 func (e *Engine) RegisterAccentHandlers(ctx context.Context, handler port.AccentKeyHandler) error {
 	if e.messageRouter == nil || handler == nil {
 		return nil
 	}
-	log := logging.FromContext(ctx)
-
-	if err := e.messageRouter.registerInternalHandler("accent_key_press", MessageHandlerFunc(
-		func(ctx context.Context, _ uint64, payload json.RawMessage) (any, error) {
-			var p struct {
-				Char  string `json:"char"`
-				Shift bool   `json:"shift"`
-			}
-			if err := json.Unmarshal(payload, &p); err != nil {
-				return nil, err
-			}
-			if r, _ := utf8.DecodeRuneInString(p.Char); r != utf8.RuneError && utf8.RuneCountInString(p.Char) == 1 {
-				handler.OnKeyPressed(ctx, r, p.Shift)
-			} else {
-				log.Debug().Str("char", p.Char).Msg("cef: ignoring invalid accent_key_press char")
-			}
-			return nil, nil
-		},
-	)); err != nil {
-		return err
-	}
-
-	if err := e.messageRouter.registerInternalHandler("accent_key_release", MessageHandlerFunc(
-		func(ctx context.Context, _ uint64, payload json.RawMessage) (any, error) {
-			var p struct {
-				Char string `json:"char"`
-			}
-			if err := json.Unmarshal(payload, &p); err != nil {
-				return nil, err
-			}
-			if r, _ := utf8.DecodeRuneInString(p.Char); r != utf8.RuneError && utf8.RuneCountInString(p.Char) == 1 {
-				handler.OnKeyReleased(ctx, r)
-			} else {
-				log.Debug().Str("char", p.Char).Msg("cef: ignoring invalid accent_key_release char")
-			}
-			return nil, nil
-		},
-	)); err != nil {
-		return err
-	}
-
-	log.Info().Msg("cef: accent handlers registered")
-	return nil
+	return handlers.RegisterAccentHandlers(ctx, e.messageRouter, handler)
 }
 
 // ConfigureDownloads sets up download handling (Phase 1 stub).
@@ -295,14 +232,11 @@ func (e *Engine) ConfigureDownloads(_ context.Context, _ string, _ port.Download
 }
 
 // OnToolkitReady is called after the UI toolkit has initialized.
-// Starts the persistent pump timer on the GTK main thread.
+// With multi-threaded message loop enabled, CEF drives its own pump
+// and no manual pump is needed.
 func (e *Engine) OnToolkitReady(_ context.Context) error {
 	log := logging.FromContext(e.ctx)
-	log.Debug().
-		Bool("multi_threaded_message_loop", e.multiThreadedMessageLoop).
-		Int64("manual_pump_interval_ms", e.manualPumpInterval).
-		Msg("cef: OnToolkitReady called, starting message pump")
-	e.startMessagePump()
+	log.Debug().Msg("cef: OnToolkitReady called")
 	return nil
 }
 
@@ -383,6 +317,9 @@ func (e *Engine) recordBrowserCreateRequest(width, height, result int32) {
 
 func (e *Engine) recordBrowserAfterCreated(browser purecef.Browser) {
 	count := e.browserAfterCreated.Add(1)
+	if count >= e.browserCreateRequests.Load() {
+		e.browserCreateComplete.Store(true)
+	}
 	browserID := int32(0)
 	if browser != nil {
 		browserID = browser.GetIdentifier()
@@ -395,6 +332,9 @@ func (e *Engine) recordBrowserAfterCreated(browser purecef.Browser) {
 }
 
 func (e *Engine) maybeLogBrowserCreateStall() {
+	if e.browserCreateComplete.Load() {
+		return
+	}
 	createCount := e.browserCreateRequests.Load()
 	if createCount == 0 || createCount == e.browserAfterCreated.Load() || createCount == e.lastStallLoggedCreateSeq.Load() {
 		return
@@ -418,8 +358,6 @@ func (e *Engine) maybeLogBrowserCreateStall() {
 		Int32("last_create_result", e.browserCreateLastResult.Load()).
 		Int32("last_create_width", e.browserCreateLastWidth.Load()).
 		Int32("last_create_height", e.browserCreateLastHeight.Load()).
-		Uint64("pump_work", e.pumpWorkCount.Load()).
-		Uint64("schedule_calls", e.scheduleCount.Load()).
 		Uint64("context_initialized", e.contextInitializedCount.Load()).
 		Uint64("renderer_launches", e.childLaunchRenderer.Load()).
 		Uint64("gpu_launches", e.childLaunchGPU.Load()).
@@ -462,78 +400,4 @@ func (e *Engine) logTranscoderStartupState() {
 	}
 
 	event.Msg("cef: transcoder startup state")
-}
-
-// ---------------------------------------------------------------------------
-// CEF message pump
-// ---------------------------------------------------------------------------
-
-// scheduleMessagePumpWork is called by OnScheduleMessagePumpWork from any
-// thread. External message pump is disabled (purego-cef bug), so this is a
-// no-op with a diagnostic counter.
-func (e *Engine) scheduleMessagePumpWork(_ int64) {
-	e.scheduleCount.Add(1)
-}
-
-func (e *Engine) startMessagePump() {
-	if e.multiThreadedMessageLoop {
-		logging.FromContext(e.ctx).Info().Msg("cef: multi-threaded message loop enabled, skipping manual pump")
-		return
-	}
-	e.startManualMessagePump()
-}
-
-func (e *Engine) startManualMessagePump() {
-	if e.pumpEnabled.Load() {
-		return
-	}
-
-	intervalMs := e.manualPumpInterval
-	if intervalMs <= 0 {
-		intervalMs = 10
-	}
-
-	cb := glib.SourceFunc(func(_ uintptr) bool {
-		if e.pumpClosing.Load() || !e.pumpEnabled.Load() {
-			return glib.SOURCE_REMOVE
-		}
-
-		count := e.pumpWorkCount.Add(1)
-		e.maybeLogBrowserCreateStall()
-		if count <= 20 || count%100 == 0 {
-			logging.FromContext(e.ctx).Debug().
-				Uint64("work", count).
-				Int64("interval_ms", intervalMs).
-				Msg("cef: manual pump doing work")
-		}
-
-		purecef.DoMessageLoopWork()
-		return glib.SOURCE_CONTINUE
-	})
-
-	sourceID := glib.TimeoutAdd(uint(intervalMs), &cb, 0)
-	if sourceID == 0 {
-		logging.FromContext(e.ctx).Error().
-			Int64("interval_ms", intervalMs).
-			Msg("cef: failed to start manual pump timer")
-		return
-	}
-
-	e.pumpClosing.Store(false)
-	e.pumpEnabled.Store(true)
-	e.pumpTimerSource.Store(uint64(sourceID))
-	logging.FromContext(e.ctx).Info().
-		Int64("interval_ms", intervalMs).
-		Msg("cef: started manual CEF pump")
-}
-
-func (e *Engine) stopMessagePump() {
-	if e.multiThreadedMessageLoop {
-		return
-	}
-	e.pumpClosing.Store(true)
-	e.pumpEnabled.Store(false)
-	if sourceID := uint(e.pumpTimerSource.Swap(0)); sourceID != 0 {
-		glib.SourceRemove(sourceID)
-	}
 }

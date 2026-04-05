@@ -188,8 +188,10 @@ func (h *handlerSet) OnPopupSize(_ purecef.Browser, popupRect *purecef.Rect) {
 }
 
 // OnPaint receives the BGRA pixel buffer from CEF and forwards dirty rects
-// to the render pipeline for GPU upload. With a multi-threaded CEF UI loop we
-// must first copy the transient CEF buffer before hopping back to GTK.
+// to the render pipeline for GPU upload. Main-view paints are copied directly
+// into the persistent staging buffer on the CEF UI thread; only the GTK
+// QueueRender hop remains. Popups still copy their transient buffer before
+// crossing threads because they are small and infrequent.
 func (h *handlerSet) OnPaint(
 	_ purecef.Browser, elementType purecef.PaintElementType,
 	dirtyRects []purecef.Rect, buffer []byte, width, height int32,
@@ -211,32 +213,29 @@ func (h *handlerSet) OnPaint(
 	for i, dr := range dirtyRects {
 		rects[i] = rect{X: dr.X, Y: dr.Y, Width: dr.Width, Height: dr.Height}
 	}
-	if h.wv.engine != nil && h.wv.engine.multiThreadedMessageLoop {
+
+	if elementType == purecef.PaintElementTypePetPopup {
 		pixels := make([]byte, len(buffer))
 		copy(pixels, buffer)
 		h.wv.runOnGTK(func() {
-			if elementType == purecef.PaintElementTypePetPopup {
-				h.wv.pipeline.handlePopupPaint(pixels, width, height, paintSeq)
-				return
-			}
-			h.wv.pipeline.handlePaint(pixels, width, height, rects, paintSeq)
+			h.wv.pipeline.handlePopupPaint(pixels, width, height, paintSeq)
 		})
 		if h.wv != nil && h.wv.ctx != nil {
 			logging.FromContext(h.wv.ctx).Trace().
 				Uint64("paint_seq", paintSeq).
-				Msg("cef: OnPaint queued to GTK")
+				Msg("cef: OnPaint queued popup to GTK")
 		}
 		return
 	}
-	if elementType == purecef.PaintElementTypePetPopup {
-		h.wv.pipeline.handlePopupPaint(buffer, width, height, paintSeq)
-		return
-	}
+
 	h.wv.pipeline.handlePaint(buffer, width, height, rects, paintSeq)
+	h.wv.runOnGTK(func() {
+		h.wv.pipeline.queuePaintRender()
+	})
 	if h.wv != nil && h.wv.ctx != nil {
 		logging.FromContext(h.wv.ctx).Trace().
 			Uint64("paint_seq", paintSeq).
-			Msg("cef: OnPaint handled inline")
+			Msg("cef: OnPaint queued to GTK")
 	}
 }
 

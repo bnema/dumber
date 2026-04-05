@@ -102,7 +102,6 @@ func (fn cefTaskFunc) Execute() {
 // Identity
 // ---------------------------------------------------------------------------
 
-// ID returns the unique identifier for this WebView.
 func (wv *WebView) ID() port.WebViewID {
 	return wv.id
 }
@@ -111,7 +110,6 @@ func (wv *WebView) ID() port.WebViewID {
 // Navigation
 // ---------------------------------------------------------------------------
 
-// LoadURI navigates to the specified URI.
 func (wv *WebView) LoadURI(_ context.Context, uri string) error {
 	if wv.destroyed.Load() {
 		return errDestroyed
@@ -156,7 +154,6 @@ func (wv *WebView) LoadHTML(ctx context.Context, content, _ string) error {
 	return nil
 }
 
-// Reload reloads the current page.
 func (wv *WebView) Reload(_ context.Context) error {
 	if wv.destroyed.Load() {
 		return errDestroyed
@@ -235,21 +232,18 @@ func (wv *WebView) GoForward(_ context.Context) error {
 // State queries (read from cache under RLock)
 // ---------------------------------------------------------------------------
 
-// URI returns the current URI.
 func (wv *WebView) URI() string {
 	wv.mu.RLock()
 	defer wv.mu.RUnlock()
 	return wv.uri
 }
 
-// Title returns the current page title.
 func (wv *WebView) Title() string {
 	wv.mu.RLock()
 	defer wv.mu.RUnlock()
 	return wv.title
 }
 
-// IsLoading returns true if a page is currently loading.
 func (wv *WebView) IsLoading() bool {
 	wv.mu.RLock()
 	defer wv.mu.RUnlock()
@@ -461,12 +455,10 @@ func (wv *WebView) ResetBackgroundToDefault() {
 // Lifecycle
 // ---------------------------------------------------------------------------
 
-// IsDestroyed returns true if the WebView has been destroyed.
 func (wv *WebView) IsDestroyed() bool {
 	return wv.destroyed.Load()
 }
 
-// Destroy releases all resources associated with this WebView.
 func (wv *WebView) Destroy() {
 	if !wv.destroyed.CompareAndSwap(false, true) {
 		return
@@ -621,6 +613,9 @@ func (wv *WebView) scheduleZoomReadback(expectedFactor, expectedLevel float64) {
 }
 
 func (wv *WebView) scheduleStartBeginFrameLoop() {
+	if !externalBeginFrameEnabled() {
+		return
+	}
 	wv.runOnGTK(func() {
 		wv.startBeginFrameLoop()
 	})
@@ -689,7 +684,8 @@ func (wv *WebView) runOnGTK(fn func()) {
 	if fn == nil {
 		return
 	}
-	if wv.engine == nil || !wv.engine.multiThreadedMessageLoop {
+	// When engine is nil (test/bootstrap), call directly.
+	if wv.engine == nil {
 		fn()
 		return
 	}

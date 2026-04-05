@@ -38,21 +38,20 @@ func configureCommandLine(commandLine purecef.CommandLine) {
 	commandLine.AppendSwitchWithValue("autoplay-policy", "no-user-gesture-required")
 }
 
-// dumberApp implements purecef.App to provide a BrowserProcessHandler with
-// demand-driven message pump scheduling (OnScheduleMessagePumpWork).
+// dumberApp implements purecef.App to provide custom scheme registration,
+// command-line configuration, and browser-process lifecycle callbacks.
 type dumberApp struct {
 	engine *Engine
 	bph    purecef.BrowserProcessHandler
 }
 
-// newDumberApp creates an App whose BrowserProcessHandler drives the engine's
-// adaptive message pump.
+// newDumberApp creates an App whose BrowserProcessHandler handles context
+// initialization, child process launch tracking, and scheme registration.
+// Returns the raw Go implementation — InitWithApp will wrap it exactly once.
 func newDumberApp(engine *Engine) purecef.App {
 	app := &dumberApp{engine: engine}
-	// Keep the raw Go implementation here. NewApp will wrap it exactly once
-	// when GetBrowserProcessHandler is queried by CEF.
 	app.bph = &dumberBPH{engine: engine}
-	return purecef.NewApp(app)
+	return app
 }
 
 // NewSubprocessApp returns a lightweight App for helper processes so CEF sees
@@ -102,8 +101,8 @@ func (a *subprocessApp) GetResourceBundleHandler() purecef.ResourceBundleHandler
 func (a *subprocessApp) GetBrowserProcessHandler() purecef.BrowserProcessHandler { return nil }
 func (a *subprocessApp) GetRenderProcessHandler() purecef.RenderProcessHandler   { return nil }
 
-// dumberBPH implements purecef.BrowserProcessHandler. Only
-// OnScheduleMessagePumpWork carries real logic; the rest are no-ops.
+// dumberBPH implements purecef.BrowserProcessHandler for context initialization,
+// child process launch tracking, and diagnostic logging.
 type dumberBPH struct {
 	engine *Engine
 }
@@ -130,8 +129,6 @@ func (h *dumberBPH) OnAlreadyRunningAppRelaunch(_ purecef.CommandLine, _ string)
 func (h *dumberBPH) GetDefaultClient() purecef.Client                                  { return nil }
 func (h *dumberBPH) GetDefaultRequestContextHandler() purecef.RequestContextHandler    { return nil }
 
-// OnScheduleMessagePumpWork is called by CEF when work needs to be done.
-// delay_ms <= 0 means "as soon as possible"; > 0 means "after this delay".
-func (h *dumberBPH) OnScheduleMessagePumpWork(delayMs int64) {
-	h.engine.scheduleMessagePumpWork(delayMs)
-}
+// OnScheduleMessagePumpWork is a no-op — multi-threaded message loop drives
+// its own pump. Required by the BrowserProcessHandler interface.
+func (h *dumberBPH) OnScheduleMessagePumpWork(_ int64) {}

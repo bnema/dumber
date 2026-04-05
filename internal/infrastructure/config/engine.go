@@ -2,13 +2,18 @@ package config
 
 import "os"
 
+const (
+	EngineTypeWebKit = "webkit"
+	EngineTypeCEF    = "cef"
+)
+
 // ResolveEngineType returns the effective engine type from config + env override.
 // It defaults to "webkit" when no type is configured, and allows DUMBER_ENGINE
 // to override the configured value for smoke testing.
 func (e *EngineConfig) ResolveEngineType() string {
 	engineType := e.Type
 	if engineType == "" {
-		engineType = "webkit"
+		engineType = EngineTypeWebKit
 	}
 	if envEngine := os.Getenv("DUMBER_ENGINE"); envEngine != "" {
 		engineType = envEngine
@@ -88,12 +93,6 @@ type CEFEngineConfig struct {
 	// WindowlessFrameRate is the maximum frame rate for off-screen rendering.
 	// Default: 60. Higher values increase CPU usage.
 	WindowlessFrameRate int32 `mapstructure:"windowless_frame_rate" toml:"windowless_frame_rate" yaml:"windowless_frame_rate"`
-	// MultiThreadedMessageLoop lets CEF run its own message loop thread.
-	// Default: true. When false, the host drives the pump via a manual timer.
-	MultiThreadedMessageLoop *bool `mapstructure:"multi_threaded_message_loop" toml:"multi_threaded_message_loop" yaml:"multi_threaded_message_loop"` //nolint:lll
-	// ManualPumpIntervalMs is the polling interval (ms) for CefDoMessageLoopWork
-	// when MultiThreadedMessageLoop is false. Default: 10.
-	ManualPumpIntervalMs int64 `mapstructure:"manual_pump_interval_ms" toml:"manual_pump_interval_ms" yaml:"manual_pump_interval_ms"`
 	// EnableAudioHandler opts into the experimental CEF AudioHandler bridge.
 	EnableAudioHandler bool `mapstructure:"enable_audio_handler" toml:"enable_audio_handler" yaml:"enable_audio_handler"`
 	// EnableContextMenuHandler opts into the experimental CEF ContextMenuHandler bridge.
@@ -102,29 +101,14 @@ type CEFEngineConfig struct {
 	TraceHandlers bool `mapstructure:"trace_handlers" toml:"trace_handlers" yaml:"trace_handlers"`
 }
 
-// CEFMultiThreadedMessageLoop returns the effective value with default true.
-func (c CEFEngineConfig) CEFMultiThreadedMessageLoop() bool {
-	if c.MultiThreadedMessageLoop != nil {
-		return *c.MultiThreadedMessageLoop
-	}
-	return true
-}
-
-// CEFManualPumpIntervalMs returns the effective value with default 10.
-func (c CEFEngineConfig) CEFManualPumpIntervalMs() int64 {
-	if c.ManualPumpIntervalMs > 0 {
-		return c.ManualPumpIntervalMs
-	}
-	return defaultCEFManualPumpIntervalMs
-}
-
-// CEFWindowlessFrameRate returns the configured OSR frame rate.
-// Returns 0 (auto-detect from monitor) when the user hasn't set an explicit value.
+// CEFWindowlessFrameRate returns the effective OSR frame rate.
+// A non-positive value falls back to the built-in default to avoid accidentally
+// matching high-refresh monitors and burning CPU while idling.
 func (c CEFEngineConfig) CEFWindowlessFrameRate() int32 {
 	if c.WindowlessFrameRate > 0 {
 		return c.WindowlessFrameRate
 	}
-	return 0 // auto-detect from monitor refresh rate
+	return defaultCEFWindowlessFrameRate
 }
 
 // PerformanceConfigFromEngine constructs a PerformanceConfig from the

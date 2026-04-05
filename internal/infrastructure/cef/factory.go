@@ -120,7 +120,9 @@ func (f *WebViewFactory) Create(ctx context.Context) (port.WebView, error) {
 	// Configure WindowInfo for off-screen rendering (OSR).
 	windowInfo := purecef.NewWindowInfo()
 	windowInfo.WindowlessRenderingEnabled = 1
-	windowInfo.ExternalBeginFrameEnabled = 1
+	if externalBeginFrameEnabled() {
+		windowInfo.ExternalBeginFrameEnabled = 1
+	}
 
 	// Configure BrowserSettings.
 	settings := purecef.NewBrowserSettings()

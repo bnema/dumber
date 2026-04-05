@@ -8,6 +8,7 @@ import (
 
 	"github.com/bnema/dumber/internal/application/port"
 	"github.com/bnema/dumber/internal/infrastructure/handlers/homepage"
+	"github.com/bnema/dumber/internal/logging"
 )
 
 // AccentKeyHandler is implemented by the InsertAccentUseCase to receive
@@ -81,6 +82,8 @@ func RegisterAccentHandlers(_ context.Context, router port.WebUIHandlerRouter, h
 			}
 			if r, _ := utf8.DecodeRuneInString(p.Char); r != utf8.RuneError && utf8.RuneCountInString(p.Char) == 1 {
 				handler.OnKeyPressed(ctx, r, p.Shift)
+			} else {
+				logging.FromContext(ctx).Debug().Str("char", p.Char).Msg("ignoring invalid accent_key_press char")
 			}
 			return nil, nil
 		},
@@ -98,6 +101,8 @@ func RegisterAccentHandlers(_ context.Context, router port.WebUIHandlerRouter, h
 			}
 			if r, _ := utf8.DecodeRuneInString(p.Char); r != utf8.RuneError && utf8.RuneCountInString(p.Char) == 1 {
 				handler.OnKeyReleased(ctx, r)
+			} else {
+				logging.FromContext(ctx).Debug().Str("char", p.Char).Msg("ignoring invalid accent_key_release char")
 			}
 			return nil, nil
 		},

@@ -920,21 +920,6 @@ func (*SchemaProvider) getPerformanceKeys(defaults *Config) []entity.ConfigKeyIn
 			Section:     SectionPerformance,
 		},
 		{
-			Key:         "engine.cef.multi_threaded_message_loop",
-			Type:        "bool",
-			Default:     fmt.Sprintf("%t", defaults.Engine.CEF.CEFMultiThreadedMessageLoop()),
-			Description: "Let CEF drive its own UI/message loop thread",
-			Section:     SectionPerformance,
-		},
-		{
-			Key:         "engine.cef.manual_pump_interval_ms",
-			Type:        "int64",
-			Default:     fmt.Sprintf("%d", defaults.Engine.CEF.CEFManualPumpIntervalMs()),
-			Description: "Manual CEF message pump interval when multi-threaded mode is disabled",
-			Range:       ">=1",
-			Section:     SectionPerformance,
-		},
-		{
 			Key:         "engine.webkit.skia_cpu_painting_threads",
 			Type:        "int",
 			Default:     fmt.Sprintf("%d", defaults.Engine.WebKit.SkiaCPUPaintingThreads),

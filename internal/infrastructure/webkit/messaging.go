@@ -13,13 +13,8 @@ import (
 	"github.com/bnema/puregotk-webkit/webkit"
 )
 
-// Message represents a JS -> Go message envelope sent via postMessage.
-type Message struct {
-	Type         string          `json:"type"`
-	Payload      json.RawMessage `json:"payload"`
-	WebViewID    uint64          `json:"webview_id,omitempty"`
-	WebViewIDAlt uint64          `json:"webviewId,omitempty"`
-}
+// Message is the JS -> Go message envelope sent via postMessage.
+type Message = port.WebUIMessage
 
 // MessageHandler is an alias for port.WebUIMessageHandler.
 // Kept for backward compatibility within the webkit package.

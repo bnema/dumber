@@ -104,7 +104,6 @@ func (p *WebViewPool) PrewarmAsync(_ context.Context, count int) {
 	p.Prewarm(count)
 }
 
-// Size returns the number of available WebViews currently in the pool.
 func (p *WebViewPool) Size() int {
 	p.mu.Lock()
 	defer p.mu.Unlock()

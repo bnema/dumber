@@ -34,8 +34,10 @@ var openVideoMIMEs = map[string]bool{
 // streamingManifestMIMEs lists manifest/container MIME types that usually
 // resolve to proprietary segment streams via HLS or DASH.
 var streamingManifestMIMEs = map[string]bool{
-	"application/vnd.apple.mpegurl": true,
-	"application/x-mpegurl":         true,
+	"application/vnd.apple.mpegurl": true, // RFC 8216
+	"application/x-mpegurl":         true, // common non-standard alias
+	"audio/x-mpegurl":               true, // Go stdlib / legacy servers
+	"audio/mpegurl":                 true, // rare legacy alias
 	"application/dash+xml":          true,
 }
 

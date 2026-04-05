@@ -10,6 +10,13 @@ import (
 	"github.com/bnema/dumber/internal/application/port"
 )
 
+func newTestPipeline(w, h, s int32) *renderPipeline {
+	rp := &renderPipeline{scale: s}
+	rp.widthAtomic.Store(w)
+	rp.heightAtomic.Store(h)
+	return rp
+}
+
 type stubFrame struct {
 	main bool
 	url  string
@@ -65,12 +72,8 @@ func TestGetViewRectUsesDIPCoordinates(t *testing.T) {
 	rect := &purecef.Rect{}
 	h := &handlerSet{
 		wv: &WebView{
-			ctx: context.Background(),
-			pipeline: &renderPipeline{
-				width:  800,
-				height: 600,
-				scale:  2,
-			},
+			ctx:      context.Background(),
+			pipeline: newTestPipeline(800, 600, 2),
 		},
 	}
 
@@ -87,12 +90,8 @@ func TestGetScreenInfoUsesDIPRectAndScale(t *testing.T) {
 	info := &si
 	h := &handlerSet{
 		wv: &WebView{
-			ctx: context.Background(),
-			pipeline: &renderPipeline{
-				width:  1500,
-				height: 900,
-				scale:  3,
-			},
+			ctx:      context.Background(),
+			pipeline: newTestPipeline(1500, 900, 3),
 		},
 	}
 

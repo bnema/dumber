@@ -182,18 +182,23 @@ type WebUIHandlerRouter interface {
 	RegisterHandlerWithCallbacks(msgType, callback, errorCallback, worldName string, handler WebUIMessageHandler) error
 }
 
+// WebUIMessage represents a JS -> Go message envelope.
+// Used by both WebKit (postMessage) and CEF (fetch to /api/message).
+type WebUIMessage struct {
+	Type         string          `json:"type"`
+	Payload      json.RawMessage `json:"payload"`
+	WebViewID    uint64          `json:"webview_id,omitempty"`
+	WebViewIDAlt uint64          `json:"webviewId,omitempty"`
+}
+
 // HandlerDependencies holds use cases needed by WebUI message handlers.
 type HandlerDependencies struct {
-	HistoryUC              HomepageHistory
-	FavoritesUC            HomepageFavorites
-	Clipboard              Clipboard
-	AutoCopyConfig         AutoCopyConfig
-	OnClipboardCopied      func(textLen int)
-	SaveConfig             func(context.Context, WebUIConfig) error
-	KeybindingsGetter      KeybindingsGetter
-	KeybindingSetter       KeybindingSetter
-	KeybindingResetter     KeybindingResetter
-	AllKeybindingsResetter AllKeybindingsResetter
+	HistoryUC         HomepageHistory
+	FavoritesUC       HomepageFavorites
+	Clipboard         Clipboard
+	AutoCopyConfig    AutoCopyConfig
+	OnClipboardCopied func(textLen int)
+	HandlerDeps
 }
 
 // SchemeHandler defines the port interface for registering custom URI schemes.

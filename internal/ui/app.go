@@ -204,11 +204,7 @@ func New(deps *Dependencies) (*App, error) {
 			})
 			glib.IdleAdd(&cb, 0)
 		},
-		SaveConfig:             deps.HandlerDeps.SaveConfig,
-		KeybindingsGetter:      deps.HandlerDeps.KeybindingsGetter,
-		KeybindingSetter:       deps.HandlerDeps.KeybindingSetter,
-		KeybindingResetter:     deps.HandlerDeps.KeybindingResetter,
-		AllKeybindingsResetter: deps.HandlerDeps.AllKeybindingsResetter,
+		HandlerDeps: deps.HandlerDeps,
 	}); err != nil {
 		return nil, err
 	}

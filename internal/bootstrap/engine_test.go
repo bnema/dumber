@@ -22,5 +22,5 @@ func TestBuildEngine_CEF_ReturnsErrorWhenRuntimeUnavailable(t *testing.T) {
 	cfg.Engine.CEF.CEFDir = t.TempDir()
 	_, err := BuildEngine(EngineInput{Config: cfg, Ctx: context.Background()})
 	require.Error(t, err)
-	require.Contains(t, err.Error(), "cef: open library")
+	require.Contains(t, err.Error(), "cef.InitWithApp")
 }

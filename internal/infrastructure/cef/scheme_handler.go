@@ -8,7 +8,6 @@ import (
 	"fmt"
 	"html"
 	"io/fs"
-	"mime"
 	"net/http"
 	"net/url"
 	"path/filepath"
@@ -22,6 +21,7 @@ import (
 	"github.com/bnema/dumber/internal/application/port"
 	"github.com/bnema/dumber/internal/infrastructure/config"
 	"github.com/bnema/dumber/internal/infrastructure/env"
+	"github.com/bnema/dumber/internal/infrastructure/webutil"
 	"github.com/bnema/dumber/internal/logging"
 	"github.com/rs/zerolog"
 )
@@ -34,6 +34,14 @@ const (
 	errorPath  = "error"
 	indexHTML  = "index.html"
 )
+
+// pageRootFiles maps internal page hosts/paths to their HTML entry points.
+var pageRootFiles = map[string]string{
+	homePath:   indexHTML,
+	configPath: "config.html",
+	webrtcPath: "webrtc.html",
+	errorPath:  "error.html",
+}
 
 // dumbSchemeHandler serves both the conceptual dumb:// URLs and the actual
 // internal https://dumber.invalid origin used by CEF.
@@ -313,14 +321,7 @@ func resolveConceptualAssetPath(u *url.URL) (string, bool) {
 		return "", false
 	}
 
-	rootByHost := map[string]string{
-		homePath:   indexHTML,
-		configPath: "config.html",
-		webrtcPath: "webrtc.html",
-		errorPath:  "error.html",
-	}
-
-	if root, ok := rootByHost[u.Host]; ok {
+	if root, ok := pageRootFiles[u.Host]; ok {
 		path := strings.TrimPrefix(u.Path, "/")
 		if path == "" {
 			return root, true
@@ -333,18 +334,10 @@ func resolveConceptualAssetPath(u *url.URL) (string, bool) {
 	}
 
 	// Handle opaque URLs like dumb:home.
-	switch u.Opaque {
-	case homePath:
-		return indexHTML, true
-	case configPath:
-		return "config.html", true
-	case webrtcPath:
-		return "webrtc.html", true
-	case errorPath:
-		return "error.html", true
-	default:
-		return "", false
+	if root, ok := pageRootFiles[u.Opaque]; ok {
+		return root, true
 	}
+	return "", false
 }
 
 func resolveActualAssetPath(u *url.URL) (string, bool) {
@@ -357,13 +350,7 @@ func resolveActualAssetPath(u *url.URL) (string, bool) {
 		return "", false
 	}
 
-	rootByPath := map[string]string{
-		homePath:   indexHTML,
-		configPath: "config.html",
-		webrtcPath: "webrtc.html",
-		errorPath:  "error.html",
-	}
-	if root, ok := rootByPath[path]; ok {
+	if root, ok := pageRootFiles[path]; ok {
 		return root, true
 	}
 
@@ -398,151 +385,15 @@ func isCEFCrashPageURL(u *url.URL) bool {
 }
 
 func sanitizeCEFCrashPageOriginalURI(originalURI string) string {
-	if originalURI == "" {
-		return ""
-	}
-	parsed, err := url.Parse(originalURI)
-	if err != nil {
-		return ""
-	}
-	switch strings.ToLower(parsed.Scheme) {
-	case "http", "https":
-		if parsed.Host == "" {
-			return ""
-		}
-		return parsed.String()
-	case "dumb":
-		if parsed.Host == "" && parsed.Opaque == "" {
-			return ""
-		}
-		return parsed.String()
-	default:
-		return ""
-	}
+	return webutil.SanitizeCrashPageOriginalURI(originalURI)
 }
 
 func buildCEFCrashPageHTML(originalURI string) string {
-	escapedURI := html.EscapeString(originalURI)
-	return fmt.Sprintf(`<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="utf-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>Renderer crashed</title>
-    <style>
-        :root { color-scheme: dark; font-family: "IBM Plex Sans", "Segoe UI", sans-serif; }
-        body {
-            margin: 0;
-            min-height: 100vh;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            background: radial-gradient(circle at top, #253447, #101622 55%%);
-            color: #f2f6fa;
-            padding: 24px;
-        }
-        .card {
-            width: min(640px, 100%%);
-            background: rgba(10, 16, 26, 0.86);
-            border: 1px solid rgba(144, 173, 205, 0.35);
-            border-radius: 16px;
-            box-shadow: 0 24px 64px rgba(0, 0, 0, 0.45);
-            padding: 28px;
-        }
-        .url {
-            margin: 16px 0 20px;
-            padding: 12px;
-            border-radius: 10px;
-            background: rgba(26, 38, 56, 0.85);
-            border: 1px solid rgba(139, 167, 194, 0.28);
-            font-family: "IBM Plex Mono", "Fira Code", monospace;
-            overflow-wrap: anywhere;
-        }
-        .actions { display: flex; gap: 12px; flex-wrap: wrap; }
-        button {
-            border: 0;
-            border-radius: 10px;
-            padding: 10px 16px;
-            cursor: pointer;
-            font-size: 0.95rem;
-            font-weight: 600;
-        }
-        .primary { background: #4dd0e1; color: #061018; }
-        .secondary { background: #233346; color: #d6e5f5; }
-    </style>
-</head>
-<body>
-    <div class="card">
-        <h1>Renderer process ended</h1>
-        <p>The current page was interrupted. You can reload it to continue browsing.</p>
-        <div class="url">%s</div>
-        <div class="actions">
-            <button class="primary" id="reload-btn" data-target="%s">Reload page</button>
-            <button class="secondary" id="stay-btn">Stay on this page</button>
-        </div>
-    </div>
-    <script>
-        const reloadButton = document.getElementById('reload-btn');
-        const targetUrl = (reloadButton.getAttribute('data-target') || '').trim();
-        reloadButton.addEventListener('click', function() {
-            if (targetUrl) {
-                window.location.href = targetUrl;
-                return;
-            }
-            window.location.reload();
-        });
-        document.getElementById('stay-btn').addEventListener('click', function() {
-            this.disabled = true;
-            this.textContent = 'Staying on page';
-        });
-    </script>
-</body>
-</html>`, escapedURI, escapedURI)
+	return webutil.BuildCrashPageHTML(originalURI)
 }
 
-// getMimeType determines the MIME type for a given file path.
 func getMimeType(filename string) string {
-	ext := strings.ToLower(filepath.Ext(filename))
-
-	mt := mime.TypeByExtension(ext)
-	if mt != "" {
-		return mt
-	}
-
-	switch ext {
-	case ".js", ".mjs":
-		return "application/javascript"
-	case ".css":
-		return "text/css"
-	case ".svg":
-		return "image/svg+xml"
-	case ".ico":
-		return "image/x-icon"
-	case ".woff":
-		return "font/woff"
-	case ".woff2":
-		return "font/woff2"
-	case ".ttf":
-		return "font/ttf"
-	case ".otf":
-		return "font/otf"
-	case ".png":
-		return "image/png"
-	case ".jpg", ".jpeg":
-		return "image/jpeg"
-	case ".gif":
-		return "image/gif"
-	case ".webp":
-		return "image/webp"
-	case ".json":
-		return "application/json"
-	case ".xml":
-		return "application/xml"
-	case ".html", ".htm":
-		return "text/html; charset=utf-8"
-	default:
-		return "text/plain"
-	}
+	return webutil.GetMimeType(filename)
 }
 
 // splitMimeCharset splits "text/html; charset=utf-8" into ("text/html", "utf-8").

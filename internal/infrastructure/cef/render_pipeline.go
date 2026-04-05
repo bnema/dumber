@@ -20,8 +20,8 @@ type rect struct {
 // off-screen BGRA pixel buffers into a GtkGLArea widget.
 //
 // CEF delivers frames via OnPaint (BGRA buffer + dirty rects). handlePaint
-// copies dirty regions into a CPU-side staging buffer and queues a GTK render.
-// The GL render signal uploads from staging → PBO → texture, then draws a
+// copies dirty regions into a CPU-side staging buffer on the CEF UI thread,
+// and GTK later uploads from staging → PBO → texture before drawing a
 // fullscreen quad. Two PBOs alternate so GPU DMA and CPU writes overlap.
 type renderPipeline struct {
 	ctx    context.Context
@@ -38,20 +38,18 @@ type renderPipeline struct {
 	vbo          uint32
 
 	// Surface dimensions (in device pixels, i.e. scaled).
-	width  int32
-	height int32
-	scale  int32
-
-	// geometry mirrors the current surface size for lock-free CEF callbacks.
+	// Atomics allow lock-free reads from CEF callbacks (viewRectSize).
 	widthAtomic  atomic.Int32
 	heightAtomic atomic.Int32
+	scale        int32
 
 	// Staging: handlePaint copies dirty rects here, render signal uploads.
-	mu          sync.Mutex
-	staging     []byte
-	dirtyRects  []rect
-	needsUpload bool
-	sizeChanged bool
+	mu              sync.Mutex
+	staging         []byte
+	dirtyRects      []rect
+	needsUpload     bool
+	sizeChanged     bool
+	forceFullUpload bool
 
 	// Popup staging for native CEF widgets like <select> menus.
 	popupVisible     bool
@@ -63,9 +61,12 @@ type renderPipeline struct {
 	popupSizeChanged bool
 
 	// GL initialized flag.
-	glReady bool
+	glReady  bool
+	glWidth  int32
+	glHeight int32
 
-	// Diagnostics (main thread only).
+	// Diagnostics can be updated from both the CEF UI thread and GTK thread.
+	diagMu                sync.Mutex
 	viewRectSeq           atomic.Uint64
 	screenInfoSeq         atomic.Uint64
 	paintSeq              atomic.Uint64
@@ -168,9 +169,9 @@ func newRenderPipeline(ctx context.Context, gl *glLoader, scale int32) *renderPi
 	return rp
 }
 
-// handlePaint is called from CEF's OnPaint callback (on GTK main thread via
-// IdleAdd). It copies dirty rect regions from the CEF buffer into the staging
-// buffer and queues a GL redraw.
+// handlePaint is called from CEF's OnPaint callback. It copies dirty rect
+// regions from the transient CEF buffer into the persistent staging buffer and
+// marks the next GTK render for upload.
 func (rp *renderPipeline) handlePaint(buffer []byte, width, height int32, rects []rect, paintSeq uint64) {
 	if len(buffer) == 0 || width <= 0 || height <= 0 {
 		return
@@ -198,13 +199,12 @@ func (rp *renderPipeline) handlePaint(buffer []byte, width, height int32, rects 
 	sizeChanged := false
 
 	// Detect size change, or first paint (staging not yet allocated).
-	if stagingNeedsReset(rp.staging, rp.width, rp.height, width, height, bufSize) {
-		rp.width = width
-		rp.height = height
+	if stagingNeedsReset(rp.staging, rp.widthAtomic.Load(), rp.heightAtomic.Load(), width, height, bufSize) {
 		rp.widthAtomic.Store(width)
 		rp.heightAtomic.Store(height)
 		rp.staging = make([]byte, bufSize)
 		rp.sizeChanged = true
+		rp.forceFullUpload = true
 		sizeChanged = true
 		// On size change, copy the entire buffer.
 		copiedBytes = uint64(copy(rp.staging, buffer))
@@ -228,21 +228,22 @@ func (rp *renderPipeline) handlePaint(buffer []byte, width, height int32, rects 
 	// next GL render would lose their dirty rect metadata — the pixels are
 	// in staging but never uploaded to the texture, causing trails/ghosts.
 	rp.dirtyRects = append(rp.dirtyRects, rects...)
+	rp.dirtyRects = coalesceDirtyRects(rp.dirtyRects, rp.widthAtomic.Load(), rp.heightAtomic.Load())
 	rp.needsUpload = true
 
 	rp.mu.Unlock()
 
 	copyDuration := time.Since(startedAt)
+	rp.diagMu.Lock()
 	rp.paintCount++
-	rp.queueRenderCount++
 	rp.paintBytes += copiedBytes
 	rp.dirtyRectCount += uint64(len(rects))
 	rp.paintCopyTotalNs += uint64(copyDuration)
 	if copyDuration.Nanoseconds() > rp.maxPaintCopyNs {
 		rp.maxPaintCopyNs = copyDuration.Nanoseconds()
 	}
+	rp.diagMu.Unlock()
 
-	rp.glArea.QueueRender()
 	if rp.ctx != nil {
 		if sizeChanged && copiedBytes < uint64(bufSize) {
 			logging.FromContext(rp.ctx).Warn().
@@ -263,6 +264,13 @@ func (rp *renderPipeline) handlePaint(buffer []byte, width, height int32, rects 
 	rp.maybeLogDiagnostics()
 }
 
+func (rp *renderPipeline) queuePaintRender() {
+	rp.diagMu.Lock()
+	rp.queueRenderCount++
+	rp.diagMu.Unlock()
+	rp.glArea.QueueRender()
+}
+
 // onGLRender is the GTK "render" signal handler. GL context is current.
 func (rp *renderPipeline) onGLRender() bool {
 	renderSeq := rp.glRenderSeq.Add(1)
@@ -278,47 +286,46 @@ func (rp *renderPipeline) onGLRender() bool {
 
 	needsUpload := rp.needsUpload
 	sizeChanged := rp.sizeChanged
-	rp.needsUpload = false
-
-	// Snapshot dirty rects for upload and clear the accumulator.
-	var dirtyRects []rect
-	if needsUpload {
-		dirtyRects = make([]rect, len(rp.dirtyRects))
-		copy(dirtyRects, rp.dirtyRects)
-		rp.dirtyRects = rp.dirtyRects[:0]
-	}
+	uploadWidth := rp.widthAtomic.Load()
+	uploadHeight := rp.heightAtomic.Load()
 
 	rp.mu.Unlock()
 
 	gl := rp.gl
 
 	if !rp.glReady || sizeChanged {
-		rp.initGL()
+		rp.initGL(uploadWidth, uploadHeight)
 	}
 
 	if !rp.glReady {
-		rp.glRenderCount++
 		renderDuration := time.Since(renderStartedAt)
+		rp.diagMu.Lock()
+		rp.glRenderCount++
 		rp.renderTotalNs += uint64(renderDuration)
 		if renderDuration.Nanoseconds() > rp.maxRenderNs {
 			rp.maxRenderNs = renderDuration.Nanoseconds()
 		}
+		rp.diagMu.Unlock()
 		rp.maybeLogDiagnostics()
 		return true
 	}
 
 	if needsUpload {
 		uploadStartedAt := time.Now()
-		uploadedBytes := rp.uploadToPBO(dirtyRects, sizeChanged, renderSeq, paintSeq)
-		uploadDuration := time.Since(uploadStartedAt)
-		rp.uploadCount++
-		if sizeChanged {
-			rp.fullUploadCount++
-		}
-		rp.uploadBytes += uploadedBytes
-		rp.uploadTotalNs += uint64(uploadDuration)
-		if uploadDuration.Nanoseconds() > rp.maxUploadNs {
-			rp.maxUploadNs = uploadDuration.Nanoseconds()
+		uploadedBytes, fullUpload, didUpload := rp.uploadToPBO(renderSeq, paintSeq)
+		if didUpload {
+			uploadDuration := time.Since(uploadStartedAt)
+			rp.diagMu.Lock()
+			rp.uploadCount++
+			if fullUpload {
+				rp.fullUploadCount++
+			}
+			rp.uploadBytes += uploadedBytes
+			rp.uploadTotalNs += uint64(uploadDuration)
+			if uploadDuration.Nanoseconds() > rp.maxUploadNs {
+				rp.maxUploadNs = uploadDuration.Nanoseconds()
+			}
+			rp.diagMu.Unlock()
 		}
 	}
 
@@ -333,12 +340,14 @@ func (rp *renderPipeline) onGLRender() bool {
 		rp.drawPopupOverlay(w, h)
 	}
 
-	rp.glRenderCount++
 	renderDuration := time.Since(renderStartedAt)
+	rp.diagMu.Lock()
+	rp.glRenderCount++
 	rp.renderTotalNs += uint64(renderDuration)
 	if renderDuration.Nanoseconds() > rp.maxRenderNs {
 		rp.maxRenderNs = renderDuration.Nanoseconds()
 	}
+	rp.diagMu.Unlock()
 	rp.maybeLogDiagnostics()
 	if rp.ctx != nil {
 		logging.FromContext(rp.ctx).Trace().
@@ -368,19 +377,27 @@ func (rp *renderPipeline) drawTexture(texture uint32) {
 }
 
 // uploadToPBO uploads dirty regions from the staging buffer into a PBO, then
-// transfers to the GL texture via async DMA.
-func (rp *renderPipeline) uploadToPBO(dirtyRects []rect, fullUpload bool, renderSeq, paintSeq uint64) uint64 {
+// transfers to the GL texture via async DMA. The mutex serializes CEF-thread
+// staging writes against GTK-thread PBO copies so the upload sees a consistent
+// staging buffer and dirty-rect set.
+func (rp *renderPipeline) uploadToPBO(renderSeq, paintSeq uint64) (uint64, bool, bool) {
 	gl := rp.gl
 
-	w, h, _ := rp.viewRectSize()
+	rp.mu.Lock()
+	w := rp.glWidth
+	h := rp.glHeight
+	needsUpload := rp.needsUpload
+	rp.mu.Unlock()
+	if !needsUpload || w <= 0 || h <= 0 {
+		return 0, false, false
+	}
+
 	if rp.ctx != nil {
 		logging.FromContext(rp.ctx).Trace().
 			Uint64("render_seq", renderSeq).
 			Uint64("paint_seq", paintSeq).
 			Int32("width", w).
 			Int32("height", h).
-			Int("dirty_rect_count", len(dirtyRects)).
-			Bool("full_upload", fullUpload).
 			Msg("cef: uploadToPBO begin")
 	}
 
@@ -395,13 +412,42 @@ func (rp *renderPipeline) uploadToPBO(dirtyRects []rect, fullUpload bool, render
 	mapped := gl.mapBuffer(glPixelUnpackBuffer, glWriteOnly)
 	if mapped == nil {
 		gl.bindBuffer(glPixelUnpackBuffer, 0)
-		return 0
+		return 0, false, false
 	}
 
 	mappedSlice := unsafe.Slice((*byte)(mapped), int(bufSize))
 	uploadedBytes := uint64(0)
+	fullUpload := false
+	dirtyRects := make([]rect, 0)
 
 	rp.mu.Lock()
+	if !rp.needsUpload {
+		rp.mu.Unlock()
+		if !gl.unmapBuffer(glPixelUnpackBuffer) {
+			gl.bindBuffer(glPixelUnpackBuffer, 0)
+			return 0, false, false
+		}
+		gl.bindBuffer(glPixelUnpackBuffer, 0)
+		return 0, false, false
+	}
+
+	if rp.widthAtomic.Load() != rp.glWidth || rp.heightAtomic.Load() != rp.glHeight {
+		rp.mu.Unlock()
+		if !gl.unmapBuffer(glPixelUnpackBuffer) {
+			gl.bindBuffer(glPixelUnpackBuffer, 0)
+			return 0, false, false
+		}
+		gl.bindBuffer(glPixelUnpackBuffer, 0)
+		if rp.ctx != nil {
+			logging.FromContext(rp.ctx).Trace().
+				Uint64("render_seq", renderSeq).
+				Uint64("paint_seq", paintSeq).
+				Msg("cef: skipping upload while newer surface resize is pending")
+		}
+		return 0, false, false
+	}
+
+	fullUpload = rp.forceFullUpload
 	if fullUpload {
 		copied := copy(mappedSlice, rp.staging)
 		if copied < len(mappedSlice) {
@@ -409,19 +455,12 @@ func (rp *renderPipeline) uploadToPBO(dirtyRects []rect, fullUpload bool, render
 		}
 		uploadedBytes = uint64(copied)
 	} else {
-		for _, rawRect := range dirtyRects {
-			r, ok := clampDirtyRect(rawRect, w, h)
-			if !ok {
-				continue
-			}
-			for row := r.Y; row < r.Y+r.Height; row++ {
-				off := int(row)*stride + int(r.X)*4
-				rowBytes := int(r.Width) * 4
-				copy(mappedSlice[off:off+rowBytes], rp.staging[off:off+rowBytes])
-				uploadedBytes += uint64(rowBytes)
-			}
-		}
+		dirtyRects = append(dirtyRects, rp.dirtyRects...)
+		uploadedBytes = copyDirtyRectsRaw(mappedSlice, rp.staging, w, h, dirtyRects)
 	}
+	rp.needsUpload = false
+	rp.forceFullUpload = false
+	rp.dirtyRects = rp.dirtyRects[:0]
 	rp.mu.Unlock()
 
 	if !gl.unmapBuffer(glPixelUnpackBuffer) {
@@ -433,7 +472,7 @@ func (rp *renderPipeline) uploadToPBO(dirtyRects []rect, fullUpload bool, render
 				Msg("cef: glUnmapBuffer reported corrupted PBO contents; dropping frame")
 		}
 		gl.bindBuffer(glPixelUnpackBuffer, 0)
-		return 0
+		return 0, fullUpload, false
 	}
 
 	// Transfer PBO → texture. With PBO bound, the last arg is a byte offset.
@@ -467,10 +506,12 @@ func (rp *renderPipeline) uploadToPBO(dirtyRects []rect, fullUpload bool, render
 			Uint64("render_seq", renderSeq).
 			Uint64("paint_seq", paintSeq).
 			Uint64("uploaded_bytes", uploadedBytes).
+			Int("dirty_rect_count", len(dirtyRects)).
+			Bool("full_upload", fullUpload).
 			Int("next_pbo_index", rp.pboIndex).
 			Msg("cef: uploadToPBO end")
 	}
-	return uploadedBytes
+	return uploadedBytes, fullUpload, true
 }
 
 func (rp *renderPipeline) uploadPopupTexture(renderSeq, paintSeq uint64) bool {
@@ -577,15 +618,9 @@ func (rp *renderPipeline) drawPopupOverlay(viewWidth, viewHeight int32) {
 	rp.gl.viewport(0, 0, viewWidth, viewHeight)
 }
 
-// initGL creates or recreates all GL resources for the current surface size.
-func (rp *renderPipeline) initGL() {
-	rp.mu.Lock()
-	w := rp.width
-	h := rp.height
-	rp.sizeChanged = false
-	rp.mu.Unlock()
-
-	if w <= 0 || h <= 0 {
+// initGL creates or recreates all GL resources for the provided surface size.
+func (rp *renderPipeline) initGL(width, height int32) {
+	if width <= 0 || height <= 0 {
 		return
 	}
 
@@ -596,6 +631,15 @@ func (rp *renderPipeline) initGL() {
 		rp.deleteGLResources()
 	}
 
+	rp.mu.Lock()
+	if rp.widthAtomic.Load() == width && rp.heightAtomic.Load() == height {
+		rp.sizeChanged = false
+	}
+	rp.forceFullUpload = true
+	rp.glWidth = width
+	rp.glHeight = height
+	rp.mu.Unlock()
+
 	// Texture.
 	gl.genTextures(1, &rp.texture)
 	gl.bindTexture(glTexture2D, rp.texture)
@@ -603,11 +647,11 @@ func (rp *renderPipeline) initGL() {
 	gl.texParameteri(glTexture2D, glTextureMagFilter, int32(glLinear))
 	gl.texParameteri(glTexture2D, glTextureWrapS, int32(glClampToEdge))
 	gl.texParameteri(glTexture2D, glTextureWrapT, int32(glClampToEdge))
-	gl.texImage2D(glTexture2D, 0, int32(glRGBA), w, h, 0, glBGRA, glUnsignedByte, nil)
+	gl.texImage2D(glTexture2D, 0, int32(glRGBA), width, height, 0, glBGRA, glUnsignedByte, nil)
 	gl.bindTexture(glTexture2D, 0)
 
 	// PBOs.
-	bufSize := int64(w) * int64(h) * 4
+	bufSize := int64(width) * int64(height) * 4
 	gl.genBuffers(1, &rp.pbo[0])
 	gl.genBuffers(1, &rp.pbo[1])
 	for i := 0; i < 2; i++ {
@@ -650,12 +694,18 @@ func (rp *renderPipeline) initGL() {
 }
 
 func (rp *renderPipeline) recordAcceleratedPaint() uint64 {
+	rp.diagMu.Lock()
 	rp.acceleratedPaintCount++
+	count := rp.acceleratedPaintCount
+	rp.diagMu.Unlock()
 	rp.maybeLogDiagnostics()
-	return rp.acceleratedPaintCount
+	return count
 }
 
 func (rp *renderPipeline) maybeLogDiagnostics() {
+	rp.diagMu.Lock()
+	defer rp.diagMu.Unlock()
+
 	now := time.Now()
 	if !rp.diagLastLogAt.IsZero() && now.Sub(rp.diagLastLogAt) < 2*time.Second {
 		return
@@ -777,10 +827,9 @@ func (rp *renderPipeline) onResize(width, height int32) {
 		return v * rp.scale
 	}
 
-	rp.width = scaled(width)
-	rp.height = scaled(height)
-	rp.widthAtomic.Store(rp.width)
-	rp.heightAtomic.Store(rp.height)
+	w, h := scaled(width), scaled(height)
+	rp.widthAtomic.Store(w)
+	rp.heightAtomic.Store(h)
 	rp.sizeChanged = true
 
 	firstCB := rp.onFirstResize
@@ -788,8 +837,6 @@ func (rp *renderPipeline) onResize(width, height int32) {
 		rp.onFirstResize = nil
 	}
 	resizeCB := rp.onResizeCB
-
-	w, h := rp.width, rp.height
 	rp.mu.Unlock()
 
 	if firstCB != nil {
@@ -866,12 +913,6 @@ func (rp *renderPipeline) handlePopupPaint(buffer []byte, width, height int32, p
 func (rp *renderPipeline) viewRectSize() (width, height, scale int32) {
 	width = rp.widthAtomic.Load()
 	height = rp.heightAtomic.Load()
-	if width <= 0 || height <= 0 {
-		rp.mu.Lock()
-		width = rp.width
-		height = rp.height
-		rp.mu.Unlock()
-	}
 	scale = rp.scale
 	if scale <= 0 {
 		scale = 1
@@ -953,6 +994,8 @@ func (rp *renderPipeline) deleteGLResources() {
 		// glDeleteProgram to glLoader if needed.
 		rp.program = 0
 	}
+	rp.glWidth = 0
+	rp.glHeight = 0
 }
 
 func bgraBufferSize(width, height int32) (int, bool) {
@@ -964,6 +1007,88 @@ func bgraBufferSize(width, height int32) (int, bool) {
 		return 0, false
 	}
 	return int(size64), true
+}
+
+// coalesceDirtyRects merges overlapping or edge-adjacent dirty rects to reduce
+// redundant row-by-row PBO copies. If the total dirty area exceeds 60% of the
+// surface, it collapses to a single full-surface rect.
+//
+// This is called inside handlePaint's mu.Lock() section so it must be fast for
+// small n. O(n^2) is fine since n is typically < 20.
+func coalesceDirtyRects(rects []rect, surfaceW, surfaceH int32) []rect {
+	if len(rects) <= 1 {
+		return rects
+	}
+
+	// Check if total dirty area exceeds 60% of the surface — if so,
+	// a single full-surface upload is cheaper than per-rect copies.
+	totalArea := int64(0)
+	surfaceArea := int64(surfaceW) * int64(surfaceH)
+	for _, r := range rects {
+		totalArea += int64(r.Width) * int64(r.Height)
+	}
+	if surfaceArea > 0 && totalArea*100 > surfaceArea*60 {
+		return []rect{{0, 0, surfaceW, surfaceH}}
+	}
+
+	// Merge overlapping or edge-adjacent rects. Two rects touch if their
+	// X ranges overlap-or-touch AND Y ranges overlap-or-touch. When merged,
+	// both are replaced with their bounding box. Repeat until stable.
+	merged := make([]rect, len(rects))
+	copy(merged, rects)
+
+	changed := true
+	for changed {
+		changed = false
+		for i := 0; i < len(merged); i++ {
+			for j := i + 1; j < len(merged); j++ {
+				if rectsTouch(merged[i], merged[j]) {
+					merged[i] = boundingBox(merged[i], merged[j])
+					// Remove j by swapping with last element.
+					merged[j] = merged[len(merged)-1]
+					merged = merged[:len(merged)-1]
+					changed = true
+					j-- // re-check the element now at index j
+				}
+			}
+		}
+	}
+
+	return merged
+}
+
+// rectsTouch returns true if two rects overlap or share an edge (adjacent).
+func rectsTouch(a, b rect) bool {
+	// a's right edge <= b's left edge → no horizontal contact
+	if a.X+a.Width < b.X || b.X+b.Width < a.X {
+		return false
+	}
+	// a's bottom edge <= b's top edge → no vertical contact
+	if a.Y+a.Height < b.Y || b.Y+b.Height < a.Y {
+		return false
+	}
+	return true
+}
+
+// boundingBox returns the smallest rect containing both a and b.
+func boundingBox(a, b rect) rect {
+	x := a.X
+	if b.X < x {
+		x = b.X
+	}
+	y := a.Y
+	if b.Y < y {
+		y = b.Y
+	}
+	right := a.X + a.Width
+	if br := b.X + b.Width; br > right {
+		right = br
+	}
+	bottom := a.Y + a.Height
+	if bb := b.Y + b.Height; bb > bottom {
+		bottom = bb
+	}
+	return rect{X: x, Y: y, Width: right - x, Height: bottom - y}
 }
 
 func stagingNeedsReset(staging []byte, currentWidth, currentHeight, nextWidth, nextHeight int32, expectedBytes int) bool {
@@ -1036,6 +1161,68 @@ func copyDirtyRectsIntoStaging(dst, src []byte, width, height int32, rects []rec
 	}
 
 	return copiedBytes, sanitized, truncated
+}
+
+// copyDirtyRectsRaw copies only the rows covered by dirty rects from src into
+// dst at matching offsets. Both src and dst must be BGRA buffers of dimensions
+// width x height. Unlike copyDirtyRectsIntoStaging, the destination buffer's
+// existing data outside dirty rect rows is left untouched — the caller must
+// ensure that only the copied rows will be read downstream.
+//
+// On a full-surface dirty rect (e.g. resize), this degrades to copying all
+// rows — equivalent to a full buffer copy.
+//
+// Returns the total bytes copied.
+func copyDirtyRectsRaw(dst, src []byte, width, height int32, rects []rect) uint64 {
+	if len(dst) == 0 || len(src) == 0 || width <= 0 || height <= 0 {
+		return 0
+	}
+
+	stride := int(width) * 4
+	copiedBytes := uint64(0)
+
+	for _, rawRect := range rects {
+		r, ok := clampDirtyRect(rawRect, width, height)
+		if !ok {
+			continue
+		}
+
+		for row := r.Y; row < r.Y+r.Height; row++ {
+			dstOff := int(row)*stride + int(r.X)*4
+			if dstOff < 0 || dstOff >= len(dst) {
+				break
+			}
+
+			rowBytes := int(r.Width) * 4
+			dstEnd := dstOff + rowBytes
+			if dstEnd > len(dst) {
+				dstEnd = len(dst)
+			}
+
+			srcOff := int(row)*stride + int(r.X)*4
+			if srcOff < 0 || srcOff >= len(src) {
+				continue
+			}
+
+			srcEnd := srcOff + rowBytes
+			if srcEnd > len(src) {
+				srcEnd = len(src)
+			}
+
+			copyLen := srcEnd - srcOff
+			maxDstLen := dstEnd - dstOff
+			if copyLen > maxDstLen {
+				copyLen = maxDstLen
+			}
+
+			if copyLen > 0 {
+				copy(dst[dstOff:dstOff+copyLen], src[srcOff:srcOff+copyLen])
+				copiedBytes += uint64(copyLen)
+			}
+		}
+	}
+
+	return copiedBytes
 }
 
 // pboOffset converts a byte offset into an unsafe.Pointer for use with

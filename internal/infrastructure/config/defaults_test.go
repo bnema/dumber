@@ -21,8 +21,6 @@ func TestDefaultConfig_CoreDefaults(t *testing.T) {
 	assert.Equal(t, ProfileDefault, cfg.Engine.Profile)
 	assert.Equal(t, CookiePolicyAlways, cfg.Engine.CookiePolicy)
 	assert.Equal(t, int32(defaultCEFWindowlessFrameRate), cfg.Engine.CEF.CEFWindowlessFrameRate())
-	assert.True(t, cfg.Engine.CEF.CEFMultiThreadedMessageLoop())
-	assert.Equal(t, int64(defaultCEFManualPumpIntervalMs), cfg.Engine.CEF.CEFManualPumpIntervalMs())
 	assert.Empty(t, cfg.Engine.CEF.LogFile)
 	assert.False(t, cfg.Engine.CEF.EnableAudioHandler)
 	assert.False(t, cfg.Engine.CEF.EnableContextMenuHandler)

@@ -93,6 +93,8 @@ func TestIsStreamingManifestMIME(t *testing.T) {
 	}{
 		{name: "hls apple", contentType: "application/vnd.apple.mpegURL", want: true},
 		{name: "hls x-mpegurl", contentType: "application/x-mpegURL", want: true},
+		{name: "hls audio x-mpegurl", contentType: "audio/x-mpegurl", want: true},
+		{name: "hls audio mpegurl", contentType: "audio/mpegurl", want: true},
 		{name: "dash", contentType: "application/dash+xml", want: true},
 		{name: "dash with charset", contentType: "application/dash+xml; charset=utf-8", want: true},
 		{name: "mp4", contentType: "video/mp4", want: false},

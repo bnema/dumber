@@ -64,27 +64,12 @@ func TestValidateConfig_CEFConfig(t *testing.T) {
 			wantErr: false,
 		},
 		{
-			name: "zero manual pump interval uses default",
-			mutate: func(cfg *Config) {
-				cfg.Engine.CEF.ManualPumpIntervalMs = 0
-			},
-			wantErr: false,
-		},
-		{
 			name: "negative frame rate",
 			mutate: func(cfg *Config) {
 				cfg.Engine.CEF.WindowlessFrameRate = -1
 			},
 			wantErr:  true,
 			wantText: "engine.cef.windowless_frame_rate",
-		},
-		{
-			name: "negative manual pump interval",
-			mutate: func(cfg *Config) {
-				cfg.Engine.CEF.ManualPumpIntervalMs = -1
-			},
-			wantErr:  true,
-			wantText: "engine.cef.manual_pump_interval_ms",
 		},
 	}
 

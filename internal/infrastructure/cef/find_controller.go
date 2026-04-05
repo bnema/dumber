@@ -43,7 +43,6 @@ func (fc *cefFindController) setHost(host purecef.BrowserHost) {
 	fc.mu.Unlock()
 }
 
-// Search starts a new find-in-page search.
 func (fc *cefFindController) Search(text string, opts port.FindOptions, _ uint) {
 	fc.mu.Lock()
 	fc.searchTxt = text
@@ -103,7 +102,6 @@ func (fc *cefFindController) SearchPrevious() {
 	host.Find(text, 0, mc, 1) // forward=0, findnext=1
 }
 
-// SearchFinish stops the current search and clears the highlight.
 func (fc *cefFindController) SearchFinish() {
 	fc.mu.Lock()
 	host := fc.host
@@ -115,7 +113,6 @@ func (fc *cefFindController) SearchFinish() {
 	}
 }
 
-// GetSearchText returns the current search text.
 func (fc *cefFindController) GetSearchText() string {
 	fc.mu.RLock()
 	defer fc.mu.RUnlock()

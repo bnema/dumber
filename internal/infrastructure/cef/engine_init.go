@@ -28,8 +28,6 @@ func NewEngine(ctx context.Context, cfg config.CEFEngineConfig, transcodingCfg c
 	logger := logging.FromContext(ctx)
 	cleanStaleSingletonLocks(logger)
 
-	multiThreaded := cfg.CEFMultiThreadedMessageLoop()
-	manualPumpMs := cfg.CEFManualPumpIntervalMs()
 	windowlessFrameRate := cfg.CEFWindowlessFrameRate()
 
 	settings := prepareCEFSettings(cfg, logger)
@@ -40,21 +38,18 @@ func NewEngine(ctx context.Context, cfg config.CEFEngineConfig, transcodingCfg c
 	os.Args = appendIfMissing(os.Args, "--no-zygote")
 
 	eng := &Engine{
-		ctx:                      ctx,
-		multiThreadedMessageLoop: multiThreaded,
-		manualPumpInterval:       manualPumpMs,
+		ctx: ctx,
 	}
 
 	logger.Info().
-		Bool("multi_threaded_message_loop", multiThreaded).
-		Int64("manual_pump_interval_ms", manualPumpMs).
 		Int32("windowless_frame_rate", windowlessFrameRate).
+		Bool("external_begin_frame", externalBeginFrameEnabled()).
 		Bool("trace_handlers", cfg.TraceHandlers).
 		Bool("enable_audio_handler", cfg.EnableAudioHandler).
 		Bool("enable_context_menu_handler", cfg.EnableContextMenuHandler).
 		Msg("cef: configured engine")
 
-	if err := initializeCEF(eng, settings, multiThreaded, logger); err != nil {
+	if err := initializeCEF(eng, settings, logger); err != nil {
 		os.Args = savedArgs
 		return nil, err
 	}
@@ -66,7 +61,7 @@ func NewEngine(ctx context.Context, cfg config.CEFEngineConfig, transcodingCfg c
 // prepareCEFSettings builds purecef.Settings from the engine config.
 func prepareCEFSettings(cfg config.CEFEngineConfig, logger *zerolog.Logger) purecef.Settings {
 	settings := purecef.DefaultSettings()
-	settings.MultiThreadedMessageLoop = cfg.CEFMultiThreadedMessageLoop()
+	settings.MultiThreadedMessageLoop = true
 	settings.ExternalMessagePump = false
 	if cfg.CEFDir != "" {
 		settings.CEFDir = cfg.CEFDir
@@ -97,22 +92,15 @@ func prepareCEFSettings(cfg config.CEFEngineConfig, logger *zerolog.Logger) pure
 	return settings
 }
 
-// initializeCEF calls cef_initialize with or without an App depending on pump mode.
-func initializeCEF(eng *Engine, settings purecef.Settings, multiThreaded bool, logger *zerolog.Logger) error {
-	if multiThreaded {
-		logger.Debug().Msg("cef: calling Init")
-		if err := purecef.Init(settings); err != nil {
-			return fmt.Errorf("cef.Init: %w", err)
-		}
-		logger.Debug().Msg("cef: Init returned OK")
-	} else {
-		app := newDumberApp(eng)
-		logger.Debug().Msg("cef: calling InitWithApp")
-		if err := purecef.InitWithApp(settings, app); err != nil {
-			return fmt.Errorf("cef.InitWithApp: %w", err)
-		}
-		logger.Debug().Msg("cef: InitWithApp returned OK")
+// initializeCEF calls cef_initialize with the App to register custom schemes
+// and browser-process callbacks (OnBeforeCommandLineProcessing, etc.).
+func initializeCEF(eng *Engine, settings purecef.Settings, logger *zerolog.Logger) error {
+	app := newDumberApp(eng)
+	logger.Debug().Msg("cef: calling InitWithApp")
+	if err := purecef.InitWithApp(settings, app); err != nil {
+		return fmt.Errorf("cef.InitWithApp: %w", err)
 	}
+	logger.Debug().Msg("cef: InitWithApp returned OK")
 	return nil
 }
 
@@ -128,17 +116,6 @@ func wireEngine(
 	}
 
 	scale := detectHiDPIScale(logger)
-
-	// Auto-detect frame rate from monitor when config uses the default (0 = auto).
-	// CEFWindowlessFrameRate() returns 0 when the user hasn't explicitly set a value,
-	// allowing us to match the monitor's refresh rate for smoother scrolling.
-	if windowlessFrameRate == 0 {
-		if hz := detectMonitorRefreshRate(logger); hz > 0 {
-			windowlessFrameRate = hz
-		} else {
-			windowlessFrameRate = 60 // safe fallback
-		}
-	}
 
 	// Initialize the GPU transcoder when enabled in the loaded app config.
 	var mediaTranscoder port.MediaTranscoder
@@ -428,10 +405,5 @@ func prepareCEFInitTraceFile(cfg config.CEFEngineConfig) (string, error) {
 }
 
 func puregoCEFInitTraceEnabled() bool {
-	switch strings.ToLower(strings.TrimSpace(os.Getenv(puregoCEFInitTraceEnvVar))) {
-	case "1", "true", "yes", "on":
-		return true
-	default:
-		return false
-	}
+	return envBoolEnabled(puregoCEFInitTraceEnvVar)
 }

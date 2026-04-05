@@ -68,7 +68,6 @@ const (
 	defaultZoomCacheSize           = 256 // domains to cache (~20KB memory)
 	defaultWebViewPoolPrewarmCount = 4   // WebViews to pre-create at startup
 	defaultCEFWindowlessFrameRate  = 60  // OSR frame rate for CEF
-	defaultCEFManualPumpIntervalMs = 10  // CEF manual message pump interval
 
 	// Transcoding defaults
 	defaultTranscodingEnabled       = true
@@ -92,8 +91,6 @@ func getDefaultLogDir() string {
 
 // DefaultConfig returns the default configuration values for dumber.
 func DefaultConfig() *Config {
-	defaultCEFMultiThreadedMessageLoop := true
-
 	return &Config{
 		Database: DatabaseConfig{
 			// Path is set dynamically in config.Load()
@@ -162,10 +159,8 @@ func DefaultConfig() *Config {
 			// matches Epiphany's model and avoids a misleading setting.
 			CookiePolicy: CookiePolicyAlways,
 			CEF: CEFEngineConfig{
-				WindowlessFrameRate:      defaultCEFWindowlessFrameRate,
-				MultiThreadedMessageLoop: &defaultCEFMultiThreadedMessageLoop,
-				ManualPumpIntervalMs:     defaultCEFManualPumpIntervalMs,
-				LogFile:                  "",
+				WindowlessFrameRate: defaultCEFWindowlessFrameRate,
+				LogFile:             "",
 			},
 			WebKit: WebKitEngineConfig{
 				ITPEnabled:             true,

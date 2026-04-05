@@ -14,29 +14,11 @@ import (
 // Compile-time check: MessageRouter implements port.WebUIHandlerRouter.
 var _ port.WebUIHandlerRouter = (*MessageRouter)(nil)
 
-// Message represents a JS -> Go message envelope sent via fetch to /api/message.
-type Message struct {
-	Type         string          `json:"type"`
-	Payload      json.RawMessage `json:"payload"`
-	WebViewID    uint64          `json:"webview_id,omitempty"`
-	WebViewIDAlt uint64          `json:"webviewId,omitempty"`
-}
-
-// MessageHandler handles a decoded message payload.
-type MessageHandler interface {
-	Handle(ctx context.Context, webviewID uint64, payload json.RawMessage) (any, error)
-}
-
-// MessageHandlerFunc adapts a function to the MessageHandler interface.
-type MessageHandlerFunc func(ctx context.Context, webviewID uint64, payload json.RawMessage) (any, error)
-
-// Handle calls f(ctx, webviewID, payload).
-func (f MessageHandlerFunc) Handle(ctx context.Context, webviewID uint64, payload json.RawMessage) (any, error) {
-	return f(ctx, webviewID, payload)
-}
+// Message is the JS -> Go message envelope sent via fetch to /api/message.
+type Message = port.WebUIMessage
 
 type handlerEntry struct {
-	handler       MessageHandler
+	handler       portHandlerAdapter
 	callback      string
 	errorCallback string
 	world         string
@@ -60,7 +42,6 @@ func NewMessageRouter(ctx context.Context) *MessageRouter {
 	}
 }
 
-// SetBaseContext updates the base context used for handler execution.
 func (r *MessageRouter) SetBaseContext(ctx context.Context) {
 	if r == nil {
 		return
@@ -115,24 +96,7 @@ func (r *MessageRouter) RegisterHandlerWithCallbacks(
 	return nil
 }
 
-// registerInternalHandler registers a CEF-internal handler that works with bare
-// uint64 webview IDs (e.g. accent key handlers in engine.go). External callers
-// should use RegisterHandler/RegisterHandlerWithCallbacks (port.WebUIHandlerRouter).
-func (r *MessageRouter) registerInternalHandler(msgType string, handler MessageHandler) error {
-	if msgType == "" {
-		return errors.New("message type cannot be empty")
-	}
-	if handler == nil {
-		return errors.New("message handler cannot be nil")
-	}
-	r.mu.Lock()
-	defer r.mu.Unlock()
-	r.handlers[msgType] = handlerEntry{handler: handler}
-	return nil
-}
-
-// portHandlerAdapter wraps a port.WebUIMessageHandler as a cef.MessageHandler,
-// converting the WebViewID type.
+// portHandlerAdapter wraps a port.WebUIMessageHandler, converting the WebViewID type.
 type portHandlerAdapter struct {
 	inner port.WebUIMessageHandler
 }
@@ -167,7 +131,7 @@ func (r *MessageRouter) HandleMessage(ctx context.Context, webviewID uint64, bod
 	entry, ok := r.handlers[msg.Type]
 	r.mu.RUnlock()
 
-	if !ok || entry.handler == nil {
+	if !ok || entry.handler.inner == nil {
 		log.Warn().Str("type", msg.Type).Msg("no handler registered for message type")
 		return json.Marshal(map[string]string{"error": "unknown message type: " + msg.Type})
 	}

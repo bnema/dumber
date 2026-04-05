@@ -8,6 +8,7 @@ import (
 
 	"github.com/bnema/dumber/internal/application/port"
 	"github.com/bnema/dumber/internal/domain/entity"
+	"github.com/bnema/dumber/internal/infrastructure/webutil"
 	"github.com/bnema/dumber/internal/logging"
 	"github.com/bnema/puregotk-webkit/webkit"
 )
@@ -26,91 +27,6 @@ const themeCSSScript = `(function() {
   style.setAttribute('data-dumber-theme-vars', '');
   style.textContent = '%s';
   (document.head || document.documentElement).appendChild(style);
-})();`
-
-// internalDarkModeScriptTemplate is injected ONLY on internal pages (dumb://*).
-// It sets dark/light class on <html> for Tailwind CSS theming and patches matchMedia
-// for JS-based dark mode detection in WebUI components.
-//
-// NOTE: This script is NOT injected on external pages. External pages receive
-// dark mode preference via libadwaita's StyleManager, which WebKit respects
-// for the native prefers-color-scheme media query.
-//
-// The matchMedia patch handles various query formats:
-// - (prefers-color-scheme: dark)
-// - (prefers-color-scheme:dark)  -- no space
-// - screen and (prefers-color-scheme: dark)
-const internalDarkModeScriptTemplate = `(function() {
-  var prefersDark = %t;
-  window.__dumber_gtk_prefers_dark = prefersDark;
-  var originalMatchMedia = window.matchMedia.bind(window);
-
-  // Apply dark/light class to document element for Tailwind CSS theming
-  if (prefersDark) {
-    document.documentElement.classList.add('dark');
-    document.documentElement.classList.remove('light');
-  } else {
-    document.documentElement.classList.add('light');
-    document.documentElement.classList.remove('dark');
-  }
-
-  // Helper: Check if query is a prefers-color-scheme query
-  function isColorSchemeQuery(query, scheme) {
-    if (typeof query !== 'string') return false;
-    var normalized = query.replace(/\s+/g, '').toLowerCase();
-    return normalized.indexOf('prefers-color-scheme:' + scheme) !== -1;
-  }
-
-  // Create a fake MediaQueryList that implements the full interface
-  function createFakeMediaQueryList(query, matches) {
-    var listeners = [];
-    var onchangeHandler = null;
-
-    return {
-      matches: matches,
-      media: query,
-      get onchange() { return onchangeHandler; },
-      set onchange(fn) { onchangeHandler = fn; },
-      addListener: function(cb) {
-        if (typeof cb === 'function') listeners.push(cb);
-      },
-      removeListener: function(cb) {
-        var idx = listeners.indexOf(cb);
-        if (idx !== -1) listeners.splice(idx, 1);
-      },
-      addEventListener: function(type, cb) {
-        if (type === 'change' && typeof cb === 'function') {
-          listeners.push(cb);
-        }
-      },
-      removeEventListener: function(type, cb) {
-        if (type === 'change') {
-          var idx = listeners.indexOf(cb);
-          if (idx !== -1) listeners.splice(idx, 1);
-        }
-      },
-      dispatchEvent: function(event) {
-        for (var i = 0; i < listeners.length; i++) {
-          try { listeners[i](event); } catch (e) {}
-        }
-        if (onchangeHandler) {
-          try { onchangeHandler(event); } catch (e) {}
-        }
-        return true;
-      }
-    };
-  }
-
-  // Patch matchMedia for prefers-color-scheme queries
-  window.matchMedia = function(query) {
-    if (isColorSchemeQuery(query, 'dark')) {
-      return createFakeMediaQueryList(query, prefersDark);
-    }
-    if (isColorSchemeQuery(query, 'light')) {
-      return createFakeMediaQueryList(query, !prefersDark);
-    }
-    return originalMatchMedia(query);
-  };
 })();`
 
 // internalPageAllowList restricts script injection to internal dumb:// pages only.
@@ -333,7 +249,7 @@ func (ci *ContentInjector) InjectScripts(ctx context.Context, ucm *webkit.UserCo
 
 	// 3. Inject dark mode handler for internal pages only
 	// This sets .dark/.light class on <html> and patches matchMedia for WebUI
-	internalDarkModeScript := fmt.Sprintf(internalDarkModeScriptTemplate, prefersDark)
+	internalDarkModeScript := webutil.DarkModeScript(prefersDark, "__dumber_gtk_prefers_dark")
 	addScript(
 		webkit.NewUserScript(
 			internalDarkModeScript,
@@ -347,10 +263,7 @@ func (ci *ContentInjector) InjectScripts(ctx context.Context, ucm *webkit.UserCo
 
 	// 4. Inject theme CSS for internal pages (dumb://* only)
 	if ci.themeCSSVars != "" {
-		// Escape for JS string literal
-		escapedCSS := strings.ReplaceAll(ci.themeCSSVars, "\\", "\\\\")
-		escapedCSS = strings.ReplaceAll(escapedCSS, "'", "\\'")
-		escapedCSS = strings.ReplaceAll(escapedCSS, "\n", "\\n")
+		escapedCSS := webutil.EscapeForJSString(ci.themeCSSVars)
 		themeCSSInjectionScript := fmt.Sprintf(themeCSSScript, escapedCSS)
 		addScript(
 			webkit.NewUserScript(
