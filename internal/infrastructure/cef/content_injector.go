@@ -4,9 +4,10 @@ import (
 	"context"
 	"fmt"
 	"net/url"
-	"os"
 	"strings"
 	"sync"
+
+	"github.com/bnema/dumber/internal/infrastructure/webutil"
 
 	"github.com/bnema/dumber/internal/application/port"
 	"github.com/bnema/dumber/internal/logging"
@@ -430,11 +431,7 @@ func (ci *contentInjector) setColorResolver(resolver port.ColorSchemeResolver) {
 // newContentInjector creates a content injector wired to the given engine.
 // Video diagnostics are enabled when DUMBER_VIDEO_DIAG=1 is set.
 func newContentInjector(engine *Engine, resolver port.ColorSchemeResolver) *contentInjector {
-	diagEnabled := false
-	switch strings.ToLower(strings.TrimSpace(os.Getenv("DUMBER_VIDEO_DIAG"))) {
-	case "1", "true", "yes", "on":
-		diagEnabled = true
-	}
+	diagEnabled := envBoolEnabled("DUMBER_VIDEO_DIAG")
 	return &contentInjector{
 		engine:                  engine,
 		colorResolver:           resolver,
@@ -550,8 +547,8 @@ func (ci *contentInjector) onLoadEnd(wv *WebView) {
 
 // injectCSS injects a CSS string as a <style> element via JavaScript.
 func (ci *contentInjector) injectCSS(wv *WebView, id, css string) {
-	escapedID := escapeForJSString(id)
-	escaped := escapeForJSString(css)
+	escapedID := webutil.EscapeForJSString(id)
+	escaped := webutil.EscapeForJSString(css)
 	script := fmt.Sprintf(`(function(){
   var el = document.getElementById('%s');
   if (!el) { el = document.createElement('style'); el.id = '%s'; document.head.appendChild(el); }
@@ -564,55 +561,7 @@ func (ci *contentInjector) injectCSS(wv *WebView, id, css string) {
 // injectDarkModeScript sets dark/light class on <html> and patches matchMedia
 // for prefers-color-scheme queries on internal pages.
 func (ci *contentInjector) injectDarkModeScript(wv *WebView, prefersDark bool) {
-	script := fmt.Sprintf(`(function() {
-  var prefersDark = %t;
-  window.__dumber_cef_prefers_dark = prefersDark;
-  var originalMatchMedia = window.matchMedia.bind(window);
-
-  if (prefersDark) {
-    document.documentElement.classList.add('dark');
-    document.documentElement.classList.remove('light');
-  } else {
-    document.documentElement.classList.add('light');
-    document.documentElement.classList.remove('dark');
-  }
-
-  function isColorSchemeQuery(query, scheme) {
-    if (typeof query !== 'string') return false;
-    var normalized = query.replace(/\s+/g, '').toLowerCase();
-    return normalized.indexOf('prefers-color-scheme:' + scheme) !== -1;
-  }
-
-  function createFakeMediaQueryList(query, matches) {
-    var listeners = [];
-    var onchangeHandler = null;
-    return {
-      matches: matches,
-      media: query,
-      get onchange() { return onchangeHandler; },
-      set onchange(fn) { onchangeHandler = fn; },
-      addListener: function(cb) { if (typeof cb === 'function') listeners.push(cb); },
-      removeListener: function(cb) { var idx = listeners.indexOf(cb); if (idx !== -1) listeners.splice(idx, 1); },
-      addEventListener: function(type, cb) { if (type === 'change' && typeof cb === 'function') listeners.push(cb); },
-      removeEventListener: function(type, cb) {
-        if (type === 'change') { var idx = listeners.indexOf(cb); if (idx !== -1) listeners.splice(idx, 1); }
-      },
-      dispatchEvent: function(event) {
-        for (var i = 0; i < listeners.length; i++) { try { listeners[i](event); } catch (e) {} }
-        if (onchangeHandler) { try { onchangeHandler(event); } catch (e) {} }
-        return true;
-      }
-    };
-  }
-
-  window.matchMedia = function(query) {
-    if (isColorSchemeQuery(query, 'dark')) return createFakeMediaQueryList(query, prefersDark);
-    if (isColorSchemeQuery(query, 'light')) return createFakeMediaQueryList(query, !prefersDark);
-    return originalMatchMedia(query);
-  };
-})();`, prefersDark)
-
-	wv.RunJavaScript(context.Background(), script)
+	wv.RunJavaScript(context.Background(), webutil.DarkModeScript(prefersDark, "__dumber_cef_prefers_dark"))
 }
 
 // injectMessageBridgeShim injects the window.dumber.postMessage JS client shim
@@ -621,15 +570,4 @@ func (ci *contentInjector) injectDarkModeScript(wv *WebView, prefersDark bool) {
 // around purego-cef's unexported PostData element wrapper.
 func (ci *contentInjector) injectMessageBridgeShim(wv *WebView) {
 	wv.RunJavaScript(context.Background(), MessageBridgeJS)
-}
-
-// escapeForJSString escapes a string for use inside a JS single-quoted string literal.
-func escapeForJSString(s string) string {
-	s = strings.ReplaceAll(s, "\\", "\\\\")
-	s = strings.ReplaceAll(s, "'", "\\'")
-	s = strings.ReplaceAll(s, "\n", "\\n")
-	s = strings.ReplaceAll(s, "\r", "\\r")
-	s = strings.ReplaceAll(s, "\u2028", "\\u2028")
-	s = strings.ReplaceAll(s, "\u2029", "\\u2029")
-	return s
 }

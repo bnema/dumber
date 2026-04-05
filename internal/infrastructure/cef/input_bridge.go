@@ -9,6 +9,7 @@ import (
 	"github.com/bnema/puregotk/v4/gio"
 	"github.com/bnema/puregotk/v4/gtk"
 
+	"github.com/bnema/dumber/internal/infrastructure/webutil"
 	"github.com/bnema/dumber/internal/logging"
 )
 
@@ -464,7 +465,7 @@ func (ib *inputBridge) pasteFromClipboard() {
 		}
 
 		// Escape the text for embedding in a JS string literal.
-		escaped := escapeForJSString(text)
+		escaped := webutil.EscapeForJSString(text)
 		js := "document.execCommand('insertText',false,'" + escaped + "')"
 		frame.ExecuteJavaScript(js, "", 0)
 		log.Debug().Msg("cef: paste JS executed")
@@ -473,8 +474,6 @@ func (ib *inputBridge) pasteFromClipboard() {
 	cb.ReadTextAsync(nil, &asyncCb, 0)
 	log.Debug().Msg("cef: ReadTextAsync dispatched")
 }
-
-// escapeForJSString is defined in content_injector.go — reused here.
 
 // ---------------------------------------------------------------------------
 // Translation helpers
