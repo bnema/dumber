@@ -117,3 +117,4 @@ aur/*/logo-512.png
 
 # Planning/runbook notes stored outside product docs
 docs/reference/stability-performance-multi-agent-runbook-*.md
+perf.data
