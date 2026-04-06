@@ -751,33 +751,101 @@ func (a *App) handleAccentKeyRelease(ctx context.Context, keyval uint) {
 	}
 }
 
+type omniboxCallbacks struct {
+	OnNavigate         func(url string)
+	OnToast            func(ctx context.Context, message string, level component.ToastLevel)
+	OnFocusIn          func(entry *gtk.SearchEntry)
+	OnFocusOut         func()
+	OnAccentKeyPress   func(keyval uint, state gdk.ModifierType) bool
+	OnAccentKeyRelease func(keyval uint)
+}
+
+func buildOmniboxConfig(
+	deps *Dependencies,
+	faviconAdapter *adapter.FaviconAdapter,
+	callbacks omniboxCallbacks,
+) component.OmniboxConfig {
+	if deps == nil || deps.Config == nil {
+		return component.OmniboxConfig{}
+	}
+
+	shortcuts := make(map[string]usecase.SearchShortcut, len(deps.Config.SearchShortcuts))
+	for key, shortcut := range deps.Config.SearchShortcuts {
+		shortcuts[key] = usecase.SearchShortcut{
+			URL:         shortcut.URL,
+			Description: shortcut.Description,
+		}
+	}
+
+	return component.OmniboxConfig{
+		HistoryUC:          deps.HistoryUC,
+		FavoritesUC:        deps.FavoritesUC,
+		FaviconAdapter:     faviconAdapter,
+		CopyURLUC:          deps.CopyURLUC,
+		ShortcutsUC:        usecase.NewSearchShortcutsUseCase(shortcuts),
+		DefaultSearch:      deps.Config.DefaultSearchEngine,
+		InitialBehavior:    deps.Config.Omnibox.InitialBehavior,
+		UIScale:            deps.Config.DefaultUIScale,
+		OnNavigate:         callbacks.OnNavigate,
+		OnToast:            callbacks.OnToast,
+		OnFocusIn:          callbacks.OnFocusIn,
+		OnFocusOut:         callbacks.OnFocusOut,
+		OnAccentKeyPress:   callbacks.OnAccentKeyPress,
+		OnAccentKeyRelease: callbacks.OnAccentKeyRelease,
+	}
+}
+
+func NewStandaloneOmniboxRuntime(
+	ctx context.Context,
+	deps *Dependencies,
+	faviconDB port.FaviconDatabase,
+) *StandaloneOmniboxRuntime {
+	var faviconAdapter *adapter.FaviconAdapter
+	if deps != nil && deps.FaviconService != nil {
+		faviconAdapter = adapter.NewFaviconAdapter(deps.FaviconService, faviconDB, deps.FaviconAdapterConfig)
+	}
+
+	omniboxCfg := buildOmniboxConfig(deps, faviconAdapter, omniboxCallbacks{
+		OnNavigate: func(url string) {
+			handleStandaloneOmniboxNavigation(deps, ctx, url)
+		},
+		OnToast: func(toastCtx context.Context, message string, level component.ToastLevel) {
+			logging.FromContext(toastCtx).Debug().Str("message", message).Int("level", int(level)).Msg("standalone omnibox toast")
+		},
+		OnFocusIn:          func(*gtk.SearchEntry) {},
+		OnFocusOut:         func() {},
+		OnAccentKeyPress:   func(uint, gdk.ModifierType) bool { return false },
+		OnAccentKeyRelease: func(uint) {},
+	})
+
+	return &StandaloneOmniboxRuntime{OmniboxCfg: omniboxCfg, ApplyTheme: func(display *gdk.Display) {
+		if deps != nil && deps.Theme != nil && display != nil {
+			deps.Theme.ApplyToDisplay(ctx, display)
+		}
+	}}
+}
+
+func handleStandaloneOmniboxNavigation(deps *Dependencies, ctx context.Context, rawURL string) {
+	if urlutil.IsExternalScheme(rawURL) {
+		if deps != nil && deps.LaunchExternalURL != nil {
+			deps.LaunchExternalURL(rawURL)
+			return
+		}
+	} else if deps != nil && deps.LaunchBrowserURL != nil {
+		deps.LaunchBrowserURL(rawURL)
+		return
+	}
+
+	logging.FromContext(ctx).Info().Str("url", rawURL).Msg("standalone omnibox navigate submitted")
+}
+
 func (a *App) initOmniboxConfig(ctx context.Context) {
 	if a.deps == nil || a.deps.Config == nil {
 		return
 	}
 
 	log := logging.FromContext(ctx)
-
-	// Convert config shortcuts to use case type
-	shortcuts := make(map[string]usecase.SearchShortcut, len(a.deps.Config.SearchShortcuts))
-	for key, shortcut := range a.deps.Config.SearchShortcuts {
-		shortcuts[key] = usecase.SearchShortcut{
-			URL:         shortcut.URL,
-			Description: shortcut.Description,
-		}
-	}
-	shortcutsUC := usecase.NewSearchShortcutsUseCase(shortcuts)
-
-	// Store omnibox config (omnibox is created per-pane via WorkspaceView).
-	a.omniboxCfg = component.OmniboxConfig{
-		HistoryUC:       a.deps.HistoryUC,
-		FavoritesUC:     a.deps.FavoritesUC,
-		FaviconAdapter:  a.faviconAdapter,
-		CopyURLUC:       a.deps.CopyURLUC,
-		ShortcutsUC:     shortcutsUC,
-		DefaultSearch:   a.deps.Config.DefaultSearchEngine,
-		InitialBehavior: a.deps.Config.Omnibox.InitialBehavior,
-		UIScale:         a.deps.Config.DefaultUIScale,
+	a.omniboxCfg = buildOmniboxConfig(a.deps, a.faviconAdapter, omniboxCallbacks{
 		OnNavigate: func(url string) {
 			if err := a.navigateFromOmnibox(ctx, url); err != nil {
 				log.Error().Err(err).Str("url", url).Msg("navigation failed")
@@ -803,7 +871,7 @@ func (a *App) initOmniboxConfig(ctx context.Context) {
 		OnAccentKeyRelease: func(keyval uint) {
 			a.handleAccentKeyRelease(ctx, keyval)
 		},
-	}
+	})
 	a.navCoord.SetOmniboxProvider(a)
 	log.Debug().Msg("omnibox config stored, provider set")
 }
@@ -2410,7 +2478,11 @@ func (a *App) installFloatingOverlayPositioning(tabID entity.TabID, workspaceOve
 		return
 	}
 
-	cb := func(_ gtk.Overlay, widgetPtr uintptr, allocationPtr *uintptr) bool {
+	cb := func(_ gtk.Overlay, widget *gtk.Widget, allocationPtr *uintptr) bool {
+		var widgetPtr uintptr
+		if widget != nil {
+			widgetPtr = widget.GoPointer()
+		}
 		overlayWidth := workspaceOverlay.GetAllocatedWidth()
 		overlayHeight := workspaceOverlay.GetAllocatedHeight()
 		x, y, width, height, ok := a.floatingAllocationForWidget(tabID, widgetPtr, overlayWidth, overlayHeight)

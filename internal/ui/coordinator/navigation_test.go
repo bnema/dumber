@@ -39,3 +39,14 @@ func TestNavigationCoordinator_OmniboxCallbackDoesNotPanicOnNavigateError(t *tes
 		provider.onNavigate("https://example.com")
 	})
 }
+
+func TestNavigationCoordinator_SetOmniboxProviderInstallsNavigateCallback(t *testing.T) {
+	c := &NavigationCoordinator{}
+	provider := &fakeOmniboxProvider{}
+
+	c.SetOmniboxProvider(provider)
+
+	if provider.onNavigate == nil {
+		t.Fatalf("expected omnibox navigate callback to be installed")
+	}
+}

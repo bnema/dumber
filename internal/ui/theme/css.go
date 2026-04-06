@@ -206,6 +206,10 @@ button.tab-button.tab-button-active {
 func generateOmniboxCSS(p Palette) string {
 	return `/* ===== Omnibox Styling ===== */
 
+window.standalone-omnibox-window {
+	background-color: transparent;
+}
+
 /* Omnibox outer container - for positioning in overlay */
 .omnibox-outer {
 	/* Positioning is handled via SetHalign/SetValign/SetMarginTop in Go */
@@ -213,23 +217,26 @@ func generateOmniboxCSS(p Palette) string {
 
 /* Omnibox main container - the visible popup */
 .omnibox-container {
-	background-color: var(--surface-variant);
-	border: 0.0625em solid var(--border);
+	background-color: alpha(var(--surface-variant), 0.94);
+	background-image: linear-gradient(to bottom, alpha(var(--surface), 0.22), alpha(var(--surface-variant), 0.08));
+	border: 0.0625em solid alpha(var(--border), 0.85);
 	border-radius: 0.1875em;
+	box-shadow: 0 0.875em 2.5em alpha(black, 0.24), 0 0.0625em 0 alpha(white, 0.05) inset;
 	padding: 0;
 }
 
 /* Header with History/Favorites toggle */
 .omnibox-header {
-	background-color: shade(var(--surface-variant), 1.1);
-	border-bottom: 0.0625em solid var(--border);
+	background-color: alpha(var(--surface), 0.34);
+	background-image: linear-gradient(to bottom, alpha(white, 0.03), alpha(black, 0.04));
+	border-bottom: 0.0625em solid alpha(var(--border), 0.75);
 	padding: 0.375em 0.75em;
 }
 
 .omnibox-header-btn {
-	background-color: transparent;
+	background-color: alpha(var(--surface), 0.12);
 	background-image: none;
-	border: none;
+	border: 0.0625em solid transparent;
 	border-radius: 0.125em;
 	padding: 0.25em 0.75em;
 	margin-right: 0.5em;
@@ -240,26 +247,29 @@ func generateOmniboxCSS(p Palette) string {
 }
 
 .omnibox-header-btn:hover {
-	background-color: alpha(var(--accent), 0.15);
+	background-color: alpha(var(--accent), 0.14);
+	border-color: alpha(var(--accent), 0.18);
 	color: var(--text);
 }
 
 .omnibox-header-btn.omnibox-header-active {
-	background-color: alpha(var(--accent), 0.2);
+	background-color: alpha(var(--accent), 0.18);
+	border-color: alpha(var(--accent), 0.28);
 	color: var(--accent);
 	font-weight: 600;
 }
 
 /* Search entry field */
 .omnibox-entry {
-	background-color: var(--bg);
+	background-color: alpha(var(--bg), 0.88);
 	color: var(--text);
-	border: 0.0625em solid var(--border);
+	border: 0.0625em solid alpha(var(--border), 0.82);
 	border-radius: 0.125em;
 	padding: 0.625em 0.75em;
 	margin: 0.5em 0.75em;
 	font-size: 1em;
 	caret-color: var(--accent);
+	box-shadow: 0 0.0625em 0 alpha(white, 0.04) inset;
 }
 
 entry.omnibox-entry:focus,
@@ -281,8 +291,8 @@ entry.omnibox-entry > *:focus-visible {
 
 /* Scrolled window for suggestions */
 .omnibox-scrolled {
-	background-color: shade(var(--surface-variant), 0.95);
-	border-top: 0.0625em solid var(--border);
+	background-color: alpha(var(--surface-variant), 0.72);
+	border-top: 0.0625em solid alpha(var(--border), 0.65);
 }
 
 /* List box */
@@ -296,7 +306,8 @@ entry.omnibox-entry > *:focus-visible {
 	margin: 0;
 	border-radius: 0;
 	border-left: 0.1875em solid transparent;
-	border-bottom: 0.0625em solid alpha(var(--border), 0.5);
+	border-bottom: 0.0625em solid alpha(var(--border), 0.35);
+	background-color: transparent;
 	transition: background-color 100ms ease-in-out, border-left 100ms ease-in-out;
 	min-height: 2.75em;
 }
@@ -358,8 +369,20 @@ entry.omnibox-entry > *:focus-visible {
 /* URL text below title - use .omnibox-row prefix for specificity over .omnibox-row label */
 .omnibox-row .omnibox-suggestion-url {
 	font-size: 0.75em;
-	color: alpha(var(--muted), 0.65);
+	color: alpha(var(--muted), 0.72);
 	font-weight: 400;
+}
+
+.omnibox-favorite-star {
+	color: var(--warning);
+	opacity: 0.9;
+	margin-left: 0.5em;
+	margin-right: 0.125em;
+}
+
+.omnibox-row:selected .omnibox-favorite-star {
+	color: var(--warning);
+	opacity: 1;
 }
 
 .omnibox-row:selected .omnibox-suggestion-url {

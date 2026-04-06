@@ -124,6 +124,7 @@ type Omnibox struct {
 
 	// Scaling
 	uiScale float64
+	sizeCfg ModalSizeConfig
 
 	// Cached measurements (populated after first layout)
 	measuredHeights struct {
@@ -158,6 +159,7 @@ type OmniboxConfig struct {
 	OnFocusOut         func()                                                      // Callback when entry loses focus
 	OnAccentKeyPress   func(keyval uint, state gdk.ModifierType) bool              // Long-press accent detection
 	OnAccentKeyRelease func(keyval uint)                                           // Key release for accent cancel
+	SizeConfig         ModalSizeConfig                                             // Optional geometry override for omnibox sizing
 }
 
 // NewOmnibox creates a new native GTK4 omnibox widget.
@@ -169,6 +171,8 @@ func NewOmnibox(ctx context.Context, cfg OmniboxConfig) *Omnibox {
 	if uiScale <= 0 {
 		uiScale = 1.0
 	}
+
+	sizeCfg := ResolveModalSizeConfig(cfg.SizeConfig, OmniboxSizeDefaults)
 
 	o := &Omnibox{
 		viewMode:           ViewModeHistory,
@@ -185,6 +189,7 @@ func NewOmnibox(ctx context.Context, cfg OmniboxConfig) *Omnibox {
 		onAccentKeyRelease: cfg.OnAccentKeyRelease,
 		ctx:                ctx,
 		uiScale:            uiScale,
+		sizeCfg:            sizeCfg,
 	}
 	o.idleCoalescer = mainloop.NewCoalescer(func(fn func()) {
 		var cb glib.SourceFunc = func(uintptr) bool {
@@ -317,13 +322,92 @@ func (o *Omnibox) estimateRowHeight() int {
 	return ScaleValue(DefaultRowHeights.Standard, o.uiScale)
 }
 
+func resultsContainerState(rowCount int) (visible bool, expand bool, listVisible bool, emptyBackdrop bool) {
+	return rowCount > 0, rowCount > 0, rowCount > 0, false
+}
+
+func (o *Omnibox) setResultsContainerState(rowCount int) {
+	if o.scrolledWin == nil {
+		return
+	}
+	visible, expand, listVisible, emptyBackdrop := resultsContainerState(rowCount)
+	o.scrolledWin.SetVisible(visible)
+	o.scrolledWin.SetVexpand(expand)
+	if o.listBox != nil {
+		o.listBox.SetVisible(listVisible)
+	}
+	if o.mainBox != nil && !emptyBackdrop {
+		o.mainBox.RemoveCssClass("omnibox-empty")
+	}
+}
+
+func logOmniboxWidgetState(ctx context.Context, overlay layout.OverlayWidget, outerBox, mainBox *gtk.Box, scrolledWin *gtk.ScrolledWindow, listBox *gtk.ListBox) {
+	log := logging.FromContext(ctx)
+	var overlayWidth, overlayHeight int
+	if overlay != nil {
+		overlayWidth = overlay.GetAllocatedWidth()
+		overlayHeight = overlay.GetAllocatedHeight()
+	}
+
+	var outerVisible bool
+	var outerWidth, outerHeight int
+	if outerBox != nil {
+		outerVisible = outerBox.GetVisible()
+		outerWidth = outerBox.GetAllocatedWidth()
+		outerHeight = outerBox.GetAllocatedHeight()
+	}
+
+	var mainVisible bool
+	var mainWidth, mainHeight int
+	if mainBox != nil {
+		mainVisible = mainBox.GetVisible()
+		mainWidth = mainBox.GetAllocatedWidth()
+		mainHeight = mainBox.GetAllocatedHeight()
+	}
+
+	var scrolledVisible, scrolledExpand bool
+	var scrolledWidth, scrolledHeight int
+	if scrolledWin != nil {
+		scrolledVisible = scrolledWin.GetVisible()
+		scrolledExpand = scrolledWin.GetVexpand()
+		scrolledWidth = scrolledWin.GetAllocatedWidth()
+		scrolledHeight = scrolledWin.GetAllocatedHeight()
+	}
+
+	var listVisible bool
+	var listWidth, listHeight int
+	if listBox != nil {
+		listVisible = listBox.GetVisible()
+		listWidth = listBox.GetAllocatedWidth()
+		listHeight = listBox.GetAllocatedHeight()
+	}
+
+	log.Debug().
+		Int("overlayWidth", overlayWidth).
+		Int("overlayHeight", overlayHeight).
+		Bool("outerVisible", outerVisible).
+		Int("outerWidth", outerWidth).
+		Int("outerHeight", outerHeight).
+		Bool("mainVisible", mainVisible).
+		Int("mainWidth", mainWidth).
+		Int("mainHeight", mainHeight).
+		Bool("scrolledVisible", scrolledVisible).
+		Bool("scrolledExpand", scrolledExpand).
+		Int("scrolledWidth", scrolledWidth).
+		Int("scrolledHeight", scrolledHeight).
+		Bool("listVisible", listVisible).
+		Int("listWidth", listWidth).
+		Int("listHeight", listHeight).
+		Msg("omnibox widget state")
+}
+
 // effectiveMaxRows returns the max visible rows adapted to the current parent pane height.
 // Must be called on the GTK main thread.
 func (o *Omnibox) effectiveMaxRows() int {
 	if o.parentOverlay == nil {
 		return OmniboxListDefaults.MaxVisibleRows
 	}
-	return EffectiveMaxRows(o.parentOverlay.GetAllocatedHeight(), o.estimateRowHeight(), OmniboxSizeDefaults, OmniboxListDefaults)
+	return EffectiveMaxRows(o.parentOverlay.GetAllocatedHeight(), o.estimateRowHeight(), o.sizeCfg, OmniboxListDefaults)
 }
 
 // resizeAndCenter adjusts the omnibox size based on content and centers it.
@@ -340,7 +424,7 @@ func (o *Omnibox) resizeAndCenter(rowCount int) {
 
 	// Schedule measurement after GTK has laid out widgets
 	var cb glib.SourceFunc = func(uintptr) bool {
-		width, _ := CalculateModalDimensions(o.parentOverlay, OmniboxSizeDefaults)
+		width, _ := CalculateModalDimensions(o.parentOverlay, o.sizeCfg)
 		o.measureAndResize(width, rowCount)
 		return false
 	}
@@ -387,6 +471,21 @@ func (o *Omnibox) measureAndResize(width, rowCount int) {
 
 	// Force layout recalculation
 	o.outerBox.QueueResize()
+	if parent := o.parentOverlay; parent != nil {
+		if widget := parent.GtkWidget(); widget != nil {
+			widget.QueueResize()
+			if parentWidget := widget.GetParent(); parentWidget != nil {
+				parentWidget.QueueResize()
+			}
+		}
+	}
+	if o.listBox != nil {
+		o.listBox.QueueResize()
+	}
+	if o.scrolledWin != nil {
+		o.scrolledWin.QueueResize()
+	}
+	o.mainBox.QueueResize()
 
 	log.Debug().
 		Int("width", width).
@@ -395,6 +494,12 @@ func (o *Omnibox) measureAndResize(width, rowCount int) {
 		Int("rows", rowCount).
 		Bool("measured", o.measuredHeights.valid).
 		Msg("omnibox resized")
+
+	var cb glib.SourceFunc = func(uintptr) bool {
+		logOmniboxWidgetState(o.ctx, o.parentOverlay, o.outerBox, o.mainBox, o.scrolledWin, o.listBox)
+		return false
+	}
+	glib.IdleAdd(&cb, 0)
 }
 
 // createWidgets builds the GTK widget hierarchy.
@@ -544,7 +649,7 @@ func (o *Omnibox) initList() error {
 		return errNilWidget("scrolledWin")
 	}
 	o.scrolledWin.AddCssClass("omnibox-scrolled")
-	o.scrolledWin.SetVexpand(true)
+	o.scrolledWin.SetVexpand(false)
 	o.scrolledWin.SetPolicy(gtk.PolicyNeverValue, gtk.PolicyAutomaticValue)
 	o.scrolledWin.SetPropagateNaturalHeight(true)
 
@@ -555,19 +660,16 @@ func (o *Omnibox) initList() error {
 	o.listBox.AddCssClass("omnibox-listbox")
 	o.listBox.SetSelectionMode(gtk.SelectionSingleValue)
 
-	rowSelectedCb := func(_ gtk.ListBox, rowPtr uintptr) {
+	rowSelectedCb := func(_ gtk.ListBox, row *gtk.ListBoxRow) {
 		o.restoreEntryToRealInput()
-		if rowPtr == 0 {
+		if row == nil {
 			o.mu.Lock()
 			o.selectedIndex = -1
 			o.mu.Unlock()
 		} else {
-			row := gtk.ListBoxRowNewFromInternalPtr(rowPtr)
-			if row != nil {
-				o.mu.Lock()
-				o.selectedIndex = row.GetIndex()
-				o.mu.Unlock()
-			}
+			o.mu.Lock()
+			o.selectedIndex = row.GetIndex()
+			o.mu.Unlock()
 		}
 		o.updateGhostFromSelection()
 	}
@@ -575,11 +677,7 @@ func (o *Omnibox) initList() error {
 	o.listBox.ConnectRowSelected(&rowSelectedCb)
 
 	// Handle row activation (click or Enter) - navigate directly to the URL
-	rowActivatedCb := func(_ gtk.ListBox, rowPtr uintptr) {
-		if rowPtr == 0 {
-			return
-		}
-		row := gtk.ListBoxRowNewFromInternalPtr(rowPtr)
+	rowActivatedCb := func(_ gtk.ListBox, row *gtk.ListBoxRow) {
 		if row == nil {
 			return
 		}
@@ -1598,9 +1696,7 @@ func (o *Omnibox) updateBangSuggestions(suggestions []BangSuggestion) {
 	o.rebuildList()
 
 	rowCount := len(suggestions)
-	if o.scrolledWin != nil {
-		o.scrolledWin.SetVisible(rowCount > 0)
-	}
+	o.setResultsContainerState(rowCount)
 	o.resizeAndCenter(rowCount)
 }
 
@@ -1618,9 +1714,7 @@ func (o *Omnibox) updateSuggestions(suggestions []Suggestion, query string) {
 
 	// Hide scrolled window when there are no suggestions
 	rowCount := len(suggestions)
-	if o.scrolledWin != nil {
-		o.scrolledWin.SetVisible(rowCount > 0)
-	}
+	o.setResultsContainerState(rowCount)
 	o.resizeAndCenter(rowCount)
 
 	if rowCount > 0 {
@@ -1644,9 +1738,7 @@ func (o *Omnibox) updateFavorites(favorites []Favorite, query string) {
 
 	// Hide scrolled window when there are no favorites
 	rowCount := len(favorites)
-	if o.scrolledWin != nil {
-		o.scrolledWin.SetVisible(rowCount > 0)
-	}
+	o.setResultsContainerState(rowCount)
 	o.resizeAndCenter(rowCount)
 
 	if rowCount > 0 {
@@ -1702,7 +1794,7 @@ func (o *Omnibox) rebuildList() {
 			if width <= 0 {
 				return false // Overlay not allocated yet, skip
 			}
-			forWidth := int(float64(width) * OmniboxSizeDefaults.WidthPct)
+			forWidth, _ := CalculateModalDimensions(o.parentOverlay, o.sizeCfg)
 			if o.measureComponentHeights(forWidth) {
 				// Re-trigger resize with accurate measurements
 				o.mu.RLock()
@@ -1749,15 +1841,91 @@ func (o *Omnibox) createFaviconImage(rawURL, fallbackIcon string) *gtk.Image {
 	return favicon
 }
 
+const favoriteStarBaseSize = 18
+
+func favoriteStarSize(scale float64) int { return ScaleValue(favoriteStarBaseSize, scale) }
+
+func shouldShowFavoriteStar(s Suggestion) bool { return s.IsFavorite }
+
+func (o *Omnibox) createFavoriteStarIcon() *gtk.Image {
+	star := gtk.NewImage()
+	if star == nil {
+		return nil
+	}
+	iconName := "starred-symbolic"
+	star.SetFromIconName(&iconName)
+	star.SetPixelSize(favoriteStarSize(o.uiScale))
+	star.AddCssClass("omnibox-favorite-star")
+	star.SetValign(gtk.AlignCenterValue)
+	return star
+}
+
+func (o *Omnibox) appendSuggestionTitleAndURL(textBox *gtk.Box, title, displayURL string) {
+	displayTitle := title
+	if displayTitle == "" {
+		displayTitle = displayURL
+	}
+
+	titleLabel := gtk.NewLabel(nil)
+	if titleLabel != nil {
+		titleLabel.SetText(displayTitle)
+		titleLabel.AddCssClass("omnibox-suggestion-title")
+		titleLabel.SetHalign(gtk.AlignStartValue)
+		titleLabel.SetEllipsize(2)
+		textBox.Append(&titleLabel.Widget)
+	}
+
+	if title != "" && title != displayURL {
+		urlLabel := gtk.NewLabel(nil)
+		if urlLabel != nil {
+			urlLabel.SetText(displayURL)
+			urlLabel.AddCssClass("omnibox-suggestion-url")
+			urlLabel.SetHalign(gtk.AlignStartValue)
+			urlLabel.SetEllipsize(2)
+			textBox.Append(&urlLabel.Widget)
+		}
+	}
+}
+
+func (o *Omnibox) appendFavoriteStarAndShortcut(hbox *gtk.Box, showFavoriteStar bool, index int) {
+	if showFavoriteStar {
+		if star := o.createFavoriteStarIcon(); star != nil {
+			hbox.Append(&star.Widget)
+		}
+	}
+
+	const maxShortcutIndex = 9
+	if index > maxShortcutIndex {
+		return
+	}
+
+	shortcutLabel := gtk.NewLabel(nil)
+	if shortcutLabel == nil {
+		return
+	}
+	if index < maxShortcutIndex {
+		shortcutLabel.SetText(formatShortcut(index + 1))
+	} else {
+		shortcutLabel.SetText("Ctrl+0")
+	}
+	shortcutLabel.AddCssClass("omnibox-shortcut-badge")
+	shortcutLabel.SetValign(gtk.AlignCenterValue)
+	hbox.Append(&shortcutLabel.Widget)
+}
+
 // createRowWithFavicon creates a ListBoxRow with favicon, title, URL, and shortcut badge.
 // Uses rawURL for both favicon fetching and display.
 func (o *Omnibox) createRowWithFavicon(rawURL, title, fallbackIcon string, index int) *gtk.ListBoxRow {
-	return o.createRowWithFaviconURL(rawURL, title, rawURL, fallbackIcon, index)
+	return o.createRowWithFaviconURL(rawURL, title, rawURL, fallbackIcon, false, index)
 }
 
 // createRowWithFaviconURL creates a ListBoxRow with favicon, title, URL label, and shortcut badge.
 // faviconURL is used for async favicon fetching (can be empty to skip), displayURL is shown as secondary label.
-func (o *Omnibox) createRowWithFaviconURL(displayURL, title, faviconURL, fallbackIcon string, index int) *gtk.ListBoxRow {
+func (o *Omnibox) createRowWithFaviconURL(
+	displayURL, title, faviconURL, fallbackIcon string,
+	showFavoriteStar bool,
+	index int,
+) *gtk.ListBoxRow {
 	row := gtk.NewListBoxRow()
 	if row == nil {
 		return nil
@@ -1786,49 +1954,10 @@ func (o *Omnibox) createRowWithFaviconURL(displayURL, title, faviconURL, fallbac
 	textBox.SetHexpand(true)
 	textBox.SetValign(gtk.AlignCenterValue)
 
-	// Title label (or URL if no title)
-	displayTitle := title
-	if displayTitle == "" {
-		displayTitle = displayURL
-	}
-	titleLabel := gtk.NewLabel(nil)
-	if titleLabel != nil {
-		titleLabel.SetText(displayTitle)
-		titleLabel.AddCssClass("omnibox-suggestion-title")
-		titleLabel.SetHalign(gtk.AlignStartValue)
-		titleLabel.SetEllipsize(2) // PANGO_ELLIPSIZE_END
-		textBox.Append(&titleLabel.Widget)
-	}
-
-	// URL label (only if title exists and differs from URL)
-	if title != "" && title != displayURL {
-		urlLabel := gtk.NewLabel(nil)
-		if urlLabel != nil {
-			urlLabel.SetText(displayURL)
-			urlLabel.AddCssClass("omnibox-suggestion-url")
-			urlLabel.SetHalign(gtk.AlignStartValue)
-			urlLabel.SetEllipsize(2) // PANGO_ELLIPSIZE_END
-			textBox.Append(&urlLabel.Widget)
-		}
-	}
+	o.appendSuggestionTitleAndURL(textBox, title, displayURL)
 
 	hbox.Append(&textBox.Widget)
-
-	// Shortcut badge (Ctrl+1-9, Ctrl+0 for 10th)
-	const maxShortcutIndex = 9
-	if index <= maxShortcutIndex {
-		shortcutLabel := gtk.NewLabel(nil)
-		if shortcutLabel != nil {
-			if index < maxShortcutIndex {
-				shortcutLabel.SetText(formatShortcut(index + 1))
-			} else {
-				shortcutLabel.SetText("Ctrl+0")
-			}
-			shortcutLabel.AddCssClass("omnibox-shortcut-badge")
-			shortcutLabel.SetValign(gtk.AlignCenterValue)
-			hbox.Append(&shortcutLabel.Widget)
-		}
-	}
+	o.appendFavoriteStarAndShortcut(hbox, showFavoriteStar, index)
 
 	row.SetChild(&hbox.Widget)
 	return row
@@ -1863,7 +1992,7 @@ func shouldPromoteHoverSelection(realInput string, hasGhostText, hasNavigated bo
 
 // createSuggestionRow creates a ListBoxRow for a suggestion.
 func (o *Omnibox) createSuggestionRow(s Suggestion, index int) *gtk.ListBoxRow {
-	row := o.createRowWithFavicon(s.URL, s.Title, "web-browser-symbolic", index)
+	row := o.createRowWithFaviconURL(s.URL, s.Title, s.URL, "web-browser-symbolic", shouldShowFavoriteStar(s), index)
 	if row != nil && s.IsFavorite {
 		row.AddCssClass("omnibox-row-favorite")
 	}
@@ -1878,7 +2007,7 @@ func (o *Omnibox) createFavoriteRow(f Favorite, index int) *gtk.ListBoxRow {
 func (o *Omnibox) createBangRow(b BangSuggestion, index int) *gtk.ListBoxRow {
 	// Pass description as URL param (displayed as secondary label) and empty
 	// faviconURL to skip async favicon fetching - bang rows use static icon only
-	row := o.createRowWithFaviconURL(b.Description, "!"+b.Key, "", "system-search-symbolic", index)
+	row := o.createRowWithFaviconURL(b.Description, "!"+b.Key, "", "system-search-symbolic", false, index)
 	if row != nil {
 		row.AddCssClass("omnibox-row-bang")
 	}
@@ -2316,20 +2445,33 @@ func (o *Omnibox) Show(ctx context.Context, query string) {
 	o.entry.SetText(query)
 	o.entry.SelectRegion(-1, -1)
 
-	// Determine if we expect content initially
-	// No content expected if: no query AND initialBehavior is "none"
-	expectContent := query != "" || o.initialBehavior != "none"
-
-	// Hide scrolled window if no content expected
+	// Keep the results container hidden until real rows arrive.
+	// Pre-showing an empty, expanding scroller renders a dead area in standalone mode.
 	if o.scrolledWin != nil {
-		o.scrolledWin.SetVisible(expectContent)
+		o.setResultsContainerState(0)
 		// Reset content height constraints - will be updated when results arrive
 		o.scrolledWin.SetMinContentHeight(-1)
 		o.scrolledWin.SetMaxContentHeight(0)
 	}
 
 	// Calculate dimensions using shared helper
-	width, marginTop := CalculateModalDimensions(o.parentOverlay, OmniboxSizeDefaults)
+	parentWidth, parentHeight := 0, 0
+	if o.parentOverlay != nil {
+		parentWidth = o.parentOverlay.GetAllocatedWidth()
+		parentHeight = o.parentOverlay.GetAllocatedHeight()
+	}
+	width, marginTop := CalculateModalDimensions(o.parentOverlay, o.sizeCfg)
+	log.Debug().
+		Int("parentWidth", parentWidth).
+		Int("parentHeight", parentHeight).
+		Int("width", width).
+		Int("marginTop", marginTop).
+		Int("fixedWidth", o.sizeCfg.FixedWidth).
+		Bool("useFixedTopMargin", o.sizeCfg.UseFixedTopMargin).
+		Int("fixedTopMargin", o.sizeCfg.FixedTopMargin).
+		Float64("widthPct", o.sizeCfg.WidthPct).
+		Float64("topMarginPct", o.sizeCfg.TopMarginPct).
+		Msg("omnibox geometry decision")
 
 	o.mainBox.SetSizeRequest(width, -1)
 	o.outerBox.SetMarginTop(marginTop)
