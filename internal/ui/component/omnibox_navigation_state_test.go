@@ -89,32 +89,29 @@ func TestEffectiveSearchQuery(t *testing.T) {
 
 func TestResultsContainerState(t *testing.T) {
 	tests := []struct {
-		name              string
-		rowCount          int
-		wantVisible       bool
-		wantExpand        bool
-		wantListVisible   bool
-		wantEmptyBackdrop bool
+		name            string
+		rowCount        int
+		wantVisible     bool
+		wantExpand      bool
+		wantListVisible bool
 	}{
-		{name: "no rows stays hidden without empty backdrop", rowCount: 0, wantVisible: false, wantExpand: false, wantListVisible: false, wantEmptyBackdrop: false},
-		{name: "rows show and expand", rowCount: 3, wantVisible: true, wantExpand: true, wantListVisible: true, wantEmptyBackdrop: false},
+		{name: "no rows stays hidden", rowCount: 0, wantVisible: false, wantExpand: false, wantListVisible: false},
+		{name: "rows show and expand", rowCount: 3, wantVisible: true, wantExpand: true, wantListVisible: true},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			gotVisible, gotExpand, gotListVisible, gotEmptyBackdrop := resultsContainerState(tt.rowCount)
-			if gotVisible != tt.wantVisible || gotExpand != tt.wantExpand || gotListVisible != tt.wantListVisible || gotEmptyBackdrop != tt.wantEmptyBackdrop {
+			gotVisible, gotExpand, gotListVisible := resultsContainerState(tt.rowCount)
+			if gotVisible != tt.wantVisible || gotExpand != tt.wantExpand || gotListVisible != tt.wantListVisible {
 				t.Fatalf(
-					"resultsContainerState(%d) = (%v, %v, %v, %v), want (%v, %v, %v, %v)",
+					"resultsContainerState(%d) = (%v, %v, %v), want (%v, %v, %v)",
 					tt.rowCount,
 					gotVisible,
 					gotExpand,
 					gotListVisible,
-					gotEmptyBackdrop,
 					tt.wantVisible,
 					tt.wantExpand,
 					tt.wantListVisible,
-					tt.wantEmptyBackdrop,
 				)
 			}
 		})

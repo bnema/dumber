@@ -479,9 +479,9 @@ func (s *SessionSpawner) SpawnWithSession(sessionID entity.SessionID) error {
 	cmd := exec.Command(execPath, "browse")
 
 	// Inherit environment and add restore session ID
-	cmd.Env = append(os.Environ(), RestoreSessionEnvVar+"="+string(sessionID))
+	cmd.Env = append(sanitizedChildEnv(os.Environ()), RestoreSessionEnvVar+"="+string(sessionID))
 
-	// Detach from current process group so the new process survives
+	// Detach from current process group so the new process survives.
 	cmd.Stdin = nil
 	cmd.Stdout = nil
 	cmd.Stderr = nil
@@ -490,10 +490,10 @@ func (s *SessionSpawner) SpawnWithSession(sessionID entity.SessionID) error {
 		return fmt.Errorf("spawn session: %w", err)
 	}
 
-	// Capture PID before releasing
+	// Capture PID before releasing.
 	pid := cmd.Process.Pid
 
-	// Release the process so it continues running after we close
+	// Release the process so it continues running after we close.
 	if err := cmd.Process.Release(); err != nil {
 		log.Warn().Err(err).Msg("failed to release spawned process (non-fatal)")
 	}

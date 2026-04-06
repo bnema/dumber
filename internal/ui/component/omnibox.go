@@ -322,83 +322,23 @@ func (o *Omnibox) estimateRowHeight() int {
 	return ScaleValue(DefaultRowHeights.Standard, o.uiScale)
 }
 
-func resultsContainerState(rowCount int) (visible bool, expand bool, listVisible bool, emptyBackdrop bool) {
-	return rowCount > 0, rowCount > 0, rowCount > 0, false
+func resultsContainerState(rowCount int) (visible bool, expand bool, listVisible bool) {
+	return rowCount > 0, rowCount > 0, rowCount > 0
 }
 
 func (o *Omnibox) setResultsContainerState(rowCount int) {
 	if o.scrolledWin == nil {
 		return
 	}
-	visible, expand, listVisible, emptyBackdrop := resultsContainerState(rowCount)
+	visible, expand, listVisible := resultsContainerState(rowCount)
 	o.scrolledWin.SetVisible(visible)
 	o.scrolledWin.SetVexpand(expand)
 	if o.listBox != nil {
 		o.listBox.SetVisible(listVisible)
 	}
-	if o.mainBox != nil && !emptyBackdrop {
+	if o.mainBox != nil {
 		o.mainBox.RemoveCssClass("omnibox-empty")
 	}
-}
-
-func logOmniboxWidgetState(ctx context.Context, overlay layout.OverlayWidget, outerBox, mainBox *gtk.Box, scrolledWin *gtk.ScrolledWindow, listBox *gtk.ListBox) {
-	log := logging.FromContext(ctx)
-	var overlayWidth, overlayHeight int
-	if overlay != nil {
-		overlayWidth = overlay.GetAllocatedWidth()
-		overlayHeight = overlay.GetAllocatedHeight()
-	}
-
-	var outerVisible bool
-	var outerWidth, outerHeight int
-	if outerBox != nil {
-		outerVisible = outerBox.GetVisible()
-		outerWidth = outerBox.GetAllocatedWidth()
-		outerHeight = outerBox.GetAllocatedHeight()
-	}
-
-	var mainVisible bool
-	var mainWidth, mainHeight int
-	if mainBox != nil {
-		mainVisible = mainBox.GetVisible()
-		mainWidth = mainBox.GetAllocatedWidth()
-		mainHeight = mainBox.GetAllocatedHeight()
-	}
-
-	var scrolledVisible, scrolledExpand bool
-	var scrolledWidth, scrolledHeight int
-	if scrolledWin != nil {
-		scrolledVisible = scrolledWin.GetVisible()
-		scrolledExpand = scrolledWin.GetVexpand()
-		scrolledWidth = scrolledWin.GetAllocatedWidth()
-		scrolledHeight = scrolledWin.GetAllocatedHeight()
-	}
-
-	var listVisible bool
-	var listWidth, listHeight int
-	if listBox != nil {
-		listVisible = listBox.GetVisible()
-		listWidth = listBox.GetAllocatedWidth()
-		listHeight = listBox.GetAllocatedHeight()
-	}
-
-	log.Debug().
-		Int("overlayWidth", overlayWidth).
-		Int("overlayHeight", overlayHeight).
-		Bool("outerVisible", outerVisible).
-		Int("outerWidth", outerWidth).
-		Int("outerHeight", outerHeight).
-		Bool("mainVisible", mainVisible).
-		Int("mainWidth", mainWidth).
-		Int("mainHeight", mainHeight).
-		Bool("scrolledVisible", scrolledVisible).
-		Bool("scrolledExpand", scrolledExpand).
-		Int("scrolledWidth", scrolledWidth).
-		Int("scrolledHeight", scrolledHeight).
-		Bool("listVisible", listVisible).
-		Int("listWidth", listWidth).
-		Int("listHeight", listHeight).
-		Msg("omnibox widget state")
 }
 
 // effectiveMaxRows returns the max visible rows adapted to the current parent pane height.
@@ -474,13 +414,7 @@ func (o *Omnibox) measureAndResize(width, rowCount int) {
 	if parent := o.parentOverlay; parent != nil {
 		if widget := parent.GtkWidget(); widget != nil {
 			widget.QueueResize()
-			if parentWidget := widget.GetParent(); parentWidget != nil {
-				parentWidget.QueueResize()
-			}
 		}
-	}
-	if o.listBox != nil {
-		o.listBox.QueueResize()
 	}
 	if o.scrolledWin != nil {
 		o.scrolledWin.QueueResize()
@@ -494,12 +428,6 @@ func (o *Omnibox) measureAndResize(width, rowCount int) {
 		Int("rows", rowCount).
 		Bool("measured", o.measuredHeights.valid).
 		Msg("omnibox resized")
-
-	var cb glib.SourceFunc = func(uintptr) bool {
-		logOmniboxWidgetState(o.ctx, o.parentOverlay, o.outerBox, o.mainBox, o.scrolledWin, o.listBox)
-		return false
-	}
-	glib.IdleAdd(&cb, 0)
 }
 
 // createWidgets builds the GTK widget hierarchy.
