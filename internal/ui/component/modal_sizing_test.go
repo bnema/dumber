@@ -120,7 +120,7 @@ func TestResolveModalSizeConfig_MergesDefaultsAndOverrides(t *testing.T) {
 
 	resolved := ResolveModalSizeConfig(override, defaults)
 
-	assert.Equal(t, defaults.WidthPct, resolved.WidthPct)
+	assert.InDelta(t, defaults.WidthPct, resolved.WidthPct, 0)
 	assert.Equal(t, defaults.MaxWidth, resolved.MaxWidth)
 	assert.Equal(t, defaults.FallbackWidth, resolved.FallbackWidth)
 	assert.Equal(t, defaults.FallbackHeight, resolved.FallbackHeight)

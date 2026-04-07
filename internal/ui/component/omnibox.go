@@ -323,7 +323,7 @@ func (o *Omnibox) estimateRowHeight() int {
 	return ScaleValue(DefaultRowHeights.Standard, o.uiScale)
 }
 
-func resultsContainerState(rowCount int) (visible bool, expand bool, listVisible bool) {
+func resultsContainerState(rowCount int) (visible, expand, listVisible bool) {
 	return rowCount > 0, rowCount > 0, rowCount > 0
 }
 
