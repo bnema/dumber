@@ -432,7 +432,10 @@ func startDetachedProcess(cmd *exec.Cmd) error {
 	}
 	if cmd.Process != nil {
 		if err := cmd.Process.Release(); err != nil {
-			return err
+			logging.FromContext(context.Background()).Warn().
+				Err(err).
+				Str("path", cmd.Path).
+				Msg("startDetachedProcess: cmd.Process.Release failed after start (non-fatal)")
 		}
 	}
 

@@ -95,6 +95,7 @@ func TestResultsContainerState(t *testing.T) {
 		wantExpand      bool
 		wantListVisible bool
 	}{
+		{name: "negative rows stays hidden", rowCount: -1, wantVisible: false, wantExpand: false, wantListVisible: false},
 		{name: "no rows stays hidden", rowCount: 0, wantVisible: false, wantExpand: false, wantListVisible: false},
 		{name: "rows show and expand", rowCount: 3, wantVisible: true, wantExpand: true, wantListVisible: true},
 	}

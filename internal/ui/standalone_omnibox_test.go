@@ -158,6 +158,23 @@ func TestStandaloneOmniboxArgv_RemovesGoTestFlags(t *testing.T) {
 	}
 }
 
+func TestStandaloneOmniboxArgv_RemovesOnlyLeadingOmniboxSubcommand(t *testing.T) {
+	argv := standaloneOmniboxArgv([]string{"/tmp/testbin", "omnibox", "https://example.com/omnibox", "omnibox"})
+
+	if len(argv) != 3 {
+		t.Fatalf("expected 3 args, got %d: %#v", len(argv), argv)
+	}
+	if argv[0] != "/tmp/testbin" {
+		t.Fatalf("expected binary path to be preserved, got %q", argv[0])
+	}
+	if argv[1] != "https://example.com/omnibox" {
+		t.Fatalf("expected non-subcommand omnibox value to be preserved, got %#v", argv)
+	}
+	if argv[2] != "omnibox" {
+		t.Fatalf("expected later omnibox arg to be preserved, got %#v", argv)
+	}
+}
+
 func TestTryInitLayerShell_NilWindowReturnsFalse(t *testing.T) {
 	if tryInitLayerShell(nil, DefaultStandaloneOmniboxWindowConfig()) {
 		t.Fatalf("expected nil window to skip layer-shell")

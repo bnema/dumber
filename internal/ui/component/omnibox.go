@@ -327,6 +327,10 @@ func resultsContainerState(rowCount int) (visible, expand, listVisible bool) {
 	return rowCount > 0, rowCount > 0, rowCount > 0
 }
 
+func shouldApplyEmptyResultsState(rowCount int, visible bool) bool {
+	return !visible || rowCount <= 0
+}
+
 func (o *Omnibox) setResultsContainerState(rowCount int) {
 	if o.scrolledWin == nil {
 		return
@@ -338,7 +342,11 @@ func (o *Omnibox) setResultsContainerState(rowCount int) {
 		o.listBox.SetVisible(listVisible)
 	}
 	if o.mainBox != nil {
-		o.mainBox.RemoveCssClass("omnibox-empty")
+		if shouldApplyEmptyResultsState(rowCount, visible) {
+			o.mainBox.AddCssClass("omnibox-empty")
+		} else {
+			o.mainBox.RemoveCssClass("omnibox-empty")
+		}
 	}
 }
 
@@ -1771,10 +1779,51 @@ func (o *Omnibox) createFaviconImage(rawURL, fallbackIcon string) *gtk.Image {
 }
 
 const favoriteStarBaseSize = 18
+const favoriteStarSlotClass = "omnibox-favorite-star-slot"
 
 func favoriteStarSize(scale float64) int { return ScaleValue(favoriteStarBaseSize, scale) }
 
 func shouldShowFavoriteStar(s Suggestion) bool { return s.IsFavorite }
+
+func clearBoxChildren(box *gtk.Box) {
+	if box == nil {
+		return
+	}
+	for child := box.GetFirstChild(); child != nil; {
+		next := child.GetNextSibling()
+		box.Remove(child)
+		child = next
+	}
+}
+
+func (o *Omnibox) syncFavoriteStarSlot(slot *gtk.Box, showFavoriteStar bool) {
+	if slot == nil {
+		return
+	}
+	clearBoxChildren(slot)
+	if showFavoriteStar {
+		if star := o.createFavoriteStarIcon(); star != nil {
+			slot.Append(&star.Widget)
+		}
+	}
+	slot.SetVisible(showFavoriteStar)
+}
+
+func favoriteStarSlotForRow(row *gtk.ListBoxRow) *gtk.Box {
+	if row == nil {
+		return nil
+	}
+	hbox := row.GetChild()
+	if hbox == nil {
+		return nil
+	}
+	for child := hbox.GetFirstChild(); child != nil; child = child.GetNextSibling() {
+		if child.HasCssClass(favoriteStarSlotClass) {
+			return gtk.BoxNewFromInternalPtr(child.GoPointer())
+		}
+	}
+	return nil
+}
 
 func (o *Omnibox) createFavoriteStarIcon() *gtk.Image {
 	star := gtk.NewImage()
@@ -1817,10 +1866,12 @@ func (o *Omnibox) appendSuggestionTitleAndURL(textBox *gtk.Box, title, displayUR
 }
 
 func (o *Omnibox) appendFavoriteStarAndShortcut(hbox *gtk.Box, showFavoriteStar bool, index int) {
-	if showFavoriteStar {
-		if star := o.createFavoriteStarIcon(); star != nil {
-			hbox.Append(&star.Widget)
-		}
+	starSlot := gtk.NewBox(gtk.OrientationHorizontalValue, 0)
+	if starSlot != nil {
+		starSlot.AddCssClass(favoriteStarSlotClass)
+		starSlot.SetValign(gtk.AlignCenterValue)
+		o.syncFavoriteStarSlot(starSlot, showFavoriteStar)
+		hbox.Append(&starSlot.Widget)
 	}
 
 	const maxShortcutIndex = 9
@@ -2256,6 +2307,17 @@ func (o *Omnibox) updateRowFavoriteIndicator(index int, isFavorite bool) {
 	} else {
 		row.RemoveCssClass("omnibox-row-favorite")
 	}
+	if slot := favoriteStarSlotForRow(row); slot != nil {
+		o.syncFavoriteStarSlot(slot, isFavorite)
+		slot.QueueDraw()
+		slot.Show()
+	}
+	if child := row.GetChild(); child != nil {
+		child.QueueDraw()
+		child.Show()
+	}
+	row.QueueDraw()
+	row.Show()
 }
 
 // yankSelectedURL copies the URL of the selected item to clipboard.

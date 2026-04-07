@@ -84,9 +84,11 @@ func standaloneOmniboxArgv(args []string) []string {
 	}
 
 	filtered := []string{args[0]}
+	subcommandSkipped := false
 	for i := 1; i < len(args); i++ {
 		arg := args[i]
-		if arg == "omnibox" {
+		if arg == "omnibox" && !subcommandSkipped {
+			subcommandSkipped = true
 			continue
 		}
 		if strings.HasPrefix(arg, "-test.") {
