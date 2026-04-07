@@ -13,6 +13,7 @@ import (
 	"github.com/bnema/puregotk/v4/glib"
 	"github.com/bnema/puregotk/v4/graphene"
 	"github.com/bnema/puregotk/v4/gtk"
+	"github.com/bnema/puregotk/v4/pango"
 
 	"github.com/bnema/dumber/internal/application/usecase"
 	"github.com/bnema/dumber/internal/domain/autocomplete"
@@ -1799,7 +1800,7 @@ func (o *Omnibox) appendSuggestionTitleAndURL(textBox *gtk.Box, title, displayUR
 		titleLabel.SetText(displayTitle)
 		titleLabel.AddCssClass("omnibox-suggestion-title")
 		titleLabel.SetHalign(gtk.AlignStartValue)
-		titleLabel.SetEllipsize(2)
+		titleLabel.SetEllipsize(pango.EllipsizeEndValue)
 		textBox.Append(&titleLabel.Widget)
 	}
 
@@ -1809,7 +1810,7 @@ func (o *Omnibox) appendSuggestionTitleAndURL(textBox *gtk.Box, title, displayUR
 			urlLabel.SetText(displayURL)
 			urlLabel.AddCssClass("omnibox-suggestion-url")
 			urlLabel.SetHalign(gtk.AlignStartValue)
-			urlLabel.SetEllipsize(2)
+			urlLabel.SetEllipsize(pango.EllipsizeEndValue)
 			textBox.Append(&urlLabel.Widget)
 		}
 	}

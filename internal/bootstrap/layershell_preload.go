@@ -40,8 +40,8 @@ func CurrentEnvMap() map[string]string {
 	return env
 }
 
-func FindLayerShellLibrary(exists func(path string) bool) string {
-	for _, path := range layerShellLibrarySearchPaths(CurrentEnvMap()) {
+func FindLayerShellLibrary(env map[string]string, exists func(path string) bool) string {
+	for _, path := range layerShellLibrarySearchPaths(env) {
 		if exists(path) {
 			return path
 		}
@@ -51,7 +51,7 @@ func FindLayerShellLibrary(exists func(path string) bool) string {
 }
 
 func LayerShellLibraryPath() string {
-	return FindLayerShellLibrary(func(path string) bool {
+	return FindLayerShellLibrary(CurrentEnvMap(), func(path string) bool {
 		info, err := os.Stat(filepath.Clean(path))
 		return err == nil && !info.IsDir()
 	})

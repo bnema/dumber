@@ -222,7 +222,6 @@ func buildStandaloneOmniboxHost(
 ) (*gtk.Widget, *component.Omnibox) {
 	factory := layout.NewGtkWidgetFactory()
 	overlay := factory.NewOverlay()
-	hostLayout := standaloneOmniboxHostLayout(false)
 	if overlay == nil {
 		logging.FromContext(ctx).Error().Msg("failed to create standalone omnibox host widgets")
 		return nil, nil
@@ -230,7 +229,7 @@ func buildStandaloneOmniboxHost(
 
 	cfg := runtimeCfg.OmniboxCfg
 	cfg.OnNavigate = wrapStandaloneOmniboxNavigate(cfg.OnNavigate, gtkApp.Quit)
-	cfg.SizeConfig = hostLayout.OmniboxSize
+	cfg.SizeConfig = standaloneOmniboxSizeConfig()
 
 	omnibox := component.NewOmnibox(ctx, cfg)
 	if omnibox == nil {

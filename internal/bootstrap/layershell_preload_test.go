@@ -13,14 +13,16 @@ func TestShouldPreloadLayerShell_WaylandWithoutPreloadReturnsTrue(t *testing.T) 
 	}
 }
 
-func TestShouldPreloadLayerShell_SkipsWithoutLibraryPath(t *testing.T) {
-	env := map[string]string{
-		"WAYLAND_DISPLAY": "wayland-1",
-		"LD_PRELOAD":      "",
-	}
+func TestFindLayerShellLibrary_UsesLDLibraryPathCandidates(t *testing.T) {
+	customCandidate := "/opt/custom/lib/libgtk4-layer-shell.so.0"
+	got := FindLayerShellLibrary(map[string]string{
+		"LD_LIBRARY_PATH": "/opt/custom/lib",
+	}, func(path string) bool {
+		return path == customCandidate
+	})
 
-	if !ShouldPreloadLayerShell(env) {
-		t.Fatalf("expected preload to be required before library probing")
+	if got != customCandidate {
+		t.Fatalf("expected %q, got %q", customCandidate, got)
 	}
 }
 
@@ -52,7 +54,7 @@ func TestLayerShellPreloadPresent_DetectsLoadedLibrarySubstring(t *testing.T) {
 }
 
 func TestFindLayerShellLibrary_ReturnsFirstExistingCandidate(t *testing.T) {
-	got := FindLayerShellLibrary(func(path string) bool {
+	got := FindLayerShellLibrary(map[string]string{}, func(path string) bool {
 		return path == layerShellLibraryCandidates[1]
 	})
 
@@ -63,7 +65,7 @@ func TestFindLayerShellLibrary_ReturnsFirstExistingCandidate(t *testing.T) {
 
 func TestFindLayerShellLibrary_ReturnsArm64Candidate(t *testing.T) {
 	arm64Candidate := "/usr/lib/aarch64-linux-gnu/libgtk4-layer-shell.so.0"
-	got := FindLayerShellLibrary(func(path string) bool {
+	got := FindLayerShellLibrary(map[string]string{}, func(path string) bool {
 		return path == arm64Candidate
 	})
 
@@ -73,7 +75,7 @@ func TestFindLayerShellLibrary_ReturnsArm64Candidate(t *testing.T) {
 }
 
 func TestFindLayerShellLibrary_NoMatchReturnsEmpty(t *testing.T) {
-	if got := FindLayerShellLibrary(func(string) bool { return false }); got != "" {
+	if got := FindLayerShellLibrary(map[string]string{}, func(string) bool { return false }); got != "" {
 		t.Fatalf("expected empty result, got %q", got)
 	}
 }
