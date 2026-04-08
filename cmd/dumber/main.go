@@ -7,6 +7,7 @@ import (
 	"os"
 	"os/signal"
 	"runtime"
+	"strings"
 	"syscall"
 
 	"github.com/bnema/dumber/internal/application/port"
@@ -51,17 +52,55 @@ var initialURL string
 // restoreSessionID holds the session ID to restore on startup.
 var restoreSessionID string
 
+type launchMode string
+
+const (
+	launchModeCLI               launchMode = "cli"
+	launchModeBrowse            launchMode = "browse"
+	launchModeStandaloneOmnibox launchMode = "omnibox"
+)
+
+func launchModeFromArgs(args []string) (launchMode, string) {
+	if len(args) > 1 {
+		switch args[1] {
+		case "browse":
+			if len(args) > 3 {
+				return launchModeCLI, ""
+			}
+			if len(args) > 2 {
+				if strings.HasPrefix(args[2], "-") {
+					return launchModeCLI, ""
+				}
+				return launchModeBrowse, args[2]
+			}
+			return launchModeBrowse, ""
+		case "omnibox":
+			if len(args) > 2 {
+				return launchModeCLI, ""
+			}
+			return launchModeStandaloneOmnibox, ""
+		}
+	}
+
+	return launchModeCLI, ""
+}
+
 func main() {
 	enableCrashForensics()
 
+	mode, browseURL := launchModeFromArgs(os.Args)
+
 	// Run GUI mode for browse command
-	if len(os.Args) > 1 && os.Args[1] == "browse" {
-		if len(os.Args) > 2 {
-			initialURL = os.Args[2]
-		}
+	if mode == launchModeBrowse {
+		initialURL = browseURL
 		restoreSessionID = os.Getenv("DUMBER_RESTORE_SESSION")
 		os.Args = os.Args[:1]
 		os.Exit(runGUI())
+		return
+	}
+
+	if mode == launchModeStandaloneOmnibox {
+		os.Exit(runStandaloneOmnibox())
 		return
 	}
 
@@ -138,6 +177,83 @@ func runGUI() int {
 	setupSignalHandler(ctx, app)
 
 	return app.Run(ctx, os.Args)
+}
+
+func runStandaloneOmnibox() int {
+	maybeReexecStandaloneOmniboxWithLayerShell()
+
+	bootstrap.ApplyGTKIMModuleFallbackDefault(os.Stderr)
+	runtime.LockOSThread()
+	component.SetSkeletonVersion(version)
+
+	cfg := initConfig()
+	ctx := initStartupContextWithTrace(cfg)
+
+	initResult, err := runParallelInitPhase(ctx, cfg)
+	if err != nil {
+		return 1
+	}
+
+	engine, repos, dbCleanup, err := initStackAndRepos(ctx, cfg, initResult, false)
+	if err != nil {
+		logging.FromContext(ctx).Error().Err(err).Msg("failed to initialize standalone omnibox runtime")
+		return 1
+	}
+	if dbCleanup != nil {
+		defer dbCleanup()
+	}
+
+	useCases := createUseCases(repos, cfg)
+	uiDeps := buildUIDependencies(
+		ctx,
+		cfg,
+		initResult.ThemeManager,
+		initResult.ColorResolver,
+		initResult.AdwaitaDetector,
+		engine,
+		repos,
+		useCases,
+		nil,
+		"",
+		nil,
+	)
+	runtimeCfg := ui.NewStandaloneOmniboxRuntime(ctx, uiDeps, engine.FaviconDatabase())
+
+	return ui.RunStandaloneOmnibox(ctx, runtimeCfg)
+}
+
+func maybeReexecStandaloneOmniboxWithLayerShell() {
+	env := bootstrap.CurrentEnvMap()
+	if !bootstrap.ShouldPreloadLayerShell(env) {
+		return
+	}
+
+	libraryPath := bootstrap.LayerShellLibraryPath()
+	if libraryPath == "" {
+		return
+	}
+
+	env = bootstrap.LayerShellPreloadEnv(env, libraryPath)
+	envSlice := make([]string, 0, len(env))
+	for key, value := range env {
+		envSlice = append(envSlice, key+"="+value)
+	}
+
+	execPath, err := resolveCurrentExecutable(os.Executable)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "Failed to resolve standalone omnibox executable path: %v\n", err)
+		return
+	}
+
+	// #nosec G702 -- execPath comes from os.Executable(), not user input; this re-execs the current binary with adjusted preload env.
+	if err := syscall.Exec(execPath, os.Args, envSlice); err != nil {
+		fmt.Fprintf(os.Stderr, "Failed to re-exec standalone omnibox with layer-shell preload: %v\n", err)
+		return
+	}
+}
+
+func resolveCurrentExecutable(executable func() (string, error)) (string, error) {
+	return executable()
 }
 
 func initStartupContextWithTrace(cfg *config.Config) context.Context {
@@ -581,6 +697,7 @@ func buildUIDependencies(
 			return config.GetManager().Watch()
 		},
 		LaunchExternalURL: desktop.LaunchExternalURL,
+		LaunchBrowserURL:  desktop.LaunchBrowserURL,
 		ConfigMigrator:    config.NewMigrator(),
 	}
 

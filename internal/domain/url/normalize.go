@@ -57,6 +57,10 @@ func Normalize(input string) string {
 		return input
 	case strings.HasPrefix(input, "about:"):
 		return input
+	case IsExternalScheme(input):
+		return input
+	case hasExplicitSchemeURL(input):
+		return input
 	}
 
 	// Check if input looks like a file path
@@ -134,6 +138,10 @@ func LooksLikeURL(input string) bool {
 		return true
 	case strings.HasPrefix(input, "about:"):
 		return true
+	case IsExternalScheme(input):
+		return true
+	case hasExplicitSchemeURL(input):
+		return true
 	}
 
 	// Contains a dot and no spaces = likely a URL
@@ -144,6 +152,19 @@ func LooksLikeURL(input string) bool {
 		return true
 	}
 	return strings.Contains(input, ".") && !strings.Contains(input, " ")
+}
+
+func hasExplicitSchemeURL(input string) bool {
+	if !strings.Contains(input, "://") {
+		return false
+	}
+
+	parsed, err := url.Parse(input)
+	if err != nil {
+		return false
+	}
+
+	return parsed.Scheme != ""
 }
 
 // ExtractDomain extracts the normalized domain (host) from a URL string.
@@ -220,6 +241,12 @@ func IsExternalScheme(uri string) bool {
 	if err != nil || parsed.Scheme == "" {
 		return false
 	}
+	if !strings.Contains(uri, "://") {
+		rest := strings.TrimPrefix(uri, parsed.Scheme+":")
+		if strings.EqualFold(parsed.Scheme, "localhost") || strings.Contains(parsed.Scheme, ".") || isDecimalPort(rest) {
+			return false
+		}
+	}
 
 	switch strings.ToLower(parsed.Scheme) {
 	case "http", "https", "file", "dumb", "about", "data", "blob", "javascript":
@@ -227,6 +254,18 @@ func IsExternalScheme(uri string) bool {
 	default:
 		return true
 	}
+}
+
+func isDecimalPort(value string) bool {
+	if value == "" {
+		return false
+	}
+	for _, r := range value {
+		if r < '0' || r > '9' {
+			return false
+		}
+	}
+	return true
 }
 
 // ExtractOrigin extracts the origin (scheme://host) from a URI.

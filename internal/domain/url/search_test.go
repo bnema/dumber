@@ -77,6 +77,20 @@ func TestBuildSearchURL(t *testing.T) {
 			want:          "dumb://settings",
 		},
 		{
+			name:          "custom scheme spotify unchanged",
+			input:         "spotify://track/123",
+			shortcuts:     testShortcuts,
+			defaultSearch: testDefaultSearch,
+			want:          "spotify://track/123",
+		},
+		{
+			name:          "mailto scheme unchanged",
+			input:         "mailto:foo@example.com",
+			shortcuts:     testShortcuts,
+			defaultSearch: testDefaultSearch,
+			want:          "mailto:foo@example.com",
+		},
+		{
 			name:          "plain search query uses default",
 			input:         "how to parse json",
 			shortcuts:     testShortcuts,

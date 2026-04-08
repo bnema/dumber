@@ -10,6 +10,8 @@ github.com/bnema/purego-sqlite v0.1.1 h1:lH/F6/xxaI+LwWNHv3zof83bDJWQnib9OlNnBo/
 github.com/bnema/purego-sqlite v0.1.1/go.mod h1:nRVrkBt8dFOlSGGOOFM/ynlk34TOU1RlOvH4T9KM91s=
 github.com/bnema/puregotk v0.2.2 h1:lt9iOwOCHS0X9R4y+SK+zJsbQPGfsfPTyYTuBPWpBKM=
 github.com/bnema/puregotk v0.2.2/go.mod h1:Sl24sbCl02M/HLCNUgaYVCckkYcGOi8yxMuGuQVWsL8=
+github.com/bnema/puregotk v0.3.0 h1:lKdRHkQBxUxE6lmiUJAYYdiUhV0uDq6UoQrVE7a562E=
+github.com/bnema/puregotk v0.3.0/go.mod h1:Sl24sbCl02M/HLCNUgaYVCckkYcGOi8yxMuGuQVWsL8=
 github.com/bnema/puregotk-webkit v0.0.16 h1:fYYtRLK3N4YgYmPkHpGZT6W+Mxu4EPu5I25H8nUv9oY=
 github.com/bnema/puregotk-webkit v0.0.16/go.mod h1:5qlQ44TexU9UUyIR7PlEHmQZl3yARAWhqG+XWO5uv74=
 github.com/charmbracelet/bubbles v1.0.0 h1:12J8/ak/uCZEMQ6KU7pcfwceyjLlWsDLAxB5fXonfvc=
