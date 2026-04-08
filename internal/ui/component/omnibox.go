@@ -1205,7 +1205,15 @@ func (o *Omnibox) resolveGhostCompletion(
 		return
 	}
 
-	fullText, suffix, found := visibleGhostSuggestion(completionInput, selectedURL, hasExplicitSelection, mode, maxVisible, suggestions, favorites)
+	fullText, suffix, found := visibleGhostSuggestion(
+		completionInput,
+		selectedURL,
+		hasExplicitSelection,
+		mode,
+		maxVisible,
+		suggestions,
+		favorites,
+	)
 	if !found {
 		log.Debug().Str("input", completionInput).Msg("ghost: resolveGhost — no match found")
 		return
