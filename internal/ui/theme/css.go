@@ -56,12 +56,8 @@ func GenerateCSSWithScaleAndFonts(p Palette, scale float64, fonts FontConfig) st
 }
 
 // GenerateCSSFull creates GTK4 CSS using all provided configuration.
-// Scale affects widget sizing that uses relative units; text scaling is handled via GtkSettings.
-func GenerateCSSFull(p Palette, scale float64, fonts FontConfig, modeColors ModeColors) string {
-	if scale <= 0 {
-		scale = 1.0
-	}
-
+// Text scaling is handled via GtkSettings; CSS here stays scale-independent.
+func GenerateCSSFull(p Palette, _ float64, fonts FontConfig, modeColors ModeColors) string {
 	defaults := DefaultFontConfig()
 	fonts = FontConfig{
 		SansFont:      Coalesce(fonts.SansFont, defaults.SansFont),
