@@ -98,7 +98,7 @@ jobs:
           cat pkgbuild/dumber-browser-git/PKGBUILD
 
       - name: Publish dumber-browser-git to AUR
-        uses: KSXGitHub/github-actions-deploy-aur@v4.1.1
+        uses: KSXGitHub/github-actions-deploy-aur@v4.1.2
         with:
           pkgname: dumber-browser-git
           pkgbuild: ./pkgbuild/dumber-browser-git/PKGBUILD
@@ -216,7 +216,7 @@ jobs:
           cat pkgbuild/dumber-browser-bin/PKGBUILD
 
       - name: Publish dumber-browser-bin to AUR
-        uses: KSXGitHub/github-actions-deploy-aur@v4.1.1
+        uses: KSXGitHub/github-actions-deploy-aur@v4.1.2
         with:
           pkgname: dumber-browser-bin
           pkgbuild: ./pkgbuild/dumber-browser-bin/PKGBUILD
