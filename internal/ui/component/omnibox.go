@@ -636,7 +636,7 @@ func (o *Omnibox) initList() error {
 			return
 		}
 
-		targetURL := resolveTargetURLForSelection(mode, idx, suggestions, favorites)
+		targetURL := resolveTargetURLForSelection(mode, idx, o.effectiveMaxRows(), suggestions, favorites)
 
 		if targetURL != "" && o.onNavigate != nil {
 			o.Hide(o.ctx)
@@ -1141,6 +1141,7 @@ func (o *Omnibox) restoreEntryToRealInput() {
 // updateGhostFromSelectionWithInput updates ghost text based on selected row and input.
 func (o *Omnibox) updateGhostFromSelectionWithInput(entryText string) {
 	log := logging.FromContext(o.ctx)
+	maxVisible := o.effectiveMaxRows()
 	o.mu.RLock()
 	idx := o.selectedIndex
 	mode := o.viewMode
@@ -1168,10 +1169,10 @@ func (o *Omnibox) updateGhostFromSelectionWithInput(entryText string) {
 		return
 	}
 
-	targetURL, hasExplicitSelection := selectedTargetURL(mode, idx, suggestions, favorites)
+	targetURL, hasExplicitSelection := selectedTargetURL(mode, idx, maxVisible, suggestions, favorites)
 
 	if entryText != "" {
-		o.resolveGhostCompletion(entryText, targetURL, hasExplicitSelection, mode, suggestions, favorites)
+		o.resolveGhostCompletion(entryText, targetURL, hasExplicitSelection, mode, maxVisible, suggestions, favorites)
 		return
 	}
 
@@ -1193,6 +1194,7 @@ func (o *Omnibox) resolveGhostCompletion(
 	entryText, selectedURL string,
 	hasExplicitSelection bool,
 	mode ViewMode,
+	maxVisible int,
 	suggestions []Suggestion,
 	favorites []Favorite,
 ) {
@@ -1203,7 +1205,7 @@ func (o *Omnibox) resolveGhostCompletion(
 		return
 	}
 
-	fullText, suffix, found := visibleGhostSuggestion(completionInput, selectedURL, hasExplicitSelection, mode, suggestions, favorites)
+	fullText, suffix, found := visibleGhostSuggestion(completionInput, selectedURL, hasExplicitSelection, mode, maxVisible, suggestions, favorites)
 	if !found {
 		log.Debug().Str("input", completionInput).Msg("ghost: resolveGhost — no match found")
 		return
@@ -1275,6 +1277,7 @@ func visibleGhostSuggestion(
 	query, selectedURL string,
 	hasExplicitSelection bool,
 	mode ViewMode,
+	maxVisible int,
 	suggestions []Suggestion,
 	favorites []Favorite,
 ) (fullText, suffix string, ok bool) {
@@ -1283,15 +1286,16 @@ func visibleGhostSuggestion(
 		return fullText, suffix, ok
 	}
 
-	visibleURLs := visibleURLsForMode(mode, suggestions, favorites)
+	visibleURLs := visibleURLsForMode(mode, maxVisible, suggestions, favorites)
 	suffix, fullText, ok = autocomplete.BestURLCompletion(query, visibleURLs)
 	return fullText, suffix, ok
 }
 
-func visibleURLsForMode(mode ViewMode, suggestions []Suggestion, favorites []Favorite) []string {
+func visibleURLsForMode(mode ViewMode, maxVisible int, suggestions []Suggestion, favorites []Favorite) []string {
 	if mode == ViewModeHistory {
-		urls := make([]string, 0, len(suggestions))
-		for _, s := range suggestions {
+		visibleCount := visibleResultCount(len(suggestions), maxVisible)
+		urls := make([]string, 0, visibleCount)
+		for _, s := range suggestions[:visibleCount] {
 			if s.URL != "" {
 				urls = append(urls, s.URL)
 			}
@@ -1299,8 +1303,9 @@ func visibleURLsForMode(mode ViewMode, suggestions []Suggestion, favorites []Fav
 		return urls
 	}
 
-	urls := make([]string, 0, len(favorites))
-	for _, f := range favorites {
+	visibleCount := visibleResultCount(len(favorites), maxVisible)
+	urls := make([]string, 0, visibleCount)
+	for _, f := range favorites[:visibleCount] {
 		if f.URL != "" {
 			urls = append(urls, f.URL)
 		}
@@ -1308,11 +1313,21 @@ func visibleURLsForMode(mode ViewMode, suggestions []Suggestion, favorites []Fav
 	return urls
 }
 
-func selectedTargetURL(mode ViewMode, idx int, suggestions []Suggestion, favorites []Favorite) (string, bool) {
+func selectedTargetURL(mode ViewMode, idx, maxVisible int, suggestions []Suggestion, favorites []Favorite) (string, bool) {
 	if idx < 0 {
 		return "", false
 	}
-	return resolveTargetURLForSelection(mode, idx, suggestions, favorites), true
+	return resolveTargetURLForSelection(mode, idx, maxVisible, suggestions, favorites), true
+}
+
+func visibleResultCount(total, maxVisible int) int {
+	if total <= 0 {
+		return 0
+	}
+	if maxVisible <= 0 || total < maxVisible {
+		return total
+	}
+	return maxVisible
 }
 
 // performSearch executes the search based on current view mode and query.
@@ -2022,13 +2037,14 @@ func (o *Omnibox) selectNext() {
 	current := o.selectedIndex
 	mode := o.viewMode
 	bangMode := o.bangMode
+	maxVisible := o.effectiveMaxRows()
 	var maxIndex int
 	if bangMode {
-		maxIndex = len(o.bangSuggestions) - 1
+		maxIndex = visibleResultCount(len(o.bangSuggestions), maxVisible) - 1
 	} else if mode == ViewModeHistory {
-		maxIndex = len(o.suggestions) - 1
+		maxIndex = visibleResultCount(len(o.suggestions), maxVisible) - 1
 	} else {
-		maxIndex = len(o.favorites) - 1
+		maxIndex = visibleResultCount(len(o.favorites), maxVisible) - 1
 	}
 	o.hasNavigated = true // User is navigating with arrow keys
 	o.mu.Unlock()
@@ -2050,13 +2066,14 @@ func (o *Omnibox) selectPrevious() {
 	current := o.selectedIndex
 	mode := o.viewMode
 	bangMode := o.bangMode
+	maxVisible := o.effectiveMaxRows()
 	var maxIndex int
 	if bangMode {
-		maxIndex = len(o.bangSuggestions) - 1
+		maxIndex = visibleResultCount(len(o.bangSuggestions), maxVisible) - 1
 	} else if mode == ViewModeHistory {
-		maxIndex = len(o.suggestions) - 1
+		maxIndex = visibleResultCount(len(o.suggestions), maxVisible) - 1
 	} else {
-		maxIndex = len(o.favorites) - 1
+		maxIndex = visibleResultCount(len(o.favorites), maxVisible) - 1
 	}
 	o.hasNavigated = true // User is navigating with arrow keys
 	o.mu.Unlock()
@@ -2082,13 +2099,14 @@ func (o *Omnibox) selectAndNavigate(index int) {
 	suggestions := o.suggestions
 	favorites := o.favorites
 	o.mu.RUnlock()
+	maxVisible := o.effectiveMaxRows()
 
 	if bangMode {
 		o.navigateToSelected()
 		return
 	}
 
-	targetURL := resolveTargetURLForSelection(mode, index, suggestions, favorites)
+	targetURL := resolveTargetURLForSelection(mode, index, maxVisible, suggestions, favorites)
 	if targetURL == "" {
 		return
 	}
@@ -2142,7 +2160,7 @@ func (o *Omnibox) navigateToSelected() {
 	var targetURL string
 	if idx >= 0 {
 		// If user has selected a result, navigate to that result.
-		targetURL = resolveTargetURLForSelection(mode, idx, suggestions, favorites)
+		targetURL = resolveTargetURLForSelection(mode, idx, o.effectiveMaxRows(), suggestions, favorites)
 	} else {
 		targetURL = o.buildURL(entryText)
 	}
@@ -2158,14 +2176,16 @@ func (o *Omnibox) navigateToSelected() {
 	}
 }
 
-func resolveTargetURLForSelection(mode ViewMode, idx int, suggestions []Suggestion, favorites []Favorite) string {
+func resolveTargetURLForSelection(mode ViewMode, idx, maxVisible int, suggestions []Suggestion, favorites []Favorite) string {
 	if mode == ViewModeHistory {
-		if idx >= 0 && idx < len(suggestions) {
+		visibleCount := visibleResultCount(len(suggestions), maxVisible)
+		if idx >= 0 && idx < visibleCount {
 			return suggestions[idx].URL
 		}
 		return ""
 	}
-	if idx >= 0 && idx < len(favorites) {
+	visibleCount := visibleResultCount(len(favorites), maxVisible)
+	if idx >= 0 && idx < visibleCount {
 		return favorites[idx].URL
 	}
 	return ""
