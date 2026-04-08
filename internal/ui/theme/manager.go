@@ -23,6 +23,7 @@ type Manager struct {
 	fonts         FontConfig
 	modeColors    ModeColors // Modal mode indicator colors
 	cssProvider   *gtk.CssProvider
+	appliedFont   string
 	colorResolver port.ColorSchemeResolver // Resolver for dynamic detection
 }
 
@@ -169,6 +170,10 @@ func formatGTKFontName(family string, uiScale float64) string {
 	return fmt.Sprintf("%s %d", family, size)
 }
 
+func shouldApplyGTKFontName(current, next string) bool {
+	return next != "" && next != current
+}
+
 // ApplyToDisplay loads the theme CSS into the display.
 func (m *Manager) ApplyToDisplay(ctx context.Context, display *gdk.Display) {
 	log := logging.FromContext(ctx)
@@ -186,8 +191,11 @@ func (m *Manager) ApplyToDisplay(ctx context.Context, display *gdk.Display) {
 	settings := gtk.SettingsGetForDisplay(display)
 	if settings == nil {
 		log.Warn().Msg("cannot apply theme font scaling: settings unavailable")
-	} else {
+	} else if shouldApplyGTKFontName(m.appliedFont, fontName) {
 		settings.SetPropertyGtkFontName(fontName)
+		m.appliedFont = fontName
+		settings.Unref()
+	} else {
 		settings.Unref()
 	}
 

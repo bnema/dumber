@@ -322,3 +322,9 @@ func TestFormatGTKFontName_DefaultsScaleAndRoundsToNearestPoint(t *testing.T) {
 	assert.Equal(t, "Inter 11", formatGTKFontName("Inter", 0))
 	assert.Equal(t, "Inter 12", formatGTKFontName("Inter", 1.05))
 }
+
+func TestShouldApplyGTKFontName(t *testing.T) {
+	assert.True(t, shouldApplyGTKFontName("", "Fira Sans 14"))
+	assert.False(t, shouldApplyGTKFontName("Fira Sans 14", "Fira Sans 14"))
+	assert.False(t, shouldApplyGTKFontName("Fira Sans 14", ""))
+}
