@@ -1,6 +1,7 @@
 package ui
 
 import (
+	"context"
 	"testing"
 
 	"github.com/bnema/dumber/internal/ui/component"
@@ -172,6 +173,72 @@ func TestStandaloneOmniboxArgv_RemovesOnlyLeadingOmniboxSubcommand(t *testing.T)
 	}
 	if argv[2] != "omnibox" {
 		t.Fatalf("expected later omnibox arg to be preserved, got %#v", argv)
+	}
+}
+
+func TestActivateStandaloneOmnibox_RetainsObjectsUntilReleased(t *testing.T) {
+	originalBuildHost := buildStandaloneOmniboxHostFn
+	originalNewWindow := newStandaloneOmniboxWindow
+	originalConfigureWindow := configureStandaloneOmniboxWindowFn
+	originalPresentWindow := presentStandaloneOmniboxWindow
+	originalLogHostAllocation := logStandaloneOmniboxHostAllocationFn
+	originalShowOmnibox := showStandaloneOmniboxFn
+	t.Cleanup(func() {
+		buildStandaloneOmniboxHostFn = originalBuildHost
+		newStandaloneOmniboxWindow = originalNewWindow
+		configureStandaloneOmniboxWindowFn = originalConfigureWindow
+		presentStandaloneOmniboxWindow = originalPresentWindow
+		logStandaloneOmniboxHostAllocationFn = originalLogHostAllocation
+		showStandaloneOmniboxFn = originalShowOmnibox
+	})
+
+	expectedHost := &gtk.Widget{}
+	expectedOmnibox := &component.Omnibox{}
+	expectedWindow := &gtk.ApplicationWindow{}
+	refs := &standaloneOmniboxActivationRetention{}
+	runtimeCfg := &StandaloneOmniboxRuntime{}
+	windowCfg := DefaultStandaloneOmniboxWindowConfig()
+
+	buildStandaloneOmniboxHostFn = func(_ context.Context, _ *StandaloneOmniboxRuntime, _ *gtk.Application) (*gtk.Widget, *component.Omnibox) {
+		return expectedHost, expectedOmnibox
+	}
+	newStandaloneOmniboxWindow = func(_ *gtk.Application) *gtk.ApplicationWindow {
+		return expectedWindow
+	}
+	configureStandaloneOmniboxWindowFn = func(window *gtk.ApplicationWindow, cfg StandaloneOmniboxWindowConfig, child *gtk.Widget) {
+		if window != expectedWindow || child != expectedHost || cfg != windowCfg {
+			t.Fatalf("unexpected configure arguments: window=%p child=%p cfg=%#v", window, child, cfg)
+		}
+	}
+	presentStandaloneOmniboxWindow = func(window *gtk.ApplicationWindow) {
+		if window != expectedWindow {
+			t.Fatalf("unexpected window presented: %p", window)
+		}
+	}
+	logStandaloneOmniboxHostAllocationFn = func(_ context.Context, host *gtk.Widget) {
+		if host != expectedHost {
+			t.Fatalf("unexpected host logged: %p", host)
+		}
+	}
+	showStandaloneOmniboxFn = func(_ context.Context, omnibox *component.Omnibox) {
+		if omnibox != expectedOmnibox {
+			t.Fatalf("unexpected omnibox shown: %p", omnibox)
+		}
+		if refs.window != expectedWindow || refs.host != expectedHost || refs.omnibox != expectedOmnibox {
+			t.Fatalf("expected standalone activation refs to retain GTK objects during show, got %#v", refs)
+		}
+	}
+
+	activateStandaloneOmnibox(context.Background(), runtimeCfg, nil, windowCfg, refs)
+
+	if refs.window != expectedWindow || refs.host != expectedHost || refs.omnibox != expectedOmnibox {
+		t.Fatalf("expected standalone activation refs to retain GTK objects, got %#v", refs)
+	}
+
+	refs.release()
+
+	if refs.window != nil || refs.host != nil || refs.omnibox != nil {
+		t.Fatalf("expected standalone activation refs to release GTK objects, got %#v", refs)
 	}
 }
 

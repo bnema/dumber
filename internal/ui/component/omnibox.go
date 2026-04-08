@@ -33,6 +33,11 @@ const (
 	minGhostInputLength       = 1
 )
 
+type favoriteRowIndicatorUpdate struct {
+	Apply        bool
+	ShowStarSlot bool
+}
+
 // ViewMode distinguishes history search from favorites display.
 type ViewMode string
 
@@ -2235,7 +2240,7 @@ func (o *Omnibox) toggleFavorite() {
 
 			// Update row CSS and show toast on GTK main thread
 			cb := glib.SourceFunc(func(_ uintptr) bool {
-				o.updateRowFavoriteIndicator(idx, result.Added)
+				o.updateRowFavoriteIndicator(idx, s.URL, result.Added)
 				if o.onToast != nil {
 					o.onToast(ctx, result.Message, ToastSuccess)
 				}
@@ -2297,11 +2302,22 @@ func (o *Omnibox) toggleFavorite() {
 
 // updateRowFavoriteIndicator updates a single row's favorite indicator CSS class.
 // Must be called from GTK main thread (via glib.IdleAdd).
-func (o *Omnibox) updateRowFavoriteIndicator(index int, isFavorite bool) {
+func (o *Omnibox) updateRowFavoriteIndicator(index int, expectedURL string, isFavorite bool) {
 	row := o.listBox.GetRowAtIndex(index)
 	if row == nil {
 		return
 	}
+
+	o.mu.RLock()
+	mode := o.viewMode
+	suggestions := append([]Suggestion(nil), o.suggestions...)
+	o.mu.RUnlock()
+
+	update := resolveFavoriteRowIndicatorUpdate(mode, index, expectedURL, suggestions, isFavorite)
+	if !update.Apply {
+		return
+	}
+
 	if isFavorite {
 		row.AddCssClass("omnibox-row-favorite")
 	} else {
@@ -2310,7 +2326,9 @@ func (o *Omnibox) updateRowFavoriteIndicator(index int, isFavorite bool) {
 	if slot := favoriteStarSlotForRow(row); slot != nil {
 		o.syncFavoriteStarSlot(slot, isFavorite)
 		slot.QueueDraw()
-		slot.Show()
+		if update.ShowStarSlot {
+			slot.Show()
+		}
 	}
 	if child := row.GetChild(); child != nil {
 		child.QueueDraw()
@@ -2318,6 +2336,25 @@ func (o *Omnibox) updateRowFavoriteIndicator(index int, isFavorite bool) {
 	}
 	row.QueueDraw()
 	row.Show()
+}
+
+func resolveFavoriteRowIndicatorUpdate(
+	mode ViewMode,
+	index int,
+	expectedURL string,
+	suggestions []Suggestion,
+	isFavorite bool,
+) favoriteRowIndicatorUpdate {
+	if mode != ViewModeHistory {
+		return favoriteRowIndicatorUpdate{}
+	}
+	if index < 0 || index >= len(suggestions) {
+		return favoriteRowIndicatorUpdate{}
+	}
+	if suggestions[index].URL != expectedURL {
+		return favoriteRowIndicatorUpdate{}
+	}
+	return favoriteRowIndicatorUpdate{Apply: true, ShowStarSlot: isFavorite}
 }
 
 // yankSelectedURL copies the URL of the selected item to clipboard.

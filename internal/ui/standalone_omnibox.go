@@ -67,7 +67,47 @@ var (
 	layerShellSetKeyboardMode = func(window *gtk.ApplicationWindow, mode layershell.KeyboardMode) {
 		layershell.SetKeyboardMode(&window.Window, mode)
 	}
+	buildStandaloneOmniboxHostFn = buildStandaloneOmniboxHost
+	newStandaloneOmniboxWindow   = func(app *gtk.Application) *gtk.ApplicationWindow {
+		return gtk.NewApplicationWindow(app)
+	}
+	configureStandaloneOmniboxWindowFn = configureStandaloneOmniboxWindow
+	presentStandaloneOmniboxWindow     = func(window *gtk.ApplicationWindow) {
+		window.Present()
+	}
+	logStandaloneOmniboxHostAllocationFn = logStandaloneOmniboxHostAllocation
+	showStandaloneOmniboxFn              = func(ctx context.Context, omnibox *component.Omnibox) {
+		omnibox.Show(ctx, "")
+	}
 )
+
+type standaloneOmniboxActivationRetention struct {
+	window  *gtk.ApplicationWindow
+	host    *gtk.Widget
+	omnibox *component.Omnibox
+}
+
+func (r *standaloneOmniboxActivationRetention) retain(
+	window *gtk.ApplicationWindow,
+	host *gtk.Widget,
+	omnibox *component.Omnibox,
+) {
+	if r == nil {
+		return
+	}
+	r.window = window
+	r.host = host
+	r.omnibox = omnibox
+}
+
+func (r *standaloneOmniboxActivationRetention) release() {
+	if r == nil {
+		return
+	}
+	r.window = nil
+	r.host = nil
+	r.omnibox = nil
+}
 
 func DefaultStandaloneOmniboxWindowConfig() StandaloneOmniboxWindowConfig {
 	return StandaloneOmniboxWindowConfig{
@@ -269,6 +309,38 @@ func logStandaloneOmniboxHostAllocation(ctx context.Context, host *gtk.Widget) {
 	glib.IdleAdd(&cb, 0)
 }
 
+func activateStandaloneOmnibox(
+	ctx context.Context,
+	runtimeCfg *StandaloneOmniboxRuntime,
+	gtkApp *gtk.Application,
+	windowCfg StandaloneOmniboxWindowConfig,
+	retention *standaloneOmniboxActivationRetention,
+) {
+	child, omnibox := buildStandaloneOmniboxHostFn(ctx, runtimeCfg, gtkApp)
+	if child == nil || omnibox == nil {
+		gtkApp.Quit()
+		return
+	}
+
+	window := newStandaloneOmniboxWindow(gtkApp)
+	if window == nil {
+		logging.FromContext(ctx).Error().Msg("failed to create standalone omnibox window")
+		gtkApp.Quit()
+		return
+	}
+
+	retention.retain(window, child, omnibox)
+	configureStandaloneOmniboxWindowFn(window, windowCfg, child)
+	if runtimeCfg.ApplyTheme != nil {
+		if display := window.GetDisplay(); display != nil {
+			runtimeCfg.ApplyTheme(display)
+		}
+	}
+	presentStandaloneOmniboxWindow(window)
+	logStandaloneOmniboxHostAllocationFn(ctx, child)
+	showStandaloneOmniboxFn(ctx, omnibox)
+}
+
 func RunStandaloneOmnibox(ctx context.Context, runtimeCfg *StandaloneOmniboxRuntime) int {
 	if runtimeCfg == nil {
 		logging.FromContext(ctx).Error().Msg("standalone omnibox runtime not configured")
@@ -284,31 +356,15 @@ func RunStandaloneOmnibox(ctx context.Context, runtimeCfg *StandaloneOmniboxRunt
 		return 1
 	}
 	defer gtkApp.Unref()
+	retention := &standaloneOmniboxActivationRetention{}
 
 	activateCb := func(_ gio.Application) {
-		child, omnibox := buildStandaloneOmniboxHost(ctx, runtimeCfg, gtkApp)
-		if child == nil || omnibox == nil {
-			gtkApp.Quit()
-			return
-		}
-
-		window := gtk.NewApplicationWindow(gtkApp)
-		if window == nil {
-			logging.FromContext(ctx).Error().Msg("failed to create standalone omnibox window")
-			gtkApp.Quit()
-			return
-		}
-
-		configureStandaloneOmniboxWindow(window, windowCfg, child)
-		if display := window.GetDisplay(); display != nil && runtimeCfg.ApplyTheme != nil {
-			runtimeCfg.ApplyTheme(display)
-		}
-		window.Present()
-		logStandaloneOmniboxHostAllocation(ctx, child)
-		omnibox.Show(ctx, "")
+		activateStandaloneOmnibox(ctx, runtimeCfg, gtkApp, windowCfg, retention)
 	}
 	gtkApp.ConnectActivate(&activateCb)
 
 	argv := standaloneOmniboxArgv(os.Args)
-	return gtkApp.Run(len(argv), argv)
+	code := gtkApp.Run(len(argv), argv)
+	retention.release()
+	return code
 }
