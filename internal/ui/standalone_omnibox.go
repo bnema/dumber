@@ -67,10 +67,8 @@ var (
 	layerShellSetKeyboardMode = func(window *gtk.ApplicationWindow, mode layershell.KeyboardMode) {
 		layershell.SetKeyboardMode(&window.Window, mode)
 	}
-	buildStandaloneOmniboxHostFn = buildStandaloneOmniboxHost
-	newStandaloneOmniboxWindow   = func(app *gtk.Application) *gtk.ApplicationWindow {
-		return gtk.NewApplicationWindow(app)
-	}
+	buildStandaloneOmniboxHostFn       = buildStandaloneOmniboxHost
+	newStandaloneOmniboxWindow         = gtk.NewApplicationWindow
 	configureStandaloneOmniboxWindowFn = configureStandaloneOmniboxWindow
 	presentStandaloneOmniboxWindow     = func(window *gtk.ApplicationWindow) {
 		window.Present()
