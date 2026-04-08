@@ -4,6 +4,8 @@ import (
 	"regexp"
 	"strings"
 	"testing"
+
+	"github.com/stretchr/testify/assert"
 )
 
 func TestGenerateCSS_StandaloneOmniboxWindowUsesTransparentBackground(t *testing.T) {
@@ -71,4 +73,34 @@ func TestGenerateCSS_OmniboxSearchAreaMatchesHeaderSurface(t *testing.T) {
 	if !scrolledRe.MatchString(css) {
 		t.Fatalf("expected omnibox results area to use the header surface color")
 	}
+}
+
+func TestGenerateCSSWithScale_DoesNotEmitRootTextScaling(t *testing.T) {
+	css := GenerateCSSWithScale(DefaultDarkPalette(), 1.3)
+
+	assert.NotContains(t, css, "/* UI Scaling (130%) */")
+	assert.NotContains(t, css, "window {\n\tfont-size:")
+}
+
+func TestGenerateCSSWithScale_DoesNotEmitLineHeightOverrides(t *testing.T) {
+	css := GenerateCSSWithScale(DefaultDarkPalette(), 1.3)
+
+	assert.NotContains(t, css, "line-height:")
+	assert.NotContains(t, css, "label,\nentry,\nentry > text {\n\tline-height:")
+}
+
+func TestGenerateCSSWithScale_UsesOpaqueOmniboxRowBaseBackground(t *testing.T) {
+	css := GenerateCSSWithScale(DefaultDarkPalette(), 1.3)
+
+	assert.Contains(t, css, ".omnibox-row {")
+	assert.Contains(t, css, "background-color: var(--surface);")
+	assert.NotContains(t, css, ".omnibox-row {\n\tpadding: 0.5em 0.75em;\n\tmargin: 0;\n\tborder-radius: 0;\n\tborder-left: 0.1875em solid transparent;\n\tborder-bottom: 0.0625em solid alpha(var(--border), 0.35);\n\tbackground-color: transparent;")
+}
+
+func TestGenerateCSSWithScale_UsesMediumWeightForOmniboxSuggestionTitle(t *testing.T) {
+	css := GenerateCSSWithScale(DefaultDarkPalette(), 1.3)
+
+	assert.Contains(t, css, ".omnibox-suggestion-title {")
+	assert.Contains(t, css, "font-weight: 500;")
+	assert.NotContains(t, css, ".omnibox-suggestion-title {\n\tfont-size: 0.875em;\n\tcolor: var(--text);\n\tfont-weight: 400;")
 }

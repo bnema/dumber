@@ -313,3 +313,12 @@ func TestManager_ModeColors(t *testing.T) {
 	assert.Equal(t, "#0000ff", modeColors.SessionMode)
 	assert.Equal(t, "#ffff00", modeColors.ResizeMode)
 }
+
+func TestFormatGTKFontName_UsesScaledConfiguredSansFont(t *testing.T) {
+	assert.Equal(t, "Fira Sans 14", formatGTKFontName("Fira Sans", 1.3))
+}
+
+func TestFormatGTKFontName_DefaultsScaleAndRoundsToNearestPoint(t *testing.T) {
+	assert.Equal(t, "Inter 11", formatGTKFontName("Inter", 0))
+	assert.Equal(t, "Inter 12", formatGTKFontName("Inter", 1.05))
+}

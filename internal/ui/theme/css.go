@@ -12,7 +12,7 @@ func GenerateCSS(p Palette) string {
 }
 
 // GenerateCSSWithScale creates GTK4 CSS using the provided palette and UI scale factor.
-// Scale affects font sizes and widget padding/margins proportionally.
+// Scale affects widget sizing that uses relative units; text scaling is handled via GtkSettings.
 func GenerateCSSWithScale(p Palette, scale float64) string {
 	return GenerateCSSWithScaleAndFonts(p, scale, DefaultFontConfig())
 }
@@ -49,14 +49,14 @@ window, tooltip, popover {
 }
 
 // GenerateCSSWithScaleAndFonts creates GTK4 CSS using the provided palette, UI scale factor and fonts.
-// Scale affects font sizes and widget padding/margins proportionally.
+// Scale affects widget sizing that uses relative units; text scaling is handled via GtkSettings.
 // Uses default mode colors.
 func GenerateCSSWithScaleAndFonts(p Palette, scale float64, fonts FontConfig) string {
 	return GenerateCSSFull(p, scale, fonts, DefaultModeColors())
 }
 
 // GenerateCSSFull creates GTK4 CSS using all provided configuration.
-// Scale affects font sizes and widget padding/margins proportionally.
+// Scale affects widget sizing that uses relative units; text scaling is handled via GtkSettings.
 func GenerateCSSFull(p Palette, scale float64, fonts FontConfig, modeColors ModeColors) string {
 	if scale <= 0 {
 		scale = 1.0
@@ -81,12 +81,6 @@ func GenerateCSSFull(p Palette, scale float64, fonts FontConfig, modeColors Mode
 	// Global font styling
 	sb.WriteString(generateFontCSS())
 	sb.WriteString("\n")
-
-	// Global UI scaling via font-size on all widgets
-	if scale != 1.0 {
-		sb.WriteString(generateScalingCSS(scale))
-		sb.WriteString("\n")
-	}
 
 	// Tab bar styling
 	sb.WriteString(generateTabBarCSS(p))
@@ -144,20 +138,6 @@ func GenerateCSSFull(p Palette, scale float64, fonts FontConfig, modeColors Mode
 	sb.WriteString(generateAccentPickerCSS(p))
 
 	return sb.String()
-}
-
-// generateScalingCSS creates CSS rules that scale the UI.
-// GTK4 CSS doesn't support transform:scale() well, so we scale font-size
-// and use relative units (em) for padding/margins in other rules.
-func generateScalingCSS(scale float64) string {
-	// Use 16px base so em conversions are correct:
-	// 1px = 0.0625em (1/16), 4px = 0.25em, etc.
-	basePx := int(16 * scale)
-	return fmt.Sprintf(`/* UI Scaling (%.0f%%) */
-window {
-	font-size: %dpx;
-}
-`, scale*100, basePx)
 }
 
 // generateTabBarCSS creates tab bar styles.
@@ -316,7 +296,8 @@ entry.omnibox-entry > text:focus-visible {
 	border-radius: 0;
 	border-left: 0.1875em solid transparent;
 	border-bottom: 0.0625em solid alpha(var(--border), 0.35);
-	background-color: transparent;
+	background-color: var(--surface);
+	background-image: none;
 	transition: background-color 100ms ease-in-out, border-left 100ms ease-in-out;
 	min-height: 2.75em;
 }
@@ -362,7 +343,7 @@ entry.omnibox-entry > text:focus-visible {
 .omnibox-suggestion-title {
 	font-size: 0.875em;
 	color: var(--text);
-	font-weight: 400;
+	font-weight: 500;
 }
 
 /* Also style labels inside omnibox rows directly */
