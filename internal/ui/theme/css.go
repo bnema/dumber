@@ -217,8 +217,8 @@ window.standalone-omnibox-window {
 
 /* Omnibox main container - the visible popup */
 .omnibox-container {
-	background-color: alpha(var(--surface-variant), 0.94);
-	background-image: linear-gradient(to bottom, alpha(var(--surface), 0.22), alpha(var(--surface-variant), 0.08));
+	background-color: var(--surface);
+	background-image: none;
 	border: 0.0625em solid alpha(var(--border), 0.85);
 	border-radius: 0.1875em;
 	box-shadow: 0 0.875em 2.5em alpha(black, 0.24), 0 0.0625em 0 alpha(white, 0.05) inset;
@@ -260,38 +260,47 @@ window.standalone-omnibox-window {
 }
 
 /* Search entry field */
-.omnibox-entry {
+entry.omnibox-entry,
+entry.omnibox-entry > text {
 	background-color: alpha(var(--bg), 0.88);
+	background-image: none;
 	color: var(--text);
+	caret-color: var(--accent);
+}
+
+entry.omnibox-entry {
 	border: 0.0625em solid alpha(var(--border), 0.82);
 	border-radius: 0.125em;
 	padding: 0.625em 0.75em;
 	margin: 0.5em 0.75em;
 	font-size: 1em;
-	caret-color: var(--accent);
 	box-shadow: 0 0.0625em 0 alpha(white, 0.04) inset;
 }
 
 entry.omnibox-entry:focus,
 entry.omnibox-entry:focus-within,
-entry.omnibox-entry:focus-visible {
+entry.omnibox-entry:focus-visible,
+entry.omnibox-entry:focus > text,
+entry.omnibox-entry:focus-within > text,
+entry.omnibox-entry:focus-visible > text {
 	border-color: var(--accent);
 	background-color: shade(var(--bg), 1.05);
+	background-image: none;
 	outline-style: none;
 	outline-width: 0px;
 	outline-color: transparent;
 }
 
 /* Override any internal focus styling */
-entry.omnibox-entry > *:focus,
-entry.omnibox-entry > *:focus-visible {
+entry.omnibox-entry > text:focus,
+entry.omnibox-entry > text:focus-visible {
 	outline-style: none;
 	outline-color: transparent;
 }
 
 /* Scrolled window for suggestions */
 .omnibox-scrolled {
-	background-color: alpha(var(--surface-variant), 0.72);
+	background-color: var(--surface);
 	border-top: 0.0625em solid alpha(var(--border), 0.65);
 }
 
@@ -435,9 +444,14 @@ entry.omnibox-entry > *:focus-visible {
 entry.omnibox-entry.omnibox-entry-bang-active,
 entry.omnibox-entry.omnibox-entry-bang-active:focus,
 entry.omnibox-entry.omnibox-entry-bang-active:focus-within,
-entry.omnibox-entry.omnibox-entry-bang-active:focus-visible {
+entry.omnibox-entry.omnibox-entry-bang-active:focus-visible,
+entry.omnibox-entry.omnibox-entry-bang-active > text,
+entry.omnibox-entry.omnibox-entry-bang-active:focus > text,
+entry.omnibox-entry.omnibox-entry-bang-active:focus-within > text,
+entry.omnibox-entry.omnibox-entry-bang-active:focus-visible > text {
 	border-color: var(--accent);
 	background-color: shade(var(--bg), 1.05);
+	background-image: none;
 }
 
 .omnibox-row.omnibox-row-bang .omnibox-suggestion-title {

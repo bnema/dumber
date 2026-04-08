@@ -51,3 +51,24 @@ func TestGenerateCSS_FavoriteRowsOnlyTintTrailingAffordance(t *testing.T) {
 		t.Fatalf("expected favorite highlight to move off the star slot")
 	}
 }
+
+func TestGenerateCSS_OmniboxSearchAreaMatchesHeaderSurface(t *testing.T) {
+	css := GenerateCSS(DefaultDarkPalette())
+
+	containerRe := regexp.MustCompile(`(?s)\.omnibox-container\s*\{[^}]*background-color:\s*var\(--surface\);`)
+	if !containerRe.MatchString(css) {
+		t.Fatalf("expected omnibox container to use the header surface color")
+	}
+	entryRe := regexp.MustCompile(`(?s)entry\.omnibox-entry\s*,\s*entry\.omnibox-entry\s*>\s*text\s*\{[^}]*background-color:\s*alpha\(var\(--bg\),\s*0\.88\);[^}]*background-image:\s*none;`)
+	if !entryRe.MatchString(css) {
+		t.Fatalf("expected omnibox entry and its text node to use the darker background fill")
+	}
+	focusedEntryRe := regexp.MustCompile(`(?s)entry\.omnibox-entry:focus[^\{]*,\s*entry\.omnibox-entry:focus-within[^\{]*,\s*entry\.omnibox-entry:focus-visible[^\{]*,\s*entry\.omnibox-entry:focus\s*>\s*text[^\{]*,\s*entry\.omnibox-entry:focus-within\s*>\s*text[^\{]*,\s*entry\.omnibox-entry:focus-visible\s*>\s*text\s*\{[^}]*background-color:\s*shade\(var\(--bg\),\s*1\.05\);`)
+	if !focusedEntryRe.MatchString(css) {
+		t.Fatalf("expected focused omnibox entry text node to keep the darker bg-based fill")
+	}
+	scrolledRe := regexp.MustCompile(`(?s)\.omnibox-scrolled\s*\{[^}]*background-color:\s*var\(--surface\);`)
+	if !scrolledRe.MatchString(css) {
+		t.Fatalf("expected omnibox results area to use the header surface color")
+	}
+}
