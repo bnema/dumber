@@ -7,6 +7,7 @@ import (
 	"os"
 	"os/signal"
 	"runtime"
+	"strings"
 	"syscall"
 
 	"github.com/bnema/dumber/internal/application/port"
@@ -63,7 +64,13 @@ func launchModeFromArgs(args []string) (launchMode, string) {
 	if len(args) > 1 {
 		switch args[1] {
 		case "browse":
+			if len(args) > 3 {
+				return launchModeCLI, ""
+			}
 			if len(args) > 2 {
+				if strings.HasPrefix(args[2], "-") {
+					return launchModeCLI, ""
+				}
 				return launchModeBrowse, args[2]
 			}
 			return launchModeBrowse, ""

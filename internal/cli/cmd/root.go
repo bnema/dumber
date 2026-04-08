@@ -107,6 +107,7 @@ func GetApp() *cli.App {
 var browseCmd = &cobra.Command{
 	Use:   "browse [url]",
 	Short: "Launch the graphical browser",
+	Args:  cobra.MaximumNArgs(1),
 	Long: `Launch the GTK4 graphical browser.
 
 If a URL is provided, navigate to it. Otherwise, open the homepage.

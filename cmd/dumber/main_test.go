@@ -22,6 +22,26 @@ func TestLaunchModeFromArgs_DetectsBrowseURL(t *testing.T) {
 	}
 }
 
+func TestLaunchModeFromArgs_BrowseHelpFallsBackToCLI(t *testing.T) {
+	mode, browseURL := launchModeFromArgs([]string{"dumber", "browse", "--help"})
+	if mode != launchModeCLI {
+		t.Fatalf("expected cli mode for browse help, got %q", mode)
+	}
+	if browseURL != "" {
+		t.Fatalf("expected empty browse url for browse help, got %q", browseURL)
+	}
+}
+
+func TestLaunchModeFromArgs_BrowseExtraPositionalFallsBackToCLI(t *testing.T) {
+	mode, browseURL := launchModeFromArgs([]string{"dumber", "browse", "https://example.com", "extra"})
+	if mode != launchModeCLI {
+		t.Fatalf("expected cli mode for browse extra args, got %q", mode)
+	}
+	if browseURL != "" {
+		t.Fatalf("expected empty browse url for browse extra args, got %q", browseURL)
+	}
+}
+
 func TestLaunchModeFromArgs_DefaultsToCLI(t *testing.T) {
 	mode, browseURL := launchModeFromArgs([]string{"dumber"})
 	if mode != launchModeCLI {
