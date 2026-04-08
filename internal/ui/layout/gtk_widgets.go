@@ -169,7 +169,7 @@ func (p *gtkPaned) ConnectMap(callback func()) uint {
 }
 
 func (p *gtkPaned) ConnectNotifyPosition(callback func()) uint {
-	cb := func(_ gobject.Object, _ uintptr) {
+	cb := func(_ gobject.Object, _ *gobject.ParamSpec) {
 		callback()
 	}
 	return p.inner.ConnectNotifyWithDetail("position", &cb)

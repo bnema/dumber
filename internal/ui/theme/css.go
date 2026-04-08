@@ -12,7 +12,7 @@ func GenerateCSS(p Palette) string {
 }
 
 // GenerateCSSWithScale creates GTK4 CSS using the provided palette and UI scale factor.
-// Scale affects font sizes and widget padding/margins proportionally.
+// Scale affects widget sizing that uses relative units; text scaling is handled via GtkSettings.
 func GenerateCSSWithScale(p Palette, scale float64) string {
 	return GenerateCSSWithScaleAndFonts(p, scale, DefaultFontConfig())
 }
@@ -49,19 +49,15 @@ window, tooltip, popover {
 }
 
 // GenerateCSSWithScaleAndFonts creates GTK4 CSS using the provided palette, UI scale factor and fonts.
-// Scale affects font sizes and widget padding/margins proportionally.
+// Scale affects widget sizing that uses relative units; text scaling is handled via GtkSettings.
 // Uses default mode colors.
 func GenerateCSSWithScaleAndFonts(p Palette, scale float64, fonts FontConfig) string {
 	return GenerateCSSFull(p, scale, fonts, DefaultModeColors())
 }
 
 // GenerateCSSFull creates GTK4 CSS using all provided configuration.
-// Scale affects font sizes and widget padding/margins proportionally.
-func GenerateCSSFull(p Palette, scale float64, fonts FontConfig, modeColors ModeColors) string {
-	if scale <= 0 {
-		scale = 1.0
-	}
-
+// Text scaling is handled via GtkSettings; CSS here stays scale-independent.
+func GenerateCSSFull(p Palette, _ float64, fonts FontConfig, modeColors ModeColors) string {
 	defaults := DefaultFontConfig()
 	fonts = FontConfig{
 		SansFont:      Coalesce(fonts.SansFont, defaults.SansFont),
@@ -81,12 +77,6 @@ func GenerateCSSFull(p Palette, scale float64, fonts FontConfig, modeColors Mode
 	// Global font styling
 	sb.WriteString(generateFontCSS())
 	sb.WriteString("\n")
-
-	// Global UI scaling via font-size on all widgets
-	if scale != 1.0 {
-		sb.WriteString(generateScalingCSS(scale))
-		sb.WriteString("\n")
-	}
 
 	// Tab bar styling
 	sb.WriteString(generateTabBarCSS(p))
@@ -146,20 +136,6 @@ func GenerateCSSFull(p Palette, scale float64, fonts FontConfig, modeColors Mode
 	return sb.String()
 }
 
-// generateScalingCSS creates CSS rules that scale the UI.
-// GTK4 CSS doesn't support transform:scale() well, so we scale font-size
-// and use relative units (em) for padding/margins in other rules.
-func generateScalingCSS(scale float64) string {
-	// Use 16px base so em conversions are correct:
-	// 1px = 0.0625em (1/16), 4px = 0.25em, etc.
-	basePx := int(16 * scale)
-	return fmt.Sprintf(`/* UI Scaling (%.0f%%) */
-window {
-	font-size: %dpx;
-}
-`, scale*100, basePx)
-}
-
 // generateTabBarCSS creates tab bar styles.
 // Uses em units for scalable UI.
 func generateTabBarCSS(p Palette) string {
@@ -206,6 +182,10 @@ button.tab-button.tab-button-active {
 func generateOmniboxCSS(p Palette) string {
 	return `/* ===== Omnibox Styling ===== */
 
+window.standalone-omnibox-window {
+	background-color: transparent;
+}
+
 /* Omnibox outer container - for positioning in overlay */
 .omnibox-outer {
 	/* Positioning is handled via SetHalign/SetValign/SetMarginTop in Go */
@@ -213,23 +193,26 @@ func generateOmniboxCSS(p Palette) string {
 
 /* Omnibox main container - the visible popup */
 .omnibox-container {
-	background-color: var(--surface-variant);
-	border: 0.0625em solid var(--border);
+	background-color: var(--surface);
+	background-image: none;
+	border: 0.0625em solid alpha(var(--border), 0.85);
 	border-radius: 0.1875em;
+	box-shadow: 0 0.875em 2.5em alpha(black, 0.24), 0 0.0625em 0 alpha(white, 0.05) inset;
 	padding: 0;
 }
 
 /* Header with History/Favorites toggle */
 .omnibox-header {
-	background-color: shade(var(--surface-variant), 1.1);
-	border-bottom: 0.0625em solid var(--border);
+	background-color: var(--surface);
+	background-image: none;
+	border-bottom: 0.0625em solid alpha(var(--border), 0.75);
 	padding: 0.375em 0.75em;
 }
 
 .omnibox-header-btn {
-	background-color: transparent;
+	background-color: alpha(var(--surface), 0.12);
 	background-image: none;
-	border: none;
+	border: 0.0625em solid transparent;
 	border-radius: 0.125em;
 	padding: 0.25em 0.75em;
 	margin-right: 0.5em;
@@ -240,49 +223,61 @@ func generateOmniboxCSS(p Palette) string {
 }
 
 .omnibox-header-btn:hover {
-	background-color: alpha(var(--accent), 0.15);
+	background-color: alpha(var(--accent), 0.14);
+	border-color: alpha(var(--accent), 0.18);
 	color: var(--text);
 }
 
 .omnibox-header-btn.omnibox-header-active {
-	background-color: alpha(var(--accent), 0.2);
+	background-color: alpha(var(--accent), 0.18);
+	border-color: alpha(var(--accent), 0.28);
 	color: var(--accent);
 	font-weight: 600;
 }
 
 /* Search entry field */
-.omnibox-entry {
-	background-color: var(--bg);
+entry.omnibox-entry,
+entry.omnibox-entry > text {
+	background-color: alpha(var(--bg), 0.88);
+	background-image: none;
 	color: var(--text);
-	border: 0.0625em solid var(--border);
+	caret-color: var(--accent);
+}
+
+entry.omnibox-entry {
+	border: 0.0625em solid alpha(var(--border), 0.82);
 	border-radius: 0.125em;
 	padding: 0.625em 0.75em;
 	margin: 0.5em 0.75em;
 	font-size: 1em;
-	caret-color: var(--accent);
+	box-shadow: 0 0.0625em 0 alpha(white, 0.04) inset;
 }
 
 entry.omnibox-entry:focus,
 entry.omnibox-entry:focus-within,
-entry.omnibox-entry:focus-visible {
+entry.omnibox-entry:focus-visible,
+entry.omnibox-entry:focus > text,
+entry.omnibox-entry:focus-within > text,
+entry.omnibox-entry:focus-visible > text {
 	border-color: var(--accent);
 	background-color: shade(var(--bg), 1.05);
+	background-image: none;
 	outline-style: none;
 	outline-width: 0px;
 	outline-color: transparent;
 }
 
 /* Override any internal focus styling */
-entry.omnibox-entry > *:focus,
-entry.omnibox-entry > *:focus-visible {
+entry.omnibox-entry > text:focus,
+entry.omnibox-entry > text:focus-visible {
 	outline-style: none;
 	outline-color: transparent;
 }
 
 /* Scrolled window for suggestions */
 .omnibox-scrolled {
-	background-color: shade(var(--surface-variant), 0.95);
-	border-top: 0.0625em solid var(--border);
+	background-color: var(--surface);
+	border-top: 0.0625em solid alpha(var(--border), 0.65);
 }
 
 /* List box */
@@ -296,7 +291,9 @@ entry.omnibox-entry > *:focus-visible {
 	margin: 0;
 	border-radius: 0;
 	border-left: 0.1875em solid transparent;
-	border-bottom: 0.0625em solid alpha(var(--border), 0.5);
+	border-bottom: 0.0625em solid alpha(var(--border), 0.35);
+	background-color: var(--surface);
+	background-image: none;
 	transition: background-color 100ms ease-in-out, border-left 100ms ease-in-out;
 	min-height: 2.75em;
 }
@@ -315,19 +312,19 @@ entry.omnibox-entry > *:focus-visible {
 	border-left: 0.1875em solid var(--accent);
 }
 
-/* Favorite indicator in history mode - yellowish accent */
+/* Favorite indicator in history mode - keep the row neutral and use the left selection stripe */
 .omnibox-row.omnibox-row-favorite {
-	background-color: alpha(var(--warning), 0.08);
+	background-color: transparent;
 	border-left: 0.1875em solid var(--warning);
 }
 
 .omnibox-row.omnibox-row-favorite:hover {
-	background-color: alpha(var(--warning), 0.15);
+	background-color: alpha(var(--accent), 0.12);
 	border-left: 0.1875em solid var(--warning);
 }
 
 .omnibox-row.omnibox-row-favorite:selected {
-	background-color: alpha(var(--warning), 0.2);
+	background-color: alpha(var(--accent), 0.2);
 	border-left: 0.1875em solid var(--warning);
 }
 
@@ -342,7 +339,7 @@ entry.omnibox-entry > *:focus-visible {
 .omnibox-suggestion-title {
 	font-size: 0.875em;
 	color: var(--text);
-	font-weight: 400;
+	font-weight: 500;
 }
 
 /* Also style labels inside omnibox rows directly */
@@ -358,8 +355,20 @@ entry.omnibox-entry > *:focus-visible {
 /* URL text below title - use .omnibox-row prefix for specificity over .omnibox-row label */
 .omnibox-row .omnibox-suggestion-url {
 	font-size: 0.75em;
-	color: alpha(var(--muted), 0.65);
+	color: alpha(var(--muted), 0.72);
 	font-weight: 400;
+}
+
+.omnibox-favorite-star {
+	color: mix(var(--warning), var(--muted), 0.45);
+	opacity: 0.75;
+	margin-left: 0.625em;
+	margin-right: 0.125em;
+}
+
+.omnibox-row:selected .omnibox-favorite-star {
+	color: mix(var(--warning), var(--text), 0.35);
+	opacity: 0.88;
 }
 
 .omnibox-row:selected .omnibox-suggestion-url {
@@ -412,9 +421,14 @@ entry.omnibox-entry > *:focus-visible {
 entry.omnibox-entry.omnibox-entry-bang-active,
 entry.omnibox-entry.omnibox-entry-bang-active:focus,
 entry.omnibox-entry.omnibox-entry-bang-active:focus-within,
-entry.omnibox-entry.omnibox-entry-bang-active:focus-visible {
+entry.omnibox-entry.omnibox-entry-bang-active:focus-visible,
+entry.omnibox-entry.omnibox-entry-bang-active > text,
+entry.omnibox-entry.omnibox-entry-bang-active:focus > text,
+entry.omnibox-entry.omnibox-entry-bang-active:focus-within > text,
+entry.omnibox-entry.omnibox-entry-bang-active:focus-visible > text {
 	border-color: var(--accent);
 	background-color: shade(var(--bg), 1.05);
+	background-image: none;
 }
 
 .omnibox-row.omnibox-row-bang .omnibox-suggestion-title {

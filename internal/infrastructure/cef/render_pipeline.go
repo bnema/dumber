@@ -8,6 +8,7 @@ import (
 	"unsafe"
 
 	"github.com/bnema/dumber/internal/logging"
+	"github.com/bnema/puregotk/v4/gdk"
 	"github.com/bnema/puregotk/v4/gtk"
 )
 
@@ -156,7 +157,7 @@ func newRenderPipeline(ctx context.Context, gl *glLoader, scale int32) *renderPi
 	rp.glArea.SetHasStencilBuffer(false)
 
 	// Wire signals. puregotk takes *func(...) for signal callbacks.
-	renderCb := func(_ gtk.GLArea, _ uintptr) bool {
+	renderCb := func(_ gtk.GLArea, _ *gdk.GLContext) bool {
 		return rp.onGLRender()
 	}
 	rp.glArea.ConnectRender(&renderCb)

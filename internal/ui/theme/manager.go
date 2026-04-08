@@ -3,6 +3,8 @@ package theme
 import (
 	"context"
 	"fmt"
+	"math"
+	"strings"
 
 	"github.com/bnema/dumber/internal/application/port"
 	"github.com/bnema/dumber/internal/domain/entity"
@@ -21,6 +23,7 @@ type Manager struct {
 	fonts         FontConfig
 	modeColors    ModeColors // Modal mode indicator colors
 	cssProvider   *gtk.CssProvider
+	appliedFont   string
 	colorResolver port.ColorSchemeResolver // Resolver for dynamic detection
 }
 
@@ -150,6 +153,27 @@ func (m *Manager) GetWebUIThemeCSS() string {
 	return fmt.Sprintf(":root{\n%s}\n\n.dark{\n%s}\n", lightVars, darkVars)
 }
 
+const gtkDefaultFontPointSize = 11
+
+func formatGTKFontName(family string, uiScale float64) string {
+	family = strings.TrimSpace(family)
+	if family == "" {
+		family = DefaultFontConfig().SansFont
+	}
+	if uiScale <= 0 {
+		uiScale = 1.0
+	}
+	size := int(math.Round(gtkDefaultFontPointSize * uiScale))
+	if size < 1 {
+		size = gtkDefaultFontPointSize
+	}
+	return fmt.Sprintf("%s %d", family, size)
+}
+
+func shouldApplyGTKFontName(current, next string) bool {
+	return next != "" && next != current
+}
+
 // ApplyToDisplay loads the theme CSS into the display.
 func (m *Manager) ApplyToDisplay(ctx context.Context, display *gdk.Display) {
 	log := logging.FromContext(ctx)
@@ -162,6 +186,18 @@ func (m *Manager) ApplyToDisplay(ctx context.Context, display *gdk.Display) {
 	// Generate CSS with current palette, UI scale, fonts, and mode colors
 	palette := m.GetCurrentPalette()
 	css := GenerateCSSFull(palette, m.uiScale, m.fonts, m.modeColors)
+	fontName := formatGTKFontName(m.fonts.SansFont, m.uiScale)
+
+	settings := gtk.SettingsGetForDisplay(display)
+	if settings == nil {
+		log.Warn().Msg("cannot apply theme font scaling: settings unavailable")
+	} else if shouldApplyGTKFontName(m.appliedFont, fontName) {
+		settings.SetPropertyGtkFontName(fontName)
+		m.appliedFont = fontName
+		settings.Unref()
+	} else {
+		settings.Unref()
+	}
 
 	// Create CSS provider if needed
 	if m.cssProvider == nil {

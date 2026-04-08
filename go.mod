@@ -6,7 +6,7 @@ require (
 	github.com/bnema/purego-cef v0.0.0-00010101000000-000000000000
 	github.com/bnema/purego-ffmpeg v0.3.0
 	github.com/bnema/purego-sqlite v0.1.1
-	github.com/bnema/puregotk v0.2.2
+	github.com/bnema/puregotk v0.3.0
 	github.com/bnema/puregotk-webkit v0.0.16
 	github.com/charmbracelet/bubbles v1.0.0
 	github.com/charmbracelet/bubbletea v1.3.10

@@ -7,11 +7,14 @@ import (
 
 // ModalSizeConfig holds configuration for modal sizing calculations.
 type ModalSizeConfig struct {
-	WidthPct       float64 // Percentage of parent width (e.g., 0.6)
-	MaxWidth       int     // Maximum width in pixels
-	TopMarginPct   float64 // Top margin as percentage of parent height
-	FallbackWidth  int     // Fallback when parent not allocated
-	FallbackHeight int     // Fallback height
+	WidthPct          float64 // Percentage of parent width (e.g., 0.6)
+	MaxWidth          int     // Maximum width in pixels
+	TopMarginPct      float64 // Top margin as percentage of parent height
+	FallbackWidth     int     // Fallback when parent not allocated
+	FallbackHeight    int     // Fallback height
+	FixedWidth        int     // Optional fixed width in pixels (overrides WidthPct/MaxWidth)
+	FixedTopMargin    int     // Optional fixed top margin in pixels
+	UseFixedTopMargin bool    // When true, FixedTopMargin overrides TopMarginPct
 }
 
 // RowHeightDefaults holds default (unscaled) row heights for list-based modals.
@@ -110,6 +113,36 @@ func EffectiveMaxRows(parentHeight, rowHeight int, sizeCfg ModalSizeConfig, defa
 	return defaults.MaxVisibleRows
 }
 
+// ResolveModalSizeConfig merges a partial override with defaults.
+func ResolveModalSizeConfig(cfg, defaults ModalSizeConfig) ModalSizeConfig {
+	resolved := defaults
+
+	if cfg.WidthPct > 0 {
+		resolved.WidthPct = cfg.WidthPct
+	}
+	if cfg.MaxWidth > 0 {
+		resolved.MaxWidth = cfg.MaxWidth
+	}
+	if cfg.TopMarginPct > 0 {
+		resolved.TopMarginPct = cfg.TopMarginPct
+	}
+	if cfg.FallbackWidth > 0 {
+		resolved.FallbackWidth = cfg.FallbackWidth
+	}
+	if cfg.FallbackHeight > 0 {
+		resolved.FallbackHeight = cfg.FallbackHeight
+	}
+	if cfg.FixedWidth > 0 {
+		resolved.FixedWidth = cfg.FixedWidth
+	}
+	if cfg.UseFixedTopMargin {
+		resolved.FixedTopMargin = cfg.FixedTopMargin
+		resolved.UseFixedTopMargin = true
+	}
+
+	return resolved
+}
+
 // CalculateModalDimensions computes width and top margin based on parent overlay.
 // Returns calculated width and top margin in pixels.
 func CalculateModalDimensions(parent layout.OverlayWidget, cfg ModalSizeConfig) (width, marginTop int) {
@@ -129,12 +162,20 @@ func CalculateModalDimensions(parent layout.OverlayWidget, cfg ModalSizeConfig) 
 		parentHeight = cfg.FallbackHeight
 	}
 
-	width = int(float64(parentWidth) * cfg.WidthPct)
-	if width > cfg.MaxWidth {
-		width = cfg.MaxWidth
+	if cfg.FixedWidth > 0 {
+		width = cfg.FixedWidth
+	} else {
+		width = int(float64(parentWidth) * cfg.WidthPct)
+		if width > cfg.MaxWidth {
+			width = cfg.MaxWidth
+		}
 	}
 
-	marginTop = int(float64(parentHeight) * cfg.TopMarginPct)
+	if cfg.UseFixedTopMargin {
+		marginTop = cfg.FixedTopMargin
+	} else {
+		marginTop = int(float64(parentHeight) * cfg.TopMarginPct)
+	}
 	return width, marginTop
 }
 

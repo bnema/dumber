@@ -392,23 +392,81 @@ func NewSessionSpawner(ctx context.Context) *SessionSpawner {
 // RestoreSessionEnvVar is the environment variable used to pass session ID for restoration.
 const RestoreSessionEnvVar = "DUMBER_RESTORE_SESSION"
 
+const layerShellPreloadToken = "libgtk4" + "-layer-shell"
+
 // LaunchExternalURL opens a URL with the system's default handler (xdg-open on Linux).
 // Used for external URL schemes like vscode://, spotify://, steam://, etc.
 func LaunchExternalURL(uri string) {
 	cmd := exec.Command("xdg-open", uri)
-	// Detach from current process - we don't care about the result
+	cmd.Env = sanitizedChildEnv(os.Environ())
+	if err := startDetachedProcess(cmd); err != nil {
+		fmt.Fprintf(os.Stderr, "failed to launch external URL %q with xdg-open: %v\n", uri, err)
+	}
+}
+
+// LaunchBrowserURL opens a URL in a new dumber browser window.
+func LaunchBrowserURL(uri string) {
+	execPath, err := getExecutablePath()
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "failed to resolve dumber executable for URL %q: %v\n", uri, err)
+		return
+	}
+
+	cmd := exec.Command(execPath, "browse", uri)
+	cmd.Env = sanitizedChildEnv(os.Environ())
+	if err := startDetachedProcess(cmd); err != nil {
+		fmt.Fprintf(os.Stderr, "failed to launch dumber browse for URL %q: %v\n", uri, err)
+	}
+}
+
+func startDetachedProcess(cmd *exec.Cmd) error {
+	if cmd == nil {
+		return nil
+	}
+
 	cmd.Stdin = nil
 	cmd.Stdout = nil
 	cmd.Stderr = nil
 	if err := cmd.Start(); err != nil {
-		fmt.Fprintf(os.Stderr, "failed to launch external URL %q with xdg-open: %v\n", uri, err)
-		return
+		return err
 	}
 	if cmd.Process != nil {
 		if err := cmd.Process.Release(); err != nil {
-			fmt.Fprintf(os.Stderr, "failed to release xdg-open process for URL %q: %v\n", uri, err)
+			logging.FromContext(context.Background()).Warn().
+				Err(err).
+				Str("path", cmd.Path).
+				Msg("startDetachedProcess: cmd.Process.Release failed after start (non-fatal)")
 		}
 	}
+
+	return nil
+}
+
+func sanitizedChildEnv(env []string) []string {
+	cleaned := make([]string, 0, len(env))
+	for _, entry := range env {
+		if !strings.HasPrefix(entry, "LD_PRELOAD=") {
+			cleaned = append(cleaned, entry)
+			continue
+		}
+
+		value := strings.TrimPrefix(entry, "LD_PRELOAD=")
+		parts := strings.FieldsFunc(value, func(r rune) bool {
+			return r == ' ' || r == ':'
+		})
+		kept := make([]string, 0, len(parts))
+		for _, part := range parts {
+			if strings.Contains(part, layerShellPreloadToken) {
+				continue
+			}
+			kept = append(kept, part)
+		}
+		if len(kept) > 0 {
+			cleaned = append(cleaned, "LD_PRELOAD="+strings.Join(kept, " "))
+		}
+	}
+
+	return cleaned
 }
 
 // SpawnWithSession starts a new dumber instance to restore a session.
@@ -424,9 +482,9 @@ func (s *SessionSpawner) SpawnWithSession(sessionID entity.SessionID) error {
 	cmd := exec.Command(execPath, "browse")
 
 	// Inherit environment and add restore session ID
-	cmd.Env = append(os.Environ(), RestoreSessionEnvVar+"="+string(sessionID))
+	cmd.Env = append(sanitizedChildEnv(os.Environ()), RestoreSessionEnvVar+"="+string(sessionID))
 
-	// Detach from current process group so the new process survives
+	// Detach from current process group so the new process survives.
 	cmd.Stdin = nil
 	cmd.Stdout = nil
 	cmd.Stderr = nil
@@ -435,10 +493,10 @@ func (s *SessionSpawner) SpawnWithSession(sessionID entity.SessionID) error {
 		return fmt.Errorf("spawn session: %w", err)
 	}
 
-	// Capture PID before releasing
+	// Capture PID before releasing.
 	pid := cmd.Process.Pid
 
-	// Release the process so it continues running after we close
+	// Release the process so it continues running after we close.
 	if err := cmd.Process.Release(); err != nil {
 		log.Warn().Err(err).Msg("failed to release spawned process (non-fatal)")
 	}

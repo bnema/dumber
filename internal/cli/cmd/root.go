@@ -34,9 +34,9 @@ Features:
   - Search shortcuts via bangs (!g, !gi, etc.)
   - Session management with auto-save and restore
 
-Use 'dumber browse' to launch the graphical browser, or explore the
-subcommands for CLI-based operations like history search and session
-management.`,
+Use 'dumber browse' to launch the graphical browser, 'dumber omnibox' to open
+the standalone launcher overlay, or explore the subcommands for CLI-based
+operations like history search and session management.`,
 		PersistentPreRunE: func(cmd *cobra.Command, _ []string) error {
 			// Skip initialization for commands that don't need app context
 			switch cmd.Name() {
@@ -107,6 +107,7 @@ func GetApp() *cli.App {
 var browseCmd = &cobra.Command{
 	Use:   "browse [url]",
 	Short: "Launch the graphical browser",
+	Args:  cobra.MaximumNArgs(1),
 	Long: `Launch the GTK4 graphical browser.
 
 If a URL is provided, navigate to it. Otherwise, open the homepage.

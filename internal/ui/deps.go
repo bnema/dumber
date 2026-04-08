@@ -101,6 +101,9 @@ type Dependencies struct {
 	// Used for external URL schemes (vscode://, spotify://, etc.).
 	// Optional: if nil, external URLs are silently dropped.
 	LaunchExternalURL func(uri string)
+	// LaunchBrowserURL opens a URL in a new dumber browser window.
+	// Optional: if nil, standalone omnibox web navigations are logged only.
+	LaunchBrowserURL func(uri string)
 }
 
 // Validate checks that all required dependencies are set.
