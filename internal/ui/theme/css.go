@@ -227,8 +227,8 @@ window.standalone-omnibox-window {
 
 /* Header with History/Favorites toggle */
 .omnibox-header {
-	background-color: alpha(var(--surface), 0.34);
-	background-image: linear-gradient(to bottom, alpha(white, 0.03), alpha(black, 0.04));
+	background-color: var(--surface);
+	background-image: none;
 	border-bottom: 0.0625em solid alpha(var(--border), 0.75);
 	padding: 0.375em 0.75em;
 }
@@ -326,19 +326,19 @@ entry.omnibox-entry > *:focus-visible {
 	border-left: 0.1875em solid var(--accent);
 }
 
-/* Favorite indicator in history mode - yellowish accent */
+/* Favorite indicator in history mode - keep the row neutral and use the left selection stripe */
 .omnibox-row.omnibox-row-favorite {
-	background-color: alpha(var(--warning), 0.08);
+	background-color: transparent;
 	border-left: 0.1875em solid var(--warning);
 }
 
 .omnibox-row.omnibox-row-favorite:hover {
-	background-color: alpha(var(--warning), 0.15);
+	background-color: alpha(var(--accent), 0.12);
 	border-left: 0.1875em solid var(--warning);
 }
 
 .omnibox-row.omnibox-row-favorite:selected {
-	background-color: alpha(var(--warning), 0.2);
+	background-color: alpha(var(--accent), 0.2);
 	border-left: 0.1875em solid var(--warning);
 }
 
@@ -374,15 +374,15 @@ entry.omnibox-entry > *:focus-visible {
 }
 
 .omnibox-favorite-star {
-	color: var(--warning);
-	opacity: 0.9;
-	margin-left: 0.5em;
+	color: mix(var(--warning), var(--muted), 0.45);
+	opacity: 0.75;
+	margin-left: 0.625em;
 	margin-right: 0.125em;
 }
 
 .omnibox-row:selected .omnibox-favorite-star {
-	color: var(--warning);
-	opacity: 1;
+	color: mix(var(--warning), var(--text), 0.35);
+	opacity: 0.88;
 }
 
 .omnibox-row:selected .omnibox-suggestion-url {
