@@ -94,7 +94,13 @@ func prepareCEFSettings(cfg config.CEFEngineConfig, logger *zerolog.Logger) pure
 }
 
 func defaultCEFUserDataDir() string {
-	return filepath.Clean(filepath.Join(os.Getenv("HOME"), ".config", "cef_user_data"))
+	// Use Dumber's XDG helpers to get the config directory
+	dirs, err := config.GetXDGDirs()
+	if err != nil {
+		// Fallback to HOME-based path if XDG resolution fails
+		return filepath.Clean(filepath.Join(os.Getenv("HOME"), ".config", "cef_user_data"))
+	}
+	return filepath.Join(dirs.ConfigHome, "cef_user_data")
 }
 
 // initializeCEF calls cef_initialize with the App to register custom schemes

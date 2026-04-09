@@ -1,6 +1,7 @@
 package cef
 
 import (
+	"os"
 	"path/filepath"
 	"testing"
 
@@ -30,11 +31,36 @@ func TestPrepareCEFInitTraceFile_EnabledViaEnv(t *testing.T) {
 }
 
 func TestPrepareCEFSettings_SetsRootCachePath(t *testing.T) {
+	// Test production mode: should use XDG config home
 	homeDir := filepath.Join(t.TempDir(), "home")
 	t.Setenv("HOME", homeDir)
+	t.Setenv("ENV", "")
 
 	logger := zerolog.Nop()
 	settings := prepareCEFSettings(config.CEFEngineConfig{}, &logger)
 
-	require.Equal(t, filepath.Join(homeDir, ".config", "cef_user_data"), settings.RootCachePath)
+	// Should use XDG config home (~/.config/dumber/cef_user_data in prod)
+	require.Equal(t, filepath.Join(homeDir, ".config", "dumber", "cef_user_data"), settings.RootCachePath)
+}
+
+func TestPrepareCEFSettings_RootCachePath_DevMode(t *testing.T) {
+	// Create a temp directory and change into it for the test
+	tempDir := t.TempDir()
+	originalDir, err := os.Getwd()
+	require.NoError(t, err)
+	defer func() {
+		_ = os.Chdir(originalDir)
+	}()
+
+	err = os.Chdir(tempDir)
+	require.NoError(t, err)
+
+	// Set ENV=dev to trigger dev mode
+	t.Setenv("ENV", "dev")
+
+	logger := zerolog.Nop()
+	settings := prepareCEFSettings(config.CEFEngineConfig{}, &logger)
+
+	// In dev mode, should resolve under .dev/dumber/cef_user_data
+	require.Equal(t, filepath.Join(tempDir, ".dev", "dumber", "cef_user_data"), settings.RootCachePath)
 }
