@@ -3,7 +3,7 @@ module github.com/bnema/dumber
 go 1.26.1
 
 require (
-	github.com/bnema/purego-cef v0.0.0-00010101000000-000000000000
+	github.com/bnema/purego-cef v0.8.0
 	github.com/bnema/purego-ffmpeg v0.3.0
 	github.com/bnema/purego-sqlite v0.1.1
 	github.com/bnema/puregotk v0.3.0

@@ -5,6 +5,7 @@ import (
 	"testing"
 
 	"github.com/bnema/dumber/internal/infrastructure/config"
+	"github.com/rs/zerolog"
 	"github.com/stretchr/testify/require"
 )
 
@@ -26,4 +27,14 @@ func TestPrepareCEFInitTraceFile_EnabledViaEnv(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, filepath.Join(filepath.Dir(cfg.LogFile), "cef_runtime.bootstrap.log"), path)
 	require.FileExists(t, path)
+}
+
+func TestPrepareCEFSettings_SetsRootCachePath(t *testing.T) {
+	homeDir := filepath.Join(t.TempDir(), "home")
+	t.Setenv("HOME", homeDir)
+
+	logger := zerolog.Nop()
+	settings := prepareCEFSettings(config.CEFEngineConfig{}, &logger)
+
+	require.Equal(t, filepath.Join(homeDir, ".config", "cef_user_data"), settings.RootCachePath)
 }

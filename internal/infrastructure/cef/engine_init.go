@@ -63,6 +63,7 @@ func prepareCEFSettings(cfg config.CEFEngineConfig, logger *zerolog.Logger) pure
 	settings := purecef.DefaultSettings()
 	settings.MultiThreadedMessageLoop = true
 	settings.ExternalMessagePump = false
+	settings.RootCachePath = defaultCEFUserDataDir()
 	if cfg.CEFDir != "" {
 		settings.CEFDir = cfg.CEFDir
 	}
@@ -90,6 +91,10 @@ func prepareCEFSettings(cfg config.CEFEngineConfig, logger *zerolog.Logger) pure
 		logger.Warn().Msg("cef: subprocess helper not found, falling back to main binary")
 	}
 	return settings
+}
+
+func defaultCEFUserDataDir() string {
+	return filepath.Clean(filepath.Join(os.Getenv("HOME"), ".config", "cef_user_data"))
 }
 
 // initializeCEF calls cef_initialize with the App to register custom schemes
@@ -299,8 +304,7 @@ func appendIfMissing(args []string, flag string) []string {
 // unclean shutdown (SIGKILL, SIGSEGV) and the next instance crashes trying
 // to connect to the dead process.
 func cleanStaleSingletonLocks(logger *zerolog.Logger) {
-	// CEF defaults to ~/.config/cef_user_data when no root_cache_path is set.
-	dir := filepath.Clean(filepath.Join(os.Getenv("HOME"), ".config", "cef_user_data"))
+	dir := defaultCEFUserDataDir()
 
 	lockPath := filepath.Join(dir, "SingletonLock")
 	target, err := os.Readlink(lockPath)

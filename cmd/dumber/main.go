@@ -147,13 +147,10 @@ func runGUI() int {
 	}
 	timer.MarkDuration("parallel_phase", initResult.Duration)
 
-	if cfg.Engine.ResolveEngineType() == config.EngineTypeCEF {
+	preInitializeAdwaitaForCEF(cfg, initResult, func() {
 		logging.FromContext(ctx).Info().Msg("pre-initializing libadwaita before CEF multi-threaded loop")
 		ui.EnsureAdwaitaInitialized()
-		if initResult.AdwaitaDetector != nil {
-			initResult.AdwaitaDetector.MarkAvailable()
-		}
-	}
+	})
 
 	needsEagerDB := restoreSessionID != "" || cfg.Session.AutoRestore
 
@@ -213,6 +210,8 @@ func runStandaloneOmnibox() int {
 		return 1
 	}
 
+	preInitializeAdwaitaForCEF(cfg, initResult, ui.EnsureAdwaitaInitialized)
+
 	engine, repos, dbCleanup, err := initStackAndRepos(ctx, cfg, initResult, false)
 	if err != nil {
 		logging.FromContext(ctx).Error().Err(err).Msg("failed to initialize standalone omnibox runtime")
@@ -243,6 +242,20 @@ func runStandaloneOmnibox() int {
 	runtimeCfg := ui.NewStandaloneOmniboxRuntime(ctx, uiDeps, engine.FaviconDatabase())
 
 	return ui.RunStandaloneOmnibox(ctx, runtimeCfg)
+}
+
+func preInitializeAdwaitaForCEF(cfg *config.Config, initResult *bootstrap.ParallelInitResult, initAdwaita func()) {
+	if cfg == nil || initResult == nil || initAdwaita == nil {
+		return
+	}
+	if cfg.Engine.ResolveEngineType() != config.EngineTypeCEF {
+		return
+	}
+
+	initAdwaita()
+	if initResult.AdwaitaDetector != nil {
+		initResult.AdwaitaDetector.MarkAvailable()
+	}
 }
 
 func maybeReexecStandaloneOmniboxWithLayerShell() {
