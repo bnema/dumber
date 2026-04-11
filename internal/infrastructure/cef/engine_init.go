@@ -71,7 +71,7 @@ func NewEngine(
 	}
 	os.Args = savedArgs
 
-	return wireEngine(ctx, eng, cfg, transcodingCfg, windowlessFrameRate, audioFactory, logger)
+	return wireEngine(ctx, eng, cfg, transcodingCfg, windowlessFrameRate, audioFactory, logger, deps.CurrentConfigPayload, deps.DefaultConfigPayload)
 }
 
 func resolvedStateRoot(opts port.EngineOptions) string {
@@ -153,6 +153,7 @@ func initializeCEF(eng *Engine, settings purecef.Settings, logger *zerolog.Logge
 func wireEngine(
 	ctx context.Context, eng *Engine, cfg RuntimeConfig, transcodingCfg TranscodingRuntimeConfig,
 	windowlessFrameRate int32, audioFactory port.AudioOutputFactory, logger *zerolog.Logger,
+	currentConfigPayload func() ([]byte, error), defaultConfigPayload func() ([]byte, error),
 ) (*Engine, error) {
 	gl, err := newGLLoader()
 	if err != nil {
@@ -206,7 +207,13 @@ func wireEngine(
 	eng.transcoderState = transcoderState
 
 	messageRouter := NewMessageRouter(ctx)
-	schemeHandler := newDumbSchemeHandler(ctx, messageRouter, mediaTranscoder)
+	schemeHandler := newDumbSchemeHandler(
+		ctx,
+		messageRouter,
+		mediaTranscoder,
+		currentConfigPayload,
+		defaultConfigPayload,
+	)
 	schemeHandler.setAssets(assets.WebUIAssets)
 
 	// Bridge clipboard writes from CEF JS → GDK system clipboard.

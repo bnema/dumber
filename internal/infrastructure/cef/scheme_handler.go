@@ -19,8 +19,6 @@ import (
 	purecef "github.com/bnema/purego-cef/cef"
 
 	"github.com/bnema/dumber/internal/application/port"
-	"github.com/bnema/dumber/internal/infrastructure/config"
-	"github.com/bnema/dumber/internal/infrastructure/env"
 	"github.com/bnema/dumber/internal/infrastructure/webutil"
 	"github.com/bnema/dumber/internal/logging"
 	"github.com/rs/zerolog"
@@ -47,15 +45,16 @@ var pageRootFiles = map[string]string{
 // dumbSchemeHandler serves both the conceptual dumb:// URLs and the actual
 // internal https://dumber.invalid origin used by CEF.
 type dumbSchemeHandler struct {
-	ctx           context.Context
-	messageRouter *MessageRouter
-	transcoder    port.MediaTranscoder
-	assets        embed.FS
-	assetsSet     bool
-	assetDir      string
-	logger        zerolog.Logger
-	hwSurveyor    *env.HardwareSurveyor
-	mu            sync.RWMutex
+	ctx                  context.Context
+	messageRouter        *MessageRouter
+	transcoder           port.MediaTranscoder
+	assets               embed.FS
+	assetsSet            bool
+	assetDir             string
+	logger               zerolog.Logger
+	currentConfigPayload func() ([]byte, error)
+	defaultConfigPayload func() ([]byte, error)
+	mu                   sync.RWMutex
 
 	// onClipboardSet is called when JS sends copied text via /api/clipboard-set.
 	// Set by the engine to write to the GDK system clipboard.
@@ -63,15 +62,22 @@ type dumbSchemeHandler struct {
 }
 
 // newDumbSchemeHandler creates a handler for internal CEF pages.
-func newDumbSchemeHandler(ctx context.Context, router *MessageRouter, transcoder port.MediaTranscoder) *dumbSchemeHandler {
+func newDumbSchemeHandler(
+	ctx context.Context,
+	router *MessageRouter,
+	transcoder port.MediaTranscoder,
+	currentConfigPayload func() ([]byte, error),
+	defaultConfigPayload func() ([]byte, error),
+) *dumbSchemeHandler {
 	log := logging.FromContext(ctx)
 	return &dumbSchemeHandler{
-		ctx:           ctx,
-		messageRouter: router,
-		transcoder:    transcoder,
-		assetDir:      "webui",
-		logger:        log.With().Str("component", "scheme-handler").Logger(),
-		hwSurveyor:    env.NewHardwareSurveyor(),
+		ctx:                  ctx,
+		messageRouter:        router,
+		transcoder:           transcoder,
+		assetDir:             "webui",
+		logger:               log.With().Str("component", "scheme-handler").Logger(),
+		currentConfigPayload: currentConfigPayload,
+		defaultConfigPayload: defaultConfigPayload,
 	}
 }
 
@@ -141,10 +147,10 @@ func (h *dumbSchemeHandler) handleAPI(method, path string, request purecef.Reque
 		return h.newRawResourceHandler(http.StatusOK, "application/json", resp)
 
 	case path == "/api/config" && (method == "" || strings.EqualFold(method, "GET")):
-		return h.handleConfigAPI(config.Get())
+		return h.handleConfigAPI(h.currentConfigPayload)
 
 	case path == "/api/config/default" && (method == "" || strings.EqualFold(method, "GET")):
-		return h.handleConfigAPI(config.DefaultConfig())
+		return h.handleConfigAPI(h.defaultConfigPayload)
 
 	case path == "/api/transcode" && (method == "" || strings.EqualFold(method, "GET")):
 		return h.handleTranscodeAPI(request)
@@ -209,14 +215,16 @@ func (h *dumbSchemeHandler) handleTranscodeAPI(request purecef.Request) purecef.
 	})
 }
 
-// handleConfigAPI returns a JSON response with the given config.
-func (h *dumbSchemeHandler) handleConfigAPI(cfg *config.Config) purecef.ResourceHandler {
-	var hwInfo *port.HardwareInfo
-	if h.hwSurveyor != nil {
-		survey := h.hwSurveyor.Survey(context.Background())
-		hwInfo = &survey
+func resolveConfigPayload(build func() ([]byte, error)) ([]byte, error) {
+	if build == nil {
+		return nil, fmt.Errorf("config payload builder not configured")
 	}
-	data, err := json.Marshal(config.BuildWebUIConfigPayload(cfg, hwInfo))
+	return build()
+}
+
+// handleConfigAPI returns a JSON response with the given config payload builder.
+func (h *dumbSchemeHandler) handleConfigAPI(build func() ([]byte, error)) purecef.ResourceHandler {
+	data, err := resolveConfigPayload(build)
 	if err != nil {
 		return h.newJSONResourceHandler(http.StatusInternalServerError, map[string]string{"error": err.Error()})
 	}
