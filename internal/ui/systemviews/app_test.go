@@ -1,8 +1,10 @@
 package systemviews
 
 import (
+	"context"
 	"testing"
 
+	"github.com/bnema/dumber/internal/domain/entity"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -49,6 +51,29 @@ func TestAppRunMountsPlaceholderAndRecordsRoute(t *testing.T) {
 	assert.Contains(t, dom.html, "systemviews")
 }
 
+func TestAppLoadInitialHistoryRouteRendersEntries(t *testing.T) {
+	t.Parallel()
+
+	history := &fakeHistoryService{entries: []*entity.HistoryEntry{{
+		URL:   "https://example.com",
+		Title: "Example",
+	}}}
+
+	app := NewApp(Dependencies{
+		History:     history,
+		LocationURI: "dumb://history",
+	})
+
+	require.NoError(t, app.LoadInitial(context.Background()))
+	assert.Equal(t, RouteHistory, app.CurrentRoute())
+	assert.Equal(t, 1, len(app.historyEntries))
+	assert.Contains(t, app.renderedHTML, "Example")
+	assert.Contains(t, app.renderedHTML, "https://example.com")
+	assert.True(t, history.called)
+	assert.Equal(t, 25, history.limit)
+	assert.Equal(t, 0, history.offset)
+}
+
 type fakeDOM struct {
 	mounted bool
 	html    string
@@ -59,3 +84,35 @@ func (d *fakeDOM) Mount(html string) error {
 	d.html = html
 	return nil
 }
+
+type fakeHistoryService struct {
+	called  bool
+	limit   int
+	offset  int
+	entries []*entity.HistoryEntry
+}
+
+func (s *fakeHistoryService) Timeline(_ context.Context, limit, offset int) ([]*entity.HistoryEntry, error) {
+	s.called = true
+	s.limit = limit
+	s.offset = offset
+	return s.entries, nil
+}
+
+func (s *fakeHistoryService) Search(context.Context, string, int) ([]*entity.HistoryEntry, error) {
+	return nil, nil
+}
+
+func (s *fakeHistoryService) DeleteEntry(context.Context, int64) error { return nil }
+
+func (s *fakeHistoryService) DeleteRange(context.Context, string) error { return nil }
+
+func (s *fakeHistoryService) Analytics(context.Context) (*entity.HistoryAnalytics, error) {
+	return nil, nil
+}
+
+func (s *fakeHistoryService) DomainStats(context.Context, int) ([]*entity.DomainStat, error) {
+	return nil, nil
+}
+
+func (s *fakeHistoryService) DeleteDomain(context.Context, string) error { return nil }

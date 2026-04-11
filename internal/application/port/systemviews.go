@@ -6,7 +6,7 @@ import (
 	"github.com/bnema/dumber/internal/domain/entity"
 )
 
-// SystemviewHistoryService exposes history operations for the systemviews UI.
+// SystemviewHistoryService exposes history operations for the systemviews history route.
 type SystemviewHistoryService interface {
 	Timeline(ctx context.Context, limit, offset int) ([]*entity.HistoryEntry, error)
 	Search(ctx context.Context, query string, limit int) ([]*entity.HistoryEntry, error)

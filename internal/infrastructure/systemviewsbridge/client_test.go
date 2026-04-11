@@ -95,6 +95,54 @@ func TestClientSendFallsBackToFetchTransport(t *testing.T) {
 	}
 }
 
+func TestClientTimelineDecodesEntries(t *testing.T) {
+	t.Parallel()
+
+	native := &fakeTransport{available: true, response: []byte(`{"requestId":"req-9","success":true,"data":[{"id":1,"url":"https://example.com","title":"Example"}]}`)}
+	client := NewClient(native, nil)
+
+	entries, err := client.Timeline(context.Background(), 25, 0)
+	if err != nil {
+		t.Fatalf("Timeline() error = %v", err)
+	}
+	if len(entries) != 1 {
+		t.Fatalf("Timeline() len = %d, want 1", len(entries))
+	}
+	if entries[0].URL != "https://example.com" || entries[0].Title != "Example" {
+		t.Fatalf("Timeline() entry = %+v", entries[0])
+	}
+
+	var msg port.WebUIMessage
+	if err := json.Unmarshal(native.last, &msg); err != nil {
+		t.Fatalf("unmarshal sent envelope: %v", err)
+	}
+	if msg.Type != "history_timeline" {
+		t.Fatalf("sent type = %q, want %q", msg.Type, "history_timeline")
+	}
+	if gotPayload := string(msg.Payload); gotPayload == "" {
+		t.Fatal("sent payload was empty")
+	}
+}
+
+func TestClientDeleteRangeSendsRange(t *testing.T) {
+	t.Parallel()
+
+	native := &fakeTransport{available: true, response: []byte(`{"requestId":"req-10","success":true}`)}
+	client := NewClient(native, nil)
+
+	if err := client.DeleteRange(context.Background(), "week"); err != nil {
+		t.Fatalf("DeleteRange() error = %v", err)
+	}
+
+	var msg port.WebUIMessage
+	if err := json.Unmarshal(native.last, &msg); err != nil {
+		t.Fatalf("unmarshal sent envelope: %v", err)
+	}
+	if msg.Type != "history_delete_range" {
+		t.Fatalf("sent type = %q, want %q", msg.Type, "history_delete_range")
+	}
+}
+
 type fakeTransport struct {
 	available bool
 	called    bool
