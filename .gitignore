@@ -8,6 +8,7 @@ dist/
 
 # Binaries for programs and plugins
 /dumber
+/cef-helper
 dumber.exe
 
 # Test binary, built with `go test -c`
@@ -42,6 +43,7 @@ Thumbs.db
 *.tmp
 *.temp
 *.log
+__debug_bin*
 
 # Database files
 *.db
@@ -116,3 +118,4 @@ aur/*/logo-512.png
 
 # Planning/runbook notes stored outside product docs
 docs/reference/stability-performance-multi-agent-runbook-*.md
+perf.data

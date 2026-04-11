@@ -442,8 +442,6 @@ entry.omnibox-entry.omnibox-entry-bang-active:focus-visible > text {
 	color: var(--muted);
 	margin-top: -0.0625em; /* Nudge up 1px to align with entry text baseline */
 	background-color: transparent;
-	/* Allow clicks to pass through to entry below */
-	pointer-events: none;
 }
 `
 }

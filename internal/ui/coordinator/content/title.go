@@ -286,7 +286,7 @@ func (c *Coordinator) PreloadCachedFavicon(ctx context.Context, paneID entity.Pa
 	}
 
 	// Check memory and disk cache (no external fetch)
-	texture := c.faviconAdapter.PreloadFromCache(uri)
+	texture := c.faviconAdapter.PreloadFromCache(ctx, uri)
 	select {
 	case <-ctx.Done():
 		return

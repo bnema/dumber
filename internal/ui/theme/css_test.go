@@ -104,3 +104,10 @@ func TestGenerateCSSWithScale_UsesMediumWeightForOmniboxSuggestionTitle(t *testi
 	assert.Contains(t, css, "font-weight: 500;")
 	assert.NotContains(t, css, ".omnibox-suggestion-title {\n\tfont-size: 0.875em;\n\tcolor: var(--text);\n\tfont-weight: 400;")
 }
+
+func TestGenerateCSS_DoesNotEmitUnsupportedGTKProperties(t *testing.T) {
+	css := GenerateCSS(DefaultDarkPalette())
+
+	assert.NotContains(t, css, "pointer-events:")
+	assert.NotContains(t, css, "text-align:")
+}

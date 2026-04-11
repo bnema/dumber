@@ -146,6 +146,11 @@ linters:
       - text: "G204:"
         linters:
           - gosec
+      # CEF/OpenGL interop requires unsafe pointer arithmetic
+      - path: internal/infrastructure/cef/
+        text: "G103:"
+        linters:
+          - gosec
       - text: "G304:"
         linters:
           - gosec
@@ -168,6 +173,11 @@ linters:
           - revive
       # Adapter structs intentionally keep receivers for interface compliance
       - path: internal/infrastructure/.*adapter\.go
+        text: "unused-receiver"
+        linters:
+          - revive
+      # CEF handler/stub methods must keep receivers for interface compliance
+      - path: internal/infrastructure/cef/
         text: "unused-receiver"
         linters:
           - revive

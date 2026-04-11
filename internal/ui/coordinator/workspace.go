@@ -358,7 +358,7 @@ func (c *WorkspaceCoordinator) doIncrementalStackSplit(
 		Msg("stack split: determined split type")
 
 	// 3. Create new PaneView for the new pane (without WebView - will attach later)
-	newPaneView := component.NewPaneView(factory, output.NewPaneNode.Pane.ID, nil)
+	newPaneView := component.NewPaneView(ctx, factory, output.NewPaneNode.Pane.ID, nil)
 	setupPaneViewHover(ctx, newPaneView, wsView)
 
 	// 4. Wrap the new PaneView in a StackedView
@@ -534,7 +534,7 @@ func (c *WorkspaceCoordinator) doIncrementalSplit(
 		Msg("determined split type")
 
 	// 4. Create new PaneView for the new pane
-	newPaneView := component.NewPaneView(factory, output.NewPaneNode.Pane.ID, nil)
+	newPaneView := component.NewPaneView(ctx, factory, output.NewPaneNode.Pane.ID, nil)
 	setupPaneViewHover(ctx, newPaneView, wsView)
 
 	// 5. Wrap the new PaneView in a StackedView
@@ -1438,7 +1438,7 @@ func (c *WorkspaceCoordinator) StackPane(ctx context.Context) error {
 	}
 
 	// Create PaneView for the new pane
-	newPaneView := component.NewPaneView(c.widgetFactory, newPaneID, nil)
+	newPaneView := component.NewPaneView(ctx, c.widgetFactory, newPaneID, nil)
 	setupPaneViewHover(ctx, newPaneView, stackCtx.wsView)
 	stackCtx.wsView.RegisterPaneView(newPaneID, newPaneView)
 
@@ -2084,7 +2084,7 @@ func (c *WorkspaceCoordinator) attachPopupPaneView(
 	if wsView == nil {
 		return nil
 	}
-	newPaneView := component.NewPaneView(c.widgetFactory, input.PopupPane.ID, nil)
+	newPaneView := component.NewPaneView(ctx, c.widgetFactory, input.PopupPane.ID, nil)
 	setupPaneViewHover(ctx, newPaneView, wsView)
 	wsView.RegisterPaneView(input.PopupPane.ID, newPaneView)
 

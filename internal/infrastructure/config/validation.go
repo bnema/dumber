@@ -10,6 +10,8 @@ import (
 	domainvalidation "github.com/bnema/dumber/internal/domain/validation"
 )
 
+const cefLogSeverityDisabled = 99
+
 // validateConfig performs comprehensive validation of configuration values
 func validateConfig(config *Config) error {
 	var validationErrors []string
@@ -32,6 +34,7 @@ func validateConfig(config *Config) error {
 	validationErrors = append(validationErrors, validateColorScheme(config)...)
 	validationErrors = append(validationErrors, validateSession(config)...)
 	validationErrors = append(validationErrors, validatePerformanceProfile(config)...)
+	validationErrors = append(validationErrors, validateCEF(config)...)
 
 	// If there are validation errors, return them
 	if len(validationErrors) > 0 {
@@ -324,6 +327,26 @@ func validateLogging(config *Config) []string {
 	return validationErrors
 }
 
+func validateCEF(config *Config) []string {
+	var validationErrors []string
+
+	switch config.Engine.CEF.LogSeverity {
+	case 0, 1, 2, 3, 4, cefLogSeverityDisabled:
+	default:
+		validationErrors = append(validationErrors, fmt.Sprintf(
+			"engine.cef.log_severity must be one of: 0, 1, 2, 3, 4, %d (got: %d)",
+			cefLogSeverityDisabled,
+			config.Engine.CEF.LogSeverity,
+		))
+	}
+
+	if config.Engine.CEF.WindowlessFrameRate < 0 {
+		validationErrors = append(validationErrors, "engine.cef.windowless_frame_rate must be >= 0")
+	}
+
+	return validationErrors
+}
+
 func validateWorkspaceNewPaneURL(config *Config) []string {
 	var validationErrors []string
 
@@ -440,6 +463,12 @@ func validateSession(config *Config) []string {
 
 func validatePerformanceProfile(config *Config) []string {
 	var validationErrors []string
+
+	// Performance profiles and webkit-specific tuning only apply to the webkit engine.
+	engineType := config.Engine.ResolveEngineType()
+	if engineType != "webkit" {
+		return nil
+	}
 
 	// Validate profile name
 	if !IsValidPerformanceProfile(config.Engine.Profile) {

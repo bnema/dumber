@@ -3,7 +3,9 @@ package usecase
 import (
 	"context"
 	"path/filepath"
+	"sync"
 	"testing"
+	"time"
 
 	"github.com/bnema/dumber/internal/domain/entity"
 	repomocks "github.com/bnema/dumber/internal/domain/repository/mocks"
@@ -79,13 +81,77 @@ func TestUpdateHistoryTitle_UsesMetadataUpdateWithoutIncrementingVisits(t *testi
 	require.NotNil(t, before)
 
 	uc := NewNavigateUseCase(repo, nil, entity.ZoomDefault)
-	err = uc.UpdateHistoryTitle(ctx, "https://example.com/article", "New")
-	require.NoError(t, err)
+	uc.UpdateHistoryTitle(ctx, "https://example.com/article", "New")
+	uc.Close()
 
 	after, err := repo.FindByURL(ctx, "https://example.com/article")
 	require.NoError(t, err)
 	require.NotNil(t, after)
 	require.Equal(t, "New", after.Title)
 	require.Equal(t, before.VisitCount, after.VisitCount)
+}
+
+func TestHistoryWorker_ReenqueueDuringFlushIsPersistedOnShutdown(t *testing.T) {
+	ctx := context.Background()
+
+	// Stateful store — Save writes here, FindByURL reads from here.
+	var mu sync.Mutex
+	store := make(map[string]*entity.HistoryEntry)
+
+	// Fires once during the first Save to re-enqueue a title update while
+	// the flush is in progress. This is the exact race that caused the
+	// concurrent map crash (fixed by swapping maps in flushPending).
+	var saveOnce sync.Once
+	var uc *NavigateUseCase
+
+	repo := repomocks.NewMockHistoryRepository(t)
+
+	repo.EXPECT().FindByURL(mock.Anything, mock.Anything).RunAndReturn(
+		func(_ context.Context, url string) (*entity.HistoryEntry, error) {
+			mu.Lock()
+			defer mu.Unlock()
+			e := store[url]
+			if e == nil {
+				return nil, nil
+			}
+			clone := *e
+			return &clone, nil
+		},
+	).Maybe()
+
+	repo.EXPECT().Save(mock.Anything, mock.Anything).RunAndReturn(
+		func(_ context.Context, entry *entity.HistoryEntry) error {
+			clone := *entry
+			mu.Lock()
+			store[entry.URL] = &clone
+			mu.Unlock()
+
+			// Re-enqueue a title update during the first Save.
+			saveOnce.Do(func() {
+				if entry.URL == "https://example.com/article" {
+					uc.UpdateHistoryTitle(ctx, entry.URL, "Queued title")
+				}
+			})
+			return nil
+		},
+	).Maybe()
+
+	uc = NewNavigateUseCase(repo, nil, entity.ZoomDefault)
+	uc.RecordHistory(ctx, "pane-1", "https://example.com/article")
+
+	// The history worker flushes on a timer; there is no exported sync
+	// mechanism, so we sleep before shutting down. Using 5× the flush
+	// interval for headroom — this is a known flaky pattern, but
+	// restructuring the worker for deterministic sync is out of scope.
+	// Close() performs a final flush, so items re-enqueued during the
+	// timed flush are still captured on shutdown.
+	time.Sleep(historyWorkerFlushInterval * 5)
 	uc.Close()
+
+	mu.Lock()
+	entry := store["https://example.com/article"]
+	mu.Unlock()
+	require.NotNil(t, entry)
+	require.Equal(t, int64(1), entry.VisitCount)
+	require.Equal(t, "Queued title", entry.Title)
 }

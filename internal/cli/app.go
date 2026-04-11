@@ -112,9 +112,9 @@ func NewApp() (*App, error) {
 
 	// Create use cases
 	searchHistoryUC := usecase.NewSearchHistoryUseCase(historyRepo)
-	listSessionsUC := usecase.NewListSessionsUseCase(sessionRepo, sessionStateRepo, cfg.Logging.LogDir)
+	listSessionsUC := usecase.NewListSessionsUseCase(sessionRepo, sessionStateRepo)
 	restoreUC := usecase.NewRestoreSessionUseCase(sessionStateRepo, sessionRepo)
-	deleteSessionUC := usecase.NewDeleteSessionUseCase(sessionStateRepo, sessionRepo, cfg.Logging.LogDir)
+	deleteSessionUC := usecase.NewDeleteSessionUseCase(sessionStateRepo, sessionRepo)
 
 	// Create favicon service for CLI (path resolution for dmenu/fuzzel)
 	faviconCacheDir, _ := config.GetFaviconCacheDir()

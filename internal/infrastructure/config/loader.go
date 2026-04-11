@@ -414,6 +414,7 @@ func (m *Manager) setDefaults() {
 	m.setDebugDefaults(defaults)
 	m.setAppearanceDefaults(defaults)
 	m.setEngineDefaults(defaults)
+	m.setTranscodingDefaults(defaults)
 	m.setZoomAndScaleDefaults(defaults)
 	m.setWorkspaceDefaults(defaults)
 	m.setContentFilteringDefaults(defaults)
@@ -568,6 +569,15 @@ func (m *Manager) setEngineDefaults(defaults *Config) {
 	m.viper.SetDefault("engine.zoom_cache_size", e.ZoomCacheSize)
 	m.viper.SetDefault("engine.cookie_policy", string(e.CookiePolicy))
 
+	ce := e.CEF
+	m.viper.SetDefault("engine.cef.cef_dir", ce.CEFDir)
+	m.viper.SetDefault("engine.cef.log_file", ce.LogFile)
+	m.viper.SetDefault("engine.cef.log_severity", ce.LogSeverity)
+	m.viper.SetDefault("engine.cef.windowless_frame_rate", ce.CEFWindowlessFrameRate())
+	m.viper.SetDefault("engine.cef.enable_audio_handler", ce.EnableAudioHandler)
+	m.viper.SetDefault("engine.cef.enable_context_menu_handler", ce.EnableContextMenuHandler)
+	m.viper.SetDefault("engine.cef.trace_handlers", ce.TraceHandlers)
+
 	wk := e.WebKit
 	m.viper.SetDefault("engine.webkit.itp_enabled", wk.ITPEnabled)
 	m.viper.SetDefault("engine.webkit.skia_cpu_painting_threads", wk.SkiaCPUPaintingThreads)
@@ -595,6 +605,14 @@ func (m *Manager) setEngineDefaults(defaults *Config) {
 	m.viper.SetDefault("engine.webkit.network_process_memory_poll_interval_sec", wk.NetworkProcessMemoryPollIntervalSec)
 	m.viper.SetDefault("engine.webkit.network_process_memory_conservative_threshold", wk.NetworkProcessMemoryConservativeThreshold)
 	m.viper.SetDefault("engine.webkit.network_process_memory_strict_threshold", wk.NetworkProcessMemoryStrictThreshold)
+}
+
+func (m *Manager) setTranscodingDefaults(defaults *Config) {
+	tc := defaults.Transcoding
+	m.viper.SetDefault("transcoding.enabled", tc.Enabled)
+	m.viper.SetDefault("transcoding.hwaccel", tc.HWAccel)
+	m.viper.SetDefault("transcoding.max_concurrent", tc.MaxConcurrent)
+	m.viper.SetDefault("transcoding.quality", tc.Quality)
 }
 
 // New returns a new default configuration instance.

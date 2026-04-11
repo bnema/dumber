@@ -241,15 +241,11 @@ func (c *NavigationCoordinator) PrintPage(ctx context.Context) error {
 
 // UpdateHistoryTitle updates the title of a history entry after page load.
 func (c *NavigationCoordinator) UpdateHistoryTitle(ctx context.Context, paneID entity.PaneID, url, title string) {
-	log := logging.FromContext(ctx)
-
 	if c.navigateUC == nil {
 		return
 	}
 
-	if err := c.navigateUC.UpdateHistoryTitle(ctx, url, title); err != nil {
-		log.Warn().Err(err).Str("url", url).Msg("failed to update history title")
-	}
+	c.navigateUC.UpdateHistoryTitle(ctx, url, title)
 }
 
 // RecordHistory records a URL in history on page commit.

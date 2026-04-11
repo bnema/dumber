@@ -14,10 +14,12 @@ import (
 	"github.com/bnema/dumber/internal/ui/component"
 	"github.com/bnema/dumber/internal/ui/input"
 	"github.com/bnema/dumber/internal/ui/layout"
+	"github.com/rs/zerolog"
 )
 
 // Coordinator manages WebView lifecycle, title tracking, and content attachment.
 type Coordinator struct {
+	logger          zerolog.Logger
 	pool            port.WebViewPool
 	widgetFactory   layout.WidgetFactory
 	faviconAdapter  *adapter.FaviconAdapter
@@ -83,6 +85,7 @@ type Coordinator struct {
 	factory       port.WebViewFactory
 	popupConfig   *entity.PopupBehaviorConfig
 	pendingPopups map[port.WebViewID]*PendingPopup
+	namedPopups   map[namedPopupKey]*namedPopupState
 	popupOAuth    map[port.WebViewID]*popupOAuthState
 	popupRefresh  map[entity.PaneID]*time.Timer
 	popupMu       sync.RWMutex
@@ -151,6 +154,7 @@ func NewCoordinator(
 	log.Debug().Msg("creating content coordinator")
 
 	return &Coordinator{
+		logger:               log.With().Str("component", "content-coordinator").Logger(),
 		pool:                 pool,
 		injector:             injector,
 		widgetFactory:        widgetFactory,
@@ -165,6 +169,7 @@ func NewCoordinator(
 		pendingThemePanes:    make(map[entity.PaneID]bool),
 		getActiveWS:          getActiveWS,
 		pendingPopups:        make(map[port.WebViewID]*PendingPopup),
+		namedPopups:          make(map[namedPopupKey]*namedPopupState),
 		popupOAuth:           make(map[port.WebViewID]*popupOAuthState),
 		popupRefresh:         make(map[entity.PaneID]*time.Timer),
 	}

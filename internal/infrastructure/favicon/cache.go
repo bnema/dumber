@@ -1,11 +1,13 @@
 package favicon
 
 import (
+	"context"
 	"os"
 	"path/filepath"
 	"sync"
 
 	domainurl "github.com/bnema/dumber/internal/domain/url"
+	"github.com/bnema/dumber/internal/logging"
 )
 
 const (
@@ -51,16 +53,21 @@ func NewCache(diskDir string) *Cache {
 // Get retrieves favicon bytes for a domain.
 // Checks memory cache first, then disk cache.
 // Returns the bytes and true if found, nil and false otherwise.
-func (c *Cache) Get(domain string) ([]byte, bool) {
+func (c *Cache) Get(ctx context.Context, domain string) ([]byte, bool) {
 	if domain == "" {
 		return nil, false
 	}
+	log := logging.FromContext(ctx)
 
 	// Check memory cache first
 	c.mu.RLock()
 	data, ok := c.memCache[domain]
 	c.mu.RUnlock()
 	if ok {
+		log.Debug().
+			Str("domain", domain).
+			Int("bytes", len(data)).
+			Msg("favicon: Cache.Get memory hit")
 		return data, true
 	}
 
@@ -71,18 +78,27 @@ func (c *Cache) Get(domain string) ([]byte, bool) {
 		c.mu.Lock()
 		c.memCache[domain] = data
 		c.mu.Unlock()
+		log.Debug().
+			Str("domain", domain).
+			Int("bytes", len(data)).
+			Msg("favicon: Cache.Get disk hit")
 		return data, true
 	}
 
+	log.Debug().Str("domain", domain).Msg("favicon: Cache.Get miss")
 	return nil, false
 }
 
 // Set stores favicon bytes for a domain.
 // Writes to memory cache immediately and queues async disk write.
-func (c *Cache) Set(domain string, data []byte) {
+func (c *Cache) Set(ctx context.Context, domain string, data []byte) {
 	if domain == "" || len(data) == 0 {
 		return
 	}
+	logging.FromContext(ctx).Debug().
+		Str("domain", domain).
+		Int("bytes", len(data)).
+		Msg("favicon: Cache.Set")
 
 	// Write to memory cache
 	c.mu.Lock()

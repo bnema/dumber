@@ -3,6 +3,10 @@ package main
 import (
 	"errors"
 	"testing"
+
+	"github.com/bnema/dumber/internal/bootstrap"
+	"github.com/bnema/dumber/internal/infrastructure/colorscheme"
+	"github.com/bnema/dumber/internal/infrastructure/config"
 )
 
 func TestLaunchModeFromArgs_DetectsStandaloneOmnibox(t *testing.T) {
@@ -85,5 +89,45 @@ func TestResolveCurrentExecutable_PropagatesError(t *testing.T) {
 	})
 	if !errors.Is(err, wantErr) {
 		t.Fatalf("expected error %v, got %v", wantErr, err)
+	}
+}
+
+func TestPreInitializeAdwaitaForCEF_InitializesAndMarksDetector(t *testing.T) {
+	initResult := &bootstrap.ParallelInitResult{
+		AdwaitaDetector: colorscheme.NewAdwaitaDetector(),
+	}
+	cfg := &config.Config{}
+	cfg.Engine.Type = config.EngineTypeCEF
+
+	called := false
+	preInitializeAdwaitaForCEF(cfg, initResult, func() {
+		called = true
+	})
+
+	if !called {
+		t.Fatal("expected libadwaita initialization for CEF")
+	}
+	if !initResult.AdwaitaDetector.Available() {
+		t.Fatal("expected adwaita detector to be marked available")
+	}
+}
+
+func TestPreInitializeAdwaitaForCEF_SkipsNonCEF(t *testing.T) {
+	initResult := &bootstrap.ParallelInitResult{
+		AdwaitaDetector: colorscheme.NewAdwaitaDetector(),
+	}
+	cfg := &config.Config{}
+	cfg.Engine.Type = config.EngineTypeWebKit
+
+	called := false
+	preInitializeAdwaitaForCEF(cfg, initResult, func() {
+		called = true
+	})
+
+	if called {
+		t.Fatal("expected libadwaita initialization to be skipped for non-CEF")
+	}
+	if initResult.AdwaitaDetector.Available() {
+		t.Fatal("expected adwaita detector to remain unavailable")
 	}
 }

@@ -1,6 +1,6 @@
 <script lang="ts">
   import { onMount } from "svelte";
-  import { ModeWatcher } from "mode-watcher";
+  import { ModeWatcher, resetMode, setMode } from "mode-watcher";
   import ConfigShell from "./config/ConfigShell.svelte";
   import ShortcutsTable from "./config/ShortcutsTable.svelte";
   import KeybindingsTab from "./config/KeybindingsTab.svelte";
@@ -83,6 +83,7 @@
     default_ui_scale: number;
     default_search_engine: string;
     search_shortcuts: Record<string, SearchShortcut>;
+    engine_type: string;
   };
 
   const PERFORMANCE_PROFILES = [
@@ -117,6 +118,49 @@
   let themeEvents = $state(0);
   let activeTab = $state("appearance");
 
+  function getResolvedDarkPreference(fallback?: boolean): boolean {
+    if (typeof fallback === "boolean") {
+      return fallback;
+    }
+    if (typeof window.__dumber_cef_prefers_dark === "boolean") {
+      return window.__dumber_cef_prefers_dark;
+    }
+    if (typeof window.__dumber_gtk_prefers_dark === "boolean") {
+      return window.__dumber_gtk_prefers_dark;
+    }
+    return document.documentElement.classList.contains("dark");
+  }
+
+  function applyResolvedTheme(prefersDark: boolean): void {
+    const root = document.documentElement;
+    root.classList.toggle("dark", prefersDark);
+    root.classList.toggle("light", !prefersDark);
+    root.style.colorScheme = prefersDark ? "dark" : "light";
+    window.__dumber_cef_prefers_dark = prefersDark;
+    window.__dumber_gtk_prefers_dark = prefersDark;
+  }
+
+  function syncModeWatcherPreference(colorScheme: string | undefined, prefersDark?: boolean): void {
+    switch (colorScheme) {
+      case "prefer-dark":
+        setMode("dark");
+        applyResolvedTheme(true);
+        break;
+      case "prefer-light":
+        setMode("light");
+        applyResolvedTheme(false);
+        break;
+      default:
+        resetMode();
+        applyResolvedTheme(getResolvedDarkPreference(prefersDark));
+        break;
+    }
+  }
+
+  function isPerformanceSupported(cfg: ConfigDTO | null): boolean {
+    return cfg != null && cfg.engine_type !== "cef";
+  }
+
   // Load config from API
   async function loadConfig() {
     loading = true;
@@ -125,6 +169,10 @@
       const response = await fetch("/api/config");
       if (!response.ok) throw new Error("Failed to fetch config");
       config = (await response.json()) as ConfigDTO;
+      syncModeWatcherPreference(config.appearance.color_scheme);
+      if (!isPerformanceSupported(config) && activeTab === "performance") {
+        activeTab = "appearance";
+      }
     } catch (e: unknown) {
       loadError = getErrorMessage(e);
       console.error("[config] load failed", e);
@@ -146,6 +194,10 @@
       const response = await fetch("/api/config/default");
       if (!response.ok) throw new Error("Failed to fetch default config");
       config = (await response.json()) as ConfigDTO;
+      syncModeWatcherPreference(config.appearance.color_scheme);
+      if (!isPerformanceSupported(config) && activeTab === "performance") {
+        activeTab = "appearance";
+      }
     } catch (e: unknown) {
       console.error("[config] reset defaults failed", e);
     }
@@ -153,7 +205,7 @@
   }
 
   function getWebKitBridge(): { postMessage: (msg: unknown) => void } | null {
-    const bridge = window.webkit?.messageHandlers?.dumber;
+    const bridge = window.webkit?.messageHandlers?.dumber ?? window.dumber;
     if (bridge && typeof bridge.postMessage === "function") {
       return bridge;
     }
@@ -180,7 +232,7 @@
       });
 
       if (!bridge) {
-        throw new Error("WebKit bridge not available (not running inside Dumber)");
+        throw new Error("Dumber bridge not available (not running inside Dumber)");
       }
       if (!config) {
         throw new Error("Config not loaded");
@@ -208,9 +260,11 @@
         saving = false;
 
         // Show restart warning if performance tab was active
-        if (activeTab === "performance") {
+        if (activeTab === "performance" && isPerformanceSupported(config)) {
           showRestartWarning = true;
         }
+
+        syncModeWatcherPreference(config?.appearance.color_scheme);
 
         // Refresh config from backend (in case watcher normalized values)
         reloadConfig();
@@ -253,12 +307,14 @@
   onMount(() => {
     console.debug("[config] mount", {
       webviewId: window.__dumber_webview_id,
-      hasBridge: Boolean(window.webkit?.messageHandlers?.dumber),
+      hasBridge: Boolean(getWebKitBridge()),
     });
 
     const onThemeChanged = (e: Event) => {
       themeEvents += 1;
-      console.debug("[config] theme changed", (e as CustomEvent).detail);
+      const detail = (e as CustomEvent<{ prefersDark?: boolean }>).detail;
+      syncModeWatcherPreference(config?.appearance.color_scheme, detail?.prefersDark);
+      console.debug("[config] theme changed", detail);
     };
     window.addEventListener("dumber:theme-changed", onThemeChanged);
 
@@ -305,9 +361,21 @@
             <Tabs.Trigger value="appearance">Appearance</Tabs.Trigger>
             <Tabs.Trigger value="search">Search</Tabs.Trigger>
             <Tabs.Trigger value="keybindings">Keybindings</Tabs.Trigger>
-            <Tabs.Trigger value="performance">Performance</Tabs.Trigger>
+            <Tabs.Trigger
+              value="performance"
+              disabled={!isPerformanceSupported(config)}
+              title={!isPerformanceSupported(config) ? "Performance tuning is only available with the WebKit engine" : undefined}
+            >
+              Performance
+            </Tabs.Trigger>
           </Tabs.List>
         </div>
+
+        {#if !isPerformanceSupported(config)}
+          <div class="rounded-md border border-border bg-muted/20 px-4 py-3 text-sm text-muted-foreground">
+            Performance settings are disabled while using the CEF engine because these options are specific to WebKitGTK.
+          </div>
+        {/if}
 
         <Tabs.Content value="appearance">
           <Card.Root class="rounded-none border-0 bg-transparent py-0 shadow-none">
@@ -449,6 +517,11 @@
               </Card.Description>
             </Card.Header>
             <Card.Content class="space-y-6">
+              {#if !isPerformanceSupported(config)}
+                <div class="rounded-md border border-border bg-muted/20 px-4 py-3 text-sm text-muted-foreground">
+                  This section is unavailable under the CEF engine.
+                </div>
+              {:else}
               <!-- Detected Hardware Card -->
               {#if config.performance?.hardware}
                 {@const hw = config.performance.hardware}
@@ -613,6 +686,7 @@
                     </div>
                   </div>
                 </div>
+              {/if}
               {/if}
             </Card.Content>
           </Card.Root>

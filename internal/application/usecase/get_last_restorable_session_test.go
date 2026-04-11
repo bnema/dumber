@@ -1,8 +1,6 @@
 package usecase_test
 
 import (
-	"os"
-	"path/filepath"
 	"testing"
 	"time"
 
@@ -21,7 +19,7 @@ func TestGetLastRestorableSessionUseCase_NoSessions(t *testing.T) {
 
 	sessionRepo.EXPECT().GetRecent(ctx, 10).Return([]*entity.Session{}, nil)
 
-	uc := usecase.NewGetLastRestorableSessionUseCase(sessionRepo, stateRepo, "")
+	uc := usecase.NewGetLastRestorableSessionUseCase(sessionRepo, stateRepo)
 
 	output, err := uc.Execute(ctx, usecase.GetLastRestorableSessionInput{
 		ExcludeSessionID: "current",
@@ -53,7 +51,7 @@ func TestGetLastRestorableSessionUseCase_OnlyCurrentSession(t *testing.T) {
 
 	sessionRepo.EXPECT().GetRecent(ctx, 10).Return(sessions, nil)
 
-	uc := usecase.NewGetLastRestorableSessionUseCase(sessionRepo, stateRepo, "")
+	uc := usecase.NewGetLastRestorableSessionUseCase(sessionRepo, stateRepo)
 
 	output, err := uc.Execute(ctx, usecase.GetLastRestorableSessionInput{
 		ExcludeSessionID: currentID,
@@ -82,7 +80,7 @@ func TestGetLastRestorableSessionUseCase_SkipsCLISessions(t *testing.T) {
 
 	sessionRepo.EXPECT().GetRecent(ctx, 10).Return(sessions, nil)
 
-	uc := usecase.NewGetLastRestorableSessionUseCase(sessionRepo, stateRepo, "")
+	uc := usecase.NewGetLastRestorableSessionUseCase(sessionRepo, stateRepo)
 
 	output, err := uc.Execute(ctx, usecase.GetLastRestorableSessionInput{
 		ExcludeSessionID: "current",
@@ -92,22 +90,13 @@ func TestGetLastRestorableSessionUseCase_SkipsCLISessions(t *testing.T) {
 	assert.Empty(t, output.SessionID)
 }
 
-func TestGetLastRestorableSessionUseCase_SkipsActiveWithLock(t *testing.T) {
+func TestGetLastRestorableSessionUseCase_SkipsActiveSessions(t *testing.T) {
 	ctx := testContext()
-
-	// Create temp dir for lock files
-	lockDir := t.TempDir()
 
 	sessionRepo := repomocks.NewMockSessionRepository(t)
 	stateRepo := repomocks.NewMockSessionStateRepository(t)
 
 	activeID := entity.SessionID("20251225_120000_actv")
-
-	// Create lock file to simulate running session
-	lockPath := filepath.Join(lockDir, "session_"+string(activeID)+".lock")
-	f, err := os.Create(lockPath)
-	require.NoError(t, err)
-	f.Close()
 
 	sessions := []*entity.Session{
 		{
@@ -120,7 +109,7 @@ func TestGetLastRestorableSessionUseCase_SkipsActiveWithLock(t *testing.T) {
 
 	sessionRepo.EXPECT().GetRecent(ctx, 10).Return(sessions, nil)
 
-	uc := usecase.NewGetLastRestorableSessionUseCase(sessionRepo, stateRepo, lockDir)
+	uc := usecase.NewGetLastRestorableSessionUseCase(sessionRepo, stateRepo)
 
 	output, err := uc.Execute(ctx, usecase.GetLastRestorableSessionInput{
 		ExcludeSessionID: "current",
@@ -151,7 +140,7 @@ func TestGetLastRestorableSessionUseCase_SkipsNoSnapshot(t *testing.T) {
 	sessionRepo.EXPECT().GetRecent(ctx, 10).Return(sessions, nil)
 	stateRepo.EXPECT().GetSnapshot(ctx, sessionID).Return(nil, nil) // No snapshot
 
-	uc := usecase.NewGetLastRestorableSessionUseCase(sessionRepo, stateRepo, "")
+	uc := usecase.NewGetLastRestorableSessionUseCase(sessionRepo, stateRepo)
 
 	output, err := uc.Execute(ctx, usecase.GetLastRestorableSessionInput{
 		ExcludeSessionID: "current",
@@ -189,7 +178,7 @@ func TestGetLastRestorableSessionUseCase_SkipsEmptyTabs(t *testing.T) {
 	sessionRepo.EXPECT().GetRecent(ctx, 10).Return(sessions, nil)
 	stateRepo.EXPECT().GetSnapshot(ctx, sessionID).Return(emptyState, nil)
 
-	uc := usecase.NewGetLastRestorableSessionUseCase(sessionRepo, stateRepo, "")
+	uc := usecase.NewGetLastRestorableSessionUseCase(sessionRepo, stateRepo)
 
 	output, err := uc.Execute(ctx, usecase.GetLastRestorableSessionInput{
 		ExcludeSessionID: "current",
@@ -241,7 +230,7 @@ func TestGetLastRestorableSessionUseCase_ReturnsEndedSession(t *testing.T) {
 	sessionRepo.EXPECT().GetRecent(ctx, 10).Return(sessions, nil)
 	stateRepo.EXPECT().GetSnapshot(ctx, sessionID).Return(validState, nil)
 
-	uc := usecase.NewGetLastRestorableSessionUseCase(sessionRepo, stateRepo, "")
+	uc := usecase.NewGetLastRestorableSessionUseCase(sessionRepo, stateRepo)
 
 	output, err := uc.Execute(ctx, usecase.GetLastRestorableSessionInput{
 		ExcludeSessionID: "current",
@@ -256,21 +245,19 @@ func TestGetLastRestorableSessionUseCase_ReturnsEndedSession(t *testing.T) {
 func TestGetLastRestorableSessionUseCase_ReturnsCrashedSession(t *testing.T) {
 	ctx := testContext()
 
-	// Empty lock dir (no lock files)
-	lockDir := t.TempDir()
-
 	sessionRepo := repomocks.NewMockSessionRepository(t)
 	stateRepo := repomocks.NewMockSessionStateRepository(t)
 
 	sessionID := entity.SessionID("20251225_120000_crsh")
 
-	// Session with no ended_at (crashed) but no lock file
+	// Crashed session that was cleaned up by background cleanup (EndedAt set).
+	endedAt := time.Now().Add(-30 * time.Minute)
 	sessions := []*entity.Session{
 		{
 			ID:        sessionID,
 			Type:      entity.SessionTypeBrowser,
 			StartedAt: time.Now().Add(-1 * time.Hour),
-			EndedAt:   nil, // Not ended - simulates crash
+			EndedAt:   &endedAt,
 		},
 	}
 
@@ -298,7 +285,7 @@ func TestGetLastRestorableSessionUseCase_ReturnsCrashedSession(t *testing.T) {
 	sessionRepo.EXPECT().GetRecent(ctx, 10).Return(sessions, nil)
 	stateRepo.EXPECT().GetSnapshot(ctx, sessionID).Return(validState, nil)
 
-	uc := usecase.NewGetLastRestorableSessionUseCase(sessionRepo, stateRepo, lockDir)
+	uc := usecase.NewGetLastRestorableSessionUseCase(sessionRepo, stateRepo)
 
 	output, err := uc.Execute(ctx, usecase.GetLastRestorableSessionInput{
 		ExcludeSessionID: "current",
@@ -349,7 +336,7 @@ func TestGetLastRestorableSessionUseCase_ReturnsMostRecent(t *testing.T) {
 	stateRepo.EXPECT().GetSnapshot(ctx, recentID).Return(recentState, nil)
 	// Note: GetSnapshot for olderID should NOT be called since we return first match
 
-	uc := usecase.NewGetLastRestorableSessionUseCase(sessionRepo, stateRepo, "")
+	uc := usecase.NewGetLastRestorableSessionUseCase(sessionRepo, stateRepo)
 
 	output, err := uc.Execute(ctx, usecase.GetLastRestorableSessionInput{
 		ExcludeSessionID: "current",
@@ -397,7 +384,7 @@ func TestGetLastRestorableSessionUseCase_SkipsFirstIfNoSnapshot(t *testing.T) {
 	stateRepo.EXPECT().GetSnapshot(ctx, noSnapID).Return(nil, nil) // No snapshot
 	stateRepo.EXPECT().GetSnapshot(ctx, goodID).Return(goodState, nil)
 
-	uc := usecase.NewGetLastRestorableSessionUseCase(sessionRepo, stateRepo, "")
+	uc := usecase.NewGetLastRestorableSessionUseCase(sessionRepo, stateRepo)
 
 	output, err := uc.Execute(ctx, usecase.GetLastRestorableSessionInput{
 		ExcludeSessionID: "current",

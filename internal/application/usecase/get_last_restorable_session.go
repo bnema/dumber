@@ -21,19 +21,16 @@ const (
 type GetLastRestorableSessionUseCase struct {
 	sessionRepo repository.SessionRepository
 	stateRepo   repository.SessionStateRepository
-	lockDir     string
 }
 
 // NewGetLastRestorableSessionUseCase creates a new GetLastRestorableSessionUseCase.
 func NewGetLastRestorableSessionUseCase(
 	sessionRepo repository.SessionRepository,
 	stateRepo repository.SessionStateRepository,
-	lockDir string,
 ) *GetLastRestorableSessionUseCase {
 	return &GetLastRestorableSessionUseCase{
 		sessionRepo: sessionRepo,
 		stateRepo:   stateRepo,
-		lockDir:     lockDir,
 	}
 }
 
@@ -75,9 +72,8 @@ func (uc *GetLastRestorableSessionUseCase) Execute(
 			continue
 		}
 
-		// Check if session is actively running
-		// A session is "active" if ended_at IS NULL AND it has a lock file
-		if session.IsActive() && isSessionLocked(uc.lockDir, session.ID) {
+		// Skip sessions that haven't been ended yet (still running or crashed).
+		if session.IsActive() {
 			log.Debug().
 				Str("session_id", string(session.ID)).
 				Msg("auto-restore: skipping active session")

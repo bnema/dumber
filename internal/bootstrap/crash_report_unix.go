@@ -8,14 +8,16 @@ import (
 	"golang.org/x/sys/unix"
 )
 
-func collectCoreDumpDiagnostics() unexpectedCloseCoreDump {
-	d := unexpectedCloseCoreDump{
+const unknownDiag = "unknown"
+
+func collectCoreDumpDiagnostics() crashCoreDump {
+	d := crashCoreDump{
 		Hint: "Run `coredumpctl list | rg -i \"dumber\"` and include matching entries in the issue.",
 	}
 	var limit unix.Rlimit
 	if err := unix.Getrlimit(unix.RLIMIT_CORE, &limit); err != nil {
-		d.RLimitCoreSoft = string(SessionExitUnknown)
-		d.RLimitCoreHard = string(SessionExitUnknown)
+		d.RLimitCoreSoft = unknownDiag
+		d.RLimitCoreHard = unknownDiag
 		return d
 	}
 	d.RLimitCoreSoft = formatRlimitCore(limit.Cur)

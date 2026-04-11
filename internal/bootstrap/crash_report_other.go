@@ -2,8 +2,8 @@
 
 package bootstrap
 
-func collectCoreDumpDiagnostics() unexpectedCloseCoreDump {
-	return unexpectedCloseCoreDump{
+func collectCoreDumpDiagnostics() crashCoreDump {
+	return crashCoreDump{
 		RLimitCoreSoft: "unsupported",
 		RLimitCoreHard: "unsupported",
 		Hint:           "Core dump diagnostics are only available on Linux and macOS.",

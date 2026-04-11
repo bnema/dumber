@@ -50,6 +50,15 @@ func gtkApplicationFlags() gio.ApplicationFlags {
 	return gio.GApplicationNonUniqueValue
 }
 
+var adwaitaInitOnce sync.Once
+
+// EnsureAdwaitaInitialized initializes libadwaita and GTK exactly once.
+func EnsureAdwaitaInitialized() {
+	adwaitaInitOnce.Do(func() {
+		adw.Init()
+	})
+}
+
 // App wraps the GTK Application and manages the browser lifecycle.
 type App struct {
 	deps       *Dependencies
@@ -195,6 +204,7 @@ func New(deps *Dependencies) (*App, error) {
 			})
 			glib.IdleAdd(&cb, 0)
 		},
+		HandlerDeps: deps.HandlerDeps,
 	}); err != nil {
 		return nil, err
 	}
@@ -210,7 +220,7 @@ func (a *App) Run(ctx context.Context, args []string) int {
 
 	// Initialize libadwaita once (required before using StyleManager).
 	// This also initializes GTK implicitly.
-	adw.Init()
+	EnsureAdwaitaInitialized()
 	logging.Trace().Mark("gtk_init")
 
 	// Mark adwaita detector as available now that adw.Init() is complete.
@@ -371,11 +381,18 @@ func (a *App) prewarmWebViewPoolAsync(ctx context.Context) {
 }
 
 func (a *App) createMainWindow(ctx context.Context) error {
+	log := logging.FromContext(ctx)
 	mainWindow, err := window.New(ctx, a.gtkApp, a.deps.Config.Workspace.TabBarPosition)
 	if err != nil {
 		return err
 	}
 	a.mainWindow = mainWindow
+
+	closeRequestCb := func(_ gtk.Window) bool {
+		log.Info().Msg("main window close requested")
+		return false
+	}
+	a.mainWindow.Window().ConnectCloseRequest(&closeRequestCb)
 
 	// Create permission popup and dialog presenter
 	if a.deps != nil && a.deps.PermissionUC != nil {
@@ -927,12 +944,10 @@ func (a *App) initSessionManager(ctx context.Context) {
 		listSessionsUC = usecase.NewListSessionsUseCase(
 			a.deps.SessionRepo,
 			a.deps.SessionStateRepo,
-			a.deps.Config.Logging.LogDir,
 		)
 		deleteSessionUC = usecase.NewDeleteSessionUseCase(
 			a.deps.SessionStateRepo,
 			a.deps.SessionRepo,
-			a.deps.Config.Logging.LogDir,
 		)
 	}
 
@@ -2564,7 +2579,7 @@ func (a *App) ensureFloatingSession(
 	// regular workspace panes. This allows the content coordinator's
 	// existing callbacks (onLoadStarted, onProgressChanged, etc.) to find
 	// and update the floating pane automatically.
-	pv := component.NewPaneView(a.widgetFactory, paneID, webViewWidget)
+	pv := component.NewPaneView(ctx, a.widgetFactory, paneID, webViewWidget)
 	pv.SetActive(true)
 	// Hide loading skeleton — floating panes have their own themed container.
 	pv.HideLoadingSkeleton()

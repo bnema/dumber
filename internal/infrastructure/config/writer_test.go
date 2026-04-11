@@ -1,6 +1,7 @@
 package config
 
 import (
+	"bytes"
 	"os"
 	"path/filepath"
 	"strings"
@@ -41,6 +42,27 @@ func TestWriteConfigOrdered(t *testing.T) {
 		if sections[i-1] > sections[i] {
 			t.Errorf("Sections not sorted: %s > %s", sections[i-1], sections[i])
 		}
+	}
+
+	if !strings.Contains(string(content), "[transcoding]") {
+		t.Fatalf("expected transcoding section in generated config, got:\n%s", string(content))
+	}
+	// Match "enabled = false" specifically within the [transcoding] section to
+	// avoid false positives from other sections that may also have an enabled key.
+	transcodingIdx := bytes.Index(content, []byte("[transcoding]"))
+	if transcodingIdx < 0 {
+		t.Fatalf("expected transcoding section in generated config, got:\n%s", string(content))
+	}
+	afterTranscoding := content[transcodingIdx:]
+	nextSection := bytes.Index(afterTranscoding[1:], []byte("\n["))
+	var transcodingBlock []byte
+	if nextSection >= 0 {
+		transcodingBlock = afterTranscoding[:nextSection+1]
+	} else {
+		transcodingBlock = afterTranscoding
+	}
+	if !bytes.Contains(transcodingBlock, []byte("enabled = false")) {
+		t.Fatalf("expected enabled = false in [transcoding] section, got:\n%s", string(transcodingBlock))
 	}
 
 	t.Logf("Found %d sections, all sorted", len(sections))

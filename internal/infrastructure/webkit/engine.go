@@ -7,6 +7,7 @@ import (
 	"github.com/bnema/dumber/internal/application/port"
 	"github.com/bnema/dumber/internal/infrastructure/config"
 	"github.com/bnema/dumber/internal/infrastructure/filtering"
+	"github.com/bnema/dumber/internal/infrastructure/handlers"
 	"github.com/rs/zerolog"
 )
 
@@ -23,10 +24,6 @@ type Engine struct {
 	schemeHandler *DumbSchemeHandler
 	schemePath    string
 	logger        zerolog.Logger
-
-	// Handler registrars - injected at construction to avoid import cycles.
-	handlerRegistrar       func(ctx context.Context, router *MessageRouter, deps port.HandlerDependencies) error
-	accentHandlerRegistrar func(ctx context.Context, router *MessageRouter, handler port.AccentKeyHandler) error
 }
 
 // Compile-time check that Engine implements port.Engine.
@@ -95,10 +92,7 @@ func (e *Engine) RegisterHandlers(ctx context.Context, deps port.HandlerDependen
 	if e.messageRouter == nil {
 		return fmt.Errorf("message router not initialized")
 	}
-	if e.handlerRegistrar == nil {
-		return fmt.Errorf("handler registrar not configured")
-	}
-	return e.handlerRegistrar(ctx, e.messageRouter, deps)
+	return handlers.RegisterAll(ctx, e.messageRouter, deps)
 }
 
 // RegisterAccentHandlers registers accent/dead-key input handlers.
@@ -106,10 +100,7 @@ func (e *Engine) RegisterAccentHandlers(ctx context.Context, handler port.Accent
 	if e.messageRouter == nil {
 		return fmt.Errorf("message router not initialized")
 	}
-	if e.accentHandlerRegistrar == nil {
-		return fmt.Errorf("accent handler registrar not configured")
-	}
-	return e.accentHandlerRegistrar(ctx, e.messageRouter, handler)
+	return handlers.RegisterAccentHandlers(ctx, e.messageRouter, handler)
 }
 
 // ConfigureDownloads sets up download handling.

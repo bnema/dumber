@@ -72,23 +72,27 @@ func buildWebUIThemeScript(prefersDark bool, cssText string) (string, error) {
   try {
     var cssText = %s;
     var prefersDark = %t;
+    var root = document.documentElement;
 
-    // Keep the global flag in sync
+    // Keep the global flags in sync for both WebKit and CEF-backed pages.
     window.__dumber_gtk_prefers_dark = prefersDark;
+    window.__dumber_cef_prefers_dark = prefersDark;
 
     // Update dark/light class
     if (prefersDark) {
-      document.documentElement.classList.add('dark');
-      document.documentElement.classList.remove('light');
+      root.classList.add('dark');
+      root.classList.remove('light');
     } else {
-      document.documentElement.classList.add('light');
-      document.documentElement.classList.remove('dark');
+      root.classList.add('light');
+      root.classList.remove('dark');
     }
+    root.style.colorScheme = prefersDark ? 'dark' : 'light';
 
     // Update or insert theme style
-    var style = document.querySelector('style[data-dumber-theme-vars]');
+    var style = document.getElementById('dumber-theme-vars') || document.querySelector('style[data-dumber-theme-vars]');
     if (!style) {
       style = document.createElement('style');
+      style.id = 'dumber-theme-vars';
       style.setAttribute('data-dumber-theme-vars', '');
       (document.head || document.documentElement).appendChild(style);
     }

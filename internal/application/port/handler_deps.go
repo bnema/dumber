@@ -30,3 +30,18 @@ type DownloadPrepareOutput struct {
 type AutoCopyConfig interface {
 	IsAutoCopyEnabled() bool
 }
+
+// HandlerDeps holds handler dependencies built at bootstrap time.
+// Lives in the port layer so both bootstrap and ui can depend on it
+// without creating a reverse dependency.
+//
+// This is an intentional exception to the interfaces-only port layer guideline.
+// A struct is used here to avoid reverse dependencies between the bootstrap and
+// UI layers, which both need to reference this shared dependency container.
+type HandlerDeps struct {
+	SaveConfig             func(context.Context, WebUIConfig) error
+	KeybindingsGetter      KeybindingsGetter
+	KeybindingSetter       KeybindingSetter
+	KeybindingResetter     KeybindingResetter
+	AllKeybindingsResetter AllKeybindingsResetter
+}

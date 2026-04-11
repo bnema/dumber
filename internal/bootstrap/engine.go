@@ -2,13 +2,17 @@ package bootstrap
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 
 	"github.com/bnema/dumber/internal/application/port"
-	"github.com/bnema/dumber/internal/application/usecase"
+	audiofactory "github.com/bnema/dumber/internal/infrastructure/audio/factory"
+	"github.com/bnema/dumber/internal/infrastructure/cef"
 	"github.com/bnema/dumber/internal/infrastructure/config"
+	"github.com/bnema/dumber/internal/infrastructure/env"
+	"github.com/bnema/dumber/internal/infrastructure/handlers"
+	"github.com/bnema/dumber/internal/infrastructure/transcoder"
 	"github.com/bnema/dumber/internal/infrastructure/webkit"
-	"github.com/bnema/dumber/internal/infrastructure/webkit/handlers"
 	"github.com/bnema/dumber/internal/ui/theme"
 	"github.com/rs/zerolog"
 )
@@ -25,15 +29,11 @@ type EngineInput struct {
 }
 
 // BuildEngine constructs a port.Engine for the engine type specified in cfg.Engine.Type.
-// Currently only "webkit" is supported; "cef" and other types return an error.
 func BuildEngine(input EngineInput) (port.Engine, error) {
 	cfg := input.Config
-	engineType := cfg.Engine.Type
-	if engineType == "" {
-		engineType = "webkit"
-	}
+	engineType := cfg.Engine.ResolveEngineType()
 	switch engineType {
-	case "webkit":
+	case config.EngineTypeWebKit:
 		opts := port.EngineOptions{
 			DataDir:      input.DataDir,
 			CacheDir:     input.CacheDir,
@@ -41,66 +41,60 @@ func BuildEngine(input EngineInput) (port.Engine, error) {
 		}
 		wkCfg := webkit.EngineConfigFromConfig(cfg.Engine.WebKit)
 
-		// Pre-build keybindings handler for handler registration.
-		keybindingsHandler, err := buildKeybindingsHandler()
-		if err != nil {
-			return nil, fmt.Errorf("failed to build keybindings handler: %w", err)
-		}
-
-		// Pre-build config save function for handler registration.
-		saveConfigFunc, err := buildSaveConfigFunc()
-		if err != nil {
-			return nil, fmt.Errorf("failed to build save config func: %w", err)
-		}
-
 		return webkit.NewEngine(
 			input.Ctx, cfg, opts, wkCfg,
 			input.ThemeManager, input.ColorResolver, input.Logger,
-			func(ctx context.Context, router *webkit.MessageRouter, deps port.HandlerDependencies) error {
-				return handlers.RegisterAll(ctx, router, handlers.Config{
-					HistoryUC:          deps.HistoryUC,
-					FavoritesUC:        deps.FavoritesUC,
-					Clipboard:          deps.Clipboard,
-					AutoCopyConfig:     deps.AutoCopyConfig,
-					SaveConfig:         saveConfigFunc,
-					KeybindingsHandler: keybindingsHandler,
-					OnClipboardCopied:  deps.OnClipboardCopied,
-				})
-			},
-			handlers.RegisterAccentHandlers,
 		)
-	case "cef":
-		return nil, fmt.Errorf("CEF engine not yet implemented")
+	case config.EngineTypeCEF:
+		opts := port.EngineOptions{
+			DataDir:      input.DataDir,
+			CacheDir:     input.CacheDir,
+			CookiePolicy: port.CookiePolicy(cfg.Engine.CookiePolicy),
+		}
+		cefCfg := cef.RuntimeConfig{
+			CEFDir:                   cfg.Engine.CEF.CEFDir,
+			LogFile:                  cfg.Engine.CEF.LogFile,
+			LogSeverity:              cfg.Engine.CEF.LogSeverity,
+			WindowlessFrameRate:      cfg.Engine.CEF.WindowlessFrameRate,
+			EnableAudioHandler:       cfg.Engine.CEF.EnableAudioHandler,
+			EnableContextMenuHandler: cfg.Engine.CEF.EnableContextMenuHandler,
+			TraceHandlers:            cfg.Engine.CEF.TraceHandlers,
+		}
+		transcodingCfg := cef.TranscodingRuntimeConfig{
+			Enabled:       cfg.Transcoding.Enabled,
+			HWAccel:       cfg.Transcoding.HWAccel,
+			MaxConcurrent: cfg.Transcoding.MaxConcurrent,
+			Quality:       cfg.Transcoding.Quality,
+		}
+		surveyor := env.NewHardwareSurveyor()
+		buildConfigPayload := func(cfgf func() *config.Config) func() ([]byte, error) {
+			return func() ([]byte, error) {
+				cfg := cfgf()
+				var hw *port.HardwareInfo
+				if surveyor != nil {
+					survey := surveyor.Survey(context.Background())
+					hw = &survey
+				}
+				return json.Marshal(config.BuildWebUIConfigPayload(cfg, hw))
+			}
+		}
+		deps := cef.EngineDependencies{
+			RegisterHandlers:       handlers.RegisterAll,
+			RegisterAccentHandlers: handlers.RegisterAccentHandlers,
+			CurrentConfigPayload:   buildConfigPayload(config.Get),
+			DefaultConfigPayload:   buildConfigPayload(config.DefaultConfig),
+			MediaClassifier: cef.MediaClassifier{
+				IsProprietaryVideoMIME:     transcoder.IsProprietaryVideoMIME,
+				IsOpenVideoMIME:            transcoder.IsOpenVideoMIME,
+				IsStreamingManifestMIME:    transcoder.IsStreamingManifestMIME,
+				IsStreamingManifestURL:     transcoder.IsStreamingManifestURL,
+				IsEagerTranscodeURL:        transcoder.IsEagerTranscodeURL,
+				ParseSyntheticTranscodeURL: transcoder.ParseSyntheticTranscodeURL,
+			},
+		}
+		audioFactory := audiofactory.NewAudioOutputFactory()
+		return cef.NewEngine(input.Ctx, opts, cefCfg, transcodingCfg, audioFactory, deps)
 	default:
 		return nil, fmt.Errorf("unknown engine type: %q", engineType)
 	}
-}
-
-// buildKeybindingsHandler constructs the keybindings handler using the config manager.
-func buildKeybindingsHandler() (*handlers.KeybindingsHandler, error) {
-	mgr := config.GetManager()
-	if mgr == nil {
-		return nil, fmt.Errorf("config manager not initialized")
-	}
-
-	gateway := config.NewKeybindingsGateway(mgr)
-
-	return handlers.NewKeybindingsHandler(
-		usecase.NewGetKeybindingsUseCase(gateway),
-		usecase.NewSetKeybindingUseCase(gateway, gateway),
-		usecase.NewResetKeybindingUseCase(gateway),
-		usecase.NewResetAllKeybindingsUseCase(gateway),
-	), nil
-}
-
-// buildSaveConfigFunc constructs the config save function using the config manager.
-// It returns an error immediately if the config manager is not initialized, consistent
-// with buildKeybindingsHandler.
-func buildSaveConfigFunc() (func(context.Context, port.WebUIConfig) error, error) {
-	mgr := config.GetManager()
-	if mgr == nil {
-		return nil, fmt.Errorf("config manager not initialized")
-	}
-	uc := usecase.NewSaveWebUIConfigUseCase(config.NewWebUIConfigGateway(mgr))
-	return uc.Execute, nil
 }

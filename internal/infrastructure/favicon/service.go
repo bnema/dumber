@@ -37,27 +37,39 @@ func (s *Service) Get(ctx context.Context, domain string) ([]byte, error) {
 	if domain == "" {
 		return nil, nil
 	}
+	log := logging.FromContext(ctx)
+	log.Debug().Str("domain", domain).Msg("favicon: Service.Get begin")
 
 	// Internal domain returns the app logo
 	if domain == InternalDomain {
+		log.Debug().Str("domain", domain).Msg("favicon: Service.Get internal domain")
 		return assets.LogoSVG, nil
 	}
 
 	// Check cache first (memory + disk)
-	if data, ok := s.cache.Get(domain); ok {
+	if data, ok := s.cache.Get(ctx, domain); ok {
+		log.Debug().
+			Str("domain", domain).
+			Int("bytes", len(data)).
+			Msg("favicon: Service.Get cache hit")
 		return data, nil
 	}
 
 	// Fetch from external API
 	data, err := s.fetcher.Fetch(ctx, domain)
 	if err != nil {
+		log.Debug().Err(err).Str("domain", domain).Msg("favicon: Service.Get fetch error")
 		return nil, err
 	}
 
 	// Store in cache if we got data
 	if len(data) > 0 {
-		s.cache.Set(domain, data)
+		s.cache.Set(ctx, domain, data)
 	}
+	log.Debug().
+		Str("domain", domain).
+		Int("bytes", len(data)).
+		Msg("favicon: Service.Get end")
 
 	return data, nil
 }
@@ -74,13 +86,19 @@ func GetLogoBytes() []byte {
 }
 
 // GetCached returns favicon bytes only if already cached (no external fetch).
-func (s *Service) GetCached(domain string) ([]byte, bool) {
-	return s.cache.Get(domain)
+func (s *Service) GetCached(ctx context.Context, domain string) ([]byte, bool) {
+	data, ok := s.cache.Get(ctx, domain)
+	logging.FromContext(ctx).Debug().
+		Str("domain", domain).
+		Bool("hit", ok).
+		Int("bytes", len(data)).
+		Msg("favicon: Service.GetCached")
+	return data, ok
 }
 
 // Store saves favicon bytes for a domain to cache.
-func (s *Service) Store(domain string, data []byte) error {
-	s.cache.Set(domain, data)
+func (s *Service) Store(ctx context.Context, domain string, data []byte) error {
+	s.cache.Set(ctx, domain, data)
 	return nil
 }
 
@@ -115,13 +133,14 @@ func (s *Service) EnsureDiskCache(ctx context.Context, domain string) {
 	if domain == "" {
 		return
 	}
+	log := logging.FromContext(ctx)
+	log.Debug().Str("domain", domain).Msg("favicon: EnsureDiskCache begin")
 
 	// Already on disk?
 	if s.cache.HasOnDisk(domain) {
+		log.Debug().Str("domain", domain).Msg("favicon: EnsureDiskCache already on disk")
 		return
 	}
-
-	log := logging.FromContext(ctx)
 
 	// Fetch and store
 	data, err := s.fetcher.Fetch(ctx, domain)
@@ -131,8 +150,12 @@ func (s *Service) EnsureDiskCache(ctx context.Context, domain string) {
 	}
 
 	if len(data) > 0 {
-		s.cache.Set(domain, data)
+		s.cache.Set(ctx, domain, data)
 	}
+	log.Debug().
+		Str("domain", domain).
+		Int("bytes", len(data)).
+		Msg("favicon: EnsureDiskCache end")
 }
 
 // DiskPathPNGSized returns the filesystem path for a sized PNG favicon.
@@ -151,9 +174,18 @@ func (s *Service) EnsureSizedPNG(ctx context.Context, domain string, size int) e
 	if domain == "" {
 		return nil
 	}
+	log := logging.FromContext(ctx)
+	log.Debug().
+		Str("domain", domain).
+		Int("size", size).
+		Msg("favicon: EnsureSizedPNG begin")
 
 	// Already exists?
 	if s.HasPNGSizedOnDisk(domain, size) {
+		log.Debug().
+			Str("domain", domain).
+			Int("size", size).
+			Msg("favicon: EnsureSizedPNG already exists")
 		return nil
 	}
 
@@ -168,10 +200,15 @@ func (s *Service) EnsureSizedPNG(ctx context.Context, domain string, size int) e
 		return fmt.Errorf("cannot determine destination path for domain %s", domain)
 	}
 
-	log := logging.FromContext(ctx)
 	log.Debug().Str("domain", domain).Int("size", size).Msg("creating sized favicon")
 
-	return ResizePNG(srcPath, dstPath, size)
+	err := ResizePNG(srcPath, dstPath, size)
+	log.Debug().
+		Err(err).
+		Str("domain", domain).
+		Int("size", size).
+		Msg("favicon: EnsureSizedPNG end")
+	return err
 }
 
 // EnsureInternalFaviconPNG ensures the internal app logo PNG exists on disk.

@@ -15,6 +15,49 @@ interface PageConfig {
   filename?: string;
 }
 
+// Bootstrap a unified window.dumber bridge before the page bundle runs.
+// On WebKit internal pages we forward to the native message handler.
+// On CEF internal pages we fall back to the fetch-based /api/message bridge.
+function getBridgeBootstrap(): string {
+  return `<script>
+    (function() {
+      if (window.dumber && typeof window.dumber.postMessage === "function") {
+        return;
+      }
+
+      window.dumber = {
+        postMessage: async function(msg) {
+          const nativeBridge = window.webkit && window.webkit.messageHandlers && window.webkit.messageHandlers.dumber;
+          if (nativeBridge && typeof nativeBridge.postMessage === "function") {
+            return nativeBridge.postMessage(msg);
+          }
+
+          try {
+            const encoded = btoa(unescape(encodeURIComponent(JSON.stringify(msg))));
+            const response = await fetch("/api/message", {
+              method: "POST",
+              headers: {
+                "Content-Type": "application/json",
+                "X-Dumber-Body": encoded
+              }
+            });
+            const payload = await response.json();
+            if (payload && payload._callback && typeof window[payload._callback] === "function") {
+              window[payload._callback](payload.data);
+            }
+            return payload;
+          } catch (err) {
+            console.error("[dumber:bridge] fetch bridge error:", err);
+            return { error: err instanceof Error ? err.message : String(err) };
+          }
+        }
+      };
+
+      window.dispatchEvent(new CustomEvent("dumber:bridge-ready"));
+    })();
+  </script>`;
+}
+
 // Load the favicon SVG from assets
 function getFaviconSVG(): string {
   const logoPath = resolve(__dirname, "..", "assets", "logo.svg");
@@ -26,6 +69,7 @@ function generatePageHTML(config: PageConfig): string {
   const cssLink = config.css
     ? `<link rel="stylesheet" href="./${config.css}">`
     : "";
+  const bridgeBootstrap = getBridgeBootstrap();
 
   return `<!DOCTYPE html>
 <html lang="en">
@@ -33,7 +77,8 @@ function generatePageHTML(config: PageConfig): string {
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>${config.title}</title>
-    <link rel="icon" type="image/x-icon" href="dumb://homepage/favicon.ico">
+    <link rel="icon" type="image/png" href="/favicon.png">
+    ${bridgeBootstrap}
     ${cssLink}
 </head>
 <body>

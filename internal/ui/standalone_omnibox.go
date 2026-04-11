@@ -9,7 +9,6 @@ import (
 	"github.com/bnema/dumber/internal/logging"
 	"github.com/bnema/dumber/internal/ui/component"
 	"github.com/bnema/dumber/internal/ui/layout"
-	"github.com/bnema/puregotk/v4/adw"
 	"github.com/bnema/puregotk/v4/gdk"
 	"github.com/bnema/puregotk/v4/gio"
 	"github.com/bnema/puregotk/v4/glib"
@@ -345,7 +344,7 @@ func RunStandaloneOmnibox(ctx context.Context, runtimeCfg *StandaloneOmniboxRunt
 		return 1
 	}
 
-	adw.Init()
+	EnsureAdwaitaInitialized()
 	windowCfg := DefaultStandaloneOmniboxWindowConfig()
 	appID := windowCfg.Namespace
 	gtkApp := gtk.NewApplication(&appID, gtkApplicationFlags())

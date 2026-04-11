@@ -35,6 +35,7 @@ import (
 	"github.com/bnema/dumber/internal/ui/adapter"
 	"github.com/bnema/dumber/internal/ui/component"
 	"github.com/bnema/dumber/internal/ui/theme"
+	cef "github.com/bnema/purego-cef/cef"
 	"github.com/bnema/puregotk/v4/gtk"
 	"github.com/rs/zerolog"
 )
@@ -88,8 +89,18 @@ func launchModeFromArgs(args []string) (launchMode, string) {
 func main() {
 	enableCrashForensics()
 
-	mode, browseURL := launchModeFromArgs(os.Args)
+	// CEF subprocess handling: when CEF re-launches the binary with
+	// --type=renderer/gpu/etc, we must call ExecuteProcess before anything
+	// else (Cobra, config, arg stripping). We detect subprocesses by the
+	// presence of --type= in os.Args rather than checking the engine env
+	// var, because subprocesses may not inherit the environment and the
+	// engine can also be selected via config.
+	if isCEFSubprocess() {
+		cef.MaybeExitSubprocess()
+		os.Exit(1)
+	}
 
+	mode, browseURL := launchModeFromArgs(os.Args)
 	// Run GUI mode for browse command
 	if mode == launchModeBrowse {
 		initialURL = browseURL
@@ -135,6 +146,11 @@ func runGUI() int {
 		return 1
 	}
 	timer.MarkDuration("parallel_phase", initResult.Duration)
+
+	preInitializeAdwaitaForCEF(cfg, initResult, func() {
+		logging.FromContext(ctx).Info().Msg("pre-initializing libadwaita before CEF multi-threaded loop")
+		ui.EnsureAdwaitaInitialized()
+	})
 
 	needsEagerDB := restoreSessionID != "" || cfg.Session.AutoRestore
 
@@ -194,6 +210,8 @@ func runStandaloneOmnibox() int {
 		return 1
 	}
 
+	preInitializeAdwaitaForCEF(cfg, initResult, ui.EnsureAdwaitaInitialized)
+
 	engine, repos, dbCleanup, err := initStackAndRepos(ctx, cfg, initResult, false)
 	if err != nil {
 		logging.FromContext(ctx).Error().Err(err).Msg("failed to initialize standalone omnibox runtime")
@@ -204,7 +222,7 @@ func runStandaloneOmnibox() int {
 	}
 
 	useCases := createUseCases(repos, cfg)
-	uiDeps := buildUIDependencies(
+	uiDeps, err := buildUIDependencies(
 		ctx,
 		cfg,
 		initResult.ThemeManager,
@@ -217,9 +235,27 @@ func runStandaloneOmnibox() int {
 		"",
 		nil,
 	)
+	if err != nil {
+		logging.FromContext(ctx).Error().Err(err).Msg("failed to initialize standalone omnibox UI dependencies")
+		return 1
+	}
 	runtimeCfg := ui.NewStandaloneOmniboxRuntime(ctx, uiDeps, engine.FaviconDatabase())
 
 	return ui.RunStandaloneOmnibox(ctx, runtimeCfg)
+}
+
+func preInitializeAdwaitaForCEF(cfg *config.Config, initResult *bootstrap.ParallelInitResult, initAdwaita func()) {
+	if cfg == nil || initResult == nil || initAdwaita == nil {
+		return
+	}
+	if cfg.Engine.ResolveEngineType() != config.EngineTypeCEF {
+		return
+	}
+
+	initAdwaita()
+	if initResult.AdwaitaDetector != nil {
+		initResult.AdwaitaDetector.MarkAvailable()
+	}
 }
 
 func maybeReexecStandaloneOmniboxWithLayerShell() {
@@ -295,10 +331,10 @@ func initBrowserSession(
 		bootstrapLog.Fatal().Err(err).Msg("failed to start session")
 	}
 	cleanup := func() {
+		_ = browserSession.End(sessionCtx)
 		if browserSession.LogCleanup != nil {
 			browserSession.LogCleanup()
 		}
-		_ = browserSession.End(sessionCtx)
 	}
 	return sessionCtx, browserSession, cleanup
 }
@@ -319,11 +355,14 @@ func buildAndConfigureApp(
 	idleInhibitor port.IdleInhibitor,
 	browserSession *bootstrap.BrowserSession,
 ) (*ui.App, error) {
-	uiDeps := buildUIDependencies(
+	uiDeps, err := buildUIDependencies(
 		ctx, cfg, initResult.ThemeManager,
 		initResult.ColorResolver, initResult.AdwaitaDetector,
-		engine, repos, useCases, idleInhibitor, browserSession.Session.ID, browserSession.UnexpectedCloseReports(),
+		engine, repos, useCases, idleInhibitor, browserSession.Session.ID, browserSession.CrashReports(),
 	)
+	if err != nil {
+		return nil, err
+	}
 	configureDeferredInit(uiDeps, cfg, browserSession)
 	return ui.New(uiDeps)
 }
@@ -424,7 +463,7 @@ func configureDeferredInit(
 					logger.Error().Err(persistErr).Msg("deferred session persistence failed")
 				} else {
 					if uiDeps.OnCrashReportsDetected != nil {
-						if reports := session.UnexpectedCloseReports(); len(reports) > 0 {
+						if reports := session.CrashReports(); len(reports) > 0 {
 							uiDeps.OnCrashReportsDetected(reports)
 						}
 					}
@@ -502,13 +541,20 @@ func handleAutoRestore(
 
 func setupSignalHandler(ctx context.Context, app *ui.App) {
 	log := logging.FromContext(ctx)
-	sigCh := make(chan os.Signal, 1)
+	sigCh := make(chan os.Signal, 2)
 	signal.Notify(sigCh, os.Interrupt, syscall.SIGTERM)
 	go func() {
 		sig := <-sigCh
-		signal.Stop(sigCh)
-		log.Info().Str("signal", sig.String()).Msg("received interrupt, quitting")
+		log.Info().Str("signal", sig.String()).Msg("received interrupt, quitting gracefully")
 		app.Quit()
+
+		// Second signal: force exit. Keep listening so a second Ctrl+C
+		// doesn't go to the default handler (immediate process kill)
+		// before GTK shutdown + CEF cleanup can finish.
+		sig = <-sigCh
+		log.Warn().Str("signal", sig.String()).Msg("received second interrupt, forcing exit")
+		signal.Stop(sigCh)
+		os.Exit(1)
 	}()
 }
 
@@ -606,12 +652,23 @@ func createUseCases(repos *repositories, cfg *config.Config) *useCases {
 		navigate:       usecase.NewNavigateUseCase(repos.history, repos.zoom, defaultZoom),
 		copyURL:        usecase.NewCopyURLUseCase(clipboardAdapter),
 		snapshot:       usecase.NewSnapshotSessionUseCase(repos.sessionState),
-		lastRestorable: usecase.NewGetLastRestorableSessionUseCase(repos.session, repos.sessionState, stateDir),
+		lastRestorable: usecase.NewGetLastRestorableSessionUseCase(repos.session, repos.sessionState),
 		checkUpdate:    usecase.NewCheckUpdateUseCase(updateChecker, updateApplier, buildInfo),
 		applyUpdate:    usecase.NewApplyUpdateUseCase(updateDownloader, updateApplier, xdgDirs.CacheHome),
 		clipboard:      clipboardAdapter,
 		favicon:        favicon.NewService(faviconCacheDir),
 	}
+}
+
+// isCEFSubprocess returns true if os.Args contains a --type= flag, indicating
+// this process was spawned by CEF as a renderer, GPU, or utility subprocess.
+func isCEFSubprocess() bool {
+	for _, arg := range os.Args {
+		if strings.HasPrefix(arg, "--type=") {
+			return true
+		}
+	}
+	return false
 }
 
 func buildUIDependencies(
@@ -626,10 +683,15 @@ func buildUIDependencies(
 	idleInhibitor port.IdleInhibitor,
 	currentSessionID entity.SessionID,
 	startupCrashReports []string,
-) *ui.Dependencies {
+) (*ui.Dependencies, error) {
 	var filterManager port.FilterManager
 	if fmp, ok := engine.(port.FilterManagerProvider); ok {
 		filterManager = fmp.InternalFilterManager()
+	}
+
+	handlerDeps, err := bootstrap.BuildHandlerDeps(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("failed to build handler deps: %w", err)
 	}
 
 	focusProvider := textinput.NewFocusProvider()
@@ -699,7 +761,8 @@ func buildUIDependencies(
 		LaunchExternalURL: desktop.LaunchExternalURL,
 		LaunchBrowserURL:  desktop.LaunchBrowserURL,
 		ConfigMigrator:    config.NewMigrator(),
+		HandlerDeps:       *handlerDeps,
 	}
 
-	return uiDeps
+	return uiDeps, nil
 }

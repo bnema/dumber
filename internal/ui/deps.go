@@ -38,6 +38,9 @@ type Dependencies struct {
 	// Engine (replaces individual webkit fields)
 	Engine port.Engine
 
+	// Handler dependencies built by bootstrap (keybindings, config save).
+	HandlerDeps port.HandlerDeps
+
 	// Repositories
 	HistoryRepo    repository.HistoryRepository
 	FavoriteRepo   repository.FavoriteRepository
@@ -113,6 +116,9 @@ func (d *Dependencies) Validate() error {
 	}
 	if d.Engine == nil {
 		return ErrMissingDependency("Engine")
+	}
+	if d.HandlerDeps.SaveConfig == nil {
+		return ErrMissingDependency("HandlerDeps.SaveConfig")
 	}
 	// Use cases are optional - can be nil if not needed
 	return nil

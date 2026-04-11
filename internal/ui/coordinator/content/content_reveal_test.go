@@ -8,7 +8,9 @@ import (
 	"github.com/stretchr/testify/assert"
 
 	"github.com/bnema/dumber/internal/application/port"
+	"github.com/bnema/dumber/internal/application/port/mocks"
 	"github.com/bnema/dumber/internal/domain/entity"
+	"github.com/bnema/dumber/internal/ui/component"
 )
 
 // TestPendingReveal tests the pending reveal state management.
@@ -106,6 +108,38 @@ func TestRevealIfPending_OnlyRevealsOnce(t *testing.T) {
 	c.revealMu.Lock()
 	defer c.revealMu.Unlock()
 	assert.False(t, c.pendingReveal[paneID])
+}
+
+func TestOnLoadCommitted_RevealsPendingWebViewForCommittedPage(t *testing.T) {
+	paneID := entity.PaneID("pane-1")
+	shownCount := 0
+	var shownPane entity.PaneID
+
+	wv := mocks.NewMockWebView(t)
+	wv.EXPECT().URI().Return("https://example.com")
+	wv.EXPECT().ResetBackgroundToDefault()
+	wv.EXPECT().Title().Return("")
+	wv.EXPECT().IsDestroyed().Return(false).Maybe()
+
+	c := &Coordinator{
+		pendingReveal: make(map[entity.PaneID]bool),
+		webViews: map[entity.PaneID]port.WebView{
+			paneID: wv,
+		},
+		paneTitles:  make(map[entity.PaneID]string),
+		navOrigins:  make(map[entity.PaneID]string),
+		getActiveWS: func() (*entity.Workspace, *component.WorkspaceView) { return nil, nil },
+		onWebViewShown: func(id entity.PaneID) {
+			shownCount++
+			shownPane = id
+		},
+	}
+	c.pendingReveal[paneID] = true
+
+	c.onLoadCommitted(context.Background(), paneID, wv)
+
+	assert.Equal(t, 1, shownCount)
+	assert.Equal(t, paneID, shownPane)
 }
 
 func TestPendingReveal_ConcurrentAccess(t *testing.T) {

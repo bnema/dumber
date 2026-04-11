@@ -67,6 +67,13 @@ const (
 	// Performance defaults
 	defaultZoomCacheSize           = 256 // domains to cache (~20KB memory)
 	defaultWebViewPoolPrewarmCount = 4   // WebViews to pre-create at startup
+	defaultCEFWindowlessFrameRate  = 60  // OSR frame rate for CEF
+
+	// Transcoding defaults
+	defaultTranscodingEnabled       = false
+	defaultTranscodingHWAccel       = "auto"
+	defaultTranscodingMaxConcurrent = 3
+	defaultTranscodingQuality       = "medium"
 
 	// Skia threading defaults (0 = unset, -1 = unset for GPU threads)
 	defaultSkiaCPUPaintingThreads = 0
@@ -151,6 +158,11 @@ func DefaultConfig() *Config {
 			// third-party cookie isolation more intelligently. Using Always + ITP
 			// matches Epiphany's model and avoids a misleading setting.
 			CookiePolicy: CookiePolicyAlways,
+			CEF: CEFEngineConfig{
+				WindowlessFrameRate: defaultCEFWindowlessFrameRate,
+				LogFile:             "",
+				EnableAudioHandler:  true,
+			},
 			WebKit: WebKitEngineConfig{
 				ITPEnabled:             true,
 				SkiaCPUPaintingThreads: defaultSkiaCPUPaintingThreads,
@@ -304,6 +316,12 @@ func DefaultConfig() *Config {
 		},
 		Downloads: DownloadsConfig{
 			Path: "", // Empty = use XDG_DOWNLOAD_DIR or ~/Downloads
+		},
+		Transcoding: TranscodingConfig{
+			Enabled:       defaultTranscodingEnabled,
+			HWAccel:       defaultTranscodingHWAccel,
+			MaxConcurrent: defaultTranscodingMaxConcurrent,
+			Quality:       defaultTranscodingQuality,
 		},
 	}
 }
