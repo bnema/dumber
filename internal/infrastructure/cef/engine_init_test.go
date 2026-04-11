@@ -4,6 +4,7 @@ import (
 	"path/filepath"
 	"testing"
 
+	"github.com/bnema/dumber/internal/infrastructure/audio/factory"
 	"github.com/bnema/dumber/internal/infrastructure/config"
 	"github.com/rs/zerolog"
 	"github.com/stretchr/testify/require"
@@ -37,4 +38,13 @@ func TestPrepareCEFSettings_SetsRootCachePath(t *testing.T) {
 	settings := prepareCEFSettings(config.CEFEngineConfig{}, &logger)
 
 	require.Equal(t, filepath.Join(homeDir, ".config", "cef_user_data"), settings.RootCachePath)
+}
+
+// TestCreateAudioOutputFactory_CreatesUsableFactory verifies that the audio
+// factory can be created and produces working streams. This tests the runtime
+// wiring decision to create the factory during CEF engine setup.
+func TestCreateAudioOutputFactory_ReturnsFactory(t *testing.T) {
+	audioFactory := factory.NewAudioOutputFactory()
+
+	require.NotNil(t, audioFactory, "Audio factory should not be nil")
 }

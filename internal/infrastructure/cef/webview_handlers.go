@@ -1,6 +1,7 @@
 package cef
 
 import (
+	"context"
 	"strings"
 
 	purecef "github.com/bnema/purego-cef/cef"
@@ -327,7 +328,8 @@ func (h *handlerSet) OnStatusMessage(_ purecef.Browser, value string) {
 }
 
 func (h *handlerSet) OnConsoleMessage(_ purecef.Browser, level purecef.LogSeverity, message, source string, line int32) int32 {
-	if h.wv != nil && h.wv.ctx != nil && (strings.Contains(message, consoleMarkerVideoDiag) || strings.Contains(message, consoleMarkerRedditVideoPatch)) {
+	if h.wv != nil && h.wv.ctx != nil &&
+		(strings.Contains(message, consoleMarkerVideoDiag) || strings.Contains(message, consoleMarkerRedditVideoPatch)) {
 		log := logging.FromContext(h.wv.ctx).With().
 			Str("component", "cef-console").
 			Str("source", source).
@@ -460,8 +462,6 @@ func (h *handlerSet) OnLoadError(_ purecef.Browser, _ purecef.Frame, _ purecef.E
 // OnBeforePopup intercepts popup requests (target="_blank", window.open).
 // CEF OSR cannot create popup windows, so we fire the OnCreate callback
 // to let the coordinator open the link in a new stacked pane.
-//
-//nolint:gocritic // signature imposed by purecef.LifeSpanHandler interface
 func (h *handlerSet) OnBeforePopup(
 	_ purecef.Browser, _ purecef.Frame, _ int32, targetURL, targetFrameName string,
 	_ purecef.WindowOpenDisposition, userGesture int32, _ *purecef.PopupFeatures,
@@ -493,7 +493,6 @@ func (h *handlerSet) OnBeforePopup(
 
 func (h *handlerSet) OnBeforePopupAborted(_ purecef.Browser, _ int32) {}
 
-//nolint:gocritic // signature imposed by purecef.LifeSpanHandler interface
 func (h *handlerSet) OnBeforeDevToolsPopup(
 	_ purecef.Browser, _ *purecef.WindowInfo, _ *purecef.Client,
 	_ *purecef.BrowserSettings, _ *purecef.DictionaryValue, _ *bool,
@@ -600,7 +599,7 @@ func (h *handlerSet) GetResourceRequestHandler(
 		*disableDefaultHandling = 1
 		if h.wv != nil && h.wv.ctx != nil {
 			logging.FromContext(h.wv.ctx).Info().
-				Str("url", logging.TruncateURL(request.GetURL(), 240)).
+				Str("url", logging.TruncateURL(request.GetURL(), maxTranscodingURLLength)).
 				Msg("cef: disabled default handling for eager transcode candidate")
 		}
 	}
@@ -688,18 +687,157 @@ func (h *handlerSet) GetAudioParameters(_ purecef.Browser, _ *purecef.AudioParam
 	return 1 // proceed with defaults
 }
 
-func (h *handlerSet) OnAudioStreamStarted(_ purecef.Browser, _ *purecef.AudioParameters, _ int32) {
+// OnAudioStreamStarted handles the start of an audio stream.
+// The third callback argument is the channel count (not frames-per-buffer);
+// frames-per-buffer comes from params.FramesPerBuffer.
+func (h *handlerSet) OnAudioStreamStarted(_ purecef.Browser, params *purecef.AudioParameters, channels int32) {
+	// Validate params and factory first
+	if params == nil || h.wv.audioOutputFactory == nil {
+		return
+	}
+
+	// Build format from CEF parameters
+	format := h.buildAudioStreamFormat(params, channels)
+
+	if h.wv.ctx != nil {
+		logging.FromContext(h.wv.ctx).Info().
+			Int("sample_rate", format.SampleRate).
+			Int("channels", format.ChannelCount).
+			Int("frames_per_buffer", format.FramesPerBuffer).
+			Int32("channel_layout", params.ChannelLayout).
+			Msg("cef: OnAudioStreamStarted")
+	}
+
+	// Reset packet counters for the new stream
+	h.wv.audioPacketCount.Store(0)
+	h.wv.audioWriteCount.Store(0)
+
+	// Close any existing stream first
+	h.wv.closeAudioStream()
+
+	// Create new stream
+	ctx := h.wv.ctx
+	if ctx == nil {
+		ctx = context.Background()
+	}
+
+	stream, err := h.wv.audioOutputFactory.NewStream(ctx, format)
+	if err != nil {
+		// Log error but don't panic - audio is non-critical.
+		// Do NOT set audioPlaying — the stream was never created.
+		if h.wv.ctx != nil {
+			logging.FromContext(h.wv.ctx).Warn().
+				Err(err).
+				Int("sample_rate", format.SampleRate).
+				Int("channels", format.ChannelCount).
+				Msg("cef: failed to create audio output stream")
+		}
+		return
+	}
+
+	// Set playing state only after stream creation succeeds
 	h.wv.setAudioPlaying(true)
+
+	if h.wv.ctx != nil {
+		logging.FromContext(h.wv.ctx).Info().
+			Int("sample_rate", format.SampleRate).
+			Int("channels", format.ChannelCount).
+			Int("frames_per_buffer", format.FramesPerBuffer).
+			Msg("cef: audio output stream created successfully")
+	}
+
+	// Store the new stream
+	h.wv.audioStreamMu.Lock()
+	h.wv.activeAudioStream = stream
+	h.wv.audioStreamMu.Unlock()
 }
 
-func (h *handlerSet) OnAudioStreamPacket(_ purecef.Browser, _ [][]float32, _ int32, _ int64) {}
+// buildAudioStreamFormat converts CEF AudioParameters to port.AudioStreamFormat.
+// channels is the authoritative channel count from the callback; params.FramesPerBuffer
+// supplies the buffer size.
+func (h *handlerSet) buildAudioStreamFormat(params *purecef.AudioParameters, channels int32) port.AudioStreamFormat {
+	return port.AudioStreamFormat{
+		SampleRate:      int(params.SampleRate),
+		ChannelCount:    int(channels),
+		FramesPerBuffer: int(params.FramesPerBuffer),
+	}
+}
 
+// OnAudioStreamPacket receives audio packets and forwards them to the output stream.
+// The mutex is held across both the stream snapshot and Write to prevent
+// closeAudioStream from closing the stream mid-write.
+func (h *handlerSet) OnAudioStreamPacket(_ purecef.Browser, data [][]float32, frames int32, pts int64) {
+	if len(data) == 0 || frames <= 0 {
+		return
+	}
+
+	// Copy the data before acquiring the stream lock because CEF can reuse the
+	// buffer as soon as this callback returns.
+	copiedData := make([][]float32, len(data))
+	for i, channel := range data {
+		if len(channel) < int(frames) {
+			continue
+		}
+		copiedData[i] = make([]float32, frames)
+		copy(copiedData[i], channel[:frames])
+	}
+
+	// Hold the lock across the stream read and Write so closeAudioStream
+	// cannot close the stream between snapshot and write.
+	h.wv.audioStreamMu.Lock()
+	stream := h.wv.activeAudioStream
+	if stream == nil {
+		h.wv.audioStreamMu.Unlock()
+		return
+	}
+
+	pktNum := h.wv.audioPacketCount.Add(1)
+	if pktNum == 1 && h.wv.ctx != nil {
+		logging.FromContext(h.wv.ctx).Info().
+			Int("channels", len(data)).
+			Int32("frames", frames).
+			Int64("pts", pts).
+			Msg("cef: first audio packet received")
+	}
+
+	err := stream.Write(copiedData)
+	h.wv.audioStreamMu.Unlock()
+
+	if err != nil {
+		if h.wv.ctx != nil {
+			logging.FromContext(h.wv.ctx).Debug().
+				Err(err).
+				Uint64("packets_received", pktNum).
+				Msg("cef: audio stream write failed")
+		}
+		return
+	}
+	h.wv.audioWriteCount.Add(1)
+}
+
+// OnAudioStreamStopped handles stream stop.
 func (h *handlerSet) OnAudioStreamStopped(_ purecef.Browser) {
+	if h.wv.ctx != nil {
+		logging.FromContext(h.wv.ctx).Info().
+			Uint64("packets_received", h.wv.audioPacketCount.Load()).
+			Uint64("writes_succeeded", h.wv.audioWriteCount.Load()).
+			Msg("cef: OnAudioStreamStopped")
+	}
 	h.wv.setAudioPlaying(false)
+	h.wv.closeAudioStream()
 }
 
-func (h *handlerSet) OnAudioStreamError(_ purecef.Browser, _ string) {
+// OnAudioStreamError handles stream errors.
+func (h *handlerSet) OnAudioStreamError(_ purecef.Browser, message string) {
+	if h.wv.ctx != nil {
+		logging.FromContext(h.wv.ctx).Warn().
+			Str("error", message).
+			Uint64("packets_received", h.wv.audioPacketCount.Load()).
+			Uint64("writes_succeeded", h.wv.audioWriteCount.Load()).
+			Msg("cef: audio stream error")
+	}
 	h.wv.setAudioPlaying(false)
+	h.wv.closeAudioStream()
 }
 
 // ===========================================================================

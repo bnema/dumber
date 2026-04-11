@@ -27,8 +27,8 @@ func TestSessionFileWriter_DropsWritesAfterClose(t *testing.T) {
 		t.Fatalf("write before close returned %d, want %d", n, len("first\n"))
 	}
 
-	if err := writer.Close(); err != nil {
-		t.Fatalf("close writer: %v", err)
+	if closeErr := writer.Close(); closeErr != nil {
+		t.Fatalf("close writer: %v", closeErr)
 	}
 
 	n, err = writer.Write([]byte("second\n"))
@@ -60,8 +60,8 @@ func TestSessionFileWriter_IgnoresExternallyClosedFile(t *testing.T) {
 	}
 
 	writer := newSessionFileWriter(file)
-	if err := file.Close(); err != nil {
-		t.Fatalf("close underlying file: %v", err)
+	if closeErr := file.Close(); closeErr != nil {
+		t.Fatalf("close underlying file: %v", closeErr)
 	}
 
 	n, err := writer.Write([]byte("late\n"))

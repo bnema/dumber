@@ -10,6 +10,8 @@ import (
 	domainvalidation "github.com/bnema/dumber/internal/domain/validation"
 )
 
+const cefLogSeverityDisabled = 99
+
 // validateConfig performs comprehensive validation of configuration values
 func validateConfig(config *Config) error {
 	var validationErrors []string
@@ -329,10 +331,11 @@ func validateCEF(config *Config) []string {
 	var validationErrors []string
 
 	switch config.Engine.CEF.LogSeverity {
-	case 0, 1, 2, 3, 4, 99:
+	case 0, 1, 2, 3, 4, cefLogSeverityDisabled:
 	default:
 		validationErrors = append(validationErrors, fmt.Sprintf(
-			"engine.cef.log_severity must be one of: 0, 1, 2, 3, 4, 99 (got: %d)",
+			"engine.cef.log_severity must be one of: 0, 1, 2, 3, 4, %d (got: %d)",
+			cefLogSeverityDisabled,
 			config.Engine.CEF.LogSeverity,
 		))
 	}

@@ -9,11 +9,11 @@ import (
 const dumbSchemeName = "dumb"
 
 func dumbSchemeOptions() int32 {
-	return int32(purecef.SchemeOptionsSchemeOptionStandard |
+	return purecef.SchemeOptionsSchemeOptionStandard |
 		purecef.SchemeOptionsSchemeOptionSecure |
 		purecef.SchemeOptionsSchemeOptionCorsEnabled |
 		purecef.SchemeOptionsSchemeOptionCspBypassing |
-		purecef.SchemeOptionsSchemeOptionFetchEnabled)
+		purecef.SchemeOptionsSchemeOptionFetchEnabled
 }
 
 func registerDumbScheme(registrar purecef.SchemeRegistrar) {

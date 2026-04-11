@@ -5,6 +5,7 @@ go 1.26.1
 require (
 	github.com/bnema/purego-cef v0.8.0
 	github.com/bnema/purego-ffmpeg v0.3.0
+	github.com/bnema/purego-pipewire v0.0.0-00010101000000-000000000000
 	github.com/bnema/purego-sqlite v0.1.1
 	github.com/bnema/puregotk v0.3.0
 	github.com/bnema/puregotk-webkit v0.0.16
@@ -29,6 +30,8 @@ require (
 replace github.com/bnema/purego-cef => ../purego-cef
 
 replace github.com/bnema/purego-ffmpeg => ../purego-ffmpeg
+
+replace github.com/bnema/purego-pipewire => ../../../purego-pipewire/.worktrees/dumber-cef-audio
 
 require (
 	github.com/atotto/clipboard v0.1.4 // indirect

@@ -5,6 +5,7 @@ import (
 	"fmt"
 
 	"github.com/bnema/dumber/internal/application/port"
+	audiofactory "github.com/bnema/dumber/internal/infrastructure/audio/factory"
 	"github.com/bnema/dumber/internal/infrastructure/cef"
 	"github.com/bnema/dumber/internal/infrastructure/config"
 	"github.com/bnema/dumber/internal/infrastructure/webkit"
@@ -42,7 +43,8 @@ func BuildEngine(input EngineInput) (port.Engine, error) {
 		)
 	case config.EngineTypeCEF:
 		cefCfg := cfg.Engine.CEF
-		return cef.NewEngine(input.Ctx, cefCfg, cfg.Transcoding)
+		audioFactory := audiofactory.NewAudioOutputFactory()
+		return cef.NewEngine(input.Ctx, cefCfg, cfg.Transcoding, audioFactory)
 	default:
 		return nil, fmt.Errorf("unknown engine type: %q", engineType)
 	}

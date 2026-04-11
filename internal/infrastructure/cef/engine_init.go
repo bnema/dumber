@@ -24,7 +24,12 @@ import (
 const puregoCEFInitTraceEnvVar = "PUREGO_CEF_INIT_TRACE"
 
 // NewEngine initializes the CEF runtime and returns a ready-to-use Engine.
-func NewEngine(ctx context.Context, cfg config.CEFEngineConfig, transcodingCfg config.TranscodingConfig) (*Engine, error) {
+func NewEngine(
+	ctx context.Context,
+	cfg config.CEFEngineConfig,
+	transcodingCfg config.TranscodingConfig,
+	audioFactory port.AudioOutputFactory,
+) (*Engine, error) {
 	logger := logging.FromContext(ctx)
 	cleanStaleSingletonLocks(logger)
 
@@ -55,7 +60,7 @@ func NewEngine(ctx context.Context, cfg config.CEFEngineConfig, transcodingCfg c
 	}
 	os.Args = savedArgs
 
-	return wireEngine(ctx, eng, cfg, transcodingCfg, windowlessFrameRate, logger)
+	return wireEngine(ctx, eng, cfg, transcodingCfg, windowlessFrameRate, audioFactory, logger)
 }
 
 // prepareCEFSettings builds purecef.Settings from the engine config.
@@ -112,7 +117,7 @@ func initializeCEF(eng *Engine, settings purecef.Settings, logger *zerolog.Logge
 // wireEngine creates GL loader, factory, pool, and scheme handler after CEF init.
 func wireEngine(
 	ctx context.Context, eng *Engine, cfg config.CEFEngineConfig, transcodingCfg config.TranscodingConfig,
-	windowlessFrameRate int32, logger *zerolog.Logger,
+	windowlessFrameRate int32, audioFactory port.AudioOutputFactory, logger *zerolog.Logger,
 ) (*Engine, error) {
 	gl, err := newGLLoader()
 	if err != nil {
@@ -150,6 +155,7 @@ func wireEngine(
 		windowlessFrameRate:      windowlessFrameRate,
 		enableContextMenuHandler: cfg.EnableContextMenuHandler,
 		transcoder:               mediaTranscoder,
+		audioOutputFactory:       audioFactory,
 	})
 	pool := newWebViewPool(factory)
 
@@ -271,22 +277,6 @@ func detectHiDPIScale(logger *zerolog.Logger) int32 {
 	}
 	logger.Debug().Msg("cef: monitor scale factor <= 0, using scale=1")
 	return 1
-}
-
-// detectMonitorRefreshRate queries the primary GDK monitor for its refresh rate.
-// Returns the rate in Hz (e.g., 120 for a 120Hz display), or 0 if detection fails.
-func detectMonitorRefreshRate(logger *zerolog.Logger) int32 {
-	mon := getPrimaryMonitor()
-	if mon == nil {
-		return 0
-	}
-	milliHz := mon.GetRefreshRate()
-	if milliHz <= 0 {
-		return 0
-	}
-	hz := int32((milliHz + 500) / 1000) // round to nearest Hz
-	logger.Info().Int32("refresh_rate_hz", hz).Msg("cef: detected monitor refresh rate")
-	return hz
 }
 
 // appendIfMissing appends flag to args if it's not already present.

@@ -20,8 +20,6 @@ import "unsafe"
 // ---------------------------------------------------------------------------
 
 const (
-	offsetPktPts         = 8
-	offsetPktDts         = 16
 	offsetPktStreamIndex = 36
 )
 
@@ -91,7 +89,7 @@ func frameSetFormat(f unsafe.Pointer, v int32) {
 	*(*int32)(unsafe.Add(f, offsetFrameFormat)) = v
 }
 
-func frameSetHWFramesCtx(f unsafe.Pointer, v unsafe.Pointer) {
+func frameSetHWFramesCtx(f, v unsafe.Pointer) {
 	*(*unsafe.Pointer)(unsafe.Add(f, offsetFrameHWFramesCtx)) = v
 }
 
@@ -103,10 +101,6 @@ func frameSetPts(f unsafe.Pointer, v int64) {
 	*(*int64)(unsafe.Add(f, offsetFramePts)) = v
 }
 
-func frameSampleRate(f unsafe.Pointer) int32 {
-	return *(*int32)(unsafe.Add(f, offsetFrameSampleRate))
-}
-
 func frameSetSampleRate(f unsafe.Pointer, v int32) {
 	*(*int32)(unsafe.Add(f, offsetFrameSampleRate)) = v
 }
@@ -116,23 +110,10 @@ func frameSetSampleRate(f unsafe.Pointer, v int32) {
 // ---------------------------------------------------------------------------
 
 const (
-	offsetCodecCtxFlags    = 64
 	offsetCodecCtxGopSize  = 332
 	offsetCodecCtxBitRate  = 56
 	offsetCodecCtxChLayout = 352 // AVChannelLayout struct (24 bytes)
 )
-
-// AV_CODEC_FLAG_GLOBAL_HEADER indicates the codec uses global headers
-// that should be stored in extradata instead of every keyframe.
-const avCodecFlagGlobalHeader = 1 << 22
-
-func codecCtxFlags(ctx unsafe.Pointer) int32 {
-	return *(*int32)(unsafe.Add(ctx, offsetCodecCtxFlags))
-}
-
-func codecCtxSetFlags(ctx unsafe.Pointer, v int32) {
-	*(*int32)(unsafe.Add(ctx, offsetCodecCtxFlags)) = v
-}
 
 func codecCtxSetGopSize(ctx unsafe.Pointer, v int32) {
 	*(*int32)(unsafe.Add(ctx, offsetCodecCtxGopSize)) = v
@@ -144,13 +125,15 @@ func codecCtxSetBitRate(ctx unsafe.Pointer, v int64) {
 
 // chLayoutCopy copies the 24-byte AVChannelLayout from src to dst.
 // Both must point to the ch_layout field within their respective AVCodecContext.
+//
+//nolint:gosec // These offsets target fixed-size FFmpeg structs validated against headers.
 func codecCtxCopyChLayout(dst, src unsafe.Pointer) {
 	dstLayout := unsafe.Add(dst, offsetCodecCtxChLayout)
 	srcLayout := unsafe.Add(src, offsetCodecCtxChLayout)
 	// AVChannelLayout is 24 bytes in FFmpeg 8.x.
 	copy(
-		unsafe.Slice((*byte)(dstLayout), 24),
-		unsafe.Slice((*byte)(srcLayout), 24),
+		unsafe.Slice((*byte)(dstLayout), channelLayoutSize),
+		unsafe.Slice((*byte)(srcLayout), channelLayoutSize),
 	)
 }
 
@@ -161,41 +144,21 @@ func codecCtxCopyChLayout(dst, src unsafe.Pointer) {
 // ---------------------------------------------------------------------------
 
 const (
+	channelLayoutSize = 24
+
 	offsetSwrInChLayout  = 192 // AVChannelLayout (24 bytes)
 	offsetSwrOutChLayout = 216 // AVChannelLayout (24 bytes)
 )
 
 // swrCopyChLayoutFromCodecCtx copies an AVChannelLayout (24 bytes) from
 // an AVCodecContext's ch_layout field into the SwrContext's in/out ch_layout.
+//
+//nolint:gosec // These offsets target fixed-size FFmpeg structs validated against headers.
 func swrSetChLayoutFromCodecCtx(swr, codecCtx unsafe.Pointer, swrOffset int) {
 	dst := unsafe.Add(swr, swrOffset)
 	src := unsafe.Add(codecCtx, offsetCodecCtxChLayout)
 	copy(
-		unsafe.Slice((*byte)(dst), 24),
-		unsafe.Slice((*byte)(src), 24),
-	)
-}
-
-// ---------------------------------------------------------------------------
-// AVCodecParameters additional offsets (FFmpeg 8.x, libavcodec 62)
-// ---------------------------------------------------------------------------
-
-const (
-	offsetCodecParSampleRate = 152
-	offsetCodecParChLayout   = 128 // AVChannelLayout (24 bytes)
-)
-
-func codecParSampleRate(par unsafe.Pointer) int32 {
-	return *(*int32)(unsafe.Add(par, offsetCodecParSampleRate))
-}
-
-// codecParCopyChLayoutTo copies the ch_layout from AVCodecParameters to
-// an AVCodecContext.
-func codecParCopyChLayoutTo(codecCtx, par unsafe.Pointer) {
-	dstLayout := unsafe.Add(codecCtx, offsetCodecCtxChLayout)
-	srcLayout := unsafe.Add(par, offsetCodecParChLayout)
-	copy(
-		unsafe.Slice((*byte)(dstLayout), 24),
-		unsafe.Slice((*byte)(srcLayout), 24),
+		unsafe.Slice((*byte)(dst), channelLayoutSize),
+		unsafe.Slice((*byte)(src), channelLayoutSize),
 	)
 }

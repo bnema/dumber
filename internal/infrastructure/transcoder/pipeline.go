@@ -24,6 +24,11 @@ import (
 // avioBufSize is the buffer size for custom AVIO contexts (32 KiB).
 const avioBufSize = 32 * 1024
 
+const (
+	vaapiInitialPoolSize = 20
+	minVideoBitrate      = 500_000
+)
+
 // pipeline orchestrates a single GPU transcode session. It reads from
 // an HTTP source, decodes with a hardware decoder (or software fallback),
 // encodes video to an open codec (AV1/VP9) via GPU, encodes audio to
@@ -36,7 +41,6 @@ type pipeline struct {
 	headers   map[string]string
 	quality   string
 	pw        *io.PipeWriter
-	cancel    context.CancelFunc
 	logger    zerolog.Logger
 
 	// Prevent GC of callback closures and uintptrs.
@@ -55,7 +59,15 @@ var httpClient = &http.Client{
 	},
 }
 
-func newPipeline(sessionID string, hwCaps port.HWCapabilities, sourceURL string, headers map[string]string, quality string, pw *io.PipeWriter, logger zerolog.Logger) *pipeline {
+func newPipeline(
+	sessionID string,
+	hwCaps port.HWCapabilities,
+	sourceURL string,
+	headers map[string]string,
+	quality string,
+	pw *io.PipeWriter,
+	logger zerolog.Logger,
+) *pipeline {
 	return &pipeline{
 		sessionID: sessionID,
 		hwCaps:    hwCaps,
@@ -77,23 +89,28 @@ func (p *pipeline) run(ctx context.Context) {
 			Str("source_url", p.sourceURL).
 			Logger()
 		if errors.Is(err, context.Canceled) {
-			log.Debug().Err(err).Msg("transcode pipeline cancelled")
+			log.Debug().Err(err).Msg("transcode pipeline canceled")
 		} else {
 			log.Error().Err(err).Msg("transcode pipeline failed")
 		}
-		p.pw.CloseWithError(err)
+		_ = p.pw.CloseWithError(err)
 	} else {
 		p.logger.Debug().
 			Str("session_id", p.sessionID).
 			Str("source_url", p.sourceURL).
 			Msg("transcode pipeline completed")
-		p.pw.Close()
+		_ = p.pw.Close()
 	}
 }
 
 // doRun contains the actual pipeline logic. Errors are returned, and
 // the caller (run) closes the pipe writer accordingly.
 func (p *pipeline) doRun(ctx context.Context) error {
+	return p.doRunImpl(ctx)
+}
+
+//nolint:gocyclo,funlen,gosec // FFmpeg pipeline setup/teardown uses necessary branching and unsafe C-API calls.
+func (p *pipeline) doRunImpl(ctx context.Context) error {
 	// --- Step 1-3: Open the input using the appropriate strategy ---
 	inFmtCtx, closeInput, err := p.openInputFormatContext(ctx)
 	if err != nil {
@@ -121,6 +138,7 @@ func (p *pipeline) doRun(ctx context.Context) error {
 	if err != nil {
 		return fmt.Errorf("open video decoder: %w", err)
 	}
+	//nolint:gosec // FFmpeg requires pointer-to-pointer cleanup for codec contexts.
 	defer ffmpeg.CodecFreeContext(unsafe.Pointer(&vidDecCtx))
 
 	// --- Step 7-8: Open video encoder with HW accel ---
@@ -131,10 +149,12 @@ func (p *pipeline) doRun(ctx context.Context) error {
 	if hwDeviceCtx != nil {
 		defer ffmpeg.BufferUnref(&hwDeviceCtx)
 	}
+	//nolint:gosec // FFmpeg requires pointer-to-pointer cleanup for codec contexts.
 	defer ffmpeg.CodecFreeContext(unsafe.Pointer(&vidEncCtx))
 
 	// --- Step 9: Create output format context for WebM ---
 	var outFmtCtx unsafe.Pointer
+	//nolint:gosec // FFmpeg requires pointer-to-pointer allocation for output contexts.
 	if ret := ffmpeg.FormatAllocOutputContext2(unsafe.Pointer(&outFmtCtx), nil, "webm", ""); ret < 0 {
 		return fmt.Errorf("alloc output context: %d", ret)
 	}
@@ -146,6 +166,7 @@ func (p *pipeline) doRun(ctx context.Context) error {
 		if bufSize <= 0 {
 			return 0
 		}
+		//nolint:gosec // FFmpeg supplies a valid callback buffer and explicit byte count here.
 		goBuf := unsafe.Slice((*byte)(buf), int(bufSize))
 		n, writeErr := pw.Write(goBuf)
 		if writeErr != nil {
@@ -159,6 +180,7 @@ func (p *pipeline) doRun(ctx context.Context) error {
 	if writeAVIO == nil {
 		return errors.New("failed to allocate write AVIO context")
 	}
+	//nolint:gosec // FFmpeg requires pointer-to-pointer cleanup for AVIO contexts.
 	defer ffmpeg.AvioContextFree(unsafe.Pointer(&writeAVIO))
 
 	ffmpeg.FmtCtxSetPB(outFmtCtx, writeAVIO)
@@ -184,7 +206,7 @@ func (p *pipeline) doRun(ctx context.Context) error {
 		audioCodecPar := audioStreamWrap.Codecpar()
 
 		var txErr error
-		audioTx, txErr = newAudioTranscoder(audioCodecPar, outFmtCtx, int(audioIdx))
+		audioTx, txErr = newAudioTranscoder(audioCodecPar, outFmtCtx, audioIdx)
 		if txErr != nil {
 			// Audio transcoding failure is non-fatal; we proceed with video only.
 			audioTx = nil
@@ -210,18 +232,21 @@ func (p *pipeline) doRun(ctx context.Context) error {
 	if pkt == nil {
 		return errors.New("failed to allocate read packet")
 	}
+	//nolint:gosec // FFmpeg requires pointer-to-pointer cleanup for packet allocations.
 	defer ffmpeg.PacketFree(unsafe.Pointer(&pkt))
 
 	frame := ffmpeg.FrameAlloc()
 	if frame == nil {
 		return errors.New("failed to allocate decode frame")
 	}
+	//nolint:gosec // FFmpeg requires pointer-to-pointer cleanup for frame allocations.
 	defer ffmpeg.FrameFree(unsafe.Pointer(&frame))
 
 	encPkt := ffmpeg.PacketAlloc()
 	if encPkt == nil {
 		return errors.New("failed to allocate encode packet")
 	}
+	//nolint:gosec // FFmpeg requires pointer-to-pointer cleanup for packet allocations.
 	defer ffmpeg.PacketFree(unsafe.Pointer(&encPkt))
 
 	for {
@@ -242,7 +267,7 @@ func (p *pipeline) doRun(ctx context.Context) error {
 
 		switch {
 		case streamIdx == videoIdx:
-			if err := p.transcodeVideoPacket(pkt, frame, encPkt, vidDecCtx, vidEncCtx, outFmtCtx, videoStreamWrap, outVideoIdx); err != nil {
+			if err := p.transcodeVideoPacket(pkt, frame, encPkt, vidDecCtx, vidEncCtx, outFmtCtx, outVideoIdx); err != nil {
 				ffmpeg.PacketUnref(pkt)
 				return fmt.Errorf("video transcode: %w", err)
 			}
@@ -273,7 +298,10 @@ func (p *pipeline) doRun(ctx context.Context) error {
 		if ret < 0 {
 			break
 		}
-		p.encodeAndWriteVideoFrame(frame, encPkt, vidEncCtx, outFmtCtx, videoStreamWrap, outVideoIdx)
+		if err := p.encodeAndWriteVideoFrame(frame, encPkt, vidEncCtx, outFmtCtx, outVideoIdx); err != nil {
+			ffmpeg.FrameUnref(frame)
+			return fmt.Errorf("video flush: %w", err)
+		}
 		ffmpeg.FrameUnref(frame)
 	}
 
@@ -305,7 +333,7 @@ func (p *pipeline) doRun(ctx context.Context) error {
 	return nil
 }
 
-func (p *pipeline) selectInputStreams(inFmtCtx unsafe.Pointer) (videoIdx int, audioIdx int, err error) {
+func (p *pipeline) selectInputStreams(inFmtCtx unsafe.Pointer) (videoIdx, audioIdx int, err error) {
 	videoIdx = -1
 	audioIdx = -1
 	bestVideoPixels := int64(-1)
@@ -323,7 +351,7 @@ func (p *pipeline) selectInputStreams(inFmtCtx unsafe.Pointer) (videoIdx int, au
 		}
 
 		switch ffmpeg.CodecParCodecType(codecPar) {
-		case int32(ffmpeg.AVMEDIA_TYPE_VIDEO):
+		case ffmpeg.AVMEDIA_TYPE_VIDEO:
 			width := int64(ffmpeg.CodecParWidth(codecPar))
 			height := int64(ffmpeg.CodecParHeight(codecPar))
 			pixels := width * height
@@ -331,7 +359,7 @@ func (p *pipeline) selectInputStreams(inFmtCtx unsafe.Pointer) (videoIdx int, au
 				videoIdx = i
 				bestVideoPixels = pixels
 			}
-		case int32(ffmpeg.AVMEDIA_TYPE_AUDIO):
+		case ffmpeg.AVMEDIA_TYPE_AUDIO:
 			if audioIdx == -1 {
 				audioIdx = i
 			}
@@ -372,7 +400,7 @@ func (p *pipeline) openInputFormatContext(ctx context.Context) (unsafe.Pointer, 
 }
 
 func (p *pipeline) openCustomIOInputContext(ctx context.Context) (unsafe.Pointer, func(), error) {
-	req, err := http.NewRequestWithContext(ctx, http.MethodGet, p.sourceURL, nil)
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, p.sourceURL, http.NoBody)
 	if err != nil {
 		return nil, nil, fmt.Errorf("create request: %w", err)
 	}
@@ -380,13 +408,13 @@ func (p *pipeline) openCustomIOInputContext(ctx context.Context) (unsafe.Pointer
 		req.Header.Set(k, v)
 	}
 
-	resp, err := httpClient.Do(req)
+	resp, err := httpClient.Do(req) //nolint:bodyclose // closed by returned cleanup after FFmpeg finishes reading.
 	if err != nil {
 		return nil, nil, fmt.Errorf("fetch source: %w", err)
 	}
 
 	if resp.StatusCode != http.StatusOK && resp.StatusCode != http.StatusPartialContent {
-		resp.Body.Close()
+		_ = resp.Body.Close()
 		return nil, nil, fmt.Errorf("source returned HTTP %d", resp.StatusCode)
 	}
 
@@ -395,6 +423,7 @@ func (p *pipeline) openCustomIOInputContext(ctx context.Context) (unsafe.Pointer
 		if bufSize <= 0 {
 			return -1
 		}
+		//nolint:gosec // FFmpeg supplies a valid callback buffer and explicit byte count here.
 		goBuf := unsafe.Slice((*byte)(buf), int(bufSize))
 		// Retry up to 3 times for the edge case where body.Read returns
 		// n=0, err=nil (allowed by the io.Reader contract but unusual).
@@ -415,31 +444,36 @@ func (p *pipeline) openCustomIOInputContext(ctx context.Context) (unsafe.Pointer
 
 	readAVIO := ffmpeg.AvioAllocContext(avioBufSize, false, nil, p.readCb, 0, 0)
 	if readAVIO == nil {
-		resp.Body.Close()
+		_ = resp.Body.Close()
 		return nil, nil, errors.New("failed to allocate read AVIO context")
 	}
 
 	inFmtCtx := ffmpeg.FormatAllocContext()
 	if inFmtCtx == nil {
+		//nolint:gosec // FFmpeg requires pointer-to-pointer cleanup for AVIO contexts.
 		ffmpeg.AvioContextFree(unsafe.Pointer(&readAVIO))
-		resp.Body.Close()
+		_ = resp.Body.Close()
 		return nil, nil, errors.New("failed to allocate input format context")
 	}
 
 	ffmpeg.FmtCtxSetPB(inFmtCtx, readAVIO)
 	ffmpeg.FmtCtxSetFlags(inFmtCtx, ffmpeg.FmtCtxFlags(inFmtCtx)|ffmpeg.AVFMT_FLAG_CUSTOM_IO)
 
+	//nolint:gosec // FFmpeg requires pointer-to-pointer input opening for format contexts.
 	if ret := ffmpeg.FormatOpenInput(unsafe.Pointer(&inFmtCtx), p.sourceURL, nil, nil); ret < 0 {
+		//nolint:gosec // FFmpeg requires pointer-to-pointer cleanup for AVIO contexts.
 		ffmpeg.AvioContextFree(unsafe.Pointer(&readAVIO))
-		resp.Body.Close()
+		_ = resp.Body.Close()
 		ffmpeg.FormatFreeContext(inFmtCtx)
 		return nil, nil, fmt.Errorf("open input: %d", ret)
 	}
 
 	cleanup := func() {
+		//nolint:gosec // FFmpeg requires pointer-to-pointer cleanup for format contexts.
 		ffmpeg.FormatCloseInput(unsafe.Pointer(&inFmtCtx))
+		//nolint:gosec // FFmpeg requires pointer-to-pointer cleanup for AVIO contexts.
 		ffmpeg.AvioContextFree(unsafe.Pointer(&readAVIO))
-		resp.Body.Close()
+		_ = resp.Body.Close()
 	}
 	return inFmtCtx, cleanup, nil
 }
@@ -478,12 +512,14 @@ func (p *pipeline) openManifestInputContext() (unsafe.Pointer, func(), error) {
 		}
 	}
 
+	//nolint:gosec // FFmpeg requires pointer-to-pointer input opening for format contexts and option dictionaries.
 	if ret := ffmpeg.FormatOpenInput(unsafe.Pointer(&inFmtCtx), p.sourceURL, nil, unsafe.Pointer(&opts)); ret < 0 {
 		ffmpeg.FormatFreeContext(inFmtCtx)
 		return nil, nil, fmt.Errorf("open manifest input: %d", ret)
 	}
 
 	return inFmtCtx, func() {
+		//nolint:gosec // FFmpeg requires pointer-to-pointer cleanup for format contexts.
 		ffmpeg.FormatCloseInput(unsafe.Pointer(&inFmtCtx))
 	}, nil
 }
@@ -494,6 +530,7 @@ func freeInputOptions(opts *unsafe.Pointer) {
 	}
 	// av_dict_free expects an AVDictionary**. Passing the dictionary pointer
 	// itself corrupts memory and can crash inside libavutil during cleanup.
+	//nolint:gosec // FFmpeg requires passing the dictionary pointer by address for cleanup.
 	ffmpeg.DictFree(unsafe.Pointer(opts))
 	*opts = nil
 }
@@ -502,6 +539,7 @@ func setInputOption(opts *unsafe.Pointer, key, value string) error {
 	if value == "" {
 		return nil
 	}
+	//nolint:gosec // FFmpeg requires passing the dictionary pointer by address for option updates.
 	if ret := ffmpeg.DictSet(unsafe.Pointer(opts), key, value, 0); ret < 0 {
 		return fmt.Errorf("set input option %q: %d", key, ret)
 	}
@@ -542,6 +580,8 @@ func formatHTTPHeaderOptions(headers map[string]string) string {
 // openVideoDecoder creates and opens a decoder context for the video stream.
 // It prefers hardware decoders (h264_vaapi, h264_cuvid) based on hwCaps,
 // falling back to the generic software decoder.
+//
+//nolint:gosec // FFmpeg decoder setup requires unsafe pointer-based contexts and cleanup.
 func (p *pipeline) openVideoDecoder(codecPar unsafe.Pointer) (unsafe.Pointer, error) {
 	codecID := ffmpeg.CodecParCodecID(codecPar)
 
@@ -582,7 +622,7 @@ func (p *pipeline) openVideoDecoder(codecPar unsafe.Pointer) (unsafe.Pointer, er
 
 // openVideoEncoder creates a hardware device context and encoder for
 // the video stream. It uses the first available encoder from hwCaps.Encoders.
-func (p *pipeline) openVideoEncoder(decCtx unsafe.Pointer) (hwDeviceCtx unsafe.Pointer, encCtx unsafe.Pointer, err error) {
+func (p *pipeline) openVideoEncoder(decCtx unsafe.Pointer) (hwDeviceCtx, encCtx unsafe.Pointer, err error) {
 	if len(p.hwCaps.Encoders) == 0 {
 		return nil, nil, errors.New("no GPU encoders available")
 	}
@@ -590,7 +630,7 @@ func (p *pipeline) openVideoEncoder(decCtx unsafe.Pointer) (hwDeviceCtx unsafe.P
 	// Create the HW device context.
 	var deviceType int32
 	switch p.hwCaps.API {
-	case "vaapi":
+	case hwAPINameVAAPI:
 		deviceType = int32(ffmpeg.HwdeviceTypeVaapi)
 	case "nvenc":
 		deviceType = int32(ffmpeg.HwdeviceTypeCuda)
@@ -659,13 +699,13 @@ func (p *pipeline) tryOpenVideoEncoder(decCtx, hwDeviceCtx unsafe.Pointer, encod
 	ffmpeg.CodecCtxSetFramerate(encCtx, framerate)
 	ffmpeg.CodecCtxSetTimeBase(encCtx, ffmpeg.AVRational{Num: framerate.Den, Den: framerate.Num})
 
-	if p.hwCaps.API == "vaapi" {
+	if p.hwCaps.API == hwAPINameVAAPI {
 		ffmpeg.CodecCtxSetPixFmt(encCtx, int32(ffmpeg.PixFmtVaapi))
 	} else {
 		ffmpeg.CodecCtxSetPixFmt(encCtx, int32(ffmpeg.PixFmtNv12))
 	}
 
-	gopSize := int32(framerate.Num / framerate.Den * 2)
+	gopSize := framerate.Num / framerate.Den * 2
 	if gopSize <= 0 {
 		gopSize = 60
 	}
@@ -674,14 +714,16 @@ func (p *pipeline) tryOpenVideoEncoder(decCtx, hwDeviceCtx unsafe.Pointer, encod
 
 	hwDeviceRef := ffmpeg.BufferRef(hwDeviceCtx)
 	if hwDeviceRef == nil {
+		//nolint:gosec // FFmpeg requires pointer-to-pointer cleanup for codec contexts.
 		ffmpeg.CodecFreeContext(unsafe.Pointer(&encCtx))
 		return nil, errors.New("failed to ref HW device context for encoder")
 	}
 	ffmpeg.CodecCtxSetHwDeviceCtx(encCtx, hwDeviceRef)
 
-	if p.hwCaps.API == "vaapi" {
+	if p.hwCaps.API == hwAPINameVAAPI {
 		framesRef := ffmpeg.HWFrameCtxAlloc(hwDeviceCtx)
 		if framesRef == nil {
+			//nolint:gosec // FFmpeg requires pointer-to-pointer cleanup for codec contexts.
 			ffmpeg.CodecFreeContext(unsafe.Pointer(&encCtx))
 			return nil, errors.New("failed to allocate HW frames context")
 		}
@@ -689,11 +731,12 @@ func (p *pipeline) tryOpenVideoEncoder(decCtx, hwDeviceCtx unsafe.Pointer, encod
 		hwFramesData := ffmpeg.BufferRefData(framesRef)
 		if hwFramesData == nil {
 			ffmpeg.BufferUnref(&framesRef)
+			//nolint:gosec // FFmpeg requires pointer-to-pointer cleanup for codec contexts.
 			ffmpeg.CodecFreeContext(unsafe.Pointer(&encCtx))
 			return nil, errors.New("failed to access HW frames context payload")
 		}
 
-		ffmpeg.HWFramesCtxSetInitialPoolSize(hwFramesData, 20)
+		ffmpeg.HWFramesCtxSetInitialPoolSize(hwFramesData, vaapiInitialPoolSize)
 		ffmpeg.HWFramesCtxSetFormat(hwFramesData, int32(ffmpeg.PixFmtVaapi))
 		ffmpeg.HWFramesCtxSetSWFormat(hwFramesData, int32(ffmpeg.PixFmtNv12))
 		ffmpeg.HWFramesCtxSetWidth(hwFramesData, width)
@@ -701,6 +744,7 @@ func (p *pipeline) tryOpenVideoEncoder(decCtx, hwDeviceCtx unsafe.Pointer, encod
 
 		if ret := ffmpeg.HWFrameCtxInit(framesRef); ret < 0 {
 			ffmpeg.BufferUnref(&framesRef)
+			//nolint:gosec // FFmpeg requires pointer-to-pointer cleanup for codec contexts.
 			ffmpeg.CodecFreeContext(unsafe.Pointer(&encCtx))
 			return nil, fmt.Errorf("init HW frames context: %d", ret)
 		}
@@ -709,6 +753,7 @@ func (p *pipeline) tryOpenVideoEncoder(decCtx, hwDeviceCtx unsafe.Pointer, encod
 	}
 
 	if ret := ffmpeg.CodecOpen2(encCtx, enc, nil); ret < 0 {
+		//nolint:gosec // FFmpeg requires pointer-to-pointer cleanup for codec contexts.
 		ffmpeg.CodecFreeContext(unsafe.Pointer(&encCtx))
 		return nil, fmt.Errorf("open video encoder %s: %d", encoderName, ret)
 	}
@@ -734,8 +779,8 @@ func (p *pipeline) applyQualityPreset(encCtx unsafe.Pointer, encoderName string,
 	}
 
 	bitrate := int64(float64(pixels) * bitsPerPixel)
-	if bitrate < 500_000 {
-		bitrate = 500_000 // floor at 500 kbps
+	if bitrate < minVideoBitrate {
+		bitrate = minVideoBitrate // floor at 500 kbps
 	}
 	codecCtxSetBitRate(encCtx, bitrate)
 
@@ -759,7 +804,7 @@ func (p *pipeline) applyQualityPreset(encCtx unsafe.Pointer, encoderName string,
 
 // transcodeVideoPacket decodes a video packet, encodes the resulting
 // frames, and writes them to the output.
-func (p *pipeline) transcodeVideoPacket(pkt, frame, encPkt, decCtx, encCtx, outFmtCtx unsafe.Pointer, inStreamWrap ffmpeg.Stream, outVideoIdx int) error {
+func (p *pipeline) transcodeVideoPacket(pkt, frame, encPkt, decCtx, encCtx, outFmtCtx unsafe.Pointer, outVideoIdx int) error {
 	ret := ffmpeg.CodecSendPacket(decCtx, pkt)
 	if ret < 0 {
 		return fmt.Errorf("video decode send packet: %d", ret)
@@ -772,7 +817,7 @@ func (p *pipeline) transcodeVideoPacket(pkt, frame, encPkt, decCtx, encCtx, outF
 			break
 		}
 
-		if err := p.encodeAndWriteVideoFrame(frame, encPkt, encCtx, outFmtCtx, inStreamWrap, outVideoIdx); err != nil {
+		if err := p.encodeAndWriteVideoFrame(frame, encPkt, encCtx, outFmtCtx, outVideoIdx); err != nil {
 			ffmpeg.FrameUnref(frame)
 			return err
 		}
@@ -784,12 +829,12 @@ func (p *pipeline) transcodeVideoPacket(pkt, frame, encPkt, decCtx, encCtx, outF
 
 // encodeAndWriteVideoFrame sends a decoded frame to the encoder and
 // writes any resulting packets to the output.
-func (p *pipeline) encodeAndWriteVideoFrame(frame, encPkt, encCtx, outFmtCtx unsafe.Pointer, inStreamWrap ffmpeg.Stream, outVideoIdx int) error {
+func (p *pipeline) encodeAndWriteVideoFrame(frame, encPkt, encCtx, outFmtCtx unsafe.Pointer, outVideoIdx int) error {
 	encFrame := frame
 	var cleanup func()
-	if p.hwCaps.API == "vaapi" {
+	if p.hwCaps.API == hwAPINameVAAPI {
 		var err error
-		encFrame, cleanup, err = p.uploadVideoFrameToVAAPI(frame, encCtx)
+		encFrame, cleanup, err = uploadVideoFrameToVAAPI(frame, encCtx)
 		if err != nil {
 			return err
 		}
@@ -823,7 +868,7 @@ func (p *pipeline) encodeAndWriteVideoFrame(frame, encPkt, encCtx, outFmtCtx uns
 	return nil
 }
 
-func (p *pipeline) uploadVideoFrameToVAAPI(frame, encCtx unsafe.Pointer) (unsafe.Pointer, func(), error) {
+func uploadVideoFrameToVAAPI(frame, encCtx unsafe.Pointer) (unsafe.Pointer, func(), error) {
 	if frameFormat(frame) == int32(ffmpeg.PixFmtVaapi) {
 		return frame, func() {}, nil
 	}
@@ -840,6 +885,7 @@ func (p *pipeline) uploadVideoFrameToVAAPI(frame, encCtx unsafe.Pointer) (unsafe
 
 	cleanup := func() {
 		if hwFrame != nil {
+			//nolint:gosec // FFmpeg requires pointer-to-pointer cleanup for frame allocations.
 			ffmpeg.FrameFree(unsafe.Pointer(&hwFrame))
 		}
 	}

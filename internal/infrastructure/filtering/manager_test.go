@@ -52,6 +52,10 @@ func TestManager_LoadAsync_ChecksCacheFirst(t *testing.T) {
 
 	// Fallback: download will be triggered since Load returned nil filter
 	mockDownloader.EXPECT().
+		GetCachedFilterPaths().
+		Return(nil)
+
+	mockDownloader.EXPECT().
 		DownloadFilters(mock.Anything, mock.Anything).
 		Return([]string{jsonFile}, nil)
 
@@ -140,6 +144,10 @@ func TestManager_LoadAsync_DownloadsWhenCacheMiss(t *testing.T) {
 		Return([]string{}, nil)
 
 	// Download should be triggered
+	mockDownloader.EXPECT().
+		GetCachedFilterPaths().
+		Return(nil)
+
 	mockDownloader.EXPECT().
 		DownloadFilters(mock.Anything, mock.Anything).
 		Return([]string{jsonFile}, nil)
@@ -456,6 +464,9 @@ func TestManager_StatusCallback_CalledOnStateChange(t *testing.T) {
 		Load(mock.Anything, "ublock-combined-0").
 		Return(nil, nil) // nil triggers download fallback
 	mockDownloader.EXPECT().
+		GetCachedFilterPaths().
+		Return(nil)
+	mockDownloader.EXPECT().
 		DownloadFilters(mock.Anything, mock.Anything).
 		Return([]string{jsonFile}, nil)
 	mockStore.EXPECT().
@@ -519,6 +530,9 @@ func TestManager_LoadAsync_QuarantinesInvalidDownloadedPayload(t *testing.T) {
 	mockStore.EXPECT().
 		FetchIdentifiers(mock.Anything).
 		Return([]string{}, nil)
+	mockDownloader.EXPECT().
+		GetCachedFilterPaths().
+		Return(nil)
 
 	mockDownloader.EXPECT().
 		DownloadFilters(mock.Anything, mock.Anything).

@@ -32,7 +32,7 @@ type Engine struct {
 	activeWebViews sync.Map // map[port.WebViewID]*WebView
 	activeCount    atomic.Int32
 
-	// shutdownNotify is signalled when the active webview count reaches 0
+	// shutdownNotify is signaled when the active webview count reaches 0
 	// during shutdown, replacing the busy-wait poll in closeActiveWebViews.
 	shutdownNotify chan struct{}
 
@@ -42,14 +42,13 @@ type Engine struct {
 	childLaunchGPU          atomic.Uint64
 	childLaunchOther        atomic.Uint64
 
-	browserCreateRequests    atomic.Uint64
-	browserAfterCreated      atomic.Uint64
-	browserCreateLastAtMs    atomic.Int64
-	browserCreateLastResult  atomic.Int32
-	browserCreateLastWidth   atomic.Int32
-	browserCreateLastHeight  atomic.Int32
-	lastStallLoggedCreateSeq atomic.Uint64
-	browserCreateComplete    atomic.Bool
+	browserCreateRequests   atomic.Uint64
+	browserAfterCreated     atomic.Uint64
+	browserCreateLastAtMs   atomic.Int64
+	browserCreateLastResult atomic.Int32
+	browserCreateLastWidth  atomic.Int32
+	browserCreateLastHeight atomic.Int32
+	browserCreateComplete   atomic.Bool
 
 	transcoderState       transcoderStartupState
 	transcoderStateLogged atomic.Bool
@@ -166,6 +165,7 @@ func (e *Engine) closeActiveWebViews() {
 	}
 
 	log := logging.FromContext(e.ctx)
+	e.shutdownNotify = make(chan struct{}, 1)
 	webViews := make([]*WebView, 0, e.activeWebViewCount())
 	e.activeWebViews.Range(func(_, value any) bool {
 		wv, ok := value.(*WebView)
@@ -182,9 +182,6 @@ func (e *Engine) closeActiveWebViews() {
 	log.Debug().
 		Int("count", len(webViews)).
 		Msg("cef: closing active webviews before shutdown")
-
-	// Set up the shutdown notification channel before destroying webviews.
-	e.shutdownNotify = make(chan struct{}, 1)
 
 	for _, wv := range webViews {
 		wv.Destroy()
@@ -262,8 +259,6 @@ func (e *Engine) SetHandlerContext(ctx context.Context) {
 	e.logTranscoderStartupState()
 }
 
-const browserCreateStallWarnMS int64 = 1500
-
 func (e *Engine) recordContextInitialized() {
 	count := e.contextInitializedCount.Add(1)
 	logging.FromContext(e.ctx).Debug().
@@ -329,40 +324,6 @@ func (e *Engine) recordBrowserAfterCreated(browser purecef.Browser) {
 		Uint64("create_requests", e.browserCreateRequests.Load()).
 		Int32("browser_id", browserID).
 		Msg("cef: browser created")
-}
-
-func (e *Engine) maybeLogBrowserCreateStall() {
-	if e.browserCreateComplete.Load() {
-		return
-	}
-	createCount := e.browserCreateRequests.Load()
-	if createCount == 0 || createCount == e.browserAfterCreated.Load() || createCount == e.lastStallLoggedCreateSeq.Load() {
-		return
-	}
-
-	createdAt := e.browserCreateLastAtMs.Load()
-	if createdAt == 0 {
-		return
-	}
-
-	ageMs := time.Now().UnixMilli() - createdAt
-	if ageMs < browserCreateStallWarnMS {
-		return
-	}
-
-	e.lastStallLoggedCreateSeq.Store(createCount)
-	logging.FromContext(e.ctx).Warn().
-		Uint64("create_requests", createCount).
-		Uint64("after_created", e.browserAfterCreated.Load()).
-		Int64("create_age_ms", ageMs).
-		Int32("last_create_result", e.browserCreateLastResult.Load()).
-		Int32("last_create_width", e.browserCreateLastWidth.Load()).
-		Int32("last_create_height", e.browserCreateLastHeight.Load()).
-		Uint64("context_initialized", e.contextInitializedCount.Load()).
-		Uint64("renderer_launches", e.childLaunchRenderer.Load()).
-		Uint64("gpu_launches", e.childLaunchGPU.Load()).
-		Uint64("other_launches", e.childLaunchOther.Load()).
-		Msg("cef: browser creation appears stalled")
 }
 
 func (e *Engine) currentContext() context.Context {

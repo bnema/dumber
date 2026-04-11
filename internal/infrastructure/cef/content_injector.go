@@ -252,11 +252,15 @@ const redditDirectVideoJS = `(function(){
   function monitorReplacement(video) {
     if (!video || video._dumberReplacementDiag) return;
     video._dumberReplacementDiag = true;
-    ['loadstart','loadedmetadata','loadeddata','canplay','playing','waiting','stalled','suspend','abort','emptied','error'].forEach(function(evt) {
+    [
+      'loadstart', 'loadedmetadata', 'loadeddata', 'canplay', 'playing',
+      'waiting', 'stalled', 'suspend', 'abort', 'emptied', 'error',
+    ].forEach(function(evt) {
       video.addEventListener(evt, function() {
         var err = video.error ? ('code=' + video.error.code + ' msg=' + video.error.message) : 'none';
         console.warn(tag, 'replacement', evt, 'ready:', video.readyState, 'net:', video.networkState,
-          'paused:', video.paused, 'error:', err, 'src:', (video.currentSrc || video.src || '').substring(0, 120));
+          'paused:', video.paused, 'error:', err, 'src:',
+          (video.currentSrc || video.src || '').substring(0, 120));
       });
     });
   }
