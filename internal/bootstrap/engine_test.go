@@ -33,3 +33,12 @@ func TestBuildEngine_CEF_ReturnsErrorForUnsupportedCookiePolicy(t *testing.T) {
 	_, err := BuildEngine(EngineInput{Config: cfg, Ctx: context.Background()})
 	require.ErrorIs(t, err, cef.ErrCookiePolicyUnsupported)
 }
+
+func TestBuildEngine_CEF_AllowsNoThirdPartyCookiePolicy(t *testing.T) {
+	cfg := config.DefaultConfig()
+	cfg.Engine.Type = "cef"
+	cfg.Engine.CookiePolicy = config.CookiePolicyNoThirdParty
+	cfg.Engine.CEF.CEFDir = t.TempDir()
+	_, err := BuildEngine(EngineInput{Config: cfg, Ctx: context.Background()})
+	require.NotErrorIs(t, err, cef.ErrCookiePolicyUnsupported)
+}

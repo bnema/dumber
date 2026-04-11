@@ -98,7 +98,15 @@ func resolvedStateRoot(opts port.EngineOptions) string {
 
 // prepareCEFSettings builds purecef.Settings from the engine config.
 func prepareCEFSettings(opts port.EngineOptions, cfg RuntimeConfig, logger *zerolog.Logger) (purecef.Settings, error) {
-	if opts.CookiePolicy != "" && opts.CookiePolicy != port.CookiePolicyAlways {
+	switch opts.CookiePolicy {
+	case "", port.CookiePolicyAlways:
+	case port.CookiePolicyNoThirdParty:
+		logger.Warn().
+			Str("cookie_policy", string(opts.CookiePolicy)).
+			Msg("cef: no_third_party cookie policy is currently treated as always")
+	case port.CookiePolicyNever:
+		return purecef.Settings{}, fmt.Errorf("%w: %s", ErrCookiePolicyUnsupported, opts.CookiePolicy)
+	default:
 		return purecef.Settings{}, fmt.Errorf("%w: %s", ErrCookiePolicyUnsupported, opts.CookiePolicy)
 	}
 

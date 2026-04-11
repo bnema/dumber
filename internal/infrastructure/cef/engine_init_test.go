@@ -35,6 +35,12 @@ func TestPrepareCEFSettings_RejectsNonDefaultCookiePolicy(t *testing.T) {
 	require.ErrorIs(t, err, ErrCookiePolicyUnsupported)
 }
 
+func TestPrepareCEFSettings_AllowsNoThirdPartyCookiePolicy(t *testing.T) {
+	logger := zerolog.Nop()
+	_, err := prepareCEFSettings(port.EngineOptions{CookiePolicy: port.CookiePolicyNoThirdParty}, RuntimeConfig{}, &logger)
+	require.NoError(t, err)
+}
+
 func TestPrepareCEFInitTraceFile_DisabledByDefault(t *testing.T) {
 	t.Setenv(puregoCEFInitTraceEnvVar, "")
 
