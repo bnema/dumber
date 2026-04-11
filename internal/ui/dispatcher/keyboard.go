@@ -143,16 +143,16 @@ func (d *KeyboardDispatcher) initActionHandlers() {
 		input.ActionNextTab:          d.tabCoord.SwitchNext,
 		input.ActionPreviousTab:      d.tabCoord.SwitchPrev,
 		input.ActionSwitchLastTab:    d.tabCoord.SwitchToLastActive,
-		input.ActionSwitchTabIndex1:  func(ctx context.Context) error { return d.tabCoord.SwitchByIndex(ctx, firstTabIndex) },
-		input.ActionSwitchTabIndex2:  func(ctx context.Context) error { return d.tabCoord.SwitchByIndex(ctx, secondTabIndex) },
-		input.ActionSwitchTabIndex3:  func(ctx context.Context) error { return d.tabCoord.SwitchByIndex(ctx, thirdTabIndex) },
-		input.ActionSwitchTabIndex4:  func(ctx context.Context) error { return d.tabCoord.SwitchByIndex(ctx, fourthTabIndex) },
-		input.ActionSwitchTabIndex5:  func(ctx context.Context) error { return d.tabCoord.SwitchByIndex(ctx, fifthTabIndex) },
-		input.ActionSwitchTabIndex6:  func(ctx context.Context) error { return d.tabCoord.SwitchByIndex(ctx, sixthTabIndex) },
-		input.ActionSwitchTabIndex7:  func(ctx context.Context) error { return d.tabCoord.SwitchByIndex(ctx, seventhTabIndex) },
-		input.ActionSwitchTabIndex8:  func(ctx context.Context) error { return d.tabCoord.SwitchByIndex(ctx, eighthTabIndex) },
-		input.ActionSwitchTabIndex9:  func(ctx context.Context) error { return d.tabCoord.SwitchByIndex(ctx, ninthTabIndex) },
-		input.ActionSwitchTabIndex10: func(ctx context.Context) error { return d.tabCoord.SwitchByIndex(ctx, tenthTabIndex) },
+		input.ActionSwitchTabIndex1:  func(ctx context.Context) error { return d.handleSwitchTabIndex(ctx, firstTabIndex) },
+		input.ActionSwitchTabIndex2:  func(ctx context.Context) error { return d.handleSwitchTabIndex(ctx, secondTabIndex) },
+		input.ActionSwitchTabIndex3:  func(ctx context.Context) error { return d.handleSwitchTabIndex(ctx, thirdTabIndex) },
+		input.ActionSwitchTabIndex4:  func(ctx context.Context) error { return d.handleSwitchTabIndex(ctx, fourthTabIndex) },
+		input.ActionSwitchTabIndex5:  func(ctx context.Context) error { return d.handleSwitchTabIndex(ctx, fifthTabIndex) },
+		input.ActionSwitchTabIndex6:  func(ctx context.Context) error { return d.handleSwitchTabIndex(ctx, sixthTabIndex) },
+		input.ActionSwitchTabIndex7:  func(ctx context.Context) error { return d.handleSwitchTabIndex(ctx, seventhTabIndex) },
+		input.ActionSwitchTabIndex8:  func(ctx context.Context) error { return d.handleSwitchTabIndex(ctx, eighthTabIndex) },
+		input.ActionSwitchTabIndex9:  func(ctx context.Context) error { return d.handleSwitchTabIndex(ctx, ninthTabIndex) },
+		input.ActionSwitchTabIndex10: func(ctx context.Context) error { return d.handleSwitchTabIndex(ctx, tenthTabIndex) },
 		input.ActionRenameTab: func(ctx context.Context) error {
 			return d.logNoop(ctx, "rename tab action (not yet implemented)")
 		},
@@ -309,6 +309,10 @@ func (d *KeyboardDispatcher) handleMovePaneToNextTab(ctx context.Context) error 
 	}
 	logging.FromContext(ctx).Debug().Msg("move pane to next tab action (no handler)")
 	return nil
+}
+
+func (d *KeyboardDispatcher) handleSwitchTabIndex(ctx context.Context, index int) error {
+	return d.tabCoord.EnsureTabByIndex(ctx, index, domainurl.Normalize(d.newPaneURL))
 }
 
 func (d *KeyboardDispatcher) logNoop(ctx context.Context, message string) error {

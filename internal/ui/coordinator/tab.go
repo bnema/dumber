@@ -2,6 +2,7 @@ package coordinator
 
 import (
 	"context"
+	"fmt"
 
 	"github.com/bnema/dumber/internal/application/port"
 	"github.com/bnema/dumber/internal/application/usecase"
@@ -272,6 +273,34 @@ func (c *TabCoordinator) SwitchByIndex(ctx context.Context, index int) error {
 
 	log.Debug().Int("index", index).Str("tab_id", string(c.tabs.ActiveTabID)).Msg("switched to tab by index")
 	return nil
+}
+
+// EnsureTabByIndex creates tabs until the requested index exists, then switches to it.
+func (c *TabCoordinator) EnsureTabByIndex(ctx context.Context, index int, initialURL string) error {
+	log := logging.FromContext(ctx)
+
+	if index < 0 {
+		log.Debug().Int("index", index).Msg("invalid tab index")
+		return nil
+	}
+
+	if c.tabs == nil {
+		return fmt.Errorf("tab list is required")
+	}
+
+	if c.tabs.Count() <= index && initialURL == "" {
+		log.Debug().Int("index", index).Msg("cannot auto-create missing tabs without initial URL")
+		return fmt.Errorf("initial URL is required to auto-create missing tabs")
+	}
+
+	for c.tabs.Count() <= index {
+		if _, err := c.Create(ctx, initialURL); err != nil {
+			log.Error().Err(err).Int("index", index).Msg("failed to create tab while ensuring tab index")
+			return err
+		}
+	}
+
+	return c.SwitchByIndex(ctx, index)
 }
 
 // SwitchToLastActive switches to the previously active tab (Alt+Tab style).
