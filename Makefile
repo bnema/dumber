@@ -1,6 +1,6 @@
 # Makefile for dumber (Clean Architecture - puregotk)
 
-.PHONY: build build-frontend test lint clean install-tools dev generate help init man flatpak-deps flatpak-build flatpak-install flatpak-run flatpak-clean stress-omnibox-callbacks verify-purego check
+.PHONY: build build-frontend build-systemviews test lint clean install-tools dev generate help init man flatpak-deps flatpak-build flatpak-install flatpak-run flatpak-clean stress-omnibox-callbacks verify-purego check
 
 # Load local overrides from .env.local if present (Makefile syntax)
 ifneq (,$(wildcard .env.local))
@@ -49,6 +49,13 @@ build-frontend: ## Build homepage and error pages
 	@echo "Building webui pages (homepage + error)..."
 	@cd webui && npm install --silent && npm run build
 	@echo "Frontend build complete"
+
+build-systemviews: ## Build the WASM systemviews runtime
+	@echo "Building systemviews wasm assets..."
+	@mkdir -p assets/systemviews
+	@cp "$$(go env GOROOT)/lib/wasm/wasm_exec.js" assets/systemviews/wasm_exec.js
+	GOOS=js GOARCH=wasm go build -o assets/systemviews/systemviews.wasm ./cmd/systemviews
+	@echo "Systemviews build complete"
 
 build-quick: ## Build without frontend (faster for backend development)
 	@echo "Building $(BINARY_NAME) $(VERSION) (quick, no frontend)..."
@@ -125,6 +132,7 @@ clean: ## Clean build artifacts
 	rm -f $(BINARY_NAME)
 	rm -rf webui/dist webui/node_modules
 	rm -f assets/webui/homepage.min.js assets/webui/error.min.js assets/webui/config.min.js assets/webui/index.html assets/webui/error.html assets/webui/config.html assets/webui/style.css
+	rm -f assets/systemviews/wasm_exec.js assets/systemviews/systemviews.wasm
 	rm -f coverage.out coverage.html
 	go clean -cache
 	go clean -testcache

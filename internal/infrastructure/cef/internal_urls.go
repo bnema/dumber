@@ -102,7 +102,7 @@ func toConceptualInternalURL(raw string) string {
 
 func isInternalPageHost(host string) bool {
 	switch host {
-	case homePath, configPath, webrtcPath, errorPath:
+	case homePath, historyPath, favoritesPath, configPath, webrtcPath, errorPath:
 		return true
 	default:
 		return false

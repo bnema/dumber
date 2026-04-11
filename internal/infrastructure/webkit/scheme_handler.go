@@ -21,13 +21,16 @@ import (
 
 // Scheme path constants
 const (
-	HomePath   = "home"
-	ConfigPath = "config"
-	WebRTCPath = "webrtc"
-	ErrorPath  = "error"
-	CrashPath  = "crash"
-	IndexHTML  = "index.html"
-	httpGET    = "GET"
+	HomePath             = "home"
+	HistoryPath          = "history"
+	FavoritesPath        = "favorites"
+	ConfigPath           = "config"
+	WebRTCPath           = "webrtc"
+	ErrorPath            = "error"
+	CrashPath            = "crash"
+	IndexHTML            = "index.html"
+	SystemViewsIndexHTML = "systemviews/index.html"
+	httpGET              = "GET"
 )
 
 // SchemeRequest represents a request to a custom URI scheme.
@@ -62,7 +65,7 @@ func (f PageHandlerFunc) Handle(req *SchemeRequest) *SchemeResponse {
 type DumbSchemeHandler struct {
 	handlers             map[string]PageHandler
 	assets               embed.FS
-	assetDir             string // subdirectory within embed.FS (e.g., "assets/webui")
+	assetDir             string // default subdirectory within embed.FS (e.g., "webui")
 	logger               zerolog.Logger
 	mu                   sync.RWMutex
 	currentConfigPayload func() ([]byte, error)
@@ -292,9 +295,12 @@ func (h *DumbSchemeHandler) handleAsset(u *url.URL) *SchemeResponse {
 		return nil
 	}
 
-	relPath, ok := resolveAssetPath(u)
+	assetDir, relPath, ok := resolveAssetPath(u)
 	if !ok {
 		return nil
+	}
+	if assetDir == "" {
+		assetDir = h.assetDir
 	}
 
 	// Read the asset from embedded FS
@@ -319,37 +325,42 @@ func (h *DumbSchemeHandler) handleAsset(u *url.URL) *SchemeResponse {
 	}
 }
 
-func resolveAssetPath(u *url.URL) (string, bool) {
+func resolveAssetPath(u *url.URL) (assetDir, relPath string, ok bool) {
 	if u == nil {
-		return "", false
+		return "", "", false
 	}
 
-	rootByHost := map[string]string{
-		HomePath:   IndexHTML,
-		ConfigPath: "config.html",
-		WebRTCPath: "webrtc.html",
-		ErrorPath:  "error.html",
+	rootByHost := map[string]struct {
+		assetDir string
+		file     string
+	}{
+		HomePath:      {assetDir: "webui", file: IndexHTML},
+		HistoryPath:   {assetDir: "systemviews", file: IndexHTML},
+		FavoritesPath: {assetDir: "systemviews", file: IndexHTML},
+		ConfigPath:    {assetDir: "systemviews", file: IndexHTML},
+		WebRTCPath:    {assetDir: "webui", file: "webrtc.html"},
+		ErrorPath:     {assetDir: "webui", file: "error.html"},
 	}
 
 	if root, ok := rootByHost[u.Host]; ok {
 		path := strings.TrimPrefix(u.Path, "/")
 		if path == "" {
-			return root, true
+			return root.assetDir, root.file, true
 		}
-		return path, true
+		return root.assetDir, path, true
 	}
 
 	switch u.Opaque {
 	case HomePath:
-		return IndexHTML, true
-	case ConfigPath:
-		return "config.html", true
+		return "webui", IndexHTML, true
+	case HistoryPath, FavoritesPath, ConfigPath:
+		return "systemviews", IndexHTML, true
 	case ErrorPath:
-		return "error.html", true
+		return "webui", "error.html", true
 	case WebRTCPath:
-		return "webrtc.html", true
+		return "webui", "webrtc.html", true
 	default:
-		return "", false
+		return "", "", false
 	}
 }
 

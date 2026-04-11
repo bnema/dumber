@@ -1,0 +1,17 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>systemviews</title>
+  <script src="./wasm_exec.js"></script>
+  <script>
+    const go = new Go();
+    WebAssembly.instantiateStreaming(fetch('./systemviews.wasm'), go.importObject)
+      .then((result) => go.run(result.instance));
+  </script>
+</head>
+<body>
+  <main id="app">Loading systemviews…</main>
+</body>
+</html>

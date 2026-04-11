@@ -16,6 +16,21 @@ func TestToActualInternalURL(t *testing.T) {
 			want: "https://dumber.invalid/home",
 		},
 		{
+			name: "history page root",
+			in:   "dumb://history",
+			want: "https://dumber.invalid/history",
+		},
+		{
+			name: "favorites page root",
+			in:   "dumb://favorites",
+			want: "https://dumber.invalid/favorites",
+		},
+		{
+			name: "config page root",
+			in:   "dumb://config",
+			want: "https://dumber.invalid/config",
+		},
+		{
 			name: "api path stays at origin root",
 			in:   "dumb://home/api/message",
 			want: "https://dumber.invalid/api/message",
@@ -59,6 +74,21 @@ func TestToConceptualInternalURL(t *testing.T) {
 			name: "page root",
 			in:   "https://dumber.invalid/home",
 			want: "dumb://home",
+		},
+		{
+			name: "history page root",
+			in:   "https://dumber.invalid/history",
+			want: "dumb://history",
+		},
+		{
+			name: "favorites page root",
+			in:   "https://dumber.invalid/favorites",
+			want: "dumb://favorites",
+		},
+		{
+			name: "config page root",
+			in:   "https://dumber.invalid/config",
+			want: "dumb://config",
 		},
 		{
 			name: "page subroute",

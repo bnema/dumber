@@ -117,7 +117,7 @@ func TestHandleAsset_WebRTCOpaqueFormServesInternalWebRTCTester(t *testing.T) {
 	assert.Contains(t, string(resp.Data), "webrtc.min.js")
 }
 
-func TestHandleAsset_ConfigOpaqueFormServesConfigPage(t *testing.T) {
+func TestHandleAsset_ConfigOpaqueFormServesSystemviewsShell(t *testing.T) {
 	h := NewDumbSchemeHandler(context.Background())
 	h.SetAssets(assets.WebUIAssets)
 
@@ -127,7 +127,33 @@ func TestHandleAsset_ConfigOpaqueFormServesConfigPage(t *testing.T) {
 	resp := h.handleAsset(u)
 	require.NotNil(t, resp)
 	assert.Equal(t, "text/html; charset=utf-8", resp.ContentType)
-	assert.Contains(t, string(resp.Data), "config")
+	assert.Contains(t, string(resp.Data), "systemviews.wasm")
+}
+
+func TestHandleAsset_SystemviewsRootsServeShell(t *testing.T) {
+	h := NewDumbSchemeHandler(context.Background())
+	h.SetAssets(assets.WebUIAssets)
+
+	tests := []string{
+		"dumb://history",
+		"dumb:history",
+		"dumb://favorites",
+		"dumb:favorites",
+		"dumb://config",
+		"dumb:config",
+	}
+
+	for _, raw := range tests {
+		t.Run(raw, func(t *testing.T) {
+			u, err := url.Parse(raw)
+			require.NoError(t, err)
+
+			resp := h.handleAsset(u)
+			require.NotNil(t, resp)
+			assert.Equal(t, "text/html; charset=utf-8", resp.ContentType)
+			assert.Contains(t, string(resp.Data), "systemviews.wasm")
+		})
+	}
 }
 
 func TestConfigHandlersUseInjectedPayloadBuilders(t *testing.T) {

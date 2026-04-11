@@ -27,19 +27,24 @@ import (
 // Scheme path constants matching WebKit's naming.
 const (
 	homePath                    = "home"
+	historyPath                 = "history"
+	favoritesPath               = "favorites"
 	configPath                  = "config"
 	webrtcPath                  = "webrtc"
 	errorPath                   = "error"
 	indexHTML                   = "index.html"
+	systemviewsIndexHTML        = "systemviews/index.html"
 	maxSchemeTruncatedURLLength = 240
 )
 
 // pageRootFiles maps internal page hosts/paths to their HTML entry points.
 var pageRootFiles = map[string]string{
-	homePath:   indexHTML,
-	configPath: "config.html",
-	webrtcPath: "webrtc.html",
-	errorPath:  "error.html",
+	homePath:      indexHTML,
+	historyPath:   systemviewsIndexHTML,
+	favoritesPath: systemviewsIndexHTML,
+	configPath:    systemviewsIndexHTML,
+	webrtcPath:    "webrtc.html",
+	errorPath:     "error.html",
 }
 
 // dumbSchemeHandler serves both the conceptual dumb:// URLs and the actual
