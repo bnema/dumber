@@ -132,7 +132,7 @@ func TestHandlePopupCreate_ReusesNamedPopup(t *testing.T) {
 	parentWV.EXPECT().ID().Return(port.WebViewID(101)).Twice()
 
 	popupWV := mocks.NewMockWebView(t)
-	popupWV.EXPECT().ID().Return(port.WebViewID(202)).Once()
+	popupWV.EXPECT().ID().Return(port.WebViewID(202)).Twice()
 	popupWV.EXPECT().Generation().Return(uint64(1)).Maybe()
 	popupWV.EXPECT().SetCallbacks(mock.Anything).Maybe()
 	popupWV.EXPECT().IsLoading().Return(false).Maybe()

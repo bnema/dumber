@@ -85,8 +85,6 @@ type namedPopupKey struct {
 }
 
 type namedPopupState struct {
-	PaneID  entity.PaneID
-	PopupID port.WebViewID
 	WebView port.WebView
 }
 
@@ -123,8 +121,6 @@ func (c *Coordinator) lookupReusableNamedPopup(parentPaneID entity.PaneID, frame
 func (c *Coordinator) storeReusableNamedPopup(
 	parentPaneID entity.PaneID,
 	frameName string,
-	paneID entity.PaneID,
-	popupID port.WebViewID,
 	wv port.WebView,
 ) {
 	if !isReusableNamedPopupFrame(frameName) || wv == nil {
@@ -137,7 +133,7 @@ func (c *Coordinator) storeReusableNamedPopup(
 	if c.namedPopups == nil {
 		c.namedPopups = make(map[namedPopupKey]*namedPopupState)
 	}
-	c.namedPopups[key] = &namedPopupState{PaneID: paneID, PopupID: popupID, WebView: wv}
+	c.namedPopups[key] = &namedPopupState{WebView: wv}
 	c.popupMu.Unlock()
 }
 
@@ -152,7 +148,7 @@ func (c *Coordinator) updatePendingPopupTarget(popupID port.WebViewID, targetURI
 func (c *Coordinator) clearReusableNamedPopupByWebViewID(popupID port.WebViewID) {
 	c.popupMu.Lock()
 	for key, state := range c.namedPopups {
-		if state != nil && state.PopupID == popupID {
+		if state != nil && state.WebView != nil && state.WebView.ID() == popupID {
 			delete(c.namedPopups, key)
 		}
 	}
@@ -306,7 +302,7 @@ func (c *Coordinator) handlePopupCreate(
 
 	parentID := parentWV.ID()
 	if existing, ok := c.lookupReusableNamedPopup(parentPaneID, req.FrameName); ok {
-		c.updatePendingPopupTarget(existing.PopupID, req.TargetURI)
+		c.updatePendingPopupTarget(existing.WebView.ID(), req.TargetURI)
 		if err := existing.WebView.LoadURI(ctx, req.TargetURI); err != nil {
 			log.Warn().Err(err).
 				Str("target_uri", logging.TruncateURL(req.TargetURI, logURLMaxLen)).
@@ -374,7 +370,7 @@ func (c *Coordinator) handlePopupCreate(
 
 	// Register WebView in our map (after successful insertion)
 	c.setWebViewLocked(paneID, popupWV)
-	c.storeReusableNamedPopup(parentPaneID, req.FrameName, paneID, popupID, popupWV)
+	c.storeReusableNamedPopup(parentPaneID, req.FrameName, popupWV)
 
 	// Setup standard callbacks (after successful insertion to avoid leak)
 	c.setupWebViewCallbacks(ctx, paneID, popupWV)
