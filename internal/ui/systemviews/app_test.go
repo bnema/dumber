@@ -67,7 +67,7 @@ func TestAppLoadInitialHistoryRouteRendersEntries(t *testing.T) {
 
 	require.NoError(t, app.LoadInitial(context.Background()))
 	assert.Equal(t, RouteHistory, app.CurrentRoute())
-	assert.Equal(t, 1, len(app.historyEntries))
+	assert.Len(t, app.historyEntries, 1)
 	assert.Contains(t, app.renderedHTML, "Example")
 	assert.Contains(t, app.renderedHTML, "https://example.com")
 	assert.True(t, history.called)

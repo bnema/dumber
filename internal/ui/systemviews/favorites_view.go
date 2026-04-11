@@ -51,7 +51,7 @@ func favoriteItemsHTML(favorites []*entity.Favorite) string {
 		if label == "" {
 			label = favorite.URL
 		}
-		items.WriteString(fmt.Sprintf(`<li><a href="%s">%s</a></li>`, html.EscapeString(favorite.URL), html.EscapeString(label)))
+		_, _ = fmt.Fprintf(&items, `<li><a href="%s">%s</a></li>`, html.EscapeString(favorite.URL), html.EscapeString(label))
 	}
 	if items.Len() == 0 {
 		return "<li>No favorites</li>"
@@ -69,7 +69,7 @@ func folderItemsHTML(folders []*entity.Folder) string {
 		if folder == nil {
 			continue
 		}
-		items.WriteString(fmt.Sprintf("<li>%s</li>", html.EscapeString(folder.Name)))
+		_, _ = fmt.Fprintf(&items, "<li>%s</li>", html.EscapeString(folder.Name))
 	}
 	if items.Len() == 0 {
 		return "<li>No folders</li>"
@@ -87,7 +87,7 @@ func tagItemsHTML(tags []*entity.Tag) string {
 		if tag == nil {
 			continue
 		}
-		items.WriteString(fmt.Sprintf("<li>%s</li>", html.EscapeString(tag.Name)))
+		_, _ = fmt.Fprintf(&items, "<li>%s</li>", html.EscapeString(tag.Name))
 	}
 	if items.Len() == 0 {
 		return "<li>No tags</li>"

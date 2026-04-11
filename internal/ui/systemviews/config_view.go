@@ -39,7 +39,7 @@ func configHTML(cfg port.SystemviewConfigPayload, keybindings any) string {
 	)
 }
 
-func summarizeKeybindings(keybindings any) (groups int, bindings int, loaded bool) {
+func summarizeKeybindings(keybindings any) (groups, bindings int, loaded bool) {
 	switch v := keybindings.(type) {
 	case nil:
 		return 0, 0, false
@@ -57,7 +57,7 @@ func summarizeKeybindings(keybindings any) (groups int, bindings int, loaded boo
 	}
 }
 
-func countBridgeKeybindings(data map[string]any) (groups int, bindings int, loaded bool) {
+func countBridgeKeybindings(data map[string]any) (groups, bindings int, loaded bool) {
 	groupValue, ok := data["groups"]
 	if !ok {
 		return 1, 0, true

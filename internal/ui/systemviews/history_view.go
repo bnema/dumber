@@ -21,10 +21,7 @@ func historyHTML(entries []*entity.HistoryEntry) string {
 			if label == "" {
 				label = entry.URL
 			}
-			items.WriteString(fmt.Sprintf(`<li><a href="%s">%s</a></li>`,
-				html.EscapeString(entry.URL),
-				html.EscapeString(label),
-			))
+			_, _ = fmt.Fprintf(&items, `<li><a href="%s">%s</a></li>`, html.EscapeString(entry.URL), html.EscapeString(label))
 		}
 	}
 

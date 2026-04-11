@@ -236,8 +236,8 @@ func TestClientCurrentAndDefaultDecodeConfigPayload(t *testing.T) {
 	}
 
 	var msg port.WebUIMessage
-	if err := json.Unmarshal(currentClient.native.(*fakeTransport).last, &msg); err != nil {
-		t.Fatalf("unmarshal sent envelope: %v", err)
+	if unmarshalErr := json.Unmarshal(currentClient.native.(*fakeTransport).last, &msg); unmarshalErr != nil {
+		t.Fatalf("unmarshal sent envelope: %v", unmarshalErr)
 	}
 	if msg.Type != "/api/config" {
 		t.Fatalf("sent type = %q, want %q", msg.Type, "/api/config")
