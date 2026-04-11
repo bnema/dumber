@@ -9,7 +9,6 @@ import (
 	purecef "github.com/bnema/purego-cef/cef"
 
 	"github.com/bnema/dumber/internal/application/port"
-	"github.com/bnema/dumber/internal/infrastructure/handlers"
 	"github.com/bnema/dumber/internal/logging"
 )
 
@@ -27,6 +26,12 @@ type Engine struct {
 	messageRouter *MessageRouter
 	schemeHandler *dumbSchemeHandler
 	contentInj    *contentInjector
+
+	registerHandlers       HandlerRegistrar
+	registerAccentHandlers AccentHandlerRegistrar
+	currentConfigPayload   func() ([]byte, error)
+	defaultConfigPayload   func() ([]byte, error)
+	mediaClassifier        MediaClassifier
 
 	// activeWebViews tracks all live webviews for CSS broadcast.
 	activeWebViews sync.Map // map[port.WebViewID]*WebView
@@ -210,17 +215,17 @@ func (e *Engine) closeActiveWebViews() {
 // each handler is registered by message type with the router, which dispatches
 // incoming /api/message POSTs to the correct handler based on Message.Type.
 func (e *Engine) RegisterHandlers(ctx context.Context, deps port.HandlerDependencies) error {
-	if e.messageRouter == nil {
+	if e.messageRouter == nil || e.registerHandlers == nil {
 		return nil
 	}
-	return handlers.RegisterAll(ctx, e.messageRouter, deps)
+	return e.registerHandlers(ctx, e.messageRouter, deps)
 }
 
 func (e *Engine) RegisterAccentHandlers(ctx context.Context, handler port.AccentKeyHandler) error {
-	if e.messageRouter == nil || handler == nil {
+	if e.messageRouter == nil || handler == nil || e.registerAccentHandlers == nil {
 		return nil
 	}
-	return handlers.RegisterAccentHandlers(ctx, e.messageRouter, handler)
+	return e.registerAccentHandlers(ctx, e.messageRouter, handler)
 }
 
 // ConfigureDownloads sets up download handling (Phase 1 stub).

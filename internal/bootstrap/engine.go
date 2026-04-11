@@ -2,12 +2,16 @@ package bootstrap
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 
 	"github.com/bnema/dumber/internal/application/port"
 	audiofactory "github.com/bnema/dumber/internal/infrastructure/audio/factory"
 	"github.com/bnema/dumber/internal/infrastructure/cef"
 	"github.com/bnema/dumber/internal/infrastructure/config"
+	"github.com/bnema/dumber/internal/infrastructure/env"
+	"github.com/bnema/dumber/internal/infrastructure/handlers"
+	"github.com/bnema/dumber/internal/infrastructure/transcoder"
 	"github.com/bnema/dumber/internal/infrastructure/webkit"
 	"github.com/bnema/dumber/internal/ui/theme"
 	"github.com/rs/zerolog"
@@ -62,8 +66,34 @@ func BuildEngine(input EngineInput) (port.Engine, error) {
 			MaxConcurrent: cfg.Transcoding.MaxConcurrent,
 			Quality:       cfg.Transcoding.Quality,
 		}
+		surveyor := env.NewHardwareSurveyor()
+		buildConfigPayload := func(cfgf func() *config.Config) func() ([]byte, error) {
+			return func() ([]byte, error) {
+				cfg := cfgf()
+				var hw *port.HardwareInfo
+				if surveyor != nil {
+					survey := surveyor.Survey(context.Background())
+					hw = &survey
+				}
+				return json.Marshal(config.BuildWebUIConfigPayload(cfg, hw))
+			}
+		}
+		deps := cef.EngineDependencies{
+			RegisterHandlers:       handlers.RegisterAll,
+			RegisterAccentHandlers: handlers.RegisterAccentHandlers,
+			CurrentConfigPayload:   buildConfigPayload(config.Get),
+			DefaultConfigPayload:   buildConfigPayload(config.DefaultConfig),
+			MediaClassifier: cef.MediaClassifier{
+				IsProprietaryVideoMIME:     transcoder.IsProprietaryVideoMIME,
+				IsOpenVideoMIME:            transcoder.IsOpenVideoMIME,
+				IsStreamingManifestMIME:    transcoder.IsStreamingManifestMIME,
+				IsStreamingManifestURL:     transcoder.IsStreamingManifestURL,
+				IsEagerTranscodeURL:        transcoder.IsEagerTranscodeURL,
+				ParseSyntheticTranscodeURL: transcoder.ParseSyntheticTranscodeURL,
+			},
+		}
 		audioFactory := audiofactory.NewAudioOutputFactory()
-		return cef.NewEngine(input.Ctx, opts, cefCfg, transcodingCfg, audioFactory, cef.EngineDependencies{})
+		return cef.NewEngine(input.Ctx, opts, cefCfg, transcodingCfg, audioFactory, deps)
 	default:
 		return nil, fmt.Errorf("unknown engine type: %q", engineType)
 	}

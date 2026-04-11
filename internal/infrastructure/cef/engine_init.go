@@ -33,6 +33,7 @@ func NewEngine(
 	deps EngineDependencies,
 ) (*Engine, error) {
 	logger := logging.FromContext(ctx)
+	deps.MediaClassifier = deps.MediaClassifier.normalize()
 	stateRoot := resolvedStateRoot(opts)
 	cleanStaleSingletonLocks(logger, stateRoot)
 	windowlessFrameRate := config.CEFEngineConfig{WindowlessFrameRate: cfg.WindowlessFrameRate}.CEFWindowlessFrameRate()
@@ -48,7 +49,12 @@ func NewEngine(
 	os.Args = appendIfMissing(os.Args, "--no-zygote")
 
 	eng := &Engine{
-		ctx: ctx,
+		ctx:                    ctx,
+		registerHandlers:       deps.RegisterHandlers,
+		registerAccentHandlers: deps.RegisterAccentHandlers,
+		currentConfigPayload:   deps.CurrentConfigPayload,
+		defaultConfigPayload:   deps.DefaultConfigPayload,
+		mediaClassifier:        deps.MediaClassifier,
 	}
 
 	logger.Info().
