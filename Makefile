@@ -38,7 +38,7 @@ help: ## Show this help message
 	@awk 'BEGIN {FS = ":.*?## "} /^[a-zA-Z_-]+:.*?## / {printf "  \033[36m%-15s\033[0m %s\n", $$1, $$2}' $(MAKEFILE_LIST)
 
 # Build targets
-build: build-frontend ## Build the application (pure Go, no CGO)
+build: build-frontend build-systemviews ## Build the application (pure Go, no CGO)
 	@echo "Building $(BINARY_NAME) $(VERSION) using $(NPROCS) cores..."
 	@mkdir -p $(DIST_DIR)
 	CGO_ENABLED=0 go build -p $(NPROCS) $(GCFLAGS) $(LDFLAGS) -o $(DIST_DIR)/$(BINARY_NAME) $(MAIN_PATH)

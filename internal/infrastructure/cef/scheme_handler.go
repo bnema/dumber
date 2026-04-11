@@ -294,16 +294,18 @@ func (h *dumbSchemeHandler) newRedirectResourceHandler(status int, location stri
 func (h *dumbSchemeHandler) handleAsset(u *url.URL) purecef.ResourceHandler {
 	h.mu.RLock()
 	hasAssets := h.assetsSet
-	assetDir := h.assetDir
 	h.mu.RUnlock()
 
 	if !hasAssets {
 		return h.newErrorResourceHandler(http.StatusInternalServerError, "Assets not configured")
 	}
 
-	relPath, ok := resolveAssetPath(u)
+	assetDir, relPath, ok := resolveAssetPath(u)
 	if !ok {
 		return h.newErrorResourceHandler(http.StatusNotFound, "Page not found")
+	}
+	if assetDir == "" {
+		assetDir = h.assetDir
 	}
 
 	fullPath := filepath.ToSlash(filepath.Join(assetDir, relPath))
@@ -325,9 +327,9 @@ func (h *dumbSchemeHandler) handleAsset(u *url.URL) purecef.ResourceHandler {
 
 // resolveAssetPath maps either a dumb:// URL or the actual internal HTTPS URL
 // to a relative asset path inside assets/webui.
-func resolveAssetPath(u *url.URL) (string, bool) {
+func resolveAssetPath(u *url.URL) (assetDir, relPath string, ok bool) {
 	if u == nil {
-		return "", false
+		return "", "", false
 	}
 
 	if strings.EqualFold(u.Scheme, actualInternalScheme) && strings.EqualFold(u.Host, actualInternalHost) {
@@ -337,57 +339,67 @@ func resolveAssetPath(u *url.URL) (string, bool) {
 	return resolveConceptualAssetPath(u)
 }
 
-func resolveConceptualAssetPath(u *url.URL) (string, bool) {
+func resolveConceptualAssetPath(u *url.URL) (assetDir, relPath string, ok bool) {
 	if u == nil {
-		return "", false
+		return "", "", false
 	}
 
 	if root, ok := pageRootFiles[u.Host]; ok {
 		path := strings.TrimPrefix(u.Path, "/")
 		if path == "" {
-			return root, true
+			return assetDirForPageHost(u.Host), root, true
 		}
 		// Don't serve API paths as assets.
 		if strings.HasPrefix(path, "api/") {
-			return "", false
+			return "", "", false
 		}
-		return path, true
+		return assetDirForPageHost(u.Host), path, true
 	}
 
 	// Handle opaque URLs like dumb:home.
 	if root, ok := pageRootFiles[u.Opaque]; ok {
-		return root, true
+		return assetDirForPageHost(u.Opaque), root, true
 	}
-	return "", false
+	return "", "", false
 }
 
-func resolveActualAssetPath(u *url.URL) (string, bool) {
+func resolveActualAssetPath(u *url.URL) (assetDir, relPath string, ok bool) {
 	if u == nil {
-		return "", false
+		return "", "", false
 	}
 
 	path := strings.Trim(u.Path, "/")
 	if path == "" {
-		return "", false
-	}
-
-	if root, ok := pageRootFiles[path]; ok {
-		return root, true
-	}
-
-	if strings.HasPrefix(path, "api/") {
-		return "", false
+		return "", "", false
 	}
 
 	parts := strings.SplitN(path, "/", 2)
-	if len(parts) == 2 && isInternalPageHost(parts[0]) {
-		if parts[1] == "crash" && parts[0] == homePath {
-			return "", false
+	page := parts[0]
+	if root, ok := pageRootFiles[page]; ok {
+		if len(parts) == 1 {
+			return assetDirForPageHost(page), root, true
 		}
+		if page == homePath && parts[1] == "crash" {
+			return "", "", false
+		}
+		return assetDirForPageHost(page), path, true
+	}
+
+	if strings.HasPrefix(path, "api/") {
+		return "", "", false
 	}
 
 	// Serve root assets like homepage.min.js, style.css and favicon.png.
-	return path, true
+	return "webui", path, true
+}
+
+func assetDirForPageHost(host string) string {
+	switch host {
+	case historyPath, favoritesPath, configPath:
+		return "systemviews"
+	default:
+		return "webui"
+	}
 }
 
 func isCEFCrashPageURL(u *url.URL) bool {

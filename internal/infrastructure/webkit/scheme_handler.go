@@ -288,7 +288,6 @@ func (h *DumbSchemeHandler) HandleRequest(reqPtr uintptr) {
 func (h *DumbSchemeHandler) handleAsset(u *url.URL) *SchemeResponse {
 	h.mu.RLock()
 	hasAssets := h.assets != (embed.FS{})
-	assetDir := h.assetDir
 	h.mu.RUnlock()
 
 	if !hasAssets {
