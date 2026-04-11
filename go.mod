@@ -3,7 +3,7 @@ module github.com/bnema/dumber
 go 1.26.1
 
 require (
-	github.com/bnema/purego-cef v0.8.0
+	github.com/bnema/purego-cef v0.8.1
 	github.com/bnema/purego-ffmpeg v0.3.0
 	github.com/bnema/purego-pipewire v0.1.1
 	github.com/bnema/purego-sqlite v0.1.1
@@ -26,10 +26,6 @@ require (
 	golang.org/x/sys v0.42.0
 	gopkg.in/yaml.v3 v3.0.1
 )
-
-replace github.com/bnema/purego-cef => ../purego-cef
-
-replace github.com/bnema/purego-ffmpeg => ../purego-ffmpeg
 
 require (
 	github.com/atotto/clipboard v0.1.4 // indirect

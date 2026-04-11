@@ -6,6 +6,10 @@ github.com/aymanbagabas/go-udiff v0.3.1 h1:LV+qyBQ2pqe0u42ZsUEtPiCaUoqgA9gYRDs3v
 github.com/aymanbagabas/go-udiff v0.3.1/go.mod h1:G0fsKmG+P6ylD0r6N/KgQD/nWzgfnl8ZBcNLgcbrw8E=
 github.com/bnema/purego v0.0.0-20260323095903-91aa177a2704 h1:0GaiO4102gOdp0es0MO2d0bRSvyeMw5A2D4F4WdIw0k=
 github.com/bnema/purego v0.0.0-20260323095903-91aa177a2704/go.mod h1:iIjxzd6CiRiOG0UyXP+V1+jWqUXVjPKLAI0mRfJZTmQ=
+github.com/bnema/purego-cef v0.8.1 h1:BtzCcKSuCZ/dS/LROi2eildY9zaZ8Axagy5dNzj6hV4=
+github.com/bnema/purego-cef v0.8.1/go.mod h1:8XatJEof+SzApTWd8MSar1Vdkkivln/WH7yH++rcf5o=
+github.com/bnema/purego-ffmpeg v0.3.0 h1:GRwW5RS2flUBvgZbluJkM5dKF0gvyUszMb5gDbvofzk=
+github.com/bnema/purego-ffmpeg v0.3.0/go.mod h1:AU9ZBsUMq7G//DcP1u1qcLFmJw7HegS+wpk3QFycKac=
 github.com/bnema/purego-pipewire v0.1.1 h1:1AflvkG08caOLJH9Y7h7Y7YM/Ttdi6nZ0wwgIg1/n5w=
 github.com/bnema/purego-pipewire v0.1.1/go.mod h1:m+Ej80mItox2TRasF6m8L3fPXQaCgYHHY80LrC2kJLk=
 github.com/bnema/purego-sqlite v0.1.1 h1:lH/F6/xxaI+LwWNHv3zof83bDJWQnib9OlNnBo/JnII=
