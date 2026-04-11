@@ -143,6 +143,84 @@ func TestClientDeleteRangeSendsRange(t *testing.T) {
 	}
 }
 
+func TestClientListDecodesFavorites(t *testing.T) {
+	t.Parallel()
+
+	native := &fakeTransport{available: true, response: []byte(`{"requestId":"req-11","success":true,"data":[{"id":1,"url":"https://example.com","title":"Example"}]}`)}
+	client := NewClient(native, nil)
+
+	favorites, err := client.List(context.Background())
+	if err != nil {
+		t.Fatalf("List() error = %v", err)
+	}
+	if len(favorites) != 1 {
+		t.Fatalf("List() len = %d, want 1", len(favorites))
+	}
+	if favorites[0].URL != "https://example.com" || favorites[0].Title != "Example" {
+		t.Fatalf("List() favorite = %+v", favorites[0])
+	}
+
+	var msg port.WebUIMessage
+	if err := json.Unmarshal(native.last, &msg); err != nil {
+		t.Fatalf("unmarshal sent envelope: %v", err)
+	}
+	if msg.Type != "favorite_list" {
+		t.Fatalf("sent type = %q, want %q", msg.Type, "favorite_list")
+	}
+}
+
+func TestClientListFoldersDecodesFolders(t *testing.T) {
+	t.Parallel()
+
+	native := &fakeTransport{available: true, response: []byte(`{"requestId":"req-12","success":true,"data":[{"id":9,"name":"Read Later"}]}`)}
+	client := NewClient(native, nil)
+
+	folders, err := client.ListFolders(context.Background())
+	if err != nil {
+		t.Fatalf("ListFolders() error = %v", err)
+	}
+	if len(folders) != 1 {
+		t.Fatalf("ListFolders() len = %d, want 1", len(folders))
+	}
+	if folders[0].Name != "Read Later" {
+		t.Fatalf("ListFolders() folder = %+v", folders[0])
+	}
+
+	var msg port.WebUIMessage
+	if err := json.Unmarshal(native.last, &msg); err != nil {
+		t.Fatalf("unmarshal sent envelope: %v", err)
+	}
+	if msg.Type != "folder_list" {
+		t.Fatalf("sent type = %q, want %q", msg.Type, "folder_list")
+	}
+}
+
+func TestClientListTagsDecodesTags(t *testing.T) {
+	t.Parallel()
+
+	native := &fakeTransport{available: true, response: []byte(`{"requestId":"req-13","success":true,"data":[{"id":5,"name":"Go","color":"#00ff00"}]}`)}
+	client := NewClient(native, nil)
+
+	tags, err := client.ListTags(context.Background())
+	if err != nil {
+		t.Fatalf("ListTags() error = %v", err)
+	}
+	if len(tags) != 1 {
+		t.Fatalf("ListTags() len = %d, want 1", len(tags))
+	}
+	if tags[0].Name != "Go" || tags[0].Color != "#00ff00" {
+		t.Fatalf("ListTags() tag = %+v", tags[0])
+	}
+
+	var msg port.WebUIMessage
+	if err := json.Unmarshal(native.last, &msg); err != nil {
+		t.Fatalf("unmarshal sent envelope: %v", err)
+	}
+	if msg.Type != "tag_list" {
+		t.Fatalf("sent type = %q, want %q", msg.Type, "tag_list")
+	}
+}
+
 type fakeTransport struct {
 	available bool
 	called    bool

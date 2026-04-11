@@ -74,6 +74,34 @@ func TestAppLoadInitialHistoryRouteRendersEntries(t *testing.T) {
 	assert.Equal(t, 0, history.offset)
 }
 
+func TestAppLoadInitialFavoritesRouteRendersData(t *testing.T) {
+	t.Parallel()
+
+	favorites := &fakeFavoritesService{
+		favorites: []*entity.Favorite{{URL: "https://example.com", Title: "Example"}},
+		folders:   []*entity.Folder{{Name: "Read Later"}},
+		tags:      []*entity.Tag{{Name: "Go"}},
+	}
+
+	app := NewApp(Dependencies{
+		Favorites:   favorites,
+		LocationURI: "dumb://favorites",
+	})
+
+	require.NoError(t, app.LoadInitial(context.Background()))
+	assert.Equal(t, RouteFavorites, app.CurrentRoute())
+	assert.Len(t, app.favorites, 1)
+	assert.Len(t, app.folders, 1)
+	assert.Len(t, app.tags, 1)
+	assert.Contains(t, app.renderedHTML, "Favorites")
+	assert.Contains(t, app.renderedHTML, "Example")
+	assert.Contains(t, app.renderedHTML, "Read Later")
+	assert.Contains(t, app.renderedHTML, "Go")
+	assert.True(t, favorites.calledList)
+	assert.True(t, favorites.calledFolders)
+	assert.True(t, favorites.calledTags)
+}
+
 type fakeDOM struct {
 	mounted bool
 	html    string
@@ -116,3 +144,51 @@ func (s *fakeHistoryService) DomainStats(context.Context, int) ([]*entity.Domain
 }
 
 func (s *fakeHistoryService) DeleteDomain(context.Context, string) error { return nil }
+
+type fakeFavoritesService struct {
+	calledList    bool
+	calledFolders bool
+	calledTags    bool
+	favorites     []*entity.Favorite
+	folders       []*entity.Folder
+	tags          []*entity.Tag
+}
+
+func (s *fakeFavoritesService) List(context.Context) ([]*entity.Favorite, error) {
+	s.calledList = true
+	return s.favorites, nil
+}
+
+func (s *fakeFavoritesService) ListFolders(context.Context) ([]*entity.Folder, error) {
+	s.calledFolders = true
+	return s.folders, nil
+}
+
+func (s *fakeFavoritesService) ListTags(context.Context) ([]*entity.Tag, error) {
+	s.calledTags = true
+	return s.tags, nil
+}
+
+func (s *fakeFavoritesService) SetShortcut(context.Context, int64, *int) error { return nil }
+
+func (s *fakeFavoritesService) SetFolder(context.Context, int64, *int64) error { return nil }
+
+func (s *fakeFavoritesService) CreateFolder(context.Context, string, *int64) (*entity.Folder, error) {
+	return nil, nil
+}
+
+func (s *fakeFavoritesService) UpdateFolder(context.Context, int64, string, string) error { return nil }
+
+func (s *fakeFavoritesService) DeleteFolder(context.Context, int64) error { return nil }
+
+func (s *fakeFavoritesService) CreateTag(context.Context, string, string) (*entity.Tag, error) {
+	return nil, nil
+}
+
+func (s *fakeFavoritesService) UpdateTag(context.Context, int64, string, string) error { return nil }
+
+func (s *fakeFavoritesService) DeleteTag(context.Context, int64) error { return nil }
+
+func (s *fakeFavoritesService) AssignTag(context.Context, int64, int64) error { return nil }
+
+func (s *fakeFavoritesService) RemoveTag(context.Context, int64, int64) error { return nil }

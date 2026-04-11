@@ -10,6 +10,7 @@ import (
 
 type Dependencies struct {
 	DOM         DOM
+	Favorites   port.SystemviewFavoritesService
 	History     port.SystemviewHistoryService
 	LocationURI string
 }
@@ -18,6 +19,9 @@ type App struct {
 	deps           Dependencies
 	currentRoute   Route
 	historyEntries []*entity.HistoryEntry
+	favorites      []*entity.Favorite
+	folders        []*entity.Folder
+	tags           []*entity.Tag
 	renderedHTML   string
 }
 
@@ -53,6 +57,9 @@ func (a *App) LoadInitial(ctx context.Context) error {
 	case RouteHistory:
 		if a.deps.History == nil {
 			a.historyEntries = nil
+			a.favorites = nil
+			a.folders = nil
+			a.tags = nil
 			a.renderedHTML = placeholderHTML(a.currentRoute)
 			return nil
 		}
@@ -61,11 +68,46 @@ func (a *App) LoadInitial(ctx context.Context) error {
 		if err != nil {
 			return err
 		}
+		a.favorites = nil
+		a.folders = nil
+		a.tags = nil
 		a.historyEntries = entries
 		a.renderedHTML = historyHTML(entries)
 		return nil
+	case RouteFavorites:
+		if a.deps.Favorites == nil {
+			a.historyEntries = nil
+			a.favorites = nil
+			a.folders = nil
+			a.tags = nil
+			a.renderedHTML = placeholderHTML(a.currentRoute)
+			return nil
+		}
+
+		favorites, err := a.deps.Favorites.List(ctx)
+		if err != nil {
+			return err
+		}
+		folders, err := a.deps.Favorites.ListFolders(ctx)
+		if err != nil {
+			return err
+		}
+		tags, err := a.deps.Favorites.ListTags(ctx)
+		if err != nil {
+			return err
+		}
+
+		a.historyEntries = nil
+		a.favorites = favorites
+		a.folders = folders
+		a.tags = tags
+		a.renderedHTML = favoritesHTML(favorites, folders, tags)
+		return nil
 	default:
 		a.historyEntries = nil
+		a.favorites = nil
+		a.folders = nil
+		a.tags = nil
 		a.renderedHTML = placeholderHTML(a.currentRoute)
 		return nil
 	}

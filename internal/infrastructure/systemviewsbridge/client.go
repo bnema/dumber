@@ -102,6 +102,128 @@ func (c *Client) DeleteDomain(ctx context.Context, domain string) error {
 	return err
 }
 
+func (c *Client) List(ctx context.Context) ([]*entity.Favorite, error) {
+	return request[[]*entity.Favorite](c, ctx, "favorite_list", struct {
+		RequestID string `json:"requestId"`
+	}{RequestID: nextRequestID()})
+}
+
+func (c *Client) ListFolders(ctx context.Context) ([]*entity.Folder, error) {
+	return request[[]*entity.Folder](c, ctx, "folder_list", struct {
+		RequestID string `json:"requestId"`
+	}{RequestID: nextRequestID()})
+}
+
+func (c *Client) ListTags(ctx context.Context) ([]*entity.Tag, error) {
+	return request[[]*entity.Tag](c, ctx, "tag_list", struct {
+		RequestID string `json:"requestId"`
+	}{RequestID: nextRequestID()})
+}
+
+func (c *Client) SetShortcut(ctx context.Context, favoriteID int64, shortcutKey *int) error {
+	_, err := request[struct{}](c, ctx, "favorite_set_shortcut", struct {
+		RequestID   string `json:"requestId"`
+		FavoriteID  int64  `json:"favorite_id"`
+		ShortcutKey *int   `json:"shortcut_key"`
+	}{RequestID: nextRequestID(), FavoriteID: favoriteID, ShortcutKey: shortcutKey})
+	return err
+}
+
+func (c *Client) SetFolder(ctx context.Context, favoriteID int64, folderID *int64) error {
+	_, err := request[struct{}](c, ctx, "favorite_set_folder", struct {
+		RequestID  string `json:"requestId"`
+		FavoriteID int64  `json:"favorite_id"`
+		FolderID   *int64 `json:"folder_id"`
+	}{RequestID: nextRequestID(), FavoriteID: favoriteID, FolderID: folderID})
+	return err
+}
+
+func (c *Client) CreateFolder(ctx context.Context, name string, _ *int64) (*entity.Folder, error) {
+	return request[*entity.Folder](c, ctx, "folder_create", struct {
+		RequestID string  `json:"requestId"`
+		Name      string  `json:"name"`
+		Icon      *string `json:"icon"`
+	}{RequestID: nextRequestID(), Name: name, Icon: nil})
+}
+
+func (c *Client) UpdateFolder(ctx context.Context, id int64, name, icon string) error {
+	var iconPtr *string
+	if icon != "" {
+		iconPtr = &icon
+	}
+	_, err := request[struct{}](c, ctx, "folder_update", struct {
+		RequestID string  `json:"requestId"`
+		ID        int64   `json:"id"`
+		Name      string  `json:"name"`
+		Icon      *string `json:"icon"`
+	}{RequestID: nextRequestID(), ID: id, Name: name, Icon: iconPtr})
+	return err
+}
+
+func (c *Client) DeleteFolder(ctx context.Context, id int64) error {
+	_, err := request[struct{}](c, ctx, "folder_delete", struct {
+		RequestID string `json:"requestId"`
+		ID        int64  `json:"id"`
+	}{RequestID: nextRequestID(), ID: id})
+	return err
+}
+
+func (c *Client) CreateTag(ctx context.Context, name, color string) (*entity.Tag, error) {
+	var colorPtr *string
+	if color != "" {
+		colorPtr = &color
+	}
+	return request[*entity.Tag](c, ctx, "tag_create", struct {
+		RequestID string  `json:"requestId"`
+		Name      string  `json:"name"`
+		Color     *string `json:"color"`
+	}{RequestID: nextRequestID(), Name: name, Color: colorPtr})
+}
+
+func (c *Client) UpdateTag(ctx context.Context, id int64, name, color string) error {
+	var namePtr *string
+	if name != "" {
+		namePtr = &name
+	}
+	var colorPtr *string
+	if color != "" {
+		colorPtr = &color
+	}
+	_, err := request[struct{}](c, ctx, "tag_update", struct {
+		RequestID string  `json:"requestId"`
+		ID        int64   `json:"id"`
+		Name      *string `json:"name"`
+		Color     *string `json:"color"`
+	}{RequestID: nextRequestID(), ID: id, Name: namePtr, Color: colorPtr})
+	return err
+}
+
+func (c *Client) DeleteTag(ctx context.Context, id int64) error {
+	_, err := request[struct{}](c, ctx, "tag_delete", struct {
+		RequestID string `json:"requestId"`
+		ID        int64  `json:"id"`
+	}{RequestID: nextRequestID(), ID: id})
+	return err
+}
+
+func (c *Client) AssignTag(ctx context.Context, favoriteID, tagID int64) error {
+	_, err := request[struct{}](c, ctx, "tag_assign", struct {
+		RequestID  string `json:"requestId"`
+		FavoriteID int64  `json:"favorite_id"`
+		TagID      int64  `json:"tag_id"`
+	}{RequestID: nextRequestID(), FavoriteID: favoriteID, TagID: tagID})
+	return err
+}
+
+func (c *Client) RemoveTag(ctx context.Context, favoriteID, tagID int64) error {
+	_, err := request[struct{}](c, ctx, "tag_remove", struct {
+		RequestID  string `json:"requestId"`
+		FavoriteID int64  `json:"favorite_id"`
+		TagID      int64  `json:"tag_id"`
+	}{RequestID: nextRequestID(), FavoriteID: favoriteID, TagID: tagID})
+	return err
+}
+
 func (c *Client) transport() Transport {
 	if c == nil {
 		return nil
