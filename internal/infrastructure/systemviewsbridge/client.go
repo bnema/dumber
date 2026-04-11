@@ -23,6 +23,8 @@ type Client struct {
 	fetch  Transport
 }
 
+var _ port.SystemviewConfigService = (*Client)(nil)
+
 var requestSeq atomic.Uint64
 
 // NewClient creates a bridge client with native WebKit and fetch transports.
@@ -78,6 +80,45 @@ func (c *Client) DeleteRange(ctx context.Context, rangeID string) error {
 		RequestID string `json:"requestId"`
 		Range     string `json:"range"`
 	}{RequestID: nextRequestID(), Range: rangeID})
+	return err
+}
+
+func (c *Client) Current(ctx context.Context) (port.SystemviewConfigPayload, error) {
+	return request[port.SystemviewConfigPayload](c, ctx, "/api/config", struct {
+		RequestID string `json:"requestId"`
+	}{RequestID: nextRequestID()})
+}
+
+func (c *Client) Default(ctx context.Context) (port.SystemviewConfigPayload, error) {
+	return request[port.SystemviewConfigPayload](c, ctx, "/api/config/default", struct {
+		RequestID string `json:"requestId"`
+	}{RequestID: nextRequestID()})
+}
+
+func (c *Client) Save(ctx context.Context, cfg port.WebUIConfig) error {
+	_, err := request[struct{}](c, ctx, "save_config", cfg)
+	return err
+}
+
+func (c *Client) GetKeybindings(ctx context.Context) (any, error) {
+	return request[any](c, ctx, "get_keybindings", struct {
+		RequestID string `json:"requestId"`
+	}{RequestID: nextRequestID()})
+}
+
+func (c *Client) SetKeybinding(ctx context.Context, req port.SetKeybindingRequest) (any, error) {
+	return request[any](c, ctx, "set_keybinding", req)
+}
+
+func (c *Client) ResetKeybinding(ctx context.Context, req port.ResetKeybindingRequest) error {
+	_, err := request[struct{}](c, ctx, "reset_keybinding", req)
+	return err
+}
+
+func (c *Client) ResetAllKeybindings(ctx context.Context) error {
+	_, err := request[struct{}](c, ctx, "reset_all_keybindings", struct {
+		RequestID string `json:"requestId"`
+	}{RequestID: nextRequestID()})
 	return err
 }
 

@@ -4,6 +4,7 @@ import (
 	"context"
 	"testing"
 
+	"github.com/bnema/dumber/internal/application/port"
 	"github.com/bnema/dumber/internal/domain/entity"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -102,6 +103,34 @@ func TestAppLoadInitialFavoritesRouteRendersData(t *testing.T) {
 	assert.True(t, favorites.calledTags)
 }
 
+func TestAppLoadInitialConfigRouteRendersData(t *testing.T) {
+	t.Parallel()
+
+	config := port.SystemviewConfigPayload{
+		EngineType:          "webkit",
+		DefaultSearchEngine: "DuckDuckGo",
+	}
+	service := &fakeConfigService{
+		current:     config,
+		keybindings: port.KeybindingsConfig{Groups: []port.KeybindingGroup{{Mode: "default", DisplayName: "Default", Bindings: []port.KeybindingEntry{{Action: "open", Description: "Open", Keys: []string{"ctrl+o"}}}}}},
+	}
+
+	app := NewApp(Dependencies{
+		Config:      service,
+		LocationURI: "dumb://config",
+	})
+
+	require.NoError(t, app.LoadInitial(context.Background()))
+	assert.Equal(t, RouteConfig, app.CurrentRoute())
+	require.NotNil(t, app.config)
+	assert.Equal(t, "webkit", app.config.EngineType)
+	assert.Contains(t, app.renderedHTML, "webkit")
+	assert.Contains(t, app.renderedHTML, "DuckDuckGo")
+	assert.Contains(t, app.renderedHTML, "1 group")
+	assert.True(t, service.calledCurrent)
+	assert.True(t, service.calledKeybindings)
+}
+
 type fakeDOM struct {
 	mounted bool
 	html    string
@@ -192,3 +221,52 @@ func (s *fakeFavoritesService) DeleteTag(context.Context, int64) error { return 
 func (s *fakeFavoritesService) AssignTag(context.Context, int64, int64) error { return nil }
 
 func (s *fakeFavoritesService) RemoveTag(context.Context, int64, int64) error { return nil }
+
+type fakeConfigService struct {
+	calledCurrent     bool
+	calledDefault     bool
+	calledSave        bool
+	calledKeybindings bool
+	calledSet         bool
+	calledReset       bool
+	calledResetAll    bool
+
+	current     port.SystemviewConfigPayload
+	defaultCfg  port.SystemviewConfigPayload
+	keybindings any
+}
+
+func (s *fakeConfigService) Current(context.Context) (port.SystemviewConfigPayload, error) {
+	s.calledCurrent = true
+	return s.current, nil
+}
+
+func (s *fakeConfigService) Default(context.Context) (port.SystemviewConfigPayload, error) {
+	s.calledDefault = true
+	return s.defaultCfg, nil
+}
+
+func (s *fakeConfigService) Save(context.Context, port.WebUIConfig) error {
+	s.calledSave = true
+	return nil
+}
+
+func (s *fakeConfigService) GetKeybindings(context.Context) (any, error) {
+	s.calledKeybindings = true
+	return s.keybindings, nil
+}
+
+func (s *fakeConfigService) SetKeybinding(context.Context, port.SetKeybindingRequest) (any, error) {
+	s.calledSet = true
+	return nil, nil
+}
+
+func (s *fakeConfigService) ResetKeybinding(context.Context, port.ResetKeybindingRequest) error {
+	s.calledReset = true
+	return nil
+}
+
+func (s *fakeConfigService) ResetAllKeybindings(context.Context) error {
+	s.calledResetAll = true
+	return nil
+}

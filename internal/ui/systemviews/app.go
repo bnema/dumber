@@ -12,6 +12,7 @@ type Dependencies struct {
 	DOM         DOM
 	Favorites   port.SystemviewFavoritesService
 	History     port.SystemviewHistoryService
+	Config      port.SystemviewConfigService
 	LocationURI string
 }
 
@@ -22,6 +23,8 @@ type App struct {
 	favorites      []*entity.Favorite
 	folders        []*entity.Folder
 	tags           []*entity.Tag
+	config         *port.SystemviewConfigPayload
+	keybindings    any
 	renderedHTML   string
 }
 
@@ -103,11 +106,42 @@ func (a *App) LoadInitial(ctx context.Context) error {
 		a.tags = tags
 		a.renderedHTML = favoritesHTML(favorites, folders, tags)
 		return nil
+	case RouteConfig:
+		if a.deps.Config == nil {
+			a.historyEntries = nil
+			a.favorites = nil
+			a.folders = nil
+			a.tags = nil
+			a.config = nil
+			a.keybindings = nil
+			a.renderedHTML = placeholderHTML(a.currentRoute)
+			return nil
+		}
+
+		config, err := a.deps.Config.Current(ctx)
+		if err != nil {
+			return err
+		}
+		keybindings, err := a.deps.Config.GetKeybindings(ctx)
+		if err != nil {
+			return err
+		}
+
+		a.historyEntries = nil
+		a.favorites = nil
+		a.folders = nil
+		a.tags = nil
+		a.config = &config
+		a.keybindings = keybindings
+		a.renderedHTML = configHTML(config, keybindings)
+		return nil
 	default:
 		a.historyEntries = nil
 		a.favorites = nil
 		a.folders = nil
 		a.tags = nil
+		a.config = nil
+		a.keybindings = nil
 		a.renderedHTML = placeholderHTML(a.currentRoute)
 		return nil
 	}

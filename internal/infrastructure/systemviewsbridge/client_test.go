@@ -221,6 +221,141 @@ func TestClientListTagsDecodesTags(t *testing.T) {
 	}
 }
 
+func TestClientCurrentAndDefaultDecodeConfigPayload(t *testing.T) {
+	t.Parallel()
+
+	resp := []byte(`{"requestId":"req-14","success":true,"data":{"engine_type":"webkit","default_search_engine":"DuckDuckGo"}}`)
+
+	currentClient := NewClient(&fakeTransport{available: true, response: resp}, nil)
+	current, err := currentClient.Current(context.Background())
+	if err != nil {
+		t.Fatalf("Current() error = %v", err)
+	}
+	if current.EngineType != "webkit" || current.DefaultSearchEngine != "DuckDuckGo" {
+		t.Fatalf("Current() = %+v", current)
+	}
+
+	var msg port.WebUIMessage
+	if err := json.Unmarshal(currentClient.native.(*fakeTransport).last, &msg); err != nil {
+		t.Fatalf("unmarshal sent envelope: %v", err)
+	}
+	if msg.Type != "/api/config" {
+		t.Fatalf("sent type = %q, want %q", msg.Type, "/api/config")
+	}
+
+	defaultClient := NewClient(&fakeTransport{available: true, response: resp}, nil)
+	defaultCfg, err := defaultClient.Default(context.Background())
+	if err != nil {
+		t.Fatalf("Default() error = %v", err)
+	}
+	if defaultCfg.EngineType != "webkit" || defaultCfg.DefaultSearchEngine != "DuckDuckGo" {
+		t.Fatalf("Default() = %+v", defaultCfg)
+	}
+
+	if err := json.Unmarshal(defaultClient.native.(*fakeTransport).last, &msg); err != nil {
+		t.Fatalf("unmarshal sent envelope: %v", err)
+	}
+	if msg.Type != "/api/config/default" {
+		t.Fatalf("sent type = %q, want %q", msg.Type, "/api/config/default")
+	}
+}
+
+func TestClientConfigActionsUseExpectedMessageTypes(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name    string
+		call    func(*Client) error
+		want    string
+		payload any
+	}{
+		{
+			name: "save config",
+			call: func(client *Client) error {
+				return client.Save(context.Background(), port.WebUIConfig{DefaultSearchEngine: "DuckDuckGo"})
+			},
+			want:    "save_config",
+			payload: port.WebUIConfig{DefaultSearchEngine: "DuckDuckGo"},
+		},
+		{
+			name: "get keybindings",
+			call: func(client *Client) error {
+				got, err := client.GetKeybindings(context.Background())
+				if err != nil {
+					return err
+				}
+				m, ok := got.(map[string]any)
+				if !ok || len(m) == 0 {
+					t.Fatalf("GetKeybindings() = %#v", got)
+				}
+				return nil
+			},
+			want: "get_keybindings",
+		},
+		{
+			name: "set keybinding",
+			call: func(client *Client) error {
+				got, err := client.SetKeybinding(context.Background(), port.SetKeybindingRequest{RequestID: "req-1", Mode: "default", Action: "open", Keys: []string{"ctrl+o"}})
+				if err != nil {
+					return err
+				}
+				m, ok := got.(map[string]any)
+				if !ok || m["status"] != "success" {
+					t.Fatalf("SetKeybinding() = %#v", got)
+				}
+				return nil
+			},
+			want:    "set_keybinding",
+			payload: port.SetKeybindingRequest{RequestID: "req-1", Mode: "default", Action: "open", Keys: []string{"ctrl+o"}},
+		},
+		{
+			name: "reset keybinding",
+			call: func(client *Client) error {
+				return client.ResetKeybinding(context.Background(), port.ResetKeybindingRequest{RequestID: "req-2", Mode: "default", Action: "open"})
+			},
+			want:    "reset_keybinding",
+			payload: port.ResetKeybindingRequest{RequestID: "req-2", Mode: "default", Action: "open"},
+		},
+		{
+			name: "reset all keybindings",
+			call: func(client *Client) error {
+				return client.ResetAllKeybindings(context.Background())
+			},
+			want: "reset_all_keybindings",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
+			transport := &fakeTransport{available: true, response: []byte(`{"requestId":"req-15","success":true,"data":{"status":"success","conflicts":[]}}`)}
+			if tt.name == "save config" || tt.name == "reset keybinding" || tt.name == "reset all keybindings" {
+				transport.response = []byte(`{"requestId":"req-15","success":true}`)
+			}
+			if tt.name == "get keybindings" {
+				transport.response = []byte(`{"requestId":"req-15","success":true,"data":{"groups":[{"mode":"default","display_name":"Default","bindings":[{"action":"open","description":"Open","keys":["ctrl+o"],"default_keys":["ctrl+o"],"is_custom":false}]}]}}`)
+			}
+			client := NewClient(transport, nil)
+
+			if err := tt.call(client); err != nil {
+				t.Fatalf("call() error = %v", err)
+			}
+
+			var msg port.WebUIMessage
+			if err := json.Unmarshal(transport.last, &msg); err != nil {
+				t.Fatalf("unmarshal sent envelope: %v", err)
+			}
+			if msg.Type != tt.want {
+				t.Fatalf("sent type = %q, want %q", msg.Type, tt.want)
+			}
+			if tt.payload != nil && len(msg.Payload) == 0 {
+				t.Fatal("sent payload was empty")
+			}
+		})
+	}
+}
+
 type fakeTransport struct {
 	available bool
 	called    bool
