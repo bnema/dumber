@@ -54,19 +54,6 @@ func BuildEngine(input EngineInput) (port.Engine, error) {
 			CookiePolicy: port.CookiePolicy(cfg.Engine.CookiePolicy),
 		}
 		wkCfg := webkit.EngineConfigFromConfig(cfg.Engine.WebKit)
-		systemviewReader := config.NewSystemviewConfigReader(env.NewHardwareSurveyor())
-		systemviewUC := usecase.NewReadSystemviewConfigUseCase(systemviewReader)
-		buildConfigPayload := func(read func(context.Context) (port.SystemviewConfigPayload, error)) func() ([]byte, error) {
-			return func() ([]byte, error) {
-				payload, err := read(input.Ctx)
-				if err != nil {
-					return nil, err
-				}
-				return json.Marshal(payload)
-			}
-		}
-		currentConfigPayload := buildConfigPayload(systemviewUC.Current)
-		defaultConfigPayload := buildConfigPayload(systemviewUC.Default)
 
 		return webkit.NewEngine(
 			input.Ctx, cfg, opts, wkCfg,

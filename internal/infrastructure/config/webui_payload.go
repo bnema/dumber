@@ -5,40 +5,43 @@ import "github.com/bnema/dumber/internal/application/port"
 // BuildSystemviewConfigPayload projects the full config into the stable DTO used by
 // the settings page across engines.
 func BuildSystemviewConfigPayload(cfg *Config, hw *port.HardwareInfo) port.SystemviewConfigPayload {
+	payload := port.SystemviewConfigPayload{
+		SearchShortcuts: map[string]port.SearchShortcut{},
+	}
 	if cfg == nil {
-		return port.SystemviewConfigPayload{}
+		return payload
 	}
 
 	perfCfg := PerformanceConfigFromEngine(&cfg.Engine)
 	resolved := ResolvePerformanceProfile(&perfCfg, hw)
 
-	return port.SystemviewConfigPayload{
-		Appearance:          buildSystemviewAppearancePayload(cfg.Appearance),
-		DefaultUIScale:      cfg.DefaultUIScale,
-		DefaultSearchEngine: cfg.DefaultSearchEngine,
-		SearchShortcuts:     buildSystemviewSearchShortcutsPayload(cfg.SearchShortcuts),
-		EngineType:          cfg.Engine.ResolveEngineType(),
-		Performance: port.SystemviewPerformancePayload{
-			Profile: string(cfg.Engine.Profile),
-			Custom: port.SystemviewCustomPerformancePayload{
-				SkiaCPUThreads:         cfg.Engine.WebKit.SkiaCPUPaintingThreads,
-				SkiaGPUThreads:         cfg.Engine.WebKit.SkiaGPUPaintingThreads,
-				WebProcessMemoryMB:     cfg.Engine.WebKit.WebProcessMemoryLimitMB,
-				NetworkProcessMemoryMB: cfg.Engine.WebKit.NetworkProcessMemoryLimitMB,
-				WebViewPoolPrewarm:     cfg.Engine.PoolPrewarmCount,
-			},
-			Resolved: port.SystemviewResolvedPerformancePayload{
-				SkiaCPUThreads:         resolved.SkiaCPUPaintingThreads,
-				SkiaGPUThreads:         resolved.SkiaGPUPaintingThreads,
-				WebProcessMemoryMB:     resolved.WebProcessMemoryLimitMB,
-				NetworkProcessMemoryMB: resolved.NetworkProcessMemoryLimitMB,
-				WebViewPoolPrewarm:     resolved.WebViewPoolPrewarmCount,
-				ConservativeThreshold:  resolved.WebProcessMemoryConservativeThreshold,
-				StrictThreshold:        resolved.WebProcessMemoryStrictThreshold,
-			},
-			Hardware: buildSystemviewHardwarePayload(hw),
+	payload.Appearance = buildSystemviewAppearancePayload(cfg.Appearance)
+	payload.DefaultUIScale = cfg.DefaultUIScale
+	payload.DefaultSearchEngine = cfg.DefaultSearchEngine
+	payload.SearchShortcuts = buildSystemviewSearchShortcutsPayload(cfg.SearchShortcuts)
+	payload.EngineType = cfg.Engine.ResolveEngineType()
+	payload.Performance = port.SystemviewPerformancePayload{
+		Profile: string(cfg.Engine.Profile),
+		Custom: port.SystemviewCustomPerformancePayload{
+			SkiaCPUThreads:         cfg.Engine.WebKit.SkiaCPUPaintingThreads,
+			SkiaGPUThreads:         cfg.Engine.WebKit.SkiaGPUPaintingThreads,
+			WebProcessMemoryMB:     cfg.Engine.WebKit.WebProcessMemoryLimitMB,
+			NetworkProcessMemoryMB: cfg.Engine.WebKit.NetworkProcessMemoryLimitMB,
+			WebViewPoolPrewarm:     cfg.Engine.PoolPrewarmCount,
 		},
+		Resolved: port.SystemviewResolvedPerformancePayload{
+			SkiaCPUThreads:         resolved.SkiaCPUPaintingThreads,
+			SkiaGPUThreads:         resolved.SkiaGPUPaintingThreads,
+			WebProcessMemoryMB:     resolved.WebProcessMemoryLimitMB,
+			NetworkProcessMemoryMB: resolved.NetworkProcessMemoryLimitMB,
+			WebViewPoolPrewarm:     resolved.WebViewPoolPrewarmCount,
+			ConservativeThreshold:  resolved.WebProcessMemoryConservativeThreshold,
+			StrictThreshold:        resolved.WebProcessMemoryStrictThreshold,
+		},
+		Hardware: buildSystemviewHardwarePayload(hw),
 	}
+
+	return payload
 }
 
 func buildSystemviewAppearancePayload(appearance AppearanceConfig) port.WebUIAppearanceConfig {
@@ -71,7 +74,7 @@ func buildSystemviewAppearancePayload(appearance AppearanceConfig) port.WebUIApp
 
 func buildSystemviewSearchShortcutsPayload(shortcuts map[string]SearchShortcut) map[string]port.SearchShortcut {
 	if len(shortcuts) == 0 {
-		return nil
+		return map[string]port.SearchShortcut{}
 	}
 
 	result := make(map[string]port.SearchShortcut, len(shortcuts))
