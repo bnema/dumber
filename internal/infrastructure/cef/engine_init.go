@@ -35,23 +35,7 @@ func NewEngine(
 	logger := logging.FromContext(ctx)
 	stateRoot := resolvedStateRoot(opts)
 	cleanStaleSingletonLocks(logger, stateRoot)
-
-	legacyCfg := config.CEFEngineConfig{
-		CEFDir:                   cfg.CEFDir,
-		LogFile:                  cfg.LogFile,
-		LogSeverity:              cfg.LogSeverity,
-		WindowlessFrameRate:      cfg.WindowlessFrameRate,
-		EnableAudioHandler:       cfg.EnableAudioHandler,
-		EnableContextMenuHandler: cfg.EnableContextMenuHandler,
-		TraceHandlers:            cfg.TraceHandlers,
-	}
-	legacyTranscodingCfg := config.TranscodingConfig{
-		Enabled:       transcodingCfg.Enabled,
-		HWAccel:       transcodingCfg.HWAccel,
-		MaxConcurrent: transcodingCfg.MaxConcurrent,
-		Quality:       transcodingCfg.Quality,
-	}
-	windowlessFrameRate := legacyCfg.CEFWindowlessFrameRate()
+	windowlessFrameRate := config.CEFEngineConfig{WindowlessFrameRate: cfg.WindowlessFrameRate}.CEFWindowlessFrameRate()
 
 	settings, err := prepareCEFSettings(opts, cfg, logger)
 	if err != nil {
@@ -81,7 +65,7 @@ func NewEngine(
 	}
 	os.Args = savedArgs
 
-	return wireEngine(ctx, eng, legacyCfg, legacyTranscodingCfg, windowlessFrameRate, audioFactory, logger)
+	return wireEngine(ctx, eng, cfg, transcodingCfg, windowlessFrameRate, audioFactory, logger)
 }
 
 func resolvedStateRoot(opts port.EngineOptions) string {
@@ -101,29 +85,19 @@ func prepareCEFSettings(opts port.EngineOptions, cfg RuntimeConfig, logger *zero
 		return purecef.Settings{}, fmt.Errorf("%w: %s", ErrCookiePolicyUnsupported, opts.CookiePolicy)
 	}
 
-	legacyCfg := config.CEFEngineConfig{
-		CEFDir:                   cfg.CEFDir,
-		LogFile:                  cfg.LogFile,
-		LogSeverity:              cfg.LogSeverity,
-		WindowlessFrameRate:      cfg.WindowlessFrameRate,
-		EnableAudioHandler:       cfg.EnableAudioHandler,
-		EnableContextMenuHandler: cfg.EnableContextMenuHandler,
-		TraceHandlers:            cfg.TraceHandlers,
-	}
-
 	settings := purecef.DefaultSettings()
 	settings.MultiThreadedMessageLoop = true
 	settings.ExternalMessagePump = false
 	settings.RootCachePath = resolvedStateRoot(opts)
-	if legacyCfg.CEFDir != "" {
-		settings.CEFDir = legacyCfg.CEFDir
+	if cfg.CEFDir != "" {
+		settings.CEFDir = cfg.CEFDir
 	}
-	if runtimeLogFile, err := prepareCEFLogFile(legacyCfg); err != nil {
+	if runtimeLogFile, err := prepareCEFLogFile(cfg.LogFile); err != nil {
 		logger.Warn().Err(err).Msg("cef: failed to prepare runtime log file")
 	} else {
 		settings.LogFile = runtimeLogFile
 	}
-	if bootstrapLogFile, err := prepareCEFInitTraceFile(legacyCfg); err != nil {
+	if bootstrapLogFile, err := prepareCEFInitTraceFile(cfg.LogFile); err != nil {
 		logger.Warn().Err(err).Msg("cef: failed to prepare init trace file")
 	} else if bootstrapLogFile != "" {
 		settings.InitTraceFile = bootstrapLogFile
@@ -132,8 +106,8 @@ func prepareCEFSettings(opts port.EngineOptions, cfg RuntimeConfig, logger *zero
 			Str("env_var", puregoCEFInitTraceEnvVar).
 			Msg("cef: init bootstrap diagnostics enabled")
 	}
-	if legacyCfg.LogSeverity != 0 {
-		settings.LogSeverity = legacyCfg.LogSeverity
+	if cfg.LogSeverity != 0 {
+		settings.LogSeverity = cfg.LogSeverity
 	}
 	if helperPath := findHelperBinary(); helperPath != "" {
 		settings.BrowserSubprocessPath = helperPath
@@ -171,7 +145,7 @@ func initializeCEF(eng *Engine, settings purecef.Settings, logger *zerolog.Logge
 
 // wireEngine creates GL loader, factory, pool, and scheme handler after CEF init.
 func wireEngine(
-	ctx context.Context, eng *Engine, cfg config.CEFEngineConfig, transcodingCfg config.TranscodingConfig,
+	ctx context.Context, eng *Engine, cfg RuntimeConfig, transcodingCfg TranscodingRuntimeConfig,
 	windowlessFrameRate int32, audioFactory port.AudioOutputFactory, logger *zerolog.Logger,
 ) (*Engine, error) {
 	gl, err := newGLLoader()
@@ -187,7 +161,12 @@ func wireEngine(
 	transcoderState := buildTranscoderStartupState(transcodingCfg)
 	if transcodingCfg.Enabled {
 		transcoderState.ProbeAttempted = true
-		tc := transcoderpkg.New(transcodingCfg, logger)
+		tc := transcoderpkg.New(config.TranscodingConfig{
+			Enabled:       transcodingCfg.Enabled,
+			HWAccel:       transcodingCfg.HWAccel,
+			MaxConcurrent: transcodingCfg.MaxConcurrent,
+			Quality:       transcodingCfg.Quality,
+		}, logger)
 		caps := tc.Capabilities()
 		transcoderState.API = caps.API
 		transcoderState.Encoders = append([]string(nil), caps.Encoders...)
@@ -270,7 +249,7 @@ func wireEngine(
 	return eng, nil
 }
 
-func buildTranscoderStartupState(cfg config.TranscodingConfig) transcoderStartupState {
+func buildTranscoderStartupState(cfg TranscodingRuntimeConfig) transcoderStartupState {
 	hwaccel := cfg.HWAccel
 	if hwaccel == "" {
 		hwaccel = "auto"
@@ -408,9 +387,9 @@ const (
 	filePerm = 0o644
 )
 
-func prepareCEFLogFile(cfg config.CEFEngineConfig) (string, error) {
-	if cfg.LogFile != "" {
-		runtimeLogFile := filepath.Clean(cfg.LogFile)
+func prepareCEFLogFile(logFile string) (string, error) {
+	if logFile != "" {
+		runtimeLogFile := filepath.Clean(logFile)
 		if err := os.MkdirAll(filepath.Dir(runtimeLogFile), dirPerm); err != nil {
 			return "", fmt.Errorf("mkdir %s: %w", filepath.Dir(runtimeLogFile), err)
 		}
@@ -430,12 +409,12 @@ func prepareCEFLogFile(cfg config.CEFEngineConfig) (string, error) {
 	return runtimeLogFile, nil
 }
 
-func prepareCEFInitTraceFile(cfg config.CEFEngineConfig) (string, error) {
+func prepareCEFInitTraceFile(logFile string) (string, error) {
 	if !puregoCEFInitTraceEnabled() {
 		return "", nil
 	}
 
-	runtimeLogFile := cfg.LogFile
+	runtimeLogFile := logFile
 	if runtimeLogFile != "" {
 		runtimeLogFile = filepath.Clean(runtimeLogFile)
 	} else {
