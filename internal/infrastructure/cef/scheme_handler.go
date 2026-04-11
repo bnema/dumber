@@ -33,16 +33,15 @@ const (
 	webrtcPath                  = "webrtc"
 	errorPath                   = "error"
 	indexHTML                   = "index.html"
-	systemviewsIndexHTML        = "systemviews/index.html"
 	maxSchemeTruncatedURLLength = 240
 )
 
 // pageRootFiles maps internal page hosts/paths to their HTML entry points.
 var pageRootFiles = map[string]string{
 	homePath:      indexHTML,
-	historyPath:   systemviewsIndexHTML,
-	favoritesPath: systemviewsIndexHTML,
-	configPath:    systemviewsIndexHTML,
+	historyPath:   indexHTML,
+	favoritesPath: indexHTML,
+	configPath:    indexHTML,
 	webrtcPath:    "webrtc.html",
 	errorPath:     "error.html",
 }
@@ -382,7 +381,7 @@ func resolveActualAssetPath(u *url.URL) (assetDir, relPath string, ok bool) {
 		if page == homePath && parts[1] == "crash" {
 			return "", "", false
 		}
-		return assetDirForPageHost(page), path, true
+		return assetDirForPageHost(page), parts[1], true
 	}
 
 	if strings.HasPrefix(path, "api/") {
