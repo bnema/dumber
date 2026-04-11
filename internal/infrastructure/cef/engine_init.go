@@ -26,16 +26,37 @@ const puregoCEFInitTraceEnvVar = "PUREGO_CEF_INIT_TRACE"
 // NewEngine initializes the CEF runtime and returns a ready-to-use Engine.
 func NewEngine(
 	ctx context.Context,
-	cfg config.CEFEngineConfig,
-	transcodingCfg config.TranscodingConfig,
+	opts port.EngineOptions,
+	cfg RuntimeConfig,
+	transcodingCfg TranscodingRuntimeConfig,
 	audioFactory port.AudioOutputFactory,
+	deps EngineDependencies,
 ) (*Engine, error) {
 	logger := logging.FromContext(ctx)
-	cleanStaleSingletonLocks(logger)
+	stateRoot := resolvedStateRoot(opts)
+	cleanStaleSingletonLocks(logger, stateRoot)
 
-	windowlessFrameRate := cfg.CEFWindowlessFrameRate()
+	legacyCfg := config.CEFEngineConfig{
+		CEFDir:                   cfg.CEFDir,
+		LogFile:                  cfg.LogFile,
+		LogSeverity:              cfg.LogSeverity,
+		WindowlessFrameRate:      cfg.WindowlessFrameRate,
+		EnableAudioHandler:       cfg.EnableAudioHandler,
+		EnableContextMenuHandler: cfg.EnableContextMenuHandler,
+		TraceHandlers:            cfg.TraceHandlers,
+	}
+	legacyTranscodingCfg := config.TranscodingConfig{
+		Enabled:       transcodingCfg.Enabled,
+		HWAccel:       transcodingCfg.HWAccel,
+		MaxConcurrent: transcodingCfg.MaxConcurrent,
+		Quality:       transcodingCfg.Quality,
+	}
+	windowlessFrameRate := legacyCfg.CEFWindowlessFrameRate()
 
-	settings := prepareCEFSettings(cfg, logger)
+	settings, err := prepareCEFSettings(opts, cfg, logger)
+	if err != nil {
+		return nil, err
+	}
 
 	// Inject --no-zygote temporarily for cef_initialize, then restore.
 	// Safe: runs during single-threaded startup before concurrent goroutines.
@@ -60,24 +81,49 @@ func NewEngine(
 	}
 	os.Args = savedArgs
 
-	return wireEngine(ctx, eng, cfg, transcodingCfg, windowlessFrameRate, audioFactory, logger)
+	return wireEngine(ctx, eng, legacyCfg, legacyTranscodingCfg, windowlessFrameRate, audioFactory, logger)
+}
+
+func resolvedStateRoot(opts port.EngineOptions) string {
+	switch {
+	case opts.DataDir != "":
+		return opts.DataDir
+	case opts.CacheDir != "":
+		return opts.CacheDir
+	default:
+		return defaultCEFUserDataDir()
+	}
 }
 
 // prepareCEFSettings builds purecef.Settings from the engine config.
-func prepareCEFSettings(cfg config.CEFEngineConfig, logger *zerolog.Logger) purecef.Settings {
+func prepareCEFSettings(opts port.EngineOptions, cfg RuntimeConfig, logger *zerolog.Logger) (purecef.Settings, error) {
+	if opts.CookiePolicy != "" && opts.CookiePolicy != port.CookiePolicyAlways {
+		return purecef.Settings{}, fmt.Errorf("%w: %s", ErrCookiePolicyUnsupported, opts.CookiePolicy)
+	}
+
+	legacyCfg := config.CEFEngineConfig{
+		CEFDir:                   cfg.CEFDir,
+		LogFile:                  cfg.LogFile,
+		LogSeverity:              cfg.LogSeverity,
+		WindowlessFrameRate:      cfg.WindowlessFrameRate,
+		EnableAudioHandler:       cfg.EnableAudioHandler,
+		EnableContextMenuHandler: cfg.EnableContextMenuHandler,
+		TraceHandlers:            cfg.TraceHandlers,
+	}
+
 	settings := purecef.DefaultSettings()
 	settings.MultiThreadedMessageLoop = true
 	settings.ExternalMessagePump = false
-	settings.RootCachePath = defaultCEFUserDataDir()
-	if cfg.CEFDir != "" {
-		settings.CEFDir = cfg.CEFDir
+	settings.RootCachePath = resolvedStateRoot(opts)
+	if legacyCfg.CEFDir != "" {
+		settings.CEFDir = legacyCfg.CEFDir
 	}
-	if runtimeLogFile, err := prepareCEFLogFile(cfg); err != nil {
+	if runtimeLogFile, err := prepareCEFLogFile(legacyCfg); err != nil {
 		logger.Warn().Err(err).Msg("cef: failed to prepare runtime log file")
 	} else {
 		settings.LogFile = runtimeLogFile
 	}
-	if bootstrapLogFile, err := prepareCEFInitTraceFile(cfg); err != nil {
+	if bootstrapLogFile, err := prepareCEFInitTraceFile(legacyCfg); err != nil {
 		logger.Warn().Err(err).Msg("cef: failed to prepare init trace file")
 	} else if bootstrapLogFile != "" {
 		settings.InitTraceFile = bootstrapLogFile
@@ -86,8 +132,8 @@ func prepareCEFSettings(cfg config.CEFEngineConfig, logger *zerolog.Logger) pure
 			Str("env_var", puregoCEFInitTraceEnvVar).
 			Msg("cef: init bootstrap diagnostics enabled")
 	}
-	if cfg.LogSeverity != 0 {
-		settings.LogSeverity = cfg.LogSeverity
+	if legacyCfg.LogSeverity != 0 {
+		settings.LogSeverity = legacyCfg.LogSeverity
 	}
 	if helperPath := findHelperBinary(); helperPath != "" {
 		settings.BrowserSubprocessPath = helperPath
@@ -95,7 +141,7 @@ func prepareCEFSettings(cfg config.CEFEngineConfig, logger *zerolog.Logger) pure
 	} else {
 		logger.Warn().Msg("cef: subprocess helper not found, falling back to main binary")
 	}
-	return settings
+	return settings, nil
 }
 
 func defaultCEFUserDataDir() string {
@@ -302,8 +348,10 @@ func appendIfMissing(args []string, flag string) []string {
 // if the owning process is no longer running. CEF leaves these behind on
 // unclean shutdown (SIGKILL, SIGSEGV) and the next instance crashes trying
 // to connect to the dead process.
-func cleanStaleSingletonLocks(logger *zerolog.Logger) {
-	dir := defaultCEFUserDataDir()
+func cleanStaleSingletonLocks(logger *zerolog.Logger, dir string) {
+	if dir == "" {
+		return
+	}
 
 	lockPath := filepath.Join(dir, "SingletonLock")
 	target, err := os.Readlink(lockPath)

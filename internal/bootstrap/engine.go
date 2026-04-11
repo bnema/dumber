@@ -42,9 +42,28 @@ func BuildEngine(input EngineInput) (port.Engine, error) {
 			input.ThemeManager, input.ColorResolver, input.Logger,
 		)
 	case config.EngineTypeCEF:
-		cefCfg := cfg.Engine.CEF
+		opts := port.EngineOptions{
+			DataDir:      input.DataDir,
+			CacheDir:     input.CacheDir,
+			CookiePolicy: port.CookiePolicy(cfg.Engine.CookiePolicy),
+		}
+		cefCfg := cef.RuntimeConfig{
+			CEFDir:                   cfg.Engine.CEF.CEFDir,
+			LogFile:                  cfg.Engine.CEF.LogFile,
+			LogSeverity:              cfg.Engine.CEF.LogSeverity,
+			WindowlessFrameRate:      cfg.Engine.CEF.WindowlessFrameRate,
+			EnableAudioHandler:       cfg.Engine.CEF.EnableAudioHandler,
+			EnableContextMenuHandler: cfg.Engine.CEF.EnableContextMenuHandler,
+			TraceHandlers:            cfg.Engine.CEF.TraceHandlers,
+		}
+		transcodingCfg := cef.TranscodingRuntimeConfig{
+			Enabled:       cfg.Transcoding.Enabled,
+			HWAccel:       cfg.Transcoding.HWAccel,
+			MaxConcurrent: cfg.Transcoding.MaxConcurrent,
+			Quality:       cfg.Transcoding.Quality,
+		}
 		audioFactory := audiofactory.NewAudioOutputFactory()
-		return cef.NewEngine(input.Ctx, cefCfg, cfg.Transcoding, audioFactory)
+		return cef.NewEngine(input.Ctx, opts, cefCfg, transcodingCfg, audioFactory, cef.EngineDependencies{})
 	default:
 		return nil, fmt.Errorf("unknown engine type: %q", engineType)
 	}
