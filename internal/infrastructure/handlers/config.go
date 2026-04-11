@@ -39,7 +39,7 @@ func (h *ConfigHandler) Handle(ctx context.Context, _ port.WebViewID, payload js
 		return nil, fmt.Errorf("invalid config format: %w", err)
 	}
 
-	log.Info().Msg("saving appearance configuration from webui")
+	log.Info().Msg("saving appearance configuration")
 
 	if err := h.saveConfig(ctx, payloadCfg); err != nil {
 		log.Error().Err(err).Msg("failed to save config")

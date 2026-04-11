@@ -1,6 +1,6 @@
 # Makefile for dumber (Clean Architecture - puregotk)
 
-.PHONY: build build-frontend build-systemviews test lint clean install-tools dev generate help init man flatpak-deps flatpak-build flatpak-install flatpak-run flatpak-clean stress-omnibox-callbacks verify-purego check
+.PHONY: build build-systemviews test lint clean install-tools dev generate help init man flatpak-deps flatpak-build flatpak-install flatpak-run flatpak-clean stress-omnibox-callbacks verify-purego check
 
 # Load local overrides from .env.local if present (Makefile syntax)
 ifneq (,$(wildcard .env.local))
@@ -38,17 +38,12 @@ help: ## Show this help message
 	@awk 'BEGIN {FS = ":.*?## "} /^[a-zA-Z_-]+:.*?## / {printf "  \033[36m%-15s\033[0m %s\n", $$1, $$2}' $(MAKEFILE_LIST)
 
 # Build targets
-build: build-frontend build-systemviews ## Build the application (pure Go, no CGO)
+build: build-systemviews ## Build the application (pure Go, no CGO)
 	@echo "Building $(BINARY_NAME) $(VERSION) using $(NPROCS) cores..."
 	@mkdir -p $(DIST_DIR)
 	CGO_ENABLED=0 go build -p $(NPROCS) $(GCFLAGS) $(LDFLAGS) -o $(DIST_DIR)/$(BINARY_NAME) $(MAIN_PATH)
 	CGO_ENABLED=0 go build -p $(NPROCS) -ldflags "-s -w" -o $(DIST_DIR)/cef-helper ./cmd/cef-helper
 	@echo "Build successful! Binary: $(DIST_DIR)/$(BINARY_NAME)"
-
-build-frontend: ## Build homepage and error pages
-	@echo "Building webui pages (homepage + error)..."
-	@cd webui && npm install --silent && npm run build
-	@echo "Frontend build complete"
 
 build-systemviews: ## Build the WASM systemviews runtime
 	@echo "Building systemviews wasm assets..."
@@ -57,8 +52,8 @@ build-systemviews: ## Build the WASM systemviews runtime
 	GOOS=js GOARCH=wasm go build -o assets/systemviews/systemviews.wasm ./cmd/systemviews
 	@echo "Systemviews build complete"
 
-build-quick: ## Build without frontend (faster for backend development)
-	@echo "Building $(BINARY_NAME) $(VERSION) (quick, no frontend)..."
+build-quick: ## Build quickly for backend development
+	@echo "Building $(BINARY_NAME) $(VERSION) (quick)..."
 	@mkdir -p $(DIST_DIR)
 	CGO_ENABLED=0 go build -p $(NPROCS) $(GCFLAGS) $(LDFLAGS) -o $(DIST_DIR)/$(BINARY_NAME) $(MAIN_PATH)
 	CGO_ENABLED=0 go build -p $(NPROCS) -ldflags "-s -w" -o $(DIST_DIR)/cef-helper ./cmd/cef-helper
@@ -130,8 +125,6 @@ clean: ## Clean build artifacts
 	@echo "Cleaning build artifacts..."
 	rm -rf $(DIST_DIR)
 	rm -f $(BINARY_NAME)
-	rm -rf webui/dist webui/node_modules
-	rm -f assets/webui/homepage.min.js assets/webui/error.min.js assets/webui/config.min.js assets/webui/index.html assets/webui/error.html assets/webui/config.html assets/webui/style.css
 	rm -f assets/systemviews/wasm_exec.js assets/systemviews/systemviews.wasm
 	rm -f coverage.out coverage.html
 	go clean -cache
@@ -168,7 +161,7 @@ man: build-quick ## Install man pages to ~/.local/share/man/man1/
 # Native release targets
 .PHONY: release-snapshot release
 
-release-snapshot: build-frontend ## Build snapshot using goreleaser
+release-snapshot: build-systemviews ## Build snapshot using goreleaser
 	@echo "Building snapshot with goreleaser..."
 	goreleaser release --snapshot --clean
 

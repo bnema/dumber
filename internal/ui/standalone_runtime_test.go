@@ -74,7 +74,7 @@ func TestStandaloneExternalSchemeRules_CustomSchemeIsExternal(t *testing.T) {
 }
 
 func TestStandaloneExternalSchemeRules_InternalSchemesStayInternal(t *testing.T) {
-	for _, rawURL := range []string{"dumb://home", "file:///tmp/demo", "about:blank", "data:text/plain,hi"} {
+	for _, rawURL := range []string{"dumb://history", "dumb://error", "file:///tmp/demo", "about:blank", "data:text/plain,hi"} {
 		if urlutil.IsExternalScheme(rawURL) {
 			t.Fatalf("expected %q to stay internal", rawURL)
 		}

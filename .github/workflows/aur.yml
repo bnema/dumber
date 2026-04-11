@@ -51,7 +51,7 @@ jobs:
             "arch=('x86_64')" \
             'url="https://github.com/bnema/dumber"' \
             "license=('MIT')" \
-            "makedepends=('go>=1.25' 'npm' 'git')" \
+            "makedepends=('go>=1.25' 'git')" \
             "depends=('gtk4' 'webkitgtk-6.0')" \
             'optdepends=(' \
             "    'gst-plugins-base: Base media codecs'" \

@@ -12,8 +12,8 @@ import (
 )
 
 func TestCrashOriginalURI(t *testing.T) {
-	assert.Equal(t, "https://example.com/path?q=1", crashOriginalURI("dumb://home/crash?url=https%3A%2F%2Fexample.com%2Fpath%3Fq%3D1"))
-	assert.Empty(t, crashOriginalURI("dumb://home/crash"))
+	assert.Equal(t, "https://example.com/path?q=1", crashOriginalURI("dumb://history/crash?url=https%3A%2F%2Fexample.com%2Fpath%3Fq%3D1"))
+	assert.Empty(t, crashOriginalURI("dumb://history/crash"))
 	assert.Empty(t, crashOriginalURI("%%%"))
 }
 
@@ -38,8 +38,8 @@ func TestBuildCrashPageHTMLRejectsUnsafeReloadScheme(t *testing.T) {
 }
 
 func TestBuildCrashPageHTMLAllowsDumbSchemeTarget(t *testing.T) {
-	body := buildCrashPageHTML("dumb://home")
-	assert.Contains(t, body, `data-target="dumb://home"`)
+	body := buildCrashPageHTML("dumb://history")
+	assert.Contains(t, body, `data-target="dumb://history"`)
 }
 
 func TestBuildCrashPageHTMLEscapesScriptBreakoutPayload(t *testing.T) {
@@ -60,7 +60,7 @@ func TestRegisterDefaultsIncludesCrashHandler(t *testing.T) {
 	require.NotNil(t, crashHandler)
 
 	resp := crashHandler.Handle(&SchemeRequest{
-		URI:    "dumb://home/crash?url=https%3A%2F%2Fexample.com",
+		URI:    "dumb://history/crash?url=https%3A%2F%2Fexample.com",
 		Path:   "/crash",
 		Method: "GET",
 		Scheme: "dumb",
@@ -82,39 +82,13 @@ func TestCrashHandlerSanitizesUnsafeURLQuery(t *testing.T) {
 	require.NotNil(t, crashHandler)
 
 	resp := crashHandler.Handle(&SchemeRequest{
-		URI:    "dumb://home/crash?url=javascript%3Aalert(1)",
+		URI:    "dumb://history/crash?url=javascript%3Aalert(1)",
 		Path:   "/crash",
 		Method: "GET",
 		Scheme: "dumb",
 	})
 	require.NotNil(t, resp)
 	assert.Contains(t, string(resp.Data), `data-target=""`)
-}
-
-func TestHandleAsset_WebRTCRootServesInternalWebRTCTester(t *testing.T) {
-	h := NewDumbSchemeHandler(context.Background())
-	h.SetAssets(assets.WebUIAssets)
-
-	u, err := url.Parse("dumb://webrtc/")
-	require.NoError(t, err)
-
-	resp := h.handleAsset(u)
-	require.NotNil(t, resp)
-	assert.Equal(t, "text/html; charset=utf-8", resp.ContentType)
-	assert.Contains(t, string(resp.Data), "webrtc.min.js")
-}
-
-func TestHandleAsset_WebRTCOpaqueFormServesInternalWebRTCTester(t *testing.T) {
-	h := NewDumbSchemeHandler(context.Background())
-	h.SetAssets(assets.WebUIAssets)
-
-	u, err := url.Parse("dumb:webrtc")
-	require.NoError(t, err)
-
-	resp := h.handleAsset(u)
-	require.NotNil(t, resp)
-	assert.Equal(t, "text/html; charset=utf-8", resp.ContentType)
-	assert.Contains(t, string(resp.Data), "webrtc.min.js")
 }
 
 func TestHandleAsset_ConfigOpaqueFormServesSystemviewsShell(t *testing.T) {
@@ -141,6 +115,8 @@ func TestHandleAsset_SystemviewsRootsServeShell(t *testing.T) {
 		"dumb:favorites",
 		"dumb://config",
 		"dumb:config",
+		"dumb://error",
+		"dumb:error",
 	}
 
 	for _, raw := range tests {

@@ -1408,7 +1408,7 @@ func (a *App) createInitialTab(ctx context.Context) {
 	}
 
 	// Create an initial tab using coordinator.
-	initialURL := "dumb://home"
+	initialURL := "dumb://history"
 	if a.deps != nil && a.deps.InitialURL != "" {
 		initialURL = a.deps.InitialURL
 	}

@@ -21,16 +21,13 @@ import (
 
 // Scheme path constants
 const (
-	HomePath             = "home"
-	HistoryPath          = "history"
-	FavoritesPath        = "favorites"
-	ConfigPath           = "config"
-	WebRTCPath           = "webrtc"
-	ErrorPath            = "error"
-	CrashPath            = "crash"
-	IndexHTML            = "index.html"
-	SystemViewsIndexHTML = "systemviews/index.html"
-	httpGET              = "GET"
+	HistoryPath   = "history"
+	FavoritesPath = "favorites"
+	ConfigPath    = "config"
+	ErrorPath     = "error"
+	CrashPath     = "crash"
+	IndexHTML     = "index.html"
+	httpGET       = "GET"
 )
 
 // SchemeRequest represents a request to a custom URI scheme.
@@ -65,7 +62,7 @@ func (f PageHandlerFunc) Handle(req *SchemeRequest) *SchemeResponse {
 type DumbSchemeHandler struct {
 	handlers             map[string]PageHandler
 	assets               embed.FS
-	assetDir             string // default subdirectory within embed.FS (e.g., "webui")
+	assetDir             string // default subdirectory within embed.FS (e.g., "systemviews")
 	logger               zerolog.Logger
 	mu                   sync.RWMutex
 	currentConfigPayload func() ([]byte, error)
@@ -78,7 +75,7 @@ func NewDumbSchemeHandler(ctx context.Context) *DumbSchemeHandler {
 
 	h := &DumbSchemeHandler{
 		handlers: make(map[string]PageHandler),
-		assetDir: "webui",
+		assetDir: "systemviews",
 		logger:   log.With().Str("component", "scheme-handler").Logger(),
 	}
 
@@ -88,7 +85,7 @@ func NewDumbSchemeHandler(ctx context.Context) *DumbSchemeHandler {
 	return h
 }
 
-// SetAssets sets the embedded filesystem containing webui assets.
+// SetAssets sets the embedded filesystem containing systemviews assets.
 func (h *DumbSchemeHandler) SetAssets(assets embed.FS) {
 	h.mu.Lock()
 	defer h.mu.Unlock()
@@ -138,7 +135,7 @@ func (h *DumbSchemeHandler) registerDefaults() {
 		h.mu.RLock()
 		build := h.currentConfigPayload
 		h.mu.RUnlock()
-		return h.buildConfigResponse(build)
+		return buildConfigResponse(build)
 	}))
 
 	// API: Get default config (used by Reset Defaults in dumb://config)
@@ -150,7 +147,7 @@ func (h *DumbSchemeHandler) registerDefaults() {
 		h.mu.RLock()
 		build := h.defaultConfigPayload
 		h.mu.RUnlock()
-		return h.buildConfigResponse(build)
+		return buildConfigResponse(build)
 	}))
 }
 
@@ -173,7 +170,7 @@ func buildCrashPageHTML(originalURI string) string {
 	return webutil.BuildCrashPageHTML(originalURI)
 }
 
-func (h *DumbSchemeHandler) buildConfigResponse(build func() ([]byte, error)) *SchemeResponse {
+func buildConfigResponse(build func() ([]byte, error)) *SchemeResponse {
 	if build == nil {
 		return &SchemeResponse{
 			Data:        []byte(`{"error": "config payload builder not configured"}`),
@@ -333,12 +330,10 @@ func resolveAssetPath(u *url.URL) (assetDir, relPath string, ok bool) {
 		assetDir string
 		file     string
 	}{
-		HomePath:      {assetDir: "webui", file: IndexHTML},
 		HistoryPath:   {assetDir: "systemviews", file: IndexHTML},
 		FavoritesPath: {assetDir: "systemviews", file: IndexHTML},
 		ConfigPath:    {assetDir: "systemviews", file: IndexHTML},
-		WebRTCPath:    {assetDir: "webui", file: "webrtc.html"},
-		ErrorPath:     {assetDir: "webui", file: "error.html"},
+		ErrorPath:     {assetDir: "systemviews", file: IndexHTML},
 	}
 
 	if root, ok := rootByHost[u.Host]; ok {
@@ -350,14 +345,8 @@ func resolveAssetPath(u *url.URL) (assetDir, relPath string, ok bool) {
 	}
 
 	switch u.Opaque {
-	case HomePath:
-		return "webui", IndexHTML, true
-	case HistoryPath, FavoritesPath, ConfigPath:
+	case HistoryPath, FavoritesPath, ConfigPath, ErrorPath:
 		return "systemviews", IndexHTML, true
-	case ErrorPath:
-		return "webui", "error.html", true
-	case WebRTCPath:
-		return "webui", "webrtc.html", true
 	default:
 		return "", "", false
 	}

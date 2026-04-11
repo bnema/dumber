@@ -201,7 +201,7 @@ border = "#363636"
 **Example:**
 ```toml
 [workspace]
-new_pane_url = "dumb://home"
+new_pane_url = "dumb://history"
 ```
 
 ### Pane Mode

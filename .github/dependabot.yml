@@ -9,15 +9,6 @@ updates:
         patterns:
           - "*"
 
-  - package-ecosystem: npm
-    directory: /webui
-    schedule:
-      interval: weekly
-    groups:
-      npm-dependencies:
-        patterns:
-          - "*"
-
   - package-ecosystem: github-actions
     directory: /
     schedule:

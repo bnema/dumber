@@ -34,8 +34,8 @@ func TestNormalize(t *testing.T) {
 		},
 		{
 			name:  "dumb scheme unchanged",
-			input: "dumb://home",
-			want:  "dumb://home",
+			input: "dumb://history",
+			want:  "dumb://history",
 		},
 		{
 			name:  "about scheme unchanged",
@@ -347,7 +347,7 @@ func TestLooksLikeURL(t *testing.T) {
 		},
 		{
 			name:  "dumb URL",
-			input: "dumb://home",
+			input: "dumb://history",
 			want:  true,
 		},
 		{
@@ -506,7 +506,7 @@ func TestIsExternalScheme(t *testing.T) {
 		},
 		{
 			name:  "dumb scheme",
-			input: "dumb://home",
+			input: "dumb://history",
 			want:  false,
 		},
 		{

@@ -4,11 +4,11 @@ import (
 	"embed"
 )
 
-// WebUIAssets contains the embedded webui and systemviews build output.
-// Used by the scheme handlers during the transition to serve dumb://home,
-// dumb://error, dumb://config, dumb://webrtc, dumb://history, and dumb://favorites.
+// WebUIAssets contains the embedded systemviews build output.
+// Used by the scheme handlers to serve dumb://error, dumb://config,
+// dumb://history, and dumb://favorites.
 //
-//go:embed webui/* systemviews/*
+//go:embed systemviews/*
 var WebUIAssets embed.FS
 
 // LogoSVG contains the dumber logo as SVG for desktop icon installation.

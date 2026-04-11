@@ -26,11 +26,9 @@ import (
 
 // Scheme path constants matching WebKit's naming.
 const (
-	homePath                    = "home"
 	historyPath                 = "history"
 	favoritesPath               = "favorites"
 	configPath                  = "config"
-	webrtcPath                  = "webrtc"
 	errorPath                   = "error"
 	indexHTML                   = "index.html"
 	maxSchemeTruncatedURLLength = 240
@@ -38,12 +36,10 @@ const (
 
 // pageRootFiles maps internal page hosts/paths to their HTML entry points.
 var pageRootFiles = map[string]string{
-	homePath:      indexHTML,
 	historyPath:   indexHTML,
 	favoritesPath: indexHTML,
 	configPath:    indexHTML,
-	webrtcPath:    "webrtc.html",
-	errorPath:     "error.html",
+	errorPath:     indexHTML,
 }
 
 // dumbSchemeHandler serves both the conceptual dumb:// URLs and the actual
@@ -85,14 +81,14 @@ func newDumbSchemeHandler(
 		ctx:                  ctx,
 		messageRouter:        router,
 		transcoder:           transcoder,
-		assetDir:             "webui",
+		assetDir:             "systemviews",
 		logger:               log.With().Str("component", "scheme-handler").Logger(),
 		currentConfigPayload: currentConfigPayload,
 		defaultConfigPayload: defaultConfigPayload,
 	}, nil
 }
 
-// setAssets sets the embedded filesystem containing webui assets.
+// setAssets sets the embedded filesystem containing systemviews assets.
 func (h *dumbSchemeHandler) setAssets(assets embed.FS) {
 	h.mu.Lock()
 	defer h.mu.Unlock()
@@ -325,7 +321,7 @@ func (h *dumbSchemeHandler) handleAsset(u *url.URL) purecef.ResourceHandler {
 }
 
 // resolveAssetPath maps either a dumb:// URL or the actual internal HTTPS URL
-// to a relative asset path inside assets/webui.
+// to a relative asset path inside assets/systemviews.
 func resolveAssetPath(u *url.URL) (assetDir, relPath string, ok bool) {
 	if u == nil {
 		return "", "", false
@@ -378,7 +374,7 @@ func resolveActualAssetPath(u *url.URL) (assetDir, relPath string, ok bool) {
 		if len(parts) == 1 {
 			return assetDirForPageHost(page), root, true
 		}
-		if page == homePath && parts[1] == "crash" {
+		if page == historyPath && parts[1] == "crash" {
 			return "", "", false
 		}
 		return assetDirForPageHost(page), parts[1], true
@@ -388,16 +384,15 @@ func resolveActualAssetPath(u *url.URL) (assetDir, relPath string, ok bool) {
 		return "", "", false
 	}
 
-	// Serve root assets like homepage.min.js, style.css and favicon.png.
-	return "webui", path, true
+	return "", "", false
 }
 
 func assetDirForPageHost(host string) string {
 	switch host {
-	case historyPath, favoritesPath, configPath:
+	case historyPath, favoritesPath, configPath, errorPath:
 		return "systemviews"
 	default:
-		return "webui"
+		return ""
 	}
 }
 
@@ -408,8 +403,8 @@ func isCEFCrashPageURL(u *url.URL) bool {
 
 	switch {
 	case strings.EqualFold(u.Scheme, actualInternalScheme) && strings.EqualFold(u.Host, actualInternalHost):
-		return strings.Trim(u.Path, "/") == homePath+"/crash"
-	case strings.EqualFold(u.Scheme, "dumb") && u.Host == homePath:
+		return strings.Trim(u.Path, "/") == historyPath+"/crash"
+	case strings.EqualFold(u.Scheme, "dumb") && u.Host == historyPath:
 		return strings.Trim(u.Path, "/") == "crash"
 	default:
 		return false

@@ -12,13 +12,18 @@ func TestToActualInternalURL(t *testing.T) {
 	}{
 		{
 			name: "page root",
-			in:   "dumb://home",
-			want: "https://dumber.invalid/home",
+			in:   "dumb://history",
+			want: "https://dumber.invalid/history",
 		},
 		{
 			name: "history page root",
 			in:   "dumb://history",
 			want: "https://dumber.invalid/history",
+		},
+		{
+			name: "error page root",
+			in:   "dumb://error",
+			want: "https://dumber.invalid/error",
 		},
 		{
 			name: "favorites page root",
@@ -32,18 +37,18 @@ func TestToActualInternalURL(t *testing.T) {
 		},
 		{
 			name: "api path stays at origin root",
-			in:   "dumb://home/api/message",
+			in:   "dumb://history/api/message",
 			want: "https://dumber.invalid/api/message",
 		},
 		{
 			name: "root asset stays at origin root",
-			in:   "dumb://home/favicon.ico",
+			in:   "dumb://history/favicon.ico",
 			want: "https://dumber.invalid/favicon.ico",
 		},
 		{
 			name: "page subroute stays under page namespace",
-			in:   "dumb://home/crash?url=https%3A%2F%2Fexample.com",
-			want: "https://dumber.invalid/home/crash?url=https%3A%2F%2Fexample.com",
+			in:   "dumb://history/crash?url=https%3A%2F%2Fexample.com",
+			want: "https://dumber.invalid/history/crash?url=https%3A%2F%2Fexample.com",
 		},
 		{
 			name: "actual internal URL unchanged",
@@ -72,13 +77,18 @@ func TestToConceptualInternalURL(t *testing.T) {
 	}{
 		{
 			name: "page root",
-			in:   "https://dumber.invalid/home",
-			want: "dumb://home",
+			in:   "https://dumber.invalid/history",
+			want: "dumb://history",
 		},
 		{
 			name: "history page root",
 			in:   "https://dumber.invalid/history",
 			want: "dumb://history",
+		},
+		{
+			name: "error page root",
+			in:   "https://dumber.invalid/error",
+			want: "dumb://error",
 		},
 		{
 			name: "favorites page root",
@@ -92,8 +102,8 @@ func TestToConceptualInternalURL(t *testing.T) {
 		},
 		{
 			name: "page subroute",
-			in:   "https://dumber.invalid/home/crash?url=https%3A%2F%2Fexample.com",
-			want: "dumb://home/crash?url=https%3A%2F%2Fexample.com",
+			in:   "https://dumber.invalid/history/crash?url=https%3A%2F%2Fexample.com",
+			want: "dumb://history/crash?url=https%3A%2F%2Fexample.com",
 		},
 		{
 			name: "root asset is left unchanged",

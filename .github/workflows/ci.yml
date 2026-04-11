@@ -7,7 +7,6 @@ on:
       - '**.go'
       - 'go.mod'
       - 'go.sum'
-      - 'webui/**'
       - '.golangci.yml'
       - 'Makefile'
       - 'sqlc.yaml'
@@ -21,7 +20,6 @@ on:
       - '**.go'
       - 'go.mod'
       - 'go.sum'
-      - 'webui/**'
       - '.golangci.yml'
       - 'Makefile'
       - 'sqlc.yaml'
@@ -40,7 +38,7 @@ jobs:
       - name: Install dependencies
         run: |
           pacman -Syu --noconfirm
-          pacman -S --noconfirm git go nodejs npm webkitgtk-6.0 gtk4 gobject-introspection base-devel
+          pacman -S --noconfirm git go webkitgtk-6.0 gtk4 gobject-introspection base-devel
       - uses: actions/checkout@v6
       - name: Cache Go modules
         uses: actions/cache@v5
@@ -56,15 +54,8 @@ jobs:
           key: ${{ runner.os }}-go-build-${{ hashFiles('**/go.sum') }}
           restore-keys: |
             ${{ runner.os }}-go-build-
-      - name: Cache npm
-        uses: actions/cache@v5
-        with:
-          path: ~/.npm
-          key: ${{ runner.os }}-npm-${{ hashFiles('webui/package-lock.json') }}
-          restore-keys: |
-            ${{ runner.os }}-npm-
-      - name: Build frontend assets
-        run: make build-frontend
+      - name: Build systemviews assets
+        run: make build-systemviews
       - name: Install golangci-lint
         run: |
           curl -sSfL https://raw.githubusercontent.com/golangci/golangci-lint/HEAD/install.sh | sh -s -- -b /usr/local/bin v2.9.0
@@ -81,7 +72,7 @@ jobs:
       - name: Install dependencies
         run: |
           pacman -Syu --noconfirm
-          pacman -S --noconfirm git go nodejs npm webkitgtk-6.0 gtk4 libadwaita gobject-introspection base-devel
+          pacman -S --noconfirm git go webkitgtk-6.0 gtk4 libadwaita gobject-introspection base-devel
       - uses: actions/checkout@v6
       - name: Cache Go modules
         uses: actions/cache@v5
@@ -97,15 +88,8 @@ jobs:
           key: ${{ runner.os }}-go-build-${{ hashFiles('**/go.sum') }}
           restore-keys: |
             ${{ runner.os }}-go-build-
-      - name: Cache npm
-        uses: actions/cache@v5
-        with:
-          path: ~/.npm
-          key: ${{ runner.os }}-npm-${{ hashFiles('webui/package-lock.json') }}
-          restore-keys: |
-            ${{ runner.os }}-npm-
-      - name: Build frontend assets
-        run: make build-frontend
+      - name: Build systemviews assets
+        run: make build-systemviews
       - name: Run tests
         env:
           GDK_BACKEND: wayland
