@@ -161,6 +161,7 @@ func DefaultConfig() *Config {
 			CEF: CEFEngineConfig{
 				WindowlessFrameRate: defaultCEFWindowlessFrameRate,
 				LogFile:             "",
+				EnableAudioHandler:  true,
 			},
 			WebKit: WebKitEngineConfig{
 				ITPEnabled:             true,
