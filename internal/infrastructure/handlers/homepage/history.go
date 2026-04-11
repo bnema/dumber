@@ -3,7 +3,6 @@ package homepage
 import (
 	"context"
 	"encoding/json"
-	"time"
 
 	"github.com/bnema/dumber/internal/application/port"
 	"github.com/bnema/dumber/internal/domain/entity"
@@ -142,16 +141,8 @@ func (h *HistoryHandlers) HandleDeleteRange() port.WebUIMessageHandler {
 			Str("range", req.Range).
 			Msg("handling history_delete_range")
 
-		before := rangeToTime(req.Range)
-		if before.IsZero() {
-			// "all" case - clear all
-			if err := h.historyUC.ClearAll(ctx); err != nil {
-				return NewErrorResponse(req.RequestID, err), nil
-			}
-		} else {
-			if err := h.historyUC.ClearOlderThan(ctx, before); err != nil {
-				return NewErrorResponse(req.RequestID, err), nil
-			}
+		if err := h.historyUC.ClearRange(ctx, req.Range); err != nil {
+			return NewErrorResponse(req.RequestID, err), nil
 		}
 
 		return NewSuccessResponse(req.RequestID, nil), nil
@@ -175,26 +166,6 @@ func (h *HistoryHandlers) HandleClearAll() port.WebUIMessageHandler {
 
 		return NewSuccessResponse(requestID, nil), nil
 	})
-}
-
-// rangeToTime converts a range string to a time.Time cutoff.
-// Returns zero time for "all" which means delete everything.
-func rangeToTime(r string) time.Time {
-	now := time.Now()
-	switch r {
-	case "hour":
-		return now.Add(-time.Hour)
-	case "day":
-		return now.AddDate(0, 0, -1)
-	case "week":
-		return now.AddDate(0, 0, -7)
-	case "month":
-		return now.AddDate(0, -1, 0)
-	case "all":
-		return time.Time{} // Zero time signals "delete all"
-	default:
-		return now
-	}
 }
 
 // HandleAnalytics handles history_analytics messages.

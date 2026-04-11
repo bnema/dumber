@@ -23,6 +23,7 @@ type HomepageHistory interface {
 	GetRecent(ctx context.Context, limit, offset int) ([]*entity.HistoryEntry, error)
 	Search(ctx context.Context, input HistorySearchInput) (*HistorySearchOutput, error)
 	Delete(ctx context.Context, id int64) error
+	ClearRange(ctx context.Context, rangeID string) error
 	ClearAll(ctx context.Context) error
 	ClearOlderThan(ctx context.Context, before time.Time) error
 	GetAnalytics(ctx context.Context) (*entity.HistoryAnalytics, error)

@@ -151,3 +151,16 @@ func TestSearchHistoryUseCase_GetMostVisited_ReturnsEmptyWhenNoHistory(t *testin
 	require.NotNil(t, result)
 	assert.Empty(t, result)
 }
+
+func TestSearchHistoryUseCase_ClearRange_AllUsesClearAll(t *testing.T) {
+	ctx := testContext()
+
+	historyRepo := repomocks.NewMockHistoryRepository(t)
+
+	historyRepo.EXPECT().DeleteAll(mock.Anything).Return(nil)
+
+	uc := usecase.NewSearchHistoryUseCase(historyRepo)
+
+	err := uc.ClearRange(ctx, "all")
+	require.NoError(t, err)
+}

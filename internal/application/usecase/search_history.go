@@ -7,6 +7,7 @@ import (
 
 	"github.com/bnema/dumber/internal/application/port"
 	"github.com/bnema/dumber/internal/domain/entity"
+	historydomain "github.com/bnema/dumber/internal/domain/history"
 	"github.com/bnema/dumber/internal/domain/repository"
 	"github.com/bnema/dumber/internal/logging"
 )
@@ -152,6 +153,16 @@ func (uc *SearchHistoryUseCase) ClearOlderThan(ctx context.Context, before time.
 
 	log.Info().Time("before", before).Msg("old history cleared")
 	return nil
+}
+
+// ClearRange deletes history entries for a named range.
+func (uc *SearchHistoryUseCase) ClearRange(ctx context.Context, rangeID string) error {
+	cutoff, all := historydomain.DeleteRangeCutoff(rangeID, time.Now())
+	if all {
+		return uc.ClearAll(ctx)
+	}
+
+	return uc.ClearOlderThan(ctx, cutoff)
 }
 
 // ClearAll deletes all history entries.
