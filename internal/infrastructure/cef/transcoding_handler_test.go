@@ -34,3 +34,16 @@ func TestResolveTranscodeSource_UsesInjectedClassifier(t *testing.T) {
 	require.Equal(t, "https://example.com", referer)
 	require.Equal(t, "https://example.com", origin)
 }
+
+func TestResolveTranscodeSource_UsesEagerFallback(t *testing.T) {
+	classifier := MediaClassifier{
+		ParseSyntheticTranscodeURL: func(string) (string, string, string, bool) { return "", "", "", false },
+		IsEagerTranscodeURL:        func(string) bool { return true },
+	}.normalize()
+
+	src, referer, origin, eager := resolveTranscodeSource(classifier, "https://cdn.example/video.mp4")
+	require.True(t, eager)
+	require.Equal(t, "https://cdn.example/video.mp4", src)
+	require.Empty(t, referer)
+	require.Empty(t, origin)
+}

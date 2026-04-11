@@ -200,7 +200,7 @@ func newTranscodingRequestHandler(
 ) purecef.ResourceRequestHandler {
 	return purecef.NewResourceRequestHandler(&transcodingRequestHandler{
 		transcoder: tc,
-		classifier: classifier.normalize(),
+		classifier: classifier,
 		ctxf:       ctxf,
 	})
 }

@@ -71,7 +71,7 @@ func NewEngine(
 	}
 	os.Args = savedArgs
 
-	return wireEngine(ctx, eng, cfg, transcodingCfg, windowlessFrameRate, audioFactory, logger, deps.MediaClassifier.normalize(), deps.CurrentConfigPayload, deps.DefaultConfigPayload)
+	return wireEngine(ctx, eng, cfg, transcodingCfg, windowlessFrameRate, audioFactory, logger, deps.MediaClassifier, deps.CurrentConfigPayload, deps.DefaultConfigPayload)
 }
 
 func resolvedStateRoot(opts port.EngineOptions) string {
