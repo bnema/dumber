@@ -68,7 +68,14 @@ func newDumbSchemeHandler(
 	transcoder port.MediaTranscoder,
 	currentConfigPayload func() ([]byte, error),
 	defaultConfigPayload func() ([]byte, error),
-) *dumbSchemeHandler {
+) (*dumbSchemeHandler, error) {
+	if currentConfigPayload == nil {
+		return nil, fmt.Errorf("current config payload builder not configured")
+	}
+	if defaultConfigPayload == nil {
+		return nil, fmt.Errorf("default config payload builder not configured")
+	}
+
 	log := logging.FromContext(ctx)
 	return &dumbSchemeHandler{
 		ctx:                  ctx,
@@ -78,7 +85,7 @@ func newDumbSchemeHandler(
 		logger:               log.With().Str("component", "scheme-handler").Logger(),
 		currentConfigPayload: currentConfigPayload,
 		defaultConfigPayload: defaultConfigPayload,
-	}
+	}, nil
 }
 
 // setAssets sets the embedded filesystem containing webui assets.

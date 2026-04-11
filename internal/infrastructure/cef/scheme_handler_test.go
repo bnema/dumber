@@ -1,6 +1,7 @@
 package cef
 
 import (
+	"context"
 	"errors"
 	"testing"
 
@@ -27,4 +28,18 @@ func TestResolveConfigPayload_NilBuilderFails(t *testing.T) {
 	_, err := resolveConfigPayload(nil)
 	require.Error(t, err)
 	require.Contains(t, err.Error(), "config payload builder")
+}
+
+func TestNewDumbSchemeHandler_NilCurrentConfigPayloadFails(t *testing.T) {
+	h, err := newDumbSchemeHandler(context.Background(), nil, nil, nil, func() ([]byte, error) { return nil, nil })
+	require.Error(t, err)
+	require.Nil(t, h)
+	require.Contains(t, err.Error(), "current config payload builder")
+}
+
+func TestNewDumbSchemeHandler_NilDefaultConfigPayloadFails(t *testing.T) {
+	h, err := newDumbSchemeHandler(context.Background(), nil, nil, func() ([]byte, error) { return nil, nil }, nil)
+	require.Error(t, err)
+	require.Nil(t, h)
+	require.Contains(t, err.Error(), "default config payload builder")
 }

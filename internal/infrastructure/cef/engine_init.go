@@ -207,13 +207,17 @@ func wireEngine(
 	eng.transcoderState = transcoderState
 
 	messageRouter := NewMessageRouter(ctx)
-	schemeHandler := newDumbSchemeHandler(
+	schemeHandler, err := newDumbSchemeHandler(
 		ctx,
 		messageRouter,
 		mediaTranscoder,
 		currentConfigPayload,
 		defaultConfigPayload,
 	)
+	if err != nil {
+		purecef.Shutdown()
+		return nil, err
+	}
 	schemeHandler.setAssets(assets.WebUIAssets)
 
 	// Bridge clipboard writes from CEF JS → GDK system clipboard.
