@@ -225,7 +225,7 @@ func (e *Engine) RegisterAccentHandlers(ctx context.Context, handler port.Accent
 
 // ConfigureDownloads sets up download handling (Phase 1 stub).
 func (e *Engine) ConfigureDownloads(_ context.Context, _ string, _ port.DownloadEventHandler, _ port.DownloadPreparer) error {
-	return nil
+	return ErrDownloadsUnsupported
 }
 
 // OnToolkitReady is called after the UI toolkit has initialized.
