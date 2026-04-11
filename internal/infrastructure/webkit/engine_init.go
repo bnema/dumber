@@ -23,6 +23,8 @@ func NewEngine(
 	cfg *config.Config,
 	opts port.EngineOptions,
 	wkCfg WebKitEngineConfig,
+	currentConfigPayload func() ([]byte, error),
+	defaultConfigPayload func() ([]byte, error),
 	themeManager *theme.Manager,
 	colorResolver port.ColorSchemeResolver,
 	logger zerolog.Logger,
@@ -52,6 +54,7 @@ func NewEngine(
 
 	// --- Scheme handler ---
 	schemeHandler := NewDumbSchemeHandler(ctx)
+	schemeHandler.SetConfigPayloadBuilders(currentConfigPayload, defaultConfigPayload)
 	schemeHandler.SetAssets(assets.WebUIAssets)
 	schemeHandler.RegisterWithContext(wkCtx)
 

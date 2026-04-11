@@ -2,6 +2,7 @@ package webkit
 
 import (
 	"context"
+	"net/http"
 	"net/url"
 	"testing"
 
@@ -127,4 +128,41 @@ func TestHandleAsset_ConfigOpaqueFormServesConfigPage(t *testing.T) {
 	require.NotNil(t, resp)
 	assert.Equal(t, "text/html; charset=utf-8", resp.ContentType)
 	assert.Contains(t, string(resp.Data), "config")
+}
+
+func TestConfigHandlersUseInjectedPayloadBuilders(t *testing.T) {
+	h := NewDumbSchemeHandler(context.Background())
+	h.SetConfigPayloadBuilders(
+		func() ([]byte, error) { return []byte(`{"current":true}`), nil },
+		func() ([]byte, error) { return []byte(`{"default":true}`), nil },
+	)
+
+	h.mu.RLock()
+	currentHandler := h.handlers["/api/config"]
+	defaultHandler := h.handlers["/api/config/default"]
+	h.mu.RUnlock()
+	require.NotNil(t, currentHandler)
+	require.NotNil(t, defaultHandler)
+
+	currentResp := currentHandler.Handle(&SchemeRequest{
+		URI:    "dumb://config/api/config",
+		Path:   "/api/config",
+		Method: http.MethodGet,
+		Scheme: "dumb",
+	})
+	require.NotNil(t, currentResp)
+	assert.Equal(t, http.StatusOK, currentResp.StatusCode)
+	assert.Equal(t, "application/json", currentResp.ContentType)
+	assert.Equal(t, []byte(`{"current":true}`), currentResp.Data)
+
+	defaultResp := defaultHandler.Handle(&SchemeRequest{
+		URI:    "dumb://config/api/config/default",
+		Path:   "/api/config/default",
+		Method: http.MethodGet,
+		Scheme: "dumb",
+	})
+	require.NotNil(t, defaultResp)
+	assert.Equal(t, http.StatusOK, defaultResp.StatusCode)
+	assert.Equal(t, "application/json", defaultResp.ContentType)
+	assert.Equal(t, []byte(`{"default":true}`), defaultResp.Data)
 }

@@ -3,7 +3,6 @@ package webkit
 import (
 	"context"
 	"embed"
-	"encoding/json"
 	"fmt"
 	"io/fs"
 	"net/http"
@@ -12,9 +11,6 @@ import (
 	"strings"
 	"sync"
 
-	"github.com/bnema/dumber/internal/application/port"
-	"github.com/bnema/dumber/internal/infrastructure/config"
-	"github.com/bnema/dumber/internal/infrastructure/env"
 	"github.com/bnema/dumber/internal/infrastructure/webutil"
 	"github.com/bnema/dumber/internal/logging"
 	"github.com/bnema/puregotk-webkit/soup"
@@ -64,13 +60,13 @@ func (f PageHandlerFunc) Handle(req *SchemeRequest) *SchemeResponse {
 
 // DumbSchemeHandler handles dumb:// URI scheme requests.
 type DumbSchemeHandler struct {
-	handlers   map[string]PageHandler
-	assets     embed.FS
-	assetDir   string // subdirectory within embed.FS (e.g., "assets/webui")
-	logger     zerolog.Logger
-	mu         sync.RWMutex
-	hwSurveyor *env.HardwareSurveyor
-	ctx        context.Context
+	handlers             map[string]PageHandler
+	assets               embed.FS
+	assetDir             string // subdirectory within embed.FS (e.g., "assets/webui")
+	logger               zerolog.Logger
+	mu                   sync.RWMutex
+	currentConfigPayload func() ([]byte, error)
+	defaultConfigPayload func() ([]byte, error)
 }
 
 // NewDumbSchemeHandler creates a new handler for the dumb:// scheme.
@@ -78,11 +74,9 @@ func NewDumbSchemeHandler(ctx context.Context) *DumbSchemeHandler {
 	log := logging.FromContext(ctx)
 
 	h := &DumbSchemeHandler{
-		handlers:   make(map[string]PageHandler),
-		assetDir:   "webui",
-		logger:     log.With().Str("component", "scheme-handler").Logger(),
-		hwSurveyor: env.NewHardwareSurveyor(),
-		ctx:        ctx,
+		handlers: make(map[string]PageHandler),
+		assetDir: "webui",
+		logger:   log.With().Str("component", "scheme-handler").Logger(),
 	}
 
 	// Register default pages
@@ -97,6 +91,15 @@ func (h *DumbSchemeHandler) SetAssets(assets embed.FS) {
 	defer h.mu.Unlock()
 	h.assets = assets
 	h.logger.Debug().Msg("assets filesystem configured")
+}
+
+// SetConfigPayloadBuilders wires the config payload builders used by /api/config.
+func (h *DumbSchemeHandler) SetConfigPayloadBuilders(current, defaultPayload func() ([]byte, error)) {
+	h.mu.Lock()
+	defer h.mu.Unlock()
+	h.currentConfigPayload = current
+	h.defaultConfigPayload = defaultPayload
+	h.logger.Debug().Msg("config payload builders configured")
 }
 
 // registerDefaults sets up default page handlers.
@@ -129,7 +132,10 @@ func (h *DumbSchemeHandler) registerDefaults() {
 			return nil
 		}
 
-		return h.buildConfigResponse(config.Get())
+		h.mu.RLock()
+		build := h.currentConfigPayload
+		h.mu.RUnlock()
+		return h.buildConfigResponse(build)
 	}))
 
 	// API: Get default config (used by Reset Defaults in dumb://config)
@@ -138,7 +144,10 @@ func (h *DumbSchemeHandler) registerDefaults() {
 			return nil
 		}
 
-		return h.buildConfigResponse(config.DefaultConfig())
+		h.mu.RLock()
+		build := h.defaultConfigPayload
+		h.mu.RUnlock()
+		return h.buildConfigResponse(build)
 	}))
 }
 
@@ -161,19 +170,16 @@ func buildCrashPageHTML(originalURI string) string {
 	return webutil.BuildCrashPageHTML(originalURI)
 }
 
-func (h *DumbSchemeHandler) buildConfigResponse(cfg *config.Config) *SchemeResponse {
-	// Get hardware info for display and profile resolution
-	// Use background context since survey results are cached and we don't want
-	// request context cancellation to affect this
-	var hw *port.HardwareInfo
-	if h.hwSurveyor != nil {
-		hwInfo := h.hwSurveyor.Survey(context.Background())
-		hw = &hwInfo
+func (h *DumbSchemeHandler) buildConfigResponse(build func() ([]byte, error)) *SchemeResponse {
+	if build == nil {
+		return &SchemeResponse{
+			Data:        []byte(`{"error": "config payload builder not configured"}`),
+			ContentType: "application/json",
+			StatusCode:  http.StatusInternalServerError,
+		}
 	}
 
-	resp := config.BuildWebUIConfigPayload(cfg, hw)
-
-	data, err := json.Marshal(resp)
+	data, err := build()
 	if err != nil {
 		return &SchemeResponse{
 			Data:        []byte(fmt.Sprintf(`{"error": %q}`, err)),
