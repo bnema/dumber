@@ -301,19 +301,8 @@ func (c *Coordinator) handlePopupCreate(
 	}
 
 	parentID := parentWV.ID()
-	if existing, ok := c.lookupReusableNamedPopup(parentPaneID, req.FrameName); ok {
-		c.updatePendingPopupTarget(existing.WebView.ID(), req.TargetURI)
-		if err := existing.WebView.LoadURI(ctx, req.TargetURI); err != nil {
-			log.Warn().Err(err).
-				Str("target_uri", logging.TruncateURL(req.TargetURI, logURLMaxLen)).
-				Msg("failed to load target URI in reused popup")
-		}
-		log.Info().
-			Str("parent_pane", string(parentPaneID)).
-			Str("frame_name", req.FrameName).
-			Str("target_uri", logging.TruncateURL(req.TargetURI, logURLMaxLen)).
-			Msg("reused named popup")
-		return existing.WebView
+	if reused, ok := c.reuseNamedPopup(ctx, parentPaneID, req.FrameName, req.TargetURI); ok {
+		return reused
 	}
 
 	// Create related WebView for session sharing (created hidden)
@@ -337,10 +326,53 @@ func (c *Coordinator) handlePopupCreate(
 	// Create popup pane entity
 	paneID, popupPane := c.createPopupPane(popupID, parentPaneID, req.TargetURI)
 
-	// Check OAuth configuration
+	return c.finishPopupCreate(ctx, parentPaneID, parentID, popupID, popupWV, popupPane, paneID, popupType, behavior, placement, req)
+}
+
+func (c *Coordinator) reuseNamedPopup(
+	ctx context.Context,
+	parentPaneID entity.PaneID,
+	frameName string,
+	targetURI string,
+) (port.WebView, bool) {
+	log := logging.FromContext(ctx)
+
+	if existing, ok := c.lookupReusableNamedPopup(parentPaneID, frameName); ok {
+		c.updatePendingPopupTarget(existing.WebView.ID(), targetURI)
+		if err := existing.WebView.LoadURI(ctx, targetURI); err != nil {
+			log.Warn().Err(err).
+				Str("target_uri", logging.TruncateURL(targetURI, logURLMaxLen)).
+				Msg("failed to load target URI in reused popup")
+		}
+		log.Info().
+			Str("parent_pane", string(parentPaneID)).
+			Str("frame_name", frameName).
+			Str("target_uri", logging.TruncateURL(targetURI, logURLMaxLen)).
+			Msg("reused named popup")
+		return existing.WebView, true
+	}
+
+	return nil, false
+}
+
+func (c *Coordinator) finishPopupCreate(
+	ctx context.Context,
+	parentPaneID entity.PaneID,
+	parentID port.WebViewID,
+	popupID port.WebViewID,
+	popupWV port.WebView,
+	popupPane *entity.Pane,
+	paneID entity.PaneID,
+	popupType PopupType,
+	behavior entity.PopupBehavior,
+	placement string,
+	req port.PopupRequest,
+) port.WebView {
+	log := logging.FromContext(ctx)
 	hasConfig := c.popupConfig != nil
 	oauthEnabled := hasConfig && c.popupConfig.OAuthAutoClose
 	isOAuth := IsOAuthURL(req.TargetURI)
+
 	log.Debug().
 		Bool("has_config", hasConfig).
 		Bool("oauth_enabled", oauthEnabled).

@@ -218,6 +218,6 @@ func (f *WebViewFactory) configureInitialBrowserCreation(
 // CreateRelated creates a WebView that shares session/cookies with the parent.
 // TODO(phase2): look up the parent browser by parentID and use the same
 // request context so cookies and session state are shared.
-func (f *WebViewFactory) CreateRelated(ctx context.Context, _ port.WebViewID) (port.WebView, error) {
+func (f *WebViewFactory) CreateRelated(_ context.Context, _ port.WebViewID) (port.WebView, error) {
 	return nil, ErrRelatedWebViewUnsupported
 }
