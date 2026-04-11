@@ -105,7 +105,10 @@ func defaultCEFUserDataDir() string {
 		// Fallback to HOME-based path if XDG resolution fails
 		return filepath.Clean(filepath.Join(os.Getenv("HOME"), ".config", "cef_user_data"))
 	}
-	return filepath.Join(dirs.ConfigHome, "cef_user_data")
+	if os.Getenv("ENV") == "dev" {
+		return filepath.Join(dirs.ConfigHome, "cef_user_data")
+	}
+	return filepath.Join(filepath.Dir(dirs.ConfigHome), "cef_user_data")
 }
 
 // initializeCEF calls cef_initialize with the App to register custom schemes

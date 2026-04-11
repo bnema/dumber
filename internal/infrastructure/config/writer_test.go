@@ -47,7 +47,7 @@ func TestWriteConfigOrdered(t *testing.T) {
 	if !strings.Contains(string(content), "[transcoding]") {
 		t.Fatalf("expected transcoding section in generated config, got:\n%s", string(content))
 	}
-	// Match "enabled = true" specifically within the [transcoding] section to
+	// Match "enabled = false" specifically within the [transcoding] section to
 	// avoid false positives from other sections that may also have an enabled key.
 	transcodingIdx := bytes.Index(content, []byte("[transcoding]"))
 	if transcodingIdx < 0 {
@@ -61,8 +61,8 @@ func TestWriteConfigOrdered(t *testing.T) {
 	} else {
 		transcodingBlock = afterTranscoding
 	}
-	if !bytes.Contains(transcodingBlock, []byte("enabled = true")) {
-		t.Fatalf("expected enabled = true in [transcoding] section, got:\n%s", string(transcodingBlock))
+	if !bytes.Contains(transcodingBlock, []byte("enabled = false")) {
+		t.Fatalf("expected enabled = false in [transcoding] section, got:\n%s", string(transcodingBlock))
 	}
 
 	t.Logf("Found %d sections, all sorted", len(sections))

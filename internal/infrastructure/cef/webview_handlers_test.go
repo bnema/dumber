@@ -5,6 +5,7 @@ import (
 	"testing"
 
 	purecef "github.com/bnema/purego-cef/cef"
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
 	"github.com/bnema/dumber/internal/application/port"
@@ -66,6 +67,26 @@ func TestOnLoadStartFiresCommittedAndUpdatesURI(t *testing.T) {
 	require.Len(t, gotEvents, 1)
 	require.Equal(t, port.LoadCommitted, gotEvents[0])
 	require.Equal(t, "https://google.com", wv.URI())
+}
+
+func TestOnLoadEndDoesNotDispatchBrowserLevelCompletion(t *testing.T) {
+	wv := &WebView{ctx: context.Background()}
+	var gotEvents []port.LoadEvent
+	var gotProgress []float64
+	wv.SetCallbacks(&port.WebViewCallbacks{
+		OnLoadChanged: func(event port.LoadEvent) {
+			gotEvents = append(gotEvents, event)
+		},
+		OnProgressChanged: func(progress float64) {
+			gotProgress = append(gotProgress, progress)
+		},
+	})
+
+	h := &handlerSet{wv: wv}
+	h.OnLoadEnd(nil, stubFrame{main: true, url: "https://reddit.com"}, 200)
+
+	assert.Empty(t, gotEvents)
+	assert.Empty(t, gotProgress)
 }
 
 func TestGetViewRectUsesDIPCoordinates(t *testing.T) {

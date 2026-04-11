@@ -2,8 +2,10 @@
 package component
 
 import (
+	"context"
 	"sync"
 
+	"github.com/bnema/dumber/internal/logging"
 	"github.com/bnema/puregotk/v4/glib"
 	"github.com/bnema/puregotk/v4/gtk"
 
@@ -24,6 +26,7 @@ const (
 // Implements smooth animation by incrementing towards the target value.
 // Includes a 30-second timeout to auto-hide if the page load stalls.
 type ProgressBar struct {
+	ctx         context.Context
 	progressBar layout.ProgressBarWidget
 
 	visible        bool
@@ -36,7 +39,7 @@ type ProgressBar struct {
 }
 
 // NewProgressBar creates a new progress bar component using the widget factory.
-func NewProgressBar(factory layout.WidgetFactory) *ProgressBar {
+func NewProgressBar(ctx context.Context, factory layout.WidgetFactory) *ProgressBar {
 	progressBar := factory.NewProgressBar()
 
 	// Add "osd" class for on-screen-display overlay styling (like Epiphany)
@@ -63,6 +66,7 @@ func NewProgressBar(factory layout.WidgetFactory) *ProgressBar {
 	progressBar.SetVisible(false)
 
 	return &ProgressBar{
+		ctx:          ctx,
 		progressBar:  progressBar,
 		visible:      false,
 		currentValue: 0,
@@ -75,6 +79,19 @@ func NewProgressBar(factory layout.WidgetFactory) *ProgressBar {
 func (pb *ProgressBar) SetProgress(progress float64) {
 	pb.mu.Lock()
 	defer pb.mu.Unlock()
+
+	incomingProgress := progress
+	ctx := pb.ctx
+	if ctx == nil {
+		ctx = context.Background()
+	}
+	logging.FromContext(ctx).
+		Debug().
+		Float64("incoming_progress", incomingProgress).
+		Float64("current_value", pb.currentValue).
+		Float64("target_value", pb.targetValue).
+		Bool("visible", pb.visible).
+		Msg("setting progress")
 
 	// Clamp progress to valid range
 	if progress < 0 {
@@ -131,18 +148,49 @@ func (pb *ProgressBar) startAnimation() {
 	pb.animationTimer = glib.TimeoutAdd(progressIntervalMs, &cb, 0)
 }
 
+// initialProgressFraction is the fraction set when the progress bar first
+// appears so the user gets immediate visual feedback that loading has begun.
+// CEF may not fire OnLoadingProgressChange for hundreds of milliseconds
+// during cross-site process swaps, leaving the bar at 0% (invisible).
+const initialProgressFraction = 0.1
+
 // Show makes the progress bar visible and starts the auto-hide timeout.
 func (pb *ProgressBar) Show() {
 	pb.mu.Lock()
 	defer pb.mu.Unlock()
 
+	ctx := pb.ctx
+	if ctx == nil {
+		ctx = context.Background()
+	}
+	logging.FromContext(ctx).
+		Debug().
+		Bool("visible", pb.visible).
+		Float64("current_value", pb.currentValue).
+		Float64("target_value", pb.targetValue).
+		Msg("progress bar show before")
+
 	if !pb.visible {
 		pb.visible = true
+		// Set an initial non-zero fraction so the bar is visually noticeable
+		// immediately. Without this, the bar is technically visible but
+		// renders as empty (0% fill) until the first progress callback,
+		// which in CEF can be delayed during cross-site process swaps.
+		pb.currentValue = initialProgressFraction
+		pb.targetValue = initialProgressFraction
+		pb.progressBar.SetFraction(initialProgressFraction)
 		pb.progressBar.SetVisible(true)
 	}
 
 	// Reset timeout timer on every Show call
 	pb.resetTimeout()
+
+	logging.FromContext(pb.ctx).
+		Debug().
+		Bool("visible", pb.visible).
+		Float64("current_value", pb.currentValue).
+		Float64("target_value", pb.targetValue).
+		Msg("progress bar show after")
 }
 
 // resetTimeout cancels any existing timeout and starts a new one.
@@ -181,6 +229,15 @@ func (pb *ProgressBar) Hide() {
 // hideInternal performs the actual hide operation.
 // Must be called with lock held.
 func (pb *ProgressBar) hideInternal() {
+	ctx := pb.ctx
+	if ctx == nil {
+		ctx = context.Background()
+	}
+	logging.FromContext(ctx).
+		Debug().
+		Bool("visible", pb.visible).
+		Msg("progress bar hide before")
+
 	if pb.visible {
 		pb.visible = false
 		pb.progressBar.SetVisible(false)

@@ -86,7 +86,7 @@ func (a *paneViewFactoryAdapter) CreatePaneView(node *entity.PaneNode) layout.Wi
 
 	// Create PaneView without WebView widget for now
 	// WebView will be attached later by the application layer
-	pv := NewPaneView(a.wv.factory, node.Pane.ID, nil)
+	pv := NewPaneView(a.ctx, a.wv.factory, node.Pane.ID, nil)
 
 	// Store in map for later lookup
 	// Note: Caller (SetWorkspace) already holds the lock, so we access directly

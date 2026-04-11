@@ -9,6 +9,7 @@ import (
 	"github.com/bnema/dumber/internal/domain/entity"
 	urlutil "github.com/bnema/dumber/internal/domain/url"
 	"github.com/bnema/dumber/internal/logging"
+	"github.com/bnema/dumber/internal/ui/component"
 	"github.com/bnema/puregotk/v4/gtk"
 )
 
@@ -77,9 +78,7 @@ func (c *Coordinator) onLoadCommitted(ctx context.Context, paneID entity.PaneID,
 	}
 
 	c.markPendingReveal(paneID)
-	if wv.EstimatedProgress() > 0 {
-		c.revealIfPending(ctx, paneID, uri, "progress-after-commit")
-	}
+	c.revealIfPending(ctx, paneID, uri, "progress-after-commit")
 
 	// Update domain model with current URI for session snapshots
 	c.updatePaneURI(paneID, uri)
@@ -188,11 +187,14 @@ func (c *Coordinator) onLoadStarted(paneID entity.PaneID) {
 	})
 
 	_, wsView := c.getActiveWS()
+	var paneView *component.PaneView
+	if wsView != nil {
+		paneView = wsView.GetPaneView(paneID)
+	}
+
 	if wsView == nil {
 		return
 	}
-
-	paneView := wsView.GetPaneView(paneID)
 	if paneView != nil {
 		paneView.SetLoading(true)
 	}
@@ -201,11 +203,14 @@ func (c *Coordinator) onLoadStarted(paneID entity.PaneID) {
 // onLoadFinished hides the progress bar when page loading completes.
 func (c *Coordinator) onLoadFinished(ctx context.Context, paneID entity.PaneID, wv port.WebView) {
 	_, wsView := c.getActiveWS()
+	var paneView *component.PaneView
+	if wsView != nil {
+		paneView = wsView.GetPaneView(paneID)
+	}
+
 	if wsView == nil {
 		return
 	}
-
-	paneView := wsView.GetPaneView(paneID)
 	if paneView != nil {
 		paneView.SetLoading(false)
 	}
@@ -225,11 +230,14 @@ func (c *Coordinator) onProgressChanged(paneID entity.PaneID, progress float64) 
 	}
 
 	_, wsView := c.getActiveWS()
+	var paneView *component.PaneView
+	if wsView != nil {
+		paneView = wsView.GetPaneView(paneID)
+	}
+
 	if wsView == nil {
 		return
 	}
-
-	paneView := wsView.GetPaneView(paneID)
 	if paneView != nil {
 		paneView.SetLoadProgress(progress)
 	}

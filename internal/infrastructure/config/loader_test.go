@@ -28,7 +28,7 @@ func TestSetEngineDefaults(t *testing.T) {
 	assert.False(t, mgr.viper.GetBool("engine.webkit.disable_dmabuf_renderer"))
 
 	// Transcoding defaults
-	assert.True(t, mgr.viper.GetBool("transcoding.enabled"))
+	assert.False(t, mgr.viper.GetBool("transcoding.enabled"))
 	assert.Equal(t, "auto", mgr.viper.GetString("transcoding.hwaccel"))
 	assert.Equal(t, 3, mgr.viper.GetInt("transcoding.max_concurrent"))
 	assert.Equal(t, "medium", mgr.viper.GetString("transcoding.quality"))
@@ -74,7 +74,7 @@ type = "cef"
 
 	cfg := mgr.Get()
 	require.NotNil(t, cfg)
-	assert.True(t, cfg.Transcoding.Enabled)
+	assert.False(t, cfg.Transcoding.Enabled)
 	assert.Equal(t, "auto", cfg.Transcoding.HWAccel)
 	assert.Equal(t, 3, cfg.Transcoding.MaxConcurrent)
 	assert.Equal(t, "medium", cfg.Transcoding.Quality)

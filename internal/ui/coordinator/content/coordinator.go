@@ -14,10 +14,12 @@ import (
 	"github.com/bnema/dumber/internal/ui/component"
 	"github.com/bnema/dumber/internal/ui/input"
 	"github.com/bnema/dumber/internal/ui/layout"
+	"github.com/rs/zerolog"
 )
 
 // Coordinator manages WebView lifecycle, title tracking, and content attachment.
 type Coordinator struct {
+	logger          zerolog.Logger
 	pool            port.WebViewPool
 	widgetFactory   layout.WidgetFactory
 	faviconAdapter  *adapter.FaviconAdapter
@@ -151,6 +153,7 @@ func NewCoordinator(
 	log.Debug().Msg("creating content coordinator")
 
 	return &Coordinator{
+		logger:               log.With().Str("component", "content-coordinator").Logger(),
 		pool:                 pool,
 		injector:             injector,
 		widgetFactory:        widgetFactory,

@@ -411,7 +411,7 @@ func (h *handlerSet) OnLoadStart(_ purecef.Browser, frame purecef.Frame, _ purec
 	}
 }
 
-// OnLoadEnd fires LoadFinished and sets progress to 1.0 for the main frame.
+// OnLoadEnd resets crash count and injects content scripts for the main frame.
 func (h *handlerSet) OnLoadEnd(_ purecef.Browser, frame purecef.Frame, httpStatusCode int32) {
 	log := logging.FromContext(h.wv.ctx)
 	log.Debug().
@@ -434,21 +434,15 @@ func (h *handlerSet) OnLoadEnd(_ purecef.Browser, frame purecef.Frame, httpStatu
 		})
 	}
 
-	h.wv.mu.RLock()
-	cb := h.wv.callbacks
-	h.wv.mu.RUnlock()
-	if cb != nil {
-		if cb.OnLoadChanged != nil {
-			h.wv.runOnGTK(func() {
-				cb.OnLoadChanged(port.LoadFinished)
-			})
-		}
-		if cb.OnProgressChanged != nil {
-			h.wv.runOnGTK(func() {
-				cb.OnProgressChanged(1.0)
-			})
-		}
-	}
+	// NOTE: We intentionally do NOT dispatch LoadFinished or ProgressChanged(1.0)
+	// here. OnLoadEnd is a per-frame event, and during cross-site navigations
+	// (process swap), CEF fires OnLoadEnd for the OLD main frame before the new
+	// page finishes loading. Dispatching LoadFinished here caused the progress
+	// bar to hide prematurely while the new page was still loading.
+	//
+	// OnLoadingStateChange(isLoading=false) is the correct browser-level signal
+	// for load completion — CEF guarantees it fires AFTER all OnLoadEnd calls.
+	// CEF's OnLoadingProgressChange also provides progress=1.0 at completion.
 }
 
 // OnLoadError is a no-op.

@@ -2579,7 +2579,7 @@ func (a *App) ensureFloatingSession(
 	// regular workspace panes. This allows the content coordinator's
 	// existing callbacks (onLoadStarted, onProgressChanged, etc.) to find
 	// and update the floating pane automatically.
-	pv := component.NewPaneView(a.widgetFactory, paneID, webViewWidget)
+	pv := component.NewPaneView(ctx, a.widgetFactory, paneID, webViewWidget)
 	pv.SetActive(true)
 	// Hide loading skeleton — floating panes have their own themed container.
 	pv.HideLoadingSkeleton()

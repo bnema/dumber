@@ -70,7 +70,7 @@ const (
 	defaultCEFWindowlessFrameRate  = 60  // OSR frame rate for CEF
 
 	// Transcoding defaults
-	defaultTranscodingEnabled       = true
+	defaultTranscodingEnabled       = false
 	defaultTranscodingHWAccel       = "auto"
 	defaultTranscodingMaxConcurrent = 3
 	defaultTranscodingQuality       = "medium"
