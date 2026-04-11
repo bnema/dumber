@@ -78,6 +78,10 @@ func (c *TabCoordinator) notifyStateChanged() {
 
 // Create creates a new tab with the given initial URL.
 func (c *TabCoordinator) Create(ctx context.Context, initialURL string) (*entity.Tab, error) {
+	return c.create(ctx, initialURL, true)
+}
+
+func (c *TabCoordinator) create(ctx context.Context, initialURL string, activate bool) (*entity.Tab, error) {
 	log := logging.FromContext(ctx)
 
 	output, err := c.tabsUC.Create(ctx, usecase.CreateTabInput{
@@ -90,13 +94,17 @@ func (c *TabCoordinator) Create(ctx context.Context, initialURL string) (*entity
 		return nil, err
 	}
 
-	// Set new tab as active (updates domain state and tracks previous)
-	c.tabs.SetActive(output.Tab.ID)
+	if activate {
+		// Set new tab as active (updates domain state and tracks previous)
+		c.tabs.SetActive(output.Tab.ID)
+	}
 
 	// Update tab bar
 	if c.mainWindow != nil && c.mainWindow.TabBar() != nil {
 		c.mainWindow.TabBar().AddTab(output.Tab)
-		c.mainWindow.TabBar().SetActive(output.Tab.ID)
+		if activate {
+			c.mainWindow.TabBar().SetActive(output.Tab.ID)
+		}
 	}
 
 	// Update tab bar visibility
@@ -107,8 +115,8 @@ func (c *TabCoordinator) Create(ctx context.Context, initialURL string) (*entity
 		c.onTabCreated(ctx, output.Tab)
 	}
 
-	// Switch to the new tab's workspace view
-	if c.onTabSwitched != nil {
+	// Switch to the new tab's workspace view when activation is requested.
+	if activate && c.onTabSwitched != nil {
 		c.onTabSwitched(ctx, output.Tab)
 	}
 
@@ -294,7 +302,7 @@ func (c *TabCoordinator) EnsureTabByIndex(ctx context.Context, index int, initia
 	}
 
 	for c.tabs.Count() <= index {
-		if _, err := c.Create(ctx, initialURL); err != nil {
+		if _, err := c.create(ctx, initialURL, false); err != nil {
 			log.Error().Err(err).Int("index", index).Msg("failed to create tab while ensuring tab index")
 			return err
 		}

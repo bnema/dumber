@@ -43,9 +43,14 @@ func TestKeyboardDispatcher_AltNumberCreatesTabsUntilRequestedIndexExists(t *tes
 	require.Len(t, tabs.Tabs, 3)
 	require.NotNil(t, tabs.ActiveTab())
 	assert.Equal(t, tabs.TabAt(2).ID, tabs.ActiveTabID)
+	assert.Equal(t, tabs.TabAt(0).ID, tabs.PreviousActiveTabID)
 	assert.Equal(t, 2, tabs.ActiveTab().Position)
 	assert.Equal(t, domainurl.Normalize("https://new.example"), tabs.TabAt(1).Workspace.Root.Pane.URI)
 	assert.Equal(t, domainurl.Normalize("https://new.example"), tabs.TabAt(2).Workspace.Root.Pane.URI)
+
+	err = tabCoord.SwitchToLastActive(ctx)
+	require.NoError(t, err)
+	assert.Equal(t, tabs.TabAt(0).ID, tabs.ActiveTabID)
 }
 
 func TestKeyboardDispatcher_AltNumberSwitchesToExistingTabWithoutNewPaneURL(t *testing.T) {
