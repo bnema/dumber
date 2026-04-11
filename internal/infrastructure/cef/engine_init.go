@@ -71,7 +71,7 @@ func NewEngine(
 	}
 	os.Args = savedArgs
 
-	return wireEngine(ctx, eng, cfg, transcodingCfg, windowlessFrameRate, audioFactory, logger, deps.CurrentConfigPayload, deps.DefaultConfigPayload)
+	return wireEngine(ctx, eng, cfg, transcodingCfg, windowlessFrameRate, audioFactory, logger, deps.MediaClassifier.normalize(), deps.CurrentConfigPayload, deps.DefaultConfigPayload)
 }
 
 func resolvedStateRoot(opts port.EngineOptions) string {
@@ -153,6 +153,7 @@ func initializeCEF(eng *Engine, settings purecef.Settings, logger *zerolog.Logge
 func wireEngine(
 	ctx context.Context, eng *Engine, cfg RuntimeConfig, transcodingCfg TranscodingRuntimeConfig,
 	windowlessFrameRate int32, audioFactory port.AudioOutputFactory, logger *zerolog.Logger,
+	mediaClassifier MediaClassifier,
 	currentConfigPayload func() ([]byte, error), defaultConfigPayload func() ([]byte, error),
 ) (*Engine, error) {
 	gl, err := newGLLoader()
@@ -196,6 +197,7 @@ func wireEngine(
 		windowlessFrameRate:      windowlessFrameRate,
 		enableContextMenuHandler: cfg.EnableContextMenuHandler,
 		transcoder:               mediaTranscoder,
+		mediaClassifier:          mediaClassifier,
 		audioOutputFactory:       audioFactory,
 	})
 	pool := newWebViewPool(factory)

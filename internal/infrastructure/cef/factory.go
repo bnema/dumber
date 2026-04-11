@@ -25,6 +25,7 @@ type WebViewFactory struct {
 	enableContextMenuHandler bool
 	bgColor                  atomic.Uint32 // packed ARGB for BrowserSettings.BackgroundColor
 	transcoder               port.MediaTranscoder
+	mediaClassifier          MediaClassifier
 	audioOutputFactory       port.AudioOutputFactory
 }
 
@@ -33,6 +34,7 @@ type webViewFactoryOptions struct {
 	windowlessFrameRate      int32
 	enableContextMenuHandler bool
 	transcoder               port.MediaTranscoder
+	mediaClassifier          MediaClassifier
 	audioOutputFactory       port.AudioOutputFactory
 }
 
@@ -52,6 +54,7 @@ func newWebViewFactory(engine *Engine, gl *glLoader, opts webViewFactoryOptions)
 		windowlessFrameRate:      opts.windowlessFrameRate,
 		enableContextMenuHandler: opts.enableContextMenuHandler,
 		transcoder:               opts.transcoder,
+		mediaClassifier:          opts.mediaClassifier,
 		audioOutputFactory:       opts.audioOutputFactory,
 	}
 }
@@ -81,7 +84,7 @@ func (f *WebViewFactory) Create(ctx context.Context) (port.WebView, error) {
 
 	var transcodingHandler purecef.ResourceRequestHandler
 	if f.transcoder != nil {
-		transcodingHandler = newTranscodingRequestHandler(f.transcoder, func() context.Context {
+		transcodingHandler = newTranscodingRequestHandler(f.transcoder, f.mediaClassifier, func() context.Context {
 			if f.engine != nil {
 				return f.engine.currentContext()
 			}

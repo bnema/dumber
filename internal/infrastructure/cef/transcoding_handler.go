@@ -4,7 +4,6 @@ import (
 	"context"
 	"errors"
 	"io"
-	"strings"
 	"sync"
 	"time"
 	"unsafe"
@@ -12,7 +11,6 @@ import (
 	purecef "github.com/bnema/purego-cef/cef"
 
 	"github.com/bnema/dumber/internal/application/port"
-	"github.com/bnema/dumber/internal/infrastructure/transcoder"
 	"github.com/bnema/dumber/internal/logging"
 	"github.com/rs/zerolog"
 )
@@ -185,6 +183,7 @@ func (rh *transcodingResourceHandler) Skip(_ int64, _ unsafe.Pointer, _ purecef.
 
 type transcodingRequestHandler struct {
 	transcoder       port.MediaTranscoder
+	classifier       MediaClassifier
 	transcodableURLs sync.Map // url string -> requestInfo
 	ctxf             func() context.Context
 }
@@ -197,10 +196,11 @@ type requestInfo struct {
 // proprietary video containers and HLS/DASH manifest entrypoints, then
 // restarts those requests through a GPU transcoding ResourceHandler.
 func newTranscodingRequestHandler(
-	tc port.MediaTranscoder, ctxf func() context.Context,
+	tc port.MediaTranscoder, classifier MediaClassifier, ctxf func() context.Context,
 ) purecef.ResourceRequestHandler {
 	return purecef.NewResourceRequestHandler(&transcodingRequestHandler{
 		transcoder: tc,
+		classifier: classifier.normalize(),
 		ctxf:       ctxf,
 	})
 }
@@ -219,10 +219,8 @@ func (h *transcodingRequestHandler) OnResourceResponse(
 	url := request.GetURL()
 
 	log := h.logger()
-	isProprietary := transcoder.IsProprietaryVideoMIME(mimeType)
-	isAlreadyOpen := transcoder.IsOpenVideoMIME(mimeType)
-	isManifest := !isAlreadyOpen && (transcoder.IsStreamingManifestMIME(mimeType) || transcoder.IsStreamingManifestURL(url))
-	if isLikelyMediaResponse(url, mimeType) {
+	isProprietary, isAlreadyOpen, isManifest := classifyMediaResponse(h.classifier, url, mimeType)
+	if isProprietary || isAlreadyOpen || isManifest {
 		log.Debug().
 			Str("url", logging.TruncateURL(url, maxTranscodingURLLength)).
 			Str("mime_type", mimeType).
@@ -275,7 +273,7 @@ func (h *transcodingRequestHandler) GetResourceHandler(
 			return nil
 		}
 		info = cached
-	} else if syntheticSourceURL, referer, origin, synthetic := transcoder.ParseSyntheticTranscodeURL(url); synthetic {
+	} else if syntheticSourceURL, referer, origin, synthetic := resolveTranscodeSource(h.classifier, url); synthetic {
 		eager = true
 		sourceURL = syntheticSourceURL
 		info = buildRequestInfo(request)
@@ -285,9 +283,6 @@ func (h *transcodingRequestHandler) GetResourceHandler(
 		if origin != "" && info.headers["Origin"] == "" {
 			info.headers["Origin"] = origin
 		}
-	} else if transcoder.IsEagerTranscodeURL(url) {
-		eager = true
-		info = buildRequestInfo(request)
 	} else {
 		return nil
 	}
@@ -315,6 +310,23 @@ func (h *transcodingRequestHandler) GetResourceHandler(
 		cancel:     cancel,
 		logf:       h.logf,
 	})
+}
+
+func classifyMediaResponse(classifier MediaClassifier, rawURL, mimeType string) (bool, bool, bool) {
+	proprietary := classifier.IsProprietaryVideoMIME(mimeType)
+	alreadyOpen := classifier.IsOpenVideoMIME(mimeType)
+	manifest := !alreadyOpen && (classifier.IsStreamingManifestMIME(mimeType) || classifier.IsStreamingManifestURL(rawURL))
+	return proprietary, alreadyOpen, manifest
+}
+
+func resolveTranscodeSource(classifier MediaClassifier, rawURL string) (string, string, string, bool) {
+	if sourceURL, referer, origin, ok := classifier.ParseSyntheticTranscodeURL(rawURL); ok {
+		return sourceURL, referer, origin, true
+	}
+	if classifier.IsEagerTranscodeURL(rawURL) {
+		return rawURL, "", "", true
+	}
+	return "", "", "", false
 }
 
 // --- No-op methods required by purecef.ResourceRequestHandler ---
@@ -349,13 +361,6 @@ func (h *transcodingRequestHandler) OnResourceLoadComplete(
 }
 
 func (h *transcodingRequestHandler) OnProtocolExecution(_ purecef.Browser, _ purecef.Frame, _ purecef.Request, _ unsafe.Pointer) {
-}
-
-func isLikelyMediaResponse(rawURL, mimeType string) bool {
-	return strings.HasPrefix(mimeType, "video/") ||
-		strings.HasPrefix(mimeType, "audio/") ||
-		transcoder.IsStreamingManifestMIME(mimeType) ||
-		transcoder.IsStreamingManifestURL(rawURL)
 }
 
 func buildRequestInfo(request purecef.Request) requestInfo {
