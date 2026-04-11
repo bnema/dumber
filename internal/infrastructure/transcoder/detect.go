@@ -113,7 +113,10 @@ func IsEagerTranscodeURL(rawURL string) bool {
 // IsSyntheticTranscodeURL returns true for same-origin synthetic media URLs
 // that should be intercepted and resolved to an underlying source URL.
 func IsSyntheticTranscodeURL(rawURL string) bool {
-	_, _, _, ok := ParseSyntheticTranscodeURL(rawURL)
+	sourceURL, referer, origin, ok := ParseSyntheticTranscodeURL(rawURL)
+	_ = sourceURL
+	_ = referer
+	_ = origin
 	return ok
 }
 

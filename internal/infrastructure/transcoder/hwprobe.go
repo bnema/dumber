@@ -16,6 +16,8 @@ var usableEncoders = map[string]bool{
 	"av1_nvenc": true,
 }
 
+const hwAPINameVAAPI = "vaapi"
+
 // isUsableEncoder returns true only for hardware encoders whose output
 // codec is open and decodable by CEF (AV1, VP9).
 func isUsableEncoder(name string) bool {
@@ -31,7 +33,7 @@ type hwProfile struct {
 }
 
 var vaAPIProfile = hwProfile{
-	api:        "vaapi",
+	api:        hwAPINameVAAPI,
 	deviceType: int32(ffmpeg.HwdeviceTypeVaapi),
 	encoders:   []string{"av1_vaapi", "vp9_vaapi", "h264_vaapi"},
 	decoders:   []string{"h264_vaapi", "hevc_vaapi"},
@@ -59,11 +61,11 @@ func ProbeGPU(hwaccelPref string, logger *zerolog.Logger) port.HWCapabilities {
 
 	var profiles []hwProfile
 	switch hwaccelPref {
-	case "vaapi":
+	case hwAPINameVAAPI:
 		profiles = []hwProfile{vaAPIProfile}
 	case "nvenc":
 		profiles = []hwProfile{nvencProfile}
-	default: // "auto" or unrecognised
+	default: // "auto" or unrecognized
 		profiles = []hwProfile{vaAPIProfile, nvencProfile}
 	}
 

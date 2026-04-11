@@ -7,6 +7,17 @@ const (
 	EngineTypeCEF    = "cef"
 )
 
+// EngineConfig holds engine selection and universal engine options.
+type EngineConfig struct {
+	Type             string             `mapstructure:"type" toml:"type" yaml:"type"`
+	PoolPrewarmCount int                `mapstructure:"pool_prewarm_count" toml:"pool_prewarm_count" yaml:"pool_prewarm_count"`
+	ZoomCacheSize    int                `mapstructure:"zoom_cache_size" toml:"zoom_cache_size" yaml:"zoom_cache_size"`
+	Profile          PerformanceProfile `mapstructure:"profile" toml:"profile" yaml:"profile"`
+	CookiePolicy     CookiePolicy       `mapstructure:"cookie_policy" toml:"cookie_policy" yaml:"cookie_policy"`
+	WebKit           WebKitEngineConfig `mapstructure:"webkit" toml:"webkit" yaml:"webkit"`
+	CEF              CEFEngineConfig    `mapstructure:"cef" toml:"cef" yaml:"cef"`
+}
+
 // ResolveEngineType returns the effective engine type from config + env override.
 // It defaults to "webkit" when no type is configured, and allows DUMBER_ENGINE
 // to override the configured value for smoke testing.
@@ -19,17 +30,6 @@ func (e *EngineConfig) ResolveEngineType() string {
 		engineType = envEngine
 	}
 	return engineType
-}
-
-// EngineConfig holds engine selection and universal engine options.
-type EngineConfig struct {
-	Type             string             `mapstructure:"type" toml:"type" yaml:"type"`
-	PoolPrewarmCount int                `mapstructure:"pool_prewarm_count" toml:"pool_prewarm_count" yaml:"pool_prewarm_count"`
-	ZoomCacheSize    int                `mapstructure:"zoom_cache_size" toml:"zoom_cache_size" yaml:"zoom_cache_size"`
-	Profile          PerformanceProfile `mapstructure:"profile" toml:"profile" yaml:"profile"`
-	CookiePolicy     CookiePolicy       `mapstructure:"cookie_policy" toml:"cookie_policy" yaml:"cookie_policy"`
-	WebKit           WebKitEngineConfig `mapstructure:"webkit" toml:"webkit" yaml:"webkit"`
-	CEF              CEFEngineConfig    `mapstructure:"cef" toml:"cef" yaml:"cef"`
 }
 
 // WebKitEngineConfig holds WebKit-specific engine options.
@@ -96,7 +96,7 @@ type CEFEngineConfig struct {
 	// EnableAudioHandler opts into the experimental CEF AudioHandler bridge.
 	EnableAudioHandler bool `mapstructure:"enable_audio_handler" toml:"enable_audio_handler" yaml:"enable_audio_handler"`
 	// EnableContextMenuHandler opts into the experimental CEF ContextMenuHandler bridge.
-	EnableContextMenuHandler bool `mapstructure:"enable_context_menu_handler" toml:"enable_context_menu_handler" yaml:"enable_context_menu_handler"` //nolint:lll
+	EnableContextMenuHandler bool `mapstructure:"enable_context_menu_handler" toml:"enable_context_menu_handler" yaml:"enable_context_menu_handler"` //nolint:lll // struct tags exceed lll limit
 	// TraceHandlers enables purego-cef handler/refcount tracing for diagnostics.
 	TraceHandlers bool `mapstructure:"trace_handlers" toml:"trace_handlers" yaml:"trace_handlers"`
 }

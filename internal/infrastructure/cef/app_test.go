@@ -25,11 +25,11 @@ func TestRegisterDumbScheme(t *testing.T) {
 	stub := &schemeRegistrarStub{}
 	registerDumbScheme(stub)
 
-	wantOptions := int32(purecef.SchemeOptionsSchemeOptionStandard |
+	wantOptions := purecef.SchemeOptionsSchemeOptionStandard |
 		purecef.SchemeOptionsSchemeOptionSecure |
 		purecef.SchemeOptionsSchemeOptionCorsEnabled |
 		purecef.SchemeOptionsSchemeOptionCspBypassing |
-		purecef.SchemeOptionsSchemeOptionFetchEnabled)
+		purecef.SchemeOptionsSchemeOptionFetchEnabled
 
 	if stub.calls != 1 {
 		t.Fatalf("AddCustomScheme call count = %d, want 1", stub.calls)

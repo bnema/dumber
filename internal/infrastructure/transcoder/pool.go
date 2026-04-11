@@ -39,7 +39,7 @@ func (s *session) Close() error {
 }
 
 // ContentType returns the MIME type of the transcoded output.
-func (s *session) ContentType() string {
+func (*session) ContentType() string {
 	return "video/webm"
 }
 
@@ -106,6 +106,6 @@ func (p *sessionPool) closeAll() {
 
 	// Close sessions outside the lock.
 	for _, s := range snapshot {
-		s.Close()
+		_ = s.Close()
 	}
 }

@@ -113,11 +113,7 @@ func (a *FaviconAdapter) GetOrFetch(ctx context.Context, pageURL string, callbac
 
 	// Handle internal dumb:// scheme URLs - use app logo
 	if a.isInternalURL != nil && a.isInternalURL(pageURL) {
-		texture := a.textureFromBytesOnGTK(ctx, a.getLogoBytes())
-		if texture != nil {
-			a.setTexture(a.internalDomain, texture)
-		}
-		callback(texture)
+		callback(a.getOrCreateLogoTexture(ctx))
 		return
 	}
 
@@ -152,82 +148,87 @@ func (a *FaviconAdapter) GetOrFetch(ctx context.Context, pageURL string, callbac
 		}
 	}
 
-	// Helper to invoke callback on main thread
-	invokeCallback := func(texture *gdk.Texture) {
-		log.Debug().
-			Str("domain", domain).
-			Bool("texture_nil", texture == nil).
-			Msg("favicon: scheduling callback on GTK")
-		cb := glib.SourceFunc(func(uintptr) bool {
-			log.Debug().
-				Str("domain", domain).
-				Bool("texture_nil", texture == nil).
-				Msg("favicon: callback executing on GTK")
-			callback(texture)
-			return false
-		})
-		glib.IdleAdd(&cb, 0)
-	}
-
-	// Helper to fetch via service and invoke callback
-	fetchViaService := func() {
-		go func() {
-			log.Debug().Str("domain", domain).Msg("favicon: fetchViaService begin")
-			data, err := a.service.Get(ctx, domain)
-			if err != nil || len(data) == 0 {
-				log.Debug().
-					Err(err).
-					Str("domain", domain).
-					Int("bytes", len(data)).
-					Msg("favicon: fetchViaService empty/error result")
-				invokeCallback(nil)
-				return
-			}
-
-			log.Debug().
-				Str("domain", domain).
-				Int("bytes", len(data)).
-				Msg("favicon: fetchViaService fetched data")
-			texture := a.textureFromBytesOnGTK(ctx, data)
-			if texture != nil {
-				a.setTexture(domain, texture)
-			}
-			log.Debug().
-				Str("domain", domain).
-				Bool("texture_nil", texture == nil).
-				Msg("favicon: fetchViaService end")
-			invokeCallback(texture)
-		}()
-	}
-
 	// Try engine FaviconDatabase if available
 	if a.faviconDB != nil {
 		a.faviconDB.GetFaviconAsync(pageURL, func(tex port.Texture) {
-			log.Debug().
-				Str("domain", domain).
-				Bool("texture_nil", tex == nil).
-				Msg("favicon: engine db callback")
-			if tex == nil {
-				log.Debug().Str("domain", domain).Msg("favicon not in engine db, fetching via service")
-				fetchViaService()
-				return
-			}
-			// Convert port.Texture to *gdk.Texture
-			gdkTex, ok := tex.(*gdk.Texture)
-			if !ok {
-				fetchViaService()
-				return
-			}
-			a.setTexture(domain, gdkTex)
-			invokeCallback(gdkTex)
-			a.saveFaviconToDisk(ctx, domain, gdkTex)
+			a.handleEngineFaviconDBTexture(ctx, domain, callback, tex)
 		})
 		return
 	}
 
 	// No WebKit DB, fetch via service directly
 	log.Debug().Str("domain", domain).Msg("favicon: no engine db, fetching via service")
-	fetchViaService()
+	a.fetchViaService(ctx, domain, callback)
+}
+
+func (a *FaviconAdapter) invokeCallbackOnGTK(ctx context.Context, domain string, callback func(*gdk.Texture), texture *gdk.Texture) {
+	log := logging.FromContext(ctx)
+	log.Debug().
+		Str("domain", domain).
+		Bool("texture_nil", texture == nil).
+		Msg("favicon: scheduling callback on GTK")
+	cb := glib.SourceFunc(func(uintptr) bool {
+		log.Debug().
+			Str("domain", domain).
+			Bool("texture_nil", texture == nil).
+			Msg("favicon: callback executing on GTK")
+		callback(texture)
+		return false
+	})
+	glib.IdleAdd(&cb, 0)
+}
+
+func (a *FaviconAdapter) fetchViaService(ctx context.Context, domain string, callback func(*gdk.Texture)) {
+	go func() {
+		log := logging.FromContext(ctx)
+		log.Debug().Str("domain", domain).Msg("favicon: fetchViaService begin")
+		data, err := a.service.Get(ctx, domain)
+		if err != nil || len(data) == 0 {
+			log.Debug().
+				Err(err).
+				Str("domain", domain).
+				Int("bytes", len(data)).
+				Msg("favicon: fetchViaService empty/error result")
+			a.invokeCallbackOnGTK(ctx, domain, callback, nil)
+			return
+		}
+
+		log.Debug().
+			Str("domain", domain).
+			Int("bytes", len(data)).
+			Msg("favicon: fetchViaService fetched data")
+		texture := a.textureFromBytesOnGTK(ctx, data)
+		if texture != nil {
+			a.setTexture(domain, texture)
+		}
+		log.Debug().
+			Str("domain", domain).
+			Bool("texture_nil", texture == nil).
+			Msg("favicon: fetchViaService end")
+		a.invokeCallbackOnGTK(ctx, domain, callback, texture)
+	}()
+}
+
+func (a *FaviconAdapter) handleEngineFaviconDBTexture(ctx context.Context, domain string, callback func(*gdk.Texture), tex port.Texture) {
+	log := logging.FromContext(ctx)
+	log.Debug().
+		Str("domain", domain).
+		Bool("texture_nil", tex == nil).
+		Msg("favicon: engine db callback")
+	if tex == nil {
+		log.Debug().Str("domain", domain).Msg("favicon not in engine db, fetching via service")
+		a.fetchViaService(ctx, domain, callback)
+		return
+	}
+	// Convert port.Texture to *gdk.Texture
+	gdkTex, ok := tex.(*gdk.Texture)
+	if !ok {
+		a.fetchViaService(ctx, domain, callback)
+		return
+	}
+	a.setTexture(domain, gdkTex)
+	a.invokeCallbackOnGTK(ctx, domain, callback, gdkTex)
+	a.saveFaviconToDisk(ctx, domain, gdkTex)
 }
 
 // StoreFromWebKit stores a favicon texture received from WebKit signals.

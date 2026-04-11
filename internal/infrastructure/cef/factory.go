@@ -25,6 +25,7 @@ type WebViewFactory struct {
 	enableContextMenuHandler bool
 	bgColor                  atomic.Uint32 // packed ARGB for BrowserSettings.BackgroundColor
 	transcoder               port.MediaTranscoder
+	audioOutputFactory       port.AudioOutputFactory
 }
 
 type webViewFactoryOptions struct {
@@ -32,6 +33,7 @@ type webViewFactoryOptions struct {
 	windowlessFrameRate      int32
 	enableContextMenuHandler bool
 	transcoder               port.MediaTranscoder
+	audioOutputFactory       port.AudioOutputFactory
 }
 
 // newWebViewFactory returns a factory that will create WebViews using the
@@ -50,6 +52,7 @@ func newWebViewFactory(engine *Engine, gl *glLoader, opts webViewFactoryOptions)
 		windowlessFrameRate:      opts.windowlessFrameRate,
 		enableContextMenuHandler: opts.enableContextMenuHandler,
 		transcoder:               opts.transcoder,
+		audioOutputFactory:       opts.audioOutputFactory,
 	}
 }
 
@@ -69,10 +72,11 @@ func (f *WebViewFactory) Create(ctx context.Context) (port.WebView, error) {
 	pipeline := newRenderPipeline(ctx, f.gl, f.scale)
 
 	wv := &WebView{
-		id:       id,
-		ctx:      ctx,
-		engine:   f.engine,
-		pipeline: pipeline,
+		id:                 id,
+		ctx:                ctx,
+		engine:             f.engine,
+		pipeline:           pipeline,
+		audioOutputFactory: f.audioOutputFactory,
 	}
 
 	var transcodingHandler purecef.ResourceRequestHandler
@@ -135,13 +139,21 @@ func (f *WebViewFactory) Create(ctx context.Context) (port.WebView, error) {
 	// Defer browser creation until the GL area has a non-zero size.
 	// CEF requires GetViewRect to return a non-empty rect, but the GL area
 	// is not yet realized at this point.
+	f.configureInitialBrowserCreation(ctx, wv, pipeline, client, &windowInfo, &settings)
+
+	return wv, nil
+}
+
+func (f *WebViewFactory) configureInitialBrowserCreation(
+	ctx context.Context, wv *WebView, pipeline *renderPipeline, client purecef.Client,
+	windowInfo *purecef.WindowInfo, settings *purecef.BrowserSettings,
+) {
 	wv.pendingCreate = &pendingBrowserCreate{
-		windowInfo: &windowInfo,
+		windowInfo: windowInfo,
 		client:     client,
-		settings:   &settings,
+		settings:   settings,
 	}
 
-	// When the GL area gets its first non-zero size, create the browser.
 	pipeline.onFirstResize = func(w, h int32) {
 		log := logging.FromContext(ctx)
 		log.Debug().Int32("w", w).Int32("h", h).Msg("cef: onFirstResize fired, scheduling browser creation")
@@ -198,8 +210,6 @@ func (f *WebViewFactory) Create(ctx context.Context) (port.WebView, error) {
 			host.WasResized()
 		}
 	}
-
-	return wv, nil
 }
 
 // createRelatedWarned ensures the session sharing warning is logged only once.

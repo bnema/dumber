@@ -292,22 +292,12 @@ func (rp *renderPipeline) onGLRender() bool {
 
 	rp.mu.Unlock()
 
-	gl := rp.gl
-
 	if !rp.glReady || sizeChanged {
 		rp.initGL(uploadWidth, uploadHeight)
 	}
 
 	if !rp.glReady {
-		renderDuration := time.Since(renderStartedAt)
-		rp.diagMu.Lock()
-		rp.glRenderCount++
-		rp.renderTotalNs += uint64(renderDuration)
-		if renderDuration.Nanoseconds() > rp.maxRenderNs {
-			rp.maxRenderNs = renderDuration.Nanoseconds()
-		}
-		rp.diagMu.Unlock()
-		rp.maybeLogDiagnostics()
+		rp.recordGLRenderDuration(renderStartedAt)
 		return true
 	}
 
@@ -315,22 +305,12 @@ func (rp *renderPipeline) onGLRender() bool {
 		uploadStartedAt := time.Now()
 		uploadedBytes, fullUpload, didUpload := rp.uploadToPBO(renderSeq, paintSeq)
 		if didUpload {
-			uploadDuration := time.Since(uploadStartedAt)
-			rp.diagMu.Lock()
-			rp.uploadCount++
-			if fullUpload {
-				rp.fullUploadCount++
-			}
-			rp.uploadBytes += uploadedBytes
-			rp.uploadTotalNs += uint64(uploadDuration)
-			if uploadDuration.Nanoseconds() > rp.maxUploadNs {
-				rp.maxUploadNs = uploadDuration.Nanoseconds()
-			}
-			rp.diagMu.Unlock()
+			rp.recordGLUploadDuration(uploadStartedAt, uploadedBytes, fullUpload)
 		}
 	}
 
 	// Draw the main view texture.
+	gl := rp.gl
 	w, h, _ := rp.viewRectSize()
 	gl.viewport(0, 0, w, h)
 	gl.clearColor(0, 0, 0, 1)
@@ -342,13 +322,7 @@ func (rp *renderPipeline) onGLRender() bool {
 	}
 
 	renderDuration := time.Since(renderStartedAt)
-	rp.diagMu.Lock()
-	rp.glRenderCount++
-	rp.renderTotalNs += uint64(renderDuration)
-	if renderDuration.Nanoseconds() > rp.maxRenderNs {
-		rp.maxRenderNs = renderDuration.Nanoseconds()
-	}
-	rp.diagMu.Unlock()
+	rp.recordGLRenderDuration(renderStartedAt)
 	rp.maybeLogDiagnostics()
 	if rp.ctx != nil {
 		logging.FromContext(rp.ctx).Trace().
@@ -361,6 +335,33 @@ func (rp *renderPipeline) onGLRender() bool {
 	}
 
 	return true
+}
+
+func (rp *renderPipeline) recordGLRenderDuration(startedAt time.Time) {
+	renderDuration := time.Since(startedAt)
+	rp.diagMu.Lock()
+	rp.glRenderCount++
+	rp.renderTotalNs += uint64(renderDuration)
+	if renderDuration.Nanoseconds() > rp.maxRenderNs {
+		rp.maxRenderNs = renderDuration.Nanoseconds()
+	}
+	rp.diagMu.Unlock()
+	rp.maybeLogDiagnostics()
+}
+
+func (rp *renderPipeline) recordGLUploadDuration(startedAt time.Time, uploadedBytes uint64, fullUpload bool) {
+	uploadDuration := time.Since(startedAt)
+	rp.diagMu.Lock()
+	rp.uploadCount++
+	if fullUpload {
+		rp.fullUploadCount++
+	}
+	rp.uploadBytes += uploadedBytes
+	rp.uploadTotalNs += uint64(uploadDuration)
+	if uploadDuration.Nanoseconds() > rp.maxUploadNs {
+		rp.maxUploadNs = uploadDuration.Nanoseconds()
+	}
+	rp.diagMu.Unlock()
 }
 
 func (rp *renderPipeline) drawTexture(texture uint32) {
@@ -404,63 +405,76 @@ func (rp *renderPipeline) uploadToPBO(renderSeq, paintSeq uint64) (uint64, bool,
 
 	bufSize := int64(w) * int64(h) * 4
 	stride := int(w) * 4
+	uploadedBytes, fullUpload, dirtyRectCount, ok := rp.uploadMappedPBO(gl, bufSize, stride, w, h, renderSeq, paintSeq)
+	if !ok {
+		return 0, fullUpload, false
+	}
 
-	// Bind the write PBO.
+	// Swap PBO index for next frame.
+	rp.pboIndex = 1 - rp.pboIndex
+
+	gl.bindBuffer(glPixelUnpackBuffer, 0)
+	if rp.ctx != nil {
+		logging.FromContext(rp.ctx).Trace().
+			Uint64("render_seq", renderSeq).
+			Uint64("paint_seq", paintSeq).
+			Uint64("uploaded_bytes", uploadedBytes).
+			Int("dirty_rect_count", dirtyRectCount).
+			Bool("full_upload", fullUpload).
+			Int("next_pbo_index", rp.pboIndex).
+			Msg("cef: uploadToPBO end")
+	}
+	return uploadedBytes, fullUpload, true
+}
+
+func (rp *renderPipeline) uploadMappedPBO(
+	gl *glLoader, bufSize int64, stride int, w, h int32, renderSeq, paintSeq uint64,
+) (uint64, bool, int, bool) {
 	gl.bindBuffer(glPixelUnpackBuffer, rp.pbo[rp.pboIndex])
-
-	// Orphan the buffer to avoid GPU stall, then map.
 	gl.bufferData(glPixelUnpackBuffer, bufSize, nil, glStreamDraw)
 	mapped := gl.mapBuffer(glPixelUnpackBuffer, glWriteOnly)
 	if mapped == nil {
 		gl.bindBuffer(glPixelUnpackBuffer, 0)
-		return 0, false, false
+		return 0, false, 0, false
 	}
 
 	mappedSlice := unsafe.Slice((*byte)(mapped), int(bufSize))
-	uploadedBytes := uint64(0)
-	fullUpload := false
-	dirtyRects := make([]rect, 0)
+	defer gl.bindBuffer(glPixelUnpackBuffer, 0)
 
 	rp.mu.Lock()
 	if !rp.needsUpload {
 		rp.mu.Unlock()
 		if !gl.unmapBuffer(glPixelUnpackBuffer) {
-			gl.bindBuffer(glPixelUnpackBuffer, 0)
-			return 0, false, false
+			return 0, false, 0, false
 		}
-		gl.bindBuffer(glPixelUnpackBuffer, 0)
-		return 0, false, false
+		return 0, false, 0, false
 	}
 
 	if rp.widthAtomic.Load() != rp.glWidth || rp.heightAtomic.Load() != rp.glHeight {
 		rp.mu.Unlock()
 		if !gl.unmapBuffer(glPixelUnpackBuffer) {
-			gl.bindBuffer(glPixelUnpackBuffer, 0)
-			return 0, false, false
+			return 0, false, 0, false
 		}
-		gl.bindBuffer(glPixelUnpackBuffer, 0)
 		if rp.ctx != nil {
 			logging.FromContext(rp.ctx).Trace().
 				Uint64("render_seq", renderSeq).
 				Uint64("paint_seq", paintSeq).
 				Msg("cef: skipping upload while newer surface resize is pending")
 		}
-		return 0, false, false
+		return 0, false, 0, false
 	}
 
-	fullUpload = rp.forceFullUpload
+	fullUpload := rp.forceFullUpload
+	dirtyRectCount, dirtyRects := len(rp.dirtyRects), make([]rect, 0, len(rp.dirtyRects))
 	if fullUpload {
 		copied := copy(mappedSlice, rp.staging)
 		if copied < len(mappedSlice) {
 			clear(mappedSlice[copied:])
 		}
-		uploadedBytes = uint64(copied)
 	} else {
 		dirtyRects = append(dirtyRects, rp.dirtyRects...)
-		uploadedBytes = copyDirtyRectsRaw(mappedSlice, rp.staging, w, h, dirtyRects)
 	}
-	rp.needsUpload = false
-	rp.forceFullUpload = false
+	rp.needsUpload, rp.forceFullUpload = false, false
 	rp.dirtyRects = rp.dirtyRects[:0]
 	rp.mu.Unlock()
 
@@ -472,47 +486,30 @@ func (rp *renderPipeline) uploadToPBO(renderSeq, paintSeq uint64) (uint64, bool,
 				Bool("full_upload", fullUpload).
 				Msg("cef: glUnmapBuffer reported corrupted PBO contents; dropping frame")
 		}
-		gl.bindBuffer(glPixelUnpackBuffer, 0)
-		return 0, fullUpload, false
+		return 0, fullUpload, dirtyRectCount, false
 	}
 
-	// Transfer PBO → texture. With PBO bound, the last arg is a byte offset.
 	gl.bindTexture(glTexture2D, rp.texture)
 	if fullUpload {
 		gl.texSubImage2D(glTexture2D, 0, 0, 0, w, h, glBGRA, glUnsignedByte, nil)
-	} else {
-		// Use GL_UNPACK_ROW_LENGTH so GL understands the PBO's full-width
-		// stride, allowing one glTexSubImage2D per dirty rect instead of
-		// one per row.
-		gl.pixelStorei(glUnpackRowLength, w)
-		for _, rawRect := range dirtyRects {
-			r, ok := clampDirtyRect(rawRect, w, h)
-			if !ok {
-				continue
-			}
-			offset := uintptr(int(r.Y)*stride + int(r.X)*4)
-			gl.texSubImage2D(glTexture2D, 0, r.X, r.Y, r.Width, r.Height,
-				glBGRA, glUnsignedByte, pboOffset(offset))
+		gl.bindTexture(glTexture2D, 0)
+		return uint64(len(mappedSlice)), true, dirtyRectCount, true
+	}
+
+	gl.pixelStorei(glUnpackRowLength, w)
+	uploadedBytes := copyDirtyRectsRaw(mappedSlice, rp.staging, w, h, dirtyRects)
+	for _, rawRect := range dirtyRects {
+		r, ok := clampDirtyRect(rawRect, w, h)
+		if !ok {
+			continue
 		}
-		gl.pixelStorei(glUnpackRowLength, 0)
+		offset := uintptr(int(r.Y)*stride + int(r.X)*4)
+		gl.texSubImage2D(glTexture2D, 0, r.X, r.Y, r.Width, r.Height,
+			glBGRA, glUnsignedByte, pboOffset(offset))
 	}
+	gl.pixelStorei(glUnpackRowLength, 0)
 	gl.bindTexture(glTexture2D, 0)
-
-	// Swap PBO index for next frame.
-	rp.pboIndex = 1 - rp.pboIndex
-
-	gl.bindBuffer(glPixelUnpackBuffer, 0)
-	if rp.ctx != nil {
-		logging.FromContext(rp.ctx).Trace().
-			Uint64("render_seq", renderSeq).
-			Uint64("paint_seq", paintSeq).
-			Uint64("uploaded_bytes", uploadedBytes).
-			Int("dirty_rect_count", len(dirtyRects)).
-			Bool("full_upload", fullUpload).
-			Int("next_pbo_index", rp.pboIndex).
-			Msg("cef: uploadToPBO end")
-	}
-	return uploadedBytes, fullUpload, true
+	return uploadedBytes, false, dirtyRectCount, true
 }
 
 func (rp *renderPipeline) uploadPopupTexture(renderSeq, paintSeq uint64) bool {
@@ -1042,15 +1039,16 @@ func coalesceDirtyRects(rects []rect, surfaceW, surfaceH int32) []rect {
 	for changed {
 		changed = false
 		for i := 0; i < len(merged); i++ {
-			for j := i + 1; j < len(merged); j++ {
-				if rectsTouch(merged[i], merged[j]) {
-					merged[i] = boundingBox(merged[i], merged[j])
-					// Remove j by swapping with last element.
-					merged[j] = merged[len(merged)-1]
-					merged = merged[:len(merged)-1]
-					changed = true
-					j-- // re-check the element now at index j
+			for j := i + 1; j < len(merged); {
+				if !rectsTouch(merged[i], merged[j]) {
+					j++
+					continue
 				}
+				merged[i] = boundingBox(merged[i], merged[j])
+				// Remove j by swapping with last element.
+				merged[j] = merged[len(merged)-1]
+				merged = merged[:len(merged)-1]
+				changed = true
 			}
 		}
 	}

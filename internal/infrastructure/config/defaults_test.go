@@ -22,7 +22,7 @@ func TestDefaultConfig_CoreDefaults(t *testing.T) {
 	assert.Equal(t, CookiePolicyAlways, cfg.Engine.CookiePolicy)
 	assert.Equal(t, int32(defaultCEFWindowlessFrameRate), cfg.Engine.CEF.CEFWindowlessFrameRate())
 	assert.Empty(t, cfg.Engine.CEF.LogFile)
-	assert.False(t, cfg.Engine.CEF.EnableAudioHandler)
+	assert.True(t, cfg.Engine.CEF.EnableAudioHandler)
 	assert.False(t, cfg.Engine.CEF.EnableContextMenuHandler)
 	assert.False(t, cfg.Engine.CEF.TraceHandlers)
 	assert.True(t, cfg.Engine.WebKit.ITPEnabled)

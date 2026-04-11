@@ -84,7 +84,7 @@ func (t *Transcoder) Capabilities() port.HWCapabilities {
 // Start begins a transcode session. It spawns a goroutine running the
 // FFmpeg pipeline and returns a TranscodeSession whose Read() streams
 // the transcoded WebM output. The session is automatically removed from
-// the pool when the pipeline completes or the context is cancelled.
+// the pool when the pipeline completes or the context is canceled.
 func (t *Transcoder) Start(ctx context.Context, sourceURL string, headers map[string]string) (port.TranscodeSession, error) {
 	if !t.Available() {
 		return nil, errors.New("transcoder: no GPU encoder available")
@@ -107,8 +107,8 @@ func (t *Transcoder) Start(ctx context.Context, sourceURL string, headers map[st
 	// Check capacity and register before spawning the goroutine.
 	if err := t.pool.add(s); err != nil {
 		cancel()
-		pr.Close()
-		pw.Close()
+		_ = pr.Close()
+		_ = pw.Close()
 		return nil, fmt.Errorf("transcoder: %w", err)
 	}
 
@@ -128,7 +128,7 @@ func (t *Transcoder) Start(ctx context.Context, sourceURL string, headers map[st
 		defer func() {
 			if r := recover(); r != nil {
 				t.logger.Error().Str("session_id", id).Interface("panic", r).Msg("transcode session panicked")
-				pw.CloseWithError(fmt.Errorf("transcode session panicked: %v", r))
+				_ = pw.CloseWithError(fmt.Errorf("transcode session panicked: %v", r))
 			}
 		}()
 		p.run(sessionCtx)

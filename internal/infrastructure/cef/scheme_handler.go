@@ -28,11 +28,12 @@ import (
 
 // Scheme path constants matching WebKit's naming.
 const (
-	homePath   = "home"
-	configPath = "config"
-	webrtcPath = "webrtc"
-	errorPath  = "error"
-	indexHTML  = "index.html"
+	homePath                    = "home"
+	configPath                  = "config"
+	webrtcPath                  = "webrtc"
+	errorPath                   = "error"
+	indexHTML                   = "index.html"
+	maxSchemeTruncatedURLLength = 240
 )
 
 // pageRootFiles maps internal page hosts/paths to their HTML entry points.
@@ -192,7 +193,7 @@ func (h *dumbSchemeHandler) handleTranscodeAPI(request purecef.Request) purecef.
 
 	ctx, cancel := context.WithTimeout(h.ctx, 5*time.Minute)
 	h.logger.Info().
-		Str("source_url", logging.TruncateURL(sourceURL, 240)).
+		Str("source_url", logging.TruncateURL(sourceURL, maxSchemeTruncatedURLLength)).
 		Int("forwarded_header_count", len(headers)).
 		Msg("scheme handler returning transcoding stream")
 

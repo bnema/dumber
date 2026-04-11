@@ -80,6 +80,15 @@ type WebView struct {
 	generation   atomic.Uint64
 	audioPlaying atomic.Bool
 	zoomFactor   atomic.Value // float64, initialized to 1.0
+
+	// Audio output factory and active stream.
+	audioOutputFactory port.AudioOutputFactory
+	audioStreamMu      sync.Mutex
+	activeAudioStream  port.AudioOutputStream
+
+	// Audio instrumentation counters (diagnostic only).
+	audioPacketCount atomic.Uint64 // total OnAudioStreamPacket calls
+	audioWriteCount  atomic.Uint64 // successful Write calls to stream
 }
 
 // pendingBrowserCreate holds the parameters needed to create a CEF browser,
@@ -463,6 +472,7 @@ func (wv *WebView) Destroy() {
 	if !wv.destroyed.CompareAndSwap(false, true) {
 		return
 	}
+	wv.closeAudioStream()
 	wv.scheduleStopBeginFrameLoop()
 	wv.mu.RLock()
 	host := wv.host
@@ -704,4 +714,22 @@ func (wv *WebView) takePendingCreate() *pendingBrowserCreate {
 	pc := wv.pendingCreate
 	wv.pendingCreate = nil
 	return pc
+}
+
+// closeAudioStream closes and clears the active audio output stream.
+// This is safe to call even if no stream is active.
+func (wv *WebView) closeAudioStream() {
+	wv.audioStreamMu.Lock()
+	defer wv.audioStreamMu.Unlock()
+
+	if wv.activeAudioStream != nil {
+		if err := wv.activeAudioStream.Close(); err != nil {
+			if wv.ctx != nil {
+				logging.FromContext(wv.ctx).Debug().
+					Err(err).
+					Msg("cef: error closing audio stream")
+			}
+		}
+		wv.activeAudioStream = nil
+	}
 }

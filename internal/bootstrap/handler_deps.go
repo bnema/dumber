@@ -12,7 +12,7 @@ import (
 // BuildHandlerDeps constructs handler dependencies from the config manager.
 // It combines keybinding use cases and config save into a single struct.
 // The context is accepted for future use (e.g., passing to constructors that may need cancellation).
-func BuildHandlerDeps(ctx context.Context) (*port.HandlerDeps, error) {
+func BuildHandlerDeps(_ context.Context) (*port.HandlerDeps, error) {
 	mgr := config.GetManager()
 	if mgr == nil {
 		return nil, fmt.Errorf("config manager not initialized")
