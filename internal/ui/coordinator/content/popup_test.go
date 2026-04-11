@@ -6,9 +6,11 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 
 	"github.com/bnema/dumber/internal/application/port"
+	"github.com/bnema/dumber/internal/application/port/mocks"
 	"github.com/bnema/dumber/internal/domain/entity"
 )
 
@@ -121,6 +123,62 @@ func TestGetBehavior_TabPopup_BlocksWhenOpenInNewPaneFalse(t *testing.T) {
 		BlankTargetBehavior: "split",
 	}
 	assert.Equal(t, entity.PopupBehaviorSplit, GetBehavior(PopupTypeTab, cfg))
+}
+
+func TestHandlePopupCreate_ReusesNamedPopup(t *testing.T) {
+	ctx := context.Background()
+	parentPaneID := entity.PaneID("parent-pane")
+	parentWV := mocks.NewMockWebView(t)
+	parentWV.EXPECT().ID().Return(port.WebViewID(101)).Twice()
+
+	popupWV := mocks.NewMockWebView(t)
+	popupWV.EXPECT().ID().Return(port.WebViewID(202)).Once()
+	popupWV.EXPECT().Generation().Return(uint64(1)).Maybe()
+	popupWV.EXPECT().SetCallbacks(mock.Anything).Maybe()
+	popupWV.EXPECT().IsLoading().Return(false).Maybe()
+	currentURI := ""
+	popupWV.EXPECT().URI().RunAndReturn(func() string { return currentURI }).Maybe()
+	popupWV.EXPECT().IsDestroyed().Return(false).Maybe()
+	popupWV.EXPECT().LoadURI(mock.Anything, "https://accounts.google.com/o/oauth2/v2/auth?first").RunAndReturn(func(context.Context, string) error {
+		currentURI = "https://accounts.google.com/o/oauth2/v2/auth?first"
+		return nil
+	}).Once()
+	popupWV.EXPECT().LoadURI(mock.Anything, "https://accounts.google.com/o/oauth2/v2/auth?second").RunAndReturn(func(context.Context, string) error {
+		currentURI = "https://accounts.google.com/o/oauth2/v2/auth?second"
+		return nil
+	}).Once()
+
+	factory := mocks.NewMockWebViewFactory(t)
+	factory.EXPECT().CreateRelated(mock.Anything, port.WebViewID(101)).Return(popupWV, nil).Once()
+
+	insertCalls := 0
+	c := &Coordinator{
+		webViews:      make(map[entity.PaneID]port.WebView),
+		pendingPopups: make(map[port.WebViewID]*PendingPopup),
+		popupOAuth:    make(map[port.WebViewID]*popupOAuthState),
+	}
+	c.SetPopupConfig(factory, nil, nil)
+	c.SetOnInsertPopup(func(context.Context, InsertPopupInput) error {
+		insertCalls++
+		return nil
+	})
+
+	first := c.handlePopupCreate(ctx, parentPaneID, parentWV, port.PopupRequest{
+		TargetURI:     "https://accounts.google.com/o/oauth2/v2/auth?first",
+		FrameName:     "g_credential_picker_x",
+		IsUserGesture: true,
+	})
+	require.Same(t, popupWV, first)
+
+	second := c.handlePopupCreate(ctx, parentPaneID, parentWV, port.PopupRequest{
+		TargetURI:     "https://accounts.google.com/o/oauth2/v2/auth?second",
+		FrameName:     "g_credential_picker_x",
+		IsUserGesture: true,
+	})
+	require.Same(t, popupWV, second)
+
+	assert.Equal(t, 1, insertCalls)
+	assert.Equal(t, "https://accounts.google.com/o/oauth2/v2/auth?second", currentURI)
 }
 
 // ---------------------------------------------------------------------------

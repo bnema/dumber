@@ -79,6 +79,86 @@ type PendingPopup struct {
 	CreatedAt time.Time
 }
 
+type namedPopupKey struct {
+	ParentPaneID entity.PaneID
+	FrameName    string
+}
+
+type namedPopupState struct {
+	PaneID  entity.PaneID
+	PopupID port.WebViewID
+	WebView port.WebView
+}
+
+func isReusableNamedPopupFrame(frameName string) bool {
+	return frameName != "" && frameName != "_blank"
+}
+
+func (c *Coordinator) lookupReusableNamedPopup(parentPaneID entity.PaneID, frameName string) (*namedPopupState, bool) {
+	if !isReusableNamedPopupFrame(frameName) {
+		return nil, false
+	}
+
+	key := namedPopupKey{ParentPaneID: parentPaneID, FrameName: frameName}
+
+	c.popupMu.RLock()
+	state, ok := c.namedPopups[key]
+	c.popupMu.RUnlock()
+	if !ok || state == nil || state.WebView == nil {
+		return nil, false
+	}
+
+	if state.WebView.IsDestroyed() {
+		c.popupMu.Lock()
+		if current, ok := c.namedPopups[key]; ok && current == state {
+			delete(c.namedPopups, key)
+		}
+		c.popupMu.Unlock()
+		return nil, false
+	}
+
+	return state, true
+}
+
+func (c *Coordinator) storeReusableNamedPopup(
+	parentPaneID entity.PaneID,
+	frameName string,
+	paneID entity.PaneID,
+	popupID port.WebViewID,
+	wv port.WebView,
+) {
+	if !isReusableNamedPopupFrame(frameName) || wv == nil {
+		return
+	}
+
+	key := namedPopupKey{ParentPaneID: parentPaneID, FrameName: frameName}
+
+	c.popupMu.Lock()
+	if c.namedPopups == nil {
+		c.namedPopups = make(map[namedPopupKey]*namedPopupState)
+	}
+	c.namedPopups[key] = &namedPopupState{PaneID: paneID, PopupID: popupID, WebView: wv}
+	c.popupMu.Unlock()
+}
+
+func (c *Coordinator) updatePendingPopupTarget(popupID port.WebViewID, targetURI string) {
+	c.popupMu.Lock()
+	if pending, ok := c.pendingPopups[popupID]; ok && pending != nil {
+		pending.TargetURI = targetURI
+	}
+	c.popupMu.Unlock()
+}
+
+func (c *Coordinator) clearReusableNamedPopupByWebViewID(popupID port.WebViewID) {
+	c.popupMu.Lock()
+	for key, state := range c.namedPopups {
+		if state != nil && state.PopupID == popupID {
+			delete(c.namedPopups, key)
+		}
+	}
+	c.popupMu.Unlock()
+}
+
 // InsertPopupInput contains the data needed to insert a popup into the workspace.
 type InsertPopupInput struct {
 	// ParentPaneID is the pane that spawned this popup.
@@ -224,8 +304,23 @@ func (c *Coordinator) handlePopupCreate(
 		return nil
 	}
 
-	// Create related WebView for session sharing (created hidden)
 	parentID := parentWV.ID()
+	if existing, ok := c.lookupReusableNamedPopup(parentPaneID, req.FrameName); ok {
+		c.updatePendingPopupTarget(existing.PopupID, req.TargetURI)
+		if err := existing.WebView.LoadURI(ctx, req.TargetURI); err != nil {
+			log.Warn().Err(err).
+				Str("target_uri", logging.TruncateURL(req.TargetURI, logURLMaxLen)).
+				Msg("failed to load target URI in reused popup")
+		}
+		log.Info().
+			Str("parent_pane", string(parentPaneID)).
+			Str("frame_name", req.FrameName).
+			Str("target_uri", logging.TruncateURL(req.TargetURI, logURLMaxLen)).
+			Msg("reused named popup")
+		return existing.WebView
+	}
+
+	// Create related WebView for session sharing (created hidden)
 	popupWV, err := c.factory.CreateRelated(ctx, parentID)
 	if err != nil {
 		log.Error().Err(err).Msg("failed to create related webview for popup")
@@ -279,6 +374,7 @@ func (c *Coordinator) handlePopupCreate(
 
 	// Register WebView in our map (after successful insertion)
 	c.setWebViewLocked(paneID, popupWV)
+	c.storeReusableNamedPopup(parentPaneID, req.FrameName, paneID, popupID, popupWV)
 
 	// Setup standard callbacks (after successful insertion to avoid leak)
 	c.setupWebViewCallbacks(ctx, paneID, popupWV)
@@ -404,6 +500,7 @@ func (c *Coordinator) handlePopupClose(ctx context.Context, popupID port.WebView
 			}
 		}
 		c.handlePopupOAuthClose(ctx, popupID)
+		c.clearReusableNamedPopupByWebViewID(popupID)
 		c.ReleaseWebView(ctx, pending.PaneID)
 		log.Debug().Str("pane_id", string(pending.PaneID)).Msg("cleaned up pending popup that was never shown")
 		return
@@ -422,6 +519,7 @@ func (c *Coordinator) handlePopupClose(ctx context.Context, popupID port.WebView
 
 	if paneID == "" {
 		c.handlePopupOAuthClose(ctx, popupID)
+		c.clearReusableNamedPopupByWebViewID(popupID)
 		log.Warn().Msg("popup close: could not find pane for webview")
 		return
 	}
@@ -434,6 +532,7 @@ func (c *Coordinator) handlePopupClose(ctx context.Context, popupID port.WebView
 	}
 
 	c.handlePopupOAuthClose(ctx, popupID)
+	c.clearReusableNamedPopupByWebViewID(popupID)
 
 	// Release the WebView (this will clean up tracking)
 	c.ReleaseWebView(ctx, paneID)

@@ -85,6 +85,7 @@ type Coordinator struct {
 	factory       port.WebViewFactory
 	popupConfig   *entity.PopupBehaviorConfig
 	pendingPopups map[port.WebViewID]*PendingPopup
+	namedPopups   map[namedPopupKey]*namedPopupState
 	popupOAuth    map[port.WebViewID]*popupOAuthState
 	popupRefresh  map[entity.PaneID]*time.Timer
 	popupMu       sync.RWMutex
@@ -168,6 +169,7 @@ func NewCoordinator(
 		pendingThemePanes:    make(map[entity.PaneID]bool),
 		getActiveWS:          getActiveWS,
 		pendingPopups:        make(map[port.WebViewID]*PendingPopup),
+		namedPopups:          make(map[namedPopupKey]*namedPopupState),
 		popupOAuth:           make(map[port.WebViewID]*popupOAuthState),
 		popupRefresh:         make(map[entity.PaneID]*time.Timer),
 	}
