@@ -802,6 +802,8 @@ func buildOmniboxConfig(
 		ShortcutsUC:         usecase.NewSearchShortcutsUseCase(shortcuts),
 		DefaultSearch:       deps.Config.DefaultSearchEngine,
 		InitialBehavior:     deps.Config.Omnibox.InitialBehavior,
+		MostVisitedDays:     deps.Config.Omnibox.MostVisitedDays,
+		MostVisitedDaysSet:  true,
 		SaveInitialBehavior: deps.HandlerDeps.SaveOmniboxInitialBehavior,
 		UIScale:             deps.Config.DefaultUIScale,
 		OnNavigate:          callbacks.OnNavigate,

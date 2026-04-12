@@ -20,6 +20,7 @@ const (
 
 	// Omnibox defaults
 	defaultOmniboxInitialBehavior   = OmniboxInitialBehaviorRecent
+	defaultOmniboxMostVisitedDays   = 30
 	defaultOmniboxAutoOpenOnNewPane = false
 
 	// Workspace defaults
@@ -284,6 +285,7 @@ func DefaultConfig() *Config {
 		},
 		Omnibox: OmniboxConfig{
 			InitialBehavior:   defaultOmniboxInitialBehavior,
+			MostVisitedDays:   defaultOmniboxMostVisitedDays,
 			AutoOpenOnNewPane: defaultOmniboxAutoOpenOnNewPane,
 		},
 		Session: SessionConfig{

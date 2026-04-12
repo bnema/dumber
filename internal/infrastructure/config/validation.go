@@ -388,18 +388,22 @@ func validateWorkspaceURLValue(fieldPath, value string) []string {
 }
 
 func validateOmnibox(config *Config) []string {
+	var validationErrors []string
+	if config.Omnibox.MostVisitedDays < 0 {
+		validationErrors = append(validationErrors, "omnibox.most_visited_days must be non-negative")
+	}
 	switch config.Omnibox.InitialBehavior {
 	case OmniboxInitialBehaviorRecent, OmniboxInitialBehaviorMostVisited, OmniboxInitialBehaviorNone:
-		return nil
 	default:
-		return []string{fmt.Sprintf(
+		validationErrors = append(validationErrors, fmt.Sprintf(
 			"omnibox.initial_behavior must be one of: %s, %s, %s (got: %s)",
 			OmniboxInitialBehaviorRecent,
 			OmniboxInitialBehaviorMostVisited,
 			OmniboxInitialBehaviorNone,
 			config.Omnibox.InitialBehavior,
-		)}
+		))
 	}
+	return validationErrors
 }
 
 func validateRendering(config *Config) []string {
