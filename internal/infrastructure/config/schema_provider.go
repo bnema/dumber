@@ -673,6 +673,14 @@ func (*SchemaProvider) getOmniboxKeys(defaults *Config) []entity.ConfigKeyInfo {
 			Section: SectionOmnibox,
 		},
 		{
+			Key:         "omnibox.most_visited_days",
+			Type:        "int",
+			Default:     fmt.Sprintf("%d", defaults.Omnibox.MostVisitedDays),
+			Description: "Days of history to consider for most_visited (0 = all history)",
+			Range:       ">=0",
+			Section:     SectionOmnibox,
+		},
+		{
 			Key:         "omnibox.auto_open_on_new_pane",
 			Type:        "bool",
 			Default:     fmt.Sprintf("%t", defaults.Omnibox.AutoOpenOnNewPane),

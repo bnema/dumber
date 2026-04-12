@@ -115,6 +115,7 @@ type Omnibox struct {
 	shortcutsUC           *usecase.SearchShortcutsUseCase
 	defaultSearch         string
 	initialBehavior       entity.OmniboxInitialBehavior
+	mostVisitedDays       int
 	saveInitialBehaviorFn func(context.Context, entity.OmniboxInitialBehavior) error
 	ctx                   context.Context
 
@@ -161,6 +162,7 @@ type OmniboxConfig struct {
 	ShortcutsUC         *usecase.SearchShortcutsUseCase
 	DefaultSearch       string
 	InitialBehavior     entity.OmniboxInitialBehavior
+	MostVisitedDays     int
 	SaveInitialBehavior func(ctx context.Context, behavior entity.OmniboxInitialBehavior) error
 	UIScale             float64                                                     // UI scale for favicon sizing
 	OnNavigate          func(url string)                                            // Callback when user navigates via omnibox
@@ -194,6 +196,7 @@ func NewOmnibox(ctx context.Context, cfg OmniboxConfig) *Omnibox {
 		shortcutsUC:           cfg.ShortcutsUC,
 		defaultSearch:         cfg.DefaultSearch,
 		initialBehavior:       cfg.InitialBehavior,
+		mostVisitedDays:       cfg.MostVisitedDays,
 		saveInitialBehaviorFn: cfg.SaveInitialBehavior,
 		onToast:               cfg.OnToast,
 		onAccentKeyPress:      cfg.OnAccentKeyPress,
@@ -1590,6 +1593,7 @@ func (o *Omnibox) loadInitialHistory(token uint64) {
 	// Capture effective result limit on the GTK main thread before spawning goroutine
 	initialLimit := o.effectiveMaxRows()
 	initialBehavior := o.initialBehavior
+	mostVisitedDays := o.mostVisitedDays
 
 	go func() {
 		ctx := o.ctx
@@ -1616,7 +1620,11 @@ func (o *Omnibox) loadInitialHistory(token uint64) {
 					err     error
 				)
 				if initialBehavior == entity.OmniboxInitialBehaviorMostVisited {
-					results, err = o.historyUC.GetMostVisited(ctx, 0)
+					if mostVisitedDays == 0 {
+						results, err = o.historyUC.GetMostVisited(ctx, 0)
+					} else {
+						results, err = o.historyUC.GetMostVisited(ctx, mostVisitedDays)
+					}
 					if err == nil && len(results) > initialLimit {
 						results = results[:initialLimit]
 					}
