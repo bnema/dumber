@@ -34,6 +34,38 @@ func TestGenerateCSS_OmniboxHeaderIsOpaque(t *testing.T) {
 	}
 }
 
+func TestGenerateCSS_OmniboxHeaderBadgeSelectorsExist(t *testing.T) {
+	css := GenerateCSS(DefaultDarkPalette())
+
+	if !strings.Contains(css, ".omnibox-header-badge {") {
+		t.Fatalf("expected omnibox header badge selector in CSS")
+	}
+	if !strings.Contains(css, ".omnibox-header-badge:hover {") {
+		t.Fatalf("expected omnibox header badge hover selector in CSS")
+	}
+}
+
+func TestGenerateCSS_OmniboxHeaderBadgeUsesPassiveNeutralChipStyling(t *testing.T) {
+	css := GenerateCSS(DefaultDarkPalette())
+
+	badgeRe := regexp.MustCompile(`(?s)\.omnibox-header-badge\s*\{[^}]*background-color:\s*alpha\(var\(--surface-variant\),\s*0\.65\);[^}]*color:\s*var\(--muted\);[^}]*border:\s*0\.0625em solid alpha\(var\(--border\),\s*0\.85\);[^}]*border-radius:\s*0\.1875em;[^}]*padding:\s*0\.0625em 0\.375em;[^}]*font-size:\s*0\.6875em;`)
+	if !badgeRe.MatchString(css) {
+		t.Fatalf("expected omnibox header badge to use passive neutral chip styling")
+	}
+
+	hoverRe := regexp.MustCompile(`(?s)\.omnibox-header-badge:hover\s*\{[^}]*background-color:\s*shade\(var\(--surface-variant\),\s*1\.08\);[^}]*border-color:\s*var\(--border\);[^}]*color:\s*var\(--text\);`)
+	if !hoverRe.MatchString(css) {
+		t.Fatalf("expected omnibox header badge hover styling to stay neutral while hinting interactivity")
+	}
+
+	if strings.Contains(css, ".omnibox-header-badge {\n\tbackground-color: alpha(var(--accent),") {
+		t.Fatalf("expected omnibox header badge resting state to avoid accent-based styling")
+	}
+	if strings.Contains(css, ".omnibox-header-badge {\n\tcolor: var(--accent);") {
+		t.Fatalf("expected omnibox header badge resting text to avoid accent color")
+	}
+}
+
 func TestGenerateCSS_FavoriteRowsOnlyTintTrailingAffordance(t *testing.T) {
 	css := GenerateCSS(DefaultDarkPalette())
 
