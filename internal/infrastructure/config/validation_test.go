@@ -88,3 +88,12 @@ func TestValidateConfig_CEFConfig(t *testing.T) {
 		})
 	}
 }
+
+func TestValidateConfig_WebKitDefaultProfileIgnoresZeroGPUThreads(t *testing.T) {
+	cfg := DefaultConfig()
+	cfg.Engine.Profile = ProfileDefault
+	cfg.Engine.WebKit.SkiaGPUPaintingThreads = 0
+
+	err := validateConfig(cfg)
+	require.NoError(t, err)
+}
