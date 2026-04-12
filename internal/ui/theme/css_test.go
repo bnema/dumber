@@ -58,10 +58,11 @@ func TestGenerateCSS_OmniboxHeaderBadgeUsesPassiveNeutralChipStyling(t *testing.
 		t.Fatalf("expected omnibox header badge hover styling to stay neutral while hinting interactivity")
 	}
 
-	if strings.Contains(css, ".omnibox-header-badge {\n\tbackground-color: alpha(var(--accent),") {
+	badgeBlock := regexp.MustCompile(`(?s)\.omnibox-header-badge\s*\{[^}]*\}`).FindString(css)
+	if strings.Contains(badgeBlock, "background-color: alpha(var(--accent)") {
 		t.Fatalf("expected omnibox header badge resting state to avoid accent-based styling")
 	}
-	if strings.Contains(css, ".omnibox-header-badge {\n\tcolor: var(--accent);") {
+	if strings.Contains(badgeBlock, "color: var(--accent)") {
 		t.Fatalf("expected omnibox header badge resting text to avoid accent color")
 	}
 }

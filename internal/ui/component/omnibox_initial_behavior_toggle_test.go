@@ -21,9 +21,9 @@ func TestHandleKeyPress_CtrlRTriggersInitialBehaviorToggle(t *testing.T) {
 	loadInitialHistoryFn = func(*Omnibox, uint64) {
 		refreshCalls++
 	}
-	defer func() {
+	t.Cleanup(func() {
 		loadInitialHistoryFn = origLoadInitialHistoryFn
-	}()
+	})
 
 	if got := o.handleKeyPress(uint(gdk.KEY_r), 0, gdk.ControlMaskValue); !got {
 		t.Fatalf("handleKeyPress Ctrl+R = false, want true")

@@ -24,7 +24,7 @@ func TestOmniboxPreferencesGateway_SaveOmniboxInitialBehavior_UpdatesBehavior(t 
 func TestOmniboxPreferencesGateway_SaveOmniboxInitialBehavior_PreservesDefaultSearchEngine(t *testing.T) {
 	configHome := t.TempDir()
 	mgr := newTestOmniboxPreferencesGatewayManager(t, configHome)
-	mgr.config.DefaultSearchEngine = "https://example.com/search?q=%s"
+	setTestManagerDefaultSearchEngine(t, mgr, "https://example.com/search?q=%s")
 	gateway := NewOmniboxPreferencesGateway(mgr)
 
 	require.NoError(t, gateway.SaveOmniboxInitialBehavior(context.Background(), entity.OmniboxInitialBehaviorMostVisited))
@@ -47,4 +47,14 @@ func newTestOmniboxPreferencesGatewayManager(t *testing.T, configHome string) *M
 	require.NoError(t, mgr.Load())
 
 	return mgr
+}
+
+func setTestManagerDefaultSearchEngine(t *testing.T, mgr *Manager, value string) {
+	t.Helper()
+
+	mgr.mu.Lock()
+	defer mgr.mu.Unlock()
+
+	require.NotNil(t, mgr.config)
+	mgr.config.DefaultSearchEngine = value
 }
