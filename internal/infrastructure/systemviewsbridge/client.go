@@ -24,6 +24,8 @@ type Client struct {
 }
 
 var _ port.SystemviewConfigService = (*Client)(nil)
+var _ port.SystemviewHistoryService = (*Client)(nil)
+var _ port.SystemviewFavoritesService = (*Client)(nil)
 
 var requestSeq atomic.Uint64
 
@@ -179,12 +181,13 @@ func (c *Client) SetFolder(ctx context.Context, favoriteID int64, folderID *int6
 	return err
 }
 
-func (c *Client) CreateFolder(ctx context.Context, name string, _ *int64) (*entity.Folder, error) {
+func (c *Client) CreateFolder(ctx context.Context, name string, parentID *int64) (*entity.Folder, error) {
 	return request[*entity.Folder](c, ctx, "folder_create", struct {
 		RequestID string  `json:"requestId"`
 		Name      string  `json:"name"`
 		Icon      *string `json:"icon"`
-	}{RequestID: nextRequestID(), Name: name, Icon: nil})
+		ParentID  *int64  `json:"parent_id,omitempty"`
+	}{RequestID: nextRequestID(), Name: name, Icon: nil, ParentID: parentID})
 }
 
 func (c *Client) UpdateFolder(ctx context.Context, id int64, name, icon string) error {

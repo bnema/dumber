@@ -5,14 +5,13 @@ package main
 import (
 	"syscall/js"
 
+	"github.com/bnema/dumber/internal/infrastructure/systemviewsbridge"
 	"github.com/bnema/dumber/internal/ui/systemviews"
 )
 
 func main() {
-	app := systemviews.NewApp(systemviews.Dependencies{
-		DOM:         systemviews.NewDOM(),
-		LocationURI: js.Global().Get("location").Get("href").String(),
-	})
+	bridge := systemviewsbridge.NewBrowserClient()
+	app := newBridgeApp(systemviews.NewDOM(), js.Global().Get("location").Get("href").String(), bridge)
 
 	if err := app.Run(); err != nil {
 		js.Global().Get("console").Call("error", err.Error())

@@ -351,7 +351,7 @@ func resolveConceptualAssetPath(u *url.URL) (assetDir, relPath string, ok bool) 
 		return assetDirForPageHost(u.Host), path, true
 	}
 
-	// Handle opaque URLs like dumb:home.
+	// Handle opaque URLs like dumb:history.
 	if root, ok := pageRootFiles[u.Opaque]; ok {
 		return assetDirForPageHost(u.Opaque), root, true
 	}
@@ -382,6 +382,10 @@ func resolveActualAssetPath(u *url.URL) (assetDir, relPath string, ok bool) {
 
 	if strings.HasPrefix(path, "api/") {
 		return "", "", false
+	}
+
+	if !strings.Contains(path, "/") && strings.Contains(path, ".") {
+		return assetDirForPageHost(historyPath), path, true
 	}
 
 	return "", "", false

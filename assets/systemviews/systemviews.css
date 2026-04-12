@@ -1,0 +1,151 @@
+:root {
+  color-scheme: dark light;
+  --sv-bg: #0f1115;
+  --sv-fg: #e8ebf0;
+  --sv-muted: #9aa3b2;
+  --sv-border: #2a313d;
+}
+
+body {
+  margin: 0;
+  font-family: Inter, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  font-size: 14px;
+  background: var(--sv-bg, #0f1115);
+  color: var(--sv-fg, #e8ebf0);
+}
+
+.sv-app {
+  min-height: 100vh;
+}
+
+.sv-shell {
+  display: grid;
+  gap: 1rem;
+  padding: 1rem;
+}
+
+.sv-header {
+  background: var(--sv-surface-variant, #1d2129);
+  border: 1px solid var(--sv-border, #2a313d);
+  border-radius: 0.75rem;
+  padding: 1rem;
+}
+
+.sv-section {
+  background: var(--sv-surface, #171a21);
+  border: 1px solid var(--sv-border, #2a313d);
+  border-radius: 0.75rem;
+  padding: 1rem;
+}
+
+.sv-meta {
+  color: var(--sv-muted, #9aa3b2);
+  font-size: 12px;
+}
+
+.sv-group {
+  margin-top: 1rem;
+  padding: 1rem;
+  border: 1px solid var(--sv-border, #2a313d);
+  border-radius: 0.75rem;
+  background: var(--sv-surface, #171a21);
+}
+
+.sv-group-header {
+  display: flex;
+  justify-content: space-between;
+  gap: 1rem;
+  align-items: baseline;
+}
+
+.sv-group-header h4 {
+  margin: 0;
+}
+
+.sv-group-body {
+  display: grid;
+  gap: 0.75rem;
+  margin-top: 0.75rem;
+}
+
+.sv-binding {
+  padding-top: 0.75rem;
+  border-top: 1px solid var(--sv-border, #2a313d);
+  display: grid;
+  gap: 0.5rem;
+}
+
+.sv-group-body > .sv-binding:first-child {
+  padding-top: 0;
+  border-top: 0;
+}
+
+.sv-binding-header {
+  display: flex;
+  justify-content: space-between;
+  gap: 1rem;
+  align-items: flex-start;
+}
+
+.sv-binding-description {
+  font-weight: 600;
+}
+
+.sv-binding-keys {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+  justify-content: flex-end;
+}
+
+.sv-key {
+  display: inline-flex;
+  align-items: center;
+  padding: 0.2rem 0.45rem;
+  border-radius: 0.45rem;
+  border: 1px solid var(--sv-border, #2a313d);
+  background: var(--sv-surface-variant, #1d2129);
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 12px;
+}
+
+.sv-binding-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem 1rem;
+  color: var(--sv-muted, #9aa3b2);
+  font-size: 12px;
+}
+
+.sv-empty {
+  color: var(--sv-muted, #9aa3b2);
+}
+
+.sv-kv {
+  margin: 0.75rem 0 0;
+  display: grid;
+  gap: 0.25rem;
+}
+
+.sv-kv-row {
+  display: grid;
+  grid-template-columns: minmax(12rem, 35%) minmax(0, 1fr);
+  gap: 0.25rem 1rem;
+  padding: 0.5rem 0;
+}
+
+.sv-kv-row + .sv-kv-row {
+  border-top: 1px solid var(--sv-border, #2a313d);
+}
+
+.sv-kv-row dt,
+.sv-kv-row dd {
+  margin: 0;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.sv-kv-row dt {
+  color: var(--sv-muted, #9aa3b2);
+  font-weight: 600;
+}

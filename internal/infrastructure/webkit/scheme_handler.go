@@ -352,6 +352,28 @@ func resolveAssetPath(u *url.URL) (assetDir, relPath string, ok bool) {
 	}
 }
 
+func shouldAddCORSHeaders(path string) bool {
+	path = strings.TrimSpace(path)
+	return strings.HasPrefix(path, "/api/") || strings.HasSuffix(path, ".wasm")
+}
+
+func responseHeadersForPath(path, contentType string) map[string]string {
+	if !shouldAddCORSHeaders(path) {
+		return nil
+	}
+
+	headers := map[string]string{
+		"Access-Control-Allow-Origin":  "*",
+		"Access-Control-Allow-Methods": "GET, POST, OPTIONS",
+		"Access-Control-Allow-Headers": "Content-Type",
+		"Access-Control-Max-Age":       "86400",
+	}
+	if contentType != "" {
+		headers["Content-Type"] = contentType
+	}
+	return headers
+}
+
 // sendResponse sends the response back to WebKit.
 func (h *DumbSchemeHandler) sendResponse(req *webkit.URISchemeRequest, response *SchemeResponse) {
 	if response == nil {
@@ -384,13 +406,12 @@ func (h *DumbSchemeHandler) sendResponse(req *webkit.URISchemeRequest, response 
 	schemeResp.SetStatus(uint(response.StatusCode), nil)
 
 	// WebKit can treat custom schemes as CORS-relevant even for same-origin fetch().
-	// We only add CORS headers for our internal API endpoints.
-	if strings.HasPrefix(req.GetPath(), "/api/") {
+	// Add CORS headers to fetch-backed endpoints, including the wasm runtime asset.
+	if headers := responseHeadersForPath(req.GetPath(), contentType); len(headers) > 0 {
 		hdrs := soup.NewMessageHeaders(soup.MessageHeadersResponseValue)
-		hdrs.Append("Access-Control-Allow-Origin", "*")
-		hdrs.Append("Access-Control-Allow-Methods", "GET, POST, OPTIONS")
-		hdrs.Append("Access-Control-Allow-Headers", "Content-Type")
-		hdrs.Append("Access-Control-Max-Age", "86400")
+		for name, value := range headers {
+			hdrs.Append(name, value)
+		}
 		schemeResp.SetHttpHeaders(hdrs)
 	}
 

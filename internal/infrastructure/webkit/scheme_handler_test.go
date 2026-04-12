@@ -4,6 +4,7 @@ import (
 	"context"
 	"net/http"
 	"net/url"
+	"strings"
 	"testing"
 
 	"github.com/bnema/dumber/assets"
@@ -104,6 +105,19 @@ func TestHandleAsset_ConfigOpaqueFormServesSystemviewsShell(t *testing.T) {
 	assert.Contains(t, string(resp.Data), "systemviews.wasm")
 }
 
+func TestHandleAsset_SystemviewsCSSIsServed(t *testing.T) {
+	h := NewDumbSchemeHandler(context.Background())
+	h.SetAssets(assets.WebUIAssets)
+
+	u, err := url.Parse("dumb://history/systemviews.css")
+	require.NoError(t, err)
+
+	resp := h.handleAsset(u)
+	require.NotNil(t, resp)
+	assert.Equal(t, "text/css", strings.Split(resp.ContentType, ";")[0])
+	assert.Contains(t, string(resp.Data), ".sv-app")
+}
+
 func TestHandleAsset_SystemviewsRootsServeShell(t *testing.T) {
 	h := NewDumbSchemeHandler(context.Background())
 	h.SetAssets(assets.WebUIAssets)
@@ -167,4 +181,35 @@ func TestConfigHandlersUseInjectedPayloadBuilders(t *testing.T) {
 	assert.Equal(t, http.StatusOK, defaultResp.StatusCode)
 	assert.Equal(t, "application/json", defaultResp.ContentType)
 	assert.Equal(t, []byte(`{"default":true}`), defaultResp.Data)
+}
+
+func TestShouldAddCORSHeaders(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name string
+		path string
+		want bool
+	}{
+		{name: "api route", path: "/api/config", want: true},
+		{name: "wasm asset", path: "/systemviews.wasm", want: true},
+		{name: "html shell", path: "/", want: false},
+		{name: "js asset", path: "/wasm_exec.js", want: false},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+			assert.Equal(t, tt.want, shouldAddCORSHeaders(tt.path))
+		})
+	}
+}
+
+func TestResponseHeadersForPath_WASMIncludesContentTypeAndCORS(t *testing.T) {
+	t.Parallel()
+
+	headers := responseHeadersForPath("/systemviews.wasm", "application/wasm")
+	assert.Equal(t, "application/wasm", headers["Content-Type"])
+	assert.Equal(t, "*", headers["Access-Control-Allow-Origin"])
+	assert.Equal(t, "GET, POST, OPTIONS", headers["Access-Control-Allow-Methods"])
 }

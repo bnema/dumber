@@ -52,7 +52,7 @@ func TestAppRunMountsPlaceholderAndRecordsRoute(t *testing.T) {
 	assert.Contains(t, dom.html, "systemviews")
 }
 
-func TestAppLoadInitialHistoryRouteRendersEntries(t *testing.T) {
+func TestAppLoadInitialHistoryRouteUsesStyledSections(t *testing.T) {
 	t.Parallel()
 
 	history := &fakeHistoryService{entries: []*entity.HistoryEntry{{
@@ -73,6 +73,62 @@ func TestAppLoadInitialHistoryRouteRendersEntries(t *testing.T) {
 	assert.True(t, history.called)
 	assert.Equal(t, 25, history.limit)
 	assert.Equal(t, 0, history.offset)
+
+	// Shell frame present, no full document wrapper.
+	assert.NotContains(t, app.renderedHTML, "<html")
+	assert.NotContains(t, app.renderedHTML, "<head")
+	assert.NotContains(t, app.renderedHTML, "<body")
+	assert.Contains(t, app.renderedHTML, `class="sv-shell"`)
+	assert.Contains(t, app.renderedHTML, `data-route="history"`)
+	assert.Contains(t, app.renderedHTML, `class="sv-section"`)
+	assert.Contains(t, app.renderedHTML, `class="sv-list"`)
+}
+
+func TestAppLoadInitialHistoryRouteAppliesThemeTokens(t *testing.T) {
+	t.Parallel()
+
+	history := &fakeHistoryService{entries: []*entity.HistoryEntry{{
+		URL:   "https://example.com",
+		Title: "Example",
+	}}}
+	config := &fakeConfigService{current: port.SystemviewConfigPayload{
+		Appearance: port.WebUIAppearanceConfig{
+			ColorScheme: "prefer-light",
+			LightPalette: port.ColorPalette{
+				Background:     "#ffffff",
+				Surface:        "#fafafa",
+				SurfaceVariant: "#eeeeee",
+				Text:           "#111111",
+				Muted:          "#666666",
+				Accent:         "#0055ff",
+				Border:         "#dddddd",
+			},
+			DarkPalette: port.ColorPalette{
+				Background:     "#111111",
+				Surface:        "#1a1a1a",
+				SurfaceVariant: "#2a2a2a",
+				Text:           "#f5f5f5",
+				Muted:          "#a0a0a0",
+				Accent:         "#66aaff",
+				Border:         "#333333",
+			},
+			SansFont:        "Inter",
+			SerifFont:       "Georgia",
+			MonospaceFont:   "JetBrains Mono",
+			DefaultFontSize: 16,
+		},
+	}}
+
+	app := NewApp(Dependencies{
+		Config:      config,
+		History:     history,
+		LocationURI: "dumb://history",
+	})
+
+	require.NoError(t, app.LoadInitial(context.Background()))
+	assert.Contains(t, app.renderedHTML, `class="sv-app sv-light"`)
+	assert.Contains(t, app.renderedHTML, `--sv-background: #ffffff;`)
+	assert.Contains(t, app.renderedHTML, `--sv-surface-variant: #eeeeee;`)
 }
 
 func TestAppLoadInitialFavoritesRouteRendersData(t *testing.T) {
@@ -101,18 +157,92 @@ func TestAppLoadInitialFavoritesRouteRendersData(t *testing.T) {
 	assert.True(t, favorites.calledList)
 	assert.True(t, favorites.calledFolders)
 	assert.True(t, favorites.calledTags)
+
+	// Shell frame present, no full document wrapper.
+	assert.NotContains(t, app.renderedHTML, "<html")
+	assert.NotContains(t, app.renderedHTML, "<head")
+	assert.NotContains(t, app.renderedHTML, "<body")
+	assert.Contains(t, app.renderedHTML, `class="sv-shell"`)
+	assert.Contains(t, app.renderedHTML, `data-route="favorites"`)
+	assert.Contains(t, app.renderedHTML, `class="sv-section"`)
+	assert.Contains(t, app.renderedHTML, `class="sv-meta"`)
 }
 
 func TestAppLoadInitialConfigRouteRendersData(t *testing.T) {
 	t.Parallel()
 
 	config := port.SystemviewConfigPayload{
-		EngineType:          "webkit",
-		DefaultSearchEngine: "DuckDuckGo",
+		EngineType: "webkit",
+		Appearance: port.WebUIAppearanceConfig{
+			ColorScheme:     "prefer-dark",
+			SansFont:        "Inter",
+			SerifFont:       "Georgia",
+			MonospaceFont:   "JetBrains Mono",
+			DefaultFontSize: 16,
+			LightPalette: port.ColorPalette{
+				Background:     "#ffffff",
+				Surface:        "#fafafa",
+				SurfaceVariant: "#eeeeee",
+				Text:           "#111111",
+				Muted:          "#666666",
+				Accent:         "#0055ff",
+				Border:         "#dddddd",
+			},
+			DarkPalette: port.ColorPalette{
+				Background:     "#111111",
+				Surface:        "#1a1a1a",
+				SurfaceVariant: "#2a2a2a",
+				Text:           "#f5f5f5",
+				Muted:          "#a0a0a0",
+				Accent:         "#66aaff",
+				Border:         "#333333",
+			},
+		},
+		Performance: port.SystemviewPerformancePayload{
+			Profile: "balanced",
+			Custom: port.SystemviewCustomPerformancePayload{
+				SkiaCPUThreads:         4,
+				SkiaGPUThreads:         2,
+				WebProcessMemoryMB:     512,
+				NetworkProcessMemoryMB: 128,
+				WebViewPoolPrewarm:     1,
+			},
+			Hardware: port.SystemviewHardwarePayload{
+				CPUCores:   8,
+				CPUThreads: 16,
+				TotalRAMMB: 32768,
+				GPUVendor:  "NVIDIA",
+				GPUName:    "RTX 4060",
+				VRAMMB:     8192,
+			},
+		},
+		DefaultSearchEngine: "https://duckduckgo.com/?q=%s",
+		SearchShortcuts: map[string]port.SearchShortcut{
+			"ddg": {
+				URL:         "https://duckduckgo.com/?q=%s",
+				Description: "DuckDuckGo",
+			},
+		},
 	}
 	service := &fakeConfigService{
-		current:     config,
-		keybindings: port.KeybindingsConfig{Groups: []port.KeybindingGroup{{Mode: "default", DisplayName: "Default", Bindings: []port.KeybindingEntry{{Action: "open", Description: "Open", Keys: []string{"ctrl+o"}}}}}},
+		current: config,
+		keybindings: port.KeybindingsConfig{Groups: []port.KeybindingGroup{
+			{
+				Mode:        "default",
+				DisplayName: "Default",
+				Bindings: []port.KeybindingEntry{
+					{Action: "open", Description: "Open", Keys: []string{"ctrl+o"}, DefaultKeys: []string{"ctrl+o"}},
+					{Action: "new-tab", Description: "New tab", Keys: []string{"ctrl+t"}, DefaultKeys: []string{"ctrl+shift+t"}, IsCustom: true},
+				},
+			},
+			{
+				Mode:        "search",
+				DisplayName: "Search",
+				Bindings: []port.KeybindingEntry{
+					{Action: "find", Description: "Find", Keys: []string{"ctrl+f"}, DefaultKeys: []string{"ctrl+f"}},
+				},
+			},
+		}},
 	}
 
 	app := NewApp(Dependencies{
@@ -125,10 +255,52 @@ func TestAppLoadInitialConfigRouteRendersData(t *testing.T) {
 	require.NotNil(t, app.config)
 	assert.Equal(t, "webkit", app.config.EngineType)
 	assert.Contains(t, app.renderedHTML, "webkit")
-	assert.Contains(t, app.renderedHTML, "DuckDuckGo")
-	assert.Contains(t, app.renderedHTML, "1 group")
+	assert.Contains(t, app.renderedHTML, "https://duckduckgo.com/?q=%s")
+	assert.Contains(t, app.renderedHTML, "appearance.color_scheme")
+	assert.Contains(t, app.renderedHTML, "prefer-dark")
+	assert.Contains(t, app.renderedHTML, "appearance.sans_font")
+	assert.Contains(t, app.renderedHTML, "Inter")
+	assert.Contains(t, app.renderedHTML, "appearance.light_palette.background")
+	assert.Contains(t, app.renderedHTML, "#ffffff")
+	assert.Contains(t, app.renderedHTML, "performance.profile")
+	assert.Contains(t, app.renderedHTML, "balanced")
+	assert.Contains(t, app.renderedHTML, "performance.custom.skia_cpu_threads")
+	assert.Contains(t, app.renderedHTML, "4")
+	assert.Contains(t, app.renderedHTML, "performance.hardware.gpu_vendor")
+	assert.Contains(t, app.renderedHTML, "NVIDIA")
+	assert.Contains(t, app.renderedHTML, "search_shortcuts.ddg.url")
+	assert.Contains(t, app.renderedHTML, "Default")
+	assert.Contains(t, app.renderedHTML, "Search")
+	assert.Contains(t, app.renderedHTML, "Open")
+	assert.Contains(t, app.renderedHTML, "ctrl+o")
+	assert.Contains(t, app.renderedHTML, "New tab")
+	assert.Contains(t, app.renderedHTML, "ctrl+t")
+	assert.Contains(t, app.renderedHTML, "ctrl+shift+t")
+	assert.Contains(t, app.renderedHTML, "Find")
+	assert.Contains(t, app.renderedHTML, "open")
+	assert.Contains(t, app.renderedHTML, "default")
+	assert.Contains(t, app.renderedHTML, "custom")
+	assert.NotContains(t, app.renderedHTML, "groups[0].bindings[0].action")
 	assert.True(t, service.calledCurrent)
 	assert.True(t, service.calledKeybindings)
+
+	// Shell frame present, no full document wrapper.
+	assert.NotContains(t, app.renderedHTML, "<html")
+	assert.NotContains(t, app.renderedHTML, "<head")
+	assert.NotContains(t, app.renderedHTML, "<body")
+	assert.Contains(t, app.renderedHTML, `class="sv-shell"`)
+	assert.Contains(t, app.renderedHTML, `data-route="config"`)
+	assert.Contains(t, app.renderedHTML, `class="sv-section"`)
+	assert.Contains(t, app.renderedHTML, `class="sv-meta"`)
+}
+
+func TestConfigHTMLFallsBackForMalformedKeybindings(t *testing.T) {
+	t.Parallel()
+
+	html := configHTML(port.SystemviewConfigPayload{}, map[string]any{"groups": "oops"})
+
+	assert.Contains(t, html, "Keybindings unavailable")
+	assert.NotContains(t, html, "groups[0].bindings[0].action")
 }
 
 type fakeDOM struct {

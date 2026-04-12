@@ -17,8 +17,12 @@ func TestResolveAssetPath_SystemviewsRootsUseSystemviewsShell(t *testing.T) {
 		{name: "history host", raw: "https://dumber.invalid/history", wantDir: "systemviews", wantRel: indexHTML},
 		{name: "favorites host", raw: "https://dumber.invalid/favorites", wantDir: "systemviews", wantRel: indexHTML},
 		{name: "config host", raw: "https://dumber.invalid/config", wantDir: "systemviews", wantRel: indexHTML},
+		{name: "root wasm exec", raw: "https://dumber.invalid/wasm_exec.js", wantDir: "systemviews", wantRel: "wasm_exec.js"},
+		{name: "root wasm asset", raw: "https://dumber.invalid/systemviews.wasm", wantDir: "systemviews", wantRel: "systemviews.wasm"},
+		{name: "root css asset", raw: "https://dumber.invalid/systemviews.css", wantDir: "systemviews", wantRel: "systemviews.css"},
 		{name: "history opaque", raw: "dumb:history", wantDir: "systemviews", wantRel: indexHTML},
 		{name: "history sub-asset", raw: "https://dumber.invalid/history/wasm_exec.js", wantDir: "systemviews", wantRel: "wasm_exec.js"},
+		{name: "history css asset", raw: "https://dumber.invalid/history/systemviews.css", wantDir: "systemviews", wantRel: "systemviews.css"},
 	}
 
 	for _, tt := range tests {

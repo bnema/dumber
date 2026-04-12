@@ -157,7 +157,10 @@ func (uc *SearchHistoryUseCase) ClearOlderThan(ctx context.Context, before time.
 
 // ClearRange deletes history entries for a named range.
 func (uc *SearchHistoryUseCase) ClearRange(ctx context.Context, rangeID string) error {
-	cutoff, all := historydomain.DeleteRangeCutoff(rangeID, time.Now())
+	cutoff, all, ok := historydomain.DeleteRangeCutoff(rangeID, time.Now())
+	if !ok {
+		return fmt.Errorf("unknown history delete range: %q", rangeID)
+	}
 	if all {
 		return uc.ClearAll(ctx)
 	}

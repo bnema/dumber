@@ -356,6 +356,58 @@ func TestClientConfigActionsUseExpectedMessageTypes(t *testing.T) {
 	}
 }
 
+func TestClientCreateFolderIncludesParentID(t *testing.T) {
+	t.Parallel()
+
+	parentID := int64(42)
+	transport := &fakeTransport{available: true, response: []byte(`{"requestId":"req-16","success":true,"data":{"id":9,"name":"Nested","icon":"","parent_id":42}}`)}
+	client := NewClient(transport, nil)
+
+	folder, err := client.CreateFolder(context.Background(), "Nested", &parentID)
+	if err != nil {
+		t.Fatalf("CreateFolder() error = %v", err)
+	}
+	if folder == nil {
+		t.Fatal("CreateFolder() returned nil folder")
+	}
+	if folder.Name != "Nested" {
+		t.Fatalf("CreateFolder() folder name = %q, want %q", folder.Name, "Nested")
+	}
+	if folder.ParentID == nil || int64(*folder.ParentID) != parentID {
+		t.Fatalf("CreateFolder() folder parent_id = %#v, want %d", folder.ParentID, parentID)
+	}
+
+	var msg port.WebUIMessage
+	if err := json.Unmarshal(transport.last, &msg); err != nil {
+		t.Fatalf("unmarshal sent envelope: %v", err)
+	}
+	if msg.Type != "folder_create" {
+		t.Fatalf("sent type = %q, want %q", msg.Type, "folder_create")
+	}
+
+	var payload struct {
+		RequestID string  `json:"requestId"`
+		Name      string  `json:"name"`
+		Icon      *string `json:"icon"`
+		ParentID  *int64  `json:"parent_id"`
+	}
+	if err := json.Unmarshal(msg.Payload, &payload); err != nil {
+		t.Fatalf("unmarshal sent payload: %v", err)
+	}
+	if payload.ParentID == nil || *payload.ParentID != parentID {
+		t.Fatalf("sent parent_id = %#v, want %d", payload.ParentID, parentID)
+	}
+	if payload.Name != "Nested" {
+		t.Fatalf("sent name = %q, want %q", payload.Name, "Nested")
+	}
+	if payload.Icon != nil {
+		t.Fatalf("sent icon = %#v, want nil", payload.Icon)
+	}
+	if payload.RequestID == "" {
+		t.Fatal("sent requestId was empty")
+	}
+}
+
 type fakeTransport struct {
 	available bool
 	called    bool

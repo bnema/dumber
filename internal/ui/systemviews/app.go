@@ -19,6 +19,7 @@ type Dependencies struct {
 type App struct {
 	deps           Dependencies
 	currentRoute   Route
+	shellTheme     shellTheme
 	historyEntries []*entity.HistoryEntry
 	favorites      []*entity.Favorite
 	folders        []*entity.Folder
@@ -54,6 +55,7 @@ func (a *App) LoadInitial(ctx context.Context) error {
 	if a == nil {
 		return errors.New("app is nil")
 	}
+	a.loadShellTheme(ctx)
 	if a.currentRoute == "" || a.currentRoute == RouteUnknown {
 		a.currentRoute = ParseRoute(a.deps.LocationURI)
 	}
@@ -67,7 +69,11 @@ func (a *App) LoadInitial(ctx context.Context) error {
 		return a.loadConfigRoute(ctx)
 	default:
 		a.resetRouteState()
-		a.renderedHTML = placeholderHTML(a.currentRoute)
+		a.renderedHTML = renderAppFrame(renderedPage{
+			route:    a.currentRoute,
+			subtitle: string(a.currentRoute),
+			body:     placeholderHTML(a.currentRoute),
+		}, a.shellTheme)
 		return nil
 	}
 }
@@ -75,7 +81,11 @@ func (a *App) LoadInitial(ctx context.Context) error {
 func (a *App) loadHistoryRoute(ctx context.Context) error {
 	if a.deps.History == nil {
 		a.resetRouteState()
-		a.renderedHTML = placeholderHTML(a.currentRoute)
+		a.renderedHTML = renderAppFrame(renderedPage{
+			route:    a.currentRoute,
+			subtitle: "Recent visits",
+			body:     placeholderHTML(a.currentRoute),
+		}, a.shellTheme)
 		return nil
 	}
 
@@ -87,14 +97,22 @@ func (a *App) loadHistoryRoute(ctx context.Context) error {
 	a.folders = nil
 	a.tags = nil
 	a.historyEntries = entries
-	a.renderedHTML = historyHTML(entries)
+	a.renderedHTML = renderAppFrame(renderedPage{
+		route:    RouteHistory,
+		subtitle: "Recent visits",
+		body:     historyHTML(entries),
+	}, a.shellTheme)
 	return nil
 }
 
 func (a *App) loadFavoritesRoute(ctx context.Context) error {
 	if a.deps.Favorites == nil {
 		a.resetRouteState()
-		a.renderedHTML = placeholderHTML(a.currentRoute)
+		a.renderedHTML = renderAppFrame(renderedPage{
+			route:    a.currentRoute,
+			subtitle: "Saved bookmarks",
+			body:     placeholderHTML(a.currentRoute),
+		}, a.shellTheme)
 		return nil
 	}
 
@@ -115,14 +133,22 @@ func (a *App) loadFavoritesRoute(ctx context.Context) error {
 	a.favorites = favorites
 	a.folders = folders
 	a.tags = tags
-	a.renderedHTML = favoritesHTML(favorites, folders, tags)
+	a.renderedHTML = renderAppFrame(renderedPage{
+		route:    RouteFavorites,
+		subtitle: "Saved bookmarks",
+		body:     favoritesHTML(favorites, folders, tags),
+	}, a.shellTheme)
 	return nil
 }
 
 func (a *App) loadConfigRoute(ctx context.Context) error {
 	if a.deps.Config == nil {
 		a.resetRouteState()
-		a.renderedHTML = placeholderHTML(a.currentRoute)
+		a.renderedHTML = renderAppFrame(renderedPage{
+			route:    a.currentRoute,
+			subtitle: "Browser settings",
+			body:     placeholderHTML(a.currentRoute),
+		}, a.shellTheme)
 		return nil
 	}
 
@@ -141,8 +167,28 @@ func (a *App) loadConfigRoute(ctx context.Context) error {
 	a.tags = nil
 	a.config = &config
 	a.keybindings = keybindings
-	a.renderedHTML = configHTML(config, keybindings)
+	a.renderedHTML = renderAppFrame(renderedPage{
+		route:    RouteConfig,
+		subtitle: "Browser settings",
+		body:     configHTML(config, keybindings),
+	}, a.shellTheme)
 	return nil
+}
+
+func (a *App) loadShellTheme(ctx context.Context) {
+	if a == nil {
+		return
+	}
+
+	a.shellTheme = shellTheme{}
+	if a.deps.Config == nil {
+		return
+	}
+
+	config, err := a.deps.Config.Current(ctx)
+	if err == nil {
+		a.shellTheme = resolveShellTheme(config.Appearance)
+	}
 }
 
 func (a *App) resetRouteState() {

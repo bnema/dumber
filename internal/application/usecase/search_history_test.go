@@ -164,3 +164,15 @@ func TestSearchHistoryUseCase_ClearRange_AllUsesClearAll(t *testing.T) {
 	err := uc.ClearRange(ctx, "all")
 	require.NoError(t, err)
 }
+
+func TestSearchHistoryUseCase_ClearRange_UnknownRangeDoesNotDelete(t *testing.T) {
+	ctx := testContext()
+
+	historyRepo := repomocks.NewMockHistoryRepository(t)
+
+	uc := usecase.NewSearchHistoryUseCase(historyRepo)
+
+	err := uc.ClearRange(ctx, "bogus")
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "unknown history delete range")
+}
