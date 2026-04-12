@@ -795,20 +795,21 @@ func buildOmniboxConfig(
 	}
 
 	return component.OmniboxConfig{
-		HistoryUC:          deps.HistoryUC,
-		FavoritesUC:        deps.FavoritesUC,
-		FaviconAdapter:     faviconAdapter,
-		CopyURLUC:          deps.CopyURLUC,
-		ShortcutsUC:        usecase.NewSearchShortcutsUseCase(shortcuts),
-		DefaultSearch:      deps.Config.DefaultSearchEngine,
-		InitialBehavior:    deps.Config.Omnibox.InitialBehavior,
-		UIScale:            deps.Config.DefaultUIScale,
-		OnNavigate:         callbacks.OnNavigate,
-		OnToast:            callbacks.OnToast,
-		OnFocusIn:          callbacks.OnFocusIn,
-		OnFocusOut:         callbacks.OnFocusOut,
-		OnAccentKeyPress:   callbacks.OnAccentKeyPress,
-		OnAccentKeyRelease: callbacks.OnAccentKeyRelease,
+		HistoryUC:           deps.HistoryUC,
+		FavoritesUC:         deps.FavoritesUC,
+		FaviconAdapter:      faviconAdapter,
+		CopyURLUC:           deps.CopyURLUC,
+		ShortcutsUC:         usecase.NewSearchShortcutsUseCase(shortcuts),
+		DefaultSearch:       deps.Config.DefaultSearchEngine,
+		InitialBehavior:     deps.Config.Omnibox.InitialBehavior,
+		SaveInitialBehavior: deps.HandlerDeps.SaveOmniboxInitialBehavior,
+		UIScale:             deps.Config.DefaultUIScale,
+		OnNavigate:          callbacks.OnNavigate,
+		OnToast:             callbacks.OnToast,
+		OnFocusIn:           callbacks.OnFocusIn,
+		OnFocusOut:          callbacks.OnFocusOut,
+		OnAccentKeyPress:    callbacks.OnAccentKeyPress,
+		OnAccentKeyRelease:  callbacks.OnAccentKeyRelease,
 	}
 }
 

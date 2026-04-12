@@ -19,7 +19,7 @@ const (
 	defaultNewPaneURL = "about:blank"
 
 	// Omnibox defaults
-	defaultOmniboxInitialBehavior   = "recent"
+	defaultOmniboxInitialBehavior   = OmniboxInitialBehaviorRecent
 	defaultOmniboxAutoOpenOnNewPane = false
 
 	// Workspace defaults

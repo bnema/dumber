@@ -20,12 +20,14 @@ func BuildHandlerDeps(_ context.Context) (*port.HandlerDeps, error) {
 
 	gateway := config.NewKeybindingsGateway(mgr)
 	saveUC := usecase.NewSaveWebUIConfigUseCase(config.NewWebUIConfigGateway(mgr))
+	omniboxSaveUC := usecase.NewSaveOmniboxInitialBehaviorUseCase(config.NewOmniboxPreferencesGateway(mgr))
 
 	return &port.HandlerDeps{
-		SaveConfig:             saveUC.Execute,
-		KeybindingsGetter:      usecase.NewGetKeybindingsUseCase(gateway),
-		KeybindingSetter:       usecase.NewSetKeybindingUseCase(gateway, gateway),
-		KeybindingResetter:     usecase.NewResetKeybindingUseCase(gateway),
-		AllKeybindingsResetter: usecase.NewResetAllKeybindingsUseCase(gateway),
+		SaveConfig:                 saveUC.Execute,
+		SaveOmniboxInitialBehavior: omniboxSaveUC.Execute,
+		KeybindingsGetter:          usecase.NewGetKeybindingsUseCase(gateway),
+		KeybindingSetter:           usecase.NewSetKeybindingUseCase(gateway, gateway),
+		KeybindingResetter:         usecase.NewResetKeybindingUseCase(gateway),
+		AllKeybindingsResetter:     usecase.NewResetAllKeybindingsUseCase(gateway),
 	}, nil
 }

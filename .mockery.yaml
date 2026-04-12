@@ -29,6 +29,7 @@ packages:
       FontDetector: {}
       KeybindingsProvider: {}
       KeybindingsSaver: {}
+      OmniboxPreferencesSaver: {}
       DownloadResponse: {}
       PermissionDialogPresenter: {}
       PermissionRepository: {}

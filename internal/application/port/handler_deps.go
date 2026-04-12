@@ -1,6 +1,10 @@
 package port
 
-import "context"
+import (
+	"context"
+
+	"github.com/bnema/dumber/internal/domain/entity"
+)
 
 // AccentKeyHandler receives accent/dead-key events from the WebView JS bridge.
 type AccentKeyHandler interface {
@@ -39,9 +43,10 @@ type AutoCopyConfig interface {
 // A struct is used here to avoid reverse dependencies between the bootstrap and
 // UI layers, which both need to reference this shared dependency container.
 type HandlerDeps struct {
-	SaveConfig             func(context.Context, WebUIConfig) error
-	KeybindingsGetter      KeybindingsGetter
-	KeybindingSetter       KeybindingSetter
-	KeybindingResetter     KeybindingResetter
-	AllKeybindingsResetter AllKeybindingsResetter
+	SaveConfig                 func(context.Context, WebUIConfig) error
+	SaveOmniboxInitialBehavior func(context.Context, entity.OmniboxInitialBehavior) error
+	KeybindingsGetter          KeybindingsGetter
+	KeybindingSetter           KeybindingSetter
+	KeybindingResetter         KeybindingResetter
+	AllKeybindingsResetter     AllKeybindingsResetter
 }

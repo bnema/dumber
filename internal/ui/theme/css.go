@@ -407,6 +407,24 @@ entry.omnibox-entry > text:focus-visible {
 	font-weight: 600;
 }
 
+/* Header badge used for omnibox state */
+.omnibox-header-badge {
+	background-color: alpha(var(--surface-variant), 0.65);
+	color: var(--muted);
+	border: 0.0625em solid alpha(var(--border), 0.85);
+	border-radius: 0.1875em;
+	padding: 0.0625em 0.375em;
+	font-size: 0.6875em;
+	font-weight: 500;
+	transition: background-color 100ms ease-in-out, border-color 100ms ease-in-out, color 100ms ease-in-out;
+}
+
+.omnibox-header-badge:hover {
+	background-color: shade(var(--surface-variant), 1.08);
+	border-color: var(--border);
+	color: var(--text);
+}
+
 /* Zoom indicator in omnibox header */
 .omnibox-zoom-indicator {
 	background-color: alpha(var(--accent), 0.2);

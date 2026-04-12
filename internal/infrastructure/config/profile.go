@@ -284,7 +284,7 @@ func resolveCustomProfile(cfg *PerformanceConfig) ResolvedPerformanceSettings {
 // fields are set to non-default values. Used for validation.
 func HasCustomPerformanceFields(cfg *PerformanceConfig) bool {
 	return cfg.SkiaCPUPaintingThreads != 0 ||
-		cfg.SkiaGPUPaintingThreads != -1 ||
+		(cfg.SkiaGPUPaintingThreads != -1 && cfg.SkiaGPUPaintingThreads != 0) ||
 		cfg.SkiaEnableCPURendering ||
 		cfg.WebProcessMemoryLimitMB != 0 ||
 		cfg.WebProcessMemoryPollIntervalSec != 0 ||

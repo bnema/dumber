@@ -663,10 +663,14 @@ func (*SchemaProvider) getOmniboxKeys(defaults *Config) []entity.ConfigKeyInfo {
 		{
 			Key:         "omnibox.initial_behavior",
 			Type:        "string",
-			Default:     defaults.Omnibox.InitialBehavior,
+			Default:     string(defaults.Omnibox.InitialBehavior),
 			Description: "What to show when omnibox opens with empty input",
-			Values:      []string{"recent", "most_visited", "none"},
-			Section:     SectionOmnibox,
+			Values: []string{
+				string(OmniboxInitialBehaviorRecent),
+				string(OmniboxInitialBehaviorMostVisited),
+				string(OmniboxInitialBehaviorNone),
+			},
+			Section: SectionOmnibox,
 		},
 		{
 			Key:         "omnibox.auto_open_on_new_pane",
