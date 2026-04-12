@@ -157,6 +157,15 @@ const (
 	PopupBehaviorWindowed PopupBehavior = "windowed"
 )
 
+// OmniboxInitialBehavior controls what the omnibox shows for empty input.
+type OmniboxInitialBehavior string
+
+const (
+	OmniboxInitialBehaviorRecent      OmniboxInitialBehavior = "recent"
+	OmniboxInitialBehaviorMostVisited OmniboxInitialBehavior = "most_visited"
+	OmniboxInitialBehaviorNone        OmniboxInitialBehavior = "none"
+)
+
 // PopupBehaviorConfig controls how popup windows are handled.
 type PopupBehaviorConfig struct {
 	Behavior PopupBehavior `mapstructure:"behavior" yaml:"behavior" toml:"behavior" json:"behavior"`

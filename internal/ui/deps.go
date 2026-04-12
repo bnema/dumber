@@ -120,6 +120,9 @@ func (d *Dependencies) Validate() error {
 	if d.HandlerDeps.SaveConfig == nil {
 		return ErrMissingDependency("HandlerDeps.SaveConfig")
 	}
+	if d.HandlerDeps.SaveOmniboxInitialBehavior == nil {
+		return ErrMissingDependency("HandlerDeps.SaveOmniboxInitialBehavior")
+	}
 	// Use cases are optional - can be nil if not needed
 	return nil
 }

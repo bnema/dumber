@@ -389,11 +389,14 @@ func validateWorkspaceURLValue(fieldPath, value string) []string {
 
 func validateOmnibox(config *Config) []string {
 	switch config.Omnibox.InitialBehavior {
-	case "recent", "most_visited", "none":
+	case OmniboxInitialBehaviorRecent, OmniboxInitialBehaviorMostVisited, OmniboxInitialBehaviorNone:
 		return nil
 	default:
 		return []string{fmt.Sprintf(
-			"omnibox.initial_behavior must be one of: recent, most_visited, none (got: %s)",
+			"omnibox.initial_behavior must be one of: %s, %s, %s (got: %s)",
+			OmniboxInitialBehaviorRecent,
+			OmniboxInitialBehaviorMostVisited,
+			OmniboxInitialBehaviorNone,
 			config.Omnibox.InitialBehavior,
 		)}
 	}

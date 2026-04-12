@@ -27,10 +27,11 @@ import (
 )
 
 const (
-	debounceDelayMs           = 50
-	endBoxSpacing             = 6
-	defaultOmniboxPlaceholder = "Search history or enter URL… (! lists bangs)"
-	minGhostInputLength       = 1
+	debounceDelayMs             = 50
+	endBoxSpacing               = 6
+	defaultOmniboxPlaceholder   = "Search history or enter URL… (! lists bangs)"
+	minGhostInputLength         = 1
+	initialBehaviorBadgeTooltip = "Toggle default history order (Ctrl+R)"
 )
 
 type favoriteRowIndicatorUpdate struct {
@@ -73,16 +74,17 @@ type Favorite struct {
 // Omnibox is the native GTK4 address bar / command palette.
 type Omnibox struct {
 	// GTK widgets
-	outerBox     *gtk.Box // Outer container for positioning
-	mainBox      *gtk.Box // Main content box
-	headerBox    *gtk.Box
-	historyBtn   *gtk.Button
-	favoritesBtn *gtk.Button
-	zoomLabel    *gtk.Label
-	bangBadge    *gtk.Label
-	entry        *gtk.SearchEntry
-	scrolledWin  *gtk.ScrolledWindow
-	listBox      *gtk.ListBox
+	outerBox             *gtk.Box // Outer container for positioning
+	mainBox              *gtk.Box // Main content box
+	headerBox            *gtk.Box
+	initialBehaviorBadge *gtk.Button
+	historyBtn           *gtk.Button
+	favoritesBtn         *gtk.Button
+	zoomLabel            *gtk.Label
+	bangBadge            *gtk.Label
+	entry                *gtk.SearchEntry
+	scrolledWin          *gtk.ScrolledWindow
+	listBox              *gtk.ListBox
 
 	// Parent overlay reference for sizing (set via SetParentOverlay)
 	parentOverlay layout.OverlayWidget
@@ -106,14 +108,15 @@ type Omnibox struct {
 	isSettingGhost   bool   // Guard flag: skip onEntryChanged during programmatic SetText
 
 	// Dependencies
-	historyUC       *usecase.SearchHistoryUseCase
-	favoritesUC     *usecase.ManageFavoritesUseCase
-	faviconAdapter  *adapter.FaviconAdapter
-	copyURLUC       *usecase.CopyURLUseCase
-	shortcutsUC     *usecase.SearchShortcutsUseCase
-	defaultSearch   string
-	initialBehavior string
-	ctx             context.Context
+	historyUC             *usecase.SearchHistoryUseCase
+	favoritesUC           *usecase.ManageFavoritesUseCase
+	faviconAdapter        *adapter.FaviconAdapter
+	copyURLUC             *usecase.CopyURLUseCase
+	shortcutsUC           *usecase.SearchShortcutsUseCase
+	defaultSearch         string
+	initialBehavior       entity.OmniboxInitialBehavior
+	saveInitialBehaviorFn func(context.Context, entity.OmniboxInitialBehavior) error
+	ctx                   context.Context
 
 	// Callbacks
 	onNavigate         func(url string)
@@ -151,21 +154,22 @@ type Omnibox struct {
 
 // OmniboxConfig holds configuration for creating an Omnibox.
 type OmniboxConfig struct {
-	HistoryUC          *usecase.SearchHistoryUseCase
-	FavoritesUC        *usecase.ManageFavoritesUseCase
-	FaviconAdapter     *adapter.FaviconAdapter
-	CopyURLUC          *usecase.CopyURLUseCase
-	ShortcutsUC        *usecase.SearchShortcutsUseCase
-	DefaultSearch      string
-	InitialBehavior    string
-	UIScale            float64                                                     // UI scale for favicon sizing
-	OnNavigate         func(url string)                                            // Callback when user navigates via omnibox
-	OnToast            func(ctx context.Context, message string, level ToastLevel) // Callback to show toast notification
-	OnFocusIn          func(entry *gtk.SearchEntry)                                // Callback when entry gains focus (for accent picker)
-	OnFocusOut         func()                                                      // Callback when entry loses focus
-	OnAccentKeyPress   func(keyval uint, state gdk.ModifierType) bool              // Long-press accent detection
-	OnAccentKeyRelease func(keyval uint)                                           // Key release for accent cancel
-	SizeConfig         ModalSizeConfig                                             // Optional geometry override for omnibox sizing
+	HistoryUC           *usecase.SearchHistoryUseCase
+	FavoritesUC         *usecase.ManageFavoritesUseCase
+	FaviconAdapter      *adapter.FaviconAdapter
+	CopyURLUC           *usecase.CopyURLUseCase
+	ShortcutsUC         *usecase.SearchShortcutsUseCase
+	DefaultSearch       string
+	InitialBehavior     entity.OmniboxInitialBehavior
+	SaveInitialBehavior func(ctx context.Context, behavior entity.OmniboxInitialBehavior) error
+	UIScale             float64                                                     // UI scale for favicon sizing
+	OnNavigate          func(url string)                                            // Callback when user navigates via omnibox
+	OnToast             func(ctx context.Context, message string, level ToastLevel) // Callback to show toast notification
+	OnFocusIn           func(entry *gtk.SearchEntry)                                // Callback when entry gains focus (for accent picker)
+	OnFocusOut          func()                                                      // Callback when entry loses focus
+	OnAccentKeyPress    func(keyval uint, state gdk.ModifierType) bool              // Long-press accent detection
+	OnAccentKeyRelease  func(keyval uint)                                           // Key release for accent cancel
+	SizeConfig          ModalSizeConfig                                             // Optional geometry override for omnibox sizing
 }
 
 // NewOmnibox creates a new native GTK4 omnibox widget.
@@ -181,21 +185,22 @@ func NewOmnibox(ctx context.Context, cfg OmniboxConfig) *Omnibox {
 	sizeCfg := ResolveModalSizeConfig(cfg.SizeConfig, OmniboxSizeDefaults)
 
 	o := &Omnibox{
-		viewMode:           ViewModeHistory,
-		selectedIndex:      -1,
-		historyUC:          cfg.HistoryUC,
-		favoritesUC:        cfg.FavoritesUC,
-		faviconAdapter:     cfg.FaviconAdapter,
-		copyURLUC:          cfg.CopyURLUC,
-		shortcutsUC:        cfg.ShortcutsUC,
-		defaultSearch:      cfg.DefaultSearch,
-		initialBehavior:    cfg.InitialBehavior,
-		onToast:            cfg.OnToast,
-		onAccentKeyPress:   cfg.OnAccentKeyPress,
-		onAccentKeyRelease: cfg.OnAccentKeyRelease,
-		ctx:                ctx,
-		uiScale:            uiScale,
-		sizeCfg:            sizeCfg,
+		viewMode:              ViewModeHistory,
+		selectedIndex:         -1,
+		historyUC:             cfg.HistoryUC,
+		favoritesUC:           cfg.FavoritesUC,
+		faviconAdapter:        cfg.FaviconAdapter,
+		copyURLUC:             cfg.CopyURLUC,
+		shortcutsUC:           cfg.ShortcutsUC,
+		defaultSearch:         cfg.DefaultSearch,
+		initialBehavior:       cfg.InitialBehavior,
+		saveInitialBehaviorFn: cfg.SaveInitialBehavior,
+		onToast:               cfg.OnToast,
+		onAccentKeyPress:      cfg.OnAccentKeyPress,
+		onAccentKeyRelease:    cfg.OnAccentKeyRelease,
+		ctx:                   ctx,
+		uiScale:               uiScale,
+		sizeCfg:               sizeCfg,
 	}
 	o.idleCoalescer = mainloop.NewCoalescer(func(fn func()) {
 		var cb glib.SourceFunc = func(uintptr) bool {
@@ -334,6 +339,109 @@ func resultsContainerState(rowCount int) (visible, expand, listVisible bool) {
 
 func shouldApplyEmptyResultsState(rowCount int, visible bool) bool {
 	return !visible || rowCount <= 0
+}
+
+type initialBehaviorBadgeStateInfo struct {
+	visible      bool
+	label        string
+	tooltip      string
+	nextBehavior entity.OmniboxInitialBehavior
+}
+
+func initialBehaviorBadgeState(initialBehavior entity.OmniboxInitialBehavior) initialBehaviorBadgeStateInfo {
+	switch initialBehavior {
+	case entity.OmniboxInitialBehaviorRecent:
+		return initialBehaviorBadgeStateInfo{
+			visible:      true,
+			label:        "Recent",
+			tooltip:      initialBehaviorBadgeTooltip,
+			nextBehavior: entity.OmniboxInitialBehaviorMostVisited,
+		}
+	case entity.OmniboxInitialBehaviorMostVisited:
+		return initialBehaviorBadgeStateInfo{
+			visible:      true,
+			label:        "Most used",
+			tooltip:      initialBehaviorBadgeTooltip,
+			nextBehavior: entity.OmniboxInitialBehaviorRecent,
+		}
+	default:
+		return initialBehaviorBadgeStateInfo{}
+	}
+}
+
+var loadInitialHistoryFn = func(o *Omnibox, token uint64) {
+	o.loadInitialHistory(token)
+}
+
+func shouldRefreshInitialHistoryAfterToggle(viewMode ViewMode, query string, initialBehavior entity.OmniboxInitialBehavior) bool {
+	if viewMode != ViewModeHistory {
+		return false
+	}
+	if strings.TrimSpace(query) != "" {
+		return false
+	}
+	switch initialBehavior {
+	case entity.OmniboxInitialBehaviorRecent, entity.OmniboxInitialBehaviorMostVisited:
+		return true
+	default:
+		return false
+	}
+}
+
+func (o *Omnibox) refreshInitialBehaviorBadge() {
+	if o.initialBehaviorBadge == nil {
+		return
+	}
+
+	state := initialBehaviorBadgeState(o.initialBehavior)
+	o.initialBehaviorBadge.SetVisible(state.visible)
+	if !state.visible {
+		return
+	}
+	o.initialBehaviorBadge.SetLabel(state.label)
+	tooltip := state.tooltip
+	o.initialBehaviorBadge.SetTooltipText(&tooltip)
+}
+
+func (o *Omnibox) toggleInitialBehaviorPreference() bool {
+	state := initialBehaviorBadgeState(o.initialBehavior)
+	if state.nextBehavior == "" || o.saveInitialBehaviorFn == nil {
+		return false
+	}
+
+	nextBehavior := state.nextBehavior
+	if err := o.saveInitialBehaviorFn(o.ctx, nextBehavior); err != nil {
+		if o.onToast != nil {
+			o.onToast(o.ctx, "Failed to save default history order", ToastError)
+		}
+		return false
+	}
+
+	o.initialBehavior = nextBehavior
+	o.refreshInitialBehaviorBadge()
+
+	var query string
+	if o.entry != nil {
+		query = o.entry.GetText()
+	}
+	if shouldRefreshInitialHistoryAfterToggle(o.viewMode, query, o.initialBehavior) && loadInitialHistoryFn != nil {
+		loadInitialHistoryFn(o, o.searchToken)
+	}
+
+	return true
+}
+
+func (o *Omnibox) handleEscapeKeyPress() bool {
+	if o.entry == nil {
+		return false
+	}
+	text := o.entry.GetText()
+	if text != "" {
+		o.entry.SetText("")
+		return true
+	}
+	o.Hide(o.ctx)
+	return true
 }
 
 func (o *Omnibox) setResultsContainerState(rowCount int) {
@@ -545,6 +653,21 @@ func (o *Omnibox) initHeader() error {
 	o.favoritesBtn.AddCssClass("omnibox-header-btn")
 	o.favoritesBtn.SetCanFocus(false)
 
+	o.initialBehaviorBadge = gtk.NewButtonWithLabel("")
+	if o.initialBehaviorBadge == nil {
+		return errNilWidget("initialBehaviorBadge")
+	}
+	o.initialBehaviorBadge.AddCssClass("omnibox-header-badge")
+	o.initialBehaviorBadge.SetCanFocus(false)
+	o.initialBehaviorBadge.SetFocusOnClick(false)
+
+	initialBehaviorClickCb := func(_ gtk.Button) {
+		o.toggleInitialBehaviorPreference()
+	}
+	o.retainedCallbacks = append(o.retainedCallbacks, initialBehaviorClickCb)
+	o.initialBehaviorBadge.ConnectClicked(&initialBehaviorClickCb)
+	o.refreshInitialBehaviorBadge()
+
 	historyClickCb := func(_ gtk.Button) {
 		o.setViewMode(ViewModeHistory)
 	}
@@ -657,6 +780,9 @@ func (o *Omnibox) assembleWidgets() {
 	if endBox != nil {
 		endBox.SetHexpand(true)
 		endBox.SetHalign(gtk.AlignEndValue)
+		if o.initialBehaviorBadge != nil {
+			endBox.Append(&o.initialBehaviorBadge.Widget)
+		}
 		if o.bangBadge != nil {
 			endBox.Append(&o.bangBadge.Widget)
 		}
@@ -735,14 +861,13 @@ func (o *Omnibox) handleKeyPress(keyval, keycode uint, state gdk.ModifierType) b
 	ctrl := state&gdk.ControlMaskValue != 0
 
 	switch keyval {
-	case uint(gdk.KEY_Escape):
-		text := o.entry.GetText()
-		if text != "" {
-			o.entry.SetText("")
-			return true
+	case uint(gdk.KEY_r), uint(gdk.KEY_R):
+		if ctrl {
+			return o.toggleInitialBehaviorPreference()
 		}
-		o.Hide(o.ctx)
-		return true
+
+	case uint(gdk.KEY_Escape):
+		return o.handleEscapeKeyPress()
 
 	case uint(gdk.KEY_l), uint(gdk.KEY_L):
 		// Ctrl+L toggles omnibox (hides when visible)
@@ -1464,18 +1589,19 @@ func (o *Omnibox) loadInitialHistory(token uint64) {
 
 	// Capture effective result limit on the GTK main thread before spawning goroutine
 	initialLimit := o.effectiveMaxRows()
+	initialBehavior := o.initialBehavior
 
 	go func() {
 		ctx := o.ctx
 		log := logging.FromContext(ctx)
 		var suggestions []Suggestion
 
-		switch o.initialBehavior {
-		case "none":
+		switch initialBehavior {
+		case entity.OmniboxInitialBehaviorNone:
 			o.idleAddUpdateSuggestions(nil, "", token)
 			return
 
-		case "most_visited", "recent", "":
+		case entity.OmniboxInitialBehaviorMostVisited, entity.OmniboxInitialBehaviorRecent, "":
 			// Run history fetch and favorite URL fetch in parallel
 			type historyResult struct {
 				results []*entity.HistoryEntry
@@ -1489,7 +1615,7 @@ func (o *Omnibox) loadInitialHistory(token uint64) {
 					results []*entity.HistoryEntry
 					err     error
 				)
-				if o.initialBehavior == "most_visited" {
+				if initialBehavior == entity.OmniboxInitialBehaviorMostVisited {
 					results, err = o.historyUC.GetMostVisited(ctx, 0)
 					if err == nil && len(results) > initialLimit {
 						results = results[:initialLimit]

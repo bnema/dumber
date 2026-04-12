@@ -56,6 +56,18 @@ const (
 	PopupBehaviorWindowed = entity.PopupBehaviorWindowed
 )
 
+// OmniboxInitialBehavior defines how omnibox history is ordered on open.
+type OmniboxInitialBehavior = entity.OmniboxInitialBehavior
+
+const (
+	// OmniboxInitialBehaviorRecent shows recent visits first.
+	OmniboxInitialBehaviorRecent = entity.OmniboxInitialBehaviorRecent
+	// OmniboxInitialBehaviorMostVisited shows most visited sites first.
+	OmniboxInitialBehaviorMostVisited = entity.OmniboxInitialBehaviorMostVisited
+	// OmniboxInitialBehaviorNone shows no initial history.
+	OmniboxInitialBehaviorNone = entity.OmniboxInitialBehaviorNone
+)
+
 // PopupBehaviorConfig defines handling for popup windows.
 type PopupBehaviorConfig = entity.PopupBehaviorConfig
 
@@ -346,7 +358,7 @@ type ClipboardConfig struct {
 type OmniboxConfig struct {
 	// InitialBehavior controls what to show when omnibox opens with empty input
 	// Values: "recent" (recent visits), "most_visited" (most visited sites), "none" (nothing)
-	InitialBehavior string `mapstructure:"initial_behavior" yaml:"initial_behavior" toml:"initial_behavior"`
+	InitialBehavior OmniboxInitialBehavior `mapstructure:"initial_behavior" yaml:"initial_behavior" toml:"initial_behavior"`
 	// AutoOpenOnNewPane opens the omnibox automatically when a new pane is created.
 	// Default: false
 	AutoOpenOnNewPane bool `mapstructure:"auto_open_on_new_pane" yaml:"auto_open_on_new_pane" toml:"auto_open_on_new_pane"`
