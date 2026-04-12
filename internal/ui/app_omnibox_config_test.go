@@ -19,7 +19,4 @@ func TestBuildOmniboxConfig_UsesConfiguredMostVisitedDays(t *testing.T) {
 	if got.MostVisitedDays != 7 {
 		t.Fatalf("MostVisitedDays = %d, want 7", got.MostVisitedDays)
 	}
-	if !got.MostVisitedDaysSet {
-		t.Fatal("MostVisitedDaysSet = false, want true")
-	}
 }

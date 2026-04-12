@@ -27,12 +27,11 @@ import (
 )
 
 const (
-	debounceDelayMs               = 50
-	defaultOmniboxMostVisitedDays = 30
-	endBoxSpacing                 = 6
-	defaultOmniboxPlaceholder     = "Search history or enter URL… (! lists bangs)"
-	minGhostInputLength           = 1
-	initialBehaviorBadgeTooltip   = "Toggle default history order (Ctrl+R)"
+	debounceDelayMs             = 50
+	endBoxSpacing               = 6
+	defaultOmniboxPlaceholder   = "Search history or enter URL… (! lists bangs)"
+	minGhostInputLength         = 1
+	initialBehaviorBadgeTooltip = "Toggle default history order (Ctrl+R)"
 )
 
 type favoriteRowIndicatorUpdate struct {
@@ -117,7 +116,6 @@ type Omnibox struct {
 	defaultSearch         string
 	initialBehavior       entity.OmniboxInitialBehavior
 	mostVisitedDays       int
-	mostVisitedDaysSet    bool
 	saveInitialBehaviorFn func(context.Context, entity.OmniboxInitialBehavior) error
 	ctx                   context.Context
 
@@ -165,7 +163,6 @@ type OmniboxConfig struct {
 	DefaultSearch       string
 	InitialBehavior     entity.OmniboxInitialBehavior
 	MostVisitedDays     int
-	MostVisitedDaysSet  bool
 	SaveInitialBehavior func(ctx context.Context, behavior entity.OmniboxInitialBehavior) error
 	UIScale             float64                                                     // UI scale for favicon sizing
 	OnNavigate          func(url string)                                            // Callback when user navigates via omnibox
@@ -186,10 +183,6 @@ func NewOmnibox(ctx context.Context, cfg OmniboxConfig) *Omnibox {
 	if uiScale <= 0 {
 		uiScale = 1.0
 	}
-	mostVisitedDays := cfg.MostVisitedDays
-	if !cfg.MostVisitedDaysSet {
-		mostVisitedDays = defaultOmniboxMostVisitedDays
-	}
 
 	sizeCfg := ResolveModalSizeConfig(cfg.SizeConfig, OmniboxSizeDefaults)
 
@@ -203,8 +196,7 @@ func NewOmnibox(ctx context.Context, cfg OmniboxConfig) *Omnibox {
 		shortcutsUC:           cfg.ShortcutsUC,
 		defaultSearch:         cfg.DefaultSearch,
 		initialBehavior:       cfg.InitialBehavior,
-		mostVisitedDays:       mostVisitedDays,
-		mostVisitedDaysSet:    cfg.MostVisitedDaysSet,
+		mostVisitedDays:       cfg.MostVisitedDays,
 		saveInitialBehaviorFn: cfg.SaveInitialBehavior,
 		onToast:               cfg.OnToast,
 		onAccentKeyPress:      cfg.OnAccentKeyPress,
@@ -1602,7 +1594,6 @@ func (o *Omnibox) loadInitialHistory(token uint64) {
 	initialLimit := o.effectiveMaxRows()
 	initialBehavior := o.initialBehavior
 	mostVisitedDays := o.mostVisitedDays
-	mostVisitedDaysSet := o.mostVisitedDaysSet
 
 	go func() {
 		ctx := o.ctx
@@ -1629,9 +1620,7 @@ func (o *Omnibox) loadInitialHistory(token uint64) {
 					err     error
 				)
 				if initialBehavior == entity.OmniboxInitialBehaviorMostVisited {
-					if !mostVisitedDaysSet {
-						results, err = o.historyUC.GetMostVisited(ctx, defaultOmniboxMostVisitedDays)
-					} else if mostVisitedDays == 0 {
+					if mostVisitedDays == 0 {
 						results, err = o.historyUC.GetMostVisited(ctx, 0)
 					} else {
 						results, err = o.historyUC.GetMostVisited(ctx, mostVisitedDays)

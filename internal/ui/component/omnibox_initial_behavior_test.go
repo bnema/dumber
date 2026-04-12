@@ -192,6 +192,7 @@ func TestOmniboxLoadInitialHistory_MostVisitedUsesThirtyDayWindow(t *testing.T) 
 	o := &Omnibox{
 		historyUC:       appusecase.NewSearchHistoryUseCase(repo),
 		initialBehavior: entity.OmniboxInitialBehaviorMostVisited,
+		mostVisitedDays: 30,
 		ctx:             context.Background(),
 	}
 
@@ -215,11 +216,10 @@ func TestOmniboxLoadInitialHistory_MostVisitedUsesConfiguredWindow(t *testing.T)
 	)
 
 	o := &Omnibox{
-		historyUC:          appusecase.NewSearchHistoryUseCase(repo),
-		initialBehavior:    entity.OmniboxInitialBehaviorMostVisited,
-		mostVisitedDays:    7,
-		mostVisitedDaysSet: true,
-		ctx:                context.Background(),
+		historyUC:       appusecase.NewSearchHistoryUseCase(repo),
+		initialBehavior: entity.OmniboxInitialBehaviorMostVisited,
+		mostVisitedDays: 7,
+		ctx:             context.Background(),
 	}
 
 	o.loadInitialHistory(1)
@@ -242,11 +242,10 @@ func TestOmniboxLoadInitialHistory_MostVisitedZeroWindowUsesAllHistory(t *testin
 	)
 
 	o := &Omnibox{
-		historyUC:          appusecase.NewSearchHistoryUseCase(repo),
-		initialBehavior:    entity.OmniboxInitialBehaviorMostVisited,
-		mostVisitedDays:    0,
-		mostVisitedDaysSet: true,
-		ctx:                context.Background(),
+		historyUC:       appusecase.NewSearchHistoryUseCase(repo),
+		initialBehavior: entity.OmniboxInitialBehaviorMostVisited,
+		mostVisitedDays: 0,
+		ctx:             context.Background(),
 	}
 
 	o.loadInitialHistory(1)
