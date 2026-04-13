@@ -9,6 +9,7 @@ import (
 
 	"github.com/bnema/dumber/internal/application/port"
 	"github.com/bnema/dumber/internal/domain/entity"
+	"github.com/bnema/dumber/internal/logging"
 	"github.com/rs/zerolog"
 )
 
@@ -57,6 +58,31 @@ func (uc *HandlePermissionUseCase) logger(ctx context.Context) *zerolog.Logger {
 	return log
 }
 
+func isWebsiteDataAccessPermission(permTypes []entity.PermissionType) bool {
+	for _, permType := range permTypes {
+		if permType == entity.PermissionTypeWebsiteDataAccess {
+			return true
+		}
+	}
+	return false
+}
+
+func permissionLoggerWithMetadata(log *zerolog.Logger, metadata entity.PermissionMetadata) *zerolog.Logger {
+	if log == nil {
+		nop := zerolog.Nop()
+		return &nop
+	}
+	ctx := log.With()
+	if requesting := metadata[entity.PermissionMetadataKeyRequestingDomain]; requesting != "" {
+		ctx = ctx.Str("requesting_domain", logging.TruncateURL(requesting, logging.PermissionLogURLMaxLen))
+	}
+	if current := metadata[entity.PermissionMetadataKeyCurrentDomain]; current != "" {
+		ctx = ctx.Str("current_domain", logging.TruncateURL(current, logging.PermissionLogURLMaxLen))
+	}
+	enriched := ctx.Logger()
+	return &enriched
+}
+
 // SetDialogPresenter sets the dialog presenter. This can be called after
 // initialization when the UI window is available.
 func (uc *HandlePermissionUseCase) SetDialogPresenter(dialog port.PermissionDialogPresenter) {
@@ -79,11 +105,15 @@ func (uc *HandlePermissionUseCase) getDialog() port.PermissionDialogPresenter {
 //   - ctx: context for cancellation and logging
 //   - origin: the website origin (URI) requesting permission
 //   - permTypes: the types of permissions being requested
+//   - metadata: permission-type-specific context; for website_data_access both keys must be present:
+//     entity.PermissionMetadataKeyRequestingDomain — the origin requesting cross-site data access
+//     entity.PermissionMetadataKeyCurrentDomain    — the domain currently loaded in the WebView
 //   - callback: callbacks to allow or deny the request (must call one)
 func (uc *HandlePermissionUseCase) HandlePermissionRequest(
 	ctx context.Context,
 	origin string,
 	permTypes []entity.PermissionType,
+	metadata entity.PermissionMetadata,
 	callback PermissionCallback,
 ) {
 	log := uc.logger(ctx).With().
@@ -123,10 +153,18 @@ func (uc *HandlePermissionUseCase) HandlePermissionRequest(
 	decision := uc.checkStoredPermissions(ctx, origin, permTypes)
 	switch decision {
 	case entity.PermissionGranted:
+		if isWebsiteDataAccessPermission(permTypes) {
+			permissionLoggerWithMetadata(&log, metadata).Info().
+				Msg("using stored website data access permission: granted")
+		}
 		log.Debug().Msg("using stored permission: granted")
 		callback.Allow()
 		return
 	case entity.PermissionDenied:
+		if isWebsiteDataAccessPermission(permTypes) {
+			permissionLoggerWithMetadata(&log, metadata).Info().
+				Msg("using stored website data access permission: denied")
+		}
 		log.Debug().Msg("using stored permission: denied")
 		callback.Deny()
 		return
@@ -135,7 +173,7 @@ func (uc *HandlePermissionUseCase) HandlePermissionRequest(
 	}
 
 	// Show dialog for undecided permissions
-	uc.showPermissionDialog(ctx, origin, permTypes, callback)
+	uc.showPermissionDialog(ctx, origin, permTypes, metadata, callback)
 }
 
 // QueryPermissionState returns the current permission state for the W3C Permissions API.
@@ -249,6 +287,7 @@ func (uc *HandlePermissionUseCase) showPermissionDialog(
 	ctx context.Context,
 	origin string,
 	permTypes []entity.PermissionType,
+	metadata entity.PermissionMetadata,
 	callback PermissionCallback,
 ) {
 	log := uc.logger(ctx)
@@ -262,8 +301,13 @@ func (uc *HandlePermissionUseCase) showPermissionDialog(
 		return
 	}
 
-	dialog.ShowPermissionDialog(ctx, origin, permTypes, func(result port.PermissionDialogResult) {
+	dialog.ShowPermissionDialog(ctx, origin, permTypes, metadata, func(result port.PermissionDialogResult) {
 		if result.Allowed {
+			if isWebsiteDataAccessPermission(permTypes) {
+				permissionLoggerWithMetadata(log, metadata).Info().
+					Bool("persistent", result.Persistent).
+					Msg("website data access permission allowed")
+			}
 			log.Debug().Bool("persistent", result.Persistent).Msg("user allowed permission")
 			callback.Allow()
 
@@ -272,6 +316,11 @@ func (uc *HandlePermissionUseCase) showPermissionDialog(
 				uc.persistPermission(ctx, origin, permTypes, entity.PermissionGranted)
 			}
 		} else {
+			if isWebsiteDataAccessPermission(permTypes) {
+				permissionLoggerWithMetadata(log, metadata).Info().
+					Bool("persistent", result.Persistent).
+					Msg("website data access permission denied")
+			}
 			log.Debug().Msg("user denied permission")
 			callback.Deny()
 

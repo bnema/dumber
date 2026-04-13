@@ -20,31 +20,6 @@ func TestOmnibox_IsSearchTokenCurrent(t *testing.T) {
 	}
 }
 
-func TestOmnibox_IsGhostTokenCurrent(t *testing.T) {
-	o := &Omnibox{}
-	o.visible = true
-	o.ghostToken = 5
-	o.realInput = "git"
-
-	if !o.isGhostTokenCurrent(5, "git") {
-		t.Fatalf("expected ghost token to be current")
-	}
-	if o.isGhostTokenCurrent(4, "git") {
-		t.Fatalf("expected stale ghost token to be rejected")
-	}
-	if o.isGhostTokenCurrent(5, "github") {
-		t.Fatalf("expected query mismatch to be rejected")
-	}
-
-	o.visible = false
-	if o.isGhostTokenCurrent(5, "git") {
-		t.Fatalf("expected hidden omnibox to reject matching ghost token")
-	}
-	if o.isGhostTokenCurrent(4, "github") {
-		t.Fatalf("expected hidden omnibox to reject stale ghost token and query")
-	}
-}
-
 func TestOmnibox_IsBangUpdateCurrent(t *testing.T) {
 	o := &Omnibox{}
 	o.visible = true

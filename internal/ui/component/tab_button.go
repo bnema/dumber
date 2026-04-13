@@ -3,8 +3,8 @@ package component
 
 import (
 	"github.com/bnema/dumber/internal/domain/entity"
-	"github.com/jwijenbergh/puregotk/v4/gtk"
-	"github.com/jwijenbergh/puregotk/v4/pango"
+	"github.com/bnema/puregotk/v4/gtk"
+	"github.com/bnema/puregotk/v4/pango"
 )
 
 // TabButton represents a single tab button in the tab bar.

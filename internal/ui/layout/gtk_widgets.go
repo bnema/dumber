@@ -1,11 +1,11 @@
 package layout
 
 import (
-	"github.com/jwijenbergh/puregotk/v4/gdk"
-	"github.com/jwijenbergh/puregotk/v4/gobject"
-	"github.com/jwijenbergh/puregotk/v4/graphene"
-	"github.com/jwijenbergh/puregotk/v4/gtk"
-	"github.com/jwijenbergh/puregotk/v4/pango"
+	"github.com/bnema/puregotk/v4/gdk"
+	"github.com/bnema/puregotk/v4/gobject"
+	"github.com/bnema/puregotk/v4/graphene"
+	"github.com/bnema/puregotk/v4/gtk"
+	"github.com/bnema/puregotk/v4/pango"
 )
 
 // Ensure implementations satisfy interfaces at compile time.
@@ -169,7 +169,7 @@ func (p *gtkPaned) ConnectMap(callback func()) uint {
 }
 
 func (p *gtkPaned) ConnectNotifyPosition(callback func()) uint {
-	cb := func(_ gobject.Object, _ uintptr) {
+	cb := func(_ gobject.Object, _ *gobject.ParamSpec) {
 		callback()
 	}
 	return p.inner.ConnectNotifyWithDetail("position", &cb)

@@ -47,7 +47,7 @@ func TestListSessionsUseCase_Execute_ReturnsSessionsWithState(t *testing.T) {
 	sessionRepo.EXPECT().GetRecent(ctx, 50).Return(sessions, nil)
 	stateRepo.EXPECT().GetAllSnapshots(ctx).Return(states, nil)
 
-	uc := usecase.NewListSessionsUseCase(sessionRepo, stateRepo, "")
+	uc := usecase.NewListSessionsUseCase(sessionRepo, stateRepo)
 
 	output, err := uc.Execute(ctx, "", 50)
 	require.NoError(t, err)
@@ -103,7 +103,7 @@ func TestListSessionsUseCase_GetPurgeableSessions_ReturnsOnlyInactive(t *testing
 	stateRepo.EXPECT().GetAllSnapshots(ctx).Return(nil, nil)
 	stateRepo.EXPECT().GetTotalSnapshotsSize(ctx).Return(int64(12345), nil)
 
-	uc := usecase.NewListSessionsUseCase(sessionRepo, stateRepo, "")
+	uc := usecase.NewListSessionsUseCase(sessionRepo, stateRepo)
 
 	output, err := uc.GetPurgeableSessions(ctx)
 	require.NoError(t, err)
@@ -139,7 +139,7 @@ func TestListSessionsUseCase_GetPurgeableSessions_EmptyWhenAllActive(t *testing.
 	stateRepo.EXPECT().GetAllSnapshots(ctx).Return(nil, nil)
 	stateRepo.EXPECT().GetTotalSnapshotsSize(ctx).Return(int64(0), nil)
 
-	uc := usecase.NewListSessionsUseCase(sessionRepo, stateRepo, "")
+	uc := usecase.NewListSessionsUseCase(sessionRepo, stateRepo)
 
 	output, err := uc.GetPurgeableSessions(ctx)
 	require.NoError(t, err)
@@ -167,7 +167,7 @@ func TestListSessionsUseCase_GetPurgeableSessions_HandlesGetSizeError(t *testing
 	stateRepo.EXPECT().GetAllSnapshots(ctx).Return(nil, nil)
 	stateRepo.EXPECT().GetTotalSnapshotsSize(ctx).Return(int64(0), assert.AnError)
 
-	uc := usecase.NewListSessionsUseCase(sessionRepo, stateRepo, "")
+	uc := usecase.NewListSessionsUseCase(sessionRepo, stateRepo)
 
 	output, err := uc.GetPurgeableSessions(ctx)
 	// Should succeed even if size query fails

@@ -3,7 +3,7 @@ package component
 import (
 	"testing"
 
-	"github.com/jwijenbergh/puregotk/v4/gdk"
+	"github.com/bnema/puregotk/v4/gdk"
 )
 
 func TestShouldPreferTypedURLNavigation(t *testing.T) {
@@ -44,51 +44,22 @@ func TestResetSearchSessionState(t *testing.T) {
 	}
 }
 
-func TestShouldUpdateGhostImmediately(t *testing.T) {
+func TestIsDeletionKey(t *testing.T) {
 	tests := []struct {
-		name          string
-		previousInput string
-		entryText     string
-		want          bool
+		name string
+		key  uint
+		want bool
 	}{
-		{name: "typing forward", previousInput: "goo", entryText: "goog", want: true},
-		{name: "same length replace", previousInput: "goo", entryText: "gaa", want: true},
-		{name: "backspace", previousInput: "goog", entryText: "goo", want: false},
-		{name: "clear input", previousInput: "goo", entryText: "", want: false},
+		{name: "backspace is deletion", key: uint(gdk.KEY_BackSpace), want: true},
+		{name: "delete is deletion", key: uint(gdk.KEY_Delete), want: true},
+		{name: "typing key is not deletion", key: uint(gdk.KEY_g), want: false},
+		{name: "arrow key is not deletion", key: uint(gdk.KEY_Left), want: false},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			if got := shouldUpdateGhostImmediately(tt.previousInput, tt.entryText); got != tt.want {
-				t.Fatalf(
-					"shouldUpdateGhostImmediately(%q, %q) = %v, want %v",
-					tt.previousInput,
-					tt.entryText,
-					got,
-					tt.want,
-				)
-			}
-		})
-	}
-}
-
-func TestNextGhostSuppressionState(t *testing.T) {
-	tests := []struct {
-		name    string
-		current bool
-		key     uint
-		want    bool
-	}{
-		{name: "backspace enables suppression", current: false, key: uint(gdk.KEY_BackSpace), want: true},
-		{name: "delete enables suppression", current: false, key: uint(gdk.KEY_Delete), want: true},
-		{name: "typing key disables suppression", current: true, key: uint(gdk.KEY_g), want: false},
-		{name: "arrow key disables suppression", current: true, key: uint(gdk.KEY_Left), want: false},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			if got := nextGhostSuppressionState(tt.key); got != tt.want {
-				t.Fatalf("nextGhostSuppressionState(%v, %d) = %v, want %v", tt.current, tt.key, got, tt.want)
+			if got := isDeletionKey(tt.key); got != tt.want {
+				t.Fatalf("isDeletionKey(%d) = %v, want %v", tt.key, got, tt.want)
 			}
 		})
 	}
@@ -116,6 +87,38 @@ func TestEffectiveSearchQuery(t *testing.T) {
 	}
 }
 
+func TestResultsContainerState(t *testing.T) {
+	tests := []struct {
+		name            string
+		rowCount        int
+		wantVisible     bool
+		wantExpand      bool
+		wantListVisible bool
+	}{
+		{name: "negative rows stays hidden", rowCount: -1, wantVisible: false, wantExpand: false, wantListVisible: false},
+		{name: "no rows stays hidden", rowCount: 0, wantVisible: false, wantExpand: false, wantListVisible: false},
+		{name: "rows show and expand", rowCount: 3, wantVisible: true, wantExpand: true, wantListVisible: true},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			gotVisible, gotExpand, gotListVisible := resultsContainerState(tt.rowCount)
+			if gotVisible != tt.wantVisible || gotExpand != tt.wantExpand || gotListVisible != tt.wantListVisible {
+				t.Fatalf(
+					"resultsContainerState(%d) = (%v, %v, %v), want (%v, %v, %v)",
+					tt.rowCount,
+					gotVisible,
+					gotExpand,
+					gotListVisible,
+					tt.wantVisible,
+					tt.wantExpand,
+					tt.wantListVisible,
+				)
+			}
+		})
+	}
+}
+
 func TestUpdateGhostFromSelectionUsesRealInputWhenGhostVisible(t *testing.T) {
 	entryText := "github.com/bnema/dumber"
 	realInput := "upl"
@@ -130,25 +133,30 @@ func TestResolveTargetURLForSelection(t *testing.T) {
 	suggestions := []Suggestion{
 		{URL: "https://github.com/bnema/dumber"},
 		{URL: "https://github.com/bnema/dumber/pulls"},
+		{URL: "https://github.com/bnema/dumber/issues"},
 	}
 	favorites := []Favorite{
 		{URL: "https://dumber.bnema.dev"},
+		{URL: "https://docs.dumber.bnema.dev"},
 	}
 
 	tests := []struct {
 		name    string
 		mode    ViewMode
 		index   int
+		limit   int
 		wantURL string
 	}{
-		{name: "history index", mode: ViewModeHistory, index: 1, wantURL: "https://github.com/bnema/dumber/pulls"},
-		{name: "favorites index", mode: ViewModeFavorites, index: 0, wantURL: "https://dumber.bnema.dev"},
-		{name: "invalid index", mode: ViewModeHistory, index: 99, wantURL: ""},
+		{name: "history index", mode: ViewModeHistory, index: 1, limit: 10, wantURL: "https://github.com/bnema/dumber/pulls"},
+		{name: "favorites index", mode: ViewModeFavorites, index: 0, limit: 10, wantURL: "https://dumber.bnema.dev"},
+		{name: "invalid index", mode: ViewModeHistory, index: 99, limit: 10, wantURL: ""},
+		{name: "history index beyond visible limit is hidden", mode: ViewModeHistory, index: 2, limit: 2, wantURL: ""},
+		{name: "favorites index beyond visible limit is hidden", mode: ViewModeFavorites, index: 1, limit: 1, wantURL: ""},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got := resolveTargetURLForSelection(tt.mode, tt.index, suggestions, favorites)
+			got := resolveTargetURLForSelection(tt.mode, tt.index, tt.limit, suggestions, favorites)
 			if got != tt.wantURL {
 				t.Fatalf("resolveTargetURLForSelection(%s, %d) = %q, want %q", tt.mode, tt.index, got, tt.wantURL)
 			}
@@ -159,26 +167,31 @@ func TestResolveTargetURLForSelection(t *testing.T) {
 func TestSelectedTargetURL(t *testing.T) {
 	suggestions := []Suggestion{
 		{URL: "https://github.com/bnema/dumber"},
+		{URL: "https://github.com/bnema/dumber/pulls"},
 	}
 	favorites := []Favorite{
 		{URL: "https://dumber.bnema.dev"},
+		{URL: "https://docs.dumber.bnema.dev"},
 	}
 
 	tests := []struct {
 		name     string
 		mode     ViewMode
 		index    int
+		limit    int
 		wantURL  string
 		wantBool bool
 	}{
-		{name: "negative index is not explicit selection", mode: ViewModeHistory, index: -1, wantURL: "", wantBool: false},
-		{name: "history selection is explicit", mode: ViewModeHistory, index: 0, wantURL: "https://github.com/bnema/dumber", wantBool: true},
-		{name: "favorites selection is explicit", mode: ViewModeFavorites, index: 0, wantURL: "https://dumber.bnema.dev", wantBool: true},
+		{name: "negative index is not explicit selection", mode: ViewModeHistory, index: -1, limit: 10, wantURL: "", wantBool: false},
+		{name: "history selection is explicit", mode: ViewModeHistory, index: 0, limit: 10, wantURL: "https://github.com/bnema/dumber", wantBool: true},
+		{name: "favorites selection is explicit", mode: ViewModeFavorites, index: 0, limit: 10, wantURL: "https://dumber.bnema.dev", wantBool: true},
+		{name: "hidden history selection is ignored", mode: ViewModeHistory, index: 1, limit: 1, wantURL: "", wantBool: true},
+		{name: "hidden favorites selection is ignored", mode: ViewModeFavorites, index: 1, limit: 1, wantURL: "", wantBool: true},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			gotURL, gotBool := selectedTargetURL(tt.mode, tt.index, suggestions, favorites)
+			gotURL, gotBool := selectedTargetURL(tt.mode, tt.index, tt.limit, suggestions, favorites)
 			if gotURL != tt.wantURL || gotBool != tt.wantBool {
 				t.Fatalf("selectedTargetURL(%s, %d) = (%q, %v), want (%q, %v)", tt.mode, tt.index, gotURL, gotBool, tt.wantURL, tt.wantBool)
 			}
@@ -233,6 +246,7 @@ func TestVisibleGhostSuggestion(t *testing.T) {
 				tt.selectedURL,
 				tt.hasExplicitSelection,
 				ViewModeHistory,
+				10,
 				suggestions,
 				nil,
 			)
@@ -249,6 +263,18 @@ func TestVisibleGhostSuggestion(t *testing.T) {
 				)
 			}
 		})
+	}
+}
+
+func TestVisibleGhostSuggestionRespectsVisibleLimit(t *testing.T) {
+	suggestions := []Suggestion{
+		{URL: "https://github.com/bnema/dumber"},
+		{URL: "https://gitlab.com/team/project"},
+	}
+
+	gotFull, gotSuffix, gotOK := visibleGhostSuggestion("gitl", "", false, ViewModeHistory, 1, suggestions, nil)
+	if gotFull != "" || gotSuffix != "" || gotOK {
+		t.Fatalf("visibleGhostSuggestion should ignore hidden suggestions, got (%q, %q, %v)", gotFull, gotSuffix, gotOK)
 	}
 }
 

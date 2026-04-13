@@ -76,7 +76,6 @@ func generateWebRTCPermissionIndicatorCSS(p Palette) string {
 	background-color: alpha(var(--bg), 0.35);
 	background-image: none;
 	color: var(--muted);
-	text-align: left;
 	transition: background-color 150ms ease-in-out,
 	            border-color 150ms ease-in-out,
 	            color 150ms ease-in-out;

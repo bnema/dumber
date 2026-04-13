@@ -6,7 +6,6 @@ import (
 	"path/filepath"
 	"sync"
 
-	"github.com/bnema/dumber/internal/application/port"
 	"github.com/bnema/dumber/internal/logging"
 	"github.com/bnema/puregotk-webkit/webkit"
 	"github.com/rs/zerolog"
@@ -36,17 +35,17 @@ type WebKitContext struct {
 // The dataDir and cacheDir are used for cookie storage, cache, and other persistent data.
 // This MUST be called before creating any WebViews to ensure they use persistent storage.
 func NewWebKitContext(ctx context.Context, dataDir, cacheDir string) (*WebKitContext, error) {
-	return NewWebKitContextWithOptions(ctx, port.WebKitContextOptions{
+	return NewWebKitContextWithOptions(ctx, webKitContextOptions{
 		DataDir:      dataDir,
 		CacheDir:     cacheDir,
-		CookiePolicy: port.WebKitCookiePolicyNoThirdParty,
+		CookiePolicy: cookiePolicyNoThirdParty,
 		ITPEnabled:   true,
 	})
 }
 
 // NewWebKitContextWithOptions creates and initializes a WebKitContext with the given options.
 // This allows configuring memory pressure settings for web and network processes.
-func NewWebKitContextWithOptions(ctx context.Context, opts port.WebKitContextOptions) (*WebKitContext, error) {
+func NewWebKitContextWithOptions(ctx context.Context, opts webKitContextOptions) (*WebKitContext, error) {
 	log := logging.FromContext(ctx).With().Str("component", "webkit-context").Logger()
 
 	if opts.DataDir == "" {
@@ -114,7 +113,7 @@ func NewWebKitContextWithOptions(ctx context.Context, opts port.WebKitContextOpt
 }
 
 // initNetworkSession creates and configures the persistent network session.
-func (c *WebKitContext) initNetworkSession(opts port.WebKitContextOptions) error {
+func (c *WebKitContext) initNetworkSession(opts webKitContextOptions) error {
 	// Create persistent network session
 	session := webkit.NewNetworkSession(&c.dataDir, &c.cacheDir)
 	if session == nil {
@@ -188,16 +187,18 @@ func (c *WebKitContext) initNetworkSession(opts port.WebKitContextOptions) error
 	return nil
 }
 
-func mapCookiePolicy(policy port.WebKitCookiePolicy) (webkit.CookieAcceptPolicy, string) {
+func mapCookiePolicy(policy cookiePolicy) (webkit.CookieAcceptPolicy, string) {
 	switch policy {
-	case port.WebKitCookiePolicyAlways:
-		return webkit.CookiePolicyAcceptAlwaysValue, string(port.WebKitCookiePolicyAlways)
-	case port.WebKitCookiePolicyNever:
-		return webkit.CookiePolicyAcceptNeverValue, string(port.WebKitCookiePolicyNever)
-	case port.WebKitCookiePolicyNoThirdParty, "":
-		return webkit.CookiePolicyAcceptNoThirdPartyValue, string(port.WebKitCookiePolicyNoThirdParty)
+	case cookiePolicyAlways:
+		return webkit.CookiePolicyAcceptAlwaysValue, string(cookiePolicyAlways)
+	case cookiePolicyNever:
+		return webkit.CookiePolicyAcceptNeverValue, string(cookiePolicyNever)
+	case cookiePolicyNoThirdParty:
+		return webkit.CookiePolicyAcceptNoThirdPartyValue, string(cookiePolicyNoThirdParty)
+	case "":
+		return webkit.CookiePolicyAcceptNoThirdPartyValue, ""
 	default:
-		return webkit.CookiePolicyAcceptNoThirdPartyValue, string(port.WebKitCookiePolicyNoThirdParty)
+		return webkit.CookiePolicyAcceptNoThirdPartyValue, string(cookiePolicyNoThirdParty)
 	}
 }
 

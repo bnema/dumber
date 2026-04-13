@@ -43,6 +43,21 @@ func TestNormalize(t *testing.T) {
 			want:  "about:blank",
 		},
 		{
+			name:  "mailto scheme unchanged",
+			input: "mailto:foo@example.com",
+			want:  "mailto:foo@example.com",
+		},
+		{
+			name:  "magnet scheme unchanged",
+			input: "magnet:?xt=urn:btih:123",
+			want:  "magnet:?xt=urn:btih:123",
+		},
+		{
+			name:  "obsidian scheme unchanged",
+			input: "obsidian://open?vault=foo.bar",
+			want:  "obsidian://open?vault=foo.bar",
+		},
+		{
 			name:  "domain gets https",
 			input: "example.com",
 			want:  "https://example.com",
@@ -336,8 +351,33 @@ func TestLooksLikeURL(t *testing.T) {
 			want:  true,
 		},
 		{
+			name:  "obsidian URL",
+			input: "obsidian://open?vault=foo.bar",
+			want:  true,
+		},
+		{
 			name:  "about URL",
 			input: "about:blank",
+			want:  true,
+		},
+		{
+			name:  "spotify URL",
+			input: "spotify://track/123",
+			want:  true,
+		},
+		{
+			name:  "mailto URL",
+			input: "mailto:foo@example.com",
+			want:  true,
+		},
+		{
+			name:  "magnet URL",
+			input: "magnet:?xt=urn:btih:123",
+			want:  true,
+		},
+		{
+			name:  "vscode URL",
+			input: "vscode://file/tmp/demo",
 			want:  true,
 		},
 		{
@@ -520,6 +560,16 @@ func TestIsExternalScheme(t *testing.T) {
 			want:  true,
 		},
 		{
+			name:  "geo scheme",
+			input: "geo:37.786971,-122.399677",
+			want:  true,
+		},
+		{
+			name:  "xmpp scheme",
+			input: "xmpp:user@example.com",
+			want:  true,
+		},
+		{
 			name:  "malformed URL",
 			input: "://invalid",
 			want:  false,
@@ -527,6 +577,11 @@ func TestIsExternalScheme(t *testing.T) {
 		{
 			name:  "no scheme",
 			input: "example.com",
+			want:  false,
+		},
+		{
+			name:  "localhost port is not external scheme",
+			input: "localhost:5173",
 			want:  false,
 		},
 		{

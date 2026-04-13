@@ -6,9 +6,9 @@ import (
 
 	"github.com/bnema/dumber/internal/domain/entity"
 	"github.com/bnema/dumber/internal/ui/layout"
-	"github.com/jwijenbergh/puregotk/v4/gdk"
-	"github.com/jwijenbergh/puregotk/v4/glib"
-	"github.com/jwijenbergh/puregotk/v4/gtk"
+	"github.com/bnema/puregotk/v4/gdk"
+	"github.com/bnema/puregotk/v4/glib"
+	"github.com/bnema/puregotk/v4/gtk"
 )
 
 type TabPickerItem struct {
@@ -232,11 +232,7 @@ func (tp *TabPicker) createList() error {
 	tp.listBox.AddCssClass("tab-picker-list")
 	tp.listBox.SetSelectionMode(gtk.SelectionSingleValue)
 
-	rowSelectedCb := func(_ gtk.ListBox, rowPtr uintptr) {
-		if rowPtr == 0 {
-			return
-		}
-		row := gtk.ListBoxRowNewFromInternalPtr(rowPtr)
+	rowSelectedCb := func(_ gtk.ListBox, row *gtk.ListBoxRow) {
 		if row == nil {
 			return
 		}

@@ -1,9 +1,11 @@
 package logging
 
 import (
+	"errors"
 	"io"
 	"os"
 	"path/filepath"
+	"sync"
 	"time"
 
 	"github.com/rs/zerolog"
@@ -105,8 +107,9 @@ func NewWithFile(cfg Config, fileCfg FileConfig) (zerolog.Logger, func(), error)
 			return zerolog.Logger{}, nil, err
 		}
 
-		writers = append(writers, file)
-		cleanup = func() { _ = file.Close() }
+		sessionWriter := newSessionFileWriter(file)
+		writers = append(writers, sessionWriter)
+		cleanup = func() { _ = sessionWriter.Close() }
 	}
 
 	// Fallback to discard if no writers configured
@@ -121,6 +124,51 @@ func NewWithFile(cfg Config, fileCfg FileConfig) (zerolog.Logger, func(), error)
 		Timestamp()
 
 	return ctx.Logger(), cleanup, nil
+}
+
+type sessionFileWriter struct {
+	mu     sync.Mutex
+	file   *os.File
+	closed bool
+}
+
+func newSessionFileWriter(file *os.File) *sessionFileWriter {
+	return &sessionFileWriter{file: file}
+}
+
+func (w *sessionFileWriter) Write(p []byte) (int, error) {
+	w.mu.Lock()
+	defer w.mu.Unlock()
+
+	if w.closed || w.file == nil {
+		return len(p), nil
+	}
+
+	n, err := w.file.Write(p)
+	if errors.Is(err, os.ErrClosed) {
+		w.closed = true
+		w.file = nil
+		return len(p), nil
+	}
+
+	return n, err
+}
+
+func (w *sessionFileWriter) Close() error {
+	w.mu.Lock()
+	defer w.mu.Unlock()
+
+	if w.closed || w.file == nil {
+		return nil
+	}
+
+	err := w.file.Close()
+	w.closed = true
+	w.file = nil
+	if errors.Is(err, os.ErrClosed) {
+		return nil
+	}
+	return err
 }
 
 // NewFromEnv creates a logger based on environment variables
@@ -189,6 +237,9 @@ func ParseLevel(level string) zerolog.Level {
 		return zerolog.InfoLevel
 	}
 }
+
+// PermissionLogURLMaxLen is the standard max length for permission-related URL logging.
+const PermissionLogURLMaxLen = 96
 
 // TruncateURL truncates a URL to maxLen characters for logging.
 func TruncateURL(url string, maxLen int) string {

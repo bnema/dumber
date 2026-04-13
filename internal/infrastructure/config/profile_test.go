@@ -268,6 +268,13 @@ func TestHasCustomPerformanceFields(t *testing.T) {
 			expected: false,
 		},
 		{
+			name: "gpu threads zero treated as default",
+			cfg: PerformanceConfig{
+				SkiaGPUPaintingThreads: 0,
+			},
+			expected: false,
+		},
+		{
 			name: "skia cpu threads set",
 			cfg: PerformanceConfig{
 				SkiaCPUPaintingThreads: 4,

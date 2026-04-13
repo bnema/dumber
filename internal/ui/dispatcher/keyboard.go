@@ -7,12 +7,11 @@ import (
 	"github.com/bnema/dumber/internal/application/usecase"
 	"github.com/bnema/dumber/internal/domain/entity"
 	domainurl "github.com/bnema/dumber/internal/domain/url"
-	"github.com/bnema/dumber/internal/infrastructure/config"
 	"github.com/bnema/dumber/internal/logging"
 	"github.com/bnema/dumber/internal/ui/component"
 	"github.com/bnema/dumber/internal/ui/coordinator"
 	"github.com/bnema/dumber/internal/ui/input"
-	"github.com/jwijenbergh/puregotk/v4/glib"
+	"github.com/bnema/puregotk/v4/glib"
 )
 
 // KeyboardDispatcher routes keyboard actions to appropriate coordinators.
@@ -22,6 +21,7 @@ type KeyboardDispatcher struct {
 	navCoord         *coordinator.NavigationCoordinator
 	zoomUC           *usecase.ManageZoomUseCase
 	copyURLUC        *usecase.CopyURLUseCase
+	newPaneURL       string
 	actionHandlers   map[input.Action]func(ctx context.Context) error
 	onQuit           func()
 	onFindOpen       func(ctx context.Context) error
@@ -43,16 +43,18 @@ func NewKeyboardDispatcher(
 	navCoord *coordinator.NavigationCoordinator,
 	zoomUC *usecase.ManageZoomUseCase,
 	copyURLUC *usecase.CopyURLUseCase,
+	newPaneURL string,
 ) *KeyboardDispatcher {
 	log := logging.FromContext(ctx)
 	log.Debug().Msg("creating keyboard dispatcher")
 
 	dispatcher := &KeyboardDispatcher{
-		tabCoord:  tabCoord,
-		wsCoord:   wsCoord,
-		navCoord:  navCoord,
-		zoomUC:    zoomUC,
-		copyURLUC: copyURLUC,
+		tabCoord:   tabCoord,
+		wsCoord:    wsCoord,
+		navCoord:   navCoord,
+		zoomUC:     zoomUC,
+		copyURLUC:  copyURLUC,
+		newPaneURL: newPaneURL,
 	}
 	dispatcher.initActionHandlers()
 	return dispatcher
@@ -130,24 +132,27 @@ func (d *KeyboardDispatcher) initActionHandlers() {
 	d.actionHandlers = map[input.Action]func(ctx context.Context) error{
 		// Tab actions
 		input.ActionNewTab: func(ctx context.Context) error {
-			cfg := config.Get()
-			_, err := d.tabCoord.Create(ctx, domainurl.Normalize(cfg.Workspace.NewPaneURL))
+			if d.newPaneURL == "" {
+				logging.FromContext(ctx).Warn().Msg("ActionNewTab: newPaneURL is empty, cannot open new tab")
+				return fmt.Errorf("newPaneURL is not configured")
+			}
+			_, err := d.tabCoord.Create(ctx, domainurl.Normalize(d.newPaneURL))
 			return err
 		},
 		input.ActionCloseTab:         d.tabCoord.Close,
 		input.ActionNextTab:          d.tabCoord.SwitchNext,
 		input.ActionPreviousTab:      d.tabCoord.SwitchPrev,
 		input.ActionSwitchLastTab:    d.tabCoord.SwitchToLastActive,
-		input.ActionSwitchTabIndex1:  func(ctx context.Context) error { return d.tabCoord.SwitchByIndex(ctx, firstTabIndex) },
-		input.ActionSwitchTabIndex2:  func(ctx context.Context) error { return d.tabCoord.SwitchByIndex(ctx, secondTabIndex) },
-		input.ActionSwitchTabIndex3:  func(ctx context.Context) error { return d.tabCoord.SwitchByIndex(ctx, thirdTabIndex) },
-		input.ActionSwitchTabIndex4:  func(ctx context.Context) error { return d.tabCoord.SwitchByIndex(ctx, fourthTabIndex) },
-		input.ActionSwitchTabIndex5:  func(ctx context.Context) error { return d.tabCoord.SwitchByIndex(ctx, fifthTabIndex) },
-		input.ActionSwitchTabIndex6:  func(ctx context.Context) error { return d.tabCoord.SwitchByIndex(ctx, sixthTabIndex) },
-		input.ActionSwitchTabIndex7:  func(ctx context.Context) error { return d.tabCoord.SwitchByIndex(ctx, seventhTabIndex) },
-		input.ActionSwitchTabIndex8:  func(ctx context.Context) error { return d.tabCoord.SwitchByIndex(ctx, eighthTabIndex) },
-		input.ActionSwitchTabIndex9:  func(ctx context.Context) error { return d.tabCoord.SwitchByIndex(ctx, ninthTabIndex) },
-		input.ActionSwitchTabIndex10: func(ctx context.Context) error { return d.tabCoord.SwitchByIndex(ctx, tenthTabIndex) },
+		input.ActionSwitchTabIndex1:  func(ctx context.Context) error { return d.handleSwitchTabIndex(ctx, firstTabIndex) },
+		input.ActionSwitchTabIndex2:  func(ctx context.Context) error { return d.handleSwitchTabIndex(ctx, secondTabIndex) },
+		input.ActionSwitchTabIndex3:  func(ctx context.Context) error { return d.handleSwitchTabIndex(ctx, thirdTabIndex) },
+		input.ActionSwitchTabIndex4:  func(ctx context.Context) error { return d.handleSwitchTabIndex(ctx, fourthTabIndex) },
+		input.ActionSwitchTabIndex5:  func(ctx context.Context) error { return d.handleSwitchTabIndex(ctx, fifthTabIndex) },
+		input.ActionSwitchTabIndex6:  func(ctx context.Context) error { return d.handleSwitchTabIndex(ctx, sixthTabIndex) },
+		input.ActionSwitchTabIndex7:  func(ctx context.Context) error { return d.handleSwitchTabIndex(ctx, seventhTabIndex) },
+		input.ActionSwitchTabIndex8:  func(ctx context.Context) error { return d.handleSwitchTabIndex(ctx, eighthTabIndex) },
+		input.ActionSwitchTabIndex9:  func(ctx context.Context) error { return d.handleSwitchTabIndex(ctx, ninthTabIndex) },
+		input.ActionSwitchTabIndex10: func(ctx context.Context) error { return d.handleSwitchTabIndex(ctx, tenthTabIndex) },
 		input.ActionRenameTab: func(ctx context.Context) error {
 			return d.logNoop(ctx, "rename tab action (not yet implemented)")
 		},
@@ -304,6 +309,10 @@ func (d *KeyboardDispatcher) handleMovePaneToNextTab(ctx context.Context) error 
 	}
 	logging.FromContext(ctx).Debug().Msg("move pane to next tab action (no handler)")
 	return nil
+}
+
+func (d *KeyboardDispatcher) handleSwitchTabIndex(ctx context.Context, index int) error {
+	return d.tabCoord.EnsureTabByIndex(ctx, index, domainurl.Normalize(d.newPaneURL))
 }
 
 func (d *KeyboardDispatcher) logNoop(ctx context.Context, message string) error {

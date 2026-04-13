@@ -103,7 +103,7 @@ func (f *WebViewFactory) CreateRelated(ctx context.Context, parentID port.WebVie
 
 	// Set background color to match theme (eliminates white flash)
 	if r, g, b, a := f.bg.get(); a > 0 {
-		wv.SetBackgroundColor(r, g, b, a)
+		wv.SetBackgroundColor(float64(r), float64(g), float64(b), float64(a))
 	}
 
 	// Keep hidden until content is painted

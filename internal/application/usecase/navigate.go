@@ -32,6 +32,7 @@ const (
 // historyRecord holds data for async history recording.
 type historyRecord struct {
 	url    string
+	title  string // non-empty for title-update-only records
 	visits int
 }
 
@@ -227,23 +228,57 @@ func (uc *NavigateUseCase) historyWorker() {
 	ticker := time.NewTicker(historyWorkerFlushInterval)
 	defer ticker.Stop()
 
-	pending := make(map[string]int)
+	pendingVisits := make(map[string]int)
+	pendingTitles := make(map[string]string)
+
+	processRecord := func(record historyRecord) {
+		if record.title != "" {
+			pendingTitles[record.url] = record.title
+		}
+		if record.visits > 0 {
+			pendingVisits[record.url] += record.visits
+		}
+	}
 
 	flushPending := func() {
-		if len(pending) == 0 {
+		visitCount := len(pendingVisits)
+		titleCount := len(pendingTitles)
+		if visitCount == 0 && titleCount == 0 {
 			return
 		}
-		for historyURL, visits := range pending {
-			uc.persistHistory(uc.ctx, historyRecord{url: historyURL, visits: visits})
+
+		log.Debug().Int("visits", visitCount).Int("titles", titleCount).Msg("flushing pending history")
+
+		// Swap maps first, then materialize immutable slices before invoking
+		// persistence callbacks. This keeps any re-enqueued records isolated to
+		// the fresh pending maps for the next flush cycle.
+		visits := pendingVisits
+		titles := pendingTitles
+		pendingVisits = make(map[string]int)
+		pendingTitles = make(map[string]string)
+
+		visitRecords := make([]historyRecord, 0, len(visits))
+		for historyURL, v := range visits {
+			visitRecords = append(visitRecords, historyRecord{url: historyURL, visits: v})
 		}
-		clear(pending)
+		titleUpdates := make([]historyRecord, 0, len(titles))
+		for historyURL, title := range titles {
+			titleUpdates = append(titleUpdates, historyRecord{url: historyURL, title: title})
+		}
+
+		for _, record := range visitRecords {
+			uc.persistHistory(uc.ctx, record)
+		}
+		for _, record := range titleUpdates {
+			uc.persistTitleUpdate(uc.ctx, record.url, record.title)
+		}
 	}
 
 	drainQueue := func() {
 		for {
 			select {
 			case record := <-uc.historyQueue:
-				pending[record.url] += record.visits
+				processRecord(record)
 			default:
 				return
 			}
@@ -253,7 +288,7 @@ func (uc *NavigateUseCase) historyWorker() {
 	for {
 		select {
 		case record := <-uc.historyQueue:
-			pending[record.url] += record.visits
+			processRecord(record)
 		case <-ticker.C:
 			flushPending()
 		case <-uc.done:
@@ -312,46 +347,53 @@ func (uc *NavigateUseCase) persistHistory(ctx context.Context, record historyRec
 	}
 }
 
-// UpdateHistoryTitle updates the title of a history entry after page load.
-func (uc *NavigateUseCase) UpdateHistoryTitle(ctx context.Context, historyURL, title string) error {
+// persistTitleUpdate writes a title update to the database.
+// Called from the background worker goroutine.
+func (uc *NavigateUseCase) persistTitleUpdate(ctx context.Context, historyURL, title string) {
 	log := logging.FromContext(ctx)
 
-	// Canonicalize URL the same way history records are persisted.
+	if title == "" {
+		return
+	}
+
+	entry, err := uc.historyRepo.FindByURL(ctx, historyURL)
+	if err != nil {
+		log.Warn().Err(err).Str("url", historyURL).Msg("failed to find history entry for title update")
+		return
+	}
+	if entry == nil {
+		return
+	}
+
+	entry.Title = title
+	if updater, ok := uc.historyRepo.(historyMetadataUpdater); ok {
+		if err := updater.UpdateMetadata(ctx, entry); err != nil {
+			log.Warn().Err(err).Str("url", historyURL).Msg("failed to update history metadata")
+		}
+		return
+	}
+	if err := uc.historyRepo.Save(ctx, entry); err != nil {
+		log.Warn().Err(err).Str("url", historyURL).Msg("failed to update history title")
+	}
+}
+
+// UpdateHistoryTitle queues a title update for a history entry. The actual
+// DB write happens in the background historyWorker to avoid concurrent
+// repo access from the GTK main thread and the worker goroutine.
+func (uc *NavigateUseCase) UpdateHistoryTitle(_ context.Context, historyURL, title string) {
 	historyURL = canonicalizeURLForHistory(historyURL, historyCanonicalizationOptions{
 		StripTrackingParams: stripTrackingParamsForHistoryDedup,
 	})
 	if historyURL == "" {
-		log.Debug().Str("title", title).Msg("history URL empty after canonicalization, skipping title update")
-		return nil
-	}
-	log.Debug().Str("url", logging.TruncateURL(historyURL, logURLMaxLen)).Str("title", title).Msg("updating history title")
-
-	entry, err := uc.historyRepo.FindByURL(ctx, historyURL)
-	if err != nil {
-		return fmt.Errorf("failed to find history entry: %w", err)
+		return
 	}
 
-	if entry == nil {
-		// Entry doesn't exist - don't create it here
-		// Initial navigation should have already created the entry
-		// This can happen if URL changed during page load (SPA, redirect)
-		log.Debug().Str("url", historyURL).Msg("no history entry found for URL, skipping title update")
-		return nil
+	// Non-blocking send — same queue as visit records.
+	select {
+	case uc.historyQueue <- historyRecord{url: historyURL, title: title}:
+	default:
+		logging.FromContext(uc.ctx).Warn().Str("url", historyURL).Msg("history queue full, title update dropped")
 	}
-
-	// Update existing entry's title
-	entry.Title = title
-	if updater, ok := uc.historyRepo.(historyMetadataUpdater); ok {
-		if err := updater.UpdateMetadata(ctx, entry); err != nil {
-			return fmt.Errorf("failed to update history metadata: %w", err)
-		}
-		return nil
-	}
-	if err := uc.historyRepo.Save(ctx, entry); err != nil {
-		return fmt.Errorf("failed to update history title: %w", err)
-	}
-
-	return nil
 }
 
 // Reload reloads the current page.

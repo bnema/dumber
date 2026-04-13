@@ -80,16 +80,16 @@ func (g *WebUIConfigGateway) SaveWebUIConfig(ctx context.Context, cfg port.WebUI
 
 	// Performance profile (requires restart to take effect)
 	if cfg.Performance.Profile != "" {
-		current.Performance.Profile = PerformanceProfile(cfg.Performance.Profile)
+		current.Engine.Profile = PerformanceProfile(cfg.Performance.Profile)
 	}
 
 	// Custom performance fields (only used when profile is "custom")
 	if cfg.Performance.Profile == string(ProfileCustom) {
-		current.Performance.SkiaCPUPaintingThreads = clampInt(cfg.Performance.Custom.SkiaCPUThreads, 0, maxSkiaCPUThreads)
-		current.Performance.SkiaGPUPaintingThreads = clampInt(cfg.Performance.Custom.SkiaGPUThreads, -1, maxSkiaGPUThreads)
-		current.Performance.WebProcessMemoryLimitMB = clampInt(cfg.Performance.Custom.WebProcessMemoryMB, 0, maxWebProcessMemoryMB)
-		current.Performance.NetworkProcessMemoryLimitMB = clampInt(cfg.Performance.Custom.NetworkProcessMemoryMB, 0, maxNetworkProcessMemoryMB)
-		current.Performance.WebViewPoolPrewarmCount = clampInt(cfg.Performance.Custom.WebViewPoolPrewarm, 0, maxWebViewPoolPrewarm)
+		current.Engine.WebKit.SkiaCPUPaintingThreads = clampInt(cfg.Performance.Custom.SkiaCPUThreads, 0, maxSkiaCPUThreads)
+		current.Engine.WebKit.SkiaGPUPaintingThreads = clampInt(cfg.Performance.Custom.SkiaGPUThreads, -1, maxSkiaGPUThreads)
+		current.Engine.WebKit.WebProcessMemoryLimitMB = clampInt(cfg.Performance.Custom.WebProcessMemoryMB, 0, maxWebProcessMemoryMB)
+		current.Engine.WebKit.NetworkProcessMemoryLimitMB = clampInt(cfg.Performance.Custom.NetworkProcessMemoryMB, 0, maxNetworkProcessMemoryMB)
+		current.Engine.PoolPrewarmCount = clampInt(cfg.Performance.Custom.WebViewPoolPrewarm, 0, maxWebViewPoolPrewarm)
 	}
 
 	return g.mgr.Save(current)

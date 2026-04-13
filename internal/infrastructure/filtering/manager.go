@@ -12,9 +12,13 @@ import (
 	"sync/atomic"
 	"time"
 
+	"github.com/bnema/dumber/internal/application/port"
 	"github.com/bnema/dumber/internal/logging"
 	"github.com/bnema/puregotk-webkit/webkit"
 )
+
+// Compile-time check that Manager satisfies port.FilterManager.
+var _ port.FilterManager = (*Manager)(nil)
 
 const (
 	storeDirPerm   = 0o755
@@ -39,7 +43,7 @@ type Manager struct {
 	storeDir string
 	jsonDir  string
 
-	filter     *webkit.UserContentFilter
+	filters    []*webkit.UserContentFilter
 	filterMu   sync.RWMutex
 	status     atomic.Value // FilterStatus
 	enabled    bool
@@ -165,6 +169,20 @@ func (m *Manager) loadAsyncWorker(ctx context.Context) {
 		return
 	}
 
+	// If local JSON files exist on disk, compile from them directly instead
+	// of downloading. This respects auto_update=false on cold start with an
+	// empty compiled store and allows testing with patched local JSON.
+	if paths := m.downloader.GetCachedFilterPaths(); len(paths) > 0 {
+		log.Info().Int("files", len(paths)).Msg("compiling filters from local JSON (skipping download)")
+		filters, err := m.compileFilterParts(ctx, paths)
+		if err == nil {
+			version := m.setActiveFilters(filters, "Filters active")
+			log.Info().Str("version", version).Int("parts", len(filters)).Msg("filters compiled from local JSON")
+			return
+		}
+		log.Warn().Err(err).Msg("failed to compile local JSON, falling back to download")
+	}
+
 	m.downloadCompileAndActivate(ctx)
 }
 
@@ -174,19 +192,35 @@ func (m *Manager) loadFromCache(ctx context.Context) bool {
 		Logger()
 
 	m.setStatus(FilterStatus{State: StateLoading, Message: "Loading filters..."})
-	if !m.store.HasCompiledFilter(ctx, FilterIdentifier) {
+
+	// Discover how many compiled parts exist via stored identifiers
+	identifiers, err := m.store.FetchIdentifiers(ctx)
+	if err != nil {
+		return false
+	}
+	var partIDs []string
+	for _, id := range identifiers {
+		if strings.HasPrefix(id, FilterIdentifierPrefix) {
+			partIDs = append(partIDs, id)
+		}
+	}
+	if len(partIDs) == 0 {
 		return false
 	}
 
-	log.Debug().Msg("found compiled filter, loading from cache")
-	filter, err := m.store.Load(ctx, FilterIdentifier)
-	if err != nil || filter == nil {
-		log.Warn().Err(err).Msg("failed to load cached filter, will download")
-		return false
+	log.Debug().Int("parts", len(partIDs)).Msg("found compiled filters, loading from cache")
+	var filters []*webkit.UserContentFilter
+	for _, id := range partIDs {
+		filter, loadErr := m.store.Load(ctx, id)
+		if loadErr != nil || filter == nil {
+			log.Warn().Err(loadErr).Str("id", id).Msg("failed to load cached filter part, will download")
+			return false
+		}
+		filters = append(filters, filter)
 	}
 
-	version := m.setActiveFilter(filter, "Filters active")
-	log.Info().Str("version", version).Msg("filters loaded from cache")
+	version := m.setActiveFilters(filters, "Filters active")
+	log.Info().Str("version", version).Int("parts", len(filters)).Msg("filters loaded from cache")
 	return true
 }
 
@@ -209,28 +243,15 @@ func (m *Manager) downloadCompileAndActivate(ctx context.Context) {
 		return
 	}
 
-	m.setStatus(FilterStatus{State: StateLoading, Message: "Compiling filters..."})
-	mergedPath, err := m.mergeJSONFiles(ctx, paths)
-	if err != nil {
-		log.Error().Err(err).Msg("failed to merge filter files")
-		m.setStatus(FilterStatus{State: StateError, Message: "Filter merge failed"})
-		return
-	}
-
-	filter, err := m.store.Compile(ctx, FilterIdentifier, mergedPath)
+	filters, err := m.compileFilterParts(ctx, paths)
 	if err != nil {
 		log.Error().Err(err).Msg("failed to compile filters")
 		m.handleCompilationFailure()
 		return
 	}
-	if filter == nil {
-		log.Error().Msg("filter compilation returned nil filter")
-		m.handleCompilationFailure()
-		return
-	}
 
-	version := m.setActiveFilter(filter, "Filters active")
-	log.Info().Str("version", version).Msg("filters compiled and active")
+	version := m.setActiveFilters(filters, "Filters active")
+	log.Info().Str("version", version).Int("parts", len(filters)).Msg("filters compiled and active")
 }
 
 func (m *Manager) downloadFiltersWithProgress(ctx context.Context) ([]string, error) {
@@ -239,6 +260,33 @@ func (m *Manager) downloadFiltersWithProgress(ctx context.Context) ([]string, er
 		msg := fmt.Sprintf("Downloading filters (%d/%d)...", p.Current, p.Total)
 		m.setStatus(FilterStatus{State: StateLoading, Message: msg})
 	})
+}
+
+// compileFilterParts compiles each downloaded part file as a separate WebKit filter.
+// Each part gets a unique identifier (e.g., "ublock-combined-0", "ublock-combined-1").
+func (m *Manager) compileFilterParts(ctx context.Context, paths []string) ([]*webkit.UserContentFilter, error) {
+	log := logging.FromContext(ctx).With().
+		Str("component", "filter-manager").
+		Logger()
+
+	m.setStatus(FilterStatus{State: StateLoading, Message: "Compiling filters..."})
+
+	filters := make([]*webkit.UserContentFilter, 0, len(paths))
+	for i, path := range paths {
+		identifier := fmt.Sprintf("%s-%d", FilterIdentifierPrefix, i)
+		log.Debug().Str("id", identifier).Str("path", path).Msg("compiling filter part")
+
+		filter, err := m.store.Compile(ctx, identifier, path)
+		if err != nil {
+			return nil, fmt.Errorf("compile %s: %w", identifier, err)
+		}
+		if filter == nil {
+			return nil, fmt.Errorf("compile %s returned nil filter", identifier)
+		}
+		filters = append(filters, filter)
+	}
+
+	return filters, nil
 }
 
 func (m *Manager) handleCompilationFailure() {
@@ -254,9 +302,9 @@ func (m *Manager) handleCompilationFailure() {
 	m.setStatus(FilterStatus{State: StateError, Message: "Compilation failed"})
 }
 
-func (m *Manager) setActiveFilter(filter *webkit.UserContentFilter, message string) string {
+func (m *Manager) setActiveFilters(filters []*webkit.UserContentFilter, message string) string {
 	m.filterMu.Lock()
-	m.filter = filter
+	m.filters = filters
 	m.filterMu.Unlock()
 
 	version := m.getCachedVersion()
@@ -266,47 +314,6 @@ func (m *Manager) setActiveFilter(filter *webkit.UserContentFilter, message stri
 		Version: version,
 	})
 	return version
-}
-
-// mergeJSONFiles combines multiple JSON rule files into one.
-// WebKit's UserContentFilterStore expects a single JSON array.
-func (m *Manager) mergeJSONFiles(ctx context.Context, paths []string) (string, error) {
-	log := logging.FromContext(ctx).With().
-		Str("component", "filter-manager").
-		Logger()
-
-	var allRules []json.RawMessage
-
-	for _, path := range paths {
-		log.Debug().Str("path", path).Msg("reading filter file")
-
-		data, err := os.ReadFile(path)
-		if err != nil {
-			return "", fmt.Errorf("failed to read %s: %w", path, err)
-		}
-
-		var rules []json.RawMessage
-		if err := json.Unmarshal(data, &rules); err != nil {
-			return "", fmt.Errorf("failed to parse %s: %w", path, err)
-		}
-
-		allRules = append(allRules, rules...)
-	}
-
-	log.Debug().Int("total_rules", len(allRules)).Msg("merging filter rules")
-
-	merged, err := json.Marshal(allRules)
-	if err != nil {
-		return "", fmt.Errorf("failed to marshal merged rules: %w", err)
-	}
-
-	// Write merged file
-	mergedPath := filepath.Join(m.jsonDir, "merged.json")
-	if err := os.WriteFile(mergedPath, merged, mergedFilePerm); err != nil {
-		return "", fmt.Errorf("failed to write merged file: %w", err)
-	}
-
-	return mergedPath, nil
 }
 
 // checkStaleCacheAndUpdate checks if the cache is stale and triggers a background update.
@@ -332,7 +339,7 @@ func (m *Manager) getCachedVersion() string {
 	return manifest.Version
 }
 
-// ApplyTo adds the active filter to a WebView's UserContentManager.
+// ApplyTo adds the active filters to a WebView's UserContentManager.
 // Safe to call even if filters are not yet loaded (no-op in that case).
 func (m *Manager) ApplyTo(ctx context.Context, ucm *webkit.UserContentManager) {
 	log := logging.FromContext(ctx).With().
@@ -344,22 +351,24 @@ func (m *Manager) ApplyTo(ctx context.Context, ucm *webkit.UserContentManager) {
 	}
 
 	m.filterMu.RLock()
-	filter := m.filter
+	filters := m.filters
 	m.filterMu.RUnlock()
 
-	if filter != nil {
-		ucm.AddFilter(filter)
-		log.Debug().Msg("content filter applied to webview")
+	if len(filters) > 0 {
+		for _, filter := range filters {
+			ucm.AddFilter(filter)
+		}
+		log.Debug().Int("parts", len(filters)).Msg("content filters applied to webview")
 	} else {
 		log.Debug().Msg("no filter available to apply (filters still loading?)")
 	}
 }
 
-// GetFilter returns the currently loaded filter, or nil if none.
-func (m *Manager) GetFilter() *webkit.UserContentFilter {
+// GetFilters returns the currently loaded filters, or nil if none.
+func (m *Manager) GetFilters() []*webkit.UserContentFilter {
 	m.filterMu.RLock()
 	defer m.filterMu.RUnlock()
-	return m.filter
+	return m.filters
 }
 
 // CheckForUpdates checks if newer filters are available and downloads them.
@@ -397,34 +406,23 @@ func (m *Manager) CheckForUpdates(ctx context.Context) error {
 		return fmt.Errorf("%w: validation failed: %w", ErrUpdateSkipped, validateErr)
 	}
 
-	// Merge and compile
-	mergedPath, err := m.mergeJSONFiles(ctx, paths)
-	if err != nil {
-		log.Warn().Err(err).Msg("failed to merge updated filters, keeping existing active filter")
-		return fmt.Errorf("%w: merge failed: %w", ErrUpdateSkipped, err)
-	}
-
-	filter, err := m.store.Compile(ctx, FilterIdentifier, mergedPath)
+	filters, err := m.compileFilterParts(ctx, paths)
 	if err != nil {
 		log.Warn().Err(err).Msg("failed to compile updated filters, keeping existing active filter")
+		// Restore status if we still have an active filter
+		if m.hasActiveFilter() {
+			version := m.getCachedVersion()
+			m.setStatus(FilterStatus{
+				State:   StateActive,
+				Message: "Filters active (update skipped)",
+				Version: version,
+			})
+		}
 		return fmt.Errorf("%w: compile failed: %w", ErrUpdateSkipped, err)
 	}
-	if filter == nil {
-		log.Warn().Msg("updated filter compilation returned nil filter, keeping existing active filter")
-		return fmt.Errorf("%w: compile returned nil filter", ErrUpdateSkipped)
-	}
 
-	m.filterMu.Lock()
-	m.filter = filter
-	m.filterMu.Unlock()
-
-	version := m.getCachedVersion()
-	m.setStatus(FilterStatus{
-		State:   StateActive,
-		Message: fmt.Sprintf("Filters updated to %s", version),
-		Version: version,
-	})
-	log.Info().Str("version", version).Msg("filters updated successfully")
+	version := m.setActiveFilters(filters, "Filters updated")
+	log.Info().Str("version", version).Int("parts", len(filters)).Msg("filters updated successfully")
 
 	return nil
 }
@@ -432,7 +430,7 @@ func (m *Manager) CheckForUpdates(ctx context.Context) error {
 func (m *Manager) hasActiveFilter() bool {
 	m.filterMu.RLock()
 	defer m.filterMu.RUnlock()
-	return m.filter != nil
+	return len(m.filters) > 0
 }
 
 func (m *Manager) validateDownloadedFiles(ctx context.Context, paths []string) error {
@@ -543,10 +541,10 @@ func (m *Manager) Enable(ctx context.Context) {
 
 	// Try to load filters if not already loaded
 	m.filterMu.RLock()
-	hasFilter := m.filter != nil
+	hasFilters := len(m.filters) > 0
 	m.filterMu.RUnlock()
 
-	if !hasFilter {
+	if !hasFilters {
 		m.LoadAsync(ctx)
 	} else {
 		m.setStatus(FilterStatus{
@@ -580,11 +578,20 @@ func (m *Manager) Clear(ctx context.Context) error {
 		Logger()
 
 	m.filterMu.Lock()
-	m.filter = nil
+	m.filters = nil
 	m.filterMu.Unlock()
 
-	if err := m.store.Remove(ctx, FilterIdentifier); err != nil {
-		log.Warn().Err(err).Msg("failed to remove compiled filter")
+	// Remove all compiled filter parts
+	identifiers, err := m.store.FetchIdentifiers(ctx)
+	if err != nil {
+		log.Warn().Err(err).Msg("failed to fetch identifiers for cleanup")
+	}
+	for _, id := range identifiers {
+		if strings.HasPrefix(id, FilterIdentifierPrefix) {
+			if err := m.store.Remove(ctx, id); err != nil {
+				log.Warn().Err(err).Str("id", id).Msg("failed to remove compiled filter")
+			}
+		}
 	}
 
 	if err := m.downloader.ClearCache(); err != nil {

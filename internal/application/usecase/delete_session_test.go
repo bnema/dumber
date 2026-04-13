@@ -2,8 +2,6 @@ package usecase_test
 
 import (
 	"errors"
-	"os"
-	"path/filepath"
 	"testing"
 	"time"
 
@@ -34,7 +32,7 @@ func TestDeleteSessionUseCase_Execute_Success(t *testing.T) {
 	stateRepo.EXPECT().DeleteSnapshot(ctx, sessionID).Return(nil)
 	sessionRepo.EXPECT().Delete(ctx, sessionID).Return(nil)
 
-	uc := usecase.NewDeleteSessionUseCase(stateRepo, sessionRepo, "")
+	uc := usecase.NewDeleteSessionUseCase(stateRepo, sessionRepo)
 
 	err := uc.Execute(ctx, usecase.DeleteSessionInput{
 		SessionID:        sessionID,
@@ -51,7 +49,7 @@ func TestDeleteSessionUseCase_Execute_CannotDeleteCurrentSession(t *testing.T) {
 
 	sessionID := entity.SessionID("20251224_120000_current")
 
-	uc := usecase.NewDeleteSessionUseCase(stateRepo, sessionRepo, "")
+	uc := usecase.NewDeleteSessionUseCase(stateRepo, sessionRepo)
 
 	err := uc.Execute(ctx, usecase.DeleteSessionInput{
 		SessionID:        sessionID,
@@ -71,7 +69,7 @@ func TestDeleteSessionUseCase_Execute_SessionNotFound(t *testing.T) {
 
 	sessionRepo.EXPECT().FindByID(ctx, sessionID).Return(nil, nil)
 
-	uc := usecase.NewDeleteSessionUseCase(stateRepo, sessionRepo, "")
+	uc := usecase.NewDeleteSessionUseCase(stateRepo, sessionRepo)
 
 	err := uc.Execute(ctx, usecase.DeleteSessionInput{
 		SessionID:        sessionID,
@@ -99,43 +97,9 @@ func TestDeleteSessionUseCase_Execute_CannotDeleteActiveSession(t *testing.T) {
 
 	sessionRepo.EXPECT().FindByID(ctx, sessionID).Return(session, nil)
 
-	uc := usecase.NewDeleteSessionUseCase(stateRepo, sessionRepo, "")
+	uc := usecase.NewDeleteSessionUseCase(stateRepo, sessionRepo)
 
 	err := uc.Execute(ctx, usecase.DeleteSessionInput{
-		SessionID:        sessionID,
-		CurrentSessionID: "other-session",
-	})
-	require.Error(t, err)
-	assert.ErrorIs(t, err, usecase.ErrCannotDeleteActiveSession)
-}
-
-func TestDeleteSessionUseCase_Execute_CannotDeleteLockedSession(t *testing.T) {
-	ctx := testContext()
-
-	stateRepo := repomocks.NewMockSessionStateRepository(t)
-	sessionRepo := repomocks.NewMockSessionRepository(t)
-
-	// Create a temporary lock directory and lock file
-	lockDir := t.TempDir()
-	sessionID := entity.SessionID("20251224_120000_locked")
-	lockPath := filepath.Join(lockDir, "session_"+string(sessionID)+".lock")
-	f, err := os.Create(lockPath)
-	require.NoError(t, err)
-	f.Close()
-
-	endedAt := time.Now().Add(-time.Hour)
-	session := &entity.Session{
-		ID:        sessionID,
-		Type:      entity.SessionTypeBrowser,
-		StartedAt: time.Now().Add(-2 * time.Hour),
-		EndedAt:   &endedAt, // Ended, but has lock file
-	}
-
-	sessionRepo.EXPECT().FindByID(ctx, sessionID).Return(session, nil)
-
-	uc := usecase.NewDeleteSessionUseCase(stateRepo, sessionRepo, lockDir)
-
-	err = uc.Execute(ctx, usecase.DeleteSessionInput{
 		SessionID:        sessionID,
 		CurrentSessionID: "other-session",
 	})
@@ -153,7 +117,7 @@ func TestDeleteSessionUseCase_Execute_FindByIDError(t *testing.T) {
 
 	sessionRepo.EXPECT().FindByID(ctx, sessionID).Return(nil, errors.New("db error"))
 
-	uc := usecase.NewDeleteSessionUseCase(stateRepo, sessionRepo, "")
+	uc := usecase.NewDeleteSessionUseCase(stateRepo, sessionRepo)
 
 	err := uc.Execute(ctx, usecase.DeleteSessionInput{
 		SessionID:        sessionID,
@@ -184,7 +148,7 @@ func TestDeleteSessionUseCase_Execute_DeleteSnapshotErrorIgnored(t *testing.T) {
 	stateRepo.EXPECT().DeleteSnapshot(ctx, sessionID).Return(errors.New("no rows"))
 	sessionRepo.EXPECT().Delete(ctx, sessionID).Return(nil)
 
-	uc := usecase.NewDeleteSessionUseCase(stateRepo, sessionRepo, "")
+	uc := usecase.NewDeleteSessionUseCase(stateRepo, sessionRepo)
 
 	err := uc.Execute(ctx, usecase.DeleteSessionInput{
 		SessionID:        sessionID,
@@ -214,7 +178,7 @@ func TestDeleteSessionUseCase_Execute_DeleteSessionError(t *testing.T) {
 	stateRepo.EXPECT().DeleteSnapshot(ctx, sessionID).Return(nil)
 	sessionRepo.EXPECT().Delete(ctx, sessionID).Return(errors.New("delete failed"))
 
-	uc := usecase.NewDeleteSessionUseCase(stateRepo, sessionRepo, "")
+	uc := usecase.NewDeleteSessionUseCase(stateRepo, sessionRepo)
 
 	err := uc.Execute(ctx, usecase.DeleteSessionInput{
 		SessionID:        sessionID,
@@ -244,7 +208,7 @@ func TestDeleteSessionUseCase_Execute_EmptyCurrentSessionAllowed(t *testing.T) {
 	stateRepo.EXPECT().DeleteSnapshot(ctx, sessionID).Return(nil)
 	sessionRepo.EXPECT().Delete(ctx, sessionID).Return(nil)
 
-	uc := usecase.NewDeleteSessionUseCase(stateRepo, sessionRepo, "")
+	uc := usecase.NewDeleteSessionUseCase(stateRepo, sessionRepo)
 
 	// CurrentSessionID is empty (e.g., CLI context)
 	err := uc.Execute(ctx, usecase.DeleteSessionInput{

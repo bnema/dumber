@@ -19,7 +19,8 @@ const (
 	defaultNewPaneURL = "about:blank"
 
 	// Omnibox defaults
-	defaultOmniboxInitialBehavior   = "recent"
+	defaultOmniboxInitialBehavior   = OmniboxInitialBehaviorRecent
+	defaultOmniboxMostVisitedDays   = 30
 	defaultOmniboxAutoOpenOnNewPane = false
 
 	// Workspace defaults
@@ -67,6 +68,13 @@ const (
 	// Performance defaults
 	defaultZoomCacheSize           = 256 // domains to cache (~20KB memory)
 	defaultWebViewPoolPrewarmCount = 4   // WebViews to pre-create at startup
+	defaultCEFWindowlessFrameRate  = 60  // OSR frame rate for CEF
+
+	// Transcoding defaults
+	defaultTranscodingEnabled       = false
+	defaultTranscodingHWAccel       = "auto"
+	defaultTranscodingMaxConcurrent = 3
+	defaultTranscodingQuality       = "medium"
 
 	// Skia threading defaults (0 = unset, -1 = unset for GPU threads)
 	defaultSkiaCPUPaintingThreads = 0
@@ -142,22 +150,27 @@ func DefaultConfig() *Config {
 		Debug: DebugConfig{
 			EnableDevTools: true,
 		},
-		Rendering: RenderingConfig{
-			Mode:                      RenderingModeGPU,
-			DisableDMABufRenderer:     false,
-			ForceCompositingMode:      false,
-			DisableCompositingMode:    false,
-			GSKRenderer:               GSKRendererAuto, // Let GTK choose - Vulkan can conflict with WebKit's DMA-BUF
-			DisableMipmaps:            false,
-			PreferGL:                  false,
-			DrawCompositingIndicators: false,
-			ShowFPS:                   false,
-			SampleMemory:              false,
-			DebugFrames:               false,
-		},
-		Privacy: PrivacyConfig{
-			CookiePolicy: CookiePolicyNoThirdParty,
-			ITPEnabled:   true,
+		Engine: EngineConfig{
+			Type:             "webkit",
+			Profile:          ProfileDefault,
+			PoolPrewarmCount: defaultWebViewPoolPrewarmCount,
+			ZoomCacheSize:    defaultZoomCacheSize,
+			// With ITP enabled, WebKit ignores ACCEPT_NO_THIRD_PARTY — ITP handles
+			// third-party cookie isolation more intelligently. Using Always + ITP
+			// matches Epiphany's model and avoids a misleading setting.
+			CookiePolicy: CookiePolicyAlways,
+			CEF: CEFEngineConfig{
+				WindowlessFrameRate: defaultCEFWindowlessFrameRate,
+				LogFile:             "",
+				EnableAudioHandler:  true,
+			},
+			WebKit: WebKitEngineConfig{
+				ITPEnabled:             true,
+				SkiaCPUPaintingThreads: defaultSkiaCPUPaintingThreads,
+				SkiaGPUPaintingThreads: defaultSkiaGPUPaintingThreads,
+				GSKRenderer:            GSKRendererAuto,
+				GLRenderingMode:        GLRenderingModeAuto,
+			},
 		},
 		DefaultWebpageZoom: 1.2,            // 120% default zoom for better readability
 		DefaultUIScale:     defaultUIScale, // 1.0 = 100%, 2.0 = 200%
@@ -272,6 +285,7 @@ func DefaultConfig() *Config {
 		},
 		Omnibox: OmniboxConfig{
 			InitialBehavior:   defaultOmniboxInitialBehavior,
+			MostVisitedDays:   defaultOmniboxMostVisitedDays,
 			AutoOpenOnNewPane: defaultOmniboxAutoOpenOnNewPane,
 		},
 		Session: SessionConfig{
@@ -293,32 +307,9 @@ func DefaultConfig() *Config {
 			HardwareDecodingMode:     HardwareDecodingAuto, // auto allows sw fallback
 			PreferAV1:                false,                // Don't force codec preference, let site choose
 			ShowDiagnosticsOnStartup: false,                // Disabled - diagnostics can be noisy
-			ForceVSync:               false,                // Let compositor handle VSync
-			GLRenderingMode:          GLRenderingModeAuto,  // GStreamer picks best GL API
-			GStreamerDebugLevel:      0,                    // Disabled by default
-		},
-		Runtime: RuntimeConfig{
-			Prefix: "",
-		},
-		Performance: PerformanceConfig{
-			Profile:                 ProfileDefault, // Use WebKit defaults by default
-			ZoomCacheSize:           defaultZoomCacheSize,
-			WebViewPoolPrewarmCount: defaultWebViewPoolPrewarmCount,
-			// Skia threading - balanced defaults (unset = use WebKit defaults)
-			// These only apply when Profile is "custom"
-			SkiaCPUPaintingThreads: defaultSkiaCPUPaintingThreads,
-			SkiaGPUPaintingThreads: defaultSkiaGPUPaintingThreads,
-			SkiaEnableCPURendering: false,
-			// Web process memory pressure - all unset by default
-			WebProcessMemoryLimitMB:               0,
-			WebProcessMemoryPollIntervalSec:       0,
-			WebProcessMemoryConservativeThreshold: 0,
-			WebProcessMemoryStrictThreshold:       0,
-			// Network process memory pressure - all unset by default
-			NetworkProcessMemoryLimitMB:               0,
-			NetworkProcessMemoryPollIntervalSec:       0,
-			NetworkProcessMemoryConservativeThreshold: 0,
-			NetworkProcessMemoryStrictThreshold:       0,
+			// GStreamer fields (ForceVSync, GLRenderingMode, GStreamerDebugLevel)
+			// moved to [engine.webkit] — zero values here prevent them from being
+			// written back when marshaling the Config struct.
 		},
 		Update: UpdateConfig{
 			EnableOnStartup:     true,  // Check for updates on startup by default
@@ -327,6 +318,12 @@ func DefaultConfig() *Config {
 		},
 		Downloads: DownloadsConfig{
 			Path: "", // Empty = use XDG_DOWNLOAD_DIR or ~/Downloads
+		},
+		Transcoding: TranscodingConfig{
+			Enabled:       defaultTranscodingEnabled,
+			HWAccel:       defaultTranscodingHWAccel,
+			MaxConcurrent: defaultTranscodingMaxConcurrent,
+			Quality:       defaultTranscodingQuality,
 		},
 	}
 }

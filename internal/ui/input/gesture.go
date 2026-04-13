@@ -5,7 +5,7 @@ import (
 	"sync"
 
 	"github.com/bnema/dumber/internal/logging"
-	"github.com/jwijenbergh/puregotk/v4/gtk"
+	"github.com/bnema/puregotk/v4/gtk"
 )
 
 // DirectNavigator allows direct back/forward navigation on a WebView.

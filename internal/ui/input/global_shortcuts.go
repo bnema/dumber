@@ -6,11 +6,11 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/bnema/dumber/internal/infrastructure/config"
+	"github.com/bnema/dumber/internal/domain/entity"
 	"github.com/bnema/dumber/internal/logging"
-	"github.com/jwijenbergh/puregotk/v4/gdk"
-	"github.com/jwijenbergh/puregotk/v4/glib"
-	"github.com/jwijenbergh/puregotk/v4/gtk"
+	"github.com/bnema/puregotk/v4/gdk"
+	"github.com/bnema/puregotk/v4/glib"
+	"github.com/bnema/puregotk/v4/gtk"
 )
 
 // GlobalShortcutHandler manages keyboard shortcuts that must work globally,
@@ -33,7 +33,8 @@ type GlobalShortcutHandler struct {
 func NewGlobalShortcutHandler(
 	ctx context.Context,
 	window *gtk.ApplicationWindow,
-	cfg *config.Config,
+	workspace *entity.WorkspaceConfig,
+	session *entity.SessionConfig,
 	kbHandler *KeyboardHandler,
 	onAction ActionHandler,
 ) *GlobalShortcutHandler {
@@ -102,7 +103,7 @@ func NewGlobalShortcutHandler(
 		Str("action", string(ActionOpenSessionManager)).
 		Msg("registered global shortcut")
 
-	if cfg != nil {
+	if workspace != nil {
 		// Map action names to action constants for global shortcuts
 		actionMap := map[string]Action{
 			"toggle_floating_pane":   ActionToggleFloatingPane,
@@ -113,7 +114,7 @@ func NewGlobalShortcutHandler(
 			"consume_or_expel_down":  ActionConsumeOrExpelDown,
 		}
 
-		for actionName, actionBinding := range cfg.Workspace.Shortcuts.Actions {
+		for actionName, actionBinding := range workspace.Shortcuts.Actions {
 			action, ok := actionMap[actionName]
 			if !ok {
 				continue
@@ -134,7 +135,7 @@ func NewGlobalShortcutHandler(
 		for binding, action := range h.registered {
 			occupied[binding] = action
 		}
-		for _, shortcut := range collectFloatingProfileShortcuts(ctx, cfg, occupied) {
+		for _, shortcut := range collectFloatingProfileShortcutsFromWorkspace(ctx, workspace, occupied) {
 			if !h.registerShortcut(shortcut.Binding.Keyval, gdk.ModifierType(shortcut.Binding.Modifiers), shortcut.Action) {
 				continue
 			}
@@ -148,7 +149,7 @@ func NewGlobalShortcutHandler(
 
 		// Register all app-reserved shortcuts (mode activations, Ctrl+L, Ctrl+F, etc.)
 		// so they work even when WebView has focus.
-		shortcuts := NewShortcutSet(ctx, cfg)
+		shortcuts := NewShortcutSet(ctx, workspace, session)
 		for binding, action := range shortcuts.Global {
 			if _, exists := h.registered[binding]; exists {
 				continue
@@ -249,7 +250,7 @@ func (h *GlobalShortcutHandler) registerShortcut(keyval uint, modifiers gdk.Modi
 // ReloadShortcuts rebuilds global shortcuts from a new config.
 // It replaces the GTK shortcut controller to ensure stale shortcuts
 // are removed.
-func (h *GlobalShortcutHandler) ReloadShortcuts(ctx context.Context, cfg *config.Config) {
+func (h *GlobalShortcutHandler) ReloadShortcuts(ctx context.Context, workspace *entity.WorkspaceConfig, session *entity.SessionConfig) {
 	log := logging.FromContext(ctx)
 
 	if h.window == nil || h.controller == nil {
@@ -283,7 +284,7 @@ func (h *GlobalShortcutHandler) ReloadShortcuts(ctx context.Context, cfg *config
 	h.registerShortcut(uint(gdk.KEY_s), gdk.ControlMaskValue|gdk.ShiftMaskValue, ActionOpenSessionManager)
 
 	// Re-register config-driven shortcuts
-	if cfg != nil {
+	if workspace != nil {
 		actionMap := map[string]Action{
 			"toggle_floating_pane":   ActionToggleFloatingPane,
 			"toggle-floating-pane":   ActionToggleFloatingPane,
@@ -293,7 +294,7 @@ func (h *GlobalShortcutHandler) ReloadShortcuts(ctx context.Context, cfg *config
 			"consume_or_expel_down":  ActionConsumeOrExpelDown,
 		}
 
-		for actionName, actionBinding := range cfg.Workspace.Shortcuts.Actions {
+		for actionName, actionBinding := range workspace.Shortcuts.Actions {
 			action, ok := actionMap[actionName]
 			if !ok {
 				continue
@@ -311,7 +312,7 @@ func (h *GlobalShortcutHandler) ReloadShortcuts(ctx context.Context, cfg *config
 		for binding, action := range h.registered {
 			occupied[binding] = action
 		}
-		for _, shortcut := range collectFloatingProfileShortcuts(ctx, cfg, occupied) {
+		for _, shortcut := range collectFloatingProfileShortcutsFromWorkspace(ctx, workspace, occupied) {
 			if h.registerShortcut(shortcut.Binding.Keyval, gdk.ModifierType(shortcut.Binding.Modifiers), shortcut.Action) {
 				if url, ok := ParseFloatingProfileAction(shortcut.Action); ok {
 					log.Trace().Str("shortcut", formatBinding(shortcut.Binding)).Str("url", url).Msg("registered floating profile global shortcut")
@@ -319,7 +320,7 @@ func (h *GlobalShortcutHandler) ReloadShortcuts(ctx context.Context, cfg *config
 			}
 		}
 
-		shortcuts := NewShortcutSet(ctx, cfg)
+		shortcuts := NewShortcutSet(ctx, workspace, session)
 		for binding, action := range shortcuts.Global {
 			if _, exists := h.registered[binding]; exists {
 				continue

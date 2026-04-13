@@ -33,6 +33,11 @@ type ColorSchemeDetector interface {
 	Detect() (prefersDark bool, ok bool)
 }
 
+// ToolkitAvailabilityNotifier signals that a toolkit (e.g., GTK/Adwaita) is available.
+type ToolkitAvailabilityNotifier interface {
+	MarkAvailable()
+}
+
 // ColorSchemeResolver resolves the effective color scheme preference.
 // It manages multiple detectors and respects config overrides.
 type ColorSchemeResolver interface {

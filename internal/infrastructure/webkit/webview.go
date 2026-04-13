@@ -11,21 +11,25 @@ import (
 	"time"
 
 	"github.com/bnema/dumber/internal/application/port"
+	"github.com/bnema/dumber/internal/domain/entity"
 	urlutil "github.com/bnema/dumber/internal/domain/url"
 	"github.com/bnema/dumber/internal/infrastructure/desktop"
 	"github.com/bnema/dumber/internal/logging"
 	"github.com/bnema/puregotk-webkit/webkit"
-	"github.com/jwijenbergh/puregotk/v4/gdk"
-	"github.com/jwijenbergh/puregotk/v4/gio"
-	"github.com/jwijenbergh/puregotk/v4/glib"
-	"github.com/jwijenbergh/puregotk/v4/gobject"
-	gtypes "github.com/jwijenbergh/puregotk/v4/gobject/types"
-	"github.com/jwijenbergh/puregotk/v4/gtk"
+	"github.com/bnema/puregotk/v4/gdk"
+	"github.com/bnema/puregotk/v4/gio"
+	"github.com/bnema/puregotk/v4/glib"
+	"github.com/bnema/puregotk/v4/gobject"
+	gtypes "github.com/bnema/puregotk/v4/gobject/types"
+	"github.com/bnema/puregotk/v4/gtk"
 	"github.com/rs/zerolog"
 )
 
-// Compile-time interface check: WebView must implement port.WebView.
+// Compile-time interface checks.
 var _ port.WebView = (*WebView)(nil)
+var _ port.DevToolsOpener = (*WebView)(nil)
+var _ port.Printer = (*WebView)(nil)
+var _ port.OAuthCallbackCapable = (*WebView)(nil)
 
 // WebViewID is an alias to port.WebViewID for clean architecture compliance.
 // Infrastructure layer uses the type defined in the application port.
@@ -159,7 +163,9 @@ type WebView struct {
 	// PermissionRequest is called when a site requests permission (mic, camera, screen sharing).
 	// Return true to indicate the request was handled. Call allow()/deny() to respond.
 	// The permission types are determined from the request object.
-	OnPermissionRequest func(origin string, permTypes []string, allow, deny func()) bool
+	// The metadata map carries permission-type-specific context; for website_data_access both
+	// entity.PermissionMetadataKeyRequestingDomain and entity.PermissionMetadataKeyCurrentDomain are populated.
+	OnPermissionRequest func(origin string, permTypes []string, metadata map[string]string, allow, deny func()) bool
 
 	logger zerolog.Logger
 	mu     sync.RWMutex
@@ -412,6 +418,8 @@ func (wv *WebView) connectSignals() {
 	wv.connectURISignal()
 	wv.connectFaviconSignal()
 	wv.connectProgressSignal()
+	wv.connectLoadFailedSignal()
+	wv.connectWebProcessResponsiveSignal()
 	wv.connectDecidePolicySignal()
 	wv.connectEnterFullscreenSignal()
 	wv.connectLeaveFullscreenSignal()
@@ -455,6 +463,42 @@ func (wv *WebView) connectLoadChangedSignal() {
 		}
 	}
 	sigID := wv.inner.ConnectLoadChanged(&loadChangedCb)
+	wv.signalIDs = append(wv.signalIDs, uintptr(sigID))
+}
+
+func (wv *WebView) connectLoadFailedSignal() {
+	loadFailedCb := func(_ webkit.WebView, event webkit.LoadEvent, failingURI string, gerr *glib.Error) bool {
+		wv.logger.Warn().
+			Str("component", "webview").
+			Str("uri", failingURI).
+			Int("load_event", int(event)).
+			Str("error", gerr.MessageGo()).
+			Msg("load failed")
+		return false
+	}
+	sigID := wv.inner.ConnectLoadFailed(&loadFailedCb)
+	wv.signalIDs = append(wv.signalIDs, uintptr(sigID))
+}
+
+func (wv *WebView) connectWebProcessResponsiveSignal() {
+	responsiveCb := func() {
+		responsive := wv.inner.GetPropertyIsWebProcessResponsive()
+		event := wv.logger.With().
+			Uint64("id", uint64(wv.id)).
+			Str("uri", wv.inner.GetUri()).
+			Bool("responsive", responsive).
+			Logger()
+		if responsive {
+			event.Info().Msg("web process responsiveness changed")
+			return
+		}
+		event.Warn().Msg("web process became unresponsive")
+	}
+	sigID := gobject.SignalConnect(
+		wv.inner.GoPointer(),
+		"notify::is-web-process-responsive",
+		glib.NewCallback(&responsiveCb),
+	)
 	wv.signalIDs = append(wv.signalIDs, uintptr(sigID))
 }
 
@@ -975,15 +1019,17 @@ func (wv *WebView) connectWebProcessTerminatedSignal() {
 // connectPermissionRequestSignal sets up the permission-request signal handler.
 // This is emitted when a site calls getUserMedia() or getDisplayMedia().
 func (wv *WebView) connectPermissionRequestSignal() {
-	permissionCb := func(_ webkit.WebView, requestPtr uintptr) bool {
+	permissionCb := func(inner webkit.WebView, requestPtr uintptr) bool {
 		ctx := logging.WithContext(context.Background(), wv.logger)
 
 		if wv.OnPermissionRequest == nil {
 			return false // Not handled, WebKit will deny by default
 		}
 
-		// Extract and normalize origin from current URI
-		uri := wv.URI()
+		// Use the live URI from the signal's WebView rather than the cached wv.URI(),
+		// so permission lookups use the current page origin even if navigation has
+		// occurred since the last load-changed signal.
+		uri := inner.GetUri()
 		if uri == "" {
 			wv.logger.Debug().Msg("permission request with empty origin, denying")
 			return false
@@ -995,10 +1041,17 @@ func (wv *WebView) connectPermissionRequestSignal() {
 		}
 
 		// Determine permission types from the request
-		permTypes := wv.determinePermissionTypes(ctx, requestPtr)
+		permTypes, metadata := wv.determinePermissionTypes(ctx, requestPtr)
 		if len(permTypes) == 0 {
 			wv.logger.Warn().Msg("permission request with unknown type, denying")
 			return false
+		}
+		if len(permTypes) == 1 && permTypes[0] == string(entity.PermissionTypeWebsiteDataAccess) {
+			wv.logger.Info().
+				Str("origin", origin).
+				Str("requesting_domain", logging.TruncateURL(metadata[entity.PermissionMetadataKeyRequestingDomain], logging.PermissionLogURLMaxLen)).
+				Str("current_domain", logging.TruncateURL(metadata[entity.PermissionMetadataKeyCurrentDomain], logging.PermissionLogURLMaxLen)).
+				Msg("website data access permission requested")
 		}
 
 		// Ref the request object to prevent use-after-free
@@ -1033,7 +1086,7 @@ func (wv *WebView) connectPermissionRequestSignal() {
 		}
 
 		// Call the handler
-		return wv.OnPermissionRequest(origin, permTypes, allow, deny)
+		return wv.OnPermissionRequest(origin, permTypes, metadata, allow, deny)
 	}
 
 	sigID := wv.inner.ConnectPermissionRequest(&permissionCb)
@@ -1045,13 +1098,13 @@ func (wv *WebView) connectPermissionRequestSignal() {
 // We use GObject property accessors for audio/video request flags. Display detection
 // uses the dedicated WebKit API because this WebKit build does not expose an
 // "is-for-display-device" GObject property.
-func (wv *WebView) determinePermissionTypes(ctx context.Context, requestPtr uintptr) []string {
+func (wv *WebView) determinePermissionTypes(ctx context.Context, requestPtr uintptr) (types []string, metadata map[string]string) {
 	requestKind := detectPermissionRequestKind(ctx, requestPtr)
 	switch requestKind {
 	case permissionRequestKindUserMedia:
 		userMediaReq := webkit.UserMediaPermissionRequestNewFromInternalPtr(requestPtr)
 		if userMediaReq == nil {
-			return nil
+			return nil, nil
 		}
 
 		// Use GObject property accessors — more reliable than the C function wrappers
@@ -1066,9 +1119,25 @@ func (wv *WebView) determinePermissionTypes(ctx context.Context, requestPtr uint
 			Bool("is_display", isDisplay).
 			Msg("permission request type detection")
 
-		return classifyPermissionRequestTypes(ctx, requestKind, isAudio, isVideo, isDisplay)
+		return classifyPermissionRequestTypes(ctx, requestKind, isAudio, isVideo, isDisplay), nil
 	case permissionRequestKindDeviceInfo:
-		return classifyPermissionRequestTypes(ctx, requestKind, false, false, false)
+		return classifyPermissionRequestTypes(ctx, requestKind, false, false, false), nil
+	case permissionRequestKindWebsiteDataAccess:
+		wdaReq := webkit.WebsiteDataAccessPermissionRequestNewFromInternalPtr(requestPtr)
+		if wdaReq == nil {
+			return nil, nil
+		}
+		currentDomain := wdaReq.GetCurrentDomain()
+		requestingDomain := wdaReq.GetRequestingDomain()
+		wv.logger.Debug().
+			Str("current_domain", currentDomain).
+			Str("requesting_domain", requestingDomain).
+			Msg("website data access permission request")
+		meta := map[string]string{
+			entity.PermissionMetadataKeyRequestingDomain: requestingDomain,
+			entity.PermissionMetadataKeyCurrentDomain:    currentDomain,
+		}
+		return classifyPermissionRequestTypes(ctx, requestKind, false, false, false), meta
 	default:
 		if requestPtr != 0 {
 			typeName := permissionRequestTypeName(ctx, requestPtr)
@@ -1080,7 +1149,7 @@ func (wv *WebView) determinePermissionTypes(ctx context.Context, requestPtr uint
 		}
 		// Unknown permission type - could be clipboard, notifications, geolocation, etc.
 		// For now, return empty to trigger denial. Future phases will add these types.
-		return nil
+		return nil, nil
 	}
 }
 
@@ -1090,6 +1159,7 @@ const (
 	permissionRequestKindUnknown permissionRequestKind = iota
 	permissionRequestKindUserMedia
 	permissionRequestKindDeviceInfo
+	permissionRequestKindWebsiteDataAccess
 )
 
 func detectPermissionRequestKind(ctx context.Context, requestPtr uintptr) permissionRequestKind {
@@ -1101,6 +1171,11 @@ func detectPermissionRequestKind(ctx context.Context, requestPtr uintptr) permis
 	if gtype, ok := safeGLibType(ctx, webkit.DeviceInfoPermissionRequestGLibType); ok {
 		if isPermissionRequestType(ctx, requestPtr, gtype) {
 			return permissionRequestKindDeviceInfo
+		}
+	}
+	if gtype, ok := safeGLibType(ctx, webkit.WebsiteDataAccessPermissionRequestGLibType); ok {
+		if isPermissionRequestType(ctx, requestPtr, gtype) {
+			return permissionRequestKindWebsiteDataAccess
 		}
 	}
 	return permissionRequestKindUnknown
@@ -1137,6 +1212,8 @@ func classifyPermissionRequestTypes(
 		return classifyUserMediaPermissionTypes(ctx, isAudio, isVideo, isDisplay)
 	case permissionRequestKindDeviceInfo:
 		return []string{"device_info"}
+	case permissionRequestKindWebsiteDataAccess:
+		return []string{"website_data_access"}
 	default:
 		return nil
 	}
@@ -1187,6 +1264,14 @@ func (wv *WebView) allowPermissionRequest(requestPtr uintptr) {
 		return
 	}
 
+	// Try WebsiteDataAccessPermissionRequest
+	wdaReq := webkit.WebsiteDataAccessPermissionRequestNewFromInternalPtr(requestPtr)
+	if wdaReq != nil {
+		wdaReq.Allow()
+		wv.logger.Debug().Msg("website data access permission request allowed")
+		return
+	}
+
 	wv.logger.Warn().Uint64("request_ptr", uint64(requestPtr)).Msg("permission request: unknown type, cannot allow")
 }
 
@@ -1205,6 +1290,14 @@ func (wv *WebView) denyPermissionRequest(requestPtr uintptr) {
 	if deviceInfoReq != nil {
 		deviceInfoReq.Deny()
 		wv.logger.Debug().Msg("permission request denied")
+		return
+	}
+
+	// Try WebsiteDataAccessPermissionRequest
+	wdaReq := webkit.WebsiteDataAccessPermissionRequestNewFromInternalPtr(requestPtr)
+	if wdaReq != nil {
+		wdaReq.Deny()
+		wv.logger.Debug().Msg("website data access permission request denied")
 		return
 	}
 
@@ -1397,9 +1490,22 @@ func (wv *WebView) Title() string {
 	return wv.title
 }
 
-// Favicon returns the current page favicon as a GdkTexture.
+// Favicon returns the current page favicon as a Texture.
 // Returns nil if no favicon is available.
-func (wv *WebView) Favicon() *gdk.Texture {
+func (wv *WebView) Favicon() port.Texture {
+	if wv.destroyed.Load() {
+		return nil
+	}
+	tex := wv.inner.GetFavicon()
+	if tex == nil {
+		return nil
+	}
+	return tex
+}
+
+// FaviconGdk returns the current page favicon as a *gdk.Texture.
+// Used by internal WebKit code that needs the concrete type.
+func (wv *WebView) FaviconGdk() *gdk.Texture {
 	if wv.destroyed.Load() {
 		return nil
 	}
@@ -1444,18 +1550,18 @@ func (wv *WebView) GetZoomLevel() float64 {
 	return wv.inner.GetZoomLevel()
 }
 
-// SetBackgroundColor sets the WebView background color.
+// SetBackgroundColor sets the WebView background color (port.WebView interface).
 // This color is shown before content is painted, eliminating white flash.
 // Values are in range 0.0-1.0 for red, green, blue, alpha.
-func (wv *WebView) SetBackgroundColor(r, g, b, a float32) {
+func (wv *WebView) SetBackgroundColor(r, g, b, a float64) {
 	if wv.destroyed.Load() {
 		return
 	}
 	rgba := &gdk.RGBA{
-		Red:   r,
-		Green: g,
-		Blue:  b,
-		Alpha: a,
+		Red:   float32(r),
+		Green: float32(g),
+		Blue:  float32(b),
+		Alpha: float32(a),
 	}
 	wv.inner.SetBackgroundColor(rgba)
 }
@@ -1466,6 +1572,19 @@ func (wv *WebView) ResetBackgroundToDefault() {
 	wv.SetBackgroundColor(1.0, 1.0, 1.0, 1.0)
 }
 
+// NativeWidget returns the underlying GTK widget pointer for UI embedding.
+// Implements port.NativeWidgetProvider.
+func (wv *WebView) NativeWidget() uintptr {
+	if wv.destroyed.Load() {
+		return 0
+	}
+	w := wv.Widget()
+	if w == nil {
+		return 0
+	}
+	return w.Widget.GoPointer()
+}
+
 // Show makes the WebView widget visible.
 // This should be called after the WebView is ready to be displayed.
 func (wv *WebView) Show() {
@@ -1473,6 +1592,30 @@ func (wv *WebView) Show() {
 		return
 	}
 	wv.inner.SetVisible(true)
+}
+
+// SetOnReadyToShow sets the callback invoked when the popup WebView is ready to display.
+// It implements port.PopupCapable.
+func (wv *WebView) SetOnReadyToShow(fn func()) {
+	wv.OnReadyToShow = fn
+}
+
+// SetOnClose composes fn with any existing OnClose handler so multiple callers
+// can each register a close callback without overwriting one another.
+// It implements port.PopupCapable.
+func (wv *WebView) SetOnClose(fn func()) {
+	existing := wv.OnClose
+	if existing == nil {
+		wv.OnClose = fn
+		return
+	}
+	if fn == nil {
+		return
+	}
+	wv.OnClose = func() {
+		existing()
+		fn()
+	}
 }
 
 // State returns the current WebView state as a snapshot.
@@ -1502,6 +1645,10 @@ func (wv *WebView) SetCallbacks(callbacks *port.WebViewCallbacks) {
 		wv.OnLinkHover = nil
 		wv.OnWebProcessTerminated = nil
 		wv.OnPermissionRequest = nil
+		wv.OnLinkMiddleClick = nil
+		wv.OnEnterFullscreen = nil
+		wv.OnLeaveFullscreen = nil
+		wv.OnAudioStateChanged = nil
 		return
 	}
 
@@ -1549,6 +1696,10 @@ func (wv *WebView) SetCallbacks(callbacks *port.WebViewCallbacks) {
 		wv.OnWebProcessTerminated = nil
 	}
 	wv.OnPermissionRequest = callbacks.OnPermissionRequest
+	wv.OnLinkMiddleClick = callbacks.OnLinkMiddleClick
+	wv.OnEnterFullscreen = callbacks.OnEnterFullscreen
+	wv.OnLeaveFullscreen = callbacks.OnLeaveFullscreen
+	wv.OnAudioStateChanged = callbacks.OnAudioStateChanged
 }
 
 // ShowDevTools opens the WebKit inspector/developer tools.
@@ -1580,6 +1731,20 @@ func (wv *WebView) Print() error {
 	return nil
 }
 
+// OpenDevTools implements port.DevToolsOpener.
+func (wv *WebView) OpenDevTools() {
+	if err := wv.ShowDevTools(); err != nil {
+		wv.logger.Error().Err(err).Uint64("id", uint64(wv.id)).Msg("failed to open dev tools")
+	}
+}
+
+// PrintPage implements port.Printer.
+func (wv *WebView) PrintPage() {
+	if err := wv.Print(); err != nil {
+		wv.logger.Error().Err(err).Uint64("id", uint64(wv.id)).Msg("failed to open print dialog")
+	}
+}
+
 // IsDestroyed returns true if the WebView has been destroyed.
 func (wv *WebView) IsDestroyed() bool {
 	return wv.destroyed.Load()
@@ -1603,6 +1768,60 @@ func (wv *WebView) Close() {
 	}
 	if wv.OnClose != nil {
 		wv.OnClose()
+	}
+}
+
+// AddCloseCallback implements port.OAuthCallbackCapable.
+// It composes fn with any existing OnClose handler so multiple callers can register
+// close callbacks without overwriting one another.
+func (wv *WebView) AddCloseCallback(fn func()) {
+	if fn == nil {
+		return
+	}
+	if wv.OnClose == nil {
+		wv.OnClose = fn
+		return
+	}
+	existing := wv.OnClose
+	wv.OnClose = func() {
+		existing()
+		fn()
+	}
+}
+
+// AddNavigationCallback implements port.OAuthCallbackCapable.
+// fn is invoked when the URI changes (OnURIChanged) and when a page load is committed
+// (OnLoadChanged with LoadCommitted), covering both redirect-based and postMessage OAuth flows.
+func (wv *WebView) AddNavigationCallback(fn func(uri string)) {
+	if fn == nil {
+		return
+	}
+	// Compose with existing OnURIChanged.
+	if wv.OnURIChanged == nil {
+		wv.OnURIChanged = fn
+	} else {
+		existing := wv.OnURIChanged
+		wv.OnURIChanged = func(uri string) {
+			existing(uri)
+			fn(uri)
+		}
+	}
+
+	// Compose with existing OnLoadChanged to also fire on committed loads.
+	if wv.OnLoadChanged == nil {
+		wv.OnLoadChanged = func(event LoadEvent) {
+			if event == LoadCommitted {
+				fn(wv.URI())
+			}
+		}
+	} else {
+		existing := wv.OnLoadChanged
+		wv.OnLoadChanged = func(event LoadEvent) {
+			existing(event)
+			if event == LoadCommitted {
+				fn(wv.URI())
+			}
+		}
 	}
 }
 
@@ -1880,10 +2099,16 @@ func (wv *WebView) shouldLogRunJSError(domain, signature string, nonFatal bool, 
 	return shouldLog, count
 }
 
-// RunJavaScript executes script in the specified world (empty for main world).
+// RunJavaScript executes script in the main world (port.WebView interface).
+// This is fire-and-forget: it does not block and errors are logged asynchronously.
+func (wv *WebView) RunJavaScript(ctx context.Context, script string) {
+	wv.RunJavaScriptInWorld(ctx, script, "")
+}
+
+// RunJavaScriptInWorld executes script in the specified world (empty for main world).
 // This is fire-and-forget: it does not block and errors are logged asynchronously.
 // Safe to call from any context including GTK signal handlers.
-func (wv *WebView) RunJavaScript(ctx context.Context, script, worldName string) {
+func (wv *WebView) RunJavaScriptInWorld(ctx context.Context, script, worldName string) {
 	if wv.destroyed.Load() {
 		return
 	}

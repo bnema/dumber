@@ -51,7 +51,6 @@ func (sm *SettingsManager) applySettings(ctx context.Context, settings *webkit.S
 	log := logging.FromContext(ctx)
 	applyJavaScriptSettings(settings)
 	applyFontSettings(settings, cfg)
-	applyRenderingSettings(settings, cfg)
 	applyDebugSettings(settings, cfg)
 	applyBrowsingSettings(settings)
 	applyMediaSettings(settings, cfg, log)
@@ -65,7 +64,6 @@ func (sm *SettingsManager) applySettings(ctx context.Context, settings *webkit.S
 
 	log.Debug().
 		Str("sans_font", cfg.Appearance.SansFont).
-		Str("rendering_mode", string(cfg.Rendering.Mode)).
 		Bool("developer_extras", cfg.Debug.EnableDevTools).
 		Bool("webrtc_enabled", webrtcEnabled).
 		Bool("media_stream_enabled", mediaStreamEnabled).
@@ -93,21 +91,10 @@ func applyFontSettings(settings *webkit.Settings, cfg *config.Config) {
 	}
 }
 
-func applyRenderingSettings(settings *webkit.Settings, cfg *config.Config) {
-	switch cfg.Rendering.Mode {
-	case config.RenderingModeGPU:
-		settings.SetHardwareAccelerationPolicy(webkit.HardwareAccelerationPolicyAlwaysValue)
-	case config.RenderingModeCPU:
-		settings.SetHardwareAccelerationPolicy(webkit.HardwareAccelerationPolicyNeverValue)
-	case config.RenderingModeAuto:
-		settings.SetHardwareAccelerationPolicy(webkit.HardwareAccelerationPolicyAlwaysValue)
-	}
-}
-
 func applyDebugSettings(settings *webkit.Settings, cfg *config.Config) {
 	settings.SetEnableDeveloperExtras(cfg.Debug.EnableDevTools)
 	settings.SetEnableWriteConsoleMessagesToStdout(cfg.Logging.CaptureConsole)
-	settings.SetDrawCompositingIndicators(cfg.Rendering.DrawCompositingIndicators)
+	settings.SetDrawCompositingIndicators(cfg.Engine.WebKit.DrawCompositingIndicators)
 }
 
 func applyBrowsingSettings(settings *webkit.Settings) {
@@ -178,18 +165,14 @@ func (sm *SettingsManager) UpdateFromConfig(ctx context.Context, cfg *config.Con
 // ApplyToWebView applies current settings to an existing WebView.
 // This can be used to update a WebView's settings after config hot-reload.
 func (sm *SettingsManager) ApplyToWebView(ctx context.Context, wv *webkit.WebView) {
+	if sm == nil {
+		return
+	}
 	if wv == nil {
 		return
 	}
 
-	settings := sm.CreateSettings(ctx)
-	if settings == nil {
-		return
-	}
-
-	// WebView.GetSettings() returns the current settings - we can modify them directly
-	// For a full replacement, we'd need webkit_web_view_set_settings which may not be available
-	// Instead, we apply to the existing settings object
+	// Apply to the existing settings object attached to the WebView
 	existingSettings := wv.GetSettings()
 	if existingSettings != nil {
 		sm.mu.RLock()

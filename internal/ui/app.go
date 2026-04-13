@@ -14,19 +14,12 @@ import (
 	"github.com/bnema/dumber/internal/application/usecase"
 	"github.com/bnema/dumber/internal/domain/entity"
 	urlutil "github.com/bnema/dumber/internal/domain/url"
-	"github.com/bnema/dumber/internal/infrastructure/config"
-	"github.com/bnema/dumber/internal/infrastructure/desktop"
-	"github.com/bnema/dumber/internal/infrastructure/filesystem"
-	"github.com/bnema/dumber/internal/infrastructure/filtering"
-	"github.com/bnema/dumber/internal/infrastructure/snapshot"
-	"github.com/bnema/dumber/internal/infrastructure/textinput"
-	"github.com/bnema/dumber/internal/infrastructure/webkit"
 
-	"github.com/bnema/dumber/internal/infrastructure/webkit/handlers"
 	"github.com/bnema/dumber/internal/logging"
 	"github.com/bnema/dumber/internal/ui/adapter"
 	"github.com/bnema/dumber/internal/ui/component"
 	"github.com/bnema/dumber/internal/ui/coordinator"
+	"github.com/bnema/dumber/internal/ui/coordinator/content"
 	"github.com/bnema/dumber/internal/ui/dialog"
 	"github.com/bnema/dumber/internal/ui/dispatcher"
 	"github.com/bnema/dumber/internal/ui/focus"
@@ -34,11 +27,11 @@ import (
 	"github.com/bnema/dumber/internal/ui/layout"
 	"github.com/bnema/dumber/internal/ui/theme"
 	"github.com/bnema/dumber/internal/ui/window"
-	"github.com/jwijenbergh/puregotk/v4/adw"
-	"github.com/jwijenbergh/puregotk/v4/gdk"
-	"github.com/jwijenbergh/puregotk/v4/gio"
-	"github.com/jwijenbergh/puregotk/v4/glib"
-	"github.com/jwijenbergh/puregotk/v4/gtk"
+	"github.com/bnema/puregotk/v4/adw"
+	"github.com/bnema/puregotk/v4/gdk"
+	"github.com/bnema/puregotk/v4/gio"
+	"github.com/bnema/puregotk/v4/glib"
+	"github.com/bnema/puregotk/v4/gtk"
 )
 
 const (
@@ -57,6 +50,15 @@ func gtkApplicationFlags() gio.ApplicationFlags {
 	return gio.GApplicationNonUniqueValue
 }
 
+var adwaitaInitOnce sync.Once
+
+// EnsureAdwaitaInitialized initializes libadwaita and GTK exactly once.
+func EnsureAdwaitaInitialized() {
+	adwaitaInitOnce.Do(func() {
+		adw.Init()
+	})
+}
+
 // App wraps the GTK Application and manages the browser lifecycle.
 type App struct {
 	deps       *Dependencies
@@ -68,12 +70,11 @@ type App struct {
 	tabsUC *usecase.ManageTabsUseCase
 
 	// Coordinators (new architecture)
-	contentCoord  *coordinator.ContentCoordinator
-	tabCoord      *coordinator.TabCoordinator
-	wsCoord       *coordinator.WorkspaceCoordinator
-	navCoord      *coordinator.NavigationCoordinator
-	kbDispatcher  *dispatcher.KeyboardDispatcher
-	configManager *config.Manager
+	contentCoord *content.Coordinator
+	tabCoord     *coordinator.TabCoordinator
+	wsCoord      *coordinator.WorkspaceCoordinator
+	navCoord     *coordinator.NavigationCoordinator
+	kbDispatcher *dispatcher.KeyboardDispatcher
 
 	// Pane management (used by coordinators)
 	panesUC        *usecase.ManagePanesUseCase
@@ -99,12 +100,10 @@ type App struct {
 	// Floating pane sessions keyed by tab and profile session ID.
 	floatingSessions map[floatingSessionKey]*floatingWorkspaceSession
 
-	// Web content (managed by ContentCoordinator)
-	pool           *webkit.WebViewPool
-	webViewFactory *webkit.WebViewFactory
-	injector       *webkit.ContentInjector
-	router         *webkit.MessageRouter
-	settings       *webkit.SettingsManager
+	// Engine
+	engine port.Engine
+
+	// Web content (managed by content.Coordinator)
 	faviconAdapter *adapter.FaviconAdapter
 
 	// App-level toaster for system notifications (filter status, etc.)
@@ -119,7 +118,7 @@ type App struct {
 	tabPicker       *component.TabPicker
 	tabPickerWidget layout.Widget
 	tabPickerPaneID entity.PaneID
-	snapshotService *snapshot.Service
+	snapshotService port.SnapshotService
 
 	// Update management
 	updateCoord *coordinator.UpdateCoordinator
@@ -134,7 +133,7 @@ type App struct {
 	// Accent picker for dead keys support
 	accentPicker        *component.AccentPicker
 	insertAccentUC      *usecase.InsertAccentUseCase
-	accentFocusProvider *textinput.FocusProvider
+	accentFocusProvider port.FocusedInputProvider
 
 	// Deferred initialization - runs after first load_started to avoid blocking initial navigation
 	deferredInitOnce sync.Once
@@ -148,7 +147,7 @@ type floatingWorkspaceSession struct {
 	paneID              entity.PaneID
 	pane                *component.FloatingPane
 	paneView            *component.PaneView
-	webView             *webkit.WebView
+	webView             port.WebView
 	overlay             layout.OverlayWidget
 	widget              layout.Widget
 	focusWidget         layout.Widget
@@ -179,42 +178,35 @@ func New(deps *Dependencies) (*App, error) {
 		panesUC:          deps.PanesUC,
 		workspaceViews:   make(map[entity.TabID]*component.WorkspaceView),
 		floatingSessions: make(map[floatingSessionKey]*floatingWorkspaceSession),
-		pool:             deps.Pool,
-		injector:         deps.Injector,
-		router:           deps.MessageRouter,
-		settings:         deps.Settings,
-		configManager:    config.GetManager(),
+		engine:           deps.Engine,
 		cancel:           cancel,
 	}
-	if app.router == nil {
-		app.router = webkit.NewMessageRouter(ctx)
-	}
-
-	// Register message handlers
-	if app.router != nil {
-		if err := handlers.RegisterAll(ctx, app.router, handlers.Config{
-			HistoryUC:    deps.HistoryUC,
-			FavoritesUC:  deps.FavoritesUC,
-			Clipboard:    deps.Clipboard,
-			ConfigGetter: config.Get,
-			// AccentHandler is registered after initAccentPicker in onActivate
-			OnClipboardCopied: func(textLen int) {
-				// Show brief toast on auto-copy (similar to zellij footer notification)
-				// Must schedule on GTK main thread since this is called from WebKit handler
-				cb := glib.SourceFunc(func(_ uintptr) bool {
-					if app.appToaster != nil {
-						app.appToaster.Show(ctx, "Copied to clipboard", component.ToastInfo,
-							component.WithDuration(component.ToastBriefDurationMs),
-							component.WithPosition(component.ToastPositionBottomRight),
-						)
-					}
-					return false
-				})
-				glib.IdleAdd(&cb, 0)
-			},
-		}); err != nil {
-			return nil, err
-		}
+	// Register message handlers through the engine.
+	if err := deps.Engine.RegisterHandlers(ctx, port.HandlerDependencies{
+		HistoryUC:   deps.HistoryUC,
+		FavoritesUC: deps.FavoritesUC,
+		Clipboard:   deps.Clipboard,
+		AutoCopyConfig: &autoCopyConfigFn{fn: func() bool {
+			if deps.Config == nil {
+				return false
+			}
+			return deps.Config.Clipboard.AutoCopyOnSelection
+		}},
+		OnClipboardCopied: func(textLen int) {
+			cb := glib.SourceFunc(func(_ uintptr) bool {
+				if app.appToaster != nil {
+					app.appToaster.Show(ctx, "Copied to clipboard", component.ToastInfo,
+						component.WithDuration(component.ToastBriefDurationMs),
+						component.WithPosition(component.ToastPositionBottomRight),
+					)
+				}
+				return false
+			})
+			glib.IdleAdd(&cb, 0)
+		},
+		HandlerDeps: deps.HandlerDeps,
+	}); err != nil {
+		return nil, err
 	}
 
 	return app, nil
@@ -228,7 +220,7 @@ func (a *App) Run(ctx context.Context, args []string) int {
 
 	// Initialize libadwaita once (required before using StyleManager).
 	// This also initializes GTK implicitly.
-	adw.Init()
+	EnsureAdwaitaInitialized()
 	logging.Trace().Mark("gtk_init")
 
 	// Mark adwaita detector as available now that adw.Init() is complete.
@@ -239,8 +231,8 @@ func (a *App) Run(ctx context.Context, args []string) int {
 
 		// Refresh scripts in pooled WebViews that were prewarmed before adw.Init().
 		// They have the wrong dark mode preference injected; re-inject with correct value.
-		if a.pool != nil {
-			a.pool.RefreshScripts(ctx)
+		if a.engine != nil {
+			_ = a.engine.OnToolkitReady(ctx)
 		}
 	}
 
@@ -362,37 +354,45 @@ func (a *App) applyGTKColorSchemePreference(ctx context.Context) {
 
 func (a *App) setupPoolBackgroundColor(ctx context.Context) {
 	log := logging.FromContext(ctx)
-
-	// Set theme background color on pool to eliminate white flash.
-	// Must be done before any WebView creation so WebViews get the correct color.
-	if a.pool == nil {
-		log.Debug().Msg("webview pool not available; skipping background color setup")
+	if a.engine == nil {
+		log.Debug().Msg("engine not available; skipping background color setup")
 		return
 	}
 	if a.deps == nil || a.deps.Theme == nil {
 		log.Debug().Msg("theme not available; skipping webview pool background color setup")
 		return
 	}
-
 	r, g, b, alpha := a.deps.Theme.GetBackgroundRGBA()
-	a.pool.SetBackgroundColor(r, g, b, alpha)
+	if err := a.engine.UpdateAppearance(ctx, float64(r), float64(g), float64(b), float64(alpha)); err != nil {
+		log.Warn().Err(err).Msg("failed to update engine appearance")
+	}
 	log.Debug().Msg("configured webview pool background color")
 }
 
 func (a *App) prewarmWebViewPoolAsync(ctx context.Context) {
-	// Prewarm WebView pool after startup so cold-start navigation is not blocked.
-	if a.pool == nil {
+	if a.engine == nil {
 		return
 	}
-	a.pool.PrewarmAsync(ctx, 0)
+	pool := a.engine.Pool()
+	if pool == nil {
+		return
+	}
+	pool.PrewarmAsync(ctx, 0)
 }
 
 func (a *App) createMainWindow(ctx context.Context) error {
-	mainWindow, err := window.New(ctx, a.gtkApp, a.deps.Config)
+	log := logging.FromContext(ctx)
+	mainWindow, err := window.New(ctx, a.gtkApp, a.deps.Config.Workspace.TabBarPosition)
 	if err != nil {
 		return err
 	}
 	a.mainWindow = mainWindow
+
+	closeRequestCb := func(_ gtk.Window) bool {
+		log.Info().Msg("main window close requested")
+		return false
+	}
+	a.mainWindow.Window().ConnectCloseRequest(&closeRequestCb)
 
 	// Create permission popup and dialog presenter
 	if a.deps != nil && a.deps.PermissionUC != nil {
@@ -524,8 +524,8 @@ func (a *App) initAccentPicker(ctx context.Context) {
 		}
 	}
 
-	// Create focus provider (tracks which input has focus)
-	a.accentFocusProvider = textinput.NewFocusProvider()
+	// Use focus provider from deps (tracks which input has focus)
+	a.accentFocusProvider = a.deps.AccentFocusProvider
 
 	// Create the use case with glib.IdleAdd for thread-safe GTK calls
 	a.insertAccentUC = usecase.NewInsertAccentUseCase(
@@ -548,12 +548,16 @@ func (a *App) initAccentPicker(ctx context.Context) {
 func (a *App) registerAccentHandlers(ctx context.Context) {
 	log := logging.FromContext(ctx)
 
-	if a.router == nil || a.insertAccentUC == nil {
-		log.Debug().Msg("router or insertAccentUC not available, skipping accent handler registration")
+	if a.insertAccentUC == nil {
+		log.Debug().Msg("insertAccentUC not available, skipping accent handler registration")
+		return
+	}
+	if a.engine == nil {
+		log.Debug().Msg("engine not available, skipping accent handler registration")
 		return
 	}
 
-	if err := handlers.RegisterAccentHandlers(ctx, a.router, a.insertAccentUC); err != nil {
+	if err := a.engine.RegisterAccentHandlers(ctx, a.insertAccentUC); err != nil {
 		log.Error().Err(err).Msg("failed to register accent handlers")
 	} else {
 		log.Info().Msg("registered accent key handlers")
@@ -563,7 +567,7 @@ func (a *App) registerAccentHandlers(ctx context.Context) {
 func (a *App) initDownloadHandler(ctx context.Context) {
 	log := logging.FromContext(ctx)
 
-	if a.deps == nil || a.deps.WebContext == nil {
+	if a.deps == nil || a.engine == nil {
 		log.Debug().Msg("WebContext not available, skipping download handler")
 		return
 	}
@@ -595,11 +599,12 @@ func (a *App) initDownloadHandler(ctx context.Context) {
 	eventAdapter := &downloadEventAdapter{app: a}
 
 	// Create use case for preparing download destinations with file deduplication.
-	prepareDownloadUC := usecase.NewPrepareDownloadUseCase(filesystem.New())
+	prepareDownloadUC := usecase.NewPrepareDownloadUseCase(a.deps.FileSystem)
 
-	// Create and wire the download handler.
-	handler := webkit.NewDownloadHandler(downloadPath, eventAdapter, prepareDownloadUC)
-	a.deps.WebContext.SetDownloadHandler(ctx, handler)
+	if err := a.engine.ConfigureDownloads(ctx, downloadPath, eventAdapter, prepareDownloadUC); err != nil {
+		log.Error().Err(err).Msg("failed to configure downloads")
+		return
+	}
 
 	log.Info().Str("path", downloadPath).Msg("download handler initialized")
 }
@@ -629,6 +634,18 @@ func (d *downloadEventAdapter) OnDownloadEvent(ctx context.Context, event port.D
 	glib.IdleAdd(&cb, 0)
 }
 
+// autoCopyConfigFn implements port.AutoCopyConfig using a function closure.
+type autoCopyConfigFn struct {
+	fn func() bool
+}
+
+func (a *autoCopyConfigFn) IsAutoCopyEnabled() bool {
+	if a.fn == nil {
+		return false
+	}
+	return a.fn()
+}
+
 func (a *App) initKeyboardHandler(ctx context.Context) {
 	log := logging.FromContext(ctx)
 
@@ -637,7 +654,7 @@ func (a *App) initKeyboardHandler(ctx context.Context) {
 	}
 
 	// Create keyboard handler and wire to dispatcher.
-	a.keyboardHandler = input.NewKeyboardHandler(ctx, a.deps.Config)
+	a.keyboardHandler = input.NewKeyboardHandler(ctx, &a.deps.Config.Workspace, &a.deps.Config.Session)
 	a.keyboardHandler.SetOnAction(func(ctx context.Context, action input.Action) error {
 		if action == input.ActionClosePane {
 			if a.closeAndReleaseActiveFloatingPane(ctx) {
@@ -677,7 +694,7 @@ func (a *App) initKeyboardHandler(ctx context.Context) {
 		// visible after focus returns to the WebView, so visibility alone
 		// would misroute keys.
 		if a.accentFocusProvider != nil {
-			if _, ok := a.accentFocusProvider.GetFocusedInput().(*textinput.GTKEntryTarget); ok {
+			if _, ok := a.accentFocusProvider.GetFocusedInput().(port.EntryInputTarget); ok {
 				// GTK Entry focused (omnibox or find bar): Alt-modified keys go to
 				// shortcuts (pane navigation), other keys pass through to the widget's
 				// own capture-phase key controller (which handles accent detection)
@@ -712,7 +729,8 @@ func (a *App) initKeyboardHandler(ctx context.Context) {
 	a.globalShortcutHandler = input.NewGlobalShortcutHandler(
 		ctx,
 		a.mainWindow.Window(),
-		a.deps.Config,
+		&a.deps.Config.Workspace,
+		&a.deps.Config.Session,
 		a.keyboardHandler,
 		func(ctx context.Context, action input.Action) error {
 			return a.kbDispatcher.Dispatch(ctx, action)
@@ -750,33 +768,103 @@ func (a *App) handleAccentKeyRelease(ctx context.Context, keyval uint) {
 	}
 }
 
+type omniboxCallbacks struct {
+	OnNavigate         func(url string)
+	OnToast            func(ctx context.Context, message string, level component.ToastLevel)
+	OnFocusIn          func(entry *gtk.SearchEntry)
+	OnFocusOut         func()
+	OnAccentKeyPress   func(keyval uint, state gdk.ModifierType) bool
+	OnAccentKeyRelease func(keyval uint)
+}
+
+func buildOmniboxConfig(
+	deps *Dependencies,
+	faviconAdapter *adapter.FaviconAdapter,
+	callbacks omniboxCallbacks,
+) component.OmniboxConfig {
+	if deps == nil || deps.Config == nil {
+		return component.OmniboxConfig{}
+	}
+
+	shortcuts := make(map[string]usecase.SearchShortcut, len(deps.Config.SearchShortcuts))
+	for key, shortcut := range deps.Config.SearchShortcuts {
+		shortcuts[key] = usecase.SearchShortcut{
+			URL:         shortcut.URL,
+			Description: shortcut.Description,
+		}
+	}
+
+	return component.OmniboxConfig{
+		HistoryUC:           deps.HistoryUC,
+		FavoritesUC:         deps.FavoritesUC,
+		FaviconAdapter:      faviconAdapter,
+		CopyURLUC:           deps.CopyURLUC,
+		ShortcutsUC:         usecase.NewSearchShortcutsUseCase(shortcuts),
+		DefaultSearch:       deps.Config.DefaultSearchEngine,
+		InitialBehavior:     deps.Config.Omnibox.InitialBehavior,
+		MostVisitedDays:     deps.Config.Omnibox.MostVisitedDays,
+		SaveInitialBehavior: deps.HandlerDeps.SaveOmniboxInitialBehavior,
+		UIScale:             deps.Config.DefaultUIScale,
+		OnNavigate:          callbacks.OnNavigate,
+		OnToast:             callbacks.OnToast,
+		OnFocusIn:           callbacks.OnFocusIn,
+		OnFocusOut:          callbacks.OnFocusOut,
+		OnAccentKeyPress:    callbacks.OnAccentKeyPress,
+		OnAccentKeyRelease:  callbacks.OnAccentKeyRelease,
+	}
+}
+
+func NewStandaloneOmniboxRuntime(
+	ctx context.Context,
+	deps *Dependencies,
+	faviconDB port.FaviconDatabase,
+) *StandaloneOmniboxRuntime {
+	var faviconAdapter *adapter.FaviconAdapter
+	if deps != nil && deps.FaviconService != nil {
+		faviconAdapter = adapter.NewFaviconAdapter(deps.FaviconService, faviconDB, deps.FaviconAdapterConfig)
+	}
+
+	omniboxCfg := buildOmniboxConfig(deps, faviconAdapter, omniboxCallbacks{
+		OnNavigate: func(url string) {
+			handleStandaloneOmniboxNavigation(deps, ctx, url)
+		},
+		OnToast: func(toastCtx context.Context, message string, level component.ToastLevel) {
+			logging.FromContext(toastCtx).Debug().Str("message", message).Int("level", int(level)).Msg("standalone omnibox toast")
+		},
+		OnFocusIn:          func(*gtk.SearchEntry) {},
+		OnFocusOut:         func() {},
+		OnAccentKeyPress:   func(uint, gdk.ModifierType) bool { return false },
+		OnAccentKeyRelease: func(uint) {},
+	})
+
+	return &StandaloneOmniboxRuntime{OmniboxCfg: omniboxCfg, ApplyTheme: func(display *gdk.Display) {
+		if deps != nil && deps.Theme != nil && display != nil {
+			deps.Theme.ApplyToDisplay(ctx, display)
+		}
+	}}
+}
+
+func handleStandaloneOmniboxNavigation(deps *Dependencies, ctx context.Context, rawURL string) {
+	if urlutil.IsExternalScheme(rawURL) {
+		if deps != nil && deps.LaunchExternalURL != nil {
+			deps.LaunchExternalURL(rawURL)
+			return
+		}
+	} else if deps != nil && deps.LaunchBrowserURL != nil {
+		deps.LaunchBrowserURL(rawURL)
+		return
+	}
+
+	logging.FromContext(ctx).Info().Str("url", rawURL).Msg("standalone omnibox navigate submitted")
+}
+
 func (a *App) initOmniboxConfig(ctx context.Context) {
 	if a.deps == nil || a.deps.Config == nil {
 		return
 	}
 
 	log := logging.FromContext(ctx)
-
-	// Convert config shortcuts to use case type
-	shortcuts := make(map[string]usecase.SearchShortcut, len(a.deps.Config.SearchShortcuts))
-	for key, shortcut := range a.deps.Config.SearchShortcuts {
-		shortcuts[key] = usecase.SearchShortcut{
-			URL:         shortcut.URL,
-			Description: shortcut.Description,
-		}
-	}
-	shortcutsUC := usecase.NewSearchShortcutsUseCase(shortcuts)
-
-	// Store omnibox config (omnibox is created per-pane via WorkspaceView).
-	a.omniboxCfg = component.OmniboxConfig{
-		HistoryUC:       a.deps.HistoryUC,
-		FavoritesUC:     a.deps.FavoritesUC,
-		FaviconAdapter:  a.faviconAdapter,
-		CopyURLUC:       a.deps.CopyURLUC,
-		ShortcutsUC:     shortcutsUC,
-		DefaultSearch:   a.deps.Config.DefaultSearchEngine,
-		InitialBehavior: a.deps.Config.Omnibox.InitialBehavior,
-		UIScale:         a.deps.Config.DefaultUIScale,
+	a.omniboxCfg = buildOmniboxConfig(a.deps, a.faviconAdapter, omniboxCallbacks{
 		OnNavigate: func(url string) {
 			if err := a.navigateFromOmnibox(ctx, url); err != nil {
 				log.Error().Err(err).Str("url", url).Msg("navigation failed")
@@ -785,7 +873,9 @@ func (a *App) initOmniboxConfig(ctx context.Context) {
 		OnFocusIn: func(entry *gtk.SearchEntry) {
 			// Set omnibox entry as the focused input for accent picker
 			if a.accentFocusProvider != nil && entry != nil {
-				a.accentFocusProvider.SetFocusedInput(textinput.NewGTKEntryTarget(entry))
+				if a.deps.NewGTKEntryTarget != nil {
+					a.accentFocusProvider.SetFocusedInput(a.deps.NewGTKEntryTarget(entry))
+				}
 			}
 		},
 		OnFocusOut: func() {
@@ -800,7 +890,7 @@ func (a *App) initOmniboxConfig(ctx context.Context) {
 		OnAccentKeyRelease: func(keyval uint) {
 			a.handleAccentKeyRelease(ctx, keyval)
 		},
-	}
+	})
 	a.navCoord.SetOmniboxProvider(a)
 	log.Debug().Msg("omnibox config stored, provider set")
 }
@@ -821,7 +911,9 @@ func (a *App) initFindBarConfig(ctx context.Context) {
 		OnFocusIn: func(entry *gtk.SearchEntry) {
 			// Set find bar entry as the focused input for accent picker
 			if a.accentFocusProvider != nil && entry != nil {
-				a.accentFocusProvider.SetFocusedInput(textinput.NewGTKEntryTarget(entry))
+				if a.deps.NewGTKEntryTarget != nil {
+					a.accentFocusProvider.SetFocusedInput(a.deps.NewGTKEntryTarget(entry))
+				}
 			}
 		},
 		OnFocusOut: func() {
@@ -854,17 +946,15 @@ func (a *App) initSessionManager(ctx context.Context) {
 		listSessionsUC = usecase.NewListSessionsUseCase(
 			a.deps.SessionRepo,
 			a.deps.SessionStateRepo,
-			a.deps.Config.Logging.LogDir,
 		)
 		deleteSessionUC = usecase.NewDeleteSessionUseCase(
 			a.deps.SessionStateRepo,
 			a.deps.SessionRepo,
-			a.deps.Config.Logging.LogDir,
 		)
 	}
 
-	// Create session spawner for restoration
-	spawner := desktop.NewSessionSpawner(ctx)
+	// Use injected session spawner for restoration
+	spawner := a.deps.SessionSpawner
 
 	// Create session manager component
 	a.sessionManager = component.NewSessionManager(ctx, component.SessionManagerConfig{
@@ -877,6 +967,10 @@ func (a *App) initSessionManager(ctx context.Context) {
 		},
 		OnOpen: func(sessionID entity.SessionID) {
 			log.Info().Str("session_id", string(sessionID)).Msg("session restoration requested")
+			if spawner == nil {
+				log.Warn().Str("session_id", string(sessionID)).Msg("session spawner not available")
+				return
+			}
 			if err := spawner.SpawnWithSession(sessionID); err != nil {
 				log.Error().Err(err).Str("session_id", string(sessionID)).Msg("failed to spawn session")
 			}
@@ -1166,7 +1260,7 @@ func (a *App) switchToTargetTabIfConfigured(ctx context.Context, out *usecase.Mo
 		return
 	}
 
-	switchToTarget := config.Get().Workspace.SwitchToTabOnMove
+	switchToTarget := a.deps.Config.Workspace.SwitchToTabOnMove
 	if out.SourceTabClosed {
 		switchToTarget = true
 	}
@@ -1226,8 +1320,8 @@ func (a *App) initTabPicker(ctx context.Context) {
 func (a *App) initSnapshotService(ctx context.Context) {
 	log := logging.FromContext(ctx)
 
-	if a.deps == nil || a.deps.SnapshotUC == nil {
-		log.Debug().Msg("snapshot use case not available, skipping snapshot service")
+	if a.deps == nil || a.deps.SnapshotServiceFactory == nil {
+		log.Debug().Msg("snapshot service factory not available, skipping")
 		return
 	}
 
@@ -1236,7 +1330,11 @@ func (a *App) initSnapshotService(ctx context.Context) {
 		intervalMs = a.deps.Config.Session.SnapshotIntervalMs
 	}
 
-	a.snapshotService = snapshot.NewService(a.deps.SnapshotUC, a, intervalMs)
+	a.snapshotService = a.deps.SnapshotServiceFactory(a, intervalMs)
+	if a.snapshotService == nil {
+		log.Warn().Msg("snapshot service factory returned nil")
+		return
+	}
 	a.snapshotService.Start(ctx)
 
 	// Set up callback for main.go to notify when session is persisted
@@ -1259,7 +1357,8 @@ func (a *App) initUpdateCoordinator(ctx context.Context) {
 		a.deps.CheckUpdateUC,
 		a.deps.ApplyUpdateUC,
 		a.appToaster,
-		a.deps.Config,
+		a.deps.Config.Update.EnableOnStartup,
+		a.deps.Config.Update.AutoDownload,
 	)
 
 	// Start async update check
@@ -1425,7 +1524,7 @@ func (a *App) runAfterFirstLoadStarted(fn func()) {
 	a.deferredInitFn = fn
 }
 
-// triggerDeferredInit is called from ContentCoordinator on first load_started.
+// triggerDeferredInit is called from content.Coordinator on first load_started.
 // It runs deferred initialization at LOW priority so navigation continues unblocked.
 func (a *App) triggerDeferredInit(ctx context.Context) {
 	a.deferredInitOnce.Do(func() {
@@ -1482,8 +1581,10 @@ func (a *App) onShutdown(ctx context.Context) {
 	for _, tabID := range tabIDs {
 		a.releaseFloatingSessionsForTab(ctx, tabID)
 	}
-	if a.deps.Pool != nil {
-		a.deps.Pool.Close(ctx)
+	if a.engine != nil {
+		if err := a.engine.Close(); err != nil {
+			log.Warn().Err(err).Msg("failed to close engine")
+		}
 	}
 	// Close idle inhibitor to release D-Bus connection
 	if a.deps.IdleInhibitor != nil {
@@ -1495,27 +1596,15 @@ func (a *App) onShutdown(ctx context.Context) {
 	log.Info().Msg("application shutdown complete")
 }
 
-// initCoordinators initializes all coordinators and wires their callbacks.
-func (a *App) initCoordinators(ctx context.Context) {
-	log := logging.FromContext(ctx)
-	log.Debug().Msg("initializing coordinators")
-
-	// Helper to get active workspace and view
-	getActiveWS := func() (*entity.Workspace, *component.WorkspaceView) {
-		return a.activeWorkspace(), a.activeWorkspaceView()
-	}
-
-	// Create FaviconAdapter with service and WebKit FaviconDatabase
-	var faviconDB *webkit.FaviconDatabase
-	if a.deps.WebContext != nil {
-		faviconDB = a.deps.WebContext.FaviconDatabase()
-	}
-	a.faviconAdapter = adapter.NewFaviconAdapter(a.deps.FaviconService, faviconDB)
-
-	// 1. Content Coordinator (no dependencies on other coordinators)
-	a.contentCoord = coordinator.NewContentCoordinator(
+// initContentCoordinator creates the content coordinator and wires its optional dependencies.
+func (a *App) initContentCoordinator(
+	ctx context.Context,
+	getActiveWS func() (*entity.Workspace, *component.WorkspaceView),
+) {
+	a.contentCoord = content.NewCoordinator(
 		ctx,
-		a.pool,
+		a.engine.Pool(),
+		a.engine.ContentInjector(),
 		a.widgetFactory,
 		a.faviconAdapter,
 		getActiveWS,
@@ -1528,17 +1617,50 @@ func (a *App) initCoordinators(ctx context.Context) {
 		a.contentCoord.SetIdleInhibitor(a.deps.IdleInhibitor)
 	}
 
+	// Wire engine settings and filter appliers for hot-reload and late-binding filters
+	if sa := a.deps.Engine.SettingsApplier(); sa != nil {
+		a.contentCoord.SetSettingsApplier(sa)
+	}
+	if fa := a.deps.Engine.FilterApplier(); fa != nil {
+		a.contentCoord.SetFilterApplier(fa)
+	}
+
+	// Wire external URL launcher (e.g. xdg-open for vscode://, spotify://)
+	if a.deps.LaunchExternalURL != nil {
+		a.contentCoord.SetOnLaunchExternalURL(a.deps.LaunchExternalURL)
+	}
+
 	// Wire deferred init trigger - runs after first navigation starts
 	a.contentCoord.SetOnFirstLoadStarted(func() {
 		a.triggerDeferredInit(ctx)
 	})
+}
+
+// initCoordinators initializes all coordinators and wires their callbacks.
+func (a *App) initCoordinators(ctx context.Context) {
+	log := logging.FromContext(ctx)
+	log.Debug().Msg("initializing coordinators")
+
+	// Helper to get active workspace and view
+	getActiveWS := func() (*entity.Workspace, *component.WorkspaceView) {
+		return a.activeWorkspace(), a.activeWorkspaceView()
+	}
+
+	// Create FaviconAdapter with service and engine FaviconDatabase.
+	// Skip if FaviconService is nil (e.g. in tests or when favicon support is disabled).
+	if a.deps.FaviconService != nil {
+		a.faviconAdapter = adapter.NewFaviconAdapter(a.deps.FaviconService, a.engine.FaviconDatabase(), a.deps.FaviconAdapterConfig)
+	}
+
+	// 1. Content Coordinator (no dependencies on other coordinators)
+	a.initContentCoordinator(ctx, getActiveWS)
 
 	// 2. Tab Coordinator
 	a.tabCoord = coordinator.NewTabCoordinator(ctx, coordinator.TabCoordinatorConfig{
-		TabsUC:     a.tabsUC,
-		Tabs:       a.tabs,
-		MainWindow: a.mainWindow,
-		Config:     a.deps.Config,
+		TabsUC:                  a.tabsUC,
+		Tabs:                    a.tabs,
+		MainWindow:              a.mainWindow,
+		HideTabBarWhenSingleTab: a.deps.Config.Workspace.HideTabBarWhenSingleTab,
 	})
 	a.tabCoord.SetOnTabCreated(func(ctx context.Context, tab *entity.Tab) {
 		a.createWorkspaceView(ctx, tab)
@@ -1549,7 +1671,7 @@ func (a *App) initCoordinators(ctx context.Context) {
 	a.tabCoord.SetOnQuit(a.Quit)
 	a.tabCoord.SetOnStateChanged(a.MarkDirty)
 	// Wire popup tab WebView attachment
-	a.tabCoord.SetOnAttachPopupToTab(func(ctx context.Context, tabID entity.TabID, pane *entity.Pane, wv *webkit.WebView) {
+	a.tabCoord.SetOnAttachPopupToTab(func(ctx context.Context, tabID entity.TabID, pane *entity.Pane, wv port.WebView) {
 		a.attachPopupToTab(ctx, tabID, pane, wv)
 	})
 
@@ -1578,13 +1700,16 @@ func (a *App) initCoordinators(ctx context.Context) {
 
 	// 3. Workspace Coordinator
 	a.wsCoord = coordinator.NewWorkspaceCoordinator(ctx, coordinator.WorkspaceCoordinatorConfig{
-		PanesUC:        a.panesUC,
-		FocusMgr:       a.focusMgr,
-		StackedPaneMgr: a.stackedPaneMgr,
-		WidgetFactory:  a.widgetFactory,
-		ContentCoord:   a.contentCoord,
-		GetActiveWS:    getActiveWS,
-		GenerateID:     a.generateID,
+		PanesUC:              a.panesUC,
+		FocusMgr:             a.focusMgr,
+		StackedPaneMgr:       a.stackedPaneMgr,
+		WidgetFactory:        a.widgetFactory,
+		ContentCoord:         a.contentCoord,
+		GetActiveWS:          getActiveWS,
+		GenerateID:           a.generateID,
+		NewPaneURL:           a.deps.Config.Workspace.NewPaneURL,
+		ResizeStepPercent:    a.deps.Config.Workspace.ResizeMode.StepPercent,
+		ResizeMinPanePercent: a.deps.Config.Workspace.ResizeMode.MinPanePercent,
 	})
 	a.wsCoord.SetOnCloseLastPane(func(ctx context.Context) error {
 		return a.tabCoord.Close(ctx)
@@ -1592,31 +1717,24 @@ func (a *App) initCoordinators(ctx context.Context) {
 	a.wsCoord.SetOnStateChanged(a.MarkDirty)
 
 	// Wire popup handling
-	a.webViewFactory = webkit.NewWebViewFactory(
-		a.deps.WebContext,
-		a.settings,
-		a.pool,
-		a.injector,
-		a.router,
-	)
-	// Set theme background color on factory to eliminate white flash
-	if a.deps.Theme != nil {
+	// Set theme background color on the engine's popup factory to eliminate white flash.
+	if a.engine != nil && a.deps.Theme != nil {
 		r, g, b, alpha := a.deps.Theme.GetBackgroundRGBA()
-		a.webViewFactory.SetBackgroundColor(r, g, b, alpha)
+		_ = a.engine.UpdateAppearance(ctx, float64(r), float64(g), float64(b), float64(alpha))
 	}
 	a.contentCoord.SetPopupConfig(
-		a.webViewFactory,
+		a.engine.Factory(),
 		&a.deps.Config.Workspace.Popups,
 		a.generateID,
 	)
-	a.contentCoord.SetOnInsertPopup(func(ctx context.Context, input coordinator.InsertPopupInput) error {
+	a.contentCoord.SetOnInsertPopup(func(ctx context.Context, input content.InsertPopupInput) error {
 		return a.wsCoord.InsertPopup(ctx, input)
 	})
 	a.contentCoord.SetOnClosePane(func(ctx context.Context, paneID entity.PaneID) error {
 		return a.wsCoord.ClosePaneByID(ctx, paneID)
 	})
 	// Wire tabbed popup behavior to create new tabs
-	a.wsCoord.SetOnCreatePopupTab(func(ctx context.Context, input coordinator.InsertPopupInput) error {
+	a.wsCoord.SetOnCreatePopupTab(func(ctx context.Context, input content.InsertPopupInput) error {
 		// Create a new tab with the popup pane
 		tab, err := a.tabCoord.CreateWithPane(ctx, input.PopupPane, input.WebView, input.TargetURI)
 		if err != nil {
@@ -1695,6 +1813,7 @@ func (a *App) initCoordinators(ctx context.Context) {
 		a.navCoord,
 		a.deps.ZoomUC,
 		a.deps.CopyURLUC,
+		a.deps.Config.Workspace.NewPaneURL,
 	)
 	a.wireKeyboardActions()
 
@@ -1748,15 +1867,15 @@ func (a *App) wireWebRTCPermissionIndicator() {
 	}
 	log := logging.FromContext(ctx)
 
-	a.contentCoord.SetOnPermissionActivity(func(origin string, permTypes []entity.PermissionType, state coordinator.PermissionActivityState) {
+	a.contentCoord.SetOnPermissionActivity(func(origin string, permTypes []entity.PermissionType, state content.PermissionActivityState) {
 		a.webrtcIndicator.SetOrigin(origin)
 
 		switch state {
-		case coordinator.PermissionActivityRequesting:
+		case content.PermissionActivityRequesting:
 			a.webrtcIndicator.MarkRequesting(permTypes)
-		case coordinator.PermissionActivityAllowed:
+		case content.PermissionActivityAllowed:
 			a.webrtcIndicator.MarkAllowed(permTypes)
-		case coordinator.PermissionActivityBlocked:
+		case content.PermissionActivityBlocked:
 			a.webrtcIndicator.MarkBlocked(permTypes)
 		}
 
@@ -1781,7 +1900,7 @@ func (a *App) wireWebRTCPermissionIndicator() {
 			// Allowed/requesting → deny future requests.
 			// Blocked → allow future requests.
 			decision := entity.PermissionDenied
-			if state == string(coordinator.PermissionActivityBlocked) {
+			if state == string(content.PermissionActivityBlocked) {
 				decision = entity.PermissionGranted
 			}
 			if err := a.deps.PermissionUC.SetManualPermissionDecision(ctx, origin, permType, decision); err != nil {
@@ -2054,7 +2173,9 @@ func (a *App) createWorkspaceViewWithoutAttach(ctx context.Context, tab *entity.
 	// Set find bar config for this workspace view
 	wsView.SetFindBarConfig(a.findBarCfg)
 	// Set auto-open omnibox on new pane
-	wsView.SetAutoOpenOnNewPane(config.Get().Omnibox.AutoOpenOnNewPane)
+	if a.deps.Config != nil {
+		wsView.SetAutoOpenOnNewPane(a.deps.Config.Omnibox.AutoOpenOnNewPane)
+	}
 
 	wsView.SetOnPaneFocused(func(paneID entity.PaneID) {
 		if a.keyboardHandler != nil && a.keyboardHandler.Mode() == input.ModeResize {
@@ -2125,13 +2246,15 @@ func (a *App) getActiveWebViewTarget() port.TextInputTarget {
 		return nil
 	}
 
-	// Get the underlying webkit.WebView for the text input target
-	return textinput.NewWebViewTarget(wv.Widget())
+	if provider, ok := wv.(port.TextInputTargetProvider); ok {
+		return provider.TextInputTarget()
+	}
+	return nil
 }
 
 // attachPopupToTab attaches a popup WebView to a newly created tab.
 // This is called when a popup uses tabbed behavior.
-func (a *App) attachPopupToTab(ctx context.Context, tabID entity.TabID, pane *entity.Pane, wv *webkit.WebView) {
+func (a *App) attachPopupToTab(ctx context.Context, tabID entity.TabID, pane *entity.Pane, wv port.WebView) {
 	log := logging.FromContext(ctx)
 
 	wsView := a.workspaceViews[tabID]
@@ -2372,7 +2495,11 @@ func (a *App) installFloatingOverlayPositioning(tabID entity.TabID, workspaceOve
 		return
 	}
 
-	cb := func(_ gtk.Overlay, widgetPtr uintptr, allocationPtr *uintptr) bool {
+	cb := func(_ gtk.Overlay, widget *gtk.Widget, allocationPtr *uintptr) bool {
+		var widgetPtr uintptr
+		if widget != nil {
+			widgetPtr = widget.GoPointer()
+		}
 		overlayWidth := workspaceOverlay.GetAllocatedWidth()
 		overlayHeight := workspaceOverlay.GetAllocatedHeight()
 		x, y, width, height, ok := a.floatingAllocationForWidget(tabID, widgetPtr, overlayWidth, overlayHeight)
@@ -2385,11 +2512,20 @@ func (a *App) installFloatingOverlayPositioning(tabID entity.TabID, workspaceOve
 	gtkOverlay.ConnectGetChildPosition(&cb)
 }
 
-func (a *App) currentFloatingConfig() config.FloatingPaneConfig {
+// currentFloatingWidthPct returns the configured floating pane width percentage.
+func (a *App) currentFloatingWidthPct() float64 {
 	if a.deps != nil && a.deps.Config != nil {
-		return a.deps.Config.Workspace.FloatingPane
+		return a.deps.Config.Workspace.FloatingPane.WidthPct
 	}
-	return config.Get().Workspace.FloatingPane
+	return 0
+}
+
+// currentFloatingHeightPct returns the configured floating pane height percentage.
+func (a *App) currentFloatingHeightPct() float64 {
+	if a.deps != nil && a.deps.Config != nil {
+		return a.deps.Config.Workspace.FloatingPane.HeightPct
+	}
+	return 0
 }
 
 func (a *App) ensureFloatingSession(
@@ -2445,7 +2581,7 @@ func (a *App) ensureFloatingSession(
 	// regular workspace panes. This allows the content coordinator's
 	// existing callbacks (onLoadStarted, onProgressChanged, etc.) to find
 	// and update the floating pane automatically.
-	pv := component.NewPaneView(a.widgetFactory, paneID, webViewWidget)
+	pv := component.NewPaneView(ctx, a.widgetFactory, paneID, webViewWidget)
 	pv.SetActive(true)
 	// Hide loading skeleton — floating panes have their own themed container.
 	pv.HideLoadingSkeleton()
@@ -2462,10 +2598,9 @@ func (a *App) ensureFloatingSession(
 	wsView.AddWorkspaceOverlayWidget(pvOverlay)
 	configureFloatingOverlayMeasurement(wsView.WorkspaceOverlayWidget(), pvOverlay)
 
-	floatingCfg := a.currentFloatingConfig()
 	floatingPane := component.NewFloatingPane(wsView.WorkspaceOverlayWidget(), component.FloatingPaneOptions{
-		WidthPct:       floatingCfg.WidthPct,
-		HeightPct:      floatingCfg.HeightPct,
+		WidthPct:       a.currentFloatingWidthPct(),
+		HeightPct:      a.currentFloatingHeightPct(),
 		FallbackWidth:  floatingPaneFallbackWidth,
 		FallbackHeight: floatingPaneFallbackHeight,
 		OnNavigate: func(navCtx context.Context, url string) error {
@@ -3033,29 +3168,29 @@ func (a *App) SetOmniboxOnNavigate(fn func(url string)) {
 func (a *App) initConfigWatcher(ctx context.Context) {
 	log := logging.FromContext(ctx)
 
-	if a.configManager == nil {
-		log.Debug().Msg("no config manager available, skipping watcher")
+	if a.deps.WatchConfig == nil || a.deps.OnConfigChange == nil {
+		log.Debug().Msg("no config watcher available, skipping")
 		return
 	}
 
 	// Start viper watcher
-	if err := a.configManager.Watch(); err != nil {
+	if err := a.deps.WatchConfig(); err != nil {
 		log.Warn().Err(err).Msg("failed to start config watcher")
 		return
 	}
 
 	// Hot-reload appearance and keybindings on config change.
-	a.configManager.OnConfigChange(func(newCfg *config.Config) {
-		cfgCopy := newCfg
+	// deps.Config is updated in-place before this callback fires.
+	a.deps.OnConfigChange(func() {
 		cb := glib.SourceFunc(func(_ uintptr) bool {
-			a.applyAppearanceConfig(ctx, cfgCopy)
+			a.applyAppearanceConfig(ctx)
 			// Reload keyboard shortcuts
 			if a.keyboardHandler != nil {
-				a.keyboardHandler.ReloadShortcuts(ctx, cfgCopy)
+				a.keyboardHandler.ReloadShortcuts(ctx, &a.deps.Config.Workspace, &a.deps.Config.Session)
 			}
 			// Reload global shortcuts (removes stale, re-registers from config)
 			if a.globalShortcutHandler != nil {
-				a.globalShortcutHandler.ReloadShortcuts(ctx, cfgCopy)
+				a.globalShortcutHandler.ReloadShortcuts(ctx, &a.deps.Config.Workspace, &a.deps.Config.Session)
 			}
 			return false
 		})
@@ -3065,52 +3200,52 @@ func (a *App) initConfigWatcher(ctx context.Context) {
 	log.Debug().Msg("config watcher initialized")
 }
 
-func (a *App) applyAppearanceConfig(ctx context.Context, cfg *config.Config) {
+func (a *App) applyAppearanceConfig(ctx context.Context) {
 	log := logging.FromContext(ctx)
-	if cfg == nil {
+	if a.deps == nil || a.deps.Config == nil {
 		return
 	}
+	cfg := a.deps.Config
 
-	// Update the shared config pointer in-place so existing references see changes.
-	if a.deps != nil && a.deps.Config != nil {
-		*a.deps.Config = *cfg
-	}
-
-	// Update WebKit settings manager
-	if a.settings != nil {
-		a.settings.UpdateFromConfig(ctx, cfg)
+	if a.engine != nil {
+		if err := a.engine.UpdateSettings(ctx, port.EngineSettingsUpdate{Raw: cfg}); err != nil {
+			log.Warn().Err(err).Msg("failed to apply engine settings update")
+		}
 	}
 
 	// Apply settings to existing webviews via coordinator
 	if a.contentCoord != nil {
-		a.contentCoord.ApplySettingsToAll(ctx, a.settings)
+		a.contentCoord.ApplySettingsToAll(ctx)
 	}
 
 	// Update GTK theme and injected WebUI theme vars
-	if a.deps != nil && a.deps.Theme != nil {
+	if a.deps.Theme != nil {
 		var display *gdk.Display
 		if a.mainWindow != nil && a.mainWindow.Window() != nil {
 			display = a.mainWindow.Window().GetDisplay()
 		}
-		a.deps.Theme.UpdateFromConfig(ctx, cfg, display)
+		a.deps.Theme.UpdateFromConfig(ctx, &cfg.Appearance, cfg.DefaultUIScale, &cfg.Workspace.Styling, display)
 
-		// Update find highlight CSS for future navigations
-		if a.injector != nil {
+		var inj port.ContentInjector
+		if a.engine != nil {
+			inj = a.engine.ContentInjector()
+		}
+
+		if inj != nil {
 			findCSS := theme.GenerateFindHighlightCSS(a.deps.Theme.GetCurrentPalette())
-			if err := a.injector.InjectFindHighlightCSS(ctx, findCSS); err != nil {
+			if err := inj.InjectFindHighlightCSS(ctx, findCSS); err != nil {
 				log.Warn().Err(err).Msg("failed to update find highlight CSS")
 			}
 		}
 
-		prepareThemeUC := usecase.NewPrepareWebUIThemeUseCase(a.injector)
+		prepareThemeUC := usecase.NewPrepareWebUIThemeUseCase(inj)
 		cssText := a.deps.Theme.GetWebUIThemeCSS()
 		if err := prepareThemeUC.Execute(ctx, usecase.PrepareWebUIThemeInput{CSSVars: cssText}); err != nil {
 			log.Warn().Err(err).Msg("failed to update WebUI theme CSS")
 		}
 
-		// Refresh injected scripts so future navigations use the latest theme.
-		if a.contentCoord != nil && a.injector != nil {
-			a.contentCoord.RefreshInjectedScriptsToAll(ctx, a.injector)
+		if a.contentCoord != nil && inj != nil {
+			a.contentCoord.RefreshInjectedScriptsToAll(ctx)
 		}
 
 		// Apply WebUI theme to already-loaded dumb:// pages
@@ -3127,7 +3262,7 @@ func (a *App) initFilteringAsync(ctx context.Context) {
 		return
 	}
 
-	a.deps.FilterManager.SetStatusCallback(func(status filtering.FilterStatus) {
+	a.deps.FilterManager.SetStatusCallback(func(status port.FilterStatus) {
 		statusCopy := status // Capture for closure
 		cb := glib.SourceFunc(func(_ uintptr) bool {
 			a.showFilterStatus(ctx, statusCopy)
@@ -3139,24 +3274,24 @@ func (a *App) initFilteringAsync(ctx context.Context) {
 }
 
 // showFilterStatus displays toast notification for filter status.
-func (a *App) showFilterStatus(ctx context.Context, status filtering.FilterStatus) {
+func (a *App) showFilterStatus(ctx context.Context, status port.FilterStatus) {
 	log := logging.FromContext(ctx)
 
 	switch status.State {
-	case filtering.StateLoading:
+	case port.FilterStateLoading:
 		if a.appToaster != nil {
 			a.appToaster.Show(ctx, status.Message, component.ToastInfo)
 		}
-	case filtering.StateActive:
+	case port.FilterStateActive:
 		// Apply filters to existing webviews that were created before filters loaded
 		if a.contentCoord != nil && a.deps.FilterManager != nil {
-			a.contentCoord.ApplyFiltersToAll(ctx, a.deps.FilterManager)
+			a.contentCoord.ApplyFiltersToAll(ctx)
 			log.Debug().Msg("applied filters to all existing webviews")
 		}
 		if a.appToaster != nil {
 			a.appToaster.Show(ctx, fmt.Sprintf("Ad blocker ready (%s)", status.Version), component.ToastInfo)
 		}
-	case filtering.StateError:
+	case port.FilterStateError:
 		if a.appToaster != nil {
 			a.appToaster.Show(ctx, "Filter load failed: "+status.Message, component.ToastError)
 		}

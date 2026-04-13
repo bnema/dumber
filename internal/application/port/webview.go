@@ -70,11 +70,10 @@ type PopupRequest struct {
 	ParentViewID  WebViewID
 }
 
-// Texture represents a graphics texture (abstraction over gdk.Texture).
-// This interface allows the port layer to work with textures without
-// importing GTK/GDK packages directly.
+// Texture represents a graphics texture returned by the engine.
+// GoPointer returns a native toolkit pointer (e.g. *gdk.Texture in GTK engines).
+// Engine implementations are responsible for the concrete type.
 type Texture interface {
-	// GoPointer returns the underlying C pointer for GTK interop.
 	GoPointer() uintptr
 }
 
@@ -108,7 +107,24 @@ type WebViewCallbacks struct {
 	// OnPermissionRequest is called when a site requests permission (mic, camera, screen sharing).
 	// Return true to indicate the request was handled. Call allow()/deny() to respond.
 	// The permission types are passed as strings ("microphone", "camera", "display", etc.).
-	OnPermissionRequest func(origin string, permTypes []string, allow, deny func()) bool
+	// The metadata map carries permission-type-specific context; for website_data_access both
+	// entity.PermissionMetadataKeyRequestingDomain and entity.PermissionMetadataKeyCurrentDomain must be populated.
+	OnPermissionRequest func(origin string, permTypes []string, metadata map[string]string, allow, deny func()) bool
+
+	// OnLinkMiddleClick is called when a link is middle-clicked.
+	// Return true if handled (blocks default navigation).
+	OnLinkMiddleClick func(uri string) bool
+
+	// OnEnterFullscreen is called when the WebView requests fullscreen mode.
+	// Return true to prevent fullscreen.
+	OnEnterFullscreen func() bool
+
+	// OnLeaveFullscreen is called when the WebView exits fullscreen mode.
+	// Return true to prevent leaving fullscreen.
+	OnLeaveFullscreen func() bool
+
+	// OnAudioStateChanged is called when audio playback starts or stops.
+	OnAudioStateChanged func(playing bool)
 }
 
 // FindOptions configures search behavior.
@@ -210,6 +226,26 @@ type WebView interface {
 	// Pass nil to clear all callbacks.
 	SetCallbacks(callbacks *WebViewCallbacks)
 
+	// --- Appearance ---
+
+	// RunJavaScript executes a script in the main world. Fire-and-forget.
+	RunJavaScript(ctx context.Context, script string)
+
+	// SetBackgroundColor sets the background color shown before content paints (0.0-1.0 RGBA).
+	SetBackgroundColor(r, g, b, a float64)
+
+	// ResetBackgroundToDefault resets the background to white (browser default).
+	ResetBackgroundToDefault()
+
+	// --- Favicon ---
+
+	// Favicon returns the current page favicon, or nil if unavailable.
+	Favicon() Texture
+
+	// Generation returns a monotonic counter incremented on pool reuse.
+	// Used to detect stale callbacks after a WebView is recycled.
+	Generation() uint64
+
 	// --- Media/Fullscreen State ---
 
 	// IsFullscreen returns true if the WebView is currently in fullscreen mode.
@@ -240,9 +276,14 @@ type WebViewPool interface {
 	// If the pool is full, the WebView will be destroyed.
 	Release(wv WebView)
 
-	// Prewarm creates WebViews in the background to populate the pool.
+	// Prewarm creates WebViews synchronously to populate the pool.
 	// Pass count <= 0 to use the default prewarm count.
 	Prewarm(count int)
+
+	// PrewarmAsync schedules WebView creation on the toolkit idle loop,
+	// avoiding blocking startup while still warming up WebViews.
+	// Pass count <= 0 to use the default prewarm count.
+	PrewarmAsync(ctx context.Context, count int)
 
 	// Size returns the current number of available WebViews in the pool.
 	Size() int
@@ -261,4 +302,45 @@ type WebViewFactory interface {
 	// This is required for popup windows to maintain authentication state.
 	// Popup WebViews bypass the pool since they must be related to a specific parent.
 	CreateRelated(ctx context.Context, parentID WebViewID) (WebView, error)
+}
+
+// DevToolsOpener is an optional capability for WebViews that support developer tools.
+type DevToolsOpener interface {
+	OpenDevTools()
+}
+
+// Printer is an optional capability for WebViews that support printing.
+type Printer interface {
+	PrintPage()
+}
+
+// PopupCapable is implemented by WebViews that support popup lifecycle callbacks.
+// SetOnClose composes the provided function with any existing close handler so
+// that multiple callers can each register a close callback without overwriting
+// one another.
+type PopupCapable interface {
+	SetOnReadyToShow(fn func())
+	SetOnClose(fn func())
+	Show()
+}
+
+// OAuthCallbackCapable is implemented by WebViews that support OAuth auto-close callbacks.
+// It is an optional capability; callers should type-assert port.WebView to this interface
+// before use and degrade gracefully when it is absent.
+type OAuthCallbackCapable interface {
+	// AddCloseCallback registers fn to be called when the WebView is programmatically closed.
+	// Multiple callbacks may be registered; each will be called in registration order.
+	AddCloseCallback(fn func())
+	// AddNavigationCallback registers fn to be called whenever the URI changes or a
+	// committed load is detected. The uri parameter contains the new URL.
+	// Multiple callbacks may be registered; each will be called in registration order.
+	AddNavigationCallback(fn func(uri string))
+	// Close triggers a programmatic close of the WebView (equivalent to window.close()).
+	Close()
+}
+
+// TextInputTargetProvider is an optional capability for WebViews that support
+// text input method integration.
+type TextInputTargetProvider interface {
+	TextInputTarget() TextInputTarget
 }

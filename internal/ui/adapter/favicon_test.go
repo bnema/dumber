@@ -8,7 +8,7 @@ import (
 )
 
 func TestFaviconWarningDedup_FirstAndRepeated(t *testing.T) {
-	adapter := NewFaviconAdapter(nil, nil)
+	adapter := NewFaviconAdapter(nil, nil, FaviconAdapterConfig{})
 
 	first, suppressed := adapter.shouldLogWarningDedup("save-png:example.com")
 	if !first {
@@ -36,7 +36,7 @@ func TestFaviconWarningDedup_FirstAndRepeated(t *testing.T) {
 }
 
 func TestFaviconWarningDedup_ClearResetsState(t *testing.T) {
-	adapter := NewFaviconAdapter(nil, nil)
+	adapter := NewFaviconAdapter(nil, nil, FaviconAdapterConfig{})
 	key := "sized-png:example.com"
 
 	first, _ := adapter.shouldLogWarningDedup(key)
@@ -56,7 +56,7 @@ func TestFaviconWarningDedup_ClearResetsState(t *testing.T) {
 }
 
 func TestFaviconWarningDedup_LogWarningDedupInvokesCallbackOnce(t *testing.T) {
-	adapter := NewFaviconAdapter(nil, nil)
+	adapter := NewFaviconAdapter(nil, nil, FaviconAdapterConfig{})
 	key := "save-png:example.com"
 	var calls atomic.Int32
 

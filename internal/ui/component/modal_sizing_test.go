@@ -88,6 +88,47 @@ func TestCalculateModalDimensions_WidthPercentage(t *testing.T) {
 	assert.Equal(t, 90, marginTop)
 }
 
+func TestCalculateModalDimensions_FixedWidthAndTopMargin(t *testing.T) {
+	cfg := ModalSizeConfig{
+		WidthPct:          0.8,
+		MaxWidth:          600,
+		TopMarginPct:      0.2,
+		FallbackWidth:     1000,
+		FallbackHeight:    800,
+		FixedWidth:        800,
+		FixedTopMargin:    0,
+		UseFixedTopMargin: true,
+	}
+
+	parent := layoutmocks.NewMockOverlayWidget(t)
+	parent.EXPECT().GetAllocatedWidth().Return(1920)
+	parent.EXPECT().GetAllocatedHeight().Return(1080)
+
+	width, marginTop := CalculateModalDimensions(parent, cfg)
+
+	assert.Equal(t, 800, width)
+	assert.Equal(t, 0, marginTop)
+}
+
+func TestResolveModalSizeConfig_MergesDefaultsAndOverrides(t *testing.T) {
+	defaults := OmniboxSizeDefaults
+	override := ModalSizeConfig{
+		FixedWidth:        800,
+		FixedTopMargin:    0,
+		UseFixedTopMargin: true,
+	}
+
+	resolved := ResolveModalSizeConfig(override, defaults)
+
+	assert.InDelta(t, defaults.WidthPct, resolved.WidthPct, 0)
+	assert.Equal(t, defaults.MaxWidth, resolved.MaxWidth)
+	assert.Equal(t, defaults.FallbackWidth, resolved.FallbackWidth)
+	assert.Equal(t, defaults.FallbackHeight, resolved.FallbackHeight)
+	assert.Equal(t, 800, resolved.FixedWidth)
+	assert.True(t, resolved.UseFixedTopMargin)
+	assert.Equal(t, 0, resolved.FixedTopMargin)
+}
+
 func TestScaleValue_DefaultScale(t *testing.T) {
 	// When scale is 0 or negative, should default to 1.0
 	assert.Equal(t, 50, ScaleValue(50, 0))
@@ -122,11 +163,10 @@ func TestDefaultRowHeights_Values(t *testing.T) {
 }
 
 func TestOmniboxSizeDefaults_Values(t *testing.T) {
-	assert.Greater(t, OmniboxSizeDefaults.WidthPct, 0.0)
-	assert.LessOrEqual(t, OmniboxSizeDefaults.WidthPct, 1.0)
-	assert.Positive(t, OmniboxSizeDefaults.MaxWidth)
-	assert.Greater(t, OmniboxSizeDefaults.TopMarginPct, 0.0)
-	assert.LessOrEqual(t, OmniboxSizeDefaults.TopMarginPct, 1.0)
+	assert.InDelta(t, 0.8, OmniboxSizeDefaults.WidthPct, 0.0001)
+	assert.Equal(t, 800, OmniboxSizeDefaults.MaxWidth)
+	assert.InDelta(t, 0.2, OmniboxSizeDefaults.TopMarginPct, 0.0001)
+	assert.Equal(t, 600, OmniboxSizeDefaults.FallbackHeight)
 }
 
 func TestSessionManagerSizeDefaults_Values(t *testing.T) {

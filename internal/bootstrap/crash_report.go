@@ -11,7 +11,6 @@ import (
 	"regexp"
 	"runtime"
 	"sort"
-	"strconv"
 	"strings"
 	"time"
 
@@ -25,23 +24,20 @@ const (
 	scannerMaxTokenSize = 256 * 1024
 )
 
-type unexpectedCloseReport struct {
-	ReportVersion        int                          `json:"report_version"`
-	GeneratedAt          string                       `json:"generated_at"`
-	SessionID            string                       `json:"session_id"`
-	Classification       SessionExitClassification    `json:"classification"`
-	StartupPID           int                          `json:"startup_pid,omitempty"`
-	StartupPPID          int                          `json:"startup_ppid,omitempty"`
-	MarkerFiles          map[string]string            `json:"marker_files"`
-	SessionLogFile       string                       `json:"session_log_file,omitempty"`
-	SessionLogTail       []string                     `json:"session_log_tail_redacted,omitempty"`
-	ReporterProcess      unexpectedCloseReporter      `json:"reporter_process"`
-	CoreDumpDiagnostics  unexpectedCloseCoreDump      `json:"core_dump_diagnostics"`
-	IssueTemplate        unexpectedCloseIssueTemplate `json:"issue_template"`
-	GeneratedMarkdownRef string                       `json:"generated_markdown_ref,omitempty"`
+type crashReport struct {
+	ReportVersion        int                `json:"report_version"`
+	GeneratedAt          string             `json:"generated_at"`
+	SessionID            string             `json:"session_id"`
+	CrashedPID           int                `json:"crashed_pid,omitempty"`
+	SessionLogFile       string             `json:"session_log_file,omitempty"`
+	SessionLogTail       []string           `json:"session_log_tail_redacted,omitempty"`
+	ReporterProcess      crashReporter      `json:"reporter_process"`
+	CoreDumpDiagnostics  crashCoreDump      `json:"core_dump_diagnostics"`
+	IssueTemplate        crashIssueTemplate `json:"issue_template"`
+	GeneratedMarkdownRef string             `json:"generated_markdown_ref,omitempty"`
 }
 
-type unexpectedCloseReporter struct {
+type crashReporter struct {
 	GeneratedBy string `json:"generated_by"`
 	GoVersion   string `json:"go_version"`
 	GOOS        string `json:"goos"`
@@ -50,33 +46,26 @@ type unexpectedCloseReporter struct {
 	PPID        int    `json:"ppid"`
 }
 
-type unexpectedCloseCoreDump struct {
+type crashCoreDump struct {
 	RLimitCoreSoft string `json:"rlimit_core_soft"`
 	RLimitCoreHard string `json:"rlimit_core_hard"`
 	Hint           string `json:"hint"`
 }
 
-type unexpectedCloseIssueTemplate struct {
+type crashIssueTemplate struct {
 	Title   string `json:"title"`
 	Summary string `json:"summary"`
 }
 
-func writeUnexpectedCloseReport(lockDir, sessionID string) (string, error) {
-	if lockDir == "" || sessionID == "" {
-		return "", errors.New("lockDir and sessionID are required")
+// writeCrashReport generates JSON + Markdown crash reports for a crashed session.
+// Returns the JSON report path, or empty string if the report already exists.
+func writeCrashReport(logDir, sessionID string, crashedPID int) (string, error) {
+	if logDir == "" || sessionID == "" {
+		return "", errors.New("logDir and sessionID are required")
 	}
 
-	classification, classifyErr := ClassifySessionExitFromMarkers(lockDir, sessionID)
-	if classifyErr != nil {
-		return "", classifyErr
-	}
-
-	if classification.Class == SessionExitCleanExit {
-		return "", nil
-	}
-
-	reportsDir := filepath.Join(lockDir, crashReportsDirName)
-	if err := os.MkdirAll(reportsDir, lockDirPerm); err != nil {
+	reportsDir := filepath.Join(logDir, crashReportsDirName)
+	if err := os.MkdirAll(reportsDir, dirPerm); err != nil {
 		return "", err
 	}
 
@@ -84,47 +73,34 @@ func writeUnexpectedCloseReport(lockDir, sessionID string) (string, error) {
 
 	jsonPath := filepath.Join(reportsDir, fmt.Sprintf("session_%s.crash.json", sessionID))
 	markdownPath := filepath.Join(reportsDir, fmt.Sprintf("session_%s.crash.md", sessionID))
-	if _, statErr := os.Stat(jsonPath); statErr == nil {
-		if _, mdErr := os.Stat(markdownPath); mdErr == nil {
-			return jsonPath, nil
-		}
-		raw, readErr := os.ReadFile(jsonPath)
-		if readErr != nil {
-			return "", readErr
-		}
-		var existing unexpectedCloseReport
-		if err := json.Unmarshal(raw, &existing); err != nil {
-			return "", err
-		}
-		markdown := buildUnexpectedCloseMarkdown(existing)
-		if err := os.WriteFile(markdownPath, []byte(markdown), markerFilePerm); err != nil {
-			return "", err
-		}
+
+	// Skip if report already exists.
+	if _, err := os.Stat(jsonPath); err == nil {
 		return jsonPath, nil
-	} else if !os.IsNotExist(statErr) {
-		return "", statErr
 	}
 
-	report := unexpectedCloseReport{
-		ReportVersion:       1,
-		GeneratedAt:         time.Now().UTC().Format(time.RFC3339Nano),
-		SessionID:           sessionID,
-		Classification:      classification,
-		MarkerFiles:         reportMarkerFiles(lockDir, sessionID),
-		ReporterProcess:     currentReporter(),
+	report := crashReport{
+		ReportVersion: 2,
+		GeneratedAt:   time.Now().UTC().Format(time.RFC3339Nano),
+		SessionID:     sessionID,
+		CrashedPID:    crashedPID,
+		ReporterProcess: crashReporter{
+			GeneratedBy: "dumber",
+			GoVersion:   runtime.Version(),
+			GOOS:        runtime.GOOS,
+			GOARCH:      runtime.GOARCH,
+			PID:         os.Getpid(),
+			PPID:        os.Getppid(),
+		},
 		CoreDumpDiagnostics: collectCoreDumpDiagnostics(),
-		IssueTemplate: unexpectedCloseIssueTemplate{
+		IssueTemplate: crashIssueTemplate{
 			Title:   fmt.Sprintf("Unexpected close in session %s", sessionID),
 			Summary: "Dumber closed unexpectedly and generated this report automatically.",
 		},
 	}
 
-	startupPID, startupPPID := readStartupProcessIDs(lockDir, sessionID)
-	report.StartupPID = startupPID
-	report.StartupPPID = startupPPID
-
-	logPath := filepath.Join(lockDir, corelogging.SessionFilename(sessionID))
-	if _, statErr := os.Stat(logPath); statErr == nil {
+	logPath := filepath.Join(logDir, corelogging.SessionFilename(sessionID))
+	if _, err := os.Stat(logPath); err == nil {
 		report.SessionLogFile = logPath
 		report.SessionLogTail = readRedactedLogTail(logPath, logTailLineCount)
 	}
@@ -136,50 +112,73 @@ func writeUnexpectedCloseReport(lockDir, sessionID string) (string, error) {
 		return "", err
 	}
 	payload = append(payload, '\n')
-	if err := os.WriteFile(jsonPath, payload, markerFilePerm); err != nil {
+	if err := os.WriteFile(jsonPath, payload, filePerm); err != nil {
 		return "", err
 	}
 
-	markdown := buildUnexpectedCloseMarkdown(report)
-	if err := os.WriteFile(markdownPath, []byte(markdown), markerFilePerm); err != nil {
+	markdown := buildCrashMarkdown(report)
+	if err := os.WriteFile(markdownPath, []byte(markdown), filePerm); err != nil {
 		return "", err
 	}
 
 	return jsonPath, nil
 }
 
-func reportMarkerFiles(lockDir, sessionID string) map[string]string {
-	return map[string]string{
-		"startup":  startupMarkerPath(lockDir, sessionID),
-		"shutdown": shutdownMarkerPath(lockDir, sessionID),
-		"abrupt":   abruptMarkerPath(lockDir, sessionID),
-	}
-}
-
-func currentReporter() unexpectedCloseReporter {
-	return unexpectedCloseReporter{
-		GeneratedBy: "dumber",
-		GoVersion:   runtime.Version(),
-		GOOS:        runtime.GOOS,
-		GOARCH:      runtime.GOARCH,
-		PID:         os.Getpid(),
-		PPID:        os.Getppid(),
-	}
-}
-
-func readStartupProcessIDs(lockDir, sessionID string) (int, int) {
-	raw, err := os.ReadFile(startupMarkerPath(lockDir, sessionID))
-	if err != nil {
-		raw, err = os.ReadFile(abruptMarkerPath(lockDir, sessionID))
-		if err != nil {
-			return 0, 0
-		}
+func buildCrashMarkdown(report crashReport) string {
+	lines := []string{
+		"# Unexpected Close Report",
+		"",
+		fmt.Sprintf("Generated: `%s`", report.GeneratedAt),
+		fmt.Sprintf("Session: `%s`", report.SessionID),
+		fmt.Sprintf("Crashed PID: `%d`", report.CrashedPID),
+		"",
+		"## Reporter",
+		fmt.Sprintf("- pid: `%d`", report.ReporterProcess.PID),
+		fmt.Sprintf("- ppid: `%d`", report.ReporterProcess.PPID),
+		fmt.Sprintf("- go: `%s`", report.ReporterProcess.GoVersion),
+		"",
+		"## Core Dump Diagnostics",
+		fmt.Sprintf("- RLIMIT_CORE soft: `%s`", report.CoreDumpDiagnostics.RLimitCoreSoft),
+		fmt.Sprintf("- RLIMIT_CORE hard: `%s`", report.CoreDumpDiagnostics.RLimitCoreHard),
+		fmt.Sprintf("- hint: %s", report.CoreDumpDiagnostics.Hint),
 	}
 
-	pid, _ := strconv.Atoi(markerValue(raw, "pid="))
-	ppid, _ := strconv.Atoi(markerValue(raw, "ppid="))
-	return pid, ppid
+	if len(report.SessionLogTail) > 0 {
+		lines = append(lines,
+			"",
+			"## Redacted Log Tail",
+			"```text",
+		)
+		lines = append(lines, report.SessionLogTail...)
+		lines = append(lines, "```")
+	}
+
+	lines = append(lines,
+		"",
+		"## GitHub Issue Template",
+		fmt.Sprintf("Title: %s", report.IssueTemplate.Title),
+		"",
+		"```markdown",
+		"### What happened",
+		"Describe what you were doing just before Dumber closed unexpectedly.",
+		"",
+		"### Crash report",
+		fmt.Sprintf("- session id: `%s`", report.SessionID),
+		fmt.Sprintf("- crashed pid: `%d`", report.CrashedPID),
+		"",
+		"### Additional context",
+		"- distro:",
+		"- compositor/window manager:",
+		"- steps to reproduce:",
+		"```",
+	)
+
+	return strings.Join(lines, "\n") + "\n"
 }
+
+// ---------------------------------------------------------------------------
+// Redaction helpers (kept from previous implementation)
+// ---------------------------------------------------------------------------
 
 func readRedactedLogTail(path string, lines int) []string {
 	if lines <= 0 {
@@ -216,67 +215,6 @@ func readRedactedLogTail(path string, lines int) []string {
 		result = append(result, fmt.Sprintf("[log tail truncated: %v]", scanner.Err()))
 	}
 	return result
-}
-
-func buildUnexpectedCloseMarkdown(report unexpectedCloseReport) string {
-	lines := []string{
-		"# Unexpected Close Report",
-		"",
-		fmt.Sprintf("Generated: `%s`", report.GeneratedAt),
-		fmt.Sprintf("Session: `%s`", report.SessionID),
-		fmt.Sprintf("Class: `%s`", report.Classification.Class),
-		fmt.Sprintf("Inference: `%s`", report.Classification.Inference),
-		fmt.Sprintf("Reason: `%s`", report.Classification.Reason),
-		"",
-		"## Process Context",
-		fmt.Sprintf("- startup pid: `%d`", report.StartupPID),
-		fmt.Sprintf("- startup ppid: `%d`", report.StartupPPID),
-		fmt.Sprintf("- reporter pid: `%d`", report.ReporterProcess.PID),
-		fmt.Sprintf("- reporter ppid: `%d`", report.ReporterProcess.PPID),
-		"",
-		"## Core Dump Diagnostics",
-		fmt.Sprintf("- RLIMIT_CORE soft: `%s`", report.CoreDumpDiagnostics.RLimitCoreSoft),
-		fmt.Sprintf("- RLIMIT_CORE hard: `%s`", report.CoreDumpDiagnostics.RLimitCoreHard),
-		fmt.Sprintf("- hint: %s", report.CoreDumpDiagnostics.Hint),
-		"",
-		"## Marker Files",
-		fmt.Sprintf("- startup: `%s`", report.MarkerFiles["startup"]),
-		fmt.Sprintf("- shutdown: `%s`", report.MarkerFiles["shutdown"]),
-		fmt.Sprintf("- abrupt: `%s`", report.MarkerFiles["abrupt"]),
-	}
-
-	if len(report.SessionLogTail) > 0 {
-		lines = append(lines,
-			"",
-			"## Redacted Log Tail",
-			"```text",
-		)
-		lines = append(lines, report.SessionLogTail...)
-		lines = append(lines, "```")
-	}
-
-	lines = append(lines,
-		"",
-		"## GitHub Issue Template",
-		fmt.Sprintf("Title: %s", report.IssueTemplate.Title),
-		"",
-		"```markdown",
-		"### What happened",
-		"Describe what you were doing just before Dumber closed unexpectedly.",
-		"",
-		"### Crash report",
-		fmt.Sprintf("- session id: `%s`", report.SessionID),
-		fmt.Sprintf("- class: `%s`", report.Classification.Class),
-		fmt.Sprintf("- reason: `%s`", report.Classification.Reason),
-		"",
-		"### Additional context",
-		"- distro:",
-		"- compositor/window manager:",
-		"- steps to reproduce:",
-		"```",
-	)
-
-	return strings.Join(lines, "\n") + "\n"
 }
 
 var urlRegex = regexp.MustCompile(`(?i)\b(?:https?|wss?)://[^\s\]\)\"'<>]+`)

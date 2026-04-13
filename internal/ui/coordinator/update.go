@@ -5,48 +5,51 @@ import (
 	"fmt"
 	"sync"
 
-	"github.com/jwijenbergh/puregotk/v4/glib"
+	"github.com/bnema/puregotk/v4/glib"
 
 	"github.com/bnema/dumber/internal/application/usecase"
 	"github.com/bnema/dumber/internal/domain/entity"
-	"github.com/bnema/dumber/internal/infrastructure/config"
 	"github.com/bnema/dumber/internal/logging"
 	"github.com/bnema/dumber/internal/ui/component"
 )
 
 // UpdateCoordinator handles update checking and notification.
 type UpdateCoordinator struct {
-	checkUC  *usecase.CheckUpdateUseCase
-	applyUC  *usecase.ApplyUpdateUseCase
-	toaster  *component.Toaster
-	config   *config.Config
-	mu       sync.RWMutex // Protects status and lastInfo
-	status   entity.UpdateStatus
-	lastInfo *usecase.CheckUpdateOutput
+	checkUC         *usecase.CheckUpdateUseCase
+	applyUC         *usecase.ApplyUpdateUseCase
+	toaster         *component.Toaster
+	enableOnStartup bool
+	autoDownload    bool
+	mu              sync.RWMutex // Protects status and lastInfo
+	status          entity.UpdateStatus
+	lastInfo        *usecase.CheckUpdateOutput
 }
 
 // NewUpdateCoordinator creates a new update coordinator.
+// enableOnStartup controls whether an update check runs at startup.
+// autoDownload controls whether updates are downloaded automatically in the background.
 func NewUpdateCoordinator(
 	checkUC *usecase.CheckUpdateUseCase,
 	applyUC *usecase.ApplyUpdateUseCase,
 	toaster *component.Toaster,
-	cfg *config.Config,
+	enableOnStartup bool,
+	autoDownload bool,
 ) *UpdateCoordinator {
 	return &UpdateCoordinator{
-		checkUC: checkUC,
-		applyUC: applyUC,
-		toaster: toaster,
-		config:  cfg,
-		status:  entity.UpdateStatusUnknown,
+		checkUC:         checkUC,
+		applyUC:         applyUC,
+		toaster:         toaster,
+		enableOnStartup: enableOnStartup,
+		autoDownload:    autoDownload,
+		status:          entity.UpdateStatusUnknown,
 	}
 }
 
-// CheckOnStartup performs an async update check if enabled in config.
-// This should be called during app initialization.
+// CheckOnStartup triggers an update check if enabled via the enableOnStartup constructor flag.
 func (c *UpdateCoordinator) CheckOnStartup(ctx context.Context) {
 	log := logging.FromContext(ctx)
 
-	if !c.config.Update.EnableOnStartup {
+	if !c.enableOnStartup {
 		log.Debug().Msg("update check on startup disabled")
 		return
 	}
@@ -54,7 +57,6 @@ func (c *UpdateCoordinator) CheckOnStartup(ctx context.Context) {
 	go c.checkAsync(ctx)
 }
 
-// checkAsync performs the update check in a goroutine.
 func (c *UpdateCoordinator) checkAsync(ctx context.Context) {
 	log := logging.FromContext(ctx)
 
@@ -67,7 +69,6 @@ func (c *UpdateCoordinator) checkAsync(ctx context.Context) {
 		return
 	}
 
-	// Update both lastInfo and status atomically to avoid inconsistent reads.
 	c.mu.Lock()
 	c.lastInfo = result
 	if !result.UpdateAvailable {
@@ -86,27 +87,22 @@ func (c *UpdateCoordinator) checkAsync(ctx context.Context) {
 		Bool("can_auto_update", result.CanAutoUpdate).
 		Msg("update available")
 
-	// Show notification on GTK main thread.
 	c.showUpdateNotification(ctx, result)
 
-	// Auto-download if enabled and possible.
-	if c.config.Update.AutoDownload && result.CanAutoUpdate {
-		// Spawn download in separate goroutine to not block check completion.
+	if c.autoDownload && result.CanAutoUpdate {
 		go c.downloadAsync(ctx, result.DownloadURL)
 	}
 }
 
-// showUpdateNotification displays a toast notification about the update.
 func (c *UpdateCoordinator) showUpdateNotification(ctx context.Context, result *usecase.CheckUpdateOutput) {
 	var msg string
 	switch {
-	case result.CanAutoUpdate && c.config.Update.AutoDownload:
+	case result.CanAutoUpdate && c.autoDownload:
 		msg = fmt.Sprintf("Downloading update %s...", result.LatestVersion)
 	default:
 		msg = fmt.Sprintf("Update %s available", result.LatestVersion)
 	}
 
-	// Dispatch to GTK main thread.
 	cb := glib.SourceFunc(func(_ uintptr) bool {
 		c.toaster.Show(ctx, msg, component.ToastInfo)
 		return false
@@ -114,7 +110,6 @@ func (c *UpdateCoordinator) showUpdateNotification(ctx context.Context, result *
 	glib.IdleAdd(&cb, 0)
 }
 
-// downloadAsync downloads and stages the update in the background.
 func (c *UpdateCoordinator) downloadAsync(ctx context.Context, downloadURL string) {
 	log := logging.FromContext(ctx)
 
@@ -148,7 +143,6 @@ func (c *UpdateCoordinator) downloadAsync(ctx context.Context, downloadURL strin
 	}
 }
 
-// showToast dispatches a toast notification to the GTK main thread.
 func (c *UpdateCoordinator) showToast(ctx context.Context, msg string, level component.ToastLevel) {
 	cb := glib.SourceFunc(func(_ uintptr) bool {
 		c.toaster.Show(ctx, msg, level)
@@ -157,8 +151,7 @@ func (c *UpdateCoordinator) showToast(ctx context.Context, msg string, level com
 	glib.IdleAdd(&cb, 0)
 }
 
-// FinalizeOnExit applies any staged update during shutdown.
-// This should be called from the app's shutdown handler.
+// FinalizeOnExit applies a staged update on process exit.
 func (c *UpdateCoordinator) FinalizeOnExit(ctx context.Context) error {
 	if c.applyUC == nil {
 		return nil
@@ -173,14 +166,14 @@ func (c *UpdateCoordinator) Status() entity.UpdateStatus {
 	return c.status
 }
 
-// LastCheckResult returns the result of the last update check.
+// LastCheckResult returns the most recent update check result.
 func (c *UpdateCoordinator) LastCheckResult() *usecase.CheckUpdateOutput {
 	c.mu.RLock()
 	defer c.mu.RUnlock()
 	return c.lastInfo
 }
 
-// HasPendingUpdate returns true if an update is staged for exit.
+// HasPendingUpdate returns true if a downloaded update is waiting to be applied.
 func (c *UpdateCoordinator) HasPendingUpdate(ctx context.Context) bool {
 	if c.applyUC == nil {
 		return false

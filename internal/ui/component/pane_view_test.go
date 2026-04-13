@@ -1,6 +1,7 @@
 package component_test
 
 import (
+	"context"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -47,7 +48,7 @@ func TestNewPaneView_CreatesOverlay(t *testing.T) {
 	mockOverlay.EXPECT().SetMeasureOverlay(mockBorderBox, false).Once()
 
 	// Act
-	pv := component.NewPaneView(mockFactory, paneID, mockWebView)
+	pv := component.NewPaneView(context.Background(), mockFactory, paneID, mockWebView)
 
 	// Assert
 	require.NotNil(t, pv)
@@ -88,7 +89,7 @@ func TestNewPaneView_NilWebView(t *testing.T) {
 	mockOverlay.EXPECT().SetMeasureOverlay(mockBorderBox, false).Once()
 
 	// Act
-	pv := component.NewPaneView(mockFactory, paneID, nil)
+	pv := component.NewPaneView(context.Background(), mockFactory, paneID, nil)
 
 	// Assert
 	require.NotNil(t, pv)
@@ -104,7 +105,7 @@ func TestSetActive_True_AddsCSSClass(t *testing.T) {
 
 	setupPaneViewMocks(t, mockFactory, mockOverlay, mockBorderBox, mockWebView)
 
-	pv := component.NewPaneView(mockFactory, entity.PaneID("pane-1"), mockWebView)
+	pv := component.NewPaneView(context.Background(), mockFactory, entity.PaneID("pane-1"), mockWebView)
 
 	// Expect CSS class to be added
 	mockBorderBox.EXPECT().AddCssClass("pane-active").Once()
@@ -125,7 +126,7 @@ func TestSetActive_False_RemovesCSSClass(t *testing.T) {
 
 	setupPaneViewMocks(t, mockFactory, mockOverlay, mockBorderBox, mockWebView)
 
-	pv := component.NewPaneView(mockFactory, entity.PaneID("pane-1"), mockWebView)
+	pv := component.NewPaneView(context.Background(), mockFactory, entity.PaneID("pane-1"), mockWebView)
 
 	// First activate
 	mockBorderBox.EXPECT().AddCssClass("pane-active").Once()
@@ -150,7 +151,7 @@ func TestSetActive_NoChangeWhenSameState(t *testing.T) {
 
 	setupPaneViewMocks(t, mockFactory, mockOverlay, mockBorderBox, mockWebView)
 
-	pv := component.NewPaneView(mockFactory, entity.PaneID("pane-1"), mockWebView)
+	pv := component.NewPaneView(context.Background(), mockFactory, entity.PaneID("pane-1"), mockWebView)
 
 	// Act - setting false when already false should not call RemoveCssClass
 	pv.SetActive(false)
@@ -169,7 +170,7 @@ func TestPaneID_ReturnsPaneID(t *testing.T) {
 	paneID := entity.PaneID("test-pane-123")
 	setupPaneViewMocks(t, mockFactory, mockOverlay, mockBorderBox, mockWebView)
 
-	pv := component.NewPaneView(mockFactory, paneID, mockWebView)
+	pv := component.NewPaneView(context.Background(), mockFactory, paneID, mockWebView)
 
 	// Act
 	result := pv.PaneID()
@@ -187,7 +188,7 @@ func TestWebViewWidget_ReturnsWebView(t *testing.T) {
 
 	setupPaneViewMocks(t, mockFactory, mockOverlay, mockBorderBox, mockWebView)
 
-	pv := component.NewPaneView(mockFactory, entity.PaneID("pane-1"), mockWebView)
+	pv := component.NewPaneView(context.Background(), mockFactory, entity.PaneID("pane-1"), mockWebView)
 
 	// Act
 	result := pv.WebViewWidget()
@@ -206,7 +207,7 @@ func TestSetWebViewWidget_ReplacesWidget(t *testing.T) {
 
 	setupPaneViewMocks(t, mockFactory, mockOverlay, mockBorderBox, mockOldWebView)
 
-	pv := component.NewPaneView(mockFactory, entity.PaneID("pane-1"), mockOldWebView)
+	pv := component.NewPaneView(context.Background(), mockFactory, entity.PaneID("pane-1"), mockOldWebView)
 
 	// Expect removal of old widget and addition of new
 	mockOverlay.EXPECT().SetChild(nil).Once()
@@ -229,7 +230,7 @@ func TestSetWebViewWidget_FromNil(t *testing.T) {
 
 	setupPaneViewMocksNoWebView(t, mockFactory, mockOverlay, mockBorderBox)
 
-	pv := component.NewPaneView(mockFactory, entity.PaneID("pane-1"), nil)
+	pv := component.NewPaneView(context.Background(), mockFactory, entity.PaneID("pane-1"), nil)
 
 	// Expect only setting new child (no removal since old was nil)
 	mockNewWebView.EXPECT().GetParent().Return(nil).Once()
@@ -251,7 +252,7 @@ func TestGrabFocus_DelegatesToWebView(t *testing.T) {
 
 	setupPaneViewMocks(t, mockFactory, mockOverlay, mockBorderBox, mockWebView)
 
-	pv := component.NewPaneView(mockFactory, entity.PaneID("pane-1"), mockWebView)
+	pv := component.NewPaneView(context.Background(), mockFactory, entity.PaneID("pane-1"), mockWebView)
 
 	mockWebView.EXPECT().GrabFocus().Return(true).Once()
 
@@ -270,7 +271,7 @@ func TestGrabFocus_NilWebView_ReturnsFalse(t *testing.T) {
 
 	setupPaneViewMocksNoWebView(t, mockFactory, mockOverlay, mockBorderBox)
 
-	pv := component.NewPaneView(mockFactory, entity.PaneID("pane-1"), nil)
+	pv := component.NewPaneView(context.Background(), mockFactory, entity.PaneID("pane-1"), nil)
 
 	// Act
 	result := pv.GrabFocus()
@@ -288,7 +289,7 @@ func TestHasFocus_DelegatesToWebView(t *testing.T) {
 
 	setupPaneViewMocks(t, mockFactory, mockOverlay, mockBorderBox, mockWebView)
 
-	pv := component.NewPaneView(mockFactory, entity.PaneID("pane-1"), mockWebView)
+	pv := component.NewPaneView(context.Background(), mockFactory, entity.PaneID("pane-1"), mockWebView)
 
 	mockWebView.EXPECT().HasFocus().Return(true).Once()
 
@@ -307,7 +308,7 @@ func TestHasFocus_NilWebView_ReturnsFalse(t *testing.T) {
 
 	setupPaneViewMocksNoWebView(t, mockFactory, mockOverlay, mockBorderBox)
 
-	pv := component.NewPaneView(mockFactory, entity.PaneID("pane-1"), nil)
+	pv := component.NewPaneView(context.Background(), mockFactory, entity.PaneID("pane-1"), nil)
 
 	// Act
 	result := pv.HasFocus()
@@ -325,7 +326,7 @@ func TestWidget_ReturnsOverlay(t *testing.T) {
 
 	setupPaneViewMocks(t, mockFactory, mockOverlay, mockBorderBox, mockWebView)
 
-	pv := component.NewPaneView(mockFactory, entity.PaneID("pane-1"), mockWebView)
+	pv := component.NewPaneView(context.Background(), mockFactory, entity.PaneID("pane-1"), mockWebView)
 
 	// Act
 	result := pv.Widget()
@@ -343,7 +344,7 @@ func TestOverlay_ReturnsOverlayWidget(t *testing.T) {
 
 	setupPaneViewMocks(t, mockFactory, mockOverlay, mockBorderBox, mockWebView)
 
-	pv := component.NewPaneView(mockFactory, entity.PaneID("pane-1"), mockWebView)
+	pv := component.NewPaneView(context.Background(), mockFactory, entity.PaneID("pane-1"), mockWebView)
 
 	// Act
 	result := pv.Overlay()
@@ -361,7 +362,7 @@ func TestShow_DelegatesToOverlay(t *testing.T) {
 
 	setupPaneViewMocks(t, mockFactory, mockOverlay, mockBorderBox, mockWebView)
 
-	pv := component.NewPaneView(mockFactory, entity.PaneID("pane-1"), mockWebView)
+	pv := component.NewPaneView(context.Background(), mockFactory, entity.PaneID("pane-1"), mockWebView)
 
 	mockOverlay.EXPECT().Show().Once()
 
@@ -380,7 +381,7 @@ func TestHide_DelegatesToOverlay(t *testing.T) {
 
 	setupPaneViewMocks(t, mockFactory, mockOverlay, mockBorderBox, mockWebView)
 
-	pv := component.NewPaneView(mockFactory, entity.PaneID("pane-1"), mockWebView)
+	pv := component.NewPaneView(context.Background(), mockFactory, entity.PaneID("pane-1"), mockWebView)
 
 	mockOverlay.EXPECT().Hide().Once()
 
@@ -399,7 +400,7 @@ func TestSetVisible_DelegatesToOverlay(t *testing.T) {
 
 	setupPaneViewMocks(t, mockFactory, mockOverlay, mockBorderBox, mockWebView)
 
-	pv := component.NewPaneView(mockFactory, entity.PaneID("pane-1"), mockWebView)
+	pv := component.NewPaneView(context.Background(), mockFactory, entity.PaneID("pane-1"), mockWebView)
 
 	mockOverlay.EXPECT().SetVisible(true).Once()
 
@@ -418,7 +419,7 @@ func TestIsVisible_DelegatesToOverlay(t *testing.T) {
 
 	setupPaneViewMocks(t, mockFactory, mockOverlay, mockBorderBox, mockWebView)
 
-	pv := component.NewPaneView(mockFactory, entity.PaneID("pane-1"), mockWebView)
+	pv := component.NewPaneView(context.Background(), mockFactory, entity.PaneID("pane-1"), mockWebView)
 
 	mockOverlay.EXPECT().IsVisible().Return(true).Once()
 
@@ -438,7 +439,7 @@ func TestAddCssClass_DelegatesToOverlay(t *testing.T) {
 
 	setupPaneViewMocks(t, mockFactory, mockOverlay, mockBorderBox, mockWebView)
 
-	pv := component.NewPaneView(mockFactory, entity.PaneID("pane-1"), mockWebView)
+	pv := component.NewPaneView(context.Background(), mockFactory, entity.PaneID("pane-1"), mockWebView)
 
 	mockOverlay.EXPECT().AddCssClass("custom-class").Once()
 
@@ -457,7 +458,7 @@ func TestRemoveCssClass_DelegatesToOverlay(t *testing.T) {
 
 	setupPaneViewMocks(t, mockFactory, mockOverlay, mockBorderBox, mockWebView)
 
-	pv := component.NewPaneView(mockFactory, entity.PaneID("pane-1"), mockWebView)
+	pv := component.NewPaneView(context.Background(), mockFactory, entity.PaneID("pane-1"), mockWebView)
 
 	mockOverlay.EXPECT().RemoveCssClass("custom-class").Once()
 
@@ -476,7 +477,7 @@ func TestSetOnFocusIn_SetsCallback(t *testing.T) {
 
 	setupPaneViewMocks(t, mockFactory, mockOverlay, mockBorderBox, mockWebView)
 
-	pv := component.NewPaneView(mockFactory, entity.PaneID("pane-1"), mockWebView)
+	pv := component.NewPaneView(context.Background(), mockFactory, entity.PaneID("pane-1"), mockWebView)
 
 	callback := func(paneID entity.PaneID) {}
 
@@ -496,7 +497,7 @@ func TestSetOnFocusOut_SetsCallback(t *testing.T) {
 
 	setupPaneViewMocks(t, mockFactory, mockOverlay, mockBorderBox, mockWebView)
 
-	pv := component.NewPaneView(mockFactory, entity.PaneID("pane-1"), mockWebView)
+	pv := component.NewPaneView(context.Background(), mockFactory, entity.PaneID("pane-1"), mockWebView)
 
 	callback := func(paneID entity.PaneID) {}
 

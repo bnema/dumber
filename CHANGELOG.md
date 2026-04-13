@@ -4,6 +4,35 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+## [0.28.0] - 2026-03-27
+
+### Added
+
+- **Engine abstraction layer**: Introduced a major architectural refactor that decouples the browser engine layer from the UI. The new `Engine` interface and supporting infrastructure make it possible to support alternative rendering engines beyond WebKit in the future. Users with custom configurations should run `dumber config migrate` to transition to the new engine configuration format (`[engine]/[engine.webkit]` structure). The migration is automatic and backwards-compatible.
+- **Website data access permission**: New permission dialog and system for controlling access to website persistent data. Users can now grant or deny individual websites access to cookies, localStorage, and other persistent storage.
+- **Content blocker large filter set support**: Filter sets exceeding WebKit's 150k rule limit are now properly handled by compiling each part file as a separate WebKit filter, enabling support for comprehensive filter lists. Filter file discovery is now dynamic via manifest instead of a hardcoded list.
+- **Content blocker debug logging**: Added load-failed signal logging to help diagnose content blocker and filter compilation issues.
+
+### Changed
+
+- **Database backend modernization**: Replaced the WASM-based `ncruces/go-sqlite3` with native `purego-sqlite` via pure FFI (no WASM runtime, no CGO required). This simplifies the build process and improves startup performance by removing the SQLite WASM initialization precompile step.
+- **Keyboard and input system overhaul**: Complete rewrite of keyboard routing with native dead key and compose sequence support. The new unified key routing system properly handles accent input with bubble-phase handling and input method fallback, restricted to editable targets with accessibility fallback.
+- **Omnibox ghostwriter reliability**: Reimplemented the ghost text system to eliminate letter-eating on fast typing. Replaced the goroutine/token/coalescer machinery with synchronous ghost computation, a guard flag for programmatic `SetText`, debounced echo detection, and stale input checks.
+- **Omnibox URL intent matching**: Improved URL detection to prioritize URL-like input on Enter, normalize bare IPs to HTTP for local/tailnet services, and handle leading whitespace correctly. Explicit omnibox selections are now always honored over ghost input.
+- **Permission system hardening**: Strengthened permission origin handling to use the live page URI from the signal's WebView for all permission lookups. Exported metadata key constants replace raw string literals. Cookie policy default now correctly aligns with Epiphany ITP model.
+- **GTK binding upgrades**: Migrated from `jwijenbergh/puregotk` to `bnema/puregotk` with `ebitengine/purego`. Signal callbacks now receive `*glib.Error` instead of raw `uintptr`, providing actual error messages in load-failed and download-failed logs. Fixes `g_object_new_with_properties` use-after-free via `[]string` keepalive.
+
+### Fixed
+
+- **WebView accent picker**: Fixed double-character input and focus loss in the WebView accent picker during rapid typing.
+- **Async callback safety**: Hardened async callbacks with URI validation and timer generation counters to prevent stale callbacks from executing on the wrong WebView.
+- **Modal phase synchronization**: Made `setControllerPhase` synchronous and dispatched modal timeouts via the GTK main thread to prevent race conditions.
+- **Keyboard routing thread-safety**: Resolved thread-safety issues and nil-guard checks in keyboard routing.
+- **Application shortcuts restoration**: App shortcuts are now restored when WebView has focus.
+- **Favicon caching**: Fixed stacked title bar favicons to populate from cache on stack creation, guarded against nil texture overwriting a good favicon, and prevented swap on pool reuse.
+- **SIGABRT crash on permission requests**: Fixed a crash that occurred when the permission-request signal was emitted during rapid pane teardown.
+- **Panic logging in safeGLibType**: Recovered panics are now logged instead of silently swallowed.
+
 ## [0.27.2] - 2026-02-17
 
 ### Changed

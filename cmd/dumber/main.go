@@ -7,6 +7,7 @@ import (
 	"os"
 	"os/signal"
 	"runtime"
+	"strings"
 	"syscall"
 
 	"github.com/bnema/dumber/internal/application/port"
@@ -18,18 +19,24 @@ import (
 	"github.com/bnema/dumber/internal/domain/repository"
 	"github.com/bnema/dumber/internal/infrastructure/cache"
 	"github.com/bnema/dumber/internal/infrastructure/clipboard"
-	"github.com/bnema/dumber/internal/infrastructure/colorscheme"
 	"github.com/bnema/dumber/internal/infrastructure/config"
 	"github.com/bnema/dumber/internal/infrastructure/deps"
+	"github.com/bnema/dumber/internal/infrastructure/desktop"
 	"github.com/bnema/dumber/internal/infrastructure/favicon"
+	"github.com/bnema/dumber/internal/infrastructure/filesystem"
 	"github.com/bnema/dumber/internal/infrastructure/idle"
 	"github.com/bnema/dumber/internal/infrastructure/persistence/sqlite"
+	"github.com/bnema/dumber/internal/infrastructure/snapshot"
+	"github.com/bnema/dumber/internal/infrastructure/textinput"
 	"github.com/bnema/dumber/internal/infrastructure/updater"
 	"github.com/bnema/dumber/internal/infrastructure/xdg"
 	"github.com/bnema/dumber/internal/logging"
 	"github.com/bnema/dumber/internal/ui"
+	"github.com/bnema/dumber/internal/ui/adapter"
 	"github.com/bnema/dumber/internal/ui/component"
 	"github.com/bnema/dumber/internal/ui/theme"
+	cef "github.com/bnema/purego-cef/cef"
+	"github.com/bnema/puregotk/v4/gtk"
 	"github.com/rs/zerolog"
 )
 
@@ -46,17 +53,65 @@ var initialURL string
 // restoreSessionID holds the session ID to restore on startup.
 var restoreSessionID string
 
+type launchMode string
+
+const (
+	launchModeCLI               launchMode = "cli"
+	launchModeBrowse            launchMode = "browse"
+	launchModeStandaloneOmnibox launchMode = "omnibox"
+)
+
+func launchModeFromArgs(args []string) (launchMode, string) {
+	if len(args) > 1 {
+		switch args[1] {
+		case "browse":
+			if len(args) > 3 {
+				return launchModeCLI, ""
+			}
+			if len(args) > 2 {
+				if strings.HasPrefix(args[2], "-") {
+					return launchModeCLI, ""
+				}
+				return launchModeBrowse, args[2]
+			}
+			return launchModeBrowse, ""
+		case "omnibox":
+			if len(args) > 2 {
+				return launchModeCLI, ""
+			}
+			return launchModeStandaloneOmnibox, ""
+		}
+	}
+
+	return launchModeCLI, ""
+}
+
 func main() {
 	enableCrashForensics()
 
+	// CEF subprocess handling: when CEF re-launches the binary with
+	// --type=renderer/gpu/etc, we must call ExecuteProcess before anything
+	// else (Cobra, config, arg stripping). We detect subprocesses by the
+	// presence of --type= in os.Args rather than checking the engine env
+	// var, because subprocesses may not inherit the environment and the
+	// engine can also be selected via config.
+	if isCEFSubprocess() {
+		cef.MaybeExitSubprocess()
+		os.Exit(1)
+	}
+
+	mode, browseURL := launchModeFromArgs(os.Args)
 	// Run GUI mode for browse command
-	if len(os.Args) > 1 && os.Args[1] == "browse" {
-		if len(os.Args) > 2 {
-			initialURL = os.Args[2]
-		}
+	if mode == launchModeBrowse {
+		initialURL = browseURL
 		restoreSessionID = os.Getenv("DUMBER_RESTORE_SESSION")
 		os.Args = os.Args[:1]
 		os.Exit(runGUI())
+		return
+	}
+
+	if mode == launchModeStandaloneOmnibox {
+		os.Exit(runStandaloneOmnibox())
 		return
 	}
 
@@ -92,9 +147,14 @@ func runGUI() int {
 	}
 	timer.MarkDuration("parallel_phase", initResult.Duration)
 
+	preInitializeAdwaitaForCEF(cfg, initResult, func() {
+		logging.FromContext(ctx).Info().Msg("pre-initializing libadwaita before CEF multi-threaded loop")
+		ui.EnsureAdwaitaInitialized()
+	})
+
 	needsEagerDB := restoreSessionID != "" || cfg.Session.AutoRestore
 
-	stack, repos, dbCleanup, err := initStackAndRepos(ctx, cfg, initResult, needsEagerDB)
+	engine, repos, dbCleanup, err := initStackAndRepos(ctx, cfg, initResult, needsEagerDB)
 	if err != nil {
 		bootstrapLog.Fatal().Err(err).Msg("failed to initialize database/webkit")
 	}
@@ -111,9 +171,7 @@ func runGUI() int {
 	logging.Trace().UpdateLogger(log)
 	logCoreDumpLimits(ctx)
 
-	if stack.MessageRouter != nil {
-		stack.MessageRouter.SetBaseContext(ctx)
-	}
+	engine.SetHandlerContext(ctx)
 
 	useCases := createUseCases(repos, cfg)
 	if needsEagerDB {
@@ -124,7 +182,7 @@ func runGUI() int {
 	defer closeIdleInhibitor(idleInhibitor)
 	timer.Mark("use_cases")
 
-	app, err := buildAndConfigureApp(ctx, cfg, initResult, &stack, repos, useCases, idleInhibitor, browserSession)
+	app, err := buildAndConfigureApp(ctx, cfg, initResult, engine, repos, useCases, idleInhibitor, browserSession)
 	if err != nil {
 		log.Error().Err(err).Msg("failed to create application")
 		return 1
@@ -135,6 +193,103 @@ func runGUI() int {
 	setupSignalHandler(ctx, app)
 
 	return app.Run(ctx, os.Args)
+}
+
+func runStandaloneOmnibox() int {
+	maybeReexecStandaloneOmniboxWithLayerShell()
+
+	bootstrap.ApplyGTKIMModuleFallbackDefault(os.Stderr)
+	runtime.LockOSThread()
+	component.SetSkeletonVersion(version)
+
+	cfg := initConfig()
+	ctx := initStartupContextWithTrace(cfg)
+
+	initResult, err := runParallelInitPhase(ctx, cfg)
+	if err != nil {
+		return 1
+	}
+
+	preInitializeAdwaitaForCEF(cfg, initResult, ui.EnsureAdwaitaInitialized)
+
+	engine, repos, dbCleanup, err := initStackAndRepos(ctx, cfg, initResult, false)
+	if err != nil {
+		logging.FromContext(ctx).Error().Err(err).Msg("failed to initialize standalone omnibox runtime")
+		return 1
+	}
+	if dbCleanup != nil {
+		defer dbCleanup()
+	}
+
+	useCases := createUseCases(repos, cfg)
+	uiDeps, err := buildUIDependencies(
+		ctx,
+		cfg,
+		initResult.ThemeManager,
+		initResult.ColorResolver,
+		initResult.AdwaitaDetector,
+		engine,
+		repos,
+		useCases,
+		nil,
+		"",
+		nil,
+	)
+	if err != nil {
+		logging.FromContext(ctx).Error().Err(err).Msg("failed to initialize standalone omnibox UI dependencies")
+		return 1
+	}
+	runtimeCfg := ui.NewStandaloneOmniboxRuntime(ctx, uiDeps, engine.FaviconDatabase())
+
+	return ui.RunStandaloneOmnibox(ctx, runtimeCfg)
+}
+
+func preInitializeAdwaitaForCEF(cfg *config.Config, initResult *bootstrap.ParallelInitResult, initAdwaita func()) {
+	if cfg == nil || initResult == nil || initAdwaita == nil {
+		return
+	}
+	if cfg.Engine.ResolveEngineType() != config.EngineTypeCEF {
+		return
+	}
+
+	initAdwaita()
+	if initResult.AdwaitaDetector != nil {
+		initResult.AdwaitaDetector.MarkAvailable()
+	}
+}
+
+func maybeReexecStandaloneOmniboxWithLayerShell() {
+	env := bootstrap.CurrentEnvMap()
+	if !bootstrap.ShouldPreloadLayerShell(env) {
+		return
+	}
+
+	libraryPath := bootstrap.LayerShellLibraryPath()
+	if libraryPath == "" {
+		return
+	}
+
+	env = bootstrap.LayerShellPreloadEnv(env, libraryPath)
+	envSlice := make([]string, 0, len(env))
+	for key, value := range env {
+		envSlice = append(envSlice, key+"="+value)
+	}
+
+	execPath, err := resolveCurrentExecutable(os.Executable)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "Failed to resolve standalone omnibox executable path: %v\n", err)
+		return
+	}
+
+	// #nosec G702 -- execPath comes from os.Executable(), not user input; this re-execs the current binary with adjusted preload env.
+	if err := syscall.Exec(execPath, os.Args, envSlice); err != nil {
+		fmt.Fprintf(os.Stderr, "Failed to re-exec standalone omnibox with layer-shell preload: %v\n", err)
+		return
+	}
+}
+
+func resolveCurrentExecutable(executable func() (string, error)) (string, error) {
+	return executable()
 }
 
 func initStartupContextWithTrace(cfg *config.Config) context.Context {
@@ -176,10 +331,10 @@ func initBrowserSession(
 		bootstrapLog.Fatal().Err(err).Msg("failed to start session")
 	}
 	cleanup := func() {
+		_ = browserSession.End(sessionCtx)
 		if browserSession.LogCleanup != nil {
 			browserSession.LogCleanup()
 		}
-		_ = browserSession.End(sessionCtx)
 	}
 	return sessionCtx, browserSession, cleanup
 }
@@ -194,23 +349,26 @@ func buildAndConfigureApp(
 	ctx context.Context,
 	cfg *config.Config,
 	initResult *bootstrap.ParallelInitResult,
-	stack *bootstrap.WebKitStack,
+	engine port.Engine,
 	repos *repositories,
 	useCases *useCases,
 	idleInhibitor port.IdleInhibitor,
 	browserSession *bootstrap.BrowserSession,
 ) (*ui.App, error) {
-	uiDeps := buildUIDependencies(
+	uiDeps, err := buildUIDependencies(
 		ctx, cfg, initResult.ThemeManager,
 		initResult.ColorResolver, initResult.AdwaitaDetector,
-		stack, repos, useCases, idleInhibitor, browserSession.Session.ID, browserSession.UnexpectedCloseReports(),
+		engine, repos, useCases, idleInhibitor, browserSession.Session.ID, browserSession.CrashReports(),
 	)
+	if err != nil {
+		return nil, err
+	}
 	configureDeferredInit(uiDeps, cfg, browserSession)
 	return ui.New(uiDeps)
 }
 
 func initStartupContext(cfg *config.Config) context.Context {
-	deps.ApplyPrefixEnv(cfg.Runtime.Prefix)
+	deps.ApplyPrefixEnv(cfg.Engine.WebKit.Prefix)
 	bootstrapLogger := logging.NewFromConfigValuesWithTimeFormat(
 		cfg.Logging.Level,
 		cfg.Logging.Format,
@@ -230,10 +388,10 @@ func initStackAndRepos(
 	cfg *config.Config,
 	initResult *bootstrap.ParallelInitResult,
 	needsEagerDB bool,
-) (bootstrap.WebKitStack, *repositories, func(), error) {
+) (port.Engine, *repositories, func(), error) {
 	if needsEagerDB {
-		// Parallel phase 2: Database + WebKit stack initialize concurrently
-		dbWebKit, err := bootstrap.RunParallelDBWebKit(bootstrap.ParallelDBWebKitInput{
+		// Parallel phase 2: Database + engine initialize concurrently
+		dbEngine, err := bootstrap.RunParallelDBEngine(bootstrap.ParallelDBEngineInput{
 			Ctx:           ctx,
 			Config:        cfg,
 			DataDir:       initResult.DataDir,
@@ -242,13 +400,13 @@ func initStackAndRepos(
 			ColorResolver: initResult.ColorResolver,
 		})
 		if err != nil {
-			return bootstrap.WebKitStack{}, nil, nil, err
+			return nil, nil, nil, err
 		}
-		return dbWebKit.Stack, createRepositories(dbWebKit.DB), dbWebKit.DBCleanup, nil
+		return dbEngine.Engine, createRepositories(dbEngine.DB), dbEngine.DBCleanup, nil
 	}
 
 	log := logging.FromContext(ctx)
-	stack := bootstrap.BuildWebKitStack(bootstrap.WebKitStackInput{
+	engine, err := bootstrap.BuildEngine(bootstrap.EngineInput{
 		Ctx:           ctx,
 		Config:        cfg,
 		DataDir:       initResult.DataDir,
@@ -257,13 +415,16 @@ func initStackAndRepos(
 		ColorResolver: initResult.ColorResolver,
 		Logger:        *log,
 	})
+	if err != nil {
+		return nil, nil, nil, err
+	}
 
 	lazyDB, err := bootstrap.CreateLazyDatabase()
 	if err != nil {
-		return stack, nil, nil, err
+		return nil, nil, nil, err
 	}
 	dbCleanup := func() { _ = lazyDB.Close() }
-	return stack, createLazyRepositories(lazyDB), dbCleanup, nil
+	return engine, createLazyRepositories(lazyDB), dbCleanup, nil
 }
 
 func configureDeferredInit(
@@ -302,7 +463,7 @@ func configureDeferredInit(
 					logger.Error().Err(persistErr).Msg("deferred session persistence failed")
 				} else {
 					if uiDeps.OnCrashReportsDetected != nil {
-						if reports := session.UnexpectedCloseReports(); len(reports) > 0 {
+						if reports := session.CrashReports(); len(reports) > 0 {
 							uiDeps.OnCrashReportsDetected(reports)
 						}
 					}
@@ -336,9 +497,6 @@ func handleParallelInitError(ctx context.Context, err error) {
 
 func logDeferredInitResults(ctx context.Context, result bootstrap.DeferredInitResult) {
 	log := logging.FromContext(ctx)
-	if result.SQLiteErr != nil {
-		log.Warn().Err(result.SQLiteErr).Msg("deferred sqlite wasm init failed")
-	}
 	if result.RuntimeErr != nil {
 		if runtimeErr, ok := result.RuntimeErr.(*bootstrap.RuntimeRequirementsError); ok {
 			runtimeErr.LogDetails(ctx)
@@ -383,13 +541,20 @@ func handleAutoRestore(
 
 func setupSignalHandler(ctx context.Context, app *ui.App) {
 	log := logging.FromContext(ctx)
-	sigCh := make(chan os.Signal, 1)
+	sigCh := make(chan os.Signal, 2)
 	signal.Notify(sigCh, os.Interrupt, syscall.SIGTERM)
 	go func() {
 		sig := <-sigCh
-		signal.Stop(sigCh)
-		log.Info().Str("signal", sig.String()).Msg("received interrupt, quitting")
+		log.Info().Str("signal", sig.String()).Msg("received interrupt, quitting gracefully")
 		app.Quit()
+
+		// Second signal: force exit. Keep listening so a second Ctrl+C
+		// doesn't go to the default handler (immediate process kill)
+		// before GTK shutdown + CEF cleanup can finish.
+		sig = <-sigCh
+		log.Warn().Str("signal", sig.String()).Msg("received second interrupt, forcing exit")
+		signal.Stop(sigCh)
+		os.Exit(1)
 	}()
 }
 
@@ -462,7 +627,7 @@ func createUseCases(repos *repositories, cfg *config.Config) *useCases {
 	xdgDirs, _ := config.GetXDGDirs()
 	stateDir, _ := config.GetStateDir()
 	defaultZoom := cfg.DefaultWebpageZoom
-	zoomCache := cache.NewLRU[string, *entity.ZoomLevel](cfg.Performance.ZoomCacheSize)
+	zoomCache := cache.NewLRU[string, *entity.ZoomLevel](cfg.Engine.ZoomCacheSize)
 
 	buildInfo := build.Info{
 		Version:   version,
@@ -487,7 +652,7 @@ func createUseCases(repos *repositories, cfg *config.Config) *useCases {
 		navigate:       usecase.NewNavigateUseCase(repos.history, repos.zoom, defaultZoom),
 		copyURL:        usecase.NewCopyURLUseCase(clipboardAdapter),
 		snapshot:       usecase.NewSnapshotSessionUseCase(repos.sessionState),
-		lastRestorable: usecase.NewGetLastRestorableSessionUseCase(repos.session, repos.sessionState, stateDir),
+		lastRestorable: usecase.NewGetLastRestorableSessionUseCase(repos.session, repos.sessionState),
 		checkUpdate:    usecase.NewCheckUpdateUseCase(updateChecker, updateApplier, buildInfo),
 		applyUpdate:    usecase.NewApplyUpdateUseCase(updateDownloader, updateApplier, xdgDirs.CacheHome),
 		clipboard:      clipboardAdapter,
@@ -495,20 +660,43 @@ func createUseCases(repos *repositories, cfg *config.Config) *useCases {
 	}
 }
 
+// isCEFSubprocess returns true if os.Args contains a --type= flag, indicating
+// this process was spawned by CEF as a renderer, GPU, or utility subprocess.
+func isCEFSubprocess() bool {
+	for _, arg := range os.Args {
+		if strings.HasPrefix(arg, "--type=") {
+			return true
+		}
+	}
+	return false
+}
+
 func buildUIDependencies(
 	ctx context.Context,
 	cfg *config.Config,
 	themeManager *theme.Manager,
 	colorResolver port.ColorSchemeResolver,
-	adwaitaDetector *colorscheme.AdwaitaDetector,
-	stack *bootstrap.WebKitStack,
+	adwaitaDetector port.ToolkitAvailabilityNotifier,
+	engine port.Engine,
 	repos *repositories,
 	uc *useCases,
 	idleInhibitor port.IdleInhibitor,
 	currentSessionID entity.SessionID,
 	startupCrashReports []string,
-) *ui.Dependencies {
-	return &ui.Dependencies{
+) (*ui.Dependencies, error) {
+	var filterManager port.FilterManager
+	if fmp, ok := engine.(port.FilterManagerProvider); ok {
+		filterManager = fmp.InternalFilterManager()
+	}
+
+	handlerDeps, err := bootstrap.BuildHandlerDeps(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("failed to build handler deps: %w", err)
+	}
+
+	focusProvider := textinput.NewFocusProvider()
+
+	uiDeps := &ui.Dependencies{
 		Ctx:                 ctx,
 		Config:              cfg,
 		InitialURL:          initialURL,
@@ -518,12 +706,8 @@ func buildUIDependencies(
 		ColorResolver:       colorResolver,
 		AdwaitaDetector:     adwaitaDetector,
 		XDG:                 xdg.New(),
-		WebContext:          stack.Context,
-		Pool:                stack.Pool,
-		Settings:            stack.Settings,
-		Injector:            stack.Injector,
-		MessageRouter:       stack.MessageRouter,
-		FilterManager:       stack.FilterManager,
+		Engine:              engine,
+		FilterManager:       filterManager,
 		HistoryRepo:         repos.history,
 		FavoriteRepo:        repos.favorite,
 		ZoomRepo:            repos.zoom,
@@ -538,12 +722,47 @@ func buildUIDependencies(
 		CopyURLUC:           uc.copyURL,
 		Clipboard:           uc.clipboard,
 		FaviconService:      uc.favicon,
-		IdleInhibitor:       idleInhibitor,
-		SessionRepo:         repos.session,
-		SessionStateRepo:    repos.sessionState,
-		CurrentSessionID:    currentSessionID,
-		SnapshotUC:          uc.snapshot,
+		FaviconAdapterConfig: adapter.FaviconAdapterConfig{
+			IsInternalURL:      favicon.IsInternalURL,
+			InternalDomain:     favicon.InternalDomain,
+			NormalizedIconSize: favicon.NormalizedIconSize,
+			GetLogoBytes:       favicon.GetLogoBytes,
+		},
+		IdleInhibitor:    idleInhibitor,
+		SessionRepo:      repos.session,
+		SessionStateRepo: repos.sessionState,
+		CurrentSessionID: currentSessionID,
+		SnapshotUC:       uc.snapshot,
+		SnapshotServiceFactory: func(provider port.TabListProvider, intervalMs int) port.SnapshotService {
+			return snapshot.NewService(uc.snapshot, provider, intervalMs)
+		},
 		CheckUpdateUC:       uc.checkUpdate,
 		ApplyUpdateUC:       uc.applyUpdate,
+		SessionSpawner:      desktop.NewSessionSpawner(ctx),
+		FileSystem:          filesystem.New(),
+		AccentFocusProvider: focusProvider,
+		NewGTKEntryTarget: func(entry *gtk.SearchEntry) port.TextInputTarget {
+			return textinput.NewGTKEntryTarget(entry)
+		},
+		OnConfigChange: func(callback func()) {
+			config.GetManager().OnConfigChange(func(newCfg *config.Config) {
+				// No synchronization needed: viper fires this callback on the
+				// GTK main thread (via glib.IdleAdd), and all callers of cfg run
+				// on the same GTK main thread, so there is no concurrent access.
+				if cfg != nil && newCfg != nil {
+					*cfg = *newCfg
+				}
+				callback()
+			})
+		},
+		WatchConfig: func() error {
+			return config.GetManager().Watch()
+		},
+		LaunchExternalURL: desktop.LaunchExternalURL,
+		LaunchBrowserURL:  desktop.LaunchBrowserURL,
+		ConfigMigrator:    config.NewMigrator(),
+		HandlerDeps:       *handlerDeps,
 	}
+
+	return uiDeps, nil
 }

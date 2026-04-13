@@ -4,20 +4,26 @@ import (
 	"context"
 	"testing"
 
-	"github.com/bnema/dumber/internal/infrastructure/config"
-	"github.com/jwijenbergh/puregotk/v4/gdk"
+	"github.com/bnema/dumber/internal/domain/entity"
+	"github.com/bnema/puregotk/v4/gdk"
 	"github.com/stretchr/testify/assert"
 )
 
-// newTestConfig creates a minimal Config with activation shortcuts set.
+// newTestWorkspace creates a minimal WorkspaceConfig with activation shortcuts set.
 // Used by tests that construct a KeyboardHandler.
-func newTestConfig() *config.Config {
-	cfg := &config.Config{}
-	cfg.Workspace.TabMode.ActivationShortcut = "ctrl+t"
-	cfg.Workspace.PaneMode.ActivationShortcut = "ctrl+p"
-	cfg.Workspace.ResizeMode.ActivationShortcut = "ctrl+alt+r"
-	cfg.Session.SessionMode.ActivationShortcut = "ctrl+s"
-	return cfg
+func newTestWorkspace() *entity.WorkspaceConfig {
+	return &entity.WorkspaceConfig{
+		TabMode:    entity.TabModeConfig{ActivationShortcut: "ctrl+t"},
+		PaneMode:   entity.PaneModeConfig{ActivationShortcut: "ctrl+p"},
+		ResizeMode: entity.ResizeModeConfig{ActivationShortcut: "ctrl+alt+r"},
+	}
+}
+
+// newTestSession creates a minimal SessionConfig with activation shortcuts set.
+func newTestSession() *entity.SessionConfig {
+	return &entity.SessionConfig{
+		SessionMode: entity.SessionModeConfig{ActivationShortcut: "ctrl+s"},
+	}
 }
 
 // stubAccentHandler is a test stub for the AccentHandler interface.
@@ -108,9 +114,8 @@ func TestIsTextInputKey(t *testing.T) {
 
 func TestHandleKeyPress_RoutePassToWidget(t *testing.T) {
 	ctx := context.Background()
-	cfg := newTestConfig()
 
-	h := NewKeyboardHandler(ctx, cfg)
+	h := NewKeyboardHandler(ctx, newTestWorkspace(), newTestSession())
 
 	// Route all non-shortcut keys to widget (simulates WebView text input)
 	h.SetRouteKey(func(kc KeyContext) KeyRoute {
@@ -139,9 +144,8 @@ func TestHandleKeyPress_RoutePassToWidget(t *testing.T) {
 
 func TestHandleKeyPress_RouteAccentDetection_NoAccent(t *testing.T) {
 	ctx := context.Background()
-	cfg := newTestConfig()
 
-	h := NewKeyboardHandler(ctx, cfg)
+	h := NewKeyboardHandler(ctx, newTestWorkspace(), newTestSession())
 
 	// Set a stub accent handler that always returns false (simulates "no accents for this key")
 	h.SetAccentHandler(&stubAccentHandler{onKeyPressedResult: false})
@@ -158,9 +162,8 @@ func TestHandleKeyPress_RouteAccentDetection_NoAccent(t *testing.T) {
 
 func TestHandleKeyPress_ShortcutsWorkWithRouting(t *testing.T) {
 	ctx := context.Background()
-	cfg := newTestConfig()
 
-	h := NewKeyboardHandler(ctx, cfg)
+	h := NewKeyboardHandler(ctx, newTestWorkspace(), newTestSession())
 
 	h.SetOnAction(func(ctx context.Context, action Action) error {
 		return nil
@@ -181,9 +184,8 @@ func TestHandleKeyPress_ShortcutsWorkWithRouting(t *testing.T) {
 
 func TestHandleKeyPress_ModalModeIgnoresRoute(t *testing.T) {
 	ctx := context.Background()
-	cfg := newTestConfig()
 
-	h := NewKeyboardHandler(ctx, cfg)
+	h := NewKeyboardHandler(ctx, newTestWorkspace(), newTestSession())
 	h.EnterTabMode()
 
 	// Even if routeKey says pass to widget, modal mode ignores it
@@ -198,8 +200,7 @@ func TestHandleKeyPress_ModalModeIgnoresRoute(t *testing.T) {
 
 func TestKeyboardHandler_SetRouteKey(t *testing.T) {
 	ctx := context.Background()
-	cfg := &config.Config{}
-	h := NewKeyboardHandler(ctx, cfg)
+	h := NewKeyboardHandler(ctx, nil, nil)
 
 	// Default: no callback set
 	h.mu.RLock()
@@ -221,9 +222,8 @@ func TestKeyboardHandler_SetRouteKey(t *testing.T) {
 
 func TestHandleKeyPress_NoRouteCallback_DefaultsToShortcuts(t *testing.T) {
 	ctx := context.Background()
-	cfg := newTestConfig()
 
-	h := NewKeyboardHandler(ctx, cfg)
+	h := NewKeyboardHandler(ctx, newTestWorkspace(), newTestSession())
 
 	// No routeKey set -- should default to shortcut handling
 	// 'z' is not a registered shortcut in ModeNormal, so returns false

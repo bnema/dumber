@@ -7,31 +7,22 @@ import (
 	"fmt"
 	"sync"
 
+	"github.com/bnema/dumber/internal/application/port"
 	"github.com/bnema/dumber/internal/logging"
 	"github.com/bnema/puregotk-webkit/javascriptcore"
 	"github.com/bnema/puregotk-webkit/webkit"
 )
 
-// Message represents a JS -> Go message envelope sent via postMessage.
-type Message struct {
-	Type         string          `json:"type"`
-	Payload      json.RawMessage `json:"payload"`
-	WebViewID    uint64          `json:"webview_id,omitempty"`
-	WebViewIDAlt uint64          `json:"webviewId,omitempty"`
-}
+// Message is the JS -> Go message envelope sent via postMessage.
+type Message = port.WebUIMessage
 
-// MessageHandler handles a decoded message payload.
-type MessageHandler interface {
-	Handle(ctx context.Context, webviewID WebViewID, payload json.RawMessage) (any, error)
-}
+// MessageHandler is an alias for port.WebUIMessageHandler.
+// Kept for backward compatibility within the webkit package.
+type MessageHandler = port.WebUIMessageHandler
 
-// MessageHandlerFunc adapts a function to the MessageHandler interface.
-type MessageHandlerFunc func(ctx context.Context, webviewID WebViewID, payload json.RawMessage) (any, error)
-
-// Handle calls f(ctx, webviewID, payload).
-func (f MessageHandlerFunc) Handle(ctx context.Context, webviewID WebViewID, payload json.RawMessage) (any, error) {
-	return f(ctx, webviewID, payload)
-}
+// MessageHandlerFunc is an alias for port.WebUIMessageHandlerFunc.
+// Kept for backward compatibility within the webkit package.
+type MessageHandlerFunc = port.WebUIMessageHandlerFunc
 
 type handlerEntry struct {
 	handler       MessageHandler
@@ -39,6 +30,9 @@ type handlerEntry struct {
 	errorCallback string
 	world         string
 }
+
+// Compile-time check that MessageRouter implements port.WebUIHandlerRouter.
+var _ port.WebUIHandlerRouter = (*MessageRouter)(nil)
 
 // MessageRouter dispatches script-message events to registered handlers.
 type MessageRouter struct {
@@ -276,7 +270,7 @@ func (r *MessageRouter) syncWebViewID(wv *WebView) {
 		return
 	}
 	script := fmt.Sprintf("window.__dumber_webview_id=%d;", uint64(wv.ID()))
-	wv.RunJavaScript(r.baseCtx, script, "")
+	wv.RunJavaScriptInWorld(r.baseCtx, script, "")
 }
 
 func (r *MessageRouter) markWebViewIDSynced(id WebViewID) bool {
@@ -329,6 +323,6 @@ func (r *MessageRouter) dispatchResponse(ctx context.Context, webviewID WebViewI
 		string(data),
 	)
 
-	wv.RunJavaScript(ctx, script, world)
+	wv.RunJavaScriptInWorld(ctx, script, world)
 	return nil
 }

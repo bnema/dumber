@@ -4,15 +4,29 @@ import (
 	"context"
 	"testing"
 
-	"github.com/bnema/dumber/internal/infrastructure/config"
-	"github.com/jwijenbergh/puregotk/v4/gdk"
+	"github.com/bnema/dumber/internal/domain/entity"
+	"github.com/bnema/puregotk/v4/gdk"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
 
+// defaultWorkspaceConfig returns a WorkspaceConfig with the default shortcuts,
+// mirroring the relevant portion of config.DefaultConfig().
+func defaultWorkspaceConfig() *entity.WorkspaceConfig {
+	return &entity.WorkspaceConfig{
+		Shortcuts: entity.GlobalShortcutsConfig{
+			Actions: map[string]entity.ActionBinding{
+				"toggle_floating_pane":   {Keys: []string{"alt+f"}},
+				"consume_or_expel_left":  {Keys: []string{"alt+["}},
+				"consume_or_expel_right": {Keys: []string{"alt+]"}},
+			},
+		},
+	}
+}
+
 func TestShortcutSet_GlobalToggleFloatingPane(t *testing.T) {
-	cfg := config.DefaultConfig()
-	set := NewShortcutSet(context.Background(), cfg)
+	ws := defaultWorkspaceConfig()
+	set := NewShortcutSet(context.Background(), ws, nil)
 
 	action, ok := set.Lookup(KeyBinding{Keyval: uint(gdk.KEY_f), Modifiers: ModAlt}, ModeNormal)
 	require.True(t, ok)
@@ -20,8 +34,8 @@ func TestShortcutSet_GlobalToggleFloatingPane(t *testing.T) {
 }
 
 func TestShortcutSet_FloatingProfiles_RegisterMultiple(t *testing.T) {
-	cfg := config.DefaultConfig()
-	cfg.Workspace.FloatingPane.Profiles = map[string]config.FloatingPaneProfile{
+	ws := defaultWorkspaceConfig()
+	ws.FloatingPane.Profiles = map[string]entity.FloatingPaneProfile{
 		"google": {
 			Keys: []string{"alt+g"},
 			URL:  "https://google.com",
@@ -32,7 +46,7 @@ func TestShortcutSet_FloatingProfiles_RegisterMultiple(t *testing.T) {
 		},
 	}
 
-	set := NewShortcutSet(context.Background(), cfg)
+	set := NewShortcutSet(context.Background(), ws, nil)
 
 	googleAction, ok := set.Lookup(KeyBinding{Keyval: uint(gdk.KEY_g), Modifiers: ModAlt}, ModeNormal)
 	require.True(t, ok)
@@ -50,8 +64,8 @@ func TestShortcutSet_FloatingProfiles_RegisterMultiple(t *testing.T) {
 }
 
 func TestCollectFloatingProfileShortcuts_SkipsConflicts(t *testing.T) {
-	cfg := config.DefaultConfig()
-	cfg.Workspace.FloatingPane.Profiles = map[string]config.FloatingPaneProfile{
+	ws := defaultWorkspaceConfig()
+	ws.FloatingPane.Profiles = map[string]entity.FloatingPaneProfile{
 		"tab-conflict": {
 			Keys: []string{"alt+1"},
 			URL:  "https://example.com/tab",
@@ -71,7 +85,7 @@ func TestCollectFloatingProfileShortcuts_SkipsConflicts(t *testing.T) {
 		{Keyval: uint(gdk.KEY_bracketleft), Modifiers: ModAlt}: ActionConsumeOrExpelLeft,
 	}
 
-	shortcuts := collectFloatingProfileShortcuts(context.Background(), cfg, occupied)
+	shortcuts := collectFloatingProfileShortcutsFromWorkspace(context.Background(), ws, occupied)
 	require.Len(t, shortcuts, 1)
 	assert.Equal(t, KeyBinding{Keyval: uint(gdk.KEY_g), Modifiers: ModAlt}, shortcuts[0].Binding)
 	target, ok := ParseFloatingProfileTarget(shortcuts[0].Action)
@@ -81,15 +95,15 @@ func TestCollectFloatingProfileShortcuts_SkipsConflicts(t *testing.T) {
 }
 
 func TestShortcutSet_FloatingProfilesPreserveExistingGlobalShortcuts(t *testing.T) {
-	cfg := config.DefaultConfig()
-	cfg.Workspace.FloatingPane.Profiles = map[string]config.FloatingPaneProfile{
+	ws := defaultWorkspaceConfig()
+	ws.FloatingPane.Profiles = map[string]entity.FloatingPaneProfile{
 		"conflict": {
 			Keys: []string{"alt+["},
 			URL:  "https://example.com/override-attempt",
 		},
 	}
 
-	set := NewShortcutSet(context.Background(), cfg)
+	set := NewShortcutSet(context.Background(), ws, nil)
 
 	tabAction, ok := set.Lookup(KeyBinding{Keyval: uint(gdk.KEY_bracketleft), Modifiers: ModAlt}, ModeNormal)
 	require.True(t, ok)
@@ -101,8 +115,8 @@ func TestShortcutSet_FloatingProfilesPreserveExistingGlobalShortcuts(t *testing.
 }
 
 func TestShortcutSet_FloatingProfilesSkipGlobalOnlyConflicts(t *testing.T) {
-	cfg := config.DefaultConfig()
-	cfg.Workspace.FloatingPane.Profiles = map[string]config.FloatingPaneProfile{
+	ws := defaultWorkspaceConfig()
+	ws.FloatingPane.Profiles = map[string]entity.FloatingPaneProfile{
 		"alt-one-conflict": {
 			Keys: []string{"alt+1"},
 			URL:  "https://example.com/one",
@@ -117,7 +131,7 @@ func TestShortcutSet_FloatingProfilesSkipGlobalOnlyConflicts(t *testing.T) {
 		},
 	}
 
-	set := NewShortcutSet(context.Background(), cfg)
+	set := NewShortcutSet(context.Background(), ws, nil)
 
 	_, ok := set.Lookup(KeyBinding{Keyval: uint(gdk.KEY_1), Modifiers: ModAlt}, ModeNormal)
 	assert.False(t, ok)
@@ -134,8 +148,8 @@ func TestShortcutSet_FloatingProfilesSkipGlobalOnlyConflicts(t *testing.T) {
 }
 
 func TestShortcutSet_FloatingProfilesWithSameURLGetDistinctSessionIDs(t *testing.T) {
-	cfg := config.DefaultConfig()
-	cfg.Workspace.FloatingPane.Profiles = map[string]config.FloatingPaneProfile{
+	ws := defaultWorkspaceConfig()
+	ws.FloatingPane.Profiles = map[string]entity.FloatingPaneProfile{
 		"work-mail": {
 			Keys: []string{"alt+w"},
 			URL:  "https://mail.google.com",
@@ -146,7 +160,7 @@ func TestShortcutSet_FloatingProfilesWithSameURLGetDistinctSessionIDs(t *testing
 		},
 	}
 
-	set := NewShortcutSet(context.Background(), cfg)
+	set := NewShortcutSet(context.Background(), ws, nil)
 
 	workAction, ok := set.Lookup(KeyBinding{Keyval: uint(gdk.KEY_w), Modifiers: ModAlt}, ModeNormal)
 	require.True(t, ok)
@@ -164,8 +178,8 @@ func TestShortcutSet_FloatingProfilesWithSameURLGetDistinctSessionIDs(t *testing
 }
 
 func TestShortcutSet_FloatingProfiles_SupportModifierCombos(t *testing.T) {
-	cfg := config.DefaultConfig()
-	cfg.Workspace.FloatingPane.Profiles = map[string]config.FloatingPaneProfile{
+	ws := defaultWorkspaceConfig()
+	ws.FloatingPane.Profiles = map[string]entity.FloatingPaneProfile{
 		"mail": {
 			Keys: []string{"ctrl+alt+m"},
 			URL:  "https://mail.example.com",
@@ -176,7 +190,7 @@ func TestShortcutSet_FloatingProfiles_SupportModifierCombos(t *testing.T) {
 		},
 	}
 
-	set := NewShortcutSet(context.Background(), cfg)
+	set := NewShortcutSet(context.Background(), ws, nil)
 
 	mailAction, ok := set.Lookup(KeyBinding{Keyval: uint(gdk.KEY_m), Modifiers: ModCtrl | ModAlt}, ModeNormal)
 	require.True(t, ok)

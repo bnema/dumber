@@ -78,7 +78,7 @@ func (m *Manager) DetectGPUVendor(ctx context.Context) port.GPUVendor {
 
 // ApplyEnvironment sets all rendering environment variables.
 // Must be called before GTK/WebKit initialization.
-func (m *Manager) ApplyEnvironment(ctx context.Context, settings port.RenderingEnvSettings) error {
+func (m *Manager) ApplyEnvironment(ctx context.Context, settings RenderingSettings) error {
 	log := logging.FromContext(ctx)
 	m.appliedVars = make(map[string]string)
 
@@ -97,7 +97,7 @@ func (m *Manager) ApplyEnvironment(ctx context.Context, settings port.RenderingE
 	return nil
 }
 
-func (m *Manager) applyGStreamerEnv(settings port.RenderingEnvSettings) {
+func (m *Manager) applyGStreamerEnv(settings RenderingSettings) {
 	// VSync
 	if settings.ForceVSync {
 		m.setEnv("__GL_SYNC_TO_VBLANK", "1")
@@ -149,7 +149,7 @@ func (m *Manager) applyGPUSpecificEnv() {
 	}
 }
 
-func (m *Manager) applyWebKitEnv(settings port.RenderingEnvSettings) {
+func (m *Manager) applyWebKitEnv(settings RenderingSettings) {
 	if settings.DisableDMABufRenderer {
 		m.setEnv("WEBKIT_DISABLE_DMABUF_RENDERER", "1")
 	}
@@ -161,7 +161,7 @@ func (m *Manager) applyWebKitEnv(settings port.RenderingEnvSettings) {
 	}
 }
 
-func (m *Manager) applyGTKEnv(settings port.RenderingEnvSettings) {
+func (m *Manager) applyGTKEnv(settings RenderingSettings) {
 	renderer := strings.ToLower(strings.TrimSpace(settings.GSKRenderer))
 	if renderer != "" && renderer != "auto" {
 		m.setEnv("GSK_RENDERER", renderer)
@@ -187,7 +187,7 @@ func (m *Manager) applyGTKEnv(settings port.RenderingEnvSettings) {
 	}
 }
 
-func (m *Manager) applyDebugEnv(settings port.RenderingEnvSettings) {
+func (m *Manager) applyDebugEnv(settings RenderingSettings) {
 	if settings.ShowFPS {
 		m.setEnv("WEBKIT_SHOW_FPS", "1")
 	}
@@ -196,7 +196,7 @@ func (m *Manager) applyDebugEnv(settings port.RenderingEnvSettings) {
 	}
 }
 
-func (m *Manager) applySkiaEnv(settings port.RenderingEnvSettings) {
+func (m *Manager) applySkiaEnv(settings RenderingSettings) {
 	// CPU painting threads: only set if > 0 and env var not already set
 	if settings.SkiaCPUPaintingThreads > 0 && os.Getenv("WEBKIT_SKIA_CPU_PAINTING_THREADS") == "" {
 		m.setEnv("WEBKIT_SKIA_CPU_PAINTING_THREADS", fmt.Sprintf("%d", settings.SkiaCPUPaintingThreads))
@@ -249,4 +249,6 @@ func (*Manager) detectFromDRM() port.GPUVendor {
 	return port.GPUVendorUnknown
 }
 
+// Ensure Manager implements port.RenderingEnvManager (DetectGPUVendor, GetAppliedVars).
+// ApplyEnvironment takes the infra-local RenderingSettings type instead of a port type.
 var _ port.RenderingEnvManager = (*Manager)(nil)

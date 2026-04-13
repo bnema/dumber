@@ -19,6 +19,9 @@ const (
 	fkRetryDelay              = 100 * time.Millisecond
 )
 
+// Compile-time interface check.
+var _ port.SnapshotService = (*Service)(nil)
+
 // Service handles debounced session state snapshots.
 type Service struct {
 	snapshotUC *usecase.SnapshotSessionUseCase

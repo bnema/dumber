@@ -12,7 +12,7 @@ import (
 	"github.com/bnema/dumber/internal/domain/entity"
 	"github.com/bnema/dumber/internal/logging"
 	"github.com/bnema/dumber/internal/ui/layout"
-	"github.com/jwijenbergh/puregotk/v4/glib"
+	"github.com/bnema/puregotk/v4/glib"
 	"github.com/rs/zerolog"
 )
 
@@ -86,7 +86,7 @@ func (a *paneViewFactoryAdapter) CreatePaneView(node *entity.PaneNode) layout.Wi
 
 	// Create PaneView without WebView widget for now
 	// WebView will be attached later by the application layer
-	pv := NewPaneView(a.wv.factory, node.Pane.ID, nil)
+	pv := NewPaneView(a.ctx, a.wv.factory, node.Pane.ID, nil)
 
 	// Store in map for later lookup
 	// Note: Caller (SetWorkspace) already holds the lock, so we access directly

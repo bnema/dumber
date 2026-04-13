@@ -5,9 +5,7 @@ import (
 	"embed"
 	"encoding/json"
 	"fmt"
-	"html"
 	"io/fs"
-	"mime"
 	"net/http"
 	"net/url"
 	"path/filepath"
@@ -17,10 +15,11 @@ import (
 	"github.com/bnema/dumber/internal/application/port"
 	"github.com/bnema/dumber/internal/infrastructure/config"
 	"github.com/bnema/dumber/internal/infrastructure/env"
+	"github.com/bnema/dumber/internal/infrastructure/webutil"
 	"github.com/bnema/dumber/internal/logging"
 	"github.com/bnema/puregotk-webkit/soup"
 	"github.com/bnema/puregotk-webkit/webkit"
-	"github.com/jwijenbergh/puregotk/v4/gio"
+	"github.com/bnema/puregotk/v4/gio"
 	"github.com/rs/zerolog"
 )
 
@@ -72,60 +71,6 @@ type DumbSchemeHandler struct {
 	mu         sync.RWMutex
 	hwSurveyor *env.HardwareSurveyor
 	ctx        context.Context
-}
-
-type configAppearancePayload struct {
-	SansFont        string              `json:"sans_font"`
-	SerifFont       string              `json:"serif_font"`
-	MonospaceFont   string              `json:"monospace_font"`
-	DefaultFontSize int                 `json:"default_font_size"`
-	ColorScheme     string              `json:"color_scheme"`
-	LightPalette    config.ColorPalette `json:"light_palette"`
-	DarkPalette     config.ColorPalette `json:"dark_palette"`
-}
-
-type configHardwarePayload struct {
-	CPUCores   int    `json:"cpu_cores"`
-	CPUThreads int    `json:"cpu_threads"`
-	TotalRAMMB int    `json:"total_ram_mb"`
-	GPUVendor  string `json:"gpu_vendor"`
-	GPUName    string `json:"gpu_name"`
-	VRAMMB     int    `json:"vram_mb"`
-}
-
-type configPerformancePayload struct {
-	Profile  string                    `json:"profile"`
-	Custom   configCustomPerformance   `json:"custom"`
-	Resolved configResolvedPerformance `json:"resolved"`
-	Hardware configHardwarePayload     `json:"hardware"`
-}
-
-// configCustomPerformance holds user-editable fields for custom profile.
-type configCustomPerformance struct {
-	SkiaCPUThreads         int `json:"skia_cpu_threads"`
-	SkiaGPUThreads         int `json:"skia_gpu_threads"`
-	WebProcessMemoryMB     int `json:"web_process_memory_mb"`
-	NetworkProcessMemoryMB int `json:"network_process_memory_mb"`
-	WebViewPoolPrewarm     int `json:"webview_pool_prewarm"`
-}
-
-// configResolvedPerformance shows the actual values that will be applied at startup.
-type configResolvedPerformance struct {
-	SkiaCPUThreads         int     `json:"skia_cpu_threads"`
-	SkiaGPUThreads         int     `json:"skia_gpu_threads"`
-	WebProcessMemoryMB     int     `json:"web_process_memory_mb"`
-	NetworkProcessMemoryMB int     `json:"network_process_memory_mb"`
-	WebViewPoolPrewarm     int     `json:"webview_pool_prewarm"`
-	ConservativeThreshold  float64 `json:"conservative_threshold"`
-	StrictThreshold        float64 `json:"strict_threshold"`
-}
-
-type configPayload struct {
-	Appearance          configAppearancePayload          `json:"appearance"`
-	Performance         configPerformancePayload         `json:"performance"`
-	DefaultUIScale      float64                          `json:"default_ui_scale"`
-	DefaultSearchEngine string                           `json:"default_search_engine"`
-	SearchShortcuts     map[string]config.SearchShortcut `json:"search_shortcuts"`
 }
 
 // NewDumbSchemeHandler creates a new handler for the dumb:// scheme.
@@ -209,131 +154,11 @@ func crashOriginalURI(requestURI string) string {
 }
 
 func sanitizeCrashPageOriginalURI(originalURI string) string {
-	originalURI = strings.TrimSpace(originalURI)
-	if originalURI == "" {
-		return ""
-	}
-	parsed, err := url.Parse(originalURI)
-	if err != nil {
-		return ""
-	}
-	switch strings.ToLower(parsed.Scheme) {
-	case "http", "https":
-		if parsed.Host == "" {
-			return ""
-		}
-		return parsed.String()
-	case "dumb":
-		if parsed.Host == "" && parsed.Opaque == "" {
-			return ""
-		}
-		return parsed.String()
-	default:
-		return ""
-	}
+	return webutil.SanitizeCrashPageOriginalURI(originalURI)
 }
 
 func buildCrashPageHTML(originalURI string) string {
-	escapedURI := html.EscapeString(originalURI)
-	return fmt.Sprintf(`<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="utf-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>Renderer crashed</title>
-    <style>
-        :root {
-            color-scheme: dark;
-            font-family: "IBM Plex Sans", "Segoe UI", sans-serif;
-        }
-        body {
-            margin: 0;
-            min-height: 100vh;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            background: radial-gradient(circle at top, #253447, #101622 55%%);
-            color: #f2f6fa;
-            padding: 24px;
-        }
-        .card {
-            width: min(640px, 100%%);
-            background: rgba(10, 16, 26, 0.86);
-            border: 1px solid rgba(144, 173, 205, 0.35);
-            border-radius: 16px;
-            box-shadow: 0 24px 64px rgba(0, 0, 0, 0.45);
-            padding: 28px;
-        }
-        h1 {
-            margin: 0 0 12px;
-            font-size: 1.8rem;
-        }
-        p {
-            margin: 0 0 16px;
-            line-height: 1.5;
-            color: #c8d6e6;
-        }
-        .url {
-            margin: 0 0 20px;
-            padding: 12px;
-            border-radius: 10px;
-            background: rgba(26, 38, 56, 0.85);
-            border: 1px solid rgba(139, 167, 194, 0.28);
-            font-family: "IBM Plex Mono", "Fira Code", monospace;
-            font-size: 0.92rem;
-            overflow-wrap: anywhere;
-        }
-        .actions {
-            display: flex;
-            gap: 12px;
-            flex-wrap: wrap;
-        }
-        button {
-            border: 0;
-            border-radius: 10px;
-            padding: 10px 16px;
-            cursor: pointer;
-            font-size: 0.95rem;
-            font-weight: 600;
-        }
-        .primary {
-            background: #4dd0e1;
-            color: #061018;
-        }
-        .secondary {
-            background: #233346;
-            color: #d6e5f5;
-        }
-    </style>
-</head>
-<body>
-    <div class="card">
-        <h1>Renderer process ended</h1>
-        <p>The current page was interrupted. You can reload it to continue browsing.</p>
-        <div class="url">%s</div>
-        <div class="actions">
-            <button class="primary" id="reload-btn" data-target="%s">Reload page</button>
-            <button class="secondary" id="stay-btn">Stay on this page</button>
-        </div>
-    </div>
-    <script>
-        const reloadButton = document.getElementById('reload-btn');
-        const targetUrl = (reloadButton.getAttribute('data-target') || '').trim();
-        reloadButton.addEventListener('click', function() {
-            if (targetUrl) {
-                window.location.href = targetUrl;
-                return;
-            }
-            window.location.reload();
-        });
-        // "Stay on this page" keeps the crash page visible without navigating away.
-        document.getElementById('stay-btn').addEventListener('click', function() {
-            this.disabled = true;
-            this.textContent = 'Staying on page';
-        });
-    </script>
-</body>
-</html>`, escapedURI, escapedURI)
+	return webutil.BuildCrashPageHTML(originalURI)
 }
 
 func (h *DumbSchemeHandler) buildConfigResponse(cfg *config.Config) *SchemeResponse {
@@ -346,43 +171,7 @@ func (h *DumbSchemeHandler) buildConfigResponse(cfg *config.Config) *SchemeRespo
 		hw = &hwInfo
 	}
 
-	// Resolve performance profile with hardware info
-	resolved := config.ResolvePerformanceProfile(&cfg.Performance, hw)
-
-	resp := configPayload{
-		DefaultUIScale:      cfg.DefaultUIScale,
-		DefaultSearchEngine: cfg.DefaultSearchEngine,
-		SearchShortcuts:     cfg.SearchShortcuts,
-		Appearance: configAppearancePayload{
-			SansFont:        cfg.Appearance.SansFont,
-			SerifFont:       cfg.Appearance.SerifFont,
-			MonospaceFont:   cfg.Appearance.MonospaceFont,
-			DefaultFontSize: cfg.Appearance.DefaultFontSize,
-			ColorScheme:     cfg.Appearance.ColorScheme,
-			LightPalette:    cfg.Appearance.LightPalette,
-			DarkPalette:     cfg.Appearance.DarkPalette,
-		},
-		Performance: configPerformancePayload{
-			Profile: string(cfg.Performance.Profile),
-			Custom: configCustomPerformance{
-				SkiaCPUThreads:         cfg.Performance.SkiaCPUPaintingThreads,
-				SkiaGPUThreads:         cfg.Performance.SkiaGPUPaintingThreads,
-				WebProcessMemoryMB:     cfg.Performance.WebProcessMemoryLimitMB,
-				NetworkProcessMemoryMB: cfg.Performance.NetworkProcessMemoryLimitMB,
-				WebViewPoolPrewarm:     cfg.Performance.WebViewPoolPrewarmCount,
-			},
-			Resolved: configResolvedPerformance{
-				SkiaCPUThreads:         resolved.SkiaCPUPaintingThreads,
-				SkiaGPUThreads:         resolved.SkiaGPUPaintingThreads,
-				WebProcessMemoryMB:     resolved.WebProcessMemoryLimitMB,
-				NetworkProcessMemoryMB: resolved.NetworkProcessMemoryLimitMB,
-				WebViewPoolPrewarm:     resolved.WebViewPoolPrewarmCount,
-				ConservativeThreshold:  resolved.WebProcessMemoryConservativeThreshold,
-				StrictThreshold:        resolved.WebProcessMemoryStrictThreshold,
-			},
-			Hardware: buildHardwarePayload(hw),
-		},
-	}
+	resp := config.BuildWebUIConfigPayload(cfg, hw)
 
 	data, err := json.Marshal(resp)
 	if err != nil {
@@ -397,21 +186,6 @@ func (h *DumbSchemeHandler) buildConfigResponse(cfg *config.Config) *SchemeRespo
 		Data:        data,
 		ContentType: "application/json",
 		StatusCode:  http.StatusOK,
-	}
-}
-
-// buildHardwarePayload converts HardwareInfo to JSON payload.
-func buildHardwarePayload(hw *port.HardwareInfo) configHardwarePayload {
-	if hw == nil {
-		return configHardwarePayload{}
-	}
-	return configHardwarePayload{
-		CPUCores:   hw.CPUCores,
-		CPUThreads: hw.CPUThreads,
-		TotalRAMMB: hw.TotalRAMMB(),
-		GPUVendor:  string(hw.GPUVendor),
-		GPUName:    hw.GPUName,
-		VRAMMB:     hw.VRAMMB(),
 	}
 }
 
@@ -525,7 +299,7 @@ func (h *DumbSchemeHandler) handleAsset(u *url.URL) *SchemeResponse {
 		return nil
 	}
 
-	contentType := h.getMimeType(relPath)
+	contentType := webutil.GetMimeType(relPath)
 	h.logger.Debug().
 		Str("path", fullPath).
 		Str("content_type", contentType).
@@ -570,56 +344,6 @@ func resolveAssetPath(u *url.URL) (string, bool) {
 		return "webrtc.html", true
 	default:
 		return "", false
-	}
-}
-
-// getMimeType determines the MIME type for a given file path.
-func (h *DumbSchemeHandler) getMimeType(filename string) string {
-	if h == nil {
-		return "application/octet-stream"
-	}
-	ext := strings.ToLower(filepath.Ext(filename))
-
-	// Try standard mime type first
-	mt := mime.TypeByExtension(ext)
-	if mt != "" {
-		return mt
-	}
-
-	// Fallbacks for common web assets
-	switch ext {
-	case ".js", ".mjs":
-		return "application/javascript"
-	case ".css":
-		return "text/css"
-	case ".svg":
-		return "image/svg+xml"
-	case ".ico":
-		return "image/x-icon"
-	case ".woff":
-		return "font/woff"
-	case ".woff2":
-		return "font/woff2"
-	case ".ttf":
-		return "font/ttf"
-	case ".otf":
-		return "font/otf"
-	case ".png":
-		return "image/png"
-	case ".jpg", ".jpeg":
-		return "image/jpeg"
-	case ".gif":
-		return "image/gif"
-	case ".webp":
-		return "image/webp"
-	case ".json":
-		return "application/json"
-	case ".xml":
-		return "application/xml"
-	case ".html", ".htm":
-		return "text/html; charset=utf-8"
-	default:
-		return "text/plain"
 	}
 }
 

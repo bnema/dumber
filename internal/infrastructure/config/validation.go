@@ -10,6 +10,8 @@ import (
 	domainvalidation "github.com/bnema/dumber/internal/domain/validation"
 )
 
+const cefLogSeverityDisabled = 99
+
 // validateConfig performs comprehensive validation of configuration values
 func validateConfig(config *Config) error {
 	var validationErrors []string
@@ -32,6 +34,7 @@ func validateConfig(config *Config) error {
 	validationErrors = append(validationErrors, validateColorScheme(config)...)
 	validationErrors = append(validationErrors, validateSession(config)...)
 	validationErrors = append(validationErrors, validatePerformanceProfile(config)...)
+	validationErrors = append(validationErrors, validateCEF(config)...)
 
 	// If there are validation errors, return them
 	if len(validationErrors) > 0 {
@@ -324,6 +327,26 @@ func validateLogging(config *Config) []string {
 	return validationErrors
 }
 
+func validateCEF(config *Config) []string {
+	var validationErrors []string
+
+	switch config.Engine.CEF.LogSeverity {
+	case 0, 1, 2, 3, 4, cefLogSeverityDisabled:
+	default:
+		validationErrors = append(validationErrors, fmt.Sprintf(
+			"engine.cef.log_severity must be one of: 0, 1, 2, 3, 4, %d (got: %d)",
+			cefLogSeverityDisabled,
+			config.Engine.CEF.LogSeverity,
+		))
+	}
+
+	if config.Engine.CEF.WindowlessFrameRate < 0 {
+		validationErrors = append(validationErrors, "engine.cef.windowless_frame_rate must be >= 0")
+	}
+
+	return validationErrors
+}
+
 func validateWorkspaceNewPaneURL(config *Config) []string {
 	var validationErrors []string
 
@@ -365,44 +388,42 @@ func validateWorkspaceURLValue(fieldPath, value string) []string {
 }
 
 func validateOmnibox(config *Config) []string {
-	switch config.Omnibox.InitialBehavior {
-	case "recent", "most_visited", "none":
-		return nil
-	default:
-		return []string{fmt.Sprintf(
-			"omnibox.initial_behavior must be one of: recent, most_visited, none (got: %s)",
-			config.Omnibox.InitialBehavior,
-		)}
+	var validationErrors []string
+	if config.Omnibox.MostVisitedDays < 0 {
+		validationErrors = append(validationErrors, "omnibox.most_visited_days must be non-negative")
 	}
+	switch config.Omnibox.InitialBehavior {
+	case OmniboxInitialBehaviorRecent, OmniboxInitialBehaviorMostVisited, OmniboxInitialBehaviorNone:
+	default:
+		validationErrors = append(validationErrors, fmt.Sprintf(
+			"omnibox.initial_behavior must be one of: %s, %s, %s (got: %s)",
+			OmniboxInitialBehaviorRecent,
+			OmniboxInitialBehaviorMostVisited,
+			OmniboxInitialBehaviorNone,
+			config.Omnibox.InitialBehavior,
+		))
+	}
+	return validationErrors
 }
 
 func validateRendering(config *Config) []string {
 	var validationErrors []string
 
-	switch config.Rendering.Mode {
-	case RenderingModeAuto, RenderingModeGPU, RenderingModeCPU, "":
-	default:
-		validationErrors = append(
-			validationErrors,
-			fmt.Sprintf("rendering.mode must be one of: auto, gpu, cpu (got: %s)", config.Rendering.Mode),
-		)
-	}
-
-	switch config.Rendering.GSKRenderer {
+	switch config.Engine.WebKit.GSKRenderer {
 	case GSKRendererAuto, GSKRendererOpenGL, GSKRendererVulkan, GSKRendererCairo, "":
 	default:
 		validationErrors = append(
 			validationErrors,
 			fmt.Sprintf(
-				"rendering.gsk_renderer must be one of: auto, opengl, vulkan, cairo (got: %s)",
-				config.Rendering.GSKRenderer,
+				"engine.webkit.gsk_renderer must be one of: auto, opengl, vulkan, cairo (got: %s)",
+				config.Engine.WebKit.GSKRenderer,
 			),
 		)
 	}
 
-	if config.Rendering.ForceCompositingMode && config.Rendering.DisableCompositingMode {
+	if config.Engine.WebKit.ForceCompositingMode && config.Engine.WebKit.DisableCompositingMode {
 		validationErrors = append(validationErrors,
-			"rendering.force_compositing_mode and rendering.disable_compositing_mode cannot both be true",
+			"engine.webkit.force_compositing_mode and engine.webkit.disable_compositing_mode cannot both be true",
 		)
 	}
 
@@ -410,13 +431,13 @@ func validateRendering(config *Config) []string {
 }
 
 func validatePrivacy(config *Config) []string {
-	switch config.Privacy.CookiePolicy {
+	switch config.Engine.CookiePolicy {
 	case CookiePolicyAlways, CookiePolicyNoThirdParty, CookiePolicyNever, "":
 		return nil
 	default:
 		return []string{fmt.Sprintf(
-			"privacy.cookie_policy must be one of: always, no_third_party, never (got: %s)",
-			config.Privacy.CookiePolicy,
+			"engine.cookie_policy must be one of: always, no_third_party, never (got: %s)",
+			config.Engine.CookiePolicy,
 		)}
 	}
 }
@@ -450,40 +471,47 @@ func validateSession(config *Config) []string {
 func validatePerformanceProfile(config *Config) []string {
 	var validationErrors []string
 
+	// Performance profiles and webkit-specific tuning only apply to the webkit engine.
+	engineType := config.Engine.ResolveEngineType()
+	if engineType != "webkit" {
+		return nil
+	}
+
 	// Validate profile name
-	if !IsValidPerformanceProfile(config.Performance.Profile) {
+	if !IsValidPerformanceProfile(config.Engine.Profile) {
 		validationErrors = append(validationErrors, fmt.Sprintf(
-			"performance.profile must be one of: default, lite, max, custom (got: %s)",
-			config.Performance.Profile,
+			"engine.profile must be one of: default, lite, max, custom (got: %s)",
+			config.Engine.Profile,
 		))
 	}
 
 	// When profile is not "custom", warn if individual fields are set
 	// (they will be ignored in favor of profile-computed values)
-	if config.Performance.Profile != ProfileCustom && config.Performance.Profile != "" {
-		if HasCustomPerformanceFields(&config.Performance) {
+	if config.Engine.Profile != ProfileCustom && config.Engine.Profile != "" {
+		perfCfg := PerformanceConfigFromEngine(&config.Engine)
+		if HasCustomPerformanceFields(&perfCfg) {
 			validationErrors = append(validationErrors,
-				"performance tuning fields (skia_*, *_memory_*) are ignored when profile is not 'custom'; "+
+				"engine performance tuning fields (skia_*, *_memory_*) are ignored when profile is not 'custom'; "+
 					"set profile = \"custom\" to use individual field values",
 			)
 		}
 	}
 
 	// Validate memory pressure threshold ordering: WebKit requires conservative < strict
-	webCons := config.Performance.WebProcessMemoryConservativeThreshold
-	webStrict := config.Performance.WebProcessMemoryStrictThreshold
+	webCons := config.Engine.WebKit.WebProcessMemoryConservativeThreshold
+	webStrict := config.Engine.WebKit.WebProcessMemoryStrictThreshold
 	if webCons > 0 && webStrict > 0 && webCons >= webStrict {
 		validationErrors = append(validationErrors,
-			"performance.web_process_memory_conservative_threshold must be less than "+
+			"engine.webkit.web_process_memory_conservative_threshold must be less than "+
 				"web_process_memory_strict_threshold when both are set",
 		)
 	}
 
-	netCons := config.Performance.NetworkProcessMemoryConservativeThreshold
-	netStrict := config.Performance.NetworkProcessMemoryStrictThreshold
+	netCons := config.Engine.WebKit.NetworkProcessMemoryConservativeThreshold
+	netStrict := config.Engine.WebKit.NetworkProcessMemoryStrictThreshold
 	if netCons > 0 && netStrict > 0 && netCons >= netStrict {
 		validationErrors = append(validationErrors,
-			"performance.network_process_memory_conservative_threshold must be less than "+
+			"engine.webkit.network_process_memory_conservative_threshold must be less than "+
 				"network_process_memory_strict_threshold when both are set",
 		)
 	}

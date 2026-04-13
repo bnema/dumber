@@ -8,9 +8,9 @@ import (
 	"github.com/bnema/dumber/internal/application/usecase"
 	"github.com/bnema/dumber/internal/domain/entity"
 	domainurl "github.com/bnema/dumber/internal/domain/url"
-	"github.com/bnema/dumber/internal/infrastructure/config"
 	"github.com/bnema/dumber/internal/logging"
 	"github.com/bnema/dumber/internal/ui/component"
+	"github.com/bnema/dumber/internal/ui/coordinator/content"
 	"github.com/bnema/dumber/internal/ui/focus"
 	"github.com/bnema/dumber/internal/ui/layout"
 	"github.com/rs/zerolog"
@@ -27,26 +27,34 @@ type WorkspaceCoordinator struct {
 	focusMgr       *focus.Manager
 	stackedPaneMgr *component.StackedPaneManager
 	widgetFactory  layout.WidgetFactory
-	contentCoord   *ContentCoordinator
+	contentCoord   *content.Coordinator
+
+	// Config-derived values (injected to avoid direct config dependency)
+	newPaneURL           string
+	resizeStepPercent    float64
+	resizeMinPanePercent float64
 
 	// Callbacks to avoid circular dependencies
 	getActiveWS      func() (*entity.Workspace, *component.WorkspaceView)
 	generateID       func() string
 	onCloseLastPane  func(ctx context.Context) error
-	onCreatePopupTab func(ctx context.Context, input InsertPopupInput) error // For tabbed popup behavior
-	onStateChanged   func()                                                  // For session snapshots
-	onPaneClosed     func(paneID entity.PaneID)                              // For pane-specific cleanup hooks
+	onCreatePopupTab func(ctx context.Context, input content.InsertPopupInput) error // For tabbed popup behavior
+	onStateChanged   func()                                                          // For session snapshots
+	onPaneClosed     func(paneID entity.PaneID)                                      // For pane-specific cleanup hooks
 }
 
 // WorkspaceCoordinatorConfig holds configuration for WorkspaceCoordinator.
 type WorkspaceCoordinatorConfig struct {
-	PanesUC        *usecase.ManagePanesUseCase
-	FocusMgr       *focus.Manager
-	StackedPaneMgr *component.StackedPaneManager
-	WidgetFactory  layout.WidgetFactory
-	ContentCoord   *ContentCoordinator
-	GetActiveWS    func() (*entity.Workspace, *component.WorkspaceView)
-	GenerateID     func() string
+	PanesUC              *usecase.ManagePanesUseCase
+	FocusMgr             *focus.Manager
+	StackedPaneMgr       *component.StackedPaneManager
+	WidgetFactory        layout.WidgetFactory
+	ContentCoord         *content.Coordinator
+	GetActiveWS          func() (*entity.Workspace, *component.WorkspaceView)
+	GenerateID           func() string
+	NewPaneURL           string
+	ResizeStepPercent    float64
+	ResizeMinPanePercent float64
 }
 
 type splitContext struct {
@@ -75,19 +83,43 @@ type incrementalCloseContext struct {
 	precheckReason       string
 }
 
+const (
+	defaultResizeStepPercent    = 0.05
+	defaultResizeMinPanePercent = 0.1
+)
+
+// clampResizeStep clamps resizeStepPercent to (0, 0.5], returning the default (0.05) if out of range.
+func clampResizeStep(v float64) float64 {
+	if v <= 0 || v > 0.5 {
+		return defaultResizeStepPercent
+	}
+	return v
+}
+
+// clampResizeMin clamps resizeMinPanePercent to (0, 0.5), returning the default (0.1) if out of range.
+func clampResizeMin(v float64) float64 {
+	if v <= 0 || v >= 0.5 {
+		return defaultResizeMinPanePercent
+	}
+	return v
+}
+
 // NewWorkspaceCoordinator creates a new WorkspaceCoordinator.
 func NewWorkspaceCoordinator(ctx context.Context, cfg WorkspaceCoordinatorConfig) *WorkspaceCoordinator {
 	log := logging.FromContext(ctx)
 	log.Debug().Msg("creating workspace coordinator")
 
 	return &WorkspaceCoordinator{
-		panesUC:        cfg.PanesUC,
-		focusMgr:       cfg.FocusMgr,
-		stackedPaneMgr: cfg.StackedPaneMgr,
-		widgetFactory:  cfg.WidgetFactory,
-		contentCoord:   cfg.ContentCoord,
-		getActiveWS:    cfg.GetActiveWS,
-		generateID:     cfg.GenerateID,
+		panesUC:              cfg.PanesUC,
+		focusMgr:             cfg.FocusMgr,
+		stackedPaneMgr:       cfg.StackedPaneMgr,
+		widgetFactory:        cfg.WidgetFactory,
+		contentCoord:         cfg.ContentCoord,
+		getActiveWS:          cfg.GetActiveWS,
+		generateID:           cfg.GenerateID,
+		newPaneURL:           cfg.NewPaneURL,
+		resizeStepPercent:    clampResizeStep(cfg.ResizeStepPercent),
+		resizeMinPanePercent: clampResizeMin(cfg.ResizeMinPanePercent),
 	}
 }
 
@@ -143,7 +175,7 @@ func (c *WorkspaceCoordinator) Split(ctx context.Context, direction usecase.Spli
 		Workspace:  splitCtx.ws,
 		TargetPane: splitCtx.activePane,
 		Direction:  direction,
-		InitialURL: domainurl.Normalize(config.Get().Workspace.NewPaneURL),
+		InitialURL: domainurl.Normalize(c.newPaneURL),
 	})
 	if err != nil {
 		log.Error().Err(err).Str("direction", string(direction)).Msg("failed to split pane")
@@ -326,7 +358,7 @@ func (c *WorkspaceCoordinator) doIncrementalStackSplit(
 		Msg("stack split: determined split type")
 
 	// 3. Create new PaneView for the new pane (without WebView - will attach later)
-	newPaneView := component.NewPaneView(factory, output.NewPaneNode.Pane.ID, nil)
+	newPaneView := component.NewPaneView(ctx, factory, output.NewPaneNode.Pane.ID, nil)
 	setupPaneViewHover(ctx, newPaneView, wsView)
 
 	// 4. Wrap the new PaneView in a StackedView
@@ -475,13 +507,13 @@ func (c *WorkspaceCoordinator) doIncrementalSplit(
 	// 2. Get the active pane's StackedView widget (what we're actually splitting)
 	tr := wsView.TreeRenderer()
 	if tr == nil {
-		return nil
+		return fmt.Errorf("tree renderer not available")
 	}
 
 	activeStackedView := tr.GetStackedViewForPane(string(oldActivePaneID))
 	if activeStackedView == nil {
 		log.Warn().Msg("no stacked view found for active pane")
-		return nil
+		return fmt.Errorf("no stacked view found for active pane")
 	}
 	activePaneWidget := activeStackedView.Widget()
 
@@ -502,7 +534,7 @@ func (c *WorkspaceCoordinator) doIncrementalSplit(
 		Msg("determined split type")
 
 	// 4. Create new PaneView for the new pane
-	newPaneView := component.NewPaneView(factory, output.NewPaneNode.Pane.ID, nil)
+	newPaneView := component.NewPaneView(ctx, factory, output.NewPaneNode.Pane.ID, nil)
 	setupPaneViewHover(ctx, newPaneView, wsView)
 
 	// 5. Wrap the new PaneView in a StackedView
@@ -511,7 +543,7 @@ func (c *WorkspaceCoordinator) doIncrementalSplit(
 
 	orientation, existingFirst, ok := splitOrientation(direction)
 	if !ok {
-		return nil
+		return fmt.Errorf("unsupported split direction: %s", direction)
 	}
 
 	// 7. Handle root vs non-root split differently
@@ -1180,7 +1212,7 @@ func (c *WorkspaceCoordinator) doIncrementalStackClose(
 	// Release the closing pane's webview
 	c.contentCoord.ReleaseWebView(ctx, closingPaneID)
 
-	// Sync remaining title bars with current titles from ContentCoordinator.
+	// Sync remaining title bars with current titles from content.Coordinator.
 	// The domain model (stackNode.Children) has already been updated by the use case,
 	// so we iterate the remaining children and update their titles in the UI.
 	c.syncStackedPaneTitles(ctx, stackedView, stackNode)
@@ -1349,7 +1381,7 @@ func (c *WorkspaceCoordinator) StackPane(ctx context.Context) error {
 	// Create new pane entity
 	newPaneID := entity.PaneID(c.generateID())
 	newPane := entity.NewPane(newPaneID)
-	newPane.URI = domainurl.Normalize(config.Get().Workspace.NewPaneURL)
+	newPane.URI = domainurl.Normalize(c.newPaneURL)
 	newPane.Title = defaultPaneTitle
 
 	// Determine if we need to create a new stack or add to existing
@@ -1406,7 +1438,7 @@ func (c *WorkspaceCoordinator) StackPane(ctx context.Context) error {
 	}
 
 	// Create PaneView for the new pane
-	newPaneView := component.NewPaneView(c.widgetFactory, newPaneID, nil)
+	newPaneView := component.NewPaneView(ctx, c.widgetFactory, newPaneID, nil)
 	setupPaneViewHover(ctx, newPaneView, stackCtx.wsView)
 	stackCtx.wsView.RegisterPaneView(newPaneID, newPaneView)
 
@@ -1756,13 +1788,13 @@ func (c *WorkspaceCoordinator) SetupStackedPaneCallbacks(ctx context.Context, ws
 
 // SetOnCreatePopupTab sets the callback for creating popup tabs.
 // This is used when popup behavior is "tabbed".
-func (c *WorkspaceCoordinator) SetOnCreatePopupTab(fn func(ctx context.Context, input InsertPopupInput) error) {
+func (c *WorkspaceCoordinator) SetOnCreatePopupTab(fn func(ctx context.Context, input content.InsertPopupInput) error) {
 	c.onCreatePopupTab = fn
 }
 
 // InsertPopup inserts a popup pane into the workspace based on the specified behavior.
 // Supports split, stacked, and tabbed behaviors.
-func (c *WorkspaceCoordinator) InsertPopup(ctx context.Context, input InsertPopupInput) error {
+func (c *WorkspaceCoordinator) InsertPopup(ctx context.Context, input content.InsertPopupInput) error {
 	log := logging.FromContext(ctx)
 
 	log.Debug().
@@ -1774,11 +1806,11 @@ func (c *WorkspaceCoordinator) InsertPopup(ctx context.Context, input InsertPopu
 		Msg("inserting popup into workspace")
 
 	switch input.Behavior {
-	case config.PopupBehaviorSplit:
+	case entity.PopupBehaviorSplit:
 		return c.insertPopupSplit(ctx, input)
-	case config.PopupBehaviorStacked:
+	case entity.PopupBehaviorStacked:
 		return c.insertPopupStacked(ctx, input)
-	case config.PopupBehaviorTabbed:
+	case entity.PopupBehaviorTabbed:
 		return c.insertPopupTabbed(ctx, input)
 	default:
 		// Default to split right
@@ -1787,7 +1819,7 @@ func (c *WorkspaceCoordinator) InsertPopup(ctx context.Context, input InsertPopu
 }
 
 // insertPopupSplit inserts a popup as a split pane adjacent to the parent.
-func (c *WorkspaceCoordinator) insertPopupSplit(ctx context.Context, input InsertPopupInput) error {
+func (c *WorkspaceCoordinator) insertPopupSplit(ctx context.Context, input content.InsertPopupInput) error {
 	log := logging.FromContext(ctx)
 
 	ws, wsView := c.getActiveWS()
@@ -1829,6 +1861,8 @@ func (c *WorkspaceCoordinator) insertPopupSplit(ctx context.Context, input Inser
 		c.applySplitToView(ctx, wsView, ws, output, direction, existingWidget, isStackSplit, input.ParentPaneID)
 		c.attachPopupWebView(ctx, wsView, input)
 	}
+
+	c.notifyStateChanged()
 
 	log.Info().
 		Str("popup_pane", string(input.PopupPane.ID)).
@@ -1882,7 +1916,7 @@ func (c *WorkspaceCoordinator) resolvePopupSplitWidget(
 func (c *WorkspaceCoordinator) attachPopupWebView(
 	ctx context.Context,
 	wsView *component.WorkspaceView,
-	input InsertPopupInput,
+	input content.InsertPopupInput,
 ) {
 	if wsView == nil || input.WebView == nil {
 		return
@@ -1902,7 +1936,7 @@ func (c *WorkspaceCoordinator) attachPopupWebView(
 
 // insertPopupStacked inserts a popup as a stacked pane on top of the parent.
 // Uses CreateStack and AddToStack use cases for proper domain model management.
-func (c *WorkspaceCoordinator) insertPopupStacked(ctx context.Context, input InsertPopupInput) error {
+func (c *WorkspaceCoordinator) insertPopupStacked(ctx context.Context, input content.InsertPopupInput) error {
 	log := logging.FromContext(ctx)
 
 	ws, wsView := c.getActiveWS()
@@ -1944,6 +1978,8 @@ func (c *WorkspaceCoordinator) insertPopupStacked(ctx context.Context, input Ins
 
 		return err
 	}
+
+	c.notifyStateChanged()
 
 	log.Info().
 		Str("popup_pane", string(input.PopupPane.ID)).
@@ -2040,7 +2076,7 @@ func (c *WorkspaceCoordinator) resolveOrCreateStackNode(
 
 func (c *WorkspaceCoordinator) attachPopupPaneView(
 	ctx context.Context,
-	input InsertPopupInput,
+	input content.InsertPopupInput,
 	wsView *component.WorkspaceView,
 	stackNode *entity.PaneNode,
 	log *zerolog.Logger,
@@ -2048,11 +2084,12 @@ func (c *WorkspaceCoordinator) attachPopupPaneView(
 	if wsView == nil {
 		return nil
 	}
-	newPaneView := component.NewPaneView(c.widgetFactory, input.PopupPane.ID, nil)
+	newPaneView := component.NewPaneView(ctx, c.widgetFactory, input.PopupPane.ID, nil)
 	setupPaneViewHover(ctx, newPaneView, wsView)
 	wsView.RegisterPaneView(input.PopupPane.ID, newPaneView)
 
 	if err := c.stackedPaneMgr.AddPaneToStack(ctx, wsView, input.ParentPaneID, newPaneView, input.PopupPane.Title); err != nil {
+		wsView.UnregisterPaneView(input.PopupPane.ID)
 		log.Error().Err(err).Msg("failed to add popup pane to stack")
 		return err
 	}
@@ -2085,7 +2122,7 @@ func (c *WorkspaceCoordinator) attachPopupPaneView(
 }
 
 // insertPopupTabbed creates a new tab for the popup.
-func (c *WorkspaceCoordinator) insertPopupTabbed(ctx context.Context, input InsertPopupInput) error {
+func (c *WorkspaceCoordinator) insertPopupTabbed(ctx context.Context, input content.InsertPopupInput) error {
 	log := logging.FromContext(ctx)
 
 	if c.onCreatePopupTab == nil {
@@ -2196,8 +2233,7 @@ func (c *WorkspaceCoordinator) Resize(ctx context.Context, dir usecase.ResizeDir
 		return nil
 	}
 
-	cfg := config.Get()
-	err := c.panesUC.Resize(ctx, ws, target, dir, cfg.Workspace.ResizeMode.StepPercent, cfg.Workspace.ResizeMode.MinPanePercent)
+	err := c.panesUC.Resize(ctx, ws, target, dir, c.resizeStepPercent, c.resizeMinPanePercent)
 	if errors.Is(err, usecase.ErrNothingToResize) {
 		c.ShowToastOnActivePane(ctx, "Nothing to resize", component.ToastInfo)
 		return nil
@@ -2228,12 +2264,11 @@ func (c *WorkspaceCoordinator) SetSplitRatio(ctx context.Context, splitNodeID st
 		return nil
 	}
 
-	cfg := config.Get()
 	err := c.panesUC.SetSplitRatio(ctx, usecase.SetSplitRatioInput{
 		Workspace:      ws,
 		SplitNodeID:    splitNodeID,
 		Ratio:          ratio,
-		MinPanePercent: cfg.Workspace.ResizeMode.MinPanePercent,
+		MinPanePercent: c.resizeMinPanePercent,
 	})
 	if err != nil {
 		return err

@@ -59,7 +59,7 @@ func runDoctor(_ *cobra.Command, _ []string) error {
 		probe := deps.NewPkgConfigProbe()
 		runtimeUC := usecase.NewCheckRuntimeDependenciesUseCase(probe)
 		runtimeOut, err := runtimeUC.Execute(app.Ctx(), usecase.CheckRuntimeDependenciesInput{
-			Prefix: app.Config.Runtime.Prefix,
+			Prefix: app.Config.Engine.WebKit.Prefix,
 		})
 		if err != nil {
 			return err

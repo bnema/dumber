@@ -6,6 +6,7 @@ import (
 	"sync"
 
 	"github.com/bnema/dumber/internal/domain/entity"
+	"github.com/bnema/dumber/internal/logging"
 	"github.com/bnema/dumber/internal/ui/input"
 	"github.com/bnema/dumber/internal/ui/layout"
 )
@@ -18,6 +19,7 @@ const (
 // PaneView is a container for a single WebView with active state indication.
 // It uses an overlay to display a border around the active pane.
 type PaneView struct {
+	ctx           context.Context
 	factory       layout.WidgetFactory
 	overlay       layout.OverlayWidget
 	webViewWidget layout.Widget      // The actual WebView widget
@@ -40,7 +42,7 @@ type PaneView struct {
 }
 
 // NewPaneView creates a new pane view container for a WebView widget.
-func NewPaneView(factory layout.WidgetFactory, paneID entity.PaneID, webViewWidget layout.Widget) *PaneView {
+func NewPaneView(ctx context.Context, factory layout.WidgetFactory, paneID entity.PaneID, webViewWidget layout.Widget) *PaneView {
 	overlay := factory.NewOverlay()
 	overlay.SetHexpand(true)
 	overlay.SetVexpand(true)
@@ -81,6 +83,7 @@ func NewPaneView(factory layout.WidgetFactory, paneID entity.PaneID, webViewWidg
 	// issues with the internal progress gizmo before the overlay is realized
 
 	return &PaneView{
+		ctx:           ctx,
 		factory:       factory,
 		overlay:       overlay,
 		webViewWidget: webViewWidget,
@@ -344,7 +347,16 @@ func (pv *PaneView) ensureProgressBar() *ProgressBar {
 		return pv.progressBar
 	}
 
-	pb := NewProgressBar(pv.factory)
+	ctx := pv.ctx
+	if ctx == nil {
+		ctx = context.Background()
+	}
+	logging.FromContext(ctx).
+		Debug().
+		Str("pane_id", string(pv.paneID)).
+		Msg("creating progress bar")
+
+	pb := NewProgressBar(pv.ctx, pv.factory)
 	pv.overlay.AddOverlay(pb.Widget())
 	pv.overlay.SetClipOverlay(pb.Widget(), false)
 	pv.overlay.SetMeasureOverlay(pb.Widget(), false)
@@ -357,6 +369,15 @@ func (pv *PaneView) ensureProgressBar() *ProgressBar {
 func (pv *PaneView) SetLoadProgress(progress float64) {
 	pv.mu.Lock()
 	pb := pv.ensureProgressBar()
+	ctx := pv.ctx
+	if ctx == nil {
+		ctx = context.Background()
+	}
+	logging.FromContext(ctx).
+		Debug().
+		Str("pane_id", string(pv.paneID)).
+		Float64("progress", progress).
+		Msg("setting load progress")
 	pv.mu.Unlock()
 
 	pb.SetProgress(progress)
@@ -365,7 +386,18 @@ func (pv *PaneView) SetLoadProgress(progress float64) {
 // SetLoading shows or hides the progress bar.
 func (pv *PaneView) SetLoading(loading bool) {
 	pv.mu.Lock()
+	hadProgressBar := pv.progressBar != nil
 	pb := pv.ensureProgressBar()
+	ctx := pv.ctx
+	if ctx == nil {
+		ctx = context.Background()
+	}
+	logging.FromContext(ctx).
+		Debug().
+		Str("pane_id", string(pv.paneID)).
+		Bool("loading", loading).
+		Bool("progress_bar_existed", hadProgressBar).
+		Msg("setting loading state")
 	pv.mu.Unlock()
 
 	if loading {

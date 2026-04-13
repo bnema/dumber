@@ -7,7 +7,6 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
-	"time"
 
 	corelogging "github.com/bnema/dumber/internal/logging"
 	"github.com/stretchr/testify/assert"
@@ -65,7 +64,7 @@ func TestReadRedactedLogTail_RingBuffer(t *testing.T) {
 	for i := 0; i < 10; i++ {
 		lines = append(lines, fmt.Sprintf("line %d", i))
 	}
-	require.NoError(t, os.WriteFile(path, []byte(strings.Join(lines, "\n")+"\n"), markerFilePerm))
+	require.NoError(t, os.WriteFile(path, []byte(strings.Join(lines, "\n")+"\n"), filePerm))
 
 	t.Run("fewer_lines_than_requested", func(t *testing.T) {
 		result := readRedactedLogTail(path, 20)
@@ -83,23 +82,18 @@ func TestReadRedactedLogTail_RingBuffer(t *testing.T) {
 	})
 }
 
-func TestWriteUnexpectedCloseReport(t *testing.T) {
-	lockDir := t.TempDir()
+func TestWriteCrashReport(t *testing.T) {
+	logDir := t.TempDir()
 	sessionID := "crash-test-1"
-	startedAt := time.Date(2026, 2, 8, 10, 0, 0, 0, time.UTC)
 
-	require.NoError(t, writeStartupMarker(lockDir, sessionID, startedAt))
-	_, err := markAbruptExits(lockDir, startedAt.Add(3*time.Minute), nil)
-	require.NoError(t, err)
-
-	logPath := filepath.Join(lockDir, corelogging.SessionFilename(sessionID))
+	logPath := filepath.Join(logDir, corelogging.SessionFilename(sessionID))
 	logBody := `{"level":"info","message":"opening https://example.com/path?a=1&b=2"}` +
 		"\n" +
 		`{"level":"warn","message":"callback code=abc token=def"}` +
 		"\n"
-	require.NoError(t, os.WriteFile(logPath, []byte(logBody), markerFilePerm))
+	require.NoError(t, os.WriteFile(logPath, []byte(logBody), filePerm))
 
-	jsonPath, err := writeUnexpectedCloseReport(lockDir, sessionID)
+	jsonPath, err := writeCrashReport(logDir, sessionID, 12345)
 	require.NoError(t, err)
 	require.NotEmpty(t, jsonPath)
 	assert.FileExists(t, jsonPath)
@@ -113,20 +107,15 @@ func TestWriteUnexpectedCloseReport(t *testing.T) {
 	var payload map[string]any
 	require.NoError(t, json.Unmarshal(raw, &payload))
 	assert.Equal(t, sessionID, payload["session_id"])
-
-	classificationRaw, ok := payload["classification"].(map[string]any)
-	require.True(t, ok, "classification should be a map[string]any")
-	classValue, ok := classificationRaw["class"].(string)
-	require.True(t, ok, "classification.class should be a string")
-	assert.Equal(t, string(SessionExitMainProcessCrashOrAbrupt), classValue)
+	assert.InDelta(t, float64(12345), payload["crashed_pid"], 0)
 
 	tail, ok := payload["session_log_tail_redacted"].([]any)
 	require.True(t, ok, "session_log_tail_redacted should be a []any")
 	require.GreaterOrEqual(t, len(tail), 2, "expected at least 2 log tail entries")
 	first, ok := tail[0].(string)
-	require.True(t, ok, "first tail entry should be a string")
+	require.True(t, ok)
 	last, ok := tail[len(tail)-1].(string)
-	require.True(t, ok, "last tail entry should be a string")
+	require.True(t, ok)
 	text := first + last
 	assert.NotContains(t, text, "?a=1&b=2")
 	assert.NotContains(t, text, "code=abc")

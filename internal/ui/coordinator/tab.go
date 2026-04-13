@@ -2,11 +2,11 @@ package coordinator
 
 import (
 	"context"
+	"fmt"
 
+	"github.com/bnema/dumber/internal/application/port"
 	"github.com/bnema/dumber/internal/application/usecase"
 	"github.com/bnema/dumber/internal/domain/entity"
-	"github.com/bnema/dumber/internal/infrastructure/config"
-	"github.com/bnema/dumber/internal/infrastructure/webkit"
 	"github.com/bnema/dumber/internal/logging"
 	"github.com/bnema/dumber/internal/ui/component"
 	"github.com/bnema/dumber/internal/ui/window"
@@ -14,25 +14,25 @@ import (
 
 // TabCoordinator manages tab lifecycle operations.
 type TabCoordinator struct {
-	tabsUC     *usecase.ManageTabsUseCase
-	tabs       *entity.TabList
-	mainWindow *window.MainWindow
-	config     *config.Config
+	tabsUC                  *usecase.ManageTabsUseCase
+	tabs                    *entity.TabList
+	mainWindow              *window.MainWindow
+	hideTabBarWhenSingleTab bool
 
 	// Callbacks to avoid circular dependencies
 	onTabCreated       func(ctx context.Context, tab *entity.Tab)
 	onTabSwitched      func(ctx context.Context, tab *entity.Tab)
 	onQuit             func()
-	onAttachPopupToTab func(ctx context.Context, tabID entity.TabID, pane *entity.Pane, wv *webkit.WebView) // For popup tabs
-	onStateChanged     func()                                                                               // For session snapshots
+	onAttachPopupToTab func(ctx context.Context, tabID entity.TabID, pane *entity.Pane, wv port.WebView) // For popup tabs
+	onStateChanged     func()                                                                            // For session snapshots
 }
 
 // TabCoordinatorConfig holds configuration for TabCoordinator.
 type TabCoordinatorConfig struct {
-	TabsUC     *usecase.ManageTabsUseCase
-	Tabs       *entity.TabList
-	MainWindow *window.MainWindow
-	Config     *config.Config
+	TabsUC                  *usecase.ManageTabsUseCase
+	Tabs                    *entity.TabList
+	MainWindow              *window.MainWindow
+	HideTabBarWhenSingleTab bool
 }
 
 // NewTabCoordinator creates a new TabCoordinator.
@@ -41,10 +41,10 @@ func NewTabCoordinator(ctx context.Context, cfg TabCoordinatorConfig) *TabCoordi
 	log.Debug().Msg("creating tab coordinator")
 
 	return &TabCoordinator{
-		tabsUC:     cfg.TabsUC,
-		tabs:       cfg.Tabs,
-		mainWindow: cfg.MainWindow,
-		config:     cfg.Config,
+		tabsUC:                  cfg.TabsUC,
+		tabs:                    cfg.Tabs,
+		mainWindow:              cfg.MainWindow,
+		hideTabBarWhenSingleTab: cfg.HideTabBarWhenSingleTab,
 	}
 }
 
@@ -78,6 +78,10 @@ func (c *TabCoordinator) notifyStateChanged() {
 
 // Create creates a new tab with the given initial URL.
 func (c *TabCoordinator) Create(ctx context.Context, initialURL string) (*entity.Tab, error) {
+	return c.create(ctx, initialURL, true)
+}
+
+func (c *TabCoordinator) create(ctx context.Context, initialURL string, activate bool) (*entity.Tab, error) {
 	log := logging.FromContext(ctx)
 
 	output, err := c.tabsUC.Create(ctx, usecase.CreateTabInput{
@@ -90,13 +94,17 @@ func (c *TabCoordinator) Create(ctx context.Context, initialURL string) (*entity
 		return nil, err
 	}
 
-	// Set new tab as active (updates domain state and tracks previous)
-	c.tabs.SetActive(output.Tab.ID)
+	if activate {
+		// Set new tab as active (updates domain state and tracks previous)
+		c.tabs.SetActive(output.Tab.ID)
+	}
 
 	// Update tab bar
 	if c.mainWindow != nil && c.mainWindow.TabBar() != nil {
 		c.mainWindow.TabBar().AddTab(output.Tab)
-		c.mainWindow.TabBar().SetActive(output.Tab.ID)
+		if activate {
+			c.mainWindow.TabBar().SetActive(output.Tab.ID)
+		}
 	}
 
 	// Update tab bar visibility
@@ -107,8 +115,8 @@ func (c *TabCoordinator) Create(ctx context.Context, initialURL string) (*entity
 		c.onTabCreated(ctx, output.Tab)
 	}
 
-	// Switch to the new tab's workspace view
-	if c.onTabSwitched != nil {
+	// Switch to the new tab's workspace view when activation is requested.
+	if activate && c.onTabSwitched != nil {
 		c.onTabSwitched(ctx, output.Tab)
 	}
 
@@ -275,6 +283,34 @@ func (c *TabCoordinator) SwitchByIndex(ctx context.Context, index int) error {
 	return nil
 }
 
+// EnsureTabByIndex creates tabs until the requested index exists, then switches to it.
+func (c *TabCoordinator) EnsureTabByIndex(ctx context.Context, index int, initialURL string) error {
+	log := logging.FromContext(ctx)
+
+	if index < 0 {
+		log.Debug().Int("index", index).Msg("invalid tab index")
+		return nil
+	}
+
+	if c.tabs == nil {
+		return fmt.Errorf("tab list is required")
+	}
+
+	if c.tabs.Count() <= index && initialURL == "" {
+		log.Debug().Int("index", index).Msg("cannot auto-create missing tabs without initial URL")
+		return fmt.Errorf("initial URL is required to auto-create missing tabs")
+	}
+
+	for c.tabs.Count() <= index {
+		if _, err := c.create(ctx, initialURL, false); err != nil {
+			log.Error().Err(err).Int("index", index).Msg("failed to create tab while ensuring tab index")
+			return err
+		}
+	}
+
+	return c.SwitchByIndex(ctx, index)
+}
+
 // SwitchToLastActive switches to the previously active tab (Alt+Tab style).
 func (c *TabCoordinator) SwitchToLastActive(ctx context.Context) error {
 	log := logging.FromContext(ctx)
@@ -304,10 +340,7 @@ func (c *TabCoordinator) UpdateBarVisibility(ctx context.Context) {
 	log := logging.FromContext(ctx)
 
 	// Check if feature is enabled
-	hideEnabled := true
-	if c.config != nil {
-		hideEnabled = c.config.Workspace.HideTabBarWhenSingleTab
-	}
+	hideEnabled := c.hideTabBarWhenSingleTab
 
 	if !hideEnabled {
 		log.Debug().Msg("tab bar auto-hide disabled by config")
@@ -335,7 +368,7 @@ func (c *TabCoordinator) GetTabBar() *component.TabBar {
 }
 
 // SetOnAttachPopupToTab sets the callback for attaching popup WebViews to tabs.
-func (c *TabCoordinator) SetOnAttachPopupToTab(fn func(ctx context.Context, tabID entity.TabID, pane *entity.Pane, wv *webkit.WebView)) {
+func (c *TabCoordinator) SetOnAttachPopupToTab(fn func(ctx context.Context, tabID entity.TabID, pane *entity.Pane, wv port.WebView)) {
 	c.onAttachPopupToTab = fn
 }
 
@@ -344,7 +377,7 @@ func (c *TabCoordinator) SetOnAttachPopupToTab(fn func(ctx context.Context, tabI
 func (c *TabCoordinator) CreateWithPane(
 	ctx context.Context,
 	pane *entity.Pane,
-	wv *webkit.WebView,
+	wv port.WebView,
 	initialURL string,
 ) (*entity.Tab, error) {
 	log := logging.FromContext(ctx)
@@ -386,6 +419,9 @@ func (c *TabCoordinator) CreateWithPane(
 	if c.onTabSwitched != nil {
 		c.onTabSwitched(ctx, output.Tab)
 	}
+
+	// Notify state change for session snapshots
+	c.notifyStateChanged()
 
 	log.Debug().
 		Str("tab_id", string(output.Tab.ID)).

@@ -4,7 +4,7 @@ import (
 	"sync/atomic"
 
 	"github.com/bnema/dumber/internal/ui/layout"
-	"github.com/jwijenbergh/puregotk/v4/gtk"
+	"github.com/bnema/puregotk/v4/gtk"
 )
 
 // LoadingSkeleton displays a themed loading placeholder.

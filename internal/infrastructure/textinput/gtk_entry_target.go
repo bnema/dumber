@@ -5,7 +5,7 @@ import (
 
 	"github.com/bnema/dumber/internal/application/port"
 	"github.com/bnema/dumber/internal/logging"
-	"github.com/jwijenbergh/puregotk/v4/gtk"
+	"github.com/bnema/puregotk/v4/gtk"
 )
 
 // GTKEntryTarget implements TextInputTarget for GTK SearchEntry widgets.
@@ -14,8 +14,12 @@ type GTKEntryTarget struct {
 	entry *gtk.SearchEntry
 }
 
-// Compile-time interface check.
+// Compile-time interface checks.
 var _ port.TextInputTarget = (*GTKEntryTarget)(nil)
+var _ port.EntryInputTarget = (*GTKEntryTarget)(nil)
+
+// IsGTKEntryTarget implements port.EntryInputTarget.
+func (*GTKEntryTarget) IsGTKEntryTarget() bool { return true }
 
 // NewGTKEntryTarget creates a new GTK entry target for a SearchEntry.
 func NewGTKEntryTarget(entry *gtk.SearchEntry) *GTKEntryTarget {
