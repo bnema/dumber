@@ -221,42 +221,8 @@ func (h *handlerSet) OnPaint(
 		}
 		log.Msg("cef: OnPaint begin")
 	}
-	if elementType != purecef.PaintElementTypePetPopup && h.wv != nil && h.wv.ctx != nil {
-		resizeSeq, resizeAgeMs := h.wv.pipeline.latestResizeDiagnostics()
-		expectedWidth, expectedHeight, _ := h.wv.pipeline.viewRectSize()
-		sizeMatchesCurrentView := width == expectedWidth && height == expectedHeight
-		if h.wv.resizeReconciler != nil {
-			h.wv.resizeReconciler.notePaint(resizeSeq, sizeMatchesCurrentView)
-		}
-		if sizeMatchesCurrentView {
-			_, _, shouldLog := h.wv.pipeline.markFirstPaintAfterResize()
-			if shouldLog {
-				logging.FromContext(h.wv.ctx).Debug().
-					Uint64("webview_id", uint64(h.wv.id)).
-					Uint64("paint_seq", paintSeq).
-					Uint64("resize_seq", resizeSeq).
-					Int64("time_since_resize_ms", resizeAgeMs).
-					Int32("width", width).
-					Int32("height", height).
-					Int("dirty_rect_count", len(dirtyRects)).
-					Msg("cef: first paint after resize")
-			}
-		} else if h.wv.pipeline.markStalePaintAfterResize(resizeSeq) {
-			logging.FromContext(h.wv.ctx).Debug().
-				Uint64("webview_id", uint64(h.wv.id)).
-				Uint64("paint_seq", paintSeq).
-				Uint64("resize_seq", resizeSeq).
-				Int64("time_since_resize_ms", resizeAgeMs).
-				Int32("width", width).
-				Int32("height", height).
-				Int32("expected_width", expectedWidth).
-				Int32("expected_height", expectedHeight).
-				Int("dirty_rect_count", len(dirtyRects)).
-				Msg("cef: stale-size paint after resize")
-		}
-		if !sizeMatchesCurrentView {
-			return
-		}
+	if elementType != purecef.PaintElementTypePetPopup && !h.shouldAcceptMainViewPaint(width, height, dirtyRects, paintSeq) {
+		return
 	}
 	rects := make([]rect, len(dirtyRects))
 	for i, dr := range dirtyRects {
@@ -286,6 +252,47 @@ func (h *handlerSet) OnPaint(
 			Uint64("paint_seq", paintSeq).
 			Msg("cef: OnPaint queued to GTK")
 	}
+}
+
+func (h *handlerSet) shouldAcceptMainViewPaint(width, height int32, dirtyRects []purecef.Rect, paintSeq uint64) bool {
+	resizeSeq, resizeAgeMs := h.wv.pipeline.latestResizeDiagnostics()
+	expectedWidth, expectedHeight, _ := h.wv.pipeline.viewRectSize()
+	sizeMatchesCurrentView := width == expectedWidth && height == expectedHeight
+
+	if h.wv.resizeReconciler != nil {
+		h.wv.resizeReconciler.notePaint(resizeSeq, sizeMatchesCurrentView)
+	}
+
+	if h.wv.ctx != nil {
+		if sizeMatchesCurrentView {
+			_, _, shouldLog := h.wv.pipeline.markFirstPaintAfterResize()
+			if shouldLog {
+				logging.FromContext(h.wv.ctx).Debug().
+					Uint64("webview_id", uint64(h.wv.id)).
+					Uint64("paint_seq", paintSeq).
+					Uint64("resize_seq", resizeSeq).
+					Int64("time_since_resize_ms", resizeAgeMs).
+					Int32("width", width).
+					Int32("height", height).
+					Int("dirty_rect_count", len(dirtyRects)).
+					Msg("cef: first paint after resize")
+			}
+		} else if h.wv.pipeline.markStalePaintAfterResize(resizeSeq) {
+			logging.FromContext(h.wv.ctx).Debug().
+				Uint64("webview_id", uint64(h.wv.id)).
+				Uint64("paint_seq", paintSeq).
+				Uint64("resize_seq", resizeSeq).
+				Int64("time_since_resize_ms", resizeAgeMs).
+				Int32("width", width).
+				Int32("height", height).
+				Int32("expected_width", expectedWidth).
+				Int32("expected_height", expectedHeight).
+				Int("dirty_rect_count", len(dirtyRects)).
+				Msg("cef: stale-size paint after resize")
+		}
+	}
+
+	return sizeMatchesCurrentView
 }
 
 func (h *handlerSet) OnAcceleratedPaint(_ purecef.Browser, _ purecef.PaintElementType, _ []purecef.Rect, _ *purecef.AcceleratedPaintInfo) {

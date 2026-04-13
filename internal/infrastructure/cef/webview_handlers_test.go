@@ -140,8 +140,7 @@ func TestOptionalHandlersRespectFactoryFlags(t *testing.T) {
 
 func TestOnPaint_DropsStaleMainViewPaint(t *testing.T) {
 	wv := &WebView{
-		id:  42,
-		ctx: context.Background(),
+		id: 42,
 		pipeline: &renderPipeline{
 			ctx:   context.Background(),
 			scale: 1,
