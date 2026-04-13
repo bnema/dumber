@@ -8,7 +8,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/bnema/dumber/internal/application/port"
+	"github.com/bnema/dumber/internal/domain/entity"
 	"github.com/stretchr/testify/require"
 )
 
@@ -16,7 +16,7 @@ type fakeToolkitClipboard struct {
 	writeTextCalls  int
 	writeImageCalls int
 	text            string
-	image           port.ImageData
+	image           entity.ImageData
 }
 
 func (f *fakeToolkitClipboard) WriteText(_ context.Context, text string) error {
@@ -25,13 +25,13 @@ func (f *fakeToolkitClipboard) WriteText(_ context.Context, text string) error {
 	return nil
 }
 
-func (f *fakeToolkitClipboard) WriteImage(_ context.Context, image port.ImageData) error {
+func (f *fakeToolkitClipboard) WriteImage(_ context.Context, image entity.ImageData) error {
 	f.writeImageCalls++
 	f.image = image
 	return nil
 }
 
-func TestNew_PrefersToolkitClipboard(t *testing.T) {
+func TestNew_FallsBackToToolkitClipboardWhenSystemToolsUnavailable(t *testing.T) {
 	oldToolkitFactory := newToolkitClipboard
 	oldLookPath := lookPath
 	t.Cleanup(func() {
@@ -39,24 +39,41 @@ func TestNew_PrefersToolkitClipboard(t *testing.T) {
 		lookPath = oldLookPath
 	})
 
-	toolkitChecked := false
 	fake := &fakeToolkitClipboard{}
 	newToolkitClipboard = func() toolkitClipboard {
-		toolkitChecked = true
 		return fake
 	}
 	lookPath = func(_ string) (string, error) {
-		require.True(t, toolkitChecked, "toolkit clipboard should be checked before system tools")
-		return "", errors.New("unexpected call")
+		return "", errors.New("missing")
 	}
 
 	t.Setenv("WAYLAND_DISPLAY", "wayland-0")
 	t.Setenv("DISPLAY", ":0")
 
 	adapter := New().(*Adapter)
-	require.NoError(t, adapter.WriteImage(context.Background(), port.ImageData{Bytes: []byte{1, 2, 3}}))
+	require.NoError(t, adapter.WriteImage(context.Background(), entity.ImageData{Bytes: []byte{1, 2, 3}}))
 	require.Equal(t, 1, fake.writeImageCalls)
 	require.Equal(t, []byte{1, 2, 3}, fake.image.Bytes)
+}
+
+func TestAdapter_WriteImagePrefersSystemClipboardOverToolkit(t *testing.T) {
+	dir := t.TempDir()
+	scriptPath := filepath.Join(dir, "wl-copy")
+	argsPath := filepath.Join(dir, "args.txt")
+	stdinPath := filepath.Join(dir, "stdin.bin")
+	script := "#!/bin/sh\nprintf '%s\n' \"$@\" > \"" + argsPath + "\"\ncat > \"" + stdinPath + "\"\n"
+	require.NoError(t, os.WriteFile(scriptPath, []byte(script), 0o755))
+
+	fake := &fakeToolkitClipboard{}
+	adapter := &Adapter{toolkit: fake, copyCmd: scriptPath}
+	image := entity.ImageData{Bytes: []byte{1, 2, 3}, MimeType: "image/png"}
+
+	require.NoError(t, adapter.WriteImage(context.Background(), image))
+	require.Zero(t, fake.writeImageCalls)
+
+	stdin, err := os.ReadFile(stdinPath)
+	require.NoError(t, err)
+	require.Equal(t, image.Bytes, stdin)
 }
 
 func TestNew_FallsBackWaylandBeforeX11(t *testing.T) {
@@ -102,7 +119,7 @@ func TestAdapter_WriteImageRejectsEmptyBytes(t *testing.T) {
 	newToolkitClipboard = func() toolkitClipboard { return fake }
 	lookPath = func(_ string) (string, error) { return "/usr/bin/clipboard", nil }
 
-	err := New().(*Adapter).WriteImage(context.Background(), port.ImageData{})
+	err := New().(*Adapter).WriteImage(context.Background(), entity.ImageData{})
 	require.Error(t, err)
 	require.Contains(t, err.Error(), "empty image data")
 	require.Zero(t, fake.writeImageCalls)
@@ -111,17 +128,17 @@ func TestAdapter_WriteImageRejectsEmptyBytes(t *testing.T) {
 func TestAdapter_WriteImageWithCommandUsesImageMimeType(t *testing.T) {
 	testCases := []struct {
 		name     string
-		image    port.ImageData
+		image    entity.ImageData
 		expected string
 	}{
 		{
 			name:     "uses provided MIME type",
-			image:    port.ImageData{Bytes: []byte{1, 2, 3}, MimeType: "image/jpeg"},
+			image:    entity.ImageData{Bytes: []byte{1, 2, 3}, MimeType: "image/jpeg"},
 			expected: "image/jpeg",
 		},
 		{
 			name:     "falls back to PNG",
-			image:    port.ImageData{Bytes: []byte{1, 2, 3}},
+			image:    entity.ImageData{Bytes: []byte{1, 2, 3}},
 			expected: "image/png",
 		},
 	}

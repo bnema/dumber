@@ -5,6 +5,7 @@ import (
 	"fmt"
 
 	"github.com/bnema/dumber/internal/application/port"
+	"github.com/bnema/dumber/internal/domain/entity"
 )
 
 // ExecuteContextMenuActionInput identifies the action and its context.
@@ -81,24 +82,24 @@ func (uc *ExecuteContextMenuActionUseCase) executeMenuAction(
 		}
 		return nil
 	case port.MenuActionCopyImage:
+		if uc.clipboard == nil {
+			return fmt.Errorf("copy image: clipboard not available")
+		}
 		image, err := uc.resolveImageData(ctx, menuContext.ImageURI)
 		if err != nil {
 			return fmt.Errorf("copy image: %w", err)
-		}
-		if uc.clipboard == nil {
-			return fmt.Errorf("copy image: clipboard not available")
 		}
 		if err := uc.clipboard.WriteImage(ctx, image); err != nil {
 			return fmt.Errorf("copy image: %w", err)
 		}
 		return nil
 	case port.MenuActionSaveImage:
+		if uc.saver == nil {
+			return fmt.Errorf("save image: image saver not available")
+		}
 		image, err := uc.resolveImageData(ctx, menuContext.ImageURI)
 		if err != nil {
 			return fmt.Errorf("save image: %w", err)
-		}
-		if uc.saver == nil {
-			return fmt.Errorf("save image: image saver not available")
 		}
 		if err := uc.saver.SaveResolvedImage(ctx, image, menuContext); err != nil {
 			return fmt.Errorf("save image: %w", err)
@@ -116,20 +117,20 @@ func (uc *ExecuteContextMenuActionUseCase) executeMenuAction(
 	}
 }
 
-func (uc *ExecuteContextMenuActionUseCase) resolveImageData(ctx context.Context, uri string) (port.ImageData, error) {
+func (uc *ExecuteContextMenuActionUseCase) resolveImageData(ctx context.Context, uri string) (entity.ImageData, error) {
 	if uri == "" {
-		return port.ImageData{}, fmt.Errorf("image URI not available")
+		return entity.ImageData{}, fmt.Errorf("image URI not available")
 	}
 	if uc.resolver == nil {
-		return port.ImageData{}, fmt.Errorf("image data resolver not available")
+		return entity.ImageData{}, fmt.Errorf("image data resolver not available")
 	}
 
 	image, err := uc.resolver.ResolveImageData(ctx, uri)
 	if err != nil {
-		return port.ImageData{}, err
+		return entity.ImageData{}, err
 	}
 	if len(image.Bytes) == 0 {
-		return port.ImageData{}, fmt.Errorf("image data not available")
+		return entity.ImageData{}, fmt.Errorf("image data not available")
 	}
 
 	return image, nil

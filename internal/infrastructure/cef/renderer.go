@@ -71,6 +71,12 @@ func showMenu(
 		}
 		return
 	}
+	if !hasRenderableItems(items) {
+		if onClose != nil {
+			onClose()
+		}
+		return
+	}
 
 	box := gtk.NewBox(gtk.OrientationVerticalValue, 0)
 	box.AddCssClass("context-menu")
@@ -103,13 +109,6 @@ func showMenu(
 		box.Append(&btn.Widget)
 	}
 
-	if len(items) == 0 {
-		if onClose != nil {
-			onClose()
-		}
-		return
-	}
-
 	popover = gtk.NewPopover()
 	popover.SetChild(&box.Widget)
 	popover.SetParent(anchor)
@@ -128,4 +127,13 @@ func showMenu(
 	popover.ConnectClosed(&closedCb)
 
 	popover.Popup()
+}
+
+func hasRenderableItems(items []renderItem) bool {
+	for _, item := range items {
+		if !item.separator {
+			return true
+		}
+	}
+	return false
 }

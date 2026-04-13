@@ -131,7 +131,6 @@ func (f *WebViewFactory) CreateRelated(ctx context.Context, parentID port.WebVie
 
 	// Wire context menu if configured
 	if f.ctxMenu != nil {
-		wv.contextMenu = f.ctxMenu
 		wv.connectContextMenuSignal(f.ctxMenu)
 	}
 
@@ -170,7 +169,6 @@ func (f *WebViewFactory) createDirect(ctx context.Context) (*WebView, error) {
 
 	// Wire context menu if configured
 	if f.ctxMenu != nil {
-		wv.contextMenu = f.ctxMenu
 		wv.connectContextMenuSignal(f.ctxMenu)
 	}
 

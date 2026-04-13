@@ -1,4 +1,4 @@
-// Package clipboard provides a clipboard adapter with toolkit preference and wl-clipboard/X11 fallback.
+// Package clipboard provides a clipboard adapter with Wayland/X11 preference and toolkit fallback.
 package clipboard
 
 import (
@@ -10,6 +10,7 @@ import (
 	"strings"
 
 	"github.com/bnema/dumber/internal/application/port"
+	"github.com/bnema/dumber/internal/domain/entity"
 	"github.com/bnema/dumber/internal/logging"
 	"github.com/bnema/puregotk/v4/gdk"
 	"github.com/bnema/puregotk/v4/glib"
@@ -18,11 +19,11 @@ import (
 
 type toolkitClipboard interface {
 	WriteText(ctx context.Context, text string) error
-	WriteImage(ctx context.Context, image port.ImageData) error
+	WriteImage(ctx context.Context, image entity.ImageData) error
 }
 
-// Adapter implements port.Clipboard using the toolkit clipboard when available.
-// It falls back to wl-clipboard for Wayland, then xclip/xsel for X11.
+// Adapter implements port.Clipboard using wl-clipboard on Wayland, then xclip/xsel on X11.
+// If no system clipboard tool is available, it falls back to the toolkit clipboard.
 type Adapter struct {
 	toolkit  toolkitClipboard
 	copyCmd  string
@@ -61,29 +62,53 @@ type gdkToolkitClipboard struct {
 	clipboard *gdk.Clipboard
 }
 
-func (c *gdkToolkitClipboard) WriteText(_ context.Context, text string) error {
-	if c == nil || c.clipboard == nil {
-		return fmt.Errorf("toolkit clipboard not available")
-	}
-	c.clipboard.SetText(text)
-	return nil
+func (c *gdkToolkitClipboard) WriteText(ctx context.Context, text string) error {
+	return withToolkitClipboard(ctx, func() error {
+		if c == nil || c.clipboard == nil {
+			return fmt.Errorf("toolkit clipboard not available")
+		}
+		c.clipboard.SetText(text)
+		return nil
+	})
 }
 
-func (c *gdkToolkitClipboard) WriteImage(_ context.Context, image port.ImageData) error {
-	if c == nil || c.clipboard == nil {
-		return fmt.Errorf("toolkit clipboard not available")
+func (c *gdkToolkitClipboard) WriteImage(ctx context.Context, image entity.ImageData) error {
+	return withToolkitClipboard(ctx, func() error {
+		if c == nil || c.clipboard == nil {
+			return fmt.Errorf("toolkit clipboard not available")
+		}
+
+		texture, err := gdk.NewTextureFromBytes(glib.NewBytes(image.Bytes, uint(len(image.Bytes))))
+		if err != nil {
+			return err
+		}
+		if texture == nil {
+			return fmt.Errorf("toolkit clipboard returned nil texture")
+		}
+
+		c.clipboard.SetTexture(texture)
+		return nil
+	})
+}
+
+func withToolkitClipboard(ctx context.Context, fn func() error) error {
+	mainContext := glib.MainContextDefault()
+	if mainContext == nil || mainContext.IsOwner() {
+		return fn()
 	}
 
-	texture, err := gdk.NewTextureFromBytes(glib.NewBytes(image.Bytes, uint(len(image.Bytes))))
-	if err != nil {
+	resultCh := make(chan error, 1)
+	cb := glib.SourceFunc(func(_ uintptr) bool {
+		resultCh <- fn()
+		return false
+	})
+	glib.IdleAdd(&cb, 0)
+	select {
+	case err := <-resultCh:
 		return err
+	case <-ctx.Done():
+		return ctx.Err()
 	}
-	if texture == nil {
-		return fmt.Errorf("toolkit clipboard returned nil texture")
-	}
-
-	c.clipboard.SetTexture(texture)
-	return nil
 }
 
 func selectSystemClipboard() (copyCmd, pasteCmd string) {
@@ -114,6 +139,14 @@ func selectSystemClipboard() (copyCmd, pasteCmd string) {
 // WriteText copies text to the clipboard.
 func (a *Adapter) WriteText(ctx context.Context, text string) error {
 	log := logging.FromContext(ctx)
+	var commandErr error
+	if a.copyCmd != "" {
+		err := a.writeTextWithCommand(ctx, text, log)
+		if err == nil {
+			return nil
+		}
+		commandErr = err
+	}
 	if a.toolkit != nil {
 		err := a.toolkit.WriteText(ctx, text)
 		if err == nil {
@@ -122,20 +155,32 @@ func (a *Adapter) WriteText(ctx context.Context, text string) error {
 		}
 		log.Debug().Err(err).Msg("toolkit clipboard write failed; falling back")
 	}
-
-	return a.writeTextWithCommand(ctx, text, log)
+	if commandErr != nil {
+		return commandErr
+	}
+	err := fmt.Errorf("no clipboard tool available (install wl-clipboard or xclip)")
+	log.Error().Err(err).Msg("clipboard write failed")
+	return err
 }
 
 // WriteImage copies image bytes to the clipboard.
 // xsel is not supported because the adapter has no reliable binary image mode
 // for it in this codebase.
-func (a *Adapter) WriteImage(ctx context.Context, image port.ImageData) error {
+func (a *Adapter) WriteImage(ctx context.Context, image entity.ImageData) error {
 	log := logging.FromContext(ctx)
+	var commandErr error
 
 	if len(image.Bytes) == 0 {
 		err := fmt.Errorf("empty image data")
 		log.Error().Err(err).Msg("clipboard image write failed")
 		return err
+	}
+	if a.copyCmd != "" {
+		err := a.writeImageWithCommand(ctx, image, log)
+		if err == nil {
+			return nil
+		}
+		commandErr = err
 	}
 	if a.toolkit != nil {
 		err := a.toolkit.WriteImage(ctx, image)
@@ -145,8 +190,12 @@ func (a *Adapter) WriteImage(ctx context.Context, image port.ImageData) error {
 		}
 		log.Debug().Err(err).Msg("toolkit clipboard image write failed; falling back")
 	}
-
-	return a.writeImageWithCommand(ctx, image, log)
+	if commandErr != nil {
+		return commandErr
+	}
+	err := fmt.Errorf("no clipboard tool available (install wl-clipboard or xclip)")
+	log.Error().Err(err).Msg("clipboard image write failed")
+	return err
 }
 
 func (a *Adapter) writeTextWithCommand(ctx context.Context, text string, log *zerolog.Logger) error {
@@ -180,7 +229,7 @@ func (a *Adapter) writeTextWithCommand(ctx context.Context, text string, log *ze
 	return nil
 }
 
-func (a *Adapter) writeImageWithCommand(ctx context.Context, image port.ImageData, log *zerolog.Logger) error {
+func (a *Adapter) writeImageWithCommand(ctx context.Context, image entity.ImageData, log *zerolog.Logger) error {
 	if a.copyCmd == "" {
 		err := fmt.Errorf("no clipboard tool available (install wl-clipboard or xclip)")
 		log.Error().Err(err).Msg("clipboard image write failed")

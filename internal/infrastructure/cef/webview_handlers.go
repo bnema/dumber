@@ -215,7 +215,8 @@ func (h *handlerSet) OnPaint(
 		}
 		log.Msg("cef: OnPaint begin")
 	}
-	if elementType != purecef.PaintElementTypePetPopup && !h.shouldAcceptMainViewPaint(width, height, dirtyRects, paintSeq) {
+	if elementType != purecef.PaintElementTypePetPopup &&
+		!h.shouldAcceptMainViewPaint(width, height, dirtyRects, paintSeq, resizeSeq, resizeAgeMs) {
 		return
 	}
 	rects := make([]rect, len(dirtyRects))
@@ -248,8 +249,13 @@ func (h *handlerSet) OnPaint(
 	}
 }
 
-func (h *handlerSet) shouldAcceptMainViewPaint(width, height int32, dirtyRects []purecef.Rect, paintSeq uint64) bool {
-	resizeSeq, resizeAgeMs := h.wv.pipeline.latestResizeDiagnostics()
+func (h *handlerSet) shouldAcceptMainViewPaint(
+	width, height int32,
+	dirtyRects []purecef.Rect,
+	paintSeq uint64,
+	resizeSeq uint64,
+	resizeAgeMs int64,
+) bool {
 	expectedWidth, expectedHeight, _ := h.wv.pipeline.viewRectSize()
 	sizeMatchesCurrentView := width == expectedWidth && height == expectedHeight
 

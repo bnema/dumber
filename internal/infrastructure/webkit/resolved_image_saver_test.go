@@ -7,15 +7,18 @@ import (
 	"testing"
 
 	"github.com/bnema/dumber/internal/application/port"
+	"github.com/bnema/dumber/internal/domain/entity"
 	"github.com/stretchr/testify/require"
 )
 
 type fakeDownloadPreparer struct {
+	calls  int
 	input  port.DownloadPrepareInput
 	output *port.DownloadPrepareOutput
 }
 
 func (f *fakeDownloadPreparer) Execute(_ context.Context, input port.DownloadPrepareInput) *port.DownloadPrepareOutput {
+	f.calls++
 	f.input = input
 	return f.output
 }
@@ -26,7 +29,7 @@ func TestResolvedImageSaver_SaveResolvedImage(t *testing.T) {
 	preparer := &fakeDownloadPreparer{output: &port.DownloadPrepareOutput{Filename: "image.png", DestinationPath: destPath}}
 	saver := NewResolvedImageSaver(preparer, downloadDir)
 
-	err := saver.SaveResolvedImage(context.Background(), port.ImageData{Bytes: []byte{1, 2, 3, 4}, MimeType: "image/jpeg"}, port.MenuContext{ImageURI: "https://example.com/assets/image"})
+	err := saver.SaveResolvedImage(context.Background(), entity.ImageData{Bytes: []byte{1, 2, 3, 4}, MimeType: "image/jpeg"}, port.MenuContext{ImageURI: "https://example.com/assets/image"})
 	require.NoError(t, err)
 	require.Equal(t, downloadDir, preparer.input.DownloadDir)
 	require.Equal(t, "https://example.com/assets/image", preparer.input.Response.GetUri())
@@ -38,7 +41,7 @@ func TestResolvedImageSaver_SaveResolvedImageRequiresDestination(t *testing.T) {
 	preparer := &fakeDownloadPreparer{output: &port.DownloadPrepareOutput{Filename: "image.png"}}
 	saver := NewResolvedImageSaver(preparer, t.TempDir())
 
-	err := saver.SaveResolvedImage(context.Background(), port.ImageData{Bytes: []byte{1}}, port.MenuContext{})
+	err := saver.SaveResolvedImage(context.Background(), entity.ImageData{Bytes: []byte{1}}, port.MenuContext{})
 	require.Error(t, err)
 	require.Contains(t, err.Error(), "destination path")
 }
@@ -47,9 +50,10 @@ func TestResolvedImageSaver_SaveResolvedImageRejectsEmptyBytes(t *testing.T) {
 	preparer := &fakeDownloadPreparer{output: &port.DownloadPrepareOutput{Filename: "image.png", DestinationPath: filepath.Join(t.TempDir(), "image.png")}}
 	saver := NewResolvedImageSaver(preparer, t.TempDir())
 
-	err := saver.SaveResolvedImage(context.Background(), port.ImageData{}, port.MenuContext{})
+	err := saver.SaveResolvedImage(context.Background(), entity.ImageData{}, port.MenuContext{})
 	require.Error(t, err)
 	require.Contains(t, err.Error(), "empty image data")
+	require.Zero(t, preparer.calls)
 }
 
 func readFile(t *testing.T, path string) []byte {

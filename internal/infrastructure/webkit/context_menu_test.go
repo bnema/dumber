@@ -219,6 +219,23 @@ func TestResolveImageData(t *testing.T) {
 		assert.Contains(t, err.Error(), "not an image")
 	})
 
+	t.Run("rejects spoofed image headers when sniffed bytes are not an image", func(t *testing.T) {
+		srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			w.Header().Set("Content-Type", "image/png")
+			w.Write([]byte("<html><body>not really an image</body></html>"))
+			_ = r
+		}))
+		defer srv.Close()
+
+		resolver := &contextMenuResolver{allowPrivateHosts: true}
+		_, err := resolver.ResolveImageData(context.Background(), srv.URL+"/spoofed.png")
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "not an image")
+		assert.Contains(t, err.Error(), "text/html")
+		assert.Contains(t, err.Error(), "image/png")
+		assert.Contains(t, err.Error(), "/spoofed.png")
+	})
+
 	t.Run("returns error on HTTP failure", func(t *testing.T) {
 		srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 			w.WriteHeader(http.StatusNotFound)

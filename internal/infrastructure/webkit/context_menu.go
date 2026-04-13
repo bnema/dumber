@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"github.com/bnema/dumber/internal/application/port"
+	"github.com/bnema/dumber/internal/domain/entity"
 	"github.com/bnema/dumber/internal/logging"
 	"github.com/bnema/puregotk-webkit/webkit"
 )
@@ -31,61 +32,72 @@ var defaultImageFetchClient = &http.Client{Timeout: 15 * time.Second}
 const maxImageFetchBytes = 50 * 1024 * 1024
 
 // ResolveImageData fetches raw image bytes from the given URI.
-func (r *contextMenuResolver) ResolveImageData(ctx context.Context, imageURI string) (port.ImageData, error) {
+func (r *contextMenuResolver) ResolveImageData(ctx context.Context, imageURI string) (entity.ImageData, error) {
 	if imageURI == "" {
-		return port.ImageData{}, fmt.Errorf("empty image URI")
+		return entity.ImageData{}, fmt.Errorf("empty image URI")
 	}
 
 	parsed, parseErr := url.Parse(imageURI)
 	if parseErr != nil {
-		return port.ImageData{}, fmt.Errorf("parse image URI: %w", parseErr)
+		return entity.ImageData{}, fmt.Errorf("parse image URI: %w", parseErr)
 	}
 	switch strings.ToLower(parsed.Scheme) {
 	case "http", "https":
 	default:
-		return port.ImageData{}, fmt.Errorf("fetch image: unsupported URI scheme %q", parsed.Scheme)
+		return entity.ImageData{}, fmt.Errorf("fetch image: unsupported URI scheme %q", parsed.Scheme)
 	}
 	if err := r.validateImageURL(ctx, parsed); err != nil {
-		return port.ImageData{}, err
+		return entity.ImageData{}, err
 	}
 
 	client := r.imageFetchClient(ctx)
 
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, parsed.String(), http.NoBody)
 	if err != nil {
-		return port.ImageData{}, fmt.Errorf("build request: %w", err)
+		return entity.ImageData{}, fmt.Errorf("build request: %w", err)
 	}
 
 	resp, err := client.Do(req)
 	if err != nil {
-		return port.ImageData{}, fmt.Errorf("fetch image: %w", err)
+		return entity.ImageData{}, fmt.Errorf("fetch image: %w", err)
 	}
 	defer func() { _ = resp.Body.Close() }()
 
 	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
-		return port.ImageData{}, fmt.Errorf("fetch image: HTTP %d", resp.StatusCode)
+		return entity.ImageData{}, fmt.Errorf("fetch image: HTTP %d", resp.StatusCode)
 	}
 
 	data, err := io.ReadAll(io.LimitReader(resp.Body, maxImageFetchBytes+1))
 	if err != nil {
-		return port.ImageData{}, fmt.Errorf("read image body: %w", err)
+		return entity.ImageData{}, fmt.Errorf("read image body: %w", err)
 	}
 	if len(data) == 0 {
-		return port.ImageData{}, fmt.Errorf("read image body: empty image data")
+		return entity.ImageData{}, fmt.Errorf("read image body: empty image data")
 	}
 	if len(data) > maxImageFetchBytes {
-		return port.ImageData{}, fmt.Errorf("read image body: image too large (limit %d bytes)", maxImageFetchBytes)
+		return entity.ImageData{}, fmt.Errorf("read image body: image too large (limit %d bytes)", maxImageFetchBytes)
 	}
-	detectedType := validatedImageMimeType(http.DetectContentType(data))
+	rawDetectedType := strings.ToLower(http.DetectContentType(data))
+	detectedType := validatedImageMimeType(rawDetectedType)
 	mimeType := detectedType
-	if mimeType == "" {
-		mimeType = validatedImageMimeType(resp.Header.Get("Content-Type"))
+	headerType := resp.Header.Get("Content-Type")
+	if mimeType == "" && rawDetectedType == "application/octet-stream" {
+		mimeType = validatedImageMimeType(headerType)
 	}
 	if mimeType == "" {
-		return port.ImageData{}, fmt.Errorf("read image body: content is not an image (%s)", detectedType)
+		responseURL := parsed.String()
+		if resp.Request != nil && resp.Request.URL != nil {
+			responseURL = resp.Request.URL.String()
+		}
+		return entity.ImageData{}, fmt.Errorf(
+			"read image body: content is not an image (detected=%q, header=%q, url=%q)",
+			rawDetectedType,
+			headerType,
+			responseURL,
+		)
 	}
 
-	return port.ImageData{Bytes: data, MimeType: mimeType}, nil
+	return entity.ImageData{Bytes: data, MimeType: mimeType}, nil
 }
 
 func (r *contextMenuResolver) imageFetchClient(_ context.Context) *http.Client {

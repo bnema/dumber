@@ -96,3 +96,15 @@ func TestContextMenuSelectionCancelsWhenCEFCommandMissing(t *testing.T) {
 	require.Zero(t, callback.contCalls)
 	require.Equal(t, 1, callback.cancelCalls)
 }
+
+func TestContextMenuSelectionContinuesWhenCEFCommandPresent(t *testing.T) {
+	callback := &stubRunContextMenuCallback{}
+
+	dispatchContextMenuSelection(callback, map[port.MenuAction]int32{
+		port.MenuActionInspectElement: 204,
+	}, port.MenuItem{Action: port.MenuActionInspectElement, Label: "Inspect Element"})
+
+	require.Equal(t, 1, callback.contCalls)
+	require.Zero(t, callback.cancelCalls)
+	require.Equal(t, int32(204), callback.commandID)
+}

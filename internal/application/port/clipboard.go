@@ -1,6 +1,10 @@
 package port
 
-import "context"
+import (
+	"context"
+
+	"github.com/bnema/dumber/internal/domain/entity"
+)
 
 // Clipboard defines the port interface for clipboard operations.
 // This abstracts platform-specific clipboard implementations (GTK, etc.).
@@ -9,7 +13,7 @@ type Clipboard interface {
 	WriteText(ctx context.Context, text string) error
 
 	// WriteImage copies encoded image bytes to the clipboard.
-	WriteImage(ctx context.Context, image ImageData) error
+	WriteImage(ctx context.Context, image entity.ImageData) error
 
 	// ReadText reads text from the clipboard.
 	// Returns empty string if clipboard is empty or contains non-text data.

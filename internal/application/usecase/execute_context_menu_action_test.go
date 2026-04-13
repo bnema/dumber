@@ -6,6 +6,7 @@ import (
 	"testing"
 
 	"github.com/bnema/dumber/internal/application/port"
+	"github.com/bnema/dumber/internal/domain/entity"
 	"github.com/stretchr/testify/require"
 )
 
@@ -13,7 +14,7 @@ type fakeClipboard struct {
 	writeTextCalls  int
 	writeImageCalls int
 	text            string
-	image           port.ImageData
+	image           entity.ImageData
 }
 
 func (f *fakeClipboard) WriteText(_ context.Context, text string) error {
@@ -22,7 +23,7 @@ func (f *fakeClipboard) WriteText(_ context.Context, text string) error {
 	return nil
 }
 
-func (f *fakeClipboard) WriteImage(_ context.Context, image port.ImageData) error {
+func (f *fakeClipboard) WriteImage(_ context.Context, image entity.ImageData) error {
 	f.writeImageCalls++
 	f.image = image
 	return nil
@@ -35,11 +36,11 @@ func (*fakeClipboard) HasText(context.Context) (bool, error)    { return false, 
 type fakeImageResolver struct {
 	resolveCalls int
 	uri          string
-	image        port.ImageData
+	image        entity.ImageData
 	err          error
 }
 
-func (f *fakeImageResolver) ResolveImageData(_ context.Context, uri string) (port.ImageData, error) {
+func (f *fakeImageResolver) ResolveImageData(_ context.Context, uri string) (entity.ImageData, error) {
 	f.resolveCalls++
 	f.uri = uri
 	return f.image, f.err
@@ -47,12 +48,12 @@ func (f *fakeImageResolver) ResolveImageData(_ context.Context, uri string) (por
 
 type fakeResolvedImageSaver struct {
 	saveCalls   int
-	image       port.ImageData
+	image       entity.ImageData
 	menuContext port.MenuContext
 	err         error
 }
 
-func (f *fakeResolvedImageSaver) SaveResolvedImage(_ context.Context, image port.ImageData, menuContext port.MenuContext) error {
+func (f *fakeResolvedImageSaver) SaveResolvedImage(_ context.Context, image entity.ImageData, menuContext port.MenuContext) error {
 	f.saveCalls++
 	f.image = image
 	f.menuContext = menuContext
@@ -93,9 +94,48 @@ func TestExecuteContextMenuActionUseCase_CopyImageFailsWithoutResolvedData(t *te
 	require.Zero(t, delegator.delegateCalls)
 }
 
+func TestExecuteContextMenuActionUseCase_CopyImageWritesResolvedImage(t *testing.T) {
+	clipboard := &fakeClipboard{}
+	resolver := &fakeImageResolver{image: entity.ImageData{Bytes: []byte{1, 2, 3}, MimeType: "image/png"}}
+	saver := &fakeResolvedImageSaver{}
+	delegator := &fakeMenuActionDelegator{}
+	uc := NewExecuteContextMenuActionUseCase(clipboard, resolver, saver, delegator)
+
+	err := uc.Execute(context.Background(), ExecuteContextMenuActionInput{
+		Action:  port.MenuActionCopyImage,
+		Context: port.MenuContext{ImageURI: "https://example.com/image.png"},
+	})
+
+	require.NoError(t, err)
+	require.Equal(t, 1, resolver.resolveCalls)
+	require.Equal(t, "https://example.com/image.png", resolver.uri)
+	require.Equal(t, 1, clipboard.writeImageCalls)
+	require.Equal(t, entity.ImageData{Bytes: []byte{1, 2, 3}, MimeType: "image/png"}, clipboard.image)
+	require.Zero(t, saver.saveCalls)
+	require.Zero(t, delegator.delegateCalls)
+}
+
+func TestExecuteContextMenuActionUseCase_CopyImageFailsFastWithoutClipboard(t *testing.T) {
+	resolver := &fakeImageResolver{}
+	saver := &fakeResolvedImageSaver{}
+	delegator := &fakeMenuActionDelegator{}
+	uc := NewExecuteContextMenuActionUseCase(nil, resolver, saver, delegator)
+
+	err := uc.Execute(context.Background(), ExecuteContextMenuActionInput{
+		Action:  port.MenuActionCopyImage,
+		Context: port.MenuContext{ImageURI: "https://example.com/image.png"},
+	})
+
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "clipboard not available")
+	require.Zero(t, resolver.resolveCalls)
+	require.Zero(t, saver.saveCalls)
+	require.Zero(t, delegator.delegateCalls)
+}
+
 func TestExecuteContextMenuActionUseCase_SaveImageDelegatesResolvedImage(t *testing.T) {
 	clipboard := &fakeClipboard{}
-	resolver := &fakeImageResolver{image: port.ImageData{Bytes: []byte{1, 2, 3}, MimeType: "image/png"}}
+	resolver := &fakeImageResolver{image: entity.ImageData{Bytes: []byte{1, 2, 3}, MimeType: "image/png"}}
 	saver := &fakeResolvedImageSaver{}
 	delegator := &fakeMenuActionDelegator{}
 	uc := NewExecuteContextMenuActionUseCase(clipboard, resolver, saver, delegator)
@@ -109,10 +149,27 @@ func TestExecuteContextMenuActionUseCase_SaveImageDelegatesResolvedImage(t *test
 	require.Equal(t, 1, resolver.resolveCalls)
 	require.Equal(t, "https://example.com/image.png", resolver.uri)
 	require.Equal(t, 1, saver.saveCalls)
-	require.Equal(t, port.ImageData{Bytes: []byte{1, 2, 3}, MimeType: "image/png"}, saver.image)
+	require.Equal(t, entity.ImageData{Bytes: []byte{1, 2, 3}, MimeType: "image/png"}, saver.image)
 	require.Equal(t, port.MenuContext{ImageURI: "https://example.com/image.png"}, saver.menuContext)
 	require.Zero(t, clipboard.writeTextCalls)
 	require.Zero(t, clipboard.writeImageCalls)
+	require.Zero(t, delegator.delegateCalls)
+}
+
+func TestExecuteContextMenuActionUseCase_SaveImageFailsFastWithoutSaver(t *testing.T) {
+	clipboard := &fakeClipboard{}
+	resolver := &fakeImageResolver{}
+	delegator := &fakeMenuActionDelegator{}
+	uc := NewExecuteContextMenuActionUseCase(clipboard, resolver, nil, delegator)
+
+	err := uc.Execute(context.Background(), ExecuteContextMenuActionInput{
+		Action:  port.MenuActionSaveImage,
+		Context: port.MenuContext{ImageURI: "https://example.com/image.png"},
+	})
+
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "image saver not available")
+	require.Zero(t, resolver.resolveCalls)
 	require.Zero(t, delegator.delegateCalls)
 }
 

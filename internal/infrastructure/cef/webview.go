@@ -473,7 +473,9 @@ func (wv *WebView) Destroy() {
 	if !wv.destroyed.CompareAndSwap(false, true) {
 		return
 	}
-	wv.resizeReconciler.stop()
+	if wv.resizeReconciler != nil {
+		wv.resizeReconciler.stop()
+	}
 	wv.closeAudioStream()
 	wv.scheduleStopBeginFrameLoop()
 	wv.mu.RLock()

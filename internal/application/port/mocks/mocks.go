@@ -371,7 +371,7 @@ func (_c *MockClipboard_ReadText_Call) RunAndReturn(run func(ctx context.Context
 }
 
 // WriteImage provides a mock function for the type MockClipboard
-func (_mock *MockClipboard) WriteImage(ctx context.Context, image port.ImageData) error {
+func (_mock *MockClipboard) WriteImage(ctx context.Context, image entity.ImageData) error {
 	ret := _mock.Called(ctx, image)
 
 	if len(ret) == 0 {
@@ -379,7 +379,7 @@ func (_mock *MockClipboard) WriteImage(ctx context.Context, image port.ImageData
 	}
 
 	var r0 error
-	if returnFunc, ok := ret.Get(0).(func(context.Context, port.ImageData) error); ok {
+	if returnFunc, ok := ret.Get(0).(func(context.Context, entity.ImageData) error); ok {
 		r0 = returnFunc(ctx, image)
 	} else {
 		r0 = ret.Error(0)
@@ -394,20 +394,20 @@ type MockClipboard_WriteImage_Call struct {
 
 // WriteImage is a helper method to define mock.On call
 //   - ctx context.Context
-//   - image port.ImageData
+//   - image entity.ImageData
 func (_e *MockClipboard_Expecter) WriteImage(ctx interface{}, image interface{}) *MockClipboard_WriteImage_Call {
 	return &MockClipboard_WriteImage_Call{Call: _e.mock.On("WriteImage", ctx, image)}
 }
 
-func (_c *MockClipboard_WriteImage_Call) Run(run func(ctx context.Context, image port.ImageData)) *MockClipboard_WriteImage_Call {
+func (_c *MockClipboard_WriteImage_Call) Run(run func(ctx context.Context, image entity.ImageData)) *MockClipboard_WriteImage_Call {
 	_c.Call.Run(func(args mock.Arguments) {
 		var arg0 context.Context
 		if args[0] != nil {
 			arg0 = args[0].(context.Context)
 		}
-		var arg1 port.ImageData
+		var arg1 entity.ImageData
 		if args[1] != nil {
-			arg1 = args[1].(port.ImageData)
+			arg1 = args[1].(entity.ImageData)
 		}
 		run(
 			arg0,
@@ -422,7 +422,7 @@ func (_c *MockClipboard_WriteImage_Call) Return(err error) *MockClipboard_WriteI
 	return _c
 }
 
-func (_c *MockClipboard_WriteImage_Call) RunAndReturn(run func(ctx context.Context, image port.ImageData) error) *MockClipboard_WriteImage_Call {
+func (_c *MockClipboard_WriteImage_Call) RunAndReturn(run func(ctx context.Context, image entity.ImageData) error) *MockClipboard_WriteImage_Call {
 	_c.Call.Return(run)
 	return _c
 }
@@ -7729,22 +7729,22 @@ func (_m *MockImageDataResolver) EXPECT() *MockImageDataResolver_Expecter {
 }
 
 // ResolveImageData provides a mock function for the type MockImageDataResolver
-func (_mock *MockImageDataResolver) ResolveImageData(ctx context.Context, uri string) (port.ImageData, error) {
+func (_mock *MockImageDataResolver) ResolveImageData(ctx context.Context, uri string) (entity.ImageData, error) {
 	ret := _mock.Called(ctx, uri)
 
 	if len(ret) == 0 {
 		panic("no return value specified for ResolveImageData")
 	}
 
-	var r0 port.ImageData
+	var r0 entity.ImageData
 	var r1 error
-	if returnFunc, ok := ret.Get(0).(func(context.Context, string) (port.ImageData, error)); ok {
+	if returnFunc, ok := ret.Get(0).(func(context.Context, string) (entity.ImageData, error)); ok {
 		return returnFunc(ctx, uri)
 	}
-	if returnFunc, ok := ret.Get(0).(func(context.Context, string) port.ImageData); ok {
+	if returnFunc, ok := ret.Get(0).(func(context.Context, string) entity.ImageData); ok {
 		r0 = returnFunc(ctx, uri)
 	} else {
-		r0 = ret.Get(0).(port.ImageData)
+		r0 = ret.Get(0).(entity.ImageData)
 	}
 	if returnFunc, ok := ret.Get(1).(func(context.Context, string) error); ok {
 		r1 = returnFunc(ctx, uri)
@@ -7784,12 +7784,12 @@ func (_c *MockImageDataResolver_ResolveImageData_Call) Run(run func(ctx context.
 	return _c
 }
 
-func (_c *MockImageDataResolver_ResolveImageData_Call) Return(imageData port.ImageData, err error) *MockImageDataResolver_ResolveImageData_Call {
+func (_c *MockImageDataResolver_ResolveImageData_Call) Return(imageData entity.ImageData, err error) *MockImageDataResolver_ResolveImageData_Call {
 	_c.Call.Return(imageData, err)
 	return _c
 }
 
-func (_c *MockImageDataResolver_ResolveImageData_Call) RunAndReturn(run func(ctx context.Context, uri string) (port.ImageData, error)) *MockImageDataResolver_ResolveImageData_Call {
+func (_c *MockImageDataResolver_ResolveImageData_Call) RunAndReturn(run func(ctx context.Context, uri string) (entity.ImageData, error)) *MockImageDataResolver_ResolveImageData_Call {
 	_c.Call.Return(run)
 	return _c
 }
@@ -7822,7 +7822,7 @@ func (_m *MockResolvedImageSaver) EXPECT() *MockResolvedImageSaver_Expecter {
 }
 
 // SaveResolvedImage provides a mock function for the type MockResolvedImageSaver
-func (_mock *MockResolvedImageSaver) SaveResolvedImage(ctx context.Context, image port.ImageData, menuContext port.MenuContext) error {
+func (_mock *MockResolvedImageSaver) SaveResolvedImage(ctx context.Context, image entity.ImageData, menuContext port.MenuContext) error {
 	ret := _mock.Called(ctx, image, menuContext)
 
 	if len(ret) == 0 {
@@ -7830,7 +7830,7 @@ func (_mock *MockResolvedImageSaver) SaveResolvedImage(ctx context.Context, imag
 	}
 
 	var r0 error
-	if returnFunc, ok := ret.Get(0).(func(context.Context, port.ImageData, port.MenuContext) error); ok {
+	if returnFunc, ok := ret.Get(0).(func(context.Context, entity.ImageData, port.MenuContext) error); ok {
 		r0 = returnFunc(ctx, image, menuContext)
 	} else {
 		r0 = ret.Error(0)
@@ -7845,21 +7845,21 @@ type MockResolvedImageSaver_SaveResolvedImage_Call struct {
 
 // SaveResolvedImage is a helper method to define mock.On call
 //   - ctx context.Context
-//   - image port.ImageData
+//   - image entity.ImageData
 //   - menuContext port.MenuContext
 func (_e *MockResolvedImageSaver_Expecter) SaveResolvedImage(ctx interface{}, image interface{}, menuContext interface{}) *MockResolvedImageSaver_SaveResolvedImage_Call {
 	return &MockResolvedImageSaver_SaveResolvedImage_Call{Call: _e.mock.On("SaveResolvedImage", ctx, image, menuContext)}
 }
 
-func (_c *MockResolvedImageSaver_SaveResolvedImage_Call) Run(run func(ctx context.Context, image port.ImageData, menuContext port.MenuContext)) *MockResolvedImageSaver_SaveResolvedImage_Call {
+func (_c *MockResolvedImageSaver_SaveResolvedImage_Call) Run(run func(ctx context.Context, image entity.ImageData, menuContext port.MenuContext)) *MockResolvedImageSaver_SaveResolvedImage_Call {
 	_c.Call.Run(func(args mock.Arguments) {
 		var arg0 context.Context
 		if args[0] != nil {
 			arg0 = args[0].(context.Context)
 		}
-		var arg1 port.ImageData
+		var arg1 entity.ImageData
 		if args[1] != nil {
-			arg1 = args[1].(port.ImageData)
+			arg1 = args[1].(entity.ImageData)
 		}
 		var arg2 port.MenuContext
 		if args[2] != nil {
@@ -7879,7 +7879,7 @@ func (_c *MockResolvedImageSaver_SaveResolvedImage_Call) Return(err error) *Mock
 	return _c
 }
 
-func (_c *MockResolvedImageSaver_SaveResolvedImage_Call) RunAndReturn(run func(ctx context.Context, image port.ImageData, menuContext port.MenuContext) error) *MockResolvedImageSaver_SaveResolvedImage_Call {
+func (_c *MockResolvedImageSaver_SaveResolvedImage_Call) RunAndReturn(run func(ctx context.Context, image entity.ImageData, menuContext port.MenuContext) error) *MockResolvedImageSaver_SaveResolvedImage_Call {
 	_c.Call.Return(run)
 	return _c
 }

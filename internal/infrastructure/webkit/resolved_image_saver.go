@@ -7,6 +7,7 @@ import (
 	"path/filepath"
 
 	"github.com/bnema/dumber/internal/application/port"
+	"github.com/bnema/dumber/internal/domain/entity"
 )
 
 const (
@@ -29,9 +30,12 @@ func NewResolvedImageSaver(preparer port.DownloadPreparer, downloadDir string) *
 }
 
 // SaveResolvedImage resolves a destination path and writes the image bytes.
-func (s *ResolvedImageSaver) SaveResolvedImage(ctx context.Context, image port.ImageData, menuContext port.MenuContext) error {
+func (s *ResolvedImageSaver) SaveResolvedImage(ctx context.Context, image entity.ImageData, menuContext port.MenuContext) error {
 	if s == nil || s.preparer == nil {
 		return fmt.Errorf("resolved image saver: download preparer not available")
+	}
+	if len(image.Bytes) == 0 {
+		return fmt.Errorf("resolved image saver: empty image data")
 	}
 
 	output := s.preparer.Execute(ctx, port.DownloadPrepareInput{
@@ -45,9 +49,6 @@ func (s *ResolvedImageSaver) SaveResolvedImage(ctx context.Context, image port.I
 	})
 	if output == nil || output.DestinationPath == "" {
 		return fmt.Errorf("resolved image saver: destination path not prepared")
-	}
-	if len(image.Bytes) == 0 {
-		return fmt.Errorf("resolved image saver: empty image data")
 	}
 
 	if err := os.MkdirAll(filepath.Dir(output.DestinationPath), resolvedImageDirPerm); err != nil {

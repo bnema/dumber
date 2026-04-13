@@ -1,19 +1,17 @@
 package port
 
-import "context"
+import (
+	"context"
 
-// ImageData contains resolved image bytes and MIME type metadata.
-type ImageData struct {
-	Bytes    []byte
-	MimeType string
-}
+	"github.com/bnema/dumber/internal/domain/entity"
+)
 
 // ImageDataResolver resolves image bytes from a URI.
 type ImageDataResolver interface {
-	ResolveImageData(ctx context.Context, uri string) (ImageData, error)
+	ResolveImageData(ctx context.Context, uri string) (entity.ImageData, error)
 }
 
 // ResolvedImageSaver persists already resolved image bytes.
 type ResolvedImageSaver interface {
-	SaveResolvedImage(ctx context.Context, image ImageData, menuContext MenuContext) error
+	SaveResolvedImage(ctx context.Context, image entity.ImageData, menuContext MenuContext) error
 }

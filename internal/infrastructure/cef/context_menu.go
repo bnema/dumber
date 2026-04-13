@@ -25,9 +25,11 @@ func (h *handlerSet) RunContextMenu(
 		if callback != nil {
 			callback.Cancel()
 		}
+		// Returning 1 tells CEF we handled the menu, so cancel suppresses the default menu.
 		return 1
 	}
 	if h.wv == nil || h.wv.engine == nil || h.wv.engine.ctxMenuBuilder == nil {
+		// Returning 0 lets CEF show its native menu when no custom builder is wired.
 		return 0
 	}
 
