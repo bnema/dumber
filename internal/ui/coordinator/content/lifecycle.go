@@ -18,6 +18,10 @@ func (c *Coordinator) EnsureWebView(ctx context.Context, paneID entity.PaneID) (
 	log := logging.FromContext(ctx)
 
 	if wv := c.getWebViewLocked(paneID); wv != nil && !wv.IsDestroyed() {
+		log.Debug().
+			Str("pane_id", string(paneID)).
+			Uint64("webview_id", uint64(wv.ID())).
+			Msg("webview reused for pane")
 		return wv, nil
 	}
 
@@ -39,7 +43,10 @@ func (c *Coordinator) EnsureWebView(ctx context.Context, paneID entity.PaneID) (
 	c.setWebViewLocked(paneID, wv)
 	c.setupWebViewCallbacks(ctx, paneID, wv)
 
-	log.Debug().Str("pane_id", string(paneID)).Msg("webview acquired for pane")
+	log.Debug().
+		Str("pane_id", string(paneID)).
+		Uint64("webview_id", uint64(wv.ID())).
+		Msg("webview acquired for pane")
 	return wv, nil
 }
 
@@ -120,6 +127,13 @@ func (c *Coordinator) AttachToWorkspace(ctx context.Context, ws *entity.Workspac
 		if widget == nil {
 			continue
 		}
+
+		log.Debug().
+			Str("pane_id", string(pane.ID)).
+			Uint64("webview_id", uint64(wv.ID())).
+			Int("wrapped_widget_alloc_width", widget.GetAllocatedWidth()).
+			Int("wrapped_widget_alloc_height", widget.GetAllocatedHeight()).
+			Msg("wrapped webview widget prepared for pane")
 
 		if err := wsView.SetWebViewWidget(pane.ID, widget); err != nil {
 			log.Warn().Err(err).Str("pane_id", string(pane.ID)).Msg("failed to attach webview widget")

@@ -46,6 +46,10 @@ func TestNewSplitView_Horizontal(t *testing.T) {
 
 	mockFactory.EXPECT().NewPaned(layout.OrientationHorizontal).Return(mockPaned).Once()
 	setupSplitViewMocks(mockPaned, layout.OrientationHorizontal)
+	mockStartChild.EXPECT().GetAllocatedWidth().Return(0).Maybe()
+	mockStartChild.EXPECT().GetAllocatedHeight().Return(0).Maybe()
+	mockEndChild.EXPECT().GetAllocatedWidth().Return(0).Maybe()
+	mockEndChild.EXPECT().GetAllocatedHeight().Return(0).Maybe()
 	mockStartChild.EXPECT().SetVisible(true).Once()
 	mockEndChild.EXPECT().SetVisible(true).Once()
 	mockPaned.EXPECT().SetStartChild(mockStartChild).Once()
@@ -72,6 +76,10 @@ func TestNewSplitView_Vertical(t *testing.T) {
 
 	mockFactory.EXPECT().NewPaned(layout.OrientationVertical).Return(mockPaned).Once()
 	setupSplitViewMocks(mockPaned, layout.OrientationVertical)
+	mockStartChild.EXPECT().GetAllocatedWidth().Return(0).Maybe()
+	mockStartChild.EXPECT().GetAllocatedHeight().Return(0).Maybe()
+	mockEndChild.EXPECT().GetAllocatedWidth().Return(0).Maybe()
+	mockEndChild.EXPECT().GetAllocatedHeight().Return(0).Maybe()
 	mockStartChild.EXPECT().SetVisible(true).Once()
 	mockEndChild.EXPECT().SetVisible(true).Once()
 	mockPaned.EXPECT().SetStartChild(mockStartChild).Once()
@@ -184,6 +192,8 @@ func TestSwapStart_ReplacesChild(t *testing.T) {
 
 	mockFactory.EXPECT().NewPaned(mock.Anything).Return(mockPaned).Once()
 	setupSplitViewMocks(mockPaned, layout.OrientationHorizontal)
+	mockOldChild.EXPECT().GetAllocatedWidth().Return(0).Maybe()
+	mockOldChild.EXPECT().GetAllocatedHeight().Return(0).Maybe()
 	mockOldChild.EXPECT().SetVisible(true).Once()
 	mockPaned.EXPECT().SetStartChild(mockOldChild).Once()
 
@@ -210,6 +220,8 @@ func TestSwapEnd_ReplacesChild(t *testing.T) {
 
 	mockFactory.EXPECT().NewPaned(mock.Anything).Return(mockPaned).Once()
 	setupSplitViewMocks(mockPaned, layout.OrientationHorizontal)
+	mockOldChild.EXPECT().GetAllocatedWidth().Return(0).Maybe()
+	mockOldChild.EXPECT().GetAllocatedHeight().Return(0).Maybe()
 	mockOldChild.EXPECT().SetVisible(true).Once()
 	mockPaned.EXPECT().SetEndChild(mockOldChild).Once()
 
@@ -257,6 +269,8 @@ func TestSwapEnd_ToNil(t *testing.T) {
 
 	mockFactory.EXPECT().NewPaned(mock.Anything).Return(mockPaned).Once()
 	setupSplitViewMocks(mockPaned, layout.OrientationHorizontal)
+	mockOldChild.EXPECT().GetAllocatedWidth().Return(0).Maybe()
+	mockOldChild.EXPECT().GetAllocatedHeight().Return(0).Maybe()
 	mockOldChild.EXPECT().SetVisible(true).Once()
 	mockPaned.EXPECT().SetEndChild(mockOldChild).Once()
 
@@ -307,6 +321,35 @@ func TestSetPosition_DelegatesToPaned(t *testing.T) {
 	sv.SetPosition(400)
 
 	// Assert - verified by mock expectations
+}
+
+func TestApplyRatio_Vertical_ContinuesWhenChildrenStayDegenerate(t *testing.T) {
+	ctx := context.Background()
+	mockFactory := mocks.NewMockWidgetFactory(t)
+	mockPaned := mocks.NewMockPanedWidget(t)
+	mockStartChild := mocks.NewMockWidget(t)
+	mockEndChild := mocks.NewMockWidget(t)
+
+	mockFactory.EXPECT().NewPaned(layout.OrientationVertical).Return(mockPaned).Once()
+	setupSplitViewMocks(mockPaned, layout.OrientationVertical)
+	mockStartChild.EXPECT().GetAllocatedWidth().Return(0).Maybe()
+	mockStartChild.EXPECT().GetAllocatedHeight().Return(2143).Twice()
+	mockStartChild.EXPECT().SetVisible(true).Once()
+	mockEndChild.EXPECT().GetAllocatedWidth().Return(0).Maybe()
+	mockEndChild.EXPECT().GetAllocatedHeight().Return(1).Twice()
+	mockEndChild.EXPECT().SetVisible(true).Once()
+	mockPaned.EXPECT().SetStartChild(mockStartChild).Once()
+	mockPaned.EXPECT().SetEndChild(mockEndChild).Once()
+
+	sv := layout.NewSplitView(ctx, mockFactory, layout.OrientationVertical, mockStartChild, mockEndChild, 0.5)
+	require.NotNil(t, sv)
+
+	mockPaned.EXPECT().GetAllocatedHeight().Return(2144).Once()
+	mockPaned.EXPECT().GetPosition().Return(0).Once()
+	mockPaned.EXPECT().SetPosition(1072).Once()
+	mockPaned.EXPECT().GetPosition().Return(1072).Once()
+
+	assert.False(t, sv.ApplyRatio())
 }
 
 func TestGetPosition_DelegatesToPaned(t *testing.T) {

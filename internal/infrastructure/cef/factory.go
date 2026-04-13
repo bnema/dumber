@@ -38,6 +38,11 @@ type webViewFactoryOptions struct {
 	audioOutputFactory       port.AudioOutputFactory
 }
 
+type resizeNotifiableBrowserHost interface {
+	WasResized()
+	Invalidate(purecef.PaintElementType)
+}
+
 // newWebViewFactory returns a factory that will create WebViews using the
 // given GL loader and HiDPI scale factor.
 func newWebViewFactory(engine *Engine, gl *glLoader, opts webViewFactoryOptions) *WebViewFactory {
@@ -72,7 +77,7 @@ func (f *WebViewFactory) setDefaultBackgroundColor(r, g, b, a float64) {
 func (f *WebViewFactory) Create(ctx context.Context) (port.WebView, error) {
 	id := port.WebViewID(f.nextID.Add(1))
 
-	pipeline := newRenderPipeline(ctx, f.gl, f.scale)
+	pipeline := newRenderPipeline(ctx, f.gl, f.scale, id)
 
 	wv := &WebView{
 		id:                 id,
@@ -80,6 +85,7 @@ func (f *WebViewFactory) Create(ctx context.Context) (port.WebView, error) {
 		engine:             f.engine,
 		pipeline:           pipeline,
 		audioOutputFactory: f.audioOutputFactory,
+		resizeReconciler:   newResizeReconciler(ctx, id),
 	}
 
 	var transcodingHandler purecef.ResourceRequestHandler
@@ -205,14 +211,57 @@ func (f *WebViewFactory) configureInitialBrowserCreation(
 	}
 
 	// On subsequent resizes, notify CEF so it re-queries GetViewRect.
-	pipeline.onResizeCB = func(_, _ int32) {
+	pipeline.onResizeCB = func(w, h int32) {
+		log := logging.FromContext(ctx)
 		wv.mu.RLock()
 		host := wv.host
 		wv.mu.RUnlock()
-		if host != nil {
-			host.WasResized()
+		if host == nil {
+			log.Debug().
+				Uint64("webview_id", uint64(wv.id)).
+				Int32("resize_width", w).
+				Int32("resize_height", h).
+				Bool("host_nil", true).
+				Bool("browser_ready", false).
+				Msg("cef: resize observed before browser host existed")
+			return
+		}
+		log.Debug().
+			Uint64("webview_id", uint64(wv.id)).
+			Int32("resize_width", w).
+			Int32("resize_height", h).
+			Bool("host_nil", false).
+			Bool("browser_ready", true).
+			Msg("cef: browser resize observed before WasResized")
+		notifyBrowserResize(host)
+		log.Debug().
+			Uint64("webview_id", uint64(wv.id)).
+			Int32("resize_width", w).
+			Int32("resize_height", h).
+			Bool("host_nil", false).
+			Bool("browser_ready", true).
+			Msg("cef: browser host WasResized invoked")
+		if wv.resizeReconciler != nil {
+			resizeSeq, _ := wv.pipeline.latestResizeDiagnostics()
+			wv.resizeReconciler.start(
+				resizeSeq,
+				func() resizeNotifiableBrowserHost {
+					wv.mu.RLock()
+					defer wv.mu.RUnlock()
+					return wv.host
+				},
+				func() bool { return wv.destroyed.Load() },
+			)
 		}
 	}
+}
+
+func notifyBrowserResize(host resizeNotifiableBrowserHost) {
+	if host == nil {
+		return
+	}
+	host.WasResized()
+	host.Invalidate(purecef.PaintElementTypePetView)
 }
 
 // CreateRelated creates a WebView that shares session/cookies with the parent.

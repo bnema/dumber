@@ -80,6 +80,34 @@ func TestHandlePaintCopiesDirtyRectsIntoPersistentStaging(t *testing.T) {
 	require.False(t, rp.forceFullUpload)
 }
 
+func TestOnResizeIgnoresZeroFirstResize(t *testing.T) {
+	called := false
+	rp := &renderPipeline{
+		scale: 1,
+		onFirstResize: func(_, _ int32) {
+			called = true
+		},
+	}
+	rp.widthAtomic.Store(123)
+	rp.heightAtomic.Store(456)
+
+	rp.onResize(0, 0)
+
+	require.False(t, called)
+	require.Equal(t, int32(123), rp.widthAtomic.Load())
+	require.Equal(t, int32(456), rp.heightAtomic.Load())
+	require.False(t, rp.sizeChanged)
+	require.NotNil(t, rp.onFirstResize)
+
+	rp.onResize(10, 20)
+
+	require.True(t, called)
+	require.Equal(t, int32(10), rp.widthAtomic.Load())
+	require.Equal(t, int32(20), rp.heightAtomic.Load())
+	require.True(t, rp.sizeChanged)
+	require.Nil(t, rp.onFirstResize)
+}
+
 // sortRects sorts rects by (X, Y) so tests can compare without caring about order.
 func sortRects(rects []rect) {
 	sort.Slice(rects, func(i, j int) bool {

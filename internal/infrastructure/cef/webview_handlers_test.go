@@ -137,3 +137,27 @@ func TestOptionalHandlersRespectFactoryFlags(t *testing.T) {
 
 	require.Same(t, h, h.GetContextMenuHandler())
 }
+
+func TestOnPaint_DropsStaleMainViewPaint(t *testing.T) {
+	wv := &WebView{
+		id: 42,
+		pipeline: &renderPipeline{
+			ctx:   context.Background(),
+			scale: 1,
+		},
+	}
+	wv.pipeline.widthAtomic.Store(1269)
+	wv.pipeline.heightAtomic.Store(1035)
+
+	h := &handlerSet{wv: wv}
+	buffer := make([]byte, 1269*2106*4)
+
+	h.OnPaint(nil, purecef.PaintElementTypePetView, []purecef.Rect{{X: 0, Y: 0, Width: 1269, Height: 2106}}, buffer, 1269, 2106)
+
+	require.Equal(t, int32(1269), wv.pipeline.widthAtomic.Load())
+	require.Equal(t, int32(1035), wv.pipeline.heightAtomic.Load())
+	require.Nil(t, wv.pipeline.staging)
+	require.Zero(t, wv.pipeline.lastQueuedPaintSeq.Load())
+	require.False(t, wv.pipeline.needsUpload)
+	require.Empty(t, wv.pipeline.dirtyRects)
+}

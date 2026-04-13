@@ -36,6 +36,54 @@ const maxRetryFrames = 120
 
 const notifyPositionDebounceDelay = 100 * time.Millisecond
 const notifyPositionSuppressAfterApplyDelay = 50 * time.Millisecond
+const splitAllocationSettledTolerance = 2
+
+func childAllocation(widget Widget) (int, int) {
+	if widget == nil {
+		return 0, 0
+	}
+	return widget.GetAllocatedWidth(), widget.GetAllocatedHeight()
+}
+
+func splitAllocationsSettled(
+	orientation Orientation, totalSize, targetPosition, actualPosition int,
+	startWidth, startHeight, endWidth, endHeight int,
+) bool {
+	if absInt(actualPosition-targetPosition) > splitAllocationSettledTolerance {
+		return false
+	}
+
+	if targetPosition <= 0 || targetPosition >= totalSize {
+		return true
+	}
+
+	startSize, endSize := startWidth, endWidth
+	if orientation == OrientationVertical {
+		startSize, endSize = startHeight, endHeight
+	}
+
+	if startSize <= splitAllocationSettledTolerance || endSize <= splitAllocationSettledTolerance {
+		return false
+	}
+
+	expectedStart := targetPosition
+	expectedEnd := totalSize - targetPosition
+	if absInt(startSize-expectedStart) > splitAllocationSettledTolerance {
+		return false
+	}
+	if absInt(endSize-expectedEnd) > splitAllocationSettledTolerance {
+		return false
+	}
+
+	return true
+}
+
+func absInt(v int) int {
+	if v < 0 {
+		return -v
+	}
+	return v
+}
 
 // NewSplitView creates a new split view with the given orientation and children.
 // The ratio determines the initial divider position (0.0-1.0).
@@ -194,6 +242,8 @@ func (sv *SplitView) ApplyRatio() bool {
 	sv.mu.RLock()
 	ratio := sv.ratio
 	orientation := sv.orientation
+	startChild := sv.startChild
+	endChild := sv.endChild
 	sv.mu.RUnlock()
 
 	// Get the relevant dimension based on orientation
@@ -217,11 +267,19 @@ func (sv *SplitView) ApplyRatio() bool {
 
 	// Calculate position from ratio
 	position := int(float64(totalSize) * ratio)
+	startWidthBefore, startHeightBefore := childAllocation(startChild)
+	endWidthBefore, endHeightBefore := childAllocation(endChild)
+	currentPositionBeforeSet := sv.paned.GetPosition()
 	sv.logger.Debug().
 		Str("orientation", orientStr).
 		Int("total_size", totalSize).
 		Float64("ratio", ratio).
 		Int("position", position).
+		Int("current_position_before_set", currentPositionBeforeSet).
+		Int("start_child_alloc_width", startWidthBefore).
+		Int("start_child_alloc_height", startHeightBefore).
+		Int("end_child_alloc_width", endWidthBefore).
+		Int("end_child_alloc_height", endHeightBefore).
 		Msg("ApplyRatio: setting position")
 
 	// Avoid treating programmatic SetPosition as a user resize.
@@ -231,6 +289,29 @@ func (sv *SplitView) ApplyRatio() bool {
 	sv.mu.Unlock()
 
 	sv.paned.SetPosition(position)
+
+	startWidthAfter, startHeightAfter := childAllocation(startChild)
+	endWidthAfter, endHeightAfter := childAllocation(endChild)
+	actualPositionAfterSet := sv.paned.GetPosition()
+	childAllocationsSettled := splitAllocationsSettled(
+		orientation, totalSize, position, actualPositionAfterSet,
+		startWidthAfter, startHeightAfter, endWidthAfter, endHeightAfter,
+	)
+	sv.logger.Debug().
+		Str("orientation", orientStr).
+		Int("total_size", totalSize).
+		Int("target_position", position).
+		Int("actual_position_after_set", actualPositionAfterSet).
+		Int("start_child_alloc_width", startWidthAfter).
+		Int("start_child_alloc_height", startHeightAfter).
+		Int("end_child_alloc_width", endWidthAfter).
+		Int("end_child_alloc_height", endHeightAfter).
+		Bool("child_allocations_settled", childAllocationsSettled).
+		Msg("ApplyRatio: position applied")
+
+	if !childAllocationsSettled {
+		return false
+	}
 
 	sv.mu.Lock()
 	sv.hasAppliedRatio = true

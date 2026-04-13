@@ -148,14 +148,16 @@ func (pv *PaneView) SetWebViewWidget(widget layout.Widget) {
 	pv.webViewWidget = widget
 
 	if widget != nil {
+		overlayAllocWidthBefore := pv.overlay.GetAllocatedWidth()
+		overlayAllocHeightBefore := pv.overlay.GetAllocatedHeight()
+		widgetAllocWidthBefore := widget.GetAllocatedWidth()
+		widgetAllocHeightBefore := widget.GetAllocatedHeight()
+		hadParent := widget.GetParent() != nil
+		wasVisible := widget.IsVisible()
+
 		// If this widget already had a parent, we're reparenting an existing WebView
 		// (e.g. after rebuilding/moving panes). In that case the WebView has likely
 		// already painted, so the loading skeleton should be hidden immediately.
-		hadParent := widget.GetParent() != nil
-		wasVisible := false
-		if hadParent {
-			wasVisible = widget.IsVisible()
-		}
 
 		// Unparent widget from any previous parent (critical for rebuild scenarios)
 		// In GTK4, a widget can only have one parent at a time
@@ -170,6 +172,20 @@ func (pv *PaneView) SetWebViewWidget(widget layout.Widget) {
 		if hadParent && pv.loading != nil {
 			pv.loading.SetVisible(false)
 		}
+
+		logging.FromContext(pv.ctx).Debug().
+			Str("pane_id", string(pv.paneID)).
+			Bool("had_parent", hadParent).
+			Bool("was_visible", wasVisible).
+			Int("overlay_alloc_width_before", overlayAllocWidthBefore).
+			Int("overlay_alloc_height_before", overlayAllocHeightBefore).
+			Int("widget_alloc_width_before", widgetAllocWidthBefore).
+			Int("widget_alloc_height_before", widgetAllocHeightBefore).
+			Int("overlay_alloc_width_after", pv.overlay.GetAllocatedWidth()).
+			Int("overlay_alloc_height_after", pv.overlay.GetAllocatedHeight()).
+			Int("widget_alloc_width_after", widget.GetAllocatedWidth()).
+			Int("widget_alloc_height_after", widget.GetAllocatedHeight()).
+			Msg("pane view webview widget attached")
 	}
 }
 
