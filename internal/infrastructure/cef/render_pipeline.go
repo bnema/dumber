@@ -841,6 +841,10 @@ func compileShader(gl *glLoader, shaderType uint32, source string) uint32 {
 // onResize is the GTK "resize" signal handler. Dimensions are in CSS pixels;
 // we multiply by scale to get device pixels.
 func (rp *renderPipeline) onResize(width, height int32) {
+	if width <= 0 || height <= 0 {
+		return
+	}
+
 	rp.mu.Lock()
 
 	prevWidth := rp.widthAtomic.Load()
