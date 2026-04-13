@@ -24,30 +24,30 @@ func TestResolvedImageSaver_SaveResolvedImage(t *testing.T) {
 	downloadDir := t.TempDir()
 	destPath := filepath.Join(downloadDir, "image.png")
 	preparer := &fakeDownloadPreparer{output: &port.DownloadPrepareOutput{Filename: "image.png", DestinationPath: destPath}}
-	saver := NewResolvedImageSaver(preparer, downloadDir, port.MenuContext{ImageURI: "https://example.com/assets/image"})
+	saver := NewResolvedImageSaver(preparer, downloadDir)
 
-	err := saver.SaveResolvedImage(context.Background(), port.ImageData{Bytes: []byte{1, 2, 3, 4}})
+	err := saver.SaveResolvedImage(context.Background(), port.ImageData{Bytes: []byte{1, 2, 3, 4}, MimeType: "image/jpeg"}, port.MenuContext{ImageURI: "https://example.com/assets/image"})
 	require.NoError(t, err)
 	require.Equal(t, downloadDir, preparer.input.DownloadDir)
 	require.Equal(t, "https://example.com/assets/image", preparer.input.Response.GetUri())
-	require.Equal(t, "image/png", preparer.input.Response.GetMimeType())
+	require.Equal(t, "image/jpeg", preparer.input.Response.GetMimeType())
 	require.Equal(t, []byte{1, 2, 3, 4}, readFile(t, destPath))
 }
 
 func TestResolvedImageSaver_SaveResolvedImageRequiresDestination(t *testing.T) {
 	preparer := &fakeDownloadPreparer{output: &port.DownloadPrepareOutput{Filename: "image.png"}}
-	saver := NewResolvedImageSaver(preparer, t.TempDir(), port.MenuContext{})
+	saver := NewResolvedImageSaver(preparer, t.TempDir())
 
-	err := saver.SaveResolvedImage(context.Background(), port.ImageData{Bytes: []byte{1}})
+	err := saver.SaveResolvedImage(context.Background(), port.ImageData{Bytes: []byte{1}}, port.MenuContext{})
 	require.Error(t, err)
 	require.Contains(t, err.Error(), "destination path")
 }
 
 func TestResolvedImageSaver_SaveResolvedImageRejectsEmptyBytes(t *testing.T) {
 	preparer := &fakeDownloadPreparer{output: &port.DownloadPrepareOutput{Filename: "image.png", DestinationPath: filepath.Join(t.TempDir(), "image.png")}}
-	saver := NewResolvedImageSaver(preparer, t.TempDir(), port.MenuContext{})
+	saver := NewResolvedImageSaver(preparer, t.TempDir())
 
-	err := saver.SaveResolvedImage(context.Background(), port.ImageData{})
+	err := saver.SaveResolvedImage(context.Background(), port.ImageData{}, port.MenuContext{})
 	require.Error(t, err)
 	require.Contains(t, err.Error(), "empty image data")
 }

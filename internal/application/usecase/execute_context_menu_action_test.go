@@ -46,14 +46,16 @@ func (f *fakeImageResolver) ResolveImageData(_ context.Context, uri string) (por
 }
 
 type fakeResolvedImageSaver struct {
-	saveCalls int
-	image     port.ImageData
-	err       error
+	saveCalls   int
+	image       port.ImageData
+	menuContext port.MenuContext
+	err         error
 }
 
-func (f *fakeResolvedImageSaver) SaveResolvedImage(_ context.Context, image port.ImageData) error {
+func (f *fakeResolvedImageSaver) SaveResolvedImage(_ context.Context, image port.ImageData, menuContext port.MenuContext) error {
 	f.saveCalls++
 	f.image = image
+	f.menuContext = menuContext
 	return f.err
 }
 
@@ -93,7 +95,7 @@ func TestExecuteContextMenuActionUseCase_CopyImageFailsWithoutResolvedData(t *te
 
 func TestExecuteContextMenuActionUseCase_SaveImageDelegatesResolvedImage(t *testing.T) {
 	clipboard := &fakeClipboard{}
-	resolver := &fakeImageResolver{image: port.ImageData{Bytes: []byte{1, 2, 3}}}
+	resolver := &fakeImageResolver{image: port.ImageData{Bytes: []byte{1, 2, 3}, MimeType: "image/png"}}
 	saver := &fakeResolvedImageSaver{}
 	delegator := &fakeMenuActionDelegator{}
 	uc := NewExecuteContextMenuActionUseCase(clipboard, resolver, saver, delegator)
@@ -107,7 +109,8 @@ func TestExecuteContextMenuActionUseCase_SaveImageDelegatesResolvedImage(t *test
 	require.Equal(t, 1, resolver.resolveCalls)
 	require.Equal(t, "https://example.com/image.png", resolver.uri)
 	require.Equal(t, 1, saver.saveCalls)
-	require.Equal(t, port.ImageData{Bytes: []byte{1, 2, 3}}, saver.image)
+	require.Equal(t, port.ImageData{Bytes: []byte{1, 2, 3}, MimeType: "image/png"}, saver.image)
+	require.Equal(t, port.MenuContext{ImageURI: "https://example.com/image.png"}, saver.menuContext)
 	require.Zero(t, clipboard.writeTextCalls)
 	require.Zero(t, clipboard.writeImageCalls)
 	require.Zero(t, delegator.delegateCalls)

@@ -2,9 +2,10 @@ package port
 
 import "context"
 
-// ImageData contains resolved image bytes.
+// ImageData contains resolved image bytes and MIME type metadata.
 type ImageData struct {
-	Bytes []byte
+	Bytes    []byte
+	MimeType string
 }
 
 // ImageDataResolver resolves image bytes from a URI.
@@ -14,5 +15,5 @@ type ImageDataResolver interface {
 
 // ResolvedImageSaver persists already resolved image bytes.
 type ResolvedImageSaver interface {
-	SaveResolvedImage(ctx context.Context, image ImageData) error
+	SaveResolvedImage(ctx context.Context, image ImageData, menuContext MenuContext) error
 }

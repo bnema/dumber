@@ -9,6 +9,8 @@ import (
 // BuildContextMenuUseCase normalizes context menu items from menu state.
 type BuildContextMenuUseCase struct{}
 
+var _ port.ContextMenuBuilder = (*BuildContextMenuUseCase)(nil)
+
 // NewBuildContextMenuUseCase creates a new BuildContextMenuUseCase.
 func NewBuildContextMenuUseCase() *BuildContextMenuUseCase {
 	return &BuildContextMenuUseCase{}
@@ -16,6 +18,10 @@ func NewBuildContextMenuUseCase() *BuildContextMenuUseCase {
 
 // Build returns normalized menu items for the supplied context.
 func (*BuildContextMenuUseCase) Build(_ context.Context, menuContext port.MenuContext) []port.MenuItem {
+	if menuContext.IsEditable {
+		return nil
+	}
+
 	items := make([]port.MenuItem, 0, 9)
 
 	if menuContext.CanGoBack {

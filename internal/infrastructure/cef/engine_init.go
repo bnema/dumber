@@ -54,6 +54,7 @@ func NewEngine(
 		registerAccentHandlers: deps.RegisterAccentHandlers,
 		currentConfigPayload:   deps.CurrentConfigPayload,
 		defaultConfigPayload:   deps.DefaultConfigPayload,
+		ctxMenuBuilder:         deps.ContextMenuBuilder,
 		mediaClassifier:        deps.MediaClassifier,
 	}
 

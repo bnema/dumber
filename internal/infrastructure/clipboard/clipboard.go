@@ -127,8 +127,8 @@ func (a *Adapter) WriteText(ctx context.Context, text string) error {
 }
 
 // WriteImage copies image bytes to the clipboard.
-// This path is PNG-only; xsel is not supported because the adapter has no
-// reliable binary image mode for it in this codebase.
+// xsel is not supported because the adapter has no reliable binary image mode
+// for it in this codebase.
 func (a *Adapter) WriteImage(ctx context.Context, image port.ImageData) error {
 	log := logging.FromContext(ctx)
 
@@ -186,12 +186,16 @@ func (a *Adapter) writeImageWithCommand(ctx context.Context, image port.ImageDat
 		log.Error().Err(err).Msg("clipboard image write failed")
 		return err
 	}
+	mimeType := image.MimeType
+	if mimeType == "" {
+		mimeType = "image/png"
+	}
 
 	var cmd *exec.Cmd
 	if strings.Contains(a.copyCmd, "wl-copy") {
-		cmd = commandContext(ctx, a.copyCmd, "--type", "image/png")
+		cmd = commandContext(ctx, a.copyCmd, "--type", mimeType)
 	} else if strings.Contains(a.copyCmd, "xclip") {
-		cmd = commandContext(ctx, a.copyCmd, "-selection", "clipboard", "-t", "image/png", "-i")
+		cmd = commandContext(ctx, a.copyCmd, "-selection", "clipboard", "-t", mimeType, "-i")
 	} else {
 		err := fmt.Errorf("clipboard tool does not support image writes: %s", a.copyCmd)
 		log.Error().Err(err).Msg("clipboard image write failed")

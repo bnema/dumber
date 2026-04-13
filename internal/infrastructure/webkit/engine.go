@@ -5,7 +5,6 @@ import (
 	"fmt"
 
 	"github.com/bnema/dumber/internal/application/port"
-	"github.com/bnema/dumber/internal/application/usecase"
 	"github.com/bnema/dumber/internal/infrastructure/config"
 	"github.com/bnema/dumber/internal/infrastructure/contextmenu"
 	"github.com/bnema/dumber/internal/infrastructure/filtering"
@@ -15,18 +14,22 @@ import (
 
 // Engine implements port.Engine for the WebKit browser engine.
 type Engine struct {
-	ctx           context.Context
-	wkCtx         *WebKitContext
-	settings      *SettingsManager
-	injector      *ContentInjector
-	messageRouter *MessageRouter
-	pool          *WebViewPool
-	factory       *WebViewFactory
-	filterManager *filtering.Manager
-	schemeHandler *DumbSchemeHandler
-	schemePath    string
-	logger        zerolog.Logger
-	clipboard     port.Clipboard // captured during RegisterHandlers for context menu wiring
+	ctx                    context.Context
+	wkCtx                  *WebKitContext
+	settings               *SettingsManager
+	injector               *ContentInjector
+	messageRouter          *MessageRouter
+	pool                   *WebViewPool
+	factory                *WebViewFactory
+	filterManager          *filtering.Manager
+	schemeHandler          *DumbSchemeHandler
+	schemePath             string
+	logger                 zerolog.Logger
+	ctxMenuBuilder         port.ContextMenuBuilder
+	ctxMenuExecutorFactory port.ContextMenuActionExecutorFactory
+	downloadPath           string
+	downloadPreparer       port.DownloadPreparer
+	clipboard              port.Clipboard // captured during RegisterHandlers for context menu wiring
 }
 
 // Compile-time check that Engine implements port.Engine.
@@ -118,6 +121,8 @@ func (e *Engine) ConfigureDownloads(
 	}
 	handler := NewDownloadHandler(downloadPath, eventHandler, preparer)
 	e.wkCtx.SetDownloadHandler(ctx, handler)
+	e.downloadPath = downloadPath
+	e.downloadPreparer = preparer
 
 	// Wire the shared context menu pipeline now that all dependencies are
 	// available. RegisterHandlers (called earlier) captured the clipboard;
@@ -164,47 +169,28 @@ func (e *Engine) UpdateSettings(ctx context.Context, update port.EngineSettingsU
 // deps) have run. Kept on the concrete *Engine type because it is a
 // WebKit-specific concern.
 func (e *Engine) installContextMenuPipeline() {
-	if e.clipboard == nil {
-		e.logger.Warn().Msg("context menu: clipboard not available, skipping pipeline")
-		return
-	}
-
-	buildUC := usecase.NewBuildContextMenuUseCase()
 	resolver := NewContextMenuResolver()
-
-	// The saver is nil for now: the ResolvedImageSaver port interface does not
-	// carry the image URI needed for filename derivation, so save-image will
-	// return a graceful error ("image saver not available"). Copy-image (the
-	// primary goal) works without it.
-	var saver port.ResolvedImageSaver
-
-	executeUC := usecase.NewExecuteContextMenuActionUseCase(
-		e.clipboard,
-		resolver,
-		saver,
-		nil, // delegator — not yet implemented
-	)
+	saver := contextmenu.NewResolvedImageSaver(e.downloadPreparer, e.downloadPath)
 
 	// WebKit's context-menu signal fires on the GTK main thread, so no
 	// dispatch wrapper is needed.
 	renderer := contextmenu.NewRenderer(nil)
 
-	e.SetContextMenuPipeline(buildUC, executeUC, renderer)
+	pipeline := &contextMenuPipeline{
+		builder:         e.ctxMenuBuilder,
+		executorFactory: e.ctxMenuExecutorFactory,
+		clipboard:       e.clipboard,
+		resolver:        resolver,
+		saver:           saver,
+		renderer:        renderer,
+	}
+	e.SetContextMenuPipeline(pipeline)
 }
 
 // SetContextMenuPipeline configures the context menu pipeline for all WebViews
 // created by the factory (and pool). Call this after the use cases and renderer
 // are available in the bootstrap layer.
-func (e *Engine) SetContextMenuPipeline(
-	buildUC *usecase.BuildContextMenuUseCase,
-	executeUC *usecase.ExecuteContextMenuActionUseCase,
-	renderer *contextmenu.Renderer,
-) {
-	pipeline := &contextMenuPipeline{
-		buildUC:   buildUC,
-		executeUC: executeUC,
-		renderer:  renderer,
-	}
+func (e *Engine) SetContextMenuPipeline(pipeline *contextMenuPipeline) {
 	if e.factory != nil {
 		e.factory.SetContextMenuPipeline(pipeline)
 	}

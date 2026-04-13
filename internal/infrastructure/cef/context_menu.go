@@ -6,7 +6,6 @@ import (
 	"strings"
 
 	"github.com/bnema/dumber/internal/application/port"
-	"github.com/bnema/dumber/internal/application/usecase"
 	"github.com/bnema/dumber/internal/infrastructure/contextmenu"
 )
 
@@ -28,12 +27,14 @@ func (h *handlerSet) RunContextMenu(
 		}
 		return 1
 	}
+	if h.wv == nil || h.wv.engine == nil || h.wv.engine.ctxMenuBuilder == nil {
+		return 0
+	}
 
 	menuContext := buildMenuContext(h.wv, params)
-	items := usecase.NewBuildContextMenuUseCase().Build(context.Background(), menuContext)
+	items := h.wv.engine.ctxMenuBuilder.Build(context.Background(), menuContext)
 	if len(items) == 0 {
-		callback.Cancel()
-		return 1
+		return 0
 	}
 
 	// Snapshot the command IDs from CEF — model/params pointers are only valid during this call.

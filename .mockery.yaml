@@ -49,6 +49,9 @@ packages:
       AccentKeyHandler: {}
       AutoCopyConfig: {}
       Clipboard: {}
+      ContextMenuBuilder: {}
+      ContextMenuActionExecutor: {}
+      ContextMenuActionExecutorFactory: {}
       DesktopIntegration: {}
       DownloadEventHandler: {}
       DownloadPreparer: {}
@@ -71,6 +74,9 @@ packages:
       RuntimeVersionProbe: {}
       ScriptRefresher: {}
       SnapshotService: {}
+      ImageDataResolver: {}
+      ResolvedImageSaver: {}
+      MenuActionDelegator: {}
       TextInputTargetProvider: {}
       Texture: {}
       ToolkitAvailabilityNotifier: {}

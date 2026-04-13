@@ -18,20 +18,18 @@ const (
 type ResolvedImageSaver struct {
 	preparer    port.DownloadPreparer
 	downloadDir string
-	menuCtx     port.MenuContext
 }
 
 // NewResolvedImageSaver creates a new ResolvedImageSaver helper.
-func NewResolvedImageSaver(preparer port.DownloadPreparer, downloadDir string, menuCtx port.MenuContext) *ResolvedImageSaver {
+func NewResolvedImageSaver(preparer port.DownloadPreparer, downloadDir string) *ResolvedImageSaver {
 	return &ResolvedImageSaver{
 		preparer:    preparer,
 		downloadDir: downloadDir,
-		menuCtx:     menuCtx,
 	}
 }
 
 // SaveResolvedImage resolves a destination path and writes the image bytes.
-func (s *ResolvedImageSaver) SaveResolvedImage(ctx context.Context, image port.ImageData) error {
+func (s *ResolvedImageSaver) SaveResolvedImage(ctx context.Context, image port.ImageData, menuContext port.MenuContext) error {
 	if s == nil || s.preparer == nil {
 		return fmt.Errorf("resolved image saver: download preparer not available")
 	}
@@ -41,8 +39,8 @@ func (s *ResolvedImageSaver) SaveResolvedImage(ctx context.Context, image port.I
 		// Leave SuggestedFilename empty so DownloadPreparer can fall back to
 		// URI-derived naming when no explicit filename is available.
 		Response: downloadResponse{
-			mimeType: "image/png",
-			uri:      s.menuCtx.ImageURI,
+			mimeType: image.MimeType,
+			uri:      menuContext.ImageURI,
 		},
 	})
 	if output == nil || output.DestinationPath == "" {

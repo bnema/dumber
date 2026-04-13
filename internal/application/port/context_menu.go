@@ -36,6 +36,26 @@ type MenuItem struct {
 	Label  string
 }
 
+// ContextMenuBuilder builds normalized menu items from menu state.
+type ContextMenuBuilder interface {
+	Build(ctx context.Context, menuContext MenuContext) []MenuItem
+}
+
+// ContextMenuActionExecutor executes normalized context menu actions.
+type ContextMenuActionExecutor interface {
+	ExecuteMenuAction(ctx context.Context, action MenuAction, menuContext MenuContext) error
+}
+
+// ContextMenuActionExecutorFactory creates context menu action executors.
+type ContextMenuActionExecutorFactory interface {
+	NewContextMenuActionExecutor(
+		clipboard Clipboard,
+		resolver ImageDataResolver,
+		saver ResolvedImageSaver,
+		delegator MenuActionDelegator,
+	) ContextMenuActionExecutor
+}
+
 // MenuActionDelegator handles actions that are not shared application concerns.
 type MenuActionDelegator interface {
 	DelegateMenuAction(ctx context.Context, action MenuAction, menuContext MenuContext) error

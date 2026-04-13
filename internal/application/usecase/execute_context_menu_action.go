@@ -21,6 +21,8 @@ type ExecuteContextMenuActionUseCase struct {
 	delegator port.MenuActionDelegator
 }
 
+var _ port.ContextMenuActionExecutor = (*ExecuteContextMenuActionUseCase)(nil)
+
 // NewExecuteContextMenuActionUseCase creates a new ExecuteContextMenuActionUseCase.
 func NewExecuteContextMenuActionUseCase(
 	clipboard port.Clipboard,
@@ -36,22 +38,50 @@ func NewExecuteContextMenuActionUseCase(
 	}
 }
 
+// ContextMenuActionExecutorFactory creates ExecuteContextMenuActionUseCases.
+type ContextMenuActionExecutorFactory struct{}
+
+var _ port.ContextMenuActionExecutorFactory = (*ContextMenuActionExecutorFactory)(nil)
+
+// NewContextMenuActionExecutor creates a new shared context menu action executor.
+func (*ContextMenuActionExecutorFactory) NewContextMenuActionExecutor(
+	clipboard port.Clipboard,
+	resolver port.ImageDataResolver,
+	saver port.ResolvedImageSaver,
+	delegator port.MenuActionDelegator,
+) port.ContextMenuActionExecutor {
+	return NewExecuteContextMenuActionUseCase(clipboard, resolver, saver, delegator)
+}
+
 // Execute handles the requested action.
 func (uc *ExecuteContextMenuActionUseCase) Execute(ctx context.Context, input ExecuteContextMenuActionInput) error {
-	switch input.Action {
+	return uc.ExecuteMenuAction(ctx, input.Action, input.Context)
+}
+
+// ExecuteMenuAction handles the requested action.
+func (uc *ExecuteContextMenuActionUseCase) ExecuteMenuAction(
+	ctx context.Context, action port.MenuAction, menuContext port.MenuContext,
+) error {
+	return uc.executeMenuAction(ctx, action, menuContext)
+}
+
+func (uc *ExecuteContextMenuActionUseCase) executeMenuAction(
+	ctx context.Context, action port.MenuAction, menuContext port.MenuContext,
+) error {
+	switch action {
 	case port.MenuActionCopyLink:
-		if input.Context.LinkURI == "" {
+		if menuContext.LinkURI == "" {
 			return fmt.Errorf("copy link: link URI not available")
 		}
 		if uc.clipboard == nil {
 			return fmt.Errorf("copy link: clipboard not available")
 		}
-		if err := uc.clipboard.WriteText(ctx, input.Context.LinkURI); err != nil {
+		if err := uc.clipboard.WriteText(ctx, menuContext.LinkURI); err != nil {
 			return fmt.Errorf("copy link: %w", err)
 		}
 		return nil
 	case port.MenuActionCopyImage:
-		image, err := uc.resolveImageData(ctx, input.Context.ImageURI)
+		image, err := uc.resolveImageData(ctx, menuContext.ImageURI)
 		if err != nil {
 			return fmt.Errorf("copy image: %w", err)
 		}
@@ -63,24 +93,24 @@ func (uc *ExecuteContextMenuActionUseCase) Execute(ctx context.Context, input Ex
 		}
 		return nil
 	case port.MenuActionSaveImage:
-		image, err := uc.resolveImageData(ctx, input.Context.ImageURI)
+		image, err := uc.resolveImageData(ctx, menuContext.ImageURI)
 		if err != nil {
 			return fmt.Errorf("save image: %w", err)
 		}
 		if uc.saver == nil {
 			return fmt.Errorf("save image: image saver not available")
 		}
-		if err := uc.saver.SaveResolvedImage(ctx, image); err != nil {
+		if err := uc.saver.SaveResolvedImage(ctx, image, menuContext); err != nil {
 			return fmt.Errorf("save image: %w", err)
 		}
 		return nil
 	default:
 		// All other normalized actions are delegated to the engine/UI layer.
 		if uc.delegator == nil {
-			return fmt.Errorf("delegate action %s: menu action delegator not available", input.Action)
+			return fmt.Errorf("delegate action %s: menu action delegator not available", action)
 		}
-		if err := uc.delegator.DelegateMenuAction(ctx, input.Action, input.Context); err != nil {
-			return fmt.Errorf("delegate action %s: %w", input.Action, err)
+		if err := uc.delegator.DelegateMenuAction(ctx, action, menuContext); err != nil {
+			return fmt.Errorf("delegate action %s: %w", action, err)
 		}
 		return nil
 	}

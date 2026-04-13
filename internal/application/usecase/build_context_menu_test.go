@@ -17,6 +17,11 @@ func TestBuildContextMenuUseCase_Build(t *testing.T) {
 		expected []port.MenuAction
 	}{
 		{
+			name:     "editable context uses native menu",
+			context:  port.MenuContext{IsEditable: true},
+			expected: []port.MenuAction{},
+		},
+		{
 			name:     "empty context baseline",
 			context:  port.MenuContext{},
 			expected: []port.MenuAction{port.MenuActionReload, port.MenuActionInspectElement},

@@ -6,6 +6,7 @@ import (
 	"fmt"
 
 	"github.com/bnema/dumber/internal/application/port"
+	"github.com/bnema/dumber/internal/application/usecase"
 	audiofactory "github.com/bnema/dumber/internal/infrastructure/audio/factory"
 	"github.com/bnema/dumber/internal/infrastructure/cef"
 	"github.com/bnema/dumber/internal/infrastructure/config"
@@ -31,6 +32,8 @@ type EngineInput struct {
 // BuildEngine constructs a port.Engine for the engine type specified in cfg.Engine.Type.
 func BuildEngine(input EngineInput) (port.Engine, error) {
 	cfg := input.Config
+	contextMenuBuilder := usecase.NewBuildContextMenuUseCase()
+	contextMenuExecutorFactory := &usecase.ContextMenuActionExecutorFactory{}
 	engineType := cfg.Engine.ResolveEngineType()
 	switch engineType {
 	case config.EngineTypeWebKit:
@@ -43,7 +46,9 @@ func BuildEngine(input EngineInput) (port.Engine, error) {
 
 		return webkit.NewEngine(
 			input.Ctx, cfg, opts, wkCfg,
-			input.ThemeManager, input.ColorResolver, input.Logger,
+			input.ThemeManager, input.ColorResolver,
+			contextMenuBuilder, contextMenuExecutorFactory,
+			input.Logger,
 		)
 	case config.EngineTypeCEF:
 		opts := port.EngineOptions{
@@ -82,6 +87,7 @@ func BuildEngine(input EngineInput) (port.Engine, error) {
 			RegisterAccentHandlers: handlers.RegisterAccentHandlers,
 			CurrentConfigPayload:   buildConfigPayload(config.Get),
 			DefaultConfigPayload:   buildConfigPayload(config.DefaultConfig),
+			ContextMenuBuilder:     contextMenuBuilder,
 			MediaClassifier: cef.MediaClassifier{
 				IsProprietaryVideoMIME:     transcoder.IsProprietaryVideoMIME,
 				IsOpenVideoMIME:            transcoder.IsOpenVideoMIME,

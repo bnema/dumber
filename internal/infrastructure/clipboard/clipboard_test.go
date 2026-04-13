@@ -3,6 +3,9 @@ package clipboard
 import (
 	"context"
 	"errors"
+	"os"
+	"path/filepath"
+	"strings"
 	"testing"
 
 	"github.com/bnema/dumber/internal/application/port"
@@ -103,4 +106,45 @@ func TestAdapter_WriteImageRejectsEmptyBytes(t *testing.T) {
 	require.Error(t, err)
 	require.Contains(t, err.Error(), "empty image data")
 	require.Zero(t, fake.writeImageCalls)
+}
+
+func TestAdapter_WriteImageWithCommandUsesImageMimeType(t *testing.T) {
+	testCases := []struct {
+		name     string
+		image    port.ImageData
+		expected string
+	}{
+		{
+			name:     "uses provided MIME type",
+			image:    port.ImageData{Bytes: []byte{1, 2, 3}, MimeType: "image/jpeg"},
+			expected: "image/jpeg",
+		},
+		{
+			name:     "falls back to PNG",
+			image:    port.ImageData{Bytes: []byte{1, 2, 3}},
+			expected: "image/png",
+		},
+	}
+
+	for _, tt := range testCases {
+		t.Run(tt.name, func(t *testing.T) {
+			dir := t.TempDir()
+			scriptPath := filepath.Join(dir, "wl-copy")
+			argsPath := filepath.Join(dir, "args.txt")
+			stdinPath := filepath.Join(dir, "stdin.bin")
+			script := "#!/bin/sh\nprintf '%s\n' \"$@\" > \"" + argsPath + "\"\ncat > \"" + stdinPath + "\"\n"
+			require.NoError(t, os.WriteFile(scriptPath, []byte(script), 0o755))
+
+			adapter := &Adapter{copyCmd: scriptPath}
+			require.NoError(t, adapter.WriteImage(context.Background(), tt.image))
+
+			args, err := os.ReadFile(argsPath)
+			require.NoError(t, err)
+			require.Equal(t, []string{"--type", tt.expected}, strings.Split(strings.TrimSpace(string(args)), "\n"))
+
+			stdin, err := os.ReadFile(stdinPath)
+			require.NoError(t, err)
+			require.Equal(t, tt.image.Bytes, stdin)
+		})
+	}
 }

@@ -69,5 +69,6 @@ type EngineDependencies struct {
 	RegisterAccentHandlers AccentHandlerRegistrar
 	CurrentConfigPayload   func() ([]byte, error)
 	DefaultConfigPayload   func() ([]byte, error)
+	ContextMenuBuilder     port.ContextMenuBuilder
 	MediaClassifier        MediaClassifier
 }

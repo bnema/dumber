@@ -25,6 +25,8 @@ func NewEngine(
 	wkCfg WebKitEngineConfig,
 	themeManager *theme.Manager,
 	colorResolver port.ColorSchemeResolver,
+	contextMenuBuilder port.ContextMenuBuilder,
+	contextMenuExecutorFactory port.ContextMenuActionExecutorFactory,
 	logger zerolog.Logger,
 ) (*Engine, error) {
 	// --- Hardware survey and performance profile resolution ---
@@ -104,17 +106,19 @@ func NewEngine(
 
 	// --- Assemble Engine ---
 	engine := &Engine{
-		ctx:           ctx,
-		wkCtx:         wkCtx,
-		settings:      settings,
-		injector:      injector,
-		messageRouter: messageRouter,
-		pool:          pool,
-		factory:       factory,
-		filterManager: filterManager,
-		schemeHandler: schemeHandler,
-		schemePath:    "dumb://",
-		logger:        logger,
+		ctx:                    ctx,
+		wkCtx:                  wkCtx,
+		settings:               settings,
+		injector:               injector,
+		messageRouter:          messageRouter,
+		pool:                   pool,
+		factory:                factory,
+		filterManager:          filterManager,
+		schemeHandler:          schemeHandler,
+		schemePath:             "dumb://",
+		logger:                 logger,
+		ctxMenuBuilder:         contextMenuBuilder,
+		ctxMenuExecutorFactory: contextMenuExecutorFactory,
 	}
 
 	return engine, nil
