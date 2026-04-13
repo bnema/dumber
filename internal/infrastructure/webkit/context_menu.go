@@ -12,7 +12,6 @@ import (
 	"time"
 
 	"github.com/bnema/dumber/internal/application/port"
-	"github.com/bnema/dumber/internal/infrastructure/contextmenu"
 	"github.com/bnema/dumber/internal/logging"
 	"github.com/bnema/puregotk-webkit/webkit"
 )
@@ -299,7 +298,7 @@ type contextMenuPipeline struct {
 	clipboard       port.Clipboard
 	resolver        port.ImageDataResolver
 	saver           port.ResolvedImageSaver
-	renderer        *contextmenu.Renderer
+	renderer        *Renderer
 }
 
 func (p *contextMenuPipeline) newExecutor(wv *WebView) port.ContextMenuActionExecutor {

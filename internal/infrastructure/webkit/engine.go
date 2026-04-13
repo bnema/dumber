@@ -6,7 +6,6 @@ import (
 
 	"github.com/bnema/dumber/internal/application/port"
 	"github.com/bnema/dumber/internal/infrastructure/config"
-	"github.com/bnema/dumber/internal/infrastructure/contextmenu"
 	"github.com/bnema/dumber/internal/infrastructure/filtering"
 	"github.com/bnema/dumber/internal/infrastructure/handlers"
 	"github.com/rs/zerolog"
@@ -170,11 +169,11 @@ func (e *Engine) UpdateSettings(ctx context.Context, update port.EngineSettingsU
 // WebKit-specific concern.
 func (e *Engine) installContextMenuPipeline() {
 	resolver := NewContextMenuResolver()
-	saver := contextmenu.NewResolvedImageSaver(e.downloadPreparer, e.downloadPath)
+	saver := NewResolvedImageSaver(e.downloadPreparer, e.downloadPath)
 
 	// WebKit's context-menu signal fires on the GTK main thread, so no
 	// dispatch wrapper is needed.
-	renderer := contextmenu.NewRenderer(nil)
+	renderer := NewRenderer(nil)
 
 	pipeline := &contextMenuPipeline{
 		builder:         e.ctxMenuBuilder,

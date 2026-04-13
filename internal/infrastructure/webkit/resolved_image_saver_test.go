@@ -1,4 +1,4 @@
-package contextmenu
+package webkit
 
 import (
 	"context"

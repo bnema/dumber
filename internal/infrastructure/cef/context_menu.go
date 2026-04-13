@@ -2,11 +2,11 @@ package cef
 
 import (
 	"context"
-	purecef "github.com/bnema/purego-cef/cef"
 	"strings"
 
+	purecef "github.com/bnema/purego-cef/cef"
+
 	"github.com/bnema/dumber/internal/application/port"
-	"github.com/bnema/dumber/internal/infrastructure/contextmenu"
 )
 
 // ===========================================================================
@@ -71,7 +71,7 @@ func (h *handlerSet) RunContextMenu(
 	y := params.GetYcoord()
 	glArea := h.wv.pipeline.glArea
 
-	contextmenu.NewRenderer(h.wv.runOnGTK).Show(
+	NewRenderer(h.wv.runOnGTK).Show(
 		items,
 		&glArea.Widget,
 		x,
