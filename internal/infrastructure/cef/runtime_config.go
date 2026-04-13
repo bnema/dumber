@@ -14,13 +14,12 @@ var (
 )
 
 type RuntimeConfig struct {
-	CEFDir                   string
-	LogFile                  string
-	LogSeverity              int32
-	WindowlessFrameRate      int32
-	EnableAudioHandler       bool
-	EnableContextMenuHandler bool
-	TraceHandlers            bool
+	CEFDir              string
+	LogFile             string
+	LogSeverity         int32
+	WindowlessFrameRate int32
+	EnableAudioHandler  bool
+	TraceHandlers       bool
 }
 
 type TranscodingRuntimeConfig struct {

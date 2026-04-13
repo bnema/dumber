@@ -67,7 +67,8 @@ type WebViewPool struct {
 	poolMu        sync.Mutex
 	injector      *ContentInjector
 	router        *MessageRouter
-	filterApplier FilterApplier // Optional content filter applier
+	filterApplier FilterApplier        // Optional content filter applier
+	ctxMenu       *contextMenuPipeline // Optional context menu pipeline
 
 	// Background color for WebViews (eliminates white flash)
 	bg bgColor
@@ -145,6 +146,11 @@ func (p *WebViewPool) SetBackgroundColor(r, g, b, a float32) {
 	p.bg.set(r, g, b, a)
 }
 
+// SetContextMenuPipeline sets the context menu pipeline for newly created WebViews.
+func (p *WebViewPool) SetContextMenuPipeline(pipeline *contextMenuPipeline) {
+	p.ctxMenu = pipeline
+}
+
 // Acquire gets a WebView from the pool or creates a new one.
 func (p *WebViewPool) Acquire(ctx context.Context) (*WebView, error) {
 	log := logging.FromContext(ctx)
@@ -170,6 +176,10 @@ func (p *WebViewPool) Acquire(ctx context.Context) (*WebView, error) {
 			// Apply filters if available (may not have been applied during prewarm)
 			if p.filterApplier != nil {
 				p.filterApplier.ApplyTo(ctx, wv.ucm)
+			}
+			// Ensure context menu pipeline is set (may not have been available during prewarm)
+			if p.ctxMenu != nil {
+				wv.contextMenu = p.ctxMenu
 			}
 			wv.ReconnectSignals()
 			p.acquireCount.Add(1)
@@ -235,6 +245,12 @@ func (p *WebViewPool) createWebView(ctx context.Context) (*WebView, error) {
 	// Apply content filters if configured
 	if p.filterApplier != nil {
 		p.filterApplier.ApplyTo(ctx, wv.ucm)
+	}
+
+	// Wire context menu if configured
+	if p.ctxMenu != nil {
+		wv.contextMenu = p.ctxMenu
+		wv.connectContextMenuSignal(p.ctxMenu)
 	}
 
 	return wv, nil

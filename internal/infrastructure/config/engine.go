@@ -95,8 +95,6 @@ type CEFEngineConfig struct {
 	WindowlessFrameRate int32 `mapstructure:"windowless_frame_rate" toml:"windowless_frame_rate" yaml:"windowless_frame_rate"`
 	// EnableAudioHandler opts into the experimental CEF AudioHandler bridge.
 	EnableAudioHandler bool `mapstructure:"enable_audio_handler" toml:"enable_audio_handler" yaml:"enable_audio_handler"`
-	// EnableContextMenuHandler opts into the experimental CEF ContextMenuHandler bridge.
-	EnableContextMenuHandler bool `mapstructure:"enable_context_menu_handler" toml:"enable_context_menu_handler" yaml:"enable_context_menu_handler"` //nolint:lll // struct tags exceed lll limit
 	// TraceHandlers enables purego-cef handler/refcount tracing for diagnostics.
 	TraceHandlers bool `mapstructure:"trace_handlers" toml:"trace_handlers" yaml:"trace_handlers"`
 }

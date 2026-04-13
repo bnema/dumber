@@ -1,17 +1,14 @@
 package cef
 
 import (
+	"context"
 	purecef "github.com/bnema/purego-cef/cef"
-	"github.com/bnema/puregotk/v4/gdk"
-	"github.com/bnema/puregotk/v4/gtk"
-)
+	"strings"
 
-// menuEntry holds a snapshot of one CEF menu item.
-type menuEntry struct {
-	label     string
-	commandID int32
-	isSep     bool
-}
+	"github.com/bnema/dumber/internal/application/port"
+	"github.com/bnema/dumber/internal/application/usecase"
+	"github.com/bnema/dumber/internal/infrastructure/contextmenu"
+)
 
 // ===========================================================================
 // ContextMenuHandler (implemented on handlerSet)
@@ -25,98 +22,139 @@ func (h *handlerSet) RunContextMenu(
 	params purecef.ContextMenuParams, model purecef.MenuModel,
 	callback purecef.RunContextMenuCallback,
 ) int32 {
+	if h == nil || callback == nil || model == nil {
+		if callback != nil {
+			callback.Cancel()
+		}
+		return 1
+	}
+
+	menuContext := buildMenuContext(h.wv, params)
+	items := usecase.NewBuildContextMenuUseCase().Build(context.Background(), menuContext)
+	if len(items) == 0 {
+		callback.Cancel()
+		return 1
+	}
+
+	// Snapshot the command IDs from CEF — model/params pointers are only valid during this call.
 	count := model.GetCount()
 	if count == 0 {
 		callback.Cancel()
 		return 1
 	}
-
-	// Snapshot menu items — model/params pointers are only valid during this call.
-	items := make([]menuEntry, 0, count)
+	commandIDsByLabel := make(map[string]int32, count)
 	for i := range count {
 		t := model.GetTypeAt(i)
 		if t == purecef.MenuItemTypeMenuitemtypeSeparator {
-			items = append(items, menuEntry{isSep: true})
 			continue
 		}
 		if t == purecef.MenuItemTypeMenuitemtypeCommand {
-			items = append(items, menuEntry{
-				label:     model.GetLabelAt(i),
-				commandID: model.GetCommandIDAt(i),
-			})
+			label := strings.ToLower(strings.TrimSpace(model.GetLabelAt(i)))
+			if label != "" {
+				commandIDsByLabel[label] = model.GetCommandIDAt(i)
+			}
 		}
 	}
-	if len(items) == 0 {
+	commandIDByAction := make(map[port.MenuAction]int32, len(items))
+	for _, item := range items {
+		if cmdID, ok := lookupContextMenuCommandID(item.Action, item.Label, commandIDsByLabel); ok {
+			commandIDByAction[item.Action] = cmdID
+		}
+	}
+	if h.wv == nil || h.wv.pipeline == nil || h.wv.pipeline.glArea == nil {
 		callback.Cancel()
 		return 1
 	}
 
 	x := params.GetXcoord()
 	y := params.GetYcoord()
+	glArea := h.wv.pipeline.glArea
 
-	h.wv.runOnGTK(func() {
-		showContextMenu(h.wv, items, x, y, callback)
-	})
+	contextmenu.NewRenderer(h.wv.runOnGTK).Show(
+		items,
+		&glArea.Widget,
+		x,
+		y,
+		func(item port.MenuItem) { dispatchContextMenuSelection(callback, commandIDByAction, item) },
+		func() {
+			callback.Cancel()
+		},
+	)
 	return 1
 }
 
-func showContextMenu(wv *WebView, items []menuEntry, x, y int32, callback purecef.RunContextMenuCallback) {
-	glArea := wv.pipeline.glArea
-	if glArea == nil {
-		callback.Cancel()
+func dispatchContextMenuSelection(
+	callback purecef.RunContextMenuCallback,
+	commandIDByAction map[port.MenuAction]int32,
+	item port.MenuItem,
+) {
+	if callback == nil {
 		return
 	}
+	if cmdID, ok := commandIDByAction[item.Action]; ok {
+		callback.Cont(cmdID, 0)
+		return
+	}
+	callback.Cancel()
+}
 
-	box := gtk.NewBox(gtk.OrientationVerticalValue, 0)
-	box.AddCssClass("context-menu")
-
-	selected := false
-	var popover *gtk.Popover
-
-	for _, item := range items {
-		if item.isSep {
-			sep := gtk.NewSeparator(gtk.OrientationHorizontalValue)
-			box.Append(&sep.Widget)
-			continue
+func lookupContextMenuCommandID(action port.MenuAction, label string, commandIDsByLabel map[string]int32) (int32, bool) {
+	for _, candidate := range contextMenuActionLabels(action, label) {
+		if cmdID, ok := commandIDsByLabel[strings.ToLower(candidate)]; ok {
+			return cmdID, true
 		}
+	}
+	return 0, false
+}
 
-		btn := gtk.NewButton()
-		btn.SetLabel(item.label)
-		btn.AddCssClass("flat")
+func contextMenuActionLabels(action port.MenuAction, label string) []string {
+	labels := []string{label}
+	switch action {
+	case port.MenuActionBack:
+		labels = append(labels, "Back")
+	case port.MenuActionForward:
+		labels = append(labels, "Forward")
+	case port.MenuActionReload:
+		labels = append(labels, "Reload")
+	case port.MenuActionOpenLinkNewTab:
+		labels = append(labels, "Open Link in New Tab", "Open link in new tab")
+	case port.MenuActionCopyLink:
+		labels = append(labels, "Copy Link", "Copy link address")
+	case port.MenuActionCopyImage:
+		labels = append(labels, "Copy Image", "Copy image")
+	case port.MenuActionSaveImage:
+		labels = append(labels, "Save Image", "Save image as...")
+	case port.MenuActionInspectElement:
+		labels = append(labels, "Inspect Element", "Inspect")
+	case port.MenuActionCopySelection:
+		labels = append(labels, "Copy Selection", "Copy")
+	}
+	return labels
+}
 
-		cmdID := item.commandID
-		// clickCb captures popover by reference; this is safe because the
-		// button cannot be clicked until after Popup() is called below,
-		// at which point popover is fully initialized.
-		clickCb := func(_ gtk.Button) {
-			selected = true
-			callback.Cont(cmdID, 0)
-			if popover != nil {
-				popover.Popdown()
-			}
-		}
-		btn.ConnectClicked(&clickCb)
-		box.Append(&btn.Widget)
+func buildMenuContext(wv *WebView, params purecef.ContextMenuParams) port.MenuContext {
+	menuContext := port.MenuContext{}
+	if wv != nil {
+		menuContext.CanGoBack = wv.CanGoBack()
+		menuContext.CanGoForward = wv.CanGoForward()
+		menuContext.PageURI = wv.URI()
+	}
+	if params == nil {
+		return menuContext
 	}
 
-	popover = gtk.NewPopover()
-	popover.SetChild(&box.Widget)
-	popover.SetParent(&glArea.Widget)
-	popover.SetHasArrow(false)
-	popover.SetAutohide(true)
-
-	rect := &gdk.Rectangle{X: int(x), Y: int(y), Width: 1, Height: 1}
-	popover.SetPointingTo(rect)
-
-	closedCb := func(_ gtk.Popover) {
-		if !selected {
-			callback.Cancel()
-		}
-		popover.Unparent()
+	if pageURI := params.GetPageURL(); pageURI != "" {
+		menuContext.PageURI = pageURI
 	}
-	popover.ConnectClosed(&closedCb)
-
-	popover.Popup()
+	menuContext.LinkURI = params.GetLinkURL()
+	if params.HasImageContents() {
+		menuContext.ImageURI = params.GetSourceURL()
+	}
+	menuContext.HasSelection = strings.TrimSpace(params.GetSelectionText()) != ""
+	menuContext.IsEditable = params.IsEditable()
+	menuContext.X = int(params.GetXcoord())
+	menuContext.Y = int(params.GetYcoord())
+	return menuContext
 }
 
 func (h *handlerSet) OnContextMenuCommand(

@@ -170,6 +170,24 @@ func TestTransformLegacyActions_PartialPath(t *testing.T) {
 	require.NotNil(t, rawConfig["workspace"])
 }
 
+func TestTransformLegacyEngineConfig_RemovesDeprecatedContextMenuHandler(t *testing.T) {
+	transformer := NewLegacyConfigTransformer()
+
+	rawConfig := map[string]any{
+		"engine": map[string]any{
+			"cef": map[string]any{
+				"enable_context_menu_handler": true,
+			},
+		},
+	}
+
+	transformer.TransformLegacyEngineConfig(rawConfig)
+
+	cef := rawConfig["engine"].(map[string]any)["cef"].(map[string]any)
+	_, exists := cef["enable_context_menu_handler"]
+	assert.False(t, exists)
+}
+
 func TestTransformLegacyActions_UnknownAction(t *testing.T) {
 	transformer := NewLegacyConfigTransformer()
 

@@ -62,7 +62,6 @@ func NewEngine(
 		Bool("external_begin_frame", externalBeginFrameEnabled()).
 		Bool("trace_handlers", cfg.TraceHandlers).
 		Bool("enable_audio_handler", cfg.EnableAudioHandler).
-		Bool("enable_context_menu_handler", cfg.EnableContextMenuHandler).
 		Msg("cef: configured engine")
 
 	if err := initializeCEF(eng, settings, logger); err != nil {
@@ -170,7 +169,7 @@ func initializeCEF(eng *Engine, settings purecef.Settings, logger *zerolog.Logge
 
 // wireEngine creates GL loader, factory, pool, and scheme handler after CEF init.
 func wireEngine(
-	ctx context.Context, eng *Engine, cfg RuntimeConfig, transcodingCfg TranscodingRuntimeConfig,
+	ctx context.Context, eng *Engine, _ RuntimeConfig, transcodingCfg TranscodingRuntimeConfig,
 	windowlessFrameRate int32, audioFactory port.AudioOutputFactory, logger *zerolog.Logger,
 	mediaClassifier MediaClassifier,
 	currentConfigPayload func() ([]byte, error), defaultConfigPayload func() ([]byte, error),
@@ -212,12 +211,11 @@ func wireEngine(
 	}
 
 	factory := newWebViewFactory(eng, gl, webViewFactoryOptions{
-		scale:                    scale,
-		windowlessFrameRate:      windowlessFrameRate,
-		enableContextMenuHandler: cfg.EnableContextMenuHandler,
-		transcoder:               mediaTranscoder,
-		mediaClassifier:          mediaClassifier,
-		audioOutputFactory:       audioFactory,
+		scale:               scale,
+		windowlessFrameRate: windowlessFrameRate,
+		transcoder:          mediaTranscoder,
+		mediaClassifier:     mediaClassifier,
+		audioOutputFactory:  audioFactory,
 	})
 	pool := newWebViewPool(factory)
 

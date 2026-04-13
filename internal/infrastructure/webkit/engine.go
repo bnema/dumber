@@ -5,7 +5,9 @@ import (
 	"fmt"
 
 	"github.com/bnema/dumber/internal/application/port"
+	"github.com/bnema/dumber/internal/application/usecase"
 	"github.com/bnema/dumber/internal/infrastructure/config"
+	"github.com/bnema/dumber/internal/infrastructure/contextmenu"
 	"github.com/bnema/dumber/internal/infrastructure/filtering"
 	"github.com/bnema/dumber/internal/infrastructure/handlers"
 	"github.com/rs/zerolog"
@@ -24,6 +26,7 @@ type Engine struct {
 	schemeHandler *DumbSchemeHandler
 	schemePath    string
 	logger        zerolog.Logger
+	clipboard     port.Clipboard // captured during RegisterHandlers for context menu wiring
 }
 
 // Compile-time check that Engine implements port.Engine.
@@ -92,6 +95,8 @@ func (e *Engine) RegisterHandlers(ctx context.Context, deps port.HandlerDependen
 	if e.messageRouter == nil {
 		return fmt.Errorf("message router not initialized")
 	}
+	// Capture clipboard for context menu pipeline wiring in ConfigureDownloads.
+	e.clipboard = deps.Clipboard
 	return handlers.RegisterAll(ctx, e.messageRouter, deps)
 }
 
@@ -113,6 +118,12 @@ func (e *Engine) ConfigureDownloads(
 	}
 	handler := NewDownloadHandler(downloadPath, eventHandler, preparer)
 	e.wkCtx.SetDownloadHandler(ctx, handler)
+
+	// Wire the shared context menu pipeline now that all dependencies are
+	// available. RegisterHandlers (called earlier) captured the clipboard;
+	// ConfigureDownloads supplies the download preparer and path.
+	e.installContextMenuPipeline()
+
 	return nil
 }
 
@@ -145,4 +156,56 @@ func (e *Engine) UpdateSettings(ctx context.Context, update port.EngineSettingsU
 		e.settings.UpdateFromConfig(ctx, cfg)
 	}
 	return nil
+}
+
+// installContextMenuPipeline creates the shared context menu pipeline and
+// propagates it to the factory (and pool). This is called once during startup,
+// after both RegisterHandlers (clipboard) and ConfigureDownloads (download
+// deps) have run. Kept on the concrete *Engine type because it is a
+// WebKit-specific concern.
+func (e *Engine) installContextMenuPipeline() {
+	if e.clipboard == nil {
+		e.logger.Warn().Msg("context menu: clipboard not available, skipping pipeline")
+		return
+	}
+
+	buildUC := usecase.NewBuildContextMenuUseCase()
+	resolver := NewContextMenuResolver()
+
+	// The saver is nil for now: the ResolvedImageSaver port interface does not
+	// carry the image URI needed for filename derivation, so save-image will
+	// return a graceful error ("image saver not available"). Copy-image (the
+	// primary goal) works without it.
+	var saver port.ResolvedImageSaver
+
+	executeUC := usecase.NewExecuteContextMenuActionUseCase(
+		e.clipboard,
+		resolver,
+		saver,
+		nil, // delegator — not yet implemented
+	)
+
+	// WebKit's context-menu signal fires on the GTK main thread, so no
+	// dispatch wrapper is needed.
+	renderer := contextmenu.NewRenderer(nil)
+
+	e.SetContextMenuPipeline(buildUC, executeUC, renderer)
+}
+
+// SetContextMenuPipeline configures the context menu pipeline for all WebViews
+// created by the factory (and pool). Call this after the use cases and renderer
+// are available in the bootstrap layer.
+func (e *Engine) SetContextMenuPipeline(
+	buildUC *usecase.BuildContextMenuUseCase,
+	executeUC *usecase.ExecuteContextMenuActionUseCase,
+	renderer *contextmenu.Renderer,
+) {
+	pipeline := &contextMenuPipeline{
+		buildUC:   buildUC,
+		executeUC: executeUC,
+		renderer:  renderer,
+	}
+	if e.factory != nil {
+		e.factory.SetContextMenuPipeline(pipeline)
+	}
 }

@@ -8,6 +8,9 @@ type Clipboard interface {
 	// WriteText copies text to the clipboard.
 	WriteText(ctx context.Context, text string) error
 
+	// WriteImage copies encoded image bytes to the clipboard.
+	WriteImage(ctx context.Context, image ImageData) error
+
 	// ReadText reads text from the clipboard.
 	// Returns empty string if clipboard is empty or contains non-text data.
 	ReadText(ctx context.Context) (string, error)

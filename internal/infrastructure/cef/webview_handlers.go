@@ -21,9 +21,8 @@ const (
 // owning WebView. A single struct is used so that the Client's Get*Handler
 // methods can return the same receiver, avoiding extra allocations.
 type handlerSet struct {
-	wv                       *WebView
-	enableContextMenuHandler bool
-	transcodingHandler       purecef.ResourceRequestHandler
+	wv                 *WebView
+	transcodingHandler purecef.ResourceRequestHandler
 }
 
 // Compile-time interface checks.
@@ -50,28 +49,23 @@ func (h *handlerSet) GetAudioHandler() purecef.AudioHandler {
 	// audio backend (PipeWire/PulseAudio) is wired up.
 	return h
 }
-func (h *handlerSet) GetCommandHandler() purecef.CommandHandler { return nil }
-func (h *handlerSet) GetContextMenuHandler() purecef.ContextMenuHandler {
-	if h.enableContextMenuHandler {
-		return h
-	}
-	return nil
-}
-func (h *handlerSet) GetDialogHandler() purecef.DialogHandler         { return nil }
-func (h *handlerSet) GetDisplayHandler() purecef.DisplayHandler       { return h }
-func (h *handlerSet) GetDownloadHandler() purecef.DownloadHandler     { return nil }
-func (h *handlerSet) GetDragHandler() purecef.DragHandler             { return nil }
-func (h *handlerSet) GetFindHandler() purecef.FindHandler             { return h }
-func (h *handlerSet) GetFocusHandler() purecef.FocusHandler           { return nil }
-func (h *handlerSet) GetFrameHandler() purecef.FrameHandler           { return nil }
-func (h *handlerSet) GetPermissionHandler() purecef.PermissionHandler { return nil }
-func (h *handlerSet) GetJsdialogHandler() purecef.JsdialogHandler     { return nil }
-func (h *handlerSet) GetKeyboardHandler() purecef.KeyboardHandler     { return nil }
-func (h *handlerSet) GetLifeSpanHandler() purecef.SafeLifeSpanHandler { return h }
-func (h *handlerSet) GetLoadHandler() purecef.LoadHandler             { return h }
-func (h *handlerSet) GetPrintHandler() purecef.PrintHandler           { return nil }
-func (h *handlerSet) GetRenderHandler() purecef.RenderHandler         { return h }
-func (h *handlerSet) GetRequestHandler() purecef.RequestHandler       { return h }
+func (h *handlerSet) GetCommandHandler() purecef.CommandHandler         { return nil }
+func (h *handlerSet) GetContextMenuHandler() purecef.ContextMenuHandler { return h }
+func (h *handlerSet) GetDialogHandler() purecef.DialogHandler           { return nil }
+func (h *handlerSet) GetDisplayHandler() purecef.DisplayHandler         { return h }
+func (h *handlerSet) GetDownloadHandler() purecef.DownloadHandler       { return nil }
+func (h *handlerSet) GetDragHandler() purecef.DragHandler               { return nil }
+func (h *handlerSet) GetFindHandler() purecef.FindHandler               { return h }
+func (h *handlerSet) GetFocusHandler() purecef.FocusHandler             { return nil }
+func (h *handlerSet) GetFrameHandler() purecef.FrameHandler             { return nil }
+func (h *handlerSet) GetPermissionHandler() purecef.PermissionHandler   { return nil }
+func (h *handlerSet) GetJsdialogHandler() purecef.JsdialogHandler       { return nil }
+func (h *handlerSet) GetKeyboardHandler() purecef.KeyboardHandler       { return nil }
+func (h *handlerSet) GetLifeSpanHandler() purecef.SafeLifeSpanHandler   { return h }
+func (h *handlerSet) GetLoadHandler() purecef.LoadHandler               { return h }
+func (h *handlerSet) GetPrintHandler() purecef.PrintHandler             { return nil }
+func (h *handlerSet) GetRenderHandler() purecef.RenderHandler           { return h }
+func (h *handlerSet) GetRequestHandler() purecef.RequestHandler         { return h }
 
 func (h *handlerSet) OnProcessMessageReceived(_ purecef.Browser, _ purecef.Frame, _ purecef.ProcessID, _ purecef.ProcessMessage) int32 {
 	return 0
@@ -558,7 +552,6 @@ func (h *handlerSet) OnAfterCreated(browser purecef.Browser) {
 	browserID := browser.GetIdentifier()
 	log.Debug().
 		Int32("browser_id", browserID).
-		Bool("context_menu_handler_enabled", h.enableContextMenuHandler).
 		Msg("cef: OnAfterCreated")
 	if h.wv.engine != nil {
 		h.wv.engine.recordBrowserAfterCreated(browser)
