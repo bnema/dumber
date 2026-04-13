@@ -33,16 +33,17 @@ var errNoBrowser = errors.New("cef: browser not yet created")
 // WebView implements port.WebView using a CEF off-screen browser rendered
 // through a renderPipeline and driven by an inputBridge.
 type WebView struct {
-	id       port.WebViewID
-	ctx      context.Context
-	engine   *Engine
-	browser  purecef.Browser
-	host     purecef.BrowserHost
-	client   purecef.Client // prevent GC from collecting the client before CEF AddRef's it
-	pipeline *renderPipeline
-	input    *inputBridge
-	handlers *handlerSet
-	findCtrl *cefFindController
+	id               port.WebViewID
+	ctx              context.Context
+	engine           *Engine
+	browser          purecef.Browser
+	host             purecef.BrowserHost
+	client           purecef.Client // prevent GC from collecting the client before CEF AddRef's it
+	pipeline         *renderPipeline
+	input            *inputBridge
+	handlers         *handlerSet
+	findCtrl         *cefFindController
+	resizeReconciler *resizeReconciler
 
 	// beginFrameTick drives CEF external BeginFrame requests while the GTK
 	// widget is visible. Access is guarded by mu.
@@ -472,6 +473,7 @@ func (wv *WebView) Destroy() {
 	if !wv.destroyed.CompareAndSwap(false, true) {
 		return
 	}
+	wv.resizeReconciler.stop()
 	wv.closeAudioStream()
 	wv.scheduleStopBeginFrameLoop()
 	wv.mu.RLock()

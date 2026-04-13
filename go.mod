@@ -71,4 +71,4 @@ require (
 	modernc.org/sqlite v1.47.0 // indirect
 )
 
-replace github.com/ebitengine/purego => github.com/bnema/purego v0.0.0-20260323095903-91aa177a2704
+replace github.com/ebitengine/purego => github.com/bnema/purego v0.0.0-20260413043705-7850e384cde9
