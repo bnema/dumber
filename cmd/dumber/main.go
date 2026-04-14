@@ -53,6 +53,9 @@ var initialURL string
 // restoreSessionID holds the session ID to restore on startup.
 var restoreSessionID string
 
+// browserLaunchRelay is shared for early browse handoff and in-app browser launches.
+var browserLaunchRelay = desktop.NewBrowserLaunchRelay(xdg.New())
+
 type launchMode string
 
 const (
@@ -86,6 +89,14 @@ func launchModeFromArgs(args []string) (launchMode, string) {
 	return launchModeCLI, ""
 }
 
+func tryForwardBrowseURLToRunningInstance(ctx context.Context, relay port.BrowserLaunchRelay, browseURL string) (bool, error) {
+	if relay == nil || browseURL == "" {
+		return false, nil
+	}
+
+	return relay.DeliverOpenFreshWindow(ctx, browseURL)
+}
+
 func main() {
 	enableCrashForensics()
 
@@ -103,6 +114,13 @@ func main() {
 	mode, browseURL := launchModeFromArgs(os.Args)
 	// Run GUI mode for browse command
 	if mode == launchModeBrowse {
+		if forwarded, err := tryForwardBrowseURLToRunningInstance(context.Background(), browserLaunchRelay, browseURL); err != nil {
+			fmt.Fprintf(os.Stderr, "failed to forward browse URL %q to a running instance: %v\n", browseURL, err)
+			os.Exit(1)
+		} else if forwarded {
+			os.Exit(0)
+		}
+
 		initialURL = browseURL
 		restoreSessionID = os.Getenv("DUMBER_RESTORE_SESSION")
 		os.Args = os.Args[:1]
@@ -695,6 +713,7 @@ func buildUIDependencies(
 	}
 
 	focusProvider := textinput.NewFocusProvider()
+	browserLauncher := desktop.NewBrowserLauncher(browserLaunchRelay)
 
 	uiDeps := &ui.Dependencies{
 		Ctx:                 ctx,
@@ -759,9 +778,11 @@ func buildUIDependencies(
 			return config.GetManager().Watch()
 		},
 		LaunchExternalURL: desktop.LaunchExternalURL,
-		LaunchBrowserURL:  desktop.LaunchBrowserURL,
-		ConfigMigrator:    config.NewMigrator(),
-		HandlerDeps:       *handlerDeps,
+		LaunchBrowserURL: func(uri string) {
+			browserLauncher.LaunchURL(ctx, uri)
+		},
+		ConfigMigrator: config.NewMigrator(),
+		HandlerDeps:    *handlerDeps,
 	}
 
 	return uiDeps, nil

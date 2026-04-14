@@ -1,9 +1,11 @@
 package main
 
 import (
+	"context"
 	"errors"
 	"testing"
 
+	"github.com/bnema/dumber/internal/application/port/mocks"
 	"github.com/bnema/dumber/internal/bootstrap"
 	"github.com/bnema/dumber/internal/infrastructure/colorscheme"
 	"github.com/bnema/dumber/internal/infrastructure/config"
@@ -129,5 +131,33 @@ func TestPreInitializeAdwaitaForCEF_SkipsNonCEF(t *testing.T) {
 	}
 	if initResult.AdwaitaDetector.Available() {
 		t.Fatal("expected adwaita detector to remain unavailable")
+	}
+}
+
+func TestTryForwardBrowseURLToRunningInstance_ReturnsTrueOnRelayHit(t *testing.T) {
+	relay := mocks.NewMockBrowserLaunchRelay(t)
+	relay.EXPECT().DeliverOpenFreshWindow(context.Background(), "https://example.com").Return(true, nil)
+
+	forwarded, err := tryForwardBrowseURLToRunningInstance(context.Background(), relay, "https://example.com")
+
+	if err != nil {
+		t.Fatalf("expected no error, got %v", err)
+	}
+	if !forwarded {
+		t.Fatal("expected browse URL to be forwarded")
+	}
+}
+
+func TestTryForwardBrowseURLToRunningInstance_ReturnsFalseOnRelayMiss(t *testing.T) {
+	relay := mocks.NewMockBrowserLaunchRelay(t)
+	relay.EXPECT().DeliverOpenFreshWindow(context.Background(), "https://example.com").Return(false, nil)
+
+	forwarded, err := tryForwardBrowseURLToRunningInstance(context.Background(), relay, "https://example.com")
+
+	if err != nil {
+		t.Fatalf("expected no error, got %v", err)
+	}
+	if forwarded {
+		t.Fatal("expected browse URL to remain unforwarded")
 	}
 }
