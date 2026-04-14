@@ -55,7 +55,7 @@ func TestAdapter_RuntimeDir(t *testing.T) {
 		dir, err := adapter.RuntimeDir()
 
 		require.NoError(t, err)
-		assert.Equal(t, filepath.Join("/tmp/dumber-state", "dumber", "runtime"), dir)
+		assert.Equal(t, "/tmp/dumber-state/dumber/runtime", dir)
 	})
 }
 

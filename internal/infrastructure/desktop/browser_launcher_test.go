@@ -23,7 +23,7 @@ func TestBrowserLauncher_LaunchURL_ReturnsWithoutSpawningWhenRelayDelivers(t *te
 		t.Fatal("expected executable path resolution to be skipped")
 		return "", nil
 	}
-	launcher.startDetachedProcess = func(cmd *exec.Cmd) error {
+	launcher.startDetachedProcess = func(_ *exec.Cmd) error {
 		spawned = true
 		return nil
 	}
@@ -65,7 +65,7 @@ func TestBrowserLauncher_LaunchURL_ReportsRelayErrorWhenDelivered(t *testing.T) 
 		t.Fatal("expected executable path resolution to be skipped")
 		return "", nil
 	}
-	launcher.startDetachedProcess = func(cmd *exec.Cmd) error {
+	launcher.startDetachedProcess = func(_ *exec.Cmd) error {
 		t.Fatal("expected launch to stop after relay delivery")
 		return nil
 	}

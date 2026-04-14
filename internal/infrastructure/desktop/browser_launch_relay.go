@@ -20,6 +20,8 @@ const browserLaunchSocketName = "browser-launch.sock"
 
 const browserLaunchIOTimeout = 50 * time.Millisecond
 
+const browserLaunchDirPerm = 0o700
+
 type browserLaunchRelay struct {
 	xdg port.XDGPaths
 }
@@ -64,7 +66,7 @@ func (r *browserLaunchRelay) DeliverOpenFreshWindow(ctx context.Context, url str
 		}
 		return false, err
 	}
-	defer conn.Close()
+	defer func() { _ = conn.Close() }()
 
 	if err := setBrowserLaunchConnDeadline(ctx, conn); err != nil {
 		return false, err
@@ -80,17 +82,17 @@ func (r *browserLaunchRelay) DeliverOpenFreshWindow(ctx context.Context, url str
 	var response browserLaunchResponse
 	decoder := json.NewDecoder(conn)
 	for {
-		if err := decoder.Decode(&response); err != nil {
-			if isBrowserLaunchReadTimeout(err) {
+		if decodeErr := decoder.Decode(&response); decodeErr != nil {
+			if isBrowserLaunchReadTimeout(decodeErr) {
 				if ctxErr := ctx.Err(); ctxErr != nil {
 					return false, ctxErr
 				}
-				if err := setBrowserLaunchConnDeadline(ctx, conn); err != nil {
-					return false, err
+				if deadlineErr := setBrowserLaunchConnDeadline(ctx, conn); deadlineErr != nil {
+					return false, deadlineErr
 				}
 				continue
 			}
-			return false, err
+			return false, decodeErr
 		}
 		break
 	}
@@ -125,11 +127,11 @@ func (r *browserLaunchRelay) Listen(ctx context.Context, opener port.BrowserWind
 		return nil, err
 	}
 
-	if err := os.MkdirAll(filepath.Dir(socketPath), 0o700); err != nil {
-		return nil, fmt.Errorf("create browser launch dir: %w", err)
+	if mkdirErr := os.MkdirAll(filepath.Dir(socketPath), browserLaunchDirPerm); mkdirErr != nil {
+		return nil, fmt.Errorf("create browser launch dir: %w", mkdirErr)
 	}
-	if err := os.Remove(socketPath); err != nil && !os.IsNotExist(err) {
-		return nil, fmt.Errorf("remove stale browser launch socket: %w", err)
+	if removeErr := os.Remove(socketPath); removeErr != nil && !os.IsNotExist(removeErr) {
+		return nil, fmt.Errorf("remove stale browser launch socket: %w", removeErr)
 	}
 
 	listener, err := net.ListenUnix("unix", &net.UnixAddr{Name: socketPath, Net: "unix"})
@@ -179,7 +181,7 @@ func (l *browserLaunchRelayListener) Close() error {
 }
 
 func (l *browserLaunchRelayListener) serve(ctx context.Context, opener port.BrowserWindowOpener) {
-	defer l.Close()
+	defer func() { _ = l.Close() }()
 
 	for {
 		if err := l.listener.SetDeadline(time.Now().Add(browserLaunchIOTimeout)); err != nil {
@@ -204,8 +206,8 @@ func (l *browserLaunchRelayListener) serve(ctx context.Context, opener port.Brow
 	}
 }
 
-func (l *browserLaunchRelayListener) handleConnection(ctx context.Context, conn *net.UnixConn, opener port.BrowserWindowOpener) {
-	defer conn.Close()
+func (*browserLaunchRelayListener) handleConnection(ctx context.Context, conn *net.UnixConn, opener port.BrowserWindowOpener) {
+	defer func() { _ = conn.Close() }()
 
 	var request browserLaunchRequest
 	if err := json.NewDecoder(conn).Decode(&request); err != nil {

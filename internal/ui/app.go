@@ -534,29 +534,29 @@ func (a *App) openFreshWindow(ctx context.Context, url string) error {
 			a.tabCreationWindow = nil
 		}()
 
-		tab, err := a.tabCoord.Create(ctx, url)
-		if err != nil {
+		createdTab, createErr := a.tabCoord.Create(ctx, url)
+		if createErr != nil {
 			a.removeBrowserWindow(created.id)
 			if created.mainWindow != nil {
 				created.mainWindow.Destroy()
 			}
-			return err
+			return createErr
 		}
-		if a.workspaceViews[tab.ID] == nil {
+		if a.workspaceViews[createdTab.ID] == nil {
 			if a.tabs != nil {
-				a.tabs.Remove(tab.ID)
+				a.tabs.Remove(createdTab.ID)
 			}
 			if a.mainWindow != nil && a.mainWindow.TabBar() != nil {
-				a.mainWindow.TabBar().RemoveTab(tab.ID)
+				a.mainWindow.TabBar().RemoveTab(createdTab.ID)
 				a.mainWindow.TabBar().SetActive(a.tabs.ActiveTabID)
 			}
 			a.removeBrowserWindow(created.id)
 			if created.mainWindow != nil {
 				created.mainWindow.Destroy()
 			}
-			return fmt.Errorf("workspace view not created for tab %s", tab.ID)
+			return fmt.Errorf("workspace view not created for tab %s", createdTab.ID)
 		}
-		a.setBrowserWindowForTab(tab.ID, created)
+		a.setBrowserWindowForTab(createdTab.ID, created)
 		if created.mainWindow != nil {
 			created.mainWindow.Show()
 		}

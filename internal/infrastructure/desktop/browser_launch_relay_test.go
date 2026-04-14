@@ -20,16 +20,16 @@ type testXDGPaths struct {
 
 var _ port.XDGPaths = testXDGPaths{}
 
-func (x testXDGPaths) ConfigDir() (string, error)      { return "", nil }
-func (x testXDGPaths) DataDir() (string, error)        { return "", nil }
-func (x testXDGPaths) StateDir() (string, error)       { return x.stateDir, nil }
-func (x testXDGPaths) RuntimeDir() (string, error)     { return x.runtimeDir, nil }
-func (x testXDGPaths) CacheDir() (string, error)       { return "", nil }
-func (x testXDGPaths) FilterJSONDir() (string, error)  { return "", nil }
-func (x testXDGPaths) FilterStoreDir() (string, error) { return "", nil }
-func (x testXDGPaths) FilterCacheDir() (string, error) { return "", nil }
-func (x testXDGPaths) ManDir() (string, error)         { return "", nil }
-func (x testXDGPaths) DownloadDir() (string, error)    { return "", nil }
+func (testXDGPaths) ConfigDir() (string, error)      { return "", nil }
+func (testXDGPaths) DataDir() (string, error)        { return "", nil }
+func (x testXDGPaths) StateDir() (string, error)     { return x.stateDir, nil }
+func (x testXDGPaths) RuntimeDir() (string, error)   { return x.runtimeDir, nil }
+func (testXDGPaths) CacheDir() (string, error)       { return "", nil }
+func (testXDGPaths) FilterJSONDir() (string, error)  { return "", nil }
+func (testXDGPaths) FilterStoreDir() (string, error) { return "", nil }
+func (testXDGPaths) FilterCacheDir() (string, error) { return "", nil }
+func (testXDGPaths) ManDir() (string, error)         { return "", nil }
+func (testXDGPaths) DownloadDir() (string, error)    { return "", nil }
 
 type browserWindowOpenerFunc func(context.Context, string) error
 
@@ -84,7 +84,7 @@ func TestBrowserLaunchRelay_DeliverOpenFreshWindow_RoundTrip(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
-	closer, err := relay.Listen(ctx, browserWindowOpenerFunc(func(ctx context.Context, url string) error {
+	closer, err := relay.Listen(ctx, browserWindowOpenerFunc(func(_ context.Context, url string) error {
 		received <- url
 		return nil
 	}))
@@ -114,7 +114,7 @@ func TestBrowserLaunchRelay_UsesStateFallbackWhenRuntimeDirMissing(t *testing.T)
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
-	closer, err := relay.Listen(ctx, browserWindowOpenerFunc(func(ctx context.Context, url string) error {
+	closer, err := relay.Listen(ctx, browserWindowOpenerFunc(func(_ context.Context, url string) error {
 		received <- url
 		return nil
 	}))
@@ -145,7 +145,7 @@ func TestBrowserLaunchRelay_RejectsMalformedPayloads(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
-	closer, err := relay.Listen(ctx, browserWindowOpenerFunc(func(ctx context.Context, url string) error {
+	closer, err := relay.Listen(ctx, browserWindowOpenerFunc(func(_ context.Context, url string) error {
 		received <- url
 		return nil
 	}))
@@ -227,8 +227,8 @@ func TestBrowserLaunchRelay_DeliverOpenFreshWindow_RespectsResponseReadTimeout(t
 	ready := make(chan struct{})
 	go func() {
 		close(ready)
-		conn, err := listener.AcceptUnix()
-		if err != nil {
+		conn, acceptErr := listener.AcceptUnix()
+		if acceptErr != nil {
 			return
 		}
 		defer conn.Close()
@@ -242,6 +242,6 @@ func TestBrowserLaunchRelay_DeliverOpenFreshWindow_RespectsResponseReadTimeout(t
 
 	delivered, err := relay.DeliverOpenFreshWindow(ctx, "https://example.com/slow")
 	require.Error(t, err)
-	assert.ErrorIs(t, err, context.DeadlineExceeded)
+	require.ErrorIs(t, err, context.DeadlineExceeded)
 	assert.False(t, delivered)
 }

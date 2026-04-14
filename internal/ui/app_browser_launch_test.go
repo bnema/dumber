@@ -12,9 +12,7 @@ import (
 	"github.com/bnema/dumber/internal/domain/entity"
 	"github.com/bnema/dumber/internal/ui/component"
 	"github.com/bnema/dumber/internal/ui/coordinator"
-	"github.com/bnema/dumber/internal/ui/layout"
 	"github.com/bnema/dumber/internal/ui/window"
-	"github.com/bnema/puregotk/v4/gtk"
 )
 
 type testBrowserLaunchRelay struct {
@@ -92,18 +90,6 @@ func windowTabBarActiveID(t *testing.T, mw *window.MainWindow) entity.TabID {
 	}
 	return mw.TabBar().ActiveTabID()
 }
-
-type fakeWidgetFactory struct{}
-
-func (fakeWidgetFactory) NewPaned(layout.Orientation) layout.PanedWidget  { return nil }
-func (fakeWidgetFactory) NewBox(layout.Orientation, int) layout.BoxWidget { return nil }
-func (fakeWidgetFactory) NewOverlay() layout.OverlayWidget                { return nil }
-func (fakeWidgetFactory) NewLabel(string) layout.LabelWidget              { return nil }
-func (fakeWidgetFactory) NewButton() layout.ButtonWidget                  { return nil }
-func (fakeWidgetFactory) NewImage() layout.ImageWidget                    { return nil }
-func (fakeWidgetFactory) NewProgressBar() layout.ProgressBarWidget        { return nil }
-func (fakeWidgetFactory) NewSpinner() layout.SpinnerWidget                { return nil }
-func (fakeWidgetFactory) WrapWidget(*gtk.Widget) layout.Widget            { return nil }
 
 func TestApp_FinalizeActivationStartsBrowserLaunchRelayOnceAndClosesOnShutdown(t *testing.T) {
 	relay := &testBrowserLaunchRelay{closer: &testCloser{}}
