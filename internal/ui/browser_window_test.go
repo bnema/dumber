@@ -90,8 +90,7 @@ func TestOpenFreshWindow_DispatchesAndTracksBrowserWindow(t *testing.T) {
 		return &browserWindow{id: "window-1", initialURL: url}, nil
 	}
 
-	window, err := app.OpenFreshWindow(context.Background(), "https://example.com")
-	if err != nil {
+	if err := app.OpenFreshWindow(context.Background(), "https://example.com"); err != nil {
 		t.Fatalf("OpenFreshWindow returned error: %v", err)
 	}
 	if !dispatched {
@@ -103,10 +102,10 @@ func TestOpenFreshWindow_DispatchesAndTracksBrowserWindow(t *testing.T) {
 	if got := len(app.browserWindows); got != 1 {
 		t.Fatalf("browserWindows length = %d, want 1", got)
 	}
-	if got := app.browserWindows[window.id]; got != window {
+	if got := app.browserWindows["window-1"]; got == nil {
 		t.Fatalf("browser window was not tracked")
 	}
-	if window.initialURL != "https://example.com" {
-		t.Fatalf("browser window initialURL = %q, want %q", window.initialURL, "https://example.com")
+	if app.browserWindows["window-1"].initialURL != "https://example.com" {
+		t.Fatalf("browser window initialURL = %q, want %q", app.browserWindows["window-1"].initialURL, "https://example.com")
 	}
 }

@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"io"
 	"os"
 	"path/filepath"
 	"strings"
@@ -67,6 +68,7 @@ type App struct {
 
 	browserWindows       map[string]*browserWindow
 	browserWindowFactory func(context.Context, string) (*browserWindow, error)
+	tabCreationWindow    *browserWindow
 	dispatchOnMainThread func(func())
 
 	// State
@@ -83,6 +85,7 @@ type App struct {
 	// Pane management (used by coordinators)
 	panesUC        *usecase.ManagePanesUseCase
 	workspaceViews map[entity.TabID]*component.WorkspaceView
+	windowForTab   map[entity.TabID]*browserWindow
 	widgetFactory  layout.WidgetFactory
 	stackedPaneMgr *component.StackedPaneManager
 
@@ -146,7 +149,9 @@ type App struct {
 	deferredInitFn   func()
 
 	// lifecycle
-	cancel context.CancelCauseFunc
+	cancel                   context.CancelCauseFunc
+	browserLaunchRelayOnce   sync.Once
+	browserLaunchRelayCloser io.Closer
 }
 
 type floatingWorkspaceSession struct {
@@ -183,6 +188,7 @@ func New(deps *Dependencies) (*App, error) {
 		tabsUC:               deps.TabsUC,
 		panesUC:              deps.PanesUC,
 		workspaceViews:       make(map[entity.TabID]*component.WorkspaceView),
+		windowForTab:         make(map[entity.TabID]*browserWindow),
 		floatingSessions:     make(map[floatingSessionKey]*floatingWorkspaceSession),
 		browserWindows:       make(map[string]*browserWindow),
 		dispatchOnMainThread: func(fn func()) { fn() },
@@ -282,7 +288,7 @@ func (a *App) onActivate(ctx context.Context) {
 	// synchronous prewarming that delays the first navigation on cold start.
 	a.setupPoolBackgroundColor(ctx)
 
-	if _, err := a.OpenFreshWindow(ctx, a.initialWindowURL()); err != nil {
+	if err := a.OpenFreshWindow(ctx, a.initialWindowURL()); err != nil {
 		log.Error().Err(err).Msg("failed to create main window")
 		return
 	}
@@ -449,6 +455,120 @@ func (a *App) createBrowserWindow(ctx context.Context, initialURL string) (*brow
 		a.deps.Theme.ApplyToDisplay(ctx, display)
 	}
 	return browserWindow, nil
+}
+
+func (a *App) ensureWindowForTabMap() {
+	if a.windowForTab == nil {
+		a.windowForTab = make(map[entity.TabID]*browserWindow)
+	}
+}
+
+func (a *App) browserWindowForMainWindow(mainWindow *window.MainWindow) *browserWindow {
+	if mainWindow == nil {
+		return nil
+	}
+	for _, bw := range a.browserWindows {
+		if bw != nil && bw.mainWindow == mainWindow {
+			return bw
+		}
+	}
+	return nil
+}
+
+func (a *App) browserWindowForTab(tabID entity.TabID) *browserWindow {
+	if a.windowForTab != nil {
+		if bw := a.windowForTab[tabID]; bw != nil {
+			return bw
+		}
+	}
+	if a.tabCreationWindow != nil {
+		return a.tabCreationWindow
+	}
+	return a.browserWindowForMainWindow(a.mainWindow)
+}
+
+func (a *App) setBrowserWindowForTab(tabID entity.TabID, bw *browserWindow) {
+	if bw == nil {
+		return
+	}
+	a.ensureWindowForTabMap()
+	a.windowForTab[tabID] = bw
+}
+
+func (a *App) startBrowserLaunchRelayListener(ctx context.Context) {
+	if a == nil || a.deps == nil || a.deps.BrowserLaunchRelay == nil {
+		return
+	}
+	a.browserLaunchRelayOnce.Do(func() {
+		closer, err := a.deps.BrowserLaunchRelay.Listen(ctx, a)
+		if err != nil {
+			logging.FromContext(ctx).Warn().Err(err).Msg("failed to start browser launch relay listener")
+			return
+		}
+		a.browserLaunchRelayCloser = closer
+	})
+}
+
+func (a *App) closeBrowserLaunchRelayListener() {
+	if a.browserLaunchRelayCloser == nil {
+		return
+	}
+	_ = a.browserLaunchRelayCloser.Close()
+	a.browserLaunchRelayCloser = nil
+}
+
+func (a *App) openFreshWindow(ctx context.Context, url string) error {
+	created, err := a.createBrowserWindow(ctx, url)
+	if err != nil {
+		return err
+	}
+	a.registerBrowserWindow(created)
+
+	if a.tabs == nil || a.tabs.Count() == 0 {
+		return nil
+	}
+
+	if a.tabCoord != nil && a.widgetFactory != nil {
+		a.tabCreationWindow = created
+		defer func() {
+			a.tabCreationWindow = nil
+		}()
+
+		tab, err := a.tabCoord.Create(ctx, url)
+		if err != nil {
+			return err
+		}
+		a.setBrowserWindowForTab(tab.ID, created)
+		if created.mainWindow != nil {
+			created.mainWindow.Show()
+		}
+		return nil
+	}
+
+	if a.tabsUC == nil {
+		return nil
+	}
+
+	output, err := a.tabsUC.Create(ctx, usecase.CreateTabInput{
+		TabList:    a.tabs,
+		InitialURL: url,
+	})
+	if err != nil {
+		return err
+	}
+	a.setBrowserWindowForTab(output.Tab.ID, created)
+	if a.widgetFactory != nil {
+		a.tabCreationWindow = created
+		defer func() {
+			a.tabCreationWindow = nil
+		}()
+		a.createWorkspaceView(ctx, output.Tab)
+		a.switchWorkspaceView(ctx, output.Tab.ID)
+	}
+	if created.mainWindow != nil {
+		created.mainWindow.Show()
+	}
+	return nil
 }
 
 func (a *App) initialWindowURL() string {
@@ -1504,6 +1624,7 @@ func (a *App) finalizeActivation(ctx context.Context) {
 	if a.mainWindow != nil {
 		a.mainWindow.Show()
 	}
+	a.startBrowserLaunchRelayListener(ctx)
 	log.Info().Msg("main window displayed")
 
 	if a.deps != nil && len(a.deps.StartupCrashReports) > 0 {
@@ -1616,6 +1737,7 @@ func (a *App) onShutdown(ctx context.Context) {
 			log.Warn().Err(err).Msg("failed to close idle inhibitor")
 		}
 	}
+	a.closeBrowserLaunchRelayListener()
 
 	log.Info().Msg("application shutdown complete")
 }
@@ -1793,7 +1915,7 @@ func (a *App) initCoordinators(ctx context.Context) {
 
 	// Wire window title updates when active pane's title changes
 	a.contentCoord.SetOnWindowTitleChanged(func(title string) {
-		a.updateWindowTitle(title)
+		a.updateWindowTitle(title, a.browserWindowForTab(a.tabs.ActiveTabID))
 	})
 
 	// Wire pane URI updates for session snapshots (searches all tabs)
@@ -2043,8 +2165,11 @@ func RunWithArgs(ctx context.Context, deps *Dependencies) int {
 
 // updateWindowTitle updates the window title with the given page title.
 // Format: "<Page Title> - Dumber" or just "Dumber" if title is empty.
-func (a *App) updateWindowTitle(pageTitle string) {
-	if a.mainWindow == nil {
+func (a *App) updateWindowTitle(pageTitle string, target *browserWindow) {
+	if target == nil {
+		target = a.browserWindowForMainWindow(a.mainWindow)
+	}
+	if target == nil || target.mainWindow == nil {
 		return
 	}
 
@@ -2052,18 +2177,23 @@ func (a *App) updateWindowTitle(pageTitle string) {
 	if pageTitle != "" {
 		title = pageTitle + " - Dumber"
 	}
-	a.mainWindow.SetTitle(title)
+	target.mainWindow.SetTitle(title)
 }
 
 // updateWindowTitleFromActivePane updates the window title based on the current active pane.
-func (a *App) updateWindowTitleFromActivePane() {
-	ws := a.activeWorkspace()
+func (a *App) updateWindowTitleFromActivePane(tabID entity.TabID) {
+	var ws *entity.Workspace
+	if tab := a.tabs.Find(tabID); tab != nil {
+		ws = tab.Workspace
+	} else {
+		ws = a.activeWorkspace()
+	}
 	if ws == nil || a.contentCoord == nil {
-		a.updateWindowTitle("")
+		a.updateWindowTitle("", a.browserWindowForTab(tabID))
 		return
 	}
 	title := a.contentCoord.GetTitle(ws.ActivePaneID)
-	a.updateWindowTitle(title)
+	a.updateWindowTitle(title, a.browserWindowForTab(tabID))
 }
 
 // handleModeChange is called when the input mode changes.
@@ -2176,14 +2306,19 @@ func (a *App) applyResizeModeBorder(ctx context.Context, ws *entity.Workspace) {
 func (a *App) createWorkspaceView(ctx context.Context, tab *entity.Tab) {
 	a.createWorkspaceViewWithoutAttach(ctx, tab)
 
+	target := a.browserWindowForTab(tab.ID)
+	if target != nil {
+		a.setBrowserWindowForTab(tab.ID, target)
+	}
+
 	// Attach to content area
 	wsView := a.workspaceViews[tab.ID]
-	if wsView != nil && a.mainWindow != nil {
+	if wsView != nil && target != nil && target.mainWindow != nil {
 		widget := wsView.Widget()
 		if widget != nil {
 			gtkWidget := widget.GtkWidget()
 			if gtkWidget != nil {
-				a.mainWindow.SetContent(gtkWidget)
+				target.mainWindow.SetContent(gtkWidget)
 			}
 		}
 	}
@@ -2362,12 +2497,14 @@ func (a *App) switchWorkspaceView(ctx context.Context, tabID entity.TabID) {
 	}
 
 	// Swap content (MainWindow.SetContent now properly removes old content)
-	if a.mainWindow != nil {
+	if target := a.browserWindowForTab(tabID); target != nil && target.mainWindow != nil {
+		target.mainWindow.SetContent(gtkWidget)
+	} else if a.mainWindow != nil {
 		a.mainWindow.SetContent(gtkWidget)
 	}
 
 	// Update window title with the new active pane's title
-	a.updateWindowTitleFromActivePane()
+	a.updateWindowTitleFromActivePane(tabID)
 	a.syncFloatingFocus()
 
 	log.Debug().Str("tab_id", string(tabID)).Msg("workspace view switched")

@@ -26,6 +26,11 @@ func (a *App) removeBrowserWindow(id string) {
 	if id == "" || a.browserWindows == nil {
 		return
 	}
+	for tabID, bw := range a.windowForTab {
+		if bw != nil && bw.id == id {
+			delete(a.windowForTab, tabID)
+		}
+	}
 	if bw := a.browserWindows[id]; bw != nil && bw.mainWindow == a.mainWindow {
 		delete(a.browserWindows, id)
 		for _, remaining := range a.browserWindows {
@@ -40,21 +45,16 @@ func (a *App) removeBrowserWindow(id string) {
 	delete(a.browserWindows, id)
 }
 
-func (a *App) OpenFreshWindow(ctx context.Context, url string) (*browserWindow, error) {
+func (a *App) OpenFreshWindow(ctx context.Context, url string) error {
 	dispatch := a.dispatchOnMainThread
 	if dispatch == nil {
 		dispatch = func(fn func()) { fn() }
 	}
 
-	var created *browserWindow
 	var openErr error
 	dispatch(func() {
-		created, openErr = a.createBrowserWindow(ctx, url)
-		if openErr != nil {
-			return
-		}
-		a.registerBrowserWindow(created)
+		openErr = a.openFreshWindow(ctx, url)
 	})
 
-	return created, openErr
+	return openErr
 }

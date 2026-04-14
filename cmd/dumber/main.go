@@ -781,8 +781,9 @@ func buildUIDependencies(
 		LaunchBrowserURL: func(uri string) {
 			browserLauncher.LaunchURL(ctx, uri)
 		},
-		ConfigMigrator: config.NewMigrator(),
-		HandlerDeps:    *handlerDeps,
+		BrowserLaunchRelay: browserLaunchRelay,
+		ConfigMigrator:     config.NewMigrator(),
+		HandlerDeps:        *handlerDeps,
 	}
 
 	return uiDeps, nil
