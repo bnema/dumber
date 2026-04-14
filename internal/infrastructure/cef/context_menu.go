@@ -122,10 +122,11 @@ func logContextMenuPopupRequest(
 	if h == nil || h.wv == nil || h.wv.ctx == nil || h.wv.pipeline == nil || glArea == nil {
 		return
 	}
+	rawX, rawY := contextMenuRawPosition(params)
 	parent := glArea.GetParent()
 	logging.FromContext(h.wv.ctx).Debug().
-		Int32("raw_x", params.GetXcoord()).
-		Int32("raw_y", params.GetYcoord()).
+		Int32("raw_x", rawX).
+		Int32("raw_y", rawY).
 		Int32("popup_x", x).
 		Int32("popup_y", y).
 		Int32("scale", h.wv.pipeline.scale).
@@ -134,6 +135,13 @@ func logContextMenuPopupRequest(
 		Int("parent_width", cefWidgetAllocatedWidth(parent)).
 		Int("parent_height", cefWidgetAllocatedHeight(parent)).
 		Msg("cef: context menu popup request")
+}
+
+func contextMenuRawPosition(params purecef.ContextMenuParams) (int32, int32) {
+	if params == nil {
+		return 0, 0
+	}
+	return params.GetXcoord(), params.GetYcoord()
 }
 
 func cefWidgetAllocatedWidth(widget *gtk.Widget) int {

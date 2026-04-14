@@ -13,11 +13,13 @@ import (
 	"github.com/bnema/dumber/internal/domain/entity"
 	"github.com/bnema/dumber/internal/logging"
 	"github.com/bnema/puregotk/v4/gdk"
+	"github.com/bnema/puregotk/v4/gio"
 	"github.com/bnema/puregotk/v4/glib"
 	"github.com/rs/zerolog"
 )
 
 type toolkitClipboard interface {
+	ReadText(ctx context.Context) (string, error)
 	WriteText(ctx context.Context, text string) error
 	WriteImage(ctx context.Context, image entity.ImageData) error
 }
@@ -80,6 +82,49 @@ func (c *gdkToolkitClipboard) WriteText(ctx context.Context, text string) error 
 		c.clipboard.SetText(text)
 		return nil
 	})
+}
+
+func (c *gdkToolkitClipboard) ReadText(ctx context.Context) (string, error) {
+	var text string
+	err := withToolkitClipboard(ctx, func() error {
+		if c == nil || c.clipboard == nil {
+			return fmt.Errorf("toolkit clipboard not available")
+		}
+
+		resultCh := make(chan struct {
+			text string
+			err  error
+		}, 1)
+		cb := gio.AsyncReadyCallback(func(_ uintptr, result uintptr, _ uintptr) {
+			asyncResult := &gio.AsyncResultBase{}
+			asyncResult.SetGoPointer(result)
+			readText, readErr := c.clipboard.ReadTextFinish(asyncResult)
+			resultCh <- struct {
+				text string
+				err  error
+			}{text: readText, err: readErr}
+		})
+		c.clipboard.ReadTextAsync(nil, &cb, 0)
+
+		mainContext := glib.MainContextDefault()
+		if mainContext == nil {
+			return fmt.Errorf("toolkit main context not available")
+		}
+
+		for {
+			select {
+			case result := <-resultCh:
+				text = result.text
+				return result.err
+			default:
+			}
+			if ctx.Err() != nil {
+				return ctx.Err()
+			}
+			mainContext.Iteration(true)
+		}
+	})
+	return text, err
 }
 
 func (c *gdkToolkitClipboard) WriteImage(ctx context.Context, image entity.ImageData) error {
@@ -288,10 +333,7 @@ func (a *Adapter) writeImageWithCommand(ctx context.Context, image entity.ImageD
 	return nil
 }
 
-// ReadText reads text from the clipboard.
-func (a *Adapter) ReadText(ctx context.Context) (string, error) {
-	log := logging.FromContext(ctx)
-
+func (a *Adapter) readTextWithCommand(ctx context.Context, log *zerolog.Logger) (string, error) {
 	if a.pasteCmd == "" {
 		err := fmt.Errorf("no clipboard tool available (install wl-clipboard or xclip)")
 		log.Error().Err(err).Msg("clipboard read failed")
@@ -313,12 +355,48 @@ func (a *Adapter) ReadText(ctx context.Context) (string, error) {
 
 	out, err := cmd.Output()
 	if err != nil {
-		log.Debug().Err(err).Str("tool", a.pasteCmd).Msg("clipboard read failed (may be empty)")
+		err = fmt.Errorf("run clipboard tool %s: %w", a.pasteCmd, err)
+		log.Debug().Err(err).Str("tool", a.pasteCmd).Msg("clipboard read failed")
 		return "", err
 	}
 
 	log.Debug().Str("tool", a.pasteCmd).Int("len", len(out)).Msg("clipboard read success")
 	return string(out), nil
+}
+
+// ReadText reads text from the clipboard.
+func (a *Adapter) ReadText(ctx context.Context) (string, error) {
+	log := logging.FromContext(ctx)
+	var commandErr error
+
+	if a.pasteCmd != "" {
+		text, err := a.readTextWithCommand(ctx, log)
+		if err == nil {
+			return text, nil
+		}
+		commandErr = err
+		log.Debug().Err(err).Msg("system clipboard read failed; falling back")
+	}
+
+	if toolkit := a.ensureToolkitClipboard(); toolkit != nil {
+		text, err := toolkit.ReadText(ctx)
+		if err == nil {
+			log.Debug().Str("backend", "toolkit").Int("len", len(text)).Msg("clipboard read success")
+			return text, nil
+		}
+		log.Debug().Err(err).Msg("toolkit clipboard read failed")
+		if commandErr != nil {
+			return "", commandErr
+		}
+		return "", err
+	}
+
+	if commandErr != nil {
+		return "", commandErr
+	}
+	err := fmt.Errorf("no clipboard tool available (install wl-clipboard or xclip)")
+	log.Error().Err(err).Msg("clipboard read failed")
+	return "", err
 }
 
 // Clear clears the clipboard contents.

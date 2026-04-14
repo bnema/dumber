@@ -172,3 +172,10 @@ func TestContextMenuAnchorPositionScalesCEFCoordinates(t *testing.T) {
 	require.Equal(t, int32(160), x)
 	require.Equal(t, int32(90), y)
 }
+
+func TestContextMenuRawPositionDefaultsToZeroWhenParamsNil(t *testing.T) {
+	x, y := contextMenuRawPosition(nil)
+
+	require.Zero(t, x)
+	require.Zero(t, y)
+}

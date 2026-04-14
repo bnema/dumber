@@ -14,10 +14,12 @@ import (
 
 type fakeToolkitClipboard struct {
 	writeTextCalls  int
+	readTextCalls   int
 	writeImageCalls int
 	text            string
 	image           entity.ImageData
 	writeTextErr    error
+	readTextErr     error
 	writeImageErr   error
 }
 
@@ -27,10 +29,37 @@ func (f *fakeToolkitClipboard) WriteText(_ context.Context, text string) error {
 	return f.writeTextErr
 }
 
+func (f *fakeToolkitClipboard) ReadText(_ context.Context) (string, error) {
+	f.readTextCalls++
+	return f.text, f.readTextErr
+}
+
 func (f *fakeToolkitClipboard) WriteImage(_ context.Context, image entity.ImageData) error {
 	f.writeImageCalls++
 	f.image = image
 	return f.writeImageErr
+}
+
+func TestAdapter_ReadTextFallsBackToToolkitClipboardWhenNoSystemTool(t *testing.T) {
+	fake := &fakeToolkitClipboard{text: "toolkit text"}
+	adapter := &Adapter{toolkit: fake}
+
+	text, err := adapter.ReadText(context.Background())
+
+	require.NoError(t, err)
+	require.Equal(t, "toolkit text", text)
+	require.Equal(t, 1, fake.readTextCalls)
+}
+
+func TestAdapter_HasTextReturnsTrueWhenToolkitFallbackHasText(t *testing.T) {
+	fake := &fakeToolkitClipboard{text: "toolkit text"}
+	adapter := &Adapter{toolkit: fake}
+
+	hasText, err := adapter.HasText(context.Background())
+
+	require.NoError(t, err)
+	require.True(t, hasText)
+	require.Equal(t, 1, fake.readTextCalls)
 }
 
 func TestAdapter_WriteTextReturnsToolkitErrorWhenNoSystemTool(t *testing.T) {
