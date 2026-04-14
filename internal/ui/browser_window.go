@@ -36,10 +36,16 @@ func (a *App) removeBrowserWindow(id string) {
 		for _, remaining := range a.browserWindows {
 			if remaining != nil && remaining.mainWindow != nil {
 				a.mainWindow = remaining.mainWindow
+				if a.tabCoord != nil {
+					a.tabCoord.SetMainWindow(remaining.mainWindow)
+				}
 				return
 			}
 		}
 		a.mainWindow = nil
+		if a.tabCoord != nil {
+			a.tabCoord.SetMainWindow(nil)
+		}
 		return
 	}
 	delete(a.browserWindows, id)

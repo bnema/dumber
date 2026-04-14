@@ -528,7 +528,7 @@ func (a *App) openFreshWindow(ctx context.Context, url string) error {
 		return nil
 	}
 
-	if a.tabCoord != nil && a.widgetFactory != nil {
+	if a.tabCoord != nil {
 		a.tabCreationWindow = created
 		defer func() {
 			a.tabCreationWindow = nil
@@ -536,7 +536,24 @@ func (a *App) openFreshWindow(ctx context.Context, url string) error {
 
 		tab, err := a.tabCoord.Create(ctx, url)
 		if err != nil {
+			a.removeBrowserWindow(created.id)
+			if created.mainWindow != nil {
+				created.mainWindow.Destroy()
+			}
 			return err
+		}
+		if a.workspaceViews[tab.ID] == nil {
+			if a.tabs != nil {
+				a.tabs.Remove(tab.ID)
+			}
+			if created.mainWindow != nil && created.mainWindow.TabBar() != nil {
+				created.mainWindow.TabBar().RemoveTab(tab.ID)
+			}
+			a.removeBrowserWindow(created.id)
+			if created.mainWindow != nil {
+				created.mainWindow.Destroy()
+			}
+			return fmt.Errorf("workspace view not created for tab %s", tab.ID)
 		}
 		a.setBrowserWindowForTab(tab.ID, created)
 		if created.mainWindow != nil {

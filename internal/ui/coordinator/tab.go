@@ -69,6 +69,11 @@ func (c *TabCoordinator) SetOnStateChanged(fn func()) {
 	c.onStateChanged = fn
 }
 
+// SetMainWindow updates the window targeted by tab UI operations.
+func (c *TabCoordinator) SetMainWindow(mainWindow *window.MainWindow) {
+	c.mainWindow = mainWindow
+}
+
 // notifyStateChanged triggers the state changed callback if set.
 func (c *TabCoordinator) notifyStateChanged() {
 	if c.onStateChanged != nil {
