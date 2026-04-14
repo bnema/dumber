@@ -7,7 +7,7 @@ import (
 	urlutil "github.com/bnema/dumber/internal/domain/url"
 )
 
-func TestHandleStandaloneOmniboxNavigation_UsesBrowserLauncherForHTTP(t *testing.T) {
+func TestHandleStandaloneOmniboxNavigation_UsesFreshBrowserWindowForHTTP(t *testing.T) {
 	browserURL := ""
 	externalURL := ""
 	handleStandaloneOmniboxNavigation(&Dependencies{
