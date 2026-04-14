@@ -86,6 +86,7 @@ func TestCEFDownloadHandlerLifecycle(t *testing.T) {
 	item.complete = true
 	item.fullPath = callback.path
 	handler.onDownloadUpdated(ctx, item, nil)
+	// Repeated completion updates should not emit duplicate finished events.
 	handler.onDownloadUpdated(ctx, item, nil)
 
 	require.Len(t, events.events, 2)

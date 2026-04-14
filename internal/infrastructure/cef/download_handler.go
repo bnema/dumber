@@ -101,10 +101,10 @@ func (h *downloadHandler) onDownloadUpdated(
 		if !h.markFinished(id, state) {
 			return
 		}
-		err := fmt.Errorf("download failed: %s", state.filename)
+		var err error
 		if downloadItem.IsInterrupted() {
 			err = fmt.Errorf("download interrupted: %s (%v)", state.filename, downloadItem.GetInterruptReason())
-		} else if downloadItem.IsCanceled() {
+		} else {
 			err = fmt.Errorf("download canceled: %s", state.filename)
 		}
 		h.runtime.EmitFailed(ctx, state.filename, state.destination, err)

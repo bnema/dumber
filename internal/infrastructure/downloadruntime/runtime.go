@@ -52,11 +52,16 @@ func (r *Runtime) ResolveDestination(
 		return nil, fmt.Errorf("failed to create download directory %q: %w", downloadPath, err)
 	}
 
-	return preparer.Execute(ctx, port.DownloadPrepareInput{
+	output := preparer.Execute(ctx, port.DownloadPrepareInput{
 		SuggestedFilename: suggestedFilename,
 		Response:          response,
 		DownloadDir:       downloadPath,
-	}), nil
+	})
+	if output == nil {
+		return nil, fmt.Errorf("failed to prepare download destination for %q", suggestedFilename)
+	}
+
+	return output, nil
 }
 
 func (r *Runtime) EmitStarted(ctx context.Context, output *port.DownloadPrepareOutput) {

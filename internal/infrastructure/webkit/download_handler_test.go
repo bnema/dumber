@@ -1,6 +1,7 @@
 package webkit
 
 import (
+	"context"
 	"testing"
 
 	"github.com/bnema/dumber/internal/application/usecase"
@@ -31,7 +32,10 @@ func TestDownloadHandler_SetDownloadPath(t *testing.T) {
 
 	handler.SetDownloadPath("/new/path")
 
-	assert.NotNil(t, handler.runtime)
+	output, err := handler.runtime.ResolveDestination(context.Background(), "artifact.pdf", nil)
+
+	require.NoError(t, err)
+	assert.Equal(t, "/new/path/artifact.pdf", output.DestinationPath)
 }
 
 func TestURIResponseAdapter(t *testing.T) {
