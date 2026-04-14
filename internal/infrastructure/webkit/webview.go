@@ -3,7 +3,6 @@ package webkit
 import (
 	"context"
 	"fmt"
-	"net/url"
 	"os"
 	"strings"
 	"sync"
@@ -11,6 +10,7 @@ import (
 	"time"
 
 	"github.com/bnema/dumber/internal/application/port"
+	downloadutil "github.com/bnema/dumber/internal/domain/download"
 	"github.com/bnema/dumber/internal/domain/entity"
 	urlutil "github.com/bnema/dumber/internal/domain/url"
 	"github.com/bnema/dumber/internal/infrastructure/desktop"
@@ -824,22 +824,7 @@ func shouldForceDownload(responseDecision *webkit.ResponsePolicyDecision) bool {
 		return false
 	}
 
-	mimeType := strings.ToLower(response.GetMimeType())
-	if strings.HasPrefix(mimeType, "application/pdf") {
-		return true
-	}
-
-	uri := response.GetUri()
-	if uri == "" {
-		return false
-	}
-
-	parsed, err := url.Parse(uri)
-	if err != nil {
-		return strings.Contains(strings.ToLower(uri), ".pdf")
-	}
-
-	return strings.HasSuffix(strings.ToLower(parsed.Path), ".pdf")
+	return downloadutil.ShouldForceDownload(response.GetUri(), response.GetMimeType())
 }
 
 func (wv *WebView) connectEnterFullscreenSignal() {

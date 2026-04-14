@@ -7,6 +7,7 @@ import (
 	purecef "github.com/bnema/purego-cef/cef"
 
 	"github.com/bnema/dumber/internal/application/port"
+	downloadutil "github.com/bnema/dumber/internal/domain/download"
 	"github.com/bnema/dumber/internal/infrastructure/transcoder"
 	"github.com/bnema/dumber/internal/logging"
 )
@@ -36,6 +37,7 @@ var (
 	_ purecef.RequestHandler      = (*handlerSet)(nil)
 	_ purecef.AudioHandler        = (*handlerSet)(nil)
 	_ purecef.ContextMenuHandler  = (*handlerSet)(nil)
+	_ purecef.DownloadHandler     = (*handlerSet)(nil)
 	_ purecef.FindHandler         = (*handlerSet)(nil)
 )
 
@@ -54,19 +56,24 @@ func (h *handlerSet) GetCommandHandler() purecef.CommandHandler         { return
 func (h *handlerSet) GetContextMenuHandler() purecef.ContextMenuHandler { return h }
 func (h *handlerSet) GetDialogHandler() purecef.DialogHandler           { return nil }
 func (h *handlerSet) GetDisplayHandler() purecef.DisplayHandler         { return h }
-func (h *handlerSet) GetDownloadHandler() purecef.DownloadHandler       { return nil }
-func (h *handlerSet) GetDragHandler() purecef.DragHandler               { return nil }
-func (h *handlerSet) GetFindHandler() purecef.FindHandler               { return h }
-func (h *handlerSet) GetFocusHandler() purecef.FocusHandler             { return nil }
-func (h *handlerSet) GetFrameHandler() purecef.FrameHandler             { return nil }
-func (h *handlerSet) GetPermissionHandler() purecef.PermissionHandler   { return nil }
-func (h *handlerSet) GetJsdialogHandler() purecef.JsdialogHandler       { return nil }
-func (h *handlerSet) GetKeyboardHandler() purecef.KeyboardHandler       { return nil }
-func (h *handlerSet) GetLifeSpanHandler() purecef.SafeLifeSpanHandler   { return h }
-func (h *handlerSet) GetLoadHandler() purecef.LoadHandler               { return h }
-func (h *handlerSet) GetPrintHandler() purecef.PrintHandler             { return nil }
-func (h *handlerSet) GetRenderHandler() purecef.RenderHandler           { return h }
-func (h *handlerSet) GetRequestHandler() purecef.RequestHandler         { return h }
+func (h *handlerSet) GetDownloadHandler() purecef.DownloadHandler {
+	if h.downloadHandler() != nil {
+		return h
+	}
+	return nil
+}
+func (h *handlerSet) GetDragHandler() purecef.DragHandler             { return nil }
+func (h *handlerSet) GetFindHandler() purecef.FindHandler             { return h }
+func (h *handlerSet) GetFocusHandler() purecef.FocusHandler           { return nil }
+func (h *handlerSet) GetFrameHandler() purecef.FrameHandler           { return nil }
+func (h *handlerSet) GetPermissionHandler() purecef.PermissionHandler { return nil }
+func (h *handlerSet) GetJsdialogHandler() purecef.JsdialogHandler     { return nil }
+func (h *handlerSet) GetKeyboardHandler() purecef.KeyboardHandler     { return nil }
+func (h *handlerSet) GetLifeSpanHandler() purecef.SafeLifeSpanHandler { return h }
+func (h *handlerSet) GetLoadHandler() purecef.LoadHandler             { return h }
+func (h *handlerSet) GetPrintHandler() purecef.PrintHandler           { return nil }
+func (h *handlerSet) GetRenderHandler() purecef.RenderHandler         { return h }
+func (h *handlerSet) GetRequestHandler() purecef.RequestHandler       { return h }
 
 func (h *handlerSet) OnProcessMessageReceived(
 	browser purecef.Browser,
@@ -779,8 +786,79 @@ func (h *handlerSet) OnBeforeClose(_ purecef.Browser) {
 // RequestHandler (11 methods)
 // ===========================================================================
 
-func (h *handlerSet) OnBeforeBrowse(_ purecef.Browser, _ purecef.Frame, _ purecef.Request, _, _ int32) bool {
-	return false
+func (h *handlerSet) OnBeforeBrowse(browser purecef.Browser, frame purecef.Frame, request purecef.Request, _, _ int32) bool {
+	if frame == nil || !frame.IsMain() || request == nil {
+		return false
+	}
+
+	handler := h.downloadHandler()
+	if handler == nil || !strings.EqualFold(request.GetMethod(), "GET") {
+		return false
+	}
+
+	url := request.GetURL()
+	if !downloadutil.ShouldForceDownloadForURI(url) || browser == nil {
+		return false
+	}
+
+	host := browser.GetHost()
+	if host == nil {
+		return false
+	}
+
+	logging.FromContext(h.currentContext()).Debug().
+		Str("url", logging.TruncateURL(url, maxTranscodingURLLength)).
+		Msg("cef: forcing download for navigation")
+
+	host.StartDownload(url)
+	return true
+}
+
+func (h *handlerSet) CanDownload(browser purecef.Browser, url string, requestMethod string) bool {
+	handler := h.downloadHandler()
+	if handler == nil {
+		return false
+	}
+	return handler.canDownload(browser, url, requestMethod)
+}
+
+func (h *handlerSet) OnBeforeDownload(
+	browser purecef.Browser,
+	downloadItem purecef.DownloadItem,
+	suggestedName string,
+	callback purecef.BeforeDownloadCallback,
+) bool {
+	handler := h.downloadHandler()
+	if handler == nil {
+		return false
+	}
+	return handler.onBeforeDownload(h.currentContext(), browser, downloadItem, suggestedName, callback)
+}
+
+func (h *handlerSet) OnDownloadUpdated(
+	_ purecef.Browser,
+	downloadItem purecef.DownloadItem,
+	callback purecef.DownloadItemCallback,
+) {
+	handler := h.downloadHandler()
+	if handler == nil {
+		return
+	}
+	handler.onDownloadUpdated(h.currentContext(), downloadItem, callback)
+}
+
+func (h *handlerSet) downloadHandler() *downloadHandler {
+	if h == nil || h.wv == nil || h.wv.engine == nil {
+		return nil
+	}
+	return h.wv.engine.currentDownloadHandler()
+}
+
+func (h *handlerSet) currentContext() context.Context {
+	if h == nil || h.wv == nil || h.wv.ctx == nil {
+		return context.Background()
+	}
+	return h.wv.ctx
 }
 
 func (h *handlerSet) OnOpenUrlfromTab(

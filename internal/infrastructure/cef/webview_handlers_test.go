@@ -8,6 +8,7 @@ import (
 
 	purecef "github.com/bnema/purego-cef/cef"
 	cefmocks "github.com/bnema/purego-cef/cef/mocks"
+	"github.com/bnema/dumber/internal/application/usecase"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
@@ -372,6 +373,20 @@ func TestOptionalHandlersAreAlwaysEnabled(t *testing.T) {
 	// AudioHandler is always enabled (required for media decoding).
 	require.Same(t, h, h.GetAudioHandler())
 	require.Same(t, h, h.GetContextMenuHandler())
+}
+
+func TestGetDownloadHandler_EnabledWhenEngineConfigured(t *testing.T) {
+	eng := &Engine{}
+	require.NoError(t, eng.ConfigureDownloads(context.Background(), "/tmp/downloads", nil, usecase.NewPrepareDownloadUseCase(nil)))
+
+	h := &handlerSet{
+		wv: &WebView{
+			ctx:    context.Background(),
+			engine: eng,
+		},
+	}
+
+	require.Same(t, h, h.GetDownloadHandler())
 }
 
 func TestOnPaint_DropsStaleMainViewPaint(t *testing.T) {
