@@ -114,6 +114,10 @@ func GenerateCSSFull(p Palette, _ float64, fonts FontConfig, modeColors ModeColo
 	sb.WriteString(generateSessionManagerCSS(p))
 	sb.WriteString("\n")
 
+	// Context menu styling
+	sb.WriteString(generateContextMenuCSS())
+	sb.WriteString("\n")
+
 	// Tab picker styling
 	sb.WriteString(generateTabPickerCSS(p))
 	sb.WriteString("\n")
@@ -898,6 +902,65 @@ row:selected .session-manager-row {
 	background-color: transparent;
 	box-shadow: inset 0 0 0 0.25em var(--session-mode-color);
 	border-radius: 0;
+}
+`
+}
+
+// generateContextMenuCSS creates shared context menu styles.
+func generateContextMenuCSS() string {
+	return `/* ===== Context Menu Styling ===== */
+
+popover.context-menu-popover {
+	background-color: transparent;
+	background-image: none;
+}
+
+popover.context-menu-popover > contents {
+	background-color: var(--surface);
+	background-image: none;
+	border: 0.0625em solid alpha(var(--border), 0.85);
+	border-radius: 0.25em;
+	box-shadow: 0 0.75em 1.75em alpha(var(--bg), 0.28), 0 0.0625em 0 alpha(var(--border), 0.18) inset;
+	padding: 0;
+}
+
+.context-menu {
+	padding: 0.125em 0;
+	min-width: 10.5em;
+}
+
+.context-menu button.context-menu-item {
+	background-color: transparent;
+	background-image: none;
+	border: none;
+	border-radius: 0;
+	color: var(--text);
+	padding: 0.25em 0.75em;
+	margin: 0;
+	min-height: 1.75em;
+	transition: background-color 120ms ease-in-out, color 120ms ease-in-out;
+}
+
+.context-menu button.context-menu-item:hover,
+.context-menu button.context-menu-item:focus,
+.context-menu button.context-menu-item:active {
+	background-color: alpha(var(--surface-variant), 0.9);
+	color: var(--text);
+}
+
+.context-menu button.context-menu-item:active {
+	background-color: alpha(var(--accent), 0.16);
+}
+
+.context-menu button.context-menu-item:disabled {
+	color: var(--muted);
+	opacity: 0.7;
+}
+
+.context-menu-separator {
+	background-color: alpha(var(--border), 0.55);
+	margin: 0.25em 0.5em;
+	min-height: 0.0625em;
 }
 `
 }

@@ -32,6 +32,10 @@ type Engine struct {
 	registerAccentHandlers           AccentHandlerRegistrar
 	currentConfigPayload             func() ([]byte, error)
 	defaultConfigPayload             func() ([]byte, error)
+	ctxMenuBuilder                   port.ContextMenuBuilder
+	ctxMenuExecutorFactory           port.ContextMenuActionExecutorFactory
+	clipboard                        port.Clipboard
+	resolver                         port.ImageDataResolver
 	mediaClassifier                  MediaClassifier
 	alreadyRunningAppRelaunchHandler func(string)
 

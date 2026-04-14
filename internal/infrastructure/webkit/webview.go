@@ -185,6 +185,9 @@ type WebView struct {
 
 	backForwardList         *webkit.BackForwardList
 	backForwardListSignalID uintptr
+
+	// contextMenu holds the optional context menu pipeline for reconnection.
+	contextMenu *contextMenuPipeline
 }
 
 type runJSErrorStat struct {
@@ -429,6 +432,7 @@ func (wv *WebView) connectSignals() {
 	wv.connectBackForwardListChangedSignal()
 	wv.connectWebProcessTerminatedSignal()
 	wv.connectPermissionRequestSignal()
+	wv.connectContextMenuSignal(wv.contextMenu)
 }
 
 func (wv *WebView) connectLoadChangedSignal() {

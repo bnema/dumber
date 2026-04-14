@@ -170,6 +170,69 @@ func TestTransformLegacyActions_PartialPath(t *testing.T) {
 	require.NotNil(t, rawConfig["workspace"])
 }
 
+func TestTransformLegacyEngineConfig_RemovesDeprecatedContextMenuHandler(t *testing.T) {
+	transformer := NewLegacyConfigTransformer()
+
+	rawConfig := map[string]any{
+		"engine": map[string]any{
+			"cef": map[string]any{
+				"enable_context_menu_handler": true,
+			},
+		},
+	}
+
+	transformer.TransformLegacyEngineConfig(rawConfig)
+
+	cef := rawConfig["engine"].(map[string]any)["cef"].(map[string]any)
+	_, exists := cef["enable_context_menu_handler"]
+	assert.False(t, exists)
+}
+
+func TestTransformLegacyEngineConfig_MissingCefSection(t *testing.T) {
+	transformer := NewLegacyConfigTransformer()
+	rawConfig := map[string]any{
+		"engine": map[string]any{
+			"webkit": map[string]any{"enabled": true},
+		},
+	}
+
+	transformer.TransformLegacyEngineConfig(rawConfig)
+
+	engine, ok := rawConfig["engine"].(map[string]any)
+	require.True(t, ok)
+	assert.NotNil(t, engine)
+	assert.Equal(t, true, engine["webkit"].(map[string]any)["enabled"])
+}
+
+func TestTransformLegacyEngineConfig_MissingContextMenuHandlerKey(t *testing.T) {
+	transformer := NewLegacyConfigTransformer()
+	rawConfig := map[string]any{
+		"engine": map[string]any{
+			"cef": map[string]any{
+				"other_setting": true,
+			},
+		},
+	}
+
+	transformer.TransformLegacyEngineConfig(rawConfig)
+
+	cef := rawConfig["engine"].(map[string]any)["cef"].(map[string]any)
+	assert.True(t, cef["other_setting"].(bool))
+	_, exists := cef["enable_context_menu_handler"]
+	assert.False(t, exists)
+}
+
+func TestTransformLegacyEngineConfig_NonMapEngineSection(t *testing.T) {
+	transformer := NewLegacyConfigTransformer()
+	rawConfig := map[string]any{
+		"engine": "invalid",
+	}
+
+	transformer.TransformLegacyEngineConfig(rawConfig)
+
+	assert.Equal(t, "invalid", rawConfig["engine"])
+}
+
 func TestTransformLegacyActions_UnknownAction(t *testing.T) {
 	transformer := NewLegacyConfigTransformer()
 

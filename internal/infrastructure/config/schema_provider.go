@@ -887,13 +887,6 @@ func (*SchemaProvider) getDebugKeys(defaults *Config) []entity.ConfigKeyInfo {
 			Description: "Enable the experimental CEF audio handler bridge",
 			Section:     SectionDebug,
 		},
-		{
-			Key:         "engine.cef.enable_context_menu_handler",
-			Type:        "bool",
-			Default:     fmt.Sprintf("%t", defaults.Engine.CEF.EnableContextMenuHandler),
-			Description: "Enable the experimental CEF context menu handler bridge",
-			Section:     SectionDebug,
-		},
 	}
 }
 

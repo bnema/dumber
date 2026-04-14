@@ -380,6 +380,7 @@ func (m *Migrator) Migrate() ([]string, error) {
 	// Transform legacy action bindings (slice -> ActionBinding struct)
 	transformer := NewLegacyConfigTransformer()
 	transformer.TransformLegacyActions(rawConfig)
+	transformer.TransformLegacyEngineConfig(rawConfig)
 
 	// Build sets of keys to remove and renames to apply
 	keysToRemove := make(map[string]bool)
@@ -670,6 +671,7 @@ func (m *Migrator) getUserConfigKeysWithValues(configFile string) (map[string]an
 	// Transform legacy action bindings before flattening
 	transformer := NewLegacyConfigTransformer()
 	transformer.TransformLegacyActions(rawConfig)
+	transformer.TransformLegacyEngineConfig(rawConfig)
 
 	// Flatten the map to dot-notation keys with values
 	result := make(map[string]any)
