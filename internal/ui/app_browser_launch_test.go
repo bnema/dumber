@@ -5,10 +5,12 @@ import (
 	"io"
 	"reflect"
 	"testing"
+	"unsafe"
 
 	"github.com/bnema/dumber/internal/application/port"
 	"github.com/bnema/dumber/internal/application/usecase"
 	"github.com/bnema/dumber/internal/domain/entity"
+	"github.com/bnema/dumber/internal/ui/component"
 	"github.com/bnema/dumber/internal/ui/coordinator"
 	"github.com/bnema/dumber/internal/ui/layout"
 	"github.com/bnema/dumber/internal/ui/window"
@@ -70,6 +72,25 @@ func tabCoordinatorMainWindowPtr(t *testing.T, tc *coordinator.TabCoordinator) u
 		t.Fatalf("TabCoordinator missing mainWindow field")
 	}
 	return fv.Pointer()
+}
+
+func setWindowTabBar(t *testing.T, mw *window.MainWindow, tabBar *component.TabBar) {
+	t.Helper()
+
+	rv := reflect.ValueOf(mw).Elem()
+	fv := rv.FieldByName("tabBar")
+	if !fv.IsValid() {
+		t.Fatalf("MainWindow missing tabBar field")
+	}
+	reflect.NewAt(fv.Type(), unsafe.Pointer(fv.UnsafeAddr())).Elem().Set(reflect.ValueOf(tabBar))
+}
+
+func windowTabBarActiveID(t *testing.T, mw *window.MainWindow) entity.TabID {
+	t.Helper()
+	if mw == nil || mw.TabBar() == nil {
+		return ""
+	}
+	return mw.TabBar().ActiveTabID()
 }
 
 type fakeWidgetFactory struct{}
@@ -149,6 +170,12 @@ func TestApp_RemoveBrowserWindowRebindsPromotedTabCoordinatorWindow(t *testing.T
 
 func TestApp_OpenFreshWindowRollsBackOnTabCreationFailure(t *testing.T) {
 	created := &browserWindow{id: "window-1"}
+	originalWindow := &window.MainWindow{}
+	tabBar := &component.TabBar{}
+	setWindowTabBar(t, originalWindow, tabBar)
+	existingTabID := entity.TabID("existing-tab")
+	staleTabID := entity.TabID("stale-tab")
+	tabBar.SetActive(staleTabID)
 	app := &App{
 		tabs:           entity.NewTabList(),
 		tabsUC:         usecase.NewManageTabsUseCase(func() string { return "id-1" }),
@@ -156,14 +183,14 @@ func TestApp_OpenFreshWindowRollsBackOnTabCreationFailure(t *testing.T) {
 		browserWindowFactory: func(context.Context, string) (*browserWindow, error) {
 			return created, nil
 		},
-		tabCoord: coordinator.NewTabCoordinator(context.Background(), coordinator.TabCoordinatorConfig{
-			TabsUC:     usecase.NewManageTabsUseCase(func() string { return "id-2" }),
-			Tabs:       nil,
-			MainWindow: &window.MainWindow{},
-		}),
-		widgetFactory: fakeWidgetFactory{},
+		mainWindow: originalWindow,
 	}
-	app.tabs.Add(entity.NewTab(entity.TabID("existing-tab"), entity.WorkspaceID("existing-workspace"), entity.NewPane(entity.PaneID("existing-pane"))))
+	app.tabs.Add(entity.NewTab(existingTabID, entity.WorkspaceID("existing-workspace"), entity.NewPane(entity.PaneID("existing-pane"))))
+	app.tabCoord = coordinator.NewTabCoordinator(context.Background(), coordinator.TabCoordinatorConfig{
+		TabsUC:     app.tabsUC,
+		Tabs:       app.tabs,
+		MainWindow: &window.MainWindow{},
+	})
 
 	if err := app.OpenFreshWindow(context.Background(), "https://example.com/fail"); err == nil {
 		t.Fatalf("OpenFreshWindow = nil error, want failure")
@@ -173,5 +200,8 @@ func TestApp_OpenFreshWindowRollsBackOnTabCreationFailure(t *testing.T) {
 	}
 	if got := windowForTabCount(t, app); got != 0 {
 		t.Fatalf("windowForTab length = %d, want 0", got)
+	}
+	if got := windowTabBarActiveID(t, originalWindow); got != existingTabID {
+		t.Fatalf("tab bar active tab = %q, want %q", got, existingTabID)
 	}
 }

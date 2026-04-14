@@ -546,8 +546,9 @@ func (a *App) openFreshWindow(ctx context.Context, url string) error {
 			if a.tabs != nil {
 				a.tabs.Remove(tab.ID)
 			}
-			if created.mainWindow != nil && created.mainWindow.TabBar() != nil {
-				created.mainWindow.TabBar().RemoveTab(tab.ID)
+			if a.mainWindow != nil && a.mainWindow.TabBar() != nil {
+				a.mainWindow.TabBar().RemoveTab(tab.ID)
+				a.mainWindow.TabBar().SetActive(a.tabs.ActiveTabID)
 			}
 			a.removeBrowserWindow(created.id)
 			if created.mainWindow != nil {
