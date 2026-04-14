@@ -1,6 +1,8 @@
 package cef
 
 import (
+	"strings"
+
 	purecef "github.com/bnema/purego-cef/cef"
 
 	"github.com/bnema/dumber/internal/logging"
@@ -125,9 +127,36 @@ func (h *dumberBPH) OnBeforeChildProcessLaunch(commandLine purecef.CommandLine) 
 	}
 	h.engine.recordChildProcessLaunch(processType, useAngle, ozonePlatform, commandLineString)
 }
-func (h *dumberBPH) OnAlreadyRunningAppRelaunch(_ purecef.CommandLine, _ string) int32 { return 0 }
-func (h *dumberBPH) GetDefaultClient() purecef.Client                                  { return nil }
-func (h *dumberBPH) GetDefaultRequestContextHandler() purecef.RequestContextHandler    { return nil }
+func parseBrowseURLFromRelaunchCommandLine(commandLine purecef.CommandLine) string {
+	if commandLine == nil {
+		return ""
+	}
+
+	fields := strings.Fields(commandLine.GetCommandLineString())
+	for i, field := range fields {
+		if field != "browse" {
+			continue
+		}
+		if i+1 < len(fields) {
+			return fields[i+1]
+		}
+		return ""
+	}
+
+	return ""
+}
+
+func (h *dumberBPH) OnAlreadyRunningAppRelaunch(commandLine purecef.CommandLine, _ string) int32 {
+	if h != nil && h.engine != nil {
+		if browseURL := parseBrowseURLFromRelaunchCommandLine(commandLine); browseURL != "" && h.engine.alreadyRunningAppRelaunchHandler != nil {
+			h.engine.alreadyRunningAppRelaunchHandler(browseURL)
+		}
+	}
+
+	return 1
+}
+func (h *dumberBPH) GetDefaultClient() purecef.Client                               { return nil }
+func (h *dumberBPH) GetDefaultRequestContextHandler() purecef.RequestContextHandler { return nil }
 
 // OnScheduleMessagePumpWork is a no-op — multi-threaded message loop drives
 // its own pump. Required by the BrowserProcessHandler interface.

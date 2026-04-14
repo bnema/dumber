@@ -27,11 +27,12 @@ type Engine struct {
 	schemeHandler *dumbSchemeHandler
 	contentInj    *contentInjector
 
-	registerHandlers       HandlerRegistrar
-	registerAccentHandlers AccentHandlerRegistrar
-	currentConfigPayload   func() ([]byte, error)
-	defaultConfigPayload   func() ([]byte, error)
-	mediaClassifier        MediaClassifier
+	registerHandlers                 HandlerRegistrar
+	registerAccentHandlers           AccentHandlerRegistrar
+	currentConfigPayload             func() ([]byte, error)
+	defaultConfigPayload             func() ([]byte, error)
+	mediaClassifier                  MediaClassifier
+	alreadyRunningAppRelaunchHandler func(string)
 
 	// activeWebViews tracks all live webviews for CSS broadcast.
 	activeWebViews sync.Map // map[port.WebViewID]*WebView
@@ -108,6 +109,12 @@ func (e *Engine) SetColorResolver(resolver port.ColorSchemeResolver) {
 	if e.contentInj != nil {
 		e.contentInj.setColorResolver(resolver)
 	}
+}
+
+// SetAlreadyRunningAppRelaunchHandler configures the callback invoked when CEF
+// relaunches an already-running app instance.
+func (e *Engine) SetAlreadyRunningAppRelaunchHandler(handler func(string)) {
+	e.alreadyRunningAppRelaunchHandler = handler
 }
 
 // registerWebView adds a webview to the active tracking map.
