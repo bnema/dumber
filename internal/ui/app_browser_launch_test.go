@@ -224,9 +224,10 @@ func TestApp_OpenFreshWindowTargetsNewWindowTabBar(t *testing.T) {
 		},
 		mainWindow: oldWindow,
 		tabCoord: coordinator.NewTabCoordinator(context.Background(), coordinator.TabCoordinatorConfig{
-			TabsUC:     tabsUC,
-			Tabs:       tabs,
-			MainWindow: oldWindow,
+			TabsUC:                  tabsUC,
+			Tabs:                    tabs,
+			MainWindow:              oldWindow,
+			HideTabBarWhenSingleTab: true,
 		}),
 		workspaceViews: make(map[entity.TabID]*component.WorkspaceView),
 	}
@@ -248,5 +249,8 @@ func TestApp_OpenFreshWindowTargetsNewWindowTabBar(t *testing.T) {
 	}
 	if got := windowTabBarActiveID(t, oldWindow); got != "" {
 		t.Fatalf("old window tab bar active tab = %q, want empty", got)
+	}
+	if got := newWindow.TabBar().Box().GetVisible(); got {
+		t.Fatalf("new window tab bar visible = %v, want false", got)
 	}
 }

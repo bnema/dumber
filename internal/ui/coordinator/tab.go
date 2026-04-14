@@ -357,7 +357,7 @@ func (c *TabCoordinator) UpdateBarVisibility(ctx context.Context) {
 		return
 	}
 
-	tabCount := c.tabs.Count()
+	tabCount := c.mainWindow.TabBar().Count()
 	shouldShow := tabCount > 1
 
 	log.Debug().Int("tab_count", tabCount).Bool("should_show", shouldShow).Msg("setting tab bar visibility")
