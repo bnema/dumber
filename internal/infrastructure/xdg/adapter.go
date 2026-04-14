@@ -28,6 +28,18 @@ func (a *Adapter) StateDir() (string, error) {
 	return config.GetStateDir()
 }
 
+func (a *Adapter) RuntimeDir() (string, error) {
+	if dir := os.Getenv("XDG_RUNTIME_DIR"); dir != "" {
+		return dir, nil
+	}
+
+	stateDir, err := a.StateDir()
+	if err != nil {
+		return "", err
+	}
+	return filepath.Join(stateDir, "runtime"), nil
+}
+
 func (a *Adapter) CacheDir() (string, error) {
 	dirs, err := config.GetXDGDirs()
 	if err != nil {

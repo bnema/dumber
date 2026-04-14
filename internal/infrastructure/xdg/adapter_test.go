@@ -56,6 +56,53 @@ func TestAdapter_DownloadDir(t *testing.T) {
 	})
 }
 
+func TestAdapter_RuntimeDir(t *testing.T) {
+	adapter := New()
+
+	t.Run("returns XDG_RUNTIME_DIR when set", func(t *testing.T) {
+		original := os.Getenv("XDG_RUNTIME_DIR")
+		defer func() {
+			if original == "" {
+				os.Unsetenv("XDG_RUNTIME_DIR")
+			} else {
+				os.Setenv("XDG_RUNTIME_DIR", original)
+			}
+		}()
+
+		os.Setenv("XDG_RUNTIME_DIR", "/custom/runtime")
+
+		dir, err := adapter.RuntimeDir()
+
+		require.NoError(t, err)
+		assert.Equal(t, "/custom/runtime", dir)
+	})
+
+	t.Run("falls back to state runtime dir when XDG_RUNTIME_DIR not set", func(t *testing.T) {
+		originalRuntime := os.Getenv("XDG_RUNTIME_DIR")
+		originalState := os.Getenv("XDG_STATE_HOME")
+		defer func() {
+			if originalRuntime == "" {
+				os.Unsetenv("XDG_RUNTIME_DIR")
+			} else {
+				os.Setenv("XDG_RUNTIME_DIR", originalRuntime)
+			}
+			if originalState == "" {
+				os.Unsetenv("XDG_STATE_HOME")
+			} else {
+				os.Setenv("XDG_STATE_HOME", originalState)
+			}
+		}()
+
+		os.Unsetenv("XDG_RUNTIME_DIR")
+		os.Setenv("XDG_STATE_HOME", "/tmp/dumber-state")
+
+		dir, err := adapter.RuntimeDir()
+
+		require.NoError(t, err)
+		assert.Equal(t, filepath.Join("/tmp/dumber-state", "dumber", "runtime"), dir)
+	})
+}
+
 func TestNew(t *testing.T) {
 	adapter := New()
 

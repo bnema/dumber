@@ -71,6 +71,8 @@ packages:
       RuntimeVersionProbe: {}
       ScriptRefresher: {}
       SnapshotService: {}
+      BrowserWindowOpener: {}
+      BrowserLaunchRelay: {}
       TextInputTargetProvider: {}
       Texture: {}
       ToolkitAvailabilityNotifier: {}
