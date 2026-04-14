@@ -178,6 +178,7 @@ func dispatchContextMenuSelection(
 			return
 		}
 		log.Debug().Str("action", string(item.Action)).Msg("cef: context menu action executed directly")
+		callback.Cont(0, 0)
 		return
 	}
 	if cmdID, ok := commandIDByAction[item.Action]; ok {

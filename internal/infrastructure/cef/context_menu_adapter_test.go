@@ -141,7 +141,8 @@ func TestContextMenuSelectionExecutesDirectActionWhenExecutorAvailable(t *testin
 	require.Equal(t, 1, executor.executeCalls)
 	require.Equal(t, port.MenuActionReload, executor.action)
 	require.Equal(t, menuContext, executor.menuContext)
-	require.Zero(t, callback.contCalls)
+	require.Equal(t, 1, callback.contCalls)
+	require.Zero(t, callback.commandID)
 	require.Zero(t, callback.cancelCalls)
 }
 
@@ -162,7 +163,8 @@ func TestContextMenuSelectionExecutesCopyImageDirectlyWhenExecutorAvailable(t *t
 	require.Equal(t, 1, executor.executeCalls)
 	require.Equal(t, port.MenuActionCopyImage, executor.action)
 	require.Equal(t, menuContext, executor.menuContext)
-	require.Zero(t, callback.contCalls)
+	require.Equal(t, 1, callback.contCalls)
+	require.Zero(t, callback.commandID)
 	require.Zero(t, callback.cancelCalls)
 }
 
