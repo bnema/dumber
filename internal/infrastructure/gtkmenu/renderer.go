@@ -5,7 +5,6 @@ import (
 	"github.com/bnema/puregotk/v4/gdk"
 	"github.com/bnema/puregotk/v4/gobject"
 	"github.com/bnema/puregotk/v4/gtk"
-	"unsafe"
 )
 
 type renderItem struct {
@@ -200,7 +199,7 @@ func overlayFromWidget(widget *gtk.Widget) *gtk.Overlay {
 	if widget == nil || widget.GoPointer() == 0 {
 		return nil
 	}
-	if !gobject.TypeCheckInstanceIsA((*gobject.TypeInstance)(unsafe.Pointer(widget.GoPointer())), gtk.OverlayGLibType()) {
+	if !gobject.TypeCheckInstanceIsAPtr(widget.GoPointer(), gtk.OverlayGLibType()) {
 		return nil
 	}
 	return gtk.OverlayNewFromInternalPtr(widget.GoPointer())

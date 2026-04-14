@@ -232,7 +232,7 @@ func TestResolveImageData(t *testing.T) {
 	})
 
 	t.Run("rejects spoofed image headers when sniffed bytes are not an image", func(t *testing.T) {
-		srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 			w.Header().Set("Content-Type", "image/png")
 			w.Write([]byte("<html><body>not really an image</body></html>"))
 		}))
