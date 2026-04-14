@@ -3,6 +3,8 @@ package ui
 import (
 	"context"
 	"testing"
+
+	"github.com/bnema/dumber/internal/ui/window"
 )
 
 func TestBrowserWindow_RegisterAndRemoveTrackCollection(t *testing.T) {
@@ -30,6 +32,47 @@ func TestBrowserWindow_RegisterAndRemoveTrackCollection(t *testing.T) {
 	}
 	if _, ok := app.browserWindows[second.id]; !ok {
 		t.Fatalf("second browser window should remain registered")
+	}
+}
+
+func TestBrowserWindow_RemovePromotesRemainingMainWindow(t *testing.T) {
+	mainWindow := &window.MainWindow{}
+	otherWindow := &window.MainWindow{}
+	first := &browserWindow{id: "window-1", mainWindow: mainWindow}
+	second := &browserWindow{id: "window-2", mainWindow: otherWindow}
+	app := &App{
+		mainWindow:     mainWindow,
+		browserWindows: map[string]*browserWindow{first.id: first, second.id: second},
+	}
+
+	app.removeBrowserWindow(first.id)
+
+	if app.mainWindow != otherWindow {
+		t.Fatalf("mainWindow = %p, want promoted window %p", app.mainWindow, otherWindow)
+	}
+	if len(app.browserWindows) != 1 {
+		t.Fatalf("browserWindows length = %d, want 1", len(app.browserWindows))
+	}
+	if _, ok := app.browserWindows[second.id]; !ok {
+		t.Fatalf("remaining browser window was not kept")
+	}
+}
+
+func TestBrowserWindow_RemoveLastClearsMainWindow(t *testing.T) {
+	mainWindow := &window.MainWindow{}
+	first := &browserWindow{id: "window-1", mainWindow: mainWindow}
+	app := &App{
+		mainWindow:     mainWindow,
+		browserWindows: map[string]*browserWindow{first.id: first},
+	}
+
+	app.removeBrowserWindow(first.id)
+
+	if app.mainWindow != nil {
+		t.Fatalf("mainWindow = %p, want nil", app.mainWindow)
+	}
+	if len(app.browserWindows) != 0 {
+		t.Fatalf("browserWindows length = %d, want 0", len(app.browserWindows))
 	}
 }
 

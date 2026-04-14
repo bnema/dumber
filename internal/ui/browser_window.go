@@ -27,7 +27,15 @@ func (a *App) removeBrowserWindow(id string) {
 		return
 	}
 	if bw := a.browserWindows[id]; bw != nil && bw.mainWindow == a.mainWindow {
+		delete(a.browserWindows, id)
+		for _, remaining := range a.browserWindows {
+			if remaining != nil && remaining.mainWindow != nil {
+				a.mainWindow = remaining.mainWindow
+				return
+			}
+		}
 		a.mainWindow = nil
+		return
 	}
 	delete(a.browserWindows, id)
 }
