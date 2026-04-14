@@ -1,8 +1,10 @@
 package webkit
 
 import (
+	"bytes"
 	"context"
 	"encoding/base64"
+	"errors"
 	"fmt"
 	"io"
 	"mime"
@@ -71,16 +73,18 @@ func (r *contextMenuResolver) ResolveImageData(ctx context.Context, imageURI str
 		return entity.ImageData{}, fmt.Errorf("fetch image: HTTP %d", resp.StatusCode)
 	}
 
-	data, err := io.ReadAll(io.LimitReader(resp.Body, maxImageFetchBytes+1))
-	if err != nil {
+	var buf bytes.Buffer
+	n, err := io.CopyN(&buf, resp.Body, maxImageFetchBytes+1)
+	if err != nil && !errors.Is(err, io.EOF) && !errors.Is(err, io.ErrUnexpectedEOF) {
 		return entity.ImageData{}, fmt.Errorf("read image body: %w", err)
 	}
-	if len(data) == 0 {
+	if n == 0 {
 		return entity.ImageData{}, fmt.Errorf("read image body: empty image data")
 	}
-	if len(data) > maxImageFetchBytes {
+	if n > maxImageFetchBytes {
 		return entity.ImageData{}, fmt.Errorf("read image body: image too large (limit %d bytes)", maxImageFetchBytes)
 	}
+	data := buf.Bytes()
 	responseURL := parsed.String()
 	if resp.Request != nil && resp.Request.URL != nil {
 		responseURL = resp.Request.URL.String()

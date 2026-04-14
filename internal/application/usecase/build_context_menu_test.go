@@ -27,6 +27,15 @@ func TestBuildContextMenuUseCase_Build(t *testing.T) {
 			expected: []port.MenuAction{port.MenuActionReload, port.MenuActionInspectElement},
 		},
 		{
+			name:    "selection context",
+			context: port.MenuContext{HasSelection: true},
+			expected: []port.MenuAction{
+				port.MenuActionReload,
+				port.MenuActionCopySelection,
+				port.MenuActionInspectElement,
+			},
+		},
+		{
 			name:    "image only",
 			context: port.MenuContext{ImageURI: "https://example.com/image.png"},
 			expected: []port.MenuAction{

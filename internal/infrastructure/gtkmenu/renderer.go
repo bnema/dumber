@@ -3,7 +3,9 @@ package gtkmenu
 import (
 	"github.com/bnema/dumber/internal/application/port"
 	"github.com/bnema/puregotk/v4/gdk"
+	"github.com/bnema/puregotk/v4/gobject"
 	"github.com/bnema/puregotk/v4/gtk"
+	"unsafe"
 )
 
 type renderItem struct {
@@ -196,6 +198,9 @@ func createPopoverHost(parent *gtk.Widget, x, y int32) (*gtk.MenuButton, *gtk.Ov
 
 func overlayFromWidget(widget *gtk.Widget) *gtk.Overlay {
 	if widget == nil || widget.GoPointer() == 0 {
+		return nil
+	}
+	if !gobject.TypeCheckInstanceIsA((*gobject.TypeInstance)(unsafe.Pointer(widget.GoPointer())), gtk.OverlayGLibType()) {
 		return nil
 	}
 	return gtk.OverlayNewFromInternalPtr(widget.GoPointer())

@@ -136,15 +136,15 @@ func (m *Manager) readConfigFile() error {
 		}
 	}
 
-	// Transform legacy action bindings before unmarshaling
-	m.transformLegacyActionBindings()
+	// Transform legacy action bindings and engine config before unmarshaling.
+	m.transformLegacyConfig()
 
 	return nil
 }
 
-// transformLegacyActionBindings converts old-format action bindings to new format.
+// transformLegacyConfig converts old-format action bindings and engine config to the new format.
 // This is called after reading config but before unmarshaling.
-func (m *Manager) transformLegacyActionBindings() {
+func (m *Manager) transformLegacyConfig() {
 	rawConfig := m.viper.AllSettings()
 	transformer := NewLegacyConfigTransformer()
 	transformer.TransformLegacyActions(rawConfig)

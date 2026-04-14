@@ -235,7 +235,6 @@ func TestResolveImageData(t *testing.T) {
 		srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			w.Header().Set("Content-Type", "image/png")
 			w.Write([]byte("<html><body>not really an image</body></html>"))
-			_ = r
 		}))
 		defer srv.Close()
 
