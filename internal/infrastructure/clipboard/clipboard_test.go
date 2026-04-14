@@ -17,18 +17,44 @@ type fakeToolkitClipboard struct {
 	writeImageCalls int
 	text            string
 	image           entity.ImageData
+	writeTextErr    error
+	writeImageErr   error
 }
 
 func (f *fakeToolkitClipboard) WriteText(_ context.Context, text string) error {
 	f.writeTextCalls++
 	f.text = text
-	return nil
+	return f.writeTextErr
 }
 
 func (f *fakeToolkitClipboard) WriteImage(_ context.Context, image entity.ImageData) error {
 	f.writeImageCalls++
 	f.image = image
-	return nil
+	return f.writeImageErr
+}
+
+func TestAdapter_WriteTextReturnsToolkitErrorWhenNoSystemTool(t *testing.T) {
+	sentinel := errors.New("toolkit text failed")
+	fake := &fakeToolkitClipboard{writeTextErr: sentinel}
+	adapter := &Adapter{toolkit: fake}
+
+	err := adapter.WriteText(context.Background(), "hello")
+
+	require.Equal(t, sentinel, err)
+	require.Equal(t, 1, fake.writeTextCalls)
+	require.Equal(t, "hello", fake.text)
+}
+
+func TestAdapter_WriteImageReturnsToolkitErrorWhenNoSystemTool(t *testing.T) {
+	sentinel := errors.New("toolkit image failed")
+	fake := &fakeToolkitClipboard{writeImageErr: sentinel}
+	adapter := &Adapter{toolkit: fake}
+
+	err := adapter.WriteImage(context.Background(), entity.ImageData{Bytes: []byte{1}, MimeType: "image/png"})
+
+	require.Equal(t, sentinel, err)
+	require.Equal(t, 1, fake.writeImageCalls)
+	require.Equal(t, entity.ImageData{Bytes: []byte{1}, MimeType: "image/png"}, fake.image)
 }
 
 func TestNew_FallsBackToToolkitClipboardWhenSystemToolsUnavailable(t *testing.T) {

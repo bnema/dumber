@@ -68,8 +68,7 @@ func (h *handlerSet) RunContextMenu(
 		}
 	}
 	if h.wv == nil || h.wv.pipeline == nil || h.wv.pipeline.glArea == nil {
-		callback.Cancel()
-		return 1
+		return 0
 	}
 
 	x, y := contextMenuAnchorPosition(params, h.wv.pipeline.scale)

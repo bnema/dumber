@@ -150,6 +150,7 @@ func selectSystemClipboard() (copyCmd, pasteCmd string) {
 func (a *Adapter) WriteText(ctx context.Context, text string) error {
 	log := logging.FromContext(ctx)
 	var commandErr error
+	var toolkitErr error
 	if a.copyCmd != "" {
 		err := a.writeTextWithCommand(ctx, text, log)
 		if err == nil {
@@ -163,10 +164,15 @@ func (a *Adapter) WriteText(ctx context.Context, text string) error {
 			log.Debug().Str("backend", "toolkit").Int("len", len(text)).Msg("clipboard write success")
 			return nil
 		}
+		toolkitErr = err
 		log.Debug().Err(err).Msg("toolkit clipboard write failed; falling back")
 	}
 	if commandErr != nil {
 		return commandErr
+	}
+	if toolkitErr != nil {
+		log.Error().Err(toolkitErr).Msg("clipboard write failed")
+		return toolkitErr
 	}
 	err := fmt.Errorf("no clipboard tool available (install wl-clipboard or xclip)")
 	log.Error().Err(err).Msg("clipboard write failed")
@@ -179,6 +185,7 @@ func (a *Adapter) WriteText(ctx context.Context, text string) error {
 func (a *Adapter) WriteImage(ctx context.Context, image entity.ImageData) error {
 	log := logging.FromContext(ctx)
 	var commandErr error
+	var toolkitErr error
 
 	if len(image.Bytes) == 0 {
 		err := fmt.Errorf("empty image data")
@@ -195,6 +202,7 @@ func (a *Adapter) WriteImage(ctx context.Context, image entity.ImageData) error 
 				Msg("clipboard image write success")
 			return nil
 		}
+		toolkitErr = err
 		log.Debug().Err(err).Msg("toolkit clipboard image write failed; falling back")
 	}
 	if a.copyCmd != "" {
@@ -206,6 +214,10 @@ func (a *Adapter) WriteImage(ctx context.Context, image entity.ImageData) error 
 	}
 	if commandErr != nil {
 		return commandErr
+	}
+	if toolkitErr != nil {
+		log.Error().Err(toolkitErr).Msg("clipboard image write failed")
+		return toolkitErr
 	}
 	err := fmt.Errorf("no clipboard tool available (install wl-clipboard or xclip)")
 	log.Error().Err(err).Msg("clipboard image write failed")
