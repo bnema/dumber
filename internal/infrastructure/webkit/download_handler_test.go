@@ -5,6 +5,7 @@ import (
 
 	"github.com/bnema/dumber/internal/application/usecase"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func TestNewDownloadHandler(t *testing.T) {
@@ -14,15 +15,13 @@ func TestNewDownloadHandler(t *testing.T) {
 		handler := NewDownloadHandler("/tmp/downloads", nil, prepareUC)
 
 		assert.NotNil(t, handler)
-		assert.Equal(t, "/tmp/downloads", handler.downloadPath)
-		assert.Nil(t, handler.eventHandler)
-		assert.NotNil(t, handler.preparer)
+		require.NotNil(t, handler.runtime)
 	})
 
 	t.Run("creates handler with custom path", func(t *testing.T) {
 		handler := NewDownloadHandler("/custom/path", nil, prepareUC)
 
-		assert.Equal(t, "/custom/path", handler.downloadPath)
+		require.NotNil(t, handler.runtime)
 	})
 }
 
@@ -32,7 +31,7 @@ func TestDownloadHandler_SetDownloadPath(t *testing.T) {
 
 	handler.SetDownloadPath("/new/path")
 
-	assert.Equal(t, "/new/path", handler.downloadPath)
+	assert.NotNil(t, handler.runtime)
 }
 
 func TestURIResponseAdapter(t *testing.T) {

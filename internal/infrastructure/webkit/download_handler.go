@@ -3,27 +3,20 @@ package webkit
 import (
 	"context"
 	"fmt"
-	"os"
 	"sync"
 
 	"github.com/bnema/dumber/internal/application/port"
 	downloadutil "github.com/bnema/dumber/internal/domain/download"
+	"github.com/bnema/dumber/internal/infrastructure/downloadruntime"
 	"github.com/bnema/dumber/internal/logging"
 	"github.com/bnema/puregotk/v4/glib"
 	"github.com/bnema/puregotk/v4/webkit"
 )
 
-const (
-	// dirPerm is the permission mode for creating download directories.
-	dirPerm = 0755
-)
-
 // DownloadHandler manages WebKit downloads and notifies the UI layer.
 type DownloadHandler struct {
-	downloadPath string
-	eventHandler port.DownloadEventHandler
-	preparer     port.DownloadPreparer
-	mu           sync.RWMutex
+	runtime *downloadruntime.Runtime
+	mu      sync.RWMutex
 }
 
 // NewDownloadHandler creates a new download handler.
@@ -37,9 +30,7 @@ func NewDownloadHandler(
 		panic("preparer is required")
 	}
 	return &DownloadHandler{
-		downloadPath: downloadPath,
-		eventHandler: handler,
-		preparer:     preparer,
+		runtime: downloadruntime.New(downloadPath, handler, preparer),
 	}
 }
 
@@ -55,9 +46,7 @@ func (h *DownloadHandler) HandleDownload(ctx context.Context, download *webkit.D
 	log := logging.FromContext(ctx)
 
 	h.mu.RLock()
-	downloadPath := h.downloadPath
-	eventHandler := h.eventHandler
-	preparer := h.preparer
+	runtime := h.runtime
 	h.mu.RUnlock()
 
 	// Track download state in a dedicated struct to ensure proper isolation.
@@ -67,25 +56,17 @@ func (h *DownloadHandler) HandleDownload(ctx context.Context, download *webkit.D
 	// Handle decide-destination signal to set download path.
 	//nolint:unparam // bool return is required by WebKit's signal signature (false = handled synchronously)
 	decideDestCb := func(d webkit.Download, suggestedFilename string) bool {
-		// Ensure download directory exists.
-		if err := os.MkdirAll(downloadPath, dirPerm); err != nil {
-			log.Error().Err(err).Str("path", downloadPath).Msg("failed to create download directory")
-			d.Cancel()
-			return false
-		}
-
-		// Wrap WebKit response as port.DownloadResponse
 		var response port.DownloadResponse
 		if resp := d.GetResponse(); resp != nil {
 			response = &uriResponseAdapter{resp: resp}
 		}
 
-		// Use DownloadPreparer to resolve filename
-		output := preparer.Execute(ctx, port.DownloadPrepareInput{
-			SuggestedFilename: suggestedFilename,
-			Response:          response,
-			DownloadDir:       downloadPath,
-		})
+		output, err := runtime.ResolveDestination(ctx, suggestedFilename, response)
+		if err != nil {
+			log.Error().Err(err).Msg("failed to prepare download destination")
+			d.Cancel()
+			return false
+		}
 
 		log.Debug().
 			Str("suggested", suggestedFilename).
@@ -96,19 +77,7 @@ func (h *DownloadHandler) HandleDownload(ctx context.Context, download *webkit.D
 		// WebKit expects an absolute file path for the destination.
 		d.SetDestination(output.DestinationPath)
 
-		// Notify: download started.
-		if eventHandler != nil {
-			eventHandler.OnDownloadEvent(ctx, port.DownloadEvent{
-				Type:        port.DownloadEventStarted,
-				Filename:    output.Filename,
-				Destination: output.DestinationPath,
-			})
-		}
-
-		log.Info().
-			Str("filename", output.Filename).
-			Str("destination", output.DestinationPath).
-			Msg("download started")
+		runtime.EmitStarted(ctx, output)
 
 		return false // false = we handled it synchronously
 	}
@@ -126,16 +95,7 @@ func (h *DownloadHandler) HandleDownload(ctx context.Context, download *webkit.D
 		// Create error for the failed download.
 		downloadErr := fmt.Errorf("download failed: %s: %s", filename, gerr.MessageGo())
 
-		if eventHandler != nil {
-			eventHandler.OnDownloadEvent(ctx, port.DownloadEvent{
-				Type:        port.DownloadEventFailed,
-				Filename:    filename,
-				Destination: dest,
-				Error:       downloadErr,
-			})
-		}
-
-		log.Warn().Str("filename", filename).Msg("download failed")
+		runtime.EmitFailed(ctx, filename, dest, downloadErr)
 	}
 	download.ConnectFailed(&failedCb)
 
@@ -153,15 +113,7 @@ func (h *DownloadHandler) HandleDownload(ctx context.Context, download *webkit.D
 		dest := d.GetDestination()
 		filename := downloadutil.ExtractFilenameFromDestination(dest)
 
-		if eventHandler != nil {
-			eventHandler.OnDownloadEvent(ctx, port.DownloadEvent{
-				Type:        port.DownloadEventFinished,
-				Filename:    filename,
-				Destination: dest,
-			})
-		}
-
-		log.Info().Str("filename", filename).Msg("download finished")
+		runtime.EmitFinished(ctx, filename, dest)
 	}
 	download.ConnectFinished(&finishedCb)
 }
@@ -170,7 +122,7 @@ func (h *DownloadHandler) HandleDownload(ctx context.Context, download *webkit.D
 func (h *DownloadHandler) SetDownloadPath(path string) {
 	h.mu.Lock()
 	defer h.mu.Unlock()
-	h.downloadPath = path
+	h.runtime.SetDownloadPath(path)
 }
 
 // uriResponseAdapter wraps webkit.URIResponse to implement port.DownloadResponse.

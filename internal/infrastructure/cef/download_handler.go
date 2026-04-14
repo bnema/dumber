@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 	"net/http"
-	"os"
 	"strings"
 	"sync"
 
@@ -12,18 +11,14 @@ import (
 
 	"github.com/bnema/dumber/internal/application/port"
 	downloadutil "github.com/bnema/dumber/internal/domain/download"
+	"github.com/bnema/dumber/internal/infrastructure/downloadruntime"
 	"github.com/bnema/dumber/internal/logging"
 )
 
-const cefDownloadDirPerm = 0o755
-
 type downloadHandler struct {
-	downloadPath string
-	eventHandler port.DownloadEventHandler
-	preparer     port.DownloadPreparer
-
-	mu     sync.Mutex
-	active map[uint32]cefDownloadState
+	runtime *downloadruntime.Runtime
+	mu      sync.Mutex
+	active  map[uint32]cefDownloadState
 }
 
 type cefDownloadState struct {
@@ -41,15 +36,9 @@ func newDownloadHandler(
 	eventHandler port.DownloadEventHandler,
 	preparer port.DownloadPreparer,
 ) *downloadHandler {
-	if preparer == nil {
-		panic("preparer is required")
-	}
-
 	return &downloadHandler{
-		downloadPath: downloadPath,
-		eventHandler: eventHandler,
-		preparer:     preparer,
-		active:       make(map[uint32]cefDownloadState),
+		runtime: downloadruntime.New(downloadPath, eventHandler, preparer),
+		active:  make(map[uint32]cefDownloadState),
 	}
 }
 
@@ -69,18 +58,12 @@ func (h *downloadHandler) onBeforeDownload(
 	}
 
 	log := logging.FromContext(ctx)
-	downloadPath, eventHandler, preparer := h.snapshot()
-	if err := os.MkdirAll(downloadPath, cefDownloadDirPerm); err != nil {
-		log.Error().Err(err).Str("path", downloadPath).Msg("cef: failed to create download directory")
+	output, err := h.runtime.ResolveDestination(ctx, suggestedName, &cefDownloadResponseAdapter{item: downloadItem})
+	if err != nil {
+		log.Error().Err(err).Msg("cef: failed to prepare download destination")
 		callback.Cont("", 1)
 		return true
 	}
-
-	output := preparer.Execute(ctx, port.DownloadPrepareInput{
-		SuggestedFilename: suggestedName,
-		Response:          &cefDownloadResponseAdapter{item: downloadItem},
-		DownloadDir:       downloadPath,
-	})
 
 	h.mu.Lock()
 	h.active[downloadItem.GetID()] = cefDownloadState{
@@ -90,20 +73,7 @@ func (h *downloadHandler) onBeforeDownload(
 	h.mu.Unlock()
 
 	callback.Cont(output.DestinationPath, 0)
-
-	if eventHandler != nil {
-		eventHandler.OnDownloadEvent(ctx, port.DownloadEvent{
-			Type:        port.DownloadEventStarted,
-			Filename:    output.Filename,
-			Destination: output.DestinationPath,
-		})
-	}
-
-	log.Info().
-		Uint32("download_id", downloadItem.GetID()).
-		Str("filename", output.Filename).
-		Str("destination", output.DestinationPath).
-		Msg("cef: download started")
+	h.runtime.EmitStarted(ctx, output)
 
 	return true
 }
@@ -118,7 +88,6 @@ func (h *downloadHandler) onDownloadUpdated(
 		return
 	}
 
-	log := logging.FromContext(ctx)
 	id := downloadItem.GetID()
 	state := h.currentState(id, downloadItem)
 
@@ -127,17 +96,7 @@ func (h *downloadHandler) onDownloadUpdated(
 		if !h.markFinished(id, state) {
 			return
 		}
-		if h.eventHandler != nil {
-			h.eventHandler.OnDownloadEvent(ctx, port.DownloadEvent{
-				Type:        port.DownloadEventFinished,
-				Filename:    state.filename,
-				Destination: state.destination,
-			})
-		}
-		log.Info().
-			Uint32("download_id", id).
-			Str("filename", state.filename).
-			Msg("cef: download finished")
+		h.runtime.EmitFinished(ctx, state.filename, state.destination)
 	case downloadItem.IsCanceled() || downloadItem.IsInterrupted():
 		if !h.markFinished(id, state) {
 			return
@@ -148,25 +107,8 @@ func (h *downloadHandler) onDownloadUpdated(
 		} else if downloadItem.IsCanceled() {
 			err = fmt.Errorf("download canceled: %s", state.filename)
 		}
-		if h.eventHandler != nil {
-			h.eventHandler.OnDownloadEvent(ctx, port.DownloadEvent{
-				Type:        port.DownloadEventFailed,
-				Filename:    state.filename,
-				Destination: state.destination,
-				Error:       err,
-			})
-		}
-		log.Warn().
-			Uint32("download_id", id).
-			Err(err).
-			Msg("cef: download failed")
+		h.runtime.EmitFailed(ctx, state.filename, state.destination, err)
 	}
-}
-
-func (h *downloadHandler) snapshot() (string, port.DownloadEventHandler, port.DownloadPreparer) {
-	h.mu.Lock()
-	defer h.mu.Unlock()
-	return h.downloadPath, h.eventHandler, h.preparer
 }
 
 func (h *downloadHandler) currentState(id uint32, item purecef.DownloadItem) cefDownloadState {
