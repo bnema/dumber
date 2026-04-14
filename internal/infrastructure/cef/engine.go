@@ -14,6 +14,7 @@ import (
 
 // Compile-time interface check.
 var _ port.Engine = (*Engine)(nil)
+var _ port.AlreadyRunningAppRelaunchHandlerSetter = (*Engine)(nil)
 
 // Engine implements port.Engine for the CEF browser backend.
 // It manages the CEF lifecycle and provides access to all engine subsystems.

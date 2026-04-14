@@ -18,3 +18,8 @@ type BrowserLaunchRelay interface {
 	DeliverOpenFreshWindow(ctx context.Context, url string) (bool, error)
 	Listen(ctx context.Context, opener BrowserWindowOpener) (io.Closer, error)
 }
+
+// AlreadyRunningAppRelaunchHandlerSetter configures a handler for CEF relaunches.
+type AlreadyRunningAppRelaunchHandlerSetter interface {
+	SetAlreadyRunningAppRelaunchHandler(func(string))
+}

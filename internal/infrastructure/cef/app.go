@@ -127,28 +127,73 @@ func (h *dumberBPH) OnBeforeChildProcessLaunch(commandLine purecef.CommandLine) 
 	}
 	h.engine.recordChildProcessLaunch(processType, useAngle, ozonePlatform, commandLineString)
 }
-func parseBrowseURLFromRelaunchCommandLine(commandLine purecef.CommandLine) string {
+
+func parseRelaunchCommandLineArgs(commandLine string) []string {
+	args := make([]string, 0, 4)
+	var current strings.Builder
+	var quote rune
+	escaped := false
+	flush := func() {
+		if current.Len() == 0 {
+			return
+		}
+		args = append(args, current.String())
+		current.Reset()
+	}
+
+	for _, r := range commandLine {
+		switch {
+		case escaped:
+			current.WriteRune(r)
+			escaped = false
+		case r == '\\':
+			escaped = true
+		case quote != 0:
+			if r == quote {
+				quote = 0
+				continue
+			}
+			current.WriteRune(r)
+		case r == '"' || r == '\'':
+			quote = r
+		case r == ' ' || r == '\t' || r == '\n' || r == '\r':
+			flush()
+		default:
+			current.WriteRune(r)
+		}
+	}
+
+	if escaped {
+		current.WriteRune('\\')
+	}
+	flush()
+
+	return args
+}
+
+func parseBrowseRelaunchCommandLine(commandLine purecef.CommandLine) (string, bool) {
 	if commandLine == nil {
-		return ""
+		return "", false
 	}
 
-	fields := strings.Fields(commandLine.GetCommandLineString())
-	for i, field := range fields {
-		if field != "browse" {
-			continue
-		}
-		if i+1 < len(fields) {
-			return fields[i+1]
-		}
-		return ""
+	args := parseRelaunchCommandLineArgs(commandLine.GetCommandLineString())
+	if len(args) < 2 || args[1] != "browse" {
+		return "", false
 	}
+	if len(args) > 2 {
+		return args[2], true
+	}
+	return "", true
+}
 
-	return ""
+func parseBrowseURLFromRelaunchCommandLine(commandLine purecef.CommandLine) string {
+	browseURL, _ := parseBrowseRelaunchCommandLine(commandLine)
+	return browseURL
 }
 
 func (h *dumberBPH) OnAlreadyRunningAppRelaunch(commandLine purecef.CommandLine, _ string) int32 {
 	if h != nil && h.engine != nil {
-		if browseURL := parseBrowseURLFromRelaunchCommandLine(commandLine); browseURL != "" && h.engine.alreadyRunningAppRelaunchHandler != nil {
+		if browseURL, ok := parseBrowseRelaunchCommandLine(commandLine); ok && h.engine.alreadyRunningAppRelaunchHandler != nil {
 			h.engine.alreadyRunningAppRelaunchHandler(browseURL)
 		}
 	}

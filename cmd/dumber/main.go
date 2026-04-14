@@ -18,7 +18,6 @@ import (
 	"github.com/bnema/dumber/internal/domain/entity"
 	"github.com/bnema/dumber/internal/domain/repository"
 	"github.com/bnema/dumber/internal/infrastructure/cache"
-	cefinfra "github.com/bnema/dumber/internal/infrastructure/cef"
 	"github.com/bnema/dumber/internal/infrastructure/clipboard"
 	"github.com/bnema/dumber/internal/infrastructure/config"
 	"github.com/bnema/dumber/internal/infrastructure/deps"
@@ -206,8 +205,8 @@ func runGUI() int {
 		log.Error().Err(err).Msg("failed to create application")
 		return 1
 	}
-	if cefEngine, ok := engine.(*cefinfra.Engine); ok {
-		cefEngine.SetAlreadyRunningAppRelaunchHandler(func(url string) {
+	if relaunchSetter, ok := engine.(port.AlreadyRunningAppRelaunchHandlerSetter); ok {
+		relaunchSetter.SetAlreadyRunningAppRelaunchHandler(func(url string) {
 			if err := app.OpenFreshWindow(ctx, url); err != nil {
 				log.Warn().Err(err).Str("url", url).Msg("failed to open relaunch browser window")
 			}
