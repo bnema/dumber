@@ -41,24 +41,5 @@ func (l *BrowserLauncher) LaunchURL(ctx context.Context, url string) {
 		}
 	}
 
-	resolveExecutablePath := l.resolveExecutablePath
-	if resolveExecutablePath == nil {
-		resolveExecutablePath = getExecutablePath
-	}
-	execPath, err := resolveExecutablePath()
-	if err != nil {
-		fmt.Fprintf(os.Stderr, "failed to resolve dumber executable for URL %q: %v\n", url, err)
-		return
-	}
-
-	cmd := exec.Command(execPath, "browse", url)
-	cmd.Env = sanitizedChildEnv(os.Environ())
-
-	spawnDetachedProcess := l.startDetachedProcess
-	if spawnDetachedProcess == nil {
-		spawnDetachedProcess = startDetachedProcess
-	}
-	if err := spawnDetachedProcess(cmd); err != nil {
-		fmt.Fprintf(os.Stderr, "failed to launch dumber browse for URL %q: %v\n", url, err)
-	}
+	launchBrowserBrowseURL(url, l.resolveExecutablePath, l.startDetachedProcess)
 }

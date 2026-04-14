@@ -14,6 +14,7 @@ import (
 	"time"
 
 	"github.com/bnema/dumber/internal/application/port"
+	"github.com/bnema/dumber/internal/logging"
 )
 
 const browserLaunchSocketName = "browser-launch.sock"
@@ -31,8 +32,7 @@ type browserLaunchRequest struct {
 }
 
 type browserLaunchResponse struct {
-	Delivered bool   `json:"delivered"`
-	Error     string `json:"error,omitempty"`
+	Error string `json:"error,omitempty"`
 }
 
 type browserLaunchRelayListener struct {
@@ -50,13 +50,6 @@ func (r *browserLaunchRelay) DeliverOpenFreshWindow(ctx context.Context, url str
 	socketPath, err := r.socketPath()
 	if err != nil {
 		return false, err
-	}
-
-	if _, statErr := os.Stat(socketPath); statErr != nil {
-		if os.IsNotExist(statErr) {
-			return false, nil
-		}
-		return false, statErr
 	}
 
 	conn, err := (&net.Dialer{}).DialContext(ctx, "unix", socketPath)
@@ -107,7 +100,7 @@ func (r *browserLaunchRelay) DeliverOpenFreshWindow(ctx context.Context, url str
 }
 
 func isMissingRelayListener(err error) bool {
-	return os.IsNotExist(err) || errors.Is(err, syscall.ECONNREFUSED)
+	return os.IsNotExist(err) || errors.Is(err, syscall.ECONNREFUSED) || errors.Is(err, syscall.ENOENT)
 }
 
 func isBrowserLaunchReadTimeout(err error) bool {
@@ -220,7 +213,7 @@ func (*browserLaunchRelayListener) handleConnection(ctx context.Context, conn *n
 		return
 	}
 
-	response := browserLaunchResponse{Delivered: true}
+	response := browserLaunchResponse{}
 	if err := opener.OpenFreshWindow(ctx, request.URL); err != nil {
 		response.Error = err.Error()
 	}
@@ -228,7 +221,14 @@ func (*browserLaunchRelayListener) handleConnection(ctx context.Context, conn *n
 	if err := conn.SetDeadline(time.Now().Add(browserLaunchIOTimeout)); err != nil {
 		return
 	}
-	_ = json.NewEncoder(conn).Encode(response)
+	if err := json.NewEncoder(conn).Encode(response); err != nil {
+		log := logging.FromContext(ctx)
+		entry := log.Warn().Err(err).Str("url", request.URL)
+		if response.Error != "" {
+			entry = entry.Str("response_error", response.Error)
+		}
+		entry.Msg("failed to encode browser launch response")
+	}
 }
 
 var _ port.BrowserLaunchRelay = (*browserLaunchRelay)(nil)
