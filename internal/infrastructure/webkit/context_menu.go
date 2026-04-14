@@ -2,6 +2,7 @@ package webkit
 
 import (
 	"context"
+	"encoding/base64"
 	"fmt"
 	"io"
 	"mime"
@@ -15,6 +16,7 @@ import (
 	"github.com/bnema/dumber/internal/domain/entity"
 	"github.com/bnema/dumber/internal/logging"
 	"github.com/bnema/puregotk-webkit/webkit"
+	"github.com/bnema/puregotk/v4/gtk"
 )
 
 // contextMenuResolver implements port.ImageDataResolver by fetching image bytes
@@ -42,6 +44,8 @@ func (r *contextMenuResolver) ResolveImageData(ctx context.Context, imageURI str
 		return entity.ImageData{}, fmt.Errorf("parse image URI: %w", parseErr)
 	}
 	switch strings.ToLower(parsed.Scheme) {
+	case "data":
+		return resolveDataURIImageData(imageURI)
 	case "http", "https":
 	default:
 		return entity.ImageData{}, fmt.Errorf("fetch image: unsupported URI scheme %q", parsed.Scheme)
@@ -77,26 +81,75 @@ func (r *contextMenuResolver) ResolveImageData(ctx context.Context, imageURI str
 	if len(data) > maxImageFetchBytes {
 		return entity.ImageData{}, fmt.Errorf("read image body: image too large (limit %d bytes)", maxImageFetchBytes)
 	}
+	responseURL := parsed.String()
+	if resp.Request != nil && resp.Request.URL != nil {
+		responseURL = resp.Request.URL.String()
+	}
+	return resolvedImageData(data, resp.Header.Get("Content-Type"), responseURL)
+}
+
+func resolveDataURIImageData(imageURI string) (entity.ImageData, error) {
+	payload, ok := strings.CutPrefix(imageURI, "data:")
+	if !ok {
+		return entity.ImageData{}, fmt.Errorf("fetch image: unsupported URI scheme %q", "")
+	}
+	meta, dataPart, found := strings.Cut(payload, ",")
+	if !found {
+		return entity.ImageData{}, fmt.Errorf("parse image URI: invalid data URI")
+	}
+
+	isBase64 := false
+	mimeType := ""
+	for _, part := range strings.Split(meta, ";") {
+		part = strings.TrimSpace(part)
+		if part == "" {
+			continue
+		}
+		if strings.EqualFold(part, "base64") {
+			isBase64 = true
+			continue
+		}
+		if mimeType == "" {
+			mimeType = part
+		}
+	}
+
+	var data []byte
+	var err error
+	if isBase64 {
+		data, err = base64.StdEncoding.DecodeString(dataPart)
+	} else {
+		var decoded string
+		decoded, err = url.PathUnescape(dataPart)
+		data = []byte(decoded)
+	}
+	if err != nil {
+		return entity.ImageData{}, fmt.Errorf("read image body: decode data URI: %w", err)
+	}
+	return resolvedImageData(data, mimeType, imageURI)
+}
+
+func resolvedImageData(data []byte, headerType, source string) (entity.ImageData, error) {
+	if len(data) == 0 {
+		return entity.ImageData{}, fmt.Errorf("read image body: empty image data")
+	}
+	if len(data) > maxImageFetchBytes {
+		return entity.ImageData{}, fmt.Errorf("read image body: image too large (limit %d bytes)", maxImageFetchBytes)
+	}
 	rawDetectedType := strings.ToLower(http.DetectContentType(data))
 	detectedType := validatedImageMimeType(rawDetectedType)
 	mimeType := detectedType
-	headerType := resp.Header.Get("Content-Type")
 	if mimeType == "" && rawDetectedType == "application/octet-stream" {
 		mimeType = validatedImageMimeType(headerType)
 	}
 	if mimeType == "" {
-		responseURL := parsed.String()
-		if resp.Request != nil && resp.Request.URL != nil {
-			responseURL = resp.Request.URL.String()
-		}
 		return entity.ImageData{}, fmt.Errorf(
 			"read image body: content is not an image (detected=%q, header=%q, url=%q)",
 			rawDetectedType,
 			headerType,
-			responseURL,
+			source,
 		)
 	}
-
 	return entity.ImageData{Bytes: data, MimeType: mimeType}, nil
 }
 
@@ -345,6 +398,15 @@ func (wv *WebView) connectContextMenuSignal(pipeline *contextMenuPipeline) {
 		}
 
 		x, y := contextMenuPosition(contextMenu)
+		parent := anchorParentWidget(&wv.inner.Widget)
+		wv.logger.Debug().
+			Int("raw_x", x).
+			Int("raw_y", y).
+			Int("anchor_width", wv.inner.Widget.GetAllocatedWidth()).
+			Int("anchor_height", wv.inner.Widget.GetAllocatedHeight()).
+			Int("parent_width", widgetAllocatedWidth(parent)).
+			Int("parent_height", widgetAllocatedHeight(parent)).
+			Msg("webkit: context menu popup request")
 
 		menuContext := buildMenuContextFromHitTest(wv, hit, x, y)
 		ctx := logging.WithContext(context.Background(), wv.logger)
@@ -398,6 +460,27 @@ func contextMenuPosition(menu *webkit.ContextMenu) (int, int) {
 		return 0, 0
 	}
 	return int(x), int(y)
+}
+
+func anchorParentWidget(anchor *gtk.Widget) *gtk.Widget {
+	if anchor == nil {
+		return nil
+	}
+	return anchor.GetParent()
+}
+
+func widgetAllocatedWidth(widget *gtk.Widget) int {
+	if widget == nil {
+		return 0
+	}
+	return widget.GetAllocatedWidth()
+}
+
+func widgetAllocatedHeight(widget *gtk.Widget) int {
+	if widget == nil {
+		return 0
+	}
+	return widget.GetAllocatedHeight()
 }
 
 // executeContextMenuAction runs the selected menu action through the shared

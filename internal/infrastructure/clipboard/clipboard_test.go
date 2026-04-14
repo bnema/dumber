@@ -56,20 +56,43 @@ func TestNew_FallsBackToToolkitClipboardWhenSystemToolsUnavailable(t *testing.T)
 	require.Equal(t, []byte{1, 2, 3}, fake.image.Bytes)
 }
 
-func TestAdapter_WriteImagePrefersSystemClipboardOverToolkit(t *testing.T) {
+func TestAdapter_WriteImagePrefersToolkitClipboardWhenAvailable(t *testing.T) {
+	oldToolkitFactory := newToolkitClipboard
+	t.Cleanup(func() {
+		newToolkitClipboard = oldToolkitFactory
+	})
+
 	dir := t.TempDir()
 	scriptPath := filepath.Join(dir, "wl-copy")
-	argsPath := filepath.Join(dir, "args.txt")
 	stdinPath := filepath.Join(dir, "stdin.bin")
-	script := "#!/bin/sh\nprintf '%s\n' \"$@\" > \"" + argsPath + "\"\ncat > \"" + stdinPath + "\"\n"
+	script := "#!/bin/sh\ncat > \"" + stdinPath + "\"\n"
 	require.NoError(t, os.WriteFile(scriptPath, []byte(script), 0o755))
 
 	fake := &fakeToolkitClipboard{}
-	adapter := &Adapter{toolkit: fake, copyCmd: scriptPath}
+	newToolkitClipboard = func() toolkitClipboard { return fake }
+	adapter := &Adapter{copyCmd: scriptPath}
 	image := entity.ImageData{Bytes: []byte{1, 2, 3}, MimeType: "image/png"}
 
 	require.NoError(t, adapter.WriteImage(context.Background(), image))
-	require.Zero(t, fake.writeImageCalls)
+	require.Equal(t, 1, fake.writeImageCalls)
+	require.Equal(t, image, fake.image)
+
+	_, err := os.Stat(stdinPath)
+	require.Error(t, err)
+	require.True(t, os.IsNotExist(err))
+}
+
+func TestAdapter_WriteImageFallsBackToSystemClipboardWhenToolkitUnavailable(t *testing.T) {
+	dir := t.TempDir()
+	scriptPath := filepath.Join(dir, "wl-copy")
+	stdinPath := filepath.Join(dir, "stdin.bin")
+	script := "#!/bin/sh\ncat > \"" + stdinPath + "\"\n"
+	require.NoError(t, os.WriteFile(scriptPath, []byte(script), 0o755))
+
+	adapter := &Adapter{copyCmd: scriptPath}
+	image := entity.ImageData{Bytes: []byte{1, 2, 3}, MimeType: "image/png"}
+
+	require.NoError(t, adapter.WriteImage(context.Background(), image))
 
 	stdin, err := os.ReadFile(stdinPath)
 	require.NoError(t, err)

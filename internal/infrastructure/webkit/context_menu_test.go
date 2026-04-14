@@ -2,6 +2,7 @@ package webkit
 
 import (
 	"context"
+	"encoding/base64"
 	"errors"
 	"io"
 	"net"
@@ -102,6 +103,17 @@ func TestResolveImageData(t *testing.T) {
 		_, err := resolver.ResolveImageData(context.Background(), "file:///tmp/image.png")
 		require.Error(t, err)
 		assert.Contains(t, err.Error(), "unsupported URI scheme")
+	})
+
+	t.Run("decodes data URI images", func(t *testing.T) {
+		imageBytes := []byte{0x89, 'P', 'N', 'G', 0x0D, 0x0A, 0x1A, 0x0A}
+		uri := "data:image/png;base64," + base64.StdEncoding.EncodeToString(imageBytes)
+
+		resolver := &contextMenuResolver{}
+		data, err := resolver.ResolveImageData(context.Background(), uri)
+		require.NoError(t, err)
+		assert.Equal(t, imageBytes, data.Bytes)
+		assert.Equal(t, "image/png", data.MimeType)
 	})
 
 	t.Run("fetches image bytes from HTTP", func(t *testing.T) {

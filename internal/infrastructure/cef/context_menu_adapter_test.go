@@ -1,6 +1,7 @@
 package cef
 
 import (
+	"context"
 	"testing"
 
 	purecef "github.com/bnema/purego-cef/cef"
@@ -77,6 +78,20 @@ type stubRunContextMenuCallback struct {
 	commandID   int32
 }
 
+type stubContextMenuExecutor struct {
+	executeCalls int
+	action       port.MenuAction
+	menuContext  port.MenuContext
+	err          error
+}
+
+func (s *stubContextMenuExecutor) ExecuteMenuAction(_ context.Context, action port.MenuAction, menuContext port.MenuContext) error {
+	s.executeCalls++
+	s.action = action
+	s.menuContext = menuContext
+	return s.err
+}
+
 func (c *stubRunContextMenuCallback) Cont(commandID int32, _ purecef.EventFlags) {
 	c.contCalls++
 	c.commandID = commandID
@@ -89,9 +104,9 @@ func (c *stubRunContextMenuCallback) Cancel() {
 func TestContextMenuSelectionCancelsWhenCEFCommandMissing(t *testing.T) {
 	callback := &stubRunContextMenuCallback{}
 
-	dispatchContextMenuSelection(callback, map[port.MenuAction]int32{
+	dispatchContextMenuSelection(context.Background(), nil, callback, map[port.MenuAction]int32{
 		port.MenuActionReload: 102,
-	}, port.MenuItem{Action: port.MenuActionInspectElement, Label: "Inspect Element"})
+	}, port.MenuItem{Action: port.MenuActionInspectElement, Label: "Inspect Element"}, port.MenuContext{})
 
 	require.Zero(t, callback.contCalls)
 	require.Equal(t, 1, callback.cancelCalls)
@@ -100,11 +115,60 @@ func TestContextMenuSelectionCancelsWhenCEFCommandMissing(t *testing.T) {
 func TestContextMenuSelectionContinuesWhenCEFCommandPresent(t *testing.T) {
 	callback := &stubRunContextMenuCallback{}
 
-	dispatchContextMenuSelection(callback, map[port.MenuAction]int32{
+	dispatchContextMenuSelection(context.Background(), nil, callback, map[port.MenuAction]int32{
 		port.MenuActionInspectElement: 204,
-	}, port.MenuItem{Action: port.MenuActionInspectElement, Label: "Inspect Element"})
+	}, port.MenuItem{Action: port.MenuActionInspectElement, Label: "Inspect Element"}, port.MenuContext{})
 
 	require.Equal(t, 1, callback.contCalls)
 	require.Zero(t, callback.cancelCalls)
 	require.Equal(t, int32(204), callback.commandID)
+}
+
+func TestContextMenuSelectionExecutesDirectActionWhenExecutorAvailable(t *testing.T) {
+	callback := &stubRunContextMenuCallback{}
+	executor := &stubContextMenuExecutor{}
+	menuContext := port.MenuContext{PageURI: "https://example.com"}
+
+	dispatchContextMenuSelection(
+		context.Background(),
+		executor,
+		callback,
+		map[port.MenuAction]int32{port.MenuActionReload: 102},
+		port.MenuItem{Action: port.MenuActionReload, Label: "Reload"},
+		menuContext,
+	)
+
+	require.Equal(t, 1, executor.executeCalls)
+	require.Equal(t, port.MenuActionReload, executor.action)
+	require.Equal(t, menuContext, executor.menuContext)
+	require.Zero(t, callback.contCalls)
+	require.Zero(t, callback.cancelCalls)
+}
+
+func TestContextMenuSelectionExecutesCopyImageDirectlyWhenExecutorAvailable(t *testing.T) {
+	callback := &stubRunContextMenuCallback{}
+	executor := &stubContextMenuExecutor{}
+	menuContext := port.MenuContext{ImageURI: "https://example.com/image.png"}
+
+	dispatchContextMenuSelection(
+		context.Background(),
+		executor,
+		callback,
+		map[port.MenuAction]int32{},
+		port.MenuItem{Action: port.MenuActionCopyImage, Label: "Copy Image"},
+		menuContext,
+	)
+
+	require.Equal(t, 1, executor.executeCalls)
+	require.Equal(t, port.MenuActionCopyImage, executor.action)
+	require.Equal(t, menuContext, executor.menuContext)
+	require.Zero(t, callback.contCalls)
+	require.Zero(t, callback.cancelCalls)
+}
+
+func TestContextMenuAnchorPositionScalesCEFCoordinates(t *testing.T) {
+	x, y := contextMenuAnchorPosition(stubContextMenuParams{x: 320, y: 180}, 2)
+
+	require.Equal(t, int32(160), x)
+	require.Equal(t, int32(90), y)
 }

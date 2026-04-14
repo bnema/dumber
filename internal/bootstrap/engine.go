@@ -9,6 +9,7 @@ import (
 	"github.com/bnema/dumber/internal/application/usecase"
 	audiofactory "github.com/bnema/dumber/internal/infrastructure/audio/factory"
 	"github.com/bnema/dumber/internal/infrastructure/cef"
+	clipboardinfra "github.com/bnema/dumber/internal/infrastructure/clipboard"
 	"github.com/bnema/dumber/internal/infrastructure/config"
 	"github.com/bnema/dumber/internal/infrastructure/env"
 	"github.com/bnema/dumber/internal/infrastructure/handlers"
@@ -83,11 +84,14 @@ func BuildEngine(input EngineInput) (port.Engine, error) {
 			}
 		}
 		deps := cef.EngineDependencies{
-			RegisterHandlers:       handlers.RegisterAll,
-			RegisterAccentHandlers: handlers.RegisterAccentHandlers,
-			CurrentConfigPayload:   buildConfigPayload(config.Get),
-			DefaultConfigPayload:   buildConfigPayload(config.DefaultConfig),
-			ContextMenuBuilder:     contextMenuBuilder,
+			RegisterHandlers:           handlers.RegisterAll,
+			RegisterAccentHandlers:     handlers.RegisterAccentHandlers,
+			CurrentConfigPayload:       buildConfigPayload(config.Get),
+			DefaultConfigPayload:       buildConfigPayload(config.DefaultConfig),
+			ContextMenuBuilder:         contextMenuBuilder,
+			ContextMenuExecutorFactory: contextMenuExecutorFactory,
+			Clipboard:                  clipboardinfra.New(),
+			ImageDataResolver:          webkit.NewContextMenuResolver(),
 			MediaClassifier: cef.MediaClassifier{
 				IsProprietaryVideoMIME:     transcoder.IsProprietaryVideoMIME,
 				IsOpenVideoMIME:            transcoder.IsOpenVideoMIME,

@@ -186,6 +186,9 @@ func (p *WebViewPool) Acquire(ctx context.Context) (*WebView, error) {
 			p.ctxMenuMu.RUnlock()
 			if ctxMenu != nil {
 				wv.contextMenu = ctxMenu
+				if needsExplicitContextMenuSignalOnAcquire(wv, ctxMenu) {
+					wv.connectContextMenuSignal(ctxMenu)
+				}
 			}
 			wv.ReconnectSignals()
 			p.acquireCount.Add(1)
@@ -228,6 +231,10 @@ func (p *WebViewPool) Acquire(ctx context.Context) (*WebView, error) {
 		Str("source", "new").
 		Msg("acquired webview")
 	return wv, nil
+}
+
+func needsExplicitContextMenuSignalOnAcquire(wv *WebView, pipeline *contextMenuPipeline) bool {
+	return wv != nil && pipeline != nil && len(wv.signalIDs) > 0
 }
 
 func (p *WebViewPool) createWebView(ctx context.Context) (*WebView, error) {

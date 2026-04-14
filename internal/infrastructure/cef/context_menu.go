@@ -2,11 +2,14 @@ package cef
 
 import (
 	"context"
+	"fmt"
 	"strings"
 
 	purecef "github.com/bnema/purego-cef/cef"
 
 	"github.com/bnema/dumber/internal/application/port"
+	"github.com/bnema/dumber/internal/logging"
+	"github.com/bnema/puregotk/v4/gtk"
 )
 
 // ===========================================================================
@@ -69,16 +72,19 @@ func (h *handlerSet) RunContextMenu(
 		return 1
 	}
 
-	x := params.GetXcoord()
-	y := params.GetYcoord()
+	x, y := contextMenuAnchorPosition(params, h.wv.pipeline.scale)
 	glArea := h.wv.pipeline.glArea
+	logContextMenuPopupRequest(h, glArea, params, x, y)
+	executor := h.contextMenuExecutor()
 
 	NewRenderer(h.wv.runOnGTK).Show(
 		items,
 		&glArea.Widget,
 		x,
 		y,
-		func(item port.MenuItem) { dispatchContextMenuSelection(callback, commandIDByAction, item) },
+		func(item port.MenuItem) {
+			dispatchContextMenuSelection(h.wv.ctx, executor, callback, commandIDByAction, item, menuContext)
+		},
 		func() {
 			callback.Cancel()
 		},
@@ -86,19 +92,148 @@ func (h *handlerSet) RunContextMenu(
 	return 1
 }
 
+func (h *handlerSet) contextMenuExecutor() port.ContextMenuActionExecutor {
+	if h == nil || h.wv == nil || h.wv.engine == nil || h.wv.engine.ctxMenuExecutorFactory == nil {
+		return nil
+	}
+	return h.wv.engine.ctxMenuExecutorFactory.NewContextMenuActionExecutor(
+		h.wv.engine.clipboard,
+		h.wv.engine.resolver,
+		nil,
+		&cefMenuDelegator{wv: h.wv},
+	)
+}
+
+func contextMenuAnchorPosition(params purecef.ContextMenuParams, scale int32) (int32, int32) {
+	if params == nil {
+		return 0, 0
+	}
+	if scale <= 0 {
+		scale = 1
+	}
+	return params.GetXcoord() / scale, params.GetYcoord() / scale
+}
+
+func logContextMenuPopupRequest(
+	h *handlerSet,
+	glArea *gtk.GLArea,
+	params purecef.ContextMenuParams,
+	x, y int32,
+) {
+	if h == nil || h.wv == nil || h.wv.ctx == nil || h.wv.pipeline == nil || glArea == nil {
+		return
+	}
+	parent := glArea.GetParent()
+	logging.FromContext(h.wv.ctx).Debug().
+		Int32("raw_x", params.GetXcoord()).
+		Int32("raw_y", params.GetYcoord()).
+		Int32("popup_x", x).
+		Int32("popup_y", y).
+		Int32("scale", h.wv.pipeline.scale).
+		Int("anchor_width", glArea.Widget.GetAllocatedWidth()).
+		Int("anchor_height", glArea.Widget.GetAllocatedHeight()).
+		Int("parent_width", cefWidgetAllocatedWidth(parent)).
+		Int("parent_height", cefWidgetAllocatedHeight(parent)).
+		Msg("cef: context menu popup request")
+}
+
+func cefWidgetAllocatedWidth(widget *gtk.Widget) int {
+	if widget == nil {
+		return 0
+	}
+	return widget.GetAllocatedWidth()
+}
+
+func cefWidgetAllocatedHeight(widget *gtk.Widget) int {
+	if widget == nil {
+		return 0
+	}
+	return widget.GetAllocatedHeight()
+}
+
 func dispatchContextMenuSelection(
+	ctx context.Context,
+	executor port.ContextMenuActionExecutor,
 	callback purecef.RunContextMenuCallback,
 	commandIDByAction map[port.MenuAction]int32,
 	item port.MenuItem,
+	menuContext port.MenuContext,
 ) {
+	log := logging.FromContext(ctx)
 	if callback == nil {
 		return
 	}
+	log.Debug().Str("action", string(item.Action)).Str("label", item.Label).Msg("cef: context menu item selected")
+	if shouldExecuteDirectCEFAction(item.Action) && executor != nil {
+		if err := executor.ExecuteMenuAction(ctx, item.Action, menuContext); err != nil {
+			log.Warn().Err(err).Str("action", string(item.Action)).Msg("cef: context menu action failed")
+			callback.Cancel()
+			return
+		}
+		log.Debug().Str("action", string(item.Action)).Msg("cef: context menu action executed directly")
+		return
+	}
 	if cmdID, ok := commandIDByAction[item.Action]; ok {
+		log.Debug().Str("action", string(item.Action)).Int32("command_id", cmdID).Msg("cef: continuing native context menu command")
 		callback.Cont(cmdID, 0)
 		return
 	}
+	log.Warn().Str("action", string(item.Action)).Msg("cef: no matching native context menu command")
 	callback.Cancel()
+}
+
+func shouldExecuteDirectCEFAction(action port.MenuAction) bool {
+	switch action {
+	case port.MenuActionBack,
+		port.MenuActionForward,
+		port.MenuActionReload,
+		port.MenuActionOpenLinkNewTab,
+		port.MenuActionCopyLink,
+		port.MenuActionCopyImage,
+		port.MenuActionInspectElement,
+		port.MenuActionCopySelection:
+		return true
+	default:
+		return false
+	}
+}
+
+type cefMenuDelegator struct {
+	wv *WebView
+}
+
+func (d *cefMenuDelegator) DelegateMenuAction(ctx context.Context, action port.MenuAction, menuContext port.MenuContext) error {
+	if d == nil || d.wv == nil {
+		return fmt.Errorf("cef menu delegator: webview not available")
+	}
+	switch action {
+	case port.MenuActionBack:
+		return d.wv.GoBack(ctx)
+	case port.MenuActionForward:
+		return d.wv.GoForward(ctx)
+	case port.MenuActionReload:
+		return d.wv.Reload(ctx)
+	case port.MenuActionOpenLinkNewTab:
+		if menuContext.LinkURI == "" {
+			return fmt.Errorf("open link in new tab: link URI not available")
+		}
+		d.wv.mu.RLock()
+		cb := d.wv.callbacks
+		d.wv.mu.RUnlock()
+		if cb == nil || cb.OnLinkMiddleClick == nil {
+			return fmt.Errorf("open link in new tab: middle-click handler not available")
+		}
+		cb.OnLinkMiddleClick(menuContext.LinkURI)
+		return nil
+	case port.MenuActionInspectElement:
+		d.wv.OpenDevTools()
+		return nil
+	case port.MenuActionCopySelection:
+		d.wv.RunJavaScript(ctx, "document.execCommand('copy');")
+		return nil
+	default:
+		return fmt.Errorf("cef menu delegator: unsupported action %s", action)
+	}
 }
 
 func lookupContextMenuCommandID(action port.MenuAction, label string, commandIDsByLabel map[string]int32) (int32, bool) {

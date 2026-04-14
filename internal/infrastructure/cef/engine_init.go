@@ -55,6 +55,9 @@ func NewEngine(
 		currentConfigPayload:   deps.CurrentConfigPayload,
 		defaultConfigPayload:   deps.DefaultConfigPayload,
 		ctxMenuBuilder:         deps.ContextMenuBuilder,
+		ctxMenuExecutorFactory: deps.ContextMenuExecutorFactory,
+		clipboard:              deps.Clipboard,
+		resolver:               deps.ImageDataResolver,
 		mediaClassifier:        deps.MediaClassifier,
 	}
 

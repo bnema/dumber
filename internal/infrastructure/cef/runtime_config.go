@@ -65,10 +65,13 @@ func (m MediaClassifier) normalize() MediaClassifier {
 }
 
 type EngineDependencies struct {
-	RegisterHandlers       HandlerRegistrar
-	RegisterAccentHandlers AccentHandlerRegistrar
-	CurrentConfigPayload   func() ([]byte, error)
-	DefaultConfigPayload   func() ([]byte, error)
-	ContextMenuBuilder     port.ContextMenuBuilder
-	MediaClassifier        MediaClassifier
+	RegisterHandlers           HandlerRegistrar
+	RegisterAccentHandlers     AccentHandlerRegistrar
+	CurrentConfigPayload       func() ([]byte, error)
+	DefaultConfigPayload       func() ([]byte, error)
+	ContextMenuBuilder         port.ContextMenuBuilder
+	ContextMenuExecutorFactory port.ContextMenuActionExecutorFactory
+	Clipboard                  port.Clipboard
+	ImageDataResolver          port.ImageDataResolver
+	MediaClassifier            MediaClassifier
 }

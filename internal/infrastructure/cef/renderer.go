@@ -83,6 +83,8 @@ func showMenu(
 
 	selected := false
 	var popover *gtk.Popover
+	parent := choosePopoverParent(anchor, anchor.GetParent())
+	popoverHost, overlay := createPopoverHost(parent, x, y)
 
 	for _, item := range items {
 		if item.separator {
@@ -111,21 +113,104 @@ func showMenu(
 
 	popover = gtk.NewPopover()
 	popover.SetChild(&box.Widget)
-	popover.SetParent(anchor)
+	attachPopover(popover, popoverHost, parent)
 	popover.SetHasArrow(false)
 	popover.SetAutohide(true)
 
-	rect := &gdk.Rectangle{X: int(x), Y: int(y), Width: 1, Height: 1}
-	popover.SetPointingTo(rect)
+	if popoverHost == nil {
+		rect := popoverPointingRect(x, y, func(srcX, srcY float64) (float64, float64, bool) {
+			if anchor == nil || parent == nil || anchor == parent {
+				return srcX, srcY, false
+			}
+			var destX, destY float64
+			if !anchor.TranslateCoordinates(parent, srcX, srcY, &destX, &destY) {
+				return srcX, srcY, false
+			}
+			return destX, destY, true
+		})
+		popover.SetPointingTo(rect)
+	}
 
 	closedCb := func(_ gtk.Popover) {
 		if !selected && onClose != nil {
 			onClose()
 		}
-		popover.Unparent()
+		cleanupPopover(popover, popoverHost, overlay)
 	}
 	popover.ConnectClosed(&closedCb)
 
+	popupPopover(popover, popoverHost)
+}
+
+func choosePopoverParent(anchor, parent *gtk.Widget) *gtk.Widget {
+	if parent != nil {
+		return parent
+	}
+	return anchor
+}
+
+func popoverPointingRect(
+	x, y int32,
+	translate func(srcX, srcY float64) (float64, float64, bool),
+) *gdk.Rectangle {
+	destX, destY := float64(x), float64(y)
+	if translate != nil {
+		if tx, ty, ok := translate(destX, destY); ok {
+			destX, destY = tx, ty
+		}
+	}
+	return &gdk.Rectangle{X: int(destX), Y: int(destY), Width: 1, Height: 1}
+}
+
+func createPopoverHost(parent *gtk.Widget, x, y int32) (*gtk.MenuButton, *gtk.Overlay) {
+	overlay := overlayFromWidget(parent)
+	if overlay == nil {
+		return nil, nil
+	}
+	host := gtk.NewMenuButton()
+	host.SetCanFocus(false)
+	host.SetHalign(gtk.AlignStartValue)
+	host.SetValign(gtk.AlignStartValue)
+	host.SetMarginStart(int(x))
+	host.SetMarginTop(int(y))
+	host.SetOpacity(0)
+	host.SetSizeRequest(1, 1)
+	host.SetVisible(true)
+	overlay.AddOverlay(&host.Widget)
+	overlay.SetClipOverlay(&host.Widget, false)
+	overlay.SetMeasureOverlay(&host.Widget, false)
+	return host, overlay
+}
+
+func overlayFromWidget(widget *gtk.Widget) *gtk.Overlay {
+	if widget == nil || widget.GoPointer() == 0 {
+		return nil
+	}
+	return gtk.OverlayNewFromInternalPtr(widget.GoPointer())
+}
+
+func attachPopover(popover *gtk.Popover, host *gtk.MenuButton, parent *gtk.Widget) {
+	if host != nil {
+		host.SetPopover(popover)
+		return
+	}
+	popover.SetParent(parent)
+}
+
+func cleanupPopover(popover *gtk.Popover, host *gtk.MenuButton, overlay *gtk.Overlay) {
+	if host != nil && overlay != nil {
+		host.SetPopover(nil)
+		overlay.RemoveOverlay(&host.Widget)
+		return
+	}
+	popover.Unparent()
+}
+
+func popupPopover(popover *gtk.Popover, host *gtk.MenuButton) {
+	if host != nil {
+		host.Popup()
+		return
+	}
 	popover.Popup()
 }
 

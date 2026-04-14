@@ -30,6 +30,16 @@ type Adapter struct {
 	pasteCmd string
 }
 
+func (a *Adapter) ensureToolkitClipboard() toolkitClipboard {
+	if a == nil {
+		return nil
+	}
+	if a.toolkit == nil {
+		a.toolkit = newToolkitClipboard()
+	}
+	return a.toolkit
+}
+
 var (
 	lookPath            = exec.LookPath
 	commandContext      = exec.CommandContext
@@ -147,8 +157,8 @@ func (a *Adapter) WriteText(ctx context.Context, text string) error {
 		}
 		commandErr = err
 	}
-	if a.toolkit != nil {
-		err := a.toolkit.WriteText(ctx, text)
+	if toolkit := a.ensureToolkitClipboard(); toolkit != nil {
+		err := toolkit.WriteText(ctx, text)
 		if err == nil {
 			log.Debug().Str("backend", "toolkit").Int("len", len(text)).Msg("clipboard write success")
 			return nil
@@ -175,20 +185,24 @@ func (a *Adapter) WriteImage(ctx context.Context, image entity.ImageData) error 
 		log.Error().Err(err).Msg("clipboard image write failed")
 		return err
 	}
+	if toolkit := a.ensureToolkitClipboard(); toolkit != nil {
+		err := toolkit.WriteImage(ctx, image)
+		if err == nil {
+			log.Debug().
+				Str("backend", "toolkit").
+				Str("mime_type", image.MimeType).
+				Int("bytes", len(image.Bytes)).
+				Msg("clipboard image write success")
+			return nil
+		}
+		log.Debug().Err(err).Msg("toolkit clipboard image write failed; falling back")
+	}
 	if a.copyCmd != "" {
 		err := a.writeImageWithCommand(ctx, image, log)
 		if err == nil {
 			return nil
 		}
 		commandErr = err
-	}
-	if a.toolkit != nil {
-		err := a.toolkit.WriteImage(ctx, image)
-		if err == nil {
-			log.Debug().Str("backend", "toolkit").Int("bytes", len(image.Bytes)).Msg("clipboard image write success")
-			return nil
-		}
-		log.Debug().Err(err).Msg("toolkit clipboard image write failed; falling back")
 	}
 	if commandErr != nil {
 		return commandErr
