@@ -245,3 +245,97 @@ func TestBrowserLaunchRelay_DeliverOpenFreshWindow_RespectsResponseReadTimeout(t
 	require.ErrorIs(t, err, context.DeadlineExceeded)
 	assert.False(t, delivered)
 }
+
+func TestBrowserLaunchRelay_DeliverOpenFreshWindow_ReturnsWithoutCallerDeadline(t *testing.T) {
+	runtimeDir := shortTempDir(t)
+	socketPath := filepath.Join(runtimeDir, "browser-launch.sock")
+	require.NoError(t, os.MkdirAll(runtimeDir, 0o700))
+
+	listener, err := net.ListenUnix("unix", &net.UnixAddr{Name: socketPath, Net: "unix"})
+	require.NoError(t, err)
+	defer func() {
+		_ = listener.Close()
+		_ = os.Remove(socketPath)
+	}()
+
+	ready := make(chan struct{})
+	go func() {
+		close(ready)
+		conn, acceptErr := listener.AcceptUnix()
+		if acceptErr != nil {
+			return
+		}
+		defer conn.Close()
+		<-time.After(time.Second)
+	}()
+	<-ready
+
+	relay := NewBrowserLaunchRelay(testXDGPaths{runtimeDir: runtimeDir})
+
+	type deliverResult struct {
+		delivered bool
+		err       error
+	}
+	result := make(chan deliverResult, 1)
+	go func() {
+		delivered, err := relay.DeliverOpenFreshWindow(context.Background(), "https://example.com/slow")
+		result <- deliverResult{delivered: delivered, err: err}
+	}()
+
+	select {
+	case got := <-result:
+		assert.False(t, got.delivered)
+		require.Error(t, got.err)
+	case <-time.After(300 * time.Millisecond):
+		t.Fatal("DeliverOpenFreshWindow blocked without a caller deadline")
+	}
+}
+
+func TestBrowserLaunchRelay_SilentClientDoesNotStallListener(t *testing.T) {
+	runtimeDir := filepath.Join(shortTempDir(t), "runtime")
+	relay := NewBrowserLaunchRelay(testXDGPaths{runtimeDir: runtimeDir})
+
+	received := make(chan string, 1)
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	closer, err := relay.Listen(ctx, browserWindowOpenerFunc(func(_ context.Context, url string) error {
+		received <- url
+		return nil
+	}))
+	require.NoError(t, err)
+	defer closer.Close()
+
+	socketPath := filepath.Join(runtimeDir, "browser-launch.sock")
+	waitForSocket(t, socketPath)
+
+	conn, err := net.Dial("unix", socketPath)
+	require.NoError(t, err)
+	defer conn.Close()
+	time.Sleep(20 * time.Millisecond)
+
+	type deliverResult struct {
+		delivered bool
+		err       error
+	}
+	result := make(chan deliverResult, 1)
+	go func() {
+		delivered, err := relay.DeliverOpenFreshWindow(context.Background(), "https://example.com/recovered")
+		result <- deliverResult{delivered: delivered, err: err}
+	}()
+
+	select {
+	case got := <-result:
+		require.NoError(t, got.err)
+		require.True(t, got.delivered)
+	case <-time.After(300 * time.Millisecond):
+		t.Fatal("silent client stalled the relay listener")
+	}
+
+	select {
+	case got := <-received:
+		assert.Equal(t, "https://example.com/recovered", got)
+	case <-time.After(time.Second):
+		t.Fatal("expected opener to receive the URL")
+	}
+}

@@ -529,44 +529,63 @@ func (a *App) openFreshWindow(ctx context.Context, url string) error {
 	}
 
 	if a.tabCoord != nil {
-		a.tabCreationWindow = created
-		defer func() {
-			a.tabCreationWindow = nil
-		}()
-
-		createdTab, createErr := a.tabCoord.Create(ctx, url)
-		if createErr != nil {
-			a.removeBrowserWindow(created.id)
-			if created.mainWindow != nil {
-				created.mainWindow.Destroy()
-			}
-			return createErr
-		}
-		if a.workspaceViews[createdTab.ID] == nil {
-			if a.tabs != nil {
-				a.tabs.Remove(createdTab.ID)
-			}
-			if a.mainWindow != nil && a.mainWindow.TabBar() != nil {
-				a.mainWindow.TabBar().RemoveTab(createdTab.ID)
-				a.mainWindow.TabBar().SetActive(a.tabs.ActiveTabID)
-			}
-			a.removeBrowserWindow(created.id)
-			if created.mainWindow != nil {
-				created.mainWindow.Destroy()
-			}
-			return fmt.Errorf("workspace view not created for tab %s", createdTab.ID)
-		}
-		a.setBrowserWindowForTab(createdTab.ID, created)
-		if created.mainWindow != nil {
-			created.mainWindow.Show()
-		}
-		return nil
+		return a.openFreshWindowWithTabCoord(ctx, url, created)
 	}
 
 	if a.tabsUC == nil {
 		return nil
 	}
 
+	return a.openFreshWindowWithTabsUC(ctx, url, created)
+}
+
+func (a *App) openFreshWindowWithTabCoord(ctx context.Context, url string, created *browserWindow) error {
+	previousMainWindow := a.mainWindow
+	if created.mainWindow != nil {
+		a.tabCoord.SetMainWindow(created.mainWindow)
+	}
+	a.tabCreationWindow = created
+	defer func() {
+		a.tabCreationWindow = nil
+		a.tabCoord.SetMainWindow(previousMainWindow)
+	}()
+
+	createdTab, createErr := a.tabCoord.Create(ctx, url)
+	if createErr != nil {
+		a.removeBrowserWindow(created.id)
+		if created.mainWindow != nil {
+			created.mainWindow.Destroy()
+		}
+		return createErr
+	}
+	if a.workspaceViews[createdTab.ID] == nil {
+		if a.tabs != nil {
+			a.tabs.Remove(createdTab.ID)
+		}
+		tabBar := a.mainWindow.TabBar()
+		if created.mainWindow != nil && a.tabCoord != nil {
+			if targetTabBar := a.tabCoord.GetTabBar(); targetTabBar != nil {
+				tabBar = targetTabBar
+			}
+		}
+		if tabBar != nil {
+			tabBar.RemoveTab(createdTab.ID)
+			tabBar.SetActive(a.tabs.ActiveTabID)
+		}
+		a.removeBrowserWindow(created.id)
+		if created.mainWindow != nil {
+			created.mainWindow.Destroy()
+		}
+		return fmt.Errorf("workspace view not created for tab %s", createdTab.ID)
+	}
+	a.setBrowserWindowForTab(createdTab.ID, created)
+	if created.mainWindow != nil {
+		created.mainWindow.Show()
+	}
+	return nil
+}
+
+func (a *App) openFreshWindowWithTabsUC(ctx context.Context, url string, created *browserWindow) error {
 	output, err := a.tabsUC.Create(ctx, usecase.CreateTabInput{
 		TabList:    a.tabs,
 		InitialURL: url,

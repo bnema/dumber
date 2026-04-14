@@ -13,6 +13,8 @@ import (
 	"github.com/bnema/dumber/internal/ui/component"
 	"github.com/bnema/dumber/internal/ui/coordinator"
 	"github.com/bnema/dumber/internal/ui/window"
+	"github.com/bnema/puregotk/v4/gio"
+	"github.com/bnema/puregotk/v4/gtk"
 )
 
 type testBrowserLaunchRelay struct {
@@ -189,5 +191,62 @@ func TestApp_OpenFreshWindowRollsBackOnTabCreationFailure(t *testing.T) {
 	}
 	if got := windowTabBarActiveID(t, originalWindow); got != existingTabID {
 		t.Fatalf("tab bar active tab = %q, want %q", got, existingTabID)
+	}
+}
+
+func TestApp_OpenFreshWindowTargetsNewWindowTabBar(t *testing.T) {
+	EnsureAdwaitaInitialized()
+	appID := AppID
+	gtkApp := gtk.NewApplication(&appID, gio.GApplicationNonUniqueValue)
+	if gtkApp == nil {
+		t.Fatal("gtk application creation failed")
+	}
+	defer gtkApp.Unref()
+
+	existingTabID := entity.TabID("existing-tab")
+	oldWindow, err := window.New(context.Background(), gtkApp, "top")
+	if err != nil {
+		t.Fatalf("old window creation failed: %v", err)
+	}
+	newWindow, err := window.New(context.Background(), gtkApp, "top")
+	if err != nil {
+		t.Fatalf("new window creation failed: %v", err)
+	}
+	tabs := entity.NewTabList()
+	tabsUC := usecase.NewManageTabsUseCase(func() string { return "id-1" })
+
+	app := &App{
+		tabs:           tabs,
+		tabsUC:         tabsUC,
+		browserWindows: make(map[string]*browserWindow),
+		browserWindowFactory: func(context.Context, string) (*browserWindow, error) {
+			return &browserWindow{id: "window-1", mainWindow: newWindow}, nil
+		},
+		mainWindow: oldWindow,
+		tabCoord: coordinator.NewTabCoordinator(context.Background(), coordinator.TabCoordinatorConfig{
+			TabsUC:     tabsUC,
+			Tabs:       tabs,
+			MainWindow: oldWindow,
+		}),
+		workspaceViews: make(map[entity.TabID]*component.WorkspaceView),
+	}
+	app.tabs.Add(entity.NewTab(existingTabID, entity.WorkspaceID("existing-workspace"), entity.NewPane(entity.PaneID("existing-pane"))))
+	app.tabCoord.SetOnTabCreated(func(ctx context.Context, tab *entity.Tab) {
+		app.workspaceViews[tab.ID] = &component.WorkspaceView{}
+	})
+
+	if err := app.OpenFreshWindow(context.Background(), "https://example.com"); err != nil {
+		t.Fatalf("OpenFreshWindow returned error: %v", err)
+	}
+
+	createdTabID := app.tabs.ActiveTabID
+	if createdTabID == "" {
+		t.Fatalf("created tab id = %q, want non-empty", createdTabID)
+	}
+	if got := windowTabBarActiveID(t, newWindow); got != createdTabID {
+		t.Fatalf("new window tab bar active tab = %q, want %q", got, createdTabID)
+	}
+	if got := windowTabBarActiveID(t, oldWindow); got != "" {
+		t.Fatalf("old window tab bar active tab = %q, want empty", got)
 	}
 }

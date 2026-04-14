@@ -87,6 +87,9 @@ func (r *browserLaunchRelay) DeliverOpenFreshWindow(ctx context.Context, url str
 				if ctxErr := ctx.Err(); ctxErr != nil {
 					return false, ctxErr
 				}
+				if _, ok := ctx.Deadline(); !ok {
+					return false, decodeErr
+				}
 				if deadlineErr := setBrowserLaunchConnDeadline(ctx, conn); deadlineErr != nil {
 					return false, deadlineErr
 				}
@@ -208,6 +211,9 @@ func (l *browserLaunchRelayListener) serve(ctx context.Context, opener port.Brow
 
 func (*browserLaunchRelayListener) handleConnection(ctx context.Context, conn *net.UnixConn, opener port.BrowserWindowOpener) {
 	defer func() { _ = conn.Close() }()
+	if err := conn.SetDeadline(time.Now().Add(browserLaunchIOTimeout)); err != nil {
+		return
+	}
 
 	var request browserLaunchRequest
 	if err := json.NewDecoder(conn).Decode(&request); err != nil {
@@ -219,6 +225,9 @@ func (*browserLaunchRelayListener) handleConnection(ctx context.Context, conn *n
 		response.Error = err.Error()
 	}
 
+	if err := conn.SetDeadline(time.Now().Add(browserLaunchIOTimeout)); err != nil {
+		return
+	}
 	_ = json.NewEncoder(conn).Encode(response)
 }
 
