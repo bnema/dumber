@@ -33,11 +33,11 @@ func (l *BrowserLauncher) LaunchURL(ctx context.Context, url string) {
 
 	if l.relay != nil {
 		delivered, err := l.relay.DeliverOpenFreshWindow(ctx, url)
-		if delivered {
-			return
-		}
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "failed to forward dumber browser URL %q: %v\n", url, err)
+		}
+		if delivered {
+			return
 		}
 	}
 
