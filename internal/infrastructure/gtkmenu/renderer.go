@@ -11,6 +11,13 @@ type renderItem struct {
 	separator bool
 }
 
+const (
+	contextMenuBoxClass       = "context-menu"
+	contextMenuPopoverClass   = "context-menu-popover"
+	contextMenuItemClass      = "context-menu-item"
+	contextMenuSeparatorClass = "context-menu-separator"
+)
+
 // Renderer shows GTK context menus on the provided anchor widget.
 type Renderer struct {
 	dispatch func(func())
@@ -31,6 +38,18 @@ func BuildButtons(items []port.MenuItem) []renderItem {
 		renderItems = append(renderItems, renderItem{item: item})
 	}
 	return renderItems
+}
+
+func contextMenuItemClasses() []string {
+	return []string{"flat", contextMenuItemClass}
+}
+
+func contextMenuPopoverClasses() []string {
+	return []string{contextMenuPopoverClass}
+}
+
+func contextMenuSeparatorClasses() []string {
+	return []string{contextMenuSeparatorClass}
 }
 
 func isSeparator(item port.MenuItem) bool {
@@ -79,7 +98,7 @@ func showMenu(
 	}
 
 	box := gtk.NewBox(gtk.OrientationVerticalValue, 0)
-	box.AddCssClass("context-menu")
+	box.AddCssClass(contextMenuBoxClass)
 
 	selected := false
 	var popover *gtk.Popover
@@ -89,13 +108,18 @@ func showMenu(
 	for _, item := range items {
 		if item.separator {
 			sep := gtk.NewSeparator(gtk.OrientationHorizontalValue)
+			for _, class := range contextMenuSeparatorClasses() {
+				sep.AddCssClass(class)
+			}
 			box.Append(&sep.Widget)
 			continue
 		}
 
 		btn := gtk.NewButton()
 		btn.SetLabel(item.item.Label)
-		btn.AddCssClass("flat")
+		for _, class := range contextMenuItemClasses() {
+			btn.AddCssClass(class)
+		}
 
 		menuItem := item.item
 		clickCb := func(_ gtk.Button) {
@@ -112,6 +136,9 @@ func showMenu(
 	}
 
 	popover = gtk.NewPopover()
+	for _, class := range contextMenuPopoverClasses() {
+		popover.AddCssClass(class)
+	}
 	popover.SetChild(&box.Widget)
 	attachPopover(popover, popoverHost, parent)
 	popover.SetHasArrow(false)
