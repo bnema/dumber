@@ -21,28 +21,28 @@ type stubDownloadItem struct {
 	canceled  bool
 }
 
-func (s stubDownloadItem) IsValid() bool                            { return true }
-func (s stubDownloadItem) IsInProgress() bool                       { return !s.complete && !s.canceled }
-func (s stubDownloadItem) IsComplete() bool                         { return s.complete }
-func (s stubDownloadItem) IsCanceled() bool                         { return s.canceled }
-func (s stubDownloadItem) IsInterrupted() bool                      { return false }
+func (s stubDownloadItem) IsValid() bool       { return true }
+func (s stubDownloadItem) IsInProgress() bool  { return !s.complete && !s.canceled }
+func (s stubDownloadItem) IsComplete() bool    { return s.complete }
+func (s stubDownloadItem) IsCanceled() bool    { return s.canceled }
+func (s stubDownloadItem) IsInterrupted() bool { return false }
 func (s stubDownloadItem) GetInterruptReason() purecef.DownloadInterruptReason {
 	return 0
 }
-func (s stubDownloadItem) GetCurrentSpeed() int64                { return 0 }
-func (s stubDownloadItem) GetPercentComplete() int32             { return 0 }
-func (s stubDownloadItem) GetTotalBytes() int64                  { return 0 }
-func (s stubDownloadItem) GetReceivedBytes() int64               { return 0 }
-func (s stubDownloadItem) GetStartTime() uintptr                 { return 0 }
-func (s stubDownloadItem) GetEndTime() uintptr                   { return 0 }
-func (s stubDownloadItem) GetFullPath() string                   { return s.fullPath }
-func (s stubDownloadItem) GetID() uint32                         { return s.id }
-func (s stubDownloadItem) GetURL() string                        { return s.url }
-func (s stubDownloadItem) GetOriginalURL() string                { return s.url }
-func (s stubDownloadItem) GetSuggestedFileName() string          { return s.suggested }
-func (s stubDownloadItem) GetContentDisposition() string         { return "" }
-func (s stubDownloadItem) GetMimeType() string                   { return s.mimeType }
-func (s stubDownloadItem) IsPaused() bool                        { return false }
+func (s stubDownloadItem) GetCurrentSpeed() int64        { return 0 }
+func (s stubDownloadItem) GetPercentComplete() int32     { return 0 }
+func (s stubDownloadItem) GetTotalBytes() int64          { return 0 }
+func (s stubDownloadItem) GetReceivedBytes() int64       { return 0 }
+func (s stubDownloadItem) GetStartTime() uintptr         { return 0 }
+func (s stubDownloadItem) GetEndTime() uintptr           { return 0 }
+func (s stubDownloadItem) GetFullPath() string           { return s.fullPath }
+func (s stubDownloadItem) GetID() uint32                 { return s.id }
+func (s stubDownloadItem) GetURL() string                { return s.url }
+func (s stubDownloadItem) GetOriginalURL() string        { return s.url }
+func (s stubDownloadItem) GetSuggestedFileName() string  { return s.suggested }
+func (s stubDownloadItem) GetContentDisposition() string { return "" }
+func (s stubDownloadItem) GetMimeType() string           { return s.mimeType }
+func (s stubDownloadItem) IsPaused() bool                { return false }
 
 type stubBeforeDownloadCallback struct {
 	path       string

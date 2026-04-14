@@ -6,9 +6,9 @@ import (
 	"testing"
 	"time"
 
+	"github.com/bnema/dumber/internal/application/usecase"
 	purecef "github.com/bnema/purego-cef/cef"
 	cefmocks "github.com/bnema/purego-cef/cef/mocks"
-	"github.com/bnema/dumber/internal/application/usecase"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"

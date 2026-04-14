@@ -3,6 +3,7 @@ package webkit
 import (
 	"context"
 	"fmt"
+	"net/url"
 	"os"
 	"strings"
 	"sync"
