@@ -61,16 +61,18 @@ func TestPrepareCEFInitTraceFile_EnabledViaEnv(t *testing.T) {
 	require.FileExists(t, path)
 }
 
-func TestPrepareCEFSettings_RootCachePath_UsesLegacyCEFUserDataDir(t *testing.T) {
+func TestPrepareCEFSettings_RootCachePath_UsesXDGDataDir(t *testing.T) {
 	homeDir := filepath.Join(t.TempDir(), "home")
+	dataHome := filepath.Join(homeDir, ".local", "share")
 	t.Setenv("HOME", homeDir)
 	t.Setenv("ENV", "")
+	t.Setenv("XDG_DATA_HOME", dataHome)
 
 	logger := zerolog.Nop()
 	settings, err := prepareCEFSettings(port.EngineOptions{}, RuntimeConfig{}, &logger)
 	require.NoError(t, err)
 
-	require.Equal(t, filepath.Join(homeDir, ".config", "cef_user_data"), settings.RootCachePath)
+	require.Equal(t, filepath.Join(dataHome, "dumber", "cef_user_data"), settings.RootCachePath)
 }
 
 func TestPrepareCEFSettings_RootCachePath_DevMode(t *testing.T) {

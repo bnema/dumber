@@ -144,16 +144,16 @@ func prepareCEFSettings(opts port.EngineOptions, cfg RuntimeConfig, logger *zero
 }
 
 func defaultCEFUserDataDir() string {
-	// Use Dumber's XDG helpers to get the config directory
+	// Keep CEF state under Dumber's XDG data directory like the rest of runtime data.
 	dirs, err := config.GetXDGDirs()
 	if err != nil {
-		// Fallback to HOME-based path if XDG resolution fails
-		return filepath.Clean(filepath.Join(os.Getenv("HOME"), ".config", "cef_user_data"))
+		dataHome := os.Getenv("XDG_DATA_HOME")
+		if dataHome == "" {
+			dataHome = filepath.Join(os.Getenv("HOME"), ".local", "share")
+		}
+		return filepath.Clean(filepath.Join(dataHome, "dumber", "cef_user_data"))
 	}
-	if os.Getenv("ENV") == "dev" {
-		return filepath.Join(dirs.ConfigHome, "cef_user_data")
-	}
-	return filepath.Join(filepath.Dir(dirs.ConfigHome), "cef_user_data")
+	return filepath.Join(dirs.DataHome, "cef_user_data")
 }
 
 // initializeCEF calls cef_initialize with the App to register custom schemes
