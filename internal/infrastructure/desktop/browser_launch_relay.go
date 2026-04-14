@@ -11,11 +11,14 @@ import (
 	"path/filepath"
 	"sync"
 	"syscall"
+	"time"
 
 	"github.com/bnema/dumber/internal/application/port"
 )
 
 const browserLaunchSocketName = "browser-launch.sock"
+
+const browserLaunchIOTimeout = 50 * time.Millisecond
 
 type browserLaunchRelay struct {
 	xdg port.XDGPaths
@@ -63,13 +66,33 @@ func (r *browserLaunchRelay) DeliverOpenFreshWindow(ctx context.Context, url str
 	}
 	defer conn.Close()
 
+	if err := setBrowserLaunchConnDeadline(ctx, conn); err != nil {
+		return false, err
+	}
 	if err := json.NewEncoder(conn).Encode(browserLaunchRequest{URL: url}); err != nil {
 		return false, err
 	}
 
-	var response browserLaunchResponse
-	if err := json.NewDecoder(conn).Decode(&response); err != nil {
+	if err := setBrowserLaunchConnDeadline(ctx, conn); err != nil {
 		return false, err
+	}
+
+	var response browserLaunchResponse
+	decoder := json.NewDecoder(conn)
+	for {
+		if err := decoder.Decode(&response); err != nil {
+			if isBrowserLaunchReadTimeout(err) {
+				if ctxErr := ctx.Err(); ctxErr != nil {
+					return false, ctxErr
+				}
+				if err := setBrowserLaunchConnDeadline(ctx, conn); err != nil {
+					return false, err
+				}
+				continue
+			}
+			return false, err
+		}
+		break
 	}
 	if response.Error != "" {
 		return true, errors.New(response.Error)
@@ -80,6 +103,20 @@ func (r *browserLaunchRelay) DeliverOpenFreshWindow(ctx context.Context, url str
 
 func isMissingRelayListener(err error) bool {
 	return os.IsNotExist(err) || errors.Is(err, syscall.ECONNREFUSED)
+}
+
+func isBrowserLaunchReadTimeout(err error) bool {
+	var netErr net.Error
+	return errors.As(err, &netErr) && netErr.Timeout()
+}
+
+func setBrowserLaunchConnDeadline(ctx context.Context, conn net.Conn) error {
+	deadline := time.Now().Add(browserLaunchIOTimeout)
+	if ctxDeadline, ok := ctx.Deadline(); ok && ctxDeadline.Before(deadline) {
+		deadline = ctxDeadline
+	}
+
+	return conn.SetDeadline(deadline)
 }
 
 func (r *browserLaunchRelay) Listen(ctx context.Context, opener port.BrowserWindowOpener) (io.Closer, error) {
@@ -102,10 +139,6 @@ func (r *browserLaunchRelay) Listen(ctx context.Context, opener port.BrowserWind
 
 	relayListener := &browserLaunchRelayListener{listener: listener, socketPath: socketPath}
 	go relayListener.serve(ctx, opener)
-	go func() {
-		<-ctx.Done()
-		_ = relayListener.Close()
-	}()
 
 	return relayListener, nil
 }
@@ -149,10 +182,20 @@ func (l *browserLaunchRelayListener) serve(ctx context.Context, opener port.Brow
 	defer l.Close()
 
 	for {
+		if err := l.listener.SetDeadline(time.Now().Add(browserLaunchIOTimeout)); err != nil {
+			return
+		}
 		conn, err := l.listener.AcceptUnix()
 		if err != nil {
 			if ctx.Err() != nil || errors.Is(err, net.ErrClosed) {
 				return
+			}
+			var netErr net.Error
+			if errors.As(err, &netErr) && netErr.Timeout() {
+				if ctx.Err() != nil {
+					return
+				}
+				continue
 			}
 			continue
 		}
