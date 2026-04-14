@@ -1,0 +1,180 @@
+package desktop
+
+import (
+	"context"
+	"encoding/json"
+	"errors"
+	"fmt"
+	"io"
+	"net"
+	"os"
+	"path/filepath"
+	"sync"
+	"syscall"
+
+	"github.com/bnema/dumber/internal/application/port"
+)
+
+const browserLaunchSocketName = "browser-launch.sock"
+
+type browserLaunchRelay struct {
+	xdg port.XDGPaths
+}
+
+type browserLaunchRequest struct {
+	URL string `json:"url"`
+}
+
+type browserLaunchResponse struct {
+	Delivered bool   `json:"delivered"`
+	Error     string `json:"error,omitempty"`
+}
+
+type browserLaunchRelayListener struct {
+	listener   *net.UnixListener
+	socketPath string
+	once       sync.Once
+	err        error
+}
+
+func NewBrowserLaunchRelay(xdg port.XDGPaths) port.BrowserLaunchRelay {
+	return &browserLaunchRelay{xdg: xdg}
+}
+
+func (r *browserLaunchRelay) DeliverOpenFreshWindow(ctx context.Context, url string) (bool, error) {
+	socketPath, err := r.socketPath()
+	if err != nil {
+		return false, err
+	}
+
+	if _, statErr := os.Stat(socketPath); statErr != nil {
+		if os.IsNotExist(statErr) {
+			return false, nil
+		}
+		return false, statErr
+	}
+
+	conn, err := (&net.Dialer{}).DialContext(ctx, "unix", socketPath)
+	if err != nil {
+		if isMissingRelayListener(err) {
+			return false, nil
+		}
+		return false, err
+	}
+	defer conn.Close()
+
+	if err := json.NewEncoder(conn).Encode(browserLaunchRequest{URL: url}); err != nil {
+		return false, err
+	}
+
+	var response browserLaunchResponse
+	if err := json.NewDecoder(conn).Decode(&response); err != nil {
+		return false, err
+	}
+	if response.Error != "" {
+		return true, errors.New(response.Error)
+	}
+
+	return true, nil
+}
+
+func isMissingRelayListener(err error) bool {
+	return os.IsNotExist(err) || errors.Is(err, syscall.ECONNREFUSED)
+}
+
+func (r *browserLaunchRelay) Listen(ctx context.Context, opener port.BrowserWindowOpener) (io.Closer, error) {
+	socketPath, err := r.socketPath()
+	if err != nil {
+		return nil, err
+	}
+
+	if err := os.MkdirAll(filepath.Dir(socketPath), 0o700); err != nil {
+		return nil, fmt.Errorf("create browser launch dir: %w", err)
+	}
+	if err := os.Remove(socketPath); err != nil && !os.IsNotExist(err) {
+		return nil, fmt.Errorf("remove stale browser launch socket: %w", err)
+	}
+
+	listener, err := net.ListenUnix("unix", &net.UnixAddr{Name: socketPath, Net: "unix"})
+	if err != nil {
+		return nil, fmt.Errorf("listen browser launch socket: %w", err)
+	}
+
+	relayListener := &browserLaunchRelayListener{listener: listener, socketPath: socketPath}
+	go relayListener.serve(ctx, opener)
+	go func() {
+		<-ctx.Done()
+		_ = relayListener.Close()
+	}()
+
+	return relayListener, nil
+}
+
+func (r *browserLaunchRelay) socketPath() (string, error) {
+	if r == nil || r.xdg == nil {
+		return "", errors.New("browser launch relay missing XDG paths")
+	}
+
+	runtimeDir, err := r.xdg.RuntimeDir()
+	if err != nil {
+		return "", fmt.Errorf("get runtime dir: %w", err)
+	}
+	if runtimeDir != "" {
+		return filepath.Join(runtimeDir, browserLaunchSocketName), nil
+	}
+
+	stateDir, err := r.xdg.StateDir()
+	if err != nil {
+		return "", fmt.Errorf("get state dir: %w", err)
+	}
+	if stateDir == "" {
+		return "", errors.New("browser launch relay needs runtime or state dir")
+	}
+
+	return filepath.Join(stateDir, "runtime", browserLaunchSocketName), nil
+}
+
+func (l *browserLaunchRelayListener) Close() error {
+	l.once.Do(func() {
+		if l.listener != nil {
+			l.err = l.listener.Close()
+		}
+		_ = os.Remove(l.socketPath)
+	})
+
+	return l.err
+}
+
+func (l *browserLaunchRelayListener) serve(ctx context.Context, opener port.BrowserWindowOpener) {
+	defer l.Close()
+
+	for {
+		conn, err := l.listener.AcceptUnix()
+		if err != nil {
+			if ctx.Err() != nil || errors.Is(err, net.ErrClosed) {
+				return
+			}
+			continue
+		}
+
+		l.handleConnection(ctx, conn, opener)
+	}
+}
+
+func (l *browserLaunchRelayListener) handleConnection(ctx context.Context, conn *net.UnixConn, opener port.BrowserWindowOpener) {
+	defer conn.Close()
+
+	var request browserLaunchRequest
+	if err := json.NewDecoder(conn).Decode(&request); err != nil {
+		return
+	}
+
+	response := browserLaunchResponse{Delivered: true}
+	if err := opener.OpenFreshWindow(ctx, request.URL); err != nil {
+		response.Error = err.Error()
+	}
+
+	_ = json.NewEncoder(conn).Encode(response)
+}
+
+var _ port.BrowserLaunchRelay = (*browserLaunchRelay)(nil)
