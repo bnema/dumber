@@ -41,6 +41,21 @@ func (t *LegacyConfigTransformer) TransformLegacyActions(rawConfig map[string]an
 	}
 }
 
+// TransformLegacyEngineConfig removes deprecated engine config keys.
+func (*LegacyConfigTransformer) TransformLegacyEngineConfig(rawConfig map[string]any) {
+	engine, ok := rawConfig["engine"].(map[string]any)
+	if !ok {
+		return
+	}
+
+	cef, ok := engine["cef"].(map[string]any)
+	if !ok {
+		return
+	}
+
+	delete(cef, "enable_context_menu_handler")
+}
+
 func (t *LegacyConfigTransformer) transformActionSection(rawConfig map[string]any, path []string) {
 	// Navigate to the parent of the actions section
 	current := rawConfig

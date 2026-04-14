@@ -7,7 +7,7 @@ require (
 	github.com/bnema/purego-ffmpeg v0.3.0
 	github.com/bnema/purego-pipewire v0.1.1
 	github.com/bnema/purego-sqlite v0.1.1
-	github.com/bnema/puregotk v0.3.0
+	github.com/bnema/puregotk v0.4.0
 	github.com/bnema/puregotk-webkit v0.0.16
 	github.com/charmbracelet/bubbles v1.0.0
 	github.com/charmbracelet/bubbletea v1.3.10

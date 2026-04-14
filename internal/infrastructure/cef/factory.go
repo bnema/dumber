@@ -17,25 +17,23 @@ var _ port.WebViewFactory = (*WebViewFactory)(nil)
 // gets a unique ID, its own renderPipeline and inputBridge, and an
 // asynchronously-created CEF browser (via BrowserHostCreateBrowser).
 type WebViewFactory struct {
-	engine                   *Engine
-	gl                       *glLoader
-	nextID                   atomic.Uint64
-	scale                    int32
-	windowlessFrameRate      int32
-	enableContextMenuHandler bool
-	bgColor                  atomic.Uint32 // packed ARGB for BrowserSettings.BackgroundColor
-	transcoder               port.MediaTranscoder
-	mediaClassifier          MediaClassifier
-	audioOutputFactory       port.AudioOutputFactory
+	engine              *Engine
+	gl                  *glLoader
+	nextID              atomic.Uint64
+	scale               int32
+	windowlessFrameRate int32
+	bgColor             atomic.Uint32 // packed ARGB for BrowserSettings.BackgroundColor
+	transcoder          port.MediaTranscoder
+	mediaClassifier     MediaClassifier
+	audioOutputFactory  port.AudioOutputFactory
 }
 
 type webViewFactoryOptions struct {
-	scale                    int32
-	windowlessFrameRate      int32
-	enableContextMenuHandler bool
-	transcoder               port.MediaTranscoder
-	mediaClassifier          MediaClassifier
-	audioOutputFactory       port.AudioOutputFactory
+	scale               int32
+	windowlessFrameRate int32
+	transcoder          port.MediaTranscoder
+	mediaClassifier     MediaClassifier
+	audioOutputFactory  port.AudioOutputFactory
 }
 
 type resizeNotifiableBrowserHost interface {
@@ -53,14 +51,13 @@ func newWebViewFactory(engine *Engine, gl *glLoader, opts webViewFactoryOptions)
 		opts.windowlessFrameRate = 60
 	}
 	return &WebViewFactory{
-		engine:                   engine,
-		gl:                       gl,
-		scale:                    opts.scale,
-		windowlessFrameRate:      opts.windowlessFrameRate,
-		enableContextMenuHandler: opts.enableContextMenuHandler,
-		transcoder:               opts.transcoder,
-		mediaClassifier:          opts.mediaClassifier,
-		audioOutputFactory:       opts.audioOutputFactory,
+		engine:              engine,
+		gl:                  gl,
+		scale:               opts.scale,
+		windowlessFrameRate: opts.windowlessFrameRate,
+		transcoder:          opts.transcoder,
+		mediaClassifier:     opts.mediaClassifier,
+		audioOutputFactory:  opts.audioOutputFactory,
 	}
 }
 
@@ -99,9 +96,8 @@ func (f *WebViewFactory) Create(ctx context.Context) (port.WebView, error) {
 	}
 
 	handlers := &handlerSet{
-		wv:                       wv,
-		enableContextMenuHandler: f.enableContextMenuHandler,
-		transcodingHandler:       transcodingHandler,
+		wv:                 wv,
+		transcodingHandler: transcodingHandler,
 	}
 	wv.handlers = handlers
 	wv.findCtrl = newFindController()
