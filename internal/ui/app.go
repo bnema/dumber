@@ -65,6 +65,10 @@ type App struct {
 	gtkApp     *gtk.Application
 	mainWindow *window.MainWindow
 
+	browserWindows       map[string]*browserWindow
+	browserWindowFactory func(context.Context, string) (*browserWindow, error)
+	dispatchOnMainThread func(func())
+
 	// State
 	tabs   *entity.TabList
 	tabsUC *usecase.ManageTabsUseCase
@@ -126,6 +130,8 @@ type App struct {
 	// ID generator for tabs/panes
 	idCounter             uint64
 	idMu                  sync.Mutex
+	windowIDCounter       uint64
+	windowIDMu            sync.Mutex
 	firstWebViewShownOnce sync.Once
 
 	movePaneToTabUC *usecase.MovePaneToTabUseCase
@@ -172,14 +178,16 @@ func New(deps *Dependencies) (*App, error) {
 	ctx, cancel := context.WithCancelCause(deps.Ctx)
 
 	app := &App{
-		deps:             deps,
-		tabs:             entity.NewTabList(),
-		tabsUC:           deps.TabsUC,
-		panesUC:          deps.PanesUC,
-		workspaceViews:   make(map[entity.TabID]*component.WorkspaceView),
-		floatingSessions: make(map[floatingSessionKey]*floatingWorkspaceSession),
-		engine:           deps.Engine,
-		cancel:           cancel,
+		deps:                 deps,
+		tabs:                 entity.NewTabList(),
+		tabsUC:               deps.TabsUC,
+		panesUC:              deps.PanesUC,
+		workspaceViews:       make(map[entity.TabID]*component.WorkspaceView),
+		floatingSessions:     make(map[floatingSessionKey]*floatingWorkspaceSession),
+		browserWindows:       make(map[string]*browserWindow),
+		dispatchOnMainThread: func(fn func()) { fn() },
+		engine:               deps.Engine,
+		cancel:               cancel,
 	}
 	// Register message handlers through the engine.
 	if err := deps.Engine.RegisterHandlers(ctx, port.HandlerDependencies{
@@ -244,6 +252,7 @@ func (a *App) Run(ctx context.Context, args []string) int {
 	}
 	defer a.gtkApp.Unref()
 	logging.Trace().Mark("gtk_app_created")
+	a.dispatchOnMainThread = a.runOnMainThread
 
 	// Connect activate signal
 	activateCb := func(_ gio.Application) {
@@ -273,7 +282,7 @@ func (a *App) onActivate(ctx context.Context) {
 	// synchronous prewarming that delays the first navigation on cold start.
 	a.setupPoolBackgroundColor(ctx)
 
-	if err := a.createMainWindow(ctx); err != nil {
+	if _, err := a.OpenFreshWindow(ctx, a.initialWindowURL()); err != nil {
 		log.Error().Err(err).Msg("failed to create main window")
 		return
 	}
@@ -380,19 +389,31 @@ func (a *App) prewarmWebViewPoolAsync(ctx context.Context) {
 	pool.PrewarmAsync(ctx, 0)
 }
 
-func (a *App) createMainWindow(ctx context.Context) error {
+func (a *App) createBrowserWindow(ctx context.Context, initialURL string) (*browserWindow, error) {
+	if a.browserWindowFactory != nil {
+		return a.browserWindowFactory(ctx, initialURL)
+	}
+
 	log := logging.FromContext(ctx)
 	mainWindow, err := window.New(ctx, a.gtkApp, a.deps.Config.Workspace.TabBarPosition)
 	if err != nil {
-		return err
+		return nil, err
 	}
-	a.mainWindow = mainWindow
+	browserWindow := &browserWindow{
+		id:         a.generateWindowID(),
+		initialURL: initialURL,
+		mainWindow: mainWindow,
+	}
+	if a.mainWindow == nil {
+		a.mainWindow = mainWindow
+	}
 
 	closeRequestCb := func(_ gtk.Window) bool {
-		log.Info().Msg("main window close requested")
+		log.Info().Msg("browser window close requested")
+		a.removeBrowserWindow(browserWindow.id)
 		return false
 	}
-	a.mainWindow.Window().ConnectCloseRequest(&closeRequestCb)
+	mainWindow.Window().ConnectCloseRequest(&closeRequestCb)
 
 	// Create permission popup and dialog presenter
 	if a.deps != nil && a.deps.PermissionUC != nil {
@@ -404,7 +425,7 @@ func (a *App) createMainWindow(ctx context.Context) error {
 		if permPopup != nil {
 			// Add popup to the main window's content overlay
 			if w := permPopup.Widget(); w != nil {
-				a.mainWindow.AddOverlay(w)
+				mainWindow.AddOverlay(w)
 			}
 			permDialog := dialog.NewPermissionDialog(permPopup)
 			a.deps.PermissionUC.SetDialogPresenter(permDialog)
@@ -415,19 +436,26 @@ func (a *App) createMainWindow(ctx context.Context) error {
 	indicator := component.NewWebRTCPermissionIndicator()
 	if indicator != nil {
 		if w := indicator.Widget(); w != nil {
-			a.mainWindow.AddOverlay(w)
+			mainWindow.AddOverlay(w)
 			a.webrtcIndicator = indicator
 		}
 	}
 
 	// Apply GTK CSS styling from theme manager.
 	if a.deps == nil || a.deps.Theme == nil {
-		return nil
+		return browserWindow, nil
 	}
-	if display := a.mainWindow.Window().GetDisplay(); display != nil {
+	if display := mainWindow.Window().GetDisplay(); display != nil {
 		a.deps.Theme.ApplyToDisplay(ctx, display)
 	}
-	return nil
+	return browserWindow, nil
+}
+
+func (a *App) initialWindowURL() string {
+	if a.deps != nil && a.deps.InitialURL != "" {
+		return a.deps.InitialURL
+	}
+	return "dumb://home"
 }
 
 func (a *App) initLayoutInfrastructure() {
@@ -1409,11 +1437,7 @@ func (a *App) createInitialTab(ctx context.Context) {
 	}
 
 	// Create an initial tab using coordinator.
-	initialURL := "dumb://home"
-	if a.deps != nil && a.deps.InitialURL != "" {
-		initialURL = a.deps.InitialURL
-	}
-	if _, err := a.tabCoord.Create(ctx, initialURL); err != nil {
+	if _, err := a.tabCoord.Create(ctx, a.initialWindowURL()); err != nil {
 		log.Error().Err(err).Msg("failed to create initial tab")
 	}
 }
@@ -1949,6 +1973,35 @@ func (a *App) syncWebRTCPermissionLockState(ctx context.Context, origin string, 
 	}
 
 	a.webrtcIndicator.SetStoredDecision(permType, record.Decision, true)
+}
+
+// generateWindowID generates a unique ID for top-level browser windows.
+func (a *App) generateWindowID() string {
+	a.windowIDMu.Lock()
+	defer a.windowIDMu.Unlock()
+	a.windowIDCounter++
+	return fmt.Sprintf("w%d", a.windowIDCounter)
+}
+
+// runOnMainThread executes fn inline when already on the GTK main context;
+// otherwise it dispatches fn to the GTK main loop and waits for completion.
+func (a *App) runOnMainThread(fn func()) {
+	if fn == nil {
+		return
+	}
+	glibCtx := glib.MainContextDefault()
+	if glibCtx != nil && glibCtx.IsOwner() {
+		fn()
+		return
+	}
+
+	done := make(chan struct{})
+	cb := glib.SourceOnceFunc(func(_ uintptr) {
+		fn()
+		close(done)
+	})
+	glib.IdleAddOnce(&cb, 0)
+	<-done
 }
 
 // generateID generates a unique ID for tabs and panes.
