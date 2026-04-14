@@ -62,15 +62,3 @@ func TestBuildButtons(t *testing.T) {
 	require.Equal(t, "Inspect Element", renderItems[3].item.Label)
 	require.False(t, renderItems[3].separator)
 }
-
-func TestContextMenuItemClasses(t *testing.T) {
-	require.Equal(t, []string{"flat", contextMenuItemClass}, contextMenuItemClasses())
-}
-
-func TestContextMenuSeparatorClasses(t *testing.T) {
-	require.Equal(t, []string{contextMenuSeparatorClass}, contextMenuSeparatorClasses())
-}
-
-func TestContextMenuPopoverClasses(t *testing.T) {
-	require.Equal(t, []string{contextMenuPopoverClass}, contextMenuPopoverClasses())
-}

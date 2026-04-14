@@ -40,18 +40,6 @@ func BuildButtons(items []port.MenuItem) []renderItem {
 	return renderItems
 }
 
-func contextMenuItemClasses() []string {
-	return []string{"flat", contextMenuItemClass}
-}
-
-func contextMenuPopoverClasses() []string {
-	return []string{contextMenuPopoverClass}
-}
-
-func contextMenuSeparatorClasses() []string {
-	return []string{contextMenuSeparatorClass}
-}
-
 func isSeparator(item port.MenuItem) bool {
 	return item.Action == "" && item.Label == ""
 }
@@ -108,18 +96,15 @@ func showMenu(
 	for _, item := range items {
 		if item.separator {
 			sep := gtk.NewSeparator(gtk.OrientationHorizontalValue)
-			for _, class := range contextMenuSeparatorClasses() {
-				sep.AddCssClass(class)
-			}
+			sep.AddCssClass(contextMenuSeparatorClass)
 			box.Append(&sep.Widget)
 			continue
 		}
 
 		btn := gtk.NewButton()
 		btn.SetLabel(item.item.Label)
-		for _, class := range contextMenuItemClasses() {
-			btn.AddCssClass(class)
-		}
+		btn.AddCssClass("flat")
+		btn.AddCssClass(contextMenuItemClass)
 
 		menuItem := item.item
 		clickCb := func(_ gtk.Button) {
@@ -136,9 +121,7 @@ func showMenu(
 	}
 
 	popover = gtk.NewPopover()
-	for _, class := range contextMenuPopoverClasses() {
-		popover.AddCssClass(class)
-	}
+	popover.AddCssClass(contextMenuPopoverClass)
 	popover.SetChild(&box.Widget)
 	attachPopover(popover, popoverHost, parent)
 	popover.SetHasArrow(false)

@@ -115,7 +115,7 @@ func GenerateCSSFull(p Palette, _ float64, fonts FontConfig, modeColors ModeColo
 	sb.WriteString("\n")
 
 	// Context menu styling
-	sb.WriteString(generateContextMenuCSS(p))
+	sb.WriteString(generateContextMenuCSS())
 	sb.WriteString("\n")
 
 	// Tab picker styling
@@ -907,8 +907,7 @@ row:selected .session-manager-row {
 }
 
 // generateContextMenuCSS creates shared context menu styles.
-func generateContextMenuCSS(p Palette) string {
-	_ = p
+func generateContextMenuCSS() string {
 	return `/* ===== Context Menu Styling ===== */
 
 popover.context-menu-popover {
