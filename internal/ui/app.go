@@ -1692,6 +1692,10 @@ func (a *App) restoreSession(ctx context.Context, sessionID entity.SessionID) er
 	tabBar := a.mainWindow.TabBar()
 	for _, tab := range a.tabs.Tabs {
 		a.createWorkspaceViewWithoutAttach(ctx, tab)
+		wsView := a.workspaceViews[tab.ID]
+		if a.wsCoord != nil && wsView != nil {
+			a.wsCoord.SetupStackedPaneCallbacks(ctx, tab.Workspace, wsView)
+		}
 		if tabBar != nil {
 			tabBar.AddTab(tab)
 		}

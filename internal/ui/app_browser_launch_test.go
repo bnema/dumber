@@ -162,6 +162,20 @@ func windowTabBarVisible(t *testing.T, mw *window.MainWindow) bool {
 	return mw.TabBar().Box().GetVisible()
 }
 
+func stackedViewOnActivateIsNil(t *testing.T, sv *layout.StackedView) bool {
+	t.Helper()
+	if sv == nil {
+		return true
+	}
+
+	rv := reflect.ValueOf(sv).Elem()
+	fv := rv.FieldByName("onActivate")
+	if !fv.IsValid() {
+		t.Fatalf("StackedView missing onActivate field")
+	}
+	return reflect.NewAt(fv.Type(), unsafe.Pointer(fv.UnsafeAddr())).Elem().IsNil()
+}
+
 func newTestShellToaster(t *testing.T) (*component.Toaster, *layoutmocks.MockBoxWidget, *layoutmocks.MockLabelWidget) {
 	t.Helper()
 
@@ -326,6 +340,81 @@ func TestApp_RestoreSessionClearsStaleUIStateBeforeApplyingRestoredTabs(t *testi
 	}
 	if _, ok := app.floatingSessions[staleSessionKey]; ok {
 		t.Fatalf("stale floating session was not removed")
+	}
+}
+
+func TestApp_RestoreSessionWiresStackedPaneTitleBarCallbacks(t *testing.T) {
+	EnsureAdwaitaInitialized()
+	appID := AppID
+	gtkApp := gtk.NewApplication(&appID, gio.GApplicationNonUniqueValue)
+	if gtkApp == nil {
+		t.Fatal("gtk application creation failed")
+	}
+	defer gtkApp.Unref()
+
+	mainWindow, err := window.New(context.Background(), gtkApp, "top")
+	if err != nil {
+		t.Fatalf("window creation failed: %v", err)
+	}
+	defer mainWindow.Destroy()
+
+	stackedSessionID := entity.SessionID("session-stacked-restore")
+	stackedTabs := entity.NewTabList()
+	stackedTabs.Add(entity.NewTab(entity.TabID("restored-tab"), entity.WorkspaceID("restored-workspace"), entity.NewPane(entity.PaneID("restored-pane-1"))))
+	stackedTabs.Tabs[0].Workspace = &entity.Workspace{
+		ID: entity.WorkspaceID("restored-workspace"),
+		Root: &entity.PaneNode{
+			ID:        "restored-stack-root",
+			IsStacked: true,
+			Children: []*entity.PaneNode{
+				{ID: "restored-child-1", Pane: entity.NewPane(entity.PaneID("restored-pane-1"))},
+				{ID: "restored-child-2", Pane: entity.NewPane(entity.PaneID("restored-pane-2"))},
+			},
+			ActiveStackIndex: 0,
+		},
+		ActivePaneID: entity.PaneID("restored-pane-1"),
+	}
+
+	app := &App{
+		deps: &Dependencies{
+			Config:           &config.Config{},
+			SessionStateRepo: &fakeSessionStateRepo{state: entity.SnapshotFromTabList(stackedSessionID, stackedTabs)},
+		},
+		mainWindow:     mainWindow,
+		widgetFactory:  layout.NewGtkWidgetFactory(),
+		contentCoord:   &contentcoord.Coordinator{},
+		wsCoord:        coordinator.NewWorkspaceCoordinator(context.Background(), coordinator.WorkspaceCoordinatorConfig{ContentCoord: &contentcoord.Coordinator{}}),
+		tabs:           entity.NewTabList(),
+		browserWindows: map[string]*browserWindow{},
+		workspaceViews: map[entity.TabID]*component.WorkspaceView{},
+		windowForTab:   map[entity.TabID]*browserWindow{},
+	}
+
+	if err := app.restoreSession(context.Background(), stackedSessionID); err != nil {
+		t.Fatalf("restoreSession returned error: %v", err)
+	}
+
+	restoredTab := app.tabs.ActiveTab()
+	if restoredTab == nil {
+		t.Fatal("restored active tab missing")
+	}
+	wv := app.workspaceViews[restoredTab.ID]
+	if wv == nil {
+		t.Fatal("restored workspace view missing")
+	}
+	tr := wv.TreeRenderer()
+	if tr == nil {
+		t.Fatal("restored tree renderer missing")
+	}
+	if restoredTab.Workspace == nil || restoredTab.Workspace.Root == nil || len(restoredTab.Workspace.Root.Children) == 0 {
+		t.Fatal("restored stacked workspace missing children")
+	}
+	stackedView := tr.GetStackedViewForPane(string(restoredTab.Workspace.Root.Children[0].Pane.ID))
+	if stackedView == nil {
+		t.Fatal("restored stacked view missing")
+	}
+	if stackedViewOnActivateIsNil(t, stackedView) {
+		t.Fatal("restored stacked view onActivate callback is nil")
 	}
 }
 
