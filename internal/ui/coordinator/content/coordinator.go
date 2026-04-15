@@ -59,10 +59,10 @@ type Coordinator struct {
 	onWindowTitleChanged func(title string)
 
 	// Callback when media permission activity changes (requesting/allowed/blocked).
-	onPermissionActivity func(origin string, permTypes []entity.PermissionType, state PermissionActivityState)
+	onPermissionActivity func(paneID entity.PaneID, origin string, permTypes []entity.PermissionType, state PermissionActivityState)
 
 	// Callback when the active pane commits a navigation (new page loading).
-	onActiveNavigationCommitted func(uri string)
+	onActiveNavigationCommitted func(paneID entity.PaneID, uri string)
 
 	// Callback when the WebView becomes visible (first real commit)
 	onWebViewShown func(paneID entity.PaneID)
@@ -187,13 +187,13 @@ func (c *Coordinator) SetOnHistoryRecord(fn func(ctx context.Context, paneID ent
 
 // SetOnPermissionActivity sets a callback for WebRTC permission activity changes.
 func (c *Coordinator) SetOnPermissionActivity(
-	fn func(origin string, permTypes []entity.PermissionType, state PermissionActivityState),
+	fn func(paneID entity.PaneID, origin string, permTypes []entity.PermissionType, state PermissionActivityState),
 ) {
 	c.onPermissionActivity = fn
 }
 
 // SetOnActiveNavigationCommitted sets a callback fired when the active pane commits a navigation.
-func (c *Coordinator) SetOnActiveNavigationCommitted(fn func(uri string)) {
+func (c *Coordinator) SetOnActiveNavigationCommitted(fn func(paneID entity.PaneID, uri string)) {
 	c.onActiveNavigationCommitted = fn
 }
 

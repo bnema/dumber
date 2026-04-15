@@ -118,7 +118,7 @@ func (c *Coordinator) setupWebViewCallbacks(ctx context.Context, paneID entity.P
 			}
 		},
 		OnPermissionRequest: func(origin string, permTypes []string, metadata map[string]string, allow, deny func()) bool {
-			return c.handlePermissionRequest(ctx, origin, permTypes, metadata, allow, deny)
+			return c.handlePermissionRequest(ctx, paneID, origin, permTypes, metadata, allow, deny)
 		},
 	}
 
@@ -189,6 +189,7 @@ func (c *Coordinator) setupWebViewCallbacks(ctx context.Context, paneID entity.P
 // It delegates to the permission use case which handles auto-allow, stored permissions, and dialogs.
 func (c *Coordinator) handlePermissionRequest(
 	ctx context.Context,
+	paneID entity.PaneID,
 	origin string,
 	permTypes []string,
 	metadata map[string]string,
@@ -226,7 +227,7 @@ func (c *Coordinator) handlePermissionRequest(
 		if c.onPermissionActivity == nil || len(trackedTypes) == 0 {
 			return
 		}
-		c.onPermissionActivity(origin, trackedTypes, state)
+		c.onPermissionActivity(paneID, origin, trackedTypes, state)
 	}
 
 	notifyActivity(PermissionActivityRequesting)

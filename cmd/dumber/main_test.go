@@ -161,3 +161,18 @@ func TestTryForwardBrowseURLToRunningInstance_ReturnsFalseOnRelayMiss(t *testing
 		t.Fatal("expected browse URL to remain unforwarded")
 	}
 }
+
+func TestTryForwardBrowseURLToRunningInstance_PropagatesError(t *testing.T) {
+	relay := mocks.NewMockBrowserLaunchRelay(t)
+	wantErr := errors.New("relay error")
+	relay.EXPECT().DeliverOpenFreshWindow(context.Background(), "https://example.com").Return(false, wantErr)
+
+	forwarded, err := tryForwardBrowseURLToRunningInstance(context.Background(), relay, "https://example.com")
+
+	if !errors.Is(err, wantErr) {
+		t.Fatalf("expected error %v, got %v", wantErr, err)
+	}
+	if forwarded {
+		t.Fatal("expected forwarded to be false on error")
+	}
+}

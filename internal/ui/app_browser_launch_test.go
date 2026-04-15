@@ -12,6 +12,7 @@ import (
 	"github.com/bnema/dumber/internal/domain/entity"
 	"github.com/bnema/dumber/internal/ui/component"
 	"github.com/bnema/dumber/internal/ui/coordinator"
+	"github.com/bnema/dumber/internal/ui/input"
 	"github.com/bnema/dumber/internal/ui/window"
 	"github.com/bnema/puregotk/v4/gio"
 	"github.com/bnema/puregotk/v4/gtk"
@@ -252,5 +253,67 @@ func TestApp_OpenFreshWindowTargetsNewWindowTabBar(t *testing.T) {
 	}
 	if got := newWindow.TabBar().Box().GetVisible(); got {
 		t.Fatalf("new window tab bar visible = %v, want false", got)
+	}
+}
+
+func TestApp_ActivateBrowserWindowSwitchesActiveWorkspace(t *testing.T) {
+	tab1 := entity.NewTab(entity.TabID("tab-1"), entity.WorkspaceID("workspace-1"), entity.NewPane(entity.PaneID("pane-1")))
+	tab2 := entity.NewTab(entity.TabID("tab-2"), entity.WorkspaceID("workspace-2"), entity.NewPane(entity.PaneID("pane-2")))
+	tabs := entity.NewTabList()
+	tabs.Add(tab1)
+	tabs.Add(tab2)
+	ws1 := &component.WorkspaceView{}
+	ws2 := &component.WorkspaceView{}
+	first := &browserWindow{id: "window-1", activeTabID: tab1.ID, mainWindow: &window.MainWindow{}}
+	second := &browserWindow{id: "window-2", activeTabID: tab2.ID, mainWindow: &window.MainWindow{}}
+	kh := &input.KeyboardHandler{}
+	gs := &input.GlobalShortcutHandler{}
+	second.keyboardHandler = kh
+	second.globalShortcutHandler = gs
+	app := &App{
+		tabs:           tabs,
+		mainWindow:     first.mainWindow,
+		browserWindows: map[string]*browserWindow{first.id: first, second.id: second},
+		windowForTab:   map[entity.TabID]*browserWindow{tab1.ID: first, tab2.ID: second},
+		workspaceViews: map[entity.TabID]*component.WorkspaceView{tab1.ID: ws1, tab2.ID: ws2},
+	}
+
+	app.activateBrowserWindow(second)
+
+	if app.mainWindow != second.mainWindow {
+		t.Fatalf("mainWindow = %p, want %p", app.mainWindow, second.mainWindow)
+	}
+	if app.tabs.ActiveTabID != tab2.ID {
+		t.Fatalf("active tab = %q, want %q", app.tabs.ActiveTabID, tab2.ID)
+	}
+	if app.activeWorkspaceView() != ws2 {
+		t.Fatalf("active workspace view = %p, want %p", app.activeWorkspaceView(), ws2)
+	}
+	if app.keyboardHandler != kh {
+		t.Fatalf("keyboardHandler = %p, want %p", app.keyboardHandler, kh)
+	}
+	if app.globalShortcutHandler != gs {
+		t.Fatalf("globalShortcutHandler = %p, want %p", app.globalShortcutHandler, gs)
+	}
+}
+
+func TestApp_BrowserWindowForPaneFindsOwningWindow(t *testing.T) {
+	tab1 := entity.NewTab(entity.TabID("tab-1"), entity.WorkspaceID("workspace-1"), entity.NewPane(entity.PaneID("pane-1")))
+	tab2 := entity.NewTab(entity.TabID("tab-2"), entity.WorkspaceID("workspace-2"), entity.NewPane(entity.PaneID("pane-2")))
+	tabs := entity.NewTabList()
+	tabs.Add(tab1)
+	tabs.Add(tab2)
+	first := &browserWindow{id: "window-1"}
+	second := &browserWindow{id: "window-2"}
+	app := &App{
+		tabs:           tabs,
+		browserWindows: map[string]*browserWindow{first.id: first, second.id: second},
+		windowForTab:   map[entity.TabID]*browserWindow{tab1.ID: first, tab2.ID: second},
+	}
+
+	got := app.browserWindowForPane(entity.PaneID("pane-2"))
+
+	if got != second {
+		t.Fatalf("browserWindowForPane = %p, want %p", got, second)
 	}
 }

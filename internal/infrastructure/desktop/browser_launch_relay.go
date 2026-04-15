@@ -198,7 +198,7 @@ func (l *browserLaunchRelayListener) serve(ctx context.Context, opener port.Brow
 			continue
 		}
 
-		l.handleConnection(ctx, conn, opener)
+		go l.handleConnection(ctx, conn, opener)
 	}
 }
 

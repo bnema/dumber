@@ -122,3 +122,24 @@ func TestDumberBPH_OnAlreadyRunningAppRelaunch_ForwardsEmptyBrowseURLAndReturns1
 		t.Fatalf("forwarded browse url = %q, want empty string", gotURL)
 	}
 }
+
+func TestDumberBPH_OnAlreadyRunningAppRelaunch_DoesNotForwardNonBrowse(t *testing.T) {
+	t.Parallel()
+
+	called := false
+	eng := &Engine{}
+	eng.SetAlreadyRunningAppRelaunchHandler(func(string) {
+		called = true
+	})
+
+	ret := (&dumberBPH{engine: eng}).OnAlreadyRunningAppRelaunch(relaunchCommandLineStub{
+		commandLineString: "dumber",
+	}, "")
+
+	if ret != 1 {
+		t.Fatalf("OnAlreadyRunningAppRelaunch returned %d, want 1", ret)
+	}
+	if called {
+		t.Fatal("handler should not be called for non-browse relaunch")
+	}
+}

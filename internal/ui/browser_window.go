@@ -3,13 +3,22 @@ package ui
 import (
 	"context"
 
+	"github.com/bnema/dumber/internal/application/port"
+	"github.com/bnema/dumber/internal/domain/entity"
+	"github.com/bnema/dumber/internal/ui/component"
+	"github.com/bnema/dumber/internal/ui/input"
 	"github.com/bnema/dumber/internal/ui/window"
 )
 
 type browserWindow struct {
-	id         string
-	initialURL string
-	mainWindow *window.MainWindow
+	id                    string
+	initialURL            string
+	activeTabID           entity.TabID
+	mainWindow            *window.MainWindow
+	keyboardHandler       *input.KeyboardHandler
+	globalShortcutHandler *input.GlobalShortcutHandler
+	permissionDialog      port.PermissionDialogPresenter
+	webrtcIndicator       *component.WebRTCPermissionIndicator
 }
 
 func (a *App) registerBrowserWindow(bw *browserWindow) {
@@ -35,14 +44,13 @@ func (a *App) removeBrowserWindow(id string) {
 		delete(a.browserWindows, id)
 		for _, remaining := range a.browserWindows {
 			if remaining != nil && remaining.mainWindow != nil {
-				a.mainWindow = remaining.mainWindow
-				if a.tabCoord != nil {
-					a.tabCoord.SetMainWindow(remaining.mainWindow)
-				}
+				a.activateBrowserWindow(remaining)
 				return
 			}
 		}
 		a.mainWindow = nil
+		a.keyboardHandler = nil
+		a.globalShortcutHandler = nil
 		if a.tabCoord != nil {
 			a.tabCoord.SetMainWindow(nil)
 		}

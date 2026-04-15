@@ -117,8 +117,6 @@ type App struct {
 	appToaster *component.Toaster
 	// Mode indicator toaster for modal mode notifications (pane, tab, session, resize)
 	modeToaster *component.Toaster
-	// Top-right WebRTC permission activity indicator
-	webrtcIndicator *component.WebRTCPermissionIndicator
 
 	// Session management
 	sessionManager  *component.SessionManager
@@ -433,8 +431,7 @@ func (a *App) createBrowserWindow(ctx context.Context, initialURL string) (*brow
 			if w := permPopup.Widget(); w != nil {
 				mainWindow.AddOverlay(w)
 			}
-			permDialog := dialog.NewPermissionDialog(permPopup)
-			a.deps.PermissionUC.SetDialogPresenter(permDialog)
+			browserWindow.permissionDialog = dialog.NewPermissionDialog(permPopup)
 		}
 	}
 
@@ -443,8 +440,15 @@ func (a *App) createBrowserWindow(ctx context.Context, initialURL string) (*brow
 	if indicator != nil {
 		if w := indicator.Widget(); w != nil {
 			mainWindow.AddOverlay(w)
-			a.webrtcIndicator = indicator
 		}
+		browserWindow.webrtcIndicator = indicator
+	}
+	a.wireBrowserWindowPermissionIndicator(browserWindow)
+	if a.kbDispatcher != nil {
+		a.initBrowserWindowInput(ctx, browserWindow)
+	}
+	if a.tabCoord != nil {
+		a.wireBrowserWindowTabBar(ctx, browserWindow)
 	}
 
 	// Apply GTK CSS styling from theme manager.
@@ -487,12 +491,47 @@ func (a *App) browserWindowForTab(tabID entity.TabID) *browserWindow {
 	return a.browserWindowForMainWindow(a.mainWindow)
 }
 
+func (a *App) browserWindowForPane(paneID entity.PaneID) *browserWindow {
+	if paneID == "" || a.tabs == nil {
+		return nil
+	}
+	for _, tab := range a.tabs.Tabs {
+		if tab == nil || tab.Workspace == nil {
+			continue
+		}
+		if tab.Workspace.FindPane(paneID) != nil {
+			return a.browserWindowForTab(tab.ID)
+		}
+	}
+	return nil
+}
+
+func (a *App) activateBrowserWindow(bw *browserWindow) {
+	if bw == nil {
+		return
+	}
+	if bw.mainWindow != nil {
+		a.mainWindow = bw.mainWindow
+	}
+	a.keyboardHandler = bw.keyboardHandler
+	a.globalShortcutHandler = bw.globalShortcutHandler
+	if a.tabCoord != nil && bw.mainWindow != nil {
+		a.tabCoord.SetMainWindow(bw.mainWindow)
+	}
+	if a.tabs != nil && bw.activeTabID != "" && a.tabs.Find(bw.activeTabID) != nil {
+		a.tabs.SetActive(bw.activeTabID)
+	}
+}
+
 func (a *App) setBrowserWindowForTab(tabID entity.TabID, bw *browserWindow) {
 	if bw == nil {
 		return
 	}
 	a.ensureWindowForTabMap()
 	a.windowForTab[tabID] = bw
+	if bw.activeTabID == "" {
+		bw.activeTabID = tabID
+	}
 }
 
 func (a *App) startBrowserLaunchRelayListener(ctx context.Context) {
@@ -525,18 +564,24 @@ func (a *App) openFreshWindow(ctx context.Context, url string) error {
 	a.registerBrowserWindow(created)
 
 	if a.tabs == nil || a.tabs.Count() == 0 {
+		a.activateBrowserWindow(created)
 		return nil
 	}
 
+	var openErr error
 	if a.tabCoord != nil {
-		return a.openFreshWindowWithTabCoord(ctx, url, created)
-	}
-
-	if a.tabsUC == nil {
+		openErr = a.openFreshWindowWithTabCoord(ctx, url, created)
+	} else if a.tabsUC == nil {
+		a.activateBrowserWindow(created)
 		return nil
+	} else {
+		openErr = a.openFreshWindowWithTabsUC(ctx, url, created)
 	}
-
-	return a.openFreshWindowWithTabsUC(ctx, url, created)
+	if openErr != nil {
+		return openErr
+	}
+	a.activateBrowserWindow(created)
+	return nil
 }
 
 func (a *App) openFreshWindowWithTabCoord(ctx context.Context, url string, created *browserWindow) error {
@@ -579,6 +624,7 @@ func (a *App) openFreshWindowWithTabCoord(ctx context.Context, url string, creat
 		return fmt.Errorf("workspace view not created for tab %s", createdTab.ID)
 	}
 	a.setBrowserWindowForTab(createdTab.ID, created)
+	created.activeTabID = createdTab.ID
 	if created.mainWindow != nil {
 		created.mainWindow.Show()
 	}
@@ -591,9 +637,14 @@ func (a *App) openFreshWindowWithTabsUC(ctx context.Context, url string, created
 		InitialURL: url,
 	})
 	if err != nil {
+		a.removeBrowserWindow(created.id)
+		if created.mainWindow != nil {
+			created.mainWindow.Destroy()
+		}
 		return err
 	}
 	a.setBrowserWindowForTab(output.Tab.ID, created)
+	created.activeTabID = output.Tab.ID
 	if a.widgetFactory != nil {
 		a.tabCreationWindow = created
 		defer func() {
@@ -832,37 +883,39 @@ func (a *autoCopyConfigFn) IsAutoCopyEnabled() bool {
 }
 
 func (a *App) initKeyboardHandler(ctx context.Context) {
+	bw := a.browserWindowForMainWindow(a.mainWindow)
+	if bw == nil {
+		return
+	}
+	a.initBrowserWindowInput(ctx, bw)
+}
+
+func (a *App) initBrowserWindowInput(ctx context.Context, bw *browserWindow) {
 	log := logging.FromContext(ctx)
 
-	if a.mainWindow == nil || a.deps == nil || a.deps.Config == nil {
+	if bw == nil || bw.mainWindow == nil || a.deps == nil || a.deps.Config == nil || a.kbDispatcher == nil {
 		return
 	}
 
-	// Create keyboard handler and wire to dispatcher.
-	a.keyboardHandler = input.NewKeyboardHandler(ctx, &a.deps.Config.Workspace, &a.deps.Config.Session)
-	a.keyboardHandler.SetOnAction(func(ctx context.Context, action input.Action) error {
+	bw.keyboardHandler = input.NewKeyboardHandler(ctx, &a.deps.Config.Workspace, &a.deps.Config.Session)
+	bw.keyboardHandler.SetOnAction(func(actionCtx context.Context, action input.Action) error {
+		a.activateBrowserWindow(bw)
 		if action == input.ActionClosePane {
-			if a.closeAndReleaseActiveFloatingPane(ctx) {
+			if a.closeAndReleaseActiveFloatingPane(actionCtx) {
 				return nil
 			}
 		}
-		return a.kbDispatcher.Dispatch(ctx, action)
+		return a.kbDispatcher.Dispatch(actionCtx, action)
 	})
-	a.keyboardHandler.SetOnEscape(func(ctx context.Context) bool {
-		return a.handleGlobalEscape(ctx)
+	bw.keyboardHandler.SetOnEscape(func(escapeCtx context.Context) bool {
+		a.activateBrowserWindow(bw)
+		return a.handleGlobalEscape(escapeCtx)
 	})
-	a.keyboardHandler.SetOnModeChange(func(from, to input.Mode) {
+	bw.keyboardHandler.SetOnModeChange(func(from, to input.Mode) {
+		a.activateBrowserWindow(bw)
 		a.handleModeChange(ctx, from, to)
 	})
-	// Wire key routing policy.
-	// Determines how each key event should be handled based on UI state:
-	// - Overlays visible (session manager, tab picker): pass all keys to widget
-	// - Omnibox visible: accent detection for text keys, shortcuts for modified keys
-	// - WebView focused: pass text/dead keys to WebKit IM for native compose,
-	//   intercept shortcut-modified keys (Ctrl+, Alt+)
-	// - Default: handle through shortcut system
-	a.keyboardHandler.SetRouteKey(func(kc input.KeyContext) input.KeyRoute {
-		// Overlays take full keyboard control
+	bw.keyboardHandler.SetRouteKey(func(kc input.KeyContext) input.KeyRoute {
 		if a.sessionManager != nil && a.sessionManager.IsVisible() {
 			return input.RoutePassToWidget
 		}
@@ -870,19 +923,8 @@ func (a *App) initKeyboardHandler(ctx context.Context) {
 			return input.RoutePassToWidget
 		}
 
-		wsView := a.activeWorkspaceView()
-		if wsView == nil {
-			return input.RouteHandleShortcuts
-		}
-
-		// Check actual focus rather than visibility: find bar can remain
-		// visible after focus returns to the WebView, so visibility alone
-		// would misroute keys.
 		if a.accentFocusProvider != nil {
 			if _, ok := a.accentFocusProvider.GetFocusedInput().(port.EntryInputTarget); ok {
-				// GTK Entry focused (omnibox or find bar): Alt-modified keys go to
-				// shortcuts (pane navigation), other keys pass through to the widget's
-				// own capture-phase key controller (which handles accent detection)
 				if kc.Modifiers&input.ModAlt != 0 {
 					return input.RouteHandleShortcuts
 				}
@@ -890,8 +932,6 @@ func (a *App) initKeyboardHandler(ctx context.Context) {
 			}
 		}
 
-		// WebView focused: text/dead keys pass through for native IM compose,
-		// shortcut-modified keys (Ctrl+, Alt+) are handled by shortcut system
 		if input.IsShortcutModified(kc.Modifiers) {
 			return input.RouteHandleShortcuts
 		}
@@ -899,31 +939,43 @@ func (a *App) initKeyboardHandler(ctx context.Context) {
 			return input.RoutePassToWidget
 		}
 
-		// Non-text, non-shortcut keys (F-keys, arrows, etc.): shortcut system
 		return input.RouteHandleShortcuts
 	})
-	// Wire accent handler for dead keys support
 	if a.insertAccentUC != nil {
-		a.keyboardHandler.SetAccentHandler(a.insertAccentUC)
+		bw.keyboardHandler.SetAccentHandler(a.insertAccentUC)
 	}
-	a.keyboardHandler.AttachTo(a.mainWindow.Window())
+	bw.keyboardHandler.AttachTo(bw.mainWindow.Window())
 
-	// Create global shortcut handler for Alt+1-9 tab switching.
-	// This uses GtkShortcutController with GTK_SHORTCUT_SCOPE_GLOBAL
-	// to intercept shortcuts even when WebView has focus.
-	a.globalShortcutHandler = input.NewGlobalShortcutHandler(
+	bw.globalShortcutHandler = input.NewGlobalShortcutHandler(
 		ctx,
-		a.mainWindow.Window(),
+		bw.mainWindow.Window(),
 		&a.deps.Config.Workspace,
 		&a.deps.Config.Session,
-		a.keyboardHandler,
-		func(ctx context.Context, action input.Action) error {
-			return a.kbDispatcher.Dispatch(ctx, action)
+		bw.keyboardHandler,
+		func(actionCtx context.Context, action input.Action) error {
+			a.activateBrowserWindow(bw)
+			return a.kbDispatcher.Dispatch(actionCtx, action)
 		},
 	)
-	if a.globalShortcutHandler == nil {
-		log.Warn().Msg("global shortcut handler creation failed, shortcuts may not work when WebView has focus")
+	if bw.globalShortcutHandler == nil {
+		log.Warn().Str("window_id", bw.id).Msg("global shortcut handler creation failed, shortcuts may not work when WebView has focus")
 	}
+
+	a.activateBrowserWindow(bw)
+}
+
+func (a *App) wireBrowserWindowTabBar(ctx context.Context, bw *browserWindow) {
+	if bw == nil || bw.mainWindow == nil || bw.mainWindow.TabBar() == nil || a.tabCoord == nil {
+		return
+	}
+	bw.mainWindow.TabBar().SetOnSwitch(func(tabID entity.TabID) {
+		a.activateBrowserWindow(bw)
+		if err := a.tabCoord.Switch(ctx, tabID); err != nil {
+			logging.FromContext(ctx).Error().Err(err).Str("tab_id", string(tabID)).Str("window_id", bw.id).Msg("tab switch failed")
+			return
+		}
+		bw.activeTabID = tabID
+	})
 }
 
 // handleAccentKeyPress handles accent key press events for GTK entry widgets
@@ -1849,6 +1901,10 @@ func (a *App) initCoordinators(ctx context.Context) {
 		a.createWorkspaceView(ctx, tab)
 	})
 	a.tabCoord.SetOnTabSwitched(func(ctx context.Context, tab *entity.Tab) {
+		if bw := a.browserWindowForTab(tab.ID); bw != nil {
+			bw.activeTabID = tab.ID
+			a.activateBrowserWindow(bw)
+		}
 		a.switchWorkspaceView(ctx, tab.ID)
 	})
 	a.tabCoord.SetOnQuit(a.Quit)
@@ -1858,13 +1914,8 @@ func (a *App) initCoordinators(ctx context.Context) {
 		a.attachPopupToTab(ctx, tabID, pane, wv)
 	})
 
-	// Wire tab bar click handling to coordinator
-	if a.mainWindow != nil && a.mainWindow.TabBar() != nil {
-		a.mainWindow.TabBar().SetOnSwitch(func(tabID entity.TabID) {
-			if err := a.tabCoord.Switch(ctx, tabID); err != nil {
-				log.Error().Err(err).Str("tab_id", string(tabID)).Msg("tab switch failed")
-			}
-		})
+	for _, bw := range a.browserWindows {
+		a.wireBrowserWindowTabBar(ctx, bw)
 	}
 
 	// Set fullscreen callback to hide/show tab bar (after tabCoord is initialized)
@@ -1999,6 +2050,9 @@ func (a *App) initCoordinators(ctx context.Context) {
 		a.deps.Config.Workspace.NewPaneURL,
 	)
 	a.wireKeyboardActions()
+	for _, bw := range a.browserWindows {
+		a.initBrowserWindowInput(ctx, bw)
+	}
 
 	log.Debug().Msg("coordinators initialized")
 }
@@ -2041,7 +2095,64 @@ func (a *App) wireKeyboardActions() {
 }
 
 func (a *App) wireWebRTCPermissionIndicator() {
-	if a.webrtcIndicator == nil || a.contentCoord == nil {
+	if a.contentCoord == nil {
+		return
+	}
+	ctx := context.Background()
+	if a.deps != nil && a.deps.Ctx != nil {
+		ctx = a.deps.Ctx
+	}
+
+	a.contentCoord.SetOnPermissionActivity(func(
+		paneID entity.PaneID,
+		origin string,
+		permTypes []entity.PermissionType,
+		state content.PermissionActivityState,
+	) {
+		bw := a.browserWindowForPane(paneID)
+		if bw == nil || bw.webrtcIndicator == nil {
+			return
+		}
+		if state == content.PermissionActivityRequesting && a.deps != nil && a.deps.PermissionUC != nil && bw.permissionDialog != nil {
+			a.deps.PermissionUC.SetDialogPresenter(bw.permissionDialog)
+		}
+		bw.webrtcIndicator.SetOrigin(origin)
+
+		switch state {
+		case content.PermissionActivityRequesting:
+			bw.webrtcIndicator.MarkRequesting(permTypes)
+		case content.PermissionActivityAllowed:
+			bw.webrtcIndicator.MarkAllowed(permTypes)
+		case content.PermissionActivityBlocked:
+			bw.webrtcIndicator.MarkBlocked(permTypes)
+		}
+
+		for _, permType := range permTypes {
+			a.syncWebRTCPermissionLockState(ctx, bw.webrtcIndicator, origin, permType)
+		}
+	})
+
+	// Reset the owning window's indicator when that pane navigates away.
+	a.contentCoord.SetOnActiveNavigationCommitted(func(paneID entity.PaneID, uri string) {
+		bw := a.browserWindowForPane(paneID)
+		if bw == nil || bw.webrtcIndicator == nil {
+			return
+		}
+		newOrigin, err := urlutil.ExtractOrigin(uri)
+		if err != nil {
+			bw.webrtcIndicator.Reset()
+			return
+		}
+
+		currentOrigin := bw.webrtcIndicator.Origin()
+		if currentOrigin != "" && currentOrigin != newOrigin {
+			bw.webrtcIndicator.Reset()
+		}
+	})
+}
+
+func (a *App) wireBrowserWindowPermissionIndicator(bw *browserWindow) {
+	if bw == nil || bw.webrtcIndicator == nil {
 		return
 	}
 	ctx := context.Background()
@@ -2050,24 +2161,7 @@ func (a *App) wireWebRTCPermissionIndicator() {
 	}
 	log := logging.FromContext(ctx)
 
-	a.contentCoord.SetOnPermissionActivity(func(origin string, permTypes []entity.PermissionType, state content.PermissionActivityState) {
-		a.webrtcIndicator.SetOrigin(origin)
-
-		switch state {
-		case content.PermissionActivityRequesting:
-			a.webrtcIndicator.MarkRequesting(permTypes)
-		case content.PermissionActivityAllowed:
-			a.webrtcIndicator.MarkAllowed(permTypes)
-		case content.PermissionActivityBlocked:
-			a.webrtcIndicator.MarkBlocked(permTypes)
-		}
-
-		for _, permType := range permTypes {
-			a.syncWebRTCPermissionLockState(ctx, origin, permType)
-		}
-	})
-
-	a.webrtcIndicator.SetOnToggleLock(func(origin string, permType entity.PermissionType, state string, hasStored bool) {
+	bw.webrtcIndicator.SetOnToggleLock(func(origin string, permType entity.PermissionType, state string, hasStored bool) {
 		if a.deps == nil || a.deps.PermissionUC == nil || origin == "" {
 			return
 		}
@@ -2092,27 +2186,17 @@ func (a *App) wireWebRTCPermissionIndicator() {
 			}
 		}
 
-		a.syncWebRTCPermissionLockState(ctx, origin, permType)
-	})
-
-	// Reset indicator when the active pane navigates away from the current origin.
-	a.contentCoord.SetOnActiveNavigationCommitted(func(uri string) {
-		newOrigin, err := urlutil.ExtractOrigin(uri)
-		if err != nil {
-			// Internal pages (dumb://, about:) — clear the indicator.
-			a.webrtcIndicator.Reset()
-			return
-		}
-
-		currentOrigin := a.webrtcIndicator.Origin()
-		if currentOrigin != "" && currentOrigin != newOrigin {
-			a.webrtcIndicator.Reset()
-		}
+		a.syncWebRTCPermissionLockState(ctx, bw.webrtcIndicator, origin, permType)
 	})
 }
 
-func (a *App) syncWebRTCPermissionLockState(ctx context.Context, origin string, permType entity.PermissionType) {
-	if a.webrtcIndicator == nil || a.deps == nil || a.deps.PermissionUC == nil || origin == "" {
+func (a *App) syncWebRTCPermissionLockState(
+	ctx context.Context,
+	indicator *component.WebRTCPermissionIndicator,
+	origin string,
+	permType entity.PermissionType,
+) {
+	if indicator == nil || a.deps == nil || a.deps.PermissionUC == nil || origin == "" {
 		return
 	}
 
@@ -2127,11 +2211,11 @@ func (a *App) syncWebRTCPermissionLockState(ctx context.Context, origin string, 
 	}
 
 	if record == nil {
-		a.webrtcIndicator.SetStoredDecision(permType, entity.PermissionPrompt, false)
+		indicator.SetStoredDecision(permType, entity.PermissionPrompt, false)
 		return
 	}
 
-	a.webrtcIndicator.SetStoredDecision(permType, record.Decision, true)
+	indicator.SetStoredDecision(permType, record.Decision, true)
 }
 
 // generateWindowID generates a unique ID for top-level browser windows.
@@ -2535,6 +2619,7 @@ func (a *App) switchWorkspaceView(ctx context.Context, tabID entity.TabID) {
 
 	// Swap content (MainWindow.SetContent now properly removes old content)
 	if target := a.browserWindowForTab(tabID); target != nil && target.mainWindow != nil {
+		target.activeTabID = tabID
 		target.mainWindow.SetContent(gtkWidget)
 	} else if a.mainWindow != nil {
 		a.mainWindow.SetContent(gtkWidget)
@@ -3411,13 +3496,16 @@ func (a *App) initConfigWatcher(ctx context.Context) {
 	a.deps.OnConfigChange(func() {
 		cb := glib.SourceFunc(func(_ uintptr) bool {
 			a.applyAppearanceConfig(ctx)
-			// Reload keyboard shortcuts
-			if a.keyboardHandler != nil {
-				a.keyboardHandler.ReloadShortcuts(ctx, &a.deps.Config.Workspace, &a.deps.Config.Session)
-			}
-			// Reload global shortcuts (removes stale, re-registers from config)
-			if a.globalShortcutHandler != nil {
-				a.globalShortcutHandler.ReloadShortcuts(ctx, &a.deps.Config.Workspace, &a.deps.Config.Session)
+			for _, bw := range a.browserWindows {
+				if bw == nil {
+					continue
+				}
+				if bw.keyboardHandler != nil {
+					bw.keyboardHandler.ReloadShortcuts(ctx, &a.deps.Config.Workspace, &a.deps.Config.Session)
+				}
+				if bw.globalShortcutHandler != nil {
+					bw.globalShortcutHandler.ReloadShortcuts(ctx, &a.deps.Config.Workspace, &a.deps.Config.Session)
+				}
 			}
 			return false
 		})

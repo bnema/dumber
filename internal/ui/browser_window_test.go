@@ -2,6 +2,7 @@ package ui
 
 import (
 	"context"
+	"errors"
 	"testing"
 
 	"github.com/bnema/dumber/internal/ui/window"
@@ -107,5 +108,23 @@ func TestOpenFreshWindow_DispatchesAndTracksBrowserWindow(t *testing.T) {
 	}
 	if app.browserWindows["window-1"].initialURL != "https://example.com" {
 		t.Fatalf("browser window initialURL = %q, want %q", app.browserWindows["window-1"].initialURL, "https://example.com")
+	}
+}
+
+func TestOpenFreshWindow_PropagatesFactoryError(t *testing.T) {
+	app := &App{browserWindows: make(map[string]*browserWindow)}
+	app.dispatchOnMainThread = func(fn func()) { fn() }
+	wantErr := errors.New("factory error")
+	app.browserWindowFactory = func(context.Context, string) (*browserWindow, error) {
+		return nil, wantErr
+	}
+
+	err := app.OpenFreshWindow(context.Background(), "https://example.com")
+
+	if !errors.Is(err, wantErr) {
+		t.Fatalf("expected error %v, got %v", wantErr, err)
+	}
+	if got := len(app.browserWindows); got != 0 {
+		t.Fatalf("browserWindows length = %d, want 0", got)
 	}
 }
