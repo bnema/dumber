@@ -32,8 +32,8 @@ func (a *App) checkConfigMigration(ctx context.Context) {
 		Msg("config migration available")
 
 	// Show toast notification if enabled
-	if a.deps.Config != nil && a.deps.Config.Update.NotifyOnNewSettings && a.appToaster != nil {
+	if a.deps.Config != nil && a.deps.Config.Update.NotifyOnNewSettings {
 		msg := fmt.Sprintf("Config has %d new settings. Run 'dumber config migrate'", len(result.MissingKeys))
-		a.appToaster.Show(ctx, msg, component.ToastInfo)
+		a.showToastOnLastFocusedBrowserWindow(ctx, msg, component.ToastInfo)
 	}
 }

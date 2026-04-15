@@ -146,7 +146,7 @@ func (c *Coordinator) setupWebViewCallbacks(ctx context.Context, paneID entity.P
 			}
 		}
 		if c.onFullscreenChanged != nil {
-			c.onFullscreenChanged(true)
+			c.onFullscreenChanged(paneID, true)
 		}
 		return false // Allow fullscreen
 	}
@@ -158,7 +158,7 @@ func (c *Coordinator) setupWebViewCallbacks(ctx context.Context, paneID entity.P
 			}
 		}
 		if c.onFullscreenChanged != nil {
-			c.onFullscreenChanged(false)
+			c.onFullscreenChanged(paneID, false)
 		}
 		return false // Allow leaving fullscreen
 	}

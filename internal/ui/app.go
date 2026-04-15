@@ -67,6 +67,7 @@ type App struct {
 	mainWindow *window.MainWindow
 
 	browserWindows       map[string]*browserWindow
+	lastFocusedWindowID  string
 	browserWindowFactory func(context.Context, string) (*browserWindow, error)
 	tabCreationWindow    *browserWindow
 	dispatchOnMainThread func(func())
@@ -93,9 +94,8 @@ type App struct {
 	keyboardHandler       *input.KeyboardHandler
 	globalShortcutHandler *input.GlobalShortcutHandler
 
-	// Focus and border management
-	focusMgr  *focus.Manager
-	borderMgr *focus.BorderManager
+	// Focus tracking stays app-global.
+	focusMgr *focus.Manager
 
 	resizeModeBorderTarget layout.Widget
 
@@ -113,16 +113,6 @@ type App struct {
 	// Web content (managed by content.Coordinator)
 	faviconAdapter *adapter.FaviconAdapter
 
-	// App-level toaster for system notifications (filter status, etc.)
-	appToaster *component.Toaster
-	// Mode indicator toaster for modal mode notifications (pane, tab, session, resize)
-	modeToaster *component.Toaster
-
-	// Session management
-	sessionManager  *component.SessionManager
-	tabPicker       *component.TabPicker
-	tabPickerWidget layout.Widget
-	tabPickerPaneID entity.PaneID
 	snapshotService port.SnapshotService
 
 	// Update management
@@ -138,8 +128,6 @@ type App struct {
 	movePaneToTabUC *usecase.MovePaneToTabUseCase
 
 	// Accent picker for dead keys support
-	accentPicker        *component.AccentPicker
-	insertAccentUC      *usecase.InsertAccentUseCase
 	accentFocusProvider port.FocusedInputProvider
 
 	// Deferred initialization - runs after first load_started to avoid blocking initial navigation
@@ -206,12 +194,10 @@ func New(deps *Dependencies) (*App, error) {
 		}},
 		OnClipboardCopied: func(textLen int) {
 			cb := glib.SourceFunc(func(_ uintptr) bool {
-				if app.appToaster != nil {
-					app.appToaster.Show(ctx, "Copied to clipboard", component.ToastInfo,
-						component.WithDuration(component.ToastBriefDurationMs),
-						component.WithPosition(component.ToastPositionBottomRight),
-					)
-				}
+				app.showToastOnLastFocusedBrowserWindow(ctx, "Copied to clipboard", component.ToastInfo,
+					component.WithDuration(component.ToastBriefDurationMs),
+					component.WithPosition(component.ToastPositionBottomRight),
+				)
 				return false
 			})
 			glib.IdleAdd(&cb, 0)
@@ -285,6 +271,7 @@ func (a *App) onActivate(ctx context.Context) {
 	// Configure pool background color early (prevents white flash), but avoid
 	// synchronous prewarming that delays the first navigation on cold start.
 	a.setupPoolBackgroundColor(ctx)
+	a.initLayoutInfrastructure()
 
 	if err := a.OpenFreshWindow(ctx, a.initialWindowURL()); err != nil {
 		log.Error().Err(err).Msg("failed to create main window")
@@ -292,11 +279,8 @@ func (a *App) onActivate(ctx context.Context) {
 	}
 	logging.Trace().Mark("window_created")
 
-	a.initLayoutInfrastructure()
-	a.initAppToasterOverlay()
 	a.installCrashReportNotifier(ctx)
-	a.initFocusAndBorderOverlay()
-	a.initAccentPicker(ctx)
+	a.initFocusManager()
 	a.registerAccentHandlers(ctx)
 	a.initDownloadHandler(ctx)
 
@@ -306,8 +290,7 @@ func (a *App) onActivate(ctx context.Context) {
 	a.initKeyboardHandler(ctx)
 	a.initOmniboxConfig(ctx)
 	a.initFindBarConfig(ctx)
-	a.initSessionManager(ctx)
-	a.initTabPicker(ctx)
+	a.wireSessionManagerShortcut()
 	a.initSnapshotService(ctx)
 	a.initUpdateCoordinator(ctx)
 	a.createInitialTab(ctx)
@@ -395,7 +378,13 @@ func (a *App) prewarmWebViewPoolAsync(ctx context.Context) {
 
 func (a *App) createBrowserWindow(ctx context.Context, initialURL string) (*browserWindow, error) {
 	if a.browserWindowFactory != nil {
-		return a.browserWindowFactory(ctx, initialURL)
+		created, err := a.browserWindowFactory(ctx, initialURL)
+		if err != nil {
+			return nil, err
+		}
+		a.wireBrowserWindowActivationTracking(created)
+		created.initChrome(ctx, a)
+		return created, nil
 	}
 
 	log := logging.FromContext(ctx)
@@ -408,6 +397,7 @@ func (a *App) createBrowserWindow(ctx context.Context, initialURL string) (*brow
 		initialURL: initialURL,
 		mainWindow: mainWindow,
 	}
+	a.wireBrowserWindowActivationTracking(browserWindow)
 	if a.mainWindow == nil {
 		a.mainWindow = mainWindow
 	}
@@ -450,6 +440,7 @@ func (a *App) createBrowserWindow(ctx context.Context, initialURL string) (*brow
 	if a.tabCoord != nil {
 		a.wireBrowserWindowTabBar(ctx, browserWindow)
 	}
+	browserWindow.initChrome(ctx, a)
 
 	// Apply GTK CSS styling from theme manager.
 	if a.deps == nil || a.deps.Theme == nil {
@@ -506,10 +497,82 @@ func (a *App) browserWindowForPane(paneID entity.PaneID) *browserWindow {
 	return nil
 }
 
+func (a *App) lastFocusedBrowserWindow() *browserWindow {
+	if a.lastFocusedWindowID == "" || a.browserWindows == nil {
+		return nil
+	}
+	return a.browserWindows[a.lastFocusedWindowID]
+}
+
+func (a *App) showToastOnBrowserWindow(
+	ctx context.Context,
+	bw *browserWindow,
+	message string,
+	level component.ToastLevel,
+	opts ...component.ToastOption,
+) {
+	if bw == nil || bw.appToaster == nil {
+		return
+	}
+	bw.appToaster.Show(ctx, message, level, opts...)
+}
+
+func (a *App) showToastOnLastFocusedBrowserWindow(
+	ctx context.Context,
+	message string,
+	level component.ToastLevel,
+	opts ...component.ToastOption,
+) {
+	a.showToastOnBrowserWindow(ctx, a.lastFocusedBrowserWindow(), message, level, opts...)
+}
+
+func (a *App) ownerOrLastFocusedBrowserWindow(tabID entity.TabID, paneID entity.PaneID) *browserWindow {
+	if paneID != "" {
+		if bw := a.browserWindowForPane(paneID); bw != nil {
+			return bw
+		}
+	}
+	if tabID != "" {
+		if bw := a.browserWindowForTab(tabID); bw != nil {
+			return bw
+		}
+	}
+	return a.lastFocusedBrowserWindow()
+}
+
+func (a *App) handlePaneWindowTitleChanged(paneID entity.PaneID, title string) {
+	a.updateWindowTitle(title, a.browserWindowForPane(paneID))
+}
+
+func (a *App) handlePaneFullscreenChanged(paneID entity.PaneID, entering bool) {
+	bw := a.browserWindowForPane(paneID)
+	if bw == nil || bw.mainWindow == nil || bw.mainWindow.TabBar() == nil {
+		return
+	}
+	if entering {
+		bw.mainWindow.TabBar().SetVisible(false)
+		return
+	}
+	a.updateBrowserWindowTabBarVisibility(bw)
+}
+
+func (a *App) updateBrowserWindowTabBarVisibility(bw *browserWindow) {
+	if bw == nil || bw.mainWindow == nil || bw.mainWindow.TabBar() == nil {
+		return
+	}
+	if a.deps == nil || a.deps.Config == nil || !a.deps.Config.Workspace.HideTabBarWhenSingleTab {
+		bw.mainWindow.TabBar().SetVisible(true)
+		return
+	}
+	shouldShow := bw.mainWindow.TabBar().Count() > 1
+	bw.mainWindow.TabBar().SetVisible(shouldShow)
+}
+
 func (a *App) activateBrowserWindow(bw *browserWindow) {
 	if bw == nil {
 		return
 	}
+	a.lastFocusedWindowID = bw.id
 	if bw.mainWindow != nil {
 		a.mainWindow = bw.mainWindow
 	}
@@ -521,6 +584,23 @@ func (a *App) activateBrowserWindow(bw *browserWindow) {
 	if a.tabs != nil && bw.activeTabID != "" && a.tabs.Find(bw.activeTabID) != nil {
 		a.tabs.SetActive(bw.activeTabID)
 	}
+	a.updateWindowTitleFromActivePane(bw.activeTabID)
+}
+
+func (a *App) handleBrowserWindowActivationChanged(bw *browserWindow, active bool) {
+	if !active || bw == nil {
+		return
+	}
+	a.activateBrowserWindow(bw)
+}
+
+func (a *App) wireBrowserWindowActivationTracking(bw *browserWindow) {
+	if bw == nil || bw.mainWindow == nil {
+		return
+	}
+	bw.mainWindow.ConnectActiveNotify(func(active bool) {
+		a.handleBrowserWindowActivationChanged(bw, active)
+	})
 }
 
 func (a *App) setBrowserWindowForTab(tabID entity.TabID, bw *browserWindow) {
@@ -674,36 +754,6 @@ func (a *App) initLayoutInfrastructure() {
 	a.stackedPaneMgr = component.NewStackedPaneManager(a.widgetFactory)
 }
 
-func (a *App) initAppToasterOverlay() {
-	if a.mainWindow == nil {
-		return
-	}
-
-	// Create app-level toaster for system notifications.
-	a.appToaster = component.NewToaster(a.widgetFactory)
-	toasterWidget := a.appToaster.Widget()
-	if toasterWidget == nil {
-		return
-	}
-	gtkWidget := toasterWidget.GtkWidget()
-	if gtkWidget == nil {
-		return
-	}
-	a.mainWindow.AddOverlay(gtkWidget)
-
-	// Create mode indicator toaster for modal mode notifications.
-	a.modeToaster = component.NewToaster(a.widgetFactory)
-	modeToasterWidget := a.modeToaster.Widget()
-	if modeToasterWidget == nil {
-		return
-	}
-	modeGtkWidget := modeToasterWidget.GtkWidget()
-	if modeGtkWidget == nil {
-		return
-	}
-	a.mainWindow.AddOverlay(modeGtkWidget)
-}
-
 func (a *App) installCrashReportNotifier(ctx context.Context) {
 	if a.deps == nil {
 		return
@@ -714,90 +764,47 @@ func (a *App) installCrashReportNotifier(ctx context.Context) {
 	}
 }
 
-func (a *App) initFocusAndBorderOverlay() {
-	// Initialize focus manager for geometric navigation.
+func (a *App) initFocusManager() {
 	a.focusMgr = focus.NewManager(a.panesUC)
-
-	// Initialize border manager for mode indicators.
-	a.borderMgr = focus.NewBorderManager(a.widgetFactory)
-
-	// Attach border overlay to main window (visible for all tabs).
-	if a.borderMgr == nil || a.mainWindow == nil {
-		return
-	}
-	borderWidget := a.borderMgr.Widget()
-	if borderWidget == nil {
-		return
-	}
-	gtkWidget := borderWidget.GtkWidget()
-	if gtkWidget == nil {
-		return
-	}
-	a.mainWindow.AddOverlay(gtkWidget)
 }
 
-func (a *App) initAccentPicker(ctx context.Context) {
-	log := logging.FromContext(ctx)
-
-	if a.widgetFactory == nil || a.mainWindow == nil {
-		log.Debug().Msg("widget factory or main window not available, skipping accent picker")
+func (a *App) wireSessionManagerShortcut() {
+	if a.kbDispatcher == nil {
 		return
 	}
-
-	// Create accent picker component
-	a.accentPicker = component.NewAccentPicker(a.widgetFactory)
-	if a.accentPicker == nil {
-		log.Warn().Msg("failed to create accent picker")
-		return
-	}
-
-	// Add to main window overlay
-	pickerWidget := a.accentPicker.Widget()
-	if pickerWidget != nil {
-		gtkWidget := pickerWidget.GtkWidget()
-		if gtkWidget != nil {
-			a.mainWindow.AddOverlay(gtkWidget)
+	a.kbDispatcher.SetOnSessionOpen(func(ctx context.Context, paneID entity.PaneID) error {
+		bw := a.ownerOrLastFocusedBrowserWindow("", paneID)
+		if bw == nil || bw.sessionManager == nil {
+			return nil
 		}
-	}
-
-	// Use focus provider from deps (tracks which input has focus)
-	a.accentFocusProvider = a.deps.AccentFocusProvider
-
-	// Create the use case with glib.IdleAdd for thread-safe GTK calls
-	a.insertAccentUC = usecase.NewInsertAccentUseCase(
-		a.accentFocusProvider,
-		a.accentPicker,
-		func(fn func()) {
-			cb := glib.SourceFunc(func(_ uintptr) bool {
-				fn()
-				return false // Don't repeat
-			})
-			glib.IdleAdd(&cb, 0)
-		},
-	)
-
-	log.Debug().Msg("accent picker initialized")
+		bw.sessionManager.Toggle(ctx)
+		return nil
+	})
 }
 
 // registerAccentHandlers registers the accent key press/release message handlers
-// with the router. Must be called after initAccentPicker so insertAccentUC is non-nil.
+// with the router.
 func (a *App) registerAccentHandlers(ctx context.Context) {
 	log := logging.FromContext(ctx)
 
-	if a.insertAccentUC == nil {
-		log.Debug().Msg("insertAccentUC not available, skipping accent handler registration")
-		return
-	}
 	if a.engine == nil {
 		log.Debug().Msg("engine not available, skipping accent handler registration")
 		return
 	}
 
-	if err := a.engine.RegisterAccentHandlers(ctx, a.insertAccentUC); err != nil {
+	if err := a.engine.RegisterAccentHandlers(ctx, a); err != nil {
 		log.Error().Err(err).Msg("failed to register accent handlers")
 	} else {
 		log.Info().Msg("registered accent key handlers")
 	}
+}
+
+func (a *App) activeAccentHandler() input.AccentHandler {
+	bw := a.lastFocusedBrowserWindow()
+	if bw == nil {
+		return nil
+	}
+	return bw.insertAccentUC
 }
 
 func (a *App) initDownloadHandler(ctx context.Context) {
@@ -853,17 +860,13 @@ type downloadEventAdapter struct {
 func (d *downloadEventAdapter) OnDownloadEvent(ctx context.Context, event port.DownloadEvent) {
 	// Must schedule on GTK main thread.
 	cb := glib.SourceFunc(func(_ uintptr) bool {
-		if d.app.appToaster == nil {
-			return false
-		}
-
 		switch event.Type {
 		case port.DownloadEventStarted:
-			d.app.appToaster.Show(ctx, "Download started: "+event.Filename, component.ToastInfo)
+			d.app.showToastOnLastFocusedBrowserWindow(ctx, "Download started: "+event.Filename, component.ToastInfo)
 		case port.DownloadEventFinished:
-			d.app.appToaster.Show(ctx, "Download complete: "+event.Filename, component.ToastSuccess)
+			d.app.showToastOnLastFocusedBrowserWindow(ctx, "Download complete: "+event.Filename, component.ToastSuccess)
 		case port.DownloadEventFailed:
-			d.app.appToaster.Show(ctx, "Download failed: "+event.Filename, component.ToastError)
+			d.app.showToastOnLastFocusedBrowserWindow(ctx, "Download failed: "+event.Filename, component.ToastError)
 		}
 		return false
 	})
@@ -896,6 +899,9 @@ func (a *App) initBrowserWindowInput(ctx context.Context, bw *browserWindow) {
 	if bw == nil || bw.mainWindow == nil || a.deps == nil || a.deps.Config == nil || a.kbDispatcher == nil {
 		return
 	}
+	if bw.keyboardHandler != nil || bw.globalShortcutHandler != nil {
+		return
+	}
 
 	bw.keyboardHandler = input.NewKeyboardHandler(ctx, &a.deps.Config.Workspace, &a.deps.Config.Session)
 	bw.keyboardHandler.SetOnAction(func(actionCtx context.Context, action input.Action) error {
@@ -916,10 +922,10 @@ func (a *App) initBrowserWindowInput(ctx context.Context, bw *browserWindow) {
 		a.handleModeChange(ctx, from, to)
 	})
 	bw.keyboardHandler.SetRouteKey(func(kc input.KeyContext) input.KeyRoute {
-		if a.sessionManager != nil && a.sessionManager.IsVisible() {
+		if bw.sessionManager != nil && bw.sessionManager.IsVisible() {
 			return input.RoutePassToWidget
 		}
-		if a.tabPicker != nil && a.tabPicker.IsVisible() {
+		if bw.tabPicker != nil && bw.tabPicker.IsVisible() {
 			return input.RoutePassToWidget
 		}
 
@@ -941,9 +947,7 @@ func (a *App) initBrowserWindowInput(ctx context.Context, bw *browserWindow) {
 
 		return input.RouteHandleShortcuts
 	})
-	if a.insertAccentUC != nil {
-		bw.keyboardHandler.SetAccentHandler(a.insertAccentUC)
-	}
+	bw.keyboardHandler.SetAccentHandler(a)
 	bw.keyboardHandler.AttachTo(bw.mainWindow.Window())
 
 	bw.globalShortcutHandler = input.NewGlobalShortcutHandler(
@@ -981,7 +985,8 @@ func (a *App) wireBrowserWindowTabBar(ctx context.Context, bw *browserWindow) {
 // handleAccentKeyPress handles accent key press events for GTK entry widgets
 // (omnibox and find bar). Returns true if the key was consumed.
 func (a *App) handleAccentKeyPress(ctx context.Context, keyval uint, state gdk.ModifierType) bool {
-	if a.insertAccentUC == nil {
+	handler := a.activeAccentHandler()
+	if handler == nil {
 		return false
 	}
 	if state&(gdk.ControlMaskValue|gdk.AltMaskValue) != 0 {
@@ -989,7 +994,7 @@ func (a *App) handleAccentKeyPress(ctx context.Context, keyval uint, state gdk.M
 	}
 	shiftHeld := state&gdk.ShiftMaskValue != 0
 	if char := input.KeyvalToRune(keyval); char != 0 {
-		return a.insertAccentUC.OnKeyPressed(ctx, char, shiftHeld)
+		return handler.OnKeyPressed(ctx, char, shiftHeld)
 	}
 	return false
 }
@@ -997,12 +1002,45 @@ func (a *App) handleAccentKeyPress(ctx context.Context, keyval uint, state gdk.M
 // handleAccentKeyRelease handles accent key release events for GTK entry widgets
 // (omnibox and find bar).
 func (a *App) handleAccentKeyRelease(ctx context.Context, keyval uint) {
-	if a.insertAccentUC == nil {
+	handler := a.activeAccentHandler()
+	if handler == nil {
 		return
 	}
 	if char := input.KeyvalToRune(keyval); char != 0 {
-		a.insertAccentUC.OnKeyReleased(ctx, char)
+		handler.OnKeyReleased(ctx, char)
 	}
+}
+
+func (a *App) OnKeyPressed(ctx context.Context, char rune, shiftHeld bool) bool {
+	handler := a.activeAccentHandler()
+	if handler == nil {
+		return false
+	}
+	return handler.OnKeyPressed(ctx, char, shiftHeld)
+}
+
+func (a *App) OnKeyReleased(ctx context.Context, char rune) {
+	handler := a.activeAccentHandler()
+	if handler == nil {
+		return
+	}
+	handler.OnKeyReleased(ctx, char)
+}
+
+func (a *App) IsPickerVisible() bool {
+	handler := a.activeAccentHandler()
+	if handler == nil {
+		return false
+	}
+	return handler.IsPickerVisible()
+}
+
+func (a *App) Cancel(ctx context.Context) {
+	handler := a.activeAccentHandler()
+	if handler == nil {
+		return
+	}
+	handler.Cancel(ctx)
 }
 
 type omniboxCallbacks struct {
@@ -1168,89 +1206,18 @@ func (a *App) initFindBarConfig(ctx context.Context) {
 	}
 }
 
-func (a *App) initSessionManager(ctx context.Context) {
-	log := logging.FromContext(ctx)
-
-	if a.deps == nil {
-		log.Debug().Msg("deps not available, skipping session manager")
-		return
-	}
-
-	// Session manager can work without a repo - it just shows an empty list
-	var listSessionsUC *usecase.ListSessionsUseCase
-	var deleteSessionUC *usecase.DeleteSessionUseCase
-	if a.deps.SessionRepo != nil && a.deps.SessionStateRepo != nil {
-		listSessionsUC = usecase.NewListSessionsUseCase(
-			a.deps.SessionRepo,
-			a.deps.SessionStateRepo,
-		)
-		deleteSessionUC = usecase.NewDeleteSessionUseCase(
-			a.deps.SessionStateRepo,
-			a.deps.SessionRepo,
-		)
-	}
-
-	// Use injected session spawner for restoration
-	spawner := a.deps.SessionSpawner
-
-	// Create session manager component
-	a.sessionManager = component.NewSessionManager(ctx, component.SessionManagerConfig{
-		ListSessionsUC:  listSessionsUC,
-		DeleteSessionUC: deleteSessionUC,
-		CurrentSession:  a.deps.CurrentSessionID,
-		UIScale:         a.deps.Config.DefaultUIScale,
-		OnClose: func() {
-			log.Debug().Msg("session manager closed")
-		},
-		OnOpen: func(sessionID entity.SessionID) {
-			log.Info().Str("session_id", string(sessionID)).Msg("session restoration requested")
-			if spawner == nil {
-				log.Warn().Str("session_id", string(sessionID)).Msg("session spawner not available")
-				return
-			}
-			if err := spawner.SpawnWithSession(sessionID); err != nil {
-				log.Error().Err(err).Str("session_id", string(sessionID)).Msg("failed to spawn session")
-			}
-		},
-		OnToast: func(ctx context.Context, message string, level component.ToastLevel) {
-			if a.appToaster != nil {
-				a.appToaster.Show(ctx, message, level)
-			}
-		},
-	})
-
-	if a.sessionManager == nil {
-		log.Warn().Msg("failed to create session manager")
-		return
-	}
-
-	// Add session manager to main window overlay
-	if a.mainWindow != nil {
-		widget := a.sessionManager.Widget()
-		if widget != nil {
-			a.mainWindow.AddOverlay(widget)
-		}
-	}
-
-	// Wire session manager action to keyboard dispatcher
-	a.kbDispatcher.SetOnSessionOpen(func(ctx context.Context) error {
-		a.ToggleSessionManager(ctx)
-		return nil
-	})
-
-	log.Debug().Msg("session manager initialized")
-}
-
 // ToggleSessionManager shows or hides the session manager.
 func (a *App) ToggleSessionManager(ctx context.Context) {
-	if a.sessionManager == nil {
+	bw := a.lastFocusedBrowserWindow()
+	if bw == nil || bw.sessionManager == nil {
 		return
 	}
-	a.sessionManager.Toggle(ctx)
+	bw.sessionManager.Toggle(ctx)
 }
 
 func (a *App) attachTabPickerToActivePane() {
-	if a.tabPicker == nil || a.widgetFactory == nil {
+	bw := a.lastFocusedBrowserWindow()
+	if bw == nil || bw.tabPicker == nil || a.widgetFactory == nil {
 		return
 	}
 	wsView := a.activeWorkspaceView()
@@ -1271,24 +1238,24 @@ func (a *App) attachTabPickerToActivePane() {
 		return
 	}
 
-	if a.tabPickerWidget == nil {
-		a.tabPickerWidget = a.tabPicker.WidgetAsLayout(a.widgetFactory)
-		if a.tabPickerWidget == nil {
+	if bw.tabPickerWidget == nil {
+		bw.tabPickerWidget = bw.tabPicker.WidgetAsLayout(a.widgetFactory)
+		if bw.tabPickerWidget == nil {
 			return
 		}
 	}
 
 	// If currently attached to a different pane overlay, detach.
-	if a.tabPickerPaneID != "" && a.tabPickerPaneID != activePaneID {
+	if bw.tabPickerPaneID != "" && bw.tabPickerPaneID != activePaneID {
 		for _, view := range a.workspaceViews {
 			if view == nil {
 				continue
 			}
-			if oldPV := view.GetPaneView(a.tabPickerPaneID); oldPV != nil {
-				if parent := a.tabPickerWidget.GetParent(); parent == oldPV.Overlay() {
-					oldPV.RemoveOverlayWidget(a.tabPickerWidget)
+			if oldPV := view.GetPaneView(bw.tabPickerPaneID); oldPV != nil {
+				if parent := bw.tabPickerWidget.GetParent(); parent == oldPV.Overlay() {
+					oldPV.RemoveOverlayWidget(bw.tabPickerWidget)
 				} else if parent != nil {
-					a.tabPickerWidget.Unparent()
+					bw.tabPickerWidget.Unparent()
 				}
 				break
 			}
@@ -1296,20 +1263,21 @@ func (a *App) attachTabPickerToActivePane() {
 	}
 
 	// Ensure the widget can be reparented.
-	if parent := a.tabPickerWidget.GetParent(); parent != nil {
-		a.tabPickerWidget.Unparent()
+	if parent := bw.tabPickerWidget.GetParent(); parent != nil {
+		bw.tabPickerWidget.Unparent()
 	}
 
-	a.tabPicker.SetParentOverlay(pv.Overlay())
-	pv.AddOverlayWidget(a.tabPickerWidget)
-	a.tabPickerPaneID = activePaneID
+	bw.tabPicker.SetParentOverlay(pv.Overlay())
+	pv.AddOverlayWidget(bw.tabPickerWidget)
+	bw.tabPickerPaneID = activePaneID
 }
 
 func (a *App) HandleMovePaneToTab(ctx context.Context) error {
 	if a.movePaneToTabUC == nil {
 		return nil
 	}
-	if a.tabPicker == nil {
+	bw := a.lastFocusedBrowserWindow()
+	if bw == nil || bw.tabPicker == nil {
 		return nil
 	}
 
@@ -1341,7 +1309,7 @@ func (a *App) HandleMovePaneToTab(ctx context.Context) error {
 	items = append(items, component.TabPickerItem{IsNew: true, Index: -1})
 
 	a.attachTabPickerToActivePane()
-	a.tabPicker.Show(ctx, items)
+	bw.tabPicker.Show(ctx, items)
 	return nil
 }
 
@@ -1385,6 +1353,13 @@ func (a *App) MoveActivePaneToTab(ctx context.Context, targetTabID entity.TabID)
 	a.updateTabBarVisibility(ctx)
 	a.MarkDirty()
 	return nil
+}
+
+func (a *App) moveActivePaneToTabFromBrowserWindow(ctx context.Context, bw *browserWindow, targetTabID entity.TabID) error {
+	if bw != nil {
+		a.activateBrowserWindow(bw)
+	}
+	return a.MoveActivePaneToTab(ctx, targetTabID)
 }
 
 func (a *App) buildMovePaneToTabInput(targetTabID entity.TabID) (*usecase.MovePaneToTabInput, *entity.Tab) {
@@ -1518,42 +1493,6 @@ func (a *App) updateTabBarVisibility(ctx context.Context) {
 	}
 }
 
-func (a *App) initTabPicker(ctx context.Context) {
-	log := logging.FromContext(ctx)
-
-	if a.deps == nil || a.deps.Config == nil {
-		log.Debug().Msg("deps/config not available, skipping tab picker")
-		return
-	}
-
-	a.tabPicker = component.NewTabPicker(ctx, component.TabPickerConfig{
-		UIScale: a.deps.Config.DefaultUIScale,
-		OnClose: func() {
-			log.Debug().Msg("tab picker closed")
-		},
-		OnSelect: func(item component.TabPickerItem) {
-			cb := glib.SourceFunc(func(_ uintptr) bool {
-				var targetID entity.TabID
-				if !item.IsNew {
-					targetID = item.TabID
-				}
-				if err := a.MoveActivePaneToTab(ctx, targetID); err != nil {
-					log.Warn().Err(err).Msg("move pane to tab failed")
-				}
-				return false
-			})
-			glib.IdleAdd(&cb, 0)
-		},
-	})
-
-	if a.tabPicker == nil {
-		log.Warn().Msg("failed to create tab picker")
-		return
-	}
-
-	log.Debug().Msg("tab picker initialized")
-}
-
 func (a *App) initSnapshotService(ctx context.Context) {
 	log := logging.FromContext(ctx)
 
@@ -1593,7 +1532,9 @@ func (a *App) initUpdateCoordinator(ctx context.Context) {
 	a.updateCoord = coordinator.NewUpdateCoordinator(
 		a.deps.CheckUpdateUC,
 		a.deps.ApplyUpdateUC,
-		a.appToaster,
+		func(ctx context.Context, msg string, level component.ToastLevel) {
+			a.showToastOnLastFocusedBrowserWindow(ctx, msg, level)
+		},
 		a.deps.Config.Update.EnableOnStartup,
 		a.deps.Config.Update.AutoDownload,
 	)
@@ -1632,15 +1573,11 @@ func (a *App) createInitialTab(ctx context.Context) {
 		if err := a.restoreSession(ctx, entity.SessionID(a.deps.RestoreSessionID)); err != nil {
 			log.Error().Err(err).Str("session_id", a.deps.RestoreSessionID).Msg("failed to restore session, creating default tab")
 			// Show error toast and fall through to create default tab
-			if a.appToaster != nil {
-				a.appToaster.Show(ctx, "Session restore failed", component.ToastWarning)
-			}
+			a.showToastOnLastFocusedBrowserWindow(ctx, "Session restore failed", component.ToastWarning)
 		} else {
 			log.Info().Str("session_id", a.deps.RestoreSessionID).Msg("session restored")
 			// Show success toast for session restoration
-			if a.appToaster != nil {
-				a.appToaster.Show(ctx, "Session restored", component.ToastSuccess)
-			}
+			a.showToastOnLastFocusedBrowserWindow(ctx, "Session restored", component.ToastSuccess)
 			return
 		}
 	}
@@ -1739,13 +1676,11 @@ func (a *App) showCrashReportToast(ctx context.Context, paths []string) {
 	log.Warn().Int("count", len(paths)).Msg("unexpected-close reports available")
 
 	cb := glib.SourceFunc(func(_ uintptr) bool {
-		if a.appToaster != nil {
-			msg := fmt.Sprintf("Detected %d unexpected close report(s). Run: dumber crashes issue latest", len(paths))
-			a.appToaster.Show(ctx, msg, component.ToastWarning,
-				component.WithDuration(crashReportToastDurationMs),
-				component.WithPosition(component.ToastPositionBottomRight),
-			)
-		}
+		msg := fmt.Sprintf("Detected %d unexpected close report(s). Run: dumber crashes issue latest", len(paths))
+		a.showToastOnLastFocusedBrowserWindow(ctx, msg, component.ToastWarning,
+			component.WithDuration(crashReportToastDurationMs),
+			component.WithPosition(component.ToastPositionBottomRight),
+		)
 		return false
 	})
 	glib.IdleAdd(&cb, 0)
@@ -1919,17 +1854,8 @@ func (a *App) initCoordinators(ctx context.Context) {
 	}
 
 	// Set fullscreen callback to hide/show tab bar (after tabCoord is initialized)
-	a.contentCoord.SetOnFullscreenChanged(func(entering bool) {
-		if a.mainWindow == nil || a.mainWindow.TabBar() == nil {
-			return
-		}
-		if entering {
-			// Hide tab bar when entering fullscreen video
-			a.mainWindow.TabBar().SetVisible(false)
-		} else {
-			// Restore tab bar visibility based on normal logic
-			a.tabCoord.UpdateBarVisibility(ctx)
-		}
+	a.contentCoord.SetOnFullscreenChanged(func(paneID entity.PaneID, entering bool) {
+		a.handlePaneFullscreenChanged(paneID, entering)
 	})
 
 	// 3. Workspace Coordinator
@@ -2002,8 +1928,8 @@ func (a *App) initCoordinators(ctx context.Context) {
 	})
 
 	// Wire window title updates when active pane's title changes
-	a.contentCoord.SetOnWindowTitleChanged(func(title string) {
-		a.updateWindowTitle(title, a.browserWindowForTab(a.tabs.ActiveTabID))
+	a.contentCoord.SetOnWindowTitleChanged(func(paneID entity.PaneID, title string) {
+		a.handlePaneWindowTitleChanged(paneID, title)
 	})
 
 	// Wire pane URI updates for session snapshots (searches all tabs)
@@ -2048,6 +1974,7 @@ func (a *App) initCoordinators(ctx context.Context) {
 		a.deps.ZoomUC,
 		a.deps.CopyURLUC,
 		a.deps.Config.Workspace.NewPaneURL,
+		a.contentCoord.ActivePaneID,
 	)
 	a.wireKeyboardActions()
 	for _, bw := range a.browserWindows {
@@ -2075,10 +2002,16 @@ func (a *App) wireKeyboardActions() {
 		a.CloseFindBar(ctx)
 		return nil
 	})
-	a.kbDispatcher.SetOnMovePaneToTab(func(ctx context.Context) error {
+	a.kbDispatcher.SetOnMovePaneToTab(func(ctx context.Context, paneID entity.PaneID) error {
+		if bw := a.ownerOrLastFocusedBrowserWindow("", paneID); bw != nil {
+			a.activateBrowserWindow(bw)
+		}
 		return a.HandleMovePaneToTab(ctx)
 	})
-	a.kbDispatcher.SetOnMovePaneToNextTab(func(ctx context.Context) error {
+	a.kbDispatcher.SetOnMovePaneToNextTab(func(ctx context.Context, paneID entity.PaneID) error {
+		if bw := a.ownerOrLastFocusedBrowserWindow("", paneID); bw != nil {
+			a.activateBrowserWindow(bw)
+		}
 		return a.HandleMovePaneToNextTab(ctx)
 	})
 	a.kbDispatcher.SetOnToggleFloatingPane(func(ctx context.Context) error {
@@ -2304,8 +2237,12 @@ func (a *App) updateWindowTitle(pageTitle string, target *browserWindow) {
 // updateWindowTitleFromActivePane updates the window title based on the current active pane.
 func (a *App) updateWindowTitleFromActivePane(tabID entity.TabID) {
 	var ws *entity.Workspace
-	if tab := a.tabs.Find(tabID); tab != nil {
-		ws = tab.Workspace
+	if a.tabs != nil {
+		if tab := a.tabs.Find(tabID); tab != nil {
+			ws = tab.Workspace
+		} else {
+			ws = a.activeWorkspace()
+		}
 	} else {
 		ws = a.activeWorkspace()
 	}
@@ -2314,7 +2251,7 @@ func (a *App) updateWindowTitleFromActivePane(tabID entity.TabID) {
 		return
 	}
 	title := a.contentCoord.GetTitle(ws.ActivePaneID)
-	a.updateWindowTitle(title, a.browserWindowForTab(tabID))
+	a.updateWindowTitle(title, a.ownerOrLastFocusedBrowserWindow(tabID, ""))
 }
 
 // handleModeChange is called when the input mode changes.
@@ -2331,8 +2268,8 @@ func (a *App) handleModeChange(ctx context.Context, from, to input.Mode) {
 
 	// Update global border overlay visibility based on mode.
 	// Note: resize mode border is handled per-pane (stack container), not via global overlay.
-	if a.borderMgr != nil {
-		a.borderMgr.OnModeChange(ctx, from, to)
+	if bw := a.lastFocusedBrowserWindow(); bw != nil && bw.borderMgr != nil {
+		bw.borderMgr.OnModeChange(ctx, from, to)
 	}
 
 	// Show/hide mode indicator toaster based on config.
@@ -2341,25 +2278,26 @@ func (a *App) handleModeChange(ctx context.Context, from, to input.Mode) {
 
 // updateModeIndicatorToaster shows or hides the mode indicator toaster based on mode and config.
 func (a *App) updateModeIndicatorToaster(ctx context.Context, mode input.Mode) {
-	if a.modeToaster == nil {
+	bw := a.lastFocusedBrowserWindow()
+	if bw == nil || bw.modeToaster == nil {
 		return
 	}
 
 	// Check if mode indicator toaster is enabled in config.
 	if a.deps == nil || a.deps.Config == nil || !a.deps.Config.Workspace.Styling.ModeIndicatorToasterEnabled {
-		a.modeToaster.Hide()
+		bw.modeToaster.Hide()
 		return
 	}
 
 	if mode == input.ModeNormal {
-		a.modeToaster.Hide()
+		bw.modeToaster.Hide()
 		return
 	}
 
 	// Show persistent toaster at bottom-left with mode display name.
 	// Mode class is applied atomically with Show() to avoid visual flicker.
 	modeClass := getModeToastClass(mode)
-	a.modeToaster.Show(ctx, mode.DisplayName(), component.ToastInfo,
+	bw.modeToaster.Show(ctx, mode.DisplayName(), component.ToastInfo,
 		component.WithDuration(0), // Persistent until mode exits.
 		component.WithPosition(component.ToastPositionBottomLeft),
 		component.WithModeClass(modeClass),
@@ -2512,6 +2450,9 @@ func (a *App) createWorkspaceViewWithoutAttach(ctx context.Context, tab *entity.
 
 // activeWorkspace returns the workspace of the active tab.
 func (a *App) activeWorkspace() *entity.Workspace {
+	if a.tabs == nil {
+		return nil
+	}
 	activeTab := a.tabs.ActiveTab()
 	if activeTab == nil {
 		return nil
@@ -3068,9 +3009,7 @@ func (a *App) showFloatingOmnibox(ctx context.Context, session *floatingWorkspac
 	if session.omnibox == nil {
 		cfg := a.omniboxCfg
 		cfg.OnToast = func(toastCtx context.Context, message string, level component.ToastLevel) {
-			if a.appToaster != nil {
-				a.appToaster.Show(toastCtx, message, level)
-			}
+			a.showToastOnLastFocusedBrowserWindow(toastCtx, message, level)
 		}
 
 		omnibox := component.NewOmnibox(ctx, cfg)
@@ -3594,21 +3533,15 @@ func (a *App) showFilterStatus(ctx context.Context, status port.FilterStatus) {
 
 	switch status.State {
 	case port.FilterStateLoading:
-		if a.appToaster != nil {
-			a.appToaster.Show(ctx, status.Message, component.ToastInfo)
-		}
+		a.showToastOnLastFocusedBrowserWindow(ctx, status.Message, component.ToastInfo)
 	case port.FilterStateActive:
 		// Apply filters to existing webviews that were created before filters loaded
 		if a.contentCoord != nil && a.deps.FilterManager != nil {
 			a.contentCoord.ApplyFiltersToAll(ctx)
 			log.Debug().Msg("applied filters to all existing webviews")
 		}
-		if a.appToaster != nil {
-			a.appToaster.Show(ctx, fmt.Sprintf("Ad blocker ready (%s)", status.Version), component.ToastInfo)
-		}
+		a.showToastOnLastFocusedBrowserWindow(ctx, fmt.Sprintf("Ad blocker ready (%s)", status.Version), component.ToastInfo)
 	case port.FilterStateError:
-		if a.appToaster != nil {
-			a.appToaster.Show(ctx, "Filter load failed: "+status.Message, component.ToastError)
-		}
+		a.showToastOnLastFocusedBrowserWindow(ctx, "Filter load failed: "+status.Message, component.ToastError)
 	}
 }

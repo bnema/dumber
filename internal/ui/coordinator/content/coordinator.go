@@ -56,7 +56,7 @@ type Coordinator struct {
 	onPaneURIUpdated func(paneID entity.PaneID, url string)
 
 	// Callback when active pane title changes (for window title updates)
-	onWindowTitleChanged func(title string)
+	onWindowTitleChanged func(paneID entity.PaneID, title string)
 
 	// Callback when media permission activity changes (requesting/allowed/blocked).
 	onPermissionActivity func(paneID entity.PaneID, origin string, permTypes []entity.PermissionType, state PermissionActivityState)
@@ -103,7 +103,7 @@ type Coordinator struct {
 	idleInhibitor port.IdleInhibitor
 
 	// Callback when fullscreen state changes (for hiding/showing tab bar)
-	onFullscreenChanged func(entering bool)
+	onFullscreenChanged func(paneID entity.PaneID, entering bool)
 
 	// Callback when WebView gains focus (for accent picker text input targeting)
 	onWebViewFocused func(paneID entity.PaneID, wv port.WebView)
@@ -203,7 +203,7 @@ func (c *Coordinator) SetOnPaneURIUpdated(fn func(paneID entity.PaneID, url stri
 }
 
 // SetOnWindowTitleChanged sets the callback for active pane title changes (for window title updates).
-func (c *Coordinator) SetOnWindowTitleChanged(fn func(title string)) {
+func (c *Coordinator) SetOnWindowTitleChanged(fn func(paneID entity.PaneID, title string)) {
 	c.onWindowTitleChanged = fn
 }
 
@@ -223,7 +223,7 @@ func (c *Coordinator) SetIdleInhibitor(inhibitor port.IdleInhibitor) {
 }
 
 // SetOnFullscreenChanged sets the callback for fullscreen state changes.
-func (c *Coordinator) SetOnFullscreenChanged(fn func(entering bool)) {
+func (c *Coordinator) SetOnFullscreenChanged(fn func(paneID entity.PaneID, entering bool)) {
 	c.onFullscreenChanged = fn
 }
 

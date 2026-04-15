@@ -3,10 +3,63 @@ package ui
 import (
 	"context"
 	"errors"
+	"reflect"
 	"testing"
+	"unsafe"
 
+	"github.com/bnema/dumber/internal/application/port"
+	"github.com/bnema/dumber/internal/domain/entity"
+	"github.com/bnema/dumber/internal/ui/component"
+	"github.com/bnema/dumber/internal/ui/focus"
+	"github.com/bnema/dumber/internal/ui/layout"
 	"github.com/bnema/dumber/internal/ui/window"
+	"github.com/bnema/puregotk/v4/gtk"
 )
+
+func TestBrowserWindow_RemoveBrowserWindowClearsShellState(t *testing.T) {
+	mainWindow := &window.MainWindow{}
+	removed := &browserWindow{id: "window-1", mainWindow: mainWindow}
+	remaining := &browserWindow{id: "window-2", mainWindow: &window.MainWindow{}}
+	app := &App{
+		mainWindow:          mainWindow,
+		browserWindows:      map[string]*browserWindow{removed.id: removed, remaining.id: remaining},
+		lastFocusedWindowID: remaining.id,
+	}
+
+	setShellField(t, removed, "appToaster", &component.Toaster{})
+	setShellField(t, removed, "modeToaster", &component.Toaster{})
+	setShellField(t, removed, "borderMgr", &focus.BorderManager{})
+	setShellField(t, removed, "sessionManager", &component.SessionManager{})
+	setShellField(t, removed, "tabPicker", &component.TabPicker{})
+	setShellField(t, removed, "tabPickerWidget", (*testLayoutWidget)(nil))
+	setShellField(t, removed, "tabPickerPaneID", entity.PaneID("pane-1"))
+	setShellField(t, removed, "insertAccentUC", newTestAccentUseCase(t, false))
+	setShellField(t, removed, "accentPicker", &component.AccentPicker{})
+	setShellField(t, removed, "permissionDialog", (*testPermissionDialogPresenter)(nil))
+	setShellField(t, removed, "webrtcIndicator", &component.WebRTCPermissionIndicator{})
+
+	app.removeBrowserWindow(removed.id)
+
+	for _, name := range []string{
+		"appToaster",
+		"modeToaster",
+		"borderMgr",
+		"sessionManager",
+		"tabPicker",
+		"tabPickerWidget",
+		"tabPickerPaneID",
+		"insertAccentUC",
+		"accentPicker",
+		"keyboardHandler",
+		"globalShortcutHandler",
+		"permissionDialog",
+		"webrtcIndicator",
+	} {
+		if !fieldIsZero(t, removed, name) {
+			t.Fatalf("browserWindow.%s was not cleared", name)
+		}
+	}
+}
 
 func TestBrowserWindow_RegisterAndRemoveTrackCollection(t *testing.T) {
 	app := &App{browserWindows: make(map[string]*browserWindow)}
@@ -77,6 +130,25 @@ func TestBrowserWindow_RemoveLastClearsMainWindow(t *testing.T) {
 	}
 }
 
+func TestBrowserWindow_RemovePromotedWindowClearsResizeModeBorderTarget(t *testing.T) {
+	mainWindow := &window.MainWindow{}
+	otherWindow := &window.MainWindow{}
+	removed := &browserWindow{id: "window-1", mainWindow: mainWindow}
+	remaining := &browserWindow{id: "window-2", mainWindow: otherWindow}
+	resizeTarget := &testLayoutWidget{}
+	app := &App{
+		mainWindow:             mainWindow,
+		browserWindows:         map[string]*browserWindow{removed.id: removed, remaining.id: remaining},
+		resizeModeBorderTarget: resizeTarget,
+	}
+
+	app.removeBrowserWindow(removed.id)
+
+	if app.resizeModeBorderTarget != nil {
+		t.Fatalf("resizeModeBorderTarget = %p, want nil", app.resizeModeBorderTarget)
+	}
+}
+
 func TestOpenFreshWindow_DispatchesAndTracksBrowserWindow(t *testing.T) {
 	app := &App{browserWindows: make(map[string]*browserWindow)}
 
@@ -127,4 +199,62 @@ func TestOpenFreshWindow_PropagatesFactoryError(t *testing.T) {
 	if got := len(app.browserWindows); got != 0 {
 		t.Fatalf("browserWindows length = %d, want 0", got)
 	}
+}
+
+func setShellField(t *testing.T, bw *browserWindow, name string, value any) {
+	t.Helper()
+	rv := reflect.ValueOf(bw).Elem()
+	field := rv.FieldByName(name)
+	if !field.IsValid() {
+		t.Fatalf("browserWindow missing field %s", name)
+	}
+	reflect.NewAt(field.Type(), unsafe.Pointer(field.UnsafeAddr())).Elem().Set(reflect.ValueOf(value))
+}
+
+func fieldIsZero(t *testing.T, bw *browserWindow, name string) bool {
+	t.Helper()
+	rv := reflect.ValueOf(bw).Elem()
+	field := rv.FieldByName(name)
+	if !field.IsValid() {
+		t.Fatalf("browserWindow missing field %s", name)
+	}
+	return field.IsZero()
+}
+
+type testLayoutWidget struct{}
+
+func (*testLayoutWidget) Show()                   {}
+func (*testLayoutWidget) Hide()                   {}
+func (*testLayoutWidget) SetVisible(bool)         {}
+func (*testLayoutWidget) IsVisible() bool         { return false }
+func (*testLayoutWidget) SetOpacity(float64)      {}
+func (*testLayoutWidget) GrabFocus() bool         { return false }
+func (*testLayoutWidget) HasFocus() bool          { return false }
+func (*testLayoutWidget) SetCanFocus(bool)        {}
+func (*testLayoutWidget) SetFocusable(bool)       {}
+func (*testLayoutWidget) SetFocusOnClick(bool)    {}
+func (*testLayoutWidget) SetCanTarget(bool)       {}
+func (*testLayoutWidget) SetHexpand(bool)         {}
+func (*testLayoutWidget) SetVexpand(bool)         {}
+func (*testLayoutWidget) GetHexpand() bool        { return false }
+func (*testLayoutWidget) GetVexpand() bool        { return false }
+func (*testLayoutWidget) SetHalign(gtk.Align)     {}
+func (*testLayoutWidget) SetValign(gtk.Align)     {}
+func (*testLayoutWidget) SetSizeRequest(int, int) {}
+func (*testLayoutWidget) GetAllocatedWidth() int  { return 0 }
+func (*testLayoutWidget) GetAllocatedHeight() int { return 0 }
+func (*testLayoutWidget) ComputePoint(layout.Widget) (float64, float64, bool) {
+	return 0, 0, false
+}
+func (*testLayoutWidget) AddCssClass(string)                 {}
+func (*testLayoutWidget) RemoveCssClass(string)              {}
+func (*testLayoutWidget) HasCssClass(string) bool            { return false }
+func (*testLayoutWidget) Unparent()                          {}
+func (*testLayoutWidget) GetParent() layout.Widget           { return nil }
+func (*testLayoutWidget) GtkWidget() *gtk.Widget             { return nil }
+func (*testLayoutWidget) AddController(*gtk.EventController) {}
+
+type testPermissionDialogPresenter struct{}
+
+func (*testPermissionDialogPresenter) ShowPermissionDialog(context.Context, string, []entity.PermissionType, entity.PermissionMetadata, func(port.PermissionDialogResult)) {
 }
