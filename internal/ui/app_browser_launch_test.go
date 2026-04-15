@@ -92,6 +92,25 @@ func setWindowTabBar(t *testing.T, mw *window.MainWindow, tabBar *component.TabB
 	reflect.NewAt(fv.Type(), unsafe.Pointer(fv.UnsafeAddr())).Elem().Set(reflect.ValueOf(tabBar))
 }
 
+func newTestTabBarShell(t *testing.T, tabIDs ...entity.TabID) *component.TabBar {
+	t.Helper()
+
+	tabBar := &component.TabBar{}
+	buttons := make(map[entity.TabID]*component.TabButton, len(tabIDs))
+	for _, tabID := range tabIDs {
+		buttons[tabID] = &component.TabButton{}
+	}
+
+	rv := reflect.ValueOf(tabBar).Elem()
+	fv := rv.FieldByName("buttons")
+	if !fv.IsValid() {
+		t.Fatalf("TabBar missing buttons field")
+	}
+	reflect.NewAt(fv.Type(), unsafe.Pointer(fv.UnsafeAddr())).Elem().Set(reflect.ValueOf(buttons))
+
+	return tabBar
+}
+
 func windowTabBarActiveID(t *testing.T, mw *window.MainWindow) entity.TabID {
 	t.Helper()
 	if mw == nil || mw.TabBar() == nil {
@@ -110,10 +129,15 @@ func windowTitle(t *testing.T, mw *window.MainWindow) string {
 
 func windowTabBarVisible(t *testing.T, mw *window.MainWindow) bool {
 	t.Helper()
-	if mw == nil || mw.TabBar() == nil || mw.TabBar().Box() == nil {
+	if mw == nil || mw.TabBar() == nil {
 		return false
 	}
-	return mw.TabBar().Box().GetVisible()
+	rv := reflect.ValueOf(mw.TabBar()).Elem()
+	fv := rv.FieldByName("visible")
+	if !fv.IsValid() {
+		t.Fatalf("TabBar missing visible field")
+	}
+	return *(*bool)(unsafe.Pointer(fv.UnsafeAddr()))
 }
 
 func newTestShellToaster(t *testing.T) (*component.Toaster, *layoutmocks.MockBoxWidget, *layoutmocks.MockLabelWidget) {
@@ -282,25 +306,14 @@ func TestApp_OpenFreshWindowRollsBackOnTabCreationFailure(t *testing.T) {
 }
 
 func TestApp_OpenFreshWindowTargetsNewWindowTabBar(t *testing.T) {
-	EnsureAdwaitaInitialized()
-	appID := AppID
-	gtkApp := gtk.NewApplication(&appID, gio.GApplicationNonUniqueValue)
-	if gtkApp == nil {
-		t.Fatal("gtk application creation failed")
-	}
-	defer gtkApp.Unref()
-
 	existingTabID := entity.TabID("existing-tab")
-	oldWindow, err := window.New(context.Background(), gtkApp, "top")
-	if err != nil {
-		t.Fatalf("old window creation failed: %v", err)
-	}
-	newWindow, err := window.New(context.Background(), gtkApp, "top")
-	if err != nil {
-		t.Fatalf("new window creation failed: %v", err)
-	}
+	createdTabID := entity.TabID("id-1")
+	oldWindow := &window.MainWindow{}
+	newWindow := &window.MainWindow{}
+	setWindowTabBar(t, oldWindow, newTestTabBarShell(t))
+	setWindowTabBar(t, newWindow, newTestTabBarShell(t, createdTabID))
 	tabs := entity.NewTabList()
-	tabsUC := usecase.NewManageTabsUseCase(func() string { return "id-1" })
+	tabsUC := usecase.NewManageTabsUseCase(func() string { return string(createdTabID) })
 
 	app := &App{
 		tabs:           tabs,
@@ -327,17 +340,17 @@ func TestApp_OpenFreshWindowTargetsNewWindowTabBar(t *testing.T) {
 		t.Fatalf("OpenFreshWindow returned error: %v", err)
 	}
 
-	createdTabID := app.tabs.ActiveTabID
-	if createdTabID == "" {
-		t.Fatalf("created tab id = %q, want non-empty", createdTabID)
+	gotCreatedTabID := app.tabs.ActiveTabID
+	if gotCreatedTabID == "" {
+		t.Fatalf("created tab id = %q, want non-empty", gotCreatedTabID)
 	}
-	if got := windowTabBarActiveID(t, newWindow); got != createdTabID {
-		t.Fatalf("new window tab bar active tab = %q, want %q", got, createdTabID)
+	if got := windowTabBarActiveID(t, newWindow); got != gotCreatedTabID {
+		t.Fatalf("new window tab bar active tab = %q, want %q", got, gotCreatedTabID)
 	}
 	if got := windowTabBarActiveID(t, oldWindow); got != "" {
 		t.Fatalf("old window tab bar active tab = %q, want empty", got)
 	}
-	if got := newWindow.TabBar().Box().GetVisible(); got {
+	if got := windowTabBarVisible(t, newWindow); got {
 		t.Fatalf("new window tab bar visible = %v, want false", got)
 	}
 }
@@ -725,11 +738,7 @@ func TestApp_UpdateBrowserWindowTabBarVisibilityHonorsHideWhenSingleTabDisabled(
 	defer gtkApp.Unref()
 
 	mainWindow := &window.MainWindow{}
-	tabBar := component.NewTabBar()
-	if tabBar == nil {
-		t.Fatal("tab bar creation failed")
-	}
-	tabBar.AddTab(entity.NewTab(entity.TabID("tab-1"), entity.WorkspaceID("workspace-1"), entity.NewPane(entity.PaneID("pane-1"))))
+	tabBar := newTestTabBarShell(t, entity.TabID("tab-1"))
 	tabBar.SetVisible(false)
 	setWindowTabBar(t, mainWindow, tabBar)
 	bw := &browserWindow{id: "window-1", mainWindow: mainWindow}

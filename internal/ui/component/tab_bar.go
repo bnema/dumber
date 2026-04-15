@@ -11,6 +11,7 @@ import (
 type TabBar struct {
 	box     *gtk.Box
 	buttons map[entity.TabID]*TabButton
+	visible bool
 
 	// Active tab tracking
 	activeTabID entity.TabID
@@ -27,6 +28,7 @@ type TabBar struct {
 func NewTabBar() *TabBar {
 	tb := &TabBar{
 		buttons: make(map[entity.TabID]*TabButton),
+		visible: true,
 	}
 
 	// Create horizontal box container
@@ -159,6 +161,7 @@ func (tb *TabBar) ActiveTabID() entity.TabID {
 
 // SetVisible shows or hides the tab bar.
 func (tb *TabBar) SetVisible(visible bool) {
+	tb.visible = visible
 	if tb.box == nil {
 		return
 	}

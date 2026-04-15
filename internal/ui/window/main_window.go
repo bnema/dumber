@@ -119,11 +119,17 @@ func (mw *MainWindow) assembleLayout() {
 
 // Show presents the window.
 func (mw *MainWindow) Show() {
+	if mw == nil || mw.window == nil {
+		return
+	}
 	mw.window.Present()
 }
 
 // Close closes the window.
 func (mw *MainWindow) Close() {
+	if mw == nil || mw.window == nil {
+		return
+	}
 	mw.window.Close()
 }
 
