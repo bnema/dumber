@@ -370,7 +370,7 @@ func TestBrowserLaunchRelay_AcknowledgesBeforeOpenerReturns(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
-	closer, err := relay.Listen(ctx, browserWindowOpenerFunc(func(_ context.Context, url string) error {
+	closer, err := relay.Listen(ctx, browserWindowOpenerFunc(func(_ context.Context, _ string) error {
 		close(started)
 		<-release
 		return nil
