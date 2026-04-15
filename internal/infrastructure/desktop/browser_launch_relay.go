@@ -81,7 +81,7 @@ func (r *browserLaunchRelay) DeliverOpenFreshWindow(ctx context.Context, url str
 					return false, ctxErr
 				}
 				if _, ok := ctx.Deadline(); !ok {
-					return false, decodeErr
+					return false, nil
 				}
 				if deadlineErr := setBrowserLaunchConnDeadline(ctx, conn); deadlineErr != nil {
 					return false, deadlineErr
@@ -108,6 +108,20 @@ func isBrowserLaunchReadTimeout(err error) bool {
 	return errors.As(err, &netErr) && netErr.Timeout()
 }
 
+func browserLaunchSocketHasLiveListener(socketPath string) (bool, error) {
+	conn, err := net.DialTimeout("unix", socketPath, browserLaunchIOTimeout)
+	if err == nil {
+		_ = conn.Close()
+		return true, nil
+	}
+
+	if isMissingRelayListener(err) {
+		return false, nil
+	}
+
+	return false, fmt.Errorf("check browser launch socket: %w", err)
+}
+
 func setBrowserLaunchConnDeadline(ctx context.Context, conn net.Conn) error {
 	deadline := time.Now().Add(browserLaunchIOTimeout)
 	if ctxDeadline, ok := ctx.Deadline(); ok && ctxDeadline.Before(deadline) {
@@ -126,13 +140,28 @@ func (r *browserLaunchRelay) Listen(ctx context.Context, opener port.BrowserWind
 	if mkdirErr := os.MkdirAll(filepath.Dir(socketPath), browserLaunchDirPerm); mkdirErr != nil {
 		return nil, fmt.Errorf("create browser launch dir: %w", mkdirErr)
 	}
-	if removeErr := os.Remove(socketPath); removeErr != nil && !os.IsNotExist(removeErr) {
-		return nil, fmt.Errorf("remove stale browser launch socket: %w", removeErr)
-	}
-
 	listener, err := net.ListenUnix("unix", &net.UnixAddr{Name: socketPath, Net: "unix"})
 	if err != nil {
-		return nil, fmt.Errorf("listen browser launch socket: %w", err)
+		if !errors.Is(err, syscall.EADDRINUSE) {
+			return nil, fmt.Errorf("listen browser launch socket: %w", err)
+		}
+
+		live, liveErr := browserLaunchSocketHasLiveListener(socketPath)
+		if liveErr != nil {
+			return nil, liveErr
+		}
+		if live {
+			return nil, errors.New("browser launch relay already running")
+		}
+
+		if removeErr := os.Remove(socketPath); removeErr != nil && !os.IsNotExist(removeErr) {
+			return nil, fmt.Errorf("remove stale browser launch socket: %w", removeErr)
+		}
+
+		listener, err = net.ListenUnix("unix", &net.UnixAddr{Name: socketPath, Net: "unix"})
+		if err != nil {
+			return nil, fmt.Errorf("listen browser launch socket: %w", err)
+		}
 	}
 
 	relayListener := &browserLaunchRelayListener{listener: listener, socketPath: socketPath}
@@ -213,22 +242,20 @@ func (*browserLaunchRelayListener) handleConnection(ctx context.Context, conn *n
 		return
 	}
 
-	response := browserLaunchResponse{}
-	if err := opener.OpenFreshWindow(ctx, request.URL); err != nil {
-		response.Error = err.Error()
-	}
-
 	if err := conn.SetDeadline(time.Now().Add(browserLaunchIOTimeout)); err != nil {
 		return
 	}
-	if err := json.NewEncoder(conn).Encode(response); err != nil {
+	if err := json.NewEncoder(conn).Encode(browserLaunchResponse{}); err != nil {
 		log := logging.FromContext(ctx)
-		entry := log.Warn().Err(err).Str("url", request.URL)
-		if response.Error != "" {
-			entry = entry.Str("response_error", response.Error)
-		}
-		entry.Msg("failed to encode browser launch response")
+		log.Warn().Err(err).Str("url", request.URL).Msg("failed to encode browser launch response")
+		return
 	}
+
+	go func() {
+		if err := opener.OpenFreshWindow(ctx, request.URL); err != nil {
+			logging.FromContext(ctx).Warn().Err(err).Str("url", request.URL).Msg("failed to open fresh browser window")
+		}
+	}()
 }
 
 var _ port.BrowserLaunchRelay = (*browserLaunchRelay)(nil)

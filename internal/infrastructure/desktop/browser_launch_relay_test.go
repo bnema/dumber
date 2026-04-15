@@ -2,6 +2,7 @@ package desktop
 
 import (
 	"context"
+	"encoding/json"
 	"net"
 	"os"
 	"path/filepath"
@@ -137,6 +138,71 @@ func TestBrowserLaunchRelay_UsesStateFallbackWhenRuntimeDirMissing(t *testing.T)
 	}
 }
 
+func TestBrowserLaunchRelay_SecondListenWhileLiveFailsWithoutReplacingListener(t *testing.T) {
+	runtimeDir := filepath.Join(shortTempDir(t), "runtime")
+	relay := NewBrowserLaunchRelay(testXDGPaths{runtimeDir: runtimeDir})
+
+	firstReceived := make(chan string, 1)
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	closer, err := relay.Listen(ctx, browserWindowOpenerFunc(func(_ context.Context, url string) error {
+		firstReceived <- url
+		return nil
+	}))
+	require.NoError(t, err)
+	defer closer.Close()
+
+	waitForSocket(t, filepath.Join(runtimeDir, "browser-launch.sock"))
+
+	_, err = relay.Listen(ctx, browserWindowOpenerFunc(func(context.Context, string) error { return nil }))
+	require.Error(t, err)
+
+	delivered, err := relay.DeliverOpenFreshWindow(context.Background(), "https://example.com/live")
+	require.NoError(t, err)
+	require.True(t, delivered)
+
+	select {
+	case got := <-firstReceived:
+		assert.Equal(t, "https://example.com/live", got)
+	case <-time.After(time.Second):
+		t.Fatal("expected the original listener to remain active")
+	}
+}
+
+func TestBrowserLaunchRelay_RebindsStaleSocketPath(t *testing.T) {
+	runtimeDir := filepath.Join(shortTempDir(t), "runtime")
+	relay := NewBrowserLaunchRelay(testXDGPaths{runtimeDir: runtimeDir})
+
+	socketPath := filepath.Join(runtimeDir, "browser-launch.sock")
+	require.NoError(t, os.MkdirAll(runtimeDir, 0o700))
+	require.NoError(t, os.WriteFile(socketPath, []byte("stale"), 0o600))
+
+	received := make(chan string, 1)
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	closer, err := relay.Listen(ctx, browserWindowOpenerFunc(func(_ context.Context, url string) error {
+		received <- url
+		return nil
+	}))
+	require.NoError(t, err)
+	defer closer.Close()
+
+	waitForSocket(t, socketPath)
+
+	delivered, err := relay.DeliverOpenFreshWindow(context.Background(), "https://example.com/stale")
+	require.NoError(t, err)
+	require.True(t, delivered)
+
+	select {
+	case got := <-received:
+		assert.Equal(t, "https://example.com/stale", got)
+	case <-time.After(time.Second):
+		t.Fatal("expected stale socket path to be rebound")
+	}
+}
+
 func TestBrowserLaunchRelay_RejectsMalformedPayloads(t *testing.T) {
 	runtimeDir := filepath.Join(shortTempDir(t), "runtime")
 	relay := NewBrowserLaunchRelay(testXDGPaths{runtimeDir: runtimeDir})
@@ -246,7 +312,7 @@ func TestBrowserLaunchRelay_DeliverOpenFreshWindow_RespectsResponseReadTimeout(t
 	assert.False(t, delivered)
 }
 
-func TestBrowserLaunchRelay_DeliverOpenFreshWindow_ReturnsWithoutCallerDeadline(t *testing.T) {
+func TestBrowserLaunchRelay_DeliverOpenFreshWindow_ReturnsFalseOnNoDeadlineTimeout(t *testing.T) {
 	runtimeDir := shortTempDir(t)
 	socketPath := filepath.Join(runtimeDir, "browser-launch.sock")
 	require.NoError(t, os.MkdirAll(runtimeDir, 0o700))
@@ -272,23 +338,64 @@ func TestBrowserLaunchRelay_DeliverOpenFreshWindow_ReturnsWithoutCallerDeadline(
 
 	relay := NewBrowserLaunchRelay(testXDGPaths{runtimeDir: runtimeDir})
 
+	started := make(chan struct{})
+
 	type deliverResult struct {
 		delivered bool
 		err       error
 	}
 	result := make(chan deliverResult, 1)
 	go func() {
+		close(started)
 		delivered, err := relay.DeliverOpenFreshWindow(context.Background(), "https://example.com/slow")
 		result <- deliverResult{delivered: delivered, err: err}
 	}()
+	<-started
 
 	select {
 	case got := <-result:
 		assert.False(t, got.delivered)
-		require.Error(t, got.err)
+		require.NoError(t, got.err)
 	case <-time.After(300 * time.Millisecond):
 		t.Fatal("DeliverOpenFreshWindow blocked without a caller deadline")
 	}
+}
+
+func TestBrowserLaunchRelay_AcknowledgesBeforeOpenerReturns(t *testing.T) {
+	runtimeDir := filepath.Join(shortTempDir(t), "runtime")
+	relay := NewBrowserLaunchRelay(testXDGPaths{runtimeDir: runtimeDir})
+
+	started := make(chan struct{})
+	release := make(chan struct{})
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	closer, err := relay.Listen(ctx, browserWindowOpenerFunc(func(_ context.Context, url string) error {
+		close(started)
+		<-release
+		return nil
+	}))
+	require.NoError(t, err)
+	defer closer.Close()
+
+	waitForSocket(t, filepath.Join(runtimeDir, "browser-launch.sock"))
+
+	conn, err := net.Dial("unix", filepath.Join(runtimeDir, "browser-launch.sock"))
+	require.NoError(t, err)
+	defer conn.Close()
+	require.NoError(t, conn.SetDeadline(time.Now().Add(300*time.Millisecond)))
+	require.NoError(t, json.NewEncoder(conn).Encode(browserLaunchRequest{URL: "https://example.com/slow-but-healthy"}))
+
+	var response browserLaunchResponse
+	require.NoError(t, json.NewDecoder(conn).Decode(&response))
+	assert.Empty(t, response.Error)
+
+	select {
+	case <-started:
+	case <-time.After(time.Second):
+		t.Fatal("expected opener to be invoked after acknowledgement")
+	}
+	close(release)
 }
 
 func TestBrowserLaunchRelay_SilentClientDoesNotStallListener(t *testing.T) {
