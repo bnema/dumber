@@ -11,6 +11,7 @@ import (
 	portmocks "github.com/bnema/dumber/internal/application/port/mocks"
 	"github.com/bnema/dumber/internal/application/usecase"
 	"github.com/bnema/dumber/internal/domain/entity"
+	"github.com/bnema/dumber/internal/domain/repository"
 	"github.com/bnema/dumber/internal/infrastructure/config"
 	"github.com/bnema/dumber/internal/ui/component"
 	"github.com/bnema/dumber/internal/ui/coordinator"
@@ -47,6 +48,26 @@ func (c *testCloser) Close() error {
 	c.closed = true
 	return nil
 }
+
+type fakeSessionStateRepo struct {
+	state *entity.SessionState
+}
+
+var _ repository.SessionStateRepository = (*fakeSessionStateRepo)(nil)
+
+func (r *fakeSessionStateRepo) SaveSnapshot(context.Context, *entity.SessionState) error { return nil }
+
+func (r *fakeSessionStateRepo) GetSnapshot(context.Context, entity.SessionID) (*entity.SessionState, error) {
+	return r.state, nil
+}
+
+func (r *fakeSessionStateRepo) DeleteSnapshot(context.Context, entity.SessionID) error { return nil }
+
+func (r *fakeSessionStateRepo) GetAllSnapshots(context.Context) ([]*entity.SessionState, error) {
+	return nil, nil
+}
+
+func (r *fakeSessionStateRepo) GetTotalSnapshotsSize(context.Context) (int64, error) { return 0, nil }
 
 // setDependencyField uses reflection to reach unexported dependency fields for tests.
 // Keep this test-only so production visibility stays narrow.
@@ -244,6 +265,67 @@ func TestApp_OpenFreshWindowRecordsTabOwnership(t *testing.T) {
 	}
 	if got := windowForTabCount(t, app); got != 1 {
 		t.Fatalf("windowForTab length = %d, want 1", got)
+	}
+}
+
+func TestApp_RestoreSessionClearsStaleUIStateBeforeApplyingRestoredTabs(t *testing.T) {
+	EnsureAdwaitaInitialized()
+	appID := AppID
+	gtkApp := gtk.NewApplication(&appID, gio.GApplicationNonUniqueValue)
+	if gtkApp == nil {
+		t.Fatal("gtk application creation failed")
+	}
+	defer gtkApp.Unref()
+
+	mainWindow, err := window.New(context.Background(), gtkApp, "top")
+	if err != nil {
+		t.Fatalf("window creation failed: %v", err)
+	}
+	defer mainWindow.Destroy()
+
+	staleTab := entity.NewTab(entity.TabID("stale-tab"), entity.WorkspaceID("stale-workspace"), entity.NewPane(entity.PaneID("stale-pane")))
+	staleWindow := &browserWindow{id: "window-stale", mainWindow: mainWindow}
+	staleSessionKey := floatingSessionKey{tabID: staleTab.ID, sessionID: "profile-stale"}
+	restoredSessionID := entity.SessionID("session-restore")
+	restoredTabs := entity.NewTabList()
+	restoredTabs.Add(entity.NewTab(entity.TabID("restored-tab"), entity.WorkspaceID("restored-workspace"), entity.NewPane(entity.PaneID("restored-pane"))))
+
+	app := &App{
+		deps: &Dependencies{
+			Config:           &config.Config{},
+			SessionStateRepo: &fakeSessionStateRepo{state: entity.SnapshotFromTabList(restoredSessionID, restoredTabs)},
+		},
+		mainWindow:     mainWindow,
+		widgetFactory:  layout.NewGtkWidgetFactory(),
+		tabs:           entity.NewTabList(),
+		browserWindows: map[string]*browserWindow{staleWindow.id: staleWindow},
+		workspaceViews: map[entity.TabID]*component.WorkspaceView{staleTab.ID: &component.WorkspaceView{}},
+		windowForTab:   map[entity.TabID]*browserWindow{staleTab.ID: staleWindow},
+		floatingSessions: map[floatingSessionKey]*floatingWorkspaceSession{
+			staleSessionKey: {},
+		},
+	}
+	app.tabs.Add(staleTab)
+	mainWindow.TabBar().AddTab(staleTab)
+
+	if err := app.restoreSession(context.Background(), restoredSessionID); err != nil {
+		t.Fatalf("restoreSession returned error: %v", err)
+	}
+
+	if got := app.tabs.Count(); got != 1 {
+		t.Fatalf("tabs.Count() = %d, want 1", got)
+	}
+	if got := mainWindow.TabBar().Count(); got != 1 {
+		t.Fatalf("tab bar count = %d, want 1", got)
+	}
+	if _, ok := app.workspaceViews[staleTab.ID]; ok {
+		t.Fatalf("stale workspace view was not removed")
+	}
+	if _, ok := app.windowForTab[staleTab.ID]; ok {
+		t.Fatalf("stale windowForTab entry was not removed")
+	}
+	if _, ok := app.floatingSessions[staleSessionKey]; ok {
+		t.Fatalf("stale floating session was not removed")
 	}
 }
 

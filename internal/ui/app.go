@@ -1619,6 +1619,44 @@ func (a *App) createInitialTab(ctx context.Context) {
 	}
 }
 
+func (a *App) clearSessionRestoreUIState(ctx context.Context) {
+	if a == nil {
+		return
+	}
+
+	tabIDs := make(map[entity.TabID]struct{})
+	if a.tabs != nil {
+		for _, tab := range a.tabs.Tabs {
+			if tab == nil {
+				continue
+			}
+			tabIDs[tab.ID] = struct{}{}
+		}
+	}
+	for tabID := range a.workspaceViews {
+		tabIDs[tabID] = struct{}{}
+	}
+	for tabID := range a.windowForTab {
+		tabIDs[tabID] = struct{}{}
+	}
+
+	var tabBar *component.TabBar
+	if a.mainWindow != nil {
+		tabBar = a.mainWindow.TabBar()
+	}
+	for tabID := range tabIDs {
+		if tabBar != nil {
+			tabBar.RemoveTab(tabID)
+		}
+		a.releaseFloatingSessionsForTab(ctx, tabID)
+		delete(a.workspaceViews, tabID)
+		delete(a.windowForTab, tabID)
+	}
+	if a.mainWindow != nil {
+		a.mainWindow.SetContent(nil)
+	}
+}
+
 func (a *App) restoreSession(ctx context.Context, sessionID entity.SessionID) error {
 	log := logging.FromContext(ctx)
 
@@ -1643,6 +1681,8 @@ func (a *App) restoreSession(ctx context.Context, sessionID entity.SessionID) er
 	if restoredTabs == nil || len(restoredTabs.Tabs) == 0 {
 		return fmt.Errorf("failed to build tab list from snapshot")
 	}
+
+	a.clearSessionRestoreUIState(ctx)
 
 	// Replace tabs in-place to preserve references held by TabCoordinator
 	a.tabs.ReplaceFrom(restoredTabs)
