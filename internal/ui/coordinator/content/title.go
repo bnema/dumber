@@ -59,9 +59,11 @@ func (c *Coordinator) onTitleChanged(ctx context.Context, paneID entity.PaneID, 
 		}
 	}
 
-	// Notify window title update for every pane title change.
-	if c.onWindowTitleChanged != nil {
-		c.onWindowTitleChanged(paneID, title)
+	// Notify window title updates only for the active pane.
+	if c.onWindowTitleChanged != nil && c.getActiveWS != nil {
+		if ws, _ := c.getActiveWS(); ws != nil && ws.ActivePaneID == paneID {
+			c.onWindowTitleChanged(paneID, title)
+		}
 	}
 
 	log.Debug().

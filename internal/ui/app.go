@@ -733,6 +733,29 @@ func (a *App) openFreshWindowWithTabsUC(ctx context.Context, url string, created
 		a.createWorkspaceView(ctx, output.Tab)
 		a.switchWorkspaceView(ctx, output.Tab.ID)
 	}
+	if a.workspaceViews[output.Tab.ID] == nil {
+		if a.tabs != nil {
+			a.tabs.Remove(output.Tab.ID)
+		}
+		var tabBar *component.TabBar
+		if a.mainWindow != nil {
+			tabBar = a.mainWindow.TabBar()
+		}
+		if created.mainWindow != nil && created.mainWindow.TabBar() != nil {
+			tabBar = created.mainWindow.TabBar()
+		}
+		if tabBar != nil {
+			tabBar.RemoveTab(output.Tab.ID)
+			if a.tabs != nil {
+				tabBar.SetActive(a.tabs.ActiveTabID)
+			}
+		}
+		a.removeBrowserWindow(created.id)
+		if created.mainWindow != nil {
+			created.mainWindow.Destroy()
+		}
+		return fmt.Errorf("workspace view not created for tab %s", output.Tab.ID)
+	}
 	if created.mainWindow != nil {
 		created.mainWindow.Show()
 	}
@@ -1356,7 +1379,15 @@ func (a *App) MoveActivePaneToTab(ctx context.Context, targetTabID entity.TabID)
 }
 
 func (a *App) moveActivePaneToTabFromBrowserWindow(ctx context.Context, bw *browserWindow, targetTabID entity.TabID) error {
-	if bw != nil {
+	if targetTabID == "" {
+		if bw != nil {
+			a.activateBrowserWindow(bw)
+		}
+		return a.MoveActivePaneToTab(ctx, targetTabID)
+	}
+	if owner := a.browserWindowForTab(targetTabID); owner != nil {
+		a.activateBrowserWindow(owner)
+	} else if bw != nil {
 		a.activateBrowserWindow(bw)
 	}
 	return a.MoveActivePaneToTab(ctx, targetTabID)

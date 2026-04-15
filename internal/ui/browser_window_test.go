@@ -61,6 +61,57 @@ func TestBrowserWindow_RemoveBrowserWindowClearsShellState(t *testing.T) {
 	}
 }
 
+func TestBrowserWindow_RemoveBrowserWindowCleansOwnedTabState(t *testing.T) {
+	ownedTab := entity.NewTab(entity.TabID("tab-owned"), entity.WorkspaceID("workspace-owned"), entity.NewPane(entity.PaneID("pane-owned")))
+	otherTab := entity.NewTab(entity.TabID("tab-other"), entity.WorkspaceID("workspace-other"), entity.NewPane(entity.PaneID("pane-other")))
+	removedMainWindow := &window.MainWindow{}
+	remainingMainWindow := &window.MainWindow{}
+	removed := &browserWindow{id: "window-1", mainWindow: removedMainWindow}
+	remaining := &browserWindow{id: "window-2", mainWindow: remainingMainWindow}
+	ownedSessionKey := floatingSessionKey{tabID: ownedTab.ID, sessionID: "profile:owned"}
+	otherSessionKey := floatingSessionKey{tabID: otherTab.ID, sessionID: "profile:other"}
+	app := &App{
+		mainWindow:     removedMainWindow,
+		browserWindows: map[string]*browserWindow{removed.id: removed, remaining.id: remaining},
+		tabs:           entity.NewTabList(),
+		workspaceViews: map[entity.TabID]*component.WorkspaceView{ownedTab.ID: &component.WorkspaceView{}, otherTab.ID: &component.WorkspaceView{}},
+		windowForTab:   map[entity.TabID]*browserWindow{ownedTab.ID: removed, otherTab.ID: remaining},
+		floatingSessions: map[floatingSessionKey]*floatingWorkspaceSession{
+			ownedSessionKey: {},
+			otherSessionKey: {},
+		},
+	}
+	app.tabs.Add(ownedTab)
+	app.tabs.Add(otherTab)
+
+	app.removeBrowserWindow(removed.id)
+
+	if app.workspaceViews[ownedTab.ID] != nil {
+		t.Fatalf("owned workspace view was not removed")
+	}
+	if app.windowForTab[ownedTab.ID] != nil {
+		t.Fatalf("owned window mapping was not removed")
+	}
+	if app.tabs.Find(ownedTab.ID) != nil {
+		t.Fatalf("owned tab was not removed")
+	}
+	if app.workspaceViews[otherTab.ID] == nil {
+		t.Fatalf("other workspace view should remain")
+	}
+	if app.windowForTab[otherTab.ID] != remaining {
+		t.Fatalf("other tab should remain mapped to remaining window")
+	}
+	if app.tabs.Find(otherTab.ID) == nil {
+		t.Fatalf("other tab should remain")
+	}
+	if _, ok := app.floatingSessions[ownedSessionKey]; ok {
+		t.Fatalf("owned floating session was not released")
+	}
+	if _, ok := app.floatingSessions[otherSessionKey]; !ok {
+		t.Fatalf("other floating session should remain")
+	}
+}
+
 func TestBrowserWindow_RegisterAndRemoveTrackCollection(t *testing.T) {
 	app := &App{browserWindows: make(map[string]*browserWindow)}
 	first := &browserWindow{id: "window-1"}

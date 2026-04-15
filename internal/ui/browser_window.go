@@ -246,9 +246,18 @@ func (a *App) removeBrowserWindow(id string) {
 	}
 	removed := a.browserWindows[id]
 	wasMainWindow := removed != nil && removed.mainWindow == a.mainWindow
+	ownedTabIDs := make([]entity.TabID, 0)
 	for tabID, bw := range a.windowForTab {
 		if bw != nil && bw.id == id {
-			delete(a.windowForTab, tabID)
+			ownedTabIDs = append(ownedTabIDs, tabID)
+		}
+	}
+	for _, tabID := range ownedTabIDs {
+		a.releaseFloatingSessionsForTab(context.Background(), tabID)
+		delete(a.workspaceViews, tabID)
+		delete(a.windowForTab, tabID)
+		if a.tabs != nil && a.tabs.Find(tabID) != nil {
+			a.tabs.Remove(tabID)
 		}
 	}
 	if removed != nil {

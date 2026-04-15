@@ -81,7 +81,7 @@ func (r *browserLaunchRelay) DeliverOpenFreshWindow(ctx context.Context, url str
 					return false, ctxErr
 				}
 				if _, ok := ctx.Deadline(); !ok {
-					return false, nil
+					return true, nil
 				}
 				if deadlineErr := setBrowserLaunchConnDeadline(ctx, conn); deadlineErr != nil {
 					return false, deadlineErr

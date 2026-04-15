@@ -312,7 +312,7 @@ func TestBrowserLaunchRelay_DeliverOpenFreshWindow_RespectsResponseReadTimeout(t
 	assert.False(t, delivered)
 }
 
-func TestBrowserLaunchRelay_DeliverOpenFreshWindow_ReturnsFalseOnNoDeadlineTimeout(t *testing.T) {
+func TestBrowserLaunchRelay_DeliverOpenFreshWindow_ReturnsTrueOnNoDeadlineTimeout(t *testing.T) {
 	runtimeDir := shortTempDir(t)
 	socketPath := filepath.Join(runtimeDir, "browser-launch.sock")
 	require.NoError(t, os.MkdirAll(runtimeDir, 0o700))
@@ -354,7 +354,7 @@ func TestBrowserLaunchRelay_DeliverOpenFreshWindow_ReturnsFalseOnNoDeadlineTimeo
 
 	select {
 	case got := <-result:
-		assert.False(t, got.delivered)
+		assert.True(t, got.delivered)
 		require.NoError(t, got.err)
 	case <-time.After(300 * time.Millisecond):
 		t.Fatal("DeliverOpenFreshWindow blocked without a caller deadline")

@@ -48,6 +48,8 @@ func (c *testCloser) Close() error {
 	return nil
 }
 
+// setDependencyField uses reflection to reach unexported dependency fields for tests.
+// Keep this test-only so production visibility stays narrow.
 func setDependencyField(t *testing.T, deps *Dependencies, field string, value any) {
 	t.Helper()
 
@@ -59,6 +61,8 @@ func setDependencyField(t *testing.T, deps *Dependencies, field string, value an
 	fv.Set(reflect.ValueOf(value))
 }
 
+// windowForTabCount uses reflection to inspect unexported app state in tests.
+// Keep this test-only so production visibility stays narrow.
 func windowForTabCount(t *testing.T, app *App) int {
 	t.Helper()
 
@@ -70,6 +74,8 @@ func windowForTabCount(t *testing.T, app *App) int {
 	return fv.Len()
 }
 
+// tabCoordinatorMainWindowPtr uses reflection to inspect unexported coordinator state in tests.
+// Keep this test-only so production visibility stays narrow.
 func tabCoordinatorMainWindowPtr(t *testing.T, tc *coordinator.TabCoordinator) uintptr {
 	t.Helper()
 
@@ -129,15 +135,10 @@ func windowTitle(t *testing.T, mw *window.MainWindow) string {
 
 func windowTabBarVisible(t *testing.T, mw *window.MainWindow) bool {
 	t.Helper()
-	if mw == nil || mw.TabBar() == nil {
+	if mw == nil || mw.TabBar() == nil || mw.TabBar().Box() == nil {
 		return false
 	}
-	rv := reflect.ValueOf(mw.TabBar()).Elem()
-	fv := rv.FieldByName("visible")
-	if !fv.IsValid() {
-		t.Fatalf("TabBar missing visible field")
-	}
-	return *(*bool)(unsafe.Pointer(fv.UnsafeAddr()))
+	return mw.TabBar().Box().GetVisible()
 }
 
 func newTestShellToaster(t *testing.T) (*component.Toaster, *layoutmocks.MockBoxWidget, *layoutmocks.MockLabelWidget) {
@@ -231,6 +232,7 @@ func TestApp_OpenFreshWindowRecordsTabOwnership(t *testing.T) {
 		tabs:           entity.NewTabList(),
 		tabsUC:         usecase.NewManageTabsUseCase(func() string { return "id-1" }),
 		browserWindows: make(map[string]*browserWindow),
+		workspaceViews: map[entity.TabID]*component.WorkspaceView{entity.TabID("id-1"): &component.WorkspaceView{}},
 		browserWindowFactory: func(context.Context, string) (*browserWindow, error) {
 			return created, nil
 		},
@@ -452,10 +454,12 @@ func TestApp_HandlePaneWindowTitleChangedTargetsOwningWindow(t *testing.T) {
 	if err != nil {
 		t.Fatalf("first window creation failed: %v", err)
 	}
+	defer firstMainWindow.Destroy()
 	secondMainWindow, err := window.New(context.Background(), gtkApp, "top")
 	if err != nil {
 		t.Fatalf("second window creation failed: %v", err)
 	}
+	defer secondMainWindow.Destroy()
 
 	tab1 := entity.NewTab(entity.TabID("tab-1"), entity.WorkspaceID("workspace-1"), entity.NewPane(entity.PaneID("pane-1")))
 	tab2 := entity.NewTab(entity.TabID("tab-2"), entity.WorkspaceID("workspace-2"), entity.NewPane(entity.PaneID("pane-2")))
@@ -494,10 +498,12 @@ func TestApp_ActivateBrowserWindowResyncsTitleFromBackgroundPane(t *testing.T) {
 	if err != nil {
 		t.Fatalf("first window creation failed: %v", err)
 	}
+	defer firstMainWindow.Destroy()
 	secondMainWindow, err := window.New(context.Background(), gtkApp, "top")
 	if err != nil {
 		t.Fatalf("second window creation failed: %v", err)
 	}
+	defer secondMainWindow.Destroy()
 
 	tab1 := entity.NewTab(entity.TabID("tab-1"), entity.WorkspaceID("workspace-1"), entity.NewPane(entity.PaneID("pane-1")))
 	tab2 := entity.NewTab(entity.TabID("tab-2"), entity.WorkspaceID("workspace-2"), entity.NewPane(entity.PaneID("pane-2")))
@@ -542,10 +548,12 @@ func TestApp_HandlePaneFullscreenChangedTargetsOwningWindow(t *testing.T) {
 	if err != nil {
 		t.Fatalf("first window creation failed: %v", err)
 	}
+	defer firstMainWindow.Destroy()
 	secondMainWindow, err := window.New(context.Background(), gtkApp, "top")
 	if err != nil {
 		t.Fatalf("second window creation failed: %v", err)
 	}
+	defer secondMainWindow.Destroy()
 
 	tab1 := entity.NewTab(entity.TabID("tab-1"), entity.WorkspaceID("workspace-1"), entity.NewPane(entity.PaneID("pane-1")))
 	tab2 := entity.NewTab(entity.TabID("tab-2"), entity.WorkspaceID("workspace-2"), entity.NewPane(entity.PaneID("pane-2")))
@@ -592,10 +600,12 @@ func TestApp_HandlePaneFullscreenChangedIgnoresUnresolvedPane(t *testing.T) {
 	if err != nil {
 		t.Fatalf("first window creation failed: %v", err)
 	}
+	defer firstMainWindow.Destroy()
 	secondMainWindow, err := window.New(context.Background(), gtkApp, "top")
 	if err != nil {
 		t.Fatalf("second window creation failed: %v", err)
 	}
+	defer secondMainWindow.Destroy()
 	firstMainWindow.TabBar().SetVisible(true)
 	secondMainWindow.TabBar().SetVisible(true)
 	first := &browserWindow{id: "window-1", mainWindow: firstMainWindow}
@@ -664,6 +674,41 @@ func TestApp_MoveActivePaneToTabFromBrowserWindowAnchorsOwningWindow(t *testing.
 	}
 }
 
+func TestApp_MoveActivePaneToTabFromBrowserWindowActivatesTargetOwnerForCrossWindowTab(t *testing.T) {
+	tabs := entity.NewTabList()
+	tab1 := entity.NewTab(entity.TabID("tab-1"), entity.WorkspaceID("workspace-1"), entity.NewPane(entity.PaneID("pane-1")))
+	tab2 := entity.NewTab(entity.TabID("tab-2"), entity.WorkspaceID("workspace-2"), entity.NewPane(entity.PaneID("pane-2")))
+	tab3 := entity.NewTab(entity.TabID("tab-3"), entity.WorkspaceID("workspace-3"), entity.NewPane(entity.PaneID("pane-3")))
+	tabs.Add(tab1)
+	tabs.Add(tab2)
+	tabs.Add(tab3)
+	tabs.SetActive(tab1.ID)
+	first := &browserWindow{id: "window-1", activeTabID: tab1.ID}
+	second := &browserWindow{id: "window-2", activeTabID: tab2.ID}
+	app := &App{
+		tabs:                tabs,
+		movePaneToTabUC:     usecase.NewMovePaneToTabUseCase(func() string { return "generated" }),
+		deps:                &Dependencies{Config: &config.Config{}},
+		browserWindows:      map[string]*browserWindow{first.id: first, second.id: second},
+		windowForTab:        map[entity.TabID]*browserWindow{tab1.ID: first, tab2.ID: second, tab3.ID: second},
+		lastFocusedWindowID: first.id,
+	}
+
+	if err := app.moveActivePaneToTabFromBrowserWindow(context.Background(), first, tab3.ID); err != nil {
+		t.Fatalf("moveActivePaneToTabFromBrowserWindow returned error: %v", err)
+	}
+
+	if tabs.Find(tab1.ID) == nil {
+		t.Fatalf("tab-1 should remain when target owner is activated first")
+	}
+	if tabs.Find(tab2.ID) != nil {
+		t.Fatalf("tab-2 should have been moved from the target owner window")
+	}
+	if tabs.Find(tab3.ID) == nil {
+		t.Fatalf("tab-3 should remain as the move target")
+	}
+}
+
 func TestApp_InitKeyboardHandlerDoesNotReattachExistingWindowInput(t *testing.T) {
 	EnsureAdwaitaInitialized()
 	appID := AppID
@@ -677,6 +722,7 @@ func TestApp_InitKeyboardHandlerDoesNotReattachExistingWindowInput(t *testing.T)
 	if err != nil {
 		t.Fatalf("window creation failed: %v", err)
 	}
+	defer mainWindow.Destroy()
 
 	sentinelKeyboardHandler := &input.KeyboardHandler{}
 	sentinelShortcutHandler := &input.GlobalShortcutHandler{}
@@ -738,7 +784,10 @@ func TestApp_UpdateBrowserWindowTabBarVisibilityHonorsHideWhenSingleTabDisabled(
 	defer gtkApp.Unref()
 
 	mainWindow := &window.MainWindow{}
-	tabBar := newTestTabBarShell(t, entity.TabID("tab-1"))
+	tabBar := component.NewTabBar()
+	if tabBar == nil {
+		t.Fatal("tab bar creation failed")
+	}
 	tabBar.SetVisible(false)
 	setWindowTabBar(t, mainWindow, tabBar)
 	bw := &browserWindow{id: "window-1", mainWindow: mainWindow}
