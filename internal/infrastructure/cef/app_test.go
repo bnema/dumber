@@ -102,7 +102,7 @@ func TestDumberBPH_OnAlreadyRunningAppRelaunch_ForwardsBrowseURLAndReturns1(t *t
 	}
 }
 
-func TestDumberBPH_OnAlreadyRunningAppRelaunch_DoesNotForwardEmptyBrowseURLAndReturns0(t *testing.T) {
+func TestDumberBPH_OnAlreadyRunningAppRelaunch_DoesNotForwardEmptyBrowseURLAndReturns1(t *testing.T) {
 	t.Parallel()
 
 	gotURL := "sentinel"
@@ -115,8 +115,8 @@ func TestDumberBPH_OnAlreadyRunningAppRelaunch_DoesNotForwardEmptyBrowseURLAndRe
 		commandLineString: "dumber browse",
 	}, "")
 
-	if ret != 0 {
-		t.Fatalf("OnAlreadyRunningAppRelaunch returned %d, want 0", ret)
+	if ret != 1 {
+		t.Fatalf("OnAlreadyRunningAppRelaunch returned %d, want 1", ret)
 	}
 	if gotURL != "sentinel" {
 		t.Fatalf("forwarded browse url = %q, want %q", gotURL, "sentinel")

@@ -22,6 +22,13 @@ func TestResolvedStateRoot_FallsBackToCacheDir(t *testing.T) {
 	require.Equal(t, "/tmp/cache", root)
 }
 
+func TestResolvedStateRoot_UsesEnvOverride(t *testing.T) {
+	t.Setenv(CEFRootCachePathEnvVar, "/tmp/override")
+
+	root := resolvedStateRoot(port.EngineOptions{})
+	require.Equal(t, "/tmp/override", root)
+}
+
 func TestPrepareCEFSettings_UsesResolvedStateRoot(t *testing.T) {
 	logger := zerolog.Nop()
 	settings, err := prepareCEFSettings(port.EngineOptions{CacheDir: "/tmp/cache"}, RuntimeConfig{}, &logger)

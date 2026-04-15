@@ -11,6 +11,7 @@ import (
 
 	"github.com/bnema/dumber/internal/application/port"
 	"github.com/bnema/dumber/internal/domain/entity"
+	"github.com/bnema/dumber/internal/infrastructure/cef"
 	"github.com/bnema/dumber/internal/logging"
 )
 
@@ -492,8 +493,12 @@ func (s *SessionSpawner) SpawnWithSession(sessionID entity.SessionID) error {
 	// Start dumber browse with session ID in environment
 	cmd := exec.Command(execPath, "browse")
 
-	// Inherit environment and add restore session ID
-	cmd.Env = append(sanitizedChildEnv(os.Environ()), RestoreSessionEnvVar+"="+string(sessionID))
+	// Restore sessions get an isolated CEF state root.
+	cmd.Env = append(
+		sanitizedChildEnv(os.Environ()),
+		RestoreSessionEnvVar+"="+string(sessionID),
+		cef.CEFRootCachePathEnvVar+"="+sessionCEFRootCachePath(sessionID),
+	)
 
 	// Detach from current process group so the new process survives.
 	cmd.Stdin = nil
@@ -518,4 +523,8 @@ func (s *SessionSpawner) SpawnWithSession(sessionID entity.SessionID) error {
 		Msg("spawned dumber with session restoration")
 
 	return nil
+}
+
+func sessionCEFRootCachePath(sessionID entity.SessionID) string {
+	return filepath.Join(cef.DefaultCEFUserDataDir(), "sessions", string(sessionID))
 }

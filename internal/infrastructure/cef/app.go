@@ -183,6 +183,15 @@ func parseBrowseRelaunchCommandLine(commandLine purecef.CommandLine) (string, bo
 	return args[2], true
 }
 
+func isBrowseRelaunchCommandLine(commandLine purecef.CommandLine) bool {
+	if commandLine == nil {
+		return false
+	}
+
+	args := parseRelaunchCommandLineArgs(commandLine.GetCommandLineString())
+	return len(args) >= 2 && args[1] == "browse"
+}
+
 func parseBrowseURLFromRelaunchCommandLine(commandLine purecef.CommandLine) string {
 	browseURL, _ := parseBrowseRelaunchCommandLine(commandLine)
 	return browseURL
@@ -193,6 +202,9 @@ func (h *dumberBPH) OnAlreadyRunningAppRelaunch(commandLine purecef.CommandLine,
 		if h != nil && h.engine != nil && h.engine.alreadyRunningAppRelaunchHandler != nil {
 			h.engine.alreadyRunningAppRelaunchHandler(browseURL)
 		}
+		return 1
+	}
+	if isBrowseRelaunchCommandLine(commandLine) {
 		return 1
 	}
 
