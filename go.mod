@@ -3,12 +3,12 @@ module github.com/bnema/dumber
 go 1.26.1
 
 require (
-	github.com/bnema/purego-cef v0.8.1
-	github.com/bnema/purego-ffmpeg v0.3.0
-	github.com/bnema/purego-pipewire v0.1.1
-	github.com/bnema/purego-sqlite v0.1.1
-	github.com/bnema/puregotk v0.4.0
-	github.com/bnema/puregotk-webkit v0.0.16
+	github.com/bnema/purego-cef v0.8.2
+	github.com/bnema/purego-ffmpeg v0.3.1
+	github.com/bnema/purego-pipewire v0.1.2
+	github.com/bnema/purego-sqlite v0.1.2
+	github.com/bnema/puregotk v0.5.1
+	github.com/bnema/puregotk-webkit v0.0.17
 	github.com/charmbracelet/bubbles v1.0.0
 	github.com/charmbracelet/bubbletea v1.3.10
 	github.com/charmbracelet/lipgloss v1.1.0
@@ -18,18 +18,19 @@ require (
 	github.com/google/uuid v1.6.0
 	github.com/pelletier/go-toml/v2 v2.3.0
 	github.com/pressly/goose/v3 v3.27.0
-	github.com/rs/zerolog v1.34.0
+	github.com/rs/zerolog v1.35.0
 	github.com/spf13/cobra v1.10.2
 	github.com/spf13/viper v1.21.0
 	github.com/stretchr/testify v1.11.1
-	golang.org/x/image v0.38.0
-	golang.org/x/sys v0.42.0
+	golang.org/x/image v0.39.0
+	golang.org/x/sys v0.43.0
 	gopkg.in/yaml.v3 v3.0.1
 )
 
 require (
 	github.com/atotto/clipboard v0.1.4 // indirect
 	github.com/aymanbagabas/go-osc52/v2 v2.0.1 // indirect
+	github.com/bnema/purego v0.11.0-bnema.2 // indirect
 	github.com/charmbracelet/colorprofile v0.4.1 // indirect
 	github.com/charmbracelet/x/ansi v0.11.6 // indirect
 	github.com/charmbracelet/x/cellbuf v0.0.15 // indirect
@@ -53,6 +54,7 @@ require (
 	github.com/muesli/termenv v0.16.0 // indirect
 	github.com/pmezard/go-difflib v1.0.0 // indirect
 	github.com/rivo/uniseg v0.4.7 // indirect
+	github.com/rogpeppe/go-internal v1.14.1 // indirect
 	github.com/russross/blackfriday/v2 v2.1.0 // indirect
 	github.com/sagikazarmark/locafero v0.12.0 // indirect
 	github.com/sahilm/fuzzy v0.1.1 // indirect
@@ -66,7 +68,7 @@ require (
 	go.uber.org/multierr v1.11.0 // indirect
 	go.yaml.in/yaml/v3 v3.0.4 // indirect
 	golang.org/x/sync v0.20.0 // indirect
-	golang.org/x/text v0.35.0 // indirect
+	golang.org/x/text v0.36.0 // indirect
 	gopkg.in/check.v1 v1.0.0-20190902080502-41f04d3bba15 // indirect
 	modernc.org/sqlite v1.47.0 // indirect
 )
