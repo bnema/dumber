@@ -481,6 +481,33 @@ func sanitizedChildEnv(env []string) []string {
 	return cleaned
 }
 
+func withoutEnvKeys(env []string, keys ...string) []string {
+	if len(keys) == 0 {
+		return append([]string(nil), env...)
+	}
+
+	blocked := make(map[string]struct{}, len(keys))
+	for _, key := range keys {
+		if key == "" {
+			continue
+		}
+		blocked[key] = struct{}{}
+	}
+
+	filtered := make([]string, 0, len(env))
+	for _, entry := range env {
+		key, _, ok := strings.Cut(entry, "=")
+		if ok {
+			if _, drop := blocked[key]; drop {
+				continue
+			}
+		}
+		filtered = append(filtered, entry)
+	}
+
+	return filtered
+}
+
 // SpawnWithSession starts a new dumber instance to restore a session.
 func (s *SessionSpawner) SpawnWithSession(sessionID entity.SessionID) error {
 	log := logging.FromContext(s.ctx)
@@ -494,11 +521,13 @@ func (s *SessionSpawner) SpawnWithSession(sessionID entity.SessionID) error {
 	cmd := exec.Command(execPath, "browse")
 
 	// Restore sessions get an isolated CEF state root.
-	cmd.Env = append(
-		sanitizedChildEnv(os.Environ()),
+	sanitizedEnv := withoutEnvKeys(sanitizedChildEnv(os.Environ()), RestoreSessionEnvVar, cef.CEFRootCachePathEnvVar)
+	sanitizedEnv = append(
+		sanitizedEnv,
 		RestoreSessionEnvVar+"="+string(sessionID),
 		cef.CEFRootCachePathEnvVar+"="+sessionCEFRootCachePath(sessionID),
 	)
+	cmd.Env = sanitizedEnv
 
 	// Detach from current process group so the new process survives.
 	cmd.Stdin = nil

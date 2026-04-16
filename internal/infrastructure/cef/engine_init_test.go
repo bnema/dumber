@@ -27,6 +27,9 @@ func TestResolvedStateRoot_UsesEnvOverride(t *testing.T) {
 
 	root := resolvedStateRoot(port.EngineOptions{})
 	require.Equal(t, "/tmp/override", root)
+
+	root = resolvedStateRoot(port.EngineOptions{DataDir: "/tmp/data", CacheDir: "/tmp/cache"})
+	require.Equal(t, "/tmp/override", root)
 }
 
 func TestPrepareCEFSettings_UsesResolvedStateRoot(t *testing.T) {

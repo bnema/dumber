@@ -199,8 +199,10 @@ func parseBrowseURLFromRelaunchCommandLine(commandLine purecef.CommandLine) stri
 
 func (h *dumberBPH) OnAlreadyRunningAppRelaunch(commandLine purecef.CommandLine, _ string) int32 {
 	if browseURL, ok := parseBrowseRelaunchCommandLine(commandLine); ok {
-		if h != nil && h.engine != nil && h.engine.alreadyRunningAppRelaunchHandler != nil {
-			h.engine.alreadyRunningAppRelaunchHandler(browseURL)
+		if h != nil && h.engine != nil {
+			if handler := h.engine.alreadyRunningAppRelaunchCallback(); handler != nil {
+				handler(browseURL)
+			}
 		}
 		return 1
 	}

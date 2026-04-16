@@ -37,6 +37,7 @@ type Engine struct {
 	clipboard                        port.Clipboard
 	resolver                         port.ImageDataResolver
 	mediaClassifier                  MediaClassifier
+	alreadyRunningAppRelaunchMu      sync.RWMutex
 	alreadyRunningAppRelaunchHandler func(string)
 
 	// activeWebViews tracks all live webviews for CSS broadcast.
@@ -119,7 +120,15 @@ func (e *Engine) SetColorResolver(resolver port.ColorSchemeResolver) {
 // SetAlreadyRunningAppRelaunchHandler configures the callback invoked when CEF
 // relaunches an already-running app instance.
 func (e *Engine) SetAlreadyRunningAppRelaunchHandler(handler func(string)) {
+	e.alreadyRunningAppRelaunchMu.Lock()
+	defer e.alreadyRunningAppRelaunchMu.Unlock()
 	e.alreadyRunningAppRelaunchHandler = handler
+}
+
+func (e *Engine) alreadyRunningAppRelaunchCallback() func(string) {
+	e.alreadyRunningAppRelaunchMu.RLock()
+	defer e.alreadyRunningAppRelaunchMu.RUnlock()
+	return e.alreadyRunningAppRelaunchHandler
 }
 
 // registerWebView adds a webview to the active tracking map.

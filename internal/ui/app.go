@@ -614,6 +614,16 @@ func (a *App) setBrowserWindowForTab(tabID entity.TabID, bw *browserWindow) {
 	}
 }
 
+func (a *App) tabBarForBrowserWindow(bw *browserWindow) *component.TabBar {
+	if bw != nil && bw.mainWindow != nil {
+		return bw.mainWindow.TabBar()
+	}
+	if a.mainWindow != nil {
+		return a.mainWindow.TabBar()
+	}
+	return nil
+}
+
 func (a *App) startBrowserLaunchRelayListener(ctx context.Context) {
 	if a == nil || a.deps == nil || a.deps.BrowserLaunchRelay == nil {
 		return
@@ -1363,6 +1373,17 @@ func (a *App) MoveActivePaneToTab(ctx context.Context, targetTabID entity.TabID)
 		return nil
 	}
 
+	sourceWindow := a.browserWindowForTab(sourceTab.ID)
+	if sourceWindow == nil {
+		sourceWindow = a.browserWindowForMainWindow(a.mainWindow)
+	}
+	targetWindow := sourceWindow
+	if targetTabID != "" {
+		if owner := a.browserWindowForTab(targetTabID); owner != nil {
+			targetWindow = owner
+		}
+	}
+
 	out, err := a.movePaneToTabUC.Execute(*in)
 	if err != nil {
 		return err
@@ -1370,24 +1391,19 @@ func (a *App) MoveActivePaneToTab(ctx context.Context, targetTabID entity.TabID)
 	if out == nil || out.TargetTab == nil {
 		return nil
 	}
+	if out.NewTabCreated && targetWindow != nil {
+		a.setBrowserWindowForTab(out.TargetTab.ID, targetWindow)
+	}
 
-	a.applyMovePaneToTabUI(ctx, out, sourceTab)
-	a.switchToTargetTabIfConfigured(ctx, out)
+	a.applyMovePaneToTabUI(ctx, out, sourceTab, sourceWindow, targetWindow)
+	a.switchToTargetTabIfConfigured(ctx, out, targetWindow)
 	a.updateTabBarVisibility(ctx)
 	a.MarkDirty()
 	return nil
 }
 
 func (a *App) moveActivePaneToTabFromBrowserWindow(ctx context.Context, bw *browserWindow, targetTabID entity.TabID) error {
-	if targetTabID == "" {
-		if bw != nil {
-			a.activateBrowserWindow(bw)
-		}
-		return a.MoveActivePaneToTab(ctx, targetTabID)
-	}
-	if owner := a.browserWindowForTab(targetTabID); owner != nil {
-		a.activateBrowserWindow(owner)
-	} else if bw != nil {
+	if bw != nil {
 		a.activateBrowserWindow(bw)
 	}
 	return a.MoveActivePaneToTab(ctx, targetTabID)
@@ -1415,7 +1431,13 @@ func (a *App) buildMovePaneToTabInput(targetTabID entity.TabID) (*usecase.MovePa
 	return in, activeTab
 }
 
-func (a *App) applyMovePaneToTabUI(ctx context.Context, out *usecase.MovePaneToTabOutput, sourceTab *entity.Tab) {
+func (a *App) applyMovePaneToTabUI(
+	ctx context.Context,
+	out *usecase.MovePaneToTabOutput,
+	sourceTab *entity.Tab,
+	sourceWindow *browserWindow,
+	targetWindow *browserWindow,
+) {
 	if out == nil || out.TargetTab == nil {
 		return
 	}
@@ -1425,10 +1447,10 @@ func (a *App) applyMovePaneToTabUI(ctx context.Context, out *usecase.MovePaneToT
 	}
 
 	if out.SourceTabClosed {
-		a.removeSourceTabUI(sourceTabID)
+		a.removeSourceTabUI(sourceTabID, sourceWindow)
 	}
 	if out.NewTabCreated {
-		a.ensureTargetTabUI(ctx, out.TargetTab)
+		a.ensureTargetTabUI(ctx, out.TargetTab, targetWindow)
 	}
 
 	if !out.SourceTabClosed {
@@ -1437,20 +1459,20 @@ func (a *App) applyMovePaneToTabUI(ctx context.Context, out *usecase.MovePaneToT
 	a.rebuildAndAttachWorkspace(ctx, out.TargetTab.ID, out.TargetTab)
 }
 
-func (a *App) removeSourceTabUI(sourceTabID entity.TabID) {
+func (a *App) removeSourceTabUI(sourceTabID entity.TabID, sourceWindow *browserWindow) {
 	a.releaseFloatingSessionsForTab(context.Background(), sourceTabID)
 	delete(a.workspaceViews, sourceTabID)
-	if a.mainWindow != nil && a.mainWindow.TabBar() != nil {
-		a.mainWindow.TabBar().RemoveTab(sourceTabID)
+	if tabBar := a.tabBarForBrowserWindow(sourceWindow); tabBar != nil {
+		tabBar.RemoveTab(sourceTabID)
 	}
 }
 
-func (a *App) ensureTargetTabUI(ctx context.Context, tab *entity.Tab) {
+func (a *App) ensureTargetTabUI(ctx context.Context, tab *entity.Tab, targetWindow *browserWindow) {
 	if tab == nil {
 		return
 	}
-	if a.mainWindow != nil && a.mainWindow.TabBar() != nil {
-		a.mainWindow.TabBar().AddTab(tab)
+	if tabBar := a.tabBarForBrowserWindow(targetWindow); tabBar != nil {
+		tabBar.AddTab(tab)
 	}
 	a.createWorkspaceViewWithoutAttach(ctx, tab)
 }
@@ -1498,12 +1520,19 @@ func (a *App) reattachFloatingSessions(tabID entity.TabID, wsView *component.Wor
 	}
 }
 
-func (a *App) switchToTargetTabIfConfigured(ctx context.Context, out *usecase.MovePaneToTabOutput) {
+func (a *App) switchToTargetTabIfConfigured(
+	ctx context.Context,
+	out *usecase.MovePaneToTabOutput,
+	targetWindow *browserWindow,
+) {
 	if out == nil || out.TargetTab == nil {
 		return
 	}
 
-	switchToTarget := a.deps.Config.Workspace.SwitchToTabOnMove
+	switchToTarget := false
+	if a.deps != nil && a.deps.Config != nil {
+		switchToTarget = a.deps.Config.Workspace.SwitchToTabOnMove
+	}
 	if out.SourceTabClosed {
 		switchToTarget = true
 	}
@@ -1512,8 +1541,14 @@ func (a *App) switchToTargetTabIfConfigured(ctx context.Context, out *usecase.Mo
 	}
 
 	a.tabs.SetActive(out.TargetTab.ID)
-	if a.mainWindow != nil && a.mainWindow.TabBar() != nil {
-		a.mainWindow.TabBar().SetActive(out.TargetTab.ID)
+	if targetWindow != nil {
+		targetWindow.activeTabID = out.TargetTab.ID
+	}
+	if tabBar := a.tabBarForBrowserWindow(targetWindow); tabBar != nil {
+		tabBar.SetActive(out.TargetTab.ID)
+	}
+	if targetWindow != nil {
+		a.activateBrowserWindow(targetWindow)
 	}
 	a.switchWorkspaceView(ctx, out.TargetTab.ID)
 }
@@ -1807,6 +1842,9 @@ func (a *App) onShutdown(ctx context.Context) {
 		}
 	}
 
+	// Stop accepting relaunches before teardown starts.
+	a.closeBrowserLaunchRelayListener()
+
 	// Cancel context to signal all goroutines
 	a.cancel(errors.New("application shutdown"))
 
@@ -1836,7 +1874,6 @@ func (a *App) onShutdown(ctx context.Context) {
 			log.Warn().Err(err).Msg("failed to close idle inhibitor")
 		}
 	}
-	a.closeBrowserLaunchRelayListener()
 
 	log.Info().Msg("application shutdown complete")
 }

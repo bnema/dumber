@@ -55,6 +55,18 @@ func TestSanitizedChildEnv_PreservesColonSeparatedEntries(t *testing.T) {
 	}
 }
 
+func TestWithoutEnvKeys_RemovesExplicitOverrides(t *testing.T) {
+	env := withoutEnvKeys([]string{
+		"PATH=/usr/bin",
+		RestoreSessionEnvVar + "=old-session",
+		cef.CEFRootCachePathEnvVar + "=/tmp/old-root",
+	}, RestoreSessionEnvVar, cef.CEFRootCachePathEnvVar)
+
+	if len(env) != 1 || env[0] != "PATH=/usr/bin" {
+		t.Fatalf("expected override keys to be removed, got %#v", env)
+	}
+}
+
 func TestSessionSpawner_SpawnWithSession_PassesRestoreSessionAndCEFOverride(t *testing.T) {
 	spawner := NewSessionSpawner(t.Context())
 	childEnvFile := filepath.Join(t.TempDir(), "child-env.txt")

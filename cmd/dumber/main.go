@@ -115,8 +115,12 @@ func main() {
 	// Run GUI mode for browse command
 	if mode == launchModeBrowse {
 		if forwarded, err := tryForwardBrowseURLToRunningInstance(context.Background(), browserLaunchRelay, browseURL); err != nil {
-			fmt.Fprintf(os.Stderr, "failed to forward browse URL %q to a running instance: %v\n", browseURL, err)
-			os.Exit(1)
+			fmt.Fprintf(
+				os.Stderr,
+				"warning: failed to forward browse URL %q to a running instance, falling back to a new process: %v\n",
+				browseURL,
+				err,
+			)
 		} else if forwarded {
 			os.Exit(0)
 		}

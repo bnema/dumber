@@ -755,12 +755,17 @@ func (o *Omnibox) initList() error {
 		o.mu.RLock()
 		mode := o.viewMode
 		bangMode := o.bangMode
+		bangSuggestions := o.bangSuggestions
 		suggestions := o.suggestions
 		favorites := o.favorites
 		o.mu.RUnlock()
 
 		// Don't navigate in bang mode - activating a bang should fill it in
 		if bangMode {
+			if bangText, ok := bangSuggestionTextAt(idx, bangSuggestions); ok && o.entry != nil {
+				o.entry.SetText(bangText)
+				o.entry.SetPosition(-1)
+			}
 			return
 		}
 
@@ -1456,6 +1461,13 @@ func selectedTargetURL(mode ViewMode, idx, maxVisible int, suggestions []Suggest
 		return "", false
 	}
 	return resolveTargetURLForSelection(mode, idx, maxVisible, suggestions, favorites), true
+}
+
+func bangSuggestionTextAt(idx int, bangSuggestions []BangSuggestion) (string, bool) {
+	if idx < 0 || idx >= len(bangSuggestions) {
+		return "", false
+	}
+	return "!" + bangSuggestions[idx].Key + " ", true
 }
 
 func visibleResultCount(total, maxVisible int) int {
@@ -2293,8 +2305,8 @@ func (o *Omnibox) navigateToSelected() {
 		}
 
 		// Otherwise, Enter autocompletes the selected bang.
-		if idx >= 0 && idx < len(bangSuggestions) {
-			o.entry.SetText("!" + bangSuggestions[idx].Key + " ")
+		if bangText, ok := bangSuggestionTextAt(idx, bangSuggestions); ok {
+			o.entry.SetText(bangText)
 			o.entry.SetPosition(-1)
 			return
 		}

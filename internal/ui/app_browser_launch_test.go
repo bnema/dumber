@@ -93,8 +93,14 @@ func testHasUsableGTKDisplay() bool {
 			if displayNum == "" {
 				return false
 			}
-			if _, err := os.Stat(filepath.Join("/tmp/.X11-unix", "X"+displayNum)); err == nil {
-				return true
+			x11SocketCandidates := []string{filepath.Join(os.TempDir(), ".X11-unix", "X"+displayNum)}
+			if fallback := "/tmp/.X11-unix/X" + displayNum; fallback != x11SocketCandidates[0] {
+				x11SocketCandidates = append(x11SocketCandidates, fallback)
+			}
+			for _, candidate := range x11SocketCandidates {
+				if _, err := os.Stat(candidate); err == nil {
+					return true
+				}
 			}
 			return false
 		}
@@ -891,14 +897,20 @@ func TestApp_MoveActivePaneToTabFromBrowserWindowActivatesTargetOwnerForCrossWin
 		t.Fatalf("moveActivePaneToTabFromBrowserWindow returned error: %v", err)
 	}
 
-	if tabs.Find(tab1.ID) == nil {
-		t.Fatalf("tab-1 should remain when target owner is activated first")
+	if tabs.Find(tab1.ID) != nil {
+		t.Fatalf("tab-1 should be removed after its active pane moves away")
 	}
-	if tabs.Find(tab2.ID) != nil {
-		t.Fatalf("tab-2 should have been moved from the target owner window")
+	if tabs.Find(tab2.ID) == nil {
+		t.Fatalf("tab-2 should remain in the target owner window")
 	}
 	if tabs.Find(tab3.ID) == nil {
 		t.Fatalf("tab-3 should remain as the move target")
+	}
+	if app.tabs.ActiveTabID != tab3.ID {
+		t.Fatalf("active tab = %q, want %q", app.tabs.ActiveTabID, tab3.ID)
+	}
+	if app.lastFocusedWindowID != second.id {
+		t.Fatalf("lastFocusedWindowID = %q, want %q", app.lastFocusedWindowID, second.id)
 	}
 }
 
