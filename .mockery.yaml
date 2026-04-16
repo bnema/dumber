@@ -74,6 +74,8 @@ packages:
       RuntimeVersionProbe: {}
       ScriptRefresher: {}
       SnapshotService: {}
+      BrowserWindowOpener: {}
+      BrowserLaunchRelay: {}
       ImageDataResolver: {}
       ResolvedImageSaver: {}
       MenuActionDelegator: {}

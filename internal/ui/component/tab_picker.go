@@ -232,7 +232,8 @@ func (tp *TabPicker) createList() error {
 	tp.listBox.AddCssClass("tab-picker-list")
 	tp.listBox.SetSelectionMode(gtk.SelectionSingleValue)
 
-	rowSelectedCb := func(_ gtk.ListBox, row *gtk.ListBoxRow) {
+	rowSelectedCb := func(_ gtk.ListBox, rowPtr uintptr) {
+		row := gtk.ListBoxRowNewFromInternalPtr(rowPtr)
 		if row == nil {
 			return
 		}

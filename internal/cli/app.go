@@ -10,6 +10,7 @@ import (
 
 	"github.com/bnema/dumber/internal/application/port"
 	"github.com/bnema/dumber/internal/application/usecase"
+	"github.com/bnema/dumber/internal/bootstrap"
 	"github.com/bnema/dumber/internal/cli/styles"
 	"github.com/bnema/dumber/internal/domain/build"
 	"github.com/bnema/dumber/internal/domain/repository"
@@ -37,6 +38,7 @@ type App struct {
 
 	// Services
 	FaviconService *favicon.Service
+	SessionSpawner port.SessionSpawner
 
 	// Context with logger
 	ctx        context.Context
@@ -131,6 +133,7 @@ func NewApp() (*App, error) {
 		RestoreUC:       restoreUC,
 		DeleteSessionUC: deleteSessionUC,
 		FaviconService:  faviconService,
+		SessionSpawner:  bootstrap.NewSessionSpawner(ctx, cfg),
 		ctx:             ctx,
 		logCleanup:      logCleanup,
 	}, nil

@@ -53,6 +53,9 @@ var initialURL string
 // restoreSessionID holds the session ID to restore on startup.
 var restoreSessionID string
 
+// browserLaunchRelay is shared for early browse handoff and in-app browser launches.
+var browserLaunchRelay = desktop.NewBrowserLaunchRelay(xdg.New())
+
 type launchMode string
 
 const (
@@ -86,6 +89,14 @@ func launchModeFromArgs(args []string) (launchMode, string) {
 	return launchModeCLI, ""
 }
 
+func tryForwardBrowseURLToRunningInstance(ctx context.Context, relay port.BrowserLaunchRelay, browseURL string) (bool, error) {
+	if relay == nil || browseURL == "" {
+		return false, nil
+	}
+
+	return relay.DeliverOpenFreshWindow(ctx, browseURL)
+}
+
 func main() {
 	enableCrashForensics()
 
@@ -103,6 +114,17 @@ func main() {
 	mode, browseURL := launchModeFromArgs(os.Args)
 	// Run GUI mode for browse command
 	if mode == launchModeBrowse {
+		if forwarded, err := tryForwardBrowseURLToRunningInstance(context.Background(), browserLaunchRelay, browseURL); err != nil {
+			fmt.Fprintf(
+				os.Stderr,
+				"warning: failed to forward browse URL %q to a running instance, falling back to a new process: %v\n",
+				browseURL,
+				err,
+			)
+		} else if forwarded {
+			os.Exit(0)
+		}
+
 		initialURL = browseURL
 		restoreSessionID = os.Getenv("DUMBER_RESTORE_SESSION")
 		os.Args = os.Args[:1]
@@ -187,6 +209,13 @@ func runGUI() int {
 		log.Error().Err(err).Msg("failed to create application")
 		return 1
 	}
+	if relaunchSetter, ok := engine.(port.AlreadyRunningAppRelaunchHandlerSetter); ok {
+		relaunchSetter.SetAlreadyRunningAppRelaunchHandler(func(url string) {
+			if err := app.OpenFreshWindow(ctx, url); err != nil {
+				log.Warn().Err(err).Str("url", url).Msg("failed to open relaunch browser window")
+			}
+		})
+	}
 	timer.Mark("ui_deps")
 	timer.Log(ctx)
 
@@ -212,9 +241,15 @@ func runStandaloneOmnibox() int {
 
 	preInitializeAdwaitaForCEF(cfg, initResult, ui.EnsureAdwaitaInitialized)
 
-	engine, repos, dbCleanup, err := initStackAndRepos(ctx, cfg, initResult, false)
+	// Standalone omnibox intentionally skips browser-engine initialization.
+	// When the main browser is already running under CEF, spinning up another CEF
+	// engine for the omnibox process triggers Chromium's already-running-app
+	// relaunch path and can turn the `omnibox` subcommand into a bogus browser
+	// URL (`omnibox/`). The standalone omnibox only needs repos/use cases/theme;
+	// actual browser navigation is handed off via LaunchBrowserURL.
+	repos, dbCleanup, err := initStandaloneOmniboxRepos()
 	if err != nil {
-		logging.FromContext(ctx).Error().Err(err).Msg("failed to initialize standalone omnibox runtime")
+		logging.FromContext(ctx).Error().Err(err).Msg("failed to initialize standalone omnibox repositories")
 		return 1
 	}
 	if dbCleanup != nil {
@@ -228,7 +263,7 @@ func runStandaloneOmnibox() int {
 		initResult.ThemeManager,
 		initResult.ColorResolver,
 		initResult.AdwaitaDetector,
-		engine,
+		nil,
 		repos,
 		useCases,
 		nil,
@@ -239,7 +274,7 @@ func runStandaloneOmnibox() int {
 		logging.FromContext(ctx).Error().Err(err).Msg("failed to initialize standalone omnibox UI dependencies")
 		return 1
 	}
-	runtimeCfg := ui.NewStandaloneOmniboxRuntime(ctx, uiDeps, engine.FaviconDatabase())
+	runtimeCfg := ui.NewStandaloneOmniboxRuntime(ctx, uiDeps, nil)
 
 	return ui.RunStandaloneOmnibox(ctx, runtimeCfg)
 }
@@ -419,12 +454,20 @@ func initStackAndRepos(
 		return nil, nil, nil, err
 	}
 
-	lazyDB, err := bootstrap.CreateLazyDatabase()
+	repos, dbCleanup, err := initStandaloneOmniboxRepos()
 	if err != nil {
 		return nil, nil, nil, err
 	}
+	return engine, repos, dbCleanup, nil
+}
+
+func initStandaloneOmniboxRepos() (*repositories, func(), error) {
+	lazyDB, err := bootstrap.CreateLazyDatabase()
+	if err != nil {
+		return nil, nil, err
+	}
 	dbCleanup := func() { _ = lazyDB.Close() }
-	return engine, createLazyRepositories(lazyDB), dbCleanup, nil
+	return createLazyRepositories(lazyDB), dbCleanup, nil
 }
 
 func configureDeferredInit(
@@ -695,6 +738,7 @@ func buildUIDependencies(
 	}
 
 	focusProvider := textinput.NewFocusProvider()
+	browserLauncher := desktop.NewBrowserLauncher(browserLaunchRelay)
 
 	uiDeps := &ui.Dependencies{
 		Ctx:                 ctx,
@@ -738,7 +782,7 @@ func buildUIDependencies(
 		},
 		CheckUpdateUC:       uc.checkUpdate,
 		ApplyUpdateUC:       uc.applyUpdate,
-		SessionSpawner:      desktop.NewSessionSpawner(ctx),
+		SessionSpawner:      bootstrap.NewSessionSpawner(ctx, cfg),
 		FileSystem:          filesystem.New(),
 		AccentFocusProvider: focusProvider,
 		NewGTKEntryTarget: func(entry *gtk.SearchEntry) port.TextInputTarget {
@@ -759,9 +803,12 @@ func buildUIDependencies(
 			return config.GetManager().Watch()
 		},
 		LaunchExternalURL: desktop.LaunchExternalURL,
-		LaunchBrowserURL:  desktop.LaunchBrowserURL,
-		ConfigMigrator:    config.NewMigrator(),
-		HandlerDeps:       *handlerDeps,
+		LaunchBrowserURL: func(uri string) {
+			browserLauncher.LaunchURL(ctx, uri)
+		},
+		BrowserLaunchRelay: browserLaunchRelay,
+		ConfigMigrator:     config.NewMigrator(),
+		HandlerDeps:        *handlerDeps,
 	}
 
 	return uiDeps, nil

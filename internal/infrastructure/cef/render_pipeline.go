@@ -163,8 +163,9 @@ func newRenderPipeline(ctx context.Context, gl *glLoader, scale int32, webviewID
 	rp.glArea.SetHasDepthBuffer(false)
 	rp.glArea.SetHasStencilBuffer(false)
 
-	// Wire signals. puregotk takes *func(...) for signal callbacks.
-	renderCb := func(_ gtk.GLArea, _ *gdk.GLContext) bool {
+	// Wire signals. puregotk currently exposes the render context as a raw pointer.
+	renderCb := func(_ gtk.GLArea, contextPtr uintptr) bool {
+		_ = gdk.GLContextNewFromInternalPtr(contextPtr)
 		return rp.onGLRender()
 	}
 	rp.glArea.ConnectRender(&renderCb)

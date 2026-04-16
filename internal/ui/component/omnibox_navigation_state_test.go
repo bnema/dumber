@@ -199,6 +199,17 @@ func TestSelectedTargetURL(t *testing.T) {
 	}
 }
 
+func TestBangSuggestionTextAt(t *testing.T) {
+	bangSuggestions := []BangSuggestion{{Key: "g"}, {Key: "gh"}}
+
+	if got, ok := bangSuggestionTextAt(1, bangSuggestions); !ok || got != "!gh " {
+		t.Fatalf("bangSuggestionTextAt(1) = (%q, %v), want (%q, %v)", got, ok, "!gh ", true)
+	}
+	if got, ok := bangSuggestionTextAt(99, bangSuggestions); ok || got != "" {
+		t.Fatalf("bangSuggestionTextAt(out of range) = (%q, %v), want (%q, %v)", got, ok, "", false)
+	}
+}
+
 func TestVisibleGhostSuggestion(t *testing.T) {
 	suggestions := []Suggestion{
 		{URL: "https://github.com/bnema/dumber"},

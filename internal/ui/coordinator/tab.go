@@ -69,6 +69,11 @@ func (c *TabCoordinator) SetOnStateChanged(fn func()) {
 	c.onStateChanged = fn
 }
 
+// SetMainWindow updates the window targeted by tab UI operations.
+func (c *TabCoordinator) SetMainWindow(mainWindow *window.MainWindow) {
+	c.mainWindow = mainWindow
+}
+
 // notifyStateChanged triggers the state changed callback if set.
 func (c *TabCoordinator) notifyStateChanged() {
 	if c.onStateChanged != nil {
@@ -352,7 +357,7 @@ func (c *TabCoordinator) UpdateBarVisibility(ctx context.Context) {
 		return
 	}
 
-	tabCount := c.tabs.Count()
+	tabCount := c.mainWindow.TabBar().Count()
 	shouldShow := tabCount > 1
 
 	log.Debug().Int("tab_count", tabCount).Bool("should_show", shouldShow).Msg("setting tab bar visibility")

@@ -381,12 +381,13 @@ func (a *Adapter) UnsetAsDefaultBrowser(ctx context.Context) error {
 
 // SessionSpawner implements port.SessionSpawner by launching a new dumber process.
 type SessionSpawner struct {
-	ctx context.Context
+	ctx      context.Context
+	spawnEnv port.SessionSpawnEnvironment
 }
 
 // NewSessionSpawner creates a new session spawner.
-func NewSessionSpawner(ctx context.Context) *SessionSpawner {
-	return &SessionSpawner{ctx: ctx}
+func NewSessionSpawner(ctx context.Context, spawnEnv port.SessionSpawnEnvironment) *SessionSpawner {
+	return &SessionSpawner{ctx: ctx, spawnEnv: spawnEnv}
 }
 
 // RestoreSessionEnvVar is the environment variable used to pass session ID for restoration.
@@ -406,7 +407,18 @@ func LaunchExternalURL(uri string) {
 
 // LaunchBrowserURL opens a URL in a new dumber browser window.
 func LaunchBrowserURL(uri string) {
-	execPath, err := getExecutablePath()
+	launchBrowserBrowseURL(uri, getExecutablePath, startDetachedProcess)
+}
+
+func launchBrowserBrowseURL(uri string, resolveExecutablePath func() (string, error), spawnDetachedProcess func(*exec.Cmd) error) {
+	if resolveExecutablePath == nil {
+		resolveExecutablePath = getExecutablePath
+	}
+	if spawnDetachedProcess == nil {
+		spawnDetachedProcess = startDetachedProcess
+	}
+
+	execPath, err := resolveExecutablePath()
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "failed to resolve dumber executable for URL %q: %v\n", uri, err)
 		return
@@ -414,7 +426,7 @@ func LaunchBrowserURL(uri string) {
 
 	cmd := exec.Command(execPath, "browse", uri)
 	cmd.Env = sanitizedChildEnv(os.Environ())
-	if err := startDetachedProcess(cmd); err != nil {
+	if err := spawnDetachedProcess(cmd); err != nil {
 		fmt.Fprintf(os.Stderr, "failed to launch dumber browse for URL %q: %v\n", uri, err)
 	}
 }
@@ -469,6 +481,33 @@ func sanitizedChildEnv(env []string) []string {
 	return cleaned
 }
 
+func withoutEnvKeys(env []string, keys ...string) []string {
+	if len(keys) == 0 {
+		return append([]string(nil), env...)
+	}
+
+	blocked := make(map[string]struct{}, len(keys))
+	for _, key := range keys {
+		if key == "" {
+			continue
+		}
+		blocked[key] = struct{}{}
+	}
+
+	filtered := make([]string, 0, len(env))
+	for _, entry := range env {
+		key, _, ok := strings.Cut(entry, "=")
+		if ok {
+			if _, drop := blocked[key]; drop {
+				continue
+			}
+		}
+		filtered = append(filtered, entry)
+	}
+
+	return filtered
+}
+
 // SpawnWithSession starts a new dumber instance to restore a session.
 func (s *SessionSpawner) SpawnWithSession(sessionID entity.SessionID) error {
 	log := logging.FromContext(s.ctx)
@@ -481,8 +520,14 @@ func (s *SessionSpawner) SpawnWithSession(sessionID entity.SessionID) error {
 	// Start dumber browse with session ID in environment
 	cmd := exec.Command(execPath, "browse")
 
-	// Inherit environment and add restore session ID
-	cmd.Env = append(sanitizedChildEnv(os.Environ()), RestoreSessionEnvVar+"="+string(sessionID))
+	sanitizedEnv := withoutEnvKeys(sanitizedChildEnv(os.Environ()), RestoreSessionEnvVar)
+	overrides := []string{RestoreSessionEnvVar + "=" + string(sessionID)}
+	if s.spawnEnv != nil {
+		sanitizedEnv = withoutEnvKeys(sanitizedEnv, s.spawnEnv.RootCacheEnvVar())
+		overrides = append(overrides, s.spawnEnv.RootCacheEnvVar()+"="+s.spawnEnv.SessionRootCachePath(sessionID))
+	}
+	sanitizedEnv = append(sanitizedEnv, overrides...)
+	cmd.Env = sanitizedEnv
 
 	// Detach from current process group so the new process survives.
 	cmd.Stdin = nil

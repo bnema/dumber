@@ -3,7 +3,7 @@ package webkit
 import (
 	"testing"
 
-	"github.com/bnema/puregotk-webkit/webkit"
+	"github.com/bnema/puregotk/v4/webkit"
 	"github.com/stretchr/testify/assert"
 )
 

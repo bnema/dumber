@@ -8,7 +8,64 @@ import (
 	"github.com/stretchr/testify/assert"
 
 	"github.com/bnema/dumber/internal/domain/entity"
+	"github.com/bnema/dumber/internal/ui/component"
 )
+
+func TestOnTitleChanged_DoesNotEmitWindowCallbackForBackgroundPane(t *testing.T) {
+	t.Parallel()
+
+	pane1 := entity.PaneID("pane-1")
+	pane2 := entity.PaneID("pane-2")
+	root := &entity.PaneNode{ID: "root"}
+	leaf1 := &entity.PaneNode{ID: string(pane1), Pane: entity.NewPane(pane1), Parent: root}
+	leaf2 := &entity.PaneNode{ID: string(pane2), Pane: entity.NewPane(pane2), Parent: root}
+	root.Children = []*entity.PaneNode{leaf1, leaf2}
+
+	ws := &entity.Workspace{Root: root, ActivePaneID: pane1}
+	var gotPaneID entity.PaneID
+	var gotTitle string
+	c := &Coordinator{
+		paneTitles:  make(map[entity.PaneID]string),
+		getActiveWS: func() (*entity.Workspace, *component.WorkspaceView) { return ws, nil },
+		onWindowTitleChanged: func(paneID entity.PaneID, title string) {
+			gotPaneID = paneID
+			gotTitle = title
+		},
+	}
+
+	c.onTitleChanged(context.Background(), pane2, "Pane Two")
+
+	assert.Empty(t, gotPaneID)
+	assert.Empty(t, gotTitle)
+	assert.Equal(t, "Pane Two", c.GetTitle(pane2))
+}
+
+func TestOnTitleChanged_EmitsWindowCallbackForActivePane(t *testing.T) {
+	t.Parallel()
+
+	pane := entity.PaneID("pane-1")
+	root := &entity.PaneNode{ID: "root"}
+	leaf := &entity.PaneNode{ID: string(pane), Pane: entity.NewPane(pane), Parent: root}
+	root.Children = []*entity.PaneNode{leaf}
+
+	ws := &entity.Workspace{Root: root, ActivePaneID: pane}
+	var gotPaneID entity.PaneID
+	var gotTitle string
+	c := &Coordinator{
+		paneTitles:  make(map[entity.PaneID]string),
+		getActiveWS: func() (*entity.Workspace, *component.WorkspaceView) { return ws, nil },
+		onWindowTitleChanged: func(paneID entity.PaneID, title string) {
+			gotPaneID = paneID
+			gotTitle = title
+		},
+	}
+
+	c.onTitleChanged(context.Background(), pane, "Pane One")
+
+	assert.Equal(t, pane, gotPaneID)
+	assert.Equal(t, "Pane One", gotTitle)
+	assert.Equal(t, "Pane One", c.GetTitle(pane))
+}
 
 // TestGetTitle tests the GetTitle method for title state retrieval.
 

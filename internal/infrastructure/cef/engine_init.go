@@ -22,6 +22,7 @@ import (
 )
 
 const puregoCEFInitTraceEnvVar = "PUREGO_CEF_INIT_TRACE"
+const CEFRootCachePathEnvVar = "DUMBER_CEF_ROOT_CACHE_PATH"
 
 // NewEngine initializes the CEF runtime and returns a ready-to-use Engine.
 func NewEngine(
@@ -89,6 +90,10 @@ func NewEngine(
 }
 
 func resolvedStateRoot(opts port.EngineOptions) string {
+	if root := os.Getenv(CEFRootCachePathEnvVar); root != "" {
+		return root
+	}
+
 	switch {
 	case opts.DataDir != "":
 		return opts.DataDir
@@ -157,6 +162,11 @@ func defaultCEFUserDataDir() string {
 		return filepath.Clean(filepath.Join(dataHome, "dumber", "cef_user_data"))
 	}
 	return filepath.Join(dirs.DataHome, "cef_user_data")
+}
+
+// DefaultCEFUserDataDir returns the default CEF state root.
+func DefaultCEFUserDataDir() string {
+	return defaultCEFUserDataDir()
 }
 
 // initializeCEF calls cef_initialize with the App to register custom schemes

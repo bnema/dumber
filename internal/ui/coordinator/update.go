@@ -17,7 +17,7 @@ import (
 type UpdateCoordinator struct {
 	checkUC         *usecase.CheckUpdateUseCase
 	applyUC         *usecase.ApplyUpdateUseCase
-	toaster         *component.Toaster
+	toastFn         func(ctx context.Context, msg string, level component.ToastLevel)
 	enableOnStartup bool
 	autoDownload    bool
 	mu              sync.RWMutex // Protects status and lastInfo
@@ -31,14 +31,14 @@ type UpdateCoordinator struct {
 func NewUpdateCoordinator(
 	checkUC *usecase.CheckUpdateUseCase,
 	applyUC *usecase.ApplyUpdateUseCase,
-	toaster *component.Toaster,
+	showToast func(ctx context.Context, msg string, level component.ToastLevel),
 	enableOnStartup bool,
 	autoDownload bool,
 ) *UpdateCoordinator {
 	return &UpdateCoordinator{
 		checkUC:         checkUC,
 		applyUC:         applyUC,
-		toaster:         toaster,
+		toastFn:         showToast,
 		enableOnStartup: enableOnStartup,
 		autoDownload:    autoDownload,
 		status:          entity.UpdateStatusUnknown,
@@ -104,7 +104,9 @@ func (c *UpdateCoordinator) showUpdateNotification(ctx context.Context, result *
 	}
 
 	cb := glib.SourceFunc(func(_ uintptr) bool {
-		c.toaster.Show(ctx, msg, component.ToastInfo)
+		if c.toastFn != nil {
+			c.toastFn(ctx, msg, component.ToastInfo)
+		}
 		return false
 	})
 	glib.IdleAdd(&cb, 0)
@@ -145,7 +147,9 @@ func (c *UpdateCoordinator) downloadAsync(ctx context.Context, downloadURL strin
 
 func (c *UpdateCoordinator) showToast(ctx context.Context, msg string, level component.ToastLevel) {
 	cb := glib.SourceFunc(func(_ uintptr) bool {
-		c.toaster.Show(ctx, msg, level)
+		if c.toastFn != nil {
+			c.toastFn(ctx, msg, level)
+		}
 		return false
 	})
 	glib.IdleAdd(&cb, 0)

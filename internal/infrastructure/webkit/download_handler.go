@@ -9,8 +9,8 @@ import (
 	"github.com/bnema/dumber/internal/application/port"
 	downloadutil "github.com/bnema/dumber/internal/domain/download"
 	"github.com/bnema/dumber/internal/logging"
-	"github.com/bnema/puregotk-webkit/webkit"
 	"github.com/bnema/puregotk/v4/glib"
+	"github.com/bnema/puregotk/v4/webkit"
 )
 
 const (

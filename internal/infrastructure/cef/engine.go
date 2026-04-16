@@ -14,6 +14,7 @@ import (
 
 // Compile-time interface check.
 var _ port.Engine = (*Engine)(nil)
+var _ port.AlreadyRunningAppRelaunchHandlerSetter = (*Engine)(nil)
 
 // Engine implements port.Engine for the CEF browser backend.
 // It manages the CEF lifecycle and provides access to all engine subsystems.
@@ -27,15 +28,17 @@ type Engine struct {
 	schemeHandler *dumbSchemeHandler
 	contentInj    *contentInjector
 
-	registerHandlers       HandlerRegistrar
-	registerAccentHandlers AccentHandlerRegistrar
-	currentConfigPayload   func() ([]byte, error)
-	defaultConfigPayload   func() ([]byte, error)
-	ctxMenuBuilder         port.ContextMenuBuilder
-	ctxMenuExecutorFactory port.ContextMenuActionExecutorFactory
-	clipboard              port.Clipboard
-	resolver               port.ImageDataResolver
-	mediaClassifier        MediaClassifier
+	registerHandlers                 HandlerRegistrar
+	registerAccentHandlers           AccentHandlerRegistrar
+	currentConfigPayload             func() ([]byte, error)
+	defaultConfigPayload             func() ([]byte, error)
+	ctxMenuBuilder                   port.ContextMenuBuilder
+	ctxMenuExecutorFactory           port.ContextMenuActionExecutorFactory
+	clipboard                        port.Clipboard
+	resolver                         port.ImageDataResolver
+	mediaClassifier                  MediaClassifier
+	alreadyRunningAppRelaunchMu      sync.RWMutex
+	alreadyRunningAppRelaunchHandler func(string)
 
 	// activeWebViews tracks all live webviews for CSS broadcast.
 	activeWebViews sync.Map // map[port.WebViewID]*WebView
@@ -112,6 +115,20 @@ func (e *Engine) SetColorResolver(resolver port.ColorSchemeResolver) {
 	if e.contentInj != nil {
 		e.contentInj.setColorResolver(resolver)
 	}
+}
+
+// SetAlreadyRunningAppRelaunchHandler configures the callback invoked when CEF
+// relaunches an already-running app instance.
+func (e *Engine) SetAlreadyRunningAppRelaunchHandler(handler func(string)) {
+	e.alreadyRunningAppRelaunchMu.Lock()
+	defer e.alreadyRunningAppRelaunchMu.Unlock()
+	e.alreadyRunningAppRelaunchHandler = handler
+}
+
+func (e *Engine) alreadyRunningAppRelaunchCallback() func(string) {
+	e.alreadyRunningAppRelaunchMu.RLock()
+	defer e.alreadyRunningAppRelaunchMu.RUnlock()
+	return e.alreadyRunningAppRelaunchHandler
 }
 
 // registerWebView adds a webview to the active tracking map.

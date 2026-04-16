@@ -314,7 +314,8 @@ func (sm *SessionManager) initList() error {
 	sm.listBox.SetSelectionMode(gtk.SelectionSingleValue)
 
 	// Connect row selection - map list row index to session index
-	rowSelectedCb := func(_ gtk.ListBox, row *gtk.ListBoxRow) {
+	rowSelectedCb := func(_ gtk.ListBox, rowPtr uintptr) {
+		row := gtk.ListBoxRowNewFromInternalPtr(rowPtr)
 		if row == nil {
 			return
 		}
