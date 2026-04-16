@@ -8,10 +8,23 @@ import (
 	"time"
 
 	"github.com/bnema/dumber/internal/domain/entity"
-	"github.com/bnema/dumber/internal/infrastructure/cef"
 )
 
 const testCaptureEnvFile = "DUMBER_TEST_CAPTURE_ENV_FILE"
+
+const testRootCacheEnvVar = "DUMBER_TEST_ROOT_CACHE_PATH"
+
+type testSessionSpawnEnvironment struct {
+	rootDir string
+}
+
+func (testSessionSpawnEnvironment) RootCacheEnvVar() string {
+	return testRootCacheEnvVar
+}
+
+func (e testSessionSpawnEnvironment) SessionRootCachePath(sessionID entity.SessionID) string {
+	return filepath.Join(e.rootDir, "sessions", string(sessionID))
+}
 
 func TestMain(m *testing.M) {
 	if envFile := os.Getenv(testCaptureEnvFile); envFile != "" && len(os.Args) >= 2 && os.Args[1] == "browse" {
@@ -59,16 +72,17 @@ func TestWithoutEnvKeys_RemovesExplicitOverrides(t *testing.T) {
 	env := withoutEnvKeys([]string{
 		"PATH=/usr/bin",
 		RestoreSessionEnvVar + "=old-session",
-		cef.CEFRootCachePathEnvVar + "=/tmp/old-root",
-	}, RestoreSessionEnvVar, cef.CEFRootCachePathEnvVar)
+		testRootCacheEnvVar + "=/tmp/old-root",
+	}, RestoreSessionEnvVar, testRootCacheEnvVar)
 
 	if len(env) != 1 || env[0] != "PATH=/usr/bin" {
 		t.Fatalf("expected override keys to be removed, got %#v", env)
 	}
 }
 
-func TestSessionSpawner_SpawnWithSession_PassesRestoreSessionAndCEFOverride(t *testing.T) {
-	spawner := NewSessionSpawner(t.Context())
+func TestSessionSpawner_SpawnWithSession_PassesRestoreSessionAndEngineOverride(t *testing.T) {
+	rootDir := filepath.Join(t.TempDir(), "cef-root")
+	spawner := NewSessionSpawner(t.Context(), testSessionSpawnEnvironment{rootDir: rootDir})
 	childEnvFile := filepath.Join(t.TempDir(), "child-env.txt")
 	t.Setenv(testCaptureEnvFile, childEnvFile)
 	t.Setenv("XDG_DATA_HOME", filepath.Join(t.TempDir(), "data"))
@@ -78,12 +92,12 @@ func TestSessionSpawner_SpawnWithSession_PassesRestoreSessionAndCEFOverride(t *t
 	requireNoError(t, spawner.SpawnWithSession(sessionID))
 
 	env := readEnvFile(t, childEnvFile)
-	wantRoot := filepath.Join(cef.DefaultCEFUserDataDir(), "sessions", string(sessionID))
+	wantRoot := filepath.Join(rootDir, "sessions", string(sessionID))
 	if got := env[RestoreSessionEnvVar]; got != string(sessionID) {
 		t.Fatalf("restore session env = %q, want %q", got, string(sessionID))
 	}
-	if got := env[cef.CEFRootCachePathEnvVar]; got != wantRoot {
-		t.Fatalf("cef state root env = %q, want %q", got, wantRoot)
+	if got := env[testRootCacheEnvVar]; got != wantRoot {
+		t.Fatalf("engine state root env = %q, want %q", got, wantRoot)
 	}
 }
 
@@ -111,6 +125,24 @@ func readEnvFile(t *testing.T, path string) map[string]string {
 
 	t.Fatalf("timed out waiting for child env file %q", path)
 	return nil
+}
+
+func TestSessionSpawner_SpawnWithSession_OmitsEngineOverrideWhenNotConfigured(t *testing.T) {
+	spawner := NewSessionSpawner(t.Context(), nil)
+	childEnvFile := filepath.Join(t.TempDir(), "child-env.txt")
+	t.Setenv(testCaptureEnvFile, childEnvFile)
+	t.Setenv("ENV", "")
+
+	sessionID := entity.SessionID("session-plain")
+	requireNoError(t, spawner.SpawnWithSession(sessionID))
+
+	env := readEnvFile(t, childEnvFile)
+	if got := env[RestoreSessionEnvVar]; got != string(sessionID) {
+		t.Fatalf("restore session env = %q, want %q", got, string(sessionID))
+	}
+	if got := env[testRootCacheEnvVar]; got != "" {
+		t.Fatalf("engine state root env = %q, want empty", got)
+	}
 }
 
 func requireNoError(t *testing.T, err error) {

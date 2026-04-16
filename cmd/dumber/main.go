@@ -782,7 +782,7 @@ func buildUIDependencies(
 		},
 		CheckUpdateUC:       uc.checkUpdate,
 		ApplyUpdateUC:       uc.applyUpdate,
-		SessionSpawner:      desktop.NewSessionSpawner(ctx),
+		SessionSpawner:      bootstrap.NewSessionSpawner(ctx, cfg),
 		FileSystem:          filesystem.New(),
 		AccentFocusProvider: focusProvider,
 		NewGTKEntryTarget: func(entry *gtk.SearchEntry) port.TextInputTarget {

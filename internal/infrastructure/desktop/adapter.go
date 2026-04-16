@@ -11,7 +11,6 @@ import (
 
 	"github.com/bnema/dumber/internal/application/port"
 	"github.com/bnema/dumber/internal/domain/entity"
-	"github.com/bnema/dumber/internal/infrastructure/cef"
 	"github.com/bnema/dumber/internal/logging"
 )
 
@@ -382,12 +381,13 @@ func (a *Adapter) UnsetAsDefaultBrowser(ctx context.Context) error {
 
 // SessionSpawner implements port.SessionSpawner by launching a new dumber process.
 type SessionSpawner struct {
-	ctx context.Context
+	ctx      context.Context
+	spawnEnv port.SessionSpawnEnvironment
 }
 
 // NewSessionSpawner creates a new session spawner.
-func NewSessionSpawner(ctx context.Context) *SessionSpawner {
-	return &SessionSpawner{ctx: ctx}
+func NewSessionSpawner(ctx context.Context, spawnEnv port.SessionSpawnEnvironment) *SessionSpawner {
+	return &SessionSpawner{ctx: ctx, spawnEnv: spawnEnv}
 }
 
 // RestoreSessionEnvVar is the environment variable used to pass session ID for restoration.
@@ -520,13 +520,13 @@ func (s *SessionSpawner) SpawnWithSession(sessionID entity.SessionID) error {
 	// Start dumber browse with session ID in environment
 	cmd := exec.Command(execPath, "browse")
 
-	// Restore sessions get an isolated CEF state root.
-	sanitizedEnv := withoutEnvKeys(sanitizedChildEnv(os.Environ()), RestoreSessionEnvVar, cef.CEFRootCachePathEnvVar)
-	sanitizedEnv = append(
-		sanitizedEnv,
-		RestoreSessionEnvVar+"="+string(sessionID),
-		cef.CEFRootCachePathEnvVar+"="+sessionCEFRootCachePath(sessionID),
-	)
+	sanitizedEnv := withoutEnvKeys(sanitizedChildEnv(os.Environ()), RestoreSessionEnvVar)
+	overrides := []string{RestoreSessionEnvVar + "=" + string(sessionID)}
+	if s.spawnEnv != nil {
+		sanitizedEnv = withoutEnvKeys(sanitizedEnv, s.spawnEnv.RootCacheEnvVar())
+		overrides = append(overrides, s.spawnEnv.RootCacheEnvVar()+"="+s.spawnEnv.SessionRootCachePath(sessionID))
+	}
+	sanitizedEnv = append(sanitizedEnv, overrides...)
 	cmd.Env = sanitizedEnv
 
 	// Detach from current process group so the new process survives.
@@ -552,8 +552,4 @@ func (s *SessionSpawner) SpawnWithSession(sessionID entity.SessionID) error {
 		Msg("spawned dumber with session restoration")
 
 	return nil
-}
-
-func sessionCEFRootCachePath(sessionID entity.SessionID) string {
-	return filepath.Join(cef.DefaultCEFUserDataDir(), "sessions", string(sessionID))
 }
