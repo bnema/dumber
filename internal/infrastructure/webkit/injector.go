@@ -10,7 +10,7 @@ import (
 	"github.com/bnema/dumber/internal/domain/entity"
 	"github.com/bnema/dumber/internal/infrastructure/webutil"
 	"github.com/bnema/dumber/internal/logging"
-	"github.com/bnema/puregotk-webkit/webkit"
+	"github.com/bnema/puregotk/v4/webkit"
 )
 
 const (

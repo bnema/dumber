@@ -17,8 +17,8 @@ import (
 	"github.com/bnema/dumber/internal/application/port"
 	"github.com/bnema/dumber/internal/domain/entity"
 	"github.com/bnema/dumber/internal/logging"
-	"github.com/bnema/puregotk-webkit/webkit"
 	"github.com/bnema/puregotk/v4/gtk"
+	"github.com/bnema/puregotk/v4/webkit"
 )
 
 // contextMenuResolver implements port.ImageDataResolver by fetching image bytes

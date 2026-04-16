@@ -9,7 +9,7 @@ import (
 	"time"
 
 	"github.com/bnema/dumber/internal/infrastructure/filtering"
-	"github.com/bnema/puregotk-webkit/webkit"
+	"github.com/bnema/puregotk/v4/webkit"
 	mock "github.com/stretchr/testify/mock"
 )
 

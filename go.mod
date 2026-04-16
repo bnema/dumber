@@ -3,16 +3,15 @@ module github.com/bnema/dumber
 go 1.26.1
 
 require (
-	github.com/bnema/purego-cef v0.8.1
-	github.com/bnema/purego-ffmpeg v0.3.0
-	github.com/bnema/purego-pipewire v0.1.1
-	github.com/bnema/purego-sqlite v0.1.1
-	github.com/bnema/puregotk v0.4.0
-	github.com/bnema/puregotk-webkit v0.0.16
+	github.com/bnema/purego v0.11.0-bnema.2
+	github.com/bnema/purego-cef v0.8.2
+	github.com/bnema/purego-ffmpeg v0.3.1
+	github.com/bnema/purego-pipewire v0.1.2
+	github.com/bnema/purego-sqlite v0.1.2
+	github.com/bnema/puregotk v0.5.1
 	github.com/charmbracelet/bubbles v1.0.0
 	github.com/charmbracelet/bubbletea v1.3.10
 	github.com/charmbracelet/lipgloss v1.1.0
-	github.com/ebitengine/purego v0.10.0
 	github.com/fsnotify/fsnotify v1.9.0
 	github.com/godbus/dbus/v5 v5.2.2
 	github.com/google/uuid v1.6.0
@@ -70,5 +69,3 @@ require (
 	gopkg.in/check.v1 v1.0.0-20190902080502-41f04d3bba15 // indirect
 	modernc.org/sqlite v1.47.0 // indirect
 )
-
-replace github.com/ebitengine/purego => github.com/bnema/purego v0.0.0-20260413043705-7850e384cde9

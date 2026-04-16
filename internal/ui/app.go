@@ -2823,8 +2823,8 @@ func (a *App) installFloatingOverlayPositioning(tabID entity.TabID, workspaceOve
 		return
 	}
 
-	cb := func(_ gtk.Overlay, widget *gtk.Widget, allocationPtr *uintptr) bool {
-		var widgetPtr uintptr
+	cb := func(_ gtk.Overlay, widgetPtr uintptr, allocationPtr *uintptr) bool {
+		widget := gtk.WidgetNewFromInternalPtr(widgetPtr)
 		if widget != nil {
 			widgetPtr = widget.GoPointer()
 		}

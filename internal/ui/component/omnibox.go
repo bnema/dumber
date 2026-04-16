@@ -728,8 +728,9 @@ func (o *Omnibox) initList() error {
 	o.listBox.AddCssClass("omnibox-listbox")
 	o.listBox.SetSelectionMode(gtk.SelectionSingleValue)
 
-	rowSelectedCb := func(_ gtk.ListBox, row *gtk.ListBoxRow) {
+	rowSelectedCb := func(_ gtk.ListBox, rowPtr uintptr) {
 		o.restoreEntryToRealInput()
+		row := gtk.ListBoxRowNewFromInternalPtr(rowPtr)
 		if row == nil {
 			o.mu.Lock()
 			o.selectedIndex = -1
@@ -745,7 +746,8 @@ func (o *Omnibox) initList() error {
 	o.listBox.ConnectRowSelected(&rowSelectedCb)
 
 	// Handle row activation (click or Enter) - navigate directly to the URL
-	rowActivatedCb := func(_ gtk.ListBox, row *gtk.ListBoxRow) {
+	rowActivatedCb := func(_ gtk.ListBox, rowPtr uintptr) {
+		row := gtk.ListBoxRowNewFromInternalPtr(rowPtr)
 		if row == nil {
 			return
 		}
