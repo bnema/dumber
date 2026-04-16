@@ -237,9 +237,15 @@ func runStandaloneOmnibox() int {
 
 	preInitializeAdwaitaForCEF(cfg, initResult, ui.EnsureAdwaitaInitialized)
 
-	engine, repos, dbCleanup, err := initStackAndRepos(ctx, cfg, initResult, false)
+	// Standalone omnibox intentionally skips browser-engine initialization.
+	// When the main browser is already running under CEF, spinning up another CEF
+	// engine for the omnibox process triggers Chromium's already-running-app
+	// relaunch path and can turn the `omnibox` subcommand into a bogus browser
+	// URL (`omnibox/`). The standalone omnibox only needs repos/use cases/theme;
+	// actual browser navigation is handed off via LaunchBrowserURL.
+	repos, dbCleanup, err := initStandaloneOmniboxRepos()
 	if err != nil {
-		logging.FromContext(ctx).Error().Err(err).Msg("failed to initialize standalone omnibox runtime")
+		logging.FromContext(ctx).Error().Err(err).Msg("failed to initialize standalone omnibox repositories")
 		return 1
 	}
 	if dbCleanup != nil {
@@ -253,7 +259,7 @@ func runStandaloneOmnibox() int {
 		initResult.ThemeManager,
 		initResult.ColorResolver,
 		initResult.AdwaitaDetector,
-		engine,
+		nil,
 		repos,
 		useCases,
 		nil,
@@ -264,7 +270,7 @@ func runStandaloneOmnibox() int {
 		logging.FromContext(ctx).Error().Err(err).Msg("failed to initialize standalone omnibox UI dependencies")
 		return 1
 	}
-	runtimeCfg := ui.NewStandaloneOmniboxRuntime(ctx, uiDeps, engine.FaviconDatabase())
+	runtimeCfg := ui.NewStandaloneOmniboxRuntime(ctx, uiDeps, nil)
 
 	return ui.RunStandaloneOmnibox(ctx, runtimeCfg)
 }
@@ -444,12 +450,20 @@ func initStackAndRepos(
 		return nil, nil, nil, err
 	}
 
-	lazyDB, err := bootstrap.CreateLazyDatabase()
+	repos, dbCleanup, err := initStandaloneOmniboxRepos()
 	if err != nil {
 		return nil, nil, nil, err
 	}
+	return engine, repos, dbCleanup, nil
+}
+
+func initStandaloneOmniboxRepos() (*repositories, func(), error) {
+	lazyDB, err := bootstrap.CreateLazyDatabase()
+	if err != nil {
+		return nil, nil, err
+	}
 	dbCleanup := func() { _ = lazyDB.Close() }
-	return engine, createLazyRepositories(lazyDB), dbCleanup, nil
+	return createLazyRepositories(lazyDB), dbCleanup, nil
 }
 
 func configureDeferredInit(
