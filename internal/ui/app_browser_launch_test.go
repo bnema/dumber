@@ -3,7 +3,10 @@ package ui
 import (
 	"context"
 	"io"
+	"os"
+	"path/filepath"
 	"reflect"
+	"strings"
 	"testing"
 	"unsafe"
 
@@ -21,6 +24,7 @@ import (
 	"github.com/bnema/dumber/internal/ui/layout"
 	layoutmocks "github.com/bnema/dumber/internal/ui/layout/mocks"
 	"github.com/bnema/dumber/internal/ui/window"
+	"github.com/bnema/puregotk/v4/gdk"
 	"github.com/bnema/puregotk/v4/gio"
 	"github.com/bnema/puregotk/v4/gtk"
 )
@@ -68,6 +72,54 @@ func (r *fakeSessionStateRepo) GetAllSnapshots(context.Context) ([]*entity.Sessi
 }
 
 func (r *fakeSessionStateRepo) GetTotalSnapshotsSize(context.Context) (int64, error) { return 0, nil }
+
+func testHasUsableGTKDisplay() bool {
+	if waylandDisplay := os.Getenv("WAYLAND_DISPLAY"); waylandDisplay != "" {
+		candidates := []string{waylandDisplay}
+		if runtimeDir := os.Getenv("XDG_RUNTIME_DIR"); runtimeDir != "" && !filepath.IsAbs(waylandDisplay) {
+			candidates = append([]string{filepath.Join(runtimeDir, waylandDisplay)}, candidates...)
+		}
+		for _, candidate := range candidates {
+			if _, err := os.Stat(candidate); err == nil {
+				return true
+			}
+		}
+	}
+
+	if display := os.Getenv("DISPLAY"); display != "" {
+		if strings.HasPrefix(display, ":") {
+			displayNum := strings.TrimPrefix(display, ":")
+			displayNum = strings.SplitN(displayNum, ".", 2)[0]
+			if displayNum == "" {
+				return false
+			}
+			if _, err := os.Stat(filepath.Join("/tmp/.X11-unix", "X"+displayNum)); err == nil {
+				return true
+			}
+			return false
+		}
+		return true
+	}
+
+	return false
+}
+
+func requireGTKDisplayApp(t *testing.T) *gtk.Application {
+	t.Helper()
+	if !testHasUsableGTKDisplay() {
+		t.Skip("GTK display not available")
+	}
+	EnsureAdwaitaInitialized()
+	if gdk.DisplayGetDefault() == nil {
+		t.Skip("GTK display not available")
+	}
+	appID := AppID
+	gtkApp := gtk.NewApplication(&appID, gio.GApplicationNonUniqueValue)
+	if gtkApp == nil {
+		t.Fatal("gtk application creation failed")
+	}
+	return gtkApp
+}
 
 // setDependencyField uses reflection to reach unexported dependency fields for tests.
 // Keep this test-only so production visibility stays narrow.
@@ -283,12 +335,7 @@ func TestApp_OpenFreshWindowRecordsTabOwnership(t *testing.T) {
 }
 
 func TestApp_RestoreSessionClearsStaleUIStateBeforeApplyingRestoredTabs(t *testing.T) {
-	EnsureAdwaitaInitialized()
-	appID := AppID
-	gtkApp := gtk.NewApplication(&appID, gio.GApplicationNonUniqueValue)
-	if gtkApp == nil {
-		t.Fatal("gtk application creation failed")
-	}
+	gtkApp := requireGTKDisplayApp(t)
 	defer gtkApp.Unref()
 
 	mainWindow, err := window.New(context.Background(), gtkApp, "top")
@@ -344,12 +391,7 @@ func TestApp_RestoreSessionClearsStaleUIStateBeforeApplyingRestoredTabs(t *testi
 }
 
 func TestApp_RestoreSessionWiresStackedPaneTitleBarCallbacks(t *testing.T) {
-	EnsureAdwaitaInitialized()
-	appID := AppID
-	gtkApp := gtk.NewApplication(&appID, gio.GApplicationNonUniqueValue)
-	if gtkApp == nil {
-		t.Fatal("gtk application creation failed")
-	}
+	gtkApp := requireGTKDisplayApp(t)
 	defer gtkApp.Unref()
 
 	mainWindow, err := window.New(context.Background(), gtkApp, "top")
@@ -613,12 +655,7 @@ func TestApp_OwnerOrLastFocusedBrowserWindowPrefersPaneOwner(t *testing.T) {
 }
 
 func TestApp_HandlePaneWindowTitleChangedTargetsOwningWindow(t *testing.T) {
-	EnsureAdwaitaInitialized()
-	appID := AppID
-	gtkApp := gtk.NewApplication(&appID, gio.GApplicationNonUniqueValue)
-	if gtkApp == nil {
-		t.Fatal("gtk application creation failed")
-	}
+	gtkApp := requireGTKDisplayApp(t)
 	defer gtkApp.Unref()
 
 	firstMainWindow, err := window.New(context.Background(), gtkApp, "top")
@@ -657,12 +694,7 @@ func TestApp_HandlePaneWindowTitleChangedTargetsOwningWindow(t *testing.T) {
 }
 
 func TestApp_ActivateBrowserWindowResyncsTitleFromBackgroundPane(t *testing.T) {
-	EnsureAdwaitaInitialized()
-	appID := AppID
-	gtkApp := gtk.NewApplication(&appID, gio.GApplicationNonUniqueValue)
-	if gtkApp == nil {
-		t.Fatal("gtk application creation failed")
-	}
+	gtkApp := requireGTKDisplayApp(t)
 	defer gtkApp.Unref()
 
 	firstMainWindow, err := window.New(context.Background(), gtkApp, "top")
@@ -707,12 +739,7 @@ func TestApp_ActivateBrowserWindowResyncsTitleFromBackgroundPane(t *testing.T) {
 }
 
 func TestApp_HandlePaneFullscreenChangedTargetsOwningWindow(t *testing.T) {
-	EnsureAdwaitaInitialized()
-	appID := AppID
-	gtkApp := gtk.NewApplication(&appID, gio.GApplicationNonUniqueValue)
-	if gtkApp == nil {
-		t.Fatal("gtk application creation failed")
-	}
+	gtkApp := requireGTKDisplayApp(t)
 	defer gtkApp.Unref()
 
 	firstMainWindow, err := window.New(context.Background(), gtkApp, "top")
@@ -759,12 +786,7 @@ func TestApp_HandlePaneFullscreenChangedTargetsOwningWindow(t *testing.T) {
 }
 
 func TestApp_HandlePaneFullscreenChangedIgnoresUnresolvedPane(t *testing.T) {
-	EnsureAdwaitaInitialized()
-	appID := AppID
-	gtkApp := gtk.NewApplication(&appID, gio.GApplicationNonUniqueValue)
-	if gtkApp == nil {
-		t.Fatal("gtk application creation failed")
-	}
+	gtkApp := requireGTKDisplayApp(t)
 	defer gtkApp.Unref()
 
 	firstMainWindow, err := window.New(context.Background(), gtkApp, "top")
@@ -881,12 +903,7 @@ func TestApp_MoveActivePaneToTabFromBrowserWindowActivatesTargetOwnerForCrossWin
 }
 
 func TestApp_InitKeyboardHandlerDoesNotReattachExistingWindowInput(t *testing.T) {
-	EnsureAdwaitaInitialized()
-	appID := AppID
-	gtkApp := gtk.NewApplication(&appID, gio.GApplicationNonUniqueValue)
-	if gtkApp == nil {
-		t.Fatal("gtk application creation failed")
-	}
+	gtkApp := requireGTKDisplayApp(t)
 	defer gtkApp.Unref()
 
 	mainWindow, err := window.New(context.Background(), gtkApp, "top")
@@ -946,12 +963,7 @@ func (*testFocusedInputProvider) GetFocusedInput() port.TextInputTarget { return
 func (*testFocusedInputProvider) SetFocusedInput(port.TextInputTarget)  {}
 
 func TestApp_UpdateBrowserWindowTabBarVisibilityHonorsHideWhenSingleTabDisabled(t *testing.T) {
-	EnsureAdwaitaInitialized()
-	appID := AppID
-	gtkApp := gtk.NewApplication(&appID, gio.GApplicationNonUniqueValue)
-	if gtkApp == nil {
-		t.Fatal("gtk application creation failed")
-	}
+	gtkApp := requireGTKDisplayApp(t)
 	defer gtkApp.Unref()
 
 	mainWindow := &window.MainWindow{}
