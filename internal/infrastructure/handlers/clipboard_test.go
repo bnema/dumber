@@ -76,4 +76,7 @@ func TestClipboardHandler_HandleExplicitCopy_DelegatesToOrchestrator(t *testing.
 	if orchestrator.explicit.ViewID != 42 {
 		t.Fatalf("explicit view id = %d, want %d", orchestrator.explicit.ViewID, 42)
 	}
+	if !orchestrator.explicit.NativeHandled {
+		t.Fatal("explicit native handled = false, want true")
+	}
 }

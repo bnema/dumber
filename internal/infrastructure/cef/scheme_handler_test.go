@@ -4,7 +4,7 @@ import (
 	"context"
 	"encoding/base64"
 	"errors"
-	"strings"
+	"os"
 	"testing"
 
 	cefmocks "github.com/bnema/purego-cef/cef/mocks"
@@ -57,23 +57,10 @@ func TestReadBodyFromHeader_DecodesBase64Payload(t *testing.T) {
 	require.JSONEq(t, `{"text":"copied from js"}`, string(body))
 }
 
-func TestDecodeClipboardSetBody_ReturnsText(t *testing.T) {
-	text, err := decodeClipboardSetBody([]byte(`{"text":"copied from js"}`))
+func TestSchemeHandlerSourceDoesNotKeepClipboardSetPath(t *testing.T) {
+	src, err := os.ReadFile("scheme_handler.go")
 	require.NoError(t, err)
-	require.Equal(t, "copied from js", text)
-}
-
-func TestDecodeClipboardSetBody_RejectsOversizePayload(t *testing.T) {
-	body := []byte(`{"text":"` + strings.Repeat("x", maxClipboardBytes) + `"}`)
-
-	_, err := decodeClipboardSetBody(body)
-
-	require.Error(t, err)
-	require.Contains(t, err.Error(), "payload too large")
-}
-
-func TestDecodeClipboardSetBody_RejectsInvalidPayload(t *testing.T) {
-	_, err := decodeClipboardSetBody([]byte(`{"text":""}`))
-	require.Error(t, err)
-	require.Contains(t, err.Error(), "invalid payload")
+	require.NotContains(t, string(src), "/api/clipboard-set")
+	require.NotContains(t, string(src), "onClipboardSet")
+	require.NotContains(t, string(src), "decodeClipboardSetBody")
 }

@@ -4,7 +4,7 @@ go 1.26.1
 
 require (
 	github.com/bnema/purego v0.11.0-bnema.2
-	github.com/bnema/purego-cef v0.8.2
+	github.com/bnema/purego-cef v0.9.0
 	github.com/bnema/purego-ffmpeg v0.3.1
 	github.com/bnema/purego-pipewire v0.1.2
 	github.com/bnema/purego-sqlite v0.1.2
@@ -69,5 +69,3 @@ require (
 	gopkg.in/check.v1 v1.0.0-20190902080502-41f04d3bba15 // indirect
 	modernc.org/sqlite v1.47.0 // indirect
 )
-
-replace github.com/bnema/purego-cef => ../purego-cef

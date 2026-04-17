@@ -96,11 +96,17 @@ const explicitCopyScript = `(function() {
     return action;
   }
 
-  document.addEventListener('copy', function() {
+  document.addEventListener('copy', function(event) {
+    if (event && event.isTrusted === false) {
+      return;
+    }
     postExplicitCopy(consumePendingAction('copy'), selectedText());
   }, true);
 
-  document.addEventListener('cut', function() {
+  document.addEventListener('cut', function(event) {
+    if (event && event.isTrusted === false) {
+      return;
+    }
     postExplicitCopy(consumePendingAction('cut'), selectedText());
   }, true);
 

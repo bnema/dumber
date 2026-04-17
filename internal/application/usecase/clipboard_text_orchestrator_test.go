@@ -19,6 +19,11 @@ type blockingClipboard struct {
 	writes  []string
 }
 
+type countingClipboard struct {
+	mu     sync.Mutex
+	writes int
+}
+
 type staticAutoCopyConfig struct {
 	enabled bool
 }
@@ -50,6 +55,24 @@ func (b *blockingClipboard) writeCount() int {
 	b.mu.Lock()
 	defer b.mu.Unlock()
 	return len(b.writes)
+}
+
+func (c *countingClipboard) WriteText(_ context.Context, _ string) error {
+	c.mu.Lock()
+	c.writes++
+	c.mu.Unlock()
+	return nil
+}
+
+func (*countingClipboard) WriteImage(context.Context, entity.ImageData) error { return nil }
+func (*countingClipboard) ReadText(context.Context) (string, error)           { return "", nil }
+func (*countingClipboard) Clear(context.Context) error                        { return nil }
+func (*countingClipboard) HasText(context.Context) (bool, error)              { return false, nil }
+
+func (c *countingClipboard) writeCount() int {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	return c.writes
 }
 
 func TestClipboardTextOrchestrator_HandleSelectionUpdate_AutoCopyDisabledDoesNothing(t *testing.T) {
@@ -167,6 +190,31 @@ func TestClipboardTextOrchestrator_HandleExplicitCopy_DeduplicatesIdenticalPaylo
 
 	if len(toastCalls) != 2 || toastCalls[0] != 2 || toastCalls[1] != 2 {
 		t.Fatalf("toast calls = %v, want [2 2]", toastCalls)
+	}
+}
+
+func TestClipboardTextOrchestrator_HandleExplicitCopy_NativeHandledSkipsBackendWrite(t *testing.T) {
+	ctx := context.Background()
+	clipboard := &countingClipboard{}
+	autoCopyConfig := &staticAutoCopyConfig{enabled: true}
+	var toastCalls []int
+
+	uc := NewClipboardTextOrchestrator(clipboard, autoCopyConfig, func(textLen int) {
+		toastCalls = append(toastCalls, textLen)
+	})
+
+	if err := uc.HandleExplicitCopy(ctx, port.ExplicitClipboardInput{Text: "shared", SourceEngine: port.ClipboardSourceWebKit, Action: "copy", NativeHandled: true}); err != nil {
+		t.Fatalf("HandleExplicitCopy() error = %v, want nil", err)
+	}
+
+	if got := clipboard.writeCount(); got != 0 {
+		t.Fatalf("clipboard writes = %d, want 0", got)
+	}
+	if len(toastCalls) != 1 || toastCalls[0] != 6 {
+		t.Fatalf("toast calls = %v, want [6]", toastCalls)
+	}
+	if got := len(uc.lastExplicit); got != 1 {
+		t.Fatalf("lastExplicit entries = %d, want 1", got)
 	}
 }
 

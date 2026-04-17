@@ -70,10 +70,11 @@ func (h *ClipboardHandler) HandleExplicitCopy() port.WebUIMessageHandler {
 			return nil, nil
 		}
 		if err := h.orchestrator.HandleExplicitCopy(ctx, port.ExplicitClipboardInput{
-			Text:         req.Text,
-			Action:       req.Action,
-			SourceEngine: port.ClipboardSourceWebKit,
-			ViewID:       webviewID,
+			Text:          req.Text,
+			Action:        req.Action,
+			SourceEngine:  port.ClipboardSourceWebKit,
+			ViewID:        webviewID,
+			NativeHandled: true,
 		}); err != nil {
 			log.Debug().Err(err).Msg("clipboard explicit handling failed")
 		}

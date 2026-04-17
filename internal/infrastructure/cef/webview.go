@@ -8,6 +8,7 @@ import (
 	"math"
 	"sync"
 	"sync/atomic"
+	"time"
 
 	purecef "github.com/bnema/purego-cef/cef"
 	"github.com/bnema/puregotk/v4/glib"
@@ -29,6 +30,8 @@ var errDestroyed = errors.New("cef: webview is destroyed")
 
 // errNoBrowser is returned when the browser has not been created yet.
 var errNoBrowser = errors.New("cef: browser not yet created")
+
+const clipboardSelectionDebounceDelay = 300 * time.Millisecond
 
 // WebView implements port.WebView using a CEF off-screen browser rendered
 // through a renderPipeline and driven by an inputBridge.
@@ -65,13 +68,16 @@ type WebView struct {
 	callbacks *port.WebViewCallbacks
 
 	// State cache (mutex-protected).
-	uri          string
-	title        string
-	progress     float64
-	canGoBack    bool
-	canGoFwd     bool
-	isLoading    bool
-	selectedText string
+	uri                    string
+	title                  string
+	progress               float64
+	canGoBack              bool
+	canGoFwd               bool
+	isLoading              bool
+	selectedText           string
+	focusedEditable        bool
+	selectionDebounceTimer *time.Timer
+	selectionDebounceSeq   uint64
 
 	// Last known hover URI for middle-click → new tab.
 	lastHoverURI string
@@ -474,6 +480,7 @@ func (wv *WebView) Destroy() {
 	if !wv.destroyed.CompareAndSwap(false, true) {
 		return
 	}
+	wv.cancelSelectionDebounce()
 	if wv.resizeReconciler != nil {
 		wv.resizeReconciler.stop()
 	}
@@ -573,6 +580,76 @@ func (wv *WebView) setSelectedText(text string) (string, bool) {
 	wv.selectedText = text
 	wv.mu.Unlock()
 	return previous, changed
+}
+
+func (wv *WebView) setEditableFocus(editable bool) {
+	if wv == nil {
+		return
+	}
+	wv.mu.Lock()
+	wv.focusedEditable = editable
+	if editable {
+		wv.selectionDebounceSeq++
+		timer := wv.selectionDebounceTimer
+		wv.selectionDebounceTimer = nil
+		wv.mu.Unlock()
+		if timer != nil {
+			timer.Stop()
+		}
+		return
+	}
+	wv.mu.Unlock()
+}
+
+func (wv *WebView) cancelSelectionDebounce() {
+	if wv == nil {
+		return
+	}
+	wv.mu.Lock()
+	wv.selectionDebounceSeq++
+	timer := wv.selectionDebounceTimer
+	wv.selectionDebounceTimer = nil
+	wv.mu.Unlock()
+	if timer != nil {
+		timer.Stop()
+	}
+}
+
+func (wv *WebView) scheduleSelectionUpdate(text string) {
+	if wv == nil || wv.destroyed.Load() {
+		return
+	}
+	wv.mu.Lock()
+	if wv.destroyed.Load() || wv.focusedEditable || wv.engine == nil {
+		wv.mu.Unlock()
+		return
+	}
+	wv.selectionDebounceSeq++
+	seq := wv.selectionDebounceSeq
+	if timer := wv.selectionDebounceTimer; timer != nil {
+		timer.Stop()
+	}
+	wv.selectionDebounceTimer = time.AfterFunc(clipboardSelectionDebounceDelay, func() {
+		wv.flushSelectionUpdate(seq, text)
+	})
+	wv.mu.Unlock()
+}
+
+func (wv *WebView) flushSelectionUpdate(seq uint64, text string) {
+	if wv == nil || wv.destroyed.Load() {
+		return
+	}
+	wv.mu.Lock()
+	if wv.destroyed.Load() || wv.focusedEditable || seq != wv.selectionDebounceSeq {
+		wv.mu.Unlock()
+		return
+	}
+	engine := wv.engine
+	viewID := wv.id
+	wv.mu.Unlock()
+	if engine != nil {
+		engine.handleClipboardSelectionUpdate(viewID, text)
+	}
 }
 
 func (wv *WebView) selectedTextSnapshot() string {

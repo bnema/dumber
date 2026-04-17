@@ -252,11 +252,6 @@ func wireEngine(
 	}
 	schemeHandler.setAssets(assets.WebUIAssets)
 
-	// Route scheme-handler clipboard/focus callbacks through the same engine-side
-	// bridge handlers used by the native renderer bridge.
-	schemeHandler.onClipboardSet = func(text string) {
-		eng.handleClipboardBridgeText(0, text)
-	}
 	schemeHandler.onEditableFocus = eng.handleEditableFocusBridge
 
 	schemeFactory := purecef.NewSchemeHandlerFactory(schemeHandler)

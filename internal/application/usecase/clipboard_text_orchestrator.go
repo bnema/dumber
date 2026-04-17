@@ -165,19 +165,21 @@ func (uc *ClipboardTextOrchestratorUseCase) HandleExplicitCopy(
 		uc.mu.Unlock()
 		return nil
 	}
-	if uc.clipboard == nil {
+	if !input.NativeHandled && uc.clipboard == nil {
 		uc.mu.Unlock()
 		return fmt.Errorf("clipboard not available")
 	}
-	if err := uc.clipboard.WriteText(ctx, input.Text); err != nil {
-		uc.mu.Unlock()
-		logging.FromContext(ctx).Debug().
-			Err(err).
-			Int("text_len", textLen).
-			Str("source_engine", string(input.SourceEngine)).
-			Str("action", input.Action).
-			Msg("clipboard explicit write failed")
-		return fmt.Errorf("clipboard write failed: %w", err)
+	if !input.NativeHandled {
+		if err := uc.clipboard.WriteText(ctx, input.Text); err != nil {
+			uc.mu.Unlock()
+			logging.FromContext(ctx).Debug().
+				Err(err).
+				Int("text_len", textLen).
+				Str("source_engine", string(input.SourceEngine)).
+				Str("action", input.Action).
+				Msg("clipboard explicit write failed")
+			return fmt.Errorf("clipboard write failed: %w", err)
+		}
 	}
 
 	uc.lastExplicit[scope] = explicitCopyState{text: input.Text, at: currentTime}
@@ -186,11 +188,15 @@ func (uc *ClipboardTextOrchestratorUseCase) HandleExplicitCopy(
 	if uc.toast != nil {
 		uc.toast(textLen)
 	}
-	logging.FromContext(ctx).Debug().
+	logEntry := logging.FromContext(ctx).Debug().
 		Int("text_len", textLen).
 		Str("source_engine", string(input.SourceEngine)).
-		Str("action", input.Action).
-		Msg("clipboard explicit copied")
+		Str("action", input.Action)
+	if input.NativeHandled {
+		logEntry.Bool("native_handled", true).Msg("clipboard explicit copied (native handled)")
+		return nil
+	}
+	logEntry.Msg("clipboard explicit copied")
 	return nil
 }
 

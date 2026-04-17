@@ -97,6 +97,8 @@ func (h *handlerSet) OnProcessMessageReceived(
 			return 1
 		}
 		h.wv.engine.handleExplicitClipboardBridgeText(h.wv.id, req.Action, req.Text)
+	case rendererBridgeActionEditableFocusChanged:
+		h.wv.setEditableFocus(payload == "1" || strings.EqualFold(payload, "true"))
 	case rendererBridgeActionFocusSync:
 		h.wv.engine.handleEditableFocusBridge(browser)
 	case rendererBridgeActionReady:
@@ -388,7 +390,7 @@ func (h *handlerSet) OnTextSelectionChanged(_ purecef.Browser, selectedText stri
 			Msg("cef: text selection changed")
 	}
 	if h.wv.engine != nil {
-		h.wv.engine.handleClipboardSelectionUpdate(h.wv.id, selectedText)
+		h.wv.scheduleSelectionUpdate(selectedText)
 	}
 }
 

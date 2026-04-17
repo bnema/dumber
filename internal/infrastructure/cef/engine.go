@@ -286,10 +286,6 @@ func (e *Engine) UpdateSettings(_ context.Context, _ port.EngineSettingsUpdate) 
 	return nil
 }
 
-func (e *Engine) handleClipboardBridgeText(viewID port.WebViewID, text string) {
-	e.handleExplicitClipboardBridgeText(viewID, "copy", text)
-}
-
 func (e *Engine) handleExplicitClipboardBridgeText(viewID port.WebViewID, action, text string) {
 	if e == nil || text == "" {
 		return
@@ -302,10 +298,11 @@ func (e *Engine) handleExplicitClipboardBridgeText(viewID port.WebViewID, action
 	}
 	textLen := utf8.RuneCountInString(text)
 	if err := e.clipboardTextOrchestrator.HandleExplicitCopy(e.currentContext(), port.ExplicitClipboardInput{
-		Text:         text,
-		Action:       action,
-		SourceEngine: port.ClipboardSourceCEF,
-		ViewID:       viewID,
+		Text:          text,
+		Action:        action,
+		SourceEngine:  port.ClipboardSourceCEF,
+		ViewID:        viewID,
+		NativeHandled: true,
 	}); err != nil {
 		logging.FromContext(e.currentContext()).Debug().
 			Err(err).

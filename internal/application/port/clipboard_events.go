@@ -21,10 +21,11 @@ type SelectionClipboardInput struct {
 
 // ExplicitClipboardInput carries explicit copy requests.
 type ExplicitClipboardInput struct {
-	Text         string
-	SourceEngine ClipboardSource
-	ViewID       WebViewID
-	Action       string
+	Text          string
+	SourceEngine  ClipboardSource
+	ViewID        WebViewID
+	Action        string
+	NativeHandled bool
 }
 
 // ClipboardTextOrchestrator coordinates shared clipboard behavior.

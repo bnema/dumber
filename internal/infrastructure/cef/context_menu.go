@@ -82,15 +82,11 @@ func (h *handlerSet) RunContextMenu(
 		x,
 		y,
 		func(item port.MenuItem) {
-			var explicitCopyCallback func(string)
 			var copiedCallback func(string)
 			if h.wv.engine != nil {
-				explicitCopyCallback = func(text string) {
-					h.wv.engine.handleExplicitClipboardBridgeText(h.wv.id, "copy", text)
-				}
 				copiedCallback = h.wv.engine.notifyClipboardCopied
 			}
-			dispatchContextMenuSelection(h.wv.ctx, executor, callback, explicitCopyCallback, copiedCallback, commandIDByAction, item, menuContext)
+			dispatchContextMenuSelection(h.wv.ctx, executor, callback, copiedCallback, commandIDByAction, item, menuContext)
 		},
 		func() {
 			callback.Cancel()
@@ -170,7 +166,6 @@ func dispatchContextMenuSelection(
 	ctx context.Context,
 	executor port.ContextMenuActionExecutor,
 	callback purecef.RunContextMenuCallback,
-	explicitCopyCallback func(text string),
 	copiedCallback func(text string),
 	commandIDByAction map[port.MenuAction]int32,
 	item port.MenuItem,
@@ -181,9 +176,13 @@ func dispatchContextMenuSelection(
 		return
 	}
 	log.Debug().Str("action", string(item.Action)).Str("label", item.Label).Msg("cef: context menu item selected")
-	if item.Action == port.MenuActionCopySelection && menuContext.SelectionText != "" && explicitCopyCallback != nil {
-		explicitCopyCallback(menuContext.SelectionText)
-		log.Debug().Str("action", string(item.Action)).Msg("cef: context menu selection copied via shared explicit path")
+	if item.Action == port.MenuActionCopySelection {
+		if cmdID, ok := commandIDByAction[item.Action]; ok {
+			log.Debug().Str("action", string(item.Action)).Int32("command_id", cmdID).Msg("cef: continuing native context menu command")
+			callback.Cont(cmdID, 0)
+			return
+		}
+		log.Warn().Str("action", string(item.Action)).Msg("cef: no matching native context menu command")
 		callback.Cancel()
 		return
 	}
@@ -213,11 +212,6 @@ func dispatchContextMenuSelection(
 
 func contextMenuCopiedText(action port.MenuAction, menuContext port.MenuContext) string {
 	switch action {
-	case port.MenuActionCopySelection:
-		if menuContext.SelectionText != "" {
-			return menuContext.SelectionText
-		}
-		return ""
 	case port.MenuActionCopyLink:
 		return menuContext.LinkURI
 	default:
@@ -233,8 +227,7 @@ func shouldExecuteDirectCEFAction(action port.MenuAction) bool {
 		port.MenuActionOpenLinkNewTab,
 		port.MenuActionCopyLink,
 		port.MenuActionCopyImage,
-		port.MenuActionInspectElement,
-		port.MenuActionCopySelection:
+		port.MenuActionInspectElement:
 		return true
 	default:
 		return false

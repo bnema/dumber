@@ -13,12 +13,15 @@ import (
 )
 
 const (
-	rendererBridgeMessageName            = "dumber.renderer_bridge"
-	rendererBridgeActionExplicitTextCopy = "explicit_text_copy"
-	rendererBridgeActionFocusSync        = "focus_sync"
-	rendererBridgeActionReady            = "bridge_ready"
-	rendererBridgeExtensionName          = "dumber.renderer_bridge"
+	rendererBridgeMessageName                = "dumber.renderer_bridge"
+	rendererBridgeActionExplicitTextCopy     = "explicit_text_copy"
+	rendererBridgeActionFocusSync            = "focus_sync"
+	rendererBridgeActionEditableFocusChanged = "editable_focus_changed"
+	rendererBridgeActionReady                = "bridge_ready"
+	rendererBridgeExtensionName              = "dumber.renderer_bridge"
 )
+
+var newRendererBridgeProcessMessage = purecef.ProcessMessageCreate
 
 const rendererBridgeExtensionJS = `
 (function() {
@@ -252,7 +255,25 @@ func (*rendererBridgeProcessHandler) OnUncaughtException(
 	_ purecef.Browser, _ purecef.Frame, _ purecef.V8Context, _ purecef.V8Exception, _ purecef.V8StackTrace,
 ) {
 }
-func (*rendererBridgeProcessHandler) OnFocusedNodeChanged(_ purecef.Browser, _ purecef.Frame, _ purecef.Domnode) {
+func (*rendererBridgeProcessHandler) OnFocusedNodeChanged(_ purecef.Browser, frame purecef.Frame, node purecef.Domnode) {
+	if frame == nil {
+		return
+	}
+	message := newRendererBridgeProcessMessage(rendererBridgeMessageName)
+	if message == nil {
+		return
+	}
+	args := message.GetArgumentList()
+	if args == nil {
+		return
+	}
+	args.SetString(0, rendererBridgeActionEditableFocusChanged)
+	if node != nil && node.IsEditable() {
+		args.SetString(1, "1")
+	} else {
+		args.SetString(1, "0")
+	}
+	frame.SendProcessMessage(purecef.ProcessIDPidBrowser, message)
 }
 func (*rendererBridgeProcessHandler) OnProcessMessageReceived(
 	_ purecef.Browser, _ purecef.Frame, _ purecef.ProcessID, _ purecef.ProcessMessage,

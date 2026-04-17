@@ -2,22 +2,31 @@ package cef
 
 import (
 	"context"
+	"sync"
 	"testing"
+	"time"
 
 	purecef "github.com/bnema/purego-cef/cef"
+	cefmocks "github.com/bnema/purego-cef/cef/mocks"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 
 	"github.com/bnema/dumber/internal/application/port"
 )
 
 type recordingClipboardOrchestrator struct {
-	selection port.SelectionClipboardInput
-	explicit  port.ExplicitClipboardInput
+	mu             sync.Mutex
+	selection      port.SelectionClipboardInput
+	selectionCalls int
+	explicit       port.ExplicitClipboardInput
 }
 
 func (r *recordingClipboardOrchestrator) HandleSelectionUpdate(_ context.Context, input port.SelectionClipboardInput) error {
+	r.mu.Lock()
 	r.selection = input
+	r.selectionCalls++
+	r.mu.Unlock()
 	return nil
 }
 
@@ -117,10 +126,160 @@ func TestOnTextSelectionChanged_ForwardsSelectionToClipboardOrchestrator(t *test
 
 	h.OnTextSelectionChanged(nil, "selected text", nil)
 
-	require.Equal(t, "selected text", orchestrator.selection.Text)
-	require.Equal(t, port.ClipboardSourceCEF, orchestrator.selection.SourceEngine)
-	require.Equal(t, port.WebViewID(42), orchestrator.selection.ViewID)
+	require.Eventually(t, func() bool {
+		orchestrator.mu.Lock()
+		defer orchestrator.mu.Unlock()
+		return orchestrator.selectionCalls == 1 &&
+			orchestrator.selection.Text == "selected text" &&
+			orchestrator.selection.SourceEngine == port.ClipboardSourceCEF &&
+			orchestrator.selection.ViewID == port.WebViewID(42)
+	}, 2*time.Second, 10*time.Millisecond)
 }
+
+func TestOnTextSelectionChanged_DebouncesAndCollapsesRapidUpdates(t *testing.T) {
+	orchestrator := &recordingClipboardOrchestrator{}
+	wv := &WebView{
+		ctx: context.Background(),
+		id:  42,
+		engine: &Engine{
+			clipboardTextOrchestrator: orchestrator,
+		},
+	}
+	h := &handlerSet{wv: wv}
+
+	h.OnTextSelectionChanged(nil, "first selection", nil)
+	h.OnTextSelectionChanged(nil, "second selection", nil)
+
+	orchestrator.mu.Lock()
+	gotCalls := orchestrator.selectionCalls
+	orchestrator.mu.Unlock()
+	require.Zero(t, gotCalls)
+
+	require.Eventually(t, func() bool {
+		orchestrator.mu.Lock()
+		defer orchestrator.mu.Unlock()
+		return orchestrator.selectionCalls == 1 && orchestrator.selection.Text == "second selection"
+	}, 2*time.Second, 10*time.Millisecond)
+	require.Equal(t, "second selection", wv.selectedTextSnapshot())
+}
+
+func TestOnTextSelectionChanged_SuppressesAutoCopyWhenFocusedNodeEditableAndResumesWhenCleared(t *testing.T) {
+	orchestrator := &recordingClipboardOrchestrator{}
+	wv := &WebView{
+		ctx: context.Background(),
+		id:  42,
+		engine: &Engine{
+			clipboardTextOrchestrator: orchestrator,
+		},
+	}
+	h := &handlerSet{wv: wv}
+	frame := cefmocks.NewMockFrame(t)
+	oldFactory := newRendererBridgeProcessMessage
+	t.Cleanup(func() { newRendererBridgeProcessMessage = oldFactory })
+
+	newRendererBridgeProcessMessage = func(name string) purecef.ProcessMessage {
+		return newTestBridgeProcessMessage(name, true)
+	}
+	frame.EXPECT().SendProcessMessage(purecef.ProcessIDPidBrowser, mock.Anything).Run(func(_ purecef.ProcessID, message purecef.ProcessMessage) {
+		require.Equal(t, rendererBridgeMessageName, message.GetName())
+		args := message.GetArgumentList()
+		require.Equal(t, "editable_focus_changed", args.GetString(0))
+		require.Equal(t, "1", args.GetString(1))
+		h.OnProcessMessageReceived(nil, nil, 0, message)
+	}).Once()
+	(&rendererBridgeProcessHandler{}).OnFocusedNodeChanged(nil, frame, stubEditableDomnode{editable: true})
+
+	h.OnTextSelectionChanged(nil, "editable selection", nil)
+	require.Equal(t, "editable selection", wv.selectedTextSnapshot())
+
+	orchestrator.mu.Lock()
+	gotCalls := orchestrator.selectionCalls
+	orchestrator.mu.Unlock()
+	require.Zero(t, gotCalls)
+	time.Sleep(350 * time.Millisecond)
+	orchestrator.mu.Lock()
+	gotCalls = orchestrator.selectionCalls
+	orchestrator.mu.Unlock()
+	require.Zero(t, gotCalls)
+
+	newRendererBridgeProcessMessage = func(name string) purecef.ProcessMessage {
+		return newTestBridgeProcessMessage(name, false)
+	}
+	frame.EXPECT().SendProcessMessage(purecef.ProcessIDPidBrowser, mock.Anything).Run(func(_ purecef.ProcessID, message purecef.ProcessMessage) {
+		require.Equal(t, rendererBridgeMessageName, message.GetName())
+		args := message.GetArgumentList()
+		require.Equal(t, "editable_focus_changed", args.GetString(0))
+		require.Equal(t, "0", args.GetString(1))
+		h.OnProcessMessageReceived(nil, nil, 0, message)
+	}).Once()
+	(&rendererBridgeProcessHandler{}).OnFocusedNodeChanged(nil, frame, stubEditableDomnode{editable: false})
+
+	h.OnTextSelectionChanged(nil, "free selection", nil)
+	require.Equal(t, "free selection", wv.selectedTextSnapshot())
+	require.Zero(t, orchestrator.selectionCalls)
+	require.Eventually(t, func() bool {
+		orchestrator.mu.Lock()
+		defer orchestrator.mu.Unlock()
+		return orchestrator.selectionCalls == 1 && orchestrator.selection.Text == "free selection"
+	}, 2*time.Second, 10*time.Millisecond)
+}
+
+func TestOnTextSelectionChanged_DoesNotEmitLateDebouncedUpdateAfterDestroy(t *testing.T) {
+	orchestrator := &recordingClipboardOrchestrator{}
+	wv := &WebView{
+		ctx: context.Background(),
+		id:  42,
+		engine: &Engine{
+			clipboardTextOrchestrator: orchestrator,
+		},
+	}
+	h := &handlerSet{wv: wv}
+
+	h.OnTextSelectionChanged(nil, "selected text", nil)
+	wv.Destroy()
+
+	orchestrator.mu.Lock()
+	gotCalls := orchestrator.selectionCalls
+	orchestrator.mu.Unlock()
+	require.Zero(t, gotCalls)
+	time.Sleep(350 * time.Millisecond)
+	orchestrator.mu.Lock()
+	gotCalls = orchestrator.selectionCalls
+	orchestrator.mu.Unlock()
+	require.Zero(t, gotCalls)
+	require.Equal(t, "selected text", wv.selectedTextSnapshot())
+}
+
+type stubEditableDomnode struct {
+	editable bool
+}
+
+func (n stubEditableDomnode) GetType() purecef.DomNodeType                          { return 0 }
+func (n stubEditableDomnode) IsText() bool                                          { return false }
+func (n stubEditableDomnode) IsElement() bool                                       { return true }
+func (n stubEditableDomnode) IsEditable() bool                                      { return n.editable }
+func (n stubEditableDomnode) IsFormControlElement() bool                            { return false }
+func (n stubEditableDomnode) GetFormControlElementType() purecef.DomFormControlType { return 0 }
+func (n stubEditableDomnode) IsSame(that purecef.Domnode) bool                      { return n == that }
+func (n stubEditableDomnode) GetName() string                                       { return "" }
+func (n stubEditableDomnode) GetValue() string                                      { return "" }
+func (n stubEditableDomnode) SetValue(string) int32                                 { return 0 }
+func (n stubEditableDomnode) GetAsMarkup() string                                   { return "" }
+func (n stubEditableDomnode) GetDocument() purecef.Domdocument                      { return nil }
+func (n stubEditableDomnode) GetParent() purecef.Domnode                            { return nil }
+func (n stubEditableDomnode) GetPreviousSibling() purecef.Domnode                   { return nil }
+func (n stubEditableDomnode) GetNextSibling() purecef.Domnode                       { return nil }
+func (n stubEditableDomnode) HasChildren() bool                                     { return false }
+func (n stubEditableDomnode) GetFirstChild() purecef.Domnode                        { return nil }
+func (n stubEditableDomnode) GetLastChild() purecef.Domnode                         { return nil }
+func (n stubEditableDomnode) GetElementTagName() string                             { return "" }
+func (n stubEditableDomnode) HasElementAttributes() bool                            { return false }
+func (n stubEditableDomnode) HasElementAttribute(string) bool                       { return false }
+func (n stubEditableDomnode) GetElementAttribute(string) string                     { return "" }
+func (n stubEditableDomnode) GetElementAttributes(uintptr)                          {}
+func (n stubEditableDomnode) SetElementAttribute(string, string) int32              { return 0 }
+func (n stubEditableDomnode) GetElementInnerText() string                           { return "" }
+func (n stubEditableDomnode) GetElementBounds() uintptr                             { return 0 }
 
 func TestGetViewRectUsesDIPCoordinates(t *testing.T) {
 	rect := &purecef.Rect{}
