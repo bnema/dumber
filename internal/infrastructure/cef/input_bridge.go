@@ -57,14 +57,6 @@ type inputBridge struct {
 	// ImeCommitText. Set once during attachTo, read-only afterwards.
 	clipboard *gdk.Clipboard
 
-	// selectionText returns the browser's latest known text selection so Ctrl+C
-	// / Ctrl+X can route the selection through the shared explicit-copy path.
-	selectionText func() string
-
-	// explicitCopyText routes explicit copy/cut text through the shared
-	// clipboard orchestration path.
-	explicitCopyText func(action, text string)
-
 	// IMContext for dead key / compose sequence support. Held as a field
 	// to prevent garbage collection while the controller is alive.
 	imContext *gtk.IMContextSimple
@@ -231,8 +223,6 @@ func (ib *inputBridge) attachFocusAndKeyboard(glArea *gtk.GLArea) {
 	keyPressCb := func(_ gtk.EventControllerKey, keyval, keycode uint, state gdk.ModifierType) bool {
 		mods := uint(state)
 
-		ib.maybeMirrorClipboardShortcut(keyval, mods)
-
 		// Intercept Ctrl+V / Ctrl+Shift+V: CEF OSR cannot access the
 		// Wayland/X11 clipboard, so we read from GDK and inject via
 		// ImeCommitText instead of letting CEF handle the paste.
@@ -379,39 +369,6 @@ func (ib *inputBridge) hasGTKFocus() bool {
 		return false
 	}
 	return ib.gtkFocused.Load()
-}
-
-func (ib *inputBridge) maybeMirrorClipboardShortcut(keyval, mods uint) {
-	action, ok := clipboardShortcutAction(keyval, mods)
-	if !ok || ib == nil || ib.selectionText == nil || ib.explicitCopyText == nil {
-		return
-	}
-	text := ib.selectionText()
-	if text == "" {
-		return
-	}
-	logging.FromContext(ib.ctx).Debug().
-		Str("action", action).
-		Int("text_len", len(text)).
-		Msg("cef: clipboard shortcut routed through explicit copy handler")
-	ib.explicitCopyText(action, text)
-}
-
-func clipboardShortcutAction(keyval, mods uint) (string, bool) {
-	if mods&uint(gdk.ControlMaskValue) == 0 {
-		return "", false
-	}
-	if mods&uint(gdk.ShiftMaskValue) != 0 || mods&uint(gdk.AltMaskValue) != 0 {
-		return "", false
-	}
-	switch keyval {
-	case gdkKeyLowercaseC, gdkKeyUppercaseC:
-		return "copy", true
-	case gdkKeyLowercaseX, gdkKeyUppercaseX:
-		return "cut", true
-	default:
-		return "", false
-	}
 }
 
 func (ib *inputBridge) onKeyPress(keyval, keycode, mods uint) {
@@ -634,13 +591,9 @@ const (
 	gdkKeyPageUp    = 0xff55
 	gdkKeyPageDown  = 0xff56
 
-	// Clipboard shortcut keyvals.
-	gdkKeyLowercaseC = 0x063
-	gdkKeyUppercaseC = 0x043
+	// Paste shortcut keyvals.
 	gdkKeyLowercaseV = 0x076
 	gdkKeyUppercaseV = 0x056
-	gdkKeyLowercaseX = 0x078
-	gdkKeyUppercaseX = 0x058
 )
 
 // keyvalToChar converts a GDK keyval to a UTF-16 character for CEF CHAR events.

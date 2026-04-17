@@ -9,7 +9,6 @@ import (
 	"unicode/utf8"
 
 	"github.com/bnema/dumber/internal/application/port"
-	"github.com/bnema/dumber/internal/logging"
 )
 
 const explicitClipboardDedupWindow = 250 * time.Millisecond
@@ -109,11 +108,6 @@ func (uc *ClipboardTextOrchestratorUseCase) HandleSelectionUpdate(
 	}
 	if err := uc.clipboard.WriteText(ctx, input.Text); err != nil {
 		uc.mu.Unlock()
-		logging.FromContext(ctx).Debug().
-			Err(err).
-			Int("text_len", textLen).
-			Str("source_engine", string(input.SourceEngine)).
-			Msg("clipboard selection write failed")
 		return fmt.Errorf("clipboard write failed: %w", err)
 	}
 
@@ -131,10 +125,6 @@ func (uc *ClipboardTextOrchestratorUseCase) HandleSelectionUpdate(
 	if uc.toast != nil {
 		uc.toast(textLen)
 	}
-	logging.FromContext(ctx).Debug().
-		Int("text_len", textLen).
-		Str("source_engine", string(input.SourceEngine)).
-		Msg("clipboard selection copied")
 	return nil
 }
 
@@ -172,12 +162,6 @@ func (uc *ClipboardTextOrchestratorUseCase) HandleExplicitCopy(
 	if !input.NativeHandled {
 		if err := uc.clipboard.WriteText(ctx, input.Text); err != nil {
 			uc.mu.Unlock()
-			logging.FromContext(ctx).Debug().
-				Err(err).
-				Int("text_len", textLen).
-				Str("source_engine", string(input.SourceEngine)).
-				Str("action", input.Action).
-				Msg("clipboard explicit write failed")
 			return fmt.Errorf("clipboard write failed: %w", err)
 		}
 	}
@@ -188,15 +172,6 @@ func (uc *ClipboardTextOrchestratorUseCase) HandleExplicitCopy(
 	if uc.toast != nil {
 		uc.toast(textLen)
 	}
-	logEntry := logging.FromContext(ctx).Debug().
-		Int("text_len", textLen).
-		Str("source_engine", string(input.SourceEngine)).
-		Str("action", input.Action)
-	if input.NativeHandled {
-		logEntry.Bool("native_handled", true).Msg("clipboard explicit copied (native handled)")
-		return nil
-	}
-	logEntry.Msg("clipboard explicit copied")
 	return nil
 }
 
