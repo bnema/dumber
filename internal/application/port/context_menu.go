@@ -19,15 +19,16 @@ const (
 
 // MenuContext captures the state needed to build and execute a context menu.
 type MenuContext struct {
-	PageURI      string
-	LinkURI      string
-	ImageURI     string
-	HasSelection bool
-	IsEditable   bool
-	CanGoBack    bool
-	CanGoForward bool
-	X            int
-	Y            int
+	PageURI       string
+	LinkURI       string
+	ImageURI      string
+	SelectionText string
+	HasSelection  bool
+	IsEditable    bool
+	CanGoBack     bool
+	CanGoForward  bool
+	X             int
+	Y             int
 }
 
 // MenuItem is a normalized context menu entry.

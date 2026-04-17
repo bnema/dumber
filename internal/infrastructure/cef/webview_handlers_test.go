@@ -11,6 +11,21 @@ import (
 	"github.com/bnema/dumber/internal/application/port"
 )
 
+type recordingClipboardOrchestrator struct {
+	selection port.SelectionClipboardInput
+	explicit  port.ExplicitClipboardInput
+}
+
+func (r *recordingClipboardOrchestrator) HandleSelectionUpdate(_ context.Context, input port.SelectionClipboardInput) error {
+	r.selection = input
+	return nil
+}
+
+func (r *recordingClipboardOrchestrator) HandleExplicitCopy(_ context.Context, input port.ExplicitClipboardInput) error {
+	r.explicit = input
+	return nil
+}
+
 func newTestPipeline(w, h, s int32) *renderPipeline {
 	rp := &renderPipeline{scale: s}
 	rp.widthAtomic.Store(w)
@@ -87,6 +102,24 @@ func TestOnLoadEndDoesNotDispatchBrowserLevelCompletion(t *testing.T) {
 
 	assert.Empty(t, gotEvents)
 	assert.Empty(t, gotProgress)
+}
+
+func TestOnTextSelectionChanged_ForwardsSelectionToClipboardOrchestrator(t *testing.T) {
+	orchestrator := &recordingClipboardOrchestrator{}
+	wv := &WebView{
+		ctx: context.Background(),
+		id:  42,
+		engine: &Engine{
+			clipboardTextOrchestrator: orchestrator,
+		},
+	}
+	h := &handlerSet{wv: wv}
+
+	h.OnTextSelectionChanged(nil, "selected text", nil)
+
+	require.Equal(t, "selected text", orchestrator.selection.Text)
+	require.Equal(t, port.ClipboardSourceCEF, orchestrator.selection.SourceEngine)
+	require.Equal(t, port.WebViewID(42), orchestrator.selection.ViewID)
 }
 
 func TestGetViewRectUsesDIPCoordinates(t *testing.T) {

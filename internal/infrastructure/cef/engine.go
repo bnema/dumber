@@ -5,6 +5,7 @@ import (
 	"sync"
 	"sync/atomic"
 	"time"
+	"unicode/utf8"
 
 	purecef "github.com/bnema/purego-cef/cef"
 
@@ -35,6 +36,8 @@ type Engine struct {
 	ctxMenuBuilder                   port.ContextMenuBuilder
 	ctxMenuExecutorFactory           port.ContextMenuActionExecutorFactory
 	clipboard                        port.Clipboard
+	clipboardTextOrchestrator        port.ClipboardTextOrchestrator
+	onClipboardCopied                func(textLen int)
 	resolver                         port.ImageDataResolver
 	mediaClassifier                  MediaClassifier
 	alreadyRunningAppRelaunchMu      sync.RWMutex
@@ -236,6 +239,8 @@ func (e *Engine) closeActiveWebViews() {
 // each handler is registered by message type with the router, which dispatches
 // incoming /api/message POSTs to the correct handler based on Message.Type.
 func (e *Engine) RegisterHandlers(ctx context.Context, deps port.HandlerDependencies) error {
+	e.clipboardTextOrchestrator = deps.ClipboardTextOrchestrator
+	e.onClipboardCopied = deps.OnClipboardCopied
 	if e.messageRouter == nil || e.registerHandlers == nil {
 		return nil
 	}
@@ -250,7 +255,12 @@ func (e *Engine) RegisterAccentHandlers(ctx context.Context, handler port.Accent
 }
 
 // ConfigureDownloads sets up download handling (Phase 1 stub).
-func (e *Engine) ConfigureDownloads(_ context.Context, _ string, _ port.DownloadEventHandler, _ port.DownloadPreparer) error {
+func (e *Engine) ConfigureDownloads(
+	_ context.Context,
+	_ string,
+	_ port.DownloadEventHandler,
+	_ port.DownloadPreparer,
+) error {
 	return ErrDownloadsUnsupported
 }
 
@@ -274,6 +284,58 @@ func (e *Engine) UpdateAppearance(_ context.Context, r, g, b, alpha float64) err
 // UpdateSettings applies runtime config changes to engine internals (Phase 1 stub).
 func (e *Engine) UpdateSettings(_ context.Context, _ port.EngineSettingsUpdate) error {
 	return nil
+}
+
+func (e *Engine) handleClipboardBridgeText(viewID port.WebViewID, text string) {
+	e.handleExplicitClipboardBridgeText(viewID, "copy", text)
+}
+
+func (e *Engine) handleExplicitClipboardBridgeText(viewID port.WebViewID, action, text string) {
+	if e == nil || text == "" {
+		return
+	}
+	if e.clipboardTextOrchestrator == nil {
+		logging.FromContext(e.currentContext()).Debug().
+			Str("action", action).
+			Msg("cef: clipboard orchestration skipped — orchestrator nil")
+		return
+	}
+	textLen := utf8.RuneCountInString(text)
+	if err := e.clipboardTextOrchestrator.HandleExplicitCopy(e.currentContext(), port.ExplicitClipboardInput{
+		Text:         text,
+		Action:       action,
+		SourceEngine: port.ClipboardSourceCEF,
+		ViewID:       viewID,
+	}); err != nil {
+		logging.FromContext(e.currentContext()).Debug().
+			Err(err).
+			Str("action", action).
+			Int("text_len", textLen).
+			Msg("cef: clipboard explicit copy handling failed")
+	}
+}
+
+func (e *Engine) handleClipboardSelectionUpdate(viewID port.WebViewID, text string) {
+	if e == nil || e.clipboardTextOrchestrator == nil {
+		return
+	}
+	if err := e.clipboardTextOrchestrator.HandleSelectionUpdate(e.currentContext(), port.SelectionClipboardInput{
+		Text:         text,
+		SourceEngine: port.ClipboardSourceCEF,
+		ViewID:       viewID,
+	}); err != nil {
+		logging.FromContext(e.currentContext()).Debug().
+			Err(err).
+			Int("text_len", utf8.RuneCountInString(text)).
+			Msg("cef: clipboard selection handling failed")
+	}
+}
+
+func (e *Engine) notifyClipboardCopied(text string) {
+	if e == nil || e.onClipboardCopied == nil || text == "" {
+		return
+	}
+	e.onClipboardCopied(utf8.RuneCountInString(text))
 }
 
 // SetHandlerContext sets the base context for message handler dispatch.

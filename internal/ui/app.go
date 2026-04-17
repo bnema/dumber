@@ -37,7 +37,8 @@ import (
 
 const (
 	// AppID is the application identifier for GTK.
-	AppID = "com.github.bnema.dumber"
+	AppID    = "com.github.bnema.dumber"
+	appTitle = "Dumber"
 	// crashReportToastDurationMs keeps startup crash-report toast visible longer.
 	crashReportToastDurationMs = 5000
 	floatingPaneFallbackWidth  = 1200
@@ -181,17 +182,33 @@ func New(deps *Dependencies) (*App, error) {
 		engine:               deps.Engine,
 		cancel:               cancel,
 	}
-	// Register message handlers through the engine.
-	if err := deps.Engine.RegisterHandlers(ctx, port.HandlerDependencies{
-		HistoryUC:   deps.HistoryUC,
-		FavoritesUC: deps.FavoritesUC,
-		Clipboard:   deps.Clipboard,
-		AutoCopyConfig: &autoCopyConfigFn{fn: func() bool {
+	var autoCopyConfig port.AutoCopyConfig
+	var clipboardOrchestrator port.ClipboardTextOrchestrator
+	if deps.Clipboard != nil {
+		autoCopyConfig = &autoCopyConfigFn{fn: func() bool {
 			if deps.Config == nil {
 				return false
 			}
 			return deps.Config.Clipboard.AutoCopyOnSelection
-		}},
+		}}
+		clipboardOrchestrator = usecase.NewClipboardTextOrchestrator(deps.Clipboard, autoCopyConfig, func(textLen int) {
+			cb := glib.SourceFunc(func(_ uintptr) bool {
+				app.showToastOnLastFocusedBrowserWindow(ctx, "Copied to clipboard", component.ToastInfo,
+					component.WithDuration(component.ToastBriefDurationMs),
+					component.WithPosition(component.ToastPositionBottomRight),
+				)
+				return false
+			})
+			glib.IdleAdd(&cb, 0)
+		})
+	}
+	// Register message handlers through the engine.
+	if err := deps.Engine.RegisterHandlers(ctx, port.HandlerDependencies{
+		HistoryUC:                 deps.HistoryUC,
+		FavoritesUC:               deps.FavoritesUC,
+		Clipboard:                 deps.Clipboard,
+		AutoCopyConfig:            autoCopyConfig,
+		ClipboardTextOrchestrator: clipboardOrchestrator,
 		OnClipboardCopied: func(textLen int) {
 			cb := glib.SourceFunc(func(_ uintptr) bool {
 				app.showToastOnLastFocusedBrowserWindow(ctx, "Copied to clipboard", component.ToastInfo,
@@ -2339,9 +2356,9 @@ func (a *App) updateWindowTitle(pageTitle string, target *browserWindow) {
 		return
 	}
 
-	title := "Dumber"
+	title := appTitle
 	if pageTitle != "" {
-		title = pageTitle + " - Dumber"
+		title = pageTitle + " - " + appTitle
 	}
 	target.mainWindow.SetTitle(title)
 }

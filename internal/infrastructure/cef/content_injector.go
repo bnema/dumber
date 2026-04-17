@@ -385,33 +385,6 @@ const redditDirectVideoJS = `(function(){
   }, 1000);
 })();`
 
-// clipboardCopyBridgeJS intercepts copy/cut events and sends the selected text
-// back to Go via the message bridge so it can be written to the GDK clipboard.
-// Without this, Ctrl+C in CEF OSR mode writes to CEF's internal clipboard but
-// not the Wayland/X11 system clipboard.
-const clipboardCopyBridgeJS = `(function(){
-  if (window.__dumberClipboardBridge) return;
-  window.__dumberClipboardBridge = true;
-  function sendToClipboard(text) {
-    if (!text) return;
-    var body = JSON.stringify({text: text});
-    var encoded = typeof btoa === 'function' ? btoa(unescape(encodeURIComponent(body))) : '';
-    if (!encoded) return;
-    fetch('dumb:///api/clipboard-set', {
-      method: 'POST',
-      headers: {'X-Dumber-Body': encoded}
-    }).catch(function(){});
-  }
-  document.addEventListener('copy', function() {
-    var sel = window.getSelection();
-    if (sel) sendToClipboard(sel.toString());
-  });
-  document.addEventListener('cut', function() {
-    var sel = window.getSelection();
-    if (sel) sendToClipboard(sel.toString());
-  });
-})();`
-
 // contentInjector implements port.ContentInjector for the CEF engine.
 // It stores CSS strings and injects them into webviews via ExecuteJavaScript.
 // Thread-safe: InjectThemeCSS may be called from the UI thread while OnLoadEnd
@@ -532,8 +505,9 @@ func (ci *contentInjector) onLoadEnd(wv *WebView) {
 	ci.injectCSS(wv, "dumber-scrollbar", scrollbarCSS)
 	wv.RunJavaScript(context.Background(), scrollbarAutoHideJS)
 
-	// All pages get clipboard copy bridge (CEF OSR can't write to Wayland clipboard).
-	wv.RunJavaScript(context.Background(), clipboardCopyBridgeJS)
+	// Focus sync, selection auto-copy, and clipboard API bridging are installed by
+	// the native render-process bridge at V8 context creation time. Do not inject
+	// fetch-based shims here: external site CSP can block them.
 
 	// Video playback diagnostic — logs video element state changes.
 	// Gated behind DUMBER_VIDEO_DIAG=1 environment variable.

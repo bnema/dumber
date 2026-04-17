@@ -105,16 +105,26 @@ func (uc *ExecuteContextMenuActionUseCase) executeMenuAction(
 			return fmt.Errorf("save image: %w", err)
 		}
 		return nil
-	default:
-		// All other normalized actions are delegated to the engine/UI layer.
-		if uc.delegator == nil {
-			return fmt.Errorf("delegate action %s: menu action delegator not available", action)
+	case port.MenuActionCopySelection:
+		if menuContext.SelectionText != "" {
+			if uc.clipboard == nil {
+				return fmt.Errorf("copy selection: clipboard not available")
+			}
+			if err := uc.clipboard.WriteText(ctx, menuContext.SelectionText); err != nil {
+				return fmt.Errorf("copy selection: %w", err)
+			}
+			return nil
 		}
-		if err := uc.delegator.DelegateMenuAction(ctx, action, menuContext); err != nil {
-			return fmt.Errorf("delegate action %s: %w", action, err)
-		}
-		return nil
 	}
+
+	// All other normalized actions are delegated to the engine/UI layer.
+	if uc.delegator == nil {
+		return fmt.Errorf("delegate action %s: menu action delegator not available", action)
+	}
+	if err := uc.delegator.DelegateMenuAction(ctx, action, menuContext); err != nil {
+		return fmt.Errorf("delegate action %s: %w", action, err)
+	}
+	return nil
 }
 
 func (uc *ExecuteContextMenuActionUseCase) resolveImageData(ctx context.Context, uri string) (entity.ImageData, error) {

@@ -15,6 +15,8 @@ import (
 const (
 	consoleMarkerVideoDiag        = "[VIDEO-DIAG]"
 	consoleMarkerRedditVideoPatch = "[REDDIT-VIDEO-PATCH]"
+	consoleMarkerClipboardBridge  = "[CLIPBOARD-BRIDGE]"
+	consoleMarkerAutoCopy         = "[AUTO-COPY]"
 )
 
 // handlerSet implements all CEF handler interfaces and dispatches events to the
@@ -67,8 +69,44 @@ func (h *handlerSet) GetPrintHandler() purecef.PrintHandler             { return
 func (h *handlerSet) GetRenderHandler() purecef.RenderHandler           { return h }
 func (h *handlerSet) GetRequestHandler() purecef.RequestHandler         { return h }
 
-func (h *handlerSet) OnProcessMessageReceived(_ purecef.Browser, _ purecef.Frame, _ purecef.ProcessID, _ purecef.ProcessMessage) int32 {
-	return 0
+func (h *handlerSet) OnProcessMessageReceived(
+	browser purecef.Browser,
+	_ purecef.Frame,
+	_ purecef.ProcessID,
+	message purecef.ProcessMessage,
+) int32 {
+	if h == nil || h.wv == nil || h.wv.engine == nil {
+		return 0
+	}
+	action, payload, ok := decodeRendererBridgeProcessMessage(message)
+	if !ok {
+		return 0
+	}
+
+	log := logging.FromContext(h.wv.ctx)
+	log.Debug().
+		Str("action", action).
+		Int("payload_len", len(payload)).
+		Msg("cef: renderer bridge message received")
+
+	switch action {
+	case rendererBridgeActionExplicitTextCopy:
+		req, err := decodeRendererBridgeExplicitTextCopyPayload([]byte(payload))
+		if err != nil {
+			log.Debug().Str("action", action).Msg("cef: invalid explicit copy payload")
+			return 1
+		}
+		h.wv.engine.handleExplicitClipboardBridgeText(h.wv.id, req.Action, req.Text)
+	case rendererBridgeActionFocusSync:
+		h.wv.engine.handleEditableFocusBridge(browser)
+	case rendererBridgeActionReady:
+		log.Debug().
+			Str("frame_url", logging.TruncateURL(payload, logging.PermissionLogURLMaxLen)).
+			Msg("cef: renderer bridge ready")
+	default:
+		log.Debug().Str("action", action).Msg("cef: unknown renderer bridge action")
+	}
+	return 1
 }
 
 // ===========================================================================
@@ -295,7 +333,12 @@ func (h *handlerSet) shouldAcceptMainViewPaint(
 	return sizeMatchesCurrentView
 }
 
-func (h *handlerSet) OnAcceleratedPaint(_ purecef.Browser, _ purecef.PaintElementType, _ []purecef.Rect, _ *purecef.AcceleratedPaintInfo) {
+func (h *handlerSet) OnAcceleratedPaint(
+	_ purecef.Browser,
+	_ purecef.PaintElementType,
+	_ []purecef.Rect,
+	_ *purecef.AcceleratedPaintInfo,
+) {
 	count := h.wv.pipeline.recordAcceleratedPaint()
 	if count <= 5 || count%100 == 0 {
 		logging.FromContext(h.wv.ctx).Info().
@@ -309,7 +352,12 @@ func (h *handlerSet) GetTouchHandleSize(_ purecef.Browser, _ purecef.HorizontalA
 
 func (h *handlerSet) OnTouchHandleStateChanged(_ purecef.Browser, _ *purecef.TouchHandleState) {}
 
-func (h *handlerSet) StartDragging(_ purecef.Browser, _ purecef.DragData, _ purecef.DragOperationsMask, _, _ int32) int32 {
+func (h *handlerSet) StartDragging(
+	_ purecef.Browser,
+	_ purecef.DragData,
+	_ purecef.DragOperationsMask,
+	_, _ int32,
+) int32 {
 	return 0
 }
 
@@ -320,7 +368,29 @@ func (h *handlerSet) OnScrollOffsetChanged(_ purecef.Browser, _, _ float64) {}
 func (h *handlerSet) OnImeCompositionRangeChanged(_ purecef.Browser, _ *purecef.Range, _ []purecef.Rect) {
 }
 
-func (h *handlerSet) OnTextSelectionChanged(_ purecef.Browser, _ string, _ *purecef.Range) {}
+func (h *handlerSet) OnTextSelectionChanged(_ purecef.Browser, selectedText string, _ *purecef.Range) {
+	if h == nil || h.wv == nil {
+		return
+	}
+	previous, changed := h.wv.setSelectedText(selectedText)
+	if !changed || h.wv.ctx == nil {
+		return
+	}
+	if selectedText == "" {
+		if previous != "" {
+			logging.FromContext(h.wv.ctx).Debug().
+				Int("prev_text_len", len(previous)).
+				Msg("cef: text selection cleared")
+		}
+	} else {
+		logging.FromContext(h.wv.ctx).Debug().
+			Int("text_len", len(selectedText)).
+			Msg("cef: text selection changed")
+	}
+	if h.wv.engine != nil {
+		h.wv.engine.handleClipboardSelectionUpdate(h.wv.id, selectedText)
+	}
+}
 
 func (h *handlerSet) OnVirtualKeyboardRequested(_ purecef.Browser, _ purecef.TextInputMode) {}
 
@@ -382,9 +452,17 @@ func (h *handlerSet) OnStatusMessage(_ purecef.Browser, value string) {
 	}
 }
 
-func (h *handlerSet) OnConsoleMessage(_ purecef.Browser, level purecef.LogSeverity, message, source string, line int32) int32 {
+func (h *handlerSet) OnConsoleMessage(
+	_ purecef.Browser,
+	level purecef.LogSeverity,
+	message, source string,
+	line int32,
+) int32 {
 	if h.wv != nil && h.wv.ctx != nil &&
-		(strings.Contains(message, consoleMarkerVideoDiag) || strings.Contains(message, consoleMarkerRedditVideoPatch)) {
+		(strings.Contains(message, consoleMarkerVideoDiag) ||
+			strings.Contains(message, consoleMarkerRedditVideoPatch) ||
+			strings.Contains(message, consoleMarkerClipboardBridge) ||
+			strings.Contains(message, consoleMarkerAutoCopy)) {
 		log := logging.FromContext(h.wv.ctx).With().
 			Str("component", "cef-console").
 			Str("source", source).
@@ -409,7 +487,12 @@ func (h *handlerSet) OnLoadingProgressChange(_ purecef.Browser, progress float64
 	h.wv.updateProgress(progress)
 }
 
-func (h *handlerSet) OnCursorChange(_ purecef.Browser, _ uintptr, cursorType purecef.CursorType, _ *purecef.CursorInfo) int32 {
+func (h *handlerSet) OnCursorChange(
+	_ purecef.Browser,
+	_ uintptr,
+	cursorType purecef.CursorType,
+	_ *purecef.CursorInfo,
+) int32 {
 	name := cefCursorToGDKName(cursorType)
 	h.wv.runOnGTK(func() {
 		h.wv.pipeline.glArea.SetCursorFromName(&name)
@@ -431,6 +514,13 @@ func (h *handlerSet) GetRootWindowScreenRect(_ purecef.Browser, _ *purecef.Rect)
 func (h *handlerSet) OnLoadingStateChange(_ purecef.Browser, isloading, cangoback, cangoforward int32) {
 	loading := isloading != 0
 	h.wv.updateLoadState(loading, cangoback != 0, cangoforward != 0)
+
+	if !loading && h.wv.input != nil && h.wv.input.hasGTKFocus() {
+		h.wv.mu.RLock()
+		host := h.wv.host
+		h.wv.mu.RUnlock()
+		syncWindowlessBrowserFocus(host)
+	}
 
 	h.wv.mu.RLock()
 	cb := h.wv.callbacks
@@ -579,11 +669,10 @@ func (h *handlerSet) OnAfterCreated(browser purecef.Browser) {
 	// UI elements like the text caret until explicitly told the browser is shown.
 	host.WasHidden(0)
 
-	// If the GLArea already has GTK focus (cold start race), tell CEF now.
-	// The focus-enter event fired before the browser existed, so SetFocus
-	// was never called and the caret won't blink until the user clicks.
-	if h.wv.input != nil && h.wv.input.glArea != nil && h.wv.input.glArea.HasFocus() {
-		host.SetFocus(1)
+	// If GTK focus entered before the browser existed, reassert browser focus
+	// now. Otherwise CEF may stay internally unfocused and suppress caret paint.
+	if h.wv.input != nil && h.wv.input.hasGTKFocus() {
+		syncWindowlessBrowserFocus(host)
 	}
 
 	// Replay any navigation that was requested before the browser existed.
@@ -636,7 +725,13 @@ func (h *handlerSet) OnBeforeBrowse(_ purecef.Browser, _ purecef.Frame, _ purece
 	return false
 }
 
-func (h *handlerSet) OnOpenUrlfromTab(_ purecef.Browser, _ purecef.Frame, _ string, _ purecef.WindowOpenDisposition, _ int32) int32 {
+func (h *handlerSet) OnOpenUrlfromTab(
+	_ purecef.Browser,
+	_ purecef.Frame,
+	_ string,
+	_ purecef.WindowOpenDisposition,
+	_ int32,
+) int32 {
 	return 0
 }
 
@@ -644,7 +739,8 @@ func (h *handlerSet) GetResourceRequestHandler(
 	_ purecef.Browser, _ purecef.Frame, request purecef.Request,
 	_, _ int32, _ string, disableDefaultHandling *int32,
 ) purecef.ResourceRequestHandler {
-	if h.transcodingHandler != nil && request != nil && disableDefaultHandling != nil && transcoder.IsEagerTranscodeURL(request.GetURL()) {
+	if h.transcodingHandler != nil && request != nil && disableDefaultHandling != nil &&
+		transcoder.IsEagerTranscodeURL(request.GetURL()) {
 		*disableDefaultHandling = 1
 		if h.wv != nil && h.wv.ctx != nil {
 			logging.FromContext(h.wv.ctx).Info().
@@ -665,7 +761,13 @@ func (h *handlerSet) GetAuthCredentials(
 	return 0
 }
 
-func (h *handlerSet) OnCertificateError(_ purecef.Browser, _ purecef.Errorcode, _ string, _ purecef.Sslinfo, _ purecef.Callback) int32 {
+func (h *handlerSet) OnCertificateError(
+	_ purecef.Browser,
+	_ purecef.Errorcode,
+	_ string,
+	_ purecef.Sslinfo,
+	_ purecef.Callback,
+) int32 {
 	return 0
 }
 
@@ -894,7 +996,12 @@ func (h *handlerSet) OnAudioStreamError(_ purecef.Browser, message string) {
 // ===========================================================================
 
 // OnFindResult dispatches CEF find results to the WebView's FindController.
-func (h *handlerSet) OnFindResult(_ purecef.Browser, identifier, count int32, _ *purecef.Rect, activematchordinal, finalupdate int32) {
+func (h *handlerSet) OnFindResult(
+	_ purecef.Browser,
+	identifier, count int32,
+	_ *purecef.Rect,
+	activematchordinal, finalupdate int32,
+) {
 	if h.wv.findCtrl != nil {
 		h.wv.findCtrl.handleFindResult(identifier, count, activematchordinal, finalupdate)
 	}

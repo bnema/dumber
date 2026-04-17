@@ -217,6 +217,27 @@ func TestExecuteContextMenuActionUseCase_WrapsDelegateErrors(t *testing.T) {
 	require.Contains(t, err.Error(), "boom")
 }
 
+func TestExecuteContextMenuActionUseCase_CopySelectionWritesSelectedText(t *testing.T) {
+	clipboard := &fakeClipboard{}
+	resolver := &fakeImageResolver{}
+	saver := &fakeResolvedImageSaver{}
+	delegator := &fakeMenuActionDelegator{}
+	uc := NewExecuteContextMenuActionUseCase(clipboard, resolver, saver, delegator)
+
+	err := uc.Execute(context.Background(), ExecuteContextMenuActionInput{
+		Action: port.MenuActionCopySelection,
+		Context: port.MenuContext{
+			HasSelection:  true,
+			SelectionText: "selected text",
+		},
+	})
+
+	require.NoError(t, err)
+	require.Equal(t, 1, clipboard.writeTextCalls)
+	require.Equal(t, "selected text", clipboard.text)
+	require.Zero(t, delegator.delegateCalls)
+}
+
 func TestExecuteContextMenuActionUseCase_CopyLinkWritesText(t *testing.T) {
 	clipboard := &fakeClipboard{}
 	resolver := &fakeImageResolver{}

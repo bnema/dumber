@@ -11,7 +11,6 @@ import (
 
 	purecef "github.com/bnema/purego-cef/cef"
 	"github.com/bnema/puregotk/v4/gdk"
-	"github.com/bnema/puregotk/v4/glib"
 	"github.com/rs/zerolog"
 
 	"github.com/bnema/dumber/assets"
@@ -253,24 +252,12 @@ func wireEngine(
 	}
 	schemeHandler.setAssets(assets.WebUIAssets)
 
-	// Bridge clipboard writes from CEF JS → GDK system clipboard.
-	// The callback is invoked on the CEF IO thread, so we schedule the
-	// GDK write on the GTK main loop via glib.IdleAddOnce.
+	// Route scheme-handler clipboard/focus callbacks through the same engine-side
+	// bridge handlers used by the native renderer bridge.
 	schemeHandler.onClipboardSet = func(text string) {
-		fn := glib.SourceOnceFunc(func(_ uintptr) {
-			if display := gdk.DisplayGetDefault(); display != nil {
-				if cb := display.GetClipboard(); cb != nil {
-					cb.SetText(text)
-					logger.Debug().Msg("cef: clipboard set via GDK")
-				} else {
-					logger.Debug().Msg("cef: clipboard set failed — no GDK clipboard")
-				}
-			} else {
-				logger.Debug().Msg("cef: clipboard set failed — no GDK display")
-			}
-		})
-		glib.IdleAddOnce(&fn, 0)
+		eng.handleClipboardBridgeText(0, text)
 	}
+	schemeHandler.onEditableFocus = eng.handleEditableFocusBridge
 
 	schemeFactory := purecef.NewSchemeHandlerFactory(schemeHandler)
 

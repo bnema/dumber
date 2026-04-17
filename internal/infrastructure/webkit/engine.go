@@ -26,6 +26,7 @@ type Engine struct {
 	logger                 zerolog.Logger
 	ctxMenuBuilder         port.ContextMenuBuilder
 	ctxMenuExecutorFactory port.ContextMenuActionExecutorFactory
+	onClipboardCopied      func(textLen int)
 	downloadPath           string
 	downloadPreparer       port.DownloadPreparer
 	clipboard              port.Clipboard // captured during RegisterHandlers for context menu wiring
@@ -99,6 +100,7 @@ func (e *Engine) RegisterHandlers(ctx context.Context, deps port.HandlerDependen
 	}
 	// Capture clipboard for context menu pipeline wiring in ConfigureDownloads.
 	e.clipboard = deps.Clipboard
+	e.onClipboardCopied = deps.OnClipboardCopied
 	return handlers.RegisterAll(ctx, e.messageRouter, deps)
 }
 
@@ -179,6 +181,7 @@ func (e *Engine) installContextMenuPipeline() {
 		builder:         e.ctxMenuBuilder,
 		executorFactory: e.ctxMenuExecutorFactory,
 		clipboard:       e.clipboard,
+		onCopied:        e.onClipboardCopied,
 		resolver:        resolver,
 		saver:           saver,
 		renderer:        renderer,

@@ -65,12 +65,13 @@ type WebView struct {
 	callbacks *port.WebViewCallbacks
 
 	// State cache (mutex-protected).
-	uri       string
-	title     string
-	progress  float64
-	canGoBack bool
-	canGoFwd  bool
-	isLoading bool
+	uri          string
+	title        string
+	progress     float64
+	canGoBack    bool
+	canGoFwd     bool
+	isLoading    bool
+	selectedText string
 
 	// Last known hover URI for middle-click → new tab.
 	lastHoverURI string
@@ -563,6 +564,21 @@ func (wv *WebView) setAudioPlaying(playing bool) {
 			cb.OnAudioStateChanged(playing)
 		})
 	}
+}
+
+func (wv *WebView) setSelectedText(text string) (string, bool) {
+	wv.mu.Lock()
+	previous := wv.selectedText
+	changed := previous != text
+	wv.selectedText = text
+	wv.mu.Unlock()
+	return previous, changed
+}
+
+func (wv *WebView) selectedTextSnapshot() string {
+	wv.mu.RLock()
+	defer wv.mu.RUnlock()
+	return wv.selectedText
 }
 
 func (wv *WebView) updateHoverURI(uri string) {

@@ -82,7 +82,15 @@ func (h *handlerSet) RunContextMenu(
 		x,
 		y,
 		func(item port.MenuItem) {
-			dispatchContextMenuSelection(h.wv.ctx, executor, callback, commandIDByAction, item, menuContext)
+			var explicitCopyCallback func(string)
+			var copiedCallback func(string)
+			if h.wv.engine != nil {
+				explicitCopyCallback = func(text string) {
+					h.wv.engine.handleExplicitClipboardBridgeText(h.wv.id, "copy", text)
+				}
+				copiedCallback = h.wv.engine.notifyClipboardCopied
+			}
+			dispatchContextMenuSelection(h.wv.ctx, executor, callback, explicitCopyCallback, copiedCallback, commandIDByAction, item, menuContext)
 		},
 		func() {
 			callback.Cancel()
@@ -162,6 +170,8 @@ func dispatchContextMenuSelection(
 	ctx context.Context,
 	executor port.ContextMenuActionExecutor,
 	callback purecef.RunContextMenuCallback,
+	explicitCopyCallback func(text string),
+	copiedCallback func(text string),
 	commandIDByAction map[port.MenuAction]int32,
 	item port.MenuItem,
 	menuContext port.MenuContext,
@@ -171,14 +181,25 @@ func dispatchContextMenuSelection(
 		return
 	}
 	log.Debug().Str("action", string(item.Action)).Str("label", item.Label).Msg("cef: context menu item selected")
+	if item.Action == port.MenuActionCopySelection && menuContext.SelectionText != "" && explicitCopyCallback != nil {
+		explicitCopyCallback(menuContext.SelectionText)
+		log.Debug().Str("action", string(item.Action)).Msg("cef: context menu selection copied via shared explicit path")
+		callback.Cancel()
+		return
+	}
 	if shouldExecuteDirectCEFAction(item.Action) && executor != nil {
 		if err := executor.ExecuteMenuAction(ctx, item.Action, menuContext); err != nil {
 			log.Warn().Err(err).Str("action", string(item.Action)).Msg("cef: context menu action failed")
 			callback.Cancel()
 			return
 		}
+		if copiedCallback != nil {
+			if copiedText := contextMenuCopiedText(item.Action, menuContext); copiedText != "" {
+				copiedCallback(copiedText)
+			}
+		}
 		log.Debug().Str("action", string(item.Action)).Msg("cef: context menu action executed directly")
-		callback.Cont(0, 0)
+		callback.Cancel()
 		return
 	}
 	if cmdID, ok := commandIDByAction[item.Action]; ok {
@@ -188,6 +209,20 @@ func dispatchContextMenuSelection(
 	}
 	log.Warn().Str("action", string(item.Action)).Msg("cef: no matching native context menu command")
 	callback.Cancel()
+}
+
+func contextMenuCopiedText(action port.MenuAction, menuContext port.MenuContext) string {
+	switch action {
+	case port.MenuActionCopySelection:
+		if menuContext.SelectionText != "" {
+			return menuContext.SelectionText
+		}
+		return ""
+	case port.MenuActionCopyLink:
+		return menuContext.LinkURI
+	default:
+		return ""
+	}
 }
 
 func shouldExecuteDirectCEFAction(action port.MenuAction) bool {
@@ -296,7 +331,8 @@ func buildMenuContext(wv *WebView, params purecef.ContextMenuParams) port.MenuCo
 	if params.HasImageContents() {
 		menuContext.ImageURI = params.GetSourceURL()
 	}
-	menuContext.HasSelection = strings.TrimSpace(params.GetSelectionText()) != ""
+	menuContext.SelectionText = params.GetSelectionText()
+	menuContext.HasSelection = strings.TrimSpace(menuContext.SelectionText) != ""
 	menuContext.IsEditable = params.IsEditable()
 	menuContext.X = int(params.GetXcoord())
 	menuContext.Y = int(params.GetYcoord())

@@ -57,8 +57,12 @@ type dumbSchemeHandler struct {
 	mu                   sync.RWMutex
 
 	// onClipboardSet is called when JS sends copied text via /api/clipboard-set.
-	// Set by the engine to write to the GDK system clipboard.
+	// Set by the engine to mirror copied text to the real system clipboard.
 	onClipboardSet func(text string)
+
+	// onEditableFocus is called when JS reports that an editable element gained
+	// DOM focus. The engine uses this to reassert CEF browser focus in OSR mode.
+	onEditableFocus func(browser purecef.Browser)
 }
 
 // newDumbSchemeHandler creates a handler for internal CEF pages.
@@ -99,7 +103,7 @@ func (h *dumbSchemeHandler) setAssets(assets embed.FS) {
 
 // Create implements purecef.SchemeHandlerFactory. Called on the CEF IO thread
 // for requests to either dumb:// or the internal https origin.
-func (h *dumbSchemeHandler) Create(_ purecef.Browser, _ purecef.Frame, _ string, request purecef.Request) purecef.ResourceHandler {
+func (h *dumbSchemeHandler) Create(browser purecef.Browser, _ purecef.Frame, _ string, request purecef.Request) purecef.ResourceHandler {
 	reqURL := request.GetURL()
 	method := request.GetMethod()
 
@@ -132,7 +136,7 @@ func (h *dumbSchemeHandler) Create(_ purecef.Browser, _ purecef.Frame, _ string,
 	path := u.Path
 
 	if strings.HasPrefix(path, "/api/") {
-		return h.handleAPI(method, path, request)
+		return h.handleAPI(browser, method, path, request)
 	}
 
 	// Serve static assets.
@@ -140,7 +144,7 @@ func (h *dumbSchemeHandler) Create(_ purecef.Browser, _ purecef.Frame, _ string,
 }
 
 // handleAPI routes API requests to the message router or built-in handlers.
-func (h *dumbSchemeHandler) handleAPI(method, path string, request purecef.Request) purecef.ResourceHandler {
+func (h *dumbSchemeHandler) handleAPI(browser purecef.Browser, method, path string, request purecef.Request) purecef.ResourceHandler {
 	switch {
 	case path == "/api/message" && strings.EqualFold(method, "POST"):
 		body := readBodyFromHeader(request)
@@ -164,6 +168,9 @@ func (h *dumbSchemeHandler) handleAPI(method, path string, request purecef.Reque
 
 	case path == "/api/clipboard-set" && strings.EqualFold(method, "POST"):
 		return h.handleClipboardSet(request)
+
+	case path == "/api/focus-sync" && strings.EqualFold(method, "POST"):
+		return h.handleFocusSync(browser)
 
 	default:
 		return h.newJSONResourceHandler(http.StatusNotFound, map[string]string{"error": "not found"})
@@ -242,33 +249,65 @@ func (h *dumbSchemeHandler) handleConfigAPI(build func() ([]byte, error)) purece
 // it to the system clipboard via the engine callback.
 const maxClipboardBytes = 10 << 20 // 10 MB
 
-func (h *dumbSchemeHandler) handleClipboardSet(request purecef.Request) purecef.ResourceHandler {
-	h.logger.Debug().Msg("cef: /api/clipboard-set request received")
-
-	body := readBodyFromHeader(request)
+func decodeClipboardSetBody(body []byte) (string, error) {
 	if body == nil {
-		h.logger.Debug().Msg("cef: clipboard-set — empty body (no X-Dumber-Body header)")
-		return h.newJSONResourceHandler(http.StatusBadRequest, map[string]string{"error": "empty body"})
+		return "", fmt.Errorf("empty body")
 	}
 	if len(body) > maxClipboardBytes {
-		h.logger.Warn().Int("body_len", len(body)).Msg("cef: clipboard-set — payload too large")
-		return h.newJSONResourceHandler(http.StatusRequestEntityTooLarge, map[string]string{"error": "payload too large"})
+		return "", fmt.Errorf("payload too large")
 	}
 
 	var payload struct {
 		Text string `json:"text"`
 	}
 	if err := json.Unmarshal(body, &payload); err != nil || payload.Text == "" {
-		h.logger.Debug().Int("body_len", len(body)).Msg("cef: clipboard-set — invalid or empty payload")
-		return h.newJSONResourceHandler(http.StatusBadRequest, map[string]string{"error": "invalid payload"})
+		return "", fmt.Errorf("invalid payload")
+	}
+	return payload.Text, nil
+}
+
+func (h *dumbSchemeHandler) handleClipboardSet(request purecef.Request) purecef.ResourceHandler {
+	h.logger.Debug().Msg("cef: /api/clipboard-set request received")
+
+	body := readBodyFromHeader(request)
+	text, err := decodeClipboardSetBody(body)
+	if err != nil {
+		switch err.Error() {
+		case "empty body":
+			h.logger.Debug().Msg("cef: clipboard-set — empty body (no X-Dumber-Body header)")
+			return h.newJSONResourceHandler(http.StatusBadRequest, map[string]string{"error": err.Error()})
+		case "payload too large":
+			h.logger.Warn().Int("body_len", len(body)).Msg("cef: clipboard-set — payload too large")
+			return h.newJSONResourceHandler(http.StatusRequestEntityTooLarge, map[string]string{"error": err.Error()})
+		default:
+			h.logger.Debug().Int("body_len", len(body)).Msg("cef: clipboard-set — invalid or empty payload")
+			return h.newJSONResourceHandler(http.StatusBadRequest, map[string]string{"error": err.Error()})
+		}
 	}
 
-	h.logger.Debug().Int("text_len", len(payload.Text)).Msg("cef: clipboard-set — forwarding to GDK clipboard")
+	h.logger.Debug().
+		Int("text_len", len(text)).
+		Msg("cef: clipboard-set request reached backend")
 
 	if h.onClipboardSet != nil {
-		h.onClipboardSet(payload.Text)
+		h.onClipboardSet(text)
 	} else {
 		h.logger.Warn().Msg("cef: clipboard-set — onClipboardSet callback not wired")
+	}
+
+	return h.newJSONResourceHandler(http.StatusOK, map[string]any{"ok": true})
+}
+
+func (h *dumbSchemeHandler) handleFocusSync(browser purecef.Browser) purecef.ResourceHandler {
+	if browser == nil {
+		h.logger.Debug().Msg("cef: focus-sync — browser unavailable")
+		return h.newJSONResourceHandler(http.StatusBadRequest, map[string]string{"error": "browser unavailable"})
+	}
+
+	if h.onEditableFocus != nil {
+		h.onEditableFocus(browser)
+	} else {
+		h.logger.Debug().Msg("cef: focus-sync — onEditableFocus callback not wired")
 	}
 
 	return h.newJSONResourceHandler(http.StatusOK, map[string]any{"ok": true})

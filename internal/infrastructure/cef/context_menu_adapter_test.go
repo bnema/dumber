@@ -64,6 +64,7 @@ func TestBuildMenuContextFromCEFParams(t *testing.T) {
 	require.Equal(t, "https://example.com/page", ctx.PageURI)
 	require.Equal(t, "https://example.com/link", ctx.LinkURI)
 	require.Equal(t, "https://example.com/image.png", ctx.ImageURI)
+	require.Equal(t, "selected text", ctx.SelectionText)
 	require.True(t, ctx.HasSelection)
 	require.True(t, ctx.IsEditable)
 	require.True(t, ctx.CanGoBack)
@@ -104,7 +105,7 @@ func (c *stubRunContextMenuCallback) Cancel() {
 func TestContextMenuSelectionCancelsWhenCEFCommandMissing(t *testing.T) {
 	callback := &stubRunContextMenuCallback{}
 
-	dispatchContextMenuSelection(context.Background(), nil, callback, map[port.MenuAction]int32{
+	dispatchContextMenuSelection(context.Background(), nil, callback, nil, nil, map[port.MenuAction]int32{
 		port.MenuActionReload: 102,
 	}, port.MenuItem{Action: port.MenuActionInspectElement, Label: "Inspect Element"}, port.MenuContext{})
 
@@ -115,7 +116,7 @@ func TestContextMenuSelectionCancelsWhenCEFCommandMissing(t *testing.T) {
 func TestContextMenuSelectionContinuesWhenCEFCommandPresent(t *testing.T) {
 	callback := &stubRunContextMenuCallback{}
 
-	dispatchContextMenuSelection(context.Background(), nil, callback, map[port.MenuAction]int32{
+	dispatchContextMenuSelection(context.Background(), nil, callback, nil, nil, map[port.MenuAction]int32{
 		port.MenuActionInspectElement: 204,
 	}, port.MenuItem{Action: port.MenuActionInspectElement, Label: "Inspect Element"}, port.MenuContext{})
 
@@ -133,6 +134,8 @@ func TestContextMenuSelectionExecutesDirectActionWhenExecutorAvailable(t *testin
 		context.Background(),
 		executor,
 		callback,
+		nil,
+		nil,
 		map[port.MenuAction]int32{port.MenuActionReload: 102},
 		port.MenuItem{Action: port.MenuActionReload, Label: "Reload"},
 		menuContext,
@@ -141,9 +144,9 @@ func TestContextMenuSelectionExecutesDirectActionWhenExecutorAvailable(t *testin
 	require.Equal(t, 1, executor.executeCalls)
 	require.Equal(t, port.MenuActionReload, executor.action)
 	require.Equal(t, menuContext, executor.menuContext)
-	require.Equal(t, 1, callback.contCalls)
+	require.Zero(t, callback.contCalls)
 	require.Zero(t, callback.commandID)
-	require.Zero(t, callback.cancelCalls)
+	require.Equal(t, 1, callback.cancelCalls)
 }
 
 func TestContextMenuSelectionExecutesCopyImageDirectlyWhenExecutorAvailable(t *testing.T) {
@@ -155,6 +158,8 @@ func TestContextMenuSelectionExecutesCopyImageDirectlyWhenExecutorAvailable(t *t
 		context.Background(),
 		executor,
 		callback,
+		nil,
+		nil,
 		map[port.MenuAction]int32{},
 		port.MenuItem{Action: port.MenuActionCopyImage, Label: "Copy Image"},
 		menuContext,
@@ -163,9 +168,39 @@ func TestContextMenuSelectionExecutesCopyImageDirectlyWhenExecutorAvailable(t *t
 	require.Equal(t, 1, executor.executeCalls)
 	require.Equal(t, port.MenuActionCopyImage, executor.action)
 	require.Equal(t, menuContext, executor.menuContext)
-	require.Equal(t, 1, callback.contCalls)
+	require.Zero(t, callback.contCalls)
 	require.Zero(t, callback.commandID)
-	require.Zero(t, callback.cancelCalls)
+	require.Equal(t, 1, callback.cancelCalls)
+}
+
+func TestContextMenuSelectionRoutesSelectionCopyThroughSharedExplicitPath(t *testing.T) {
+	callback := &stubRunContextMenuCallback{}
+	executor := &stubContextMenuExecutor{}
+	var copiedLens []int
+	var explicitCopies []string
+
+	for _, tc := range []struct {
+		action port.MenuAction
+		text   string
+	}{
+		{action: port.MenuActionCopySelection, text: "selected text"},
+		{action: port.MenuActionCopySelection, text: ""},
+		{action: port.MenuActionCopyLink, text: "https://example.com/link"},
+	} {
+		dispatchContextMenuSelection(
+			context.Background(),
+			executor,
+			callback,
+			func(text string) { explicitCopies = append(explicitCopies, text) },
+			func(text string) { copiedLens = append(copiedLens, len(text)) },
+			map[port.MenuAction]int32{},
+			port.MenuItem{Action: tc.action, Label: "Copy"},
+			port.MenuContext{SelectionText: tc.text, LinkURI: tc.text},
+		)
+	}
+
+	require.Equal(t, []string{"selected text"}, explicitCopies)
+	require.Equal(t, []int{24}, copiedLens)
 }
 
 func TestContextMenuAnchorPositionScalesCEFCoordinates(t *testing.T) {

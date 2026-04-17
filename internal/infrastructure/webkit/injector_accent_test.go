@@ -30,3 +30,23 @@ func TestAccentDetectionScriptTracksLastFocusedEditableElement(t *testing.T) {
 		"accent detection script must register a focusin listener",
 	)
 }
+
+func TestExplicitCopyScriptCapturesClipboardOperations(t *testing.T) {
+	script := buildExplicitCopyScript()
+
+	assert.Contains(t, script, "explicit_text_copy")
+	assert.Contains(t, script, "document.addEventListener('copy'")
+	assert.Contains(t, script, "document.addEventListener('cut'")
+	assert.Contains(t, script, "document.execCommand")
+	assert.Contains(t, script, "navigator.clipboard.writeText")
+}
+
+func TestExplicitCopyScriptReadsInputAndTextareaSelectionFirst(t *testing.T) {
+	script := buildExplicitCopyScript()
+
+	assert.Contains(t, script, "document.activeElement")
+	assert.Contains(t, script, "selectionStart")
+	assert.Contains(t, script, "selectionEnd")
+	assert.Contains(t, script, "INPUT")
+	assert.Contains(t, script, "TEXTAREA")
+}
