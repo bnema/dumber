@@ -12,6 +12,7 @@ const (
 	actualInternalHost             = "dumber.invalid"
 	actualInternalOrigin           = actualInternalScheme + "://" + actualInternalHost
 	internalAPIPathPrefix          = "/api/"
+	internalAPIPathPrefixTrimmed   = "api/"
 )
 
 func isConceptualInternalURL(raw string) bool {
@@ -50,7 +51,7 @@ func toActualInternalURL(raw string) string {
 	case trimmedPath == "":
 		// Keep page roots at /home instead of /home/ so relative assets resolve
 		// from the origin root.
-	case strings.HasPrefix(trimmedPath, strings.TrimPrefix(internalAPIPathPrefix, "/")):
+	case strings.HasPrefix(trimmedPath, internalAPIPathPrefixTrimmed):
 		actualPath = "/" + trimmedPath
 	case path.Ext(trimmedPath) != "":
 		actualPath = "/" + trimmedPath

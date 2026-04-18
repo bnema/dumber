@@ -106,6 +106,9 @@ func (uc *ExecuteContextMenuActionUseCase) executeMenuAction(
 		}
 		return nil
 	case port.MenuActionCopySelection:
+		// When selection text is present and clipboard wiring is available, copy it here.
+		// Otherwise intentionally fall through to DelegateMenuAction so native browser copy
+		// behavior can handle document selections that are only accessible inside the engine.
 		if menuContext.SelectionText != "" && uc.clipboard != nil {
 			if err := uc.clipboard.WriteText(ctx, menuContext.SelectionText); err != nil {
 				return fmt.Errorf("copy selection: %w", err)

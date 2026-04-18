@@ -375,8 +375,13 @@ func TestClipboardTextOrchestrator_HandleSelectionUpdate_DedupIsAtomic(t *testin
 	ctx := context.Background()
 	clipboard := newBlockingClipboard()
 	autoCopyConfig := &staticAutoCopyConfig{enabled: true}
-	var toastCalls []int
+	var (
+		toastCalls []int
+		toastMu    sync.Mutex
+	)
 	uc := NewClipboardTextOrchestrator(clipboard, autoCopyConfig, func(textLen int) {
+		toastMu.Lock()
+		defer toastMu.Unlock()
 		toastCalls = append(toastCalls, textLen)
 	})
 
@@ -409,6 +414,8 @@ func TestClipboardTextOrchestrator_HandleSelectionUpdate_DedupIsAtomic(t *testin
 	if got := clipboard.writeCount(); got != 1 {
 		t.Fatalf("clipboard writes = %d, want 1", got)
 	}
+	toastMu.Lock()
+	defer toastMu.Unlock()
 	if len(toastCalls) != 1 || toastCalls[0] != 2 {
 		t.Fatalf("toast calls = %v, want [2]", toastCalls)
 	}
@@ -418,8 +425,13 @@ func TestClipboardTextOrchestrator_HandleExplicitCopy_DedupIsAtomic(t *testing.T
 	ctx := context.Background()
 	clipboard := newBlockingClipboard()
 	autoCopyConfig := &staticAutoCopyConfig{enabled: true}
-	var toastCalls []int
+	var (
+		toastCalls []int
+		toastMu    sync.Mutex
+	)
 	uc := NewClipboardTextOrchestrator(clipboard, autoCopyConfig, func(textLen int) {
+		toastMu.Lock()
+		defer toastMu.Unlock()
 		toastCalls = append(toastCalls, textLen)
 	})
 	uc.now = func() time.Time { return time.Unix(0, 0) }
@@ -453,6 +465,8 @@ func TestClipboardTextOrchestrator_HandleExplicitCopy_DedupIsAtomic(t *testing.T
 	if got := clipboard.writeCount(); got != 1 {
 		t.Fatalf("clipboard writes = %d, want 1", got)
 	}
+	toastMu.Lock()
+	defer toastMu.Unlock()
 	if len(toastCalls) != 1 || toastCalls[0] != 2 {
 		t.Fatalf("toast calls = %v, want [2]", toastCalls)
 	}

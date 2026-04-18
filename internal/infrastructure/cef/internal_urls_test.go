@@ -60,6 +60,12 @@ func TestResolveAPIPath(t *testing.T) {
 		ok   bool
 	}{
 		{
+			name: "nil url returns false",
+			in:   "",
+			want: "",
+			ok:   false,
+		},
+		{
 			name: "conceptual api host",
 			in:   "dumb://api/clipboard-set",
 			want: "/api/clipboard-set",
@@ -88,9 +94,13 @@ func TestResolveAPIPath(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
-			parsed, err := url.Parse(tt.in)
-			if err != nil {
-				t.Fatalf("url.Parse(%q) error = %v", tt.in, err)
+			var parsed *url.URL
+			if tt.in != "" {
+				var err error
+				parsed, err = url.Parse(tt.in)
+				if err != nil {
+					t.Fatalf("url.Parse(%q) error = %v", tt.in, err)
+				}
 			}
 			got, ok := resolveAPIPath(parsed)
 			if got != tt.want || ok != tt.ok {

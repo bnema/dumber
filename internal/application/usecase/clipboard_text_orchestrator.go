@@ -81,11 +81,7 @@ func (uc *ClipboardTextOrchestratorUseCase) HandleSelectionUpdate(
 	}
 	textLen := utf8.RuneCountInString(input.Text)
 	scope := selectionScope(input)
-	now := uc.now
-	if now == nil {
-		now = time.Now
-	}
-	currentTime := now()
+	currentTime := uc.currentTime()
 
 	uc.mu.Lock()
 	if input.Text == uc.lastSelection[scope] {
@@ -134,11 +130,7 @@ func (uc *ClipboardTextOrchestratorUseCase) HandleExplicitCopy(
 		return nil
 	}
 
-	now := uc.now
-	if now == nil {
-		now = time.Now
-	}
-	currentTime := now()
+	currentTime := uc.currentTime()
 	textLen := utf8.RuneCountInString(input.Text)
 	scope := explicitScope(input)
 
@@ -188,4 +180,11 @@ func selectionScope(input dto.SelectionClipboardInput) clipboardScope {
 
 func explicitScope(input dto.ExplicitClipboardInput) clipboardScope {
 	return clipboardScope{source: input.SourceEngine, viewID: input.ViewID}
+}
+
+func (uc *ClipboardTextOrchestratorUseCase) currentTime() time.Time {
+	if uc == nil || uc.now == nil {
+		return time.Now()
+	}
+	return uc.now()
 }

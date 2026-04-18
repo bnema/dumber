@@ -28,3 +28,35 @@ func TestProgressBarTimeoutRemainingLocked_UsesShowTimeBeforeFirstProgress(t *te
 
 	require.Zero(t, remaining)
 }
+
+func TestProgressBarTimeoutRemainingLocked_ZeroTimestamps(t *testing.T) {
+	pb := &ProgressBar{}
+
+	remaining := pb.timeoutRemainingLocked(time.Unix(10, 0))
+
+	require.Zero(t, remaining)
+}
+
+func TestProgressBarTimeoutRemainingLocked_EqualTimestamps(t *testing.T) {
+	showAt := time.Unix(0, 0)
+	pb := &ProgressBar{
+		lastShowAt:     showAt,
+		lastProgressAt: showAt,
+	}
+
+	remaining := pb.timeoutRemainingLocked(showAt.Add(10 * time.Second))
+
+	require.Equal(t, 20*time.Second, remaining)
+}
+
+func TestProgressBarTimeoutRemainingLocked_NegativeClampsToZero(t *testing.T) {
+	showAt := time.Unix(0, 0)
+	pb := &ProgressBar{
+		lastShowAt:     showAt,
+		lastProgressAt: showAt.Add(5 * time.Second),
+	}
+
+	remaining := pb.timeoutRemainingLocked(showAt.Add(36 * time.Second))
+
+	require.Zero(t, remaining)
+}

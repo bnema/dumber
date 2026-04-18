@@ -225,7 +225,7 @@ func (h *dumbSchemeHandler) handleTranscodeAPI(request purecef.Request) purecef.
 		Int("forwarded_header_count", len(headers)).
 		Msg("scheme handler returning transcoding stream")
 
-	return purecef.NewResourceHandler(&transcodingResourceHandler{
+	return cefNewResourceHandler(&transcodingResourceHandler{
 		transcoder: h.transcoder,
 		sourceURL:  sourceURL,
 		headers:    headers,

@@ -125,6 +125,7 @@ const explicitCopyScript = `(function() {
     var originalWriteText = navigator.clipboard.writeText.bind(navigator.clipboard);
     navigator.clipboard.writeText = function(text) {
       return Promise.resolve(originalWriteText(text)).then(function(result) {
+        // writeText only has copy semantics, so postExplicitCopy always uses "copy" here.
         postExplicitCopy('copy', typeof text === 'string' ? text : String(text || ''));
         return result;
       });

@@ -54,7 +54,7 @@ func TestEngineRegisterHandlers_PropagatesRegistrarError(t *testing.T) {
 }
 
 func TestEngineRegisterHandlers_StoresClipboardWiring(t *testing.T) {
-	orchestrator := &stubClipboardTextOrchestrator{}
+	orchestrator := &recordingClipboardTextOrchestrator{}
 	onCopied := func(int) {}
 	eng := &Engine{
 		messageRouter: NewMessageRouter(context.Background()),
@@ -89,19 +89,9 @@ func TestEngineExplicitClipboardCopy_ForwardsViewID(t *testing.T) {
 	require.Equal(t, dto.ExplicitClipboardInput{Text: "copied", SourceEngine: dto.ClipboardSourceCEF, ViewID: 77, Action: "copy", NativeHandled: false}, orchestrator.explicit)
 }
 
-type stubClipboardTextOrchestrator struct{}
-
 type recordingClipboardTextOrchestrator struct {
 	selection dto.SelectionClipboardInput
 	explicit  dto.ExplicitClipboardInput
-}
-
-func (stubClipboardTextOrchestrator) HandleSelectionUpdate(context.Context, dto.SelectionClipboardInput) error {
-	return nil
-}
-
-func (stubClipboardTextOrchestrator) HandleExplicitCopy(context.Context, dto.ExplicitClipboardInput) error {
-	return nil
 }
 
 func (r *recordingClipboardTextOrchestrator) HandleSelectionUpdate(_ context.Context, input dto.SelectionClipboardInput) error {
