@@ -13,6 +13,7 @@ import (
 	"github.com/bnema/dumber/internal/cli/styles"
 	"github.com/bnema/dumber/internal/infrastructure/desktop"
 	"github.com/bnema/dumber/internal/infrastructure/filesystem"
+	"github.com/bnema/dumber/internal/infrastructure/runtimeprofile"
 	xdgadapter "github.com/bnema/dumber/internal/infrastructure/xdg"
 )
 
@@ -52,7 +53,10 @@ func runPurge(_ *cobra.Command, _ []string) error {
 	if err != nil {
 		return fmt.Errorf("resolve runtime profile: %w", err)
 	}
-	xdgAdapter := xdgadapter.New(profile)
+	xdgAdapter := xdgadapter.New(
+		profile.Mode == runtimeprofile.ModeDev,
+		bootstrap.ResolveXDGRuntimeDir(profile),
+	)
 	desktopAdapter := desktop.New()
 	purgeUC := usecase.NewPurgeDataUseCase(fsAdapter, xdgAdapter, desktopAdapter)
 

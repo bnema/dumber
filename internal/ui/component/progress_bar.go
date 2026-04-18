@@ -112,6 +112,9 @@ func (pb *ProgressBar) SetProgress(progress float64) {
 	pb.targetValue = progress
 	pb.lastProgressAt = now
 	pb.progressEventSeq++
+	if pb.visible {
+		pb.resetTimeout()
+	}
 
 	// For large jumps (>0.3) or completion, update immediately
 	diff := progress - pb.currentValue
@@ -204,7 +207,7 @@ func (pb *ProgressBar) Show() {
 		pb.progressBar.SetVisible(true)
 	}
 
-	// Reset timeout timer on every Show call
+	// Reset timeout timer on every Show call.
 	pb.resetTimeout()
 
 	logging.FromContext(ctx).
@@ -218,18 +221,36 @@ func (pb *ProgressBar) Show() {
 // resetTimeout cancels any existing timeout and starts a new one.
 // Must be called with lock held.
 func (pb *ProgressBar) resetTimeout() {
-	// Cancel existing timeout
+	pb.resetTimeoutAfter(time.Duration(progressTimeoutMs) * time.Millisecond)
+}
+
+// resetTimeoutAfter cancels any existing timeout and starts a new one after
+// the requested delay. Must be called with lock held.
+func (pb *ProgressBar) resetTimeoutAfter(delay time.Duration) {
+	if delay <= 0 {
+		delay = time.Millisecond
+	}
+
+	// Cancel existing timeout.
 	if pb.timeoutTimer != 0 {
 		glib.SourceRemove(pb.timeoutTimer)
 		pb.timeoutTimer = 0
 	}
 
-	// Start new timeout
+	timeoutMs := int(delay / time.Millisecond)
+	if delay%time.Millisecond != 0 {
+		timeoutMs++
+	}
+	if timeoutMs < 1 {
+		timeoutMs = 1
+	}
+
 	cb := glib.SourceFunc(func(_ uintptr) bool {
 		pb.mu.Lock()
 		defer pb.mu.Unlock()
 
 		now := time.Now()
+		remaining := pb.timeoutRemainingLocked(now)
 		ctx := pb.ctx
 		if ctx == nil {
 			ctx = context.Background()
@@ -240,17 +261,23 @@ func (pb *ProgressBar) resetTimeout() {
 			Float64("target_value", pb.targetValue).
 			Int64("since_show_ms", sinceTimeMs(pb.lastShowAt, now)).
 			Int64("since_last_progress_ms", sinceTimeMs(pb.lastProgressAt, now)).
+			Int64("timeout_remaining_ms", remaining.Milliseconds()).
 			Msg("progress bar timeout fired")
 
-		// Clear timer ID (timer is being removed)
+		// Clear timer ID (timer is being removed).
 		pb.timeoutTimer = 0
 
-		// Hide the progress bar inline to avoid race condition
+		if remaining > 0 {
+			pb.resetTimeoutAfter(remaining)
+			return false
+		}
+
+		// Hide the progress bar inline to avoid race condition.
 		pb.hideInternal("timeout")
 		return false // Don't repeat
 	})
 
-	pb.timeoutTimer = glib.TimeoutAdd(progressTimeoutMs, &cb, 0)
+	pb.timeoutTimer = glib.TimeoutAdd(uint(timeoutMs), &cb, 0)
 }
 
 // Hide makes the progress bar invisible and resets state.
@@ -305,8 +332,26 @@ func (pb *ProgressBar) hideInternal(reason string) {
 		// Reset values
 		pb.currentValue = 0
 		pb.targetValue = 0
+		pb.lastShowAt = time.Time{}
+		pb.lastProgressAt = time.Time{}
 		pb.progressBar.SetFraction(0)
 	}
+}
+
+func (pb *ProgressBar) timeoutRemainingLocked(now time.Time) time.Duration {
+	lastActivityAt := pb.lastShowAt
+	if pb.lastProgressAt.After(lastActivityAt) {
+		lastActivityAt = pb.lastProgressAt
+	}
+	if lastActivityAt.IsZero() {
+		return 0
+	}
+
+	remaining := time.Duration(progressTimeoutMs)*time.Millisecond - now.Sub(lastActivityAt)
+	if remaining < 0 {
+		return 0
+	}
+	return remaining
 }
 
 func sinceTimeMs(start, now time.Time) int64 {

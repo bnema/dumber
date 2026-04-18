@@ -2,6 +2,7 @@ package bootstrap
 
 import (
 	"os"
+	"path/filepath"
 
 	"github.com/bnema/dumber/internal/infrastructure/config"
 	"github.com/bnema/dumber/internal/infrastructure/runtimeprofile"
@@ -30,4 +31,17 @@ func ResolveRuntimeProfile(cfg *config.Config) (runtimeprofile.Profile, error) {
 			CacheHome:  dirs.CacheHome,
 		},
 	})
+}
+
+// ResolveXDGRuntimeDir returns the shared XDG runtime dir for the current mode.
+func ResolveXDGRuntimeDir(profile runtimeprofile.Profile) string {
+	if profile.Mode == runtimeprofile.ModeDev {
+		if profile.Shared.RootDir != "" {
+			return filepath.Join(profile.Shared.RootDir, "runtime")
+		}
+	}
+	if profile.Shared.StateDir != "" {
+		return filepath.Join(profile.Shared.StateDir, "runtime")
+	}
+	return ""
 }

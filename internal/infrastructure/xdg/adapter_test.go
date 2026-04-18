@@ -5,13 +5,12 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/bnema/dumber/internal/infrastructure/runtimeprofile"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
 
 func TestAdapter_DownloadDir(t *testing.T) {
-	adapter := New(runtimeprofile.Profile{})
+	adapter := New(false, "")
 
 	t.Run("returns XDG_DOWNLOAD_DIR when set", func(t *testing.T) {
 		t.Setenv("XDG_DOWNLOAD_DIR", "/custom/downloads")
@@ -39,7 +38,7 @@ func TestAdapter_DownloadDir(t *testing.T) {
 
 func TestAdapter_RuntimeDir(t *testing.T) {
 	t.Run("returns XDG_RUNTIME_DIR when set outside dev", func(t *testing.T) {
-		adapter := New(runtimeprofile.Profile{Mode: runtimeprofile.ModeProd})
+		adapter := New(false, "")
 		t.Setenv("XDG_RUNTIME_DIR", "/custom/runtime")
 
 		dir, err := adapter.RuntimeDir()
@@ -49,12 +48,7 @@ func TestAdapter_RuntimeDir(t *testing.T) {
 	})
 
 	t.Run("falls back to injected prod runtime dir when XDG_RUNTIME_DIR not set", func(t *testing.T) {
-		adapter := New(runtimeprofile.Profile{
-			Mode: runtimeprofile.ModeProd,
-			Shared: runtimeprofile.SharedPaths{
-				StateDir: "/tmp/dumber-state/dumber",
-			},
-		})
+		adapter := New(false, "/tmp/dumber-state/dumber/runtime")
 		t.Setenv("XDG_RUNTIME_DIR", "")
 
 		dir, err := adapter.RuntimeDir()
@@ -65,12 +59,7 @@ func TestAdapter_RuntimeDir(t *testing.T) {
 
 	t.Run("uses injected sandbox runtime dir in dev even when XDG_RUNTIME_DIR is set", func(t *testing.T) {
 		wd := t.TempDir()
-		adapter := New(runtimeprofile.Profile{
-			Mode: runtimeprofile.ModeDev,
-			Shared: runtimeprofile.SharedPaths{
-				RootDir: filepath.Join(wd, ".dev", "dumber"),
-			},
-		})
+		adapter := New(true, filepath.Join(wd, ".dev", "dumber", "runtime"))
 		t.Setenv("XDG_RUNTIME_DIR", "/shared/runtime")
 
 		dir, err := adapter.RuntimeDir()
@@ -81,7 +70,7 @@ func TestAdapter_RuntimeDir(t *testing.T) {
 }
 
 func TestNew(t *testing.T) {
-	adapter := New(runtimeprofile.Profile{})
+	adapter := New(false, "")
 
 	assert.NotNil(t, adapter)
 }

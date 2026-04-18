@@ -5,6 +5,7 @@ import (
 	"testing"
 
 	"github.com/bnema/dumber/internal/infrastructure/config"
+	"github.com/bnema/dumber/internal/infrastructure/runtimeprofile"
 	"github.com/stretchr/testify/require"
 )
 
@@ -57,4 +58,27 @@ func TestResolveRuntimeProfile_DevUsesEngineSpecificNamespaces(t *testing.T) {
 	require.Equal(t, filepath.Join(wd, ".dev", "dumber", "state"), profile.Shared.StateDir)
 	require.Equal(t, filepath.Join(wd, ".dev", "dumber", "engines", "cef", "data"), profile.CEFUserDataDir())
 	require.Equal(t, filepath.Join(wd, ".dev", "dumber", "runtime", "cef", "browser-launch.sock"), profile.IPC.BrowserLaunchSocket)
+}
+
+func TestResolveXDGRuntimeDir_UsesSharedRuntimeRootInDev(t *testing.T) {
+	profile := runtimeprofile.Profile{
+		Mode: runtimeprofile.ModeDev,
+		Shared: runtimeprofile.SharedPaths{
+			RootDir:  "/tmp/project/.dev/dumber",
+			StateDir: "/tmp/project/.dev/dumber/state",
+		},
+	}
+
+	require.Equal(t, "/tmp/project/.dev/dumber/runtime", ResolveXDGRuntimeDir(profile))
+}
+
+func TestResolveXDGRuntimeDir_UsesStateRuntimeRootInProd(t *testing.T) {
+	profile := runtimeprofile.Profile{
+		Mode: runtimeprofile.ModeProd,
+		Shared: runtimeprofile.SharedPaths{
+			StateDir: "/tmp/dumber-state/dumber",
+		},
+	}
+
+	require.Equal(t, "/tmp/dumber-state/dumber/runtime", ResolveXDGRuntimeDir(profile))
 }
