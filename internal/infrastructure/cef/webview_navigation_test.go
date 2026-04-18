@@ -27,7 +27,7 @@ func TestWebViewReplayPendingNavigation_LoadsQueuedURIWhenMainFrameAvailable(t *
 
 func TestWebViewReplayPendingNavigation_RetriesWhenMainFrameUnavailable(t *testing.T) {
 	browser := cefmocks.NewMockBrowser(t)
-	browser.EXPECT().GetMainFrame().Return((purecef.Frame)(nil)).Once()
+	browser.EXPECT().GetMainFrame().Return(purecef.Frame(nil)).Once()
 
 	oldTask := cefNewTask
 	oldDelayed := cefPostDelayedTask
@@ -53,6 +53,45 @@ func TestWebViewReplayPendingNavigation_RetriesWhenMainFrameUnavailable(t *testi
 	wv.mu.RLock()
 	defer wv.mu.RUnlock()
 	require.Equal(t, "https://github.com/bnema", wv.pendingURI)
+}
+
+func TestWebViewSchedulePendingNavigationReplay_RetriesWhenTaskPostFails(t *testing.T) {
+	browser := cefmocks.NewMockBrowser(t)
+
+	oldTask := cefNewTask
+	oldPost := cefPostTask
+	oldDelayed := cefPostDelayedTask
+	oldAfter := cefScheduleAfter
+	defer func() {
+		cefNewTask = oldTask
+		cefPostTask = oldPost
+		cefPostDelayedTask = oldDelayed
+		cefScheduleAfter = oldAfter
+	}()
+	cefNewTask = func(task purecef.Task) purecef.Task { return task }
+
+	retried := false
+	cefPostTask = func(threadID purecef.ThreadID, task purecef.Task) int32 {
+		require.Equal(t, purecef.ThreadIDTidUi, threadID)
+		require.NotNil(t, task)
+		return 0
+	}
+	cefScheduleAfter = func(delay time.Duration, fn func()) {
+		require.Equal(t, pendingNavigationRetryDelay, delay)
+		fn()
+	}
+	cefPostDelayedTask = func(threadID purecef.ThreadID, task purecef.Task, delayMs int64) int32 {
+		require.Equal(t, purecef.ThreadIDTidUi, threadID)
+		require.NotNil(t, task)
+		require.Equal(t, int64(pendingNavigationRetryDelay/time.Millisecond), delayMs)
+		retried = true
+		return 1
+	}
+
+	wv := &WebView{ctx: context.Background(), pendingURI: "https://github.com/bnema"}
+	wv.schedulePendingNavigationReplay(browser, 0)
+
+	require.True(t, retried)
 }
 
 func TestWebViewLoadURI_QueuesPendingNavigationReplayForExistingBrowser(t *testing.T) {

@@ -4,6 +4,7 @@ import (
 	"context"
 	"sync"
 	"sync/atomic"
+	"unicode/utf8"
 
 	purecef "github.com/bnema/purego-cef/cef"
 	"github.com/bnema/puregotk/v4/gdk"
@@ -392,7 +393,7 @@ func (ib *inputBridge) maybeMirrorClipboardShortcut(keyval, mods uint) {
 	}
 	logging.FromContext(ib.ctx).Debug().
 		Str("action", action).
-		Int("text_len", len(text)).
+		Int("text_len", utf8.RuneCountInString(text)).
 		Msg("cef: clipboard shortcut routed through explicit copy handler")
 	ib.explicitCopyText(action, text)
 }

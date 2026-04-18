@@ -85,7 +85,7 @@ type CEFEngineConfig struct {
 	// libcef.so and the Resources/locales subdirectories.
 	CEFDir string `mapstructure:"cef_dir" toml:"cef_dir" yaml:"cef_dir"`
 	// LogFile overrides the CEF internal log destination. When empty,
-	// Dumber writes CEF startup logs to .dev/dumber/logs/cef_runtime.log.
+	// Dumber uses the resolved runtime-profile default engine log path.
 	LogFile string `mapstructure:"log_file" toml:"log_file" yaml:"log_file"`
 	// LogSeverity controls CEF's internal log verbosity.
 	// 0 = default, 1 = verbose, 2 = info, 3 = warning, 4 = error, 99 = disable.

@@ -4,9 +4,11 @@ import (
 	"context"
 	"encoding/base64"
 	"errors"
-	"os"
+	"net/http"
 	"testing"
+	"unsafe"
 
+	purecef "github.com/bnema/purego-cef/cef"
 	cefmocks "github.com/bnema/purego-cef/cef/mocks"
 	"github.com/stretchr/testify/require"
 )
@@ -57,10 +59,23 @@ func TestReadBodyFromHeader_DecodesBase64Payload(t *testing.T) {
 	require.JSONEq(t, `{"text":"copied from js"}`, string(body))
 }
 
-func TestSchemeHandlerSourceDoesNotKeepClipboardSetPath(t *testing.T) {
-	src, err := os.ReadFile("scheme_handler.go")
+func TestSchemeHandler_APIClipboardSetPathReturnsNotFound(t *testing.T) {
+	oldNewResourceHandler := cefNewResourceHandler
+	cefNewResourceHandler = func(impl purecef.ResourceHandler) purecef.ResourceHandler { return impl }
+	defer func() { cefNewResourceHandler = oldNewResourceHandler }()
+
+	h, err := newDumbSchemeHandler(context.Background(), nil, nil, func() ([]byte, error) { return []byte(`{}`), nil }, func() ([]byte, error) { return []byte(`{}`), nil })
 	require.NoError(t, err)
-	require.NotContains(t, string(src), "/api/clipboard-set")
-	require.NotContains(t, string(src), "onClipboardSet")
-	require.NotContains(t, string(src), "decodeClipboardSetBody")
+
+	response := cefmocks.NewMockResponse(t)
+	response.EXPECT().SetStatus(int32(http.StatusNotFound)).Once()
+	response.EXPECT().SetStatusText(http.StatusText(http.StatusNotFound)).Once()
+	response.EXPECT().SetMimeType("application/json").Once()
+
+	handler := h.handleAPI(nil, http.MethodPost, "/api/clipboard-set", nil)
+	require.NotNil(t, handler)
+
+	var responseLength int64
+	handler.GetResponseHeaders(response, unsafe.Pointer(&responseLength), 0)
+	require.Positive(t, responseLength)
 }

@@ -9,28 +9,10 @@ import (
 	"testing"
 	"time"
 
-	"github.com/bnema/dumber/internal/application/port"
+	"github.com/bnema/dumber/internal/infrastructure/runtimeprofile"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
-
-type testXDGPaths struct {
-	runtimeDir string
-	stateDir   string
-}
-
-var _ port.XDGPaths = testXDGPaths{}
-
-func (testXDGPaths) ConfigDir() (string, error)      { return "", nil }
-func (testXDGPaths) DataDir() (string, error)        { return "", nil }
-func (x testXDGPaths) StateDir() (string, error)     { return x.stateDir, nil }
-func (x testXDGPaths) RuntimeDir() (string, error)   { return x.runtimeDir, nil }
-func (testXDGPaths) CacheDir() (string, error)       { return "", nil }
-func (testXDGPaths) FilterJSONDir() (string, error)  { return "", nil }
-func (testXDGPaths) FilterStoreDir() (string, error) { return "", nil }
-func (testXDGPaths) FilterCacheDir() (string, error) { return "", nil }
-func (testXDGPaths) ManDir() (string, error)         { return "", nil }
-func (testXDGPaths) DownloadDir() (string, error)    { return "", nil }
 
 type browserWindowOpenerFunc func(context.Context, string) error
 
@@ -68,8 +50,24 @@ func shortTempDir(t *testing.T) string {
 	return dir
 }
 
+func testIPC(root string) runtimeprofile.IPCPaths {
+	runtimeDir := filepath.Join(root, "runtime")
+	return runtimeprofile.IPCPaths{
+		RuntimeDir:          runtimeDir,
+		BrowserLaunchSocket: filepath.Join(runtimeDir, browserLaunchSocketName),
+	}
+}
+
+func testNamespacedIPC(root, engine string) runtimeprofile.IPCPaths {
+	runtimeDir := filepath.Join(root, "runtime", engine)
+	return runtimeprofile.IPCPaths{
+		RuntimeDir:          runtimeDir,
+		BrowserLaunchSocket: filepath.Join(runtimeDir, browserLaunchSocketName),
+	}
+}
+
 func TestBrowserLaunchRelay_DeliverOpenFreshWindow_MissingListenerReturnsFalseNil(t *testing.T) {
-	relay := NewBrowserLaunchRelay(testXDGPaths{runtimeDir: shortTempDir(t)})
+	relay := NewBrowserLaunchRelay(testIPC(shortTempDir(t)))
 
 	delivered, err := relay.DeliverOpenFreshWindow(context.Background(), "https://example.com")
 
@@ -77,9 +75,40 @@ func TestBrowserLaunchRelay_DeliverOpenFreshWindow_MissingListenerReturnsFalseNi
 	assert.False(t, delivered)
 }
 
+func TestBrowserLaunchRelay_SameProfileAndEngine_UsesSameSocket(t *testing.T) {
+	ipc := testNamespacedIPC(shortTempDir(t), "cef")
+	listenerRelay := NewBrowserLaunchRelay(ipc)
+	clientRelay := NewBrowserLaunchRelay(ipc)
+
+	received := make(chan string, 1)
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	closer, err := listenerRelay.Listen(ctx, browserWindowOpenerFunc(func(_ context.Context, url string) error {
+		received <- url
+		return nil
+	}))
+	require.NoError(t, err)
+	defer closer.Close()
+
+	waitForSocket(t, ipc.BrowserLaunchSocket)
+
+	delivered, err := clientRelay.DeliverOpenFreshWindow(context.Background(), "https://example.com/same-namespace")
+	require.NoError(t, err)
+	require.True(t, delivered)
+	require.Equal(t, "https://example.com/same-namespace", <-received)
+}
+
+func TestBrowserLaunchRelay_DevCEFAndDevWebKit_UseDifferentSockets(t *testing.T) {
+	root := t.TempDir()
+	cefIPC := testNamespacedIPC(root, "cef")
+	wkIPC := testNamespacedIPC(root, "webkit")
+	require.NotEqual(t, cefIPC.BrowserLaunchSocket, wkIPC.BrowserLaunchSocket)
+}
+
 func TestBrowserLaunchRelay_DeliverOpenFreshWindow_RoundTrip(t *testing.T) {
-	runtimeDir := filepath.Join(shortTempDir(t), "runtime")
-	relay := NewBrowserLaunchRelay(testXDGPaths{runtimeDir: runtimeDir})
+	ipc := testIPC(shortTempDir(t))
+	relay := NewBrowserLaunchRelay(ipc)
 
 	received := make(chan string, 1)
 	ctx, cancel := context.WithCancel(context.Background())
@@ -92,7 +121,7 @@ func TestBrowserLaunchRelay_DeliverOpenFreshWindow_RoundTrip(t *testing.T) {
 	require.NoError(t, err)
 	defer closer.Close()
 
-	waitForSocket(t, filepath.Join(runtimeDir, "browser-launch.sock"))
+	waitForSocket(t, ipc.BrowserLaunchSocket)
 
 	delivered, err := relay.DeliverOpenFreshWindow(context.Background(), "https://example.com/new")
 
@@ -107,40 +136,17 @@ func TestBrowserLaunchRelay_DeliverOpenFreshWindow_RoundTrip(t *testing.T) {
 	}
 }
 
-func TestBrowserLaunchRelay_UsesStateFallbackWhenRuntimeDirMissing(t *testing.T) {
-	stateDir := shortTempDir(t)
-	relay := NewBrowserLaunchRelay(testXDGPaths{stateDir: stateDir})
+func TestBrowserLaunchRelay_RequiresBrowserLaunchSocketPath(t *testing.T) {
+	relay := NewBrowserLaunchRelay(runtimeprofile.IPCPaths{})
 
-	received := make(chan string, 1)
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
-
-	closer, err := relay.Listen(ctx, browserWindowOpenerFunc(func(_ context.Context, url string) error {
-		received <- url
-		return nil
-	}))
-	require.NoError(t, err)
-	defer closer.Close()
-
-	socketPath := filepath.Join(stateDir, "runtime", "browser-launch.sock")
-	waitForSocket(t, socketPath)
-
-	delivered, err := relay.DeliverOpenFreshWindow(context.Background(), "https://example.com/fallback")
-
-	require.NoError(t, err)
-	assert.True(t, delivered)
-
-	select {
-	case got := <-received:
-		assert.Equal(t, "https://example.com/fallback", got)
-	case <-time.After(time.Second):
-		t.Fatal("expected opener to receive the URL")
-	}
+	_, err := relay.Listen(context.Background(), browserWindowOpenerFunc(func(context.Context, string) error { return nil }))
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "browser launch socket path")
 }
 
 func TestBrowserLaunchRelay_SecondListenWhileLiveFailsWithoutReplacingListener(t *testing.T) {
-	runtimeDir := filepath.Join(shortTempDir(t), "runtime")
-	relay := NewBrowserLaunchRelay(testXDGPaths{runtimeDir: runtimeDir})
+	ipc := testIPC(shortTempDir(t))
+	relay := NewBrowserLaunchRelay(ipc)
 
 	firstReceived := make(chan string, 1)
 	ctx, cancel := context.WithCancel(context.Background())
@@ -153,7 +159,7 @@ func TestBrowserLaunchRelay_SecondListenWhileLiveFailsWithoutReplacingListener(t
 	require.NoError(t, err)
 	defer closer.Close()
 
-	waitForSocket(t, filepath.Join(runtimeDir, "browser-launch.sock"))
+	waitForSocket(t, ipc.BrowserLaunchSocket)
 
 	_, err = relay.Listen(ctx, browserWindowOpenerFunc(func(context.Context, string) error { return nil }))
 	require.Error(t, err)
@@ -171,12 +177,11 @@ func TestBrowserLaunchRelay_SecondListenWhileLiveFailsWithoutReplacingListener(t
 }
 
 func TestBrowserLaunchRelay_RebindsStaleSocketPath(t *testing.T) {
-	runtimeDir := filepath.Join(shortTempDir(t), "runtime")
-	relay := NewBrowserLaunchRelay(testXDGPaths{runtimeDir: runtimeDir})
+	ipc := testIPC(shortTempDir(t))
+	relay := NewBrowserLaunchRelay(ipc)
 
-	socketPath := filepath.Join(runtimeDir, "browser-launch.sock")
-	require.NoError(t, os.MkdirAll(runtimeDir, 0o700))
-	require.NoError(t, os.WriteFile(socketPath, []byte("stale"), 0o600))
+	require.NoError(t, os.MkdirAll(filepath.Dir(ipc.BrowserLaunchSocket), 0o700))
+	require.NoError(t, os.WriteFile(ipc.BrowserLaunchSocket, []byte("stale"), 0o600))
 
 	received := make(chan string, 1)
 	ctx, cancel := context.WithCancel(context.Background())
@@ -189,7 +194,7 @@ func TestBrowserLaunchRelay_RebindsStaleSocketPath(t *testing.T) {
 	require.NoError(t, err)
 	defer closer.Close()
 
-	waitForSocket(t, socketPath)
+	waitForSocket(t, ipc.BrowserLaunchSocket)
 
 	delivered, err := relay.DeliverOpenFreshWindow(context.Background(), "https://example.com/stale")
 	require.NoError(t, err)
@@ -204,8 +209,8 @@ func TestBrowserLaunchRelay_RebindsStaleSocketPath(t *testing.T) {
 }
 
 func TestBrowserLaunchRelay_RejectsMalformedPayloads(t *testing.T) {
-	runtimeDir := filepath.Join(shortTempDir(t), "runtime")
-	relay := NewBrowserLaunchRelay(testXDGPaths{runtimeDir: runtimeDir})
+	ipc := testIPC(shortTempDir(t))
+	relay := NewBrowserLaunchRelay(ipc)
 
 	received := make(chan string, 1)
 	ctx, cancel := context.WithCancel(context.Background())
@@ -218,10 +223,9 @@ func TestBrowserLaunchRelay_RejectsMalformedPayloads(t *testing.T) {
 	require.NoError(t, err)
 	defer closer.Close()
 
-	socketPath := filepath.Join(runtimeDir, "browser-launch.sock")
-	waitForSocket(t, socketPath)
+	waitForSocket(t, ipc.BrowserLaunchSocket)
 
-	conn, err := net.Dial("unix", socketPath)
+	conn, err := net.Dial("unix", ipc.BrowserLaunchSocket)
 	require.NoError(t, err)
 
 	_, err = conn.Write([]byte("not-json"))
@@ -242,8 +246,8 @@ func TestBrowserLaunchRelay_RejectsMalformedPayloads(t *testing.T) {
 }
 
 func TestBrowserLaunchRelay_CloseRemovesSocketPath(t *testing.T) {
-	runtimeDir := filepath.Join(shortTempDir(t), "runtime")
-	relay := NewBrowserLaunchRelay(testXDGPaths{runtimeDir: runtimeDir})
+	ipc := testIPC(shortTempDir(t))
+	relay := NewBrowserLaunchRelay(ipc)
 
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
@@ -251,26 +255,24 @@ func TestBrowserLaunchRelay_CloseRemovesSocketPath(t *testing.T) {
 	closer, err := relay.Listen(ctx, browserWindowOpenerFunc(func(context.Context, string) error { return nil }))
 	require.NoError(t, err)
 
-	socketPath := filepath.Join(runtimeDir, "browser-launch.sock")
-	waitForSocket(t, socketPath)
+	waitForSocket(t, ipc.BrowserLaunchSocket)
 
 	require.NoError(t, closer.Close())
-	waitForSocketGone(t, socketPath)
+	waitForSocketGone(t, ipc.BrowserLaunchSocket)
 }
 
 func TestBrowserLaunchRelay_ContextCancelStopsServing(t *testing.T) {
-	runtimeDir := filepath.Join(shortTempDir(t), "runtime")
-	relay := NewBrowserLaunchRelay(testXDGPaths{runtimeDir: runtimeDir})
+	ipc := testIPC(shortTempDir(t))
+	relay := NewBrowserLaunchRelay(ipc)
 
 	ctx, cancel := context.WithCancel(context.Background())
 	closer, err := relay.Listen(ctx, browserWindowOpenerFunc(func(context.Context, string) error { return nil }))
 	require.NoError(t, err)
 
-	socketPath := filepath.Join(runtimeDir, "browser-launch.sock")
-	waitForSocket(t, socketPath)
+	waitForSocket(t, ipc.BrowserLaunchSocket)
 
 	cancel()
-	waitForSocketGone(t, socketPath)
+	waitForSocketGone(t, ipc.BrowserLaunchSocket)
 	require.NoError(t, closer.Close())
 
 	delivered, err := relay.DeliverOpenFreshWindow(context.Background(), "https://example.com/after-cancel")
@@ -279,15 +281,14 @@ func TestBrowserLaunchRelay_ContextCancelStopsServing(t *testing.T) {
 }
 
 func TestBrowserLaunchRelay_DeliverOpenFreshWindow_RespectsResponseReadTimeout(t *testing.T) {
-	runtimeDir := shortTempDir(t)
-	socketPath := filepath.Join(runtimeDir, "browser-launch.sock")
-	require.NoError(t, os.MkdirAll(runtimeDir, 0o700))
+	ipc := testIPC(shortTempDir(t))
+	require.NoError(t, os.MkdirAll(ipc.RuntimeDir, 0o700))
 
-	listener, err := net.ListenUnix("unix", &net.UnixAddr{Name: socketPath, Net: "unix"})
+	listener, err := net.ListenUnix("unix", &net.UnixAddr{Name: ipc.BrowserLaunchSocket, Net: "unix"})
 	require.NoError(t, err)
 	defer func() {
 		_ = listener.Close()
-		_ = os.Remove(socketPath)
+		_ = os.Remove(ipc.BrowserLaunchSocket)
 	}()
 
 	ready := make(chan struct{})
@@ -302,7 +303,7 @@ func TestBrowserLaunchRelay_DeliverOpenFreshWindow_RespectsResponseReadTimeout(t
 	}()
 	<-ready
 
-	relay := NewBrowserLaunchRelay(testXDGPaths{runtimeDir: runtimeDir})
+	relay := NewBrowserLaunchRelay(ipc)
 	ctx, cancel := context.WithTimeout(context.Background(), 100*time.Millisecond)
 	defer cancel()
 
@@ -313,15 +314,14 @@ func TestBrowserLaunchRelay_DeliverOpenFreshWindow_RespectsResponseReadTimeout(t
 }
 
 func TestBrowserLaunchRelay_DeliverOpenFreshWindow_ReturnsTrueOnNoDeadlineTimeout(t *testing.T) {
-	runtimeDir := shortTempDir(t)
-	socketPath := filepath.Join(runtimeDir, "browser-launch.sock")
-	require.NoError(t, os.MkdirAll(runtimeDir, 0o700))
+	ipc := testIPC(shortTempDir(t))
+	require.NoError(t, os.MkdirAll(ipc.RuntimeDir, 0o700))
 
-	listener, err := net.ListenUnix("unix", &net.UnixAddr{Name: socketPath, Net: "unix"})
+	listener, err := net.ListenUnix("unix", &net.UnixAddr{Name: ipc.BrowserLaunchSocket, Net: "unix"})
 	require.NoError(t, err)
 	defer func() {
 		_ = listener.Close()
-		_ = os.Remove(socketPath)
+		_ = os.Remove(ipc.BrowserLaunchSocket)
 	}()
 
 	ready := make(chan struct{})
@@ -336,7 +336,7 @@ func TestBrowserLaunchRelay_DeliverOpenFreshWindow_ReturnsTrueOnNoDeadlineTimeou
 	}()
 	<-ready
 
-	relay := NewBrowserLaunchRelay(testXDGPaths{runtimeDir: runtimeDir})
+	relay := NewBrowserLaunchRelay(ipc)
 
 	started := make(chan struct{})
 
@@ -362,8 +362,8 @@ func TestBrowserLaunchRelay_DeliverOpenFreshWindow_ReturnsTrueOnNoDeadlineTimeou
 }
 
 func TestBrowserLaunchRelay_AcknowledgesBeforeOpenerReturns(t *testing.T) {
-	runtimeDir := filepath.Join(shortTempDir(t), "runtime")
-	relay := NewBrowserLaunchRelay(testXDGPaths{runtimeDir: runtimeDir})
+	ipc := testIPC(shortTempDir(t))
+	relay := NewBrowserLaunchRelay(ipc)
 
 	started := make(chan struct{})
 	release := make(chan struct{})
@@ -378,9 +378,9 @@ func TestBrowserLaunchRelay_AcknowledgesBeforeOpenerReturns(t *testing.T) {
 	require.NoError(t, err)
 	defer closer.Close()
 
-	waitForSocket(t, filepath.Join(runtimeDir, "browser-launch.sock"))
+	waitForSocket(t, ipc.BrowserLaunchSocket)
 
-	conn, err := net.Dial("unix", filepath.Join(runtimeDir, "browser-launch.sock"))
+	conn, err := net.Dial("unix", ipc.BrowserLaunchSocket)
 	require.NoError(t, err)
 	defer conn.Close()
 	require.NoError(t, conn.SetDeadline(time.Now().Add(300*time.Millisecond)))
@@ -399,8 +399,8 @@ func TestBrowserLaunchRelay_AcknowledgesBeforeOpenerReturns(t *testing.T) {
 }
 
 func TestBrowserLaunchRelay_SilentClientDoesNotStallListener(t *testing.T) {
-	runtimeDir := filepath.Join(shortTempDir(t), "runtime")
-	relay := NewBrowserLaunchRelay(testXDGPaths{runtimeDir: runtimeDir})
+	ipc := testIPC(shortTempDir(t))
+	relay := NewBrowserLaunchRelay(ipc)
 
 	received := make(chan string, 1)
 	ctx, cancel := context.WithCancel(context.Background())
@@ -413,10 +413,9 @@ func TestBrowserLaunchRelay_SilentClientDoesNotStallListener(t *testing.T) {
 	require.NoError(t, err)
 	defer closer.Close()
 
-	socketPath := filepath.Join(runtimeDir, "browser-launch.sock")
-	waitForSocket(t, socketPath)
+	waitForSocket(t, ipc.BrowserLaunchSocket)
 
-	conn, err := net.Dial("unix", socketPath)
+	conn, err := net.Dial("unix", ipc.BrowserLaunchSocket)
 	require.NoError(t, err)
 	defer conn.Close()
 	time.Sleep(20 * time.Millisecond)

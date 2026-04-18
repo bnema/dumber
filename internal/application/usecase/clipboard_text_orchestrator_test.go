@@ -295,13 +295,13 @@ func TestClipboardTextOrchestrator_HandleExplicitCopy_KeepsBoundedStatePerScope(
 	clipboard.EXPECT().WriteText(ctx, "three").Return(nil).Once()
 
 	uc := NewClipboardTextOrchestrator(clipboard, autoCopyConfig, nil)
-	uc.now = func() time.Time { return time.Unix(0, 0) }
 
-	for _, text := range []string{"one", "two", "three"} {
+	for i, text := range []string{"one", "two", "three"} {
+		advancedTime := time.Unix(0, 0).Add(time.Duration(i) * time.Second)
+		uc.now = func() time.Time { return advancedTime }
 		if err := uc.HandleExplicitCopy(ctx, port.ExplicitClipboardInput{Text: text, SourceEngine: port.ClipboardSourceCEF, ViewID: 7, Action: "copy"}); err != nil {
 			t.Fatalf("HandleExplicitCopy(%q) error = %v, want nil", text, err)
 		}
-		uc.now = func() time.Time { return time.Unix(0, 0).Add(time.Second) }
 	}
 
 	if got := len(uc.lastExplicit); got != 1 {

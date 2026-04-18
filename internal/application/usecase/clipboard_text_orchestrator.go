@@ -20,17 +20,12 @@ type ClipboardTextOrchestratorUseCase struct {
 	autoCopyConfig port.AutoCopyConfig
 	toast          func(textLen int)
 	mu             sync.Mutex
-	lastSelection  map[clipboardSelectionScope]string
-	lastExplicit   map[clipboardExplicitScope]explicitCopyState
+	lastSelection  map[clipboardScope]string
+	lastExplicit   map[clipboardScope]explicitCopyState
 	now            func() time.Time
 }
 
-type clipboardSelectionScope struct {
-	source port.ClipboardSource
-	viewID port.WebViewID
-}
-
-type clipboardExplicitScope struct {
+type clipboardScope struct {
 	source port.ClipboardSource
 	viewID port.WebViewID
 }
@@ -52,8 +47,8 @@ func NewClipboardTextOrchestrator(
 		clipboard:      clipboard,
 		autoCopyConfig: autoCopyConfig,
 		toast:          toast,
-		lastSelection:  make(map[clipboardSelectionScope]string),
-		lastExplicit:   make(map[clipboardExplicitScope]explicitCopyState),
+		lastSelection:  make(map[clipboardScope]string),
+		lastExplicit:   make(map[clipboardScope]explicitCopyState),
 		now:            time.Now,
 	}
 }
@@ -66,9 +61,7 @@ func (uc *ClipboardTextOrchestratorUseCase) HandleSelectionUpdate(
 	if uc == nil || uc.autoCopyConfig == nil || !uc.autoCopyConfig.IsAutoCopyEnabled() {
 		if uc != nil {
 			uc.mu.Lock()
-			if uc.lastSelection != nil {
-				delete(uc.lastSelection, selectionScope(input))
-			}
+			delete(uc.lastSelection, selectionScope(input))
 			uc.mu.Unlock()
 		}
 		return nil
@@ -76,9 +69,6 @@ func (uc *ClipboardTextOrchestratorUseCase) HandleSelectionUpdate(
 
 	if input.Text == "" {
 		uc.mu.Lock()
-		if uc.lastSelection == nil {
-			uc.lastSelection = make(map[clipboardSelectionScope]string)
-		}
 		delete(uc.lastSelection, selectionScope(input))
 		uc.mu.Unlock()
 		return nil
@@ -96,9 +86,6 @@ func (uc *ClipboardTextOrchestratorUseCase) HandleSelectionUpdate(
 	currentTime := now()
 
 	uc.mu.Lock()
-	if uc.lastSelection == nil {
-		uc.lastSelection = make(map[clipboardSelectionScope]string)
-	}
 	if input.Text == uc.lastSelection[scope] {
 		uc.mu.Unlock()
 		return nil
@@ -113,9 +100,6 @@ func (uc *ClipboardTextOrchestratorUseCase) HandleSelectionUpdate(
 	}
 
 	uc.lastSelection[scope] = input.Text
-	if uc.lastExplicit == nil {
-		uc.lastExplicit = make(map[clipboardExplicitScope]explicitCopyState)
-	}
 	explicitInput := port.ExplicitClipboardInput{SourceEngine: input.SourceEngine, ViewID: input.ViewID}
 	uc.lastExplicit[explicitScope(explicitInput)] = explicitCopyState{
 		text: input.Text,
@@ -151,9 +135,6 @@ func (uc *ClipboardTextOrchestratorUseCase) HandleExplicitCopy(
 	scope := explicitScope(input)
 
 	uc.mu.Lock()
-	if uc.lastExplicit == nil {
-		uc.lastExplicit = make(map[clipboardExplicitScope]explicitCopyState)
-	}
 	if state, ok := uc.lastExplicit[scope]; ok &&
 		input.Text == state.text &&
 		currentTime.Sub(state.at) < explicitClipboardDedupWindow {
@@ -186,10 +167,10 @@ func (uc *ClipboardTextOrchestratorUseCase) HandleExplicitCopy(
 	return nil
 }
 
-func selectionScope(input port.SelectionClipboardInput) clipboardSelectionScope {
-	return clipboardSelectionScope{source: input.SourceEngine, viewID: input.ViewID}
+func selectionScope(input port.SelectionClipboardInput) clipboardScope {
+	return clipboardScope{source: input.SourceEngine, viewID: input.ViewID}
 }
 
-func explicitScope(input port.ExplicitClipboardInput) clipboardExplicitScope {
-	return clipboardExplicitScope{source: input.SourceEngine, viewID: input.ViewID}
+func explicitScope(input port.ExplicitClipboardInput) clipboardScope {
+	return clipboardScope{source: input.SourceEngine, viewID: input.ViewID}
 }

@@ -13,6 +13,7 @@ import (
 	"github.com/bnema/dumber/internal/infrastructure/config"
 	"github.com/bnema/dumber/internal/infrastructure/env"
 	"github.com/bnema/dumber/internal/infrastructure/handlers"
+	"github.com/bnema/dumber/internal/infrastructure/runtimeprofile"
 	"github.com/bnema/dumber/internal/infrastructure/transcoder"
 	"github.com/bnema/dumber/internal/infrastructure/webkit"
 	"github.com/bnema/dumber/internal/ui/theme"
@@ -21,13 +22,12 @@ import (
 
 // EngineInput holds the input for BuildEngine.
 type EngineInput struct {
-	Ctx           context.Context
-	Config        *config.Config
-	DataDir       string
-	CacheDir      string
-	ThemeManager  *theme.Manager
-	ColorResolver port.ColorSchemeResolver
-	Logger        zerolog.Logger
+	Ctx            context.Context
+	Config         *config.Config
+	RuntimeProfile runtimeprofile.Profile
+	ThemeManager   *theme.Manager
+	ColorResolver  port.ColorSchemeResolver
+	Logger         zerolog.Logger
 }
 
 // BuildEngine constructs a port.Engine for the engine type specified in cfg.Engine.Type.
@@ -38,23 +38,27 @@ func BuildEngine(input EngineInput) (port.Engine, error) {
 	engineType := cfg.Engine.ResolveEngineType()
 	switch engineType {
 	case config.EngineTypeWebKit:
+		profile, err := requireRuntimeProfile(input.RuntimeProfile, engineType)
+		if err != nil {
+			return nil, err
+		}
 		opts := port.EngineOptions{
-			DataDir:      input.DataDir,
-			CacheDir:     input.CacheDir,
 			CookiePolicy: port.CookiePolicy(cfg.Engine.CookiePolicy),
 		}
 		wkCfg := webkit.EngineConfigFromConfig(cfg.Engine.WebKit)
 
 		return webkit.NewEngine(
-			input.Ctx, cfg, opts, wkCfg,
+			input.Ctx, cfg, opts, profile, wkCfg,
 			input.ThemeManager, input.ColorResolver,
 			contextMenuBuilder, contextMenuExecutorFactory,
 			input.Logger,
 		)
 	case config.EngineTypeCEF:
+		profile, err := requireRuntimeProfile(input.RuntimeProfile, engineType)
+		if err != nil {
+			return nil, err
+		}
 		opts := port.EngineOptions{
-			DataDir:      input.DataDir,
-			CacheDir:     input.CacheDir,
 			CookiePolicy: port.CookiePolicy(cfg.Engine.CookiePolicy),
 		}
 		cefCfg := cef.RuntimeConfig{
@@ -102,8 +106,18 @@ func BuildEngine(input EngineInput) (port.Engine, error) {
 			},
 		}
 		audioFactory := audiofactory.NewAudioOutputFactory()
-		return cef.NewEngine(input.Ctx, opts, cefCfg, transcodingCfg, audioFactory, deps)
+		return cef.NewEngine(input.Ctx, opts, profile, cefCfg, transcodingCfg, audioFactory, deps)
 	default:
 		return nil, fmt.Errorf("unknown engine type: %q", engineType)
 	}
+}
+
+func requireRuntimeProfile(profile runtimeprofile.Profile, engineType string) (runtimeprofile.Profile, error) {
+	if profile.Engine == "" {
+		return runtimeprofile.Profile{}, fmt.Errorf("missing runtime profile for %s engine", engineType)
+	}
+	if profile.Engine != engineType {
+		return runtimeprofile.Profile{}, fmt.Errorf("runtime profile engine %q does not match %q", profile.Engine, engineType)
+	}
+	return profile, nil
 }

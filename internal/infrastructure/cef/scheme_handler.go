@@ -42,6 +42,8 @@ var pageRootFiles = map[string]string{
 	errorPath:  "error.html",
 }
 
+var cefNewResourceHandler = purecef.NewResourceHandler
+
 // dumbSchemeHandler serves both the conceptual dumb:// URLs and the actual
 // internal https://dumber.invalid origin used by CEF.
 type dumbSchemeHandler struct {
@@ -419,7 +421,7 @@ type staticResourceHandler struct {
 }
 
 func (h *dumbSchemeHandler) newRawResourceHandler(status int, contentType string, data []byte) purecef.ResourceHandler {
-	return purecef.NewResourceHandler(&staticResourceHandler{
+	return cefNewResourceHandler(&staticResourceHandler{
 		data:        data,
 		contentType: contentType,
 		statusCode:  status,

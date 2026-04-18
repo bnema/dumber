@@ -74,11 +74,12 @@ const rendererBridgeExtensionJS = `
 
     function mirrorClipboardEvent(action, e) {
       if (!e.isTrusted) return;
+      var capturedText = '';
+      if (e.clipboardData && typeof e.clipboardData.getData === 'function') {
+        try { capturedText = e.clipboardData.getData('text/plain'); } catch(_) {}
+      }
       setTimeout(function() {
-        var text = '';
-        if (e.clipboardData && typeof e.clipboardData.getData === 'function') {
-          try { text = e.clipboardData.getData('text/plain'); } catch(_) {}
-        }
+        var text = capturedText;
         if (!text) text = getSelectedText();
         if (text) notifyExplicitTextCopy(action, text);
       }, 0);

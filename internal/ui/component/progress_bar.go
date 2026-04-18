@@ -37,7 +37,6 @@ type ProgressBar struct {
 	timeoutTimer     uint    // Timer source ID for auto-hide timeout
 	lastShowAt       time.Time
 	lastProgressAt   time.Time
-	lastHideReason   string
 	progressEventSeq uint64
 
 	mu sync.Mutex
@@ -191,7 +190,6 @@ func (pb *ProgressBar) Show() {
 	if !pb.visible {
 		pb.visible = true
 		pb.lastShowAt = time.Now()
-		pb.lastHideReason = ""
 		// Set an initial non-zero fraction so the bar is visually noticeable
 		// immediately. Without this, the bar is technically visible but
 		// renders as empty (0% fill) until the first progress callback,
@@ -282,7 +280,6 @@ func (pb *ProgressBar) hideInternal(reason string) {
 
 	if pb.visible {
 		pb.visible = false
-		pb.lastHideReason = reason
 		pb.progressBar.SetVisible(false)
 
 		// Stop any running animation

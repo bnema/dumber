@@ -51,6 +51,7 @@ var (
 	cefNewTask         = purecef.NewTask
 	cefPostTask        = purecef.PostTask
 	cefPostDelayedTask = purecef.PostDelayedTask
+	cefScheduleAfter   = func(delay time.Duration, fn func()) { time.AfterFunc(delay, fn) }
 )
 
 // WebView implements port.WebView using a CEF off-screen browser rendered
@@ -827,12 +828,25 @@ func (wv *WebView) schedulePendingNavigationReplay(browser purecef.Browser, atte
 	} else {
 		result = cefPostDelayedTask(purecef.ThreadIDTidUi, task, int64(pendingNavigationRetryDelay/time.Millisecond))
 	}
-	if result != 1 && wv.ctx != nil {
-		logging.FromContext(wv.ctx).Warn().
-			Int("attempt", attempt).
-			Int32("result", result).
-			Msg("cef: failed to schedule pending navigation replay")
+	if result == 1 {
+		return
 	}
+	if wv.ctx != nil {
+		log := logging.FromContext(wv.ctx).Warn().
+			Int("attempt", attempt).
+			Int32("result", result)
+		if attempt >= pendingNavigationMaxRetries {
+			log.Msg("cef: failed to schedule pending navigation replay; retries exhausted")
+		} else {
+			log.Msg("cef: failed to schedule pending navigation replay; retrying")
+		}
+	}
+	if attempt >= pendingNavigationMaxRetries {
+		return
+	}
+	cefScheduleAfter(pendingNavigationRetryDelay, func() {
+		wv.schedulePendingNavigationReplay(browser, attempt+1)
+	})
 }
 
 func (wv *WebView) replayPendingNavigation(browser purecef.Browser, attempt int) {
@@ -865,10 +879,7 @@ func (wv *WebView) replayPendingNavigation(browser purecef.Browser, attempt int)
 		wv.schedulePendingNavigationReplay(browser, attempt+1)
 		return
 	}
-	currentURL := ""
-	if frame != nil {
-		currentURL = frame.GetURL()
-	}
+	currentURL := frame.GetURL()
 	if pendingURIEquivalent(currentURL, uri) {
 		wv.mu.Lock()
 		if pendingURIEquivalent(wv.pendingURI, uri) {

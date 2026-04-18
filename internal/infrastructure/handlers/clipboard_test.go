@@ -7,6 +7,7 @@ import (
 	"testing"
 
 	"github.com/bnema/dumber/internal/application/port"
+	"github.com/stretchr/testify/require"
 )
 
 type recordingClipboardOrchestrator struct {
@@ -35,21 +36,13 @@ func TestClipboardHandler_HandleAutoCopySelection_DelegatesToOrchestrator(t *tes
 	handler := NewClipboardHandler(orchestrator)
 
 	_, err := handler.HandleAutoCopySelection().Handle(ctx, 42, json.RawMessage(`{"text":"selected text"}`))
-	if err != nil {
-		t.Fatalf("Handle() error = %v, want nil", err)
-	}
+	require.NoError(t, err)
 
 	orchestrator.mu.Lock()
 	defer orchestrator.mu.Unlock()
-	if orchestrator.selection.Text != "selected text" {
-		t.Fatalf("selection text = %q, want %q", orchestrator.selection.Text, "selected text")
-	}
-	if orchestrator.selection.SourceEngine != port.ClipboardSourceWebKit {
-		t.Fatalf("selection source = %q, want %q", orchestrator.selection.SourceEngine, port.ClipboardSourceWebKit)
-	}
-	if orchestrator.selection.ViewID != 42 {
-		t.Fatalf("selection view id = %d, want %d", orchestrator.selection.ViewID, 42)
-	}
+	require.Equal(t, "selected text", orchestrator.selection.Text)
+	require.Equal(t, port.ClipboardSourceWebKit, orchestrator.selection.SourceEngine)
+	require.Equal(t, port.WebViewID(42), orchestrator.selection.ViewID)
 }
 
 func TestClipboardHandler_HandleExplicitCopy_DelegatesToOrchestrator(t *testing.T) {
@@ -58,25 +51,13 @@ func TestClipboardHandler_HandleExplicitCopy_DelegatesToOrchestrator(t *testing.
 	handler := NewClipboardHandler(orchestrator)
 
 	_, err := handler.HandleExplicitCopy().Handle(ctx, 42, json.RawMessage(`{"text":"copied text","action":"copy"}`))
-	if err != nil {
-		t.Fatalf("Handle() error = %v, want nil", err)
-	}
+	require.NoError(t, err)
 
 	orchestrator.mu.Lock()
 	defer orchestrator.mu.Unlock()
-	if orchestrator.explicit.Text != "copied text" {
-		t.Fatalf("explicit text = %q, want %q", orchestrator.explicit.Text, "copied text")
-	}
-	if orchestrator.explicit.Action != "copy" {
-		t.Fatalf("explicit action = %q, want %q", orchestrator.explicit.Action, "copy")
-	}
-	if orchestrator.explicit.SourceEngine != port.ClipboardSourceWebKit {
-		t.Fatalf("explicit source = %q, want %q", orchestrator.explicit.SourceEngine, port.ClipboardSourceWebKit)
-	}
-	if orchestrator.explicit.ViewID != 42 {
-		t.Fatalf("explicit view id = %d, want %d", orchestrator.explicit.ViewID, 42)
-	}
-	if !orchestrator.explicit.NativeHandled {
-		t.Fatal("explicit native handled = false, want true")
-	}
+	require.Equal(t, "copied text", orchestrator.explicit.Text)
+	require.Equal(t, "copy", orchestrator.explicit.Action)
+	require.Equal(t, port.ClipboardSourceWebKit, orchestrator.explicit.SourceEngine)
+	require.Equal(t, port.WebViewID(42), orchestrator.explicit.ViewID)
+	require.True(t, orchestrator.explicit.NativeHandled)
 }

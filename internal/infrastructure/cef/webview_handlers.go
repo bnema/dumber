@@ -700,6 +700,7 @@ func (h *handlerSet) OnAfterCreated(browser purecef.Browser) {
 	}
 	host := browser.GetHost()
 
+	shouldSyncFocus := false
 	h.wv.mu.Lock()
 	h.wv.browser = browser
 	h.wv.host = host
@@ -714,11 +715,14 @@ func (h *handlerSet) OnAfterCreated(browser purecef.Browser) {
 
 	// If GTK focus entered before the browser existed, reassert browser focus
 	// now. Otherwise CEF may stay internally unfocused and suppress caret paint.
-	if h.wv.input != nil && h.wv.input.hasGTKFocus() {
-		syncWindowlessBrowserFocus(host)
+	if h.wv.input != nil {
+		shouldSyncFocus = h.wv.input.hasGTKFocus()
 	}
 
 	h.wv.mu.Unlock()
+	if shouldSyncFocus {
+		syncWindowlessBrowserFocus(host)
+	}
 
 	h.wv.scheduleStartBeginFrameLoop()
 }

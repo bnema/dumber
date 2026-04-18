@@ -388,6 +388,8 @@ func (p *contextMenuPipeline) newExecutor(wv *WebView) port.ContextMenuActionExe
 	)
 }
 
+var _ port.Clipboard = (*clipboardCopyNotifier)(nil)
+
 type clipboardCopyNotifier struct {
 	clipboard port.Clipboard
 	onCopied  func(textLen int)

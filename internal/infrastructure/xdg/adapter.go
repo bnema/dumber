@@ -29,9 +29,6 @@ func (a *Adapter) StateDir() (string, error) {
 }
 
 func (a *Adapter) RuntimeDir() (string, error) {
-	// In dev mode, keep runtime IPC isolated inside the .dev sandbox even when
-	// XDG_RUNTIME_DIR is set. This prevents browser-launch relay collisions
-	// between the installed app and a repo-local ENV=dev instance.
 	if os.Getenv("ENV") != "dev" {
 		if dir := os.Getenv("XDG_RUNTIME_DIR"); dir != "" {
 			return dir, nil
@@ -41,6 +38,9 @@ func (a *Adapter) RuntimeDir() (string, error) {
 	stateDir, err := a.StateDir()
 	if err != nil {
 		return "", err
+	}
+	if os.Getenv("ENV") == "dev" {
+		return filepath.Join(filepath.Dir(stateDir), "runtime"), nil
 	}
 	return filepath.Join(stateDir, "runtime"), nil
 }

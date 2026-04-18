@@ -296,7 +296,6 @@ func (e *Engine) handleExplicitClipboardBridgeText(viewID port.WebViewID, action
 			Msg("cef: clipboard orchestration skipped — orchestrator nil")
 		return
 	}
-	textLen := utf8.RuneCountInString(text)
 	if err := e.clipboardTextOrchestrator.HandleExplicitCopy(e.currentContext(), port.ExplicitClipboardInput{
 		Text:         text,
 		Action:       action,
@@ -306,7 +305,7 @@ func (e *Engine) handleExplicitClipboardBridgeText(viewID port.WebViewID, action
 		logging.FromContext(e.currentContext()).Debug().
 			Err(err).
 			Str("action", action).
-			Int("text_len", textLen).
+			Int("text_len", utf8.RuneCountInString(text)).
 			Msg("cef: clipboard explicit copy handling failed")
 	}
 }

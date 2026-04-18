@@ -12,9 +12,10 @@ import (
 	"unicode/utf8"
 
 	"github.com/bnema/dumber/internal/application/port"
+	portmocks "github.com/bnema/dumber/internal/application/port/mocks"
 	"github.com/bnema/dumber/internal/application/usecase"
-	"github.com/bnema/dumber/internal/domain/entity"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 )
 
@@ -318,8 +319,21 @@ func TestWebkitMenuDelegator_OpenLinkNewTabRequiresHandlerSuccess(t *testing.T) 
 
 func TestContextMenuPipeline_NewExecutor_NotifiesOnCopiedText(t *testing.T) {
 	var copiedLen int
-	baseClipboard := &recordingClipboard{}
-	factory := &capturingExecutorFactory{}
+	ctx := context.Background()
+	baseClipboard := portmocks.NewMockClipboard(t)
+	factory := portmocks.NewMockContextMenuActionExecutorFactory(t)
+	var capturedClipboard port.Clipboard
+	factory.EXPECT().NewContextMenuActionExecutor(mock.Anything, mock.Anything, mock.Anything, mock.Anything).RunAndReturn(
+		func(
+			clipboard port.Clipboard,
+			resolver port.ImageDataResolver,
+			saver port.ResolvedImageSaver,
+			delegator port.MenuActionDelegator,
+		) port.ContextMenuActionExecutor {
+			capturedClipboard = clipboard
+			return usecase.NewExecuteContextMenuActionUseCase(clipboard, resolver, saver, delegator)
+		},
+	).Once()
 	pipeline := &contextMenuPipeline{
 		clipboard:       baseClipboard,
 		onCopied:        func(textLen int) { copiedLen = textLen },
@@ -331,23 +345,21 @@ func TestContextMenuPipeline_NewExecutor_NotifiesOnCopiedText(t *testing.T) {
 
 	t.Run("copy link", func(t *testing.T) {
 		copiedLen = 0
-		require.NotNil(t, factory.clipboard)
+		require.NotNil(t, capturedClipboard)
+		baseClipboard.EXPECT().WriteText(ctx, "https://example.com/new").Return(nil).Once()
 
-		err := executor.ExecuteMenuAction(context.Background(), port.MenuActionCopyLink, port.MenuContext{LinkURI: "https://example.com/new"})
+		err := executor.ExecuteMenuAction(ctx, port.MenuActionCopyLink, port.MenuContext{LinkURI: "https://example.com/new"})
 		require.NoError(t, err)
-		require.Equal(t, "https://example.com/new", baseClipboard.text)
-		require.Equal(t, 1, baseClipboard.writeTextCalls)
 		require.Equal(t, utf8.RuneCountInString("https://example.com/new"), copiedLen)
 	})
 
 	t.Run("copy selection", func(t *testing.T) {
 		copiedLen = 0
-		require.NotNil(t, factory.clipboard)
+		require.NotNil(t, capturedClipboard)
+		baseClipboard.EXPECT().WriteText(ctx, "selected text").Return(nil).Once()
 
-		err := executor.ExecuteMenuAction(context.Background(), port.MenuActionCopySelection, port.MenuContext{HasSelection: true, SelectionText: "selected text"})
+		err := executor.ExecuteMenuAction(ctx, port.MenuActionCopySelection, port.MenuContext{HasSelection: true, SelectionText: "selected text"})
 		require.NoError(t, err)
-		require.Equal(t, "selected text", baseClipboard.text)
-		require.Equal(t, 2, baseClipboard.writeTextCalls)
 		require.Equal(t, utf8.RuneCountInString("selected text"), copiedLen)
 	})
 }
@@ -372,36 +384,6 @@ func buildMenuContextFromStubHitTest(hit stubHitTest, canGoBack, canGoForward bo
 	ctx.IsEditable = hit.isEditable
 
 	return ctx
-}
-
-type recordingClipboard struct {
-	writeTextCalls int
-	text           string
-}
-
-func (r *recordingClipboard) WriteText(_ context.Context, text string) error {
-	r.writeTextCalls++
-	r.text = text
-	return nil
-}
-
-func (*recordingClipboard) WriteImage(context.Context, entity.ImageData) error { return nil }
-func (*recordingClipboard) ReadText(context.Context) (string, error)           { return "", nil }
-func (*recordingClipboard) Clear(context.Context) error                        { return nil }
-func (*recordingClipboard) HasText(context.Context) (bool, error)              { return false, nil }
-
-type capturingExecutorFactory struct {
-	clipboard port.Clipboard
-}
-
-func (f *capturingExecutorFactory) NewContextMenuActionExecutor(
-	clipboard port.Clipboard,
-	resolver port.ImageDataResolver,
-	saver port.ResolvedImageSaver,
-	delegator port.MenuActionDelegator,
-) port.ContextMenuActionExecutor {
-	f.clipboard = clipboard
-	return usecase.NewExecuteContextMenuActionUseCase(clipboard, resolver, saver, delegator)
 }
 
 type roundTripperFunc func(*http.Request) (*http.Response, error)

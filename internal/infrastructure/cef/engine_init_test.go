@@ -1,111 +1,86 @@
 package cef
 
 import (
-	"os"
 	"path/filepath"
 	"testing"
 
 	"github.com/bnema/dumber/internal/application/port"
 	"github.com/bnema/dumber/internal/infrastructure/audio/factory"
-	"github.com/bnema/dumber/internal/infrastructure/config"
+	"github.com/bnema/dumber/internal/infrastructure/runtimeprofile"
 	"github.com/rs/zerolog"
 	"github.com/stretchr/testify/require"
 )
 
 func TestResolvedStateRoot_PrefersDataDir(t *testing.T) {
-	root := resolvedStateRoot(port.EngineOptions{DataDir: "/tmp/data", CacheDir: "/tmp/cache"})
+	profile := testCEFDevProfile(t)
+	root := resolvedStateRoot(profile, port.EngineOptions{DataDir: "/tmp/data", CacheDir: "/tmp/cache"})
 	require.Equal(t, "/tmp/data", root)
 }
 
-func TestResolvedStateRoot_FallsBackToCacheDir(t *testing.T) {
-	root := resolvedStateRoot(port.EngineOptions{CacheDir: "/tmp/cache"})
-	require.Equal(t, "/tmp/cache", root)
-}
-
 func TestResolvedStateRoot_UsesEnvOverride(t *testing.T) {
+	profile := testCEFDevProfile(t)
 	t.Setenv(CEFRootCachePathEnvVar, "/tmp/override")
 
-	root := resolvedStateRoot(port.EngineOptions{})
+	root := resolvedStateRoot(profile, port.EngineOptions{})
 	require.Equal(t, "/tmp/override", root)
 
-	root = resolvedStateRoot(port.EngineOptions{DataDir: "/tmp/data", CacheDir: "/tmp/cache"})
+	root = resolvedStateRoot(profile, port.EngineOptions{DataDir: "/tmp/data", CacheDir: "/tmp/cache"})
 	require.Equal(t, "/tmp/override", root)
 }
 
-func TestPrepareCEFSettings_UsesResolvedStateRoot(t *testing.T) {
+func TestResolvedStateRoot_UsesProfileDefault(t *testing.T) {
+	profile := testCEFProdProfile(t)
+	root := resolvedStateRoot(profile, port.EngineOptions{})
+	require.Equal(t, profile.CEFUserDataDir(), root)
+}
+
+func TestPrepareCEFSettings_UsesResolvedProfilePaths(t *testing.T) {
 	logger := zerolog.Nop()
-	settings, err := prepareCEFSettings(port.EngineOptions{CacheDir: "/tmp/cache"}, RuntimeConfig{}, &logger)
+	profile := testCEFDevProfile(t)
+	settings, err := prepareCEFSettings(port.EngineOptions{}, profile, RuntimeConfig{}, &logger)
 	require.NoError(t, err)
-	require.Equal(t, "/tmp/cache", settings.RootCachePath)
+	require.Equal(t, profile.CEFUserDataDir(), settings.RootCachePath)
+	require.Equal(t, profile.CEFLogFile(), settings.LogFile)
 }
 
 func TestPrepareCEFSettings_RejectsNonDefaultCookiePolicy(t *testing.T) {
 	logger := zerolog.Nop()
-	_, err := prepareCEFSettings(port.EngineOptions{CookiePolicy: port.CookiePolicyNever}, RuntimeConfig{}, &logger)
+	_, err := prepareCEFSettings(port.EngineOptions{CookiePolicy: port.CookiePolicyNever}, testCEFDevProfile(t), RuntimeConfig{}, &logger)
 	require.ErrorIs(t, err, ErrCookiePolicyUnsupported)
 }
 
 func TestPrepareCEFSettings_AllowsNoThirdPartyCookiePolicy(t *testing.T) {
 	logger := zerolog.Nop()
-	_, err := prepareCEFSettings(port.EngineOptions{CookiePolicy: port.CookiePolicyNoThirdParty}, RuntimeConfig{}, &logger)
+	_, err := prepareCEFSettings(port.EngineOptions{CookiePolicy: port.CookiePolicyNoThirdParty}, testCEFDevProfile(t), RuntimeConfig{}, &logger)
 	require.NoError(t, err)
 }
 
 func TestPrepareCEFInitTraceFile_DisabledByDefault(t *testing.T) {
 	t.Setenv(puregoCEFInitTraceEnvVar, "")
 
-	path, err := prepareCEFInitTraceFile("")
+	path, err := prepareCEFInitTraceFile(testCEFDevProfile(t), "")
 	require.NoError(t, err)
 	require.Empty(t, path)
 }
 
-func TestPrepareCEFInitTraceFile_EnabledViaEnv(t *testing.T) {
+func TestPrepareCEFInitTraceFile_EnabledViaExplicitLogFile(t *testing.T) {
 	t.Setenv(puregoCEFInitTraceEnvVar, "1")
-	cfg := config.CEFEngineConfig{
-		LogFile: filepath.Join(t.TempDir(), "cef_runtime.log"),
-	}
+	logFile := filepath.Join(t.TempDir(), "custom", "cef_runtime.log")
 
-	path, err := prepareCEFInitTraceFile(cfg.LogFile)
+	path, err := prepareCEFInitTraceFile(testCEFDevProfile(t), logFile)
 	require.NoError(t, err)
-	require.Equal(t, filepath.Join(filepath.Dir(cfg.LogFile), "cef_runtime.bootstrap.log"), path)
+	require.Equal(t, filepath.Join(filepath.Dir(logFile), "cef_runtime.bootstrap.log"), path)
 	require.FileExists(t, path)
 }
 
-func TestPrepareCEFSettings_RootCachePath_UsesXDGDataDir(t *testing.T) {
-	homeDir := filepath.Join(t.TempDir(), "home")
-	dataHome := filepath.Join(homeDir, ".local", "share")
-	t.Setenv("HOME", homeDir)
-	t.Setenv("ENV", "")
-	t.Setenv("XDG_DATA_HOME", dataHome)
+func TestPrepareCEFInitTraceFile_UsesResolvedProfileLogDirByDefault(t *testing.T) {
+	t.Setenv(puregoCEFInitTraceEnvVar, "1")
+	profile := testCEFDevProfile(t)
 
-	logger := zerolog.Nop()
-	settings, err := prepareCEFSettings(port.EngineOptions{}, RuntimeConfig{}, &logger)
+	path, err := prepareCEFInitTraceFile(profile, "")
 	require.NoError(t, err)
-
-	require.Equal(t, filepath.Join(dataHome, "dumber", "cef_user_data"), settings.RootCachePath)
-}
-
-func TestPrepareCEFSettings_RootCachePath_DevMode(t *testing.T) {
-	// Create a temp directory and change into it for the test
-	tempDir := t.TempDir()
-	originalDir, err := os.Getwd()
-	require.NoError(t, err)
-	defer func() {
-		_ = os.Chdir(originalDir)
-	}()
-
-	err = os.Chdir(tempDir)
-	require.NoError(t, err)
-
-	// Set ENV=dev to trigger dev mode
-	t.Setenv("ENV", "dev")
-
-	logger := zerolog.Nop()
-	settings, err := prepareCEFSettings(port.EngineOptions{}, RuntimeConfig{}, &logger)
-	require.NoError(t, err)
-
-	// In dev mode, should resolve under .dev/dumber/cef_user_data
-	require.Equal(t, filepath.Join(tempDir, ".dev", "dumber", "cef_user_data"), settings.RootCachePath)
+	require.Equal(t, filepath.Join(profile.EnginePaths.LogDir, "cef_runtime.bootstrap.log"), path)
+	require.FileExists(t, path)
 }
 
 // TestCreateAudioOutputFactory_CreatesUsableFactory verifies that the audio
@@ -115,4 +90,39 @@ func TestCreateAudioOutputFactory_ReturnsFactory(t *testing.T) {
 	audioFactory := factory.NewAudioOutputFactory()
 
 	require.NotNil(t, audioFactory, "Audio factory should not be nil")
+}
+
+func testCEFDevProfile(t *testing.T) runtimeprofile.Profile {
+	t.Helper()
+	cwd := t.TempDir()
+	profile, err := runtimeprofile.Resolve(runtimeprofile.ResolveInput{
+		Env: func(key string) string {
+			if key == "ENV" {
+				return "dev"
+			}
+			return ""
+		},
+		Engine: "cef",
+		CWD:    func() (string, error) { return cwd, nil },
+	})
+	require.NoError(t, err)
+	return profile
+}
+
+func testCEFProdProfile(t *testing.T) runtimeprofile.Profile {
+	t.Helper()
+	root := t.TempDir()
+	profile, err := runtimeprofile.Resolve(runtimeprofile.ResolveInput{
+		Env:    func(string) string { return "" },
+		Engine: "cef",
+		CWD:    func() (string, error) { return root, nil },
+		Base: runtimeprofile.BasePaths{
+			ConfigHome: filepath.Join(root, "config"),
+			DataHome:   filepath.Join(root, "data"),
+			StateHome:  filepath.Join(root, "state"),
+			CacheHome:  filepath.Join(root, "cache"),
+		},
+	})
+	require.NoError(t, err)
+	return profile
 }

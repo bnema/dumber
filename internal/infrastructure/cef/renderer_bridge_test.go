@@ -1,7 +1,11 @@
 package cef
 
 import (
+	"go/ast"
+	"go/parser"
+	"go/token"
 	"os"
+	"strings"
 	"testing"
 
 	purecef "github.com/bnema/purego-cef/cef"
@@ -100,18 +104,22 @@ func TestRendererBridgeExtensionJS_EncodesTrustedSuccessSemantics(t *testing.T) 
 	require.Contains(t, rendererBridgeExtensionJS, "return result;")
 }
 
-func TestRendererBridgeSourceDoesNotNeedGoLinkname(t *testing.T) {
-	src, err := os.ReadFile("renderer_bridge.go")
-	require.NoError(t, err)
-	require.NotContains(t, string(src), "go:linkname")
+func TestRendererBridgePackageDoesNotNeedGoLinkname(t *testing.T) {
+	files := parseCEFPackageFiles(t)
+	for _, file := range files {
+		for _, group := range file.Comments {
+			for _, comment := range group.List {
+				require.NotContains(t, comment.Text, "go:linkname")
+			}
+		}
+	}
 }
 
-func TestCEFContentInjectorSourceDoesNotKeepDeprecatedClipboardBridgeConstants(t *testing.T) {
-	src, err := os.ReadFile("content_injector.go")
-	require.NoError(t, err)
-	require.NotContains(t, string(src), "autoCopySelectionBridgeJS")
-	require.NotContains(t, string(src), "clipboardCopyBridgeJS")
-	require.NotContains(t, string(src), "editableFocusBridgeJS")
+func TestCEFPackageDoesNotKeepDeprecatedClipboardBridgeConstants(t *testing.T) {
+	files := parseCEFPackageFiles(t)
+	for _, banned := range []string{"autoCopySelectionBridgeJS", "clipboardCopyBridgeJS", "editableFocusBridgeJS"} {
+		require.False(t, packageDeclaresIdentifier(files, banned), "unexpected deprecated identifier %q", banned)
+	}
 }
 
 func TestDecodeRendererBridgeExplicitTextCopyPayload(t *testing.T) {
@@ -119,6 +127,46 @@ func TestDecodeRendererBridgeExplicitTextCopyPayload(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, "copied text", req.Text)
 	require.Equal(t, "cut", req.Action)
+}
+
+func parseCEFPackageFiles(t *testing.T) []*ast.File {
+	t.Helper()
+	entries, err := os.ReadDir(".")
+	require.NoError(t, err)
+
+	fset := token.NewFileSet()
+	files := make([]*ast.File, 0, len(entries))
+	for _, entry := range entries {
+		name := entry.Name()
+		if entry.IsDir() || !strings.HasSuffix(name, ".go") || strings.HasSuffix(name, "_test.go") {
+			continue
+		}
+		file, err := parser.ParseFile(fset, name, nil, parser.ParseComments)
+		require.NoError(t, err)
+		if file.Name != nil && file.Name.Name == "cef" {
+			files = append(files, file)
+		}
+	}
+	require.NotEmpty(t, files)
+	return files
+}
+
+func packageDeclaresIdentifier(files []*ast.File, name string) bool {
+	for _, file := range files {
+		found := false
+		ast.Inspect(file, func(node ast.Node) bool {
+			ident, ok := node.(*ast.Ident)
+			if ok && ident.Name == name {
+				found = true
+				return false
+			}
+			return true
+		})
+		if found {
+			return true
+		}
+	}
+	return false
 }
 
 func TestRendererBridgeProcessHandler_OnFocusedNodeChanged_ReportsEditableState(t *testing.T) {

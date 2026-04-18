@@ -13,26 +13,13 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/bnema/dumber/internal/application/port"
+	portmocks "github.com/bnema/dumber/internal/application/port/mocks"
 )
 
-type recordingClipboardOrchestrator struct {
+type clipboardOrchestratorRecorder struct {
 	mu             sync.Mutex
 	selection      port.SelectionClipboardInput
 	selectionCalls int
-	explicit       port.ExplicitClipboardInput
-}
-
-func (r *recordingClipboardOrchestrator) HandleSelectionUpdate(_ context.Context, input port.SelectionClipboardInput) error {
-	r.mu.Lock()
-	r.selection = input
-	r.selectionCalls++
-	r.mu.Unlock()
-	return nil
-}
-
-func (r *recordingClipboardOrchestrator) HandleExplicitCopy(_ context.Context, input port.ExplicitClipboardInput) error {
-	r.explicit = input
-	return nil
 }
 
 func newTestPipeline(w, h, s int32) *renderPipeline {
@@ -114,7 +101,14 @@ func TestOnLoadEndDoesNotDispatchBrowserLevelCompletion(t *testing.T) {
 }
 
 func TestOnTextSelectionChanged_ForwardsSelectionToClipboardOrchestrator(t *testing.T) {
-	orchestrator := &recordingClipboardOrchestrator{}
+	recorder := &clipboardOrchestratorRecorder{}
+	orchestrator := portmocks.NewMockClipboardTextOrchestrator(t)
+	orchestrator.EXPECT().HandleSelectionUpdate(mock.Anything, mock.Anything).Run(func(_ context.Context, input port.SelectionClipboardInput) {
+		recorder.mu.Lock()
+		defer recorder.mu.Unlock()
+		recorder.selection = input
+		recorder.selectionCalls++
+	}).Return(nil).Once()
 	wv := &WebView{
 		ctx: context.Background(),
 		id:  42,
@@ -127,17 +121,24 @@ func TestOnTextSelectionChanged_ForwardsSelectionToClipboardOrchestrator(t *test
 	h.OnTextSelectionChanged(nil, "selected text", nil)
 
 	require.Eventually(t, func() bool {
-		orchestrator.mu.Lock()
-		defer orchestrator.mu.Unlock()
-		return orchestrator.selectionCalls == 1 &&
-			orchestrator.selection.Text == "selected text" &&
-			orchestrator.selection.SourceEngine == port.ClipboardSourceCEF &&
-			orchestrator.selection.ViewID == port.WebViewID(42)
+		recorder.mu.Lock()
+		defer recorder.mu.Unlock()
+		return recorder.selectionCalls == 1 &&
+			recorder.selection.Text == "selected text" &&
+			recorder.selection.SourceEngine == port.ClipboardSourceCEF &&
+			recorder.selection.ViewID == port.WebViewID(42)
 	}, 2*time.Second, 10*time.Millisecond)
 }
 
 func TestOnTextSelectionChanged_DebouncesAndCollapsesRapidUpdates(t *testing.T) {
-	orchestrator := &recordingClipboardOrchestrator{}
+	recorder := &clipboardOrchestratorRecorder{}
+	orchestrator := portmocks.NewMockClipboardTextOrchestrator(t)
+	orchestrator.EXPECT().HandleSelectionUpdate(mock.Anything, mock.Anything).Run(func(_ context.Context, input port.SelectionClipboardInput) {
+		recorder.mu.Lock()
+		defer recorder.mu.Unlock()
+		recorder.selection = input
+		recorder.selectionCalls++
+	}).Return(nil).Once()
 	wv := &WebView{
 		ctx: context.Background(),
 		id:  42,
@@ -150,21 +151,28 @@ func TestOnTextSelectionChanged_DebouncesAndCollapsesRapidUpdates(t *testing.T) 
 	h.OnTextSelectionChanged(nil, "first selection", nil)
 	h.OnTextSelectionChanged(nil, "second selection", nil)
 
-	orchestrator.mu.Lock()
-	gotCalls := orchestrator.selectionCalls
-	orchestrator.mu.Unlock()
+	recorder.mu.Lock()
+	gotCalls := recorder.selectionCalls
+	recorder.mu.Unlock()
 	require.Zero(t, gotCalls)
 
 	require.Eventually(t, func() bool {
-		orchestrator.mu.Lock()
-		defer orchestrator.mu.Unlock()
-		return orchestrator.selectionCalls == 1 && orchestrator.selection.Text == "second selection"
+		recorder.mu.Lock()
+		defer recorder.mu.Unlock()
+		return recorder.selectionCalls == 1 && recorder.selection.Text == "second selection"
 	}, 2*time.Second, 10*time.Millisecond)
 	require.Equal(t, "second selection", wv.selectedTextSnapshot())
 }
 
 func TestOnTextSelectionChanged_SuppressesAutoCopyWhenFocusedNodeEditableAndResumesWhenCleared(t *testing.T) {
-	orchestrator := &recordingClipboardOrchestrator{}
+	recorder := &clipboardOrchestratorRecorder{}
+	orchestrator := portmocks.NewMockClipboardTextOrchestrator(t)
+	orchestrator.EXPECT().HandleSelectionUpdate(mock.Anything, mock.Anything).Run(func(_ context.Context, input port.SelectionClipboardInput) {
+		recorder.mu.Lock()
+		defer recorder.mu.Unlock()
+		recorder.selection = input
+		recorder.selectionCalls++
+	}).Return(nil).Once()
 	wv := &WebView{
 		ctx: context.Background(),
 		id:  42,
@@ -192,15 +200,16 @@ func TestOnTextSelectionChanged_SuppressesAutoCopyWhenFocusedNodeEditableAndResu
 	h.OnTextSelectionChanged(nil, "editable selection", nil)
 	require.Equal(t, "editable selection", wv.selectedTextSnapshot())
 
-	orchestrator.mu.Lock()
-	gotCalls := orchestrator.selectionCalls
-	orchestrator.mu.Unlock()
+	recorder.mu.Lock()
+	gotCalls := recorder.selectionCalls
+	recorder.mu.Unlock()
 	require.Zero(t, gotCalls)
-	time.Sleep(350 * time.Millisecond)
-	orchestrator.mu.Lock()
-	gotCalls = orchestrator.selectionCalls
-	orchestrator.mu.Unlock()
-	require.Zero(t, gotCalls)
+	start := time.Now()
+	require.Eventually(t, func() bool {
+		recorder.mu.Lock()
+		defer recorder.mu.Unlock()
+		return recorder.selectionCalls == 0 && time.Since(start) >= clipboardSelectionDebounceDelay+50*time.Millisecond
+	}, 2*time.Second, 10*time.Millisecond)
 
 	newRendererBridgeProcessMessage = func(name string) purecef.ProcessMessage {
 		return newTestBridgeProcessMessage(name, false)
@@ -216,16 +225,19 @@ func TestOnTextSelectionChanged_SuppressesAutoCopyWhenFocusedNodeEditableAndResu
 
 	h.OnTextSelectionChanged(nil, "free selection", nil)
 	require.Equal(t, "free selection", wv.selectedTextSnapshot())
-	require.Zero(t, orchestrator.selectionCalls)
+	recorder.mu.Lock()
+	gotCalls = recorder.selectionCalls
+	recorder.mu.Unlock()
+	require.Zero(t, gotCalls)
 	require.Eventually(t, func() bool {
-		orchestrator.mu.Lock()
-		defer orchestrator.mu.Unlock()
-		return orchestrator.selectionCalls == 1 && orchestrator.selection.Text == "free selection"
+		recorder.mu.Lock()
+		defer recorder.mu.Unlock()
+		return recorder.selectionCalls == 1 && recorder.selection.Text == "free selection"
 	}, 2*time.Second, 10*time.Millisecond)
 }
 
 func TestOnTextSelectionChanged_DoesNotEmitLateDebouncedUpdateAfterDestroy(t *testing.T) {
-	orchestrator := &recordingClipboardOrchestrator{}
+	orchestrator := portmocks.NewMockClipboardTextOrchestrator(t)
 	wv := &WebView{
 		ctx: context.Background(),
 		id:  42,
@@ -238,15 +250,11 @@ func TestOnTextSelectionChanged_DoesNotEmitLateDebouncedUpdateAfterDestroy(t *te
 	h.OnTextSelectionChanged(nil, "selected text", nil)
 	wv.Destroy()
 
-	orchestrator.mu.Lock()
-	gotCalls := orchestrator.selectionCalls
-	orchestrator.mu.Unlock()
-	require.Zero(t, gotCalls)
-	time.Sleep(350 * time.Millisecond)
-	orchestrator.mu.Lock()
-	gotCalls = orchestrator.selectionCalls
-	orchestrator.mu.Unlock()
-	require.Zero(t, gotCalls)
+	start := time.Now()
+	require.Eventually(t, func() bool {
+		return time.Since(start) >= clipboardSelectionDebounceDelay+50*time.Millisecond
+	}, 2*time.Second, 10*time.Millisecond)
+	orchestrator.AssertNotCalled(t, "HandleSelectionUpdate", mock.Anything, mock.Anything)
 	require.Equal(t, "selected text", wv.selectedTextSnapshot())
 }
 

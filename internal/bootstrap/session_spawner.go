@@ -7,14 +7,15 @@ import (
 	"github.com/bnema/dumber/internal/infrastructure/cef"
 	"github.com/bnema/dumber/internal/infrastructure/config"
 	"github.com/bnema/dumber/internal/infrastructure/desktop"
+	"github.com/bnema/dumber/internal/infrastructure/runtimeprofile"
 )
 
 // NewSessionSpawner wires the session spawner with any engine-specific launch
 // environment required by the current browser backend.
-func NewSessionSpawner(ctx context.Context, cfg *config.Config) port.SessionSpawner {
+func NewSessionSpawner(ctx context.Context, profile runtimeprofile.Profile) port.SessionSpawner {
 	var spawnEnv port.SessionSpawnEnvironment
-	if cfg != nil && cfg.Engine.ResolveEngineType() == config.EngineTypeCEF {
-		spawnEnv = cef.SessionSpawnEnvironment{}
+	if profile.Engine == config.EngineTypeCEF {
+		spawnEnv = cef.NewSessionSpawnEnvironment(profile)
 	}
 	return desktop.NewSessionSpawner(ctx, spawnEnv)
 }
