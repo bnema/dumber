@@ -2,6 +2,7 @@ package cef
 
 import (
 	"context"
+	"crypto/subtle"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -415,6 +416,35 @@ func (e *Engine) currentContext() context.Context {
 		return context.Background()
 	}
 	return e.ctx
+}
+
+func (e *Engine) validateBridgeRequest(browser purecef.Browser, bridgeNonce string) bool {
+	if e == nil || browser == nil || bridgeNonce == "" {
+		return false
+	}
+
+	browserID := browser.GetIdentifier()
+	valid := false
+	e.activeWebViews.Range(func(_, value any) bool {
+		wv, ok := value.(*WebView)
+		if !ok || wv == nil {
+			return true
+		}
+
+		wv.mu.RLock()
+		wvBrowser := wv.browser
+		wvBridgeNonce := wv.bridgeNonce
+		wv.mu.RUnlock()
+		if wvBrowser == nil || wvBridgeNonce == "" || wvBrowser.GetIdentifier() != browserID {
+			return true
+		}
+		if subtle.ConstantTimeCompare([]byte(wvBridgeNonce), []byte(bridgeNonce)) == 1 {
+			valid = true
+			return false
+		}
+		return true
+	})
+	return valid
 }
 
 func (e *Engine) logTranscoderStartupState() {

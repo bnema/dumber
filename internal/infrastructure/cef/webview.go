@@ -2,10 +2,13 @@ package cef
 
 import (
 	"context"
+	"crypto/rand"
 	"encoding/base64"
+	"encoding/hex"
 	"errors"
 	"fmt"
 	"math"
+	"strconv"
 	"strings"
 	"sync"
 	"sync/atomic"
@@ -101,6 +104,7 @@ type WebView struct {
 	isLoading                 bool
 	selectedText              string
 	focusedEditable           bool
+	bridgeNonce               string
 	selectionDebounceTimer    stoppableTimer
 	selectionDebounceSeq      uint64
 	selectionDebounceDelay    *time.Duration
@@ -484,6 +488,22 @@ func (wv *WebView) RunJavaScript(_ context.Context, script string) {
 
 // colorScale converts a 0.0–1.0 color component to an 8-bit integer.
 const colorScale = 255
+
+func newBridgeNonce() string {
+	buf := make([]byte, 16)
+	if _, err := rand.Read(buf); err != nil {
+		return strconv.FormatInt(time.Now().UnixNano(), 16)
+	}
+	return hex.EncodeToString(buf)
+}
+
+func (wv *WebView) rotateBridgeNonce() string {
+	nonce := newBridgeNonce()
+	wv.mu.Lock()
+	wv.bridgeNonce = nonce
+	wv.mu.Unlock()
+	return nonce
+}
 
 // SetBackgroundColor sets the background via JS injection (CEF has no runtime API).
 func (wv *WebView) SetBackgroundColor(r, g, b, a float64) {

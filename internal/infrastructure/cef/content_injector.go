@@ -388,25 +388,60 @@ const redditDirectVideoJS = `(function(){
 // clipboardSelectionFetchBridgeJS keeps the lightweight fetch bridge enabled
 // while the native renderer bridge remains disabled due to an OSR startup
 // regression. It mirrors explicit clipboard text from DOM selections,
-// input/textarea selections, and async Clipboard API writes, and also
+// safe input/textarea selections, and async Clipboard API writes, and also
 // reasserts browser focus when an editable element gains DOM focus.
 const clipboardSelectionFetchBridgeJS = `(function(){
-  if (window.__dumberClipboardBridge) return;
-  window.__dumberClipboardBridge = true;
+  var bridgeNonce = '__DUMBER_BRIDGE_NONCE__';
+  if (window.__dumberClipboardBridge && typeof window.__dumberClipboardBridge.setBridgeNonce === 'function') {
+    window.__dumberClipboardBridge.setBridgeNonce(bridgeNonce);
+    return;
+  }
+  window.__dumberClipboardBridge = {
+    setBridgeNonce: function(nextBridgeNonce) {
+      bridgeNonce = nextBridgeNonce == null ? '' : String(nextBridgeNonce);
+    }
+  };
 
   function encodeBody(body) {
     return typeof btoa === 'function' ? btoa(unescape(encodeURIComponent(body))) : '';
   }
 
+  function inputType(node) {
+    return node && node.type ? String(node.type).toLowerCase() : 'text';
+  }
+
+  function isTextEditableInputType(type) {
+    switch ((type || 'text').toLowerCase()) {
+    case 'button':
+    case 'submit':
+    case 'reset':
+    case 'checkbox':
+    case 'radio':
+    case 'range':
+    case 'color':
+    case 'file':
+    case 'image':
+    case 'hidden':
+      return false;
+    default:
+      return true;
+    }
+  }
+
+  function isSelectionReadableInputType(type) {
+    return isTextEditableInputType(type) && type !== 'password';
+  }
+
   function getActiveElementSelection() {
     var el = document.activeElement;
-    if (!el) return '';
+    if (!el || el.nodeType !== 1 || typeof el.value !== 'string') return '';
     var tag = el.tagName;
-    if ((tag === 'INPUT' || tag === 'TEXTAREA') && typeof el.value === 'string') {
-      var start = typeof el.selectionStart === 'number' ? el.selectionStart : 0;
-      var end = typeof el.selectionEnd === 'number' ? el.selectionEnd : 0;
-      if (end > start) return el.value.slice(start, end);
-    }
+    if (el.disabled || el.readOnly) return '';
+    if (tag === 'INPUT' && !isSelectionReadableInputType(inputType(el))) return '';
+    if (tag !== 'INPUT' && tag !== 'TEXTAREA') return '';
+    var start = typeof el.selectionStart === 'number' ? el.selectionStart : 0;
+    var end = typeof el.selectionEnd === 'number' ? el.selectionEnd : 0;
+    if (end > start) return el.value.slice(start, end);
     return '';
   }
 
@@ -421,8 +456,10 @@ const clipboardSelectionFetchBridgeJS = `(function(){
     if (!node || node.nodeType !== 1) return false;
     if (node.isContentEditable) return true;
     var tag = node.tagName;
-    if (tag !== 'INPUT' && tag !== 'TEXTAREA') return false;
-    return !node.disabled && !node.readOnly;
+    if (tag === 'TEXTAREA') return !node.disabled && !node.readOnly;
+    if (tag !== 'INPUT') return false;
+    if (node.disabled || node.readOnly) return false;
+    return isTextEditableInputType(inputType(node));
   }
 
   function sendToClipboard(text) {
@@ -432,14 +469,20 @@ const clipboardSelectionFetchBridgeJS = `(function(){
     if (!encoded) return;
     fetch('dumb:///api/clipboard-set', {
       method: 'POST',
-      headers: {'X-Dumber-Body': encoded}
+      headers: {
+        'X-Dumber-Body': encoded,
+        'X-Dumber-Bridge-Nonce': bridgeNonce
+      }
     }).catch(function(){});
   }
 
   function sendFocusSync() {
     fetch('dumb:///api/focus-sync', {
       method: 'POST',
-      headers: {'X-Dumber-Bridge-Action': 'focus-sync'}
+      headers: {
+        'X-Dumber-Bridge-Action': 'focus-sync',
+        'X-Dumber-Bridge-Nonce': bridgeNonce
+      }
     }).catch(function(){});
   }
 
@@ -461,11 +504,13 @@ const clipboardSelectionFetchBridgeJS = `(function(){
     } catch (_) {}
   }
 
-  document.addEventListener('copy', function() {
+  document.addEventListener('copy', function(event) {
+    if (event && event.isTrusted === false) return;
     var text = getSelectedText();
     if (text) sendToClipboard(text);
   });
-  document.addEventListener('cut', function() {
+  document.addEventListener('cut', function(event) {
+    if (event && event.isTrusted === false) return;
     var text = getSelectedText();
     if (text) sendToClipboard(text);
   });
@@ -580,6 +625,10 @@ const clipboardSelectionFetchBridgeJS = `(function(){
 
   if (isEditable(document.activeElement)) sendFocusSync();
 })();`
+
+func buildClipboardSelectionFetchBridgeJS(bridgeNonce string) string {
+	return strings.ReplaceAll(clipboardSelectionFetchBridgeJS, "__DUMBER_BRIDGE_NONCE__", bridgeNonce)
+}
 
 // contentInjector implements port.ContentInjector for the CEF engine.
 // It stores CSS strings and injects them into webviews via ExecuteJavaScript.
@@ -703,7 +752,7 @@ func (ci *contentInjector) onLoadEnd(wv *WebView) {
 
 	// Clipboard copy/cut and editable focus sync still need a JS bridge in OSR
 	// mode while the native renderer bridge remains disabled.
-	wv.RunJavaScript(context.Background(), clipboardSelectionFetchBridgeJS)
+	wv.RunJavaScript(context.Background(), buildClipboardSelectionFetchBridgeJS(wv.rotateBridgeNonce()))
 
 	// Video playback diagnostic — logs video element state changes.
 	// Gated behind DUMBER_VIDEO_DIAG=1 environment variable.

@@ -18,7 +18,7 @@ func expectAPIResponseHeaders(response *cefmocks.MockResponse) {
 	response.EXPECT().SetHeaderByName("Access-Control-Allow-Methods", "GET, POST, OPTIONS", int32(1)).Once()
 	response.EXPECT().SetHeaderByName(
 		"Access-Control-Allow-Headers",
-		"Content-Type, X-Dumber-Body, X-Dumber-Bridge-Action",
+		"Content-Type, X-Dumber-Body, X-Dumber-Bridge-Action, X-Dumber-Bridge-Nonce",
 		int32(1),
 	).Once()
 	response.EXPECT().SetHeaderByName("Access-Control-Max-Age", "86400", int32(1)).Once()
@@ -79,11 +79,18 @@ func TestSchemeHandler_APIClipboardSetPathWritesClipboardPayload(t *testing.T) {
 	h, err := newDumbSchemeHandler(context.Background(), nil, nil, func() ([]byte, error) { return []byte(`{}`), nil }, func() ([]byte, error) { return []byte(`{}`), nil })
 	require.NoError(t, err)
 
+	const bridgeNonce = "bridge-nonce"
+	browser := cefmocks.NewMockBrowser(t)
+	h.bridgeNonceValidator = func(got purecef.Browser, gotNonce string) bool {
+		return got == browser && gotNonce == bridgeNonce
+	}
+
 	var copied string
 	h.onClipboardSet = func(text string) { copied = text }
 
 	request := cefmocks.NewMockRequest(t)
 	encoded := base64.StdEncoding.EncodeToString([]byte(`{"text":"copied from js"}`))
+	request.EXPECT().GetHeaderByName(dumberBridgeNonceHeaderName).Return(bridgeNonce).Once()
 	request.EXPECT().GetHeaderByName(dumberBodyHeaderName).Return(encoded).Once()
 
 	response := cefmocks.NewMockResponse(t)
@@ -92,7 +99,7 @@ func TestSchemeHandler_APIClipboardSetPathWritesClipboardPayload(t *testing.T) {
 	response.EXPECT().SetMimeType("application/json").Once()
 	expectAPIResponseHeaders(response)
 
-	handler := h.handleAPI(nil, http.MethodPost, "/api/clipboard-set", request)
+	handler := h.handleAPI(browser, http.MethodPost, "/api/clipboard-set", request)
 	require.NotNil(t, handler)
 
 	var responseLength int64
@@ -134,12 +141,18 @@ func TestSchemeHandler_APIFocusSyncInvokesEditableFocusCallback(t *testing.T) {
 	h, err := newDumbSchemeHandler(context.Background(), nil, nil, func() ([]byte, error) { return []byte(`{}`), nil }, func() ([]byte, error) { return []byte(`{}`), nil })
 	require.NoError(t, err)
 
+	const bridgeNonce = "bridge-nonce"
 	browser := cefmocks.NewMockBrowser(t)
+	h.bridgeNonceValidator = func(got purecef.Browser, gotNonce string) bool {
+		return got == browser && gotNonce == bridgeNonce
+	}
+
 	var focused purecef.Browser
 	h.onEditableFocus = func(got purecef.Browser) { focused = got }
 
 	request := cefmocks.NewMockRequest(t)
 	request.EXPECT().GetHeaderByName(dumberBridgeActionHeaderName).Return(dumberBridgeActionFocusSync).Once()
+	request.EXPECT().GetHeaderByName(dumberBridgeNonceHeaderName).Return(bridgeNonce).Once()
 
 	response := cefmocks.NewMockResponse(t)
 	response.EXPECT().SetStatus(int32(http.StatusOK)).Once()
@@ -164,12 +177,19 @@ func TestSchemeHandler_Create_ConceptualAPIRequestBypassesRedirect(t *testing.T)
 	h, err := newDumbSchemeHandler(context.Background(), nil, nil, func() ([]byte, error) { return []byte(`{}`), nil }, func() ([]byte, error) { return []byte(`{}`), nil })
 	require.NoError(t, err)
 
+	const bridgeNonce = "bridge-nonce"
+	browser := cefmocks.NewMockBrowser(t)
+	h.bridgeNonceValidator = func(got purecef.Browser, gotNonce string) bool {
+		return got == browser && gotNonce == bridgeNonce
+	}
+
 	var copied string
 	h.onClipboardSet = func(text string) { copied = text }
 
 	request := cefmocks.NewMockRequest(t)
 	request.EXPECT().GetURL().Return("dumb://api/clipboard-set").Once()
 	request.EXPECT().GetMethod().Return(http.MethodPost).Once()
+	request.EXPECT().GetHeaderByName(dumberBridgeNonceHeaderName).Return(bridgeNonce).Once()
 	encoded := base64.StdEncoding.EncodeToString([]byte(`{"text":"copied from create"}`))
 	request.EXPECT().GetHeaderByName(dumberBodyHeaderName).Return(encoded).Once()
 
@@ -179,13 +199,41 @@ func TestSchemeHandler_Create_ConceptualAPIRequestBypassesRedirect(t *testing.T)
 	response.EXPECT().SetMimeType("application/json").Once()
 	expectAPIResponseHeaders(response)
 
-	handler := h.Create(nil, nil, "", request)
+	handler := h.Create(browser, nil, "", request)
 	require.NotNil(t, handler)
 
 	var responseLength int64
 	handler.GetResponseHeaders(response, unsafe.Pointer(&responseLength), 0)
 	require.Positive(t, responseLength)
 	require.Equal(t, "copied from create", copied)
+}
+
+func TestSchemeHandler_APIClipboardSetRejectsInvalidBridgeNonce(t *testing.T) {
+	oldNewResourceHandler := cefNewResourceHandler
+	cefNewResourceHandler = func(impl purecef.ResourceHandler) purecef.ResourceHandler { return impl }
+	defer func() { cefNewResourceHandler = oldNewResourceHandler }()
+
+	h, err := newDumbSchemeHandler(context.Background(), nil, nil, func() ([]byte, error) { return []byte(`{}`), nil }, func() ([]byte, error) { return []byte(`{}`), nil })
+	require.NoError(t, err)
+
+	browser := cefmocks.NewMockBrowser(t)
+	h.bridgeNonceValidator = func(_ purecef.Browser, _ string) bool { return false }
+
+	request := cefmocks.NewMockRequest(t)
+	request.EXPECT().GetHeaderByName(dumberBridgeNonceHeaderName).Return("invalid").Once()
+
+	response := cefmocks.NewMockResponse(t)
+	response.EXPECT().SetStatus(int32(http.StatusForbidden)).Once()
+	response.EXPECT().SetStatusText(http.StatusText(http.StatusForbidden)).Once()
+	response.EXPECT().SetMimeType("application/json").Once()
+	expectAPIResponseHeaders(response)
+
+	handler := h.handleAPI(browser, http.MethodPost, "/api/clipboard-set", request)
+	require.NotNil(t, handler)
+
+	var responseLength int64
+	handler.GetResponseHeaders(response, unsafe.Pointer(&responseLength), 0)
+	require.Positive(t, responseLength)
 }
 
 func TestSchemeHandler_APIOptionsReturnsCORSPreflightHeaders(t *testing.T) {

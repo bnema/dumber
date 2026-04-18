@@ -260,6 +260,7 @@ func wireEngine(
 	}
 
 	schemeHandler.onEditableFocus = eng.handleEditableFocusBridge
+	schemeHandler.bridgeNonceValidator = eng.validateBridgeRequest
 
 	schemeFactory := purecef.NewSchemeHandlerFactory(schemeHandler)
 

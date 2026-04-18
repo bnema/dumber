@@ -63,9 +63,31 @@ const autoCopySelectionScript = `(function() {
 const explicitCopyScript = `(function() {
   var pendingCommand = '';
 
+  function isSafeSelectableInput(activeEl) {
+    if (!activeEl || activeEl.tagName !== 'INPUT') {
+      return false;
+    }
+    switch (String(activeEl.type || '').toLowerCase()) {
+    case 'password':
+    case 'button':
+    case 'checkbox':
+    case 'color':
+    case 'file':
+    case 'hidden':
+    case 'image':
+    case 'radio':
+    case 'range':
+    case 'reset':
+    case 'submit':
+      return false;
+    default:
+      return true;
+    }
+  }
+
   function selectedText() {
     var activeEl = document.activeElement;
-    if (activeEl && (activeEl.tagName === 'INPUT' || activeEl.tagName === 'TEXTAREA')) {
+    if (activeEl && (isSafeSelectableInput(activeEl) || activeEl.tagName === 'TEXTAREA')) {
       if (typeof activeEl.selectionStart === 'number' && typeof activeEl.selectionEnd === 'number') {
         var start = activeEl.selectionStart;
         var end = activeEl.selectionEnd;
@@ -114,10 +136,17 @@ const explicitCopyScript = `(function() {
     var originalExecCommand = document.execCommand.bind(document);
     document.execCommand = function(commandId, showUI, value) {
       var command = String(commandId || '').toLowerCase();
-      if (command === 'copy' || command === 'cut') {
+      var tracked = command === 'copy' || command === 'cut';
+      if (tracked) {
         pendingCommand = command;
       }
-      return originalExecCommand(commandId, showUI, value);
+      try {
+        return originalExecCommand(commandId, showUI, value);
+      } finally {
+        if (tracked && pendingCommand === command) {
+          pendingCommand = '';
+        }
+      }
     };
   }
 

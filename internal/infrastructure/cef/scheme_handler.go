@@ -65,6 +65,10 @@ type dumbSchemeHandler struct {
 	// onEditableFocus is called when JS reports that an editable element gained
 	// DOM focus. The engine uses this to reassert CEF browser focus in OSR mode.
 	onEditableFocus func(browser purecef.Browser)
+
+	// bridgeNonceValidator checks whether a bridge nonce belongs to the active
+	// browser/navigation context that issued the request.
+	bridgeNonceValidator func(browser purecef.Browser, bridgeNonce string) bool
 }
 
 // newDumbSchemeHandler creates a handler for internal CEF pages.
@@ -175,7 +179,7 @@ func (h *dumbSchemeHandler) handleAPI(browser purecef.Browser, method, path stri
 		return h.handleTranscodeAPI(request)
 
 	case path == "/api/clipboard-set" && strings.EqualFold(method, "POST"):
-		return h.handleClipboardSet(request)
+		return h.handleClipboardSet(request, browser)
 
 	case path == "/api/focus-sync" && strings.EqualFold(method, "POST"):
 		return h.handleFocusSync(request, browser)
@@ -259,11 +263,17 @@ const (
 	maxClipboardBytes            = 10 << 20 // 10 MB
 	dumberBodyHeaderName         = "X-Dumber-Body"
 	dumberBridgeActionHeaderName = "X-Dumber-Bridge-Action"
+	dumberBridgeNonceHeaderName  = "X-Dumber-Bridge-Nonce"
 	dumberBridgeActionFocusSync  = "focus-sync"
 )
 
-func (h *dumbSchemeHandler) handleClipboardSet(request purecef.Request) purecef.ResourceHandler {
+func (h *dumbSchemeHandler) handleClipboardSet(request purecef.Request, browser purecef.Browser) purecef.ResourceHandler {
 	h.logger.Debug().Msg("cef: /api/clipboard-set request received")
+
+	if !h.hasTrustedBridgeNonce(request, browser) {
+		h.logger.Warn().Msg("cef: clipboard-set — rejected request without valid bridge nonce")
+		return h.newAPIJSONResourceHandler(http.StatusForbidden, map[string]string{"error": "forbidden"})
+	}
 
 	body := readBodyFromHeader(request)
 	if body == nil {
@@ -307,6 +317,10 @@ func (h *dumbSchemeHandler) handleFocusSync(request purecef.Request, browser pur
 		h.logger.Debug().Msg("cef: focus-sync — browser unavailable")
 		return h.newAPIJSONResourceHandler(http.StatusBadRequest, map[string]string{"error": "browser unavailable"})
 	}
+	if !h.hasTrustedBridgeNonce(request, browser) {
+		h.logger.Warn().Msg("cef: focus-sync — rejected request without valid bridge nonce")
+		return h.newAPIJSONResourceHandler(http.StatusForbidden, map[string]string{"error": "forbidden"})
+	}
 
 	if h.onEditableFocus != nil {
 		h.onEditableFocus(browser)
@@ -315,6 +329,17 @@ func (h *dumbSchemeHandler) handleFocusSync(request purecef.Request, browser pur
 	}
 
 	return h.newAPIJSONResourceHandler(http.StatusOK, map[string]any{"ok": true})
+}
+
+func (h *dumbSchemeHandler) hasTrustedBridgeNonce(request purecef.Request, browser purecef.Browser) bool {
+	if browser == nil || h == nil || h.bridgeNonceValidator == nil || request == nil {
+		return false
+	}
+	bridgeNonce := strings.TrimSpace(request.GetHeaderByName(dumberBridgeNonceHeaderName))
+	if bridgeNonce == "" {
+		return false
+	}
+	return h.bridgeNonceValidator(browser, bridgeNonce)
 }
 
 func (h *dumbSchemeHandler) newRedirectResourceHandler(status int, location string) purecef.ResourceHandler {
@@ -486,6 +511,7 @@ func apiResponseHeaders(extra map[string]string) map[string]string {
 			"Content-Type",
 			"X-Dumber-Body",
 			"X-Dumber-Bridge-Action",
+			"X-Dumber-Bridge-Nonce",
 		}, ", "),
 		"Access-Control-Max-Age": "86400",
 		"Cache-Control":          "no-store",

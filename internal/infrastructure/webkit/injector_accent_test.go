@@ -39,6 +39,9 @@ func TestExplicitCopyScriptCapturesClipboardOperations(t *testing.T) {
 	assert.Contains(t, script, "document.addEventListener('cut'")
 	assert.Contains(t, script, "document.execCommand")
 	assert.Contains(t, script, "navigator.clipboard.writeText")
+	assert.Contains(t, script, "try {")
+	assert.Contains(t, script, "finally {")
+	assert.Contains(t, script, "pendingCommand === command")
 }
 
 func TestExplicitCopyScriptReadsInputAndTextareaSelectionFirst(t *testing.T) {
@@ -49,4 +52,6 @@ func TestExplicitCopyScriptReadsInputAndTextareaSelectionFirst(t *testing.T) {
 	assert.Contains(t, script, "selectionEnd")
 	assert.Contains(t, script, "INPUT")
 	assert.Contains(t, script, "TEXTAREA")
+	assert.Contains(t, script, "type || '').toLowerCase()")
+	assert.Contains(t, script, "case 'password':")
 }
