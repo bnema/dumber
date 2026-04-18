@@ -103,6 +103,12 @@ func (f *WebViewFactory) Create(ctx context.Context) (port.WebView, error) {
 	wv.findCtrl = newFindController()
 
 	input := newInputBridge(ctx, f.scale)
+	input.selectionText = wv.selectedTextSnapshot
+	input.explicitCopyText = func(action, text string) {
+		if f.engine != nil {
+			f.engine.handleExplicitClipboardBridgeText(wv.id, action, text)
+		}
+	}
 	input.attachTo(pipeline.glArea)
 	wv.input = input
 
@@ -172,14 +178,24 @@ func (f *WebViewFactory) configureInitialBrowserCreation(
 				log.Debug().Msg("cef: skipping browser creation for destroyed webview")
 				return
 			}
+			pendingURL := wv.pendingNavigationURI()
+			// Always bootstrap OSR browsers on about:blank first. Starting directly on
+			// the target URL can race host visibility/focus setup and strand the
+			// renderer without an initial paint. We replay pending navigation from
+			// OnAfterCreated once the host is fully wired.
+			initialURL := "about:blank"
 			result := purecef.BrowserHostCreateBrowser(
 				pc.windowInfo,
 				pc.client,
-				"about:blank",
+				initialURL,
 				pc.settings,
 				nil, // extraInfo
 				nil, // requestContext
 			)
+			log.Debug().
+				Str("initial_url", initialURL).
+				Str("pending_url", pendingURL).
+				Msg("cef: BrowserHostCreateBrowser initial URL")
 			if f.engine != nil {
 				f.engine.recordBrowserCreateRequest(w, h, result)
 			}

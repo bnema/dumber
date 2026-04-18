@@ -4,6 +4,8 @@ package config
 import (
 	"os"
 	"path/filepath"
+
+	"github.com/bnema/dumber/internal/infrastructure/runtimeprofile"
 )
 
 // File permission constants
@@ -25,25 +27,42 @@ type XDGDirs struct {
 	CacheHome  string
 }
 
-// GetXDGDirs returns the XDG Base Directory paths for dumber.
-// It follows the XDG Base Directory specification:
-// - $XDG_CONFIG_HOME/dumber (default: ~/.config/dumber)
-// - $XDG_DATA_HOME/dumber (default: ~/.local/share/dumber)
-// - $XDG_STATE_HOME/dumber (default: ~/.local/state/dumber)
+// GetXDGDirs returns the dumber-specific XDG directories.
+// In prod they match the current XDG layout exactly.
+// In dev they resolve into the shared sandbox under .dev/dumber/{config,data,state,cache}.
 func GetXDGDirs() (*XDGDirs, error) {
-	// Development mode: use .dev directory in current working directory
+	profile, err := resolveSharedProfile()
+	if err != nil {
+		return nil, err
+	}
+	return &XDGDirs{
+		ConfigHome: profile.Shared.ConfigDir,
+		DataHome:   profile.Shared.DataDir,
+		StateHome:  profile.Shared.StateDir,
+		CacheHome:  profile.Shared.CacheDir,
+	}, nil
+}
+
+func resolveSharedProfile() (runtimeprofile.Profile, error) {
+	base, err := getBaseXDGDirs()
+	if err != nil {
+		return runtimeprofile.Profile{}, err
+	}
+	return runtimeprofile.Resolve(runtimeprofile.ResolveInput{
+		Env: os.Getenv,
+		CWD: os.Getwd,
+		Base: runtimeprofile.BasePaths{
+			ConfigHome: base.ConfigHome,
+			DataHome:   base.DataHome,
+			StateHome:  base.StateHome,
+			CacheHome:  base.CacheHome,
+		},
+	})
+}
+
+func getBaseXDGDirs() (*XDGDirs, error) {
 	if os.Getenv("ENV") == "dev" {
-		cwd, err := os.Getwd()
-		if err != nil {
-			return nil, err
-		}
-		devDir := filepath.Join(cwd, ".dev", appName)
-		return &XDGDirs{
-			ConfigHome: devDir,
-			DataHome:   devDir,
-			StateHome:  devDir,
-			CacheHome:  devDir,
-		}, nil
+		return &XDGDirs{}, nil
 	}
 
 	homeDir, err := os.UserHomeDir()
@@ -51,28 +70,24 @@ func GetXDGDirs() (*XDGDirs, error) {
 		return nil, err
 	}
 
-	// XDG_CONFIG_HOME
 	configHome := os.Getenv("XDG_CONFIG_HOME")
 	if configHome == "" {
 		configHome = filepath.Join(homeDir, ".config")
 	}
 	configHome = filepath.Join(configHome, appName)
 
-	// XDG_DATA_HOME
 	dataHome := os.Getenv("XDG_DATA_HOME")
 	if dataHome == "" {
 		dataHome = filepath.Join(homeDir, ".local", "share")
 	}
 	dataHome = filepath.Join(dataHome, appName)
 
-	// XDG_STATE_HOME
 	stateHome := os.Getenv("XDG_STATE_HOME")
 	if stateHome == "" {
 		stateHome = filepath.Join(homeDir, ".local", "state")
 	}
 	stateHome = filepath.Join(stateHome, appName)
 
-	// XDG_CACHE_HOME
 	cacheHome := os.Getenv("XDG_CACHE_HOME")
 	if cacheHome == "" {
 		cacheHome = filepath.Join(homeDir, ".cache")
@@ -114,14 +129,13 @@ func GetStateDir() (string, error) {
 	return dirs.StateHome, nil
 }
 
-// GetLogDir returns the XDG-compliant log directory for dumber.
-// Logs are stored in XDG_STATE_HOME as per specification.
+// GetLogDir returns the shared application log directory for dumber.
 func GetLogDir() (string, error) {
-	stateDir, err := GetStateDir()
+	profile, err := resolveSharedProfile()
 	if err != nil {
 		return "", err
 	}
-	return filepath.Join(stateDir, "logs"), nil
+	return profile.Shared.LogDir, nil
 }
 
 // GetConfigFile returns the path to the main configuration file.

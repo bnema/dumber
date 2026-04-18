@@ -14,6 +14,7 @@ import (
 	"time"
 
 	"github.com/bnema/dumber/internal/application/port"
+	"github.com/bnema/dumber/internal/infrastructure/runtimeprofile"
 	"github.com/bnema/dumber/internal/logging"
 )
 
@@ -24,7 +25,7 @@ const browserLaunchIOTimeout = 50 * time.Millisecond
 const browserLaunchDirPerm = 0o700
 
 type browserLaunchRelay struct {
-	xdg port.XDGPaths
+	ipc runtimeprofile.IPCPaths
 }
 
 type browserLaunchRequest struct {
@@ -42,8 +43,8 @@ type browserLaunchRelayListener struct {
 	err        error
 }
 
-func NewBrowserLaunchRelay(xdg port.XDGPaths) port.BrowserLaunchRelay {
-	return &browserLaunchRelay{xdg: xdg}
+func NewBrowserLaunchRelay(ipc runtimeprofile.IPCPaths) port.BrowserLaunchRelay {
+	return &browserLaunchRelay{ipc: ipc}
 }
 
 func (r *browserLaunchRelay) DeliverOpenFreshWindow(ctx context.Context, url string) (bool, error) {
@@ -171,27 +172,13 @@ func (r *browserLaunchRelay) Listen(ctx context.Context, opener port.BrowserWind
 }
 
 func (r *browserLaunchRelay) socketPath() (string, error) {
-	if r == nil || r.xdg == nil {
-		return "", errors.New("browser launch relay missing XDG paths")
+	if r == nil {
+		return "", errors.New("browser launch relay missing IPC paths")
 	}
-
-	runtimeDir, err := r.xdg.RuntimeDir()
-	if err != nil {
-		return "", fmt.Errorf("get runtime dir: %w", err)
+	if r.ipc.BrowserLaunchSocket == "" {
+		return "", errors.New("browser launch relay missing browser launch socket path")
 	}
-	if runtimeDir != "" {
-		return filepath.Join(runtimeDir, browserLaunchSocketName), nil
-	}
-
-	stateDir, err := r.xdg.StateDir()
-	if err != nil {
-		return "", fmt.Errorf("get state dir: %w", err)
-	}
-	if stateDir == "" {
-		return "", errors.New("browser launch relay needs runtime or state dir")
-	}
-
-	return filepath.Join(stateDir, "runtime", browserLaunchSocketName), nil
+	return r.ipc.BrowserLaunchSocket, nil
 }
 
 func (l *browserLaunchRelayListener) Close() error {

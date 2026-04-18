@@ -385,32 +385,250 @@ const redditDirectVideoJS = `(function(){
   }, 1000);
 })();`
 
-// clipboardCopyBridgeJS intercepts copy/cut events and sends the selected text
-// back to Go via the message bridge so it can be written to the GDK clipboard.
-// Without this, Ctrl+C in CEF OSR mode writes to CEF's internal clipboard but
-// not the Wayland/X11 system clipboard.
-const clipboardCopyBridgeJS = `(function(){
-  if (window.__dumberClipboardBridge) return;
-  window.__dumberClipboardBridge = true;
+// clipboardSelectionFetchBridgeJS keeps the lightweight fetch bridge enabled
+// while the native renderer bridge remains disabled due to an OSR startup
+// regression. It mirrors explicit clipboard text from DOM selections,
+// safe input/textarea selections, and async Clipboard API writes, and also
+// reasserts browser focus when an editable element gains DOM focus.
+const clipboardSelectionFetchBridgeJS = `(function(){
+  var bridgeNonce = '__DUMBER_BRIDGE_NONCE__';
+  if (window.__dumberClipboardBridge && typeof window.__dumberClipboardBridge.setBridgeNonce === 'function') {
+    window.__dumberClipboardBridge.setBridgeNonce(bridgeNonce);
+    return;
+  }
+  window.__dumberClipboardBridge = {
+    setBridgeNonce: function(nextBridgeNonce) {
+      bridgeNonce = nextBridgeNonce == null ? '' : String(nextBridgeNonce);
+    }
+  };
+
+  function encodeBody(body) {
+    return typeof btoa === 'function' ? btoa(unescape(encodeURIComponent(body))) : '';
+  }
+
+  function inputType(node) {
+    return node && node.type ? String(node.type).toLowerCase() : 'text';
+  }
+
+  function isTextEditableInputType(type) {
+    switch ((type || 'text').toLowerCase()) {
+    case 'button':
+    case 'submit':
+    case 'reset':
+    case 'checkbox':
+    case 'radio':
+    case 'range':
+    case 'color':
+    case 'file':
+    case 'image':
+    case 'hidden':
+      return false;
+    default:
+      return true;
+    }
+  }
+
+  function isSelectionReadableInputType(type) {
+    return isTextEditableInputType(type) && type !== 'password';
+  }
+
+  function getActiveElementSelection() {
+    var el = document.activeElement;
+    if (!el || el.nodeType !== 1 || typeof el.value !== 'string') return '';
+    var tag = el.tagName;
+    if (el.disabled || el.readOnly) return '';
+    if (tag === 'INPUT' && !isSelectionReadableInputType(inputType(el))) return '';
+    if (tag !== 'INPUT' && tag !== 'TEXTAREA') return '';
+    var start = typeof el.selectionStart === 'number' ? el.selectionStart : 0;
+    var end = typeof el.selectionEnd === 'number' ? el.selectionEnd : 0;
+    if (end > start) return el.value.slice(start, end);
+    return '';
+  }
+
+  function getSelectedText() {
+    var activeSelection = getActiveElementSelection();
+    if (activeSelection) return activeSelection;
+    var sel = window.getSelection();
+    return sel ? sel.toString() : '';
+  }
+
+  function isEditable(node) {
+    if (!node || node.nodeType !== 1) return false;
+    if (node.isContentEditable) return true;
+    var tag = node.tagName;
+    if (tag === 'TEXTAREA') return !node.disabled && !node.readOnly;
+    if (tag !== 'INPUT') return false;
+    if (node.disabled || node.readOnly) return false;
+    return isTextEditableInputType(inputType(node));
+  }
+
   function sendToClipboard(text) {
     if (!text) return;
     var body = JSON.stringify({text: text});
-    var encoded = typeof btoa === 'function' ? btoa(unescape(encodeURIComponent(body))) : '';
+    var encoded = encodeBody(body);
     if (!encoded) return;
     fetch('dumb:///api/clipboard-set', {
       method: 'POST',
-      headers: {'X-Dumber-Body': encoded}
+      headers: {
+        'X-Dumber-Body': encoded,
+        'X-Dumber-Bridge-Nonce': bridgeNonce
+      }
     }).catch(function(){});
   }
-  document.addEventListener('copy', function() {
-    var sel = window.getSelection();
-    if (sel) sendToClipboard(sel.toString());
+
+  function sendFocusSync() {
+    fetch('dumb:///api/focus-sync', {
+      method: 'POST',
+      headers: {
+        'X-Dumber-Bridge-Action': 'focus-sync',
+        'X-Dumber-Bridge-Nonce': bridgeNonce
+      }
+    }).catch(function(){});
+  }
+
+  function mirrorClipboardItems(items) {
+    try {
+      if (!items || typeof items.length !== 'number') return;
+      Array.prototype.forEach.call(items, function(item) {
+        if (!item || !item.types || item.types.indexOf('text/plain') === -1 || typeof item.getType !== 'function') return;
+        Promise.resolve(item.getType('text/plain'))
+          .then(function(blob) {
+            if (!blob || typeof blob.text !== 'function') return '';
+            return blob.text();
+          })
+          .then(function(text) {
+            if (text) sendToClipboard(text);
+          })
+          .catch(function(){});
+      });
+    } catch (_) {}
+  }
+
+  document.addEventListener('copy', function(event) {
+    if (event && event.isTrusted === false) return;
+    var text = getSelectedText();
+    if (text) sendToClipboard(text);
   });
-  document.addEventListener('cut', function() {
-    var sel = window.getSelection();
-    if (sel) sendToClipboard(sel.toString());
+  document.addEventListener('cut', function(event) {
+    if (event && event.isTrusted === false) return;
+    var text = getSelectedText();
+    if (text) sendToClipboard(text);
   });
+  document.addEventListener('focusin', function(event) {
+    if (event && event.isTrusted === false) return;
+    if (isEditable(event && event.target)) sendFocusSync();
+  }, true);
+
+  try {
+    var clipboardObj = navigator && navigator.clipboard ? navigator.clipboard : null;
+    var clipboardProto = (typeof Clipboard !== 'undefined' && Clipboard.prototype) ||
+      (clipboardObj && typeof Object.getPrototypeOf === 'function' ? Object.getPrototypeOf(clipboardObj) : null);
+
+    if (clipboardProto && typeof clipboardProto.writeText === 'function' && !clipboardProto.__dumberWriteTextPatched) {
+      clipboardProto.__dumberWriteTextPatched = true;
+      var originalProtoWriteText = clipboardProto.writeText;
+      var wrappedProtoWriteText = function(text) {
+        var normalized = text == null ? '' : String(text);
+        var result = originalProtoWriteText.call(this, normalized);
+        if (result && typeof result.then === 'function') {
+          return result.then(function(value) {
+            if (normalized) sendToClipboard(normalized);
+            return value;
+          });
+        }
+        if (normalized) sendToClipboard(normalized);
+        return result;
+      };
+      try {
+        Object.defineProperty(clipboardProto, 'writeText', {
+          configurable: true,
+          writable: true,
+          value: wrappedProtoWriteText
+        });
+      } catch (_) {
+        clipboardProto.writeText = wrappedProtoWriteText;
+      }
+    } else if (clipboardObj && typeof clipboardObj.writeText === 'function' && !window.__dumberClipboardWriteTextPatched) {
+      window.__dumberClipboardWriteTextPatched = true;
+      var originalWriteText = clipboardObj.writeText.bind(clipboardObj);
+      var wrappedWriteText = function(text) {
+        var normalized = text == null ? '' : String(text);
+        var result = originalWriteText(normalized);
+        if (result && typeof result.then === 'function') {
+          return result.then(function(value) {
+            if (normalized) sendToClipboard(normalized);
+            return value;
+          });
+        }
+        if (normalized) sendToClipboard(normalized);
+        return result;
+      };
+      try {
+        Object.defineProperty(clipboardObj, 'writeText', {
+          configurable: true,
+          writable: true,
+          value: wrappedWriteText
+        });
+      } catch (_) {
+        clipboardObj.writeText = wrappedWriteText;
+      }
+    }
+
+    if (clipboardProto && typeof clipboardProto.write === 'function' && !clipboardProto.__dumberWritePatched) {
+      clipboardProto.__dumberWritePatched = true;
+      var originalProtoWrite = clipboardProto.write;
+      var wrappedProtoWrite = function(items) {
+        var result = originalProtoWrite.apply(this, arguments);
+        if (result && typeof result.then === 'function') {
+          return result.then(function(value) {
+            mirrorClipboardItems(items);
+            return value;
+          });
+        }
+        mirrorClipboardItems(items);
+        return result;
+      };
+      try {
+        Object.defineProperty(clipboardProto, 'write', {
+          configurable: true,
+          writable: true,
+          value: wrappedProtoWrite
+        });
+      } catch (_) {
+        clipboardProto.write = wrappedProtoWrite;
+      }
+    } else if (clipboardObj && typeof clipboardObj.write === 'function' && !window.__dumberClipboardWritePatched) {
+      window.__dumberClipboardWritePatched = true;
+      var originalWrite = clipboardObj.write.bind(clipboardObj);
+      var wrappedWrite = function(items) {
+        var result = originalWrite(items);
+        if (result && typeof result.then === 'function') {
+          return result.then(function(value) {
+            mirrorClipboardItems(items);
+            return value;
+          });
+        }
+        mirrorClipboardItems(items);
+        return result;
+      };
+      try {
+        Object.defineProperty(clipboardObj, 'write', {
+          configurable: true,
+          writable: true,
+          value: wrappedWrite
+        });
+      } catch (_) {
+        clipboardObj.write = wrappedWrite;
+      }
+    }
+  } catch (_) {}
+
+  if (isEditable(document.activeElement)) sendFocusSync();
 })();`
+
+func buildClipboardSelectionFetchBridgeJS(bridgeNonce string) string {
+	return strings.ReplaceAll(clipboardSelectionFetchBridgeJS, "__DUMBER_BRIDGE_NONCE__", bridgeNonce)
+}
 
 // contentInjector implements port.ContentInjector for the CEF engine.
 // It stores CSS strings and injects them into webviews via ExecuteJavaScript.
@@ -532,8 +750,9 @@ func (ci *contentInjector) onLoadEnd(wv *WebView) {
 	ci.injectCSS(wv, "dumber-scrollbar", scrollbarCSS)
 	wv.RunJavaScript(context.Background(), scrollbarAutoHideJS)
 
-	// All pages get clipboard copy bridge (CEF OSR can't write to Wayland clipboard).
-	wv.RunJavaScript(context.Background(), clipboardCopyBridgeJS)
+	// Clipboard copy/cut and editable focus sync still need a JS bridge in OSR
+	// mode while the native renderer bridge remains disabled.
+	wv.RunJavaScript(context.Background(), buildClipboardSelectionFetchBridgeJS(wv.rotateBridgeNonce()))
 
 	// Video playback diagnostic — logs video element state changes.
 	// Gated behind DUMBER_VIDEO_DIAG=1 environment variable.

@@ -9,9 +9,13 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"testing"
+	"unicode/utf8"
 
 	"github.com/bnema/dumber/internal/application/port"
+	portmocks "github.com/bnema/dumber/internal/application/port/mocks"
+	"github.com/bnema/dumber/internal/application/usecase"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 )
 
@@ -311,6 +315,53 @@ func TestWebkitMenuDelegator_OpenLinkNewTabRequiresHandlerSuccess(t *testing.T) 
 	err := delegator.DelegateMenuAction(context.Background(), port.MenuActionOpenLinkNewTab, port.MenuContext{LinkURI: "https://example.com/new"})
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "action not handled")
+}
+
+func TestContextMenuPipeline_NewExecutor_NotifiesOnCopiedText(t *testing.T) {
+	var copiedLen int
+	ctx := context.Background()
+	baseClipboard := portmocks.NewMockClipboard(t)
+	factory := portmocks.NewMockContextMenuActionExecutorFactory(t)
+	var capturedClipboard port.Clipboard
+	factory.EXPECT().NewContextMenuActionExecutor(mock.Anything, mock.Anything, mock.Anything, mock.Anything).RunAndReturn(
+		func(
+			clipboard port.Clipboard,
+			resolver port.ImageDataResolver,
+			saver port.ResolvedImageSaver,
+			delegator port.MenuActionDelegator,
+		) port.ContextMenuActionExecutor {
+			capturedClipboard = clipboard
+			return usecase.NewExecuteContextMenuActionUseCase(clipboard, resolver, saver, delegator)
+		},
+	).Once()
+	pipeline := &contextMenuPipeline{
+		clipboard:       baseClipboard,
+		onCopied:        func(textLen int) { copiedLen = textLen },
+		executorFactory: factory,
+	}
+
+	executor := pipeline.newExecutor(&WebView{})
+	require.NotNil(t, executor)
+
+	t.Run("copy link", func(t *testing.T) {
+		copiedLen = 0
+		require.NotNil(t, capturedClipboard)
+		baseClipboard.EXPECT().WriteText(ctx, "https://example.com/new").Return(nil).Once()
+
+		err := executor.ExecuteMenuAction(ctx, port.MenuActionCopyLink, port.MenuContext{LinkURI: "https://example.com/new"})
+		require.NoError(t, err)
+		require.Equal(t, utf8.RuneCountInString("https://example.com/new"), copiedLen)
+	})
+
+	t.Run("copy selection", func(t *testing.T) {
+		copiedLen = 0
+		require.NotNil(t, capturedClipboard)
+		baseClipboard.EXPECT().WriteText(ctx, "selected text").Return(nil).Once()
+
+		err := executor.ExecuteMenuAction(ctx, port.MenuActionCopySelection, port.MenuContext{HasSelection: true, SelectionText: "selected text"})
+		require.NoError(t, err)
+		require.Equal(t, utf8.RuneCountInString("selected text"), copiedLen)
+	})
 }
 
 // buildMenuContextFromStubHitTest is the test-only equivalent of buildMenuContextFromHitTest

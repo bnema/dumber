@@ -9,11 +9,14 @@ import (
 )
 
 // Adapter implements port.XDGPaths using config.GetXDGDirs().
-type Adapter struct{}
+type Adapter struct {
+	isDev      bool
+	runtimeDir string
+}
 
 // New creates a new XDG paths adapter.
-func New() *Adapter {
-	return &Adapter{}
+func New(isDev bool, runtimeDir string) *Adapter {
+	return &Adapter{isDev: isDev, runtimeDir: runtimeDir}
 }
 
 func (a *Adapter) ConfigDir() (string, error) {
@@ -29,11 +32,16 @@ func (a *Adapter) StateDir() (string, error) {
 }
 
 func (a *Adapter) RuntimeDir() (string, error) {
-	if dir := os.Getenv("XDG_RUNTIME_DIR"); dir != "" {
-		return dir, nil
+	if a == nil || !a.isDev {
+		if dir := os.Getenv("XDG_RUNTIME_DIR"); dir != "" {
+			return dir, nil
+		}
+	}
+	if a != nil && a.runtimeDir != "" {
+		return a.runtimeDir, nil
 	}
 
-	stateDir, err := a.StateDir()
+	stateDir, err := config.GetStateDir()
 	if err != nil {
 		return "", err
 	}

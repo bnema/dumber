@@ -51,6 +51,10 @@ func NewApp() (*App, error) {
 	var err error
 	// Load config
 	cfg := loadConfig()
+	profile, err := bootstrap.ResolveRuntimeProfile(cfg)
+	if err != nil {
+		return nil, fmt.Errorf("resolve runtime profile: %w", err)
+	}
 
 	// Create theme from config
 	theme := styles.NewTheme(cfg)
@@ -133,7 +137,7 @@ func NewApp() (*App, error) {
 		RestoreUC:       restoreUC,
 		DeleteSessionUC: deleteSessionUC,
 		FaviconService:  faviconService,
-		SessionSpawner:  bootstrap.NewSessionSpawner(ctx, cfg),
+		SessionSpawner:  bootstrap.NewSessionSpawner(ctx, profile),
 		ctx:             ctx,
 		logCleanup:      logCleanup,
 	}, nil

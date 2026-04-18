@@ -13,6 +13,7 @@ import (
 	"os"
 	"runtime"
 
+	infracef "github.com/bnema/dumber/internal/infrastructure/cef"
 	cef "github.com/bnema/purego-cef/cef"
 )
 
@@ -22,10 +23,10 @@ func main() {
 
 	// cef_execute_process will handle the subprocess lifecycle and call
 	// os.Exit internally if this is a valid CEF subprocess invocation.
-	// If it returns (code < 0), this is not a subprocess — shouldn't
-	// happen in normal operation since CEF only launches this binary
-	// with --type= flags.
-	cef.MaybeExitSubprocess()
+	// We pass the lightweight subprocess app, which intentionally returns nil
+	// from GetRenderProcessHandler(), so renderer-side bridges remain disabled
+	// in helper subprocesses while the OSR startup regression is under repair.
+	cef.MaybeExitSubprocessWithApp(infracef.NewSubprocessApp())
 
 	// If we get here, something went wrong.
 	os.Exit(1)

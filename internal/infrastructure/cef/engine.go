@@ -2,12 +2,15 @@ package cef
 
 import (
 	"context"
+	"crypto/subtle"
 	"sync"
 	"sync/atomic"
 	"time"
+	"unicode/utf8"
 
 	purecef "github.com/bnema/purego-cef/cef"
 
+	"github.com/bnema/dumber/internal/application/dto"
 	"github.com/bnema/dumber/internal/application/port"
 	"github.com/bnema/dumber/internal/logging"
 )
@@ -35,6 +38,8 @@ type Engine struct {
 	ctxMenuBuilder                   port.ContextMenuBuilder
 	ctxMenuExecutorFactory           port.ContextMenuActionExecutorFactory
 	clipboard                        port.Clipboard
+	clipboardTextOrchestrator        port.ClipboardTextOrchestrator
+	onClipboardCopied                func(textLen int)
 	resolver                         port.ImageDataResolver
 	mediaClassifier                  MediaClassifier
 	alreadyRunningAppRelaunchMu      sync.RWMutex
@@ -236,6 +241,8 @@ func (e *Engine) closeActiveWebViews() {
 // each handler is registered by message type with the router, which dispatches
 // incoming /api/message POSTs to the correct handler based on Message.Type.
 func (e *Engine) RegisterHandlers(ctx context.Context, deps port.HandlerDependencies) error {
+	e.clipboardTextOrchestrator = deps.ClipboardTextOrchestrator
+	e.onClipboardCopied = deps.OnClipboardCopied
 	if e.messageRouter == nil || e.registerHandlers == nil {
 		return nil
 	}
@@ -250,7 +257,12 @@ func (e *Engine) RegisterAccentHandlers(ctx context.Context, handler port.Accent
 }
 
 // ConfigureDownloads sets up download handling (Phase 1 stub).
-func (e *Engine) ConfigureDownloads(_ context.Context, _ string, _ port.DownloadEventHandler, _ port.DownloadPreparer) error {
+func (e *Engine) ConfigureDownloads(
+	_ context.Context,
+	_ string,
+	_ port.DownloadEventHandler,
+	_ port.DownloadPreparer,
+) error {
 	return ErrDownloadsUnsupported
 }
 
@@ -274,6 +286,53 @@ func (e *Engine) UpdateAppearance(_ context.Context, r, g, b, alpha float64) err
 // UpdateSettings applies runtime config changes to engine internals (Phase 1 stub).
 func (e *Engine) UpdateSettings(_ context.Context, _ port.EngineSettingsUpdate) error {
 	return nil
+}
+
+func (e *Engine) handleExplicitClipboardBridgeText(viewID port.WebViewID, action, text string) {
+	if e == nil || text == "" {
+		return
+	}
+	if e.clipboardTextOrchestrator == nil {
+		logging.FromContext(e.currentContext()).Debug().
+			Str("action", action).
+			Msg("cef: clipboard orchestration skipped — orchestrator nil")
+		return
+	}
+	if err := e.clipboardTextOrchestrator.HandleExplicitCopy(e.currentContext(), dto.ExplicitClipboardInput{
+		Text:         text,
+		Action:       action,
+		SourceEngine: dto.ClipboardSourceCEF,
+		ViewID:       uint64(viewID),
+	}); err != nil {
+		logging.FromContext(e.currentContext()).Debug().
+			Err(err).
+			Str("action", action).
+			Int("text_len", utf8.RuneCountInString(text)).
+			Msg("cef: clipboard explicit copy handling failed")
+	}
+}
+
+func (e *Engine) handleClipboardSelectionUpdate(viewID port.WebViewID, text string) {
+	if e == nil || e.clipboardTextOrchestrator == nil {
+		return
+	}
+	if err := e.clipboardTextOrchestrator.HandleSelectionUpdate(e.currentContext(), dto.SelectionClipboardInput{
+		Text:         text,
+		SourceEngine: dto.ClipboardSourceCEF,
+		ViewID:       uint64(viewID),
+	}); err != nil {
+		logging.FromContext(e.currentContext()).Debug().
+			Err(err).
+			Int("text_len", utf8.RuneCountInString(text)).
+			Msg("cef: clipboard selection handling failed")
+	}
+}
+
+func (e *Engine) notifyClipboardCopied(text string) {
+	if e == nil || e.onClipboardCopied == nil || text == "" {
+		return
+	}
+	e.onClipboardCopied(utf8.RuneCountInString(text))
 }
 
 // SetHandlerContext sets the base context for message handler dispatch.
@@ -357,6 +416,35 @@ func (e *Engine) currentContext() context.Context {
 		return context.Background()
 	}
 	return e.ctx
+}
+
+func (e *Engine) validateBridgeRequest(browser purecef.Browser, bridgeNonce string) bool {
+	if e == nil || browser == nil || bridgeNonce == "" {
+		return false
+	}
+
+	browserID := browser.GetIdentifier()
+	valid := false
+	e.activeWebViews.Range(func(_, value any) bool {
+		wv, ok := value.(*WebView)
+		if !ok || wv == nil {
+			return true
+		}
+
+		wv.mu.RLock()
+		wvBrowser := wv.browser
+		wvBridgeNonce := wv.bridgeNonce
+		wv.mu.RUnlock()
+		if wvBrowser == nil || wvBridgeNonce == "" || wvBrowser.GetIdentifier() != browserID {
+			return true
+		}
+		if subtle.ConstantTimeCompare([]byte(wvBridgeNonce), []byte(bridgeNonce)) == 1 {
+			valid = true
+			return false
+		}
+		return true
+	})
+	return valid
 }
 
 func (e *Engine) logTranscoderStartupState() {

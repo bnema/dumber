@@ -26,6 +26,7 @@ import (
 	"github.com/bnema/dumber/internal/infrastructure/filesystem"
 	"github.com/bnema/dumber/internal/infrastructure/idle"
 	"github.com/bnema/dumber/internal/infrastructure/persistence/sqlite"
+	"github.com/bnema/dumber/internal/infrastructure/runtimeprofile"
 	"github.com/bnema/dumber/internal/infrastructure/snapshot"
 	"github.com/bnema/dumber/internal/infrastructure/textinput"
 	"github.com/bnema/dumber/internal/infrastructure/updater"
@@ -54,7 +55,7 @@ var initialURL string
 var restoreSessionID string
 
 // browserLaunchRelay is shared for early browse handoff and in-app browser launches.
-var browserLaunchRelay = desktop.NewBrowserLaunchRelay(xdg.New())
+var browserLaunchRelay port.BrowserLaunchRelay
 
 type launchMode string
 
@@ -97,6 +98,24 @@ func tryForwardBrowseURLToRunningInstance(ctx context.Context, relay port.Browse
 	return relay.DeliverOpenFreshWindow(ctx, browseURL)
 }
 
+func resolveBrowserLaunchRelay(cfg *config.Config) (port.BrowserLaunchRelay, error) {
+	profile, err := bootstrap.ResolveRuntimeProfile(cfg)
+	if err != nil {
+		return nil, err
+	}
+	return desktop.NewBrowserLaunchRelay(profile.IPC), nil
+}
+
+func configureBrowserLaunchRelay(cfg *config.Config) {
+	relay, err := resolveBrowserLaunchRelay(cfg)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "warning: failed to resolve browser launch relay profile: %v\n", err)
+		browserLaunchRelay = nil
+		return
+	}
+	browserLaunchRelay = relay
+}
+
 func main() {
 	enableCrashForensics()
 
@@ -114,6 +133,8 @@ func main() {
 	mode, browseURL := launchModeFromArgs(os.Args)
 	// Run GUI mode for browse command
 	if mode == launchModeBrowse {
+		cfg := initConfig()
+		configureBrowserLaunchRelay(cfg)
 		if forwarded, err := tryForwardBrowseURLToRunningInstance(context.Background(), browserLaunchRelay, browseURL); err != nil {
 			fmt.Fprintf(
 				os.Stderr,
@@ -128,7 +149,7 @@ func main() {
 		initialURL = browseURL
 		restoreSessionID = os.Getenv("DUMBER_RESTORE_SESSION")
 		os.Args = os.Args[:1]
-		os.Exit(runGUI())
+		os.Exit(runGUI(cfg))
 		return
 	}
 
@@ -149,14 +170,17 @@ func main() {
 	cmd.Execute()
 }
 
-func runGUI() int {
+func runGUI(cfg *config.Config) int {
 	bootstrap.ApplyGTKIMModuleFallbackDefault(os.Stderr)
 
 	runtime.LockOSThread()
 	component.SetSkeletonVersion(version)
 	timer := bootstrap.NewStartupTimer()
 
-	cfg := initConfig()
+	if cfg == nil {
+		cfg = initConfig()
+		configureBrowserLaunchRelay(cfg)
+	}
 	timer.Mark("config")
 
 	ctx := initStartupContextWithTrace(cfg)
@@ -232,6 +256,7 @@ func runStandaloneOmnibox() int {
 	component.SetSkeletonVersion(version)
 
 	cfg := initConfig()
+	configureBrowserLaunchRelay(cfg)
 	ctx := initStartupContextWithTrace(cfg)
 
 	initResult, err := runParallelInitPhase(ctx, cfg)
@@ -260,6 +285,7 @@ func runStandaloneOmnibox() int {
 	uiDeps, err := buildUIDependencies(
 		ctx,
 		cfg,
+		initResult.RuntimeProfile,
 		initResult.ThemeManager,
 		initResult.ColorResolver,
 		initResult.AdwaitaDetector,
@@ -391,7 +417,7 @@ func buildAndConfigureApp(
 	browserSession *bootstrap.BrowserSession,
 ) (*ui.App, error) {
 	uiDeps, err := buildUIDependencies(
-		ctx, cfg, initResult.ThemeManager,
+		ctx, cfg, initResult.RuntimeProfile, initResult.ThemeManager,
 		initResult.ColorResolver, initResult.AdwaitaDetector,
 		engine, repos, useCases, idleInhibitor, browserSession.Session.ID, browserSession.CrashReports(),
 	)
@@ -427,12 +453,11 @@ func initStackAndRepos(
 	if needsEagerDB {
 		// Parallel phase 2: Database + engine initialize concurrently
 		dbEngine, err := bootstrap.RunParallelDBEngine(bootstrap.ParallelDBEngineInput{
-			Ctx:           ctx,
-			Config:        cfg,
-			DataDir:       initResult.DataDir,
-			CacheDir:      initResult.CacheDir,
-			ThemeManager:  initResult.ThemeManager,
-			ColorResolver: initResult.ColorResolver,
+			Ctx:            ctx,
+			Config:         cfg,
+			RuntimeProfile: initResult.RuntimeProfile,
+			ThemeManager:   initResult.ThemeManager,
+			ColorResolver:  initResult.ColorResolver,
 		})
 		if err != nil {
 			return nil, nil, nil, err
@@ -442,13 +467,12 @@ func initStackAndRepos(
 
 	log := logging.FromContext(ctx)
 	engine, err := bootstrap.BuildEngine(bootstrap.EngineInput{
-		Ctx:           ctx,
-		Config:        cfg,
-		DataDir:       initResult.DataDir,
-		CacheDir:      initResult.CacheDir,
-		ThemeManager:  initResult.ThemeManager,
-		ColorResolver: initResult.ColorResolver,
-		Logger:        *log,
+		Ctx:            ctx,
+		Config:         cfg,
+		RuntimeProfile: initResult.RuntimeProfile,
+		ThemeManager:   initResult.ThemeManager,
+		ColorResolver:  initResult.ColorResolver,
+		Logger:         *log,
 	})
 	if err != nil {
 		return nil, nil, nil, err
@@ -717,6 +741,7 @@ func isCEFSubprocess() bool {
 func buildUIDependencies(
 	ctx context.Context,
 	cfg *config.Config,
+	runtimeProfile runtimeprofile.Profile,
 	themeManager *theme.Manager,
 	colorResolver port.ColorSchemeResolver,
 	adwaitaDetector port.ToolkitAvailabilityNotifier,
@@ -749,23 +774,26 @@ func buildUIDependencies(
 		Theme:               themeManager,
 		ColorResolver:       colorResolver,
 		AdwaitaDetector:     adwaitaDetector,
-		XDG:                 xdg.New(),
-		Engine:              engine,
-		FilterManager:       filterManager,
-		HistoryRepo:         repos.history,
-		FavoriteRepo:        repos.favorite,
-		ZoomRepo:            repos.zoom,
-		PermissionRepo:      repos.permission,
-		TabsUC:              uc.tabs,
-		PanesUC:             uc.panes,
-		HistoryUC:           uc.history,
-		FavoritesUC:         uc.favorites,
-		ZoomUC:              uc.zoom,
-		PermissionUC:        uc.permission,
-		NavigateUC:          uc.navigate,
-		CopyURLUC:           uc.copyURL,
-		Clipboard:           uc.clipboard,
-		FaviconService:      uc.favicon,
+		XDG: xdg.New(
+			runtimeProfile.Mode == runtimeprofile.ModeDev,
+			bootstrap.ResolveXDGRuntimeDir(runtimeProfile),
+		),
+		Engine:         engine,
+		FilterManager:  filterManager,
+		HistoryRepo:    repos.history,
+		FavoriteRepo:   repos.favorite,
+		ZoomRepo:       repos.zoom,
+		PermissionRepo: repos.permission,
+		TabsUC:         uc.tabs,
+		PanesUC:        uc.panes,
+		HistoryUC:      uc.history,
+		FavoritesUC:    uc.favorites,
+		ZoomUC:         uc.zoom,
+		PermissionUC:   uc.permission,
+		NavigateUC:     uc.navigate,
+		CopyURLUC:      uc.copyURL,
+		Clipboard:      uc.clipboard,
+		FaviconService: uc.favicon,
 		FaviconAdapterConfig: adapter.FaviconAdapterConfig{
 			IsInternalURL:      favicon.IsInternalURL,
 			InternalDomain:     favicon.InternalDomain,
@@ -782,7 +810,7 @@ func buildUIDependencies(
 		},
 		CheckUpdateUC:       uc.checkUpdate,
 		ApplyUpdateUC:       uc.applyUpdate,
-		SessionSpawner:      bootstrap.NewSessionSpawner(ctx, cfg),
+		SessionSpawner:      bootstrap.NewSessionSpawner(ctx, runtimeProfile),
 		FileSystem:          filesystem.New(),
 		AccentFocusProvider: focusProvider,
 		NewGTKEntryTarget: func(entry *gtk.SearchEntry) port.TextInputTarget {

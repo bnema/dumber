@@ -17,6 +17,7 @@ import (
 	"github.com/bnema/dumber/assets"
 	"github.com/bnema/dumber/internal/application/port"
 	"github.com/bnema/dumber/internal/infrastructure/config"
+	"github.com/bnema/dumber/internal/infrastructure/runtimeprofile"
 	transcoderpkg "github.com/bnema/dumber/internal/infrastructure/transcoder"
 	"github.com/bnema/dumber/internal/logging"
 )
@@ -28,6 +29,7 @@ const CEFRootCachePathEnvVar = "DUMBER_CEF_ROOT_CACHE_PATH"
 func NewEngine(
 	ctx context.Context,
 	opts port.EngineOptions,
+	profile runtimeprofile.Profile,
 	cfg RuntimeConfig,
 	transcodingCfg TranscodingRuntimeConfig,
 	audioFactory port.AudioOutputFactory,
@@ -35,11 +37,11 @@ func NewEngine(
 ) (*Engine, error) {
 	logger := logging.FromContext(ctx)
 	deps.MediaClassifier = deps.MediaClassifier.normalize()
-	stateRoot := resolvedStateRoot(opts)
+	stateRoot := resolvedStateRoot(profile, opts)
 	cleanStaleSingletonLocks(logger, stateRoot)
 	windowlessFrameRate := config.CEFEngineConfig{WindowlessFrameRate: cfg.WindowlessFrameRate}.CEFWindowlessFrameRate()
 
-	settings, err := prepareCEFSettings(opts, cfg, logger)
+	settings, err := prepareCEFSettings(opts, profile, cfg, logger)
 	if err != nil {
 		return nil, err
 	}
@@ -89,23 +91,26 @@ func NewEngine(
 	)
 }
 
-func resolvedStateRoot(opts port.EngineOptions) string {
+func resolvedStateRoot(profile runtimeprofile.Profile, opts port.EngineOptions) string {
 	if root := os.Getenv(CEFRootCachePathEnvVar); root != "" {
 		return root
 	}
-
-	switch {
-	case opts.DataDir != "":
-		return opts.DataDir
-	case opts.CacheDir != "":
+	if opts.CacheDir != "" {
 		return opts.CacheDir
-	default:
-		return defaultCEFUserDataDir()
 	}
+	if opts.DataDir != "" {
+		return opts.DataDir
+	}
+	return profile.CEFUserDataDir()
 }
 
 // prepareCEFSettings builds purecef.Settings from the engine config.
-func prepareCEFSettings(opts port.EngineOptions, cfg RuntimeConfig, logger *zerolog.Logger) (purecef.Settings, error) {
+func prepareCEFSettings(
+	opts port.EngineOptions,
+	profile runtimeprofile.Profile,
+	cfg RuntimeConfig,
+	logger *zerolog.Logger,
+) (purecef.Settings, error) {
 	switch opts.CookiePolicy {
 	case "", port.CookiePolicyAlways:
 	case port.CookiePolicyNoThirdParty:
@@ -121,16 +126,16 @@ func prepareCEFSettings(opts port.EngineOptions, cfg RuntimeConfig, logger *zero
 	settings := purecef.DefaultSettings()
 	settings.MultiThreadedMessageLoop = true
 	settings.ExternalMessagePump = false
-	settings.RootCachePath = resolvedStateRoot(opts)
+	settings.RootCachePath = resolvedStateRoot(profile, opts)
 	if cfg.CEFDir != "" {
 		settings.CEFDir = cfg.CEFDir
 	}
-	if runtimeLogFile, err := prepareCEFLogFile(cfg.LogFile); err != nil {
+	if runtimeLogFile, err := prepareCEFLogFile(profile, cfg.LogFile); err != nil {
 		logger.Warn().Err(err).Msg("cef: failed to prepare runtime log file")
 	} else {
 		settings.LogFile = runtimeLogFile
 	}
-	if bootstrapLogFile, err := prepareCEFInitTraceFile(cfg.LogFile); err != nil {
+	if bootstrapLogFile, err := prepareCEFInitTraceFile(profile, cfg.LogFile); err != nil {
 		logger.Warn().Err(err).Msg("cef: failed to prepare init trace file")
 	} else if bootstrapLogFile != "" {
 		settings.InitTraceFile = bootstrapLogFile
@@ -149,24 +154,6 @@ func prepareCEFSettings(opts port.EngineOptions, cfg RuntimeConfig, logger *zero
 		logger.Warn().Msg("cef: subprocess helper not found, falling back to main binary")
 	}
 	return settings, nil
-}
-
-func defaultCEFUserDataDir() string {
-	// Keep CEF state under Dumber's XDG data directory like the rest of runtime data.
-	dirs, err := config.GetXDGDirs()
-	if err != nil {
-		dataHome := os.Getenv("XDG_DATA_HOME")
-		if dataHome == "" {
-			dataHome = filepath.Join(os.Getenv("HOME"), ".local", "share")
-		}
-		return filepath.Clean(filepath.Join(dataHome, "dumber", "cef_user_data"))
-	}
-	return filepath.Join(dirs.DataHome, "cef_user_data")
-}
-
-// DefaultCEFUserDataDir returns the default CEF state root.
-func DefaultCEFUserDataDir() string {
-	return defaultCEFUserDataDir()
 }
 
 // initializeCEF calls cef_initialize with the App to register custom schemes
@@ -253,9 +240,9 @@ func wireEngine(
 	}
 	schemeHandler.setAssets(assets.WebUIAssets)
 
-	// Bridge clipboard writes from CEF JS → GDK system clipboard.
-	// The callback is invoked on the CEF IO thread, so we schedule the
-	// GDK write on the GTK main loop via glib.IdleAddOnce.
+	// Bridge clipboard writes from page JS → GDK system clipboard.
+	// The callback is invoked on the CEF IO thread, so schedule the actual GDK
+	// write on the GTK main loop.
 	schemeHandler.onClipboardSet = func(text string) {
 		fn := glib.SourceOnceFunc(func(_ uintptr) {
 			if display := gdk.DisplayGetDefault(); display != nil {
@@ -271,6 +258,9 @@ func wireEngine(
 		})
 		glib.IdleAddOnce(&fn, 0)
 	}
+
+	schemeHandler.onEditableFocus = eng.handleEditableFocusBridge
+	schemeHandler.bridgeNonceValidator = eng.validateBridgeRequest
 
 	schemeFactory := purecef.NewSchemeHandlerFactory(schemeHandler)
 
@@ -433,33 +423,24 @@ func findHelperBinary() string {
 }
 
 const (
-	dirPerm  = 0o755
-	filePerm = 0o644
+	dirPerm  = 0o700
+	filePerm = 0o600
 )
 
-func prepareCEFLogFile(logFile string) (string, error) {
-	if logFile != "" {
-		runtimeLogFile := filepath.Clean(logFile)
-		if err := os.MkdirAll(filepath.Dir(runtimeLogFile), dirPerm); err != nil {
-			return "", fmt.Errorf("mkdir %s: %w", filepath.Dir(runtimeLogFile), err)
-		}
-		return runtimeLogFile, nil
+func prepareCEFLogFile(profile runtimeprofile.Profile, logFile string) (string, error) {
+	runtimeLogFile := logFile
+	if runtimeLogFile != "" {
+		runtimeLogFile = filepath.Clean(runtimeLogFile)
+	} else {
+		runtimeLogFile = profile.CEFLogFile()
 	}
-
-	// Dev-mode default: logs go into .dev/dumber/logs/ relative to CWD.
-	// Production deployments should set cfg.LogFile explicitly.
-	cwd, cwdErr := os.Getwd()
-	if cwdErr != nil {
-		return "", fmt.Errorf("getwd: %w", cwdErr)
-	}
-	runtimeLogFile := filepath.Join(cwd, ".dev", "dumber", "logs", "cef_runtime.log")
 	if err := os.MkdirAll(filepath.Dir(runtimeLogFile), dirPerm); err != nil {
 		return "", fmt.Errorf("mkdir %s: %w", filepath.Dir(runtimeLogFile), err)
 	}
 	return runtimeLogFile, nil
 }
 
-func prepareCEFInitTraceFile(logFile string) (string, error) {
+func prepareCEFInitTraceFile(profile runtimeprofile.Profile, logFile string) (string, error) {
 	if !puregoCEFInitTraceEnabled() {
 		return "", nil
 	}
@@ -468,11 +449,7 @@ func prepareCEFInitTraceFile(logFile string) (string, error) {
 	if runtimeLogFile != "" {
 		runtimeLogFile = filepath.Clean(runtimeLogFile)
 	} else {
-		cwd, cwdErr := os.Getwd()
-		if cwdErr != nil {
-			return "", fmt.Errorf("getwd: %w", cwdErr)
-		}
-		runtimeLogFile = filepath.Join(cwd, ".dev", "dumber", "logs", "cef_runtime.log")
+		runtimeLogFile = profile.CEFLogFile()
 	}
 	bootstrapLogFile := strings.TrimSuffix(runtimeLogFile, filepath.Ext(runtimeLogFile)) + ".bootstrap.log"
 	if err := os.MkdirAll(filepath.Dir(bootstrapLogFile), dirPerm); err != nil {

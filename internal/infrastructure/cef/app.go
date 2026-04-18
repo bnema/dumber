@@ -56,10 +56,12 @@ func newDumberApp(engine *Engine) purecef.App {
 	return app
 }
 
-// NewSubprocessApp returns a lightweight App for helper processes so CEF sees
-// the same custom scheme registration in renderer/GPU/utility processes.
+// NewSubprocessApp returns a lightweight raw App implementation for helper
+// processes so cef_execute_process can wrap it itself. Keep helper processes
+// free of custom render handlers for now: the renderer bridge introduced a
+// startup regression where OSR pages stopped producing their first paint.
 func NewSubprocessApp() purecef.App {
-	return purecef.NewApp(&subprocessApp{})
+	return &subprocessApp{}
 }
 
 // maxCmdLineLogLen limits logged command line length to avoid leaking sensitive paths.

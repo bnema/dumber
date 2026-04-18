@@ -49,6 +49,7 @@ packages:
       AccentKeyHandler: {}
       AutoCopyConfig: {}
       Clipboard: {}
+      ClipboardTextOrchestrator: {}
       ContextMenuBuilder: {}
       ContextMenuActionExecutor: {}
       ContextMenuActionExecutorFactory: {}

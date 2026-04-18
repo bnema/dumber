@@ -13,6 +13,7 @@ import (
 	"net/url"
 	"strings"
 	"time"
+	"unicode/utf8"
 
 	"github.com/bnema/dumber/internal/application/port"
 	"github.com/bnema/dumber/internal/domain/entity"
@@ -365,6 +366,7 @@ type contextMenuPipeline struct {
 	builder         port.ContextMenuBuilder
 	executorFactory port.ContextMenuActionExecutorFactory
 	clipboard       port.Clipboard
+	onCopied        func(textLen int)
 	resolver        port.ImageDataResolver
 	saver           port.ResolvedImageSaver
 	renderer        *Renderer
@@ -374,12 +376,64 @@ func (p *contextMenuPipeline) newExecutor(wv *WebView) port.ContextMenuActionExe
 	if p == nil || p.executorFactory == nil {
 		return nil
 	}
+	clipboard := p.clipboard
+	if clipboard != nil && p.onCopied != nil {
+		clipboard = &clipboardCopyNotifier{clipboard: clipboard, onCopied: p.onCopied}
+	}
 	return p.executorFactory.NewContextMenuActionExecutor(
-		p.clipboard,
+		clipboard,
 		p.resolver,
 		p.saver,
 		&webkitMenuDelegator{wv: wv},
 	)
+}
+
+var _ port.Clipboard = (*clipboardCopyNotifier)(nil)
+
+type clipboardCopyNotifier struct {
+	clipboard port.Clipboard
+	onCopied  func(textLen int)
+}
+
+func (c *clipboardCopyNotifier) WriteText(ctx context.Context, text string) error {
+	if c == nil || c.clipboard == nil {
+		return fmt.Errorf("clipboard not available")
+	}
+	if err := c.clipboard.WriteText(ctx, text); err != nil {
+		return err
+	}
+	if c.onCopied != nil {
+		c.onCopied(utf8.RuneCountInString(text))
+	}
+	return nil
+}
+
+func (c *clipboardCopyNotifier) WriteImage(ctx context.Context, image entity.ImageData) error {
+	if c == nil || c.clipboard == nil {
+		return fmt.Errorf("clipboard not available")
+	}
+	return c.clipboard.WriteImage(ctx, image)
+}
+
+func (c *clipboardCopyNotifier) ReadText(ctx context.Context) (string, error) {
+	if c == nil || c.clipboard == nil {
+		return "", fmt.Errorf("clipboard not available")
+	}
+	return c.clipboard.ReadText(ctx)
+}
+
+func (c *clipboardCopyNotifier) Clear(ctx context.Context) error {
+	if c == nil || c.clipboard == nil {
+		return fmt.Errorf("clipboard not available")
+	}
+	return c.clipboard.Clear(ctx)
+}
+
+func (c *clipboardCopyNotifier) HasText(ctx context.Context) (bool, error) {
+	if c == nil || c.clipboard == nil {
+		return false, fmt.Errorf("clipboard not available")
+	}
+	return c.clipboard.HasText(ctx)
 }
 
 // connectContextMenuSignal wires the WebKit "context-menu" signal to the
