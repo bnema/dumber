@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"math"
+	"strings"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -31,7 +32,26 @@ var errDestroyed = errors.New("cef: webview is destroyed")
 // errNoBrowser is returned when the browser has not been created yet.
 var errNoBrowser = errors.New("cef: browser not yet created")
 
-const clipboardSelectionDebounceDelay = 300 * time.Millisecond
+const (
+	clipboardSelectionDebounceDelay = 300 * time.Millisecond
+	pendingNavigationRetryDelay     = 25 * time.Millisecond
+	pendingNavigationMaxRetries     = 20
+)
+
+var cefLoadWatchdogDelays = []time.Duration{
+	250 * time.Millisecond,
+	1 * time.Second,
+	2 * time.Second,
+	5 * time.Second,
+	15 * time.Second,
+	30 * time.Second,
+}
+
+var (
+	cefNewTask         = purecef.NewTask
+	cefPostTask        = purecef.PostTask
+	cefPostDelayedTask = purecef.PostDelayedTask
+)
 
 // WebView implements port.WebView using a CEF off-screen browser rendered
 // through a renderPipeline and driven by an inputBridge.
@@ -81,6 +101,13 @@ type WebView struct {
 
 	// Last known hover URI for middle-click → new tab.
 	lastHoverURI string
+
+	// Load diagnostics state (mutex-protected).
+	loadDiagSeq             uint64
+	loadDiagStartedAt       time.Time
+	loadDiagLastProgressAt  time.Time
+	loadDiagLastAddressAt   time.Time
+	loadDiagLastLoadStateAt time.Time
 
 	// Atomic state.
 	destroyed    atomic.Bool
@@ -134,16 +161,14 @@ func (wv *WebView) LoadURI(_ context.Context, uri string) error {
 	actualURI := toActualInternalURL(uri)
 	wv.mu.Lock()
 	browser := wv.browser
+	// Always remember the latest requested URI so a browser/main-frame race
+	// cannot strand startup on about:blank.
+	wv.pendingURI = actualURI
+	wv.mu.Unlock()
 	if browser == nil {
-		// Browser not yet created — queue the URI for OnAfterCreated.
-		wv.pendingURI = actualURI
-		wv.mu.Unlock()
 		return nil
 	}
-	wv.mu.Unlock()
-	if frame := browser.GetMainFrame(); frame != nil {
-		frame.LoadURL(actualURI)
-	}
+	wv.schedulePendingNavigationReplay(browser, 0)
 	return nil
 }
 
@@ -515,10 +540,22 @@ func (wv *WebView) NativeWidget() uintptr {
 
 func (wv *WebView) updateURI(uri string) {
 	uri = toConceptualInternalURL(uri)
+	now := time.Now()
 	wv.mu.Lock()
 	wv.uri = uri
+	wv.loadDiagLastAddressAt = now
 	cb := wv.callbacks
+	pendingMatched := pendingURIEquivalent(wv.pendingURI, uri)
+	if pendingMatched {
+		wv.pendingURI = ""
+	}
 	wv.mu.Unlock()
+
+	if pendingMatched && wv.ctx != nil {
+		logging.FromContext(wv.ctx).Debug().
+			Str("uri", logging.TruncateURL(uri, logging.PermissionLogURLMaxLen)).
+			Msg("cef: pending navigation acknowledged by address change")
+	}
 
 	if cb != nil && cb.OnURIChanged != nil {
 		wv.runOnGTK(func() {
@@ -541,8 +578,10 @@ func (wv *WebView) updateTitle(title string) {
 }
 
 func (wv *WebView) updateProgress(progress float64) {
+	now := time.Now()
 	wv.mu.Lock()
 	wv.progress = progress
+	wv.loadDiagLastProgressAt = now
 	cb := wv.callbacks
 	wv.mu.Unlock()
 
@@ -554,11 +593,26 @@ func (wv *WebView) updateProgress(progress float64) {
 }
 
 func (wv *WebView) updateLoadState(loading, back, fwd bool) {
+	now := time.Now()
 	wv.mu.Lock()
+	wasLoading := wv.isLoading
 	wv.isLoading = loading
 	wv.canGoBack = back
 	wv.canGoFwd = fwd
+	wv.loadDiagLastLoadStateAt = now
+	var loadDiagSeq uint64
+	if loading && !wasLoading {
+		wv.loadDiagSeq++
+		wv.loadDiagStartedAt = now
+		wv.loadDiagLastProgressAt = time.Time{}
+		wv.loadDiagLastAddressAt = time.Time{}
+		loadDiagSeq = wv.loadDiagSeq
+	}
 	wv.mu.Unlock()
+
+	if loadDiagSeq != 0 {
+		wv.scheduleLoadWatchdogs(loadDiagSeq)
+	}
 }
 
 func (wv *WebView) setAudioPlaying(playing bool) {
@@ -587,6 +641,7 @@ func (wv *WebView) setEditableFocus(editable bool) {
 		return
 	}
 	wv.mu.Lock()
+	previous := wv.focusedEditable
 	wv.focusedEditable = editable
 	if editable {
 		wv.selectionDebounceSeq++
@@ -596,9 +651,15 @@ func (wv *WebView) setEditableFocus(editable bool) {
 		if timer != nil {
 			timer.Stop()
 		}
+		if previous != editable && wv.ctx != nil {
+			logging.FromContext(wv.ctx).Debug().Bool("editable", editable).Msg("cef: editable focus changed")
+		}
 		return
 	}
 	wv.mu.Unlock()
+	if previous != editable && wv.ctx != nil {
+		logging.FromContext(wv.ctx).Debug().Bool("editable", editable).Msg("cef: editable focus changed")
+	}
 }
 
 func (wv *WebView) cancelSelectionDebounce() {
@@ -620,8 +681,17 @@ func (wv *WebView) scheduleSelectionUpdate(text string) {
 		return
 	}
 	wv.mu.Lock()
-	if wv.destroyed.Load() || wv.focusedEditable || wv.engine == nil {
+	if wv.destroyed.Load() || wv.engine == nil {
 		wv.mu.Unlock()
+		return
+	}
+	if wv.focusedEditable {
+		wv.mu.Unlock()
+		if wv.ctx != nil {
+			logging.FromContext(wv.ctx).Debug().
+				Int("text_len", len(text)).
+				Msg("cef: selection auto-copy skipped while editable focused")
+		}
 		return
 	}
 	wv.selectionDebounceSeq++
@@ -648,6 +718,11 @@ func (wv *WebView) flushSelectionUpdate(seq uint64, text string) {
 	viewID := wv.id
 	wv.mu.Unlock()
 	if engine != nil {
+		if wv.ctx != nil {
+			logging.FromContext(wv.ctx).Debug().
+				Int("text_len", len(text)).
+				Msg("cef: debounced selection update flushed")
+		}
 		engine.handleClipboardSelectionUpdate(viewID, text)
 	}
 }
@@ -656,6 +731,179 @@ func (wv *WebView) selectedTextSnapshot() string {
 	wv.mu.RLock()
 	defer wv.mu.RUnlock()
 	return wv.selectedText
+}
+
+func (wv *WebView) scheduleLoadWatchdogs(loadSeq uint64) {
+	for _, delay := range cefLoadWatchdogDelays {
+		d := delay
+		time.AfterFunc(d, func() {
+			wv.logLoadWatchdog(loadSeq, d)
+		})
+	}
+}
+
+func (wv *WebView) logLoadWatchdog(loadSeq uint64, delay time.Duration) {
+	if wv == nil || wv.destroyed.Load() || wv.ctx == nil {
+		return
+	}
+
+	wv.mu.RLock()
+	currentSeq := wv.loadDiagSeq
+	loading := wv.isLoading
+	uri := wv.uri
+	title := wv.title
+	progress := wv.progress
+	pendingURI := wv.pendingURI
+	startedAt := wv.loadDiagStartedAt
+	lastProgressAt := wv.loadDiagLastProgressAt
+	lastAddressAt := wv.loadDiagLastAddressAt
+	lastLoadStateAt := wv.loadDiagLastLoadStateAt
+	wv.mu.RUnlock()
+
+	if loadSeq != currentSeq || !loading {
+		return
+	}
+
+	snap := renderPipelineSnapshot{}
+	if wv.pipeline != nil {
+		snap = wv.pipeline.diagnosticSnapshot()
+	}
+
+	now := time.Now()
+	logging.FromContext(wv.ctx).Debug().
+		Uint64("load_seq", loadSeq).
+		Int64("watch_delay_ms", delay.Milliseconds()).
+		Int64("since_start_ms", sinceTimestampMs(startedAt, now)).
+		Int64("since_progress_ms", sinceTimestampMs(lastProgressAt, now)).
+		Int64("since_address_ms", sinceTimestampMs(lastAddressAt, now)).
+		Int64("since_load_state_ms", sinceTimestampMs(lastLoadStateAt, now)).
+		Str("uri", logging.TruncateURL(uri, logging.PermissionLogURLMaxLen)).
+		Str("title", title).
+		Float64("progress", progress).
+		Str("pending_uri", logging.TruncateURL(pendingURI, logging.PermissionLogURLMaxLen)).
+		Int32("surface_width", snap.Width).
+		Int32("surface_height", snap.Height).
+		Int32("surface_scale", snap.Scale).
+		Bool("gl_ready", snap.GLReady).
+		Bool("needs_upload", snap.NeedsUpload).
+		Bool("size_changed", snap.SizeChanged).
+		Bool("force_full_upload", snap.ForceFullUpload).
+		Uint64("view_rect_seq", snap.ViewRectSeq).
+		Uint64("screen_info_seq", snap.ScreenInfoSeq).
+		Uint64("paint_seq", snap.PaintSeq).
+		Uint64("resize_seq", snap.ResizeSeq).
+		Uint64("last_queued_paint_seq", snap.LastQueuedPaintSeq).
+		Uint64("gl_render_seq", snap.GLRenderSeq).
+		Uint64("paint_total", snap.PaintCount).
+		Uint64("queue_total", snap.QueueRenderCount).
+		Uint64("render_total", snap.RenderCount).
+		Uint64("upload_total", snap.UploadCount).
+		Uint64("full_upload_total", snap.FullUploadCount).
+		Msg("cef: loading watchdog")
+}
+
+func (wv *WebView) pendingNavigationURI() string {
+	if wv == nil {
+		return ""
+	}
+	wv.mu.RLock()
+	defer wv.mu.RUnlock()
+	return wv.pendingURI
+}
+
+func (wv *WebView) schedulePendingNavigationReplay(browser purecef.Browser, attempt int) {
+	if wv == nil || browser == nil || wv.destroyed.Load() {
+		return
+	}
+	task := cefNewTask(cefTaskFunc(func() {
+		wv.replayPendingNavigation(browser, attempt)
+	}))
+	if task == nil {
+		return
+	}
+	var result int32
+	if attempt <= 0 {
+		result = cefPostTask(purecef.ThreadIDTidUi, task)
+	} else {
+		result = cefPostDelayedTask(purecef.ThreadIDTidUi, task, int64(pendingNavigationRetryDelay/time.Millisecond))
+	}
+	if result != 1 && wv.ctx != nil {
+		logging.FromContext(wv.ctx).Warn().
+			Int("attempt", attempt).
+			Int32("result", result).
+			Msg("cef: failed to schedule pending navigation replay")
+	}
+}
+
+func (wv *WebView) replayPendingNavigation(browser purecef.Browser, attempt int) {
+	if wv == nil || browser == nil || wv.destroyed.Load() {
+		return
+	}
+	wv.mu.RLock()
+	uri := wv.pendingURI
+	wv.mu.RUnlock()
+	if uri == "" {
+		return
+	}
+	frame := browser.GetMainFrame()
+	if frame == nil {
+		if attempt >= pendingNavigationMaxRetries {
+			if wv.ctx != nil {
+				logging.FromContext(wv.ctx).Warn().
+					Int("attempt", attempt).
+					Str("uri", logging.TruncateURL(uri, logging.PermissionLogURLMaxLen)).
+					Msg("cef: pending navigation replay exhausted without main frame")
+			}
+			return
+		}
+		if wv.ctx != nil {
+			logging.FromContext(wv.ctx).Debug().
+				Int("attempt", attempt).
+				Str("uri", logging.TruncateURL(uri, logging.PermissionLogURLMaxLen)).
+				Msg("cef: pending navigation replay waiting for main frame")
+		}
+		wv.schedulePendingNavigationReplay(browser, attempt+1)
+		return
+	}
+	currentURL := ""
+	if frame != nil {
+		currentURL = frame.GetURL()
+	}
+	if pendingURIEquivalent(currentURL, uri) {
+		wv.mu.Lock()
+		if pendingURIEquivalent(wv.pendingURI, uri) {
+			wv.pendingURI = ""
+		}
+		wv.mu.Unlock()
+		if wv.ctx != nil {
+			logging.FromContext(wv.ctx).Debug().
+				Int("attempt", attempt).
+				Str("uri", logging.TruncateURL(uri, logging.PermissionLogURLMaxLen)).
+				Msg("cef: pending navigation already active")
+		}
+		return
+	}
+	frame.LoadURL(uri)
+	if wv.ctx != nil {
+		logging.FromContext(wv.ctx).Debug().
+			Int("attempt", attempt).
+			Str("uri", logging.TruncateURL(uri, logging.PermissionLogURLMaxLen)).
+			Msg("cef: replayed pending navigation")
+	}
+}
+
+func pendingURIEquivalent(a, b string) bool {
+	if a == "" || b == "" {
+		return false
+	}
+	return toConceptualInternalURL(strings.TrimSpace(a)) == toConceptualInternalURL(strings.TrimSpace(b))
+}
+
+func sinceTimestampMs(ts, now time.Time) int64 {
+	if ts.IsZero() {
+		return -1
+	}
+	return now.Sub(ts).Milliseconds()
 }
 
 func (wv *WebView) updateHoverURI(uri string) {

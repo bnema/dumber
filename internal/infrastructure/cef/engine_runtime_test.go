@@ -85,7 +85,7 @@ func TestEngineExplicitClipboardCopy_ForwardsViewID(t *testing.T) {
 
 	eng.handleExplicitClipboardBridgeText(77, "copy", "copied")
 
-	require.Equal(t, port.ExplicitClipboardInput{Text: "copied", SourceEngine: port.ClipboardSourceCEF, ViewID: 77, Action: "copy", NativeHandled: true}, orchestrator.explicit)
+	require.Equal(t, port.ExplicitClipboardInput{Text: "copied", SourceEngine: port.ClipboardSourceCEF, ViewID: 77, Action: "copy"}, orchestrator.explicit)
 }
 
 type stubClipboardTextOrchestrator struct{}

@@ -9,6 +9,7 @@ import (
 	"unicode/utf8"
 
 	"github.com/bnema/dumber/internal/application/port"
+	"github.com/bnema/dumber/internal/logging"
 )
 
 const explicitClipboardDedupWindow = 250 * time.Millisecond
@@ -125,6 +126,10 @@ func (uc *ClipboardTextOrchestratorUseCase) HandleSelectionUpdate(
 	if uc.toast != nil {
 		uc.toast(textLen)
 	}
+	logging.FromContext(ctx).Debug().
+		Int("text_len", textLen).
+		Str("source_engine", string(input.SourceEngine)).
+		Msg("clipboard selection copied")
 	return nil
 }
 
@@ -172,6 +177,12 @@ func (uc *ClipboardTextOrchestratorUseCase) HandleExplicitCopy(
 	if uc.toast != nil {
 		uc.toast(textLen)
 	}
+	logging.FromContext(ctx).Debug().
+		Int("text_len", textLen).
+		Str("source_engine", string(input.SourceEngine)).
+		Str("action", input.Action).
+		Bool("native_handled", input.NativeHandled).
+		Msg("clipboard explicit copied")
 	return nil
 }
 

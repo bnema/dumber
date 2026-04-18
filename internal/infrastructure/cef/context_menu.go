@@ -176,7 +176,7 @@ func dispatchContextMenuSelection(
 		return
 	}
 	log.Debug().Str("action", string(item.Action)).Str("label", item.Label).Msg("cef: context menu item selected")
-	if item.Action == port.MenuActionCopySelection {
+	if item.Action == port.MenuActionCopySelection && menuContext.SelectionText == "" {
 		if cmdID, ok := commandIDByAction[item.Action]; ok {
 			log.Debug().Str("action", string(item.Action)).Int32("command_id", cmdID).Msg("cef: continuing native context menu command")
 			callback.Cont(cmdID, 0)
@@ -212,6 +212,8 @@ func dispatchContextMenuSelection(
 
 func contextMenuCopiedText(action port.MenuAction, menuContext port.MenuContext) string {
 	switch action {
+	case port.MenuActionCopySelection:
+		return menuContext.SelectionText
 	case port.MenuActionCopyLink:
 		return menuContext.LinkURI
 	default:
@@ -227,7 +229,8 @@ func shouldExecuteDirectCEFAction(action port.MenuAction) bool {
 		port.MenuActionOpenLinkNewTab,
 		port.MenuActionCopyLink,
 		port.MenuActionCopyImage,
-		port.MenuActionInspectElement:
+		port.MenuActionInspectElement,
+		port.MenuActionCopySelection:
 		return true
 	default:
 		return false

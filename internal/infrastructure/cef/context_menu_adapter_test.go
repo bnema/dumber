@@ -171,10 +171,11 @@ func TestContextMenuSelectionExecutesCopyImageDirectlyWhenExecutorAvailable(t *t
 	require.Equal(t, 1, callback.cancelCalls)
 }
 
-func TestContextMenuSelectionUsesNativeCommandForCopySelection(t *testing.T) {
+func TestContextMenuSelectionExecutesCopySelectionDirectlyWhenSelectionTextAvailable(t *testing.T) {
 	callback := &stubRunContextMenuCallback{}
 	executor := &stubContextMenuExecutor{}
 	var copiedLens []int
+	menuContext := port.MenuContext{SelectionText: "selected text", HasSelection: true}
 
 	dispatchContextMenuSelection(
 		context.Background(),
@@ -183,14 +184,36 @@ func TestContextMenuSelectionUsesNativeCommandForCopySelection(t *testing.T) {
 		func(text string) { copiedLens = append(copiedLens, len(text)) },
 		map[port.MenuAction]int32{port.MenuActionCopySelection: 333},
 		port.MenuItem{Action: port.MenuActionCopySelection, Label: "Copy"},
-		port.MenuContext{SelectionText: "selected text", HasSelection: true},
+		menuContext,
+	)
+
+	require.Equal(t, 1, executor.executeCalls)
+	require.Equal(t, port.MenuActionCopySelection, executor.action)
+	require.Equal(t, menuContext, executor.menuContext)
+	require.Zero(t, callback.contCalls)
+	require.Zero(t, callback.commandID)
+	require.Equal(t, 1, callback.cancelCalls)
+	require.Equal(t, []int{len("selected text")}, copiedLens)
+}
+
+func TestContextMenuSelectionFallsBackToNativeCopySelectionWhenTextUnavailable(t *testing.T) {
+	callback := &stubRunContextMenuCallback{}
+	executor := &stubContextMenuExecutor{}
+
+	dispatchContextMenuSelection(
+		context.Background(),
+		executor,
+		callback,
+		nil,
+		map[port.MenuAction]int32{port.MenuActionCopySelection: 333},
+		port.MenuItem{Action: port.MenuActionCopySelection, Label: "Copy"},
+		port.MenuContext{HasSelection: true},
 	)
 
 	require.Equal(t, 1, callback.contCalls)
 	require.Zero(t, callback.cancelCalls)
 	require.Equal(t, int32(333), callback.commandID)
 	require.Zero(t, executor.executeCalls)
-	require.Empty(t, copiedLens)
 }
 
 func TestContextMenuAnchorPositionScalesCEFCoordinates(t *testing.T) {

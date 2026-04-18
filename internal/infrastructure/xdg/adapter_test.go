@@ -39,7 +39,8 @@ func TestAdapter_DownloadDir(t *testing.T) {
 func TestAdapter_RuntimeDir(t *testing.T) {
 	adapter := New()
 
-	t.Run("returns XDG_RUNTIME_DIR when set", func(t *testing.T) {
+	t.Run("returns XDG_RUNTIME_DIR when set outside dev", func(t *testing.T) {
+		t.Setenv("ENV", "")
 		t.Setenv("XDG_RUNTIME_DIR", "/custom/runtime")
 
 		dir, err := adapter.RuntimeDir()
@@ -49,6 +50,7 @@ func TestAdapter_RuntimeDir(t *testing.T) {
 	})
 
 	t.Run("falls back to state runtime dir when XDG_RUNTIME_DIR not set", func(t *testing.T) {
+		t.Setenv("ENV", "")
 		t.Setenv("XDG_RUNTIME_DIR", "")
 		t.Setenv("XDG_STATE_HOME", "/tmp/dumber-state")
 
@@ -56,6 +58,24 @@ func TestAdapter_RuntimeDir(t *testing.T) {
 
 		require.NoError(t, err)
 		assert.Equal(t, "/tmp/dumber-state/dumber/runtime", dir)
+	})
+
+	t.Run("uses sandbox runtime dir in dev even when XDG_RUNTIME_DIR is set", func(t *testing.T) {
+		wd := t.TempDir()
+		oldWD, err := os.Getwd()
+		require.NoError(t, err)
+		require.NoError(t, os.Chdir(wd))
+		defer func() {
+			require.NoError(t, os.Chdir(oldWD))
+		}()
+
+		t.Setenv("ENV", "dev")
+		t.Setenv("XDG_RUNTIME_DIR", "/shared/runtime")
+
+		dir, err := adapter.RuntimeDir()
+
+		require.NoError(t, err)
+		assert.Equal(t, filepath.Join(wd, ".dev", "dumber", "runtime"), dir)
 	})
 }
 

@@ -298,11 +298,10 @@ func (e *Engine) handleExplicitClipboardBridgeText(viewID port.WebViewID, action
 	}
 	textLen := utf8.RuneCountInString(text)
 	if err := e.clipboardTextOrchestrator.HandleExplicitCopy(e.currentContext(), port.ExplicitClipboardInput{
-		Text:          text,
-		Action:        action,
-		SourceEngine:  port.ClipboardSourceCEF,
-		ViewID:        viewID,
-		NativeHandled: true,
+		Text:         text,
+		Action:       action,
+		SourceEngine: port.ClipboardSourceCEF,
+		ViewID:       viewID,
 	}); err != nil {
 		logging.FromContext(e.currentContext()).Debug().
 			Err(err).

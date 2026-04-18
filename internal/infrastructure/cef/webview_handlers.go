@@ -307,6 +307,7 @@ func (h *handlerSet) shouldAcceptMainViewPaint(
 		if sizeMatchesCurrentView {
 			_, _, shouldLog := h.wv.pipeline.markFirstPaintAfterResize()
 			if shouldLog {
+				logging.Trace().Mark("cef_first_content_paint")
 				logging.FromContext(h.wv.ctx).Debug().
 					Uint64("webview_id", uint64(h.wv.id)).
 					Uint64("paint_seq", paintSeq).
@@ -403,6 +404,11 @@ func (h *handlerSet) OnVirtualKeyboardRequested(_ purecef.Browser, _ purecef.Tex
 // OnAddressChange updates the cached URI when the main frame navigates.
 func (h *handlerSet) OnAddressChange(_ purecef.Browser, frame purecef.Frame, url string) {
 	if frame != nil && frame.IsMain() {
+		if h.wv != nil && h.wv.ctx != nil {
+			logging.FromContext(h.wv.ctx).Debug().
+				Str("url", logging.TruncateURL(url, logging.PermissionLogURLMaxLen)).
+				Msg("cef: OnAddressChange")
+		}
 		h.wv.updateURI(url)
 	}
 }
@@ -486,6 +492,11 @@ func (h *handlerSet) OnAutoResize(_ purecef.Browser, _ *purecef.Size) int32 { re
 
 // OnLoadingProgressChange updates the cached progress value.
 func (h *handlerSet) OnLoadingProgressChange(_ purecef.Browser, progress float64) {
+	if h.wv != nil && h.wv.ctx != nil {
+		logging.FromContext(h.wv.ctx).Trace().
+			Float64("progress", progress).
+			Msg("cef: OnLoadingProgressChange")
+	}
 	h.wv.updateProgress(progress)
 }
 
@@ -516,6 +527,21 @@ func (h *handlerSet) GetRootWindowScreenRect(_ purecef.Browser, _ *purecef.Rect)
 func (h *handlerSet) OnLoadingStateChange(_ purecef.Browser, isloading, cangoback, cangoforward int32) {
 	loading := isloading != 0
 	h.wv.updateLoadState(loading, cangoback != 0, cangoforward != 0)
+	if h.wv != nil && h.wv.ctx != nil {
+		h.wv.mu.RLock()
+		uri := h.wv.uri
+		progress := h.wv.progress
+		pendingURI := h.wv.pendingURI
+		h.wv.mu.RUnlock()
+		logging.FromContext(h.wv.ctx).Debug().
+			Bool("loading", loading).
+			Bool("can_go_back", cangoback != 0).
+			Bool("can_go_forward", cangoforward != 0).
+			Float64("progress", progress).
+			Str("uri", logging.TruncateURL(uri, logging.PermissionLogURLMaxLen)).
+			Str("pending_uri", logging.TruncateURL(pendingURI, logging.PermissionLogURLMaxLen)).
+			Msg("cef: OnLoadingStateChange")
+	}
 
 	if !loading && h.wv.input != nil && h.wv.input.hasGTKFocus() {
 		h.wv.mu.RLock()
@@ -547,6 +573,11 @@ func (h *handlerSet) OnLoadStart(_ purecef.Browser, frame purecef.Frame, _ purec
 	if frame == nil || !frame.IsMain() {
 		return
 	}
+	if h.wv != nil && h.wv.ctx != nil {
+		logging.FromContext(h.wv.ctx).Debug().
+			Str("url", logging.TruncateURL(frame.GetURL(), logging.PermissionLogURLMaxLen)).
+			Msg("cef: OnLoadStart")
+	}
 	h.wv.updateURI(frame.GetURL())
 	h.wv.mu.RLock()
 	cb := h.wv.callbacks
@@ -571,6 +602,18 @@ func (h *handlerSet) OnLoadEnd(_ purecef.Browser, frame purecef.Frame, httpStatu
 	}
 	// Successful load — reset the consecutive crash counter.
 	h.wv.crashCount.Store(0)
+
+	// If a queued startup navigation is still pending after about:blank finished,
+	// replay it now that the initial main-frame load completed.
+	frameURL := frame.GetURL()
+	if pendingURI := h.wv.pendingNavigationURI(); pendingURI != "" && !pendingURIEquivalent(frameURL, pendingURI) {
+		if strings.EqualFold(strings.TrimSpace(frameURL), "about:blank") {
+			log.Debug().
+				Str("pending_uri", logging.TruncateURL(pendingURI, logging.PermissionLogURLMaxLen)).
+				Msg("cef: replaying pending navigation after about:blank load end")
+			h.wv.schedulePendingNavigationReplay(h.wv.browser, 0)
+		}
+	}
 
 	// Inject scripts and styles after page load.
 	// Must run on GTK thread — OnLoadEnd fires on the CEF IO thread,
@@ -660,8 +703,6 @@ func (h *handlerSet) OnAfterCreated(browser purecef.Browser) {
 	h.wv.mu.Lock()
 	h.wv.browser = browser
 	h.wv.host = host
-	uri := h.wv.pendingURI
-	h.wv.pendingURI = ""
 	h.wv.input.setHost(host)
 	if h.wv.findCtrl != nil {
 		h.wv.findCtrl.setHost(host)
@@ -677,12 +718,6 @@ func (h *handlerSet) OnAfterCreated(browser purecef.Browser) {
 		syncWindowlessBrowserFocus(host)
 	}
 
-	// Replay any navigation that was requested before the browser existed.
-	if uri != "" {
-		if frame := browser.GetMainFrame(); frame != nil {
-			frame.LoadURL(uri)
-		}
-	}
 	h.wv.mu.Unlock()
 
 	h.wv.scheduleStartBeginFrameLoop()
