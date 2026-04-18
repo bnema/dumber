@@ -57,5 +57,7 @@ func TestClipboardSelectionFetchBridgeJS_PatchesAsyncClipboardAPIs(t *testing.T)
 	require.Contains(t, script, "sendToClipboard(normalized)")
 	require.Contains(t, script, "mirrorClipboardItems(items)")
 	require.NotContains(t, script, "__DUMBER_BRIDGE_NONCE__")
+	require.NotContains(t, script, "__dumberClipboardBridge")
+	require.NotContains(t, script, "setBridgeNonce")
 	require.Contains(t, script, "test-bridge-nonce")
 }

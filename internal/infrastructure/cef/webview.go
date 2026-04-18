@@ -8,7 +8,6 @@ import (
 	"errors"
 	"fmt"
 	"math"
-	"strconv"
 	"strings"
 	"sync"
 	"sync/atomic"
@@ -489,16 +488,21 @@ func (wv *WebView) RunJavaScript(_ context.Context, script string) {
 // colorScale converts a 0.0–1.0 color component to an 8-bit integer.
 const colorScale = 255
 
+var bridgeNonceRandom = rand.Read
+
 func newBridgeNonce() string {
 	buf := make([]byte, 16)
-	if _, err := rand.Read(buf); err != nil {
-		return strconv.FormatInt(time.Now().UnixNano(), 16)
+	if _, err := bridgeNonceRandom(buf); err != nil {
+		return ""
 	}
 	return hex.EncodeToString(buf)
 }
 
 func (wv *WebView) rotateBridgeNonce() string {
 	nonce := newBridgeNonce()
+	if nonce == "" {
+		return ""
+	}
 	wv.mu.Lock()
 	wv.bridgeNonce = nonce
 	wv.mu.Unlock()

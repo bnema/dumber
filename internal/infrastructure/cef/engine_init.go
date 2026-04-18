@@ -2,6 +2,7 @@ package cef
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -17,7 +18,6 @@ import (
 	"github.com/bnema/dumber/assets"
 	"github.com/bnema/dumber/internal/application/port"
 	"github.com/bnema/dumber/internal/infrastructure/config"
-	"github.com/bnema/dumber/internal/infrastructure/runtimeprofile"
 	transcoderpkg "github.com/bnema/dumber/internal/infrastructure/transcoder"
 	"github.com/bnema/dumber/internal/logging"
 )
@@ -25,11 +25,17 @@ import (
 const puregoCEFInitTraceEnvVar = "PUREGO_CEF_INIT_TRACE"
 const CEFRootCachePathEnvVar = "DUMBER_CEF_ROOT_CACHE_PATH"
 
+// RuntimePaths contains the concrete filesystem paths the CEF adapter needs.
+type RuntimePaths struct {
+	StateRoot string
+	LogFile   string
+}
+
 // NewEngine initializes the CEF runtime and returns a ready-to-use Engine.
 func NewEngine(
 	ctx context.Context,
 	opts port.EngineOptions,
-	profile runtimeprofile.Profile,
+	paths RuntimePaths,
 	cfg RuntimeConfig,
 	transcodingCfg TranscodingRuntimeConfig,
 	audioFactory port.AudioOutputFactory,
@@ -37,11 +43,11 @@ func NewEngine(
 ) (*Engine, error) {
 	logger := logging.FromContext(ctx)
 	deps.MediaClassifier = deps.MediaClassifier.normalize()
-	stateRoot := resolvedStateRoot(profile, opts)
+	stateRoot := resolvedStateRoot(paths.StateRoot, opts)
 	cleanStaleSingletonLocks(logger, stateRoot)
 	windowlessFrameRate := config.CEFEngineConfig{WindowlessFrameRate: cfg.WindowlessFrameRate}.CEFWindowlessFrameRate()
 
-	settings, err := prepareCEFSettings(opts, profile, cfg, logger)
+	settings, err := prepareCEFSettings(opts, paths, cfg, logger)
 	if err != nil {
 		return nil, err
 	}
@@ -91,7 +97,7 @@ func NewEngine(
 	)
 }
 
-func resolvedStateRoot(profile runtimeprofile.Profile, opts port.EngineOptions) string {
+func resolvedStateRoot(defaultStateRoot string, opts port.EngineOptions) string {
 	if root := os.Getenv(CEFRootCachePathEnvVar); root != "" {
 		return root
 	}
@@ -101,13 +107,13 @@ func resolvedStateRoot(profile runtimeprofile.Profile, opts port.EngineOptions) 
 	if opts.DataDir != "" {
 		return opts.DataDir
 	}
-	return profile.CEFUserDataDir()
+	return defaultStateRoot
 }
 
 // prepareCEFSettings builds purecef.Settings from the engine config.
 func prepareCEFSettings(
 	opts port.EngineOptions,
-	profile runtimeprofile.Profile,
+	paths RuntimePaths,
 	cfg RuntimeConfig,
 	logger *zerolog.Logger,
 ) (purecef.Settings, error) {
@@ -126,16 +132,16 @@ func prepareCEFSettings(
 	settings := purecef.DefaultSettings()
 	settings.MultiThreadedMessageLoop = true
 	settings.ExternalMessagePump = false
-	settings.RootCachePath = resolvedStateRoot(profile, opts)
+	settings.RootCachePath = resolvedStateRoot(paths.StateRoot, opts)
 	if cfg.CEFDir != "" {
 		settings.CEFDir = cfg.CEFDir
 	}
-	if runtimeLogFile, err := prepareCEFLogFile(profile, cfg.LogFile); err != nil {
+	if runtimeLogFile, err := prepareCEFLogFile(paths.LogFile, cfg.LogFile); err != nil {
 		logger.Warn().Err(err).Msg("cef: failed to prepare runtime log file")
 	} else {
 		settings.LogFile = runtimeLogFile
 	}
-	if bootstrapLogFile, err := prepareCEFInitTraceFile(profile, cfg.LogFile); err != nil {
+	if bootstrapLogFile, err := prepareCEFInitTraceFile(paths.LogFile, cfg.LogFile); err != nil {
 		logger.Warn().Err(err).Msg("cef: failed to prepare init trace file")
 	} else if bootstrapLogFile != "" {
 		settings.InitTraceFile = bootstrapLogFile
@@ -427,29 +433,40 @@ const (
 	filePerm = 0o600
 )
 
-func prepareCEFLogFile(profile runtimeprofile.Profile, logFile string) (string, error) {
-	runtimeLogFile := logFile
-	if runtimeLogFile != "" {
-		runtimeLogFile = filepath.Clean(runtimeLogFile)
-	} else {
-		runtimeLogFile = profile.CEFLogFile()
+func prepareCEFLogFile(defaultLogFile, logFile string) (string, error) {
+	runtimeLogFile := resolveLogFile(defaultLogFile, logFile)
+	if runtimeLogFile == "" {
+		return "", nil
 	}
 	if err := os.MkdirAll(filepath.Dir(runtimeLogFile), dirPerm); err != nil {
 		return "", fmt.Errorf("mkdir %s: %w", filepath.Dir(runtimeLogFile), err)
 	}
+	if _, err := os.Stat(runtimeLogFile); err != nil {
+		if !errors.Is(err, os.ErrNotExist) {
+			return "", fmt.Errorf("stat %s: %w", runtimeLogFile, err)
+		}
+		file, createErr := os.OpenFile(runtimeLogFile, os.O_CREATE|os.O_WRONLY, filePerm)
+		if createErr != nil {
+			return "", fmt.Errorf("create %s: %w", runtimeLogFile, createErr)
+		}
+		if closeErr := file.Close(); closeErr != nil {
+			return "", fmt.Errorf("close %s: %w", runtimeLogFile, closeErr)
+		}
+	}
+	if err := os.Chmod(runtimeLogFile, filePerm); err != nil {
+		return "", fmt.Errorf("chmod %s: %w", runtimeLogFile, err)
+	}
 	return runtimeLogFile, nil
 }
 
-func prepareCEFInitTraceFile(profile runtimeprofile.Profile, logFile string) (string, error) {
+func prepareCEFInitTraceFile(defaultLogFile, logFile string) (string, error) {
 	if !puregoCEFInitTraceEnabled() {
 		return "", nil
 	}
 
-	runtimeLogFile := logFile
-	if runtimeLogFile != "" {
-		runtimeLogFile = filepath.Clean(runtimeLogFile)
-	} else {
-		runtimeLogFile = profile.CEFLogFile()
+	runtimeLogFile := resolveLogFile(defaultLogFile, logFile)
+	if runtimeLogFile == "" {
+		return "", nil
 	}
 	bootstrapLogFile := strings.TrimSuffix(runtimeLogFile, filepath.Ext(runtimeLogFile)) + ".bootstrap.log"
 	if err := os.MkdirAll(filepath.Dir(bootstrapLogFile), dirPerm); err != nil {
@@ -459,6 +476,16 @@ func prepareCEFInitTraceFile(profile runtimeprofile.Profile, logFile string) (st
 		return "", fmt.Errorf("reset %s: %w", bootstrapLogFile, err)
 	}
 	return bootstrapLogFile, nil
+}
+
+func resolveLogFile(defaultLogFile, logFile string) string {
+	if strings.TrimSpace(logFile) != "" {
+		return filepath.Clean(logFile)
+	}
+	if strings.TrimSpace(defaultLogFile) != "" {
+		return filepath.Clean(defaultLogFile)
+	}
+	return ""
 }
 
 func puregoCEFInitTraceEnabled() bool {
