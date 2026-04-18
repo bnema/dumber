@@ -13,6 +13,18 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
+func expectAPIResponseHeaders(response *cefmocks.MockResponse) {
+	response.EXPECT().SetHeaderByName("Access-Control-Allow-Origin", "*", int32(1)).Once()
+	response.EXPECT().SetHeaderByName("Access-Control-Allow-Methods", "GET, POST, OPTIONS", int32(1)).Once()
+	response.EXPECT().SetHeaderByName(
+		"Access-Control-Allow-Headers",
+		"Content-Type, X-Dumber-Body, X-Dumber-Bridge-Action",
+		int32(1),
+	).Once()
+	response.EXPECT().SetHeaderByName("Access-Control-Max-Age", "86400", int32(1)).Once()
+	response.EXPECT().SetHeaderByName("Cache-Control", "no-store", int32(1)).Once()
+}
+
 func TestResolveConfigPayload_UsesInjectedBuilder(t *testing.T) {
 	data, err := resolveConfigPayload(func() ([]byte, error) {
 		return []byte(`{"engine_type":"cef"}`), nil
@@ -78,6 +90,7 @@ func TestSchemeHandler_APIClipboardSetPathWritesClipboardPayload(t *testing.T) {
 	response.EXPECT().SetStatus(int32(http.StatusOK)).Once()
 	response.EXPECT().SetStatusText(http.StatusText(http.StatusOK)).Once()
 	response.EXPECT().SetMimeType("application/json").Once()
+	expectAPIResponseHeaders(response)
 
 	handler := h.handleAPI(nil, http.MethodPost, "/api/clipboard-set", request)
 	require.NotNil(t, handler)
@@ -103,6 +116,7 @@ func TestSchemeHandler_APIFocusSyncRejectsRequestsWithoutTrustedBridgeHeader(t *
 	response.EXPECT().SetStatus(int32(http.StatusForbidden)).Once()
 	response.EXPECT().SetStatusText(http.StatusText(http.StatusForbidden)).Once()
 	response.EXPECT().SetMimeType("application/json").Once()
+	expectAPIResponseHeaders(response)
 
 	handler := h.handleAPI(nil, http.MethodPost, "/api/focus-sync", request)
 	require.NotNil(t, handler)
@@ -131,6 +145,7 @@ func TestSchemeHandler_APIFocusSyncInvokesEditableFocusCallback(t *testing.T) {
 	response.EXPECT().SetStatus(int32(http.StatusOK)).Once()
 	response.EXPECT().SetStatusText(http.StatusText(http.StatusOK)).Once()
 	response.EXPECT().SetMimeType("application/json").Once()
+	expectAPIResponseHeaders(response)
 
 	handler := h.handleAPI(browser, http.MethodPost, "/api/focus-sync", request)
 	require.NotNil(t, handler)
@@ -139,4 +154,60 @@ func TestSchemeHandler_APIFocusSyncInvokesEditableFocusCallback(t *testing.T) {
 	handler.GetResponseHeaders(response, unsafe.Pointer(&responseLength), 0)
 	require.Positive(t, responseLength)
 	require.Same(t, browser, focused)
+}
+
+func TestSchemeHandler_Create_ConceptualAPIRequestBypassesRedirect(t *testing.T) {
+	oldNewResourceHandler := cefNewResourceHandler
+	cefNewResourceHandler = func(impl purecef.ResourceHandler) purecef.ResourceHandler { return impl }
+	defer func() { cefNewResourceHandler = oldNewResourceHandler }()
+
+	h, err := newDumbSchemeHandler(context.Background(), nil, nil, func() ([]byte, error) { return []byte(`{}`), nil }, func() ([]byte, error) { return []byte(`{}`), nil })
+	require.NoError(t, err)
+
+	var copied string
+	h.onClipboardSet = func(text string) { copied = text }
+
+	request := cefmocks.NewMockRequest(t)
+	request.EXPECT().GetURL().Return("dumb://api/clipboard-set").Once()
+	request.EXPECT().GetMethod().Return(http.MethodPost).Once()
+	encoded := base64.StdEncoding.EncodeToString([]byte(`{"text":"copied from create"}`))
+	request.EXPECT().GetHeaderByName(dumberBodyHeaderName).Return(encoded).Once()
+
+	response := cefmocks.NewMockResponse(t)
+	response.EXPECT().SetStatus(int32(http.StatusOK)).Once()
+	response.EXPECT().SetStatusText(http.StatusText(http.StatusOK)).Once()
+	response.EXPECT().SetMimeType("application/json").Once()
+	expectAPIResponseHeaders(response)
+
+	handler := h.Create(nil, nil, "", request)
+	require.NotNil(t, handler)
+
+	var responseLength int64
+	handler.GetResponseHeaders(response, unsafe.Pointer(&responseLength), 0)
+	require.Positive(t, responseLength)
+	require.Equal(t, "copied from create", copied)
+}
+
+func TestSchemeHandler_APIOptionsReturnsCORSPreflightHeaders(t *testing.T) {
+	oldNewResourceHandler := cefNewResourceHandler
+	cefNewResourceHandler = func(impl purecef.ResourceHandler) purecef.ResourceHandler { return impl }
+	defer func() { cefNewResourceHandler = oldNewResourceHandler }()
+
+	h, err := newDumbSchemeHandler(context.Background(), nil, nil, func() ([]byte, error) { return []byte(`{}`), nil }, func() ([]byte, error) { return []byte(`{}`), nil })
+	require.NoError(t, err)
+
+	request := cefmocks.NewMockRequest(t)
+	response := cefmocks.NewMockResponse(t)
+	response.EXPECT().SetStatus(int32(http.StatusNoContent)).Once()
+	response.EXPECT().SetStatusText(http.StatusText(http.StatusNoContent)).Once()
+	response.EXPECT().SetMimeType("text/plain").Once()
+	response.EXPECT().SetCharset("utf-8").Once()
+	expectAPIResponseHeaders(response)
+
+	handler := h.handleAPI(nil, http.MethodOptions, "/api/clipboard-set", request)
+	require.NotNil(t, handler)
+
+	var responseLength int64
+	handler.GetResponseHeaders(response, unsafe.Pointer(&responseLength), 0)
+	require.Zero(t, responseLength)
 }

@@ -15,7 +15,6 @@ import (
 const (
 	consoleMarkerVideoDiag        = "[VIDEO-DIAG]"
 	consoleMarkerRedditVideoPatch = "[REDDIT-VIDEO-PATCH]"
-	consoleMarkerClipboardBridge  = "[CLIPBOARD-BRIDGE]"
 	consoleMarkerAutoCopy         = "[AUTO-COPY]"
 )
 
@@ -469,7 +468,6 @@ func (h *handlerSet) OnConsoleMessage(
 	if h.wv != nil && h.wv.ctx != nil &&
 		(strings.Contains(message, consoleMarkerVideoDiag) ||
 			strings.Contains(message, consoleMarkerRedditVideoPatch) ||
-			strings.Contains(message, consoleMarkerClipboardBridge) ||
 			strings.Contains(message, consoleMarkerAutoCopy)) {
 		log := logging.FromContext(h.wv.ctx).With().
 			Str("component", "cef-console").

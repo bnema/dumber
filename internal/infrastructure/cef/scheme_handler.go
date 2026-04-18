@@ -125,20 +125,22 @@ func (h *dumbSchemeHandler) Create(browser purecef.Browser, _ purecef.Frame, _ s
 		return h.newRawResourceHandler(http.StatusOK, "text/html; charset=utf-8", []byte(buildCEFCrashPageHTML(originalURI)))
 	}
 
-	// Keep dumb:// as the app-level abstraction, but redirect CEF loads to a
-	// normal HTTPS origin so Chromium applies the standard web security model.
+	// Route API requests before redirecting conceptual dumb:// URLs to the
+	// internal HTTPS origin. External pages use dumb://api/... for clipboard and
+	// focus bridges specifically to bypass page CSP; redirecting those requests
+	// to https://dumber.invalid makes site connect-src policies block them.
+	if apiPath, ok := resolveAPIPath(u); ok {
+		return h.handleAPI(browser, method, apiPath, request)
+	}
+
+	// Keep dumb:// as the app-level abstraction, but redirect CEF page/asset
+	// loads to a normal HTTPS origin so Chromium applies the standard web
+	// security model.
 	if isConceptualInternalURL(reqURL) {
 		targetURL := toActualInternalURL(reqURL)
 		if targetURL != "" && targetURL != reqURL {
 			return h.newRedirectResourceHandler(http.StatusTemporaryRedirect, targetURL)
 		}
-	}
-
-	// Route API requests.
-	path := u.Path
-
-	if strings.HasPrefix(path, "/api/") {
-		return h.handleAPI(browser, method, path, request)
 	}
 
 	// Serve static assets.
@@ -147,17 +149,21 @@ func (h *dumbSchemeHandler) Create(browser purecef.Browser, _ purecef.Frame, _ s
 
 // handleAPI routes API requests to the message router or built-in handlers.
 func (h *dumbSchemeHandler) handleAPI(browser purecef.Browser, method, path string, request purecef.Request) purecef.ResourceHandler {
+	if strings.EqualFold(method, http.MethodOptions) {
+		return h.newAPIRawResourceHandler(http.StatusNoContent, "text/plain; charset=utf-8", nil)
+	}
+
 	switch {
 	case path == "/api/message" && strings.EqualFold(method, "POST"):
 		body := readBodyFromHeader(request)
 		if body == nil {
-			return h.newJSONResourceHandler(http.StatusBadRequest, map[string]string{"error": "empty body"})
+			return h.newAPIJSONResourceHandler(http.StatusBadRequest, map[string]string{"error": "empty body"})
 		}
 		resp, err := h.messageRouter.HandleMessage(h.ctx, 0, body)
 		if err != nil {
-			return h.newJSONResourceHandler(http.StatusInternalServerError, map[string]string{"error": err.Error()})
+			return h.newAPIJSONResourceHandler(http.StatusInternalServerError, map[string]string{"error": err.Error()})
 		}
-		return h.newRawResourceHandler(http.StatusOK, "application/json", resp)
+		return h.newAPIRawResourceHandler(http.StatusOK, "application/json", resp)
 
 	case path == "/api/config" && (method == "" || strings.EqualFold(method, "GET")):
 		return h.handleConfigAPI(h.currentConfigPayload)
@@ -175,29 +181,29 @@ func (h *dumbSchemeHandler) handleAPI(browser purecef.Browser, method, path stri
 		return h.handleFocusSync(request, browser)
 
 	default:
-		return h.newJSONResourceHandler(http.StatusNotFound, map[string]string{"error": "not found"})
+		return h.newAPIJSONResourceHandler(http.StatusNotFound, map[string]string{"error": "not found"})
 	}
 }
 
 func (h *dumbSchemeHandler) handleTranscodeAPI(request purecef.Request) purecef.ResourceHandler {
 	if h.transcoder == nil {
-		return h.newJSONResourceHandler(http.StatusServiceUnavailable, map[string]string{"error": "transcoder unavailable"})
+		return h.newAPIJSONResourceHandler(http.StatusServiceUnavailable, map[string]string{"error": "transcoder unavailable"})
 	}
 
 	reqURL := request.GetURL()
 	parsed, err := url.Parse(reqURL)
 	if err != nil {
-		return h.newJSONResourceHandler(http.StatusBadRequest, map[string]string{"error": "invalid request URL"})
+		return h.newAPIJSONResourceHandler(http.StatusBadRequest, map[string]string{"error": "invalid request URL"})
 	}
 
 	sourceURL := strings.TrimSpace(parsed.Query().Get("src"))
 	if sourceURL == "" {
-		return h.newJSONResourceHandler(http.StatusBadRequest, map[string]string{"error": "missing src"})
+		return h.newAPIJSONResourceHandler(http.StatusBadRequest, map[string]string{"error": "missing src"})
 	}
 
 	sourceParsed, err := url.Parse(sourceURL)
 	if err != nil || sourceParsed.Host == "" || (sourceParsed.Scheme != "http" && sourceParsed.Scheme != "https") {
-		return h.newJSONResourceHandler(http.StatusBadRequest, map[string]string{"error": "invalid src"})
+		return h.newAPIJSONResourceHandler(http.StatusBadRequest, map[string]string{"error": "invalid src"})
 	}
 
 	headers := make(map[string]string)
@@ -242,9 +248,9 @@ func resolveConfigPayload(build func() ([]byte, error)) ([]byte, error) {
 func (h *dumbSchemeHandler) handleConfigAPI(build func() ([]byte, error)) purecef.ResourceHandler {
 	data, err := resolveConfigPayload(build)
 	if err != nil {
-		return h.newJSONResourceHandler(http.StatusInternalServerError, map[string]string{"error": err.Error()})
+		return h.newAPIJSONResourceHandler(http.StatusInternalServerError, map[string]string{"error": err.Error()})
 	}
-	return h.newRawResourceHandler(http.StatusOK, "application/json", data)
+	return h.newAPIRawResourceHandler(http.StatusOK, "application/json", data)
 }
 
 // handleClipboardSet receives copied text from JS copy/cut events and writes
@@ -262,11 +268,11 @@ func (h *dumbSchemeHandler) handleClipboardSet(request purecef.Request) purecef.
 	body := readBodyFromHeader(request)
 	if body == nil {
 		h.logger.Debug().Msg("cef: clipboard-set — empty body (no X-Dumber-Body header)")
-		return h.newJSONResourceHandler(http.StatusBadRequest, map[string]string{"error": "empty body"})
+		return h.newAPIJSONResourceHandler(http.StatusBadRequest, map[string]string{"error": "empty body"})
 	}
 	if len(body) > maxClipboardBytes {
 		h.logger.Warn().Int("body_len", len(body)).Msg("cef: clipboard-set — payload too large")
-		return h.newJSONResourceHandler(http.StatusRequestEntityTooLarge, map[string]string{"error": "payload too large"})
+		return h.newAPIJSONResourceHandler(http.StatusRequestEntityTooLarge, map[string]string{"error": "payload too large"})
 	}
 
 	var payload struct {
@@ -274,7 +280,7 @@ func (h *dumbSchemeHandler) handleClipboardSet(request purecef.Request) purecef.
 	}
 	if err := json.Unmarshal(body, &payload); err != nil || payload.Text == "" {
 		h.logger.Debug().Int("body_len", len(body)).Msg("cef: clipboard-set — invalid or empty payload")
-		return h.newJSONResourceHandler(http.StatusBadRequest, map[string]string{"error": "invalid payload"})
+		return h.newAPIJSONResourceHandler(http.StatusBadRequest, map[string]string{"error": "invalid payload"})
 	}
 
 	h.logger.Debug().Int("text_len", len(payload.Text)).Msg("cef: clipboard-set — forwarding to GDK clipboard")
@@ -285,7 +291,7 @@ func (h *dumbSchemeHandler) handleClipboardSet(request purecef.Request) purecef.
 		h.logger.Warn().Msg("cef: clipboard-set — onClipboardSet callback not wired")
 	}
 
-	return h.newJSONResourceHandler(http.StatusOK, map[string]any{"ok": true})
+	return h.newAPIJSONResourceHandler(http.StatusOK, map[string]any{"ok": true})
 }
 
 func (h *dumbSchemeHandler) handleFocusSync(request purecef.Request, browser purecef.Browser) purecef.ResourceHandler {
@@ -295,11 +301,11 @@ func (h *dumbSchemeHandler) handleFocusSync(request purecef.Request, browser pur
 	}
 	if !strings.EqualFold(bridgeAction, dumberBridgeActionFocusSync) {
 		h.logger.Warn().Msg("cef: focus-sync — rejected request without trusted bridge action header")
-		return h.newJSONResourceHandler(http.StatusForbidden, map[string]string{"error": "forbidden"})
+		return h.newAPIJSONResourceHandler(http.StatusForbidden, map[string]string{"error": "forbidden"})
 	}
 	if browser == nil {
 		h.logger.Debug().Msg("cef: focus-sync — browser unavailable")
-		return h.newJSONResourceHandler(http.StatusBadRequest, map[string]string{"error": "browser unavailable"})
+		return h.newAPIJSONResourceHandler(http.StatusBadRequest, map[string]string{"error": "browser unavailable"})
 	}
 
 	if h.onEditableFocus != nil {
@@ -308,17 +314,13 @@ func (h *dumbSchemeHandler) handleFocusSync(request purecef.Request, browser pur
 		h.logger.Debug().Msg("cef: focus-sync — onEditableFocus callback not wired")
 	}
 
-	return h.newJSONResourceHandler(http.StatusOK, map[string]any{"ok": true})
+	return h.newAPIJSONResourceHandler(http.StatusOK, map[string]any{"ok": true})
 }
 
 func (h *dumbSchemeHandler) newRedirectResourceHandler(status int, location string) purecef.ResourceHandler {
-	return purecef.NewResourceHandler(&staticResourceHandler{
-		contentType: "text/plain; charset=utf-8",
-		statusCode:  status,
-		headers: map[string]string{
-			"Location":      location,
-			"Cache-Control": "no-store",
-		},
+	return newStaticResourceHandler(status, "text/plain; charset=utf-8", nil, map[string]string{
+		"Location":      location,
+		"Cache-Control": "no-store",
 	})
 }
 
@@ -476,12 +478,39 @@ type staticResourceHandler struct {
 	offset      int
 }
 
-func (h *dumbSchemeHandler) newRawResourceHandler(status int, contentType string, data []byte) purecef.ResourceHandler {
+func apiResponseHeaders(extra map[string]string) map[string]string {
+	headers := map[string]string{
+		"Access-Control-Allow-Origin":  "*",
+		"Access-Control-Allow-Methods": "GET, POST, OPTIONS",
+		"Access-Control-Allow-Headers": strings.Join([]string{
+			"Content-Type",
+			"X-Dumber-Body",
+			"X-Dumber-Bridge-Action",
+		}, ", "),
+		"Access-Control-Max-Age": "86400",
+		"Cache-Control":          "no-store",
+	}
+	for name, value := range extra {
+		headers[name] = value
+	}
+	return headers
+}
+
+func newStaticResourceHandler(status int, contentType string, data []byte, headers map[string]string) purecef.ResourceHandler {
 	return cefNewResourceHandler(&staticResourceHandler{
 		data:        data,
 		contentType: contentType,
 		statusCode:  status,
+		headers:     headers,
 	})
+}
+
+func (h *dumbSchemeHandler) newRawResourceHandler(status int, contentType string, data []byte) purecef.ResourceHandler {
+	return newStaticResourceHandler(status, contentType, data, nil)
+}
+
+func (h *dumbSchemeHandler) newAPIRawResourceHandler(status int, contentType string, data []byte) purecef.ResourceHandler {
+	return newStaticResourceHandler(status, contentType, data, apiResponseHeaders(nil))
 }
 
 func (h *dumbSchemeHandler) newErrorResourceHandler(status int, msg string) purecef.ResourceHandler {
@@ -490,12 +519,13 @@ func (h *dumbSchemeHandler) newErrorResourceHandler(status int, msg string) pure
 	return h.newRawResourceHandler(status, "text/html; charset=utf-8", []byte(body))
 }
 
-func (h *dumbSchemeHandler) newJSONResourceHandler(status int, v any) purecef.ResourceHandler {
+func (h *dumbSchemeHandler) newAPIJSONResourceHandler(status int, v any) purecef.ResourceHandler {
 	data, err := json.Marshal(v)
 	if err != nil {
-		return h.newErrorResourceHandler(http.StatusInternalServerError, "JSON encoding failed")
+		fallback, _ := json.Marshal(map[string]string{"error": "JSON encoding failed"})
+		return h.newAPIRawResourceHandler(http.StatusInternalServerError, "application/json", fallback)
 	}
-	return h.newRawResourceHandler(status, "application/json", data)
+	return h.newAPIRawResourceHandler(status, "application/json", data)
 }
 
 // Open handles the request immediately (synchronous).

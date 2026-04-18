@@ -24,3 +24,13 @@ func TestClipboardSelectionFetchBridgeJS_PostsTrustedFocusSyncRequests(t *testin
 	require.Contains(t, clipboardSelectionFetchBridgeJS, "isEditable(document.activeElement)")
 	require.Contains(t, clipboardSelectionFetchBridgeJS, "sendFocusSync()")
 }
+
+func TestClipboardSelectionFetchBridgeJS_PatchesAsyncClipboardAPIs(t *testing.T) {
+	require.Contains(t, clipboardSelectionFetchBridgeJS, "navigator && navigator.clipboard")
+	require.Contains(t, clipboardSelectionFetchBridgeJS, "clipboardProto.writeText")
+	require.Contains(t, clipboardSelectionFetchBridgeJS, "clipboardObj.writeText")
+	require.Contains(t, clipboardSelectionFetchBridgeJS, "clipboardProto.write")
+	require.Contains(t, clipboardSelectionFetchBridgeJS, "clipboardObj.write")
+	require.Contains(t, clipboardSelectionFetchBridgeJS, "sendToClipboard(normalized)")
+	require.Contains(t, clipboardSelectionFetchBridgeJS, "mirrorClipboardItems(items)")
+}
