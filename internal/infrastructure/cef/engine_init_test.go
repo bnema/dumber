@@ -1,6 +1,7 @@
 package cef
 
 import (
+	"os"
 	"path/filepath"
 	"testing"
 
@@ -63,6 +64,18 @@ func TestPrepareCEFInitTraceFile_DisabledByDefault(t *testing.T) {
 	require.Empty(t, path)
 }
 
+func TestPrepareCEFLogFile_CreatesPrivateDirectory(t *testing.T) {
+	logFile := filepath.Join(t.TempDir(), "private", "cef_runtime.log")
+
+	path, err := prepareCEFLogFile(testCEFDevProfile(t), logFile)
+	require.NoError(t, err)
+	require.Equal(t, logFile, path)
+
+	info, err := os.Stat(filepath.Dir(logFile))
+	require.NoError(t, err)
+	require.Equal(t, os.FileMode(dirPerm), info.Mode().Perm())
+}
+
 func TestPrepareCEFInitTraceFile_EnabledViaExplicitLogFile(t *testing.T) {
 	t.Setenv(puregoCEFInitTraceEnvVar, "1")
 	logFile := filepath.Join(t.TempDir(), "custom", "cef_runtime.log")
@@ -71,6 +84,14 @@ func TestPrepareCEFInitTraceFile_EnabledViaExplicitLogFile(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, filepath.Join(filepath.Dir(logFile), "cef_runtime.bootstrap.log"), path)
 	require.FileExists(t, path)
+
+	info, err := os.Stat(path)
+	require.NoError(t, err)
+	require.Equal(t, os.FileMode(filePerm), info.Mode().Perm())
+
+	dirInfo, err := os.Stat(filepath.Dir(path))
+	require.NoError(t, err)
+	require.Equal(t, os.FileMode(dirPerm), dirInfo.Mode().Perm())
 }
 
 func TestPrepareCEFInitTraceFile_UsesResolvedProfileLogDirByDefault(t *testing.T) {

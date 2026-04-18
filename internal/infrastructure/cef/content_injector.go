@@ -385,32 +385,77 @@ const redditDirectVideoJS = `(function(){
   }, 1000);
 })();`
 
-// clipboardSelectionFetchBridgeJS intercepts copy/cut events and sends the
-// selected text back to Go via the message bridge so it can be written to the
-// GDK clipboard. Without this, Ctrl+C in CEF OSR mode writes only to
-// Chromium's internal clipboard. We keep this lightweight shim enabled while
-// the native renderer bridge is disabled due to an OSR startup regression.
+// clipboardSelectionFetchBridgeJS keeps the lightweight fetch bridge enabled
+// while the native renderer bridge remains disabled due to an OSR startup
+// regression. It mirrors explicit clipboard text from both DOM selections and
+// input/textarea selections, and also reasserts browser focus when an editable
+// element gains DOM focus.
 const clipboardSelectionFetchBridgeJS = `(function(){
   if (window.__dumberClipboardBridge) return;
   window.__dumberClipboardBridge = true;
+
+  function encodeBody(body) {
+    return typeof btoa === 'function' ? btoa(unescape(encodeURIComponent(body))) : '';
+  }
+
+  function getActiveElementSelection() {
+    var el = document.activeElement;
+    if (!el) return '';
+    var tag = el.tagName;
+    if ((tag === 'INPUT' || tag === 'TEXTAREA') && typeof el.value === 'string') {
+      var start = typeof el.selectionStart === 'number' ? el.selectionStart : 0;
+      var end = typeof el.selectionEnd === 'number' ? el.selectionEnd : 0;
+      if (end > start) return el.value.slice(start, end);
+    }
+    return '';
+  }
+
+  function getSelectedText() {
+    var activeSelection = getActiveElementSelection();
+    if (activeSelection) return activeSelection;
+    var sel = window.getSelection();
+    return sel ? sel.toString() : '';
+  }
+
+  function isEditable(node) {
+    if (!node || node.nodeType !== 1) return false;
+    if (node.isContentEditable) return true;
+    var tag = node.tagName;
+    if (tag !== 'INPUT' && tag !== 'TEXTAREA') return false;
+    return !node.disabled && !node.readOnly;
+  }
+
   function sendToClipboard(text) {
     if (!text) return;
     var body = JSON.stringify({text: text});
-    var encoded = typeof btoa === 'function' ? btoa(unescape(encodeURIComponent(body))) : '';
+    var encoded = encodeBody(body);
     if (!encoded) return;
     fetch('dumb:///api/clipboard-set', {
       method: 'POST',
       headers: {'X-Dumber-Body': encoded}
     }).catch(function(){});
   }
+
+  function sendFocusSync() {
+    fetch('dumb:///api/focus-sync', {
+      method: 'POST',
+      headers: {'X-Dumber-Bridge-Action': 'focus-sync'}
+    }).catch(function(){});
+  }
+
   document.addEventListener('copy', function() {
-    var sel = window.getSelection();
-    if (sel) sendToClipboard(sel.toString());
+    var text = getSelectedText();
+    if (text) sendToClipboard(text);
   });
   document.addEventListener('cut', function() {
-    var sel = window.getSelection();
-    if (sel) sendToClipboard(sel.toString());
+    var text = getSelectedText();
+    if (text) sendToClipboard(text);
   });
+  document.addEventListener('focusin', function(event) {
+    if (event && event.isTrusted === false) return;
+    if (isEditable(event && event.target)) sendFocusSync();
+  }, true);
+  if (isEditable(document.activeElement)) sendFocusSync();
 })();`
 
 // contentInjector implements port.ContentInjector for the CEF engine.
@@ -533,9 +578,8 @@ func (ci *contentInjector) onLoadEnd(wv *WebView) {
 	ci.injectCSS(wv, "dumber-scrollbar", scrollbarCSS)
 	wv.RunJavaScript(context.Background(), scrollbarAutoHideJS)
 
-	// Clipboard copy/cut still needs a JS bridge in OSR mode so selected text can
-	// reach the system clipboard. Keep the lightweight fetch bridge for now while
-	// the native renderer bridge remains disabled.
+	// Clipboard copy/cut and editable focus sync still need a JS bridge in OSR
+	// mode while the native renderer bridge remains disabled.
 	wv.RunJavaScript(context.Background(), clipboardSelectionFetchBridgeJS)
 
 	// Video playback diagnostic — logs video element state changes.

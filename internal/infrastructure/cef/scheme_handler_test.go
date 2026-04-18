@@ -52,7 +52,7 @@ func TestNewDumbSchemeHandler_NilDefaultConfigPayloadFails(t *testing.T) {
 func TestReadBodyFromHeader_DecodesBase64Payload(t *testing.T) {
 	request := cefmocks.NewMockRequest(t)
 	encoded := base64.StdEncoding.EncodeToString([]byte(`{"text":"copied from js"}`))
-	request.EXPECT().GetHeaderByName("X-Dumber-Body").Return(encoded).Once()
+	request.EXPECT().GetHeaderByName(dumberBodyHeaderName).Return(encoded).Once()
 
 	body := readBodyFromHeader(request)
 
@@ -72,7 +72,7 @@ func TestSchemeHandler_APIClipboardSetPathWritesClipboardPayload(t *testing.T) {
 
 	request := cefmocks.NewMockRequest(t)
 	encoded := base64.StdEncoding.EncodeToString([]byte(`{"text":"copied from js"}`))
-	request.EXPECT().GetHeaderByName("X-Dumber-Body").Return(encoded).Once()
+	request.EXPECT().GetHeaderByName(dumberBodyHeaderName).Return(encoded).Once()
 
 	response := cefmocks.NewMockResponse(t)
 	response.EXPECT().SetStatus(int32(http.StatusOK)).Once()
@@ -86,4 +86,57 @@ func TestSchemeHandler_APIClipboardSetPathWritesClipboardPayload(t *testing.T) {
 	handler.GetResponseHeaders(response, unsafe.Pointer(&responseLength), 0)
 	require.Positive(t, responseLength)
 	require.Equal(t, "copied from js", copied)
+}
+
+func TestSchemeHandler_APIFocusSyncRejectsRequestsWithoutTrustedBridgeHeader(t *testing.T) {
+	oldNewResourceHandler := cefNewResourceHandler
+	cefNewResourceHandler = func(impl purecef.ResourceHandler) purecef.ResourceHandler { return impl }
+	defer func() { cefNewResourceHandler = oldNewResourceHandler }()
+
+	h, err := newDumbSchemeHandler(context.Background(), nil, nil, func() ([]byte, error) { return []byte(`{}`), nil }, func() ([]byte, error) { return []byte(`{}`), nil })
+	require.NoError(t, err)
+
+	request := cefmocks.NewMockRequest(t)
+	request.EXPECT().GetHeaderByName(dumberBridgeActionHeaderName).Return("").Once()
+
+	response := cefmocks.NewMockResponse(t)
+	response.EXPECT().SetStatus(int32(http.StatusForbidden)).Once()
+	response.EXPECT().SetStatusText(http.StatusText(http.StatusForbidden)).Once()
+	response.EXPECT().SetMimeType("application/json").Once()
+
+	handler := h.handleAPI(nil, http.MethodPost, "/api/focus-sync", request)
+	require.NotNil(t, handler)
+
+	var responseLength int64
+	handler.GetResponseHeaders(response, unsafe.Pointer(&responseLength), 0)
+	require.Positive(t, responseLength)
+}
+
+func TestSchemeHandler_APIFocusSyncInvokesEditableFocusCallback(t *testing.T) {
+	oldNewResourceHandler := cefNewResourceHandler
+	cefNewResourceHandler = func(impl purecef.ResourceHandler) purecef.ResourceHandler { return impl }
+	defer func() { cefNewResourceHandler = oldNewResourceHandler }()
+
+	h, err := newDumbSchemeHandler(context.Background(), nil, nil, func() ([]byte, error) { return []byte(`{}`), nil }, func() ([]byte, error) { return []byte(`{}`), nil })
+	require.NoError(t, err)
+
+	browser := cefmocks.NewMockBrowser(t)
+	var focused purecef.Browser
+	h.onEditableFocus = func(got purecef.Browser) { focused = got }
+
+	request := cefmocks.NewMockRequest(t)
+	request.EXPECT().GetHeaderByName(dumberBridgeActionHeaderName).Return(dumberBridgeActionFocusSync).Once()
+
+	response := cefmocks.NewMockResponse(t)
+	response.EXPECT().SetStatus(int32(http.StatusOK)).Once()
+	response.EXPECT().SetStatusText(http.StatusText(http.StatusOK)).Once()
+	response.EXPECT().SetMimeType("application/json").Once()
+
+	handler := h.handleAPI(browser, http.MethodPost, "/api/focus-sync", request)
+	require.NotNil(t, handler)
+
+	var responseLength int64
+	handler.GetResponseHeaders(response, unsafe.Pointer(&responseLength), 0)
+	require.Positive(t, responseLength)
+	require.Same(t, browser, focused)
 }

@@ -172,7 +172,7 @@ func (h *dumbSchemeHandler) handleAPI(browser purecef.Browser, method, path stri
 		return h.handleClipboardSet(request)
 
 	case path == "/api/focus-sync" && strings.EqualFold(method, "POST"):
-		return h.handleFocusSync(browser)
+		return h.handleFocusSync(request, browser)
 
 	default:
 		return h.newJSONResourceHandler(http.StatusNotFound, map[string]string{"error": "not found"})
@@ -249,7 +249,12 @@ func (h *dumbSchemeHandler) handleConfigAPI(build func() ([]byte, error)) purece
 
 // handleClipboardSet receives copied text from JS copy/cut events and writes
 // it to the system clipboard via the engine callback.
-const maxClipboardBytes = 10 << 20 // 10 MB
+const (
+	maxClipboardBytes            = 10 << 20 // 10 MB
+	dumberBodyHeaderName         = "X-Dumber-Body"
+	dumberBridgeActionHeaderName = "X-Dumber-Bridge-Action"
+	dumberBridgeActionFocusSync  = "focus-sync"
+)
 
 func (h *dumbSchemeHandler) handleClipboardSet(request purecef.Request) purecef.ResourceHandler {
 	h.logger.Debug().Msg("cef: /api/clipboard-set request received")
@@ -283,7 +288,15 @@ func (h *dumbSchemeHandler) handleClipboardSet(request purecef.Request) purecef.
 	return h.newJSONResourceHandler(http.StatusOK, map[string]any{"ok": true})
 }
 
-func (h *dumbSchemeHandler) handleFocusSync(browser purecef.Browser) purecef.ResourceHandler {
+func (h *dumbSchemeHandler) handleFocusSync(request purecef.Request, browser purecef.Browser) purecef.ResourceHandler {
+	bridgeAction := ""
+	if request != nil {
+		bridgeAction = strings.TrimSpace(request.GetHeaderByName(dumberBridgeActionHeaderName))
+	}
+	if !strings.EqualFold(bridgeAction, dumberBridgeActionFocusSync) {
+		h.logger.Warn().Msg("cef: focus-sync — rejected request without trusted bridge action header")
+		return h.newJSONResourceHandler(http.StatusForbidden, map[string]string{"error": "forbidden"})
+	}
 	if browser == nil {
 		h.logger.Debug().Msg("cef: focus-sync — browser unavailable")
 		return h.newJSONResourceHandler(http.StatusBadRequest, map[string]string{"error": "browser unavailable"})
@@ -561,7 +574,7 @@ func (rh *staticResourceHandler) Cancel() {}
 // The JS bridge base64-encodes the JSON body into this header to avoid the
 // purego-cef PostData element wrapping limitation (wrapPostDataElement is unexported).
 func readBodyFromHeader(request purecef.Request) []byte {
-	encoded := request.GetHeaderByName("X-Dumber-Body")
+	encoded := request.GetHeaderByName(dumberBodyHeaderName)
 	if encoded == "" {
 		return nil
 	}

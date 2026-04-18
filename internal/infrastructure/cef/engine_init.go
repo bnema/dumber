@@ -419,8 +419,8 @@ func findHelperBinary() string {
 }
 
 const (
-	dirPerm  = 0o755
-	filePerm = 0o644
+	dirPerm  = 0o700
+	filePerm = 0o600
 )
 
 func prepareCEFLogFile(profile runtimeprofile.Profile, logFile string) (string, error) {

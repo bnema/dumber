@@ -223,10 +223,6 @@ type rendererBridgeProcessHandler struct {
 	bridgeHandler purecef.V8Handler
 }
 
-func newRendererBridgeProcessHandler() purecef.RenderProcessHandler {
-	return &rendererBridgeProcessHandler{bridgeHandler: &rendererBridgeV8Handler{}}
-}
-
 func (h *rendererBridgeProcessHandler) ensureExtensionRegistered() {
 	if h == nil {
 		return
