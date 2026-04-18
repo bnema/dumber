@@ -178,10 +178,12 @@ func (f *WebViewFactory) configureInitialBrowserCreation(
 				log.Debug().Msg("cef: skipping browser creation for destroyed webview")
 				return
 			}
-			initialURL := wv.pendingNavigationURI()
-			if initialURL == "" {
-				initialURL = "about:blank"
-			}
+			pendingURL := wv.pendingNavigationURI()
+			// Always bootstrap OSR browsers on about:blank first. Starting directly on
+			// the target URL can race host visibility/focus setup and strand the
+			// renderer without an initial paint. We replay pending navigation from
+			// OnAfterCreated once the host is fully wired.
+			initialURL := "about:blank"
 			result := purecef.BrowserHostCreateBrowser(
 				pc.windowInfo,
 				pc.client,
@@ -190,7 +192,10 @@ func (f *WebViewFactory) configureInitialBrowserCreation(
 				nil, // extraInfo
 				nil, // requestContext
 			)
-			log.Debug().Str("initial_url", initialURL).Msg("cef: BrowserHostCreateBrowser initial URL")
+			log.Debug().
+				Str("initial_url", initialURL).
+				Str("pending_url", pendingURL).
+				Msg("cef: BrowserHostCreateBrowser initial URL")
 			if f.engine != nil {
 				f.engine.recordBrowserCreateRequest(w, h, result)
 			}

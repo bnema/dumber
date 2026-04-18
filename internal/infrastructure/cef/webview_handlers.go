@@ -699,8 +699,13 @@ func (h *handlerSet) OnAfterCreated(browser purecef.Browser) {
 		h.wv.engine.registerWebView(h.wv)
 	}
 	host := browser.GetHost()
+	if host == nil {
+		log.Warn().Msg("cef: OnAfterCreated returned nil host")
+		return
+	}
 
 	shouldSyncFocus := false
+	hasPendingNavigation := false
 	h.wv.mu.Lock()
 	h.wv.browser = browser
 	h.wv.host = host
@@ -710,18 +715,30 @@ func (h *handlerSet) OnAfterCreated(browser purecef.Browser) {
 	}
 
 	// Mark browser as visible — CEF OSR starts in hidden state and suppresses
-	// UI elements like the text caret until explicitly told the browser is shown.
+	// painting/caret updates until explicitly told the browser is shown.
 	host.WasHidden(0)
 
 	// If GTK focus entered before the browser existed, reassert browser focus
 	// now. Otherwise CEF may stay internally unfocused and suppress caret paint.
 	if h.wv.input != nil {
 		shouldSyncFocus = h.wv.input.hasGTKFocus()
+		if !shouldSyncFocus && h.wv.input.glArea != nil {
+			shouldSyncFocus = h.wv.input.glArea.HasFocus()
+		}
 	}
+	hasPendingNavigation = strings.TrimSpace(h.wv.pendingURI) != ""
 
 	h.wv.mu.Unlock()
 	if shouldSyncFocus {
 		syncWindowlessBrowserFocus(host)
+	} else {
+		// Request an initial OSR frame even before the first real navigation
+		// commits. This restores the about:blank warm-up paint that the stable
+		// startup path relied on and prevents the render pipeline from staying idle.
+		host.Invalidate(purecef.PaintElementTypePetView)
+	}
+	if hasPendingNavigation {
+		h.wv.schedulePendingNavigationReplay(browser, 0)
 	}
 
 	h.wv.scheduleStartBeginFrameLoop()

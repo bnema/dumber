@@ -59,7 +59,7 @@ func TestReadBodyFromHeader_DecodesBase64Payload(t *testing.T) {
 	require.JSONEq(t, `{"text":"copied from js"}`, string(body))
 }
 
-func TestSchemeHandler_APIClipboardSetPathReturnsNotFound(t *testing.T) {
+func TestSchemeHandler_APIClipboardSetPathWritesClipboardPayload(t *testing.T) {
 	oldNewResourceHandler := cefNewResourceHandler
 	cefNewResourceHandler = func(impl purecef.ResourceHandler) purecef.ResourceHandler { return impl }
 	defer func() { cefNewResourceHandler = oldNewResourceHandler }()
@@ -67,15 +67,23 @@ func TestSchemeHandler_APIClipboardSetPathReturnsNotFound(t *testing.T) {
 	h, err := newDumbSchemeHandler(context.Background(), nil, nil, func() ([]byte, error) { return []byte(`{}`), nil }, func() ([]byte, error) { return []byte(`{}`), nil })
 	require.NoError(t, err)
 
+	var copied string
+	h.onClipboardSet = func(text string) { copied = text }
+
+	request := cefmocks.NewMockRequest(t)
+	encoded := base64.StdEncoding.EncodeToString([]byte(`{"text":"copied from js"}`))
+	request.EXPECT().GetHeaderByName("X-Dumber-Body").Return(encoded).Once()
+
 	response := cefmocks.NewMockResponse(t)
-	response.EXPECT().SetStatus(int32(http.StatusNotFound)).Once()
-	response.EXPECT().SetStatusText(http.StatusText(http.StatusNotFound)).Once()
+	response.EXPECT().SetStatus(int32(http.StatusOK)).Once()
+	response.EXPECT().SetStatusText(http.StatusText(http.StatusOK)).Once()
 	response.EXPECT().SetMimeType("application/json").Once()
 
-	handler := h.handleAPI(nil, http.MethodPost, "/api/clipboard-set", nil)
+	handler := h.handleAPI(nil, http.MethodPost, "/api/clipboard-set", request)
 	require.NotNil(t, handler)
 
 	var responseLength int64
 	handler.GetResponseHeaders(response, unsafe.Pointer(&responseLength), 0)
 	require.Positive(t, responseLength)
+	require.Equal(t, "copied from js", copied)
 }
