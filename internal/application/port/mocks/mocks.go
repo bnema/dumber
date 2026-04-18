@@ -11,6 +11,7 @@ import (
 	"io"
 	"time"
 
+	"github.com/bnema/dumber/internal/application/dto"
 	"github.com/bnema/dumber/internal/application/port"
 	"github.com/bnema/dumber/internal/domain/entity"
 	"github.com/rs/zerolog"
@@ -758,7 +759,7 @@ func (_m *MockClipboardTextOrchestrator) EXPECT() *MockClipboardTextOrchestrator
 }
 
 // HandleExplicitCopy provides a mock function for the type MockClipboardTextOrchestrator
-func (_mock *MockClipboardTextOrchestrator) HandleExplicitCopy(ctx context.Context, input port.ExplicitClipboardInput) error {
+func (_mock *MockClipboardTextOrchestrator) HandleExplicitCopy(ctx context.Context, input dto.ExplicitClipboardInput) error {
 	ret := _mock.Called(ctx, input)
 
 	if len(ret) == 0 {
@@ -766,7 +767,7 @@ func (_mock *MockClipboardTextOrchestrator) HandleExplicitCopy(ctx context.Conte
 	}
 
 	var r0 error
-	if returnFunc, ok := ret.Get(0).(func(context.Context, port.ExplicitClipboardInput) error); ok {
+	if returnFunc, ok := ret.Get(0).(func(context.Context, dto.ExplicitClipboardInput) error); ok {
 		r0 = returnFunc(ctx, input)
 	} else {
 		r0 = ret.Error(0)
@@ -781,20 +782,20 @@ type MockClipboardTextOrchestrator_HandleExplicitCopy_Call struct {
 
 // HandleExplicitCopy is a helper method to define mock.On call
 //   - ctx context.Context
-//   - input port.ExplicitClipboardInput
+//   - input dto.ExplicitClipboardInput
 func (_e *MockClipboardTextOrchestrator_Expecter) HandleExplicitCopy(ctx interface{}, input interface{}) *MockClipboardTextOrchestrator_HandleExplicitCopy_Call {
 	return &MockClipboardTextOrchestrator_HandleExplicitCopy_Call{Call: _e.mock.On("HandleExplicitCopy", ctx, input)}
 }
 
-func (_c *MockClipboardTextOrchestrator_HandleExplicitCopy_Call) Run(run func(ctx context.Context, input port.ExplicitClipboardInput)) *MockClipboardTextOrchestrator_HandleExplicitCopy_Call {
+func (_c *MockClipboardTextOrchestrator_HandleExplicitCopy_Call) Run(run func(ctx context.Context, input dto.ExplicitClipboardInput)) *MockClipboardTextOrchestrator_HandleExplicitCopy_Call {
 	_c.Call.Run(func(args mock.Arguments) {
 		var arg0 context.Context
 		if args[0] != nil {
 			arg0 = args[0].(context.Context)
 		}
-		var arg1 port.ExplicitClipboardInput
+		var arg1 dto.ExplicitClipboardInput
 		if args[1] != nil {
-			arg1 = args[1].(port.ExplicitClipboardInput)
+			arg1 = args[1].(dto.ExplicitClipboardInput)
 		}
 		run(
 			arg0,
@@ -809,13 +810,13 @@ func (_c *MockClipboardTextOrchestrator_HandleExplicitCopy_Call) Return(err erro
 	return _c
 }
 
-func (_c *MockClipboardTextOrchestrator_HandleExplicitCopy_Call) RunAndReturn(run func(ctx context.Context, input port.ExplicitClipboardInput) error) *MockClipboardTextOrchestrator_HandleExplicitCopy_Call {
+func (_c *MockClipboardTextOrchestrator_HandleExplicitCopy_Call) RunAndReturn(run func(ctx context.Context, input dto.ExplicitClipboardInput) error) *MockClipboardTextOrchestrator_HandleExplicitCopy_Call {
 	_c.Call.Return(run)
 	return _c
 }
 
 // HandleSelectionUpdate provides a mock function for the type MockClipboardTextOrchestrator
-func (_mock *MockClipboardTextOrchestrator) HandleSelectionUpdate(ctx context.Context, input port.SelectionClipboardInput) error {
+func (_mock *MockClipboardTextOrchestrator) HandleSelectionUpdate(ctx context.Context, input dto.SelectionClipboardInput) error {
 	ret := _mock.Called(ctx, input)
 
 	if len(ret) == 0 {
@@ -823,7 +824,7 @@ func (_mock *MockClipboardTextOrchestrator) HandleSelectionUpdate(ctx context.Co
 	}
 
 	var r0 error
-	if returnFunc, ok := ret.Get(0).(func(context.Context, port.SelectionClipboardInput) error); ok {
+	if returnFunc, ok := ret.Get(0).(func(context.Context, dto.SelectionClipboardInput) error); ok {
 		r0 = returnFunc(ctx, input)
 	} else {
 		r0 = ret.Error(0)
@@ -838,20 +839,20 @@ type MockClipboardTextOrchestrator_HandleSelectionUpdate_Call struct {
 
 // HandleSelectionUpdate is a helper method to define mock.On call
 //   - ctx context.Context
-//   - input port.SelectionClipboardInput
+//   - input dto.SelectionClipboardInput
 func (_e *MockClipboardTextOrchestrator_Expecter) HandleSelectionUpdate(ctx interface{}, input interface{}) *MockClipboardTextOrchestrator_HandleSelectionUpdate_Call {
 	return &MockClipboardTextOrchestrator_HandleSelectionUpdate_Call{Call: _e.mock.On("HandleSelectionUpdate", ctx, input)}
 }
 
-func (_c *MockClipboardTextOrchestrator_HandleSelectionUpdate_Call) Run(run func(ctx context.Context, input port.SelectionClipboardInput)) *MockClipboardTextOrchestrator_HandleSelectionUpdate_Call {
+func (_c *MockClipboardTextOrchestrator_HandleSelectionUpdate_Call) Run(run func(ctx context.Context, input dto.SelectionClipboardInput)) *MockClipboardTextOrchestrator_HandleSelectionUpdate_Call {
 	_c.Call.Run(func(args mock.Arguments) {
 		var arg0 context.Context
 		if args[0] != nil {
 			arg0 = args[0].(context.Context)
 		}
-		var arg1 port.SelectionClipboardInput
+		var arg1 dto.SelectionClipboardInput
 		if args[1] != nil {
-			arg1 = args[1].(port.SelectionClipboardInput)
+			arg1 = args[1].(dto.SelectionClipboardInput)
 		}
 		run(
 			arg0,
@@ -866,7 +867,7 @@ func (_c *MockClipboardTextOrchestrator_HandleSelectionUpdate_Call) Return(err e
 	return _c
 }
 
-func (_c *MockClipboardTextOrchestrator_HandleSelectionUpdate_Call) RunAndReturn(run func(ctx context.Context, input port.SelectionClipboardInput) error) *MockClipboardTextOrchestrator_HandleSelectionUpdate_Call {
+func (_c *MockClipboardTextOrchestrator_HandleSelectionUpdate_Call) RunAndReturn(run func(ctx context.Context, input dto.SelectionClipboardInput) error) *MockClipboardTextOrchestrator_HandleSelectionUpdate_Call {
 	_c.Call.Return(run)
 	return _c
 }

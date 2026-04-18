@@ -7,7 +7,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/bnema/dumber/internal/application/port"
+	"github.com/bnema/dumber/internal/application/dto"
 	portmocks "github.com/bnema/dumber/internal/application/port/mocks"
 	"github.com/bnema/dumber/internal/domain/entity"
 )
@@ -85,7 +85,7 @@ func TestClipboardTextOrchestrator_HandleSelectionUpdate_AutoCopyDisabledDoesNot
 		toastCalls = append(toastCalls, textLen)
 	})
 
-	if err := uc.HandleSelectionUpdate(ctx, port.SelectionClipboardInput{Text: "hello", SourceEngine: port.ClipboardSourceCEF}); err != nil {
+	if err := uc.HandleSelectionUpdate(ctx, dto.SelectionClipboardInput{Text: "hello", SourceEngine: dto.ClipboardSourceCEF}); err != nil {
 		t.Fatalf("HandleSelectionUpdate() error = %v, want nil", err)
 	}
 
@@ -106,19 +106,19 @@ func TestClipboardTextOrchestrator_HandleSelectionUpdate_WritesOncePerUniqueSele
 		toastCalls = append(toastCalls, textLen)
 	})
 
-	if err := uc.HandleSelectionUpdate(ctx, port.SelectionClipboardInput{Text: "é", SourceEngine: port.ClipboardSourceCEF}); err != nil {
+	if err := uc.HandleSelectionUpdate(ctx, dto.SelectionClipboardInput{Text: "é", SourceEngine: dto.ClipboardSourceCEF}); err != nil {
 		t.Fatalf("HandleSelectionUpdate(short) error = %v, want nil", err)
 	}
-	if err := uc.HandleSelectionUpdate(ctx, port.SelectionClipboardInput{Text: "éé", SourceEngine: port.ClipboardSourceCEF}); err != nil {
+	if err := uc.HandleSelectionUpdate(ctx, dto.SelectionClipboardInput{Text: "éé", SourceEngine: dto.ClipboardSourceCEF}); err != nil {
 		t.Fatalf("HandleSelectionUpdate(first) error = %v, want nil", err)
 	}
-	if err := uc.HandleSelectionUpdate(ctx, port.SelectionClipboardInput{Text: "éé", SourceEngine: port.ClipboardSourceCEF}); err != nil {
+	if err := uc.HandleSelectionUpdate(ctx, dto.SelectionClipboardInput{Text: "éé", SourceEngine: dto.ClipboardSourceCEF}); err != nil {
 		t.Fatalf("HandleSelectionUpdate(duplicate) error = %v, want nil", err)
 	}
-	if err := uc.HandleSelectionUpdate(ctx, port.SelectionClipboardInput{Text: "", SourceEngine: port.ClipboardSourceCEF}); err != nil {
+	if err := uc.HandleSelectionUpdate(ctx, dto.SelectionClipboardInput{Text: "", SourceEngine: dto.ClipboardSourceCEF}); err != nil {
 		t.Fatalf("HandleSelectionUpdate(reset) error = %v, want nil", err)
 	}
-	if err := uc.HandleSelectionUpdate(ctx, port.SelectionClipboardInput{Text: "éé", SourceEngine: port.ClipboardSourceCEF}); err != nil {
+	if err := uc.HandleSelectionUpdate(ctx, dto.SelectionClipboardInput{Text: "éé", SourceEngine: dto.ClipboardSourceCEF}); err != nil {
 		t.Fatalf("HandleSelectionUpdate(after reset) error = %v, want nil", err)
 	}
 
@@ -136,10 +136,10 @@ func TestClipboardTextOrchestrator_HandleSelectionUpdate_DoesNotDedupAcrossEngin
 
 	uc := NewClipboardTextOrchestrator(clipboard, autoCopyConfig, nil)
 
-	if err := uc.HandleSelectionUpdate(ctx, port.SelectionClipboardInput{Text: "shared", SourceEngine: port.ClipboardSourceWebKit}); err != nil {
+	if err := uc.HandleSelectionUpdate(ctx, dto.SelectionClipboardInput{Text: "shared", SourceEngine: dto.ClipboardSourceWebKit}); err != nil {
 		t.Fatalf("HandleSelectionUpdate(webkit) error = %v, want nil", err)
 	}
-	if err := uc.HandleSelectionUpdate(ctx, port.SelectionClipboardInput{Text: "shared", SourceEngine: port.ClipboardSourceCEF}); err != nil {
+	if err := uc.HandleSelectionUpdate(ctx, dto.SelectionClipboardInput{Text: "shared", SourceEngine: dto.ClipboardSourceCEF}); err != nil {
 		t.Fatalf("HandleSelectionUpdate(cef) error = %v, want nil", err)
 	}
 }
@@ -153,10 +153,10 @@ func TestClipboardTextOrchestrator_HandleSelectionUpdate_DoesNotDedupAcrossViews
 
 	uc := NewClipboardTextOrchestrator(clipboard, autoCopyConfig, nil)
 
-	if err := uc.HandleSelectionUpdate(ctx, port.SelectionClipboardInput{Text: "shared", SourceEngine: port.ClipboardSourceCEF, ViewID: 1}); err != nil {
+	if err := uc.HandleSelectionUpdate(ctx, dto.SelectionClipboardInput{Text: "shared", SourceEngine: dto.ClipboardSourceCEF, ViewID: 1}); err != nil {
 		t.Fatalf("HandleSelectionUpdate(view 1) error = %v, want nil", err)
 	}
-	if err := uc.HandleSelectionUpdate(ctx, port.SelectionClipboardInput{Text: "shared", SourceEngine: port.ClipboardSourceCEF, ViewID: 2}); err != nil {
+	if err := uc.HandleSelectionUpdate(ctx, dto.SelectionClipboardInput{Text: "shared", SourceEngine: dto.ClipboardSourceCEF, ViewID: 2}); err != nil {
 		t.Fatalf("HandleSelectionUpdate(view 2) error = %v, want nil", err)
 	}
 }
@@ -176,15 +176,15 @@ func TestClipboardTextOrchestrator_HandleExplicitCopy_DeduplicatesIdenticalPaylo
 	now := time.Unix(0, 0)
 	uc.now = func() time.Time { return now }
 
-	if err := uc.HandleExplicitCopy(ctx, port.ExplicitClipboardInput{Text: "éé", SourceEngine: port.ClipboardSourceWebKit, Action: "copy"}); err != nil {
+	if err := uc.HandleExplicitCopy(ctx, dto.ExplicitClipboardInput{Text: "éé", SourceEngine: dto.ClipboardSourceWebKit, Action: "copy"}); err != nil {
 		t.Fatalf("HandleExplicitCopy(first) error = %v, want nil", err)
 	}
 	now = now.Add(100 * time.Millisecond)
-	if err := uc.HandleExplicitCopy(ctx, port.ExplicitClipboardInput{Text: "éé", SourceEngine: port.ClipboardSourceWebKit, Action: "copy"}); err != nil {
+	if err := uc.HandleExplicitCopy(ctx, dto.ExplicitClipboardInput{Text: "éé", SourceEngine: dto.ClipboardSourceWebKit, Action: "copy"}); err != nil {
 		t.Fatalf("HandleExplicitCopy(duplicate) error = %v, want nil", err)
 	}
 	now = now.Add(151 * time.Millisecond)
-	if err := uc.HandleExplicitCopy(ctx, port.ExplicitClipboardInput{Text: "éé", SourceEngine: port.ClipboardSourceWebKit, Action: "copy"}); err != nil {
+	if err := uc.HandleExplicitCopy(ctx, dto.ExplicitClipboardInput{Text: "éé", SourceEngine: dto.ClipboardSourceWebKit, Action: "copy"}); err != nil {
 		t.Fatalf("HandleExplicitCopy(after window) error = %v, want nil", err)
 	}
 
@@ -203,7 +203,7 @@ func TestClipboardTextOrchestrator_HandleExplicitCopy_NativeHandledSkipsBackendW
 		toastCalls = append(toastCalls, textLen)
 	})
 
-	if err := uc.HandleExplicitCopy(ctx, port.ExplicitClipboardInput{Text: "shared", SourceEngine: port.ClipboardSourceWebKit, Action: "copy", NativeHandled: true}); err != nil {
+	if err := uc.HandleExplicitCopy(ctx, dto.ExplicitClipboardInput{Text: "shared", SourceEngine: dto.ClipboardSourceWebKit, Action: "copy", NativeHandled: true}); err != nil {
 		t.Fatalf("HandleExplicitCopy() error = %v, want nil", err)
 	}
 
@@ -215,6 +215,26 @@ func TestClipboardTextOrchestrator_HandleExplicitCopy_NativeHandledSkipsBackendW
 	}
 	if got := len(uc.lastExplicit); got != 1 {
 		t.Fatalf("lastExplicit entries = %d, want 1", got)
+	}
+}
+
+func TestClipboardTextOrchestrator_HandleExplicitCopy_DoesNotDedupDifferentActionsWithinWindow(t *testing.T) {
+	ctx := context.Background()
+	clipboard := portmocks.NewMockClipboard(t)
+	autoCopyConfig := &staticAutoCopyConfig{enabled: true}
+
+	clipboard.EXPECT().WriteText(ctx, "shared").Return(nil).Times(2)
+
+	uc := NewClipboardTextOrchestrator(clipboard, autoCopyConfig, nil)
+	now := time.Unix(0, 0)
+	uc.now = func() time.Time { return now }
+
+	if err := uc.HandleExplicitCopy(ctx, dto.ExplicitClipboardInput{Text: "shared", SourceEngine: dto.ClipboardSourceCEF, ViewID: 1, Action: "copy"}); err != nil {
+		t.Fatalf("HandleExplicitCopy(copy) error = %v, want nil", err)
+	}
+	now = now.Add(100 * time.Millisecond)
+	if err := uc.HandleExplicitCopy(ctx, dto.ExplicitClipboardInput{Text: "shared", SourceEngine: dto.ClipboardSourceCEF, ViewID: 1, Action: "cut"}); err != nil {
+		t.Fatalf("HandleExplicitCopy(cut) error = %v, want nil", err)
 	}
 }
 
@@ -233,11 +253,11 @@ func TestClipboardTextOrchestrator_HandleExplicitCopy_DeduplicatesRecentAutoCopy
 	now := time.Unix(0, 0)
 	uc.now = func() time.Time { return now }
 
-	if err := uc.HandleSelectionUpdate(ctx, port.SelectionClipboardInput{Text: "shared", SourceEngine: port.ClipboardSourceCEF, ViewID: 1}); err != nil {
+	if err := uc.HandleSelectionUpdate(ctx, dto.SelectionClipboardInput{Text: "shared", SourceEngine: dto.ClipboardSourceCEF, ViewID: 1}); err != nil {
 		t.Fatalf("HandleSelectionUpdate() error = %v, want nil", err)
 	}
 	now = now.Add(100 * time.Millisecond)
-	if err := uc.HandleExplicitCopy(ctx, port.ExplicitClipboardInput{Text: "shared", SourceEngine: port.ClipboardSourceCEF, ViewID: 1, Action: "cut"}); err != nil {
+	if err := uc.HandleExplicitCopy(ctx, dto.ExplicitClipboardInput{Text: "shared", SourceEngine: dto.ClipboardSourceCEF, ViewID: 1, Action: "copy"}); err != nil {
 		t.Fatalf("HandleExplicitCopy() error = %v, want nil", err)
 	}
 
@@ -259,10 +279,10 @@ func TestClipboardTextOrchestrator_HandleExplicitCopy_DoesNotDedupAcrossEngines(
 	uc := NewClipboardTextOrchestrator(clipboard, autoCopyConfig, nil)
 	uc.now = func() time.Time { return time.Unix(0, 0) }
 
-	if err := uc.HandleExplicitCopy(ctx, port.ExplicitClipboardInput{Text: "shared", SourceEngine: port.ClipboardSourceWebKit, Action: "copy"}); err != nil {
+	if err := uc.HandleExplicitCopy(ctx, dto.ExplicitClipboardInput{Text: "shared", SourceEngine: dto.ClipboardSourceWebKit, Action: "copy"}); err != nil {
 		t.Fatalf("HandleExplicitCopy(webkit) error = %v, want nil", err)
 	}
-	if err := uc.HandleExplicitCopy(ctx, port.ExplicitClipboardInput{Text: "shared", SourceEngine: port.ClipboardSourceCEF, Action: "copy"}); err != nil {
+	if err := uc.HandleExplicitCopy(ctx, dto.ExplicitClipboardInput{Text: "shared", SourceEngine: dto.ClipboardSourceCEF, Action: "copy"}); err != nil {
 		t.Fatalf("HandleExplicitCopy(cef) error = %v, want nil", err)
 	}
 }
@@ -277,10 +297,10 @@ func TestClipboardTextOrchestrator_HandleExplicitCopy_DoesNotDedupAcrossViews(t 
 	uc := NewClipboardTextOrchestrator(clipboard, autoCopyConfig, nil)
 	uc.now = func() time.Time { return time.Unix(0, 0) }
 
-	if err := uc.HandleExplicitCopy(ctx, port.ExplicitClipboardInput{Text: "shared", SourceEngine: port.ClipboardSourceCEF, ViewID: 1, Action: "copy"}); err != nil {
+	if err := uc.HandleExplicitCopy(ctx, dto.ExplicitClipboardInput{Text: "shared", SourceEngine: dto.ClipboardSourceCEF, ViewID: 1, Action: "copy"}); err != nil {
 		t.Fatalf("HandleExplicitCopy(view 1) error = %v, want nil", err)
 	}
-	if err := uc.HandleExplicitCopy(ctx, port.ExplicitClipboardInput{Text: "shared", SourceEngine: port.ClipboardSourceCEF, ViewID: 2, Action: "copy"}); err != nil {
+	if err := uc.HandleExplicitCopy(ctx, dto.ExplicitClipboardInput{Text: "shared", SourceEngine: dto.ClipboardSourceCEF, ViewID: 2, Action: "copy"}); err != nil {
 		t.Fatalf("HandleExplicitCopy(view 2) error = %v, want nil", err)
 	}
 }
@@ -299,7 +319,7 @@ func TestClipboardTextOrchestrator_HandleExplicitCopy_KeepsBoundedStatePerScope(
 	for i, text := range []string{"one", "two", "three"} {
 		advancedTime := time.Unix(0, 0).Add(time.Duration(i) * time.Second)
 		uc.now = func() time.Time { return advancedTime }
-		if err := uc.HandleExplicitCopy(ctx, port.ExplicitClipboardInput{Text: text, SourceEngine: port.ClipboardSourceCEF, ViewID: 7, Action: "copy"}); err != nil {
+		if err := uc.HandleExplicitCopy(ctx, dto.ExplicitClipboardInput{Text: text, SourceEngine: dto.ClipboardSourceCEF, ViewID: 7, Action: "copy"}); err != nil {
 			t.Fatalf("HandleExplicitCopy(%q) error = %v, want nil", text, err)
 		}
 	}
@@ -318,15 +338,15 @@ func TestClipboardTextOrchestrator_HandleSelectionUpdate_ReenableClearsDedupStat
 
 	uc := NewClipboardTextOrchestrator(clipboard, autoCopyConfig, nil)
 
-	if err := uc.HandleSelectionUpdate(ctx, port.SelectionClipboardInput{Text: "toggle", SourceEngine: port.ClipboardSourceCEF, ViewID: 1}); err != nil {
+	if err := uc.HandleSelectionUpdate(ctx, dto.SelectionClipboardInput{Text: "toggle", SourceEngine: dto.ClipboardSourceCEF, ViewID: 1}); err != nil {
 		t.Fatalf("HandleSelectionUpdate(enabled) error = %v, want nil", err)
 	}
 	autoCopyConfig.enabled = false
-	if err := uc.HandleSelectionUpdate(ctx, port.SelectionClipboardInput{Text: "toggle", SourceEngine: port.ClipboardSourceCEF, ViewID: 1}); err != nil {
+	if err := uc.HandleSelectionUpdate(ctx, dto.SelectionClipboardInput{Text: "toggle", SourceEngine: dto.ClipboardSourceCEF, ViewID: 1}); err != nil {
 		t.Fatalf("HandleSelectionUpdate(disabled) error = %v, want nil", err)
 	}
 	autoCopyConfig.enabled = true
-	if err := uc.HandleSelectionUpdate(ctx, port.SelectionClipboardInput{Text: "toggle", SourceEngine: port.ClipboardSourceCEF, ViewID: 1}); err != nil {
+	if err := uc.HandleSelectionUpdate(ctx, dto.SelectionClipboardInput{Text: "toggle", SourceEngine: dto.ClipboardSourceCEF, ViewID: 1}); err != nil {
 		t.Fatalf("HandleSelectionUpdate(reenabled) error = %v, want nil", err)
 	}
 }
@@ -342,7 +362,7 @@ func TestClipboardTextOrchestrator_HandleExplicitCopy_ClipboardFailureDoesNotToa
 		toastCalls = append(toastCalls, textLen)
 	})
 
-	err := uc.HandleExplicitCopy(ctx, port.ExplicitClipboardInput{Text: "éé", SourceEngine: port.ClipboardSourceCEF, Action: "copy"})
+	err := uc.HandleExplicitCopy(ctx, dto.ExplicitClipboardInput{Text: "éé", SourceEngine: dto.ClipboardSourceCEF, Action: "copy"})
 	if err == nil {
 		t.Fatal("HandleExplicitCopy() error = nil, want non-nil")
 	}
@@ -362,13 +382,13 @@ func TestClipboardTextOrchestrator_HandleSelectionUpdate_DedupIsAtomic(t *testin
 
 	done1 := make(chan error, 1)
 	go func() {
-		done1 <- uc.HandleSelectionUpdate(ctx, port.SelectionClipboardInput{Text: "éé", SourceEngine: port.ClipboardSourceCEF})
+		done1 <- uc.HandleSelectionUpdate(ctx, dto.SelectionClipboardInput{Text: "éé", SourceEngine: dto.ClipboardSourceCEF})
 	}()
 	<-clipboard.started
 
 	done2 := make(chan error, 1)
 	go func() {
-		done2 <- uc.HandleSelectionUpdate(ctx, port.SelectionClipboardInput{Text: "éé", SourceEngine: port.ClipboardSourceCEF})
+		done2 <- uc.HandleSelectionUpdate(ctx, dto.SelectionClipboardInput{Text: "éé", SourceEngine: dto.ClipboardSourceCEF})
 	}()
 
 	select {
@@ -406,13 +426,13 @@ func TestClipboardTextOrchestrator_HandleExplicitCopy_DedupIsAtomic(t *testing.T
 
 	done1 := make(chan error, 1)
 	go func() {
-		done1 <- uc.HandleExplicitCopy(ctx, port.ExplicitClipboardInput{Text: "éé", SourceEngine: port.ClipboardSourceWebKit, Action: "copy"})
+		done1 <- uc.HandleExplicitCopy(ctx, dto.ExplicitClipboardInput{Text: "éé", SourceEngine: dto.ClipboardSourceWebKit, Action: "copy"})
 	}()
 	<-clipboard.started
 
 	done2 := make(chan error, 1)
 	go func() {
-		done2 <- uc.HandleExplicitCopy(ctx, port.ExplicitClipboardInput{Text: "éé", SourceEngine: port.ClipboardSourceWebKit, Action: "copy"})
+		done2 <- uc.HandleExplicitCopy(ctx, dto.ExplicitClipboardInput{Text: "éé", SourceEngine: dto.ClipboardSourceWebKit, Action: "copy"})
 	}()
 
 	select {

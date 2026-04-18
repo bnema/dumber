@@ -106,10 +106,7 @@ func (uc *ExecuteContextMenuActionUseCase) executeMenuAction(
 		}
 		return nil
 	case port.MenuActionCopySelection:
-		if menuContext.SelectionText != "" {
-			if uc.clipboard == nil {
-				return fmt.Errorf("copy selection: clipboard not available")
-			}
+		if menuContext.SelectionText != "" && uc.clipboard != nil {
 			if err := uc.clipboard.WriteText(ctx, menuContext.SelectionText); err != nil {
 				return fmt.Errorf("copy selection: %w", err)
 			}

@@ -157,7 +157,11 @@ func (pb *ProgressBar) startAnimation() {
 	})
 
 	pb.animationTimer = glib.TimeoutAdd(progressIntervalMs, &cb, 0)
-	logging.FromContext(pb.ctx).
+	ctx := pb.ctx
+	if ctx == nil {
+		ctx = context.Background()
+	}
+	logging.FromContext(ctx).
 		Trace().
 		Uint64("progress_event_seq", pb.progressEventSeq).
 		Float64("current_value", pb.currentValue).
@@ -203,7 +207,7 @@ func (pb *ProgressBar) Show() {
 	// Reset timeout timer on every Show call
 	pb.resetTimeout()
 
-	logging.FromContext(pb.ctx).
+	logging.FromContext(ctx).
 		Debug().
 		Bool("visible", pb.visible).
 		Float64("current_value", pb.currentValue).
@@ -226,7 +230,11 @@ func (pb *ProgressBar) resetTimeout() {
 		defer pb.mu.Unlock()
 
 		now := time.Now()
-		logging.FromContext(pb.ctx).
+		ctx := pb.ctx
+		if ctx == nil {
+			ctx = context.Background()
+		}
+		logging.FromContext(ctx).
 			Debug().
 			Float64("current_value", pb.currentValue).
 			Float64("target_value", pb.targetValue).

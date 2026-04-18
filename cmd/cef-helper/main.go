@@ -23,8 +23,9 @@ func main() {
 
 	// cef_execute_process will handle the subprocess lifecycle and call
 	// os.Exit internally if this is a valid CEF subprocess invocation.
-	// We pass the lightweight subprocess app so renderer-process handlers
-	// (native JS bridge, custom schemes, etc.) are available in helpers.
+	// We pass the lightweight subprocess app, which intentionally returns nil
+	// from GetRenderProcessHandler(), so renderer-side bridges remain disabled
+	// in helper subprocesses while the OSR startup regression is under repair.
 	cef.MaybeExitSubprocessWithApp(infracef.NewSubprocessApp())
 
 	// If we get here, something went wrong.

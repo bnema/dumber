@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 
+	"github.com/bnema/dumber/internal/application/dto"
 	"github.com/bnema/dumber/internal/application/port"
 	"github.com/bnema/dumber/internal/logging"
 )
@@ -44,10 +45,10 @@ func (h *ClipboardHandler) HandleAutoCopySelection() port.WebUIMessageHandler {
 		if h.orchestrator == nil {
 			return nil, nil
 		}
-		if err := h.orchestrator.HandleSelectionUpdate(ctx, port.SelectionClipboardInput{
+		if err := h.orchestrator.HandleSelectionUpdate(ctx, dto.SelectionClipboardInput{
 			Text:         req.Text,
-			SourceEngine: port.ClipboardSourceWebKit,
-			ViewID:       webviewID,
+			SourceEngine: dto.ClipboardSourceWebKit,
+			ViewID:       uint64(webviewID),
 		}); err != nil {
 			log.Debug().Err(err).Msg("clipboard selection handling failed")
 		}
@@ -69,11 +70,11 @@ func (h *ClipboardHandler) HandleExplicitCopy() port.WebUIMessageHandler {
 		if h.orchestrator == nil {
 			return nil, nil
 		}
-		if err := h.orchestrator.HandleExplicitCopy(ctx, port.ExplicitClipboardInput{
+		if err := h.orchestrator.HandleExplicitCopy(ctx, dto.ExplicitClipboardInput{
 			Text:          req.Text,
 			Action:        req.Action,
-			SourceEngine:  port.ClipboardSourceWebKit,
-			ViewID:        webviewID,
+			SourceEngine:  dto.ClipboardSourceWebKit,
+			ViewID:        uint64(webviewID),
 			NativeHandled: true,
 		}); err != nil {
 			log.Debug().Err(err).Msg("clipboard explicit handling failed")

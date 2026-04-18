@@ -6,24 +6,24 @@ import (
 	"sync"
 	"testing"
 
-	"github.com/bnema/dumber/internal/application/port"
+	"github.com/bnema/dumber/internal/application/dto"
 	"github.com/stretchr/testify/require"
 )
 
 type recordingClipboardOrchestrator struct {
 	mu        sync.Mutex
-	selection port.SelectionClipboardInput
-	explicit  port.ExplicitClipboardInput
+	selection dto.SelectionClipboardInput
+	explicit  dto.ExplicitClipboardInput
 }
 
-func (r *recordingClipboardOrchestrator) HandleSelectionUpdate(_ context.Context, input port.SelectionClipboardInput) error {
+func (r *recordingClipboardOrchestrator) HandleSelectionUpdate(_ context.Context, input dto.SelectionClipboardInput) error {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 	r.selection = input
 	return nil
 }
 
-func (r *recordingClipboardOrchestrator) HandleExplicitCopy(_ context.Context, input port.ExplicitClipboardInput) error {
+func (r *recordingClipboardOrchestrator) HandleExplicitCopy(_ context.Context, input dto.ExplicitClipboardInput) error {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 	r.explicit = input
@@ -41,8 +41,8 @@ func TestClipboardHandler_HandleAutoCopySelection_DelegatesToOrchestrator(t *tes
 	orchestrator.mu.Lock()
 	defer orchestrator.mu.Unlock()
 	require.Equal(t, "selected text", orchestrator.selection.Text)
-	require.Equal(t, port.ClipboardSourceWebKit, orchestrator.selection.SourceEngine)
-	require.Equal(t, port.WebViewID(42), orchestrator.selection.ViewID)
+	require.Equal(t, dto.ClipboardSourceWebKit, orchestrator.selection.SourceEngine)
+	require.Equal(t, uint64(42), orchestrator.selection.ViewID)
 }
 
 func TestClipboardHandler_HandleExplicitCopy_DelegatesToOrchestrator(t *testing.T) {
@@ -57,7 +57,7 @@ func TestClipboardHandler_HandleExplicitCopy_DelegatesToOrchestrator(t *testing.
 	defer orchestrator.mu.Unlock()
 	require.Equal(t, "copied text", orchestrator.explicit.Text)
 	require.Equal(t, "copy", orchestrator.explicit.Action)
-	require.Equal(t, port.ClipboardSourceWebKit, orchestrator.explicit.SourceEngine)
-	require.Equal(t, port.WebViewID(42), orchestrator.explicit.ViewID)
+	require.Equal(t, dto.ClipboardSourceWebKit, orchestrator.explicit.SourceEngine)
+	require.Equal(t, uint64(42), orchestrator.explicit.ViewID)
 	require.True(t, orchestrator.explicit.NativeHandled)
 }

@@ -34,9 +34,13 @@ var errNoBrowser = errors.New("cef: browser not yet created")
 
 const (
 	clipboardSelectionDebounceDelay = 300 * time.Millisecond
-	pendingNavigationRetryDelay     = 25 * time.Millisecond
-	pendingNavigationMaxRetries     = 20
+	pendingNavigationRetryDelay     = 50 * time.Millisecond
+	pendingNavigationMaxRetries     = 80
 )
+
+type stoppableTimer interface {
+	Stop() bool
+}
 
 var cefLoadWatchdogDelays = []time.Duration{
 	250 * time.Millisecond,
@@ -89,16 +93,18 @@ type WebView struct {
 	callbacks *port.WebViewCallbacks
 
 	// State cache (mutex-protected).
-	uri                    string
-	title                  string
-	progress               float64
-	canGoBack              bool
-	canGoFwd               bool
-	isLoading              bool
-	selectedText           string
-	focusedEditable        bool
-	selectionDebounceTimer *time.Timer
-	selectionDebounceSeq   uint64
+	uri                       string
+	title                     string
+	progress                  float64
+	canGoBack                 bool
+	canGoFwd                  bool
+	isLoading                 bool
+	selectedText              string
+	focusedEditable           bool
+	selectionDebounceTimer    stoppableTimer
+	selectionDebounceSeq      uint64
+	selectionDebounceDelay    *time.Duration
+	selectionDebounceSchedule func(time.Duration, func()) stoppableTimer
 
 	// Last known hover URI for middle-click → new tab.
 	lastHoverURI string
@@ -169,7 +175,7 @@ func (wv *WebView) LoadURI(_ context.Context, uri string) error {
 	if browser == nil {
 		return nil
 	}
-	wv.schedulePendingNavigationReplay(browser, 0)
+	wv.schedulePendingNavigationReplay(0)
 	return nil
 }
 
@@ -677,6 +683,22 @@ func (wv *WebView) cancelSelectionDebounce() {
 	}
 }
 
+func (wv *WebView) selectionDebounceInterval() time.Duration {
+	if wv == nil || wv.selectionDebounceDelay == nil {
+		return clipboardSelectionDebounceDelay
+	}
+	return *wv.selectionDebounceDelay
+}
+
+func (wv *WebView) selectionDebounceScheduler() func(time.Duration, func()) stoppableTimer {
+	if wv != nil && wv.selectionDebounceSchedule != nil {
+		return wv.selectionDebounceSchedule
+	}
+	return func(delay time.Duration, fn func()) stoppableTimer {
+		return time.AfterFunc(delay, fn)
+	}
+}
+
 func (wv *WebView) scheduleSelectionUpdate(text string) {
 	if wv == nil || wv.destroyed.Load() {
 		return
@@ -700,7 +722,15 @@ func (wv *WebView) scheduleSelectionUpdate(text string) {
 	if timer := wv.selectionDebounceTimer; timer != nil {
 		timer.Stop()
 	}
-	wv.selectionDebounceTimer = time.AfterFunc(clipboardSelectionDebounceDelay, func() {
+	delay := wv.selectionDebounceInterval()
+	if delay <= 0 {
+		wv.selectionDebounceTimer = nil
+		wv.mu.Unlock()
+		wv.flushSelectionUpdate(seq, text)
+		return
+	}
+	scheduler := wv.selectionDebounceScheduler()
+	wv.selectionDebounceTimer = scheduler(delay, func() {
 		wv.flushSelectionUpdate(seq, text)
 	})
 	wv.mu.Unlock()
@@ -812,12 +842,12 @@ func (wv *WebView) pendingNavigationURI() string {
 	return wv.pendingURI
 }
 
-func (wv *WebView) schedulePendingNavigationReplay(browser purecef.Browser, attempt int) {
-	if wv == nil || browser == nil || wv.destroyed.Load() {
+func (wv *WebView) schedulePendingNavigationReplay(attempt int) {
+	if wv == nil || wv.destroyed.Load() {
 		return
 	}
 	task := cefNewTask(cefTaskFunc(func() {
-		wv.replayPendingNavigation(browser, attempt)
+		wv.replayPendingNavigation(attempt)
 	}))
 	if task == nil {
 		return
@@ -845,18 +875,19 @@ func (wv *WebView) schedulePendingNavigationReplay(browser purecef.Browser, atte
 		return
 	}
 	cefScheduleAfter(pendingNavigationRetryDelay, func() {
-		wv.schedulePendingNavigationReplay(browser, attempt+1)
+		wv.schedulePendingNavigationReplay(attempt + 1)
 	})
 }
 
-func (wv *WebView) replayPendingNavigation(browser purecef.Browser, attempt int) {
-	if wv == nil || browser == nil || wv.destroyed.Load() {
+func (wv *WebView) replayPendingNavigation(attempt int) {
+	if wv == nil || wv.destroyed.Load() {
 		return
 	}
 	wv.mu.RLock()
 	uri := wv.pendingURI
+	browser := wv.browser
 	wv.mu.RUnlock()
-	if uri == "" {
+	if uri == "" || browser == nil {
 		return
 	}
 	frame := browser.GetMainFrame()
@@ -876,7 +907,7 @@ func (wv *WebView) replayPendingNavigation(browser purecef.Browser, attempt int)
 				Str("uri", logging.TruncateURL(uri, logging.PermissionLogURLMaxLen)).
 				Msg("cef: pending navigation replay waiting for main frame")
 		}
-		wv.schedulePendingNavigationReplay(browser, attempt+1)
+		wv.schedulePendingNavigationReplay(attempt + 1)
 		return
 	}
 	currentURL := frame.GetURL()

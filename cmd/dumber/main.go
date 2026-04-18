@@ -774,7 +774,7 @@ func buildUIDependencies(
 		Theme:               themeManager,
 		ColorResolver:       colorResolver,
 		AdwaitaDetector:     adwaitaDetector,
-		XDG:                 xdg.New(),
+		XDG:                 xdg.New(runtimeProfile),
 		Engine:              engine,
 		FilterManager:       filterManager,
 		HistoryRepo:         repos.history,

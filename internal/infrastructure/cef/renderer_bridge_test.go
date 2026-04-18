@@ -100,6 +100,7 @@ func TestRendererBridgeExtensionJS_UsesNativeDispatchInExtensionScope(t *testing
 func TestRendererBridgeExtensionJS_EncodesTrustedSuccessSemantics(t *testing.T) {
 	require.Contains(t, rendererBridgeExtensionJS, "if (!e.isTrusted) return;")
 	require.Contains(t, rendererBridgeExtensionJS, "setTimeout(function() {")
+	require.Contains(t, rendererBridgeExtensionJS, "if (!text && !e.defaultPrevented) text = getSelectedText();")
 	require.NotContains(t, rendererBridgeExtensionJS, "document.execCommand = function")
 	require.Contains(t, rendererBridgeExtensionJS, "return result;")
 }

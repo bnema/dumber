@@ -8,6 +8,7 @@ import (
 	"time"
 	"unicode/utf8"
 
+	"github.com/bnema/dumber/internal/application/dto"
 	"github.com/bnema/dumber/internal/application/port"
 	"github.com/bnema/dumber/internal/logging"
 )
@@ -26,13 +27,14 @@ type ClipboardTextOrchestratorUseCase struct {
 }
 
 type clipboardScope struct {
-	source port.ClipboardSource
-	viewID port.WebViewID
+	source dto.ClipboardSource
+	viewID uint64
 }
 
 type explicitCopyState struct {
-	text string
-	at   time.Time
+	text   string
+	action string
+	at     time.Time
 }
 
 var _ port.ClipboardTextOrchestrator = (*ClipboardTextOrchestratorUseCase)(nil)
@@ -56,7 +58,7 @@ func NewClipboardTextOrchestrator(
 // HandleSelectionUpdate applies auto-copy selection rules.
 func (uc *ClipboardTextOrchestratorUseCase) HandleSelectionUpdate(
 	ctx context.Context,
-	input port.SelectionClipboardInput,
+	input dto.SelectionClipboardInput,
 ) error {
 	if uc == nil || uc.autoCopyConfig == nil || !uc.autoCopyConfig.IsAutoCopyEnabled() {
 		if uc != nil {
@@ -94,18 +96,24 @@ func (uc *ClipboardTextOrchestratorUseCase) HandleSelectionUpdate(
 		uc.mu.Unlock()
 		return fmt.Errorf("clipboard not available")
 	}
+	selectionState := input.Text
+	explicitInput := dto.ExplicitClipboardInput{SourceEngine: input.SourceEngine, ViewID: input.ViewID, Action: "copy"}
+	explicitState := explicitCopyState{text: input.Text, action: explicitInput.Action, at: currentTime}
+	uc.lastSelection[scope] = selectionState
+	uc.lastExplicit[explicitScope(explicitInput)] = explicitState
+	uc.mu.Unlock()
+
 	if err := uc.clipboard.WriteText(ctx, input.Text); err != nil {
+		uc.mu.Lock()
+		if uc.lastSelection[scope] == selectionState {
+			delete(uc.lastSelection, scope)
+		}
+		if state, ok := uc.lastExplicit[explicitScope(explicitInput)]; ok && state == explicitState {
+			delete(uc.lastExplicit, explicitScope(explicitInput))
+		}
 		uc.mu.Unlock()
 		return fmt.Errorf("clipboard write failed: %w", err)
 	}
-
-	uc.lastSelection[scope] = input.Text
-	explicitInput := port.ExplicitClipboardInput{SourceEngine: input.SourceEngine, ViewID: input.ViewID}
-	uc.lastExplicit[explicitScope(explicitInput)] = explicitCopyState{
-		text: input.Text,
-		at:   currentTime,
-	}
-	uc.mu.Unlock()
 
 	if uc.toast != nil {
 		uc.toast(textLen)
@@ -120,7 +128,7 @@ func (uc *ClipboardTextOrchestratorUseCase) HandleSelectionUpdate(
 // HandleExplicitCopy applies explicit copy rules.
 func (uc *ClipboardTextOrchestratorUseCase) HandleExplicitCopy(
 	ctx context.Context,
-	input port.ExplicitClipboardInput,
+	input dto.ExplicitClipboardInput,
 ) error {
 	if uc == nil || input.Text == "" {
 		return nil
@@ -134,10 +142,13 @@ func (uc *ClipboardTextOrchestratorUseCase) HandleExplicitCopy(
 	textLen := utf8.RuneCountInString(input.Text)
 	scope := explicitScope(input)
 
+	state := explicitCopyState{text: input.Text, action: input.Action, at: currentTime}
+
 	uc.mu.Lock()
-	if state, ok := uc.lastExplicit[scope]; ok &&
-		input.Text == state.text &&
-		currentTime.Sub(state.at) < explicitClipboardDedupWindow {
+	if previous, ok := uc.lastExplicit[scope]; ok &&
+		input.Text == previous.text &&
+		input.Action == previous.action &&
+		currentTime.Sub(previous.at) < explicitClipboardDedupWindow {
 		uc.mu.Unlock()
 		return nil
 	}
@@ -145,15 +156,19 @@ func (uc *ClipboardTextOrchestratorUseCase) HandleExplicitCopy(
 		uc.mu.Unlock()
 		return fmt.Errorf("clipboard not available")
 	}
+	uc.lastExplicit[scope] = state
+	uc.mu.Unlock()
+
 	if !input.NativeHandled {
 		if err := uc.clipboard.WriteText(ctx, input.Text); err != nil {
+			uc.mu.Lock()
+			if current, ok := uc.lastExplicit[scope]; ok && current == state {
+				delete(uc.lastExplicit, scope)
+			}
 			uc.mu.Unlock()
 			return fmt.Errorf("clipboard write failed: %w", err)
 		}
 	}
-
-	uc.lastExplicit[scope] = explicitCopyState{text: input.Text, at: currentTime}
-	uc.mu.Unlock()
 
 	if uc.toast != nil {
 		uc.toast(textLen)
@@ -167,10 +182,10 @@ func (uc *ClipboardTextOrchestratorUseCase) HandleExplicitCopy(
 	return nil
 }
 
-func selectionScope(input port.SelectionClipboardInput) clipboardScope {
+func selectionScope(input dto.SelectionClipboardInput) clipboardScope {
 	return clipboardScope{source: input.SourceEngine, viewID: input.ViewID}
 }
 
-func explicitScope(input port.ExplicitClipboardInput) clipboardScope {
+func explicitScope(input dto.ExplicitClipboardInput) clipboardScope {
 	return clipboardScope{source: input.SourceEngine, viewID: input.ViewID}
 }

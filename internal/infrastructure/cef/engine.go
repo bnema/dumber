@@ -9,6 +9,7 @@ import (
 
 	purecef "github.com/bnema/purego-cef/cef"
 
+	"github.com/bnema/dumber/internal/application/dto"
 	"github.com/bnema/dumber/internal/application/port"
 	"github.com/bnema/dumber/internal/logging"
 )
@@ -296,11 +297,11 @@ func (e *Engine) handleExplicitClipboardBridgeText(viewID port.WebViewID, action
 			Msg("cef: clipboard orchestration skipped — orchestrator nil")
 		return
 	}
-	if err := e.clipboardTextOrchestrator.HandleExplicitCopy(e.currentContext(), port.ExplicitClipboardInput{
+	if err := e.clipboardTextOrchestrator.HandleExplicitCopy(e.currentContext(), dto.ExplicitClipboardInput{
 		Text:         text,
 		Action:       action,
-		SourceEngine: port.ClipboardSourceCEF,
-		ViewID:       viewID,
+		SourceEngine: dto.ClipboardSourceCEF,
+		ViewID:       uint64(viewID),
 	}); err != nil {
 		logging.FromContext(e.currentContext()).Debug().
 			Err(err).
@@ -314,10 +315,10 @@ func (e *Engine) handleClipboardSelectionUpdate(viewID port.WebViewID, text stri
 	if e == nil || e.clipboardTextOrchestrator == nil {
 		return
 	}
-	if err := e.clipboardTextOrchestrator.HandleSelectionUpdate(e.currentContext(), port.SelectionClipboardInput{
+	if err := e.clipboardTextOrchestrator.HandleSelectionUpdate(e.currentContext(), dto.SelectionClipboardInput{
 		Text:         text,
-		SourceEngine: port.ClipboardSourceCEF,
-		ViewID:       viewID,
+		SourceEngine: dto.ClipboardSourceCEF,
+		ViewID:       uint64(viewID),
 	}); err != nil {
 		logging.FromContext(e.currentContext()).Debug().
 			Err(err).

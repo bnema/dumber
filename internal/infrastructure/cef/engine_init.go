@@ -95,6 +95,9 @@ func resolvedStateRoot(profile runtimeprofile.Profile, opts port.EngineOptions) 
 	if root := os.Getenv(CEFRootCachePathEnvVar); root != "" {
 		return root
 	}
+	if opts.CacheDir != "" {
+		return opts.CacheDir
+	}
 	if opts.DataDir != "" {
 		return opts.DataDir
 	}

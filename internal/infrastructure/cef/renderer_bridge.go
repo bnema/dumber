@@ -80,7 +80,7 @@ const rendererBridgeExtensionJS = `
       }
       setTimeout(function() {
         var text = capturedText;
-        if (!text) text = getSelectedText();
+        if (!text && !e.defaultPrevented) text = getSelectedText();
         if (text) notifyExplicitTextCopy(action, text);
       }, 0);
     }

@@ -376,16 +376,16 @@ func (h *handlerSet) OnTextSelectionChanged(_ purecef.Browser, selectedText stri
 		return
 	}
 	previous, changed := h.wv.setSelectedText(selectedText)
-	if !changed || h.wv.ctx == nil {
+	if !changed {
 		return
 	}
-	if selectedText == "" {
+	if h.wv.ctx != nil && selectedText == "" {
 		if previous != "" {
 			logging.FromContext(h.wv.ctx).Debug().
 				Int("prev_text_len", len(previous)).
 				Msg("cef: text selection cleared")
 		}
-	} else {
+	} else if h.wv.ctx != nil {
 		logging.FromContext(h.wv.ctx).Debug().
 			Int("text_len", len(selectedText)).
 			Msg("cef: text selection changed")
@@ -547,7 +547,9 @@ func (h *handlerSet) OnLoadingStateChange(_ purecef.Browser, isloading, cangobac
 		h.wv.mu.RLock()
 		host := h.wv.host
 		h.wv.mu.RUnlock()
-		syncWindowlessBrowserFocus(host)
+		if host != nil {
+			syncWindowlessBrowserFocus(host)
+		}
 	}
 
 	h.wv.mu.RLock()
@@ -611,7 +613,7 @@ func (h *handlerSet) OnLoadEnd(_ purecef.Browser, frame purecef.Frame, httpStatu
 			log.Debug().
 				Str("pending_uri", logging.TruncateURL(pendingURI, logging.PermissionLogURLMaxLen)).
 				Msg("cef: replaying pending navigation after about:blank load end")
-			h.wv.schedulePendingNavigationReplay(h.wv.browser, 0)
+			h.wv.schedulePendingNavigationReplay(0)
 		}
 	}
 
@@ -738,7 +740,7 @@ func (h *handlerSet) OnAfterCreated(browser purecef.Browser) {
 		host.Invalidate(purecef.PaintElementTypePetView)
 	}
 	if hasPendingNavigation {
-		h.wv.schedulePendingNavigationReplay(browser, 0)
+		h.wv.schedulePendingNavigationReplay(0)
 	}
 
 	h.wv.scheduleStartBeginFrameLoop()

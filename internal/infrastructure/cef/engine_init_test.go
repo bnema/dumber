@@ -12,10 +12,10 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestResolvedStateRoot_PrefersDataDir(t *testing.T) {
+func TestResolvedStateRoot_PrefersCacheDir(t *testing.T) {
 	profile := testCEFDevProfile(t)
 	root := resolvedStateRoot(profile, port.EngineOptions{DataDir: "/tmp/data", CacheDir: "/tmp/cache"})
-	require.Equal(t, "/tmp/data", root)
+	require.Equal(t, "/tmp/cache", root)
 }
 
 func TestResolvedStateRoot_UsesEnvOverride(t *testing.T) {

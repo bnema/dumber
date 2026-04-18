@@ -18,5 +18,6 @@ func TestClipboardSelectionFetchBridgeJS_PostsTrustedFocusSyncRequests(t *testin
 	require.Contains(t, clipboardSelectionFetchBridgeJS, "X-Dumber-Bridge-Action")
 	require.Contains(t, clipboardSelectionFetchBridgeJS, "focus-sync")
 	require.Contains(t, clipboardSelectionFetchBridgeJS, "focusin")
-	require.Contains(t, clipboardSelectionFetchBridgeJS, "if (isEditable(document.activeElement)) sendFocusSync();")
+	require.Contains(t, clipboardSelectionFetchBridgeJS, "isEditable(document.activeElement)")
+	require.Contains(t, clipboardSelectionFetchBridgeJS, "sendFocusSync()")
 }

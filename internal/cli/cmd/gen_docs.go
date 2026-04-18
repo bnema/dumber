@@ -9,6 +9,7 @@ import (
 	"github.com/spf13/cobra"
 	"github.com/spf13/cobra/doc"
 
+	"github.com/bnema/dumber/internal/infrastructure/runtimeprofile"
 	xdgadapter "github.com/bnema/dumber/internal/infrastructure/xdg"
 )
 
@@ -57,7 +58,7 @@ func runGenDocs(_ *cobra.Command, _ []string) error {
 	if outputDir == "" {
 		switch genDocsFormat {
 		case "man":
-			xdg := xdgadapter.New()
+			xdg := xdgadapter.New(runtimeprofile.Profile{})
 			manDir, err := xdg.ManDir()
 			if err != nil {
 				return fmt.Errorf("resolve man directory: %w", err)

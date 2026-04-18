@@ -15,7 +15,7 @@ import (
 func NewSessionSpawner(ctx context.Context, profile runtimeprofile.Profile) port.SessionSpawner {
 	var spawnEnv port.SessionSpawnEnvironment
 	if profile.Engine == config.EngineTypeCEF {
-		spawnEnv = cef.NewSessionSpawnEnvironment(profile)
+		spawnEnv = cef.NewSessionSpawnEnvironment(profile.CEFUserDataDir())
 	}
 	return desktop.NewSessionSpawner(ctx, spawnEnv)
 }

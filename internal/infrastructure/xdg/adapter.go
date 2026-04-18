@@ -6,14 +6,29 @@ import (
 
 	"github.com/bnema/dumber/internal/application/port"
 	"github.com/bnema/dumber/internal/infrastructure/config"
+	"github.com/bnema/dumber/internal/infrastructure/runtimeprofile"
 )
 
 // Adapter implements port.XDGPaths using config.GetXDGDirs().
-type Adapter struct{}
+type Adapter struct {
+	mode       runtimeprofile.Mode
+	runtimeDir string
+}
 
 // New creates a new XDG paths adapter.
-func New() *Adapter {
-	return &Adapter{}
+func New(profile runtimeprofile.Profile) *Adapter {
+	runtimeDir := ""
+	switch profile.Mode {
+	case runtimeprofile.ModeDev:
+		if profile.Shared.RootDir != "" {
+			runtimeDir = filepath.Join(profile.Shared.RootDir, "runtime")
+		}
+	case runtimeprofile.ModeProd:
+		if profile.Shared.StateDir != "" {
+			runtimeDir = filepath.Join(profile.Shared.StateDir, "runtime")
+		}
+	}
+	return &Adapter{mode: profile.Mode, runtimeDir: runtimeDir}
 }
 
 func (a *Adapter) ConfigDir() (string, error) {
@@ -29,18 +44,18 @@ func (a *Adapter) StateDir() (string, error) {
 }
 
 func (a *Adapter) RuntimeDir() (string, error) {
-	if os.Getenv("ENV") != "dev" {
+	if a == nil || a.mode != runtimeprofile.ModeDev {
 		if dir := os.Getenv("XDG_RUNTIME_DIR"); dir != "" {
 			return dir, nil
 		}
+	}
+	if a != nil && a.runtimeDir != "" {
+		return a.runtimeDir, nil
 	}
 
 	stateDir, err := a.StateDir()
 	if err != nil {
 		return "", err
-	}
-	if os.Getenv("ENV") == "dev" {
-		return filepath.Join(filepath.Dir(stateDir), "runtime"), nil
 	}
 	return filepath.Join(stateDir, "runtime"), nil
 }

@@ -5,6 +5,7 @@ import (
 	"errors"
 	"testing"
 
+	"github.com/bnema/dumber/internal/application/dto"
 	"github.com/bnema/dumber/internal/application/port"
 	"github.com/stretchr/testify/require"
 )
@@ -76,7 +77,7 @@ func TestEngineClipboardSelectionUpdate_ForwardsViewID(t *testing.T) {
 
 	eng.handleClipboardSelectionUpdate(99, "selected")
 
-	require.Equal(t, port.SelectionClipboardInput{Text: "selected", SourceEngine: port.ClipboardSourceCEF, ViewID: 99}, orchestrator.selection)
+	require.Equal(t, dto.SelectionClipboardInput{Text: "selected", SourceEngine: dto.ClipboardSourceCEF, ViewID: 99}, orchestrator.selection)
 }
 
 func TestEngineExplicitClipboardCopy_ForwardsViewID(t *testing.T) {
@@ -85,30 +86,30 @@ func TestEngineExplicitClipboardCopy_ForwardsViewID(t *testing.T) {
 
 	eng.handleExplicitClipboardBridgeText(77, "copy", "copied")
 
-	require.Equal(t, port.ExplicitClipboardInput{Text: "copied", SourceEngine: port.ClipboardSourceCEF, ViewID: 77, Action: "copy", NativeHandled: false}, orchestrator.explicit)
+	require.Equal(t, dto.ExplicitClipboardInput{Text: "copied", SourceEngine: dto.ClipboardSourceCEF, ViewID: 77, Action: "copy", NativeHandled: false}, orchestrator.explicit)
 }
 
 type stubClipboardTextOrchestrator struct{}
 
 type recordingClipboardTextOrchestrator struct {
-	selection port.SelectionClipboardInput
-	explicit  port.ExplicitClipboardInput
+	selection dto.SelectionClipboardInput
+	explicit  dto.ExplicitClipboardInput
 }
 
-func (stubClipboardTextOrchestrator) HandleSelectionUpdate(context.Context, port.SelectionClipboardInput) error {
+func (stubClipboardTextOrchestrator) HandleSelectionUpdate(context.Context, dto.SelectionClipboardInput) error {
 	return nil
 }
 
-func (stubClipboardTextOrchestrator) HandleExplicitCopy(context.Context, port.ExplicitClipboardInput) error {
+func (stubClipboardTextOrchestrator) HandleExplicitCopy(context.Context, dto.ExplicitClipboardInput) error {
 	return nil
 }
 
-func (r *recordingClipboardTextOrchestrator) HandleSelectionUpdate(_ context.Context, input port.SelectionClipboardInput) error {
+func (r *recordingClipboardTextOrchestrator) HandleSelectionUpdate(_ context.Context, input dto.SelectionClipboardInput) error {
 	r.selection = input
 	return nil
 }
 
-func (r *recordingClipboardTextOrchestrator) HandleExplicitCopy(_ context.Context, input port.ExplicitClipboardInput) error {
+func (r *recordingClipboardTextOrchestrator) HandleExplicitCopy(_ context.Context, input dto.ExplicitClipboardInput) error {
 	r.explicit = input
 	return nil
 }
