@@ -15,9 +15,9 @@ type stubResponse struct {
 	uri      string
 }
 
-func (s stubResponse) GetMimeType() string          { return s.mimeType }
-func (s stubResponse) GetSuggestedFilename() string { return "" }
-func (s stubResponse) GetUri() string               { return s.uri }
+func (s stubResponse) GetMimeType() string        { return s.mimeType }
+func (stubResponse) GetSuggestedFilename() string { return "" }
+func (s stubResponse) GetUri() string             { return s.uri }
 
 type captureEvents struct {
 	events []port.DownloadEvent

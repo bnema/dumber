@@ -42,7 +42,7 @@ func newDownloadHandler(
 	}
 }
 
-func (h *downloadHandler) canDownload(_ purecef.Browser, _ string, requestMethod string) bool {
+func (h *downloadHandler) canDownload(_ purecef.Browser, _, requestMethod string) bool {
 	return requestMethod == "" || strings.EqualFold(requestMethod, http.MethodGet)
 }
 

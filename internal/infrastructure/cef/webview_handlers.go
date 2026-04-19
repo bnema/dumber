@@ -814,7 +814,7 @@ func (h *handlerSet) OnBeforeBrowse(browser purecef.Browser, frame purecef.Frame
 	return true
 }
 
-func (h *handlerSet) CanDownload(browser purecef.Browser, url string, requestMethod string) bool {
+func (h *handlerSet) CanDownload(browser purecef.Browser, url, requestMethod string) bool {
 	handler := h.downloadHandler()
 	if handler == nil {
 		return false
