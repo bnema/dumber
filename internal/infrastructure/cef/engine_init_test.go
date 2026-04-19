@@ -42,6 +42,7 @@ func TestPrepareCEFSettings_UsesResolvedProfilePaths(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, profile.CEFUserDataDir(), settings.RootCachePath)
 	require.Equal(t, profile.CEFLogFile(), settings.LogFile)
+	require.Empty(t, settings.BrowserSubprocessPath)
 }
 
 func TestPrepareCEFSettings_RejectsNonDefaultCookiePolicy(t *testing.T) {

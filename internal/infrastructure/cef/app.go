@@ -56,10 +56,10 @@ func newDumberApp(engine *Engine) purecef.App {
 	return app
 }
 
-// NewSubprocessApp returns a lightweight raw App implementation for helper
-// processes so cef_execute_process can wrap it itself. Keep helper processes
-// free of custom render handlers for now: the renderer bridge introduced a
-// startup regression where OSR pages stopped producing their first paint.
+// NewSubprocessApp returns a lightweight raw App implementation for CEF
+// subprocesses re-executed from the main dumber binary. Keep subprocesses free
+// of custom render handlers for now: the renderer bridge introduced a startup
+// regression where OSR pages stopped producing their first paint.
 func NewSubprocessApp() purecef.App {
 	return &subprocessApp{}
 }
@@ -122,12 +122,20 @@ func (h *dumberBPH) OnBeforeChildProcessLaunch(commandLine purecef.CommandLine) 
 	useAngle := ""
 	ozonePlatform := ""
 	if commandLine != nil {
+		appendSwitchIfMissing(commandLine, "no-zygote")
 		processType = commandLine.GetSwitchValue("type")
 		commandLineString = commandLine.GetCommandLineString()
 		useAngle = commandLine.GetSwitchValue("use-angle")
 		ozonePlatform = commandLine.GetSwitchValue("ozone-platform")
 	}
 	h.engine.recordChildProcessLaunch(processType, useAngle, ozonePlatform, commandLineString)
+}
+
+func appendSwitchIfMissing(commandLine purecef.CommandLine, name string) {
+	if commandLine == nil || commandLine.HasSwitch(name) {
+		return
+	}
+	commandLine.AppendSwitch(name)
 }
 
 func parseRelaunchCommandLineArgs(commandLine string) []string {

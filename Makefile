@@ -43,7 +43,7 @@ build: build-frontend ## Build the application (pure Go, no CGO)
 	@echo "Building $(BINARY_NAME) $(VERSION) using $(NPROCS) cores..."
 	@mkdir -p $(DIST_DIR)
 	CGO_ENABLED=0 go build -p $(NPROCS) $(GCFLAGS) $(LDFLAGS) -o $(DIST_DIR)/$(BINARY_NAME) $(MAIN_PATH)
-	CGO_ENABLED=0 go build -p $(NPROCS) -ldflags "-s -w" -o $(DIST_DIR)/cef-helper ./cmd/cef-helper
+	@rm -f $(DIST_DIR)/cef-helper
 	@echo "Build successful! Binary: $(DIST_DIR)/$(BINARY_NAME)"
 
 build-frontend: ## Build homepage and error pages
@@ -55,22 +55,21 @@ build-quick: ## Build without frontend (faster for backend development)
 	@echo "Building $(BINARY_NAME) $(VERSION) (quick, no frontend)..."
 	@mkdir -p $(DIST_DIR)
 	CGO_ENABLED=0 go build -p $(NPROCS) $(GCFLAGS) $(LDFLAGS) -o $(DIST_DIR)/$(BINARY_NAME) $(MAIN_PATH)
-	CGO_ENABLED=0 go build -p $(NPROCS) -ldflags "-s -w" -o $(DIST_DIR)/cef-helper ./cmd/cef-helper
-	@echo "Build successful! Binaries: $(DIST_DIR)/$(BINARY_NAME) and $(DIST_DIR)/cef-helper"
+	@rm -f $(DIST_DIR)/cef-helper
+	@echo "Build successful! Binary: $(DIST_DIR)/$(BINARY_NAME)"
 
-install-local: build-quick ## Install dumber + cef-helper to ~/.local/bin atomically
-	@echo "Installing $(BINARY_NAME) and cef-helper to $(LOCAL_BIN_DIR)..."
+install-local: build-quick ## Install dumber to ~/.local/bin atomically
+	@echo "Installing $(BINARY_NAME) to $(LOCAL_BIN_DIR)..."
 	@mkdir -p $(LOCAL_BIN_DIR)
 	@tmp_dumber="$$(mktemp '$(LOCAL_BIN_DIR)/.dumber.tmp.XXXXXX')"; \
-	tmp_helper="$$(mktemp '$(LOCAL_BIN_DIR)/.cef-helper.tmp.XXXXXX')"; \
-	trap 'rm -f "$$tmp_dumber" "$$tmp_helper"' EXIT INT TERM; \
+	trap 'rm -f "$$tmp_dumber"' EXIT INT TERM; \
 	install -m 0755 $(DIST_DIR)/$(BINARY_NAME) "$$tmp_dumber"; \
-	install -m 0755 $(DIST_DIR)/cef-helper "$$tmp_helper"; \
 	mv -f "$$tmp_dumber" $(LOCAL_BIN_DIR)/$(BINARY_NAME); \
-	mv -f "$$tmp_helper" $(LOCAL_BIN_DIR)/cef-helper; \
+	removed_stale=0; \
+	if [ -e $(LOCAL_BIN_DIR)/cef-helper ]; then rm -f $(LOCAL_BIN_DIR)/cef-helper && removed_stale=1; fi; \
 	trap - EXIT INT TERM; \
 	echo "Installed: $(LOCAL_BIN_DIR)/$(BINARY_NAME)"; \
-	echo "Installed: $(LOCAL_BIN_DIR)/cef-helper"
+	if [ "$$removed_stale" -eq 1 ]; then echo "Removed stale: $(LOCAL_BIN_DIR)/cef-helper"; fi
 
 # Development targets
 dev: ## Run in development mode

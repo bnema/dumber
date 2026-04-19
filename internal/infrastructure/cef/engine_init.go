@@ -153,12 +153,6 @@ func prepareCEFSettings(
 	if cfg.LogSeverity != 0 {
 		settings.LogSeverity = cfg.LogSeverity
 	}
-	if helperPath := findHelperBinary(); helperPath != "" {
-		settings.BrowserSubprocessPath = helperPath
-		logger.Debug().Str("path", helperPath).Msg("cef: using subprocess helper")
-	} else {
-		logger.Warn().Msg("cef: subprocess helper not found, falling back to main binary")
-	}
 	return settings, nil
 }
 
@@ -411,21 +405,6 @@ func cleanStaleSingletonLocks(logger *zerolog.Logger, dir string) {
 			logger.Info().Str("path", p).Msg("cef: removed stale singleton file")
 		}
 	}
-}
-
-// findHelperBinary looks for the cef-helper binary next to the running
-// executable. Returns empty string if not found.
-func findHelperBinary() string {
-	exe, err := os.Executable()
-	if err != nil {
-		return ""
-	}
-	dir := filepath.Dir(exe)
-	helper := filepath.Join(dir, "cef-helper")
-	if _, err := os.Stat(helper); err == nil {
-		return helper
-	}
-	return ""
 }
 
 const (
