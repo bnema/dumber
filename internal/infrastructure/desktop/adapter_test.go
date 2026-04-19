@@ -28,13 +28,42 @@ func (e testSessionSpawnEnvironment) SessionRootCachePath(sessionID entity.Sessi
 
 func TestMain(m *testing.M) {
 	if envFile := os.Getenv(testCaptureEnvFile); envFile != "" && len(os.Args) >= 2 && os.Args[1] == "browse" {
-		if err := os.WriteFile(envFile, []byte(strings.Join(os.Environ(), "\n")), 0o644); err != nil {
+		if err := writeFileAtomically(envFile, []byte(strings.Join(os.Environ(), "\n")), 0o644); err != nil {
 			os.Exit(2)
 		}
 		os.Exit(0)
 	}
 
 	os.Exit(m.Run())
+}
+
+func writeFileAtomically(path string, data []byte, perm os.FileMode) error {
+	tmpFile, err := os.CreateTemp(filepath.Dir(path), filepath.Base(path)+".tmp-*")
+	if err != nil {
+		return err
+	}
+
+	tmpPath := tmpFile.Name()
+	defer func() {
+		_ = os.Remove(tmpPath)
+	}()
+
+	if _, err := tmpFile.Write(data); err != nil {
+		_ = tmpFile.Close()
+		return err
+	}
+	if err := tmpFile.Chmod(perm); err != nil {
+		_ = tmpFile.Close()
+		return err
+	}
+	if err := tmpFile.Close(); err != nil {
+		return err
+	}
+	if err := os.Rename(tmpPath, path); err != nil {
+		return err
+	}
+
+	return nil
 }
 
 func TestSanitizedChildEnv_RemovesLayerShellPreloadOnly(t *testing.T) {
