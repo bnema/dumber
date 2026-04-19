@@ -197,17 +197,22 @@ func (h *downloadHandler) currentState(id uint32, item purecef.DownloadItem) cef
 	h.mu.Lock()
 	defer h.mu.Unlock()
 
-	state, ok := h.active[id]
-	if !ok {
+	state, exists := h.active[id]
+	if !exists {
 		state = cefDownloadState{}
 	}
+	updated := false
 	if state.destination == "" {
 		state.destination = item.GetFullPath()
+		updated = true
 	}
 	if state.filename == "" {
 		state.filename = downloadFilenameFromItem(item, state.destination)
+		updated = true
 	}
-	h.active[id] = state
+	if exists && updated {
+		h.active[id] = state
+	}
 	return state
 }
 
@@ -269,10 +274,10 @@ func (h *downloadHandler) markFinished(id uint32) bool {
 	h.mu.Lock()
 	defer h.mu.Unlock()
 
+	delete(h.active, id)
 	if _, seen := h.finished[id]; seen {
 		return false
 	}
-	delete(h.active, id)
 	if len(h.finished) >= maxFinishedEntries {
 		clear(h.finished)
 	}

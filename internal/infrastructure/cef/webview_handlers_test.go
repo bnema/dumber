@@ -6,7 +6,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/bnema/dumber/internal/application/usecase"
 	purecef "github.com/bnema/purego-cef/cef"
 	cefmocks "github.com/bnema/purego-cef/cef/mocks"
 	"github.com/stretchr/testify/assert"
@@ -22,6 +21,12 @@ type clipboardOrchestratorRecorder struct {
 	mu             sync.Mutex
 	selection      dto.SelectionClipboardInput
 	selectionCalls int
+}
+
+type stubDownloadPreparer struct{}
+
+func (stubDownloadPreparer) Execute(context.Context, port.DownloadPrepareInput) *port.DownloadPrepareOutput {
+	return &port.DownloadPrepareOutput{}
 }
 
 type controlledSelectionTimer struct {
@@ -377,7 +382,7 @@ func TestOptionalHandlersAreAlwaysEnabled(t *testing.T) {
 
 func TestGetDownloadHandler_EnabledWhenEngineConfigured(t *testing.T) {
 	eng := &Engine{}
-	require.NoError(t, eng.ConfigureDownloads(context.Background(), "/tmp/downloads", nil, usecase.NewPrepareDownloadUseCase(nil)))
+	require.NoError(t, eng.ConfigureDownloads(context.Background(), "/tmp/downloads", nil, stubDownloadPreparer{}))
 
 	h := &handlerSet{
 		wv: &WebView{

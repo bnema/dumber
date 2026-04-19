@@ -2,6 +2,7 @@ package downloadruntime
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"os"
 	"sync"
@@ -50,6 +51,10 @@ func (r *Runtime) ResolveDestination(
 	downloadPath := r.downloadPath
 	preparer := r.preparer
 	r.mu.RUnlock()
+
+	if preparer == nil {
+		return nil, fmt.Errorf("download preparer is required")
+	}
 
 	if err := os.MkdirAll(downloadPath, dirPerm); err != nil {
 		return nil, fmt.Errorf("failed to create download directory %q: %w", downloadPath, err)
@@ -149,7 +154,8 @@ func (r *Runtime) EmitFailed(ctx context.Context, filename, destination string, 
 		Err(err).
 		Str("filename", filename).
 		Str("destination", destination)
-	if codedErr, ok := err.(codedDownloadError); ok {
+	var codedErr codedDownloadError
+	if errors.As(err, &codedErr) {
 		log = log.
 			Int("error_code", codedErr.DownloadErrorCode()).
 			Str("error_reason", codedErr.DownloadErrorReason())

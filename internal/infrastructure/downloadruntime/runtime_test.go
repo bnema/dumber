@@ -30,7 +30,7 @@ func (c *captureEvents) OnDownloadEvent(_ context.Context, event port.DownloadEv
 func TestRuntimeResolveDestinationAndEvents(t *testing.T) {
 	ctx := context.Background()
 	events := &captureEvents{}
-	runtime := New("/tmp/downloads", events, usecase.NewPrepareDownloadUseCase(nil))
+	runtime := New(t.TempDir(), events, usecase.NewPrepareDownloadUseCase(nil))
 
 	output, err := runtime.ResolveDestination(ctx, "artifact", stubResponse{mimeType: "application/pdf"})
 
@@ -53,4 +53,14 @@ func TestNewRuntime_NilPreparer_NoPanic(t *testing.T) {
 	require.NotPanics(t, func() {
 		_ = New("/tmp/downloads", nil, nil)
 	})
+}
+
+func TestRuntimeResolveDestination_NilPreparerReturnsError(t *testing.T) {
+	runtime := New(t.TempDir(), nil, nil)
+
+	output, err := runtime.ResolveDestination(context.Background(), "artifact", stubResponse{})
+
+	require.Nil(t, output)
+	require.Error(t, err)
+	require.ErrorContains(t, err, "download preparer is required")
 }

@@ -2,6 +2,7 @@ package cef
 
 import (
 	"context"
+	"fmt"
 	"testing"
 
 	purecef "github.com/bnema/purego-cef/cef"
@@ -127,6 +128,12 @@ func TestMarkFinished_SuppressesDuplicatesAfterCleanup(t *testing.T) {
 	handler.mu.Unlock()
 
 	require.True(t, handler.markFinished(42), "first terminal event should succeed")
+
+	// Simulate a concurrent update re-populating active before a duplicate terminal update.
+	handler.mu.Lock()
+	handler.active[42] = cefDownloadState{filename: "test.bin", destination: "/tmp/test.bin", lastProgressPercent: -1}
+	handler.mu.Unlock()
+
 	require.False(t, handler.markFinished(42), "second terminal event should be suppressed")
 
 	// Active map should not contain the entry.
@@ -194,6 +201,7 @@ func TestCEFDownloadInterruptedErrorIncludesCodeAndReason(t *testing.T) {
 
 	require.Len(t, events.events, 2)
 	require.Error(t, events.events[1].Error)
-	require.ErrorContains(t, events.events[1].Error, "code=33")
+	expectedCode := fmt.Sprintf("code=%d", purecef.DownloadInterruptReasonServerBadContent)
+	require.ErrorContains(t, events.events[1].Error, expectedCode)
 	require.ErrorContains(t, events.events[1].Error, "reason=server_bad_content")
 }
