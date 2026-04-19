@@ -147,7 +147,7 @@ func TestPrepareCEFInitTraceFile_TruncatesExistingFile(t *testing.T) {
 	logFile := filepath.Join(t.TempDir(), "custom", "cef_runtime.log")
 	bootstrapLogFile := filepath.Join(filepath.Dir(logFile), "cef_runtime.bootstrap.log")
 	require.NoError(t, os.MkdirAll(filepath.Dir(bootstrapLogFile), dirPerm))
-	require.NoError(t, os.WriteFile(bootstrapLogFile, []byte("existing"), filePerm))
+	require.NoError(t, os.WriteFile(bootstrapLogFile, []byte("existing"), 0o644))
 
 	path, err := prepareCEFInitTraceFile("", logFile)
 	require.NoError(t, err)
@@ -156,6 +156,10 @@ func TestPrepareCEFInitTraceFile_TruncatesExistingFile(t *testing.T) {
 	content, readErr := os.ReadFile(path)
 	require.NoError(t, readErr)
 	require.Empty(t, content)
+
+	info, statErr := os.Stat(path)
+	require.NoError(t, statErr)
+	require.Equal(t, os.FileMode(filePerm), info.Mode().Perm())
 }
 
 func TestPrepareCEFInitTraceFile_RejectsSymlink(t *testing.T) {

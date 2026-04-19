@@ -494,6 +494,9 @@ func prepareCEFInitTraceFile(defaultLogFile, logFile string) (string, error) {
 	if err := file.Truncate(0); err != nil {
 		return "", fmt.Errorf("reset %s: %w", bootstrapLogFile, err)
 	}
+	if err := file.Chmod(filePerm); err != nil {
+		return "", fmt.Errorf("chmod %s: %w", bootstrapLogFile, err)
+	}
 	return bootstrapLogFile, nil
 }
 
