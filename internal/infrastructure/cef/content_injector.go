@@ -392,15 +392,6 @@ const redditDirectVideoJS = `(function(){
 // reasserts browser focus when an editable element gains DOM focus.
 const clipboardSelectionFetchBridgeJS = `(function(){
   var bridgeNonce = '__DUMBER_BRIDGE_NONCE__';
-  if (window.__dumberClipboardBridge && typeof window.__dumberClipboardBridge.setBridgeNonce === 'function') {
-    window.__dumberClipboardBridge.setBridgeNonce(bridgeNonce);
-    return;
-  }
-  window.__dumberClipboardBridge = {
-    setBridgeNonce: function(nextBridgeNonce) {
-      bridgeNonce = nextBridgeNonce == null ? '' : String(nextBridgeNonce);
-    }
-  };
 
   function encodeBody(body) {
     return typeof btoa === 'function' ? btoa(unescape(encodeURIComponent(body))) : '';
@@ -752,7 +743,16 @@ func (ci *contentInjector) onLoadEnd(wv *WebView) {
 
 	// Clipboard copy/cut and editable focus sync still need a JS bridge in OSR
 	// mode while the native renderer bridge remains disabled.
-	wv.RunJavaScript(context.Background(), buildClipboardSelectionFetchBridgeJS(wv.rotateBridgeNonce()))
+	bridgeNonce := wv.rotateBridgeNonce()
+	if bridgeNonce == "" {
+		ctx := context.Background()
+		if ci != nil && ci.engine != nil {
+			ctx = ci.engine.currentContext()
+		}
+		logging.FromContext(ctx).Warn().Msg("cef: skipped clipboard bridge injection — nonce generation failed")
+	} else {
+		wv.RunJavaScript(context.Background(), buildClipboardSelectionFetchBridgeJS(bridgeNonce))
+	}
 
 	// Video playback diagnostic — logs video element state changes.
 	// Gated behind DUMBER_VIDEO_DIAG=1 environment variable.

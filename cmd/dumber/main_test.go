@@ -72,6 +72,53 @@ func TestLaunchModeFromArgs_OmniboxFlagFallsBackToCLI(t *testing.T) {
 	}
 }
 
+func TestIsCEFSubprocess(t *testing.T) {
+	tests := []struct {
+		name string
+		args []string
+		want bool
+	}{
+		{
+			name: "equals form",
+			args: []string{"dumber", "--type=renderer"},
+			want: true,
+		},
+		{
+			name: "separate value form",
+			args: []string{"dumber", "--type", "renderer"},
+			want: true,
+		},
+		{
+			name: "equals form with empty value",
+			args: []string{"dumber", "--type="},
+			want: false,
+		},
+		{
+			name: "bare type",
+			args: []string{"dumber", "--type"},
+			want: false,
+		},
+		{
+			name: "type followed by flag",
+			args: []string{"dumber", "--type", "--unexpected"},
+			want: false,
+		},
+		{
+			name: "no type flag",
+			args: []string{"dumber", "--unexpected"},
+			want: false,
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			if got := isCEFSubprocess(tc.args); got != tc.want {
+				t.Fatalf("expected %v, got %v", tc.want, got)
+			}
+		})
+	}
+}
+
 func TestResolveCurrentExecutable_ReturnsExecutablePath(t *testing.T) {
 	got, err := resolveCurrentExecutable(func() (string, error) {
 		return "/usr/bin/dumber", nil

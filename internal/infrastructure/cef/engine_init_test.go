@@ -14,7 +14,7 @@ import (
 
 func TestResolvedStateRoot_PrefersCacheDir(t *testing.T) {
 	profile := testCEFDevProfile(t)
-	root := resolvedStateRoot(profile, port.EngineOptions{DataDir: "/tmp/data", CacheDir: "/tmp/cache"})
+	root := resolvedStateRoot(profile.CEFUserDataDir(), port.EngineOptions{DataDir: "/tmp/data", CacheDir: "/tmp/cache"})
 	require.Equal(t, "/tmp/cache", root)
 }
 
@@ -22,65 +22,113 @@ func TestResolvedStateRoot_UsesEnvOverride(t *testing.T) {
 	profile := testCEFDevProfile(t)
 	t.Setenv(CEFRootCachePathEnvVar, "/tmp/override")
 
-	root := resolvedStateRoot(profile, port.EngineOptions{})
+	root := resolvedStateRoot(profile.CEFUserDataDir(), port.EngineOptions{})
 	require.Equal(t, "/tmp/override", root)
 
-	root = resolvedStateRoot(profile, port.EngineOptions{DataDir: "/tmp/data", CacheDir: "/tmp/cache"})
+	root = resolvedStateRoot(profile.CEFUserDataDir(), port.EngineOptions{DataDir: "/tmp/data", CacheDir: "/tmp/cache"})
 	require.Equal(t, "/tmp/override", root)
 }
 
 func TestResolvedStateRoot_UsesProfileDefault(t *testing.T) {
 	profile := testCEFProdProfile(t)
-	root := resolvedStateRoot(profile, port.EngineOptions{})
+	root := resolvedStateRoot(profile.CEFUserDataDir(), port.EngineOptions{})
 	require.Equal(t, profile.CEFUserDataDir(), root)
 }
 
 func TestPrepareCEFSettings_UsesResolvedProfilePaths(t *testing.T) {
 	logger := zerolog.Nop()
 	profile := testCEFDevProfile(t)
-	settings, err := prepareCEFSettings(port.EngineOptions{}, profile, RuntimeConfig{}, &logger)
+	settings, err := prepareCEFSettings(port.EngineOptions{}, RuntimePaths{StateRoot: profile.CEFUserDataDir(), LogFile: profile.CEFLogFile()}, RuntimeConfig{}, &logger)
 	require.NoError(t, err)
 	require.Equal(t, profile.CEFUserDataDir(), settings.RootCachePath)
 	require.Equal(t, profile.CEFLogFile(), settings.LogFile)
+	require.Empty(t, settings.BrowserSubprocessPath)
 }
 
 func TestPrepareCEFSettings_RejectsNonDefaultCookiePolicy(t *testing.T) {
 	logger := zerolog.Nop()
-	_, err := prepareCEFSettings(port.EngineOptions{CookiePolicy: port.CookiePolicyNever}, testCEFDevProfile(t), RuntimeConfig{}, &logger)
+	profile := testCEFDevProfile(t)
+	_, err := prepareCEFSettings(port.EngineOptions{CookiePolicy: port.CookiePolicyNever}, RuntimePaths{StateRoot: profile.CEFUserDataDir(), LogFile: profile.CEFLogFile()}, RuntimeConfig{}, &logger)
 	require.ErrorIs(t, err, ErrCookiePolicyUnsupported)
 }
 
 func TestPrepareCEFSettings_AllowsNoThirdPartyCookiePolicy(t *testing.T) {
 	logger := zerolog.Nop()
-	_, err := prepareCEFSettings(port.EngineOptions{CookiePolicy: port.CookiePolicyNoThirdParty}, testCEFDevProfile(t), RuntimeConfig{}, &logger)
+	profile := testCEFDevProfile(t)
+	_, err := prepareCEFSettings(port.EngineOptions{CookiePolicy: port.CookiePolicyNoThirdParty}, RuntimePaths{StateRoot: profile.CEFUserDataDir(), LogFile: profile.CEFLogFile()}, RuntimeConfig{}, &logger)
 	require.NoError(t, err)
 }
 
 func TestPrepareCEFInitTraceFile_DisabledByDefault(t *testing.T) {
 	t.Setenv(puregoCEFInitTraceEnvVar, "")
+	profile := testCEFDevProfile(t)
 
-	path, err := prepareCEFInitTraceFile(testCEFDevProfile(t), "")
+	path, err := prepareCEFInitTraceFile(profile.CEFLogFile(), "")
 	require.NoError(t, err)
 	require.Empty(t, path)
 }
 
-func TestPrepareCEFLogFile_CreatesPrivateDirectory(t *testing.T) {
+func TestPrepareCEFLogFile_CreatesPrivateDirectoryAndFile(t *testing.T) {
 	logFile := filepath.Join(t.TempDir(), "private", "cef_runtime.log")
 
-	path, err := prepareCEFLogFile(testCEFDevProfile(t), logFile)
+	path, err := prepareCEFLogFile("", logFile)
 	require.NoError(t, err)
 	require.Equal(t, logFile, path)
 
-	info, err := os.Stat(filepath.Dir(logFile))
+	dirInfo, err := os.Stat(filepath.Dir(logFile))
 	require.NoError(t, err)
-	require.Equal(t, os.FileMode(dirPerm), info.Mode().Perm())
+	require.Equal(t, os.FileMode(dirPerm), dirInfo.Mode().Perm())
+
+	fileInfo, err := os.Stat(logFile)
+	require.NoError(t, err)
+	require.Equal(t, os.FileMode(filePerm), fileInfo.Mode().Perm())
+}
+
+func TestPrepareCEFLogFile_TightensExistingFilePermissions(t *testing.T) {
+	logFile := filepath.Join(t.TempDir(), "private", "cef_runtime.log")
+	require.NoError(t, os.MkdirAll(filepath.Dir(logFile), dirPerm))
+	require.NoError(t, os.WriteFile(logFile, []byte("existing"), 0o644))
+
+	path, err := prepareCEFLogFile("", logFile)
+	require.NoError(t, err)
+	require.Equal(t, logFile, path)
+
+	fileInfo, err := os.Stat(logFile)
+	require.NoError(t, err)
+	require.Equal(t, os.FileMode(filePerm), fileInfo.Mode().Perm())
+}
+
+func TestPrepareCEFLogFile_RejectsSymlink(t *testing.T) {
+	target := filepath.Join(t.TempDir(), "target.log")
+	require.NoError(t, os.WriteFile(target, []byte("existing"), 0o644))
+
+	logFile := filepath.Join(t.TempDir(), "private", "cef_runtime.log")
+	require.NoError(t, os.MkdirAll(filepath.Dir(logFile), dirPerm))
+	require.NoError(t, os.Symlink(target, logFile))
+
+	path, err := prepareCEFLogFile("", logFile)
+	require.ErrorContains(t, err, "must not be a symlink")
+	require.Empty(t, path)
+
+	targetInfo, statErr := os.Stat(target)
+	require.NoError(t, statErr)
+	require.Equal(t, os.FileMode(0o644), targetInfo.Mode().Perm())
+}
+
+func TestPrepareCEFLogFile_RejectsDirectoryPath(t *testing.T) {
+	logFile := filepath.Join(t.TempDir(), "private", "cef_runtime.log")
+	require.NoError(t, os.MkdirAll(logFile, dirPerm))
+
+	path, err := prepareCEFLogFile("", logFile)
+	require.ErrorContains(t, err, "not a regular file")
+	require.Empty(t, path)
 }
 
 func TestPrepareCEFInitTraceFile_EnabledViaExplicitLogFile(t *testing.T) {
 	t.Setenv(puregoCEFInitTraceEnvVar, "1")
 	logFile := filepath.Join(t.TempDir(), "custom", "cef_runtime.log")
 
-	path, err := prepareCEFInitTraceFile(testCEFDevProfile(t), logFile)
+	path, err := prepareCEFInitTraceFile("", logFile)
 	require.NoError(t, err)
 	require.Equal(t, filepath.Join(filepath.Dir(logFile), "cef_runtime.bootstrap.log"), path)
 	require.FileExists(t, path)
@@ -94,11 +142,50 @@ func TestPrepareCEFInitTraceFile_EnabledViaExplicitLogFile(t *testing.T) {
 	require.Equal(t, os.FileMode(dirPerm), dirInfo.Mode().Perm())
 }
 
+func TestPrepareCEFInitTraceFile_TruncatesExistingFile(t *testing.T) {
+	t.Setenv(puregoCEFInitTraceEnvVar, "1")
+	logFile := filepath.Join(t.TempDir(), "custom", "cef_runtime.log")
+	bootstrapLogFile := filepath.Join(filepath.Dir(logFile), "cef_runtime.bootstrap.log")
+	require.NoError(t, os.MkdirAll(filepath.Dir(bootstrapLogFile), dirPerm))
+	require.NoError(t, os.WriteFile(bootstrapLogFile, []byte("existing"), 0o644))
+
+	path, err := prepareCEFInitTraceFile("", logFile)
+	require.NoError(t, err)
+	require.Equal(t, bootstrapLogFile, path)
+
+	content, readErr := os.ReadFile(path)
+	require.NoError(t, readErr)
+	require.Empty(t, content)
+
+	info, statErr := os.Stat(path)
+	require.NoError(t, statErr)
+	require.Equal(t, os.FileMode(filePerm), info.Mode().Perm())
+}
+
+func TestPrepareCEFInitTraceFile_RejectsSymlink(t *testing.T) {
+	t.Setenv(puregoCEFInitTraceEnvVar, "1")
+	target := filepath.Join(t.TempDir(), "target.bootstrap.log")
+	require.NoError(t, os.WriteFile(target, []byte("existing"), 0o644))
+
+	logFile := filepath.Join(t.TempDir(), "custom", "cef_runtime.log")
+	bootstrapLogFile := filepath.Join(filepath.Dir(logFile), "cef_runtime.bootstrap.log")
+	require.NoError(t, os.MkdirAll(filepath.Dir(bootstrapLogFile), dirPerm))
+	require.NoError(t, os.Symlink(target, bootstrapLogFile))
+
+	path, err := prepareCEFInitTraceFile("", logFile)
+	require.ErrorContains(t, err, "must not be a symlink")
+	require.Empty(t, path)
+
+	targetInfo, statErr := os.Stat(target)
+	require.NoError(t, statErr)
+	require.Equal(t, os.FileMode(0o644), targetInfo.Mode().Perm())
+}
+
 func TestPrepareCEFInitTraceFile_UsesResolvedProfileLogDirByDefault(t *testing.T) {
 	t.Setenv(puregoCEFInitTraceEnvVar, "1")
 	profile := testCEFDevProfile(t)
 
-	path, err := prepareCEFInitTraceFile(profile, "")
+	path, err := prepareCEFInitTraceFile(profile.CEFLogFile(), "")
 	require.NoError(t, err)
 	require.Equal(t, filepath.Join(profile.EnginePaths.LogDir, "cef_runtime.bootstrap.log"), path)
 	require.FileExists(t, path)

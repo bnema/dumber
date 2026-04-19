@@ -18,6 +18,7 @@ import (
 	"github.com/bnema/dumber/internal/domain/entity"
 	"github.com/bnema/dumber/internal/domain/repository"
 	"github.com/bnema/dumber/internal/infrastructure/cache"
+	infracef "github.com/bnema/dumber/internal/infrastructure/cef"
 	"github.com/bnema/dumber/internal/infrastructure/clipboard"
 	"github.com/bnema/dumber/internal/infrastructure/config"
 	"github.com/bnema/dumber/internal/infrastructure/deps"
@@ -117,18 +118,19 @@ func configureBrowserLaunchRelay(cfg *config.Config) {
 }
 
 func main() {
-	enableCrashForensics()
-
-	// CEF subprocess handling: when CEF re-launches the binary with
+	// CEF subprocess handling: when CEF re-launches this binary with
 	// --type=renderer/gpu/etc, we must call ExecuteProcess before anything
 	// else (Cobra, config, arg stripping). We detect subprocesses by the
-	// presence of --type= in os.Args rather than checking the engine env
-	// var, because subprocesses may not inherit the environment and the
+	// presence of a --type flag in os.Args rather than checking the engine
+	// env var, because subprocesses may not inherit the environment and the
 	// engine can also be selected via config.
-	if isCEFSubprocess() {
-		cef.MaybeExitSubprocess()
+	if isCEFSubprocess(os.Args) {
+		runtime.LockOSThread()
+		cef.MaybeExitSubprocessWithApp(infracef.NewSubprocessApp())
 		os.Exit(1)
 	}
+
+	enableCrashForensics()
 
 	mode, browseURL := launchModeFromArgs(os.Args)
 	// Run GUI mode for browse command
@@ -727,12 +729,22 @@ func createUseCases(repos *repositories, cfg *config.Config) *useCases {
 	}
 }
 
-// isCEFSubprocess returns true if os.Args contains a --type= flag, indicating
+// isCEFSubprocess returns true if args contains a --type flag, indicating
 // this process was spawned by CEF as a renderer, GPU, or utility subprocess.
-func isCEFSubprocess() bool {
-	for _, arg := range os.Args {
+func isCEFSubprocess(args []string) bool {
+	for i, arg := range args {
 		if strings.HasPrefix(arg, "--type=") {
-			return true
+			value := strings.TrimPrefix(arg, "--type=")
+			if value != "" && !strings.HasPrefix(value, "-") {
+				return true
+			}
+			continue
+		}
+		if arg == "--type" && i+1 < len(args) {
+			next := args[i+1]
+			if next != "" && !strings.HasPrefix(next, "-") {
+				return true
+			}
 		}
 	}
 	return false

@@ -100,6 +100,20 @@ const explicitCopyScript = `(function() {
     return selection ? selection.toString() : '';
   }
 
+  function hasUserActivation() {
+    try {
+      if (navigator.userActivation && navigator.userActivation.isActive) {
+        return true;
+      }
+    } catch (_) {}
+    try {
+      if (document.hasTransientActivation) {
+        return true;
+      }
+    } catch (_) {}
+    return false;
+  }
+
   function postExplicitCopy(action, text) {
     if (!text) {
       return;
@@ -153,9 +167,12 @@ const explicitCopyScript = `(function() {
   if (navigator.clipboard && typeof navigator.clipboard.writeText === 'function') {
     var originalWriteText = navigator.clipboard.writeText.bind(navigator.clipboard);
     navigator.clipboard.writeText = function(text) {
+      var userActivated = hasUserActivation();
       return Promise.resolve(originalWriteText(text)).then(function(result) {
         // writeText only has copy semantics, so postExplicitCopy always uses "copy" here.
-        postExplicitCopy('copy', typeof text === 'string' ? text : String(text || ''));
+        if (userActivated) {
+          postExplicitCopy('copy', typeof text === 'string' ? text : String(text || ''));
+        }
         return result;
       });
     };
