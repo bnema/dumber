@@ -420,22 +420,57 @@ func prepareCEFLogFile(defaultLogFile, logFile string) (string, error) {
 	if err := os.MkdirAll(filepath.Dir(runtimeLogFile), dirPerm); err != nil {
 		return "", fmt.Errorf("mkdir %s: %w", filepath.Dir(runtimeLogFile), err)
 	}
-	if _, err := os.Stat(runtimeLogFile); err != nil {
-		if !errors.Is(err, os.ErrNotExist) {
-			return "", fmt.Errorf("stat %s: %w", runtimeLogFile, err)
-		}
-		file, createErr := os.OpenFile(runtimeLogFile, os.O_CREATE|os.O_WRONLY, filePerm)
-		if createErr != nil {
-			return "", fmt.Errorf("create %s: %w", runtimeLogFile, createErr)
-		}
-		if closeErr := file.Close(); closeErr != nil {
-			return "", fmt.Errorf("close %s: %w", runtimeLogFile, closeErr)
-		}
+
+	file, err := openRegularLogFile(runtimeLogFile)
+	if err != nil {
+		return "", err
 	}
-	if err := os.Chmod(runtimeLogFile, filePerm); err != nil {
+	defer func() { _ = file.Close() }()
+
+	info, err := file.Stat()
+	if err != nil {
+		return "", fmt.Errorf("stat %s: %w", runtimeLogFile, err)
+	}
+	if !info.Mode().IsRegular() {
+		return "", fmt.Errorf("log path %s is not a regular file", runtimeLogFile)
+	}
+	if err := file.Chmod(filePerm); err != nil {
 		return "", fmt.Errorf("chmod %s: %w", runtimeLogFile, err)
 	}
 	return runtimeLogFile, nil
+}
+
+func openRegularLogFile(path string) (*os.File, error) {
+	info, err := os.Lstat(path)
+	if err != nil {
+		if !errors.Is(err, os.ErrNotExist) {
+			return nil, fmt.Errorf("lstat %s: %w", path, err)
+		}
+		file, createErr := openFileNoFollow(path, syscall.O_CREAT|syscall.O_EXCL|syscall.O_WRONLY, filePerm)
+		if createErr != nil {
+			return nil, fmt.Errorf("create %s: %w", path, createErr)
+		}
+		return file, nil
+	}
+	if info.Mode()&os.ModeSymlink != 0 {
+		return nil, fmt.Errorf("log path %s must not be a symlink", path)
+	}
+	if !info.Mode().IsRegular() {
+		return nil, fmt.Errorf("log path %s is not a regular file", path)
+	}
+	file, openErr := openFileNoFollow(path, syscall.O_WRONLY, 0)
+	if openErr != nil {
+		return nil, fmt.Errorf("open %s: %w", path, openErr)
+	}
+	return file, nil
+}
+
+func openFileNoFollow(path string, flags int, perm os.FileMode) (*os.File, error) {
+	fd, err := syscall.Open(path, flags|syscall.O_NOFOLLOW|syscall.O_CLOEXEC, uint32(perm))
+	if err != nil {
+		return nil, err
+	}
+	return os.NewFile(uintptr(fd), path), nil
 }
 
 func prepareCEFInitTraceFile(defaultLogFile, logFile string) (string, error) {

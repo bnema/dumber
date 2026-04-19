@@ -98,6 +98,32 @@ func TestPrepareCEFLogFile_TightensExistingFilePermissions(t *testing.T) {
 	require.Equal(t, os.FileMode(filePerm), fileInfo.Mode().Perm())
 }
 
+func TestPrepareCEFLogFile_RejectsSymlink(t *testing.T) {
+	target := filepath.Join(t.TempDir(), "target.log")
+	require.NoError(t, os.WriteFile(target, []byte("existing"), 0o644))
+
+	logFile := filepath.Join(t.TempDir(), "private", "cef_runtime.log")
+	require.NoError(t, os.MkdirAll(filepath.Dir(logFile), dirPerm))
+	require.NoError(t, os.Symlink(target, logFile))
+
+	path, err := prepareCEFLogFile("", logFile)
+	require.ErrorContains(t, err, "must not be a symlink")
+	require.Empty(t, path)
+
+	targetInfo, statErr := os.Stat(target)
+	require.NoError(t, statErr)
+	require.Equal(t, os.FileMode(0o644), targetInfo.Mode().Perm())
+}
+
+func TestPrepareCEFLogFile_RejectsDirectoryPath(t *testing.T) {
+	logFile := filepath.Join(t.TempDir(), "private", "cef_runtime.log")
+	require.NoError(t, os.MkdirAll(logFile, dirPerm))
+
+	path, err := prepareCEFLogFile("", logFile)
+	require.ErrorContains(t, err, "not a regular file")
+	require.Empty(t, path)
+}
+
 func TestPrepareCEFInitTraceFile_EnabledViaExplicitLogFile(t *testing.T) {
 	t.Setenv(puregoCEFInitTraceEnvVar, "1")
 	logFile := filepath.Join(t.TempDir(), "custom", "cef_runtime.log")

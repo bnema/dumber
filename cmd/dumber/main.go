@@ -734,7 +734,11 @@ func createUseCases(repos *repositories, cfg *config.Config) *useCases {
 func isCEFSubprocess(args []string) bool {
 	for i, arg := range args {
 		if strings.HasPrefix(arg, "--type=") {
-			return true
+			value := strings.TrimPrefix(arg, "--type=")
+			if value != "" && !strings.HasPrefix(value, "-") {
+				return true
+			}
+			continue
 		}
 		if arg == "--type" && i+1 < len(args) {
 			next := args[i+1]

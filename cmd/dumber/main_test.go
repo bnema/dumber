@@ -89,6 +89,11 @@ func TestIsCEFSubprocess(t *testing.T) {
 			want: true,
 		},
 		{
+			name: "equals form with empty value",
+			args: []string{"dumber", "--type="},
+			want: false,
+		},
+		{
 			name: "bare type",
 			args: []string{"dumber", "--type"},
 			want: false,
