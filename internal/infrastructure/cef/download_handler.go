@@ -16,15 +16,15 @@ import (
 )
 
 type downloadHandler struct {
-	runtime *downloadruntime.Runtime
-	mu      sync.Mutex
-	active  map[uint32]cefDownloadState
+	runtime  *downloadruntime.Runtime
+	mu       sync.Mutex
+	active   map[uint32]cefDownloadState
+	finished map[uint32]struct{}
 }
 
 type cefDownloadState struct {
 	filename    string
 	destination string
-	finished    bool
 }
 
 type cefDownloadResponseAdapter struct {
@@ -37,8 +37,9 @@ func newDownloadHandler(
 	preparer port.DownloadPreparer,
 ) *downloadHandler {
 	return &downloadHandler{
-		runtime: downloadruntime.New(downloadPath, eventHandler, preparer),
-		active:  make(map[uint32]cefDownloadState),
+		runtime:  downloadruntime.New(downloadPath, eventHandler, preparer),
+		active:   make(map[uint32]cefDownloadState),
+		finished: make(map[uint32]struct{}),
 	}
 }
 
@@ -66,7 +67,9 @@ func (h *downloadHandler) onBeforeDownload(
 	}
 
 	h.mu.Lock()
-	h.active[downloadItem.GetID()] = cefDownloadState{
+	id := downloadItem.GetID()
+	delete(h.finished, id)
+	h.active[id] = cefDownloadState{
 		filename:    output.Filename,
 		destination: output.DestinationPath,
 	}
@@ -93,12 +96,12 @@ func (h *downloadHandler) onDownloadUpdated(
 
 	switch {
 	case downloadItem.IsComplete():
-		if !h.markFinished(id, state) {
+		if !h.markFinished(id) {
 			return
 		}
 		h.runtime.EmitFinished(ctx, state.filename, state.destination)
 	case downloadItem.IsCanceled() || downloadItem.IsInterrupted():
-		if !h.markFinished(id, state) {
+		if !h.markFinished(id) {
 			return
 		}
 		var err error
@@ -129,21 +132,30 @@ func (h *downloadHandler) currentState(id uint32, item purecef.DownloadItem) cef
 	return state
 }
 
-func (h *downloadHandler) markFinished(id uint32, state cefDownloadState) bool {
+func (h *downloadHandler) markFinished(id uint32) bool {
 	h.mu.Lock()
 	defer h.mu.Unlock()
 
-	current, ok := h.active[id]
-	if !ok {
-		state.finished = true
-		h.active[id] = state
-		return true
-	}
-	if current.finished {
+	if _, ok := h.finished[id]; ok {
+		delete(h.active, id)
 		return false
 	}
-	state.finished = true
-	h.active[id] = state
+
+	delete(h.active, id)
+	h.finished[id] = struct{}{}
+
+	const finishedTombstoneLimit = 256
+	if len(h.finished) > finishedTombstoneLimit {
+		for finishedID := range h.finished {
+			if finishedID == id {
+				continue
+			}
+			delete(h.finished, finishedID)
+			if len(h.finished) <= finishedTombstoneLimit {
+				break
+			}
+		}
+	}
 	return true
 }
 

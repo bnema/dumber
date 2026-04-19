@@ -2,6 +2,7 @@ package cef
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -421,9 +422,64 @@ func findHelperBinary() string {
 }
 
 const (
-	dirPerm  = 0o755
-	filePerm = 0o644
+	dirPerm  = 0o700
+	filePerm = 0o600
 )
+
+func openFileNoFollow(path string, flags int, perm os.FileMode) (*os.File, error) {
+	fd, err := syscall.Open(path, flags|syscall.O_NOFOLLOW|syscall.O_CLOEXEC, uint32(perm))
+	if err != nil {
+		return nil, fmt.Errorf("open %s: %w", path, err)
+	}
+	file := os.NewFile(uintptr(fd), path)
+	if file == nil {
+		_ = syscall.Close(fd)
+		return nil, fmt.Errorf("open %s: failed to create file handle", path)
+	}
+	return file, nil
+}
+
+func openRegularLogFile(path string, truncate bool) (*os.File, error) {
+	info, err := os.Lstat(path)
+	if err != nil {
+		if !errors.Is(err, os.ErrNotExist) {
+			return nil, fmt.Errorf("lstat %s: %w", path, err)
+		}
+		flags := syscall.O_WRONLY | syscall.O_CREAT | syscall.O_EXCL
+		if truncate {
+			flags |= syscall.O_TRUNC
+		}
+		file, openErr := openFileNoFollow(path, flags, filePerm)
+		if openErr != nil {
+			return nil, fmt.Errorf("create %s: %w", path, openErr)
+		}
+		if err := file.Chmod(filePerm); err != nil {
+			_ = file.Close()
+			return nil, fmt.Errorf("chmod %s: %w", path, err)
+		}
+		return file, nil
+	}
+	if info.Mode()&os.ModeSymlink != 0 {
+		return nil, fmt.Errorf("log path %s must not be a symlink", path)
+	}
+	if !info.Mode().IsRegular() {
+		return nil, fmt.Errorf("log path %s is not a regular file", path)
+	}
+
+	flags := syscall.O_WRONLY
+	if truncate {
+		flags |= syscall.O_TRUNC
+	}
+	file, openErr := openFileNoFollow(path, flags, 0)
+	if openErr != nil {
+		return nil, fmt.Errorf("open %s: %w", path, openErr)
+	}
+	if err := file.Chmod(filePerm); err != nil {
+		_ = file.Close()
+		return nil, fmt.Errorf("chmod %s: %w", path, err)
+	}
+	return file, nil
+}
 
 func prepareCEFLogFile(logFile string) (string, error) {
 	if logFile != "" {
@@ -431,6 +487,11 @@ func prepareCEFLogFile(logFile string) (string, error) {
 		if err := os.MkdirAll(filepath.Dir(runtimeLogFile), dirPerm); err != nil {
 			return "", fmt.Errorf("mkdir %s: %w", filepath.Dir(runtimeLogFile), err)
 		}
+		file, err := openRegularLogFile(runtimeLogFile, false)
+		if err != nil {
+			return "", err
+		}
+		_ = file.Close()
 		return runtimeLogFile, nil
 	}
 
@@ -444,6 +505,11 @@ func prepareCEFLogFile(logFile string) (string, error) {
 	if err := os.MkdirAll(filepath.Dir(runtimeLogFile), dirPerm); err != nil {
 		return "", fmt.Errorf("mkdir %s: %w", filepath.Dir(runtimeLogFile), err)
 	}
+	file, err := openRegularLogFile(runtimeLogFile, false)
+	if err != nil {
+		return "", err
+	}
+	_ = file.Close()
 	return runtimeLogFile, nil
 }
 
@@ -466,9 +532,11 @@ func prepareCEFInitTraceFile(logFile string) (string, error) {
 	if err := os.MkdirAll(filepath.Dir(bootstrapLogFile), dirPerm); err != nil {
 		return "", fmt.Errorf("mkdir %s: %w", filepath.Dir(bootstrapLogFile), err)
 	}
-	if err := os.WriteFile(bootstrapLogFile, nil, filePerm); err != nil {
-		return "", fmt.Errorf("reset %s: %w", bootstrapLogFile, err)
+	file, err := openRegularLogFile(bootstrapLogFile, true)
+	if err != nil {
+		return "", err
 	}
+	_ = file.Close()
 	return bootstrapLogFile, nil
 }
 

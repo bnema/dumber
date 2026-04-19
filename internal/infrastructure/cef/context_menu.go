@@ -53,6 +53,13 @@ func (h *handlerSet) RunContextMenu(
 
 	x := params.GetXcoord()
 	y := params.GetYcoord()
+	if h.wv != nil && h.wv.pipeline != nil {
+		scale := h.wv.pipeline.scale
+		if scale > 0 {
+			x /= scale
+			y /= scale
+		}
+	}
 
 	h.wv.runOnGTK(func() {
 		showContextMenu(h.wv, items, x, y, callback)

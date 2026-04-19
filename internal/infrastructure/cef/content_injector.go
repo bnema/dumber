@@ -402,11 +402,13 @@ const clipboardCopyBridgeJS = `(function(){
       headers: {'X-Dumber-Body': encoded}
     }).catch(function(){});
   }
-  document.addEventListener('copy', function() {
+  document.addEventListener('copy', function(event) {
+    if (event && event.isTrusted === false) return;
     var sel = window.getSelection();
     if (sel) sendToClipboard(sel.toString());
   });
-  document.addEventListener('cut', function() {
+  document.addEventListener('cut', function(event) {
+    if (event && event.isTrusted === false) return;
     var sel = window.getSelection();
     if (sel) sendToClipboard(sel.toString());
   });
