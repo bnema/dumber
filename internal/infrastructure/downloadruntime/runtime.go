@@ -12,6 +12,11 @@ import (
 
 const dirPerm = 0o755
 
+type codedDownloadError interface {
+	DownloadErrorCode() int
+	DownloadErrorReason() string
+}
+
 // Runtime shares common download preparation and event emission logic across engines.
 type Runtime struct {
 	mu           sync.RWMutex
@@ -118,9 +123,14 @@ func (r *Runtime) EmitFailed(ctx context.Context, filename, destination string, 
 		})
 	}
 
-	logging.FromContext(ctx).Warn().
+	log := logging.FromContext(ctx).Warn().
 		Err(err).
 		Str("filename", filename).
-		Str("destination", destination).
-		Msg("download failed")
+		Str("destination", destination)
+	if codedErr, ok := err.(codedDownloadError); ok {
+		log = log.
+			Int("error_code", codedErr.DownloadErrorCode()).
+			Str("error_reason", codedErr.DownloadErrorReason())
+	}
+	log.Msg("download failed")
 }

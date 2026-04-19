@@ -12,22 +12,24 @@ import (
 )
 
 type stubDownloadItem struct {
-	id        uint32
-	url       string
-	suggested string
-	mimeType  string
-	fullPath  string
-	complete  bool
-	canceled  bool
+	id          uint32
+	url         string
+	suggested   string
+	mimeType    string
+	fullPath    string
+	complete    bool
+	canceled    bool
+	interrupted bool
+	reason      purecef.DownloadInterruptReason
 }
 
 func (s stubDownloadItem) IsValid() bool       { return true }
-func (s stubDownloadItem) IsInProgress() bool  { return !s.complete && !s.canceled }
+func (s stubDownloadItem) IsInProgress() bool  { return !s.complete && !s.canceled && !s.interrupted }
 func (s stubDownloadItem) IsComplete() bool    { return s.complete }
 func (s stubDownloadItem) IsCanceled() bool    { return s.canceled }
-func (s stubDownloadItem) IsInterrupted() bool { return false }
+func (s stubDownloadItem) IsInterrupted() bool { return s.interrupted }
 func (s stubDownloadItem) GetInterruptReason() purecef.DownloadInterruptReason {
-	return 0
+	return s.reason
 }
 func (s stubDownloadItem) GetCurrentSpeed() int64        { return 0 }
 func (s stubDownloadItem) GetPercentComplete() int32     { return 0 }
@@ -129,4 +131,31 @@ func TestMarkFinished_SuppressesDuplicatesAfterCleanup(t *testing.T) {
 	_, inActive := handler.active[42]
 	handler.mu.Unlock()
 	require.False(t, inActive)
+}
+
+func TestCEFDownloadInterruptedErrorIncludesCodeAndReason(t *testing.T) {
+	ctx := context.Background()
+	preparer := usecase.NewPrepareDownloadUseCase(nil)
+	events := &captureDownloadEvents{}
+	handler := newDownloadHandler("/tmp/downloads", events, preparer)
+	callback := &stubBeforeDownloadCallback{}
+
+	item := stubDownloadItem{
+		id:        9,
+		url:       "https://example.com/ubuntu.iso",
+		suggested: "ubuntu.iso",
+		mimeType:  "application/x-iso9660-image",
+	}
+
+	require.True(t, handler.onBeforeDownload(ctx, nil, item, item.suggested, callback))
+
+	item.fullPath = callback.path
+	item.interrupted = true
+	item.reason = purecef.DownloadInterruptReasonServerBadContent
+	handler.onDownloadUpdated(ctx, item, nil)
+
+	require.Len(t, events.events, 2)
+	require.Error(t, events.events[1].Error)
+	require.ErrorContains(t, events.events[1].Error, "code=33")
+	require.ErrorContains(t, events.events[1].Error, "reason=server_bad_content")
 }

@@ -31,8 +31,70 @@ type cefDownloadState struct {
 	destination string
 }
 
+type cefDownloadInterruptError struct {
+	filename string
+	reason   purecef.DownloadInterruptReason
+}
+
+func (e cefDownloadInterruptError) Error() string {
+	return fmt.Sprintf(
+		"download interrupted: %s (code=%d, reason=%s)",
+		e.filename,
+		e.reason,
+		downloadInterruptReasonLabel(e.reason),
+	)
+}
+
+func (e cefDownloadInterruptError) DownloadErrorCode() int {
+	return int(e.reason)
+}
+
+func (e cefDownloadInterruptError) DownloadErrorReason() string {
+	return downloadInterruptReasonLabel(e.reason)
+}
+
 type cefDownloadResponseAdapter struct {
 	item purecef.DownloadItem
+}
+
+var downloadInterruptReasonLabels = map[purecef.DownloadInterruptReason]string{
+	purecef.DownloadInterruptReasonNone:                        "none",
+	purecef.DownloadInterruptReasonFileFailed:                  "file_failed",
+	purecef.DownloadInterruptReasonFileAccessDenied:            "file_access_denied",
+	purecef.DownloadInterruptReasonFileNoSpace:                 "file_no_space",
+	purecef.DownloadInterruptReasonFileNameTooLong:             "file_name_too_long",
+	purecef.DownloadInterruptReasonFileTooLarge:                "file_too_large",
+	purecef.DownloadInterruptReasonFileVirusInfected:           "file_virus_infected",
+	purecef.DownloadInterruptReasonFileTransientError:          "file_transient_error",
+	purecef.DownloadInterruptReasonFileBlocked:                 "file_blocked",
+	purecef.DownloadInterruptReasonFileSecurityCheckFailed:     "file_security_check_failed",
+	purecef.DownloadInterruptReasonFileTooShort:                "file_too_short",
+	purecef.DownloadInterruptReasonFileHashMismatch:            "file_hash_mismatch",
+	purecef.DownloadInterruptReasonFileSameAsSource:            "file_same_as_source",
+	purecef.DownloadInterruptReasonNetworkFailed:               "network_failed",
+	purecef.DownloadInterruptReasonNetworkTimeout:              "network_timeout",
+	purecef.DownloadInterruptReasonNetworkDisconnected:         "network_disconnected",
+	purecef.DownloadInterruptReasonNetworkServerDown:           "network_server_down",
+	purecef.DownloadInterruptReasonNetworkInvalidRequest:       "network_invalid_request",
+	purecef.DownloadInterruptReasonServerFailed:                "server_failed",
+	purecef.DownloadInterruptReasonServerNoRange:               "server_no_range",
+	purecef.DownloadInterruptReasonServerBadContent:            "server_bad_content",
+	purecef.DownloadInterruptReasonServerUnauthorized:          "server_unauthorized",
+	purecef.DownloadInterruptReasonServerCertProblem:           "server_cert_problem",
+	purecef.DownloadInterruptReasonServerForbidden:             "server_forbidden",
+	purecef.DownloadInterruptReasonServerUnreachable:           "server_unreachable",
+	purecef.DownloadInterruptReasonServerContentLengthMismatch: "server_content_length_mismatch",
+	purecef.DownloadInterruptReasonServerCrossOriginRedirect:   "server_cross_origin_redirect",
+	purecef.DownloadInterruptReasonUserCanceled:                "user_canceled",
+	purecef.DownloadInterruptReasonUserShutdown:                "user_shutdown",
+	purecef.DownloadInterruptReasonCrash:                       "crash",
+}
+
+func downloadInterruptReasonLabel(reason purecef.DownloadInterruptReason) string {
+	if label, ok := downloadInterruptReasonLabels[reason]; ok {
+		return label
+	}
+	return "unknown"
 }
 
 func newDownloadHandler(
@@ -117,7 +179,10 @@ func (h *downloadHandler) onDownloadUpdated(
 		}
 		var err error
 		if downloadItem.IsInterrupted() {
-			err = fmt.Errorf("download interrupted: %s (%v)", state.filename, downloadItem.GetInterruptReason())
+			err = cefDownloadInterruptError{
+				filename: state.filename,
+				reason:   downloadItem.GetInterruptReason(),
+			}
 		} else {
 			err = fmt.Errorf("download canceled: %s", state.filename)
 		}
