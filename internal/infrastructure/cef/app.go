@@ -1,8 +1,6 @@
 package cef
 
 import (
-	"strings"
-
 	purecef "github.com/bnema/purego-cef/cef"
 
 	"github.com/bnema/dumber/internal/logging"
@@ -56,12 +54,10 @@ func newDumberApp(engine *Engine) purecef.App {
 	return app
 }
 
-// NewSubprocessApp returns a lightweight raw App implementation for CEF
-// subprocesses re-executed from the main dumber binary. Keep subprocesses free
-// of custom render handlers for now: the renderer bridge introduced a startup
-// regression where OSR pages stopped producing their first paint.
+// NewSubprocessApp returns a lightweight App for helper processes so CEF sees
+// the same custom scheme registration in renderer/GPU/utility processes.
 func NewSubprocessApp() purecef.App {
-	return &subprocessApp{}
+	return purecef.NewApp(&subprocessApp{})
 }
 
 // maxCmdLineLogLen limits logged command line length to avoid leaking sensitive paths.
@@ -122,7 +118,6 @@ func (h *dumberBPH) OnBeforeChildProcessLaunch(commandLine purecef.CommandLine) 
 	useAngle := ""
 	ozonePlatform := ""
 	if commandLine != nil {
-		appendSwitchIfMissing(commandLine, "no-zygote")
 		processType = commandLine.GetSwitchValue("type")
 		commandLineString = commandLine.GetCommandLineString()
 		useAngle = commandLine.GetSwitchValue("use-angle")
@@ -130,100 +125,9 @@ func (h *dumberBPH) OnBeforeChildProcessLaunch(commandLine purecef.CommandLine) 
 	}
 	h.engine.recordChildProcessLaunch(processType, useAngle, ozonePlatform, commandLineString)
 }
-
-func appendSwitchIfMissing(commandLine purecef.CommandLine, name string) {
-	if commandLine == nil || commandLine.HasSwitch(name) {
-		return
-	}
-	commandLine.AppendSwitch(name)
-}
-
-func parseRelaunchCommandLineArgs(commandLine string) []string {
-	args := make([]string, 0, 4)
-	var current strings.Builder
-	var quote rune
-	escaped := false
-	flush := func() {
-		if current.Len() == 0 {
-			return
-		}
-		args = append(args, current.String())
-		current.Reset()
-	}
-
-	for _, r := range commandLine {
-		switch {
-		case escaped:
-			current.WriteRune(r)
-			escaped = false
-		case r == '\\':
-			escaped = true
-		case quote != 0:
-			if r == quote {
-				quote = 0
-				continue
-			}
-			current.WriteRune(r)
-		case r == '"' || r == '\'':
-			quote = r
-		case r == ' ' || r == '\t' || r == '\n' || r == '\r':
-			flush()
-		default:
-			current.WriteRune(r)
-		}
-	}
-
-	if escaped {
-		current.WriteRune('\\')
-	}
-	flush()
-
-	return args
-}
-
-func parseBrowseRelaunchCommandLine(commandLine purecef.CommandLine) (string, bool) {
-	if commandLine == nil {
-		return "", false
-	}
-
-	args := parseRelaunchCommandLineArgs(commandLine.GetCommandLineString())
-	if len(args) < 3 || args[1] != "browse" || args[2] == "" {
-		return "", false
-	}
-	return args[2], true
-}
-
-func isBrowseRelaunchCommandLine(commandLine purecef.CommandLine) bool {
-	if commandLine == nil {
-		return false
-	}
-
-	args := parseRelaunchCommandLineArgs(commandLine.GetCommandLineString())
-	return len(args) >= 2 && args[1] == "browse"
-}
-
-func parseBrowseURLFromRelaunchCommandLine(commandLine purecef.CommandLine) string {
-	browseURL, _ := parseBrowseRelaunchCommandLine(commandLine)
-	return browseURL
-}
-
-func (h *dumberBPH) OnAlreadyRunningAppRelaunch(commandLine purecef.CommandLine, _ string) int32 {
-	if browseURL, ok := parseBrowseRelaunchCommandLine(commandLine); ok {
-		if h != nil && h.engine != nil {
-			if handler := h.engine.alreadyRunningAppRelaunchCallback(); handler != nil {
-				handler(browseURL)
-			}
-		}
-		return 1
-	}
-	if isBrowseRelaunchCommandLine(commandLine) {
-		return 1
-	}
-
-	return 0
-}
-func (h *dumberBPH) GetDefaultClient() purecef.Client                               { return nil }
-func (h *dumberBPH) GetDefaultRequestContextHandler() purecef.RequestContextHandler { return nil }
+func (h *dumberBPH) OnAlreadyRunningAppRelaunch(_ purecef.CommandLine, _ string) int32 { return 0 }
+func (h *dumberBPH) GetDefaultClient() purecef.Client                                  { return nil }
+func (h *dumberBPH) GetDefaultRequestContextHandler() purecef.RequestContextHandler    { return nil }
 
 // OnScheduleMessagePumpWork is a no-op — multi-threaded message loop drives
 // its own pump. Required by the BrowserProcessHandler interface.

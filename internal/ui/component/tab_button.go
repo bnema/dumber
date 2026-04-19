@@ -85,9 +85,6 @@ func (tb *TabButton) SetActive(active bool) {
 		return
 	}
 	tb.isActive = active
-	if tb.button == nil {
-		return
-	}
 
 	if active {
 		tb.button.AddCssClass("tab-button-active")

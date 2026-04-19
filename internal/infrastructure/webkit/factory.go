@@ -17,8 +17,7 @@ type WebViewFactory struct {
 	pool          *WebViewPool
 	injector      *ContentInjector
 	router        *MessageRouter
-	filterApplier FilterApplier        // Optional content filter applier
-	ctxMenu       *contextMenuPipeline // Optional context menu pipeline
+	filterApplier FilterApplier // Optional content filter applier
 
 	// Background color for WebViews (eliminates white flash)
 	bg bgColor
@@ -59,15 +58,6 @@ func (f *WebViewFactory) SetBackgroundColor(r, g, b, a float32) {
 	// Also propagate to the pool if present
 	if f.pool != nil {
 		f.pool.SetBackgroundColor(r, g, b, a)
-	}
-}
-
-// SetContextMenuPipeline sets the context menu pipeline for newly created WebViews.
-// Propagates to the pool if present.
-func (f *WebViewFactory) SetContextMenuPipeline(pipeline *contextMenuPipeline) {
-	f.ctxMenu = pipeline
-	if f.pool != nil {
-		f.pool.SetContextMenuPipeline(pipeline)
 	}
 }
 
@@ -129,11 +119,6 @@ func (f *WebViewFactory) CreateRelated(ctx context.Context, parentID port.WebVie
 		f.filterApplier.ApplyTo(ctx, wv.ucm)
 	}
 
-	// Wire context menu if configured
-	if f.ctxMenu != nil {
-		wv.connectContextMenuSignal(f.ctxMenu)
-	}
-
 	log.Debug().
 		Uint64("id", uint64(wv.ID())).
 		Uint64("parent_id", uint64(parentID)).
@@ -165,11 +150,6 @@ func (f *WebViewFactory) createDirect(ctx context.Context) (*WebView, error) {
 	// Apply content filters if configured
 	if f.filterApplier != nil {
 		f.filterApplier.ApplyTo(ctx, wv.ucm)
-	}
-
-	// Wire context menu if configured
-	if f.ctxMenu != nil {
-		wv.connectContextMenuSignal(f.ctxMenu)
 	}
 
 	log.Debug().Uint64("id", uint64(wv.ID())).Msg("created webview directly")

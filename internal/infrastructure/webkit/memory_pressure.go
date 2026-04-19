@@ -5,7 +5,7 @@ import (
 
 	"github.com/bnema/dumber/internal/application/port"
 	"github.com/bnema/dumber/internal/logging"
-	"github.com/bnema/puregotk/v4/webkit"
+	"github.com/bnema/puregotk-webkit/webkit"
 )
 
 // MemoryPressureApplier implements port.MemoryPressureApplier for WebKitGTK.

@@ -6,7 +6,6 @@ import (
 
 	"github.com/bnema/dumber/internal/logging"
 	"github.com/bnema/dumber/internal/ui/component"
-	"github.com/bnema/puregotk/v4/gobject"
 	"github.com/bnema/puregotk/v4/gtk"
 	"github.com/rs/zerolog"
 )
@@ -119,17 +118,11 @@ func (mw *MainWindow) assembleLayout() {
 
 // Show presents the window.
 func (mw *MainWindow) Show() {
-	if mw == nil || mw.window == nil {
-		return
-	}
 	mw.window.Present()
 }
 
 // Close closes the window.
 func (mw *MainWindow) Close() {
-	if mw == nil || mw.window == nil {
-		return
-	}
 	mw.window.Close()
 }
 
@@ -160,17 +153,6 @@ func (mw *MainWindow) SetContent(widget *gtk.Widget) {
 // Window returns the underlying GTK application window.
 func (mw *MainWindow) Window() *gtk.ApplicationWindow {
 	return mw.window
-}
-
-// ConnectActiveNotify wires activation state changes for the top-level window.
-func (mw *MainWindow) ConnectActiveNotify(callback func(active bool)) uint {
-	if mw == nil || mw.window == nil || callback == nil {
-		return 0
-	}
-	cb := func(_ gobject.Object, _ *gobject.ParamSpec) {
-		callback(mw.window.IsActive())
-	}
-	return mw.window.ConnectNotifyWithDetail("is-active", &cb)
 }
 
 // SetTitle sets the window title.

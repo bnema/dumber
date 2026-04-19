@@ -11,17 +11,18 @@ import (
 	"time"
 
 	"github.com/bnema/dumber/internal/application/port"
+	downloadutil "github.com/bnema/dumber/internal/domain/download"
 	"github.com/bnema/dumber/internal/domain/entity"
 	urlutil "github.com/bnema/dumber/internal/domain/url"
 	"github.com/bnema/dumber/internal/infrastructure/desktop"
 	"github.com/bnema/dumber/internal/logging"
+	"github.com/bnema/puregotk-webkit/webkit"
 	"github.com/bnema/puregotk/v4/gdk"
 	"github.com/bnema/puregotk/v4/gio"
 	"github.com/bnema/puregotk/v4/glib"
 	"github.com/bnema/puregotk/v4/gobject"
 	gtypes "github.com/bnema/puregotk/v4/gobject/types"
 	"github.com/bnema/puregotk/v4/gtk"
-	"github.com/bnema/puregotk/v4/webkit"
 	"github.com/rs/zerolog"
 )
 
@@ -185,9 +186,6 @@ type WebView struct {
 
 	backForwardList         *webkit.BackForwardList
 	backForwardListSignalID uintptr
-
-	// contextMenu holds the optional context menu pipeline for reconnection.
-	contextMenu *contextMenuPipeline
 }
 
 type runJSErrorStat struct {
@@ -432,7 +430,6 @@ func (wv *WebView) connectSignals() {
 	wv.connectBackForwardListChangedSignal()
 	wv.connectWebProcessTerminatedSignal()
 	wv.connectPermissionRequestSignal()
-	wv.connectContextMenuSignal(wv.contextMenu)
 }
 
 func (wv *WebView) connectLoadChangedSignal() {
@@ -824,22 +821,7 @@ func shouldForceDownload(responseDecision *webkit.ResponsePolicyDecision) bool {
 		return false
 	}
 
-	mimeType := strings.ToLower(response.GetMimeType())
-	if strings.HasPrefix(mimeType, "application/pdf") {
-		return true
-	}
-
-	uri := response.GetUri()
-	if uri == "" {
-		return false
-	}
-
-	parsed, err := url.Parse(uri)
-	if err != nil {
-		return strings.Contains(strings.ToLower(uri), ".pdf")
-	}
-
-	return strings.HasSuffix(strings.ToLower(parsed.Path), ".pdf")
+	return downloadutil.ShouldForceDownload(response.GetUri(), response.GetMimeType())
 }
 
 func (wv *WebView) connectEnterFullscreenSignal() {

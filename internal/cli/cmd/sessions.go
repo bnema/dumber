@@ -13,6 +13,7 @@ import (
 	"github.com/bnema/dumber/internal/cli/model"
 	"github.com/bnema/dumber/internal/cli/styles"
 	"github.com/bnema/dumber/internal/domain/entity"
+	"github.com/bnema/dumber/internal/infrastructure/desktop"
 )
 
 const defaultSessionsLimit = 20
@@ -59,7 +60,6 @@ func runSessions(_ *cobra.Command, _ []string) error {
 		ListSessionsUC:    app.ListSessionsUC,
 		RestoreUC:         app.RestoreUC,
 		DeleteSessionUC:   app.DeleteSessionUC,
-		SessionSpawner:    app.SessionSpawner,
 		CurrentSession:    currentSessionID,
 		MaxExitedSessions: app.Config.Session.MaxExitedSessions,
 	})
@@ -181,12 +181,8 @@ func runSessionsRestore(_ *cobra.Command, args []string) error {
 	}
 
 	// Spawn a new dumber instance with the session
-	if app.SessionSpawner == nil {
-		err := fmt.Errorf("session spawner not available")
-		fmt.Fprintln(os.Stderr, renderer.RenderError(err))
-		return wrapPrintedError(err)
-	}
-	if err := app.SessionSpawner.SpawnWithSession(sessionID); err != nil {
+	spawner := desktop.NewSessionSpawner(app.Ctx())
+	if err := spawner.SpawnWithSession(sessionID); err != nil {
 		wrappedErr := fmt.Errorf("spawn browser: %w", err)
 		fmt.Fprintln(os.Stderr, renderer.RenderError(wrappedErr))
 		return wrapPrintedError(wrappedErr)

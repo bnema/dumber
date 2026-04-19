@@ -108,53 +108,6 @@ func TestGenerateCSS_OmniboxSearchAreaMatchesHeaderSurface(t *testing.T) {
 	}
 }
 
-func TestGenerateCSS_ContextMenuUsesCompactSingleFrameStyling(t *testing.T) {
-	css := GenerateCSS(DefaultDarkPalette())
-
-	assert.Contains(t, css, "popover.context-menu-popover > contents {")
-	assert.Contains(t, css, ".context-menu {")
-	assert.Contains(t, css, ".context-menu button.context-menu-item {")
-	assert.Contains(t, css, ".context-menu button.context-menu-item:hover,")
-	assert.Contains(t, css, ".context-menu button.context-menu-item:disabled {")
-	assert.Contains(t, css, ".context-menu-separator {")
-
-	popoverBlockRe := regexp.MustCompile(`(?s)popover\.context-menu-popover\s*>\s*contents\s*\{[^}]*\}`)
-	popoverBlock := popoverBlockRe.FindString(css)
-	if popoverBlock == "" {
-		t.Fatal("expected context menu popover contents block in CSS")
-	}
-
-	assert.Contains(t, popoverBlock, "background-color: var(--surface);")
-	assert.Contains(t, popoverBlock, "border: 0.0625em solid alpha(var(--border), 0.85);")
-	assert.Contains(t, popoverBlock, "border-radius: 0.25em;")
-	assert.Contains(t, popoverBlock, "box-shadow:")
-
-	blockRe := regexp.MustCompile(`(?s)\.context-menu\s*\{[^}]*\}`)
-	block := blockRe.FindString(css)
-	if block == "" {
-		t.Fatal("expected context menu block in CSS")
-	}
-
-	assert.NotContains(t, block, "background-color:")
-	assert.Contains(t, block, "padding: 0.125em 0;")
-	assert.Contains(t, block, "min-width: 10.5em;")
-	assert.NotContains(t, block, "border:")
-	assert.NotContains(t, block, "border-radius:")
-	assert.NotContains(t, block, "box-shadow:")
-	assert.NotContains(t, block, "#")
-	assert.NotContains(t, block, "black")
-	assert.NotContains(t, block, "white")
-
-	itemBlockRe := regexp.MustCompile(`(?s)\.context-menu button\.context-menu-item\s*\{[^}]*\}`)
-	itemBlock := itemBlockRe.FindString(css)
-	if itemBlock == "" {
-		t.Fatal("expected context menu item block in CSS")
-	}
-
-	assert.Contains(t, itemBlock, "padding: 0.25em 0.75em;")
-	assert.Contains(t, itemBlock, "min-height: 1.75em;")
-}
-
 func TestGenerateCSSWithScale_DoesNotEmitRootTextScaling(t *testing.T) {
 	css := GenerateCSSWithScale(DefaultDarkPalette(), 1.3)
 

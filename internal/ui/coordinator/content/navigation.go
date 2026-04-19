@@ -123,13 +123,13 @@ func (c *Coordinator) notifyActiveNavigation(paneID entity.PaneID, uri string) {
 	c.activePaneOverrideMu.RUnlock()
 	if override != "" {
 		if override == paneID {
-			c.onActiveNavigationCommitted(paneID, uri)
+			c.onActiveNavigationCommitted(uri)
 		}
 		return
 	}
 	ws, _ := c.getActiveWS()
 	if ws != nil && ws.ActivePaneID == paneID {
-		c.onActiveNavigationCommitted(paneID, uri)
+		c.onActiveNavigationCommitted(uri)
 	}
 }
 

@@ -1,11 +1,9 @@
 package main
 
 import (
-	"context"
 	"errors"
 	"testing"
 
-	"github.com/bnema/dumber/internal/application/port/mocks"
 	"github.com/bnema/dumber/internal/bootstrap"
 	"github.com/bnema/dumber/internal/infrastructure/colorscheme"
 	"github.com/bnema/dumber/internal/infrastructure/config"
@@ -72,53 +70,6 @@ func TestLaunchModeFromArgs_OmniboxFlagFallsBackToCLI(t *testing.T) {
 	}
 }
 
-func TestIsCEFSubprocess(t *testing.T) {
-	tests := []struct {
-		name string
-		args []string
-		want bool
-	}{
-		{
-			name: "equals form",
-			args: []string{"dumber", "--type=renderer"},
-			want: true,
-		},
-		{
-			name: "separate value form",
-			args: []string{"dumber", "--type", "renderer"},
-			want: true,
-		},
-		{
-			name: "equals form with empty value",
-			args: []string{"dumber", "--type="},
-			want: false,
-		},
-		{
-			name: "bare type",
-			args: []string{"dumber", "--type"},
-			want: false,
-		},
-		{
-			name: "type followed by flag",
-			args: []string{"dumber", "--type", "--unexpected"},
-			want: false,
-		},
-		{
-			name: "no type flag",
-			args: []string{"dumber", "--unexpected"},
-			want: false,
-		},
-	}
-
-	for _, tc := range tests {
-		t.Run(tc.name, func(t *testing.T) {
-			if got := isCEFSubprocess(tc.args); got != tc.want {
-				t.Fatalf("expected %v, got %v", tc.want, got)
-			}
-		})
-	}
-}
-
 func TestResolveCurrentExecutable_ReturnsExecutablePath(t *testing.T) {
 	got, err := resolveCurrentExecutable(func() (string, error) {
 		return "/usr/bin/dumber", nil
@@ -178,48 +129,5 @@ func TestPreInitializeAdwaitaForCEF_SkipsNonCEF(t *testing.T) {
 	}
 	if initResult.AdwaitaDetector.Available() {
 		t.Fatal("expected adwaita detector to remain unavailable")
-	}
-}
-
-func TestTryForwardBrowseURLToRunningInstance_ReturnsTrueOnRelayHit(t *testing.T) {
-	relay := mocks.NewMockBrowserLaunchRelay(t)
-	relay.EXPECT().DeliverOpenFreshWindow(context.Background(), "https://example.com").Return(true, nil)
-
-	forwarded, err := tryForwardBrowseURLToRunningInstance(context.Background(), relay, "https://example.com")
-
-	if err != nil {
-		t.Fatalf("expected no error, got %v", err)
-	}
-	if !forwarded {
-		t.Fatal("expected browse URL to be forwarded")
-	}
-}
-
-func TestTryForwardBrowseURLToRunningInstance_ReturnsFalseOnRelayMiss(t *testing.T) {
-	relay := mocks.NewMockBrowserLaunchRelay(t)
-	relay.EXPECT().DeliverOpenFreshWindow(context.Background(), "https://example.com").Return(false, nil)
-
-	forwarded, err := tryForwardBrowseURLToRunningInstance(context.Background(), relay, "https://example.com")
-
-	if err != nil {
-		t.Fatalf("expected no error, got %v", err)
-	}
-	if forwarded {
-		t.Fatal("expected browse URL to remain unforwarded")
-	}
-}
-
-func TestTryForwardBrowseURLToRunningInstance_PropagatesError(t *testing.T) {
-	relay := mocks.NewMockBrowserLaunchRelay(t)
-	wantErr := errors.New("relay error")
-	relay.EXPECT().DeliverOpenFreshWindow(context.Background(), "https://example.com").Return(false, wantErr)
-
-	forwarded, err := tryForwardBrowseURLToRunningInstance(context.Background(), relay, "https://example.com")
-
-	if !errors.Is(err, wantErr) {
-		t.Fatalf("expected error %v, got %v", wantErr, err)
-	}
-	if forwarded {
-		t.Fatal("expected forwarded to be false on error")
 	}
 }

@@ -6,6 +6,7 @@ import (
 	"database/sql"
 	"fmt"
 	"os"
+	"path/filepath"
 	"sync"
 	"time"
 
@@ -17,7 +18,6 @@ import (
 	"github.com/bnema/dumber/internal/infrastructure/env"
 	"github.com/bnema/dumber/internal/infrastructure/media"
 	"github.com/bnema/dumber/internal/infrastructure/persistence/sqlite"
-	"github.com/bnema/dumber/internal/infrastructure/runtimeprofile"
 	"github.com/bnema/dumber/internal/logging"
 	"github.com/bnema/dumber/internal/ui/theme"
 )
@@ -30,7 +30,8 @@ type DatabaseResult struct {
 
 // ParallelInitResult holds the results of parallel initialization phase.
 type ParallelInitResult struct {
-	RuntimeProfile  runtimeprofile.Profile
+	DataDir         string
+	CacheDir        string
 	ThemeManager    *theme.Manager
 	ColorResolver   port.ColorSchemeResolver
 	AdwaitaDetector *colorscheme.AdwaitaDetector
@@ -90,14 +91,10 @@ func (e *RuntimeRequirementsError) LogDetails(ctx context.Context) {
 // Returns the first fatal error encountered, or nil with the results.
 func RunParallelInit(input ParallelInitInput) (*ParallelInitResult, error) {
 	var (
-		dirsErr error
-		wg      sync.WaitGroup
+		dataDir, cacheDir string
+		dirsErr           error
+		wg                sync.WaitGroup
 	)
-
-	profile, err := ResolveRuntimeProfile(input.Config)
-	if err != nil {
-		return nil, fmt.Errorf("resolve runtime profile: %w", err)
-	}
 
 	start := time.Now()
 
@@ -119,7 +116,7 @@ func RunParallelInit(input ParallelInitInput) (*ParallelInitResult, error) {
 	// Resolve directories
 	go func() {
 		defer wg.Done()
-		dirsErr = resolveWebKitDirs(profile)
+		dataDir, cacheDir, dirsErr = resolveWebKitDirs()
 	}()
 
 	// Theme manager (CPU-bound, no I/O)
@@ -141,7 +138,8 @@ func RunParallelInit(input ParallelInitInput) (*ParallelInitResult, error) {
 	}
 
 	return &ParallelInitResult{
-		RuntimeProfile:  profile,
+		DataDir:         dataDir,
+		CacheDir:        cacheDir,
 		ThemeManager:    themeManager,
 		ColorResolver:   resolver,
 		AdwaitaDetector: adwaitaDetector,
@@ -220,17 +218,21 @@ func CheckMediaRequirements(ctx context.Context, cfg *config.Config) error {
 }
 
 // resolveWebKitDirs resolves and creates the data and cache directories for WebKit.
-func resolveWebKitDirs(profile runtimeprofile.Profile) error {
-	const dirPerm = 0o755
-	dataDir := profile.WebKitDataDir()
-	cacheDir := profile.WebKitCacheDir()
-	if mkErr := os.MkdirAll(dataDir, dirPerm); mkErr != nil {
-		return fmt.Errorf("create data directory %s: %w", dataDir, mkErr)
+func resolveWebKitDirs() (dataDir, cacheDir string, err error) {
+	const cacheDirPerm = 0o755
+	dataDir, err = config.GetDataDir()
+	if err != nil {
+		return "", "", fmt.Errorf("resolve data directory: %w", err)
 	}
-	if mkErr := os.MkdirAll(cacheDir, dirPerm); mkErr != nil {
-		return fmt.Errorf("create cache directory %s: %w", cacheDir, mkErr)
+	stateDir, err := config.GetStateDir()
+	if err != nil {
+		return "", "", fmt.Errorf("resolve state directory: %w", err)
 	}
-	return nil
+	cacheDir = filepath.Join(stateDir, "webkit-cache")
+	if mkErr := os.MkdirAll(cacheDir, cacheDirPerm); mkErr != nil {
+		return "", "", fmt.Errorf("create cache directory %s: %w", cacheDir, mkErr)
+	}
+	return dataDir, cacheDir, nil
 }
 
 // OpenDatabase opens and initializes the SQLite database using XDG paths.
@@ -275,11 +277,12 @@ type ParallelDBEngineResult struct {
 
 // ParallelDBEngineInput holds inputs for parallel DB and engine initialization.
 type ParallelDBEngineInput struct {
-	Ctx            context.Context
-	Config         *config.Config
-	RuntimeProfile runtimeprofile.Profile
-	ThemeManager   *theme.Manager
-	ColorResolver  port.ColorSchemeResolver
+	Ctx           context.Context
+	Config        *config.Config
+	DataDir       string // For engine context
+	CacheDir      string // For engine cache
+	ThemeManager  *theme.Manager
+	ColorResolver port.ColorSchemeResolver
 }
 
 // Note: Database path is resolved via config.GetDatabaseFile() internally.
@@ -314,12 +317,13 @@ func RunParallelDBEngine(input ParallelDBEngineInput) (*ParallelDBEngineResult, 
 
 	// Engine on main thread (GTK requirement)
 	engine, err := BuildEngine(EngineInput{
-		Ctx:            input.Ctx,
-		Config:         input.Config,
-		RuntimeProfile: input.RuntimeProfile,
-		ThemeManager:   input.ThemeManager,
-		ColorResolver:  input.ColorResolver,
-		Logger:         *log,
+		Ctx:           input.Ctx,
+		Config:        input.Config,
+		DataDir:       input.DataDir,
+		CacheDir:      input.CacheDir,
+		ThemeManager:  input.ThemeManager,
+		ColorResolver: input.ColorResolver,
+		Logger:        *log,
 	})
 	if err != nil {
 		dbRes := <-dbCh

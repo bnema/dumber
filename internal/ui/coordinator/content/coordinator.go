@@ -56,13 +56,13 @@ type Coordinator struct {
 	onPaneURIUpdated func(paneID entity.PaneID, url string)
 
 	// Callback when active pane title changes (for window title updates)
-	onWindowTitleChanged func(paneID entity.PaneID, title string)
+	onWindowTitleChanged func(title string)
 
 	// Callback when media permission activity changes (requesting/allowed/blocked).
-	onPermissionActivity func(paneID entity.PaneID, origin string, permTypes []entity.PermissionType, state PermissionActivityState)
+	onPermissionActivity func(origin string, permTypes []entity.PermissionType, state PermissionActivityState)
 
 	// Callback when the active pane commits a navigation (new page loading).
-	onActiveNavigationCommitted func(paneID entity.PaneID, uri string)
+	onActiveNavigationCommitted func(uri string)
 
 	// Callback when the WebView becomes visible (first real commit)
 	onWebViewShown func(paneID entity.PaneID)
@@ -103,7 +103,7 @@ type Coordinator struct {
 	idleInhibitor port.IdleInhibitor
 
 	// Callback when fullscreen state changes (for hiding/showing tab bar)
-	onFullscreenChanged func(paneID entity.PaneID, entering bool)
+	onFullscreenChanged func(entering bool)
 
 	// Callback when WebView gains focus (for accent picker text input targeting)
 	onWebViewFocused func(paneID entity.PaneID, wv port.WebView)
@@ -187,13 +187,13 @@ func (c *Coordinator) SetOnHistoryRecord(fn func(ctx context.Context, paneID ent
 
 // SetOnPermissionActivity sets a callback for WebRTC permission activity changes.
 func (c *Coordinator) SetOnPermissionActivity(
-	fn func(paneID entity.PaneID, origin string, permTypes []entity.PermissionType, state PermissionActivityState),
+	fn func(origin string, permTypes []entity.PermissionType, state PermissionActivityState),
 ) {
 	c.onPermissionActivity = fn
 }
 
 // SetOnActiveNavigationCommitted sets a callback fired when the active pane commits a navigation.
-func (c *Coordinator) SetOnActiveNavigationCommitted(fn func(paneID entity.PaneID, uri string)) {
+func (c *Coordinator) SetOnActiveNavigationCommitted(fn func(uri string)) {
 	c.onActiveNavigationCommitted = fn
 }
 
@@ -203,7 +203,7 @@ func (c *Coordinator) SetOnPaneURIUpdated(fn func(paneID entity.PaneID, url stri
 }
 
 // SetOnWindowTitleChanged sets the callback for active pane title changes (for window title updates).
-func (c *Coordinator) SetOnWindowTitleChanged(fn func(paneID entity.PaneID, title string)) {
+func (c *Coordinator) SetOnWindowTitleChanged(fn func(title string)) {
 	c.onWindowTitleChanged = fn
 }
 
@@ -223,7 +223,7 @@ func (c *Coordinator) SetIdleInhibitor(inhibitor port.IdleInhibitor) {
 }
 
 // SetOnFullscreenChanged sets the callback for fullscreen state changes.
-func (c *Coordinator) SetOnFullscreenChanged(fn func(paneID entity.PaneID, entering bool)) {
+func (c *Coordinator) SetOnFullscreenChanged(fn func(entering bool)) {
 	c.onFullscreenChanged = fn
 }
 

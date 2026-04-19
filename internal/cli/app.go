@@ -10,7 +10,6 @@ import (
 
 	"github.com/bnema/dumber/internal/application/port"
 	"github.com/bnema/dumber/internal/application/usecase"
-	"github.com/bnema/dumber/internal/bootstrap"
 	"github.com/bnema/dumber/internal/cli/styles"
 	"github.com/bnema/dumber/internal/domain/build"
 	"github.com/bnema/dumber/internal/domain/repository"
@@ -38,7 +37,6 @@ type App struct {
 
 	// Services
 	FaviconService *favicon.Service
-	SessionSpawner port.SessionSpawner
 
 	// Context with logger
 	ctx        context.Context
@@ -51,10 +49,6 @@ func NewApp() (*App, error) {
 	var err error
 	// Load config
 	cfg := loadConfig()
-	profile, err := bootstrap.ResolveRuntimeProfile(cfg)
-	if err != nil {
-		return nil, fmt.Errorf("resolve runtime profile: %w", err)
-	}
 
 	// Create theme from config
 	theme := styles.NewTheme(cfg)
@@ -137,7 +131,6 @@ func NewApp() (*App, error) {
 		RestoreUC:       restoreUC,
 		DeleteSessionUC: deleteSessionUC,
 		FaviconService:  faviconService,
-		SessionSpawner:  bootstrap.NewSessionSpawner(ctx, profile),
 		ctx:             ctx,
 		logCleanup:      logCleanup,
 	}, nil

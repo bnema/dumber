@@ -21,18 +21,6 @@ type SessionSpawner interface {
 	SpawnWithSession(sessionID entity.SessionID) error
 }
 
-// SessionSpawnEnvironment provides engine-specific environment overrides for
-// spawned restore-session processes. Implementations are optional: engines that
-// do not need extra launch environment can leave this nil.
-type SessionSpawnEnvironment interface {
-	// RootCacheEnvVar returns the environment variable used to override the
-	// engine's root cache/data directory.
-	RootCacheEnvVar() string
-	// SessionRootCachePath returns the engine-specific root cache/data path for
-	// the provided restored session.
-	SessionRootCachePath(sessionID entity.SessionID) string
-}
-
 // SnapshotService manages debounced session-state snapshots.
 type SnapshotService interface {
 	// Start begins the snapshot service with the given context.

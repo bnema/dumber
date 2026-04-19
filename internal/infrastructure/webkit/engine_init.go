@@ -10,7 +10,6 @@ import (
 	"github.com/bnema/dumber/internal/infrastructure/config"
 	"github.com/bnema/dumber/internal/infrastructure/env"
 	"github.com/bnema/dumber/internal/infrastructure/filtering"
-	"github.com/bnema/dumber/internal/infrastructure/runtimeprofile"
 	"github.com/bnema/dumber/internal/logging"
 	"github.com/bnema/dumber/internal/ui/theme"
 	"github.com/bnema/puregotk/v4/gdk"
@@ -23,12 +22,9 @@ func NewEngine(
 	ctx context.Context,
 	cfg *config.Config,
 	opts port.EngineOptions,
-	profile runtimeprofile.Profile,
 	wkCfg WebKitEngineConfig,
 	themeManager *theme.Manager,
 	colorResolver port.ColorSchemeResolver,
-	contextMenuBuilder port.ContextMenuBuilder,
-	contextMenuExecutorFactory port.ContextMenuActionExecutorFactory,
 	logger zerolog.Logger,
 ) (*Engine, error) {
 	// --- Hardware survey and performance profile resolution ---
@@ -39,7 +35,7 @@ func NewEngine(
 	logging.Trace().Mark("render_env")
 
 	// --- Build webKitContextOptions from opts + wkCfg + perfSettings ---
-	wkOpts := engineBuildContextOptions(opts, profile, wkCfg, &perfSettings)
+	wkOpts := engineBuildContextOptions(opts, wkCfg, &perfSettings)
 	logger.Info().
 		Str("cookie_policy", string(wkOpts.CookiePolicy)).
 		Bool("itp_enabled", wkOpts.ITPEnabled).
@@ -52,7 +48,7 @@ func NewEngine(
 	logging.Trace().Mark("webkit_context")
 
 	// --- Filter manager ---
-	filterManager := engineInitFilterManager(ctx, cfg, profile.Shared.DataDir, logger)
+	filterManager := engineInitFilterManager(ctx, cfg, opts.DataDir, logger)
 
 	// --- Scheme handler ---
 	schemeHandler := NewDumbSchemeHandler(ctx)
@@ -108,19 +104,17 @@ func NewEngine(
 
 	// --- Assemble Engine ---
 	engine := &Engine{
-		ctx:                    ctx,
-		wkCtx:                  wkCtx,
-		settings:               settings,
-		injector:               injector,
-		messageRouter:          messageRouter,
-		pool:                   pool,
-		factory:                factory,
-		filterManager:          filterManager,
-		schemeHandler:          schemeHandler,
-		schemePath:             "dumb://",
-		logger:                 logger,
-		ctxMenuBuilder:         contextMenuBuilder,
-		ctxMenuExecutorFactory: contextMenuExecutorFactory,
+		ctx:           ctx,
+		wkCtx:         wkCtx,
+		settings:      settings,
+		injector:      injector,
+		messageRouter: messageRouter,
+		pool:          pool,
+		factory:       factory,
+		filterManager: filterManager,
+		schemeHandler: schemeHandler,
+		schemePath:    "dumb://",
+		logger:        logger,
 	}
 
 	return engine, nil
@@ -205,24 +199,14 @@ func engineConfigureRenderingEnvironment(
 // engineBuildContextOptions builds webKitContextOptions from EngineOptions, wkCfg and perfSettings.
 func engineBuildContextOptions(
 	opts port.EngineOptions,
-	profile runtimeprofile.Profile,
 	wkCfg WebKitEngineConfig,
 	perfSettings *config.ResolvedPerformanceSettings,
 ) webKitContextOptions {
 	cp := opts.CookiePolicy // empty preserves runtime default per port contract
 
-	dataDir := profile.WebKitDataDir()
-	if opts.DataDir != "" {
-		dataDir = opts.DataDir
-	}
-	cacheDir := profile.WebKitCacheDir()
-	if opts.CacheDir != "" {
-		cacheDir = opts.CacheDir
-	}
-
 	wkOpts := webKitContextOptions{
-		DataDir:      dataDir,
-		CacheDir:     cacheDir,
+		DataDir:      opts.DataDir,
+		CacheDir:     opts.CacheDir,
 		CookiePolicy: cp,
 		ITPEnabled:   wkCfg.ITPEnabled,
 	}

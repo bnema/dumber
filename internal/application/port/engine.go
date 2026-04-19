@@ -193,12 +193,11 @@ type WebUIMessage struct {
 
 // HandlerDependencies holds use cases needed by WebUI message handlers.
 type HandlerDependencies struct {
-	HistoryUC                 HomepageHistory
-	FavoritesUC               HomepageFavorites
-	Clipboard                 Clipboard
-	AutoCopyConfig            AutoCopyConfig
-	ClipboardTextOrchestrator ClipboardTextOrchestrator
-	OnClipboardCopied         func(textLen int)
+	HistoryUC         HomepageHistory
+	FavoritesUC       HomepageFavorites
+	Clipboard         Clipboard
+	AutoCopyConfig    AutoCopyConfig
+	OnClipboardCopied func(textLen int)
 	HandlerDeps
 }
 

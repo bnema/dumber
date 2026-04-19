@@ -15,5 +15,4 @@ func NewTransformLegacyConfigUseCase(transformer port.ConfigTransformer) *Transf
 // Execute transforms legacy config format in place.
 func (uc *TransformLegacyConfigUseCase) Execute(rawConfig map[string]any) {
 	uc.transformer.TransformLegacyActions(rawConfig)
-	uc.transformer.TransformLegacyEngineConfig(rawConfig)
 }

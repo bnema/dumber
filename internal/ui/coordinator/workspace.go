@@ -682,7 +682,12 @@ func (c *WorkspaceCoordinator) replaceRootSplit(
 		Str("old_active_pane_id", string(oldActivePaneID)).
 		Int("new_split_widget_alloc_width", newSplitWidth).
 		Int("new_split_widget_alloc_height", newSplitHeight).
-		Str("orientation", orientationString(orientation)).
+		Str("orientation", func() string {
+			if orientation == layout.OrientationHorizontal {
+				return "horizontal"
+			}
+			return "vertical"
+		}()).
 		Msg("incremental split: replaced root with new split view")
 
 	return nil
@@ -755,17 +760,15 @@ func (c *WorkspaceCoordinator) replaceNonRootSplit(
 		Bool("was_start_child", isStartChild).
 		Int("new_split_widget_alloc_width", newSplitWidth).
 		Int("new_split_widget_alloc_height", newSplitHeight).
-		Str("orientation", orientationString(orientation)).
+		Str("orientation", func() string {
+			if orientation == layout.OrientationHorizontal {
+				return "horizontal"
+			}
+			return "vertical"
+		}()).
 		Msg("incremental split: replaced pane in grandparent with new split view")
 
 	return nil
-}
-
-func orientationString(orientation layout.Orientation) string {
-	if orientation == layout.OrientationHorizontal {
-		return "horizontal"
-	}
-	return "vertical"
 }
 
 // ClosePane closes the active pane.

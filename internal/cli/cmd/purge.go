@@ -7,13 +7,11 @@ import (
 	"github.com/spf13/cobra"
 
 	"github.com/bnema/dumber/internal/application/usecase"
-	"github.com/bnema/dumber/internal/bootstrap"
 	"github.com/bnema/dumber/internal/cli"
 	"github.com/bnema/dumber/internal/cli/model"
 	"github.com/bnema/dumber/internal/cli/styles"
 	"github.com/bnema/dumber/internal/infrastructure/desktop"
 	"github.com/bnema/dumber/internal/infrastructure/filesystem"
-	"github.com/bnema/dumber/internal/infrastructure/runtimeprofile"
 	xdgadapter "github.com/bnema/dumber/internal/infrastructure/xdg"
 )
 
@@ -49,14 +47,7 @@ func runPurge(_ *cobra.Command, _ []string) error {
 	}
 
 	fsAdapter := filesystem.New()
-	profile, err := bootstrap.ResolveRuntimeProfile(app.Config)
-	if err != nil {
-		return fmt.Errorf("resolve runtime profile: %w", err)
-	}
-	xdgAdapter := xdgadapter.New(
-		profile.Mode == runtimeprofile.ModeDev,
-		bootstrap.ResolveXDGRuntimeDir(profile),
-	)
+	xdgAdapter := xdgadapter.New()
 	desktopAdapter := desktop.New()
 	purgeUC := usecase.NewPurgeDataUseCase(fsAdapter, xdgAdapter, desktopAdapter)
 
@@ -72,7 +63,7 @@ func runPurge(_ *cobra.Command, _ []string) error {
 
 	m := model.NewPurgeModel(app.Ctx(), app.Theme, purgeUC, cfg)
 	p := tea.NewProgram(m, tea.WithAltScreen())
-	_, err = p.Run()
+	_, err := p.Run()
 	return err
 }
 

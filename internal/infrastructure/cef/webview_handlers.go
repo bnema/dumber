@@ -7,6 +7,7 @@ import (
 	purecef "github.com/bnema/purego-cef/cef"
 
 	"github.com/bnema/dumber/internal/application/port"
+	downloadutil "github.com/bnema/dumber/internal/domain/download"
 	"github.com/bnema/dumber/internal/infrastructure/transcoder"
 	"github.com/bnema/dumber/internal/logging"
 )
@@ -15,15 +16,15 @@ import (
 const (
 	consoleMarkerVideoDiag        = "[VIDEO-DIAG]"
 	consoleMarkerRedditVideoPatch = "[REDDIT-VIDEO-PATCH]"
-	consoleMarkerAutoCopy         = "[AUTO-COPY]"
 )
 
 // handlerSet implements all CEF handler interfaces and dispatches events to the
 // owning WebView. A single struct is used so that the Client's Get*Handler
 // methods can return the same receiver, avoiding extra allocations.
 type handlerSet struct {
-	wv                 *WebView
-	transcodingHandler purecef.ResourceRequestHandler
+	wv                       *WebView
+	enableContextMenuHandler bool
+	transcodingHandler       purecef.ResourceRequestHandler
 }
 
 // Compile-time interface checks.
@@ -36,6 +37,7 @@ var (
 	_ purecef.RequestHandler      = (*handlerSet)(nil)
 	_ purecef.AudioHandler        = (*handlerSet)(nil)
 	_ purecef.ContextMenuHandler  = (*handlerSet)(nil)
+	_ purecef.DownloadHandler     = (*handlerSet)(nil)
 	_ purecef.FindHandler         = (*handlerSet)(nil)
 )
 
@@ -50,64 +52,36 @@ func (h *handlerSet) GetAudioHandler() purecef.AudioHandler {
 	// audio backend (PipeWire/PulseAudio) is wired up.
 	return h
 }
-func (h *handlerSet) GetCommandHandler() purecef.CommandHandler         { return nil }
-func (h *handlerSet) GetContextMenuHandler() purecef.ContextMenuHandler { return h }
-func (h *handlerSet) GetDialogHandler() purecef.DialogHandler           { return nil }
-func (h *handlerSet) GetDisplayHandler() purecef.DisplayHandler         { return h }
-func (h *handlerSet) GetDownloadHandler() purecef.DownloadHandler       { return nil }
-func (h *handlerSet) GetDragHandler() purecef.DragHandler               { return nil }
-func (h *handlerSet) GetFindHandler() purecef.FindHandler               { return h }
-func (h *handlerSet) GetFocusHandler() purecef.FocusHandler             { return nil }
-func (h *handlerSet) GetFrameHandler() purecef.FrameHandler             { return nil }
-func (h *handlerSet) GetPermissionHandler() purecef.PermissionHandler   { return nil }
-func (h *handlerSet) GetJsdialogHandler() purecef.JsdialogHandler       { return nil }
-func (h *handlerSet) GetKeyboardHandler() purecef.KeyboardHandler       { return nil }
-func (h *handlerSet) GetLifeSpanHandler() purecef.SafeLifeSpanHandler   { return h }
-func (h *handlerSet) GetLoadHandler() purecef.LoadHandler               { return h }
-func (h *handlerSet) GetPrintHandler() purecef.PrintHandler             { return nil }
-func (h *handlerSet) GetRenderHandler() purecef.RenderHandler           { return h }
-func (h *handlerSet) GetRequestHandler() purecef.RequestHandler         { return h }
-
-func (h *handlerSet) OnProcessMessageReceived(
-	browser purecef.Browser,
-	_ purecef.Frame,
-	_ purecef.ProcessID,
-	message purecef.ProcessMessage,
-) int32 {
-	if h == nil || h.wv == nil || h.wv.engine == nil {
-		return 0
+func (h *handlerSet) GetCommandHandler() purecef.CommandHandler { return nil }
+func (h *handlerSet) GetContextMenuHandler() purecef.ContextMenuHandler {
+	if h.enableContextMenuHandler {
+		return h
 	}
-	action, payload, ok := decodeRendererBridgeProcessMessage(message)
-	if !ok {
-		return 0
+	return nil
+}
+func (h *handlerSet) GetDialogHandler() purecef.DialogHandler   { return nil }
+func (h *handlerSet) GetDisplayHandler() purecef.DisplayHandler { return h }
+func (h *handlerSet) GetDownloadHandler() purecef.DownloadHandler {
+	if h.downloadHandler() != nil {
+		return h
 	}
+	return nil
+}
+func (h *handlerSet) GetDragHandler() purecef.DragHandler             { return nil }
+func (h *handlerSet) GetFindHandler() purecef.FindHandler             { return h }
+func (h *handlerSet) GetFocusHandler() purecef.FocusHandler           { return nil }
+func (h *handlerSet) GetFrameHandler() purecef.FrameHandler           { return nil }
+func (h *handlerSet) GetPermissionHandler() purecef.PermissionHandler { return nil }
+func (h *handlerSet) GetJsdialogHandler() purecef.JsdialogHandler     { return nil }
+func (h *handlerSet) GetKeyboardHandler() purecef.KeyboardHandler     { return nil }
+func (h *handlerSet) GetLifeSpanHandler() purecef.SafeLifeSpanHandler { return h }
+func (h *handlerSet) GetLoadHandler() purecef.LoadHandler             { return h }
+func (h *handlerSet) GetPrintHandler() purecef.PrintHandler           { return nil }
+func (h *handlerSet) GetRenderHandler() purecef.RenderHandler         { return h }
+func (h *handlerSet) GetRequestHandler() purecef.RequestHandler       { return h }
 
-	log := logging.FromContext(h.wv.ctx)
-	log.Debug().
-		Str("action", action).
-		Int("payload_len", len(payload)).
-		Msg("cef: renderer bridge message received")
-
-	switch action {
-	case rendererBridgeActionExplicitTextCopy:
-		req, err := decodeRendererBridgeExplicitTextCopyPayload([]byte(payload))
-		if err != nil {
-			log.Debug().Str("action", action).Msg("cef: invalid explicit copy payload")
-			return 1
-		}
-		h.wv.engine.handleExplicitClipboardBridgeText(h.wv.id, req.Action, req.Text)
-	case rendererBridgeActionEditableFocusChanged:
-		h.wv.setEditableFocus(payload == "1" || strings.EqualFold(payload, "true"))
-	case rendererBridgeActionFocusSync:
-		h.wv.engine.handleEditableFocusBridge(browser)
-	case rendererBridgeActionReady:
-		log.Debug().
-			Str("frame_url", logging.TruncateURL(payload, logging.PermissionLogURLMaxLen)).
-			Msg("cef: renderer bridge ready")
-	default:
-		log.Debug().Str("action", action).Msg("cef: unknown renderer bridge action")
-	}
-	return 1
+func (h *handlerSet) OnProcessMessageReceived(_ purecef.Browser, _ purecef.Frame, _ purecef.ProcessID, _ purecef.ProcessMessage) int32 {
+	return 0
 }
 
 // ===========================================================================
@@ -254,8 +228,7 @@ func (h *handlerSet) OnPaint(
 		}
 		log.Msg("cef: OnPaint begin")
 	}
-	if elementType != purecef.PaintElementTypePetPopup &&
-		!h.shouldAcceptMainViewPaint(width, height, dirtyRects, paintSeq, resizeSeq, resizeAgeMs) {
+	if elementType != purecef.PaintElementTypePetPopup && !h.shouldAcceptMainViewPaint(width, height, dirtyRects, paintSeq) {
 		return
 	}
 	rects := make([]rect, len(dirtyRects))
@@ -288,13 +261,8 @@ func (h *handlerSet) OnPaint(
 	}
 }
 
-func (h *handlerSet) shouldAcceptMainViewPaint(
-	width, height int32,
-	dirtyRects []purecef.Rect,
-	paintSeq uint64,
-	resizeSeq uint64,
-	resizeAgeMs int64,
-) bool {
+func (h *handlerSet) shouldAcceptMainViewPaint(width, height int32, dirtyRects []purecef.Rect, paintSeq uint64) bool {
+	resizeSeq, resizeAgeMs := h.wv.pipeline.latestResizeDiagnostics()
 	expectedWidth, expectedHeight, _ := h.wv.pipeline.viewRectSize()
 	sizeMatchesCurrentView := width == expectedWidth && height == expectedHeight
 
@@ -306,7 +274,6 @@ func (h *handlerSet) shouldAcceptMainViewPaint(
 		if sizeMatchesCurrentView {
 			_, _, shouldLog := h.wv.pipeline.markFirstPaintAfterResize()
 			if shouldLog {
-				logging.Trace().Mark("cef_first_content_paint")
 				logging.FromContext(h.wv.ctx).Debug().
 					Uint64("webview_id", uint64(h.wv.id)).
 					Uint64("paint_seq", paintSeq).
@@ -335,12 +302,7 @@ func (h *handlerSet) shouldAcceptMainViewPaint(
 	return sizeMatchesCurrentView
 }
 
-func (h *handlerSet) OnAcceleratedPaint(
-	_ purecef.Browser,
-	_ purecef.PaintElementType,
-	_ []purecef.Rect,
-	_ *purecef.AcceleratedPaintInfo,
-) {
+func (h *handlerSet) OnAcceleratedPaint(_ purecef.Browser, _ purecef.PaintElementType, _ []purecef.Rect, _ *purecef.AcceleratedPaintInfo) {
 	count := h.wv.pipeline.recordAcceleratedPaint()
 	if count <= 5 || count%100 == 0 {
 		logging.FromContext(h.wv.ctx).Info().
@@ -354,12 +316,7 @@ func (h *handlerSet) GetTouchHandleSize(_ purecef.Browser, _ purecef.HorizontalA
 
 func (h *handlerSet) OnTouchHandleStateChanged(_ purecef.Browser, _ *purecef.TouchHandleState) {}
 
-func (h *handlerSet) StartDragging(
-	_ purecef.Browser,
-	_ purecef.DragData,
-	_ purecef.DragOperationsMask,
-	_, _ int32,
-) int32 {
+func (h *handlerSet) StartDragging(_ purecef.Browser, _ purecef.DragData, _ purecef.DragOperationsMask, _, _ int32) int32 {
 	return 0
 }
 
@@ -370,29 +327,7 @@ func (h *handlerSet) OnScrollOffsetChanged(_ purecef.Browser, _, _ float64) {}
 func (h *handlerSet) OnImeCompositionRangeChanged(_ purecef.Browser, _ *purecef.Range, _ []purecef.Rect) {
 }
 
-func (h *handlerSet) OnTextSelectionChanged(_ purecef.Browser, selectedText string, _ *purecef.Range) {
-	if h == nil || h.wv == nil {
-		return
-	}
-	previous, changed := h.wv.setSelectedText(selectedText)
-	if !changed {
-		return
-	}
-	if h.wv.ctx != nil && selectedText == "" {
-		if previous != "" {
-			logging.FromContext(h.wv.ctx).Debug().
-				Int("prev_text_len", len(previous)).
-				Msg("cef: text selection cleared")
-		}
-	} else if h.wv.ctx != nil {
-		logging.FromContext(h.wv.ctx).Debug().
-			Int("text_len", len(selectedText)).
-			Msg("cef: text selection changed")
-	}
-	if h.wv.engine != nil {
-		h.wv.scheduleSelectionUpdate(selectedText)
-	}
-}
+func (h *handlerSet) OnTextSelectionChanged(_ purecef.Browser, _ string, _ *purecef.Range) {}
 
 func (h *handlerSet) OnVirtualKeyboardRequested(_ purecef.Browser, _ purecef.TextInputMode) {}
 
@@ -403,11 +338,6 @@ func (h *handlerSet) OnVirtualKeyboardRequested(_ purecef.Browser, _ purecef.Tex
 // OnAddressChange updates the cached URI when the main frame navigates.
 func (h *handlerSet) OnAddressChange(_ purecef.Browser, frame purecef.Frame, url string) {
 	if frame != nil && frame.IsMain() {
-		if h.wv != nil && h.wv.ctx != nil {
-			logging.FromContext(h.wv.ctx).Debug().
-				Str("url", logging.TruncateURL(url, logging.PermissionLogURLMaxLen)).
-				Msg("cef: OnAddressChange")
-		}
 		h.wv.updateURI(url)
 	}
 }
@@ -459,16 +389,9 @@ func (h *handlerSet) OnStatusMessage(_ purecef.Browser, value string) {
 	}
 }
 
-func (h *handlerSet) OnConsoleMessage(
-	_ purecef.Browser,
-	level purecef.LogSeverity,
-	message, source string,
-	line int32,
-) int32 {
+func (h *handlerSet) OnConsoleMessage(_ purecef.Browser, level purecef.LogSeverity, message, source string, line int32) int32 {
 	if h.wv != nil && h.wv.ctx != nil &&
-		(strings.Contains(message, consoleMarkerVideoDiag) ||
-			strings.Contains(message, consoleMarkerRedditVideoPatch) ||
-			strings.Contains(message, consoleMarkerAutoCopy)) {
+		(strings.Contains(message, consoleMarkerVideoDiag) || strings.Contains(message, consoleMarkerRedditVideoPatch)) {
 		log := logging.FromContext(h.wv.ctx).With().
 			Str("component", "cef-console").
 			Str("source", source).
@@ -490,20 +413,10 @@ func (h *handlerSet) OnAutoResize(_ purecef.Browser, _ *purecef.Size) int32 { re
 
 // OnLoadingProgressChange updates the cached progress value.
 func (h *handlerSet) OnLoadingProgressChange(_ purecef.Browser, progress float64) {
-	if h.wv != nil && h.wv.ctx != nil {
-		logging.FromContext(h.wv.ctx).Trace().
-			Float64("progress", progress).
-			Msg("cef: OnLoadingProgressChange")
-	}
 	h.wv.updateProgress(progress)
 }
 
-func (h *handlerSet) OnCursorChange(
-	_ purecef.Browser,
-	_ uintptr,
-	cursorType purecef.CursorType,
-	_ *purecef.CursorInfo,
-) int32 {
+func (h *handlerSet) OnCursorChange(_ purecef.Browser, _ uintptr, cursorType purecef.CursorType, _ *purecef.CursorInfo) int32 {
 	name := cefCursorToGDKName(cursorType)
 	h.wv.runOnGTK(func() {
 		h.wv.pipeline.glArea.SetCursorFromName(&name)
@@ -525,30 +438,6 @@ func (h *handlerSet) GetRootWindowScreenRect(_ purecef.Browser, _ *purecef.Rect)
 func (h *handlerSet) OnLoadingStateChange(_ purecef.Browser, isloading, cangoback, cangoforward int32) {
 	loading := isloading != 0
 	h.wv.updateLoadState(loading, cangoback != 0, cangoforward != 0)
-	if h.wv != nil && h.wv.ctx != nil {
-		h.wv.mu.RLock()
-		uri := h.wv.uri
-		progress := h.wv.progress
-		pendingURI := h.wv.pendingURI
-		h.wv.mu.RUnlock()
-		logging.FromContext(h.wv.ctx).Debug().
-			Bool("loading", loading).
-			Bool("can_go_back", cangoback != 0).
-			Bool("can_go_forward", cangoforward != 0).
-			Float64("progress", progress).
-			Str("uri", logging.TruncateURL(uri, logging.PermissionLogURLMaxLen)).
-			Str("pending_uri", logging.TruncateURL(pendingURI, logging.PermissionLogURLMaxLen)).
-			Msg("cef: OnLoadingStateChange")
-	}
-
-	if !loading && h.wv.input != nil && h.wv.input.hasGTKFocus() {
-		h.wv.mu.RLock()
-		host := h.wv.host
-		h.wv.mu.RUnlock()
-		if host != nil {
-			syncWindowlessBrowserFocus(host)
-		}
-	}
 
 	h.wv.mu.RLock()
 	cb := h.wv.callbacks
@@ -572,11 +461,6 @@ func (h *handlerSet) OnLoadingStateChange(_ purecef.Browser, isloading, cangobac
 func (h *handlerSet) OnLoadStart(_ purecef.Browser, frame purecef.Frame, _ purecef.TransitionType) {
 	if frame == nil || !frame.IsMain() {
 		return
-	}
-	if h.wv != nil && h.wv.ctx != nil {
-		logging.FromContext(h.wv.ctx).Debug().
-			Str("url", logging.TruncateURL(frame.GetURL(), logging.PermissionLogURLMaxLen)).
-			Msg("cef: OnLoadStart")
 	}
 	h.wv.updateURI(frame.GetURL())
 	h.wv.mu.RLock()
@@ -602,18 +486,6 @@ func (h *handlerSet) OnLoadEnd(_ purecef.Browser, frame purecef.Frame, httpStatu
 	}
 	// Successful load — reset the consecutive crash counter.
 	h.wv.crashCount.Store(0)
-
-	// If a queued startup navigation is still pending after about:blank finished,
-	// replay it now that the initial main-frame load completed.
-	frameURL := frame.GetURL()
-	if pendingURI := h.wv.pendingNavigationURI(); pendingURI != "" && !pendingURIEquivalent(frameURL, pendingURI) {
-		if strings.EqualFold(strings.TrimSpace(frameURL), "about:blank") {
-			log.Debug().
-				Str("pending_uri", logging.TruncateURL(pendingURI, logging.PermissionLogURLMaxLen)).
-				Msg("cef: replaying pending navigation after about:blank load end")
-			h.wv.schedulePendingNavigationReplay(0)
-		}
-	}
 
 	// Inject scripts and styles after page load.
 	// Must run on GTK thread — OnLoadEnd fires on the CEF IO thread,
@@ -693,53 +565,42 @@ func (h *handlerSet) OnAfterCreated(browser purecef.Browser) {
 	browserID := browser.GetIdentifier()
 	log.Debug().
 		Int32("browser_id", browserID).
+		Bool("context_menu_handler_enabled", h.enableContextMenuHandler).
 		Msg("cef: OnAfterCreated")
 	if h.wv.engine != nil {
 		h.wv.engine.recordBrowserAfterCreated(browser)
 		h.wv.engine.registerWebView(h.wv)
 	}
 	host := browser.GetHost()
-	if host == nil {
-		log.Warn().Msg("cef: OnAfterCreated returned nil host")
-		return
-	}
 
-	shouldSyncFocus := false
-	hasPendingNavigation := false
 	h.wv.mu.Lock()
 	h.wv.browser = browser
 	h.wv.host = host
+	uri := h.wv.pendingURI
+	h.wv.pendingURI = ""
 	h.wv.input.setHost(host)
 	if h.wv.findCtrl != nil {
 		h.wv.findCtrl.setHost(host)
 	}
 
 	// Mark browser as visible — CEF OSR starts in hidden state and suppresses
-	// painting/caret updates until explicitly told the browser is shown.
+	// UI elements like the text caret until explicitly told the browser is shown.
 	host.WasHidden(0)
 
-	// If GTK focus entered before the browser existed, reassert browser focus
-	// now. Otherwise CEF may stay internally unfocused and suppress caret paint.
-	if h.wv.input != nil {
-		shouldSyncFocus = h.wv.input.hasGTKFocus()
-		if !shouldSyncFocus && h.wv.input.glArea != nil {
-			shouldSyncFocus = h.wv.input.glArea.HasFocus()
+	// If the GLArea already has GTK focus (cold start race), tell CEF now.
+	// The focus-enter event fired before the browser existed, so SetFocus
+	// was never called and the caret won't blink until the user clicks.
+	if h.wv.input != nil && h.wv.input.glArea != nil && h.wv.input.glArea.HasFocus() {
+		host.SetFocus(1)
+	}
+
+	// Replay any navigation that was requested before the browser existed.
+	if uri != "" {
+		if frame := browser.GetMainFrame(); frame != nil {
+			frame.LoadURL(uri)
 		}
 	}
-	hasPendingNavigation = strings.TrimSpace(h.wv.pendingURI) != ""
-
 	h.wv.mu.Unlock()
-	if shouldSyncFocus {
-		syncWindowlessBrowserFocus(host)
-	} else {
-		// Request an initial OSR frame even before the first real navigation
-		// commits. This restores the about:blank warm-up paint that the stable
-		// startup path relied on and prevents the render pipeline from staying idle.
-		host.Invalidate(purecef.PaintElementTypePetView)
-	}
-	if hasPendingNavigation {
-		h.wv.schedulePendingNavigationReplay(0)
-	}
 
 	h.wv.scheduleStartBeginFrameLoop()
 }
@@ -779,17 +640,82 @@ func (h *handlerSet) OnBeforeClose(_ purecef.Browser) {
 // RequestHandler (11 methods)
 // ===========================================================================
 
-func (h *handlerSet) OnBeforeBrowse(_ purecef.Browser, _ purecef.Frame, _ purecef.Request, _, _ int32) bool {
-	return false
+func (h *handlerSet) OnBeforeBrowse(browser purecef.Browser, frame purecef.Frame, request purecef.Request, _, _ int32) bool {
+	if frame == nil || !frame.IsMain() || request == nil {
+		return false
+	}
+
+	handler := h.downloadHandler()
+	if handler == nil || !strings.EqualFold(request.GetMethod(), "GET") {
+		return false
+	}
+
+	url := request.GetURL()
+	if !downloadutil.ShouldForceDownloadForURI(url) || browser == nil {
+		return false
+	}
+
+	host := browser.GetHost()
+	if host == nil {
+		return false
+	}
+
+	logging.FromContext(h.currentContext()).Debug().
+		Str("url", logging.TruncateURL(url, maxTranscodingURLLength)).
+		Msg("cef: forcing download for navigation")
+
+	host.StartDownload(url)
+	return true
 }
 
-func (h *handlerSet) OnOpenUrlfromTab(
+func (h *handlerSet) CanDownload(browser purecef.Browser, url string, requestMethod string) bool {
+	handler := h.downloadHandler()
+	if handler == nil {
+		return false
+	}
+	return handler.canDownload(browser, url, requestMethod)
+}
+
+func (h *handlerSet) OnBeforeDownload(
+	browser purecef.Browser,
+	downloadItem purecef.DownloadItem,
+	suggestedName string,
+	callback purecef.BeforeDownloadCallback,
+) bool {
+	handler := h.downloadHandler()
+	if handler == nil {
+		return false
+	}
+	return handler.onBeforeDownload(h.currentContext(), browser, downloadItem, suggestedName, callback)
+}
+
+func (h *handlerSet) OnDownloadUpdated(
 	_ purecef.Browser,
-	_ purecef.Frame,
-	_ string,
-	_ purecef.WindowOpenDisposition,
-	_ int32,
-) int32 {
+	downloadItem purecef.DownloadItem,
+	callback purecef.DownloadItemCallback,
+) {
+	handler := h.downloadHandler()
+	if handler == nil {
+		return
+	}
+	handler.onDownloadUpdated(h.currentContext(), downloadItem, callback)
+}
+
+func (h *handlerSet) downloadHandler() *downloadHandler {
+	if h == nil || h.wv == nil || h.wv.engine == nil {
+		return nil
+	}
+	return h.wv.engine.currentDownloadHandler()
+}
+
+func (h *handlerSet) currentContext() context.Context {
+	if h == nil || h.wv == nil || h.wv.ctx == nil {
+		return context.Background()
+	}
+	return h.wv.ctx
+}
+
+func (h *handlerSet) OnOpenUrlfromTab(_ purecef.Browser, _ purecef.Frame, _ string, _ purecef.WindowOpenDisposition, _ int32) int32 {
 	return 0
 }
 
@@ -797,8 +723,7 @@ func (h *handlerSet) GetResourceRequestHandler(
 	_ purecef.Browser, _ purecef.Frame, request purecef.Request,
 	_, _ int32, _ string, disableDefaultHandling *int32,
 ) purecef.ResourceRequestHandler {
-	if h.transcodingHandler != nil && request != nil && disableDefaultHandling != nil &&
-		transcoder.IsEagerTranscodeURL(request.GetURL()) {
+	if h.transcodingHandler != nil && request != nil && disableDefaultHandling != nil && transcoder.IsEagerTranscodeURL(request.GetURL()) {
 		*disableDefaultHandling = 1
 		if h.wv != nil && h.wv.ctx != nil {
 			logging.FromContext(h.wv.ctx).Info().
@@ -819,13 +744,7 @@ func (h *handlerSet) GetAuthCredentials(
 	return 0
 }
 
-func (h *handlerSet) OnCertificateError(
-	_ purecef.Browser,
-	_ purecef.Errorcode,
-	_ string,
-	_ purecef.Sslinfo,
-	_ purecef.Callback,
-) int32 {
+func (h *handlerSet) OnCertificateError(_ purecef.Browser, _ purecef.Errorcode, _ string, _ purecef.Sslinfo, _ purecef.Callback) int32 {
 	return 0
 }
 
@@ -1054,12 +973,7 @@ func (h *handlerSet) OnAudioStreamError(_ purecef.Browser, message string) {
 // ===========================================================================
 
 // OnFindResult dispatches CEF find results to the WebView's FindController.
-func (h *handlerSet) OnFindResult(
-	_ purecef.Browser,
-	identifier, count int32,
-	_ *purecef.Rect,
-	activematchordinal, finalupdate int32,
-) {
+func (h *handlerSet) OnFindResult(_ purecef.Browser, identifier, count int32, _ *purecef.Rect, activematchordinal, finalupdate int32) {
 	if h.wv.findCtrl != nil {
 		h.wv.findCtrl.handleFindResult(identifier, count, activematchordinal, finalupdate)
 	}

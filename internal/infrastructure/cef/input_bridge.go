@@ -3,8 +3,6 @@ package cef
 import (
 	"context"
 	"sync"
-	"sync/atomic"
-	"unicode/utf8"
 
 	purecef "github.com/bnema/purego-cef/cef"
 	"github.com/bnema/puregotk/v4/gdk"
@@ -58,14 +56,6 @@ type inputBridge struct {
 	// ImeCommitText. Set once during attachTo, read-only afterwards.
 	clipboard *gdk.Clipboard
 
-	// selectionText returns the browser's latest known text selection so Ctrl+C
-	// / Ctrl+X can route the selection through the shared explicit-copy path.
-	selectionText func() string
-
-	// explicitCopyText routes explicit copy/cut text through the shared
-	// clipboard orchestration path.
-	explicitCopyText func(action, text string)
-
 	// IMContext for dead key / compose sequence support. Held as a field
 	// to prevent garbage collection while the controller is alive.
 	imContext *gtk.IMContextSimple
@@ -77,32 +67,12 @@ type inputBridge struct {
 	// show the text caret.
 	glArea *gtk.GLArea
 
-	// gtkFocused mirrors the latest GTK focus-controller state so non-GTK
-	// threads (CEF callbacks, scheme handlers) can safely know whether this
-	// widget is still the active focused view.
-	gtkFocused atomic.Bool
-
 	// onMiddleClick is called when button 2 (middle) is pressed on a link.
 	// The callback receives the hovered URI. Set by the factory.
 	onMiddleClick func(uri string)
 }
 
 // newInputBridge creates an input bridge with the given HiDPI scale factor.
-type browserFocusSyncHost interface {
-	WasHidden(hidden int32)
-	SetFocus(focus int32)
-	Invalidate(elementType purecef.PaintElementType)
-}
-
-func syncWindowlessBrowserFocus(host browserFocusSyncHost) {
-	if host == nil {
-		return
-	}
-	host.WasHidden(0)
-	host.SetFocus(1)
-	host.Invalidate(purecef.PaintElementTypePetView)
-}
-
 func newInputBridge(ctx context.Context, scale int32) *inputBridge {
 	return &inputBridge{ctx: ctx, scale: scale}
 }
@@ -193,7 +163,6 @@ func (ib *inputBridge) attachFocusAndKeyboard(glArea *gtk.GLArea) {
 	// Focus — forward to CEF and IMContext.
 	focus := gtk.NewEventControllerFocus()
 	focusEnterCb := func(_ gtk.EventControllerFocus) {
-		ib.gtkFocused.Store(true)
 		if ib.imContext != nil {
 			ib.imContext.FocusIn()
 		}
@@ -201,7 +170,6 @@ func (ib *inputBridge) attachFocusAndKeyboard(glArea *gtk.GLArea) {
 	}
 	focus.ConnectEnter(&focusEnterCb)
 	focusLeaveCb := func(_ gtk.EventControllerFocus) {
-		ib.gtkFocused.Store(false)
 		if ib.imContext != nil {
 			ib.imContext.Reset()
 			ib.imContext.FocusOut()
@@ -231,8 +199,6 @@ func (ib *inputBridge) attachFocusAndKeyboard(glArea *gtk.GLArea) {
 
 	keyPressCb := func(_ gtk.EventControllerKey, keyval, keycode uint, state gdk.ModifierType) bool {
 		mods := uint(state)
-
-		ib.maybeMirrorClipboardShortcut(keyval, mods)
 
 		// Intercept Ctrl+V / Ctrl+Shift+V: CEF OSR cannot access the
 		// Wayland/X11 clipboard, so we read from GDK and inject via
@@ -319,13 +285,6 @@ func (ib *inputBridge) onMousePress(x, y float64, button, mods uint, clickCount 
 		return
 	}
 
-	// Reassert windowless browser focus before forwarding left-clicks. GTK may
-	// still consider the GLArea focused while Chromium forgot that state after a
-	// navigation or DOM transition, which prevents the caret from painting.
-	if button == 1 {
-		syncWindowlessBrowserFocus(host)
-	}
-
 	evt := buildMouseEvent(x, y, mods, ib.scale)
 	btn := translateMouseButton(button)
 	host.SendMouseClickEvent(&evt, btn, 0, int32(clickCount))
@@ -362,7 +321,10 @@ func (ib *inputBridge) onFocusIn() {
 	ib.mu.Lock()
 	host := ib.host
 	ib.mu.Unlock()
-	syncWindowlessBrowserFocus(host)
+	if host == nil {
+		return
+	}
+	host.SetFocus(1)
 }
 
 func (ib *inputBridge) onFocusOut() {
@@ -373,46 +335,6 @@ func (ib *inputBridge) onFocusOut() {
 		return
 	}
 	host.SetFocus(0)
-}
-
-func (ib *inputBridge) hasGTKFocus() bool {
-	if ib == nil {
-		return false
-	}
-	return ib.gtkFocused.Load()
-}
-
-func (ib *inputBridge) maybeMirrorClipboardShortcut(keyval, mods uint) {
-	action, ok := clipboardShortcutAction(keyval, mods)
-	if !ok || ib == nil || ib.selectionText == nil || ib.explicitCopyText == nil {
-		return
-	}
-	text := ib.selectionText()
-	if text == "" {
-		return
-	}
-	logging.FromContext(ib.ctx).Debug().
-		Str("action", action).
-		Int("text_len", utf8.RuneCountInString(text)).
-		Msg("cef: clipboard shortcut routed through explicit copy handler")
-	ib.explicitCopyText(action, text)
-}
-
-func clipboardShortcutAction(keyval, mods uint) (string, bool) {
-	if mods&uint(gdk.ControlMaskValue) == 0 {
-		return "", false
-	}
-	if mods&uint(gdk.ShiftMaskValue) != 0 || mods&uint(gdk.AltMaskValue) != 0 {
-		return "", false
-	}
-	switch keyval {
-	case gdkKeyLowercaseC, gdkKeyUppercaseC:
-		return "copy", true
-	case gdkKeyLowercaseX, gdkKeyUppercaseX:
-		return "cut", true
-	default:
-		return "", false
-	}
 }
 
 func (ib *inputBridge) onKeyPress(keyval, keycode, mods uint) {
@@ -636,12 +558,8 @@ const (
 	gdkKeyPageDown  = 0xff56
 
 	// Clipboard shortcut keyvals.
-	gdkKeyLowercaseC = 0x063
-	gdkKeyUppercaseC = 0x043
 	gdkKeyLowercaseV = 0x076
 	gdkKeyUppercaseV = 0x056
-	gdkKeyLowercaseX = 0x078
-	gdkKeyUppercaseX = 0x058
 )
 
 // keyvalToChar converts a GDK keyval to a UTF-16 character for CEF CHAR events.

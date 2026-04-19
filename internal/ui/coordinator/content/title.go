@@ -29,22 +29,30 @@ func (c *Coordinator) onTitleChanged(ctx context.Context, paneID entity.PaneID, 
 	c.paneTitles[paneID] = title
 	c.titleMu.Unlock()
 
-	// Update domain model and stacked title if available.
-	if c.getActiveWS != nil {
-		ws, wsView := c.getActiveWS()
-		if ws != nil {
-			paneNode := ws.FindPane(paneID)
-			if paneNode != nil && paneNode.Pane != nil {
-				paneNode.Pane.Title = title
-			}
+	// Update domain model and check if this is the active pane
+	isActivePaneTitle := false
+	if c.getActiveWS == nil {
+		return
+	}
+	ws, wsView := c.getActiveWS()
+	if ws != nil {
+		paneNode := ws.FindPane(paneID)
+		if paneNode != nil && paneNode.Pane != nil {
+			paneNode.Pane.Title = title
 		}
+		// Check if this pane is the active one
+		if ws.ActivePaneID == paneID {
+			isActivePaneTitle = true
+		}
+	}
 
-		if wsView != nil {
-			tr := wsView.TreeRenderer()
-			if tr != nil {
-				if stackedView := tr.GetStackedViewForPane(string(paneID)); stackedView != nil {
-					c.updateStackedPaneTitle(ctx, stackedView, paneID, title)
-				}
+	// Update StackedView title bar if this pane is in a stack
+	if wsView != nil {
+		tr := wsView.TreeRenderer()
+		if tr != nil {
+			stackedView := tr.GetStackedViewForPane(string(paneID))
+			if stackedView != nil {
+				c.updateStackedPaneTitle(ctx, stackedView, paneID, title)
 			}
 		}
 	}
@@ -59,11 +67,9 @@ func (c *Coordinator) onTitleChanged(ctx context.Context, paneID entity.PaneID, 
 		}
 	}
 
-	// Notify window title updates only for the active pane.
-	if c.onWindowTitleChanged != nil && c.getActiveWS != nil {
-		if ws, _ := c.getActiveWS(); ws != nil && ws.ActivePaneID == paneID {
-			c.onWindowTitleChanged(paneID, title)
-		}
+	// Notify window title update if this is the active pane
+	if isActivePaneTitle && c.onWindowTitleChanged != nil {
+		c.onWindowTitleChanged(title)
 	}
 
 	log.Debug().

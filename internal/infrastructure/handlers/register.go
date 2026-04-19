@@ -52,8 +52,8 @@ func RegisterAll(ctx context.Context, router port.WebUIHandlerRouter, deps port.
 	}
 
 	// Clipboard handlers (for auto-copy on selection feature)
-	if deps.ClipboardTextOrchestrator != nil {
-		if err := RegisterClipboardHandlers(ctx, router, deps.ClipboardTextOrchestrator); err != nil {
+	if deps.Clipboard != nil && deps.AutoCopyConfig != nil {
+		if err := RegisterClipboardHandlers(ctx, router, deps.Clipboard, deps.AutoCopyConfig, deps.OnClipboardCopied); err != nil {
 			return err
 		}
 	}

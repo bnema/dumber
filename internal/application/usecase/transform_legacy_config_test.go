@@ -13,7 +13,6 @@ func TestTransformLegacyConfigUseCase_Execute(t *testing.T) {
 	rawConfig := map[string]any{"test": "data"}
 
 	mockTransformer.EXPECT().TransformLegacyActions(mock.Anything).Return()
-	mockTransformer.EXPECT().TransformLegacyEngineConfig(mock.Anything).Return()
 
 	uc := NewTransformLegacyConfigUseCase(mockTransformer)
 	uc.Execute(rawConfig)
@@ -34,8 +33,8 @@ func TestTransformLegacyConfigUseCase_Execute_CallsTransformer(t *testing.T) {
 		},
 	}
 
+	// Verify the transformer receives the exact rawConfig
 	mockTransformer.EXPECT().TransformLegacyActions(rawConfig).Return()
-	mockTransformer.EXPECT().TransformLegacyEngineConfig(rawConfig).Return()
 
 	uc := NewTransformLegacyConfigUseCase(mockTransformer)
 	uc.Execute(rawConfig)

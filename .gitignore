@@ -8,6 +8,7 @@ dist/
 
 # Binaries for programs and plugins
 /dumber
+/cef-helper
 dumber.exe
 
 # Test binary, built with `go test -c`

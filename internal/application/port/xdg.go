@@ -5,7 +5,6 @@ type XDGPaths interface {
 	ConfigDir() (string, error)
 	DataDir() (string, error)
 	StateDir() (string, error)
-	RuntimeDir() (string, error)
 	CacheDir() (string, error)
 
 	FilterJSONDir() (string, error)

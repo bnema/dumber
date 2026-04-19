@@ -390,7 +390,7 @@ func (pv *PaneView) SetLoadProgress(progress float64) {
 		ctx = context.Background()
 	}
 	logging.FromContext(ctx).
-		Trace().
+		Debug().
 		Str("pane_id", string(pv.paneID)).
 		Float64("progress", progress).
 		Msg("setting load progress")
@@ -419,7 +419,7 @@ func (pv *PaneView) SetLoading(loading bool) {
 	if loading {
 		pb.Show()
 	} else {
-		pb.HideWithReason("loading_false")
+		pb.Hide()
 	}
 }
 

@@ -35,7 +35,7 @@ func TestKeyboardDispatcher_AltNumberCreatesTabsUntilRequestedIndexExists(t *tes
 	_, err := tabCoord.Create(ctx, "https://initial.example")
 	require.NoError(t, err)
 
-	d := NewKeyboardDispatcher(ctx, tabCoord, &coordinator.WorkspaceCoordinator{}, &coordinator.NavigationCoordinator{}, nil, nil, "https://new.example", func(context.Context) entity.PaneID { return "" })
+	d := NewKeyboardDispatcher(ctx, tabCoord, &coordinator.WorkspaceCoordinator{}, &coordinator.NavigationCoordinator{}, nil, nil, "https://new.example")
 
 	err = d.Dispatch(ctx, input.ActionSwitchTabIndex3)
 	require.NoError(t, err)
@@ -76,7 +76,7 @@ func TestKeyboardDispatcher_AltNumberSwitchesToExistingTabWithoutNewPaneURL(t *t
 	_, err = tabCoord.Create(ctx, "https://second.example")
 	require.NoError(t, err)
 
-	d := NewKeyboardDispatcher(ctx, tabCoord, &coordinator.WorkspaceCoordinator{}, &coordinator.NavigationCoordinator{}, nil, nil, "", func(context.Context) entity.PaneID { return "" })
+	d := NewKeyboardDispatcher(ctx, tabCoord, &coordinator.WorkspaceCoordinator{}, &coordinator.NavigationCoordinator{}, nil, nil, "")
 
 	err = d.Dispatch(ctx, input.ActionSwitchTabIndex2)
 	require.NoError(t, err)
@@ -106,53 +106,10 @@ func TestKeyboardDispatcher_AltNumberErrorsWhenMissingTabRequiresCreationWithout
 	_, err := tabCoord.Create(ctx, "https://first.example")
 	require.NoError(t, err)
 
-	d := NewKeyboardDispatcher(ctx, tabCoord, &coordinator.WorkspaceCoordinator{}, &coordinator.NavigationCoordinator{}, nil, nil, "", func(context.Context) entity.PaneID { return "" })
+	d := NewKeyboardDispatcher(ctx, tabCoord, &coordinator.WorkspaceCoordinator{}, &coordinator.NavigationCoordinator{}, nil, nil, "")
 
 	err = d.Dispatch(ctx, input.ActionSwitchTabIndex2)
 	require.Error(t, err)
 	require.Len(t, tabs.Tabs, 1)
 	assert.Equal(t, tabs.TabAt(0).ID, tabs.ActiveTabID)
-}
-
-func TestKeyboardDispatcher_PassesActivePaneIDToShellCallbacks(t *testing.T) {
-	ctx := context.Background()
-	activePaneID := entity.PaneID("pane-1")
-	d := NewKeyboardDispatcher(ctx, &coordinator.TabCoordinator{}, &coordinator.WorkspaceCoordinator{}, &coordinator.NavigationCoordinator{}, nil, nil, "", func(context.Context) entity.PaneID {
-		return activePaneID
-	})
-
-	tests := []struct {
-		name   string
-		set    func(func(context.Context, entity.PaneID) error)
-		invoke func(context.Context) error
-	}{
-		{
-			name:   "session open",
-			set:    d.SetOnSessionOpen,
-			invoke: d.handleSessionOpen,
-		},
-		{
-			name:   "move pane to tab",
-			set:    d.SetOnMovePaneToTab,
-			invoke: d.handleMovePaneToTab,
-		},
-		{
-			name:   "move pane to next tab",
-			set:    d.SetOnMovePaneToNextTab,
-			invoke: d.handleMovePaneToNextTab,
-		},
-	}
-
-	for _, tc := range tests {
-		t.Run(tc.name, func(t *testing.T) {
-			var gotPaneID entity.PaneID
-			tc.set(func(_ context.Context, paneID entity.PaneID) error {
-				gotPaneID = paneID
-				return nil
-			})
-
-			require.NoError(t, tc.invoke(ctx))
-			assert.Equal(t, activePaneID, gotPaneID)
-		})
-	}
 }

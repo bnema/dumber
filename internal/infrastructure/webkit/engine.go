@@ -13,23 +13,17 @@ import (
 
 // Engine implements port.Engine for the WebKit browser engine.
 type Engine struct {
-	ctx                    context.Context
-	wkCtx                  *WebKitContext
-	settings               *SettingsManager
-	injector               *ContentInjector
-	messageRouter          *MessageRouter
-	pool                   *WebViewPool
-	factory                *WebViewFactory
-	filterManager          *filtering.Manager
-	schemeHandler          *DumbSchemeHandler
-	schemePath             string
-	logger                 zerolog.Logger
-	ctxMenuBuilder         port.ContextMenuBuilder
-	ctxMenuExecutorFactory port.ContextMenuActionExecutorFactory
-	onClipboardCopied      func(textLen int)
-	downloadPath           string
-	downloadPreparer       port.DownloadPreparer
-	clipboard              port.Clipboard // captured during RegisterHandlers for context menu wiring
+	ctx           context.Context
+	wkCtx         *WebKitContext
+	settings      *SettingsManager
+	injector      *ContentInjector
+	messageRouter *MessageRouter
+	pool          *WebViewPool
+	factory       *WebViewFactory
+	filterManager *filtering.Manager
+	schemeHandler *DumbSchemeHandler
+	schemePath    string
+	logger        zerolog.Logger
 }
 
 // Compile-time check that Engine implements port.Engine.
@@ -98,9 +92,6 @@ func (e *Engine) RegisterHandlers(ctx context.Context, deps port.HandlerDependen
 	if e.messageRouter == nil {
 		return fmt.Errorf("message router not initialized")
 	}
-	// Capture clipboard for context menu pipeline wiring in ConfigureDownloads.
-	e.clipboard = deps.Clipboard
-	e.onClipboardCopied = deps.OnClipboardCopied
 	return handlers.RegisterAll(ctx, e.messageRouter, deps)
 }
 
@@ -122,14 +113,6 @@ func (e *Engine) ConfigureDownloads(
 	}
 	handler := NewDownloadHandler(downloadPath, eventHandler, preparer)
 	e.wkCtx.SetDownloadHandler(ctx, handler)
-	e.downloadPath = downloadPath
-	e.downloadPreparer = preparer
-
-	// Wire the shared context menu pipeline now that all dependencies are
-	// available. RegisterHandlers (called earlier) captured the clipboard;
-	// ConfigureDownloads supplies the download preparer and path.
-	e.installContextMenuPipeline()
-
 	return nil
 }
 
@@ -162,38 +145,4 @@ func (e *Engine) UpdateSettings(ctx context.Context, update port.EngineSettingsU
 		e.settings.UpdateFromConfig(ctx, cfg)
 	}
 	return nil
-}
-
-// installContextMenuPipeline creates the shared context menu pipeline and
-// propagates it to the factory (and pool). This is called once during startup,
-// after both RegisterHandlers (clipboard) and ConfigureDownloads (download
-// deps) have run. Kept on the concrete *Engine type because it is a
-// WebKit-specific concern.
-func (e *Engine) installContextMenuPipeline() {
-	resolver := NewContextMenuResolver()
-	saver := NewResolvedImageSaver(e.downloadPreparer, e.downloadPath)
-
-	// WebKit's context-menu signal fires on the GTK main thread, so no
-	// dispatch wrapper is needed.
-	renderer := NewRenderer(nil)
-
-	pipeline := &contextMenuPipeline{
-		builder:         e.ctxMenuBuilder,
-		executorFactory: e.ctxMenuExecutorFactory,
-		clipboard:       e.clipboard,
-		onCopied:        e.onClipboardCopied,
-		resolver:        resolver,
-		saver:           saver,
-		renderer:        renderer,
-	}
-	e.SetContextMenuPipeline(pipeline)
-}
-
-// SetContextMenuPipeline configures the context menu pipeline for all WebViews
-// created by the factory (and pool). Call this after the use cases and renderer
-// are available in the bootstrap layer.
-func (e *Engine) SetContextMenuPipeline(pipeline *contextMenuPipeline) {
-	if e.factory != nil {
-		e.factory.SetContextMenuPipeline(pipeline)
-	}
 }

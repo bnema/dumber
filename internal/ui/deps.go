@@ -104,8 +104,6 @@ type Dependencies struct {
 	// LaunchBrowserURL opens a URL in a new dumber browser window.
 	// Optional: if nil, standalone omnibox web navigations are logged only.
 	LaunchBrowserURL func(uri string)
-	// BrowserLaunchRelay listens for in-process browser launch requests.
-	BrowserLaunchRelay port.BrowserLaunchRelay
 }
 
 // Validate checks that all required dependencies are set.

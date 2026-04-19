@@ -10,7 +10,7 @@ import (
 	"github.com/bnema/dumber/internal/domain/entity"
 	"github.com/bnema/dumber/internal/infrastructure/webutil"
 	"github.com/bnema/dumber/internal/logging"
-	"github.com/bnema/puregotk/v4/webkit"
+	"github.com/bnema/puregotk-webkit/webkit"
 )
 
 const (
@@ -59,133 +59,9 @@ const autoCopySelectionScript = `(function() {
   });
 })();`
 
-// explicitCopyScript captures explicit copy/cut operations and forwards them to Go.
-const explicitCopyScript = `(function() {
-  var pendingCommand = '';
-
-  function isSafeSelectableInput(activeEl) {
-    if (!activeEl || activeEl.tagName !== 'INPUT') {
-      return false;
-    }
-    switch (String(activeEl.type || '').toLowerCase()) {
-    case 'password':
-    case 'button':
-    case 'checkbox':
-    case 'color':
-    case 'file':
-    case 'hidden':
-    case 'image':
-    case 'radio':
-    case 'range':
-    case 'reset':
-    case 'submit':
-      return false;
-    default:
-      return true;
-    }
-  }
-
-  function selectedText() {
-    var activeEl = document.activeElement;
-    if (activeEl && (isSafeSelectableInput(activeEl) || activeEl.tagName === 'TEXTAREA')) {
-      if (typeof activeEl.selectionStart === 'number' && typeof activeEl.selectionEnd === 'number') {
-        var start = activeEl.selectionStart;
-        var end = activeEl.selectionEnd;
-        if (end > start) {
-          return activeEl.value.slice(start, end);
-        }
-      }
-    }
-    var selection = window.getSelection ? window.getSelection() : null;
-    return selection ? selection.toString() : '';
-  }
-
-  function hasUserActivation() {
-    try {
-      if (navigator.userActivation && navigator.userActivation.isActive) {
-        return true;
-      }
-    } catch (_) {}
-    try {
-      if (document.hasTransientActivation) {
-        return true;
-      }
-    } catch (_) {}
-    return false;
-  }
-
-  function postExplicitCopy(action, text) {
-    if (!text) {
-      return;
-    }
-    if (window.webkit && window.webkit.messageHandlers && window.webkit.messageHandlers.dumber) {
-      window.webkit.messageHandlers.dumber.postMessage({
-        type: 'explicit_text_copy',
-        payload: { text: text, action: action }
-      });
-    }
-  }
-
-  function consumePendingAction(fallback) {
-    var action = pendingCommand || fallback;
-    pendingCommand = '';
-    return action;
-  }
-
-  document.addEventListener('copy', function(event) {
-    if (event && event.isTrusted === false) {
-      return;
-    }
-    postExplicitCopy(consumePendingAction('copy'), selectedText());
-  }, true);
-
-  document.addEventListener('cut', function(event) {
-    if (event && event.isTrusted === false) {
-      return;
-    }
-    postExplicitCopy(consumePendingAction('cut'), selectedText());
-  }, true);
-
-  if (document.execCommand) {
-    var originalExecCommand = document.execCommand.bind(document);
-    document.execCommand = function(commandId, showUI, value) {
-      var command = String(commandId || '').toLowerCase();
-      var tracked = command === 'copy' || command === 'cut';
-      if (tracked) {
-        pendingCommand = command;
-      }
-      try {
-        return originalExecCommand(commandId, showUI, value);
-      } finally {
-        if (tracked && pendingCommand === command) {
-          pendingCommand = '';
-        }
-      }
-    };
-  }
-
-  if (navigator.clipboard && typeof navigator.clipboard.writeText === 'function') {
-    var originalWriteText = navigator.clipboard.writeText.bind(navigator.clipboard);
-    navigator.clipboard.writeText = function(text) {
-      var userActivated = hasUserActivation();
-      return Promise.resolve(originalWriteText(text)).then(function(result) {
-        // writeText only has copy semantics, so postExplicitCopy always uses "copy" here.
-        if (userActivated) {
-          postExplicitCopy('copy', typeof text === 'string' ? text : String(text || ''));
-        }
-        return result;
-      });
-    };
-  }
-})();`
-
 // accentDetectionScript is built at init from entity.AccentMap so the JS
 // filter stays in sync with the Go-side accent table.
 var accentDetectionScript string
-
-func buildExplicitCopyScript() string {
-	return explicitCopyScript
-}
 
 func init() {
 	// Build JS Set literal from AccentMap keys: "new Set(['a','c','e',...])"
@@ -353,19 +229,7 @@ func (ci *ContentInjector) InjectScripts(ctx context.Context, ucm *webkit.UserCo
 		"webrtc-compat-shim",
 	)
 
-	// 2. Inject explicit copy capture for all pages.
-	addScript(
-		webkit.NewUserScript(
-			buildExplicitCopyScript(),
-			webkit.UserContentInjectAllFramesValue,
-			webkit.UserScriptInjectAtDocumentStartValue,
-			nil,
-			nil,
-		),
-		"explicit-copy-capture",
-	)
-
-	// 3. Inject WebView ID for debugging (internal pages only)
+	// 2. Inject WebView ID for debugging (internal pages only)
 	if webviewID != 0 {
 		idScript := fmt.Sprintf("window.__dumber_webview_id=%d;", uint64(webviewID))
 		addScript(
@@ -383,7 +247,7 @@ func (ci *ContentInjector) InjectScripts(ctx context.Context, ucm *webkit.UserCo
 		log.Warn().Msg("webview ID is 0, skipping ID injection")
 	}
 
-	// 4. Inject dark mode handler for internal pages only
+	// 3. Inject dark mode handler for internal pages only
 	// This sets .dark/.light class on <html> and patches matchMedia for WebUI
 	internalDarkModeScript := webutil.DarkModeScript(prefersDark, "__dumber_gtk_prefers_dark")
 	addScript(
@@ -397,7 +261,7 @@ func (ci *ContentInjector) InjectScripts(ctx context.Context, ucm *webkit.UserCo
 		"internal-dark-mode-handler",
 	)
 
-	// 5. Inject theme CSS for internal pages (dumb://* only)
+	// 4. Inject theme CSS for internal pages (dumb://* only)
 	if ci.themeCSSVars != "" {
 		escapedCSS := webutil.EscapeForJSString(ci.themeCSSVars)
 		themeCSSInjectionScript := fmt.Sprintf(themeCSSScript, escapedCSS)
@@ -414,7 +278,7 @@ func (ci *ContentInjector) InjectScripts(ctx context.Context, ucm *webkit.UserCo
 		log.Debug().Msg("theme CSS vars injection configured for internal pages")
 	}
 
-	// 6. Inject find highlight CSS for all pages
+	// 5. Inject find highlight CSS for all pages
 	if ci.findCSS != "" {
 		stylesheet := webkit.NewUserStyleSheet(
 			ci.findCSS,
@@ -431,7 +295,7 @@ func (ci *ContentInjector) InjectScripts(ctx context.Context, ucm *webkit.UserCo
 		}
 	}
 
-	// 7. Inject auto-copy selection script for all pages (if enabled)
+	// 6. Inject auto-copy selection script for all pages (if enabled)
 	autoCopyEnabled := ci.autoCopyConfigGetter != nil && ci.autoCopyConfigGetter()
 	if autoCopyEnabled {
 		addScript(
@@ -447,7 +311,7 @@ func (ci *ContentInjector) InjectScripts(ctx context.Context, ucm *webkit.UserCo
 		log.Debug().Msg("auto-copy selection script injected")
 	}
 
-	// 8. Inject accent key detection for all pages and all frames (unconditional).
+	// 7. Inject accent key detection for all pages and all frames (unconditional).
 	// JS only reports keydown/keyup events; Go handles timing and picker display.
 	addScript(
 		webkit.NewUserScript(

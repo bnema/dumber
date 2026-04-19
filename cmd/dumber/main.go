@@ -18,7 +18,6 @@ import (
 	"github.com/bnema/dumber/internal/domain/entity"
 	"github.com/bnema/dumber/internal/domain/repository"
 	"github.com/bnema/dumber/internal/infrastructure/cache"
-	infracef "github.com/bnema/dumber/internal/infrastructure/cef"
 	"github.com/bnema/dumber/internal/infrastructure/clipboard"
 	"github.com/bnema/dumber/internal/infrastructure/config"
 	"github.com/bnema/dumber/internal/infrastructure/deps"
@@ -27,7 +26,6 @@ import (
 	"github.com/bnema/dumber/internal/infrastructure/filesystem"
 	"github.com/bnema/dumber/internal/infrastructure/idle"
 	"github.com/bnema/dumber/internal/infrastructure/persistence/sqlite"
-	"github.com/bnema/dumber/internal/infrastructure/runtimeprofile"
 	"github.com/bnema/dumber/internal/infrastructure/snapshot"
 	"github.com/bnema/dumber/internal/infrastructure/textinput"
 	"github.com/bnema/dumber/internal/infrastructure/updater"
@@ -54,9 +52,6 @@ var initialURL string
 
 // restoreSessionID holds the session ID to restore on startup.
 var restoreSessionID string
-
-// browserLaunchRelay is shared for early browse handoff and in-app browser launches.
-var browserLaunchRelay port.BrowserLaunchRelay
 
 type launchMode string
 
@@ -91,67 +86,27 @@ func launchModeFromArgs(args []string) (launchMode, string) {
 	return launchModeCLI, ""
 }
 
-func tryForwardBrowseURLToRunningInstance(ctx context.Context, relay port.BrowserLaunchRelay, browseURL string) (bool, error) {
-	if relay == nil || browseURL == "" {
-		return false, nil
-	}
-
-	return relay.DeliverOpenFreshWindow(ctx, browseURL)
-}
-
-func resolveBrowserLaunchRelay(cfg *config.Config) (port.BrowserLaunchRelay, error) {
-	profile, err := bootstrap.ResolveRuntimeProfile(cfg)
-	if err != nil {
-		return nil, err
-	}
-	return desktop.NewBrowserLaunchRelay(profile.IPC), nil
-}
-
-func configureBrowserLaunchRelay(cfg *config.Config) {
-	relay, err := resolveBrowserLaunchRelay(cfg)
-	if err != nil {
-		fmt.Fprintf(os.Stderr, "warning: failed to resolve browser launch relay profile: %v\n", err)
-		browserLaunchRelay = nil
-		return
-	}
-	browserLaunchRelay = relay
-}
-
 func main() {
-	// CEF subprocess handling: when CEF re-launches this binary with
+	enableCrashForensics()
+
+	// CEF subprocess handling: when CEF re-launches the binary with
 	// --type=renderer/gpu/etc, we must call ExecuteProcess before anything
 	// else (Cobra, config, arg stripping). We detect subprocesses by the
-	// presence of a --type flag in os.Args rather than checking the engine
-	// env var, because subprocesses may not inherit the environment and the
+	// presence of --type= in os.Args rather than checking the engine env
+	// var, because subprocesses may not inherit the environment and the
 	// engine can also be selected via config.
-	if isCEFSubprocess(os.Args) {
-		runtime.LockOSThread()
-		cef.MaybeExitSubprocessWithApp(infracef.NewSubprocessApp())
+	if isCEFSubprocess() {
+		cef.MaybeExitSubprocess()
 		os.Exit(1)
 	}
-
-	enableCrashForensics()
 
 	mode, browseURL := launchModeFromArgs(os.Args)
 	// Run GUI mode for browse command
 	if mode == launchModeBrowse {
-		cfg := initConfig()
-		configureBrowserLaunchRelay(cfg)
-		if forwarded, err := tryForwardBrowseURLToRunningInstance(context.Background(), browserLaunchRelay, browseURL); err != nil {
-			fmt.Fprintf(
-				os.Stderr,
-				"warning: failed to forward browse URL %q to a running instance, falling back to a new process: %v\n",
-				browseURL,
-				err,
-			)
-		} else if forwarded {
-			os.Exit(0)
-		}
-
 		initialURL = browseURL
 		restoreSessionID = os.Getenv("DUMBER_RESTORE_SESSION")
 		os.Args = os.Args[:1]
-		os.Exit(runGUI(cfg))
+		os.Exit(runGUI())
 		return
 	}
 
@@ -172,17 +127,14 @@ func main() {
 	cmd.Execute()
 }
 
-func runGUI(cfg *config.Config) int {
+func runGUI() int {
 	bootstrap.ApplyGTKIMModuleFallbackDefault(os.Stderr)
 
 	runtime.LockOSThread()
 	component.SetSkeletonVersion(version)
 	timer := bootstrap.NewStartupTimer()
 
-	if cfg == nil {
-		cfg = initConfig()
-		configureBrowserLaunchRelay(cfg)
-	}
+	cfg := initConfig()
 	timer.Mark("config")
 
 	ctx := initStartupContextWithTrace(cfg)
@@ -235,13 +187,6 @@ func runGUI(cfg *config.Config) int {
 		log.Error().Err(err).Msg("failed to create application")
 		return 1
 	}
-	if relaunchSetter, ok := engine.(port.AlreadyRunningAppRelaunchHandlerSetter); ok {
-		relaunchSetter.SetAlreadyRunningAppRelaunchHandler(func(url string) {
-			if err := app.OpenFreshWindow(ctx, url); err != nil {
-				log.Warn().Err(err).Str("url", url).Msg("failed to open relaunch browser window")
-			}
-		})
-	}
 	timer.Mark("ui_deps")
 	timer.Log(ctx)
 
@@ -258,7 +203,6 @@ func runStandaloneOmnibox() int {
 	component.SetSkeletonVersion(version)
 
 	cfg := initConfig()
-	configureBrowserLaunchRelay(cfg)
 	ctx := initStartupContextWithTrace(cfg)
 
 	initResult, err := runParallelInitPhase(ctx, cfg)
@@ -268,15 +212,9 @@ func runStandaloneOmnibox() int {
 
 	preInitializeAdwaitaForCEF(cfg, initResult, ui.EnsureAdwaitaInitialized)
 
-	// Standalone omnibox intentionally skips browser-engine initialization.
-	// When the main browser is already running under CEF, spinning up another CEF
-	// engine for the omnibox process triggers Chromium's already-running-app
-	// relaunch path and can turn the `omnibox` subcommand into a bogus browser
-	// URL (`omnibox/`). The standalone omnibox only needs repos/use cases/theme;
-	// actual browser navigation is handed off via LaunchBrowserURL.
-	repos, dbCleanup, err := initStandaloneOmniboxRepos()
+	engine, repos, dbCleanup, err := initStackAndRepos(ctx, cfg, initResult, false)
 	if err != nil {
-		logging.FromContext(ctx).Error().Err(err).Msg("failed to initialize standalone omnibox repositories")
+		logging.FromContext(ctx).Error().Err(err).Msg("failed to initialize standalone omnibox runtime")
 		return 1
 	}
 	if dbCleanup != nil {
@@ -287,11 +225,10 @@ func runStandaloneOmnibox() int {
 	uiDeps, err := buildUIDependencies(
 		ctx,
 		cfg,
-		initResult.RuntimeProfile,
 		initResult.ThemeManager,
 		initResult.ColorResolver,
 		initResult.AdwaitaDetector,
-		nil,
+		engine,
 		repos,
 		useCases,
 		nil,
@@ -302,7 +239,7 @@ func runStandaloneOmnibox() int {
 		logging.FromContext(ctx).Error().Err(err).Msg("failed to initialize standalone omnibox UI dependencies")
 		return 1
 	}
-	runtimeCfg := ui.NewStandaloneOmniboxRuntime(ctx, uiDeps, nil)
+	runtimeCfg := ui.NewStandaloneOmniboxRuntime(ctx, uiDeps, engine.FaviconDatabase())
 
 	return ui.RunStandaloneOmnibox(ctx, runtimeCfg)
 }
@@ -419,7 +356,7 @@ func buildAndConfigureApp(
 	browserSession *bootstrap.BrowserSession,
 ) (*ui.App, error) {
 	uiDeps, err := buildUIDependencies(
-		ctx, cfg, initResult.RuntimeProfile, initResult.ThemeManager,
+		ctx, cfg, initResult.ThemeManager,
 		initResult.ColorResolver, initResult.AdwaitaDetector,
 		engine, repos, useCases, idleInhibitor, browserSession.Session.ID, browserSession.CrashReports(),
 	)
@@ -455,11 +392,12 @@ func initStackAndRepos(
 	if needsEagerDB {
 		// Parallel phase 2: Database + engine initialize concurrently
 		dbEngine, err := bootstrap.RunParallelDBEngine(bootstrap.ParallelDBEngineInput{
-			Ctx:            ctx,
-			Config:         cfg,
-			RuntimeProfile: initResult.RuntimeProfile,
-			ThemeManager:   initResult.ThemeManager,
-			ColorResolver:  initResult.ColorResolver,
+			Ctx:           ctx,
+			Config:        cfg,
+			DataDir:       initResult.DataDir,
+			CacheDir:      initResult.CacheDir,
+			ThemeManager:  initResult.ThemeManager,
+			ColorResolver: initResult.ColorResolver,
 		})
 		if err != nil {
 			return nil, nil, nil, err
@@ -469,31 +407,24 @@ func initStackAndRepos(
 
 	log := logging.FromContext(ctx)
 	engine, err := bootstrap.BuildEngine(bootstrap.EngineInput{
-		Ctx:            ctx,
-		Config:         cfg,
-		RuntimeProfile: initResult.RuntimeProfile,
-		ThemeManager:   initResult.ThemeManager,
-		ColorResolver:  initResult.ColorResolver,
-		Logger:         *log,
+		Ctx:           ctx,
+		Config:        cfg,
+		DataDir:       initResult.DataDir,
+		CacheDir:      initResult.CacheDir,
+		ThemeManager:  initResult.ThemeManager,
+		ColorResolver: initResult.ColorResolver,
+		Logger:        *log,
 	})
 	if err != nil {
 		return nil, nil, nil, err
 	}
 
-	repos, dbCleanup, err := initStandaloneOmniboxRepos()
+	lazyDB, err := bootstrap.CreateLazyDatabase()
 	if err != nil {
 		return nil, nil, nil, err
 	}
-	return engine, repos, dbCleanup, nil
-}
-
-func initStandaloneOmniboxRepos() (*repositories, func(), error) {
-	lazyDB, err := bootstrap.CreateLazyDatabase()
-	if err != nil {
-		return nil, nil, err
-	}
 	dbCleanup := func() { _ = lazyDB.Close() }
-	return createLazyRepositories(lazyDB), dbCleanup, nil
+	return engine, createLazyRepositories(lazyDB), dbCleanup, nil
 }
 
 func configureDeferredInit(
@@ -729,22 +660,12 @@ func createUseCases(repos *repositories, cfg *config.Config) *useCases {
 	}
 }
 
-// isCEFSubprocess returns true if args contains a --type flag, indicating
+// isCEFSubprocess returns true if os.Args contains a --type= flag, indicating
 // this process was spawned by CEF as a renderer, GPU, or utility subprocess.
-func isCEFSubprocess(args []string) bool {
-	for i, arg := range args {
+func isCEFSubprocess() bool {
+	for _, arg := range os.Args {
 		if strings.HasPrefix(arg, "--type=") {
-			value := strings.TrimPrefix(arg, "--type=")
-			if value != "" && !strings.HasPrefix(value, "-") {
-				return true
-			}
-			continue
-		}
-		if arg == "--type" && i+1 < len(args) {
-			next := args[i+1]
-			if next != "" && !strings.HasPrefix(next, "-") {
-				return true
-			}
+			return true
 		}
 	}
 	return false
@@ -753,7 +674,6 @@ func isCEFSubprocess(args []string) bool {
 func buildUIDependencies(
 	ctx context.Context,
 	cfg *config.Config,
-	runtimeProfile runtimeprofile.Profile,
 	themeManager *theme.Manager,
 	colorResolver port.ColorSchemeResolver,
 	adwaitaDetector port.ToolkitAvailabilityNotifier,
@@ -775,7 +695,6 @@ func buildUIDependencies(
 	}
 
 	focusProvider := textinput.NewFocusProvider()
-	browserLauncher := desktop.NewBrowserLauncher(browserLaunchRelay)
 
 	uiDeps := &ui.Dependencies{
 		Ctx:                 ctx,
@@ -786,26 +705,23 @@ func buildUIDependencies(
 		Theme:               themeManager,
 		ColorResolver:       colorResolver,
 		AdwaitaDetector:     adwaitaDetector,
-		XDG: xdg.New(
-			runtimeProfile.Mode == runtimeprofile.ModeDev,
-			bootstrap.ResolveXDGRuntimeDir(runtimeProfile),
-		),
-		Engine:         engine,
-		FilterManager:  filterManager,
-		HistoryRepo:    repos.history,
-		FavoriteRepo:   repos.favorite,
-		ZoomRepo:       repos.zoom,
-		PermissionRepo: repos.permission,
-		TabsUC:         uc.tabs,
-		PanesUC:        uc.panes,
-		HistoryUC:      uc.history,
-		FavoritesUC:    uc.favorites,
-		ZoomUC:         uc.zoom,
-		PermissionUC:   uc.permission,
-		NavigateUC:     uc.navigate,
-		CopyURLUC:      uc.copyURL,
-		Clipboard:      uc.clipboard,
-		FaviconService: uc.favicon,
+		XDG:                 xdg.New(),
+		Engine:              engine,
+		FilterManager:       filterManager,
+		HistoryRepo:         repos.history,
+		FavoriteRepo:        repos.favorite,
+		ZoomRepo:            repos.zoom,
+		PermissionRepo:      repos.permission,
+		TabsUC:              uc.tabs,
+		PanesUC:             uc.panes,
+		HistoryUC:           uc.history,
+		FavoritesUC:         uc.favorites,
+		ZoomUC:              uc.zoom,
+		PermissionUC:        uc.permission,
+		NavigateUC:          uc.navigate,
+		CopyURLUC:           uc.copyURL,
+		Clipboard:           uc.clipboard,
+		FaviconService:      uc.favicon,
 		FaviconAdapterConfig: adapter.FaviconAdapterConfig{
 			IsInternalURL:      favicon.IsInternalURL,
 			InternalDomain:     favicon.InternalDomain,
@@ -822,7 +738,7 @@ func buildUIDependencies(
 		},
 		CheckUpdateUC:       uc.checkUpdate,
 		ApplyUpdateUC:       uc.applyUpdate,
-		SessionSpawner:      bootstrap.NewSessionSpawner(ctx, runtimeProfile),
+		SessionSpawner:      desktop.NewSessionSpawner(ctx),
 		FileSystem:          filesystem.New(),
 		AccentFocusProvider: focusProvider,
 		NewGTKEntryTarget: func(entry *gtk.SearchEntry) port.TextInputTarget {
@@ -843,12 +759,9 @@ func buildUIDependencies(
 			return config.GetManager().Watch()
 		},
 		LaunchExternalURL: desktop.LaunchExternalURL,
-		LaunchBrowserURL: func(uri string) {
-			browserLauncher.LaunchURL(ctx, uri)
-		},
-		BrowserLaunchRelay: browserLaunchRelay,
-		ConfigMigrator:     config.NewMigrator(),
-		HandlerDeps:        *handlerDeps,
+		LaunchBrowserURL:  desktop.LaunchBrowserURL,
+		ConfigMigrator:    config.NewMigrator(),
+		HandlerDeps:       *handlerDeps,
 	}
 
 	return uiDeps, nil

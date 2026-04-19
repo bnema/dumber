@@ -13,7 +13,7 @@ import (
 	"github.com/bnema/dumber/internal/infrastructure/filtering"
 	"github.com/bnema/dumber/internal/infrastructure/filtering/mocks"
 	"github.com/bnema/dumber/internal/logging"
-	"github.com/bnema/puregotk/v4/webkit"
+	"github.com/bnema/puregotk-webkit/webkit"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"

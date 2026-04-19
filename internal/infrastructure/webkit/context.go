@@ -7,12 +7,12 @@ import (
 	"sync"
 
 	"github.com/bnema/dumber/internal/logging"
-	"github.com/bnema/puregotk/v4/webkit"
+	"github.com/bnema/puregotk-webkit/webkit"
 	"github.com/rs/zerolog"
 )
 
 // FaviconDatabase is a type alias for webkit.FaviconDatabase.
-// Re-exported for use by the UI layer without a direct WebKit binding import.
+// Re-exported for use by UI layer without direct puregotk-webkit import.
 type FaviconDatabase = webkit.FaviconDatabase
 
 // WebKitContext manages the shared WebContext and persistent NetworkSession.

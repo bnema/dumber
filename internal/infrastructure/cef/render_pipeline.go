@@ -114,27 +114,6 @@ type renderPipeline struct {
 	onResizeCB func(width, height int32)
 }
 
-type renderPipelineSnapshot struct {
-	Width              int32
-	Height             int32
-	Scale              int32
-	GLReady            bool
-	NeedsUpload        bool
-	SizeChanged        bool
-	ForceFullUpload    bool
-	ViewRectSeq        uint64
-	ScreenInfoSeq      uint64
-	PaintSeq           uint64
-	ResizeSeq          uint64
-	LastQueuedPaintSeq uint64
-	GLRenderSeq        uint64
-	PaintCount         uint64
-	QueueRenderCount   uint64
-	RenderCount        uint64
-	UploadCount        uint64
-	FullUploadCount    uint64
-}
-
 // Shader sources for the fullscreen textured quad.
 const vertexShaderSource = "" +
 	"#version 330 core\n" +
@@ -184,9 +163,8 @@ func newRenderPipeline(ctx context.Context, gl *glLoader, scale int32, webviewID
 	rp.glArea.SetHasDepthBuffer(false)
 	rp.glArea.SetHasStencilBuffer(false)
 
-	// Wire signals. puregotk currently exposes the render context as a raw pointer.
-	renderCb := func(_ gtk.GLArea, contextPtr uintptr) bool {
-		_ = gdk.GLContextNewFromInternalPtr(contextPtr)
+	// Wire signals. puregotk takes *func(...) for signal callbacks.
+	renderCb := func(_ gtk.GLArea, _ *gdk.GLContext) bool {
 		return rp.onGLRender()
 	}
 	rp.glArea.ConnectRender(&renderCb)
@@ -827,40 +805,6 @@ func (rp *renderPipeline) maybeLogDiagnostics() {
 }
 
 // buildShaderProgram compiles and links the vertex+fragment shaders.
-func (rp *renderPipeline) diagnosticSnapshot() renderPipelineSnapshot {
-	if rp == nil {
-		return renderPipelineSnapshot{}
-	}
-
-	rp.diagMu.Lock()
-	snap := renderPipelineSnapshot{
-		Width:              rp.widthAtomic.Load(),
-		Height:             rp.heightAtomic.Load(),
-		ViewRectSeq:        rp.viewRectSeq.Load(),
-		ScreenInfoSeq:      rp.screenInfoSeq.Load(),
-		PaintSeq:           rp.paintSeq.Load(),
-		ResizeSeq:          rp.resizeSeq.Load(),
-		LastQueuedPaintSeq: rp.lastQueuedPaintSeq.Load(),
-		GLRenderSeq:        rp.glRenderSeq.Load(),
-		PaintCount:         rp.paintCount,
-		QueueRenderCount:   rp.queueRenderCount,
-		RenderCount:        rp.glRenderCount,
-		UploadCount:        rp.uploadCount,
-		FullUploadCount:    rp.fullUploadCount,
-	}
-	rp.diagMu.Unlock()
-
-	rp.mu.Lock()
-	snap.Scale = rp.scale
-	snap.GLReady = rp.glReady
-	snap.NeedsUpload = rp.needsUpload
-	snap.SizeChanged = rp.sizeChanged
-	snap.ForceFullUpload = rp.forceFullUpload
-	rp.mu.Unlock()
-
-	return snap
-}
-
 func (rp *renderPipeline) buildShaderProgram() uint32 {
 	gl := rp.gl
 

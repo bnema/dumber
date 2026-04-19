@@ -136,19 +136,18 @@ func (m *Manager) readConfigFile() error {
 		}
 	}
 
-	// Transform legacy action bindings and engine config before unmarshaling.
-	m.transformLegacyConfig()
+	// Transform legacy action bindings before unmarshaling
+	m.transformLegacyActionBindings()
 
 	return nil
 }
 
-// transformLegacyConfig converts old-format action bindings and engine config to the new format.
+// transformLegacyActionBindings converts old-format action bindings to new format.
 // This is called after reading config but before unmarshaling.
-func (m *Manager) transformLegacyConfig() {
+func (m *Manager) transformLegacyActionBindings() {
 	rawConfig := m.viper.AllSettings()
 	transformer := NewLegacyConfigTransformer()
 	transformer.TransformLegacyActions(rawConfig)
-	transformer.TransformLegacyEngineConfig(rawConfig)
 
 	// Apply transformed config back to viper
 	for key, value := range rawConfig {
@@ -577,6 +576,7 @@ func (m *Manager) setEngineDefaults(defaults *Config) {
 	m.viper.SetDefault("engine.cef.log_severity", ce.LogSeverity)
 	m.viper.SetDefault("engine.cef.windowless_frame_rate", ce.CEFWindowlessFrameRate())
 	m.viper.SetDefault("engine.cef.enable_audio_handler", ce.EnableAudioHandler)
+	m.viper.SetDefault("engine.cef.enable_context_menu_handler", ce.EnableContextMenuHandler)
 	m.viper.SetDefault("engine.cef.trace_handlers", ce.TraceHandlers)
 
 	wk := e.WebKit

@@ -10,10 +10,20 @@ import (
 )
 
 func TestAdapter_DownloadDir(t *testing.T) {
-	adapter := New(false, "")
+	adapter := New()
 
 	t.Run("returns XDG_DOWNLOAD_DIR when set", func(t *testing.T) {
-		t.Setenv("XDG_DOWNLOAD_DIR", "/custom/downloads")
+		// Save and restore original env.
+		original := os.Getenv("XDG_DOWNLOAD_DIR")
+		defer func() {
+			if original == "" {
+				os.Unsetenv("XDG_DOWNLOAD_DIR")
+			} else {
+				os.Setenv("XDG_DOWNLOAD_DIR", original)
+			}
+		}()
+
+		os.Setenv("XDG_DOWNLOAD_DIR", "/custom/downloads")
 
 		dir, err := adapter.DownloadDir()
 
@@ -22,7 +32,17 @@ func TestAdapter_DownloadDir(t *testing.T) {
 	})
 
 	t.Run("falls back to ~/Downloads when XDG_DOWNLOAD_DIR not set", func(t *testing.T) {
-		t.Setenv("XDG_DOWNLOAD_DIR", "")
+		// Save and restore original env.
+		original := os.Getenv("XDG_DOWNLOAD_DIR")
+		defer func() {
+			if original == "" {
+				os.Unsetenv("XDG_DOWNLOAD_DIR")
+			} else {
+				os.Setenv("XDG_DOWNLOAD_DIR", original)
+			}
+		}()
+
+		os.Unsetenv("XDG_DOWNLOAD_DIR")
 
 		dir, err := adapter.DownloadDir()
 
@@ -36,41 +56,8 @@ func TestAdapter_DownloadDir(t *testing.T) {
 	})
 }
 
-func TestAdapter_RuntimeDir(t *testing.T) {
-	t.Run("returns XDG_RUNTIME_DIR when set outside dev", func(t *testing.T) {
-		adapter := New(false, "")
-		t.Setenv("XDG_RUNTIME_DIR", "/custom/runtime")
-
-		dir, err := adapter.RuntimeDir()
-
-		require.NoError(t, err)
-		assert.Equal(t, "/custom/runtime", dir)
-	})
-
-	t.Run("falls back to injected prod runtime dir when XDG_RUNTIME_DIR not set", func(t *testing.T) {
-		adapter := New(false, "/tmp/dumber-state/dumber/runtime")
-		t.Setenv("XDG_RUNTIME_DIR", "")
-
-		dir, err := adapter.RuntimeDir()
-
-		require.NoError(t, err)
-		assert.Equal(t, "/tmp/dumber-state/dumber/runtime", dir)
-	})
-
-	t.Run("uses injected sandbox runtime dir in dev even when XDG_RUNTIME_DIR is set", func(t *testing.T) {
-		wd := t.TempDir()
-		adapter := New(true, filepath.Join(wd, ".dev", "dumber", "runtime"))
-		t.Setenv("XDG_RUNTIME_DIR", "/shared/runtime")
-
-		dir, err := adapter.RuntimeDir()
-
-		require.NoError(t, err)
-		assert.Equal(t, filepath.Join(wd, ".dev", "dumber", "runtime"), dir)
-	})
-}
-
 func TestNew(t *testing.T) {
-	adapter := New(false, "")
+	adapter := New()
 
 	assert.NotNil(t, adapter)
 }
