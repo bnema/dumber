@@ -1,6 +1,6 @@
 # Makefile for dumber (Clean Architecture - puregotk)
 
-.PHONY: build build-frontend test lint clean install-tools dev generate help init man flatpak-deps flatpak-build flatpak-install flatpak-run flatpak-clean stress-omnibox-callbacks verify-purego check
+.PHONY: build build-frontend build-quick install-local test lint clean install-tools dev generate help init man flatpak-deps flatpak-build flatpak-install flatpak-run flatpak-clean stress-omnibox-callbacks verify-purego check
 
 # Load local overrides from .env.local if present (Makefile syntax)
 ifneq (,$(wildcard .env.local))
@@ -12,6 +12,7 @@ endif
 BINARY_NAME=dumber
 MAIN_PATH=./cmd/dumber
 DIST_DIR=dist
+LOCAL_BIN_DIR?=$(HOME)/.local/bin
 
 # Detect number of CPU cores for parallel compilation
 NPROCS?=$(shell nproc 2>/dev/null || echo 1)
@@ -55,7 +56,21 @@ build-quick: ## Build without frontend (faster for backend development)
 	@mkdir -p $(DIST_DIR)
 	CGO_ENABLED=0 go build -p $(NPROCS) $(GCFLAGS) $(LDFLAGS) -o $(DIST_DIR)/$(BINARY_NAME) $(MAIN_PATH)
 	CGO_ENABLED=0 go build -p $(NPROCS) -ldflags "-s -w" -o $(DIST_DIR)/cef-helper ./cmd/cef-helper
-	@echo "Build successful! Binary: $(DIST_DIR)/$(BINARY_NAME)"
+	@echo "Build successful! Binaries: $(DIST_DIR)/$(BINARY_NAME) and $(DIST_DIR)/cef-helper"
+
+install-local: build-quick ## Install dumber + cef-helper to ~/.local/bin atomically
+	@echo "Installing $(BINARY_NAME) and cef-helper to $(LOCAL_BIN_DIR)..."
+	@mkdir -p $(LOCAL_BIN_DIR)
+	@tmp_dumber="$$(mktemp '$(LOCAL_BIN_DIR)/.dumber.tmp.XXXXXX')"; \
+	tmp_helper="$$(mktemp '$(LOCAL_BIN_DIR)/.cef-helper.tmp.XXXXXX')"; \
+	trap 'rm -f "$$tmp_dumber" "$$tmp_helper"' EXIT INT TERM; \
+	install -m 0755 $(DIST_DIR)/$(BINARY_NAME) "$$tmp_dumber"; \
+	install -m 0755 $(DIST_DIR)/cef-helper "$$tmp_helper"; \
+	mv -f "$$tmp_dumber" $(LOCAL_BIN_DIR)/$(BINARY_NAME); \
+	mv -f "$$tmp_helper" $(LOCAL_BIN_DIR)/cef-helper; \
+	trap - EXIT INT TERM; \
+	echo "Installed: $(LOCAL_BIN_DIR)/$(BINARY_NAME)"; \
+	echo "Installed: $(LOCAL_BIN_DIR)/cef-helper"
 
 # Development targets
 dev: ## Run in development mode
