@@ -27,8 +27,9 @@ type downloadHandler struct {
 }
 
 type cefDownloadState struct {
-	filename    string
-	destination string
+	filename            string
+	destination         string
+	lastProgressPercent int32
 }
 
 type cefDownloadInterruptError struct {
@@ -134,8 +135,9 @@ func (h *downloadHandler) onBeforeDownload(
 
 	h.mu.Lock()
 	h.active[downloadItem.GetID()] = cefDownloadState{
-		filename:    output.Filename,
-		destination: output.DestinationPath,
+		filename:            output.Filename,
+		destination:         output.DestinationPath,
+		lastProgressPercent: -1,
 	}
 	h.mu.Unlock()
 
@@ -166,6 +168,7 @@ func (h *downloadHandler) onDownloadUpdated(
 	}
 
 	state := h.currentState(id, downloadItem)
+	h.emitProgressIfNeeded(ctx, id, downloadItem, state)
 
 	switch {
 	case downloadItem.IsComplete():
@@ -206,6 +209,60 @@ func (h *downloadHandler) currentState(id uint32, item purecef.DownloadItem) cef
 	}
 	h.active[id] = state
 	return state
+}
+
+func (h *downloadHandler) emitProgressIfNeeded(
+	ctx context.Context,
+	id uint32,
+	item purecef.DownloadItem,
+	state cefDownloadState,
+) {
+	percent, ok := downloadProgressPercentFromItem(item)
+	if !ok {
+		return
+	}
+
+	h.mu.Lock()
+	current, exists := h.active[id]
+	if !exists {
+		current = state
+	}
+	if current.lastProgressPercent == percent {
+		h.mu.Unlock()
+		return
+	}
+	current.lastProgressPercent = percent
+	h.active[id] = current
+	h.mu.Unlock()
+
+	h.runtime.EmitProgress(
+		ctx,
+		current.filename,
+		current.destination,
+		float64(percent)/100,
+		item.GetReceivedBytes(),
+		item.GetTotalBytes(),
+	)
+}
+
+func downloadProgressPercentFromItem(item purecef.DownloadItem) (int32, bool) {
+	if item == nil || item.IsComplete() || item.IsCanceled() || item.IsInterrupted() {
+		return 0, false
+	}
+
+	percent := item.GetPercentComplete()
+	if percent < 0 {
+		total := item.GetTotalBytes()
+		received := item.GetReceivedBytes()
+		if total <= 0 || received <= 0 {
+			return 0, false
+		}
+		percent = int32((received * 100) / total)
+	}
+	if percent <= 0 || percent >= 100 {
+		return 0, false
+	}
+	return percent, true
 }
 
 func (h *downloadHandler) markFinished(id uint32) bool {

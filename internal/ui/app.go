@@ -40,12 +40,14 @@ const (
 	AppID    = "com.github.bnema.dumber"
 	appTitle = "Dumber"
 	// crashReportToastDurationMs keeps startup crash-report toast visible longer.
-	crashReportToastDurationMs = 5000
-	floatingPaneFallbackWidth  = 1200
-	floatingPaneFallbackHeight = 800
-	floatingPaneIDPrefix       = "floating-pane:"
-	floatingSessionIDDefault   = "default"
-	floatingPaneVisibleClass   = "floating-pane-visible"
+	crashReportToastDurationMs    = 5000
+	downloadToastTerminalDuration = 2500
+	downloadProgressRoundBias     = 0.5
+	floatingPaneFallbackWidth     = 1200
+	floatingPaneFallbackHeight    = 800
+	floatingPaneIDPrefix          = "floating-pane:"
+	floatingSessionIDDefault      = "default"
+	floatingPaneVisibleClass      = "floating-pane-visible"
 )
 
 func gtkApplicationFlags() gio.ApplicationFlags {
@@ -889,7 +891,7 @@ func (a *App) initDownloadHandler(ctx context.Context) {
 	}
 
 	// Create download event adapter to show toasts.
-	eventAdapter := &downloadEventAdapter{app: a}
+	eventAdapter := newDownloadEventAdapter(a)
 
 	// Create use case for preparing download destinations with file deduplication.
 	prepareDownloadUC := usecase.NewPrepareDownloadUseCase(a.deps.FileSystem)
@@ -904,23 +906,139 @@ func (a *App) initDownloadHandler(ctx context.Context) {
 
 // downloadEventAdapter implements port.DownloadEventHandler and shows toasts.
 type downloadEventAdapter struct {
-	app *App
+	app    *App
+	mu     sync.Mutex
+	active map[string]downloadToastState
+}
+
+type downloadToastState struct {
+	filename string
+	percent  int
+}
+
+type downloadToastSpec struct {
+	message  string
+	level    component.ToastLevel
+	duration int
+	show     bool
+}
+
+func newDownloadEventAdapter(app *App) *downloadEventAdapter {
+	return &downloadEventAdapter{
+		app:    app,
+		active: make(map[string]downloadToastState),
+	}
 }
 
 func (d *downloadEventAdapter) OnDownloadEvent(ctx context.Context, event port.DownloadEvent) {
+	spec := d.toastSpecForEvent(event)
+	if !spec.show {
+		return
+	}
+
 	// Must schedule on GTK main thread.
 	cb := glib.SourceFunc(func(_ uintptr) bool {
-		switch event.Type {
-		case port.DownloadEventStarted:
-			d.app.showToastOnLastFocusedBrowserWindow(ctx, "Download started: "+event.Filename, component.ToastInfo)
-		case port.DownloadEventFinished:
-			d.app.showToastOnLastFocusedBrowserWindow(ctx, "Download complete: "+event.Filename, component.ToastSuccess)
-		case port.DownloadEventFailed:
-			d.app.showToastOnLastFocusedBrowserWindow(ctx, "Download failed: "+event.Filename, component.ToastError)
-		}
+		d.app.showToastOnLastFocusedBrowserWindow(
+			ctx,
+			spec.message,
+			spec.level,
+			component.WithDuration(spec.duration),
+		)
 		return false
 	})
 	glib.IdleAdd(&cb, 0)
+}
+
+func (d *downloadEventAdapter) toastSpecForEvent(event port.DownloadEvent) downloadToastSpec {
+	key := downloadToastKey(event)
+	filename := event.Filename
+	if filename == "" {
+		filename = filepath.Base(event.Destination)
+	}
+	if filename == "" {
+		filename = "download"
+	}
+
+	d.mu.Lock()
+	defer d.mu.Unlock()
+
+	state := d.active[key]
+	if state.filename == "" {
+		state.filename = filename
+	}
+
+	switch event.Type {
+	case port.DownloadEventStarted:
+		state.percent = 0
+		d.active[key] = state
+		return downloadToastSpec{
+			message:  fmt.Sprintf("Download started: %s (0%%)", state.filename),
+			level:    component.ToastInfo,
+			duration: 0,
+			show:     true,
+		}
+	case port.DownloadEventProgress:
+		percent := downloadProgressPercent(event.Progress)
+		if percent <= state.percent {
+			if _, ok := d.active[key]; !ok {
+				d.active[key] = state
+			}
+			return downloadToastSpec{}
+		}
+		state.percent = percent
+		d.active[key] = state
+		return downloadToastSpec{
+			message:  fmt.Sprintf("Downloading: %s (%d%%)", state.filename, percent),
+			level:    component.ToastInfo,
+			duration: 0,
+			show:     true,
+		}
+	case port.DownloadEventFinished:
+		delete(d.active, key)
+		return downloadToastSpec{
+			message:  "Download complete: " + state.filename,
+			level:    component.ToastSuccess,
+			duration: downloadToastTerminalDuration,
+			show:     true,
+		}
+	case port.DownloadEventFailed:
+		delete(d.active, key)
+		return downloadToastSpec{
+			message:  "Download failed: " + state.filename,
+			level:    component.ToastError,
+			duration: downloadToastTerminalDuration,
+			show:     true,
+		}
+	default:
+		return downloadToastSpec{}
+	}
+}
+
+func downloadToastKey(event port.DownloadEvent) string {
+	if event.Destination != "" {
+		return event.Destination
+	}
+	if event.Filename != "" {
+		return event.Filename
+	}
+	return "download"
+}
+
+func downloadProgressPercent(progress float64) int {
+	if progress <= 0 {
+		return 0
+	}
+	if progress >= 1 {
+		return 100
+	}
+	percent := int(progress*100 + downloadProgressRoundBias)
+	if percent < 0 {
+		return 0
+	}
+	if percent > 100 {
+		return 100
+	}
+	return percent
 }
 
 // autoCopyConfigFn implements port.AutoCopyConfig using a function closure.

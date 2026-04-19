@@ -37,11 +37,16 @@ func TestRuntimeResolveDestinationAndEvents(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, "artifact.pdf", output.Filename)
 	runtime.EmitStarted(ctx, output)
+	runtime.EmitProgress(ctx, output.Filename, output.DestinationPath, 0.42, 42, 100)
 	runtime.EmitFinished(ctx, output.Filename, output.DestinationPath)
 
-	require.Len(t, events.events, 2)
+	require.Len(t, events.events, 3)
 	require.Equal(t, port.DownloadEventStarted, events.events[0].Type)
-	require.Equal(t, port.DownloadEventFinished, events.events[1].Type)
+	require.Equal(t, port.DownloadEventProgress, events.events[1].Type)
+	require.InEpsilon(t, 0.42, events.events[1].Progress, 0.0001)
+	require.EqualValues(t, 42, events.events[1].BytesReceived)
+	require.EqualValues(t, 100, events.events[1].BytesTotal)
+	require.Equal(t, port.DownloadEventFinished, events.events[2].Type)
 }
 
 func TestNewRuntime_NilPreparer_NoPanic(t *testing.T) {

@@ -90,6 +90,28 @@ func (r *Runtime) EmitStarted(ctx context.Context, output *port.DownloadPrepareO
 		Msg("download started")
 }
 
+func (r *Runtime) EmitProgress(
+	ctx context.Context,
+	filename, destination string,
+	progress float64,
+	bytesReceived, bytesTotal int64,
+) {
+	r.mu.RLock()
+	eventHandler := r.eventHandler
+	r.mu.RUnlock()
+
+	if eventHandler != nil {
+		eventHandler.OnDownloadEvent(ctx, port.DownloadEvent{
+			Type:          port.DownloadEventProgress,
+			Filename:      filename,
+			Destination:   destination,
+			Progress:      progress,
+			BytesReceived: bytesReceived,
+			BytesTotal:    bytesTotal,
+		})
+	}
+}
+
 func (r *Runtime) EmitFinished(ctx context.Context, filename, destination string) {
 	r.mu.RLock()
 	eventHandler := r.eventHandler

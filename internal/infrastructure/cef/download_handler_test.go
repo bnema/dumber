@@ -12,15 +12,18 @@ import (
 )
 
 type stubDownloadItem struct {
-	id          uint32
-	url         string
-	suggested   string
-	mimeType    string
-	fullPath    string
-	complete    bool
-	canceled    bool
-	interrupted bool
-	reason      purecef.DownloadInterruptReason
+	id              uint32
+	url             string
+	suggested       string
+	mimeType        string
+	fullPath        string
+	complete        bool
+	canceled        bool
+	interrupted     bool
+	reason          purecef.DownloadInterruptReason
+	percentComplete int32
+	totalBytes      int64
+	receivedBytes   int64
 }
 
 func (s stubDownloadItem) IsValid() bool       { return true }
@@ -32,9 +35,9 @@ func (s stubDownloadItem) GetInterruptReason() purecef.DownloadInterruptReason {
 	return s.reason
 }
 func (s stubDownloadItem) GetCurrentSpeed() int64        { return 0 }
-func (s stubDownloadItem) GetPercentComplete() int32     { return 0 }
-func (s stubDownloadItem) GetTotalBytes() int64          { return 0 }
-func (s stubDownloadItem) GetReceivedBytes() int64       { return 0 }
+func (s stubDownloadItem) GetPercentComplete() int32     { return s.percentComplete }
+func (s stubDownloadItem) GetTotalBytes() int64          { return s.totalBytes }
+func (s stubDownloadItem) GetReceivedBytes() int64       { return s.receivedBytes }
 func (s stubDownloadItem) GetStartTime() uintptr         { return 0 }
 func (s stubDownloadItem) GetEndTime() uintptr           { return 0 }
 func (s stubDownloadItem) GetFullPath() string           { return s.fullPath }
@@ -120,7 +123,7 @@ func TestMarkFinished_SuppressesDuplicatesAfterCleanup(t *testing.T) {
 
 	// Simulate a download that was tracked through onBeforeDownload.
 	handler.mu.Lock()
-	handler.active[42] = cefDownloadState{filename: "test.bin", destination: "/tmp/test.bin"}
+	handler.active[42] = cefDownloadState{filename: "test.bin", destination: "/tmp/test.bin", lastProgressPercent: -1}
 	handler.mu.Unlock()
 
 	require.True(t, handler.markFinished(42), "first terminal event should succeed")
@@ -131,6 +134,41 @@ func TestMarkFinished_SuppressesDuplicatesAfterCleanup(t *testing.T) {
 	_, inActive := handler.active[42]
 	handler.mu.Unlock()
 	require.False(t, inActive)
+}
+
+func TestCEFDownloadHandlerEmitsProgressOncePerPercent(t *testing.T) {
+	ctx := context.Background()
+	preparer := usecase.NewPrepareDownloadUseCase(nil)
+	events := &captureDownloadEvents{}
+	handler := newDownloadHandler("/tmp/downloads", events, preparer)
+	callback := &stubBeforeDownloadCallback{}
+
+	item := stubDownloadItem{
+		id:        11,
+		url:       "https://example.com/archive.zip",
+		suggested: "archive.zip",
+		mimeType:  "application/zip",
+	}
+
+	require.True(t, handler.onBeforeDownload(ctx, nil, item, item.suggested, callback))
+
+	item.fullPath = callback.path
+	item.percentComplete = 12
+	item.receivedBytes = 12
+	item.totalBytes = 100
+	handler.onDownloadUpdated(ctx, item, nil)
+	handler.onDownloadUpdated(ctx, item, nil)
+
+	item.percentComplete = 13
+	item.receivedBytes = 13
+	handler.onDownloadUpdated(ctx, item, nil)
+
+	require.Len(t, events.events, 3)
+	require.Equal(t, port.DownloadEventStarted, events.events[0].Type)
+	require.Equal(t, port.DownloadEventProgress, events.events[1].Type)
+	require.InEpsilon(t, 0.12, events.events[1].Progress, 0.0001)
+	require.Equal(t, port.DownloadEventProgress, events.events[2].Type)
+	require.InEpsilon(t, 0.13, events.events[2].Progress, 0.0001)
 }
 
 func TestCEFDownloadInterruptedErrorIncludesCodeAndReason(t *testing.T) {
