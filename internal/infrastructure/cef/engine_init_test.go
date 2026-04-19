@@ -142,6 +142,41 @@ func TestPrepareCEFInitTraceFile_EnabledViaExplicitLogFile(t *testing.T) {
 	require.Equal(t, os.FileMode(dirPerm), dirInfo.Mode().Perm())
 }
 
+func TestPrepareCEFInitTraceFile_TruncatesExistingFile(t *testing.T) {
+	t.Setenv(puregoCEFInitTraceEnvVar, "1")
+	logFile := filepath.Join(t.TempDir(), "custom", "cef_runtime.log")
+	bootstrapLogFile := filepath.Join(filepath.Dir(logFile), "cef_runtime.bootstrap.log")
+	require.NoError(t, os.MkdirAll(filepath.Dir(bootstrapLogFile), dirPerm))
+	require.NoError(t, os.WriteFile(bootstrapLogFile, []byte("existing"), filePerm))
+
+	path, err := prepareCEFInitTraceFile("", logFile)
+	require.NoError(t, err)
+	require.Equal(t, bootstrapLogFile, path)
+
+	content, readErr := os.ReadFile(path)
+	require.NoError(t, readErr)
+	require.Empty(t, content)
+}
+
+func TestPrepareCEFInitTraceFile_RejectsSymlink(t *testing.T) {
+	t.Setenv(puregoCEFInitTraceEnvVar, "1")
+	target := filepath.Join(t.TempDir(), "target.bootstrap.log")
+	require.NoError(t, os.WriteFile(target, []byte("existing"), 0o644))
+
+	logFile := filepath.Join(t.TempDir(), "custom", "cef_runtime.log")
+	bootstrapLogFile := filepath.Join(filepath.Dir(logFile), "cef_runtime.bootstrap.log")
+	require.NoError(t, os.MkdirAll(filepath.Dir(bootstrapLogFile), dirPerm))
+	require.NoError(t, os.Symlink(target, bootstrapLogFile))
+
+	path, err := prepareCEFInitTraceFile("", logFile)
+	require.ErrorContains(t, err, "must not be a symlink")
+	require.Empty(t, path)
+
+	targetInfo, statErr := os.Stat(target)
+	require.NoError(t, statErr)
+	require.Equal(t, os.FileMode(0o644), targetInfo.Mode().Perm())
+}
+
 func TestPrepareCEFInitTraceFile_UsesResolvedProfileLogDirByDefault(t *testing.T) {
 	t.Setenv(puregoCEFInitTraceEnvVar, "1")
 	profile := testCEFDevProfile(t)

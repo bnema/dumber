@@ -486,7 +486,12 @@ func prepareCEFInitTraceFile(defaultLogFile, logFile string) (string, error) {
 	if err := os.MkdirAll(filepath.Dir(bootstrapLogFile), dirPerm); err != nil {
 		return "", fmt.Errorf("mkdir %s: %w", filepath.Dir(bootstrapLogFile), err)
 	}
-	if err := os.WriteFile(bootstrapLogFile, nil, filePerm); err != nil {
+	file, err := openRegularLogFile(bootstrapLogFile)
+	if err != nil {
+		return "", fmt.Errorf("reset %s: %w", bootstrapLogFile, err)
+	}
+	defer func() { _ = file.Close() }()
+	if err := file.Truncate(0); err != nil {
 		return "", fmt.Errorf("reset %s: %w", bootstrapLogFile, err)
 	}
 	return bootstrapLogFile, nil
