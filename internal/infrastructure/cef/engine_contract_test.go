@@ -19,6 +19,16 @@ func TestEngineConfigureDownloads_StoresHandler(t *testing.T) {
 	require.NotNil(t, eng.currentDownloadHandler())
 }
 
+func TestEngineConfigureDownloads_NilPreparer(t *testing.T) {
+	eng := &Engine{}
+
+	err := eng.ConfigureDownloads(context.Background(), "/tmp", nil, nil)
+
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "preparer is required")
+	require.Nil(t, eng.currentDownloadHandler())
+}
+
 func TestWebViewFactoryCreateRelated_ReturnsUnsupported(t *testing.T) {
 	factory := &WebViewFactory{}
 	wv, err := factory.CreateRelated(context.Background(), port.WebViewID(42))

@@ -3,6 +3,7 @@ package cef
 import (
 	"context"
 	"crypto/subtle"
+	"fmt"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -265,6 +266,9 @@ func (e *Engine) ConfigureDownloads(
 	eventHandler port.DownloadEventHandler,
 	preparer port.DownloadPreparer,
 ) error {
+	if preparer == nil {
+		return fmt.Errorf("cef: download preparer is required")
+	}
 	e.downloadMu.Lock()
 	e.downloadHandler = newDownloadHandler(downloadPath, eventHandler, preparer)
 	e.downloadMu.Unlock()

@@ -20,11 +20,9 @@ type Runtime struct {
 	preparer     port.DownloadPreparer
 }
 
+// New creates a Runtime. The caller must ensure preparer is non-nil;
+// ConfigureDownloads validates this before reaching here.
 func New(downloadPath string, eventHandler port.DownloadEventHandler, preparer port.DownloadPreparer) *Runtime {
-	if preparer == nil {
-		panic("preparer is required")
-	}
-
 	return &Runtime{
 		downloadPath: downloadPath,
 		eventHandler: eventHandler,

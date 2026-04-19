@@ -120,6 +120,9 @@ func (e *Engine) ConfigureDownloads(
 	if e.wkCtx == nil {
 		return fmt.Errorf("webkit context not initialized")
 	}
+	if preparer == nil {
+		return fmt.Errorf("download preparer is required")
+	}
 	handler := NewDownloadHandler(downloadPath, eventHandler, preparer)
 	e.wkCtx.SetDownloadHandler(ctx, handler)
 	e.downloadPath = downloadPath

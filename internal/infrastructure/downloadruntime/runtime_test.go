@@ -43,3 +43,9 @@ func TestRuntimeResolveDestinationAndEvents(t *testing.T) {
 	require.Equal(t, port.DownloadEventStarted, events.events[0].Type)
 	require.Equal(t, port.DownloadEventFinished, events.events[1].Type)
 }
+
+func TestNewRuntime_NilPreparer_NoPanic(t *testing.T) {
+	require.NotPanics(t, func() {
+		_ = New("/tmp/downloads", nil, nil)
+	})
+}

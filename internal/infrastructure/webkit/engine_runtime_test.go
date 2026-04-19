@@ -46,6 +46,14 @@ func TestEngine_ConfigureDownloads_NilContext(t *testing.T) {
 	require.Contains(t, err.Error(), "webkit context not initialized")
 }
 
+func TestNewDownloadHandler_NilPreparer_NoPanic(t *testing.T) {
+	// After removing the panic, NewDownloadHandler with nil preparer should
+	// not panic. The caller (ConfigureDownloads) is responsible for validation.
+	require.NotPanics(t, func() {
+		_ = NewDownloadHandler("/tmp", nil, nil)
+	})
+}
+
 func TestEngine_Close_NilPool(t *testing.T) {
 	e := &Engine{}
 	err := e.Close()

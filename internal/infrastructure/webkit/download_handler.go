@@ -20,15 +20,12 @@ type DownloadHandler struct {
 }
 
 // NewDownloadHandler creates a new download handler.
-// Panics if preparer is nil (fail fast on misconfiguration).
+// The caller (ConfigureDownloads) must validate that preparer is non-nil.
 func NewDownloadHandler(
 	downloadPath string,
 	handler port.DownloadEventHandler,
 	preparer port.DownloadPreparer,
 ) *DownloadHandler {
-	if preparer == nil {
-		panic("preparer is required")
-	}
 	return &DownloadHandler{
 		runtime: downloadruntime.New(downloadPath, handler, preparer),
 	}

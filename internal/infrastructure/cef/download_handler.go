@@ -3,8 +3,6 @@ package cef
 import (
 	"context"
 	"fmt"
-	"net/http"
-	"strings"
 	"sync"
 
 	purecef "github.com/bnema/purego-cef/cef"
@@ -15,16 +13,22 @@ import (
 	"github.com/bnema/dumber/internal/logging"
 )
 
+// maxFinishedEntries caps the finished-ID set. When the cap is reached the set
+// is cleared, accepting a tiny risk of a duplicate terminal event for very old
+// downloads. In practice download IDs are monotonically increasing uint32s and
+// no user session will approach this limit.
+const maxFinishedEntries = 1024
+
 type downloadHandler struct {
-	runtime *downloadruntime.Runtime
-	mu      sync.Mutex
-	active  map[uint32]cefDownloadState
+	runtime  *downloadruntime.Runtime
+	mu       sync.Mutex
+	active   map[uint32]cefDownloadState
+	finished map[uint32]struct{} // IDs that already emitted a terminal event
 }
 
 type cefDownloadState struct {
 	filename    string
 	destination string
-	finished    bool
 }
 
 type cefDownloadResponseAdapter struct {
@@ -37,13 +41,14 @@ func newDownloadHandler(
 	preparer port.DownloadPreparer,
 ) *downloadHandler {
 	return &downloadHandler{
-		runtime: downloadruntime.New(downloadPath, eventHandler, preparer),
-		active:  make(map[uint32]cefDownloadState),
+		runtime:  downloadruntime.New(downloadPath, eventHandler, preparer),
+		active:   make(map[uint32]cefDownloadState),
+		finished: make(map[uint32]struct{}),
 	}
 }
 
-func (h *downloadHandler) canDownload(_ purecef.Browser, _, requestMethod string) bool {
-	return requestMethod == "" || strings.EqualFold(requestMethod, http.MethodGet)
+func (h *downloadHandler) canDownload(_ purecef.Browser, _, _ string) bool {
+	return true
 }
 
 func (h *downloadHandler) onBeforeDownload(
@@ -89,16 +94,25 @@ func (h *downloadHandler) onDownloadUpdated(
 	}
 
 	id := downloadItem.GetID()
+
+	// Fast path: skip already-finished downloads to avoid re-populating active.
+	h.mu.Lock()
+	_, done := h.finished[id]
+	h.mu.Unlock()
+	if done {
+		return
+	}
+
 	state := h.currentState(id, downloadItem)
 
 	switch {
 	case downloadItem.IsComplete():
-		if !h.markFinished(id, state) {
+		if !h.markFinished(id) {
 			return
 		}
 		h.runtime.EmitFinished(ctx, state.filename, state.destination)
 	case downloadItem.IsCanceled() || downloadItem.IsInterrupted():
-		if !h.markFinished(id, state) {
+		if !h.markFinished(id) {
 			return
 		}
 		var err error
@@ -129,21 +143,18 @@ func (h *downloadHandler) currentState(id uint32, item purecef.DownloadItem) cef
 	return state
 }
 
-func (h *downloadHandler) markFinished(id uint32, state cefDownloadState) bool {
+func (h *downloadHandler) markFinished(id uint32) bool {
 	h.mu.Lock()
 	defer h.mu.Unlock()
 
-	current, ok := h.active[id]
-	if !ok {
-		state.finished = true
-		h.active[id] = state
-		return true
-	}
-	if current.finished {
+	if _, seen := h.finished[id]; seen {
 		return false
 	}
-	state.finished = true
-	h.active[id] = state
+	delete(h.active, id)
+	if len(h.finished) >= maxFinishedEntries {
+		clear(h.finished)
+	}
+	h.finished[id] = struct{}{}
 	return true
 }
 
