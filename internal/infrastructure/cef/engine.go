@@ -3,6 +3,7 @@ package cef
 import (
 	"context"
 	"crypto/subtle"
+	"fmt"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -42,6 +43,8 @@ type Engine struct {
 	onClipboardCopied                func(textLen int)
 	resolver                         port.ImageDataResolver
 	mediaClassifier                  MediaClassifier
+	downloadMu                       sync.RWMutex
+	downloadHandler                  *downloadHandler
 	alreadyRunningAppRelaunchMu      sync.RWMutex
 	alreadyRunningAppRelaunchHandler func(string)
 
@@ -256,14 +259,20 @@ func (e *Engine) RegisterAccentHandlers(ctx context.Context, handler port.Accent
 	return e.registerAccentHandlers(ctx, e.messageRouter, handler)
 }
 
-// ConfigureDownloads sets up download handling (Phase 1 stub).
+// ConfigureDownloads sets up download handling for all CEF webviews.
 func (e *Engine) ConfigureDownloads(
 	_ context.Context,
-	_ string,
-	_ port.DownloadEventHandler,
-	_ port.DownloadPreparer,
+	downloadPath string,
+	eventHandler port.DownloadEventHandler,
+	preparer port.DownloadPreparer,
 ) error {
-	return ErrDownloadsUnsupported
+	if preparer == nil {
+		return fmt.Errorf("cef: download preparer is required")
+	}
+	e.downloadMu.Lock()
+	e.downloadHandler = newDownloadHandler(downloadPath, eventHandler, preparer)
+	e.downloadMu.Unlock()
+	return nil
 }
 
 // OnToolkitReady is called after the UI toolkit has initialized.
@@ -445,6 +454,15 @@ func (e *Engine) validateBridgeRequest(browser purecef.Browser, bridgeNonce stri
 		return true
 	})
 	return valid
+}
+
+func (e *Engine) currentDownloadHandler() *downloadHandler {
+	if e == nil {
+		return nil
+	}
+	e.downloadMu.RLock()
+	defer e.downloadMu.RUnlock()
+	return e.downloadHandler
 }
 
 func (e *Engine) logTranscoderStartupState() {

@@ -23,6 +23,12 @@ type clipboardOrchestratorRecorder struct {
 	selectionCalls int
 }
 
+type stubDownloadPreparer struct{}
+
+func (stubDownloadPreparer) Execute(context.Context, port.DownloadPrepareInput) *port.DownloadPrepareOutput {
+	return &port.DownloadPrepareOutput{}
+}
+
 type controlledSelectionTimer struct {
 	stopped bool
 }
@@ -372,6 +378,20 @@ func TestOptionalHandlersAreAlwaysEnabled(t *testing.T) {
 	// AudioHandler is always enabled (required for media decoding).
 	require.Same(t, h, h.GetAudioHandler())
 	require.Same(t, h, h.GetContextMenuHandler())
+}
+
+func TestGetDownloadHandler_EnabledWhenEngineConfigured(t *testing.T) {
+	eng := &Engine{}
+	require.NoError(t, eng.ConfigureDownloads(context.Background(), "/tmp/downloads", nil, stubDownloadPreparer{}))
+
+	h := &handlerSet{
+		wv: &WebView{
+			ctx:    context.Background(),
+			engine: eng,
+		},
+	}
+
+	require.Same(t, h, h.GetDownloadHandler())
 }
 
 func TestOnPaint_DropsStaleMainViewPaint(t *testing.T) {

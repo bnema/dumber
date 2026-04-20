@@ -5,13 +5,28 @@ import (
 	"testing"
 
 	"github.com/bnema/dumber/internal/application/port"
+	"github.com/bnema/dumber/internal/application/usecase"
 	"github.com/stretchr/testify/require"
 )
 
-func TestEngineConfigureDownloads_ReturnsUnsupported(t *testing.T) {
+func TestEngineConfigureDownloads_StoresHandler(t *testing.T) {
 	eng := &Engine{}
+	preparer := usecase.NewPrepareDownloadUseCase(nil)
+
+	err := eng.ConfigureDownloads(context.Background(), "/tmp", nil, preparer)
+
+	require.NoError(t, err)
+	require.NotNil(t, eng.currentDownloadHandler())
+}
+
+func TestEngineConfigureDownloads_NilPreparer(t *testing.T) {
+	eng := &Engine{}
+
 	err := eng.ConfigureDownloads(context.Background(), "/tmp", nil, nil)
-	require.ErrorIs(t, err, ErrDownloadsUnsupported)
+
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "preparer is required")
+	require.Nil(t, eng.currentDownloadHandler())
 }
 
 func TestWebViewFactoryCreateRelated_ReturnsUnsupported(t *testing.T) {
