@@ -4,7 +4,7 @@ go 1.26.1
 
 require (
 	github.com/bnema/purego v0.11.0-bnema.2
-	github.com/bnema/purego-cef v0.9.1
+	github.com/bnema/purego-cef v0.10.0
 	github.com/bnema/purego-ffmpeg v0.3.1
 	github.com/bnema/purego-pipewire v0.1.2
 	github.com/bnema/purego-sqlite v0.1.2

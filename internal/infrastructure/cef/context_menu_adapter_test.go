@@ -35,11 +35,11 @@ func (p stubContextMenuParams) GetMediaType() purecef.ContextMenuMediaType { ret
 func (p stubContextMenuParams) GetMediaStateFlags() purecef.ContextMenuMediaStateFlags {
 	return 0
 }
-func (p stubContextMenuParams) GetSelectionText() string               { return p.selection }
-func (p stubContextMenuParams) GetMisspelledWord() string              { return "" }
-func (p stubContextMenuParams) GetDictionarySuggestions(uintptr) int32 { return 0 }
-func (p stubContextMenuParams) IsEditable() bool                       { return p.editable }
-func (p stubContextMenuParams) IsSpellCheckEnabled() bool              { return false }
+func (p stubContextMenuParams) GetSelectionText() string                          { return p.selection }
+func (p stubContextMenuParams) GetMisspelledWord() string                         { return "" }
+func (p stubContextMenuParams) GetDictionarySuggestions(purecef.StringList) int32 { return 0 }
+func (p stubContextMenuParams) IsEditable() bool                                  { return p.editable }
+func (p stubContextMenuParams) IsSpellCheckEnabled() bool                         { return false }
 func (p stubContextMenuParams) GetEditStateFlags() purecef.ContextMenuEditStateFlags {
 	return 0
 }

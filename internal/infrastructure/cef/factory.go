@@ -156,7 +156,7 @@ func (f *WebViewFactory) Create(ctx context.Context) (port.WebView, error) {
 }
 
 func (f *WebViewFactory) configureInitialBrowserCreation(
-	ctx context.Context, wv *WebView, pipeline *renderPipeline, client purecef.Client,
+	ctx context.Context, wv *WebView, pipeline *renderPipeline, client purecef.RawClient,
 	windowInfo *purecef.WindowInfo, settings *purecef.BrowserSettings,
 ) {
 	wv.pendingCreate = &pendingBrowserCreate{

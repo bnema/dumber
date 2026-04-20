@@ -68,7 +68,7 @@ type WebView struct {
 	engine           *Engine
 	browser          purecef.Browser
 	host             purecef.BrowserHost
-	client           purecef.Client // prevent GC from collecting the client before CEF AddRef's it
+	client           purecef.RawClient // prevent GC from collecting the client before CEF AddRef's it
 	pipeline         *renderPipeline
 	input            *inputBridge
 	handlers         *handlerSet
@@ -140,7 +140,7 @@ type WebView struct {
 // deferred until the GL area has a non-zero size.
 type pendingBrowserCreate struct {
 	windowInfo *purecef.WindowInfo
-	client     purecef.Client
+	client     purecef.RawClient
 	settings   *purecef.BrowserSettings
 }
 

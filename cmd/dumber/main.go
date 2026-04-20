@@ -126,8 +126,18 @@ func main() {
 	// engine can also be selected via config.
 	if isCEFSubprocess(os.Args) {
 		runtime.LockOSThread()
-		cef.MaybeExitSubprocessWithApp(infracef.NewSubprocessApp())
-		os.Exit(1)
+		executed, exitCode, err := cef.ExecuteSubprocessWithApp(infracef.NewSubprocessApp())
+		if err != nil {
+			_, _ = fmt.Fprintf(os.Stderr, "cef: ExecuteSubprocessWithApp: %v\n", err)
+			os.Exit(1)
+		}
+		if executed {
+			os.Exit(exitCode)
+		}
+		// If Chromium-style helper args were present but purego-cef declined to
+		// handle them as a subprocess, drop them before normal startup so Cobra
+		// and the GUI bootstrap do not choke on unknown --type/... flags.
+		os.Args = os.Args[:1]
 	}
 
 	enableCrashForensics()

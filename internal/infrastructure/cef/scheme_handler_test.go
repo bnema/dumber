@@ -6,7 +6,6 @@ import (
 	"errors"
 	"net/http"
 	"testing"
-	"unsafe"
 
 	purecef "github.com/bnema/purego-cef/cef"
 	cefmocks "github.com/bnema/purego-cef/cef/mocks"
@@ -103,7 +102,7 @@ func TestSchemeHandler_APIClipboardSetPathWritesClipboardPayload(t *testing.T) {
 	require.NotNil(t, handler)
 
 	var responseLength int64
-	handler.GetResponseHeaders(response, unsafe.Pointer(&responseLength), 0)
+	handler.GetResponseHeaders(response, &responseLength, 0)
 	require.Positive(t, responseLength)
 	require.Equal(t, "copied from js", copied)
 }
@@ -129,7 +128,7 @@ func TestSchemeHandler_APIFocusSyncRejectsRequestsWithoutTrustedBridgeHeader(t *
 	require.NotNil(t, handler)
 
 	var responseLength int64
-	handler.GetResponseHeaders(response, unsafe.Pointer(&responseLength), 0)
+	handler.GetResponseHeaders(response, &responseLength, 0)
 	require.Positive(t, responseLength)
 }
 
@@ -164,7 +163,7 @@ func TestSchemeHandler_APIFocusSyncInvokesEditableFocusCallback(t *testing.T) {
 	require.NotNil(t, handler)
 
 	var responseLength int64
-	handler.GetResponseHeaders(response, unsafe.Pointer(&responseLength), 0)
+	handler.GetResponseHeaders(response, &responseLength, 0)
 	require.Positive(t, responseLength)
 	require.Same(t, browser, focused)
 }
@@ -203,7 +202,7 @@ func TestSchemeHandler_Create_ConceptualAPIRequestBypassesRedirect(t *testing.T)
 	require.NotNil(t, handler)
 
 	var responseLength int64
-	handler.GetResponseHeaders(response, unsafe.Pointer(&responseLength), 0)
+	handler.GetResponseHeaders(response, &responseLength, 0)
 	require.Positive(t, responseLength)
 	require.Equal(t, "copied from create", copied)
 }
@@ -232,7 +231,7 @@ func TestSchemeHandler_APIClipboardSetRejectsInvalidBridgeNonce(t *testing.T) {
 	require.NotNil(t, handler)
 
 	var responseLength int64
-	handler.GetResponseHeaders(response, unsafe.Pointer(&responseLength), 0)
+	handler.GetResponseHeaders(response, &responseLength, 0)
 	require.Positive(t, responseLength)
 }
 
@@ -256,6 +255,6 @@ func TestSchemeHandler_APIOptionsReturnsCORSPreflightHeaders(t *testing.T) {
 	require.NotNil(t, handler)
 
 	var responseLength int64
-	handler.GetResponseHeaders(response, unsafe.Pointer(&responseLength), 0)
+	handler.GetResponseHeaders(response, &responseLength, 0)
 	require.Zero(t, responseLength)
 }

@@ -47,10 +47,12 @@ type transcodingResourceHandler struct {
 // Open starts the transcode session asynchronously. CEF will call
 // GetResponseHeaders and Read once the callback fires.
 func (rh *transcodingResourceHandler) Open(
-	_ purecef.Request, handleRequest unsafe.Pointer, callback purecef.Callback,
+	_ purecef.Request, handleRequest *int32, callback purecef.Callback,
 ) int32 {
 	// Signal async handling: set handleRequest = 0.
-	*(*int32)(handleRequest) = 0
+	if handleRequest != nil {
+		*handleRequest = 0
+	}
 
 	log := rh.logger()
 	sourceURL := logging.TruncateURL(rh.sourceURL, maxTranscodingURLLength)
@@ -84,7 +86,7 @@ func (rh *transcodingResourceHandler) Open(
 
 // GetResponseHeaders sets the streaming response metadata.
 func (rh *transcodingResourceHandler) GetResponseHeaders(
-	response purecef.Response, responseLength unsafe.Pointer, _ uintptr,
+	response purecef.Response, responseLength *int64, _ uintptr,
 ) {
 	response.SetStatus(httpStatusOK)
 	response.SetStatusText("OK")
@@ -96,13 +98,15 @@ func (rh *transcodingResourceHandler) GetResponseHeaders(
 	response.SetHeaderByName("Access-Control-Allow-Origin", "*", 1)
 	response.SetHeaderByName("Cache-Control", "no-store", 1)
 	// Streaming — unknown length.
-	*(*int64)(responseLength) = -1
+	if responseLength != nil {
+		*responseLength = -1
+	}
 }
 
 // Read copies transcoded data from the session into the CEF output buffer.
 func (rh *transcodingResourceHandler) Read(
 	dataOut unsafe.Pointer, bytesToRead int32,
-	bytesRead unsafe.Pointer, _ purecef.ResourceReadCallback,
+	bytesRead *int32, _ purecef.ResourceReadCallback,
 ) int32 {
 	if rh.session == nil {
 		return 0
@@ -118,7 +122,9 @@ func (rh *transcodingResourceHandler) Read(
 				Int("first_chunk_bytes", n).
 				Msg("cef: transcoding resource stream produced first bytes")
 		}
-		*(*int32)(bytesRead) = int32(n)
+		if bytesRead != nil {
+			*bytesRead = int32(n)
+		}
 		return 1
 	}
 	if err != nil {
@@ -166,12 +172,12 @@ func (rh *transcodingResourceHandler) ProcessRequest(_ purecef.Request, _ purece
 }
 
 // ReadResponse is deprecated; Read is used instead.
-func (rh *transcodingResourceHandler) ReadResponse(_ unsafe.Pointer, _ int32, _ unsafe.Pointer, _ purecef.Callback) int32 {
+func (rh *transcodingResourceHandler) ReadResponse(_ unsafe.Pointer, _ int32, _ *int32, _ purecef.Callback) int32 {
 	return 0
 }
 
 // Skip is not used for streaming content.
-func (rh *transcodingResourceHandler) Skip(_ int64, _ unsafe.Pointer, _ purecef.ResourceSkipCallback) int32 {
+func (rh *transcodingResourceHandler) Skip(_ int64, _ *int64, _ purecef.ResourceSkipCallback) int32 {
 	return 0
 }
 
@@ -360,7 +366,7 @@ func (h *transcodingRequestHandler) OnResourceLoadComplete(
 ) {
 }
 
-func (h *transcodingRequestHandler) OnProtocolExecution(_ purecef.Browser, _ purecef.Frame, _ purecef.Request, _ unsafe.Pointer) {
+func (h *transcodingRequestHandler) OnProtocolExecution(_ purecef.Browser, _ purecef.Frame, _ purecef.Request, _ *int32) {
 }
 
 func buildRequestInfo(request purecef.Request) requestInfo {

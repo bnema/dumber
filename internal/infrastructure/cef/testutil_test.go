@@ -1,8 +1,6 @@
 package cef
 
 import (
-	"unsafe"
-
 	purecef "github.com/bnema/purego-cef/cef"
 )
 
@@ -76,10 +74,10 @@ func (stubMenuModel) SetAcceleratorAt(_ int, _, _, _, _ int32) int32 {
 }
 func (stubMenuModel) RemoveAccelerator(_ int32) int32 { panic("unexpected call") }
 func (stubMenuModel) RemoveAcceleratorAt(_ int) int32 { panic("unexpected call") }
-func (stubMenuModel) GetAccelerator(_ int32, _, _, _, _ unsafe.Pointer) int32 {
+func (stubMenuModel) GetAccelerator(_ int32, _, _, _, _ *int32) int32 {
 	panic("unexpected call")
 }
-func (stubMenuModel) GetAcceleratorAt(_ int, _, _, _, _ unsafe.Pointer) int32 {
+func (stubMenuModel) GetAcceleratorAt(_ int, _, _, _, _ *int32) int32 {
 	panic("unexpected call")
 }
 func (stubMenuModel) SetColor(_ int32, _ purecef.MenuColorType, _ uintptr) int32 {

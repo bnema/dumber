@@ -144,11 +144,10 @@ func prepareCEFSettings(
 	if bootstrapLogFile, err := prepareCEFInitTraceFile(paths.LogFile, cfg.LogFile); err != nil {
 		logger.Warn().Err(err).Msg("cef: failed to prepare init trace file")
 	} else if bootstrapLogFile != "" {
-		settings.InitTraceFile = bootstrapLogFile
-		logger.Info().
+		logger.Warn().
 			Str("bootstrap_log_file", bootstrapLogFile).
 			Str("env_var", puregoCEFInitTraceEnvVar).
-			Msg("cef: init bootstrap diagnostics enabled")
+			Msg("cef: init bootstrap diagnostics requested, but current purego-cef no longer consumes this trace file")
 	}
 	if cfg.LogSeverity != 0 {
 		settings.LogSeverity = cfg.LogSeverity

@@ -29,16 +29,16 @@ type handlerSet struct {
 
 // Compile-time interface checks.
 var (
-	_ purecef.SafeClient          = (*handlerSet)(nil)
-	_ purecef.RenderHandler       = (*handlerSet)(nil)
-	_ purecef.DisplayHandler      = (*handlerSet)(nil)
-	_ purecef.LoadHandler         = (*handlerSet)(nil)
-	_ purecef.SafeLifeSpanHandler = (*handlerSet)(nil)
-	_ purecef.RequestHandler      = (*handlerSet)(nil)
-	_ purecef.AudioHandler        = (*handlerSet)(nil)
-	_ purecef.ContextMenuHandler  = (*handlerSet)(nil)
-	_ purecef.DownloadHandler     = (*handlerSet)(nil)
-	_ purecef.FindHandler         = (*handlerSet)(nil)
+	_ purecef.Client             = (*handlerSet)(nil)
+	_ purecef.RenderHandler      = (*handlerSet)(nil)
+	_ purecef.DisplayHandler     = (*handlerSet)(nil)
+	_ purecef.LoadHandler        = (*handlerSet)(nil)
+	_ purecef.LifeSpanHandler    = (*handlerSet)(nil)
+	_ purecef.RequestHandler     = (*handlerSet)(nil)
+	_ purecef.AudioHandler       = (*handlerSet)(nil)
+	_ purecef.ContextMenuHandler = (*handlerSet)(nil)
+	_ purecef.DownloadHandler    = (*handlerSet)(nil)
+	_ purecef.FindHandler        = (*handlerSet)(nil)
 )
 
 // ===========================================================================
@@ -69,7 +69,7 @@ func (h *handlerSet) GetFrameHandler() purecef.FrameHandler           { return n
 func (h *handlerSet) GetPermissionHandler() purecef.PermissionHandler { return nil }
 func (h *handlerSet) GetJsdialogHandler() purecef.JsdialogHandler     { return nil }
 func (h *handlerSet) GetKeyboardHandler() purecef.KeyboardHandler     { return nil }
-func (h *handlerSet) GetLifeSpanHandler() purecef.SafeLifeSpanHandler { return h }
+func (h *handlerSet) GetLifeSpanHandler() purecef.LifeSpanHandler     { return h }
 func (h *handlerSet) GetLoadHandler() purecef.LoadHandler             { return h }
 func (h *handlerSet) GetPrintHandler() purecef.PrintHandler           { return nil }
 func (h *handlerSet) GetRenderHandler() purecef.RenderHandler         { return h }
@@ -424,7 +424,7 @@ func (h *handlerSet) OnTitleChange(_ purecef.Browser, title string) {
 	h.wv.updateTitle(title)
 }
 
-func (h *handlerSet) OnFaviconUrlchange(_ purecef.Browser, _ uintptr) {}
+func (h *handlerSet) OnFaviconUrlchange(_ purecef.Browser, _ purecef.StringList) {}
 
 // OnFullscreenModeChange toggles the fullscreen atomic and fires callbacks.
 func (h *handlerSet) OnFullscreenModeChange(_ purecef.Browser, fullscreen int32) {
@@ -656,7 +656,7 @@ func (h *handlerSet) OnLoadError(_ purecef.Browser, _ purecef.Frame, _ purecef.E
 func (h *handlerSet) OnBeforePopup(
 	_ purecef.Browser, _ purecef.Frame, _ int32, targetURL, targetFrameName string,
 	_ purecef.WindowOpenDisposition, userGesture int32, _ *purecef.PopupFeatures,
-	_ *purecef.WindowInfo, _ *purecef.Client, _ *purecef.BrowserSettings,
+	_ *purecef.WindowInfo, _ *purecef.RawClientWriteSlot, _ *purecef.BrowserSettings,
 	_ *purecef.DictionaryValue, _ *bool,
 ) bool {
 	if targetURL == "" {
@@ -685,7 +685,7 @@ func (h *handlerSet) OnBeforePopup(
 func (h *handlerSet) OnBeforePopupAborted(_ purecef.Browser, _ int32) {}
 
 func (h *handlerSet) OnBeforeDevToolsPopup(
-	_ purecef.Browser, _ *purecef.WindowInfo, _ *purecef.Client,
+	_ purecef.Browser, _ *purecef.WindowInfo, _ *purecef.RawClientWriteSlot,
 	_ *purecef.BrowserSettings, _ *purecef.DictionaryValue, _ *bool,
 ) {
 }
