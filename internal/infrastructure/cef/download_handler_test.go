@@ -3,6 +3,7 @@ package cef
 import (
 	"context"
 	"fmt"
+	"path/filepath"
 	"testing"
 
 	purecef "github.com/bnema/purego-cef/cef"
@@ -72,7 +73,8 @@ func TestCEFDownloadHandlerLifecycle(t *testing.T) {
 	ctx := context.Background()
 	preparer := usecase.NewPrepareDownloadUseCase(nil)
 	events := &captureDownloadEvents{}
-	handler := newDownloadHandler("/tmp/downloads", events, preparer)
+	downloadDir := t.TempDir()
+	handler := newDownloadHandler(downloadDir, events, preparer)
 	callback := &stubBeforeDownloadCallback{}
 
 	item := stubDownloadItem{
@@ -85,7 +87,7 @@ func TestCEFDownloadHandlerLifecycle(t *testing.T) {
 	ok := handler.onBeforeDownload(ctx, nil, item, item.suggested, callback)
 
 	require.True(t, ok)
-	require.Equal(t, "/tmp/downloads/image.iso", callback.path)
+	require.Equal(t, filepath.Join(downloadDir, "image.iso"), callback.path)
 	require.Len(t, events.events, 1)
 	require.Equal(t, port.DownloadEventStarted, events.events[0].Type)
 
