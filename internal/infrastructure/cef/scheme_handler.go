@@ -164,46 +164,69 @@ func (h *dumbSchemeHandler) handleAPI(browser purecef.Browser, method, path stri
 	if strings.EqualFold(method, http.MethodOptions) {
 		return h.newAPIRawResourceHandler(http.StatusNoContent, "text/plain; charset=utf-8", nil)
 	}
-
-	switch {
-	case path == "/api/message" && strings.EqualFold(method, "POST"):
-		body := readBodyFromHeader(request)
-		if body == nil {
-			return h.newAPIJSONResourceHandler(http.StatusBadRequest, map[string]string{"error": "empty body"})
+	if isAPIGetMethod(method) {
+		if handler, ok := h.handleAPIGet(path, request); ok {
+			return handler
 		}
-		resp, err := h.messageRouter.HandleMessage(h.ctx, 0, body)
-		if err != nil {
-			return h.newAPIJSONResourceHandler(http.StatusInternalServerError, map[string]string{"error": err.Error()})
-		}
-		return h.newAPIRawResourceHandler(http.StatusOK, "application/json", resp)
-
-	case path == "/api/config" && (method == "" || strings.EqualFold(method, "GET")):
-		return h.handleConfigAPI(h.currentConfigPayload)
-
-	case path == "/api/config/default" && (method == "" || strings.EqualFold(method, "GET")):
-		return h.handleConfigAPI(h.defaultConfigPayload)
-
-	case path == "/api/transcode" && (method == "" || strings.EqualFold(method, "GET")):
-		return h.handleTranscodeAPI(request)
-
-	case path == "/api/clipboard-set" && strings.EqualFold(method, "POST"):
-		return h.handleClipboardSet(request, browser)
-
-	case path == "/api/focus-sync" && strings.EqualFold(method, "POST"):
-		return h.handleFocusSync(request, browser)
-
-	case path == "/api/popup-open" && strings.EqualFold(method, "POST"):
-		return h.handlePopupOpen(request, browser)
-
-	case path == "/api/popup-navigate" && strings.EqualFold(method, "POST"):
-		return h.handlePopupNavigate(request, browser)
-
-	case path == "/api/popup-close" && strings.EqualFold(method, "POST"):
-		return h.handlePopupClose(request, browser)
-
-	default:
-		return h.newAPIJSONResourceHandler(http.StatusNotFound, map[string]string{"error": "not found"})
 	}
+	if isAPIPostMethod(method) {
+		if handler, ok := h.handleAPIPost(browser, path, request); ok {
+			return handler
+		}
+	}
+	return h.newAPIJSONResourceHandler(http.StatusNotFound, map[string]string{"error": "not found"})
+}
+
+func isAPIGetMethod(method string) bool {
+	return method == "" || strings.EqualFold(method, http.MethodGet)
+}
+
+func isAPIPostMethod(method string) bool {
+	return strings.EqualFold(method, http.MethodPost)
+}
+
+func (h *dumbSchemeHandler) handleAPIGet(path string, request purecef.Request) (purecef.ResourceHandler, bool) {
+	switch path {
+	case "/api/config":
+		return h.handleConfigAPI(h.currentConfigPayload), true
+	case "/api/config/default":
+		return h.handleConfigAPI(h.defaultConfigPayload), true
+	case "/api/transcode":
+		return h.handleTranscodeAPI(request), true
+	default:
+		return nil, false
+	}
+}
+
+func (h *dumbSchemeHandler) handleAPIPost(browser purecef.Browser, path string, request purecef.Request) (purecef.ResourceHandler, bool) {
+	switch path {
+	case "/api/message":
+		return h.handleMessageAPI(request), true
+	case "/api/clipboard-set":
+		return h.handleClipboardSet(request, browser), true
+	case "/api/focus-sync":
+		return h.handleFocusSync(request, browser), true
+	case "/api/popup-open":
+		return h.handlePopupOpen(request, browser), true
+	case "/api/popup-navigate":
+		return h.handlePopupNavigate(request, browser), true
+	case "/api/popup-close":
+		return h.handlePopupClose(request, browser), true
+	default:
+		return nil, false
+	}
+}
+
+func (h *dumbSchemeHandler) handleMessageAPI(request purecef.Request) purecef.ResourceHandler {
+	body := readBodyFromHeader(request)
+	if body == nil {
+		return h.newAPIJSONResourceHandler(http.StatusBadRequest, map[string]string{"error": "empty body"})
+	}
+	resp, err := h.messageRouter.HandleMessage(h.ctx, 0, body)
+	if err != nil {
+		return h.newAPIJSONResourceHandler(http.StatusInternalServerError, map[string]string{"error": err.Error()})
+	}
+	return h.newAPIRawResourceHandler(http.StatusOK, "application/json", resp)
 }
 
 func (h *dumbSchemeHandler) handleTranscodeAPI(request purecef.Request) purecef.ResourceHandler {

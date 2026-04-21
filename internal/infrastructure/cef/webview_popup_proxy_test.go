@@ -30,7 +30,7 @@ func TestHandleSyntheticPopupOpen_ReplaysQueuedNavigation(t *testing.T) {
 		id:  port.WebViewID(17),
 		callbacks: &port.WebViewCallbacks{
 			OnCreate: func(req port.PopupRequest) port.WebView {
-				require.Equal(t, "", req.TargetURI)
+				require.Empty(t, req.TargetURI)
 				require.Equal(t, "_blank", req.FrameName)
 				require.True(t, req.IsUserGesture)
 				require.True(t, req.NoJavaScriptAccess)

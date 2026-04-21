@@ -471,7 +471,20 @@ func (c *Coordinator) handlePopupCreate(
 	// Create popup pane entity
 	paneID, popupPane := c.createPopupPane(popupID, parentPaneID, req.TargetURI)
 
-	return c.finishPopupCreate(ctx, parentPaneID, parentID, parentURIAtOpen, popupID, popupWV, popupPane, paneID, popupType, behavior, placement, req)
+	return c.finishPopupCreate(
+		ctx,
+		parentPaneID,
+		parentID,
+		parentURIAtOpen,
+		popupID,
+		popupWV,
+		popupPane,
+		paneID,
+		popupType,
+		behavior,
+		placement,
+		req,
+	)
 }
 
 func (c *Coordinator) reuseNamedPopup(
