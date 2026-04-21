@@ -3,6 +3,8 @@ package content
 import (
 	"context"
 	"fmt"
+	neturl "net/url"
+	"strings"
 	"time"
 
 	"github.com/bnema/dumber/internal/application/port"
@@ -267,11 +269,93 @@ func (c *Coordinator) createPopupPane(
 	return paneID, popupPane
 }
 
-// handlePopupCreate handles the WebKit "create" signal for popup windows.
-// Returns a new related WebView if popup is allowed, nil to block.
+func normalizePopupTargetURIForFallback(rawTargetURI string) string {
+	trimmed := strings.TrimSpace(rawTargetURI)
+	if trimmed == "" {
+		return rawTargetURI
+	}
+
+	parsed, err := neturl.Parse(trimmed)
+	if err != nil {
+		return rawTargetURI
+	}
+
+	host := strings.ToLower(parsed.Hostname())
+	isNotionHost := host == "notion.so" || host == "notion.com" ||
+		strings.HasSuffix(host, ".notion.so") || strings.HasSuffix(host, ".notion.com")
+	if !isNotionHost || parsed.Path != "/verifyNoPopupBlockerHtmlAndRedirect" {
+		return rawTargetURI
+	}
+
+	redirectURI := strings.TrimSpace(parsed.Query().Get("redirectUri"))
+	if redirectURI == "" {
+		return rawTargetURI
+	}
+
+	redirectParsed, err := neturl.Parse(redirectURI)
+	if err != nil {
+		return rawTargetURI
+	}
+	if redirectParsed.Scheme != "https" && redirectParsed.Scheme != "http" {
+		return rawTargetURI
+	}
+
+	return redirectParsed.String()
+}
+
+// createPopupWebView prefers a related WebView so popups can share the
+// parent session/context. If the engine does not support related popup views,
+// it gracefully falls back to a regular WebView so target="_blank" and
+// window.open() still open in a workspace pane.
+func (c *Coordinator) createPopupWebView(
+	ctx context.Context,
+	parentID port.WebViewID,
+	targetURI string,
+) (port.WebView, string, error) {
+	if c.factory == nil {
+		return nil, targetURI, fmt.Errorf("no webview factory configured")
+	}
+
+	log := logging.FromContext(ctx)
+
+	popupWV, err := c.factory.CreateRelated(ctx, parentID)
+	if err == nil && popupWV != nil {
+		return popupWV, targetURI, nil
+	}
+	if err == nil {
+		err = fmt.Errorf("related popup webview factory returned nil without error")
+	}
+
+	log.Debug().
+		Err(err).
+		Uint64("parent_webview_id", uint64(parentID)).
+		Str("target_uri", logging.TruncateURL(targetURI, logURLMaxLen)).
+		Msg("related popup webview unavailable, falling back to regular webview")
+
+	popupWV, fallbackErr := c.factory.Create(ctx)
+	if fallbackErr != nil {
+		return nil, targetURI, fmt.Errorf("create popup webview: related failed: %w; fallback failed: %w", err, fallbackErr)
+	}
+	if popupWV == nil {
+		return nil, targetURI, fmt.Errorf("popup webview factory returned nil without error")
+	}
+
+	effectiveTargetURI := normalizePopupTargetURIForFallback(targetURI)
+	if effectiveTargetURI != targetURI {
+		log.Debug().
+			Str("original_target_uri", logging.TruncateURL(targetURI, logURLMaxLen)).
+			Str("effective_target_uri", logging.TruncateURL(effectiveTargetURI, logURLMaxLen)).
+			Msg("rewrote popup target URI for regular-webview fallback")
+	}
+
+	return popupWV, effectiveTargetURI, nil
+}
+
+// handlePopupCreate handles a popup request from the current WebView.
+// Returns a WebView if popup handling is allowed, nil to block.
 //
 // IMPORTANT: The WebView MUST be added to a GtkWindow hierarchy BEFORE this
-// signal handler returns. Otherwise WebKit won't establish window.opener.
+// signal handler returns for engines that require native popup lifecycles.
 // The WebView stays hidden until ready-to-show signal is received.
 func (c *Coordinator) handlePopupCreate(
 	ctx context.Context,
@@ -305,11 +389,17 @@ func (c *Coordinator) handlePopupCreate(
 		return reused
 	}
 
-	// Create related WebView for session sharing (created hidden)
-	popupWV, err := c.factory.CreateRelated(ctx, parentID)
+	// Prefer a related WebView for session sharing, but fall back to a regular
+	// WebView on engines like CEF OSR that do not implement native related
+	// popup views yet.
+	popupWV, effectiveTargetURI, err := c.createPopupWebView(ctx, parentID, req.TargetURI)
 	if err != nil {
-		log.Error().Err(err).Msg("failed to create related webview for popup")
+		log.Error().Err(err).Msg("failed to create webview for popup")
 		return nil
+	}
+
+	if effectiveTargetURI != req.TargetURI {
+		req.TargetURI = effectiveTargetURI
 	}
 
 	// Detect popup type

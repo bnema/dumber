@@ -617,8 +617,150 @@ const clipboardSelectionFetchBridgeJS = `(function(){
   if (isEditable(document.activeElement)) sendFocusSync();
 })();`
 
+const popupFetchBridgeJS = `(function() {
+  if (window.__dumberPopupBridgePatched) return;
+  window.__dumberPopupBridgePatched = true;
+
+  var bridgeNonce = '__DUMBER_BRIDGE_NONCE__';
+
+  function encodeBody(body) {
+    try {
+      return btoa(unescape(encodeURIComponent(body)));
+    } catch (_) {
+      return '';
+    }
+  }
+
+  function postBridge(url, payload) {
+    var encoded = encodeBody(JSON.stringify(payload));
+    if (!encoded) return;
+    fetch(url, {
+      method: 'POST',
+      headers: {
+        'X-Dumber-Body': encoded,
+        'X-Dumber-Bridge-Nonce': bridgeNonce
+      }
+    }).catch(function() {});
+  }
+
+  function resolvePopupURL(rawURL) {
+    if (rawURL == null || rawURL === '') return '';
+    try {
+      return new URL(String(rawURL), (document && document.baseURI) || location.href).href;
+    } catch (_) {
+      return String(rawURL);
+    }
+  }
+
+  function hasUserGesture() {
+    try {
+      return !!(navigator && navigator.userActivation && navigator.userActivation.isActive);
+    } catch (_) {
+      return false;
+    }
+  }
+
+  function popupHasNoOpener(features) {
+    if (features == null || features === '') return false;
+    var normalized = String(features).toLowerCase();
+    return normalized.indexOf('noopener') !== -1 || normalized.indexOf('noreferrer') !== -1;
+  }
+
+  function shouldDelegateWindowOpen(target) {
+    return target === '_self' || target === '_top' || target === '_parent';
+  }
+
+  function createSyntheticPopupProxy(proxyID, initialURL, features) {
+    var href = initialURL || 'about:blank';
+    var closed = false;
+
+    function navigate(nextURL) {
+      href = resolvePopupURL(nextURL);
+      postBridge('dumb:///api/popup-navigate', { proxy_id: proxyID, url: href });
+      return href;
+    }
+
+    var locationProxy = {
+      assign: function(nextURL) { return navigate(nextURL); },
+      replace: function(nextURL) { return navigate(nextURL); },
+      toString: function() { return href; }
+    };
+    try {
+      Object.defineProperty(locationProxy, 'href', {
+        configurable: true,
+        enumerable: true,
+        get: function() { return href; },
+        set: function(nextURL) { navigate(nextURL); }
+      });
+    } catch (_) {
+      locationProxy.href = href;
+    }
+
+    var proxy = {
+      blur: function() { return undefined; },
+      close: function() { closed = true; },
+      focus: function() { return undefined; },
+      postMessage: function() { return undefined; }
+    };
+    proxy.opener = popupHasNoOpener(features) ? null : window;
+    proxy.self = proxy;
+    proxy.window = proxy;
+
+    try {
+      Object.defineProperty(proxy, 'closed', {
+        configurable: true,
+        enumerable: true,
+        get: function() { return closed; },
+        set: function(next) { closed = !!next; }
+      });
+    } catch (_) {
+      proxy.closed = false;
+    }
+
+    try {
+      Object.defineProperty(proxy, 'location', {
+        configurable: true,
+        enumerable: true,
+        get: function() { return locationProxy; },
+        set: function(nextURL) { navigate(nextURL); }
+      });
+    } catch (_) {
+      proxy.location = locationProxy;
+    }
+
+    return proxy;
+  }
+
+  try {
+    var originalWindowOpen = typeof window.open === 'function' ? window.open.bind(window) : null;
+    window.open = function(url, target, features) {
+      var normalizedTarget = target == null ? '' : String(target);
+      if (originalWindowOpen && shouldDelegateWindowOpen(normalizedTarget)) {
+        return originalWindowOpen.apply(window, arguments);
+      }
+
+      var proxyID = 'popup-' + Date.now() + '-' + Math.random().toString(36).slice(2);
+      var resolvedURL = resolvePopupURL(url);
+      var popupProxy = createSyntheticPopupProxy(proxyID, resolvedURL, features);
+      postBridge('dumb:///api/popup-open', {
+        proxy_id: proxyID,
+        url: resolvedURL,
+        frame_name: normalizedTarget,
+        user_gesture: hasUserGesture()
+      });
+      return popupProxy;
+    };
+  } catch (_) {
+    window.__dumberPopupBridgePatched = false;
+  }
+})();`
+
 func buildClipboardSelectionFetchBridgeJS(bridgeNonce string) string {
 	return strings.ReplaceAll(clipboardSelectionFetchBridgeJS, "__DUMBER_BRIDGE_NONCE__", bridgeNonce)
+}
+
+func buildPopupFetchBridgeJS(bridgeNonce string) string {
+	return strings.ReplaceAll(popupFetchBridgeJS, "__DUMBER_BRIDGE_NONCE__", bridgeNonce)
 }
 
 // contentInjector implements port.ContentInjector for the CEF engine.
@@ -741,8 +883,8 @@ func (ci *contentInjector) onLoadEnd(wv *WebView) {
 	ci.injectCSS(wv, "dumber-scrollbar", scrollbarCSS)
 	wv.RunJavaScript(context.Background(), scrollbarAutoHideJS)
 
-	// Clipboard copy/cut and editable focus sync still need a JS bridge in OSR
-	// mode while the native renderer bridge remains disabled.
+	// Clipboard copy/cut, editable focus sync, and synthetic popup proxies still
+	// need a JS bridge in OSR mode while the native renderer bridge remains disabled.
 	bridgeNonce := wv.rotateBridgeNonce()
 	if bridgeNonce == "" {
 		ctx := context.Background()
@@ -752,6 +894,7 @@ func (ci *contentInjector) onLoadEnd(wv *WebView) {
 		logging.FromContext(ctx).Warn().Msg("cef: skipped clipboard bridge injection — nonce generation failed")
 	} else {
 		wv.RunJavaScript(context.Background(), buildClipboardSelectionFetchBridgeJS(bridgeNonce))
+		wv.RunJavaScript(context.Background(), buildPopupFetchBridgeJS(bridgeNonce))
 	}
 
 	// Video playback diagnostic — logs video element state changes.

@@ -17,6 +17,8 @@ const (
 	rendererBridgeActionExplicitTextCopy     = "explicit_text_copy"
 	rendererBridgeActionFocusSync            = "focus_sync"
 	rendererBridgeActionEditableFocusChanged = "editable_focus_changed"
+	rendererBridgeActionPopupOpen            = "popup_open"
+	rendererBridgeActionPopupNavigate        = "popup_navigate"
 	rendererBridgeActionReady                = "bridge_ready"
 	rendererBridgeExtensionName              = "dumber.renderer_bridge"
 )
@@ -63,6 +65,123 @@ const rendererBridgeExtensionJS = `
     var normalizedText = text == null ? '' : String(text);
     var normalizedAction = action == null || action === '' ? 'copy' : String(action);
     return send('explicit_text_copy', JSON.stringify({ text: normalizedText, action: normalizedAction }));
+  }
+
+  function resolvePopupURL(rawURL) {
+    if (rawURL == null || rawURL === '') return '';
+    try {
+      return new URL(String(rawURL), (document && document.baseURI) || location.href).href;
+    } catch (_) {
+      return String(rawURL);
+    }
+  }
+
+  function hasUserGesture() {
+    try {
+      return !!(navigator && navigator.userActivation && navigator.userActivation.isActive);
+    } catch (_) {
+      return false;
+    }
+  }
+
+  function popupHasNoOpener(features) {
+    if (features == null || features === '') return false;
+    var normalized = String(features).toLowerCase();
+    return normalized.indexOf('noopener') !== -1 || normalized.indexOf('noreferrer') !== -1;
+  }
+
+  function shouldDelegateWindowOpen(target) {
+    return target === '_self' || target === '_top' || target === '_parent';
+  }
+
+  function createSyntheticPopupProxy(proxyID, initialURL, features) {
+    var href = initialURL || 'about:blank';
+    var closed = false;
+
+    function navigate(nextURL) {
+      href = resolvePopupURL(nextURL);
+      send('popup_navigate', JSON.stringify({ proxy_id: proxyID, url: href }));
+      return href;
+    }
+
+    var locationProxy = {
+      assign: function(nextURL) { return navigate(nextURL); },
+      replace: function(nextURL) { return navigate(nextURL); },
+      toString: function() { return href; }
+    };
+    try {
+      Object.defineProperty(locationProxy, 'href', {
+        configurable: true,
+        enumerable: true,
+        get: function() { return href; },
+        set: function(nextURL) { navigate(nextURL); }
+      });
+    } catch (_) {
+      locationProxy.href = href;
+    }
+
+    var proxy = {
+      blur: function() { return undefined; },
+      close: function() { closed = true; },
+      focus: function() { return undefined; },
+      postMessage: function() { return undefined; }
+    };
+    proxy.opener = popupHasNoOpener(features) ? null : window;
+    proxy.self = proxy;
+    proxy.window = proxy;
+
+    try {
+      Object.defineProperty(proxy, 'closed', {
+        configurable: true,
+        enumerable: true,
+        get: function() { return closed; },
+        set: function(next) { closed = !!next; }
+      });
+    } catch (_) {
+      proxy.closed = false;
+    }
+
+    try {
+      Object.defineProperty(proxy, 'location', {
+        configurable: true,
+        enumerable: true,
+        get: function() { return locationProxy; },
+        set: function(nextURL) { navigate(nextURL); }
+      });
+    } catch (_) {
+      proxy.location = locationProxy;
+    }
+
+    try {
+      Object.defineProperty(proxy, Symbol.toStringTag, {
+        configurable: true,
+        value: 'Window'
+      });
+    } catch (_) {}
+
+    return proxy;
+  }
+
+  if (typeof window !== 'undefined' && typeof window.open === 'function' && !window.__dumberPopupOpenPatched) {
+    window.__dumberPopupOpenPatched = true;
+    var originalWindowOpen = window.open;
+    window.open = function(url, target, features) {
+      var normalizedTarget = target == null ? '' : String(target);
+      if (shouldDelegateWindowOpen(normalizedTarget)) {
+        return originalWindowOpen.apply(this, arguments);
+      }
+
+      var proxyID = 'popup-' + Date.now() + '-' + Math.random().toString(36).slice(2);
+      var resolvedURL = resolvePopupURL(url);
+      var popupProxy = createSyntheticPopupProxy(proxyID, resolvedURL, features);
+      send('popup_open', JSON.stringify({
+        proxy_id: proxyID,
+        url: resolvedURL,
+        frame_name: normalizedTarget,
+        user_gesture: hasUserGesture()
+      }));
+      return popupProxy;
+    };
   }
 
   if (typeof document !== 'undefined' && document.addEventListener) {
@@ -338,6 +457,18 @@ type rendererBridgeExplicitTextCopyPayload struct {
 	Action string `json:"action"`
 }
 
+type rendererBridgePopupOpenPayload struct {
+	ProxyID     string `json:"proxy_id"`
+	URL         string `json:"url"`
+	FrameName   string `json:"frame_name"`
+	UserGesture bool   `json:"user_gesture"`
+}
+
+type rendererBridgePopupNavigatePayload struct {
+	ProxyID string `json:"proxy_id"`
+	URL     string `json:"url"`
+}
+
 func decodeRendererBridgeExplicitTextCopyPayload(payload []byte) (rendererBridgeExplicitTextCopyPayload, error) {
 	var req rendererBridgeExplicitTextCopyPayload
 	if len(payload) == 0 {
@@ -351,6 +482,34 @@ func decodeRendererBridgeExplicitTextCopyPayload(payload []byte) (rendererBridge
 	}
 	if req.Text == "" {
 		return req, fmt.Errorf("missing text")
+	}
+	return req, nil
+}
+
+func decodeRendererBridgePopupOpenPayload(payload []byte) (rendererBridgePopupOpenPayload, error) {
+	var req rendererBridgePopupOpenPayload
+	if len(payload) == 0 {
+		return req, fmt.Errorf("empty payload")
+	}
+	if err := json.Unmarshal(payload, &req); err != nil {
+		return req, err
+	}
+	if req.ProxyID == "" {
+		return req, fmt.Errorf("missing proxy_id")
+	}
+	return req, nil
+}
+
+func decodeRendererBridgePopupNavigatePayload(payload []byte) (rendererBridgePopupNavigatePayload, error) {
+	var req rendererBridgePopupNavigatePayload
+	if len(payload) == 0 {
+		return req, fmt.Errorf("empty payload")
+	}
+	if err := json.Unmarshal(payload, &req); err != nil {
+		return req, err
+	}
+	if req.ProxyID == "" {
+		return req, fmt.Errorf("missing proxy_id")
 	}
 	return req, nil
 }

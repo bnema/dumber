@@ -107,6 +107,20 @@ func (h *handlerSet) OnProcessMessageReceived(
 		h.wv.setEditableFocus(payload == "1" || strings.EqualFold(payload, "true"))
 	case rendererBridgeActionFocusSync:
 		h.wv.engine.handleEditableFocusBridge(browser)
+	case rendererBridgeActionPopupOpen:
+		req, err := decodeRendererBridgePopupOpenPayload([]byte(payload))
+		if err != nil {
+			log.Debug().Str("action", action).Msg("cef: invalid popup_open payload")
+			return 1
+		}
+		h.wv.handleSyntheticPopupOpen(req.URL, req.FrameName, req.ProxyID, req.UserGesture)
+	case rendererBridgeActionPopupNavigate:
+		req, err := decodeRendererBridgePopupNavigatePayload([]byte(payload))
+		if err != nil {
+			log.Debug().Str("action", action).Msg("cef: invalid popup_navigate payload")
+			return 1
+		}
+		h.wv.handleSyntheticPopupNavigate(req.ProxyID, req.URL)
 	case rendererBridgeActionReady:
 		log.Debug().
 			Str("frame_url", logging.TruncateURL(payload, logging.PermissionLogURLMaxLen)).

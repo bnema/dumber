@@ -10,6 +10,10 @@ func testClipboardSelectionFetchBridgeJS() string {
 	return buildClipboardSelectionFetchBridgeJS("test-bridge-nonce")
 }
 
+func testPopupFetchBridgeJS() string {
+	return buildPopupFetchBridgeJS("test-bridge-nonce")
+}
+
 func TestClipboardSelectionFetchBridgeJS_CapturesInputAndTextareaSelections(t *testing.T) {
 	script := testClipboardSelectionFetchBridgeJS()
 
@@ -60,4 +64,18 @@ func TestClipboardSelectionFetchBridgeJS_PatchesAsyncClipboardAPIs(t *testing.T)
 	require.NotContains(t, script, "__dumberClipboardBridge")
 	require.NotContains(t, script, "setBridgeNonce")
 	require.Contains(t, script, "test-bridge-nonce")
+}
+
+func TestPopupFetchBridgeJS_ShimsWindowOpenToBridgePopupRequests(t *testing.T) {
+	script := testPopupFetchBridgeJS()
+
+	require.Contains(t, script, "window.__dumberPopupBridgePatched")
+	require.Contains(t, script, "window.open = function(url, target, features)")
+	require.Contains(t, script, "dumb:///api/popup-open")
+	require.Contains(t, script, "dumb:///api/popup-navigate")
+	require.Contains(t, script, "proxy_id")
+	require.Contains(t, script, "createSyntheticPopupProxy")
+	require.Contains(t, script, "Object.defineProperty(proxy, 'closed'")
+	require.Contains(t, script, "test-bridge-nonce")
+	require.NotContains(t, script, "__DUMBER_BRIDGE_NONCE__")
 }

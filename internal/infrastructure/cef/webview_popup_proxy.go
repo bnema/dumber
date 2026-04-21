@@ -1,0 +1,125 @@
+package cef
+
+import (
+	"context"
+	"strings"
+
+	"github.com/bnema/dumber/internal/application/port"
+	"github.com/bnema/dumber/internal/logging"
+)
+
+type syntheticPopupState struct {
+	WebView    port.WebView
+	PendingURI string
+}
+
+func (wv *WebView) syntheticPopupState(proxyID string) *syntheticPopupState {
+	if wv == nil || proxyID == "" {
+		return nil
+	}
+
+	wv.syntheticPopupMu.Lock()
+	defer wv.syntheticPopupMu.Unlock()
+
+	if wv.syntheticPopups == nil {
+		wv.syntheticPopups = make(map[string]*syntheticPopupState)
+	}
+	state := wv.syntheticPopups[proxyID]
+	if state == nil {
+		state = &syntheticPopupState{}
+		wv.syntheticPopups[proxyID] = state
+	}
+	return state
+}
+
+func (wv *WebView) handleSyntheticPopupOpen(targetURL, frameName, proxyID string, userGesture bool) {
+	if wv == nil || proxyID == "" || wv.destroyed.Load() {
+		return
+	}
+
+	_ = wv.syntheticPopupState(proxyID)
+	wv.runOnGTK(func() {
+		if wv.destroyed.Load() {
+			return
+		}
+
+		wv.mu.RLock()
+		cb := wv.callbacks
+		wv.mu.RUnlock()
+		if cb == nil || cb.OnCreate == nil {
+			return
+		}
+
+		popupWV := cb.OnCreate(port.PopupRequest{
+			TargetURI:     targetURL,
+			FrameName:     frameName,
+			IsUserGesture: userGesture,
+			ParentViewID:  wv.id,
+		})
+		if popupWV == nil {
+			return
+		}
+
+		pendingURI := ""
+		wv.syntheticPopupMu.Lock()
+		if wv.syntheticPopups == nil {
+			wv.syntheticPopups = make(map[string]*syntheticPopupState)
+		}
+		state := wv.syntheticPopups[proxyID]
+		if state == nil {
+			state = &syntheticPopupState{}
+			wv.syntheticPopups[proxyID] = state
+		}
+		state.WebView = popupWV
+		pendingURI = strings.TrimSpace(state.PendingURI)
+		wv.syntheticPopupMu.Unlock()
+
+		if pendingURI == "" || pendingURI == strings.TrimSpace(targetURL) || popupWV.IsDestroyed() {
+			return
+		}
+		if err := popupWV.LoadURI(context.Background(), pendingURI); err != nil {
+			logging.FromContext(wv.ctx).Warn().
+				Err(err).
+				Str("proxy_id", proxyID).
+				Str("uri", logging.TruncateURL(pendingURI, logging.PermissionLogURLMaxLen)).
+				Msg("cef: failed to replay synthetic popup navigation")
+		}
+	})
+}
+
+func (wv *WebView) handleSyntheticPopupNavigate(proxyID, targetURL string) {
+	if wv == nil || proxyID == "" || wv.destroyed.Load() {
+		return
+	}
+
+	trimmedURI := strings.TrimSpace(targetURL)
+	state := wv.syntheticPopupState(proxyID)
+	if state == nil {
+		return
+	}
+
+	wv.syntheticPopupMu.Lock()
+	state.PendingURI = trimmedURI
+	popupWV := state.WebView
+	wv.syntheticPopupMu.Unlock()
+
+	if trimmedURI == "" || popupWV == nil {
+		return
+	}
+
+	wv.runOnGTK(func() {
+		if popupWV.IsDestroyed() {
+			wv.syntheticPopupMu.Lock()
+			delete(wv.syntheticPopups, proxyID)
+			wv.syntheticPopupMu.Unlock()
+			return
+		}
+		if err := popupWV.LoadURI(context.Background(), trimmedURI); err != nil {
+			logging.FromContext(wv.ctx).Warn().
+				Err(err).
+				Str("proxy_id", proxyID).
+				Str("uri", logging.TruncateURL(trimmedURI, logging.PermissionLogURLMaxLen)).
+				Msg("cef: failed to navigate synthetic popup")
+		}
+	})
+}

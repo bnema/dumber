@@ -258,6 +258,8 @@ func wireEngine(
 	}
 
 	schemeHandler.onEditableFocus = eng.handleEditableFocusBridge
+	schemeHandler.onPopupOpen = eng.handlePopupBridgeOpen
+	schemeHandler.onPopupNavigate = eng.handlePopupBridgeNavigate
 	schemeHandler.bridgeNonceValidator = eng.validateBridgeRequest
 
 	schemeFactory := purecef.NewSchemeHandlerFactory(schemeHandler)

@@ -94,6 +94,10 @@ type WebView struct {
 	mu        sync.RWMutex
 	callbacks *port.WebViewCallbacks
 
+	// Synthetic popup proxies created by the renderer bridge's window.open shim.
+	syntheticPopupMu sync.Mutex
+	syntheticPopups  map[string]*syntheticPopupState
+
 	// State cache (mutex-protected).
 	uri                       string
 	title                     string
@@ -536,6 +540,9 @@ func (wv *WebView) Destroy() {
 	if !wv.destroyed.CompareAndSwap(false, true) {
 		return
 	}
+	wv.syntheticPopupMu.Lock()
+	wv.syntheticPopups = nil
+	wv.syntheticPopupMu.Unlock()
 	wv.cancelSelectionDebounce()
 	if wv.resizeReconciler != nil {
 		wv.resizeReconciler.stop()

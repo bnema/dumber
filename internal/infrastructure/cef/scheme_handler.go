@@ -66,6 +66,12 @@ type dumbSchemeHandler struct {
 	// DOM focus. The engine uses this to reassert CEF browser focus in OSR mode.
 	onEditableFocus func(browser purecef.Browser)
 
+	// onPopupOpen/onPopupNavigate bridge synthetic window.open() proxies from page
+	// JavaScript back into the browser process when native related popups are not
+	// available (e.g. CEF OSR regular-webview fallback path).
+	onPopupOpen     func(browser purecef.Browser, payload rendererBridgePopupOpenPayload)
+	onPopupNavigate func(browser purecef.Browser, payload rendererBridgePopupNavigatePayload)
+
 	// bridgeNonceValidator checks whether a bridge nonce belongs to the active
 	// browser/navigation context that issued the request.
 	bridgeNonceValidator func(browser purecef.Browser, bridgeNonce string) bool
@@ -130,9 +136,10 @@ func (h *dumbSchemeHandler) Create(browser purecef.Browser, _ purecef.Frame, _ s
 	}
 
 	// Route API requests before redirecting conceptual dumb:// URLs to the
-	// internal HTTPS origin. External pages use dumb://api/... for clipboard and
-	// focus bridges specifically to bypass page CSP; redirecting those requests
-	// to https://dumber.invalid makes site connect-src policies block them.
+	// internal HTTPS origin. External pages use dumb://api/... for clipboard,
+	// focus, and popup bridges specifically to bypass page CSP; redirecting
+	// those requests to https://dumber.invalid makes site connect-src policies
+	// block them.
 	if apiPath, ok := resolveAPIPath(u); ok {
 		return h.handleAPI(browser, method, apiPath, request)
 	}
@@ -183,6 +190,12 @@ func (h *dumbSchemeHandler) handleAPI(browser purecef.Browser, method, path stri
 
 	case path == "/api/focus-sync" && strings.EqualFold(method, "POST"):
 		return h.handleFocusSync(request, browser)
+
+	case path == "/api/popup-open" && strings.EqualFold(method, "POST"):
+		return h.handlePopupOpen(request, browser)
+
+	case path == "/api/popup-navigate" && strings.EqualFold(method, "POST"):
+		return h.handlePopupNavigate(request, browser)
 
 	default:
 		return h.newAPIJSONResourceHandler(http.StatusNotFound, map[string]string{"error": "not found"})
@@ -328,6 +341,56 @@ func (h *dumbSchemeHandler) handleFocusSync(request purecef.Request, browser pur
 		h.logger.Debug().Msg("cef: focus-sync — onEditableFocus callback not wired")
 	}
 
+	return h.newAPIJSONResourceHandler(http.StatusOK, map[string]any{"ok": true})
+}
+
+func (h *dumbSchemeHandler) handlePopupOpen(request purecef.Request, browser purecef.Browser) purecef.ResourceHandler {
+	if browser == nil {
+		h.logger.Debug().Msg("cef: popup-open — browser unavailable")
+		return h.newAPIJSONResourceHandler(http.StatusBadRequest, map[string]string{"error": "browser unavailable"})
+	}
+	if !h.hasTrustedBridgeNonce(request, browser) {
+		h.logger.Warn().Msg("cef: popup-open — rejected request without valid bridge nonce")
+		return h.newAPIJSONResourceHandler(http.StatusForbidden, map[string]string{"error": "forbidden"})
+	}
+	body := readBodyFromHeader(request)
+	if body == nil {
+		return h.newAPIJSONResourceHandler(http.StatusBadRequest, map[string]string{"error": "empty body"})
+	}
+	payload, err := decodeRendererBridgePopupOpenPayload(body)
+	if err != nil {
+		return h.newAPIJSONResourceHandler(http.StatusBadRequest, map[string]string{"error": err.Error()})
+	}
+	if h.onPopupOpen != nil {
+		h.onPopupOpen(browser, payload)
+	} else {
+		h.logger.Warn().Msg("cef: popup-open — callback not wired")
+	}
+	return h.newAPIJSONResourceHandler(http.StatusOK, map[string]any{"ok": true})
+}
+
+func (h *dumbSchemeHandler) handlePopupNavigate(request purecef.Request, browser purecef.Browser) purecef.ResourceHandler {
+	if browser == nil {
+		h.logger.Debug().Msg("cef: popup-navigate — browser unavailable")
+		return h.newAPIJSONResourceHandler(http.StatusBadRequest, map[string]string{"error": "browser unavailable"})
+	}
+	if !h.hasTrustedBridgeNonce(request, browser) {
+		h.logger.Warn().Msg("cef: popup-navigate — rejected request without valid bridge nonce")
+		return h.newAPIJSONResourceHandler(http.StatusForbidden, map[string]string{"error": "forbidden"})
+	}
+	body := readBodyFromHeader(request)
+	if body == nil {
+		return h.newAPIJSONResourceHandler(http.StatusBadRequest, map[string]string{"error": "empty body"})
+	}
+	payload, err := decodeRendererBridgePopupNavigatePayload(body)
+	if err != nil {
+		return h.newAPIJSONResourceHandler(http.StatusBadRequest, map[string]string{"error": err.Error()})
+	}
+	if h.onPopupNavigate != nil {
+		h.onPopupNavigate(browser, payload)
+	} else {
+		h.logger.Warn().Msg("cef: popup-navigate — callback not wired")
+	}
 	return h.newAPIJSONResourceHandler(http.StatusOK, map[string]any{"ok": true})
 }
 
