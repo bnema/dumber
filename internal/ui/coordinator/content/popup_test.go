@@ -388,7 +388,7 @@ func TestTrackOAuthPopup_StoresState(t *testing.T) {
 	popupID := port.WebViewID(1)
 	parentPaneID := entity.PaneID("parent-pane")
 
-	c.trackOAuthPopup(popupID, parentPaneID)
+	c.trackOAuthPopup(popupID, parentPaneID, "https://parent.example.com/login")
 
 	c.popupMu.RLock()
 	state, ok := c.popupOAuth[popupID]
@@ -397,6 +397,7 @@ func TestTrackOAuthPopup_StoresState(t *testing.T) {
 	require.True(t, ok, "oauth state should be tracked after trackOAuthPopup")
 	require.NotNil(t, state)
 	assert.Equal(t, parentPaneID, state.ParentPaneID)
+	assert.Equal(t, "https://parent.example.com/login", state.ParentURIAtOpen)
 	assert.False(t, state.Seen, "Seen should be false before capturing callback URI")
 }
 
@@ -409,7 +410,7 @@ func TestCapturePopupOAuthState_SuccessCallback(t *testing.T) {
 	}
 
 	popupID := port.WebViewID(2)
-	c.trackOAuthPopup(popupID, entity.PaneID("parent"))
+	c.trackOAuthPopup(popupID, entity.PaneID("parent"), "https://parent.example.com/login")
 	c.capturePopupOAuthState(popupID, "https://app.example.com/callback?code=abc123")
 
 	c.popupMu.RLock()
@@ -432,7 +433,7 @@ func TestCapturePopupOAuthState_ErrorCallback(t *testing.T) {
 	}
 
 	popupID := port.WebViewID(3)
-	c.trackOAuthPopup(popupID, entity.PaneID("parent"))
+	c.trackOAuthPopup(popupID, entity.PaneID("parent"), "https://parent.example.com/login")
 	c.capturePopupOAuthState(popupID, "https://app.example.com/callback?error=access_denied")
 
 	c.popupMu.RLock()

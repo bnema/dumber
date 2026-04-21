@@ -9,7 +9,6 @@ import (
 
 	"github.com/bnema/dumber/internal/application/port"
 	"github.com/bnema/dumber/internal/domain/entity"
-	urlutil "github.com/bnema/dumber/internal/domain/url"
 	"github.com/bnema/dumber/internal/logging"
 	"github.com/bnema/puregotk/v4/glib"
 )
@@ -324,14 +323,15 @@ func (c *Coordinator) setupOAuthAutoClose(
 	})
 }
 
-func (c *Coordinator) trackOAuthPopup(popupID port.WebViewID, parentPaneID entity.PaneID) {
+func (c *Coordinator) trackOAuthPopup(popupID port.WebViewID, parentPaneID entity.PaneID, parentURIAtOpen string) {
 	c.popupMu.Lock()
 	defer c.popupMu.Unlock()
 	if c.popupOAuth == nil {
 		c.popupOAuth = make(map[port.WebViewID]*popupOAuthState)
 	}
 	c.popupOAuth[popupID] = &popupOAuthState{
-		ParentPaneID: parentPaneID,
+		ParentPaneID:    parentPaneID,
+		ParentURIAtOpen: strings.TrimSpace(parentURIAtOpen),
 	}
 }
 
@@ -348,15 +348,6 @@ func (c *Coordinator) capturePopupOAuthState(popupID port.WebViewID, uri string)
 	state.CallbackURI = uri
 	state.Success = IsOAuthSuccess(uri)
 	state.Error = IsOAuthError(uri)
-}
-
-func shouldLoadOAuthCallbackInParent(parentURI, callbackURI string) bool {
-	if callbackURI == "" || !IsOAuthCallback(callbackURI) {
-		return false
-	}
-	parentDomain := urlutil.ExtractDomain(parentURI)
-	callbackDomain := urlutil.ExtractDomain(callbackURI)
-	return parentDomain != "" && parentDomain == callbackDomain
 }
 
 func (c *Coordinator) handlePopupOAuthClose(ctx context.Context, popupID port.WebViewID) {
@@ -384,21 +375,18 @@ func (c *Coordinator) handlePopupOAuthClose(ctx context.Context, popupID port.We
 		return
 	}
 
-	if strings.TrimSpace(state.CallbackURI) != "" {
-		c.scheduleParentPaneOAuthResume(ctx, state.ParentPaneID, popupID, state.CallbackURI)
-		return
-	}
 	if !state.Success {
 		return
 	}
 
-	c.scheduleParentPaneOAuthResume(ctx, state.ParentPaneID, popupID, "")
+	c.scheduleParentPaneOAuthResume(ctx, state.ParentPaneID, popupID, state.ParentURIAtOpen, state.CallbackURI)
 }
 
 func (c *Coordinator) scheduleParentPaneOAuthResume(
 	ctx context.Context,
 	parentPaneID entity.PaneID,
 	popupID port.WebViewID,
+	parentURIAtOpen string,
 	callbackURI string,
 ) {
 	c.popupMu.Lock()
@@ -413,7 +401,7 @@ func (c *Coordinator) scheduleParentPaneOAuthResume(
 		delete(c.popupRefresh, parentPaneID)
 		c.popupMu.Unlock()
 		cb := glib.SourceFunc(func(_ uintptr) bool {
-			c.resumeParentPaneAfterOAuth(ctx, parentPaneID, popupID, callbackURI)
+			c.resumeParentPaneAfterOAuth(ctx, parentPaneID, popupID, parentURIAtOpen, callbackURI)
 			return false
 		})
 		glib.IdleAdd(&cb, 0)
@@ -425,6 +413,7 @@ func (c *Coordinator) resumeParentPaneAfterOAuth(
 	ctx context.Context,
 	parentPaneID entity.PaneID,
 	popupID port.WebViewID,
+	parentURIAtOpen string,
 	callbackURI string,
 ) {
 	log := logging.FromContext(ctx)
@@ -437,23 +426,15 @@ func (c *Coordinator) resumeParentPaneAfterOAuth(
 		return
 	}
 
-	parentURI := wv.URI()
-	if shouldLoadOAuthCallbackInParent(parentURI, callbackURI) {
-		if err := wv.LoadURI(ctx, callbackURI); err != nil {
-			log.Warn().
-				Err(err).
-				Str("parent_pane_id", string(parentPaneID)).
-				Uint64("popup_id", uint64(popupID)).
-				Str("callback_uri", logging.TruncateURL(callbackURI, logURLMaxLen)).
-				Msg("failed to load oauth callback URI in parent pane")
-			return
-		}
-
+	parentURI := strings.TrimSpace(wv.URI())
+	if parentURIAtOpen != "" && parentURI != "" && parentURI != parentURIAtOpen {
 		log.Info().
 			Str("parent_pane_id", string(parentPaneID)).
 			Uint64("popup_id", uint64(popupID)).
+			Str("parent_uri_at_open", logging.TruncateURL(parentURIAtOpen, logURLMaxLen)).
+			Str("current_parent_uri", logging.TruncateURL(parentURI, logURLMaxLen)).
 			Str("callback_uri", logging.TruncateURL(callbackURI, logURLMaxLen)).
-			Msg("loaded oauth callback URI in parent pane")
+			Msg("skipping parent pane oauth resume: parent already navigated")
 		return
 	}
 
@@ -469,5 +450,6 @@ func (c *Coordinator) resumeParentPaneAfterOAuth(
 	log.Info().
 		Str("parent_pane_id", string(parentPaneID)).
 		Uint64("popup_id", uint64(popupID)).
+		Str("callback_uri", logging.TruncateURL(callbackURI, logURLMaxLen)).
 		Msg("refreshed parent pane after oauth popup close")
 }

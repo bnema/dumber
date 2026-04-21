@@ -59,7 +59,7 @@ func TestHandlePopupOAuthClose_SuccessSchedulesParentResume(t *testing.T) {
 		popupRefresh: make(map[entity.PaneID]*time.Timer),
 	}
 
-	c.trackOAuthPopup(popupID, parentPaneID)
+	c.trackOAuthPopup(popupID, parentPaneID, "https://www.notion.so/login")
 	c.capturePopupOAuthState(popupID, "https://www.notion.so/googlepopupcallback?code=123")
 	c.handlePopupOAuthClose(context.Background(), popupID)
 
@@ -78,26 +78,9 @@ func TestHandlePopupOAuthClose_SuccessSchedulesParentResume(t *testing.T) {
 	})
 }
 
-func TestResumeParentPaneAfterOAuth_SameDomainLoadsCallbackURI(t *testing.T) {
+func TestResumeParentPaneAfterOAuth_UnchangedParentFallsBackToReload(t *testing.T) {
 	parentPaneID := entity.PaneID("parent-pane")
 	popupID := port.WebViewID(102)
-	parentWV := portmocks.NewMockWebView(t)
-	parentWV.EXPECT().IsDestroyed().Return(false).Once()
-	parentWV.EXPECT().URI().Return("https://www.notion.so/login").Once()
-	parentWV.EXPECT().LoadURI(mock.Anything, "https://www.notion.so/googlepopupcallback?code=123").Return(nil).Once()
-
-	c := &Coordinator{
-		webViews: map[entity.PaneID]port.WebView{
-			parentPaneID: parentWV,
-		},
-	}
-
-	c.resumeParentPaneAfterOAuth(context.Background(), parentPaneID, popupID, "https://www.notion.so/googlepopupcallback?code=123")
-}
-
-func TestResumeParentPaneAfterOAuth_DifferentDomainFallsBackToReload(t *testing.T) {
-	parentPaneID := entity.PaneID("parent-pane")
-	popupID := port.WebViewID(103)
 	parentWV := portmocks.NewMockWebView(t)
 	parentWV.EXPECT().IsDestroyed().Return(false).Once()
 	parentWV.EXPECT().URI().Return("https://www.notion.so/login").Once()
@@ -109,7 +92,40 @@ func TestResumeParentPaneAfterOAuth_DifferentDomainFallsBackToReload(t *testing.
 		},
 	}
 
-	c.resumeParentPaneAfterOAuth(context.Background(), parentPaneID, popupID, "https://accounts.example.com/callback?code=123")
+	c.resumeParentPaneAfterOAuth(context.Background(), parentPaneID, popupID, "https://www.notion.so/login", "https://www.notion.so/googlepopupcallback?code=123")
+}
+
+func TestResumeParentPaneAfterOAuth_ChangedParentSkipsIntervention(t *testing.T) {
+	parentPaneID := entity.PaneID("parent-pane")
+	popupID := port.WebViewID(103)
+	parentWV := portmocks.NewMockWebView(t)
+	parentWV.EXPECT().IsDestroyed().Return(false).Once()
+	parentWV.EXPECT().URI().Return("https://www.notion.so/oauth2callback?state=abc").Once()
+
+	c := &Coordinator{
+		webViews: map[entity.PaneID]port.WebView{
+			parentPaneID: parentWV,
+		},
+	}
+
+	c.resumeParentPaneAfterOAuth(context.Background(), parentPaneID, popupID, "https://www.notion.so/login", "https://www.notion.so/googlepopupcallback?code=123")
+}
+
+func TestResumeParentPaneAfterOAuth_DifferentDomainFallsBackToReload(t *testing.T) {
+	parentPaneID := entity.PaneID("parent-pane")
+	popupID := port.WebViewID(104)
+	parentWV := portmocks.NewMockWebView(t)
+	parentWV.EXPECT().IsDestroyed().Return(false).Once()
+	parentWV.EXPECT().URI().Return("https://www.notion.so/login").Once()
+	parentWV.EXPECT().Reload(mock.Anything).Return(nil).Once()
+
+	c := &Coordinator{
+		webViews: map[entity.PaneID]port.WebView{
+			parentPaneID: parentWV,
+		},
+	}
+
+	c.resumeParentPaneAfterOAuth(context.Background(), parentPaneID, popupID, "https://www.notion.so/login", "https://accounts.example.com/callback?code=123")
 }
 
 func TestIsOAuthURL_DoesNotTreatGenericStateParamAsOAuth(t *testing.T) {

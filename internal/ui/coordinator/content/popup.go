@@ -434,6 +434,10 @@ func (c *Coordinator) handlePopupCreate(
 	}
 
 	parentID := parentWV.ID()
+	parentURIAtOpen := ""
+	if parent := c.getWebViewLocked(parentPaneID); parent != nil {
+		parentURIAtOpen = parent.URI()
+	}
 	if !req.NoJavaScriptAccess {
 		if reused, ok := c.reuseNamedPopup(ctx, parentPaneID, req.FrameName, req.TargetURI); ok {
 			return reused
@@ -467,7 +471,7 @@ func (c *Coordinator) handlePopupCreate(
 	// Create popup pane entity
 	paneID, popupPane := c.createPopupPane(popupID, parentPaneID, req.TargetURI)
 
-	return c.finishPopupCreate(ctx, parentPaneID, parentID, popupID, popupWV, popupPane, paneID, popupType, behavior, placement, req)
+	return c.finishPopupCreate(ctx, parentPaneID, parentID, parentURIAtOpen, popupID, popupWV, popupPane, paneID, popupType, behavior, placement, req)
 }
 
 func (c *Coordinator) reuseNamedPopup(
@@ -500,6 +504,7 @@ func (c *Coordinator) finishPopupCreate(
 	ctx context.Context,
 	parentPaneID entity.PaneID,
 	parentID port.WebViewID,
+	parentURIAtOpen string,
 	popupID port.WebViewID,
 	popupWV port.WebView,
 	popupPane *entity.Pane,
@@ -564,7 +569,7 @@ func (c *Coordinator) finishPopupCreate(
 	// Setup OAuth auto-close if configured
 	if hasConfig && oauthEnabled && isOAuth {
 		popupPane.AutoClose = true
-		c.trackOAuthPopup(popupID, parentPaneID)
+		c.trackOAuthPopup(popupID, parentPaneID, parentURIAtOpen)
 		c.setupOAuthAutoClose(ctx, paneID, popupID, popupWV)
 		log.Debug().Str("pane_id", string(paneID)).Msg("OAuth auto-close enabled for popup")
 	}

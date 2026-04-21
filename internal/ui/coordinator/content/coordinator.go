@@ -125,11 +125,12 @@ type pendingThemeUpdate struct {
 }
 
 type popupOAuthState struct {
-	ParentPaneID entity.PaneID
-	CallbackURI  string
-	Success      bool
-	Error        bool
-	Seen         bool
+	ParentPaneID    entity.PaneID
+	ParentURIAtOpen string
+	CallbackURI     string
+	Success         bool
+	Error           bool
+	Seen            bool
 }
 
 // PermissionActivityState represents the visible state for media permission activity.
