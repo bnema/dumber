@@ -1,6 +1,7 @@
 package cef
 
 import (
+	"bytes"
 	"os"
 	"path/filepath"
 	"testing"
@@ -59,13 +60,8 @@ func TestPrepareCEFSettings_AllowsNoThirdPartyCookiePolicy(t *testing.T) {
 	require.NoError(t, err)
 }
 
-func TestPrepareCEFInitTraceFile_DisabledByDefault(t *testing.T) {
-	t.Setenv(puregoCEFInitTraceEnvVar, "")
-	profile := testCEFDevProfile(t)
-
-	path, err := prepareCEFInitTraceFile(profile.CEFLogFile(), "")
-	require.NoError(t, err)
-	require.Empty(t, path)
+func TestResolveCEFInitTraceFile_EmptyWithoutLogPath(t *testing.T) {
+	require.Empty(t, resolveCEFInitTraceFile("", ""))
 }
 
 func TestPrepareCEFLogFile_CreatesPrivateDirectoryAndFile(t *testing.T) {
@@ -124,71 +120,41 @@ func TestPrepareCEFLogFile_RejectsDirectoryPath(t *testing.T) {
 	require.Empty(t, path)
 }
 
-func TestPrepareCEFInitTraceFile_EnabledViaExplicitLogFile(t *testing.T) {
-	t.Setenv(puregoCEFInitTraceEnvVar, "1")
+func TestResolveCEFInitTraceFile_UsesExplicitLogFile(t *testing.T) {
 	logFile := filepath.Join(t.TempDir(), "custom", "cef_runtime.log")
 
-	path, err := prepareCEFInitTraceFile("", logFile)
-	require.NoError(t, err)
+	path := resolveCEFInitTraceFile("", logFile)
 	require.Equal(t, filepath.Join(filepath.Dir(logFile), "cef_runtime.bootstrap.log"), path)
-	require.FileExists(t, path)
-
-	info, err := os.Stat(path)
-	require.NoError(t, err)
-	require.Equal(t, os.FileMode(filePerm), info.Mode().Perm())
-
-	dirInfo, err := os.Stat(filepath.Dir(path))
-	require.NoError(t, err)
-	require.Equal(t, os.FileMode(dirPerm), dirInfo.Mode().Perm())
 }
 
-func TestPrepareCEFInitTraceFile_TruncatesExistingFile(t *testing.T) {
-	t.Setenv(puregoCEFInitTraceEnvVar, "1")
-	logFile := filepath.Join(t.TempDir(), "custom", "cef_runtime.log")
-	bootstrapLogFile := filepath.Join(filepath.Dir(logFile), "cef_runtime.bootstrap.log")
-	require.NoError(t, os.MkdirAll(filepath.Dir(bootstrapLogFile), dirPerm))
-	require.NoError(t, os.WriteFile(bootstrapLogFile, []byte("existing"), 0o644))
-
-	path, err := prepareCEFInitTraceFile("", logFile)
-	require.NoError(t, err)
-	require.Equal(t, bootstrapLogFile, path)
-
-	content, readErr := os.ReadFile(path)
-	require.NoError(t, readErr)
-	require.Empty(t, content)
-
-	info, statErr := os.Stat(path)
-	require.NoError(t, statErr)
-	require.Equal(t, os.FileMode(filePerm), info.Mode().Perm())
-}
-
-func TestPrepareCEFInitTraceFile_RejectsSymlink(t *testing.T) {
-	t.Setenv(puregoCEFInitTraceEnvVar, "1")
-	target := filepath.Join(t.TempDir(), "target.bootstrap.log")
-	require.NoError(t, os.WriteFile(target, []byte("existing"), 0o644))
-
-	logFile := filepath.Join(t.TempDir(), "custom", "cef_runtime.log")
-	bootstrapLogFile := filepath.Join(filepath.Dir(logFile), "cef_runtime.bootstrap.log")
-	require.NoError(t, os.MkdirAll(filepath.Dir(bootstrapLogFile), dirPerm))
-	require.NoError(t, os.Symlink(target, bootstrapLogFile))
-
-	path, err := prepareCEFInitTraceFile("", logFile)
-	require.ErrorContains(t, err, "must not be a symlink")
-	require.Empty(t, path)
-
-	targetInfo, statErr := os.Stat(target)
-	require.NoError(t, statErr)
-	require.Equal(t, os.FileMode(0o644), targetInfo.Mode().Perm())
-}
-
-func TestPrepareCEFInitTraceFile_UsesResolvedProfileLogDirByDefault(t *testing.T) {
-	t.Setenv(puregoCEFInitTraceEnvVar, "1")
+func TestResolveCEFInitTraceFile_UsesResolvedProfileLogDirByDefault(t *testing.T) {
 	profile := testCEFDevProfile(t)
 
-	path, err := prepareCEFInitTraceFile(profile.CEFLogFile(), "")
-	require.NoError(t, err)
+	path := resolveCEFInitTraceFile(profile.CEFLogFile(), "")
 	require.Equal(t, filepath.Join(profile.EnginePaths.LogDir, "cef_runtime.bootstrap.log"), path)
-	require.FileExists(t, path)
+}
+
+func TestPrepareCEFSettings_IgnoresInitTraceRequestWithoutTouchingFilesystem(t *testing.T) {
+	t.Setenv(puregoCEFInitTraceEnvVar, "1")
+	profile := testCEFDevProfile(t)
+	bootstrapLogFile := resolveCEFInitTraceFile(profile.CEFLogFile(), "")
+
+	var logs bytes.Buffer
+	logger := zerolog.New(&logs)
+
+	settings, err := prepareCEFSettings(
+		port.EngineOptions{},
+		RuntimePaths{StateRoot: profile.CEFUserDataDir(), LogFile: profile.CEFLogFile()},
+		RuntimeConfig{},
+		&logger,
+	)
+	require.NoError(t, err)
+	require.Equal(t, profile.CEFLogFile(), settings.LogFile)
+
+	_, statErr := os.Stat(bootstrapLogFile)
+	require.ErrorIs(t, statErr, os.ErrNotExist)
+	require.Contains(t, logs.String(), puregoCEFInitTraceEnvVar)
+	require.Contains(t, logs.String(), bootstrapLogFile)
 }
 
 // TestCreateAudioOutputFactory_CreatesUsableFactory verifies that the audio

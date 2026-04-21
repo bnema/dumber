@@ -120,10 +120,10 @@ func configureBrowserLaunchRelay(cfg *config.Config) {
 func main() {
 	// CEF subprocess handling: when CEF re-launches this binary with
 	// --type=renderer/gpu/etc, we must call ExecuteProcess before anything
-	// else (Cobra, config, arg stripping). We detect subprocesses by the
-	// presence of a --type flag in os.Args rather than checking the engine
-	// env var, because subprocesses may not inherit the environment and the
-	// engine can also be selected via config.
+	// else (Cobra, config, arg stripping). We only treat a leading Chromium
+	// helper-process --type flag as a subprocess marker rather than scanning
+	// the full argv, so normal user commands like `dumber browse --type=foo`
+	// are not misclassified.
 	if isCEFSubprocess(os.Args) {
 		runtime.LockOSThread()
 		executed, exitCode, err := cef.ExecuteSubprocessWithApp(infracef.NewSubprocessApp())
@@ -134,6 +134,7 @@ func main() {
 		if executed {
 			os.Exit(exitCode)
 		}
+		runtime.UnlockOSThread()
 		// If Chromium-style helper args were present but purego-cef declined to
 		// handle them as a subprocess, drop them before normal startup so Cobra
 		// and the GUI bootstrap do not choke on unknown --type/... flags.
@@ -739,25 +740,23 @@ func createUseCases(repos *repositories, cfg *config.Config) *useCases {
 	}
 }
 
-// isCEFSubprocess returns true if args contains a --type flag, indicating
-// this process was spawned by CEF as a renderer, GPU, or utility subprocess.
+// isCEFSubprocess returns true when argv begins with a Chromium helper-process
+// --type flag, indicating this process was spawned by CEF as a renderer, GPU,
+// or utility subprocess.
 func isCEFSubprocess(args []string) bool {
-	for i, arg := range args {
-		if strings.HasPrefix(arg, "--type=") {
-			value := strings.TrimPrefix(arg, "--type=")
-			if value != "" && !strings.HasPrefix(value, "-") {
-				return true
-			}
-			continue
-		}
-		if arg == "--type" && i+1 < len(args) {
-			next := args[i+1]
-			if next != "" && !strings.HasPrefix(next, "-") {
-				return true
-			}
-		}
+	if len(args) < 2 {
+		return false
 	}
-	return false
+
+	if strings.HasPrefix(args[1], "--type=") {
+		value := strings.TrimPrefix(args[1], "--type=")
+		return value != "" && !strings.HasPrefix(value, "-")
+	}
+
+	return args[1] == "--type" &&
+		len(args) > 2 &&
+		args[2] != "" &&
+		!strings.HasPrefix(args[2], "-")
 }
 
 func buildUIDependencies(
