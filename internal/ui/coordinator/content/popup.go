@@ -526,6 +526,11 @@ func (c *Coordinator) finishPopupCreate(
 		Str("uri", logging.TruncateURL(req.TargetURI, logURLMaxLen)).
 		Msg("popup OAuth check")
 
+	// Register the popup WebView before workspace insertion so split/stack UI
+	// updates can reuse the real popup instead of acquiring a placeholder pane
+	// WebView that races the actual popup flow.
+	c.setWebViewLocked(paneID, popupWV)
+
 	// Insert into workspace IMMEDIATELY (WebView stays hidden)
 	// This is required for WebKit to establish window.opener relationship
 	if c.onInsertPopup != nil {
@@ -541,13 +546,15 @@ func (c *Coordinator) finishPopupCreate(
 
 		if err := c.onInsertPopup(ctx, popupInput); err != nil {
 			log.Error().Err(err).Msg("failed to insert popup into workspace")
+			if current := c.getWebViewLocked(paneID); current == popupWV {
+				c.deleteWebViewLocked(paneID)
+			}
 			popupWV.Destroy()
 			return nil
 		}
 	}
 
-	// Register WebView in our map (after successful insertion)
-	c.setWebViewLocked(paneID, popupWV)
+	// WebView already registered before insertion.
 	if !req.NoJavaScriptAccess {
 		c.storeReusableNamedPopup(parentPaneID, req.FrameName, popupWV)
 	}
