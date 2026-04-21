@@ -101,6 +101,8 @@ func TestRendererBridgeExtensionJS_ShimsWindowOpenForSyntheticPopups(t *testing.
 	require.Contains(t, rendererBridgeExtensionJS, "window.__dumberPopupOpenPatched")
 	require.Contains(t, rendererBridgeExtensionJS, "send('popup_open', JSON.stringify({")
 	require.Contains(t, rendererBridgeExtensionJS, "send('popup_navigate', JSON.stringify({ proxy_id: proxyID, url: href }))")
+	require.Contains(t, rendererBridgeExtensionJS, "send('popup_close', JSON.stringify({ proxy_id: proxyID }))")
+	require.Contains(t, rendererBridgeExtensionJS, "no_javascript_access")
 	require.Contains(t, rendererBridgeExtensionJS, "Object.defineProperty(proxy, 'closed'")
 	require.Contains(t, rendererBridgeExtensionJS, "return popupProxy;")
 }
@@ -139,12 +141,13 @@ func TestDecodeRendererBridgeExplicitTextCopyPayload(t *testing.T) {
 }
 
 func TestDecodeRendererBridgePopupOpenPayload(t *testing.T) {
-	req, err := decodeRendererBridgePopupOpenPayload([]byte(`{"proxy_id":"popup-1","url":"https://example.com/login","frame_name":"_blank","user_gesture":true}`))
+	req, err := decodeRendererBridgePopupOpenPayload([]byte(`{"proxy_id":"popup-1","url":"https://example.com/login","frame_name":"_blank","user_gesture":true,"no_javascript_access":true}`))
 	require.NoError(t, err)
 	require.Equal(t, "popup-1", req.ProxyID)
 	require.Equal(t, "https://example.com/login", req.URL)
 	require.Equal(t, "_blank", req.FrameName)
 	require.True(t, req.UserGesture)
+	require.True(t, req.NoJavaScriptAccess)
 }
 
 func TestDecodeRendererBridgePopupNavigatePayload(t *testing.T) {
@@ -152,6 +155,12 @@ func TestDecodeRendererBridgePopupNavigatePayload(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, "popup-1", req.ProxyID)
 	require.Equal(t, "https://example.com/callback", req.URL)
+}
+
+func TestDecodeRendererBridgePopupClosePayload(t *testing.T) {
+	req, err := decodeRendererBridgePopupClosePayload([]byte(`{"proxy_id":"popup-1"}`))
+	require.NoError(t, err)
+	require.Equal(t, "popup-1", req.ProxyID)
 }
 
 func parseCEFPackageFiles(t *testing.T) []*ast.File {

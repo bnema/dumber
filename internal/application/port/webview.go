@@ -64,10 +64,11 @@ const (
 
 // PopupRequest contains metadata about a popup window request.
 type PopupRequest struct {
-	TargetURI     string
-	FrameName     string // e.g., "_blank", custom name, or empty
-	IsUserGesture bool
-	ParentViewID  WebViewID
+	TargetURI          string
+	FrameName          string // e.g., "_blank", custom name, or empty
+	IsUserGesture      bool
+	NoJavaScriptAccess bool // true for noopener/noreferrer-style popups with no opener access
+	ParentViewID       WebViewID
 }
 
 // Texture represents a graphics texture returned by the engine.

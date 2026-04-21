@@ -143,6 +143,44 @@ func TestNormalizePopupTargetURIForFallback_PreservesUnknownURLs(t *testing.T) {
 	assert.Equal(t, raw, normalizePopupTargetURIForFallback(raw))
 }
 
+func TestHandlePopupCreate_UsesRegularWebViewWhenPopupDisablesJavaScriptAccess(t *testing.T) {
+	ctx := context.Background()
+	parentPaneID := entity.PaneID("parent-pane")
+	parentWV := mocks.NewMockWebView(t)
+	parentWV.EXPECT().ID().Return(port.WebViewID(101)).Once()
+
+	popupWV := mocks.NewMockWebView(t)
+	popupWV.EXPECT().ID().Return(port.WebViewID(150)).Once()
+	popupWV.EXPECT().Generation().Return(uint64(1)).Once()
+	popupWV.EXPECT().SetCallbacks(mock.Anything).Once()
+	popupWV.EXPECT().IsLoading().Return(false).Once()
+	popupWV.EXPECT().URI().Return("").Once()
+	popupWV.EXPECT().LoadURI(mock.Anything, "https://example.com/noopener").Return(nil).Once()
+
+	factory := mocks.NewMockWebViewFactory(t)
+	factory.EXPECT().Create(mock.Anything).Return(popupWV, nil).Once()
+
+	c := &Coordinator{
+		webViews:      make(map[entity.PaneID]port.WebView),
+		pendingPopups: make(map[port.WebViewID]*PendingPopup),
+		popupOAuth:    make(map[port.WebViewID]*popupOAuthState),
+	}
+	c.SetPopupConfig(factory, nil, nil)
+	c.SetOnInsertPopup(func(_ context.Context, input InsertPopupInput) error {
+		assert.Equal(t, "https://example.com/noopener", input.TargetURI)
+		return nil
+	})
+
+	created := c.handlePopupCreate(ctx, parentPaneID, parentWV, port.PopupRequest{
+		TargetURI:          "https://example.com/noopener",
+		FrameName:          "auth-popup",
+		IsUserGesture:      true,
+		NoJavaScriptAccess: true,
+	})
+
+	require.Same(t, popupWV, created)
+}
+
 func TestHandlePopupCreate_FallsBackToRegularWebViewWhenRelatedCreateFails(t *testing.T) {
 	ctx := context.Background()
 	parentPaneID := entity.PaneID("parent-pane")

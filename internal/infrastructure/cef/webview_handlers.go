@@ -113,7 +113,7 @@ func (h *handlerSet) OnProcessMessageReceived(
 			log.Debug().Str("action", action).Msg("cef: invalid popup_open payload")
 			return 1
 		}
-		h.wv.handleSyntheticPopupOpen(req.URL, req.FrameName, req.ProxyID, req.UserGesture)
+		h.wv.handleSyntheticPopupOpen(req.URL, req.FrameName, req.ProxyID, req.UserGesture, req.NoJavaScriptAccess)
 	case rendererBridgeActionPopupNavigate:
 		req, err := decodeRendererBridgePopupNavigatePayload([]byte(payload))
 		if err != nil {
@@ -121,6 +121,13 @@ func (h *handlerSet) OnProcessMessageReceived(
 			return 1
 		}
 		h.wv.handleSyntheticPopupNavigate(req.ProxyID, req.URL)
+	case rendererBridgeActionPopupClose:
+		req, err := decodeRendererBridgePopupClosePayload([]byte(payload))
+		if err != nil {
+			log.Debug().Str("action", action).Msg("cef: invalid popup_close payload")
+			return 1
+		}
+		h.wv.handleSyntheticPopupClose(req.ProxyID)
 	case rendererBridgeActionReady:
 		log.Debug().
 			Str("frame_url", logging.TruncateURL(payload, logging.PermissionLogURLMaxLen)).
@@ -671,7 +678,7 @@ func (h *handlerSet) OnBeforePopup(
 	_ purecef.Browser, _ purecef.Frame, _ int32, targetURL, targetFrameName string,
 	_ purecef.WindowOpenDisposition, userGesture int32, _ *purecef.PopupFeatures,
 	_ *purecef.WindowInfo, _ *purecef.RawClientWriteSlot, _ *purecef.BrowserSettings,
-	_ *purecef.DictionaryValue, _ *bool,
+	_ *purecef.DictionaryValue, noJavaScriptAccess *bool,
 ) bool {
 	if targetURL == "" {
 		return true
@@ -682,11 +689,16 @@ func (h *handlerSet) OnBeforePopup(
 	h.wv.mu.RUnlock()
 
 	if cb != nil && cb.OnCreate != nil {
+		requestNoJavaScriptAccess := false
+		if noJavaScriptAccess != nil {
+			requestNoJavaScriptAccess = *noJavaScriptAccess
+		}
 		req := port.PopupRequest{
-			TargetURI:     targetURL,
-			FrameName:     targetFrameName,
-			IsUserGesture: userGesture != 0,
-			ParentViewID:  h.wv.id,
+			TargetURI:          targetURL,
+			FrameName:          targetFrameName,
+			IsUserGesture:      userGesture != 0,
+			NoJavaScriptAccess: requestNoJavaScriptAccess,
+			ParentViewID:       h.wv.id,
 		}
 		h.wv.runOnGTK(func() {
 			cb.OnCreate(req)
@@ -794,6 +806,7 @@ func (h *handlerSet) OnBeforeClose(_ purecef.Browser) {
 			cb.OnClose()
 		})
 	}
+	h.wv.runCloseCallbacks()
 }
 
 // ===========================================================================

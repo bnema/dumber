@@ -9,8 +9,9 @@ import (
 )
 
 type syntheticPopupState struct {
-	WebView    port.WebView
-	PendingURI string
+	WebView            port.WebView
+	PendingURI         string
+	NoJavaScriptAccess bool
 }
 
 func (wv *WebView) syntheticPopupState(proxyID string) *syntheticPopupState {
@@ -32,12 +33,18 @@ func (wv *WebView) syntheticPopupState(proxyID string) *syntheticPopupState {
 	return state
 }
 
-func (wv *WebView) handleSyntheticPopupOpen(targetURL, frameName, proxyID string, userGesture bool) {
+func (wv *WebView) handleSyntheticPopupOpen(targetURL, frameName, proxyID string, userGesture, noJavaScriptAccess bool) {
 	if wv == nil || proxyID == "" || wv.destroyed.Load() {
 		return
 	}
 
-	_ = wv.syntheticPopupState(proxyID)
+	state := wv.syntheticPopupState(proxyID)
+	if state != nil {
+		wv.syntheticPopupMu.Lock()
+		state.NoJavaScriptAccess = noJavaScriptAccess
+		wv.syntheticPopupMu.Unlock()
+	}
+
 	wv.runOnGTK(func() {
 		if wv.destroyed.Load() {
 			return
@@ -51,10 +58,11 @@ func (wv *WebView) handleSyntheticPopupOpen(targetURL, frameName, proxyID string
 		}
 
 		popupWV := cb.OnCreate(port.PopupRequest{
-			TargetURI:     targetURL,
-			FrameName:     frameName,
-			IsUserGesture: userGesture,
-			ParentViewID:  wv.id,
+			TargetURI:          targetURL,
+			FrameName:          frameName,
+			IsUserGesture:      userGesture,
+			NoJavaScriptAccess: noJavaScriptAccess,
+			ParentViewID:       wv.id,
 		})
 		if popupWV == nil {
 			return
@@ -71,6 +79,7 @@ func (wv *WebView) handleSyntheticPopupOpen(targetURL, frameName, proxyID string
 			wv.syntheticPopups[proxyID] = state
 		}
 		state.WebView = popupWV
+		state.NoJavaScriptAccess = noJavaScriptAccess
 		pendingURI = strings.TrimSpace(state.PendingURI)
 		wv.syntheticPopupMu.Unlock()
 
@@ -121,5 +130,30 @@ func (wv *WebView) handleSyntheticPopupNavigate(proxyID, targetURL string) {
 				Str("uri", logging.TruncateURL(trimmedURI, logging.PermissionLogURLMaxLen)).
 				Msg("cef: failed to navigate synthetic popup")
 		}
+	})
+}
+
+func (wv *WebView) handleSyntheticPopupClose(proxyID string) {
+	if wv == nil || proxyID == "" || wv.destroyed.Load() {
+		return
+	}
+
+	wv.syntheticPopupMu.Lock()
+	state := wv.syntheticPopups[proxyID]
+	if state != nil {
+		delete(wv.syntheticPopups, proxyID)
+	}
+	wv.syntheticPopupMu.Unlock()
+	if state == nil || state.WebView == nil {
+		return
+	}
+
+	closeable, ok := state.WebView.(port.OAuthCallbackCapable)
+	if !ok {
+		return
+	}
+
+	wv.runOnGTK(func() {
+		closeable.Close()
 	})
 }

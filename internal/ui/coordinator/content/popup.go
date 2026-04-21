@@ -311,30 +311,43 @@ func (c *Coordinator) createPopupWebView(
 	ctx context.Context,
 	parentID port.WebViewID,
 	targetURI string,
+	noJavaScriptAccess bool,
 ) (port.WebView, string, error) {
 	if c.factory == nil {
 		return nil, targetURI, fmt.Errorf("no webview factory configured")
 	}
 
 	log := logging.FromContext(ctx)
+	relatedErr := error(nil)
 
-	popupWV, err := c.factory.CreateRelated(ctx, parentID)
-	if err == nil && popupWV != nil {
-		return popupWV, targetURI, nil
-	}
-	if err == nil {
-		err = fmt.Errorf("related popup webview factory returned nil without error")
-	}
+	if !noJavaScriptAccess {
+		popupWV, err := c.factory.CreateRelated(ctx, parentID)
+		if err == nil && popupWV != nil {
+			return popupWV, targetURI, nil
+		}
+		if err == nil {
+			err = fmt.Errorf("related popup webview factory returned nil without error")
+		}
+		relatedErr = err
 
-	log.Debug().
-		Err(err).
-		Uint64("parent_webview_id", uint64(parentID)).
-		Str("target_uri", logging.TruncateURL(targetURI, logURLMaxLen)).
-		Msg("related popup webview unavailable, falling back to regular webview")
+		log.Debug().
+			Err(err).
+			Uint64("parent_webview_id", uint64(parentID)).
+			Str("target_uri", logging.TruncateURL(targetURI, logURLMaxLen)).
+			Msg("related popup webview unavailable, falling back to regular webview")
+	} else {
+		log.Debug().
+			Uint64("parent_webview_id", uint64(parentID)).
+			Str("target_uri", logging.TruncateURL(targetURI, logURLMaxLen)).
+			Msg("popup requested no JavaScript opener access, creating regular webview")
+	}
 
 	popupWV, fallbackErr := c.factory.Create(ctx)
 	if fallbackErr != nil {
-		return nil, targetURI, fmt.Errorf("create popup webview: related failed: %w; fallback failed: %w", err, fallbackErr)
+		if relatedErr != nil {
+			return nil, targetURI, fmt.Errorf("create popup webview: related failed: %w; fallback failed: %w", relatedErr, fallbackErr)
+		}
+		return nil, targetURI, fmt.Errorf("create popup webview: fallback failed: %w", fallbackErr)
 	}
 	if popupWV == nil {
 		return nil, targetURI, fmt.Errorf("popup webview factory returned nil without error")
@@ -370,6 +383,7 @@ func (c *Coordinator) handlePopupCreate(
 		Str("target_uri", logging.TruncateURL(req.TargetURI, logURLMaxLen)).
 		Str("frame_name", req.FrameName).
 		Bool("user_gesture", req.IsUserGesture).
+		Bool("no_javascript_access", req.NoJavaScriptAccess).
 		Msg("popup create request")
 
 	// Check if popups are enabled
@@ -385,14 +399,16 @@ func (c *Coordinator) handlePopupCreate(
 	}
 
 	parentID := parentWV.ID()
-	if reused, ok := c.reuseNamedPopup(ctx, parentPaneID, req.FrameName, req.TargetURI); ok {
-		return reused
+	if !req.NoJavaScriptAccess {
+		if reused, ok := c.reuseNamedPopup(ctx, parentPaneID, req.FrameName, req.TargetURI); ok {
+			return reused
+		}
 	}
 
 	// Prefer a related WebView for session sharing, but fall back to a regular
 	// WebView on engines like CEF OSR that do not implement native related
 	// popup views yet.
-	popupWV, effectiveTargetURI, err := c.createPopupWebView(ctx, parentID, req.TargetURI)
+	popupWV, effectiveTargetURI, err := c.createPopupWebView(ctx, parentID, req.TargetURI, req.NoJavaScriptAccess)
 	if err != nil {
 		log.Error().Err(err).Msg("failed to create webview for popup")
 		return nil
@@ -492,10 +508,23 @@ func (c *Coordinator) finishPopupCreate(
 
 	// Register WebView in our map (after successful insertion)
 	c.setWebViewLocked(paneID, popupWV)
-	c.storeReusableNamedPopup(parentPaneID, req.FrameName, popupWV)
+	if !req.NoJavaScriptAccess {
+		c.storeReusableNamedPopup(parentPaneID, req.FrameName, popupWV)
+	}
 
 	// Setup standard callbacks (after successful insertion to avoid leak)
 	c.setupWebViewCallbacks(ctx, paneID, popupWV)
+
+	// Engines without native popup lifecycle hooks can still support
+	// programmatic popup closure (proxy.close(), OAuth auto-close) by exposing
+	// the optional OAuthCallbackCapable interface.
+	if _, hasNativePopupLifecycle := popupWV.(port.PopupCapable); !hasNativePopupLifecycle {
+		if closeCapable, ok := popupWV.(port.OAuthCallbackCapable); ok {
+			closeCapable.AddCloseCallback(func() {
+				c.handlePopupClose(ctx, popupID)
+			})
+		}
+	}
 
 	// Setup OAuth auto-close if configured
 	if hasConfig && oauthEnabled && isOAuth {

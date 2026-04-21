@@ -26,6 +26,7 @@ var (
 	_ port.WebView              = (*WebView)(nil)
 	_ port.NativeWidgetProvider = (*WebView)(nil)
 	_ port.DevToolsOpener       = (*WebView)(nil)
+	_ port.OAuthCallbackCapable = (*WebView)(nil)
 )
 
 // errDestroyed is returned when an operation is attempted on a destroyed WebView.
@@ -97,6 +98,11 @@ type WebView struct {
 	// Synthetic popup proxies created by the renderer bridge's window.open shim.
 	syntheticPopupMu sync.Mutex
 	syntheticPopups  map[string]*syntheticPopupState
+
+	// Programmatic popup lifecycle callbacks used for OAuth auto-close and
+	// synthetic window.open() proxy support on CEF.
+	closeCallbacks      []func()
+	navigationCallbacks []func(string)
 
 	// State cache (mutex-protected).
 	uri                       string
@@ -469,6 +475,41 @@ func (wv *WebView) SetCallbacks(cb *port.WebViewCallbacks) {
 	wv.callbacks = cb
 }
 
+// AddCloseCallback implements port.OAuthCallbackCapable.
+func (wv *WebView) AddCloseCallback(fn func()) {
+	if wv == nil || fn == nil {
+		return
+	}
+	wv.mu.Lock()
+	wv.closeCallbacks = append(wv.closeCallbacks, fn)
+	wv.mu.Unlock()
+}
+
+// AddNavigationCallback implements port.OAuthCallbackCapable.
+func (wv *WebView) AddNavigationCallback(fn func(uri string)) {
+	if wv == nil || fn == nil {
+		return
+	}
+	wv.mu.Lock()
+	wv.navigationCallbacks = append(wv.navigationCallbacks, fn)
+	wv.mu.Unlock()
+}
+
+// Close implements port.OAuthCallbackCapable.
+func (wv *WebView) Close() {
+	if wv == nil || wv.destroyed.Load() {
+		return
+	}
+	wv.mu.RLock()
+	host := wv.host
+	wv.mu.RUnlock()
+	if host != nil {
+		host.CloseBrowser(1)
+		return
+	}
+	wv.runCloseCallbacks()
+}
+
 // ---------------------------------------------------------------------------
 // JavaScript / Appearance
 // ---------------------------------------------------------------------------
@@ -543,6 +584,10 @@ func (wv *WebView) Destroy() {
 	wv.syntheticPopupMu.Lock()
 	wv.syntheticPopups = nil
 	wv.syntheticPopupMu.Unlock()
+	wv.mu.Lock()
+	wv.closeCallbacks = nil
+	wv.navigationCallbacks = nil
+	wv.mu.Unlock()
 	wv.cancelSelectionDebounce()
 	if wv.resizeReconciler != nil {
 		wv.resizeReconciler.stop()
@@ -600,6 +645,7 @@ func (wv *WebView) updateURI(uri string) {
 			cb.OnURIChanged(uri)
 		})
 	}
+	wv.runNavigationCallbacks(uri)
 }
 
 func (wv *WebView) updateTitle(title string) {
@@ -1124,6 +1170,39 @@ func (wv *WebView) runOnGTK(fn func()) {
 		fn()
 	}
 	glib.IdleAddOnce(cb, 0)
+}
+
+func (wv *WebView) runCloseCallbacks() {
+	if wv == nil {
+		return
+	}
+	wv.mu.RLock()
+	callbacks := append([]func(){}, wv.closeCallbacks...)
+	wv.mu.RUnlock()
+	for _, fn := range callbacks {
+		if fn != nil {
+			fn()
+		}
+	}
+}
+
+func (wv *WebView) runNavigationCallbacks(uri string) {
+	if wv == nil {
+		return
+	}
+	wv.mu.RLock()
+	callbacks := append([]func(string){}, wv.navigationCallbacks...)
+	wv.mu.RUnlock()
+	if len(callbacks) == 0 {
+		return
+	}
+	wv.runOnGTK(func() {
+		for _, fn := range callbacks {
+			if fn != nil {
+				fn(uri)
+			}
+		}
+	})
 }
 
 func (wv *WebView) takePendingCreate() *pendingBrowserCreate {

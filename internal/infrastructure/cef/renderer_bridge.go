@@ -19,6 +19,7 @@ const (
 	rendererBridgeActionEditableFocusChanged = "editable_focus_changed"
 	rendererBridgeActionPopupOpen            = "popup_open"
 	rendererBridgeActionPopupNavigate        = "popup_navigate"
+	rendererBridgeActionPopupClose           = "popup_close"
 	rendererBridgeActionReady                = "bridge_ready"
 	rendererBridgeExtensionName              = "dumber.renderer_bridge"
 )
@@ -97,6 +98,7 @@ const rendererBridgeExtensionJS = `
   function createSyntheticPopupProxy(proxyID, initialURL, features) {
     var href = initialURL || 'about:blank';
     var closed = false;
+    var noJavaScriptAccess = popupHasNoOpener(features);
 
     function navigate(nextURL) {
       href = resolvePopupURL(nextURL);
@@ -122,7 +124,11 @@ const rendererBridgeExtensionJS = `
 
     var proxy = {
       blur: function() { return undefined; },
-      close: function() { closed = true; },
+      close: function() {
+        if (closed) return;
+        closed = true;
+        send('popup_close', JSON.stringify({ proxy_id: proxyID }));
+      },
       focus: function() { return undefined; },
       postMessage: function() { return undefined; }
     };
@@ -173,12 +179,14 @@ const rendererBridgeExtensionJS = `
 
       var proxyID = 'popup-' + Date.now() + '-' + Math.random().toString(36).slice(2);
       var resolvedURL = resolvePopupURL(url);
+      var noJavaScriptAccess = popupHasNoOpener(features);
       var popupProxy = createSyntheticPopupProxy(proxyID, resolvedURL, features);
       send('popup_open', JSON.stringify({
         proxy_id: proxyID,
         url: resolvedURL,
         frame_name: normalizedTarget,
-        user_gesture: hasUserGesture()
+        user_gesture: hasUserGesture(),
+        no_javascript_access: noJavaScriptAccess
       }));
       return popupProxy;
     };
@@ -458,15 +466,20 @@ type rendererBridgeExplicitTextCopyPayload struct {
 }
 
 type rendererBridgePopupOpenPayload struct {
-	ProxyID     string `json:"proxy_id"`
-	URL         string `json:"url"`
-	FrameName   string `json:"frame_name"`
-	UserGesture bool   `json:"user_gesture"`
+	ProxyID            string `json:"proxy_id"`
+	URL                string `json:"url"`
+	FrameName          string `json:"frame_name"`
+	UserGesture        bool   `json:"user_gesture"`
+	NoJavaScriptAccess bool   `json:"no_javascript_access"`
 }
 
 type rendererBridgePopupNavigatePayload struct {
 	ProxyID string `json:"proxy_id"`
 	URL     string `json:"url"`
+}
+
+type rendererBridgePopupClosePayload struct {
+	ProxyID string `json:"proxy_id"`
 }
 
 func decodeRendererBridgeExplicitTextCopyPayload(payload []byte) (rendererBridgeExplicitTextCopyPayload, error) {
@@ -502,6 +515,20 @@ func decodeRendererBridgePopupOpenPayload(payload []byte) (rendererBridgePopupOp
 
 func decodeRendererBridgePopupNavigatePayload(payload []byte) (rendererBridgePopupNavigatePayload, error) {
 	var req rendererBridgePopupNavigatePayload
+	if len(payload) == 0 {
+		return req, fmt.Errorf("empty payload")
+	}
+	if err := json.Unmarshal(payload, &req); err != nil {
+		return req, err
+	}
+	if req.ProxyID == "" {
+		return req, fmt.Errorf("missing proxy_id")
+	}
+	return req, nil
+}
+
+func decodeRendererBridgePopupClosePayload(payload []byte) (rendererBridgePopupClosePayload, error) {
+	var req rendererBridgePopupClosePayload
 	if len(payload) == 0 {
 		return req, fmt.Errorf("empty payload")
 	}

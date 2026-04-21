@@ -673,6 +673,7 @@ const popupFetchBridgeJS = `(function() {
   function createSyntheticPopupProxy(proxyID, initialURL, features) {
     var href = initialURL || 'about:blank';
     var closed = false;
+    var noJavaScriptAccess = popupHasNoOpener(features);
 
     function navigate(nextURL) {
       href = resolvePopupURL(nextURL);
@@ -698,7 +699,11 @@ const popupFetchBridgeJS = `(function() {
 
     var proxy = {
       blur: function() { return undefined; },
-      close: function() { closed = true; },
+      close: function() {
+        if (closed) return;
+        closed = true;
+        postBridge('dumb:///api/popup-close', { proxy_id: proxyID });
+      },
       focus: function() { return undefined; },
       postMessage: function() { return undefined; }
     };
@@ -741,12 +746,14 @@ const popupFetchBridgeJS = `(function() {
 
       var proxyID = 'popup-' + Date.now() + '-' + Math.random().toString(36).slice(2);
       var resolvedURL = resolvePopupURL(url);
+      var noJavaScriptAccess = popupHasNoOpener(features);
       var popupProxy = createSyntheticPopupProxy(proxyID, resolvedURL, features);
       postBridge('dumb:///api/popup-open', {
         proxy_id: proxyID,
         url: resolvedURL,
         frame_name: normalizedTarget,
-        user_gesture: hasUserGesture()
+        user_gesture: hasUserGesture(),
+        no_javascript_access: noJavaScriptAccess
       });
       return popupProxy;
     };

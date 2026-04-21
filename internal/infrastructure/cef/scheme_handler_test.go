@@ -257,7 +257,7 @@ func TestSchemeHandler_APIPopupOpenInvokesPopupCallback(t *testing.T) {
 
 	request := cefmocks.NewMockRequest(t)
 	request.EXPECT().GetHeaderByName(dumberBridgeNonceHeaderName).Return(bridgeNonce).Once()
-	encoded := base64.StdEncoding.EncodeToString([]byte(`{"proxy_id":"popup-1","url":"https://example.com/login","frame_name":"Google login","user_gesture":true}`))
+	encoded := base64.StdEncoding.EncodeToString([]byte(`{"proxy_id":"popup-1","url":"https://example.com/login","frame_name":"Google login","user_gesture":true,"no_javascript_access":true}`))
 	request.EXPECT().GetHeaderByName(dumberBodyHeaderName).Return(encoded).Once()
 
 	response := cefmocks.NewMockResponse(t)
@@ -276,6 +276,7 @@ func TestSchemeHandler_APIPopupOpenInvokesPopupCallback(t *testing.T) {
 	require.Equal(t, "https://example.com/login", got.URL)
 	require.Equal(t, "Google login", got.FrameName)
 	require.True(t, got.UserGesture)
+	require.True(t, got.NoJavaScriptAccess)
 }
 
 func TestSchemeHandler_APIPopupNavigateInvokesPopupCallback(t *testing.T) {
@@ -317,6 +318,46 @@ func TestSchemeHandler_APIPopupNavigateInvokesPopupCallback(t *testing.T) {
 	require.Positive(t, responseLength)
 	require.Equal(t, "popup-1", got.ProxyID)
 	require.Equal(t, "https://example.com/callback", got.URL)
+}
+
+func TestSchemeHandler_APIPopupCloseInvokesPopupCallback(t *testing.T) {
+	oldNewResourceHandler := cefNewResourceHandler
+	cefNewResourceHandler = func(impl purecef.ResourceHandler) purecef.ResourceHandler { return impl }
+	defer func() { cefNewResourceHandler = oldNewResourceHandler }()
+
+	h, err := newDumbSchemeHandler(context.Background(), nil, nil, func() ([]byte, error) { return []byte(`{}`), nil }, func() ([]byte, error) { return []byte(`{}`), nil })
+	require.NoError(t, err)
+
+	const bridgeNonce = "bridge-nonce"
+	browser := cefmocks.NewMockBrowser(t)
+	h.bridgeNonceValidator = func(got purecef.Browser, gotNonce string) bool {
+		return got == browser && gotNonce == bridgeNonce
+	}
+
+	var got rendererBridgePopupClosePayload
+	h.onPopupClose = func(gotBrowser purecef.Browser, payload rendererBridgePopupClosePayload) {
+		require.Same(t, browser, gotBrowser)
+		got = payload
+	}
+
+	request := cefmocks.NewMockRequest(t)
+	request.EXPECT().GetHeaderByName(dumberBridgeNonceHeaderName).Return(bridgeNonce).Once()
+	encoded := base64.StdEncoding.EncodeToString([]byte(`{"proxy_id":"popup-1"}`))
+	request.EXPECT().GetHeaderByName(dumberBodyHeaderName).Return(encoded).Once()
+
+	response := cefmocks.NewMockResponse(t)
+	response.EXPECT().SetStatus(int32(http.StatusOK)).Once()
+	response.EXPECT().SetStatusText(http.StatusText(http.StatusOK)).Once()
+	response.EXPECT().SetMimeType("application/json").Once()
+	expectAPIResponseHeaders(response)
+
+	handler := h.handleAPI(browser, http.MethodPost, "/api/popup-close", request)
+	require.NotNil(t, handler)
+
+	var responseLength int64
+	handler.GetResponseHeaders(response, &responseLength, 0)
+	require.Positive(t, responseLength)
+	require.Equal(t, "popup-1", got.ProxyID)
 }
 
 func TestSchemeHandler_APIOptionsReturnsCORSPreflightHeaders(t *testing.T) {
