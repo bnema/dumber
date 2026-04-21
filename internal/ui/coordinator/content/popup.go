@@ -526,10 +526,23 @@ func (c *Coordinator) finishPopupCreate(
 		Str("uri", logging.TruncateURL(req.TargetURI, logURLMaxLen)).
 		Msg("popup OAuth check")
 
+	// Initialize callbacks before publishing the WebView so any reader that sees
+	// the popup during workspace insertion gets a fully configured instance.
+	c.setupWebViewCallbacks(ctx, paneID, popupWV)
+
 	// Register the popup WebView before workspace insertion so split/stack UI
 	// updates can reuse the real popup instead of acquiring a placeholder pane
 	// WebView that races the actual popup flow.
-	c.setWebViewLocked(paneID, popupWV)
+	c.RegisterPopupWebView(paneID, popupWV)
+	inserted := false
+	defer func() {
+		if inserted {
+			return
+		}
+		if current := c.getWebViewLocked(paneID); current == popupWV {
+			c.deleteWebViewLocked(paneID)
+		}
+	}()
 
 	// Insert into workspace IMMEDIATELY (WebView stays hidden)
 	// This is required for WebKit to establish window.opener relationship
@@ -546,21 +559,15 @@ func (c *Coordinator) finishPopupCreate(
 
 		if err := c.onInsertPopup(ctx, popupInput); err != nil {
 			log.Error().Err(err).Msg("failed to insert popup into workspace")
-			if current := c.getWebViewLocked(paneID); current == popupWV {
-				c.deleteWebViewLocked(paneID)
-			}
 			popupWV.Destroy()
 			return nil
 		}
 	}
+	inserted = true
 
-	// WebView already registered before insertion.
 	if !req.NoJavaScriptAccess {
 		c.storeReusableNamedPopup(parentPaneID, req.FrameName, popupWV)
 	}
-
-	// Setup standard callbacks (after successful insertion to avoid leak)
-	c.setupWebViewCallbacks(ctx, paneID, popupWV)
 
 	// Engines without native popup lifecycle hooks can still support
 	// programmatic popup closure (proxy.close(), OAuth auto-close) by exposing

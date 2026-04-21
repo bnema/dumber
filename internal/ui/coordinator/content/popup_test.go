@@ -143,19 +143,16 @@ func TestNormalizePopupTargetURIForFallback_PreservesUnknownURLs(t *testing.T) {
 	assert.Equal(t, raw, normalizePopupTargetURIForFallback(raw))
 }
 
-func TestHandlePopupCreate_RegistersPopupWebViewBeforeWorkspaceInsertion(t *testing.T) {
+func newPopupCreateCoordinatorForTest(t *testing.T, popupID port.WebViewID) (context.Context, entity.PaneID, *mocks.MockWebView, *mocks.MockWebView, *Coordinator) {
+	t.Helper()
+
 	ctx := context.Background()
 	parentPaneID := entity.PaneID("parent-pane")
 	parentWV := mocks.NewMockWebView(t)
 	parentWV.EXPECT().ID().Return(port.WebViewID(101)).Once()
 
 	popupWV := mocks.NewMockWebView(t)
-	popupWV.EXPECT().ID().Return(port.WebViewID(150)).Once()
-	popupWV.EXPECT().Generation().Return(uint64(1)).Once()
-	popupWV.EXPECT().SetCallbacks(mock.Anything).Once()
-	popupWV.EXPECT().IsLoading().Return(false).Once()
-	popupWV.EXPECT().URI().Return("").Once()
-	popupWV.EXPECT().LoadURI(mock.Anything, "https://example.com/popup").Return(nil).Once()
+	popupWV.EXPECT().ID().Return(popupID).Once()
 
 	factory := mocks.NewMockWebViewFactory(t)
 	factory.EXPECT().Create(mock.Anything).Return(popupWV, nil).Once()
@@ -166,6 +163,18 @@ func TestHandlePopupCreate_RegistersPopupWebViewBeforeWorkspaceInsertion(t *test
 		popupOAuth:    make(map[port.WebViewID]*popupOAuthState),
 	}
 	c.SetPopupConfig(factory, nil, func() string { return "popup-pane" })
+
+	return ctx, parentPaneID, parentWV, popupWV, c
+}
+
+func TestHandlePopupCreate_RegistersPopupWebViewBeforeWorkspaceInsertion(t *testing.T) {
+	ctx, parentPaneID, parentWV, popupWV, c := newPopupCreateCoordinatorForTest(t, port.WebViewID(150))
+	popupWV.EXPECT().Generation().Return(uint64(1)).Once()
+	popupWV.EXPECT().SetCallbacks(mock.Anything).Once()
+	popupWV.EXPECT().IsLoading().Return(false).Once()
+	popupWV.EXPECT().URI().Return("").Once()
+	popupWV.EXPECT().LoadURI(mock.Anything, "https://example.com/popup").Return(nil).Once()
+
 	c.SetOnInsertPopup(func(_ context.Context, input InsertPopupInput) error {
 		require.Equal(t, entity.PaneID("popup-pane"), input.PopupPane.ID)
 		require.Same(t, popupWV, c.getWebViewLocked(input.PopupPane.ID))
@@ -183,24 +192,11 @@ func TestHandlePopupCreate_RegistersPopupWebViewBeforeWorkspaceInsertion(t *test
 }
 
 func TestHandlePopupCreate_CleansUpPreRegisteredPopupWebViewWhenInsertionFails(t *testing.T) {
-	ctx := context.Background()
-	parentPaneID := entity.PaneID("parent-pane")
-	parentWV := mocks.NewMockWebView(t)
-	parentWV.EXPECT().ID().Return(port.WebViewID(101)).Once()
-
-	popupWV := mocks.NewMockWebView(t)
-	popupWV.EXPECT().ID().Return(port.WebViewID(151)).Once()
+	ctx, parentPaneID, parentWV, popupWV, c := newPopupCreateCoordinatorForTest(t, port.WebViewID(151))
+	popupWV.EXPECT().Generation().Return(uint64(1)).Once()
+	popupWV.EXPECT().SetCallbacks(mock.Anything).Once()
 	popupWV.EXPECT().Destroy().Once()
 
-	factory := mocks.NewMockWebViewFactory(t)
-	factory.EXPECT().Create(mock.Anything).Return(popupWV, nil).Once()
-
-	c := &Coordinator{
-		webViews:      make(map[entity.PaneID]port.WebView),
-		pendingPopups: make(map[port.WebViewID]*PendingPopup),
-		popupOAuth:    make(map[port.WebViewID]*popupOAuthState),
-	}
-	c.SetPopupConfig(factory, nil, func() string { return "popup-pane" })
 	c.SetOnInsertPopup(func(_ context.Context, input InsertPopupInput) error {
 		require.Same(t, popupWV, c.getWebViewLocked(input.PopupPane.ID))
 		return assert.AnError
