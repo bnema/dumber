@@ -66,6 +66,23 @@ func TestHandleSyntheticPopupNavigate_LoadsMappedPopup(t *testing.T) {
 	parentWV.handleSyntheticPopupNavigate("popup-2", "https://example.com/finish")
 }
 
+func TestHandleSyntheticPopupOpen_CleansUpStateWhenPopupIsBlocked(t *testing.T) {
+	parentWV := &WebView{
+		ctx: context.Background(),
+		id:  port.WebViewID(28),
+		callbacks: &port.WebViewCallbacks{
+			OnCreate: func(port.PopupRequest) port.WebView {
+				return nil
+			},
+		},
+	}
+
+	parentWV.handleSyntheticPopupNavigate("popup-blocked", "https://example.com/blocked")
+	parentWV.handleSyntheticPopupOpen("https://example.com/blocked", "_blank", "popup-blocked", true, false)
+
+	require.Empty(t, parentWV.syntheticPopups)
+}
+
 func TestHandleSyntheticPopupClose_ClosesMappedPopup(t *testing.T) {
 	popupWV := &closeablePopupWebViewStub{MockWebView: portmocks.NewMockWebView(t)}
 	parentWV := &WebView{

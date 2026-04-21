@@ -2,6 +2,7 @@ package content
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	neturl "net/url"
 	"strings"
@@ -218,6 +219,11 @@ func (c *Coordinator) SetPopupConfig(
 	c.factory = factory
 	c.popupConfig = popupConfig
 	c.generateID = generateID
+
+	c.popupMu.Lock()
+	c.relatedPopupUnsupported = false
+	c.relatedPopupSupportDetected = false
+	c.popupMu.Unlock()
 }
 
 // SetOnInsertPopup sets the callback to insert popups into the workspace.
@@ -303,6 +309,26 @@ func normalizePopupTargetURIForFallback(rawTargetURI string) string {
 	return redirectParsed.String()
 }
 
+func (c *Coordinator) relatedPopupSupportDisabled() bool {
+	c.popupMu.RLock()
+	defer c.popupMu.RUnlock()
+	return c.relatedPopupSupportDetected && c.relatedPopupUnsupported
+}
+
+func (c *Coordinator) markRelatedPopupUnsupported() {
+	c.popupMu.Lock()
+	defer c.popupMu.Unlock()
+	c.relatedPopupSupportDetected = true
+	c.relatedPopupUnsupported = true
+}
+
+func (c *Coordinator) markRelatedPopupSupported() {
+	c.popupMu.Lock()
+	defer c.popupMu.Unlock()
+	c.relatedPopupSupportDetected = true
+	c.relatedPopupUnsupported = false
+}
+
 // createPopupWebView prefers a related WebView so popups can share the
 // parent session/context. If the engine does not support related popup views,
 // it gracefully falls back to a regular WebView so target="_blank" and
@@ -320,26 +346,35 @@ func (c *Coordinator) createPopupWebView(
 	log := logging.FromContext(ctx)
 	relatedErr := error(nil)
 
-	if !noJavaScriptAccess {
+	if !noJavaScriptAccess && !c.relatedPopupSupportDisabled() {
 		popupWV, err := c.factory.CreateRelated(ctx, parentID)
 		if err == nil && popupWV != nil {
+			c.markRelatedPopupSupported()
 			return popupWV, targetURI, nil
 		}
 		if err == nil {
 			err = fmt.Errorf("related popup webview factory returned nil without error")
 		}
 		relatedErr = err
+		if errors.Is(err, port.ErrRelatedWebViewUnsupported) {
+			c.markRelatedPopupUnsupported()
+		}
 
 		log.Debug().
 			Err(err).
 			Uint64("parent_webview_id", uint64(parentID)).
 			Str("target_uri", logging.TruncateURL(targetURI, logURLMaxLen)).
 			Msg("related popup webview unavailable, falling back to regular webview")
-	} else {
+	} else if noJavaScriptAccess {
 		log.Debug().
 			Uint64("parent_webview_id", uint64(parentID)).
 			Str("target_uri", logging.TruncateURL(targetURI, logURLMaxLen)).
 			Msg("popup requested no JavaScript opener access, creating regular webview")
+	} else {
+		log.Debug().
+			Uint64("parent_webview_id", uint64(parentID)).
+			Str("target_uri", logging.TruncateURL(targetURI, logURLMaxLen)).
+			Msg("related popup webviews known unsupported, creating regular webview")
 	}
 
 	popupWV, fallbackErr := c.factory.Create(ctx)

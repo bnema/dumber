@@ -730,6 +730,7 @@ func (h *handlerSet) OnAfterCreated(browser purecef.Browser) {
 	if h.wv.engine != nil {
 		h.wv.engine.recordBrowserAfterCreated(browser)
 		h.wv.engine.registerWebView(h.wv)
+		h.wv.engine.bindBrowserWebView(browser, h.wv)
 	}
 	host := browser.GetHost()
 	if host == nil {
@@ -783,9 +784,13 @@ func (h *handlerSet) DoClose(_ purecef.Browser) bool {
 }
 
 // OnBeforeClose fires the OnClose callback.
-func (h *handlerSet) OnBeforeClose(_ purecef.Browser) {
+func (h *handlerSet) OnBeforeClose(browser purecef.Browser) {
 	if h.wv.engine != nil {
-		h.wv.engine.unregisterWebView(h.wv)
+		browserID := int32(0)
+		if browser != nil {
+			browserID = browser.GetIdentifier()
+		}
+		h.wv.engine.unregisterWebView(h.wv, browserID)
 	}
 	h.wv.mu.Lock()
 	h.wv.browser = nil

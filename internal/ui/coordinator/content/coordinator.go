@@ -82,13 +82,15 @@ type Coordinator struct {
 	gestureActionHandler input.ActionHandler
 
 	// Popup handling
-	factory       port.WebViewFactory
-	popupConfig   *entity.PopupBehaviorConfig
-	pendingPopups map[port.WebViewID]*PendingPopup
-	namedPopups   map[namedPopupKey]*namedPopupState
-	popupOAuth    map[port.WebViewID]*popupOAuthState
-	popupRefresh  map[entity.PaneID]*time.Timer
-	popupMu       sync.RWMutex
+	factory                     port.WebViewFactory
+	popupConfig                 *entity.PopupBehaviorConfig
+	pendingPopups               map[port.WebViewID]*PendingPopup
+	namedPopups                 map[namedPopupKey]*namedPopupState
+	popupOAuth                  map[port.WebViewID]*popupOAuthState
+	popupRefresh                map[entity.PaneID]*time.Timer
+	relatedPopupUnsupported     bool
+	relatedPopupSupportDetected bool
+	popupMu                     sync.RWMutex
 
 	// Callback to insert popup into workspace (avoids circular dependency)
 	onInsertPopup func(ctx context.Context, input InsertPopupInput) error

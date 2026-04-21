@@ -5,10 +5,15 @@ package port
 
 import (
 	"context"
+	"errors"
 )
 
 // WebViewID uniquely identifies a WebView instance.
 type WebViewID uint64
+
+// ErrRelatedWebViewUnsupported reports that the active engine cannot create
+// a popup WebView related to an existing parent WebView.
+var ErrRelatedWebViewUnsupported = errors.New("related popup webviews are not supported")
 
 // LoadEvent represents page load state transitions.
 type LoadEvent int

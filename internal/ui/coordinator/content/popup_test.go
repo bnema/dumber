@@ -181,6 +181,58 @@ func TestHandlePopupCreate_UsesRegularWebViewWhenPopupDisablesJavaScriptAccess(t
 	require.Same(t, popupWV, created)
 }
 
+func TestHandlePopupCreate_SkipsRelatedCreateAfterUnsupportedFactoryError(t *testing.T) {
+	ctx := context.Background()
+	parentPaneID := entity.PaneID("parent-pane")
+	parentWV := mocks.NewMockWebView(t)
+	parentWV.EXPECT().ID().Return(port.WebViewID(101)).Twice()
+
+	firstPopupWV := mocks.NewMockWebView(t)
+	firstPopupWV.EXPECT().ID().Return(port.WebViewID(202)).Once()
+	firstPopupWV.EXPECT().Generation().Return(uint64(1)).Once()
+	firstPopupWV.EXPECT().SetCallbacks(mock.Anything).Once()
+	firstPopupWV.EXPECT().IsLoading().Return(false).Once()
+	firstPopupWV.EXPECT().URI().Return("").Once()
+	firstPopupWV.EXPECT().LoadURI(mock.Anything, "https://example.com/first").Return(nil).Once()
+
+	secondPopupWV := mocks.NewMockWebView(t)
+	secondPopupWV.EXPECT().ID().Return(port.WebViewID(203)).Once()
+	secondPopupWV.EXPECT().Generation().Return(uint64(1)).Once()
+	secondPopupWV.EXPECT().SetCallbacks(mock.Anything).Once()
+	secondPopupWV.EXPECT().IsLoading().Return(false).Once()
+	secondPopupWV.EXPECT().URI().Return("").Once()
+	secondPopupWV.EXPECT().LoadURI(mock.Anything, "https://example.com/second").Return(nil).Once()
+
+	factory := mocks.NewMockWebViewFactory(t)
+	factory.EXPECT().CreateRelated(mock.Anything, port.WebViewID(101)).Return(nil, port.ErrRelatedWebViewUnsupported).Once()
+	factory.EXPECT().Create(mock.Anything).Return(firstPopupWV, nil).Once()
+	factory.EXPECT().Create(mock.Anything).Return(secondPopupWV, nil).Once()
+
+	c := &Coordinator{
+		webViews:      make(map[entity.PaneID]port.WebView),
+		pendingPopups: make(map[port.WebViewID]*PendingPopup),
+		popupOAuth:    make(map[port.WebViewID]*popupOAuthState),
+	}
+	c.SetPopupConfig(factory, nil, nil)
+	c.SetOnInsertPopup(func(_ context.Context, input InsertPopupInput) error {
+		return nil
+	})
+
+	first := c.handlePopupCreate(ctx, parentPaneID, parentWV, port.PopupRequest{
+		TargetURI:     "https://example.com/first",
+		FrameName:     "_blank",
+		IsUserGesture: true,
+	})
+	second := c.handlePopupCreate(ctx, parentPaneID, parentWV, port.PopupRequest{
+		TargetURI:     "https://example.com/second",
+		FrameName:     "_blank",
+		IsUserGesture: true,
+	})
+
+	require.Same(t, firstPopupWV, first)
+	require.Same(t, secondPopupWV, second)
+}
+
 func TestHandlePopupCreate_FallsBackToRegularWebViewWhenRelatedCreateFails(t *testing.T) {
 	ctx := context.Background()
 	parentPaneID := entity.PaneID("parent-pane")

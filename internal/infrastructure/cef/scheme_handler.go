@@ -348,79 +348,48 @@ func (h *dumbSchemeHandler) handleFocusSync(request purecef.Request, browser pur
 	return h.newAPIJSONResourceHandler(http.StatusOK, map[string]any{"ok": true})
 }
 
-func (h *dumbSchemeHandler) handlePopupOpen(request purecef.Request, browser purecef.Browser) purecef.ResourceHandler {
+func handlePopupBridgeRequest[T any](
+	h *dumbSchemeHandler,
+	request purecef.Request,
+	browser purecef.Browser,
+	action string,
+	decode func([]byte) (T, error),
+	dispatch func(purecef.Browser, T),
+) purecef.ResourceHandler {
 	if browser == nil {
-		h.logger.Debug().Msg("cef: popup-open — browser unavailable")
+		h.logger.Debug().Msg("cef: " + action + " — browser unavailable")
 		return h.newAPIJSONResourceHandler(http.StatusBadRequest, map[string]string{"error": "browser unavailable"})
 	}
 	if !h.hasTrustedBridgeNonce(request, browser) {
-		h.logger.Warn().Msg("cef: popup-open — rejected request without valid bridge nonce")
+		h.logger.Warn().Msg("cef: " + action + " — rejected request without valid bridge nonce")
 		return h.newAPIJSONResourceHandler(http.StatusForbidden, map[string]string{"error": "forbidden"})
 	}
 	body := readBodyFromHeader(request)
 	if body == nil {
 		return h.newAPIJSONResourceHandler(http.StatusBadRequest, map[string]string{"error": "empty body"})
 	}
-	payload, err := decodeRendererBridgePopupOpenPayload(body)
+	payload, err := decode(body)
 	if err != nil {
 		return h.newAPIJSONResourceHandler(http.StatusBadRequest, map[string]string{"error": err.Error()})
 	}
-	if h.onPopupOpen != nil {
-		h.onPopupOpen(browser, payload)
+	if dispatch != nil {
+		dispatch(browser, payload)
 	} else {
-		h.logger.Warn().Msg("cef: popup-open — callback not wired")
+		h.logger.Warn().Msg("cef: " + action + " — callback not wired")
 	}
 	return h.newAPIJSONResourceHandler(http.StatusOK, map[string]any{"ok": true})
+}
+
+func (h *dumbSchemeHandler) handlePopupOpen(request purecef.Request, browser purecef.Browser) purecef.ResourceHandler {
+	return handlePopupBridgeRequest(h, request, browser, "popup-open", decodeRendererBridgePopupOpenPayload, h.onPopupOpen)
 }
 
 func (h *dumbSchemeHandler) handlePopupNavigate(request purecef.Request, browser purecef.Browser) purecef.ResourceHandler {
-	if browser == nil {
-		h.logger.Debug().Msg("cef: popup-navigate — browser unavailable")
-		return h.newAPIJSONResourceHandler(http.StatusBadRequest, map[string]string{"error": "browser unavailable"})
-	}
-	if !h.hasTrustedBridgeNonce(request, browser) {
-		h.logger.Warn().Msg("cef: popup-navigate — rejected request without valid bridge nonce")
-		return h.newAPIJSONResourceHandler(http.StatusForbidden, map[string]string{"error": "forbidden"})
-	}
-	body := readBodyFromHeader(request)
-	if body == nil {
-		return h.newAPIJSONResourceHandler(http.StatusBadRequest, map[string]string{"error": "empty body"})
-	}
-	payload, err := decodeRendererBridgePopupNavigatePayload(body)
-	if err != nil {
-		return h.newAPIJSONResourceHandler(http.StatusBadRequest, map[string]string{"error": err.Error()})
-	}
-	if h.onPopupNavigate != nil {
-		h.onPopupNavigate(browser, payload)
-	} else {
-		h.logger.Warn().Msg("cef: popup-navigate — callback not wired")
-	}
-	return h.newAPIJSONResourceHandler(http.StatusOK, map[string]any{"ok": true})
+	return handlePopupBridgeRequest(h, request, browser, "popup-navigate", decodeRendererBridgePopupNavigatePayload, h.onPopupNavigate)
 }
 
 func (h *dumbSchemeHandler) handlePopupClose(request purecef.Request, browser purecef.Browser) purecef.ResourceHandler {
-	if browser == nil {
-		h.logger.Debug().Msg("cef: popup-close — browser unavailable")
-		return h.newAPIJSONResourceHandler(http.StatusBadRequest, map[string]string{"error": "browser unavailable"})
-	}
-	if !h.hasTrustedBridgeNonce(request, browser) {
-		h.logger.Warn().Msg("cef: popup-close — rejected request without valid bridge nonce")
-		return h.newAPIJSONResourceHandler(http.StatusForbidden, map[string]string{"error": "forbidden"})
-	}
-	body := readBodyFromHeader(request)
-	if body == nil {
-		return h.newAPIJSONResourceHandler(http.StatusBadRequest, map[string]string{"error": "empty body"})
-	}
-	payload, err := decodeRendererBridgePopupClosePayload(body)
-	if err != nil {
-		return h.newAPIJSONResourceHandler(http.StatusBadRequest, map[string]string{"error": err.Error()})
-	}
-	if h.onPopupClose != nil {
-		h.onPopupClose(browser, payload)
-	} else {
-		h.logger.Warn().Msg("cef: popup-close — callback not wired")
-	}
-	return h.newAPIJSONResourceHandler(http.StatusOK, map[string]any{"ok": true})
+	return handlePopupBridgeRequest(h, request, browser, "popup-close", decodeRendererBridgePopupClosePayload, h.onPopupClose)
 }
 
 func (h *dumbSchemeHandler) hasTrustedBridgeNonce(request purecef.Request, browser purecef.Browser) bool {

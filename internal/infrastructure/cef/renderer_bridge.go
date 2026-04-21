@@ -499,46 +499,36 @@ func decodeRendererBridgeExplicitTextCopyPayload(payload []byte) (rendererBridge
 	return req, nil
 }
 
-func decodeRendererBridgePopupOpenPayload(payload []byte) (rendererBridgePopupOpenPayload, error) {
-	var req rendererBridgePopupOpenPayload
+func decodeRendererBridgePopupPayload[T any](payload []byte, proxyID func(T) string) (T, error) {
+	var req T
 	if len(payload) == 0 {
 		return req, fmt.Errorf("empty payload")
 	}
 	if err := json.Unmarshal(payload, &req); err != nil {
 		return req, err
 	}
-	if req.ProxyID == "" {
+	if proxyID(req) == "" {
 		return req, fmt.Errorf("missing proxy_id")
 	}
 	return req, nil
+}
+
+func decodeRendererBridgePopupOpenPayload(payload []byte) (rendererBridgePopupOpenPayload, error) {
+	return decodeRendererBridgePopupPayload(payload, func(req rendererBridgePopupOpenPayload) string {
+		return req.ProxyID
+	})
 }
 
 func decodeRendererBridgePopupNavigatePayload(payload []byte) (rendererBridgePopupNavigatePayload, error) {
-	var req rendererBridgePopupNavigatePayload
-	if len(payload) == 0 {
-		return req, fmt.Errorf("empty payload")
-	}
-	if err := json.Unmarshal(payload, &req); err != nil {
-		return req, err
-	}
-	if req.ProxyID == "" {
-		return req, fmt.Errorf("missing proxy_id")
-	}
-	return req, nil
+	return decodeRendererBridgePopupPayload(payload, func(req rendererBridgePopupNavigatePayload) string {
+		return req.ProxyID
+	})
 }
 
 func decodeRendererBridgePopupClosePayload(payload []byte) (rendererBridgePopupClosePayload, error) {
-	var req rendererBridgePopupClosePayload
-	if len(payload) == 0 {
-		return req, fmt.Errorf("empty payload")
-	}
-	if err := json.Unmarshal(payload, &req); err != nil {
-		return req, err
-	}
-	if req.ProxyID == "" {
-		return req, fmt.Errorf("missing proxy_id")
-	}
-	return req, nil
+	return decodeRendererBridgePopupPayload(payload, func(req rendererBridgePopupClosePayload) string {
+		return req.ProxyID
+	})
 }
 
 func (e *Engine) handleEditableFocusBridge(browser purecef.Browser) {

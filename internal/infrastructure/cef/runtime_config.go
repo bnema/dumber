@@ -9,7 +9,7 @@ import (
 
 var (
 	ErrDownloadsUnsupported      = errors.New("cef: downloads are not supported yet")
-	ErrRelatedWebViewUnsupported = errors.New("cef: related popup webviews are not supported yet")
+	ErrRelatedWebViewUnsupported = port.ErrRelatedWebViewUnsupported
 	ErrCookiePolicyUnsupported   = errors.New("cef: non-default cookie policy is not supported yet")
 )
 

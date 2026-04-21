@@ -33,12 +33,32 @@ func (wv *WebView) syntheticPopupState(proxyID string) *syntheticPopupState {
 	return state
 }
 
+func (wv *WebView) lookupSyntheticPopupState(proxyID string) *syntheticPopupState {
+	if wv == nil || proxyID == "" {
+		return nil
+	}
+
+	wv.syntheticPopupMu.Lock()
+	defer wv.syntheticPopupMu.Unlock()
+	return wv.syntheticPopups[proxyID]
+}
+
+func (wv *WebView) deleteSyntheticPopupState(proxyID string) {
+	if wv == nil || proxyID == "" {
+		return
+	}
+
+	wv.syntheticPopupMu.Lock()
+	defer wv.syntheticPopupMu.Unlock()
+	delete(wv.syntheticPopups, proxyID)
+}
+
 func (wv *WebView) handleSyntheticPopupOpen(targetURL, frameName, proxyID string, userGesture, noJavaScriptAccess bool) {
 	if wv == nil || proxyID == "" || wv.destroyed.Load() {
 		return
 	}
 
-	state := wv.syntheticPopupState(proxyID)
+	state := wv.lookupSyntheticPopupState(proxyID)
 	if state != nil {
 		wv.syntheticPopupMu.Lock()
 		state.NoJavaScriptAccess = noJavaScriptAccess
@@ -54,6 +74,7 @@ func (wv *WebView) handleSyntheticPopupOpen(targetURL, frameName, proxyID string
 		cb := wv.callbacks
 		wv.mu.RUnlock()
 		if cb == nil || cb.OnCreate == nil {
+			wv.deleteSyntheticPopupState(proxyID)
 			return
 		}
 
@@ -65,6 +86,7 @@ func (wv *WebView) handleSyntheticPopupOpen(targetURL, frameName, proxyID string
 			ParentViewID:       wv.id,
 		})
 		if popupWV == nil {
+			wv.deleteSyntheticPopupState(proxyID)
 			return
 		}
 
