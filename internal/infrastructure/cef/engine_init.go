@@ -141,14 +141,12 @@ func prepareCEFSettings(
 	} else {
 		settings.LogFile = runtimeLogFile
 	}
-	if bootstrapLogFile, err := prepareCEFInitTraceFile(paths.LogFile, cfg.LogFile); err != nil {
-		logger.Warn().Err(err).Msg("cef: failed to prepare init trace file")
-	} else if bootstrapLogFile != "" {
-		settings.InitTraceFile = bootstrapLogFile
-		logger.Info().
-			Str("bootstrap_log_file", bootstrapLogFile).
-			Str("env_var", puregoCEFInitTraceEnvVar).
-			Msg("cef: init bootstrap diagnostics enabled")
+	if puregoCEFInitTraceEnabled() {
+		warn := logger.Warn().Str("env_var", puregoCEFInitTraceEnvVar)
+		if bootstrapLogFile := resolveCEFInitTraceFile(paths.LogFile, cfg.LogFile); bootstrapLogFile != "" {
+			warn = warn.Str("bootstrap_log_file", bootstrapLogFile)
+		}
+		warn.Msg("cef: init bootstrap diagnostics requested, but current purego-cef no longer consumes this trace file")
 	}
 	if cfg.LogSeverity != 0 {
 		settings.LogSeverity = cfg.LogSeverity
@@ -473,31 +471,12 @@ func openFileNoFollow(path string, flags int, perm os.FileMode) (*os.File, error
 	return os.NewFile(uintptr(fd), path), nil
 }
 
-func prepareCEFInitTraceFile(defaultLogFile, logFile string) (string, error) {
-	if !puregoCEFInitTraceEnabled() {
-		return "", nil
-	}
-
+func resolveCEFInitTraceFile(defaultLogFile, logFile string) string {
 	runtimeLogFile := resolveLogFile(defaultLogFile, logFile)
 	if runtimeLogFile == "" {
-		return "", nil
+		return ""
 	}
-	bootstrapLogFile := strings.TrimSuffix(runtimeLogFile, filepath.Ext(runtimeLogFile)) + ".bootstrap.log"
-	if err := os.MkdirAll(filepath.Dir(bootstrapLogFile), dirPerm); err != nil {
-		return "", fmt.Errorf("mkdir %s: %w", filepath.Dir(bootstrapLogFile), err)
-	}
-	file, err := openRegularLogFile(bootstrapLogFile)
-	if err != nil {
-		return "", fmt.Errorf("reset %s: %w", bootstrapLogFile, err)
-	}
-	defer func() { _ = file.Close() }()
-	if err := file.Truncate(0); err != nil {
-		return "", fmt.Errorf("reset %s: %w", bootstrapLogFile, err)
-	}
-	if err := file.Chmod(filePerm); err != nil {
-		return "", fmt.Errorf("chmod %s: %w", bootstrapLogFile, err)
-	}
-	return bootstrapLogFile, nil
+	return strings.TrimSuffix(runtimeLogFile, filepath.Ext(runtimeLogFile)) + ".bootstrap.log"
 }
 
 func resolveLogFile(defaultLogFile, logFile string) string {

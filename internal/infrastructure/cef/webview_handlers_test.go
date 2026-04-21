@@ -314,26 +314,29 @@ func (n stubEditableDomnode) IsElement() bool                                   
 func (n stubEditableDomnode) IsEditable() bool                                      { return n.editable }
 func (n stubEditableDomnode) IsFormControlElement() bool                            { return false }
 func (n stubEditableDomnode) GetFormControlElementType() purecef.DomFormControlType { return 0 }
-func (n stubEditableDomnode) IsSame(that purecef.Domnode) bool                      { return n == that }
-func (n stubEditableDomnode) GetName() string                                       { return "" }
-func (n stubEditableDomnode) GetValue() string                                      { return "" }
-func (n stubEditableDomnode) SetValue(string) int32                                 { return 0 }
-func (n stubEditableDomnode) GetAsMarkup() string                                   { return "" }
-func (n stubEditableDomnode) GetDocument() purecef.Domdocument                      { return nil }
-func (n stubEditableDomnode) GetParent() purecef.Domnode                            { return nil }
-func (n stubEditableDomnode) GetPreviousSibling() purecef.Domnode                   { return nil }
-func (n stubEditableDomnode) GetNextSibling() purecef.Domnode                       { return nil }
-func (n stubEditableDomnode) HasChildren() bool                                     { return false }
-func (n stubEditableDomnode) GetFirstChild() purecef.Domnode                        { return nil }
-func (n stubEditableDomnode) GetLastChild() purecef.Domnode                         { return nil }
-func (n stubEditableDomnode) GetElementTagName() string                             { return "" }
-func (n stubEditableDomnode) HasElementAttributes() bool                            { return false }
-func (n stubEditableDomnode) HasElementAttribute(string) bool                       { return false }
-func (n stubEditableDomnode) GetElementAttribute(string) string                     { return "" }
-func (n stubEditableDomnode) GetElementAttributes(uintptr)                          {}
-func (n stubEditableDomnode) SetElementAttribute(string, string) int32              { return 0 }
-func (n stubEditableDomnode) GetElementInnerText() string                           { return "" }
-func (n stubEditableDomnode) GetElementBounds() uintptr                             { return 0 }
+func (n stubEditableDomnode) IsSame(that purecef.Domnode) bool {
+	other, ok := that.(stubEditableDomnode)
+	return ok && n == other
+}
+func (n stubEditableDomnode) GetName() string                          { return "" }
+func (n stubEditableDomnode) GetValue() string                         { return "" }
+func (n stubEditableDomnode) SetValue(string) int32                    { return 0 }
+func (n stubEditableDomnode) GetAsMarkup() string                      { return "" }
+func (n stubEditableDomnode) GetDocument() purecef.Domdocument         { return nil }
+func (n stubEditableDomnode) GetParent() purecef.Domnode               { return nil }
+func (n stubEditableDomnode) GetPreviousSibling() purecef.Domnode      { return nil }
+func (n stubEditableDomnode) GetNextSibling() purecef.Domnode          { return nil }
+func (n stubEditableDomnode) HasChildren() bool                        { return false }
+func (n stubEditableDomnode) GetFirstChild() purecef.Domnode           { return nil }
+func (n stubEditableDomnode) GetLastChild() purecef.Domnode            { return nil }
+func (n stubEditableDomnode) GetElementTagName() string                { return "" }
+func (n stubEditableDomnode) HasElementAttributes() bool               { return false }
+func (n stubEditableDomnode) HasElementAttribute(string) bool          { return false }
+func (n stubEditableDomnode) GetElementAttribute(string) string        { return "" }
+func (n stubEditableDomnode) GetElementAttributes(purecef.StringMap)   {}
+func (n stubEditableDomnode) SetElementAttribute(string, string) int32 { return 0 }
+func (n stubEditableDomnode) GetElementInnerText() string              { return "" }
+func (n stubEditableDomnode) GetElementBounds() uintptr                { return 0 }
 
 func TestGetViewRectUsesDIPCoordinates(t *testing.T) {
 	rect := &purecef.Rect{}

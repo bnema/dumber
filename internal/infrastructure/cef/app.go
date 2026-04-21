@@ -222,7 +222,7 @@ func (h *dumberBPH) OnAlreadyRunningAppRelaunch(commandLine purecef.CommandLine,
 
 	return 0
 }
-func (h *dumberBPH) GetDefaultClient() purecef.Client                               { return nil }
+func (h *dumberBPH) GetDefaultClient() purecef.RawClient                            { return nil }
 func (h *dumberBPH) GetDefaultRequestContextHandler() purecef.RequestContextHandler { return nil }
 
 // OnScheduleMessagePumpWork is a no-op — multi-threaded message loop drives

@@ -555,9 +555,11 @@ func (h *dumbSchemeHandler) newAPIJSONResourceHandler(status int, v any) purecef
 }
 
 // Open handles the request immediately (synchronous).
-func (rh *staticResourceHandler) Open(_ purecef.Request, handleRequest unsafe.Pointer, _ purecef.Callback) int32 {
+func (rh *staticResourceHandler) Open(_ purecef.Request, handleRequest *int32, _ purecef.Callback) int32 {
 	// Set handleRequest = true (1) to indicate we handle it immediately.
-	*(*int32)(handleRequest) = 1
+	if handleRequest != nil {
+		*handleRequest = 1
+	}
 	return 1
 }
 
@@ -569,7 +571,7 @@ func (rh *staticResourceHandler) ProcessRequest(_ purecef.Request, _ purecef.Cal
 // GetResponseHeaders sets status code, MIME type, and content length.
 // CEF's SetMimeType expects the MIME type without charset parameters;
 // the charset must be set separately via SetCharset.
-func (rh *staticResourceHandler) GetResponseHeaders(response purecef.Response, responseLength unsafe.Pointer, _ uintptr) {
+func (rh *staticResourceHandler) GetResponseHeaders(response purecef.Response, responseLength *int64, _ uintptr) {
 	response.SetStatus(int32(rh.statusCode))
 	if text := http.StatusText(rh.statusCode); text != "" {
 		response.SetStatusText(text)
@@ -582,18 +584,20 @@ func (rh *staticResourceHandler) GetResponseHeaders(response purecef.Response, r
 	for name, value := range rh.headers {
 		response.SetHeaderByName(name, value, 1)
 	}
-	*(*int64)(responseLength) = int64(len(rh.data))
+	if responseLength != nil {
+		*responseLength = int64(len(rh.data))
+	}
 }
 
 // Skip is not used for static content.
-func (rh *staticResourceHandler) Skip(_ int64, _ unsafe.Pointer, _ purecef.ResourceSkipCallback) int32 {
+func (rh *staticResourceHandler) Skip(_ int64, _ *int64, _ purecef.ResourceSkipCallback) int32 {
 	return 0
 }
 
 // Read copies data into the output buffer.
 func (rh *staticResourceHandler) Read(
 	dataOut unsafe.Pointer, bytesToRead int32,
-	bytesRead unsafe.Pointer, _ purecef.ResourceReadCallback,
+	bytesRead *int32, _ purecef.ResourceReadCallback,
 ) int32 {
 	if rh.offset >= len(rh.data) {
 		return 0
@@ -610,12 +614,14 @@ func (rh *staticResourceHandler) Read(
 	copy(dst, rh.data[rh.offset:rh.offset+toRead])
 	rh.offset += toRead
 
-	*(*int32)(bytesRead) = int32(toRead)
+	if bytesRead != nil {
+		*bytesRead = int32(toRead)
+	}
 	return 1
 }
 
 // ReadResponse is deprecated; Read is used instead.
-func (rh *staticResourceHandler) ReadResponse(_ unsafe.Pointer, _ int32, _ unsafe.Pointer, _ purecef.Callback) int32 {
+func (rh *staticResourceHandler) ReadResponse(_ unsafe.Pointer, _ int32, _ *int32, _ purecef.Callback) int32 {
 	return 0
 }
 

@@ -108,6 +108,21 @@ func TestIsCEFSubprocess(t *testing.T) {
 			args: []string{"dumber", "--unexpected"},
 			want: false,
 		},
+		{
+			name: "type flag after user command",
+			args: []string{"dumber", "browse", "--type=renderer"},
+			want: false,
+		},
+		{
+			name: "type flag not in second argv slot",
+			args: []string{"dumber", "browse", "https://example.com", "--type", "renderer"},
+			want: false,
+		},
+		{
+			name: "equals form with dash-prefixed value",
+			args: []string{"dumber", "--type=--renderer"},
+			want: false,
+		},
 	}
 
 	for _, tc := range tests {

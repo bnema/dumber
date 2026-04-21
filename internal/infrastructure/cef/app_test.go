@@ -31,19 +31,19 @@ func (c relaunchCommandLineStub) Copy() purecef.CommandLine          { return c 
 func (c relaunchCommandLineStub) InitFromArgv(int32, unsafe.Pointer) {}
 func (c relaunchCommandLineStub) InitFromString(string)              {}
 func (c relaunchCommandLineStub) Reset()                             {}
-func (c relaunchCommandLineStub) GetArgv(uintptr)                    {}
+func (c relaunchCommandLineStub) GetArgv(purecef.StringList)         {}
 func (c relaunchCommandLineStub) GetCommandLineString() string       { return c.commandLineString }
 func (c relaunchCommandLineStub) GetProgram() string                 { return "dumber" }
 func (c relaunchCommandLineStub) SetProgram(string)                  {}
 func (c relaunchCommandLineStub) HasSwitches() bool                  { return false }
 func (c relaunchCommandLineStub) HasSwitch(string) bool              { return false }
 func (c relaunchCommandLineStub) GetSwitchValue(string) string       { return "" }
-func (c relaunchCommandLineStub) GetSwitches(uintptr)                {}
+func (c relaunchCommandLineStub) GetSwitches(purecef.StringMap)      {}
 func (c relaunchCommandLineStub) AppendSwitch(string)                {}
 func (c relaunchCommandLineStub) AppendSwitchWithValue(string, string) {
 }
-func (c relaunchCommandLineStub) HasArguments() bool   { return true }
-func (c relaunchCommandLineStub) GetArguments(uintptr) {}
+func (c relaunchCommandLineStub) HasArguments() bool              { return true }
+func (c relaunchCommandLineStub) GetArguments(purecef.StringList) {}
 func (c relaunchCommandLineStub) AppendArgument(string) {
 }
 func (c relaunchCommandLineStub) PrependWrapper(string) {}
