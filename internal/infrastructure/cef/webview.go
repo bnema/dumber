@@ -1179,11 +1179,16 @@ func (wv *WebView) runCloseCallbacks() {
 	wv.mu.RLock()
 	callbacks := append([]func(){}, wv.closeCallbacks...)
 	wv.mu.RUnlock()
-	for _, fn := range callbacks {
-		if fn != nil {
-			fn()
-		}
+	if len(callbacks) == 0 {
+		return
 	}
+	wv.runOnGTK(func() {
+		for _, fn := range callbacks {
+			if fn != nil {
+				fn()
+			}
+		}
+	})
 }
 
 func (wv *WebView) runNavigationCallbacks(uri string) {

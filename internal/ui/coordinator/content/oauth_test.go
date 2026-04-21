@@ -6,8 +6,10 @@ import (
 	"time"
 
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/mock"
 
 	"github.com/bnema/dumber/internal/application/port"
+	portmocks "github.com/bnema/dumber/internal/application/port/mocks"
 	"github.com/bnema/dumber/internal/domain/entity"
 )
 
@@ -47,7 +49,7 @@ func TestComposeOnLoadChanged_Order(t *testing.T) {
 	assert.Equal(t, []string{"existing", "next"}, calls)
 }
 
-func TestHandlePopupOAuthClose_SuccessSchedulesParentRefresh(t *testing.T) {
+func TestHandlePopupOAuthClose_SuccessSchedulesParentResume(t *testing.T) {
 	parentPaneID := entity.PaneID("parent-pane")
 	popupID := port.WebViewID(101)
 
@@ -58,7 +60,7 @@ func TestHandlePopupOAuthClose_SuccessSchedulesParentRefresh(t *testing.T) {
 	}
 
 	c.trackOAuthPopup(popupID, parentPaneID)
-	c.capturePopupOAuthState(popupID, "https://app/callback?code=123")
+	c.capturePopupOAuthState(popupID, "https://www.notion.so/googlepopupcallback?code=123")
 	c.handlePopupOAuthClose(context.Background(), popupID)
 
 	c.popupMu.RLock()
@@ -67,7 +69,7 @@ func TestHandlePopupOAuthClose_SuccessSchedulesParentRefresh(t *testing.T) {
 	c.popupMu.RUnlock()
 
 	assert.False(t, exists, "oauth state should be removed after close handling")
-	assert.NotNil(t, refreshTimer, "successful oauth close should schedule parent refresh")
+	assert.NotNil(t, refreshTimer, "oauth callback should schedule parent resume")
 
 	waitFor(t, time.Second, func() bool {
 		c.popupMu.RLock()
@@ -76,23 +78,38 @@ func TestHandlePopupOAuthClose_SuccessSchedulesParentRefresh(t *testing.T) {
 	})
 }
 
-func TestHandlePopupOAuthClose_ErrorDoesNotScheduleParentRefresh(t *testing.T) {
+func TestResumeParentPaneAfterOAuth_SameDomainLoadsCallbackURI(t *testing.T) {
 	parentPaneID := entity.PaneID("parent-pane")
 	popupID := port.WebViewID(102)
+	parentWV := portmocks.NewMockWebView(t)
+	parentWV.EXPECT().IsDestroyed().Return(false).Once()
+	parentWV.EXPECT().URI().Return("https://www.notion.so/login").Once()
+	parentWV.EXPECT().LoadURI(mock.Anything, "https://www.notion.so/googlepopupcallback?code=123").Return(nil).Once()
 
 	c := &Coordinator{
-		webViews:     make(map[entity.PaneID]port.WebView),
-		popupOAuth:   make(map[port.WebViewID]*popupOAuthState),
-		popupRefresh: make(map[entity.PaneID]*time.Timer),
+		webViews: map[entity.PaneID]port.WebView{
+			parentPaneID: parentWV,
+		},
 	}
 
-	c.trackOAuthPopup(popupID, parentPaneID)
-	c.capturePopupOAuthState(popupID, "https://app/callback?error=access_denied")
-	c.handlePopupOAuthClose(context.Background(), popupID)
+	c.resumeParentPaneAfterOAuth(context.Background(), parentPaneID, popupID, "https://www.notion.so/googlepopupcallback?code=123")
+}
 
-	c.popupMu.RLock()
-	defer c.popupMu.RUnlock()
-	assert.Nil(t, c.popupRefresh[parentPaneID], "oauth errors should not refresh parent pane")
+func TestResumeParentPaneAfterOAuth_DifferentDomainFallsBackToReload(t *testing.T) {
+	parentPaneID := entity.PaneID("parent-pane")
+	popupID := port.WebViewID(103)
+	parentWV := portmocks.NewMockWebView(t)
+	parentWV.EXPECT().IsDestroyed().Return(false).Once()
+	parentWV.EXPECT().URI().Return("https://www.notion.so/login").Once()
+	parentWV.EXPECT().Reload(mock.Anything).Return(nil).Once()
+
+	c := &Coordinator{
+		webViews: map[entity.PaneID]port.WebView{
+			parentPaneID: parentWV,
+		},
+	}
+
+	c.resumeParentPaneAfterOAuth(context.Background(), parentPaneID, popupID, "https://accounts.example.com/callback?code=123")
 }
 
 func TestIsOAuthURL_DoesNotTreatGenericStateParamAsOAuth(t *testing.T) {

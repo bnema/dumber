@@ -676,14 +676,16 @@ func (c *Coordinator) handlePopupClose(ctx context.Context, popupID port.WebView
 	c.popupMu.Unlock()
 
 	if wasPending && pending != nil {
+		c.handlePopupOAuthClose(ctx, popupID)
 		if c.onClosePane != nil {
 			if err := c.onClosePane(ctx, pending.PaneID); err != nil {
 				log.Warn().Err(err).Str("pane_id", string(pending.PaneID)).Msg("failed to close pending popup pane")
 			}
 		}
-		c.handlePopupOAuthClose(ctx, popupID)
 		c.clearReusableNamedPopupByWebViewID(popupID)
-		c.ReleaseWebView(ctx, pending.PaneID)
+		if c.getWebViewLocked(pending.PaneID) != nil {
+			c.ReleaseWebView(ctx, pending.PaneID)
+		}
 		log.Debug().Str("pane_id", string(pending.PaneID)).Msg("cleaned up pending popup that was never shown")
 		return
 	}
@@ -706,6 +708,8 @@ func (c *Coordinator) handlePopupClose(ctx context.Context, popupID port.WebView
 		return
 	}
 
+	c.handlePopupOAuthClose(ctx, popupID)
+
 	// Close the pane in workspace (this removes the UI element)
 	if c.onClosePane != nil {
 		if err := c.onClosePane(ctx, paneID); err != nil {
@@ -713,11 +717,13 @@ func (c *Coordinator) handlePopupClose(ctx context.Context, popupID port.WebView
 		}
 	}
 
-	c.handlePopupOAuthClose(ctx, popupID)
 	c.clearReusableNamedPopupByWebViewID(popupID)
 
-	// Release the WebView (this will clean up tracking)
-	c.ReleaseWebView(ctx, paneID)
+	// ClosePaneByID usually releases the WebView already; only release here if it
+	// is still registered.
+	if c.getWebViewLocked(paneID) != nil {
+		c.ReleaseWebView(ctx, paneID)
+	}
 
 	log.Info().Str("pane_id", string(paneID)).Msg("popup closed")
 }
