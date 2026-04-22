@@ -261,6 +261,8 @@ func wireEngine(
 	schemeHandler.onPopupOpen = eng.handlePopupBridgeOpen
 	schemeHandler.onPopupNavigate = eng.handlePopupBridgeNavigate
 	schemeHandler.onPopupClose = eng.handlePopupBridgeClose
+	schemeHandler.onPopupOpenerNavigate = eng.handlePopupOpenerNavigate
+	schemeHandler.onPopupOpenerPostMessage = eng.handlePopupOpenerPostMessage
 	schemeHandler.bridgeNonceValidator = eng.validateBridgeRequest
 
 	schemeFactory := purecef.NewSchemeHandlerFactory(schemeHandler)

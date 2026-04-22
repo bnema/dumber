@@ -13,6 +13,23 @@ import (
 	"github.com/bnema/dumber/internal/domain/entity"
 )
 
+type popupOpenerBridgeStateStub struct {
+	*portmocks.MockWebView
+	active bool
+}
+
+func (s *popupOpenerBridgeStateStub) HasActivePopupOpenerBridge() bool { return s.active }
+
+func TestPopupUsesSyntheticOpenerSignals_DetectsActiveBridge(t *testing.T) {
+	wv := &popupOpenerBridgeStateStub{MockWebView: portmocks.NewMockWebView(t), active: true}
+	assert.True(t, popupUsesSyntheticOpenerSignals(wv))
+}
+
+func TestPopupUsesSyntheticOpenerSignals_RejectsPlainWebView(t *testing.T) {
+	wv := portmocks.NewMockWebView(t)
+	assert.False(t, popupUsesSyntheticOpenerSignals(wv))
+}
+
 func TestComposeOnClose_Order(t *testing.T) {
 	var calls []string
 
@@ -47,6 +64,24 @@ func TestComposeOnLoadChanged_Order(t *testing.T) {
 	composed(port.LoadCommitted)
 
 	assert.Equal(t, []string{"existing", "next"}, calls)
+}
+
+func TestCapturePopupOAuthMessage_MarksPopupSeenAndSuccessful(t *testing.T) {
+	popupID := port.WebViewID(100)
+	c := &Coordinator{
+		popupOAuth: map[port.WebViewID]*popupOAuthState{
+			popupID: {
+				ParentPaneID: entity.PaneID("parent-pane"),
+			},
+		},
+	}
+
+	c.capturePopupOAuthMessage(popupID)
+
+	state := c.popupOAuth[popupID]
+	assert.True(t, state.Seen)
+	assert.True(t, state.Success)
+	assert.Equal(t, "postmessage://oauth-complete", state.CallbackURI)
 }
 
 func TestHandlePopupOAuthClose_SuccessSchedulesParentResume(t *testing.T) {

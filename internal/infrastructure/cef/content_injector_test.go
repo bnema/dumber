@@ -1,6 +1,7 @@
 package cef
 
 import (
+	"context"
 	"testing"
 
 	"github.com/stretchr/testify/require"
@@ -80,4 +81,19 @@ func TestPopupFetchBridgeJS_ShimsWindowOpenToBridgePopupRequests(t *testing.T) {
 	require.Contains(t, script, "Object.defineProperty(proxy, 'closed'")
 	require.Contains(t, script, "test-bridge-nonce")
 	require.NotContains(t, script, "__DUMBER_BRIDGE_NONCE__")
+}
+
+func TestPopupOpenerBridgeScript_InstallsSyntheticOpenerCallbacks(t *testing.T) {
+	parent := &WebView{ctx: context.Background()}
+	parent.updateURI("https://example.com/app")
+	popup := &WebView{ctx: context.Background(), popupOpenerBridgeParent: parent, popupOpenerBridgeParentURI: "https://example.com/app"}
+
+	script := popup.popupOpenerBridgeScript("bridge-nonce")
+
+	require.Contains(t, script, "window.__dumberPopupOpenerBridgeInstalled")
+	require.Contains(t, script, "popup-opener-navigate")
+	require.Contains(t, script, "popup-opener-post-message")
+	require.Contains(t, script, "Object.defineProperty(window, 'opener'")
+	require.Contains(t, script, "https://example.com/app")
+	require.Contains(t, script, "bridge-nonce")
 }

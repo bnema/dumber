@@ -3,17 +3,10 @@
 // remain independent of specific implementations (WebKit, GTK, etc.).
 package port
 
-import (
-	"context"
-	"errors"
-)
+import "context"
 
 // WebViewID uniquely identifies a WebView instance.
 type WebViewID uint64
-
-// ErrRelatedWebViewUnsupported reports that the active engine cannot create
-// a popup WebView related to an existing parent WebView.
-var ErrRelatedWebViewUnsupported = errors.New("related popup webviews are not supported")
 
 // LoadEvent represents page load state transitions.
 type LoadEvent int
@@ -328,6 +321,42 @@ type PopupCapable interface {
 	SetOnReadyToShow(fn func())
 	SetOnClose(fn func())
 	Show()
+}
+
+// PopupNavigationCapable is implemented by WebViews that need the popup target
+// URI primed before the browser is fully created. Engines with native popup
+// creation can ignore this capability; engines that create popup shells and
+// attach or create browsers later can use it to preserve a unified popup
+// lifecycle without coordinator-specific fallback logic.
+type PopupNavigationCapable interface {
+	PrimePopupNavigation(uri string)
+}
+
+// PopupOpenerBridgeCapable is implemented by WebViews that can emulate
+// opener semantics when a popup must be created directly instead of through a
+// native related-popup lifecycle. Engines can ignore this capability when they
+// provide real popup opener relationships.
+type PopupOpenerBridgeCapable interface {
+	EnablePopupOpenerBridge(parent WebView, noJavaScriptAccess bool)
+}
+
+// PopupOpenerMessageCapable is implemented by popup WebViews that can observe
+// synthetic `window.opener.postMessage(...)` traffic in fallback popup flows.
+type PopupOpenerMessageCapable interface {
+	AddOpenerMessageCallback(fn func())
+}
+
+// PopupOpenerNavigationCapable is implemented by popup WebViews that can observe
+// synthetic `window.opener.location = ...` navigations in fallback popup flows.
+type PopupOpenerNavigationCapable interface {
+	AddOpenerNavigationCallback(fn func(uri string))
+}
+
+// PopupOpenerBridgeStateCapable is implemented by popup WebViews that can
+// report whether a synthetic opener bridge is actively installed for the
+// current popup instance.
+type PopupOpenerBridgeStateCapable interface {
+	HasActivePopupOpenerBridge() bool
 }
 
 // OAuthCallbackCapable is implemented by WebViews that support OAuth auto-close callbacks.

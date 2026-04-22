@@ -227,6 +227,14 @@ func composeOnLoadChanged(
 // For providers using postMessage (like Google Sign-In), we rely on the provider calling
 // window.close() which triggers WebKit's close signal.
 // A long safety timeout (30s) catches popups that get stuck.
+func popupUsesSyntheticOpenerSignals(wv port.WebView) bool {
+	if wv == nil {
+		return false
+	}
+	state, ok := wv.(port.PopupOpenerBridgeStateCapable)
+	return ok && state.HasActivePopupOpenerBridge()
+}
+
 func (c *Coordinator) setupOAuthAutoClose(
 	ctx context.Context,
 	paneID entity.PaneID,
@@ -287,8 +295,7 @@ func (c *Coordinator) setupOAuthAutoClose(
 		})
 	}
 
-	requestOAuthClose := func(uri string, reason string) {
-		c.capturePopupOAuthState(popupID, uri)
+	requestOAuthClose := func(reason string) {
 		cancelSafetyTimer()
 		log.Info().
 			Str("pane", string(paneID)).
@@ -309,13 +316,32 @@ func (c *Coordinator) setupOAuthAutoClose(
 
 	// Start safety timer immediately.
 	startSafetyTimer()
+	deferCloseOnNavigation := popupUsesSyntheticOpenerSignals(wv)
 
 	// Register navigation callback to check for OAuth callbacks on URI changes and committed loads.
 	oauthWV.AddNavigationCallback(func(uri string) {
-		if ShouldAutoClose(uri) {
-			requestOAuthClose(uri, "navigation")
+		if !ShouldAutoClose(uri) {
+			return
 		}
+		c.capturePopupOAuthState(popupID, uri)
+		if deferCloseOnNavigation {
+			cancelSafetyTimer()
+			return
+		}
+		requestOAuthClose("navigation")
 	})
+	if openerNavigations, ok := wv.(port.PopupOpenerNavigationCapable); ok {
+		openerNavigations.AddOpenerNavigationCallback(func(uri string) {
+			c.capturePopupOAuthState(popupID, uri)
+			requestOAuthClose("opener-navigation")
+		})
+	}
+	if openerMessages, ok := wv.(port.PopupOpenerMessageCapable); ok {
+		openerMessages.AddOpenerMessageCallback(func() {
+			c.capturePopupOAuthMessage(popupID)
+			requestOAuthClose("opener-message")
+		})
+	}
 
 	// Cancel safety timer on any close path.
 	oauthWV.AddCloseCallback(func() {
@@ -348,6 +374,24 @@ func (c *Coordinator) capturePopupOAuthState(popupID port.WebViewID, uri string)
 	state.CallbackURI = uri
 	state.Success = IsOAuthSuccess(uri)
 	state.Error = IsOAuthError(uri)
+}
+
+func (c *Coordinator) capturePopupOAuthMessage(popupID port.WebViewID) {
+	c.popupMu.Lock()
+	defer c.popupMu.Unlock()
+
+	state, ok := c.popupOAuth[popupID]
+	if !ok {
+		return
+	}
+
+	state.Seen = true
+	if state.CallbackURI == "" {
+		state.CallbackURI = "postmessage://oauth-complete"
+	}
+	if !state.Error {
+		state.Success = true
+	}
 }
 
 func (c *Coordinator) handlePopupOAuthClose(ctx context.Context, popupID port.WebViewID) {

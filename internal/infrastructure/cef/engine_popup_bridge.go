@@ -75,3 +75,15 @@ func (e *Engine) handlePopupBridgeClose(browser purecef.Browser, payload rendere
 		wv.handleSyntheticPopupClose(payload.ProxyID)
 	})
 }
+
+func (e *Engine) handlePopupOpenerNavigate(browser purecef.Browser, payload popupOpenerNavigatePayload) {
+	e.withBridgeSourceWebView(browser, "", "popup-opener-navigate", func(wv *WebView) {
+		wv.handlePopupOpenerNavigate(payload.URL)
+	})
+}
+
+func (e *Engine) handlePopupOpenerPostMessage(browser purecef.Browser, payload popupOpenerPostMessagePayload) {
+	e.withBridgeSourceWebView(browser, "", "popup-opener-post-message", func(wv *WebView) {
+		wv.handlePopupOpenerPostMessage(payload)
+	})
+}

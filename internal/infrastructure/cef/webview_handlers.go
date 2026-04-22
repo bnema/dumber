@@ -601,6 +601,10 @@ func (h *handlerSet) OnLoadStart(_ purecef.Browser, frame purecef.Frame, _ purec
 	if frame == nil || !frame.IsMain() {
 		return
 	}
+	bridgeNonce := h.wv.rotateBridgeNonce()
+	if openerBridgeScript := h.wv.popupOpenerBridgeScript(bridgeNonce); openerBridgeScript != "" {
+		frame.ExecuteJavaScript(openerBridgeScript, frame.GetURL(), 0)
+	}
 	if h.wv != nil && h.wv.ctx != nil {
 		logging.FromContext(h.wv.ctx).Debug().
 			Str("url", logging.TruncateURL(frame.GetURL(), logging.PermissionLogURLMaxLen)).
@@ -672,12 +676,14 @@ func (h *handlerSet) OnLoadError(_ purecef.Browser, _ purecef.Frame, _ purecef.E
 // ===========================================================================
 
 // OnBeforePopup intercepts popup requests (target="_blank", window.open).
-// CEF OSR cannot create popup windows, so we fire the OnCreate callback
-// to let the coordinator open the link in a new stacked pane.
+// When the coordinator returns a related CEF popup shell we hand that shell's
+// client back to CEF and allow native popup creation so opener semantics are
+// preserved. Otherwise we keep blocking and let the coordinator's fallback
+// pane handle the navigation.
 func (h *handlerSet) OnBeforePopup(
-	_ purecef.Browser, _ purecef.Frame, _ int32, targetURL, targetFrameName string,
+	_ purecef.Browser, _ purecef.Frame, popupID int32, targetURL, targetFrameName string,
 	_ purecef.WindowOpenDisposition, userGesture int32, _ *purecef.PopupFeatures,
-	_ *purecef.WindowInfo, _ *purecef.RawClientWriteSlot, _ *purecef.BrowserSettings,
+	windowInfo *purecef.WindowInfo, clientSlot *purecef.RawClientWriteSlot, settings *purecef.BrowserSettings,
 	_ *purecef.DictionaryValue, noJavaScriptAccess *bool,
 ) bool {
 	if targetURL == "" {
@@ -687,28 +693,47 @@ func (h *handlerSet) OnBeforePopup(
 	h.wv.mu.RLock()
 	cb := h.wv.callbacks
 	h.wv.mu.RUnlock()
+	if cb == nil || cb.OnCreate == nil {
+		return true
+	}
 
-	if cb != nil && cb.OnCreate != nil {
-		requestNoJavaScriptAccess := false
-		if noJavaScriptAccess != nil {
-			requestNoJavaScriptAccess = *noJavaScriptAccess
-		}
-		req := port.PopupRequest{
+	requestNoJavaScriptAccess := false
+	if noJavaScriptAccess != nil {
+		requestNoJavaScriptAccess = *noJavaScriptAccess
+	}
+	var popup port.WebView
+	h.wv.runOnGTKSync(func() {
+		popup = cb.OnCreate(port.PopupRequest{
 			TargetURI:          targetURL,
 			FrameName:          targetFrameName,
 			IsUserGesture:      userGesture != 0,
 			NoJavaScriptAccess: requestNoJavaScriptAccess,
 			ParentViewID:       h.wv.id,
-		}
-		h.wv.runOnGTK(func() {
-			cb.OnCreate(req)
 		})
+	})
+
+	cefPopup, ok := popup.(*WebView)
+	if !ok || cefPopup == nil {
+		return true
+	}
+	cefPopup.setPopupNoJavaScriptAccess(requestNoJavaScriptAccess)
+	if cefPopup.prepareNativePopup(popupID, targetURL, windowInfo, clientSlot, settings) {
+		return false
 	}
 
-	return true // always block CEF popup; the coordinator handles the new pane
+	cefPopup.discardNativePopupCandidate()
+	logging.FromContext(h.currentContext()).Debug().
+		Int32("popup_id", popupID).
+		Str("target_url", logging.TruncateURL(targetURL, logging.PermissionLogURLMaxLen)).
+		Msg("cef: native popup bridge unavailable, blocking CEF popup and using popup shell browser creation")
+	return true
 }
 
-func (h *handlerSet) OnBeforePopupAborted(_ purecef.Browser, _ int32) {}
+func (h *handlerSet) OnBeforePopupAborted(_ purecef.Browser, popupID int32) {
+	if popup := h.wv.takePendingNativePopup(popupID); popup != nil {
+		popup.handleNativePopupAborted()
+	}
+}
 
 func (h *handlerSet) OnBeforeDevToolsPopup(
 	_ purecef.Browser, _ *purecef.WindowInfo, _ *purecef.RawClientWriteSlot,
@@ -727,11 +752,6 @@ func (h *handlerSet) OnAfterCreated(browser purecef.Browser) {
 	log.Debug().
 		Int32("browser_id", browserID).
 		Msg("cef: OnAfterCreated")
-	if h.wv.engine != nil {
-		h.wv.engine.recordBrowserAfterCreated(browser)
-		h.wv.engine.registerWebView(h.wv)
-		h.wv.engine.bindBrowserWebView(browser, h.wv)
-	}
 	host := browser.GetHost()
 	if host == nil {
 		log.Warn().Msg("cef: OnAfterCreated returned nil host")
@@ -740,29 +760,61 @@ func (h *handlerSet) OnAfterCreated(browser purecef.Browser) {
 
 	shouldSyncFocus := false
 	hasPendingNavigation := false
+	nativePopupParent := (*WebView)(nil)
+	nativePopupID := int32(0)
+	duplicateBrowserID := int32(0)
+	closeDuplicate := false
 	h.wv.mu.Lock()
-	h.wv.browser = browser
-	h.wv.host = host
-	h.wv.input.setHost(host)
-	if h.wv.findCtrl != nil {
-		h.wv.findCtrl.setHost(host)
-	}
-
-	// Mark browser as visible — CEF OSR starts in hidden state and suppresses
-	// painting/caret updates until explicitly told the browser is shown.
-	host.WasHidden(0)
-
-	// If GTK focus entered before the browser existed, reassert browser focus
-	// now. Otherwise CEF may stay internally unfocused and suppress caret paint.
-	if h.wv.input != nil {
-		shouldSyncFocus = h.wv.input.hasGTKFocus()
-		if !shouldSyncFocus && h.wv.input.glArea != nil {
-			shouldSyncFocus = h.wv.input.glArea.HasFocus()
+	if existing := h.wv.browser; existing != nil {
+		existingID := existing.GetIdentifier()
+		if existingID != 0 && existingID != browserID {
+			duplicateBrowserID = existingID
+			closeDuplicate = true
 		}
 	}
-	hasPendingNavigation = strings.TrimSpace(h.wv.pendingURI) != ""
+	if !closeDuplicate {
+		h.wv.browser = browser
+		h.wv.host = host
+		h.wv.pendingCreate = nil
+		h.wv.input.setHost(host)
+		if h.wv.findCtrl != nil {
+			h.wv.findCtrl.setHost(host)
+		}
+		nativePopupParent = h.wv.nativePopupParent
+		nativePopupID = h.wv.nativePopupID
+		h.wv.nativePopupParent = nil
+		h.wv.nativePopupID = 0
+		h.wv.nativePopupFallbackStarted = false
 
+		// Mark browser as visible — CEF OSR starts in hidden state and suppresses
+		// painting/caret updates until explicitly told the browser is shown.
+		host.WasHidden(0)
+
+		// If GTK focus entered before the browser existed, reassert browser focus
+		// now. Otherwise CEF may stay internally unfocused and suppress caret paint.
+		if h.wv.input != nil {
+			shouldSyncFocus = h.wv.input.hasGTKFocus()
+			if !shouldSyncFocus && h.wv.input.glArea != nil {
+				shouldSyncFocus = h.wv.input.glArea.HasFocus()
+			}
+		}
+		hasPendingNavigation = strings.TrimSpace(h.wv.pendingURI) != ""
+	}
 	h.wv.mu.Unlock()
+	if closeDuplicate {
+		log.Warn().
+			Int32("browser_id", browserID).
+			Int32("existing_browser_id", duplicateBrowserID).
+			Msg("cef: duplicate popup browser attached after shell already had a browser; closing duplicate")
+		host.CloseBrowser(1)
+		return
+	}
+	if h.wv.engine != nil {
+		h.wv.engine.recordBrowserAfterCreated(browser)
+		h.wv.engine.registerWebView(h.wv)
+		h.wv.engine.bindBrowserWebView(browser, h.wv)
+	}
+	h.wv.stopNativePopupFallbackTimer()
 	if shouldSyncFocus {
 		syncWindowlessBrowserFocus(host)
 	} else {
@@ -774,8 +826,12 @@ func (h *handlerSet) OnAfterCreated(browser purecef.Browser) {
 	if hasPendingNavigation {
 		h.wv.schedulePendingNavigationReplay(0)
 	}
+	if nativePopupParent != nil && nativePopupID != 0 {
+		nativePopupParent.clearPendingNativePopup(nativePopupID, h.wv)
+	}
 
 	h.wv.scheduleStartBeginFrameLoop()
+	h.wv.fireReadyToShow()
 }
 
 // DoClose returns false to allow the default close behavior.

@@ -707,7 +707,7 @@ const popupFetchBridgeJS = `(function() {
       focus: function() { return undefined; },
       postMessage: function() { return undefined; }
     };
-    proxy.opener = popupHasNoOpener(features) ? null : window;
+    proxy.opener = noJavaScriptAccess ? null : window;
     proxy.self = proxy;
     proxy.window = proxy;
 
@@ -732,6 +732,13 @@ const popupFetchBridgeJS = `(function() {
     } catch (_) {
       proxy.location = locationProxy;
     }
+
+    try {
+      Object.defineProperty(proxy, Symbol.toStringTag, {
+        configurable: true,
+        value: 'Window'
+      });
+    } catch (_) {}
 
     return proxy;
   }
@@ -892,7 +899,7 @@ func (ci *contentInjector) onLoadEnd(wv *WebView) {
 
 	// Clipboard copy/cut, editable focus sync, and synthetic popup proxies still
 	// need a JS bridge in OSR mode while the native renderer bridge remains disabled.
-	bridgeNonce := wv.rotateBridgeNonce()
+	bridgeNonce := wv.ensureBridgeNonce()
 	if bridgeNonce == "" {
 		ctx := context.Background()
 		if ci != nil && ci.engine != nil {

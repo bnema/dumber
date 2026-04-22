@@ -13,6 +13,7 @@ import (
 	"github.com/bnema/dumber/internal/application/port"
 	"github.com/bnema/dumber/internal/application/port/mocks"
 	"github.com/bnema/dumber/internal/domain/entity"
+	domainerrors "github.com/bnema/dumber/internal/domain/errors"
 )
 
 // ---------------------------------------------------------------------------
@@ -126,23 +127,6 @@ func TestGetBehavior_TabPopup_BlocksWhenOpenInNewPaneFalse(t *testing.T) {
 	assert.Equal(t, entity.PopupBehaviorSplit, GetBehavior(PopupTypeTab, cfg))
 }
 
-func TestNormalizePopupTargetURIForFallback_RewritesNotionPopupVerifier(t *testing.T) {
-	t.Parallel()
-
-	raw := "https://www.notion.so/verifyNoPopupBlockerHtmlAndRedirect?redirectUri=https%3A%2F%2Fwww.notion.so%2Fgooglepopupredirect%3FcallbackType%3Dpopup%26redirectToAuth%3Dtrue%26requestId%3Dabc"
-	assert.Equal(t,
-		"https://www.notion.so/googlepopupredirect?callbackType=popup&redirectToAuth=true&requestId=abc",
-		normalizePopupTargetURIForFallback(raw),
-	)
-}
-
-func TestNormalizePopupTargetURIForFallback_PreservesUnknownURLs(t *testing.T) {
-	t.Parallel()
-
-	raw := "https://example.com/login-popup?redirectUri=https%3A%2F%2Fexample.com%2Fcallback"
-	assert.Equal(t, raw, normalizePopupTargetURIForFallback(raw))
-}
-
 func newPopupCreateCoordinatorForTest(t *testing.T, popupID port.WebViewID) (context.Context, entity.PaneID, *mocks.MockWebView, *mocks.MockWebView, *Coordinator) {
 	t.Helper()
 
@@ -165,6 +149,41 @@ func newPopupCreateCoordinatorForTest(t *testing.T, popupID port.WebViewID) (con
 	c.SetPopupConfig(factory, nil, func() string { return "popup-pane" })
 
 	return ctx, parentPaneID, parentWV, popupWV, c
+}
+
+func TestHandlePopupCreate_PrimesPopupNavigationCapability(t *testing.T) {
+	ctx := context.Background()
+	parentPaneID := entity.PaneID("parent-pane")
+	parentWV := mocks.NewMockWebView(t)
+	parentWV.EXPECT().ID().Return(port.WebViewID(101)).Once()
+
+	popupWV := &popupNavigationWebViewStub{MockWebView: mocks.NewMockWebView(t)}
+	popupWV.EXPECT().ID().Return(port.WebViewID(149)).Once()
+	popupWV.EXPECT().Generation().Return(uint64(1)).Once()
+	popupWV.EXPECT().SetCallbacks(mock.Anything).Once()
+
+	factory := mocks.NewMockWebViewFactory(t)
+	factory.EXPECT().Create(mock.Anything).Return(popupWV, nil).Once()
+
+	c := &Coordinator{
+		webViews:      make(map[entity.PaneID]port.WebView),
+		pendingPopups: make(map[port.WebViewID]*PendingPopup),
+		popupOAuth:    make(map[port.WebViewID]*popupOAuthState),
+	}
+	c.SetPopupConfig(factory, nil, nil)
+	c.SetOnInsertPopup(func(_ context.Context, input InsertPopupInput) error {
+		return nil
+	})
+
+	created := c.handlePopupCreate(ctx, parentPaneID, parentWV, port.PopupRequest{
+		TargetURI:          "https://example.com/popup",
+		FrameName:          "auth-popup",
+		IsUserGesture:      true,
+		NoJavaScriptAccess: true,
+	})
+
+	require.Same(t, popupWV, created)
+	require.Equal(t, []string{"https://example.com/popup"}, popupWV.primed)
 }
 
 func TestHandlePopupCreate_RegistersPopupWebViewBeforeWorkspaceInsertion(t *testing.T) {
@@ -274,7 +293,7 @@ func TestHandlePopupCreate_SkipsRelatedCreateAfterUnsupportedFactoryError(t *tes
 	secondPopupWV.EXPECT().LoadURI(mock.Anything, "https://example.com/second").Return(nil).Once()
 
 	factory := mocks.NewMockWebViewFactory(t)
-	factory.EXPECT().CreateRelated(mock.Anything, port.WebViewID(101)).Return(nil, port.ErrRelatedWebViewUnsupported).Once()
+	factory.EXPECT().CreateRelated(mock.Anything, port.WebViewID(101)).Return(nil, domainerrors.ErrRelatedWebViewUnsupported).Once()
 	factory.EXPECT().Create(mock.Anything).Return(firstPopupWV, nil).Once()
 	factory.EXPECT().Create(mock.Anything).Return(secondPopupWV, nil).Once()
 
@@ -303,7 +322,7 @@ func TestHandlePopupCreate_SkipsRelatedCreateAfterUnsupportedFactoryError(t *tes
 	require.Same(t, secondPopupWV, second)
 }
 
-func TestHandlePopupCreate_FallsBackToRegularWebViewWhenRelatedCreateFails(t *testing.T) {
+func TestHandlePopupCreate_FallsBackToRegularWebViewWhenRelatedCreateIsUnsupported(t *testing.T) {
 	ctx := context.Background()
 	parentPaneID := entity.PaneID("parent-pane")
 	parentWV := mocks.NewMockWebView(t)
@@ -318,7 +337,7 @@ func TestHandlePopupCreate_FallsBackToRegularWebViewWhenRelatedCreateFails(t *te
 	popupWV.EXPECT().LoadURI(mock.Anything, "https://example.com/edit").Return(nil).Once()
 
 	factory := mocks.NewMockWebViewFactory(t)
-	factory.EXPECT().CreateRelated(mock.Anything, port.WebViewID(101)).Return(nil, errors.New("related popup webviews are not supported yet")).Once()
+	factory.EXPECT().CreateRelated(mock.Anything, port.WebViewID(101)).Return(nil, domainerrors.ErrRelatedWebViewUnsupported).Once()
 	factory.EXPECT().Create(mock.Anything).Return(popupWV, nil).Once()
 
 	insertCalls := 0
@@ -346,22 +365,22 @@ func TestHandlePopupCreate_FallsBackToRegularWebViewWhenRelatedCreateFails(t *te
 	assert.Equal(t, 1, insertCalls)
 }
 
-func TestHandlePopupCreate_RewritesNotionVerifierWhenFallingBackToRegularWebView(t *testing.T) {
+func TestHandlePopupCreate_FallsBackToRegularWebViewWhenRelatedCreateFailsUnexpectedly(t *testing.T) {
 	ctx := context.Background()
 	parentPaneID := entity.PaneID("parent-pane")
 	parentWV := mocks.NewMockWebView(t)
 	parentWV.EXPECT().ID().Return(port.WebViewID(101)).Once()
 
 	popupWV := mocks.NewMockWebView(t)
-	popupWV.EXPECT().ID().Return(port.WebViewID(303)).Once()
+	popupWV.EXPECT().ID().Return(port.WebViewID(204)).Once()
 	popupWV.EXPECT().Generation().Return(uint64(1)).Once()
 	popupWV.EXPECT().SetCallbacks(mock.Anything).Once()
 	popupWV.EXPECT().IsLoading().Return(false).Once()
 	popupWV.EXPECT().URI().Return("").Once()
-	popupWV.EXPECT().LoadURI(mock.Anything, "https://www.notion.so/googlepopupredirect?callbackType=popup&redirectToAuth=true&requestId=abc").Return(nil).Once()
+	popupWV.EXPECT().LoadURI(mock.Anything, "https://example.com/edit").Return(nil).Once()
 
 	factory := mocks.NewMockWebViewFactory(t)
-	factory.EXPECT().CreateRelated(mock.Anything, port.WebViewID(101)).Return(nil, errors.New("related popup webviews are not supported yet")).Once()
+	factory.EXPECT().CreateRelated(mock.Anything, port.WebViewID(101)).Return(nil, errors.New("boom")).Once()
 	factory.EXPECT().Create(mock.Anything).Return(popupWV, nil).Once()
 
 	insertCalls := 0
@@ -373,18 +392,61 @@ func TestHandlePopupCreate_RewritesNotionVerifierWhenFallingBackToRegularWebView
 	c.SetPopupConfig(factory, nil, nil)
 	c.SetOnInsertPopup(func(_ context.Context, input InsertPopupInput) error {
 		insertCalls++
-		assert.Equal(t, "https://www.notion.so/googlepopupredirect?callbackType=popup&redirectToAuth=true&requestId=abc", input.TargetURI)
+		assert.Equal(t, popupWV, input.WebView)
 		return nil
 	})
 
 	created := c.handlePopupCreate(ctx, parentPaneID, parentWV, port.PopupRequest{
-		TargetURI:     "https://www.notion.so/verifyNoPopupBlockerHtmlAndRedirect?redirectUri=https%3A%2F%2Fwww.notion.so%2Fgooglepopupredirect%3FcallbackType%3Dpopup%26redirectToAuth%3Dtrue%26requestId%3Dabc",
-		FrameName:     "Google login",
+		TargetURI:     "https://example.com/edit",
+		FrameName:     "_blank",
 		IsUserGesture: true,
 	})
 
 	require.Same(t, popupWV, created)
 	assert.Equal(t, 1, insertCalls)
+}
+
+func TestHandlePopupCreate_PreservesOriginalTargetWhenRelatedCreateIsUnsupported(t *testing.T) {
+	ctx := context.Background()
+	parentPaneID := entity.PaneID("parent-pane")
+	parentWV := mocks.NewMockWebView(t)
+	parentWV.EXPECT().ID().Return(port.WebViewID(101)).Once()
+
+	popupWV := &popupOpenerBridgeWebViewStub{MockWebView: mocks.NewMockWebView(t)}
+	popupWV.EXPECT().ID().Return(port.WebViewID(303)).Once()
+	popupWV.EXPECT().Generation().Return(uint64(1)).Once()
+	popupWV.EXPECT().SetCallbacks(mock.Anything).Once()
+	popupWV.EXPECT().IsLoading().Return(false).Once()
+	popupWV.EXPECT().URI().Return("").Once()
+	popupWV.EXPECT().LoadURI(mock.Anything, "https://example.com/popup?redirect=%2Fcallback").Return(nil).Once()
+
+	factory := mocks.NewMockWebViewFactory(t)
+	factory.EXPECT().CreateRelated(mock.Anything, port.WebViewID(101)).Return(nil, domainerrors.ErrRelatedWebViewUnsupported).Once()
+	factory.EXPECT().Create(mock.Anything).Return(popupWV, nil).Once()
+
+	insertCalls := 0
+	c := &Coordinator{
+		webViews:      make(map[entity.PaneID]port.WebView),
+		pendingPopups: make(map[port.WebViewID]*PendingPopup),
+		popupOAuth:    make(map[port.WebViewID]*popupOAuthState),
+	}
+	c.SetPopupConfig(factory, nil, nil)
+	c.SetOnInsertPopup(func(_ context.Context, input InsertPopupInput) error {
+		insertCalls++
+		assert.Equal(t, "https://example.com/popup?redirect=%2Fcallback", input.TargetURI)
+		return nil
+	})
+
+	created := c.handlePopupCreate(ctx, parentPaneID, parentWV, port.PopupRequest{
+		TargetURI:     "https://example.com/popup?redirect=%2Fcallback",
+		FrameName:     "auth-popup",
+		IsUserGesture: true,
+	})
+
+	require.Same(t, popupWV, created)
+	assert.Equal(t, 1, insertCalls)
+	assert.Same(t, parentWV, popupWV.parent)
+	assert.False(t, popupWV.noJavaScriptAccess)
 }
 
 func TestHandlePopupCreate_ReusesNamedPopup(t *testing.T) {
@@ -564,6 +626,26 @@ func TestSetPopupConfig_NilConfigAllowed(t *testing.T) {
 	assert.Nil(t, c.factory)
 	assert.Nil(t, c.popupConfig)
 	assert.Nil(t, c.generateID)
+}
+
+type popupNavigationWebViewStub struct {
+	*mocks.MockWebView
+	primed []string
+}
+
+func (s *popupNavigationWebViewStub) PrimePopupNavigation(uri string) {
+	s.primed = append(s.primed, uri)
+}
+
+type popupOpenerBridgeWebViewStub struct {
+	*mocks.MockWebView
+	parent             port.WebView
+	noJavaScriptAccess bool
+}
+
+func (s *popupOpenerBridgeWebViewStub) EnablePopupOpenerBridge(parent port.WebView, noJavaScriptAccess bool) {
+	s.parent = parent
+	s.noJavaScriptAccess = noJavaScriptAccess
 }
 
 // stubFactory satisfies port.WebViewFactory without importing the mocks package.

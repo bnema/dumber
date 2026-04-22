@@ -4,12 +4,11 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	neturl "net/url"
-	"strings"
 	"time"
 
 	"github.com/bnema/dumber/internal/application/port"
 	"github.com/bnema/dumber/internal/domain/entity"
+	domainerrors "github.com/bnema/dumber/internal/domain/errors"
 	"github.com/bnema/dumber/internal/logging"
 )
 
@@ -275,40 +274,6 @@ func (c *Coordinator) createPopupPane(
 	return paneID, popupPane
 }
 
-func normalizePopupTargetURIForFallback(rawTargetURI string) string {
-	trimmed := strings.TrimSpace(rawTargetURI)
-	if trimmed == "" {
-		return rawTargetURI
-	}
-
-	parsed, err := neturl.Parse(trimmed)
-	if err != nil {
-		return rawTargetURI
-	}
-
-	host := strings.ToLower(parsed.Hostname())
-	isNotionHost := host == "notion.so" || host == "notion.com" ||
-		strings.HasSuffix(host, ".notion.so") || strings.HasSuffix(host, ".notion.com")
-	if !isNotionHost || parsed.Path != "/verifyNoPopupBlockerHtmlAndRedirect" {
-		return rawTargetURI
-	}
-
-	redirectURI := strings.TrimSpace(parsed.Query().Get("redirectUri"))
-	if redirectURI == "" {
-		return rawTargetURI
-	}
-
-	redirectParsed, err := neturl.Parse(redirectURI)
-	if err != nil {
-		return rawTargetURI
-	}
-	if redirectParsed.Scheme != "https" && redirectParsed.Scheme != "http" {
-		return rawTargetURI
-	}
-
-	return redirectParsed.String()
-}
-
 func (c *Coordinator) relatedPopupSupportDisabled() bool {
 	c.popupMu.RLock()
 	defer c.popupMu.RUnlock()
@@ -338,9 +303,9 @@ func (c *Coordinator) createPopupWebView(
 	parentID port.WebViewID,
 	targetURI string,
 	noJavaScriptAccess bool,
-) (port.WebView, string, error) {
+) (port.WebView, string, bool, error) {
 	if c.factory == nil {
-		return nil, targetURI, fmt.Errorf("no webview factory configured")
+		return nil, targetURI, false, fmt.Errorf("no webview factory configured")
 	}
 
 	log := logging.FromContext(ctx)
@@ -350,21 +315,30 @@ func (c *Coordinator) createPopupWebView(
 		popupWV, err := c.factory.CreateRelated(ctx, parentID)
 		if err == nil && popupWV != nil {
 			c.markRelatedPopupSupported()
-			return popupWV, targetURI, nil
+			return popupWV, targetURI, false, nil
 		}
 		if err == nil {
-			err = fmt.Errorf("related popup webview factory returned nil without error")
-		}
-		relatedErr = err
-		if errors.Is(err, port.ErrRelatedWebViewUnsupported) {
+			relatedErr = fmt.Errorf("related popup webview factory returned nil without error")
+			log.Warn().
+				Uint64("parent_webview_id", uint64(parentID)).
+				Str("target_uri", logging.TruncateURL(targetURI, logURLMaxLen)).
+				Msg("related popup webview factory returned nil popup, falling back to regular webview")
+		} else if errors.Is(err, domainerrors.ErrRelatedWebViewUnsupported) {
+			relatedErr = err
 			c.markRelatedPopupUnsupported()
+			log.Debug().
+				Err(err).
+				Uint64("parent_webview_id", uint64(parentID)).
+				Str("target_uri", logging.TruncateURL(targetURI, logURLMaxLen)).
+				Msg("related popup webview unavailable, falling back to regular webview")
+		} else {
+			relatedErr = err
+			log.Warn().
+				Err(err).
+				Uint64("parent_webview_id", uint64(parentID)).
+				Str("target_uri", logging.TruncateURL(targetURI, logURLMaxLen)).
+				Msg("related popup webview creation failed, falling back to regular webview")
 		}
-
-		log.Debug().
-			Err(err).
-			Uint64("parent_webview_id", uint64(parentID)).
-			Str("target_uri", logging.TruncateURL(targetURI, logURLMaxLen)).
-			Msg("related popup webview unavailable, falling back to regular webview")
 	} else if noJavaScriptAccess {
 		log.Debug().
 			Uint64("parent_webview_id", uint64(parentID)).
@@ -380,23 +354,15 @@ func (c *Coordinator) createPopupWebView(
 	popupWV, fallbackErr := c.factory.Create(ctx)
 	if fallbackErr != nil {
 		if relatedErr != nil {
-			return nil, targetURI, fmt.Errorf("create popup webview: related failed: %w; fallback failed: %w", relatedErr, fallbackErr)
+			return nil, targetURI, false, fmt.Errorf("create popup webview: related failed: %w; fallback failed: %w", relatedErr, fallbackErr)
 		}
-		return nil, targetURI, fmt.Errorf("create popup webview: fallback failed: %w", fallbackErr)
+		return nil, targetURI, false, fmt.Errorf("create popup webview: fallback failed: %w", fallbackErr)
 	}
 	if popupWV == nil {
-		return nil, targetURI, fmt.Errorf("popup webview factory returned nil without error")
+		return nil, targetURI, false, fmt.Errorf("popup webview factory returned nil without error")
 	}
 
-	effectiveTargetURI := normalizePopupTargetURIForFallback(targetURI)
-	if effectiveTargetURI != targetURI {
-		log.Debug().
-			Str("original_target_uri", logging.TruncateURL(targetURI, logURLMaxLen)).
-			Str("effective_target_uri", logging.TruncateURL(effectiveTargetURI, logURLMaxLen)).
-			Msg("rewrote popup target URI for regular-webview fallback")
-	}
-
-	return popupWV, effectiveTargetURI, nil
+	return popupWV, targetURI, true, nil
 }
 
 // handlePopupCreate handles a popup request from the current WebView.
@@ -435,8 +401,15 @@ func (c *Coordinator) handlePopupCreate(
 
 	parentID := parentWV.ID()
 	parentURIAtOpen := ""
-	if parent := c.getWebViewLocked(parentPaneID); parent != nil {
-		parentURIAtOpen = parent.URI()
+	if c.popupConfig != nil && c.popupConfig.OAuthAutoClose && IsOAuthURL(req.TargetURI) {
+		if parentWV != nil {
+			parentURIAtOpen = parentWV.URI()
+		}
+		if parentURIAtOpen == "" {
+			if parent := c.getWebViewLocked(parentPaneID); parent != nil {
+				parentURIAtOpen = parent.URI()
+			}
+		}
 	}
 	if !req.NoJavaScriptAccess {
 		if reused, ok := c.reuseNamedPopup(ctx, parentPaneID, req.FrameName, req.TargetURI); ok {
@@ -445,9 +418,9 @@ func (c *Coordinator) handlePopupCreate(
 	}
 
 	// Prefer a related WebView for session sharing, but fall back to a regular
-	// WebView on engines like CEF OSR that do not implement native related
-	// popup views yet.
-	popupWV, effectiveTargetURI, err := c.createPopupWebView(ctx, parentID, req.TargetURI, req.NoJavaScriptAccess)
+	// WebView when the active engine cannot provide a related popup instance for
+	// this request.
+	popupWV, effectiveTargetURI, usedRegularFallback, err := c.createPopupWebView(ctx, parentID, req.TargetURI, req.NoJavaScriptAccess)
 	if err != nil {
 		log.Error().Err(err).Msg("failed to create webview for popup")
 		return nil
@@ -455,6 +428,11 @@ func (c *Coordinator) handlePopupCreate(
 
 	if effectiveTargetURI != req.TargetURI {
 		req.TargetURI = effectiveTargetURI
+	}
+	if usedRegularFallback {
+		if openerBridge, ok := popupWV.(port.PopupOpenerBridgeCapable); ok {
+			openerBridge.EnablePopupOpenerBridge(parentWV, req.NoJavaScriptAccess)
+		}
 	}
 
 	// Detect popup type
@@ -578,6 +556,10 @@ func (c *Coordinator) finishPopupCreate(
 	}
 	inserted = true
 
+	if primable, ok := popupWV.(port.PopupNavigationCapable); ok {
+		primable.PrimePopupNavigation(req.TargetURI)
+	}
+
 	if !req.NoJavaScriptAccess {
 		c.storeReusableNamedPopup(parentPaneID, req.FrameName, popupWV)
 	}
@@ -633,9 +615,8 @@ func (c *Coordinator) finishPopupCreate(
 			Str("target_uri", logging.TruncateURL(req.TargetURI, logURLMaxLen)).
 			Msg("popup inserted (hidden), awaiting ready-to-show for visibility")
 	} else {
-		// Engine does not support PopupCapable (e.g. CEF OSR where we create
-		// an independent browser, not a real CEF popup). The WebView is ready
-		// immediately — fire ready-to-show inline.
+		// Engine does not expose popup lifecycle callbacks. Treat the inserted
+		// WebView as ready immediately and continue with the same coordinator flow.
 		log.Info().
 			Uint64("popup_id", uint64(popupID)).
 			Str("pane_id", string(paneID)).
@@ -677,9 +658,10 @@ func (c *Coordinator) handlePopupReadyToShow(ctx context.Context, popupID port.W
 		if pc, ok := pending.WebView.(port.PopupCapable); ok {
 			pc.Show()
 		}
-		// For engines that create independent browsers (not real popups),
-		// the WebView has no pending navigation — load the target URI.
-		if pending.TargetURI != "" && !pending.WebView.IsLoading() && pending.WebView.URI() == "" {
+		_, preloadsNavigation := pending.WebView.(port.PopupNavigationCapable)
+		// Engines that do not preload popup navigation can request the target URI
+		// here once the popup becomes visible.
+		if !preloadsNavigation && pending.TargetURI != "" && !pending.WebView.IsLoading() && pending.WebView.URI() == "" {
 			if err := pending.WebView.LoadURI(ctx, pending.TargetURI); err != nil {
 				log.Warn().Err(err).
 					Str("uri", logging.TruncateURL(pending.TargetURI, logURLMaxLen)).

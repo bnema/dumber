@@ -23,10 +23,16 @@ import (
 
 // Compile-time interface checks.
 var (
-	_ port.WebView              = (*WebView)(nil)
-	_ port.NativeWidgetProvider = (*WebView)(nil)
-	_ port.DevToolsOpener       = (*WebView)(nil)
-	_ port.OAuthCallbackCapable = (*WebView)(nil)
+	_ port.WebView                       = (*WebView)(nil)
+	_ port.NativeWidgetProvider          = (*WebView)(nil)
+	_ port.DevToolsOpener                = (*WebView)(nil)
+	_ port.PopupCapable                  = (*WebView)(nil)
+	_ port.PopupNavigationCapable        = (*WebView)(nil)
+	_ port.PopupOpenerBridgeCapable      = (*WebView)(nil)
+	_ port.PopupOpenerMessageCapable     = (*WebView)(nil)
+	_ port.PopupOpenerNavigationCapable  = (*WebView)(nil)
+	_ port.PopupOpenerBridgeStateCapable = (*WebView)(nil)
+	_ port.OAuthCallbackCapable          = (*WebView)(nil)
 )
 
 // errDestroyed is returned when an operation is attempted on a destroyed WebView.
@@ -39,6 +45,7 @@ const (
 	clipboardSelectionDebounceDelay = 300 * time.Millisecond
 	pendingNavigationRetryDelay     = 50 * time.Millisecond
 	pendingNavigationMaxRetries     = 80
+	nativePopupAttachFallbackDelay  = 250 * time.Millisecond
 )
 
 type stoppableTimer interface {
@@ -101,8 +108,28 @@ type WebView struct {
 
 	// Programmatic popup lifecycle callbacks used for OAuth auto-close and
 	// synthetic window.open() proxy support on CEF.
-	closeCallbacks      []func()
-	navigationCallbacks []func(string)
+	closeCallbacks            []func()
+	navigationCallbacks       []func(string)
+	openerMessageCallbacks    []func()
+	openerNavigationCallbacks []func(string)
+	popupReadyToShow          func()
+	popupReadyShown           bool
+
+	// Native popup bookkeeping. CreateRelated() returns a popup shell with no
+	// browser attached yet; OnBeforePopup may wire CEF's real popup browser into
+	// that shell. If native attachment is unavailable or stalls, the shell can
+	// still create its own browser directly while preserving the same popup pane
+	// lifecycle from the coordinator's perspective.
+	nativePopupCandidate        bool
+	nativePopupParent           *WebView
+	nativePopupID               int32
+	nativePopupFallbackStarted  bool
+	nativePopupFallbackTimer    stoppableTimer
+	nativePopupFallbackSchedule func(time.Duration, func()) stoppableTimer
+	pendingNativePopups         map[int32]*WebView
+	popupNoJavaScriptAccess     bool
+	popupOpenerBridgeParent     *WebView
+	popupOpenerBridgeParentURI  string
 
 	// State cache (mutex-protected).
 	uri                       string
@@ -135,6 +162,11 @@ type WebView struct {
 	generation   atomic.Uint64
 	audioPlaying atomic.Bool
 	zoomFactor   atomic.Value // float64, initialized to 1.0
+
+	// Browser creation defaults copied from the factory so native popup shells
+	// can apply the same settings in OnBeforePopup.
+	windowlessFrameRate int32
+	backgroundColor     uint32
 
 	// Audio output factory and active stream.
 	audioOutputFactory port.AudioOutputFactory
@@ -475,6 +507,56 @@ func (wv *WebView) SetCallbacks(cb *port.WebViewCallbacks) {
 	wv.callbacks = cb
 }
 
+// SetOnReadyToShow implements port.PopupCapable.
+func (wv *WebView) SetOnReadyToShow(fn func()) {
+	if wv == nil {
+		return
+	}
+	wv.mu.Lock()
+	wv.popupReadyToShow = fn
+	alreadyReady := wv.browser != nil && !wv.popupReadyShown && fn != nil
+	wv.mu.Unlock()
+	if alreadyReady {
+		wv.fireReadyToShow()
+	}
+}
+
+// SetOnClose implements port.PopupCapable.
+func (wv *WebView) SetOnClose(fn func()) {
+	wv.AddCloseCallback(fn)
+}
+
+// Show implements port.PopupCapable.
+func (wv *WebView) Show() {
+	if wv == nil || wv.destroyed.Load() {
+		return
+	}
+	wv.mu.RLock()
+	host := wv.host
+	wv.mu.RUnlock()
+	if host != nil {
+		host.WasHidden(0)
+	}
+}
+
+// PrimePopupNavigation implements port.PopupNavigationCapable.
+func (wv *WebView) PrimePopupNavigation(uri string) {
+	if wv == nil || wv.destroyed.Load() {
+		return
+	}
+	actualURI := toActualInternalURL(strings.TrimSpace(uri))
+	if actualURI == "" {
+		return
+	}
+	wv.mu.Lock()
+	browser := wv.browser
+	wv.pendingURI = actualURI
+	wv.mu.Unlock()
+	if browser != nil {
+		wv.schedulePendingNavigationReplay(0)
+	}
+}
+
 // AddCloseCallback implements port.OAuthCallbackCapable.
 func (wv *WebView) AddCloseCallback(fn func()) {
 	if wv == nil || fn == nil {
@@ -508,6 +590,276 @@ func (wv *WebView) Close() {
 		return
 	}
 	wv.runCloseCallbacks()
+}
+
+func (wv *WebView) fireReadyToShow() {
+	if wv == nil {
+		return
+	}
+	wv.mu.Lock()
+	if wv.popupReadyShown || wv.popupReadyToShow == nil {
+		wv.mu.Unlock()
+		return
+	}
+	fn := wv.popupReadyToShow
+	wv.popupReadyShown = true
+	wv.mu.Unlock()
+	wv.runOnGTK(fn)
+}
+
+func (wv *WebView) markNativePopupCandidate(parent *WebView) {
+	if wv == nil {
+		return
+	}
+	wv.stopNativePopupFallbackTimer()
+	wv.mu.Lock()
+	wv.nativePopupCandidate = true
+	wv.nativePopupParent = parent
+	wv.nativePopupID = 0
+	wv.nativePopupFallbackStarted = false
+	wv.mu.Unlock()
+}
+
+func (wv *WebView) isNativePopupCandidate() bool {
+	if wv == nil {
+		return false
+	}
+	wv.mu.RLock()
+	defer wv.mu.RUnlock()
+	return wv.nativePopupCandidate
+}
+
+func popupParentWindowHandle(parent *WebView) uintptr {
+	if parent == nil {
+		return 0
+	}
+	parent.mu.RLock()
+	host := parent.host
+	parent.mu.RUnlock()
+	if host == nil {
+		return 0
+	}
+	if handle := host.GetWindowHandle(); handle != 0 {
+		return handle
+	}
+	return host.GetOpenerWindowHandle()
+}
+
+func (wv *WebView) discardNativePopupCandidate() {
+	if wv == nil {
+		return
+	}
+	wv.mu.Lock()
+	wv.nativePopupCandidate = false
+	wv.nativePopupParent = nil
+	wv.nativePopupID = 0
+	wv.mu.Unlock()
+}
+
+func (wv *WebView) awaitsNativePopupAttachment() bool {
+	if wv == nil {
+		return false
+	}
+	wv.mu.RLock()
+	defer wv.mu.RUnlock()
+	return wv.browser == nil && !wv.nativePopupFallbackStarted && (wv.nativePopupCandidate || wv.nativePopupID != 0)
+}
+
+func (wv *WebView) nativePopupFallbackScheduler() func(time.Duration, func()) stoppableTimer {
+	if wv != nil && wv.nativePopupFallbackSchedule != nil {
+		return wv.nativePopupFallbackSchedule
+	}
+	return func(delay time.Duration, fn func()) stoppableTimer {
+		return time.AfterFunc(delay, fn)
+	}
+}
+
+func (wv *WebView) stopNativePopupFallbackTimer() {
+	if wv == nil {
+		return
+	}
+	wv.mu.Lock()
+	timer := wv.nativePopupFallbackTimer
+	wv.nativePopupFallbackTimer = nil
+	wv.mu.Unlock()
+	if timer != nil {
+		timer.Stop()
+	}
+}
+
+func (wv *WebView) scheduleNativePopupFallback(delay time.Duration, fn func()) {
+	if wv == nil || fn == nil {
+		return
+	}
+	wv.stopNativePopupFallbackTimer()
+	var timer stoppableTimer
+	timer = wv.nativePopupFallbackScheduler()(delay, func() {
+		wv.mu.Lock()
+		if wv.nativePopupFallbackTimer != timer {
+			wv.mu.Unlock()
+			return
+		}
+		wv.nativePopupFallbackTimer = nil
+		wv.mu.Unlock()
+		fn()
+	})
+	wv.mu.Lock()
+	wv.nativePopupFallbackTimer = timer
+	wv.mu.Unlock()
+}
+
+func (wv *WebView) preparePopupShellDirectBrowserCreation() bool {
+	if wv == nil {
+		return false
+	}
+	wv.stopNativePopupFallbackTimer()
+	wv.mu.Lock()
+	if wv.browser != nil || wv.nativePopupFallbackStarted || wv.pendingCreate == nil {
+		wv.mu.Unlock()
+		return false
+	}
+	parent := wv.nativePopupParent
+	popupID := wv.nativePopupID
+	wv.nativePopupFallbackStarted = true
+	wv.nativePopupCandidate = false
+	wv.nativePopupParent = nil
+	wv.nativePopupID = 0
+	if !wv.popupNoJavaScriptAccess && parent != nil {
+		wv.popupOpenerBridgeParent = parent
+		wv.popupOpenerBridgeParentURI = parent.URI()
+	} else {
+		wv.popupOpenerBridgeParent = nil
+		wv.popupOpenerBridgeParentURI = ""
+	}
+	wv.mu.Unlock()
+	if parent != nil && popupID != 0 {
+		parent.clearPendingNativePopup(popupID, wv)
+	}
+	return true
+}
+
+func (wv *WebView) startNativePopupFallback() bool {
+	if wv == nil {
+		return false
+	}
+	wv.mu.RLock()
+	alreadyStarted := wv.nativePopupFallbackStarted
+	wv.mu.RUnlock()
+	if alreadyStarted {
+		return false
+	}
+	return wv.preparePopupShellDirectBrowserCreation()
+}
+
+func (wv *WebView) trackPendingNativePopup(popupID int32, popup *WebView) {
+	if wv == nil || popupID == 0 || popup == nil {
+		return
+	}
+	wv.mu.Lock()
+	if wv.pendingNativePopups == nil {
+		wv.pendingNativePopups = make(map[int32]*WebView)
+	}
+	wv.pendingNativePopups[popupID] = popup
+	wv.mu.Unlock()
+}
+
+func (wv *WebView) takePendingNativePopup(popupID int32) *WebView {
+	if wv == nil || popupID == 0 {
+		return nil
+	}
+	wv.mu.Lock()
+	defer wv.mu.Unlock()
+	popup := wv.pendingNativePopups[popupID]
+	delete(wv.pendingNativePopups, popupID)
+	return popup
+}
+
+func (wv *WebView) clearPendingNativePopup(popupID int32, popup *WebView) {
+	if wv == nil || popupID == 0 || popup == nil {
+		return
+	}
+	wv.mu.Lock()
+	defer wv.mu.Unlock()
+	if current := wv.pendingNativePopups[popupID]; current == popup {
+		delete(wv.pendingNativePopups, popupID)
+	}
+}
+
+func (wv *WebView) prepareNativePopup(
+	popupID int32,
+	targetURL string,
+	windowInfo *purecef.WindowInfo,
+	clientSlot *purecef.RawClientWriteSlot,
+	settings *purecef.BrowserSettings,
+) bool {
+	if wv == nil || wv.destroyed.Load() || popupID == 0 || windowInfo == nil || clientSlot == nil {
+		return false
+	}
+
+	wv.mu.RLock()
+	if !wv.nativePopupCandidate || wv.client == nil || wv.nativePopupFallbackStarted || wv.browser != nil {
+		wv.mu.RUnlock()
+		return false
+	}
+	parent := wv.nativePopupParent
+	frameRate := wv.windowlessFrameRate
+	backgroundColor := wv.backgroundColor
+	wv.mu.RUnlock()
+
+	parentWindowHandle := popupParentWindowHandle(parent)
+	if parentWindowHandle == 0 {
+		return false
+	}
+
+	wv.mu.Lock()
+	if !wv.nativePopupCandidate || wv.client == nil || wv.nativePopupFallbackStarted || wv.browser != nil {
+		wv.mu.Unlock()
+		return false
+	}
+	wv.nativePopupCandidate = false
+	wv.nativePopupID = popupID
+	wv.nativePopupFallbackStarted = false
+	if strings.TrimSpace(wv.pendingURI) == "" {
+		wv.pendingURI = toActualInternalURL(targetURL)
+	}
+	if strings.TrimSpace(wv.pendingURI) != "" {
+		wv.uri = toConceptualInternalURL(wv.pendingURI)
+	} else {
+		wv.uri = toConceptualInternalURL(targetURL)
+	}
+	wv.isLoading = true
+	client := wv.client
+	wv.mu.Unlock()
+
+	if parent != nil {
+		parent.trackPendingNativePopup(popupID, wv)
+	}
+
+	purecef.SetAsWindowless(windowInfo, purecef.WindowHandle(parentWindowHandle), false)
+	if externalBeginFrameEnabled() {
+		windowInfo.ExternalBeginFrameEnabled = 1
+	}
+	if settings != nil {
+		if frameRate > 0 {
+			settings.WindowlessFrameRate = frameRate
+		}
+		settings.LocalStorage = 1
+		if backgroundColor != 0 {
+			settings.BackgroundColor = backgroundColor
+		}
+	}
+	clientSlot.Set(client)
+	return true
+}
+
+func (wv *WebView) handleNativePopupAborted() {
+	if wv == nil {
+		return
+	}
+	wv.mu.Lock()
+	wv.nativePopupCandidate = false
+	wv.nativePopupID = 0
+	wv.mu.Unlock()
 }
 
 // ---------------------------------------------------------------------------
@@ -554,6 +906,19 @@ func (wv *WebView) rotateBridgeNonce() string {
 	return nonce
 }
 
+func (wv *WebView) ensureBridgeNonce() string {
+	if wv == nil {
+		return ""
+	}
+	wv.mu.RLock()
+	nonce := wv.bridgeNonce
+	wv.mu.RUnlock()
+	if nonce != "" {
+		return nonce
+	}
+	return wv.rotateBridgeNonce()
+}
+
 // SetBackgroundColor sets the background via JS injection (CEF has no runtime API).
 func (wv *WebView) SetBackgroundColor(r, g, b, a float64) {
 	script := fmt.Sprintf(
@@ -587,7 +952,14 @@ func (wv *WebView) Destroy() {
 	wv.mu.Lock()
 	wv.closeCallbacks = nil
 	wv.navigationCallbacks = nil
+	wv.popupReadyToShow = nil
+	wv.pendingNativePopups = nil
+	wv.nativePopupParent = nil
+	wv.nativePopupCandidate = false
+	wv.nativePopupID = 0
+	wv.nativePopupFallbackStarted = false
 	wv.mu.Unlock()
+	wv.stopNativePopupFallbackTimer()
 	wv.cancelSelectionDebounce()
 	if wv.resizeReconciler != nil {
 		wv.resizeReconciler.stop()
@@ -1172,13 +1544,31 @@ func (wv *WebView) runOnGTK(fn func()) {
 	glib.IdleAddOnce(cb, 0)
 }
 
+func (wv *WebView) runOnGTKSync(fn func()) {
+	if fn == nil {
+		return
+	}
+	if wv == nil || wv.engine == nil {
+		fn()
+		return
+	}
+
+	done := make(chan struct{})
+	wv.runOnGTK(func() {
+		defer close(done)
+		fn()
+	})
+	<-done
+}
+
 func (wv *WebView) runCloseCallbacks() {
 	if wv == nil {
 		return
 	}
-	wv.mu.RLock()
+	wv.mu.Lock()
 	callbacks := append([]func(){}, wv.closeCallbacks...)
-	wv.mu.RUnlock()
+	wv.closeCallbacks = nil
+	wv.mu.Unlock()
 	if len(callbacks) == 0 {
 		return
 	}

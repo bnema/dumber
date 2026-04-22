@@ -69,9 +69,11 @@ type dumbSchemeHandler struct {
 	// onPopupOpen/onPopupNavigate/onPopupClose bridge synthetic window.open()
 	// proxies from page JavaScript back into the browser process when native
 	// related popups are not available (e.g. CEF OSR regular-webview fallback path).
-	onPopupOpen     func(browser purecef.Browser, payload rendererBridgePopupOpenPayload)
-	onPopupNavigate func(browser purecef.Browser, payload rendererBridgePopupNavigatePayload)
-	onPopupClose    func(browser purecef.Browser, payload rendererBridgePopupClosePayload)
+	onPopupOpen              func(browser purecef.Browser, payload rendererBridgePopupOpenPayload)
+	onPopupNavigate          func(browser purecef.Browser, payload rendererBridgePopupNavigatePayload)
+	onPopupClose             func(browser purecef.Browser, payload rendererBridgePopupClosePayload)
+	onPopupOpenerNavigate    func(browser purecef.Browser, payload popupOpenerNavigatePayload)
+	onPopupOpenerPostMessage func(browser purecef.Browser, payload popupOpenerPostMessagePayload)
 
 	// bridgeNonceValidator checks whether a bridge nonce belongs to the active
 	// browser/navigation context that issued the request.
@@ -212,6 +214,10 @@ func (h *dumbSchemeHandler) handleAPIPost(browser purecef.Browser, path string, 
 		return h.handlePopupNavigate(request, browser), true
 	case "/api/popup-close":
 		return h.handlePopupClose(request, browser), true
+	case "/api/popup-opener-navigate":
+		return h.handlePopupOpenerNavigate(request, browser), true
+	case "/api/popup-opener-post-message":
+		return h.handlePopupOpenerPostMessage(request, browser), true
 	default:
 		return nil, false
 	}
@@ -413,6 +419,38 @@ func (h *dumbSchemeHandler) handlePopupNavigate(request purecef.Request, browser
 
 func (h *dumbSchemeHandler) handlePopupClose(request purecef.Request, browser purecef.Browser) purecef.ResourceHandler {
 	return handlePopupBridgeRequest(h, request, browser, "popup-close", decodeRendererBridgePopupClosePayload, h.onPopupClose)
+}
+
+func decodePopupOpenerNavigatePayload(body []byte) (popupOpenerNavigatePayload, error) {
+	var payload popupOpenerNavigatePayload
+	if err := json.Unmarshal(body, &payload); err != nil {
+		return payload, err
+	}
+	payload.URL = strings.TrimSpace(payload.URL)
+	if payload.URL == "" {
+		return payload, fmt.Errorf("missing url")
+	}
+	return payload, nil
+}
+
+func decodePopupOpenerPostMessagePayload(body []byte) (popupOpenerPostMessagePayload, error) {
+	var payload popupOpenerPostMessagePayload
+	if err := json.Unmarshal(body, &payload); err != nil {
+		return payload, err
+	}
+	payload.DataKind = strings.TrimSpace(payload.DataKind)
+	payload.TargetOrigin = strings.TrimSpace(payload.TargetOrigin)
+	payload.SourceOrigin = strings.TrimSpace(payload.SourceOrigin)
+	payload.SourceHref = strings.TrimSpace(payload.SourceHref)
+	return payload, nil
+}
+
+func (h *dumbSchemeHandler) handlePopupOpenerNavigate(request purecef.Request, browser purecef.Browser) purecef.ResourceHandler {
+	return handlePopupBridgeRequest(h, request, browser, "popup-opener-navigate", decodePopupOpenerNavigatePayload, h.onPopupOpenerNavigate)
+}
+
+func (h *dumbSchemeHandler) handlePopupOpenerPostMessage(request purecef.Request, browser purecef.Browser) purecef.ResourceHandler {
+	return handlePopupBridgeRequest(h, request, browser, "popup-opener-post-message", decodePopupOpenerPostMessagePayload, h.onPopupOpenerPostMessage)
 }
 
 func (h *dumbSchemeHandler) hasTrustedBridgeNonce(request purecef.Request, browser purecef.Browser) bool {

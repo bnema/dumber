@@ -55,3 +55,8 @@ func TestWebViewRotateBridgeNonce_ReplacesNonceOnSuccess(t *testing.T) {
 	defer wv.mu.RUnlock()
 	require.Equal(t, "0102030405060708090a0b0c0d0e0f10", wv.bridgeNonce)
 }
+
+func TestWebViewEnsureBridgeNonce_ReusesExistingNonce(t *testing.T) {
+	wv := &WebView{bridgeNonce: "existing-nonce"}
+	require.Equal(t, "existing-nonce", wv.ensureBridgeNonce())
+}

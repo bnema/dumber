@@ -12,6 +12,7 @@ type syntheticPopupState struct {
 	WebView            port.WebView
 	PendingURI         string
 	NoJavaScriptAccess bool
+	Closed             bool
 }
 
 func (wv *WebView) syntheticPopupState(proxyID string) *syntheticPopupState {
@@ -55,15 +56,27 @@ func (wv *WebView) handleSyntheticPopupOpen(targetURL, frameName, proxyID string
 	}
 
 	wv.syntheticPopupMu.Lock()
-	if state := wv.syntheticPopups[proxyID]; state != nil {
-		state.NoJavaScriptAccess = noJavaScriptAccess
+	state := wv.syntheticPopupStateLocked(proxyID)
+	if state.Closed {
+		delete(wv.syntheticPopups, proxyID)
+		wv.syntheticPopupMu.Unlock()
+		return
 	}
+	state.NoJavaScriptAccess = noJavaScriptAccess
 	wv.syntheticPopupMu.Unlock()
 
 	wv.runOnGTK(func() {
 		if wv.destroyed.Load() {
 			return
 		}
+
+		wv.syntheticPopupMu.Lock()
+		if state := wv.syntheticPopups[proxyID]; state != nil && state.Closed {
+			delete(wv.syntheticPopups, proxyID)
+			wv.syntheticPopupMu.Unlock()
+			return
+		}
+		wv.syntheticPopupMu.Unlock()
 
 		wv.mu.RLock()
 		cb := wv.callbacks
@@ -84,10 +97,19 @@ func (wv *WebView) handleSyntheticPopupOpen(targetURL, frameName, proxyID string
 			wv.deleteSyntheticPopupState(proxyID)
 			return
 		}
+		if cefPopup, ok := popupWV.(*WebView); ok {
+			cefPopup.setPopupNoJavaScriptAccess(noJavaScriptAccess)
+		}
 
 		pendingURI := ""
 		wv.syntheticPopupMu.Lock()
 		state := wv.syntheticPopupStateLocked(proxyID)
+		if state.Closed {
+			delete(wv.syntheticPopups, proxyID)
+			wv.syntheticPopupMu.Unlock()
+			closeSyntheticPopupWebView(popupWV)
+			return
+		}
 		state.WebView = popupWV
 		state.NoJavaScriptAccess = noJavaScriptAccess
 		pendingURI = strings.TrimSpace(state.PendingURI)
@@ -118,6 +140,10 @@ func (wv *WebView) handleSyntheticPopupNavigate(proxyID, targetURL string) {
 	}
 
 	wv.syntheticPopupMu.Lock()
+	if state.Closed {
+		wv.syntheticPopupMu.Unlock()
+		return
+	}
 	state.PendingURI = trimmedURI
 	popupWV := state.WebView
 	wv.syntheticPopupMu.Unlock()
@@ -149,21 +175,29 @@ func (wv *WebView) handleSyntheticPopupClose(proxyID string) {
 	}
 
 	wv.syntheticPopupMu.Lock()
-	state := wv.syntheticPopups[proxyID]
-	if state != nil {
+	state := wv.syntheticPopupStateLocked(proxyID)
+	state.Closed = true
+	popupWV := state.WebView
+	if popupWV != nil {
 		delete(wv.syntheticPopups, proxyID)
 	}
 	wv.syntheticPopupMu.Unlock()
-	if state == nil || state.WebView == nil {
-		return
-	}
-
-	closeable, ok := state.WebView.(port.OAuthCallbackCapable)
-	if !ok {
+	if popupWV == nil {
 		return
 	}
 
 	wv.runOnGTK(func() {
-		closeable.Close()
+		closeSyntheticPopupWebView(popupWV)
 	})
+}
+
+func closeSyntheticPopupWebView(popupWV port.WebView) {
+	if popupWV == nil {
+		return
+	}
+	if closeable, ok := popupWV.(port.OAuthCallbackCapable); ok {
+		closeable.Close()
+		return
+	}
+	popupWV.Destroy()
 }

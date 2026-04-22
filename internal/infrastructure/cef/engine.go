@@ -146,11 +146,28 @@ func (e *Engine) registerWebView(wv *WebView) {
 	e.activeCount.Add(1)
 }
 
+func (e *Engine) lookupWebView(id port.WebViewID) *WebView {
+	if e == nil {
+		return nil
+	}
+	current, ok := e.activeWebViews.Load(id)
+	if !ok {
+		return nil
+	}
+	wv, _ := current.(*WebView)
+	return wv
+}
+
 func (e *Engine) bindBrowserWebView(browser purecef.Browser, wv *WebView) {
 	if e == nil || browser == nil || wv == nil {
 		return
 	}
-	e.browserWebViews.Store(browser.GetIdentifier(), wv)
+	browserID := browser.GetIdentifier()
+	if browserID <= 0 {
+		logging.FromContext(e.ctx).Debug().Int32("browser_id", browserID).Msg("cef: skipped browser/webview binding for invalid browser id")
+		return
+	}
+	e.browserWebViews.Store(browserID, wv)
 }
 
 func (e *Engine) unbindBrowserWebView(browserID int32, wv *WebView) {
