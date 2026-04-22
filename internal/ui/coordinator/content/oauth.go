@@ -348,59 +348,21 @@ func (c *Coordinator) setupOAuthAutoClose(
 }
 
 func (c *Coordinator) trackOAuthPopup(popupID port.WebViewID, parentPaneID entity.PaneID, parentURIAtOpen string) {
-	c.popups.mu.Lock()
-	defer c.popups.mu.Unlock()
-	if c.popups.popupOAuth == nil {
-		c.popups.popupOAuth = make(map[port.WebViewID]*popupOAuthState)
-	}
-	c.popups.popupOAuth[popupID] = &popupOAuthState{
-		ParentPaneID:    parentPaneID,
-		ParentURIAtOpen: strings.TrimSpace(parentURIAtOpen),
-	}
+	c.ensurePopupManager().trackOAuthPopup(popupID, parentPaneID, parentURIAtOpen)
 }
 
 func (c *Coordinator) capturePopupOAuthState(popupID port.WebViewID, uri string) {
-	c.popups.mu.Lock()
-	defer c.popups.mu.Unlock()
-
-	state, ok := c.popups.popupOAuth[popupID]
-	if !ok {
-		return
-	}
-
-	state.Seen = true
-	state.CallbackURI = uri
-	state.Success = IsOAuthSuccess(uri)
-	state.Error = IsOAuthError(uri)
+	c.ensurePopupManager().capturePopupOAuthState(popupID, uri)
 }
 
 func (c *Coordinator) capturePopupOAuthMessage(popupID port.WebViewID) {
-	c.popups.mu.Lock()
-	defer c.popups.mu.Unlock()
-
-	state, ok := c.popups.popupOAuth[popupID]
-	if !ok {
-		return
-	}
-
-	state.Seen = true
-	if state.CallbackURI == "" {
-		state.CallbackURI = "postmessage://oauth-complete"
-	}
-	if !state.Error {
-		state.Success = true
-	}
+	c.ensurePopupManager().capturePopupOAuthMessage(popupID)
 }
 
 func (c *Coordinator) handlePopupOAuthClose(ctx context.Context, popupID port.WebViewID) {
 	log := logging.FromContext(ctx)
 
-	c.popups.mu.Lock()
-	state, ok := c.popups.popupOAuth[popupID]
-	if ok {
-		delete(c.popups.popupOAuth, popupID)
-	}
-	c.popups.mu.Unlock()
+	state, ok := c.ensurePopupManager().takePopupOAuthState(popupID)
 
 	if !ok || state == nil || !state.Seen {
 		return
@@ -431,24 +393,13 @@ func (c *Coordinator) scheduleParentPaneOAuthResume(
 	parentURIAtOpen string,
 	callbackURI string,
 ) {
-	c.popups.mu.Lock()
-	if c.popups.popupRefresh == nil {
-		c.popups.popupRefresh = make(map[entity.PaneID]*time.Timer)
-	}
-	if existing := c.popups.popupRefresh[parentPaneID]; existing != nil {
-		existing.Stop()
-	}
-	c.popups.popupRefresh[parentPaneID] = time.AfterFunc(oauthParentRefreshDebounce, func() {
-		c.popups.mu.Lock()
-		delete(c.popups.popupRefresh, parentPaneID)
-		c.popups.mu.Unlock()
+	c.ensurePopupManager().schedulePopupRefresh(parentPaneID, oauthParentRefreshDebounce, func() {
 		cb := glib.SourceFunc(func(_ uintptr) bool {
 			c.resumeParentPaneAfterOAuth(ctx, parentPaneID, popupID, parentURIAtOpen, callbackURI)
 			return false
 		})
 		glib.IdleAdd(&cb, 0)
 	})
-	c.popups.mu.Unlock()
 }
 
 func (c *Coordinator) resumeParentPaneAfterOAuth(

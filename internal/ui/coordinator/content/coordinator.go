@@ -325,3 +325,35 @@ func (c *Coordinator) paneIDByWebViewID(webViewID port.WebViewID) (entity.PaneID
 	paneID, ok := c.webViewPaneIDs[webViewID]
 	return paneID, ok
 }
+
+func (c *Coordinator) findPaneByWebViewID(webViewID port.WebViewID) (entity.PaneID, bool) {
+	if paneID, ok := c.paneIDByWebViewID(webViewID); ok && paneID != "" {
+		return paneID, true
+	}
+	if webViewID == 0 {
+		return "", false
+	}
+
+	c.webViewsMu.RLock()
+	defer c.webViewsMu.RUnlock()
+	for paneID, wv := range c.webViews {
+		if wv != nil && wv.ID() == webViewID {
+			return paneID, true
+		}
+	}
+	return "", false
+}
+
+func (c *Coordinator) popupHooks() popupCoordinatorHooks {
+	return popupCoordinatorHooks{
+		setupWebViewCallbacks: c.setupWebViewCallbacks,
+		registerPopupWebView:  c.RegisterPopupWebView,
+		setWebView:            c.setWebViewLocked,
+		getWebView:            c.getWebViewLocked,
+		deleteWebView:         c.deleteWebViewLocked,
+		releaseWebView:        c.ReleaseWebView,
+		findPaneByWebViewID:   c.findPaneByWebViewID,
+		setupOAuthAutoClose:   c.setupOAuthAutoClose,
+		handlePopupOAuthClose: c.handlePopupOAuthClose,
+	}
+}
