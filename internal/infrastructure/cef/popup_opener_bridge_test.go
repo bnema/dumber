@@ -1,8 +1,10 @@
 package cef
 
-import "testing"
+import (
+	"testing"
 
-import "github.com/stretchr/testify/require"
+	"github.com/stretchr/testify/require"
+)
 
 func TestResolvePopupOpenerNavigationTarget_ResolvesRelativeAgainstOpener(t *testing.T) {
 	require.Equal(
@@ -18,6 +20,12 @@ func TestResolvePopupOpenerNavigationTarget_PreservesAbsoluteTarget(t *testing.T
 		"https://accounts.example.com/finish",
 		resolvePopupOpenerNavigationTarget("https://accounts.example.com/finish", "https://example.com/oauth/start"),
 	)
+}
+
+func TestResolvePopupOpenerNavigationTarget_RejectsNonHTTPAbsoluteTarget(t *testing.T) {
+	require.Empty(t, resolvePopupOpenerNavigationTarget("javascript:alert(1)", "https://example.com/oauth/start"))
+	require.Empty(t, resolvePopupOpenerNavigationTarget("data:text/html,boom", "https://example.com/oauth/start"))
+	require.Empty(t, resolvePopupOpenerNavigationTarget("file:///tmp/boom", "https://example.com/oauth/start"))
 }
 
 func TestOriginFromURL_PreservesNonDefaultPort(t *testing.T) {

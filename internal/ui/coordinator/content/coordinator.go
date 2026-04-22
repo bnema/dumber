@@ -83,7 +83,8 @@ type Coordinator struct {
 
 	// Popup handling stays in a dedicated UI-layer manager so popup-specific
 	// pane state does not bloat the main coordinator.
-	popups *popupManager
+	popups     *popupManager
+	popupsOnce sync.Once
 
 	// Idle inhibitor for fullscreen video playback
 	idleInhibitor port.IdleInhibitor
@@ -155,9 +156,11 @@ func (c *Coordinator) ensurePopupManager() *popupManager {
 	if c == nil {
 		return nil
 	}
-	if c.popups == nil {
-		c.popups = newPopupManager()
-	}
+	c.popupsOnce.Do(func() {
+		if c.popups == nil {
+			c.popups = newPopupManager()
+		}
+	})
 	c.popups.ensureInitialized()
 	return c.popups
 }
@@ -322,20 +325,28 @@ func (c *Coordinator) deleteWebViewLocked(paneID entity.PaneID) port.WebView {
 func (c *Coordinator) paneIDByWebViewID(webViewID port.WebViewID) (entity.PaneID, bool) {
 	c.webViewsMu.RLock()
 	defer c.webViewsMu.RUnlock()
+	return c.paneIDByWebViewIDLocked(webViewID)
+}
+
+func (c *Coordinator) paneIDByWebViewIDLocked(webViewID port.WebViewID) (entity.PaneID, bool) {
 	paneID, ok := c.webViewPaneIDs[webViewID]
 	return paneID, ok
 }
 
 func (c *Coordinator) findPaneByWebViewID(webViewID port.WebViewID) (entity.PaneID, bool) {
-	if paneID, ok := c.paneIDByWebViewID(webViewID); ok && paneID != "" {
-		return paneID, true
-	}
 	if webViewID == 0 {
 		return "", false
 	}
 
 	c.webViewsMu.RLock()
 	defer c.webViewsMu.RUnlock()
+	if paneID, ok := c.paneIDByWebViewIDLocked(webViewID); ok && paneID != "" {
+		return paneID, true
+	}
+
+	c.logger.Debug().
+		Uint64("webview_id", uint64(webViewID)).
+		Msg("findPaneByWebViewID: using fallback scan")
 	for paneID, wv := range c.webViews {
 		if wv != nil && wv.ID() == webViewID {
 			return paneID, true

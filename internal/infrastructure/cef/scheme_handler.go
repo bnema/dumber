@@ -442,6 +442,9 @@ func decodePopupOpenerPostMessagePayload(body []byte) (popupOpenerPostMessagePay
 	payload.TargetOrigin = strings.TrimSpace(payload.TargetOrigin)
 	payload.SourceOrigin = strings.TrimSpace(payload.SourceOrigin)
 	payload.SourceHref = strings.TrimSpace(payload.SourceHref)
+	if payload.TargetOrigin == "" {
+		return payload, fmt.Errorf("missing target origin")
+	}
 	return payload, nil
 }
 

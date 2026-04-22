@@ -226,8 +226,13 @@ func buildTrustedPageFetchBridgeBaseJS() string {
 	return clipboardSelectionFetchBridgeJSTemplate + "\n" + popupBridge
 }
 
+const bridgeNoncePlaceholder = "__DUMBER_BRIDGE_NONCE__"
+
 func buildTrustedPageFetchBridgeJS(bridgeNonce string) string {
-	return strings.ReplaceAll(trustedPageFetchBridgeBaseJS, "__DUMBER_BRIDGE_NONCE__", bridgeNonce)
+	if strings.Contains(bridgeNonce, bridgeNoncePlaceholder) {
+		panic("bridge nonce contains reserved placeholder")
+	}
+	return strings.ReplaceAll(trustedPageFetchBridgeBaseJS, bridgeNoncePlaceholder, bridgeNonce)
 }
 
 func buildRendererBridgeExtensionJS() string {

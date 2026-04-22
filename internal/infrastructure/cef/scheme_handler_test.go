@@ -70,6 +70,20 @@ func TestReadBodyFromHeader_DecodesBase64Payload(t *testing.T) {
 	require.JSONEq(t, `{"text":"copied from js"}`, string(body))
 }
 
+func TestDecodePopupOpenerPostMessagePayload_RejectsMissingTargetOrigin(t *testing.T) {
+	_, err := decodePopupOpenerPostMessagePayload([]byte(`{"data":"{}","data_kind":"json","target_origin":"   "}`))
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "target origin")
+}
+
+func TestDecodePopupOpenerPostMessagePayload_TrimsAndAcceptsTargetOrigin(t *testing.T) {
+	payload, err := decodePopupOpenerPostMessagePayload([]byte(`{"data":"{}","data_kind":"json","target_origin":" https://example.com ","source_origin":" https://popup.example.com ","source_href":" https://popup.example.com/callback "}`))
+	require.NoError(t, err)
+	require.Equal(t, "https://example.com", payload.TargetOrigin)
+	require.Equal(t, "https://popup.example.com", payload.SourceOrigin)
+	require.Equal(t, "https://popup.example.com/callback", payload.SourceHref)
+}
+
 func TestSchemeHandler_APIClipboardSetPathWritesClipboardPayload(t *testing.T) {
 	oldNewResourceHandler := cefNewResourceHandler
 	cefNewResourceHandler = func(impl purecef.ResourceHandler) purecef.ResourceHandler { return impl }

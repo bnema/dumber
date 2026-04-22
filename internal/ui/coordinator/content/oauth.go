@@ -386,6 +386,11 @@ func (c *Coordinator) handlePopupOAuthClose(ctx context.Context, popupID port.We
 	c.scheduleParentPaneOAuthResume(ctx, state.ParentPaneID, popupID, state.ParentURIAtOpen, state.CallbackURI)
 }
 
+// oauthParentResumeGraceRetries gives the parent pane up to
+// oauthParentResumeGraceRetries * oauthParentRefreshDebounce (~1s with the
+// current 200ms debounce) to finish its own in-flight same-site OAuth
+// navigation before scheduleParentPaneOAuthResume falls back to Reload(). Five
+// retries keeps the UI responsive without racing the natural callback handoff.
 const oauthParentResumeGraceRetries = 5
 
 func (c *Coordinator) scheduleParentPaneOAuthResume(

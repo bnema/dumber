@@ -1544,11 +1544,19 @@ func (wv *WebView) runOnGTK(fn func()) {
 	glib.IdleAddOnce(cb, 0)
 }
 
+func (wv *WebView) isOnGTKThread() bool {
+	mainContext := glib.MainContextDefault()
+	return mainContext != nil && mainContext.IsOwner()
+}
+
+// runOnGTKSync executes fn on the GTK main context and waits for completion.
+// Callers already running on the GTK thread must execute inline to avoid
+// self-deadlocking while waiting for an IdleAddOnce callback.
 func (wv *WebView) runOnGTKSync(fn func()) {
 	if fn == nil {
 		return
 	}
-	if wv == nil || wv.engine == nil {
+	if wv == nil || wv.engine == nil || wv.isOnGTKThread() {
 		fn()
 		return
 	}

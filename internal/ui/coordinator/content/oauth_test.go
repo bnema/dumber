@@ -153,9 +153,11 @@ func TestResumeParentPaneAfterOAuth_ChangedParentSkipsIntervention(t *testing.T)
 		webViews: map[entity.PaneID]port.WebView{
 			parentPaneID: parentWV,
 		},
+		popups: newPopupManager(),
 	}
 
 	c.resumeParentPaneAfterOAuth(context.Background(), parentPaneID, popupID, "https://www.notion.so/login", "https://www.notion.so/googlepopupcallback?code=123")
+	parentWV.AssertNotCalled(t, "Reload", mock.Anything)
 }
 
 func TestResumeParentPaneAfterOAuthAttempt_GraceExhaustedFallsBackToReload(t *testing.T) {

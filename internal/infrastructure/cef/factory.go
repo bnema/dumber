@@ -270,9 +270,7 @@ func (f *WebViewFactory) postPendingBrowserCreate(ctx context.Context, wv *WebVi
 	postResult := purecef.PostTask(purecef.ThreadIDTidUi, task)
 	if postResult != 1 {
 		wv.mu.Lock()
-		if wv.pendingCreate == nil {
-			wv.pendingCreate = pc
-		}
+		wv.pendingCreate = pc
 		wv.mu.Unlock()
 		log.Error().
 			Int32("result", postResult).

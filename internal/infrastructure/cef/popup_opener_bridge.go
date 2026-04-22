@@ -182,13 +182,13 @@ func resolvePopupOpenerNavigationTarget(rawTarget, openerURI string) string {
 	}
 	parsedTarget, err := neturl.Parse(trimmedTarget)
 	if err == nil && parsedTarget.IsAbs() {
-		return parsedTarget.String()
+		return sanitizePopupOpenerNavigationTarget(parsedTarget)
 	}
 	if strings.HasPrefix(trimmedTarget, "//") {
 		base, baseErr := neturl.Parse(strings.TrimSpace(openerURI))
 		if baseErr == nil && base != nil && base.Scheme != "" {
 			parsedTarget.Scheme = base.Scheme
-			return parsedTarget.String()
+			return sanitizePopupOpenerNavigationTarget(parsedTarget)
 		}
 		return ""
 	}
@@ -200,7 +200,19 @@ func resolvePopupOpenerNavigationTarget(rawTarget, openerURI string) string {
 	if err != nil {
 		return ""
 	}
-	return base.ResolveReference(ref).String()
+	return sanitizePopupOpenerNavigationTarget(base.ResolveReference(ref))
+}
+
+func sanitizePopupOpenerNavigationTarget(target *neturl.URL) string {
+	if target == nil {
+		return ""
+	}
+	switch strings.ToLower(strings.TrimSpace(target.Scheme)) {
+	case "http", "https":
+		return target.String()
+	default:
+		return ""
+	}
 }
 
 func (wv *WebView) handlePopupOpenerPostMessage(payload popupOpenerPostMessagePayload) {
@@ -272,7 +284,8 @@ func targetOriginMatchesPopupOpener(targetOrigin, openerURI string) bool {
 	if trimmedTarget == "" || trimmedTarget == "*" {
 		return true
 	}
-	return canonicalOrigin(trimmedTarget) != "" && canonicalOrigin(trimmedTarget) == canonicalOrigin(openerURI)
+	targetCanonical := canonicalOrigin(trimmedTarget)
+	return targetCanonical != "" && targetCanonical == canonicalOrigin(openerURI)
 }
 
 func popupSourceOrigin(payload popupOpenerPostMessagePayload) string {

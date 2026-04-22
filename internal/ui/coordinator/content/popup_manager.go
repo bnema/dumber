@@ -77,6 +77,8 @@ func (pm *popupManager) ensureInitialized() {
 	if pm == nil {
 		return
 	}
+	pm.mu.Lock()
+	defer pm.mu.Unlock()
 	if pm.pendingPopups == nil {
 		pm.pendingPopups = make(map[port.WebViewID]*PendingPopup)
 	}
@@ -321,16 +323,23 @@ func (pm *popupManager) schedulePopupRefresh(parentPaneID entity.PaneID, debounc
 	if pm == nil || fn == nil {
 		return
 	}
+
+	var timer *time.Timer
 	pm.mu.Lock()
 	if existing := pm.popupRefresh[parentPaneID]; existing != nil {
 		existing.Stop()
 	}
-	pm.popupRefresh[parentPaneID] = time.AfterFunc(debounce, func() {
+	timer = time.AfterFunc(debounce, func() {
 		pm.mu.Lock()
+		if pm.popupRefresh[parentPaneID] != timer {
+			pm.mu.Unlock()
+			return
+		}
 		delete(pm.popupRefresh, parentPaneID)
 		pm.mu.Unlock()
 		fn()
 	})
+	pm.popupRefresh[parentPaneID] = timer
 	pm.mu.Unlock()
 }
 
@@ -641,10 +650,10 @@ func (pm *popupManager) handlePopupReadyToShow(ctx context.Context, popupID port
 		Msg("popup ready to show - making visible")
 
 	if pending.WebView != nil {
-		if lifecycle, ok := pending.WebView.(port.PopupLifecycleCapable); ok {
+		lifecycle, preloadsNavigation := pending.WebView.(port.PopupLifecycleCapable)
+		if preloadsNavigation {
 			lifecycle.Show()
 		}
-		_, preloadsNavigation := pending.WebView.(port.PopupLifecycleCapable)
 		if !preloadsNavigation && pending.TargetURI != "" && !pending.WebView.IsLoading() && pending.WebView.URI() == "" {
 			if err := pending.WebView.LoadURI(ctx, pending.TargetURI); err != nil {
 				log.Warn().Err(err).
