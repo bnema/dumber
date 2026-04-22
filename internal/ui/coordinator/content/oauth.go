@@ -386,6 +386,8 @@ func (c *Coordinator) handlePopupOAuthClose(ctx context.Context, popupID port.We
 	c.scheduleParentPaneOAuthResume(ctx, state.ParentPaneID, popupID, state.ParentURIAtOpen, state.CallbackURI)
 }
 
+const oauthParentResumeGraceRetries = 5
+
 func (c *Coordinator) scheduleParentPaneOAuthResume(
 	ctx context.Context,
 	parentPaneID entity.PaneID,
@@ -393,9 +395,27 @@ func (c *Coordinator) scheduleParentPaneOAuthResume(
 	parentURIAtOpen string,
 	callbackURI string,
 ) {
+	c.scheduleParentPaneOAuthResumeAttempt(
+		ctx,
+		parentPaneID,
+		popupID,
+		parentURIAtOpen,
+		callbackURI,
+		oauthParentResumeGraceRetries,
+	)
+}
+
+func (c *Coordinator) scheduleParentPaneOAuthResumeAttempt(
+	ctx context.Context,
+	parentPaneID entity.PaneID,
+	popupID port.WebViewID,
+	parentURIAtOpen string,
+	callbackURI string,
+	remainingGrace int,
+) {
 	c.ensurePopupManager().schedulePopupRefresh(parentPaneID, oauthParentRefreshDebounce, func() {
 		cb := glib.SourceFunc(func(_ uintptr) bool {
-			c.resumeParentPaneAfterOAuth(ctx, parentPaneID, popupID, parentURIAtOpen, callbackURI)
+			c.resumeParentPaneAfterOAuthAttempt(ctx, parentPaneID, popupID, parentURIAtOpen, callbackURI, remainingGrace)
 			return false
 		})
 		glib.IdleAdd(&cb, 0)
@@ -408,6 +428,24 @@ func (c *Coordinator) resumeParentPaneAfterOAuth(
 	popupID port.WebViewID,
 	parentURIAtOpen string,
 	callbackURI string,
+) {
+	c.resumeParentPaneAfterOAuthAttempt(
+		ctx,
+		parentPaneID,
+		popupID,
+		parentURIAtOpen,
+		callbackURI,
+		oauthParentResumeGraceRetries,
+	)
+}
+
+func (c *Coordinator) resumeParentPaneAfterOAuthAttempt(
+	ctx context.Context,
+	parentPaneID entity.PaneID,
+	popupID port.WebViewID,
+	parentURIAtOpen string,
+	callbackURI string,
+	remainingGrace int,
 ) {
 	log := logging.FromContext(ctx)
 	wv := c.getWebViewLocked(parentPaneID)
@@ -431,6 +469,25 @@ func (c *Coordinator) resumeParentPaneAfterOAuth(
 		return
 	}
 
+	if shouldGraceWaitForParentPaneOAuthResume(parentURIAtOpen, parentURI, callbackURI, remainingGrace) {
+		log.Debug().
+			Str("parent_pane_id", string(parentPaneID)).
+			Uint64("popup_id", uint64(popupID)).
+			Int("remaining_grace", remainingGrace).
+			Str("parent_uri_at_open", logging.TruncateURL(parentURIAtOpen, logURLMaxLen)).
+			Str("callback_uri", logging.TruncateURL(callbackURI, logURLMaxLen)).
+			Msg("deferring parent pane oauth resume to allow in-flight same-site navigation to settle")
+		c.scheduleParentPaneOAuthResumeAttempt(
+			ctx,
+			parentPaneID,
+			popupID,
+			parentURIAtOpen,
+			callbackURI,
+			remainingGrace-1,
+		)
+		return
+	}
+
 	if err := wv.Reload(ctx); err != nil {
 		log.Warn().
 			Err(err).
@@ -445,4 +502,38 @@ func (c *Coordinator) resumeParentPaneAfterOAuth(
 		Uint64("popup_id", uint64(popupID)).
 		Str("callback_uri", logging.TruncateURL(callbackURI, logURLMaxLen)).
 		Msg("refreshed parent pane after oauth popup close")
+}
+
+func shouldGraceWaitForParentPaneOAuthResume(
+	parentURIAtOpen string,
+	currentParentURI string,
+	callbackURI string,
+	remainingGrace int,
+) bool {
+	if remainingGrace <= 0 {
+		return false
+	}
+	if parentURIAtOpen == "" || currentParentURI == "" || callbackURI == "" {
+		return false
+	}
+	if currentParentURI != parentURIAtOpen {
+		return false
+	}
+	return sameOAuthResumeSite(parentURIAtOpen, callbackURI)
+}
+
+func sameOAuthResumeSite(a string, b string) bool {
+	hostA := normalizeOAuthResumeHost(a)
+	hostB := normalizeOAuthResumeHost(b)
+	return hostA != "" && hostA == hostB
+}
+
+func normalizeOAuthResumeHost(raw string) string {
+	parsed, err := neturl.Parse(raw)
+	if err != nil {
+		return ""
+	}
+	host := strings.ToLower(strings.TrimSpace(parsed.Hostname()))
+	host = strings.TrimPrefix(host, "www.")
+	return host
 }
