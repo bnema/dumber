@@ -29,8 +29,9 @@ type Coordinator struct {
 	settingsApplier port.SettingsApplier // optional: nil if engine doesn't support
 	filterApplier   port.FilterApplier   // optional: nil if engine doesn't support
 
-	webViews   map[entity.PaneID]port.WebView
-	webViewsMu sync.RWMutex
+	webViews       map[entity.PaneID]port.WebView
+	webViewPaneIDs map[port.WebViewID]entity.PaneID
+	webViewsMu     sync.RWMutex
 
 	activePaneOverride   entity.PaneID
 	activePaneOverrideMu sync.RWMutex
@@ -165,6 +166,7 @@ func NewCoordinator(
 		zoomUC:               zoomUC,
 		permissionUC:         permissionUC,
 		webViews:             make(map[entity.PaneID]port.WebView),
+		webViewPaneIDs:       make(map[port.WebViewID]entity.PaneID),
 		paneTitles:           make(map[entity.PaneID]string),
 		navOrigins:           make(map[entity.PaneID]string),
 		pendingReveal:        make(map[entity.PaneID]bool),
@@ -311,7 +313,16 @@ func (c *Coordinator) getWebViewLocked(paneID entity.PaneID) port.WebView {
 
 func (c *Coordinator) setWebViewLocked(paneID entity.PaneID, wv port.WebView) {
 	c.webViewsMu.Lock()
+	if c.webViews == nil {
+		c.webViews = make(map[entity.PaneID]port.WebView)
+	}
+	if existing := c.webViews[paneID]; existing != nil && c.webViewPaneIDs != nil {
+		delete(c.webViewPaneIDs, existing.ID())
+	}
 	c.webViews[paneID] = wv
+	if wv != nil && c.webViewPaneIDs != nil {
+		c.webViewPaneIDs[wv.ID()] = paneID
+	}
 	c.webViewsMu.Unlock()
 }
 
@@ -320,5 +331,15 @@ func (c *Coordinator) deleteWebViewLocked(paneID entity.PaneID) port.WebView {
 	defer c.webViewsMu.Unlock()
 	wv := c.webViews[paneID]
 	delete(c.webViews, paneID)
+	if wv != nil && c.webViewPaneIDs != nil {
+		delete(c.webViewPaneIDs, wv.ID())
+	}
 	return wv
+}
+
+func (c *Coordinator) paneIDByWebViewID(webViewID port.WebViewID) (entity.PaneID, bool) {
+	c.webViewsMu.RLock()
+	defer c.webViewsMu.RUnlock()
+	paneID, ok := c.webViewPaneIDs[webViewID]
+	return paneID, ok
 }

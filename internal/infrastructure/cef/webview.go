@@ -952,12 +952,16 @@ func (wv *WebView) Destroy() {
 	wv.mu.Lock()
 	wv.closeCallbacks = nil
 	wv.navigationCallbacks = nil
+	wv.openerMessageCallbacks = nil
+	wv.openerNavigationCallbacks = nil
 	wv.popupReadyToShow = nil
 	wv.pendingNativePopups = nil
 	wv.nativePopupParent = nil
 	wv.nativePopupCandidate = false
 	wv.nativePopupID = 0
 	wv.nativePopupFallbackStarted = false
+	wv.popupOpenerBridgeParent = nil
+	wv.popupOpenerBridgeParentURI = ""
 	wv.mu.Unlock()
 	wv.stopNativePopupFallbackTimer()
 	wv.cancelSelectionDebounce()

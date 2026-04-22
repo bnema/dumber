@@ -704,18 +704,20 @@ func (c *Coordinator) handlePopupClose(ctx context.Context, popupID port.WebView
 		return
 	}
 
-	// Find pane by WebView ID
-	var paneID entity.PaneID
-	c.webViewsMu.RLock()
-	for pid, wv := range c.webViews {
-		if wv != nil && wv.ID() == popupID {
-			paneID = pid
-			break
+	// Find pane by WebView ID.
+	paneID, ok := c.paneIDByWebViewID(popupID)
+	if (!ok || paneID == "") && popupID != 0 {
+		c.webViewsMu.RLock()
+		for pid, wv := range c.webViews {
+			if wv != nil && wv.ID() == popupID {
+				paneID = pid
+				ok = true
+				break
+			}
 		}
+		c.webViewsMu.RUnlock()
 	}
-	c.webViewsMu.RUnlock()
-
-	if paneID == "" {
+	if !ok || paneID == "" {
 		c.handlePopupOAuthClose(ctx, popupID)
 		c.clearReusableNamedPopupByWebViewID(popupID)
 		log.Warn().Msg("popup close: could not find pane for webview")

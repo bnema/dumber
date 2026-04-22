@@ -22,7 +22,10 @@ func (wv *WebView) syntheticPopupState(proxyID string) *syntheticPopupState {
 
 	wv.syntheticPopupMu.Lock()
 	defer wv.syntheticPopupMu.Unlock()
-	return wv.syntheticPopupStateLocked(proxyID)
+	if wv.syntheticPopups == nil {
+		return nil
+	}
+	return wv.syntheticPopups[proxyID]
 }
 
 func (wv *WebView) syntheticPopupStateLocked(proxyID string) *syntheticPopupState {
@@ -134,12 +137,8 @@ func (wv *WebView) handleSyntheticPopupNavigate(proxyID, targetURL string) {
 	}
 
 	trimmedURI := strings.TrimSpace(targetURL)
-	state := wv.syntheticPopupState(proxyID)
-	if state == nil {
-		return
-	}
-
 	wv.syntheticPopupMu.Lock()
+	state := wv.syntheticPopupStateLocked(proxyID)
 	if state.Closed {
 		wv.syntheticPopupMu.Unlock()
 		return
@@ -175,12 +174,18 @@ func (wv *WebView) handleSyntheticPopupClose(proxyID string) {
 	}
 
 	wv.syntheticPopupMu.Lock()
-	state := wv.syntheticPopupStateLocked(proxyID)
+	if wv.syntheticPopups == nil {
+		wv.syntheticPopupMu.Unlock()
+		return
+	}
+	state := wv.syntheticPopups[proxyID]
+	if state == nil {
+		wv.syntheticPopupMu.Unlock()
+		return
+	}
 	state.Closed = true
 	popupWV := state.WebView
-	if popupWV != nil {
-		delete(wv.syntheticPopups, proxyID)
-	}
+	delete(wv.syntheticPopups, proxyID)
 	wv.syntheticPopupMu.Unlock()
 	if popupWV == nil {
 		return
