@@ -313,49 +313,26 @@ type Printer interface {
 	PrintPage()
 }
 
-// PopupCapable is implemented by WebViews that support popup lifecycle callbacks.
-// SetOnClose composes the provided function with any existing close handler so
-// that multiple callers can each register a close callback without overwriting
-// one another.
-type PopupCapable interface {
+// PopupLifecycleCapable is implemented by WebViews that support the full popup
+// pane lifecycle. SetOnClose composes the provided function with any existing
+// close handler so multiple callers can register close hooks without
+// overwriting one another. PrimePopupNavigation lets engines preserve the popup
+// target URI before the browser is fully created.
+type PopupLifecycleCapable interface {
 	SetOnReadyToShow(fn func())
 	SetOnClose(fn func())
 	Show()
-}
-
-// PopupNavigationCapable is implemented by WebViews that need the popup target
-// URI primed before the browser is fully created. Engines with native popup
-// creation can ignore this capability; engines that create popup shells and
-// attach or create browsers later can use it to preserve a unified popup
-// lifecycle without coordinator-specific fallback logic.
-type PopupNavigationCapable interface {
 	PrimePopupNavigation(uri string)
 }
 
-// PopupOpenerBridgeCapable is implemented by WebViews that can emulate
-// opener semantics when a popup must be created directly instead of through a
-// native related-popup lifecycle. Engines can ignore this capability when they
-// provide real popup opener relationships.
-type PopupOpenerBridgeCapable interface {
+// PopupOpenerCapable is implemented by popup WebViews that can emulate opener
+// semantics when a popup must be created directly instead of through a native
+// related-popup lifecycle, and that can report or observe synthetic opener
+// traffic needed by OAuth flows.
+type PopupOpenerCapable interface {
 	EnablePopupOpenerBridge(parent WebView, noJavaScriptAccess bool)
-}
-
-// PopupOpenerMessageCapable is implemented by popup WebViews that can observe
-// synthetic `window.opener.postMessage(...)` traffic in fallback popup flows.
-type PopupOpenerMessageCapable interface {
 	AddOpenerMessageCallback(fn func())
-}
-
-// PopupOpenerNavigationCapable is implemented by popup WebViews that can observe
-// synthetic `window.opener.location = ...` navigations in fallback popup flows.
-type PopupOpenerNavigationCapable interface {
 	AddOpenerNavigationCallback(fn func(uri string))
-}
-
-// PopupOpenerBridgeStateCapable is implemented by popup WebViews that can
-// report whether a synthetic opener bridge is actively installed for the
-// current popup instance.
-type PopupOpenerBridgeStateCapable interface {
 	HasActivePopupOpenerBridge() bool
 }
 

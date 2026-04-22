@@ -18,6 +18,10 @@ type popupOpenerBridgeStateStub struct {
 	active bool
 }
 
+func (s *popupOpenerBridgeStateStub) EnablePopupOpenerBridge(port.WebView, bool) {}
+func (s *popupOpenerBridgeStateStub) AddOpenerMessageCallback(func())            {}
+func (s *popupOpenerBridgeStateStub) AddOpenerNavigationCallback(func(string)) {
+}
 func (s *popupOpenerBridgeStateStub) HasActivePopupOpenerBridge() bool { return s.active }
 
 func TestPopupUsesSyntheticOpenerSignals_DetectsActiveBridge(t *testing.T) {
@@ -69,16 +73,15 @@ func TestComposeOnLoadChanged_Order(t *testing.T) {
 func TestCapturePopupOAuthMessage_MarksPopupSeenAndSuccessful(t *testing.T) {
 	popupID := port.WebViewID(100)
 	c := &Coordinator{
-		popupOAuth: map[port.WebViewID]*popupOAuthState{
-			popupID: {
-				ParentPaneID: entity.PaneID("parent-pane"),
-			},
-		},
+		popups: newPopupManager(),
+	}
+	c.popups.popupOAuth[popupID] = &popupOAuthState{
+		ParentPaneID: entity.PaneID("parent-pane"),
 	}
 
 	c.capturePopupOAuthMessage(popupID)
 
-	state := c.popupOAuth[popupID]
+	state := c.popups.popupOAuth[popupID]
 	assert.True(t, state.Seen)
 	assert.True(t, state.Success)
 	assert.Equal(t, "postmessage://oauth-complete", state.CallbackURI)
@@ -89,27 +92,26 @@ func TestHandlePopupOAuthClose_SuccessSchedulesParentResume(t *testing.T) {
 	popupID := port.WebViewID(101)
 
 	c := &Coordinator{
-		webViews:     make(map[entity.PaneID]port.WebView),
-		popupOAuth:   make(map[port.WebViewID]*popupOAuthState),
-		popupRefresh: make(map[entity.PaneID]*time.Timer),
+		webViews: make(map[entity.PaneID]port.WebView),
+		popups:   newPopupManager(),
 	}
 
 	c.trackOAuthPopup(popupID, parentPaneID, "https://www.notion.so/login")
 	c.capturePopupOAuthState(popupID, "https://www.notion.so/googlepopupcallback?code=123")
 	c.handlePopupOAuthClose(context.Background(), popupID)
 
-	c.popupMu.RLock()
-	_, exists := c.popupOAuth[popupID]
-	refreshTimer := c.popupRefresh[parentPaneID]
-	c.popupMu.RUnlock()
+	c.popups.mu.RLock()
+	_, exists := c.popups.popupOAuth[popupID]
+	refreshTimer := c.popups.popupRefresh[parentPaneID]
+	c.popups.mu.RUnlock()
 
 	assert.False(t, exists, "oauth state should be removed after close handling")
 	assert.NotNil(t, refreshTimer, "oauth callback should schedule parent resume")
 
 	waitFor(t, time.Second, func() bool {
-		c.popupMu.RLock()
-		defer c.popupMu.RUnlock()
-		return c.popupRefresh[parentPaneID] == nil
+		c.popups.mu.RLock()
+		defer c.popups.mu.RUnlock()
+		return c.popups.popupRefresh[parentPaneID] == nil
 	})
 }
 

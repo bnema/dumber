@@ -99,9 +99,10 @@ func TestRendererBridgeExtensionJS_UsesNativeDispatchInExtensionScope(t *testing
 
 func TestRendererBridgeExtensionJS_ShimsWindowOpenForSyntheticPopups(t *testing.T) {
 	require.Contains(t, rendererBridgeExtensionJS, "window.__dumberPopupOpenPatched")
-	require.Contains(t, rendererBridgeExtensionJS, "send('popup_open', JSON.stringify({")
-	require.Contains(t, rendererBridgeExtensionJS, "send('popup_navigate', JSON.stringify({ proxy_id: proxyID, url: href }))")
-	require.Contains(t, rendererBridgeExtensionJS, "send('popup_close', JSON.stringify({ proxy_id: proxyID }))")
+	require.Contains(t, rendererBridgeExtensionJS, "function dispatchPopupOpen(payload)")
+	require.Contains(t, rendererBridgeExtensionJS, "send('popup_open', JSON.stringify(payload));")
+	require.Contains(t, rendererBridgeExtensionJS, "dispatchPopupNavigate(proxyID, href)")
+	require.Contains(t, rendererBridgeExtensionJS, "dispatchPopupClose(proxyID)")
 	require.Contains(t, rendererBridgeExtensionJS, "no_javascript_access")
 	require.Contains(t, rendererBridgeExtensionJS, "Object.defineProperty(proxy, 'closed'")
 	require.Contains(t, rendererBridgeExtensionJS, "return popupProxy;")

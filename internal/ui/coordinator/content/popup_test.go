@@ -142,9 +142,8 @@ func newPopupCreateCoordinatorForTest(t *testing.T, popupID port.WebViewID) (con
 	factory.EXPECT().Create(mock.Anything).Return(popupWV, nil).Once()
 
 	c := &Coordinator{
-		webViews:      make(map[entity.PaneID]port.WebView),
-		pendingPopups: make(map[port.WebViewID]*PendingPopup),
-		popupOAuth:    make(map[port.WebViewID]*popupOAuthState),
+		webViews: make(map[entity.PaneID]port.WebView),
+		popups:   newPopupManager(),
 	}
 	c.SetPopupConfig(factory, nil, func() string { return "popup-pane" })
 
@@ -166,9 +165,8 @@ func TestHandlePopupCreate_PrimesPopupNavigationCapability(t *testing.T) {
 	factory.EXPECT().Create(mock.Anything).Return(popupWV, nil).Once()
 
 	c := &Coordinator{
-		webViews:      make(map[entity.PaneID]port.WebView),
-		pendingPopups: make(map[port.WebViewID]*PendingPopup),
-		popupOAuth:    make(map[port.WebViewID]*popupOAuthState),
+		webViews: make(map[entity.PaneID]port.WebView),
+		popups:   newPopupManager(),
 	}
 	c.SetPopupConfig(factory, nil, nil)
 	c.SetOnInsertPopup(func(_ context.Context, input InsertPopupInput) error {
@@ -250,9 +248,8 @@ func TestHandlePopupCreate_UsesRegularWebViewWhenPopupDisablesJavaScriptAccess(t
 	factory.EXPECT().Create(mock.Anything).Return(popupWV, nil).Once()
 
 	c := &Coordinator{
-		webViews:      make(map[entity.PaneID]port.WebView),
-		pendingPopups: make(map[port.WebViewID]*PendingPopup),
-		popupOAuth:    make(map[port.WebViewID]*popupOAuthState),
+		webViews: make(map[entity.PaneID]port.WebView),
+		popups:   newPopupManager(),
 	}
 	c.SetPopupConfig(factory, nil, nil)
 	c.SetOnInsertPopup(func(_ context.Context, input InsertPopupInput) error {
@@ -298,9 +295,8 @@ func TestHandlePopupCreate_SkipsRelatedCreateAfterUnsupportedFactoryError(t *tes
 	factory.EXPECT().Create(mock.Anything).Return(secondPopupWV, nil).Once()
 
 	c := &Coordinator{
-		webViews:      make(map[entity.PaneID]port.WebView),
-		pendingPopups: make(map[port.WebViewID]*PendingPopup),
-		popupOAuth:    make(map[port.WebViewID]*popupOAuthState),
+		webViews: make(map[entity.PaneID]port.WebView),
+		popups:   newPopupManager(),
 	}
 	c.SetPopupConfig(factory, nil, nil)
 	c.SetOnInsertPopup(func(_ context.Context, input InsertPopupInput) error {
@@ -342,9 +338,8 @@ func TestHandlePopupCreate_FallsBackToRegularWebViewWhenRelatedCreateIsUnsupport
 
 	insertCalls := 0
 	c := &Coordinator{
-		webViews:      make(map[entity.PaneID]port.WebView),
-		pendingPopups: make(map[port.WebViewID]*PendingPopup),
-		popupOAuth:    make(map[port.WebViewID]*popupOAuthState),
+		webViews: make(map[entity.PaneID]port.WebView),
+		popups:   newPopupManager(),
 	}
 	c.SetPopupConfig(factory, nil, nil)
 	c.SetOnInsertPopup(func(_ context.Context, input InsertPopupInput) error {
@@ -385,9 +380,8 @@ func TestHandlePopupCreate_FallsBackToRegularWebViewWhenRelatedCreateFailsUnexpe
 
 	insertCalls := 0
 	c := &Coordinator{
-		webViews:      make(map[entity.PaneID]port.WebView),
-		pendingPopups: make(map[port.WebViewID]*PendingPopup),
-		popupOAuth:    make(map[port.WebViewID]*popupOAuthState),
+		webViews: make(map[entity.PaneID]port.WebView),
+		popups:   newPopupManager(),
 	}
 	c.SetPopupConfig(factory, nil, nil)
 	c.SetOnInsertPopup(func(_ context.Context, input InsertPopupInput) error {
@@ -426,9 +420,8 @@ func TestHandlePopupCreate_PreservesOriginalTargetWhenRelatedCreateIsUnsupported
 
 	insertCalls := 0
 	c := &Coordinator{
-		webViews:      make(map[entity.PaneID]port.WebView),
-		pendingPopups: make(map[port.WebViewID]*PendingPopup),
-		popupOAuth:    make(map[port.WebViewID]*popupOAuthState),
+		webViews: make(map[entity.PaneID]port.WebView),
+		popups:   newPopupManager(),
 	}
 	c.SetPopupConfig(factory, nil, nil)
 	c.SetOnInsertPopup(func(_ context.Context, input InsertPopupInput) error {
@@ -477,9 +470,8 @@ func TestHandlePopupCreate_ReusesNamedPopup(t *testing.T) {
 
 	insertCalls := 0
 	c := &Coordinator{
-		webViews:      make(map[entity.PaneID]port.WebView),
-		pendingPopups: make(map[port.WebViewID]*PendingPopup),
-		popupOAuth:    make(map[port.WebViewID]*popupOAuthState),
+		webViews: make(map[entity.PaneID]port.WebView),
+		popups:   newPopupManager(),
 	}
 	c.SetPopupConfig(factory, nil, nil)
 	c.SetOnInsertPopup(func(context.Context, InsertPopupInput) error {
@@ -513,8 +505,8 @@ func TestTrackOAuthPopup_StoresState(t *testing.T) {
 	t.Parallel()
 
 	c := &Coordinator{
-		webViews:   make(map[entity.PaneID]port.WebView),
-		popupOAuth: make(map[port.WebViewID]*popupOAuthState),
+		webViews: make(map[entity.PaneID]port.WebView),
+		popups:   newPopupManager(),
 	}
 
 	popupID := port.WebViewID(1)
@@ -522,9 +514,9 @@ func TestTrackOAuthPopup_StoresState(t *testing.T) {
 
 	c.trackOAuthPopup(popupID, parentPaneID, "https://parent.example.com/login")
 
-	c.popupMu.RLock()
-	state, ok := c.popupOAuth[popupID]
-	c.popupMu.RUnlock()
+	c.popups.mu.RLock()
+	state, ok := c.popups.popupOAuth[popupID]
+	c.popups.mu.RUnlock()
 
 	require.True(t, ok, "oauth state should be tracked after trackOAuthPopup")
 	require.NotNil(t, state)
@@ -537,17 +529,17 @@ func TestCapturePopupOAuthState_SuccessCallback(t *testing.T) {
 	t.Parallel()
 
 	c := &Coordinator{
-		webViews:   make(map[entity.PaneID]port.WebView),
-		popupOAuth: make(map[port.WebViewID]*popupOAuthState),
+		webViews: make(map[entity.PaneID]port.WebView),
+		popups:   newPopupManager(),
 	}
 
 	popupID := port.WebViewID(2)
 	c.trackOAuthPopup(popupID, entity.PaneID("parent"), "https://parent.example.com/login")
 	c.capturePopupOAuthState(popupID, "https://app.example.com/callback?code=abc123")
 
-	c.popupMu.RLock()
-	state := c.popupOAuth[popupID]
-	c.popupMu.RUnlock()
+	c.popups.mu.RLock()
+	state := c.popups.popupOAuth[popupID]
+	c.popups.mu.RUnlock()
 
 	require.NotNil(t, state)
 	assert.True(t, state.Seen)
@@ -560,17 +552,17 @@ func TestCapturePopupOAuthState_ErrorCallback(t *testing.T) {
 	t.Parallel()
 
 	c := &Coordinator{
-		webViews:   make(map[entity.PaneID]port.WebView),
-		popupOAuth: make(map[port.WebViewID]*popupOAuthState),
+		webViews: make(map[entity.PaneID]port.WebView),
+		popups:   newPopupManager(),
 	}
 
 	popupID := port.WebViewID(3)
 	c.trackOAuthPopup(popupID, entity.PaneID("parent"), "https://parent.example.com/login")
 	c.capturePopupOAuthState(popupID, "https://app.example.com/callback?error=access_denied")
 
-	c.popupMu.RLock()
-	state := c.popupOAuth[popupID]
-	c.popupMu.RUnlock()
+	c.popups.mu.RLock()
+	state := c.popups.popupOAuth[popupID]
+	c.popups.mu.RUnlock()
 
 	require.NotNil(t, state)
 	assert.True(t, state.Seen)
@@ -582,16 +574,16 @@ func TestCapturePopupOAuthState_UnknownPopupIsNoop(t *testing.T) {
 	t.Parallel()
 
 	c := &Coordinator{
-		webViews:   make(map[entity.PaneID]port.WebView),
-		popupOAuth: make(map[port.WebViewID]*popupOAuthState),
+		webViews: make(map[entity.PaneID]port.WebView),
+		popups:   newPopupManager(),
 	}
 
 	// Should not panic when no tracking entry exists.
 	c.capturePopupOAuthState(port.WebViewID(999), "https://example.com/callback?code=x")
 
-	c.popupMu.RLock()
-	_, ok := c.popupOAuth[port.WebViewID(999)]
-	c.popupMu.RUnlock()
+	c.popups.mu.RLock()
+	_, ok := c.popups.popupOAuth[port.WebViewID(999)]
+	c.popups.mu.RUnlock()
 
 	assert.False(t, ok)
 }
@@ -611,10 +603,10 @@ func TestSetPopupConfig_SetsFields(t *testing.T) {
 
 	c.SetPopupConfig(factory, cfg, genID)
 
-	assert.Equal(t, factory, c.factory)
-	assert.Equal(t, cfg, c.popupConfig)
-	assert.NotNil(t, c.generateID)
-	assert.Equal(t, "test-id", c.generateID())
+	assert.Equal(t, factory, c.popups.factory)
+	assert.Equal(t, cfg, c.popups.popupConfig)
+	assert.NotNil(t, c.popups.generatePaneID)
+	assert.Equal(t, "test-id", c.popups.generatePaneID())
 }
 
 func TestSetPopupConfig_NilConfigAllowed(t *testing.T) {
@@ -623,9 +615,9 @@ func TestSetPopupConfig_NilConfigAllowed(t *testing.T) {
 	c := &Coordinator{}
 	c.SetPopupConfig(nil, nil, nil)
 
-	assert.Nil(t, c.factory)
-	assert.Nil(t, c.popupConfig)
-	assert.Nil(t, c.generateID)
+	assert.Nil(t, c.popups.factory)
+	assert.Nil(t, c.popups.popupConfig)
+	assert.Nil(t, c.popups.generatePaneID)
 }
 
 type popupNavigationWebViewStub struct {
@@ -637,6 +629,10 @@ func (s *popupNavigationWebViewStub) PrimePopupNavigation(uri string) {
 	s.primed = append(s.primed, uri)
 }
 
+func (*popupNavigationWebViewStub) SetOnReadyToShow(func()) {}
+func (*popupNavigationWebViewStub) SetOnClose(func())       {}
+func (*popupNavigationWebViewStub) Show()                   {}
+
 type popupOpenerBridgeWebViewStub struct {
 	*mocks.MockWebView
 	parent             port.WebView
@@ -647,6 +643,11 @@ func (s *popupOpenerBridgeWebViewStub) EnablePopupOpenerBridge(parent port.WebVi
 	s.parent = parent
 	s.noJavaScriptAccess = noJavaScriptAccess
 }
+
+func (*popupOpenerBridgeWebViewStub) AddOpenerMessageCallback(func()) {}
+func (*popupOpenerBridgeWebViewStub) AddOpenerNavigationCallback(func(string)) {
+}
+func (*popupOpenerBridgeWebViewStub) HasActivePopupOpenerBridge() bool { return false }
 
 // stubFactory satisfies port.WebViewFactory without importing the mocks package.
 type stubFactory struct{}
@@ -667,7 +668,7 @@ func TestPendingPopups_ConcurrentAccess(t *testing.T) {
 	t.Parallel()
 
 	c := &Coordinator{
-		pendingPopups: make(map[port.WebViewID]*PendingPopup),
+		popups: newPopupManager(),
 	}
 
 	const workers = 20
@@ -679,12 +680,12 @@ func TestPendingPopups_ConcurrentAccess(t *testing.T) {
 		go func(id int) {
 			defer wg.Done()
 			popupID := port.WebViewID(id)
-			c.popupMu.Lock()
-			c.pendingPopups[popupID] = &PendingPopup{
+			c.popups.mu.Lock()
+			c.popups.pendingPopups[popupID] = &PendingPopup{
 				FrameName: "_blank",
 				PopupType: PopupTypeTab,
 			}
-			c.popupMu.Unlock()
+			c.popups.mu.Unlock()
 		}(i)
 	}
 
@@ -693,17 +694,17 @@ func TestPendingPopups_ConcurrentAccess(t *testing.T) {
 		go func(id int) {
 			defer wg.Done()
 			popupID := port.WebViewID(id)
-			c.popupMu.RLock()
-			_ = c.pendingPopups[popupID]
-			c.popupMu.RUnlock()
+			c.popups.mu.RLock()
+			_ = c.popups.pendingPopups[popupID]
+			c.popups.mu.RUnlock()
 		}(i)
 	}
 
 	wg.Wait()
 
-	c.popupMu.RLock()
-	count := len(c.pendingPopups)
-	c.popupMu.RUnlock()
+	c.popups.mu.RLock()
+	count := len(c.popups.pendingPopups)
+	c.popups.mu.RUnlock()
 
 	assert.Equal(t, workers, count, "each writer uses a unique key, so all inserts should be present")
 }
@@ -712,12 +713,12 @@ func TestPendingPopups_ConcurrentDeleteAndRead(t *testing.T) {
 	t.Parallel()
 
 	c := &Coordinator{
-		pendingPopups: make(map[port.WebViewID]*PendingPopup),
+		popups: newPopupManager(),
 	}
 
 	// Pre-populate
 	for i := 0; i < 10; i++ {
-		c.pendingPopups[port.WebViewID(i)] = &PendingPopup{PopupType: PopupTypePopup}
+		c.popups.pendingPopups[port.WebViewID(i)] = &PendingPopup{PopupType: PopupTypePopup}
 	}
 
 	var wg sync.WaitGroup
@@ -727,9 +728,9 @@ func TestPendingPopups_ConcurrentDeleteAndRead(t *testing.T) {
 	for i := 0; i < 10; i++ {
 		go func(id int) {
 			defer wg.Done()
-			c.popupMu.Lock()
-			delete(c.pendingPopups, port.WebViewID(id))
-			c.popupMu.Unlock()
+			c.popups.mu.Lock()
+			delete(c.popups.pendingPopups, port.WebViewID(id))
+			c.popups.mu.Unlock()
 		}(i)
 	}
 
@@ -737,15 +738,15 @@ func TestPendingPopups_ConcurrentDeleteAndRead(t *testing.T) {
 	for i := 0; i < 10; i++ {
 		go func(id int) {
 			defer wg.Done()
-			c.popupMu.RLock()
-			_ = c.pendingPopups[port.WebViewID(id)]
-			c.popupMu.RUnlock()
+			c.popups.mu.RLock()
+			_ = c.popups.pendingPopups[port.WebViewID(id)]
+			c.popups.mu.RUnlock()
 		}(i)
 	}
 
 	wg.Wait()
 
-	c.popupMu.RLock()
-	defer c.popupMu.RUnlock()
-	assert.Empty(t, c.pendingPopups, "all preloaded popups should have been deleted")
+	c.popups.mu.RLock()
+	defer c.popups.mu.RUnlock()
+	assert.Empty(t, c.popups.pendingPopups, "all preloaded popups should have been deleted")
 }

@@ -7,16 +7,12 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func testClipboardSelectionFetchBridgeJS() string {
-	return buildClipboardSelectionFetchBridgeJS("test-bridge-nonce")
-}
-
-func testPopupFetchBridgeJS() string {
-	return buildPopupFetchBridgeJS("test-bridge-nonce")
+func testTrustedPageFetchBridgeJS() string {
+	return buildTrustedPageFetchBridgeJS("test-bridge-nonce")
 }
 
 func TestClipboardSelectionFetchBridgeJS_CapturesInputAndTextareaSelections(t *testing.T) {
-	script := testClipboardSelectionFetchBridgeJS()
+	script := testTrustedPageFetchBridgeJS()
 
 	require.Contains(t, script, "document.activeElement")
 	require.Contains(t, script, "selectionStart")
@@ -26,7 +22,7 @@ func TestClipboardSelectionFetchBridgeJS_CapturesInputAndTextareaSelections(t *t
 }
 
 func TestClipboardSelectionFetchBridgeJS_PostsTrustedFocusSyncRequests(t *testing.T) {
-	script := testClipboardSelectionFetchBridgeJS()
+	script := testTrustedPageFetchBridgeJS()
 
 	require.Contains(t, script, "dumb:///api/focus-sync")
 	require.Contains(t, script, "X-Dumber-Bridge-Action")
@@ -41,7 +37,7 @@ func TestClipboardSelectionFetchBridgeJS_PostsTrustedFocusSyncRequests(t *testin
 }
 
 func TestClipboardSelectionFetchBridgeJS_HandlesTrustedClipboardEvents(t *testing.T) {
-	script := testClipboardSelectionFetchBridgeJS()
+	script := testTrustedPageFetchBridgeJS()
 
 	require.Contains(t, script, "dumb:///api/clipboard-set")
 	require.Contains(t, script, "X-Dumber-Body")
@@ -52,7 +48,7 @@ func TestClipboardSelectionFetchBridgeJS_HandlesTrustedClipboardEvents(t *testin
 }
 
 func TestClipboardSelectionFetchBridgeJS_PatchesAsyncClipboardAPIs(t *testing.T) {
-	script := testClipboardSelectionFetchBridgeJS()
+	script := testTrustedPageFetchBridgeJS()
 
 	require.Contains(t, script, "navigator && navigator.clipboard")
 	require.Contains(t, script, "clipboardProto.writeText")
@@ -67,8 +63,8 @@ func TestClipboardSelectionFetchBridgeJS_PatchesAsyncClipboardAPIs(t *testing.T)
 	require.Contains(t, script, "test-bridge-nonce")
 }
 
-func TestPopupFetchBridgeJS_ShimsWindowOpenToBridgePopupRequests(t *testing.T) {
-	script := testPopupFetchBridgeJS()
+func TestTrustedPageFetchBridgeJS_ShimsWindowOpenToBridgePopupRequests(t *testing.T) {
+	script := testTrustedPageFetchBridgeJS()
 
 	require.Contains(t, script, "window.__dumberPopupBridgePatched")
 	require.Contains(t, script, "window.open = function(url, target, features)")

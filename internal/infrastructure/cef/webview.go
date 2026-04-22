@@ -23,16 +23,12 @@ import (
 
 // Compile-time interface checks.
 var (
-	_ port.WebView                       = (*WebView)(nil)
-	_ port.NativeWidgetProvider          = (*WebView)(nil)
-	_ port.DevToolsOpener                = (*WebView)(nil)
-	_ port.PopupCapable                  = (*WebView)(nil)
-	_ port.PopupNavigationCapable        = (*WebView)(nil)
-	_ port.PopupOpenerBridgeCapable      = (*WebView)(nil)
-	_ port.PopupOpenerMessageCapable     = (*WebView)(nil)
-	_ port.PopupOpenerNavigationCapable  = (*WebView)(nil)
-	_ port.PopupOpenerBridgeStateCapable = (*WebView)(nil)
-	_ port.OAuthCallbackCapable          = (*WebView)(nil)
+	_ port.WebView               = (*WebView)(nil)
+	_ port.NativeWidgetProvider  = (*WebView)(nil)
+	_ port.DevToolsOpener        = (*WebView)(nil)
+	_ port.PopupLifecycleCapable = (*WebView)(nil)
+	_ port.PopupOpenerCapable    = (*WebView)(nil)
+	_ port.OAuthCallbackCapable  = (*WebView)(nil)
 )
 
 // errDestroyed is returned when an operation is attempted on a destroyed WebView.
@@ -507,7 +503,7 @@ func (wv *WebView) SetCallbacks(cb *port.WebViewCallbacks) {
 	wv.callbacks = cb
 }
 
-// SetOnReadyToShow implements port.PopupCapable.
+// SetOnReadyToShow implements port.PopupLifecycleCapable.
 func (wv *WebView) SetOnReadyToShow(fn func()) {
 	if wv == nil {
 		return
@@ -521,12 +517,12 @@ func (wv *WebView) SetOnReadyToShow(fn func()) {
 	}
 }
 
-// SetOnClose implements port.PopupCapable.
+// SetOnClose implements port.PopupLifecycleCapable.
 func (wv *WebView) SetOnClose(fn func()) {
 	wv.AddCloseCallback(fn)
 }
 
-// Show implements port.PopupCapable.
+// Show implements port.PopupLifecycleCapable.
 func (wv *WebView) Show() {
 	if wv == nil || wv.destroyed.Load() {
 		return
@@ -539,7 +535,7 @@ func (wv *WebView) Show() {
 	}
 }
 
-// PrimePopupNavigation implements port.PopupNavigationCapable.
+// PrimePopupNavigation implements port.PopupLifecycleCapable.
 func (wv *WebView) PrimePopupNavigation(uri string) {
 	if wv == nil || wv.destroyed.Load() {
 		return

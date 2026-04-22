@@ -101,19 +101,19 @@ func (c *Coordinator) lookupReusableNamedPopup(parentPaneID entity.PaneID, frame
 
 	key := namedPopupKey{ParentPaneID: parentPaneID, FrameName: frameName}
 
-	c.popupMu.RLock()
-	state, ok := c.namedPopups[key]
-	c.popupMu.RUnlock()
+	c.popups.mu.RLock()
+	state, ok := c.popups.namedPopups[key]
+	c.popups.mu.RUnlock()
 	if !ok || state == nil || state.WebView == nil {
 		return nil, false
 	}
 
 	if state.WebView.IsDestroyed() {
-		c.popupMu.Lock()
-		if current, ok := c.namedPopups[key]; ok && current == state {
-			delete(c.namedPopups, key)
+		c.popups.mu.Lock()
+		if current, ok := c.popups.namedPopups[key]; ok && current == state {
+			delete(c.popups.namedPopups, key)
 		}
-		c.popupMu.Unlock()
+		c.popups.mu.Unlock()
 		return nil, false
 	}
 
@@ -131,30 +131,30 @@ func (c *Coordinator) storeReusableNamedPopup(
 
 	key := namedPopupKey{ParentPaneID: parentPaneID, FrameName: frameName}
 
-	c.popupMu.Lock()
-	if c.namedPopups == nil {
-		c.namedPopups = make(map[namedPopupKey]*namedPopupState)
+	c.popups.mu.Lock()
+	if c.popups.namedPopups == nil {
+		c.popups.namedPopups = make(map[namedPopupKey]*namedPopupState)
 	}
-	c.namedPopups[key] = &namedPopupState{WebView: wv}
-	c.popupMu.Unlock()
+	c.popups.namedPopups[key] = &namedPopupState{WebView: wv}
+	c.popups.mu.Unlock()
 }
 
 func (c *Coordinator) updatePendingPopupTarget(popupID port.WebViewID, targetURI string) {
-	c.popupMu.Lock()
-	if pending, ok := c.pendingPopups[popupID]; ok && pending != nil {
+	c.popups.mu.Lock()
+	if pending, ok := c.popups.pendingPopups[popupID]; ok && pending != nil {
 		pending.TargetURI = targetURI
 	}
-	c.popupMu.Unlock()
+	c.popups.mu.Unlock()
 }
 
 func (c *Coordinator) clearReusableNamedPopupByWebViewID(popupID port.WebViewID) {
-	c.popupMu.Lock()
-	for key, state := range c.namedPopups {
+	c.popups.mu.Lock()
+	for key, state := range c.popups.namedPopups {
 		if state != nil && state.WebView != nil && state.WebView.ID() == popupID {
-			delete(c.namedPopups, key)
+			delete(c.popups.namedPopups, key)
 		}
 	}
-	c.popupMu.Unlock()
+	c.popups.mu.Unlock()
 }
 
 // InsertPopupInput contains the data needed to insert a popup into the workspace.
@@ -215,24 +215,17 @@ func (c *Coordinator) SetPopupConfig(
 	popupConfig *entity.PopupBehaviorConfig,
 	generateID func() string,
 ) {
-	c.factory = factory
-	c.popupConfig = popupConfig
-	c.generateID = generateID
-
-	c.popupMu.Lock()
-	c.relatedPopupUnsupported = false
-	c.relatedPopupSupportDetected = false
-	c.popupMu.Unlock()
+	c.ensurePopupManager().setConfig(factory, popupConfig, generateID)
 }
 
 // SetOnInsertPopup sets the callback to insert popups into the workspace.
 func (c *Coordinator) SetOnInsertPopup(fn func(ctx context.Context, input InsertPopupInput) error) {
-	c.onInsertPopup = fn
+	c.ensurePopupManager().setOnInsertPopup(fn)
 }
 
 // SetOnClosePane sets the callback to close a pane when its popup closes.
 func (c *Coordinator) SetOnClosePane(fn func(ctx context.Context, paneID entity.PaneID) error) {
-	c.onClosePane = fn
+	c.ensurePopupManager().setOnClosePane(fn)
 }
 
 // buildPopupCreateHandler returns the OnCreate callback for a WebView.
@@ -258,40 +251,30 @@ func (c *Coordinator) createPopupPane(
 	parentPaneID entity.PaneID,
 	targetURI string,
 ) (entity.PaneID, *entity.Pane) {
-	var paneID entity.PaneID
-	if c.generateID != nil {
-		paneID = entity.PaneID(c.generateID())
-	} else {
-		paneID = entity.PaneID(fmt.Sprintf("popup_%d", popupID))
-	}
-
-	popupPane := entity.NewPane(paneID)
-	popupPane.WindowType = entity.WindowPopup
-	popupPane.IsRelated = true
-	popupPane.ParentPaneID = &parentPaneID
-	popupPane.URI = targetURI
-
-	return paneID, popupPane
+	return c.ensurePopupManager().createPopupPane(popupID, parentPaneID, targetURI)
 }
 
 func (c *Coordinator) relatedPopupSupportDisabled() bool {
-	c.popupMu.RLock()
-	defer c.popupMu.RUnlock()
-	return c.relatedPopupSupportDetected && c.relatedPopupUnsupported
+	popups := c.ensurePopupManager()
+	popups.mu.RLock()
+	defer popups.mu.RUnlock()
+	return popups.relatedPopupSupportDetected && popups.relatedPopupUnsupported
 }
 
 func (c *Coordinator) markRelatedPopupUnsupported() {
-	c.popupMu.Lock()
-	defer c.popupMu.Unlock()
-	c.relatedPopupSupportDetected = true
-	c.relatedPopupUnsupported = true
+	popups := c.ensurePopupManager()
+	popups.mu.Lock()
+	defer popups.mu.Unlock()
+	popups.relatedPopupSupportDetected = true
+	popups.relatedPopupUnsupported = true
 }
 
 func (c *Coordinator) markRelatedPopupSupported() {
-	c.popupMu.Lock()
-	defer c.popupMu.Unlock()
-	c.relatedPopupSupportDetected = true
-	c.relatedPopupUnsupported = false
+	popups := c.ensurePopupManager()
+	popups.mu.Lock()
+	defer popups.mu.Unlock()
+	popups.relatedPopupSupportDetected = true
+	popups.relatedPopupUnsupported = false
 }
 
 // createPopupWebView prefers a related WebView so popups can share the
@@ -304,7 +287,7 @@ func (c *Coordinator) createPopupWebView(
 	targetURI string,
 	noJavaScriptAccess bool,
 ) (port.WebView, string, bool, error) {
-	if c.factory == nil {
+	if c.popups.factory == nil {
 		return nil, targetURI, false, fmt.Errorf("no webview factory configured")
 	}
 
@@ -312,7 +295,7 @@ func (c *Coordinator) createPopupWebView(
 	relatedErr := error(nil)
 
 	if !noJavaScriptAccess && !c.relatedPopupSupportDisabled() {
-		popupWV, err := c.factory.CreateRelated(ctx, parentID)
+		popupWV, err := c.popups.factory.CreateRelated(ctx, parentID)
 		if err == nil && popupWV != nil {
 			c.markRelatedPopupSupported()
 			return popupWV, targetURI, false, nil
@@ -351,7 +334,7 @@ func (c *Coordinator) createPopupWebView(
 			Msg("related popup webviews known unsupported, creating regular webview")
 	}
 
-	popupWV, fallbackErr := c.factory.Create(ctx)
+	popupWV, fallbackErr := c.popups.factory.Create(ctx)
 	if fallbackErr != nil {
 		if relatedErr != nil {
 			return nil, targetURI, false, fmt.Errorf("create popup webview: related failed: %w; fallback failed: %w", relatedErr, fallbackErr)
@@ -388,20 +371,20 @@ func (c *Coordinator) handlePopupCreate(
 		Msg("popup create request")
 
 	// Check if popups are enabled
-	if c.popupConfig != nil && !c.popupConfig.OpenInNewPane {
+	if c.popups.popupConfig != nil && !c.popups.popupConfig.OpenInNewPane {
 		log.Debug().Msg("popups disabled by config, blocking")
 		return nil
 	}
 
 	// Check if factory is available
-	if c.factory == nil {
+	if c.popups.factory == nil {
 		log.Warn().Msg("no webview factory, cannot create popup")
 		return nil
 	}
 
 	parentID := parentWV.ID()
 	parentURIAtOpen := ""
-	if c.popupConfig != nil && c.popupConfig.OAuthAutoClose && IsOAuthURL(req.TargetURI) {
+	if c.popups.popupConfig != nil && c.popups.popupConfig.OAuthAutoClose && IsOAuthURL(req.TargetURI) {
 		if parentWV != nil {
 			parentURIAtOpen = parentWV.URI()
 		}
@@ -430,7 +413,7 @@ func (c *Coordinator) handlePopupCreate(
 		req.TargetURI = effectiveTargetURI
 	}
 	if usedRegularFallback {
-		if openerBridge, ok := popupWV.(port.PopupOpenerBridgeCapable); ok {
+		if openerBridge, ok := popupWV.(port.PopupOpenerCapable); ok {
 			openerBridge.EnablePopupOpenerBridge(parentWV, req.NoJavaScriptAccess)
 		}
 	}
@@ -440,29 +423,28 @@ func (c *Coordinator) handlePopupCreate(
 	popupID := popupWV.ID()
 
 	// Determine behavior from config
-	behavior := GetBehavior(popupType, c.popupConfig)
+	behavior := GetBehavior(popupType, c.popups.popupConfig)
 	placement := "right"
-	if c.popupConfig != nil {
-		placement = c.popupConfig.Placement
+	if c.popups.popupConfig != nil {
+		placement = c.popups.popupConfig.Placement
 	}
 
 	// Create popup pane entity
 	paneID, popupPane := c.createPopupPane(popupID, parentPaneID, req.TargetURI)
 
-	return c.finishPopupCreate(
-		ctx,
-		parentPaneID,
-		parentID,
-		parentURIAtOpen,
-		popupID,
-		popupWV,
-		popupPane,
-		paneID,
-		popupType,
-		behavior,
-		placement,
-		req,
-	)
+	return c.finishPopupCreate(ctx, popupCreateContext{
+		ParentPaneID:    parentPaneID,
+		ParentWebViewID: parentID,
+		ParentURIAtOpen: parentURIAtOpen,
+		PopupID:         popupID,
+		PopupWebView:    popupWV,
+		PopupPane:       popupPane,
+		PopupPaneID:     paneID,
+		PopupType:       popupType,
+		Behavior:        behavior,
+		Placement:       placement,
+		Request:         req,
+	})
 }
 
 func (c *Coordinator) reuseNamedPopup(
@@ -491,142 +473,129 @@ func (c *Coordinator) reuseNamedPopup(
 	return nil, false
 }
 
-func (c *Coordinator) finishPopupCreate(
-	ctx context.Context,
-	parentPaneID entity.PaneID,
-	parentID port.WebViewID,
-	parentURIAtOpen string,
-	popupID port.WebViewID,
-	popupWV port.WebView,
-	popupPane *entity.Pane,
-	paneID entity.PaneID,
-	popupType PopupType,
-	behavior entity.PopupBehavior,
-	placement string,
-	req port.PopupRequest,
-) port.WebView {
+func (c *Coordinator) finishPopupCreate(ctx context.Context, create popupCreateContext) port.WebView {
 	log := logging.FromContext(ctx)
-	hasConfig := c.popupConfig != nil
-	oauthEnabled := hasConfig && c.popupConfig.OAuthAutoClose
-	isOAuth := IsOAuthURL(req.TargetURI)
+	hasConfig := c.popups.popupConfig != nil
+	oauthEnabled := hasConfig && c.popups.popupConfig.OAuthAutoClose
+	isOAuth := IsOAuthURL(create.Request.TargetURI)
 
 	log.Debug().
 		Bool("has_config", hasConfig).
 		Bool("oauth_enabled", oauthEnabled).
 		Bool("is_oauth", isOAuth).
-		Str("uri", logging.TruncateURL(req.TargetURI, logURLMaxLen)).
+		Str("uri", logging.TruncateURL(create.Request.TargetURI, logURLMaxLen)).
 		Msg("popup OAuth check")
 
 	// Initialize callbacks before publishing the WebView so any reader that sees
 	// the popup during workspace insertion gets a fully configured instance.
-	c.setupWebViewCallbacks(ctx, paneID, popupWV)
+	c.setupWebViewCallbacks(ctx, create.PopupPaneID, create.PopupWebView)
 
 	// Register the popup WebView before workspace insertion so split/stack UI
 	// updates can reuse the real popup instead of acquiring a placeholder pane
 	// WebView that races the actual popup flow.
-	c.RegisterPopupWebView(paneID, popupWV)
+	c.RegisterPopupWebView(create.PopupPaneID, create.PopupWebView)
 	inserted := false
 	defer func() {
 		if inserted {
 			return
 		}
-		if current := c.getWebViewLocked(paneID); current == popupWV {
-			c.deleteWebViewLocked(paneID)
+		if current := c.getWebViewLocked(create.PopupPaneID); current == create.PopupWebView {
+			c.deleteWebViewLocked(create.PopupPaneID)
 		}
 	}()
 
 	// Insert into workspace IMMEDIATELY (WebView stays hidden)
-	// This is required for WebKit to establish window.opener relationship
-	if c.onInsertPopup != nil {
+	// This is required for WebKit to establish window.opener relationship.
+	if c.popups.onInsertPopup != nil {
 		popupInput := InsertPopupInput{
-			ParentPaneID: parentPaneID,
-			PopupPane:    popupPane,
-			WebView:      popupWV,
-			Behavior:     behavior,
-			Placement:    placement,
-			PopupType:    popupType,
-			TargetURI:    req.TargetURI,
+			ParentPaneID: create.ParentPaneID,
+			PopupPane:    create.PopupPane,
+			WebView:      create.PopupWebView,
+			Behavior:     create.Behavior,
+			Placement:    create.Placement,
+			PopupType:    create.PopupType,
+			TargetURI:    create.Request.TargetURI,
 		}
 
-		if err := c.onInsertPopup(ctx, popupInput); err != nil {
+		if err := c.popups.onInsertPopup(ctx, popupInput); err != nil {
 			log.Error().Err(err).Msg("failed to insert popup into workspace")
-			popupWV.Destroy()
+			create.PopupWebView.Destroy()
 			return nil
 		}
 	}
 	inserted = true
 
-	if primable, ok := popupWV.(port.PopupNavigationCapable); ok {
-		primable.PrimePopupNavigation(req.TargetURI)
+	if lifecycle, ok := create.PopupWebView.(port.PopupLifecycleCapable); ok {
+		lifecycle.PrimePopupNavigation(create.Request.TargetURI)
 	}
 
-	if !req.NoJavaScriptAccess {
-		c.storeReusableNamedPopup(parentPaneID, req.FrameName, popupWV)
+	if !create.Request.NoJavaScriptAccess {
+		c.storeReusableNamedPopup(create.ParentPaneID, create.Request.FrameName, create.PopupWebView)
 	}
 
 	// Engines without native popup lifecycle hooks can still support
 	// programmatic popup closure (proxy.close(), OAuth auto-close) by exposing
 	// the optional OAuthCallbackCapable interface.
-	if _, hasNativePopupLifecycle := popupWV.(port.PopupCapable); !hasNativePopupLifecycle {
-		if closeCapable, ok := popupWV.(port.OAuthCallbackCapable); ok {
+	if _, hasNativePopupLifecycle := create.PopupWebView.(port.PopupLifecycleCapable); !hasNativePopupLifecycle {
+		if closeCapable, ok := create.PopupWebView.(port.OAuthCallbackCapable); ok {
 			closeCapable.AddCloseCallback(func() {
-				c.handlePopupClose(ctx, popupID)
+				c.handlePopupClose(ctx, create.PopupID)
 			})
 		}
 	}
 
-	// Setup OAuth auto-close if configured
+	// Setup OAuth auto-close if configured.
 	if hasConfig && oauthEnabled && isOAuth {
-		popupPane.AutoClose = true
-		c.trackOAuthPopup(popupID, parentPaneID, parentURIAtOpen)
-		c.setupOAuthAutoClose(ctx, paneID, popupID, popupWV)
-		log.Debug().Str("pane_id", string(paneID)).Msg("OAuth auto-close enabled for popup")
+		create.PopupPane.AutoClose = true
+		c.trackOAuthPopup(create.PopupID, create.ParentPaneID, create.ParentURIAtOpen)
+		c.setupOAuthAutoClose(ctx, create.PopupPaneID, create.PopupID, create.PopupWebView)
+		log.Debug().Str("pane_id", string(create.PopupPaneID)).Msg("OAuth auto-close enabled for popup")
 	}
 
-	// Store pending popup for ready-to-show handling (just visibility now)
+	// Store pending popup for ready-to-show handling (just visibility now).
 	pending := &PendingPopup{
-		PaneID:          paneID,
-		WebView:         popupWV,
-		ParentPaneID:    parentPaneID,
-		ParentWebViewID: parentID,
-		TargetURI:       req.TargetURI,
-		FrameName:       req.FrameName,
-		IsUserGesture:   req.IsUserGesture,
-		PopupType:       popupType,
+		PaneID:          create.PopupPaneID,
+		WebView:         create.PopupWebView,
+		ParentPaneID:    create.ParentPaneID,
+		ParentWebViewID: create.ParentWebViewID,
+		TargetURI:       create.Request.TargetURI,
+		FrameName:       create.Request.FrameName,
+		IsUserGesture:   create.Request.IsUserGesture,
+		PopupType:       create.PopupType,
 		CreatedAt:       time.Now(),
 	}
 
-	c.popupMu.Lock()
-	c.pendingPopups[popupID] = pending
-	c.popupMu.Unlock()
+	c.popups.mu.Lock()
+	c.popups.pendingPopups[create.PopupID] = pending
+	c.popups.mu.Unlock()
 
-	// Wire ready-to-show and close signals via the PopupCapable interface.
-	if pc, ok := popupWV.(port.PopupCapable); ok {
-		pc.SetOnReadyToShow(func() {
-			c.handlePopupReadyToShow(ctx, popupID)
+	// Wire ready-to-show and close signals via the popup lifecycle interface.
+	if lifecycle, ok := create.PopupWebView.(port.PopupLifecycleCapable); ok {
+		lifecycle.SetOnReadyToShow(func() {
+			c.handlePopupReadyToShow(ctx, create.PopupID)
 		})
-		pc.SetOnClose(func() {
-			c.handlePopupClose(ctx, popupID)
+		lifecycle.SetOnClose(func() {
+			c.handlePopupClose(ctx, create.PopupID)
 		})
 		log.Info().
-			Uint64("popup_id", uint64(popupID)).
-			Str("pane_id", string(paneID)).
-			Str("popup_type", popupType.String()).
-			Str("target_uri", logging.TruncateURL(req.TargetURI, logURLMaxLen)).
+			Uint64("popup_id", uint64(create.PopupID)).
+			Str("pane_id", string(create.PopupPaneID)).
+			Str("popup_type", create.PopupType.String()).
+			Str("target_uri", logging.TruncateURL(create.Request.TargetURI, logURLMaxLen)).
 			Msg("popup inserted (hidden), awaiting ready-to-show for visibility")
 	} else {
 		// Engine does not expose popup lifecycle callbacks. Treat the inserted
 		// WebView as ready immediately and continue with the same coordinator flow.
 		log.Info().
-			Uint64("popup_id", uint64(popupID)).
-			Str("pane_id", string(paneID)).
-			Str("popup_type", popupType.String()).
-			Str("target_uri", logging.TruncateURL(req.TargetURI, logURLMaxLen)).
-			Msg("popup inserted, immediately ready (no PopupCapable)")
-		c.handlePopupReadyToShow(ctx, popupID)
+			Uint64("popup_id", uint64(create.PopupID)).
+			Str("pane_id", string(create.PopupPaneID)).
+			Str("popup_type", create.PopupType.String()).
+			Str("target_uri", logging.TruncateURL(create.Request.TargetURI, logURLMaxLen)).
+			Msg("popup inserted, immediately ready (no PopupLifecycleCapable)")
+		c.handlePopupReadyToShow(ctx, create.PopupID)
 	}
 
-	return popupWV
+	return create.PopupWebView
 }
 
 // handlePopupReadyToShow handles the WebKit "ready-to-show" signal.
@@ -636,12 +605,12 @@ func (c *Coordinator) handlePopupReadyToShow(ctx context.Context, popupID port.W
 	log := logging.FromContext(ctx)
 
 	// Get pending popup
-	c.popupMu.Lock()
-	pending, ok := c.pendingPopups[popupID]
+	c.popups.mu.Lock()
+	pending, ok := c.popups.pendingPopups[popupID]
 	if ok {
-		delete(c.pendingPopups, popupID)
+		delete(c.popups.pendingPopups, popupID)
 	}
-	c.popupMu.Unlock()
+	c.popups.mu.Unlock()
 
 	if !ok || pending == nil {
 		log.Warn().Uint64("popup_id", uint64(popupID)).Msg("ready-to-show for unknown popup")
@@ -655,10 +624,10 @@ func (c *Coordinator) handlePopupReadyToShow(ctx context.Context, popupID port.W
 
 	// Make the WebView visible now that it's ready.
 	if pending.WebView != nil {
-		if pc, ok := pending.WebView.(port.PopupCapable); ok {
-			pc.Show()
+		if lifecycle, ok := pending.WebView.(port.PopupLifecycleCapable); ok {
+			lifecycle.Show()
 		}
-		_, preloadsNavigation := pending.WebView.(port.PopupNavigationCapable)
+		_, preloadsNavigation := pending.WebView.(port.PopupLifecycleCapable)
 		// Engines that do not preload popup navigation can request the target URI
 		// here once the popup becomes visible.
 		if !preloadsNavigation && pending.TargetURI != "" && !pending.WebView.IsLoading() && pending.WebView.URI() == "" {
@@ -682,17 +651,17 @@ func (c *Coordinator) handlePopupClose(ctx context.Context, popupID port.WebView
 	log.Debug().Uint64("popup_id", uint64(popupID)).Msg("popup close signal received")
 
 	// Check if still pending (never shown)
-	c.popupMu.Lock()
-	pending, wasPending := c.pendingPopups[popupID]
+	c.popups.mu.Lock()
+	pending, wasPending := c.popups.pendingPopups[popupID]
 	if wasPending {
-		delete(c.pendingPopups, popupID)
+		delete(c.popups.pendingPopups, popupID)
 	}
-	c.popupMu.Unlock()
+	c.popups.mu.Unlock()
 
 	if wasPending && pending != nil {
 		c.handlePopupOAuthClose(ctx, popupID)
-		if c.onClosePane != nil {
-			if err := c.onClosePane(ctx, pending.PaneID); err != nil {
+		if c.popups.onClosePane != nil {
+			if err := c.popups.onClosePane(ctx, pending.PaneID); err != nil {
 				log.Warn().Err(err).Str("pane_id", string(pending.PaneID)).Msg("failed to close pending popup pane")
 			}
 		}
@@ -727,8 +696,8 @@ func (c *Coordinator) handlePopupClose(ctx context.Context, popupID port.WebView
 	c.handlePopupOAuthClose(ctx, popupID)
 
 	// Close the pane in workspace (this removes the UI element)
-	if c.onClosePane != nil {
-		if err := c.onClosePane(ctx, paneID); err != nil {
+	if c.popups.onClosePane != nil {
+		if err := c.popups.onClosePane(ctx, paneID); err != nil {
 			log.Warn().Err(err).Str("pane_id", string(paneID)).Msg("failed to close popup pane")
 		}
 	}
@@ -755,19 +724,19 @@ func (c *Coordinator) handleLinkMiddleClick(ctx context.Context, parentPaneID en
 		Msg("middle-click/ctrl+click on link")
 
 	// Check if popups are enabled
-	if c.popupConfig != nil && !c.popupConfig.OpenInNewPane {
+	if c.popups.popupConfig != nil && !c.popups.popupConfig.OpenInNewPane {
 		log.Debug().Msg("popups disabled by config, ignoring middle-click")
 		return false
 	}
 
 	// Check if factory is available
-	if c.factory == nil {
+	if c.popups.factory == nil {
 		log.Warn().Msg("no webview factory, cannot handle middle-click")
 		return false
 	}
 
 	// Create a new WebView (regular, not related - just opening a link)
-	newWV, err := c.factory.Create(ctx)
+	newWV, err := c.popups.factory.Create(ctx)
 	if err != nil {
 		log.Error().Err(err).Msg("failed to create webview for middle-click")
 		return false
@@ -775,8 +744,8 @@ func (c *Coordinator) handleLinkMiddleClick(ctx context.Context, parentPaneID en
 
 	// Generate pane ID
 	var paneID entity.PaneID
-	if c.generateID != nil {
-		paneID = entity.PaneID(c.generateID())
+	if c.popups.generatePaneID != nil {
+		paneID = entity.PaneID(c.popups.generatePaneID())
 	} else {
 		paneID = entity.PaneID(fmt.Sprintf("link_%d", newWV.ID()))
 	}
@@ -794,16 +763,16 @@ func (c *Coordinator) handleLinkMiddleClick(ctx context.Context, parentPaneID en
 
 	// Get behavior from config (same as _blank links)
 	behavior := entity.PopupBehaviorStacked // default
-	if c.popupConfig != nil && c.popupConfig.BlankTargetBehavior != "" {
-		behavior = entity.PopupBehavior(c.popupConfig.BlankTargetBehavior)
+	if c.popups.popupConfig != nil && c.popups.popupConfig.BlankTargetBehavior != "" {
+		behavior = entity.PopupBehavior(c.popups.popupConfig.BlankTargetBehavior)
 	}
 	placement := "right"
-	if c.popupConfig != nil {
-		placement = c.popupConfig.Placement
+	if c.popups.popupConfig != nil {
+		placement = c.popups.popupConfig.Placement
 	}
 
 	// Request insertion into workspace
-	if c.onInsertPopup != nil {
+	if c.popups.onInsertPopup != nil {
 		popupInput := InsertPopupInput{
 			ParentPaneID: parentPaneID,
 			PopupPane:    newPane,
@@ -814,7 +783,7 @@ func (c *Coordinator) handleLinkMiddleClick(ctx context.Context, parentPaneID en
 			TargetURI:    uri,
 		}
 
-		if err := c.onInsertPopup(ctx, popupInput); err != nil {
+		if err := c.popups.onInsertPopup(ctx, popupInput); err != nil {
 			log.Error().Err(err).Msg("failed to insert middle-click pane into workspace")
 			// Clean up on failure — use the locking helper to avoid a data race.
 			c.deleteWebViewLocked(paneID)

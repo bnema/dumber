@@ -231,8 +231,8 @@ func popupUsesSyntheticOpenerSignals(wv port.WebView) bool {
 	if wv == nil {
 		return false
 	}
-	state, ok := wv.(port.PopupOpenerBridgeStateCapable)
-	return ok && state.HasActivePopupOpenerBridge()
+	opener, ok := wv.(port.PopupOpenerCapable)
+	return ok && opener.HasActivePopupOpenerBridge()
 }
 
 func (c *Coordinator) setupOAuthAutoClose(
@@ -330,14 +330,12 @@ func (c *Coordinator) setupOAuthAutoClose(
 		}
 		requestOAuthClose("navigation")
 	})
-	if openerNavigations, ok := wv.(port.PopupOpenerNavigationCapable); ok {
-		openerNavigations.AddOpenerNavigationCallback(func(uri string) {
+	if opener, ok := wv.(port.PopupOpenerCapable); ok {
+		opener.AddOpenerNavigationCallback(func(uri string) {
 			c.capturePopupOAuthState(popupID, uri)
 			requestOAuthClose("opener-navigation")
 		})
-	}
-	if openerMessages, ok := wv.(port.PopupOpenerMessageCapable); ok {
-		openerMessages.AddOpenerMessageCallback(func() {
+		opener.AddOpenerMessageCallback(func() {
 			c.capturePopupOAuthMessage(popupID)
 			requestOAuthClose("opener-message")
 		})
@@ -350,22 +348,22 @@ func (c *Coordinator) setupOAuthAutoClose(
 }
 
 func (c *Coordinator) trackOAuthPopup(popupID port.WebViewID, parentPaneID entity.PaneID, parentURIAtOpen string) {
-	c.popupMu.Lock()
-	defer c.popupMu.Unlock()
-	if c.popupOAuth == nil {
-		c.popupOAuth = make(map[port.WebViewID]*popupOAuthState)
+	c.popups.mu.Lock()
+	defer c.popups.mu.Unlock()
+	if c.popups.popupOAuth == nil {
+		c.popups.popupOAuth = make(map[port.WebViewID]*popupOAuthState)
 	}
-	c.popupOAuth[popupID] = &popupOAuthState{
+	c.popups.popupOAuth[popupID] = &popupOAuthState{
 		ParentPaneID:    parentPaneID,
 		ParentURIAtOpen: strings.TrimSpace(parentURIAtOpen),
 	}
 }
 
 func (c *Coordinator) capturePopupOAuthState(popupID port.WebViewID, uri string) {
-	c.popupMu.Lock()
-	defer c.popupMu.Unlock()
+	c.popups.mu.Lock()
+	defer c.popups.mu.Unlock()
 
-	state, ok := c.popupOAuth[popupID]
+	state, ok := c.popups.popupOAuth[popupID]
 	if !ok {
 		return
 	}
@@ -377,10 +375,10 @@ func (c *Coordinator) capturePopupOAuthState(popupID port.WebViewID, uri string)
 }
 
 func (c *Coordinator) capturePopupOAuthMessage(popupID port.WebViewID) {
-	c.popupMu.Lock()
-	defer c.popupMu.Unlock()
+	c.popups.mu.Lock()
+	defer c.popups.mu.Unlock()
 
-	state, ok := c.popupOAuth[popupID]
+	state, ok := c.popups.popupOAuth[popupID]
 	if !ok {
 		return
 	}
@@ -397,12 +395,12 @@ func (c *Coordinator) capturePopupOAuthMessage(popupID port.WebViewID) {
 func (c *Coordinator) handlePopupOAuthClose(ctx context.Context, popupID port.WebViewID) {
 	log := logging.FromContext(ctx)
 
-	c.popupMu.Lock()
-	state, ok := c.popupOAuth[popupID]
+	c.popups.mu.Lock()
+	state, ok := c.popups.popupOAuth[popupID]
 	if ok {
-		delete(c.popupOAuth, popupID)
+		delete(c.popups.popupOAuth, popupID)
 	}
-	c.popupMu.Unlock()
+	c.popups.mu.Unlock()
 
 	if !ok || state == nil || !state.Seen {
 		return
@@ -433,24 +431,24 @@ func (c *Coordinator) scheduleParentPaneOAuthResume(
 	parentURIAtOpen string,
 	callbackURI string,
 ) {
-	c.popupMu.Lock()
-	if c.popupRefresh == nil {
-		c.popupRefresh = make(map[entity.PaneID]*time.Timer)
+	c.popups.mu.Lock()
+	if c.popups.popupRefresh == nil {
+		c.popups.popupRefresh = make(map[entity.PaneID]*time.Timer)
 	}
-	if existing := c.popupRefresh[parentPaneID]; existing != nil {
+	if existing := c.popups.popupRefresh[parentPaneID]; existing != nil {
 		existing.Stop()
 	}
-	c.popupRefresh[parentPaneID] = time.AfterFunc(oauthParentRefreshDebounce, func() {
-		c.popupMu.Lock()
-		delete(c.popupRefresh, parentPaneID)
-		c.popupMu.Unlock()
+	c.popups.popupRefresh[parentPaneID] = time.AfterFunc(oauthParentRefreshDebounce, func() {
+		c.popups.mu.Lock()
+		delete(c.popups.popupRefresh, parentPaneID)
+		c.popups.mu.Unlock()
 		cb := glib.SourceFunc(func(_ uintptr) bool {
 			c.resumeParentPaneAfterOAuth(ctx, parentPaneID, popupID, parentURIAtOpen, callbackURI)
 			return false
 		})
 		glib.IdleAdd(&cb, 0)
 	})
-	c.popupMu.Unlock()
+	c.popups.mu.Unlock()
 }
 
 func (c *Coordinator) resumeParentPaneAfterOAuth(

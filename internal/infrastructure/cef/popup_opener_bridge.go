@@ -32,7 +32,7 @@ func (wv *WebView) setPopupNoJavaScriptAccess(noJavaScriptAccess bool) {
 	wv.mu.Unlock()
 }
 
-// AddOpenerMessageCallback implements port.PopupOpenerMessageCapable.
+// AddOpenerMessageCallback implements port.PopupOpenerCapable.
 func (wv *WebView) AddOpenerMessageCallback(fn func()) {
 	if wv == nil || fn == nil {
 		return
@@ -42,7 +42,7 @@ func (wv *WebView) AddOpenerMessageCallback(fn func()) {
 	wv.mu.Unlock()
 }
 
-// AddOpenerNavigationCallback implements port.PopupOpenerNavigationCapable.
+// AddOpenerNavigationCallback implements port.PopupOpenerCapable.
 func (wv *WebView) AddOpenerNavigationCallback(fn func(uri string)) {
 	if wv == nil || fn == nil {
 		return
@@ -90,7 +90,7 @@ func (wv *WebView) runOpenerNavigationCallbacks(uri string) {
 	})
 }
 
-// HasActivePopupOpenerBridge implements port.PopupOpenerBridgeStateCapable.
+// HasActivePopupOpenerBridge implements port.PopupOpenerCapable.
 func (wv *WebView) HasActivePopupOpenerBridge() bool {
 	if wv == nil {
 		return false
@@ -100,7 +100,7 @@ func (wv *WebView) HasActivePopupOpenerBridge() bool {
 	return !wv.popupNoJavaScriptAccess && wv.popupOpenerBridgeParent != nil
 }
 
-// EnablePopupOpenerBridge implements port.PopupOpenerBridgeCapable.
+// EnablePopupOpenerBridge implements port.PopupOpenerCapable.
 func (wv *WebView) EnablePopupOpenerBridge(parent port.WebView, noJavaScriptAccess bool) {
 	if wv == nil {
 		return
@@ -137,116 +137,7 @@ func (wv *WebView) popupOpenerBridgeScript(bridgeNonce string) string {
 		return ""
 	}
 
-	return fmt.Sprintf(`(function() {
-  if (typeof window === 'undefined') return;
-  if (window.__dumberPopupOpenerBridgeInstalled) return;
-  window.__dumberPopupOpenerBridgeInstalled = true;
-  if (window.opener != null) return;
-
-  var bridgeNonce = '%s';
-  var openerHref = '%s';
-
-  function postBridge(path, payload) {
-    try {
-      fetch('dumb:///api/' + path, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'X-Dumber-Body': btoa(unescape(encodeURIComponent(JSON.stringify(payload)))),
-          'X-Dumber-Bridge-Nonce': bridgeNonce
-        }
-      }).catch(function() {});
-    } catch (_) {}
-  }
-
-  function normalizeURLValue(rawURL) {
-    if (rawURL == null) return '';
-    try {
-      return String(rawURL);
-    } catch (_) {
-      return '';
-    }
-  }
-
-  function navigateOpener(nextURL) {
-    var rawURL = normalizeURLValue(nextURL);
-    if (rawURL !== '') openerHref = rawURL;
-    postBridge('popup-opener-navigate', { url: rawURL });
-    return openerHref;
-  }
-
-  function serializeMessage(value) {
-    try {
-      return { kind: 'json', value: JSON.stringify(value) };
-    } catch (_) {
-      return { kind: 'string', value: String(value) };
-    }
-  }
-
-  var locationProxy = {
-    assign: function(nextURL) { return navigateOpener(nextURL); },
-    replace: function(nextURL) { return navigateOpener(nextURL); },
-    toString: function() { return openerHref; }
-  };
-  try {
-    Object.defineProperty(locationProxy, 'href', {
-      configurable: true,
-      enumerable: true,
-      get: function() { return openerHref; },
-      set: function(nextURL) { navigateOpener(nextURL); }
-    });
-  } catch (_) {
-    locationProxy.href = openerHref;
-  }
-
-  var openerProxy = {
-    blur: function() { return undefined; },
-    close: function() { return undefined; },
-    focus: function() { return undefined; },
-    postMessage: function(message, targetOrigin) {
-      var serialized = serializeMessage(message);
-      postBridge('popup-opener-post-message', {
-        data: serialized.value,
-        data_kind: serialized.kind,
-        target_origin: targetOrigin == null ? '*' : String(targetOrigin),
-        source_origin: (typeof location !== 'undefined' && location && location.origin) ? location.origin : '',
-        source_href: (typeof location !== 'undefined' && location && location.href) ? location.href : ''
-      });
-      return undefined;
-    }
-  };
-  openerProxy.self = openerProxy;
-  openerProxy.window = openerProxy;
-  try {
-    Object.defineProperty(openerProxy, 'closed', {
-      configurable: true,
-      enumerable: true,
-      get: function() { return false; }
-    });
-  } catch (_) {
-    openerProxy.closed = false;
-  }
-  try {
-    Object.defineProperty(openerProxy, 'location', {
-      configurable: true,
-      enumerable: true,
-      get: function() { return locationProxy; },
-      set: function(nextURL) { navigateOpener(nextURL); }
-    });
-  } catch (_) {
-    openerProxy.location = locationProxy;
-  }
-
-  try {
-    Object.defineProperty(window, 'opener', {
-      configurable: true,
-      enumerable: true,
-      get: function() { return openerProxy; }
-    });
-  } catch (_) {
-    try { window.opener = openerProxy; } catch (_) {}
-  }
-})();`, webutil.EscapeForJSString(bridgeNonce), webutil.EscapeForJSString(parentURI))
+	return buildPopupOpenerBridgeJS(bridgeNonce, parentURI)
 }
 
 func (wv *WebView) handlePopupOpenerNavigate(targetURL string) {

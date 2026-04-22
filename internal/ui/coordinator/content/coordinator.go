@@ -3,7 +3,6 @@ package content
 import (
 	"context"
 	"sync"
-	"time"
 
 	"github.com/bnema/dumber/internal/application/port"
 	"github.com/bnema/dumber/internal/application/usecase"
@@ -82,25 +81,9 @@ type Coordinator struct {
 	// Gesture action handler for mouse button navigation
 	gestureActionHandler input.ActionHandler
 
-	// Popup handling
-	factory                     port.WebViewFactory
-	popupConfig                 *entity.PopupBehaviorConfig
-	pendingPopups               map[port.WebViewID]*PendingPopup
-	namedPopups                 map[namedPopupKey]*namedPopupState
-	popupOAuth                  map[port.WebViewID]*popupOAuthState
-	popupRefresh                map[entity.PaneID]*time.Timer
-	relatedPopupUnsupported     bool
-	relatedPopupSupportDetected bool
-	popupMu                     sync.RWMutex
-
-	// Callback to insert popup into workspace (avoids circular dependency)
-	onInsertPopup func(ctx context.Context, input InsertPopupInput) error
-
-	// Callback to close a pane when popup closes
-	onClosePane func(ctx context.Context, paneID entity.PaneID) error
-
-	// ID generator for popup panes
-	generateID func() string
+	// Popup handling stays in a dedicated UI-layer manager so popup-specific
+	// pane state does not bloat the main coordinator.
+	popups *popupManager
 
 	// Idle inhibitor for fullscreen video playback
 	idleInhibitor port.IdleInhibitor
@@ -123,15 +106,6 @@ type Coordinator struct {
 type pendingThemeUpdate struct {
 	prefersDark bool
 	cssText     string
-}
-
-type popupOAuthState struct {
-	ParentPaneID    entity.PaneID
-	ParentURIAtOpen string
-	CallbackURI     string
-	Success         bool
-	Error           bool
-	Seen            bool
 }
 
 // PermissionActivityState represents the visible state for media permission activity.
@@ -173,11 +147,19 @@ func NewCoordinator(
 		pendingScriptRefresh: make(map[entity.PaneID]bool),
 		pendingThemePanes:    make(map[entity.PaneID]bool),
 		getActiveWS:          getActiveWS,
-		pendingPopups:        make(map[port.WebViewID]*PendingPopup),
-		namedPopups:          make(map[namedPopupKey]*namedPopupState),
-		popupOAuth:           make(map[port.WebViewID]*popupOAuthState),
-		popupRefresh:         make(map[entity.PaneID]*time.Timer),
+		popups:               newPopupManager(),
 	}
+}
+
+func (c *Coordinator) ensurePopupManager() *popupManager {
+	if c == nil {
+		return nil
+	}
+	if c.popups == nil {
+		c.popups = newPopupManager()
+	}
+	c.popups.ensureInitialized()
+	return c.popups
 }
 
 // SetOnTitleUpdated sets the callback for title changes (for history persistence).
