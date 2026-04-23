@@ -14,19 +14,6 @@ type syntheticPopupState struct {
 	Closed     bool
 }
 
-func (wv *WebView) syntheticPopupState(proxyID string) *syntheticPopupState {
-	if wv == nil || proxyID == "" {
-		return nil
-	}
-
-	wv.syntheticPopupMu.Lock()
-	defer wv.syntheticPopupMu.Unlock()
-	if wv.syntheticPopups == nil {
-		return nil
-	}
-	return wv.syntheticPopups[proxyID]
-}
-
 // syntheticPopupStateLocked returns the synthetic popup state for proxyID.
 // Caller must hold wv.syntheticPopupMu.
 func (wv *WebView) syntheticPopupStateLocked(proxyID string) *syntheticPopupState {

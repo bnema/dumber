@@ -75,7 +75,7 @@ func (c *testPopupOpenerV8Context) Exit() int32 {
 	return 1
 }
 func (c *testPopupOpenerV8Context) IsSame(that purecef.V8Context) bool { return c == that }
-func (c *testPopupOpenerV8Context) Eval(code string, scriptURL string, _ int32, _, _ unsafe.Pointer) int32 {
+func (c *testPopupOpenerV8Context) Eval(code, scriptURL string, _ int32, _, _ unsafe.Pointer) int32 {
 	c.evalCode = code
 	c.evalURL = scriptURL
 	return 1

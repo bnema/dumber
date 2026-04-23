@@ -206,10 +206,7 @@ func composeOnURIChanged(existing, next func(string)) func(string) {
 	}
 }
 
-func composeOnLoadChanged(
-	existing func(port.LoadEvent),
-	next func(port.LoadEvent),
-) func(port.LoadEvent) {
+func composeOnLoadChanged(existing, next func(port.LoadEvent)) func(port.LoadEvent) {
 	if existing == nil {
 		return next
 	}
@@ -402,8 +399,7 @@ func (c *Coordinator) scheduleParentPaneOAuthResume(
 	ctx context.Context,
 	parentPaneID entity.PaneID,
 	popupID port.WebViewID,
-	parentURIAtOpen string,
-	callbackURI string,
+	parentURIAtOpen, callbackURI string,
 ) {
 	c.scheduleParentPaneOAuthResumeAttempt(
 		ctx,
@@ -419,8 +415,7 @@ func (c *Coordinator) scheduleParentPaneOAuthResumeAttempt(
 	ctx context.Context,
 	parentPaneID entity.PaneID,
 	popupID port.WebViewID,
-	parentURIAtOpen string,
-	callbackURI string,
+	parentURIAtOpen, callbackURI string,
 	remainingGrace int,
 ) {
 	c.ensurePopupManager().schedulePopupRefresh(parentPaneID, oauthParentRefreshDebounce, func() {
@@ -436,8 +431,7 @@ func (c *Coordinator) resumeParentPaneAfterOAuth(
 	ctx context.Context,
 	parentPaneID entity.PaneID,
 	popupID port.WebViewID,
-	parentURIAtOpen string,
-	callbackURI string,
+	parentURIAtOpen, callbackURI string,
 ) {
 	c.resumeParentPaneAfterOAuthAttempt(
 		ctx,
@@ -453,8 +447,7 @@ func (c *Coordinator) resumeParentPaneAfterOAuthAttempt(
 	ctx context.Context,
 	parentPaneID entity.PaneID,
 	popupID port.WebViewID,
-	parentURIAtOpen string,
-	callbackURI string,
+	parentURIAtOpen, callbackURI string,
 	remainingGrace int,
 ) {
 	log := logging.FromContext(ctx)
@@ -515,9 +508,7 @@ func (c *Coordinator) resumeParentPaneAfterOAuthAttempt(
 }
 
 func shouldGraceWaitForParentPaneOAuthResume(
-	parentURIAtOpen string,
-	currentParentURI string,
-	callbackURI string,
+	parentURIAtOpen, currentParentURI, callbackURI string,
 	remainingGrace int,
 ) bool {
 	if remainingGrace <= 0 {
@@ -532,7 +523,7 @@ func shouldGraceWaitForParentPaneOAuthResume(
 	return sameOAuthResumeSite(parentURIAtOpen, callbackURI)
 }
 
-func sameOAuthResumeSite(a string, b string) bool {
+func sameOAuthResumeSite(a, b string) bool {
 	hostA := normalizeOAuthResumeHost(a)
 	hostB := normalizeOAuthResumeHost(b)
 	return hostA != "" && hostA == hostB

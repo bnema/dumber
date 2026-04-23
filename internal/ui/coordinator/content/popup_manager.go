@@ -665,69 +665,78 @@ func (pm *popupManager) handlePopupReadyToShow(ctx context.Context, popupID port
 		Msg("popup now visible")
 }
 
-func (pm *popupManager) handlePopupClose(ctx context.Context, hooks popupCoordinatorHooks, popupID port.WebViewID) {
-	log := logging.FromContext(ctx)
-	fields := log.Debug().Uint64("popup_id", uint64(popupID))
+func (pm *popupManager) logPopupCloseSignal(ctx context.Context, hooks popupCoordinatorHooks, popupID port.WebViewID) {
+	fields := logging.FromContext(ctx).Debug().Uint64("popup_id", uint64(popupID))
 	if hooks.findPaneByWebViewID != nil && hooks.getWebView != nil {
 		if paneID, ok := hooks.findPaneByWebViewID(popupID); ok && paneID != "" {
 			fields = fields.Str("pane_id", string(paneID))
 			if wv := hooks.getWebView(paneID); wv != nil {
 				fields = fields.
 					Str("current_uri", logging.TruncateURL(wv.URI(), logURLMaxLen)).
-					Bool("is_loading", wv.IsLoading())
-				fields = fields.Bool("synthetic_opener_active", popupUsesSyntheticOpenerSignals(wv))
+					Bool("is_loading", wv.IsLoading()).
+					Bool("synthetic_opener_active", popupUsesSyntheticOpenerSignals(wv))
 			}
 		}
 	}
 	fields.Msg("popup close signal received")
+}
+
+func (pm *popupManager) findPopupPaneForClose(hooks popupCoordinatorHooks, popupID port.WebViewID) (entity.PaneID, bool) {
+	if hooks.findPaneByWebViewID == nil {
+		return "", false
+	}
+	paneID, ok := hooks.findPaneByWebViewID(popupID)
+	return paneID, ok && paneID != ""
+}
+
+func (pm *popupManager) releasePopupWebView(ctx context.Context, hooks popupCoordinatorHooks, paneID entity.PaneID) {
+	if paneID == "" || hooks.getWebView == nil || hooks.releaseWebView == nil {
+		return
+	}
+	if hooks.getWebView(paneID) != nil {
+		hooks.releaseWebView(ctx, paneID)
+	}
+}
+
+func (pm *popupManager) cleanupPopupClose(
+	ctx context.Context,
+	hooks popupCoordinatorHooks,
+	popupID port.WebViewID,
+	paneID entity.PaneID,
+	closeErrMsg string,
+) {
+	log := logging.FromContext(ctx)
+	if hooks.handlePopupOAuthClose != nil {
+		hooks.handlePopupOAuthClose(ctx, popupID)
+	}
+	if paneID != "" && pm.onClosePane != nil {
+		if err := pm.onClosePane(ctx, paneID); err != nil {
+			log.Warn().Err(err).Str("pane_id", string(paneID)).Msg(closeErrMsg)
+		}
+	}
+	pm.clearReusableNamedPopupByWebViewID(popupID)
+	pm.releasePopupWebView(ctx, hooks, paneID)
+}
+
+func (pm *popupManager) handlePopupClose(ctx context.Context, hooks popupCoordinatorHooks, popupID port.WebViewID) {
+	log := logging.FromContext(ctx)
+	pm.logPopupCloseSignal(ctx, hooks, popupID)
 
 	pending, wasPending := pm.takePendingPopup(popupID)
 	if wasPending && pending != nil {
-		if hooks.handlePopupOAuthClose != nil {
-			hooks.handlePopupOAuthClose(ctx, popupID)
-		}
-		if pm.onClosePane != nil {
-			if err := pm.onClosePane(ctx, pending.PaneID); err != nil {
-				log.Warn().Err(err).Str("pane_id", string(pending.PaneID)).Msg("failed to close pending popup pane")
-			}
-		}
-		pm.clearReusableNamedPopupByWebViewID(popupID)
-		if hooks.getWebView != nil && hooks.releaseWebView != nil && hooks.getWebView(pending.PaneID) != nil {
-			hooks.releaseWebView(ctx, pending.PaneID)
-		}
+		pm.cleanupPopupClose(ctx, hooks, popupID, pending.PaneID, "failed to close pending popup pane")
 		log.Debug().Str("pane_id", string(pending.PaneID)).Msg("cleaned up pending popup that was never shown")
 		return
 	}
 
-	var (
-		paneID entity.PaneID
-		ok     bool
-	)
-	if hooks.findPaneByWebViewID != nil {
-		paneID, ok = hooks.findPaneByWebViewID(popupID)
-	}
-	if !ok || paneID == "" {
-		if hooks.handlePopupOAuthClose != nil {
-			hooks.handlePopupOAuthClose(ctx, popupID)
-		}
-		pm.clearReusableNamedPopupByWebViewID(popupID)
+	paneID, ok := pm.findPopupPaneForClose(hooks, popupID)
+	if !ok {
+		pm.cleanupPopupClose(ctx, hooks, popupID, "", "")
 		log.Warn().Msg("popup close: could not find pane for webview")
 		return
 	}
 
-	if hooks.handlePopupOAuthClose != nil {
-		hooks.handlePopupOAuthClose(ctx, popupID)
-	}
-	if pm.onClosePane != nil {
-		if err := pm.onClosePane(ctx, paneID); err != nil {
-			log.Warn().Err(err).Str("pane_id", string(paneID)).Msg("failed to close popup pane")
-		}
-	}
-	pm.clearReusableNamedPopupByWebViewID(popupID)
-	if hooks.getWebView != nil && hooks.releaseWebView != nil && hooks.getWebView(paneID) != nil {
-		hooks.releaseWebView(ctx, paneID)
-	}
-
+	pm.cleanupPopupClose(ctx, hooks, popupID, paneID, "failed to close popup pane")
 	log.Info().Str("pane_id", string(paneID)).Msg("popup closed")
 }
 

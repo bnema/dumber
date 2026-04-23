@@ -252,7 +252,7 @@ func (h *dumbSchemeHandler) handleTranscodeAPI(request purecef.Request) purecef.
 	}
 
 	sourceParsed, err := url.Parse(sourceURL)
-	if err != nil || sourceParsed.Host == "" || (sourceParsed.Scheme != "http" && sourceParsed.Scheme != "https") {
+	if err != nil || sourceParsed.Host == "" || (sourceParsed.Scheme != "http" && sourceParsed.Scheme != actualInternalScheme) {
 		return h.newAPIJSONResourceHandler(http.StatusBadRequest, map[string]string{"error": "invalid src"})
 	}
 
@@ -453,7 +453,14 @@ func (h *dumbSchemeHandler) handlePopupOpenerNavigate(request purecef.Request, b
 }
 
 func (h *dumbSchemeHandler) handlePopupOpenerPostMessage(request purecef.Request, browser purecef.Browser) purecef.ResourceHandler {
-	return handlePopupBridgeRequest(h, request, browser, "popup-opener-post-message", decodePopupOpenerPostMessagePayload, h.onPopupOpenerPostMessage)
+	return handlePopupBridgeRequest(
+		h,
+		request,
+		browser,
+		"popup-opener-post-message",
+		decodePopupOpenerPostMessagePayload,
+		h.onPopupOpenerPostMessage,
+	)
 }
 
 func (h *dumbSchemeHandler) hasTrustedBridgeNonce(request purecef.Request, browser purecef.Browser) bool {

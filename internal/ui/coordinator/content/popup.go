@@ -91,26 +91,6 @@ func isReusableNamedPopupFrame(frameName string) bool {
 	return frameName != "" && frameName != "_blank"
 }
 
-func (c *Coordinator) lookupReusableNamedPopup(parentPaneID entity.PaneID, frameName string) (*namedPopupState, bool) {
-	return c.ensurePopupManager().lookupReusableNamedPopup(parentPaneID, frameName)
-}
-
-func (c *Coordinator) storeReusableNamedPopup(
-	parentPaneID entity.PaneID,
-	frameName string,
-	wv port.WebView,
-) {
-	c.ensurePopupManager().storeReusableNamedPopup(parentPaneID, frameName, wv)
-}
-
-func (c *Coordinator) updatePendingPopupTarget(popupID port.WebViewID, targetURI string) {
-	c.ensurePopupManager().updatePendingPopupTarget(popupID, targetURI)
-}
-
-func (c *Coordinator) clearReusableNamedPopupByWebViewID(popupID port.WebViewID) {
-	c.ensurePopupManager().clearReusableNamedPopupByWebViewID(popupID)
-}
-
 // InsertPopupInput contains the data needed to insert a popup into the workspace.
 type InsertPopupInput struct {
 	// ParentPaneID is the pane that spawned this popup.
@@ -199,40 +179,6 @@ func (c *Coordinator) buildPopupCreateHandler(
 	}
 }
 
-// createPopupPane creates a new pane entity for a popup window.
-func (c *Coordinator) createPopupPane(
-	popupID port.WebViewID,
-	parentPaneID entity.PaneID,
-	targetURI string,
-) (entity.PaneID, *entity.Pane) {
-	return c.ensurePopupManager().createPopupPane(popupID, parentPaneID, targetURI)
-}
-
-func (c *Coordinator) relatedPopupSupportDisabled() bool {
-	return c.ensurePopupManager().relatedPopupSupportDisabled()
-}
-
-func (c *Coordinator) markRelatedPopupUnsupported() {
-	c.ensurePopupManager().markRelatedPopupUnsupported()
-}
-
-func (c *Coordinator) markRelatedPopupSupported() {
-	c.ensurePopupManager().markRelatedPopupSupported()
-}
-
-// createPopupWebView prefers a related WebView so popups can share the
-// parent session/context. If the engine does not support related popup views,
-// it gracefully falls back to a regular WebView so target="_blank" and
-// window.open() still open in a workspace pane.
-func (c *Coordinator) createPopupWebView(
-	ctx context.Context,
-	parentID port.WebViewID,
-	targetURI string,
-	noJavaScriptAccess bool,
-) (port.WebView, bool, error) {
-	return c.ensurePopupManager().createPopupWebView(ctx, parentID, targetURI, noJavaScriptAccess)
-}
-
 // handlePopupCreate handles a popup request from the current WebView.
 // Returns a WebView if popup handling is allowed, nil to block.
 //
@@ -246,31 +192,6 @@ func (c *Coordinator) handlePopupCreate(
 	req port.PopupRequest,
 ) port.WebView {
 	return c.ensurePopupManager().handlePopupCreate(ctx, c.popupHooks(), parentPaneID, parentWV, req)
-}
-
-func (c *Coordinator) reuseNamedPopup(
-	ctx context.Context,
-	parentPaneID entity.PaneID,
-	frameName string,
-	targetURI string,
-) (port.WebView, bool) {
-	return c.ensurePopupManager().reuseNamedPopup(ctx, parentPaneID, frameName, targetURI)
-}
-
-func (c *Coordinator) finishPopupCreate(ctx context.Context, create popupCreateContext) port.WebView {
-	return c.ensurePopupManager().finishPopupCreate(ctx, c.popupHooks(), create)
-}
-
-// handlePopupReadyToShow handles the WebKit "ready-to-show" signal.
-// The popup WebView was already inserted into the workspace (hidden) during
-// the create signal. This handler just makes it visible.
-func (c *Coordinator) handlePopupReadyToShow(ctx context.Context, popupID port.WebViewID) {
-	c.ensurePopupManager().handlePopupReadyToShow(ctx, popupID)
-}
-
-// handlePopupClose handles the WebKit "close" signal for popup windows.
-func (c *Coordinator) handlePopupClose(ctx context.Context, popupID port.WebViewID) {
-	c.ensurePopupManager().handlePopupClose(ctx, c.popupHooks(), popupID)
 }
 
 // handleLinkMiddleClick handles middle-click / Ctrl+click on links.

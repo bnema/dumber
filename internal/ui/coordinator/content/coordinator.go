@@ -322,12 +322,6 @@ func (c *Coordinator) deleteWebViewLocked(paneID entity.PaneID) port.WebView {
 	return wv
 }
 
-func (c *Coordinator) paneIDByWebViewID(webViewID port.WebViewID) (entity.PaneID, bool) {
-	c.webViewsMu.RLock()
-	defer c.webViewsMu.RUnlock()
-	return c.paneIDByWebViewIDLocked(webViewID)
-}
-
 func (c *Coordinator) paneIDByWebViewIDLocked(webViewID port.WebViewID) (entity.PaneID, bool) {
 	paneID, ok := c.webViewPaneIDs[webViewID]
 	return paneID, ok

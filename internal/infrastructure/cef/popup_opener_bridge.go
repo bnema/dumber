@@ -23,6 +23,8 @@ type popupOpenerNavigatePayload struct {
 	URL string `json:"url"`
 }
 
+const popupOpenerHTTPScheme = "http"
+
 func (wv *WebView) setPopupNoJavaScriptAccess(noJavaScriptAccess bool) {
 	if wv == nil {
 		return
@@ -96,7 +98,7 @@ func (wv *WebView) HasActivePopupOpenerBridge() bool {
 	return active
 }
 
-func (wv *WebView) popupOpenerBridgeState() (parentURI string, active bool, blocked bool) {
+func (wv *WebView) popupOpenerBridgeState() (parentURI string, active, blocked bool) {
 	if wv == nil {
 		return "", false, false
 	}
@@ -301,8 +303,8 @@ func sanitizePopupOpenerNavigationTarget(target *neturl.URL) string {
 	if target == nil {
 		return ""
 	}
-	switch strings.ToLower(strings.TrimSpace(target.Scheme)) {
-	case "http", "https":
+	switch scheme := strings.ToLower(strings.TrimSpace(target.Scheme)); scheme {
+	case popupOpenerHTTPScheme, actualInternalScheme:
 		return target.String()
 	default:
 		return ""
@@ -346,7 +348,7 @@ func (wv *WebView) handlePopupOpenerPostMessage(payload popupOpenerPostMessagePa
 	}
 
 	sourceOrigin := popupSourceOrigin(payload)
-	dataExpr := "undefined"
+	var dataExpr string
 	switch strings.ToLower(strings.TrimSpace(payload.DataKind)) {
 	case "json":
 		dataExpr = fmt.Sprintf("JSON.parse('%s')", webutil.EscapeForJSString(payload.Data))
@@ -430,17 +432,17 @@ func canonicalOrigin(rawURL string) string {
 	if host == "" {
 		return ""
 	}
-	port := parsed.Port()
-	if port == "" {
+	portStr := parsed.Port()
+	if portStr == "" {
 		switch scheme {
-		case "http":
-			port = "80"
-		case "https":
-			port = "443"
+		case popupOpenerHTTPScheme:
+			portStr = "80"
+		case actualInternalScheme:
+			portStr = "443"
 		}
 	}
-	if port == "" {
+	if portStr == "" {
 		return scheme + "://" + host
 	}
-	return scheme + "://" + host + ":" + port
+	return scheme + "://" + host + ":" + portStr
 }

@@ -794,25 +794,51 @@ func (wv *WebView) prepareNativePopup(
 		return false
 	}
 
-	wv.mu.RLock()
-	if !wv.nativePopupCandidate || wv.client == nil || wv.nativePopupFallbackStarted || wv.browser != nil {
-		wv.mu.RUnlock()
+	prep, ok := wv.nativePopupPreparationSnapshot()
+	if !ok {
 		return false
 	}
-	parent := wv.nativePopupParent
-	frameRate := wv.windowlessFrameRate
-	backgroundColor := wv.backgroundColor
-	wv.mu.RUnlock()
-
-	parentWindowHandle := popupParentWindowHandle(parent)
+	parentWindowHandle := popupParentWindowHandle(prep.parent)
 	if parentWindowHandle == 0 {
 		return false
 	}
-
-	wv.mu.Lock()
-	if !wv.nativePopupCandidate || wv.client == nil || wv.nativePopupFallbackStarted || wv.browser != nil {
-		wv.mu.Unlock()
+	client, ok := wv.activateNativePopup(popupID, targetURL)
+	if !ok {
 		return false
+	}
+	if prep.parent != nil {
+		prep.parent.trackPendingNativePopup(popupID, wv)
+	}
+
+	configureNativePopupWindow(windowInfo, settings, parentWindowHandle, prep.frameRate, prep.backgroundColor)
+	clientSlot.Set(client)
+	return true
+}
+
+func (wv *WebView) nativePopupPreparationSnapshot() (nativePopupPreparation, bool) {
+	if wv == nil {
+		return nativePopupPreparation{}, false
+	}
+	wv.mu.RLock()
+	defer wv.mu.RUnlock()
+	if !wv.canPrepareNativePopupLocked() {
+		return nativePopupPreparation{}, false
+	}
+	return nativePopupPreparation{
+		parent:          wv.nativePopupParent,
+		frameRate:       wv.windowlessFrameRate,
+		backgroundColor: wv.backgroundColor,
+	}, true
+}
+
+func (wv *WebView) activateNativePopup(popupID int32, targetURL string) (purecef.RawClient, bool) {
+	if wv == nil {
+		return nil, false
+	}
+	wv.mu.Lock()
+	defer wv.mu.Unlock()
+	if !wv.canPrepareNativePopupLocked() {
+		return nil, false
 	}
 	wv.nativePopupCandidate = false
 	wv.nativePopupID = popupID
@@ -826,28 +852,40 @@ func (wv *WebView) prepareNativePopup(
 		wv.uri = toConceptualInternalURL(targetURL)
 	}
 	wv.isLoading = true
-	client := wv.client
-	wv.mu.Unlock()
+	return wv.client, true
+}
 
-	if parent != nil {
-		parent.trackPendingNativePopup(popupID, wv)
-	}
+func (wv *WebView) canPrepareNativePopupLocked() bool {
+	return wv.nativePopupCandidate && wv.client != nil && !wv.nativePopupFallbackStarted && wv.browser == nil
+}
 
+func configureNativePopupWindow(
+	windowInfo *purecef.WindowInfo,
+	settings *purecef.BrowserSettings,
+	parentWindowHandle uintptr,
+	frameRate int32,
+	backgroundColor uint32,
+) {
 	purecef.SetAsWindowless(windowInfo, purecef.WindowHandle(parentWindowHandle), false)
 	if externalBeginFrameEnabled() {
 		windowInfo.ExternalBeginFrameEnabled = 1
 	}
-	if settings != nil {
-		if frameRate > 0 {
-			settings.WindowlessFrameRate = frameRate
-		}
-		settings.LocalStorage = 1
-		if backgroundColor != 0 {
-			settings.BackgroundColor = backgroundColor
-		}
+	if settings == nil {
+		return
 	}
-	clientSlot.Set(client)
-	return true
+	if frameRate > 0 {
+		settings.WindowlessFrameRate = frameRate
+	}
+	settings.LocalStorage = 1
+	if backgroundColor != 0 {
+		settings.BackgroundColor = backgroundColor
+	}
+}
+
+type nativePopupPreparation struct {
+	parent          *WebView
+	frameRate       int32
+	backgroundColor uint32
 }
 
 func (wv *WebView) handleNativePopupAborted() {

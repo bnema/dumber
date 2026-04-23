@@ -759,73 +759,88 @@ func (h *handlerSet) OnAfterCreated(browser purecef.Browser) {
 		return
 	}
 	browserID := browser.GetIdentifier()
-	log.Debug().
-		Int32("browser_id", browserID).
-		Msg("cef: OnAfterCreated")
+	log.Debug().Int32("browser_id", browserID).Msg("cef: OnAfterCreated")
+
 	host := browser.GetHost()
 	if host == nil {
 		log.Warn().Msg("cef: OnAfterCreated returned nil host")
 		return
 	}
 
-	shouldSyncFocus := false
-	hasPendingNavigation := false
-	nativePopupParent := (*WebView)(nil)
-	nativePopupID := int32(0)
-	duplicateBrowserID := int32(0)
-	closeDuplicate := false
-	h.wv.mu.Lock()
-	if existing := h.wv.browser; existing != nil {
-		existingID := existing.GetIdentifier()
-		if existingID != 0 && existingID != browserID {
-			duplicateBrowserID = existingID
-			closeDuplicate = true
-		}
-	}
-	if !closeDuplicate {
-		h.wv.browser = browser
-		h.wv.host = host
-		h.wv.pendingCreate = nil
-		h.wv.input.setHost(host)
-		if h.wv.findCtrl != nil {
-			h.wv.findCtrl.setHost(host)
-		}
-		nativePopupParent = h.wv.nativePopupParent
-		nativePopupID = h.wv.nativePopupID
-		h.wv.nativePopupParent = nil
-		h.wv.nativePopupID = 0
-		h.wv.nativePopupFallbackStarted = false
-
-		// Mark browser as visible — CEF OSR starts in hidden state and suppresses
-		// painting/caret updates until explicitly told the browser is shown.
-		host.WasHidden(0)
-
-		// If GTK focus entered before the browser existed, reassert browser focus
-		// now. Otherwise CEF may stay internally unfocused and suppress caret paint.
-		if h.wv.input != nil {
-			shouldSyncFocus = h.wv.input.hasGTKFocus()
-			if !shouldSyncFocus && h.wv.input.glArea != nil {
-				shouldSyncFocus = h.wv.input.glArea.HasFocus()
-			}
-		}
-		hasPendingNavigation = strings.TrimSpace(h.wv.pendingURI) != ""
-	}
-	h.wv.mu.Unlock()
-	if closeDuplicate {
+	state := h.attachAfterCreatedBrowser(browser, host, browserID)
+	if state.closeDuplicate {
 		log.Warn().
 			Int32("browser_id", browserID).
-			Int32("existing_browser_id", duplicateBrowserID).
+			Int32("existing_browser_id", state.duplicateBrowserID).
 			Msg("cef: duplicate popup browser attached after shell already had a browser; closing duplicate")
 		host.CloseBrowser(1)
 		return
 	}
+
+	h.finishAfterCreated(browser, host, state)
+}
+
+func (h *handlerSet) attachAfterCreatedBrowser(
+	browser purecef.Browser,
+	host purecef.BrowserHost,
+	browserID int32,
+) afterCreatedState {
+	state := afterCreatedState{}
+	h.wv.mu.Lock()
+	defer h.wv.mu.Unlock()
+
+	if existing := h.wv.browser; existing != nil {
+		existingID := existing.GetIdentifier()
+		if existingID != 0 && existingID != browserID {
+			state.closeDuplicate = true
+			state.duplicateBrowserID = existingID
+			return state
+		}
+	}
+
+	h.wv.browser = browser
+	h.wv.host = host
+	h.wv.pendingCreate = nil
+	h.wv.input.setHost(host)
+	if h.wv.findCtrl != nil {
+		h.wv.findCtrl.setHost(host)
+	}
+	state.nativePopupParent = h.wv.nativePopupParent
+	state.nativePopupID = h.wv.nativePopupID
+	h.wv.nativePopupParent = nil
+	h.wv.nativePopupID = 0
+	h.wv.nativePopupFallbackStarted = false
+
+	// Mark browser as visible — CEF OSR starts in hidden state and suppresses
+	// painting/caret updates until explicitly told the browser is shown.
+	host.WasHidden(0)
+	state.shouldSyncFocus = h.afterCreatedShouldSyncFocus()
+	state.hasPendingNavigation = strings.TrimSpace(h.wv.pendingURI) != ""
+	return state
+}
+
+func (h *handlerSet) afterCreatedShouldSyncFocus() bool {
+	if h.wv.input == nil {
+		return false
+	}
+	if h.wv.input.hasGTKFocus() {
+		return true
+	}
+	return h.wv.input.glArea != nil && h.wv.input.glArea.HasFocus()
+}
+
+func (h *handlerSet) finishAfterCreated(
+	browser purecef.Browser,
+	host purecef.BrowserHost,
+	state afterCreatedState,
+) {
 	if h.wv.engine != nil {
 		h.wv.engine.recordBrowserAfterCreated(browser)
 		h.wv.engine.registerWebView(h.wv)
 		h.wv.engine.bindBrowserWebView(browser, h.wv)
 	}
 	h.wv.stopNativePopupFallbackTimer()
-	if shouldSyncFocus {
+	if state.shouldSyncFocus {
 		syncWindowlessBrowserFocus(host)
 	} else {
 		// Request an initial OSR frame even before the first real navigation
@@ -833,15 +848,23 @@ func (h *handlerSet) OnAfterCreated(browser purecef.Browser) {
 		// startup path relied on and prevents the render pipeline from staying idle.
 		host.Invalidate(purecef.PaintElementTypePetView)
 	}
-	if hasPendingNavigation {
+	if state.hasPendingNavigation {
 		h.wv.schedulePendingNavigationReplay(0)
 	}
-	if nativePopupParent != nil && nativePopupID != 0 {
-		nativePopupParent.clearPendingNativePopup(nativePopupID, h.wv)
+	if state.nativePopupParent != nil && state.nativePopupID != 0 {
+		state.nativePopupParent.clearPendingNativePopup(state.nativePopupID, h.wv)
 	}
-
 	h.wv.scheduleStartBeginFrameLoop()
 	h.wv.fireReadyToShow()
+}
+
+type afterCreatedState struct {
+	shouldSyncFocus      bool
+	hasPendingNavigation bool
+	nativePopupParent    *WebView
+	nativePopupID        int32
+	duplicateBrowserID   int32
+	closeDuplicate       bool
 }
 
 // DoClose returns false to allow the default close behavior.

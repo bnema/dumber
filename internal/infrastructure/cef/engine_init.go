@@ -179,51 +179,80 @@ func wireEngine(
 		return nil, fmt.Errorf("GL loader: %w", err)
 	}
 
-	scale := detectHiDPIScale(logger)
-
-	// Initialize the GPU transcoder when enabled in the loaded app config.
-	var mediaTranscoder port.MediaTranscoder
-	transcoderState := buildTranscoderStartupState(transcodingCfg)
-	if transcodingCfg.Enabled {
-		transcoderState.ProbeAttempted = true
-		tc := transcoderpkg.New(config.TranscodingConfig{
-			Enabled:       transcodingCfg.Enabled,
-			HWAccel:       transcodingCfg.HWAccel,
-			MaxConcurrent: transcodingCfg.MaxConcurrent,
-			Quality:       transcodingCfg.Quality,
-		}, logger)
-		caps := tc.Capabilities()
-		transcoderState.API = caps.API
-		transcoderState.Encoders = append([]string(nil), caps.Encoders...)
-		transcoderState.Decoders = append([]string(nil), caps.Decoders...)
-		if tc.Available() {
-			mediaTranscoder = tc
-			transcoderState.Status = "available"
-			logger.Info().
-				Str("api", tc.Capabilities().API).
-				Strs("encoders", tc.Capabilities().Encoders).
-				Msg("cef: GPU transcoding available")
-		} else {
-			transcoderState.Status = "unavailable_no_compatible_gpu"
-			logger.Warn().Msg("cef: GPU transcoding enabled but no compatible GPU found — feature disabled")
-		}
-	}
-
-	factory := newWebViewFactory(eng, gl, webViewFactoryOptions{
-		scale:               scale,
+	mediaTranscoder, transcoderState := initializeEngineTranscoder(transcodingCfg, logger)
+	eng.gl = gl
+	eng.factory = newWebViewFactory(eng, gl, webViewFactoryOptions{
+		scale:               detectHiDPIScale(logger),
 		windowlessFrameRate: windowlessFrameRate,
 		transcoder:          mediaTranscoder,
 		mediaClassifier:     mediaClassifier,
 		audioOutputFactory:  audioFactory,
 	})
-	pool := newWebViewPool(factory)
-
-	eng.gl = gl
-	eng.factory = factory
-	eng.pool = pool
+	eng.pool = newWebViewPool(eng.factory)
 	eng.contentInj = newContentInjector(eng, nil)
 	eng.transcoderState = transcoderState
 
+	messageRouter, schemeHandler, err := newEngineSchemeHandler(
+		ctx,
+		eng,
+		logger,
+		mediaTranscoder,
+		currentConfigPayload,
+		defaultConfigPayload,
+	)
+	if err != nil {
+		purecef.Shutdown()
+		return nil, err
+	}
+	eng.messageRouter = messageRouter
+	eng.schemeHandler = schemeHandler
+
+	registerEngineSchemeFactories(logger, purecef.NewSchemeHandlerFactory(schemeHandler))
+	return eng, nil
+}
+
+func initializeEngineTranscoder(
+	transcodingCfg TranscodingRuntimeConfig,
+	logger *zerolog.Logger,
+) (port.MediaTranscoder, transcoderStartupState) {
+	transcoderState := buildTranscoderStartupState(transcodingCfg)
+	if !transcodingCfg.Enabled {
+		return nil, transcoderState
+	}
+
+	transcoderState.ProbeAttempted = true
+	tc := transcoderpkg.New(config.TranscodingConfig{
+		Enabled:       transcodingCfg.Enabled,
+		HWAccel:       transcodingCfg.HWAccel,
+		MaxConcurrent: transcodingCfg.MaxConcurrent,
+		Quality:       transcodingCfg.Quality,
+	}, logger)
+	caps := tc.Capabilities()
+	transcoderState.API = caps.API
+	transcoderState.Encoders = append([]string(nil), caps.Encoders...)
+	transcoderState.Decoders = append([]string(nil), caps.Decoders...)
+	if !tc.Available() {
+		transcoderState.Status = "unavailable_no_compatible_gpu"
+		logger.Warn().Msg("cef: GPU transcoding enabled but no compatible GPU found — feature disabled")
+		return nil, transcoderState
+	}
+
+	transcoderState.Status = "available"
+	logger.Info().
+		Str("api", caps.API).
+		Strs("encoders", caps.Encoders).
+		Msg("cef: GPU transcoding available")
+	return tc, transcoderState
+}
+
+func newEngineSchemeHandler(
+	ctx context.Context,
+	eng *Engine,
+	logger *zerolog.Logger,
+	mediaTranscoder port.MediaTranscoder,
+	currentConfigPayload func() ([]byte, error),
+	defaultConfigPayload func() ([]byte, error),
+) (*MessageRouter, *dumbSchemeHandler, error) {
 	messageRouter := NewMessageRouter(ctx)
 	schemeHandler, err := newDumbSchemeHandler(
 		ctx,
@@ -233,15 +262,25 @@ func wireEngine(
 		defaultConfigPayload,
 	)
 	if err != nil {
-		purecef.Shutdown()
-		return nil, err
+		return nil, nil, err
 	}
 	schemeHandler.setAssets(assets.WebUIAssets)
+	schemeHandler.onClipboardSet = makeGTKClipboardSetter(logger)
+	schemeHandler.onEditableFocus = eng.handleEditableFocusBridge
+	schemeHandler.onPopupOpen = eng.handlePopupBridgeOpen
+	schemeHandler.onPopupNavigate = eng.handlePopupBridgeNavigate
+	schemeHandler.onPopupClose = eng.handlePopupBridgeClose
+	schemeHandler.onPopupOpenerNavigate = eng.handlePopupOpenerNavigate
+	schemeHandler.onPopupOpenerPostMessage = eng.handlePopupOpenerPostMessage
+	schemeHandler.bridgeNonceValidator = eng.validateBridgeRequest
+	return messageRouter, schemeHandler, nil
+}
 
+func makeGTKClipboardSetter(logger *zerolog.Logger) func(string) {
 	// Bridge clipboard writes from page JS → GDK system clipboard.
 	// The callback is invoked on the CEF IO thread, so schedule the actual GDK
 	// write on the GTK main loop.
-	schemeHandler.onClipboardSet = func(text string) {
+	return func(text string) {
 		fn := glib.SourceOnceFunc(func(_ uintptr) {
 			if display := gdk.DisplayGetDefault(); display != nil {
 				if cb := display.GetClipboard(); cb != nil {
@@ -256,40 +295,37 @@ func wireEngine(
 		})
 		glib.IdleAddOnce(&fn, 0)
 	}
+}
 
-	schemeHandler.onEditableFocus = eng.handleEditableFocusBridge
-	schemeHandler.onPopupOpen = eng.handlePopupBridgeOpen
-	schemeHandler.onPopupNavigate = eng.handlePopupBridgeNavigate
-	schemeHandler.onPopupClose = eng.handlePopupBridgeClose
-	schemeHandler.onPopupOpenerNavigate = eng.handlePopupOpenerNavigate
-	schemeHandler.onPopupOpenerPostMessage = eng.handlePopupOpenerPostMessage
-	schemeHandler.bridgeNonceValidator = eng.validateBridgeRequest
+func registerEngineSchemeFactories(logger *zerolog.Logger, schemeFactory purecef.SchemeHandlerFactory) {
+	registerEngineSchemeFactory(logger, "dumb", "", schemeFactory)
+	registerEngineSchemeFactory(logger, actualInternalScheme, actualInternalHost, schemeFactory)
+}
 
-	schemeFactory := purecef.NewSchemeHandlerFactory(schemeHandler)
-
-	result := purecef.RegisterSchemeHandlerFactory("dumb", "", schemeFactory)
-	if result != 1 {
-		logger.Error().Int32("result", result).Msg("cef: failed to register dumb:// scheme handler factory")
-	} else {
+func registerEngineSchemeFactory(
+	logger *zerolog.Logger,
+	scheme, host string,
+	schemeFactory purecef.SchemeHandlerFactory,
+) {
+	result := purecef.RegisterSchemeHandlerFactory(scheme, host, schemeFactory)
+	if scheme == "dumb" && host == "" {
+		if result != 1 {
+			logger.Error().Int32("result", result).Msg("cef: failed to register dumb:// scheme handler factory")
+			return
+		}
 		logger.Info().Msg("cef: registered dumb:// scheme handler factory")
+		return
 	}
-
-	result = purecef.RegisterSchemeHandlerFactory(actualInternalScheme, actualInternalHost, schemeFactory)
 	if result != 1 {
 		logger.Error().
 			Int32("result", result).
 			Str("origin", actualInternalOrigin).
 			Msg("cef: failed to register internal https handler factory")
-	} else {
-		logger.Info().
-			Str("origin", actualInternalOrigin).
-			Msg("cef: registered internal https handler factory")
+		return
 	}
-
-	eng.messageRouter = messageRouter
-	eng.schemeHandler = schemeHandler
-
-	return eng, nil
+	logger.Info().
+		Str("origin", actualInternalOrigin).
+		Msg("cef: registered internal https handler factory")
 }
 
 func buildTranscoderStartupState(cfg TranscodingRuntimeConfig) transcoderStartupState {
