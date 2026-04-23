@@ -92,12 +92,8 @@ func (wv *WebView) runOpenerNavigationCallbacks(uri string) {
 
 // HasActivePopupOpenerBridge implements port.PopupOpenerCapable.
 func (wv *WebView) HasActivePopupOpenerBridge() bool {
-	if wv == nil {
-		return false
-	}
-	wv.mu.RLock()
-	defer wv.mu.RUnlock()
-	return !wv.popupNoJavaScriptAccess && wv.popupOpenerBridgeParent != nil
+	_, active, _ := wv.popupOpenerBridgeState()
+	return active
 }
 
 func (wv *WebView) popupOpenerBridgeState() (parentURI string, active bool, blocked bool) {

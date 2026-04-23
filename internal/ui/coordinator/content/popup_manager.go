@@ -348,9 +348,9 @@ func (pm *popupManager) createPopupWebView(
 	parentID port.WebViewID,
 	targetURI string,
 	noJavaScriptAccess bool,
-) (port.WebView, string, bool, error) {
+) (port.WebView, bool, error) {
 	if pm == nil || pm.factory == nil {
-		return nil, targetURI, false, fmt.Errorf("no webview factory configured")
+		return nil, false, fmt.Errorf("no webview factory configured")
 	}
 
 	log := logging.FromContext(ctx)
@@ -360,7 +360,7 @@ func (pm *popupManager) createPopupWebView(
 		popupWV, err := pm.factory.CreateRelated(ctx, parentID)
 		if err == nil && popupWV != nil {
 			pm.markRelatedPopupSupported()
-			return popupWV, targetURI, false, nil
+			return popupWV, false, nil
 		}
 		if err == nil {
 			relatedErr = fmt.Errorf("related popup webview factory returned nil without error")
@@ -399,18 +399,18 @@ func (pm *popupManager) createPopupWebView(
 	popupWV, fallbackErr := pm.factory.Create(ctx)
 	if fallbackErr != nil {
 		if relatedErr != nil {
-			return nil, targetURI, false, fmt.Errorf("create popup webview: related failed: %w; fallback failed: %w", relatedErr, fallbackErr)
+			return nil, false, fmt.Errorf("create popup webview: related failed: %w; fallback failed: %w", relatedErr, fallbackErr)
 		}
-		return nil, targetURI, false, fmt.Errorf("create popup webview: fallback failed: %w", fallbackErr)
+		return nil, false, fmt.Errorf("create popup webview: fallback failed: %w", fallbackErr)
 	}
 	if popupWV == nil {
 		if relatedErr != nil {
-			return nil, targetURI, false, fmt.Errorf("create popup webview: related failed: %w; fallback returned nil", relatedErr)
+			return nil, false, fmt.Errorf("create popup webview: related failed: %w; fallback returned nil", relatedErr)
 		}
-		return nil, targetURI, false, fmt.Errorf("create popup webview: fallback returned nil")
+		return nil, false, fmt.Errorf("create popup webview: fallback returned nil")
 	}
 
-	return popupWV, targetURI, true, nil
+	return popupWV, true, nil
 }
 
 func (pm *popupManager) reuseNamedPopup(
@@ -481,14 +481,10 @@ func (pm *popupManager) handlePopupCreate(
 		}
 	}
 
-	popupWV, effectiveTargetURI, usedRegularFallback, err := pm.createPopupWebView(ctx, parentID, req.TargetURI, req.NoJavaScriptAccess)
+	popupWV, usedRegularFallback, err := pm.createPopupWebView(ctx, parentID, req.TargetURI, req.NoJavaScriptAccess)
 	if err != nil {
 		log.Error().Err(err).Msg("failed to create webview for popup")
 		return nil
-	}
-
-	if effectiveTargetURI != req.TargetURI {
-		req.TargetURI = effectiveTargetURI
 	}
 	if usedRegularFallback {
 		if openerBridge, ok := popupWV.(port.PopupOpenerCapable); ok {
@@ -679,9 +675,7 @@ func (pm *popupManager) handlePopupClose(ctx context.Context, hooks popupCoordin
 				fields = fields.
 					Str("current_uri", logging.TruncateURL(wv.URI(), logURLMaxLen)).
 					Bool("is_loading", wv.IsLoading())
-				if opener, ok := wv.(port.PopupOpenerCapable); ok {
-					fields = fields.Bool("synthetic_opener_active", opener.HasActivePopupOpenerBridge())
-				}
+				fields = fields.Bool("synthetic_opener_active", popupUsesSyntheticOpenerSignals(wv))
 			}
 		}
 	}

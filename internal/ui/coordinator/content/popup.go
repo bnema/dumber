@@ -229,7 +229,7 @@ func (c *Coordinator) createPopupWebView(
 	parentID port.WebViewID,
 	targetURI string,
 	noJavaScriptAccess bool,
-) (port.WebView, string, bool, error) {
+) (port.WebView, bool, error) {
 	return c.ensurePopupManager().createPopupWebView(ctx, parentID, targetURI, noJavaScriptAccess)
 }
 

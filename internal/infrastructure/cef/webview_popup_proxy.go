@@ -9,10 +9,9 @@ import (
 )
 
 type syntheticPopupState struct {
-	WebView            port.WebView
-	PendingURI         string
-	NoJavaScriptAccess bool
-	Closed             bool
+	WebView    port.WebView
+	PendingURI string
+	Closed     bool
 }
 
 func (wv *WebView) syntheticPopupState(proxyID string) *syntheticPopupState {
@@ -67,7 +66,6 @@ func (wv *WebView) handleSyntheticPopupOpen(targetURL, frameName, proxyID string
 		wv.syntheticPopupMu.Unlock()
 		return
 	}
-	state.NoJavaScriptAccess = noJavaScriptAccess
 	wv.syntheticPopupMu.Unlock()
 
 	wv.runOnGTK(func() {
@@ -116,7 +114,6 @@ func (wv *WebView) handleSyntheticPopupOpen(targetURL, frameName, proxyID string
 			return
 		}
 		state.WebView = popupWV
-		state.NoJavaScriptAccess = noJavaScriptAccess
 		pendingURI = strings.TrimSpace(state.PendingURI)
 		wv.syntheticPopupMu.Unlock()
 
