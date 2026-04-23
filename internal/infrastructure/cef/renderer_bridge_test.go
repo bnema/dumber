@@ -97,6 +97,17 @@ func TestRendererBridgeExtensionJS_UsesNativeDispatchInExtensionScope(t *testing
 	require.Contains(t, rendererBridgeExtensionJS, "send('bridge_ready',")
 }
 
+func TestRendererBridgeExtensionJS_ShimsWindowOpenForSyntheticPopups(t *testing.T) {
+	require.Contains(t, rendererBridgeExtensionJS, "window.__dumberPopupOpenPatched")
+	require.Contains(t, rendererBridgeExtensionJS, "function dispatchPopupOpen(payload)")
+	require.Contains(t, rendererBridgeExtensionJS, "send('popup_open', JSON.stringify(payload));")
+	require.Contains(t, rendererBridgeExtensionJS, "dispatchPopupNavigate(proxyID, href)")
+	require.Contains(t, rendererBridgeExtensionJS, "dispatchPopupClose(proxyID)")
+	require.Contains(t, rendererBridgeExtensionJS, "no_javascript_access")
+	require.Contains(t, rendererBridgeExtensionJS, "Object.defineProperty(proxy, 'closed'")
+	require.Contains(t, rendererBridgeExtensionJS, "return popupProxy;")
+}
+
 func TestRendererBridgeExtensionJS_EncodesTrustedSuccessSemantics(t *testing.T) {
 	require.Contains(t, rendererBridgeExtensionJS, "if (!e.isTrusted) return;")
 	require.Contains(t, rendererBridgeExtensionJS, "setTimeout(function() {")
@@ -128,6 +139,77 @@ func TestDecodeRendererBridgeExplicitTextCopyPayload(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, "copied text", req.Text)
 	require.Equal(t, "cut", req.Action)
+}
+
+func TestDecodeRendererBridgePopupOpenPayload(t *testing.T) {
+	req, err := decodeRendererBridgePopupOpenPayload([]byte(`{"proxy_id":"popup-1","url":"https://example.com/login","frame_name":"_blank","user_gesture":true,"no_javascript_access":true}`))
+	require.NoError(t, err)
+	require.Equal(t, "popup-1", req.ProxyID)
+	require.Equal(t, "https://example.com/login", req.URL)
+	require.Equal(t, "_blank", req.FrameName)
+	require.True(t, req.UserGesture)
+	require.True(t, req.NoJavaScriptAccess)
+}
+
+func TestDecodeRendererBridgePopupNavigatePayload(t *testing.T) {
+	req, err := decodeRendererBridgePopupNavigatePayload([]byte(`{"proxy_id":"popup-1","url":"https://example.com/callback"}`))
+	require.NoError(t, err)
+	require.Equal(t, "popup-1", req.ProxyID)
+	require.Equal(t, "https://example.com/callback", req.URL)
+}
+
+func TestDecodeRendererBridgePopupClosePayload(t *testing.T) {
+	req, err := decodeRendererBridgePopupClosePayload([]byte(`{"proxy_id":"popup-1"}`))
+	require.NoError(t, err)
+	require.Equal(t, "popup-1", req.ProxyID)
+}
+
+func TestDecodeRendererBridgePopupPayloadErrors(t *testing.T) {
+	tests := []struct {
+		name   string
+		decode func([]byte) error
+	}{
+		{
+			name: "open",
+			decode: func(payload []byte) error {
+				_, err := decodeRendererBridgePopupOpenPayload(payload)
+				return err
+			},
+		},
+		{
+			name: "navigate",
+			decode: func(payload []byte) error {
+				_, err := decodeRendererBridgePopupNavigatePayload(payload)
+				return err
+			},
+		},
+		{
+			name: "close",
+			decode: func(payload []byte) error {
+				_, err := decodeRendererBridgePopupClosePayload(payload)
+				return err
+			},
+		},
+	}
+
+	payloads := []struct {
+		name    string
+		payload []byte
+	}{
+		{name: "empty", payload: nil},
+		{name: "invalid json", payload: []byte(`{invalid`)},
+		{name: "missing proxy id", payload: []byte(`{"url":"https://example.com"}`)},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			for _, payload := range payloads {
+				t.Run(payload.name, func(t *testing.T) {
+					require.Error(t, test.decode(payload.payload))
+				})
+			}
+		})
+	}
 }
 
 func parseCEFPackageFiles(t *testing.T) []*ast.File {

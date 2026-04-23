@@ -42,7 +42,8 @@ packages:
       FilterApplier: {}
       FaviconDatabase: {}
       IdleInhibitor: {}
-      PopupCapable: {}
+      PopupLifecycleCapable: {}
+      PopupOpenerCapable: {}
       OAuthCallbackCapable: {}
       DevToolsOpener: {}
       Printer: {}

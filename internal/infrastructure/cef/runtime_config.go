@@ -5,11 +5,12 @@ import (
 	"errors"
 
 	"github.com/bnema/dumber/internal/application/port"
+	domainerrors "github.com/bnema/dumber/internal/domain/errors"
 )
 
 var (
 	ErrDownloadsUnsupported      = errors.New("cef: downloads are not supported yet")
-	ErrRelatedWebViewUnsupported = errors.New("cef: related popup webviews are not supported yet")
+	ErrRelatedWebViewUnsupported = domainerrors.ErrRelatedWebViewUnsupported
 	ErrCookiePolicyUnsupported   = errors.New("cef: non-default cookie policy is not supported yet")
 )
 

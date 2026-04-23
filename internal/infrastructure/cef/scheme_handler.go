@@ -66,6 +66,15 @@ type dumbSchemeHandler struct {
 	// DOM focus. The engine uses this to reassert CEF browser focus in OSR mode.
 	onEditableFocus func(browser purecef.Browser)
 
+	// onPopupOpen/onPopupNavigate/onPopupClose bridge synthetic window.open()
+	// proxies from page JavaScript back into the browser process when native
+	// related popups are not available (e.g. CEF OSR regular-webview fallback path).
+	onPopupOpen              func(browser purecef.Browser, payload rendererBridgePopupOpenPayload)
+	onPopupNavigate          func(browser purecef.Browser, payload rendererBridgePopupNavigatePayload)
+	onPopupClose             func(browser purecef.Browser, payload rendererBridgePopupClosePayload)
+	onPopupOpenerNavigate    func(browser purecef.Browser, payload popupOpenerNavigatePayload)
+	onPopupOpenerPostMessage func(browser purecef.Browser, payload popupOpenerPostMessagePayload)
+
 	// bridgeNonceValidator checks whether a bridge nonce belongs to the active
 	// browser/navigation context that issued the request.
 	bridgeNonceValidator func(browser purecef.Browser, bridgeNonce string) bool
@@ -130,9 +139,10 @@ func (h *dumbSchemeHandler) Create(browser purecef.Browser, _ purecef.Frame, _ s
 	}
 
 	// Route API requests before redirecting conceptual dumb:// URLs to the
-	// internal HTTPS origin. External pages use dumb://api/... for clipboard and
-	// focus bridges specifically to bypass page CSP; redirecting those requests
-	// to https://dumber.invalid makes site connect-src policies block them.
+	// internal HTTPS origin. External pages use dumb://api/... for clipboard,
+	// focus, and popup bridges specifically to bypass page CSP; redirecting
+	// those requests to https://dumber.invalid makes site connect-src policies
+	// block them.
 	if apiPath, ok := resolveAPIPath(u); ok {
 		return h.handleAPI(browser, method, apiPath, request)
 	}
@@ -156,37 +166,73 @@ func (h *dumbSchemeHandler) handleAPI(browser purecef.Browser, method, path stri
 	if strings.EqualFold(method, http.MethodOptions) {
 		return h.newAPIRawResourceHandler(http.StatusNoContent, "text/plain; charset=utf-8", nil)
 	}
-
-	switch {
-	case path == "/api/message" && strings.EqualFold(method, "POST"):
-		body := readBodyFromHeader(request)
-		if body == nil {
-			return h.newAPIJSONResourceHandler(http.StatusBadRequest, map[string]string{"error": "empty body"})
+	if isAPIGetMethod(method) {
+		if handler, ok := h.handleAPIGet(path, request); ok {
+			return handler
 		}
-		resp, err := h.messageRouter.HandleMessage(h.ctx, 0, body)
-		if err != nil {
-			return h.newAPIJSONResourceHandler(http.StatusInternalServerError, map[string]string{"error": err.Error()})
-		}
-		return h.newAPIRawResourceHandler(http.StatusOK, "application/json", resp)
-
-	case path == "/api/config" && (method == "" || strings.EqualFold(method, "GET")):
-		return h.handleConfigAPI(h.currentConfigPayload)
-
-	case path == "/api/config/default" && (method == "" || strings.EqualFold(method, "GET")):
-		return h.handleConfigAPI(h.defaultConfigPayload)
-
-	case path == "/api/transcode" && (method == "" || strings.EqualFold(method, "GET")):
-		return h.handleTranscodeAPI(request)
-
-	case path == "/api/clipboard-set" && strings.EqualFold(method, "POST"):
-		return h.handleClipboardSet(request, browser)
-
-	case path == "/api/focus-sync" && strings.EqualFold(method, "POST"):
-		return h.handleFocusSync(request, browser)
-
-	default:
-		return h.newAPIJSONResourceHandler(http.StatusNotFound, map[string]string{"error": "not found"})
 	}
+	if isAPIPostMethod(method) {
+		if handler, ok := h.handleAPIPost(browser, path, request); ok {
+			return handler
+		}
+	}
+	return h.newAPIJSONResourceHandler(http.StatusNotFound, map[string]string{"error": "not found"})
+}
+
+func isAPIGetMethod(method string) bool {
+	return method == "" || strings.EqualFold(method, http.MethodGet)
+}
+
+func isAPIPostMethod(method string) bool {
+	return strings.EqualFold(method, http.MethodPost)
+}
+
+func (h *dumbSchemeHandler) handleAPIGet(path string, request purecef.Request) (purecef.ResourceHandler, bool) {
+	switch path {
+	case "/api/config":
+		return h.handleConfigAPI(h.currentConfigPayload), true
+	case "/api/config/default":
+		return h.handleConfigAPI(h.defaultConfigPayload), true
+	case "/api/transcode":
+		return h.handleTranscodeAPI(request), true
+	default:
+		return nil, false
+	}
+}
+
+func (h *dumbSchemeHandler) handleAPIPost(browser purecef.Browser, path string, request purecef.Request) (purecef.ResourceHandler, bool) {
+	switch path {
+	case "/api/message":
+		return h.handleMessageAPI(request), true
+	case "/api/clipboard-set":
+		return h.handleClipboardSet(request, browser), true
+	case "/api/focus-sync":
+		return h.handleFocusSync(request, browser), true
+	case "/api/popup-open":
+		return h.handlePopupOpen(request, browser), true
+	case "/api/popup-navigate":
+		return h.handlePopupNavigate(request, browser), true
+	case "/api/popup-close":
+		return h.handlePopupClose(request, browser), true
+	case "/api/popup-opener-navigate":
+		return h.handlePopupOpenerNavigate(request, browser), true
+	case "/api/popup-opener-post-message":
+		return h.handlePopupOpenerPostMessage(request, browser), true
+	default:
+		return nil, false
+	}
+}
+
+func (h *dumbSchemeHandler) handleMessageAPI(request purecef.Request) purecef.ResourceHandler {
+	body := readBodyFromHeader(request)
+	if body == nil {
+		return h.newAPIJSONResourceHandler(http.StatusBadRequest, map[string]string{"error": "empty body"})
+	}
+	resp, err := h.messageRouter.HandleMessage(h.ctx, 0, body)
+	if err != nil {
+		return h.newAPIJSONResourceHandler(http.StatusInternalServerError, map[string]string{"error": err.Error()})
+	}
+	return h.newAPIRawResourceHandler(http.StatusOK, "application/json", resp)
 }
 
 func (h *dumbSchemeHandler) handleTranscodeAPI(request purecef.Request) purecef.ResourceHandler {
@@ -206,7 +252,7 @@ func (h *dumbSchemeHandler) handleTranscodeAPI(request purecef.Request) purecef.
 	}
 
 	sourceParsed, err := url.Parse(sourceURL)
-	if err != nil || sourceParsed.Host == "" || (sourceParsed.Scheme != "http" && sourceParsed.Scheme != "https") {
+	if err != nil || sourceParsed.Host == "" || (sourceParsed.Scheme != "http" && sourceParsed.Scheme != actualInternalScheme) {
 		return h.newAPIJSONResourceHandler(http.StatusBadRequest, map[string]string{"error": "invalid src"})
 	}
 
@@ -329,6 +375,92 @@ func (h *dumbSchemeHandler) handleFocusSync(request purecef.Request, browser pur
 	}
 
 	return h.newAPIJSONResourceHandler(http.StatusOK, map[string]any{"ok": true})
+}
+
+func handlePopupBridgeRequest[T any](
+	h *dumbSchemeHandler,
+	request purecef.Request,
+	browser purecef.Browser,
+	action string,
+	decode func([]byte) (T, error),
+	dispatch func(purecef.Browser, T),
+) purecef.ResourceHandler {
+	if browser == nil {
+		h.logger.Debug().Msg("cef: " + action + " — browser unavailable")
+		return h.newAPIJSONResourceHandler(http.StatusBadRequest, map[string]string{"error": "browser unavailable"})
+	}
+	if !h.hasTrustedBridgeNonce(request, browser) {
+		h.logger.Warn().Msg("cef: " + action + " — rejected request without valid bridge nonce")
+		return h.newAPIJSONResourceHandler(http.StatusForbidden, map[string]string{"error": "forbidden"})
+	}
+	body := readBodyFromHeader(request)
+	if body == nil {
+		return h.newAPIJSONResourceHandler(http.StatusBadRequest, map[string]string{"error": "empty body"})
+	}
+	payload, err := decode(body)
+	if err != nil {
+		return h.newAPIJSONResourceHandler(http.StatusBadRequest, map[string]string{"error": err.Error()})
+	}
+	if dispatch != nil {
+		dispatch(browser, payload)
+	} else {
+		h.logger.Warn().Msg("cef: " + action + " — callback not wired")
+	}
+	return h.newAPIJSONResourceHandler(http.StatusOK, map[string]any{"ok": true})
+}
+
+func (h *dumbSchemeHandler) handlePopupOpen(request purecef.Request, browser purecef.Browser) purecef.ResourceHandler {
+	return handlePopupBridgeRequest(h, request, browser, "popup-open", decodeRendererBridgePopupOpenPayload, h.onPopupOpen)
+}
+
+func (h *dumbSchemeHandler) handlePopupNavigate(request purecef.Request, browser purecef.Browser) purecef.ResourceHandler {
+	return handlePopupBridgeRequest(h, request, browser, "popup-navigate", decodeRendererBridgePopupNavigatePayload, h.onPopupNavigate)
+}
+
+func (h *dumbSchemeHandler) handlePopupClose(request purecef.Request, browser purecef.Browser) purecef.ResourceHandler {
+	return handlePopupBridgeRequest(h, request, browser, "popup-close", decodeRendererBridgePopupClosePayload, h.onPopupClose)
+}
+
+func decodePopupOpenerNavigatePayload(body []byte) (popupOpenerNavigatePayload, error) {
+	var payload popupOpenerNavigatePayload
+	if err := json.Unmarshal(body, &payload); err != nil {
+		return payload, err
+	}
+	payload.URL = strings.TrimSpace(payload.URL)
+	if payload.URL == "" {
+		return payload, fmt.Errorf("missing url")
+	}
+	return payload, nil
+}
+
+func decodePopupOpenerPostMessagePayload(body []byte) (popupOpenerPostMessagePayload, error) {
+	var payload popupOpenerPostMessagePayload
+	if err := json.Unmarshal(body, &payload); err != nil {
+		return payload, err
+	}
+	payload.DataKind = strings.TrimSpace(payload.DataKind)
+	payload.TargetOrigin = strings.TrimSpace(payload.TargetOrigin)
+	payload.SourceOrigin = strings.TrimSpace(payload.SourceOrigin)
+	payload.SourceHref = strings.TrimSpace(payload.SourceHref)
+	if payload.TargetOrigin == "" {
+		return payload, fmt.Errorf("missing target origin")
+	}
+	return payload, nil
+}
+
+func (h *dumbSchemeHandler) handlePopupOpenerNavigate(request purecef.Request, browser purecef.Browser) purecef.ResourceHandler {
+	return handlePopupBridgeRequest(h, request, browser, "popup-opener-navigate", decodePopupOpenerNavigatePayload, h.onPopupOpenerNavigate)
+}
+
+func (h *dumbSchemeHandler) handlePopupOpenerPostMessage(request purecef.Request, browser purecef.Browser) purecef.ResourceHandler {
+	return handlePopupBridgeRequest(
+		h,
+		request,
+		browser,
+		"popup-opener-post-message",
+		decodePopupOpenerPostMessagePayload,
+		h.onPopupOpenerPostMessage,
+	)
 }
 
 func (h *dumbSchemeHandler) hasTrustedBridgeNonce(request purecef.Request, browser purecef.Browser) bool {

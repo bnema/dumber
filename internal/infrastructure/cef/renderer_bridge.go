@@ -17,206 +17,14 @@ const (
 	rendererBridgeActionExplicitTextCopy     = "explicit_text_copy"
 	rendererBridgeActionFocusSync            = "focus_sync"
 	rendererBridgeActionEditableFocusChanged = "editable_focus_changed"
+	rendererBridgeActionPopupOpen            = "popup_open"
+	rendererBridgeActionPopupNavigate        = "popup_navigate"
+	rendererBridgeActionPopupClose           = "popup_close"
 	rendererBridgeActionReady                = "bridge_ready"
 	rendererBridgeExtensionName              = "dumber.renderer_bridge"
 )
 
 var newRendererBridgeProcessMessage = purecef.ProcessMessageCreate
-
-const rendererBridgeExtensionJS = `
-(function() {
-  native function Dispatch(action, payload);
-
-  function send(action, payload) {
-    return Dispatch(action, payload == null ? '' : String(payload));
-  }
-
-  function isEditable(node) {
-    if (!node || node.nodeType !== 1) return false;
-    if (node.isContentEditable) return true;
-    var tag = node.tagName;
-    if (tag !== 'INPUT' && tag !== 'TEXTAREA') return false;
-    if (node.disabled || node.readOnly) return false;
-    return true;
-  }
-
-  function getActiveElementSelection() {
-    var el = document.activeElement;
-    if (!el) return '';
-    var tag = el.tagName;
-    if ((tag === 'INPUT' || tag === 'TEXTAREA') && typeof el.value === 'string') {
-      var start = typeof el.selectionStart === 'number' ? el.selectionStart : 0;
-      var end = typeof el.selectionEnd === 'number' ? el.selectionEnd : 0;
-      if (end > start) return el.value.slice(start, end);
-    }
-    return '';
-  }
-
-  function getSelectedText() {
-    var activeSelection = getActiveElementSelection();
-    if (activeSelection) return activeSelection;
-    var sel = window.getSelection();
-    return sel ? sel.toString() : '';
-  }
-
-  function notifyExplicitTextCopy(action, text) {
-    var normalizedText = text == null ? '' : String(text);
-    var normalizedAction = action == null || action === '' ? 'copy' : String(action);
-    return send('explicit_text_copy', JSON.stringify({ text: normalizedText, action: normalizedAction }));
-  }
-
-  if (typeof document !== 'undefined' && document.addEventListener) {
-    document.addEventListener('focusin', function(event) {
-      if (isEditable(event.target)) {
-        send('focus_sync', '');
-      }
-    }, true);
-
-    function mirrorClipboardEvent(action, e) {
-      if (!e.isTrusted) return;
-      var capturedText = '';
-      if (e.clipboardData && typeof e.clipboardData.getData === 'function') {
-        try { capturedText = e.clipboardData.getData('text/plain'); } catch(_) {}
-      }
-      setTimeout(function() {
-        var text = capturedText;
-        if (!text && !e.defaultPrevented) text = getSelectedText();
-        if (text) notifyExplicitTextCopy(action, text);
-      }, 0);
-    }
-
-    document.addEventListener('copy', function(e) {
-      mirrorClipboardEvent('copy', e);
-    }, true);
-    document.addEventListener('cut', function(e) {
-      mirrorClipboardEvent('cut', e);
-    }, true);
-  }
-  try {
-    var clipboardObj = navigator && navigator.clipboard ? navigator.clipboard : null;
-    var clipboardProto = (typeof Clipboard !== 'undefined' && Clipboard.prototype) ||
-      (clipboardObj && typeof Object.getPrototypeOf === 'function' ? Object.getPrototypeOf(clipboardObj) : null);
-
-    function mirrorClipboardItems(items) {
-      try {
-        if (!items || typeof items.length !== 'number') return;
-        Array.prototype.forEach.call(items, function(item) {
-          if (!item || !item.types || item.types.indexOf('text/plain') === -1 || typeof item.getType !== 'function') return;
-          Promise.resolve(item.getType('text/plain'))
-            .then(function(blob) {
-              if (!blob || typeof blob.text !== 'function') return '';
-              return blob.text();
-            })
-            .then(function(text) {
-              if (text) notifyExplicitTextCopy('copy', text);
-            })
-            .catch(function() {});
-        });
-      } catch (_) {}
-    }
-
-    if (clipboardProto && typeof clipboardProto.writeText === 'function' && !clipboardProto.__dumberWriteTextPatched) {
-      clipboardProto.__dumberWriteTextPatched = true;
-      var originalProtoWriteText = clipboardProto.writeText;
-      var wrappedProtoWriteText = function(text) {
-        var normalized = text == null ? '' : String(text);
-        var result = originalProtoWriteText.call(this, normalized);
-        if (result && typeof result.then === 'function') {
-          return result.then(function(value) {
-            if (normalized) notifyExplicitTextCopy('copy', normalized);
-            return value;
-          });
-        }
-        if (normalized) notifyExplicitTextCopy('copy', normalized);
-        return result;
-      };
-      try {
-        Object.defineProperty(clipboardProto, 'writeText', {
-          configurable: true,
-          writable: true,
-          value: wrappedProtoWriteText
-        });
-      } catch (_) {
-        clipboardProto.writeText = wrappedProtoWriteText;
-      }
-    } else if (clipboardObj && typeof clipboardObj.writeText === 'function' && !window.__dumberClipboardWriteTextPatched) {
-      window.__dumberClipboardWriteTextPatched = true;
-      var originalWriteText = clipboardObj.writeText.bind(clipboardObj);
-      var wrappedWriteText = function(text) {
-        var normalized = text == null ? '' : String(text);
-        var result = originalWriteText(normalized);
-        if (result && typeof result.then === 'function') {
-          return result.then(function(value) {
-            if (normalized) notifyExplicitTextCopy('copy', normalized);
-            return value;
-          });
-        }
-        if (normalized) notifyExplicitTextCopy('copy', normalized);
-        return result;
-      };
-      try {
-        Object.defineProperty(clipboardObj, 'writeText', {
-          configurable: true,
-          writable: true,
-          value: wrappedWriteText
-        });
-      } catch (_) {
-        clipboardObj.writeText = wrappedWriteText;
-      }
-    }
-
-    if (clipboardProto && typeof clipboardProto.write === 'function' && !clipboardProto.__dumberWritePatched) {
-      clipboardProto.__dumberWritePatched = true;
-      var originalProtoWrite = clipboardProto.write;
-      var wrappedProtoWrite = function(items) {
-        var result = originalProtoWrite.apply(this, arguments);
-        if (result && typeof result.then === 'function') {
-          return result.then(function(value) {
-            mirrorClipboardItems(items);
-            return value;
-          });
-        }
-        mirrorClipboardItems(items);
-        return result;
-      };
-      try {
-        Object.defineProperty(clipboardProto, 'write', {
-          configurable: true,
-          writable: true,
-          value: wrappedProtoWrite
-        });
-      } catch (_) {
-        clipboardProto.write = wrappedProtoWrite;
-      }
-    } else if (clipboardObj && typeof clipboardObj.write === 'function' && !window.__dumberClipboardWritePatched) {
-      window.__dumberClipboardWritePatched = true;
-      var originalWrite = clipboardObj.write.bind(clipboardObj);
-      var wrappedWrite = function(items) {
-        var result = originalWrite(items);
-        if (result && typeof result.then === 'function') {
-          return result.then(function(value) {
-            mirrorClipboardItems(items);
-            return value;
-          });
-        }
-        mirrorClipboardItems(items);
-        return result;
-      };
-      try {
-        Object.defineProperty(clipboardObj, 'write', {
-          configurable: true,
-          writable: true,
-          value: wrappedWrite
-        });
-      } catch (_) {
-        clipboardObj.write = wrappedWrite;
-      }
-    }
-  } catch (_) {}
-
-  send('bridge_ready', (typeof location !== 'undefined' && location && location.href) ? location.href : '');
-})();
-`
 
 type rendererBridgeProcessHandler struct {
 	registerOnce  sync.Once
@@ -338,6 +146,23 @@ type rendererBridgeExplicitTextCopyPayload struct {
 	Action string `json:"action"`
 }
 
+type rendererBridgePopupOpenPayload struct {
+	ProxyID            string `json:"proxy_id"`
+	URL                string `json:"url"`
+	FrameName          string `json:"frame_name"`
+	UserGesture        bool   `json:"user_gesture"`
+	NoJavaScriptAccess bool   `json:"no_javascript_access"`
+}
+
+type rendererBridgePopupNavigatePayload struct {
+	ProxyID string `json:"proxy_id"`
+	URL     string `json:"url"`
+}
+
+type rendererBridgePopupClosePayload struct {
+	ProxyID string `json:"proxy_id"`
+}
+
 func decodeRendererBridgeExplicitTextCopyPayload(payload []byte) (rendererBridgeExplicitTextCopyPayload, error) {
 	var req rendererBridgeExplicitTextCopyPayload
 	if len(payload) == 0 {
@@ -353,6 +178,38 @@ func decodeRendererBridgeExplicitTextCopyPayload(payload []byte) (rendererBridge
 		return req, fmt.Errorf("missing text")
 	}
 	return req, nil
+}
+
+func decodeRendererBridgePopupPayload[T any](payload []byte, proxyID func(T) string) (T, error) {
+	var req T
+	if len(payload) == 0 {
+		return req, fmt.Errorf("empty payload")
+	}
+	if err := json.Unmarshal(payload, &req); err != nil {
+		return req, err
+	}
+	if proxyID(req) == "" {
+		return req, fmt.Errorf("missing proxy_id")
+	}
+	return req, nil
+}
+
+func decodeRendererBridgePopupOpenPayload(payload []byte) (rendererBridgePopupOpenPayload, error) {
+	return decodeRendererBridgePopupPayload(payload, func(req rendererBridgePopupOpenPayload) string {
+		return req.ProxyID
+	})
+}
+
+func decodeRendererBridgePopupNavigatePayload(payload []byte) (rendererBridgePopupNavigatePayload, error) {
+	return decodeRendererBridgePopupPayload(payload, func(req rendererBridgePopupNavigatePayload) string {
+		return req.ProxyID
+	})
+}
+
+func decodeRendererBridgePopupClosePayload(payload []byte) (rendererBridgePopupClosePayload, error) {
+	return decodeRendererBridgePopupPayload(payload, func(req rendererBridgePopupClosePayload) string {
+		return req.ProxyID
+	})
 }
 
 func (e *Engine) handleEditableFocusBridge(browser purecef.Browser) {

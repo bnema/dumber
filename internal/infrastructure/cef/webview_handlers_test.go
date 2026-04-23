@@ -101,6 +101,159 @@ func (f stubFrame) CreateUrlrequest(purecef.Request, purecef.UrlrequestClient) p
 	return nil
 }
 
+type stubStoppableTimer struct{}
+
+func (stubStoppableTimer) Stop() bool { return true }
+
+func TestStartNativePopupFallback_AllowsPopupShellAwaitingArm(t *testing.T) {
+	wv := &WebView{
+		nativePopupCandidate: true,
+		pendingCreate:        &pendingBrowserCreate{},
+	}
+
+	require.True(t, wv.startNativePopupFallback())
+	require.False(t, wv.isNativePopupCandidate())
+	require.True(t, wv.nativePopupFallbackStarted)
+}
+
+func TestPreparePopupShellDirectBrowserCreation_EnablesSyntheticOpenerBridge(t *testing.T) {
+	parent := &WebView{ctx: context.Background()}
+	parent.updateURI("https://example.com/login")
+	wv := &WebView{
+		pendingCreate:     &pendingBrowserCreate{},
+		nativePopupParent: parent,
+	}
+
+	require.True(t, wv.preparePopupShellDirectBrowserCreation())
+	require.Same(t, parent, wv.popupOpenerBridgeParent)
+	require.Equal(t, "https://example.com/login", wv.popupOpenerBridgeParentURI)
+}
+
+func TestPreparePopupShellDirectBrowserCreation_SkipsDestroyedParentOpenerBridge(t *testing.T) {
+	parent := &WebView{ctx: context.Background()}
+	parent.updateURI("https://example.com/login")
+	parent.destroyed.Store(true)
+	wv := &WebView{
+		pendingCreate:     &pendingBrowserCreate{},
+		nativePopupParent: parent,
+	}
+
+	require.True(t, wv.preparePopupShellDirectBrowserCreation())
+	require.Nil(t, wv.popupOpenerBridgeParent)
+	require.Empty(t, wv.popupOpenerBridgeParentURI)
+}
+
+func TestScheduleNativePopupFallback_SkipsDestroyedWebView(t *testing.T) {
+	called := false
+	wv := &WebView{}
+	wv.destroyed.Store(true)
+	wv.nativePopupFallbackSchedule = func(time.Duration, func()) stoppableTimer {
+		called = true
+		return stubStoppableTimer{}
+	}
+
+	wv.scheduleNativePopupFallback(time.Millisecond, func() {
+		called = true
+	})
+
+	require.False(t, called)
+}
+
+func TestScheduleNativePopupFallback_DoesNotFireAfterDestroy(t *testing.T) {
+	called := false
+	var scheduled func()
+	wv := &WebView{}
+	wv.nativePopupFallbackSchedule = func(_ time.Duration, fn func()) stoppableTimer {
+		scheduled = fn
+		return stubStoppableTimer{}
+	}
+
+	wv.scheduleNativePopupFallback(time.Millisecond, func() {
+		called = true
+	})
+	require.NotNil(t, scheduled)
+
+	wv.destroyed.Store(true)
+	scheduled()
+
+	require.False(t, called)
+}
+
+func TestStartNativePopupFallback_RejectsDestroyedWebView(t *testing.T) {
+	wv := &WebView{
+		nativePopupCandidate: true,
+		pendingCreate:        &pendingBrowserCreate{},
+	}
+	wv.destroyed.Store(true)
+
+	require.False(t, wv.startNativePopupFallback())
+}
+
+func TestHandleNativePopupAborted_PreservesPrimedNavigationForFallback(t *testing.T) {
+	closed := false
+	parent := &WebView{}
+	wv := &WebView{
+		nativePopupCandidate: true,
+		nativePopupParent:    parent,
+		nativePopupID:        55,
+		pendingCreate:        &pendingBrowserCreate{},
+		pendingURI:           "https://example.com/oauth",
+		isLoading:            true,
+		closeCallbacks: []func(){
+			func() { closed = true },
+		},
+	}
+
+	wv.handleNativePopupAborted()
+
+	require.False(t, closed)
+	require.Equal(t, "https://example.com/oauth", wv.pendingNavigationURI())
+	require.False(t, wv.isNativePopupCandidate())
+	require.Same(t, parent, wv.nativePopupParent)
+	require.Equal(t, int32(0), wv.nativePopupID)
+	require.True(t, wv.isLoading)
+}
+
+func TestOnBeforePopup_PrimesPopupNavigationWhenCEFPopupBlocksNativeCreation(t *testing.T) {
+	parentWV := &WebView{ctx: context.Background(), id: 17}
+	popupWV := &WebView{ctx: context.Background(), id: 23}
+	parentWV.SetCallbacks(&port.WebViewCallbacks{
+		OnCreate: func(req port.PopupRequest) port.WebView {
+			require.Equal(t, "https://example.com/popup", req.TargetURI)
+			require.Equal(t, "auth-popup", req.FrameName)
+			require.True(t, req.IsUserGesture)
+			popupWV.PrimePopupNavigation(req.TargetURI)
+			return popupWV
+		},
+	})
+
+	h := &handlerSet{wv: parentWV}
+	blocked := h.OnBeforePopup(nil, nil, 91, "https://example.com/popup", "auth-popup", 0, 1, nil, nil, nil, nil, nil, nil)
+
+	require.True(t, blocked)
+	require.Equal(t, "https://example.com/popup", popupWV.pendingNavigationURI())
+}
+
+func TestOnBeforePopup_PrimesPopupShellWhenNativePopupCannotBeArmed(t *testing.T) {
+	parentWV := &WebView{ctx: context.Background(), id: 31}
+	popupWV := &WebView{ctx: context.Background(), id: 32}
+	popupWV.markNativePopupCandidate(parentWV)
+	parentWV.SetCallbacks(&port.WebViewCallbacks{
+		OnCreate: func(req port.PopupRequest) port.WebView {
+			require.Equal(t, "https://example.com/login", req.TargetURI)
+			popupWV.PrimePopupNavigation(req.TargetURI)
+			return popupWV
+		},
+	})
+
+	h := &handlerSet{wv: parentWV}
+	blocked := h.OnBeforePopup(nil, nil, 77, "https://example.com/login", "Google login", 0, 1, nil, nil, nil, nil, nil, nil)
+
+	require.True(t, blocked)
+	require.False(t, popupWV.isNativePopupCandidate())
+	require.Equal(t, "https://example.com/login", popupWV.pendingNavigationURI())
+}
+
 func TestOnLoadStartFiresCommittedAndUpdatesURI(t *testing.T) {
 	wv := &WebView{ctx: context.Background()}
 	var gotEvents []port.LoadEvent
@@ -280,6 +433,15 @@ func TestOnTextSelectionChanged_SuppressesAutoCopyWhenFocusedNodeEditableAndResu
 	defer recorder.mu.Unlock()
 	require.Equal(t, 1, recorder.selectionCalls)
 	require.Equal(t, "free selection", recorder.selection.Text)
+}
+
+func TestDestroy_WithoutHostRunsCloseCallbacks(t *testing.T) {
+	called := false
+	wv := &WebView{closeCallbacks: []func(){func() { called = true }}}
+
+	wv.Destroy()
+
+	require.True(t, called)
 }
 
 func TestOnTextSelectionChanged_DoesNotEmitLateDebouncedUpdateAfterDestroy(t *testing.T) {

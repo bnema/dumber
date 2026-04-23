@@ -45,6 +45,7 @@ func configureCommandLine(commandLine purecef.CommandLine) {
 type dumberApp struct {
 	engine *Engine
 	bph    purecef.BrowserProcessHandler
+	rph    purecef.RenderProcessHandler
 }
 
 // newDumberApp creates an App whose BrowserProcessHandler handles context
@@ -53,15 +54,16 @@ type dumberApp struct {
 func newDumberApp(engine *Engine) purecef.App {
 	app := &dumberApp{engine: engine}
 	app.bph = &dumberBPH{engine: engine}
+	app.rph = newPopupOpenerRenderProcessHandler()
 	return app
 }
 
 // NewSubprocessApp returns a lightweight raw App implementation for CEF
-// subprocesses re-executed from the main dumber binary. Keep subprocesses free
-// of custom render handlers for now: the renderer bridge introduced a startup
-// regression where OSR pages stopped producing their first paint.
+// subprocesses re-executed from the main dumber binary. Keep the legacy
+// renderer bridge disabled, but allow the minimal popup-opener render handler
+// needed to install synthetic opener state before page scripts run.
 func NewSubprocessApp() purecef.App {
-	return &subprocessApp{}
+	return &subprocessApp{rph: newPopupOpenerRenderProcessHandler()}
 }
 
 // maxCmdLineLogLen limits logged command line length to avoid leaking sensitive paths.
@@ -91,9 +93,9 @@ func (a *dumberApp) OnRegisterCustomSchemes(registrar purecef.SchemeRegistrar) {
 }
 func (a *dumberApp) GetResourceBundleHandler() purecef.ResourceBundleHandler { return nil }
 func (a *dumberApp) GetBrowserProcessHandler() purecef.BrowserProcessHandler { return a.bph }
-func (a *dumberApp) GetRenderProcessHandler() purecef.RenderProcessHandler   { return nil }
+func (a *dumberApp) GetRenderProcessHandler() purecef.RenderProcessHandler   { return a.rph }
 
-type subprocessApp struct{}
+type subprocessApp struct{ rph purecef.RenderProcessHandler }
 
 func (a *subprocessApp) OnBeforeCommandLineProcessing(_ string, commandLine purecef.CommandLine) {
 	configureCommandLine(commandLine)
@@ -103,7 +105,7 @@ func (a *subprocessApp) OnRegisterCustomSchemes(registrar purecef.SchemeRegistra
 }
 func (a *subprocessApp) GetResourceBundleHandler() purecef.ResourceBundleHandler { return nil }
 func (a *subprocessApp) GetBrowserProcessHandler() purecef.BrowserProcessHandler { return nil }
-func (a *subprocessApp) GetRenderProcessHandler() purecef.RenderProcessHandler   { return nil }
+func (a *subprocessApp) GetRenderProcessHandler() purecef.RenderProcessHandler   { return a.rph }
 
 // dumberBPH implements purecef.BrowserProcessHandler for context initialization,
 // child process launch tracking, and diagnostic logging.

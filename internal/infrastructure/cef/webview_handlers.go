@@ -107,6 +107,27 @@ func (h *handlerSet) OnProcessMessageReceived(
 		h.wv.setEditableFocus(payload == "1" || strings.EqualFold(payload, "true"))
 	case rendererBridgeActionFocusSync:
 		h.wv.engine.handleEditableFocusBridge(browser)
+	case rendererBridgeActionPopupOpen:
+		req, err := decodeRendererBridgePopupOpenPayload([]byte(payload))
+		if err != nil {
+			log.Debug().Str("action", action).Msg("cef: invalid popup_open payload")
+			return 1
+		}
+		h.wv.handleSyntheticPopupOpen(req.URL, req.FrameName, req.ProxyID, req.UserGesture, req.NoJavaScriptAccess)
+	case rendererBridgeActionPopupNavigate:
+		req, err := decodeRendererBridgePopupNavigatePayload([]byte(payload))
+		if err != nil {
+			log.Debug().Str("action", action).Msg("cef: invalid popup_navigate payload")
+			return 1
+		}
+		h.wv.handleSyntheticPopupNavigate(req.ProxyID, req.URL)
+	case rendererBridgeActionPopupClose:
+		req, err := decodeRendererBridgePopupClosePayload([]byte(payload))
+		if err != nil {
+			log.Debug().Str("action", action).Msg("cef: invalid popup_close payload")
+			return 1
+		}
+		h.wv.handleSyntheticPopupClose(req.ProxyID)
 	case rendererBridgeActionReady:
 		log.Debug().
 			Str("frame_url", logging.TruncateURL(payload, logging.PermissionLogURLMaxLen)).
@@ -580,6 +601,20 @@ func (h *handlerSet) OnLoadStart(_ purecef.Browser, frame purecef.Frame, _ purec
 	if frame == nil || !frame.IsMain() {
 		return
 	}
+	bridgeNonce := h.wv.ensureBridgeNonce()
+	if openerBridgeScript := h.wv.popupOpenerBridgeScript(bridgeNonce); openerBridgeScript != "" {
+		if h.wv != nil && h.wv.ctx != nil {
+			parentURI, active, blocked := h.wv.popupOpenerBridgeState()
+			logging.FromContext(h.wv.ctx).Debug().
+				Uint64("webview_id", uint64(h.wv.id)).
+				Str("url", logging.TruncateURL(frame.GetURL(), logging.PermissionLogURLMaxLen)).
+				Str("parent_uri", logging.TruncateURL(parentURI, logging.PermissionLogURLMaxLen)).
+				Bool("bridge_active", active).
+				Bool("bridge_blocked", blocked).
+				Msg("cef: injecting popup opener bridge")
+		}
+		frame.ExecuteJavaScript(openerBridgeScript, frame.GetURL(), 0)
+	}
 	if h.wv != nil && h.wv.ctx != nil {
 		logging.FromContext(h.wv.ctx).Debug().
 			Str("url", logging.TruncateURL(frame.GetURL(), logging.PermissionLogURLMaxLen)).
@@ -651,13 +686,15 @@ func (h *handlerSet) OnLoadError(_ purecef.Browser, _ purecef.Frame, _ purecef.E
 // ===========================================================================
 
 // OnBeforePopup intercepts popup requests (target="_blank", window.open).
-// CEF OSR cannot create popup windows, so we fire the OnCreate callback
-// to let the coordinator open the link in a new stacked pane.
+// When the coordinator returns a related CEF popup shell we hand that shell's
+// client back to CEF and allow native popup creation so opener semantics are
+// preserved. Otherwise we keep blocking and let the coordinator's fallback
+// pane handle the navigation.
 func (h *handlerSet) OnBeforePopup(
-	_ purecef.Browser, _ purecef.Frame, _ int32, targetURL, targetFrameName string,
+	_ purecef.Browser, _ purecef.Frame, popupID int32, targetURL, targetFrameName string,
 	_ purecef.WindowOpenDisposition, userGesture int32, _ *purecef.PopupFeatures,
-	_ *purecef.WindowInfo, _ *purecef.RawClientWriteSlot, _ *purecef.BrowserSettings,
-	_ *purecef.DictionaryValue, _ *bool,
+	windowInfo *purecef.WindowInfo, clientSlot *purecef.RawClientWriteSlot, settings *purecef.BrowserSettings,
+	_ *purecef.DictionaryValue, noJavaScriptAccess *bool,
 ) bool {
 	if targetURL == "" {
 		return true
@@ -666,23 +703,47 @@ func (h *handlerSet) OnBeforePopup(
 	h.wv.mu.RLock()
 	cb := h.wv.callbacks
 	h.wv.mu.RUnlock()
-
-	if cb != nil && cb.OnCreate != nil {
-		req := port.PopupRequest{
-			TargetURI:     targetURL,
-			FrameName:     targetFrameName,
-			IsUserGesture: userGesture != 0,
-			ParentViewID:  h.wv.id,
-		}
-		h.wv.runOnGTK(func() {
-			cb.OnCreate(req)
-		})
+	if cb == nil || cb.OnCreate == nil {
+		return true
 	}
 
-	return true // always block CEF popup; the coordinator handles the new pane
+	requestNoJavaScriptAccess := false
+	if noJavaScriptAccess != nil {
+		requestNoJavaScriptAccess = *noJavaScriptAccess
+	}
+	var popup port.WebView
+	h.wv.runOnGTKSync(func() {
+		popup = cb.OnCreate(port.PopupRequest{
+			TargetURI:          targetURL,
+			FrameName:          targetFrameName,
+			IsUserGesture:      userGesture != 0,
+			NoJavaScriptAccess: requestNoJavaScriptAccess,
+			ParentViewID:       h.wv.id,
+		})
+	})
+
+	cefPopup, ok := popup.(*WebView)
+	if !ok || cefPopup == nil {
+		return true
+	}
+	cefPopup.setPopupNoJavaScriptAccess(requestNoJavaScriptAccess)
+	if cefPopup.prepareNativePopup(popupID, targetURL, windowInfo, clientSlot, settings) {
+		return false
+	}
+
+	cefPopup.discardNativePopupCandidate()
+	logging.FromContext(h.currentContext()).Debug().
+		Int32("popup_id", popupID).
+		Str("target_url", logging.TruncateURL(targetURL, logging.PermissionLogURLMaxLen)).
+		Msg("cef: native popup bridge unavailable, blocking CEF popup and using popup shell browser creation")
+	return true
 }
 
-func (h *handlerSet) OnBeforePopupAborted(_ purecef.Browser, _ int32) {}
+func (h *handlerSet) OnBeforePopupAborted(_ purecef.Browser, popupID int32) {
+	if popup := h.wv.takePendingNativePopup(popupID); popup != nil {
+		popup.handleNativePopupAborted()
+	}
+}
 
 func (h *handlerSet) OnBeforeDevToolsPopup(
 	_ purecef.Browser, _ *purecef.WindowInfo, _ *purecef.RawClientWriteSlot,
@@ -698,45 +759,88 @@ func (h *handlerSet) OnAfterCreated(browser purecef.Browser) {
 		return
 	}
 	browserID := browser.GetIdentifier()
-	log.Debug().
-		Int32("browser_id", browserID).
-		Msg("cef: OnAfterCreated")
-	if h.wv.engine != nil {
-		h.wv.engine.recordBrowserAfterCreated(browser)
-		h.wv.engine.registerWebView(h.wv)
-	}
+	log.Debug().Int32("browser_id", browserID).Msg("cef: OnAfterCreated")
+
 	host := browser.GetHost()
 	if host == nil {
 		log.Warn().Msg("cef: OnAfterCreated returned nil host")
 		return
 	}
 
-	shouldSyncFocus := false
-	hasPendingNavigation := false
+	state := h.attachAfterCreatedBrowser(browser, host, browserID)
+	if state.closeDuplicate {
+		log.Warn().
+			Int32("browser_id", browserID).
+			Int32("existing_browser_id", state.duplicateBrowserID).
+			Msg("cef: duplicate popup browser attached after shell already had a browser; closing duplicate")
+		host.CloseBrowser(1)
+		return
+	}
+
+	h.finishAfterCreated(browser, host, state)
+}
+
+func (h *handlerSet) attachAfterCreatedBrowser(
+	browser purecef.Browser,
+	host purecef.BrowserHost,
+	browserID int32,
+) afterCreatedState {
+	state := afterCreatedState{}
 	h.wv.mu.Lock()
+	defer h.wv.mu.Unlock()
+
+	if existing := h.wv.browser; existing != nil {
+		existingID := existing.GetIdentifier()
+		if existingID != 0 && existingID != browserID {
+			state.closeDuplicate = true
+			state.duplicateBrowserID = existingID
+			return state
+		}
+	}
+
 	h.wv.browser = browser
 	h.wv.host = host
+	h.wv.pendingCreate = nil
 	h.wv.input.setHost(host)
 	if h.wv.findCtrl != nil {
 		h.wv.findCtrl.setHost(host)
 	}
+	state.nativePopupParent = h.wv.nativePopupParent
+	state.nativePopupID = h.wv.nativePopupID
+	h.wv.nativePopupParent = nil
+	h.wv.nativePopupID = 0
+	h.wv.nativePopupFallbackStarted = false
 
 	// Mark browser as visible — CEF OSR starts in hidden state and suppresses
 	// painting/caret updates until explicitly told the browser is shown.
 	host.WasHidden(0)
+	state.shouldSyncFocus = h.afterCreatedShouldSyncFocus()
+	state.hasPendingNavigation = strings.TrimSpace(h.wv.pendingURI) != ""
+	return state
+}
 
-	// If GTK focus entered before the browser existed, reassert browser focus
-	// now. Otherwise CEF may stay internally unfocused and suppress caret paint.
-	if h.wv.input != nil {
-		shouldSyncFocus = h.wv.input.hasGTKFocus()
-		if !shouldSyncFocus && h.wv.input.glArea != nil {
-			shouldSyncFocus = h.wv.input.glArea.HasFocus()
-		}
+func (h *handlerSet) afterCreatedShouldSyncFocus() bool {
+	if h.wv.input == nil {
+		return false
 	}
-	hasPendingNavigation = strings.TrimSpace(h.wv.pendingURI) != ""
+	if h.wv.input.hasGTKFocus() {
+		return true
+	}
+	return h.wv.input.glArea != nil && h.wv.input.glArea.HasFocus()
+}
 
-	h.wv.mu.Unlock()
-	if shouldSyncFocus {
+func (h *handlerSet) finishAfterCreated(
+	browser purecef.Browser,
+	host purecef.BrowserHost,
+	state afterCreatedState,
+) {
+	if h.wv.engine != nil {
+		h.wv.engine.recordBrowserAfterCreated(browser)
+		h.wv.engine.registerWebView(h.wv)
+		h.wv.engine.bindBrowserWebView(browser, h.wv)
+	}
+	h.wv.stopNativePopupFallbackTimer()
+	if state.shouldSyncFocus {
 		syncWindowlessBrowserFocus(host)
 	} else {
 		// Request an initial OSR frame even before the first real navigation
@@ -744,11 +848,23 @@ func (h *handlerSet) OnAfterCreated(browser purecef.Browser) {
 		// startup path relied on and prevents the render pipeline from staying idle.
 		host.Invalidate(purecef.PaintElementTypePetView)
 	}
-	if hasPendingNavigation {
+	if state.hasPendingNavigation {
 		h.wv.schedulePendingNavigationReplay(0)
 	}
-
+	if state.nativePopupParent != nil && state.nativePopupID != 0 {
+		state.nativePopupParent.clearPendingNativePopup(state.nativePopupID, h.wv)
+	}
 	h.wv.scheduleStartBeginFrameLoop()
+	h.wv.fireReadyToShow()
+}
+
+type afterCreatedState struct {
+	shouldSyncFocus      bool
+	hasPendingNavigation bool
+	nativePopupParent    *WebView
+	nativePopupID        int32
+	duplicateBrowserID   int32
+	closeDuplicate       bool
 }
 
 // DoClose returns false to allow the default close behavior.
@@ -757,9 +873,13 @@ func (h *handlerSet) DoClose(_ purecef.Browser) bool {
 }
 
 // OnBeforeClose fires the OnClose callback.
-func (h *handlerSet) OnBeforeClose(_ purecef.Browser) {
+func (h *handlerSet) OnBeforeClose(browser purecef.Browser) {
 	if h.wv.engine != nil {
-		h.wv.engine.unregisterWebView(h.wv)
+		browserID := int32(0)
+		if browser != nil {
+			browserID = browser.GetIdentifier()
+		}
+		h.wv.engine.unregisterWebView(h.wv, browserID)
 	}
 	h.wv.mu.Lock()
 	h.wv.browser = nil
@@ -780,6 +900,7 @@ func (h *handlerSet) OnBeforeClose(_ purecef.Browser) {
 			cb.OnClose()
 		})
 	}
+	h.wv.runCloseCallbacks()
 }
 
 // ===========================================================================

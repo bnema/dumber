@@ -49,8 +49,9 @@ type Engine struct {
 	alreadyRunningAppRelaunchHandler func(string)
 
 	// activeWebViews tracks all live webviews for CSS broadcast.
-	activeWebViews sync.Map // map[port.WebViewID]*WebView
-	activeCount    atomic.Int32
+	activeWebViews  sync.Map // map[port.WebViewID]*WebView
+	browserWebViews sync.Map // map[int32]*WebView
+	activeCount     atomic.Int32
 
 	// shutdownNotify is signaled when the active webview count reaches 0
 	// during shutdown, replacing the busy-wait poll in closeActiveWebViews.
@@ -145,10 +146,46 @@ func (e *Engine) registerWebView(wv *WebView) {
 	e.activeCount.Add(1)
 }
 
+func (e *Engine) lookupWebView(id port.WebViewID) *WebView {
+	if e == nil {
+		return nil
+	}
+	current, ok := e.activeWebViews.Load(id)
+	if !ok {
+		return nil
+	}
+	wv, _ := current.(*WebView)
+	return wv
+}
+
+func (e *Engine) bindBrowserWebView(browser purecef.Browser, wv *WebView) {
+	if e == nil || browser == nil || wv == nil {
+		return
+	}
+	browserID := browser.GetIdentifier()
+	if browserID <= 0 {
+		logging.FromContext(e.ctx).Debug().Int32("browser_id", browserID).Msg("cef: skipped browser/webview binding for invalid browser id")
+		return
+	}
+	e.browserWebViews.Store(browserID, wv)
+}
+
+func (e *Engine) unbindBrowserWebView(browserID int32, wv *WebView) {
+	if e == nil || browserID <= 0 {
+		return
+	}
+	if current, ok := e.browserWebViews.Load(browserID); ok {
+		if existing, ok := current.(*WebView); ok && existing == wv {
+			e.browserWebViews.Delete(browserID)
+		}
+	}
+}
+
 // unregisterWebView removes a webview from the active tracking map.
 // If the count reaches 0 and a shutdown is in progress, it signals shutdownNotify.
-func (e *Engine) unregisterWebView(wv *WebView) {
+func (e *Engine) unregisterWebView(wv *WebView, browserID int32) {
 	e.activeWebViews.Delete(wv.id)
+	e.unbindBrowserWebView(browserID, wv)
 	if e.activeCount.Add(-1) == 0 && e.shutdownNotify != nil {
 		select {
 		case e.shutdownNotify <- struct{}{}:
@@ -432,28 +469,18 @@ func (e *Engine) validateBridgeRequest(browser purecef.Browser, bridgeNonce stri
 		return false
 	}
 
-	browserID := browser.GetIdentifier()
-	valid := false
-	e.activeWebViews.Range(func(_, value any) bool {
-		wv, ok := value.(*WebView)
-		if !ok || wv == nil {
-			return true
-		}
+	wv := e.webViewForBrowser(browser)
+	if wv == nil {
+		return false
+	}
 
-		wv.mu.RLock()
-		wvBrowser := wv.browser
-		wvBridgeNonce := wv.bridgeNonce
-		wv.mu.RUnlock()
-		if wvBrowser == nil || wvBridgeNonce == "" || wvBrowser.GetIdentifier() != browserID {
-			return true
-		}
-		if subtle.ConstantTimeCompare([]byte(wvBridgeNonce), []byte(bridgeNonce)) == 1 {
-			valid = true
-			return false
-		}
-		return true
-	})
-	return valid
+	wv.mu.RLock()
+	wvBridgeNonce := wv.bridgeNonce
+	wv.mu.RUnlock()
+	if wvBridgeNonce == "" {
+		return false
+	}
+	return subtle.ConstantTimeCompare([]byte(wvBridgeNonce), []byte(bridgeNonce)) == 1
 }
 
 func (e *Engine) currentDownloadHandler() *downloadHandler {

@@ -3,7 +3,6 @@ package content
 import (
 	"context"
 	"sync"
-	"time"
 
 	"github.com/bnema/dumber/internal/application/port"
 	"github.com/bnema/dumber/internal/application/usecase"
@@ -29,8 +28,9 @@ type Coordinator struct {
 	settingsApplier port.SettingsApplier // optional: nil if engine doesn't support
 	filterApplier   port.FilterApplier   // optional: nil if engine doesn't support
 
-	webViews   map[entity.PaneID]port.WebView
-	webViewsMu sync.RWMutex
+	webViews       map[entity.PaneID]port.WebView
+	webViewPaneIDs map[port.WebViewID]entity.PaneID
+	webViewsMu     sync.RWMutex
 
 	activePaneOverride   entity.PaneID
 	activePaneOverrideMu sync.RWMutex
@@ -81,23 +81,10 @@ type Coordinator struct {
 	// Gesture action handler for mouse button navigation
 	gestureActionHandler input.ActionHandler
 
-	// Popup handling
-	factory       port.WebViewFactory
-	popupConfig   *entity.PopupBehaviorConfig
-	pendingPopups map[port.WebViewID]*PendingPopup
-	namedPopups   map[namedPopupKey]*namedPopupState
-	popupOAuth    map[port.WebViewID]*popupOAuthState
-	popupRefresh  map[entity.PaneID]*time.Timer
-	popupMu       sync.RWMutex
-
-	// Callback to insert popup into workspace (avoids circular dependency)
-	onInsertPopup func(ctx context.Context, input InsertPopupInput) error
-
-	// Callback to close a pane when popup closes
-	onClosePane func(ctx context.Context, paneID entity.PaneID) error
-
-	// ID generator for popup panes
-	generateID func() string
+	// Popup handling stays in a dedicated UI-layer manager so popup-specific
+	// pane state does not bloat the main coordinator.
+	popups     *popupManager
+	popupsOnce sync.Once
 
 	// Idle inhibitor for fullscreen video playback
 	idleInhibitor port.IdleInhibitor
@@ -120,14 +107,6 @@ type Coordinator struct {
 type pendingThemeUpdate struct {
 	prefersDark bool
 	cssText     string
-}
-
-type popupOAuthState struct {
-	ParentPaneID entity.PaneID
-	CallbackURI  string
-	Success      bool
-	Error        bool
-	Seen         bool
 }
 
 // PermissionActivityState represents the visible state for media permission activity.
@@ -162,17 +141,28 @@ func NewCoordinator(
 		zoomUC:               zoomUC,
 		permissionUC:         permissionUC,
 		webViews:             make(map[entity.PaneID]port.WebView),
+		webViewPaneIDs:       make(map[port.WebViewID]entity.PaneID),
 		paneTitles:           make(map[entity.PaneID]string),
 		navOrigins:           make(map[entity.PaneID]string),
 		pendingReveal:        make(map[entity.PaneID]bool),
 		pendingScriptRefresh: make(map[entity.PaneID]bool),
 		pendingThemePanes:    make(map[entity.PaneID]bool),
 		getActiveWS:          getActiveWS,
-		pendingPopups:        make(map[port.WebViewID]*PendingPopup),
-		namedPopups:          make(map[namedPopupKey]*namedPopupState),
-		popupOAuth:           make(map[port.WebViewID]*popupOAuthState),
-		popupRefresh:         make(map[entity.PaneID]*time.Timer),
+		popups:               newPopupManager(),
 	}
+}
+
+func (c *Coordinator) ensurePopupManager() *popupManager {
+	if c == nil {
+		return nil
+	}
+	c.popupsOnce.Do(func() {
+		if c.popups == nil {
+			c.popups = newPopupManager()
+		}
+	})
+	c.popups.ensureInitialized()
+	return c.popups
 }
 
 // SetOnTitleUpdated sets the callback for title changes (for history persistence).
@@ -308,7 +298,16 @@ func (c *Coordinator) getWebViewLocked(paneID entity.PaneID) port.WebView {
 
 func (c *Coordinator) setWebViewLocked(paneID entity.PaneID, wv port.WebView) {
 	c.webViewsMu.Lock()
+	if c.webViews == nil {
+		c.webViews = make(map[entity.PaneID]port.WebView)
+	}
+	if existing := c.webViews[paneID]; existing != nil && c.webViewPaneIDs != nil {
+		delete(c.webViewPaneIDs, existing.ID())
+	}
 	c.webViews[paneID] = wv
+	if wv != nil && c.webViewPaneIDs != nil {
+		c.webViewPaneIDs[wv.ID()] = paneID
+	}
 	c.webViewsMu.Unlock()
 }
 
@@ -317,5 +316,49 @@ func (c *Coordinator) deleteWebViewLocked(paneID entity.PaneID) port.WebView {
 	defer c.webViewsMu.Unlock()
 	wv := c.webViews[paneID]
 	delete(c.webViews, paneID)
+	if wv != nil && c.webViewPaneIDs != nil {
+		delete(c.webViewPaneIDs, wv.ID())
+	}
 	return wv
+}
+
+func (c *Coordinator) paneIDByWebViewIDLocked(webViewID port.WebViewID) (entity.PaneID, bool) {
+	paneID, ok := c.webViewPaneIDs[webViewID]
+	return paneID, ok
+}
+
+func (c *Coordinator) findPaneByWebViewID(webViewID port.WebViewID) (entity.PaneID, bool) {
+	if webViewID == 0 {
+		return "", false
+	}
+
+	c.webViewsMu.RLock()
+	defer c.webViewsMu.RUnlock()
+	if paneID, ok := c.paneIDByWebViewIDLocked(webViewID); ok && paneID != "" {
+		return paneID, true
+	}
+
+	c.logger.Debug().
+		Uint64("webview_id", uint64(webViewID)).
+		Msg("findPaneByWebViewID: using fallback scan")
+	for paneID, wv := range c.webViews {
+		if wv != nil && wv.ID() == webViewID {
+			return paneID, true
+		}
+	}
+	return "", false
+}
+
+func (c *Coordinator) popupHooks() popupCoordinatorHooks {
+	return popupCoordinatorHooks{
+		setupWebViewCallbacks: c.setupWebViewCallbacks,
+		registerPopupWebView:  c.RegisterPopupWebView,
+		setWebView:            c.setWebViewLocked,
+		getWebView:            c.getWebViewLocked,
+		deleteWebView:         c.deleteWebViewLocked,
+		releaseWebView:        c.ReleaseWebView,
+		findPaneByWebViewID:   c.findPaneByWebViewID,
+		setupOAuthAutoClose:   c.setupOAuthAutoClose,
+		handlePopupOAuthClose: c.handlePopupOAuthClose,
+	}
 }

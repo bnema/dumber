@@ -30,6 +30,7 @@ import (
 var _ port.WebView = (*WebView)(nil)
 var _ port.DevToolsOpener = (*WebView)(nil)
 var _ port.Printer = (*WebView)(nil)
+var _ port.PopupLifecycleCapable = (*WebView)(nil)
 var _ port.OAuthCallbackCapable = (*WebView)(nil)
 
 // WebViewID is an alias to port.WebViewID for clean architecture compliance.
@@ -1584,15 +1585,19 @@ func (wv *WebView) Show() {
 	wv.inner.SetVisible(true)
 }
 
+// PrimePopupNavigation is a no-op for WebKit, which already has a native popup
+// browser at the time the coordinator receives popup lifecycle callbacks.
+func (*WebView) PrimePopupNavigation(string) {}
+
 // SetOnReadyToShow sets the callback invoked when the popup WebView is ready to display.
-// It implements port.PopupCapable.
+// It implements port.PopupLifecycleCapable.
 func (wv *WebView) SetOnReadyToShow(fn func()) {
 	wv.OnReadyToShow = fn
 }
 
 // SetOnClose composes fn with any existing OnClose handler so multiple callers
 // can each register a close callback without overwriting one another.
-// It implements port.PopupCapable.
+// It implements port.PopupLifecycleCapable.
 func (wv *WebView) SetOnClose(fn func()) {
 	existing := wv.OnClose
 	if existing == nil {
