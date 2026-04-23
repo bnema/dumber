@@ -177,10 +177,11 @@ type WebView struct {
 // pendingBrowserCreate holds the parameters needed to create a CEF browser,
 // deferred until the GL area has a non-zero size.
 type pendingBrowserCreate struct {
-	windowInfo *purecef.WindowInfo
-	client     purecef.RawClient
-	settings   *purecef.BrowserSettings
-	extraInfo  purecef.DictionaryValue
+	windowInfo      *purecef.WindowInfo
+	client          purecef.RawClient
+	settings        *purecef.BrowserSettings
+	extraInfo       purecef.DictionaryValue
+	postTaskRetries int
 }
 
 type cefTaskFunc func()
@@ -685,14 +686,14 @@ func (wv *WebView) stopNativePopupFallbackTimer() {
 }
 
 func (wv *WebView) scheduleNativePopupFallback(delay time.Duration, fn func()) {
-	if wv == nil || fn == nil {
+	if wv == nil || fn == nil || wv.destroyed.Load() {
 		return
 	}
 	wv.stopNativePopupFallbackTimer()
 	var timer stoppableTimer
 	timer = wv.nativePopupFallbackScheduler()(delay, func() {
 		wv.mu.Lock()
-		if wv.nativePopupFallbackTimer != timer {
+		if wv.destroyed.Load() || wv.nativePopupFallbackTimer != timer {
 			wv.mu.Unlock()
 			return
 		}
@@ -701,6 +702,13 @@ func (wv *WebView) scheduleNativePopupFallback(delay time.Duration, fn func()) {
 		fn()
 	})
 	wv.mu.Lock()
+	if wv.destroyed.Load() {
+		wv.mu.Unlock()
+		if timer != nil {
+			timer.Stop()
+		}
+		return
+	}
 	wv.nativePopupFallbackTimer = timer
 	wv.mu.Unlock()
 }
@@ -711,7 +719,7 @@ func (wv *WebView) preparePopupShellDirectBrowserCreation() bool {
 	}
 	wv.stopNativePopupFallbackTimer()
 	wv.mu.Lock()
-	if wv.browser != nil || wv.nativePopupFallbackStarted || wv.pendingCreate == nil {
+	if wv.destroyed.Load() || wv.browser != nil || wv.nativePopupFallbackStarted || wv.pendingCreate == nil {
 		wv.mu.Unlock()
 		return false
 	}
@@ -721,7 +729,7 @@ func (wv *WebView) preparePopupShellDirectBrowserCreation() bool {
 	wv.nativePopupCandidate = false
 	wv.nativePopupParent = nil
 	wv.nativePopupID = 0
-	if !wv.popupNoJavaScriptAccess && parent != nil {
+	if !wv.popupNoJavaScriptAccess && parent != nil && !parent.destroyed.Load() {
 		wv.popupOpenerBridgeParent = parent
 		wv.popupOpenerBridgeParentURI = parent.URI()
 	} else {
@@ -741,9 +749,10 @@ func (wv *WebView) startNativePopupFallback() bool {
 		return false
 	}
 	wv.mu.RLock()
+	destroyed := wv.destroyed.Load()
 	alreadyStarted := wv.nativePopupFallbackStarted
 	wv.mu.RUnlock()
-	if alreadyStarted {
+	if destroyed || alreadyStarted {
 		return false
 	}
 	return wv.preparePopupShellDirectBrowserCreation()
@@ -986,7 +995,6 @@ func (wv *WebView) Destroy() {
 	wv.syntheticPopups = nil
 	wv.syntheticPopupMu.Unlock()
 	wv.mu.Lock()
-	wv.closeCallbacks = nil
 	wv.navigationCallbacks = nil
 	wv.openerMessageCallbacks = nil
 	wv.openerNavigationCallbacks = nil
@@ -1011,6 +1019,8 @@ func (wv *WebView) Destroy() {
 	wv.mu.RUnlock()
 	if host != nil {
 		host.CloseBrowser(1)
+	} else {
+		wv.runCloseCallbacks()
 	}
 	if wv.pipeline != nil {
 		wv.pipeline.destroy()

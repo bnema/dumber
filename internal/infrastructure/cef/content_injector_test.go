@@ -73,6 +73,8 @@ func TestTrustedPageFetchBridgeJS_ShimsWindowOpenToBridgePopupRequests(t *testin
 	require.Contains(t, script, "dumb:///api/popup-close")
 	require.Contains(t, script, "proxy_id")
 	require.Contains(t, script, "createSyntheticPopupProxy")
+	require.Contains(t, script, "createPopupProxyID")
+	require.Contains(t, script, "crypto.getRandomValues")
 	require.Contains(t, script, "no_javascript_access")
 	require.Contains(t, script, "Object.defineProperty(proxy, 'closed'")
 	require.Contains(t, script, "test-bridge-nonce")

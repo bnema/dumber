@@ -1,8 +1,12 @@
 package cef
 
 import (
+	"context"
+	"strings"
 	"testing"
 
+	cefmocks "github.com/bnema/purego-cef/cef/mocks"
+	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 )
 
@@ -38,4 +42,30 @@ func TestOriginFromURL_NormalizesInternalConceptualURLs(t *testing.T) {
 
 func TestTargetOriginMatchesPopupOpener_NormalizesDefaultPorts(t *testing.T) {
 	require.True(t, targetOriginMatchesPopupOpener("https://example.com:443", "https://example.com/callback"))
+}
+
+func TestHandlePopupOpenerPostMessage_UsesPopupCommittedURIForSourceMetadata(t *testing.T) {
+	frame := cefmocks.NewMockFrame(t)
+	frame.EXPECT().ExecuteJavaScript(mock.MatchedBy(func(script string) bool {
+		return strings.Contains(script, "https://popup.example") &&
+			strings.Contains(script, "https://popup.example/oauth/callback") &&
+			!strings.Contains(script, "https://evil.example")
+	}), "", int32(0)).Once()
+	browser := cefmocks.NewMockBrowser(t)
+	browser.EXPECT().GetMainFrame().Return(frame).Once()
+
+	opener := &WebView{ctx: context.Background(), browser: browser, uri: "https://app.example/session"}
+	popup := &WebView{
+		ctx:                     context.Background(),
+		uri:                     "https://popup.example/oauth/callback",
+		popupOpenerBridgeParent: opener,
+	}
+
+	popup.handlePopupOpenerPostMessage(popupOpenerPostMessagePayload{
+		Data:         `{"ok":true}`,
+		DataKind:     "json",
+		TargetOrigin: "https://app.example",
+		SourceOrigin: "https://evil.example",
+		SourceHref:   "https://evil.example/fake",
+	})
 }

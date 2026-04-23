@@ -338,16 +338,16 @@ func (wv *WebView) handlePopupOpenerPostMessage(payload popupOpenerPostMessagePa
 		}
 		return
 	}
+	sourceOrigin, sourceHref := popupOpenerSourceMetadata(wv)
 	if wv.ctx != nil {
 		logging.FromContext(wv.ctx).Debug().
 			Uint64("webview_id", uint64(wv.id)).
 			Str("target_origin", payload.TargetOrigin).
-			Str("source_origin", payload.SourceOrigin).
-			Str("source_href", logging.TruncateURL(payload.SourceHref, logging.PermissionLogURLMaxLen)).
+			Str("source_origin", sourceOrigin).
+			Str("source_href", logging.TruncateURL(sourceHref, logging.PermissionLogURLMaxLen)).
 			Msg("cef: popup opener postMessage received")
 	}
 
-	sourceOrigin := popupSourceOrigin(payload)
 	var dataExpr string
 	switch strings.ToLower(strings.TrimSpace(payload.DataKind)) {
 	case "json":
@@ -358,7 +358,6 @@ func (wv *WebView) handlePopupOpenerPostMessage(payload popupOpenerPostMessagePa
 		dataExpr = fmt.Sprintf("'%s'", webutil.EscapeForJSString(payload.Data))
 	}
 
-	sourceHref := strings.TrimSpace(payload.SourceHref)
 	script := fmt.Sprintf(`(function() {
   try {
     var data;
@@ -405,11 +404,18 @@ func targetOriginMatchesPopupOpener(targetOrigin, openerURI string) bool {
 	return targetCanonical != "" && targetCanonical == canonicalOrigin(openerURI)
 }
 
-func popupSourceOrigin(payload popupOpenerPostMessagePayload) string {
-	if origin := strings.TrimSpace(payload.SourceOrigin); origin != "" {
-		return origin
+func popupOpenerSourceMetadata(wv *WebView) (origin, href string) {
+	if wv == nil {
+		return "", ""
 	}
-	return originFromURL(payload.SourceHref)
+	href = strings.TrimSpace(wv.URI())
+	if href == "" {
+		href = strings.TrimSpace(wv.pendingNavigationURI())
+	}
+	if href == "" {
+		return "", ""
+	}
+	return originFromURL(href), href
 }
 
 func originFromURL(rawURL string) string {

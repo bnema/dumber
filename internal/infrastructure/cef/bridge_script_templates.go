@@ -54,6 +54,22 @@ const popupProxyBridgeBodyTemplateJS = `
     return target === '_self' || target === '_top' || target === '_parent';
   }
 
+  function createPopupProxyID() {
+    var timestamp = Date.now();
+    try {
+      if (typeof crypto !== 'undefined' && crypto && typeof crypto.getRandomValues === 'function') {
+        var bytes = new Uint8Array(4);
+        crypto.getRandomValues(bytes);
+        var nonce = '';
+        for (var i = 0; i < bytes.length; i++) {
+          nonce += ('0' + bytes[i].toString(16)).slice(-2);
+        }
+        return 'popup-' + timestamp + '-' + nonce;
+      }
+    } catch (_) {}
+    return 'popup-' + timestamp + '-' + Math.random().toString(36).slice(2);
+  }
+
   function createSyntheticPopupProxy(proxyID, initialURL, features) {
     var href = initialURL || 'about:blank';
     var closed = false;
@@ -138,7 +154,7 @@ const popupProxyBridgeBodyTemplateJS = `
         return originalWindowOpen.apply(this, arguments);
       }
 
-      var proxyID = 'popup-' + Date.now() + '-' + Math.random().toString(36).slice(2);
+      var proxyID = createPopupProxyID();
       var resolvedURL = resolvePopupURL(url);
       var noJavaScriptAccess = popupHasNoOpener(features);
       var popupProxy = createSyntheticPopupProxy(proxyID, resolvedURL, features);

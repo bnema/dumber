@@ -374,6 +374,103 @@ func TestSchemeHandler_APIPopupCloseInvokesPopupCallback(t *testing.T) {
 	require.Equal(t, "popup-1", got.ProxyID)
 }
 
+func TestSchemeHandler_APIPopupBridgeRejectsInvalidPayloads(t *testing.T) {
+	oldNewResourceHandler := cefNewResourceHandler
+	cefNewResourceHandler = func(impl purecef.ResourceHandler) purecef.ResourceHandler { return impl }
+	defer func() { cefNewResourceHandler = oldNewResourceHandler }()
+
+	tests := []struct {
+		name string
+		path string
+		body string
+		wire func(*dumbSchemeHandler, *bool)
+	}{
+		{
+			name: "open malformed json",
+			path: "/api/popup-open",
+			body: `{invalid`,
+			wire: func(h *dumbSchemeHandler, called *bool) {
+				h.onPopupOpen = func(purecef.Browser, rendererBridgePopupOpenPayload) { *called = true }
+			},
+		},
+		{
+			name: "open missing proxy id",
+			path: "/api/popup-open",
+			body: `{"url":"https://example.com/login"}`,
+			wire: func(h *dumbSchemeHandler, called *bool) {
+				h.onPopupOpen = func(purecef.Browser, rendererBridgePopupOpenPayload) { *called = true }
+			},
+		},
+		{
+			name: "navigate malformed json",
+			path: "/api/popup-navigate",
+			body: `{invalid`,
+			wire: func(h *dumbSchemeHandler, called *bool) {
+				h.onPopupNavigate = func(purecef.Browser, rendererBridgePopupNavigatePayload) { *called = true }
+			},
+		},
+		{
+			name: "navigate missing proxy id",
+			path: "/api/popup-navigate",
+			body: `{"url":"https://example.com/callback"}`,
+			wire: func(h *dumbSchemeHandler, called *bool) {
+				h.onPopupNavigate = func(purecef.Browser, rendererBridgePopupNavigatePayload) { *called = true }
+			},
+		},
+		{
+			name: "close malformed json",
+			path: "/api/popup-close",
+			body: `{invalid`,
+			wire: func(h *dumbSchemeHandler, called *bool) {
+				h.onPopupClose = func(purecef.Browser, rendererBridgePopupClosePayload) { *called = true }
+			},
+		},
+		{
+			name: "close missing proxy id",
+			path: "/api/popup-close",
+			body: `{"url":"https://example.com/callback"}`,
+			wire: func(h *dumbSchemeHandler, called *bool) {
+				h.onPopupClose = func(purecef.Browser, rendererBridgePopupClosePayload) { *called = true }
+			},
+		},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			h, err := newDumbSchemeHandler(context.Background(), nil, nil, func() ([]byte, error) { return []byte(`{}`), nil }, func() ([]byte, error) { return []byte(`{}`), nil })
+			require.NoError(t, err)
+
+			const bridgeNonce = "bridge-nonce"
+			browser := cefmocks.NewMockBrowser(t)
+			h.bridgeNonceValidator = func(got purecef.Browser, gotNonce string) bool {
+				return got == browser && gotNonce == bridgeNonce
+			}
+
+			called := false
+			test.wire(h, &called)
+
+			request := cefmocks.NewMockRequest(t)
+			request.EXPECT().GetHeaderByName(dumberBridgeNonceHeaderName).Return(bridgeNonce).Once()
+			encoded := base64.StdEncoding.EncodeToString([]byte(test.body))
+			request.EXPECT().GetHeaderByName(dumberBodyHeaderName).Return(encoded).Once()
+
+			response := cefmocks.NewMockResponse(t)
+			response.EXPECT().SetStatus(int32(http.StatusBadRequest)).Once()
+			response.EXPECT().SetStatusText(http.StatusText(http.StatusBadRequest)).Once()
+			response.EXPECT().SetMimeType("application/json").Once()
+			expectAPIResponseHeaders(response)
+
+			handler := h.handleAPI(browser, http.MethodPost, test.path, request)
+			require.NotNil(t, handler)
+
+			var responseLength int64
+			handler.GetResponseHeaders(response, &responseLength, 0)
+			require.Positive(t, responseLength)
+			require.False(t, called)
+		})
+	}
+}
+
 func TestSchemeHandler_APIOptionsReturnsCORSPreflightHeaders(t *testing.T) {
 	oldNewResourceHandler := cefNewResourceHandler
 	cefNewResourceHandler = func(impl purecef.ResourceHandler) purecef.ResourceHandler { return impl }

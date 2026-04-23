@@ -164,6 +164,54 @@ func TestDecodeRendererBridgePopupClosePayload(t *testing.T) {
 	require.Equal(t, "popup-1", req.ProxyID)
 }
 
+func TestDecodeRendererBridgePopupPayloadErrors(t *testing.T) {
+	tests := []struct {
+		name   string
+		decode func([]byte) error
+	}{
+		{
+			name: "open",
+			decode: func(payload []byte) error {
+				_, err := decodeRendererBridgePopupOpenPayload(payload)
+				return err
+			},
+		},
+		{
+			name: "navigate",
+			decode: func(payload []byte) error {
+				_, err := decodeRendererBridgePopupNavigatePayload(payload)
+				return err
+			},
+		},
+		{
+			name: "close",
+			decode: func(payload []byte) error {
+				_, err := decodeRendererBridgePopupClosePayload(payload)
+				return err
+			},
+		},
+	}
+
+	payloads := []struct {
+		name    string
+		payload []byte
+	}{
+		{name: "empty", payload: nil},
+		{name: "invalid json", payload: []byte(`{invalid`)},
+		{name: "missing proxy id", payload: []byte(`{"url":"https://example.com"}`)},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			for _, payload := range payloads {
+				t.Run(payload.name, func(t *testing.T) {
+					require.Error(t, test.decode(payload.payload))
+				})
+			}
+		})
+	}
+}
+
 func parseCEFPackageFiles(t *testing.T) []*ast.File {
 	t.Helper()
 	entries, err := os.ReadDir(".")

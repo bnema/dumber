@@ -334,6 +334,9 @@ func (c *Coordinator) setupOAuthAutoClose(
 	})
 	if opener, ok := wv.(port.PopupOpenerCapable); ok {
 		opener.AddOpenerNavigationCallback(func(uri string) {
+			if !ShouldAutoClose(uri) {
+				return
+			}
 			c.capturePopupOAuthState(popupID, uri)
 			requestOAuthClose("opener-navigation")
 		})

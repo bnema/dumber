@@ -7,6 +7,7 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
+	"github.com/stretchr/testify/require"
 
 	"github.com/bnema/dumber/internal/application/port"
 	portmocks "github.com/bnema/dumber/internal/application/port/mocks"
@@ -23,6 +24,37 @@ func (s *popupOpenerBridgeStateStub) AddOpenerMessageCallback(func())           
 func (s *popupOpenerBridgeStateStub) AddOpenerNavigationCallback(func(string)) {
 }
 func (s *popupOpenerBridgeStateStub) HasActivePopupOpenerBridge() bool { return s.active }
+
+type popupOAuthAutoCloseWebViewStub struct {
+	*portmocks.MockWebView
+	active                  bool
+	navigationCallbacks     []func(string)
+	closeCallbacks          []func()
+	openerMessageCallbacks  []func()
+	openerNavigateCallbacks []func(string)
+}
+
+func (s *popupOAuthAutoCloseWebViewStub) AddNavigationCallback(fn func(string)) {
+	s.navigationCallbacks = append(s.navigationCallbacks, fn)
+}
+
+func (s *popupOAuthAutoCloseWebViewStub) AddCloseCallback(fn func()) {
+	s.closeCallbacks = append(s.closeCallbacks, fn)
+}
+
+func (*popupOAuthAutoCloseWebViewStub) Close() {}
+
+func (*popupOAuthAutoCloseWebViewStub) EnablePopupOpenerBridge(port.WebView, bool) {}
+
+func (s *popupOAuthAutoCloseWebViewStub) AddOpenerMessageCallback(fn func()) {
+	s.openerMessageCallbacks = append(s.openerMessageCallbacks, fn)
+}
+
+func (s *popupOAuthAutoCloseWebViewStub) AddOpenerNavigationCallback(fn func(string)) {
+	s.openerNavigateCallbacks = append(s.openerNavigateCallbacks, fn)
+}
+
+func (s *popupOAuthAutoCloseWebViewStub) HasActivePopupOpenerBridge() bool { return s.active }
 
 func TestPopupUsesSyntheticOpenerSignals_DetectsActiveBridge(t *testing.T) {
 	wv := &popupOpenerBridgeStateStub{MockWebView: portmocks.NewMockWebView(t), active: true}
@@ -85,6 +117,30 @@ func TestCapturePopupOAuthMessage_MarksPopupSeenAndSuccessful(t *testing.T) {
 	assert.True(t, state.Seen)
 	assert.True(t, state.Success)
 	assert.Equal(t, "postmessage://oauth-complete", state.CallbackURI)
+}
+
+func TestSetupOAuthAutoClose_OpenerNavigationIgnoresNonTerminalURI(t *testing.T) {
+	popupID := port.WebViewID(1000)
+	wv := &popupOAuthAutoCloseWebViewStub{
+		MockWebView: portmocks.NewMockWebView(t),
+		active:      true,
+	}
+	c := &Coordinator{popups: newPopupManager()}
+	c.trackOAuthPopup(popupID, entity.PaneID("parent-pane"), "https://example.com/start")
+
+	c.setupOAuthAutoClose(context.Background(), entity.PaneID("popup-pane"), popupID, wv)
+	require.Len(t, wv.openerNavigateCallbacks, 1)
+
+	wv.openerNavigateCallbacks[0]("https://example.com/intermediate")
+
+	state, ok := c.popups.popupOAuth[popupID]
+	require.True(t, ok)
+	assert.False(t, state.Seen)
+	assert.Empty(t, state.CallbackURI)
+
+	for _, fn := range wv.closeCallbacks {
+		fn()
+	}
 }
 
 func TestHandlePopupOAuthClose_SuccessSchedulesParentResume(t *testing.T) {

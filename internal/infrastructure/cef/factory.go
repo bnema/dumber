@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"sync/atomic"
+	"time"
 
 	purecef "github.com/bnema/purego-cef/cef"
 
@@ -43,6 +44,11 @@ type resizeNotifiableBrowserHost interface {
 }
 
 var cefBrowserHostCreateBrowser = purecef.BrowserHostCreateBrowser
+
+const (
+	pendingBrowserCreateRetryDelay     = 10 * time.Millisecond
+	pendingBrowserCreateMaxPostRetries = 3
+)
 
 // newWebViewFactory returns a factory that will create WebViews using the
 // given GL loader and HiDPI scale factor.
@@ -231,7 +237,7 @@ func (f *WebViewFactory) postPendingBrowserCreate(ctx context.Context, wv *WebVi
 		return
 	}
 
-	task := purecef.NewTask(cefTaskFunc(func() {
+	task := cefNewTask(cefTaskFunc(func() {
 		if wv.destroyed.Load() {
 			log.Debug().Msg("cef: skipping browser creation for destroyed webview")
 			return
@@ -267,15 +273,35 @@ func (f *WebViewFactory) postPendingBrowserCreate(ctx context.Context, wv *WebVi
 			Msg("cef: BrowserHostCreateBrowser call completed on CEF UI thread")
 	}))
 
-	postResult := purecef.PostTask(purecef.ThreadIDTidUi, task)
+	postResult := cefPostTask(purecef.ThreadIDTidUi, task)
 	if postResult != 1 {
+		pc.postTaskRetries++
 		wv.mu.Lock()
 		wv.pendingCreate = pc
 		wv.mu.Unlock()
 		log.Error().
 			Int32("result", postResult).
+			Int("retry", pc.postTaskRetries).
 			Msg("cef: failed to post initial browser creation to CEF UI thread")
+		f.schedulePendingBrowserCreateRetry(ctx, wv, w, h, pc)
 	}
+}
+
+func (f *WebViewFactory) schedulePendingBrowserCreateRetry(
+	ctx context.Context,
+	wv *WebView,
+	w, h int32,
+	pc *pendingBrowserCreate,
+) {
+	if f == nil || wv == nil || pc == nil || wv.destroyed.Load() || pc.postTaskRetries > pendingBrowserCreateMaxPostRetries {
+		return
+	}
+	cefScheduleAfter(pendingBrowserCreateRetryDelay, func() {
+		if wv.destroyed.Load() {
+			return
+		}
+		f.postPendingBrowserCreate(ctx, wv, w, h)
+	})
 }
 
 func notifyBrowserResize(host resizeNotifiableBrowserHost) {
