@@ -671,7 +671,21 @@ func (pm *popupManager) handlePopupReadyToShow(ctx context.Context, popupID port
 
 func (pm *popupManager) handlePopupClose(ctx context.Context, hooks popupCoordinatorHooks, popupID port.WebViewID) {
 	log := logging.FromContext(ctx)
-	log.Debug().Uint64("popup_id", uint64(popupID)).Msg("popup close signal received")
+	fields := log.Debug().Uint64("popup_id", uint64(popupID))
+	if hooks.findPaneByWebViewID != nil && hooks.getWebView != nil {
+		if paneID, ok := hooks.findPaneByWebViewID(popupID); ok && paneID != "" {
+			fields = fields.Str("pane_id", string(paneID))
+			if wv := hooks.getWebView(paneID); wv != nil {
+				fields = fields.
+					Str("current_uri", logging.TruncateURL(wv.URI(), logURLMaxLen)).
+					Bool("is_loading", wv.IsLoading())
+				if opener, ok := wv.(port.PopupOpenerCapable); ok {
+					fields = fields.Bool("synthetic_opener_active", opener.HasActivePopupOpenerBridge())
+				}
+			}
+		}
+	}
+	fields.Msg("popup close signal received")
 
 	pending, wasPending := pm.takePendingPopup(popupID)
 	if wasPending && pending != nil {

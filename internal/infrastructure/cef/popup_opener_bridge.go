@@ -100,6 +100,49 @@ func (wv *WebView) HasActivePopupOpenerBridge() bool {
 	return !wv.popupNoJavaScriptAccess && wv.popupOpenerBridgeParent != nil
 }
 
+func (wv *WebView) popupOpenerBridgeState() (parentURI string, active bool, blocked bool) {
+	if wv == nil {
+		return "", false, false
+	}
+	wv.mu.RLock()
+	defer wv.mu.RUnlock()
+	blocked = wv.popupNoJavaScriptAccess
+	active = !blocked && wv.popupOpenerBridgeParent != nil
+	parentURI = wv.popupOpenerBridgeParentURI
+	return parentURI, active, blocked
+}
+
+func (wv *WebView) ensureBridgeNonceLocked() string {
+	if wv == nil {
+		return ""
+	}
+	if wv.bridgeNonce != "" {
+		return wv.bridgeNonce
+	}
+	nonce := newBridgeNonce()
+	if nonce == "" {
+		return ""
+	}
+	wv.bridgeNonce = nonce
+	return nonce
+}
+
+func (wv *WebView) syncPopupOpenerBridgeExtraInfoLocked() {
+	if wv == nil || wv.pendingCreate == nil || wv.pendingCreate.windowInfo == nil {
+		return
+	}
+	if wv.popupNoJavaScriptAccess || wv.popupOpenerBridgeParent == nil || wv.popupOpenerBridgeParentURI == "" {
+		wv.pendingCreate.extraInfo = nil
+		return
+	}
+	bridgeNonce := wv.ensureBridgeNonceLocked()
+	if bridgeNonce == "" {
+		wv.pendingCreate.extraInfo = nil
+		return
+	}
+	wv.pendingCreate.extraInfo = popupOpenerRenderExtraInfoBuilder(wv.popupOpenerBridgeParentURI, bridgeNonce)
+}
+
 // EnablePopupOpenerBridge implements port.PopupOpenerCapable.
 func (wv *WebView) EnablePopupOpenerBridge(parent port.WebView, noJavaScriptAccess bool) {
 	if wv == nil {
@@ -111,16 +154,37 @@ func (wv *WebView) EnablePopupOpenerBridge(parent port.WebView, noJavaScriptAcce
 	if noJavaScriptAccess {
 		wv.popupOpenerBridgeParent = nil
 		wv.popupOpenerBridgeParentURI = ""
+		wv.syncPopupOpenerBridgeExtraInfoLocked()
+		if wv.ctx != nil {
+			logging.FromContext(wv.ctx).Debug().
+				Uint64("webview_id", uint64(wv.id)).
+				Bool("no_javascript_access", true).
+				Msg("cef: popup opener bridge disabled")
+		}
 		return
 	}
 	parentWV, ok := parent.(*WebView)
 	if !ok || parentWV == nil {
 		wv.popupOpenerBridgeParent = nil
 		wv.popupOpenerBridgeParentURI = ""
+		wv.syncPopupOpenerBridgeExtraInfoLocked()
+		if wv.ctx != nil {
+			logging.FromContext(wv.ctx).Debug().
+				Uint64("webview_id", uint64(wv.id)).
+				Msg("cef: popup opener bridge unavailable: parent missing")
+		}
 		return
 	}
 	wv.popupOpenerBridgeParent = parentWV
 	wv.popupOpenerBridgeParentURI = parentWV.URI()
+	wv.syncPopupOpenerBridgeExtraInfoLocked()
+	if wv.ctx != nil {
+		logging.FromContext(wv.ctx).Debug().
+			Uint64("webview_id", uint64(wv.id)).
+			Uint64("parent_webview_id", uint64(parentWV.id)).
+			Str("parent_uri", logging.TruncateURL(wv.popupOpenerBridgeParentURI, logging.PermissionLogURLMaxLen)).
+			Msg("cef: popup opener bridge enabled")
+	}
 }
 
 func (wv *WebView) popupOpenerBridgeScript(bridgeNonce string) string {
@@ -131,10 +195,25 @@ func (wv *WebView) popupOpenerBridgeScript(bridgeNonce string) string {
 	wv.mu.RLock()
 	parentURI := wv.popupOpenerBridgeParentURI
 	parent := wv.popupOpenerBridgeParent
-	blocked := wv.popupNoJavaScriptAccess || parent == nil
+	noJavaScriptAccess := wv.popupNoJavaScriptAccess
+	blocked := noJavaScriptAccess || parent == nil
 	wv.mu.RUnlock()
 	if blocked {
+		if wv.ctx != nil {
+			logging.FromContext(wv.ctx).Debug().
+				Uint64("webview_id", uint64(wv.id)).
+				Bool("blocked", true).
+				Bool("has_parent", parent != nil).
+				Bool("no_javascript_access", noJavaScriptAccess).
+				Msg("cef: popup opener bridge script skipped")
+		}
 		return ""
+	}
+	if wv.ctx != nil {
+		logging.FromContext(wv.ctx).Debug().
+			Uint64("webview_id", uint64(wv.id)).
+			Str("parent_uri", logging.TruncateURL(parentURI, logging.PermissionLogURLMaxLen)).
+			Msg("cef: popup opener bridge script prepared")
 	}
 
 	return buildPopupOpenerBridgeJS(bridgeNonce, parentURI)
@@ -154,12 +233,31 @@ func (wv *WebView) handlePopupOpenerNavigate(targetURL string) {
 	opener := wv.popupOpenerBridgeParent
 	wv.mu.RUnlock()
 	if opener == nil || opener.destroyed.Load() {
+		if wv.ctx != nil {
+			logging.FromContext(wv.ctx).Debug().
+				Uint64("webview_id", uint64(wv.id)).
+				Str("target_url", logging.TruncateURL(trimmedURL, logging.PermissionLogURLMaxLen)).
+				Msg("cef: popup opener navigate ignored: opener unavailable")
+		}
 		return
 	}
 
 	resolvedURL := resolvePopupOpenerNavigationTarget(trimmedURL, opener.URI())
 	if resolvedURL == "" {
+		if wv.ctx != nil {
+			logging.FromContext(wv.ctx).Warn().
+				Uint64("webview_id", uint64(wv.id)).
+				Str("target_url", logging.TruncateURL(trimmedURL, logging.PermissionLogURLMaxLen)).
+				Msg("cef: popup opener navigate rejected")
+		}
 		return
+	}
+	if wv.ctx != nil {
+		logging.FromContext(wv.ctx).Debug().
+			Uint64("webview_id", uint64(wv.id)).
+			Str("target_url", logging.TruncateURL(trimmedURL, logging.PermissionLogURLMaxLen)).
+			Str("resolved_url", logging.TruncateURL(resolvedURL, logging.PermissionLogURLMaxLen)).
+			Msg("cef: popup opener navigate received")
 	}
 
 	if err := opener.LoadURI(context.Background(), resolvedURL); err != nil && opener.ctx != nil {
@@ -224,10 +322,31 @@ func (wv *WebView) handlePopupOpenerPostMessage(payload popupOpenerPostMessagePa
 	opener := wv.popupOpenerBridgeParent
 	wv.mu.RUnlock()
 	if opener == nil || opener.destroyed.Load() {
+		if wv.ctx != nil {
+			logging.FromContext(wv.ctx).Debug().
+				Uint64("webview_id", uint64(wv.id)).
+				Str("target_origin", payload.TargetOrigin).
+				Msg("cef: popup opener postMessage ignored: opener unavailable")
+		}
 		return
 	}
 	if !targetOriginMatchesPopupOpener(payload.TargetOrigin, opener.URI()) {
+		if wv.ctx != nil {
+			logging.FromContext(wv.ctx).Warn().
+				Uint64("webview_id", uint64(wv.id)).
+				Str("target_origin", payload.TargetOrigin).
+				Str("opener_uri", logging.TruncateURL(opener.URI(), logging.PermissionLogURLMaxLen)).
+				Msg("cef: popup opener postMessage rejected")
+		}
 		return
+	}
+	if wv.ctx != nil {
+		logging.FromContext(wv.ctx).Debug().
+			Uint64("webview_id", uint64(wv.id)).
+			Str("target_origin", payload.TargetOrigin).
+			Str("source_origin", payload.SourceOrigin).
+			Str("source_href", logging.TruncateURL(payload.SourceHref, logging.PermissionLogURLMaxLen)).
+			Msg("cef: popup opener postMessage received")
 	}
 
 	sourceOrigin := popupSourceOrigin(payload)

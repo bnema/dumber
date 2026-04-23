@@ -247,7 +247,7 @@ func (f *WebViewFactory) postPendingBrowserCreate(ctx context.Context, wv *WebVi
 			pc.client,
 			initialURL,
 			pc.settings,
-			nil, // extraInfo
+			pc.extraInfo,
 			nil, // requestContext
 		)
 		log.Debug().

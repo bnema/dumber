@@ -601,8 +601,18 @@ func (h *handlerSet) OnLoadStart(_ purecef.Browser, frame purecef.Frame, _ purec
 	if frame == nil || !frame.IsMain() {
 		return
 	}
-	bridgeNonce := h.wv.rotateBridgeNonce()
+	bridgeNonce := h.wv.ensureBridgeNonce()
 	if openerBridgeScript := h.wv.popupOpenerBridgeScript(bridgeNonce); openerBridgeScript != "" {
+		if h.wv != nil && h.wv.ctx != nil {
+			parentURI, active, blocked := h.wv.popupOpenerBridgeState()
+			logging.FromContext(h.wv.ctx).Debug().
+				Uint64("webview_id", uint64(h.wv.id)).
+				Str("url", logging.TruncateURL(frame.GetURL(), logging.PermissionLogURLMaxLen)).
+				Str("parent_uri", logging.TruncateURL(parentURI, logging.PermissionLogURLMaxLen)).
+				Bool("bridge_active", active).
+				Bool("bridge_blocked", blocked).
+				Msg("cef: injecting popup opener bridge")
+		}
 		frame.ExecuteJavaScript(openerBridgeScript, frame.GetURL(), 0)
 	}
 	if h.wv != nil && h.wv.ctx != nil {

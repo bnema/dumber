@@ -180,6 +180,7 @@ type pendingBrowserCreate struct {
 	windowInfo *purecef.WindowInfo
 	client     purecef.RawClient
 	settings   *purecef.BrowserSettings
+	extraInfo  purecef.DictionaryValue
 }
 
 type cefTaskFunc func()
@@ -727,6 +728,7 @@ func (wv *WebView) preparePopupShellDirectBrowserCreation() bool {
 		wv.popupOpenerBridgeParent = nil
 		wv.popupOpenerBridgeParentURI = ""
 	}
+	wv.syncPopupOpenerBridgeExtraInfoLocked()
 	wv.mu.Unlock()
 	if parent != nil && popupID != 0 {
 		parent.clearPendingNativePopup(popupID, wv)

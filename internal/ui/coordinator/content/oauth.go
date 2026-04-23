@@ -317,6 +317,11 @@ func (c *Coordinator) setupOAuthAutoClose(
 	// Start safety timer immediately.
 	startSafetyTimer()
 	deferCloseOnNavigation := popupUsesSyntheticOpenerSignals(wv)
+	log.Debug().
+		Str("pane", string(paneID)).
+		Uint64("popup_id", uint64(popupID)).
+		Bool("synthetic_opener_active", deferCloseOnNavigation).
+		Msg("oauth auto-close configured")
 
 	// Register navigation callback to check for OAuth callbacks on URI changes and committed loads.
 	oauthWV.AddNavigationCallback(func(uri string) {
