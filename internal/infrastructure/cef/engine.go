@@ -171,7 +171,7 @@ func (e *Engine) bindBrowserWebView(browser purecef.Browser, wv *WebView) {
 }
 
 func (e *Engine) unbindBrowserWebView(browserID int32, wv *WebView) {
-	if e == nil || browserID == 0 {
+	if e == nil || browserID <= 0 {
 		return
 	}
 	if current, ok := e.browserWebViews.Load(browserID); ok {
