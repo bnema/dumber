@@ -293,7 +293,15 @@ func (f *WebViewFactory) schedulePendingBrowserCreateRetry(
 	w, h int32,
 	pc *pendingBrowserCreate,
 ) {
-	if f == nil || wv == nil || pc == nil || wv.destroyed.Load() || pc.postTaskRetries > pendingBrowserCreateMaxPostRetries {
+	if f == nil || wv == nil || pc == nil || wv.destroyed.Load() {
+		return
+	}
+	if pc.postTaskRetries > pendingBrowserCreateMaxPostRetries {
+		logging.FromContext(ctx).Warn().
+			Uint64("webview_id", uint64(wv.id)).
+			Int("retries", pc.postTaskRetries).
+			Int("max_retries", pendingBrowserCreateMaxPostRetries).
+			Msg("cef: browser creation retries exhausted")
 		return
 	}
 	cefScheduleAfter(pendingBrowserCreateRetryDelay, func() {

@@ -246,6 +246,7 @@ func TestResumeParentPaneAfterOAuth_DifferentDomainFallsBackToReload(t *testing.
 		webViews: map[entity.PaneID]port.WebView{
 			parentPaneID: parentWV,
 		},
+		popups: newPopupManager(),
 	}
 
 	c.resumeParentPaneAfterOAuth(context.Background(), parentPaneID, popupID, "https://www.notion.so/login", "https://accounts.example.com/callback?code=123")

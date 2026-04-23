@@ -354,7 +354,7 @@ func (pm *popupManager) createPopupWebView(
 	}
 
 	log := logging.FromContext(ctx)
-	relatedErr := error(nil)
+	var relatedErr error
 
 	if !noJavaScriptAccess && !pm.relatedPopupSupportDisabled() {
 		popupWV, err := pm.factory.CreateRelated(ctx, parentID)
@@ -579,7 +579,7 @@ func (pm *popupManager) finishPopupCreate(
 	if _, hasNativePopupLifecycle := create.PopupWebView.(port.PopupLifecycleCapable); !hasNativePopupLifecycle {
 		if closeCapable, ok := create.PopupWebView.(port.OAuthCallbackCapable); ok {
 			closeCapable.AddCloseCallback(func() {
-				pm.handlePopupClose(ctx, hooks, create.PopupID)
+				pm.handlePopupClose(context.Background(), hooks, create.PopupID)
 			})
 		}
 	}
@@ -608,10 +608,10 @@ func (pm *popupManager) finishPopupCreate(
 
 	if lifecycle, ok := create.PopupWebView.(port.PopupLifecycleCapable); ok {
 		lifecycle.SetOnReadyToShow(func() {
-			pm.handlePopupReadyToShow(ctx, create.PopupID)
+			pm.handlePopupReadyToShow(context.Background(), create.PopupID)
 		})
 		lifecycle.SetOnClose(func() {
-			pm.handlePopupClose(ctx, hooks, create.PopupID)
+			pm.handlePopupClose(context.Background(), hooks, create.PopupID)
 		})
 		log.Info().
 			Uint64("popup_id", uint64(create.PopupID)).
@@ -626,7 +626,7 @@ func (pm *popupManager) finishPopupCreate(
 			Str("popup_type", create.PopupType.String()).
 			Str("target_uri", logging.TruncateURL(create.Request.TargetURI, logURLMaxLen)).
 			Msg("popup inserted, immediately ready (no PopupLifecycleCapable)")
-		pm.handlePopupReadyToShow(ctx, create.PopupID)
+		pm.handlePopupReadyToShow(context.Background(), create.PopupID)
 	}
 
 	return create.PopupWebView
