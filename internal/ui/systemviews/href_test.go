@@ -11,10 +11,10 @@ import (
 func TestHistoryHTMLSanitizesHrefSchemes(t *testing.T) {
 	t.Parallel()
 
-	html := historyHTML([]*entity.HistoryEntry{
+	html := historyHTML(historyRenderData{Entries: []*entity.HistoryEntry{
 		{URL: "javascript:alert(1)", Title: "Bad"},
 		{URL: "https://example.com", Title: "Good"},
-	})
+	}})
 
 	require.NotContains(t, html, `href="javascript:alert(1)"`)
 	assert.Contains(t, html, `href="#"`)

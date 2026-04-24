@@ -17,16 +17,18 @@ type Dependencies struct {
 }
 
 type App struct {
-	deps           Dependencies
-	currentRoute   Route
-	shellTheme     shellTheme
-	historyEntries []*entity.HistoryEntry
-	favorites      []*entity.Favorite
-	folders        []*entity.Folder
-	tags           []*entity.Tag
-	config         *port.SystemviewConfigPayload
-	keybindings    any
-	renderedHTML   string
+	deps               Dependencies
+	currentRoute       Route
+	shellTheme         shellTheme
+	historyEntries     []*entity.HistoryEntry
+	historyAnalytics   *entity.HistoryAnalytics
+	historyDomainStats []*entity.DomainStat
+	favorites          []*entity.Favorite
+	folders            []*entity.Folder
+	tags               []*entity.Tag
+	config             *port.SystemviewConfigPayload
+	keybindings        any
+	renderedHTML       string
 }
 
 const historyTimelineLimit = 25
@@ -124,14 +126,28 @@ func (a *App) loadHistoryRoute(ctx context.Context) error {
 	if err != nil {
 		return err
 	}
+	analytics, analyticsErr := a.deps.History.Analytics(ctx)
+	if analyticsErr != nil {
+		analytics = nil
+	}
+	domains, domainsErr := a.deps.History.DomainStats(ctx, 10)
+	if domainsErr != nil {
+		domains = nil
+	}
 	a.favorites = nil
 	a.folders = nil
 	a.tags = nil
 	a.historyEntries = entries
+	a.historyAnalytics = analytics
+	a.historyDomainStats = domains
 	a.renderedHTML = renderAppFrame(renderedPage{
 		route:    RouteHistory,
 		subtitle: "Recent visits",
-		body:     historyHTML(entries),
+		body: historyHTML(historyRenderData{
+			Entries:   entries,
+			Analytics: analytics,
+			Domains:   domains,
+		}),
 	}, a.shellTheme)
 	return nil
 }
@@ -224,6 +240,8 @@ func (a *App) loadShellTheme(ctx context.Context) {
 
 func (a *App) resetRouteState() {
 	a.historyEntries = nil
+	a.historyAnalytics = nil
+	a.historyDomainStats = nil
 	a.favorites = nil
 	a.folders = nil
 	a.tags = nil

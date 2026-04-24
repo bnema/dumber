@@ -37,7 +37,7 @@ func TestOriginFromURL_PreservesNonDefaultPort(t *testing.T) {
 }
 
 func TestOriginFromURL_NormalizesInternalConceptualURLs(t *testing.T) {
-	require.Equal(t, actualInternalOrigin, originFromURL("dumb://home"))
+	require.Equal(t, actualInternalOrigin, originFromURL("dumb://history"))
 }
 
 func TestTargetOriginMatchesPopupOpener_NormalizesDefaultPorts(t *testing.T) {

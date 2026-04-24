@@ -81,7 +81,7 @@ func TestAppLoadInitialHistoryRouteUsesStyledSections(t *testing.T) {
 	assert.NotContains(t, app.renderedHTML, "<body")
 	assert.Contains(t, app.renderedHTML, `class="sv-shell"`)
 	assert.Contains(t, app.renderedHTML, `data-route="history"`)
-	assert.Contains(t, app.renderedHTML, `class="sv-section"`)
+	assert.Contains(t, app.renderedHTML, `sv-section`)
 	assert.Contains(t, app.renderedHTML, `class="sv-list"`)
 }
 
@@ -182,7 +182,7 @@ func TestAppLoadInitialFavoritesRouteRendersData(t *testing.T) {
 	assert.NotContains(t, app.renderedHTML, "<body")
 	assert.Contains(t, app.renderedHTML, `class="sv-shell"`)
 	assert.Contains(t, app.renderedHTML, `data-route="favorites"`)
-	assert.Contains(t, app.renderedHTML, `class="sv-section"`)
+	assert.Contains(t, app.renderedHTML, `sv-section`)
 	assert.Contains(t, app.renderedHTML, `class="sv-meta"`)
 }
 
@@ -308,7 +308,7 @@ func TestAppLoadInitialConfigRouteRendersData(t *testing.T) {
 	assert.NotContains(t, app.renderedHTML, "<body")
 	assert.Contains(t, app.renderedHTML, `class="sv-shell"`)
 	assert.Contains(t, app.renderedHTML, `data-route="config"`)
-	assert.Contains(t, app.renderedHTML, `class="sv-section"`)
+	assert.Contains(t, app.renderedHTML, `sv-section`)
 	assert.Contains(t, app.renderedHTML, `class="sv-meta"`)
 }
 
