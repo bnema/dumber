@@ -8,7 +8,7 @@ This note captures the parity target for the `feat/systemviews-wasm` branch afte
 - Branch: `feat/systemviews-wasm`
 - Merge baseline: `d84415e5` (`Merge branch 'main' into feat/systemviews-wasm`)
 - Vendor baseline: `go mod vendor` has been run in the worktree and `go list -mod=vendor ./...` succeeds there.
-- Root-checkout diagnostics may still report vendoring issues because the editor diagnostics point at `/home/brice/dev/projects/dumber`, not this branch worktree.
+- Root-checkout vendoring diagnostics were corrected separately with `go mod vendor`; branch validation should still use `-mod=vendor` after dependency changes.
 
 ## Clean architecture contract
 
@@ -95,6 +95,16 @@ Implementation path:
 3. Add a coordinator method such as `WorkspaceCoordinator.SplitURL(ctx, SplitRight, "dumb://history")` so dispatcher does not manipulate pane internals.
 4. Use existing `ManagePanesUseCase.Split` with `SplitPaneInput.InitialURL` to keep domain/usecase clean.
 5. Add tests in input, dispatcher, config defaults/schema, and workspace coordinator.
+
+## Completed branch notes
+
+- Rendering now uses typed `github.com/a-h/templ` components under `internal/ui/systemviews/*.templ`; generated `*_templ.go` files are committed alongside source templates.
+- `make build-systemviews` runs `go tool templ generate -path internal/ui/systemviews -include-version=false` before building the WASM runtime.
+- History supports search, domain filters, pagination, analytics/domain summaries, single/range/domain deletion, row open actions, alerts, and keyboard navigation.
+- Favorites supports create/update/delete for favorites, folders, and tags; folder/tag filters; shortcut editing; tag assignment/removal; alerts; and keyboard navigation.
+- Config supports editable appearance, search defaults, search shortcut CRUD, performance profile/custom values, keybinding set/reset/reset-all, success/error states, and refreshes the config payload/theme after save.
+- Native global actions use `toggle_*_systemview` names and open/focus/close History/Favorites/Config system views through the coordinator/right-split path.
+- Trust-boundary hardening includes templ HTML escaping, URL scheme sanitization for rendered links, sanitized CSS color use for tag swatches, serialized DOM action handling, and route-level error states.
 
 ## Implementation notes
 
