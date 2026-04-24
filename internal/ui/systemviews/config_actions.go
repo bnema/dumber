@@ -183,6 +183,9 @@ func (a *App) deleteSearchShortcut(ctx context.Context, data map[string]string) 
 		return fmt.Errorf("search shortcut key is required")
 	}
 	cfg.SearchShortcuts = cloneSearchShortcuts(cfg.SearchShortcuts)
+	if _, exists := cfg.SearchShortcuts[key]; !exists {
+		return fmt.Errorf("search shortcut %q not found", key)
+	}
 	delete(cfg.SearchShortcuts, key)
 	if err := a.saveEditableConfig(ctx, cfg); err != nil {
 		return err
@@ -243,6 +246,9 @@ func (a *App) setConfigKeybinding(ctx context.Context, data map[string]string) e
 	if mode == "" || action == "" {
 		return fmt.Errorf("mode and action are required")
 	}
+	if err := a.requireKeybindingTarget(ctx, mode, action); err != nil {
+		return err
+	}
 	resp, err := a.deps.Config.SetKeybinding(ctx, port.SetKeybindingRequest{
 		RequestID: configRequestIDPrefix,
 		Mode:      mode,
@@ -266,6 +272,9 @@ func (a *App) resetConfigKeybinding(ctx context.Context, data map[string]string)
 	if mode == "" || action == "" {
 		return fmt.Errorf("mode and action are required")
 	}
+	if err := a.requireKeybindingTarget(ctx, mode, action); err != nil {
+		return err
+	}
 	if err := a.deps.Config.ResetKeybinding(ctx, port.ResetKeybindingRequest{
 		RequestID: configRequestIDPrefix,
 		Mode:      mode,
@@ -278,23 +287,32 @@ func (a *App) resetConfigKeybinding(ctx context.Context, data map[string]string)
 }
 
 func (a *App) editableConfig(ctx context.Context) (port.WebUIConfig, error) {
-	payload, err := a.currentConfigPayload(ctx)
+	cfg, err := a.deps.Config.Current(ctx)
 	if err != nil {
 		return port.WebUIConfig{}, err
 	}
-	return webUIConfigFromPayload(payload), nil
+	a.config = &cfg
+	return webUIConfigFromPayload(cfg), nil
 }
 
-func (a *App) currentConfigPayload(ctx context.Context) (port.SystemviewConfigPayload, error) {
-	if a.config != nil {
-		return *a.config, nil
-	}
-	cfg, err := a.deps.Config.Current(ctx)
+func (a *App) requireKeybindingTarget(ctx context.Context, mode, action string) error {
+	keybindings, err := a.deps.Config.GetKeybindings(ctx)
 	if err != nil {
-		return port.SystemviewConfigPayload{}, err
+		return err
 	}
-	a.config = &cfg
-	return cfg, nil
+	a.keybindings = keybindings
+	groups := configKeybindingGroups(keybindings)
+	for _, group := range groups {
+		if group.Mode != mode {
+			continue
+		}
+		for _, binding := range group.Bindings {
+			if binding.Action == action {
+				return nil
+			}
+		}
+	}
+	return fmt.Errorf("keybinding %s/%s not found", mode, action)
 }
 
 func (a *App) saveEditableConfig(ctx context.Context, cfg port.WebUIConfig) error {

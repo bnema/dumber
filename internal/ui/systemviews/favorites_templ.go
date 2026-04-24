@@ -401,9 +401,9 @@ func FavoritesControls(data favoritesRenderData) templ.Component {
 					return templ_7745c5c3_Err
 				}
 				var templ_7745c5c3_Var18 string
-				templ_7745c5c3_Var18, templ_7745c5c3_Err = templruntime.SanitizeStyleAttributeValues("background:" + tag.Color)
+				templ_7745c5c3_Var18, templ_7745c5c3_Err = templruntime.SanitizeStyleAttributeValues("background:" + safeTagColor(tag.Color))
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `favorites.templ`, Line: 83, Col: 64}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `favorites.templ`, Line: 83, Col: 78}
 				}
 				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var18))
 				if templ_7745c5c3_Err != nil {
@@ -416,7 +416,7 @@ func FavoritesControls(data favoritesRenderData) templ.Component {
 				var templ_7745c5c3_Var19 string
 				templ_7745c5c3_Var19, templ_7745c5c3_Err = templ.JoinStringErrs(tag.Name)
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `favorites.templ`, Line: 83, Col: 84}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `favorites.templ`, Line: 83, Col: 98}
 				}
 				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var19))
 				if templ_7745c5c3_Err != nil {
@@ -748,9 +748,9 @@ func FavoriteTagControls(favorite *entity.Favorite, tags []*entity.Tag) templ.Co
 						return templ_7745c5c3_Err
 					}
 					var templ_7745c5c3_Var38 string
-					templ_7745c5c3_Var38, templ_7745c5c3_Err = templruntime.SanitizeStyleAttributeValues("background:" + tag.Color)
+					templ_7745c5c3_Var38, templ_7745c5c3_Err = templruntime.SanitizeStyleAttributeValues("background:" + safeTagColor(tag.Color))
 					if templ_7745c5c3_Err != nil {
-						return templ.Error{Err: templ_7745c5c3_Err, FileName: `favorites.templ`, Line: 132, Col: 64}
+						return templ.Error{Err: templ_7745c5c3_Err, FileName: `favorites.templ`, Line: 132, Col: 78}
 					}
 					_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var38))
 					if templ_7745c5c3_Err != nil {
@@ -763,7 +763,7 @@ func FavoriteTagControls(favorite *entity.Favorite, tags []*entity.Tag) templ.Co
 					var templ_7745c5c3_Var39 string
 					templ_7745c5c3_Var39, templ_7745c5c3_Err = templ.JoinStringErrs(favoriteTagButtonLabel(favorite, tag))
 					if templ_7745c5c3_Err != nil {
-						return templ.Error{Err: templ_7745c5c3_Err, FileName: `favorites.templ`, Line: 132, Col: 113}
+						return templ.Error{Err: templ_7745c5c3_Err, FileName: `favorites.templ`, Line: 132, Col: 127}
 					}
 					_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var39))
 					if templ_7745c5c3_Err != nil {
@@ -962,9 +962,9 @@ func TagItem(tag *entity.Tag) templ.Component {
 			return templ_7745c5c3_Err
 		}
 		var templ_7745c5c3_Var49 string
-		templ_7745c5c3_Var49, templ_7745c5c3_Err = templruntime.SanitizeStyleAttributeValues("background:" + tag.Color)
+		templ_7745c5c3_Var49, templ_7745c5c3_Err = templruntime.SanitizeStyleAttributeValues("background:" + safeTagColor(tag.Color))
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `favorites.templ`, Line: 172, Col: 61}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `favorites.templ`, Line: 172, Col: 75}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var49))
 		if templ_7745c5c3_Err != nil {

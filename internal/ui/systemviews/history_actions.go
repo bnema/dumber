@@ -25,6 +25,8 @@ func (a *App) HandleDOMAction(ctx context.Context, event DOMAction) error {
 	if a == nil {
 		return fmt.Errorf("app is nil")
 	}
+	a.mu.Lock()
+	defer a.mu.Unlock()
 	if a.currentRoute == RouteUnknown || a.currentRoute == "" {
 		a.currentRoute = ParseRoute(a.deps.LocationURI)
 	}

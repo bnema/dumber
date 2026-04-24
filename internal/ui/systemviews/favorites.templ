@@ -80,7 +80,7 @@ templ FavoritesControls(data favoritesRenderData) {
 			for _, tag := range data.Tags {
 				if tag != nil {
 					<button type="button" class={ favoriteFilterClass(favoriteTagFilterActive(data, tag.ID)) } data-sv-action="favorite.filterTag" data-tag-id={ fmt.Sprintf("%d", tag.ID) }>
-						<span class="sv-tag-dot" style={ "background:" + tag.Color }></span>{ tag.Name }
+						<span class="sv-tag-dot" style={ "background:" + safeTagColor(tag.Color) }></span>{ tag.Name }
 					</button>
 				}
 			}
@@ -129,7 +129,7 @@ templ FavoriteTagControls(favorite *entity.Favorite, tags []*entity.Tag) {
 			for _, tag := range tags {
 				if tag != nil {
 					<button type="button" class={ favoriteTagButtonClass(favorite, tag) } data-sv-action={ favoriteTagButtonAction(favorite, tag) } data-favorite-id={ fmt.Sprintf("%d", favorite.ID) } data-tag-id={ fmt.Sprintf("%d", tag.ID) }>
-						<span class="sv-tag-dot" style={ "background:" + tag.Color }></span>{ favoriteTagButtonLabel(favorite, tag) }
+						<span class="sv-tag-dot" style={ "background:" + safeTagColor(tag.Color) }></span>{ favoriteTagButtonLabel(favorite, tag) }
 					</button>
 				}
 			}
@@ -169,7 +169,7 @@ templ TagItem(tag *entity.Tag) {
 	<li class="sv-list-row">
 		<form class="sv-inline-form" data-sv-action="tag.update">
 			<input type="hidden" name="id" value={ fmt.Sprintf("%d", tag.ID) }/>
-			<span class="sv-tag-dot" style={ "background:" + tag.Color }></span>
+			<span class="sv-tag-dot" style={ "background:" + safeTagColor(tag.Color) }></span>
 			<label><span>Name</span><input name="name" type="text" value={ tag.Name } required/></label>
 			<label><span>Color</span><input name="color" type="text" value={ tag.Color }/></label>
 			<button class="sv-button sv-button-secondary" type="submit">Save</button>

@@ -8,10 +8,10 @@
 
 body {
   margin: 0;
-  font-family: Inter, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
-  font-size: 14px;
-  background: var(--sv-bg, #0f1115);
-  color: var(--sv-fg, #e8ebf0);
+  font-family: var(--sv-font-sans, Inter), system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  font-size: var(--sv-font-size, 14px);
+  background: var(--sv-background, #0f1115);
+  color: var(--sv-text, #e8ebf0);
 }
 
 .sv-app {
@@ -22,6 +22,60 @@ body {
   display: grid;
   gap: 1rem;
   padding: 1rem;
+}
+
+.sv-title {
+  margin: 0;
+  font-size: clamp(1.35rem, 2.4vw, 2rem);
+  line-height: 1.15;
+}
+
+.sv-content {
+  display: grid;
+  gap: 1rem;
+}
+
+.sv-section > h2 {
+  margin: 0 0 0.75rem;
+  font-size: 1rem;
+  letter-spacing: 0.02em;
+}
+
+.sv-list {
+  display: grid;
+  gap: 0.6rem;
+  margin: 0.75rem 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.sv-list-row {
+  padding: 0.75rem;
+  border: 1px solid var(--sv-border, #2a313d);
+  border-radius: 0.65rem;
+  background: color-mix(in srgb, var(--sv-surface-variant, #1d2129) 72%, transparent);
+}
+
+.sv-link {
+  color: var(--sv-accent, #8ab4ff);
+  font-weight: 700;
+  text-decoration: none;
+}
+
+.sv-link:hover {
+  text-decoration: underline;
+}
+
+.sv-badge {
+  display: inline-flex;
+  align-items: center;
+  border: 1px solid var(--sv-border, #2a313d);
+  border-radius: 999px;
+  padding: 0.15rem 0.45rem;
+  background: var(--sv-surface-variant, #1d2129);
+  color: var(--sv-muted, #9aa3b2);
+  font-size: 12px;
+  font-weight: 700;
 }
 
 .sv-header {
@@ -209,7 +263,7 @@ body {
   border: 1px solid color-mix(in srgb, #ef4444 65%, var(--sv-border, #2a313d));
   background: color-mix(in srgb, #ef4444 12%, var(--sv-surface, #171a21));
   border-radius: 0.75rem;
-  color: var(--sv-fg, #e8ebf0);
+  color: var(--sv-text, #e8ebf0);
   padding: 1rem;
 }
 
@@ -298,7 +352,7 @@ body {
   border-radius: 0.55rem;
   padding: 0.55rem 0.65rem;
   background: var(--sv-surface-variant, #1d2129);
-  color: var(--sv-fg, #e8ebf0);
+  color: var(--sv-text, #e8ebf0);
   font: inherit;
 }
 
@@ -321,12 +375,33 @@ body {
 .sv-button-secondary {
   border-color: var(--sv-border, #2a313d);
   background: var(--sv-surface-variant, #1d2129);
-  color: var(--sv-fg, #e8ebf0);
+  color: var(--sv-text, #e8ebf0);
 }
 
 .sv-button-danger {
-  border-color: color-mix(in srgb, #ef4444 70%, var(--sv-border, #2a313d));
+  border-color: color-mix(in srgb, #ef4444 78%, var(--sv-border, #2a313d));
+  background: color-mix(in srgb, #ef4444 14%, var(--sv-surface-variant, #1d2129));
   color: #fecaca;
+}
+
+.sv-button-danger:hover {
+  background: color-mix(in srgb, #ef4444 24%, var(--sv-surface-variant, #1d2129));
+}
+
+.sv-button:focus-visible,
+.sv-icon-button:focus-visible,
+.sv-domain-filter:focus-visible,
+.sv-filter-chip button:focus-visible,
+.sv-link:focus-visible,
+.sv-search-label input:focus-visible,
+.sv-card-form input:focus-visible,
+.sv-card-form select:focus-visible,
+.sv-inline-form input:focus-visible,
+.sv-inline-form select:focus-visible,
+.sv-fieldset input:focus-visible,
+.sv-fieldset select:focus-visible {
+  outline: 2px solid var(--sv-accent, #8ab4ff);
+  outline-offset: 2px;
 }
 
 .sv-button:disabled {
@@ -355,7 +430,7 @@ body {
 }
 
 .sv-domain-filter {
-  color: var(--sv-fg, #e8ebf0);
+  color: var(--sv-text, #e8ebf0);
   font-weight: 700;
   padding: 0;
   text-align: left;
@@ -431,7 +506,7 @@ body {
   border-radius: 0.55rem;
   padding: 0.5rem 0.6rem;
   background: var(--sv-surface-variant, #1d2129);
-  color: var(--sv-fg, #e8ebf0);
+  color: var(--sv-text, #e8ebf0);
   font: inherit;
 }
 
@@ -511,8 +586,30 @@ body {
 
 @media (max-width: 720px) {
   .sv-favorite-header,
-  .sv-keybinding-row {
+  .sv-keybinding-row,
+  .sv-history-item,
+  .sv-history-actions-panel,
+  .sv-toolbar {
     display: grid;
     grid-template-columns: 1fr;
+  }
+
+  .sv-kv-row {
+    grid-template-columns: 1fr;
+  }
+
+  .sv-card-form,
+  .sv-inline-form,
+  .sv-fieldset,
+  .sv-button-row {
+    align-items: stretch;
+  }
+
+  .sv-card-form label,
+  .sv-inline-form label,
+  .sv-fieldset label,
+  .sv-button,
+  .sv-button-secondary {
+    width: 100%;
   }
 }

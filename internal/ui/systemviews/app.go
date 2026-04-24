@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"strings"
+	"sync"
 
 	"github.com/bnema/dumber/internal/application/port"
 	"github.com/bnema/dumber/internal/domain/entity"
@@ -18,6 +19,7 @@ type Dependencies struct {
 }
 
 type App struct {
+	mu                   sync.Mutex
 	deps                 Dependencies
 	currentRoute         Route
 	shellTheme           shellTheme

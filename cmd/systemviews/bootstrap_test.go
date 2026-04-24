@@ -138,6 +138,16 @@ func (f *fakeBridgeService) List(context.Context) ([]*entity.Favorite, error) {
 	return f.favorites, nil
 }
 
+func (*fakeBridgeService) CreateFavorite(context.Context, port.FavoriteCreateInput) (*entity.Favorite, error) {
+	return nil, nil
+}
+
+func (*fakeBridgeService) UpdateFavorite(context.Context, port.FavoriteUpdateInput) (*entity.Favorite, error) {
+	return nil, nil
+}
+
+func (*fakeBridgeService) DeleteFavorite(context.Context, int64) error { return nil }
+
 func (f *fakeBridgeService) ListFolders(context.Context) ([]*entity.Folder, error) {
 	return f.folders, nil
 }

@@ -33,3 +33,15 @@ func TestFavoriteItemsHTMLSanitizesHrefSchemes(t *testing.T) {
 	assert.Contains(t, html, `href="#"`)
 	assert.Contains(t, html, `href="https://example.com"`)
 }
+
+func TestFavoritesHTMLSanitizesTagColors(t *testing.T) {
+	t.Parallel()
+
+	html := favoritesHTML(favoritesRenderData{
+		Favorites: []*entity.Favorite{{ID: 1, URL: "https://example.com", Title: "Example"}},
+		Tags:      []*entity.Tag{{ID: 7, Name: "Bad", Color: `red;background:url(javascript:alert(1))`}},
+	})
+
+	require.NotContains(t, html, `style="background:red`)
+	assert.Contains(t, html, "background:#808080")
+}

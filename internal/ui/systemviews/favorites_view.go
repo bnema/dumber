@@ -103,6 +103,23 @@ func favoriteTagButtonClass(favorite *entity.Favorite, tag *entity.Tag) string {
 	return classes
 }
 
+func safeTagColor(raw string) string {
+	value := strings.TrimSpace(raw)
+	if len(value) != 4 && len(value) != 7 {
+		return "#808080"
+	}
+	if value[0] != '#' {
+		return "#808080"
+	}
+	for _, ch := range value[1:] {
+		if (ch >= '0' && ch <= '9') || (ch >= 'a' && ch <= 'f') || (ch >= 'A' && ch <= 'F') {
+			continue
+		}
+		return "#808080"
+	}
+	return value
+}
+
 func folderDisplayName(folder *entity.Folder) string {
 	if folder == nil {
 		return ""
