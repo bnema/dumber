@@ -14,6 +14,12 @@ import (
 	"github.com/bnema/puregotk/v4/glib"
 )
 
+const (
+	historySystemViewURL   = "dumb://history"
+	favoritesSystemViewURL = "dumb://favorites"
+	configSystemViewURL    = "dumb://config"
+)
+
 // KeyboardDispatcher routes keyboard actions to appropriate coordinators.
 type KeyboardDispatcher struct {
 	tabCoord         *coordinator.TabCoordinator
@@ -224,6 +230,15 @@ func (d *KeyboardDispatcher) initActionHandlers() {
 				return d.onToggleFloating(ctx)
 			}
 			return d.logNoop(ctx, "toggle floating pane action (no handler)")
+		},
+		input.ActionToggleHistorySystemView: func(ctx context.Context) error {
+			return d.wsCoord.ToggleSystemViewRight(ctx, historySystemViewURL)
+		},
+		input.ActionToggleFavoritesSystemView: func(ctx context.Context) error {
+			return d.wsCoord.ToggleSystemViewRight(ctx, favoritesSystemViewURL)
+		},
+		input.ActionToggleConfigSystemView: func(ctx context.Context) error {
+			return d.wsCoord.ToggleSystemViewRight(ctx, configSystemViewURL)
 		},
 		input.ActionToggleFullscreen: func(ctx context.Context) error {
 			return d.logNoop(ctx, "toggle fullscreen action (not yet implemented)")

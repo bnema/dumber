@@ -106,12 +106,18 @@ func NewGlobalShortcutHandler(
 	if workspace != nil {
 		// Map action names to action constants for global shortcuts
 		actionMap := map[string]Action{
-			"toggle_floating_pane":   ActionToggleFloatingPane,
-			"toggle-floating-pane":   ActionToggleFloatingPane,
-			"consume_or_expel_left":  ActionConsumeOrExpelLeft,
-			"consume_or_expel_right": ActionConsumeOrExpelRight,
-			"consume_or_expel_up":    ActionConsumeOrExpelUp,
-			"consume_or_expel_down":  ActionConsumeOrExpelDown,
+			"toggle_floating_pane":        ActionToggleFloatingPane,
+			"toggle-floating-pane":        ActionToggleFloatingPane,
+			"consume_or_expel_left":       ActionConsumeOrExpelLeft,
+			"consume_or_expel_right":      ActionConsumeOrExpelRight,
+			"consume_or_expel_up":         ActionConsumeOrExpelUp,
+			"consume_or_expel_down":       ActionConsumeOrExpelDown,
+			"toggle_history_systemview":   ActionToggleHistorySystemView,
+			"toggle-history-systemview":   ActionToggleHistorySystemView,
+			"toggle_favorites_systemview": ActionToggleFavoritesSystemView,
+			"toggle-favorites-systemview": ActionToggleFavoritesSystemView,
+			"toggle_config_systemview":    ActionToggleConfigSystemView,
+			"toggle-config-systemview":    ActionToggleConfigSystemView,
 		}
 
 		for actionName, actionBinding := range workspace.Shortcuts.Actions {
@@ -286,12 +292,18 @@ func (h *GlobalShortcutHandler) ReloadShortcuts(ctx context.Context, workspace *
 	// Re-register config-driven shortcuts
 	if workspace != nil {
 		actionMap := map[string]Action{
-			"toggle_floating_pane":   ActionToggleFloatingPane,
-			"toggle-floating-pane":   ActionToggleFloatingPane,
-			"consume_or_expel_left":  ActionConsumeOrExpelLeft,
-			"consume_or_expel_right": ActionConsumeOrExpelRight,
-			"consume_or_expel_up":    ActionConsumeOrExpelUp,
-			"consume_or_expel_down":  ActionConsumeOrExpelDown,
+			"toggle_floating_pane":        ActionToggleFloatingPane,
+			"toggle-floating-pane":        ActionToggleFloatingPane,
+			"consume_or_expel_left":       ActionConsumeOrExpelLeft,
+			"consume_or_expel_right":      ActionConsumeOrExpelRight,
+			"consume_or_expel_up":         ActionConsumeOrExpelUp,
+			"consume_or_expel_down":       ActionConsumeOrExpelDown,
+			"toggle_history_systemview":   ActionToggleHistorySystemView,
+			"toggle-history-systemview":   ActionToggleHistorySystemView,
+			"toggle_favorites_systemview": ActionToggleFavoritesSystemView,
+			"toggle-favorites-systemview": ActionToggleFavoritesSystemView,
+			"toggle_config_systemview":    ActionToggleConfigSystemView,
+			"toggle-config-systemview":    ActionToggleConfigSystemView,
 		}
 
 		for actionName, actionBinding := range workspace.Shortcuts.Actions {

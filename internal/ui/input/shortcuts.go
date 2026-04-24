@@ -179,14 +179,17 @@ const (
 	ActionZoomReset Action = "zoom_reset"
 
 	// UI
-	ActionOpenOmnibox        Action = "open_omnibox"
-	ActionOpenFind           Action = "open_find"
-	ActionFindNext           Action = "find_next"
-	ActionFindPrev           Action = "find_prev"
-	ActionCloseFind          Action = "close_find"
-	ActionOpenDevTools       Action = "open_devtools"
-	ActionToggleFullscreen   Action = "toggle_fullscreen"
-	ActionToggleFloatingPane Action = "toggle_floating_pane"
+	ActionOpenOmnibox               Action = "open_omnibox"
+	ActionOpenFind                  Action = "open_find"
+	ActionFindNext                  Action = "find_next"
+	ActionFindPrev                  Action = "find_prev"
+	ActionCloseFind                 Action = "close_find"
+	ActionOpenDevTools              Action = "open_devtools"
+	ActionToggleFullscreen          Action = "toggle_fullscreen"
+	ActionToggleFloatingPane        Action = "toggle_floating_pane"
+	ActionToggleHistorySystemView   Action = "toggle_history_systemview"
+	ActionToggleFavoritesSystemView Action = "toggle_favorites_systemview"
+	ActionToggleConfigSystemView    Action = "toggle_config_systemview"
 
 	// Clipboard
 	ActionCopyURL Action = "copy_url"
@@ -362,22 +365,28 @@ func (s *ShortcutSet) registerConfiguredShortcuts(cfg *entity.WorkspaceConfig) {
 	// However, these standard browser shortcuts ARE global:
 	// Map action names to action constants
 	actionMap := map[string]Action{
-		"toggle_floating_pane":   ActionToggleFloatingPane,
-		"toggle-floating-pane":   ActionToggleFloatingPane,
-		"close_pane":             ActionClosePane,
-		"close-pane":             ActionClosePane,
-		"next_tab":               ActionNextTab,
-		"next-tab":               ActionNextTab,
-		"previous_tab":           ActionPreviousTab,
-		"previous-tab":           ActionPreviousTab,
-		"consume_or_expel_left":  ActionConsumeOrExpelLeft,
-		"consume-or-expel-left":  ActionConsumeOrExpelLeft,
-		"consume_or_expel_right": ActionConsumeOrExpelRight,
-		"consume-or-expel-right": ActionConsumeOrExpelRight,
-		"consume_or_expel_up":    ActionConsumeOrExpelUp,
-		"consume-or-expel-up":    ActionConsumeOrExpelUp,
-		"consume_or_expel_down":  ActionConsumeOrExpelDown,
-		"consume-or-expel-down":  ActionConsumeOrExpelDown,
+		"toggle_floating_pane":        ActionToggleFloatingPane,
+		"toggle-floating-pane":        ActionToggleFloatingPane,
+		"close_pane":                  ActionClosePane,
+		"close-pane":                  ActionClosePane,
+		"next_tab":                    ActionNextTab,
+		"next-tab":                    ActionNextTab,
+		"previous_tab":                ActionPreviousTab,
+		"previous-tab":                ActionPreviousTab,
+		"consume_or_expel_left":       ActionConsumeOrExpelLeft,
+		"consume-or-expel-left":       ActionConsumeOrExpelLeft,
+		"consume_or_expel_right":      ActionConsumeOrExpelRight,
+		"consume-or-expel-right":      ActionConsumeOrExpelRight,
+		"consume_or_expel_up":         ActionConsumeOrExpelUp,
+		"consume-or-expel-up":         ActionConsumeOrExpelUp,
+		"consume_or_expel_down":       ActionConsumeOrExpelDown,
+		"consume-or-expel-down":       ActionConsumeOrExpelDown,
+		"toggle_history_systemview":   ActionToggleHistorySystemView,
+		"toggle-history-systemview":   ActionToggleHistorySystemView,
+		"toggle_favorites_systemview": ActionToggleFavoritesSystemView,
+		"toggle-favorites-systemview": ActionToggleFavoritesSystemView,
+		"toggle_config_systemview":    ActionToggleConfigSystemView,
+		"toggle-config-systemview":    ActionToggleConfigSystemView,
 	}
 
 	for actionName, actionBinding := range cfg.Shortcuts.Actions {
@@ -580,8 +589,14 @@ func (s *ShortcutSet) buildModeShortcuts(ctx context.Context, bindings map[strin
 }
 
 var configActionToAction = map[string]Action{
-	"toggle_floating_pane": ActionToggleFloatingPane,
-	"toggle-floating-pane": ActionToggleFloatingPane,
+	"toggle_floating_pane":        ActionToggleFloatingPane,
+	"toggle-floating-pane":        ActionToggleFloatingPane,
+	"toggle_history_systemview":   ActionToggleHistorySystemView,
+	"toggle-history-systemview":   ActionToggleHistorySystemView,
+	"toggle_favorites_systemview": ActionToggleFavoritesSystemView,
+	"toggle-favorites-systemview": ActionToggleFavoritesSystemView,
+	"toggle_config_systemview":    ActionToggleConfigSystemView,
+	"toggle-config-systemview":    ActionToggleConfigSystemView,
 
 	// Tab actions
 	"new-tab":      ActionNewTab,

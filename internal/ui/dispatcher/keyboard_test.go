@@ -7,6 +7,7 @@ import (
 	"github.com/bnema/dumber/internal/application/usecase"
 	"github.com/bnema/dumber/internal/domain/entity"
 	domainurl "github.com/bnema/dumber/internal/domain/url"
+	"github.com/bnema/dumber/internal/ui/component"
 	"github.com/bnema/dumber/internal/ui/coordinator"
 	"github.com/bnema/dumber/internal/ui/input"
 	"github.com/stretchr/testify/assert"
@@ -112,6 +113,39 @@ func TestKeyboardDispatcher_AltNumberErrorsWhenMissingTabRequiresCreationWithout
 	require.Error(t, err)
 	require.Len(t, tabs.Tabs, 1)
 	assert.Equal(t, tabs.TabAt(0).ID, tabs.ActiveTabID)
+}
+
+func TestKeyboardDispatcher_ToggleHistorySystemViewOpensRightSplit(t *testing.T) {
+	ctx := context.Background()
+	ids := []string{"pane-2", "split-1"}
+	idx := 0
+	panesUC := usecase.NewManagePanesUseCase(func() string {
+		id := ids[idx]
+		idx++
+		return id
+	})
+
+	initialPane := entity.NewPane("pane-1")
+	initialPane.URI = "https://example.com"
+	ws := entity.NewWorkspace("ws-1", initialPane)
+	wsCoord := coordinator.NewWorkspaceCoordinator(ctx, coordinator.WorkspaceCoordinatorConfig{
+		PanesUC: panesUC,
+		GetActiveWS: func() (*entity.Workspace, *component.WorkspaceView) {
+			return ws, nil
+		},
+	})
+
+	d := NewKeyboardDispatcher(ctx, &coordinator.TabCoordinator{}, wsCoord, &coordinator.NavigationCoordinator{}, nil, nil, "", func(context.Context) entity.PaneID { return "" })
+
+	err := d.Dispatch(ctx, input.ActionToggleHistorySystemView)
+	require.NoError(t, err)
+
+	require.Equal(t, 2, ws.PaneCount())
+	active := ws.ActivePane()
+	require.NotNil(t, active)
+	require.NotNil(t, active.Pane)
+	assert.Equal(t, entity.PaneID("pane-2"), active.Pane.ID)
+	assert.Equal(t, "dumb://history", active.Pane.URI)
 }
 
 func TestKeyboardDispatcher_PassesActivePaneIDToShellCallbacks(t *testing.T) {

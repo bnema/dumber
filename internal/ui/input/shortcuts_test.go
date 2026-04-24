@@ -383,6 +383,25 @@ func TestMapConfigAction_ToggleFloatingPane(t *testing.T) {
 	}
 }
 
+func TestMapConfigAction_ToggleSystemViews(t *testing.T) {
+	tests := []struct {
+		name string
+		want Action
+	}{
+		{name: "toggle_history_systemview", want: ActionToggleHistorySystemView},
+		{name: "toggle_favorites_systemview", want: ActionToggleFavoritesSystemView},
+		{name: "toggle_config_systemview", want: ActionToggleConfigSystemView},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := mapConfigAction(tt.name); got != tt.want {
+				t.Fatalf("mapConfigAction(%s) = %s, want %s", tt.name, got, tt.want)
+			}
+		})
+	}
+}
+
 func TestMapConfigAction_ToggleFloatingPaneHyphenAlias(t *testing.T) {
 	action := mapConfigAction("toggle-floating-pane")
 	if action != ActionToggleFloatingPane {

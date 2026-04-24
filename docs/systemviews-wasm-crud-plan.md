@@ -84,9 +84,9 @@ Add first-class global actions:
 
 | Action | Default key | Target behavior |
 | --- | --- | --- |
-| `open_history_systemview` | `ctrl+h` | Split active pane to the right with `dumb://history`, or focus an existing history systemview pane if the chosen behavior is focus-first. |
-| `open_favorites_systemview` | Proposed: unset by default or `ctrl+shift+h` only if accepted. | Split/focus `dumb://favorites`. |
-| `open_config_systemview` | Proposed: unset by default to avoid conflicts; user can bind in config. | Split/focus `dumb://config`. |
+| `toggle_history_systemview` | `ctrl+h` | Split active pane to the right with `dumb://history`, focus an existing history systemview pane, or close it if already active. |
+| `toggle_favorites_systemview` | Unset by default. | Split/focus/toggle `dumb://favorites`. |
+| `toggle_config_systemview` | Unset by default; user can bind in config. | Split/focus/toggle `dumb://config`. |
 
 Implementation path:
 
