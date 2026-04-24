@@ -85,6 +85,74 @@ func TestAppLoadInitialHistoryRouteUsesStyledSections(t *testing.T) {
 	assert.Contains(t, app.renderedHTML, `class="sv-list"`)
 }
 
+func TestAppLoadInitialHistoryRouteRendersManagementActions(t *testing.T) {
+	t.Parallel()
+
+	history := &fakeHistoryService{
+		entries: []*entity.HistoryEntry{{
+			ID:    42,
+			URL:   "https://example.com/page",
+			Title: "Example",
+		}},
+		domainStats: []*entity.DomainStat{{Domain: "example.com", PageCount: 1, TotalVisits: 3}},
+	}
+
+	app := NewApp(Dependencies{
+		History:     history,
+		LocationURI: "dumb://history",
+	})
+
+	require.NoError(t, app.LoadInitial(context.Background()))
+	assert.Contains(t, app.renderedHTML, `data-sv-action="history.search"`)
+	assert.Contains(t, app.renderedHTML, `data-sv-action="history.deleteEntry"`)
+	assert.Contains(t, app.renderedHTML, `data-id="42"`)
+	assert.Contains(t, app.renderedHTML, `data-sv-action="history.deleteRange"`)
+	assert.Contains(t, app.renderedHTML, `data-range="hour"`)
+	assert.Contains(t, app.renderedHTML, `data-sv-action="history.filterDomain"`)
+	assert.Contains(t, app.renderedHTML, `data-sv-action="history.deleteDomain"`)
+	assert.Contains(t, app.renderedHTML, "Keys:")
+	assert.Contains(t, app.renderedHTML, "Enter")
+}
+
+func TestAppHandleHistoryActionsRefreshesDOM(t *testing.T) {
+	dom := &fakeDOM{}
+	history := &fakeHistoryService{
+		entries:       []*entity.HistoryEntry{{ID: 42, URL: "https://example.com", Title: "Example"}},
+		searchEntries: []*entity.HistoryEntry{{ID: 7, URL: "https://search.example", Title: "Search result"}},
+	}
+	app := NewApp(Dependencies{DOM: dom, History: history, LocationURI: "dumb://history"})
+
+	require.NoError(t, app.HandleDOMAction(context.Background(), DOMAction{
+		Action: historyActionSearch,
+		Data:   map[string]string{"query": " example "},
+	}))
+	assert.True(t, history.searchCalled)
+	assert.Equal(t, "example", history.query)
+	assert.Contains(t, dom.html, "Search result")
+	assert.Contains(t, dom.html, "Query: example")
+
+	require.NoError(t, app.HandleDOMAction(context.Background(), DOMAction{
+		Action: historyActionDeleteEntry,
+		Data:   map[string]string{"id": "42"},
+	}))
+	assert.Equal(t, int64(42), history.deletedEntryID)
+	assert.Contains(t, dom.html, "Deleted history entry")
+
+	require.NoError(t, app.HandleDOMAction(context.Background(), DOMAction{
+		Action: historyActionDeleteRange,
+		Data:   map[string]string{"range": "week"},
+	}))
+	assert.Equal(t, "week", history.deletedRangeID)
+	assert.Contains(t, dom.html, "Deleted history from this week")
+
+	require.NoError(t, app.HandleDOMAction(context.Background(), DOMAction{
+		Action: historyActionDeleteDomain,
+		Data:   map[string]string{"domain": "example.com"},
+	}))
+	assert.Equal(t, "example.com", history.deletedDomain)
+	assert.Contains(t, dom.html, "Deleted history for example.com")
+}
+
 func TestAppLoadInitialHistoryRouteRendersErrorState(t *testing.T) {
 	t.Parallel()
 
@@ -338,6 +406,16 @@ type fakeHistoryService struct {
 	offset  int
 	entries []*entity.HistoryEntry
 	err     error
+
+	searchCalled  bool
+	query         string
+	searchLimit   int
+	searchEntries []*entity.HistoryEntry
+
+	deletedEntryID int64
+	deletedRangeID string
+	deletedDomain  string
+	domainStats    []*entity.DomainStat
 }
 
 func (s *fakeHistoryService) Timeline(_ context.Context, limit, offset int) ([]*entity.HistoryEntry, error) {
@@ -347,23 +425,38 @@ func (s *fakeHistoryService) Timeline(_ context.Context, limit, offset int) ([]*
 	return s.entries, s.err
 }
 
-func (s *fakeHistoryService) Search(context.Context, string, int) ([]*entity.HistoryEntry, error) {
-	return nil, nil
+func (s *fakeHistoryService) Search(_ context.Context, query string, limit int) ([]*entity.HistoryEntry, error) {
+	s.searchCalled = true
+	s.query = query
+	s.searchLimit = limit
+	if s.searchEntries != nil {
+		return s.searchEntries, nil
+	}
+	return s.entries, nil
 }
 
-func (s *fakeHistoryService) DeleteEntry(context.Context, int64) error { return nil }
+func (s *fakeHistoryService) DeleteEntry(_ context.Context, id int64) error {
+	s.deletedEntryID = id
+	return nil
+}
 
-func (s *fakeHistoryService) DeleteRange(context.Context, string) error { return nil }
+func (s *fakeHistoryService) DeleteRange(_ context.Context, rangeID string) error {
+	s.deletedRangeID = rangeID
+	return nil
+}
 
 func (s *fakeHistoryService) Analytics(context.Context) (*entity.HistoryAnalytics, error) {
 	return nil, nil
 }
 
 func (s *fakeHistoryService) DomainStats(context.Context, int) ([]*entity.DomainStat, error) {
-	return nil, nil
+	return s.domainStats, nil
 }
 
-func (s *fakeHistoryService) DeleteDomain(context.Context, string) error { return nil }
+func (s *fakeHistoryService) DeleteDomain(_ context.Context, domain string) error {
+	s.deletedDomain = domain
+	return nil
+}
 
 type fakeFavoritesService struct {
 	calledList    bool

@@ -3,6 +3,7 @@ package systemviews
 import (
 	"context"
 	"errors"
+	"strings"
 
 	"github.com/bnema/dumber/internal/application/port"
 	"github.com/bnema/dumber/internal/domain/entity"
@@ -17,18 +18,23 @@ type Dependencies struct {
 }
 
 type App struct {
-	deps               Dependencies
-	currentRoute       Route
-	shellTheme         shellTheme
-	historyEntries     []*entity.HistoryEntry
-	historyAnalytics   *entity.HistoryAnalytics
-	historyDomainStats []*entity.DomainStat
-	favorites          []*entity.Favorite
-	folders            []*entity.Folder
-	tags               []*entity.Tag
-	config             *port.SystemviewConfigPayload
-	keybindings        any
-	renderedHTML       string
+	deps                Dependencies
+	currentRoute        Route
+	shellTheme          shellTheme
+	historyEntries      []*entity.HistoryEntry
+	historyAnalytics    *entity.HistoryAnalytics
+	historyDomainStats  []*entity.DomainStat
+	historyQuery        string
+	historyDomainFilter string
+	historyOffset       int
+	historyNotice       string
+	historyError        string
+	favorites           []*entity.Favorite
+	folders             []*entity.Folder
+	tags                []*entity.Tag
+	config              *port.SystemviewConfigPayload
+	keybindings         any
+	renderedHTML        string
 }
 
 const historyTimelineLimit = 25
@@ -50,7 +56,17 @@ func (a *App) Run() error {
 		return errors.New("DOM not configured")
 	}
 
-	return a.deps.DOM.Mount(a.renderedHTML)
+	if err := a.deps.DOM.Mount(a.renderedHTML); err != nil {
+		return err
+	}
+	if binder, ok := a.deps.DOM.(DOMActionBinder); ok {
+		return binder.BindActions(func(action DOMAction) {
+			go func() {
+				_ = a.HandleDOMAction(context.Background(), action)
+			}()
+		})
+	}
+	return nil
 }
 
 func (a *App) LoadInitial(ctx context.Context) error {
@@ -122,7 +138,7 @@ func (a *App) loadHistoryRoute(ctx context.Context) error {
 		return nil
 	}
 
-	entries, err := a.deps.History.Timeline(ctx, historyTimelineLimit, 0)
+	entries, err := a.loadHistoryEntries(ctx)
 	if err != nil {
 		return err
 	}
@@ -137,6 +153,7 @@ func (a *App) loadHistoryRoute(ctx context.Context) error {
 	a.favorites = nil
 	a.folders = nil
 	a.tags = nil
+	entries = filterHistoryEntriesByDomain(entries, a.historyDomainFilter)
 	a.historyEntries = entries
 	a.historyAnalytics = analytics
 	a.historyDomainStats = domains
@@ -144,12 +161,26 @@ func (a *App) loadHistoryRoute(ctx context.Context) error {
 		route:    RouteHistory,
 		subtitle: "Recent visits",
 		body: historyHTML(historyRenderData{
-			Entries:   entries,
-			Analytics: analytics,
-			Domains:   domains,
+			Entries:      entries,
+			Analytics:    analytics,
+			Domains:      domains,
+			Query:        a.historyQuery,
+			DomainFilter: a.historyDomainFilter,
+			Offset:       a.historyOffset,
+			Limit:        historyTimelineLimit,
+			Notice:       a.historyNotice,
+			Error:        a.historyError,
 		}),
 	}, a.shellTheme)
 	return nil
+}
+
+func (a *App) loadHistoryEntries(ctx context.Context) ([]*entity.HistoryEntry, error) {
+	query := strings.TrimSpace(a.historyQuery)
+	if query != "" {
+		return a.deps.History.Search(ctx, query, historyTimelineLimit)
+	}
+	return a.deps.History.Timeline(ctx, historyTimelineLimit, a.historyOffset)
 }
 
 func (a *App) loadFavoritesRoute(ctx context.Context) error {
@@ -242,6 +273,11 @@ func (a *App) resetRouteState() {
 	a.historyEntries = nil
 	a.historyAnalytics = nil
 	a.historyDomainStats = nil
+	a.historyQuery = ""
+	a.historyDomainFilter = ""
+	a.historyOffset = 0
+	a.historyNotice = ""
+	a.historyError = ""
 	a.favorites = nil
 	a.folders = nil
 	a.tags = nil
