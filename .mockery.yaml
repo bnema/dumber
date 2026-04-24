@@ -42,13 +42,18 @@ packages:
       FilterApplier: {}
       FaviconDatabase: {}
       IdleInhibitor: {}
-      PopupCapable: {}
+      PopupLifecycleCapable: {}
+      PopupOpenerCapable: {}
       OAuthCallbackCapable: {}
       DevToolsOpener: {}
       Printer: {}
       AccentKeyHandler: {}
       AutoCopyConfig: {}
       Clipboard: {}
+      ClipboardTextOrchestrator: {}
+      ContextMenuBuilder: {}
+      ContextMenuActionExecutor: {}
+      ContextMenuActionExecutorFactory: {}
       DesktopIntegration: {}
       DownloadEventHandler: {}
       DownloadPreparer: {}
@@ -71,6 +76,11 @@ packages:
       RuntimeVersionProbe: {}
       ScriptRefresher: {}
       SnapshotService: {}
+      BrowserWindowOpener: {}
+      BrowserLaunchRelay: {}
+      ImageDataResolver: {}
+      ResolvedImageSaver: {}
+      MenuActionDelegator: {}
       TextInputTargetProvider: {}
       Texture: {}
       ToolkitAvailabilityNotifier: {}

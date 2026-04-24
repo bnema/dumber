@@ -4,6 +4,24 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+### Added
+
+- **Standalone omnibox launcher**: `dumber omnibox` now opens the omnibox in a standalone window.
+- **CEF engine support**: The CEF engine is now available alongside WebKit, including audio output support.
+- **Fresh browser windows**: Browser launches can now open in dedicated fresh windows.
+- **Unified context menus**: Right-click menus now behave consistently across WebKit and CEF.
+- **Shared download handling**: Downloads now use the same handling in WebKit and CEF, with progress and completion toasts.
+
+### Changed
+
+- **Omnibox default order toggle**: You can now persist and switch the default history order.
+- **Omnibox most-visited window**: The most-visited view now uses a 30-day history window by default.
+
+### Fixed
+
+- **CEF storage location**: CEF user data now uses the XDG data directory.
+- **CEF clipboard and focus**: Clipboard and input focus handling in CEF is more reliable.
+
 ## [0.28.0] - 2026-03-27
 
 ### Added

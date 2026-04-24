@@ -88,6 +88,13 @@ const (
 	defaultResizeMinPanePercent = 0.1
 )
 
+func widgetAllocation(widget layout.Widget) (int, int) {
+	if widget == nil {
+		return 0, 0
+	}
+	return widget.GetAllocatedWidth(), widget.GetAllocatedHeight()
+}
+
 // clampResizeStep clamps resizeStepPercent to (0, 0.5], returning the default (0.05) if out of range.
 func clampResizeStep(v float64) float64 {
 	if v <= 0 || v > 0.5 {
@@ -516,6 +523,12 @@ func (c *WorkspaceCoordinator) doIncrementalSplit(
 		return fmt.Errorf("no stacked view found for active pane")
 	}
 	activePaneWidget := activeStackedView.Widget()
+	activeStackWidth, activeStackHeight := widgetAllocation(activePaneWidget)
+	log.Debug().
+		Str("old_active_pane_id", string(oldActivePaneID)).
+		Int("active_stack_widget_alloc_width", activeStackWidth).
+		Int("active_stack_widget_alloc_height", activeStackHeight).
+		Msg("incremental split: active stacked view before replacement")
 
 	// 3. Determine if this is a root split by checking domain tree
 	// output.ParentNode is the NEW split node (h0)
@@ -558,6 +571,7 @@ func (c *WorkspaceCoordinator) doIncrementalSplit(
 			output,
 			orientation,
 			existingFirst,
+			oldActivePaneID,
 		); err != nil {
 			return err
 		}
@@ -572,6 +586,7 @@ func (c *WorkspaceCoordinator) doIncrementalSplit(
 			newStackedView,
 			orientation,
 			existingFirst,
+			oldActivePaneID,
 		); err != nil {
 			return err
 		}
@@ -645,6 +660,7 @@ func (c *WorkspaceCoordinator) replaceRootSplit(
 	output *usecase.SplitPaneOutput,
 	orientation layout.Orientation,
 	existingFirst bool,
+	oldActivePaneID entity.PaneID,
 ) error {
 	wsView.ClearRootWidgetRef()
 	wsView.Container().Remove(existingRootWidget)
@@ -661,8 +677,14 @@ func (c *WorkspaceCoordinator) replaceRootSplit(
 
 	wsView.SetRootWidgetDirect(splitView.Widget())
 	tr.RegisterSplit(output.ParentNode.ID, splitView.Widget(), orientation)
+	newSplitWidth, newSplitHeight := widgetAllocation(splitView.Widget())
+	logging.FromContext(ctx).Debug().
+		Str("old_active_pane_id", string(oldActivePaneID)).
+		Int("new_split_widget_alloc_width", newSplitWidth).
+		Int("new_split_widget_alloc_height", newSplitHeight).
+		Str("orientation", orientationString(orientation)).
+		Msg("incremental split: replaced root with new split view")
 
-	logging.FromContext(ctx).Debug().Msg("root split: replaced root with new split view")
 	return nil
 }
 
@@ -676,6 +698,7 @@ func (c *WorkspaceCoordinator) replaceNonRootSplit(
 	newStackedView *layout.StackedView,
 	orientation layout.Orientation,
 	existingFirst bool,
+	oldActivePaneID entity.PaneID,
 ) error {
 	log := logging.FromContext(ctx)
 	grandparentWidget := tr.Lookup(grandparentNode.ID)
@@ -726,11 +749,23 @@ func (c *WorkspaceCoordinator) replaceNonRootSplit(
 	}
 
 	tr.RegisterSplit(output.ParentNode.ID, splitView.Widget(), orientation)
-
+	newSplitWidth, newSplitHeight := widgetAllocation(splitView.Widget())
 	log.Debug().
+		Str("old_active_pane_id", string(oldActivePaneID)).
 		Bool("was_start_child", isStartChild).
-		Msg("non-root split: replaced pane in grandparent with new split view")
+		Int("new_split_widget_alloc_width", newSplitWidth).
+		Int("new_split_widget_alloc_height", newSplitHeight).
+		Str("orientation", orientationString(orientation)).
+		Msg("incremental split: replaced pane in grandparent with new split view")
+
 	return nil
+}
+
+func orientationString(orientation layout.Orientation) string {
+	if orientation == layout.OrientationHorizontal {
+		return "horizontal"
+	}
+	return "vertical"
 }
 
 // ClosePane closes the active pane.

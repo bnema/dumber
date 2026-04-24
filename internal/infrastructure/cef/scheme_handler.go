@@ -42,6 +42,8 @@ var pageRootFiles = map[string]string{
 	errorPath:     indexHTML,
 }
 
+var cefNewResourceHandler = purecef.NewResourceHandler
+
 // dumbSchemeHandler serves both the conceptual dumb:// URLs and the actual
 // internal https://dumber.invalid origin used by CEF.
 type dumbSchemeHandler struct {
@@ -59,6 +61,23 @@ type dumbSchemeHandler struct {
 	// onClipboardSet is called when JS sends copied text via /api/clipboard-set.
 	// Set by the engine to write to the GDK system clipboard.
 	onClipboardSet func(text string)
+
+	// onEditableFocus is called when JS reports that an editable element gained
+	// DOM focus. The engine uses this to reassert CEF browser focus in OSR mode.
+	onEditableFocus func(browser purecef.Browser)
+
+	// onPopupOpen/onPopupNavigate/onPopupClose bridge synthetic window.open()
+	// proxies from page JavaScript back into the browser process when native
+	// related popups are not available (e.g. CEF OSR regular-webview fallback path).
+	onPopupOpen              func(browser purecef.Browser, payload rendererBridgePopupOpenPayload)
+	onPopupNavigate          func(browser purecef.Browser, payload rendererBridgePopupNavigatePayload)
+	onPopupClose             func(browser purecef.Browser, payload rendererBridgePopupClosePayload)
+	onPopupOpenerNavigate    func(browser purecef.Browser, payload popupOpenerNavigatePayload)
+	onPopupOpenerPostMessage func(browser purecef.Browser, payload popupOpenerPostMessagePayload)
+
+	// bridgeNonceValidator checks whether a bridge nonce belongs to the active
+	// browser/navigation context that issued the request.
+	bridgeNonceValidator func(browser purecef.Browser, bridgeNonce string) bool
 }
 
 // newDumbSchemeHandler creates a handler for internal CEF pages.
@@ -99,7 +118,7 @@ func (h *dumbSchemeHandler) setAssets(assets embed.FS) {
 
 // Create implements purecef.SchemeHandlerFactory. Called on the CEF IO thread
 // for requests to either dumb:// or the internal https origin.
-func (h *dumbSchemeHandler) Create(_ purecef.Browser, _ purecef.Frame, _ string, request purecef.Request) purecef.ResourceHandler {
+func (h *dumbSchemeHandler) Create(browser purecef.Browser, _ purecef.Frame, _ string, request purecef.Request) purecef.ResourceHandler {
 	reqURL := request.GetURL()
 	method := request.GetMethod()
 
@@ -119,8 +138,18 @@ func (h *dumbSchemeHandler) Create(_ purecef.Browser, _ purecef.Frame, _ string,
 		return h.newRawResourceHandler(http.StatusOK, "text/html; charset=utf-8", []byte(buildCEFCrashPageHTML(originalURI)))
 	}
 
-	// Keep dumb:// as the app-level abstraction, but redirect CEF loads to a
-	// normal HTTPS origin so Chromium applies the standard web security model.
+	// Route API requests before redirecting conceptual dumb:// URLs to the
+	// internal HTTPS origin. External pages use dumb://api/... for clipboard,
+	// focus, and popup bridges specifically to bypass page CSP; redirecting
+	// those requests to https://dumber.invalid makes site connect-src policies
+	// block them.
+	if apiPath, ok := resolveAPIPath(u); ok {
+		return h.handleAPI(browser, method, apiPath, request)
+	}
+
+	// Keep dumb:// as the app-level abstraction, but redirect CEF page/asset
+	// loads to a normal HTTPS origin so Chromium applies the standard web
+	// security model.
 	if isConceptualInternalURL(reqURL) {
 		targetURL := toActualInternalURL(reqURL)
 		if targetURL != "" && targetURL != reqURL {
@@ -128,67 +157,103 @@ func (h *dumbSchemeHandler) Create(_ purecef.Browser, _ purecef.Frame, _ string,
 		}
 	}
 
-	// Route API requests.
-	path := u.Path
-
-	if strings.HasPrefix(path, "/api/") {
-		return h.handleAPI(method, path, request)
-	}
-
 	// Serve static assets.
 	return h.handleAsset(u)
 }
 
 // handleAPI routes API requests to the message router or built-in handlers.
-func (h *dumbSchemeHandler) handleAPI(method, path string, request purecef.Request) purecef.ResourceHandler {
-	switch {
-	case path == "/api/message" && strings.EqualFold(method, "POST"):
-		body := readBodyFromHeader(request)
-		if body == nil {
-			return h.newJSONResourceHandler(http.StatusBadRequest, map[string]string{"error": "empty body"})
-		}
-		resp, err := h.messageRouter.HandleMessage(h.ctx, 0, body)
-		if err != nil {
-			return h.newJSONResourceHandler(http.StatusInternalServerError, map[string]string{"error": err.Error()})
-		}
-		return h.newRawResourceHandler(http.StatusOK, "application/json", resp)
-
-	case path == "/api/config" && (method == "" || strings.EqualFold(method, "GET")):
-		return h.handleConfigAPI(h.currentConfigPayload)
-
-	case path == "/api/config/default" && (method == "" || strings.EqualFold(method, "GET")):
-		return h.handleConfigAPI(h.defaultConfigPayload)
-
-	case path == "/api/transcode" && (method == "" || strings.EqualFold(method, "GET")):
-		return h.handleTranscodeAPI(request)
-
-	case path == "/api/clipboard-set" && strings.EqualFold(method, "POST"):
-		return h.handleClipboardSet(request)
-
-	default:
-		return h.newJSONResourceHandler(http.StatusNotFound, map[string]string{"error": "not found"})
+func (h *dumbSchemeHandler) handleAPI(browser purecef.Browser, method, path string, request purecef.Request) purecef.ResourceHandler {
+	if strings.EqualFold(method, http.MethodOptions) {
+		return h.newAPIRawResourceHandler(http.StatusNoContent, "text/plain; charset=utf-8", nil)
 	}
+	if isAPIGetMethod(method) {
+		if handler, ok := h.handleAPIGet(path, request); ok {
+			return handler
+		}
+	}
+	if isAPIPostMethod(method) {
+		if handler, ok := h.handleAPIPost(browser, path, request); ok {
+			return handler
+		}
+	}
+	return h.newAPIJSONResourceHandler(http.StatusNotFound, map[string]string{"error": "not found"})
+}
+
+func isAPIGetMethod(method string) bool {
+	return method == "" || strings.EqualFold(method, http.MethodGet)
+}
+
+func isAPIPostMethod(method string) bool {
+	return strings.EqualFold(method, http.MethodPost)
+}
+
+func (h *dumbSchemeHandler) handleAPIGet(path string, request purecef.Request) (purecef.ResourceHandler, bool) {
+	switch path {
+	case "/api/config":
+		return h.handleConfigAPI(h.currentConfigPayload), true
+	case "/api/config/default":
+		return h.handleConfigAPI(h.defaultConfigPayload), true
+	case "/api/transcode":
+		return h.handleTranscodeAPI(request), true
+	default:
+		return nil, false
+	}
+}
+
+func (h *dumbSchemeHandler) handleAPIPost(browser purecef.Browser, path string, request purecef.Request) (purecef.ResourceHandler, bool) {
+	switch path {
+	case "/api/message":
+		return h.handleMessageAPI(request), true
+	case "/api/clipboard-set":
+		return h.handleClipboardSet(request, browser), true
+	case "/api/focus-sync":
+		return h.handleFocusSync(request, browser), true
+	case "/api/popup-open":
+		return h.handlePopupOpen(request, browser), true
+	case "/api/popup-navigate":
+		return h.handlePopupNavigate(request, browser), true
+	case "/api/popup-close":
+		return h.handlePopupClose(request, browser), true
+	case "/api/popup-opener-navigate":
+		return h.handlePopupOpenerNavigate(request, browser), true
+	case "/api/popup-opener-post-message":
+		return h.handlePopupOpenerPostMessage(request, browser), true
+	default:
+		return nil, false
+	}
+}
+
+func (h *dumbSchemeHandler) handleMessageAPI(request purecef.Request) purecef.ResourceHandler {
+	body := readBodyFromHeader(request)
+	if body == nil {
+		return h.newAPIJSONResourceHandler(http.StatusBadRequest, map[string]string{"error": "empty body"})
+	}
+	resp, err := h.messageRouter.HandleMessage(h.ctx, 0, body)
+	if err != nil {
+		return h.newAPIJSONResourceHandler(http.StatusInternalServerError, map[string]string{"error": err.Error()})
+	}
+	return h.newAPIRawResourceHandler(http.StatusOK, "application/json", resp)
 }
 
 func (h *dumbSchemeHandler) handleTranscodeAPI(request purecef.Request) purecef.ResourceHandler {
 	if h.transcoder == nil {
-		return h.newJSONResourceHandler(http.StatusServiceUnavailable, map[string]string{"error": "transcoder unavailable"})
+		return h.newAPIJSONResourceHandler(http.StatusServiceUnavailable, map[string]string{"error": "transcoder unavailable"})
 	}
 
 	reqURL := request.GetURL()
 	parsed, err := url.Parse(reqURL)
 	if err != nil {
-		return h.newJSONResourceHandler(http.StatusBadRequest, map[string]string{"error": "invalid request URL"})
+		return h.newAPIJSONResourceHandler(http.StatusBadRequest, map[string]string{"error": "invalid request URL"})
 	}
 
 	sourceURL := strings.TrimSpace(parsed.Query().Get("src"))
 	if sourceURL == "" {
-		return h.newJSONResourceHandler(http.StatusBadRequest, map[string]string{"error": "missing src"})
+		return h.newAPIJSONResourceHandler(http.StatusBadRequest, map[string]string{"error": "missing src"})
 	}
 
 	sourceParsed, err := url.Parse(sourceURL)
-	if err != nil || sourceParsed.Host == "" || (sourceParsed.Scheme != "http" && sourceParsed.Scheme != "https") {
-		return h.newJSONResourceHandler(http.StatusBadRequest, map[string]string{"error": "invalid src"})
+	if err != nil || sourceParsed.Host == "" || (sourceParsed.Scheme != "http" && sourceParsed.Scheme != actualInternalScheme) {
+		return h.newAPIJSONResourceHandler(http.StatusBadRequest, map[string]string{"error": "invalid src"})
 	}
 
 	headers := make(map[string]string)
@@ -210,7 +275,7 @@ func (h *dumbSchemeHandler) handleTranscodeAPI(request purecef.Request) purecef.
 		Int("forwarded_header_count", len(headers)).
 		Msg("scheme handler returning transcoding stream")
 
-	return purecef.NewResourceHandler(&transcodingResourceHandler{
+	return cefNewResourceHandler(&transcodingResourceHandler{
 		transcoder: h.transcoder,
 		sourceURL:  sourceURL,
 		headers:    headers,
@@ -233,26 +298,37 @@ func resolveConfigPayload(build func() ([]byte, error)) ([]byte, error) {
 func (h *dumbSchemeHandler) handleConfigAPI(build func() ([]byte, error)) purecef.ResourceHandler {
 	data, err := resolveConfigPayload(build)
 	if err != nil {
-		return h.newJSONResourceHandler(http.StatusInternalServerError, map[string]string{"error": err.Error()})
+		return h.newAPIJSONResourceHandler(http.StatusInternalServerError, map[string]string{"error": err.Error()})
 	}
-	return h.newRawResourceHandler(http.StatusOK, "application/json", data)
+	return h.newAPIRawResourceHandler(http.StatusOK, "application/json", data)
 }
 
 // handleClipboardSet receives copied text from JS copy/cut events and writes
 // it to the system clipboard via the engine callback.
-const maxClipboardBytes = 10 << 20 // 10 MB
+const (
+	maxClipboardBytes            = 10 << 20 // 10 MB
+	dumberBodyHeaderName         = "X-Dumber-Body"
+	dumberBridgeActionHeaderName = "X-Dumber-Bridge-Action"
+	dumberBridgeNonceHeaderName  = "X-Dumber-Bridge-Nonce"
+	dumberBridgeActionFocusSync  = "focus-sync"
+)
 
-func (h *dumbSchemeHandler) handleClipboardSet(request purecef.Request) purecef.ResourceHandler {
+func (h *dumbSchemeHandler) handleClipboardSet(request purecef.Request, browser purecef.Browser) purecef.ResourceHandler {
 	h.logger.Debug().Msg("cef: /api/clipboard-set request received")
+
+	if !h.hasTrustedBridgeNonce(request, browser) {
+		h.logger.Warn().Msg("cef: clipboard-set — rejected request without valid bridge nonce")
+		return h.newAPIJSONResourceHandler(http.StatusForbidden, map[string]string{"error": "forbidden"})
+	}
 
 	body := readBodyFromHeader(request)
 	if body == nil {
 		h.logger.Debug().Msg("cef: clipboard-set — empty body (no X-Dumber-Body header)")
-		return h.newJSONResourceHandler(http.StatusBadRequest, map[string]string{"error": "empty body"})
+		return h.newAPIJSONResourceHandler(http.StatusBadRequest, map[string]string{"error": "empty body"})
 	}
 	if len(body) > maxClipboardBytes {
 		h.logger.Warn().Int("body_len", len(body)).Msg("cef: clipboard-set — payload too large")
-		return h.newJSONResourceHandler(http.StatusRequestEntityTooLarge, map[string]string{"error": "payload too large"})
+		return h.newAPIJSONResourceHandler(http.StatusRequestEntityTooLarge, map[string]string{"error": "payload too large"})
 	}
 
 	var payload struct {
@@ -260,7 +336,7 @@ func (h *dumbSchemeHandler) handleClipboardSet(request purecef.Request) purecef.
 	}
 	if err := json.Unmarshal(body, &payload); err != nil || payload.Text == "" {
 		h.logger.Debug().Int("body_len", len(body)).Msg("cef: clipboard-set — invalid or empty payload")
-		return h.newJSONResourceHandler(http.StatusBadRequest, map[string]string{"error": "invalid payload"})
+		return h.newAPIJSONResourceHandler(http.StatusBadRequest, map[string]string{"error": "invalid payload"})
 	}
 
 	h.logger.Debug().Int("text_len", len(payload.Text)).Msg("cef: clipboard-set — forwarding to GDK clipboard")
@@ -271,17 +347,137 @@ func (h *dumbSchemeHandler) handleClipboardSet(request purecef.Request) purecef.
 		h.logger.Warn().Msg("cef: clipboard-set — onClipboardSet callback not wired")
 	}
 
-	return h.newJSONResourceHandler(http.StatusOK, map[string]any{"ok": true})
+	return h.newAPIJSONResourceHandler(http.StatusOK, map[string]any{"ok": true})
+}
+
+func (h *dumbSchemeHandler) handleFocusSync(request purecef.Request, browser purecef.Browser) purecef.ResourceHandler {
+	bridgeAction := ""
+	if request != nil {
+		bridgeAction = strings.TrimSpace(request.GetHeaderByName(dumberBridgeActionHeaderName))
+	}
+	if !strings.EqualFold(bridgeAction, dumberBridgeActionFocusSync) {
+		h.logger.Warn().Msg("cef: focus-sync — rejected request without trusted bridge action header")
+		return h.newAPIJSONResourceHandler(http.StatusForbidden, map[string]string{"error": "forbidden"})
+	}
+	if browser == nil {
+		h.logger.Debug().Msg("cef: focus-sync — browser unavailable")
+		return h.newAPIJSONResourceHandler(http.StatusBadRequest, map[string]string{"error": "browser unavailable"})
+	}
+	if !h.hasTrustedBridgeNonce(request, browser) {
+		h.logger.Warn().Msg("cef: focus-sync — rejected request without valid bridge nonce")
+		return h.newAPIJSONResourceHandler(http.StatusForbidden, map[string]string{"error": "forbidden"})
+	}
+
+	if h.onEditableFocus != nil {
+		h.onEditableFocus(browser)
+	} else {
+		h.logger.Debug().Msg("cef: focus-sync — onEditableFocus callback not wired")
+	}
+
+	return h.newAPIJSONResourceHandler(http.StatusOK, map[string]any{"ok": true})
+}
+
+func handlePopupBridgeRequest[T any](
+	h *dumbSchemeHandler,
+	request purecef.Request,
+	browser purecef.Browser,
+	action string,
+	decode func([]byte) (T, error),
+	dispatch func(purecef.Browser, T),
+) purecef.ResourceHandler {
+	if browser == nil {
+		h.logger.Debug().Msg("cef: " + action + " — browser unavailable")
+		return h.newAPIJSONResourceHandler(http.StatusBadRequest, map[string]string{"error": "browser unavailable"})
+	}
+	if !h.hasTrustedBridgeNonce(request, browser) {
+		h.logger.Warn().Msg("cef: " + action + " — rejected request without valid bridge nonce")
+		return h.newAPIJSONResourceHandler(http.StatusForbidden, map[string]string{"error": "forbidden"})
+	}
+	body := readBodyFromHeader(request)
+	if body == nil {
+		return h.newAPIJSONResourceHandler(http.StatusBadRequest, map[string]string{"error": "empty body"})
+	}
+	payload, err := decode(body)
+	if err != nil {
+		return h.newAPIJSONResourceHandler(http.StatusBadRequest, map[string]string{"error": err.Error()})
+	}
+	if dispatch != nil {
+		dispatch(browser, payload)
+	} else {
+		h.logger.Warn().Msg("cef: " + action + " — callback not wired")
+	}
+	return h.newAPIJSONResourceHandler(http.StatusOK, map[string]any{"ok": true})
+}
+
+func (h *dumbSchemeHandler) handlePopupOpen(request purecef.Request, browser purecef.Browser) purecef.ResourceHandler {
+	return handlePopupBridgeRequest(h, request, browser, "popup-open", decodeRendererBridgePopupOpenPayload, h.onPopupOpen)
+}
+
+func (h *dumbSchemeHandler) handlePopupNavigate(request purecef.Request, browser purecef.Browser) purecef.ResourceHandler {
+	return handlePopupBridgeRequest(h, request, browser, "popup-navigate", decodeRendererBridgePopupNavigatePayload, h.onPopupNavigate)
+}
+
+func (h *dumbSchemeHandler) handlePopupClose(request purecef.Request, browser purecef.Browser) purecef.ResourceHandler {
+	return handlePopupBridgeRequest(h, request, browser, "popup-close", decodeRendererBridgePopupClosePayload, h.onPopupClose)
+}
+
+func decodePopupOpenerNavigatePayload(body []byte) (popupOpenerNavigatePayload, error) {
+	var payload popupOpenerNavigatePayload
+	if err := json.Unmarshal(body, &payload); err != nil {
+		return payload, err
+	}
+	payload.URL = strings.TrimSpace(payload.URL)
+	if payload.URL == "" {
+		return payload, fmt.Errorf("missing url")
+	}
+	return payload, nil
+}
+
+func decodePopupOpenerPostMessagePayload(body []byte) (popupOpenerPostMessagePayload, error) {
+	var payload popupOpenerPostMessagePayload
+	if err := json.Unmarshal(body, &payload); err != nil {
+		return payload, err
+	}
+	payload.DataKind = strings.TrimSpace(payload.DataKind)
+	payload.TargetOrigin = strings.TrimSpace(payload.TargetOrigin)
+	payload.SourceOrigin = strings.TrimSpace(payload.SourceOrigin)
+	payload.SourceHref = strings.TrimSpace(payload.SourceHref)
+	if payload.TargetOrigin == "" {
+		return payload, fmt.Errorf("missing target origin")
+	}
+	return payload, nil
+}
+
+func (h *dumbSchemeHandler) handlePopupOpenerNavigate(request purecef.Request, browser purecef.Browser) purecef.ResourceHandler {
+	return handlePopupBridgeRequest(h, request, browser, "popup-opener-navigate", decodePopupOpenerNavigatePayload, h.onPopupOpenerNavigate)
+}
+
+func (h *dumbSchemeHandler) handlePopupOpenerPostMessage(request purecef.Request, browser purecef.Browser) purecef.ResourceHandler {
+	return handlePopupBridgeRequest(
+		h,
+		request,
+		browser,
+		"popup-opener-post-message",
+		decodePopupOpenerPostMessagePayload,
+		h.onPopupOpenerPostMessage,
+	)
+}
+
+func (h *dumbSchemeHandler) hasTrustedBridgeNonce(request purecef.Request, browser purecef.Browser) bool {
+	if browser == nil || h == nil || h.bridgeNonceValidator == nil || request == nil {
+		return false
+	}
+	bridgeNonce := strings.TrimSpace(request.GetHeaderByName(dumberBridgeNonceHeaderName))
+	if bridgeNonce == "" {
+		return false
+	}
+	return h.bridgeNonceValidator(browser, bridgeNonce)
 }
 
 func (h *dumbSchemeHandler) newRedirectResourceHandler(status int, location string) purecef.ResourceHandler {
-	return purecef.NewResourceHandler(&staticResourceHandler{
-		contentType: "text/plain; charset=utf-8",
-		statusCode:  status,
-		headers: map[string]string{
-			"Location":      location,
-			"Cache-Control": "no-store",
-		},
+	return newStaticResourceHandler(status, "text/plain; charset=utf-8", nil, map[string]string{
+		"Location":      location,
+		"Cache-Control": "no-store",
 	})
 }
 
@@ -454,12 +650,40 @@ type staticResourceHandler struct {
 	offset      int
 }
 
-func (h *dumbSchemeHandler) newRawResourceHandler(status int, contentType string, data []byte) purecef.ResourceHandler {
-	return purecef.NewResourceHandler(&staticResourceHandler{
+func apiResponseHeaders(extra map[string]string) map[string]string {
+	headers := map[string]string{
+		"Access-Control-Allow-Origin":  "*",
+		"Access-Control-Allow-Methods": "GET, POST, OPTIONS",
+		"Access-Control-Allow-Headers": strings.Join([]string{
+			"Content-Type",
+			"X-Dumber-Body",
+			"X-Dumber-Bridge-Action",
+			"X-Dumber-Bridge-Nonce",
+		}, ", "),
+		"Access-Control-Max-Age": "86400",
+		"Cache-Control":          "no-store",
+	}
+	for name, value := range extra {
+		headers[name] = value
+	}
+	return headers
+}
+
+func newStaticResourceHandler(status int, contentType string, data []byte, headers map[string]string) purecef.ResourceHandler {
+	return cefNewResourceHandler(&staticResourceHandler{
 		data:        data,
 		contentType: contentType,
 		statusCode:  status,
+		headers:     headers,
 	})
+}
+
+func (h *dumbSchemeHandler) newRawResourceHandler(status int, contentType string, data []byte) purecef.ResourceHandler {
+	return newStaticResourceHandler(status, contentType, data, nil)
+}
+
+func (h *dumbSchemeHandler) newAPIRawResourceHandler(status int, contentType string, data []byte) purecef.ResourceHandler {
+	return newStaticResourceHandler(status, contentType, data, apiResponseHeaders(nil))
 }
 
 func (h *dumbSchemeHandler) newErrorResourceHandler(status int, msg string) purecef.ResourceHandler {
@@ -468,18 +692,21 @@ func (h *dumbSchemeHandler) newErrorResourceHandler(status int, msg string) pure
 	return h.newRawResourceHandler(status, "text/html; charset=utf-8", []byte(body))
 }
 
-func (h *dumbSchemeHandler) newJSONResourceHandler(status int, v any) purecef.ResourceHandler {
+func (h *dumbSchemeHandler) newAPIJSONResourceHandler(status int, v any) purecef.ResourceHandler {
 	data, err := json.Marshal(v)
 	if err != nil {
-		return h.newErrorResourceHandler(http.StatusInternalServerError, "JSON encoding failed")
+		fallback, _ := json.Marshal(map[string]string{"error": "JSON encoding failed"})
+		return h.newAPIRawResourceHandler(http.StatusInternalServerError, "application/json", fallback)
 	}
-	return h.newRawResourceHandler(status, "application/json", data)
+	return h.newAPIRawResourceHandler(status, "application/json", data)
 }
 
 // Open handles the request immediately (synchronous).
-func (rh *staticResourceHandler) Open(_ purecef.Request, handleRequest unsafe.Pointer, _ purecef.Callback) int32 {
+func (rh *staticResourceHandler) Open(_ purecef.Request, handleRequest *int32, _ purecef.Callback) int32 {
 	// Set handleRequest = true (1) to indicate we handle it immediately.
-	*(*int32)(handleRequest) = 1
+	if handleRequest != nil {
+		*handleRequest = 1
+	}
 	return 1
 }
 
@@ -491,7 +718,7 @@ func (rh *staticResourceHandler) ProcessRequest(_ purecef.Request, _ purecef.Cal
 // GetResponseHeaders sets status code, MIME type, and content length.
 // CEF's SetMimeType expects the MIME type without charset parameters;
 // the charset must be set separately via SetCharset.
-func (rh *staticResourceHandler) GetResponseHeaders(response purecef.Response, responseLength unsafe.Pointer, _ uintptr) {
+func (rh *staticResourceHandler) GetResponseHeaders(response purecef.Response, responseLength *int64, _ uintptr) {
 	response.SetStatus(int32(rh.statusCode))
 	if text := http.StatusText(rh.statusCode); text != "" {
 		response.SetStatusText(text)
@@ -504,18 +731,20 @@ func (rh *staticResourceHandler) GetResponseHeaders(response purecef.Response, r
 	for name, value := range rh.headers {
 		response.SetHeaderByName(name, value, 1)
 	}
-	*(*int64)(responseLength) = int64(len(rh.data))
+	if responseLength != nil {
+		*responseLength = int64(len(rh.data))
+	}
 }
 
 // Skip is not used for static content.
-func (rh *staticResourceHandler) Skip(_ int64, _ unsafe.Pointer, _ purecef.ResourceSkipCallback) int32 {
+func (rh *staticResourceHandler) Skip(_ int64, _ *int64, _ purecef.ResourceSkipCallback) int32 {
 	return 0
 }
 
 // Read copies data into the output buffer.
 func (rh *staticResourceHandler) Read(
 	dataOut unsafe.Pointer, bytesToRead int32,
-	bytesRead unsafe.Pointer, _ purecef.ResourceReadCallback,
+	bytesRead *int32, _ purecef.ResourceReadCallback,
 ) int32 {
 	if rh.offset >= len(rh.data) {
 		return 0
@@ -532,12 +761,14 @@ func (rh *staticResourceHandler) Read(
 	copy(dst, rh.data[rh.offset:rh.offset+toRead])
 	rh.offset += toRead
 
-	*(*int32)(bytesRead) = int32(toRead)
+	if bytesRead != nil {
+		*bytesRead = int32(toRead)
+	}
 	return 1
 }
 
 // ReadResponse is deprecated; Read is used instead.
-func (rh *staticResourceHandler) ReadResponse(_ unsafe.Pointer, _ int32, _ unsafe.Pointer, _ purecef.Callback) int32 {
+func (rh *staticResourceHandler) ReadResponse(_ unsafe.Pointer, _ int32, _ *int32, _ purecef.Callback) int32 {
 	return 0
 }
 
@@ -552,7 +783,7 @@ func (rh *staticResourceHandler) Cancel() {}
 // The JS bridge base64-encodes the JSON body into this header to avoid the
 // purego-cef PostData element wrapping limitation (wrapPostDataElement is unexported).
 func readBodyFromHeader(request purecef.Request) []byte {
-	encoded := request.GetHeaderByName("X-Dumber-Body")
+	encoded := request.GetHeaderByName(dumberBodyHeaderName)
 	if encoded == "" {
 		return nil
 	}

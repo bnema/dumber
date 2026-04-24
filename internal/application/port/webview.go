@@ -3,9 +3,7 @@
 // remain independent of specific implementations (WebKit, GTK, etc.).
 package port
 
-import (
-	"context"
-)
+import "context"
 
 // WebViewID uniquely identifies a WebView instance.
 type WebViewID uint64
@@ -64,10 +62,11 @@ const (
 
 // PopupRequest contains metadata about a popup window request.
 type PopupRequest struct {
-	TargetURI     string
-	FrameName     string // e.g., "_blank", custom name, or empty
-	IsUserGesture bool
-	ParentViewID  WebViewID
+	TargetURI          string
+	FrameName          string // e.g., "_blank", custom name, or empty
+	IsUserGesture      bool
+	NoJavaScriptAccess bool // true for noopener/noreferrer-style popups with no opener access
+	ParentViewID       WebViewID
 }
 
 // Texture represents a graphics texture returned by the engine.
@@ -314,14 +313,27 @@ type Printer interface {
 	PrintPage()
 }
 
-// PopupCapable is implemented by WebViews that support popup lifecycle callbacks.
-// SetOnClose composes the provided function with any existing close handler so
-// that multiple callers can each register a close callback without overwriting
-// one another.
-type PopupCapable interface {
+// PopupLifecycleCapable is implemented by WebViews that support the full popup
+// pane lifecycle. SetOnClose composes the provided function with any existing
+// close handler so multiple callers can register close hooks without
+// overwriting one another. PrimePopupNavigation lets engines preserve the popup
+// target URI before the browser is fully created.
+type PopupLifecycleCapable interface {
 	SetOnReadyToShow(fn func())
 	SetOnClose(fn func())
 	Show()
+	PrimePopupNavigation(uri string)
+}
+
+// PopupOpenerCapable is implemented by popup WebViews that can emulate opener
+// semantics when a popup must be created directly instead of through a native
+// related-popup lifecycle, and that can report or observe synthetic opener
+// traffic needed by OAuth flows.
+type PopupOpenerCapable interface {
+	EnablePopupOpenerBridge(parent WebView, noJavaScriptAccess bool)
+	AddOpenerMessageCallback(fn func())
+	AddOpenerNavigationCallback(fn func(uri string))
+	HasActivePopupOpenerBridge() bool
 }
 
 // OAuthCallbackCapable is implemented by WebViews that support OAuth auto-close callbacks.

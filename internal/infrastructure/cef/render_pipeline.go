@@ -7,6 +7,7 @@ import (
 	"time"
 	"unsafe"
 
+	"github.com/bnema/dumber/internal/application/port"
 	"github.com/bnema/dumber/internal/logging"
 	"github.com/bnema/puregotk/v4/gdk"
 	"github.com/bnema/puregotk/v4/gtk"
@@ -25,9 +26,10 @@ type rect struct {
 // and GTK later uploads from staging → PBO → texture before drawing a
 // fullscreen quad. Two PBOs alternate so GPU DMA and CPU writes overlap.
 type renderPipeline struct {
-	ctx    context.Context
-	gl     *glLoader
-	glArea *gtk.GLArea
+	webviewID port.WebViewID
+	ctx       context.Context
+	gl        *glLoader
+	glArea    *gtk.GLArea
 
 	// GL resources (created on first render).
 	texture      uint32
@@ -71,7 +73,11 @@ type renderPipeline struct {
 	viewRectSeq           atomic.Uint64
 	screenInfoSeq         atomic.Uint64
 	paintSeq              atomic.Uint64
+	resizeSeq             atomic.Uint64
 	lastQueuedPaintSeq    atomic.Uint64
+	lastResizeUnixNano    atomic.Int64
+	lastResizePaintLogSeq atomic.Uint64
+	lastResizeStaleLogSeq atomic.Uint64
 	glRenderSeq           atomic.Uint64
 	paintCount            uint64
 	acceleratedPaintCount uint64
@@ -108,6 +114,27 @@ type renderPipeline struct {
 	onResizeCB func(width, height int32)
 }
 
+type renderPipelineSnapshot struct {
+	Width              int32
+	Height             int32
+	Scale              int32
+	GLReady            bool
+	NeedsUpload        bool
+	SizeChanged        bool
+	ForceFullUpload    bool
+	ViewRectSeq        uint64
+	ScreenInfoSeq      uint64
+	PaintSeq           uint64
+	ResizeSeq          uint64
+	LastQueuedPaintSeq uint64
+	GLRenderSeq        uint64
+	PaintCount         uint64
+	QueueRenderCount   uint64
+	RenderCount        uint64
+	UploadCount        uint64
+	FullUploadCount    uint64
+}
+
 // Shader sources for the fullscreen textured quad.
 const vertexShaderSource = "" +
 	"#version 330 core\n" +
@@ -139,15 +166,16 @@ var quadVertices = [16]float32{
 
 // newRenderPipeline creates a GtkGLArea and wires up the render and resize
 // signals. The returned pipeline is ready to receive handlePaint calls.
-func newRenderPipeline(ctx context.Context, gl *glLoader, scale int32) *renderPipeline {
+func newRenderPipeline(ctx context.Context, gl *glLoader, scale int32, webviewID port.WebViewID) *renderPipeline {
 	if scale < 1 {
 		scale = 1
 	}
 
 	rp := &renderPipeline{
-		ctx:   ctx,
-		gl:    gl,
-		scale: scale,
+		webviewID: webviewID,
+		ctx:       ctx,
+		gl:        gl,
+		scale:     scale,
 	}
 
 	rp.glArea = gtk.NewGLArea()
@@ -156,8 +184,9 @@ func newRenderPipeline(ctx context.Context, gl *glLoader, scale int32) *renderPi
 	rp.glArea.SetHasDepthBuffer(false)
 	rp.glArea.SetHasStencilBuffer(false)
 
-	// Wire signals. puregotk takes *func(...) for signal callbacks.
-	renderCb := func(_ gtk.GLArea, _ *gdk.GLContext) bool {
+	// Wire signals. puregotk currently exposes the render context as a raw pointer.
+	renderCb := func(_ gtk.GLArea, contextPtr uintptr) bool {
+		_ = gdk.GLContextNewFromInternalPtr(contextPtr)
 		return rp.onGLRender()
 	}
 	rp.glArea.ConnectRender(&renderCb)
@@ -291,6 +320,21 @@ func (rp *renderPipeline) onGLRender() bool {
 	uploadHeight := rp.heightAtomic.Load()
 
 	rp.mu.Unlock()
+
+	if rp.ctx != nil && sizeChanged && !needsUpload {
+		resizeSeq, resizeAgeMs := rp.latestResizeDiagnostics()
+		logging.FromContext(rp.ctx).Warn().
+			Uint64("webview_id", uint64(rp.webviewID)).
+			Uint64("resize_seq", resizeSeq).
+			Int64("time_since_resize_ms", resizeAgeMs).
+			Int32("upload_width", uploadWidth).
+			Int32("upload_height", uploadHeight).
+			Bool("gl_ready", rp.glReady).
+			Bool("needs_upload", needsUpload).
+			Bool("size_changed", sizeChanged).
+			Uint64("last_queued_paint_seq", paintSeq).
+			Msg("cef: render after resize without fresh paint")
+	}
 
 	if !rp.glReady || sizeChanged {
 		rp.initGL(uploadWidth, uploadHeight)
@@ -783,6 +827,40 @@ func (rp *renderPipeline) maybeLogDiagnostics() {
 }
 
 // buildShaderProgram compiles and links the vertex+fragment shaders.
+func (rp *renderPipeline) diagnosticSnapshot() renderPipelineSnapshot {
+	if rp == nil {
+		return renderPipelineSnapshot{}
+	}
+
+	rp.diagMu.Lock()
+	snap := renderPipelineSnapshot{
+		Width:              rp.widthAtomic.Load(),
+		Height:             rp.heightAtomic.Load(),
+		ViewRectSeq:        rp.viewRectSeq.Load(),
+		ScreenInfoSeq:      rp.screenInfoSeq.Load(),
+		PaintSeq:           rp.paintSeq.Load(),
+		ResizeSeq:          rp.resizeSeq.Load(),
+		LastQueuedPaintSeq: rp.lastQueuedPaintSeq.Load(),
+		GLRenderSeq:        rp.glRenderSeq.Load(),
+		PaintCount:         rp.paintCount,
+		QueueRenderCount:   rp.queueRenderCount,
+		RenderCount:        rp.glRenderCount,
+		UploadCount:        rp.uploadCount,
+		FullUploadCount:    rp.fullUploadCount,
+	}
+	rp.diagMu.Unlock()
+
+	rp.mu.Lock()
+	snap.Scale = rp.scale
+	snap.GLReady = rp.glReady
+	snap.NeedsUpload = rp.needsUpload
+	snap.SizeChanged = rp.sizeChanged
+	snap.ForceFullUpload = rp.forceFullUpload
+	rp.mu.Unlock()
+
+	return snap
+}
+
 func (rp *renderPipeline) buildShaderProgram() uint32 {
 	gl := rp.gl
 
@@ -819,13 +897,27 @@ func compileShader(gl *glLoader, shaderType uint32, source string) uint32 {
 // onResize is the GTK "resize" signal handler. Dimensions are in CSS pixels;
 // we multiply by scale to get device pixels.
 func (rp *renderPipeline) onResize(width, height int32) {
+	if width <= 0 || height <= 0 {
+		return
+	}
+
 	rp.mu.Lock()
 
+	prevWidth := rp.widthAtomic.Load()
+	prevHeight := rp.heightAtomic.Load()
+	scale := rp.scale
+	if scale <= 0 {
+		scale = 1
+	}
+
 	scaled := func(v int32) int32 {
-		return v * rp.scale
+		return v * scale
 	}
 
 	w, h := scaled(width), scaled(height)
+	resizeSeq := rp.resizeSeq.Add(1)
+	now := time.Now()
+	rp.lastResizeUnixNano.Store(now.UnixNano())
 	rp.widthAtomic.Store(w)
 	rp.heightAtomic.Store(h)
 	rp.sizeChanged = true
@@ -836,6 +928,22 @@ func (rp *renderPipeline) onResize(width, height int32) {
 	}
 	resizeCB := rp.onResizeCB
 	rp.mu.Unlock()
+
+	if rp.ctx != nil {
+		logging.FromContext(rp.ctx).Debug().
+			Uint64("webview_id", uint64(rp.webviewID)).
+			Uint64("resize_seq", resizeSeq).
+			Int32("css_width", width).
+			Int32("css_height", height).
+			Int32("scaled_width", w).
+			Int32("scaled_height", h).
+			Int32("prev_width", prevWidth).
+			Int32("prev_height", prevHeight).
+			Int32("scale", scale).
+			Bool("first_resize", firstCB != nil).
+			Bool("has_resize_cb", resizeCB != nil).
+			Msg("cef: GLArea resize")
+	}
 
 	if firstCB != nil {
 		firstCB(w, h)
@@ -916,6 +1024,50 @@ func (rp *renderPipeline) viewRectSize() (width, height, scale int32) {
 		scale = 1
 	}
 	return width, height, scale
+}
+
+func (rp *renderPipeline) latestResizeDiagnostics() (resizeSeq uint64, ageMs int64) {
+	resizeSeq = rp.resizeSeq.Load()
+	lastResizeUnixNano := rp.lastResizeUnixNano.Load()
+	if lastResizeUnixNano == 0 {
+		return resizeSeq, 0
+	}
+	age := time.Since(time.Unix(0, lastResizeUnixNano))
+	if age <= 0 {
+		return resizeSeq, 0
+	}
+	return resizeSeq, age.Milliseconds()
+}
+
+func (rp *renderPipeline) markFirstPaintAfterResize() (resizeSeq uint64, ageMs int64, shouldLog bool) {
+	resizeSeq, ageMs = rp.latestResizeDiagnostics()
+	if resizeSeq == 0 {
+		return resizeSeq, ageMs, false
+	}
+	for {
+		lastLogged := rp.lastResizePaintLogSeq.Load()
+		if lastLogged >= resizeSeq {
+			return resizeSeq, ageMs, false
+		}
+		if rp.lastResizePaintLogSeq.CompareAndSwap(lastLogged, resizeSeq) {
+			return resizeSeq, ageMs, true
+		}
+	}
+}
+
+func (rp *renderPipeline) markStalePaintAfterResize(resizeSeq uint64) bool {
+	if resizeSeq == 0 {
+		return false
+	}
+	for {
+		lastLogged := rp.lastResizeStaleLogSeq.Load()
+		if lastLogged >= resizeSeq {
+			return false
+		}
+		if rp.lastResizeStaleLogSeq.CompareAndSwap(lastLogged, resizeSeq) {
+			return true
+		}
+	}
 }
 
 func (rp *renderPipeline) nextViewRectSeq() uint64 {

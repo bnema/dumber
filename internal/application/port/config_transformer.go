@@ -6,4 +6,8 @@ type ConfigTransformer interface {
 	// to new ActionBinding format (map with keys and desc).
 	// Modifies the rawConfig map in place.
 	TransformLegacyActions(rawConfig map[string]any)
+
+	// TransformLegacyEngineConfig removes deprecated engine config keys.
+	// Modifies the rawConfig map in place.
+	TransformLegacyEngineConfig(rawConfig map[string]any)
 }

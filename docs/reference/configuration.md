@@ -18,6 +18,7 @@
 | `dmenu.date_format` | string | `2006-01-02 15:04` | Go time format |
 | `dmenu.sort_by_visit_count` | bool | `true` | |
 | `omnibox.initial_behavior` | string | `recent` | `recent`, `most_visited`, `none` |
+| `omnibox.most_visited_days` | int | `30` | `>= 0` |
 | `omnibox.auto_open_on_new_pane` | bool | `false` | |
 | `logging.level` | string | `info` | `debug`, `info`, `warn`, `error` |
 | `logging.format` | string | `text` | `text`, `json` |

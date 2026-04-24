@@ -3,7 +3,7 @@ package webkit
 import (
 	"testing"
 
-	"github.com/bnema/puregotk-webkit/webkit"
+	"github.com/bnema/puregotk/v4/webkit"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -29,4 +29,32 @@ func TestAccentDetectionScriptTracksLastFocusedEditableElement(t *testing.T) {
 		"document.addEventListener('focusin'",
 		"accent detection script must register a focusin listener",
 	)
+}
+
+func TestExplicitCopyScriptCapturesClipboardOperations(t *testing.T) {
+	script := buildExplicitCopyScript()
+
+	assert.Contains(t, script, "explicit_text_copy")
+	assert.Contains(t, script, "document.addEventListener('copy'")
+	assert.Contains(t, script, "document.addEventListener('cut'")
+	assert.Contains(t, script, "document.execCommand")
+	assert.Contains(t, script, "navigator.clipboard.writeText")
+	assert.Contains(t, script, "navigator.userActivation")
+	assert.Contains(t, script, "var userActivated = hasUserActivation()")
+	assert.Contains(t, script, "if (userActivated)")
+	assert.Contains(t, script, "try {")
+	assert.Contains(t, script, "finally {")
+	assert.Contains(t, script, "pendingCommand === command")
+}
+
+func TestExplicitCopyScriptReadsInputAndTextareaSelectionFirst(t *testing.T) {
+	script := buildExplicitCopyScript()
+
+	assert.Contains(t, script, "document.activeElement")
+	assert.Contains(t, script, "selectionStart")
+	assert.Contains(t, script, "selectionEnd")
+	assert.Contains(t, script, "INPUT")
+	assert.Contains(t, script, "TEXTAREA")
+	assert.Contains(t, script, "type || '').toLowerCase()")
+	assert.Contains(t, script, "case 'password':")
 }

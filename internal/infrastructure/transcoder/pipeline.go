@@ -13,7 +13,7 @@ import (
 	"net"
 	"time"
 
-	"github.com/ebitengine/purego"
+	"github.com/bnema/purego"
 	"github.com/rs/zerolog"
 
 	"github.com/bnema/purego-ffmpeg/ffmpeg"

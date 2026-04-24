@@ -178,3 +178,81 @@ func TestOmniboxLoadInitialHistory_UsesCapturedInitialBehavior(t *testing.T) {
 		t.Fatal("timed out waiting for recent-history load")
 	}
 }
+
+func TestOmniboxLoadInitialHistory_MostVisitedUsesThirtyDayWindow(t *testing.T) {
+	repo := repomocks.NewMockHistoryRepository(t)
+	done := make(chan struct{})
+	repo.EXPECT().GetMostVisited(mock.Anything, 30).RunAndReturn(
+		func(context.Context, int) ([]*entity.HistoryEntry, error) {
+			close(done)
+			return []*entity.HistoryEntry{{URL: "https://example.com"}}, nil
+		},
+	)
+
+	o := &Omnibox{
+		historyUC:       appusecase.NewSearchHistoryUseCase(repo),
+		initialBehavior: entity.OmniboxInitialBehaviorMostVisited,
+		mostVisitedDays: 30,
+		ctx:             context.Background(),
+	}
+
+	o.loadInitialHistory(1)
+
+	select {
+	case <-done:
+	case <-time.After(2 * time.Second):
+		t.Fatal("timed out waiting for most-visited load")
+	}
+}
+
+func TestOmniboxLoadInitialHistory_MostVisitedUsesConfiguredWindow(t *testing.T) {
+	repo := repomocks.NewMockHistoryRepository(t)
+	done := make(chan struct{})
+	repo.EXPECT().GetMostVisited(mock.Anything, 7).RunAndReturn(
+		func(context.Context, int) ([]*entity.HistoryEntry, error) {
+			close(done)
+			return []*entity.HistoryEntry{{URL: "https://example.com"}}, nil
+		},
+	)
+
+	o := &Omnibox{
+		historyUC:       appusecase.NewSearchHistoryUseCase(repo),
+		initialBehavior: entity.OmniboxInitialBehaviorMostVisited,
+		mostVisitedDays: 7,
+		ctx:             context.Background(),
+	}
+
+	o.loadInitialHistory(1)
+
+	select {
+	case <-done:
+	case <-time.After(2 * time.Second):
+		t.Fatal("timed out waiting for configured most-visited load")
+	}
+}
+
+func TestOmniboxLoadInitialHistory_MostVisitedZeroWindowUsesAllHistory(t *testing.T) {
+	repo := repomocks.NewMockHistoryRepository(t)
+	done := make(chan struct{})
+	repo.EXPECT().GetAllMostVisited(mock.Anything).RunAndReturn(
+		func(context.Context) ([]*entity.HistoryEntry, error) {
+			close(done)
+			return []*entity.HistoryEntry{{URL: "https://example.com"}}, nil
+		},
+	)
+
+	o := &Omnibox{
+		historyUC:       appusecase.NewSearchHistoryUseCase(repo),
+		initialBehavior: entity.OmniboxInitialBehaviorMostVisited,
+		mostVisitedDays: 0,
+		ctx:             context.Background(),
+	}
+
+	o.loadInitialHistory(1)
+
+	select {
+	case <-done:
+	case <-time.After(2 * time.Second):
+		t.Fatal("timed out waiting for all-history most-visited load")
+	}
+}

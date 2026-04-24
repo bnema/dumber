@@ -206,10 +206,7 @@ func composeOnURIChanged(existing, next func(string)) func(string) {
 	}
 }
 
-func composeOnLoadChanged(
-	existing func(port.LoadEvent),
-	next func(port.LoadEvent),
-) func(port.LoadEvent) {
+func composeOnLoadChanged(existing, next func(port.LoadEvent)) func(port.LoadEvent) {
 	if existing == nil {
 		return next
 	}
@@ -227,6 +224,14 @@ func composeOnLoadChanged(
 // For providers using postMessage (like Google Sign-In), we rely on the provider calling
 // window.close() which triggers WebKit's close signal.
 // A long safety timeout (30s) catches popups that get stuck.
+func popupUsesSyntheticOpenerSignals(wv port.WebView) bool {
+	if wv == nil {
+		return false
+	}
+	opener, ok := wv.(port.PopupOpenerCapable)
+	return ok && opener.HasActivePopupOpenerBridge()
+}
+
 func (c *Coordinator) setupOAuthAutoClose(
 	ctx context.Context,
 	paneID entity.PaneID,
@@ -287,8 +292,7 @@ func (c *Coordinator) setupOAuthAutoClose(
 		})
 	}
 
-	requestOAuthClose := func(uri string, reason string) {
-		c.capturePopupOAuthState(popupID, uri)
+	requestOAuthClose := func(reason string) {
 		cancelSafetyTimer()
 		log.Info().
 			Str("pane", string(paneID)).
@@ -309,13 +313,38 @@ func (c *Coordinator) setupOAuthAutoClose(
 
 	// Start safety timer immediately.
 	startSafetyTimer()
+	deferCloseOnNavigation := popupUsesSyntheticOpenerSignals(wv)
+	log.Debug().
+		Str("pane", string(paneID)).
+		Uint64("popup_id", uint64(popupID)).
+		Bool("synthetic_opener_active", deferCloseOnNavigation).
+		Msg("oauth auto-close configured")
 
 	// Register navigation callback to check for OAuth callbacks on URI changes and committed loads.
 	oauthWV.AddNavigationCallback(func(uri string) {
-		if ShouldAutoClose(uri) {
-			requestOAuthClose(uri, "navigation")
+		if !ShouldAutoClose(uri) {
+			return
 		}
+		c.capturePopupOAuthState(popupID, uri)
+		if deferCloseOnNavigation {
+			cancelSafetyTimer()
+			return
+		}
+		requestOAuthClose("navigation")
 	})
+	if opener, ok := wv.(port.PopupOpenerCapable); ok {
+		opener.AddOpenerNavigationCallback(func(uri string) {
+			if !ShouldAutoClose(uri) {
+				return
+			}
+			c.capturePopupOAuthState(popupID, uri)
+			requestOAuthClose("opener-navigation")
+		})
+		opener.AddOpenerMessageCallback(func() {
+			c.capturePopupOAuthMessage(popupID)
+			requestOAuthClose("opener-message")
+		})
+	}
 
 	// Cancel safety timer on any close path.
 	oauthWV.AddCloseCallback(func() {
@@ -323,41 +352,22 @@ func (c *Coordinator) setupOAuthAutoClose(
 	})
 }
 
-func (c *Coordinator) trackOAuthPopup(popupID port.WebViewID, parentPaneID entity.PaneID) {
-	c.popupMu.Lock()
-	defer c.popupMu.Unlock()
-	if c.popupOAuth == nil {
-		c.popupOAuth = make(map[port.WebViewID]*popupOAuthState)
-	}
-	c.popupOAuth[popupID] = &popupOAuthState{
-		ParentPaneID: parentPaneID,
-	}
+func (c *Coordinator) trackOAuthPopup(popupID port.WebViewID, parentPaneID entity.PaneID, parentURIAtOpen string) {
+	c.ensurePopupManager().trackOAuthPopup(popupID, parentPaneID, parentURIAtOpen)
 }
 
 func (c *Coordinator) capturePopupOAuthState(popupID port.WebViewID, uri string) {
-	c.popupMu.Lock()
-	defer c.popupMu.Unlock()
+	c.ensurePopupManager().capturePopupOAuthState(popupID, uri)
+}
 
-	state, ok := c.popupOAuth[popupID]
-	if !ok {
-		return
-	}
-
-	state.Seen = true
-	state.CallbackURI = uri
-	state.Success = IsOAuthSuccess(uri)
-	state.Error = IsOAuthError(uri)
+func (c *Coordinator) capturePopupOAuthMessage(popupID port.WebViewID) {
+	c.ensurePopupManager().capturePopupOAuthMessage(popupID)
 }
 
 func (c *Coordinator) handlePopupOAuthClose(ctx context.Context, popupID port.WebViewID) {
 	log := logging.FromContext(ctx)
 
-	c.popupMu.Lock()
-	state, ok := c.popupOAuth[popupID]
-	if ok {
-		delete(c.popupOAuth, popupID)
-	}
-	c.popupMu.Unlock()
+	state, ok := c.ensurePopupManager().takePopupOAuthState(popupID)
 
 	if !ok || state == nil || !state.Seen {
 		return
@@ -370,42 +380,78 @@ func (c *Coordinator) handlePopupOAuthClose(ctx context.Context, popupID port.We
 		Bool("oauth_error", state.Error).
 		Msg("popup oauth result captured on close")
 
-	if !state.Success || state.ParentPaneID == "" {
+	if state.ParentPaneID == "" {
 		return
 	}
 
-	c.scheduleParentPaneRefresh(ctx, state.ParentPaneID, popupID)
+	if !state.Success {
+		return
+	}
+
+	c.scheduleParentPaneOAuthResume(ctx, state.ParentPaneID, popupID, state.ParentURIAtOpen, state.CallbackURI)
 }
 
-func (c *Coordinator) scheduleParentPaneRefresh(
+// oauthParentResumeGraceRetries gives the parent pane up to
+// oauthParentResumeGraceRetries * oauthParentRefreshDebounce (~1s with the
+// current 200ms debounce) to finish its own in-flight same-site OAuth
+// navigation before scheduleParentPaneOAuthResume falls back to Reload(). Five
+// retries keeps the UI responsive without racing the natural callback handoff.
+const oauthParentResumeGraceRetries = 5
+
+func (c *Coordinator) scheduleParentPaneOAuthResume(
 	ctx context.Context,
 	parentPaneID entity.PaneID,
 	popupID port.WebViewID,
+	parentURIAtOpen, callbackURI string,
 ) {
-	c.popupMu.Lock()
-	if c.popupRefresh == nil {
-		c.popupRefresh = make(map[entity.PaneID]*time.Timer)
-	}
-	if existing := c.popupRefresh[parentPaneID]; existing != nil {
-		existing.Stop()
-	}
-	c.popupRefresh[parentPaneID] = time.AfterFunc(oauthParentRefreshDebounce, func() {
-		c.popupMu.Lock()
-		delete(c.popupRefresh, parentPaneID)
-		c.popupMu.Unlock()
+	c.scheduleParentPaneOAuthResumeAttempt(
+		ctx,
+		parentPaneID,
+		popupID,
+		parentURIAtOpen,
+		callbackURI,
+		oauthParentResumeGraceRetries,
+	)
+}
+
+func (c *Coordinator) scheduleParentPaneOAuthResumeAttempt(
+	ctx context.Context,
+	parentPaneID entity.PaneID,
+	popupID port.WebViewID,
+	parentURIAtOpen, callbackURI string,
+	remainingGrace int,
+) {
+	c.ensurePopupManager().schedulePopupRefresh(parentPaneID, oauthParentRefreshDebounce, func() {
 		cb := glib.SourceFunc(func(_ uintptr) bool {
-			c.refreshPaneAfterOAuth(ctx, parentPaneID, popupID)
+			c.resumeParentPaneAfterOAuthAttempt(ctx, parentPaneID, popupID, parentURIAtOpen, callbackURI, remainingGrace)
 			return false
 		})
 		glib.IdleAdd(&cb, 0)
 	})
-	c.popupMu.Unlock()
 }
 
-func (c *Coordinator) refreshPaneAfterOAuth(
+func (c *Coordinator) resumeParentPaneAfterOAuth(
 	ctx context.Context,
 	parentPaneID entity.PaneID,
 	popupID port.WebViewID,
+	parentURIAtOpen, callbackURI string,
+) {
+	c.resumeParentPaneAfterOAuthAttempt(
+		ctx,
+		parentPaneID,
+		popupID,
+		parentURIAtOpen,
+		callbackURI,
+		oauthParentResumeGraceRetries,
+	)
+}
+
+func (c *Coordinator) resumeParentPaneAfterOAuthAttempt(
+	ctx context.Context,
+	parentPaneID entity.PaneID,
+	popupID port.WebViewID,
+	parentURIAtOpen, callbackURI string,
+	remainingGrace int,
 ) {
 	log := logging.FromContext(ctx)
 	wv := c.getWebViewLocked(parentPaneID)
@@ -413,7 +459,38 @@ func (c *Coordinator) refreshPaneAfterOAuth(
 		log.Debug().
 			Str("parent_pane_id", string(parentPaneID)).
 			Uint64("popup_id", uint64(popupID)).
-			Msg("skipping parent pane refresh after oauth close: parent webview unavailable")
+			Msg("skipping parent pane oauth resume: parent webview unavailable")
+		return
+	}
+
+	parentURI := strings.TrimSpace(wv.URI())
+	if parentURIAtOpen != "" && parentURI != "" && parentURI != parentURIAtOpen {
+		log.Info().
+			Str("parent_pane_id", string(parentPaneID)).
+			Uint64("popup_id", uint64(popupID)).
+			Str("parent_uri_at_open", logging.TruncateURL(parentURIAtOpen, logURLMaxLen)).
+			Str("current_parent_uri", logging.TruncateURL(parentURI, logURLMaxLen)).
+			Str("callback_uri", logging.TruncateURL(callbackURI, logURLMaxLen)).
+			Msg("skipping parent pane oauth resume: parent already navigated")
+		return
+	}
+
+	if shouldGraceWaitForParentPaneOAuthResume(parentURIAtOpen, parentURI, callbackURI, remainingGrace) {
+		log.Debug().
+			Str("parent_pane_id", string(parentPaneID)).
+			Uint64("popup_id", uint64(popupID)).
+			Int("remaining_grace", remainingGrace).
+			Str("parent_uri_at_open", logging.TruncateURL(parentURIAtOpen, logURLMaxLen)).
+			Str("callback_uri", logging.TruncateURL(callbackURI, logURLMaxLen)).
+			Msg("deferring parent pane oauth resume to allow in-flight same-site navigation to settle")
+		c.scheduleParentPaneOAuthResumeAttempt(
+			ctx,
+			parentPaneID,
+			popupID,
+			parentURIAtOpen,
+			callbackURI,
+			remainingGrace-1,
+		)
 		return
 	}
 
@@ -429,5 +506,38 @@ func (c *Coordinator) refreshPaneAfterOAuth(
 	log.Info().
 		Str("parent_pane_id", string(parentPaneID)).
 		Uint64("popup_id", uint64(popupID)).
-		Msg("refreshed parent pane after oauth popup success")
+		Str("callback_uri", logging.TruncateURL(callbackURI, logURLMaxLen)).
+		Msg("refreshed parent pane after oauth popup close")
+}
+
+func shouldGraceWaitForParentPaneOAuthResume(
+	parentURIAtOpen, currentParentURI, callbackURI string,
+	remainingGrace int,
+) bool {
+	if remainingGrace <= 0 {
+		return false
+	}
+	if parentURIAtOpen == "" || currentParentURI == "" || callbackURI == "" {
+		return false
+	}
+	if currentParentURI != parentURIAtOpen {
+		return false
+	}
+	return sameOAuthResumeSite(parentURIAtOpen, callbackURI)
+}
+
+func sameOAuthResumeSite(a, b string) bool {
+	hostA := normalizeOAuthResumeHost(a)
+	hostB := normalizeOAuthResumeHost(b)
+	return hostA != "" && hostA == hostB
+}
+
+func normalizeOAuthResumeHost(raw string) string {
+	parsed, err := neturl.Parse(raw)
+	if err != nil {
+		return ""
+	}
+	host := strings.ToLower(strings.TrimSpace(parsed.Hostname()))
+	host = strings.TrimPrefix(host, "www.")
+	return host
 }

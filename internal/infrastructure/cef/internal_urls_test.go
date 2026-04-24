@@ -1,6 +1,9 @@
 package cef
 
-import "testing"
+import (
+	"net/url"
+	"testing"
+)
 
 func TestToActualInternalURL(t *testing.T) {
 	t.Parallel()
@@ -62,6 +65,66 @@ func TestToActualInternalURL(t *testing.T) {
 			t.Parallel()
 			if got := toActualInternalURL(tt.in); got != tt.want {
 				t.Fatalf("toActualInternalURL(%q) = %q, want %q", tt.in, got, tt.want)
+			}
+		})
+	}
+}
+
+func TestResolveAPIPath(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name string
+		in   string
+		want string
+		ok   bool
+	}{
+		{
+			name: "nil url returns false",
+			in:   "",
+			want: "",
+			ok:   false,
+		},
+		{
+			name: "conceptual api host",
+			in:   "dumb://api/clipboard-set",
+			want: "/api/clipboard-set",
+			ok:   true,
+		},
+		{
+			name: "conceptual page api path",
+			in:   "dumb://home/api/message",
+			want: "/api/message",
+			ok:   true,
+		},
+		{
+			name: "actual internal api path",
+			in:   "https://dumber.invalid/api/focus-sync",
+			want: "/api/focus-sync",
+			ok:   true,
+		},
+		{
+			name: "non api path",
+			in:   "https://dumber.invalid/home",
+			want: "",
+			ok:   false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+			var parsed *url.URL
+			if tt.in != "" {
+				var err error
+				parsed, err = url.Parse(tt.in)
+				if err != nil {
+					t.Fatalf("url.Parse(%q) error = %v", tt.in, err)
+				}
+			}
+			got, ok := resolveAPIPath(parsed)
+			if got != tt.want || ok != tt.ok {
+				t.Fatalf("resolveAPIPath(%q) = (%q, %v), want (%q, %v)", tt.in, got, ok, tt.want, tt.ok)
 			}
 		})
 	}

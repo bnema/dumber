@@ -11,6 +11,8 @@ const (
 	actualInternalScheme           = "https"
 	actualInternalHost             = "dumber.invalid"
 	actualInternalOrigin           = actualInternalScheme + "://" + actualInternalHost
+	internalAPIPathPrefix          = "/api/"
+	internalAPIPathPrefixTrimmed   = "api/"
 )
 
 func isConceptualInternalURL(raw string) bool {
@@ -49,7 +51,7 @@ func toActualInternalURL(raw string) string {
 	case trimmedPath == "":
 		// Keep page roots at /history instead of /history/ so relative assets
 		// resolve from the origin root.
-	case strings.HasPrefix(trimmedPath, "api/"):
+	case strings.HasPrefix(trimmedPath, internalAPIPathPrefixTrimmed):
 		actualPath = "/" + trimmedPath
 	case path.Ext(trimmedPath) != "":
 		actualPath = "/" + trimmedPath
@@ -65,6 +67,36 @@ func toActualInternalURL(raw string) string {
 		Fragment: parsed.Fragment,
 	}
 	return actual.String()
+}
+
+func resolveAPIPath(u *url.URL) (string, bool) {
+	if u == nil {
+		return "", false
+	}
+
+	if strings.EqualFold(u.Scheme, actualInternalScheme) && strings.EqualFold(u.Host, actualInternalHost) {
+		if strings.HasPrefix(u.Path, internalAPIPathPrefix) {
+			return u.Path, true
+		}
+		return "", false
+	}
+
+	if !strings.EqualFold(u.Scheme, "dumb") {
+		return "", false
+	}
+
+	if strings.EqualFold(u.Host, "api") {
+		if u.Path == "" {
+			return "/api", true
+		}
+		return internalAPIPathPrefix[:len(internalAPIPathPrefix)-1] + u.Path, true
+	}
+
+	if strings.HasPrefix(u.Path, internalAPIPathPrefix) {
+		return u.Path, true
+	}
+
+	return "", false
 }
 
 func toConceptualInternalURL(raw string) string {

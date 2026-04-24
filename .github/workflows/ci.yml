@@ -12,25 +12,34 @@ on:
       - 'sqlc.yaml'
       - 'assets/**'
       - '.github/workflows/**'
-      - '!**.md'
-      - '!docs/**'
-      - '!LICENSE'
   pull_request:
-    paths:
-      - '**.go'
-      - 'go.mod'
-      - 'go.sum'
-      - '.golangci.yml'
-      - 'Makefile'
-      - 'sqlc.yaml'
-      - 'assets/**'
-      - '.github/workflows/**'
-      - '!**.md'
-      - '!docs/**'
-      - '!LICENSE'
 
 jobs:
+  changes:
+    runs-on: ubuntu-latest
+    outputs:
+      ci: ${{ steps.filter.outputs.ci }}
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+      - uses: dorny/paths-filter@v4
+        id: filter
+        with:
+          filters: |
+            ci:
+              - '**.go'
+              - 'go.mod'
+              - 'go.sum'
+              - '.golangci.yml'
+              - 'Makefile'
+              - 'sqlc.yaml'
+              - 'assets/**'
+              - '.github/workflows/**'
+
   lint:
+    needs: changes
+    if: needs.changes.outputs.ci == 'true'
     runs-on: ubuntu-latest
     container:
       image: archlinux:latest
@@ -58,13 +67,15 @@ jobs:
         run: make build-systemviews
       - name: Install golangci-lint
         run: |
-          curl -sSfL https://raw.githubusercontent.com/golangci/golangci-lint/HEAD/install.sh | sh -s -- -b /usr/local/bin v2.9.0
+          curl -sSfL https://raw.githubusercontent.com/golangci/golangci-lint/HEAD/install.sh | sh -s -- -b /usr/local/bin latest
       - name: Run golangci-lint
         run: |
           git config --global --add safe.directory "$GITHUB_WORKSPACE"
           golangci-lint run --timeout=20m
 
   test:
+    needs: changes
+    if: needs.changes.outputs.ci == 'true'
     runs-on: ubuntu-latest
     container:
       image: archlinux:latest

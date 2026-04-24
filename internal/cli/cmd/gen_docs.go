@@ -57,7 +57,7 @@ func runGenDocs(_ *cobra.Command, _ []string) error {
 	if outputDir == "" {
 		switch genDocsFormat {
 		case "man":
-			xdg := xdgadapter.New()
+			xdg := xdgadapter.New(false, "")
 			manDir, err := xdg.ManDir()
 			if err != nil {
 				return fmt.Errorf("resolve man directory: %w", err)

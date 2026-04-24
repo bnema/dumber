@@ -115,6 +115,7 @@ type Omnibox struct {
 	shortcutsUC           *usecase.SearchShortcutsUseCase
 	defaultSearch         string
 	initialBehavior       entity.OmniboxInitialBehavior
+	mostVisitedDays       int
 	saveInitialBehaviorFn func(context.Context, entity.OmniboxInitialBehavior) error
 	ctx                   context.Context
 
@@ -161,6 +162,7 @@ type OmniboxConfig struct {
 	ShortcutsUC         *usecase.SearchShortcutsUseCase
 	DefaultSearch       string
 	InitialBehavior     entity.OmniboxInitialBehavior
+	MostVisitedDays     int
 	SaveInitialBehavior func(ctx context.Context, behavior entity.OmniboxInitialBehavior) error
 	UIScale             float64                                                     // UI scale for favicon sizing
 	OnNavigate          func(url string)                                            // Callback when user navigates via omnibox
@@ -194,6 +196,7 @@ func NewOmnibox(ctx context.Context, cfg OmniboxConfig) *Omnibox {
 		shortcutsUC:           cfg.ShortcutsUC,
 		defaultSearch:         cfg.DefaultSearch,
 		initialBehavior:       cfg.InitialBehavior,
+		mostVisitedDays:       cfg.MostVisitedDays,
 		saveInitialBehaviorFn: cfg.SaveInitialBehavior,
 		onToast:               cfg.OnToast,
 		onAccentKeyPress:      cfg.OnAccentKeyPress,
@@ -725,8 +728,9 @@ func (o *Omnibox) initList() error {
 	o.listBox.AddCssClass("omnibox-listbox")
 	o.listBox.SetSelectionMode(gtk.SelectionSingleValue)
 
-	rowSelectedCb := func(_ gtk.ListBox, row *gtk.ListBoxRow) {
+	rowSelectedCb := func(_ gtk.ListBox, rowPtr uintptr) {
 		o.restoreEntryToRealInput()
+		row := gtk.ListBoxRowNewFromInternalPtr(rowPtr)
 		if row == nil {
 			o.mu.Lock()
 			o.selectedIndex = -1
@@ -742,7 +746,8 @@ func (o *Omnibox) initList() error {
 	o.listBox.ConnectRowSelected(&rowSelectedCb)
 
 	// Handle row activation (click or Enter) - navigate directly to the URL
-	rowActivatedCb := func(_ gtk.ListBox, row *gtk.ListBoxRow) {
+	rowActivatedCb := func(_ gtk.ListBox, rowPtr uintptr) {
+		row := gtk.ListBoxRowNewFromInternalPtr(rowPtr)
 		if row == nil {
 			return
 		}
@@ -750,12 +755,17 @@ func (o *Omnibox) initList() error {
 		o.mu.RLock()
 		mode := o.viewMode
 		bangMode := o.bangMode
+		bangSuggestions := o.bangSuggestions
 		suggestions := o.suggestions
 		favorites := o.favorites
 		o.mu.RUnlock()
 
 		// Don't navigate in bang mode - activating a bang should fill it in
 		if bangMode {
+			if bangText, ok := bangSuggestionTextAt(idx, bangSuggestions); ok && o.entry != nil {
+				o.entry.SetText(bangText)
+				o.entry.SetPosition(-1)
+			}
 			return
 		}
 
@@ -1453,6 +1463,13 @@ func selectedTargetURL(mode ViewMode, idx, maxVisible int, suggestions []Suggest
 	return resolveTargetURLForSelection(mode, idx, maxVisible, suggestions, favorites), true
 }
 
+func bangSuggestionTextAt(idx int, bangSuggestions []BangSuggestion) (string, bool) {
+	if idx < 0 || idx >= len(bangSuggestions) {
+		return "", false
+	}
+	return "!" + bangSuggestions[idx].Key + " ", true
+}
+
 func visibleResultCount(total, maxVisible int) int {
 	if total <= 0 {
 		return 0
@@ -1590,6 +1607,7 @@ func (o *Omnibox) loadInitialHistory(token uint64) {
 	// Capture effective result limit on the GTK main thread before spawning goroutine
 	initialLimit := o.effectiveMaxRows()
 	initialBehavior := o.initialBehavior
+	mostVisitedDays := o.mostVisitedDays
 
 	go func() {
 		ctx := o.ctx
@@ -1616,7 +1634,11 @@ func (o *Omnibox) loadInitialHistory(token uint64) {
 					err     error
 				)
 				if initialBehavior == entity.OmniboxInitialBehaviorMostVisited {
-					results, err = o.historyUC.GetMostVisited(ctx, 0)
+					if mostVisitedDays == 0 {
+						results, err = o.historyUC.GetMostVisited(ctx, 0)
+					} else {
+						results, err = o.historyUC.GetMostVisited(ctx, mostVisitedDays)
+					}
 					if err == nil && len(results) > initialLimit {
 						results = results[:initialLimit]
 					}
@@ -2283,8 +2305,8 @@ func (o *Omnibox) navigateToSelected() {
 		}
 
 		// Otherwise, Enter autocompletes the selected bang.
-		if idx >= 0 && idx < len(bangSuggestions) {
-			o.entry.SetText("!" + bangSuggestions[idx].Key + " ")
+		if bangText, ok := bangSuggestionTextAt(idx, bangSuggestions); ok {
+			o.entry.SetText(bangText)
 			o.entry.SetPosition(-1)
 			return
 		}

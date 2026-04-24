@@ -9,9 +9,11 @@ import (
 	"github.com/bnema/dumber/internal/application/usecase"
 	audiofactory "github.com/bnema/dumber/internal/infrastructure/audio/factory"
 	"github.com/bnema/dumber/internal/infrastructure/cef"
+	clipboardinfra "github.com/bnema/dumber/internal/infrastructure/clipboard"
 	"github.com/bnema/dumber/internal/infrastructure/config"
 	"github.com/bnema/dumber/internal/infrastructure/env"
 	"github.com/bnema/dumber/internal/infrastructure/handlers"
+	"github.com/bnema/dumber/internal/infrastructure/runtimeprofile"
 	"github.com/bnema/dumber/internal/infrastructure/transcoder"
 	"github.com/bnema/dumber/internal/infrastructure/webkit"
 	"github.com/bnema/dumber/internal/ui/theme"
@@ -20,13 +22,12 @@ import (
 
 // EngineInput holds the input for BuildEngine.
 type EngineInput struct {
-	Ctx           context.Context
-	Config        *config.Config
-	DataDir       string
-	CacheDir      string
-	ThemeManager  *theme.Manager
-	ColorResolver port.ColorSchemeResolver
-	Logger        zerolog.Logger
+	Ctx            context.Context
+	Config         *config.Config
+	RuntimeProfile runtimeprofile.Profile
+	ThemeManager   *theme.Manager
+	ColorResolver  port.ColorSchemeResolver
+	Logger         zerolog.Logger
 }
 
 // BuildEngine constructs a port.Engine for the engine type specified in cfg.Engine.Type.
@@ -45,35 +46,42 @@ func BuildEngine(input EngineInput) (port.Engine, error) {
 	}
 	currentConfigPayload := buildConfigPayload(systemviewUC.Current)
 	defaultConfigPayload := buildConfigPayload(systemviewUC.Default)
+	contextMenuBuilder := usecase.NewBuildContextMenuUseCase()
+	contextMenuExecutorFactory := &usecase.ContextMenuActionExecutorFactory{}
 	engineType := cfg.Engine.ResolveEngineType()
 	switch engineType {
 	case config.EngineTypeWebKit:
+		profile, err := requireRuntimeProfile(input.RuntimeProfile, engineType)
+		if err != nil {
+			return nil, err
+		}
 		opts := port.EngineOptions{
-			DataDir:      input.DataDir,
-			CacheDir:     input.CacheDir,
 			CookiePolicy: port.CookiePolicy(cfg.Engine.CookiePolicy),
 		}
 		wkCfg := webkit.EngineConfigFromConfig(cfg.Engine.WebKit)
 
 		return webkit.NewEngine(
-			input.Ctx, cfg, opts, wkCfg,
+			input.Ctx, cfg, opts, profile, wkCfg,
 			currentConfigPayload, defaultConfigPayload,
-			input.ThemeManager, input.ColorResolver, input.Logger,
+			input.ThemeManager, input.ColorResolver,
+			contextMenuBuilder, contextMenuExecutorFactory,
+			input.Logger,
 		)
 	case config.EngineTypeCEF:
+		profile, err := requireRuntimeProfile(input.RuntimeProfile, engineType)
+		if err != nil {
+			return nil, err
+		}
 		opts := port.EngineOptions{
-			DataDir:      input.DataDir,
-			CacheDir:     input.CacheDir,
 			CookiePolicy: port.CookiePolicy(cfg.Engine.CookiePolicy),
 		}
 		cefCfg := cef.RuntimeConfig{
-			CEFDir:                   cfg.Engine.CEF.CEFDir,
-			LogFile:                  cfg.Engine.CEF.LogFile,
-			LogSeverity:              cfg.Engine.CEF.LogSeverity,
-			WindowlessFrameRate:      cfg.Engine.CEF.WindowlessFrameRate,
-			EnableAudioHandler:       cfg.Engine.CEF.EnableAudioHandler,
-			EnableContextMenuHandler: cfg.Engine.CEF.EnableContextMenuHandler,
-			TraceHandlers:            cfg.Engine.CEF.TraceHandlers,
+			CEFDir:              cfg.Engine.CEF.CEFDir,
+			LogFile:             cfg.Engine.CEF.LogFile,
+			LogSeverity:         cfg.Engine.CEF.LogSeverity,
+			WindowlessFrameRate: cfg.Engine.CEF.WindowlessFrameRate,
+			EnableAudioHandler:  cfg.Engine.CEF.EnableAudioHandler,
+			TraceHandlers:       cfg.Engine.CEF.TraceHandlers,
 		}
 		transcodingCfg := cef.TranscodingRuntimeConfig{
 			Enabled:       cfg.Transcoding.Enabled,
@@ -82,10 +90,14 @@ func BuildEngine(input EngineInput) (port.Engine, error) {
 			Quality:       cfg.Transcoding.Quality,
 		}
 		deps := cef.EngineDependencies{
-			RegisterHandlers:       handlers.RegisterAll,
-			RegisterAccentHandlers: handlers.RegisterAccentHandlers,
-			CurrentConfigPayload:   currentConfigPayload,
-			DefaultConfigPayload:   defaultConfigPayload,
+			RegisterHandlers:           handlers.RegisterAll,
+			RegisterAccentHandlers:     handlers.RegisterAccentHandlers,
+			CurrentConfigPayload:       currentConfigPayload,
+			DefaultConfigPayload:       defaultConfigPayload,
+			ContextMenuBuilder:         contextMenuBuilder,
+			ContextMenuExecutorFactory: contextMenuExecutorFactory,
+			Clipboard:                  clipboardinfra.New(),
+			ImageDataResolver:          webkit.NewContextMenuResolver(),
 			MediaClassifier: cef.MediaClassifier{
 				IsProprietaryVideoMIME:     transcoder.IsProprietaryVideoMIME,
 				IsOpenVideoMIME:            transcoder.IsOpenVideoMIME,
@@ -96,8 +108,21 @@ func BuildEngine(input EngineInput) (port.Engine, error) {
 			},
 		}
 		audioFactory := audiofactory.NewAudioOutputFactory()
-		return cef.NewEngine(input.Ctx, opts, cefCfg, transcodingCfg, audioFactory, deps)
+		return cef.NewEngine(input.Ctx, opts, cef.RuntimePaths{
+			StateRoot: profile.CEFUserDataDir(),
+			LogFile:   profile.CEFLogFile(),
+		}, cefCfg, transcodingCfg, audioFactory, deps)
 	default:
 		return nil, fmt.Errorf("unknown engine type: %q", engineType)
 	}
+}
+
+func requireRuntimeProfile(profile runtimeprofile.Profile, engineType string) (runtimeprofile.Profile, error) {
+	if profile.Engine == "" {
+		return runtimeprofile.Profile{}, fmt.Errorf("missing runtime profile for %s engine", engineType)
+	}
+	if profile.Engine != engineType {
+		return runtimeprofile.Profile{}, fmt.Errorf("runtime profile engine %q does not match %q", profile.Engine, engineType)
+	}
+	return profile, nil
 }

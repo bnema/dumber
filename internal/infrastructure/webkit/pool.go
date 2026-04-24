@@ -10,8 +10,8 @@ import (
 	"time"
 
 	"github.com/bnema/dumber/internal/logging"
-	"github.com/bnema/puregotk-webkit/webkit"
 	"github.com/bnema/puregotk/v4/glib"
+	"github.com/bnema/puregotk/v4/webkit"
 )
 
 // ErrPoolClosed is returned when operations are attempted on a closed pool.
@@ -65,9 +65,11 @@ type WebViewPool struct {
 
 	pool          chan *WebView
 	poolMu        sync.Mutex
+	ctxMenuMu     sync.RWMutex
 	injector      *ContentInjector
 	router        *MessageRouter
-	filterApplier FilterApplier // Optional content filter applier
+	filterApplier FilterApplier        // Optional content filter applier
+	ctxMenu       *contextMenuPipeline // Optional context menu pipeline
 
 	// Background color for WebViews (eliminates white flash)
 	bg bgColor
@@ -145,6 +147,13 @@ func (p *WebViewPool) SetBackgroundColor(r, g, b, a float32) {
 	p.bg.set(r, g, b, a)
 }
 
+// SetContextMenuPipeline sets the context menu pipeline for newly created WebViews.
+func (p *WebViewPool) SetContextMenuPipeline(pipeline *contextMenuPipeline) {
+	p.ctxMenuMu.Lock()
+	p.ctxMenu = pipeline
+	p.ctxMenuMu.Unlock()
+}
+
 // Acquire gets a WebView from the pool or creates a new one.
 func (p *WebViewPool) Acquire(ctx context.Context) (*WebView, error) {
 	log := logging.FromContext(ctx)
@@ -170,6 +179,16 @@ func (p *WebViewPool) Acquire(ctx context.Context) (*WebView, error) {
 			// Apply filters if available (may not have been applied during prewarm)
 			if p.filterApplier != nil {
 				p.filterApplier.ApplyTo(ctx, wv.ucm)
+			}
+			// Ensure context menu pipeline is set (may not have been available during prewarm)
+			p.ctxMenuMu.RLock()
+			ctxMenu := p.ctxMenu
+			p.ctxMenuMu.RUnlock()
+			if ctxMenu != nil {
+				wv.contextMenu = ctxMenu
+				if needsExplicitContextMenuSignalOnAcquire(wv, ctxMenu) {
+					wv.connectContextMenuSignal(ctxMenu)
+				}
 			}
 			wv.ReconnectSignals()
 			p.acquireCount.Add(1)
@@ -214,6 +233,10 @@ func (p *WebViewPool) Acquire(ctx context.Context) (*WebView, error) {
 	return wv, nil
 }
 
+func needsExplicitContextMenuSignalOnAcquire(wv *WebView, pipeline *contextMenuPipeline) bool {
+	return wv != nil && pipeline != nil && len(wv.signalIDs) > 0
+}
+
 func (p *WebViewPool) createWebView(ctx context.Context) (*WebView, error) {
 	log := logging.FromContext(ctx)
 
@@ -235,6 +258,15 @@ func (p *WebViewPool) createWebView(ctx context.Context) (*WebView, error) {
 	// Apply content filters if configured
 	if p.filterApplier != nil {
 		p.filterApplier.ApplyTo(ctx, wv.ucm)
+	}
+
+	// Wire context menu if configured
+	p.ctxMenuMu.RLock()
+	ctxMenu := p.ctxMenu
+	p.ctxMenuMu.RUnlock()
+	if ctxMenu != nil {
+		wv.contextMenu = ctxMenu
+		wv.connectContextMenuSignal(ctxMenu)
 	}
 
 	return wv, nil

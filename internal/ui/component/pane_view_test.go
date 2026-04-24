@@ -211,7 +211,12 @@ func TestSetWebViewWidget_ReplacesWidget(t *testing.T) {
 
 	// Expect removal of old widget and addition of new
 	mockOverlay.EXPECT().SetChild(nil).Once()
+	mockOverlay.EXPECT().GetAllocatedWidth().Return(0).Twice()
+	mockOverlay.EXPECT().GetAllocatedHeight().Return(0).Twice()
 	mockNewWebView.EXPECT().GetParent().Return(nil).Once()
+	mockNewWebView.EXPECT().IsVisible().Return(false).Once()
+	mockNewWebView.EXPECT().GetAllocatedWidth().Return(0).Twice()
+	mockNewWebView.EXPECT().GetAllocatedHeight().Return(0).Twice()
 	mockOverlay.EXPECT().SetChild(mockNewWebView).Once()
 
 	// Act
@@ -233,7 +238,12 @@ func TestSetWebViewWidget_FromNil(t *testing.T) {
 	pv := component.NewPaneView(context.Background(), mockFactory, entity.PaneID("pane-1"), nil)
 
 	// Expect only setting new child (no removal since old was nil)
+	mockOverlay.EXPECT().GetAllocatedWidth().Return(0).Twice()
+	mockOverlay.EXPECT().GetAllocatedHeight().Return(0).Twice()
 	mockNewWebView.EXPECT().GetParent().Return(nil).Once()
+	mockNewWebView.EXPECT().IsVisible().Return(false).Once()
+	mockNewWebView.EXPECT().GetAllocatedWidth().Return(0).Twice()
+	mockNewWebView.EXPECT().GetAllocatedHeight().Return(0).Twice()
 	mockOverlay.EXPECT().SetChild(mockNewWebView).Once()
 
 	// Act

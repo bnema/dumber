@@ -28,9 +28,10 @@ type KeyboardDispatcher struct {
 	onFindNext       func(ctx context.Context) error
 	onFindPrev       func(ctx context.Context) error
 	onFindClose      func(ctx context.Context) error
-	onSessionOpen    func(ctx context.Context) error
-	onMovePaneToTab  func(ctx context.Context) error
-	onMovePaneToNext func(ctx context.Context) error
+	activePaneID     func(ctx context.Context) entity.PaneID
+	onSessionOpen    func(ctx context.Context, paneID entity.PaneID) error
+	onMovePaneToTab  func(ctx context.Context, paneID entity.PaneID) error
+	onMovePaneToNext func(ctx context.Context, paneID entity.PaneID) error
 	onToggleFloating func(ctx context.Context) error
 	onOpenFloating   func(ctx context.Context, target input.FloatingProfileTarget) error
 }
@@ -44,17 +45,19 @@ func NewKeyboardDispatcher(
 	zoomUC *usecase.ManageZoomUseCase,
 	copyURLUC *usecase.CopyURLUseCase,
 	newPaneURL string,
+	activePaneID func(context.Context) entity.PaneID,
 ) *KeyboardDispatcher {
 	log := logging.FromContext(ctx)
 	log.Debug().Msg("creating keyboard dispatcher")
 
 	dispatcher := &KeyboardDispatcher{
-		tabCoord:   tabCoord,
-		wsCoord:    wsCoord,
-		navCoord:   navCoord,
-		zoomUC:     zoomUC,
-		copyURLUC:  copyURLUC,
-		newPaneURL: newPaneURL,
+		tabCoord:     tabCoord,
+		wsCoord:      wsCoord,
+		navCoord:     navCoord,
+		zoomUC:       zoomUC,
+		copyURLUC:    copyURLUC,
+		newPaneURL:   newPaneURL,
+		activePaneID: activePaneID,
 	}
 	dispatcher.initActionHandlers()
 	return dispatcher
@@ -86,15 +89,15 @@ func (d *KeyboardDispatcher) SetOnFindClose(fn func(ctx context.Context) error) 
 }
 
 // SetOnSessionOpen sets the callback for opening the session manager.
-func (d *KeyboardDispatcher) SetOnSessionOpen(fn func(ctx context.Context) error) {
+func (d *KeyboardDispatcher) SetOnSessionOpen(fn func(ctx context.Context, paneID entity.PaneID) error) {
 	d.onSessionOpen = fn
 }
 
-func (d *KeyboardDispatcher) SetOnMovePaneToTab(fn func(ctx context.Context) error) {
+func (d *KeyboardDispatcher) SetOnMovePaneToTab(fn func(ctx context.Context, paneID entity.PaneID) error) {
 	d.onMovePaneToTab = fn
 }
 
-func (d *KeyboardDispatcher) SetOnMovePaneToNextTab(fn func(ctx context.Context) error) {
+func (d *KeyboardDispatcher) SetOnMovePaneToNextTab(fn func(ctx context.Context, paneID entity.PaneID) error) {
 	d.onMovePaneToNext = fn
 }
 
@@ -289,7 +292,7 @@ func (d *KeyboardDispatcher) handleFindClose(ctx context.Context) error {
 
 func (d *KeyboardDispatcher) handleSessionOpen(ctx context.Context) error {
 	if d.onSessionOpen != nil {
-		return d.onSessionOpen(ctx)
+		return d.onSessionOpen(ctx, d.activePaneID(ctx))
 	}
 	logging.FromContext(ctx).Debug().Msg("session open action (no handler)")
 	return nil
@@ -297,7 +300,7 @@ func (d *KeyboardDispatcher) handleSessionOpen(ctx context.Context) error {
 
 func (d *KeyboardDispatcher) handleMovePaneToTab(ctx context.Context) error {
 	if d.onMovePaneToTab != nil {
-		return d.onMovePaneToTab(ctx)
+		return d.onMovePaneToTab(ctx, d.activePaneID(ctx))
 	}
 	logging.FromContext(ctx).Debug().Msg("move pane to tab action (no handler)")
 	return nil
@@ -305,7 +308,7 @@ func (d *KeyboardDispatcher) handleMovePaneToTab(ctx context.Context) error {
 
 func (d *KeyboardDispatcher) handleMovePaneToNextTab(ctx context.Context) error {
 	if d.onMovePaneToNext != nil {
-		return d.onMovePaneToNext(ctx)
+		return d.onMovePaneToNext(ctx, d.activePaneID(ctx))
 	}
 	logging.FromContext(ctx).Debug().Msg("move pane to next tab action (no handler)")
 	return nil

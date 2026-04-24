@@ -11,10 +11,10 @@ import (
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
 
+	"github.com/bnema/dumber/internal/application/port"
 	"github.com/bnema/dumber/internal/application/usecase"
 	"github.com/bnema/dumber/internal/cli/styles"
 	"github.com/bnema/dumber/internal/domain/entity"
-	"github.com/bnema/dumber/internal/infrastructure/desktop"
 	"github.com/bnema/dumber/internal/logging"
 )
 
@@ -43,6 +43,7 @@ type SessionsModel struct {
 	listSessionsUC  *usecase.ListSessionsUseCase
 	restoreUC       *usecase.RestoreSessionUseCase
 	deleteSessionUC *usecase.DeleteSessionUseCase
+	sessionSpawner  port.SessionSpawner
 	theme           *styles.Theme
 }
 
@@ -114,6 +115,7 @@ type SessionsModelConfig struct {
 	ListSessionsUC    *usecase.ListSessionsUseCase
 	RestoreUC         *usecase.RestoreSessionUseCase
 	DeleteSessionUC   *usecase.DeleteSessionUseCase
+	SessionSpawner    port.SessionSpawner
 	CurrentSession    entity.SessionID
 	MaxExitedSessions int
 }
@@ -137,6 +139,7 @@ func NewSessionsModel(ctx context.Context, theme *styles.Theme, cfg SessionsMode
 		listSessionsUC:    cfg.ListSessionsUC,
 		restoreUC:         cfg.RestoreUC,
 		deleteSessionUC:   cfg.DeleteSessionUC,
+		sessionSpawner:    cfg.SessionSpawner,
 		currentSession:    cfg.CurrentSession,
 		theme:             theme,
 	}
@@ -336,8 +339,10 @@ func (m SessionsModel) restoreSession(sessionID entity.SessionID) tea.Cmd {
 		}
 
 		// Spawn a new dumber instance
-		spawner := desktop.NewSessionSpawner(m.ctx)
-		if err := spawner.SpawnWithSession(sessionID); err != nil {
+		if m.sessionSpawner == nil {
+			return sessionRestoredMsg{sessionID: sessionID, err: fmt.Errorf("session spawner not available")}
+		}
+		if err := m.sessionSpawner.SpawnWithSession(sessionID); err != nil {
 			return sessionRestoredMsg{sessionID: sessionID, err: err}
 		}
 

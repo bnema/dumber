@@ -11,17 +11,18 @@ import (
 	"time"
 
 	"github.com/bnema/dumber/internal/application/port"
+	downloadutil "github.com/bnema/dumber/internal/domain/download"
 	"github.com/bnema/dumber/internal/domain/entity"
 	urlutil "github.com/bnema/dumber/internal/domain/url"
 	"github.com/bnema/dumber/internal/infrastructure/desktop"
 	"github.com/bnema/dumber/internal/logging"
-	"github.com/bnema/puregotk-webkit/webkit"
 	"github.com/bnema/puregotk/v4/gdk"
 	"github.com/bnema/puregotk/v4/gio"
 	"github.com/bnema/puregotk/v4/glib"
 	"github.com/bnema/puregotk/v4/gobject"
 	gtypes "github.com/bnema/puregotk/v4/gobject/types"
 	"github.com/bnema/puregotk/v4/gtk"
+	"github.com/bnema/puregotk/v4/webkit"
 	"github.com/rs/zerolog"
 )
 
@@ -29,6 +30,7 @@ import (
 var _ port.WebView = (*WebView)(nil)
 var _ port.DevToolsOpener = (*WebView)(nil)
 var _ port.Printer = (*WebView)(nil)
+var _ port.PopupLifecycleCapable = (*WebView)(nil)
 var _ port.OAuthCallbackCapable = (*WebView)(nil)
 
 // WebViewID is an alias to port.WebViewID for clean architecture compliance.
@@ -185,6 +187,9 @@ type WebView struct {
 
 	backForwardList         *webkit.BackForwardList
 	backForwardListSignalID uintptr
+
+	// contextMenu holds the optional context menu pipeline for reconnection.
+	contextMenu *contextMenuPipeline
 }
 
 type runJSErrorStat struct {
@@ -429,6 +434,7 @@ func (wv *WebView) connectSignals() {
 	wv.connectBackForwardListChangedSignal()
 	wv.connectWebProcessTerminatedSignal()
 	wv.connectPermissionRequestSignal()
+	wv.connectContextMenuSignal(wv.contextMenu)
 }
 
 func (wv *WebView) connectLoadChangedSignal() {
@@ -820,22 +826,7 @@ func shouldForceDownload(responseDecision *webkit.ResponsePolicyDecision) bool {
 		return false
 	}
 
-	mimeType := strings.ToLower(response.GetMimeType())
-	if strings.HasPrefix(mimeType, "application/pdf") {
-		return true
-	}
-
-	uri := response.GetUri()
-	if uri == "" {
-		return false
-	}
-
-	parsed, err := url.Parse(uri)
-	if err != nil {
-		return strings.Contains(strings.ToLower(uri), ".pdf")
-	}
-
-	return strings.HasSuffix(strings.ToLower(parsed.Path), ".pdf")
+	return downloadutil.ShouldForceDownload(response.GetUri(), response.GetMimeType())
 }
 
 func (wv *WebView) connectEnterFullscreenSignal() {
@@ -1594,15 +1585,19 @@ func (wv *WebView) Show() {
 	wv.inner.SetVisible(true)
 }
 
+// PrimePopupNavigation is a no-op for WebKit, which already has a native popup
+// browser at the time the coordinator receives popup lifecycle callbacks.
+func (*WebView) PrimePopupNavigation(string) {}
+
 // SetOnReadyToShow sets the callback invoked when the popup WebView is ready to display.
-// It implements port.PopupCapable.
+// It implements port.PopupLifecycleCapable.
 func (wv *WebView) SetOnReadyToShow(fn func()) {
 	wv.OnReadyToShow = fn
 }
 
 // SetOnClose composes fn with any existing OnClose handler so multiple callers
 // can each register a close callback without overwriting one another.
-// It implements port.PopupCapable.
+// It implements port.PopupLifecycleCapable.
 func (wv *WebView) SetOnClose(fn func()) {
 	existing := wv.OnClose
 	if existing == nil {

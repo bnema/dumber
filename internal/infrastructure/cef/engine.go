@@ -2,18 +2,23 @@ package cef
 
 import (
 	"context"
+	"crypto/subtle"
+	"fmt"
 	"sync"
 	"sync/atomic"
 	"time"
+	"unicode/utf8"
 
 	purecef "github.com/bnema/purego-cef/cef"
 
+	"github.com/bnema/dumber/internal/application/dto"
 	"github.com/bnema/dumber/internal/application/port"
 	"github.com/bnema/dumber/internal/logging"
 )
 
 // Compile-time interface check.
 var _ port.Engine = (*Engine)(nil)
+var _ port.AlreadyRunningAppRelaunchHandlerSetter = (*Engine)(nil)
 
 // Engine implements port.Engine for the CEF browser backend.
 // It manages the CEF lifecycle and provides access to all engine subsystems.
@@ -27,15 +32,26 @@ type Engine struct {
 	schemeHandler *dumbSchemeHandler
 	contentInj    *contentInjector
 
-	registerHandlers       HandlerRegistrar
-	registerAccentHandlers AccentHandlerRegistrar
-	currentConfigPayload   func() ([]byte, error)
-	defaultConfigPayload   func() ([]byte, error)
-	mediaClassifier        MediaClassifier
+	registerHandlers                 HandlerRegistrar
+	registerAccentHandlers           AccentHandlerRegistrar
+	currentConfigPayload             func() ([]byte, error)
+	defaultConfigPayload             func() ([]byte, error)
+	ctxMenuBuilder                   port.ContextMenuBuilder
+	ctxMenuExecutorFactory           port.ContextMenuActionExecutorFactory
+	clipboard                        port.Clipboard
+	clipboardTextOrchestrator        port.ClipboardTextOrchestrator
+	onClipboardCopied                func(textLen int)
+	resolver                         port.ImageDataResolver
+	mediaClassifier                  MediaClassifier
+	downloadMu                       sync.RWMutex
+	downloadHandler                  *downloadHandler
+	alreadyRunningAppRelaunchMu      sync.RWMutex
+	alreadyRunningAppRelaunchHandler func(string)
 
 	// activeWebViews tracks all live webviews for CSS broadcast.
-	activeWebViews sync.Map // map[port.WebViewID]*WebView
-	activeCount    atomic.Int32
+	activeWebViews  sync.Map // map[port.WebViewID]*WebView
+	browserWebViews sync.Map // map[int32]*WebView
+	activeCount     atomic.Int32
 
 	// shutdownNotify is signaled when the active webview count reaches 0
 	// during shutdown, replacing the busy-wait poll in closeActiveWebViews.
@@ -110,16 +126,66 @@ func (e *Engine) SetColorResolver(resolver port.ColorSchemeResolver) {
 	}
 }
 
+// SetAlreadyRunningAppRelaunchHandler configures the callback invoked when CEF
+// relaunches an already-running app instance.
+func (e *Engine) SetAlreadyRunningAppRelaunchHandler(handler func(string)) {
+	e.alreadyRunningAppRelaunchMu.Lock()
+	defer e.alreadyRunningAppRelaunchMu.Unlock()
+	e.alreadyRunningAppRelaunchHandler = handler
+}
+
+func (e *Engine) alreadyRunningAppRelaunchCallback() func(string) {
+	e.alreadyRunningAppRelaunchMu.RLock()
+	defer e.alreadyRunningAppRelaunchMu.RUnlock()
+	return e.alreadyRunningAppRelaunchHandler
+}
+
 // registerWebView adds a webview to the active tracking map.
 func (e *Engine) registerWebView(wv *WebView) {
 	e.activeWebViews.Store(wv.id, wv)
 	e.activeCount.Add(1)
 }
 
+func (e *Engine) lookupWebView(id port.WebViewID) *WebView {
+	if e == nil {
+		return nil
+	}
+	current, ok := e.activeWebViews.Load(id)
+	if !ok {
+		return nil
+	}
+	wv, _ := current.(*WebView)
+	return wv
+}
+
+func (e *Engine) bindBrowserWebView(browser purecef.Browser, wv *WebView) {
+	if e == nil || browser == nil || wv == nil {
+		return
+	}
+	browserID := browser.GetIdentifier()
+	if browserID <= 0 {
+		logging.FromContext(e.ctx).Debug().Int32("browser_id", browserID).Msg("cef: skipped browser/webview binding for invalid browser id")
+		return
+	}
+	e.browserWebViews.Store(browserID, wv)
+}
+
+func (e *Engine) unbindBrowserWebView(browserID int32, wv *WebView) {
+	if e == nil || browserID <= 0 {
+		return
+	}
+	if current, ok := e.browserWebViews.Load(browserID); ok {
+		if existing, ok := current.(*WebView); ok && existing == wv {
+			e.browserWebViews.Delete(browserID)
+		}
+	}
+}
+
 // unregisterWebView removes a webview from the active tracking map.
 // If the count reaches 0 and a shutdown is in progress, it signals shutdownNotify.
-func (e *Engine) unregisterWebView(wv *WebView) {
+func (e *Engine) unregisterWebView(wv *WebView, browserID int32) {
 	e.activeWebViews.Delete(wv.id)
+	e.unbindBrowserWebView(browserID, wv)
 	if e.activeCount.Add(-1) == 0 && e.shutdownNotify != nil {
 		select {
 		case e.shutdownNotify <- struct{}{}:
@@ -215,6 +281,8 @@ func (e *Engine) closeActiveWebViews() {
 // each handler is registered by message type with the router, which dispatches
 // incoming /api/message POSTs to the correct handler based on Message.Type.
 func (e *Engine) RegisterHandlers(ctx context.Context, deps port.HandlerDependencies) error {
+	e.clipboardTextOrchestrator = deps.ClipboardTextOrchestrator
+	e.onClipboardCopied = deps.OnClipboardCopied
 	if e.messageRouter == nil || e.registerHandlers == nil {
 		return nil
 	}
@@ -228,9 +296,20 @@ func (e *Engine) RegisterAccentHandlers(ctx context.Context, handler port.Accent
 	return e.registerAccentHandlers(ctx, e.messageRouter, handler)
 }
 
-// ConfigureDownloads sets up download handling (Phase 1 stub).
-func (e *Engine) ConfigureDownloads(_ context.Context, _ string, _ port.DownloadEventHandler, _ port.DownloadPreparer) error {
-	return ErrDownloadsUnsupported
+// ConfigureDownloads sets up download handling for all CEF webviews.
+func (e *Engine) ConfigureDownloads(
+	_ context.Context,
+	downloadPath string,
+	eventHandler port.DownloadEventHandler,
+	preparer port.DownloadPreparer,
+) error {
+	if preparer == nil {
+		return fmt.Errorf("cef: download preparer is required")
+	}
+	e.downloadMu.Lock()
+	e.downloadHandler = newDownloadHandler(downloadPath, eventHandler, preparer)
+	e.downloadMu.Unlock()
+	return nil
 }
 
 // OnToolkitReady is called after the UI toolkit has initialized.
@@ -253,6 +332,53 @@ func (e *Engine) UpdateAppearance(_ context.Context, r, g, b, alpha float64) err
 // UpdateSettings applies runtime config changes to engine internals (Phase 1 stub).
 func (e *Engine) UpdateSettings(_ context.Context, _ port.EngineSettingsUpdate) error {
 	return nil
+}
+
+func (e *Engine) handleExplicitClipboardBridgeText(viewID port.WebViewID, action, text string) {
+	if e == nil || text == "" {
+		return
+	}
+	if e.clipboardTextOrchestrator == nil {
+		logging.FromContext(e.currentContext()).Debug().
+			Str("action", action).
+			Msg("cef: clipboard orchestration skipped — orchestrator nil")
+		return
+	}
+	if err := e.clipboardTextOrchestrator.HandleExplicitCopy(e.currentContext(), dto.ExplicitClipboardInput{
+		Text:         text,
+		Action:       action,
+		SourceEngine: dto.ClipboardSourceCEF,
+		ViewID:       uint64(viewID),
+	}); err != nil {
+		logging.FromContext(e.currentContext()).Debug().
+			Err(err).
+			Str("action", action).
+			Int("text_len", utf8.RuneCountInString(text)).
+			Msg("cef: clipboard explicit copy handling failed")
+	}
+}
+
+func (e *Engine) handleClipboardSelectionUpdate(viewID port.WebViewID, text string) {
+	if e == nil || e.clipboardTextOrchestrator == nil {
+		return
+	}
+	if err := e.clipboardTextOrchestrator.HandleSelectionUpdate(e.currentContext(), dto.SelectionClipboardInput{
+		Text:         text,
+		SourceEngine: dto.ClipboardSourceCEF,
+		ViewID:       uint64(viewID),
+	}); err != nil {
+		logging.FromContext(e.currentContext()).Debug().
+			Err(err).
+			Int("text_len", utf8.RuneCountInString(text)).
+			Msg("cef: clipboard selection handling failed")
+	}
+}
+
+func (e *Engine) notifyClipboardCopied(text string) {
+	if e == nil || e.onClipboardCopied == nil || text == "" {
+		return
+	}
+	e.onClipboardCopied(utf8.RuneCountInString(text))
 }
 
 // SetHandlerContext sets the base context for message handler dispatch.
@@ -336,6 +462,34 @@ func (e *Engine) currentContext() context.Context {
 		return context.Background()
 	}
 	return e.ctx
+}
+
+func (e *Engine) validateBridgeRequest(browser purecef.Browser, bridgeNonce string) bool {
+	if e == nil || browser == nil || bridgeNonce == "" {
+		return false
+	}
+
+	wv := e.webViewForBrowser(browser)
+	if wv == nil {
+		return false
+	}
+
+	wv.mu.RLock()
+	wvBridgeNonce := wv.bridgeNonce
+	wv.mu.RUnlock()
+	if wvBridgeNonce == "" {
+		return false
+	}
+	return subtle.ConstantTimeCompare([]byte(wvBridgeNonce), []byte(bridgeNonce)) == 1
+}
+
+func (e *Engine) currentDownloadHandler() *downloadHandler {
+	if e == nil {
+		return nil
+	}
+	e.downloadMu.RLock()
+	defer e.downloadMu.RUnlock()
+	return e.downloadHandler
 }
 
 func (e *Engine) logTranscoderStartupState() {

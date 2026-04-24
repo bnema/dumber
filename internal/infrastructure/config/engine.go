@@ -85,7 +85,7 @@ type CEFEngineConfig struct {
 	// libcef.so and the Resources/locales subdirectories.
 	CEFDir string `mapstructure:"cef_dir" toml:"cef_dir" yaml:"cef_dir"`
 	// LogFile overrides the CEF internal log destination. When empty,
-	// Dumber writes CEF startup logs to .dev/dumber/logs/cef_runtime.log.
+	// Dumber uses the resolved runtime-profile default engine log path.
 	LogFile string `mapstructure:"log_file" toml:"log_file" yaml:"log_file"`
 	// LogSeverity controls CEF's internal log verbosity.
 	// 0 = default, 1 = verbose, 2 = info, 3 = warning, 4 = error, 99 = disable.
@@ -95,8 +95,6 @@ type CEFEngineConfig struct {
 	WindowlessFrameRate int32 `mapstructure:"windowless_frame_rate" toml:"windowless_frame_rate" yaml:"windowless_frame_rate"`
 	// EnableAudioHandler opts into the experimental CEF AudioHandler bridge.
 	EnableAudioHandler bool `mapstructure:"enable_audio_handler" toml:"enable_audio_handler" yaml:"enable_audio_handler"`
-	// EnableContextMenuHandler opts into the experimental CEF ContextMenuHandler bridge.
-	EnableContextMenuHandler bool `mapstructure:"enable_context_menu_handler" toml:"enable_context_menu_handler" yaml:"enable_context_menu_handler"` //nolint:lll // struct tags exceed lll limit
 	// TraceHandlers enables purego-cef handler/refcount tracing for diagnostics.
 	TraceHandlers bool `mapstructure:"trace_handlers" toml:"trace_handlers" yaml:"trace_handlers"`
 }

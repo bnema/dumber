@@ -4,7 +4,7 @@ import (
 	"context"
 	"time"
 
-	"github.com/bnema/puregotk-webkit/webkit"
+	"github.com/bnema/puregotk/v4/webkit"
 )
 
 // FilterStore abstracts the WebKit UserContentFilterStore operations.

@@ -1,6 +1,6 @@
 # Makefile for dumber (Clean Architecture - puregotk)
 
-.PHONY: build build-systemviews test lint clean install-tools dev generate help init man flatpak-deps flatpak-build flatpak-install flatpak-run flatpak-clean stress-omnibox-callbacks verify-purego check
+.PHONY: build build-systemviews build-quick install-local test lint clean install-tools dev generate help init man flatpak-deps flatpak-build flatpak-install flatpak-run flatpak-clean stress-omnibox-callbacks verify-purego check
 
 # Load local overrides from .env.local if present (Makefile syntax)
 ifneq (,$(wildcard .env.local))
@@ -12,6 +12,7 @@ endif
 BINARY_NAME=dumber
 MAIN_PATH=./cmd/dumber
 DIST_DIR=dist
+LOCAL_BIN_DIR?=$(HOME)/.local/bin
 
 # Detect number of CPU cores for parallel compilation
 NPROCS?=$(shell nproc 2>/dev/null || echo 1)
@@ -42,7 +43,7 @@ build: build-systemviews ## Build the application (pure Go, no CGO)
 	@echo "Building $(BINARY_NAME) $(VERSION) using $(NPROCS) cores..."
 	@mkdir -p $(DIST_DIR)
 	CGO_ENABLED=0 go build -p $(NPROCS) $(GCFLAGS) $(LDFLAGS) -o $(DIST_DIR)/$(BINARY_NAME) $(MAIN_PATH)
-	CGO_ENABLED=0 go build -p $(NPROCS) -ldflags "-s -w" -o $(DIST_DIR)/cef-helper ./cmd/cef-helper
+	@rm -f $(DIST_DIR)/cef-helper
 	@echo "Build successful! Binary: $(DIST_DIR)/$(BINARY_NAME)"
 
 build-systemviews: ## Build the WASM systemviews runtime
@@ -56,8 +57,21 @@ build-quick: ## Build quickly for backend development
 	@echo "Building $(BINARY_NAME) $(VERSION) (quick)..."
 	@mkdir -p $(DIST_DIR)
 	CGO_ENABLED=0 go build -p $(NPROCS) $(GCFLAGS) $(LDFLAGS) -o $(DIST_DIR)/$(BINARY_NAME) $(MAIN_PATH)
-	CGO_ENABLED=0 go build -p $(NPROCS) -ldflags "-s -w" -o $(DIST_DIR)/cef-helper ./cmd/cef-helper
+	@rm -f $(DIST_DIR)/cef-helper
 	@echo "Build successful! Binary: $(DIST_DIR)/$(BINARY_NAME)"
+
+install-local: build-quick ## Install dumber to ~/.local/bin atomically
+	@echo "Installing $(BINARY_NAME) to $(LOCAL_BIN_DIR)..."
+	@mkdir -p $(LOCAL_BIN_DIR)
+	@tmp_dumber="$$(mktemp '$(LOCAL_BIN_DIR)/.dumber.tmp.XXXXXX')"; \
+	trap 'rm -f "$$tmp_dumber"' EXIT INT TERM; \
+	install -m 0755 $(DIST_DIR)/$(BINARY_NAME) "$$tmp_dumber"; \
+	mv -f "$$tmp_dumber" $(LOCAL_BIN_DIR)/$(BINARY_NAME); \
+	removed_stale=0; \
+	if [ -e $(LOCAL_BIN_DIR)/cef-helper ]; then rm -f $(LOCAL_BIN_DIR)/cef-helper && removed_stale=1; fi; \
+	trap - EXIT INT TERM; \
+	echo "Installed: $(LOCAL_BIN_DIR)/$(BINARY_NAME)"; \
+	if [ "$$removed_stale" -eq 1 ]; then echo "Removed stale: $(LOCAL_BIN_DIR)/cef-helper"; fi
 
 # Development targets
 dev: ## Run in development mode

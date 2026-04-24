@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"unsafe"
 
-	"github.com/ebitengine/purego"
+	"github.com/bnema/purego"
 )
 
 // OpenGL constants for PBO-based texture rendering.

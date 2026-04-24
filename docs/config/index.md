@@ -104,12 +104,14 @@ dumber dmenu --days 14 --most-visited
 | Key | Type | Default | Valid Values | Description |
 |-----|------|---------|--------------|-------------|
 | `omnibox.initial_behavior` | string | `"recent"` | `recent`, `most_visited`, `none` | Initial history display behavior |
+| `omnibox.most_visited_days` | int | `30` | `>= 0` | Days of history to consider when `initial_behavior = "most_visited"` (`0` = all history) |
 | `omnibox.auto_open_on_new_pane` | bool | `false` | - | Automatically open the omnibox after creating a new pane |
 
 **Example:**
 ```toml
 [omnibox]
 initial_behavior = "recent"  # Show recent history when omnibox opens
+most_visited_days = 30        # Days of history used for most_visited
 auto_open_on_new_pane = false
 
 # Alternative options:
