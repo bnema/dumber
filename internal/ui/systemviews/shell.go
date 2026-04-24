@@ -109,3 +109,7 @@ func sectionHTML(class, title, inner string) string {
 func emptyStateHTML(message string) string {
 	return fmt.Sprintf(`<div class="sv-empty"><p>%s</p></div>`, html.EscapeString(message))
 }
+
+func errorStateHTML(message string) string {
+	return fmt.Sprintf(`<div class="sv-error" role="alert"><p>Could not load this system view.</p><p class="sv-meta">%s</p></div>`, html.EscapeString(message))
+}

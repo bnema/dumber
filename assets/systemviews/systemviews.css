@@ -121,6 +121,22 @@ body {
   color: var(--sv-muted, #9aa3b2);
 }
 
+.sv-error {
+  border: 1px solid color-mix(in srgb, #ef4444 65%, var(--sv-border, #2a313d));
+  background: color-mix(in srgb, #ef4444 12%, var(--sv-surface, #171a21));
+  border-radius: 0.75rem;
+  color: var(--sv-fg, #e8ebf0);
+  padding: 1rem;
+}
+
+.sv-error p {
+  margin: 0;
+}
+
+.sv-error p + p {
+  margin-top: 0.5rem;
+}
+
 .sv-kv {
   margin: 0.75rem 0 0;
   display: grid;

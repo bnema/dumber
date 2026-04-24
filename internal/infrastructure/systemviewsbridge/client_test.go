@@ -3,7 +3,9 @@ package systemviewsbridge
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"testing"
+	"time"
 
 	"github.com/bnema/dumber/internal/application/port"
 )
@@ -356,6 +358,23 @@ func TestClientConfigActionsUseExpectedMessageTypes(t *testing.T) {
 	}
 }
 
+func TestClientRequestUsesDefaultTimeoutWhenCallerHasNoDeadline(t *testing.T) {
+	oldTimeout := bridgeRequestTimeout
+	bridgeRequestTimeout = time.Millisecond
+	t.Cleanup(func() { bridgeRequestTimeout = oldTimeout })
+
+	transport := &blockingTransport{available: true}
+	client := NewClient(transport, nil)
+
+	_, err := client.Timeline(context.Background(), 25, 0)
+	if !errors.Is(err, context.DeadlineExceeded) {
+		t.Fatalf("Timeline() error = %v, want context deadline exceeded", err)
+	}
+	if !transport.called {
+		t.Fatal("transport was not called")
+	}
+}
+
 func TestClientCreateFolderIncludesParentID(t *testing.T) {
 	t.Parallel()
 
@@ -421,4 +440,17 @@ func (t *fakeTransport) Send(_ context.Context, body []byte) ([]byte, error) {
 	t.called = true
 	t.last = append(t.last[:0], body...)
 	return t.response, nil
+}
+
+type blockingTransport struct {
+	available bool
+	called    bool
+}
+
+func (t *blockingTransport) Available() bool { return t.available }
+
+func (t *blockingTransport) Send(ctx context.Context, _ []byte) ([]byte, error) {
+	t.called = true
+	<-ctx.Done()
+	return nil, ctx.Err()
 }

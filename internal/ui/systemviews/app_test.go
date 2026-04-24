@@ -2,6 +2,7 @@ package systemviews
 
 import (
 	"context"
+	"errors"
 	"testing"
 
 	"github.com/bnema/dumber/internal/application/port"
@@ -82,6 +83,23 @@ func TestAppLoadInitialHistoryRouteUsesStyledSections(t *testing.T) {
 	assert.Contains(t, app.renderedHTML, `data-route="history"`)
 	assert.Contains(t, app.renderedHTML, `class="sv-section"`)
 	assert.Contains(t, app.renderedHTML, `class="sv-list"`)
+}
+
+func TestAppLoadInitialHistoryRouteRendersErrorState(t *testing.T) {
+	t.Parallel()
+
+	history := &fakeHistoryService{err: errors.New("database unavailable")}
+	app := NewApp(Dependencies{
+		History:     history,
+		LocationURI: "dumb://history",
+	})
+
+	require.NoError(t, app.LoadInitial(context.Background()))
+	assert.Equal(t, RouteHistory, app.CurrentRoute())
+	assert.True(t, history.called)
+	assert.Contains(t, app.renderedHTML, "Could not load this system view")
+	assert.Contains(t, app.renderedHTML, "database unavailable")
+	assert.Contains(t, app.renderedHTML, `role="alert"`)
 }
 
 func TestAppLoadInitialHistoryRouteAppliesThemeTokens(t *testing.T) {
@@ -319,13 +337,14 @@ type fakeHistoryService struct {
 	limit   int
 	offset  int
 	entries []*entity.HistoryEntry
+	err     error
 }
 
 func (s *fakeHistoryService) Timeline(_ context.Context, limit, offset int) ([]*entity.HistoryEntry, error) {
 	s.called = true
 	s.limit = limit
 	s.offset = offset
-	return s.entries, nil
+	return s.entries, s.err
 }
 
 func (s *fakeHistoryService) Search(context.Context, string, int) ([]*entity.HistoryEntry, error) {

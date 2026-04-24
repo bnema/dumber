@@ -60,13 +60,14 @@ func (a *App) LoadInitial(ctx context.Context) error {
 		a.currentRoute = ParseRoute(a.deps.LocationURI)
 	}
 
+	var err error
 	switch a.currentRoute {
 	case RouteHistory:
-		return a.loadHistoryRoute(ctx)
+		err = a.loadHistoryRoute(ctx)
 	case RouteFavorites:
-		return a.loadFavoritesRoute(ctx)
+		err = a.loadFavoritesRoute(ctx)
 	case RouteConfig:
-		return a.loadConfigRoute(ctx)
+		err = a.loadConfigRoute(ctx)
 	default:
 		a.resetRouteState()
 		a.renderedHTML = renderAppFrame(renderedPage{
@@ -75,6 +76,36 @@ func (a *App) LoadInitial(ctx context.Context) error {
 			body:     placeholderHTML(a.currentRoute),
 		}, a.shellTheme)
 		return nil
+	}
+	if err != nil {
+		a.renderRouteError(err)
+	}
+	return nil
+}
+
+func (a *App) renderRouteError(err error) {
+	a.resetRouteState()
+	message := "unknown error"
+	if err != nil {
+		message = err.Error()
+	}
+	a.renderedHTML = renderAppFrame(renderedPage{
+		route:    a.currentRoute,
+		subtitle: routeSubtitle(a.currentRoute),
+		body:     errorStateHTML(message),
+	}, a.shellTheme)
+}
+
+func routeSubtitle(route Route) string {
+	switch route {
+	case RouteHistory:
+		return "Recent visits"
+	case RouteFavorites:
+		return "Saved bookmarks"
+	case RouteConfig:
+		return "Browser settings"
+	default:
+		return string(route)
 	}
 }
 

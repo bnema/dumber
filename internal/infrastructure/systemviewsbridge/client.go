@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"sync/atomic"
+	"time"
 
 	"github.com/bnema/dumber/internal/application/port"
 	"github.com/bnema/dumber/internal/domain/entity"
@@ -28,6 +29,8 @@ var _ port.SystemviewHistoryService = (*Client)(nil)
 var _ port.SystemviewFavoritesService = (*Client)(nil)
 
 var requestSeq atomic.Uint64
+
+var bridgeRequestTimeout = 15 * time.Second
 
 // NewClient creates a bridge client with native WebKit and fetch transports.
 func NewClient(native, fetch Transport) *Client {
@@ -284,12 +287,25 @@ func (c *Client) transport() Transport {
 func request[T any](c *Client, ctx context.Context, msgType string, payload any) (T, error) {
 	var zero T
 
+	ctx, cancel := withBridgeRequestTimeout(ctx)
+	defer cancel()
+
 	raw, err := c.Send(ctx, msgType, payload)
 	if err != nil {
 		return zero, err
 	}
 
 	return decodeBridgeResponse[T](raw)
+}
+
+func withBridgeRequestTimeout(ctx context.Context) (context.Context, context.CancelFunc) {
+	if ctx == nil {
+		ctx = context.Background()
+	}
+	if _, ok := ctx.Deadline(); ok || bridgeRequestTimeout <= 0 {
+		return context.WithCancel(ctx)
+	}
+	return context.WithTimeout(ctx, bridgeRequestTimeout)
 }
 
 type bridgeResponse struct {
