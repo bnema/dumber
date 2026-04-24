@@ -126,6 +126,7 @@ auto_open_on_new_pane = false
 | `logging.level` | string | `"info"` | `debug`, `info`, `warn`, `error` | Log level |
 | `logging.format` | string | `"text"` | `text`, `json` | Log format |
 | `logging.max_age` | int | `7` | >= 0 | Days to keep logs |
+| `logging.max_files` | int | `100` | >= 0 | Session log files to keep (`0` disables count cleanup) |
 | `logging.log_dir` | string | `~/.local/state/dumber/logs/` | any | Log directory |
 | `logging.enable_file_log` | bool | `true` | - | Enable file logging |
 | `logging.capture_console` | bool | `false` | - | Capture browser console to logs |

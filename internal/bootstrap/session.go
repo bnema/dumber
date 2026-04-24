@@ -348,6 +348,22 @@ func runSessionCleanup(
 
 	// Prune old marker files left by previous versions.
 	sweepLegacyMarkers(cfg.Logging.LogDir, log)
+
+	removedLogs, logCleanupErr := corelogging.CleanupSessionLogFiles(
+		cfg.Logging.LogDir,
+		cfg.Logging.MaxFiles,
+		string(currentSessionID),
+	)
+	if logCleanupErr != nil {
+		if log != nil {
+			log.Warn().Err(logCleanupErr).Msg("background: failed to cleanup session log files")
+		}
+	} else if removedLogs > 0 && log != nil {
+		log.Info().
+			Int("deleted", removedLogs).
+			Int("max_files", cfg.Logging.MaxFiles).
+			Msg("background: cleaned up session log files")
+	}
 }
 
 // sweepLegacyMarkers removes .startup.marker, .shutdown.marker,

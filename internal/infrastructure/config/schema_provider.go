@@ -198,6 +198,14 @@ func (*SchemaProvider) getLoggingKeys(defaults *Config) []entity.ConfigKeyInfo {
 			Section:     SectionLogging,
 		},
 		{
+			Key:         "logging.max_files",
+			Type:        "int",
+			Default:     fmt.Sprintf("%d", defaults.Logging.MaxFiles),
+			Description: "Maximum number of session log files to keep (0 disables count-based cleanup)",
+			Range:       ">=0",
+			Section:     SectionLogging,
+		},
+		{
 			Key:         "logging.log_dir",
 			Type:        "string",
 			Default:     defaults.Logging.LogDir,

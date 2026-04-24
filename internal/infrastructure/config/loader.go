@@ -453,6 +453,7 @@ func (m *Manager) setLoggingDefaults(defaults *Config) {
 	m.viper.SetDefault("logging.level", defaults.Logging.Level)
 	m.viper.SetDefault("logging.format", defaults.Logging.Format)
 	m.viper.SetDefault("logging.max_age", defaults.Logging.MaxAge)
+	m.viper.SetDefault("logging.max_files", defaults.Logging.MaxFiles)
 	m.viper.SetDefault("logging.log_dir", defaults.Logging.LogDir)
 	m.viper.SetDefault("logging.enable_file_log", defaults.Logging.EnableFileLog)
 	m.viper.SetDefault("logging.capture_console", defaults.Logging.CaptureConsole)

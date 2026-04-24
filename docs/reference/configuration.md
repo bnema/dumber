@@ -23,6 +23,7 @@
 | `logging.level` | string | `info` | `debug`, `info`, `warn`, `error` |
 | `logging.format` | string | `text` | `text`, `json` |
 | `logging.max_age` | int | `7` | >= 0 |
+| `logging.max_files` | int | `100` | >= 0 |
 | `logging.log_dir` | string | `~/.local/state/dumber/logs/` | |
 | `logging.enable_file_log` | bool | `true` | |
 | `logging.capture_console` | bool | `false` | |
