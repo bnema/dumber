@@ -4,6 +4,8 @@ import (
 	"fmt"
 	"html"
 	"strings"
+
+	"github.com/a-h/templ"
 )
 
 type kvPair struct {
@@ -22,34 +24,50 @@ type renderedPage struct {
 // renderAppFrame produces a self-contained HTML fragment (no <html>, <head>,
 // or <body>) that wraps route content in the shared shell.
 func renderAppFrame(page renderedPage, theme shellTheme) string {
-	rootClass := "sv-app"
+	return mustRenderComponent(appFrameComponent(page, theme, templ.Raw(page.body)))
+}
+
+func appRootClass(theme shellTheme) string {
 	themeClass := theme.RootClass
 	if themeClass == "" {
 		themeClass = "sv-dark"
 	}
-	rootClass += " " + themeClass
+	return "sv-app " + themeClass
+}
 
-	var styleAttr string
-	if theme.InlineVars != "" {
-		styleAttr = fmt.Sprintf(` style=%q`, html.EscapeString(theme.InlineVars))
+func sectionClass(className string) string {
+	classes := "sv-section"
+	if strings.TrimSpace(className) != "" {
+		classes += " " + strings.TrimSpace(className)
 	}
+	return classes
+}
 
-	routeAttr := html.EscapeString(string(page.route))
-
-	var subtitle string
-	if page.subtitle != "" {
-		subtitle = fmt.Sprintf(`<h1 class="sv-title">%s</h1>`, html.EscapeString(page.subtitle))
+func alertClass(kind string) string {
+	classes := "sv-alert"
+	switch kind {
+	case "error":
+		return classes + " sv-alert-error"
+	case "success":
+		return classes + " sv-alert-success"
+	default:
+		return classes
 	}
+}
 
-	return fmt.Sprintf(`<div class=%q data-route=%q%s><div class=%q>%s<div class=%q>%s</div></div></div>`,
-		html.EscapeString(rootClass),
-		routeAttr,
-		styleAttr,
-		"sv-shell",
-		subtitle,
-		"sv-content",
-		page.body,
-	)
+func alertRole(kind string) string {
+	if kind == "error" {
+		return "alert"
+	}
+	return "status"
+}
+
+func buttonClass(extra string) string {
+	classes := strings.TrimSpace("sv-button " + strings.TrimSpace(extra))
+	if classes == "" {
+		return "sv-button"
+	}
+	return classes
 }
 
 func listHTML(rows, emptyMessage string) string {

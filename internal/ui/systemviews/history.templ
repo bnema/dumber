@@ -1,0 +1,126 @@
+package systemviews
+
+import (
+	"fmt"
+	"github.com/bnema/dumber/internal/domain/entity"
+)
+
+templ HistoryView(data historyRenderData) {
+	@Alert("success", data.Notice)
+	@Alert("error", data.Error)
+	@Section("sv-history-controls", "Manage history") {
+		@HistoryControls(data)
+	}
+	@Section("sv-history-summary", "History") {
+		@HistorySummary(data)
+	}
+	@Section("sv-history-domains", "Top domains") {
+		@HistoryDomains(data)
+	}
+	@Section("sv-history-timeline", "Recent visits") {
+		@HistoryTimeline(data)
+	}
+}
+
+templ HistoryControls(data historyRenderData) {
+	<form class="sv-toolbar sv-history-search" data-sv-action="history.search">
+		<label class="sv-search-label">
+			<span>Search</span>
+			<input data-sv-history-search name="query" type="search" value={ data.Query } placeholder="Search title or URL" autocomplete="off"/>
+		</label>
+		<button class="sv-button" type="submit">Search</button>
+		<button class="sv-button sv-button-secondary" type="button" data-sv-action="history.clear">Clear</button>
+	</form>
+	if showHistoryFilters(data) {
+		<div class="sv-active-filters">
+			if data.Query != "" {
+				<span class="sv-filter-chip">Query: { data.Query }</span>
+			}
+			if data.DomainFilter != "" {
+				<span class="sv-filter-chip">Domain: { data.DomainFilter } <button type="button" data-sv-action="history.clearDomain" aria-label="Clear domain filter">×</button></span>
+			}
+		</div>
+	}
+	<div class="sv-history-actions-panel">
+		<div class="sv-button-row" aria-label="History pagination">
+			<button type="button" class="sv-button sv-button-secondary" data-sv-action="history.page" data-offset={ fmt.Sprintf("%d", previousHistoryOffset(data)) } disabled?={ disableHistoryPrev(data) }>Previous</button>
+			<span class="sv-meta">Showing { fmt.Sprintf("%d", countHistoryEntries(data.Entries)) } item{ pluralSuffix(countHistoryEntries(data.Entries)) }{ historyOffsetLabel(data.Offset, data.Query) }</span>
+			<button type="button" class="sv-button sv-button-secondary" data-sv-action="history.page" data-offset={ fmt.Sprintf("%d", nextHistoryOffset(data)) } disabled?={ disableHistoryNext(data) }>Next</button>
+		</div>
+		<div class="sv-button-row" aria-label="History cleanup">
+			<span class="sv-meta">Clean up</span>
+			for _, item := range historyCleanupItems() {
+				<button type="button" class="sv-button sv-button-secondary sv-button-danger" data-sv-action="history.deleteRange" data-range={ item.RangeID } data-sv-confirm={ item.Confirm }>{ item.Label }</button>
+			}
+		</div>
+	</div>
+	<p class="sv-meta sv-key-hints">Keys: <kbd>/</kbd> search, <kbd>j</kbd>/<kbd>k</kbd> move, <kbd>Enter</kbd> open, <kbd>d</kbd> delete focused entry.</p>
+}
+
+templ HistorySummary(data historyRenderData) {
+	{{ entries, visits, days := historySummaryValues(data) }}
+	<div class="sv-stat-grid">
+		@HistoryStatCard("Entries", entries)
+		@HistoryStatCard("Visits", visits)
+		@HistoryStatCard("Days", days)
+	</div>
+}
+
+templ HistoryStatCard(label string, value int64) {
+	<div class="sv-stat-card"><span class="sv-stat-value">{ fmt.Sprintf("%d", value) }</span><span class="sv-stat-label">{ label }</span></div>
+}
+
+templ HistoryDomains(data historyRenderData) {
+	if len(data.Domains) == 0 {
+		@EmptyState("No domain statistics yet")
+	} else {
+		<div class="sv-domain-list">
+			for _, domain := range data.Domains {
+				if domain != nil && domain.Domain != "" {
+					{{ displayDomain := displayHistoryDomain(domain.Domain) }}
+					<span class="sv-domain-chip">
+						<button type="button" class="sv-domain-filter" data-sv-action="history.filterDomain" data-domain={ displayDomain }>{ displayDomain }</button>
+						<span class="sv-domain-meta">{ fmt.Sprintf("%d pages · %d visits", domain.PageCount, domain.TotalVisits) }</span>
+						<button type="button" class="sv-icon-button sv-danger" data-sv-action="history.deleteDomain" data-domain={ displayDomain } data-sv-confirm={ "Delete all history for " + displayDomain + "?" } aria-label={ "Delete history for " + displayDomain }>×</button>
+					</span>
+				}
+			}
+		</div>
+	}
+}
+
+templ HistoryTimeline(data historyRenderData) {
+	{{ groups := groupHistoryEntries(data.Entries) }}
+	if len(groups) == 0 {
+		@EmptyState(historyTimelineEmptyMessage(data))
+	} else {
+		for _, group := range groups {
+			<section class="sv-timeline-group">
+				<h3>{ group.Label }</h3>
+				<ul class="sv-list">
+					for _, entry := range group.Entries {
+						if entry != nil {
+							@HistoryItem(entry)
+						}
+					}
+				</ul>
+			</section>
+		}
+	}
+}
+
+templ HistoryItem(entry *entity.HistoryEntry) {
+	<li class="sv-list-row">
+		<article class="sv-history-item" data-sv-history-row data-history-id={ fmt.Sprintf("%d", entry.ID) }>
+			<div class="sv-history-main">
+				<a class="sv-link sv-history-open" href={ templ.SafeURL(sanitizeHref(entry.URL)) }>{ historyItemLabel(entry) }</a>
+				<p class="sv-history-url">{ entry.URL }</p>
+				<p class="sv-history-meta">{ historyItemMeta(entry) }</p>
+			</div>
+			<div class="sv-history-row-actions">
+				<a class="sv-button sv-button-secondary" href={ templ.SafeURL(sanitizeHref(entry.URL)) }>Open</a>
+				<button type="button" class="sv-button sv-button-secondary sv-button-danger" data-sv-action="history.deleteEntry" data-id={ fmt.Sprintf("%d", entry.ID) } data-sv-confirm="Delete this history entry?" disabled?={ entry.ID <= 0 }>Delete</button>
+			</div>
+		</article>
+	</li>
+}

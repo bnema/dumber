@@ -1,0 +1,77 @@
+package systemviews
+
+templ appFrameComponent(page renderedPage, theme shellTheme, body templ.Component) {
+	<div class={ appRootClass(theme) } data-route={ string(page.route) }
+		if theme.InlineVars != "" {
+			style={ theme.InlineVars }
+		}
+	>
+		<div class="sv-shell">
+			if page.subtitle != "" {
+				<h1 class="sv-title">{ page.subtitle }</h1>
+			}
+			<div class="sv-content">
+				@body
+			</div>
+		</div>
+	</div>
+}
+
+templ Section(className string, title string) {
+	<section class={ sectionClass(className) }>
+		<h2>{ title }</h2>
+		{ children... }
+	</section>
+}
+
+templ Meta(text string) {
+	<p class="sv-meta">{ text }</p>
+}
+
+templ EmptyState(message string) {
+	<div class="sv-empty"><p>{ message }</p></div>
+}
+
+templ Alert(kind string, message string) {
+	if message != "" {
+		<div class={ alertClass(kind) } role={ alertRole(kind) }>{ message }</div>
+	}
+}
+
+templ List(emptyMessage string) {
+	<ul class="sv-list">
+		{ children... }
+	</ul>
+}
+
+templ ListRow() {
+	<li class="sv-list-row">
+		{ children... }
+	</li>
+}
+
+templ Button(label string, action string, classes string, attrs templ.Attributes, disabled bool) {
+	<button type="button" class={ buttonClass(classes) } data-sv-action={ action } disabled?={ disabled } { attrs... }>{ label }</button>
+}
+
+templ KeyList(keys []string) {
+	if len(keys) == 0 {
+		<span class="sv-key sv-key-empty">Unassigned</span>
+	} else {
+		for _, key := range keys {
+			<span class="sv-key">{ key }</span>
+		}
+	}
+}
+
+templ KV(rows []kvPair) {
+	if len(rows) == 0 {
+		@EmptyState("No configuration details")
+	} else {
+		<dl class="sv-kv">
+			for _, row := range rows {
+				<div class="sv-kv-row"><dt>{ row.Label }</dt><dd>{ row.Value }</dd></div>
+			}
+		</dl>
+	}
+}

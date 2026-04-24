@@ -1,6 +1,6 @@
 # Makefile for dumber (Clean Architecture - puregotk)
 
-.PHONY: build build-systemviews build-quick install-local test lint clean install-tools dev generate help init man flatpak-deps flatpak-build flatpak-install flatpak-run flatpak-clean stress-omnibox-callbacks verify-purego check
+.PHONY: build build-systemviews generate-systemviews build-quick install-local test lint clean install-tools dev generate help init man flatpak-deps flatpak-build flatpak-install flatpak-run flatpak-clean stress-omnibox-callbacks verify-purego check
 
 # Load local overrides from .env.local if present (Makefile syntax)
 ifneq (,$(wildcard .env.local))
@@ -46,7 +46,12 @@ build: build-systemviews ## Build the application (pure Go, no CGO)
 	@rm -f $(DIST_DIR)/cef-helper
 	@echo "Build successful! Binary: $(DIST_DIR)/$(BINARY_NAME)"
 
-build-systemviews: ## Build the WASM systemviews runtime
+generate-systemviews: ## Generate Go code from systemviews templ components
+	@echo "Generating systemviews templ components..."
+	go tool templ generate -path internal/ui/systemviews -include-version=false
+	@echo "Systemviews templ generation complete"
+
+build-systemviews: generate-systemviews ## Build the WASM systemviews runtime
 	@echo "Building systemviews wasm assets..."
 	@mkdir -p assets/systemviews
 	@cp "$$(go env GOROOT)/lib/wasm/wasm_exec.js" assets/systemviews/wasm_exec.js
