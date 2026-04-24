@@ -21,6 +21,7 @@ type Dependencies struct {
 
 type App struct {
 	mu                   sync.Mutex
+	actionMu             sync.Mutex
 	deps                 Dependencies
 	currentRoute         Route
 	shellTheme           shellTheme
@@ -85,6 +86,7 @@ func (a *App) RunWithContext(ctx context.Context) error {
 }
 
 func (a *App) bindDOMActions(ctx context.Context, binder DOMActionBinder) error {
+	a.actionMu.Lock()
 	if a.actionQueue == nil {
 		workerCtx, cancel := context.WithCancel(ctx)
 		a.actionQueue = make(chan DOMAction, 64)
@@ -92,24 +94,40 @@ func (a *App) bindDOMActions(ctx context.Context, binder DOMActionBinder) error 
 		a.actionCancel = cancel
 		go a.runActionWorker(workerCtx)
 	}
+	a.actionMu.Unlock()
 	return binder.BindActions(func(action DOMAction) {
-		if !a.enqueueDOMAction(action) {
+		if !a.enqueueDOMAction(action) && a.actionWorkerActive() {
 			go a.surfaceActionError(fmt.Errorf("systemview is busy; dropped action %q", action.Action))
 		}
 	})
 }
 
-func (a *App) enqueueDOMAction(action DOMAction) bool {
-	if a == nil || a.actionQueue == nil {
+func (a *App) actionWorkerActive() bool {
+	if a == nil {
 		return false
 	}
-	if a.actionCtx == nil {
+	a.actionMu.Lock()
+	queue := a.actionQueue
+	ctx := a.actionCtx
+	a.actionMu.Unlock()
+	return queue != nil && ctx != nil && ctx.Err() == nil
+}
+
+func (a *App) enqueueDOMAction(action DOMAction) bool {
+	if a == nil {
+		return false
+	}
+	a.actionMu.Lock()
+	queue := a.actionQueue
+	ctx := a.actionCtx
+	a.actionMu.Unlock()
+	if queue == nil || ctx == nil {
 		return false
 	}
 	select {
-	case <-a.actionCtx.Done():
+	case <-ctx.Done():
 		return false
-	case a.actionQueue <- action:
+	case queue <- action:
 		return true
 	default:
 		return false
@@ -146,12 +164,15 @@ func (a *App) Close() {
 	if a == nil {
 		return
 	}
-	if a.actionCancel != nil {
-		a.actionCancel()
-		a.actionCancel = nil
-	}
+	a.actionMu.Lock()
+	cancel := a.actionCancel
+	a.actionCancel = nil
 	a.actionCtx = nil
 	a.actionQueue = nil
+	a.actionMu.Unlock()
+	if cancel != nil {
+		cancel()
+	}
 	if releaser, ok := a.deps.DOM.(interface{ Release() }); ok {
 		releaser.Release()
 	}

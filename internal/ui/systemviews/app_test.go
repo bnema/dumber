@@ -163,6 +163,24 @@ func TestAppHandleHistoryActionsRefreshesDOM(t *testing.T) {
 	assert.Contains(t, dom.html, "Deleted history for example.com")
 }
 
+func TestAppCloseStopsActionWorkerAndReleasesDOM(t *testing.T) {
+	dom := &fakeActionDOM{}
+	history := &fakeHistoryService{entries: []*entity.HistoryEntry{{ID: 1, URL: "https://example.com"}}}
+	app := NewApp(Dependencies{DOM: dom, History: history, LocationURI: "dumb://history"})
+
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	require.NoError(t, app.RunWithContext(ctx))
+	require.NotNil(t, dom.handler)
+
+	app.Close()
+	assert.True(t, dom.released)
+	assert.False(t, app.enqueueDOMAction(DOMAction{Action: historyActionClear}))
+	require.NotPanics(t, func() {
+		dom.handler(DOMAction{Action: historyActionClear})
+	})
+}
+
 func TestAppLoadInitialHistoryRouteRendersErrorState(t *testing.T) {
 	t.Parallel()
 
@@ -625,6 +643,21 @@ func (d *fakeDOM) Mount(html string) error {
 	d.mounted = true
 	d.html = html
 	return nil
+}
+
+type fakeActionDOM struct {
+	fakeDOM
+	handler  DOMActionHandler
+	released bool
+}
+
+func (d *fakeActionDOM) BindActions(handler DOMActionHandler) error {
+	d.handler = handler
+	return nil
+}
+
+func (d *fakeActionDOM) Release() {
+	d.released = true
 }
 
 // Handwritten fake to capture history state for stateful render assertions.

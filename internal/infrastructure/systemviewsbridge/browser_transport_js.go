@@ -249,24 +249,52 @@ func awaitPromise(ctx context.Context, promise js.Value) (js.Value, error) {
 	}
 	resultCh := make(chan result, 1)
 
-	thenFn := js.FuncOf(func(_ js.Value, args []js.Value) any {
+	var (
+		callbackMu sync.Mutex
+		active     = true
+		released   bool
+		thenFn     js.Func
+		catchFn    js.Func
+	)
+	releaseCallbacksLocked := func() {
+		if released {
+			return
+		}
+		released = true
+		thenFn.Release()
+		catchFn.Release()
+	}
+	publish := func(res result) {
+		callbackMu.Lock()
+		defer callbackMu.Unlock()
+		if !active {
+			releaseCallbacksLocked()
+			return
+		}
+		active = false
+		select {
+		case resultCh <- res:
+		default:
+		}
+		releaseCallbacksLocked()
+	}
+
+	thenFn = js.FuncOf(func(_ js.Value, args []js.Value) any {
 		if len(args) == 0 {
-			resultCh <- result{value: js.Undefined()}
+			publish(result{value: js.Undefined()})
 			return nil
 		}
-		resultCh <- result{value: args[0]}
+		publish(result{value: args[0]})
 		return nil
 	})
-	catchFn := js.FuncOf(func(_ js.Value, args []js.Value) any {
+	catchFn = js.FuncOf(func(_ js.Value, args []js.Value) any {
 		if len(args) == 0 {
-			resultCh <- result{err: errors.New("promise rejected")}
+			publish(result{err: errors.New("promise rejected")})
 			return nil
 		}
-		resultCh <- result{err: errors.New(args[0].String())}
+		publish(result{err: errors.New(args[0].String())})
 		return nil
 	})
-	defer thenFn.Release()
-	defer catchFn.Release()
 
 	promise.Call("then", thenFn).Call("catch", catchFn)
 
@@ -274,6 +302,14 @@ func awaitPromise(ctx context.Context, promise js.Value) (js.Value, error) {
 	case res := <-resultCh:
 		return res.value, res.err
 	case <-ctx.Done():
+		select {
+		case res := <-resultCh:
+			return res.value, res.err
+		default:
+		}
+		callbackMu.Lock()
+		active = false
+		callbackMu.Unlock()
 		return js.Undefined(), ctx.Err()
 	}
 }
