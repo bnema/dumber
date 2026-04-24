@@ -44,6 +44,11 @@ func TestToActualInternalURL(t *testing.T) {
 			want: "https://dumber.invalid/api/message",
 		},
 		{
+			name: "config api path stays at origin root",
+			in:   "dumb://config/api/config/default",
+			want: "https://dumber.invalid/api/config/default",
+		},
+		{
 			name: "root asset stays at origin root",
 			in:   "dumb://history/favicon.ico",
 			want: "https://dumber.invalid/favicon.ico",
@@ -92,9 +97,15 @@ func TestResolveAPIPath(t *testing.T) {
 			ok:   true,
 		},
 		{
-			name: "conceptual page api path",
-			in:   "dumb://home/api/message",
+			name: "conceptual history api path",
+			in:   "dumb://history/api/message",
 			want: "/api/message",
+			ok:   true,
+		},
+		{
+			name: "conceptual config api path",
+			in:   "dumb://config/api/config/default",
+			want: "/api/config/default",
 			ok:   true,
 		},
 		{
