@@ -45,7 +45,7 @@ func TestRunSessionCleanup_SkipsCurrentActiveSession(t *testing.T) {
 	repo.EXPECT().DeleteExitedBefore(mock.Anything, mock.MatchedBy(func(time.Time) bool { return true })).Return(int64(0), nil).Once()
 	repo.EXPECT().DeleteOldestExited(mock.Anything, cfg.Session.MaxExitedSessions).Return(int64(0), nil).Once()
 
-	runSessionCleanup(ctx, sessionUC, cleanupUC, cfg, current.ID, nil)
+	runSessionCleanup(ctx, sessionUC, cleanupUC, cfg, cfg.Logging.LogDir, current.ID, nil)
 }
 
 func TestRunSessionCleanup_NoPanicOnNilSessions(t *testing.T) {
@@ -62,6 +62,6 @@ func TestRunSessionCleanup_NoPanicOnNilSessions(t *testing.T) {
 	repo.EXPECT().DeleteOldestExited(mock.Anything, cfg.Session.MaxExitedSessions).Return(int64(0), nil).Once()
 
 	require.NotPanics(t, func() {
-		runSessionCleanup(ctx, sessionUC, cleanupUC, cfg, entity.SessionID("current"), nil)
+		runSessionCleanup(ctx, sessionUC, cleanupUC, cfg, cfg.Logging.LogDir, entity.SessionID("current"), nil)
 	})
 }

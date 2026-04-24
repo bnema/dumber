@@ -63,7 +63,7 @@ type sessionLogFile struct {
 }
 
 // CleanupSessionLogFiles removes old session log files when their count exceeds maxFiles.
-// It keeps the newest files by modification time and never removes the supplied session IDs.
+// It keeps up to maxFiles of the newest requested session IDs, then the newest remaining files by modification time.
 // A maxFiles value of 0 disables count-based cleanup.
 func CleanupSessionLogFiles(logDir string, maxFiles int, keepSessionIDs ...string) (int, error) {
 	if logDir == "" || maxFiles <= 0 {
@@ -78,12 +78,12 @@ func CleanupSessionLogFiles(logDir string, maxFiles int, keepSessionIDs ...strin
 		return 0, fmt.Errorf("read log directory: %w", err)
 	}
 
-	keep := make(map[string]struct{}, len(keepSessionIDs))
+	requestedKeep := make(map[string]struct{}, len(keepSessionIDs))
 	for _, sessionID := range keepSessionIDs {
 		if sessionID == "" {
 			continue
 		}
-		keep[sessionID] = struct{}{}
+		requestedKeep[sessionID] = struct{}{}
 	}
 
 	files := make([]sessionLogFile, 0, len(entries))
@@ -119,15 +119,20 @@ func CleanupSessionLogFiles(logDir string, maxFiles int, keepSessionIDs ...strin
 		return files[i].modTime.After(files[j].modTime)
 	})
 
+	allowedKeep := boundedKeepSessionIDs(files, requestedKeep, maxFiles)
+	maxNewestFiles := maxFiles - len(allowedKeep)
 	kept := 0
+	keptNewest := 0
 	removed := 0
 	for _, file := range files {
-		if _, shouldKeep := keep[file.sessionID]; shouldKeep {
+		if _, shouldKeep := allowedKeep[file.sessionID]; shouldKeep {
+			if kept < maxFiles {
+				kept++
+				continue
+			}
+		} else if keptNewest < maxNewestFiles && kept < maxFiles {
 			kept++
-			continue
-		}
-		if kept < maxFiles {
-			kept++
+			keptNewest++
 			continue
 		}
 
@@ -139,4 +144,17 @@ func CleanupSessionLogFiles(logDir string, maxFiles int, keepSessionIDs ...strin
 	}
 
 	return removed, errors.Join(operationErrs...)
+}
+
+func boundedKeepSessionIDs(files []sessionLogFile, requestedKeep map[string]struct{}, maxFiles int) map[string]struct{} {
+	allowedKeep := make(map[string]struct{}, len(requestedKeep))
+	for _, file := range files {
+		if len(allowedKeep) >= maxFiles {
+			break
+		}
+		if _, shouldKeep := requestedKeep[file.sessionID]; shouldKeep {
+			allowedKeep[file.sessionID] = struct{}{}
+		}
+	}
+	return allowedKeep
 }

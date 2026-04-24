@@ -97,7 +97,7 @@ func TestCleanupSessionLogFiles_UsesFilenameTiebreakerForEqualModTimes(t *testin
 	assertExists(t, newestByName)
 }
 
-func TestCleanupSessionLogFiles_KeepsSpecifiedSession(t *testing.T) {
+func TestCleanupSessionLogFiles_KeepsSpecifiedSessionWithinLimit(t *testing.T) {
 	t.Parallel()
 
 	dir := t.TempDir()
@@ -112,13 +112,39 @@ func TestCleanupSessionLogFiles_KeepsSpecifiedSession(t *testing.T) {
 	if err != nil {
 		t.Fatalf("cleanup session log files: %v", err)
 	}
-	if removed != 1 {
-		t.Fatalf("removed = %d, want 1", removed)
+	if removed != 2 {
+		t.Fatalf("removed = %d, want 2", removed)
 	}
 
 	assertExists(t, oldestKept)
 	assertMissing(t, middle)
-	assertExists(t, newest)
+	assertMissing(t, newest)
+}
+
+func TestCleanupSessionLogFiles_BoundsSpecifiedSessionsToMaxFiles(t *testing.T) {
+	t.Parallel()
+
+	dir := t.TempDir()
+	base := time.Date(2026, 4, 24, 12, 0, 0, 0, time.UTC)
+
+	oldestKeptID := "20260424_120000_0001"
+	middleKeptID := "20260424_120001_0002"
+	newestKeptID := "20260424_120002_0003"
+	oldestKept := writeSessionLog(t, dir, oldestKeptID, base)
+	middleKept := writeSessionLog(t, dir, middleKeptID, base.Add(time.Second))
+	newestKept := writeSessionLog(t, dir, newestKeptID, base.Add(2*time.Second))
+
+	removed, err := CleanupSessionLogFiles(dir, 2, oldestKeptID, middleKeptID, newestKeptID)
+	if err != nil {
+		t.Fatalf("cleanup session log files: %v", err)
+	}
+	if removed != 1 {
+		t.Fatalf("removed = %d, want 1", removed)
+	}
+
+	assertMissing(t, oldestKept)
+	assertExists(t, middleKept)
+	assertExists(t, newestKept)
 }
 
 func TestCleanupSessionLogFiles_MissingDirectoryIsNoop(t *testing.T) {
