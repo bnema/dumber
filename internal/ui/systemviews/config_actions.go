@@ -7,6 +7,7 @@ import (
 	"strings"
 
 	"github.com/bnema/dumber/internal/application/port"
+	"github.com/bnema/dumber/internal/domain/validation"
 )
 
 const (
@@ -258,7 +259,7 @@ func (a *App) setConfigKeybinding(ctx context.Context, data map[string]string) e
 	if err != nil {
 		return err
 	}
-	if conflicts := keybindingConflictCount(resp); conflicts > 0 {
+	if conflicts := len(resp.Conflicts); conflicts > 0 {
 		a.configNotice = fmt.Sprintf("Saved keybinding with %d conflict(s)", conflicts)
 		return nil
 	}
@@ -366,24 +367,32 @@ func searchShortcutFromForm(data map[string]string, keyField string) (string, po
 	key := strings.TrimSpace(data[keyField])
 	url := strings.TrimSpace(data["url"])
 	description := strings.TrimSpace(data["description"])
-	if key == "" {
-		return "", port.SearchShortcut{}, fmt.Errorf("search shortcut key is required")
-	}
-	if description == "" {
-		return "", port.SearchShortcut{}, fmt.Errorf("search shortcut description is required")
-	}
-	if err := validateSearchURL(url, "search shortcut URL"); err != nil {
+	if err := validateSearchShortcut(key, url, description); err != nil {
 		return "", port.SearchShortcut{}, err
 	}
 	return key, port.SearchShortcut{URL: url, Description: description}, nil
 }
 
 func validateSearchURL(raw, label string) error {
-	if strings.TrimSpace(raw) == "" {
-		return fmt.Errorf("%s is required", label)
+	if errs := validation.ValidateShortcutURL(raw); len(errs) > 0 {
+		return fmt.Errorf("%s: %s", label, strings.Join(errs, "; "))
 	}
-	if !strings.Contains(raw, "%s") {
-		return fmt.Errorf("%s must contain %%s placeholder", label)
+	return nil
+}
+
+func validateSearchShortcut(key, url, description string) error {
+	var errs []string
+	for _, err := range validation.ValidateShortcutKey(key) {
+		errs = append(errs, "key: "+err)
+	}
+	for _, err := range validation.ValidateShortcutURL(url) {
+		errs = append(errs, "url: "+err)
+	}
+	for _, err := range validation.ValidateShortcutDescription(description) {
+		errs = append(errs, "description: "+err)
+	}
+	if len(errs) > 0 {
+		return fmt.Errorf("invalid search shortcut: %s", strings.Join(errs, "; "))
 	}
 	return nil
 }
@@ -430,23 +439,4 @@ func parseKeyList(raw string) []string {
 		}
 	}
 	return keys
-}
-
-func keybindingConflictCount(resp any) int {
-	switch v := resp.(type) {
-	case nil:
-		return 0
-	case port.SetKeybindingResponse:
-		return len(v.Conflicts)
-	case *port.SetKeybindingResponse:
-		if v == nil {
-			return 0
-		}
-		return len(v.Conflicts)
-	case map[string]any:
-		if conflicts, ok := anySlice(v["conflicts"]); ok {
-			return len(conflicts)
-		}
-	}
-	return 0
 }

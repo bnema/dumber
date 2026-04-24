@@ -77,11 +77,12 @@ templ HistoryDomains(data historyRenderData) {
 		<div class="sv-domain-list">
 			for _, domain := range data.Domains {
 				if domain != nil && domain.Domain != "" {
-					{{ displayDomain := displayHistoryDomain(domain.Domain) }}
+					{{ domainKey := historyDomainActionKey(domain) }}
+					{{ displayDomain := historyDomainDisplayLabel(domain) }}
 					<span class="sv-domain-chip">
-						<button type="button" class="sv-domain-filter" data-sv-action="history.filterDomain" data-domain={ displayDomain }>{ displayDomain }</button>
+						<button type="button" class="sv-domain-filter" data-sv-action="history.filterDomain" data-domain={ domainKey }>{ displayDomain }</button>
 						<span class="sv-domain-meta">{ fmt.Sprintf("%d pages · %d visits", domain.PageCount, domain.TotalVisits) }</span>
-						<button type="button" class="sv-icon-button sv-danger" data-sv-action="history.deleteDomain" data-domain={ displayDomain } data-sv-confirm={ "Delete all history for " + displayDomain + "?" } aria-label={ "Delete history for " + displayDomain }>×</button>
+						<button type="button" class="sv-icon-button sv-danger" data-sv-action="history.deleteDomain" data-domain={ domainKey } data-sv-confirm={ "Delete all history for " + displayDomain + "?" } aria-label={ "Delete history for " + displayDomain }>×</button>
 					</span>
 				}
 			}

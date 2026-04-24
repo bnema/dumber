@@ -94,7 +94,7 @@ func TestAppLoadInitialHistoryRouteRendersManagementActions(t *testing.T) {
 			URL:   "https://example.com/page",
 			Title: "Example",
 		}},
-		domainStats: []*entity.DomainStat{{Domain: "example.com", PageCount: 1, TotalVisits: 3}},
+		domainStats: []*entity.DomainStat{{Domain: "www.example.com:8080", PageCount: 1, TotalVisits: 3}},
 	}
 
 	app := NewApp(Dependencies{
@@ -110,6 +110,8 @@ func TestAppLoadInitialHistoryRouteRendersManagementActions(t *testing.T) {
 	assert.Contains(t, app.renderedHTML, `data-range="hour"`)
 	assert.Contains(t, app.renderedHTML, `data-sv-action="history.filterDomain"`)
 	assert.Contains(t, app.renderedHTML, `data-sv-action="history.deleteDomain"`)
+	assert.Contains(t, app.renderedHTML, `data-domain="www.example.com:8080"`)
+	assert.Contains(t, app.renderedHTML, `>example.com</button>`)
 	assert.Contains(t, app.renderedHTML, "Keys:")
 	assert.Contains(t, app.renderedHTML, "Enter")
 }
@@ -452,15 +454,6 @@ func TestAppLoadInitialConfigRouteRendersData(t *testing.T) {
 	assert.Contains(t, app.renderedHTML, `class="sv-meta"`)
 }
 
-func TestConfigHTMLFallsBackForMalformedKeybindings(t *testing.T) {
-	t.Parallel()
-
-	html := configHTML(configRenderData{Config: port.SystemviewConfigPayload{}, Keybindings: map[string]any{"groups": "oops"}})
-
-	assert.Contains(t, html, "Keybindings unavailable")
-	assert.NotContains(t, html, "groups[0].bindings[0].action")
-}
-
 func TestAppLoadInitialConfigRouteRendersEditControls(t *testing.T) {
 	t.Parallel()
 
@@ -777,10 +770,10 @@ type fakeConfigService struct {
 
 	current     port.SystemviewConfigPayload
 	defaultCfg  port.SystemviewConfigPayload
-	keybindings any
+	keybindings port.KeybindingsConfig
 	savedConfig port.WebUIConfig
 	setReq      port.SetKeybindingRequest
-	setResp     any
+	setResp     port.SetKeybindingResponse
 	resetReq    port.ResetKeybindingRequest
 }
 
@@ -812,12 +805,12 @@ func (s *fakeConfigService) Save(_ context.Context, cfg port.WebUIConfig) error 
 	return nil
 }
 
-func (s *fakeConfigService) GetKeybindings(context.Context) (any, error) {
+func (s *fakeConfigService) GetKeybindings(context.Context) (port.KeybindingsConfig, error) {
 	s.calledKeybindings = true
 	return s.keybindings, nil
 }
 
-func (s *fakeConfigService) SetKeybinding(_ context.Context, req port.SetKeybindingRequest) (any, error) {
+func (s *fakeConfigService) SetKeybinding(_ context.Context, req port.SetKeybindingRequest) (port.SetKeybindingResponse, error) {
 	s.calledSet = true
 	s.setReq = req
 	return s.setResp, nil

@@ -11,7 +11,7 @@ import (
 
 type configRenderData struct {
 	Config      port.SystemviewConfigPayload
-	Keybindings any
+	Keybindings port.KeybindingsConfig
 	Notice      string
 	Error       string
 }
@@ -20,15 +20,10 @@ func configHTML(data configRenderData) string {
 	return mustRenderComponent(ConfigView(data))
 }
 
-func configKeybindingSummary(keybindings any) string {
-	groups, bindings, loaded := summarizeKeybindings(keybindings)
-	status := "not loaded"
-	if loaded {
-		status = "loaded"
-	}
+func configKeybindingSummary(keybindings port.KeybindingsConfig) string {
+	groups, bindings := summarizeKeybindings(keybindings)
 	return fmt.Sprintf(
-		"Keybindings %s (%d %s, %d %s)",
-		status,
+		"Keybindings loaded (%d %s, %d %s)",
 		groups,
 		plural(groups, "group"),
 		bindings,
@@ -36,12 +31,8 @@ func configKeybindingSummary(keybindings any) string {
 	)
 }
 
-func configKeybindingGroups(keybindings any) []renderedKeybindingGroup {
-	groups, ok := collectKeybindingGroups(keybindings)
-	if !ok {
-		return nil
-	}
-	return groups
+func configKeybindingGroups(keybindings port.KeybindingsConfig) []renderedKeybindingGroup {
+	return convertPortKeybindingGroups(keybindings.Groups)
 }
 
 func keybindingGroupTitle(group renderedKeybindingGroup) string {
@@ -281,36 +272,12 @@ func mapKeyString(value reflect.Value) string {
 	return fmt.Sprint(value.Interface())
 }
 
-func summarizeKeybindings(keybindings any) (groups, bindings int, loaded bool) {
-	renderedGroups, ok := collectKeybindingGroups(keybindings)
-	if !ok {
-		return 0, 0, false
-	}
-
-	for _, group := range renderedGroups {
+func summarizeKeybindings(keybindings port.KeybindingsConfig) (groups, bindings int) {
+	for _, group := range keybindings.Groups {
 		groups++
 		bindings += len(group.Bindings)
 	}
-
-	return groups, bindings, true
-}
-
-func collectKeybindingGroups(keybindings any) ([]renderedKeybindingGroup, bool) {
-	switch v := keybindings.(type) {
-	case nil:
-		return nil, false
-	case port.KeybindingsConfig:
-		return convertPortKeybindingGroups(v.Groups), true
-	case *port.KeybindingsConfig:
-		if v == nil {
-			return nil, false
-		}
-		return convertPortKeybindingGroups(v.Groups), true
-	case map[string]any:
-		return convertBridgeKeybindingGroups(v)
-	default:
-		return nil, false
-	}
+	return groups, bindings
 }
 
 func convertPortKeybindingGroups(groups []port.KeybindingGroup) []renderedKeybindingGroup {
@@ -338,119 +305,6 @@ func convertPortKeybindingEntries(bindings []port.KeybindingEntry) []renderedKey
 		})
 	}
 	return rendered
-}
-
-func convertBridgeKeybindingGroups(data map[string]any) ([]renderedKeybindingGroup, bool) {
-	rawGroups, ok := data["groups"]
-	if !ok || rawGroups == nil {
-		return nil, false
-	}
-
-	groupValues, ok := anySlice(rawGroups)
-	if !ok {
-		return nil, false
-	}
-
-	rendered := make([]renderedKeybindingGroup, 0, len(groupValues))
-	for _, rawGroup := range groupValues {
-		groupMap, ok := rawGroup.(map[string]any)
-		if !ok {
-			return nil, false
-		}
-		group, ok := convertBridgeKeybindingGroup(groupMap)
-		if !ok {
-			return nil, false
-		}
-		rendered = append(rendered, group)
-	}
-
-	return rendered, true
-}
-
-func convertBridgeKeybindingGroup(group map[string]any) (renderedKeybindingGroup, bool) {
-	bindings := []renderedKeybinding{}
-	if rawBindings, ok := group["bindings"]; ok && rawBindings != nil {
-		converted, ok := convertBridgeKeybindingEntries(rawBindings)
-		if !ok {
-			return renderedKeybindingGroup{}, false
-		}
-		bindings = converted
-	}
-
-	return renderedKeybindingGroup{
-		DisplayName: strings.TrimSpace(stringValue(group["display_name"])),
-		Mode:        strings.TrimSpace(stringValue(group["mode"])),
-		Activation:  strings.TrimSpace(stringValue(group["activation"])),
-		Bindings:    bindings,
-	}, true
-}
-
-func convertBridgeKeybindingEntries(rawBindings any) ([]renderedKeybinding, bool) {
-	bindingValues, ok := anySlice(rawBindings)
-	if !ok {
-		return nil, false
-	}
-
-	rendered := make([]renderedKeybinding, 0, len(bindingValues))
-	for _, rawBinding := range bindingValues {
-		bindingMap, ok := rawBinding.(map[string]any)
-		if !ok {
-			return nil, false
-		}
-		rendered = append(rendered, renderedKeybinding{
-			Description: strings.TrimSpace(stringValue(bindingMap["description"])),
-			Action:      strings.TrimSpace(stringValue(bindingMap["action"])),
-			Keys:        stringSlice(bindingMap["keys"]),
-			DefaultKeys: stringSlice(bindingMap["default_keys"]),
-			IsCustom:    boolValue(bindingMap["is_custom"]),
-		})
-	}
-
-	return rendered, true
-}
-
-func anySlice(value any) ([]any, bool) {
-	switch v := value.(type) {
-	case []any:
-		return v, true
-	case []map[string]any:
-		items := make([]any, len(v))
-		for i, item := range v {
-			items[i] = item
-		}
-		return items, true
-	default:
-		return nil, false
-	}
-}
-
-func stringValue(value any) string {
-	s, _ := value.(string)
-	return s
-}
-
-func stringSlice(value any) []string {
-	switch v := value.(type) {
-	case []string:
-		return append([]string(nil), v...)
-	case []any:
-		out := make([]string, 0, len(v))
-		for _, item := range v {
-			text, ok := item.(string)
-			if !ok {
-				return nil
-			}
-			out = append(out, text)
-		}
-		return out
-	default:
-		return nil
-	}
-}
-
-func boolValue(value any) bool {
-	b, _ := value.(bool)
-	return b
 }
 
 type renderedKeybindingGroup struct {

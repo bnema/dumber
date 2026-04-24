@@ -286,8 +286,7 @@ func TestClientConfigActionsUseExpectedMessageTypes(t *testing.T) {
 				if err != nil {
 					return err
 				}
-				m, ok := got.(map[string]any)
-				if !ok || len(m) == 0 {
+				if len(got.Groups) != 1 || got.Groups[0].Mode != "default" {
 					t.Fatalf("GetKeybindings() = %#v", got)
 				}
 				return nil
@@ -301,8 +300,7 @@ func TestClientConfigActionsUseExpectedMessageTypes(t *testing.T) {
 				if err != nil {
 					return err
 				}
-				m, ok := got.(map[string]any)
-				if !ok || m["status"] != "success" {
+				if len(got.Conflicts) != 0 {
 					t.Fatalf("SetKeybinding() = %#v", got)
 				}
 				return nil

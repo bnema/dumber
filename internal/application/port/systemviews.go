@@ -42,8 +42,8 @@ type SystemviewConfigService interface {
 	Current(ctx context.Context) (SystemviewConfigPayload, error)
 	Default(ctx context.Context) (SystemviewConfigPayload, error)
 	Save(ctx context.Context, cfg WebUIConfig) error
-	GetKeybindings(ctx context.Context) (any, error)
-	SetKeybinding(ctx context.Context, req SetKeybindingRequest) (any, error)
+	GetKeybindings(ctx context.Context) (KeybindingsConfig, error)
+	SetKeybinding(ctx context.Context, req SetKeybindingRequest) (SetKeybindingResponse, error)
 	ResetKeybinding(ctx context.Context, req ResetKeybindingRequest) error
 	ResetAllKeybindings(ctx context.Context) error
 }

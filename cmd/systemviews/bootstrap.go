@@ -40,14 +40,14 @@ func (p bridgeConfigProxy) Save(ctx context.Context, cfg port.WebUIConfig) error
 	return p.bridge.Save(ctx, cfg)
 }
 
-func (p bridgeConfigProxy) GetKeybindings(ctx context.Context) (any, error) {
+func (p bridgeConfigProxy) GetKeybindings(ctx context.Context) (port.KeybindingsConfig, error) {
 	if p.route != systemviews.RouteConfig {
-		return nil, nil
+		return port.KeybindingsConfig{}, nil
 	}
 	return p.bridge.GetKeybindings(ctx)
 }
 
-func (p bridgeConfigProxy) SetKeybinding(ctx context.Context, req port.SetKeybindingRequest) (any, error) {
+func (p bridgeConfigProxy) SetKeybinding(ctx context.Context, req port.SetKeybindingRequest) (port.SetKeybindingResponse, error) {
 	return p.bridge.SetKeybinding(ctx, req)
 }
 

@@ -105,14 +105,14 @@ func (c *Client) Save(ctx context.Context, cfg port.WebUIConfig) error {
 	return err
 }
 
-func (c *Client) GetKeybindings(ctx context.Context) (any, error) {
-	return request[any](c, ctx, "get_keybindings", struct {
+func (c *Client) GetKeybindings(ctx context.Context) (port.KeybindingsConfig, error) {
+	return request[port.KeybindingsConfig](c, ctx, "get_keybindings", struct {
 		RequestID string `json:"requestId"`
 	}{RequestID: nextRequestID()})
 }
 
-func (c *Client) SetKeybinding(ctx context.Context, req port.SetKeybindingRequest) (any, error) {
-	return request[any](c, ctx, "set_keybinding", req)
+func (c *Client) SetKeybinding(ctx context.Context, req port.SetKeybindingRequest) (port.SetKeybindingResponse, error) {
+	return request[port.SetKeybindingResponse](c, ctx, "set_keybinding", req)
 }
 
 func (c *Client) ResetKeybinding(ctx context.Context, req port.ResetKeybindingRequest) error {

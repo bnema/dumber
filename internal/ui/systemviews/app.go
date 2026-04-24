@@ -39,10 +39,11 @@ type App struct {
 	favoritesNotice      string
 	favoritesError       string
 	config               *port.SystemviewConfigPayload
-	keybindings          any
+	keybindings          port.KeybindingsConfig
 	configNotice         string
 	configError          string
 	renderedHTML         string
+	actionQueue          chan DOMAction
 }
 
 const historyTimelineLimit = 25
@@ -68,13 +69,33 @@ func (a *App) Run() error {
 		return err
 	}
 	if binder, ok := a.deps.DOM.(DOMActionBinder); ok {
-		return binder.BindActions(func(action DOMAction) {
-			go func() {
-				_ = a.HandleDOMAction(context.Background(), action)
-			}()
-		})
+		return a.bindDOMActions(context.Background(), binder)
 	}
 	return nil
+}
+
+func (a *App) bindDOMActions(ctx context.Context, binder DOMActionBinder) error {
+	if a.actionQueue == nil {
+		a.actionQueue = make(chan DOMAction, 64)
+		go a.runActionWorker(ctx)
+	}
+	return binder.BindActions(func(action DOMAction) {
+		a.actionQueue <- action
+	})
+}
+
+func (a *App) runActionWorker(ctx context.Context) {
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		case action, ok := <-a.actionQueue:
+			if !ok {
+				return
+			}
+			_ = a.HandleDOMAction(ctx, action)
+		}
+	}
 }
 
 func (a *App) LoadInitial(ctx context.Context) error {
@@ -308,7 +329,7 @@ func (a *App) resetRouteState() {
 	a.favoritesNotice = ""
 	a.favoritesError = ""
 	a.config = nil
-	a.keybindings = nil
+	a.keybindings = port.KeybindingsConfig{}
 	a.configNotice = ""
 	a.configError = ""
 }

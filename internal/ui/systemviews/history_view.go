@@ -2,6 +2,7 @@ package systemviews
 
 import (
 	"fmt"
+	"net"
 	"net/url"
 	"strings"
 	"time"
@@ -31,20 +32,23 @@ type historyCleanupItem struct {
 	Label   string
 	RangeID string
 	Confirm string
+	Notice  string
 }
 
 func historyHTML(data historyRenderData) string {
 	return mustRenderComponent(HistoryView(data))
 }
 
+var historyCleanupRanges = []historyCleanupItem{
+	{Label: "Last hour", RangeID: "hour", Confirm: "Delete history for last hour?", Notice: "Deleted history from the last hour"},
+	{Label: "Today", RangeID: "day", Confirm: "Delete history for today?", Notice: "Deleted history from today"},
+	{Label: "Week", RangeID: "week", Confirm: "Delete history for week?", Notice: "Deleted history from this week"},
+	{Label: "Month", RangeID: "month", Confirm: "Delete history for month?", Notice: "Deleted history from this month"},
+	{Label: "All", RangeID: "all", Confirm: "Delete all browsing history?", Notice: "Deleted all history"},
+}
+
 func historyCleanupItems() []historyCleanupItem {
-	return []historyCleanupItem{
-		{Label: "Last hour", RangeID: "hour", Confirm: "Delete history for last hour?"},
-		{Label: "Today", RangeID: "day", Confirm: "Delete history for today?"},
-		{Label: "Week", RangeID: "week", Confirm: "Delete history for week?"},
-		{Label: "Month", RangeID: "month", Confirm: "Delete history for month?"},
-		{Label: "All", RangeID: "all", Confirm: "Delete all browsing history?"},
-	}
+	return historyCleanupRanges
 }
 
 func historyLimit(data historyRenderData) int {
@@ -193,7 +197,7 @@ func countUniqueHistoryDays(entries []*entity.HistoryEntry) int64 {
 }
 
 func filterHistoryEntriesByDomain(entries []*entity.HistoryEntry, domain string) []*entity.HistoryEntry {
-	domain = strings.TrimPrefix(strings.ToLower(strings.TrimSpace(domain)), "www.")
+	domain = canonicalHistoryDomain(domain)
 	if domain == "" {
 		return entries
 	}
@@ -202,8 +206,7 @@ func filterHistoryEntriesByDomain(entries []*entity.HistoryEntry, domain string)
 		if entry == nil {
 			continue
 		}
-		entryDomain := strings.TrimPrefix(strings.ToLower(displayHistoryDomain(entry.URL)), "www.")
-		if entryDomain == domain {
+		if canonicalHistoryDomain(entry.URL) == domain {
 			filtered = append(filtered, entry)
 		}
 	}
@@ -211,11 +214,46 @@ func filterHistoryEntriesByDomain(entries []*entity.HistoryEntry, domain string)
 }
 
 func displayHistoryDomain(raw string) string {
-	parsed, err := url.Parse(raw)
-	if err != nil || parsed.Hostname() == "" {
-		return strings.TrimSpace(raw)
+	domain := canonicalHistoryDomain(raw)
+	if host, _, err := net.SplitHostPort(domain); err == nil {
+		domain = host
 	}
-	return strings.TrimPrefix(parsed.Hostname(), "www.")
+	return domain
+}
+
+func historyDomainActionKey(domain *entity.DomainStat) string {
+	if domain == nil {
+		return ""
+	}
+	return strings.TrimSpace(domain.Domain)
+}
+
+func historyDomainDisplayLabel(domain *entity.DomainStat) string {
+	if domain == nil {
+		return ""
+	}
+	return displayHistoryDomain(domain.Domain)
+}
+
+func canonicalHistoryDomain(raw string) string {
+	raw = strings.TrimSpace(strings.ToLower(raw))
+	if raw == "" {
+		return ""
+	}
+	if parsed, err := url.Parse(raw); err == nil && parsed.Host != "" {
+		return strings.TrimPrefix(parsed.Host, "www.")
+	}
+	if schemeIdx := strings.Index(raw, "://"); schemeIdx >= 0 {
+		if parsed, err := url.Parse(raw[schemeIdx+3:]); err == nil && parsed.Host != "" {
+			return strings.TrimPrefix(parsed.Host, "www.")
+		}
+	}
+	for _, sep := range []string{"/", "?", "#"} {
+		if before, _, ok := strings.Cut(raw, sep); ok {
+			raw = before
+		}
+	}
+	return strings.TrimPrefix(raw, "www.")
 }
 
 func formatHistoryTime(ts time.Time) string {

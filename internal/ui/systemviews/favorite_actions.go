@@ -46,7 +46,7 @@ func (a *App) handleFavoriteAction(ctx context.Context, event DOMAction) error {
 		if err != nil {
 			return err
 		}
-		a.favoritesNotice = "Added favorite " + favoriteDisplayTitle(favorite)
+		a.favoritesNotice = "Added favorite " + favoriteItemLabel(favorite)
 	case favoriteActionUpdate:
 		id, err := parsePositiveInt64(data["id"], "favorite id")
 		if err != nil {
@@ -70,7 +70,7 @@ func (a *App) handleFavoriteAction(ctx context.Context, event DOMAction) error {
 		if err != nil {
 			return err
 		}
-		a.favoritesNotice = "Saved favorite " + favoriteDisplayTitle(favorite)
+		a.favoritesNotice = "Saved favorite " + favoriteItemLabel(favorite)
 	case favoriteActionDelete:
 		id, err := parsePositiveInt64(data["id"], "favorite id")
 		if err != nil {
@@ -230,14 +230,4 @@ func optionalShortcut(raw string) (*int, error) {
 		return nil, fmt.Errorf("shortcut key must be 1-9")
 	}
 	return &value, nil
-}
-
-func favoriteDisplayTitle(favorite *entity.Favorite) string {
-	if favorite == nil {
-		return ""
-	}
-	if strings.TrimSpace(favorite.Title) != "" {
-		return favorite.Title
-	}
-	return favorite.URL
 }

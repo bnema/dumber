@@ -5,6 +5,9 @@ import (
 	"fmt"
 	"strconv"
 	"strings"
+	"time"
+
+	historydomain "github.com/bnema/dumber/internal/domain/history"
 )
 
 const (
@@ -147,27 +150,15 @@ func (a *App) mountRenderedHTML() error {
 }
 
 func validHistoryRange(rangeID string) bool {
-	switch rangeID {
-	case "hour", "day", "week", "month", "all":
-		return true
-	default:
-		return false
-	}
+	_, _, ok := historydomain.DeleteRangeCutoff(rangeID, time.Now())
+	return ok
 }
 
 func historyRangeNotice(rangeID string) string {
-	switch rangeID {
-	case "hour":
-		return "Deleted history from the last hour"
-	case "day":
-		return "Deleted history from today"
-	case "week":
-		return "Deleted history from this week"
-	case "month":
-		return "Deleted history from this month"
-	case "all":
-		return "Deleted all history"
-	default:
-		return "Deleted history"
+	for _, item := range historyCleanupItems() {
+		if item.RangeID == rangeID {
+			return item.Notice
+		}
 	}
+	return "Deleted history"
 }

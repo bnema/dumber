@@ -107,7 +107,7 @@ type fakeBridgeService struct {
 	folders        []*entity.Folder
 	tags           []*entity.Tag
 	currentConfig  port.SystemviewConfigPayload
-	keybindings    any
+	keybindings    port.KeybindingsConfig
 }
 
 func (f *fakeBridgeService) Timeline(context.Context, int, int) ([]*entity.HistoryEntry, error) {
@@ -191,13 +191,13 @@ func (*fakeBridgeService) Default(context.Context) (port.SystemviewConfigPayload
 
 func (*fakeBridgeService) Save(context.Context, port.WebUIConfig) error { return nil }
 
-func (f *fakeBridgeService) GetKeybindings(context.Context) (any, error) {
+func (f *fakeBridgeService) GetKeybindings(context.Context) (port.KeybindingsConfig, error) {
 	f.calledKeybindings = true
 	return f.keybindings, nil
 }
 
-func (*fakeBridgeService) SetKeybinding(context.Context, port.SetKeybindingRequest) (any, error) {
-	return nil, nil
+func (*fakeBridgeService) SetKeybinding(context.Context, port.SetKeybindingRequest) (port.SetKeybindingResponse, error) {
+	return port.SetKeybindingResponse{}, nil
 }
 
 func (*fakeBridgeService) ResetKeybinding(context.Context, port.ResetKeybindingRequest) error {
