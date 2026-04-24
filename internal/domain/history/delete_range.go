@@ -10,7 +10,7 @@ func DeleteRangeCutoff(rangeID string, now time.Time) (time.Time, bool, bool) {
 	case "hour":
 		return now.Add(-time.Hour), false, true
 	case "day":
-		return now.AddDate(0, 0, -1), false, true
+		return time.Date(now.Year(), now.Month(), now.Day(), 0, 0, 0, 0, now.Location()), false, true
 	case "week":
 		return now.AddDate(0, 0, -7), false, true
 	case "month":

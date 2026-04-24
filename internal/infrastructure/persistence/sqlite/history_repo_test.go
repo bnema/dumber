@@ -832,3 +832,41 @@ func TestHistoryRepository_Search_ReturnsEmptyForNonPositiveLimit(t *testing.T) 
 	require.NoError(t, err)
 	assert.Empty(t, results)
 }
+
+func TestHistoryRepository_DomainColumnPowersFilteringStatsAndDelete(t *testing.T) {
+	ctx := historyTestCtx()
+	dbPath := filepath.Join(t.TempDir(), "dumber.db")
+
+	db, err := sqlite.NewConnection(ctx, dbPath)
+	require.NoError(t, err)
+	t.Cleanup(func() { _ = db.Close() })
+
+	repo := sqlite.NewHistoryRepository(db)
+	require.NoError(t, repo.Save(ctx, &entity.HistoryEntry{URL: "https://www.example.com/a", Title: "Example A"}))
+	require.NoError(t, repo.Save(ctx, &entity.HistoryEntry{URL: "https://example.com/b", Title: "Example B"}))
+	require.NoError(t, repo.Save(ctx, &entity.HistoryEntry{URL: "https://other.test", Title: "Other"}))
+
+	exampleEntries, err := repo.GetRecentByDomain(ctx, "www.example.com", 10, 0)
+	require.NoError(t, err)
+	require.Len(t, exampleEntries, 2)
+	for _, entry := range exampleEntries {
+		assert.Contains(t, entry.URL, "example.com")
+	}
+
+	stats, err := repo.GetDomainStats(ctx, 10)
+	require.NoError(t, err)
+	require.NotEmpty(t, stats)
+	assert.Equal(t, "example.com", stats[0].Domain)
+	assert.Equal(t, int64(2), stats[0].PageCount)
+
+	require.NoError(t, repo.DeleteByDomain(ctx, "example.com"))
+
+	exampleEntries, err = repo.GetRecentByDomain(ctx, "example.com", 10, 0)
+	require.NoError(t, err)
+	assert.Empty(t, exampleEntries)
+
+	remaining, err := repo.GetAllRecentHistory(ctx)
+	require.NoError(t, err)
+	require.Len(t, remaining, 1)
+	assert.Equal(t, "https://other.test", remaining[0].URL)
+}

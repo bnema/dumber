@@ -83,6 +83,40 @@ func TestNormalizeBridgeShimResponse_UnwrapsNestedBridgeEnvelope(t *testing.T) {
 	}
 }
 
+func TestNormalizeBridgeShimResponse_DoesNotTreatRequestIDDataAsEnvelope(t *testing.T) {
+	t.Parallel()
+
+	got, err := normalizeBridgeShimResponse("req-raw", []byte(`{"data":{"requestId":"external-id","title":"Example"},"_callback":"__dumber_homepage_response"}`))
+	if err != nil {
+		t.Fatalf("normalizeBridgeShimResponse() error = %v", err)
+	}
+
+	var resp bridgeResponse
+	if err := json.Unmarshal(got, &resp); err != nil {
+		t.Fatalf("json.Unmarshal() error = %v", err)
+	}
+	if string(resp.Data) != `{"requestId":"external-id","title":"Example"}` {
+		t.Fatalf("data = %s, want raw payload", resp.Data)
+	}
+}
+
+func TestNormalizeBridgeShimResponse_DoesNotTreatNonBooleanSuccessDataAsEnvelope(t *testing.T) {
+	t.Parallel()
+
+	got, err := normalizeBridgeShimResponse("req-raw-success", []byte(`{"data":{"success":"yes","title":"Example"},"_callback":"__dumber_homepage_response"}`))
+	if err != nil {
+		t.Fatalf("normalizeBridgeShimResponse() error = %v", err)
+	}
+
+	var resp bridgeResponse
+	if err := json.Unmarshal(got, &resp); err != nil {
+		t.Fatalf("json.Unmarshal() error = %v", err)
+	}
+	if string(resp.Data) != `{"success":"yes","title":"Example"}` {
+		t.Fatalf("data = %s, want raw payload", resp.Data)
+	}
+}
+
 func TestNormalizeBridgeShimResponse_WrapsRawCallbackPayload(t *testing.T) {
 	t.Parallel()
 
@@ -103,6 +137,50 @@ func TestNormalizeBridgeShimResponse_WrapsRawCallbackPayload(t *testing.T) {
 	}
 	if string(resp.Data) != `{"status":"success"}` {
 		t.Fatalf("data = %s, want %s", resp.Data, `{"status":"success"}`)
+	}
+}
+
+func TestNormalizeBridgeShimResponse_WrapsTopLevelErrorWithoutData(t *testing.T) {
+	t.Parallel()
+
+	got, err := normalizeBridgeShimResponse("req-error", []byte(`{"error":"bridge failed"}`))
+	if err != nil {
+		t.Fatalf("normalizeBridgeShimResponse() error = %v", err)
+	}
+
+	var resp bridgeResponse
+	if err := json.Unmarshal(got, &resp); err != nil {
+		t.Fatalf("json.Unmarshal() error = %v", err)
+	}
+	if resp.RequestID != "req-error" {
+		t.Fatalf("requestId = %q, want %q", resp.RequestID, "req-error")
+	}
+	if resp.Error != "bridge failed" {
+		t.Fatalf("error = %q, want %q", resp.Error, "bridge failed")
+	}
+}
+
+func TestNormalizeBridgeShimResponse_RejectsMalformedJSON(t *testing.T) {
+	t.Parallel()
+
+	if _, err := normalizeBridgeShimResponse("req-bad", []byte(`{"data":`)); err == nil {
+		t.Fatal("normalizeBridgeShimResponse() error = nil, want error")
+	}
+}
+
+func TestNormalizeBridgeShimResponse_RejectsMissingData(t *testing.T) {
+	t.Parallel()
+
+	if _, err := normalizeBridgeShimResponse("req-missing", []byte(`{"_callback":"__dumber_config_saved"}`)); err == nil {
+		t.Fatal("normalizeBridgeShimResponse() error = nil, want error")
+	}
+}
+
+func TestNormalizeBridgeShimResponse_RejectsEmptyBody(t *testing.T) {
+	t.Parallel()
+
+	if _, err := normalizeBridgeShimResponse("req-empty", nil); err == nil {
+		t.Fatal("normalizeBridgeShimResponse() error = nil, want error")
 	}
 }
 

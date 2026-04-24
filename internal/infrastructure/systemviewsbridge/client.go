@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"strings"
 	"sync/atomic"
 	"time"
 
@@ -20,8 +21,9 @@ type Transport interface {
 
 // Client sends WebUI message envelopes through the first available transport.
 type Client struct {
-	native Transport
-	fetch  Transport
+	native         Transport
+	fetch          Transport
+	requestTimeout time.Duration
 }
 
 var _ port.SystemviewConfigService = (*Client)(nil)
@@ -30,11 +32,27 @@ var _ port.SystemviewFavoritesService = (*Client)(nil)
 
 var requestSeq atomic.Uint64
 
-var bridgeRequestTimeout = 15 * time.Second
+const defaultBridgeRequestTimeout = 15 * time.Second
+
+// ClientOption customizes a bridge client.
+type ClientOption func(*Client)
+
+// WithRequestTimeout sets the timeout used when callers provide no deadline.
+func WithRequestTimeout(timeout time.Duration) ClientOption {
+	return func(c *Client) {
+		c.requestTimeout = timeout
+	}
+}
 
 // NewClient creates a bridge client with native WebKit and fetch transports.
-func NewClient(native, fetch Transport) *Client {
-	return &Client{native: native, fetch: fetch}
+func NewClient(native, fetch Transport, opts ...ClientOption) *Client {
+	client := &Client{native: native, fetch: fetch, requestTimeout: defaultBridgeRequestTimeout}
+	for _, opt := range opts {
+		if opt != nil {
+			opt(client)
+		}
+	}
+	return client
 }
 
 // Send builds a WebUI message envelope and sends it through the active transport.
@@ -57,6 +75,12 @@ func (c *Client) Send(ctx context.Context, msgType string, payload any) ([]byte,
 }
 
 func (c *Client) Timeline(ctx context.Context, limit, offset int) ([]*entity.HistoryEntry, error) {
+	if limit < 0 {
+		return nil, fmt.Errorf("timeline limit must be non-negative, got %d", limit)
+	}
+	if offset < 0 {
+		return nil, fmt.Errorf("timeline offset must be non-negative, got %d", offset)
+	}
 	return request[[]*entity.HistoryEntry](c, ctx, "history_timeline", struct {
 		RequestID string `json:"requestId"`
 		Limit     int    `json:"limit"`
@@ -65,6 +89,16 @@ func (c *Client) Timeline(ctx context.Context, limit, offset int) ([]*entity.His
 }
 
 func (c *Client) TimelineByDomain(ctx context.Context, domain string, limit, offset int) ([]*entity.HistoryEntry, error) {
+	domain = strings.TrimSpace(domain)
+	if domain == "" {
+		return nil, fmt.Errorf("timeline-by-domain domain must be non-empty")
+	}
+	if limit < 0 {
+		return nil, fmt.Errorf("timeline-by-domain limit must be non-negative, got %d", limit)
+	}
+	if offset < 0 {
+		return nil, fmt.Errorf("timeline-by-domain offset must be non-negative, got %d", offset)
+	}
 	return request[[]*entity.HistoryEntry](c, ctx, "history_timeline_by_domain", struct {
 		RequestID string `json:"requestId"`
 		Domain    string `json:"domain"`
@@ -74,6 +108,9 @@ func (c *Client) TimelineByDomain(ctx context.Context, domain string, limit, off
 }
 
 func (c *Client) Search(ctx context.Context, query string, limit int) ([]*entity.HistoryEntry, error) {
+	if limit < 0 {
+		return nil, fmt.Errorf("search limit must be non-negative, got %d", limit)
+	}
 	return request[[]*entity.HistoryEntry](c, ctx, "history_search_fts", struct {
 		RequestID string `json:"requestId"`
 		Query     string `json:"query"`
@@ -82,6 +119,9 @@ func (c *Client) Search(ctx context.Context, query string, limit int) ([]*entity
 }
 
 func (c *Client) DeleteEntry(ctx context.Context, id int64) error {
+	if id <= 0 {
+		return fmt.Errorf("delete entry id must be positive, got %d", id)
+	}
 	_, err := request[struct{}](c, ctx, "history_delete_entry", struct {
 		RequestID string `json:"requestId"`
 		ID        int64  `json:"id"`
@@ -90,6 +130,10 @@ func (c *Client) DeleteEntry(ctx context.Context, id int64) error {
 }
 
 func (c *Client) DeleteRange(ctx context.Context, rangeID string) error {
+	rangeID = strings.TrimSpace(rangeID)
+	if rangeID == "" {
+		return errors.New("history range ID cannot be empty")
+	}
 	_, err := request[struct{}](c, ctx, "history_delete_range", struct {
 		RequestID string `json:"requestId"`
 		Range     string `json:"range"`
@@ -97,12 +141,16 @@ func (c *Client) DeleteRange(ctx context.Context, rangeID string) error {
 	return err
 }
 
+// Current intentionally targets the direct HTTP config endpoint rather than a
+// snake_case bridge message so CEF/WebKit fetch shims can reuse /api/config.
 func (c *Client) Current(ctx context.Context) (port.SystemviewConfigPayload, error) {
 	return request[port.SystemviewConfigPayload](c, ctx, "/api/config", struct {
 		RequestID string `json:"requestId"`
 	}{RequestID: nextRequestID()})
 }
 
+// Default intentionally targets the direct HTTP config endpoint rather than a
+// snake_case bridge message so CEF/WebKit fetch shims can reuse /api/config/default.
 func (c *Client) Default(ctx context.Context) (port.SystemviewConfigPayload, error) {
 	return request[port.SystemviewConfigPayload](c, ctx, "/api/config/default", struct {
 		RequestID string `json:"requestId"`
@@ -143,6 +191,9 @@ func (c *Client) Analytics(ctx context.Context) (*entity.HistoryAnalytics, error
 }
 
 func (c *Client) DomainStats(ctx context.Context, limit int) ([]*entity.DomainStat, error) {
+	if limit < 0 {
+		return nil, fmt.Errorf("domain stats limit must be non-negative, got %d", limit)
+	}
 	return request[[]*entity.DomainStat](c, ctx, "history_domain_stats", struct {
 		RequestID string `json:"requestId"`
 		Limit     int    `json:"limit"`
@@ -150,6 +201,10 @@ func (c *Client) DomainStats(ctx context.Context, limit int) ([]*entity.DomainSt
 }
 
 func (c *Client) DeleteDomain(ctx context.Context, domain string) error {
+	domain = strings.TrimSpace(domain)
+	if domain == "" {
+		return errors.New("history domain cannot be empty")
+	}
 	_, err := request[struct{}](c, ctx, "history_delete_domain", struct {
 		RequestID string `json:"requestId"`
 		Domain    string `json:"domain"`
@@ -168,10 +223,16 @@ func (c *Client) CreateFavorite(ctx context.Context, input port.FavoriteCreateIn
 }
 
 func (c *Client) UpdateFavorite(ctx context.Context, input port.FavoriteUpdateInput) (*entity.Favorite, error) {
+	if input.ID <= 0 {
+		return nil, fmt.Errorf("update favorite id must be positive, got %d", input.ID)
+	}
 	return request[*entity.Favorite](c, ctx, "favorite_update", favoriteUpdatePayload(input))
 }
 
 func (c *Client) DeleteFavorite(ctx context.Context, id int64) error {
+	if id <= 0 {
+		return fmt.Errorf("delete favorite id must be positive, got %d", id)
+	}
 	_, err := request[struct{}](c, ctx, "favorite_delete", struct {
 		RequestID string `json:"requestId"`
 		ID        int64  `json:"id"`
@@ -244,6 +305,9 @@ func (c *Client) ListTags(ctx context.Context) ([]*entity.Tag, error) {
 }
 
 func (c *Client) SetShortcut(ctx context.Context, favoriteID int64, shortcutKey *int) error {
+	if favoriteID <= 0 {
+		return fmt.Errorf("set shortcut favorite id must be positive, got %d", favoriteID)
+	}
 	_, err := request[struct{}](c, ctx, "favorite_set_shortcut", struct {
 		RequestID   string `json:"requestId"`
 		FavoriteID  int64  `json:"favorite_id"`
@@ -253,6 +317,9 @@ func (c *Client) SetShortcut(ctx context.Context, favoriteID int64, shortcutKey 
 }
 
 func (c *Client) SetFolder(ctx context.Context, favoriteID int64, folderID *int64) error {
+	if favoriteID <= 0 {
+		return fmt.Errorf("set folder favorite id must be positive, got %d", favoriteID)
+	}
 	_, err := request[struct{}](c, ctx, "favorite_set_folder", struct {
 		RequestID  string `json:"requestId"`
 		FavoriteID int64  `json:"favorite_id"`
@@ -261,19 +328,34 @@ func (c *Client) SetFolder(ctx context.Context, favoriteID int64, folderID *int6
 	return err
 }
 
-func (c *Client) CreateFolder(ctx context.Context, name string, parentID *int64) (*entity.Folder, error) {
+func (c *Client) CreateFolder(ctx context.Context, name, icon string, parentID *int64) (*entity.Folder, error) {
+	name = strings.TrimSpace(name)
+	if name == "" {
+		return nil, fmt.Errorf("folder name is required")
+	}
+	var iconPtr *string
+	if trimmedIcon := strings.TrimSpace(icon); trimmedIcon != "" {
+		iconPtr = &trimmedIcon
+	}
 	return request[*entity.Folder](c, ctx, "folder_create", struct {
 		RequestID string  `json:"requestId"`
 		Name      string  `json:"name"`
 		Icon      *string `json:"icon"`
 		ParentID  *int64  `json:"parent_id,omitempty"`
-	}{RequestID: nextRequestID(), Name: name, Icon: nil, ParentID: parentID})
+	}{RequestID: nextRequestID(), Name: name, Icon: iconPtr, ParentID: parentID})
 }
 
 func (c *Client) UpdateFolder(ctx context.Context, id int64, name, icon string) error {
+	if id <= 0 {
+		return fmt.Errorf("update folder id must be positive, got %d", id)
+	}
+	name = strings.TrimSpace(name)
+	if name == "" {
+		return fmt.Errorf("folder name is required")
+	}
 	var iconPtr *string
-	if icon != "" {
-		iconPtr = &icon
+	if trimmed := strings.TrimSpace(icon); trimmed != "" {
+		iconPtr = &trimmed
 	}
 	_, err := request[struct{}](c, ctx, "folder_update", struct {
 		RequestID string  `json:"requestId"`
@@ -285,6 +367,9 @@ func (c *Client) UpdateFolder(ctx context.Context, id int64, name, icon string) 
 }
 
 func (c *Client) DeleteFolder(ctx context.Context, id int64) error {
+	if id <= 0 {
+		return fmt.Errorf("delete folder id must be positive, got %d", id)
+	}
 	_, err := request[struct{}](c, ctx, "folder_delete", struct {
 		RequestID string `json:"requestId"`
 		ID        int64  `json:"id"`
@@ -293,9 +378,13 @@ func (c *Client) DeleteFolder(ctx context.Context, id int64) error {
 }
 
 func (c *Client) CreateTag(ctx context.Context, name, color string) (*entity.Tag, error) {
+	name = strings.TrimSpace(name)
+	if name == "" {
+		return nil, fmt.Errorf("tag name is required")
+	}
 	var colorPtr *string
-	if color != "" {
-		colorPtr = &color
+	if trimmedColor := strings.TrimSpace(color); trimmedColor != "" {
+		colorPtr = &trimmedColor
 	}
 	return request[*entity.Tag](c, ctx, "tag_create", struct {
 		RequestID string  `json:"requestId"`
@@ -305,13 +394,16 @@ func (c *Client) CreateTag(ctx context.Context, name, color string) (*entity.Tag
 }
 
 func (c *Client) UpdateTag(ctx context.Context, id int64, name, color string) error {
+	if id <= 0 {
+		return fmt.Errorf("update tag id must be positive, got %d", id)
+	}
 	var namePtr *string
-	if name != "" {
-		namePtr = &name
+	if trimmedName := strings.TrimSpace(name); trimmedName != "" {
+		namePtr = &trimmedName
 	}
 	var colorPtr *string
-	if color != "" {
-		colorPtr = &color
+	if trimmedColor := strings.TrimSpace(color); trimmedColor != "" {
+		colorPtr = &trimmedColor
 	}
 	_, err := request[struct{}](c, ctx, "tag_update", struct {
 		RequestID string  `json:"requestId"`
@@ -323,6 +415,9 @@ func (c *Client) UpdateTag(ctx context.Context, id int64, name, color string) er
 }
 
 func (c *Client) DeleteTag(ctx context.Context, id int64) error {
+	if id <= 0 {
+		return fmt.Errorf("delete tag id must be positive, got %d", id)
+	}
 	_, err := request[struct{}](c, ctx, "tag_delete", struct {
 		RequestID string `json:"requestId"`
 		ID        int64  `json:"id"`
@@ -331,6 +426,12 @@ func (c *Client) DeleteTag(ctx context.Context, id int64) error {
 }
 
 func (c *Client) AssignTag(ctx context.Context, favoriteID, tagID int64) error {
+	if favoriteID <= 0 {
+		return fmt.Errorf("assign tag favorite id must be positive, got %d", favoriteID)
+	}
+	if tagID <= 0 {
+		return fmt.Errorf("assign tag id must be positive, got %d", tagID)
+	}
 	_, err := request[struct{}](c, ctx, "tag_assign", struct {
 		RequestID  string `json:"requestId"`
 		FavoriteID int64  `json:"favorite_id"`
@@ -340,6 +441,12 @@ func (c *Client) AssignTag(ctx context.Context, favoriteID, tagID int64) error {
 }
 
 func (c *Client) RemoveTag(ctx context.Context, favoriteID, tagID int64) error {
+	if favoriteID <= 0 {
+		return fmt.Errorf("remove tag favorite id must be positive, got %d", favoriteID)
+	}
+	if tagID <= 0 {
+		return fmt.Errorf("remove tag id must be positive, got %d", tagID)
+	}
 	_, err := request[struct{}](c, ctx, "tag_remove", struct {
 		RequestID  string `json:"requestId"`
 		FavoriteID int64  `json:"favorite_id"`
@@ -364,7 +471,7 @@ func (c *Client) transport() Transport {
 func request[T any](c *Client, ctx context.Context, msgType string, payload any) (T, error) {
 	var zero T
 
-	ctx, cancel := withBridgeRequestTimeout(ctx)
+	ctx, cancel := c.withBridgeRequestTimeout(ctx)
 	defer cancel()
 
 	raw, err := c.Send(ctx, msgType, payload)
@@ -375,14 +482,18 @@ func request[T any](c *Client, ctx context.Context, msgType string, payload any)
 	return decodeBridgeResponse[T](raw)
 }
 
-func withBridgeRequestTimeout(ctx context.Context) (context.Context, context.CancelFunc) {
+func (c *Client) withBridgeRequestTimeout(ctx context.Context) (context.Context, context.CancelFunc) {
 	if ctx == nil {
 		ctx = context.Background()
 	}
-	if _, ok := ctx.Deadline(); ok || bridgeRequestTimeout <= 0 {
+	timeout := defaultBridgeRequestTimeout
+	if c != nil {
+		timeout = c.requestTimeout
+	}
+	if _, ok := ctx.Deadline(); ok || timeout <= 0 {
 		return context.WithCancel(ctx)
 	}
-	return context.WithTimeout(ctx, bridgeRequestTimeout)
+	return context.WithTimeout(ctx, timeout)
 }
 
 type bridgeResponse struct {
@@ -393,27 +504,27 @@ type bridgeResponse struct {
 }
 
 func decodeBridgeResponse[T any](body []byte) (T, error) {
-	var zero T
+	var result T
 
 	var resp bridgeResponse
 	if err := json.Unmarshal(body, &resp); err != nil {
-		return zero, fmt.Errorf("unmarshal bridge response: %w", err)
+		return result, fmt.Errorf("unmarshal bridge response: %w", err)
 	}
 	if !resp.Success {
 		if resp.Error == "" {
-			return zero, errors.New("bridge request failed")
+			return result, errors.New("bridge request failed")
 		}
-		return zero, errors.New(resp.Error)
+		return result, errors.New(resp.Error)
 	}
 	if len(resp.Data) == 0 {
-		return zero, nil
+		return result, nil
 	}
 
-	if err := json.Unmarshal(resp.Data, &zero); err != nil {
-		return zero, fmt.Errorf("unmarshal bridge data: %w", err)
+	if err := json.Unmarshal(resp.Data, &result); err != nil {
+		return result, fmt.Errorf("unmarshal bridge data: %w", err)
 	}
 
-	return zero, nil
+	return result, nil
 }
 
 func nextRequestID() string {

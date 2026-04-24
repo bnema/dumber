@@ -112,19 +112,19 @@ All keybindings can be customized in `~/.config/dumber/config.toml`:
 split-right = ["arrowright", "r"]
 close-pane = ["x", "q"]
 
-[workspace.shortcuts.actions.close_pane]
+[workspace.shortcuts.actions.close-pane]
 keys = ["ctrl+w"]
 
-[workspace.shortcuts.actions.toggle_floating_pane]
+[workspace.shortcuts.actions.toggle-floating-pane]
 keys = ["alt+f"]
 
-[workspace.shortcuts.actions.toggle_history_systemview]
+[workspace.shortcuts.actions.toggle-history-systemview]
 keys = ["ctrl+h"]
 
-[workspace.shortcuts.actions.toggle_favorites_systemview]
+[workspace.shortcuts.actions.toggle-favorites-systemview]
 keys = []
 
-[workspace.shortcuts.actions.toggle_config_systemview]
+[workspace.shortcuts.actions.toggle-config-systemview]
 keys = []
 
 [workspace.floating_pane]

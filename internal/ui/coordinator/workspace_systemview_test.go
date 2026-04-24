@@ -53,6 +53,10 @@ func TestWorkspaceCoordinator_ToggleSystemViewRightFocusesExistingPane(t *testin
 	ws := &entity.Workspace{ID: "ws-1", Root: root, ActivePaneID: left.Pane.ID}
 
 	coord := NewWorkspaceCoordinator(ctx, WorkspaceCoordinatorConfig{
+		PanesUC: usecase.NewManagePanesUseCase(func() string {
+			t.Fatal("PanesUC should not be invoked when focusing an existing systemview pane")
+			return "unused"
+		}),
 		GetActiveWS: func() (*entity.Workspace, *component.WorkspaceView) {
 			return ws, nil
 		},
@@ -90,4 +94,33 @@ func TestWorkspaceCoordinator_ToggleSystemViewRightClosesActivePane(t *testing.T
 	active := ws.ActivePane()
 	require.NotNil(t, active)
 	assert.Equal(t, "https://example.com", active.Pane.URI)
+}
+
+func TestWorkspaceCoordinator_ToggleSystemViewRightUpdatesStackIndexForExistingPane(t *testing.T) {
+	ctx := context.Background()
+	first := testLeafNode("pane-1")
+	first.Pane.URI = "https://example.com"
+	second := testLeafNode("pane-2")
+	second.Pane.URI = "dumb://history"
+	stack := &entity.PaneNode{
+		ID:               "stack-1",
+		IsStacked:        true,
+		ActiveStackIndex: 0,
+		Children:         []*entity.PaneNode{first, second},
+	}
+	first.Parent = stack
+	second.Parent = stack
+	ws := &entity.Workspace{ID: "ws-1", Root: stack, ActivePaneID: first.Pane.ID}
+
+	coord := NewWorkspaceCoordinator(ctx, WorkspaceCoordinatorConfig{
+		GetActiveWS: func() (*entity.Workspace, *component.WorkspaceView) {
+			return ws, nil
+		},
+	})
+
+	err := coord.ToggleSystemViewRight(ctx, "dumb://history")
+	require.NoError(t, err)
+
+	assert.Equal(t, entity.PaneID("pane-2"), ws.ActivePaneID)
+	assert.Equal(t, 1, stack.ActiveStackIndex)
 }

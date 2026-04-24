@@ -34,6 +34,24 @@ func TestFavoriteItemsHTMLSanitizesHrefSchemes(t *testing.T) {
 	assert.Contains(t, html, `href="https://example.com"`)
 }
 
+func TestSanitizeHrefRejectsNetworkPathAndMalformedHTTP(t *testing.T) {
+	t.Parallel()
+
+	assert.Equal(t, "#", sanitizeHref("///evil.com"))
+	assert.Equal(t, "#", sanitizeHref("//evil.com"))
+	assert.Equal(t, "#", sanitizeHref("https:///evil.com"))
+	assert.Equal(t, "#", sanitizeHref("http:evil.com"))
+	assert.Equal(t, "https://example.com", sanitizeHref("https://example.com"))
+}
+
+func TestSanitizeHrefAllowsInternalDumbRoutes(t *testing.T) {
+	t.Parallel()
+
+	assert.Equal(t, "dumb://history", sanitizeHref("dumb://history"))
+	assert.Equal(t, "dumb:history", sanitizeHref("dumb:history"))
+	assert.Equal(t, "#", sanitizeHref("dumb:///history"))
+}
+
 func TestFavoritesHTMLSanitizesTagColors(t *testing.T) {
 	t.Parallel()
 

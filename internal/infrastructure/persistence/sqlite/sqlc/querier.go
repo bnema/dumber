@@ -24,6 +24,7 @@ type Querier interface {
 	DeleteHistoryByDomain(ctx context.Context, domain sql.NullString) error
 	DeleteHistoryByID(ctx context.Context, id int64) error
 	DeleteHistoryOlderThan(ctx context.Context, lastVisited sql.NullTime) error
+	DeleteHistorySince(ctx context.Context, lastVisited sql.NullTime) error
 	// Deletes exited browser sessions beyond the keep limit, keeping the most recent ones.
 	DeleteOldestExitedSessions(ctx context.Context, offset int64) (int64, error)
 	DeletePermission(ctx context.Context, arg DeletePermissionParams) error
@@ -78,7 +79,7 @@ type Querier interface {
 	RemoveTagFromFavorite(ctx context.Context, arg RemoveTagFromFavoriteParams) error
 	SearchHistory(ctx context.Context, arg SearchHistoryParams) ([]History, error)
 	SearchHistoryFTSTitle(ctx context.Context, arg SearchHistoryFTSTitleParams) ([]History, error)
-	SearchHistoryFTSUrl(ctx context.Context, arg SearchHistoryFTSUrlParams) ([]History, error)
+	SearchHistoryFTSUrl(ctx context.Context, arg SearchHistoryFTSUrlParams) ([]SearchHistoryFTSUrlRow, error)
 	SearchHistoryFTSUrlWithDomainBoost(ctx context.Context, arg SearchHistoryFTSUrlWithDomainBoostParams) ([]SearchHistoryFTSUrlWithDomainBoostRow, error)
 	SetFavoriteFolder(ctx context.Context, arg SetFavoriteFolderParams) error
 	SetFavoriteShortcut(ctx context.Context, arg SetFavoriteShortcutParams) error

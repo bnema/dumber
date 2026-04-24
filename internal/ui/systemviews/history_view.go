@@ -38,11 +38,41 @@ func historyHTML(data historyRenderData) string {
 	return mustRenderComponent(HistoryView(data))
 }
 
+func historyDocumentTitle(data historyRenderData) string {
+	if query := strings.TrimSpace(data.Query); query != "" {
+		return "History — search: " + truncateTitle(query, 48)
+	}
+	if domain := strings.TrimSpace(data.DomainFilter); domain != "" {
+		label := browserurl.DisplayDomain(domain)
+		if label == "" {
+			label = domain
+		}
+		return "History — " + label
+	}
+
+	entries := int64(countHistoryEntries(data.Entries))
+	if data.Analytics != nil {
+		entries = data.Analytics.TotalEntries
+	}
+	if entries == 1 {
+		return "History — 1 entry"
+	}
+	return fmt.Sprintf("History — %d entries", entries)
+}
+
+func truncateTitle(value string, maxRunes int) string {
+	runes := []rune(strings.TrimSpace(value))
+	if maxRunes <= 0 || len(runes) <= maxRunes {
+		return string(runes)
+	}
+	return string(runes[:maxRunes]) + "…"
+}
+
 var historyCleanupRanges = []historyCleanupItem{
-	{Label: "Last hour", RangeID: "hour", Confirm: "Delete history for last hour?", Notice: "Deleted history from the last hour"},
-	{Label: "Today", RangeID: "day", Confirm: "Delete history for today?", Notice: "Deleted history from today"},
-	{Label: "Week", RangeID: "week", Confirm: "Delete history for week?", Notice: "Deleted history from this week"},
-	{Label: "Month", RangeID: "month", Confirm: "Delete history for month?", Notice: "Deleted history from this month"},
+	{Label: "Last hour", RangeID: "hour", Confirm: "Delete visits from the last hour?", Notice: "Deleted history from the last hour"},
+	{Label: "Today", RangeID: "day", Confirm: "Delete visits from today?", Notice: "Deleted history from today"},
+	{Label: "Week", RangeID: "week", Confirm: "Delete visits from the last week?", Notice: "Deleted history from this week"},
+	{Label: "Month", RangeID: "month", Confirm: "Delete visits from the last month?", Notice: "Deleted history from this month"},
 	{Label: "All", RangeID: "all", Confirm: "Delete all browsing history?", Notice: "Deleted all history"},
 }
 
@@ -103,11 +133,6 @@ func historySummaryValues(data historyRenderData) (entries, visits, uniqueDays i
 	visits = sumHistoryVisits(data.Entries)
 	uniqueDays = countUniqueHistoryDays(data.Entries)
 
-	if data.Analytics != nil {
-		entries = data.Analytics.TotalEntries
-		visits = data.Analytics.TotalVisits
-		uniqueDays = data.Analytics.UniqueDays
-	}
 	return entries, visits, uniqueDays
 }
 
@@ -121,11 +146,12 @@ func historyTimelineEmptyMessage(data historyRenderData) string {
 func groupHistoryEntries(entries []*entity.HistoryEntry) []historyTimelineGroup {
 	groups := make([]historyTimelineGroup, 0)
 	indexByDate := map[string]int{}
+	now := time.Now().Local()
 	for _, entry := range entries {
 		if entry == nil {
 			continue
 		}
-		dateKey, label := historyDateKeyAndLabel(entry.LastVisited)
+		dateKey, label := historyDateKeyAndLabel(entry.LastVisited, now)
 		idx, ok := indexByDate[dateKey]
 		if !ok {
 			idx = len(groups)
@@ -137,14 +163,14 @@ func groupHistoryEntries(entries []*entity.HistoryEntry) []historyTimelineGroup 
 	return groups
 }
 
-func historyDateKeyAndLabel(ts time.Time) (string, string) {
+func historyDateKeyAndLabel(ts, now time.Time) (string, string) {
 	if ts.IsZero() {
 		return "unknown", "Unknown date"
 	}
 
 	local := ts.Local()
 	dateKey := local.Format("2006-01-02")
-	today := time.Now().Local()
+	today := now.Local()
 	todayStart := time.Date(today.Year(), today.Month(), today.Day(), 0, 0, 0, 0, today.Location())
 	yesterdayStart := todayStart.AddDate(0, 0, -1)
 	entryStart := time.Date(local.Year(), local.Month(), local.Day(), 0, 0, 0, 0, local.Location())
@@ -175,6 +201,8 @@ func sumHistoryVisits(entries []*entity.HistoryEntry) int64 {
 		if entry == nil {
 			continue
 		}
+		// Each HistoryEntry represents at least one visit, even when VisitCount
+		// is unset or non-positive in older persisted rows.
 		if entry.VisitCount <= 0 {
 			visits++
 			continue
@@ -193,23 +221,6 @@ func countUniqueHistoryDays(entries []*entity.HistoryEntry) int64 {
 		seen[entry.LastVisited.Local().Format("2006-01-02")] = struct{}{}
 	}
 	return int64(len(seen))
-}
-
-func filterHistoryEntriesByDomain(entries []*entity.HistoryEntry, domain string) []*entity.HistoryEntry {
-	domain = browserurl.CanonicalDomain(domain)
-	if domain == "" {
-		return entries
-	}
-	filtered := make([]*entity.HistoryEntry, 0, len(entries))
-	for _, entry := range entries {
-		if entry == nil {
-			continue
-		}
-		if browserurl.CanonicalDomain(entry.URL) == domain {
-			filtered = append(filtered, entry)
-		}
-	}
-	return filtered
 }
 
 func displayHistoryDomain(raw string) string {

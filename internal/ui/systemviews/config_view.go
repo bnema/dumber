@@ -16,6 +16,7 @@ type configRenderData struct {
 	Error       string
 }
 
+// maxFlattenDepth caps recursive config flattening to avoid runaway nesting.
 const maxFlattenDepth = 16
 
 func configHTML(data configRenderData) string {
@@ -253,6 +254,9 @@ func formatFlatValue(value reflect.Value) string {
 	case reflect.Complex64, reflect.Complex128:
 		return fmt.Sprint(value.Complex())
 	default:
+		if !value.CanInterface() {
+			return "<unexported>"
+		}
 		return fmt.Sprint(value.Interface())
 	}
 }
@@ -275,7 +279,10 @@ func mapKeyString(value reflect.Value) string {
 	if value.Kind() == reflect.String {
 		return value.String()
 	}
-	return fmt.Sprint(value.Interface())
+	if value.CanInterface() {
+		return fmt.Sprint(value.Interface())
+	}
+	return formatFlatValue(value)
 }
 
 func summarizeKeybindings(keybindings port.KeybindingsConfig) (groups, bindings int) {
@@ -344,5 +351,5 @@ func plural(count int, singular string) string {
 	if count == 1 {
 		return singular
 	}
-	return strings.TrimSpace(singular + "s")
+	return singular + "s"
 }

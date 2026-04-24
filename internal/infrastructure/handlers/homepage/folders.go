@@ -44,6 +44,7 @@ type createFolderRequest struct {
 	RequestID string  `json:"requestId"`
 	Name      string  `json:"name"`
 	Icon      *string `json:"icon"`
+	ParentID  *int64  `json:"parent_id"`
 }
 
 // HandleCreate handles folder_create messages.
@@ -61,17 +62,13 @@ func (h *FolderHandlers) HandleCreate() port.WebUIMessageHandler {
 			Str("name", req.Name).
 			Msg("handling folder_create")
 
-		folder, err := h.favoritesUC.CreateFolder(ctx, req.Name, nil)
+		icon := ""
+		if req.Icon != nil {
+			icon = *req.Icon
+		}
+		folder, err := h.favoritesUC.CreateFolder(ctx, req.Name, icon, folderIDFromInt64(req.ParentID))
 		if err != nil {
 			return NewErrorResponse(req.RequestID, err), nil
-		}
-
-		// Set icon if provided and persist it
-		if req.Icon != nil && *req.Icon != "" {
-			folder.Icon = *req.Icon
-			if err := h.favoritesUC.UpdateFolder(ctx, folder.ID, folder.Name, folder.Icon); err != nil {
-				return NewErrorResponse(req.RequestID, err), nil
-			}
 		}
 
 		return NewSuccessResponse(req.RequestID, folder), nil

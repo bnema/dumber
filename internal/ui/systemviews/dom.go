@@ -6,7 +6,7 @@ import (
 )
 
 type DOM interface {
-	Mount(html string) error
+	Mount(markup string) error
 }
 
 // DOMAction is a browser event delegated from the mounted systemview DOM.

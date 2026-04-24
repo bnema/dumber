@@ -15,7 +15,7 @@ func TestFloatingPaneConfig_Defaults(t *testing.T) {
 	assert.InDelta(t, 0.72, cfg.Workspace.FloatingPane.HeightPct, 0.0001)
 	assert.Empty(t, cfg.Workspace.FloatingPane.Profiles)
 
-	binding, ok := cfg.Workspace.Shortcuts.Actions["toggle_floating_pane"]
+	binding, ok := cfg.Workspace.Shortcuts.Actions["toggle-floating-pane"]
 	require.True(t, ok)
 	assert.Equal(t, []string{"alt+f"}, binding.Keys)
 }
@@ -31,7 +31,7 @@ func TestFloatingPaneConfig_DefaultsLoadThroughViper(t *testing.T) {
 	assert.InDelta(t, 0.72, cfg.Workspace.FloatingPane.HeightPct, 0.0001)
 	assert.Empty(t, cfg.Workspace.FloatingPane.Profiles)
 
-	binding, ok := cfg.Workspace.Shortcuts.Actions["toggle_floating_pane"]
+	binding, ok := cfg.Workspace.Shortcuts.Actions["toggle-floating-pane"]
 	require.True(t, ok)
 	assert.Equal(t, []string{"alt+f"}, binding.Keys)
 }

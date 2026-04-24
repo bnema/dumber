@@ -47,13 +47,13 @@ templ AppearanceForm(config port.SystemviewConfigPayload) {
 templ PaletteFields(title string, prefix string, palette port.ColorPalette) {
 	<fieldset class="sv-fieldset">
 		<legend>{ title }</legend>
-		<label><span>Background</span><input name={ prefix + "_background" } type="text" value={ palette.Background } required/></label>
-		<label><span>Surface</span><input name={ prefix + "_surface" } type="text" value={ palette.Surface } required/></label>
-		<label><span>Surface variant</span><input name={ prefix + "_surface_variant" } type="text" value={ palette.SurfaceVariant } required/></label>
-		<label><span>Text</span><input name={ prefix + "_text" } type="text" value={ palette.Text } required/></label>
-		<label><span>Muted</span><input name={ prefix + "_muted" } type="text" value={ palette.Muted } required/></label>
-		<label><span>Accent</span><input name={ prefix + "_accent" } type="text" value={ palette.Accent } required/></label>
-		<label><span>Border</span><input name={ prefix + "_border" } type="text" value={ palette.Border } required/></label>
+		<label><span>Background</span><input name={ prefix + "_background" } type="color" value={ palette.Background } required/></label>
+		<label><span>Surface</span><input name={ prefix + "_surface" } type="color" value={ palette.Surface } required/></label>
+		<label><span>Surface variant</span><input name={ prefix + "_surface_variant" } type="color" value={ palette.SurfaceVariant } required/></label>
+		<label><span>Text</span><input name={ prefix + "_text" } type="color" value={ palette.Text } required/></label>
+		<label><span>Muted</span><input name={ prefix + "_muted" } type="color" value={ palette.Muted } required/></label>
+		<label><span>Accent</span><input name={ prefix + "_accent" } type="color" value={ palette.Accent } required/></label>
+		<label><span>Border</span><input name={ prefix + "_border" } type="color" value={ palette.Border } required/></label>
 	</fieldset>
 }
 
@@ -67,7 +67,7 @@ templ SearchSettings(config port.SystemviewConfigPayload) {
 		<p class="sv-meta">Shortcut URLs must include the %s placeholder for the search query.</p>
 		<form class="sv-inline-form" data-sv-action="config.searchShortcut.create">
 			<label><span>Key</span><input name="key" type="text" placeholder="ddg" required/></label>
-			<label><span>URL</span><input name="url" type="text" placeholder="https://duckduckgo.com/?q=%s" required/></label>
+			<label><span>URL</span><input name="url" type="text" placeholder="https://duckduckgo.com/?q=%s" pattern=".*%s.*" required/></label>
 			<label><span>Description</span><input name="description" type="text" placeholder="DuckDuckGo"/></label>
 			<button class="sv-button sv-button-secondary" type="submit">Add shortcut</button>
 		</form>
@@ -89,7 +89,7 @@ templ SearchShortcutItem(shortcut searchShortcutRow) {
 		<form class="sv-inline-form" data-sv-action="config.searchShortcut.update">
 			<input type="hidden" name="key" value={ shortcut.Key }/>
 			<label><span>Key</span><input name="new_key" type="text" value={ shortcut.Key } required/></label>
-			<label><span>URL</span><input name="url" type="text" value={ shortcut.URL } required/></label>
+			<label><span>URL</span><input name="url" type="text" value={ shortcut.URL } pattern=".*%s.*" required/></label>
 			<label><span>Description</span><input name="description" type="text" value={ shortcut.Description }/></label>
 			<button class="sv-button sv-button-secondary" type="submit">Save</button>
 			<button class="sv-button sv-button-secondary sv-button-danger" type="button" data-sv-action="config.searchShortcut.delete" data-key={ shortcut.Key } data-sv-confirm="Delete this search shortcut?">Delete</button>
@@ -98,6 +98,7 @@ templ SearchShortcutItem(shortcut searchShortcutRow) {
 }
 
 templ PerformanceSettings(config port.SystemviewConfigPayload) {
+	{{ customProfile := performanceProfileSelected(config.Performance.Profile, "custom") }}
 	<form class="sv-card-form sv-config-form" data-sv-action="config.performance.save">
 		<label><span>Profile</span><select name="profile">
 			<option value="default" selected?={ performanceProfileSelected(config.Performance.Profile, "default") }>Default</option>
@@ -105,11 +106,12 @@ templ PerformanceSettings(config port.SystemviewConfigPayload) {
 			<option value="max" selected?={ performanceProfileSelected(config.Performance.Profile, "max") }>Max</option>
 			<option value="custom" selected?={ performanceProfileSelected(config.Performance.Profile, "custom") }>Custom</option>
 		</select></label>
-		<label><span>Skia CPU threads</span><input name="skia_cpu_threads" type="number" min="0" max="8" value={ formatConfigInt(config.Performance.Custom.SkiaCPUThreads) }/></label>
-		<label><span>Skia GPU threads</span><input name="skia_gpu_threads" type="number" min="-1" max="8" value={ formatConfigInt(config.Performance.Custom.SkiaGPUThreads) }/></label>
-		<label><span>Web process memory MB</span><input name="web_process_memory_mb" type="number" min="0" max="16384" value={ formatConfigInt(config.Performance.Custom.WebProcessMemoryMB) }/></label>
-		<label><span>Network process memory MB</span><input name="network_process_memory_mb" type="number" min="0" max="4096" value={ formatConfigInt(config.Performance.Custom.NetworkProcessMemoryMB) }/></label>
-		<label><span>WebView pool prewarm</span><input name="webview_pool_prewarm" type="number" min="0" max="20" value={ formatConfigInt(config.Performance.Custom.WebViewPoolPrewarm) }/></label>
+		<p class="sv-meta">Choose Custom to edit individual performance values.</p>
+		<label><span>Skia CPU threads</span><input name="skia_cpu_threads" type="number" min="0" max="8" value={ formatConfigInt(config.Performance.Custom.SkiaCPUThreads) } disabled?={ !customProfile }/></label>
+		<label><span>Skia GPU threads</span><input name="skia_gpu_threads" type="number" min="-1" max="8" value={ formatConfigInt(config.Performance.Custom.SkiaGPUThreads) } disabled?={ !customProfile }/></label>
+		<label><span>Web process memory MB</span><input name="web_process_memory_mb" type="number" min="0" max="16384" value={ formatConfigInt(config.Performance.Custom.WebProcessMemoryMB) } disabled?={ !customProfile }/></label>
+		<label><span>Network process memory MB</span><input name="network_process_memory_mb" type="number" min="0" max="4096" value={ formatConfigInt(config.Performance.Custom.NetworkProcessMemoryMB) } disabled?={ !customProfile }/></label>
+		<label><span>WebView pool prewarm</span><input name="webview_pool_prewarm" type="number" min="0" max="20" value={ formatConfigInt(config.Performance.Custom.WebViewPoolPrewarm) } disabled?={ !customProfile }/></label>
 		<button class="sv-button" type="submit">Save performance</button>
 	</form>
 	<div class="sv-stat-grid">
@@ -183,7 +185,7 @@ templ ConfigKeybinding(group renderedKeybindingGroup, binding renderedKeybinding
 			<form class="sv-inline-form" data-sv-action="config.keybinding.set">
 				<input type="hidden" name="mode" value={ group.Mode }/>
 				<input type="hidden" name="action" value={ binding.Action }/>
-				<label><span>Keys</span><input name="keys" type="text" value={ keybindingKeysValue(binding.Keys) } placeholder="ctrl+h" required/></label>
+				<label><span>Keys</span><input name="keys" type="text" value={ keybindingKeysValue(binding.Keys) } placeholder="ctrl+h, ctrl+shift+h" required/></label>
 				<button class="sv-button sv-button-secondary" type="submit">Save</button>
 				<button class="sv-button sv-button-secondary" type="button" data-sv-action="config.keybinding.reset" data-mode={ group.Mode } data-action={ binding.Action }>Reset</button>
 			</form>

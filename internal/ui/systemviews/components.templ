@@ -1,7 +1,7 @@
 package systemviews
 
 templ appFrameComponent(page renderedPage, theme shellTheme, body templ.Component) {
-	<div class={ appRootClass(theme) } data-route={ string(page.route) }
+	<div class={ appRootClass(theme) } data-route={ string(page.route) } data-page-title={ pageDocumentTitle(page) }
 		if theme.InlineVars != "" {
 			style={ theme.InlineVars }
 		}
@@ -38,7 +38,7 @@ templ Alert(kind string, message string) {
 	}
 }
 
-templ List(emptyMessage string) {
+templ List() {
 	<ul class="sv-list">
 		{ children... }
 	</ul>

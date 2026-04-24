@@ -152,6 +152,39 @@ func TestSearchHistoryUseCase_GetMostVisited_ReturnsEmptyWhenNoHistory(t *testin
 	assert.Empty(t, result)
 }
 
+func TestSearchHistoryUseCase_ClearRange_RecentRangeDeletesSinceCutoff(t *testing.T) {
+	ctx := testContext()
+	historyRepo := repomocks.NewMockHistoryRepository(t)
+	historyRepo.EXPECT().DeleteSince(mock.Anything, mock.MatchedBy(func(since time.Time) bool {
+		return !since.IsZero() && time.Since(since) <= time.Hour+time.Minute
+	})).Return(nil).Once()
+
+	uc := usecase.NewSearchHistoryUseCase(historyRepo)
+
+	err := uc.ClearRange(ctx, "hour")
+	require.NoError(t, err)
+}
+
+func TestSearchHistoryUseCase_ClearRange_TodayDeletesSinceLocalMidnight(t *testing.T) {
+	ctx := testContext()
+	historyRepo := repomocks.NewMockHistoryRepository(t)
+	today := time.Now()
+	historyRepo.EXPECT().DeleteSince(mock.Anything, mock.MatchedBy(func(since time.Time) bool {
+		return since.Year() == today.Year() &&
+			since.Month() == today.Month() &&
+			since.Day() == today.Day() &&
+			since.Hour() == 0 &&
+			since.Minute() == 0 &&
+			since.Second() == 0 &&
+			since.Nanosecond() == 0
+	})).Return(nil).Once()
+
+	uc := usecase.NewSearchHistoryUseCase(historyRepo)
+
+	err := uc.ClearRange(ctx, "day")
+	require.NoError(t, err)
+}
+
 func TestSearchHistoryUseCase_ClearRange_AllUsesClearAll(t *testing.T) {
 	ctx := testContext()
 
@@ -175,4 +208,28 @@ func TestSearchHistoryUseCase_ClearRange_UnknownRangeDoesNotDelete(t *testing.T)
 	err := uc.ClearRange(ctx, "bogus")
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "unknown history delete range")
+}
+
+func TestSearchHistoryUseCase_GetRecentByDomainAllowsUnderscoreDomains(t *testing.T) {
+	ctx := testContext()
+	historyRepo := repomocks.NewMockHistoryRepository(t)
+	want := []*entity.HistoryEntry{{URL: "https://example_.com"}}
+	historyRepo.EXPECT().GetRecentByDomain(mock.Anything, "example_.com", 20, 0).Return(want, nil).Once()
+	uc := usecase.NewSearchHistoryUseCase(historyRepo)
+
+	result, err := uc.GetRecentByDomain(ctx, "example_.com", 20, 0)
+
+	require.NoError(t, err)
+	assert.Equal(t, want, result)
+}
+
+func TestSearchHistoryUseCase_DeleteByDomainAllowsUnderscoreDomains(t *testing.T) {
+	ctx := testContext()
+	historyRepo := repomocks.NewMockHistoryRepository(t)
+	historyRepo.EXPECT().DeleteByDomain(mock.Anything, "example_.com").Return(nil).Once()
+	uc := usecase.NewSearchHistoryUseCase(historyRepo)
+
+	err := uc.DeleteByDomain(ctx, "example_.com")
+
+	require.NoError(t, err)
 }

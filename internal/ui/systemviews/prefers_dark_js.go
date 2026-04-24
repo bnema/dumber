@@ -16,5 +16,9 @@ var currentPrefersDarkImpl = func() bool {
 	}
 
 	media := matchMedia.Invoke("(prefers-color-scheme: dark)")
-	return media.Truthy() && media.Get("matches").Bool()
+	if !media.Truthy() {
+		return false
+	}
+	matches := media.Get("matches")
+	return matches.Truthy() && matches.Bool()
 }

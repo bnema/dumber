@@ -2129,6 +2129,63 @@ func (_c *MockHistoryRepository_DeleteOlderThan_Call) RunAndReturn(run func(ctx 
 	return _c
 }
 
+// DeleteSince provides a mock function for the type MockHistoryRepository
+func (_mock *MockHistoryRepository) DeleteSince(ctx context.Context, since time.Time) error {
+	ret := _mock.Called(ctx, since)
+
+	if len(ret) == 0 {
+		panic("no return value specified for DeleteSince")
+	}
+
+	var r0 error
+	if returnFunc, ok := ret.Get(0).(func(context.Context, time.Time) error); ok {
+		r0 = returnFunc(ctx, since)
+	} else {
+		r0 = ret.Error(0)
+	}
+	return r0
+}
+
+// MockHistoryRepository_DeleteSince_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'DeleteSince'
+type MockHistoryRepository_DeleteSince_Call struct {
+	*mock.Call
+}
+
+// DeleteSince is a helper method to define mock.On call
+//   - ctx context.Context
+//   - since time.Time
+func (_e *MockHistoryRepository_Expecter) DeleteSince(ctx interface{}, since interface{}) *MockHistoryRepository_DeleteSince_Call {
+	return &MockHistoryRepository_DeleteSince_Call{Call: _e.mock.On("DeleteSince", ctx, since)}
+}
+
+func (_c *MockHistoryRepository_DeleteSince_Call) Run(run func(ctx context.Context, since time.Time)) *MockHistoryRepository_DeleteSince_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		var arg0 context.Context
+		if args[0] != nil {
+			arg0 = args[0].(context.Context)
+		}
+		var arg1 time.Time
+		if args[1] != nil {
+			arg1 = args[1].(time.Time)
+		}
+		run(
+			arg0,
+			arg1,
+		)
+	})
+	return _c
+}
+
+func (_c *MockHistoryRepository_DeleteSince_Call) Return(err error) *MockHistoryRepository_DeleteSince_Call {
+	_c.Call.Return(err)
+	return _c
+}
+
+func (_c *MockHistoryRepository_DeleteSince_Call) RunAndReturn(run func(ctx context.Context, since time.Time) error) *MockHistoryRepository_DeleteSince_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
 // FindByURL provides a mock function for the type MockHistoryRepository
 func (_mock *MockHistoryRepository) FindByURL(ctx context.Context, url string) (*entity.HistoryEntry, error) {
 	ret := _mock.Called(ctx, url)

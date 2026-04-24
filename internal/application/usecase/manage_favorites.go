@@ -3,6 +3,7 @@ package usecase
 import (
 	"context"
 	"fmt"
+	"net/url"
 	"sort"
 	"strings"
 	"sync"
@@ -69,6 +70,11 @@ func (uc *ManageFavoritesUseCase) Add(ctx context.Context, input AddFavoriteInpu
 		return existing, nil
 	}
 
+	return uc.addNewFavorite(ctx, input)
+}
+
+func (uc *ManageFavoritesUseCase) addNewFavorite(ctx context.Context, input AddFavoriteInput) (*entity.Favorite, error) {
+	log := logging.FromContext(ctx)
 	fav := entity.NewFavorite(input.URL, input.Title)
 	fav.FaviconURL = input.FaviconURL
 	fav.FolderID = input.FolderID
@@ -95,8 +101,14 @@ func (uc *ManageFavoritesUseCase) Add(ctx context.Context, input AddFavoriteInpu
 
 // AddFavorite creates a favorite from the UI-facing application port.
 func (uc *ManageFavoritesUseCase) AddFavorite(ctx context.Context, input port.FavoriteCreateInput) (*entity.Favorite, error) {
-	if strings.TrimSpace(input.URL) == "" {
-		return nil, fmt.Errorf("favorite URL is required")
+	favoriteURL, err := normalizeFavoriteURL(input.URL)
+	if err != nil {
+		return nil, err
+	}
+	if existing, err := uc.findFavoriteByCanonicalOrRawURL(ctx, favoriteURL, input.URL); err != nil {
+		return nil, err
+	} else if existing != nil {
+		return existing, nil
 	}
 	tags := make([]entity.TagID, 0, len(input.Tags))
 	for _, tagID := range input.Tags {
@@ -104,13 +116,64 @@ func (uc *ManageFavoritesUseCase) AddFavorite(ctx context.Context, input port.Fa
 			tags = append(tags, tagID)
 		}
 	}
-	return uc.Add(ctx, AddFavoriteInput{
-		URL:        strings.TrimSpace(input.URL),
-		Title:      strings.TrimSpace(input.Title),
+	title := strings.TrimSpace(input.Title)
+	if title == "" {
+		title = favoriteURL
+	}
+	return uc.addNewFavorite(ctx, AddFavoriteInput{
+		URL:        favoriteURL,
+		Title:      title,
 		FaviconURL: strings.TrimSpace(input.FaviconURL),
 		FolderID:   input.FolderID,
 		Tags:       tags,
 	})
+}
+
+func (uc *ManageFavoritesUseCase) findFavoriteByCanonicalOrRawURL(ctx context.Context, canonicalURL, rawURL string) (*entity.Favorite, error) {
+	existing, err := uc.favoriteRepo.FindByURL(ctx, canonicalURL)
+	if err != nil {
+		return nil, fmt.Errorf("failed to check existing favorite: %w", err)
+	}
+	if existing != nil {
+		return existing, nil
+	}
+	rawURL = strings.TrimSpace(rawURL)
+	if rawURL == "" || rawURL == canonicalURL {
+		return nil, nil
+	}
+	existing, err = uc.favoriteRepo.FindByURL(ctx, rawURL)
+	if err != nil {
+		return nil, fmt.Errorf("failed to check legacy favorite: %w", err)
+	}
+	return existing, nil
+}
+
+func normalizeFavoriteURL(raw string) (string, error) {
+	favoriteURL := domainurl.Normalize(strings.TrimSpace(raw))
+	if favoriteURL == "" {
+		return "", fmt.Errorf("favorite URL is required")
+	}
+	parsed, err := url.Parse(favoriteURL)
+	if err != nil || parsed.Scheme == "" {
+		return "", fmt.Errorf("favorite URL must be absolute")
+	}
+	switch strings.ToLower(parsed.Scheme) {
+	case "http", "https":
+		if parsed.Host == "" {
+			return "", fmt.Errorf("favorite URL host is required")
+		}
+	case "dumb":
+		if parsed.Host != "" {
+			return favoriteURL, nil
+		}
+		if parsed.Opaque != "" {
+			return "dumb://" + strings.TrimPrefix(parsed.Opaque, "//"), nil
+		}
+		return "", fmt.Errorf("favorite URL host is required")
+	default:
+		return "", fmt.Errorf("favorite URL must use http, https, or dumb scheme")
+	}
+	return favoriteURL, nil
 }
 
 // UpdateFavorite updates editable favorite metadata from the UI-facing application port.
@@ -130,7 +193,11 @@ func (uc *ManageFavoritesUseCase) UpdateFavorite(ctx context.Context, input port
 		return nil, fmt.Errorf("favorite %d not found", input.ID)
 	}
 
-	fav.Title = strings.TrimSpace(input.Title)
+	title := strings.TrimSpace(input.Title)
+	if title == "" {
+		return nil, fmt.Errorf("favorite title is required")
+	}
+	fav.Title = title
 	fav.FaviconURL = strings.TrimSpace(input.FaviconURL)
 	fav.FolderID = input.FolderID
 	fav.ShortcutKey = input.ShortcutKey
@@ -375,18 +442,20 @@ type ToggleResult struct {
 
 // Toggle adds or removes a URL from favorites based on current state.
 // If the URL is already a favorite, it removes it. Otherwise, it adds it.
-func (uc *ManageFavoritesUseCase) Toggle(ctx context.Context, url, title string) (*ToggleResult, error) {
-	log := logging.FromContext(ctx)
-	log.Debug().Str("url", url).Msg("toggling favorite")
-
-	if url == "" {
-		return nil, fmt.Errorf("URL cannot be empty")
-	}
-
-	// Check if already favorited
-	existing, err := uc.favoriteRepo.FindByURL(ctx, url)
+func (uc *ManageFavoritesUseCase) Toggle(ctx context.Context, rawURL, title string) (*ToggleResult, error) {
+	favoriteURL, err := normalizeFavoriteURL(rawURL)
 	if err != nil {
-		return nil, fmt.Errorf("failed to check existing favorite: %w", err)
+		return nil, err
+	}
+	title = strings.TrimSpace(title)
+
+	log := logging.FromContext(ctx)
+	log.Debug().Str("url", favoriteURL).Msg("toggling favorite")
+
+	// Check if already favorited, including legacy rows stored before URL canonicalization.
+	existing, err := uc.findFavoriteByCanonicalOrRawURL(ctx, favoriteURL, rawURL)
+	if err != nil {
+		return nil, err
 	}
 
 	if existing != nil {
@@ -394,26 +463,26 @@ func (uc *ManageFavoritesUseCase) Toggle(ctx context.Context, url, title string)
 		if err := uc.favoriteRepo.Delete(ctx, existing.ID); err != nil {
 			return nil, fmt.Errorf("failed to remove favorite: %w", err)
 		}
-		log.Info().Str("url", url).Int64("id", int64(existing.ID)).Msg("favorite removed via toggle")
+		log.Info().Str("url", favoriteURL).Int64("id", int64(existing.ID)).Msg("favorite removed via toggle")
 		uc.invalidateCache()
 		return &ToggleResult{
 			Added:   false,
-			URL:     url,
+			URL:     favoriteURL,
 			Title:   existing.Title,
 			Message: "Favorite removed",
 		}, nil
 	}
 
 	// Add favorite
-	fav := entity.NewFavorite(url, title)
+	fav := entity.NewFavorite(favoriteURL, title)
 	if err := uc.favoriteRepo.Save(ctx, fav); err != nil {
 		return nil, fmt.Errorf("failed to add favorite: %w", err)
 	}
-	log.Info().Str("url", url).Int64("id", int64(fav.ID)).Msg("favorite added via toggle")
+	log.Info().Str("url", favoriteURL).Int64("id", int64(fav.ID)).Msg("favorite added via toggle")
 	uc.invalidateCache()
 	return &ToggleResult{
 		Added:   true,
-		URL:     url,
+		URL:     favoriteURL,
 		Title:   title,
 		Message: "Favorite added",
 	}, nil
@@ -509,11 +578,17 @@ func (uc *ManageFavoritesUseCase) GetTree(ctx context.Context) (*entity.Favorite
 }
 
 // CreateFolder creates a new folder.
-func (uc *ManageFavoritesUseCase) CreateFolder(ctx context.Context, name string, parentID *entity.FolderID) (*entity.Folder, error) {
+func (uc *ManageFavoritesUseCase) CreateFolder(ctx context.Context, name, icon string, parentID *entity.FolderID) (*entity.Folder, error) {
+	name = strings.TrimSpace(name)
+	icon = strings.TrimSpace(icon)
+	if name == "" {
+		return nil, fmt.Errorf("folder name is required")
+	}
 	log := logging.FromContext(ctx)
 	log.Debug().Str("name", name).Msg("creating folder")
 
 	folder := entity.NewFolder(name)
+	folder.Icon = icon
 	folder.ParentID = parentID
 
 	if err := uc.folderRepo.Save(ctx, folder); err != nil {

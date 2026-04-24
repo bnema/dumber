@@ -3,6 +3,7 @@ package usecase
 import (
 	"context"
 	"fmt"
+	"math"
 	"strings"
 
 	"github.com/bnema/dumber/internal/application/port"
@@ -55,8 +56,8 @@ func validateWebUIConfig(cfg port.WebUIConfig) error {
 	if cfg.Appearance.DefaultFontSize < 1 || cfg.Appearance.DefaultFontSize > 72 {
 		errs = append(errs, "appearance.default_font_size must be between 1 and 72")
 	}
-	if cfg.DefaultUIScale < 0.5 || cfg.DefaultUIScale > 3.0 {
-		errs = append(errs, "default_ui_scale must be between 0.5 and 3.0")
+	if math.IsNaN(cfg.DefaultUIScale) || math.IsInf(cfg.DefaultUIScale, 0) || cfg.DefaultUIScale < 0.5 || cfg.DefaultUIScale > 3.0 {
+		errs = append(errs, "default_ui_scale must be a finite value between 0.5 and 3.0")
 	}
 
 	errs = append(errs, validation.ValidateFontFamily("appearance.sans_font", cfg.Appearance.SansFont)...)

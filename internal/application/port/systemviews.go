@@ -28,7 +28,7 @@ type SystemviewFavoritesService interface {
 	ListTags(ctx context.Context) ([]*entity.Tag, error)
 	SetShortcut(ctx context.Context, favoriteID int64, shortcutKey *int) error
 	SetFolder(ctx context.Context, favoriteID int64, folderID *int64) error
-	CreateFolder(ctx context.Context, name string, parentID *int64) (*entity.Folder, error)
+	CreateFolder(ctx context.Context, name, icon string, parentID *int64) (*entity.Folder, error)
 	UpdateFolder(ctx context.Context, id int64, name, icon string) error
 	DeleteFolder(ctx context.Context, id int64) error
 	CreateTag(ctx context.Context, name, color string) (*entity.Tag, error)

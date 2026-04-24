@@ -26,8 +26,9 @@ func TestRenderAppFrame_ReturnsFragment(t *testing.T) {
 	// Root div carries theme class.
 	assert.Contains(t, out, `class="sv-app sv-dark"`)
 
-	// Route is on the root element.
+	// Route and document title are on the root element.
 	assert.Contains(t, out, `data-route="history"`)
+	assert.Contains(t, out, `data-page-title="History"`)
 
 	// Shell wrapper present.
 	assert.Contains(t, out, `class="sv-shell"`)
@@ -52,6 +53,23 @@ func TestRenderAppFrame_DefaultThemeClass(t *testing.T) {
 
 	assert.Contains(t, out, `class="sv-app sv-dark"`)
 	assert.Contains(t, out, `data-route="favorites"`)
+	assert.Contains(t, out, `data-page-title="Favorites"`)
+}
+
+func TestRenderAppFrame_DocumentTitleUsesExplicitTitle(t *testing.T) {
+	t.Parallel()
+
+	page := renderedPage{
+		route:    RouteHistory,
+		title:    "History — 12 entries",
+		subtitle: "Recent visits",
+		body:     `<p>content</p>`,
+	}
+
+	out := renderAppFrame(page, shellTheme{})
+
+	assert.Contains(t, out, `data-page-title="History — 12 entries"`)
+	assert.Contains(t, out, "Recent visits")
 }
 
 func TestRenderAppFrame_InlineVarsApplied(t *testing.T) {
@@ -110,6 +128,34 @@ func TestKVHTMLRendersPairs(t *testing.T) {
 	assert.Contains(t, out, `class="sv-kv"`)
 	assert.Contains(t, out, "Engine")
 	assert.Contains(t, out, "webkit")
+}
+
+func TestKVHTMLEmptySlice(t *testing.T) {
+	t.Parallel()
+
+	out := kvHTML(nil)
+
+	assert.Contains(t, out, `class="sv-empty"`)
+	assert.Contains(t, out, "No configuration details")
+}
+
+func TestKVHTMLAllEmptyRows(t *testing.T) {
+	t.Parallel()
+
+	out := kvHTML([]kvPair{{}, {Label: " ", Value: ""}})
+
+	assert.Contains(t, out, `class="sv-empty"`)
+	assert.Contains(t, out, "No configuration details")
+}
+
+func TestErrorStateHTML(t *testing.T) {
+	t.Parallel()
+
+	out := errorStateHTML("boom")
+
+	assert.Contains(t, out, `class="sv-error"`)
+	assert.Contains(t, out, `role="alert"`)
+	assert.Contains(t, out, "boom")
 }
 
 func TestSectionHTML(t *testing.T) {

@@ -35,7 +35,7 @@ git push origin my-fix
 3. Run `go fmt` on any Go code changes
 
 **Systemviews assets:**
-1. Run `make build-systemviews` to regenerate embedded WASM assets
+1. If you modified systemviews files such as `cmd/systemviews/` or `.templ` components, run `make build-systemviews` to regenerate embedded WASM assets
 
 Keep commits focused and use single-line commit messages.
 

@@ -3,14 +3,7 @@ SELECT * FROM history ORDER BY last_visited DESC LIMIT ? OFFSET ?;
 
 -- name: GetRecentHistoryByDomain :many
 SELECT * FROM history
-WHERE url LIKE '%://' || @domain || '/%'
-   OR url LIKE '%://' || @domain || '?%'
-   OR url LIKE '%://' || @domain || '#%'
-   OR url LIKE '%://' || @domain
-   OR url LIKE '%://www.' || @domain || '/%'
-   OR url LIKE '%://www.' || @domain || '?%'
-   OR url LIKE '%://www.' || @domain || '#%'
-   OR url LIKE '%://www.' || @domain
+WHERE domain = @domain
 ORDER BY last_visited DESC
 LIMIT @limit OFFSET @offset;
 
@@ -18,14 +11,15 @@ LIMIT @limit OFFSET @offset;
 SELECT * FROM history WHERE url = ? LIMIT 1;
 
 -- name: UpsertHistory :exec
-INSERT INTO history (url, title, favicon_url)
-VALUES (?, ?, ?)
+INSERT INTO history (url, title, favicon_url, domain)
+VALUES (?, ?, ?, ?)
 ON CONFLICT(url)
 DO UPDATE SET
     visit_count = visit_count + 1,
     last_visited = CURRENT_TIMESTAMP,
     title = COALESCE(EXCLUDED.title, history.title),
-    favicon_url = COALESCE(EXCLUDED.favicon_url, history.favicon_url);
+    favicon_url = COALESCE(EXCLUDED.favicon_url, history.favicon_url),
+    domain = EXCLUDED.domain;
 
 -- name: IncrementVisitCount :exec
 UPDATE history
@@ -49,6 +43,9 @@ DELETE FROM history WHERE id = ?;
 -- name: DeleteHistoryOlderThan :exec
 DELETE FROM history WHERE last_visited < ?;
 
+-- name: DeleteHistorySince :exec
+DELETE FROM history WHERE last_visited >= ?;
+
 -- name: DeleteAllHistory :exec
 DELETE FROM history;
 
@@ -56,7 +53,7 @@ DELETE FROM history;
 SELECT COUNT(*) as total_entries, COALESCE(SUM(visit_count), 0) as total_visits, COUNT(DISTINCT date(last_visited)) as unique_days FROM history;
 
 -- name: GetDomainStats :many
-SELECT SUBSTR(SUBSTR(url, INSTR(url, '://') + 3), 1, CASE WHEN INSTR(SUBSTR(url, INSTR(url, '://') + 3), '/') > 0 THEN INSTR(SUBSTR(url, INSTR(url, '://') + 3), '/') - 1 ELSE LENGTH(SUBSTR(url, INSTR(url, '://') + 3)) END) as domain, COUNT(*) as page_count, SUM(visit_count) as total_visits, MAX(last_visited) as last_visit FROM history GROUP BY domain ORDER BY total_visits DESC LIMIT ?;
+SELECT COALESCE(domain, '') as domain, COUNT(*) as page_count, SUM(visit_count) as total_visits, MAX(last_visited) as last_visit FROM history WHERE domain IS NOT NULL AND domain != '' GROUP BY domain ORDER BY total_visits DESC LIMIT ?;
 
 -- name: GetHourlyDistribution :many
 SELECT CAST(strftime('%H', last_visited) AS INTEGER) as hour, COUNT(*) as visit_count FROM history GROUP BY hour ORDER BY hour;
@@ -65,15 +62,7 @@ SELECT CAST(strftime('%H', last_visited) AS INTEGER) as hour, COUNT(*) as visit_
 SELECT date(last_visited) as day, COUNT(*) as entries, SUM(visit_count) as visits FROM history WHERE last_visited >= date('now', ?) GROUP BY day ORDER BY day ASC;
 
 -- name: DeleteHistoryByDomain :exec
-DELETE FROM history
-WHERE url LIKE '%://' || @domain || '/%'
-   OR url LIKE '%://' || @domain || '?%'
-   OR url LIKE '%://' || @domain || '#%'
-   OR url LIKE '%://' || @domain
-   OR url LIKE '%://www.' || @domain || '/%'
-   OR url LIKE '%://www.' || @domain || '?%'
-   OR url LIKE '%://www.' || @domain || '#%'
-   OR url LIKE '%://www.' || @domain;
+DELETE FROM history WHERE domain = @domain;
 
 -- name: SearchHistoryFTSUrl :many
 SELECT h.id, h.url, h.title, h.favicon_url, h.visit_count, h.last_visited, h.created_at
@@ -99,7 +88,7 @@ ORDER BY domain_boost DESC, h.visit_count DESC, h.last_visited DESC
 LIMIT @limit;
 
 -- name: SearchHistoryFTSTitle :many
-SELECT h.id, h.url, h.title, h.favicon_url, h.visit_count, h.last_visited, h.created_at
+SELECT h.id, h.url, h.title, h.favicon_url, h.visit_count, h.last_visited, h.created_at, h.domain
 FROM history_fts fts
 JOIN history h ON fts.rowid = h.id
 WHERE fts.title MATCH @query

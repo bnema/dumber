@@ -53,9 +53,10 @@ generate-systemviews: ## Generate Go code from systemviews templ components
 
 build-systemviews: generate-systemviews ## Build the WASM systemviews runtime
 	@echo "Building systemviews wasm assets..."
+	@command -v brotli >/dev/null 2>&1 || { echo "Error: brotli is required to build compressed systemviews assets. Install brotli and retry."; exit 1; }
 	@mkdir -p assets/systemviews
 	@cp "$$(go env GOROOT)/lib/wasm/wasm_exec.js" assets/systemviews/wasm_exec.js
-	GOOS=js GOARCH=wasm go build -o assets/systemviews/systemviews.wasm ./cmd/systemviews
+	GOOS=js GOARCH=wasm go build -ldflags="-s -w" -o assets/systemviews/systemviews.wasm ./cmd/systemviews
 	brotli -f assets/systemviews/systemviews.wasm -o assets/systemviews/systemviews.wasm.br
 	@echo "Systemviews build complete"
 
@@ -145,7 +146,7 @@ clean: ## Clean build artifacts
 	@echo "Cleaning build artifacts..."
 	rm -rf $(DIST_DIR)
 	rm -f $(BINARY_NAME)
-	rm -f assets/systemviews/wasm_exec.js assets/systemviews/systemviews.wasm
+	rm -f assets/systemviews/wasm_exec.js assets/systemviews/systemviews.wasm assets/systemviews/systemviews.wasm.br
 	rm -f coverage.out coverage.html
 	go clean -cache
 	go clean -testcache

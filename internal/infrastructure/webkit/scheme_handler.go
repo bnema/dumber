@@ -1,16 +1,19 @@
 package webkit
 
 import (
+	"bytes"
 	"context"
 	"embed"
 	"fmt"
+	"io"
 	"io/fs"
 	"net/http"
 	"net/url"
-	"path/filepath"
+	"path"
 	"strings"
 	"sync"
 
+	"github.com/andybalholm/brotli"
 	"github.com/bnema/dumber/internal/infrastructure/webutil"
 	"github.com/bnema/dumber/internal/logging"
 	"github.com/bnema/puregotk/v4/gio"
@@ -21,13 +24,15 @@ import (
 
 // Scheme path constants
 const (
-	HistoryPath   = "history"
-	FavoritesPath = "favorites"
-	ConfigPath    = "config"
-	ErrorPath     = "error"
-	CrashPath     = "crash"
-	IndexHTML     = "index.html"
-	httpGET       = "GET"
+	HistoryPath             = "history"
+	FavoritesPath           = "favorites"
+	ConfigPath              = "config"
+	ErrorPath               = "error"
+	CrashPath               = "crash"
+	IndexHTML               = "index.html"
+	httpGET                 = "GET"
+	maxSystemviewsWASMBytes = 64 * 1024 * 1024
+	systemviewsAssetDir     = "systemviews"
 )
 
 // SchemeRequest represents a request to a custom URI scheme.
@@ -76,7 +81,7 @@ func NewDumbSchemeHandler(ctx context.Context) *DumbSchemeHandler {
 
 	h := &DumbSchemeHandler{
 		handlers: make(map[string]PageHandler),
-		assetDir: "systemviews",
+		assetDir: systemviewsAssetDir,
 		logger:   log.With().Str("component", "scheme-handler").Logger(),
 	}
 
@@ -300,7 +305,11 @@ func (h *DumbSchemeHandler) handleAsset(u *url.URL) *SchemeResponse {
 		assetDir = h.assetDir
 	}
 
-	fullPath := filepath.ToSlash(filepath.Join(assetDir, relPath))
+	fullPath, relPath, ok := safeSystemviewsAssetPath(assetDir, relPath)
+	if !ok {
+		return nil
+	}
+
 	data, headers, err := readAssetWithEncoding(h.assets, fullPath, relPath)
 	if err != nil {
 		h.logger.Debug().Str("path", fullPath).Err(err).Msg("asset not found")
@@ -322,10 +331,40 @@ func (h *DumbSchemeHandler) handleAsset(u *url.URL) *SchemeResponse {
 	}
 }
 
+func safeSystemviewsAssetPath(assetDir, relPath string) (fullPath, cleanRelPath string, ok bool) {
+	assetDir = strings.Trim(assetDir, "/")
+	if assetDir != systemviewsAssetDir {
+		return "", "", false
+	}
+
+	relPath = strings.TrimLeft(relPath, "/")
+	if relPath == "" || strings.ContainsRune(relPath, '\x00') {
+		return "", "", false
+	}
+
+	cleanRelPath = path.Clean(relPath)
+	if cleanRelPath == "." || cleanRelPath == ".." || strings.HasPrefix(cleanRelPath, "../") || path.IsAbs(cleanRelPath) {
+		return "", "", false
+	}
+
+	fullPath = path.Join(assetDir, cleanRelPath)
+	if fullPath != assetDir && !strings.HasPrefix(fullPath, assetDir+"/") {
+		return "", "", false
+	}
+	return fullPath, cleanRelPath, true
+}
+
 func readAssetWithEncoding(assets embed.FS, fullPath, relPath string) ([]byte, map[string]string, error) {
 	if strings.HasSuffix(relPath, ".wasm") {
-		if data, err := fs.ReadFile(assets, fullPath+".br"); err == nil {
-			return data, map[string]string{"Content-Encoding": "br", "Vary": "Accept-Encoding"}, nil
+		if compressed, err := fs.ReadFile(assets, fullPath+".br"); err == nil {
+			data, err := io.ReadAll(io.LimitReader(brotli.NewReader(bytes.NewReader(compressed)), maxSystemviewsWASMBytes+1))
+			if err != nil {
+				return nil, nil, err
+			}
+			if len(data) > maxSystemviewsWASMBytes {
+				return nil, nil, fmt.Errorf("decompressed asset %s exceeds %d bytes", fullPath, maxSystemviewsWASMBytes)
+			}
+			return data, nil, nil
 		}
 	}
 	data, err := fs.ReadFile(assets, fullPath)
@@ -341,10 +380,10 @@ func resolveAssetPath(u *url.URL) (assetDir, relPath string, ok bool) {
 		assetDir string
 		file     string
 	}{
-		HistoryPath:   {assetDir: "systemviews", file: IndexHTML},
-		FavoritesPath: {assetDir: "systemviews", file: IndexHTML},
-		ConfigPath:    {assetDir: "systemviews", file: IndexHTML},
-		ErrorPath:     {assetDir: "systemviews", file: IndexHTML},
+		HistoryPath:   {assetDir: systemviewsAssetDir, file: IndexHTML},
+		FavoritesPath: {assetDir: systemviewsAssetDir, file: IndexHTML},
+		ConfigPath:    {assetDir: systemviewsAssetDir, file: IndexHTML},
+		ErrorPath:     {assetDir: systemviewsAssetDir, file: IndexHTML},
 	}
 
 	if root, ok := rootByHost[u.Host]; ok {
@@ -357,7 +396,7 @@ func resolveAssetPath(u *url.URL) (assetDir, relPath string, ok bool) {
 
 	switch u.Opaque {
 	case HistoryPath, FavoritesPath, ConfigPath, ErrorPath:
-		return "systemviews", IndexHTML, true
+		return systemviewsAssetDir, IndexHTML, true
 	default:
 		return "", "", false
 	}

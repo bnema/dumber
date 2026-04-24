@@ -114,6 +114,7 @@ func TestHandleAsset_SystemviewsCSSIsServed(t *testing.T) {
 
 	resp := h.handleAsset(u)
 	require.NotNil(t, resp)
+	// Charset suffixes are acceptable; assert the MIME type contract only.
 	assert.Equal(t, "text/css", strings.Split(resp.ContentType, ";")[0])
 	assert.Contains(t, string(resp.Data), ".sv-app")
 }
@@ -212,4 +213,58 @@ func TestResponseHeadersForPath_WASMIncludesContentTypeAndCORS(t *testing.T) {
 	assert.Equal(t, "application/wasm", headers["Content-Type"])
 	assert.Equal(t, "*", headers["Access-Control-Allow-Origin"])
 	assert.Equal(t, "GET, POST, OPTIONS", headers["Access-Control-Allow-Methods"])
+}
+
+func TestReadAssetWithEncodingDecompressesEmbeddedBrotliWASM(t *testing.T) {
+	t.Parallel()
+
+	data, headers, err := readAssetWithEncoding(assets.WebUIAssets, "systemviews/systemviews.wasm", "systemviews.wasm")
+	require.NoError(t, err)
+	require.GreaterOrEqual(t, len(data), 4)
+	assert.Equal(t, "\x00asm", string(data[:4]))
+	assert.NotContains(t, headers, "Content-Encoding")
+}
+
+func TestHandleAssetRejectsTraversalOutsideSystemviews(t *testing.T) {
+	h := NewDumbSchemeHandler(context.Background())
+	h.SetAssets(assets.WebUIAssets)
+
+	for _, raw := range []string{
+		"dumb://history/../logo.svg",
+		"dumb://history/nested/../../logo.svg",
+	} {
+		t.Run(raw, func(t *testing.T) {
+			u, err := url.Parse(raw)
+			require.NoError(t, err)
+			assert.Nil(t, h.handleAsset(u))
+		})
+	}
+}
+
+func TestSafeSystemviewsAssetPathRejectsTraversal(t *testing.T) {
+	t.Parallel()
+
+	fullPath, relPath, ok := safeSystemviewsAssetPath(systemviewsAssetDir, "nested/../systemviews.css")
+	require.True(t, ok)
+	assert.Equal(t, "systemviews/systemviews.css", fullPath)
+	assert.Equal(t, "systemviews.css", relPath)
+
+	invalid := []struct {
+		name     string
+		assetDir string
+		relPath  string
+	}{
+		{name: "parent escape", assetDir: systemviewsAssetDir, relPath: "../logo.svg"},
+		{name: "nested parent escape", assetDir: systemviewsAssetDir, relPath: "nested/../../logo.svg"},
+		{name: "absolute parent escape", assetDir: systemviewsAssetDir, relPath: "/../logo.svg"},
+		{name: "null byte", assetDir: systemviewsAssetDir, relPath: "systemviews.css\x00"},
+		{name: "wrong asset dir", assetDir: "logos", relPath: "logo.svg"},
+	}
+	for _, tt := range invalid {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+			_, _, ok := safeSystemviewsAssetPath(tt.assetDir, tt.relPath)
+			assert.False(t, ok)
+		})
+	}
 }

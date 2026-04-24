@@ -51,6 +51,9 @@ func wrapDirectAPIResponse(requestID string, payload []byte) ([]byte, error) {
 	})
 }
 
+// normalizeBridgeShimResponse accepts the bridge shapes emitted by native and
+// fallback shims: a direct bridgeResponse envelope, a wrapper with data/error,
+// or a wrapper whose data field itself contains a bridgeResponse envelope.
 func normalizeBridgeShimResponse(requestID string, body []byte) ([]byte, error) {
 	trimmed := bytes.TrimSpace(body)
 	if len(trimmed) == 0 {
@@ -67,19 +70,17 @@ func normalizeBridgeShimResponse(requestID string, body []byte) ([]byte, error) 
 	_, hasCallback := topLevel["_callback"]
 	_, hasData := topLevel["data"]
 
+	// Native callbacks can already return the final bridgeResponse shape.
 	if (hasSuccess || hasRequestID) && !hasCallback {
 		var resp bridgeResponse
 		if err := json.Unmarshal(trimmed, &resp); err != nil {
 			return nil, fmt.Errorf("unmarshal direct bridge response: %w", err)
 		}
 		if resp.RequestID == "" {
+			// Some direct shims omit requestId; preserve correlation for callers.
 			resp.RequestID = requestID
 		}
 		return json.Marshal(resp)
-	}
-
-	if !hasData {
-		return nil, fmt.Errorf("wrapped bridge response missing data")
 	}
 
 	var wrapped struct {
@@ -90,20 +91,37 @@ func normalizeBridgeShimResponse(requestID string, body []byte) ([]byte, error) 
 		return nil, fmt.Errorf("unmarshal wrapped bridge response: %w", err)
 	}
 	if wrapped.Error != "" {
+		// Fetch-style wrappers report transport errors outside the data payload.
 		return json.Marshal(bridgeResponse{RequestID: requestID, Error: wrapped.Error})
+	}
+	if !hasData {
+		// Wrapped shim responses must carry either data or a top-level error.
+		return nil, fmt.Errorf("wrapped bridge response missing data")
 	}
 	if len(wrapped.Data) == 0 {
 		return json.Marshal(bridgeResponse{RequestID: requestID, Success: true})
 	}
 
-	var nested bridgeResponse
-	if err := json.Unmarshal(wrapped.Data, &nested); err == nil {
-		hasNestedEnvelope := nested.Success || nested.RequestID != "" || nested.Error != ""
+	var nestedFields map[string]json.RawMessage
+	if err := json.Unmarshal(wrapped.Data, &nestedFields); err == nil {
+		nestedSuccess, nestedHasSuccess := nestedFields["success"]
+		_, nestedHasRequestID := nestedFields["requestId"]
+		_, nestedHasError := nestedFields["error"]
+		successIsBool := false
+		if nestedHasSuccess {
+			var successValue bool
+			successIsBool = json.Unmarshal(nestedSuccess, &successValue) == nil
+		}
+		hasNestedEnvelope := successIsBool || (nestedHasRequestID && nestedHasError)
 		if hasNestedEnvelope {
-			if nested.RequestID == "" {
-				nested.RequestID = requestID
+			var nested bridgeResponse
+			if err := json.Unmarshal(wrapped.Data, &nested); err == nil {
+				if nested.RequestID == "" {
+					// Nested envelopes from direct API wrappers also need caller correlation.
+					nested.RequestID = requestID
+				}
+				return json.Marshal(nested)
 			}
-			return json.Marshal(nested)
 		}
 	}
 

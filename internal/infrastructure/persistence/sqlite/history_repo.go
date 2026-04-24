@@ -61,10 +61,12 @@ func (r *historyRepo) Save(ctx context.Context, entry *entity.HistoryEntry) erro
 	log := logging.FromContext(ctx)
 	log.Debug().Str("url", logging.TruncateURL(entry.URL, logURLMaxLen)).Msg("saving history entry")
 
+	domain := domainurl.CanonicalDomain(entry.URL)
 	err := r.queries.UpsertHistory(ctx, sqlc.UpsertHistoryParams{
 		Url:        entry.URL,
 		Title:      sql.NullString{String: entry.Title, Valid: entry.Title != ""},
 		FaviconUrl: sql.NullString{String: entry.FaviconURL, Valid: entry.FaviconURL != ""},
+		Domain:     sql.NullString{String: domain, Valid: domain != ""},
 	})
 	if err != nil {
 		return err
@@ -518,11 +520,7 @@ func (r *historyRepo) GetRecentSince(ctx context.Context, days int) ([]*entity.H
 		return nil, err
 	}
 
-	entries := make([]*entity.HistoryEntry, len(rows))
-	for i := range rows {
-		entries[i] = historyFromRow(rows[i])
-	}
-	return entries, nil
+	return historyEntriesFromRows(rows), nil
 }
 
 func (r *historyRepo) GetMostVisited(ctx context.Context, days int) ([]*entity.HistoryEntry, error) {
@@ -536,11 +534,7 @@ func (r *historyRepo) GetMostVisited(ctx context.Context, days int) ([]*entity.H
 		return nil, err
 	}
 
-	entries := make([]*entity.HistoryEntry, len(rows))
-	for i := range rows {
-		entries[i] = historyFromRow(rows[i])
-	}
-	return entries, nil
+	return historyEntriesFromRows(rows), nil
 }
 
 func (r *historyRepo) GetAllRecentHistory(ctx context.Context) ([]*entity.HistoryEntry, error) {
@@ -549,11 +543,7 @@ func (r *historyRepo) GetAllRecentHistory(ctx context.Context) ([]*entity.Histor
 		return nil, err
 	}
 
-	entries := make([]*entity.HistoryEntry, len(rows))
-	for i := range rows {
-		entries[i] = historyFromRow(rows[i])
-	}
-	return entries, nil
+	return historyEntriesFromRows(rows), nil
 }
 
 func (r *historyRepo) GetAllMostVisited(ctx context.Context) ([]*entity.HistoryEntry, error) {
@@ -562,11 +552,7 @@ func (r *historyRepo) GetAllMostVisited(ctx context.Context) ([]*entity.HistoryE
 		return nil, err
 	}
 
-	entries := make([]*entity.HistoryEntry, len(rows))
-	for i := range rows {
-		entries[i] = historyFromRow(rows[i])
-	}
-	return entries, nil
+	return historyEntriesFromRows(rows), nil
 }
 
 func (r *historyRepo) IncrementVisitCount(ctx context.Context, rawURL string) error {
@@ -599,13 +585,22 @@ func (r *historyRepo) DeleteOlderThan(ctx context.Context, before time.Time) err
 	return r.queries.DeleteHistoryOlderThan(ctx, sql.NullTime{Time: before, Valid: true})
 }
 
+func (r *historyRepo) DeleteSince(ctx context.Context, since time.Time) error {
+	return r.queries.DeleteHistorySince(ctx, sql.NullTime{Time: since, Valid: true})
+}
+
 func (r *historyRepo) DeleteAll(ctx context.Context) error {
 	return r.queries.DeleteAllHistory(ctx)
 }
 
 func (r *historyRepo) DeleteByDomain(ctx context.Context, domain string) error {
+	rawDomain := domain
 	domain = domainurl.CanonicalDomain(domain)
-	return r.queries.DeleteHistoryByDomain(ctx, sql.NullString{String: domain, Valid: domain != ""})
+	if domain == "" {
+		logging.FromContext(ctx).Debug().Str("domain", rawDomain).Msg("skipping delete by domain: empty canonical domain")
+		return nil
+	}
+	return r.queries.DeleteHistoryByDomain(ctx, sql.NullString{String: domain, Valid: true})
 }
 
 func (r *historyRepo) GetStats(ctx context.Context) (*entity.HistoryStats, error) {

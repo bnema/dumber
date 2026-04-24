@@ -7,6 +7,66 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
+func TestBuildInlineVarsRejectsUnsafeCSSValues(t *testing.T) {
+	t.Parallel()
+
+	vars := buildInlineVars(port.WebUIAppearanceConfig{
+		SansFont:      "Inter; color:red",
+		SerifFont:     "Georgia",
+		MonospaceFont: "JetBrains Mono",
+		LightPalette: port.ColorPalette{
+			Background: "#ffffff; color:red",
+			Surface:    "rgb(1 2 3 / 50%)",
+			Text:       "transparent",
+			Accent:     "definitelynotacolor",
+			Border:     "#ABCDEF80",
+		},
+	}, port.ColorPalette{
+		Background: "#ffffff; color:red",
+		Surface:    "rgb(1 2 3 / 50%)",
+		Text:       "transparent",
+		Accent:     "definitelynotacolor",
+		Border:     "#ABCDEF80",
+	})
+
+	assert.NotContains(t, vars, "color:red")
+	assert.NotContains(t, vars, "--sv-background")
+	assert.NotContains(t, vars, "--sv-font-sans")
+	assert.Contains(t, vars, "--sv-surface: rgb(1 2 3 / 50%);")
+	assert.Contains(t, vars, "--sv-text: transparent;")
+	assert.NotContains(t, vars, "definitelynotacolor")
+	assert.Contains(t, vars, "--sv-border: #ABCDEF80;")
+	assert.Contains(t, vars, "--sv-font-serif: Georgia;")
+	assert.Contains(t, vars, "--sv-font-mono: JetBrains Mono;")
+}
+
+func TestSanitizeCSSFontFamilyQuotes(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name  string
+		value string
+		want  bool
+	}{
+		{name: "unquoted spaces", value: "JetBrains Mono", want: true},
+		{name: "single quoted token", value: "'JetBrains Mono'", want: true},
+		{name: "double quoted token", value: "\"JetBrains Mono\"", want: true},
+		{name: "unquoted single quote", value: "JetBrains' Mono", want: false},
+		{name: "unquoted double quote", value: "JetBrains\" Mono", want: false},
+		{name: "internal quote", value: "'JetBrains' Mono'", want: false},
+		{name: "breakout", value: "'JetBrains Mono'; color:red", want: false},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
+			_, got := sanitizeCSSFontFamily(tt.value)
+			assert.Equal(t, tt.want, got)
+		})
+	}
+}
+
 func TestResolveShellTheme(t *testing.T) {
 	orig := currentPrefersDarkImpl
 	t.Cleanup(func() {

@@ -56,6 +56,7 @@ type History struct {
 	VisitCount  sql.NullInt64  `json:"visit_count"`
 	LastVisited sql.NullTime   `json:"last_visited"`
 	CreatedAt   sql.NullTime   `json:"created_at"`
+	Domain      sql.NullString `json:"domain"`
 }
 
 type HistoryFt struct {

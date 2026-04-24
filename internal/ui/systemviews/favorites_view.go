@@ -21,6 +21,20 @@ func favoritesHTML(data favoritesRenderData) string {
 	return mustRenderComponent(FavoritesView(data))
 }
 
+func favoritesDocumentTitle(data favoritesRenderData) string {
+	count := len(data.Favorites)
+	if data.FolderFilter != nil || data.TagFilter != nil {
+		if count == 1 {
+			return "Favorites — 1 filtered bookmark"
+		}
+		return fmt.Sprintf("Favorites — %d filtered bookmarks", count)
+	}
+	if count == 1 {
+		return "Favorites — 1 bookmark"
+	}
+	return fmt.Sprintf("Favorites — %d bookmarks", count)
+}
+
 func favoritesSummary(data favoritesRenderData) string {
 	return fmt.Sprintf("%d favorites · %d folders · %d tags", len(data.Favorites), len(data.Folders), len(data.Tags))
 }
@@ -68,7 +82,7 @@ func favoriteMetaText(favorite *entity.Favorite, folders []*entity.Folder) strin
 	if favorite == nil {
 		return ""
 	}
-	parts := []string{}
+	parts := make([]string, 0, 2)
 	if favorite.ShortcutKey != nil {
 		parts = append(parts, fmt.Sprintf("Shortcut %d", *favorite.ShortcutKey))
 	}
@@ -96,9 +110,9 @@ func favoriteTagButtonLabel(favorite *entity.Favorite, tag *entity.Tag) string {
 }
 
 func favoriteTagButtonClass(favorite *entity.Favorite, tag *entity.Tag) string {
-	classes := "sv-button sv-button-secondary"
+	classes := "sv-button sv-button-secondary sv-tag-button"
 	if favorite != nil && tag != nil && favorite.HasTag(tag.ID) {
-		classes += " sv-button-active"
+		classes += " sv-button-active sv-tag-button-active"
 	}
 	return classes
 }

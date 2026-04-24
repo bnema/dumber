@@ -3,6 +3,7 @@ package systemviews
 import (
 	"context"
 	"fmt"
+	"net/url"
 	"strconv"
 	"strings"
 
@@ -38,10 +39,19 @@ func (a *App) handleFavoriteAction(ctx context.Context, event DOMAction) error {
 		if err != nil {
 			return err
 		}
+		favoriteURL, err := validateFavoriteURL(data["url"])
+		if err != nil {
+			return err
+		}
+		tags, err := optionalTagIDs(data["tags"])
+		if err != nil {
+			return err
+		}
 		favorite, err := a.deps.Favorites.CreateFavorite(ctx, port.FavoriteCreateInput{
-			URL:      strings.TrimSpace(data["url"]),
+			URL:      favoriteURL,
 			Title:    strings.TrimSpace(data["title"]),
 			FolderID: folderID,
+			Tags:     tags,
 		})
 		if err != nil {
 			return err
@@ -106,7 +116,7 @@ func (a *App) handleFavoriteAction(ctx context.Context, event DOMAction) error {
 		if name == "" {
 			return fmt.Errorf("folder name is required")
 		}
-		folder, err := a.deps.Favorites.CreateFolder(ctx, name, nil)
+		folder, err := a.deps.Favorites.CreateFolder(ctx, name, strings.TrimSpace(data["icon"]), nil)
 		if err != nil {
 			return err
 		}
@@ -168,11 +178,11 @@ func (a *App) handleFavoriteAction(ctx context.Context, event DOMAction) error {
 		a.favoriteTagFilter = nil
 		a.favoritesNotice = "Deleted tag"
 	case tagActionAssign, tagActionRemove:
-		favoriteID, err := parsePositiveInt64(data["favoriteId"], "favorite id")
+		favoriteID, err := parsePositiveInt64(firstActionValue(data, "favoriteId", "favorite_id"), "favorite id")
 		if err != nil {
 			return err
 		}
-		tagID, err := parsePositiveInt64(data["tagId"], "tag id")
+		tagID, err := parsePositiveInt64(firstActionValue(data, "tagId", "tag_id"), "tag id")
 		if err != nil {
 			return err
 		}
@@ -187,8 +197,38 @@ func (a *App) handleFavoriteAction(ctx context.Context, event DOMAction) error {
 			}
 			a.favoritesNotice = "Removed tag"
 		}
+	default:
+		return fmt.Errorf("unknown favorite action: %q", event.Action)
 	}
 	return nil
+}
+
+func validateFavoriteURL(raw string) (string, error) {
+	favoriteURL := strings.TrimSpace(raw)
+	if favoriteURL == "" {
+		return "", fmt.Errorf("favorite URL is required")
+	}
+	parsed, err := url.Parse(favoriteURL)
+	if err != nil || parsed.Scheme == "" {
+		return "", fmt.Errorf("favorite URL must be absolute")
+	}
+	switch strings.ToLower(parsed.Scheme) {
+	case "http", "https":
+		if parsed.Host == "" {
+			return "", fmt.Errorf("favorite URL host is required")
+		}
+	case "dumb":
+		if parsed.Host != "" {
+			return favoriteURL, nil
+		}
+		if parsed.Opaque != "" {
+			return "dumb://" + strings.TrimPrefix(parsed.Opaque, "//"), nil
+		}
+		return "", fmt.Errorf("favorite URL host is required")
+	default:
+		return "", fmt.Errorf("favorite URL must use http, https, or dumb scheme")
+	}
+	return favoriteURL, nil
 }
 
 func firstActionValue(data map[string]string, keys ...string) string {
@@ -208,6 +248,31 @@ func parsePositiveInt64(raw, label string) (int64, error) {
 	return id, nil
 }
 
+func optionalTagIDs(raw string) ([]entity.TagID, error) {
+	raw = strings.TrimSpace(raw)
+	if raw == "" {
+		return nil, nil
+	}
+	parts := strings.Split(raw, ",")
+	ids := make([]entity.TagID, 0, len(parts))
+	seen := make(map[entity.TagID]struct{}, len(parts))
+	for _, part := range parts {
+		id, err := parsePositiveInt64(part, "tag id")
+		if err != nil {
+			return nil, err
+		}
+		tagID := entity.TagID(id)
+		if _, ok := seen[tagID]; ok {
+			continue
+		}
+		seen[tagID] = struct{}{}
+		ids = append(ids, tagID)
+	}
+	return ids, nil
+}
+
+// optionalFolderID returns nil for empty or "root" input, meaning no folder constraint;
+// otherwise it parses a positive folder id into a non-nil *entity.FolderID.
 func optionalFolderID(raw string) (*entity.FolderID, error) {
 	raw = strings.TrimSpace(raw)
 	if raw == "" || raw == "root" {
@@ -221,6 +286,8 @@ func optionalFolderID(raw string) (*entity.FolderID, error) {
 	return &folderID, nil
 }
 
+// filterFolderID returns *entity.FolderID(0) for "root" to explicitly filter
+// favorites in the root folder; other inputs delegate to optionalFolderID.
 func filterFolderID(raw string) (*entity.FolderID, error) {
 	if strings.TrimSpace(raw) == "root" {
 		root := entity.FolderID(0)
@@ -229,6 +296,7 @@ func filterFolderID(raw string) (*entity.FolderID, error) {
 	return optionalFolderID(raw)
 }
 
+// optionalShortcut accepts favorite keyboard shortcuts 1–9; empty input clears the shortcut.
 func optionalShortcut(raw string) (*int, error) {
 	raw = strings.TrimSpace(raw)
 	if raw == "" {

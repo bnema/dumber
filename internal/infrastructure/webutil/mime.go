@@ -9,7 +9,11 @@ import (
 // GetMimeType determines the MIME type for a given file path.
 // It tries the standard library first, then falls back to common web asset types.
 func GetMimeType(filename string) string {
-	ext := strings.ToLower(filepath.Ext(filename))
+	lowerName := strings.ToLower(filename)
+	ext := filepath.Ext(lowerName)
+	if ext == ".br" {
+		return GetMimeType(strings.TrimSuffix(lowerName, ext))
+	}
 
 	mt := mime.TypeByExtension(ext)
 	if mt != "" {

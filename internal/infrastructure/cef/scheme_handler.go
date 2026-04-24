@@ -1,24 +1,29 @@
 package cef
 
 import (
+	"bytes"
 	"context"
 	"embed"
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
 	"html"
+	"io"
 	"io/fs"
+	"net"
 	"net/http"
 	"net/url"
-	"path/filepath"
+	"path"
 	"strings"
 	"sync"
 	"time"
 	"unsafe"
 
+	"github.com/andybalholm/brotli"
 	purecef "github.com/bnema/purego-cef/cef"
 
 	"github.com/bnema/dumber/internal/application/port"
+	"github.com/bnema/dumber/internal/infrastructure/netguard"
 	"github.com/bnema/dumber/internal/infrastructure/webutil"
 	"github.com/bnema/dumber/internal/logging"
 	"github.com/rs/zerolog"
@@ -32,6 +37,8 @@ const (
 	errorPath                   = "error"
 	indexHTML                   = "index.html"
 	maxSchemeTruncatedURLLength = 240
+	maxSystemviewsWASMBytes     = 64 * 1024 * 1024
+	systemviewsAssetDir         = "systemviews"
 )
 
 // pageRootFiles maps internal page hosts/paths to their HTML entry points.
@@ -100,7 +107,7 @@ func newDumbSchemeHandler(
 		ctx:                  ctx,
 		messageRouter:        router,
 		transcoder:           transcoder,
-		assetDir:             "systemviews",
+		assetDir:             systemviewsAssetDir,
 		logger:               log.With().Str("component", "scheme-handler").Logger(),
 		currentConfigPayload: currentConfigPayload,
 		defaultConfigPayload: defaultConfigPayload,
@@ -190,8 +197,14 @@ func isAPIPostMethod(method string) bool {
 func (h *dumbSchemeHandler) handleAPIGet(path string, request purecef.Request) (purecef.ResourceHandler, bool) {
 	switch path {
 	case "/api/config":
+		if denied := h.rejectForbiddenAPIOrigin(request); denied != nil {
+			return denied, true
+		}
 		return h.handleConfigAPI(h.currentConfigPayload), true
 	case "/api/config/default":
+		if denied := h.rejectForbiddenAPIOrigin(request); denied != nil {
+			return denied, true
+		}
 		return h.handleConfigAPI(h.defaultConfigPayload), true
 	case "/api/transcode":
 		return h.handleTranscodeAPI(request), true
@@ -224,6 +237,9 @@ func (h *dumbSchemeHandler) handleAPIPost(browser purecef.Browser, path string, 
 }
 
 func (h *dumbSchemeHandler) handleMessageAPI(request purecef.Request) purecef.ResourceHandler {
+	if denied := h.rejectForbiddenAPIOrigin(request); denied != nil {
+		return denied
+	}
 	body := readBodyFromHeader(request)
 	if body == nil {
 		return h.newAPIJSONResourceHandler(http.StatusBadRequest, map[string]string{"error": "empty body"})
@@ -233,6 +249,14 @@ func (h *dumbSchemeHandler) handleMessageAPI(request purecef.Request) purecef.Re
 		return h.newAPIJSONResourceHandler(http.StatusInternalServerError, map[string]string{"error": err.Error()})
 	}
 	return h.newAPIRawResourceHandler(http.StatusOK, "application/json", resp)
+}
+
+func (h *dumbSchemeHandler) rejectForbiddenAPIOrigin(request purecef.Request) purecef.ResourceHandler {
+	origin := strings.TrimSpace(request.GetHeaderByName("Origin"))
+	if origin == "" || strings.EqualFold(origin, actualInternalOrigin) {
+		return nil
+	}
+	return h.newAPIJSONResourceHandler(http.StatusForbidden, map[string]string{"error": "forbidden origin"})
 }
 
 func (h *dumbSchemeHandler) handleTranscodeAPI(request purecef.Request) purecef.ResourceHandler {
@@ -254,6 +278,9 @@ func (h *dumbSchemeHandler) handleTranscodeAPI(request purecef.Request) purecef.
 	sourceParsed, err := url.Parse(sourceURL)
 	if err != nil || sourceParsed.Host == "" || (sourceParsed.Scheme != "http" && sourceParsed.Scheme != actualInternalScheme) {
 		return h.newAPIJSONResourceHandler(http.StatusBadRequest, map[string]string{"error": "invalid src"})
+	}
+	if err := validateTranscodeSourceURL(h.ctx, sourceParsed); err != nil {
+		return h.newAPIJSONResourceHandler(http.StatusForbidden, map[string]string{"error": err.Error()})
 	}
 
 	headers := make(map[string]string)
@@ -285,6 +312,39 @@ func (h *dumbSchemeHandler) handleTranscodeAPI(request purecef.Request) purecef.
 			return h.logger.With().Str("component", "scheme-transcoding").Logger()
 		},
 	})
+}
+
+func validateTranscodeSourceURL(ctx context.Context, source *url.URL) error {
+	if source == nil || source.Host == "" {
+		return fmt.Errorf("invalid src")
+	}
+	host := source.Hostname()
+	if host == "" {
+		return fmt.Errorf("invalid src host")
+	}
+	if ip := net.ParseIP(host); ip != nil {
+		if isBlockedTranscodeIP(ip) {
+			return fmt.Errorf("private src host not allowed")
+		}
+		return nil
+	}
+
+	lookupCtx, cancel := context.WithTimeout(ctx, 2*time.Second)
+	defer cancel()
+	addrs, err := net.DefaultResolver.LookupIPAddr(lookupCtx, host)
+	if err != nil || len(addrs) == 0 {
+		return fmt.Errorf("src host could not be resolved")
+	}
+	for _, addr := range addrs {
+		if isBlockedTranscodeIP(addr.IP) {
+			return fmt.Errorf("private src host not allowed")
+		}
+	}
+	return nil
+}
+
+func isBlockedTranscodeIP(ip net.IP) bool {
+	return netguard.IsBlockedTranscodeIP(ip)
 }
 
 func resolveConfigPayload(build func() ([]byte, error)) ([]byte, error) {
@@ -499,7 +559,11 @@ func (h *dumbSchemeHandler) handleAsset(u *url.URL) purecef.ResourceHandler {
 		assetDir = h.assetDir
 	}
 
-	fullPath := filepath.ToSlash(filepath.Join(assetDir, relPath))
+	fullPath, relPath, ok := safeSystemviewsAssetPath(assetDir, relPath)
+	if !ok {
+		return h.newErrorResourceHandler(http.StatusNotFound, "Asset not found")
+	}
+
 	data, headers, err := readAssetWithEncoding(h.assets, fullPath, relPath)
 	if err != nil {
 		h.logger.Debug().Str("path", fullPath).Err(err).Msg("asset not found")
@@ -516,10 +580,40 @@ func (h *dumbSchemeHandler) handleAsset(u *url.URL) purecef.ResourceHandler {
 	return newStaticResourceHandler(http.StatusOK, contentType, data, headers)
 }
 
+func safeSystemviewsAssetPath(assetDir, relPath string) (fullPath, cleanRelPath string, ok bool) {
+	assetDir = strings.Trim(assetDir, "/")
+	if assetDir != systemviewsAssetDir {
+		return "", "", false
+	}
+
+	relPath = strings.TrimLeft(relPath, "/")
+	if relPath == "" || strings.ContainsRune(relPath, '\x00') {
+		return "", "", false
+	}
+
+	cleanRelPath = path.Clean(relPath)
+	if cleanRelPath == "." || cleanRelPath == ".." || strings.HasPrefix(cleanRelPath, "../") || path.IsAbs(cleanRelPath) {
+		return "", "", false
+	}
+
+	fullPath = path.Join(assetDir, cleanRelPath)
+	if fullPath != assetDir && !strings.HasPrefix(fullPath, assetDir+"/") {
+		return "", "", false
+	}
+	return fullPath, cleanRelPath, true
+}
+
 func readAssetWithEncoding(assets embed.FS, fullPath, relPath string) ([]byte, map[string]string, error) {
 	if strings.HasSuffix(relPath, ".wasm") {
-		if data, err := fs.ReadFile(assets, fullPath+".br"); err == nil {
-			return data, map[string]string{"Content-Encoding": "br", "Vary": "Accept-Encoding"}, nil
+		if compressed, err := fs.ReadFile(assets, fullPath+".br"); err == nil {
+			data, err := io.ReadAll(io.LimitReader(brotli.NewReader(bytes.NewReader(compressed)), maxSystemviewsWASMBytes+1))
+			if err != nil {
+				return nil, nil, err
+			}
+			if len(data) > maxSystemviewsWASMBytes {
+				return nil, nil, fmt.Errorf("decompressed asset %s exceeds %d bytes", fullPath, maxSystemviewsWASMBytes)
+			}
+			return data, nil, nil
 		}
 	}
 	data, err := fs.ReadFile(assets, fullPath)
@@ -591,7 +685,7 @@ func resolveActualAssetPath(u *url.URL) (assetDir, relPath string, ok bool) {
 	}
 
 	if !strings.Contains(path, "/") && strings.Contains(path, ".") {
-		return "systemviews", path, true
+		return systemviewsAssetDir, path, true
 	}
 
 	return "", "", false
@@ -600,7 +694,7 @@ func resolveActualAssetPath(u *url.URL) (assetDir, relPath string, ok bool) {
 func assetDirForPageHost(host string) string {
 	switch host {
 	case historyPath, favoritesPath, configPath, errorPath:
-		return "systemviews"
+		return systemviewsAssetDir
 	default:
 		return ""
 	}

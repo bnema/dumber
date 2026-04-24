@@ -5,48 +5,47 @@ import (
 	"testing"
 
 	"github.com/bnema/dumber/internal/application/port"
+	portmocks "github.com/bnema/dumber/internal/application/port/mocks"
+	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 )
 
 func TestReadSystemviewConfigUseCase_Current(t *testing.T) {
-	reader := &stubSystemviewConfigReader{
-		current: port.SystemviewConfigPayload{EngineType: "webkit"},
-	}
+	reader := portmocks.NewMockSystemviewConfigReader(t)
+	want := port.SystemviewConfigPayload{EngineType: "webkit"}
+	reader.EXPECT().Current(mock.Anything).Return(want, nil).Once()
 
 	uc := NewReadSystemviewConfigUseCase(reader)
 
 	got, err := uc.Current(context.Background())
 	require.NoError(t, err)
-	require.Equal(t, reader.current, got)
-	require.Equal(t, []string{"current"}, reader.calls)
+	require.Equal(t, want, got)
 }
 
 func TestReadSystemviewConfigUseCase_Default(t *testing.T) {
-	reader := &stubSystemviewConfigReader{
-		defaultPayload: port.SystemviewConfigPayload{EngineType: "webkit"},
-	}
+	reader := portmocks.NewMockSystemviewConfigReader(t)
+	want := port.SystemviewConfigPayload{EngineType: "webkit"}
+	reader.EXPECT().Default(mock.Anything).Return(want, nil).Once()
 
 	uc := NewReadSystemviewConfigUseCase(reader)
 
 	got, err := uc.Default(context.Background())
 	require.NoError(t, err)
-	require.Equal(t, reader.defaultPayload, got)
-	require.Equal(t, []string{"default"}, reader.calls)
+	require.Equal(t, want, got)
 }
 
-// Handwritten fake to capture stateful config reads for assertions.
-type stubSystemviewConfigReader struct {
-	current        port.SystemviewConfigPayload
-	defaultPayload port.SystemviewConfigPayload
-	calls          []string
+func TestNewReadSystemviewConfigUseCase_NilReaderPanics(t *testing.T) {
+	require.PanicsWithValue(t, "NewReadSystemviewConfigUseCase: reader is nil", func() {
+		NewReadSystemviewConfigUseCase(nil)
+	})
 }
 
-func (r *stubSystemviewConfigReader) Current(context.Context) (port.SystemviewConfigPayload, error) {
-	r.calls = append(r.calls, "current")
-	return r.current, nil
-}
+func TestReadSystemviewConfigUseCase_NilUseCaseReturnsSentinel(t *testing.T) {
+	var uc *ReadSystemviewConfigUseCase
 
-func (r *stubSystemviewConfigReader) Default(context.Context) (port.SystemviewConfigPayload, error) {
-	r.calls = append(r.calls, "default")
-	return r.defaultPayload, nil
+	_, err := uc.Current(context.Background())
+	require.ErrorIs(t, err, ErrNilSystemviewConfigReader)
+
+	_, err = uc.Default(context.Background())
+	require.ErrorIs(t, err, ErrNilSystemviewConfigReader)
 }

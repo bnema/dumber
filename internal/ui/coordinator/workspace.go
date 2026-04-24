@@ -231,13 +231,13 @@ func (c *WorkspaceCoordinator) ToggleSystemViewRight(ctx context.Context, target
 	}
 	if c.getActiveWS == nil {
 		log.Warn().Str("url", targetURL).Msg("active workspace provider not configured")
-		return nil
+		return fmt.Errorf("system view toggle: active workspace provider not configured")
 	}
 
 	ws, wsView := c.getActiveWS()
 	if ws == nil {
 		log.Warn().Str("url", targetURL).Msg("no active workspace for system view toggle")
-		return nil
+		return fmt.Errorf("system view toggle: no active workspace")
 	}
 
 	activePane := ws.ActivePane()
@@ -284,6 +284,10 @@ func (c *WorkspaceCoordinator) focusExistingPane(
 ) {
 	oldActivePaneID := ws.ActivePaneID
 	ws.ActivePaneID = paneID
+	paneNode := ws.FindPane(paneID)
+	if paneNode != nil && paneNode.Parent != nil && paneNode.Parent.IsStacked {
+		setActiveStackIndexForChild(paneNode.Parent, paneNode)
+	}
 
 	if wsView != nil {
 		wsView.CancelAllPendingHovers()
@@ -296,12 +300,24 @@ func (c *WorkspaceCoordinator) focusExistingPane(
 		} else {
 			wsView.FocusPane(paneID)
 		}
-		if paneNode := ws.FindPane(paneID); paneNode != nil && paneNode.Parent != nil && paneNode.Parent.IsStacked {
+		if paneNode != nil && paneNode.Parent != nil && paneNode.Parent.IsStacked {
 			c.syncStackedViewActive(ctx, wsView, paneNode)
 		}
 	}
 
 	c.notifyStateChanged()
+}
+
+func setActiveStackIndexForChild(parent, child *entity.PaneNode) {
+	if parent == nil || child == nil {
+		return
+	}
+	for i, candidate := range parent.Children {
+		if candidate == child {
+			parent.ActiveStackIndex = i
+			return
+		}
+	}
 }
 
 func (c *WorkspaceCoordinator) prepareSplit(

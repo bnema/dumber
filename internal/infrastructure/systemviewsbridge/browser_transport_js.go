@@ -51,7 +51,8 @@ func (*browserTransport) Available() bool {
 	if !window.Truthy() {
 		return false
 	}
-	return window.Get("fetch").Truthy() || window.Get("dumber").Truthy()
+	bridge := window.Get("dumber")
+	return bridge.Truthy() && bridge.Get("postMessage").Truthy()
 }
 
 func (*browserTransport) Send(ctx context.Context, body []byte) ([]byte, error) {
@@ -82,6 +83,31 @@ func (*browserTransport) Send(ctx context.Context, body []byte) ([]byte, error) 
 }
 
 type webkitTransport struct{}
+
+type webkitCallbackResult struct {
+	body []byte
+	err  error
+}
+
+type webkitCallbackWaiter struct {
+	requestID   string
+	successName string
+	failureName string
+	resultCh    chan webkitCallbackResult
+}
+
+// webkitCallbacks uses one page-lifetime dispatcher per native callback name.
+// Requests sharing the same callback names are intentionally serialized because
+// older native shims do not always echo requestId; late callbacks without a
+// matching waiter are dropped instead of targeting released js.Func handles.
+var webkitCallbacks = struct {
+	sync.Mutex
+	installed map[string]js.Func
+	waiters   map[string]*webkitCallbackWaiter
+}{
+	installed: make(map[string]js.Func),
+	waiters:   make(map[string]*webkitCallbackWaiter),
+}
 
 func (*webkitTransport) Available() bool {
 	window := js.Global().Get("window")
@@ -119,60 +145,14 @@ func (*webkitTransport) Send(ctx context.Context, body []byte) ([]byte, error) {
 		return nil, errors.New("webkit message handler not available")
 	}
 
-	type result struct {
-		body []byte
-		err  error
-	}
-	resultCh := make(chan result, 1)
-	var callbackMu sync.Mutex
-	callbacksActive := true
-	publish := func(res result) {
-		callbackMu.Lock()
-		active := callbacksActive
-		callbackMu.Unlock()
-		if !active {
-			return
-		}
-		select {
-		case resultCh <- res:
-		default:
-		}
-	}
+	ensureWebKitCallback(window, plan.success, false)
+	ensureWebKitCallback(window, plan.failure, true)
 
-	successFn := js.FuncOf(func(_ js.Value, args []js.Value) any {
-		payload, err := stringifyArgs(args)
-		if err != nil {
-			publish(result{err: err})
-			return nil
-		}
-		normalized, err := normalizeNativeSuccessResponse(req.requestID, payload)
-		publish(result{body: normalized, err: err})
-		return nil
-	})
-	errorFn := js.FuncOf(func(_ js.Value, args []js.Value) any {
-		payload, err := stringifyArgs(args)
-		if err != nil {
-			publish(result{err: err})
-			return nil
-		}
-		normalized, err := normalizeNativeErrorResponse(req.requestID, payload)
-		publish(result{body: normalized, err: err})
-		return nil
-	})
-
-	previousSuccess := window.Get(plan.success)
-	previousError := window.Get(plan.failure)
-	window.Set(plan.success, successFn)
-	window.Set(plan.failure, errorFn)
-	defer func() {
-		callbackMu.Lock()
-		callbacksActive = false
-		callbackMu.Unlock()
-		window.Set(plan.success, previousSuccess)
-		window.Set(plan.failure, previousError)
-		successFn.Release()
-		errorFn.Release()
-	}()
+	resultCh := make(chan webkitCallbackResult, 1)
+	unregister, err := registerWebKitWaiter(req.requestID, plan, resultCh)
+	if err != nil {
+		return nil, err
+	}
 
 	handler.Call("postMessage", js.Global().Get("JSON").Call("parse", string(req.body)))
 
@@ -180,12 +160,111 @@ func (*webkitTransport) Send(ctx context.Context, body []byte) ([]byte, error) {
 	case res := <-resultCh:
 		return res.body, res.err
 	case <-ctx.Done():
+		unregister()
 		return nil, ctx.Err()
 	}
 }
 
+func ensureWebKitCallback(window js.Value, name string, failure bool) {
+	webkitCallbacks.Lock()
+	if _, ok := webkitCallbacks.installed[name]; ok {
+		webkitCallbacks.Unlock()
+		return
+	}
+	callback := js.FuncOf(func(_ js.Value, args []js.Value) any {
+		handleWebKitCallback(name, failure, args)
+		return nil
+	})
+	webkitCallbacks.installed[name] = callback
+	// Installed callbacks are page-lifetime dispatchers. Per-request waiters are
+	// removed on completion/cancellation, so late native responses are dropped
+	// without invoking released js.Func handles.
+	window.Set(name, callback)
+	webkitCallbacks.Unlock()
+}
+
+func registerWebKitWaiter(requestID string, plan callbackPlan, resultCh chan webkitCallbackResult) (func(), error) {
+	waiter := &webkitCallbackWaiter{
+		requestID:   requestID,
+		successName: plan.success,
+		failureName: plan.failure,
+		resultCh:    resultCh,
+	}
+	webkitCallbacks.Lock()
+	defer webkitCallbacks.Unlock()
+	if webkitCallbacks.waiters[plan.success] != nil || webkitCallbacks.waiters[plan.failure] != nil {
+		return nil, fmt.Errorf("webkit callback already pending for %s", plan.success)
+	}
+	webkitCallbacks.waiters[plan.success] = waiter
+	webkitCallbacks.waiters[plan.failure] = waiter
+	return func() {
+		webkitCallbacks.Lock()
+		defer webkitCallbacks.Unlock()
+		if webkitCallbacks.waiters[plan.success] == waiter {
+			delete(webkitCallbacks.waiters, plan.success)
+		}
+		if webkitCallbacks.waiters[plan.failure] == waiter {
+			delete(webkitCallbacks.waiters, plan.failure)
+		}
+	}, nil
+}
+
+func handleWebKitCallback(name string, failure bool, args []js.Value) {
+	payload, payloadErr := stringifyArgs(args)
+	payloadRequestID := requestIDFromBridgePayload(payload)
+
+	webkitCallbacks.Lock()
+	waiter := webkitCallbacks.waiters[name]
+	if waiter != nil && payloadRequestID != "" && waiter.requestID != "" && payloadRequestID != waiter.requestID {
+		webkitCallbacks.Unlock()
+		warnDroppedBridgeResult("webkit callback request mismatch", fmt.Errorf("got %s, want %s", payloadRequestID, waiter.requestID))
+		return
+	}
+	if waiter != nil {
+		delete(webkitCallbacks.waiters, waiter.successName)
+		delete(webkitCallbacks.waiters, waiter.failureName)
+	}
+	webkitCallbacks.Unlock()
+
+	if waiter == nil {
+		warnDroppedBridgeResult("webkit callback without waiter", nil)
+		return
+	}
+
+	res := webkitCallbackResult{err: payloadErr}
+	if payloadErr == nil {
+		if failure {
+			res.body, res.err = normalizeNativeErrorResponse(waiter.requestID, payload)
+		} else {
+			res.body, res.err = normalizeNativeSuccessResponse(waiter.requestID, payload)
+		}
+	}
+	select {
+	case waiter.resultCh <- res:
+	default:
+		warnDroppedBridgeResult("webkit callback", res.err)
+	}
+}
+
+func requestIDFromBridgePayload(payload []byte) string {
+	if len(bytes.TrimSpace(payload)) == 0 {
+		return ""
+	}
+	var envelope struct {
+		RequestID string `json:"requestId"`
+	}
+	if err := json.Unmarshal(payload, &envelope); err != nil {
+		return ""
+	}
+	return envelope.RequestID
+}
+
 func fetchDirectAPI(ctx context.Context, requestID, endpoint string) ([]byte, error) {
-	response, err := awaitPromise(ctx, js.Global().Call("fetch", endpoint))
+	fetch := js.Global().Get("fetch")
+	if !fetch.Truthy() {
+		return nil, errors.New("fetch API not available")
+	}
+	response, err := awaitPromise(ctx, fetch.Invoke(endpoint))
 	if err != nil {
 		return nil, err
 	}
@@ -243,43 +322,77 @@ func normalizeNativeErrorResponse(requestID string, payload []byte) ([]byte, err
 }
 
 func awaitPromise(ctx context.Context, promise js.Value) (js.Value, error) {
+	if ctx == nil {
+		ctx = context.Background()
+	}
 	type result struct {
 		value js.Value
 		err   error
 	}
 	resultCh := make(chan result, 1)
 
+	promiseCtor := js.Global().Get("Promise")
+	if !promiseCtor.Truthy() {
+		return js.Undefined(), errors.New("Promise global not available")
+	}
+	var (
+		cancelMu sync.Mutex
+		reject   = js.Undefined()
+	)
+	executor := js.FuncOf(func(_ js.Value, args []js.Value) any {
+		if len(args) >= 2 {
+			cancelMu.Lock()
+			reject = args[1]
+			cancelMu.Unlock()
+		}
+		return nil
+	})
+	cancelPromise := promiseCtor.New(executor)
+	executor.Release()
+	raceInput := js.Global().Get("Array").New(promise, cancelPromise)
+	racePromise := promiseCtor.Call("race", raceInput)
+
+	done := make(chan struct{})
+	go func() {
+		select {
+		case <-ctx.Done():
+			cancelMu.Lock()
+			rejectFn := reject
+			cancelMu.Unlock()
+			if rejectFn.Truthy() {
+				rejectFn.Invoke(ctx.Err().Error())
+			}
+		case <-done:
+		}
+	}()
+	defer close(done)
+
 	var (
 		callbackMu sync.Mutex
-		active     = true
 		released   bool
-		thenFn     js.Func
-		catchFn    js.Func
+		thenCb     js.Func
+		catchCb    js.Func
 	)
-	releaseCallbacksLocked := func() {
+	releaseCallbacks := func() {
+		callbackMu.Lock()
+		defer callbackMu.Unlock()
 		if released {
 			return
 		}
 		released = true
-		thenFn.Release()
-		catchFn.Release()
+		thenCb.Release()
+		catchCb.Release()
 	}
 	publish := func(res result) {
-		callbackMu.Lock()
-		defer callbackMu.Unlock()
-		if !active {
-			releaseCallbacksLocked()
-			return
-		}
-		active = false
 		select {
 		case resultCh <- res:
 		default:
+			warnDroppedBridgeResult("promise", res.err)
 		}
-		releaseCallbacksLocked()
 	}
 
-	thenFn = js.FuncOf(func(_ js.Value, args []js.Value) any {
+	thenCb = js.FuncOf(func(_ js.Value, args []js.Value) any {
+		defer releaseCallbacks()
 		if len(args) == 0 {
 			publish(result{value: js.Undefined()})
 			return nil
@@ -287,31 +400,40 @@ func awaitPromise(ctx context.Context, promise js.Value) (js.Value, error) {
 		publish(result{value: args[0]})
 		return nil
 	})
-	catchFn = js.FuncOf(func(_ js.Value, args []js.Value) any {
+	catchCb = js.FuncOf(func(_ js.Value, args []js.Value) any {
+		defer releaseCallbacks()
 		if len(args) == 0 {
 			publish(result{err: errors.New("promise rejected")})
 			return nil
 		}
-		publish(result{err: errors.New(args[0].String())})
+		message := args[0].String()
+		if ctxErr := ctx.Err(); ctxErr != nil && message == ctxErr.Error() {
+			publish(result{err: ctxErr})
+			return nil
+		}
+		publish(result{err: errors.New(message)})
 		return nil
 	})
+	attachPromiseCallbacks(racePromise, thenCb, catchCb)
 
-	promise.Call("then", thenFn).Call("catch", catchFn)
+	res := <-resultCh
+	return res.value, res.err
+}
 
-	select {
-	case res := <-resultCh:
-		return res.value, res.err
-	case <-ctx.Done():
-		select {
-		case res := <-resultCh:
-			return res.value, res.err
-		default:
-		}
-		callbackMu.Lock()
-		active = false
-		callbackMu.Unlock()
-		return js.Undefined(), ctx.Err()
+func attachPromiseCallbacks(promise js.Value, thenCb, catchCb js.Func) {
+	promise.Call("then", thenCb, catchCb)
+}
+
+func warnDroppedBridgeResult(scope string, err error) {
+	console := js.Global().Get("console")
+	if !console.Truthy() || !console.Get("warn").Truthy() {
+		return
 	}
+	if err != nil {
+		console.Call("warn", "dumber systemviews bridge dropped "+scope+" result", err.Error())
+		return
+	}
+	console.Call("warn", "dumber systemviews bridge dropped "+scope+" result")
 }
 
 func stringifyArgs(args []js.Value) ([]byte, error) {
@@ -327,8 +449,11 @@ func stringifyValue(value js.Value) ([]byte, error) {
 		return nil, errors.New("JSON global not available")
 	}
 	stringified := jsonValue.Call("stringify", value)
-	if !stringified.Truthy() {
-		return nil, errors.New("failed to stringify JS value")
+	if stringified.Type() == js.TypeString {
+		return []byte(stringified.String()), nil
 	}
-	return []byte(stringified.String()), nil
+	if stringified.IsUndefined() && (value.IsUndefined() || value.IsNull()) {
+		return []byte("null"), nil
+	}
+	return nil, errors.New("failed to stringify JS value")
 }

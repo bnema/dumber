@@ -61,7 +61,7 @@ type HomepageFavorites interface {
 	GetByShortcut(ctx context.Context, key int) (*entity.Favorite, error)
 	Move(ctx context.Context, id entity.FavoriteID, folderID *entity.FolderID) error
 	GetAllFolders(ctx context.Context) ([]*entity.Folder, error)
-	CreateFolder(ctx context.Context, name string, parentID *entity.FolderID) (*entity.Folder, error)
+	CreateFolder(ctx context.Context, name, icon string, parentID *entity.FolderID) (*entity.Folder, error)
 	DeleteFolder(ctx context.Context, id entity.FolderID) error
 	UpdateFolder(ctx context.Context, id entity.FolderID, name, icon string) error
 	GetAllTags(ctx context.Context) ([]*entity.Tag, error)

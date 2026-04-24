@@ -230,6 +230,13 @@ func (r *LazyHistoryRepository) DeleteOlderThan(ctx context.Context, before time
 	return r.repo.DeleteOlderThan(ctx, before)
 }
 
+func (r *LazyHistoryRepository) DeleteSince(ctx context.Context, since time.Time) error {
+	if err := r.init(ctx); err != nil {
+		return err
+	}
+	return r.repo.DeleteSince(ctx, since)
+}
+
 func (r *LazyHistoryRepository) DeleteAll(ctx context.Context) error {
 	if err := r.init(ctx); err != nil {
 		return err

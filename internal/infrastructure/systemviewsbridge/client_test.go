@@ -126,6 +126,21 @@ func TestClientTimelineDecodesEntries(t *testing.T) {
 	}
 }
 
+func TestClientDeleteRangeRejectsEmptyRange(t *testing.T) {
+	t.Parallel()
+
+	transport := &fakeTransport{available: true, response: []byte(`{"requestId":"req-range-empty","success":true}`)}
+	client := NewClient(transport, nil)
+
+	err := client.DeleteRange(context.Background(), "  ")
+	if err == nil {
+		t.Fatal("DeleteRange() error = nil, want validation error")
+	}
+	if transport.called {
+		t.Fatal("DeleteRange() sent a request for an invalid range")
+	}
+}
+
 func TestClientDeleteRangeSendsRange(t *testing.T) {
 	t.Parallel()
 
@@ -357,12 +372,10 @@ func TestClientConfigActionsUseExpectedMessageTypes(t *testing.T) {
 }
 
 func TestClientRequestUsesDefaultTimeoutWhenCallerHasNoDeadline(t *testing.T) {
-	oldTimeout := bridgeRequestTimeout
-	bridgeRequestTimeout = time.Millisecond
-	t.Cleanup(func() { bridgeRequestTimeout = oldTimeout })
+	t.Parallel()
 
 	transport := &blockingTransport{available: true}
-	client := NewClient(transport, nil)
+	client := NewClient(transport, nil, WithRequestTimeout(time.Millisecond))
 
 	_, err := client.Timeline(context.Background(), 25, 0)
 	if !errors.Is(err, context.DeadlineExceeded) {
@@ -377,10 +390,10 @@ func TestClientCreateFolderIncludesParentID(t *testing.T) {
 	t.Parallel()
 
 	parentID := int64(42)
-	transport := &fakeTransport{available: true, response: []byte(`{"requestId":"req-16","success":true,"data":{"id":9,"name":"Nested","icon":"","parent_id":42}}`)}
+	transport := &fakeTransport{available: true, response: []byte(`{"requestId":"req-16","success":true,"data":{"id":9,"name":"Nested","icon":"📁","parent_id":42}}`)}
 	client := NewClient(transport, nil)
 
-	folder, err := client.CreateFolder(context.Background(), "Nested", &parentID)
+	folder, err := client.CreateFolder(context.Background(), "Nested", " 📁 ", &parentID)
 	if err != nil {
 		t.Fatalf("CreateFolder() error = %v", err)
 	}
@@ -389,6 +402,9 @@ func TestClientCreateFolderIncludesParentID(t *testing.T) {
 	}
 	if folder.Name != "Nested" {
 		t.Fatalf("CreateFolder() folder name = %q, want %q", folder.Name, "Nested")
+	}
+	if folder.Icon != "📁" {
+		t.Fatalf("CreateFolder() folder icon = %q, want 📁", folder.Icon)
 	}
 	if folder.ParentID == nil || int64(*folder.ParentID) != parentID {
 		t.Fatalf("CreateFolder() folder parent_id = %#v, want %d", folder.ParentID, parentID)
@@ -417,11 +433,152 @@ func TestClientCreateFolderIncludesParentID(t *testing.T) {
 	if payload.Name != "Nested" {
 		t.Fatalf("sent name = %q, want %q", payload.Name, "Nested")
 	}
-	if payload.Icon != nil {
-		t.Fatalf("sent icon = %#v, want nil", payload.Icon)
+	if payload.Icon == nil || *payload.Icon != "📁" {
+		t.Fatalf("sent icon = %#v, want 📁", payload.Icon)
 	}
 	if payload.RequestID == "" {
 		t.Fatal("sent requestId was empty")
+	}
+}
+
+func TestClientDomainStatsRejectsNegativeLimit(t *testing.T) {
+	t.Parallel()
+
+	transport := &fakeTransport{available: true, response: []byte(`{"requestId":"req-17","success":true,"data":[]}`)}
+	client := NewClient(transport, nil)
+
+	_, err := client.DomainStats(context.Background(), -1)
+	if err == nil {
+		t.Fatal("DomainStats() error = nil, want validation error")
+	}
+	if transport.called {
+		t.Fatal("DomainStats() sent a request for a negative limit")
+	}
+}
+
+func TestClientDeleteDomainRejectsEmptyDomain(t *testing.T) {
+	t.Parallel()
+
+	transport := &fakeTransport{available: true, response: []byte(`{"requestId":"req-domain-empty","success":true}`)}
+	client := NewClient(transport, nil)
+
+	err := client.DeleteDomain(context.Background(), "  ")
+	if err == nil {
+		t.Fatal("DeleteDomain() error = nil, want validation error")
+	}
+	if transport.called {
+		t.Fatal("DeleteDomain() sent a request for an empty domain")
+	}
+}
+
+func TestClientUpdateFolderTrimsIcon(t *testing.T) {
+	t.Parallel()
+
+	transport := &fakeTransport{available: true, response: []byte(`{"requestId":"req-18","success":true}`)}
+	client := NewClient(transport, nil)
+
+	if err := client.UpdateFolder(context.Background(), 9, "Read", " 📚 "); err != nil {
+		t.Fatalf("UpdateFolder() error = %v", err)
+	}
+
+	var msg port.WebUIMessage
+	if err := json.Unmarshal(transport.last, &msg); err != nil {
+		t.Fatalf("unmarshal sent envelope: %v", err)
+	}
+	if msg.Type != "folder_update" {
+		t.Fatalf("sent type = %q, want folder_update", msg.Type)
+	}
+	var payload struct {
+		Icon *string `json:"icon"`
+	}
+	if err := json.Unmarshal(msg.Payload, &payload); err != nil {
+		t.Fatalf("unmarshal sent payload: %v", err)
+	}
+	if payload.Icon == nil || *payload.Icon != "📚" {
+		t.Fatalf("sent icon = %#v, want 📚", payload.Icon)
+	}
+}
+
+func TestClientUpdateFolderOmitsBlankIcon(t *testing.T) {
+	t.Parallel()
+
+	transport := &fakeTransport{available: true, response: []byte(`{"requestId":"req-19","success":true}`)}
+	client := NewClient(transport, nil)
+
+	if err := client.UpdateFolder(context.Background(), 9, "Read", "   "); err != nil {
+		t.Fatalf("UpdateFolder() error = %v", err)
+	}
+
+	var msg port.WebUIMessage
+	if err := json.Unmarshal(transport.last, &msg); err != nil {
+		t.Fatalf("unmarshal sent envelope: %v", err)
+	}
+	var payload struct {
+		Icon *string `json:"icon"`
+	}
+	if err := json.Unmarshal(msg.Payload, &payload); err != nil {
+		t.Fatalf("unmarshal sent payload: %v", err)
+	}
+	if payload.Icon != nil {
+		t.Fatalf("sent icon = %#v, want nil", payload.Icon)
+	}
+}
+
+func TestClientDeleteEntryRejectsInvalidID(t *testing.T) {
+	t.Parallel()
+
+	transport := &fakeTransport{available: true, response: []byte(`{"requestId":"req-20","success":true}`)}
+	client := NewClient(transport, nil)
+
+	err := client.DeleteEntry(context.Background(), 0)
+	if err == nil {
+		t.Fatal("DeleteEntry() error = nil, want validation error")
+	}
+	if transport.called {
+		t.Fatal("DeleteEntry() sent a request for an invalid id")
+	}
+}
+
+func TestClientTagActionsTrimFields(t *testing.T) {
+	t.Parallel()
+
+	createTransport := &fakeTransport{available: true, response: []byte(`{"requestId":"req-21","success":true,"data":{"id":5,"name":"Go","color":"#00add8"}}`)}
+	client := NewClient(createTransport, nil)
+	if _, err := client.CreateTag(context.Background(), " Go ", " #00add8 "); err != nil {
+		t.Fatalf("CreateTag() error = %v", err)
+	}
+	var msg port.WebUIMessage
+	if err := json.Unmarshal(createTransport.last, &msg); err != nil {
+		t.Fatalf("unmarshal create envelope: %v", err)
+	}
+	var createPayload struct {
+		Name  string  `json:"name"`
+		Color *string `json:"color"`
+	}
+	if err := json.Unmarshal(msg.Payload, &createPayload); err != nil {
+		t.Fatalf("unmarshal create payload: %v", err)
+	}
+	if createPayload.Name != "Go" || createPayload.Color == nil || *createPayload.Color != "#00add8" {
+		t.Fatalf("CreateTag payload = %#v", createPayload)
+	}
+
+	updateTransport := &fakeTransport{available: true, response: []byte(`{"requestId":"req-22","success":true}`)}
+	client = NewClient(updateTransport, nil)
+	if err := client.UpdateTag(context.Background(), 5, " Go ", "   "); err != nil {
+		t.Fatalf("UpdateTag() error = %v", err)
+	}
+	if err := json.Unmarshal(updateTransport.last, &msg); err != nil {
+		t.Fatalf("unmarshal update envelope: %v", err)
+	}
+	var updatePayload struct {
+		Name  *string `json:"name"`
+		Color *string `json:"color"`
+	}
+	if err := json.Unmarshal(msg.Payload, &updatePayload); err != nil {
+		t.Fatalf("unmarshal update payload: %v", err)
+	}
+	if updatePayload.Name == nil || *updatePayload.Name != "Go" || updatePayload.Color != nil {
+		t.Fatalf("UpdateTag payload = %#v", updatePayload)
 	}
 }
 
@@ -451,4 +608,66 @@ func (t *blockingTransport) Send(ctx context.Context, _ []byte) ([]byte, error) 
 	t.called = true
 	<-ctx.Done()
 	return nil, ctx.Err()
+}
+
+func TestClientRejectsInvalidFavoriteMutationIDs(t *testing.T) {
+	t.Parallel()
+
+	transport := &fakeTransport{available: true, response: []byte(`{"requestId":"req","success":true}`)}
+	client := NewClient(transport, nil)
+
+	checks := []struct {
+		name string
+		call func() error
+	}{
+		{name: "delete favorite", call: func() error { return client.DeleteFavorite(context.Background(), 0) }},
+		{name: "set shortcut", call: func() error { return client.SetShortcut(context.Background(), 0, nil) }},
+		{name: "set folder", call: func() error { return client.SetFolder(context.Background(), 0, nil) }},
+		{name: "create folder", call: func() error { _, err := client.CreateFolder(context.Background(), " ", "", nil); return err }},
+		{name: "update folder id", call: func() error { return client.UpdateFolder(context.Background(), 0, "Folder", "") }},
+		{name: "update folder name", call: func() error { return client.UpdateFolder(context.Background(), 1, " ", "") }},
+		{name: "delete folder", call: func() error { return client.DeleteFolder(context.Background(), 0) }},
+		{name: "create tag", call: func() error { _, err := client.CreateTag(context.Background(), " ", ""); return err }},
+		{name: "update tag", call: func() error { return client.UpdateTag(context.Background(), 0, "Tag", "") }},
+		{name: "delete tag", call: func() error { return client.DeleteTag(context.Background(), 0) }},
+		{name: "assign favorite", call: func() error { return client.AssignTag(context.Background(), 0, 1) }},
+		{name: "assign tag", call: func() error { return client.AssignTag(context.Background(), 1, 0) }},
+		{name: "remove favorite", call: func() error { return client.RemoveTag(context.Background(), 0, 1) }},
+		{name: "remove tag", call: func() error { return client.RemoveTag(context.Background(), 1, 0) }},
+	}
+	for _, check := range checks {
+		t.Run(check.name, func(t *testing.T) {
+			if err := check.call(); err == nil {
+				t.Fatal("error = nil, want validation error")
+			}
+		})
+	}
+	if transport.called {
+		t.Fatal("transport called for invalid favorite mutation IDs")
+	}
+}
+
+func TestClientRejectsNegativeHistoryLimits(t *testing.T) {
+	t.Parallel()
+
+	client := NewClient(&fakeTransport{available: true}, nil)
+
+	if _, err := client.Timeline(context.Background(), -1, 0); err == nil {
+		t.Fatal("Timeline() error = nil, want error")
+	}
+	if _, err := client.Timeline(context.Background(), 1, -1); err == nil {
+		t.Fatal("Timeline() error = nil, want error")
+	}
+	if _, err := client.TimelineByDomain(context.Background(), "", 1, 0); err == nil {
+		t.Fatal("TimelineByDomain() error = nil, want error")
+	}
+	if _, err := client.TimelineByDomain(context.Background(), "example.com", -1, 0); err == nil {
+		t.Fatal("TimelineByDomain() error = nil, want error")
+	}
+	if _, err := client.TimelineByDomain(context.Background(), "example.com", 1, -1); err == nil {
+		t.Fatal("TimelineByDomain() error = nil, want error")
+	}
+	if _, err := client.Search(context.Background(), "example", -1); err == nil {
+		t.Fatal("Search() error = nil, want error")
+	}
 }

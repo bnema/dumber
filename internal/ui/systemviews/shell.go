@@ -17,14 +17,26 @@ type kvPair struct {
 // fragment. Route views populate this; the app frame wraps it.
 type renderedPage struct {
 	route    Route
+	title    string
 	subtitle string
 	body     string
 }
 
 // renderAppFrame produces a self-contained HTML fragment (no <html>, <head>,
-// or <body>) that wraps route content in the shared shell.
+// or <body>) that wraps route content in the shared shell. page.body is
+// inserted with templ.Raw, so callers must only pass trusted pre-rendered HTML.
 func renderAppFrame(page renderedPage, theme shellTheme) string {
 	return mustRenderComponent(appFrameComponent(page, theme, templ.Raw(page.body)))
+}
+
+func pageDocumentTitle(page renderedPage) string {
+	if title := strings.TrimSpace(page.title); title != "" {
+		return title
+	}
+	if subtitle := strings.TrimSpace(page.subtitle); subtitle != "" {
+		return subtitle
+	}
+	return routeSubtitle(page.route)
 }
 
 func appRootClass(theme shellTheme) string {
@@ -78,6 +90,7 @@ func listHTML(rows, emptyMessage string) string {
 	return fmt.Sprintf(`<ul class="sv-list">%s</ul>`, rows)
 }
 
+// listRowHTML inserts trusted, pre-sanitized raw HTML inside a list item.
 func listRowHTML(inner string) string {
 	return fmt.Sprintf(`<li class="sv-list-row">%s</li>`, inner)
 }
@@ -109,15 +122,11 @@ func kvRowHTML(label, value string) string {
 	return fmt.Sprintf(`<div class=%q><dt>%s</dt><dd>%s</dd></div>`, "sv-kv-row", html.EscapeString(label), html.EscapeString(value))
 }
 
-// sectionHTML wraps content in a styled section with a heading.
+// sectionHTML wraps content in a styled section with a heading. inner is
+// passed through as raw HTML, so callers must provide trusted markup.
 func sectionHTML(class, title, inner string) string {
-	classes := "sv-section"
-	if strings.TrimSpace(class) != "" {
-		classes += " " + strings.TrimSpace(class)
-	}
-
 	return fmt.Sprintf(`<section class=%q><h2>%s</h2>%s</section>`,
-		html.EscapeString(classes),
+		sectionClass(class),
 		html.EscapeString(title),
 		inner,
 	)

@@ -28,19 +28,77 @@ func NewDOM() DOM {
 	}
 
 	target := doc.Call("getElementById", "app")
-	if !target.Truthy() {
-		target = doc.Get("body")
-	}
-
 	return &browserDOM{document: doc, target: target}
 }
 
-func (d *browserDOM) Mount(html string) error {
+func (d *browserDOM) Mount(markup string) error {
 	if d == nil || !d.target.Truthy() {
-		return fmt.Errorf("DOM target not available")
+		return fmt.Errorf("DOM mount target #app not found")
 	}
-	d.target.Set("innerHTML", html)
+	d.target.Set("innerHTML", markup)
+	d.updateDocumentTitle()
+	d.scheduleAlertDismissal()
 	return nil
+}
+
+func (d *browserDOM) updateDocumentTitle() {
+	if d == nil || !d.document.Truthy() || !d.target.Truthy() {
+		return
+	}
+	root := d.target.Call("querySelector", "[data-page-title]")
+	if !root.Truthy() {
+		return
+	}
+	title := strings.TrimSpace(root.Call("getAttribute", "data-page-title").String())
+	if title == "" {
+		return
+	}
+	d.document.Set("title", title)
+}
+
+func (d *browserDOM) scheduleAlertDismissal() {
+	if d == nil || !d.target.Truthy() {
+		return
+	}
+	alerts := d.target.Call("querySelectorAll", ".sv-alert")
+	length := alerts.Get("length").Int()
+	if length == 0 {
+		return
+	}
+	setTimeout := js.Global().Get("setTimeout")
+	if !setTimeout.Truthy() {
+		return
+	}
+	for i := 0; i < length; i++ {
+		alert := alerts.Index(i)
+		if !alert.Truthy() {
+			continue
+		}
+		scheduleAlertRemoval(setTimeout, alert)
+	}
+}
+
+func scheduleAlertRemoval(setTimeout, alert js.Value) {
+	var fadeFn js.Func
+	fadeFn = js.FuncOf(func(js.Value, []js.Value) any {
+		defer fadeFn.Release()
+		if !alert.Truthy() || !alert.Get("classList").Truthy() {
+			return nil
+		}
+		alert.Get("classList").Call("add", "sv-alert-dismiss")
+
+		var removeFn js.Func
+		removeFn = js.FuncOf(func(js.Value, []js.Value) any {
+			defer removeFn.Release()
+			if alert.Truthy() && alert.Get("remove").Truthy() {
+				alert.Call("remove")
+			}
+			return nil
+		})
+		setTimeout.Invoke(removeFn, 220)
+		return nil
+	})
+	setTimeout.Invoke(fadeFn, 4200)
 }
 
 func (d *browserDOM) BindActions(handler DOMActionHandler) error {
@@ -57,6 +115,15 @@ func (d *browserDOM) BindActions(handler DOMActionHandler) error {
 		element := closestActionElement(event)
 		if !element.Truthy() {
 			return nil
+		}
+		if strings.EqualFold(element.Get("tagName").String(), "form") {
+			target := event.Get("target")
+			if !target.Truthy() {
+				target = event.Get("srcElement")
+			}
+			if !target.Truthy() || !element.Equal(target) {
+				return nil
+			}
 		}
 		action := element.Call("getAttribute", "data-sv-action").String()
 		if action == "" {
@@ -84,6 +151,9 @@ func (d *browserDOM) BindActions(handler DOMActionHandler) error {
 		if action == "" {
 			return nil
 		}
+		if !confirmAction(form) {
+			return nil
+		}
 		event.Call("preventDefault")
 		data := collectActionData(form)
 		for key, value := range collectFormData(form) {
@@ -95,12 +165,36 @@ func (d *browserDOM) BindActions(handler DOMActionHandler) error {
 	d.addEventBinding(d.target, "submit", submitHandler)
 
 	keydownHandler := js.FuncOf(func(_ js.Value, args []js.Value) any {
-		d.handleKeyboard(firstJSArg(args))
+		event := firstJSArg(args)
+		if !d.eventTargetInsideMount(event) {
+			return nil
+		}
+		d.handleKeyboard(event)
 		return nil
 	})
 	d.addEventBinding(d.document, "keydown", keydownHandler)
 
 	return nil
+}
+
+func (d *browserDOM) eventTargetInsideMount(event js.Value) bool {
+	if d == nil || !d.target.Truthy() || !event.Truthy() {
+		return false
+	}
+	target := event.Get("target")
+	if !target.Truthy() {
+		target = event.Get("srcElement")
+	}
+	if !target.Truthy() {
+		return false
+	}
+	if d.document.Truthy() && target.Equal(d.document) {
+		return true
+	}
+	if strings.EqualFold(target.Get("nodeName").String(), "body") {
+		return true
+	}
+	return d.target.Call("contains", target).Bool()
 }
 
 func (d *browserDOM) addEventBinding(target js.Value, event string, fn js.Func) {
@@ -172,7 +266,13 @@ func collectFormData(form js.Value) map[string]string {
 		if pair.Get("length").Int() < 2 {
 			continue
 		}
-		data[pair.Index(0).String()] = pair.Index(1).String()
+		key := pair.Index(0).String()
+		value := pair.Index(1).String()
+		if existing := data[key]; existing != "" {
+			data[key] = existing + "," + value
+			continue
+		}
+		data[key] = value
 	}
 	return data
 }
@@ -232,6 +332,8 @@ func (d *browserDOM) handleHistoryKeyboard(event js.Value) {
 			}
 		}
 	case "d", "delete", "backspace":
+		// Delete the focused row through the same delegated click path as pointer users,
+		// including the data-sv-confirm guard on the delete button.
 		if row := d.activeHistoryRow(); row.Truthy() {
 			event.Call("preventDefault")
 			if button := row.Call("querySelector", `[data-sv-action="history.deleteEntry"]`); button.Truthy() {
@@ -349,14 +451,16 @@ func (d *browserDOM) focusRow(selector, datasetKey string, delta int) {
 func (d *browserDOM) activeRow(selector, datasetKey string) js.Value {
 	rows := d.target.Call("querySelectorAll", selector)
 	length := rows.Get("length").Int()
-	if length == 0 {
+	if length <= 0 {
 		return js.Value{}
 	}
 	idx := d.activeIndex(datasetKey)
 	if idx < 0 || idx >= length {
 		idx = 0
+		row := rows.Index(idx)
 		d.target.Get("dataset").Set(datasetKey, "0")
-		rows.Index(0).Get("classList").Call("add", "sv-focused")
+		row.Get("classList").Call("add", "sv-focused")
+		return row
 	}
 	return rows.Index(idx)
 }

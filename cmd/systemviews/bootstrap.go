@@ -14,11 +14,12 @@ type bridgeServices interface {
 }
 
 func newBridgeApp(dom systemviews.DOM, locationURI string, bridge bridgeServices) *systemviews.App {
+	route := systemviews.ParseRoute(locationURI)
 	return systemviews.NewApp(systemviews.Dependencies{
 		DOM:         dom,
 		History:     bridge,
 		Favorites:   bridge,
-		Config:      bridgeConfigProxy{bridge: bridge, route: systemviews.ParseRoute(locationURI)},
+		Config:      bridgeConfigProxy{bridge: bridge, route: route},
 		LocationURI: locationURI,
 	})
 }
@@ -41,6 +42,8 @@ func (p bridgeConfigProxy) Save(ctx context.Context, cfg port.WebUIConfig) error
 }
 
 func (p bridgeConfigProxy) GetKeybindings(ctx context.Context) (port.KeybindingsConfig, error) {
+	// Keybindings are only rendered by dumb://config; skip the bridge load for
+	// other systemview routes to keep initial history/favorites loads cheap.
 	if p.route != systemviews.RouteConfig {
 		return port.KeybindingsConfig{}, nil
 	}

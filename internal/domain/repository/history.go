@@ -47,6 +47,9 @@ type HistoryRepository interface {
 	// DeleteOlderThan removes entries older than the given time.
 	DeleteOlderThan(ctx context.Context, before time.Time) error
 
+	// DeleteSince removes entries visited at or after the given time.
+	DeleteSince(ctx context.Context, since time.Time) error
+
 	// DeleteAll removes all history entries.
 	DeleteAll(ctx context.Context) error
 

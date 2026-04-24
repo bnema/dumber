@@ -3,6 +3,8 @@ package homepage
 import (
 	"context"
 	"encoding/json"
+	"fmt"
+	"strings"
 
 	"github.com/bnema/dumber/internal/application/port"
 	"github.com/bnema/dumber/internal/domain/entity"
@@ -66,6 +68,11 @@ func (h *HistoryHandlers) HandleTimelineByDomain() port.WebUIMessageHandler {
 		var req timelineByDomainRequest
 		if err := json.Unmarshal(payload, &req); err != nil {
 			return NewErrorResponse("", err), nil
+		}
+
+		req.Domain = strings.TrimSpace(req.Domain)
+		if req.Domain == "" {
+			return NewErrorResponse(req.RequestID, fmt.Errorf("domain is required")), nil
 		}
 
 		log.Debug().
@@ -169,17 +176,30 @@ func (h *HistoryHandlers) HandleDeleteRange() port.WebUIMessageHandler {
 			return NewErrorResponse("", err), nil
 		}
 
+		req.Range = strings.TrimSpace(req.Range)
 		log.Debug().
 			Str("request_id", req.RequestID).
 			Str("range", req.Range).
 			Msg("handling history_delete_range")
 
+		if !isAllowedHistoryDeleteRange(req.Range) {
+			return NewErrorResponse(req.RequestID, fmt.Errorf("invalid range: %s", req.Range)), nil
+		}
 		if err := h.historyUC.ClearRange(ctx, req.Range); err != nil {
 			return NewErrorResponse(req.RequestID, err), nil
 		}
 
 		return NewSuccessResponse(req.RequestID, nil), nil
 	})
+}
+
+func isAllowedHistoryDeleteRange(rangeID string) bool {
+	switch rangeID {
+	case "hour", "day", "week", "month", "all":
+		return true
+	default:
+		return false
+	}
 }
 
 // HandleClearAll handles history_clear_all messages.

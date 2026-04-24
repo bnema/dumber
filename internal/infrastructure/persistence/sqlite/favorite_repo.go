@@ -61,6 +61,11 @@ func (r *favoriteRepo) updateExisting(ctx context.Context, fav *entity.Favorite,
 		}
 	}()
 
+	shortcutKey := sql.NullInt64{}
+	if fav.ShortcutKey != nil {
+		shortcutKey = sql.NullInt64{Int64: int64(*fav.ShortcutKey), Valid: true}
+	}
+
 	queries := r.queries.WithTx(tx)
 	if err := queries.UpdateFavorite(ctx, sqlc.UpdateFavoriteParams{
 		Title:      sql.NullString{String: fav.Title, Valid: fav.Title != ""},
@@ -73,19 +78,12 @@ func (r *favoriteRepo) updateExisting(ctx context.Context, fav *entity.Favorite,
 		return err
 	}
 	if err := queries.SetFavoriteShortcut(ctx, sqlc.SetFavoriteShortcutParams{
-		ShortcutKey: sql.NullInt64{Int64: int64Value(fav.ShortcutKey), Valid: fav.ShortcutKey != nil},
+		ShortcutKey: shortcutKey,
 		ID:          int64(fav.ID),
 	}); err != nil {
 		return err
 	}
 	return tx.Commit()
-}
-
-func int64Value(value *int) int64 {
-	if value == nil {
-		return 0
-	}
-	return int64(*value)
 }
 
 func (r *favoriteRepo) FindByID(ctx context.Context, id entity.FavoriteID) (*entity.Favorite, error) {

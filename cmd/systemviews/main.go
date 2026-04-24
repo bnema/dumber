@@ -13,8 +13,11 @@ func main() {
 	bridge := systemviewsbridge.NewBrowserClient()
 	href := ""
 	location := js.Global().Get("location")
-	if location.Type() != js.TypeUndefined && location.Type() != js.TypeNull {
-		href = location.Get("href").String()
+	if location.Truthy() {
+		hrefValue := location.Get("href")
+		if hrefValue.Truthy() && hrefValue.Type() == js.TypeString {
+			href = hrefValue.String()
+		}
 	}
 	app := newBridgeApp(systemviews.NewDOM(), href, bridge)
 

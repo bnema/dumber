@@ -81,9 +81,9 @@ func (uc *SearchHistoryUseCase) GetRecentByDomain(ctx context.Context, domain st
 	if limit <= 0 {
 		limit = 50
 	}
-	domain = domainurl.CanonicalDomain(domain)
-	if domain == "" {
-		return nil, fmt.Errorf("domain is required")
+	domain, err := canonicalHistoryDomain(domain)
+	if err != nil {
+		return nil, err
 	}
 
 	entries, err := uc.historyRepo.GetRecentByDomain(ctx, domain, limit, offset)
@@ -91,6 +91,16 @@ func (uc *SearchHistoryUseCase) GetRecentByDomain(ctx context.Context, domain st
 		return nil, fmt.Errorf("failed to get recent history by domain: %w", err)
 	}
 	return entries, nil
+}
+
+// canonicalHistoryDomain normalizes a domain and rejects empty values before
+// the domain reaches exact-match persistence queries.
+func canonicalHistoryDomain(domain string) (string, error) {
+	domain = domainurl.CanonicalDomain(domain)
+	if domain == "" {
+		return "", fmt.Errorf("domain is required")
+	}
+	return domain, nil
 }
 
 // GetRecentSince retrieves history entries visited within the last N days.
@@ -173,7 +183,7 @@ func (uc *SearchHistoryUseCase) ClearOlderThan(ctx context.Context, before time.
 	return nil
 }
 
-// ClearRange deletes history entries for a named range.
+// ClearRange deletes history entries inside a named recent range.
 func (uc *SearchHistoryUseCase) ClearRange(ctx context.Context, rangeID string) error {
 	cutoff, all, ok := historydomain.DeleteRangeCutoff(rangeID, time.Now())
 	if !ok {
@@ -183,7 +193,13 @@ func (uc *SearchHistoryUseCase) ClearRange(ctx context.Context, rangeID string) 
 		return uc.ClearAll(ctx)
 	}
 
-	return uc.ClearOlderThan(ctx, cutoff)
+	log := logging.FromContext(ctx)
+	log.Debug().Time("since", cutoff).Str("range", rangeID).Msg("clearing recent history range")
+	if err := uc.historyRepo.DeleteSince(ctx, cutoff); err != nil {
+		return fmt.Errorf("failed to clear history range: %w", err)
+	}
+	log.Info().Time("since", cutoff).Str("range", rangeID).Msg("recent history range cleared")
+	return nil
 }
 
 // ClearAll deletes all history entries.
@@ -214,9 +230,9 @@ func (uc *SearchHistoryUseCase) Delete(ctx context.Context, id int64) error {
 
 // DeleteByDomain removes all history entries for a domain.
 func (uc *SearchHistoryUseCase) DeleteByDomain(ctx context.Context, domain string) error {
-	domain = domainurl.CanonicalDomain(domain)
-	if domain == "" {
-		return fmt.Errorf("domain is required")
+	domain, err := canonicalHistoryDomain(domain)
+	if err != nil {
+		return err
 	}
 
 	log := logging.FromContext(ctx)

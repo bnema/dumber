@@ -3,11 +3,31 @@ package homepage
 import (
 	"context"
 	"encoding/json"
+	"fmt"
+	"strings"
 
 	"github.com/bnema/dumber/internal/application/port"
 	"github.com/bnema/dumber/internal/domain/entity"
 	"github.com/bnema/dumber/internal/logging"
 )
+
+func folderIDFromInt64(id *int64) *entity.FolderID {
+	if id == nil {
+		return nil
+	}
+	folderID := entity.FolderID(*id)
+	return &folderID
+}
+
+func tagIDsFromInt64s(ids []int64) []entity.TagID {
+	out := make([]entity.TagID, 0, len(ids))
+	for _, id := range ids {
+		if id > 0 {
+			out = append(out, entity.TagID(id))
+		}
+	}
+	return out
+}
 
 // FavoritesHandlers handles favorite-related messages from the homepage.
 type FavoritesHandlers struct {
@@ -63,6 +83,10 @@ func (h *FavoritesHandlers) HandleCreate() port.WebUIMessageHandler {
 			Str("url", req.URL).
 			Msg("handling favorite_create")
 
+		if strings.TrimSpace(req.URL) == "" {
+			return NewErrorResponse(req.RequestID, fmt.Errorf("URL is required")), nil
+		}
+
 		input := port.FavoriteCreateInput{
 			URL:        req.URL,
 			Title:      req.Title,
@@ -103,6 +127,10 @@ func (h *FavoritesHandlers) HandleUpdate() port.WebUIMessageHandler {
 			Int64("favorite_id", req.ID).
 			Msg("handling favorite_update")
 
+		if req.ID <= 0 {
+			return NewErrorResponse(req.RequestID, fmt.Errorf("favorite id must be positive")), nil
+		}
+
 		favorite, err := h.favoritesUC.UpdateFavorite(ctx, port.FavoriteUpdateInput{
 			ID:          entity.FavoriteID(req.ID),
 			Title:       req.Title,
@@ -137,6 +165,10 @@ func (h *FavoritesHandlers) HandleDelete() port.WebUIMessageHandler {
 			Str("request_id", req.RequestID).
 			Int64("favorite_id", req.ID).
 			Msg("handling favorite_delete")
+
+		if req.ID <= 0 {
+			return NewErrorResponse(req.RequestID, fmt.Errorf("favorite id must be positive")), nil
+		}
 
 		if err := h.favoritesUC.DeleteFavorite(ctx, entity.FavoriteID(req.ID)); err != nil {
 			return NewErrorResponse(req.RequestID, err), nil
@@ -214,24 +246,6 @@ type setFolderRequest struct {
 }
 
 // HandleSetFolder handles favorite_set_folder messages.
-func folderIDFromInt64(id *int64) *entity.FolderID {
-	if id == nil {
-		return nil
-	}
-	folderID := entity.FolderID(*id)
-	return &folderID
-}
-
-func tagIDsFromInt64s(ids []int64) []entity.TagID {
-	out := make([]entity.TagID, 0, len(ids))
-	for _, id := range ids {
-		if id > 0 {
-			out = append(out, entity.TagID(id))
-		}
-	}
-	return out
-}
-
 func (h *FavoritesHandlers) HandleSetFolder() port.WebUIMessageHandler {
 	return port.WebUIMessageHandlerFunc(func(ctx context.Context, _ port.WebViewID, payload json.RawMessage) (any, error) {
 		log := logging.FromContext(ctx)
@@ -246,13 +260,7 @@ func (h *FavoritesHandlers) HandleSetFolder() port.WebUIMessageHandler {
 			Int64("favorite_id", req.FavoriteID).
 			Msg("handling favorite_set_folder")
 
-		var folderID *entity.FolderID
-		if req.FolderID != nil {
-			id := entity.FolderID(*req.FolderID)
-			folderID = &id
-		}
-
-		if err := h.favoritesUC.Move(ctx, entity.FavoriteID(req.FavoriteID), folderID); err != nil {
+		if err := h.favoritesUC.Move(ctx, entity.FavoriteID(req.FavoriteID), folderIDFromInt64(req.FolderID)); err != nil {
 			return NewErrorResponse(req.RequestID, err), nil
 		}
 

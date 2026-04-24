@@ -16,7 +16,7 @@ func TestDeleteRangeCutoff(t *testing.T) {
 		wantOK  bool
 	}{
 		{name: "hour", rangeID: "hour", want: now.Add(-time.Hour), wantAll: false, wantOK: true},
-		{name: "day", rangeID: "day", want: now.AddDate(0, 0, -1), wantAll: false, wantOK: true},
+		{name: "day", rangeID: "day", want: time.Date(2026, time.April, 11, 0, 0, 0, 0, time.UTC), wantAll: false, wantOK: true},
 		{name: "week", rangeID: "week", want: now.AddDate(0, 0, -7), wantAll: false, wantOK: true},
 		{name: "month", rangeID: "month", want: now.AddDate(0, -1, 0), wantAll: false, wantOK: true},
 		{name: "all", rangeID: "all", want: time.Time{}, wantAll: true, wantOK: true},

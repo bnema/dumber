@@ -19,6 +19,11 @@ func TestParseRoute(t *testing.T) {
 		uri  string
 		want Route
 	}{
+		{name: "empty", uri: "", want: RouteUnknown},
+		{name: "scheme only", uri: "://", want: RouteUnknown},
+		{name: "dumb scheme only", uri: "dumb://", want: RouteUnknown},
+		{name: "dumb unknown host", uri: "dumb://unknown", want: RouteUnknown},
+		{name: "dumb opaque bogus", uri: "dumb:bogus", want: RouteUnknown},
 		{name: "history host", uri: "dumb://history", want: RouteHistory},
 		{name: "history opaque", uri: "dumb:history", want: RouteHistory},
 		{name: "favorites host", uri: "dumb://favorites", want: RouteFavorites},
@@ -81,6 +86,7 @@ func TestAppLoadInitialHistoryRouteUsesStyledSections(t *testing.T) {
 	assert.NotContains(t, app.renderedHTML, "<body")
 	assert.Contains(t, app.renderedHTML, `class="sv-shell"`)
 	assert.Contains(t, app.renderedHTML, `data-route="history"`)
+	assert.Contains(t, app.renderedHTML, `data-page-title="History — 1 entry"`)
 	assert.Contains(t, app.renderedHTML, `sv-section`)
 	assert.Contains(t, app.renderedHTML, `class="sv-list"`)
 }
@@ -133,11 +139,13 @@ func TestAppHandleHistoryActionsRefreshesDOM(t *testing.T) {
 	assert.Contains(t, dom.html, "Search result")
 	assert.Contains(t, dom.html, "Query: example")
 
+	app.historyOffset = historyTimelineLimit
 	require.NoError(t, app.HandleDOMAction(context.Background(), DOMAction{
 		Action: historyActionDeleteEntry,
 		Data:   map[string]string{"id": "42"},
 	}))
 	assert.Equal(t, int64(42), history.deletedEntryID)
+	assert.Equal(t, 0, app.historyOffset)
 	assert.Contains(t, dom.html, "Deleted history entry")
 
 	require.NoError(t, app.HandleDOMAction(context.Background(), DOMAction{
@@ -154,6 +162,7 @@ func TestAppHandleHistoryActionsRefreshesDOM(t *testing.T) {
 	}))
 	assert.True(t, history.domainCalled)
 	assert.Equal(t, "example.com", history.domain)
+	assert.Empty(t, app.historyQuery)
 
 	require.NoError(t, app.HandleDOMAction(context.Background(), DOMAction{
 		Action: historyActionDeleteDomain,
@@ -179,6 +188,37 @@ func TestAppCloseStopsActionWorkerAndReleasesDOM(t *testing.T) {
 	require.NotPanics(t, func() {
 		dom.handler(DOMAction{Action: historyActionClear})
 	})
+}
+
+func TestAppRunCleansActionWorkerWhenBindingFails(t *testing.T) {
+	bindErr := errors.New("bind failed")
+	dom := &failingActionDOM{bindErr: bindErr}
+	app := NewApp(Dependencies{DOM: dom, LocationURI: "dumb://history"})
+
+	err := app.RunWithContext(context.Background())
+	require.ErrorIs(t, err, bindErr)
+	assert.Nil(t, app.actionQueue)
+	assert.Nil(t, app.actionErrorQueue)
+	assert.Nil(t, app.actionCtx)
+	assert.False(t, app.actionWorkerActive())
+	require.NotPanics(t, app.Close)
+}
+
+func TestAppRunReleasesDOMWhenActionWorkerCannotStart(t *testing.T) {
+	dom := &fakeActionDOM{}
+	history := &fakeHistoryService{entries: []*entity.HistoryEntry{{ID: 1, URL: "https://example.com"}}}
+	app := NewApp(Dependencies{DOM: dom, History: history, LocationURI: "dumb://history"})
+
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel()
+	err := app.RunWithContext(ctx)
+
+	require.ErrorContains(t, err, "systemview action worker unavailable")
+	assert.True(t, dom.released)
+	assert.Nil(t, app.actionQueue)
+	assert.Nil(t, app.actionErrorQueue)
+	assert.Nil(t, app.actionCtx)
+	assert.False(t, app.actionWorkerActive())
 }
 
 func TestAppLoadInitialHistoryRouteRendersErrorState(t *testing.T) {
@@ -278,6 +318,7 @@ func TestAppLoadInitialFavoritesRouteRendersData(t *testing.T) {
 	assert.NotContains(t, app.renderedHTML, "<body")
 	assert.Contains(t, app.renderedHTML, `class="sv-shell"`)
 	assert.Contains(t, app.renderedHTML, `data-route="favorites"`)
+	assert.Contains(t, app.renderedHTML, `data-page-title="Favorites — 1 bookmark"`)
 	assert.Contains(t, app.renderedHTML, `sv-section`)
 	assert.Contains(t, app.renderedHTML, `class="sv-meta"`)
 }
@@ -306,6 +347,8 @@ func TestAppLoadInitialFavoritesRouteRendersCRUDControls(t *testing.T) {
 	assert.Contains(t, app.renderedHTML, `data-sv-action="tag.update"`)
 	assert.Contains(t, app.renderedHTML, `data-sv-action="tag.delete"`)
 	assert.Contains(t, app.renderedHTML, `data-sv-action="tag.assign"`)
+	assert.Contains(t, app.renderedHTML, `name="tags"`)
+	assert.Contains(t, app.renderedHTML, `value="7"`)
 	assert.Contains(t, app.renderedHTML, "Read Later")
 	assert.Contains(t, app.renderedHTML, "Go")
 	assert.Contains(t, app.renderedHTML, "Shortcut 3")
@@ -322,11 +365,12 @@ func TestAppHandleFavoriteActionsRefreshesDOM(t *testing.T) {
 
 	require.NoError(t, app.HandleDOMAction(context.Background(), DOMAction{
 		Action: favoriteActionCreate,
-		Data:   map[string]string{"url": "https://new.example", "title": "New", "folder_id": "5"},
+		Data:   map[string]string{"url": "https://new.example", "title": "New", "folder_id": "5", "tags": "7"},
 	}))
 	require.NotNil(t, favorites.createdFavorite.FolderID)
 	assert.Equal(t, "https://new.example", favorites.createdFavorite.URL)
 	assert.Equal(t, entity.FolderID(5), *favorites.createdFavorite.FolderID)
+	assert.Equal(t, []entity.TagID{7}, favorites.createdFavorite.Tags)
 	assert.Contains(t, dom.html, "Added favorite New")
 
 	require.NoError(t, app.HandleDOMAction(context.Background(), DOMAction{
@@ -361,6 +405,14 @@ func TestAppHandleFavoriteActionsRefreshesDOM(t *testing.T) {
 	require.NotNil(t, app.favoriteTagFilter)
 	assert.Equal(t, entity.TagID(7), *app.favoriteTagFilter)
 	assert.Nil(t, app.favoriteFolderFilter)
+
+	require.NoError(t, app.HandleDOMAction(context.Background(), DOMAction{
+		Action: folderActionCreate,
+		Data:   map[string]string{"name": "Reading", "icon": "📚"},
+	}))
+	assert.Equal(t, "Reading", favorites.createdFolder)
+	assert.Equal(t, "📚", favorites.createdFolderIcon)
+	assert.Contains(t, dom.html, "Created folder 📚 Reading")
 
 	require.NoError(t, app.HandleDOMAction(context.Background(), DOMAction{
 		Action: favoriteActionDelete,
@@ -492,6 +544,7 @@ func TestAppLoadInitialConfigRouteRendersData(t *testing.T) {
 	assert.NotContains(t, app.renderedHTML, "<body")
 	assert.Contains(t, app.renderedHTML, `class="sv-shell"`)
 	assert.Contains(t, app.renderedHTML, `data-route="config"`)
+	assert.Contains(t, app.renderedHTML, `data-page-title="Config — Dumber"`)
 	assert.Contains(t, app.renderedHTML, `sv-section`)
 	assert.Contains(t, app.renderedHTML, `class="sv-meta"`)
 }
@@ -581,11 +634,19 @@ func TestAppHandleConfigActionsRefreshesDOM(t *testing.T) {
 	assert.Contains(t, dom.html, "Saved performance settings")
 
 	require.NoError(t, app.HandleDOMAction(context.Background(), DOMAction{
+		Action: configActionSavePerformance,
+		Data:   map[string]string{"profile": "default"},
+	}))
+	assert.Equal(t, "default", service.savedConfig.Performance.Profile)
+	assert.Contains(t, dom.html, "Saved performance settings")
+
+	require.NoError(t, app.HandleDOMAction(context.Background(), DOMAction{
 		Action: configActionSetKeybinding,
 		Data:   map[string]string{"mode": "default", "action": "toggle_history_systemview", "keys": "ctrl+h, alt+h"},
 	}))
 	assert.True(t, service.calledSet)
 	assert.Equal(t, []string{"ctrl+h", "alt+h"}, service.setReq.Keys)
+	assert.Contains(t, service.setReq.RequestID, "systemviews-config-")
 	assert.Contains(t, dom.html, "Saved keybinding toggle_history_systemview")
 
 	require.NoError(t, app.HandleDOMAction(context.Background(), DOMAction{
@@ -594,11 +655,34 @@ func TestAppHandleConfigActionsRefreshesDOM(t *testing.T) {
 	}))
 	assert.True(t, service.calledReset)
 	assert.Equal(t, "toggle_history_systemview", service.resetReq.Action)
+	assert.Contains(t, service.resetReq.RequestID, "systemviews-config-")
+	assert.NotEqual(t, service.setReq.RequestID, service.resetReq.RequestID)
 	assert.Contains(t, dom.html, "Reset keybinding toggle_history_systemview")
 
 	require.NoError(t, app.HandleDOMAction(context.Background(), DOMAction{Action: configActionResetAllKeybindings}))
 	assert.True(t, service.calledResetAll)
 	assert.Contains(t, dom.html, "Reset all keybindings to defaults")
+}
+
+func TestAppRejectsSearchURLsWithoutPlaceholder(t *testing.T) {
+	t.Parallel()
+
+	service := &fakeConfigService{current: testConfigPayload(), defaultCfg: testDefaultConfigPayload()}
+	app := NewApp(Dependencies{Config: service, LocationURI: "dumb://config"})
+
+	err := app.handleConfigAction(context.Background(), DOMAction{
+		Action: configActionSaveSearch,
+		Data:   map[string]string{"default_search_engine": "https://example.com/search"},
+	})
+	require.Error(t, err)
+	assert.False(t, service.calledSave)
+
+	err = app.handleConfigAction(context.Background(), DOMAction{
+		Action: configActionCreateSearchShortcut,
+		Data:   map[string]string{"key": "bad", "url": "https://example.com/search", "description": "Bad"},
+	})
+	require.Error(t, err)
+	assert.False(t, service.calledSave)
 }
 
 func testConfigPayload() port.SystemviewConfigPayload {
@@ -639,9 +723,9 @@ type fakeDOM struct {
 	html    string
 }
 
-func (d *fakeDOM) Mount(html string) error {
+func (d *fakeDOM) Mount(markup string) error {
 	d.mounted = true
-	d.html = html
+	d.html = markup
 	return nil
 }
 
@@ -658,6 +742,15 @@ func (d *fakeActionDOM) BindActions(handler DOMActionHandler) error {
 
 func (d *fakeActionDOM) Release() {
 	d.released = true
+}
+
+type failingActionDOM struct {
+	fakeDOM
+	bindErr error
+}
+
+func (d *failingActionDOM) BindActions(DOMActionHandler) error {
+	return d.bindErr
 }
 
 // Handwritten fake to capture history state for stateful render assertions.
@@ -742,6 +835,7 @@ type fakeFavoritesService struct {
 	updatedFavorite    port.FavoriteUpdateInput
 	deletedFavorite    int64
 	createdFolder      string
+	createdFolderIcon  string
 	updatedFolderID    int64
 	deletedFolderID    int64
 	createdTag         string
@@ -787,9 +881,10 @@ func (s *fakeFavoritesService) SetShortcut(context.Context, int64, *int) error {
 
 func (s *fakeFavoritesService) SetFolder(context.Context, int64, *int64) error { return nil }
 
-func (s *fakeFavoritesService) CreateFolder(_ context.Context, name string, _ *int64) (*entity.Folder, error) {
+func (s *fakeFavoritesService) CreateFolder(_ context.Context, name, icon string, _ *int64) (*entity.Folder, error) {
 	s.createdFolder = name
-	return &entity.Folder{ID: 77, Name: name}, nil
+	s.createdFolderIcon = icon
+	return &entity.Folder{ID: 77, Name: name, Icon: icon}, nil
 }
 
 func (s *fakeFavoritesService) UpdateFolder(_ context.Context, id int64, _, _ string) error {
@@ -896,4 +991,128 @@ func (s *fakeConfigService) ResetKeybinding(_ context.Context, req port.ResetKey
 func (s *fakeConfigService) ResetAllKeybindings(context.Context) error {
 	s.calledResetAll = true
 	return nil
+}
+
+func TestHandleFavoriteActionValidatesCreateURL(t *testing.T) {
+	app := NewApp(Dependencies{Favorites: &fakeFavoritesService{}})
+
+	err := app.handleFavoriteAction(context.Background(), DOMAction{
+		Action: favoriteActionCreate,
+		Data:   map[string]string{"url": "  ", "title": "Blank"},
+	})
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "favorite URL is required")
+
+	err = app.handleFavoriteAction(context.Background(), DOMAction{
+		Action: favoriteActionCreate,
+		Data:   map[string]string{"url": "example.com", "title": "Relative"},
+	})
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "favorite URL must be absolute")
+
+	err = app.handleFavoriteAction(context.Background(), DOMAction{
+		Action: favoriteActionCreate,
+		Data:   map[string]string{"url": "javascript:alert(1)", "title": "Script"},
+	})
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "favorite URL must use http, https, or dumb scheme")
+}
+
+func TestHandleFavoriteCreateAcceptsInternalDumbRoutes(t *testing.T) {
+	favorites := &fakeFavoritesService{}
+	app := NewApp(Dependencies{Favorites: favorites})
+
+	require.NoError(t, app.handleFavoriteAction(context.Background(), DOMAction{
+		Action: favoriteActionCreate,
+		Data:   map[string]string{"url": "dumb:history", "title": "History"},
+	}))
+	assert.Equal(t, "dumb://history", favorites.createdFavorite.URL)
+
+	require.NoError(t, app.handleFavoriteAction(context.Background(), DOMAction{
+		Action: favoriteActionCreate,
+		Data:   map[string]string{"url": "dumb://config", "title": "Config"},
+	}))
+	assert.Equal(t, "dumb://config", favorites.createdFavorite.URL)
+}
+
+func TestHandleFavoriteTagActionsAcceptSnakeCaseIDs(t *testing.T) {
+	favorites := &fakeFavoritesService{}
+	app := NewApp(Dependencies{Favorites: favorites})
+
+	require.NoError(t, app.handleFavoriteAction(context.Background(), DOMAction{
+		Action: tagActionAssign,
+		Data:   map[string]string{"favorite_id": "42", "tag_id": "7"},
+	}))
+	assert.Equal(t, int64(42), favorites.assignedFavoriteID)
+	assert.Equal(t, int64(7), favorites.assignedTagID)
+
+	require.NoError(t, app.handleFavoriteAction(context.Background(), DOMAction{
+		Action: tagActionRemove,
+		Data:   map[string]string{"favorite_id": "42", "tag_id": "7"},
+	}))
+	assert.Equal(t, int64(42), favorites.removedFavoriteID)
+	assert.Equal(t, int64(7), favorites.removedTagID)
+}
+
+func TestHandleHistorySearchClearsDomainFilter(t *testing.T) {
+	dom := &fakeDOM{}
+	history := &fakeHistoryService{searchEntries: []*entity.HistoryEntry{{ID: 7, URL: "https://search.example", Title: "Search result"}}}
+	app := NewApp(Dependencies{DOM: dom, History: history, LocationURI: "dumb://history"})
+	app.historyDomainFilter = "example.com"
+
+	require.NoError(t, app.HandleDOMAction(context.Background(), DOMAction{
+		Action: historyActionSearch,
+		Data:   map[string]string{"query": "search"},
+	}))
+
+	assert.Equal(t, "search", app.historyQuery)
+	assert.Empty(t, app.historyDomainFilter)
+	assert.True(t, history.searchCalled)
+	assert.False(t, history.domainCalled)
+}
+
+func TestAppRunWithContextRejectsNilContext(t *testing.T) {
+	app := NewApp(Dependencies{DOM: &fakeDOM{}, LocationURI: "dumb://history"})
+
+	err := app.RunWithContext(nil)
+
+	require.ErrorContains(t, err, "context is nil")
+}
+
+func TestAppRunWithContextRequiresDOMBeforeLoading(t *testing.T) {
+	history := &fakeHistoryService{entries: []*entity.HistoryEntry{{ID: 1, URL: "https://example.com"}}}
+	app := NewApp(Dependencies{History: history, LocationURI: "dumb://history"})
+
+	err := app.RunWithContext(context.Background())
+
+	require.ErrorContains(t, err, "DOM not configured")
+	assert.False(t, history.called)
+}
+
+func TestHandleActionsRejectUnknownAction(t *testing.T) {
+	app := NewApp(Dependencies{
+		History:   &fakeHistoryService{},
+		Favorites: &fakeFavoritesService{},
+		Config:    &fakeConfigService{current: testConfigPayload()},
+	})
+
+	require.ErrorContains(t, app.handleHistoryAction(context.Background(), DOMAction{Action: "history.unknown"}), "unknown history action")
+	require.ErrorContains(t, app.handleFavoriteAction(context.Background(), DOMAction{Action: "favorite.unknown"}), "unknown favorite action")
+	require.ErrorContains(t, app.handleConfigAction(context.Background(), DOMAction{Action: "config.unknown"}), "unknown config action")
+}
+
+func TestSavePerformanceConfigRejectsOutOfRangeValues(t *testing.T) {
+	service := &fakeConfigService{current: testConfigPayload()}
+	app := NewApp(Dependencies{Config: service})
+
+	err := app.handleConfigAction(context.Background(), DOMAction{
+		Action: configActionSavePerformance,
+		Data: map[string]string{
+			"profile": "custom", "skia_cpu_threads": "65", "skia_gpu_threads": "2",
+			"web_process_memory_mb": "2048", "network_process_memory_mb": "512", "webview_pool_prewarm": "4",
+		},
+	})
+
+	require.ErrorContains(t, err, "Skia CPU threads must be between 0 and 8")
+	assert.False(t, service.calledSave)
 }

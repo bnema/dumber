@@ -28,9 +28,9 @@ func TestDefaultConfig_CoreDefaults(t *testing.T) {
 	assert.True(t, cfg.Engine.WebKit.ITPEnabled)
 
 	// System view shortcuts are first-class global actions.
-	requireActionBinding(t, cfg.Workspace.Shortcuts.Actions, "toggle_history_systemview", []string{"ctrl+h"})
-	requireActionBinding(t, cfg.Workspace.Shortcuts.Actions, "toggle_favorites_systemview", []string{})
-	requireActionBinding(t, cfg.Workspace.Shortcuts.Actions, "toggle_config_systemview", []string{})
+	requireActionBinding(t, cfg.Workspace.Shortcuts.Actions, "toggle-history-systemview", []string{"ctrl+h"})
+	requireActionBinding(t, cfg.Workspace.Shortcuts.Actions, "toggle-favorites-systemview", []string{})
+	requireActionBinding(t, cfg.Workspace.Shortcuts.Actions, "toggle-config-systemview", []string{})
 
 	// Old sections (Rendering, Privacy, Performance, Runtime) have been removed from Config.
 	// Their values now live under cfg.Engine / cfg.Engine.WebKit (validated above).

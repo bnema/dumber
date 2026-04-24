@@ -62,16 +62,17 @@ templ FavoritesControls(data favoritesRenderData) {
 		<label><span>URL</span><input name="url" type="url" placeholder="https://example.com" required/></label>
 		<label><span>Title</span><input name="title" type="text" placeholder="Optional title"/></label>
 		@FolderSelect("folder_id", data.Folders, nil, "Folder")
+		@FavoriteCreateTagPicker(data.Tags)
 		<button class="sv-button" type="submit">Add favorite</button>
 	</form>
 	<div class="sv-filter-panel">
 		<div class="sv-button-row">
 			<span class="sv-meta">Folders</span>
-			<button type="button" class={ favoriteFilterClass(favoriteAllFilterActive(data)) } data-sv-action="favorite.clearFilters">All</button>
-			<button type="button" class={ favoriteFilterClass(favoriteFolderFilterActive(data, entity.FolderID(0))) } data-sv-action="favorite.filterFolder" data-folder-id="root">Unfiled</button>
+			<button type="button" class={ favoriteFilterClass(favoriteAllFilterActive(data)) } aria-pressed={ fmt.Sprintf("%t", favoriteAllFilterActive(data)) } data-sv-action="favorite.clearFilters">All</button>
+			<button type="button" class={ favoriteFilterClass(favoriteFolderFilterActive(data, entity.FolderID(0))) } aria-pressed={ fmt.Sprintf("%t", favoriteFolderFilterActive(data, entity.FolderID(0))) } data-sv-action="favorite.filterFolder" data-folder-id="root">Unfiled</button>
 			for _, folder := range data.Folders {
 				if folder != nil {
-					<button type="button" class={ favoriteFilterClass(favoriteFolderFilterActive(data, folder.ID)) } data-sv-action="favorite.filterFolder" data-folder-id={ fmt.Sprintf("%d", folder.ID) }>{ folderDisplayName(folder) }</button>
+					<button type="button" class={ favoriteFilterClass(favoriteFolderFilterActive(data, folder.ID)) } aria-pressed={ fmt.Sprintf("%t", favoriteFolderFilterActive(data, folder.ID)) } data-sv-action="favorite.filterFolder" data-folder-id={ fmt.Sprintf("%d", folder.ID) }>{ folderDisplayName(folder) }</button>
 				}
 			}
 		</div>
@@ -79,7 +80,7 @@ templ FavoritesControls(data favoritesRenderData) {
 			<span class="sv-meta">Tags</span>
 			for _, tag := range data.Tags {
 				if tag != nil {
-					<button type="button" class={ favoriteFilterClass(favoriteTagFilterActive(data, tag.ID)) } data-sv-action="favorite.filterTag" data-tag-id={ fmt.Sprintf("%d", tag.ID) }>
+					<button type="button" class={ favoriteFilterClass(favoriteTagFilterActive(data, tag.ID)) } aria-pressed={ fmt.Sprintf("%t", favoriteTagFilterActive(data, tag.ID)) } data-sv-action="favorite.filterTag" data-tag-id={ fmt.Sprintf("%d", tag.ID) }>
 						<span class="sv-tag-dot" style={ "background:" + safeTagColor(tag.Color) }></span>{ tag.Name }
 					</button>
 				}
@@ -87,6 +88,24 @@ templ FavoritesControls(data favoritesRenderData) {
 		</div>
 	</div>
 	<p class="sv-meta sv-key-hints">Keys: <kbd>j</kbd>/<kbd>k</kbd> move, <kbd>Enter</kbd> open, <kbd>e</kbd> edit title, <kbd>d</kbd> delete focused favorite.</p>
+}
+
+templ FavoriteCreateTagPicker(tags []*entity.Tag) {
+	if len(tags) > 0 {
+		<fieldset class="sv-tag-picker">
+			<legend>Tags</legend>
+			<div class="sv-tag-controls">
+				for _, tag := range tags {
+					if tag != nil {
+						<label class="sv-tag-toggle">
+							<input type="checkbox" name="tags" value={ fmt.Sprintf("%d", tag.ID) }/>
+							<span><span class="sv-tag-dot" style={ "background:" + safeTagColor(tag.Color) }></span>{ tag.Name }</span>
+						</label>
+					}
+				}
+			</div>
+		</fieldset>
+	}
 }
 
 templ FavoriteItem(favorite *entity.Favorite, folders []*entity.Folder, tags []*entity.Tag) {

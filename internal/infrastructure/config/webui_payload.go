@@ -45,31 +45,35 @@ func BuildSystemviewConfigPayload(cfg *Config, hw *port.HardwareInfo) port.Syste
 }
 
 func buildSystemviewAppearancePayload(appearance AppearanceConfig) port.WebUIAppearanceConfig {
+	defaults := DefaultConfig().Appearance
 	return port.WebUIAppearanceConfig{
 		SansFont:        appearance.SansFont,
 		SerifFont:       appearance.SerifFont,
 		MonospaceFont:   appearance.MonospaceFont,
 		DefaultFontSize: appearance.DefaultFontSize,
 		ColorScheme:     appearance.ColorScheme,
-		LightPalette: port.ColorPalette{
-			Background:     appearance.LightPalette.Background,
-			Surface:        appearance.LightPalette.Surface,
-			SurfaceVariant: appearance.LightPalette.SurfaceVariant,
-			Text:           appearance.LightPalette.Text,
-			Muted:          appearance.LightPalette.Muted,
-			Accent:         appearance.LightPalette.Accent,
-			Border:         appearance.LightPalette.Border,
-		},
-		DarkPalette: port.ColorPalette{
-			Background:     appearance.DarkPalette.Background,
-			Surface:        appearance.DarkPalette.Surface,
-			SurfaceVariant: appearance.DarkPalette.SurfaceVariant,
-			Text:           appearance.DarkPalette.Text,
-			Muted:          appearance.DarkPalette.Muted,
-			Accent:         appearance.DarkPalette.Accent,
-			Border:         appearance.DarkPalette.Border,
-		},
+		LightPalette:    buildSystemviewPalettePayload(appearance.LightPalette, defaults.LightPalette),
+		DarkPalette:     buildSystemviewPalettePayload(appearance.DarkPalette, defaults.DarkPalette),
 	}
+}
+
+func buildSystemviewPalettePayload(palette, fallback ColorPalette) port.ColorPalette {
+	return port.ColorPalette{
+		Background:     nonEmptyColor(palette.Background, fallback.Background),
+		Surface:        nonEmptyColor(palette.Surface, fallback.Surface),
+		SurfaceVariant: nonEmptyColor(palette.SurfaceVariant, fallback.SurfaceVariant),
+		Text:           nonEmptyColor(palette.Text, fallback.Text),
+		Muted:          nonEmptyColor(palette.Muted, fallback.Muted),
+		Accent:         nonEmptyColor(palette.Accent, fallback.Accent),
+		Border:         nonEmptyColor(palette.Border, fallback.Border),
+	}
+}
+
+func nonEmptyColor(value, fallback string) string {
+	if value != "" {
+		return value
+	}
+	return fallback
 }
 
 func buildSystemviewSearchShortcutsPayload(shortcuts map[string]SearchShortcut) map[string]port.SearchShortcut {

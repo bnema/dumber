@@ -3,25 +3,38 @@ package systemviews
 import (
 	"context"
 	"fmt"
+	"math"
+	"net/url"
 	"strconv"
 	"strings"
+	"sync/atomic"
 
 	"github.com/bnema/dumber/internal/application/port"
 )
 
 const (
-	configActionSaveAppearance       = "config.appearance.save"
-	configActionResetAppearance      = "config.appearance.reset"
-	configActionSaveSearch           = "config.search.save"
-	configActionCreateSearchShortcut = "config.searchShortcut.create"
-	configActionUpdateSearchShortcut = "config.searchShortcut.update"
-	configActionDeleteSearchShortcut = "config.searchShortcut.delete"
-	configActionSavePerformance      = "config.performance.save"
-	configActionSetKeybinding        = "config.keybinding.set"
-	configActionResetKeybinding      = "config.keybinding.reset"
-	configActionResetAllKeybindings  = "config.keybinding.resetAll"
-	configRequestIDPrefix            = "systemviews-config"
+	configActionSaveAppearance          = "config.appearance.save"
+	configActionResetAppearance         = "config.appearance.reset"
+	configActionSaveSearch              = "config.search.save"
+	configActionCreateSearchShortcut    = "config.searchShortcut.create"
+	configActionUpdateSearchShortcut    = "config.searchShortcut.update"
+	configActionDeleteSearchShortcut    = "config.searchShortcut.delete"
+	configActionSavePerformance         = "config.performance.save"
+	configActionSetKeybinding           = "config.keybinding.set"
+	configActionResetKeybinding         = "config.keybinding.reset"
+	configActionResetAllKeybindings     = "config.keybinding.resetAll"
+	configRequestIDPrefix               = "systemviews-config"
+	maxCustomPerformanceThreads         = 8
+	maxCustomPerformanceWebMemoryMB     = 16384
+	maxCustomPerformanceNetworkMemoryMB = 4096
+	maxCustomPerformancePrewarm         = 20
 )
+
+var configRequestCounter atomic.Uint64
+
+func nextConfigRequestID() string {
+	return fmt.Sprintf("%s-%d", configRequestIDPrefix, configRequestCounter.Add(1))
+}
 
 func (a *App) handleConfigAction(ctx context.Context, event DOMAction) error {
 	if a.deps.Config == nil {
@@ -52,8 +65,10 @@ func (a *App) handleConfigAction(ctx context.Context, event DOMAction) error {
 			return err
 		}
 		a.configNotice = "Reset all keybindings to defaults"
+		return nil
+	default:
+		return fmt.Errorf("unknown config action: %q", event.Action)
 	}
-	return nil
 }
 
 func (a *App) saveAppearanceConfig(ctx context.Context, data map[string]string) error {
@@ -70,14 +85,28 @@ func (a *App) saveAppearanceConfig(ctx context.Context, data map[string]string) 
 	if err != nil {
 		return err
 	}
+	if fontSize <= 0 {
+		return fmt.Errorf("default font size must be positive")
+	}
+	if uiScale <= 0 || math.IsNaN(uiScale) || math.IsInf(uiScale, 0) {
+		return fmt.Errorf("UI scale must be a finite positive number")
+	}
 
 	cfg.Appearance.SansFont = strings.TrimSpace(data["sans_font"])
 	cfg.Appearance.SerifFont = strings.TrimSpace(data["serif_font"])
 	cfg.Appearance.MonospaceFont = strings.TrimSpace(data["monospace_font"])
 	cfg.Appearance.DefaultFontSize = fontSize
 	cfg.Appearance.ColorScheme = strings.TrimSpace(data["color_scheme"])
-	cfg.Appearance.LightPalette = paletteFromForm(data, "light")
-	cfg.Appearance.DarkPalette = paletteFromForm(data, "dark")
+	lightPalette, err := paletteFromForm(data, "light")
+	if err != nil {
+		return err
+	}
+	darkPalette, err := paletteFromForm(data, "dark")
+	if err != nil {
+		return err
+	}
+	cfg.Appearance.LightPalette = lightPalette
+	cfg.Appearance.DarkPalette = darkPalette
 	cfg.DefaultUIScale = uiScale
 
 	if err := a.saveEditableConfig(ctx, cfg); err != nil {
@@ -110,7 +139,11 @@ func (a *App) saveSearchConfig(ctx context.Context, data map[string]string) erro
 	if err != nil {
 		return err
 	}
-	cfg.DefaultSearchEngine = strings.TrimSpace(data["default_search_engine"])
+	defaultSearchEngine, err := requireSearchURLTemplate(data["default_search_engine"], "default search engine")
+	if err != nil {
+		return err
+	}
+	cfg.DefaultSearchEngine = defaultSearchEngine
 	if err := a.saveEditableConfig(ctx, cfg); err != nil {
 		return err
 	}
@@ -126,6 +159,9 @@ func (a *App) createSearchShortcut(ctx context.Context, data map[string]string) 
 	key, shortcut := searchShortcutFromForm(data, "key")
 	if key == "" {
 		return fmt.Errorf("search shortcut key is required")
+	}
+	if shortcut.URL, err = requireSearchURLTemplate(shortcut.URL, "search shortcut URL"); err != nil {
+		return err
 	}
 	cfg.SearchShortcuts = cloneSearchShortcuts(cfg.SearchShortcuts)
 	if _, exists := cfg.SearchShortcuts[key]; exists {
@@ -151,6 +187,9 @@ func (a *App) updateSearchShortcut(ctx context.Context, data map[string]string) 
 	newKey, shortcut := searchShortcutFromForm(data, "new_key")
 	if newKey == "" {
 		return fmt.Errorf("new search shortcut key is required")
+	}
+	if shortcut.URL, err = requireSearchURLTemplate(shortcut.URL, "search shortcut URL"); err != nil {
+		return err
 	}
 	cfg.SearchShortcuts = cloneSearchShortcuts(cfg.SearchShortcuts)
 	if _, exists := cfg.SearchShortcuts[oldKey]; !exists {
@@ -197,6 +236,15 @@ func (a *App) savePerformanceConfig(ctx context.Context, data map[string]string)
 		return err
 	}
 	profile := strings.TrimSpace(data["profile"])
+	cfg.Performance.Profile = profile
+	if profile != "custom" {
+		if err := a.saveEditableConfig(ctx, cfg); err != nil {
+			return err
+		}
+		a.configNotice = "Saved performance settings. Restart may be required."
+		return nil
+	}
+
 	skiaCPU, err := parseConfigInt(data["skia_cpu_threads"], "Skia CPU threads")
 	if err != nil {
 		return err
@@ -217,8 +265,22 @@ func (a *App) savePerformanceConfig(ctx context.Context, data map[string]string)
 	if err != nil {
 		return err
 	}
+	if err := validatePerformanceInt(skiaCPU, "Skia CPU threads", 0, maxCustomPerformanceThreads); err != nil {
+		return err
+	}
+	if err := validatePerformanceInt(skiaGPU, "Skia GPU threads", -1, maxCustomPerformanceThreads); err != nil {
+		return err
+	}
+	if err := validatePerformanceInt(webMemory, "web process memory", 0, maxCustomPerformanceWebMemoryMB); err != nil {
+		return err
+	}
+	if err := validatePerformanceInt(networkMemory, "network process memory", 0, maxCustomPerformanceNetworkMemoryMB); err != nil {
+		return err
+	}
+	if err := validatePerformanceInt(prewarm, "WebView pool prewarm", 0, maxCustomPerformancePrewarm); err != nil {
+		return err
+	}
 
-	cfg.Performance.Profile = profile
 	cfg.Performance.Custom = port.WebUICustomPerformanceConfig{
 		SkiaCPUThreads:         skiaCPU,
 		SkiaGPUThreads:         skiaGPU,
@@ -244,7 +306,7 @@ func (a *App) setConfigKeybinding(ctx context.Context, data map[string]string) e
 		return err
 	}
 	resp, err := a.deps.Config.SetKeybinding(ctx, port.SetKeybindingRequest{
-		RequestID: configRequestIDPrefix,
+		RequestID: nextConfigRequestID(),
 		Mode:      mode,
 		Action:    action,
 		Keys:      keys,
@@ -270,7 +332,7 @@ func (a *App) resetConfigKeybinding(ctx context.Context, data map[string]string)
 		return err
 	}
 	if err := a.deps.Config.ResetKeybinding(ctx, port.ResetKeybindingRequest{
-		RequestID: configRequestIDPrefix,
+		RequestID: nextConfigRequestID(),
 		Mode:      mode,
 		Action:    action,
 	}); err != nil {
@@ -344,16 +406,57 @@ func cloneSearchShortcuts(shortcuts map[string]port.SearchShortcut) map[string]p
 	return clone
 }
 
-func paletteFromForm(data map[string]string, prefix string) port.ColorPalette {
-	return port.ColorPalette{
-		Background:     strings.TrimSpace(data[prefix+"_background"]),
-		Surface:        strings.TrimSpace(data[prefix+"_surface"]),
-		SurfaceVariant: strings.TrimSpace(data[prefix+"_surface_variant"]),
-		Text:           strings.TrimSpace(data[prefix+"_text"]),
-		Muted:          strings.TrimSpace(data[prefix+"_muted"]),
-		Accent:         strings.TrimSpace(data[prefix+"_accent"]),
-		Border:         strings.TrimSpace(data[prefix+"_border"]),
+func paletteFromForm(data map[string]string, prefix string) (port.ColorPalette, error) {
+	color := func(field string) (string, error) {
+		value := strings.TrimSpace(data[prefix+"_"+field])
+		if value == "" || isValidHexColor(value) {
+			return value, nil
+		}
+		return "", fmt.Errorf("%s_%s must be a hex color", prefix, field)
 	}
+
+	background, err := color("background")
+	if err != nil {
+		return port.ColorPalette{}, err
+	}
+	surface, err := color("surface")
+	if err != nil {
+		return port.ColorPalette{}, err
+	}
+	surfaceVariant, err := color("surface_variant")
+	if err != nil {
+		return port.ColorPalette{}, err
+	}
+	text, err := color("text")
+	if err != nil {
+		return port.ColorPalette{}, err
+	}
+	muted, err := color("muted")
+	if err != nil {
+		return port.ColorPalette{}, err
+	}
+	accent, err := color("accent")
+	if err != nil {
+		return port.ColorPalette{}, err
+	}
+	border, err := color("border")
+	if err != nil {
+		return port.ColorPalette{}, err
+	}
+
+	return port.ColorPalette{
+		Background:     background,
+		Surface:        surface,
+		SurfaceVariant: surfaceVariant,
+		Text:           text,
+		Muted:          muted,
+		Accent:         accent,
+		Border:         border,
+	}, nil
+}
+
+func isValidHexColor(value string) bool {
+	return isHexColor(strings.TrimSpace(value))
 }
 
 func searchShortcutFromForm(data map[string]string, keyField string) (string, port.SearchShortcut) {
@@ -361,6 +464,21 @@ func searchShortcutFromForm(data map[string]string, keyField string) (string, po
 		URL:         strings.TrimSpace(data["url"]),
 		Description: strings.TrimSpace(data["description"]),
 	}
+}
+
+func requireSearchURLTemplate(raw, label string) (string, error) {
+	value := strings.TrimSpace(raw)
+	if value == "" {
+		return "", fmt.Errorf("%s is required", label)
+	}
+	if !strings.Contains(value, "%s") {
+		return "", fmt.Errorf("%s must include %%s placeholder", label)
+	}
+	parsed, err := url.Parse(strings.Replace(value, "%s", "example", 1))
+	if err != nil || parsed.Host == "" || (parsed.Scheme != "http" && parsed.Scheme != "https") {
+		return "", fmt.Errorf("%s must be an absolute http(s) URL", label)
+	}
+	return value, nil
 }
 
 func parseConfigInt(raw, label string) (int, error) {
@@ -379,15 +497,20 @@ func parseConfigFloat(raw, label string) (float64, error) {
 	return value, nil
 }
 
+func validatePerformanceInt(value int, label string, minValue, maxValue int) error {
+	if value < minValue || value > maxValue {
+		return fmt.Errorf("%s must be between %d and %d", label, minValue, maxValue)
+	}
+	return nil
+}
+
 func parseKeyList(raw string) []string {
 	raw = strings.TrimSpace(raw)
 	if raw == "" {
 		return nil
 	}
-	parts := strings.Split(raw, ",")
-	if len(parts) == 1 {
-		parts = strings.Fields(raw)
-	}
+	raw = strings.ReplaceAll(raw, ",", " ")
+	parts := strings.Fields(raw)
 	keys := make([]string, 0, len(parts))
 	for _, part := range parts {
 		key := strings.TrimSpace(part)

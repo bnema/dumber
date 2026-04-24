@@ -88,6 +88,7 @@ packages:
       UpdateChecker: {}
       UpdateDownloader: {}
       WebUIConfigSaver: {}
+      SystemviewConfigReader: {}
       XDGPaths: {}
   github.com/bnema/dumber/internal/domain/repository:
     config:

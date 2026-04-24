@@ -25,8 +25,8 @@ func (a *App) HandleDOMAction(ctx context.Context, event DOMAction) error {
 	if a == nil {
 		return fmt.Errorf("app is nil")
 	}
-	a.mu.Lock()
-	defer a.mu.Unlock()
+	a.lockState()
+	defer a.unlockState()
 	if a.currentRoute == RouteUnknown || a.currentRoute == "" {
 		a.currentRoute = ParseRoute(a.deps.LocationURI)
 	}
@@ -40,6 +40,8 @@ func (a *App) HandleDOMAction(ctx context.Context, event DOMAction) error {
 		}
 		if err := a.loadHistoryRoute(ctx); err != nil {
 			a.renderRouteError(err)
+			_ = a.mountRenderedHTML()
+			return err
 		}
 		return a.mountRenderedHTML()
 	case RouteFavorites:
@@ -50,6 +52,8 @@ func (a *App) HandleDOMAction(ctx context.Context, event DOMAction) error {
 		}
 		if err := a.loadFavoritesRoute(ctx); err != nil {
 			a.renderRouteError(err)
+			_ = a.mountRenderedHTML()
+			return err
 		}
 		return a.mountRenderedHTML()
 	case RouteConfig:
@@ -61,6 +65,8 @@ func (a *App) HandleDOMAction(ctx context.Context, event DOMAction) error {
 		a.loadShellTheme(ctx)
 		if err := a.loadConfigRoute(ctx); err != nil {
 			a.renderRouteError(err)
+			_ = a.mountRenderedHTML()
+			return err
 		}
 		return a.mountRenderedHTML()
 	default:
@@ -77,6 +83,7 @@ func (a *App) handleHistoryAction(ctx context.Context, event DOMAction) error {
 	switch event.Action {
 	case historyActionSearch:
 		a.historyQuery = strings.TrimSpace(data["query"])
+		a.historyDomainFilter = ""
 		a.historyOffset = 0
 		a.historyNotice = ""
 	case historyActionClear:
@@ -90,6 +97,7 @@ func (a *App) handleHistoryAction(ctx context.Context, event DOMAction) error {
 			return fmt.Errorf("domain is required")
 		}
 		a.historyDomainFilter = domain
+		a.historyQuery = ""
 		a.historyOffset = 0
 		a.historyNotice = ""
 	case historyActionClearDomain:
@@ -111,11 +119,15 @@ func (a *App) handleHistoryAction(ctx context.Context, event DOMAction) error {
 		if err := a.deps.History.DeleteEntry(ctx, id); err != nil {
 			return err
 		}
+		a.historyOffset = 0
 		a.historyNotice = "Deleted history entry"
 	case historyActionDeleteRange:
 		rangeID := strings.TrimSpace(data["range"])
 		if rangeID == "" {
 			return fmt.Errorf("history range is required")
+		}
+		if !isKnownHistoryCleanupRange(rangeID) {
+			return fmt.Errorf("invalid history range")
 		}
 		if err := a.deps.History.DeleteRange(ctx, rangeID); err != nil {
 			return err
@@ -135,15 +147,30 @@ func (a *App) handleHistoryAction(ctx context.Context, event DOMAction) error {
 		}
 		a.historyOffset = 0
 		a.historyNotice = "Deleted history for " + domain
+	default:
+		return fmt.Errorf("unknown history action: %q", event.Action)
 	}
 	return nil
 }
 
 func (a *App) mountRenderedHTML() error {
+	return a.mountHTML(a.renderedHTML)
+}
+
+func (a *App) mountHTML(html string) error {
 	if a.deps.DOM == nil {
 		return nil
 	}
-	return a.deps.DOM.Mount(a.renderedHTML)
+	return a.deps.DOM.Mount(html)
+}
+
+func isKnownHistoryCleanupRange(rangeID string) bool {
+	for _, item := range historyCleanupItems() {
+		if item.RangeID == rangeID {
+			return true
+		}
+	}
+	return false
 }
 
 func historyRangeNotice(rangeID string) string {

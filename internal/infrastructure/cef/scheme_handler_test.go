@@ -4,7 +4,9 @@ import (
 	"context"
 	"encoding/base64"
 	"errors"
+	"net"
 	"net/http"
+	"net/url"
 	"testing"
 
 	purecef "github.com/bnema/purego-cef/cef"
@@ -58,6 +60,57 @@ func TestNewDumbSchemeHandler_NilDefaultConfigPayloadFails(t *testing.T) {
 	require.Error(t, err)
 	require.Nil(t, h)
 	require.Contains(t, err.Error(), "default config payload builder")
+}
+
+func TestRejectForbiddenAPIOrigin_AllowsInternalOrigin(t *testing.T) {
+	h, err := newDumbSchemeHandler(context.Background(), nil, nil, func() ([]byte, error) { return []byte(`{}`), nil }, func() ([]byte, error) { return []byte(`{}`), nil })
+	require.NoError(t, err)
+
+	request := cefmocks.NewMockRequest(t)
+	request.EXPECT().GetHeaderByName("Origin").Return(actualInternalOrigin).Once()
+
+	require.Nil(t, h.rejectForbiddenAPIOrigin(request))
+}
+
+func TestRejectForbiddenAPIOrigin_RejectsExternalOrigin(t *testing.T) {
+	oldNewResourceHandler := cefNewResourceHandler
+	cefNewResourceHandler = func(impl purecef.ResourceHandler) purecef.ResourceHandler { return impl }
+	defer func() { cefNewResourceHandler = oldNewResourceHandler }()
+
+	h, err := newDumbSchemeHandler(context.Background(), nil, nil, func() ([]byte, error) { return []byte(`{}`), nil }, func() ([]byte, error) { return []byte(`{}`), nil })
+	require.NoError(t, err)
+
+	request := cefmocks.NewMockRequest(t)
+	request.EXPECT().GetHeaderByName("Origin").Return("https://evil.example").Once()
+
+	response := cefmocks.NewMockResponse(t)
+	response.EXPECT().SetStatus(int32(http.StatusForbidden)).Once()
+	response.EXPECT().SetStatusText(http.StatusText(http.StatusForbidden)).Once()
+	response.EXPECT().SetMimeType("application/json").Once()
+	expectAPIResponseHeaders(response)
+
+	handler := h.rejectForbiddenAPIOrigin(request)
+	require.NotNil(t, handler)
+	var responseLength int64
+	handler.GetResponseHeaders(response, &responseLength, 0)
+	require.Positive(t, responseLength)
+}
+
+func TestValidateTranscodeSourceURL_RejectsPrivateHosts(t *testing.T) {
+	privateURL, err := url.Parse("http://127.0.0.1/video.mp4")
+	require.NoError(t, err)
+
+	err = validateTranscodeSourceURL(context.Background(), privateURL)
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "private src host")
+}
+
+func TestIsBlockedTranscodeIPRejectsReservedInternalRanges(t *testing.T) {
+	for _, rawIP := range []string{"100.64.0.1", "198.18.0.1", "192.0.2.1", "64:ff9b::a00:1", "2001::1", "2001:db8::1", "2002:0a00:0001::1"} {
+		t.Run(rawIP, func(t *testing.T) {
+			require.True(t, isBlockedTranscodeIP(net.ParseIP(rawIP)))
+		})
+	}
 }
 
 func TestReadBodyFromHeader_DecodesBase64Payload(t *testing.T) {

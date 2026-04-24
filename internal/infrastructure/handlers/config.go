@@ -24,7 +24,7 @@ func NewConfigHandler(saveConfig func(context.Context, port.WebUIConfig) error) 
 }
 
 // Handle processes the save_config message.
-func (h *ConfigHandler) Handle(ctx context.Context, _ port.WebViewID, payload json.RawMessage) (any, error) {
+func (h *ConfigHandler) Handle(ctx context.Context, viewID port.WebViewID, payload json.RawMessage) (any, error) {
 	if h == nil {
 		return nil, fmt.Errorf("config handler is nil")
 	}
@@ -39,7 +39,11 @@ func (h *ConfigHandler) Handle(ctx context.Context, _ port.WebViewID, payload js
 		return nil, fmt.Errorf("invalid config format: %w", err)
 	}
 
-	log.Info().Msg("saving appearance configuration")
+	source := "webui"
+	if viewID != 0 {
+		source = fmt.Sprintf("webview:%d", viewID)
+	}
+	log.Info().Str("source", source).Msg("saving appearance configuration")
 
 	if err := h.saveConfig(ctx, payloadCfg); err != nil {
 		log.Error().Err(err).Msg("failed to save config")

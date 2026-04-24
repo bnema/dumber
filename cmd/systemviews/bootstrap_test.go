@@ -96,7 +96,8 @@ func (f *fakeDOM) Mount(html string) error {
 	return nil
 }
 
-// Handwritten fake to capture bridge state for stateful render assertions.
+// Handwritten fake intentionally tracks state across history, favorites, config,
+// and keybindings boundaries for the composite bootstrap assertions.
 type fakeBridgeService struct {
 	calledHistory     bool
 	calledFavorites   bool
@@ -166,7 +167,7 @@ func (*fakeBridgeService) SetShortcut(context.Context, int64, *int) error { retu
 
 func (*fakeBridgeService) SetFolder(context.Context, int64, *int64) error { return nil }
 
-func (*fakeBridgeService) CreateFolder(context.Context, string, *int64) (*entity.Folder, error) {
+func (*fakeBridgeService) CreateFolder(context.Context, string, string, *int64) (*entity.Folder, error) {
 	return nil, nil
 }
 

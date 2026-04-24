@@ -362,35 +362,9 @@ func (s *ShortcutSet) registerConfiguredShortcuts(cfg *entity.WorkspaceConfig) {
 	//   r = rename tab
 	// This follows Zellij-style modal keyboard interface.
 	//
-	// However, these standard browser shortcuts ARE global:
-	// Map action names to action constants
-	actionMap := map[string]Action{
-		"toggle_floating_pane":        ActionToggleFloatingPane,
-		"toggle-floating-pane":        ActionToggleFloatingPane,
-		"close_pane":                  ActionClosePane,
-		"close-pane":                  ActionClosePane,
-		"next_tab":                    ActionNextTab,
-		"next-tab":                    ActionNextTab,
-		"previous_tab":                ActionPreviousTab,
-		"previous-tab":                ActionPreviousTab,
-		"consume_or_expel_left":       ActionConsumeOrExpelLeft,
-		"consume-or-expel-left":       ActionConsumeOrExpelLeft,
-		"consume_or_expel_right":      ActionConsumeOrExpelRight,
-		"consume-or-expel-right":      ActionConsumeOrExpelRight,
-		"consume_or_expel_up":         ActionConsumeOrExpelUp,
-		"consume-or-expel-up":         ActionConsumeOrExpelUp,
-		"consume_or_expel_down":       ActionConsumeOrExpelDown,
-		"consume-or-expel-down":       ActionConsumeOrExpelDown,
-		"toggle_history_systemview":   ActionToggleHistorySystemView,
-		"toggle-history-systemview":   ActionToggleHistorySystemView,
-		"toggle_favorites_systemview": ActionToggleFavoritesSystemView,
-		"toggle-favorites-systemview": ActionToggleFavoritesSystemView,
-		"toggle_config_systemview":    ActionToggleConfigSystemView,
-		"toggle-config-systemview":    ActionToggleConfigSystemView,
-	}
-
+	// However, these standard browser shortcuts ARE global.
 	for actionName, actionBinding := range cfg.Shortcuts.Actions {
-		action, ok := actionMap[actionName]
+		action, ok := configActionToAction[actionName]
 		if !ok {
 			continue
 		}
@@ -599,25 +573,42 @@ var configActionToAction = map[string]Action{
 	"toggle-config-systemview":    ActionToggleConfigSystemView,
 
 	// Tab actions
+	"new_tab":      ActionNewTab,
 	"new-tab":      ActionNewTab,
+	"close_tab":    ActionCloseTab,
 	"close-tab":    ActionCloseTab,
+	"next_tab":     ActionNextTab,
 	"next-tab":     ActionNextTab,
+	"previous_tab": ActionPreviousTab,
 	"previous-tab": ActionPreviousTab,
+	"rename_tab":   ActionRenameTab,
 	"rename-tab":   ActionRenameTab,
 
 	// Pane actions
+	"split_right":           ActionSplitRight,
 	"split-right":           ActionSplitRight,
+	"split_left":            ActionSplitLeft,
 	"split-left":            ActionSplitLeft,
+	"split_up":              ActionSplitUp,
 	"split-up":              ActionSplitUp,
+	"split_down":            ActionSplitDown,
 	"split-down":            ActionSplitDown,
+	"close_pane":            ActionClosePane,
 	"close-pane":            ActionClosePane,
+	"stack_pane":            ActionStackPane,
 	"stack-pane":            ActionStackPane,
+	"move_pane_to_tab":      ActionMovePaneToTab,
 	"move-pane-to-tab":      ActionMovePaneToTab,
+	"move_pane_to_next_tab": ActionMovePaneToNextTab,
 	"move-pane-to-next-tab": ActionMovePaneToNextTab,
 
+	"consume_or_expel_left":  ActionConsumeOrExpelLeft,
 	"consume-or-expel-left":  ActionConsumeOrExpelLeft,
+	"consume_or_expel_right": ActionConsumeOrExpelRight,
 	"consume-or-expel-right": ActionConsumeOrExpelRight,
+	"consume_or_expel_up":    ActionConsumeOrExpelUp,
 	"consume-or-expel-up":    ActionConsumeOrExpelUp,
+	"consume_or_expel_down":  ActionConsumeOrExpelDown,
 	"consume-or-expel-down":  ActionConsumeOrExpelDown,
 
 	// Focus navigation

@@ -12,13 +12,7 @@ type WebUIConfig struct {
 }
 
 // SystemviewCustomPerformancePayload is the editable custom performance profile shape.
-type SystemviewCustomPerformancePayload struct {
-	SkiaCPUThreads         int `json:"skia_cpu_threads"`
-	SkiaGPUThreads         int `json:"skia_gpu_threads"`
-	WebProcessMemoryMB     int `json:"web_process_memory_mb"`
-	NetworkProcessMemoryMB int `json:"network_process_memory_mb"`
-	WebViewPoolPrewarm     int `json:"webview_pool_prewarm"`
-}
+type SystemviewCustomPerformancePayload = WebUICustomPerformanceConfig
 
 // SystemviewResolvedPerformancePayload is the resolved effective performance shape.
 type SystemviewResolvedPerformancePayload struct {

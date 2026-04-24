@@ -2,10 +2,13 @@ package usecase_test
 
 import (
 	"context"
+	"math"
 	"testing"
 
 	"github.com/bnema/dumber/internal/application/port"
+	portmocks "github.com/bnema/dumber/internal/application/port/mocks"
 	"github.com/bnema/dumber/internal/application/usecase"
+	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 )
 
@@ -36,13 +39,28 @@ func TestSaveWebUIConfigUseCase_Validation(t *testing.T) {
 			},
 			wantErr: "performance.profile",
 		},
+		{
+			name: "rejects NaN UI scale",
+			mutate: func(cfg *port.WebUIConfig) {
+				cfg.DefaultUIScale = math.NaN()
+			},
+			wantErr: "default_ui_scale must be a finite value",
+		},
+		{
+			name: "rejects infinite UI scale",
+			mutate: func(cfg *port.WebUIConfig) {
+				cfg.DefaultUIScale = math.Inf(1)
+			},
+			wantErr: "default_ui_scale must be a finite value",
+		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			cfg := validWebUIConfig()
 			tt.mutate(&cfg)
-			uc := usecase.NewSaveWebUIConfigUseCase(fakeWebUIConfigSaver{})
+			saver := portmocks.NewMockWebUIConfigSaver(t)
+			uc := usecase.NewSaveWebUIConfigUseCase(saver)
 
 			err := uc.Execute(context.Background(), cfg)
 
@@ -53,7 +71,11 @@ func TestSaveWebUIConfigUseCase_Validation(t *testing.T) {
 }
 
 func TestSaveWebUIConfigUseCase_NormalizesAndSavesValidConfig(t *testing.T) {
-	saver := &capturingWebUIConfigSaver{}
+	saver := portmocks.NewMockWebUIConfigSaver(t)
+	var saved port.WebUIConfig
+	saver.EXPECT().SaveWebUIConfig(mock.Anything, mock.AnythingOfType("port.WebUIConfig")).Run(func(_ context.Context, cfg port.WebUIConfig) {
+		saved = cfg
+	}).Return(nil).Once()
 	uc := usecase.NewSaveWebUIConfigUseCase(saver)
 	cfg := validWebUIConfig()
 	cfg.SearchShortcuts[" ddg "] = port.SearchShortcut{URL: " https://duckduckgo.com/?q=%s ", Description: " DuckDuckGo "}
@@ -61,9 +83,10 @@ func TestSaveWebUIConfigUseCase_NormalizesAndSavesValidConfig(t *testing.T) {
 	err := uc.Execute(context.Background(), cfg)
 
 	require.NoError(t, err)
-	require.Contains(t, saver.saved.SearchShortcuts, "ddg")
-	require.Equal(t, "https://duckduckgo.com/?q=%s", saver.saved.SearchShortcuts["ddg"].URL)
-	require.Equal(t, "DuckDuckGo", saver.saved.SearchShortcuts["ddg"].Description)
+	require.NotContains(t, saved.SearchShortcuts, " ddg ")
+	require.Contains(t, saved.SearchShortcuts, "ddg")
+	require.Equal(t, "https://duckduckgo.com/?q=%s", saved.SearchShortcuts["ddg"].URL)
+	require.Equal(t, "DuckDuckGo", saved.SearchShortcuts["ddg"].Description)
 }
 
 func validWebUIConfig() port.WebUIConfig {
@@ -93,21 +116,4 @@ func validWebUIConfig() port.WebUIConfig {
 		DefaultSearchEngine: "https://duckduckgo.com/?q=%s",
 		SearchShortcuts:     map[string]port.SearchShortcut{},
 	}
-}
-
-// Handwritten fake to preserve stateful save assertions without mock generation.
-type fakeWebUIConfigSaver struct{}
-
-func (fakeWebUIConfigSaver) SaveWebUIConfig(context.Context, port.WebUIConfig) error {
-	return nil
-}
-
-// Handwritten fake to capture the saved config state for assertions.
-type capturingWebUIConfigSaver struct {
-	saved port.WebUIConfig
-}
-
-func (s *capturingWebUIConfigSaver) SaveWebUIConfig(_ context.Context, cfg port.WebUIConfig) error {
-	s.saved = cfg
-	return nil
 }

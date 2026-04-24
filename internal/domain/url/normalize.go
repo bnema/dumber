@@ -192,10 +192,8 @@ func CanonicalDomain(raw string) string {
 	if domain := ExtractDomain(raw); domain != "" {
 		return domain
 	}
-	for _, sep := range []string{"/", "?", "#"} {
-		if before, _, ok := strings.Cut(raw, sep); ok {
-			raw = before
-		}
+	if idx := strings.IndexAny(raw, "/?#"); idx >= 0 {
+		raw = raw[:idx]
 	}
 	return strings.TrimPrefix(raw, "www.")
 }

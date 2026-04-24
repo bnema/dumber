@@ -7,7 +7,7 @@ import (
 
 func sanitizeHref(raw string) string {
 	trimmed := strings.TrimSpace(raw)
-	if trimmed == "" {
+	if trimmed == "" || strings.HasPrefix(trimmed, "//") {
 		return "#"
 	}
 
@@ -24,7 +24,16 @@ func sanitizeHref(raw string) string {
 	}
 
 	switch strings.ToLower(parsed.Scheme) {
-	case "http", "https", "dumb":
+	case "http", "https":
+		if parsed.Host == "" {
+			return "#"
+		}
+		parsed.Scheme = strings.ToLower(parsed.Scheme)
+		return parsed.String()
+	case "dumb":
+		if parsed.Host == "" && parsed.Opaque == "" {
+			return "#"
+		}
 		return trimmed
 	default:
 		return "#"

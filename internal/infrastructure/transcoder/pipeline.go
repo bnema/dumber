@@ -5,13 +5,13 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"net"
 	"net/http"
+	"net/url"
 	"sort"
 	"strings"
-	"unsafe"
-
-	"net"
 	"time"
+	"unsafe"
 
 	"github.com/bnema/purego"
 	"github.com/rs/zerolog"
@@ -19,6 +19,7 @@ import (
 	"github.com/bnema/purego-ffmpeg/ffmpeg"
 
 	"github.com/bnema/dumber/internal/application/port"
+	"github.com/bnema/dumber/internal/infrastructure/netguard"
 )
 
 // avioBufSize is the buffer size for custom AVIO contexts (32 KiB).
@@ -53,10 +54,104 @@ type pipeline struct {
 // are not killed. The session context handles cancellation.
 var httpClient = &http.Client{
 	Transport: &http.Transport{
-		DialContext:           (&net.Dialer{Timeout: 10 * time.Second}).DialContext,
+		DialContext:           safeTranscodeDialContext,
 		TLSHandshakeTimeout:   10 * time.Second,
 		ResponseHeaderTimeout: 15 * time.Second,
 	},
+	CheckRedirect: validateTranscodeRedirect,
+}
+
+func validateTranscodeRedirect(req *http.Request, via []*http.Request) error {
+	if len(via) >= 10 {
+		return fmt.Errorf("stopped after 10 redirects")
+	}
+	if err := validateHTTPTranscodeURL(req.Context(), req.URL); err != nil {
+		return fmt.Errorf("blocked redirect target: %w", err)
+	}
+	return nil
+}
+
+func safeTranscodeDialContext(ctx context.Context, network, address string) (net.Conn, error) {
+	host, port, err := net.SplitHostPort(address)
+	if err != nil {
+		return nil, err
+	}
+
+	ips, err := resolveAllowedTranscodeIPs(ctx, host)
+	if err != nil {
+		return nil, err
+	}
+
+	dialer := &net.Dialer{Timeout: 10 * time.Second}
+	var lastErr error
+	for _, ip := range ips {
+		conn, dialErr := dialer.DialContext(ctx, network, net.JoinHostPort(ip.String(), port))
+		if dialErr == nil {
+			return conn, nil
+		}
+		lastErr = dialErr
+	}
+	if lastErr != nil {
+		return nil, lastErr
+	}
+	return nil, fmt.Errorf("no allowed transcode source addresses for %s", host)
+}
+
+func validateHTTPTranscodeURL(ctx context.Context, source *url.URL) error {
+	if source == nil || source.Host == "" {
+		return fmt.Errorf("invalid src")
+	}
+	if source.Scheme != "http" && source.Scheme != "https" {
+		return fmt.Errorf("unsupported src scheme")
+	}
+	if IsStreamingManifestURL(source.String()) {
+		return fmt.Errorf("streaming manifest transcoding is disabled")
+	}
+	_, err := resolveAllowedTranscodeIPs(ctx, source.Hostname())
+	return err
+}
+
+func resolveAllowedTranscodeIPs(ctx context.Context, host string) ([]net.IP, error) {
+	host = strings.TrimSpace(host)
+	if host == "" {
+		return nil, fmt.Errorf("invalid src host")
+	}
+	if ip := net.ParseIP(host); ip != nil {
+		if isBlockedTranscodeIP(ip) {
+			return nil, fmt.Errorf("private src host not allowed")
+		}
+		return []net.IP{ip}, nil
+	}
+
+	lookupCtx, cancel := context.WithTimeout(ctx, 2*time.Second)
+	defer cancel()
+	addrs, err := net.DefaultResolver.LookupIPAddr(lookupCtx, host)
+	if err != nil || len(addrs) == 0 {
+		return nil, fmt.Errorf("src host could not be resolved")
+	}
+	ips := make([]net.IP, 0, len(addrs))
+	for _, addr := range addrs {
+		if isBlockedTranscodeIP(addr.IP) {
+			return nil, fmt.Errorf("private src host not allowed")
+		}
+		ips = append(ips, addr.IP)
+	}
+	return ips, nil
+}
+
+func isBlockedTranscodeIP(ip net.IP) bool {
+	return netguard.IsBlockedTranscodeIP(ip)
+}
+
+func isStreamingManifestResponse(resp *http.Response) bool {
+	if resp == nil {
+		return false
+	}
+	if resp.Request != nil && resp.Request.URL != nil && IsStreamingManifestURL(resp.Request.URL.String()) {
+		return true
+	}
+	contentType := strings.ToLower(resp.Header.Get("Content-Type"))
+	return strings.Contains(contentType, "mpegurl") || strings.Contains(contentType, "dash+xml")
 }
 
 func newPipeline(
@@ -394,7 +489,11 @@ func (p *pipeline) selectInputStreams(inFmtCtx unsafe.Pointer) (videoIdx, audioI
 
 func (p *pipeline) openInputFormatContext(ctx context.Context) (unsafe.Pointer, func(), error) {
 	if IsStreamingManifestURL(p.sourceURL) {
-		return p.openManifestInputContext()
+		// FFmpeg resolves manifest redirects and segment URLs internally, bypassing
+		// the guarded Go HTTP client below. Keep untrusted transcode requests on
+		// custom I/O until manifests can be fetched and rewritten through the same
+		// SSRF protections.
+		return nil, nil, errors.New("streaming manifest transcoding is disabled")
 	}
 	return p.openCustomIOInputContext(ctx)
 }
@@ -416,6 +515,10 @@ func (p *pipeline) openCustomIOInputContext(ctx context.Context) (unsafe.Pointer
 	if resp.StatusCode != http.StatusOK && resp.StatusCode != http.StatusPartialContent {
 		_ = resp.Body.Close()
 		return nil, nil, fmt.Errorf("source returned HTTP %d", resp.StatusCode)
+	}
+	if isStreamingManifestResponse(resp) {
+		_ = resp.Body.Close()
+		return nil, nil, errors.New("streaming manifest transcoding is disabled")
 	}
 
 	body := resp.Body
