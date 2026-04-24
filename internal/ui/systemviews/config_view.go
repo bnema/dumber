@@ -2,7 +2,6 @@ package systemviews
 
 import (
 	"fmt"
-	"html"
 	"reflect"
 	"sort"
 	"strings"
@@ -10,13 +9,22 @@ import (
 	"github.com/bnema/dumber/internal/application/port"
 )
 
+type configRenderData struct {
+	Config      port.SystemviewConfigPayload
+	Keybindings any
+}
+
 func configHTML(cfg port.SystemviewConfigPayload, keybindings any) string {
+	return mustRenderComponent(ConfigView(configRenderData{Config: cfg, Keybindings: keybindings}))
+}
+
+func configKeybindingSummary(keybindings any) string {
 	groups, bindings, loaded := summarizeKeybindings(keybindings)
 	status := "not loaded"
 	if loaded {
 		status = "loaded"
 	}
-	keybindingSummary := fmt.Sprintf(
+	return fmt.Sprintf(
 		"Keybindings %s (%d %s, %d %s)",
 		status,
 		groups,
@@ -24,13 +32,66 @@ func configHTML(cfg port.SystemviewConfigPayload, keybindings any) string {
 		bindings,
 		plural(bindings, "binding"),
 	)
-	content := []string{
-		metaHTML(keybindingSummary),
-		"<h3>Config values</h3>" + kvHTML(flattenValues(cfg)),
-		"<h3>Keybindings</h3>" + renderKeybindingsSection(keybindings),
-	}
+}
 
-	return sectionHTML("", "Config", strings.Join(content, ""))
+func configKeybindingGroups(keybindings any) []renderedKeybindingGroup {
+	groups, ok := collectKeybindingGroups(keybindings)
+	if !ok {
+		return nil
+	}
+	return groups
+}
+
+func keybindingGroupTitle(group renderedKeybindingGroup) string {
+	title := strings.TrimSpace(group.DisplayName)
+	if title == "" {
+		title = strings.TrimSpace(group.Mode)
+	}
+	if title == "" {
+		return "Keybinding group"
+	}
+	return title
+}
+
+func keybindingGroupMeta(group renderedKeybindingGroup) string {
+	meta := make([]string, 0, 2)
+	if strings.TrimSpace(group.Mode) != "" {
+		meta = append(meta, "mode: "+group.Mode)
+	}
+	if strings.TrimSpace(group.Activation) != "" {
+		meta = append(meta, "activation: "+group.Activation)
+	}
+	return strings.Join(meta, " • ")
+}
+
+func keybindingDescription(binding renderedKeybinding) string {
+	description := strings.TrimSpace(binding.Description)
+	if description != "" {
+		return description
+	}
+	if strings.TrimSpace(binding.Action) != "" {
+		return strings.TrimSpace(binding.Action)
+	}
+	return "Unnamed binding"
+}
+
+func keybindingAction(binding renderedKeybinding) string {
+	action := strings.TrimSpace(binding.Action)
+	if action == "" {
+		return "binding"
+	}
+	return action
+}
+
+func keybindingIsCustom(binding renderedKeybinding) bool {
+	return binding.IsCustom || !sameStringSlice(binding.Keys, binding.DefaultKeys)
+}
+
+func keybindingStatus(binding renderedKeybinding) string {
+	if keybindingIsCustom(binding) {
+		return "custom"
+	}
+	return "default"
 }
 
 func flattenValues(value any) []kvPair {
@@ -179,18 +240,6 @@ func summarizeKeybindings(keybindings any) (groups, bindings int, loaded bool) {
 	}
 
 	return groups, bindings, true
-}
-
-func renderKeybindingsSection(keybindings any) string {
-	groups, ok := collectKeybindingGroups(keybindings)
-	if !ok {
-		return emptyStateHTML("Keybindings unavailable")
-	}
-	if len(groups) == 0 {
-		return emptyStateHTML("No keybindings configured")
-	}
-
-	return renderKeybindingGroups(groups)
 }
 
 func collectKeybindingGroups(keybindings any) ([]renderedKeybindingGroup, bool) {
@@ -351,14 +400,6 @@ func boolValue(value any) bool {
 	return b
 }
 
-func renderKeybindingGroups(groups []renderedKeybindingGroup) string {
-	var rendered strings.Builder
-	for _, group := range groups {
-		rendered.WriteString(renderKeybindingGroup(group))
-	}
-	return rendered.String()
-}
-
 type renderedKeybindingGroup struct {
 	DisplayName string
 	Mode        string
@@ -372,94 +413,6 @@ type renderedKeybinding struct {
 	Keys        []string
 	DefaultKeys []string
 	IsCustom    bool
-}
-
-func renderKeybindingGroup(group renderedKeybindingGroup) string {
-	title := group.DisplayName
-	if strings.TrimSpace(title) == "" {
-		title = group.Mode
-	}
-	if strings.TrimSpace(title) == "" {
-		title = "Keybinding group"
-	}
-
-	var body strings.Builder
-	body.WriteString(`<div class="sv-group">`)
-	body.WriteString(`<div class="sv-group-header">`)
-	body.WriteString(`<div>`)
-	body.WriteString(`<h4>` + html.EscapeString(title) + `</h4>`)
-
-	meta := make([]string, 0, 2)
-	if strings.TrimSpace(group.Mode) != "" {
-		meta = append(meta, "mode: "+group.Mode)
-	}
-	if strings.TrimSpace(group.Activation) != "" {
-		meta = append(meta, "activation: "+group.Activation)
-	}
-	if len(meta) > 0 {
-		body.WriteString(`<p class="sv-meta">` + html.EscapeString(strings.Join(meta, " • ")) + `</p>`)
-	}
-	body.WriteString(`</div></div>`)
-	body.WriteString(`<div class="sv-group-body">`)
-	if len(group.Bindings) == 0 {
-		body.WriteString(emptyStateHTML("No bindings in this group"))
-	} else {
-		for _, binding := range group.Bindings {
-			body.WriteString(renderKeybinding(binding))
-		}
-	}
-	body.WriteString(`</div></div>`)
-
-	return body.String()
-}
-
-func renderKeybinding(binding renderedKeybinding) string {
-	description := strings.TrimSpace(binding.Description)
-	if description == "" {
-		description = strings.TrimSpace(binding.Action)
-	}
-	if description == "" {
-		description = "Unnamed binding"
-	}
-
-	action := strings.TrimSpace(binding.Action)
-	if action == "" {
-		action = "binding"
-	}
-
-	custom := binding.IsCustom || !sameStringSlice(binding.Keys, binding.DefaultKeys)
-	status := "default"
-	if custom {
-		status = "custom"
-	}
-
-	var body strings.Builder
-	body.WriteString(`<div class="sv-binding">`)
-	body.WriteString(`<div class="sv-binding-header">`)
-	body.WriteString(`<div class="sv-binding-description">` + html.EscapeString(description) + `</div>`)
-	body.WriteString(`<div class="sv-binding-keys">` + keyListHTML(binding.Keys) + `</div>`)
-	body.WriteString(`</div>`)
-	body.WriteString(`<div class="sv-binding-meta">`)
-	body.WriteString(`<span>` + html.EscapeString("action: "+action) + `</span>`)
-	body.WriteString(`<span>` + html.EscapeString(status) + `</span>`)
-	if custom && len(binding.DefaultKeys) > 0 {
-		body.WriteString(`<span>default: ` + keyListHTML(binding.DefaultKeys) + `</span>`)
-	}
-	body.WriteString(`</div></div>`)
-
-	return body.String()
-}
-
-func keyListHTML(keys []string) string {
-	if len(keys) == 0 {
-		return `<span class="sv-key sv-key-empty">Unassigned</span>`
-	}
-
-	parts := make([]string, 0, len(keys))
-	for _, key := range keys {
-		parts = append(parts, `<span class="sv-key">`+html.EscapeString(key)+`</span>`)
-	}
-	return strings.Join(parts, " ")
 }
 
 func sameStringSlice(a, b []string) bool {

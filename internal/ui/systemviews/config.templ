@@ -1,0 +1,67 @@
+package systemviews
+
+templ ConfigView(data configRenderData) {
+	@Section("sv-config-values", "Config values") {
+		@KV(flattenValues(data.Config))
+	}
+	@Section("sv-config-keybindings", "Keybindings") {
+		@Meta(configKeybindingSummary(data.Keybindings))
+		@ConfigKeybindings(data.Keybindings)
+	}
+}
+
+templ ConfigKeybindings(keybindings any) {
+	{{ groups := configKeybindingGroups(keybindings) }}
+	if groups == nil {
+		@EmptyState("Keybindings unavailable")
+	} else if len(groups) == 0 {
+		@EmptyState("No keybindings configured")
+	} else {
+		for _, group := range groups {
+			@ConfigKeybindingGroup(group)
+		}
+	}
+}
+
+templ ConfigKeybindingGroup(group renderedKeybindingGroup) {
+	<div class="sv-group">
+		<div class="sv-group-header">
+			<div>
+				<h4>{ keybindingGroupTitle(group) }</h4>
+				if keybindingGroupMeta(group) != "" {
+					<p class="sv-meta">{ keybindingGroupMeta(group) }</p>
+				}
+			</div>
+		</div>
+		<div class="sv-group-body">
+			if len(group.Bindings) == 0 {
+				@EmptyState("No bindings in this group")
+			} else {
+				<ul class="sv-list">
+					for _, binding := range group.Bindings {
+						@ConfigKeybinding(binding)
+					}
+				</ul>
+			}
+		</div>
+	</div>
+}
+
+templ ConfigKeybinding(binding renderedKeybinding) {
+	<li class="sv-list-row">
+		<div class="sv-keybinding-row">
+			<div>
+				<strong>{ keybindingDescription(binding) }</strong>
+				<p class="sv-meta">{ keybindingAction(binding) }</p>
+			</div>
+			<div class="sv-keybinding-keys">
+				@KeyList(binding.Keys)
+				<span class="sv-badge">{ keybindingStatus(binding) }</span>
+				if keybindingIsCustom(binding) && len(binding.DefaultKeys) > 0 {
+					<span class="sv-meta">default:</span>
+					@KeyList(binding.DefaultKeys)
+				}
+			</div>
+		</div>
+	</li>
+}
