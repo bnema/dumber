@@ -42,9 +42,7 @@ func normalizeWebUIConfig(cfg port.WebUIConfig) port.WebUIConfig {
 			trimmedKey := strings.TrimSpace(key)
 			shortcut.URL = strings.TrimSpace(shortcut.URL)
 			shortcut.Description = strings.TrimSpace(shortcut.Description)
-			if trimmedKey != "" {
-				normalized[trimmedKey] = shortcut
-			}
+			normalized[trimmedKey] = shortcut
 		}
 		cfg.SearchShortcuts = normalized
 	}
@@ -65,10 +63,8 @@ func validateWebUIConfig(cfg port.WebUIConfig) error {
 	errs = append(errs, validation.ValidateFontFamily("appearance.serif_font", cfg.Appearance.SerifFont)...)
 	errs = append(errs, validation.ValidateFontFamily("appearance.monospace_font", cfg.Appearance.MonospaceFont)...)
 
-	if cfg.DefaultSearchEngine == "" {
-		errs = append(errs, "default_search_engine cannot be empty")
-	} else if !strings.Contains(cfg.DefaultSearchEngine, "%s") {
-		errs = append(errs, "default_search_engine must contain %s placeholder for the search query")
+	for _, err := range validation.ValidateShortcutURL(cfg.DefaultSearchEngine) {
+		errs = append(errs, fmt.Sprintf("default_search_engine: %s", err))
 	}
 
 	for key, shortcut := range cfg.SearchShortcuts {
@@ -81,6 +77,16 @@ func validateWebUIConfig(cfg port.WebUIConfig) error {
 		for _, err := range validation.ValidateShortcutDescription(shortcut.Description) {
 			errs = append(errs, fmt.Sprintf("search_shortcuts.%s.description: %s", key, err))
 		}
+	}
+
+	switch cfg.Performance.Profile {
+	case "", "default", "lite", "max", "custom":
+		// ok
+	default:
+		errs = append(errs, fmt.Sprintf(
+			"performance.profile must be one of: default, lite, max, custom (got: %s)",
+			cfg.Performance.Profile,
+		))
 	}
 
 	switch cfg.Appearance.ColorScheme {

@@ -7,7 +7,6 @@ import (
 	"strings"
 
 	"github.com/bnema/dumber/internal/application/port"
-	"github.com/bnema/dumber/internal/domain/validation"
 )
 
 const (
@@ -112,9 +111,6 @@ func (a *App) saveSearchConfig(ctx context.Context, data map[string]string) erro
 		return err
 	}
 	cfg.DefaultSearchEngine = strings.TrimSpace(data["default_search_engine"])
-	if err := validateSearchURL(cfg.DefaultSearchEngine, "default search engine"); err != nil {
-		return err
-	}
 	if err := a.saveEditableConfig(ctx, cfg); err != nil {
 		return err
 	}
@@ -127,10 +123,7 @@ func (a *App) createSearchShortcut(ctx context.Context, data map[string]string) 
 	if err != nil {
 		return err
 	}
-	key, shortcut, err := searchShortcutFromForm(data, "key")
-	if err != nil {
-		return err
-	}
+	key, shortcut := searchShortcutFromForm(data, "key")
 	cfg.SearchShortcuts = cloneSearchShortcuts(cfg.SearchShortcuts)
 	if _, exists := cfg.SearchShortcuts[key]; exists {
 		return fmt.Errorf("search shortcut %q already exists", key)
@@ -152,10 +145,7 @@ func (a *App) updateSearchShortcut(ctx context.Context, data map[string]string) 
 	if oldKey == "" {
 		return fmt.Errorf("search shortcut key is required")
 	}
-	newKey, shortcut, err := searchShortcutFromForm(data, "new_key")
-	if err != nil {
-		return err
-	}
+	newKey, shortcut := searchShortcutFromForm(data, "new_key")
 	cfg.SearchShortcuts = cloneSearchShortcuts(cfg.SearchShortcuts)
 	if _, exists := cfg.SearchShortcuts[oldKey]; !exists {
 		return fmt.Errorf("search shortcut %q not found", oldKey)
@@ -201,9 +191,6 @@ func (a *App) savePerformanceConfig(ctx context.Context, data map[string]string)
 		return err
 	}
 	profile := strings.TrimSpace(data["profile"])
-	if !validPerformanceProfile(profile) {
-		return fmt.Errorf("invalid performance profile")
-	}
 	skiaCPU, err := parseConfigInt(data["skia_cpu_threads"], "Skia CPU threads")
 	if err != nil {
 		return err
@@ -363,46 +350,10 @@ func paletteFromForm(data map[string]string, prefix string) port.ColorPalette {
 	}
 }
 
-func searchShortcutFromForm(data map[string]string, keyField string) (string, port.SearchShortcut, error) {
-	key := strings.TrimSpace(data[keyField])
-	url := strings.TrimSpace(data["url"])
-	description := strings.TrimSpace(data["description"])
-	if err := validateSearchShortcut(key, url, description); err != nil {
-		return "", port.SearchShortcut{}, err
-	}
-	return key, port.SearchShortcut{URL: url, Description: description}, nil
-}
-
-func validateSearchURL(raw, label string) error {
-	if errs := validation.ValidateShortcutURL(raw); len(errs) > 0 {
-		return fmt.Errorf("%s: %s", label, strings.Join(errs, "; "))
-	}
-	return nil
-}
-
-func validateSearchShortcut(key, url, description string) error {
-	var errs []string
-	for _, err := range validation.ValidateShortcutKey(key) {
-		errs = append(errs, "key: "+err)
-	}
-	for _, err := range validation.ValidateShortcutURL(url) {
-		errs = append(errs, "url: "+err)
-	}
-	for _, err := range validation.ValidateShortcutDescription(description) {
-		errs = append(errs, "description: "+err)
-	}
-	if len(errs) > 0 {
-		return fmt.Errorf("invalid search shortcut: %s", strings.Join(errs, "; "))
-	}
-	return nil
-}
-
-func validPerformanceProfile(profile string) bool {
-	switch profile {
-	case "default", "lite", "max", "custom", "":
-		return true
-	default:
-		return false
+func searchShortcutFromForm(data map[string]string, keyField string) (string, port.SearchShortcut) {
+	return strings.TrimSpace(data[keyField]), port.SearchShortcut{
+		URL:         strings.TrimSpace(data["url"]),
+		Description: strings.TrimSpace(data["description"]),
 	}
 }
 

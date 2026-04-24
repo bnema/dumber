@@ -692,3 +692,30 @@ func TestExtractOrigin_InvalidURI(t *testing.T) {
 		})
 	}
 }
+
+func TestCanonicalDomain(t *testing.T) {
+	tests := []struct {
+		name  string
+		input string
+		want  string
+	}{
+		{name: "url", input: "https://www.example.com/path", want: "example.com"},
+		{name: "url with port", input: "https://www.example.com:8443/path", want: "example.com:8443"},
+		{name: "domain", input: "www.example.com", want: "example.com"},
+		{name: "domain with path", input: "www.example.com/path?q=1", want: "example.com"},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := CanonicalDomain(tt.input); got != tt.want {
+				t.Errorf("CanonicalDomain(%q) = %q, want %q", tt.input, got, tt.want)
+			}
+		})
+	}
+}
+
+func TestDisplayDomain(t *testing.T) {
+	if got := DisplayDomain("https://www.example.com:8443/path"); got != "example.com" {
+		t.Errorf("DisplayDomain() = %q, want %q", got, "example.com")
+	}
+}

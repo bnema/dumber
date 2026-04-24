@@ -2,12 +2,11 @@ package systemviews
 
 import (
 	"fmt"
-	"net"
-	"net/url"
 	"strings"
 	"time"
 
 	"github.com/bnema/dumber/internal/domain/entity"
+	browserurl "github.com/bnema/dumber/internal/domain/url"
 )
 
 type historyRenderData struct {
@@ -197,7 +196,7 @@ func countUniqueHistoryDays(entries []*entity.HistoryEntry) int64 {
 }
 
 func filterHistoryEntriesByDomain(entries []*entity.HistoryEntry, domain string) []*entity.HistoryEntry {
-	domain = canonicalHistoryDomain(domain)
+	domain = browserurl.CanonicalDomain(domain)
 	if domain == "" {
 		return entries
 	}
@@ -206,7 +205,7 @@ func filterHistoryEntriesByDomain(entries []*entity.HistoryEntry, domain string)
 		if entry == nil {
 			continue
 		}
-		if canonicalHistoryDomain(entry.URL) == domain {
+		if browserurl.CanonicalDomain(entry.URL) == domain {
 			filtered = append(filtered, entry)
 		}
 	}
@@ -214,11 +213,7 @@ func filterHistoryEntriesByDomain(entries []*entity.HistoryEntry, domain string)
 }
 
 func displayHistoryDomain(raw string) string {
-	domain := canonicalHistoryDomain(raw)
-	if host, _, err := net.SplitHostPort(domain); err == nil {
-		domain = host
-	}
-	return domain
+	return browserurl.DisplayDomain(raw)
 }
 
 func historyDomainActionKey(domain *entity.DomainStat) string {
@@ -233,27 +228,6 @@ func historyDomainDisplayLabel(domain *entity.DomainStat) string {
 		return ""
 	}
 	return displayHistoryDomain(domain.Domain)
-}
-
-func canonicalHistoryDomain(raw string) string {
-	raw = strings.TrimSpace(strings.ToLower(raw))
-	if raw == "" {
-		return ""
-	}
-	if parsed, err := url.Parse(raw); err == nil && parsed.Host != "" {
-		return strings.TrimPrefix(parsed.Host, "www.")
-	}
-	if schemeIdx := strings.Index(raw, "://"); schemeIdx >= 0 {
-		if parsed, err := url.Parse(raw[schemeIdx+3:]); err == nil && parsed.Host != "" {
-			return strings.TrimPrefix(parsed.Host, "www.")
-		}
-	}
-	for _, sep := range []string{"/", "?", "#"} {
-		if before, _, ok := strings.Cut(raw, sep); ok {
-			raw = before
-		}
-	}
-	return strings.TrimPrefix(raw, "www.")
 }
 
 func formatHistoryTime(ts time.Time) string {

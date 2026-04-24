@@ -5,9 +5,6 @@ import (
 	"fmt"
 	"strconv"
 	"strings"
-	"time"
-
-	historydomain "github.com/bnema/dumber/internal/domain/history"
 )
 
 const (
@@ -117,9 +114,6 @@ func (a *App) handleHistoryAction(ctx context.Context, event DOMAction) error {
 		a.historyNotice = "Deleted history entry"
 	case historyActionDeleteRange:
 		rangeID := strings.TrimSpace(data["range"])
-		if !validHistoryRange(rangeID) {
-			return fmt.Errorf("invalid history cleanup range")
-		}
 		if err := a.deps.History.DeleteRange(ctx, rangeID); err != nil {
 			return err
 		}
@@ -147,11 +141,6 @@ func (a *App) mountRenderedHTML() error {
 		return nil
 	}
 	return a.deps.DOM.Mount(a.renderedHTML)
-}
-
-func validHistoryRange(rangeID string) bool {
-	_, _, ok := historydomain.DeleteRangeCutoff(rangeID, time.Now())
-	return ok
 }
 
 func historyRangeNotice(rangeID string) string {
