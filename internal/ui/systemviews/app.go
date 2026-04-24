@@ -89,10 +89,11 @@ func (a *App) bindDOMActions(ctx context.Context, binder DOMActionBinder) error 
 	a.actionMu.Lock()
 	if a.actionQueue == nil {
 		workerCtx, cancel := context.WithCancel(ctx)
-		a.actionQueue = make(chan DOMAction, 64)
+		queue := make(chan DOMAction, 64)
+		a.actionQueue = queue
 		a.actionCtx = workerCtx
 		a.actionCancel = cancel
-		go a.runActionWorker(workerCtx)
+		go a.runActionWorker(workerCtx, queue)
 	}
 	a.actionMu.Unlock()
 	return binder.BindActions(func(action DOMAction) {
@@ -134,12 +135,12 @@ func (a *App) enqueueDOMAction(action DOMAction) bool {
 	}
 }
 
-func (a *App) runActionWorker(ctx context.Context) {
+func (a *App) runActionWorker(ctx context.Context, queue <-chan DOMAction) {
 	for {
 		select {
 		case <-ctx.Done():
 			return
-		case action, ok := <-a.actionQueue:
+		case action, ok := <-queue:
 			if !ok {
 				return
 			}
