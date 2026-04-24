@@ -39,6 +39,113 @@ func (h *FavoritesHandlers) HandleList() port.WebUIMessageHandler {
 	})
 }
 
+type favoriteCreateRequest struct {
+	RequestID  string  `json:"requestId"`
+	URL        string  `json:"url"`
+	Title      string  `json:"title"`
+	FaviconURL string  `json:"favicon_url"`
+	FolderID   *int64  `json:"folder_id"`
+	Tags       []int64 `json:"tags"`
+}
+
+// HandleCreate handles favorite_create messages.
+func (h *FavoritesHandlers) HandleCreate() port.WebUIMessageHandler {
+	return port.WebUIMessageHandlerFunc(func(ctx context.Context, _ port.WebViewID, payload json.RawMessage) (any, error) {
+		log := logging.FromContext(ctx)
+
+		var req favoriteCreateRequest
+		if err := json.Unmarshal(payload, &req); err != nil {
+			return NewErrorResponse("", err), nil
+		}
+
+		log.Debug().
+			Str("request_id", req.RequestID).
+			Str("url", req.URL).
+			Msg("handling favorite_create")
+
+		input := port.FavoriteCreateInput{
+			URL:        req.URL,
+			Title:      req.Title,
+			FaviconURL: req.FaviconURL,
+			FolderID:   folderIDFromInt64(req.FolderID),
+			Tags:       tagIDsFromInt64s(req.Tags),
+		}
+		favorite, err := h.favoritesUC.AddFavorite(ctx, input)
+		if err != nil {
+			return NewErrorResponse(req.RequestID, err), nil
+		}
+
+		return NewSuccessResponse(req.RequestID, favorite), nil
+	})
+}
+
+type favoriteUpdateRequest struct {
+	RequestID   string `json:"requestId"`
+	ID          int64  `json:"id"`
+	Title       string `json:"title"`
+	FaviconURL  string `json:"favicon_url"`
+	FolderID    *int64 `json:"folder_id"`
+	ShortcutKey *int   `json:"shortcut_key"`
+}
+
+// HandleUpdate handles favorite_update messages.
+func (h *FavoritesHandlers) HandleUpdate() port.WebUIMessageHandler {
+	return port.WebUIMessageHandlerFunc(func(ctx context.Context, _ port.WebViewID, payload json.RawMessage) (any, error) {
+		log := logging.FromContext(ctx)
+
+		var req favoriteUpdateRequest
+		if err := json.Unmarshal(payload, &req); err != nil {
+			return NewErrorResponse("", err), nil
+		}
+
+		log.Debug().
+			Str("request_id", req.RequestID).
+			Int64("favorite_id", req.ID).
+			Msg("handling favorite_update")
+
+		favorite, err := h.favoritesUC.UpdateFavorite(ctx, port.FavoriteUpdateInput{
+			ID:          entity.FavoriteID(req.ID),
+			Title:       req.Title,
+			FaviconURL:  req.FaviconURL,
+			FolderID:    folderIDFromInt64(req.FolderID),
+			ShortcutKey: req.ShortcutKey,
+		})
+		if err != nil {
+			return NewErrorResponse(req.RequestID, err), nil
+		}
+
+		return NewSuccessResponse(req.RequestID, favorite), nil
+	})
+}
+
+type favoriteDeleteRequest struct {
+	RequestID string `json:"requestId"`
+	ID        int64  `json:"id"`
+}
+
+// HandleDelete handles favorite_delete messages.
+func (h *FavoritesHandlers) HandleDelete() port.WebUIMessageHandler {
+	return port.WebUIMessageHandlerFunc(func(ctx context.Context, _ port.WebViewID, payload json.RawMessage) (any, error) {
+		log := logging.FromContext(ctx)
+
+		var req favoriteDeleteRequest
+		if err := json.Unmarshal(payload, &req); err != nil {
+			return NewErrorResponse("", err), nil
+		}
+
+		log.Debug().
+			Str("request_id", req.RequestID).
+			Int64("favorite_id", req.ID).
+			Msg("handling favorite_delete")
+
+		if err := h.favoritesUC.DeleteFavorite(ctx, entity.FavoriteID(req.ID)); err != nil {
+			return NewErrorResponse(req.RequestID, err), nil
+		}
+
+		return NewSuccessResponse(req.RequestID, nil), nil
+	})
+}
+
 // setShortcutRequest is the payload for favorite_set_shortcut messages.
 type setShortcutRequest struct {
 	RequestID   string `json:"requestId"`
@@ -107,6 +214,24 @@ type setFolderRequest struct {
 }
 
 // HandleSetFolder handles favorite_set_folder messages.
+func folderIDFromInt64(id *int64) *entity.FolderID {
+	if id == nil {
+		return nil
+	}
+	folderID := entity.FolderID(*id)
+	return &folderID
+}
+
+func tagIDsFromInt64s(ids []int64) []entity.TagID {
+	out := make([]entity.TagID, 0, len(ids))
+	for _, id := range ids {
+		if id > 0 {
+			out = append(out, entity.TagID(id))
+		}
+	}
+	return out
+}
+
 func (h *FavoritesHandlers) HandleSetFolder() port.WebUIMessageHandler {
 	return port.WebUIMessageHandlerFunc(func(ctx context.Context, _ port.WebViewID, payload json.RawMessage) (any, error) {
 		log := logging.FromContext(ctx)

@@ -27,7 +27,7 @@ func TestFavoriteItemsHTMLSanitizesHrefSchemes(t *testing.T) {
 	html := favoriteItemsHTML([]*entity.Favorite{
 		{URL: "javascript:alert(1)", Title: "Bad"},
 		{URL: "https://example.com", Title: "Good"},
-	})
+	}, nil, nil)
 
 	require.NotContains(t, html, `href="javascript:alert(1)"`)
 	assert.Contains(t, html, `href="#"`)

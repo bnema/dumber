@@ -254,6 +254,78 @@ func TestAppLoadInitialFavoritesRouteRendersData(t *testing.T) {
 	assert.Contains(t, app.renderedHTML, `class="sv-meta"`)
 }
 
+func TestAppLoadInitialFavoritesRouteRendersCRUDControls(t *testing.T) {
+	t.Parallel()
+
+	folderID := entity.FolderID(1)
+	shortcut := 3
+	favorites := &fakeFavoritesService{
+		favorites: []*entity.Favorite{{ID: 42, URL: "https://example.com", Title: "Example", FolderID: &folderID, ShortcutKey: &shortcut}},
+		folders:   []*entity.Folder{{ID: folderID, Name: "Read Later", Icon: "📚"}},
+		tags:      []*entity.Tag{{ID: 7, Name: "Go", Color: "#00add8"}},
+	}
+
+	app := NewApp(Dependencies{Favorites: favorites, LocationURI: "dumb://favorites"})
+
+	require.NoError(t, app.LoadInitial(context.Background()))
+	assert.Contains(t, app.renderedHTML, `data-sv-action="favorite.create"`)
+	assert.Contains(t, app.renderedHTML, `data-sv-action="favorite.update"`)
+	assert.Contains(t, app.renderedHTML, `data-sv-action="favorite.delete"`)
+	assert.Contains(t, app.renderedHTML, `data-sv-action="folder.create"`)
+	assert.Contains(t, app.renderedHTML, `data-sv-action="folder.update"`)
+	assert.Contains(t, app.renderedHTML, `data-sv-action="folder.delete"`)
+	assert.Contains(t, app.renderedHTML, `data-sv-action="tag.create"`)
+	assert.Contains(t, app.renderedHTML, `data-sv-action="tag.update"`)
+	assert.Contains(t, app.renderedHTML, `data-sv-action="tag.delete"`)
+	assert.Contains(t, app.renderedHTML, `data-sv-action="tag.assign"`)
+	assert.Contains(t, app.renderedHTML, "Read Later")
+	assert.Contains(t, app.renderedHTML, "Go")
+	assert.Contains(t, app.renderedHTML, "Shortcut 3")
+}
+
+func TestAppHandleFavoriteActionsRefreshesDOM(t *testing.T) {
+	dom := &fakeDOM{}
+	favorites := &fakeFavoritesService{
+		favorites: []*entity.Favorite{{ID: 42, URL: "https://example.com", Title: "Example"}},
+		folders:   []*entity.Folder{{ID: 5, Name: "Read Later"}},
+		tags:      []*entity.Tag{{ID: 7, Name: "Go", Color: "#00add8"}},
+	}
+	app := NewApp(Dependencies{DOM: dom, Favorites: favorites, LocationURI: "dumb://favorites"})
+
+	require.NoError(t, app.HandleDOMAction(context.Background(), DOMAction{
+		Action: favoriteActionCreate,
+		Data:   map[string]string{"url": "https://new.example", "title": "New", "folder_id": "5"},
+	}))
+	require.NotNil(t, favorites.createdFavorite.FolderID)
+	assert.Equal(t, "https://new.example", favorites.createdFavorite.URL)
+	assert.Equal(t, entity.FolderID(5), *favorites.createdFavorite.FolderID)
+	assert.Contains(t, dom.html, "Added favorite New")
+
+	require.NoError(t, app.HandleDOMAction(context.Background(), DOMAction{
+		Action: favoriteActionUpdate,
+		Data:   map[string]string{"id": "42", "title": "Updated", "favicon_url": "https://icon.example/favicon.ico", "shortcut_key": "4"},
+	}))
+	assert.Equal(t, entity.FavoriteID(42), favorites.updatedFavorite.ID)
+	assert.Equal(t, "Updated", favorites.updatedFavorite.Title)
+	require.NotNil(t, favorites.updatedFavorite.ShortcutKey)
+	assert.Equal(t, 4, *favorites.updatedFavorite.ShortcutKey)
+	assert.Contains(t, dom.html, "Saved favorite Updated")
+
+	require.NoError(t, app.HandleDOMAction(context.Background(), DOMAction{
+		Action: tagActionAssign,
+		Data:   map[string]string{"favoriteId": "42", "tagId": "7"},
+	}))
+	assert.Equal(t, int64(42), favorites.assignedFavoriteID)
+	assert.Equal(t, int64(7), favorites.assignedTagID)
+
+	require.NoError(t, app.HandleDOMAction(context.Background(), DOMAction{
+		Action: favoriteActionDelete,
+		Data:   map[string]string{"id": "42"},
+	}))
+	assert.Equal(t, int64(42), favorites.deletedFavorite)
+	assert.Contains(t, dom.html, "Deleted favorite")
+}
+
 func TestAppLoadInitialConfigRouteRendersData(t *testing.T) {
 	t.Parallel()
 
@@ -465,6 +537,20 @@ type fakeFavoritesService struct {
 	favorites     []*entity.Favorite
 	folders       []*entity.Folder
 	tags          []*entity.Tag
+
+	createdFavorite    port.FavoriteCreateInput
+	updatedFavorite    port.FavoriteUpdateInput
+	deletedFavorite    int64
+	createdFolder      string
+	updatedFolderID    int64
+	deletedFolderID    int64
+	createdTag         string
+	updatedTagID       int64
+	deletedTagID       int64
+	assignedFavoriteID int64
+	assignedTagID      int64
+	removedFavoriteID  int64
+	removedTagID       int64
 }
 
 func (s *fakeFavoritesService) List(context.Context) ([]*entity.Favorite, error) {
@@ -482,29 +568,66 @@ func (s *fakeFavoritesService) ListTags(context.Context) ([]*entity.Tag, error) 
 	return s.tags, nil
 }
 
+func (s *fakeFavoritesService) CreateFavorite(_ context.Context, input port.FavoriteCreateInput) (*entity.Favorite, error) {
+	s.createdFavorite = input
+	return &entity.Favorite{ID: 99, URL: input.URL, Title: input.Title, FolderID: input.FolderID}, nil
+}
+
+func (s *fakeFavoritesService) UpdateFavorite(_ context.Context, input port.FavoriteUpdateInput) (*entity.Favorite, error) {
+	s.updatedFavorite = input
+	return &entity.Favorite{ID: input.ID, URL: "https://example.com", Title: input.Title, FaviconURL: input.FaviconURL, FolderID: input.FolderID, ShortcutKey: input.ShortcutKey}, nil
+}
+
+func (s *fakeFavoritesService) DeleteFavorite(_ context.Context, id int64) error {
+	s.deletedFavorite = id
+	return nil
+}
+
 func (s *fakeFavoritesService) SetShortcut(context.Context, int64, *int) error { return nil }
 
 func (s *fakeFavoritesService) SetFolder(context.Context, int64, *int64) error { return nil }
 
-func (s *fakeFavoritesService) CreateFolder(context.Context, string, *int64) (*entity.Folder, error) {
-	return nil, nil
+func (s *fakeFavoritesService) CreateFolder(_ context.Context, name string, _ *int64) (*entity.Folder, error) {
+	s.createdFolder = name
+	return &entity.Folder{ID: 77, Name: name}, nil
 }
 
-func (s *fakeFavoritesService) UpdateFolder(context.Context, int64, string, string) error { return nil }
-
-func (s *fakeFavoritesService) DeleteFolder(context.Context, int64) error { return nil }
-
-func (s *fakeFavoritesService) CreateTag(context.Context, string, string) (*entity.Tag, error) {
-	return nil, nil
+func (s *fakeFavoritesService) UpdateFolder(_ context.Context, id int64, _, _ string) error {
+	s.updatedFolderID = id
+	return nil
 }
 
-func (s *fakeFavoritesService) UpdateTag(context.Context, int64, string, string) error { return nil }
+func (s *fakeFavoritesService) DeleteFolder(_ context.Context, id int64) error {
+	s.deletedFolderID = id
+	return nil
+}
 
-func (s *fakeFavoritesService) DeleteTag(context.Context, int64) error { return nil }
+func (s *fakeFavoritesService) CreateTag(_ context.Context, name, color string) (*entity.Tag, error) {
+	s.createdTag = name
+	return &entity.Tag{ID: 55, Name: name, Color: color}, nil
+}
 
-func (s *fakeFavoritesService) AssignTag(context.Context, int64, int64) error { return nil }
+func (s *fakeFavoritesService) UpdateTag(_ context.Context, id int64, _, _ string) error {
+	s.updatedTagID = id
+	return nil
+}
 
-func (s *fakeFavoritesService) RemoveTag(context.Context, int64, int64) error { return nil }
+func (s *fakeFavoritesService) DeleteTag(_ context.Context, id int64) error {
+	s.deletedTagID = id
+	return nil
+}
+
+func (s *fakeFavoritesService) AssignTag(_ context.Context, favoriteID, tagID int64) error {
+	s.assignedFavoriteID = favoriteID
+	s.assignedTagID = tagID
+	return nil
+}
+
+func (s *fakeFavoritesService) RemoveTag(_ context.Context, favoriteID, tagID int64) error {
+	s.removedFavoriteID = favoriteID
+	s.removedTagID = tagID
+	return nil
+}
 
 type fakeConfigService struct {
 	calledCurrent     bool

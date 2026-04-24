@@ -18,23 +18,27 @@ type Dependencies struct {
 }
 
 type App struct {
-	deps                Dependencies
-	currentRoute        Route
-	shellTheme          shellTheme
-	historyEntries      []*entity.HistoryEntry
-	historyAnalytics    *entity.HistoryAnalytics
-	historyDomainStats  []*entity.DomainStat
-	historyQuery        string
-	historyDomainFilter string
-	historyOffset       int
-	historyNotice       string
-	historyError        string
-	favorites           []*entity.Favorite
-	folders             []*entity.Folder
-	tags                []*entity.Tag
-	config              *port.SystemviewConfigPayload
-	keybindings         any
-	renderedHTML        string
+	deps                 Dependencies
+	currentRoute         Route
+	shellTheme           shellTheme
+	historyEntries       []*entity.HistoryEntry
+	historyAnalytics     *entity.HistoryAnalytics
+	historyDomainStats   []*entity.DomainStat
+	historyQuery         string
+	historyDomainFilter  string
+	historyOffset        int
+	historyNotice        string
+	historyError         string
+	favorites            []*entity.Favorite
+	folders              []*entity.Folder
+	tags                 []*entity.Tag
+	favoriteFolderFilter *entity.FolderID
+	favoriteTagFilter    *entity.TagID
+	favoritesNotice      string
+	favoritesError       string
+	config               *port.SystemviewConfigPayload
+	keybindings          any
+	renderedHTML         string
 }
 
 const historyTimelineLimit = 25
@@ -208,13 +212,22 @@ func (a *App) loadFavoritesRoute(ctx context.Context) error {
 	}
 
 	a.historyEntries = nil
+	favorites = filterFavorites(favorites, a.favoriteFolderFilter, a.favoriteTagFilter)
 	a.favorites = favorites
 	a.folders = folders
 	a.tags = tags
 	a.renderedHTML = renderAppFrame(renderedPage{
 		route:    RouteFavorites,
 		subtitle: "Saved bookmarks",
-		body:     favoritesHTML(favorites, folders, tags),
+		body: favoritesHTML(favoritesRenderData{
+			Favorites:    favorites,
+			Folders:      folders,
+			Tags:         tags,
+			FolderFilter: a.favoriteFolderFilter,
+			TagFilter:    a.favoriteTagFilter,
+			Notice:       a.favoritesNotice,
+			Error:        a.favoritesError,
+		}),
 	}, a.shellTheme)
 	return nil
 }
@@ -281,6 +294,10 @@ func (a *App) resetRouteState() {
 	a.favorites = nil
 	a.folders = nil
 	a.tags = nil
+	a.favoriteFolderFilter = nil
+	a.favoriteTagFilter = nil
+	a.favoritesNotice = ""
+	a.favoritesError = ""
 	a.config = nil
 	a.keybindings = nil
 }

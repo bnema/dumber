@@ -31,10 +31,31 @@ type HomepageHistory interface {
 	DeleteByDomain(ctx context.Context, domain string) error
 }
 
+// FavoriteCreateInput contains fields needed to create a favorite from a UI port.
+type FavoriteCreateInput struct {
+	URL        string           `json:"url"`
+	Title      string           `json:"title"`
+	FaviconURL string           `json:"favicon_url"`
+	FolderID   *entity.FolderID `json:"folder_id"`
+	Tags       []entity.TagID   `json:"tags"`
+}
+
+// FavoriteUpdateInput contains editable favorite metadata.
+type FavoriteUpdateInput struct {
+	ID          entity.FavoriteID `json:"id"`
+	Title       string            `json:"title"`
+	FaviconURL  string            `json:"favicon_url"`
+	FolderID    *entity.FolderID  `json:"folder_id"`
+	ShortcutKey *int              `json:"shortcut_key"`
+}
+
 // HomepageFavorites provides favorites/folders/tags operations
 // needed by the WebUI homepage handlers.
 type HomepageFavorites interface {
 	GetAll(ctx context.Context) ([]*entity.Favorite, error)
+	AddFavorite(ctx context.Context, input FavoriteCreateInput) (*entity.Favorite, error)
+	UpdateFavorite(ctx context.Context, input FavoriteUpdateInput) (*entity.Favorite, error)
+	DeleteFavorite(ctx context.Context, id entity.FavoriteID) error
 	SetShortcut(ctx context.Context, id entity.FavoriteID, key *int) error
 	GetByShortcut(ctx context.Context, key int) (*entity.Favorite, error)
 	Move(ctx context.Context, id entity.FavoriteID, folderID *entity.FolderID) error

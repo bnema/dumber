@@ -154,6 +154,74 @@ func (c *Client) List(ctx context.Context) ([]*entity.Favorite, error) {
 	}{RequestID: nextRequestID()})
 }
 
+func (c *Client) CreateFavorite(ctx context.Context, input port.FavoriteCreateInput) (*entity.Favorite, error) {
+	return request[*entity.Favorite](c, ctx, "favorite_create", favoriteCreatePayload(input))
+}
+
+func (c *Client) UpdateFavorite(ctx context.Context, input port.FavoriteUpdateInput) (*entity.Favorite, error) {
+	return request[*entity.Favorite](c, ctx, "favorite_update", favoriteUpdatePayload(input))
+}
+
+func (c *Client) DeleteFavorite(ctx context.Context, id int64) error {
+	_, err := request[struct{}](c, ctx, "favorite_delete", struct {
+		RequestID string `json:"requestId"`
+		ID        int64  `json:"id"`
+	}{RequestID: nextRequestID(), ID: id})
+	return err
+}
+
+func favoriteCreatePayload(input port.FavoriteCreateInput) any {
+	return struct {
+		RequestID  string  `json:"requestId"`
+		URL        string  `json:"url"`
+		Title      string  `json:"title"`
+		FaviconURL string  `json:"favicon_url"`
+		FolderID   *int64  `json:"folder_id"`
+		Tags       []int64 `json:"tags"`
+	}{
+		RequestID:  nextRequestID(),
+		URL:        input.URL,
+		Title:      input.Title,
+		FaviconURL: input.FaviconURL,
+		FolderID:   folderIDPayload(input.FolderID),
+		Tags:       tagIDPayloads(input.Tags),
+	}
+}
+
+func favoriteUpdatePayload(input port.FavoriteUpdateInput) any {
+	return struct {
+		RequestID   string `json:"requestId"`
+		ID          int64  `json:"id"`
+		Title       string `json:"title"`
+		FaviconURL  string `json:"favicon_url"`
+		FolderID    *int64 `json:"folder_id"`
+		ShortcutKey *int   `json:"shortcut_key"`
+	}{
+		RequestID:   nextRequestID(),
+		ID:          int64(input.ID),
+		Title:       input.Title,
+		FaviconURL:  input.FaviconURL,
+		FolderID:    folderIDPayload(input.FolderID),
+		ShortcutKey: input.ShortcutKey,
+	}
+}
+
+func folderIDPayload(id *entity.FolderID) *int64 {
+	if id == nil {
+		return nil
+	}
+	value := int64(*id)
+	return &value
+}
+
+func tagIDPayloads(ids []entity.TagID) []int64 {
+	out := make([]int64, 0, len(ids))
+	for _, id := range ids {
+		out = append(out, int64(id))
+	}
+	return out
+}
+
 func (c *Client) ListFolders(ctx context.Context) ([]*entity.Folder, error) {
 	return request[[]*entity.Folder](c, ctx, "folder_list", struct {
 		RequestID string `json:"requestId"`

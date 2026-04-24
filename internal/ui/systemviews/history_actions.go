@@ -40,6 +40,16 @@ func (a *App) HandleDOMAction(ctx context.Context, event DOMAction) error {
 			a.renderRouteError(err)
 		}
 		return a.mountRenderedHTML()
+	case RouteFavorites:
+		a.favoritesError = ""
+		if err := a.handleFavoriteAction(ctx, event); err != nil {
+			a.favoritesNotice = ""
+			a.favoritesError = err.Error()
+		}
+		if err := a.loadFavoritesRoute(ctx); err != nil {
+			a.renderRouteError(err)
+		}
+		return a.mountRenderedHTML()
 	default:
 		return nil
 	}

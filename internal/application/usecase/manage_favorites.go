@@ -93,6 +93,59 @@ func (uc *ManageFavoritesUseCase) Add(ctx context.Context, input AddFavoriteInpu
 	return fav, nil
 }
 
+// AddFavorite creates a favorite from the UI-facing application port.
+func (uc *ManageFavoritesUseCase) AddFavorite(ctx context.Context, input port.FavoriteCreateInput) (*entity.Favorite, error) {
+	if strings.TrimSpace(input.URL) == "" {
+		return nil, fmt.Errorf("favorite URL is required")
+	}
+	tags := make([]entity.TagID, 0, len(input.Tags))
+	for _, tagID := range input.Tags {
+		if tagID > 0 {
+			tags = append(tags, tagID)
+		}
+	}
+	return uc.Add(ctx, AddFavoriteInput{
+		URL:        strings.TrimSpace(input.URL),
+		Title:      strings.TrimSpace(input.Title),
+		FaviconURL: strings.TrimSpace(input.FaviconURL),
+		FolderID:   input.FolderID,
+		Tags:       tags,
+	})
+}
+
+// UpdateFavorite updates editable favorite metadata from the UI-facing application port.
+func (uc *ManageFavoritesUseCase) UpdateFavorite(ctx context.Context, input port.FavoriteUpdateInput) (*entity.Favorite, error) {
+	if input.ID <= 0 {
+		return nil, fmt.Errorf("favorite ID is required")
+	}
+	if input.ShortcutKey != nil && (*input.ShortcutKey < 1 || *input.ShortcutKey > 9) {
+		return nil, fmt.Errorf("shortcut key must be 1-9, got %d", *input.ShortcutKey)
+	}
+
+	fav, err := uc.favoriteRepo.FindByID(ctx, input.ID)
+	if err != nil {
+		return nil, fmt.Errorf("failed to find favorite: %w", err)
+	}
+	if fav == nil {
+		return nil, fmt.Errorf("favorite %d not found", input.ID)
+	}
+
+	fav.Title = strings.TrimSpace(input.Title)
+	fav.FaviconURL = strings.TrimSpace(input.FaviconURL)
+	fav.FolderID = input.FolderID
+	fav.ShortcutKey = input.ShortcutKey
+
+	if err := uc.Update(ctx, fav); err != nil {
+		return nil, err
+	}
+	return fav, nil
+}
+
+// DeleteFavorite deletes a favorite from the UI-facing application port.
+func (uc *ManageFavoritesUseCase) DeleteFavorite(ctx context.Context, id entity.FavoriteID) error {
+	return uc.Remove(ctx, id)
+}
+
 // Remove deletes a favorite by ID.
 func (uc *ManageFavoritesUseCase) Remove(ctx context.Context, id entity.FavoriteID) error {
 	log := logging.FromContext(ctx)
@@ -574,6 +627,7 @@ func (uc *ManageFavoritesUseCase) DeleteTag(ctx context.Context, id entity.TagID
 	}
 
 	log.Info().Int64("id", int64(id)).Msg("tag deleted")
+	uc.invalidateCache()
 	return nil
 }
 
@@ -596,6 +650,7 @@ func (uc *ManageFavoritesUseCase) TagFavorite(ctx context.Context, favID entity.
 	if err := uc.tagRepo.AssignToFavorite(ctx, tagID, favID); err != nil {
 		return fmt.Errorf("failed to tag favorite: %w", err)
 	}
+	uc.invalidateCache()
 
 	return nil
 }
@@ -611,6 +666,7 @@ func (uc *ManageFavoritesUseCase) UntagFavorite(ctx context.Context, favID entit
 	if err := uc.tagRepo.RemoveFromFavorite(ctx, tagID, favID); err != nil {
 		return fmt.Errorf("failed to untag favorite: %w", err)
 	}
+	uc.invalidateCache()
 
 	return nil
 }
@@ -674,5 +730,6 @@ func (uc *ManageFavoritesUseCase) UpdateTag(ctx context.Context, id entity.TagID
 	}
 
 	log.Info().Int64("id", int64(id)).Msg("tag updated")
+	uc.invalidateCache()
 	return nil
 }

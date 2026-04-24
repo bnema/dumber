@@ -24,7 +24,7 @@ func NewBrowserClient() *Client {
 func callbackPlanForMessage(msgType string) (callbackPlan, bool) {
 	switch msgType {
 	case "history_timeline", "history_search_fts", "history_delete_entry", "history_delete_range", "history_analytics",
-		"history_domain_stats", "history_delete_domain", "favorite_list", "folder_list", "tag_list",
+		"history_domain_stats", "history_delete_domain", "favorite_list", "favorite_create", "favorite_update", "favorite_delete", "folder_list", "tag_list",
 		"favorite_set_shortcut", "favorite_set_folder", "folder_create", "folder_update", "folder_delete",
 		"tag_create", "tag_update", "tag_delete", "tag_assign", "tag_remove":
 		return callbackPlan{success: "__dumber_homepage_response", failure: "__dumber_error"}, true
