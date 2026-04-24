@@ -455,10 +455,147 @@ func TestAppLoadInitialConfigRouteRendersData(t *testing.T) {
 func TestConfigHTMLFallsBackForMalformedKeybindings(t *testing.T) {
 	t.Parallel()
 
-	html := configHTML(port.SystemviewConfigPayload{}, map[string]any{"groups": "oops"})
+	html := configHTML(configRenderData{Config: port.SystemviewConfigPayload{}, Keybindings: map[string]any{"groups": "oops"}})
 
 	assert.Contains(t, html, "Keybindings unavailable")
 	assert.NotContains(t, html, "groups[0].bindings[0].action")
+}
+
+func TestAppLoadInitialConfigRouteRendersEditControls(t *testing.T) {
+	t.Parallel()
+
+	service := &fakeConfigService{
+		current: testConfigPayload(),
+		keybindings: port.KeybindingsConfig{Groups: []port.KeybindingGroup{{
+			Mode:        "default",
+			DisplayName: "Default",
+			Bindings: []port.KeybindingEntry{{
+				Action:      "toggle_history_systemview",
+				Description: "Toggle history",
+				Keys:        []string{"ctrl+h"},
+				DefaultKeys: []string{"ctrl+h"},
+			}},
+		}}},
+	}
+	app := NewApp(Dependencies{Config: service, LocationURI: "dumb://config"})
+
+	require.NoError(t, app.LoadInitial(context.Background()))
+	assert.Contains(t, app.renderedHTML, `data-sv-action="config.appearance.save"`)
+	assert.Contains(t, app.renderedHTML, `data-sv-action="config.appearance.reset"`)
+	assert.Contains(t, app.renderedHTML, `data-sv-action="config.search.save"`)
+	assert.Contains(t, app.renderedHTML, `data-sv-action="config.searchShortcut.create"`)
+	assert.Contains(t, app.renderedHTML, `data-sv-action="config.searchShortcut.update"`)
+	assert.Contains(t, app.renderedHTML, `data-sv-action="config.searchShortcut.delete"`)
+	assert.Contains(t, app.renderedHTML, `data-sv-action="config.performance.save"`)
+	assert.Contains(t, app.renderedHTML, `data-sv-action="config.keybinding.set"`)
+	assert.Contains(t, app.renderedHTML, `data-sv-action="config.keybinding.reset"`)
+	assert.Contains(t, app.renderedHTML, `data-sv-action="config.keybinding.resetAll"`)
+	assert.Contains(t, app.renderedHTML, "may require restarting")
+}
+
+func TestAppHandleConfigActionsRefreshesDOM(t *testing.T) {
+	dom := &fakeDOM{}
+	service := &fakeConfigService{
+		current:    testConfigPayload(),
+		defaultCfg: testDefaultConfigPayload(),
+		keybindings: port.KeybindingsConfig{Groups: []port.KeybindingGroup{{
+			Mode:        "default",
+			DisplayName: "Default",
+			Bindings: []port.KeybindingEntry{{
+				Action:      "toggle_history_systemview",
+				Description: "Toggle history",
+				Keys:        []string{"ctrl+h"},
+				DefaultKeys: []string{"ctrl+h"},
+			}},
+		}}},
+		setResp: port.SetKeybindingResponse{},
+	}
+	app := NewApp(Dependencies{DOM: dom, Config: service, LocationURI: "dumb://config"})
+
+	require.NoError(t, app.HandleDOMAction(context.Background(), DOMAction{
+		Action: configActionSaveAppearance,
+		Data: map[string]string{
+			"sans_font": "Inter", "serif_font": "Georgia", "monospace_font": "JetBrains Mono",
+			"default_font_size": "18", "default_ui_scale": "1.25", "color_scheme": "prefer-light",
+			"light_background": "#ffffff", "light_surface": "#fafafa", "light_surface_variant": "#eeeeee", "light_text": "#111111", "light_muted": "#666666", "light_accent": "#0055ff", "light_border": "#dddddd",
+			"dark_background": "#111111", "dark_surface": "#1a1a1a", "dark_surface_variant": "#2a2a2a", "dark_text": "#f5f5f5", "dark_muted": "#a0a0a0", "dark_accent": "#66aaff", "dark_border": "#333333",
+		},
+	}))
+	assert.True(t, service.calledSave)
+	assert.Equal(t, 18, service.savedConfig.Appearance.DefaultFontSize)
+	assert.Equal(t, 1.25, service.savedConfig.DefaultUIScale)
+	assert.Contains(t, dom.html, "Saved appearance settings")
+	assert.Contains(t, dom.html, `class="sv-app sv-light"`)
+
+	require.NoError(t, app.HandleDOMAction(context.Background(), DOMAction{
+		Action: configActionCreateSearchShortcut,
+		Data:   map[string]string{"key": "g", "url": "https://google.com/search?q=%s", "description": "Google"},
+	}))
+	assert.Equal(t, "Google", service.savedConfig.SearchShortcuts["g"].Description)
+	assert.Contains(t, dom.html, "Created search shortcut g")
+
+	require.NoError(t, app.HandleDOMAction(context.Background(), DOMAction{
+		Action: configActionSavePerformance,
+		Data: map[string]string{
+			"profile": "custom", "skia_cpu_threads": "4", "skia_gpu_threads": "2",
+			"web_process_memory_mb": "2048", "network_process_memory_mb": "512", "webview_pool_prewarm": "4",
+		},
+	}))
+	assert.Equal(t, "custom", service.savedConfig.Performance.Profile)
+	assert.Equal(t, 2048, service.savedConfig.Performance.Custom.WebProcessMemoryMB)
+	assert.Contains(t, dom.html, "Saved performance settings")
+
+	require.NoError(t, app.HandleDOMAction(context.Background(), DOMAction{
+		Action: configActionSetKeybinding,
+		Data:   map[string]string{"mode": "default", "action": "toggle_history_systemview", "keys": "ctrl+h, alt+h"},
+	}))
+	assert.True(t, service.calledSet)
+	assert.Equal(t, []string{"ctrl+h", "alt+h"}, service.setReq.Keys)
+	assert.Contains(t, dom.html, "Saved keybinding toggle_history_systemview")
+
+	require.NoError(t, app.HandleDOMAction(context.Background(), DOMAction{
+		Action: configActionResetKeybinding,
+		Data:   map[string]string{"mode": "default", "action": "toggle_history_systemview"},
+	}))
+	assert.True(t, service.calledReset)
+	assert.Equal(t, "toggle_history_systemview", service.resetReq.Action)
+	assert.Contains(t, dom.html, "Reset keybinding toggle_history_systemview")
+
+	require.NoError(t, app.HandleDOMAction(context.Background(), DOMAction{Action: configActionResetAllKeybindings}))
+	assert.True(t, service.calledResetAll)
+	assert.Contains(t, dom.html, "Reset all keybindings to defaults")
+}
+
+func testConfigPayload() port.SystemviewConfigPayload {
+	return port.SystemviewConfigPayload{
+		EngineType: "webkit",
+		Appearance: port.WebUIAppearanceConfig{
+			ColorScheme:     "prefer-dark",
+			SansFont:        "Inter",
+			SerifFont:       "Georgia",
+			MonospaceFont:   "JetBrains Mono",
+			DefaultFontSize: 16,
+			LightPalette:    port.ColorPalette{Background: "#ffffff", Surface: "#fafafa", SurfaceVariant: "#eeeeee", Text: "#111111", Muted: "#666666", Accent: "#0055ff", Border: "#dddddd"},
+			DarkPalette:     port.ColorPalette{Background: "#111111", Surface: "#1a1a1a", SurfaceVariant: "#2a2a2a", Text: "#f5f5f5", Muted: "#a0a0a0", Accent: "#66aaff", Border: "#333333"},
+		},
+		DefaultUIScale:      1,
+		DefaultSearchEngine: "https://duckduckgo.com/?q=%s",
+		SearchShortcuts: map[string]port.SearchShortcut{
+			"ddg": {URL: "https://duckduckgo.com/?q=%s", Description: "DuckDuckGo"},
+		},
+		Performance: port.SystemviewPerformancePayload{
+			Profile:  "default",
+			Custom:   port.SystemviewCustomPerformancePayload{SkiaCPUThreads: 2, SkiaGPUThreads: 1, WebProcessMemoryMB: 1024, NetworkProcessMemoryMB: 256, WebViewPoolPrewarm: 2},
+			Hardware: port.SystemviewHardwarePayload{CPUCores: 4, CPUThreads: 8, TotalRAMMB: 16384, GPUVendor: "AMD", GPUName: "Radeon", VRAMMB: 4096},
+		},
+	}
+}
+
+func testDefaultConfigPayload() port.SystemviewConfigPayload {
+	cfg := testConfigPayload()
+	cfg.Appearance.DefaultFontSize = 14
+	cfg.DefaultUIScale = 1
+	return cfg
 }
 
 type fakeDOM struct {
@@ -641,6 +778,10 @@ type fakeConfigService struct {
 	current     port.SystemviewConfigPayload
 	defaultCfg  port.SystemviewConfigPayload
 	keybindings any
+	savedConfig port.WebUIConfig
+	setReq      port.SetKeybindingRequest
+	setResp     any
+	resetReq    port.ResetKeybindingRequest
 }
 
 func (s *fakeConfigService) Current(context.Context) (port.SystemviewConfigPayload, error) {
@@ -653,8 +794,21 @@ func (s *fakeConfigService) Default(context.Context) (port.SystemviewConfigPaylo
 	return s.defaultCfg, nil
 }
 
-func (s *fakeConfigService) Save(context.Context, port.WebUIConfig) error {
+func (s *fakeConfigService) Save(_ context.Context, cfg port.WebUIConfig) error {
 	s.calledSave = true
+	s.savedConfig = cfg
+	s.current.Appearance = cfg.Appearance
+	s.current.DefaultUIScale = cfg.DefaultUIScale
+	s.current.DefaultSearchEngine = cfg.DefaultSearchEngine
+	s.current.SearchShortcuts = cfg.SearchShortcuts
+	s.current.Performance.Profile = cfg.Performance.Profile
+	s.current.Performance.Custom = port.SystemviewCustomPerformancePayload{
+		SkiaCPUThreads:         cfg.Performance.Custom.SkiaCPUThreads,
+		SkiaGPUThreads:         cfg.Performance.Custom.SkiaGPUThreads,
+		WebProcessMemoryMB:     cfg.Performance.Custom.WebProcessMemoryMB,
+		NetworkProcessMemoryMB: cfg.Performance.Custom.NetworkProcessMemoryMB,
+		WebViewPoolPrewarm:     cfg.Performance.Custom.WebViewPoolPrewarm,
+	}
 	return nil
 }
 
@@ -663,13 +817,15 @@ func (s *fakeConfigService) GetKeybindings(context.Context) (any, error) {
 	return s.keybindings, nil
 }
 
-func (s *fakeConfigService) SetKeybinding(context.Context, port.SetKeybindingRequest) (any, error) {
+func (s *fakeConfigService) SetKeybinding(_ context.Context, req port.SetKeybindingRequest) (any, error) {
 	s.calledSet = true
-	return nil, nil
+	s.setReq = req
+	return s.setResp, nil
 }
 
-func (s *fakeConfigService) ResetKeybinding(context.Context, port.ResetKeybindingRequest) error {
+func (s *fakeConfigService) ResetKeybinding(_ context.Context, req port.ResetKeybindingRequest) error {
 	s.calledReset = true
+	s.resetReq = req
 	return nil
 }
 

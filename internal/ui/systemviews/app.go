@@ -38,6 +38,8 @@ type App struct {
 	favoritesError       string
 	config               *port.SystemviewConfigPayload
 	keybindings          any
+	configNotice         string
+	configError          string
 	renderedHTML         string
 }
 
@@ -261,7 +263,12 @@ func (a *App) loadConfigRoute(ctx context.Context) error {
 	a.renderedHTML = renderAppFrame(renderedPage{
 		route:    RouteConfig,
 		subtitle: "Browser settings",
-		body:     configHTML(config, keybindings),
+		body: configHTML(configRenderData{
+			Config:      config,
+			Keybindings: keybindings,
+			Notice:      a.configNotice,
+			Error:       a.configError,
+		}),
 	}, a.shellTheme)
 	return nil
 }
@@ -300,6 +307,8 @@ func (a *App) resetRouteState() {
 	a.favoritesError = ""
 	a.config = nil
 	a.keybindings = nil
+	a.configNotice = ""
+	a.configError = ""
 }
 
 func (a *App) CurrentRoute() Route {

@@ -12,10 +12,12 @@ import (
 type configRenderData struct {
 	Config      port.SystemviewConfigPayload
 	Keybindings any
+	Notice      string
+	Error       string
 }
 
-func configHTML(cfg port.SystemviewConfigPayload, keybindings any) string {
-	return mustRenderComponent(ConfigView(configRenderData{Config: cfg, Keybindings: keybindings}))
+func configHTML(data configRenderData) string {
+	return mustRenderComponent(ConfigView(data))
 }
 
 func configKeybindingSummary(keybindings any) string {
@@ -92,6 +94,57 @@ func keybindingStatus(binding renderedKeybinding) string {
 		return "custom"
 	}
 	return "default"
+}
+
+func keybindingKeysValue(keys []string) string {
+	return strings.Join(keys, ", ")
+}
+
+type searchShortcutRow struct {
+	Key         string
+	URL         string
+	Description string
+}
+
+func searchShortcutRows(shortcuts map[string]port.SearchShortcut) []searchShortcutRow {
+	if len(shortcuts) == 0 {
+		return nil
+	}
+	keys := make([]string, 0, len(shortcuts))
+	for key := range shortcuts {
+		keys = append(keys, key)
+	}
+	sort.Strings(keys)
+	rows := make([]searchShortcutRow, 0, len(keys))
+	for _, key := range keys {
+		shortcut := shortcuts[key]
+		rows = append(rows, searchShortcutRow{
+			Key:         key,
+			URL:         shortcut.URL,
+			Description: shortcut.Description,
+		})
+	}
+	return rows
+}
+
+func formatConfigInt(value int) string {
+	return fmt.Sprintf("%d", value)
+}
+
+func formatConfigFloat(value float64) string {
+	return fmt.Sprintf("%g", value)
+}
+
+func colorSchemeSelected(current, option string) bool {
+	return strings.EqualFold(strings.TrimSpace(current), option)
+}
+
+func performanceProfileSelected(current, option string) bool {
+	return strings.EqualFold(strings.TrimSpace(current), option)
+}
+
+func engineIsWebKit(engine string) bool {
+	return strings.EqualFold(strings.TrimSpace(engine), "webkit")
 }
 
 func flattenValues(value any) []kvPair {

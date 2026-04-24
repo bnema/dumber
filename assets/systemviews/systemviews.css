@@ -411,7 +411,8 @@ body {
 }
 
 .sv-card-form label,
-.sv-inline-form label {
+.sv-inline-form label,
+.sv-fieldset label {
   display: grid;
   gap: 0.25rem;
   min-width: min(14rem, 100%);
@@ -423,13 +424,44 @@ body {
 .sv-card-form input,
 .sv-card-form select,
 .sv-inline-form input,
-.sv-inline-form select {
+.sv-inline-form select,
+.sv-fieldset input,
+.sv-fieldset select {
   border: 1px solid var(--sv-border, #2a313d);
   border-radius: 0.55rem;
   padding: 0.5rem 0.6rem;
   background: var(--sv-surface-variant, #1d2129);
   color: var(--sv-fg, #e8ebf0);
   font: inherit;
+}
+
+.sv-config-form,
+.sv-fieldset {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.65rem;
+  align-items: end;
+}
+
+.sv-fieldset {
+  width: 100%;
+  margin: 0;
+  padding: 0.75rem;
+  border: 1px solid var(--sv-border, #2a313d);
+  border-radius: 0.65rem;
+}
+
+.sv-fieldset legend {
+  color: var(--sv-muted, #9aa3b2);
+  font-weight: 700;
+  padding: 0 0.35rem;
+}
+
+.sv-keybinding-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(18rem, auto);
+  gap: 1rem;
+  align-items: start;
 }
 
 .sv-filter-panel {
@@ -478,7 +510,9 @@ body {
 }
 
 @media (max-width: 720px) {
-  .sv-favorite-header {
+  .sv-favorite-header,
+  .sv-keybinding-row {
     display: grid;
+    grid-template-columns: 1fr;
   }
 }

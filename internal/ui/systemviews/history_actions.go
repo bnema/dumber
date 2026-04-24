@@ -50,6 +50,17 @@ func (a *App) HandleDOMAction(ctx context.Context, event DOMAction) error {
 			a.renderRouteError(err)
 		}
 		return a.mountRenderedHTML()
+	case RouteConfig:
+		a.configError = ""
+		if err := a.handleConfigAction(ctx, event); err != nil {
+			a.configNotice = ""
+			a.configError = err.Error()
+		}
+		a.loadShellTheme(ctx)
+		if err := a.loadConfigRoute(ctx); err != nil {
+			a.renderRouteError(err)
+		}
+		return a.mountRenderedHTML()
 	default:
 		return nil
 	}
