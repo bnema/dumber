@@ -9,6 +9,7 @@ import (
 // SystemviewHistoryService exposes history operations for the systemviews history route.
 type SystemviewHistoryService interface {
 	Timeline(ctx context.Context, limit, offset int) ([]*entity.HistoryEntry, error)
+	TimelineByDomain(ctx context.Context, domain string, limit, offset int) ([]*entity.HistoryEntry, error)
 	Search(ctx context.Context, query string, limit int) ([]*entity.HistoryEntry, error)
 	DeleteEntry(ctx context.Context, id int64) error
 	DeleteRange(ctx context.Context, rangeID string) error

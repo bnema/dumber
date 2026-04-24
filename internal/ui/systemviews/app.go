@@ -3,6 +3,7 @@ package systemviews
 import (
 	"context"
 	"errors"
+	"fmt"
 	"strings"
 	"sync"
 
@@ -44,6 +45,8 @@ type App struct {
 	configError          string
 	renderedHTML         string
 	actionQueue          chan DOMAction
+	actionCtx            context.Context
+	actionCancel         context.CancelFunc
 }
 
 const historyTimelineLimit = 25
@@ -53,12 +56,19 @@ func NewApp(deps Dependencies) *App {
 }
 
 func (a *App) Run() error {
+	return a.RunWithContext(context.Background())
+}
+
+func (a *App) RunWithContext(ctx context.Context) error {
 	if a == nil {
 		return errors.New("app is nil")
 	}
+	if ctx == nil {
+		ctx = context.Background()
+	}
 
 	a.currentRoute = ParseRoute(a.deps.LocationURI)
-	if err := a.LoadInitial(context.Background()); err != nil {
+	if err := a.LoadInitial(ctx); err != nil {
 		return err
 	}
 	if a.deps.DOM == nil {
@@ -69,19 +79,41 @@ func (a *App) Run() error {
 		return err
 	}
 	if binder, ok := a.deps.DOM.(DOMActionBinder); ok {
-		return a.bindDOMActions(context.Background(), binder)
+		return a.bindDOMActions(ctx, binder)
 	}
 	return nil
 }
 
 func (a *App) bindDOMActions(ctx context.Context, binder DOMActionBinder) error {
 	if a.actionQueue == nil {
+		workerCtx, cancel := context.WithCancel(ctx)
 		a.actionQueue = make(chan DOMAction, 64)
-		go a.runActionWorker(ctx)
+		a.actionCtx = workerCtx
+		a.actionCancel = cancel
+		go a.runActionWorker(workerCtx)
 	}
 	return binder.BindActions(func(action DOMAction) {
-		a.actionQueue <- action
+		if !a.enqueueDOMAction(action) {
+			go a.surfaceActionError(fmt.Errorf("systemview is busy; dropped action %q", action.Action))
+		}
 	})
+}
+
+func (a *App) enqueueDOMAction(action DOMAction) bool {
+	if a == nil || a.actionQueue == nil {
+		return false
+	}
+	if a.actionCtx == nil {
+		return false
+	}
+	select {
+	case <-a.actionCtx.Done():
+		return false
+	case a.actionQueue <- action:
+		return true
+	default:
+		return false
+	}
 }
 
 func (a *App) runActionWorker(ctx context.Context) {
@@ -93,8 +125,35 @@ func (a *App) runActionWorker(ctx context.Context) {
 			if !ok {
 				return
 			}
-			_ = a.HandleDOMAction(ctx, action)
+			if err := a.HandleDOMAction(ctx, action); err != nil {
+				a.surfaceActionError(err)
+			}
 		}
+	}
+}
+
+func (a *App) surfaceActionError(err error) {
+	if a == nil || err == nil {
+		return
+	}
+	a.mu.Lock()
+	a.renderRouteError(err)
+	a.mu.Unlock()
+	_ = a.mountRenderedHTML()
+}
+
+func (a *App) Close() {
+	if a == nil {
+		return
+	}
+	if a.actionCancel != nil {
+		a.actionCancel()
+		a.actionCancel = nil
+	}
+	a.actionCtx = nil
+	a.actionQueue = nil
+	if releaser, ok := a.deps.DOM.(interface{ Release() }); ok {
+		releaser.Release()
 	}
 }
 
@@ -182,7 +241,6 @@ func (a *App) loadHistoryRoute(ctx context.Context) error {
 	a.favorites = nil
 	a.folders = nil
 	a.tags = nil
-	entries = filterHistoryEntriesByDomain(entries, a.historyDomainFilter)
 	a.historyEntries = entries
 	a.historyAnalytics = analytics
 	a.historyDomainStats = domains
@@ -206,8 +264,16 @@ func (a *App) loadHistoryRoute(ctx context.Context) error {
 
 func (a *App) loadHistoryEntries(ctx context.Context) ([]*entity.HistoryEntry, error) {
 	query := strings.TrimSpace(a.historyQuery)
+	domain := strings.TrimSpace(a.historyDomainFilter)
 	if query != "" {
-		return a.deps.History.Search(ctx, query, historyTimelineLimit)
+		entries, err := a.deps.History.Search(ctx, query, historyTimelineLimit)
+		if err != nil || domain == "" {
+			return entries, err
+		}
+		return filterHistoryEntriesByDomain(entries, domain), nil
+	}
+	if domain != "" {
+		return a.deps.History.TimelineByDomain(ctx, domain, historyTimelineLimit, a.historyOffset)
 	}
 	return a.deps.History.Timeline(ctx, historyTimelineLimit, a.historyOffset)
 }

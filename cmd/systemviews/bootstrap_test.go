@@ -96,6 +96,7 @@ func (f *fakeDOM) Mount(html string) error {
 	return nil
 }
 
+// Handwritten fake to capture bridge state for stateful render assertions.
 type fakeBridgeService struct {
 	calledHistory     bool
 	calledFavorites   bool
@@ -111,6 +112,11 @@ type fakeBridgeService struct {
 }
 
 func (f *fakeBridgeService) Timeline(context.Context, int, int) ([]*entity.HistoryEntry, error) {
+	f.calledHistory = true
+	return f.historyEntries, nil
+}
+
+func (f *fakeBridgeService) TimelineByDomain(context.Context, string, int, int) ([]*entity.HistoryEntry, error) {
 	f.calledHistory = true
 	return f.historyEntries, nil
 }

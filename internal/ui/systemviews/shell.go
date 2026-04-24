@@ -63,11 +63,11 @@ func alertRole(kind string) string {
 }
 
 func buttonClass(extra string) string {
-	classes := strings.TrimSpace("sv-button " + strings.TrimSpace(extra))
-	if classes == "" {
+	extra = strings.TrimSpace(extra)
+	if extra == "" {
 		return "sv-button"
 	}
-	return classes
+	return "sv-button " + extra
 }
 
 func listHTML(rows, emptyMessage string) string {

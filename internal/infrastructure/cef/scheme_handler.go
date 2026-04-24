@@ -500,7 +500,7 @@ func (h *dumbSchemeHandler) handleAsset(u *url.URL) purecef.ResourceHandler {
 	}
 
 	fullPath := filepath.ToSlash(filepath.Join(assetDir, relPath))
-	data, err := fs.ReadFile(h.assets, fullPath)
+	data, headers, err := readAssetWithEncoding(h.assets, fullPath, relPath)
 	if err != nil {
 		h.logger.Debug().Str("path", fullPath).Err(err).Msg("asset not found")
 		return h.newErrorResourceHandler(http.StatusNotFound, "Asset not found")
@@ -513,7 +513,17 @@ func (h *dumbSchemeHandler) handleAsset(u *url.URL) purecef.ResourceHandler {
 		Int("size", len(data)).
 		Msg("serving asset")
 
-	return h.newRawResourceHandler(http.StatusOK, contentType, data)
+	return newStaticResourceHandler(http.StatusOK, contentType, data, headers)
+}
+
+func readAssetWithEncoding(assets embed.FS, fullPath, relPath string) ([]byte, map[string]string, error) {
+	if strings.HasSuffix(relPath, ".wasm") {
+		if data, err := fs.ReadFile(assets, fullPath+".br"); err == nil {
+			return data, map[string]string{"Content-Encoding": "br", "Vary": "Accept-Encoding"}, nil
+		}
+	}
+	data, err := fs.ReadFile(assets, fullPath)
+	return data, nil, err
 }
 
 // resolveAssetPath maps either a dumb:// URL or the actual internal HTTPS URL
@@ -581,7 +591,7 @@ func resolveActualAssetPath(u *url.URL) (assetDir, relPath string, ok bool) {
 	}
 
 	if !strings.Contains(path, "/") && strings.Contains(path, ".") {
-		return assetDirForPageHost(historyPath), path, true
+		return "systemviews", path, true
 	}
 
 	return "", "", false

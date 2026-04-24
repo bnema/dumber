@@ -29,6 +29,7 @@ func RegisterHandlers(ctx context.Context, router port.WebUIHandlerRouter, cfg C
 	// History handlers
 	historyHandlers := NewHistoryHandlers(cfg.HistoryUC)
 	handlers["history_timeline"] = historyHandlers.HandleTimeline()
+	handlers["history_timeline_by_domain"] = historyHandlers.HandleTimelineByDomain()
 	handlers["history_search_fts"] = historyHandlers.HandleSearchFTS()
 	handlers["history_delete_entry"] = historyHandlers.HandleDeleteEntry()
 	handlers["history_delete_range"] = historyHandlers.HandleDeleteRange()

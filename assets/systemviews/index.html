@@ -10,7 +10,22 @@
   <script>
     const go = new Go();
     WebAssembly.instantiateStreaming(fetch('./systemviews.wasm'), go.importObject)
-      .then((result) => go.run(result.instance));
+      .then((result) => go.run(result.instance))
+      .catch((err) => {
+        const app = document.getElementById('app');
+        if (app) {
+          app.innerHTML = '';
+          const message = document.createElement('div');
+          message.className = 'sv-error';
+          const prefix = document.createElement('span');
+          prefix.textContent = 'Failed to load systemviews WebAssembly: ';
+          const details = document.createElement('span');
+          details.textContent = err && err.message ? err.message : String(err);
+          message.append(prefix, details);
+          app.append(message);
+        }
+        console.error('WASM load error:', err);
+      });
   </script>
 </head>
 <body>

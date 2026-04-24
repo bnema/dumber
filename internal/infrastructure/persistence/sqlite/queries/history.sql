@@ -1,6 +1,19 @@
 -- name: GetRecentHistory :many
 SELECT * FROM history ORDER BY last_visited DESC LIMIT ? OFFSET ?;
 
+-- name: GetRecentHistoryByDomain :many
+SELECT * FROM history
+WHERE url LIKE '%://' || @domain || '/%'
+   OR url LIKE '%://' || @domain || '?%'
+   OR url LIKE '%://' || @domain || '#%'
+   OR url LIKE '%://' || @domain
+   OR url LIKE '%://www.' || @domain || '/%'
+   OR url LIKE '%://www.' || @domain || '?%'
+   OR url LIKE '%://www.' || @domain || '#%'
+   OR url LIKE '%://www.' || @domain
+ORDER BY last_visited DESC
+LIMIT @limit OFFSET @offset;
+
 -- name: GetHistoryByURL :one
 SELECT * FROM history WHERE url = ? LIMIT 1;
 
@@ -52,7 +65,15 @@ SELECT CAST(strftime('%H', last_visited) AS INTEGER) as hour, COUNT(*) as visit_
 SELECT date(last_visited) as day, COUNT(*) as entries, SUM(visit_count) as visits FROM history WHERE last_visited >= date('now', ?) GROUP BY day ORDER BY day ASC;
 
 -- name: DeleteHistoryByDomain :exec
-DELETE FROM history WHERE url LIKE '%://' || ? || '/%' OR url LIKE '%://' || ? || '?%' OR url LIKE '%://' || ? || '#%' OR url LIKE '%://' || ?;
+DELETE FROM history
+WHERE url LIKE '%://' || @domain || '/%'
+   OR url LIKE '%://' || @domain || '?%'
+   OR url LIKE '%://' || @domain || '#%'
+   OR url LIKE '%://' || @domain
+   OR url LIKE '%://www.' || @domain || '/%'
+   OR url LIKE '%://www.' || @domain || '?%'
+   OR url LIKE '%://www.' || @domain || '#%'
+   OR url LIKE '%://www.' || @domain;
 
 -- name: SearchHistoryFTSUrl :many
 SELECT h.id, h.url, h.title, h.favicon_url, h.visit_count, h.last_visited, h.created_at

@@ -149,6 +149,13 @@ func (r *LazyHistoryRepository) GetRecent(ctx context.Context, limit, offset int
 	return r.repo.GetRecent(ctx, limit, offset)
 }
 
+func (r *LazyHistoryRepository) GetRecentByDomain(ctx context.Context, domain string, limit, offset int) ([]*entity.HistoryEntry, error) {
+	if err := r.init(ctx); err != nil {
+		return nil, err
+	}
+	return r.repo.GetRecentByDomain(ctx, domain, limit, offset)
+}
+
 func (r *LazyHistoryRepository) GetRecentSince(ctx context.Context, days int) ([]*entity.HistoryEntry, error) {
 	if err := r.init(ctx); err != nil {
 		return nil, err

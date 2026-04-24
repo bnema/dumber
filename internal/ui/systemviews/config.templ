@@ -71,11 +71,12 @@ templ SearchSettings(config port.SystemviewConfigPayload) {
 			<label><span>Description</span><input name="description" type="text" placeholder="DuckDuckGo"/></label>
 			<button class="sv-button sv-button-secondary" type="submit">Add shortcut</button>
 		</form>
-		if len(searchShortcutRows(config.SearchShortcuts)) == 0 {
+		{{ shortcuts := searchShortcutRows(config.SearchShortcuts) }}
+		if len(shortcuts) == 0 {
 			@EmptyState("No search shortcuts configured")
 		} else {
 			<ul class="sv-list">
-				for _, shortcut := range searchShortcutRows(config.SearchShortcuts) {
+				for _, shortcut := range shortcuts {
 					@SearchShortcutItem(shortcut)
 				}
 			</ul>
@@ -126,14 +127,14 @@ templ PerformanceSettings(config port.SystemviewConfigPayload) {
 
 templ ConfigKeybindings(keybindings port.KeybindingsConfig) {
 	{{ groups := configKeybindingGroups(keybindings) }}
-	<div class="sv-button-row">
-		<button class="sv-button sv-button-secondary sv-button-danger" type="button" data-sv-action="config.keybinding.resetAll" data-sv-confirm="Reset all keybindings to defaults?">Reset all keybindings</button>
-	</div>
 	if groups == nil {
 		@EmptyState("Keybindings unavailable")
 	} else if len(groups) == 0 {
 		@EmptyState("No keybindings configured")
 	} else {
+		<div class="sv-button-row">
+			<button class="sv-button sv-button-secondary sv-button-danger" type="button" data-sv-action="config.keybinding.resetAll" data-sv-confirm="Reset all keybindings to defaults?">Reset all keybindings</button>
+		</div>
 		for _, group := range groups {
 			@ConfigKeybindingGroup(group)
 		}

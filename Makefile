@@ -56,6 +56,7 @@ build-systemviews: generate-systemviews ## Build the WASM systemviews runtime
 	@mkdir -p assets/systemviews
 	@cp "$$(go env GOROOT)/lib/wasm/wasm_exec.js" assets/systemviews/wasm_exec.js
 	GOOS=js GOARCH=wasm go build -o assets/systemviews/systemviews.wasm ./cmd/systemviews
+	brotli -f assets/systemviews/systemviews.wasm -o assets/systemviews/systemviews.wasm.br
 	@echo "Systemviews build complete"
 
 build-quick: ## Build quickly for backend development

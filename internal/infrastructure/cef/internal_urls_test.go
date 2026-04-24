@@ -19,11 +19,6 @@ func TestToActualInternalURL(t *testing.T) {
 			want: "https://dumber.invalid/history",
 		},
 		{
-			name: "history page root",
-			in:   "dumb://history",
-			want: "https://dumber.invalid/history",
-		},
-		{
 			name: "error page root",
 			in:   "dumb://error",
 			want: "https://dumber.invalid/error",
@@ -151,11 +146,6 @@ func TestToConceptualInternalURL(t *testing.T) {
 	}{
 		{
 			name: "page root",
-			in:   "https://dumber.invalid/history",
-			want: "dumb://history",
-		},
-		{
-			name: "history page root",
 			in:   "https://dumber.invalid/history",
 			want: "dumb://history",
 		},

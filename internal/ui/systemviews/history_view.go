@@ -220,7 +220,7 @@ func historyDomainActionKey(domain *entity.DomainStat) string {
 	if domain == nil {
 		return ""
 	}
-	return strings.TrimSpace(domain.Domain)
+	return browserurl.CanonicalDomain(domain.Domain)
 }
 
 func historyDomainDisplayLabel(domain *entity.DomainStat) string {
@@ -266,7 +266,7 @@ func historyItemMeta(entry *entity.HistoryEntry) string {
 }
 
 func nonEmptyStrings(values []string) []string {
-	out := values[:0]
+	out := make([]string, 0, len(values))
 	for _, value := range values {
 		if strings.TrimSpace(value) != "" {
 			out = append(out, value)

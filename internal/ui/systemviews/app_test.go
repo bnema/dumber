@@ -110,7 +110,7 @@ func TestAppLoadInitialHistoryRouteRendersManagementActions(t *testing.T) {
 	assert.Contains(t, app.renderedHTML, `data-range="hour"`)
 	assert.Contains(t, app.renderedHTML, `data-sv-action="history.filterDomain"`)
 	assert.Contains(t, app.renderedHTML, `data-sv-action="history.deleteDomain"`)
-	assert.Contains(t, app.renderedHTML, `data-domain="www.example.com:8080"`)
+	assert.Contains(t, app.renderedHTML, `data-domain="example.com:8080"`)
 	assert.Contains(t, app.renderedHTML, `>example.com</button>`)
 	assert.Contains(t, app.renderedHTML, "Keys:")
 	assert.Contains(t, app.renderedHTML, "Enter")
@@ -146,6 +146,14 @@ func TestAppHandleHistoryActionsRefreshesDOM(t *testing.T) {
 	}))
 	assert.Equal(t, "week", history.deletedRangeID)
 	assert.Contains(t, dom.html, "Deleted history from this week")
+
+	require.NoError(t, app.HandleDOMAction(context.Background(), DOMAction{Action: historyActionClear}))
+	require.NoError(t, app.HandleDOMAction(context.Background(), DOMAction{
+		Action: historyActionFilterDomain,
+		Data:   map[string]string{"domain": "example.com"},
+	}))
+	assert.True(t, history.domainCalled)
+	assert.Equal(t, "example.com", history.domain)
 
 	require.NoError(t, app.HandleDOMAction(context.Background(), DOMAction{
 		Action: historyActionDeleteDomain,
@@ -319,6 +327,22 @@ func TestAppHandleFavoriteActionsRefreshesDOM(t *testing.T) {
 	}))
 	assert.Equal(t, int64(42), favorites.assignedFavoriteID)
 	assert.Equal(t, int64(7), favorites.assignedTagID)
+
+	require.NoError(t, app.HandleDOMAction(context.Background(), DOMAction{
+		Action: favoriteActionFilterFolder,
+		Data:   map[string]string{"folderId": "5"},
+	}))
+	require.NotNil(t, app.favoriteFolderFilter)
+	assert.Equal(t, entity.FolderID(5), *app.favoriteFolderFilter)
+	assert.Nil(t, app.favoriteTagFilter)
+
+	require.NoError(t, app.HandleDOMAction(context.Background(), DOMAction{
+		Action: favoriteActionFilterTag,
+		Data:   map[string]string{"tagId": "7"},
+	}))
+	require.NotNil(t, app.favoriteTagFilter)
+	assert.Equal(t, entity.TagID(7), *app.favoriteTagFilter)
+	assert.Nil(t, app.favoriteFolderFilter)
 
 	require.NoError(t, app.HandleDOMAction(context.Background(), DOMAction{
 		Action: favoriteActionDelete,
@@ -591,6 +615,7 @@ func testDefaultConfigPayload() port.SystemviewConfigPayload {
 	return cfg
 }
 
+// Handwritten fake to capture DOM mounts for stateful render assertions.
 type fakeDOM struct {
 	mounted bool
 	html    string
@@ -602,12 +627,15 @@ func (d *fakeDOM) Mount(html string) error {
 	return nil
 }
 
+// Handwritten fake to capture history state for stateful render assertions.
 type fakeHistoryService struct {
-	called  bool
-	limit   int
-	offset  int
-	entries []*entity.HistoryEntry
-	err     error
+	called       bool
+	limit        int
+	offset       int
+	entries      []*entity.HistoryEntry
+	err          error
+	domainCalled bool
+	domain       string
 
 	searchCalled  bool
 	query         string
@@ -622,6 +650,14 @@ type fakeHistoryService struct {
 
 func (s *fakeHistoryService) Timeline(_ context.Context, limit, offset int) ([]*entity.HistoryEntry, error) {
 	s.called = true
+	s.limit = limit
+	s.offset = offset
+	return s.entries, s.err
+}
+
+func (s *fakeHistoryService) TimelineByDomain(_ context.Context, domain string, limit, offset int) ([]*entity.HistoryEntry, error) {
+	s.domainCalled = true
+	s.domain = domain
 	s.limit = limit
 	s.offset = offset
 	return s.entries, s.err
@@ -660,6 +696,7 @@ func (s *fakeHistoryService) DeleteDomain(_ context.Context, domain string) erro
 	return nil
 }
 
+// Handwritten fake to capture favorites state for stateful render assertions.
 type fakeFavoritesService struct {
 	calledList    bool
 	calledFolders bool
@@ -759,6 +796,7 @@ func (s *fakeFavoritesService) RemoveTag(_ context.Context, favoriteID, tagID in
 	return nil
 }
 
+// Handwritten fake to capture config state for stateful render assertions.
 type fakeConfigService struct {
 	calledCurrent     bool
 	calledDefault     bool

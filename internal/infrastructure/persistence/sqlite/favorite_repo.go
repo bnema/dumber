@@ -14,12 +14,13 @@ import (
 // ==================== Favorite Repository ====================
 
 type favoriteRepo struct {
+	db      *sql.DB
 	queries *sqlc.Queries
 }
 
 // NewFavoriteRepository creates a new SQLite-backed favorite repository.
 func NewFavoriteRepository(db *sql.DB) repository.FavoriteRepository {
-	return &favoriteRepo{queries: sqlc.New(db)}
+	return &favoriteRepo{db: db, queries: sqlc.New(db)}
 }
 
 func (r *favoriteRepo) Save(ctx context.Context, fav *entity.Favorite) error {
@@ -32,20 +33,7 @@ func (r *favoriteRepo) Save(ctx context.Context, fav *entity.Favorite) error {
 	}
 
 	if fav.ID > 0 {
-		if err := r.queries.UpdateFavorite(ctx, sqlc.UpdateFavoriteParams{
-			Title:      sql.NullString{String: fav.Title, Valid: fav.Title != ""},
-			FaviconUrl: sql.NullString{String: fav.FaviconURL, Valid: fav.FaviconURL != ""},
-			ID:         int64(fav.ID),
-		}); err != nil {
-			return err
-		}
-		if err := r.queries.SetFavoriteFolder(ctx, sqlc.SetFavoriteFolderParams{FolderID: folderID, ID: int64(fav.ID)}); err != nil {
-			return err
-		}
-		return r.queries.SetFavoriteShortcut(ctx, sqlc.SetFavoriteShortcutParams{
-			ShortcutKey: sql.NullInt64{Int64: int64Value(fav.ShortcutKey), Valid: fav.ShortcutKey != nil},
-			ID:          int64(fav.ID),
-		})
+		return r.updateExisting(ctx, fav, folderID)
 	}
 
 	row, err := r.queries.CreateFavorite(ctx, sqlc.CreateFavoriteParams{
@@ -59,6 +47,38 @@ func (r *favoriteRepo) Save(ctx context.Context, fav *entity.Favorite) error {
 	}
 	fav.ID = entity.FavoriteID(row.ID)
 	return nil
+}
+
+func (r *favoriteRepo) updateExisting(ctx context.Context, fav *entity.Favorite, folderID sql.NullInt64) error {
+	log := logging.FromContext(ctx)
+	tx, err := r.db.BeginTx(ctx, nil)
+	if err != nil {
+		return err
+	}
+	defer func() {
+		if rollbackErr := tx.Rollback(); rollbackErr != nil && !errors.Is(rollbackErr, sql.ErrTxDone) {
+			log.Debug().Err(rollbackErr).Msg("favorite update rollback reported non-terminal error")
+		}
+	}()
+
+	queries := r.queries.WithTx(tx)
+	if err := queries.UpdateFavorite(ctx, sqlc.UpdateFavoriteParams{
+		Title:      sql.NullString{String: fav.Title, Valid: fav.Title != ""},
+		FaviconUrl: sql.NullString{String: fav.FaviconURL, Valid: fav.FaviconURL != ""},
+		ID:         int64(fav.ID),
+	}); err != nil {
+		return err
+	}
+	if err := queries.SetFavoriteFolder(ctx, sqlc.SetFavoriteFolderParams{FolderID: folderID, ID: int64(fav.ID)}); err != nil {
+		return err
+	}
+	if err := queries.SetFavoriteShortcut(ctx, sqlc.SetFavoriteShortcutParams{
+		ShortcutKey: sql.NullInt64{Int64: int64Value(fav.ShortcutKey), Valid: fav.ShortcutKey != nil},
+		ID:          int64(fav.ID),
+	}); err != nil {
+		return err
+	}
+	return tx.Commit()
 }
 
 func int64Value(value *int) int64 {

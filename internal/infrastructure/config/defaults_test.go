@@ -4,6 +4,7 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func TestDefaultConfig_CoreDefaults(t *testing.T) {
@@ -38,6 +39,6 @@ func TestDefaultConfig_CoreDefaults(t *testing.T) {
 func requireActionBinding(t *testing.T, actions map[string]ActionBinding, action string, keys []string) {
 	t.Helper()
 	binding, ok := actions[action]
-	assert.True(t, ok, "missing action binding %q", action)
+	require.True(t, ok, "missing action binding %q", action)
 	assert.Equal(t, keys, binding.Keys)
 }

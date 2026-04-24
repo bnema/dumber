@@ -34,6 +34,7 @@ func TestReadSystemviewConfigUseCase_Default(t *testing.T) {
 	require.Equal(t, []string{"default"}, reader.calls)
 }
 
+// Handwritten fake to capture stateful config reads for assertions.
 type stubSystemviewConfigReader struct {
 	current        port.SystemviewConfigPayload
 	defaultPayload port.SystemviewConfigPayload

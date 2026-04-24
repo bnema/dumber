@@ -2661,6 +2661,86 @@ func (_c *MockHistoryRepository_GetRecent_Call) RunAndReturn(run func(ctx contex
 	return _c
 }
 
+// GetRecentByDomain provides a mock function for the type MockHistoryRepository
+func (_mock *MockHistoryRepository) GetRecentByDomain(ctx context.Context, domain string, limit int, offset int) ([]*entity.HistoryEntry, error) {
+	ret := _mock.Called(ctx, domain, limit, offset)
+
+	if len(ret) == 0 {
+		panic("no return value specified for GetRecentByDomain")
+	}
+
+	var r0 []*entity.HistoryEntry
+	var r1 error
+	if returnFunc, ok := ret.Get(0).(func(context.Context, string, int, int) ([]*entity.HistoryEntry, error)); ok {
+		return returnFunc(ctx, domain, limit, offset)
+	}
+	if returnFunc, ok := ret.Get(0).(func(context.Context, string, int, int) []*entity.HistoryEntry); ok {
+		r0 = returnFunc(ctx, domain, limit, offset)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).([]*entity.HistoryEntry)
+		}
+	}
+	if returnFunc, ok := ret.Get(1).(func(context.Context, string, int, int) error); ok {
+		r1 = returnFunc(ctx, domain, limit, offset)
+	} else {
+		r1 = ret.Error(1)
+	}
+	return r0, r1
+}
+
+// MockHistoryRepository_GetRecentByDomain_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'GetRecentByDomain'
+type MockHistoryRepository_GetRecentByDomain_Call struct {
+	*mock.Call
+}
+
+// GetRecentByDomain is a helper method to define mock.On call
+//   - ctx context.Context
+//   - domain string
+//   - limit int
+//   - offset int
+func (_e *MockHistoryRepository_Expecter) GetRecentByDomain(ctx interface{}, domain interface{}, limit interface{}, offset interface{}) *MockHistoryRepository_GetRecentByDomain_Call {
+	return &MockHistoryRepository_GetRecentByDomain_Call{Call: _e.mock.On("GetRecentByDomain", ctx, domain, limit, offset)}
+}
+
+func (_c *MockHistoryRepository_GetRecentByDomain_Call) Run(run func(ctx context.Context, domain string, limit int, offset int)) *MockHistoryRepository_GetRecentByDomain_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		var arg0 context.Context
+		if args[0] != nil {
+			arg0 = args[0].(context.Context)
+		}
+		var arg1 string
+		if args[1] != nil {
+			arg1 = args[1].(string)
+		}
+		var arg2 int
+		if args[2] != nil {
+			arg2 = args[2].(int)
+		}
+		var arg3 int
+		if args[3] != nil {
+			arg3 = args[3].(int)
+		}
+		run(
+			arg0,
+			arg1,
+			arg2,
+			arg3,
+		)
+	})
+	return _c
+}
+
+func (_c *MockHistoryRepository_GetRecentByDomain_Call) Return(historyEntrys []*entity.HistoryEntry, err error) *MockHistoryRepository_GetRecentByDomain_Call {
+	_c.Call.Return(historyEntrys, err)
+	return _c
+}
+
+func (_c *MockHistoryRepository_GetRecentByDomain_Call) RunAndReturn(run func(ctx context.Context, domain string, limit int, offset int) ([]*entity.HistoryEntry, error)) *MockHistoryRepository_GetRecentByDomain_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
 // GetRecentSince provides a mock function for the type MockHistoryRepository
 func (_mock *MockHistoryRepository) GetRecentSince(ctx context.Context, days int) ([]*entity.HistoryEntry, error) {
 	ret := _mock.Called(ctx, days)

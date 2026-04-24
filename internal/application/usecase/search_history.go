@@ -9,6 +9,7 @@ import (
 	"github.com/bnema/dumber/internal/domain/entity"
 	historydomain "github.com/bnema/dumber/internal/domain/history"
 	"github.com/bnema/dumber/internal/domain/repository"
+	domainurl "github.com/bnema/dumber/internal/domain/url"
 	"github.com/bnema/dumber/internal/logging"
 )
 
@@ -72,6 +73,23 @@ func (uc *SearchHistoryUseCase) GetRecent(ctx context.Context, limit, offset int
 		return nil, fmt.Errorf("failed to get recent history: %w", err)
 	}
 
+	return entries, nil
+}
+
+// GetRecentByDomain retrieves recent history entries for a canonical domain with pagination.
+func (uc *SearchHistoryUseCase) GetRecentByDomain(ctx context.Context, domain string, limit, offset int) ([]*entity.HistoryEntry, error) {
+	if limit <= 0 {
+		limit = 50
+	}
+	domain = domainurl.CanonicalDomain(domain)
+	if domain == "" {
+		return nil, fmt.Errorf("domain is required")
+	}
+
+	entries, err := uc.historyRepo.GetRecentByDomain(ctx, domain, limit, offset)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get recent history by domain: %w", err)
+	}
 	return entries, nil
 }
 
@@ -196,6 +214,11 @@ func (uc *SearchHistoryUseCase) Delete(ctx context.Context, id int64) error {
 
 // DeleteByDomain removes all history entries for a domain.
 func (uc *SearchHistoryUseCase) DeleteByDomain(ctx context.Context, domain string) error {
+	domain = domainurl.CanonicalDomain(domain)
+	if domain == "" {
+		return fmt.Errorf("domain is required")
+	}
+
 	log := logging.FromContext(ctx)
 	log.Debug().Str("domain", domain).Msg("deleting history by domain")
 

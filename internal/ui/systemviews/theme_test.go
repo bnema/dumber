@@ -56,9 +56,10 @@ func TestResolveShellTheme(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			currentPrefersDarkImpl = func() bool { return tt.prefersDark }
-			appearance.ColorScheme = tt.colorScheme
+			ttAppearance := appearance
+			ttAppearance.ColorScheme = tt.colorScheme
 
-			got := resolveShellTheme(appearance)
+			got := resolveShellTheme(ttAppearance)
 
 			assert.Equal(t, tt.wantClass, got.RootClass)
 			assert.Contains(t, got.InlineVars, "--sv-background")

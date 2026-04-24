@@ -81,7 +81,7 @@ func (a *App) handleFavoriteAction(ctx context.Context, event DOMAction) error {
 		}
 		a.favoritesNotice = "Deleted favorite"
 	case favoriteActionFilterFolder:
-		folderID, err := filterFolderID(data["folder_id"])
+		folderID, err := filterFolderID(firstActionValue(data, "folderId", "folder_id"))
 		if err != nil {
 			return err
 		}
@@ -89,7 +89,7 @@ func (a *App) handleFavoriteAction(ctx context.Context, event DOMAction) error {
 		a.favoriteTagFilter = nil
 		a.favoritesNotice = ""
 	case favoriteActionFilterTag:
-		tagID, err := parsePositiveInt64(data["tag_id"], "tag id")
+		tagID, err := parsePositiveInt64(firstActionValue(data, "tagId", "tag_id"), "tag id")
 		if err != nil {
 			return err
 		}
@@ -189,6 +189,15 @@ func (a *App) handleFavoriteAction(ctx context.Context, event DOMAction) error {
 		}
 	}
 	return nil
+}
+
+func firstActionValue(data map[string]string, keys ...string) string {
+	for _, key := range keys {
+		if value, ok := data[key]; ok {
+			return value
+		}
+	}
+	return ""
 }
 
 func parsePositiveInt64(raw, label string) (int64, error) {

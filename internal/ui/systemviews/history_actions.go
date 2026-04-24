@@ -114,6 +114,9 @@ func (a *App) handleHistoryAction(ctx context.Context, event DOMAction) error {
 		a.historyNotice = "Deleted history entry"
 	case historyActionDeleteRange:
 		rangeID := strings.TrimSpace(data["range"])
+		if rangeID == "" {
+			return fmt.Errorf("history range is required")
+		}
 		if err := a.deps.History.DeleteRange(ctx, rangeID); err != nil {
 			return err
 		}

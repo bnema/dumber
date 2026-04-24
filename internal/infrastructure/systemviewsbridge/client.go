@@ -64,6 +64,15 @@ func (c *Client) Timeline(ctx context.Context, limit, offset int) ([]*entity.His
 	}{RequestID: nextRequestID(), Limit: limit, Offset: offset})
 }
 
+func (c *Client) TimelineByDomain(ctx context.Context, domain string, limit, offset int) ([]*entity.HistoryEntry, error) {
+	return request[[]*entity.HistoryEntry](c, ctx, "history_timeline_by_domain", struct {
+		RequestID string `json:"requestId"`
+		Domain    string `json:"domain"`
+		Limit     int    `json:"limit"`
+		Offset    int    `json:"offset"`
+	}{RequestID: nextRequestID(), Domain: domain, Limit: limit, Offset: offset})
+}
+
 func (c *Client) Search(ctx context.Context, query string, limit int) ([]*entity.HistoryEntry, error) {
 	return request[[]*entity.HistoryEntry](c, ctx, "history_search_fts", struct {
 		RequestID string `json:"requestId"`
@@ -346,7 +355,7 @@ func (c *Client) transport() Transport {
 	if c.native != nil && c.native.Available() {
 		return c.native
 	}
-	if c.fetch != nil {
+	if c.fetch != nil && c.fetch.Available() {
 		return c.fetch
 	}
 	return nil

@@ -95,12 +95,14 @@ func validWebUIConfig() port.WebUIConfig {
 	}
 }
 
+// Handwritten fake to preserve stateful save assertions without mock generation.
 type fakeWebUIConfigSaver struct{}
 
 func (fakeWebUIConfigSaver) SaveWebUIConfig(context.Context, port.WebUIConfig) error {
 	return nil
 }
 
+// Handwritten fake to capture the saved config state for assertions.
 type capturingWebUIConfigSaver struct {
 	saved port.WebUIConfig
 }

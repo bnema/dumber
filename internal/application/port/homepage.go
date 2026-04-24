@@ -21,6 +21,7 @@ type HistorySearchOutput struct {
 // HomepageHistory provides history operations needed by the WebUI homepage handlers.
 type HomepageHistory interface {
 	GetRecent(ctx context.Context, limit, offset int) ([]*entity.HistoryEntry, error)
+	GetRecentByDomain(ctx context.Context, domain string, limit, offset int) ([]*entity.HistoryEntry, error)
 	Search(ctx context.Context, input HistorySearchInput) (*HistorySearchOutput, error)
 	Delete(ctx context.Context, id int64) error
 	ClearRange(ctx context.Context, rangeID string) error

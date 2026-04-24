@@ -26,6 +26,13 @@ type timelineRequest struct {
 	Offset    int    `json:"offset"`
 }
 
+type timelineByDomainRequest struct {
+	RequestID string `json:"requestId"`
+	Domain    string `json:"domain"`
+	Limit     int    `json:"limit"`
+	Offset    int    `json:"offset"`
+}
+
 // HandleTimeline handles history_timeline messages.
 func (h *HistoryHandlers) HandleTimeline() port.WebUIMessageHandler {
 	return port.WebUIMessageHandlerFunc(func(ctx context.Context, _ port.WebViewID, payload json.RawMessage) (any, error) {
@@ -43,6 +50,32 @@ func (h *HistoryHandlers) HandleTimeline() port.WebUIMessageHandler {
 			Msg("handling history_timeline")
 
 		entries, err := h.historyUC.GetRecent(ctx, req.Limit, req.Offset)
+		if err != nil {
+			return NewErrorResponse(req.RequestID, err), nil
+		}
+
+		return NewSuccessResponse(req.RequestID, entries), nil
+	})
+}
+
+// HandleTimelineByDomain handles history_timeline_by_domain messages.
+func (h *HistoryHandlers) HandleTimelineByDomain() port.WebUIMessageHandler {
+	return port.WebUIMessageHandlerFunc(func(ctx context.Context, _ port.WebViewID, payload json.RawMessage) (any, error) {
+		log := logging.FromContext(ctx)
+
+		var req timelineByDomainRequest
+		if err := json.Unmarshal(payload, &req); err != nil {
+			return NewErrorResponse("", err), nil
+		}
+
+		log.Debug().
+			Str("request_id", req.RequestID).
+			Str("domain", req.Domain).
+			Int("limit", req.Limit).
+			Int("offset", req.Offset).
+			Msg("handling history_timeline_by_domain")
+
+		entries, err := h.historyUC.GetRecentByDomain(ctx, req.Domain, req.Limit, req.Offset)
 		if err != nil {
 			return NewErrorResponse(req.RequestID, err), nil
 		}

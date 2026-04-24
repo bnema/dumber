@@ -558,7 +558,8 @@ func SearchSettings(config port.SystemviewConfigPayload) templ.Component {
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		if len(searchShortcutRows(config.SearchShortcuts)) == 0 {
+		shortcuts := searchShortcutRows(config.SearchShortcuts)
+		if len(shortcuts) == 0 {
 			templ_7745c5c3_Err = EmptyState("No search shortcuts configured").Render(ctx, templ_7745c5c3_Buffer)
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
@@ -568,7 +569,7 @@ func SearchSettings(config port.SystemviewConfigPayload) templ.Component {
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
-			for _, shortcut := range searchShortcutRows(config.SearchShortcuts) {
+			for _, shortcut := range shortcuts {
 				templ_7745c5c3_Err = SearchShortcutItem(shortcut).Render(ctx, templ_7745c5c3_Buffer)
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
@@ -615,7 +616,7 @@ func SearchShortcutItem(shortcut searchShortcutRow) templ.Component {
 		var templ_7745c5c3_Var32 string
 		templ_7745c5c3_Var32, templ_7745c5c3_Err = templ.JoinStringErrs(shortcut.Key)
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `config.templ`, Line: 89, Col: 55}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `config.templ`, Line: 90, Col: 55}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var32))
 		if templ_7745c5c3_Err != nil {
@@ -628,7 +629,7 @@ func SearchShortcutItem(shortcut searchShortcutRow) templ.Component {
 		var templ_7745c5c3_Var33 string
 		templ_7745c5c3_Var33, templ_7745c5c3_Err = templ.JoinStringErrs(shortcut.Key)
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `config.templ`, Line: 90, Col: 80}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `config.templ`, Line: 91, Col: 80}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var33))
 		if templ_7745c5c3_Err != nil {
@@ -641,7 +642,7 @@ func SearchShortcutItem(shortcut searchShortcutRow) templ.Component {
 		var templ_7745c5c3_Var34 string
 		templ_7745c5c3_Var34, templ_7745c5c3_Err = templ.JoinStringErrs(shortcut.URL)
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `config.templ`, Line: 91, Col: 76}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `config.templ`, Line: 92, Col: 76}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var34))
 		if templ_7745c5c3_Err != nil {
@@ -654,7 +655,7 @@ func SearchShortcutItem(shortcut searchShortcutRow) templ.Component {
 		var templ_7745c5c3_Var35 string
 		templ_7745c5c3_Var35, templ_7745c5c3_Err = templ.JoinStringErrs(shortcut.Description)
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `config.templ`, Line: 92, Col: 100}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `config.templ`, Line: 93, Col: 100}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var35))
 		if templ_7745c5c3_Err != nil {
@@ -667,7 +668,7 @@ func SearchShortcutItem(shortcut searchShortcutRow) templ.Component {
 		var templ_7745c5c3_Var36 string
 		templ_7745c5c3_Var36, templ_7745c5c3_Err = templ.JoinStringErrs(shortcut.Key)
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `config.templ`, Line: 94, Col: 149}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `config.templ`, Line: 95, Col: 149}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var36))
 		if templ_7745c5c3_Err != nil {
@@ -749,7 +750,7 @@ func PerformanceSettings(config port.SystemviewConfigPayload) templ.Component {
 		var templ_7745c5c3_Var38 string
 		templ_7745c5c3_Var38, templ_7745c5c3_Err = templ.JoinStringErrs(formatConfigInt(config.Performance.Custom.SkiaCPUThreads))
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `config.templ`, Line: 107, Col: 164}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `config.templ`, Line: 108, Col: 164}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var38))
 		if templ_7745c5c3_Err != nil {
@@ -762,7 +763,7 @@ func PerformanceSettings(config port.SystemviewConfigPayload) templ.Component {
 		var templ_7745c5c3_Var39 string
 		templ_7745c5c3_Var39, templ_7745c5c3_Err = templ.JoinStringErrs(formatConfigInt(config.Performance.Custom.SkiaGPUThreads))
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `config.templ`, Line: 108, Col: 165}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `config.templ`, Line: 109, Col: 165}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var39))
 		if templ_7745c5c3_Err != nil {
@@ -775,7 +776,7 @@ func PerformanceSettings(config port.SystemviewConfigPayload) templ.Component {
 		var templ_7745c5c3_Var40 string
 		templ_7745c5c3_Var40, templ_7745c5c3_Err = templ.JoinStringErrs(formatConfigInt(config.Performance.Custom.WebProcessMemoryMB))
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `config.templ`, Line: 109, Col: 182}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `config.templ`, Line: 110, Col: 182}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var40))
 		if templ_7745c5c3_Err != nil {
@@ -788,7 +789,7 @@ func PerformanceSettings(config port.SystemviewConfigPayload) templ.Component {
 		var templ_7745c5c3_Var41 string
 		templ_7745c5c3_Var41, templ_7745c5c3_Err = templ.JoinStringErrs(formatConfigInt(config.Performance.Custom.NetworkProcessMemoryMB))
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `config.templ`, Line: 110, Col: 193}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `config.templ`, Line: 111, Col: 193}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var41))
 		if templ_7745c5c3_Err != nil {
@@ -801,7 +802,7 @@ func PerformanceSettings(config port.SystemviewConfigPayload) templ.Component {
 		var templ_7745c5c3_Var42 string
 		templ_7745c5c3_Var42, templ_7745c5c3_Err = templ.JoinStringErrs(formatConfigInt(config.Performance.Custom.WebViewPoolPrewarm))
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `config.templ`, Line: 111, Col: 177}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `config.templ`, Line: 112, Col: 177}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var42))
 		if templ_7745c5c3_Err != nil {
@@ -814,7 +815,7 @@ func PerformanceSettings(config port.SystemviewConfigPayload) templ.Component {
 		var templ_7745c5c3_Var43 string
 		templ_7745c5c3_Var43, templ_7745c5c3_Err = templ.JoinStringErrs(formatConfigInt(config.Performance.Hardware.CPUThreads))
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `config.templ`, Line: 115, Col: 113}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `config.templ`, Line: 116, Col: 113}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var43))
 		if templ_7745c5c3_Err != nil {
@@ -827,7 +828,7 @@ func PerformanceSettings(config port.SystemviewConfigPayload) templ.Component {
 		var templ_7745c5c3_Var44 string
 		templ_7745c5c3_Var44, templ_7745c5c3_Err = templ.JoinStringErrs(formatConfigInt(config.Performance.Hardware.TotalRAMMB))
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `config.templ`, Line: 116, Col: 113}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `config.templ`, Line: 117, Col: 113}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var44))
 		if templ_7745c5c3_Err != nil {
@@ -840,7 +841,7 @@ func PerformanceSettings(config port.SystemviewConfigPayload) templ.Component {
 		var templ_7745c5c3_Var45 string
 		templ_7745c5c3_Var45, templ_7745c5c3_Err = templ.JoinStringErrs(config.Performance.Hardware.GPUName)
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `config.templ`, Line: 117, Col: 93}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `config.templ`, Line: 118, Col: 93}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var45))
 		if templ_7745c5c3_Err != nil {
@@ -853,7 +854,7 @@ func PerformanceSettings(config port.SystemviewConfigPayload) templ.Component {
 		var templ_7745c5c3_Var46 string
 		templ_7745c5c3_Var46, templ_7745c5c3_Err = templ.JoinStringErrs(config.EngineType)
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `config.templ`, Line: 118, Col: 75}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `config.templ`, Line: 119, Col: 75}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var46))
 		if templ_7745c5c3_Err != nil {
@@ -900,10 +901,6 @@ func ConfigKeybindings(keybindings port.KeybindingsConfig) templ.Component {
 		}
 		ctx = templ.ClearChildren(ctx)
 		groups := configKeybindingGroups(keybindings)
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 62, "<div class=\"sv-button-row\"><button class=\"sv-button sv-button-secondary sv-button-danger\" type=\"button\" data-sv-action=\"config.keybinding.resetAll\" data-sv-confirm=\"Reset all keybindings to defaults?\">Reset all keybindings</button></div>")
-		if templ_7745c5c3_Err != nil {
-			return templ_7745c5c3_Err
-		}
 		if groups == nil {
 			templ_7745c5c3_Err = EmptyState("Keybindings unavailable").Render(ctx, templ_7745c5c3_Buffer)
 			if templ_7745c5c3_Err != nil {
@@ -915,6 +912,10 @@ func ConfigKeybindings(keybindings port.KeybindingsConfig) templ.Component {
 				return templ_7745c5c3_Err
 			}
 		} else {
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 62, "<div class=\"sv-button-row\"><button class=\"sv-button sv-button-secondary sv-button-danger\" type=\"button\" data-sv-action=\"config.keybinding.resetAll\" data-sv-confirm=\"Reset all keybindings to defaults?\">Reset all keybindings</button></div>")
+			if templ_7745c5c3_Err != nil {
+				return templ_7745c5c3_Err
+			}
 			for _, group := range groups {
 				templ_7745c5c3_Err = ConfigKeybindingGroup(group).Render(ctx, templ_7745c5c3_Buffer)
 				if templ_7745c5c3_Err != nil {
@@ -954,7 +955,7 @@ func ConfigKeybindingGroup(group renderedKeybindingGroup) templ.Component {
 		var templ_7745c5c3_Var49 string
 		templ_7745c5c3_Var49, templ_7745c5c3_Err = templ.JoinStringErrs(keybindingGroupTitle(group))
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `config.templ`, Line: 147, Col: 37}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `config.templ`, Line: 148, Col: 37}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var49))
 		if templ_7745c5c3_Err != nil {
@@ -972,7 +973,7 @@ func ConfigKeybindingGroup(group renderedKeybindingGroup) templ.Component {
 			var templ_7745c5c3_Var50 string
 			templ_7745c5c3_Var50, templ_7745c5c3_Err = templ.JoinStringErrs(keybindingGroupMeta(group))
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `config.templ`, Line: 149, Col: 52}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `config.templ`, Line: 150, Col: 52}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var50))
 			if templ_7745c5c3_Err != nil {
@@ -1044,7 +1045,7 @@ func ConfigKeybinding(group renderedKeybindingGroup, binding renderedKeybinding)
 		var templ_7745c5c3_Var52 string
 		templ_7745c5c3_Var52, templ_7745c5c3_Err = templ.JoinStringErrs(keybindingDescription(binding))
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `config.templ`, Line: 171, Col: 44}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `config.templ`, Line: 172, Col: 44}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var52))
 		if templ_7745c5c3_Err != nil {
@@ -1057,7 +1058,7 @@ func ConfigKeybinding(group renderedKeybindingGroup, binding renderedKeybinding)
 		var templ_7745c5c3_Var53 string
 		templ_7745c5c3_Var53, templ_7745c5c3_Err = templ.JoinStringErrs(keybindingAction(binding))
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `config.templ`, Line: 172, Col: 50}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `config.templ`, Line: 173, Col: 50}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var53))
 		if templ_7745c5c3_Err != nil {
@@ -1078,7 +1079,7 @@ func ConfigKeybinding(group renderedKeybindingGroup, binding renderedKeybinding)
 		var templ_7745c5c3_Var54 string
 		templ_7745c5c3_Var54, templ_7745c5c3_Err = templ.JoinStringErrs(keybindingStatus(binding))
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `config.templ`, Line: 175, Col: 55}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `config.templ`, Line: 176, Col: 55}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var54))
 		if templ_7745c5c3_Err != nil {
@@ -1105,7 +1106,7 @@ func ConfigKeybinding(group renderedKeybindingGroup, binding renderedKeybinding)
 		var templ_7745c5c3_Var55 string
 		templ_7745c5c3_Var55, templ_7745c5c3_Err = templ.JoinStringErrs(group.Mode)
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `config.templ`, Line: 183, Col: 55}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `config.templ`, Line: 184, Col: 55}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var55))
 		if templ_7745c5c3_Err != nil {
@@ -1118,7 +1119,7 @@ func ConfigKeybinding(group renderedKeybindingGroup, binding renderedKeybinding)
 		var templ_7745c5c3_Var56 string
 		templ_7745c5c3_Var56, templ_7745c5c3_Err = templ.JoinStringErrs(binding.Action)
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `config.templ`, Line: 184, Col: 61}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `config.templ`, Line: 185, Col: 61}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var56))
 		if templ_7745c5c3_Err != nil {
@@ -1131,7 +1132,7 @@ func ConfigKeybinding(group renderedKeybindingGroup, binding renderedKeybinding)
 		var templ_7745c5c3_Var57 string
 		templ_7745c5c3_Var57, templ_7745c5c3_Err = templ.JoinStringErrs(keybindingKeysValue(binding.Keys))
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `config.templ`, Line: 185, Col: 100}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `config.templ`, Line: 186, Col: 100}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var57))
 		if templ_7745c5c3_Err != nil {
@@ -1144,7 +1145,7 @@ func ConfigKeybinding(group renderedKeybindingGroup, binding renderedKeybinding)
 		var templ_7745c5c3_Var58 string
 		templ_7745c5c3_Var58, templ_7745c5c3_Err = templ.JoinStringErrs(group.Mode)
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `config.templ`, Line: 187, Col: 127}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `config.templ`, Line: 188, Col: 127}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var58))
 		if templ_7745c5c3_Err != nil {
@@ -1157,7 +1158,7 @@ func ConfigKeybinding(group renderedKeybindingGroup, binding renderedKeybinding)
 		var templ_7745c5c3_Var59 string
 		templ_7745c5c3_Var59, templ_7745c5c3_Err = templ.JoinStringErrs(binding.Action)
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `config.templ`, Line: 187, Col: 158}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `config.templ`, Line: 188, Col: 158}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var59))
 		if templ_7745c5c3_Err != nil {

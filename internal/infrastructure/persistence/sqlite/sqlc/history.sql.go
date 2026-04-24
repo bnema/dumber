@@ -35,23 +35,19 @@ func (q *Queries) DeleteAllHistory(ctx context.Context) error {
 }
 
 const DeleteHistoryByDomain = `-- name: DeleteHistoryByDomain :exec
-DELETE FROM history WHERE url LIKE '%://' || ? || '/%' OR url LIKE '%://' || ? || '?%' OR url LIKE '%://' || ? || '#%' OR url LIKE '%://' || ?
+DELETE FROM history
+WHERE url LIKE '%://' || ?1 || '/%'
+   OR url LIKE '%://' || ?1 || '?%'
+   OR url LIKE '%://' || ?1 || '#%'
+   OR url LIKE '%://' || ?1
+   OR url LIKE '%://www.' || ?1 || '/%'
+   OR url LIKE '%://www.' || ?1 || '?%'
+   OR url LIKE '%://www.' || ?1 || '#%'
+   OR url LIKE '%://www.' || ?1
 `
 
-type DeleteHistoryByDomainParams struct {
-	Column1 sql.NullString `json:"column_1"`
-	Column2 sql.NullString `json:"column_2"`
-	Column3 sql.NullString `json:"column_3"`
-	Column4 sql.NullString `json:"column_4"`
-}
-
-func (q *Queries) DeleteHistoryByDomain(ctx context.Context, arg DeleteHistoryByDomainParams) error {
-	_, err := q.db.ExecContext(ctx, DeleteHistoryByDomain,
-		arg.Column1,
-		arg.Column2,
-		arg.Column3,
-		arg.Column4,
-	)
+func (q *Queries) DeleteHistoryByDomain(ctx context.Context, domain sql.NullString) error {
+	_, err := q.db.ExecContext(ctx, DeleteHistoryByDomain, domain)
 	return err
 }
 
@@ -333,6 +329,57 @@ type GetRecentHistoryParams struct {
 
 func (q *Queries) GetRecentHistory(ctx context.Context, arg GetRecentHistoryParams) ([]History, error) {
 	rows, err := q.db.QueryContext(ctx, GetRecentHistory, arg.Limit, arg.Offset)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []History{}
+	for rows.Next() {
+		var i History
+		if err := rows.Scan(
+			&i.ID,
+			&i.Url,
+			&i.Title,
+			&i.FaviconUrl,
+			&i.VisitCount,
+			&i.LastVisited,
+			&i.CreatedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const GetRecentHistoryByDomain = `-- name: GetRecentHistoryByDomain :many
+SELECT id, url, title, favicon_url, visit_count, last_visited, created_at FROM history
+WHERE url LIKE '%://' || ?1 || '/%'
+   OR url LIKE '%://' || ?1 || '?%'
+   OR url LIKE '%://' || ?1 || '#%'
+   OR url LIKE '%://' || ?1
+   OR url LIKE '%://www.' || ?1 || '/%'
+   OR url LIKE '%://www.' || ?1 || '?%'
+   OR url LIKE '%://www.' || ?1 || '#%'
+   OR url LIKE '%://www.' || ?1
+ORDER BY last_visited DESC
+LIMIT ?3 OFFSET ?2
+`
+
+type GetRecentHistoryByDomainParams struct {
+	Domain sql.NullString `json:"domain"`
+	Offset int64          `json:"offset"`
+	Limit  int64          `json:"limit"`
+}
+
+func (q *Queries) GetRecentHistoryByDomain(ctx context.Context, arg GetRecentHistoryByDomainParams) ([]History, error) {
+	rows, err := q.db.QueryContext(ctx, GetRecentHistoryByDomain, arg.Domain, arg.Offset, arg.Limit)
 	if err != nil {
 		return nil, err
 	}

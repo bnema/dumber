@@ -31,7 +31,7 @@ func (r *systemviewConfigReader) build(ctx context.Context, cfg *Config) (port.S
 	}
 
 	var hw *port.HardwareInfo
-	if r != nil && r.hwSurveyor != nil {
+	if r.hwSurveyor != nil {
 		survey := r.hwSurveyor.Survey(ctx)
 		hw = &survey
 	}

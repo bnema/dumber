@@ -16,6 +16,8 @@ type configRenderData struct {
 	Error       string
 }
 
+const maxFlattenDepth = 16
+
 func configHTML(data configRenderData) string {
 	return mustRenderComponent(ConfigView(data))
 }
@@ -140,13 +142,17 @@ func engineIsWebKit(engine string) bool {
 
 func flattenValues(value any) []kvPair {
 	rows := make([]kvPair, 0)
-	flattenValue(&rows, "", reflect.ValueOf(value))
+	flattenValue(&rows, "", reflect.ValueOf(value), 0)
 	return rows
 }
 
-func flattenValue(rows *[]kvPair, path string, value reflect.Value) {
+func flattenValue(rows *[]kvPair, path string, value reflect.Value, depth int) {
 	if !value.IsValid() {
 		appendFlatValue(rows, path, "null")
+		return
+	}
+	if depth >= maxFlattenDepth {
+		appendFlatValue(rows, path, "...")
 		return
 	}
 
@@ -182,7 +188,7 @@ func flattenValue(rows *[]kvPair, path string, value reflect.Value) {
 			if path != "" {
 				nextPath = path + "." + name
 			}
-			flattenValue(rows, nextPath, value.Field(i))
+			flattenValue(rows, nextPath, value.Field(i), depth+1)
 		}
 	case reflect.Map:
 		if value.Len() == 0 {
@@ -201,7 +207,7 @@ func flattenValue(rows *[]kvPair, path string, value reflect.Value) {
 			if path != "" {
 				nextPath = path + "." + name
 			}
-			flattenValue(rows, nextPath, value.MapIndex(key))
+			flattenValue(rows, nextPath, value.MapIndex(key), depth+1)
 		}
 	case reflect.Slice, reflect.Array:
 		if value.Len() == 0 {
@@ -214,7 +220,7 @@ func flattenValue(rows *[]kvPair, path string, value reflect.Value) {
 			if path == "" {
 				nextPath = fmt.Sprintf("[%d]", i)
 			}
-			flattenValue(rows, nextPath, value.Index(i))
+			flattenValue(rows, nextPath, value.Index(i), depth+1)
 		}
 	default:
 		appendFlatValue(rows, path, formatFlatValue(value))

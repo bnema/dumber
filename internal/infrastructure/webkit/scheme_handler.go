@@ -44,6 +44,7 @@ type SchemeResponse struct {
 	Data        []byte
 	ContentType string
 	StatusCode  int
+	Headers     map[string]string
 }
 
 // PageHandler generates content for a specific page path.
@@ -299,9 +300,8 @@ func (h *DumbSchemeHandler) handleAsset(u *url.URL) *SchemeResponse {
 		assetDir = h.assetDir
 	}
 
-	// Read the asset from embedded FS
 	fullPath := filepath.ToSlash(filepath.Join(assetDir, relPath))
-	data, err := fs.ReadFile(h.assets, fullPath)
+	data, headers, err := readAssetWithEncoding(h.assets, fullPath, relPath)
 	if err != nil {
 		h.logger.Debug().Str("path", fullPath).Err(err).Msg("asset not found")
 		return nil
@@ -318,7 +318,18 @@ func (h *DumbSchemeHandler) handleAsset(u *url.URL) *SchemeResponse {
 		Data:        data,
 		ContentType: contentType,
 		StatusCode:  http.StatusOK,
+		Headers:     headers,
 	}
+}
+
+func readAssetWithEncoding(assets embed.FS, fullPath, relPath string) ([]byte, map[string]string, error) {
+	if strings.HasSuffix(relPath, ".wasm") {
+		if data, err := fs.ReadFile(assets, fullPath+".br"); err == nil {
+			return data, map[string]string{"Content-Encoding": "br", "Vary": "Accept-Encoding"}, nil
+		}
+	}
+	data, err := fs.ReadFile(assets, fullPath)
+	return data, nil, err
 }
 
 func resolveAssetPath(u *url.URL) (assetDir, relPath string, ok bool) {
@@ -407,7 +418,14 @@ func (h *DumbSchemeHandler) sendResponse(req *webkit.URISchemeRequest, response 
 
 	// WebKit can treat custom schemes as CORS-relevant even for same-origin fetch().
 	// Add CORS headers to fetch-backed endpoints, including the wasm runtime asset.
-	if headers := responseHeadersForPath(req.GetPath(), contentType); len(headers) > 0 {
+	headers := responseHeadersForPath(req.GetPath(), contentType)
+	for name, value := range response.Headers {
+		if headers == nil {
+			headers = map[string]string{}
+		}
+		headers[name] = value
+	}
+	if len(headers) > 0 {
 		hdrs := soup.NewMessageHeaders(soup.MessageHeadersResponseValue)
 		for name, value := range headers {
 			hdrs.Append(name, value)

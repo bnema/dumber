@@ -21,7 +21,7 @@ type Querier interface {
 	DeleteExitedSessionsBefore(ctx context.Context, endedAt sql.NullTime) (int64, error)
 	DeleteFavorite(ctx context.Context, id int64) error
 	DeleteFolder(ctx context.Context, id int64) error
-	DeleteHistoryByDomain(ctx context.Context, arg DeleteHistoryByDomainParams) error
+	DeleteHistoryByDomain(ctx context.Context, domain sql.NullString) error
 	DeleteHistoryByID(ctx context.Context, id int64) error
 	DeleteHistoryOlderThan(ctx context.Context, lastVisited sql.NullTime) error
 	// Deletes exited browser sessions beyond the keep limit, keeping the most recent ones.
@@ -54,6 +54,7 @@ type Querier interface {
 	GetMostVisited(ctx context.Context, datetime interface{}) ([]History, error)
 	GetPermission(ctx context.Context, arg GetPermissionParams) (Permission, error)
 	GetRecentHistory(ctx context.Context, arg GetRecentHistoryParams) ([]History, error)
+	GetRecentHistoryByDomain(ctx context.Context, arg GetRecentHistoryByDomainParams) ([]History, error)
 	GetRecentHistorySince(ctx context.Context, datetime interface{}) ([]History, error)
 	GetRecentSessions(ctx context.Context, limit int64) ([]Session, error)
 	GetRootFolders(ctx context.Context) ([]FavoriteFolder, error)

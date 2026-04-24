@@ -9,6 +9,7 @@ import (
 	"errors"
 	"fmt"
 	"strings"
+	"sync"
 	"syscall/js"
 )
 
@@ -23,7 +24,7 @@ func NewBrowserClient() *Client {
 
 func callbackPlanForMessage(msgType string) (callbackPlan, bool) {
 	switch msgType {
-	case "history_timeline", "history_search_fts", "history_delete_entry", "history_delete_range", "history_analytics",
+	case "history_timeline", "history_timeline_by_domain", "history_search_fts", "history_delete_entry", "history_delete_range", "history_analytics",
 		"history_domain_stats", "history_delete_domain", "favorite_list", "favorite_create", "favorite_update", "favorite_delete", "folder_list", "tag_list",
 		"favorite_set_shortcut", "favorite_set_folder", "folder_create", "folder_update", "folder_delete",
 		"tag_create", "tag_update", "tag_delete", "tag_assign", "tag_remove":
@@ -123,36 +124,55 @@ func (*webkitTransport) Send(ctx context.Context, body []byte) ([]byte, error) {
 		err  error
 	}
 	resultCh := make(chan result, 1)
+	var callbackMu sync.Mutex
+	callbacksActive := true
+	publish := func(res result) {
+		callbackMu.Lock()
+		active := callbacksActive
+		callbackMu.Unlock()
+		if !active {
+			return
+		}
+		select {
+		case resultCh <- res:
+		default:
+		}
+	}
 
 	successFn := js.FuncOf(func(_ js.Value, args []js.Value) any {
 		payload, err := stringifyArgs(args)
 		if err != nil {
-			resultCh <- result{err: err}
+			publish(result{err: err})
 			return nil
 		}
 		normalized, err := normalizeNativeSuccessResponse(req.requestID, payload)
-		resultCh <- result{body: normalized, err: err}
+		publish(result{body: normalized, err: err})
 		return nil
 	})
 	errorFn := js.FuncOf(func(_ js.Value, args []js.Value) any {
 		payload, err := stringifyArgs(args)
 		if err != nil {
-			resultCh <- result{err: err}
+			publish(result{err: err})
 			return nil
 		}
 		normalized, err := normalizeNativeErrorResponse(req.requestID, payload)
-		resultCh <- result{body: normalized, err: err}
+		publish(result{body: normalized, err: err})
 		return nil
 	})
-	defer successFn.Release()
-	defer errorFn.Release()
 
 	previousSuccess := window.Get(plan.success)
 	previousError := window.Get(plan.failure)
 	window.Set(plan.success, successFn)
 	window.Set(plan.failure, errorFn)
-	defer window.Set(plan.success, previousSuccess)
-	defer window.Set(plan.failure, previousError)
+	defer func() {
+		callbackMu.Lock()
+		callbacksActive = false
+		callbackMu.Unlock()
+		window.Set(plan.success, previousSuccess)
+		window.Set(plan.failure, previousError)
+		successFn.Release()
+		errorFn.Release()
+	}()
 
 	handler.Call("postMessage", js.Global().Get("JSON").Call("parse", string(req.body)))
 

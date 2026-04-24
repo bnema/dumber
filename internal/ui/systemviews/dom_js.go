@@ -12,7 +12,13 @@ import (
 type browserDOM struct {
 	document js.Value
 	target   js.Value
-	bindings []js.Func
+	bindings []jsEventBinding
+}
+
+type jsEventBinding struct {
+	target js.Value
+	event  string
+	fn     js.Func
 }
 
 func NewDOM() DOM {
@@ -41,6 +47,7 @@ func (d *browserDOM) BindActions(handler DOMActionHandler) error {
 	if d == nil || !d.target.Truthy() || handler == nil {
 		return fmt.Errorf("DOM action binding target not available")
 	}
+	d.Release()
 
 	clickHandler := js.FuncOf(func(_ js.Value, args []js.Value) any {
 		event := firstJSArg(args)
@@ -62,8 +69,7 @@ func (d *browserDOM) BindActions(handler DOMActionHandler) error {
 		handler(DOMAction{Action: action, Data: collectActionData(element)})
 		return nil
 	})
-	d.target.Call("addEventListener", "click", clickHandler)
-	d.bindings = append(d.bindings, clickHandler)
+	d.addEventBinding(d.target, "click", clickHandler)
 
 	submitHandler := js.FuncOf(func(_ js.Value, args []js.Value) any {
 		event := firstJSArg(args)
@@ -86,17 +92,37 @@ func (d *browserDOM) BindActions(handler DOMActionHandler) error {
 		handler(DOMAction{Action: action, Data: data})
 		return nil
 	})
-	d.target.Call("addEventListener", "submit", submitHandler)
-	d.bindings = append(d.bindings, submitHandler)
+	d.addEventBinding(d.target, "submit", submitHandler)
 
 	keydownHandler := js.FuncOf(func(_ js.Value, args []js.Value) any {
 		d.handleKeyboard(firstJSArg(args))
 		return nil
 	})
-	d.document.Call("addEventListener", "keydown", keydownHandler)
-	d.bindings = append(d.bindings, keydownHandler)
+	d.addEventBinding(d.document, "keydown", keydownHandler)
 
 	return nil
+}
+
+func (d *browserDOM) addEventBinding(target js.Value, event string, fn js.Func) {
+	if !target.Truthy() {
+		fn.Release()
+		return
+	}
+	target.Call("addEventListener", event, fn)
+	d.bindings = append(d.bindings, jsEventBinding{target: target, event: event, fn: fn})
+}
+
+func (d *browserDOM) Release() {
+	if d == nil {
+		return
+	}
+	for _, binding := range d.bindings {
+		if binding.target.Truthy() {
+			binding.target.Call("removeEventListener", binding.event, binding.fn)
+		}
+		binding.fn.Release()
+	}
+	d.bindings = nil
 }
 
 func firstJSArg(args []js.Value) js.Value {
@@ -278,63 +304,28 @@ func isEditableTarget(target js.Value) bool {
 }
 
 func (d *browserDOM) focusHistoryRow(delta int) {
-	rows := d.target.Call("querySelectorAll", "[data-sv-history-row]")
-	length := rows.Get("length").Int()
-	if length == 0 {
-		return
-	}
-	idx := d.activeHistoryIndex()
-	if idx < 0 {
-		idx = 0
-	} else {
-		idx += delta
-	}
-	if idx < 0 {
-		idx = 0
-	}
-	if idx >= length {
-		idx = length - 1
-	}
-	for i := 0; i < length; i++ {
-		rows.Index(i).Get("classList").Call("remove", "sv-focused")
-	}
-	row := rows.Index(idx)
-	row.Get("classList").Call("add", "sv-focused")
-	d.target.Get("dataset").Set("svActiveHistoryIndex", strconv.Itoa(idx))
-	row.Call("scrollIntoView", map[string]any{"block": "nearest"})
+	d.focusRow("[data-sv-history-row]", "svActiveHistoryIndex", delta)
 }
 
 func (d *browserDOM) activeHistoryRow() js.Value {
-	rows := d.target.Call("querySelectorAll", "[data-sv-history-row]")
-	length := rows.Get("length").Int()
-	if length == 0 {
-		return js.Value{}
-	}
-	idx := d.activeHistoryIndex()
-	if idx < 0 || idx >= length {
-		idx = 0
-		d.target.Get("dataset").Set("svActiveHistoryIndex", "0")
-		rows.Index(0).Get("classList").Call("add", "sv-focused")
-	}
-	return rows.Index(idx)
-}
-
-func (d *browserDOM) activeHistoryIndex() int {
-	value := d.target.Get("dataset").Get("svActiveHistoryIndex").String()
-	idx, err := strconv.Atoi(value)
-	if err != nil {
-		return -1
-	}
-	return idx
+	return d.activeRow("[data-sv-history-row]", "svActiveHistoryIndex")
 }
 
 func (d *browserDOM) focusFavoriteRow(delta int) {
-	rows := d.target.Call("querySelectorAll", "[data-sv-favorite-row]")
+	d.focusRow("[data-sv-favorite-row]", "svActiveFavoriteIndex", delta)
+}
+
+func (d *browserDOM) activeFavoriteRow() js.Value {
+	return d.activeRow("[data-sv-favorite-row]", "svActiveFavoriteIndex")
+}
+
+func (d *browserDOM) focusRow(selector, datasetKey string, delta int) {
+	rows := d.target.Call("querySelectorAll", selector)
 	length := rows.Get("length").Int()
 	if length == 0 {
 		return
 	}
-	idx := d.activeFavoriteIndex()
+	idx := d.activeIndex(datasetKey)
 	if idx < 0 {
 		idx = 0
 	} else {
@@ -351,27 +342,27 @@ func (d *browserDOM) focusFavoriteRow(delta int) {
 	}
 	row := rows.Index(idx)
 	row.Get("classList").Call("add", "sv-focused")
-	d.target.Get("dataset").Set("svActiveFavoriteIndex", strconv.Itoa(idx))
+	d.target.Get("dataset").Set(datasetKey, strconv.Itoa(idx))
 	row.Call("scrollIntoView", map[string]any{"block": "nearest"})
 }
 
-func (d *browserDOM) activeFavoriteRow() js.Value {
-	rows := d.target.Call("querySelectorAll", "[data-sv-favorite-row]")
+func (d *browserDOM) activeRow(selector, datasetKey string) js.Value {
+	rows := d.target.Call("querySelectorAll", selector)
 	length := rows.Get("length").Int()
 	if length == 0 {
 		return js.Value{}
 	}
-	idx := d.activeFavoriteIndex()
+	idx := d.activeIndex(datasetKey)
 	if idx < 0 || idx >= length {
 		idx = 0
-		d.target.Get("dataset").Set("svActiveFavoriteIndex", "0")
+		d.target.Get("dataset").Set(datasetKey, "0")
 		rows.Index(0).Get("classList").Call("add", "sv-focused")
 	}
 	return rows.Index(idx)
 }
 
-func (d *browserDOM) activeFavoriteIndex() int {
-	value := d.target.Get("dataset").Get("svActiveFavoriteIndex").String()
+func (d *browserDOM) activeIndex(datasetKey string) int {
+	value := d.target.Get("dataset").Get(datasetKey).String()
 	idx, err := strconv.Atoi(value)
 	if err != nil {
 		return -1

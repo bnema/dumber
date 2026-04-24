@@ -124,6 +124,9 @@ func (a *App) createSearchShortcut(ctx context.Context, data map[string]string) 
 		return err
 	}
 	key, shortcut := searchShortcutFromForm(data, "key")
+	if key == "" {
+		return fmt.Errorf("search shortcut key is required")
+	}
 	cfg.SearchShortcuts = cloneSearchShortcuts(cfg.SearchShortcuts)
 	if _, exists := cfg.SearchShortcuts[key]; exists {
 		return fmt.Errorf("search shortcut %q already exists", key)
@@ -146,6 +149,9 @@ func (a *App) updateSearchShortcut(ctx context.Context, data map[string]string) 
 		return fmt.Errorf("search shortcut key is required")
 	}
 	newKey, shortcut := searchShortcutFromForm(data, "new_key")
+	if newKey == "" {
+		return fmt.Errorf("new search shortcut key is required")
+	}
 	cfg.SearchShortcuts = cloneSearchShortcuts(cfg.SearchShortcuts)
 	if _, exists := cfg.SearchShortcuts[oldKey]; !exists {
 		return fmt.Errorf("search shortcut %q not found", oldKey)

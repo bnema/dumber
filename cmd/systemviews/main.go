@@ -11,7 +11,12 @@ import (
 
 func main() {
 	bridge := systemviewsbridge.NewBrowserClient()
-	app := newBridgeApp(systemviews.NewDOM(), js.Global().Get("location").Get("href").String(), bridge)
+	href := ""
+	location := js.Global().Get("location")
+	if location.Type() != js.TypeUndefined && location.Type() != js.TypeNull {
+		href = location.Get("href").String()
+	}
+	app := newBridgeApp(systemviews.NewDOM(), href, bridge)
 
 	if err := app.Run(); err != nil {
 		js.Global().Get("console").Call("error", err.Error())

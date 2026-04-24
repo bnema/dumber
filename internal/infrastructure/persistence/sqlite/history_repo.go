@@ -488,12 +488,23 @@ func (r *historyRepo) GetRecent(ctx context.Context, limit, offset int) ([]*enti
 	if err != nil {
 		return nil, err
 	}
+	return historyEntriesFromRows(rows), nil
+}
 
-	entries := make([]*entity.HistoryEntry, len(rows))
-	for i := range rows {
-		entries[i] = historyFromRow(rows[i])
+func (r *historyRepo) GetRecentByDomain(ctx context.Context, domain string, limit, offset int) ([]*entity.HistoryEntry, error) {
+	domain = domainurl.CanonicalDomain(domain)
+	if domain == "" {
+		return []*entity.HistoryEntry{}, nil
 	}
-	return entries, nil
+	rows, err := r.queries.GetRecentHistoryByDomain(ctx, sqlc.GetRecentHistoryByDomainParams{
+		Domain: sql.NullString{String: domain, Valid: true},
+		Limit:  int64(limit),
+		Offset: int64(offset),
+	})
+	if err != nil {
+		return nil, err
+	}
+	return historyEntriesFromRows(rows), nil
 }
 
 func (r *historyRepo) GetRecentSince(ctx context.Context, days int) ([]*entity.HistoryEntry, error) {
@@ -593,12 +604,8 @@ func (r *historyRepo) DeleteAll(ctx context.Context) error {
 }
 
 func (r *historyRepo) DeleteByDomain(ctx context.Context, domain string) error {
-	return r.queries.DeleteHistoryByDomain(ctx, sqlc.DeleteHistoryByDomainParams{
-		Column1: sql.NullString{String: domain, Valid: true},
-		Column2: sql.NullString{String: domain, Valid: true},
-		Column3: sql.NullString{String: domain, Valid: true},
-		Column4: sql.NullString{String: domain, Valid: true},
-	})
+	domain = domainurl.CanonicalDomain(domain)
+	return r.queries.DeleteHistoryByDomain(ctx, sql.NullString{String: domain, Valid: domain != ""})
 }
 
 func (r *historyRepo) GetStats(ctx context.Context) (*entity.HistoryStats, error) {
@@ -692,6 +699,14 @@ func (r *historyRepo) GetDailyVisitCount(ctx context.Context, daysAgo string) ([
 		}
 	}
 	return counts, nil
+}
+
+func historyEntriesFromRows(rows []sqlc.History) []*entity.HistoryEntry {
+	entries := make([]*entity.HistoryEntry, len(rows))
+	for i := range rows {
+		entries[i] = historyFromRow(rows[i])
+	}
+	return entries
 }
 
 func historyFromRow(row sqlc.History) *entity.HistoryEntry {

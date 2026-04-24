@@ -21,6 +21,9 @@ type HistoryRepository interface {
 	// GetRecent retrieves recent history entries with pagination.
 	GetRecent(ctx context.Context, limit, offset int) ([]*entity.HistoryEntry, error)
 
+	// GetRecentByDomain retrieves recent history entries for a domain with pagination.
+	GetRecentByDomain(ctx context.Context, domain string, limit, offset int) ([]*entity.HistoryEntry, error)
+
 	// GetRecentSince retrieves history entries visited within the last N days.
 	// days must be > 0.
 	GetRecentSince(ctx context.Context, days int) ([]*entity.HistoryEntry, error)
