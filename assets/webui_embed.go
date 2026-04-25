@@ -5,6 +5,7 @@ import (
 )
 
 // WebUIAssets contains the embedded systemviews build output.
+// The legacy WebUIAssets name is kept for compatibility with existing callers.
 // Used by the scheme handlers to serve dumb://error, dumb://config,
 // dumb://history, and dumb://favorites.
 //

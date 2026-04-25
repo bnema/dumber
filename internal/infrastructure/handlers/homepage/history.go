@@ -182,24 +182,12 @@ func (h *HistoryHandlers) HandleDeleteRange() port.WebUIMessageHandler {
 			Str("range", req.Range).
 			Msg("handling history_delete_range")
 
-		if !isAllowedHistoryDeleteRange(req.Range) {
-			return NewErrorResponse(req.RequestID, fmt.Errorf("invalid range: %s", req.Range)), nil
-		}
 		if err := h.historyUC.ClearRange(ctx, req.Range); err != nil {
 			return NewErrorResponse(req.RequestID, err), nil
 		}
 
 		return NewSuccessResponse(req.RequestID, nil), nil
 	})
-}
-
-func isAllowedHistoryDeleteRange(rangeID string) bool {
-	switch rangeID {
-	case "hour", "day", "week", "month", "all":
-		return true
-	default:
-		return false
-	}
 }
 
 // HandleClearAll handles history_clear_all messages.

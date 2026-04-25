@@ -5,7 +5,7 @@ import (
 	"strings"
 	"unicode"
 
-	"github.com/bnema/dumber/internal/application/port"
+	"github.com/bnema/dumber/internal/application/dto"
 )
 
 type shellTheme struct {
@@ -31,12 +31,12 @@ func currentPrefersDark() bool {
 	return currentPrefersDarkImpl()
 }
 
-func resolveShellTheme(appearance port.WebUIAppearanceConfig) shellTheme {
+func resolveShellTheme(appearance dto.WebUIAppearanceConfig) shellTheme {
 	if isZeroAppearance(appearance) {
 		return shellTheme{}
 	}
 
-	var palette port.ColorPalette
+	var palette dto.ColorPalette
 	var rootClass string
 
 	switch strings.ToLower(strings.TrimSpace(appearance.ColorScheme)) {
@@ -62,7 +62,7 @@ func resolveShellTheme(appearance port.WebUIAppearanceConfig) shellTheme {
 	}
 }
 
-func buildInlineVars(appearance port.WebUIAppearanceConfig, palette port.ColorPalette) string {
+func buildInlineVars(appearance dto.WebUIAppearanceConfig, palette dto.ColorPalette) string {
 	parts := make([]string, 0, 11)
 	appendInlineVar := func(name, value string, sanitize func(string) (string, bool)) {
 		value, ok := sanitize(value)
@@ -178,12 +178,12 @@ func isNamedColor(value string) bool {
 	return ok
 }
 
-func isZeroAppearance(appearance port.WebUIAppearanceConfig) bool {
+func isZeroAppearance(appearance dto.WebUIAppearanceConfig) bool {
 	return appearance.ColorScheme == "" &&
 		appearance.SansFont == "" &&
 		appearance.SerifFont == "" &&
 		appearance.MonospaceFont == "" &&
 		appearance.DefaultFontSize == 0 &&
-		appearance.LightPalette == (port.ColorPalette{}) &&
-		appearance.DarkPalette == (port.ColorPalette{})
+		appearance.LightPalette == (dto.ColorPalette{}) &&
+		appearance.DarkPalette == (dto.ColorPalette{})
 }

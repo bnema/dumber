@@ -1,12 +1,15 @@
 package config
 
-import "github.com/bnema/dumber/internal/application/port"
+import (
+	"github.com/bnema/dumber/internal/application/dto"
+	"github.com/bnema/dumber/internal/application/port"
+)
 
 // BuildSystemviewConfigPayload projects the full config into the stable DTO used by
 // the settings page across engines.
-func BuildSystemviewConfigPayload(cfg *Config, hw *port.HardwareInfo) port.SystemviewConfigPayload {
-	payload := port.SystemviewConfigPayload{
-		SearchShortcuts: map[string]port.SearchShortcut{},
+func BuildSystemviewConfigPayload(cfg *Config, hw *port.HardwareInfo) dto.SystemviewConfigPayload {
+	payload := dto.SystemviewConfigPayload{
+		SearchShortcuts: map[string]dto.SearchShortcut{},
 	}
 	if cfg == nil {
 		return payload
@@ -20,16 +23,16 @@ func BuildSystemviewConfigPayload(cfg *Config, hw *port.HardwareInfo) port.Syste
 	payload.DefaultSearchEngine = cfg.DefaultSearchEngine
 	payload.SearchShortcuts = buildSystemviewSearchShortcutsPayload(cfg.SearchShortcuts)
 	payload.EngineType = cfg.Engine.ResolveEngineType()
-	payload.Performance = port.SystemviewPerformancePayload{
+	payload.Performance = dto.SystemviewPerformancePayload{
 		Profile: string(cfg.Engine.Profile),
-		Custom: port.SystemviewCustomPerformancePayload{
+		Custom: dto.SystemviewCustomPerformancePayload{
 			SkiaCPUThreads:         cfg.Engine.WebKit.SkiaCPUPaintingThreads,
 			SkiaGPUThreads:         cfg.Engine.WebKit.SkiaGPUPaintingThreads,
 			WebProcessMemoryMB:     cfg.Engine.WebKit.WebProcessMemoryLimitMB,
 			NetworkProcessMemoryMB: cfg.Engine.WebKit.NetworkProcessMemoryLimitMB,
 			WebViewPoolPrewarm:     cfg.Engine.PoolPrewarmCount,
 		},
-		Resolved: port.SystemviewResolvedPerformancePayload{
+		Resolved: dto.SystemviewResolvedPerformancePayload{
 			SkiaCPUThreads:         resolved.SkiaCPUPaintingThreads,
 			SkiaGPUThreads:         resolved.SkiaGPUPaintingThreads,
 			WebProcessMemoryMB:     resolved.WebProcessMemoryLimitMB,
@@ -44,9 +47,9 @@ func BuildSystemviewConfigPayload(cfg *Config, hw *port.HardwareInfo) port.Syste
 	return payload
 }
 
-func buildSystemviewAppearancePayload(appearance AppearanceConfig) port.WebUIAppearanceConfig {
+func buildSystemviewAppearancePayload(appearance AppearanceConfig) dto.WebUIAppearanceConfig {
 	defaults := DefaultConfig().Appearance
-	return port.WebUIAppearanceConfig{
+	return dto.WebUIAppearanceConfig{
 		SansFont:        appearance.SansFont,
 		SerifFont:       appearance.SerifFont,
 		MonospaceFont:   appearance.MonospaceFont,
@@ -57,8 +60,8 @@ func buildSystemviewAppearancePayload(appearance AppearanceConfig) port.WebUIApp
 	}
 }
 
-func buildSystemviewPalettePayload(palette, fallback ColorPalette) port.ColorPalette {
-	return port.ColorPalette{
+func buildSystemviewPalettePayload(palette, fallback ColorPalette) dto.ColorPalette {
+	return dto.ColorPalette{
 		Background:     nonEmptyColor(palette.Background, fallback.Background),
 		Surface:        nonEmptyColor(palette.Surface, fallback.Surface),
 		SurfaceVariant: nonEmptyColor(palette.SurfaceVariant, fallback.SurfaceVariant),
@@ -76,23 +79,23 @@ func nonEmptyColor(value, fallback string) string {
 	return fallback
 }
 
-func buildSystemviewSearchShortcutsPayload(shortcuts map[string]SearchShortcut) map[string]port.SearchShortcut {
+func buildSystemviewSearchShortcutsPayload(shortcuts map[string]SearchShortcut) map[string]dto.SearchShortcut {
 	if len(shortcuts) == 0 {
-		return map[string]port.SearchShortcut{}
+		return map[string]dto.SearchShortcut{}
 	}
 
-	result := make(map[string]port.SearchShortcut, len(shortcuts))
+	result := make(map[string]dto.SearchShortcut, len(shortcuts))
 	for key, shortcut := range shortcuts {
-		result[key] = port.SearchShortcut{URL: shortcut.URL, Description: shortcut.Description}
+		result[key] = dto.SearchShortcut{URL: shortcut.URL, Description: shortcut.Description}
 	}
 	return result
 }
 
-func buildSystemviewHardwarePayload(hw *port.HardwareInfo) port.SystemviewHardwarePayload {
+func buildSystemviewHardwarePayload(hw *port.HardwareInfo) dto.SystemviewHardwarePayload {
 	if hw == nil {
-		return port.SystemviewHardwarePayload{}
+		return dto.SystemviewHardwarePayload{}
 	}
-	return port.SystemviewHardwarePayload{
+	return dto.SystemviewHardwarePayload{
 		CPUCores:   hw.CPUCores,
 		CPUThreads: hw.CPUThreads,
 		TotalRAMMB: hw.TotalRAMMB(),

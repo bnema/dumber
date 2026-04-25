@@ -41,5 +41,9 @@ func requireActionBinding(t *testing.T, actions map[string]ActionBinding, action
 	t.Helper()
 	binding, ok := actions[action]
 	require.True(t, ok, "missing action binding %q", action)
+	if len(keys) == 0 {
+		assert.Empty(t, binding.Keys)
+		return
+	}
 	assert.Equal(t, keys, binding.Keys)
 }

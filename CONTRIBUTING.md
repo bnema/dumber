@@ -36,6 +36,7 @@ git push origin my-fix
 
 **Systemviews assets:**
 1. If you modified systemviews files such as `cmd/systemviews/` or `.templ` components, run `make build-systemviews` to regenerate embedded WASM assets
+2. Run `make check` to verify build, tests, and tools before committing
 
 Keep commits focused and use single-line commit messages.
 

@@ -402,7 +402,10 @@ func isEditableTarget(target js.Value) bool {
 		return false
 	}
 	tag := strings.ToLower(target.Get("tagName").String())
-	return tag == "input" || tag == "textarea" || tag == "select" || target.Get("isContentEditable").Bool()
+	role := strings.ToLower(target.Get("role").String())
+	return tag == "input" || tag == "textarea" || tag == "select" || tag == "button" ||
+		(tag == "a" && target.Get("href").String() != "") || role == "button" || role == "link" ||
+		target.Get("isContentEditable").Bool()
 }
 
 func (d *browserDOM) focusHistoryRow(delta int) {
@@ -456,11 +459,7 @@ func (d *browserDOM) activeRow(selector, datasetKey string) js.Value {
 	}
 	idx := d.activeIndex(datasetKey)
 	if idx < 0 || idx >= length {
-		idx = 0
-		row := rows.Index(idx)
-		d.target.Get("dataset").Set(datasetKey, "0")
-		row.Get("classList").Call("add", "sv-focused")
-		return row
+		return js.Value{}
 	}
 	return rows.Index(idx)
 }

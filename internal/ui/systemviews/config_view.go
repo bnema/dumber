@@ -6,11 +6,12 @@ import (
 	"sort"
 	"strings"
 
+	"github.com/bnema/dumber/internal/application/dto"
 	"github.com/bnema/dumber/internal/application/port"
 )
 
 type configRenderData struct {
-	Config      port.SystemviewConfigPayload
+	Config      dto.SystemviewConfigPayload
 	Keybindings port.KeybindingsConfig
 	Notice      string
 	Error       string
@@ -100,7 +101,7 @@ type searchShortcutRow struct {
 	Description string
 }
 
-func searchShortcutRows(shortcuts map[string]port.SearchShortcut) []searchShortcutRow {
+func searchShortcutRows(shortcuts map[string]dto.SearchShortcut) []searchShortcutRow {
 	if len(shortcuts) == 0 {
 		return nil
 	}

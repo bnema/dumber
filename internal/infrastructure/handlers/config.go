@@ -5,18 +5,19 @@ import (
 	"encoding/json"
 	"fmt"
 
+	"github.com/bnema/dumber/internal/application/dto"
 	"github.com/bnema/dumber/internal/application/port"
 	"github.com/bnema/dumber/internal/logging"
 )
 
 // ConfigHandler handles configuration-related messages.
 type ConfigHandler struct {
-	saveConfig func(context.Context, port.WebUIConfig) error
+	saveConfig func(context.Context, dto.WebUIConfig) error
 }
 
 // NewConfigHandler creates a new ConfigHandler.
 // saveConfig is called to persist config changes (typically usecase.SaveWebUIConfigUseCase.Execute).
-func NewConfigHandler(saveConfig func(context.Context, port.WebUIConfig) error) *ConfigHandler {
+func NewConfigHandler(saveConfig func(context.Context, dto.WebUIConfig) error) *ConfigHandler {
 	if saveConfig == nil {
 		panic("NewConfigHandler: saveConfig must not be nil")
 	}
@@ -33,7 +34,7 @@ func (h *ConfigHandler) Handle(ctx context.Context, viewID port.WebViewID, paylo
 	}
 	log := logging.FromContext(ctx).With().Str("handler", "config").Logger()
 
-	var payloadCfg port.WebUIConfig
+	var payloadCfg dto.WebUIConfig
 	if err := json.Unmarshal(payload, &payloadCfg); err != nil {
 		log.Error().Err(err).Msg("failed to unmarshal config payload")
 		return nil, fmt.Errorf("invalid config format: %w", err)
@@ -56,7 +57,7 @@ func (h *ConfigHandler) Handle(ctx context.Context, viewID port.WebViewID, paylo
 // RegisterConfigHandlers registers configuration handlers with the router.
 func RegisterConfigHandlers(
 	ctx context.Context, router port.WebUIHandlerRouter,
-	saveConfig func(context.Context, port.WebUIConfig) error,
+	saveConfig func(context.Context, dto.WebUIConfig) error,
 ) error {
 	handler := NewConfigHandler(saveConfig)
 

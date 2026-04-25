@@ -42,6 +42,7 @@ func TestSanitizeHrefRejectsNetworkPathAndMalformedHTTP(t *testing.T) {
 	assert.Equal(t, "#", sanitizeHref("https:///evil.com"))
 	assert.Equal(t, "#", sanitizeHref("http:evil.com"))
 	assert.Equal(t, "https://example.com", sanitizeHref("https://example.com"))
+	assert.Equal(t, "https://example.com/path", sanitizeHref("https://user:pass@example.com/path"))
 }
 
 func TestSanitizeHrefAllowsInternalDumbRoutes(t *testing.T) {

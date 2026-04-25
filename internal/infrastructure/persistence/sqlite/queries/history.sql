@@ -19,7 +19,7 @@ DO UPDATE SET
     last_visited = CURRENT_TIMESTAMP,
     title = COALESCE(EXCLUDED.title, history.title),
     favicon_url = COALESCE(EXCLUDED.favicon_url, history.favicon_url),
-    domain = EXCLUDED.domain;
+    domain = COALESCE(EXCLUDED.domain, history.domain);
 
 -- name: IncrementVisitCount :exec
 UPDATE history
@@ -50,22 +50,47 @@ DELETE FROM history WHERE last_visited >= ?;
 DELETE FROM history;
 
 -- name: GetHistoryStats :one
-SELECT COUNT(*) as total_entries, COALESCE(SUM(visit_count), 0) as total_visits, COUNT(DISTINCT date(last_visited)) as unique_days FROM history;
+SELECT
+    COUNT(*) as total_entries,
+    COALESCE(SUM(visit_count), 0) as total_visits,
+    COUNT(DISTINCT date(last_visited)) as unique_days
+FROM history;
 
 -- name: GetDomainStats :many
-SELECT COALESCE(domain, '') as domain, COUNT(*) as page_count, SUM(visit_count) as total_visits, MAX(last_visited) as last_visit FROM history WHERE domain IS NOT NULL AND domain != '' GROUP BY domain ORDER BY total_visits DESC LIMIT ?;
+SELECT
+    COALESCE(domain, '') as domain,
+    COUNT(*) as page_count,
+    SUM(visit_count) as total_visits,
+    MAX(last_visited) as last_visit
+FROM history
+WHERE domain IS NOT NULL AND domain != ''
+GROUP BY domain
+ORDER BY total_visits DESC
+LIMIT ?;
 
 -- name: GetHourlyDistribution :many
-SELECT CAST(strftime('%H', last_visited) AS INTEGER) as hour, COUNT(*) as visit_count FROM history GROUP BY hour ORDER BY hour;
+SELECT
+    CAST(strftime('%H', last_visited) AS INTEGER) as hour,
+    COUNT(*) as visit_count
+FROM history
+GROUP BY hour
+ORDER BY hour;
 
 -- name: GetDailyVisitCount :many
-SELECT date(last_visited) as day, COUNT(*) as entries, SUM(visit_count) as visits FROM history WHERE last_visited >= date('now', ?) GROUP BY day ORDER BY day ASC;
+SELECT
+    date(last_visited) as day,
+    COUNT(*) as entries,
+    SUM(visit_count) as visits
+FROM history
+WHERE last_visited >= date('now', ?)
+GROUP BY day
+ORDER BY day ASC;
 
 -- name: DeleteHistoryByDomain :exec
 DELETE FROM history WHERE domain = @domain;
 
 -- name: SearchHistoryFTSUrl :many
-SELECT h.id, h.url, h.title, h.favicon_url, h.visit_count, h.last_visited, h.created_at
+SELECT h.id, h.url, h.title, h.favicon_url, h.visit_count, h.last_visited, h.created_at, h.domain
 FROM history_fts fts
 JOIN history h ON fts.rowid = h.id
 WHERE fts.url MATCH @query

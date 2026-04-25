@@ -11,22 +11,26 @@ import (
 	"github.com/bnema/dumber/internal/logging"
 )
 
-func folderIDFromInt64(id *int64) *entity.FolderID {
+func folderIDFromInt64(id *int64) (*entity.FolderID, error) {
 	if id == nil {
-		return nil
+		return nil, nil
+	}
+	if *id <= 0 {
+		return nil, fmt.Errorf("folder id must be positive")
 	}
 	folderID := entity.FolderID(*id)
-	return &folderID
+	return &folderID, nil
 }
 
-func tagIDsFromInt64s(ids []int64) []entity.TagID {
+func tagIDsFromInt64s(ids []int64) ([]entity.TagID, error) {
 	out := make([]entity.TagID, 0, len(ids))
 	for _, id := range ids {
-		if id > 0 {
-			out = append(out, entity.TagID(id))
+		if id <= 0 {
+			return nil, fmt.Errorf("tag id must be positive")
 		}
+		out = append(out, entity.TagID(id))
 	}
-	return out
+	return out, nil
 }
 
 // FavoritesHandlers handles favorite-related messages from the homepage.
@@ -80,19 +84,27 @@ func (h *FavoritesHandlers) HandleCreate() port.WebUIMessageHandler {
 
 		log.Debug().
 			Str("request_id", req.RequestID).
-			Str("url", req.URL).
 			Msg("handling favorite_create")
 
-		if strings.TrimSpace(req.URL) == "" {
+		trimmedURL := strings.TrimSpace(req.URL)
+		if trimmedURL == "" {
 			return NewErrorResponse(req.RequestID, fmt.Errorf("URL is required")), nil
+		}
+		folderID, err := folderIDFromInt64(req.FolderID)
+		if err != nil {
+			return NewErrorResponse(req.RequestID, err), nil
+		}
+		tags, err := tagIDsFromInt64s(req.Tags)
+		if err != nil {
+			return NewErrorResponse(req.RequestID, err), nil
 		}
 
 		input := port.FavoriteCreateInput{
-			URL:        req.URL,
+			URL:        trimmedURL,
 			Title:      req.Title,
 			FaviconURL: req.FaviconURL,
-			FolderID:   folderIDFromInt64(req.FolderID),
-			Tags:       tagIDsFromInt64s(req.Tags),
+			FolderID:   folderID,
+			Tags:       tags,
 		}
 		favorite, err := h.favoritesUC.AddFavorite(ctx, input)
 		if err != nil {
@@ -131,11 +143,16 @@ func (h *FavoritesHandlers) HandleUpdate() port.WebUIMessageHandler {
 			return NewErrorResponse(req.RequestID, fmt.Errorf("favorite id must be positive")), nil
 		}
 
+		folderID, err := folderIDFromInt64(req.FolderID)
+		if err != nil {
+			return NewErrorResponse(req.RequestID, err), nil
+		}
+
 		favorite, err := h.favoritesUC.UpdateFavorite(ctx, port.FavoriteUpdateInput{
 			ID:          entity.FavoriteID(req.ID),
 			Title:       req.Title,
 			FaviconURL:  req.FaviconURL,
-			FolderID:    folderIDFromInt64(req.FolderID),
+			FolderID:    folderID,
 			ShortcutKey: req.ShortcutKey,
 		})
 		if err != nil {
@@ -260,7 +277,12 @@ func (h *FavoritesHandlers) HandleSetFolder() port.WebUIMessageHandler {
 			Int64("favorite_id", req.FavoriteID).
 			Msg("handling favorite_set_folder")
 
-		if err := h.favoritesUC.Move(ctx, entity.FavoriteID(req.FavoriteID), folderIDFromInt64(req.FolderID)); err != nil {
+		folderID, err := folderIDFromInt64(req.FolderID)
+		if err != nil {
+			return NewErrorResponse(req.RequestID, err), nil
+		}
+
+		if err := h.favoritesUC.Move(ctx, entity.FavoriteID(req.FavoriteID), folderID); err != nil {
 			return NewErrorResponse(req.RequestID, err), nil
 		}
 

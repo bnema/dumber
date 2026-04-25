@@ -833,6 +833,22 @@ func TestHistoryRepository_Search_ReturnsEmptyForNonPositiveLimit(t *testing.T) 
 	assert.Empty(t, results)
 }
 
+func TestHistoryRepository_RejectsEmptyCanonicalDomain(t *testing.T) {
+	ctx := historyTestCtx()
+	dbPath := filepath.Join(t.TempDir(), "dumber.db")
+
+	db, err := sqlite.NewConnection(ctx, dbPath)
+	require.NoError(t, err)
+	t.Cleanup(func() { _ = db.Close() })
+
+	repo := sqlite.NewHistoryRepository(db)
+
+	entries, err := repo.GetRecentByDomain(ctx, " ", 10, 0)
+	require.Error(t, err)
+	assert.Nil(t, entries)
+	assert.Error(t, repo.DeleteByDomain(ctx, "/path"))
+}
+
 func TestHistoryRepository_DomainColumnPowersFilteringStatsAndDelete(t *testing.T) {
 	ctx := historyTestCtx()
 	dbPath := filepath.Join(t.TempDir(), "dumber.db")

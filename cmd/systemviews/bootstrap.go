@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 
+	"github.com/bnema/dumber/internal/application/dto"
 	"github.com/bnema/dumber/internal/application/port"
 	"github.com/bnema/dumber/internal/ui/systemviews"
 )
@@ -29,15 +30,15 @@ type bridgeConfigProxy struct {
 	route  systemviews.Route
 }
 
-func (p bridgeConfigProxy) Current(ctx context.Context) (port.SystemviewConfigPayload, error) {
+func (p bridgeConfigProxy) Current(ctx context.Context) (dto.SystemviewConfigPayload, error) {
 	return p.bridge.Current(ctx)
 }
 
-func (p bridgeConfigProxy) Default(ctx context.Context) (port.SystemviewConfigPayload, error) {
+func (p bridgeConfigProxy) Default(ctx context.Context) (dto.SystemviewConfigPayload, error) {
 	return p.bridge.Default(ctx)
 }
 
-func (p bridgeConfigProxy) Save(ctx context.Context, cfg port.WebUIConfig) error {
+func (p bridgeConfigProxy) Save(ctx context.Context, cfg dto.WebUIConfig) error {
 	return p.bridge.Save(ctx, cfg)
 }
 

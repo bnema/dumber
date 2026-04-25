@@ -4,6 +4,7 @@ import (
 	"context"
 	"testing"
 
+	"github.com/bnema/dumber/internal/application/dto"
 	"github.com/bnema/dumber/internal/application/port"
 	"github.com/bnema/dumber/internal/domain/entity"
 	"github.com/stretchr/testify/assert"
@@ -28,10 +29,10 @@ func TestNewBridgeApp_UsesCurrentConfigForNonConfigRoutes(t *testing.T) {
 
 	bridge := &fakeBridgeService{
 		historyEntries: []*entity.HistoryEntry{{Title: "Example", URL: "https://example.com"}},
-		currentConfig: port.SystemviewConfigPayload{
-			Appearance: port.WebUIAppearanceConfig{
+		currentConfig: dto.SystemviewConfigPayload{
+			Appearance: dto.WebUIAppearanceConfig{
 				ColorScheme: "prefer-dark",
-				DarkPalette: port.ColorPalette{
+				DarkPalette: dto.ColorPalette{
 					Background:     "#111111",
 					Surface:        "#1a1a1a",
 					SurfaceVariant: "#2a2a2a",
@@ -75,7 +76,7 @@ func TestNewBridgeApp_WiresConfigService(t *testing.T) {
 	t.Parallel()
 
 	bridge := &fakeBridgeService{
-		currentConfig: port.SystemviewConfigPayload{EngineType: "webkit"},
+		currentConfig: dto.SystemviewConfigPayload{EngineType: "webkit"},
 		keybindings:   port.KeybindingsConfig{Groups: []port.KeybindingGroup{{DisplayName: "Default"}}},
 	}
 	app := newBridgeApp(&fakeDOM{}, "dumb://config", bridge)
@@ -108,7 +109,7 @@ type fakeBridgeService struct {
 	favorites      []*entity.Favorite
 	folders        []*entity.Folder
 	tags           []*entity.Tag
-	currentConfig  port.SystemviewConfigPayload
+	currentConfig  dto.SystemviewConfigPayload
 	keybindings    port.KeybindingsConfig
 }
 
@@ -187,16 +188,16 @@ func (*fakeBridgeService) AssignTag(context.Context, int64, int64) error { retur
 
 func (*fakeBridgeService) RemoveTag(context.Context, int64, int64) error { return nil }
 
-func (f *fakeBridgeService) Current(context.Context) (port.SystemviewConfigPayload, error) {
+func (f *fakeBridgeService) Current(context.Context) (dto.SystemviewConfigPayload, error) {
 	f.calledConfig = true
 	return f.currentConfig, nil
 }
 
-func (*fakeBridgeService) Default(context.Context) (port.SystemviewConfigPayload, error) {
-	return port.SystemviewConfigPayload{}, nil
+func (*fakeBridgeService) Default(context.Context) (dto.SystemviewConfigPayload, error) {
+	return dto.SystemviewConfigPayload{}, nil
 }
 
-func (*fakeBridgeService) Save(context.Context, port.WebUIConfig) error { return nil }
+func (*fakeBridgeService) Save(context.Context, dto.WebUIConfig) error { return nil }
 
 func (f *fakeBridgeService) GetKeybindings(context.Context) (port.KeybindingsConfig, error) {
 	f.calledKeybindings = true

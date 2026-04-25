@@ -6,6 +6,7 @@ import (
 	"math"
 	"strings"
 
+	"github.com/bnema/dumber/internal/application/dto"
 	"github.com/bnema/dumber/internal/application/port"
 	"github.com/bnema/dumber/internal/domain/validation"
 )
@@ -18,7 +19,7 @@ func NewSaveWebUIConfigUseCase(saver port.WebUIConfigSaver) *SaveWebUIConfigUseC
 	return &SaveWebUIConfigUseCase{saver: saver}
 }
 
-func (uc *SaveWebUIConfigUseCase) Execute(ctx context.Context, cfg port.WebUIConfig) error {
+func (uc *SaveWebUIConfigUseCase) Execute(ctx context.Context, cfg dto.WebUIConfig) error {
 	if uc == nil || uc.saver == nil {
 		return fmt.Errorf("config saver is nil")
 	}
@@ -31,16 +32,19 @@ func (uc *SaveWebUIConfigUseCase) Execute(ctx context.Context, cfg port.WebUICon
 	return uc.saver.SaveWebUIConfig(ctx, normalized)
 }
 
-func normalizeWebUIConfig(cfg port.WebUIConfig) port.WebUIConfig {
+func normalizeWebUIConfig(cfg dto.WebUIConfig) dto.WebUIConfig {
 	cfg.Appearance.SansFont = strings.TrimSpace(cfg.Appearance.SansFont)
 	cfg.Appearance.SerifFont = strings.TrimSpace(cfg.Appearance.SerifFont)
 	cfg.Appearance.MonospaceFont = strings.TrimSpace(cfg.Appearance.MonospaceFont)
 	cfg.Appearance.ColorScheme = strings.TrimSpace(cfg.Appearance.ColorScheme)
 	cfg.DefaultSearchEngine = strings.TrimSpace(cfg.DefaultSearchEngine)
 	if len(cfg.SearchShortcuts) > 0 {
-		normalized := make(map[string]port.SearchShortcut, len(cfg.SearchShortcuts))
+		normalized := make(map[string]dto.SearchShortcut, len(cfg.SearchShortcuts))
 		for key, shortcut := range cfg.SearchShortcuts {
 			trimmedKey := strings.TrimSpace(key)
+			if trimmedKey == "" {
+				continue
+			}
 			shortcut.URL = strings.TrimSpace(shortcut.URL)
 			shortcut.Description = strings.TrimSpace(shortcut.Description)
 			normalized[trimmedKey] = shortcut
@@ -50,7 +54,7 @@ func normalizeWebUIConfig(cfg port.WebUIConfig) port.WebUIConfig {
 	return cfg
 }
 
-func validateWebUIConfig(cfg port.WebUIConfig) error {
+func validateWebUIConfig(cfg dto.WebUIConfig) error {
 	var errs []string
 
 	if cfg.Appearance.DefaultFontSize < 1 || cfg.Appearance.DefaultFontSize > 72 {

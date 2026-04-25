@@ -155,8 +155,10 @@ func TestSearchHistoryUseCase_GetMostVisited_ReturnsEmptyWhenNoHistory(t *testin
 func TestSearchHistoryUseCase_ClearRange_RecentRangeDeletesSinceCutoff(t *testing.T) {
 	ctx := testContext()
 	historyRepo := repomocks.NewMockHistoryRepository(t)
+	now := time.Now()
+	expectedCutoff := now.Add(-time.Hour)
 	historyRepo.EXPECT().DeleteSince(mock.Anything, mock.MatchedBy(func(since time.Time) bool {
-		return !since.IsZero() && time.Since(since) <= time.Hour+time.Minute
+		return since.After(expectedCutoff.Add(-time.Minute)) && since.Before(expectedCutoff.Add(time.Minute))
 	})).Return(nil).Once()
 
 	uc := usecase.NewSearchHistoryUseCase(historyRepo)
@@ -168,15 +170,10 @@ func TestSearchHistoryUseCase_ClearRange_RecentRangeDeletesSinceCutoff(t *testin
 func TestSearchHistoryUseCase_ClearRange_TodayDeletesSinceLocalMidnight(t *testing.T) {
 	ctx := testContext()
 	historyRepo := repomocks.NewMockHistoryRepository(t)
-	today := time.Now()
+	now := time.Now()
+	expectedCutoff := time.Date(now.Year(), now.Month(), now.Day(), 0, 0, 0, 0, now.Location())
 	historyRepo.EXPECT().DeleteSince(mock.Anything, mock.MatchedBy(func(since time.Time) bool {
-		return since.Year() == today.Year() &&
-			since.Month() == today.Month() &&
-			since.Day() == today.Day() &&
-			since.Hour() == 0 &&
-			since.Minute() == 0 &&
-			since.Second() == 0 &&
-			since.Nanosecond() == 0
+		return since.Equal(expectedCutoff)
 	})).Return(nil).Once()
 
 	uc := usecase.NewSearchHistoryUseCase(historyRepo)

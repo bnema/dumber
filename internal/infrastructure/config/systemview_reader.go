@@ -3,6 +3,7 @@ package config
 import (
 	"context"
 
+	"github.com/bnema/dumber/internal/application/dto"
 	"github.com/bnema/dumber/internal/application/port"
 )
 
@@ -17,17 +18,17 @@ func NewSystemviewConfigReader(hwSurveyor port.HardwareSurveyor) port.Systemview
 	return &systemviewConfigReader{hwSurveyor: hwSurveyor}
 }
 
-func (r *systemviewConfigReader) Current(ctx context.Context) (port.SystemviewConfigPayload, error) {
+func (r *systemviewConfigReader) Current(ctx context.Context) (dto.SystemviewConfigPayload, error) {
 	return r.build(ctx, Get())
 }
 
-func (r *systemviewConfigReader) Default(ctx context.Context) (port.SystemviewConfigPayload, error) {
+func (r *systemviewConfigReader) Default(ctx context.Context) (dto.SystemviewConfigPayload, error) {
 	return r.build(ctx, DefaultConfig())
 }
 
-func (r *systemviewConfigReader) build(ctx context.Context, cfg *Config) (port.SystemviewConfigPayload, error) {
+func (r *systemviewConfigReader) build(ctx context.Context, cfg *Config) (dto.SystemviewConfigPayload, error) {
 	if cfg == nil {
-		return port.SystemviewConfigPayload{}, nil
+		return dto.SystemviewConfigPayload{}, nil
 	}
 
 	var hw *port.HardwareInfo

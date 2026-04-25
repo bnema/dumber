@@ -7,6 +7,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/bnema/dumber/internal/application/dto"
 	"github.com/bnema/dumber/internal/application/port"
 )
 
@@ -289,10 +290,10 @@ func TestClientConfigActionsUseExpectedMessageTypes(t *testing.T) {
 		{
 			name: "save config",
 			call: func(client *Client) error {
-				return client.Save(context.Background(), port.WebUIConfig{DefaultSearchEngine: "DuckDuckGo"})
+				return client.Save(context.Background(), dto.WebUIConfig{DefaultSearchEngine: "DuckDuckGo"})
 			},
 			want:    "save_config",
-			payload: port.WebUIConfig{DefaultSearchEngine: "DuckDuckGo"},
+			payload: dto.WebUIConfig{DefaultSearchEngine: "DuckDuckGo"},
 		},
 		{
 			name: "get keybindings",

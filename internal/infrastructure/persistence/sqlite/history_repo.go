@@ -494,9 +494,10 @@ func (r *historyRepo) GetRecent(ctx context.Context, limit, offset int) ([]*enti
 }
 
 func (r *historyRepo) GetRecentByDomain(ctx context.Context, domain string, limit, offset int) ([]*entity.HistoryEntry, error) {
+	rawDomain := domain
 	domain = domainurl.CanonicalDomain(domain)
 	if domain == "" {
-		return []*entity.HistoryEntry{}, nil
+		return nil, fmt.Errorf("history domain is required: %q", rawDomain)
 	}
 	rows, err := r.queries.GetRecentHistoryByDomain(ctx, sqlc.GetRecentHistoryByDomainParams{
 		Domain: sql.NullString{String: domain, Valid: true},
@@ -597,8 +598,7 @@ func (r *historyRepo) DeleteByDomain(ctx context.Context, domain string) error {
 	rawDomain := domain
 	domain = domainurl.CanonicalDomain(domain)
 	if domain == "" {
-		logging.FromContext(ctx).Debug().Str("domain", rawDomain).Msg("skipping delete by domain: empty canonical domain")
-		return nil
+		return fmt.Errorf("history domain is required: %q", rawDomain)
 	}
 	return r.queries.DeleteHistoryByDomain(ctx, sql.NullString{String: domain, Valid: true})
 }

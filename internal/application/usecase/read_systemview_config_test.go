@@ -4,7 +4,7 @@ import (
 	"context"
 	"testing"
 
-	"github.com/bnema/dumber/internal/application/port"
+	"github.com/bnema/dumber/internal/application/dto"
 	portmocks "github.com/bnema/dumber/internal/application/port/mocks"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
@@ -12,7 +12,7 @@ import (
 
 func TestReadSystemviewConfigUseCase_Current(t *testing.T) {
 	reader := portmocks.NewMockSystemviewConfigReader(t)
-	want := port.SystemviewConfigPayload{EngineType: "webkit"}
+	want := dto.SystemviewConfigPayload{EngineType: "webkit"}
 	reader.EXPECT().Current(mock.Anything).Return(want, nil).Once()
 
 	uc := NewReadSystemviewConfigUseCase(reader)
@@ -24,7 +24,7 @@ func TestReadSystemviewConfigUseCase_Current(t *testing.T) {
 
 func TestReadSystemviewConfigUseCase_Default(t *testing.T) {
 	reader := portmocks.NewMockSystemviewConfigReader(t)
-	want := port.SystemviewConfigPayload{EngineType: "webkit"}
+	want := dto.SystemviewConfigPayload{EngineType: "webkit"}
 	reader.EXPECT().Default(mock.Anything).Return(want, nil).Once()
 
 	uc := NewReadSystemviewConfigUseCase(reader)

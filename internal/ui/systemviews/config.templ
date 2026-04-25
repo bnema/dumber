@@ -1,6 +1,9 @@
 package systemviews
 
-import "github.com/bnema/dumber/internal/application/port"
+import (
+	"github.com/bnema/dumber/internal/application/dto"
+	"github.com/bnema/dumber/internal/application/port"
+)
 
 templ ConfigView(data configRenderData) {
 	@Alert("success", data.Notice)
@@ -23,7 +26,7 @@ templ ConfigView(data configRenderData) {
 	}
 }
 
-templ AppearanceForm(config port.SystemviewConfigPayload) {
+templ AppearanceForm(config dto.SystemviewConfigPayload) {
 	<form class="sv-card-form sv-config-form" data-sv-action="config.appearance.save">
 		<label><span>Sans font</span><input name="sans_font" type="text" value={ config.Appearance.SansFont } required/></label>
 		<label><span>Serif font</span><input name="serif_font" type="text" value={ config.Appearance.SerifFont } required/></label>
@@ -44,20 +47,20 @@ templ AppearanceForm(config port.SystemviewConfigPayload) {
 	</form>
 }
 
-templ PaletteFields(title string, prefix string, palette port.ColorPalette) {
+templ PaletteFields(title string, prefix string, palette dto.ColorPalette) {
 	<fieldset class="sv-fieldset">
 		<legend>{ title }</legend>
-		<label><span>Background</span><input name={ prefix + "_background" } type="color" value={ palette.Background } required/></label>
-		<label><span>Surface</span><input name={ prefix + "_surface" } type="color" value={ palette.Surface } required/></label>
-		<label><span>Surface variant</span><input name={ prefix + "_surface_variant" } type="color" value={ palette.SurfaceVariant } required/></label>
-		<label><span>Text</span><input name={ prefix + "_text" } type="color" value={ palette.Text } required/></label>
-		<label><span>Muted</span><input name={ prefix + "_muted" } type="color" value={ palette.Muted } required/></label>
-		<label><span>Accent</span><input name={ prefix + "_accent" } type="color" value={ palette.Accent } required/></label>
-		<label><span>Border</span><input name={ prefix + "_border" } type="color" value={ palette.Border } required/></label>
+		<label><span>Background</span><input name={ prefix + "_background" } type="text" value={ palette.Background } required/></label>
+		<label><span>Surface</span><input name={ prefix + "_surface" } type="text" value={ palette.Surface } required/></label>
+		<label><span>Surface variant</span><input name={ prefix + "_surface_variant" } type="text" value={ palette.SurfaceVariant } required/></label>
+		<label><span>Text</span><input name={ prefix + "_text" } type="text" value={ palette.Text } required/></label>
+		<label><span>Muted</span><input name={ prefix + "_muted" } type="text" value={ palette.Muted } required/></label>
+		<label><span>Accent</span><input name={ prefix + "_accent" } type="text" value={ palette.Accent } required/></label>
+		<label><span>Border</span><input name={ prefix + "_border" } type="text" value={ palette.Border } required/></label>
 	</fieldset>
 }
 
-templ SearchSettings(config port.SystemviewConfigPayload) {
+templ SearchSettings(config dto.SystemviewConfigPayload) {
 	<form class="sv-card-form" data-sv-action="config.search.save">
 		<label><span>Default search engine</span><input name="default_search_engine" type="text" value={ config.DefaultSearchEngine } placeholder="https://duckduckgo.com/?q=%s" required/></label>
 		<button class="sv-button" type="submit">Save search default</button>
@@ -97,7 +100,7 @@ templ SearchShortcutItem(shortcut searchShortcutRow) {
 	</li>
 }
 
-templ PerformanceSettings(config port.SystemviewConfigPayload) {
+templ PerformanceSettings(config dto.SystemviewConfigPayload) {
 	{{ customProfile := performanceProfileSelected(config.Performance.Profile, "custom") }}
 	<form class="sv-card-form sv-config-form" data-sv-action="config.performance.save">
 		<label><span>Profile</span><select name="profile">

@@ -7,6 +7,7 @@ import (
 	"strings"
 	"sync"
 
+	"github.com/bnema/dumber/internal/application/dto"
 	"github.com/bnema/dumber/internal/application/port"
 	"github.com/bnema/dumber/internal/domain/entity"
 )
@@ -42,7 +43,7 @@ type App struct {
 	favoriteTagFilter    *entity.TagID
 	favoritesNotice      string
 	favoritesError       string
-	config               *port.SystemviewConfigPayload
+	config               *dto.SystemviewConfigPayload
 	keybindings          port.KeybindingsConfig
 	configNotice         string
 	configError          string

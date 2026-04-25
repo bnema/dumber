@@ -29,6 +29,7 @@ func sanitizeHref(raw string) string {
 			return "#"
 		}
 		parsed.Scheme = strings.ToLower(parsed.Scheme)
+		parsed.User = nil
 		return parsed.String()
 	case "dumb":
 		if parsed.Host == "" && parsed.Opaque == "" {

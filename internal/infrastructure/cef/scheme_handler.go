@@ -279,10 +279,6 @@ func (h *dumbSchemeHandler) handleTranscodeAPI(request purecef.Request) purecef.
 	if err != nil || sourceParsed.Host == "" || (sourceParsed.Scheme != "http" && sourceParsed.Scheme != actualInternalScheme) {
 		return h.newAPIJSONResourceHandler(http.StatusBadRequest, map[string]string{"error": "invalid src"})
 	}
-	if err := validateTranscodeSourceURL(h.ctx, sourceParsed); err != nil {
-		return h.newAPIJSONResourceHandler(http.StatusForbidden, map[string]string{"error": err.Error()})
-	}
-
 	headers := make(map[string]string)
 	if userAgent := request.GetHeaderByName("User-Agent"); userAgent != "" {
 		headers["User-Agent"] = userAgent
@@ -308,6 +304,9 @@ func (h *dumbSchemeHandler) handleTranscodeAPI(request purecef.Request) purecef.
 		headers:    headers,
 		ctx:        ctx,
 		cancel:     cancel,
+		validateSource: func(ctx context.Context) error {
+			return validateTranscodeSourceURL(ctx, sourceParsed)
+		},
 		logf: func() zerolog.Logger {
 			return h.logger.With().Str("component", "scheme-transcoding").Logger()
 		},

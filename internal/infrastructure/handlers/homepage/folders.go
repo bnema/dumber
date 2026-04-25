@@ -62,11 +62,12 @@ func (h *FolderHandlers) HandleCreate() port.WebUIMessageHandler {
 			Str("name", req.Name).
 			Msg("handling folder_create")
 
-		icon := ""
-		if req.Icon != nil {
-			icon = *req.Icon
+		parentID, err := folderIDFromInt64(req.ParentID)
+		if err != nil {
+			return NewErrorResponse(req.RequestID, err), nil
 		}
-		folder, err := h.favoritesUC.CreateFolder(ctx, req.Name, icon, folderIDFromInt64(req.ParentID))
+
+		folder, err := h.favoritesUC.CreateFolder(ctx, req.Name, optionalStringValue(req.Icon), parentID)
 		if err != nil {
 			return NewErrorResponse(req.RequestID, err), nil
 		}
@@ -114,6 +115,13 @@ type updateFolderRequest struct {
 
 // HandleUpdate handles folder_update messages.
 // It delegates to the port.HomepageFavorites interface's UpdateFolder method.
+func optionalStringValue(value *string) string {
+	if value == nil {
+		return ""
+	}
+	return *value
+}
+
 func (h *FolderHandlers) HandleUpdate() port.WebUIMessageHandler {
 	return port.WebUIMessageHandlerFunc(func(ctx context.Context, _ port.WebViewID, payload json.RawMessage) (any, error) {
 		log := logging.FromContext(ctx)
@@ -129,12 +137,7 @@ func (h *FolderHandlers) HandleUpdate() port.WebUIMessageHandler {
 			Str("name", req.Name).
 			Msg("handling folder_update")
 
-		icon := ""
-		if req.Icon != nil {
-			icon = *req.Icon
-		}
-
-		if err := h.favoritesUC.UpdateFolder(ctx, entity.FolderID(req.ID), req.Name, icon); err != nil {
+		if err := h.favoritesUC.UpdateFolder(ctx, entity.FolderID(req.ID), req.Name, optionalStringValue(req.Icon)); err != nil {
 			return NewErrorResponse(req.RequestID, err), nil
 		}
 

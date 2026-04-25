@@ -9,6 +9,7 @@ import (
 	"sync/atomic"
 	"time"
 
+	"github.com/bnema/dumber/internal/application/dto"
 	"github.com/bnema/dumber/internal/application/port"
 	"github.com/bnema/dumber/internal/domain/entity"
 )
@@ -143,21 +144,21 @@ func (c *Client) DeleteRange(ctx context.Context, rangeID string) error {
 
 // Current intentionally targets the direct HTTP config endpoint rather than a
 // snake_case bridge message so CEF/WebKit fetch shims can reuse /api/config.
-func (c *Client) Current(ctx context.Context) (port.SystemviewConfigPayload, error) {
-	return request[port.SystemviewConfigPayload](c, ctx, "/api/config", struct {
+func (c *Client) Current(ctx context.Context) (dto.SystemviewConfigPayload, error) {
+	return request[dto.SystemviewConfigPayload](c, ctx, "/api/config", struct {
 		RequestID string `json:"requestId"`
 	}{RequestID: nextRequestID()})
 }
 
 // Default intentionally targets the direct HTTP config endpoint rather than a
 // snake_case bridge message so CEF/WebKit fetch shims can reuse /api/config/default.
-func (c *Client) Default(ctx context.Context) (port.SystemviewConfigPayload, error) {
-	return request[port.SystemviewConfigPayload](c, ctx, "/api/config/default", struct {
+func (c *Client) Default(ctx context.Context) (dto.SystemviewConfigPayload, error) {
+	return request[dto.SystemviewConfigPayload](c, ctx, "/api/config/default", struct {
 		RequestID string `json:"requestId"`
 	}{RequestID: nextRequestID()})
 }
 
-func (c *Client) Save(ctx context.Context, cfg port.WebUIConfig) error {
+func (c *Client) Save(ctx context.Context, cfg dto.WebUIConfig) error {
 	_, err := request[struct{}](c, ctx, "save_config", cfg)
 	return err
 }
@@ -482,10 +483,8 @@ func request[T any](c *Client, ctx context.Context, msgType string, payload any)
 	return decodeBridgeResponse[T](raw)
 }
 
+// withBridgeRequestTimeout applies the bridge request timeout; ctx must be non-nil.
 func (c *Client) withBridgeRequestTimeout(ctx context.Context) (context.Context, context.CancelFunc) {
-	if ctx == nil {
-		ctx = context.Background()
-	}
 	timeout := defaultBridgeRequestTimeout
 	if c != nil {
 		timeout = c.requestTimeout

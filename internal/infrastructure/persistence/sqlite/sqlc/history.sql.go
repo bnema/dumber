@@ -145,7 +145,14 @@ func (q *Queries) GetAllRecentHistory(ctx context.Context) ([]History, error) {
 }
 
 const GetDailyVisitCount = `-- name: GetDailyVisitCount :many
-SELECT date(last_visited) as day, COUNT(*) as entries, SUM(visit_count) as visits FROM history WHERE last_visited >= date('now', ?) GROUP BY day ORDER BY day ASC
+SELECT
+    date(last_visited) as day,
+    COUNT(*) as entries,
+    SUM(visit_count) as visits
+FROM history
+WHERE last_visited >= date('now', ?)
+GROUP BY day
+ORDER BY day ASC
 `
 
 type GetDailyVisitCountRow struct {
@@ -178,7 +185,16 @@ func (q *Queries) GetDailyVisitCount(ctx context.Context, date interface{}) ([]G
 }
 
 const GetDomainStats = `-- name: GetDomainStats :many
-SELECT COALESCE(domain, '') as domain, COUNT(*) as page_count, SUM(visit_count) as total_visits, MAX(last_visited) as last_visit FROM history WHERE domain IS NOT NULL AND domain != '' GROUP BY domain ORDER BY total_visits DESC LIMIT ?
+SELECT
+    COALESCE(domain, '') as domain,
+    COUNT(*) as page_count,
+    SUM(visit_count) as total_visits,
+    MAX(last_visited) as last_visit
+FROM history
+WHERE domain IS NOT NULL AND domain != ''
+GROUP BY domain
+ORDER BY total_visits DESC
+LIMIT ?
 `
 
 type GetDomainStatsRow struct {
@@ -237,7 +253,11 @@ func (q *Queries) GetHistoryByURL(ctx context.Context, url string) (History, err
 }
 
 const GetHistoryStats = `-- name: GetHistoryStats :one
-SELECT COUNT(*) as total_entries, COALESCE(SUM(visit_count), 0) as total_visits, COUNT(DISTINCT date(last_visited)) as unique_days FROM history
+SELECT
+    COUNT(*) as total_entries,
+    COALESCE(SUM(visit_count), 0) as total_visits,
+    COUNT(DISTINCT date(last_visited)) as unique_days
+FROM history
 `
 
 type GetHistoryStatsRow struct {
@@ -254,7 +274,12 @@ func (q *Queries) GetHistoryStats(ctx context.Context) (GetHistoryStatsRow, erro
 }
 
 const GetHourlyDistribution = `-- name: GetHourlyDistribution :many
-SELECT CAST(strftime('%H', last_visited) AS INTEGER) as hour, COUNT(*) as visit_count FROM history GROUP BY hour ORDER BY hour
+SELECT
+    CAST(strftime('%H', last_visited) AS INTEGER) as hour,
+    COUNT(*) as visit_count
+FROM history
+GROUP BY hour
+ORDER BY hour
 `
 
 type GetHourlyDistributionRow struct {
@@ -566,7 +591,7 @@ func (q *Queries) SearchHistoryFTSTitle(ctx context.Context, arg SearchHistoryFT
 }
 
 const SearchHistoryFTSUrl = `-- name: SearchHistoryFTSUrl :many
-SELECT h.id, h.url, h.title, h.favicon_url, h.visit_count, h.last_visited, h.created_at
+SELECT h.id, h.url, h.title, h.favicon_url, h.visit_count, h.last_visited, h.created_at, h.domain
 FROM history_fts fts
 JOIN history h ON fts.rowid = h.id
 WHERE fts.url MATCH ?1
@@ -579,25 +604,15 @@ type SearchHistoryFTSUrlParams struct {
 	Limit int64  `json:"limit"`
 }
 
-type SearchHistoryFTSUrlRow struct {
-	ID          int64          `json:"id"`
-	Url         string         `json:"url"`
-	Title       sql.NullString `json:"title"`
-	FaviconUrl  sql.NullString `json:"favicon_url"`
-	VisitCount  sql.NullInt64  `json:"visit_count"`
-	LastVisited sql.NullTime   `json:"last_visited"`
-	CreatedAt   sql.NullTime   `json:"created_at"`
-}
-
-func (q *Queries) SearchHistoryFTSUrl(ctx context.Context, arg SearchHistoryFTSUrlParams) ([]SearchHistoryFTSUrlRow, error) {
+func (q *Queries) SearchHistoryFTSUrl(ctx context.Context, arg SearchHistoryFTSUrlParams) ([]History, error) {
 	rows, err := q.db.QueryContext(ctx, SearchHistoryFTSUrl, arg.Query, arg.Limit)
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
-	items := []SearchHistoryFTSUrlRow{}
+	items := []History{}
 	for rows.Next() {
-		var i SearchHistoryFTSUrlRow
+		var i History
 		if err := rows.Scan(
 			&i.ID,
 			&i.Url,
@@ -606,6 +621,7 @@ func (q *Queries) SearchHistoryFTSUrl(ctx context.Context, arg SearchHistoryFTSU
 			&i.VisitCount,
 			&i.LastVisited,
 			&i.CreatedAt,
+			&i.Domain,
 		); err != nil {
 			return nil, err
 		}
@@ -694,7 +710,7 @@ DO UPDATE SET
     last_visited = CURRENT_TIMESTAMP,
     title = COALESCE(EXCLUDED.title, history.title),
     favicon_url = COALESCE(EXCLUDED.favicon_url, history.favicon_url),
-    domain = EXCLUDED.domain
+    domain = COALESCE(EXCLUDED.domain, history.domain)
 `
 
 type UpsertHistoryParams struct {

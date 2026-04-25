@@ -9,6 +9,7 @@ import (
 	"strings"
 	"sync/atomic"
 
+	"github.com/bnema/dumber/internal/application/dto"
 	"github.com/bnema/dumber/internal/application/port"
 )
 
@@ -236,6 +237,9 @@ func (a *App) savePerformanceConfig(ctx context.Context, data map[string]string)
 		return err
 	}
 	profile := strings.TrimSpace(data["profile"])
+	if !isAllowedPerformanceProfile(profile) {
+		return fmt.Errorf("unknown performance profile: %q", profile)
+	}
 	cfg.Performance.Profile = profile
 	if profile != "custom" {
 		if err := a.saveEditableConfig(ctx, cfg); err != nil {
@@ -281,7 +285,7 @@ func (a *App) savePerformanceConfig(ctx context.Context, data map[string]string)
 		return err
 	}
 
-	cfg.Performance.Custom = port.WebUICustomPerformanceConfig{
+	cfg.Performance.Custom = dto.WebUICustomPerformanceConfig{
 		SkiaCPUThreads:         skiaCPU,
 		SkiaGPUThreads:         skiaGPU,
 		WebProcessMemoryMB:     webMemory,
@@ -342,10 +346,10 @@ func (a *App) resetConfigKeybinding(ctx context.Context, data map[string]string)
 	return nil
 }
 
-func (a *App) editableConfig(ctx context.Context) (port.WebUIConfig, error) {
+func (a *App) editableConfig(ctx context.Context) (dto.WebUIConfig, error) {
 	cfg, err := a.deps.Config.Current(ctx)
 	if err != nil {
-		return port.WebUIConfig{}, err
+		return dto.WebUIConfig{}, err
 	}
 	a.config = &cfg
 	return webUIConfigFromPayload(cfg), nil
@@ -371,7 +375,7 @@ func (a *App) requireKeybindingTarget(ctx context.Context, mode, action string) 
 	return fmt.Errorf("keybinding %s/%s not found", mode, action)
 }
 
-func (a *App) saveEditableConfig(ctx context.Context, cfg port.WebUIConfig) error {
+func (a *App) saveEditableConfig(ctx context.Context, cfg dto.WebUIConfig) error {
 	if err := a.deps.Config.Save(ctx, cfg); err != nil {
 		return err
 	}
@@ -379,15 +383,15 @@ func (a *App) saveEditableConfig(ctx context.Context, cfg port.WebUIConfig) erro
 	return nil
 }
 
-func webUIConfigFromPayload(payload port.SystemviewConfigPayload) port.WebUIConfig {
-	return port.WebUIConfig{
+func webUIConfigFromPayload(payload dto.SystemviewConfigPayload) dto.WebUIConfig {
+	return dto.WebUIConfig{
 		Appearance:          payload.Appearance,
 		DefaultUIScale:      payload.DefaultUIScale,
 		DefaultSearchEngine: payload.DefaultSearchEngine,
 		SearchShortcuts:     cloneSearchShortcuts(payload.SearchShortcuts),
-		Performance: port.WebUIPerformanceConfig{
+		Performance: dto.WebUIPerformanceConfig{
 			Profile: payload.Performance.Profile,
-			Custom: port.WebUICustomPerformanceConfig{
+			Custom: dto.WebUICustomPerformanceConfig{
 				SkiaCPUThreads:         payload.Performance.Custom.SkiaCPUThreads,
 				SkiaGPUThreads:         payload.Performance.Custom.SkiaGPUThreads,
 				WebProcessMemoryMB:     payload.Performance.Custom.WebProcessMemoryMB,
@@ -398,15 +402,15 @@ func webUIConfigFromPayload(payload port.SystemviewConfigPayload) port.WebUIConf
 	}
 }
 
-func cloneSearchShortcuts(shortcuts map[string]port.SearchShortcut) map[string]port.SearchShortcut {
-	clone := make(map[string]port.SearchShortcut, len(shortcuts))
+func cloneSearchShortcuts(shortcuts map[string]dto.SearchShortcut) map[string]dto.SearchShortcut {
+	clone := make(map[string]dto.SearchShortcut, len(shortcuts))
 	for key, shortcut := range shortcuts {
 		clone[key] = shortcut
 	}
 	return clone
 }
 
-func paletteFromForm(data map[string]string, prefix string) (port.ColorPalette, error) {
+func paletteFromForm(data map[string]string, prefix string) (dto.ColorPalette, error) {
 	color := func(field string) (string, error) {
 		value := strings.TrimSpace(data[prefix+"_"+field])
 		if value == "" || isValidHexColor(value) {
@@ -417,34 +421,34 @@ func paletteFromForm(data map[string]string, prefix string) (port.ColorPalette, 
 
 	background, err := color("background")
 	if err != nil {
-		return port.ColorPalette{}, err
+		return dto.ColorPalette{}, err
 	}
 	surface, err := color("surface")
 	if err != nil {
-		return port.ColorPalette{}, err
+		return dto.ColorPalette{}, err
 	}
 	surfaceVariant, err := color("surface_variant")
 	if err != nil {
-		return port.ColorPalette{}, err
+		return dto.ColorPalette{}, err
 	}
 	text, err := color("text")
 	if err != nil {
-		return port.ColorPalette{}, err
+		return dto.ColorPalette{}, err
 	}
 	muted, err := color("muted")
 	if err != nil {
-		return port.ColorPalette{}, err
+		return dto.ColorPalette{}, err
 	}
 	accent, err := color("accent")
 	if err != nil {
-		return port.ColorPalette{}, err
+		return dto.ColorPalette{}, err
 	}
 	border, err := color("border")
 	if err != nil {
-		return port.ColorPalette{}, err
+		return dto.ColorPalette{}, err
 	}
 
-	return port.ColorPalette{
+	return dto.ColorPalette{
 		Background:     background,
 		Surface:        surface,
 		SurfaceVariant: surfaceVariant,
@@ -459,8 +463,8 @@ func isValidHexColor(value string) bool {
 	return isHexColor(strings.TrimSpace(value))
 }
 
-func searchShortcutFromForm(data map[string]string, keyField string) (string, port.SearchShortcut) {
-	return strings.TrimSpace(data[keyField]), port.SearchShortcut{
+func searchShortcutFromForm(data map[string]string, keyField string) (string, dto.SearchShortcut) {
+	return strings.TrimSpace(data[keyField]), dto.SearchShortcut{
 		URL:         strings.TrimSpace(data["url"]),
 		Description: strings.TrimSpace(data["description"]),
 	}
@@ -495,6 +499,15 @@ func parseConfigFloat(raw, label string) (float64, error) {
 		return 0, fmt.Errorf("invalid %s", label)
 	}
 	return value, nil
+}
+
+func isAllowedPerformanceProfile(profile string) bool {
+	switch profile {
+	case "default", "lite", "max", "custom":
+		return true
+	default:
+		return false
+	}
 }
 
 func validatePerformanceInt(value int, label string, minValue, maxValue int) error {

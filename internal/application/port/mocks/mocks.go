@@ -12113,22 +12113,22 @@ func (_m *MockSystemviewConfigReader) EXPECT() *MockSystemviewConfigReader_Expec
 }
 
 // Current provides a mock function for the type MockSystemviewConfigReader
-func (_mock *MockSystemviewConfigReader) Current(ctx context.Context) (port.SystemviewConfigPayload, error) {
+func (_mock *MockSystemviewConfigReader) Current(ctx context.Context) (dto.SystemviewConfigPayload, error) {
 	ret := _mock.Called(ctx)
 
 	if len(ret) == 0 {
 		panic("no return value specified for Current")
 	}
 
-	var r0 port.SystemviewConfigPayload
+	var r0 dto.SystemviewConfigPayload
 	var r1 error
-	if returnFunc, ok := ret.Get(0).(func(context.Context) (port.SystemviewConfigPayload, error)); ok {
+	if returnFunc, ok := ret.Get(0).(func(context.Context) (dto.SystemviewConfigPayload, error)); ok {
 		return returnFunc(ctx)
 	}
-	if returnFunc, ok := ret.Get(0).(func(context.Context) port.SystemviewConfigPayload); ok {
+	if returnFunc, ok := ret.Get(0).(func(context.Context) dto.SystemviewConfigPayload); ok {
 		r0 = returnFunc(ctx)
 	} else {
-		r0 = ret.Get(0).(port.SystemviewConfigPayload)
+		r0 = ret.Get(0).(dto.SystemviewConfigPayload)
 	}
 	if returnFunc, ok := ret.Get(1).(func(context.Context) error); ok {
 		r1 = returnFunc(ctx)
@@ -12162,33 +12162,33 @@ func (_c *MockSystemviewConfigReader_Current_Call) Run(run func(ctx context.Cont
 	return _c
 }
 
-func (_c *MockSystemviewConfigReader_Current_Call) Return(systemviewConfigPayload port.SystemviewConfigPayload, err error) *MockSystemviewConfigReader_Current_Call {
+func (_c *MockSystemviewConfigReader_Current_Call) Return(systemviewConfigPayload dto.SystemviewConfigPayload, err error) *MockSystemviewConfigReader_Current_Call {
 	_c.Call.Return(systemviewConfigPayload, err)
 	return _c
 }
 
-func (_c *MockSystemviewConfigReader_Current_Call) RunAndReturn(run func(ctx context.Context) (port.SystemviewConfigPayload, error)) *MockSystemviewConfigReader_Current_Call {
+func (_c *MockSystemviewConfigReader_Current_Call) RunAndReturn(run func(ctx context.Context) (dto.SystemviewConfigPayload, error)) *MockSystemviewConfigReader_Current_Call {
 	_c.Call.Return(run)
 	return _c
 }
 
 // Default provides a mock function for the type MockSystemviewConfigReader
-func (_mock *MockSystemviewConfigReader) Default(ctx context.Context) (port.SystemviewConfigPayload, error) {
+func (_mock *MockSystemviewConfigReader) Default(ctx context.Context) (dto.SystemviewConfigPayload, error) {
 	ret := _mock.Called(ctx)
 
 	if len(ret) == 0 {
 		panic("no return value specified for Default")
 	}
 
-	var r0 port.SystemviewConfigPayload
+	var r0 dto.SystemviewConfigPayload
 	var r1 error
-	if returnFunc, ok := ret.Get(0).(func(context.Context) (port.SystemviewConfigPayload, error)); ok {
+	if returnFunc, ok := ret.Get(0).(func(context.Context) (dto.SystemviewConfigPayload, error)); ok {
 		return returnFunc(ctx)
 	}
-	if returnFunc, ok := ret.Get(0).(func(context.Context) port.SystemviewConfigPayload); ok {
+	if returnFunc, ok := ret.Get(0).(func(context.Context) dto.SystemviewConfigPayload); ok {
 		r0 = returnFunc(ctx)
 	} else {
-		r0 = ret.Get(0).(port.SystemviewConfigPayload)
+		r0 = ret.Get(0).(dto.SystemviewConfigPayload)
 	}
 	if returnFunc, ok := ret.Get(1).(func(context.Context) error); ok {
 		r1 = returnFunc(ctx)
@@ -12222,12 +12222,12 @@ func (_c *MockSystemviewConfigReader_Default_Call) Run(run func(ctx context.Cont
 	return _c
 }
 
-func (_c *MockSystemviewConfigReader_Default_Call) Return(systemviewConfigPayload port.SystemviewConfigPayload, err error) *MockSystemviewConfigReader_Default_Call {
+func (_c *MockSystemviewConfigReader_Default_Call) Return(systemviewConfigPayload dto.SystemviewConfigPayload, err error) *MockSystemviewConfigReader_Default_Call {
 	_c.Call.Return(systemviewConfigPayload, err)
 	return _c
 }
 
-func (_c *MockSystemviewConfigReader_Default_Call) RunAndReturn(run func(ctx context.Context) (port.SystemviewConfigPayload, error)) *MockSystemviewConfigReader_Default_Call {
+func (_c *MockSystemviewConfigReader_Default_Call) RunAndReturn(run func(ctx context.Context) (dto.SystemviewConfigPayload, error)) *MockSystemviewConfigReader_Default_Call {
 	_c.Call.Return(run)
 	return _c
 }
@@ -12260,7 +12260,7 @@ func (_m *MockWebUIConfigSaver) EXPECT() *MockWebUIConfigSaver_Expecter {
 }
 
 // SaveWebUIConfig provides a mock function for the type MockWebUIConfigSaver
-func (_mock *MockWebUIConfigSaver) SaveWebUIConfig(ctx context.Context, cfg port.WebUIConfig) error {
+func (_mock *MockWebUIConfigSaver) SaveWebUIConfig(ctx context.Context, cfg dto.WebUIConfig) error {
 	ret := _mock.Called(ctx, cfg)
 
 	if len(ret) == 0 {
@@ -12268,7 +12268,7 @@ func (_mock *MockWebUIConfigSaver) SaveWebUIConfig(ctx context.Context, cfg port
 	}
 
 	var r0 error
-	if returnFunc, ok := ret.Get(0).(func(context.Context, port.WebUIConfig) error); ok {
+	if returnFunc, ok := ret.Get(0).(func(context.Context, dto.WebUIConfig) error); ok {
 		r0 = returnFunc(ctx, cfg)
 	} else {
 		r0 = ret.Error(0)
@@ -12283,20 +12283,20 @@ type MockWebUIConfigSaver_SaveWebUIConfig_Call struct {
 
 // SaveWebUIConfig is a helper method to define mock.On call
 //   - ctx context.Context
-//   - cfg port.WebUIConfig
+//   - cfg dto.WebUIConfig
 func (_e *MockWebUIConfigSaver_Expecter) SaveWebUIConfig(ctx interface{}, cfg interface{}) *MockWebUIConfigSaver_SaveWebUIConfig_Call {
 	return &MockWebUIConfigSaver_SaveWebUIConfig_Call{Call: _e.mock.On("SaveWebUIConfig", ctx, cfg)}
 }
 
-func (_c *MockWebUIConfigSaver_SaveWebUIConfig_Call) Run(run func(ctx context.Context, cfg port.WebUIConfig)) *MockWebUIConfigSaver_SaveWebUIConfig_Call {
+func (_c *MockWebUIConfigSaver_SaveWebUIConfig_Call) Run(run func(ctx context.Context, cfg dto.WebUIConfig)) *MockWebUIConfigSaver_SaveWebUIConfig_Call {
 	_c.Call.Run(func(args mock.Arguments) {
 		var arg0 context.Context
 		if args[0] != nil {
 			arg0 = args[0].(context.Context)
 		}
-		var arg1 port.WebUIConfig
+		var arg1 dto.WebUIConfig
 		if args[1] != nil {
-			arg1 = args[1].(port.WebUIConfig)
+			arg1 = args[1].(dto.WebUIConfig)
 		}
 		run(
 			arg0,
@@ -12311,7 +12311,7 @@ func (_c *MockWebUIConfigSaver_SaveWebUIConfig_Call) Return(err error) *MockWebU
 	return _c
 }
 
-func (_c *MockWebUIConfigSaver_SaveWebUIConfig_Call) RunAndReturn(run func(ctx context.Context, cfg port.WebUIConfig) error) *MockWebUIConfigSaver_SaveWebUIConfig_Call {
+func (_c *MockWebUIConfigSaver_SaveWebUIConfig_Call) RunAndReturn(run func(ctx context.Context, cfg dto.WebUIConfig) error) *MockWebUIConfigSaver_SaveWebUIConfig_Call {
 	_c.Call.Return(run)
 	return _c
 }

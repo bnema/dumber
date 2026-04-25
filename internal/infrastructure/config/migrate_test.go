@@ -759,6 +759,13 @@ func TestMigrator_MergeMissingWorkspaceShortcutActions(t *testing.T) {
 	closePane, ok := closePaneAny.(map[string]any)
 	require.True(t, ok)
 	assert.Equal(t, "Custom close pane", closePane["desc"])
+	assert.NotContains(t, actions, "close-pane")
+	assert.NotContains(t, actions, "next-tab")
+	assert.NotContains(t, actions, "previous-tab")
+	assert.NotContains(t, actions, "consume-or-expel-left")
+	assert.NotContains(t, actions, "consume-or-expel-right")
+	assert.NotContains(t, actions, "consume-or-expel-up")
+	assert.NotContains(t, actions, "consume-or-expel-down")
 }
 
 func TestMigrator_DefaultValueForKey_WorkspaceShortcutAction(t *testing.T) {

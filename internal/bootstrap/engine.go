@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 
+	"github.com/bnema/dumber/internal/application/dto"
 	"github.com/bnema/dumber/internal/application/port"
 	"github.com/bnema/dumber/internal/application/usecase"
 	audiofactory "github.com/bnema/dumber/internal/infrastructure/audio/factory"
@@ -35,7 +36,7 @@ func BuildEngine(input EngineInput) (port.Engine, error) {
 	cfg := input.Config
 	systemviewReader := config.NewSystemviewConfigReader(env.NewHardwareSurveyor())
 	systemviewUC := usecase.NewReadSystemviewConfigUseCase(systemviewReader)
-	buildConfigPayload := func(read func(context.Context) (port.SystemviewConfigPayload, error)) func() ([]byte, error) {
+	buildConfigPayload := func(read func(context.Context) (dto.SystemviewConfigPayload, error)) func() ([]byte, error) {
 		return func() ([]byte, error) {
 			payload, err := read(input.Ctx)
 			if err != nil {

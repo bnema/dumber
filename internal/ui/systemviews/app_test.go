@@ -5,6 +5,7 @@ import (
 	"errors"
 	"testing"
 
+	"github.com/bnema/dumber/internal/application/dto"
 	"github.com/bnema/dumber/internal/application/port"
 	"github.com/bnema/dumber/internal/domain/entity"
 	"github.com/stretchr/testify/assert"
@@ -245,10 +246,10 @@ func TestAppLoadInitialHistoryRouteAppliesThemeTokens(t *testing.T) {
 		URL:   "https://example.com",
 		Title: "Example",
 	}}}
-	config := &fakeConfigService{current: port.SystemviewConfigPayload{
-		Appearance: port.WebUIAppearanceConfig{
+	config := &fakeConfigService{current: dto.SystemviewConfigPayload{
+		Appearance: dto.WebUIAppearanceConfig{
 			ColorScheme: "prefer-light",
-			LightPalette: port.ColorPalette{
+			LightPalette: dto.ColorPalette{
 				Background:     "#ffffff",
 				Surface:        "#fafafa",
 				SurfaceVariant: "#eeeeee",
@@ -257,7 +258,7 @@ func TestAppLoadInitialHistoryRouteAppliesThemeTokens(t *testing.T) {
 				Accent:         "#0055ff",
 				Border:         "#dddddd",
 			},
-			DarkPalette: port.ColorPalette{
+			DarkPalette: dto.ColorPalette{
 				Background:     "#111111",
 				Surface:        "#1a1a1a",
 				SurfaceVariant: "#2a2a2a",
@@ -425,15 +426,15 @@ func TestAppHandleFavoriteActionsRefreshesDOM(t *testing.T) {
 func TestAppLoadInitialConfigRouteRendersData(t *testing.T) {
 	t.Parallel()
 
-	config := port.SystemviewConfigPayload{
+	config := dto.SystemviewConfigPayload{
 		EngineType: "webkit",
-		Appearance: port.WebUIAppearanceConfig{
+		Appearance: dto.WebUIAppearanceConfig{
 			ColorScheme:     "prefer-dark",
 			SansFont:        "Inter",
 			SerifFont:       "Georgia",
 			MonospaceFont:   "JetBrains Mono",
 			DefaultFontSize: 16,
-			LightPalette: port.ColorPalette{
+			LightPalette: dto.ColorPalette{
 				Background:     "#ffffff",
 				Surface:        "#fafafa",
 				SurfaceVariant: "#eeeeee",
@@ -442,7 +443,7 @@ func TestAppLoadInitialConfigRouteRendersData(t *testing.T) {
 				Accent:         "#0055ff",
 				Border:         "#dddddd",
 			},
-			DarkPalette: port.ColorPalette{
+			DarkPalette: dto.ColorPalette{
 				Background:     "#111111",
 				Surface:        "#1a1a1a",
 				SurfaceVariant: "#2a2a2a",
@@ -452,16 +453,16 @@ func TestAppLoadInitialConfigRouteRendersData(t *testing.T) {
 				Border:         "#333333",
 			},
 		},
-		Performance: port.SystemviewPerformancePayload{
+		Performance: dto.SystemviewPerformancePayload{
 			Profile: "balanced",
-			Custom: port.SystemviewCustomPerformancePayload{
+			Custom: dto.SystemviewCustomPerformancePayload{
 				SkiaCPUThreads:         4,
 				SkiaGPUThreads:         2,
 				WebProcessMemoryMB:     512,
 				NetworkProcessMemoryMB: 128,
 				WebViewPoolPrewarm:     1,
 			},
-			Hardware: port.SystemviewHardwarePayload{
+			Hardware: dto.SystemviewHardwarePayload{
 				CPUCores:   8,
 				CPUThreads: 16,
 				TotalRAMMB: 32768,
@@ -471,7 +472,7 @@ func TestAppLoadInitialConfigRouteRendersData(t *testing.T) {
 			},
 		},
 		DefaultSearchEngine: "https://duckduckgo.com/?q=%s",
-		SearchShortcuts: map[string]port.SearchShortcut{
+		SearchShortcuts: map[string]dto.SearchShortcut{
 			"ddg": {
 				URL:         "https://duckduckgo.com/?q=%s",
 				Description: "DuckDuckGo",
@@ -685,32 +686,32 @@ func TestAppRejectsSearchURLsWithoutPlaceholder(t *testing.T) {
 	assert.False(t, service.calledSave)
 }
 
-func testConfigPayload() port.SystemviewConfigPayload {
-	return port.SystemviewConfigPayload{
+func testConfigPayload() dto.SystemviewConfigPayload {
+	return dto.SystemviewConfigPayload{
 		EngineType: "webkit",
-		Appearance: port.WebUIAppearanceConfig{
+		Appearance: dto.WebUIAppearanceConfig{
 			ColorScheme:     "prefer-dark",
 			SansFont:        "Inter",
 			SerifFont:       "Georgia",
 			MonospaceFont:   "JetBrains Mono",
 			DefaultFontSize: 16,
-			LightPalette:    port.ColorPalette{Background: "#ffffff", Surface: "#fafafa", SurfaceVariant: "#eeeeee", Text: "#111111", Muted: "#666666", Accent: "#0055ff", Border: "#dddddd"},
-			DarkPalette:     port.ColorPalette{Background: "#111111", Surface: "#1a1a1a", SurfaceVariant: "#2a2a2a", Text: "#f5f5f5", Muted: "#a0a0a0", Accent: "#66aaff", Border: "#333333"},
+			LightPalette:    dto.ColorPalette{Background: "#ffffff", Surface: "#fafafa", SurfaceVariant: "#eeeeee", Text: "#111111", Muted: "#666666", Accent: "#0055ff", Border: "#dddddd"},
+			DarkPalette:     dto.ColorPalette{Background: "#111111", Surface: "#1a1a1a", SurfaceVariant: "#2a2a2a", Text: "#f5f5f5", Muted: "#a0a0a0", Accent: "#66aaff", Border: "#333333"},
 		},
 		DefaultUIScale:      1,
 		DefaultSearchEngine: "https://duckduckgo.com/?q=%s",
-		SearchShortcuts: map[string]port.SearchShortcut{
+		SearchShortcuts: map[string]dto.SearchShortcut{
 			"ddg": {URL: "https://duckduckgo.com/?q=%s", Description: "DuckDuckGo"},
 		},
-		Performance: port.SystemviewPerformancePayload{
+		Performance: dto.SystemviewPerformancePayload{
 			Profile:  "default",
-			Custom:   port.SystemviewCustomPerformancePayload{SkiaCPUThreads: 2, SkiaGPUThreads: 1, WebProcessMemoryMB: 1024, NetworkProcessMemoryMB: 256, WebViewPoolPrewarm: 2},
-			Hardware: port.SystemviewHardwarePayload{CPUCores: 4, CPUThreads: 8, TotalRAMMB: 16384, GPUVendor: "AMD", GPUName: "Radeon", VRAMMB: 4096},
+			Custom:   dto.SystemviewCustomPerformancePayload{SkiaCPUThreads: 2, SkiaGPUThreads: 1, WebProcessMemoryMB: 1024, NetworkProcessMemoryMB: 256, WebViewPoolPrewarm: 2},
+			Hardware: dto.SystemviewHardwarePayload{CPUCores: 4, CPUThreads: 8, TotalRAMMB: 16384, GPUVendor: "AMD", GPUName: "Radeon", VRAMMB: 4096},
 		},
 	}
 }
 
-func testDefaultConfigPayload() port.SystemviewConfigPayload {
+func testDefaultConfigPayload() dto.SystemviewConfigPayload {
 	cfg := testConfigPayload()
 	cfg.Appearance.DefaultFontSize = 14
 	cfg.DefaultUIScale = 1
@@ -934,26 +935,26 @@ type fakeConfigService struct {
 	calledReset       bool
 	calledResetAll    bool
 
-	current     port.SystemviewConfigPayload
-	defaultCfg  port.SystemviewConfigPayload
+	current     dto.SystemviewConfigPayload
+	defaultCfg  dto.SystemviewConfigPayload
 	keybindings port.KeybindingsConfig
-	savedConfig port.WebUIConfig
+	savedConfig dto.WebUIConfig
 	setReq      port.SetKeybindingRequest
 	setResp     port.SetKeybindingResponse
 	resetReq    port.ResetKeybindingRequest
 }
 
-func (s *fakeConfigService) Current(context.Context) (port.SystemviewConfigPayload, error) {
+func (s *fakeConfigService) Current(context.Context) (dto.SystemviewConfigPayload, error) {
 	s.calledCurrent = true
 	return s.current, nil
 }
 
-func (s *fakeConfigService) Default(context.Context) (port.SystemviewConfigPayload, error) {
+func (s *fakeConfigService) Default(context.Context) (dto.SystemviewConfigPayload, error) {
 	s.calledDefault = true
 	return s.defaultCfg, nil
 }
 
-func (s *fakeConfigService) Save(_ context.Context, cfg port.WebUIConfig) error {
+func (s *fakeConfigService) Save(_ context.Context, cfg dto.WebUIConfig) error {
 	s.calledSave = true
 	s.savedConfig = cfg
 	s.current.Appearance = cfg.Appearance
@@ -961,7 +962,7 @@ func (s *fakeConfigService) Save(_ context.Context, cfg port.WebUIConfig) error 
 	s.current.DefaultSearchEngine = cfg.DefaultSearchEngine
 	s.current.SearchShortcuts = cfg.SearchShortcuts
 	s.current.Performance.Profile = cfg.Performance.Profile
-	s.current.Performance.Custom = port.SystemviewCustomPerformancePayload{
+	s.current.Performance.Custom = dto.SystemviewCustomPerformancePayload{
 		SkiaCPUThreads:         cfg.Performance.Custom.SkiaCPUThreads,
 		SkiaGPUThreads:         cfg.Performance.Custom.SkiaGPUThreads,
 		WebProcessMemoryMB:     cfg.Performance.Custom.WebProcessMemoryMB,

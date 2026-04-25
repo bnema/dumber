@@ -5,7 +5,7 @@ import (
 	"math"
 	"testing"
 
-	"github.com/bnema/dumber/internal/application/port"
+	"github.com/bnema/dumber/internal/application/dto"
 	portmocks "github.com/bnema/dumber/internal/application/port/mocks"
 	"github.com/bnema/dumber/internal/application/usecase"
 	"github.com/stretchr/testify/mock"
@@ -15,40 +15,33 @@ import (
 func TestSaveWebUIConfigUseCase_Validation(t *testing.T) {
 	tests := []struct {
 		name    string
-		mutate  func(*port.WebUIConfig)
+		mutate  func(*dto.WebUIConfig)
 		wantErr string
 	}{
 		{
 			name: "rejects invalid default search URL",
-			mutate: func(cfg *port.WebUIConfig) {
+			mutate: func(cfg *dto.WebUIConfig) {
 				cfg.DefaultSearchEngine = "not-a-url-%s"
 			},
 			wantErr: "default_search_engine",
 		},
 		{
-			name: "rejects blank search shortcut key",
-			mutate: func(cfg *port.WebUIConfig) {
-				cfg.SearchShortcuts[" "] = port.SearchShortcut{URL: "https://example.com?q=%s", Description: "Example"}
-			},
-			wantErr: "shortcut key cannot be empty",
-		},
-		{
 			name: "rejects invalid performance profile",
-			mutate: func(cfg *port.WebUIConfig) {
+			mutate: func(cfg *dto.WebUIConfig) {
 				cfg.Performance.Profile = "turbo"
 			},
 			wantErr: "performance.profile",
 		},
 		{
 			name: "rejects NaN UI scale",
-			mutate: func(cfg *port.WebUIConfig) {
+			mutate: func(cfg *dto.WebUIConfig) {
 				cfg.DefaultUIScale = math.NaN()
 			},
 			wantErr: "default_ui_scale must be a finite value",
 		},
 		{
 			name: "rejects infinite UI scale",
-			mutate: func(cfg *port.WebUIConfig) {
+			mutate: func(cfg *dto.WebUIConfig) {
 				cfg.DefaultUIScale = math.Inf(1)
 			},
 			wantErr: "default_ui_scale must be a finite value",
@@ -72,25 +65,27 @@ func TestSaveWebUIConfigUseCase_Validation(t *testing.T) {
 
 func TestSaveWebUIConfigUseCase_NormalizesAndSavesValidConfig(t *testing.T) {
 	saver := portmocks.NewMockWebUIConfigSaver(t)
-	var saved port.WebUIConfig
-	saver.EXPECT().SaveWebUIConfig(mock.Anything, mock.AnythingOfType("port.WebUIConfig")).Run(func(_ context.Context, cfg port.WebUIConfig) {
+	var saved dto.WebUIConfig
+	saver.EXPECT().SaveWebUIConfig(mock.Anything, mock.AnythingOfType("dto.WebUIConfig")).Run(func(_ context.Context, cfg dto.WebUIConfig) {
 		saved = cfg
 	}).Return(nil).Once()
 	uc := usecase.NewSaveWebUIConfigUseCase(saver)
 	cfg := validWebUIConfig()
-	cfg.SearchShortcuts[" ddg "] = port.SearchShortcut{URL: " https://duckduckgo.com/?q=%s ", Description: " DuckDuckGo "}
+	cfg.SearchShortcuts[" ddg "] = dto.SearchShortcut{URL: " https://duckduckgo.com/?q=%s ", Description: " DuckDuckGo "}
+	cfg.SearchShortcuts[" "] = dto.SearchShortcut{URL: "https://example.com?q=%s", Description: "Example"}
 
 	err := uc.Execute(context.Background(), cfg)
 
 	require.NoError(t, err)
 	require.NotContains(t, saved.SearchShortcuts, " ddg ")
+	require.NotContains(t, saved.SearchShortcuts, "")
 	require.Contains(t, saved.SearchShortcuts, "ddg")
 	require.Equal(t, "https://duckduckgo.com/?q=%s", saved.SearchShortcuts["ddg"].URL)
 	require.Equal(t, "DuckDuckGo", saved.SearchShortcuts["ddg"].Description)
 }
 
-func validWebUIConfig() port.WebUIConfig {
-	palette := port.ColorPalette{
+func validWebUIConfig() dto.WebUIConfig {
+	palette := dto.ColorPalette{
 		Background:     "#ffffff",
 		Surface:        "#f8f8f8",
 		SurfaceVariant: "#eeeeee",
@@ -99,8 +94,8 @@ func validWebUIConfig() port.WebUIConfig {
 		Accent:         "#0055ff",
 		Border:         "#dddddd",
 	}
-	return port.WebUIConfig{
-		Appearance: port.WebUIAppearanceConfig{
+	return dto.WebUIConfig{
+		Appearance: dto.WebUIAppearanceConfig{
 			SansFont:        "Inter",
 			SerifFont:       "Georgia",
 			MonospaceFont:   "JetBrains Mono",
@@ -109,11 +104,11 @@ func validWebUIConfig() port.WebUIConfig {
 			LightPalette:    palette,
 			DarkPalette:     palette,
 		},
-		Performance: port.WebUIPerformanceConfig{
+		Performance: dto.WebUIPerformanceConfig{
 			Profile: "default",
 		},
 		DefaultUIScale:      1,
 		DefaultSearchEngine: "https://duckduckgo.com/?q=%s",
-		SearchShortcuts:     map[string]port.SearchShortcut{},
+		SearchShortcuts:     map[string]dto.SearchShortcut{},
 	}
 }

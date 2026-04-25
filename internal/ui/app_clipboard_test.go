@@ -4,6 +4,7 @@ import (
 	"context"
 	"testing"
 
+	"github.com/bnema/dumber/internal/application/dto"
 	"github.com/bnema/dumber/internal/application/port"
 	portmocks "github.com/bnema/dumber/internal/application/port/mocks"
 	"github.com/bnema/dumber/internal/domain/entity"
@@ -28,7 +29,7 @@ func TestNew_DoesNotWireClipboardOrchestratorWhenClipboardMissing(t *testing.T) 
 		Config: &config.Config{},
 		Engine: engine,
 		HandlerDeps: port.HandlerDeps{
-			SaveConfig:                 func(context.Context, port.WebUIConfig) error { return nil },
+			SaveConfig:                 func(context.Context, dto.WebUIConfig) error { return nil },
 			SaveOmniboxInitialBehavior: func(context.Context, entity.OmniboxInitialBehavior) error { return nil },
 		},
 		Clipboard: nil,
@@ -57,7 +58,7 @@ func TestNew_WiresClipboardOrchestratorWhenClipboardPresent(t *testing.T) {
 		Config: &config.Config{},
 		Engine: engine,
 		HandlerDeps: port.HandlerDeps{
-			SaveConfig:                 func(context.Context, port.WebUIConfig) error { return nil },
+			SaveConfig:                 func(context.Context, dto.WebUIConfig) error { return nil },
 			SaveOmniboxInitialBehavior: func(context.Context, entity.OmniboxInitialBehavior) error { return nil },
 		},
 		Clipboard: clipboard,

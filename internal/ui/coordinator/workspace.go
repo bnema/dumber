@@ -4,6 +4,8 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"net/url"
+	"strings"
 
 	"github.com/bnema/dumber/internal/application/usecase"
 	"github.com/bnema/dumber/internal/domain/entity"
@@ -261,19 +263,36 @@ func (c *WorkspaceCoordinator) ToggleSystemViewRight(ctx context.Context, target
 }
 
 func paneMatchesURL(node *entity.PaneNode, targetURL string) bool {
-	return node != nil && node.Pane != nil && domainurl.Normalize(node.Pane.URI) == targetURL
+	return node != nil && node.Pane != nil && comparablePaneURL(node.Pane.URI) == comparablePaneURL(targetURL)
 }
 
 func findPaneByURL(ws *entity.Workspace, targetURL string) *entity.Pane {
 	if ws == nil {
 		return nil
 	}
+	targetURL = comparablePaneURL(targetURL)
 	for _, pane := range ws.AllPanes() {
-		if pane != nil && domainurl.Normalize(pane.URI) == targetURL {
+		if pane != nil && comparablePaneURL(pane.URI) == targetURL {
 			return pane
 		}
 	}
 	return nil
+}
+
+func comparablePaneURL(raw string) string {
+	normalized := domainurl.Normalize(raw)
+	parsed, err := url.Parse(normalized)
+	if err != nil || !strings.EqualFold(parsed.Scheme, "dumb") {
+		return normalized
+	}
+	page := parsed.Host
+	if page == "" {
+		page = parsed.Opaque
+	}
+	if page == "" || parsed.Path != "" || parsed.RawQuery != "" || parsed.Fragment != "" {
+		return normalized
+	}
+	return "dumb:" + page
 }
 
 func (c *WorkspaceCoordinator) focusExistingPane(

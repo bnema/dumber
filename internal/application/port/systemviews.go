@@ -3,6 +3,7 @@ package port
 import (
 	"context"
 
+	"github.com/bnema/dumber/internal/application/dto"
 	"github.com/bnema/dumber/internal/domain/entity"
 )
 
@@ -40,9 +41,9 @@ type SystemviewFavoritesService interface {
 
 // SystemviewConfigService exposes config and keybinding operations for the systemviews UI.
 type SystemviewConfigService interface {
-	Current(ctx context.Context) (SystemviewConfigPayload, error)
-	Default(ctx context.Context) (SystemviewConfigPayload, error)
-	Save(ctx context.Context, cfg WebUIConfig) error
+	Current(ctx context.Context) (dto.SystemviewConfigPayload, error)
+	Default(ctx context.Context) (dto.SystemviewConfigPayload, error)
+	Save(ctx context.Context, cfg dto.WebUIConfig) error
 	GetKeybindings(ctx context.Context) (KeybindingsConfig, error)
 	SetKeybinding(ctx context.Context, req SetKeybindingRequest) (SetKeybindingResponse, error)
 	ResetKeybinding(ctx context.Context, req ResetKeybindingRequest) error

@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 
+	"github.com/bnema/dumber/internal/application/dto"
 	"github.com/bnema/dumber/internal/application/port"
 )
 
@@ -24,17 +25,17 @@ func NewReadSystemviewConfigUseCase(reader port.SystemviewConfigReader) *ReadSys
 var ErrNilSystemviewConfigReader = errors.New("systemview config reader is nil")
 
 // Current returns the current systemview config payload.
-func (uc *ReadSystemviewConfigUseCase) Current(ctx context.Context) (port.SystemviewConfigPayload, error) {
+func (uc *ReadSystemviewConfigUseCase) Current(ctx context.Context) (dto.SystemviewConfigPayload, error) {
 	if uc == nil || uc.reader == nil {
-		return port.SystemviewConfigPayload{}, ErrNilSystemviewConfigReader
+		return dto.SystemviewConfigPayload{}, ErrNilSystemviewConfigReader
 	}
 	return uc.reader.Current(ctx)
 }
 
 // Default returns the default systemview config payload.
-func (uc *ReadSystemviewConfigUseCase) Default(ctx context.Context) (port.SystemviewConfigPayload, error) {
+func (uc *ReadSystemviewConfigUseCase) Default(ctx context.Context) (dto.SystemviewConfigPayload, error) {
 	if uc == nil || uc.reader == nil {
-		return port.SystemviewConfigPayload{}, ErrNilSystemviewConfigReader
+		return dto.SystemviewConfigPayload{}, ErrNilSystemviewConfigReader
 	}
 	return uc.reader.Default(ctx)
 }

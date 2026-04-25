@@ -355,20 +355,27 @@ func safeSystemviewsAssetPath(assetDir, relPath string) (fullPath, cleanRelPath 
 }
 
 func readAssetWithEncoding(assets embed.FS, fullPath, relPath string) ([]byte, map[string]string, error) {
+	var compressedErr error
 	if strings.HasSuffix(relPath, ".wasm") {
 		if compressed, err := fs.ReadFile(assets, fullPath+".br"); err == nil {
 			data, err := io.ReadAll(io.LimitReader(brotli.NewReader(bytes.NewReader(compressed)), maxSystemviewsWASMBytes+1))
 			if err != nil {
-				return nil, nil, err
+				compressedErr = err
+			} else if len(data) > maxSystemviewsWASMBytes {
+				compressedErr = fmt.Errorf("decompressed asset %s exceeds %d bytes", fullPath, maxSystemviewsWASMBytes)
+			} else {
+				return data, nil, nil
 			}
-			if len(data) > maxSystemviewsWASMBytes {
-				return nil, nil, fmt.Errorf("decompressed asset %s exceeds %d bytes", fullPath, maxSystemviewsWASMBytes)
-			}
-			return data, nil, nil
 		}
 	}
 	data, err := fs.ReadFile(assets, fullPath)
-	return data, nil, err
+	if err == nil {
+		return data, nil, nil
+	}
+	if compressedErr != nil {
+		return nil, nil, compressedErr
+	}
+	return nil, nil, err
 }
 
 func resolveAssetPath(u *url.URL) (assetDir, relPath string, ok bool) {
@@ -384,6 +391,7 @@ func resolveAssetPath(u *url.URL) (assetDir, relPath string, ok bool) {
 		FavoritesPath: {assetDir: systemviewsAssetDir, file: IndexHTML},
 		ConfigPath:    {assetDir: systemviewsAssetDir, file: IndexHTML},
 		ErrorPath:     {assetDir: systemviewsAssetDir, file: IndexHTML},
+		CrashPath:     {assetDir: systemviewsAssetDir, file: IndexHTML},
 	}
 
 	if root, ok := rootByHost[u.Host]; ok {
@@ -395,7 +403,7 @@ func resolveAssetPath(u *url.URL) (assetDir, relPath string, ok bool) {
 	}
 
 	switch u.Opaque {
-	case HistoryPath, FavoritesPath, ConfigPath, ErrorPath:
+	case HistoryPath, FavoritesPath, ConfigPath, ErrorPath, CrashPath:
 		return systemviewsAssetDir, IndexHTML, true
 	default:
 		return "", "", false

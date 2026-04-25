@@ -3,25 +3,25 @@ package systemviews
 import (
 	"testing"
 
-	"github.com/bnema/dumber/internal/application/port"
+	"github.com/bnema/dumber/internal/application/dto"
 	"github.com/stretchr/testify/assert"
 )
 
 func TestBuildInlineVarsRejectsUnsafeCSSValues(t *testing.T) {
 	t.Parallel()
 
-	vars := buildInlineVars(port.WebUIAppearanceConfig{
+	vars := buildInlineVars(dto.WebUIAppearanceConfig{
 		SansFont:      "Inter; color:red",
 		SerifFont:     "Georgia",
 		MonospaceFont: "JetBrains Mono",
-		LightPalette: port.ColorPalette{
+		LightPalette: dto.ColorPalette{
 			Background: "#ffffff; color:red",
 			Surface:    "rgb(1 2 3 / 50%)",
 			Text:       "transparent",
 			Accent:     "definitelynotacolor",
 			Border:     "#ABCDEF80",
 		},
-	}, port.ColorPalette{
+	}, dto.ColorPalette{
 		Background: "#ffffff; color:red",
 		Surface:    "rgb(1 2 3 / 50%)",
 		Text:       "transparent",
@@ -73,13 +73,13 @@ func TestResolveShellTheme(t *testing.T) {
 		currentPrefersDarkImpl = orig
 	})
 
-	appearance := port.WebUIAppearanceConfig{
+	appearance := dto.WebUIAppearanceConfig{
 		SansFont:        "Inter",
 		SerifFont:       "Georgia",
 		MonospaceFont:   "JetBrains Mono",
 		DefaultFontSize: 16,
 		ColorScheme:     "default",
-		LightPalette: port.ColorPalette{
+		LightPalette: dto.ColorPalette{
 			Background:     "#ffffff",
 			Surface:        "#f8f8f8",
 			SurfaceVariant: "#eeeeee",
@@ -88,7 +88,7 @@ func TestResolveShellTheme(t *testing.T) {
 			Accent:         "#0055ff",
 			Border:         "#dddddd",
 		},
-		DarkPalette: port.ColorPalette{
+		DarkPalette: dto.ColorPalette{
 			Background:     "#111111",
 			Surface:        "#1a1a1a",
 			SurfaceVariant: "#2a2a2a",

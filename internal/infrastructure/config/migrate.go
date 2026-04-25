@@ -777,6 +777,10 @@ func (m *Migrator) detectMissingWorkspaceShortcutActions(userKeysWithValues map[
 		if _, exists := userActions[actionName]; exists {
 			continue
 		}
+		legacyActionName := strings.ReplaceAll(actionName, "-", "_")
+		if _, exists := userActions[legacyActionName]; exists {
+			continue
+		}
 		missing = append(missing, workspaceShortcutsActionsKey+"."+actionName)
 	}
 
@@ -799,6 +803,10 @@ func (m *Migrator) mergeMissingWorkspaceShortcutActions(rawConfig map[string]any
 	defaultActions := m.defaultConfig.Workspace.Shortcuts.Actions
 	for actionName, defaultAction := range defaultActions {
 		if _, exists := userActions[actionName]; exists {
+			continue
+		}
+		legacyActionName := strings.ReplaceAll(actionName, "-", "_")
+		if _, exists := userActions[legacyActionName]; exists {
 			continue
 		}
 		userActions[actionName] = defaultAction
