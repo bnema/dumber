@@ -53,6 +53,8 @@ type App struct {
 	configNotice         string
 	configError          string
 	renderedHTML         string
+	renderGeneration     uint64
+	closed               bool
 	actionQueue          chan DOMAction
 	actionErrorQueue     chan error
 	actionCtx            context.Context
@@ -133,18 +135,35 @@ func (a *App) refreshCurrentRouteAsync(ctx context.Context) {
 	if a == nil {
 		return
 	}
+	a.lockState()
+	snapshot := a.currentHistoryRouteSnapshotLocked()
+	generation := a.renderGeneration
+	closed := a.closed
+	a.unlockState()
+	if closed || snapshot.route != RouteHistory {
+		return
+	}
 	go func() {
+		result, err := a.renderHistoryRouteSnapshot(ctx, snapshot)
+
 		a.lockState()
-		defer a.unlockState()
-		if err := a.loadCurrentRoute(ctx); err != nil {
-			a.renderRouteError(err)
+		if a.closed || ctx.Err() != nil || a.currentRoute != snapshot.route || a.renderGeneration != generation {
+			a.unlockState()
+			return
 		}
+		if err != nil {
+			a.renderRouteError(err)
+		} else {
+			a.commitHistoryRouteResultLocked(result)
+		}
+		a.renderGeneration++
+		mountGeneration := a.renderGeneration
 		html := a.renderedHTML
-		go func() {
-			if err := a.mountHTML(html); err != nil {
-				logActionMountError(ctx, err, nil)
-			}
-		}()
+		a.unlockState()
+
+		if err := a.mountHTMLIfCurrent(ctx, html, mountGeneration); err != nil {
+			logActionMountError(ctx, err, nil)
+		}
 	}()
 }
 
@@ -324,9 +343,11 @@ func (a *App) surfaceActionError(ctx context.Context, err error) {
 	}
 	a.lockState()
 	a.renderRouteError(err)
+	a.renderGeneration++
+	generation := a.renderGeneration
 	html := a.renderedHTML
 	a.unlockState()
-	if mountErr := a.mountHTML(html); mountErr != nil {
+	if mountErr := a.mountHTMLIfCurrent(ctx, html, generation); mountErr != nil {
 		logActionMountError(ctx, mountErr, err)
 	}
 }
@@ -335,6 +356,11 @@ func (a *App) Close() {
 	if a == nil {
 		return
 	}
+	a.lockState()
+	a.closed = true
+	a.renderGeneration++
+	a.unlockState()
+
 	a.lockAction()
 	cancel := a.actionCancel
 	actionQueue := a.actionQueue
@@ -507,56 +533,137 @@ func (a *App) loadHistoryRoute(ctx context.Context) error {
 		return nil
 	}
 
-	window, entries, err := a.loadHistoryWindow(ctx)
+	result, err := a.renderHistoryRouteSnapshot(ctx, a.currentHistoryRouteSnapshotLocked())
 	if err != nil {
 		return err
 	}
-	stats, err := a.deps.History.Stats(ctx)
-	if err != nil {
-		return fmt.Errorf("failed to load history stats: %w", err)
+	a.commitHistoryRouteResultLocked(result)
+	return nil
+}
+
+type historyRouteSnapshot struct {
+	route        Route
+	history      port.SystemviewHistoryService
+	shellTheme   shellTheme
+	query        string
+	domainFilter string
+	offset       int
+	windowBefore time.Time
+	notice       string
+	error        string
+}
+
+type historyRouteResult struct {
+	entries      []*entity.HistoryEntry
+	stats        *entity.HistoryStats
+	domains      []*entity.DomainStat
+	windowBefore time.Time
+	windowAfter  time.Time
+	hasMore      bool
+	html         string
+}
+
+func (a *App) currentHistoryRouteSnapshotLocked() historyRouteSnapshot {
+	return historyRouteSnapshot{
+		route:        a.currentRoute,
+		history:      a.deps.History,
+		shellTheme:   a.shellTheme,
+		query:        a.historyQuery,
+		domainFilter: a.historyDomainFilter,
+		offset:       a.historyOffset,
+		windowBefore: a.historyWindowBefore,
+		notice:       a.historyNotice,
+		error:        a.historyError,
 	}
-	domains, domainsErr := a.deps.History.DomainStats(ctx, 10)
+}
+
+func (a *App) renderHistoryRouteSnapshot(ctx context.Context, snapshot historyRouteSnapshot) (historyRouteResult, error) {
+	if snapshot.history == nil {
+		return historyRouteResult{
+			html: renderAppFrame(renderedPage{
+				route:    snapshot.route,
+				title:    routeDocumentTitle(RouteHistory),
+				subtitle: "Recent visits",
+				body:     placeholderHTML(snapshot.route),
+			}, snapshot.shellTheme),
+		}, nil
+	}
+
+	window, entries, err := loadHistoryWindowSnapshot(ctx, snapshot)
+	if err != nil {
+		return historyRouteResult{}, err
+	}
+	stats, err := snapshot.history.Stats(ctx)
+	if err != nil {
+		return historyRouteResult{}, fmt.Errorf("failed to load history stats: %w", err)
+	}
+	domains, domainsErr := snapshot.history.DomainStats(ctx, 10)
 	if domainsErr != nil {
 		domains = nil
 	}
-	a.favorites = nil
-	a.folders = nil
-	a.tags = nil
-	a.historyEntries = entries
-	a.historyStats = stats
-	a.historyAnalytics = nil
-	a.historyDomainStats = domains
+	result := historyRouteResult{
+		entries: entries,
+		stats:   stats,
+		domains: domains,
+	}
 	if window != nil {
-		a.historyWindowBefore = window.Before
-		a.historyWindowAfter = window.After
-		a.historyHasMore = window.HasMore
-	} else {
-		a.historyWindowBefore = time.Time{}
-		a.historyWindowAfter = time.Time{}
-		a.historyHasMore = false
+		result.windowBefore = window.Before
+		result.windowAfter = window.After
+		result.hasMore = window.HasMore
 	}
 	data := historyRenderData{
 		Entries:      entries,
 		Stats:        stats,
 		Analytics:    nil,
 		Domains:      domains,
-		Query:        a.historyQuery,
-		DomainFilter: a.historyDomainFilter,
-		Offset:       a.historyOffset,
+		Query:        snapshot.query,
+		DomainFilter: snapshot.domainFilter,
+		Offset:       snapshot.offset,
 		Limit:        historyTimelineLimit,
-		WindowBefore: a.historyWindowBefore,
-		WindowAfter:  a.historyWindowAfter,
-		HasMore:      a.historyHasMore,
-		Notice:       a.historyNotice,
-		Error:        a.historyError,
+		WindowBefore: result.windowBefore,
+		WindowAfter:  result.windowAfter,
+		HasMore:      result.hasMore,
+		Notice:       snapshot.notice,
+		Error:        snapshot.error,
 	}
-	a.renderedHTML = renderAppFrame(renderedPage{
+	result.html = renderAppFrame(renderedPage{
 		route:    RouteHistory,
 		title:    historyDocumentTitle(data),
 		subtitle: "Recent visits",
 		body:     historyHTML(data),
-	}, a.shellTheme)
-	return nil
+	}, snapshot.shellTheme)
+	return result, nil
+}
+
+func loadHistoryWindowSnapshot(ctx context.Context, snapshot historyRouteSnapshot) (*entity.HistoryWindow, []*entity.HistoryEntry, error) {
+	query := strings.TrimSpace(snapshot.query)
+	domain := strings.TrimSpace(snapshot.domainFilter)
+	if query != "" {
+		entries, err := snapshot.history.Search(ctx, query, historySearchLimit)
+		return nil, entries, err
+	}
+	window, err := snapshot.history.TimelineWindow(ctx, snapshot.windowBefore, domain)
+	if err != nil {
+		return nil, nil, err
+	}
+	if window == nil {
+		return nil, nil, nil
+	}
+	return window, window.Entries, nil
+}
+
+func (a *App) commitHistoryRouteResultLocked(result historyRouteResult) {
+	a.favorites = nil
+	a.folders = nil
+	a.tags = nil
+	a.historyEntries = result.entries
+	a.historyStats = result.stats
+	a.historyAnalytics = nil
+	a.historyDomainStats = result.domains
+	a.historyWindowBefore = result.windowBefore
+	a.historyWindowAfter = result.windowAfter
+	a.historyHasMore = result.hasMore
+	a.renderedHTML = result.html
 }
 
 func (a *App) loadHistoryWindow(ctx context.Context) (*entity.HistoryWindow, []*entity.HistoryEntry, error) {

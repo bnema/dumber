@@ -156,11 +156,11 @@ func (f *fakeBridgeService) List(context.Context) ([]*entity.Favorite, error) {
 	return f.favorites, nil
 }
 
-func (*fakeBridgeService) CreateFavorite(context.Context, port.FavoriteCreateInput) (*entity.Favorite, error) {
+func (*fakeBridgeService) CreateFavorite(context.Context, dto.FavoriteCreateInput) (*entity.Favorite, error) {
 	return nil, nil
 }
 
-func (*fakeBridgeService) UpdateFavorite(context.Context, port.FavoriteUpdateInput) (*entity.Favorite, error) {
+func (*fakeBridgeService) UpdateFavorite(context.Context, dto.FavoriteUpdateInput) (*entity.Favorite, error) {
 	return nil, nil
 }
 

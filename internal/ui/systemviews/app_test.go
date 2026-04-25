@@ -144,6 +144,60 @@ func TestAppRunMountsHistoryLoadingBeforeAsyncHydration(t *testing.T) {
 	assert.Contains(t, hydratedHTML, "Loaded 1 item")
 }
 
+func TestSurfaceActionErrorPreventsStaleAsyncHydrationMount(t *testing.T) {
+	t.Parallel()
+
+	dom := &fakeDOM{mounts: make(chan string, 4)}
+	app := NewApp(Dependencies{DOM: dom, LocationURI: "dumb://history"})
+	app.currentRoute = RouteHistory
+	staleHTML := "<div>Stale hydrated entry</div>"
+	staleGeneration := app.renderGeneration
+	ctx := context.Background()
+
+	app.surfaceActionError(ctx, errors.New("action worker failed"))
+	errorHTML := receiveMount(t, dom.mounts)
+	assert.Contains(t, errorHTML, "action worker failed")
+	assert.NotContains(t, errorHTML, "Stale hydrated entry")
+
+	require.NoError(t, app.mountHTMLIfCurrent(ctx, staleHTML, staleGeneration))
+	assertNoMount(t, dom.mounts, 100*time.Millisecond)
+	assert.Contains(t, dom.html, "action worker failed")
+	assert.NotContains(t, dom.html, "Stale hydrated entry")
+}
+
+func TestSurfaceActionErrorWhileAsyncHydrationBlockedPreventsStaleMount(t *testing.T) {
+	t.Parallel()
+
+	dom := &fakeActionDOM{fakeDOM: fakeDOM{mounts: make(chan string, 4)}}
+	history := &fakeHistoryService{
+		entries:         []*entity.HistoryEntry{{ID: 1, URL: "https://example.com", Title: "Stale hydrated entry"}},
+		timelineStarted: make(chan struct{}),
+		releaseTimeline: make(chan struct{}),
+	}
+	app := NewApp(Dependencies{DOM: dom, History: history, LocationURI: "dumb://history"})
+	ctx := context.Background()
+
+	require.NoError(t, app.RunWithContext(ctx))
+	loadingHTML := receiveMount(t, dom.mounts)
+	assert.Contains(t, loadingHTML, "Loading history")
+
+	select {
+	case <-history.timelineStarted:
+	case <-time.After(time.Second):
+		t.Fatal("history timeline was not started asynchronously")
+	}
+
+	app.surfaceActionError(ctx, errors.New("action worker failed"))
+	errorHTML := receiveMount(t, dom.mounts)
+	assert.Contains(t, errorHTML, "action worker failed")
+	assert.NotContains(t, errorHTML, "Stale hydrated entry")
+
+	close(history.releaseTimeline)
+	assertNoMount(t, dom.mounts, 100*time.Millisecond)
+	assert.Contains(t, dom.html, "action worker failed")
+	assert.NotContains(t, dom.html, "Stale hydrated entry")
+}
+
 func TestAppHandleHistoryLoadMoreAppendsOlderWindow(t *testing.T) {
 	t.Parallel()
 
@@ -879,6 +933,15 @@ func receiveMount(t *testing.T, mounts <-chan string) string {
 	}
 }
 
+func assertNoMount(t *testing.T, mounts <-chan string, wait time.Duration) {
+	t.Helper()
+	select {
+	case html := <-mounts:
+		t.Fatalf("unexpected DOM mount: %s", html)
+	case <-time.After(wait):
+	}
+}
+
 type fakeActionDOM struct {
 	fakeDOM
 	handler  DOMActionHandler
@@ -1029,8 +1092,8 @@ type fakeFavoritesService struct {
 	folders       []*entity.Folder
 	tags          []*entity.Tag
 
-	createdFavorite    port.FavoriteCreateInput
-	updatedFavorite    port.FavoriteUpdateInput
+	createdFavorite    dto.FavoriteCreateInput
+	updatedFavorite    dto.FavoriteUpdateInput
 	deletedFavorite    int64
 	createdFolder      string
 	createdFolderIcon  string
@@ -1060,12 +1123,12 @@ func (s *fakeFavoritesService) ListTags(context.Context) ([]*entity.Tag, error) 
 	return s.tags, nil
 }
 
-func (s *fakeFavoritesService) CreateFavorite(_ context.Context, input port.FavoriteCreateInput) (*entity.Favorite, error) {
+func (s *fakeFavoritesService) CreateFavorite(_ context.Context, input dto.FavoriteCreateInput) (*entity.Favorite, error) {
 	s.createdFavorite = input
 	return &entity.Favorite{ID: 99, URL: input.URL, Title: input.Title, FolderID: input.FolderID}, nil
 }
 
-func (s *fakeFavoritesService) UpdateFavorite(_ context.Context, input port.FavoriteUpdateInput) (*entity.Favorite, error) {
+func (s *fakeFavoritesService) UpdateFavorite(_ context.Context, input dto.FavoriteUpdateInput) (*entity.Favorite, error) {
 	s.updatedFavorite = input
 	return &entity.Favorite{ID: input.ID, URL: "https://example.com", Title: input.Title, FaviconURL: input.FaviconURL, FolderID: input.FolderID, ShortcutKey: input.ShortcutKey}, nil
 }

@@ -159,6 +159,38 @@ func TestRejectUntrustedConfigRequesterRequiresTrustedOriginOrReferrer(t *testin
 	require.NotNil(t, h.rejectUntrustedConfigRequester(untrustedOrigin))
 }
 
+func TestHandleMessageAPIRequiresTrustedOriginOrReferrer(t *testing.T) {
+	oldNewResourceHandler := cefNewResourceHandler
+	cefNewResourceHandler = func(impl purecef.ResourceHandler) purecef.ResourceHandler { return impl }
+	defer func() { cefNewResourceHandler = oldNewResourceHandler }()
+
+	h, err := newDumbSchemeHandler(context.Background(), NewMessageRouter(context.Background()), nil, func() ([]byte, error) { return []byte(`{}`), nil }, func() ([]byte, error) { return []byte(`{}`), nil })
+	require.NoError(t, err)
+
+	trusted := cefmocks.NewMockRequest(t)
+	trusted.EXPECT().GetHeaderByName("Origin").Return("").Once()
+	trusted.EXPECT().GetReferrerURL().Return("dumb://history").Once()
+	trusted.EXPECT().GetHeaderByName(dumberBodyHeaderName).Return(base64.StdEncoding.EncodeToString([]byte(`{"type":"missing"}`))).Once()
+	trustedHandler := h.handleMessageAPI(trusted)
+	require.NotNil(t, trustedHandler)
+
+	untrusted := cefmocks.NewMockRequest(t)
+	untrusted.EXPECT().GetHeaderByName("Origin").Return("").Once()
+	untrusted.EXPECT().GetReferrerURL().Return("").Once()
+	untrusted.EXPECT().GetHeaderByName("Referer").Return("").Once()
+	denied := h.handleMessageAPI(untrusted)
+	require.NotNil(t, denied)
+
+	response := cefmocks.NewMockResponse(t)
+	response.EXPECT().SetStatus(int32(http.StatusForbidden)).Once()
+	response.EXPECT().SetStatusText(http.StatusText(http.StatusForbidden)).Once()
+	response.EXPECT().SetMimeType("application/json").Once()
+	expectPrivateAPIResponseHeaders(response)
+	var responseLength int64
+	denied.GetResponseHeaders(response, &responseLength, 0)
+	require.Positive(t, responseLength)
+}
+
 func TestHandleConfigAPIUsesPrivateNoCORSHeaders(t *testing.T) {
 	oldNewResourceHandler := cefNewResourceHandler
 	cefNewResourceHandler = func(impl purecef.ResourceHandler) purecef.ResourceHandler { return impl }

@@ -255,7 +255,7 @@ func (h *dumbSchemeHandler) handleAPIPost(browser purecef.Browser, path string, 
 }
 
 func (h *dumbSchemeHandler) handleMessageAPI(request purecef.Request) purecef.ResourceHandler {
-	if denied := h.rejectForbiddenAPIOrigin(request); denied != nil {
+	if denied := h.rejectUntrustedSystemviewRequester(request); denied != nil {
 		return denied
 	}
 	body := readBodyFromHeader(request)
@@ -278,6 +278,10 @@ func (h *dumbSchemeHandler) rejectForbiddenAPIOrigin(request purecef.Request) pu
 }
 
 func (h *dumbSchemeHandler) rejectUntrustedConfigRequester(request purecef.Request) purecef.ResourceHandler {
+	return h.rejectUntrustedSystemviewRequester(request)
+}
+
+func (h *dumbSchemeHandler) rejectUntrustedSystemviewRequester(request purecef.Request) purecef.ResourceHandler {
 	if request == nil {
 		return h.newPrivateAPIJSONResourceHandler(http.StatusForbidden, map[string]string{"error": "forbidden"})
 	}
@@ -333,24 +337,7 @@ func (h *dumbSchemeHandler) handleFaviconAPI(request purecef.Request) purecef.Re
 }
 
 func (h *dumbSchemeHandler) rejectUntrustedFaviconRequester(request purecef.Request) purecef.ResourceHandler {
-	if request == nil {
-		return h.newPrivateAPIJSONResourceHandler(http.StatusForbidden, map[string]string{"error": "forbidden"})
-	}
-	origin := strings.TrimSpace(request.GetHeaderByName("Origin"))
-	if origin != "" {
-		if isTrustedSystemviewURL(origin) {
-			return nil
-		}
-		return h.newPrivateAPIJSONResourceHandler(http.StatusForbidden, map[string]string{"error": "forbidden"})
-	}
-	referrer := strings.TrimSpace(request.GetReferrerURL())
-	if referrer == "" {
-		referrer = strings.TrimSpace(request.GetHeaderByName("Referer"))
-	}
-	if !isTrustedSystemviewURL(referrer) {
-		return h.newPrivateAPIJSONResourceHandler(http.StatusForbidden, map[string]string{"error": "forbidden"})
-	}
-	return nil
+	return h.rejectUntrustedSystemviewRequester(request)
 }
 
 func isTrustedSystemviewURL(raw string) bool {

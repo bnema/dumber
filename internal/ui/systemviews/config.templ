@@ -102,19 +102,19 @@ templ SearchShortcutItem(shortcut searchShortcutRow) {
 
 templ PerformanceSettings(config dto.SystemviewConfigPayload) {
 	{{ customProfile := performanceProfileSelected(config.Performance.Profile, "custom") }}
-	<form class="sv-card-form sv-config-form" data-sv-action="config.performance.save">
-		<label><span>Profile</span><select name="profile">
+	<form class="sv-card-form sv-config-form" data-sv-action="config.performance.save" data-sv-performance-form>
+		<label><span>Profile</span><select name="profile" data-sv-performance-profile>
 			<option value="default" selected?={ performanceProfileSelected(config.Performance.Profile, "default") }>Default</option>
 			<option value="lite" selected?={ performanceProfileSelected(config.Performance.Profile, "lite") }>Lite</option>
 			<option value="max" selected?={ performanceProfileSelected(config.Performance.Profile, "max") }>Max</option>
 			<option value="custom" selected?={ performanceProfileSelected(config.Performance.Profile, "custom") }>Custom</option>
 		</select></label>
 		<p class="sv-meta">Choose Custom to edit individual performance values.</p>
-		<label><span>Skia CPU threads</span><input name="skia_cpu_threads" type="number" min="0" max="8" value={ formatConfigInt(config.Performance.Custom.SkiaCPUThreads) } disabled?={ !customProfile }/></label>
-		<label><span>Skia GPU threads</span><input name="skia_gpu_threads" type="number" min="-1" max="8" value={ formatConfigInt(config.Performance.Custom.SkiaGPUThreads) } disabled?={ !customProfile }/></label>
-		<label><span>Web process memory MB</span><input name="web_process_memory_mb" type="number" min="0" max="16384" value={ formatConfigInt(config.Performance.Custom.WebProcessMemoryMB) } disabled?={ !customProfile }/></label>
-		<label><span>Network process memory MB</span><input name="network_process_memory_mb" type="number" min="0" max="4096" value={ formatConfigInt(config.Performance.Custom.NetworkProcessMemoryMB) } disabled?={ !customProfile }/></label>
-		<label><span>WebView pool prewarm</span><input name="webview_pool_prewarm" type="number" min="0" max="20" value={ formatConfigInt(config.Performance.Custom.WebViewPoolPrewarm) } disabled?={ !customProfile }/></label>
+		<label><span>Skia CPU threads</span><input name="skia_cpu_threads" type="number" min="0" max="8" value={ formatConfigInt(config.Performance.Custom.SkiaCPUThreads) } disabled?={ !customProfile } data-sv-performance-custom/></label>
+		<label><span>Skia GPU threads</span><input name="skia_gpu_threads" type="number" min="-1" max="8" value={ formatConfigInt(config.Performance.Custom.SkiaGPUThreads) } disabled?={ !customProfile } data-sv-performance-custom/></label>
+		<label><span>Web process memory MB</span><input name="web_process_memory_mb" type="number" min="0" max="16384" value={ formatConfigInt(config.Performance.Custom.WebProcessMemoryMB) } disabled?={ !customProfile } data-sv-performance-custom/></label>
+		<label><span>Network process memory MB</span><input name="network_process_memory_mb" type="number" min="0" max="4096" value={ formatConfigInt(config.Performance.Custom.NetworkProcessMemoryMB) } disabled?={ !customProfile } data-sv-performance-custom/></label>
+		<label><span>WebView pool prewarm</span><input name="webview_pool_prewarm" type="number" min="0" max="20" value={ formatConfigInt(config.Performance.Custom.WebViewPoolPrewarm) } disabled?={ !customProfile } data-sv-performance-custom/></label>
 		<button class="sv-button" type="submit">@ButtonIconLabel(iconSave, "Save performance")</button>
 	</form>
 	<div class="sv-stat-grid">

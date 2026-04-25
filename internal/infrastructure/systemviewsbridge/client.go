@@ -237,11 +237,11 @@ func (c *Client) List(ctx context.Context) ([]*entity.Favorite, error) {
 	}{RequestID: nextRequestID()})
 }
 
-func (c *Client) CreateFavorite(ctx context.Context, input port.FavoriteCreateInput) (*entity.Favorite, error) {
+func (c *Client) CreateFavorite(ctx context.Context, input dto.FavoriteCreateInput) (*entity.Favorite, error) {
 	return request[*entity.Favorite](c, ctx, "favorite_create", favoriteCreatePayload(input))
 }
 
-func (c *Client) UpdateFavorite(ctx context.Context, input port.FavoriteUpdateInput) (*entity.Favorite, error) {
+func (c *Client) UpdateFavorite(ctx context.Context, input dto.FavoriteUpdateInput) (*entity.Favorite, error) {
 	if input.ID <= 0 {
 		return nil, fmt.Errorf("update favorite id must be positive, got %d", input.ID)
 	}
@@ -259,7 +259,7 @@ func (c *Client) DeleteFavorite(ctx context.Context, id int64) error {
 	return err
 }
 
-func favoriteCreatePayload(input port.FavoriteCreateInput) any {
+func favoriteCreatePayload(input dto.FavoriteCreateInput) any {
 	return struct {
 		RequestID  string  `json:"requestId"`
 		URL        string  `json:"url"`
@@ -277,7 +277,7 @@ func favoriteCreatePayload(input port.FavoriteCreateInput) any {
 	}
 }
 
-func favoriteUpdatePayload(input port.FavoriteUpdateInput) any {
+func favoriteUpdatePayload(input dto.FavoriteUpdateInput) any {
 	return struct {
 		RequestID   string `json:"requestId"`
 		ID          int64  `json:"id"`

@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/bnema/dumber/internal/application/dto"
 	"github.com/bnema/dumber/internal/application/port"
 	"github.com/bnema/dumber/internal/domain/entity"
 	"github.com/bnema/dumber/internal/logging"
@@ -99,7 +100,7 @@ func (h *FavoritesHandlers) HandleCreate() port.WebUIMessageHandler {
 			return NewErrorResponse(req.RequestID, err), nil
 		}
 
-		input := port.FavoriteCreateInput{
+		input := dto.FavoriteCreateInput{
 			URL:        trimmedURL,
 			Title:      req.Title,
 			FaviconURL: req.FaviconURL,
@@ -148,7 +149,7 @@ func (h *FavoritesHandlers) HandleUpdate() port.WebUIMessageHandler {
 			return NewErrorResponse(req.RequestID, err), nil
 		}
 
-		favorite, err := h.favoritesUC.UpdateFavorite(ctx, port.FavoriteUpdateInput{
+		favorite, err := h.favoritesUC.UpdateFavorite(ctx, dto.FavoriteUpdateInput{
 			ID:          entity.FavoriteID(req.ID),
 			Title:       req.Title,
 			FaviconURL:  req.FaviconURL,

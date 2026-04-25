@@ -211,6 +211,7 @@ func (d *browserDOM) BindActions(handler DOMActionHandler) error {
 			return nil
 		}
 		event.Call("preventDefault")
+		updatePerformanceCustomInputs(form)
 		data := collectActionData(form)
 		for key, value := range collectFormData(form) {
 			data[key] = value
@@ -221,6 +222,23 @@ func (d *browserDOM) BindActions(handler DOMActionHandler) error {
 		return nil
 	})
 	d.addEventBinding(d.target, "submit", submitHandler)
+
+	changeHandler := js.FuncOf(func(_ js.Value, args []js.Value) any {
+		event := firstJSArg(args)
+		if !event.Truthy() {
+			return nil
+		}
+		target := event.Get("target")
+		if !target.Truthy() || !target.Get("matches").Truthy() || !target.Call("matches", "[data-sv-performance-profile]").Bool() {
+			return nil
+		}
+		form := target.Get("form")
+		if form.Truthy() {
+			updatePerformanceCustomInputs(form)
+		}
+		return nil
+	})
+	d.addEventBinding(d.target, "change", changeHandler)
 
 	keydownHandler := js.FuncOf(func(_ js.Value, args []js.Value) any {
 		event := firstJSArg(args)
@@ -370,6 +388,21 @@ func collectActionData(element js.Value) map[string]string {
 		data[key] = dataset.Get(key).String()
 	}
 	return data
+}
+
+func updatePerformanceCustomInputs(form js.Value) {
+	if !form.Truthy() || !form.Get("querySelector").Truthy() {
+		return
+	}
+	selectEl := form.Call("querySelector", "[data-sv-performance-profile]")
+	if !selectEl.Truthy() {
+		return
+	}
+	enabled := strings.EqualFold(selectEl.Get("value").String(), "custom")
+	inputs := form.Call("querySelectorAll", "[data-sv-performance-custom]")
+	for i := 0; i < inputs.Get("length").Int(); i++ {
+		inputs.Index(i).Set("disabled", !enabled)
+	}
 }
 
 func collectFormData(form js.Value) map[string]string {
@@ -529,9 +562,11 @@ func (d *browserDOM) showConfirmDialog(message string, onConfirm func()) bool {
 			event.Call("stopPropagation")
 			cleanup()
 		case "enter":
-			event.Call("preventDefault")
-			event.Call("stopPropagation")
-			runConfirm()
+			if confirmDialogEnterShouldAutoConfirm(d.document, dialog, confirmButton) {
+				event.Call("preventDefault")
+				event.Call("stopPropagation")
+				runConfirm()
+			}
 		}
 		return nil
 	})
@@ -551,6 +586,23 @@ func (d *browserDOM) showConfirmDialog(message string, onConfirm func()) bool {
 	d.activeConfirmCleanup = cleanup
 	body.Call("appendChild", overlay)
 	confirmButton.Call("focus")
+	return true
+}
+
+func confirmDialogEnterShouldAutoConfirm(document, dialog, confirmButton js.Value) bool {
+	if !document.Truthy() || !dialog.Truthy() || !confirmButton.Truthy() {
+		return false
+	}
+	active := document.Get("activeElement")
+	if !active.Truthy() {
+		return true
+	}
+	if active.Equal(confirmButton) {
+		return true
+	}
+	if dialog.Call("contains", active).Bool() {
+		return false
+	}
 	return true
 }
 

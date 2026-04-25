@@ -768,7 +768,7 @@ func PerformanceSettings(config dto.SystemviewConfigPayload) templ.Component {
 		}
 		ctx = templ.ClearChildren(ctx)
 		customProfile := performanceProfileSelected(config.Performance.Profile, "custom")
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 49, "<form class=\"sv-card-form sv-config-form\" data-sv-action=\"config.performance.save\"><label><span>Profile</span><select name=\"profile\"><option value=\"default\"")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 49, "<form class=\"sv-card-form sv-config-form\" data-sv-action=\"config.performance.save\" data-sv-performance-form><label><span>Profile</span><select name=\"profile\" data-sv-performance-profile><option value=\"default\"")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
@@ -831,7 +831,7 @@ func PerformanceSettings(config dto.SystemviewConfigPayload) templ.Component {
 				return templ_7745c5c3_Err
 			}
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 60, "></label> <label><span>Skia GPU threads</span><input name=\"skia_gpu_threads\" type=\"number\" min=\"-1\" max=\"8\" value=\"")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 60, " data-sv-performance-custom></label> <label><span>Skia GPU threads</span><input name=\"skia_gpu_threads\" type=\"number\" min=\"-1\" max=\"8\" value=\"")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
@@ -854,7 +854,7 @@ func PerformanceSettings(config dto.SystemviewConfigPayload) templ.Component {
 				return templ_7745c5c3_Err
 			}
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 63, "></label> <label><span>Web process memory MB</span><input name=\"web_process_memory_mb\" type=\"number\" min=\"0\" max=\"16384\" value=\"")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 63, " data-sv-performance-custom></label> <label><span>Web process memory MB</span><input name=\"web_process_memory_mb\" type=\"number\" min=\"0\" max=\"16384\" value=\"")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
@@ -877,7 +877,7 @@ func PerformanceSettings(config dto.SystemviewConfigPayload) templ.Component {
 				return templ_7745c5c3_Err
 			}
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 66, "></label> <label><span>Network process memory MB</span><input name=\"network_process_memory_mb\" type=\"number\" min=\"0\" max=\"4096\" value=\"")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 66, " data-sv-performance-custom></label> <label><span>Network process memory MB</span><input name=\"network_process_memory_mb\" type=\"number\" min=\"0\" max=\"4096\" value=\"")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
@@ -900,7 +900,7 @@ func PerformanceSettings(config dto.SystemviewConfigPayload) templ.Component {
 				return templ_7745c5c3_Err
 			}
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 69, "></label> <label><span>WebView pool prewarm</span><input name=\"webview_pool_prewarm\" type=\"number\" min=\"0\" max=\"20\" value=\"")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 69, " data-sv-performance-custom></label> <label><span>WebView pool prewarm</span><input name=\"webview_pool_prewarm\" type=\"number\" min=\"0\" max=\"20\" value=\"")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
@@ -923,7 +923,7 @@ func PerformanceSettings(config dto.SystemviewConfigPayload) templ.Component {
 				return templ_7745c5c3_Err
 			}
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 72, "></label> <button class=\"sv-button\" type=\"submit\">")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 72, " data-sv-performance-custom></label> <button class=\"sv-button\" type=\"submit\">")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}

@@ -7,7 +7,7 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/bnema/dumber/internal/application/port"
+	"github.com/bnema/dumber/internal/application/dto"
 	"github.com/bnema/dumber/internal/domain/entity"
 )
 
@@ -47,7 +47,7 @@ func (a *App) handleFavoriteAction(ctx context.Context, event DOMAction) error {
 		if err != nil {
 			return err
 		}
-		favorite, err := a.deps.Favorites.CreateFavorite(ctx, port.FavoriteCreateInput{
+		favorite, err := a.deps.Favorites.CreateFavorite(ctx, dto.FavoriteCreateInput{
 			URL:      favoriteURL,
 			Title:    strings.TrimSpace(data["title"]),
 			FolderID: folderID,
@@ -70,7 +70,7 @@ func (a *App) handleFavoriteAction(ctx context.Context, event DOMAction) error {
 		if err != nil {
 			return err
 		}
-		favorite, err := a.deps.Favorites.UpdateFavorite(ctx, port.FavoriteUpdateInput{
+		favorite, err := a.deps.Favorites.UpdateFavorite(ctx, dto.FavoriteUpdateInput{
 			ID:          entity.FavoriteID(id),
 			Title:       strings.TrimSpace(data["title"]),
 			FaviconURL:  strings.TrimSpace(data["favicon_url"]),

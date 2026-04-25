@@ -7291,7 +7291,7 @@ func (_m *MockHomepageFavorites) EXPECT() *MockHomepageFavorites_Expecter {
 }
 
 // AddFavorite provides a mock function for the type MockHomepageFavorites
-func (_mock *MockHomepageFavorites) AddFavorite(ctx context.Context, input port.FavoriteCreateInput) (*entity.Favorite, error) {
+func (_mock *MockHomepageFavorites) AddFavorite(ctx context.Context, input dto.FavoriteCreateInput) (*entity.Favorite, error) {
 	ret := _mock.Called(ctx, input)
 
 	if len(ret) == 0 {
@@ -7300,17 +7300,17 @@ func (_mock *MockHomepageFavorites) AddFavorite(ctx context.Context, input port.
 
 	var r0 *entity.Favorite
 	var r1 error
-	if returnFunc, ok := ret.Get(0).(func(context.Context, port.FavoriteCreateInput) (*entity.Favorite, error)); ok {
+	if returnFunc, ok := ret.Get(0).(func(context.Context, dto.FavoriteCreateInput) (*entity.Favorite, error)); ok {
 		return returnFunc(ctx, input)
 	}
-	if returnFunc, ok := ret.Get(0).(func(context.Context, port.FavoriteCreateInput) *entity.Favorite); ok {
+	if returnFunc, ok := ret.Get(0).(func(context.Context, dto.FavoriteCreateInput) *entity.Favorite); ok {
 		r0 = returnFunc(ctx, input)
 	} else {
 		if ret.Get(0) != nil {
 			r0 = ret.Get(0).(*entity.Favorite)
 		}
 	}
-	if returnFunc, ok := ret.Get(1).(func(context.Context, port.FavoriteCreateInput) error); ok {
+	if returnFunc, ok := ret.Get(1).(func(context.Context, dto.FavoriteCreateInput) error); ok {
 		r1 = returnFunc(ctx, input)
 	} else {
 		r1 = ret.Error(1)
@@ -7325,20 +7325,20 @@ type MockHomepageFavorites_AddFavorite_Call struct {
 
 // AddFavorite is a helper method to define mock.On call
 //   - ctx context.Context
-//   - input port.FavoriteCreateInput
+//   - input dto.FavoriteCreateInput
 func (_e *MockHomepageFavorites_Expecter) AddFavorite(ctx interface{}, input interface{}) *MockHomepageFavorites_AddFavorite_Call {
 	return &MockHomepageFavorites_AddFavorite_Call{Call: _e.mock.On("AddFavorite", ctx, input)}
 }
 
-func (_c *MockHomepageFavorites_AddFavorite_Call) Run(run func(ctx context.Context, input port.FavoriteCreateInput)) *MockHomepageFavorites_AddFavorite_Call {
+func (_c *MockHomepageFavorites_AddFavorite_Call) Run(run func(ctx context.Context, input dto.FavoriteCreateInput)) *MockHomepageFavorites_AddFavorite_Call {
 	_c.Call.Run(func(args mock.Arguments) {
 		var arg0 context.Context
 		if args[0] != nil {
 			arg0 = args[0].(context.Context)
 		}
-		var arg1 port.FavoriteCreateInput
+		var arg1 dto.FavoriteCreateInput
 		if args[1] != nil {
-			arg1 = args[1].(port.FavoriteCreateInput)
+			arg1 = args[1].(dto.FavoriteCreateInput)
 		}
 		run(
 			arg0,
@@ -7353,7 +7353,7 @@ func (_c *MockHomepageFavorites_AddFavorite_Call) Return(favorite *entity.Favori
 	return _c
 }
 
-func (_c *MockHomepageFavorites_AddFavorite_Call) RunAndReturn(run func(ctx context.Context, input port.FavoriteCreateInput) (*entity.Favorite, error)) *MockHomepageFavorites_AddFavorite_Call {
+func (_c *MockHomepageFavorites_AddFavorite_Call) RunAndReturn(run func(ctx context.Context, input dto.FavoriteCreateInput) (*entity.Favorite, error)) *MockHomepageFavorites_AddFavorite_Call {
 	_c.Call.Return(run)
 	return _c
 }
@@ -8190,7 +8190,7 @@ func (_c *MockHomepageFavorites_UntagFavorite_Call) RunAndReturn(run func(ctx co
 }
 
 // UpdateFavorite provides a mock function for the type MockHomepageFavorites
-func (_mock *MockHomepageFavorites) UpdateFavorite(ctx context.Context, input port.FavoriteUpdateInput) (*entity.Favorite, error) {
+func (_mock *MockHomepageFavorites) UpdateFavorite(ctx context.Context, input dto.FavoriteUpdateInput) (*entity.Favorite, error) {
 	ret := _mock.Called(ctx, input)
 
 	if len(ret) == 0 {
@@ -8199,17 +8199,17 @@ func (_mock *MockHomepageFavorites) UpdateFavorite(ctx context.Context, input po
 
 	var r0 *entity.Favorite
 	var r1 error
-	if returnFunc, ok := ret.Get(0).(func(context.Context, port.FavoriteUpdateInput) (*entity.Favorite, error)); ok {
+	if returnFunc, ok := ret.Get(0).(func(context.Context, dto.FavoriteUpdateInput) (*entity.Favorite, error)); ok {
 		return returnFunc(ctx, input)
 	}
-	if returnFunc, ok := ret.Get(0).(func(context.Context, port.FavoriteUpdateInput) *entity.Favorite); ok {
+	if returnFunc, ok := ret.Get(0).(func(context.Context, dto.FavoriteUpdateInput) *entity.Favorite); ok {
 		r0 = returnFunc(ctx, input)
 	} else {
 		if ret.Get(0) != nil {
 			r0 = ret.Get(0).(*entity.Favorite)
 		}
 	}
-	if returnFunc, ok := ret.Get(1).(func(context.Context, port.FavoriteUpdateInput) error); ok {
+	if returnFunc, ok := ret.Get(1).(func(context.Context, dto.FavoriteUpdateInput) error); ok {
 		r1 = returnFunc(ctx, input)
 	} else {
 		r1 = ret.Error(1)
@@ -8224,20 +8224,20 @@ type MockHomepageFavorites_UpdateFavorite_Call struct {
 
 // UpdateFavorite is a helper method to define mock.On call
 //   - ctx context.Context
-//   - input port.FavoriteUpdateInput
+//   - input dto.FavoriteUpdateInput
 func (_e *MockHomepageFavorites_Expecter) UpdateFavorite(ctx interface{}, input interface{}) *MockHomepageFavorites_UpdateFavorite_Call {
 	return &MockHomepageFavorites_UpdateFavorite_Call{Call: _e.mock.On("UpdateFavorite", ctx, input)}
 }
 
-func (_c *MockHomepageFavorites_UpdateFavorite_Call) Run(run func(ctx context.Context, input port.FavoriteUpdateInput)) *MockHomepageFavorites_UpdateFavorite_Call {
+func (_c *MockHomepageFavorites_UpdateFavorite_Call) Run(run func(ctx context.Context, input dto.FavoriteUpdateInput)) *MockHomepageFavorites_UpdateFavorite_Call {
 	_c.Call.Run(func(args mock.Arguments) {
 		var arg0 context.Context
 		if args[0] != nil {
 			arg0 = args[0].(context.Context)
 		}
-		var arg1 port.FavoriteUpdateInput
+		var arg1 dto.FavoriteUpdateInput
 		if args[1] != nil {
-			arg1 = args[1].(port.FavoriteUpdateInput)
+			arg1 = args[1].(dto.FavoriteUpdateInput)
 		}
 		run(
 			arg0,
@@ -8252,7 +8252,7 @@ func (_c *MockHomepageFavorites_UpdateFavorite_Call) Return(favorite *entity.Fav
 	return _c
 }
 
-func (_c *MockHomepageFavorites_UpdateFavorite_Call) RunAndReturn(run func(ctx context.Context, input port.FavoriteUpdateInput) (*entity.Favorite, error)) *MockHomepageFavorites_UpdateFavorite_Call {
+func (_c *MockHomepageFavorites_UpdateFavorite_Call) RunAndReturn(run func(ctx context.Context, input dto.FavoriteUpdateInput) (*entity.Favorite, error)) *MockHomepageFavorites_UpdateFavorite_Call {
 	_c.Call.Return(run)
 	return _c
 }

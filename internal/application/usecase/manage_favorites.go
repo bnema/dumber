@@ -9,6 +9,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/bnema/dumber/internal/application/dto"
 	"github.com/bnema/dumber/internal/application/port"
 	"github.com/bnema/dumber/internal/domain/entity"
 	"github.com/bnema/dumber/internal/domain/repository"
@@ -100,7 +101,7 @@ func (uc *ManageFavoritesUseCase) addNewFavorite(ctx context.Context, input AddF
 }
 
 // AddFavorite creates a favorite from the UI-facing application port.
-func (uc *ManageFavoritesUseCase) AddFavorite(ctx context.Context, input port.FavoriteCreateInput) (*entity.Favorite, error) {
+func (uc *ManageFavoritesUseCase) AddFavorite(ctx context.Context, input dto.FavoriteCreateInput) (*entity.Favorite, error) {
 	favoriteURL, err := normalizeFavoriteURL(input.URL)
 	if err != nil {
 		return nil, err
@@ -177,7 +178,7 @@ func normalizeFavoriteURL(raw string) (string, error) {
 }
 
 // UpdateFavorite updates editable favorite metadata from the UI-facing application port.
-func (uc *ManageFavoritesUseCase) UpdateFavorite(ctx context.Context, input port.FavoriteUpdateInput) (*entity.Favorite, error) {
+func (uc *ManageFavoritesUseCase) UpdateFavorite(ctx context.Context, input dto.FavoriteUpdateInput) (*entity.Favorite, error) {
 	if input.ID <= 0 {
 		return nil, fmt.Errorf("favorite ID is required")
 	}

@@ -310,13 +310,13 @@ func TestClientConfigActionsUseExpectedMessageTypes(t *testing.T) {
 
 	tests := []struct {
 		name    string
-		call    func(*Client) error
+		call    func(*testing.T, *Client) error
 		want    string
 		payload any
 	}{
 		{
 			name: "save config",
-			call: func(client *Client) error {
+			call: func(t *testing.T, client *Client) error {
 				return client.Save(context.Background(), dto.WebUIConfig{DefaultSearchEngine: "DuckDuckGo"})
 			},
 			want:    "save_config",
@@ -324,7 +324,7 @@ func TestClientConfigActionsUseExpectedMessageTypes(t *testing.T) {
 		},
 		{
 			name: "get keybindings",
-			call: func(client *Client) error {
+			call: func(t *testing.T, client *Client) error {
 				got, err := client.GetKeybindings(context.Background())
 				if err != nil {
 					return err
@@ -338,7 +338,7 @@ func TestClientConfigActionsUseExpectedMessageTypes(t *testing.T) {
 		},
 		{
 			name: "set keybinding",
-			call: func(client *Client) error {
+			call: func(t *testing.T, client *Client) error {
 				got, err := client.SetKeybinding(context.Background(), port.SetKeybindingRequest{RequestID: "req-1", Mode: "default", Action: "open", Keys: []string{"ctrl+o"}})
 				if err != nil {
 					return err
@@ -353,7 +353,7 @@ func TestClientConfigActionsUseExpectedMessageTypes(t *testing.T) {
 		},
 		{
 			name: "reset keybinding",
-			call: func(client *Client) error {
+			call: func(t *testing.T, client *Client) error {
 				return client.ResetKeybinding(context.Background(), port.ResetKeybindingRequest{RequestID: "req-2", Mode: "default", Action: "open"})
 			},
 			want:    "reset_keybinding",
@@ -361,7 +361,7 @@ func TestClientConfigActionsUseExpectedMessageTypes(t *testing.T) {
 		},
 		{
 			name: "reset all keybindings",
-			call: func(client *Client) error {
+			call: func(t *testing.T, client *Client) error {
 				return client.ResetAllKeybindings(context.Background())
 			},
 			want: "reset_all_keybindings",
@@ -381,7 +381,7 @@ func TestClientConfigActionsUseExpectedMessageTypes(t *testing.T) {
 			}
 			client := NewClient(transport, nil)
 
-			if err := tt.call(client); err != nil {
+			if err := tt.call(t, client); err != nil {
 				t.Fatalf("call() error = %v", err)
 			}
 

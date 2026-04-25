@@ -4,7 +4,7 @@ import (
 	"errors"
 	"testing"
 
-	"github.com/bnema/dumber/internal/application/port"
+	"github.com/bnema/dumber/internal/application/dto"
 	"github.com/bnema/dumber/internal/application/usecase"
 	"github.com/bnema/dumber/internal/domain/entity"
 	repomocks "github.com/bnema/dumber/internal/domain/repository/mocks"
@@ -382,7 +382,7 @@ func TestManageFavoritesUseCase_AddFavoriteNormalizesURL(t *testing.T) {
 
 	uc := usecase.NewManageFavoritesUseCase(favoriteRepo, folderRepo, tagRepo)
 
-	fav, err := uc.AddFavorite(ctx, port.FavoriteCreateInput{URL: "example.com", Title: " Example "})
+	fav, err := uc.AddFavorite(ctx, dto.FavoriteCreateInput{URL: "example.com", Title: " Example "})
 	require.NoError(t, err)
 	require.NotNil(t, fav)
 	assert.Equal(t, "https://example.com", fav.URL)
@@ -407,7 +407,7 @@ func TestManageFavoritesUseCase_AddFavoriteRejectsUnsafeOrMalformedURL(t *testin
 			tagRepo := repomocks.NewMockTagRepository(t)
 			uc := usecase.NewManageFavoritesUseCase(favoriteRepo, folderRepo, tagRepo)
 
-			_, err := uc.AddFavorite(ctx, port.FavoriteCreateInput{URL: raw})
+			_, err := uc.AddFavorite(ctx, dto.FavoriteCreateInput{URL: raw})
 			require.Error(t, err)
 		})
 	}
@@ -428,7 +428,7 @@ func TestManageFavoritesUseCase_AddFavoriteNormalizesOpaqueDumbRoute(t *testing.
 
 	uc := usecase.NewManageFavoritesUseCase(favoriteRepo, folderRepo, tagRepo)
 
-	fav, err := uc.AddFavorite(ctx, port.FavoriteCreateInput{URL: "dumb:history", Title: "History"})
+	fav, err := uc.AddFavorite(ctx, dto.FavoriteCreateInput{URL: "dumb:history", Title: "History"})
 	require.NoError(t, err)
 	require.NotNil(t, fav)
 	assert.Equal(t, "dumb://history", fav.URL)

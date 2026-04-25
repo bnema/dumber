@@ -38,6 +38,18 @@ func TestSearchHistoryUseCase_GetRecent_NegativeLimitDefaultsToPageSize(t *testi
 	assert.Empty(t, result)
 }
 
+func TestSearchHistoryUseCase_GetRecentWindow_InvalidDomainReturnsValidationError(t *testing.T) {
+	ctx := testContext()
+	historyRepo := repomocks.NewMockHistoryRepository(t)
+	uc := usecase.NewSearchHistoryUseCase(historyRepo)
+
+	result, err := uc.GetRecentWindow(ctx, time.Now(), "///")
+
+	require.Error(t, err)
+	assert.Nil(t, result)
+	assert.Contains(t, err.Error(), "domain is required")
+}
+
 func TestSearchHistoryUseCase_GetRecentSince_ReturnsEntries(t *testing.T) {
 	ctx := testContext()
 

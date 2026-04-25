@@ -97,16 +97,16 @@ type webkitCallbackWaiter struct {
 }
 
 // webkitCallbacks uses one page-lifetime dispatcher per native callback name.
-// Requests sharing the same callback names are intentionally serialized because
-// older native shims do not always echo requestId; late callbacks without a
-// matching waiter are dropped instead of targeting released js.Func handles.
+// Multiple requests may share callback names concurrently. When native payloads
+// include requestId, dispatch to that waiter; older callbacks without requestId
+// are resolved FIFO so they cannot target released js.Func handles.
 var webkitCallbacks = struct {
 	sync.Mutex
 	installed map[string]js.Func
-	waiters   map[string]*webkitCallbackWaiter
+	waiters   map[string][]*webkitCallbackWaiter
 }{
 	installed: make(map[string]js.Func),
-	waiters:   make(map[string]*webkitCallbackWaiter),
+	waiters:   make(map[string][]*webkitCallbackWaiter),
 }
 
 func (*webkitTransport) Available() bool {
@@ -192,21 +192,52 @@ func registerWebKitWaiter(requestID string, plan callbackPlan, resultCh chan web
 	}
 	webkitCallbacks.Lock()
 	defer webkitCallbacks.Unlock()
-	if webkitCallbacks.waiters[plan.success] != nil || webkitCallbacks.waiters[plan.failure] != nil {
-		return nil, fmt.Errorf("webkit callback already pending for %s", plan.success)
-	}
-	webkitCallbacks.waiters[plan.success] = waiter
-	webkitCallbacks.waiters[plan.failure] = waiter
+	webkitCallbacks.waiters[plan.success] = append(webkitCallbacks.waiters[plan.success], waiter)
+	webkitCallbacks.waiters[plan.failure] = append(webkitCallbacks.waiters[plan.failure], waiter)
 	return func() {
 		webkitCallbacks.Lock()
 		defer webkitCallbacks.Unlock()
-		if webkitCallbacks.waiters[plan.success] == waiter {
-			delete(webkitCallbacks.waiters, plan.success)
-		}
-		if webkitCallbacks.waiters[plan.failure] == waiter {
-			delete(webkitCallbacks.waiters, plan.failure)
-		}
+		removeWebKitWaiterLocked(waiter)
 	}, nil
+}
+
+func findWebKitWaiterLocked(name, requestID string) *webkitCallbackWaiter {
+	waiters := webkitCallbacks.waiters[name]
+	if len(waiters) == 0 {
+		return nil
+	}
+	if requestID == "" {
+		return waiters[0]
+	}
+	for _, waiter := range waiters {
+		if waiter != nil && waiter.requestID == requestID {
+			return waiter
+		}
+	}
+	return nil
+}
+
+func removeWebKitWaiterLocked(waiter *webkitCallbackWaiter) {
+	if waiter == nil {
+		return
+	}
+	remove := func(name string) {
+		waiters := webkitCallbacks.waiters[name]
+		for i, candidate := range waiters {
+			if candidate != waiter {
+				continue
+			}
+			waiters = append(waiters[:i], waiters[i+1:]...)
+			if len(waiters) == 0 {
+				delete(webkitCallbacks.waiters, name)
+			} else {
+				webkitCallbacks.waiters[name] = waiters
+			}
+			return
+		}
+	}
+	remove(waiter.successName)
+	remove(waiter.failureName)
 }
 
 func handleWebKitCallback(name string, failure bool, args []js.Value) {
@@ -214,15 +245,9 @@ func handleWebKitCallback(name string, failure bool, args []js.Value) {
 	payloadRequestID := requestIDFromBridgePayload(payload)
 
 	webkitCallbacks.Lock()
-	waiter := webkitCallbacks.waiters[name]
-	if waiter != nil && payloadRequestID != "" && waiter.requestID != "" && payloadRequestID != waiter.requestID {
-		webkitCallbacks.Unlock()
-		warnDroppedBridgeResult("webkit callback request mismatch", fmt.Errorf("got %s, want %s", payloadRequestID, waiter.requestID))
-		return
-	}
+	waiter := findWebKitWaiterLocked(name, payloadRequestID)
 	if waiter != nil {
-		delete(webkitCallbacks.waiters, waiter.successName)
-		delete(webkitCallbacks.waiters, waiter.failureName)
+		removeWebKitWaiterLocked(waiter)
 	}
 	webkitCallbacks.Unlock()
 

@@ -3,6 +3,7 @@ package usecase
 import (
 	"context"
 	"fmt"
+	"strings"
 	"time"
 
 	"github.com/bnema/dumber/internal/application/port"
@@ -120,7 +121,11 @@ func (uc *SearchHistoryUseCase) GetRecentWindow(ctx context.Context, before time
 		hasMore bool
 		err     error
 	)
+	originalDomain := domain
 	domain = domainurl.CanonicalDomain(domain)
+	if strings.TrimSpace(originalDomain) != "" && domain == "" {
+		return nil, fmt.Errorf("domain is required")
+	}
 	if domain != "" {
 		entries, err = uc.historyRepo.GetRecentWindowByDomain(ctx, domain, before, after)
 		if err == nil {

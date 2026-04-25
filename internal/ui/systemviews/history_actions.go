@@ -28,6 +28,11 @@ func (a *App) HandleDOMAction(ctx context.Context, event DOMAction) error {
 		return fmt.Errorf("app is nil")
 	}
 	a.lockState()
+	if a.closed {
+		a.unlockState()
+		return nil
+	}
+	a.renderGeneration++
 	if a.currentRoute == RouteUnknown || a.currentRoute == "" {
 		a.currentRoute = ParseRoute(a.deps.LocationURI)
 	}
@@ -257,7 +262,23 @@ func (a *App) mountRenderedHTML() error {
 }
 
 func (a *App) mountHTML(html string) error {
-	if a.deps.DOM == nil {
+	if a == nil || a.deps.DOM == nil {
+		return nil
+	}
+	return a.deps.DOM.Mount(html)
+}
+
+func (a *App) mountHTMLIfCurrent(ctx context.Context, html string, generation uint64) error {
+	if a == nil || a.deps.DOM == nil {
+		return nil
+	}
+	if ctx != nil && ctx.Err() != nil {
+		return nil
+	}
+	a.lockState()
+	current := !a.closed && a.renderGeneration == generation
+	a.unlockState()
+	if !current {
 		return nil
 	}
 	return a.deps.DOM.Mount(html)

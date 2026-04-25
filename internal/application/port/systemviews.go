@@ -25,8 +25,8 @@ type SystemviewHistoryService interface {
 // SystemviewFavoritesService exposes favorite, folder, and tag operations.
 type SystemviewFavoritesService interface {
 	List(ctx context.Context) ([]*entity.Favorite, error)
-	CreateFavorite(ctx context.Context, input FavoriteCreateInput) (*entity.Favorite, error)
-	UpdateFavorite(ctx context.Context, input FavoriteUpdateInput) (*entity.Favorite, error)
+	CreateFavorite(ctx context.Context, input dto.FavoriteCreateInput) (*entity.Favorite, error)
+	UpdateFavorite(ctx context.Context, input dto.FavoriteUpdateInput) (*entity.Favorite, error)
 	DeleteFavorite(ctx context.Context, id int64) error
 	ListFolders(ctx context.Context) ([]*entity.Folder, error)
 	ListTags(ctx context.Context) ([]*entity.Tag, error)
