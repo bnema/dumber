@@ -102,7 +102,7 @@ func StartBrowserSession(
 		Level:         cfg.Logging.Level,
 		Format:        cfg.Logging.Format,
 		TimeFormat:    corelogging.ConsoleTimeFormat,
-		LogDir:        cfg.Logging.LogDir,
+		LogDir:        logDir,
 		WriteToStderr: true,
 		EnableFileLog: cfg.Logging.EnableFileLog,
 	})
@@ -156,7 +156,7 @@ func StartBrowserSession(
 			}
 
 			// Background cleanup of old sessions.
-			go runSessionCleanup(persistCtx, sessionUC, cleanupUC, cfg, session.ID, log)
+			go runSessionCleanup(persistCtx, sessionUC, cleanupUC, cfg, logDir, session.ID, log)
 		})
 		return persistErr
 	}
@@ -310,6 +310,7 @@ func runSessionCleanup(
 	sessionUC *usecase.ManageSessionUseCase,
 	cleanupUC *usecase.CleanupSessionsUseCase,
 	cfg *config.Config,
+	logDir string,
 	currentSessionID entity.SessionID,
 	log *zerolog.Logger,
 ) {
@@ -347,7 +348,23 @@ func runSessionCleanup(
 	}
 
 	// Prune old marker files left by previous versions.
-	sweepLegacyMarkers(cfg.Logging.LogDir, log)
+	sweepLegacyMarkers(logDir, log)
+
+	removedLogs, logCleanupErr := corelogging.CleanupSessionLogFiles(
+		logDir,
+		cfg.Logging.MaxFiles,
+		string(currentSessionID),
+	)
+	if logCleanupErr != nil {
+		if log != nil {
+			log.Warn().Err(logCleanupErr).Msg("background: failed to cleanup session log files")
+		}
+	} else if removedLogs > 0 && log != nil {
+		log.Info().
+			Int("deleted", removedLogs).
+			Int("max_files", cfg.Logging.MaxFiles).
+			Msg("background: cleaned up session log files")
+	}
 }
 
 // sweepLegacyMarkers removes .startup.marker, .shutdown.marker,

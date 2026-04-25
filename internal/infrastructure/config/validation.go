@@ -308,6 +308,9 @@ func validateLogging(config *Config) []string {
 	if config.Logging.MaxAge < 0 {
 		validationErrors = append(validationErrors, "logging.max_age must be non-negative")
 	}
+	if config.Logging.MaxFiles < 0 {
+		validationErrors = append(validationErrors, "logging.max_files must be non-negative")
+	}
 	switch config.Logging.Level {
 	case "trace", "debug", "info", "warn", "error", "fatal", "":
 	default:

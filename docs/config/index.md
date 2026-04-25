@@ -123,13 +123,14 @@ auto_open_on_new_pane = false
 
 | Key | Type | Default | Valid Values | Description |
 |-----|------|---------|--------------|-------------|
-| `logging.level` | string | `"info"` | `debug`, `info`, `warn`, `error` | Log level |
-| `logging.format` | string | `"text"` | `text`, `json` | Log format |
-| `logging.max_age` | int | `7` | >= 0 | Days to keep logs |
-| `logging.log_dir` | string | `~/.local/state/dumber/logs/` | any | Log directory |
+| `logging.level` | string | `"info"` | `trace`, `debug`, `info`, `warn`, `error`, `fatal` | Log level |
+| `logging.format` | string | `"text"` | `text`, `json`, `console` | Log format |
+| `logging.max_age` | int | `7` | `>= 0` | Days to keep logs |
+| `logging.max_files` | int | `100` | `>= 0` | Session log files to keep (`0` disables count cleanup) |
+| `logging.log_dir` | string | `~/.local/state/dumber/logs` | any path | Log directory |
 | `logging.enable_file_log` | bool | `true` | - | Enable file logging |
 | `logging.capture_console` | bool | `false` | - | Capture browser console to logs |
-| `logging.capture_gtk_webkit_logs` | bool | `false` | - | Capture GTK and WebKit logs for debugging |
+| `logging.capture_gtk_logs` | bool | `false` | - | Capture GTK and WebKit logs for debugging. |
 
 ## Appearance
 

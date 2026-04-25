@@ -10,7 +10,8 @@ const (
 	defaultMaxHistoryDays = 30 // days
 
 	// Logging defaults
-	defaultMaxLogAgeDays = 7 // days
+	defaultMaxLogAgeDays = 7   // days
+	defaultMaxLogFiles   = 100 // session log files
 
 	// Appearance defaults
 	defaultFontSize = 16 // points
@@ -117,6 +118,7 @@ func DefaultConfig() *Config {
 			Level:          "info",
 			Format:         "text", // text or json
 			MaxAge:         defaultMaxLogAgeDays,
+			MaxFiles:       defaultMaxLogFiles,
 			LogDir:         getDefaultLogDir(),
 			EnableFileLog:  true,
 			CaptureConsole: false, // Disabled by default

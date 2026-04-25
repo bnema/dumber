@@ -20,13 +20,14 @@
 | `omnibox.initial_behavior` | string | `recent` | `recent`, `most_visited`, `none` |
 | `omnibox.most_visited_days` | int | `30` | `>= 0` |
 | `omnibox.auto_open_on_new_pane` | bool | `false` | |
-| `logging.level` | string | `info` | `debug`, `info`, `warn`, `error` |
-| `logging.format` | string | `text` | `text`, `json` |
+| `logging.level` | string | `info` | `trace`, `debug`, `info`, `warn`, `error`, `fatal` |
+| `logging.format` | string | `text` | `text`, `json`, `console` |
 | `logging.max_age` | int | `7` | >= 0 |
-| `logging.log_dir` | string | `~/.local/state/dumber/logs/` | |
+| `logging.max_files` | int | `100` | >= 0 (0 disables count cleanup) |
+| `logging.log_dir` | string | `~/.local/state/dumber/logs` | any path |
 | `logging.enable_file_log` | bool | `true` | |
 | `logging.capture_console` | bool | `false` | |
-| `logging.capture_gtk_webkit_logs` | bool | `false` | |
+| `logging.capture_gtk_logs` | bool | `false` | |
 | `appearance.sans_font` | string | `Fira Sans` | |
 | `appearance.serif_font` | string | `Fira Sans` | |
 | `appearance.monospace_font` | string | `Fira Code` | |
