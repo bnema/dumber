@@ -10,6 +10,7 @@ import (
 func TestDefaultConfig_CoreDefaults(t *testing.T) {
 	cfg := DefaultConfig()
 	assert.Equal(t, "info", cfg.Logging.Level)
+	assert.Equal(t, defaultMaxLogFiles, cfg.Logging.MaxFiles)
 	assert.False(t, cfg.Logging.CaptureGTKLogs)
 	assert.False(t, cfg.Media.ShowDiagnosticsOnStartup)
 	assert.False(t, cfg.Transcoding.Enabled)

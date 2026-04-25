@@ -320,9 +320,10 @@ type DmenuConfig struct {
 
 // LoggingConfig holds logging configuration.
 type LoggingConfig struct {
-	Level  string `mapstructure:"level" yaml:"level" toml:"level"`
-	Format string `mapstructure:"format" yaml:"format" toml:"format"`
-	MaxAge int    `mapstructure:"max_age" yaml:"max_age" toml:"max_age"`
+	Level    string `mapstructure:"level" yaml:"level" toml:"level"`
+	Format   string `mapstructure:"format" yaml:"format" toml:"format"`
+	MaxAge   int    `mapstructure:"max_age" yaml:"max_age" toml:"max_age"`
+	MaxFiles int    `mapstructure:"max_files" yaml:"max_files" toml:"max_files"`
 
 	// File output configuration
 	LogDir        string `mapstructure:"log_dir" yaml:"log_dir" toml:"log_dir"`
