@@ -24,6 +24,12 @@ type DOMActionBinder interface {
 	BindActions(handler DOMActionHandler) error
 }
 
+// DOMHistoryTimelineAppender is implemented by DOM adapters that can append
+// older history windows without reparsing and remounting the whole page.
+type DOMHistoryTimelineAppender interface {
+	AppendHistoryTimeline(markup string) error
+}
+
 func placeholderHTML(route Route) string {
 	name := html.EscapeString(string(route))
 	if name == "" || route == RouteUnknown {

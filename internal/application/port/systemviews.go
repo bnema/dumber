@@ -2,6 +2,7 @@ package port
 
 import (
 	"context"
+	"time"
 
 	"github.com/bnema/dumber/internal/application/dto"
 	"github.com/bnema/dumber/internal/domain/entity"
@@ -11,9 +12,11 @@ import (
 type SystemviewHistoryService interface {
 	Timeline(ctx context.Context, limit, offset int) ([]*entity.HistoryEntry, error)
 	TimelineByDomain(ctx context.Context, domain string, limit, offset int) ([]*entity.HistoryEntry, error)
+	TimelineWindow(ctx context.Context, before time.Time, domain string) (*entity.HistoryWindow, error)
 	Search(ctx context.Context, query string, limit int) ([]*entity.HistoryEntry, error)
 	DeleteEntry(ctx context.Context, id int64) error
 	DeleteRange(ctx context.Context, rangeID string) error
+	Stats(ctx context.Context) (*entity.HistoryStats, error)
 	Analytics(ctx context.Context) (*entity.HistoryAnalytics, error)
 	DomainStats(ctx context.Context, limit int) ([]*entity.DomainStat, error)
 	DeleteDomain(ctx context.Context, domain string) error

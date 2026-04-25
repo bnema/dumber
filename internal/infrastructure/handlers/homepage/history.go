@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"strings"
+	"time"
 
 	"github.com/bnema/dumber/internal/application/port"
 	"github.com/bnema/dumber/internal/domain/entity"
@@ -35,6 +36,12 @@ type timelineByDomainRequest struct {
 	Offset    int    `json:"offset"`
 }
 
+type timelineWindowRequest struct {
+	RequestID string `json:"requestId"`
+	Before    string `json:"before"`
+	Domain    string `json:"domain"`
+}
+
 // HandleTimeline handles history_timeline messages.
 func (h *HistoryHandlers) HandleTimeline() port.WebUIMessageHandler {
 	return port.WebUIMessageHandlerFunc(func(ctx context.Context, _ port.WebViewID, payload json.RawMessage) (any, error) {
@@ -50,6 +57,9 @@ func (h *HistoryHandlers) HandleTimeline() port.WebUIMessageHandler {
 			Int("limit", req.Limit).
 			Int("offset", req.Offset).
 			Msg("handling history_timeline")
+		if req.Limit <= 0 {
+			return NewErrorResponse(req.RequestID, fmt.Errorf("history_timeline requires a positive limit; use history_timeline_window for lazy history loading")), nil
+		}
 
 		entries, err := h.historyUC.GetRecent(ctx, req.Limit, req.Offset)
 		if err != nil {
@@ -81,6 +91,9 @@ func (h *HistoryHandlers) HandleTimelineByDomain() port.WebUIMessageHandler {
 			Int("limit", req.Limit).
 			Int("offset", req.Offset).
 			Msg("handling history_timeline_by_domain")
+		if req.Limit <= 0 {
+			return NewErrorResponse(req.RequestID, fmt.Errorf("history_timeline_by_domain requires a positive limit; use history_timeline_window for lazy history loading")), nil
+		}
 
 		entries, err := h.historyUC.GetRecentByDomain(ctx, req.Domain, req.Limit, req.Offset)
 		if err != nil {
@@ -88,6 +101,42 @@ func (h *HistoryHandlers) HandleTimelineByDomain() port.WebUIMessageHandler {
 		}
 
 		return NewSuccessResponse(req.RequestID, entries), nil
+	})
+}
+
+// HandleTimelineWindow handles history_timeline_window messages.
+func (h *HistoryHandlers) HandleTimelineWindow() port.WebUIMessageHandler {
+	return port.WebUIMessageHandlerFunc(func(ctx context.Context, _ port.WebViewID, payload json.RawMessage) (any, error) {
+		log := logging.FromContext(ctx)
+
+		var req timelineWindowRequest
+		if err := json.Unmarshal(payload, &req); err != nil {
+			return NewErrorResponse("", err), nil
+		}
+
+		domain := strings.TrimSpace(req.Domain)
+
+		var before time.Time
+		if strings.TrimSpace(req.Before) != "" {
+			parsed, err := time.Parse(time.RFC3339Nano, strings.TrimSpace(req.Before))
+			if err != nil {
+				return NewErrorResponse(req.RequestID, fmt.Errorf("invalid history window cursor")), nil
+			}
+			before = parsed
+		}
+
+		log.Debug().
+			Str("request_id", req.RequestID).
+			Str("domain", domain).
+			Time("before", before).
+			Msg("handling history_timeline_window")
+
+		window, err := h.historyUC.GetRecentWindow(ctx, before, domain)
+		if err != nil {
+			return NewErrorResponse(req.RequestID, err), nil
+		}
+
+		return NewSuccessResponse(req.RequestID, window), nil
 	})
 }
 
@@ -206,6 +255,29 @@ func (h *HistoryHandlers) HandleClearAll() port.WebUIMessageHandler {
 		}
 
 		return NewSuccessResponse(requestID, nil), nil
+	})
+}
+
+// HandleStats handles history_stats messages.
+func (h *HistoryHandlers) HandleStats() port.WebUIMessageHandler {
+	return port.WebUIMessageHandlerFunc(func(ctx context.Context, _ port.WebViewID, payload json.RawMessage) (any, error) {
+		log := logging.FromContext(ctx)
+
+		var req struct {
+			RequestID string `json:"requestId"`
+		}
+		if err := json.Unmarshal(payload, &req); err != nil {
+			return NewErrorResponse("", err), nil
+		}
+
+		log.Debug().Str("request_id", req.RequestID).Msg("handling history_stats")
+
+		stats, err := h.historyUC.GetStats(ctx)
+		if err != nil {
+			return NewErrorResponse(req.RequestID, err), nil
+		}
+
+		return NewSuccessResponse(req.RequestID, stats), nil
 	})
 }
 

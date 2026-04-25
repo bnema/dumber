@@ -37,6 +37,7 @@ type Querier interface {
 	GetAllFolders(ctx context.Context) ([]FavoriteFolder, error)
 	GetAllMostVisited(ctx context.Context) ([]History, error)
 	GetAllRecentHistory(ctx context.Context) ([]History, error)
+	GetAllRecentHistoryByDomain(ctx context.Context, domain sql.NullString) ([]History, error)
 	GetAllSessionStates(ctx context.Context) ([]SessionState, error)
 	GetAllTags(ctx context.Context) ([]FavoriteTag, error)
 	GetAllWhitelistedDomains(ctx context.Context) ([]string, error)
@@ -57,6 +58,8 @@ type Querier interface {
 	GetRecentHistory(ctx context.Context, arg GetRecentHistoryParams) ([]History, error)
 	GetRecentHistoryByDomain(ctx context.Context, arg GetRecentHistoryByDomainParams) ([]History, error)
 	GetRecentHistorySince(ctx context.Context, datetime interface{}) ([]History, error)
+	GetRecentHistoryWindow(ctx context.Context, arg GetRecentHistoryWindowParams) ([]History, error)
+	GetRecentHistoryWindowByDomain(ctx context.Context, arg GetRecentHistoryWindowByDomainParams) ([]History, error)
 	GetRecentSessions(ctx context.Context, limit int64) ([]Session, error)
 	GetRootFolders(ctx context.Context) ([]FavoriteFolder, error)
 	GetSessionByID(ctx context.Context, id string) (Session, error)
@@ -67,6 +70,8 @@ type Querier interface {
 	GetTagsForFavorite(ctx context.Context, favoriteID int64) ([]FavoriteTag, error)
 	GetTotalSessionStatesSize(ctx context.Context) (interface{}, error)
 	GetZoomLevel(ctx context.Context, domain string) (ZoomLevel, error)
+	HasHistoryBefore(ctx context.Context, before sql.NullTime) (int64, error)
+	HasHistoryByDomainBefore(ctx context.Context, arg HasHistoryByDomainBeforeParams) (int64, error)
 	IncrementVisitCount(ctx context.Context, url string) error
 	IncrementVisitCountByDelta(ctx context.Context, arg IncrementVisitCountByDeltaParams) error
 	InsertSession(ctx context.Context, arg InsertSessionParams) error

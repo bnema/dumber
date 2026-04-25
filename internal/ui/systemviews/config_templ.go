@@ -291,7 +291,23 @@ func AppearanceForm(config dto.SystemviewConfigPayload) templ.Component {
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 14, "<div class=\"sv-button-row sv-form-actions\"><button class=\"sv-button\" type=\"submit\">Save appearance</button> <button class=\"sv-button sv-button-secondary\" type=\"button\" data-sv-action=\"config.appearance.reset\" data-sv-confirm=\"Reset appearance settings to defaults?\">Reset appearance</button></div></form>")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 14, "<div class=\"sv-button-row sv-form-actions\"><button class=\"sv-button\" type=\"submit\">")
+		if templ_7745c5c3_Err != nil {
+			return templ_7745c5c3_Err
+		}
+		templ_7745c5c3_Err = ButtonIconLabel(iconSave, "Save appearance").Render(ctx, templ_7745c5c3_Buffer)
+		if templ_7745c5c3_Err != nil {
+			return templ_7745c5c3_Err
+		}
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 15, "</button> <button class=\"sv-button sv-button-secondary\" type=\"button\" data-sv-action=\"config.appearance.reset\" data-sv-confirm=\"Reset appearance settings to defaults?\">")
+		if templ_7745c5c3_Err != nil {
+			return templ_7745c5c3_Err
+		}
+		templ_7745c5c3_Err = ButtonIconLabel(iconRotateCCW, "Reset appearance").Render(ctx, templ_7745c5c3_Buffer)
+		if templ_7745c5c3_Err != nil {
+			return templ_7745c5c3_Err
+		}
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 16, "</button></div></form>")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
@@ -320,7 +336,7 @@ func PaletteFields(title string, prefix string, palette dto.ColorPalette) templ.
 			templ_7745c5c3_Var13 = templ.NopComponent
 		}
 		ctx = templ.ClearChildren(ctx)
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 15, "<fieldset class=\"sv-fieldset\"><legend>")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 17, "<fieldset class=\"sv-fieldset\"><legend>")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
@@ -333,7 +349,7 @@ func PaletteFields(title string, prefix string, palette dto.ColorPalette) templ.
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 16, "</legend> <label><span>Background</span><input name=\"")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 18, "</legend> <label><span>Background</span><input name=\"")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
@@ -346,7 +362,7 @@ func PaletteFields(title string, prefix string, palette dto.ColorPalette) templ.
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 17, "\" type=\"text\" value=\"")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 19, "\" type=\"text\" value=\"")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
@@ -359,7 +375,7 @@ func PaletteFields(title string, prefix string, palette dto.ColorPalette) templ.
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 18, "\" required></label> <label><span>Surface</span><input name=\"")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 20, "\" required></label> <label><span>Surface</span><input name=\"")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
@@ -372,7 +388,7 @@ func PaletteFields(title string, prefix string, palette dto.ColorPalette) templ.
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 19, "\" type=\"text\" value=\"")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 21, "\" type=\"text\" value=\"")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
@@ -385,7 +401,7 @@ func PaletteFields(title string, prefix string, palette dto.ColorPalette) templ.
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 20, "\" required></label> <label><span>Surface variant</span><input name=\"")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 22, "\" required></label> <label><span>Surface variant</span><input name=\"")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
@@ -398,7 +414,7 @@ func PaletteFields(title string, prefix string, palette dto.ColorPalette) templ.
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 21, "\" type=\"text\" value=\"")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 23, "\" type=\"text\" value=\"")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
@@ -411,7 +427,7 @@ func PaletteFields(title string, prefix string, palette dto.ColorPalette) templ.
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 22, "\" required></label> <label><span>Text</span><input name=\"")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 24, "\" required></label> <label><span>Text</span><input name=\"")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
@@ -424,7 +440,7 @@ func PaletteFields(title string, prefix string, palette dto.ColorPalette) templ.
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 23, "\" type=\"text\" value=\"")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 25, "\" type=\"text\" value=\"")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
@@ -437,7 +453,7 @@ func PaletteFields(title string, prefix string, palette dto.ColorPalette) templ.
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 24, "\" required></label> <label><span>Muted</span><input name=\"")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 26, "\" required></label> <label><span>Muted</span><input name=\"")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
@@ -450,7 +466,7 @@ func PaletteFields(title string, prefix string, palette dto.ColorPalette) templ.
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 25, "\" type=\"text\" value=\"")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 27, "\" type=\"text\" value=\"")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
@@ -463,7 +479,7 @@ func PaletteFields(title string, prefix string, palette dto.ColorPalette) templ.
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 26, "\" required></label> <label><span>Accent</span><input name=\"")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 28, "\" required></label> <label><span>Accent</span><input name=\"")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
@@ -476,7 +492,7 @@ func PaletteFields(title string, prefix string, palette dto.ColorPalette) templ.
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 27, "\" type=\"text\" value=\"")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 29, "\" type=\"text\" value=\"")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
@@ -489,7 +505,7 @@ func PaletteFields(title string, prefix string, palette dto.ColorPalette) templ.
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 28, "\" required></label> <label><span>Border</span><input name=\"")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 30, "\" required></label> <label><span>Border</span><input name=\"")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
@@ -502,7 +518,7 @@ func PaletteFields(title string, prefix string, palette dto.ColorPalette) templ.
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 29, "\" type=\"text\" value=\"")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 31, "\" type=\"text\" value=\"")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
@@ -515,7 +531,7 @@ func PaletteFields(title string, prefix string, palette dto.ColorPalette) templ.
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 30, "\" required></label></fieldset>")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 32, "\" required></label></fieldset>")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
@@ -544,7 +560,7 @@ func SearchSettings(config dto.SystemviewConfigPayload) templ.Component {
 			templ_7745c5c3_Var29 = templ.NopComponent
 		}
 		ctx = templ.ClearChildren(ctx)
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 31, "<form class=\"sv-card-form\" data-sv-action=\"config.search.save\"><label><span>Default search engine</span><input name=\"default_search_engine\" type=\"text\" value=\"")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 33, "<form class=\"sv-card-form\" data-sv-action=\"config.search.save\"><label><span>Default search engine</span><input name=\"default_search_engine\" type=\"text\" value=\"")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
@@ -557,7 +573,23 @@ func SearchSettings(config dto.SystemviewConfigPayload) templ.Component {
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 32, "\" placeholder=\"https://duckduckgo.com/?q=%s\" required></label> <button class=\"sv-button\" type=\"submit\">Save search default</button></form><div class=\"sv-group\"><div class=\"sv-group-header\"><h4>Search shortcuts</h4></div><p class=\"sv-meta\">Shortcut URLs must include the %s placeholder for the search query.</p><form class=\"sv-inline-form\" data-sv-action=\"config.searchShortcut.create\"><label><span>Key</span><input name=\"key\" type=\"text\" placeholder=\"ddg\" required></label> <label><span>URL</span><input name=\"url\" type=\"text\" placeholder=\"https://duckduckgo.com/?q=%s\" pattern=\".*%s.*\" required></label> <label><span>Description</span><input name=\"description\" type=\"text\" placeholder=\"DuckDuckGo\"></label> <button class=\"sv-button sv-button-secondary\" type=\"submit\">Add shortcut</button></form>")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 34, "\" placeholder=\"https://duckduckgo.com/?q=%s\" required></label> <button class=\"sv-button\" type=\"submit\">")
+		if templ_7745c5c3_Err != nil {
+			return templ_7745c5c3_Err
+		}
+		templ_7745c5c3_Err = ButtonIconLabel(iconSave, "Save search default").Render(ctx, templ_7745c5c3_Buffer)
+		if templ_7745c5c3_Err != nil {
+			return templ_7745c5c3_Err
+		}
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 35, "</button></form><div class=\"sv-group\"><div class=\"sv-group-header\"><h4>Search shortcuts</h4></div><p class=\"sv-meta\">Shortcut URLs must include the %s placeholder for the search query.</p><form class=\"sv-inline-form\" data-sv-action=\"config.searchShortcut.create\"><label><span>Key</span><input name=\"key\" type=\"text\" placeholder=\"ddg\" required></label> <label><span>URL</span><input name=\"url\" type=\"text\" placeholder=\"https://duckduckgo.com/?q=%s\" pattern=\".*%s.*\" required></label> <label><span>Description</span><input name=\"description\" type=\"text\" placeholder=\"DuckDuckGo\"></label> <button class=\"sv-button sv-button-secondary\" type=\"submit\">")
+		if templ_7745c5c3_Err != nil {
+			return templ_7745c5c3_Err
+		}
+		templ_7745c5c3_Err = ButtonIconLabel(iconPlus, "Add shortcut").Render(ctx, templ_7745c5c3_Buffer)
+		if templ_7745c5c3_Err != nil {
+			return templ_7745c5c3_Err
+		}
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 36, "</button></form>")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
@@ -568,7 +600,7 @@ func SearchSettings(config dto.SystemviewConfigPayload) templ.Component {
 				return templ_7745c5c3_Err
 			}
 		} else {
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 33, "<ul class=\"sv-list\">")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 37, "<ul class=\"sv-list\">")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
@@ -578,12 +610,12 @@ func SearchSettings(config dto.SystemviewConfigPayload) templ.Component {
 					return templ_7745c5c3_Err
 				}
 			}
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 34, "</ul>")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 38, "</ul>")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 35, "</div>")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 39, "</div>")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
@@ -612,7 +644,7 @@ func SearchShortcutItem(shortcut searchShortcutRow) templ.Component {
 			templ_7745c5c3_Var31 = templ.NopComponent
 		}
 		ctx = templ.ClearChildren(ctx)
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 36, "<li class=\"sv-list-row\"><form class=\"sv-inline-form\" data-sv-action=\"config.searchShortcut.update\"><input type=\"hidden\" name=\"key\" value=\"")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 40, "<li class=\"sv-list-row\"><form class=\"sv-inline-form\" data-sv-action=\"config.searchShortcut.update\"><input type=\"hidden\" name=\"key\" value=\"")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
@@ -625,7 +657,7 @@ func SearchShortcutItem(shortcut searchShortcutRow) templ.Component {
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 37, "\"> <label><span>Key</span><input name=\"new_key\" type=\"text\" value=\"")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 41, "\"> <label><span>Key</span><input name=\"new_key\" type=\"text\" value=\"")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
@@ -638,7 +670,7 @@ func SearchShortcutItem(shortcut searchShortcutRow) templ.Component {
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 38, "\" required></label> <label><span>URL</span><input name=\"url\" type=\"text\" value=\"")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 42, "\" required></label> <label><span>URL</span><input name=\"url\" type=\"text\" value=\"")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
@@ -651,7 +683,7 @@ func SearchShortcutItem(shortcut searchShortcutRow) templ.Component {
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 39, "\" pattern=\".*%s.*\" required></label> <label><span>Description</span><input name=\"description\" type=\"text\" value=\"")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 43, "\" pattern=\".*%s.*\" required></label> <label><span>Description</span><input name=\"description\" type=\"text\" value=\"")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
@@ -664,20 +696,49 @@ func SearchShortcutItem(shortcut searchShortcutRow) templ.Component {
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 40, "\"></label> <button class=\"sv-button sv-button-secondary\" type=\"submit\">Save</button> <button class=\"sv-button sv-button-secondary sv-button-danger\" type=\"button\" data-sv-action=\"config.searchShortcut.delete\" data-key=\"")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 44, "\"></label> <button class=\"sv-button sv-button-secondary\" type=\"submit\">")
+		if templ_7745c5c3_Err != nil {
+			return templ_7745c5c3_Err
+		}
+		templ_7745c5c3_Err = ButtonIconLabel(iconSave, "Save").Render(ctx, templ_7745c5c3_Buffer)
+		if templ_7745c5c3_Err != nil {
+			return templ_7745c5c3_Err
+		}
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 45, "</button> <button class=\"sv-button sv-button-secondary sv-button-danger sv-button-icon-only\" type=\"button\" data-sv-action=\"config.searchShortcut.delete\" data-key=\"")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
 		var templ_7745c5c3_Var36 string
 		templ_7745c5c3_Var36, templ_7745c5c3_Err = templ.JoinStringErrs(shortcut.Key)
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `config.templ`, Line: 98, Col: 149}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `config.templ`, Line: 98, Col: 169}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var36))
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 41, "\" data-sv-confirm=\"Delete this search shortcut?\">Delete</button></form></li>")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 46, "\" data-sv-confirm=\"Delete this search shortcut?\" aria-label=\"")
+		if templ_7745c5c3_Err != nil {
+			return templ_7745c5c3_Err
+		}
+		var templ_7745c5c3_Var37 string
+		templ_7745c5c3_Var37, templ_7745c5c3_Err = templ.JoinStringErrs("Delete search shortcut " + shortcut.Key)
+		if templ_7745c5c3_Err != nil {
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `config.templ`, Line: 98, Col: 272}
+		}
+		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var37))
+		if templ_7745c5c3_Err != nil {
+			return templ_7745c5c3_Err
+		}
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 47, "\">")
+		if templ_7745c5c3_Err != nil {
+			return templ_7745c5c3_Err
+		}
+		templ_7745c5c3_Err = IconOnly(iconTrash, "Delete search shortcut "+shortcut.Key).Render(ctx, templ_7745c5c3_Buffer)
+		if templ_7745c5c3_Err != nil {
+			return templ_7745c5c3_Err
+		}
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 48, "</button></form></li>")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
@@ -701,230 +762,238 @@ func PerformanceSettings(config dto.SystemviewConfigPayload) templ.Component {
 			}()
 		}
 		ctx = templ.InitializeContext(ctx)
-		templ_7745c5c3_Var37 := templ.GetChildren(ctx)
-		if templ_7745c5c3_Var37 == nil {
-			templ_7745c5c3_Var37 = templ.NopComponent
+		templ_7745c5c3_Var38 := templ.GetChildren(ctx)
+		if templ_7745c5c3_Var38 == nil {
+			templ_7745c5c3_Var38 = templ.NopComponent
 		}
 		ctx = templ.ClearChildren(ctx)
 		customProfile := performanceProfileSelected(config.Performance.Profile, "custom")
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 42, "<form class=\"sv-card-form sv-config-form\" data-sv-action=\"config.performance.save\"><label><span>Profile</span><select name=\"profile\"><option value=\"default\"")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 49, "<form class=\"sv-card-form sv-config-form\" data-sv-action=\"config.performance.save\"><label><span>Profile</span><select name=\"profile\"><option value=\"default\"")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
 		if performanceProfileSelected(config.Performance.Profile, "default") {
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 43, " selected")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 50, " selected")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 44, ">Default</option> <option value=\"lite\"")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 51, ">Default</option> <option value=\"lite\"")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
 		if performanceProfileSelected(config.Performance.Profile, "lite") {
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 45, " selected")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 52, " selected")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 46, ">Lite</option> <option value=\"max\"")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 53, ">Lite</option> <option value=\"max\"")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
 		if performanceProfileSelected(config.Performance.Profile, "max") {
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 47, " selected")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 54, " selected")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 48, ">Max</option> <option value=\"custom\"")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 55, ">Max</option> <option value=\"custom\"")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
 		if performanceProfileSelected(config.Performance.Profile, "custom") {
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 49, " selected")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 56, " selected")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 50, ">Custom</option></select></label><p class=\"sv-meta\">Choose Custom to edit individual performance values.</p><label><span>Skia CPU threads</span><input name=\"skia_cpu_threads\" type=\"number\" min=\"0\" max=\"8\" value=\"")
-		if templ_7745c5c3_Err != nil {
-			return templ_7745c5c3_Err
-		}
-		var templ_7745c5c3_Var38 string
-		templ_7745c5c3_Var38, templ_7745c5c3_Err = templ.JoinStringErrs(formatConfigInt(config.Performance.Custom.SkiaCPUThreads))
-		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `config.templ`, Line: 113, Col: 164}
-		}
-		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var38))
-		if templ_7745c5c3_Err != nil {
-			return templ_7745c5c3_Err
-		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 51, "\"")
-		if templ_7745c5c3_Err != nil {
-			return templ_7745c5c3_Err
-		}
-		if !customProfile {
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 52, " disabled")
-			if templ_7745c5c3_Err != nil {
-				return templ_7745c5c3_Err
-			}
-		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 53, "></label> <label><span>Skia GPU threads</span><input name=\"skia_gpu_threads\" type=\"number\" min=\"-1\" max=\"8\" value=\"")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 57, ">Custom</option></select></label><p class=\"sv-meta\">Choose Custom to edit individual performance values.</p><label><span>Skia CPU threads</span><input name=\"skia_cpu_threads\" type=\"number\" min=\"0\" max=\"8\" value=\"")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
 		var templ_7745c5c3_Var39 string
-		templ_7745c5c3_Var39, templ_7745c5c3_Err = templ.JoinStringErrs(formatConfigInt(config.Performance.Custom.SkiaGPUThreads))
+		templ_7745c5c3_Var39, templ_7745c5c3_Err = templ.JoinStringErrs(formatConfigInt(config.Performance.Custom.SkiaCPUThreads))
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `config.templ`, Line: 114, Col: 165}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `config.templ`, Line: 113, Col: 164}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var39))
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 54, "\"")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 58, "\"")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
 		if !customProfile {
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 55, " disabled")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 59, " disabled")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 56, "></label> <label><span>Web process memory MB</span><input name=\"web_process_memory_mb\" type=\"number\" min=\"0\" max=\"16384\" value=\"")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 60, "></label> <label><span>Skia GPU threads</span><input name=\"skia_gpu_threads\" type=\"number\" min=\"-1\" max=\"8\" value=\"")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
 		var templ_7745c5c3_Var40 string
-		templ_7745c5c3_Var40, templ_7745c5c3_Err = templ.JoinStringErrs(formatConfigInt(config.Performance.Custom.WebProcessMemoryMB))
+		templ_7745c5c3_Var40, templ_7745c5c3_Err = templ.JoinStringErrs(formatConfigInt(config.Performance.Custom.SkiaGPUThreads))
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `config.templ`, Line: 115, Col: 182}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `config.templ`, Line: 114, Col: 165}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var40))
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 57, "\"")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 61, "\"")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
 		if !customProfile {
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 58, " disabled")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 62, " disabled")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 59, "></label> <label><span>Network process memory MB</span><input name=\"network_process_memory_mb\" type=\"number\" min=\"0\" max=\"4096\" value=\"")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 63, "></label> <label><span>Web process memory MB</span><input name=\"web_process_memory_mb\" type=\"number\" min=\"0\" max=\"16384\" value=\"")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
 		var templ_7745c5c3_Var41 string
-		templ_7745c5c3_Var41, templ_7745c5c3_Err = templ.JoinStringErrs(formatConfigInt(config.Performance.Custom.NetworkProcessMemoryMB))
+		templ_7745c5c3_Var41, templ_7745c5c3_Err = templ.JoinStringErrs(formatConfigInt(config.Performance.Custom.WebProcessMemoryMB))
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `config.templ`, Line: 116, Col: 193}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `config.templ`, Line: 115, Col: 182}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var41))
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 60, "\"")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 64, "\"")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
 		if !customProfile {
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 61, " disabled")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 65, " disabled")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 62, "></label> <label><span>WebView pool prewarm</span><input name=\"webview_pool_prewarm\" type=\"number\" min=\"0\" max=\"20\" value=\"")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 66, "></label> <label><span>Network process memory MB</span><input name=\"network_process_memory_mb\" type=\"number\" min=\"0\" max=\"4096\" value=\"")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
 		var templ_7745c5c3_Var42 string
-		templ_7745c5c3_Var42, templ_7745c5c3_Err = templ.JoinStringErrs(formatConfigInt(config.Performance.Custom.WebViewPoolPrewarm))
+		templ_7745c5c3_Var42, templ_7745c5c3_Err = templ.JoinStringErrs(formatConfigInt(config.Performance.Custom.NetworkProcessMemoryMB))
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `config.templ`, Line: 117, Col: 177}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `config.templ`, Line: 116, Col: 193}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var42))
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 63, "\"")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 67, "\"")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
 		if !customProfile {
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 64, " disabled")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 68, " disabled")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 65, "></label> <button class=\"sv-button\" type=\"submit\">Save performance</button></form><div class=\"sv-stat-grid\"><div class=\"sv-stat-card\"><span class=\"sv-stat-value\">")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 69, "></label> <label><span>WebView pool prewarm</span><input name=\"webview_pool_prewarm\" type=\"number\" min=\"0\" max=\"20\" value=\"")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
 		var templ_7745c5c3_Var43 string
-		templ_7745c5c3_Var43, templ_7745c5c3_Err = templ.JoinStringErrs(formatConfigInt(config.Performance.Hardware.CPUThreads))
+		templ_7745c5c3_Var43, templ_7745c5c3_Err = templ.JoinStringErrs(formatConfigInt(config.Performance.Custom.WebViewPoolPrewarm))
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `config.templ`, Line: 121, Col: 113}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `config.templ`, Line: 117, Col: 177}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var43))
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 66, "</span><span class=\"sv-stat-label\">CPU threads</span></div><div class=\"sv-stat-card\"><span class=\"sv-stat-value\">")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 70, "\"")
+		if templ_7745c5c3_Err != nil {
+			return templ_7745c5c3_Err
+		}
+		if !customProfile {
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 71, " disabled")
+			if templ_7745c5c3_Err != nil {
+				return templ_7745c5c3_Err
+			}
+		}
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 72, "></label> <button class=\"sv-button\" type=\"submit\">")
+		if templ_7745c5c3_Err != nil {
+			return templ_7745c5c3_Err
+		}
+		templ_7745c5c3_Err = ButtonIconLabel(iconSave, "Save performance").Render(ctx, templ_7745c5c3_Buffer)
+		if templ_7745c5c3_Err != nil {
+			return templ_7745c5c3_Err
+		}
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 73, "</button></form><div class=\"sv-stat-grid\"><div class=\"sv-stat-card\"><span class=\"sv-stat-value\">")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
 		var templ_7745c5c3_Var44 string
-		templ_7745c5c3_Var44, templ_7745c5c3_Err = templ.JoinStringErrs(formatConfigInt(config.Performance.Hardware.TotalRAMMB))
+		templ_7745c5c3_Var44, templ_7745c5c3_Err = templ.JoinStringErrs(formatConfigInt(config.Performance.Hardware.CPUThreads))
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `config.templ`, Line: 122, Col: 113}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `config.templ`, Line: 121, Col: 113}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var44))
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 67, "</span><span class=\"sv-stat-label\">RAM MB</span></div><div class=\"sv-stat-card\"><span class=\"sv-stat-value\">")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 74, "</span><span class=\"sv-stat-label\">CPU threads</span></div><div class=\"sv-stat-card\"><span class=\"sv-stat-value\">")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
 		var templ_7745c5c3_Var45 string
-		templ_7745c5c3_Var45, templ_7745c5c3_Err = templ.JoinStringErrs(config.Performance.Hardware.GPUName)
+		templ_7745c5c3_Var45, templ_7745c5c3_Err = templ.JoinStringErrs(formatConfigInt(config.Performance.Hardware.TotalRAMMB))
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `config.templ`, Line: 123, Col: 93}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `config.templ`, Line: 122, Col: 113}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var45))
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 68, "</span><span class=\"sv-stat-label\">GPU</span></div><div class=\"sv-stat-card\"><span class=\"sv-stat-value\">")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 75, "</span><span class=\"sv-stat-label\">RAM MB</span></div><div class=\"sv-stat-card\"><span class=\"sv-stat-value\">")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
 		var templ_7745c5c3_Var46 string
-		templ_7745c5c3_Var46, templ_7745c5c3_Err = templ.JoinStringErrs(config.EngineType)
+		templ_7745c5c3_Var46, templ_7745c5c3_Err = templ.JoinStringErrs(config.Performance.Hardware.GPUName)
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `config.templ`, Line: 124, Col: 75}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `config.templ`, Line: 123, Col: 93}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var46))
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 69, "</span><span class=\"sv-stat-label\">Engine</span></div></div>")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 76, "</span><span class=\"sv-stat-label\">GPU</span></div><div class=\"sv-stat-card\"><span class=\"sv-stat-value\">")
+		if templ_7745c5c3_Err != nil {
+			return templ_7745c5c3_Err
+		}
+		var templ_7745c5c3_Var47 string
+		templ_7745c5c3_Var47, templ_7745c5c3_Err = templ.JoinStringErrs(config.EngineType)
+		if templ_7745c5c3_Err != nil {
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `config.templ`, Line: 124, Col: 75}
+		}
+		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var47))
+		if templ_7745c5c3_Err != nil {
+			return templ_7745c5c3_Err
+		}
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 77, "</span><span class=\"sv-stat-label\">Engine</span></div></div>")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
 		if !engineIsWebKit(config.EngineType) {
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 70, "<p class=\"sv-meta\">Performance tuning applies only to the WebKit engine.</p>")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 78, "<p class=\"sv-meta\">Performance tuning applies only to the WebKit engine.</p>")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
 		} else {
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 71, "<p class=\"sv-meta\">Performance profile changes may require restarting the browser to affect existing engine processes.</p>")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 79, "<p class=\"sv-meta\">Performance profile changes may require restarting the browser to affect existing engine processes.</p>")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
@@ -949,9 +1018,9 @@ func ConfigKeybindings(keybindings port.KeybindingsConfig) templ.Component {
 			}()
 		}
 		ctx = templ.InitializeContext(ctx)
-		templ_7745c5c3_Var47 := templ.GetChildren(ctx)
-		if templ_7745c5c3_Var47 == nil {
-			templ_7745c5c3_Var47 = templ.NopComponent
+		templ_7745c5c3_Var48 := templ.GetChildren(ctx)
+		if templ_7745c5c3_Var48 == nil {
+			templ_7745c5c3_Var48 = templ.NopComponent
 		}
 		ctx = templ.ClearChildren(ctx)
 		groups := configKeybindingGroups(keybindings)
@@ -966,7 +1035,15 @@ func ConfigKeybindings(keybindings port.KeybindingsConfig) templ.Component {
 				return templ_7745c5c3_Err
 			}
 		} else {
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 72, "<div class=\"sv-button-row\"><button class=\"sv-button sv-button-secondary sv-button-danger\" type=\"button\" data-sv-action=\"config.keybinding.resetAll\" data-sv-confirm=\"Reset all keybindings to defaults?\">Reset all keybindings</button></div>")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 80, "<div class=\"sv-button-row\"><button class=\"sv-button sv-button-secondary sv-button-danger\" type=\"button\" data-sv-action=\"config.keybinding.resetAll\" data-sv-confirm=\"Reset all keybindings to defaults?\">")
+			if templ_7745c5c3_Err != nil {
+				return templ_7745c5c3_Err
+			}
+			templ_7745c5c3_Err = ButtonIconLabel(iconRotateCCW, "Reset all keybindings").Render(ctx, templ_7745c5c3_Buffer)
+			if templ_7745c5c3_Err != nil {
+				return templ_7745c5c3_Err
+			}
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 81, "</button></div>")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
@@ -997,48 +1074,48 @@ func ConfigKeybindingGroup(group renderedKeybindingGroup) templ.Component {
 			}()
 		}
 		ctx = templ.InitializeContext(ctx)
-		templ_7745c5c3_Var48 := templ.GetChildren(ctx)
-		if templ_7745c5c3_Var48 == nil {
-			templ_7745c5c3_Var48 = templ.NopComponent
+		templ_7745c5c3_Var49 := templ.GetChildren(ctx)
+		if templ_7745c5c3_Var49 == nil {
+			templ_7745c5c3_Var49 = templ.NopComponent
 		}
 		ctx = templ.ClearChildren(ctx)
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 73, "<div class=\"sv-group\"><div class=\"sv-group-header\"><div><h4>")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 82, "<div class=\"sv-group\"><div class=\"sv-group-header\"><div><h4>")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		var templ_7745c5c3_Var49 string
-		templ_7745c5c3_Var49, templ_7745c5c3_Err = templ.JoinStringErrs(keybindingGroupTitle(group))
+		var templ_7745c5c3_Var50 string
+		templ_7745c5c3_Var50, templ_7745c5c3_Err = templ.JoinStringErrs(keybindingGroupTitle(group))
 		if templ_7745c5c3_Err != nil {
 			return templ.Error{Err: templ_7745c5c3_Err, FileName: `config.templ`, Line: 153, Col: 37}
 		}
-		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var49))
+		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var50))
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 74, "</h4>")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 83, "</h4>")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
 		if keybindingGroupMeta(group) != "" {
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 75, "<p class=\"sv-meta\">")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 84, "<p class=\"sv-meta\">")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
-			var templ_7745c5c3_Var50 string
-			templ_7745c5c3_Var50, templ_7745c5c3_Err = templ.JoinStringErrs(keybindingGroupMeta(group))
+			var templ_7745c5c3_Var51 string
+			templ_7745c5c3_Var51, templ_7745c5c3_Err = templ.JoinStringErrs(keybindingGroupMeta(group))
 			if templ_7745c5c3_Err != nil {
 				return templ.Error{Err: templ_7745c5c3_Err, FileName: `config.templ`, Line: 155, Col: 52}
 			}
-			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var50))
+			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var51))
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 76, "</p>")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 85, "</p>")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 77, "</div></div><div class=\"sv-group-body\">")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 86, "</div></div><div class=\"sv-group-body\">")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
@@ -1048,7 +1125,7 @@ func ConfigKeybindingGroup(group renderedKeybindingGroup) templ.Component {
 				return templ_7745c5c3_Err
 			}
 		} else {
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 78, "<ul class=\"sv-list\">")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 87, "<ul class=\"sv-list\">")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
@@ -1058,12 +1135,12 @@ func ConfigKeybindingGroup(group renderedKeybindingGroup) templ.Component {
 					return templ_7745c5c3_Err
 				}
 			}
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 79, "</ul>")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 88, "</ul>")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 80, "</div></div>")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 89, "</div></div>")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
@@ -1087,38 +1164,38 @@ func ConfigKeybinding(group renderedKeybindingGroup, binding renderedKeybinding)
 			}()
 		}
 		ctx = templ.InitializeContext(ctx)
-		templ_7745c5c3_Var51 := templ.GetChildren(ctx)
-		if templ_7745c5c3_Var51 == nil {
-			templ_7745c5c3_Var51 = templ.NopComponent
+		templ_7745c5c3_Var52 := templ.GetChildren(ctx)
+		if templ_7745c5c3_Var52 == nil {
+			templ_7745c5c3_Var52 = templ.NopComponent
 		}
 		ctx = templ.ClearChildren(ctx)
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 81, "<li class=\"sv-list-row\"><div class=\"sv-keybinding-row\"><div><strong>")
-		if templ_7745c5c3_Err != nil {
-			return templ_7745c5c3_Err
-		}
-		var templ_7745c5c3_Var52 string
-		templ_7745c5c3_Var52, templ_7745c5c3_Err = templ.JoinStringErrs(keybindingDescription(binding))
-		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `config.templ`, Line: 177, Col: 44}
-		}
-		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var52))
-		if templ_7745c5c3_Err != nil {
-			return templ_7745c5c3_Err
-		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 82, "</strong><p class=\"sv-meta\">")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 90, "<li class=\"sv-list-row\"><div class=\"sv-keybinding-row\"><div><strong>")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
 		var templ_7745c5c3_Var53 string
-		templ_7745c5c3_Var53, templ_7745c5c3_Err = templ.JoinStringErrs(keybindingAction(binding))
+		templ_7745c5c3_Var53, templ_7745c5c3_Err = templ.JoinStringErrs(keybindingDescription(binding))
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `config.templ`, Line: 178, Col: 50}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `config.templ`, Line: 177, Col: 44}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var53))
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 83, "</p><div class=\"sv-binding-keys\">")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 91, "</strong><p class=\"sv-meta\">")
+		if templ_7745c5c3_Err != nil {
+			return templ_7745c5c3_Err
+		}
+		var templ_7745c5c3_Var54 string
+		templ_7745c5c3_Var54, templ_7745c5c3_Err = templ.JoinStringErrs(keybindingAction(binding))
+		if templ_7745c5c3_Err != nil {
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `config.templ`, Line: 178, Col: 50}
+		}
+		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var54))
+		if templ_7745c5c3_Err != nil {
+			return templ_7745c5c3_Err
+		}
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 92, "</p><div class=\"sv-binding-keys\">")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
@@ -1126,25 +1203,25 @@ func ConfigKeybinding(group renderedKeybindingGroup, binding renderedKeybinding)
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 84, "<span class=\"sv-badge\">")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 93, "<span class=\"sv-badge\">")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		var templ_7745c5c3_Var54 string
-		templ_7745c5c3_Var54, templ_7745c5c3_Err = templ.JoinStringErrs(keybindingStatus(binding))
+		var templ_7745c5c3_Var55 string
+		templ_7745c5c3_Var55, templ_7745c5c3_Err = templ.JoinStringErrs(keybindingStatus(binding))
 		if templ_7745c5c3_Err != nil {
 			return templ.Error{Err: templ_7745c5c3_Err, FileName: `config.templ`, Line: 181, Col: 55}
 		}
-		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var54))
+		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var55))
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 85, "</span> ")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 94, "</span> ")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
 		if keybindingIsCustom(binding) && len(binding.DefaultKeys) > 0 {
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 86, "<span class=\"sv-meta\">default:</span>")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 95, "<span class=\"sv-meta\">default:</span>")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
@@ -1153,72 +1230,88 @@ func ConfigKeybinding(group renderedKeybindingGroup, binding renderedKeybinding)
 				return templ_7745c5c3_Err
 			}
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 87, "</div></div><form class=\"sv-inline-form\" data-sv-action=\"config.keybinding.set\"><input type=\"hidden\" name=\"mode\" value=\"")
-		if templ_7745c5c3_Err != nil {
-			return templ_7745c5c3_Err
-		}
-		var templ_7745c5c3_Var55 string
-		templ_7745c5c3_Var55, templ_7745c5c3_Err = templ.JoinStringErrs(group.Mode)
-		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `config.templ`, Line: 189, Col: 55}
-		}
-		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var55))
-		if templ_7745c5c3_Err != nil {
-			return templ_7745c5c3_Err
-		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 88, "\"> <input type=\"hidden\" name=\"action\" value=\"")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 96, "</div></div><form class=\"sv-inline-form\" data-sv-action=\"config.keybinding.set\"><input type=\"hidden\" name=\"mode\" value=\"")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
 		var templ_7745c5c3_Var56 string
-		templ_7745c5c3_Var56, templ_7745c5c3_Err = templ.JoinStringErrs(binding.Action)
+		templ_7745c5c3_Var56, templ_7745c5c3_Err = templ.JoinStringErrs(group.Mode)
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `config.templ`, Line: 190, Col: 61}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `config.templ`, Line: 189, Col: 55}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var56))
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 89, "\"> <label><span>Keys</span><input name=\"keys\" type=\"text\" value=\"")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 97, "\"> <input type=\"hidden\" name=\"action\" value=\"")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
 		var templ_7745c5c3_Var57 string
-		templ_7745c5c3_Var57, templ_7745c5c3_Err = templ.JoinStringErrs(keybindingKeysValue(binding.Keys))
+		templ_7745c5c3_Var57, templ_7745c5c3_Err = templ.JoinStringErrs(binding.Action)
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `config.templ`, Line: 191, Col: 100}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `config.templ`, Line: 190, Col: 61}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var57))
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 90, "\" placeholder=\"ctrl+h, ctrl+shift+h\" required></label> <button class=\"sv-button sv-button-secondary\" type=\"submit\">Save</button> <button class=\"sv-button sv-button-secondary\" type=\"button\" data-sv-action=\"config.keybinding.reset\" data-mode=\"")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 98, "\"> <label><span>Keys</span><input name=\"keys\" type=\"text\" value=\"")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
 		var templ_7745c5c3_Var58 string
-		templ_7745c5c3_Var58, templ_7745c5c3_Err = templ.JoinStringErrs(group.Mode)
+		templ_7745c5c3_Var58, templ_7745c5c3_Err = templ.JoinStringErrs(keybindingKeysValue(binding.Keys))
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `config.templ`, Line: 193, Col: 127}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `config.templ`, Line: 191, Col: 100}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var58))
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 91, "\" data-action=\"")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 99, "\" placeholder=\"ctrl+h, ctrl+shift+h\" required></label> <button class=\"sv-button sv-button-secondary\" type=\"submit\">")
+		if templ_7745c5c3_Err != nil {
+			return templ_7745c5c3_Err
+		}
+		templ_7745c5c3_Err = ButtonIconLabel(iconSave, "Save").Render(ctx, templ_7745c5c3_Buffer)
+		if templ_7745c5c3_Err != nil {
+			return templ_7745c5c3_Err
+		}
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 100, "</button> <button class=\"sv-button sv-button-secondary\" type=\"button\" data-sv-action=\"config.keybinding.reset\" data-mode=\"")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
 		var templ_7745c5c3_Var59 string
-		templ_7745c5c3_Var59, templ_7745c5c3_Err = templ.JoinStringErrs(binding.Action)
+		templ_7745c5c3_Var59, templ_7745c5c3_Err = templ.JoinStringErrs(group.Mode)
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `config.templ`, Line: 193, Col: 158}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `config.templ`, Line: 193, Col: 127}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var59))
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 92, "\">Reset</button></form></div></li>")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 101, "\" data-action=\"")
+		if templ_7745c5c3_Err != nil {
+			return templ_7745c5c3_Err
+		}
+		var templ_7745c5c3_Var60 string
+		templ_7745c5c3_Var60, templ_7745c5c3_Err = templ.JoinStringErrs(binding.Action)
+		if templ_7745c5c3_Err != nil {
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `config.templ`, Line: 193, Col: 158}
+		}
+		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var60))
+		if templ_7745c5c3_Err != nil {
+			return templ_7745c5c3_Err
+		}
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 102, "\">")
+		if templ_7745c5c3_Err != nil {
+			return templ_7745c5c3_Err
+		}
+		templ_7745c5c3_Err = ButtonIconLabel(iconRotateCCW, "Reset").Render(ctx, templ_7745c5c3_Buffer)
+		if templ_7745c5c3_Err != nil {
+			return templ_7745c5c3_Err
+		}
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 103, "</button></form></div></li>")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}

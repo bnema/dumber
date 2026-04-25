@@ -5052,6 +5052,63 @@ func (_c *MockFaviconService_DiskPathPNG_Call) RunAndReturn(run func(domain stri
 	return _c
 }
 
+// DiskPathPNGSized provides a mock function for the type MockFaviconService
+func (_mock *MockFaviconService) DiskPathPNGSized(domain string, size int) string {
+	ret := _mock.Called(domain, size)
+
+	if len(ret) == 0 {
+		panic("no return value specified for DiskPathPNGSized")
+	}
+
+	var r0 string
+	if returnFunc, ok := ret.Get(0).(func(string, int) string); ok {
+		r0 = returnFunc(domain, size)
+	} else {
+		r0 = ret.Get(0).(string)
+	}
+	return r0
+}
+
+// MockFaviconService_DiskPathPNGSized_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'DiskPathPNGSized'
+type MockFaviconService_DiskPathPNGSized_Call struct {
+	*mock.Call
+}
+
+// DiskPathPNGSized is a helper method to define mock.On call
+//   - domain string
+//   - size int
+func (_e *MockFaviconService_Expecter) DiskPathPNGSized(domain interface{}, size interface{}) *MockFaviconService_DiskPathPNGSized_Call {
+	return &MockFaviconService_DiskPathPNGSized_Call{Call: _e.mock.On("DiskPathPNGSized", domain, size)}
+}
+
+func (_c *MockFaviconService_DiskPathPNGSized_Call) Run(run func(domain string, size int)) *MockFaviconService_DiskPathPNGSized_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		var arg0 string
+		if args[0] != nil {
+			arg0 = args[0].(string)
+		}
+		var arg1 int
+		if args[1] != nil {
+			arg1 = args[1].(int)
+		}
+		run(
+			arg0,
+			arg1,
+		)
+	})
+	return _c
+}
+
+func (_c *MockFaviconService_DiskPathPNGSized_Call) Return(s string) *MockFaviconService_DiskPathPNGSized_Call {
+	_c.Call.Return(s)
+	return _c
+}
+
+func (_c *MockFaviconService_DiskPathPNGSized_Call) RunAndReturn(run func(domain string, size int) string) *MockFaviconService_DiskPathPNGSized_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
 // EnsureCacheDir provides a mock function for the type MockFaviconService
 func (_mock *MockFaviconService) EnsureCacheDir() error {
 	ret := _mock.Called()
@@ -6998,6 +7055,142 @@ func (_c *MockHomepageHistory_GetRecentByDomain_Call) Return(historyEntrys []*en
 }
 
 func (_c *MockHomepageHistory_GetRecentByDomain_Call) RunAndReturn(run func(ctx context.Context, domain string, limit int, offset int) ([]*entity.HistoryEntry, error)) *MockHomepageHistory_GetRecentByDomain_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
+// GetRecentWindow provides a mock function for the type MockHomepageHistory
+func (_mock *MockHomepageHistory) GetRecentWindow(ctx context.Context, before time.Time, domain string) (*entity.HistoryWindow, error) {
+	ret := _mock.Called(ctx, before, domain)
+
+	if len(ret) == 0 {
+		panic("no return value specified for GetRecentWindow")
+	}
+
+	var r0 *entity.HistoryWindow
+	var r1 error
+	if returnFunc, ok := ret.Get(0).(func(context.Context, time.Time, string) (*entity.HistoryWindow, error)); ok {
+		return returnFunc(ctx, before, domain)
+	}
+	if returnFunc, ok := ret.Get(0).(func(context.Context, time.Time, string) *entity.HistoryWindow); ok {
+		r0 = returnFunc(ctx, before, domain)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(*entity.HistoryWindow)
+		}
+	}
+	if returnFunc, ok := ret.Get(1).(func(context.Context, time.Time, string) error); ok {
+		r1 = returnFunc(ctx, before, domain)
+	} else {
+		r1 = ret.Error(1)
+	}
+	return r0, r1
+}
+
+// MockHomepageHistory_GetRecentWindow_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'GetRecentWindow'
+type MockHomepageHistory_GetRecentWindow_Call struct {
+	*mock.Call
+}
+
+// GetRecentWindow is a helper method to define mock.On call
+//   - ctx context.Context
+//   - before time.Time
+//   - domain string
+func (_e *MockHomepageHistory_Expecter) GetRecentWindow(ctx interface{}, before interface{}, domain interface{}) *MockHomepageHistory_GetRecentWindow_Call {
+	return &MockHomepageHistory_GetRecentWindow_Call{Call: _e.mock.On("GetRecentWindow", ctx, before, domain)}
+}
+
+func (_c *MockHomepageHistory_GetRecentWindow_Call) Run(run func(ctx context.Context, before time.Time, domain string)) *MockHomepageHistory_GetRecentWindow_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		var arg0 context.Context
+		if args[0] != nil {
+			arg0 = args[0].(context.Context)
+		}
+		var arg1 time.Time
+		if args[1] != nil {
+			arg1 = args[1].(time.Time)
+		}
+		var arg2 string
+		if args[2] != nil {
+			arg2 = args[2].(string)
+		}
+		run(
+			arg0,
+			arg1,
+			arg2,
+		)
+	})
+	return _c
+}
+
+func (_c *MockHomepageHistory_GetRecentWindow_Call) Return(historyWindow *entity.HistoryWindow, err error) *MockHomepageHistory_GetRecentWindow_Call {
+	_c.Call.Return(historyWindow, err)
+	return _c
+}
+
+func (_c *MockHomepageHistory_GetRecentWindow_Call) RunAndReturn(run func(ctx context.Context, before time.Time, domain string) (*entity.HistoryWindow, error)) *MockHomepageHistory_GetRecentWindow_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
+// GetStats provides a mock function for the type MockHomepageHistory
+func (_mock *MockHomepageHistory) GetStats(ctx context.Context) (*entity.HistoryStats, error) {
+	ret := _mock.Called(ctx)
+
+	if len(ret) == 0 {
+		panic("no return value specified for GetStats")
+	}
+
+	var r0 *entity.HistoryStats
+	var r1 error
+	if returnFunc, ok := ret.Get(0).(func(context.Context) (*entity.HistoryStats, error)); ok {
+		return returnFunc(ctx)
+	}
+	if returnFunc, ok := ret.Get(0).(func(context.Context) *entity.HistoryStats); ok {
+		r0 = returnFunc(ctx)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(*entity.HistoryStats)
+		}
+	}
+	if returnFunc, ok := ret.Get(1).(func(context.Context) error); ok {
+		r1 = returnFunc(ctx)
+	} else {
+		r1 = ret.Error(1)
+	}
+	return r0, r1
+}
+
+// MockHomepageHistory_GetStats_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'GetStats'
+type MockHomepageHistory_GetStats_Call struct {
+	*mock.Call
+}
+
+// GetStats is a helper method to define mock.On call
+//   - ctx context.Context
+func (_e *MockHomepageHistory_Expecter) GetStats(ctx interface{}) *MockHomepageHistory_GetStats_Call {
+	return &MockHomepageHistory_GetStats_Call{Call: _e.mock.On("GetStats", ctx)}
+}
+
+func (_c *MockHomepageHistory_GetStats_Call) Run(run func(ctx context.Context)) *MockHomepageHistory_GetStats_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		var arg0 context.Context
+		if args[0] != nil {
+			arg0 = args[0].(context.Context)
+		}
+		run(
+			arg0,
+		)
+	})
+	return _c
+}
+
+func (_c *MockHomepageHistory_GetStats_Call) Return(historyStats *entity.HistoryStats, err error) *MockHomepageHistory_GetStats_Call {
+	_c.Call.Return(historyStats, err)
+	return _c
+}
+
+func (_c *MockHomepageHistory_GetStats_Call) RunAndReturn(run func(ctx context.Context) (*entity.HistoryStats, error)) *MockHomepageHistory_GetStats_Call {
 	_c.Call.Return(run)
 	return _c
 }

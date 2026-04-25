@@ -16,6 +16,8 @@ import (
 // Compile-time check: SearchHistoryUseCase must satisfy port.HomepageHistory.
 var _ port.HomepageHistory = (*SearchHistoryUseCase)(nil)
 
+const historyWindowDuration = 24 * time.Hour
+
 // SearchHistoryUseCase handles history search and retrieval operations.
 type SearchHistoryUseCase struct {
 	historyRepo repository.HistoryRepository
@@ -62,10 +64,11 @@ func (uc *SearchHistoryUseCase) Search(ctx context.Context, input SearchInput) (
 	return &SearchOutput{Matches: matches}, nil
 }
 
-// GetRecent retrieves recent history entries with pagination.
+// GetRecent retrieves recent history entries. A zero limit means all entries;
+// negative limits retain the historical default page size.
 func (uc *SearchHistoryUseCase) GetRecent(ctx context.Context, limit, offset int) ([]*entity.HistoryEntry, error) {
-	if limit <= 0 {
-		limit = 50 // Default limit
+	if limit < 0 {
+		limit = 50 // Default limit for invalid negative values.
 	}
 
 	entries, err := uc.historyRepo.GetRecent(ctx, limit, offset)
@@ -76,9 +79,10 @@ func (uc *SearchHistoryUseCase) GetRecent(ctx context.Context, limit, offset int
 	return entries, nil
 }
 
-// GetRecentByDomain retrieves recent history entries for a canonical domain with pagination.
+// GetRecentByDomain retrieves recent history entries for a canonical domain. A
+// zero limit means all matching entries; negative limits use the default page size.
 func (uc *SearchHistoryUseCase) GetRecentByDomain(ctx context.Context, domain string, limit, offset int) ([]*entity.HistoryEntry, error) {
-	if limit <= 0 {
+	if limit < 0 {
 		limit = 50
 	}
 	domain, err := canonicalHistoryDomain(domain)
@@ -101,6 +105,43 @@ func canonicalHistoryDomain(domain string) (string, error) {
 		return "", fmt.Errorf("domain is required")
 	}
 	return domain, nil
+}
+
+// GetRecentWindow retrieves the 24-hour history window ending before the given cursor.
+func (uc *SearchHistoryUseCase) GetRecentWindow(ctx context.Context, before time.Time, domain string) (*entity.HistoryWindow, error) {
+	if before.IsZero() {
+		before = time.Now()
+	}
+	before = before.UTC()
+	after := before.Add(-historyWindowDuration)
+
+	var (
+		entries []*entity.HistoryEntry
+		hasMore bool
+		err     error
+	)
+	domain = domainurl.CanonicalDomain(domain)
+	if domain != "" {
+		entries, err = uc.historyRepo.GetRecentWindowByDomain(ctx, domain, before, after)
+		if err == nil {
+			hasMore, err = uc.historyRepo.HasEntriesByDomainBefore(ctx, domain, after)
+		}
+	} else {
+		entries, err = uc.historyRepo.GetRecentWindow(ctx, before, after)
+		if err == nil {
+			hasMore, err = uc.historyRepo.HasEntriesBefore(ctx, after)
+		}
+	}
+	if err != nil {
+		return nil, fmt.Errorf("failed to get recent history window: %w", err)
+	}
+
+	return &entity.HistoryWindow{
+		Entries: entries,
+		Before:  before,
+		After:   after,
+		HasMore: hasMore,
+	}, nil
 }
 
 // GetRecentSince retrieves history entries visited within the last N days.
@@ -256,6 +297,15 @@ func (uc *SearchHistoryUseCase) GetDomainStats(ctx context.Context, limit int) (
 	}
 
 	return uc.historyRepo.GetDomainStats(ctx, limit)
+}
+
+// GetStats retrieves lightweight aggregate history statistics.
+func (uc *SearchHistoryUseCase) GetStats(ctx context.Context) (*entity.HistoryStats, error) {
+	stats, err := uc.historyRepo.GetStats(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get history stats: %w", err)
+	}
+	return stats, nil
 }
 
 // GetAnalytics retrieves aggregated history analytics for the homepage.

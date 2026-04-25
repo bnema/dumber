@@ -41,8 +41,8 @@ templ AppearanceForm(config dto.SystemviewConfigPayload) {
 		@PaletteFields("Light palette", "light", config.Appearance.LightPalette)
 		@PaletteFields("Dark palette", "dark", config.Appearance.DarkPalette)
 		<div class="sv-button-row sv-form-actions">
-			<button class="sv-button" type="submit">Save appearance</button>
-			<button class="sv-button sv-button-secondary" type="button" data-sv-action="config.appearance.reset" data-sv-confirm="Reset appearance settings to defaults?">Reset appearance</button>
+			<button class="sv-button" type="submit">@ButtonIconLabel(iconSave, "Save appearance")</button>
+			<button class="sv-button sv-button-secondary" type="button" data-sv-action="config.appearance.reset" data-sv-confirm="Reset appearance settings to defaults?">@ButtonIconLabel(iconRotateCCW, "Reset appearance")</button>
 		</div>
 	</form>
 }
@@ -63,7 +63,7 @@ templ PaletteFields(title string, prefix string, palette dto.ColorPalette) {
 templ SearchSettings(config dto.SystemviewConfigPayload) {
 	<form class="sv-card-form" data-sv-action="config.search.save">
 		<label><span>Default search engine</span><input name="default_search_engine" type="text" value={ config.DefaultSearchEngine } placeholder="https://duckduckgo.com/?q=%s" required/></label>
-		<button class="sv-button" type="submit">Save search default</button>
+		<button class="sv-button" type="submit">@ButtonIconLabel(iconSave, "Save search default")</button>
 	</form>
 	<div class="sv-group">
 		<div class="sv-group-header"><h4>Search shortcuts</h4></div>
@@ -72,7 +72,7 @@ templ SearchSettings(config dto.SystemviewConfigPayload) {
 			<label><span>Key</span><input name="key" type="text" placeholder="ddg" required/></label>
 			<label><span>URL</span><input name="url" type="text" placeholder="https://duckduckgo.com/?q=%s" pattern=".*%s.*" required/></label>
 			<label><span>Description</span><input name="description" type="text" placeholder="DuckDuckGo"/></label>
-			<button class="sv-button sv-button-secondary" type="submit">Add shortcut</button>
+			<button class="sv-button sv-button-secondary" type="submit">@ButtonIconLabel(iconPlus, "Add shortcut")</button>
 		</form>
 		{{ shortcuts := searchShortcutRows(config.SearchShortcuts) }}
 		if len(shortcuts) == 0 {
@@ -94,8 +94,8 @@ templ SearchShortcutItem(shortcut searchShortcutRow) {
 			<label><span>Key</span><input name="new_key" type="text" value={ shortcut.Key } required/></label>
 			<label><span>URL</span><input name="url" type="text" value={ shortcut.URL } pattern=".*%s.*" required/></label>
 			<label><span>Description</span><input name="description" type="text" value={ shortcut.Description }/></label>
-			<button class="sv-button sv-button-secondary" type="submit">Save</button>
-			<button class="sv-button sv-button-secondary sv-button-danger" type="button" data-sv-action="config.searchShortcut.delete" data-key={ shortcut.Key } data-sv-confirm="Delete this search shortcut?">Delete</button>
+			<button class="sv-button sv-button-secondary" type="submit">@ButtonIconLabel(iconSave, "Save")</button>
+			<button class="sv-button sv-button-secondary sv-button-danger sv-button-icon-only" type="button" data-sv-action="config.searchShortcut.delete" data-key={ shortcut.Key } data-sv-confirm="Delete this search shortcut?" aria-label={ "Delete search shortcut " + shortcut.Key }>@IconOnly(iconTrash, "Delete search shortcut " + shortcut.Key)</button>
 		</form>
 	</li>
 }
@@ -115,7 +115,7 @@ templ PerformanceSettings(config dto.SystemviewConfigPayload) {
 		<label><span>Web process memory MB</span><input name="web_process_memory_mb" type="number" min="0" max="16384" value={ formatConfigInt(config.Performance.Custom.WebProcessMemoryMB) } disabled?={ !customProfile }/></label>
 		<label><span>Network process memory MB</span><input name="network_process_memory_mb" type="number" min="0" max="4096" value={ formatConfigInt(config.Performance.Custom.NetworkProcessMemoryMB) } disabled?={ !customProfile }/></label>
 		<label><span>WebView pool prewarm</span><input name="webview_pool_prewarm" type="number" min="0" max="20" value={ formatConfigInt(config.Performance.Custom.WebViewPoolPrewarm) } disabled?={ !customProfile }/></label>
-		<button class="sv-button" type="submit">Save performance</button>
+		<button class="sv-button" type="submit">@ButtonIconLabel(iconSave, "Save performance")</button>
 	</form>
 	<div class="sv-stat-grid">
 		<div class="sv-stat-card"><span class="sv-stat-value">{ formatConfigInt(config.Performance.Hardware.CPUThreads) }</span><span class="sv-stat-label">CPU threads</span></div>
@@ -138,7 +138,7 @@ templ ConfigKeybindings(keybindings port.KeybindingsConfig) {
 		@EmptyState("No keybindings configured")
 	} else {
 		<div class="sv-button-row">
-			<button class="sv-button sv-button-secondary sv-button-danger" type="button" data-sv-action="config.keybinding.resetAll" data-sv-confirm="Reset all keybindings to defaults?">Reset all keybindings</button>
+			<button class="sv-button sv-button-secondary sv-button-danger" type="button" data-sv-action="config.keybinding.resetAll" data-sv-confirm="Reset all keybindings to defaults?">@ButtonIconLabel(iconRotateCCW, "Reset all keybindings")</button>
 		</div>
 		for _, group := range groups {
 			@ConfigKeybindingGroup(group)
@@ -189,8 +189,8 @@ templ ConfigKeybinding(group renderedKeybindingGroup, binding renderedKeybinding
 				<input type="hidden" name="mode" value={ group.Mode }/>
 				<input type="hidden" name="action" value={ binding.Action }/>
 				<label><span>Keys</span><input name="keys" type="text" value={ keybindingKeysValue(binding.Keys) } placeholder="ctrl+h, ctrl+shift+h" required/></label>
-				<button class="sv-button sv-button-secondary" type="submit">Save</button>
-				<button class="sv-button sv-button-secondary" type="button" data-sv-action="config.keybinding.reset" data-mode={ group.Mode } data-action={ binding.Action }>Reset</button>
+				<button class="sv-button sv-button-secondary" type="submit">@ButtonIconLabel(iconSave, "Save")</button>
+				<button class="sv-button sv-button-secondary" type="button" data-sv-action="config.keybinding.reset" data-mode={ group.Mode } data-action={ binding.Action }>@ButtonIconLabel(iconRotateCCW, "Reset")</button>
 			</form>
 		</div>
 	</li>

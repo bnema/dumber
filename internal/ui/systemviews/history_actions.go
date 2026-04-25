@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"strconv"
 	"strings"
+	"time"
 )
 
 const (
@@ -13,6 +14,7 @@ const (
 	historyActionFilterDomain = "history.filterDomain"
 	historyActionClearDomain  = "history.clearDomain"
 	historyActionPage         = "history.page"
+	historyActionLoadMore     = "history.loadMore"
 	historyActionDeleteEntry  = "history.deleteEntry"
 	historyActionDeleteRange  = "history.deleteRange"
 	historyActionDeleteDomain = "history.deleteDomain"
@@ -26,12 +28,17 @@ func (a *App) HandleDOMAction(ctx context.Context, event DOMAction) error {
 		return fmt.Errorf("app is nil")
 	}
 	a.lockState()
-	defer a.unlockState()
 	if a.currentRoute == RouteUnknown || a.currentRoute == "" {
 		a.currentRoute = ParseRoute(a.deps.LocationURI)
 	}
+	route := a.currentRoute
+	if route == RouteHistory && event.Action == historyActionLoadMore {
+		a.unlockState()
+		return a.handleHistoryLoadMore(ctx, event)
+	}
+	defer a.unlockState()
 
-	switch a.currentRoute {
+	switch route {
 	case RouteHistory:
 		a.historyError = ""
 		if err := a.handleHistoryAction(ctx, event); err != nil {
@@ -84,12 +91,12 @@ func (a *App) handleHistoryAction(ctx context.Context, event DOMAction) error {
 	case historyActionSearch:
 		a.historyQuery = strings.TrimSpace(data["query"])
 		a.historyDomainFilter = ""
-		a.historyOffset = 0
+		a.resetHistoryWindowState()
 		a.historyNotice = ""
 	case historyActionClear:
 		a.historyQuery = ""
 		a.historyDomainFilter = ""
-		a.historyOffset = 0
+		a.resetHistoryWindowState()
 		a.historyNotice = ""
 	case historyActionFilterDomain:
 		domain := strings.TrimSpace(data["domain"])
@@ -98,17 +105,18 @@ func (a *App) handleHistoryAction(ctx context.Context, event DOMAction) error {
 		}
 		a.historyDomainFilter = domain
 		a.historyQuery = ""
-		a.historyOffset = 0
+		a.resetHistoryWindowState()
 		a.historyNotice = ""
 	case historyActionClearDomain:
 		a.historyDomainFilter = ""
-		a.historyOffset = 0
+		a.resetHistoryWindowState()
 		a.historyNotice = ""
 	case historyActionPage:
 		offset, err := strconv.Atoi(strings.TrimSpace(data["offset"]))
 		if err != nil || offset < 0 {
 			return fmt.Errorf("invalid history offset")
 		}
+		a.resetHistoryWindowState()
 		a.historyOffset = offset
 		a.historyNotice = ""
 	case historyActionDeleteEntry:
@@ -119,7 +127,7 @@ func (a *App) handleHistoryAction(ctx context.Context, event DOMAction) error {
 		if err := a.deps.History.DeleteEntry(ctx, id); err != nil {
 			return err
 		}
-		a.historyOffset = 0
+		a.resetHistoryWindowState()
 		a.historyNotice = "Deleted history entry"
 	case historyActionDeleteRange:
 		rangeID := strings.TrimSpace(data["range"])
@@ -132,7 +140,7 @@ func (a *App) handleHistoryAction(ctx context.Context, event DOMAction) error {
 		if err := a.deps.History.DeleteRange(ctx, rangeID); err != nil {
 			return err
 		}
-		a.historyOffset = 0
+		a.resetHistoryWindowState()
 		a.historyNotice = historyRangeNotice(rangeID)
 	case historyActionDeleteDomain:
 		domain := strings.TrimSpace(data["domain"])
@@ -145,12 +153,103 @@ func (a *App) handleHistoryAction(ctx context.Context, event DOMAction) error {
 		if strings.EqualFold(a.historyDomainFilter, domain) {
 			a.historyDomainFilter = ""
 		}
-		a.historyOffset = 0
+		a.resetHistoryWindowState()
 		a.historyNotice = "Deleted history for " + domain
 	default:
 		return fmt.Errorf("unknown history action: %q", event.Action)
 	}
 	return nil
+}
+
+func (a *App) handleHistoryLoadMore(ctx context.Context, event DOMAction) error {
+	a.lockState()
+	if a.deps.History == nil {
+		a.unlockState()
+		return fmt.Errorf("history service not configured")
+	}
+	if strings.TrimSpace(a.historyQuery) != "" || !a.historyHasMore {
+		a.unlockState()
+		return nil
+	}
+	before := a.historyWindowAfter
+	if requested := strings.TrimSpace(event.Data["before"]); requested != "" {
+		parsed, err := time.Parse(time.RFC3339Nano, requested)
+		if err != nil {
+			a.unlockState()
+			return fmt.Errorf("invalid history cursor")
+		}
+		if !before.IsZero() && !parsed.Equal(before) {
+			a.unlockState()
+			return nil
+		}
+		before = parsed
+	}
+	if before.IsZero() {
+		before = time.Now()
+	}
+	domain := a.historyDomainFilter
+	history := a.deps.History
+	dom := a.deps.DOM
+	a.unlockState()
+
+	window, err := history.TimelineWindow(ctx, before, domain)
+	if err != nil {
+		return err
+	}
+	if window == nil {
+		a.lockState()
+		a.historyHasMore = false
+		a.unlockState()
+		return nil
+	}
+
+	a.lockState()
+	appendSkipFirstDate := lastHistoryDateKey(a.historyEntries)
+	a.historyEntries = append(a.historyEntries, window.Entries...)
+	a.historyWindowBefore = window.Before
+	a.historyWindowAfter = window.After
+	a.historyHasMore = window.HasMore
+	data := historyRenderData{
+		Entries:             window.Entries,
+		Stats:               a.historyStats,
+		Domains:             a.historyDomainStats,
+		Query:               a.historyQuery,
+		DomainFilter:        a.historyDomainFilter,
+		Offset:              a.historyOffset,
+		Limit:               historyTimelineLimit,
+		WindowBefore:        a.historyWindowBefore,
+		WindowAfter:         a.historyWindowAfter,
+		HasMore:             a.historyHasMore,
+		AppendSkipFirstDate: appendSkipFirstDate,
+		Notice:              a.historyNotice,
+		Error:               a.historyError,
+	}
+	fragment := historyTimelineAppendHTML(data)
+	var fallbackHTML string
+	if _, ok := dom.(DOMHistoryTimelineAppender); !ok {
+		fullData := data
+		fullData.Entries = a.historyEntries
+		a.renderedHTML = renderAppFrame(renderedPage{
+			route:    RouteHistory,
+			title:    historyDocumentTitle(fullData),
+			subtitle: "Recent visits",
+			body:     historyHTML(fullData),
+		}, a.shellTheme)
+		fallbackHTML = a.renderedHTML
+	}
+	a.unlockState()
+
+	if appender, ok := dom.(DOMHistoryTimelineAppender); ok {
+		return appender.AppendHistoryTimeline(fragment)
+	}
+	return a.mountHTML(fallbackHTML)
+}
+
+func (a *App) resetHistoryWindowState() {
+	a.historyOffset = 0
+	a.historyWindowBefore = time.Time{}
+	a.historyWindowAfter = time.Time{}
+	a.historyHasMore = false
 }
 
 func (a *App) mountRenderedHTML() error {

@@ -13,6 +13,31 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
+func TestSearchHistoryUseCase_GetRecent_ZeroLimitMeansAll(t *testing.T) {
+	ctx := testContext()
+	historyRepo := repomocks.NewMockHistoryRepository(t)
+	entries := []*entity.HistoryEntry{{ID: 1, URL: "https://example.com", Title: "Example"}}
+	historyRepo.EXPECT().GetRecent(mock.Anything, 0, 0).Return(entries, nil).Once()
+
+	uc := usecase.NewSearchHistoryUseCase(historyRepo)
+	result, err := uc.GetRecent(ctx, 0, 0)
+
+	require.NoError(t, err)
+	require.Len(t, result, 1)
+}
+
+func TestSearchHistoryUseCase_GetRecent_NegativeLimitDefaultsToPageSize(t *testing.T) {
+	ctx := testContext()
+	historyRepo := repomocks.NewMockHistoryRepository(t)
+	historyRepo.EXPECT().GetRecent(mock.Anything, 50, 0).Return([]*entity.HistoryEntry{}, nil).Once()
+
+	uc := usecase.NewSearchHistoryUseCase(historyRepo)
+	result, err := uc.GetRecent(ctx, -1, 0)
+
+	require.NoError(t, err)
+	assert.Empty(t, result)
+}
+
 func TestSearchHistoryUseCase_GetRecentSince_ReturnsEntries(t *testing.T) {
 	ctx := testContext()
 

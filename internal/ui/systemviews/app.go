@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"strings"
 	"sync"
+	"time"
 
 	"github.com/bnema/dumber/internal/application/dto"
 	"github.com/bnema/dumber/internal/application/port"
@@ -29,11 +30,15 @@ type App struct {
 	currentRoute         Route
 	shellTheme           shellTheme
 	historyEntries       []*entity.HistoryEntry
+	historyStats         *entity.HistoryStats
 	historyAnalytics     *entity.HistoryAnalytics
 	historyDomainStats   []*entity.DomainStat
 	historyQuery         string
 	historyDomainFilter  string
 	historyOffset        int
+	historyWindowBefore  time.Time
+	historyWindowAfter   time.Time
+	historyHasMore       bool
 	historyNotice        string
 	historyError         string
 	favorites            []*entity.Favorite
@@ -56,7 +61,10 @@ type App struct {
 	actionWG             sync.WaitGroup
 }
 
-const historyTimelineLimit = 25
+const (
+	historyTimelineLimit = 0
+	historySearchLimit   = 100
+)
 
 func (a *App) lockAction() {
 	// Lock order: actionMu is never acquired while App.mu is held.
@@ -96,7 +104,10 @@ func (a *App) RunWithContext(ctx context.Context) error {
 	if a.deps.DOM == nil {
 		return errors.New("DOM not configured")
 	}
-	if err := a.LoadInitial(ctx); err != nil {
+	asyncInitial := a.shouldLoadInitialRouteAsync()
+	if asyncInitial {
+		a.LoadInitialShell(ctx)
+	} else if err := a.LoadInitial(ctx); err != nil {
 		return err
 	}
 
@@ -104,9 +115,37 @@ func (a *App) RunWithContext(ctx context.Context) error {
 		return err
 	}
 	if binder, ok := a.deps.DOM.(DOMActionBinder); ok {
-		return a.bindDOMActions(ctx, binder)
+		if err := a.bindDOMActions(ctx, binder); err != nil {
+			return err
+		}
+	}
+	if asyncInitial {
+		a.refreshCurrentRouteAsync(ctx)
 	}
 	return nil
+}
+
+func (a *App) shouldLoadInitialRouteAsync() bool {
+	return a != nil && a.currentRoute == RouteHistory && a.deps.History != nil
+}
+
+func (a *App) refreshCurrentRouteAsync(ctx context.Context) {
+	if a == nil {
+		return
+	}
+	go func() {
+		a.lockState()
+		defer a.unlockState()
+		if err := a.loadCurrentRoute(ctx); err != nil {
+			a.renderRouteError(err)
+		}
+		html := a.renderedHTML
+		go func() {
+			if err := a.mountHTML(html); err != nil {
+				logActionMountError(ctx, err, nil)
+			}
+		}()
+	}()
 }
 
 func (a *App) bindDOMActions(ctx context.Context, binder DOMActionBinder) error {
@@ -329,6 +368,28 @@ func (a *App) releaseDOMBindings() {
 	}
 }
 
+func (a *App) LoadInitialShell(ctx context.Context) {
+	if a == nil {
+		return
+	}
+	a.loadShellTheme(ctx)
+	if a.currentRoute == "" || a.currentRoute == RouteUnknown {
+		a.currentRoute = ParseRoute(a.deps.LocationURI)
+	}
+	switch a.currentRoute {
+	case RouteHistory:
+		a.loadHistoryLoadingRoute()
+	default:
+		a.resetRouteState()
+		a.renderedHTML = renderAppFrame(renderedPage{
+			route:    a.currentRoute,
+			title:    routeDocumentTitle(a.currentRoute),
+			subtitle: routeSubtitle(a.currentRoute),
+			body:     placeholderHTML(a.currentRoute),
+		}, a.shellTheme)
+	}
+}
+
 func (a *App) LoadInitial(ctx context.Context) error {
 	if a == nil {
 		return errors.New("app is nil")
@@ -338,14 +399,20 @@ func (a *App) LoadInitial(ctx context.Context) error {
 		a.currentRoute = ParseRoute(a.deps.LocationURI)
 	}
 
-	var err error
+	if err := a.loadCurrentRoute(ctx); err != nil {
+		a.renderRouteError(err)
+	}
+	return nil
+}
+
+func (a *App) loadCurrentRoute(ctx context.Context) error {
 	switch a.currentRoute {
 	case RouteHistory:
-		err = a.loadHistoryRoute(ctx)
+		return a.loadHistoryRoute(ctx)
 	case RouteFavorites:
-		err = a.loadFavoritesRoute(ctx)
+		return a.loadFavoritesRoute(ctx)
 	case RouteConfig:
-		err = a.loadConfigRoute(ctx)
+		return a.loadConfigRoute(ctx)
 	default:
 		a.resetRouteState()
 		a.renderedHTML = renderAppFrame(renderedPage{
@@ -356,10 +423,6 @@ func (a *App) LoadInitial(ctx context.Context) error {
 		}, a.shellTheme)
 		return nil
 	}
-	if err != nil {
-		a.renderRouteError(err)
-	}
-	return nil
 }
 
 func (a *App) renderRouteError(err error) {
@@ -402,6 +465,36 @@ func routeSubtitle(route Route) string {
 	}
 }
 
+func (a *App) loadHistoryLoadingRoute() {
+	a.favorites = nil
+	a.folders = nil
+	a.tags = nil
+	a.historyEntries = nil
+	a.historyStats = nil
+	a.historyAnalytics = nil
+	a.historyDomainStats = nil
+	a.historyNotice = ""
+	a.historyError = ""
+	data := historyRenderData{
+		Query:        a.historyQuery,
+		DomainFilter: a.historyDomainFilter,
+		Offset:       a.historyOffset,
+		Limit:        historyTimelineLimit,
+		WindowBefore: a.historyWindowBefore,
+		WindowAfter:  a.historyWindowAfter,
+		HasMore:      a.historyHasMore,
+		Notice:       a.historyNotice,
+		Error:        a.historyError,
+		Loading:      true,
+	}
+	a.renderedHTML = renderAppFrame(renderedPage{
+		route:    RouteHistory,
+		title:    "History — Loading",
+		subtitle: "Recent visits",
+		body:     historyHTML(data),
+	}, a.shellTheme)
+}
+
 func (a *App) loadHistoryRoute(ctx context.Context) error {
 	if a.deps.History == nil {
 		a.resetRouteState()
@@ -414,13 +507,13 @@ func (a *App) loadHistoryRoute(ctx context.Context) error {
 		return nil
 	}
 
-	entries, err := a.loadHistoryEntries(ctx)
+	window, entries, err := a.loadHistoryWindow(ctx)
 	if err != nil {
 		return err
 	}
-	analytics, analyticsErr := a.deps.History.Analytics(ctx)
-	if analyticsErr != nil {
-		analytics = nil
+	stats, err := a.deps.History.Stats(ctx)
+	if err != nil {
+		return fmt.Errorf("failed to load history stats: %w", err)
 	}
 	domains, domainsErr := a.deps.History.DomainStats(ctx, 10)
 	if domainsErr != nil {
@@ -430,16 +523,30 @@ func (a *App) loadHistoryRoute(ctx context.Context) error {
 	a.folders = nil
 	a.tags = nil
 	a.historyEntries = entries
-	a.historyAnalytics = analytics
+	a.historyStats = stats
+	a.historyAnalytics = nil
 	a.historyDomainStats = domains
+	if window != nil {
+		a.historyWindowBefore = window.Before
+		a.historyWindowAfter = window.After
+		a.historyHasMore = window.HasMore
+	} else {
+		a.historyWindowBefore = time.Time{}
+		a.historyWindowAfter = time.Time{}
+		a.historyHasMore = false
+	}
 	data := historyRenderData{
 		Entries:      entries,
-		Analytics:    analytics,
+		Stats:        stats,
+		Analytics:    nil,
 		Domains:      domains,
 		Query:        a.historyQuery,
 		DomainFilter: a.historyDomainFilter,
 		Offset:       a.historyOffset,
 		Limit:        historyTimelineLimit,
+		WindowBefore: a.historyWindowBefore,
+		WindowAfter:  a.historyWindowAfter,
+		HasMore:      a.historyHasMore,
 		Notice:       a.historyNotice,
 		Error:        a.historyError,
 	}
@@ -452,16 +559,21 @@ func (a *App) loadHistoryRoute(ctx context.Context) error {
 	return nil
 }
 
-func (a *App) loadHistoryEntries(ctx context.Context) ([]*entity.HistoryEntry, error) {
+func (a *App) loadHistoryWindow(ctx context.Context) (*entity.HistoryWindow, []*entity.HistoryEntry, error) {
 	query := strings.TrimSpace(a.historyQuery)
 	domain := strings.TrimSpace(a.historyDomainFilter)
 	if query != "" {
-		return a.deps.History.Search(ctx, query, historyTimelineLimit)
+		entries, err := a.deps.History.Search(ctx, query, historySearchLimit)
+		return nil, entries, err
 	}
-	if domain != "" {
-		return a.deps.History.TimelineByDomain(ctx, domain, historyTimelineLimit, a.historyOffset)
+	window, err := a.deps.History.TimelineWindow(ctx, a.historyWindowBefore, domain)
+	if err != nil {
+		return nil, nil, err
 	}
-	return a.deps.History.Timeline(ctx, historyTimelineLimit, a.historyOffset)
+	if window == nil {
+		return nil, nil, nil
+	}
+	return window, window.Entries, nil
 }
 
 func (a *App) loadFavoritesRoute(ctx context.Context) error {
@@ -571,11 +683,15 @@ func (a *App) loadShellTheme(ctx context.Context) {
 
 func (a *App) resetRouteState() {
 	a.historyEntries = nil
+	a.historyStats = nil
 	a.historyAnalytics = nil
 	a.historyDomainStats = nil
 	a.historyQuery = ""
 	a.historyDomainFilter = ""
 	a.historyOffset = 0
+	a.historyWindowBefore = time.Time{}
+	a.historyWindowAfter = time.Time{}
+	a.historyHasMore = false
 	a.historyNotice = ""
 	a.historyError = ""
 	a.favorites = nil

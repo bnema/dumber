@@ -3,7 +3,9 @@ package systemviews
 import (
 	"context"
 	"errors"
+	"sync"
 	"testing"
+	"time"
 
 	"github.com/bnema/dumber/internal/application/dto"
 	"github.com/bnema/dumber/internal/application/port"
@@ -78,7 +80,8 @@ func TestAppLoadInitialHistoryRouteUsesStyledSections(t *testing.T) {
 	assert.Contains(t, app.renderedHTML, "Example")
 	assert.Contains(t, app.renderedHTML, "https://example.com")
 	assert.True(t, history.called)
-	assert.Equal(t, 25, history.limit)
+	assert.False(t, history.analyticsCalled)
+	assert.Equal(t, 0, history.limit)
 	assert.Equal(t, 0, history.offset)
 
 	// Shell frame present, no full document wrapper.
@@ -90,6 +93,129 @@ func TestAppLoadInitialHistoryRouteUsesStyledSections(t *testing.T) {
 	assert.Contains(t, app.renderedHTML, `data-page-title="History — 1 entry"`)
 	assert.Contains(t, app.renderedHTML, `sv-section`)
 	assert.Contains(t, app.renderedHTML, `class="sv-list"`)
+}
+
+func TestAppLoadInitialHistoryRouteShowsTotalStatsWithWindowedTimeline(t *testing.T) {
+	t.Parallel()
+
+	history := &fakeHistoryService{
+		entries: []*entity.HistoryEntry{
+			{ID: 1, URL: "https://older.example", Title: "Older", VisitCount: 2},
+			{ID: 2, URL: "https://newer.example", Title: "Newer", VisitCount: 3},
+		},
+		stats: &entity.HistoryStats{TotalEntries: 8904, TotalVisits: 40947, UniqueDays: 121},
+	}
+	app := NewApp(Dependencies{History: history, LocationURI: "dumb://history"})
+
+	require.NoError(t, app.LoadInitial(context.Background()))
+	assert.True(t, history.statsCalled)
+	assert.Contains(t, app.renderedHTML, "Loaded 2 items")
+	assert.Contains(t, app.renderedHTML, `data-page-title="History — 8904 entries"`)
+	assert.Contains(t, app.renderedHTML, `<span class="sv-stat-value">8904</span><span class="sv-stat-label">Entries</span>`)
+	assert.Contains(t, app.renderedHTML, `<span class="sv-stat-value">40947</span><span class="sv-stat-label">Visits</span>`)
+	assert.Contains(t, app.renderedHTML, `<span class="sv-stat-value">121</span><span class="sv-stat-label">Days</span>`)
+}
+
+func TestAppRunMountsHistoryLoadingBeforeAsyncHydration(t *testing.T) {
+	t.Parallel()
+
+	dom := &fakeActionDOM{fakeDOM: fakeDOM{mounts: make(chan string, 4)}}
+	history := &fakeHistoryService{
+		entries:         []*entity.HistoryEntry{{ID: 1, URL: "https://example.com", Title: "Loaded entry"}},
+		timelineStarted: make(chan struct{}),
+		releaseTimeline: make(chan struct{}),
+	}
+	app := NewApp(Dependencies{DOM: dom, History: history, LocationURI: "dumb://history"})
+
+	require.NoError(t, app.RunWithContext(context.Background()))
+	loadingHTML := receiveMount(t, dom.mounts)
+	assert.Contains(t, loadingHTML, "Loading history")
+	assert.NotContains(t, loadingHTML, "Loaded entry")
+
+	select {
+	case <-history.timelineStarted:
+	case <-time.After(time.Second):
+		t.Fatal("history timeline was not started asynchronously")
+	}
+	close(history.releaseTimeline)
+
+	hydratedHTML := receiveMount(t, dom.mounts)
+	assert.Contains(t, hydratedHTML, "Loaded entry")
+	assert.Contains(t, hydratedHTML, "Loaded 1 item")
+}
+
+func TestAppHandleHistoryLoadMoreAppendsOlderWindow(t *testing.T) {
+	t.Parallel()
+
+	cursor := time.Date(2026, 4, 25, 9, 0, 0, 0, time.UTC)
+	history := &fakeHistoryService{window: &entity.HistoryWindow{
+		Entries: []*entity.HistoryEntry{{ID: 2, URL: "https://older.example", Title: "Older entry", LastVisited: cursor.Add(-time.Hour)}},
+		Before:  cursor,
+		After:   cursor.Add(-24 * time.Hour),
+		HasMore: true,
+	}}
+	dom := &fakeActionDOM{}
+	app := NewApp(Dependencies{DOM: dom, History: history, LocationURI: "dumb://history"})
+	app.currentRoute = RouteHistory
+	app.historyEntries = []*entity.HistoryEntry{{ID: 1, URL: "https://newer.example", Title: "Newer entry", LastVisited: cursor}}
+	app.historyWindowAfter = cursor
+	app.historyHasMore = true
+
+	require.NoError(t, app.HandleDOMAction(context.Background(), DOMAction{
+		Action: historyActionLoadMore,
+		Data:   map[string]string{"before": cursor.Format(time.RFC3339Nano)},
+	}))
+	assert.Equal(t, cursor, history.windowBefore)
+	assert.Len(t, app.historyEntries, 2)
+	assert.Contains(t, dom.appendedHTML, "Older entry")
+	assert.Contains(t, dom.appendedHTML, `data-sv-action="history.loadMore"`)
+	assert.Empty(t, dom.html, "load-more should append a fragment instead of remounting the whole page")
+}
+
+func TestAppHandleHistoryLoadMoreRemountsWhenAppendUnavailable(t *testing.T) {
+	t.Parallel()
+
+	cursor := time.Date(2026, 4, 25, 9, 0, 0, 0, time.UTC)
+	history := &fakeHistoryService{window: &entity.HistoryWindow{
+		Entries: []*entity.HistoryEntry{{ID: 2, URL: "https://older.example", Title: "Older entry", LastVisited: cursor.Add(-time.Hour)}},
+		Before:  cursor,
+		After:   cursor.Add(-24 * time.Hour),
+		HasMore: true,
+	}}
+	dom := &fakeDOM{}
+	app := NewApp(Dependencies{DOM: dom, History: history, LocationURI: "dumb://history"})
+	app.currentRoute = RouteHistory
+	app.historyEntries = []*entity.HistoryEntry{{ID: 1, URL: "https://newer.example", Title: "Newer entry", LastVisited: cursor}}
+	app.historyWindowAfter = cursor
+	app.historyHasMore = true
+
+	require.NoError(t, app.HandleDOMAction(context.Background(), DOMAction{
+		Action: historyActionLoadMore,
+		Data:   map[string]string{"before": cursor.Format(time.RFC3339Nano)},
+	}))
+	assert.Equal(t, cursor, history.windowBefore)
+	assert.Len(t, app.historyEntries, 2)
+	assert.Contains(t, dom.html, "Older entry")
+	assert.Contains(t, dom.html, `data-sv-action="history.loadMore"`)
+}
+
+func TestAppHandleHistoryLoadMoreIgnoresStaleCursor(t *testing.T) {
+	t.Parallel()
+
+	cursor := time.Date(2026, 4, 25, 9, 0, 0, 0, time.UTC)
+	history := &fakeHistoryService{window: &entity.HistoryWindow{Entries: []*entity.HistoryEntry{{ID: 2, URL: "https://older.example"}}}}
+	dom := &fakeActionDOM{}
+	app := NewApp(Dependencies{DOM: dom, History: history, LocationURI: "dumb://history"})
+	app.currentRoute = RouteHistory
+	app.historyWindowAfter = cursor
+	app.historyHasMore = true
+
+	require.NoError(t, app.HandleDOMAction(context.Background(), DOMAction{
+		Action: historyActionLoadMore,
+		Data:   map[string]string{"before": cursor.Add(-24 * time.Hour).Format(time.RFC3339Nano)},
+	}))
+	assert.False(t, history.called)
+	assert.Empty(t, dom.appendedHTML)
 }
 
 func TestAppLoadInitialHistoryRouteRendersManagementActions(t *testing.T) {
@@ -161,8 +287,8 @@ func TestAppHandleHistoryActionsRefreshesDOM(t *testing.T) {
 		Action: historyActionFilterDomain,
 		Data:   map[string]string{"domain": "example.com"},
 	}))
-	assert.True(t, history.domainCalled)
-	assert.Equal(t, "example.com", history.domain)
+	assert.True(t, history.called)
+	assert.Equal(t, "example.com", history.windowDomain)
 	assert.Empty(t, app.historyQuery)
 
 	require.NoError(t, app.HandleDOMAction(context.Background(), DOMAction{
@@ -720,14 +846,37 @@ func testDefaultConfigPayload() dto.SystemviewConfigPayload {
 
 // Handwritten fake to capture DOM mounts for stateful render assertions.
 type fakeDOM struct {
-	mounted bool
-	html    string
+	mu           sync.Mutex
+	mounted      bool
+	html         string
+	appendedHTML string
+	mounts       chan string
 }
 
 func (d *fakeDOM) Mount(markup string) error {
+	d.mu.Lock()
 	d.mounted = true
 	d.html = markup
+	mounts := d.mounts
+	d.mu.Unlock()
+	if mounts != nil {
+		select {
+		case mounts <- markup:
+		default:
+		}
+	}
 	return nil
+}
+
+func receiveMount(t *testing.T, mounts <-chan string) string {
+	t.Helper()
+	select {
+	case html := <-mounts:
+		return html
+	case <-time.After(time.Second):
+		t.Fatal("timed out waiting for DOM mount")
+		return ""
+	}
 }
 
 type fakeActionDOM struct {
@@ -738,6 +887,13 @@ type fakeActionDOM struct {
 
 func (d *fakeActionDOM) BindActions(handler DOMActionHandler) error {
 	d.handler = handler
+	return nil
+}
+
+func (d *fakeActionDOM) AppendHistoryTimeline(markup string) error {
+	d.mu.Lock()
+	d.appendedHTML += markup
+	d.mu.Unlock()
 	return nil
 }
 
@@ -769,16 +925,32 @@ type fakeHistoryService struct {
 	searchLimit   int
 	searchEntries []*entity.HistoryEntry
 
-	deletedEntryID int64
-	deletedRangeID string
-	deletedDomain  string
-	domainStats    []*entity.DomainStat
+	deletedEntryID  int64
+	deletedRangeID  string
+	deletedDomain   string
+	domainStats     []*entity.DomainStat
+	stats           *entity.HistoryStats
+	statsCalled     bool
+	window          *entity.HistoryWindow
+	windowBefore    time.Time
+	windowDomain    string
+	analyticsCalled bool
+
+	timelineStarted chan struct{}
+	releaseTimeline chan struct{}
+	startOnce       sync.Once
 }
 
 func (s *fakeHistoryService) Timeline(_ context.Context, limit, offset int) ([]*entity.HistoryEntry, error) {
 	s.called = true
 	s.limit = limit
 	s.offset = offset
+	if s.timelineStarted != nil {
+		s.startOnce.Do(func() { close(s.timelineStarted) })
+	}
+	if s.releaseTimeline != nil {
+		<-s.releaseTimeline
+	}
 	return s.entries, s.err
 }
 
@@ -788,6 +960,25 @@ func (s *fakeHistoryService) TimelineByDomain(_ context.Context, domain string, 
 	s.limit = limit
 	s.offset = offset
 	return s.entries, s.err
+}
+
+func (s *fakeHistoryService) TimelineWindow(_ context.Context, before time.Time, domain string) (*entity.HistoryWindow, error) {
+	s.called = true
+	s.windowBefore = before
+	s.windowDomain = domain
+	if s.timelineStarted != nil {
+		s.startOnce.Do(func() { close(s.timelineStarted) })
+	}
+	if s.releaseTimeline != nil {
+		<-s.releaseTimeline
+	}
+	if s.err != nil {
+		return nil, s.err
+	}
+	if s.window != nil {
+		return s.window, nil
+	}
+	return &entity.HistoryWindow{Entries: s.entries, Before: before, After: before.Add(-24 * time.Hour)}, nil
 }
 
 func (s *fakeHistoryService) Search(_ context.Context, query string, limit int) ([]*entity.HistoryEntry, error) {
@@ -810,7 +1001,13 @@ func (s *fakeHistoryService) DeleteRange(_ context.Context, rangeID string) erro
 	return nil
 }
 
+func (s *fakeHistoryService) Stats(context.Context) (*entity.HistoryStats, error) {
+	s.statsCalled = true
+	return s.stats, nil
+}
+
 func (s *fakeHistoryService) Analytics(context.Context) (*entity.HistoryAnalytics, error) {
+	s.analyticsCalled = true
 	return nil, nil
 }
 

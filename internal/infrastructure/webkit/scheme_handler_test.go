@@ -50,6 +50,41 @@ func TestBuildCrashPageHTMLEscapesScriptBreakoutPayload(t *testing.T) {
 	assert.Contains(t, body, "&lt;/script&gt;&lt;script&gt;alert(1)&lt;/script&gt;")
 }
 
+func TestIsTrustedSystemviewURL(t *testing.T) {
+	t.Parallel()
+
+	for _, raw := range []string{
+		"dumb://history",
+		"dumb://favorites",
+		"dumb:config",
+	} {
+		require.True(t, isTrustedSystemviewURL(raw), raw)
+	}
+	for _, raw := range []string{
+		"",
+		"https://dumber.invalid/history",
+		"dumb://api/favicon",
+		"dumb://evil/history",
+	} {
+		require.False(t, isTrustedSystemviewURL(raw), raw)
+	}
+}
+
+func TestIsTrustedSystemviewFaviconRequestRequiresTrustedRefererWhenOriginAbsent(t *testing.T) {
+	t.Parallel()
+
+	require.True(t, isTrustedSystemviewFaviconRequest(&SchemeRequest{Referer: "dumb://history"}))
+	require.False(t, isTrustedSystemviewFaviconRequest(&SchemeRequest{Referer: ""}))
+}
+
+func TestIsTrustedSystemviewFaviconRequestHonorsOriginBeforeReferer(t *testing.T) {
+	t.Parallel()
+
+	require.True(t, isTrustedSystemviewFaviconRequest(&SchemeRequest{Origin: "dumb://history"}))
+	require.True(t, isTrustedSystemviewFaviconRequest(&SchemeRequest{Origin: "dumb://history", Referer: "https://evil.example"}))
+	require.False(t, isTrustedSystemviewFaviconRequest(&SchemeRequest{Origin: "https://evil.example", Referer: "dumb://history"}))
+}
+
 func TestRegisterDefaultsIncludesCrashHandler(t *testing.T) {
 	handler := NewDumbSchemeHandler(context.Background())
 	require.NotNil(t, handler)
@@ -162,10 +197,11 @@ func TestConfigHandlersUseInjectedPayloadBuilders(t *testing.T) {
 	require.NotNil(t, defaultHandler)
 
 	currentResp := currentHandler.Handle(&SchemeRequest{
-		URI:    "dumb://config/api/config",
-		Path:   "/api/config",
-		Method: http.MethodGet,
-		Scheme: "dumb",
+		URI:     "dumb://config/api/config",
+		Path:    "/api/config",
+		Method:  http.MethodGet,
+		Scheme:  "dumb",
+		Referer: "dumb://config",
 	})
 	require.NotNil(t, currentResp)
 	assert.Equal(t, http.StatusOK, currentResp.StatusCode)
@@ -173,15 +209,37 @@ func TestConfigHandlersUseInjectedPayloadBuilders(t *testing.T) {
 	assert.Equal(t, []byte(`{"current":true}`), currentResp.Data)
 
 	defaultResp := defaultHandler.Handle(&SchemeRequest{
-		URI:    "dumb://config/api/config/default",
-		Path:   "/api/config/default",
-		Method: http.MethodGet,
-		Scheme: "dumb",
+		URI:     "dumb://config/api/config/default",
+		Path:    "/api/config/default",
+		Method:  http.MethodGet,
+		Scheme:  "dumb",
+		Referer: "dumb://config",
 	})
 	require.NotNil(t, defaultResp)
 	assert.Equal(t, http.StatusOK, defaultResp.StatusCode)
 	assert.Equal(t, "application/json", defaultResp.ContentType)
 	assert.Equal(t, []byte(`{"default":true}`), defaultResp.Data)
+}
+
+func TestConfigHandlersRejectUntrustedRequests(t *testing.T) {
+	h := NewDumbSchemeHandler(context.Background())
+	h.SetConfigPayloadBuilders(
+		func() ([]byte, error) { return []byte(`{"current":true}`), nil },
+		func() ([]byte, error) { return []byte(`{"default":true}`), nil },
+	)
+
+	h.mu.RLock()
+	currentHandler := h.handlers["/api/config"]
+	defaultHandler := h.handlers["/api/config/default"]
+	h.mu.RUnlock()
+
+	for _, handler := range []PageHandler{currentHandler, defaultHandler} {
+		resp := handler.Handle(&SchemeRequest{Method: http.MethodGet, Origin: "https://evil.example"})
+		require.NotNil(t, resp)
+		assert.Equal(t, http.StatusForbidden, resp.StatusCode)
+		assert.True(t, resp.SuppressDefaultHeaders)
+		assert.NotContains(t, resp.Headers, "Access-Control-Allow-Origin")
+	}
 }
 
 func TestShouldAddCORSHeaders(t *testing.T) {
@@ -192,7 +250,7 @@ func TestShouldAddCORSHeaders(t *testing.T) {
 		path string
 		want bool
 	}{
-		{name: "api route", path: "/api/config", want: true},
+		{name: "private api route", path: "/api/config", want: false},
 		{name: "wasm asset", path: "/systemviews.wasm", want: true},
 		{name: "html shell", path: "/", want: false},
 		{name: "js asset", path: "/wasm_exec.js", want: false},

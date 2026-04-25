@@ -144,6 +144,44 @@ func (q *Queries) GetAllRecentHistory(ctx context.Context) ([]History, error) {
 	return items, nil
 }
 
+const GetAllRecentHistoryByDomain = `-- name: GetAllRecentHistoryByDomain :many
+SELECT id, url, title, favicon_url, visit_count, last_visited, created_at, domain FROM history
+WHERE domain = ?1
+ORDER BY last_visited DESC
+`
+
+func (q *Queries) GetAllRecentHistoryByDomain(ctx context.Context, domain sql.NullString) ([]History, error) {
+	rows, err := q.db.QueryContext(ctx, GetAllRecentHistoryByDomain, domain)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []History{}
+	for rows.Next() {
+		var i History
+		if err := rows.Scan(
+			&i.ID,
+			&i.Url,
+			&i.Title,
+			&i.FaviconUrl,
+			&i.VisitCount,
+			&i.LastVisited,
+			&i.CreatedAt,
+			&i.Domain,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const GetDailyVisitCount = `-- name: GetDailyVisitCount :many
 SELECT
     date(last_visited) as day,
@@ -470,6 +508,120 @@ func (q *Queries) GetRecentHistorySince(ctx context.Context, datetime interface{
 		return nil, err
 	}
 	return items, nil
+}
+
+const GetRecentHistoryWindow = `-- name: GetRecentHistoryWindow :many
+SELECT id, url, title, favicon_url, visit_count, last_visited, created_at, domain FROM history
+WHERE last_visited < ?1 AND last_visited >= ?2
+ORDER BY last_visited DESC
+`
+
+type GetRecentHistoryWindowParams struct {
+	Before sql.NullTime `json:"before"`
+	After  sql.NullTime `json:"after"`
+}
+
+func (q *Queries) GetRecentHistoryWindow(ctx context.Context, arg GetRecentHistoryWindowParams) ([]History, error) {
+	rows, err := q.db.QueryContext(ctx, GetRecentHistoryWindow, arg.Before, arg.After)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []History{}
+	for rows.Next() {
+		var i History
+		if err := rows.Scan(
+			&i.ID,
+			&i.Url,
+			&i.Title,
+			&i.FaviconUrl,
+			&i.VisitCount,
+			&i.LastVisited,
+			&i.CreatedAt,
+			&i.Domain,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const GetRecentHistoryWindowByDomain = `-- name: GetRecentHistoryWindowByDomain :many
+SELECT id, url, title, favicon_url, visit_count, last_visited, created_at, domain FROM history
+WHERE domain = ?1 AND last_visited < ?2 AND last_visited >= ?3
+ORDER BY last_visited DESC
+`
+
+type GetRecentHistoryWindowByDomainParams struct {
+	Domain sql.NullString `json:"domain"`
+	Before sql.NullTime   `json:"before"`
+	After  sql.NullTime   `json:"after"`
+}
+
+func (q *Queries) GetRecentHistoryWindowByDomain(ctx context.Context, arg GetRecentHistoryWindowByDomainParams) ([]History, error) {
+	rows, err := q.db.QueryContext(ctx, GetRecentHistoryWindowByDomain, arg.Domain, arg.Before, arg.After)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []History{}
+	for rows.Next() {
+		var i History
+		if err := rows.Scan(
+			&i.ID,
+			&i.Url,
+			&i.Title,
+			&i.FaviconUrl,
+			&i.VisitCount,
+			&i.LastVisited,
+			&i.CreatedAt,
+			&i.Domain,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const HasHistoryBefore = `-- name: HasHistoryBefore :one
+SELECT EXISTS(SELECT 1 FROM history WHERE last_visited < ?1 LIMIT 1)
+`
+
+func (q *Queries) HasHistoryBefore(ctx context.Context, before sql.NullTime) (int64, error) {
+	row := q.db.QueryRowContext(ctx, HasHistoryBefore, before)
+	var column_1 int64
+	err := row.Scan(&column_1)
+	return column_1, err
+}
+
+const HasHistoryByDomainBefore = `-- name: HasHistoryByDomainBefore :one
+SELECT EXISTS(SELECT 1 FROM history WHERE domain = ?1 AND last_visited < ?2 LIMIT 1)
+`
+
+type HasHistoryByDomainBeforeParams struct {
+	Domain sql.NullString `json:"domain"`
+	Before sql.NullTime   `json:"before"`
+}
+
+func (q *Queries) HasHistoryByDomainBefore(ctx context.Context, arg HasHistoryByDomainBeforeParams) (int64, error) {
+	row := q.db.QueryRowContext(ctx, HasHistoryByDomainBefore, arg.Domain, arg.Before)
+	var column_1 int64
+	err := row.Scan(&column_1)
+	return column_1, err
 }
 
 const IncrementVisitCount = `-- name: IncrementVisitCount :exec

@@ -32,6 +32,20 @@ templ EmptyState(message string) {
 	<div class="sv-empty"><p>{ message }</p></div>
 }
 
+templ LoadingPanel(message string) {
+	<div class="sv-loading-panel" role="status" aria-live="polite">
+		<span class="sv-spinner" aria-hidden="true"></span>
+		<span>{ message }</span>
+	</div>
+}
+
+templ LoadingCard(label string) {
+	<div class="sv-stat-card sv-loading-card" role="status" aria-live="polite">
+		<span class="sv-spinner" aria-hidden="true"></span>
+		<span class="sv-stat-label">{ label }</span>
+	</div>
+}
+
 templ Alert(kind string, message string) {
 	if message != "" {
 		<div class={ alertClass(kind) } role={ alertRole(kind) }>{ message }</div>

@@ -7,6 +7,27 @@ WHERE domain = @domain
 ORDER BY last_visited DESC
 LIMIT @limit OFFSET @offset;
 
+-- name: GetAllRecentHistoryByDomain :many
+SELECT * FROM history
+WHERE domain = @domain
+ORDER BY last_visited DESC;
+
+-- name: GetRecentHistoryWindow :many
+SELECT * FROM history
+WHERE last_visited < @before AND last_visited >= @after
+ORDER BY last_visited DESC;
+
+-- name: GetRecentHistoryWindowByDomain :many
+SELECT * FROM history
+WHERE domain = @domain AND last_visited < @before AND last_visited >= @after
+ORDER BY last_visited DESC;
+
+-- name: HasHistoryBefore :one
+SELECT EXISTS(SELECT 1 FROM history WHERE last_visited < @before LIMIT 1);
+
+-- name: HasHistoryByDomainBefore :one
+SELECT EXISTS(SELECT 1 FROM history WHERE domain = @domain AND last_visited < @before LIMIT 1);
+
 -- name: GetHistoryByURL :one
 SELECT * FROM history WHERE url = ? LIMIT 1;
 

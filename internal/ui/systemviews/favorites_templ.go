@@ -263,7 +263,15 @@ func FavoritesControls(data favoritesRenderData) templ.Component {
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 13, "<button class=\"sv-button\" type=\"submit\">Add favorite</button></form><div class=\"sv-filter-panel\"><div class=\"sv-button-row\"><span class=\"sv-meta\">Folders</span> ")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 13, "<button class=\"sv-button\" type=\"submit\">")
+		if templ_7745c5c3_Err != nil {
+			return templ_7745c5c3_Err
+		}
+		templ_7745c5c3_Err = ButtonIconLabel(iconPlus, "Add favorite").Render(ctx, templ_7745c5c3_Buffer)
+		if templ_7745c5c3_Err != nil {
+			return templ_7745c5c3_Err
+		}
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 14, "</button></form><div class=\"sv-filter-panel\"><div class=\"sv-button-row\"><span class=\"sv-meta\">Folders</span> ")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
@@ -272,7 +280,7 @@ func FavoritesControls(data favoritesRenderData) templ.Component {
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 14, "<button type=\"button\" class=\"")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 15, "<button type=\"button\" class=\"")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
@@ -285,7 +293,7 @@ func FavoritesControls(data favoritesRenderData) templ.Component {
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 15, "\" aria-pressed=\"")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 16, "\" aria-pressed=\"")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
@@ -298,7 +306,7 @@ func FavoritesControls(data favoritesRenderData) templ.Component {
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 16, "\" data-sv-action=\"favorite.clearFilters\">All</button> ")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 17, "\" data-sv-action=\"favorite.clearFilters\">All</button> ")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
@@ -307,7 +315,7 @@ func FavoritesControls(data favoritesRenderData) templ.Component {
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 17, "<button type=\"button\" class=\"")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 18, "<button type=\"button\" class=\"")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
@@ -320,7 +328,7 @@ func FavoritesControls(data favoritesRenderData) templ.Component {
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 18, "\" aria-pressed=\"")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 19, "\" aria-pressed=\"")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
@@ -333,7 +341,7 @@ func FavoritesControls(data favoritesRenderData) templ.Component {
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 19, "\" data-sv-action=\"favorite.filterFolder\" data-folder-id=\"root\">Unfiled</button> ")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 20, "\" data-sv-action=\"favorite.filterFolder\" data-folder-id=\"root\">Unfiled</button> ")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
@@ -344,7 +352,7 @@ func FavoritesControls(data favoritesRenderData) templ.Component {
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
-				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 20, "<button type=\"button\" class=\"")
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 21, "<button type=\"button\" class=\"")
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
@@ -357,7 +365,7 @@ func FavoritesControls(data favoritesRenderData) templ.Component {
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
-				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 21, "\" aria-pressed=\"")
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 22, "\" aria-pressed=\"")
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
@@ -370,7 +378,7 @@ func FavoritesControls(data favoritesRenderData) templ.Component {
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
-				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 22, "\" data-sv-action=\"favorite.filterFolder\" data-folder-id=\"")
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 23, "\" data-sv-action=\"favorite.filterFolder\" data-folder-id=\"")
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
@@ -383,7 +391,7 @@ func FavoritesControls(data favoritesRenderData) templ.Component {
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
-				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 23, "\">")
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 24, "\">")
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
@@ -396,13 +404,13 @@ func FavoritesControls(data favoritesRenderData) templ.Component {
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
-				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 24, "</button>")
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 25, "</button>")
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
 			}
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 25, "</div><div class=\"sv-button-row\"><span class=\"sv-meta\">Tags</span> ")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 26, "</div><div class=\"sv-button-row\"><span class=\"sv-meta\">Tags</span> ")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
@@ -413,7 +421,7 @@ func FavoritesControls(data favoritesRenderData) templ.Component {
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
-				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 26, "<button type=\"button\" class=\"")
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 27, "<button type=\"button\" class=\"")
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
@@ -426,7 +434,7 @@ func FavoritesControls(data favoritesRenderData) templ.Component {
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
-				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 27, "\" aria-pressed=\"")
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 28, "\" aria-pressed=\"")
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
@@ -439,7 +447,7 @@ func FavoritesControls(data favoritesRenderData) templ.Component {
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
-				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 28, "\" data-sv-action=\"favorite.filterTag\" data-tag-id=\"")
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 29, "\" data-sv-action=\"favorite.filterTag\" data-tag-id=\"")
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
@@ -452,7 +460,7 @@ func FavoritesControls(data favoritesRenderData) templ.Component {
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
-				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 29, "\"><span class=\"sv-tag-dot\" style=\"")
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 30, "\"><span class=\"sv-tag-dot\" style=\"")
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
@@ -465,7 +473,7 @@ func FavoritesControls(data favoritesRenderData) templ.Component {
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
-				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 30, "\"></span>")
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 31, "\"></span>")
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
@@ -478,13 +486,13 @@ func FavoritesControls(data favoritesRenderData) templ.Component {
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
-				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 31, "</button>")
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 32, "</button>")
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
 			}
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 32, "</div></div><p class=\"sv-meta sv-key-hints\">Keys: <kbd>j</kbd>/<kbd>k</kbd> move, <kbd>Enter</kbd> open, <kbd>e</kbd> edit title, <kbd>d</kbd> delete focused favorite.</p>")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 33, "</div></div><p class=\"sv-meta sv-key-hints\">Keys: <kbd>j</kbd>/<kbd>k</kbd> move, <kbd>Enter</kbd> open, <kbd>e</kbd> edit title, <kbd>d</kbd> delete focused favorite.</p>")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
@@ -514,13 +522,13 @@ func FavoriteCreateTagPicker(tags []*entity.Tag) templ.Component {
 		}
 		ctx = templ.ClearChildren(ctx)
 		if len(tags) > 0 {
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 33, "<fieldset class=\"sv-tag-picker\"><legend>Tags</legend><div class=\"sv-tag-controls\">")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 34, "<fieldset class=\"sv-tag-picker\"><legend>Tags</legend><div class=\"sv-tag-controls\">")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
 			for _, tag := range tags {
 				if tag != nil {
-					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 34, "<label class=\"sv-tag-toggle\"><input type=\"checkbox\" name=\"tags\" value=\"")
+					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 35, "<label class=\"sv-tag-toggle\"><input type=\"checkbox\" name=\"tags\" value=\"")
 					if templ_7745c5c3_Err != nil {
 						return templ_7745c5c3_Err
 					}
@@ -533,7 +541,7 @@ func FavoriteCreateTagPicker(tags []*entity.Tag) templ.Component {
 					if templ_7745c5c3_Err != nil {
 						return templ_7745c5c3_Err
 					}
-					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 35, "\"> <span><span class=\"sv-tag-dot\" style=\"")
+					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 36, "\"> <span><span class=\"sv-tag-dot\" style=\"")
 					if templ_7745c5c3_Err != nil {
 						return templ_7745c5c3_Err
 					}
@@ -546,7 +554,7 @@ func FavoriteCreateTagPicker(tags []*entity.Tag) templ.Component {
 					if templ_7745c5c3_Err != nil {
 						return templ_7745c5c3_Err
 					}
-					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 36, "\"></span>")
+					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 37, "\"></span>")
 					if templ_7745c5c3_Err != nil {
 						return templ_7745c5c3_Err
 					}
@@ -559,13 +567,13 @@ func FavoriteCreateTagPicker(tags []*entity.Tag) templ.Component {
 					if templ_7745c5c3_Err != nil {
 						return templ_7745c5c3_Err
 					}
-					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 37, "</span></label>")
+					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 38, "</span></label>")
 					if templ_7745c5c3_Err != nil {
 						return templ_7745c5c3_Err
 					}
 				}
 			}
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 38, "</div></fieldset>")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 39, "</div></fieldset>")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
@@ -595,7 +603,7 @@ func FavoriteItem(favorite *entity.Favorite, folders []*entity.Folder, tags []*e
 			templ_7745c5c3_Var28 = templ.NopComponent
 		}
 		ctx = templ.ClearChildren(ctx)
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 39, "<li class=\"sv-list-row\"><article class=\"sv-favorite-item\" data-sv-favorite-row data-favorite-id=\"")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 40, "<li class=\"sv-list-row\"><article class=\"sv-favorite-item\" data-sv-favorite-row data-favorite-id=\"")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
@@ -608,7 +616,7 @@ func FavoriteItem(favorite *entity.Favorite, folders []*entity.Folder, tags []*e
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 40, "\"><div class=\"sv-favorite-header\"><div><a class=\"sv-link sv-favorite-open\" href=\"")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 41, "\"><div class=\"sv-favorite-header\"><div><a class=\"sv-link sv-favorite-open\" href=\"")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
@@ -621,7 +629,7 @@ func FavoriteItem(favorite *entity.Favorite, folders []*entity.Folder, tags []*e
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 41, "\">")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 42, "\">")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
@@ -634,7 +642,7 @@ func FavoriteItem(favorite *entity.Favorite, folders []*entity.Folder, tags []*e
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 42, "</a><p class=\"sv-history-url\">")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 43, "</a><p class=\"sv-history-url\">")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
@@ -647,12 +655,12 @@ func FavoriteItem(favorite *entity.Favorite, folders []*entity.Folder, tags []*e
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 43, "</p>")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 44, "</p>")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
 		if favoriteMetaText(favorite, folders) != "" {
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 44, "<p class=\"sv-meta\">")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 45, "<p class=\"sv-meta\">")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
@@ -665,12 +673,12 @@ func FavoriteItem(favorite *entity.Favorite, folders []*entity.Folder, tags []*e
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 45, "</p>")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 46, "</p>")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 46, "</div><div class=\"sv-history-row-actions\"><a class=\"sv-button sv-button-secondary\" href=\"")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 47, "</div><div class=\"sv-history-row-actions\"><a class=\"sv-button sv-button-secondary\" href=\"")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
@@ -683,20 +691,36 @@ func FavoriteItem(favorite *entity.Favorite, folders []*entity.Folder, tags []*e
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 47, "\">Open</a> <button type=\"button\" class=\"sv-button sv-button-secondary sv-button-danger\" data-sv-action=\"favorite.delete\" data-id=\"")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 48, "\">")
+		if templ_7745c5c3_Err != nil {
+			return templ_7745c5c3_Err
+		}
+		templ_7745c5c3_Err = ButtonIconLabel(iconExternal, "Open").Render(ctx, templ_7745c5c3_Buffer)
+		if templ_7745c5c3_Err != nil {
+			return templ_7745c5c3_Err
+		}
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 49, "</a> <button type=\"button\" class=\"sv-button sv-button-secondary sv-button-danger sv-button-icon-only\" data-sv-action=\"favorite.delete\" data-id=\"")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
 		var templ_7745c5c3_Var35 string
 		templ_7745c5c3_Var35, templ_7745c5c3_Err = templ.JoinStringErrs(fmt.Sprintf("%d", favorite.ID))
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `favorites.templ`, Line: 124, Col: 155}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `favorites.templ`, Line: 124, Col: 175}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var35))
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 48, "\" data-sv-confirm=\"Delete this favorite?\">Delete</button></div></div>")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 50, "\" data-sv-confirm=\"Delete this favorite?\" aria-label=\"Delete this favorite\">")
+		if templ_7745c5c3_Err != nil {
+			return templ_7745c5c3_Err
+		}
+		templ_7745c5c3_Err = IconOnly(iconTrash, "Delete this favorite").Render(ctx, templ_7745c5c3_Buffer)
+		if templ_7745c5c3_Err != nil {
+			return templ_7745c5c3_Err
+		}
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 51, "</button></div></div>")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
@@ -708,7 +732,7 @@ func FavoriteItem(favorite *entity.Favorite, folders []*entity.Folder, tags []*e
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 49, "</article></li>")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 52, "</article></li>")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
@@ -737,7 +761,7 @@ func FavoriteEditForm(favorite *entity.Favorite, folders []*entity.Folder) templ
 			templ_7745c5c3_Var36 = templ.NopComponent
 		}
 		ctx = templ.ClearChildren(ctx)
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 50, "<form class=\"sv-inline-form\" data-sv-action=\"favorite.update\"><input type=\"hidden\" name=\"id\" value=\"")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 53, "<form class=\"sv-inline-form\" data-sv-action=\"favorite.update\"><input type=\"hidden\" name=\"id\" value=\"")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
@@ -750,7 +774,7 @@ func FavoriteEditForm(favorite *entity.Favorite, folders []*entity.Folder) templ
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 51, "\"> <label><span>Title</span><input name=\"title\" type=\"text\" value=\"")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 54, "\"> <label><span>Title</span><input name=\"title\" type=\"text\" value=\"")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
@@ -763,7 +787,7 @@ func FavoriteEditForm(favorite *entity.Favorite, folders []*entity.Folder) templ
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 52, "\"></label> <label><span>Favicon</span><input name=\"favicon_url\" type=\"url\" value=\"")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 55, "\"></label> <label><span>Favicon</span><input name=\"favicon_url\" type=\"url\" value=\"")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
@@ -776,7 +800,7 @@ func FavoriteEditForm(favorite *entity.Favorite, folders []*entity.Folder) templ
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 53, "\"></label>")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 56, "\"></label>")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
@@ -788,7 +812,15 @@ func FavoriteEditForm(favorite *entity.Favorite, folders []*entity.Folder) templ
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 54, "<button class=\"sv-button sv-button-secondary\" type=\"submit\">Save</button></form>")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 57, "<button class=\"sv-button sv-button-secondary\" type=\"submit\">")
+		if templ_7745c5c3_Err != nil {
+			return templ_7745c5c3_Err
+		}
+		templ_7745c5c3_Err = ButtonIconLabel(iconSave, "Save").Render(ctx, templ_7745c5c3_Buffer)
+		if templ_7745c5c3_Err != nil {
+			return templ_7745c5c3_Err
+		}
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 58, "</button></form>")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
@@ -818,7 +850,7 @@ func FavoriteTagControls(favorite *entity.Favorite, tags []*entity.Tag) templ.Co
 		}
 		ctx = templ.ClearChildren(ctx)
 		if len(tags) > 0 {
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 55, "<div class=\"sv-tag-controls\"><span class=\"sv-meta\">Tags</span> ")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 59, "<div class=\"sv-tag-controls\"><span class=\"sv-meta\">Tags</span> ")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
@@ -829,7 +861,7 @@ func FavoriteTagControls(favorite *entity.Favorite, tags []*entity.Tag) templ.Co
 					if templ_7745c5c3_Err != nil {
 						return templ_7745c5c3_Err
 					}
-					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 56, "<button type=\"button\" class=\"")
+					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 60, "<button type=\"button\" class=\"")
 					if templ_7745c5c3_Err != nil {
 						return templ_7745c5c3_Err
 					}
@@ -842,7 +874,7 @@ func FavoriteTagControls(favorite *entity.Favorite, tags []*entity.Tag) templ.Co
 					if templ_7745c5c3_Err != nil {
 						return templ_7745c5c3_Err
 					}
-					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 57, "\" data-sv-action=\"")
+					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 61, "\" data-sv-action=\"")
 					if templ_7745c5c3_Err != nil {
 						return templ_7745c5c3_Err
 					}
@@ -855,7 +887,7 @@ func FavoriteTagControls(favorite *entity.Favorite, tags []*entity.Tag) templ.Co
 					if templ_7745c5c3_Err != nil {
 						return templ_7745c5c3_Err
 					}
-					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 58, "\" data-favorite-id=\"")
+					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 62, "\" data-favorite-id=\"")
 					if templ_7745c5c3_Err != nil {
 						return templ_7745c5c3_Err
 					}
@@ -868,7 +900,7 @@ func FavoriteTagControls(favorite *entity.Favorite, tags []*entity.Tag) templ.Co
 					if templ_7745c5c3_Err != nil {
 						return templ_7745c5c3_Err
 					}
-					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 59, "\" data-tag-id=\"")
+					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 63, "\" data-tag-id=\"")
 					if templ_7745c5c3_Err != nil {
 						return templ_7745c5c3_Err
 					}
@@ -881,7 +913,7 @@ func FavoriteTagControls(favorite *entity.Favorite, tags []*entity.Tag) templ.Co
 					if templ_7745c5c3_Err != nil {
 						return templ_7745c5c3_Err
 					}
-					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 60, "\"><span class=\"sv-tag-dot\" style=\"")
+					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 64, "\"><span class=\"sv-tag-dot\" style=\"")
 					if templ_7745c5c3_Err != nil {
 						return templ_7745c5c3_Err
 					}
@@ -894,7 +926,7 @@ func FavoriteTagControls(favorite *entity.Favorite, tags []*entity.Tag) templ.Co
 					if templ_7745c5c3_Err != nil {
 						return templ_7745c5c3_Err
 					}
-					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 61, "\"></span>")
+					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 65, "\"></span>")
 					if templ_7745c5c3_Err != nil {
 						return templ_7745c5c3_Err
 					}
@@ -907,13 +939,13 @@ func FavoriteTagControls(favorite *entity.Favorite, tags []*entity.Tag) templ.Co
 					if templ_7745c5c3_Err != nil {
 						return templ_7745c5c3_Err
 					}
-					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 62, "</button>")
+					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 66, "</button>")
 					if templ_7745c5c3_Err != nil {
 						return templ_7745c5c3_Err
 					}
 				}
 			}
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 63, "</div>")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 67, "</div>")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
@@ -943,7 +975,15 @@ func FolderCreateForm() templ.Component {
 			templ_7745c5c3_Var48 = templ.NopComponent
 		}
 		ctx = templ.ClearChildren(ctx)
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 64, "<form class=\"sv-inline-form\" data-sv-action=\"folder.create\"><label><span>Name</span><input name=\"name\" type=\"text\" required></label> <label><span>Icon</span><input name=\"icon\" type=\"text\" placeholder=\"Optional\"></label> <button class=\"sv-button sv-button-secondary\" type=\"submit\">Create folder</button></form>")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 68, "<form class=\"sv-inline-form\" data-sv-action=\"folder.create\"><label><span>Name</span><input name=\"name\" type=\"text\" required></label> <label><span>Icon</span><input name=\"icon\" type=\"text\" placeholder=\"Optional\"></label> <button class=\"sv-button sv-button-secondary\" type=\"submit\">")
+		if templ_7745c5c3_Err != nil {
+			return templ_7745c5c3_Err
+		}
+		templ_7745c5c3_Err = ButtonIconLabel(iconFolder, "Create folder").Render(ctx, templ_7745c5c3_Buffer)
+		if templ_7745c5c3_Err != nil {
+			return templ_7745c5c3_Err
+		}
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 69, "</button></form>")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
@@ -972,7 +1012,7 @@ func FolderItem(folder *entity.Folder) templ.Component {
 			templ_7745c5c3_Var49 = templ.NopComponent
 		}
 		ctx = templ.ClearChildren(ctx)
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 65, "<li class=\"sv-list-row\"><form class=\"sv-inline-form\" data-sv-action=\"folder.update\"><input type=\"hidden\" name=\"id\" value=\"")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 70, "<li class=\"sv-list-row\"><form class=\"sv-inline-form\" data-sv-action=\"folder.update\"><input type=\"hidden\" name=\"id\" value=\"")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
@@ -985,7 +1025,7 @@ func FolderItem(folder *entity.Folder) templ.Component {
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 66, "\"> <label><span>Name</span><input name=\"name\" type=\"text\" value=\"")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 71, "\"> <label><span>Name</span><input name=\"name\" type=\"text\" value=\"")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
@@ -998,7 +1038,7 @@ func FolderItem(folder *entity.Folder) templ.Component {
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 67, "\" required></label> <label><span>Icon</span><input name=\"icon\" type=\"text\" value=\"")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 72, "\" required></label> <label><span>Icon</span><input name=\"icon\" type=\"text\" value=\"")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
@@ -1011,20 +1051,36 @@ func FolderItem(folder *entity.Folder) templ.Component {
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 68, "\"></label> <button class=\"sv-button sv-button-secondary\" type=\"submit\">Save</button> <button type=\"button\" class=\"sv-button sv-button-secondary sv-button-danger\" data-sv-action=\"folder.delete\" data-id=\"")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 73, "\"></label> <button class=\"sv-button sv-button-secondary\" type=\"submit\">")
+		if templ_7745c5c3_Err != nil {
+			return templ_7745c5c3_Err
+		}
+		templ_7745c5c3_Err = ButtonIconLabel(iconSave, "Save").Render(ctx, templ_7745c5c3_Buffer)
+		if templ_7745c5c3_Err != nil {
+			return templ_7745c5c3_Err
+		}
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 74, "</button> <button type=\"button\" class=\"sv-button sv-button-secondary sv-button-danger sv-button-icon-only\" data-sv-action=\"folder.delete\" data-id=\"")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
 		var templ_7745c5c3_Var53 string
 		templ_7745c5c3_Var53, templ_7745c5c3_Err = templ.JoinStringErrs(fmt.Sprintf("%d", folder.ID))
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `favorites.templ`, Line: 174, Col: 149}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `favorites.templ`, Line: 174, Col: 169}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var53))
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 69, "\" data-sv-confirm=\"Delete this folder? Favorites will move out of it.\">Delete</button></form></li>")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 75, "\" data-sv-confirm=\"Delete this folder? Favorites will move out of it.\" aria-label=\"Delete this folder\">")
+		if templ_7745c5c3_Err != nil {
+			return templ_7745c5c3_Err
+		}
+		templ_7745c5c3_Err = IconOnly(iconTrash, "Delete this folder").Render(ctx, templ_7745c5c3_Buffer)
+		if templ_7745c5c3_Err != nil {
+			return templ_7745c5c3_Err
+		}
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 76, "</button></form></li>")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
@@ -1053,7 +1109,15 @@ func TagCreateForm() templ.Component {
 			templ_7745c5c3_Var54 = templ.NopComponent
 		}
 		ctx = templ.ClearChildren(ctx)
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 70, "<form class=\"sv-inline-form\" data-sv-action=\"tag.create\"><label><span>Name</span><input name=\"name\" type=\"text\" required></label> <label><span>Color</span><input name=\"color\" type=\"text\" placeholder=\"#808080\"></label> <button class=\"sv-button sv-button-secondary\" type=\"submit\">Create tag</button></form>")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 77, "<form class=\"sv-inline-form\" data-sv-action=\"tag.create\"><label><span>Name</span><input name=\"name\" type=\"text\" required></label> <label><span>Color</span><input name=\"color\" type=\"text\" placeholder=\"#808080\"></label> <button class=\"sv-button sv-button-secondary\" type=\"submit\">")
+		if templ_7745c5c3_Err != nil {
+			return templ_7745c5c3_Err
+		}
+		templ_7745c5c3_Err = ButtonIconLabel(iconTag, "Create tag").Render(ctx, templ_7745c5c3_Buffer)
+		if templ_7745c5c3_Err != nil {
+			return templ_7745c5c3_Err
+		}
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 78, "</button></form>")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
@@ -1082,7 +1146,7 @@ func TagItem(tag *entity.Tag) templ.Component {
 			templ_7745c5c3_Var55 = templ.NopComponent
 		}
 		ctx = templ.ClearChildren(ctx)
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 71, "<li class=\"sv-list-row\"><form class=\"sv-inline-form\" data-sv-action=\"tag.update\"><input type=\"hidden\" name=\"id\" value=\"")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 79, "<li class=\"sv-list-row\"><form class=\"sv-inline-form\" data-sv-action=\"tag.update\"><input type=\"hidden\" name=\"id\" value=\"")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
@@ -1095,7 +1159,7 @@ func TagItem(tag *entity.Tag) templ.Component {
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 72, "\"> <span class=\"sv-tag-dot\" style=\"")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 80, "\"> <span class=\"sv-tag-dot\" style=\"")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
@@ -1108,7 +1172,7 @@ func TagItem(tag *entity.Tag) templ.Component {
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 73, "\"></span> <label><span>Name</span><input name=\"name\" type=\"text\" value=\"")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 81, "\"></span> <label><span>Name</span><input name=\"name\" type=\"text\" value=\"")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
@@ -1121,7 +1185,7 @@ func TagItem(tag *entity.Tag) templ.Component {
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 74, "\" required></label> <label><span>Color</span><input name=\"color\" type=\"text\" value=\"")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 82, "\" required></label> <label><span>Color</span><input name=\"color\" type=\"text\" value=\"")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
@@ -1134,20 +1198,36 @@ func TagItem(tag *entity.Tag) templ.Component {
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 75, "\"></label> <button class=\"sv-button sv-button-secondary\" type=\"submit\">Save</button> <button type=\"button\" class=\"sv-button sv-button-secondary sv-button-danger\" data-sv-action=\"tag.delete\" data-id=\"")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 83, "\"></label> <button class=\"sv-button sv-button-secondary\" type=\"submit\">")
+		if templ_7745c5c3_Err != nil {
+			return templ_7745c5c3_Err
+		}
+		templ_7745c5c3_Err = ButtonIconLabel(iconSave, "Save").Render(ctx, templ_7745c5c3_Buffer)
+		if templ_7745c5c3_Err != nil {
+			return templ_7745c5c3_Err
+		}
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 84, "</button> <button type=\"button\" class=\"sv-button sv-button-secondary sv-button-danger sv-button-icon-only\" data-sv-action=\"tag.delete\" data-id=\"")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
 		var templ_7745c5c3_Var60 string
 		templ_7745c5c3_Var60, templ_7745c5c3_Err = templ.JoinStringErrs(fmt.Sprintf("%d", tag.ID))
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `favorites.templ`, Line: 195, Col: 143}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `favorites.templ`, Line: 195, Col: 163}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var60))
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 76, "\" data-sv-confirm=\"Delete this tag?\">Delete</button></form></li>")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 85, "\" data-sv-confirm=\"Delete this tag?\" aria-label=\"Delete this tag\">")
+		if templ_7745c5c3_Err != nil {
+			return templ_7745c5c3_Err
+		}
+		templ_7745c5c3_Err = IconOnly(iconTrash, "Delete this tag").Render(ctx, templ_7745c5c3_Buffer)
+		if templ_7745c5c3_Err != nil {
+			return templ_7745c5c3_Err
+		}
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 86, "</button></form></li>")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
@@ -1176,7 +1256,7 @@ func FolderSelect(name string, folders []*entity.Folder, selected *entity.Folder
 			templ_7745c5c3_Var61 = templ.NopComponent
 		}
 		ctx = templ.ClearChildren(ctx)
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 77, "<label><span>")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 87, "<label><span>")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
@@ -1189,7 +1269,7 @@ func FolderSelect(name string, folders []*entity.Folder, selected *entity.Folder
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 78, "</span><select name=\"")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 88, "</span><select name=\"")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
@@ -1202,13 +1282,13 @@ func FolderSelect(name string, folders []*entity.Folder, selected *entity.Folder
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 79, "\"><option value=\"\">Unfiled</option> ")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 89, "\"><option value=\"\">Unfiled</option> ")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
 		for _, folder := range folders {
 			if folder != nil {
-				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 80, "<option value=\"")
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 90, "<option value=\"")
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
@@ -1221,17 +1301,17 @@ func FolderSelect(name string, folders []*entity.Folder, selected *entity.Folder
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
-				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 81, "\"")
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 91, "\"")
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
 				if folderSelected(selected, folder.ID) {
-					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 82, " selected")
+					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 92, " selected")
 					if templ_7745c5c3_Err != nil {
 						return templ_7745c5c3_Err
 					}
 				}
-				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 83, ">")
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 93, ">")
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
@@ -1244,13 +1324,13 @@ func FolderSelect(name string, folders []*entity.Folder, selected *entity.Folder
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
-				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 84, "</option>")
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 94, "</option>")
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
 			}
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 85, "</select></label>")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 95, "</select></label>")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
@@ -1279,12 +1359,12 @@ func ShortcutSelect(selected *int) templ.Component {
 			templ_7745c5c3_Var66 = templ.NopComponent
 		}
 		ctx = templ.ClearChildren(ctx)
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 86, "<label><span>Shortcut</span><select name=\"shortcut_key\"><option value=\"\">None</option> ")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 96, "<label><span>Shortcut</span><select name=\"shortcut_key\"><option value=\"\">None</option> ")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
 		for i := 1; i <= 9; i++ {
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 87, "<option value=\"")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 97, "<option value=\"")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
@@ -1297,17 +1377,17 @@ func ShortcutSelect(selected *int) templ.Component {
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 88, "\"")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 98, "\"")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
 			if shortcutSelected(selected, i) {
-				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 89, " selected")
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 99, " selected")
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
 			}
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 90, ">")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 100, ">")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
@@ -1320,12 +1400,12 @@ func ShortcutSelect(selected *int) templ.Component {
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 91, "</option>")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 101, "</option>")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 92, "</select></label>")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 102, "</select></label>")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}

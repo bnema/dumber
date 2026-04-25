@@ -2,6 +2,7 @@ package systemviews
 
 import (
 	"fmt"
+	"net/url"
 	"strings"
 	"time"
 
@@ -9,16 +10,24 @@ import (
 	browserurl "github.com/bnema/dumber/internal/domain/url"
 )
 
+const historyURLDisplayMaxRunes = 180
+
 type historyRenderData struct {
-	Entries      []*entity.HistoryEntry
-	Analytics    *entity.HistoryAnalytics
-	Domains      []*entity.DomainStat
-	Query        string
-	DomainFilter string
-	Offset       int
-	Limit        int
-	Notice       string
-	Error        string
+	Entries             []*entity.HistoryEntry
+	Stats               *entity.HistoryStats
+	Analytics           *entity.HistoryAnalytics
+	Domains             []*entity.DomainStat
+	Query               string
+	DomainFilter        string
+	Offset              int
+	Limit               int
+	WindowBefore        time.Time
+	WindowAfter         time.Time
+	HasMore             bool
+	AppendSkipFirstDate string
+	Notice              string
+	Error               string
+	Loading             bool
 }
 
 type historyTimelineGroup struct {
@@ -38,7 +47,14 @@ func historyHTML(data historyRenderData) string {
 	return mustRenderComponent(HistoryView(data))
 }
 
+func historyTimelineAppendHTML(data historyRenderData) string {
+	return mustRenderComponent(HistoryTimelineAppend(data))
+}
+
 func historyDocumentTitle(data historyRenderData) string {
+	if data.Loading {
+		return "History — Loading"
+	}
 	if query := strings.TrimSpace(data.Query); query != "" {
 		return "History — search: " + truncateTitle(query, 48)
 	}
@@ -51,7 +67,9 @@ func historyDocumentTitle(data historyRenderData) string {
 	}
 
 	entries := int64(countHistoryEntries(data.Entries))
-	if data.Analytics != nil {
+	if data.Stats != nil {
+		entries = data.Stats.TotalEntries
+	} else if data.Analytics != nil {
 		entries = data.Analytics.TotalEntries
 	}
 	if entries == 1 {
@@ -82,12 +100,19 @@ func historyCleanupItems() []historyCleanupItem {
 
 func historyLimit(data historyRenderData) int {
 	if data.Limit <= 0 {
-		return historyTimelineLimit
+		return 0
 	}
 	return data.Limit
 }
 
+func historyIsPaginated(data historyRenderData) bool {
+	return historyLimit(data) > 0
+}
+
 func previousHistoryOffset(data historyRenderData) int {
+	if !historyIsPaginated(data) {
+		return 0
+	}
 	offset := data.Offset - historyLimit(data)
 	if offset < 0 {
 		return 0
@@ -96,29 +121,36 @@ func previousHistoryOffset(data historyRenderData) int {
 }
 
 func nextHistoryOffset(data historyRenderData) int {
+	if !historyIsPaginated(data) {
+		return 0
+	}
 	return max(data.Offset, 0) + historyLimit(data)
 }
 
 func disableHistoryPrev(data historyRenderData) bool {
-	return data.Offset <= 0 || strings.TrimSpace(data.Query) != ""
+	return !historyIsPaginated(data) || data.Offset <= 0 || strings.TrimSpace(data.Query) != ""
 }
 
 func disableHistoryNext(data historyRenderData) bool {
-	return strings.TrimSpace(data.Query) != "" || countHistoryEntries(data.Entries) < historyLimit(data)
+	return !historyIsPaginated(data) || strings.TrimSpace(data.Query) != "" || countHistoryEntries(data.Entries) < historyLimit(data)
 }
 
 func showHistoryFilters(data historyRenderData) bool {
 	return strings.TrimSpace(data.Query) != "" || strings.TrimSpace(data.DomainFilter) != ""
 }
 
-func historyOffsetLabel(offset int, query string) string {
-	if strings.TrimSpace(query) != "" {
-		return " matching search"
+func historyShowingLabel(data historyRenderData) string {
+	if data.Loading {
+		return "Loading history…"
 	}
-	if offset <= 0 {
-		return ""
+	count := countHistoryEntries(data.Entries)
+	if strings.TrimSpace(data.Query) != "" {
+		return fmt.Sprintf("Showing %d matching item%s", count, pluralSuffix(count))
 	}
-	return fmt.Sprintf(" from offset %d", offset)
+	if strings.TrimSpace(data.DomainFilter) != "" {
+		return fmt.Sprintf("Loaded %d domain item%s", count, pluralSuffix(count))
+	}
+	return fmt.Sprintf("Loaded %d item%s", count, pluralSuffix(count))
 }
 
 func pluralSuffix(count int) string {
@@ -128,7 +160,28 @@ func pluralSuffix(count int) string {
 	return "s"
 }
 
+func historyLoadMoreCursor(data historyRenderData) string {
+	if data.WindowAfter.IsZero() {
+		return ""
+	}
+	return data.WindowAfter.Format(time.RFC3339Nano)
+}
+
+func showHistoryLoadMore(data historyRenderData) bool {
+	return !data.Loading && strings.TrimSpace(data.Query) == "" && data.HasMore
+}
+
+func historySummaryLoading(data historyRenderData) bool {
+	return data.Loading
+}
+
 func historySummaryValues(data historyRenderData) (entries, visits, uniqueDays int64) {
+	if data.Stats != nil {
+		return data.Stats.TotalEntries, data.Stats.TotalVisits, data.Stats.UniqueDays
+	}
+	if data.Analytics != nil {
+		return data.Analytics.TotalEntries, data.Analytics.TotalVisits, data.Analytics.UniqueDays
+	}
 	entries = int64(countHistoryEntries(data.Entries))
 	visits = sumHistoryVisits(data.Entries)
 	uniqueDays = countUniqueHistoryDays(data.Entries)
@@ -137,10 +190,24 @@ func historySummaryValues(data historyRenderData) (entries, visits, uniqueDays i
 }
 
 func historyTimelineEmptyMessage(data historyRenderData) string {
+	if data.Loading {
+		return "Loading history…"
+	}
 	if strings.TrimSpace(data.Query) != "" || strings.TrimSpace(data.DomainFilter) != "" {
 		return "No history entries match the current filters"
 	}
 	return "No history entries"
+}
+
+func lastHistoryDateKey(entries []*entity.HistoryEntry) string {
+	for i := len(entries) - 1; i >= 0; i-- {
+		if entries[i] == nil {
+			continue
+		}
+		dateKey, _ := historyDateKeyAndLabel(entries[i].LastVisited, time.Now().Local())
+		return dateKey
+	}
+	return ""
 }
 
 func groupHistoryEntries(entries []*entity.HistoryEntry) []historyTimelineGroup {
@@ -260,6 +327,60 @@ func historyItemLabel(entry *entity.HistoryEntry) string {
 		label = entry.URL
 	}
 	return label
+}
+
+func historyItemURL(entry *entity.HistoryEntry) string {
+	if entry == nil {
+		return ""
+	}
+	return truncateHistoryURL(entry.URL)
+}
+
+func historyItemFaviconURL(entry *entity.HistoryEntry) string {
+	if entry == nil {
+		return ""
+	}
+	domain := browserurl.CanonicalDomain(entry.URL)
+	if domain == "" {
+		return ""
+	}
+	query := url.Values{}
+	query.Set("domain", domain)
+	query.Set("size", "32")
+	return "/api/favicon?" + query.Encode()
+}
+
+func historyFaviconClass(faviconURL string) string {
+	if strings.TrimSpace(faviconURL) == "" {
+		return "sv-history-favicon"
+	}
+	return "sv-history-favicon sv-history-favicon-has-image"
+}
+
+func historyFaviconFallback(entry *entity.HistoryEntry) string {
+	label := ""
+	if entry != nil {
+		label = displayHistoryDomain(entry.URL)
+	}
+	if label == "" {
+		return "•"
+	}
+	for _, r := range label {
+		return strings.ToUpper(string(r))
+	}
+	return "•"
+}
+
+func truncateHistoryURL(raw string) string {
+	raw = strings.TrimSpace(raw)
+	if raw == "" {
+		return ""
+	}
+	runes := []rune(raw)
+	if len(runes) <= historyURLDisplayMaxRunes {
+		return raw
+	}
+	return string(runes[:historyURLDisplayMaxRunes-1]) + "…"
 }
 
 func historyItemMeta(entry *entity.HistoryEntry) string {

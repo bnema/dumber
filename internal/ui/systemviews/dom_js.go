@@ -10,9 +10,13 @@ import (
 )
 
 type browserDOM struct {
-	document js.Value
-	target   js.Value
-	bindings []jsEventBinding
+	document                js.Value
+	target                  js.Value
+	bindings                []jsEventBinding
+	historyObserver         js.Value
+	historyObserverCallback js.Func
+	activeConfirmCleanup    func()
+	activeConfirmID         uint64
 }
 
 type jsEventBinding struct {
@@ -38,7 +42,62 @@ func (d *browserDOM) Mount(markup string) error {
 	d.target.Set("innerHTML", markup)
 	d.updateDocumentTitle()
 	d.scheduleAlertDismissal()
+	d.setupHistoryInfiniteScroll()
 	return nil
+}
+
+func (d *browserDOM) AppendHistoryTimeline(markup string) error {
+	if d == nil || !d.target.Truthy() {
+		return fmt.Errorf("DOM mount target #app not found")
+	}
+	timeline := d.target.Call("querySelector", "[data-sv-history-timeline]")
+	if !timeline.Truthy() {
+		return fmt.Errorf("history timeline target not found")
+	}
+	if old := timeline.Call("querySelector", "[data-sv-history-load-more-container]"); old.Truthy() && old.Get("remove").Truthy() {
+		old.Call("remove")
+	}
+
+	container := d.document.Call("createElement", "div")
+	container.Set("innerHTML", markup)
+	d.mergeLeadingHistoryGroup(timeline, container)
+	for container.Get("firstChild").Truthy() {
+		timeline.Call("appendChild", container.Get("firstChild"))
+	}
+	d.setupHistoryInfiniteScroll()
+	return nil
+}
+
+func (d *browserDOM) mergeLeadingHistoryGroup(timeline, container js.Value) {
+	if !timeline.Truthy() || !container.Truthy() {
+		return
+	}
+	first := container.Get("firstElementChild")
+	if !first.Truthy() || !first.Get("hasAttribute").Truthy() || !first.Call("hasAttribute", "data-sv-history-merge-date").Bool() {
+		return
+	}
+	date := strings.TrimSpace(first.Call("getAttribute", "data-sv-history-merge-date").String())
+	if date == "" {
+		return
+	}
+	groups := timeline.Call("querySelectorAll", "[data-sv-history-date]")
+	if !groups.Truthy() || groups.Get("length").Int() == 0 {
+		return
+	}
+	lastGroup := groups.Index(groups.Get("length").Int() - 1)
+	if strings.TrimSpace(lastGroup.Call("getAttribute", "data-sv-history-date").String()) != date {
+		return
+	}
+	list := lastGroup.Call("querySelector", "ul")
+	if !list.Truthy() {
+		return
+	}
+	for first.Get("firstChild").Truthy() {
+		list.Call("appendChild", first.Get("firstChild"))
+	}
+	if first.Get("remove").Truthy() {
+		first.Call("remove")
+	}
 }
 
 func (d *browserDOM) updateDocumentTitle() {
@@ -129,11 +188,11 @@ func (d *browserDOM) BindActions(handler DOMActionHandler) error {
 		if action == "" {
 			return nil
 		}
-		if !confirmAction(element) {
-			return nil
-		}
 		event.Call("preventDefault")
-		handler(DOMAction{Action: action, Data: collectActionData(element)})
+		data := collectActionData(element)
+		d.confirmAction(element, func() {
+			handler(DOMAction{Action: action, Data: data})
+		})
 		return nil
 	})
 	d.addEventBinding(d.target, "click", clickHandler)
@@ -151,15 +210,14 @@ func (d *browserDOM) BindActions(handler DOMActionHandler) error {
 		if action == "" {
 			return nil
 		}
-		if !confirmAction(form) {
-			return nil
-		}
 		event.Call("preventDefault")
 		data := collectActionData(form)
 		for key, value := range collectFormData(form) {
 			data[key] = value
 		}
-		handler(DOMAction{Action: action, Data: data})
+		d.confirmAction(form, func() {
+			handler(DOMAction{Action: action, Data: data})
+		})
 		return nil
 	})
 	d.addEventBinding(d.target, "submit", submitHandler)
@@ -206,10 +264,70 @@ func (d *browserDOM) addEventBinding(target js.Value, event string, fn js.Func) 
 	d.bindings = append(d.bindings, jsEventBinding{target: target, event: event, fn: fn})
 }
 
+func (d *browserDOM) setupHistoryInfiniteScroll() {
+	if d == nil || !d.target.Truthy() {
+		return
+	}
+	d.disconnectHistoryObserver()
+	observerCtor := js.Global().Get("IntersectionObserver")
+	if !observerCtor.Truthy() {
+		return
+	}
+	button := d.target.Call("querySelector", "[data-sv-history-load-more]")
+	if !button.Truthy() {
+		return
+	}
+	callback := js.FuncOf(func(_ js.Value, args []js.Value) any {
+		if len(args) == 0 || !button.Truthy() {
+			return nil
+		}
+		entries := args[0]
+		for i := 0; i < entries.Get("length").Int(); i++ {
+			entry := entries.Index(i)
+			if !entry.Truthy() || !entry.Get("isIntersecting").Bool() {
+				continue
+			}
+			if button.Get("disabled").Bool() || button.Get("dataset").Get("svLoading").String() == "true" {
+				return nil
+			}
+			// A disabled button does not dispatch click events. Dispatch first, then
+			// mark the control busy so the observer cannot enqueue duplicate loads
+			// while the WASM action worker fetches the next history window.
+			button.Call("click")
+			button.Get("dataset").Set("svLoading", "true")
+			button.Set("disabled", true)
+			button.Set("textContent", "Loading older visits…")
+			return nil
+		}
+		return nil
+	})
+	d.historyObserverCallback = callback
+	options := js.Global().Get("Object").New()
+	options.Set("rootMargin", "400px 0px")
+	d.historyObserver = observerCtor.New(callback, options)
+	d.historyObserver.Call("observe", button)
+}
+
+func (d *browserDOM) disconnectHistoryObserver() {
+	if d == nil {
+		return
+	}
+	if d.historyObserver.Truthy() {
+		d.historyObserver.Call("disconnect")
+		d.historyObserver = js.Value{}
+	}
+	if d.historyObserverCallback.Truthy() {
+		d.historyObserverCallback.Release()
+		d.historyObserverCallback = js.Func{}
+	}
+}
+
 func (d *browserDOM) Release() {
 	if d == nil {
 		return
 	}
+	d.disconnectHistoryObserver()
+	d.cleanupActiveConfirmDialog()
 	for _, binding := range d.bindings {
 		if binding.target.Truthy() {
 			binding.target.Call("removeEventListener", binding.event, binding.fn)
@@ -277,16 +395,163 @@ func collectFormData(form js.Value) map[string]string {
 	return data
 }
 
-func confirmAction(element js.Value) bool {
-	message := element.Call("getAttribute", "data-sv-confirm").String()
+func (d *browserDOM) confirmAction(element js.Value, onConfirm func()) {
+	if onConfirm == nil {
+		return
+	}
+	confirmAttr := element.Call("getAttribute", "data-sv-confirm")
+	if confirmAttr.Type() != js.TypeString {
+		onConfirm()
+		return
+	}
+	message := strings.TrimSpace(confirmAttr.String())
 	if message == "" {
-		return true
+		onConfirm()
+		return
 	}
-	confirm := js.Global().Get("window").Get("confirm")
-	if !confirm.Truthy() {
-		return true
+	if !d.showConfirmDialog(message, onConfirm) {
+		onConfirm()
 	}
-	return confirm.Invoke(message).Bool()
+}
+
+func (d *browserDOM) cleanupActiveConfirmDialog() {
+	if d == nil || d.activeConfirmCleanup == nil {
+		return
+	}
+	cleanup := d.activeConfirmCleanup
+	d.activeConfirmCleanup = nil
+	cleanup()
+}
+
+func (d *browserDOM) showConfirmDialog(message string, onConfirm func()) bool {
+	if d == nil || !d.document.Truthy() {
+		return false
+	}
+	body := d.document.Get("body")
+	if !body.Truthy() {
+		return false
+	}
+	// Always close an existing modal through its cleanup path so key handlers and
+	// js.Func values are released before the replacement is mounted.
+	d.cleanupActiveConfirmDialog()
+
+	overlay := d.document.Call("createElement", "div")
+	overlay.Get("classList").Call("add", "sv-confirm-backdrop")
+	overlay.Set("role", "presentation")
+
+	dialog := d.document.Call("createElement", "div")
+	dialog.Get("classList").Call("add", "sv-confirm-dialog")
+	dialog.Set("role", "dialog")
+	dialog.Call("setAttribute", "aria-modal", "true")
+	dialog.Call("setAttribute", "aria-labelledby", "sv-confirm-title")
+	dialog.Call("setAttribute", "aria-describedby", "sv-confirm-message")
+	overlay.Call("appendChild", dialog)
+
+	title := d.document.Call("createElement", "h3")
+	title.Set("id", "sv-confirm-title")
+	title.Set("textContent", "Confirm action")
+	dialog.Call("appendChild", title)
+
+	text := d.document.Call("createElement", "p")
+	text.Set("id", "sv-confirm-message")
+	text.Set("textContent", message)
+	dialog.Call("appendChild", text)
+
+	actions := d.document.Call("createElement", "div")
+	actions.Get("classList").Call("add", "sv-confirm-actions")
+	dialog.Call("appendChild", actions)
+
+	cancelButton := d.document.Call("createElement", "button")
+	cancelButton.Set("type", "button")
+	cancelButton.Set("className", "sv-button sv-button-secondary")
+	cancelButton.Set("textContent", "Cancel")
+	actions.Call("appendChild", cancelButton)
+
+	confirmButton := d.document.Call("createElement", "button")
+	confirmButton.Set("type", "button")
+	confirmButton.Set("className", "sv-button sv-button-danger")
+	confirmButton.Set("textContent", "Confirm")
+	actions.Call("appendChild", confirmButton)
+
+	d.activeConfirmID++
+	confirmID := d.activeConfirmID
+
+	var cleanup func()
+	var cancelFn js.Func
+	var confirmFn js.Func
+	var keyFn js.Func
+	var backdropFn js.Func
+	cleaned := false
+	confirmed := false
+	cleanup = func() {
+		if cleaned {
+			return
+		}
+		cleaned = true
+		if d.activeConfirmID == confirmID {
+			d.activeConfirmCleanup = nil
+		}
+		if overlay.Truthy() {
+			overlay.Call("remove")
+		}
+		if d.document.Truthy() && keyFn.Value.Truthy() {
+			d.document.Call("removeEventListener", "keydown", keyFn)
+		}
+		cancelFn.Release()
+		confirmFn.Release()
+		keyFn.Release()
+		backdropFn.Release()
+	}
+	runConfirm := func() {
+		if confirmed {
+			return
+		}
+		confirmed = true
+		cleanup()
+		onConfirm()
+	}
+	cancelFn = js.FuncOf(func(js.Value, []js.Value) any {
+		cleanup()
+		return nil
+	})
+	confirmFn = js.FuncOf(func(js.Value, []js.Value) any {
+		runConfirm()
+		return nil
+	})
+	keyFn = js.FuncOf(func(_ js.Value, args []js.Value) any {
+		event := firstJSArg(args)
+		if !event.Truthy() {
+			return nil
+		}
+		switch strings.ToLower(event.Get("key").String()) {
+		case "escape":
+			event.Call("preventDefault")
+			event.Call("stopPropagation")
+			cleanup()
+		case "enter":
+			event.Call("preventDefault")
+			event.Call("stopPropagation")
+			runConfirm()
+		}
+		return nil
+	})
+	backdropFn = js.FuncOf(func(_ js.Value, args []js.Value) any {
+		event := firstJSArg(args)
+		if event.Truthy() && event.Get("target").Equal(overlay) {
+			cleanup()
+		}
+		return nil
+	})
+
+	cancelButton.Call("addEventListener", "click", cancelFn)
+	confirmButton.Call("addEventListener", "click", confirmFn)
+	document := d.document
+	document.Call("addEventListener", "keydown", keyFn)
+	overlay.Call("addEventListener", "click", backdropFn)
+	d.activeConfirmCleanup = cleanup
+	body.Call("appendChild", overlay)
+	confirmButton.Call("focus")
+	return true
 }
 
 func (d *browserDOM) handleKeyboard(event js.Value) {

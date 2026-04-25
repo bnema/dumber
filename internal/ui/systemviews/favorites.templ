@@ -63,7 +63,7 @@ templ FavoritesControls(data favoritesRenderData) {
 		<label><span>Title</span><input name="title" type="text" placeholder="Optional title"/></label>
 		@FolderSelect("folder_id", data.Folders, nil, "Folder")
 		@FavoriteCreateTagPicker(data.Tags)
-		<button class="sv-button" type="submit">Add favorite</button>
+		<button class="sv-button" type="submit">@ButtonIconLabel(iconPlus, "Add favorite")</button>
 	</form>
 	<div class="sv-filter-panel">
 		<div class="sv-button-row">
@@ -120,8 +120,8 @@ templ FavoriteItem(favorite *entity.Favorite, folders []*entity.Folder, tags []*
 					}
 				</div>
 				<div class="sv-history-row-actions">
-					<a class="sv-button sv-button-secondary" href={ templ.SafeURL(sanitizeHref(favorite.URL)) }>Open</a>
-					<button type="button" class="sv-button sv-button-secondary sv-button-danger" data-sv-action="favorite.delete" data-id={ fmt.Sprintf("%d", favorite.ID) } data-sv-confirm="Delete this favorite?">Delete</button>
+					<a class="sv-button sv-button-secondary" href={ templ.SafeURL(sanitizeHref(favorite.URL)) }>@ButtonIconLabel(iconExternal, "Open")</a>
+					<button type="button" class="sv-button sv-button-secondary sv-button-danger sv-button-icon-only" data-sv-action="favorite.delete" data-id={ fmt.Sprintf("%d", favorite.ID) } data-sv-confirm="Delete this favorite?" aria-label="Delete this favorite">@IconOnly(iconTrash, "Delete this favorite")</button>
 				</div>
 			</div>
 			@FavoriteEditForm(favorite, folders)
@@ -137,7 +137,7 @@ templ FavoriteEditForm(favorite *entity.Favorite, folders []*entity.Folder) {
 		<label><span>Favicon</span><input name="favicon_url" type="url" value={ favorite.FaviconURL }/></label>
 		@FolderSelect("folder_id", folders, favorite.FolderID, "Folder")
 		@ShortcutSelect(favorite.ShortcutKey)
-		<button class="sv-button sv-button-secondary" type="submit">Save</button>
+		<button class="sv-button sv-button-secondary" type="submit">@ButtonIconLabel(iconSave, "Save")</button>
 	</form>
 }
 
@@ -160,7 +160,7 @@ templ FolderCreateForm() {
 	<form class="sv-inline-form" data-sv-action="folder.create">
 		<label><span>Name</span><input name="name" type="text" required/></label>
 		<label><span>Icon</span><input name="icon" type="text" placeholder="Optional"/></label>
-		<button class="sv-button sv-button-secondary" type="submit">Create folder</button>
+		<button class="sv-button sv-button-secondary" type="submit">@ButtonIconLabel(iconFolder, "Create folder")</button>
 	</form>
 }
 
@@ -170,8 +170,8 @@ templ FolderItem(folder *entity.Folder) {
 			<input type="hidden" name="id" value={ fmt.Sprintf("%d", folder.ID) }/>
 			<label><span>Name</span><input name="name" type="text" value={ folder.Name } required/></label>
 			<label><span>Icon</span><input name="icon" type="text" value={ folder.Icon }/></label>
-			<button class="sv-button sv-button-secondary" type="submit">Save</button>
-			<button type="button" class="sv-button sv-button-secondary sv-button-danger" data-sv-action="folder.delete" data-id={ fmt.Sprintf("%d", folder.ID) } data-sv-confirm="Delete this folder? Favorites will move out of it.">Delete</button>
+			<button class="sv-button sv-button-secondary" type="submit">@ButtonIconLabel(iconSave, "Save")</button>
+			<button type="button" class="sv-button sv-button-secondary sv-button-danger sv-button-icon-only" data-sv-action="folder.delete" data-id={ fmt.Sprintf("%d", folder.ID) } data-sv-confirm="Delete this folder? Favorites will move out of it." aria-label="Delete this folder">@IconOnly(iconTrash, "Delete this folder")</button>
 		</form>
 	</li>
 }
@@ -180,7 +180,7 @@ templ TagCreateForm() {
 	<form class="sv-inline-form" data-sv-action="tag.create">
 		<label><span>Name</span><input name="name" type="text" required/></label>
 		<label><span>Color</span><input name="color" type="text" placeholder="#808080"/></label>
-		<button class="sv-button sv-button-secondary" type="submit">Create tag</button>
+		<button class="sv-button sv-button-secondary" type="submit">@ButtonIconLabel(iconTag, "Create tag")</button>
 	</form>
 }
 
@@ -191,8 +191,8 @@ templ TagItem(tag *entity.Tag) {
 			<span class="sv-tag-dot" style={ "background:" + safeTagColor(tag.Color) }></span>
 			<label><span>Name</span><input name="name" type="text" value={ tag.Name } required/></label>
 			<label><span>Color</span><input name="color" type="text" value={ tag.Color }/></label>
-			<button class="sv-button sv-button-secondary" type="submit">Save</button>
-			<button type="button" class="sv-button sv-button-secondary sv-button-danger" data-sv-action="tag.delete" data-id={ fmt.Sprintf("%d", tag.ID) } data-sv-confirm="Delete this tag?">Delete</button>
+			<button class="sv-button sv-button-secondary" type="submit">@ButtonIconLabel(iconSave, "Save")</button>
+			<button type="button" class="sv-button sv-button-secondary sv-button-danger sv-button-icon-only" data-sv-action="tag.delete" data-id={ fmt.Sprintf("%d", tag.ID) } data-sv-confirm="Delete this tag?" aria-label="Delete this tag">@IconOnly(iconTrash, "Delete this tag")</button>
 		</form>
 	</li>
 }

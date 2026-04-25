@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"testing"
+	"time"
 
 	"github.com/bnema/dumber/internal/application/dto"
 	"github.com/bnema/dumber/internal/application/port"
@@ -48,7 +49,7 @@ func TestNewBridgeApp_UsesCurrentConfigForNonConfigRoutes(t *testing.T) {
 	app := newBridgeApp(dom, "dumb://history", bridge)
 
 	require.NoError(t, app.Run())
-	assert.True(t, bridge.calledHistory)
+	require.Eventually(t, func() bool { return bridge.calledHistory }, time.Second, 10*time.Millisecond)
 	assert.True(t, bridge.calledConfig)
 	assert.False(t, bridge.calledKeybindings)
 	assert.Contains(t, dom.html, `class="sv-app sv-dark"`)
@@ -123,6 +124,11 @@ func (f *fakeBridgeService) TimelineByDomain(context.Context, string, int, int) 
 	return f.historyEntries, nil
 }
 
+func (f *fakeBridgeService) TimelineWindow(_ context.Context, before time.Time, _ string) (*entity.HistoryWindow, error) {
+	f.calledHistory = true
+	return &entity.HistoryWindow{Entries: f.historyEntries, Before: before, After: before.Add(-24 * time.Hour)}, nil
+}
+
 func (*fakeBridgeService) Search(context.Context, string, int) ([]*entity.HistoryEntry, error) {
 	return nil, nil
 }
@@ -130,6 +136,10 @@ func (*fakeBridgeService) Search(context.Context, string, int) ([]*entity.Histor
 func (*fakeBridgeService) DeleteEntry(context.Context, int64) error { return nil }
 
 func (*fakeBridgeService) DeleteRange(context.Context, string) error { return nil }
+
+func (*fakeBridgeService) Stats(context.Context) (*entity.HistoryStats, error) {
+	return nil, nil
+}
 
 func (*fakeBridgeService) Analytics(context.Context) (*entity.HistoryAnalytics, error) {
 	return nil, nil

@@ -26,6 +26,31 @@ func expectAPIResponseHeaders(response *cefmocks.MockResponse) {
 	response.EXPECT().SetHeaderByName("Cache-Control", "no-store", int32(1)).Once()
 }
 
+func expectPrivateAPIResponseHeaders(response *cefmocks.MockResponse) {
+	response.EXPECT().SetHeaderByName("Cache-Control", "no-store", int32(1)).Once()
+}
+
+type panicFaviconService struct{}
+
+func (panicFaviconService) GetCached(context.Context, string) ([]byte, bool) {
+	panic("unexpected favicon lookup")
+}
+func (panicFaviconService) Get(context.Context, string) ([]byte, error) {
+	panic("unexpected favicon lookup")
+}
+func (panicFaviconService) DiskPathPNG(string) string           { panic("unexpected favicon lookup") }
+func (panicFaviconService) HasPNGOnDisk(string) bool            { panic("unexpected favicon lookup") }
+func (panicFaviconService) HasPNGSizedOnDisk(string, int) bool  { panic("unexpected favicon lookup") }
+func (panicFaviconService) DiskPathPNGSized(string, int) string { panic("unexpected favicon lookup") }
+func (panicFaviconService) EnsureSizedPNG(context.Context, string, int) error {
+	panic("unexpected favicon lookup")
+}
+func (panicFaviconService) EnsureCacheDir() error { panic("unexpected favicon lookup") }
+func (panicFaviconService) EnsureDiskCache(context.Context, string) {
+	panic("unexpected favicon lookup")
+}
+func (panicFaviconService) Close() {}
+
 func TestResolveConfigPayload_UsesInjectedBuilder(t *testing.T) {
 	data, err := resolveConfigPayload(func() ([]byte, error) {
 		return []byte(`{"engine_type":"cef"}`), nil
@@ -94,6 +119,168 @@ func TestRejectForbiddenAPIOrigin_RejectsExternalOrigin(t *testing.T) {
 	var responseLength int64
 	handler.GetResponseHeaders(response, &responseLength, 0)
 	require.Positive(t, responseLength)
+}
+
+func TestRejectUntrustedConfigRequesterRequiresTrustedOriginOrReferrer(t *testing.T) {
+	oldNewResourceHandler := cefNewResourceHandler
+	cefNewResourceHandler = func(impl purecef.ResourceHandler) purecef.ResourceHandler { return impl }
+	defer func() { cefNewResourceHandler = oldNewResourceHandler }()
+
+	h, err := newDumbSchemeHandler(context.Background(), nil, nil, func() ([]byte, error) { return []byte(`{}`), nil }, func() ([]byte, error) { return []byte(`{}`), nil })
+	require.NoError(t, err)
+
+	trustedOrigin := cefmocks.NewMockRequest(t)
+	trustedOrigin.EXPECT().GetHeaderByName("Origin").Return(actualInternalOrigin).Once()
+	require.Nil(t, h.rejectUntrustedConfigRequester(trustedOrigin))
+
+	trustedReferrer := cefmocks.NewMockRequest(t)
+	trustedReferrer.EXPECT().GetHeaderByName("Origin").Return("").Once()
+	trustedReferrer.EXPECT().GetReferrerURL().Return("dumb://history").Once()
+	require.Nil(t, h.rejectUntrustedConfigRequester(trustedReferrer))
+
+	emptyContext := cefmocks.NewMockRequest(t)
+	emptyContext.EXPECT().GetHeaderByName("Origin").Return("").Once()
+	emptyContext.EXPECT().GetReferrerURL().Return("").Once()
+	emptyContext.EXPECT().GetHeaderByName("Referer").Return("").Once()
+	denied := h.rejectUntrustedConfigRequester(emptyContext)
+	require.NotNil(t, denied)
+
+	response := cefmocks.NewMockResponse(t)
+	response.EXPECT().SetStatus(int32(http.StatusForbidden)).Once()
+	response.EXPECT().SetStatusText(http.StatusText(http.StatusForbidden)).Once()
+	response.EXPECT().SetMimeType("application/json").Once()
+	expectPrivateAPIResponseHeaders(response)
+	var responseLength int64
+	denied.GetResponseHeaders(response, &responseLength, 0)
+	require.Positive(t, responseLength)
+
+	untrustedOrigin := cefmocks.NewMockRequest(t)
+	untrustedOrigin.EXPECT().GetHeaderByName("Origin").Return("https://evil.example").Once()
+	require.NotNil(t, h.rejectUntrustedConfigRequester(untrustedOrigin))
+}
+
+func TestHandleConfigAPIUsesPrivateNoCORSHeaders(t *testing.T) {
+	oldNewResourceHandler := cefNewResourceHandler
+	cefNewResourceHandler = func(impl purecef.ResourceHandler) purecef.ResourceHandler { return impl }
+	defer func() { cefNewResourceHandler = oldNewResourceHandler }()
+
+	h, err := newDumbSchemeHandler(context.Background(), nil, nil, func() ([]byte, error) { return []byte(`{"ok":true}`), nil }, func() ([]byte, error) { return []byte(`{}`), nil })
+	require.NoError(t, err)
+
+	response := cefmocks.NewMockResponse(t)
+	response.EXPECT().SetStatus(int32(http.StatusOK)).Once()
+	response.EXPECT().SetStatusText(http.StatusText(http.StatusOK)).Once()
+	response.EXPECT().SetMimeType("application/json").Once()
+	expectPrivateAPIResponseHeaders(response)
+
+	handler := h.handleConfigAPI(h.currentConfigPayload)
+	var responseLength int64
+	handler.GetResponseHeaders(response, &responseLength, 0)
+	require.Positive(t, responseLength)
+}
+
+func TestHandleConfigAPIOptionsUsesPrivateNoCORSHeaders(t *testing.T) {
+	oldNewResourceHandler := cefNewResourceHandler
+	cefNewResourceHandler = func(impl purecef.ResourceHandler) purecef.ResourceHandler { return impl }
+	defer func() { cefNewResourceHandler = oldNewResourceHandler }()
+
+	h, err := newDumbSchemeHandler(context.Background(), nil, nil, func() ([]byte, error) { return []byte(`{}`), nil }, func() ([]byte, error) { return []byte(`{}`), nil })
+	require.NoError(t, err)
+
+	request := cefmocks.NewMockRequest(t)
+	request.EXPECT().GetHeaderByName("Origin").Return(actualInternalOrigin).Once()
+
+	response := cefmocks.NewMockResponse(t)
+	response.EXPECT().SetStatus(int32(http.StatusNoContent)).Once()
+	response.EXPECT().SetStatusText(http.StatusText(http.StatusNoContent)).Once()
+	response.EXPECT().SetMimeType("text/plain").Once()
+	response.EXPECT().SetCharset("utf-8").Once()
+	expectPrivateAPIResponseHeaders(response)
+
+	handler := h.handleAPI(nil, http.MethodOptions, "/api/config", request)
+	var responseLength int64
+	handler.GetResponseHeaders(response, &responseLength, 0)
+	require.Zero(t, responseLength)
+}
+
+func TestIsTrustedSystemviewURL(t *testing.T) {
+	t.Parallel()
+
+	for _, raw := range []string{
+		"https://dumber.invalid/history",
+		"dumb://history",
+		"dumb:history",
+	} {
+		require.True(t, isTrustedSystemviewURL(raw), raw)
+	}
+	for _, raw := range []string{
+		"",
+		"https://evil.example/history",
+		"dumb://api/favicon",
+		"dumb://evil/history",
+	} {
+		require.False(t, isTrustedSystemviewURL(raw), raw)
+	}
+}
+
+func TestRejectUntrustedFaviconRequesterAllowsTrustedOriginWithoutReferrer(t *testing.T) {
+	h, err := newDumbSchemeHandler(context.Background(), nil, nil, func() ([]byte, error) { return []byte(`{}`), nil }, func() ([]byte, error) { return []byte(`{}`), nil })
+	require.NoError(t, err)
+
+	request := cefmocks.NewMockRequest(t)
+	request.EXPECT().GetHeaderByName("Origin").Return(actualInternalOrigin).Once()
+
+	require.Nil(t, h.rejectUntrustedFaviconRequester(request))
+}
+
+func TestRejectUntrustedFaviconRequesterRejectsUntrustedOriginEvenWithTrustedReferrer(t *testing.T) {
+	oldNewResourceHandler := cefNewResourceHandler
+	cefNewResourceHandler = func(impl purecef.ResourceHandler) purecef.ResourceHandler { return impl }
+	defer func() { cefNewResourceHandler = oldNewResourceHandler }()
+
+	h, err := newDumbSchemeHandler(context.Background(), nil, nil, func() ([]byte, error) { return []byte(`{}`), nil }, func() ([]byte, error) { return []byte(`{}`), nil })
+	require.NoError(t, err)
+
+	request := cefmocks.NewMockRequest(t)
+	request.EXPECT().GetHeaderByName("Origin").Return("https://evil.example").Once()
+
+	require.NotNil(t, h.rejectUntrustedFaviconRequester(request))
+}
+
+func TestRejectUntrustedFaviconRequesterRequiresTrustedReferrerWhenOriginAbsent(t *testing.T) {
+	oldNewResourceHandler := cefNewResourceHandler
+	cefNewResourceHandler = func(impl purecef.ResourceHandler) purecef.ResourceHandler { return impl }
+	defer func() { cefNewResourceHandler = oldNewResourceHandler }()
+
+	h, err := newDumbSchemeHandler(context.Background(), nil, nil, func() ([]byte, error) { return []byte(`{}`), nil }, func() ([]byte, error) { return []byte(`{}`), nil })
+	require.NoError(t, err)
+
+	trusted := cefmocks.NewMockRequest(t)
+	trusted.EXPECT().GetHeaderByName("Origin").Return("").Once()
+	trusted.EXPECT().GetReferrerURL().Return("dumb://history").Once()
+	require.Nil(t, h.rejectUntrustedFaviconRequester(trusted))
+
+	untrusted := cefmocks.NewMockRequest(t)
+	untrusted.EXPECT().GetHeaderByName("Origin").Return("").Once()
+	untrusted.EXPECT().GetReferrerURL().Return("").Once()
+	untrusted.EXPECT().GetHeaderByName("Referer").Return("").Once()
+	require.NotNil(t, h.rejectUntrustedFaviconRequester(untrusted))
+}
+
+func TestHandleFaviconAPIDefersFaviconDiskChecksUntilResourceOpen(t *testing.T) {
+	oldNewResourceHandler := cefNewResourceHandler
+	cefNewResourceHandler = func(impl purecef.ResourceHandler) purecef.ResourceHandler { return impl }
+	defer func() { cefNewResourceHandler = oldNewResourceHandler }()
+
+	h, err := newDumbSchemeHandler(context.Background(), nil, nil, func() ([]byte, error) { return []byte(`{}`), nil }, func() ([]byte, error) { return []byte(`{}`), nil })
+	require.NoError(t, err)
+	h.setFaviconService(panicFaviconService{})
+
+	request := cefmocks.NewMockRequest(t)
+	request.EXPECT().GetHeaderByName("Origin").Return(actualInternalOrigin).Once()
+	request.EXPECT().GetURL().Return(actualInternalOrigin + "/api/favicon?domain=example.com&size=32").Once()
+
+	require.NotNil(t, h.handleFaviconAPI(request))
 }
 
 func TestValidateTranscodeSourceURL_RejectsPrivateHosts(t *testing.T) {

@@ -127,6 +127,33 @@ func TestClientTimelineDecodesEntries(t *testing.T) {
 	}
 }
 
+func TestClientTimelineWindowOmitsZeroCursor(t *testing.T) {
+	t.Parallel()
+
+	native := &fakeTransport{available: true, response: []byte(`{"requestId":"req-window","success":true}`)}
+	client := NewClient(native, nil)
+
+	_, err := client.TimelineWindow(context.Background(), time.Time{}, "")
+	if err != nil {
+		t.Fatalf("TimelineWindow() error = %v", err)
+	}
+
+	var msg port.WebUIMessage
+	if err := json.Unmarshal(native.last, &msg); err != nil {
+		t.Fatalf("unmarshal sent envelope: %v", err)
+	}
+	if msg.Type != "history_timeline_window" {
+		t.Fatalf("sent type = %q, want %q", msg.Type, "history_timeline_window")
+	}
+	var payload map[string]any
+	if err := json.Unmarshal(msg.Payload, &payload); err != nil {
+		t.Fatalf("unmarshal payload: %v", err)
+	}
+	if _, ok := payload["before"]; ok {
+		t.Fatalf("zero TimelineWindow cursor should be omitted, payload = %s", msg.Payload)
+	}
+}
+
 func TestClientDeleteRangeRejectsEmptyRange(t *testing.T) {
 	t.Parallel()
 

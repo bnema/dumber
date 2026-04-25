@@ -483,6 +483,13 @@ func isExpectedFTSError(err error) bool {
 }
 
 func (r *historyRepo) GetRecent(ctx context.Context, limit, offset int) ([]*entity.HistoryEntry, error) {
+	if limit <= 0 {
+		rows, err := r.queries.GetAllRecentHistory(ctx)
+		if err != nil {
+			return nil, err
+		}
+		return historyEntriesFromRows(rows), nil
+	}
 	rows, err := r.queries.GetRecentHistory(ctx, sqlc.GetRecentHistoryParams{
 		Limit:  int64(limit),
 		Offset: int64(offset),
@@ -499,6 +506,13 @@ func (r *historyRepo) GetRecentByDomain(ctx context.Context, domain string, limi
 	if domain == "" {
 		return nil, fmt.Errorf("history domain is required: %q", rawDomain)
 	}
+	if limit <= 0 {
+		rows, err := r.queries.GetAllRecentHistoryByDomain(ctx, sql.NullString{String: domain, Valid: true})
+		if err != nil {
+			return nil, err
+		}
+		return historyEntriesFromRows(rows), nil
+	}
 	rows, err := r.queries.GetRecentHistoryByDomain(ctx, sqlc.GetRecentHistoryByDomainParams{
 		Domain: sql.NullString{String: domain, Valid: true},
 		Limit:  int64(limit),
@@ -508,6 +522,58 @@ func (r *historyRepo) GetRecentByDomain(ctx context.Context, domain string, limi
 		return nil, err
 	}
 	return historyEntriesFromRows(rows), nil
+}
+
+func (r *historyRepo) GetRecentWindow(ctx context.Context, before, after time.Time) ([]*entity.HistoryEntry, error) {
+	rows, err := r.queries.GetRecentHistoryWindow(ctx, sqlc.GetRecentHistoryWindowParams{
+		Before: sql.NullTime{Time: before, Valid: true},
+		After:  sql.NullTime{Time: after, Valid: true},
+	})
+	if err != nil {
+		return nil, err
+	}
+	return historyEntriesFromRows(rows), nil
+}
+
+func (r *historyRepo) GetRecentWindowByDomain(ctx context.Context, domain string, before, after time.Time) ([]*entity.HistoryEntry, error) {
+	rawDomain := domain
+	domain = domainurl.CanonicalDomain(domain)
+	if domain == "" {
+		return nil, fmt.Errorf("history domain is required: %q", rawDomain)
+	}
+	rows, err := r.queries.GetRecentHistoryWindowByDomain(ctx, sqlc.GetRecentHistoryWindowByDomainParams{
+		Domain: sql.NullString{String: domain, Valid: true},
+		Before: sql.NullTime{Time: before, Valid: true},
+		After:  sql.NullTime{Time: after, Valid: true},
+	})
+	if err != nil {
+		return nil, err
+	}
+	return historyEntriesFromRows(rows), nil
+}
+
+func (r *historyRepo) HasEntriesBefore(ctx context.Context, before time.Time) (bool, error) {
+	value, err := r.queries.HasHistoryBefore(ctx, sql.NullTime{Time: before, Valid: true})
+	if err != nil {
+		return false, err
+	}
+	return value != 0, nil
+}
+
+func (r *historyRepo) HasEntriesByDomainBefore(ctx context.Context, domain string, before time.Time) (bool, error) {
+	rawDomain := domain
+	domain = domainurl.CanonicalDomain(domain)
+	if domain == "" {
+		return false, fmt.Errorf("history domain is required: %q", rawDomain)
+	}
+	value, err := r.queries.HasHistoryByDomainBefore(ctx, sqlc.HasHistoryByDomainBeforeParams{
+		Domain: sql.NullString{String: domain, Valid: true},
+		Before: sql.NullTime{Time: before, Valid: true},
+	})
+	if err != nil {
+		return false, err
+	}
+	return value != 0, nil
 }
 
 func (r *historyRepo) GetRecentSince(ctx context.Context, days int) ([]*entity.HistoryEntry, error) {

@@ -9,6 +9,7 @@ type FaviconService interface {
 	DiskPathPNG(domain string) string
 	HasPNGOnDisk(domain string) bool
 	HasPNGSizedOnDisk(domain string, size int) bool
+	DiskPathPNGSized(domain string, size int) string
 	EnsureSizedPNG(ctx context.Context, domain string, size int) error
 	EnsureCacheDir() error
 	// EnsureDiskCache ensures a favicon is written to the on-disk cache for the given
@@ -16,4 +17,10 @@ type FaviconService interface {
 	// the implementation and are not returned to the caller.
 	EnsureDiskCache(ctx context.Context, domain string)
 	Close()
+}
+
+// SystemviewFaviconServiceSetter is an optional engine capability that lets the
+// UI expose cached favicons to internal systemview pages without remote image loads.
+type SystemviewFaviconServiceSetter interface {
+	SetSystemviewFaviconService(service FaviconService)
 }

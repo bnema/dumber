@@ -108,6 +108,18 @@ func (c *Client) TimelineByDomain(ctx context.Context, domain string, limit, off
 	}{RequestID: nextRequestID(), Domain: domain, Limit: limit, Offset: offset})
 }
 
+func (c *Client) TimelineWindow(ctx context.Context, before time.Time, domain string) (*entity.HistoryWindow, error) {
+	beforeCursor := ""
+	if !before.IsZero() {
+		beforeCursor = before.Format(time.RFC3339Nano)
+	}
+	return request[*entity.HistoryWindow](c, ctx, "history_timeline_window", struct {
+		RequestID string `json:"requestId"`
+		Before    string `json:"before,omitempty"`
+		Domain    string `json:"domain,omitempty"`
+	}{RequestID: nextRequestID(), Before: beforeCursor, Domain: strings.TrimSpace(domain)})
+}
+
 func (c *Client) Search(ctx context.Context, query string, limit int) ([]*entity.HistoryEntry, error) {
 	if limit < 0 {
 		return nil, fmt.Errorf("search limit must be non-negative, got %d", limit)
@@ -183,6 +195,12 @@ func (c *Client) ResetAllKeybindings(ctx context.Context) error {
 		RequestID string `json:"requestId"`
 	}{RequestID: nextRequestID()})
 	return err
+}
+
+func (c *Client) Stats(ctx context.Context) (*entity.HistoryStats, error) {
+	return request[*entity.HistoryStats](c, ctx, "history_stats", struct {
+		RequestID string `json:"requestId"`
+	}{RequestID: nextRequestID()})
 }
 
 func (c *Client) Analytics(ctx context.Context) (*entity.HistoryAnalytics, error) {

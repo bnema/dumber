@@ -22,11 +22,13 @@ type HistorySearchOutput struct {
 type HomepageHistory interface {
 	GetRecent(ctx context.Context, limit, offset int) ([]*entity.HistoryEntry, error)
 	GetRecentByDomain(ctx context.Context, domain string, limit, offset int) ([]*entity.HistoryEntry, error)
+	GetRecentWindow(ctx context.Context, before time.Time, domain string) (*entity.HistoryWindow, error)
 	Search(ctx context.Context, input HistorySearchInput) (*HistorySearchOutput, error)
 	Delete(ctx context.Context, id int64) error
 	ClearRange(ctx context.Context, rangeID string) error
 	ClearAll(ctx context.Context) error
 	ClearOlderThan(ctx context.Context, before time.Time) error
+	GetStats(ctx context.Context) (*entity.HistoryStats, error)
 	GetAnalytics(ctx context.Context) (*entity.HistoryAnalytics, error)
 	GetDomainStats(ctx context.Context, limit int) ([]*entity.DomainStat, error)
 	DeleteByDomain(ctx context.Context, domain string) error

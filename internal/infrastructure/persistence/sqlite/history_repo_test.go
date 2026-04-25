@@ -191,6 +191,10 @@ func TestHistoryRepository_CRUD(t *testing.T) {
 	require.NoError(t, err)
 	require.Len(t, recent, 1)
 
+	allRecent, err := repo.GetRecent(ctx, 0, 0)
+	require.NoError(t, err)
+	require.Len(t, allRecent, 1)
+
 	// Delete
 	require.NoError(t, repo.Delete(ctx, found.ID))
 
@@ -862,7 +866,7 @@ func TestHistoryRepository_DomainColumnPowersFilteringStatsAndDelete(t *testing.
 	require.NoError(t, repo.Save(ctx, &entity.HistoryEntry{URL: "https://example.com/b", Title: "Example B"}))
 	require.NoError(t, repo.Save(ctx, &entity.HistoryEntry{URL: "https://other.test", Title: "Other"}))
 
-	exampleEntries, err := repo.GetRecentByDomain(ctx, "www.example.com", 10, 0)
+	exampleEntries, err := repo.GetRecentByDomain(ctx, "www.example.com", 0, 0)
 	require.NoError(t, err)
 	require.Len(t, exampleEntries, 2)
 	for _, entry := range exampleEntries {
