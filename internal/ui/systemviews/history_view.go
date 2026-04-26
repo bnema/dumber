@@ -52,12 +52,16 @@ func historyTimelineAppendHTML(data historyRenderData) string {
 }
 
 func historyDocumentTitle(data historyRenderData) string {
+	return "History " + historyTitleDetail(data)
+}
+
+func historyTitleDetail(data historyRenderData) string {
 	if data.Loading {
-		return "History - Loading"
+		return "- Loading"
 	}
 	entries, visits, days := historySummaryValues(data)
 	return fmt.Sprintf(
-		"History - %s, %s, %s",
+		"- %s, %s, %s",
 		historyCountLabel(entries, "entry", "entries"),
 		historyCountLabel(visits, "visit", "visits"),
 		historyCountLabel(days, "day", "days"),

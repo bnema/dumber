@@ -237,10 +237,11 @@ func (a *App) handleHistoryLoadMore(ctx context.Context, event DOMAction) error 
 		fullData.Entries = a.historyEntries
 		title := historyDocumentTitle(fullData)
 		a.renderedHTML = renderAppFrame(renderedPage{
-			route:    RouteHistory,
-			title:    title,
-			subtitle: title,
-			body:     historyHTML(fullData),
+			route:          RouteHistory,
+			title:          title,
+			subtitle:       "History",
+			subtitleDetail: historyTitleDetail(fullData),
+			body:           historyHTML(fullData),
 		}, a.shellTheme)
 		fallbackHTML = a.renderedHTML
 	}

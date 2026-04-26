@@ -16,10 +16,11 @@ type kvPair struct {
 // renderedPage holds the data needed by renderAppFrame to produce the shell
 // fragment. Route views populate this; the app frame wraps it.
 type renderedPage struct {
-	route    Route
-	title    string
-	subtitle string
-	body     string
+	route          Route
+	title          string
+	subtitle       string
+	subtitleDetail string
+	body           string
 }
 
 // renderAppFrame produces a self-contained HTML fragment (no <html>, <head>,

@@ -515,10 +515,11 @@ func (a *App) loadHistoryLoadingRoute() {
 	}
 	title := historyDocumentTitle(data)
 	a.renderedHTML = renderAppFrame(renderedPage{
-		route:    RouteHistory,
-		title:    title,
-		subtitle: title,
-		body:     historyHTML(data),
+		route:          RouteHistory,
+		title:          title,
+		subtitle:       "History",
+		subtitleDetail: historyTitleDetail(data),
+		body:           historyHTML(data),
 	}, a.shellTheme)
 }
 
@@ -633,10 +634,11 @@ func (a *App) renderHistoryRouteSnapshot(ctx context.Context, snapshot historyRo
 	}
 	title := historyDocumentTitle(data)
 	result.html = renderAppFrame(renderedPage{
-		route:    RouteHistory,
-		title:    title,
-		subtitle: title,
-		body:     historyHTML(data),
+		route:          RouteHistory,
+		title:          title,
+		subtitle:       "History",
+		subtitleDetail: historyTitleDetail(data),
+		body:           historyHTML(data),
 	}, snapshot.shellTheme)
 	return result, nil
 }

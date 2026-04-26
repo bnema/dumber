@@ -8,7 +8,12 @@ templ appFrameComponent(page renderedPage, theme shellTheme, body templ.Componen
 	>
 		<div class="sv-shell">
 			if page.subtitle != "" {
-				<h1 class="sv-title">{ page.subtitle }</h1>
+				<h1 class="sv-title">
+					{ page.subtitle }
+					if page.subtitleDetail != "" {
+						<span class="sv-title-detail">{ page.subtitleDetail }</span>
+					}
+				</h1>
 			}
 			<div class="sv-content">
 				@body

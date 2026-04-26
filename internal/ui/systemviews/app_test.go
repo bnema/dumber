@@ -111,7 +111,7 @@ func TestAppLoadInitialHistoryRouteShowsTotalStatsWithWindowedTimeline(t *testin
 	assert.True(t, history.statsCalled)
 	assert.Contains(t, app.renderedHTML, "Loaded 2 items")
 	assert.Contains(t, app.renderedHTML, `data-page-title="History - 8904 entries, 40947 visits, 121 days"`)
-	assert.Contains(t, app.renderedHTML, `<h1 class="sv-title">History - 8904 entries, 40947 visits, 121 days</h1>`)
+	assert.Contains(t, app.renderedHTML, `<h1 class="sv-title">History <span class="sv-title-detail">- 8904 entries, 40947 visits, 121 days</span></h1>`)
 	assert.NotContains(t, app.renderedHTML, `sv-history-summary`)
 	assert.NotContains(t, app.renderedHTML, `sv-stat-value`)
 }
