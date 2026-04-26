@@ -5052,6 +5052,63 @@ func (_c *MockFaviconService_DiskPathPNG_Call) RunAndReturn(run func(domain stri
 	return _c
 }
 
+// DiskPathPNGSized provides a mock function for the type MockFaviconService
+func (_mock *MockFaviconService) DiskPathPNGSized(domain string, size int) string {
+	ret := _mock.Called(domain, size)
+
+	if len(ret) == 0 {
+		panic("no return value specified for DiskPathPNGSized")
+	}
+
+	var r0 string
+	if returnFunc, ok := ret.Get(0).(func(string, int) string); ok {
+		r0 = returnFunc(domain, size)
+	} else {
+		r0 = ret.Get(0).(string)
+	}
+	return r0
+}
+
+// MockFaviconService_DiskPathPNGSized_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'DiskPathPNGSized'
+type MockFaviconService_DiskPathPNGSized_Call struct {
+	*mock.Call
+}
+
+// DiskPathPNGSized is a helper method to define mock.On call
+//   - domain string
+//   - size int
+func (_e *MockFaviconService_Expecter) DiskPathPNGSized(domain interface{}, size interface{}) *MockFaviconService_DiskPathPNGSized_Call {
+	return &MockFaviconService_DiskPathPNGSized_Call{Call: _e.mock.On("DiskPathPNGSized", domain, size)}
+}
+
+func (_c *MockFaviconService_DiskPathPNGSized_Call) Run(run func(domain string, size int)) *MockFaviconService_DiskPathPNGSized_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		var arg0 string
+		if args[0] != nil {
+			arg0 = args[0].(string)
+		}
+		var arg1 int
+		if args[1] != nil {
+			arg1 = args[1].(int)
+		}
+		run(
+			arg0,
+			arg1,
+		)
+	})
+	return _c
+}
+
+func (_c *MockFaviconService_DiskPathPNGSized_Call) Return(s string) *MockFaviconService_DiskPathPNGSized_Call {
+	_c.Call.Return(s)
+	return _c
+}
+
+func (_c *MockFaviconService_DiskPathPNGSized_Call) RunAndReturn(run func(domain string, size int) string) *MockFaviconService_DiskPathPNGSized_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
 // EnsureCacheDir provides a mock function for the type MockFaviconService
 func (_mock *MockFaviconService) EnsureCacheDir() error {
 	ret := _mock.Called()
@@ -6547,6 +6604,63 @@ func (_c *MockHomepageHistory_ClearOlderThan_Call) RunAndReturn(run func(ctx con
 	return _c
 }
 
+// ClearRange provides a mock function for the type MockHomepageHistory
+func (_mock *MockHomepageHistory) ClearRange(ctx context.Context, rangeID string) error {
+	ret := _mock.Called(ctx, rangeID)
+
+	if len(ret) == 0 {
+		panic("no return value specified for ClearRange")
+	}
+
+	var r0 error
+	if returnFunc, ok := ret.Get(0).(func(context.Context, string) error); ok {
+		r0 = returnFunc(ctx, rangeID)
+	} else {
+		r0 = ret.Error(0)
+	}
+	return r0
+}
+
+// MockHomepageHistory_ClearRange_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'ClearRange'
+type MockHomepageHistory_ClearRange_Call struct {
+	*mock.Call
+}
+
+// ClearRange is a helper method to define mock.On call
+//   - ctx context.Context
+//   - rangeID string
+func (_e *MockHomepageHistory_Expecter) ClearRange(ctx interface{}, rangeID interface{}) *MockHomepageHistory_ClearRange_Call {
+	return &MockHomepageHistory_ClearRange_Call{Call: _e.mock.On("ClearRange", ctx, rangeID)}
+}
+
+func (_c *MockHomepageHistory_ClearRange_Call) Run(run func(ctx context.Context, rangeID string)) *MockHomepageHistory_ClearRange_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		var arg0 context.Context
+		if args[0] != nil {
+			arg0 = args[0].(context.Context)
+		}
+		var arg1 string
+		if args[1] != nil {
+			arg1 = args[1].(string)
+		}
+		run(
+			arg0,
+			arg1,
+		)
+	})
+	return _c
+}
+
+func (_c *MockHomepageHistory_ClearRange_Call) Return(err error) *MockHomepageHistory_ClearRange_Call {
+	_c.Call.Return(err)
+	return _c
+}
+
+func (_c *MockHomepageHistory_ClearRange_Call) RunAndReturn(run func(ctx context.Context, rangeID string) error) *MockHomepageHistory_ClearRange_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
 // Delete provides a mock function for the type MockHomepageHistory
 func (_mock *MockHomepageHistory) Delete(ctx context.Context, id int64) error {
 	ret := _mock.Called(ctx, id)
@@ -6865,27 +6979,243 @@ func (_c *MockHomepageHistory_GetRecent_Call) RunAndReturn(run func(ctx context.
 	return _c
 }
 
+// GetRecentByDomain provides a mock function for the type MockHomepageHistory
+func (_mock *MockHomepageHistory) GetRecentByDomain(ctx context.Context, domain string, limit int, offset int) ([]*entity.HistoryEntry, error) {
+	ret := _mock.Called(ctx, domain, limit, offset)
+
+	if len(ret) == 0 {
+		panic("no return value specified for GetRecentByDomain")
+	}
+
+	var r0 []*entity.HistoryEntry
+	var r1 error
+	if returnFunc, ok := ret.Get(0).(func(context.Context, string, int, int) ([]*entity.HistoryEntry, error)); ok {
+		return returnFunc(ctx, domain, limit, offset)
+	}
+	if returnFunc, ok := ret.Get(0).(func(context.Context, string, int, int) []*entity.HistoryEntry); ok {
+		r0 = returnFunc(ctx, domain, limit, offset)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).([]*entity.HistoryEntry)
+		}
+	}
+	if returnFunc, ok := ret.Get(1).(func(context.Context, string, int, int) error); ok {
+		r1 = returnFunc(ctx, domain, limit, offset)
+	} else {
+		r1 = ret.Error(1)
+	}
+	return r0, r1
+}
+
+// MockHomepageHistory_GetRecentByDomain_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'GetRecentByDomain'
+type MockHomepageHistory_GetRecentByDomain_Call struct {
+	*mock.Call
+}
+
+// GetRecentByDomain is a helper method to define mock.On call
+//   - ctx context.Context
+//   - domain string
+//   - limit int
+//   - offset int
+func (_e *MockHomepageHistory_Expecter) GetRecentByDomain(ctx interface{}, domain interface{}, limit interface{}, offset interface{}) *MockHomepageHistory_GetRecentByDomain_Call {
+	return &MockHomepageHistory_GetRecentByDomain_Call{Call: _e.mock.On("GetRecentByDomain", ctx, domain, limit, offset)}
+}
+
+func (_c *MockHomepageHistory_GetRecentByDomain_Call) Run(run func(ctx context.Context, domain string, limit int, offset int)) *MockHomepageHistory_GetRecentByDomain_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		var arg0 context.Context
+		if args[0] != nil {
+			arg0 = args[0].(context.Context)
+		}
+		var arg1 string
+		if args[1] != nil {
+			arg1 = args[1].(string)
+		}
+		var arg2 int
+		if args[2] != nil {
+			arg2 = args[2].(int)
+		}
+		var arg3 int
+		if args[3] != nil {
+			arg3 = args[3].(int)
+		}
+		run(
+			arg0,
+			arg1,
+			arg2,
+			arg3,
+		)
+	})
+	return _c
+}
+
+func (_c *MockHomepageHistory_GetRecentByDomain_Call) Return(historyEntrys []*entity.HistoryEntry, err error) *MockHomepageHistory_GetRecentByDomain_Call {
+	_c.Call.Return(historyEntrys, err)
+	return _c
+}
+
+func (_c *MockHomepageHistory_GetRecentByDomain_Call) RunAndReturn(run func(ctx context.Context, domain string, limit int, offset int) ([]*entity.HistoryEntry, error)) *MockHomepageHistory_GetRecentByDomain_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
+// GetRecentWindow provides a mock function for the type MockHomepageHistory
+func (_mock *MockHomepageHistory) GetRecentWindow(ctx context.Context, before time.Time, domain string) (*entity.HistoryWindow, error) {
+	ret := _mock.Called(ctx, before, domain)
+
+	if len(ret) == 0 {
+		panic("no return value specified for GetRecentWindow")
+	}
+
+	var r0 *entity.HistoryWindow
+	var r1 error
+	if returnFunc, ok := ret.Get(0).(func(context.Context, time.Time, string) (*entity.HistoryWindow, error)); ok {
+		return returnFunc(ctx, before, domain)
+	}
+	if returnFunc, ok := ret.Get(0).(func(context.Context, time.Time, string) *entity.HistoryWindow); ok {
+		r0 = returnFunc(ctx, before, domain)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(*entity.HistoryWindow)
+		}
+	}
+	if returnFunc, ok := ret.Get(1).(func(context.Context, time.Time, string) error); ok {
+		r1 = returnFunc(ctx, before, domain)
+	} else {
+		r1 = ret.Error(1)
+	}
+	return r0, r1
+}
+
+// MockHomepageHistory_GetRecentWindow_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'GetRecentWindow'
+type MockHomepageHistory_GetRecentWindow_Call struct {
+	*mock.Call
+}
+
+// GetRecentWindow is a helper method to define mock.On call
+//   - ctx context.Context
+//   - before time.Time
+//   - domain string
+func (_e *MockHomepageHistory_Expecter) GetRecentWindow(ctx interface{}, before interface{}, domain interface{}) *MockHomepageHistory_GetRecentWindow_Call {
+	return &MockHomepageHistory_GetRecentWindow_Call{Call: _e.mock.On("GetRecentWindow", ctx, before, domain)}
+}
+
+func (_c *MockHomepageHistory_GetRecentWindow_Call) Run(run func(ctx context.Context, before time.Time, domain string)) *MockHomepageHistory_GetRecentWindow_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		var arg0 context.Context
+		if args[0] != nil {
+			arg0 = args[0].(context.Context)
+		}
+		var arg1 time.Time
+		if args[1] != nil {
+			arg1 = args[1].(time.Time)
+		}
+		var arg2 string
+		if args[2] != nil {
+			arg2 = args[2].(string)
+		}
+		run(
+			arg0,
+			arg1,
+			arg2,
+		)
+	})
+	return _c
+}
+
+func (_c *MockHomepageHistory_GetRecentWindow_Call) Return(historyWindow *entity.HistoryWindow, err error) *MockHomepageHistory_GetRecentWindow_Call {
+	_c.Call.Return(historyWindow, err)
+	return _c
+}
+
+func (_c *MockHomepageHistory_GetRecentWindow_Call) RunAndReturn(run func(ctx context.Context, before time.Time, domain string) (*entity.HistoryWindow, error)) *MockHomepageHistory_GetRecentWindow_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
+// GetStats provides a mock function for the type MockHomepageHistory
+func (_mock *MockHomepageHistory) GetStats(ctx context.Context) (*entity.HistoryStats, error) {
+	ret := _mock.Called(ctx)
+
+	if len(ret) == 0 {
+		panic("no return value specified for GetStats")
+	}
+
+	var r0 *entity.HistoryStats
+	var r1 error
+	if returnFunc, ok := ret.Get(0).(func(context.Context) (*entity.HistoryStats, error)); ok {
+		return returnFunc(ctx)
+	}
+	if returnFunc, ok := ret.Get(0).(func(context.Context) *entity.HistoryStats); ok {
+		r0 = returnFunc(ctx)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(*entity.HistoryStats)
+		}
+	}
+	if returnFunc, ok := ret.Get(1).(func(context.Context) error); ok {
+		r1 = returnFunc(ctx)
+	} else {
+		r1 = ret.Error(1)
+	}
+	return r0, r1
+}
+
+// MockHomepageHistory_GetStats_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'GetStats'
+type MockHomepageHistory_GetStats_Call struct {
+	*mock.Call
+}
+
+// GetStats is a helper method to define mock.On call
+//   - ctx context.Context
+func (_e *MockHomepageHistory_Expecter) GetStats(ctx interface{}) *MockHomepageHistory_GetStats_Call {
+	return &MockHomepageHistory_GetStats_Call{Call: _e.mock.On("GetStats", ctx)}
+}
+
+func (_c *MockHomepageHistory_GetStats_Call) Run(run func(ctx context.Context)) *MockHomepageHistory_GetStats_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		var arg0 context.Context
+		if args[0] != nil {
+			arg0 = args[0].(context.Context)
+		}
+		run(
+			arg0,
+		)
+	})
+	return _c
+}
+
+func (_c *MockHomepageHistory_GetStats_Call) Return(historyStats *entity.HistoryStats, err error) *MockHomepageHistory_GetStats_Call {
+	_c.Call.Return(historyStats, err)
+	return _c
+}
+
+func (_c *MockHomepageHistory_GetStats_Call) RunAndReturn(run func(ctx context.Context) (*entity.HistoryStats, error)) *MockHomepageHistory_GetStats_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
 // Search provides a mock function for the type MockHomepageHistory
-func (_mock *MockHomepageHistory) Search(ctx context.Context, input port.HistorySearchInput) (*port.HistorySearchOutput, error) {
+func (_mock *MockHomepageHistory) Search(ctx context.Context, input dto.HistorySearchInput) (*dto.HistorySearchOutput, error) {
 	ret := _mock.Called(ctx, input)
 
 	if len(ret) == 0 {
 		panic("no return value specified for Search")
 	}
 
-	var r0 *port.HistorySearchOutput
+	var r0 *dto.HistorySearchOutput
 	var r1 error
-	if returnFunc, ok := ret.Get(0).(func(context.Context, port.HistorySearchInput) (*port.HistorySearchOutput, error)); ok {
+	if returnFunc, ok := ret.Get(0).(func(context.Context, dto.HistorySearchInput) (*dto.HistorySearchOutput, error)); ok {
 		return returnFunc(ctx, input)
 	}
-	if returnFunc, ok := ret.Get(0).(func(context.Context, port.HistorySearchInput) *port.HistorySearchOutput); ok {
+	if returnFunc, ok := ret.Get(0).(func(context.Context, dto.HistorySearchInput) *dto.HistorySearchOutput); ok {
 		r0 = returnFunc(ctx, input)
 	} else {
 		if ret.Get(0) != nil {
-			r0 = ret.Get(0).(*port.HistorySearchOutput)
+			r0 = ret.Get(0).(*dto.HistorySearchOutput)
 		}
 	}
-	if returnFunc, ok := ret.Get(1).(func(context.Context, port.HistorySearchInput) error); ok {
+	if returnFunc, ok := ret.Get(1).(func(context.Context, dto.HistorySearchInput) error); ok {
 		r1 = returnFunc(ctx, input)
 	} else {
 		r1 = ret.Error(1)
@@ -6900,20 +7230,20 @@ type MockHomepageHistory_Search_Call struct {
 
 // Search is a helper method to define mock.On call
 //   - ctx context.Context
-//   - input port.HistorySearchInput
+//   - input dto.HistorySearchInput
 func (_e *MockHomepageHistory_Expecter) Search(ctx interface{}, input interface{}) *MockHomepageHistory_Search_Call {
 	return &MockHomepageHistory_Search_Call{Call: _e.mock.On("Search", ctx, input)}
 }
 
-func (_c *MockHomepageHistory_Search_Call) Run(run func(ctx context.Context, input port.HistorySearchInput)) *MockHomepageHistory_Search_Call {
+func (_c *MockHomepageHistory_Search_Call) Run(run func(ctx context.Context, input dto.HistorySearchInput)) *MockHomepageHistory_Search_Call {
 	_c.Call.Run(func(args mock.Arguments) {
 		var arg0 context.Context
 		if args[0] != nil {
 			arg0 = args[0].(context.Context)
 		}
-		var arg1 port.HistorySearchInput
+		var arg1 dto.HistorySearchInput
 		if args[1] != nil {
-			arg1 = args[1].(port.HistorySearchInput)
+			arg1 = args[1].(dto.HistorySearchInput)
 		}
 		run(
 			arg0,
@@ -6923,12 +7253,12 @@ func (_c *MockHomepageHistory_Search_Call) Run(run func(ctx context.Context, inp
 	return _c
 }
 
-func (_c *MockHomepageHistory_Search_Call) Return(historySearchOutput *port.HistorySearchOutput, err error) *MockHomepageHistory_Search_Call {
+func (_c *MockHomepageHistory_Search_Call) Return(historySearchOutput *dto.HistorySearchOutput, err error) *MockHomepageHistory_Search_Call {
 	_c.Call.Return(historySearchOutput, err)
 	return _c
 }
 
-func (_c *MockHomepageHistory_Search_Call) RunAndReturn(run func(ctx context.Context, input port.HistorySearchInput) (*port.HistorySearchOutput, error)) *MockHomepageHistory_Search_Call {
+func (_c *MockHomepageHistory_Search_Call) RunAndReturn(run func(ctx context.Context, input dto.HistorySearchInput) (*dto.HistorySearchOutput, error)) *MockHomepageHistory_Search_Call {
 	_c.Call.Return(run)
 	return _c
 }
@@ -6958,6 +7288,74 @@ type MockHomepageFavorites_Expecter struct {
 
 func (_m *MockHomepageFavorites) EXPECT() *MockHomepageFavorites_Expecter {
 	return &MockHomepageFavorites_Expecter{mock: &_m.Mock}
+}
+
+// AddFavorite provides a mock function for the type MockHomepageFavorites
+func (_mock *MockHomepageFavorites) AddFavorite(ctx context.Context, input dto.FavoriteCreateInput) (*entity.Favorite, error) {
+	ret := _mock.Called(ctx, input)
+
+	if len(ret) == 0 {
+		panic("no return value specified for AddFavorite")
+	}
+
+	var r0 *entity.Favorite
+	var r1 error
+	if returnFunc, ok := ret.Get(0).(func(context.Context, dto.FavoriteCreateInput) (*entity.Favorite, error)); ok {
+		return returnFunc(ctx, input)
+	}
+	if returnFunc, ok := ret.Get(0).(func(context.Context, dto.FavoriteCreateInput) *entity.Favorite); ok {
+		r0 = returnFunc(ctx, input)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(*entity.Favorite)
+		}
+	}
+	if returnFunc, ok := ret.Get(1).(func(context.Context, dto.FavoriteCreateInput) error); ok {
+		r1 = returnFunc(ctx, input)
+	} else {
+		r1 = ret.Error(1)
+	}
+	return r0, r1
+}
+
+// MockHomepageFavorites_AddFavorite_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'AddFavorite'
+type MockHomepageFavorites_AddFavorite_Call struct {
+	*mock.Call
+}
+
+// AddFavorite is a helper method to define mock.On call
+//   - ctx context.Context
+//   - input dto.FavoriteCreateInput
+func (_e *MockHomepageFavorites_Expecter) AddFavorite(ctx interface{}, input interface{}) *MockHomepageFavorites_AddFavorite_Call {
+	return &MockHomepageFavorites_AddFavorite_Call{Call: _e.mock.On("AddFavorite", ctx, input)}
+}
+
+func (_c *MockHomepageFavorites_AddFavorite_Call) Run(run func(ctx context.Context, input dto.FavoriteCreateInput)) *MockHomepageFavorites_AddFavorite_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		var arg0 context.Context
+		if args[0] != nil {
+			arg0 = args[0].(context.Context)
+		}
+		var arg1 dto.FavoriteCreateInput
+		if args[1] != nil {
+			arg1 = args[1].(dto.FavoriteCreateInput)
+		}
+		run(
+			arg0,
+			arg1,
+		)
+	})
+	return _c
+}
+
+func (_c *MockHomepageFavorites_AddFavorite_Call) Return(favorite *entity.Favorite, err error) *MockHomepageFavorites_AddFavorite_Call {
+	_c.Call.Return(favorite, err)
+	return _c
+}
+
+func (_c *MockHomepageFavorites_AddFavorite_Call) RunAndReturn(run func(ctx context.Context, input dto.FavoriteCreateInput) (*entity.Favorite, error)) *MockHomepageFavorites_AddFavorite_Call {
+	_c.Call.Return(run)
+	return _c
 }
 
 // AddTag provides a mock function for the type MockHomepageFavorites
@@ -7035,8 +7433,8 @@ func (_c *MockHomepageFavorites_AddTag_Call) RunAndReturn(run func(ctx context.C
 }
 
 // CreateFolder provides a mock function for the type MockHomepageFavorites
-func (_mock *MockHomepageFavorites) CreateFolder(ctx context.Context, name string, parentID *entity.FolderID) (*entity.Folder, error) {
-	ret := _mock.Called(ctx, name, parentID)
+func (_mock *MockHomepageFavorites) CreateFolder(ctx context.Context, name string, icon string, parentID *entity.FolderID) (*entity.Folder, error) {
+	ret := _mock.Called(ctx, name, icon, parentID)
 
 	if len(ret) == 0 {
 		panic("no return value specified for CreateFolder")
@@ -7044,18 +7442,18 @@ func (_mock *MockHomepageFavorites) CreateFolder(ctx context.Context, name strin
 
 	var r0 *entity.Folder
 	var r1 error
-	if returnFunc, ok := ret.Get(0).(func(context.Context, string, *entity.FolderID) (*entity.Folder, error)); ok {
-		return returnFunc(ctx, name, parentID)
+	if returnFunc, ok := ret.Get(0).(func(context.Context, string, string, *entity.FolderID) (*entity.Folder, error)); ok {
+		return returnFunc(ctx, name, icon, parentID)
 	}
-	if returnFunc, ok := ret.Get(0).(func(context.Context, string, *entity.FolderID) *entity.Folder); ok {
-		r0 = returnFunc(ctx, name, parentID)
+	if returnFunc, ok := ret.Get(0).(func(context.Context, string, string, *entity.FolderID) *entity.Folder); ok {
+		r0 = returnFunc(ctx, name, icon, parentID)
 	} else {
 		if ret.Get(0) != nil {
 			r0 = ret.Get(0).(*entity.Folder)
 		}
 	}
-	if returnFunc, ok := ret.Get(1).(func(context.Context, string, *entity.FolderID) error); ok {
-		r1 = returnFunc(ctx, name, parentID)
+	if returnFunc, ok := ret.Get(1).(func(context.Context, string, string, *entity.FolderID) error); ok {
+		r1 = returnFunc(ctx, name, icon, parentID)
 	} else {
 		r1 = ret.Error(1)
 	}
@@ -7070,12 +7468,13 @@ type MockHomepageFavorites_CreateFolder_Call struct {
 // CreateFolder is a helper method to define mock.On call
 //   - ctx context.Context
 //   - name string
+//   - icon string
 //   - parentID *entity.FolderID
-func (_e *MockHomepageFavorites_Expecter) CreateFolder(ctx interface{}, name interface{}, parentID interface{}) *MockHomepageFavorites_CreateFolder_Call {
-	return &MockHomepageFavorites_CreateFolder_Call{Call: _e.mock.On("CreateFolder", ctx, name, parentID)}
+func (_e *MockHomepageFavorites_Expecter) CreateFolder(ctx interface{}, name interface{}, icon interface{}, parentID interface{}) *MockHomepageFavorites_CreateFolder_Call {
+	return &MockHomepageFavorites_CreateFolder_Call{Call: _e.mock.On("CreateFolder", ctx, name, icon, parentID)}
 }
 
-func (_c *MockHomepageFavorites_CreateFolder_Call) Run(run func(ctx context.Context, name string, parentID *entity.FolderID)) *MockHomepageFavorites_CreateFolder_Call {
+func (_c *MockHomepageFavorites_CreateFolder_Call) Run(run func(ctx context.Context, name string, icon string, parentID *entity.FolderID)) *MockHomepageFavorites_CreateFolder_Call {
 	_c.Call.Run(func(args mock.Arguments) {
 		var arg0 context.Context
 		if args[0] != nil {
@@ -7085,14 +7484,19 @@ func (_c *MockHomepageFavorites_CreateFolder_Call) Run(run func(ctx context.Cont
 		if args[1] != nil {
 			arg1 = args[1].(string)
 		}
-		var arg2 *entity.FolderID
+		var arg2 string
 		if args[2] != nil {
-			arg2 = args[2].(*entity.FolderID)
+			arg2 = args[2].(string)
+		}
+		var arg3 *entity.FolderID
+		if args[3] != nil {
+			arg3 = args[3].(*entity.FolderID)
 		}
 		run(
 			arg0,
 			arg1,
 			arg2,
+			arg3,
 		)
 	})
 	return _c
@@ -7103,7 +7507,64 @@ func (_c *MockHomepageFavorites_CreateFolder_Call) Return(folder *entity.Folder,
 	return _c
 }
 
-func (_c *MockHomepageFavorites_CreateFolder_Call) RunAndReturn(run func(ctx context.Context, name string, parentID *entity.FolderID) (*entity.Folder, error)) *MockHomepageFavorites_CreateFolder_Call {
+func (_c *MockHomepageFavorites_CreateFolder_Call) RunAndReturn(run func(ctx context.Context, name string, icon string, parentID *entity.FolderID) (*entity.Folder, error)) *MockHomepageFavorites_CreateFolder_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
+// DeleteFavorite provides a mock function for the type MockHomepageFavorites
+func (_mock *MockHomepageFavorites) DeleteFavorite(ctx context.Context, id entity.FavoriteID) error {
+	ret := _mock.Called(ctx, id)
+
+	if len(ret) == 0 {
+		panic("no return value specified for DeleteFavorite")
+	}
+
+	var r0 error
+	if returnFunc, ok := ret.Get(0).(func(context.Context, entity.FavoriteID) error); ok {
+		r0 = returnFunc(ctx, id)
+	} else {
+		r0 = ret.Error(0)
+	}
+	return r0
+}
+
+// MockHomepageFavorites_DeleteFavorite_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'DeleteFavorite'
+type MockHomepageFavorites_DeleteFavorite_Call struct {
+	*mock.Call
+}
+
+// DeleteFavorite is a helper method to define mock.On call
+//   - ctx context.Context
+//   - id entity.FavoriteID
+func (_e *MockHomepageFavorites_Expecter) DeleteFavorite(ctx interface{}, id interface{}) *MockHomepageFavorites_DeleteFavorite_Call {
+	return &MockHomepageFavorites_DeleteFavorite_Call{Call: _e.mock.On("DeleteFavorite", ctx, id)}
+}
+
+func (_c *MockHomepageFavorites_DeleteFavorite_Call) Run(run func(ctx context.Context, id entity.FavoriteID)) *MockHomepageFavorites_DeleteFavorite_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		var arg0 context.Context
+		if args[0] != nil {
+			arg0 = args[0].(context.Context)
+		}
+		var arg1 entity.FavoriteID
+		if args[1] != nil {
+			arg1 = args[1].(entity.FavoriteID)
+		}
+		run(
+			arg0,
+			arg1,
+		)
+	})
+	return _c
+}
+
+func (_c *MockHomepageFavorites_DeleteFavorite_Call) Return(err error) *MockHomepageFavorites_DeleteFavorite_Call {
+	_c.Call.Return(err)
+	return _c
+}
+
+func (_c *MockHomepageFavorites_DeleteFavorite_Call) RunAndReturn(run func(ctx context.Context, id entity.FavoriteID) error) *MockHomepageFavorites_DeleteFavorite_Call {
 	_c.Call.Return(run)
 	return _c
 }
@@ -7724,6 +8185,74 @@ func (_c *MockHomepageFavorites_UntagFavorite_Call) Return(err error) *MockHomep
 }
 
 func (_c *MockHomepageFavorites_UntagFavorite_Call) RunAndReturn(run func(ctx context.Context, favID entity.FavoriteID, tagID entity.TagID) error) *MockHomepageFavorites_UntagFavorite_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
+// UpdateFavorite provides a mock function for the type MockHomepageFavorites
+func (_mock *MockHomepageFavorites) UpdateFavorite(ctx context.Context, input dto.FavoriteUpdateInput) (*entity.Favorite, error) {
+	ret := _mock.Called(ctx, input)
+
+	if len(ret) == 0 {
+		panic("no return value specified for UpdateFavorite")
+	}
+
+	var r0 *entity.Favorite
+	var r1 error
+	if returnFunc, ok := ret.Get(0).(func(context.Context, dto.FavoriteUpdateInput) (*entity.Favorite, error)); ok {
+		return returnFunc(ctx, input)
+	}
+	if returnFunc, ok := ret.Get(0).(func(context.Context, dto.FavoriteUpdateInput) *entity.Favorite); ok {
+		r0 = returnFunc(ctx, input)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(*entity.Favorite)
+		}
+	}
+	if returnFunc, ok := ret.Get(1).(func(context.Context, dto.FavoriteUpdateInput) error); ok {
+		r1 = returnFunc(ctx, input)
+	} else {
+		r1 = ret.Error(1)
+	}
+	return r0, r1
+}
+
+// MockHomepageFavorites_UpdateFavorite_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'UpdateFavorite'
+type MockHomepageFavorites_UpdateFavorite_Call struct {
+	*mock.Call
+}
+
+// UpdateFavorite is a helper method to define mock.On call
+//   - ctx context.Context
+//   - input dto.FavoriteUpdateInput
+func (_e *MockHomepageFavorites_Expecter) UpdateFavorite(ctx interface{}, input interface{}) *MockHomepageFavorites_UpdateFavorite_Call {
+	return &MockHomepageFavorites_UpdateFavorite_Call{Call: _e.mock.On("UpdateFavorite", ctx, input)}
+}
+
+func (_c *MockHomepageFavorites_UpdateFavorite_Call) Run(run func(ctx context.Context, input dto.FavoriteUpdateInput)) *MockHomepageFavorites_UpdateFavorite_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		var arg0 context.Context
+		if args[0] != nil {
+			arg0 = args[0].(context.Context)
+		}
+		var arg1 dto.FavoriteUpdateInput
+		if args[1] != nil {
+			arg1 = args[1].(dto.FavoriteUpdateInput)
+		}
+		run(
+			arg0,
+			arg1,
+		)
+	})
+	return _c
+}
+
+func (_c *MockHomepageFavorites_UpdateFavorite_Call) Return(favorite *entity.Favorite, err error) *MockHomepageFavorites_UpdateFavorite_Call {
+	_c.Call.Return(favorite, err)
+	return _c
+}
+
+func (_c *MockHomepageFavorites_UpdateFavorite_Call) RunAndReturn(run func(ctx context.Context, input dto.FavoriteUpdateInput) (*entity.Favorite, error)) *MockHomepageFavorites_UpdateFavorite_Call {
 	_c.Call.Return(run)
 	return _c
 }
@@ -11749,6 +12278,153 @@ func (_c *MockUpdateApplier_StageUpdate_Call) RunAndReturn(run func(ctx context.
 	return _c
 }
 
+// NewMockSystemviewConfigReader creates a new instance of MockSystemviewConfigReader. It also registers a testing interface on the mock and a cleanup function to assert the mocks expectations.
+// The first argument is typically a *testing.T value.
+func NewMockSystemviewConfigReader(t interface {
+	mock.TestingT
+	Cleanup(func())
+}) *MockSystemviewConfigReader {
+	mock := &MockSystemviewConfigReader{}
+	mock.Mock.Test(t)
+
+	t.Cleanup(func() { mock.AssertExpectations(t) })
+
+	return mock
+}
+
+// MockSystemviewConfigReader is an autogenerated mock type for the SystemviewConfigReader type
+type MockSystemviewConfigReader struct {
+	mock.Mock
+}
+
+type MockSystemviewConfigReader_Expecter struct {
+	mock *mock.Mock
+}
+
+func (_m *MockSystemviewConfigReader) EXPECT() *MockSystemviewConfigReader_Expecter {
+	return &MockSystemviewConfigReader_Expecter{mock: &_m.Mock}
+}
+
+// Current provides a mock function for the type MockSystemviewConfigReader
+func (_mock *MockSystemviewConfigReader) Current(ctx context.Context) (dto.SystemviewConfigPayload, error) {
+	ret := _mock.Called(ctx)
+
+	if len(ret) == 0 {
+		panic("no return value specified for Current")
+	}
+
+	var r0 dto.SystemviewConfigPayload
+	var r1 error
+	if returnFunc, ok := ret.Get(0).(func(context.Context) (dto.SystemviewConfigPayload, error)); ok {
+		return returnFunc(ctx)
+	}
+	if returnFunc, ok := ret.Get(0).(func(context.Context) dto.SystemviewConfigPayload); ok {
+		r0 = returnFunc(ctx)
+	} else {
+		r0 = ret.Get(0).(dto.SystemviewConfigPayload)
+	}
+	if returnFunc, ok := ret.Get(1).(func(context.Context) error); ok {
+		r1 = returnFunc(ctx)
+	} else {
+		r1 = ret.Error(1)
+	}
+	return r0, r1
+}
+
+// MockSystemviewConfigReader_Current_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'Current'
+type MockSystemviewConfigReader_Current_Call struct {
+	*mock.Call
+}
+
+// Current is a helper method to define mock.On call
+//   - ctx context.Context
+func (_e *MockSystemviewConfigReader_Expecter) Current(ctx interface{}) *MockSystemviewConfigReader_Current_Call {
+	return &MockSystemviewConfigReader_Current_Call{Call: _e.mock.On("Current", ctx)}
+}
+
+func (_c *MockSystemviewConfigReader_Current_Call) Run(run func(ctx context.Context)) *MockSystemviewConfigReader_Current_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		var arg0 context.Context
+		if args[0] != nil {
+			arg0 = args[0].(context.Context)
+		}
+		run(
+			arg0,
+		)
+	})
+	return _c
+}
+
+func (_c *MockSystemviewConfigReader_Current_Call) Return(systemviewConfigPayload dto.SystemviewConfigPayload, err error) *MockSystemviewConfigReader_Current_Call {
+	_c.Call.Return(systemviewConfigPayload, err)
+	return _c
+}
+
+func (_c *MockSystemviewConfigReader_Current_Call) RunAndReturn(run func(ctx context.Context) (dto.SystemviewConfigPayload, error)) *MockSystemviewConfigReader_Current_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
+// Default provides a mock function for the type MockSystemviewConfigReader
+func (_mock *MockSystemviewConfigReader) Default(ctx context.Context) (dto.SystemviewConfigPayload, error) {
+	ret := _mock.Called(ctx)
+
+	if len(ret) == 0 {
+		panic("no return value specified for Default")
+	}
+
+	var r0 dto.SystemviewConfigPayload
+	var r1 error
+	if returnFunc, ok := ret.Get(0).(func(context.Context) (dto.SystemviewConfigPayload, error)); ok {
+		return returnFunc(ctx)
+	}
+	if returnFunc, ok := ret.Get(0).(func(context.Context) dto.SystemviewConfigPayload); ok {
+		r0 = returnFunc(ctx)
+	} else {
+		r0 = ret.Get(0).(dto.SystemviewConfigPayload)
+	}
+	if returnFunc, ok := ret.Get(1).(func(context.Context) error); ok {
+		r1 = returnFunc(ctx)
+	} else {
+		r1 = ret.Error(1)
+	}
+	return r0, r1
+}
+
+// MockSystemviewConfigReader_Default_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'Default'
+type MockSystemviewConfigReader_Default_Call struct {
+	*mock.Call
+}
+
+// Default is a helper method to define mock.On call
+//   - ctx context.Context
+func (_e *MockSystemviewConfigReader_Expecter) Default(ctx interface{}) *MockSystemviewConfigReader_Default_Call {
+	return &MockSystemviewConfigReader_Default_Call{Call: _e.mock.On("Default", ctx)}
+}
+
+func (_c *MockSystemviewConfigReader_Default_Call) Run(run func(ctx context.Context)) *MockSystemviewConfigReader_Default_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		var arg0 context.Context
+		if args[0] != nil {
+			arg0 = args[0].(context.Context)
+		}
+		run(
+			arg0,
+		)
+	})
+	return _c
+}
+
+func (_c *MockSystemviewConfigReader_Default_Call) Return(systemviewConfigPayload dto.SystemviewConfigPayload, err error) *MockSystemviewConfigReader_Default_Call {
+	_c.Call.Return(systemviewConfigPayload, err)
+	return _c
+}
+
+func (_c *MockSystemviewConfigReader_Default_Call) RunAndReturn(run func(ctx context.Context) (dto.SystemviewConfigPayload, error)) *MockSystemviewConfigReader_Default_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
 // NewMockWebUIConfigSaver creates a new instance of MockWebUIConfigSaver. It also registers a testing interface on the mock and a cleanup function to assert the mocks expectations.
 // The first argument is typically a *testing.T value.
 func NewMockWebUIConfigSaver(t interface {
@@ -11777,7 +12453,7 @@ func (_m *MockWebUIConfigSaver) EXPECT() *MockWebUIConfigSaver_Expecter {
 }
 
 // SaveWebUIConfig provides a mock function for the type MockWebUIConfigSaver
-func (_mock *MockWebUIConfigSaver) SaveWebUIConfig(ctx context.Context, cfg port.WebUIConfig) error {
+func (_mock *MockWebUIConfigSaver) SaveWebUIConfig(ctx context.Context, cfg dto.WebUIConfig) error {
 	ret := _mock.Called(ctx, cfg)
 
 	if len(ret) == 0 {
@@ -11785,7 +12461,7 @@ func (_mock *MockWebUIConfigSaver) SaveWebUIConfig(ctx context.Context, cfg port
 	}
 
 	var r0 error
-	if returnFunc, ok := ret.Get(0).(func(context.Context, port.WebUIConfig) error); ok {
+	if returnFunc, ok := ret.Get(0).(func(context.Context, dto.WebUIConfig) error); ok {
 		r0 = returnFunc(ctx, cfg)
 	} else {
 		r0 = ret.Error(0)
@@ -11800,20 +12476,20 @@ type MockWebUIConfigSaver_SaveWebUIConfig_Call struct {
 
 // SaveWebUIConfig is a helper method to define mock.On call
 //   - ctx context.Context
-//   - cfg port.WebUIConfig
+//   - cfg dto.WebUIConfig
 func (_e *MockWebUIConfigSaver_Expecter) SaveWebUIConfig(ctx interface{}, cfg interface{}) *MockWebUIConfigSaver_SaveWebUIConfig_Call {
 	return &MockWebUIConfigSaver_SaveWebUIConfig_Call{Call: _e.mock.On("SaveWebUIConfig", ctx, cfg)}
 }
 
-func (_c *MockWebUIConfigSaver_SaveWebUIConfig_Call) Run(run func(ctx context.Context, cfg port.WebUIConfig)) *MockWebUIConfigSaver_SaveWebUIConfig_Call {
+func (_c *MockWebUIConfigSaver_SaveWebUIConfig_Call) Run(run func(ctx context.Context, cfg dto.WebUIConfig)) *MockWebUIConfigSaver_SaveWebUIConfig_Call {
 	_c.Call.Run(func(args mock.Arguments) {
 		var arg0 context.Context
 		if args[0] != nil {
 			arg0 = args[0].(context.Context)
 		}
-		var arg1 port.WebUIConfig
+		var arg1 dto.WebUIConfig
 		if args[1] != nil {
-			arg1 = args[1].(port.WebUIConfig)
+			arg1 = args[1].(dto.WebUIConfig)
 		}
 		run(
 			arg0,
@@ -11828,7 +12504,7 @@ func (_c *MockWebUIConfigSaver_SaveWebUIConfig_Call) Return(err error) *MockWebU
 	return _c
 }
 
-func (_c *MockWebUIConfigSaver_SaveWebUIConfig_Call) RunAndReturn(run func(ctx context.Context, cfg port.WebUIConfig) error) *MockWebUIConfigSaver_SaveWebUIConfig_Call {
+func (_c *MockWebUIConfigSaver_SaveWebUIConfig_Call) RunAndReturn(run func(ctx context.Context, cfg dto.WebUIConfig) error) *MockWebUIConfigSaver_SaveWebUIConfig_Call {
 	_c.Call.Return(run)
 	return _c
 }

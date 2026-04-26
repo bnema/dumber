@@ -204,6 +204,10 @@ func New(deps *Dependencies) (*App, error) {
 			glib.IdleAdd(&cb, 0)
 		})
 	}
+	if faviconSetter, ok := deps.Engine.(port.SystemviewFaviconServiceSetter); ok {
+		faviconSetter.SetSystemviewFaviconService(deps.FaviconService)
+	}
+
 	// Register message handlers through the engine.
 	if err := deps.Engine.RegisterHandlers(ctx, port.HandlerDependencies{
 		HistoryUC:                 deps.HistoryUC,
@@ -795,7 +799,7 @@ func (a *App) initialWindowURL() string {
 	if a.deps != nil && a.deps.InitialURL != "" {
 		return a.deps.InitialURL
 	}
-	return "dumb://home"
+	return "dumb://history"
 }
 
 func (a *App) initLayoutInfrastructure() {

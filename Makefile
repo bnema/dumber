@@ -1,6 +1,6 @@
 # Makefile for dumber (Clean Architecture - puregotk)
 
-.PHONY: build build-frontend build-quick install-local test lint clean install-tools dev generate help init man flatpak-deps flatpak-build flatpak-install flatpak-run flatpak-clean stress-omnibox-callbacks verify-purego check
+.PHONY: build build-systemviews generate-systemviews build-quick install-local test lint clean install-tools dev generate help init man flatpak-deps flatpak-build flatpak-install flatpak-run flatpak-clean stress-omnibox-callbacks verify-purego check
 
 # Load local overrides from .env.local if present (Makefile syntax)
 ifneq (,$(wildcard .env.local))
@@ -39,22 +39,31 @@ help: ## Show this help message
 	@awk 'BEGIN {FS = ":.*?## "} /^[a-zA-Z_-]+:.*?## / {printf "  \033[36m%-15s\033[0m %s\n", $$1, $$2}' $(MAKEFILE_LIST)
 
 # Build targets
-build: build-frontend ## Build the application (pure Go, no CGO)
+build: build-systemviews ## Build the application (pure Go, no CGO)
 	@echo "Building $(BINARY_NAME) $(VERSION) using $(NPROCS) cores..."
 	@mkdir -p $(DIST_DIR)
-	CGO_ENABLED=0 go build -p $(NPROCS) $(GCFLAGS) $(LDFLAGS) -o $(DIST_DIR)/$(BINARY_NAME) $(MAIN_PATH)
+	CGO_ENABLED=0 go build -buildvcs=false -p $(NPROCS) $(GCFLAGS) $(LDFLAGS) -o $(DIST_DIR)/$(BINARY_NAME) $(MAIN_PATH)
 	@rm -f $(DIST_DIR)/cef-helper
 	@echo "Build successful! Binary: $(DIST_DIR)/$(BINARY_NAME)"
 
-build-frontend: ## Build homepage and error pages
-	@echo "Building webui pages (homepage + error)..."
-	@cd webui && npm install --silent && npm run build
-	@echo "Frontend build complete"
+generate-systemviews: ## Generate Go code from systemviews templ components
+	@echo "Generating systemviews templ components..."
+	go tool templ generate -path internal/ui/systemviews -include-version=false
+	@echo "Systemviews templ generation complete"
 
-build-quick: ## Build without frontend (faster for backend development)
-	@echo "Building $(BINARY_NAME) $(VERSION) (quick, no frontend)..."
+build-systemviews: generate-systemviews ## Build the WASM systemviews runtime
+	@echo "Building systemviews wasm assets..."
+	@command -v brotli >/dev/null 2>&1 || { echo "Error: brotli is required to build compressed systemviews assets. Install brotli and retry."; exit 1; }
+	@mkdir -p assets/systemviews
+	@cp "$$(go env GOROOT)/lib/wasm/wasm_exec.js" assets/systemviews/wasm_exec.js
+	GOOS=js GOARCH=wasm go build -buildvcs=false -ldflags="-s -w" -o assets/systemviews/systemviews.wasm ./cmd/systemviews
+	brotli -f -o assets/systemviews/systemviews.wasm.br assets/systemviews/systemviews.wasm
+	@echo "Systemviews build complete"
+
+build-quick: ## Build quickly for backend development
+	@echo "Building $(BINARY_NAME) $(VERSION) (quick)..."
 	@mkdir -p $(DIST_DIR)
-	CGO_ENABLED=0 go build -p $(NPROCS) $(GCFLAGS) $(LDFLAGS) -o $(DIST_DIR)/$(BINARY_NAME) $(MAIN_PATH)
+	CGO_ENABLED=0 go build -buildvcs=false -p $(NPROCS) $(GCFLAGS) $(LDFLAGS) -o $(DIST_DIR)/$(BINARY_NAME) $(MAIN_PATH)
 	@rm -f $(DIST_DIR)/cef-helper
 	@echo "Build successful! Binary: $(DIST_DIR)/$(BINARY_NAME)"
 
@@ -137,8 +146,7 @@ clean: ## Clean build artifacts
 	@echo "Cleaning build artifacts..."
 	rm -rf $(DIST_DIR)
 	rm -f $(BINARY_NAME)
-	rm -rf webui/dist webui/node_modules
-	rm -f assets/webui/homepage.min.js assets/webui/error.min.js assets/webui/config.min.js assets/webui/index.html assets/webui/error.html assets/webui/config.html assets/webui/style.css
+	rm -f assets/systemviews/wasm_exec.js assets/systemviews/systemviews.wasm assets/systemviews/systemviews.wasm.br
 	rm -f coverage.out coverage.html
 	go clean -cache
 	go clean -testcache
@@ -174,7 +182,7 @@ man: build-quick ## Install man pages to ~/.local/share/man/man1/
 # Native release targets
 .PHONY: release-snapshot release
 
-release-snapshot: build-frontend ## Build snapshot using goreleaser
+release-snapshot: build-systemviews ## Build snapshot using goreleaser
 	@echo "Building snapshot with goreleaser..."
 	goreleaser release --snapshot --clean
 

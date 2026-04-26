@@ -64,6 +64,9 @@ tmp/go-cache/
 tmp/go-mod/
 tmp/
 assets/webui
+assets/systemviews/systemviews.wasm
+assets/systemviews/systemviews.wasm.br
+assets/systemviews/wasm_exec.js
 
 # Node/TypeScript related
 node_modules/

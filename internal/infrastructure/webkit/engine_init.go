@@ -25,6 +25,8 @@ func NewEngine(
 	opts port.EngineOptions,
 	profile runtimeprofile.Profile,
 	wkCfg WebKitEngineConfig,
+	currentConfigPayload func() ([]byte, error),
+	defaultConfigPayload func() ([]byte, error),
 	themeManager *theme.Manager,
 	colorResolver port.ColorSchemeResolver,
 	contextMenuBuilder port.ContextMenuBuilder,
@@ -56,6 +58,7 @@ func NewEngine(
 
 	// --- Scheme handler ---
 	schemeHandler := NewDumbSchemeHandler(ctx)
+	schemeHandler.SetConfigPayloadBuilders(currentConfigPayload, defaultConfigPayload)
 	schemeHandler.SetAssets(assets.WebUIAssets)
 	schemeHandler.RegisterWithContext(wkCtx)
 

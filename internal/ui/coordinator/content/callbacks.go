@@ -12,8 +12,8 @@ import (
 	"github.com/bnema/puregotk/v4/gdk"
 )
 
-// internalSchemePath is the path used in dumb:// URIs (replaces webkit.HomePath).
-const internalSchemePath = "home"
+// internalSchemePath is the host used in dumb:// crash-page URIs.
+const internalSchemePath = "history"
 
 func shouldRenderCrashPage(reason port.WebProcessTerminationReason) bool {
 	switch reason {

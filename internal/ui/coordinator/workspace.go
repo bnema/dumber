@@ -4,6 +4,8 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"net/url"
+	"strings"
 
 	"github.com/bnema/dumber/internal/application/usecase"
 	"github.com/bnema/dumber/internal/domain/entity"
@@ -171,6 +173,15 @@ func setupPaneViewHover(ctx context.Context, pv *component.PaneView, wsView *com
 
 // Split splits the active pane in the given direction.
 func (c *WorkspaceCoordinator) Split(ctx context.Context, direction usecase.SplitDirection) error {
+	return c.splitWithInitialURL(ctx, direction, domainurl.Normalize(c.newPaneURL))
+}
+
+// SplitWithURL splits the active pane in the given direction and loads initialURL.
+func (c *WorkspaceCoordinator) SplitWithURL(ctx context.Context, direction usecase.SplitDirection, initialURL string) error {
+	return c.splitWithInitialURL(ctx, direction, domainurl.Normalize(initialURL))
+}
+
+func (c *WorkspaceCoordinator) splitWithInitialURL(ctx context.Context, direction usecase.SplitDirection, initialURL string) error {
 	log := logging.FromContext(ctx)
 
 	splitCtx, ok := c.prepareSplit(ctx, direction)
@@ -182,7 +193,7 @@ func (c *WorkspaceCoordinator) Split(ctx context.Context, direction usecase.Spli
 		Workspace:  splitCtx.ws,
 		TargetPane: splitCtx.activePane,
 		Direction:  direction,
-		InitialURL: domainurl.Normalize(c.newPaneURL),
+		InitialURL: initialURL,
 	})
 	if err != nil {
 		log.Error().Err(err).Str("direction", string(direction)).Msg("failed to split pane")
@@ -210,6 +221,122 @@ func (c *WorkspaceCoordinator) Split(ctx context.Context, direction usecase.Spli
 	log.Info().Str("direction", string(direction)).Str("new_pane_id", string(output.NewPaneNode.Pane.ID)).Msg("pane split completed")
 
 	return nil
+}
+
+// ToggleSystemViewRight focuses an existing system view pane, closes it if it is
+// already active, or opens it in a right split when no matching pane exists.
+func (c *WorkspaceCoordinator) ToggleSystemViewRight(ctx context.Context, targetURL string) error {
+	log := logging.FromContext(ctx)
+	targetURL = domainurl.Normalize(targetURL)
+	if targetURL == "" {
+		return fmt.Errorf("system view URL is required")
+	}
+	if c.getActiveWS == nil {
+		log.Warn().Str("url", targetURL).Msg("active workspace provider not configured")
+		return fmt.Errorf("system view toggle: active workspace provider not configured")
+	}
+
+	ws, wsView := c.getActiveWS()
+	if ws == nil {
+		log.Warn().Str("url", targetURL).Msg("no active workspace for system view toggle")
+		return fmt.Errorf("system view toggle: no active workspace")
+	}
+
+	activePane := ws.ActivePane()
+	if paneMatchesURL(activePane, targetURL) {
+		if ws.PaneCount() <= 1 {
+			log.Debug().Str("url", targetURL).Msg("system view is active in the last pane; leaving it open")
+			return nil
+		}
+		log.Debug().Str("url", targetURL).Msg("system view already active; closing pane")
+		return c.ClosePane(ctx)
+	}
+
+	if existing := findPaneByURL(ws, targetURL); existing != nil {
+		log.Debug().Str("url", targetURL).Str("pane_id", string(existing.ID)).Msg("focusing existing system view pane")
+		c.focusExistingPane(ctx, ws, wsView, existing.ID)
+		return nil
+	}
+
+	log.Debug().Str("url", targetURL).Msg("opening system view in right split")
+	return c.SplitWithURL(ctx, usecase.SplitRight, targetURL)
+}
+
+func paneMatchesURL(node *entity.PaneNode, targetURL string) bool {
+	return node != nil && node.Pane != nil && comparablePaneURL(node.Pane.URI) == comparablePaneURL(targetURL)
+}
+
+func findPaneByURL(ws *entity.Workspace, targetURL string) *entity.Pane {
+	if ws == nil {
+		return nil
+	}
+	targetURL = comparablePaneURL(targetURL)
+	for _, pane := range ws.AllPanes() {
+		if pane != nil && comparablePaneURL(pane.URI) == targetURL {
+			return pane
+		}
+	}
+	return nil
+}
+
+func comparablePaneURL(raw string) string {
+	normalized := domainurl.Normalize(raw)
+	parsed, err := url.Parse(normalized)
+	if err != nil || !strings.EqualFold(parsed.Scheme, "dumb") {
+		return normalized
+	}
+	page := parsed.Host
+	if page == "" {
+		page = parsed.Opaque
+	}
+	if page == "" || parsed.Path != "" || parsed.RawQuery != "" || parsed.Fragment != "" {
+		return normalized
+	}
+	return "dumb:" + page
+}
+
+func (c *WorkspaceCoordinator) focusExistingPane(
+	ctx context.Context,
+	ws *entity.Workspace,
+	wsView *component.WorkspaceView,
+	paneID entity.PaneID,
+) {
+	oldActivePaneID := ws.ActivePaneID
+	ws.ActivePaneID = paneID
+	paneNode := ws.FindPane(paneID)
+	if paneNode != nil && paneNode.Parent != nil && paneNode.Parent.IsStacked {
+		setActiveStackIndexForChild(paneNode.Parent, paneNode)
+	}
+
+	if wsView != nil {
+		wsView.CancelAllPendingHovers()
+		wsView.SuppressHover(component.KeyboardFocusSuppressDuration)
+		if oldActivePaneID != "" && oldActivePaneID != paneID {
+			wsView.DeactivatePane(oldActivePaneID)
+		}
+		if err := wsView.SetActivePaneID(paneID); err != nil {
+			logging.FromContext(ctx).Warn().Err(err).Str("pane_id", string(paneID)).Msg("failed to focus existing pane in view")
+		} else {
+			wsView.FocusPane(paneID)
+		}
+		if paneNode != nil && paneNode.Parent != nil && paneNode.Parent.IsStacked {
+			c.syncStackedViewActive(ctx, wsView, paneNode)
+		}
+	}
+
+	c.notifyStateChanged()
+}
+
+func setActiveStackIndexForChild(parent, child *entity.PaneNode) {
+	if parent == nil || child == nil {
+		return
+	}
+	for i, candidate := range parent.Children {
+		if candidate == child {
+			parent.ActiveStackIndex = i
+			return
+		}
+	}
 }
 
 func (c *WorkspaceCoordinator) prepareSplit(

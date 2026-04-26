@@ -4,8 +4,8 @@ version: 2
 
 before:
   hooks:
-    # Build frontend assets before building binaries
-    - make build-frontend
+    # Build systemviews assets before building binaries
+    - make build-systemviews
 
 builds:
   # Pure Go build (no CGO required)

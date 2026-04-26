@@ -44,6 +44,22 @@ func TestResolvePerformanceProfile_Empty(t *testing.T) {
 	}
 }
 
+func TestResolvePerformanceProfile_Balanced(t *testing.T) {
+	cfg := &PerformanceConfig{Profile: ProfileBalanced}
+
+	result := ResolvePerformanceProfile(cfg, nil)
+
+	if result.SkiaCPUPaintingThreads != 0 {
+		t.Errorf("expected SkiaCPUPaintingThreads=0, got %d", result.SkiaCPUPaintingThreads)
+	}
+	if result.SkiaGPUPaintingThreads != -1 {
+		t.Errorf("expected SkiaGPUPaintingThreads=-1, got %d", result.SkiaGPUPaintingThreads)
+	}
+	if result.WebViewPoolPrewarmCount != 4 {
+		t.Errorf("expected WebViewPoolPrewarmCount=4, got %d", result.WebViewPoolPrewarmCount)
+	}
+}
+
 func TestResolvePerformanceProfile_Lite_NoHardware(t *testing.T) {
 	cfg := &PerformanceConfig{
 		Profile: ProfileLite,
@@ -317,6 +333,7 @@ func TestIsValidPerformanceProfile(t *testing.T) {
 	}{
 		{ProfileDefault, true},
 		{ProfileLite, true},
+		{ProfileBalanced, true},
 		{ProfileMax, true},
 		{ProfileCustom, true},
 		{"", true}, // Empty is valid (treated as default)

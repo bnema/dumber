@@ -254,6 +254,8 @@ func normalizeEngineConfig(config *Config) {
 		config.Engine.Profile = ProfileDefault
 	case string(ProfileLite):
 		config.Engine.Profile = ProfileLite
+	case string(ProfileBalanced):
+		config.Engine.Profile = ProfileBalanced
 	case string(ProfileMax):
 		config.Engine.Profile = ProfileMax
 	case string(ProfileCustom):

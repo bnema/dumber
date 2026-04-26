@@ -5,18 +5,19 @@ import (
 	"encoding/json"
 	"fmt"
 
+	"github.com/bnema/dumber/internal/application/dto"
 	"github.com/bnema/dumber/internal/application/port"
 	"github.com/bnema/dumber/internal/logging"
 )
 
 // ConfigHandler handles configuration-related messages.
 type ConfigHandler struct {
-	saveConfig func(context.Context, port.WebUIConfig) error
+	saveConfig func(context.Context, dto.WebUIConfig) error
 }
 
 // NewConfigHandler creates a new ConfigHandler.
 // saveConfig is called to persist config changes (typically usecase.SaveWebUIConfigUseCase.Execute).
-func NewConfigHandler(saveConfig func(context.Context, port.WebUIConfig) error) *ConfigHandler {
+func NewConfigHandler(saveConfig func(context.Context, dto.WebUIConfig) error) *ConfigHandler {
 	if saveConfig == nil {
 		panic("NewConfigHandler: saveConfig must not be nil")
 	}
@@ -24,7 +25,7 @@ func NewConfigHandler(saveConfig func(context.Context, port.WebUIConfig) error) 
 }
 
 // Handle processes the save_config message.
-func (h *ConfigHandler) Handle(ctx context.Context, _ port.WebViewID, payload json.RawMessage) (any, error) {
+func (h *ConfigHandler) Handle(ctx context.Context, viewID port.WebViewID, payload json.RawMessage) (any, error) {
 	if h == nil {
 		return nil, fmt.Errorf("config handler is nil")
 	}
@@ -33,13 +34,17 @@ func (h *ConfigHandler) Handle(ctx context.Context, _ port.WebViewID, payload js
 	}
 	log := logging.FromContext(ctx).With().Str("handler", "config").Logger()
 
-	var payloadCfg port.WebUIConfig
+	var payloadCfg dto.WebUIConfig
 	if err := json.Unmarshal(payload, &payloadCfg); err != nil {
 		log.Error().Err(err).Msg("failed to unmarshal config payload")
 		return nil, fmt.Errorf("invalid config format: %w", err)
 	}
 
-	log.Info().Msg("saving appearance configuration from webui")
+	source := "webui"
+	if viewID != 0 {
+		source = fmt.Sprintf("webview:%d", viewID)
+	}
+	log.Info().Str("source", source).Msg("saving appearance configuration")
 
 	if err := h.saveConfig(ctx, payloadCfg); err != nil {
 		log.Error().Err(err).Msg("failed to save config")
@@ -52,7 +57,7 @@ func (h *ConfigHandler) Handle(ctx context.Context, _ port.WebViewID, payload js
 // RegisterConfigHandlers registers configuration handlers with the router.
 func RegisterConfigHandlers(
 	ctx context.Context, router port.WebUIHandlerRouter,
-	saveConfig func(context.Context, port.WebUIConfig) error,
+	saveConfig func(context.Context, dto.WebUIConfig) error,
 ) error {
 	handler := NewConfigHandler(saveConfig)
 

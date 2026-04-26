@@ -695,13 +695,13 @@ func TestMigrator_DetectMissingWorkspaceShortcutActions(t *testing.T) {
 	for actionName, value := range defaultActions {
 		userActions[actionName] = value
 	}
-	delete(userActions, "toggle_floating_pane")
+	delete(userActions, "toggle-floating-pane")
 
 	missing := m.detectMissingWorkspaceShortcutActions(map[string]any{
 		"workspace.shortcuts.actions": userActions,
 	})
 
-	assert.Equal(t, []string{"workspace.shortcuts.actions.toggle_floating_pane"}, missing)
+	assert.Equal(t, []string{"workspace.shortcuts.actions.toggle-floating-pane"}, missing)
 }
 
 func TestMigrator_MergeMissingWorkspaceShortcutActions(t *testing.T) {
@@ -750,7 +750,7 @@ func TestMigrator_MergeMissingWorkspaceShortcutActions(t *testing.T) {
 	actions, ok := actionsAny.(map[string]any)
 	require.True(t, ok)
 
-	toggleAny, hasToggle := actions["toggle_floating_pane"]
+	toggleAny, hasToggle := actions["toggle-floating-pane"]
 	assert.True(t, hasToggle)
 	assert.NotNil(t, toggleAny)
 
@@ -759,12 +759,19 @@ func TestMigrator_MergeMissingWorkspaceShortcutActions(t *testing.T) {
 	closePane, ok := closePaneAny.(map[string]any)
 	require.True(t, ok)
 	assert.Equal(t, "Custom close pane", closePane["desc"])
+	assert.NotContains(t, actions, "close-pane")
+	assert.NotContains(t, actions, "next-tab")
+	assert.NotContains(t, actions, "previous-tab")
+	assert.NotContains(t, actions, "consume-or-expel-left")
+	assert.NotContains(t, actions, "consume-or-expel-right")
+	assert.NotContains(t, actions, "consume-or-expel-up")
+	assert.NotContains(t, actions, "consume-or-expel-down")
 }
 
 func TestMigrator_DefaultValueForKey_WorkspaceShortcutAction(t *testing.T) {
 	m := NewMigrator()
 
-	value := m.defaultValueForKey("workspace.shortcuts.actions.toggle_floating_pane")
+	value := m.defaultValueForKey("workspace.shortcuts.actions.toggle-floating-pane")
 
 	action, ok := value.(ActionBinding)
 	require.True(t, ok)

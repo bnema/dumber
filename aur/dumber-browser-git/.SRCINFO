@@ -6,7 +6,6 @@ pkgbase = dumber-browser-git
 	arch = x86_64
 	license = MIT
 	makedepends = go>=1.25
-	makedepends = npm
 	makedepends = git
 	depends = gtk4
 	depends = webkitgtk-6.0

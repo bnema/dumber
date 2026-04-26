@@ -1,24 +1,32 @@
 package cef
 
 import (
+	"bytes"
 	"context"
 	"embed"
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
 	"html"
+	"io"
 	"io/fs"
+	"net"
 	"net/http"
 	"net/url"
-	"path/filepath"
+	"os"
+	"path"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
 	"unsafe"
 
+	"github.com/andybalholm/brotli"
 	purecef "github.com/bnema/purego-cef/cef"
 
 	"github.com/bnema/dumber/internal/application/port"
+	domainurl "github.com/bnema/dumber/internal/domain/url"
+	"github.com/bnema/dumber/internal/infrastructure/netguard"
 	"github.com/bnema/dumber/internal/infrastructure/webutil"
 	"github.com/bnema/dumber/internal/logging"
 	"github.com/rs/zerolog"
@@ -26,20 +34,22 @@ import (
 
 // Scheme path constants matching WebKit's naming.
 const (
-	homePath                    = "home"
+	historyPath                 = "history"
+	favoritesPath               = "favorites"
 	configPath                  = "config"
-	webrtcPath                  = "webrtc"
 	errorPath                   = "error"
 	indexHTML                   = "index.html"
 	maxSchemeTruncatedURLLength = 240
+	maxSystemviewsWASMBytes     = 64 * 1024 * 1024
+	systemviewsAssetDir         = "systemviews"
 )
 
 // pageRootFiles maps internal page hosts/paths to their HTML entry points.
 var pageRootFiles = map[string]string{
-	homePath:   indexHTML,
-	configPath: "config.html",
-	webrtcPath: "webrtc.html",
-	errorPath:  "error.html",
+	historyPath:   indexHTML,
+	favoritesPath: indexHTML,
+	configPath:    indexHTML,
+	errorPath:     indexHTML,
 }
 
 var cefNewResourceHandler = purecef.NewResourceHandler
@@ -50,6 +60,7 @@ type dumbSchemeHandler struct {
 	ctx                  context.Context
 	messageRouter        *MessageRouter
 	transcoder           port.MediaTranscoder
+	faviconService       port.FaviconService
 	assets               embed.FS
 	assetsSet            bool
 	assetDir             string
@@ -100,20 +111,26 @@ func newDumbSchemeHandler(
 		ctx:                  ctx,
 		messageRouter:        router,
 		transcoder:           transcoder,
-		assetDir:             "webui",
+		assetDir:             systemviewsAssetDir,
 		logger:               log.With().Str("component", "scheme-handler").Logger(),
 		currentConfigPayload: currentConfigPayload,
 		defaultConfigPayload: defaultConfigPayload,
 	}, nil
 }
 
-// setAssets sets the embedded filesystem containing webui assets.
+// setAssets sets the embedded filesystem containing systemviews assets.
 func (h *dumbSchemeHandler) setAssets(assets embed.FS) {
 	h.mu.Lock()
 	defer h.mu.Unlock()
 	h.assets = assets
 	h.assetsSet = true
 	h.logger.Debug().Msg("assets filesystem configured")
+}
+
+func (h *dumbSchemeHandler) setFaviconService(service port.FaviconService) {
+	h.mu.Lock()
+	defer h.mu.Unlock()
+	h.faviconService = service
 }
 
 // Create implements purecef.SchemeHandlerFactory. Called on the CEF IO thread
@@ -162,17 +179,28 @@ func (h *dumbSchemeHandler) Create(browser purecef.Browser, _ purecef.Frame, _ s
 }
 
 // handleAPI routes API requests to the message router or built-in handlers.
-func (h *dumbSchemeHandler) handleAPI(browser purecef.Browser, method, path string, request purecef.Request) purecef.ResourceHandler {
+func (h *dumbSchemeHandler) handleAPI(
+	browser purecef.Browser,
+	method string,
+	requestPath string,
+	request purecef.Request,
+) purecef.ResourceHandler {
 	if strings.EqualFold(method, http.MethodOptions) {
+		if requestPath == "/api/config" || requestPath == "/api/config/default" {
+			if denied := h.rejectUntrustedConfigRequester(request); denied != nil {
+				return denied
+			}
+			return h.newPrivateAPIRawResourceHandler(http.StatusNoContent, "text/plain; charset=utf-8", nil)
+		}
 		return h.newAPIRawResourceHandler(http.StatusNoContent, "text/plain; charset=utf-8", nil)
 	}
 	if isAPIGetMethod(method) {
-		if handler, ok := h.handleAPIGet(path, request); ok {
+		if handler, ok := h.handleAPIGet(requestPath, request); ok {
 			return handler
 		}
 	}
 	if isAPIPostMethod(method) {
-		if handler, ok := h.handleAPIPost(browser, path, request); ok {
+		if handler, ok := h.handleAPIPost(browser, requestPath, request); ok {
 			return handler
 		}
 	}
@@ -187,21 +215,33 @@ func isAPIPostMethod(method string) bool {
 	return strings.EqualFold(method, http.MethodPost)
 }
 
-func (h *dumbSchemeHandler) handleAPIGet(path string, request purecef.Request) (purecef.ResourceHandler, bool) {
-	switch path {
+func (h *dumbSchemeHandler) handleAPIGet(requestPath string, request purecef.Request) (purecef.ResourceHandler, bool) {
+	switch requestPath {
 	case "/api/config":
+		if denied := h.rejectUntrustedConfigRequester(request); denied != nil {
+			return denied, true
+		}
 		return h.handleConfigAPI(h.currentConfigPayload), true
 	case "/api/config/default":
+		if denied := h.rejectUntrustedConfigRequester(request); denied != nil {
+			return denied, true
+		}
 		return h.handleConfigAPI(h.defaultConfigPayload), true
 	case "/api/transcode":
 		return h.handleTranscodeAPI(request), true
+	case "/api/favicon":
+		return h.handleFaviconAPI(request), true
 	default:
 		return nil, false
 	}
 }
 
-func (h *dumbSchemeHandler) handleAPIPost(browser purecef.Browser, path string, request purecef.Request) (purecef.ResourceHandler, bool) {
-	switch path {
+func (h *dumbSchemeHandler) handleAPIPost(
+	browser purecef.Browser,
+	requestPath string,
+	request purecef.Request,
+) (purecef.ResourceHandler, bool) {
+	switch requestPath {
 	case "/api/message":
 		return h.handleMessageAPI(request), true
 	case "/api/clipboard-set":
@@ -224,6 +264,9 @@ func (h *dumbSchemeHandler) handleAPIPost(browser purecef.Browser, path string, 
 }
 
 func (h *dumbSchemeHandler) handleMessageAPI(request purecef.Request) purecef.ResourceHandler {
+	if denied := h.rejectUntrustedSystemviewRequester(request); denied != nil {
+		return denied
+	}
 	body := readBodyFromHeader(request)
 	if body == nil {
 		return h.newAPIJSONResourceHandler(http.StatusBadRequest, map[string]string{"error": "empty body"})
@@ -233,6 +276,98 @@ func (h *dumbSchemeHandler) handleMessageAPI(request purecef.Request) purecef.Re
 		return h.newAPIJSONResourceHandler(http.StatusInternalServerError, map[string]string{"error": err.Error()})
 	}
 	return h.newAPIRawResourceHandler(http.StatusOK, "application/json", resp)
+}
+
+func (h *dumbSchemeHandler) rejectForbiddenAPIOrigin(request purecef.Request) purecef.ResourceHandler {
+	origin := strings.TrimSpace(request.GetHeaderByName("Origin"))
+	if origin == "" || strings.EqualFold(origin, actualInternalOrigin) {
+		return nil
+	}
+	return h.newAPIJSONResourceHandler(http.StatusForbidden, map[string]string{"error": "forbidden origin"})
+}
+
+func (h *dumbSchemeHandler) rejectUntrustedConfigRequester(request purecef.Request) purecef.ResourceHandler {
+	return h.rejectUntrustedSystemviewRequester(request)
+}
+
+func (h *dumbSchemeHandler) rejectUntrustedSystemviewRequester(request purecef.Request) purecef.ResourceHandler {
+	if request == nil {
+		return h.newPrivateAPIJSONResourceHandler(http.StatusForbidden, map[string]string{"error": "forbidden"})
+	}
+	origin := strings.TrimSpace(request.GetHeaderByName("Origin"))
+	if origin != "" {
+		if isTrustedSystemviewURL(origin) {
+			return nil
+		}
+		return h.newPrivateAPIJSONResourceHandler(http.StatusForbidden, map[string]string{"error": "forbidden"})
+	}
+	referrer := strings.TrimSpace(request.GetReferrerURL())
+	if referrer == "" {
+		referrer = strings.TrimSpace(request.GetHeaderByName("Referer"))
+	}
+	if !isTrustedSystemviewURL(referrer) {
+		return h.newPrivateAPIJSONResourceHandler(http.StatusForbidden, map[string]string{"error": "forbidden"})
+	}
+	return nil
+}
+
+const systemviewFaviconSize = 32
+
+func (h *dumbSchemeHandler) handleFaviconAPI(request purecef.Request) purecef.ResourceHandler {
+	if denied := h.rejectUntrustedFaviconRequester(request); denied != nil {
+		return denied
+	}
+
+	h.mu.RLock()
+	service := h.faviconService
+	h.mu.RUnlock()
+	if service == nil {
+		return h.newPrivateAPIJSONResourceHandler(http.StatusNotFound, map[string]string{"error": "favicon unavailable"})
+	}
+
+	parsed, err := url.Parse(request.GetURL())
+	if err != nil {
+		return h.newPrivateAPIJSONResourceHandler(http.StatusBadRequest, map[string]string{"error": "invalid request URL"})
+	}
+	domain := domainurl.CanonicalDomain(parsed.Query().Get("domain"))
+	if domain == "" {
+		return h.newPrivateAPIJSONResourceHandler(http.StatusBadRequest, map[string]string{"error": "missing domain"})
+	}
+	size := systemviewFaviconSize
+	if rawSize := strings.TrimSpace(parsed.Query().Get("size")); rawSize != "" {
+		parsedSize, parseErr := strconv.Atoi(rawSize)
+		if parseErr != nil || parsedSize != systemviewFaviconSize {
+			return h.newPrivateAPIJSONResourceHandler(http.StatusBadRequest, map[string]string{"error": "unsupported favicon size"})
+		}
+		size = parsedSize
+	}
+
+	return newFaviconResourceHandler(service, domain, size)
+}
+
+func (h *dumbSchemeHandler) rejectUntrustedFaviconRequester(request purecef.Request) purecef.ResourceHandler {
+	return h.rejectUntrustedSystemviewRequester(request)
+}
+
+func isTrustedSystemviewURL(raw string) bool {
+	parsed, err := url.Parse(strings.TrimSpace(raw))
+	if err != nil || parsed.Scheme == "" {
+		return false
+	}
+	if strings.EqualFold(parsed.Scheme, actualInternalScheme) {
+		return strings.EqualFold(parsed.Host, actualInternalHost)
+	}
+	if !strings.EqualFold(parsed.Scheme, "dumb") {
+		return false
+	}
+	host := parsed.Host
+	if host == "" {
+		host = parsed.Opaque
+	}
+	if idx := strings.IndexAny(host, "/?#"); idx >= 0 {
+		host = host[:idx]
+	}
+	return isInternalPageHost(host)
 }
 
 func (h *dumbSchemeHandler) handleTranscodeAPI(request purecef.Request) purecef.ResourceHandler {
@@ -255,7 +390,6 @@ func (h *dumbSchemeHandler) handleTranscodeAPI(request purecef.Request) purecef.
 	if err != nil || sourceParsed.Host == "" || (sourceParsed.Scheme != "http" && sourceParsed.Scheme != actualInternalScheme) {
 		return h.newAPIJSONResourceHandler(http.StatusBadRequest, map[string]string{"error": "invalid src"})
 	}
-
 	headers := make(map[string]string)
 	if userAgent := request.GetHeaderByName("User-Agent"); userAgent != "" {
 		headers["User-Agent"] = userAgent
@@ -281,10 +415,46 @@ func (h *dumbSchemeHandler) handleTranscodeAPI(request purecef.Request) purecef.
 		headers:    headers,
 		ctx:        ctx,
 		cancel:     cancel,
+		validateSource: func(ctx context.Context) error {
+			return validateTranscodeSourceURL(ctx, sourceParsed)
+		},
 		logf: func() zerolog.Logger {
 			return h.logger.With().Str("component", "scheme-transcoding").Logger()
 		},
 	})
+}
+
+func validateTranscodeSourceURL(ctx context.Context, source *url.URL) error {
+	if source == nil || source.Host == "" {
+		return fmt.Errorf("invalid src")
+	}
+	host := source.Hostname()
+	if host == "" {
+		return fmt.Errorf("invalid src host")
+	}
+	if ip := net.ParseIP(host); ip != nil {
+		if isBlockedTranscodeIP(ip) {
+			return fmt.Errorf("private src host not allowed")
+		}
+		return nil
+	}
+
+	lookupCtx, cancel := context.WithTimeout(ctx, 2*time.Second)
+	defer cancel()
+	addrs, err := net.DefaultResolver.LookupIPAddr(lookupCtx, host)
+	if err != nil || len(addrs) == 0 {
+		return fmt.Errorf("src host could not be resolved")
+	}
+	for _, addr := range addrs {
+		if isBlockedTranscodeIP(addr.IP) {
+			return fmt.Errorf("private src host not allowed")
+		}
+	}
+	return nil
+}
+
+func isBlockedTranscodeIP(ip net.IP) bool {
+	return netguard.IsBlockedTranscodeIP(ip)
 }
 
 func resolveConfigPayload(build func() ([]byte, error)) ([]byte, error) {
@@ -298,9 +468,9 @@ func resolveConfigPayload(build func() ([]byte, error)) ([]byte, error) {
 func (h *dumbSchemeHandler) handleConfigAPI(build func() ([]byte, error)) purecef.ResourceHandler {
 	data, err := resolveConfigPayload(build)
 	if err != nil {
-		return h.newAPIJSONResourceHandler(http.StatusInternalServerError, map[string]string{"error": err.Error()})
+		return h.newPrivateAPIJSONResourceHandler(http.StatusInternalServerError, map[string]string{"error": err.Error()})
 	}
-	return h.newAPIRawResourceHandler(http.StatusOK, "application/json", data)
+	return h.newPrivateAPIRawResourceHandler(http.StatusOK, "application/json", data)
 }
 
 // handleClipboardSet receives copied text from JS copy/cut events and writes
@@ -485,20 +655,26 @@ func (h *dumbSchemeHandler) newRedirectResourceHandler(status int, location stri
 func (h *dumbSchemeHandler) handleAsset(u *url.URL) purecef.ResourceHandler {
 	h.mu.RLock()
 	hasAssets := h.assetsSet
-	assetDir := h.assetDir
 	h.mu.RUnlock()
 
 	if !hasAssets {
 		return h.newErrorResourceHandler(http.StatusInternalServerError, "Assets not configured")
 	}
 
-	relPath, ok := resolveAssetPath(u)
+	assetDir, relPath, ok := resolveAssetPath(u)
 	if !ok {
 		return h.newErrorResourceHandler(http.StatusNotFound, "Page not found")
 	}
+	if assetDir == "" {
+		assetDir = h.assetDir
+	}
 
-	fullPath := filepath.ToSlash(filepath.Join(assetDir, relPath))
-	data, err := fs.ReadFile(h.assets, fullPath)
+	fullPath, relPath, ok := safeSystemviewsAssetPath(assetDir, relPath)
+	if !ok {
+		return h.newErrorResourceHandler(http.StatusNotFound, "Asset not found")
+	}
+
+	data, err := readAssetWithEncoding(h.assets, fullPath, relPath)
 	if err != nil {
 		h.logger.Debug().Str("path", fullPath).Err(err).Msg("asset not found")
 		return h.newErrorResourceHandler(http.StatusNotFound, "Asset not found")
@@ -511,14 +687,54 @@ func (h *dumbSchemeHandler) handleAsset(u *url.URL) purecef.ResourceHandler {
 		Int("size", len(data)).
 		Msg("serving asset")
 
-	return h.newRawResourceHandler(http.StatusOK, contentType, data)
+	return newStaticResourceHandler(http.StatusOK, contentType, data, nil)
+}
+
+func safeSystemviewsAssetPath(assetDir, relPath string) (fullPath, cleanRelPath string, ok bool) {
+	assetDir = strings.Trim(assetDir, "/")
+	if assetDir != systemviewsAssetDir {
+		return "", "", false
+	}
+
+	relPath = strings.TrimLeft(relPath, "/")
+	if relPath == "" || strings.ContainsRune(relPath, '\x00') {
+		return "", "", false
+	}
+
+	cleanRelPath = path.Clean(relPath)
+	if cleanRelPath == "." || cleanRelPath == ".." || strings.HasPrefix(cleanRelPath, "../") || path.IsAbs(cleanRelPath) {
+		return "", "", false
+	}
+
+	fullPath = path.Join(assetDir, cleanRelPath)
+	if fullPath != assetDir && !strings.HasPrefix(fullPath, assetDir+"/") {
+		return "", "", false
+	}
+	return fullPath, cleanRelPath, true
+}
+
+func readAssetWithEncoding(assets embed.FS, fullPath, relPath string) ([]byte, error) {
+	if strings.HasSuffix(relPath, ".wasm") {
+		if compressed, err := fs.ReadFile(assets, fullPath+".br"); err == nil {
+			data, err := io.ReadAll(io.LimitReader(brotli.NewReader(bytes.NewReader(compressed)), maxSystemviewsWASMBytes+1))
+			if err != nil {
+				return nil, err
+			}
+			if len(data) > maxSystemviewsWASMBytes {
+				return nil, fmt.Errorf("decompressed asset %s exceeds %d bytes", fullPath, maxSystemviewsWASMBytes)
+			}
+			return data, nil
+		}
+	}
+	data, err := fs.ReadFile(assets, fullPath)
+	return data, err
 }
 
 // resolveAssetPath maps either a dumb:// URL or the actual internal HTTPS URL
-// to a relative asset path inside assets/webui.
-func resolveAssetPath(u *url.URL) (string, bool) {
+// to a relative asset path inside assets/systemviews.
+func resolveAssetPath(u *url.URL) (assetDir, relPath string, ok bool) {
 	if u == nil {
-		return "", false
+		return "", "", false
 	}
 
 	if strings.EqualFold(u.Scheme, actualInternalScheme) && strings.EqualFold(u.Host, actualInternalHost) {
@@ -528,57 +744,70 @@ func resolveAssetPath(u *url.URL) (string, bool) {
 	return resolveConceptualAssetPath(u)
 }
 
-func resolveConceptualAssetPath(u *url.URL) (string, bool) {
+func resolveConceptualAssetPath(u *url.URL) (assetDir, relPath string, ok bool) {
 	if u == nil {
-		return "", false
+		return "", "", false
 	}
 
 	if root, ok := pageRootFiles[u.Host]; ok {
-		path := strings.TrimPrefix(u.Path, "/")
-		if path == "" {
-			return root, true
+		assetPath := strings.TrimPrefix(u.Path, "/")
+		if assetPath == "" {
+			return assetDirForPageHost(u.Host), root, true
 		}
 		// Don't serve API paths as assets.
-		if strings.HasPrefix(path, "api/") {
-			return "", false
+		if strings.HasPrefix(assetPath, "api/") {
+			return "", "", false
 		}
-		return path, true
+		return assetDirForPageHost(u.Host), assetPath, true
 	}
 
-	// Handle opaque URLs like dumb:home.
+	// Handle opaque URLs like dumb:history.
 	if root, ok := pageRootFiles[u.Opaque]; ok {
-		return root, true
+		return assetDirForPageHost(u.Opaque), root, true
 	}
-	return "", false
+	return "", "", false
 }
 
-func resolveActualAssetPath(u *url.URL) (string, bool) {
+func resolveActualAssetPath(u *url.URL) (assetDir, relPath string, ok bool) {
 	if u == nil {
-		return "", false
+		return "", "", false
 	}
 
-	path := strings.Trim(u.Path, "/")
-	if path == "" {
-		return "", false
+	assetPath := strings.Trim(u.Path, "/")
+	if assetPath == "" {
+		return "", "", false
 	}
 
-	if root, ok := pageRootFiles[path]; ok {
-		return root, true
-	}
-
-	if strings.HasPrefix(path, "api/") {
-		return "", false
-	}
-
-	parts := strings.SplitN(path, "/", 2)
-	if len(parts) == 2 && isInternalPageHost(parts[0]) {
-		if parts[1] == "crash" && parts[0] == homePath {
-			return "", false
+	parts := strings.SplitN(assetPath, "/", 2)
+	page := parts[0]
+	if root, ok := pageRootFiles[page]; ok {
+		if len(parts) == 1 {
+			return assetDirForPageHost(page), root, true
 		}
+		if page == historyPath && parts[1] == "crash" {
+			return "", "", false
+		}
+		return assetDirForPageHost(page), parts[1], true
 	}
 
-	// Serve root assets like homepage.min.js, style.css and favicon.png.
-	return path, true
+	if strings.HasPrefix(assetPath, "api/") {
+		return "", "", false
+	}
+
+	if !strings.Contains(assetPath, "/") && strings.Contains(assetPath, ".") {
+		return systemviewsAssetDir, assetPath, true
+	}
+
+	return "", "", false
+}
+
+func assetDirForPageHost(host string) string {
+	switch host {
+	case historyPath, favoritesPath, configPath, errorPath:
+		return systemviewsAssetDir
+	default:
+		return ""
+	}
 }
 
 func isCEFCrashPageURL(u *url.URL) bool {
@@ -588,8 +817,8 @@ func isCEFCrashPageURL(u *url.URL) bool {
 
 	switch {
 	case strings.EqualFold(u.Scheme, actualInternalScheme) && strings.EqualFold(u.Host, actualInternalHost):
-		return strings.Trim(u.Path, "/") == homePath+"/crash"
-	case strings.EqualFold(u.Scheme, "dumb") && u.Host == homePath:
+		return strings.Trim(u.Path, "/") == historyPath+"/crash"
+	case strings.EqualFold(u.Scheme, "dumb") && u.Host == historyPath:
 		return strings.Trim(u.Path, "/") == "crash"
 	default:
 		return false
@@ -671,6 +900,10 @@ func (h *dumbSchemeHandler) newAPIRawResourceHandler(status int, contentType str
 	return newStaticResourceHandler(status, contentType, data, apiResponseHeaders(nil))
 }
 
+func (h *dumbSchemeHandler) newPrivateAPIRawResourceHandler(status int, contentType string, data []byte) purecef.ResourceHandler {
+	return newStaticResourceHandler(status, contentType, data, map[string]string{"Cache-Control": "no-store"})
+}
+
 func (h *dumbSchemeHandler) newErrorResourceHandler(status int, msg string) purecef.ResourceHandler {
 	escaped := html.EscapeString(msg)
 	body := fmt.Sprintf(`<!DOCTYPE html><html><body><h1>%d</h1><p>%s</p></body></html>`, status, escaped)
@@ -685,6 +918,222 @@ func (h *dumbSchemeHandler) newAPIJSONResourceHandler(status int, v any) purecef
 	}
 	return h.newAPIRawResourceHandler(status, "application/json", data)
 }
+
+func (h *dumbSchemeHandler) newPrivateAPIJSONResourceHandler(status int, v any) purecef.ResourceHandler {
+	data, err := json.Marshal(v)
+	if err != nil {
+		fallback, _ := json.Marshal(map[string]string{"error": "JSON encoding failed"})
+		return h.newPrivateAPIRawResourceHandler(http.StatusInternalServerError, "application/json", fallback)
+	}
+	return h.newPrivateAPIRawResourceHandler(status, "application/json", data)
+}
+
+func newFaviconResourceHandler(service port.FaviconService, domain string, size int) purecef.ResourceHandler {
+	return cefNewResourceHandler(&faviconResourceHandler{
+		service: service,
+		domain:  domain,
+		size:    size,
+		done:    make(chan struct{}),
+		headers: map[string]string{"Cache-Control": "no-store"},
+	})
+}
+
+const maxFaviconMemoryCacheEntries = 256
+
+var systemviewFaviconCache = newFaviconMemoryCache(maxFaviconMemoryCacheEntries)
+
+type faviconCacheEntry struct {
+	statusCode  int
+	contentType string
+	data        []byte
+}
+
+type faviconMemoryCache struct {
+	mu      sync.Mutex
+	max     int
+	entries map[string]faviconCacheEntry
+	order   []string
+}
+
+func newFaviconMemoryCache(maxEntries int) *faviconMemoryCache {
+	return &faviconMemoryCache{
+		max:     maxEntries,
+		entries: make(map[string]faviconCacheEntry),
+		order:   make([]string, 0, maxEntries),
+	}
+}
+
+func faviconCacheKey(domain string, size int) string {
+	return strings.ToLower(strings.TrimSpace(domain)) + "\x00" + strconv.Itoa(size)
+}
+
+func (c *faviconMemoryCache) get(key string) (faviconCacheEntry, bool) {
+	if c == nil || key == "" {
+		return faviconCacheEntry{}, false
+	}
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	entry, ok := c.entries[key]
+	if !ok {
+		return faviconCacheEntry{}, false
+	}
+	c.moveToBackLocked(key)
+	return entry, true
+}
+
+func (c *faviconMemoryCache) put(key string, entry faviconCacheEntry) {
+	if c == nil || key == "" || c.max <= 0 {
+		return
+	}
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	if _, ok := c.entries[key]; !ok {
+		c.order = append(c.order, key)
+	} else {
+		c.moveToBackLocked(key)
+	}
+	c.entries[key] = entry
+	for len(c.order) > c.max {
+		oldest := c.order[0]
+		c.order = c.order[1:]
+		delete(c.entries, oldest)
+	}
+}
+
+func (c *faviconMemoryCache) moveToBackLocked(key string) {
+	for i, candidate := range c.order {
+		if candidate != key {
+			continue
+		}
+		copy(c.order[i:], c.order[i+1:])
+		c.order[len(c.order)-1] = key
+		return
+	}
+}
+
+type faviconResourceHandler struct {
+	service     port.FaviconService
+	domain      string
+	size        int
+	headers     map[string]string
+	once        sync.Once
+	done        chan struct{}
+	data        []byte
+	contentType string
+	statusCode  int
+	offset      int
+}
+
+func (rh *faviconResourceHandler) load() {
+	defer close(rh.done)
+	rh.statusCode = http.StatusNotFound
+	rh.contentType = "application/json"
+	rh.data = []byte(`{"error":"favicon not cached"}`)
+	if rh.service == nil {
+		return
+	}
+	cacheKey := faviconCacheKey(rh.domain, rh.size)
+	if entry, ok := systemviewFaviconCache.get(cacheKey); ok {
+		rh.statusCode = entry.statusCode
+		rh.contentType = entry.contentType
+		rh.data = entry.data
+		return
+	}
+	if !rh.service.HasPNGSizedOnDisk(rh.domain, rh.size) {
+		return
+	}
+	diskPath := rh.service.DiskPathPNGSized(rh.domain, rh.size)
+	if diskPath == "" {
+		return
+	}
+	data, err := os.ReadFile(diskPath)
+	if err != nil || len(data) == 0 {
+		return
+	}
+	rh.statusCode = http.StatusOK
+	rh.contentType = "image/png"
+	rh.data = data
+	systemviewFaviconCache.put(cacheKey, faviconCacheEntry{
+		statusCode:  rh.statusCode,
+		contentType: rh.contentType,
+		data:        data,
+	})
+}
+
+func (rh *faviconResourceHandler) Open(_ purecef.Request, handleRequest *int32, callback purecef.Callback) int32 {
+	if handleRequest != nil {
+		*handleRequest = 0
+	}
+	rh.once.Do(func() {
+		go func() {
+			rh.load()
+			if callback != nil {
+				callback.Cont()
+			}
+		}()
+	})
+	return 1
+}
+
+func (rh *faviconResourceHandler) ProcessRequest(_ purecef.Request, callback purecef.Callback) int32 {
+	rh.once.Do(func() {
+		go func() {
+			rh.load()
+			if callback != nil {
+				callback.Cont()
+			}
+		}()
+	})
+	return 1
+}
+
+func (rh *faviconResourceHandler) GetResponseHeaders(response purecef.Response, responseLength *int64, _ uintptr) {
+	<-rh.done
+	response.SetStatus(int32(rh.statusCode))
+	if text := http.StatusText(rh.statusCode); text != "" {
+		response.SetStatusText(text)
+	}
+	mimeType, charset := splitMimeCharset(rh.contentType)
+	response.SetMimeType(mimeType)
+	if charset != "" {
+		response.SetCharset(charset)
+	}
+	for name, value := range rh.headers {
+		response.SetHeaderByName(name, value, 1)
+	}
+	if responseLength != nil {
+		*responseLength = int64(len(rh.data))
+	}
+}
+
+func (rh *faviconResourceHandler) Skip(_ int64, _ *int64, _ purecef.ResourceSkipCallback) int32 {
+	return 0
+}
+
+func (rh *faviconResourceHandler) Read(dataOut unsafe.Pointer, bytesToRead int32, bytesRead *int32, _ purecef.ResourceReadCallback) int32 {
+	<-rh.done
+	if rh.offset >= len(rh.data) {
+		return 0
+	}
+	remaining := len(rh.data) - rh.offset
+	toRead := int(bytesToRead)
+	if toRead > remaining {
+		toRead = remaining
+	}
+	dst := unsafe.Slice((*byte)(dataOut), toRead)
+	copy(dst, rh.data[rh.offset:rh.offset+toRead])
+	rh.offset += toRead
+	if bytesRead != nil {
+		*bytesRead = int32(toRead)
+	}
+	return 1
+}
+
+func (rh *faviconResourceHandler) ReadResponse(_ unsafe.Pointer, _ int32, _ *int32, _ purecef.Callback) int32 {
+	return 0
+}
+
+func (rh *faviconResourceHandler) Cancel() {}
 
 // Open handles the request immediately (synchronous).
 func (rh *staticResourceHandler) Open(_ purecef.Request, handleRequest *int32, _ purecef.Callback) int32 {

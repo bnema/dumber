@@ -41,7 +41,7 @@ func toActualInternalURL(raw string) string {
 	if page == "" {
 		page = parsed.Opaque
 	}
-	if page == "" {
+	if page == "" || !isInternalPageHost(page) {
 		return raw
 	}
 
@@ -49,8 +49,8 @@ func toActualInternalURL(raw string) string {
 	trimmedPath := strings.Trim(parsed.Path, "/")
 	switch {
 	case trimmedPath == "":
-		// Keep page roots at /home instead of /home/ so relative assets resolve
-		// from the origin root.
+		// Keep page roots at /history instead of /history/ so relative assets
+		// resolve from the origin root.
 	case strings.HasPrefix(trimmedPath, internalAPIPathPrefixTrimmed):
 		actualPath = "/" + trimmedPath
 	case path.Ext(trimmedPath) != "":
@@ -134,7 +134,7 @@ func toConceptualInternalURL(raw string) string {
 
 func isInternalPageHost(host string) bool {
 	switch host {
-	case homePath, configPath, webrtcPath, errorPath:
+	case historyPath, favoritesPath, configPath, errorPath:
 		return true
 	default:
 		return false

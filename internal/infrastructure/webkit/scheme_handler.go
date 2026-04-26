@@ -1,20 +1,23 @@
 package webkit
 
 import (
+	"bytes"
 	"context"
 	"embed"
-	"encoding/json"
 	"fmt"
+	"io"
 	"io/fs"
 	"net/http"
 	"net/url"
-	"path/filepath"
+	"os"
+	"path"
+	"strconv"
 	"strings"
 	"sync"
 
+	"github.com/andybalholm/brotli"
 	"github.com/bnema/dumber/internal/application/port"
-	"github.com/bnema/dumber/internal/infrastructure/config"
-	"github.com/bnema/dumber/internal/infrastructure/env"
+	domainurl "github.com/bnema/dumber/internal/domain/url"
 	"github.com/bnema/dumber/internal/infrastructure/webutil"
 	"github.com/bnema/dumber/internal/logging"
 	"github.com/bnema/puregotk/v4/gio"
@@ -25,29 +28,35 @@ import (
 
 // Scheme path constants
 const (
-	HomePath   = "home"
-	ConfigPath = "config"
-	WebRTCPath = "webrtc"
-	ErrorPath  = "error"
-	CrashPath  = "crash"
-	IndexHTML  = "index.html"
-	httpGET    = "GET"
+	HistoryPath             = "history"
+	FavoritesPath           = "favorites"
+	ConfigPath              = "config"
+	ErrorPath               = "error"
+	CrashPath               = "crash"
+	IndexHTML               = "index.html"
+	httpGET                 = "GET"
+	maxSystemviewsWASMBytes = 64 * 1024 * 1024
+	systemviewsAssetDir     = "systemviews"
 )
 
 // SchemeRequest represents a request to a custom URI scheme.
 type SchemeRequest struct {
-	inner  *webkit.URISchemeRequest
-	URI    string
-	Path   string
-	Method string
-	Scheme string
+	inner   *webkit.URISchemeRequest
+	URI     string
+	Path    string
+	Method  string
+	Scheme  string
+	Origin  string
+	Referer string
 }
 
 // SchemeResponse represents a response to a scheme request.
 type SchemeResponse struct {
-	Data        []byte
-	ContentType string
-	StatusCode  int
+	Data                   []byte
+	ContentType            string
+	StatusCode             int
+	Headers                map[string]string
+	SuppressDefaultHeaders bool
 }
 
 // PageHandler generates content for a specific page path.
@@ -64,13 +73,14 @@ func (f PageHandlerFunc) Handle(req *SchemeRequest) *SchemeResponse {
 
 // DumbSchemeHandler handles dumb:// URI scheme requests.
 type DumbSchemeHandler struct {
-	handlers   map[string]PageHandler
-	assets     embed.FS
-	assetDir   string // subdirectory within embed.FS (e.g., "assets/webui")
-	logger     zerolog.Logger
-	mu         sync.RWMutex
-	hwSurveyor *env.HardwareSurveyor
-	ctx        context.Context
+	handlers             map[string]PageHandler
+	assets               embed.FS
+	faviconService       port.FaviconService
+	assetDir             string // default subdirectory within embed.FS (e.g., "systemviews")
+	logger               zerolog.Logger
+	mu                   sync.RWMutex
+	currentConfigPayload func() ([]byte, error)
+	defaultConfigPayload func() ([]byte, error)
 }
 
 // NewDumbSchemeHandler creates a new handler for the dumb:// scheme.
@@ -78,11 +88,9 @@ func NewDumbSchemeHandler(ctx context.Context) *DumbSchemeHandler {
 	log := logging.FromContext(ctx)
 
 	h := &DumbSchemeHandler{
-		handlers:   make(map[string]PageHandler),
-		assetDir:   "webui",
-		logger:     log.With().Str("component", "scheme-handler").Logger(),
-		hwSurveyor: env.NewHardwareSurveyor(),
-		ctx:        ctx,
+		handlers: make(map[string]PageHandler),
+		assetDir: systemviewsAssetDir,
+		logger:   log.With().Str("component", "scheme-handler").Logger(),
 	}
 
 	// Register default pages
@@ -91,12 +99,27 @@ func NewDumbSchemeHandler(ctx context.Context) *DumbSchemeHandler {
 	return h
 }
 
-// SetAssets sets the embedded filesystem containing webui assets.
+// SetAssets sets the embedded filesystem containing systemviews assets.
 func (h *DumbSchemeHandler) SetAssets(assets embed.FS) {
 	h.mu.Lock()
 	defer h.mu.Unlock()
 	h.assets = assets
 	h.logger.Debug().Msg("assets filesystem configured")
+}
+
+// SetConfigPayloadBuilders wires the config payload builders used by /api/config.
+func (h *DumbSchemeHandler) SetConfigPayloadBuilders(current, defaultPayload func() ([]byte, error)) {
+	h.mu.Lock()
+	defer h.mu.Unlock()
+	h.currentConfigPayload = current
+	h.defaultConfigPayload = defaultPayload
+	h.logger.Debug().Msg("config payload builders configured")
+}
+
+func (h *DumbSchemeHandler) SetFaviconService(service port.FaviconService) {
+	h.mu.Lock()
+	defer h.mu.Unlock()
+	h.faviconService = service
 }
 
 // registerDefaults sets up default page handlers.
@@ -128,8 +151,14 @@ func (h *DumbSchemeHandler) registerDefaults() {
 		if req.Method != "" && req.Method != httpGET {
 			return nil
 		}
+		if !isTrustedSystemviewAPIRequest(req) {
+			return privateJSONErrorResponse(http.StatusForbidden, "forbidden")
+		}
 
-		return h.buildConfigResponse(config.Get())
+		h.mu.RLock()
+		build := h.currentConfigPayload
+		h.mu.RUnlock()
+		return buildConfigResponse(build)
 	}))
 
 	// API: Get default config (used by Reset Defaults in dumb://config)
@@ -137,8 +166,21 @@ func (h *DumbSchemeHandler) registerDefaults() {
 		if req.Method != "" && req.Method != httpGET {
 			return nil
 		}
+		if !isTrustedSystemviewAPIRequest(req) {
+			return privateJSONErrorResponse(http.StatusForbidden, "forbidden")
+		}
 
-		return h.buildConfigResponse(config.DefaultConfig())
+		h.mu.RLock()
+		build := h.defaultConfigPayload
+		h.mu.RUnlock()
+		return buildConfigResponse(build)
+	}))
+
+	h.RegisterPage("/api/favicon", PageHandlerFunc(func(req *SchemeRequest) *SchemeResponse {
+		if req.Method != "" && req.Method != httpGET {
+			return nil
+		}
+		return h.handleFaviconAPI(req)
 	}))
 }
 
@@ -161,40 +203,138 @@ func buildCrashPageHTML(originalURI string) string {
 	return webutil.BuildCrashPageHTML(originalURI)
 }
 
-func (h *DumbSchemeHandler) buildConfigResponse(cfg *config.Config) *SchemeResponse {
-	// Get hardware info for display and profile resolution
-	// Use background context since survey results are cached and we don't want
-	// request context cancellation to affect this
-	var hw *port.HardwareInfo
-	if h.hwSurveyor != nil {
-		hwInfo := h.hwSurveyor.Survey(context.Background())
-		hw = &hwInfo
+const systemviewFaviconSize = 32
+
+func (h *DumbSchemeHandler) handleFaviconAPI(req *SchemeRequest) *SchemeResponse {
+	if !isTrustedSystemviewFaviconRequest(req) {
+		return privateJSONErrorResponse(http.StatusForbidden, "forbidden")
+	}
+	h.mu.RLock()
+	service := h.faviconService
+	h.mu.RUnlock()
+	if service == nil {
+		return privateJSONErrorResponse(http.StatusNotFound, "favicon unavailable")
+	}
+	if req == nil {
+		return privateJSONErrorResponse(http.StatusBadRequest, "invalid request")
+	}
+	parsed, err := url.Parse(req.URI)
+	if err != nil {
+		return privateJSONErrorResponse(http.StatusBadRequest, "invalid request URL")
+	}
+	domain := domainurl.CanonicalDomain(parsed.Query().Get("domain"))
+	if domain == "" {
+		return privateJSONErrorResponse(http.StatusBadRequest, "missing domain")
+	}
+	size := systemviewFaviconSize
+	if rawSize := strings.TrimSpace(parsed.Query().Get("size")); rawSize != "" {
+		parsedSize, parseErr := strconv.Atoi(rawSize)
+		if parseErr != nil || parsedSize != systemviewFaviconSize {
+			return privateJSONErrorResponse(http.StatusBadRequest, "unsupported favicon size")
+		}
+		size = parsedSize
 	}
 
-	resp := config.BuildWebUIConfigPayload(cfg, hw)
+	if !service.HasPNGSizedOnDisk(domain, size) {
+		return privateJSONErrorResponse(http.StatusNotFound, "favicon not cached")
+	}
+	diskPath := service.DiskPathPNGSized(domain, size)
+	if diskPath == "" {
+		return privateJSONErrorResponse(http.StatusNotFound, "favicon not cached")
+	}
+	data, err := os.ReadFile(diskPath)
+	if err != nil || len(data) == 0 {
+		return privateJSONErrorResponse(http.StatusNotFound, "favicon not cached")
+	}
+	return &SchemeResponse{
+		Data:                   data,
+		ContentType:            "image/png",
+		StatusCode:             http.StatusOK,
+		Headers:                map[string]string{"Cache-Control": "no-store"},
+		SuppressDefaultHeaders: true,
+	}
+}
 
-	data, err := json.Marshal(resp)
+func isTrustedSystemviewFaviconRequest(req *SchemeRequest) bool {
+	return isTrustedSystemviewAPIRequest(req)
+}
+
+func isTrustedSystemviewAPIRequest(req *SchemeRequest) bool {
+	if req == nil {
+		return false
+	}
+	origin := strings.TrimSpace(req.Origin)
+	if origin != "" {
+		return isTrustedSystemviewURL(origin)
+	}
+	return isTrustedSystemviewURL(req.Referer)
+}
+
+func isTrustedSystemviewURL(raw string) bool {
+	parsed, err := url.Parse(strings.TrimSpace(raw))
+	if err != nil || parsed.Scheme == "" {
+		return false
+	}
+	if !strings.EqualFold(parsed.Scheme, "dumb") {
+		return false
+	}
+	host := parsed.Host
+	if host == "" {
+		host = parsed.Opaque
+	}
+	if idx := strings.IndexAny(host, "/?#"); idx >= 0 {
+		host = host[:idx]
+	}
+	switch host {
+	case HistoryPath, FavoritesPath, ConfigPath, ErrorPath, CrashPath:
+		return true
+	default:
+		return false
+	}
+}
+
+func jsonErrorResponse(status int, message string) *SchemeResponse {
+	return &SchemeResponse{
+		Data:        []byte(fmt.Sprintf(`{"error":%q}`, message)),
+		ContentType: "application/json",
+		StatusCode:  status,
+	}
+}
+
+func privateJSONErrorResponse(status int, message string) *SchemeResponse {
+	resp := jsonErrorResponse(status, message)
+	resp.Headers = map[string]string{"Cache-Control": "no-store"}
+	resp.SuppressDefaultHeaders = true
+	return resp
+}
+
+func buildConfigResponse(build func() ([]byte, error)) *SchemeResponse {
+	if build == nil {
+		resp := privateJSONErrorResponse(http.StatusInternalServerError, "config payload builder not configured")
+		return resp
+	}
+
+	data, err := build()
 	if err != nil {
-		return &SchemeResponse{
-			Data:        []byte(fmt.Sprintf(`{"error": %q}`, err)),
-			ContentType: "application/json",
-			StatusCode:  http.StatusInternalServerError,
-		}
+		resp := privateJSONErrorResponse(http.StatusInternalServerError, err.Error())
+		return resp
 	}
 
 	return &SchemeResponse{
-		Data:        data,
-		ContentType: "application/json",
-		StatusCode:  http.StatusOK,
+		Data:                   data,
+		ContentType:            "application/json",
+		StatusCode:             http.StatusOK,
+		Headers:                map[string]string{"Cache-Control": "no-store"},
+		SuppressDefaultHeaders: true,
 	}
 }
 
 // RegisterPage registers a handler for a specific path.
-func (h *DumbSchemeHandler) RegisterPage(path string, handler PageHandler) {
+func (h *DumbSchemeHandler) RegisterPage(pagePath string, handler PageHandler) {
 	h.mu.Lock()
 	defer h.mu.Unlock()
-	h.handlers[path] = handler
-	h.logger.Debug().Str("path", path).Msg("registered page handler")
+	h.handlers[pagePath] = handler
+	h.logger.Debug().Str("path", pagePath).Msg("registered page handler")
 }
 
 // HandleRequest processes a scheme request and sends the response.
@@ -205,12 +345,17 @@ func (h *DumbSchemeHandler) HandleRequest(reqPtr uintptr) {
 	}
 
 	uri := req.GetUri()
+	requestHeaders := req.GetHttpHeaders()
 	schemeReq := &SchemeRequest{
 		inner:  req,
 		URI:    uri,
 		Path:   req.GetPath(),
 		Method: req.GetHttpMethod(),
 		Scheme: req.GetScheme(),
+	}
+	if requestHeaders != nil {
+		schemeReq.Origin = strings.TrimSpace(requestHeaders.GetOne("Origin"))
+		schemeReq.Referer = strings.TrimSpace(requestHeaders.GetOne("Referer"))
 	}
 
 	h.logger.Debug().
@@ -279,21 +424,26 @@ func (h *DumbSchemeHandler) HandleRequest(reqPtr uintptr) {
 func (h *DumbSchemeHandler) handleAsset(u *url.URL) *SchemeResponse {
 	h.mu.RLock()
 	hasAssets := h.assets != (embed.FS{})
-	assetDir := h.assetDir
 	h.mu.RUnlock()
 
 	if !hasAssets {
 		return nil
 	}
 
-	relPath, ok := resolveAssetPath(u)
+	assetDir, relPath, ok := resolveAssetPath(u)
+	if !ok {
+		return nil
+	}
+	if assetDir == "" {
+		assetDir = h.assetDir
+	}
+
+	fullPath, relPath, ok := safeSystemviewsAssetPath(assetDir, relPath)
 	if !ok {
 		return nil
 	}
 
-	// Read the asset from embedded FS
-	fullPath := filepath.ToSlash(filepath.Join(assetDir, relPath))
-	data, err := fs.ReadFile(h.assets, fullPath)
+	data, err := readAssetWithEncoding(h.assets, fullPath, relPath)
 	if err != nil {
 		h.logger.Debug().Str("path", fullPath).Err(err).Msg("asset not found")
 		return nil
@@ -310,41 +460,109 @@ func (h *DumbSchemeHandler) handleAsset(u *url.URL) *SchemeResponse {
 		Data:        data,
 		ContentType: contentType,
 		StatusCode:  http.StatusOK,
+		Headers:     nil,
 	}
 }
 
-func resolveAssetPath(u *url.URL) (string, bool) {
-	if u == nil {
-		return "", false
+func safeSystemviewsAssetPath(assetDir, relPath string) (fullPath, cleanRelPath string, ok bool) {
+	assetDir = strings.Trim(assetDir, "/")
+	if assetDir != systemviewsAssetDir {
+		return "", "", false
 	}
 
-	rootByHost := map[string]string{
-		HomePath:   IndexHTML,
-		ConfigPath: "config.html",
-		WebRTCPath: "webrtc.html",
-		ErrorPath:  "error.html",
+	relPath = strings.TrimLeft(relPath, "/")
+	if relPath == "" || strings.ContainsRune(relPath, '\x00') {
+		return "", "", false
+	}
+
+	cleanRelPath = path.Clean(relPath)
+	if cleanRelPath == "." || cleanRelPath == ".." || strings.HasPrefix(cleanRelPath, "../") || path.IsAbs(cleanRelPath) {
+		return "", "", false
+	}
+
+	fullPath = path.Join(assetDir, cleanRelPath)
+	if fullPath != assetDir && !strings.HasPrefix(fullPath, assetDir+"/") {
+		return "", "", false
+	}
+	return fullPath, cleanRelPath, true
+}
+
+func readAssetWithEncoding(assets embed.FS, fullPath, relPath string) ([]byte, error) {
+	var compressedErr error
+	if strings.HasSuffix(relPath, ".wasm") {
+		if compressed, err := fs.ReadFile(assets, fullPath+".br"); err == nil {
+			data, err := io.ReadAll(io.LimitReader(brotli.NewReader(bytes.NewReader(compressed)), maxSystemviewsWASMBytes+1))
+			if err != nil {
+				compressedErr = err
+			} else if len(data) > maxSystemviewsWASMBytes {
+				compressedErr = fmt.Errorf("decompressed asset %s exceeds %d bytes", fullPath, maxSystemviewsWASMBytes)
+			} else {
+				return data, nil
+			}
+		}
+	}
+	data, err := fs.ReadFile(assets, fullPath)
+	if err == nil {
+		return data, nil
+	}
+	if compressedErr != nil {
+		return nil, compressedErr
+	}
+	return nil, err
+}
+
+func resolveAssetPath(u *url.URL) (assetDir, relPath string, ok bool) {
+	if u == nil {
+		return "", "", false
+	}
+
+	rootByHost := map[string]struct {
+		assetDir string
+		file     string
+	}{
+		HistoryPath:   {assetDir: systemviewsAssetDir, file: IndexHTML},
+		FavoritesPath: {assetDir: systemviewsAssetDir, file: IndexHTML},
+		ConfigPath:    {assetDir: systemviewsAssetDir, file: IndexHTML},
+		ErrorPath:     {assetDir: systemviewsAssetDir, file: IndexHTML},
+		CrashPath:     {assetDir: systemviewsAssetDir, file: IndexHTML},
 	}
 
 	if root, ok := rootByHost[u.Host]; ok {
-		path := strings.TrimPrefix(u.Path, "/")
-		if path == "" {
-			return root, true
+		assetPath := strings.TrimPrefix(u.Path, "/")
+		if assetPath == "" {
+			return root.assetDir, root.file, true
 		}
-		return path, true
+		return root.assetDir, assetPath, true
 	}
 
 	switch u.Opaque {
-	case HomePath:
-		return IndexHTML, true
-	case ConfigPath:
-		return "config.html", true
-	case ErrorPath:
-		return "error.html", true
-	case WebRTCPath:
-		return "webrtc.html", true
+	case HistoryPath, FavoritesPath, ConfigPath, ErrorPath, CrashPath:
+		return systemviewsAssetDir, IndexHTML, true
 	default:
-		return "", false
+		return "", "", false
 	}
+}
+
+func shouldAddCORSHeaders(requestPath string) bool {
+	requestPath = strings.TrimSpace(requestPath)
+	return strings.HasSuffix(requestPath, ".wasm")
+}
+
+func responseHeadersForPath(requestPath, contentType string) map[string]string {
+	if !shouldAddCORSHeaders(requestPath) {
+		return nil
+	}
+
+	headers := map[string]string{
+		"Access-Control-Allow-Origin":  "*",
+		"Access-Control-Allow-Methods": "GET, POST, OPTIONS",
+		"Access-Control-Allow-Headers": "Content-Type",
+		"Access-Control-Max-Age":       "86400",
+	}
+	if contentType != "" {
+		headers["Content-Type"] = contentType
+	}
+	return headers
 }
 
 // sendResponse sends the response back to WebKit.
@@ -378,14 +596,23 @@ func (h *DumbSchemeHandler) sendResponse(req *webkit.URISchemeRequest, response 
 	schemeResp.SetContentType(contentType)
 	schemeResp.SetStatus(uint(response.StatusCode), nil)
 
-	// WebKit can treat custom schemes as CORS-relevant even for same-origin fetch().
-	// We only add CORS headers for our internal API endpoints.
-	if strings.HasPrefix(req.GetPath(), "/api/") {
+	// WebKit can treat custom schemes as CORS-relevant for the wasm runtime asset.
+	// Private systemview APIs opt out with SuppressDefaultHeaders and validate callers.
+	var headers map[string]string
+	if !response.SuppressDefaultHeaders {
+		headers = responseHeadersForPath(req.GetPath(), contentType)
+	}
+	for name, value := range response.Headers {
+		if headers == nil {
+			headers = map[string]string{}
+		}
+		headers[name] = value
+	}
+	if len(headers) > 0 {
 		hdrs := soup.NewMessageHeaders(soup.MessageHeadersResponseValue)
-		hdrs.Append("Access-Control-Allow-Origin", "*")
-		hdrs.Append("Access-Control-Allow-Methods", "GET, POST, OPTIONS")
-		hdrs.Append("Access-Control-Allow-Headers", "Content-Type")
-		hdrs.Append("Access-Control-Max-Age", "86400")
+		for name, value := range headers {
+			hdrs.Append(name, value)
+		}
 		schemeResp.SetHttpHeaders(hdrs)
 	}
 

@@ -1,0 +1,71 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="dark light">
+  <title>systemviews</title>
+  <link rel="stylesheet" href="./systemviews.css">
+  <script src="./wasm_exec.js"></script>
+  <script>
+    function renderWasmError(prefixText, err) {
+      const render = () => {
+        const app = document.getElementById('app');
+        if (!app) return;
+        app.innerHTML = '';
+        const message = document.createElement('div');
+        message.className = 'sv-error';
+        const prefix = document.createElement('span');
+        prefix.textContent = prefixText;
+        const details = document.createElement('span');
+        details.textContent = err && err.message ? err.message : String(err || 'unsupported browser');
+        message.append(prefix, details);
+        app.append(message);
+      };
+      if (document.readyState === 'loading' && !document.getElementById('app')) {
+        document.addEventListener('DOMContentLoaded', render, { once: true });
+      } else {
+        render();
+      }
+      console.error(prefixText, err);
+    }
+
+    function instantiateWasm(go, wasmURL) {
+      const instantiateFromBytes = () => fetch(wasmURL)
+        .then((response) => {
+          if (!response.ok) {
+            throw new Error(`HTTP ${response.status} loading ${wasmURL}`);
+          }
+          return response.arrayBuffer();
+        })
+        .then((bytes) => WebAssembly.instantiate(bytes, go.importObject));
+
+      if (!WebAssembly.instantiateStreaming) {
+        return instantiateFromBytes();
+      }
+      return WebAssembly.instantiateStreaming(fetch(wasmURL), go.importObject)
+        .catch((err) => {
+          console.error(`Streaming WebAssembly load failed for ${wasmURL}; falling back to ArrayBuffer instantiation`, err);
+          return instantiateFromBytes();
+        });
+    }
+
+    if (typeof WebAssembly !== 'object') {
+      renderWasmError('WebAssembly is not supported in this browser: ');
+    } else if (typeof Go !== 'function') {
+      renderWasmError('Go WebAssembly runtime failed to load: ');
+    } else {
+      const go = new Go();
+      instantiateWasm(go, './systemviews.wasm')
+        .then((result) => go.run(result.instance))
+        .catch((err) => renderWasmError('Failed to load systemviews WebAssembly: ', err));
+    }
+  </script>
+</head>
+<body>
+  <main id="app">Loading systemviews…</main>
+  <noscript>
+    <p>JavaScript is required to run Dumber system views. Enable JavaScript for <code>dumb://history</code>, <code>dumb://favorites</code>, and <code>dumb://config</code>.</p>
+  </noscript>
+</body>
+</html>

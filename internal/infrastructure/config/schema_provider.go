@@ -905,7 +905,7 @@ func (*SchemaProvider) getPerformanceKeys(defaults *Config) []entity.ConfigKeyIn
 			Type:        "string",
 			Default:     string(defaults.Engine.Profile),
 			Description: "Performance profile preset (custom enables manual tuning)",
-			Values:      []string{"default", "lite", "max", "custom"},
+			Values:      []string{"default", "lite", "balanced", "max", "custom"},
 			Section:     SectionPerformance,
 		},
 		{

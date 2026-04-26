@@ -104,15 +104,7 @@ func NewGlobalShortcutHandler(
 		Msg("registered global shortcut")
 
 	if workspace != nil {
-		// Map action names to action constants for global shortcuts
-		actionMap := map[string]Action{
-			"toggle_floating_pane":   ActionToggleFloatingPane,
-			"toggle-floating-pane":   ActionToggleFloatingPane,
-			"consume_or_expel_left":  ActionConsumeOrExpelLeft,
-			"consume_or_expel_right": ActionConsumeOrExpelRight,
-			"consume_or_expel_up":    ActionConsumeOrExpelUp,
-			"consume_or_expel_down":  ActionConsumeOrExpelDown,
-		}
+		actionMap := globalShortcutActionMap()
 
 		for actionName, actionBinding := range workspace.Shortcuts.Actions {
 			action, ok := actionMap[actionName]
@@ -247,6 +239,28 @@ func (h *GlobalShortcutHandler) registerShortcut(keyval uint, modifiers gdk.Modi
 	return true
 }
 
+// globalShortcutActionMap returns a fresh map of workspace action names to global shortcut actions.
+func globalShortcutActionMap() map[string]Action {
+	return map[string]Action{
+		"toggle_floating_pane":        ActionToggleFloatingPane,
+		"toggle-floating-pane":        ActionToggleFloatingPane,
+		"consume_or_expel_left":       ActionConsumeOrExpelLeft,
+		"consume-or-expel-left":       ActionConsumeOrExpelLeft,
+		"consume_or_expel_right":      ActionConsumeOrExpelRight,
+		"consume-or-expel-right":      ActionConsumeOrExpelRight,
+		"consume_or_expel_up":         ActionConsumeOrExpelUp,
+		"consume-or-expel-up":         ActionConsumeOrExpelUp,
+		"consume_or_expel_down":       ActionConsumeOrExpelDown,
+		"consume-or-expel-down":       ActionConsumeOrExpelDown,
+		"toggle_history_systemview":   ActionToggleHistorySystemView,
+		"toggle-history-systemview":   ActionToggleHistorySystemView,
+		"toggle_favorites_systemview": ActionToggleFavoritesSystemView,
+		"toggle-favorites-systemview": ActionToggleFavoritesSystemView,
+		"toggle_config_systemview":    ActionToggleConfigSystemView,
+		"toggle-config-systemview":    ActionToggleConfigSystemView,
+	}
+}
+
 // ReloadShortcuts rebuilds global shortcuts from a new config.
 // It replaces the GTK shortcut controller to ensure stale shortcuts
 // are removed.
@@ -285,14 +299,7 @@ func (h *GlobalShortcutHandler) ReloadShortcuts(ctx context.Context, workspace *
 
 	// Re-register config-driven shortcuts
 	if workspace != nil {
-		actionMap := map[string]Action{
-			"toggle_floating_pane":   ActionToggleFloatingPane,
-			"toggle-floating-pane":   ActionToggleFloatingPane,
-			"consume_or_expel_left":  ActionConsumeOrExpelLeft,
-			"consume_or_expel_right": ActionConsumeOrExpelRight,
-			"consume_or_expel_up":    ActionConsumeOrExpelUp,
-			"consume_or_expel_down":  ActionConsumeOrExpelDown,
-		}
+		actionMap := globalShortcutActionMap()
 
 		for actionName, actionBinding := range workspace.Shortcuts.Actions {
 			action, ok := actionMap[actionName]

@@ -149,6 +149,46 @@ func (r *LazyHistoryRepository) GetRecent(ctx context.Context, limit, offset int
 	return r.repo.GetRecent(ctx, limit, offset)
 }
 
+func (r *LazyHistoryRepository) GetRecentByDomain(ctx context.Context, domain string, limit, offset int) ([]*entity.HistoryEntry, error) {
+	if err := r.init(ctx); err != nil {
+		return nil, err
+	}
+	return r.repo.GetRecentByDomain(ctx, domain, limit, offset)
+}
+
+func (r *LazyHistoryRepository) GetRecentWindow(ctx context.Context, before, after time.Time) ([]*entity.HistoryEntry, error) {
+	if err := r.init(ctx); err != nil {
+		return nil, err
+	}
+	return r.repo.GetRecentWindow(ctx, before, after)
+}
+
+func (r *LazyHistoryRepository) GetRecentWindowByDomain(
+	ctx context.Context,
+	domain string,
+	before time.Time,
+	after time.Time,
+) ([]*entity.HistoryEntry, error) {
+	if err := r.init(ctx); err != nil {
+		return nil, err
+	}
+	return r.repo.GetRecentWindowByDomain(ctx, domain, before, after)
+}
+
+func (r *LazyHistoryRepository) HasEntriesBefore(ctx context.Context, before time.Time) (bool, error) {
+	if err := r.init(ctx); err != nil {
+		return false, err
+	}
+	return r.repo.HasEntriesBefore(ctx, before)
+}
+
+func (r *LazyHistoryRepository) HasEntriesByDomainBefore(ctx context.Context, domain string, before time.Time) (bool, error) {
+	if err := r.init(ctx); err != nil {
+		return false, err
+	}
+	return r.repo.HasEntriesByDomainBefore(ctx, domain, before)
+}
+
 func (r *LazyHistoryRepository) GetRecentSince(ctx context.Context, days int) ([]*entity.HistoryEntry, error) {
 	if err := r.init(ctx); err != nil {
 		return nil, err
@@ -221,6 +261,13 @@ func (r *LazyHistoryRepository) DeleteOlderThan(ctx context.Context, before time
 		return err
 	}
 	return r.repo.DeleteOlderThan(ctx, before)
+}
+
+func (r *LazyHistoryRepository) DeleteSince(ctx context.Context, since time.Time) error {
+	if err := r.init(ctx); err != nil {
+		return err
+	}
+	return r.repo.DeleteSince(ctx, since)
 }
 
 func (r *LazyHistoryRepository) DeleteAll(ctx context.Context) error {

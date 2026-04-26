@@ -1,0 +1,172 @@
+package systemviews
+
+import (
+	"fmt"
+	"strings"
+	"github.com/bnema/dumber/internal/domain/entity"
+)
+
+templ HistoryView(data historyRenderData) {
+	@Alert("success", data.Notice)
+	@Alert("error", data.Error)
+	@Section("sv-history-controls", "Manage history") {
+		@HistoryControls(data)
+	}
+	@Section("sv-history-domains", "Top domains") {
+		@HistoryDomains(data)
+	}
+	@Section("sv-history-timeline", "Recent visits") {
+		@HistoryTimeline(data)
+	}
+}
+
+templ HistoryControls(data historyRenderData) {
+	<form class="sv-toolbar sv-history-search" data-sv-action="history.search">
+		<label class="sv-search-label">
+			<span>Search</span>
+			<input data-sv-history-search data-sv-autofocus name="query" type="search" value={ data.Query } placeholder="Search title or URL" autocomplete="off" autofocus/>
+		</label>
+		<button class="sv-button" type="submit">@ButtonIconLabel(iconSearch, "Search")</button>
+		<button class="sv-button sv-button-secondary" type="button" data-sv-action="history.clear">@ButtonIconLabel(iconX, "Clear")</button>
+	</form>
+	if showHistoryFilters(data) {
+		<div class="sv-active-filters">
+			if data.Query != "" {
+				<span class="sv-filter-chip">Query: { data.Query }</span>
+			}
+			if data.DomainFilter != "" {
+				<span class="sv-filter-chip">Domain: { data.DomainFilter } <button type="button" data-sv-action="history.clearDomain" aria-label="Clear domain filter">@IconOnly(iconX, "Clear domain filter")</button></span>
+			}
+		</div>
+	}
+	<div class="sv-history-actions-panel">
+		<div class="sv-button-row" aria-label="History pagination">
+			<span class="sv-meta">{ historyShowingLabel(data) }</span>
+		</div>
+		<div class="sv-button-row" aria-label="History cleanup">
+			<span class="sv-meta">Clean up</span>
+			for _, item := range historyCleanupItems() {
+				<button type="button" class="sv-danger-link" data-sv-action="history.deleteRange" data-range={ item.RangeID } data-sv-confirm={ item.Confirm }>{ item.Label }</button>
+			}
+		</div>
+	</div>
+}
+
+templ HistoryDomains(data historyRenderData) {
+	if data.Loading {
+		@LoadingPanel("Loading top domains…")
+	} else if len(data.Domains) == 0 {
+		@EmptyState("No domain statistics yet")
+	} else {
+		<div class="sv-domain-list">
+			for _, domain := range data.Domains {
+				if domain != nil && domain.Domain != "" {
+					{{ domainKey := historyDomainActionKey(domain) }}
+					{{ displayDomain := historyDomainDisplayLabel(domain) }}
+					<span class="sv-domain-chip">
+						<span class="sv-domain-chip-main">
+							<button type="button" class="sv-domain-filter" data-sv-action="history.filterDomain" data-domain={ domainKey }>{ displayDomain }</button>
+							<span class="sv-domain-meta">{ fmt.Sprintf("%dp · %dv", domain.PageCount, domain.TotalVisits) }</span>
+						</span>
+						<button type="button" class="sv-domain-delete" data-sv-action="history.deleteDomain" data-domain={ domainKey } data-sv-confirm={ "Delete all history for " + displayDomain + "?" } aria-label={ "Delete history for " + displayDomain }><span aria-hidden="true">×</span><span class="sv-sr-only">Delete history for { displayDomain }</span></button>
+					</span>
+				}
+			}
+		</div>
+	}
+}
+
+templ HistoryTimeline(data historyRenderData) {
+	if data.Loading {
+		@LoadingPanel("Loading recent visits…")
+	} else {
+		<div class="sv-history-timeline-list" data-sv-history-timeline>
+			{{ groups := groupHistoryEntries(data.Entries) }}
+			if len(groups) == 0 {
+				@EmptyState(historyTimelineEmptyMessage(data))
+			} else {
+				@HistoryTimelineGroups(data.Entries, "")
+			}
+			@HistoryLoadMore(data)
+		</div>
+	}
+}
+
+templ HistoryTimelineAppend(data historyRenderData) {
+	@HistoryTimelineAppendGroups(data.Entries, data.AppendSkipFirstDate)
+	@HistoryLoadMore(data)
+}
+
+templ HistoryTimelineGroups(entries []*entity.HistoryEntry, skipFirstDate string) {
+	{{ groups := groupHistoryEntries(entries) }}
+	for _, group := range groups {
+		@HistoryTimelineGroup(group, true)
+	}
+}
+
+templ HistoryTimelineAppendGroups(entries []*entity.HistoryEntry, mergeFirstDate string) {
+	{{ groups := groupHistoryEntries(entries) }}
+	for index, group := range groups {
+		if index == 0 && group.Date == mergeFirstDate {
+			<div data-sv-history-merge-date={ group.Date }>
+				for _, entry := range group.Entries {
+					if entry != nil {
+						@HistoryItem(entry)
+					}
+				}
+			</div>
+		} else {
+			@HistoryTimelineGroup(group, true)
+		}
+	}
+}
+
+templ HistoryTimelineGroup(group historyTimelineGroup, showHeading bool) {
+	<section class="sv-timeline-group" data-sv-history-date={ group.Date }>
+		if showHeading {
+			<h3>{ group.Label }</h3>
+		}
+		<ul class="sv-list">
+			for _, entry := range group.Entries {
+				if entry != nil {
+					@HistoryItem(entry)
+				}
+			}
+		</ul>
+	</section>
+}
+
+templ HistoryLoadMore(data historyRenderData) {
+	<div class="sv-history-load-more" data-sv-history-load-more-container>
+		if showHistoryLoadMore(data) {
+			<button type="button" class="sv-button sv-button-secondary" data-sv-action="history.loadMore" data-before={ historyLoadMoreCursor(data) } data-sv-history-load-more>Load older visits</button>
+		} else if strings.TrimSpace(data.Query) == "" && countHistoryEntries(data.Entries) > 0 {
+			<p class="sv-meta">End of history</p>
+		}
+	</div>
+}
+
+templ HistoryItem(entry *entity.HistoryEntry) {
+	<li class="sv-list-row">
+		<article class="sv-history-item" data-sv-history-row data-history-id={ fmt.Sprintf("%d", entry.ID) }>
+			<div class="sv-history-content">
+				{{ faviconURL := historyItemFaviconURL(entry) }}
+				<span class={ historyFaviconClass(faviconURL) } aria-hidden="true">
+					<span class="sv-history-favicon-fallback">{ historyFaviconFallback(entry) }</span>
+					if faviconURL != "" {
+						<img src={ templ.SafeURL(faviconURL) } alt="" width="24" height="24" loading="lazy" decoding="async" referrerpolicy="same-origin" onerror="this.parentElement.classList.remove('sv-history-favicon-has-image'); this.remove()"/>
+					}
+				</span>
+				<div class="sv-history-main">
+					<a class="sv-link sv-history-open" href={ templ.SafeURL(sanitizeHref(entry.URL)) }>{ historyItemLabel(entry) }</a>
+					<p class="sv-history-url" title={ entry.URL }>{ historyItemURL(entry) }</p>
+					<p class="sv-history-meta">{ historyItemMeta(entry) }</p>
+				</div>
+			</div>
+			<div class="sv-history-row-actions">
+				<a class="sv-button sv-button-secondary" href={ templ.SafeURL(sanitizeHref(entry.URL)) }>@ButtonIconLabel(iconExternal, "Open")</a>
+				<button type="button" class="sv-button sv-button-secondary sv-button-danger sv-button-icon-only" data-sv-action="history.deleteEntry" data-id={ fmt.Sprintf("%d", entry.ID) } data-sv-confirm="Delete this history entry?" aria-label="Delete this history entry" disabled?={ entry.ID <= 0 }>@IconOnly(iconTrash, "Delete this history entry")</button>
+			</div>
+		</article>
+	</li>
+}

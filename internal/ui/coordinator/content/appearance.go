@@ -14,7 +14,7 @@ import (
 
 const (
 	aboutBlankURI              = "about:blank"
-	crashPageURI               = "dumb://home/crash"
+	crashPageURI               = "dumb://history/crash"
 	logURLMaxLen               = 80
 	oauthParentRefreshDebounce = 200 * time.Millisecond
 

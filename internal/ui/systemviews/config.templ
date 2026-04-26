@@ -1,0 +1,198 @@
+package systemviews
+
+import (
+	"github.com/bnema/dumber/internal/application/dto"
+	"github.com/bnema/dumber/internal/application/port"
+)
+
+templ ConfigView(data configRenderData) {
+	@Alert("success", data.Notice)
+	@Alert("error", data.Error)
+	@Section("sv-config-appearance", "Appearance") {
+		@AppearanceForm(data.Config)
+	}
+	@Section("sv-config-search", "Search") {
+		@SearchSettings(data.Config)
+	}
+	@Section("sv-config-performance", "Performance") {
+		@PerformanceSettings(data.Config)
+	}
+	@Section("sv-config-keybindings", "Keybindings") {
+		@Meta(configKeybindingSummary(data.Keybindings))
+		@ConfigKeybindings(data.Keybindings)
+	}
+	@Section("sv-config-values", "Current payload") {
+		@KV(flattenValues(data.Config))
+	}
+}
+
+templ AppearanceForm(config dto.SystemviewConfigPayload) {
+	<form class="sv-card-form sv-config-form" data-sv-action="config.appearance.save">
+		<label><span>Sans font</span><input name="sans_font" type="text" value={ config.Appearance.SansFont } required/></label>
+		<label><span>Serif font</span><input name="serif_font" type="text" value={ config.Appearance.SerifFont } required/></label>
+		<label><span>Monospace font</span><input name="monospace_font" type="text" value={ config.Appearance.MonospaceFont } required/></label>
+		<label><span>Default font size</span><input name="default_font_size" type="number" min="1" max="72" value={ formatConfigInt(config.Appearance.DefaultFontSize) } required/></label>
+		<label><span>UI scale</span><input name="default_ui_scale" type="number" min="0.5" max="3" step="0.05" value={ formatConfigFloat(config.DefaultUIScale) } required/></label>
+		<label><span>Color scheme</span><select name="color_scheme">
+			<option value="default" selected?={ colorSchemeSelected(config.Appearance.ColorScheme, "default") }>System default</option>
+			<option value="prefer-light" selected?={ colorSchemeSelected(config.Appearance.ColorScheme, "prefer-light") }>Prefer light</option>
+			<option value="prefer-dark" selected?={ colorSchemeSelected(config.Appearance.ColorScheme, "prefer-dark") }>Prefer dark</option>
+		</select></label>
+		@PaletteFields("Light palette", "light", config.Appearance.LightPalette)
+		@PaletteFields("Dark palette", "dark", config.Appearance.DarkPalette)
+		<div class="sv-button-row sv-form-actions">
+			<button class="sv-button" type="submit">@ButtonIconLabel(iconSave, "Save appearance")</button>
+			<button class="sv-button sv-button-secondary" type="button" data-sv-action="config.appearance.reset" data-sv-confirm="Reset appearance settings to defaults?">@ButtonIconLabel(iconRotateCCW, "Reset appearance")</button>
+		</div>
+	</form>
+}
+
+templ PaletteFields(title string, prefix string, palette dto.ColorPalette) {
+	<fieldset class="sv-fieldset">
+		<legend>{ title }</legend>
+		<label><span>Background</span><input name={ prefix + "_background" } type="text" value={ palette.Background } required/></label>
+		<label><span>Surface</span><input name={ prefix + "_surface" } type="text" value={ palette.Surface } required/></label>
+		<label><span>Surface variant</span><input name={ prefix + "_surface_variant" } type="text" value={ palette.SurfaceVariant } required/></label>
+		<label><span>Text</span><input name={ prefix + "_text" } type="text" value={ palette.Text } required/></label>
+		<label><span>Muted</span><input name={ prefix + "_muted" } type="text" value={ palette.Muted } required/></label>
+		<label><span>Accent</span><input name={ prefix + "_accent" } type="text" value={ palette.Accent } required/></label>
+		<label><span>Border</span><input name={ prefix + "_border" } type="text" value={ palette.Border } required/></label>
+	</fieldset>
+}
+
+templ SearchSettings(config dto.SystemviewConfigPayload) {
+	<form class="sv-card-form" data-sv-action="config.search.save">
+		<label><span>Default search engine</span><input name="default_search_engine" type="text" value={ config.DefaultSearchEngine } placeholder="https://duckduckgo.com/?q=%s" required/></label>
+		<button class="sv-button" type="submit">@ButtonIconLabel(iconSave, "Save search default")</button>
+	</form>
+	<div class="sv-group">
+		<div class="sv-group-header"><h4>Search shortcuts</h4></div>
+		<p class="sv-meta">Shortcut URLs must include the %s placeholder for the search query.</p>
+		<form class="sv-inline-form" data-sv-action="config.searchShortcut.create">
+			<label><span>Key</span><input name="key" type="text" placeholder="ddg" required/></label>
+			<label><span>URL</span><input name="url" type="text" placeholder="https://duckduckgo.com/?q=%s" pattern=".*%s.*" required/></label>
+			<label><span>Description</span><input name="description" type="text" placeholder="DuckDuckGo"/></label>
+			<button class="sv-button sv-button-secondary" type="submit">@ButtonIconLabel(iconPlus, "Add shortcut")</button>
+		</form>
+		{{ shortcuts := searchShortcutRows(config.SearchShortcuts) }}
+		if len(shortcuts) == 0 {
+			@EmptyState("No search shortcuts configured")
+		} else {
+			<ul class="sv-list">
+				for _, shortcut := range shortcuts {
+					@SearchShortcutItem(shortcut)
+				}
+			</ul>
+		}
+	</div>
+}
+
+templ SearchShortcutItem(shortcut searchShortcutRow) {
+	<li class="sv-list-row">
+		<form class="sv-inline-form" data-sv-action="config.searchShortcut.update">
+			<input type="hidden" name="key" value={ shortcut.Key }/>
+			<label><span>Key</span><input name="new_key" type="text" value={ shortcut.Key } required/></label>
+			<label><span>URL</span><input name="url" type="text" value={ shortcut.URL } pattern=".*%s.*" required/></label>
+			<label><span>Description</span><input name="description" type="text" value={ shortcut.Description }/></label>
+			<button class="sv-button sv-button-secondary" type="submit">@ButtonIconLabel(iconSave, "Save")</button>
+			<button class="sv-button sv-button-secondary sv-button-danger sv-button-icon-only" type="button" data-sv-action="config.searchShortcut.delete" data-key={ shortcut.Key } data-sv-confirm="Delete this search shortcut?" aria-label={ "Delete search shortcut " + shortcut.Key }>@IconOnly(iconTrash, "Delete search shortcut " + shortcut.Key)</button>
+		</form>
+	</li>
+}
+
+templ PerformanceSettings(config dto.SystemviewConfigPayload) {
+	{{ customProfile := performanceProfileSelected(config.Performance.Profile, "custom") }}
+	<form class="sv-card-form sv-config-form" data-sv-action="config.performance.save" data-sv-performance-form>
+		<label><span>Profile</span><select name="profile" data-sv-performance-profile>
+			<option value="default" selected?={ performanceProfileSelected(config.Performance.Profile, "default") }>Default</option>
+			<option value="balanced" selected?={ performanceProfileSelected(config.Performance.Profile, "balanced") }>Balanced</option>
+			<option value="lite" selected?={ performanceProfileSelected(config.Performance.Profile, "lite") }>Lite</option>
+			<option value="max" selected?={ performanceProfileSelected(config.Performance.Profile, "max") }>Max</option>
+			<option value="custom" selected?={ performanceProfileSelected(config.Performance.Profile, "custom") }>Custom</option>
+		</select></label>
+		<p class="sv-meta">Choose Custom to edit individual performance values.</p>
+		<label><span>Skia CPU threads</span><input name="skia_cpu_threads" type="number" min="0" max="8" value={ formatConfigInt(config.Performance.Custom.SkiaCPUThreads) } disabled?={ !customProfile } data-sv-performance-custom/></label>
+		<label><span>Skia GPU threads</span><input name="skia_gpu_threads" type="number" min="-1" max="8" value={ formatConfigInt(config.Performance.Custom.SkiaGPUThreads) } disabled?={ !customProfile } data-sv-performance-custom/></label>
+		<label><span>Web process memory MB</span><input name="web_process_memory_mb" type="number" min="0" max="16384" value={ formatConfigInt(config.Performance.Custom.WebProcessMemoryMB) } disabled?={ !customProfile } data-sv-performance-custom/></label>
+		<label><span>Network process memory MB</span><input name="network_process_memory_mb" type="number" min="0" max="4096" value={ formatConfigInt(config.Performance.Custom.NetworkProcessMemoryMB) } disabled?={ !customProfile } data-sv-performance-custom/></label>
+		<label><span>WebView pool prewarm</span><input name="webview_pool_prewarm" type="number" min="0" max="20" value={ formatConfigInt(config.Performance.Custom.WebViewPoolPrewarm) } disabled?={ !customProfile } data-sv-performance-custom/></label>
+		<button class="sv-button" type="submit">@ButtonIconLabel(iconSave, "Save performance")</button>
+	</form>
+	<div class="sv-stat-grid">
+		<div class="sv-stat-card"><span class="sv-stat-value">{ formatConfigInt(config.Performance.Hardware.CPUThreads) }</span><span class="sv-stat-label">CPU threads</span></div>
+		<div class="sv-stat-card"><span class="sv-stat-value">{ formatConfigInt(config.Performance.Hardware.TotalRAMMB) }</span><span class="sv-stat-label">RAM MB</span></div>
+		<div class="sv-stat-card"><span class="sv-stat-value">{ config.Performance.Hardware.GPUName }</span><span class="sv-stat-label">GPU</span></div>
+		<div class="sv-stat-card"><span class="sv-stat-value">{ config.EngineType }</span><span class="sv-stat-label">Engine</span></div>
+	</div>
+	if !engineIsWebKit(config.EngineType) {
+		<p class="sv-meta">Performance tuning applies only to the WebKit engine.</p>
+	} else {
+		<p class="sv-meta">Performance profile changes may require restarting the browser to affect existing engine processes.</p>
+	}
+}
+
+templ ConfigKeybindings(keybindings port.KeybindingsConfig) {
+	{{ groups := configKeybindingGroups(keybindings) }}
+	if groups == nil {
+		@EmptyState("Keybindings unavailable")
+	} else if len(groups) == 0 {
+		@EmptyState("No keybindings configured")
+	} else {
+		<div class="sv-button-row">
+			<button class="sv-button sv-button-secondary sv-button-danger" type="button" data-sv-action="config.keybinding.resetAll" data-sv-confirm="Reset all keybindings to defaults?">@ButtonIconLabel(iconRotateCCW, "Reset all keybindings")</button>
+		</div>
+		for _, group := range groups {
+			@ConfigKeybindingGroup(group)
+		}
+	}
+}
+
+templ ConfigKeybindingGroup(group renderedKeybindingGroup) {
+	<div class="sv-group">
+		<div class="sv-group-header">
+			<div>
+				<h4>{ keybindingGroupTitle(group) }</h4>
+				if keybindingGroupMeta(group) != "" {
+					<p class="sv-meta">{ keybindingGroupMeta(group) }</p>
+				}
+			</div>
+		</div>
+		<div class="sv-group-body">
+			if len(group.Bindings) == 0 {
+				@EmptyState("No bindings in this group")
+			} else {
+				<ul class="sv-list">
+					for _, binding := range group.Bindings {
+						@ConfigKeybinding(group, binding)
+					}
+				</ul>
+			}
+		</div>
+	</div>
+}
+
+templ ConfigKeybinding(group renderedKeybindingGroup, binding renderedKeybinding) {
+	<li class="sv-list-row">
+		<div class="sv-keybinding-row">
+			<div>
+				<strong>{ keybindingDescription(binding) }</strong>
+				<p class="sv-meta">{ keybindingAction(binding) }</p>
+				<div class="sv-binding-keys">
+					@KeyList(binding.Keys)
+					<span class="sv-badge">{ keybindingStatus(binding) }</span>
+					if keybindingIsCustom(binding) && len(binding.DefaultKeys) > 0 {
+						<span class="sv-meta">default:</span>
+						@KeyList(binding.DefaultKeys)
+					}
+				</div>
+			</div>
+			<form class="sv-inline-form" data-sv-action="config.keybinding.set">
+				<input type="hidden" name="mode" value={ group.Mode }/>
+				<input type="hidden" name="action" value={ binding.Action }/>
+				<label><span>Keys</span><input name="keys" type="text" value={ keybindingKeysValue(binding.Keys) } placeholder="ctrl+h, ctrl+shift+h" required/></label>
+				<button class="sv-button sv-button-secondary" type="submit">@ButtonIconLabel(iconSave, "Save")</button>
+				<button class="sv-button sv-button-secondary" type="button" data-sv-action="config.keybinding.reset" data-mode={ group.Mode } data-action={ binding.Action }>@ButtonIconLabel(iconRotateCCW, "Reset")</button>
+			</form>
+		</div>
+	</li>
+}

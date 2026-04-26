@@ -178,7 +178,33 @@ func ExtractDomain(rawURL string) string {
 	if err != nil || parsed.Host == "" {
 		return ""
 	}
-	return strings.TrimPrefix(parsed.Host, "www.")
+	return strings.TrimPrefix(strings.ToLower(parsed.Host), "www.")
+}
+
+// CanonicalDomain extracts a normalized domain from either a URL string or a
+// host-like domain string. It keeps non-default ports so callers that need to
+// round-trip repository domain keys do not lose identity.
+func CanonicalDomain(raw string) string {
+	raw = strings.TrimSpace(strings.ToLower(raw))
+	if raw == "" {
+		return ""
+	}
+	if domain := ExtractDomain(raw); domain != "" {
+		return domain
+	}
+	if idx := strings.IndexAny(raw, "/?#"); idx >= 0 {
+		raw = raw[:idx]
+	}
+	return strings.TrimPrefix(raw, "www.")
+}
+
+// DisplayDomain returns a user-facing domain label with any port removed.
+func DisplayDomain(raw string) string {
+	domain := CanonicalDomain(raw)
+	if host, _, err := net.SplitHostPort(domain); err == nil {
+		return host
+	}
+	return domain
 }
 
 // SanitizeDomainForFilename converts a domain to a safe filename with .ico extension.

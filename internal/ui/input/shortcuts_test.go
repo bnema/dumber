@@ -383,9 +383,68 @@ func TestMapConfigAction_ToggleFloatingPane(t *testing.T) {
 	}
 }
 
+func TestMapConfigAction_ToggleSystemViews(t *testing.T) {
+	tests := []struct {
+		name string
+		want Action
+	}{
+		{name: "toggle_history_systemview", want: ActionToggleHistorySystemView},
+		{name: "toggle_favorites_systemview", want: ActionToggleFavoritesSystemView},
+		{name: "toggle_config_systemview", want: ActionToggleConfigSystemView},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := mapConfigAction(tt.name); got != tt.want {
+				t.Fatalf("mapConfigAction(%s) = %s, want %s", tt.name, got, tt.want)
+			}
+		})
+	}
+}
+
+func TestMapConfigAction_ToggleSystemViewsHyphenAlias(t *testing.T) {
+	tests := []struct {
+		name string
+		want Action
+	}{
+		{name: "toggle-history-systemview", want: ActionToggleHistorySystemView},
+		{name: "toggle-favorites-systemview", want: ActionToggleFavoritesSystemView},
+		{name: "toggle-config-systemview", want: ActionToggleConfigSystemView},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := mapConfigAction(tt.name); got != tt.want {
+				t.Fatalf("mapConfigAction(%s) = %s, want %s", tt.name, got, tt.want)
+			}
+		})
+	}
+}
+
 func TestMapConfigAction_ToggleFloatingPaneHyphenAlias(t *testing.T) {
 	action := mapConfigAction("toggle-floating-pane")
 	if action != ActionToggleFloatingPane {
 		t.Fatalf("mapConfigAction(toggle-floating-pane) = %s, want %s", action, ActionToggleFloatingPane)
+	}
+}
+
+func TestGlobalShortcutActionMap_ConsumeOrExpelHyphenAliases(t *testing.T) {
+	actions := globalShortcutActionMap()
+	tests := []struct {
+		name string
+		want Action
+	}{
+		{name: "consume-or-expel-left", want: ActionConsumeOrExpelLeft},
+		{name: "consume-or-expel-right", want: ActionConsumeOrExpelRight},
+		{name: "consume-or-expel-up", want: ActionConsumeOrExpelUp},
+		{name: "consume-or-expel-down", want: ActionConsumeOrExpelDown},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := actions[tt.name]; got != tt.want {
+				t.Fatalf("globalShortcutActionMap()[%s] = %s, want %s", tt.name, got, tt.want)
+			}
+		})
 	}
 }

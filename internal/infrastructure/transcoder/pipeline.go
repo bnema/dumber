@@ -1,3 +1,5 @@
+//go:build !js || !wasm
+
 package transcoder
 
 import (
@@ -5,13 +7,12 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"net/http"
-	"sort"
-	"strings"
-	"unsafe"
-
 	"net"
+	"net/http"
+	"net/url"
+	"strings"
 	"time"
+	"unsafe"
 
 	"github.com/bnema/purego"
 	"github.com/rs/zerolog"
@@ -19,6 +20,7 @@ import (
 	"github.com/bnema/purego-ffmpeg/ffmpeg"
 
 	"github.com/bnema/dumber/internal/application/port"
+	"github.com/bnema/dumber/internal/infrastructure/netguard"
 )
 
 // avioBufSize is the buffer size for custom AVIO contexts (32 KiB).
@@ -53,10 +55,104 @@ type pipeline struct {
 // are not killed. The session context handles cancellation.
 var httpClient = &http.Client{
 	Transport: &http.Transport{
-		DialContext:           (&net.Dialer{Timeout: 10 * time.Second}).DialContext,
+		DialContext:           safeTranscodeDialContext,
 		TLSHandshakeTimeout:   10 * time.Second,
 		ResponseHeaderTimeout: 15 * time.Second,
 	},
+	CheckRedirect: validateTranscodeRedirect,
+}
+
+func validateTranscodeRedirect(req *http.Request, via []*http.Request) error {
+	if len(via) >= 10 {
+		return fmt.Errorf("stopped after 10 redirects")
+	}
+	if err := validateHTTPTranscodeURL(req.Context(), req.URL); err != nil {
+		return fmt.Errorf("blocked redirect target: %w", err)
+	}
+	return nil
+}
+
+func safeTranscodeDialContext(ctx context.Context, network, address string) (net.Conn, error) {
+	host, portValue, err := net.SplitHostPort(address)
+	if err != nil {
+		return nil, err
+	}
+
+	ips, err := resolveAllowedTranscodeIPs(ctx, host)
+	if err != nil {
+		return nil, err
+	}
+
+	dialer := &net.Dialer{Timeout: 10 * time.Second}
+	var lastErr error
+	for _, ip := range ips {
+		conn, dialErr := dialer.DialContext(ctx, network, net.JoinHostPort(ip.String(), portValue))
+		if dialErr == nil {
+			return conn, nil
+		}
+		lastErr = dialErr
+	}
+	if lastErr != nil {
+		return nil, lastErr
+	}
+	return nil, fmt.Errorf("no allowed transcode source addresses for %s", host)
+}
+
+func validateHTTPTranscodeURL(ctx context.Context, source *url.URL) error {
+	if source == nil || source.Host == "" {
+		return fmt.Errorf("invalid src")
+	}
+	if source.Scheme != "http" && source.Scheme != "https" {
+		return fmt.Errorf("unsupported src scheme")
+	}
+	if IsStreamingManifestURL(source.String()) {
+		return fmt.Errorf("streaming manifest transcoding is disabled")
+	}
+	_, err := resolveAllowedTranscodeIPs(ctx, source.Hostname())
+	return err
+}
+
+func resolveAllowedTranscodeIPs(ctx context.Context, host string) ([]net.IP, error) {
+	host = strings.TrimSpace(host)
+	if host == "" {
+		return nil, fmt.Errorf("invalid src host")
+	}
+	if ip := net.ParseIP(host); ip != nil {
+		if isBlockedTranscodeIP(ip) {
+			return nil, fmt.Errorf("private src host not allowed")
+		}
+		return []net.IP{ip}, nil
+	}
+
+	lookupCtx, cancel := context.WithTimeout(ctx, 2*time.Second)
+	defer cancel()
+	addrs, err := net.DefaultResolver.LookupIPAddr(lookupCtx, host)
+	if err != nil || len(addrs) == 0 {
+		return nil, fmt.Errorf("src host could not be resolved")
+	}
+	ips := make([]net.IP, 0, len(addrs))
+	for _, addr := range addrs {
+		if isBlockedTranscodeIP(addr.IP) {
+			return nil, fmt.Errorf("private src host not allowed")
+		}
+		ips = append(ips, addr.IP)
+	}
+	return ips, nil
+}
+
+func isBlockedTranscodeIP(ip net.IP) bool {
+	return netguard.IsBlockedTranscodeIP(ip)
+}
+
+func isStreamingManifestResponse(resp *http.Response) bool {
+	if resp == nil {
+		return false
+	}
+	if resp.Request != nil && resp.Request.URL != nil && IsStreamingManifestURL(resp.Request.URL.String()) {
+		return true
+	}
+	contentType := strings.ToLower(resp.Header.Get("Content-Type"))
+	return strings.Contains(contentType, "mpegurl") || strings.Contains(contentType, "dash+xml")
 }
 
 func newPipeline(
@@ -394,7 +490,11 @@ func (p *pipeline) selectInputStreams(inFmtCtx unsafe.Pointer) (videoIdx, audioI
 
 func (p *pipeline) openInputFormatContext(ctx context.Context) (unsafe.Pointer, func(), error) {
 	if IsStreamingManifestURL(p.sourceURL) {
-		return p.openManifestInputContext()
+		// FFmpeg resolves manifest redirects and segment URLs internally, bypassing
+		// the guarded Go HTTP client below. Keep untrusted transcode requests on
+		// custom I/O until manifests can be fetched and rewritten through the same
+		// SSRF protections.
+		return nil, nil, errors.New("streaming manifest transcoding is disabled")
 	}
 	return p.openCustomIOInputContext(ctx)
 }
@@ -416,6 +516,10 @@ func (p *pipeline) openCustomIOInputContext(ctx context.Context) (unsafe.Pointer
 	if resp.StatusCode != http.StatusOK && resp.StatusCode != http.StatusPartialContent {
 		_ = resp.Body.Close()
 		return nil, nil, fmt.Errorf("source returned HTTP %d", resp.StatusCode)
+	}
+	if isStreamingManifestResponse(resp) {
+		_ = resp.Body.Close()
+		return nil, nil, errors.New("streaming manifest transcoding is disabled")
 	}
 
 	body := resp.Body
@@ -478,110 +582,6 @@ func (p *pipeline) openCustomIOInputContext(ctx context.Context) (unsafe.Pointer
 	return inFmtCtx, cleanup, nil
 }
 
-func (p *pipeline) openManifestInputContext() (unsafe.Pointer, func(), error) {
-	inFmtCtx := ffmpeg.FormatAllocContext()
-	if inFmtCtx == nil {
-		return nil, nil, errors.New("failed to allocate input format context")
-	}
-
-	var opts unsafe.Pointer
-	defer freeInputOptions(&opts)
-
-	if err := setInputOption(&opts, "protocol_whitelist", "file,http,https,tcp,tls,crypto"); err != nil {
-		ffmpeg.FormatFreeContext(inFmtCtx)
-		return nil, nil, err
-	}
-	if userAgent := p.headers["User-Agent"]; userAgent != "" {
-		if err := setInputOption(&opts, "user_agent", userAgent); err != nil {
-			ffmpeg.FormatFreeContext(inFmtCtx)
-			return nil, nil, err
-		}
-	}
-	if referer := p.headers["Referer"]; referer != "" {
-		if err := setInputOption(&opts, "referer", referer); err != nil {
-			ffmpeg.FormatFreeContext(inFmtCtx)
-			return nil, nil, err
-		}
-	}
-
-	headerLines := formatHTTPHeaderOptions(p.headers)
-	if headerLines != "" {
-		if err := setInputOption(&opts, "headers", headerLines); err != nil {
-			ffmpeg.FormatFreeContext(inFmtCtx)
-			return nil, nil, err
-		}
-	}
-
-	//nolint:gosec // FFmpeg requires pointer-to-pointer input opening for format contexts and option dictionaries.
-	if ret := ffmpeg.FormatOpenInput(unsafe.Pointer(&inFmtCtx), p.sourceURL, nil, unsafe.Pointer(&opts)); ret < 0 {
-		ffmpeg.FormatFreeContext(inFmtCtx)
-		return nil, nil, fmt.Errorf("open manifest input: %d", ret)
-	}
-
-	return inFmtCtx, func() {
-		//nolint:gosec // FFmpeg requires pointer-to-pointer cleanup for format contexts.
-		ffmpeg.FormatCloseInput(unsafe.Pointer(&inFmtCtx))
-	}, nil
-}
-
-func freeInputOptions(opts *unsafe.Pointer) {
-	if opts == nil || *opts == nil {
-		return
-	}
-	// av_dict_free expects an AVDictionary**. Passing the dictionary pointer
-	// itself corrupts memory and can crash inside libavutil during cleanup.
-	//nolint:gosec // FFmpeg requires passing the dictionary pointer by address for cleanup.
-	ffmpeg.DictFree(unsafe.Pointer(opts))
-	*opts = nil
-}
-
-func setInputOption(opts *unsafe.Pointer, key, value string) error {
-	if value == "" {
-		return nil
-	}
-	//nolint:gosec // FFmpeg requires passing the dictionary pointer by address for option updates.
-	if ret := ffmpeg.DictSet(unsafe.Pointer(opts), key, value, 0); ret < 0 {
-		return fmt.Errorf("set input option %q: %d", key, ret)
-	}
-	return nil
-}
-
-func formatHTTPHeaderOptions(headers map[string]string) string {
-	if len(headers) == 0 {
-		return ""
-	}
-
-	keys := make([]string, 0, len(headers))
-	for key, value := range headers {
-		if strings.TrimSpace(value) == "" {
-			continue
-		}
-		if strings.EqualFold(key, "User-Agent") || strings.EqualFold(key, "Referer") {
-			continue
-		}
-		keys = append(keys, key)
-	}
-	if len(keys) == 0 {
-		return ""
-	}
-
-	sort.Strings(keys)
-
-	var builder strings.Builder
-	for _, key := range keys {
-		builder.WriteString(key)
-		builder.WriteString(": ")
-		builder.WriteString(headers[key])
-		builder.WriteString("\r\n")
-	}
-	return builder.String()
-}
-
-// openVideoDecoder creates and opens a decoder context for the video stream.
-// It prefers hardware decoders (h264_vaapi, h264_cuvid) based on hwCaps,
-// falling back to the generic software decoder.
-//
-//nolint:gosec // FFmpeg decoder setup requires unsafe pointer-based contexts and cleanup.
 func (p *pipeline) openVideoDecoder(codecPar unsafe.Pointer) (unsafe.Pointer, error) {
 	codecID := ffmpeg.CodecParCodecID(codecPar)
 
@@ -608,11 +608,13 @@ func (p *pipeline) openVideoDecoder(codecPar unsafe.Pointer) (unsafe.Pointer, er
 	}
 
 	if ret := ffmpeg.CodecParametersToContext(decCtx, codecPar); ret < 0 {
+		//nolint:gosec // FFmpeg requires pointer-to-pointer cleanup for codec contexts.
 		ffmpeg.CodecFreeContext(unsafe.Pointer(&decCtx))
 		return nil, fmt.Errorf("copy video codec params: %d", ret)
 	}
 
 	if ret := ffmpeg.CodecOpen2(decCtx, dec, nil); ret < 0 {
+		//nolint:gosec // FFmpeg requires pointer-to-pointer cleanup for codec contexts.
 		ffmpeg.CodecFreeContext(unsafe.Pointer(&decCtx))
 		return nil, fmt.Errorf("open video decoder: %d", ret)
 	}

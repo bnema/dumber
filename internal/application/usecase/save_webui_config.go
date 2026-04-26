@@ -3,8 +3,10 @@ package usecase
 import (
 	"context"
 	"fmt"
+	"math"
 	"strings"
 
+	"github.com/bnema/dumber/internal/application/dto"
 	"github.com/bnema/dumber/internal/application/port"
 	"github.com/bnema/dumber/internal/domain/validation"
 )
@@ -17,9 +19,13 @@ func NewSaveWebUIConfigUseCase(saver port.WebUIConfigSaver) *SaveWebUIConfigUseC
 	return &SaveWebUIConfigUseCase{saver: saver}
 }
 
-func (uc *SaveWebUIConfigUseCase) Execute(ctx context.Context, cfg port.WebUIConfig) error {
+func (uc *SaveWebUIConfigUseCase) Execute(ctx context.Context, cfg dto.WebUIConfig) error {
 	if uc == nil || uc.saver == nil {
 		return fmt.Errorf("config saver is nil")
+	}
+
+	if err := validateSearchShortcutKeyCollisions(cfg.SearchShortcuts); err != nil {
+		return err
 	}
 
 	normalized := normalizeWebUIConfig(cfg)
@@ -30,45 +36,59 @@ func (uc *SaveWebUIConfigUseCase) Execute(ctx context.Context, cfg port.WebUICon
 	return uc.saver.SaveWebUIConfig(ctx, normalized)
 }
 
-func normalizeWebUIConfig(cfg port.WebUIConfig) port.WebUIConfig {
+func validateSearchShortcutKeyCollisions(shortcuts map[string]dto.SearchShortcut) error {
+	seen := make(map[string]string, len(shortcuts))
+	for key := range shortcuts {
+		trimmedKey := strings.TrimSpace(key)
+		if trimmedKey == "" {
+			continue
+		}
+		if previous, ok := seen[trimmedKey]; ok && previous != key {
+			return fmt.Errorf("search shortcut key %q duplicates %q after trimming", key, previous)
+		}
+		seen[trimmedKey] = key
+	}
+	return nil
+}
+
+func normalizeWebUIConfig(cfg dto.WebUIConfig) dto.WebUIConfig {
 	cfg.Appearance.SansFont = strings.TrimSpace(cfg.Appearance.SansFont)
 	cfg.Appearance.SerifFont = strings.TrimSpace(cfg.Appearance.SerifFont)
 	cfg.Appearance.MonospaceFont = strings.TrimSpace(cfg.Appearance.MonospaceFont)
 	cfg.Appearance.ColorScheme = strings.TrimSpace(cfg.Appearance.ColorScheme)
 	cfg.DefaultSearchEngine = strings.TrimSpace(cfg.DefaultSearchEngine)
 	if len(cfg.SearchShortcuts) > 0 {
-		normalized := make(map[string]port.SearchShortcut, len(cfg.SearchShortcuts))
+		normalized := make(map[string]dto.SearchShortcut, len(cfg.SearchShortcuts))
 		for key, shortcut := range cfg.SearchShortcuts {
 			trimmedKey := strings.TrimSpace(key)
+			if trimmedKey == "" {
+				continue
+			}
 			shortcut.URL = strings.TrimSpace(shortcut.URL)
 			shortcut.Description = strings.TrimSpace(shortcut.Description)
-			if trimmedKey != "" {
-				normalized[trimmedKey] = shortcut
-			}
+			normalized[trimmedKey] = shortcut
 		}
 		cfg.SearchShortcuts = normalized
 	}
 	return cfg
 }
 
-func validateWebUIConfig(cfg port.WebUIConfig) error {
+func validateWebUIConfig(cfg dto.WebUIConfig) error {
 	var errs []string
 
 	if cfg.Appearance.DefaultFontSize < 1 || cfg.Appearance.DefaultFontSize > 72 {
 		errs = append(errs, "appearance.default_font_size must be between 1 and 72")
 	}
-	if cfg.DefaultUIScale < 0.5 || cfg.DefaultUIScale > 3.0 {
-		errs = append(errs, "default_ui_scale must be between 0.5 and 3.0")
+	if math.IsNaN(cfg.DefaultUIScale) || math.IsInf(cfg.DefaultUIScale, 0) || cfg.DefaultUIScale < 0.5 || cfg.DefaultUIScale > 3.0 {
+		errs = append(errs, "default_ui_scale must be a finite value between 0.5 and 3.0")
 	}
 
 	errs = append(errs, validation.ValidateFontFamily("appearance.sans_font", cfg.Appearance.SansFont)...)
 	errs = append(errs, validation.ValidateFontFamily("appearance.serif_font", cfg.Appearance.SerifFont)...)
 	errs = append(errs, validation.ValidateFontFamily("appearance.monospace_font", cfg.Appearance.MonospaceFont)...)
 
-	if cfg.DefaultSearchEngine == "" {
-		errs = append(errs, "default_search_engine cannot be empty")
-	} else if !strings.Contains(cfg.DefaultSearchEngine, "%s") {
-		errs = append(errs, "default_search_engine must contain %s placeholder for the search query")
+	for _, err := range validation.ValidateShortcutURL(cfg.DefaultSearchEngine) {
+		errs = append(errs, fmt.Sprintf("default_search_engine: %s", err))
 	}
 
 	for key, shortcut := range cfg.SearchShortcuts {
@@ -81,6 +101,16 @@ func validateWebUIConfig(cfg port.WebUIConfig) error {
 		for _, err := range validation.ValidateShortcutDescription(shortcut.Description) {
 			errs = append(errs, fmt.Sprintf("search_shortcuts.%s.description: %s", key, err))
 		}
+	}
+
+	switch cfg.Performance.Profile {
+	case "", "default", "lite", "balanced", "max", "custom":
+		// ok
+	default:
+		errs = append(errs, fmt.Sprintf(
+			"performance.profile must be one of: default, lite, balanced, max, custom (got: %s)",
+			cfg.Performance.Profile,
+		))
 	}
 
 	switch cfg.Appearance.ColorScheme {

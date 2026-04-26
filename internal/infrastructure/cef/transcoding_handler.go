@@ -24,6 +24,8 @@ var _ purecef.ResourceRequestHandler = (*transcodingRequestHandler)(nil)
 const (
 	maxTranscodingURLLength = 240
 	httpStatusOK            = 200
+	httpStatusForbidden     = 403
+	httpStatusBadGateway    = 502
 )
 
 // transcodingResourceHandler is checked indirectly: purecef.NewResourceHandler
@@ -34,14 +36,18 @@ const (
 // ---------------------------------------------------------------------------
 
 type transcodingResourceHandler struct {
-	transcoder port.MediaTranscoder
-	sourceURL  string
-	headers    map[string]string
-	session    port.TranscodeSession
-	ctx        context.Context
-	cancel     context.CancelFunc
-	logf       func() zerolog.Logger
-	totalBytes int64
+	transcoder     port.MediaTranscoder
+	sourceURL      string
+	headers        map[string]string
+	session        port.TranscodeSession
+	ctx            context.Context
+	cancel         context.CancelFunc
+	logf           func() zerolog.Logger
+	validateSource func(context.Context) error
+	mu             sync.Mutex
+	startErr       error
+	startErrStatus int
+	totalBytes     int64
 }
 
 // Open starts the transcode session asynchronously. CEF will call
@@ -62,6 +68,19 @@ func (rh *transcodingResourceHandler) Open(
 		Msg("cef: starting transcoding resource stream")
 
 	go func() {
+		if rh.validateSource != nil {
+			if err := rh.validateSource(rh.ctx); err != nil {
+				log.Warn().
+					Err(err).
+					Str("source_url", sourceURL).
+					Msg("cef: rejected transcoding source")
+				rh.setStartErr(err, httpStatusForbidden)
+				rh.cancel()
+				callback.Cont()
+				return
+			}
+		}
+
 		session, err := rh.transcoder.Start(rh.ctx, rh.sourceURL, rh.headers)
 		if err != nil {
 			log.Error().
@@ -69,11 +88,14 @@ func (rh *transcodingResourceHandler) Open(
 				Str("source_url", sourceURL).
 				Msg("cef: failed to start transcoding resource stream")
 			// Let CEF know we failed — Cancel will be called.
+			rh.setStartErr(err, httpStatusBadGateway)
 			rh.cancel()
 			callback.Cont()
 			return
 		}
+		rh.mu.Lock()
 		rh.session = session
+		rh.mu.Unlock()
 		log.Info().
 			Str("source_url", sourceURL).
 			Str("content_type", session.ContentType()).
@@ -84,10 +106,52 @@ func (rh *transcodingResourceHandler) Open(
 	return 1
 }
 
+func (rh *transcodingResourceHandler) setStartErr(err error, status int) {
+	rh.mu.Lock()
+	defer rh.mu.Unlock()
+	rh.startErr = err
+	rh.startErrStatus = status
+}
+
+func (rh *transcodingResourceHandler) getStartErr() (int, error) {
+	rh.mu.Lock()
+	defer rh.mu.Unlock()
+	return rh.startErrStatus, rh.startErr
+}
+
+func (rh *transcodingResourceHandler) addTotalBytes(n int) int64 {
+	rh.mu.Lock()
+	defer rh.mu.Unlock()
+	rh.totalBytes += int64(n)
+	return rh.totalBytes
+}
+
+func (rh *transcodingResourceHandler) getTotalBytes() int64 {
+	rh.mu.Lock()
+	defer rh.mu.Unlock()
+	return rh.totalBytes
+}
+
 // GetResponseHeaders sets the streaming response metadata.
 func (rh *transcodingResourceHandler) GetResponseHeaders(
 	response purecef.Response, responseLength *int64, _ uintptr,
 ) {
+	if status, startErr := rh.getStartErr(); startErr != nil {
+		if status == 0 {
+			status = httpStatusBadGateway
+		}
+		response.SetStatus(int32(status))
+		if status == httpStatusForbidden {
+			response.SetStatusText("Forbidden")
+		} else {
+			response.SetStatusText("Bad Gateway")
+		}
+		response.SetMimeType("text/plain")
+		if responseLength != nil {
+			*responseLength = 0
+		}
+		return
+	}
 	response.SetStatus(httpStatusOK)
 	response.SetStatusText("OK")
 	response.SetMimeType("video/webm")
@@ -108,15 +172,18 @@ func (rh *transcodingResourceHandler) Read(
 	dataOut unsafe.Pointer, bytesToRead int32,
 	bytesRead *int32, _ purecef.ResourceReadCallback,
 ) int32 {
-	if rh.session == nil {
+	rh.mu.Lock()
+	session := rh.session
+	rh.mu.Unlock()
+	if session == nil {
 		return 0
 	}
 
 	dst := unsafe.Slice((*byte)(dataOut), int(bytesToRead))
-	n, err := rh.session.Read(dst)
+	n, err := session.Read(dst)
 	if n > 0 {
-		rh.totalBytes += int64(n)
-		if rh.totalBytes == int64(n) {
+		totalBytes := rh.addTotalBytes(n)
+		if totalBytes == int64(n) {
 			rh.logger().Info().
 				Str("source_url", logging.TruncateURL(rh.sourceURL, maxTranscodingURLLength)).
 				Int("first_chunk_bytes", n).
@@ -128,13 +195,14 @@ func (rh *transcodingResourceHandler) Read(
 		return 1
 	}
 	if err != nil {
+		totalBytes := rh.getTotalBytes()
 		sourceURL := logging.TruncateURL(rh.sourceURL, maxTranscodingURLLength)
 		log := rh.logger().With().
 			Str("source_url", sourceURL).
-			Int64("total_bytes", rh.totalBytes).
+			Int64("total_bytes", totalBytes).
 			Logger()
 		switch {
-		case errors.Is(err, io.EOF) && rh.totalBytes == 0:
+		case errors.Is(err, io.EOF) && totalBytes == 0:
 			log.Warn().Msg("cef: transcoding resource stream ended before producing data")
 		case errors.Is(err, io.EOF):
 			log.Debug().Msg("cef: transcoding resource stream reached EOF")
@@ -149,12 +217,16 @@ func (rh *transcodingResourceHandler) Read(
 // Cancel aborts the transcode session and releases resources.
 func (rh *transcodingResourceHandler) Cancel() {
 	sourceURL := logging.TruncateURL(rh.sourceURL, maxTranscodingURLLength)
+	totalBytes := rh.getTotalBytes()
 	rh.logger().Debug().
 		Str("source_url", sourceURL).
-		Int64("total_bytes", rh.totalBytes).
+		Int64("total_bytes", totalBytes).
 		Msg("cef: transcoding resource stream canceled")
-	if rh.session != nil {
-		if err := rh.session.Close(); err != nil {
+	rh.mu.Lock()
+	session := rh.session
+	rh.mu.Unlock()
+	if session != nil {
+		if err := session.Close(); err != nil {
 			rh.logger().Warn().
 				Str("source_url", sourceURL).
 				Err(err).

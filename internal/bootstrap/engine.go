@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 
+	"github.com/bnema/dumber/internal/application/dto"
 	"github.com/bnema/dumber/internal/application/port"
 	"github.com/bnema/dumber/internal/application/usecase"
 	audiofactory "github.com/bnema/dumber/internal/infrastructure/audio/factory"
@@ -33,6 +34,19 @@ type EngineInput struct {
 // BuildEngine constructs a port.Engine for the engine type specified in cfg.Engine.Type.
 func BuildEngine(input EngineInput) (port.Engine, error) {
 	cfg := input.Config
+	systemviewReader := config.NewSystemviewConfigReader(env.NewHardwareSurveyor())
+	systemviewUC := usecase.NewReadSystemviewConfigUseCase(systemviewReader)
+	buildConfigPayload := func(read func(context.Context) (dto.SystemviewConfigPayload, error)) func() ([]byte, error) {
+		return func() ([]byte, error) {
+			payload, err := read(input.Ctx)
+			if err != nil {
+				return nil, err
+			}
+			return json.Marshal(payload)
+		}
+	}
+	currentConfigPayload := buildConfigPayload(systemviewUC.Current)
+	defaultConfigPayload := buildConfigPayload(systemviewUC.Default)
 	contextMenuBuilder := usecase.NewBuildContextMenuUseCase()
 	contextMenuExecutorFactory := &usecase.ContextMenuActionExecutorFactory{}
 	engineType := cfg.Engine.ResolveEngineType()
@@ -49,6 +63,7 @@ func BuildEngine(input EngineInput) (port.Engine, error) {
 
 		return webkit.NewEngine(
 			input.Ctx, cfg, opts, profile, wkCfg,
+			currentConfigPayload, defaultConfigPayload,
 			input.ThemeManager, input.ColorResolver,
 			contextMenuBuilder, contextMenuExecutorFactory,
 			input.Logger,
@@ -75,23 +90,11 @@ func BuildEngine(input EngineInput) (port.Engine, error) {
 			MaxConcurrent: cfg.Transcoding.MaxConcurrent,
 			Quality:       cfg.Transcoding.Quality,
 		}
-		surveyor := env.NewHardwareSurveyor()
-		buildConfigPayload := func(cfgf func() *config.Config) func() ([]byte, error) {
-			return func() ([]byte, error) {
-				cfg := cfgf()
-				var hw *port.HardwareInfo
-				if surveyor != nil {
-					survey := surveyor.Survey(context.Background())
-					hw = &survey
-				}
-				return json.Marshal(config.BuildWebUIConfigPayload(cfg, hw))
-			}
-		}
 		deps := cef.EngineDependencies{
 			RegisterHandlers:           handlers.RegisterAll,
 			RegisterAccentHandlers:     handlers.RegisterAccentHandlers,
-			CurrentConfigPayload:       buildConfigPayload(config.Get),
-			DefaultConfigPayload:       buildConfigPayload(config.DefaultConfig),
+			CurrentConfigPayload:       currentConfigPayload,
+			DefaultConfigPayload:       defaultConfigPayload,
 			ContextMenuBuilder:         contextMenuBuilder,
 			ContextMenuExecutorFactory: contextMenuExecutorFactory,
 			Clipboard:                  clipboardinfra.New(),

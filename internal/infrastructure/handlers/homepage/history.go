@@ -3,8 +3,11 @@ package homepage
 import (
 	"context"
 	"encoding/json"
+	"fmt"
+	"strings"
 	"time"
 
+	"github.com/bnema/dumber/internal/application/dto"
 	"github.com/bnema/dumber/internal/application/port"
 	"github.com/bnema/dumber/internal/domain/entity"
 	"github.com/bnema/dumber/internal/logging"
@@ -27,6 +30,19 @@ type timelineRequest struct {
 	Offset    int    `json:"offset"`
 }
 
+type timelineByDomainRequest struct {
+	RequestID string `json:"requestId"`
+	Domain    string `json:"domain"`
+	Limit     int    `json:"limit"`
+	Offset    int    `json:"offset"`
+}
+
+type timelineWindowRequest struct {
+	RequestID string `json:"requestId"`
+	Before    string `json:"before"`
+	Domain    string `json:"domain"`
+}
+
 // HandleTimeline handles history_timeline messages.
 func (h *HistoryHandlers) HandleTimeline() port.WebUIMessageHandler {
 	return port.WebUIMessageHandlerFunc(func(ctx context.Context, _ port.WebViewID, payload json.RawMessage) (any, error) {
@@ -42,6 +58,12 @@ func (h *HistoryHandlers) HandleTimeline() port.WebUIMessageHandler {
 			Int("limit", req.Limit).
 			Int("offset", req.Offset).
 			Msg("handling history_timeline")
+		if req.Limit <= 0 {
+			return NewErrorResponse(
+				req.RequestID,
+				fmt.Errorf("history_timeline requires a positive limit; use history_timeline_window for lazy history loading"),
+			), nil
+		}
 
 		entries, err := h.historyUC.GetRecent(ctx, req.Limit, req.Offset)
 		if err != nil {
@@ -49,6 +71,79 @@ func (h *HistoryHandlers) HandleTimeline() port.WebUIMessageHandler {
 		}
 
 		return NewSuccessResponse(req.RequestID, entries), nil
+	})
+}
+
+// HandleTimelineByDomain handles history_timeline_by_domain messages.
+func (h *HistoryHandlers) HandleTimelineByDomain() port.WebUIMessageHandler {
+	return port.WebUIMessageHandlerFunc(func(ctx context.Context, _ port.WebViewID, payload json.RawMessage) (any, error) {
+		log := logging.FromContext(ctx)
+
+		var req timelineByDomainRequest
+		if err := json.Unmarshal(payload, &req); err != nil {
+			return NewErrorResponse("", err), nil
+		}
+
+		req.Domain = strings.TrimSpace(req.Domain)
+		if req.Domain == "" {
+			return NewErrorResponse(req.RequestID, fmt.Errorf("domain is required")), nil
+		}
+
+		log.Debug().
+			Str("request_id", req.RequestID).
+			Str("domain", req.Domain).
+			Int("limit", req.Limit).
+			Int("offset", req.Offset).
+			Msg("handling history_timeline_by_domain")
+		if req.Limit <= 0 {
+			return NewErrorResponse(
+				req.RequestID,
+				fmt.Errorf("history_timeline_by_domain requires a positive limit; use history_timeline_window for lazy history loading"),
+			), nil
+		}
+
+		entries, err := h.historyUC.GetRecentByDomain(ctx, req.Domain, req.Limit, req.Offset)
+		if err != nil {
+			return NewErrorResponse(req.RequestID, err), nil
+		}
+
+		return NewSuccessResponse(req.RequestID, entries), nil
+	})
+}
+
+// HandleTimelineWindow handles history_timeline_window messages.
+func (h *HistoryHandlers) HandleTimelineWindow() port.WebUIMessageHandler {
+	return port.WebUIMessageHandlerFunc(func(ctx context.Context, _ port.WebViewID, payload json.RawMessage) (any, error) {
+		log := logging.FromContext(ctx)
+
+		var req timelineWindowRequest
+		if err := json.Unmarshal(payload, &req); err != nil {
+			return NewErrorResponse("", err), nil
+		}
+
+		domain := strings.TrimSpace(req.Domain)
+
+		var before time.Time
+		if strings.TrimSpace(req.Before) != "" {
+			parsed, err := time.Parse(time.RFC3339Nano, strings.TrimSpace(req.Before))
+			if err != nil {
+				return NewErrorResponse(req.RequestID, fmt.Errorf("invalid history window cursor")), nil
+			}
+			before = parsed
+		}
+
+		log.Debug().
+			Str("request_id", req.RequestID).
+			Str("domain", domain).
+			Time("before", before).
+			Msg("handling history_timeline_window")
+
+		window, err := h.historyUC.GetRecentWindow(ctx, before, domain)
+		if err != nil {
+			return NewErrorResponse(req.RequestID, err), nil
+		}
+
+		return NewSuccessResponse(req.RequestID, window), nil
 	})
 }
 
@@ -74,7 +169,7 @@ func (h *HistoryHandlers) HandleSearchFTS() port.WebUIMessageHandler {
 			Str("query", req.Query).
 			Msg("handling history_search_fts")
 
-		output, err := h.historyUC.Search(ctx, port.HistorySearchInput{
+		output, err := h.historyUC.Search(ctx, dto.HistorySearchInput{
 			Query: req.Query,
 			Limit: req.Limit,
 		})
@@ -137,21 +232,14 @@ func (h *HistoryHandlers) HandleDeleteRange() port.WebUIMessageHandler {
 			return NewErrorResponse("", err), nil
 		}
 
+		req.Range = strings.TrimSpace(req.Range)
 		log.Debug().
 			Str("request_id", req.RequestID).
 			Str("range", req.Range).
 			Msg("handling history_delete_range")
 
-		before := rangeToTime(req.Range)
-		if before.IsZero() {
-			// "all" case - clear all
-			if err := h.historyUC.ClearAll(ctx); err != nil {
-				return NewErrorResponse(req.RequestID, err), nil
-			}
-		} else {
-			if err := h.historyUC.ClearOlderThan(ctx, before); err != nil {
-				return NewErrorResponse(req.RequestID, err), nil
-			}
+		if err := h.historyUC.ClearRange(ctx, req.Range); err != nil {
+			return NewErrorResponse(req.RequestID, err), nil
 		}
 
 		return NewSuccessResponse(req.RequestID, nil), nil
@@ -177,24 +265,27 @@ func (h *HistoryHandlers) HandleClearAll() port.WebUIMessageHandler {
 	})
 }
 
-// rangeToTime converts a range string to a time.Time cutoff.
-// Returns zero time for "all" which means delete everything.
-func rangeToTime(r string) time.Time {
-	now := time.Now()
-	switch r {
-	case "hour":
-		return now.Add(-time.Hour)
-	case "day":
-		return now.AddDate(0, 0, -1)
-	case "week":
-		return now.AddDate(0, 0, -7)
-	case "month":
-		return now.AddDate(0, -1, 0)
-	case "all":
-		return time.Time{} // Zero time signals "delete all"
-	default:
-		return now
-	}
+// HandleStats handles history_stats messages.
+func (h *HistoryHandlers) HandleStats() port.WebUIMessageHandler {
+	return port.WebUIMessageHandlerFunc(func(ctx context.Context, _ port.WebViewID, payload json.RawMessage) (any, error) {
+		log := logging.FromContext(ctx)
+
+		var req struct {
+			RequestID string `json:"requestId"`
+		}
+		if err := json.Unmarshal(payload, &req); err != nil {
+			return NewErrorResponse("", err), nil
+		}
+
+		log.Debug().Str("request_id", req.RequestID).Msg("handling history_stats")
+
+		stats, err := h.historyUC.GetStats(ctx)
+		if err != nil {
+			return NewErrorResponse(req.RequestID, err), nil
+		}
+
+		return NewSuccessResponse(req.RequestID, stats), nil
+	})
 }
 
 // HandleAnalytics handles history_analytics messages.

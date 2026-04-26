@@ -34,8 +34,8 @@ func TestNormalize(t *testing.T) {
 		},
 		{
 			name:  "dumb scheme unchanged",
-			input: "dumb://home",
-			want:  "dumb://home",
+			input: "dumb://history",
+			want:  "dumb://history",
 		},
 		{
 			name:  "about scheme unchanged",
@@ -347,7 +347,7 @@ func TestLooksLikeURL(t *testing.T) {
 		},
 		{
 			name:  "dumb URL",
-			input: "dumb://home",
+			input: "dumb://history",
 			want:  true,
 		},
 		{
@@ -506,7 +506,7 @@ func TestIsExternalScheme(t *testing.T) {
 		},
 		{
 			name:  "dumb scheme",
-			input: "dumb://home",
+			input: "dumb://history",
 			want:  false,
 		},
 		{
@@ -688,6 +688,59 @@ func TestExtractOrigin_InvalidURI(t *testing.T) {
 			origin, err := ExtractOrigin(tt.uri)
 			if err == nil {
 				t.Errorf("ExtractOrigin(%q) should return error, got origin: %q", tt.uri, origin)
+			}
+		})
+	}
+}
+
+func TestCanonicalDomain(t *testing.T) {
+	tests := []struct {
+		name  string
+		input string
+		want  string
+	}{
+		{name: "empty", input: "", want: ""},
+		{name: "whitespace only", input: "   ", want: ""},
+		{name: "url", input: "https://www.example.com/path", want: "example.com"},
+		{name: "url with port", input: "https://www.example.com:8443/path", want: "example.com:8443"},
+		{name: "url with userinfo", input: "https://user:pass@example.com/path", want: "example.com"},
+		{name: "url with userinfo and port", input: "https://user:pass@example.com:8443/path", want: "example.com:8443"},
+		{name: "domain", input: "www.example.com", want: "example.com"},
+		{name: "domain with path", input: "www.example.com/path?q=1", want: "example.com"},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := CanonicalDomain(tt.input); got != tt.want {
+				t.Errorf("CanonicalDomain(%q) = %q, want %q", tt.input, got, tt.want)
+			}
+		})
+	}
+}
+
+func TestDisplayDomain(t *testing.T) {
+	tests := []struct {
+		name  string
+		input string
+		want  string
+	}{
+		{name: "empty", input: "", want: ""},
+		{name: "whitespace only", input: "   ", want: ""},
+		{name: "url with port", input: "https://www.example.com:8443/path", want: "example.com"},
+		{name: "url without port", input: "https://www.example.com/path", want: "example.com"},
+		{name: "url with userinfo", input: "https://user:pass@example.com/path", want: "example.com"},
+		{name: "no www prefix", input: "https://docs.example.com/path", want: "docs.example.com"},
+		{name: "host only", input: "www.example.org:9443/path?q=1", want: "example.org"},
+		{name: "invalid url", input: "%zz", want: "%zz"},
+		{name: "non-http scheme", input: "ftp://www.example.net:21/file", want: "example.net"},
+		{name: "ipv6 url", input: "https://[2001:db8::1]:8443/path", want: "2001:db8::1"},
+		{name: "uppercase host", input: "https://WWW.EXAMPLE.COM/path", want: "example.com"},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := DisplayDomain(tt.input); got != tt.want {
+				t.Errorf("DisplayDomain(%q) = %q, want %q", tt.input, got, tt.want)
 			}
 		})
 	}

@@ -80,6 +80,9 @@ These work outside modal modes:
 | Action | Keys |
 |--------|------|
 | Toggle floating pane | `Alt+F` |
+| Toggle History system view in right split (may conflict with the browser's default History shortcut; behavior can vary by browser) | `Ctrl+H` |
+| Toggle Favorites system view in right split | unbound by default |
+| Toggle Config system view in right split | unbound by default |
 | Close pane (or release floating pane) | `Ctrl+W` |
 | Next tab | `Ctrl+Tab` |
 | Previous tab | `Ctrl+Shift+Tab` |
@@ -90,6 +93,7 @@ These work outside modal modes:
 
 - `Alt+F` is the only floating-pane shortcut enabled by default.
 - `Alt+F` toggles floating visibility and keeps floating pane state intact.
+- `Ctrl+H` toggles `dumb://history`: it focuses an existing History pane, opens it in a right split if missing, or closes it when already active. Depending on the browser, the default History shortcut may intercept `Ctrl+H`, so behavior can vary.
 - `Ctrl+W` closes the active pane; when the floating pane is active, it fully releases that floating session.
 - Any URL shortcut (for example `Alt+G`) must be defined explicitly in `workspace.floating_pane.profiles`.
 - Floating profile shortcuts support modifier combos with `ctrl`, `shift`, and `alt` (for example `ctrl+shift+y` or `ctrl+alt+m`).
@@ -108,11 +112,20 @@ All keybindings can be customized in `~/.config/dumber/config.toml`:
 split-right = ["arrowright", "r"]
 close-pane = ["x", "q"]
 
-[workspace.shortcuts.actions.close_pane]
+[workspace.shortcuts.actions.close-pane]
 keys = ["ctrl+w"]
 
-[workspace.shortcuts.actions.toggle_floating_pane]
+[workspace.shortcuts.actions.toggle-floating-pane]
 keys = ["alt+f"]
+
+[workspace.shortcuts.actions.toggle-history-systemview]
+keys = ["ctrl+h"]
+
+[workspace.shortcuts.actions.toggle-favorites-systemview]
+keys = []
+
+[workspace.shortcuts.actions.toggle-config-systemview]
+keys = []
 
 [workspace.floating_pane]
 width_pct = 0.82

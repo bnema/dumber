@@ -14,21 +14,26 @@ import (
 // ==================== Favorite Repository ====================
 
 type favoriteRepo struct {
+	db      *sql.DB
 	queries *sqlc.Queries
 }
 
 // NewFavoriteRepository creates a new SQLite-backed favorite repository.
 func NewFavoriteRepository(db *sql.DB) repository.FavoriteRepository {
-	return &favoriteRepo{queries: sqlc.New(db)}
+	return &favoriteRepo{db: db, queries: sqlc.New(db)}
 }
 
 func (r *favoriteRepo) Save(ctx context.Context, fav *entity.Favorite) error {
 	log := logging.FromContext(ctx)
-	log.Debug().Str("url", fav.URL).Msg("saving favorite")
+	log.Debug().Str("url", fav.URL).Int64("id", int64(fav.ID)).Msg("saving favorite")
 
 	var folderID sql.NullInt64
 	if fav.FolderID != nil {
 		folderID = sql.NullInt64{Int64: int64(*fav.FolderID), Valid: true}
+	}
+
+	if fav.ID > 0 {
+		return r.updateExisting(ctx, fav, folderID)
 	}
 
 	row, err := r.queries.CreateFavorite(ctx, sqlc.CreateFavoriteParams{
@@ -42,6 +47,43 @@ func (r *favoriteRepo) Save(ctx context.Context, fav *entity.Favorite) error {
 	}
 	fav.ID = entity.FavoriteID(row.ID)
 	return nil
+}
+
+func (r *favoriteRepo) updateExisting(ctx context.Context, fav *entity.Favorite, folderID sql.NullInt64) error {
+	log := logging.FromContext(ctx)
+	tx, err := r.db.BeginTx(ctx, nil)
+	if err != nil {
+		return err
+	}
+	defer func() {
+		if rollbackErr := tx.Rollback(); rollbackErr != nil && !errors.Is(rollbackErr, sql.ErrTxDone) {
+			log.Debug().Err(rollbackErr).Msg("favorite update rollback reported non-terminal error")
+		}
+	}()
+
+	shortcutKey := sql.NullInt64{}
+	if fav.ShortcutKey != nil {
+		shortcutKey = sql.NullInt64{Int64: int64(*fav.ShortcutKey), Valid: true}
+	}
+
+	queries := r.queries.WithTx(tx)
+	if err := queries.UpdateFavorite(ctx, sqlc.UpdateFavoriteParams{
+		Title:      sql.NullString{String: fav.Title, Valid: fav.Title != ""},
+		FaviconUrl: sql.NullString{String: fav.FaviconURL, Valid: fav.FaviconURL != ""},
+		ID:         int64(fav.ID),
+	}); err != nil {
+		return err
+	}
+	if err := queries.SetFavoriteFolder(ctx, sqlc.SetFavoriteFolderParams{FolderID: folderID, ID: int64(fav.ID)}); err != nil {
+		return err
+	}
+	if err := queries.SetFavoriteShortcut(ctx, sqlc.SetFavoriteShortcutParams{
+		ShortcutKey: shortcutKey,
+		ID:          int64(fav.ID),
+	}); err != nil {
+		return err
+	}
+	return tx.Commit()
 }
 
 func (r *favoriteRepo) FindByID(ctx context.Context, id entity.FavoriteID) (*entity.Favorite, error) {
@@ -175,11 +217,19 @@ func NewFolderRepository(db *sql.DB) repository.FolderRepository {
 
 func (r *folderRepo) Save(ctx context.Context, folder *entity.Folder) error {
 	log := logging.FromContext(ctx)
-	log.Debug().Str("name", folder.Name).Msg("saving folder")
+	log.Debug().Str("name", folder.Name).Int64("id", int64(folder.ID)).Msg("saving folder")
 
 	var parentID sql.NullInt64
 	if folder.ParentID != nil {
 		parentID = sql.NullInt64{Int64: int64(*folder.ParentID), Valid: true}
+	}
+
+	if folder.ID > 0 {
+		return r.queries.UpdateFolder(ctx, sqlc.UpdateFolderParams{
+			Name: folder.Name,
+			Icon: sql.NullString{String: folder.Icon, Valid: folder.Icon != ""},
+			ID:   int64(folder.ID),
+		})
 	}
 
 	row, err := r.queries.CreateFolder(ctx, sqlc.CreateFolderParams{
@@ -275,7 +325,15 @@ func NewTagRepository(db *sql.DB) repository.TagRepository {
 
 func (r *tagRepo) Save(ctx context.Context, tag *entity.Tag) error {
 	log := logging.FromContext(ctx)
-	log.Debug().Str("name", tag.Name).Msg("saving tag")
+	log.Debug().Str("name", tag.Name).Int64("id", int64(tag.ID)).Msg("saving tag")
+
+	if tag.ID > 0 {
+		return r.queries.UpdateTag(ctx, sqlc.UpdateTagParams{
+			Name:  tag.Name,
+			Color: tag.Color,
+			ID:    int64(tag.ID),
+		})
+	}
 
 	row, err := r.queries.CreateTag(ctx, sqlc.CreateTagParams{
 		Name:  tag.Name,

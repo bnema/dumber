@@ -34,10 +34,9 @@ git push origin my-fix
 2. Run `make test` and ensure tests pass
 3. Run `go fmt` on any Go code changes
 
-**WebUI code (in `webui/`):**
-1. Run `npm run lint` to fix linting issues
-2. Run `npm run fmt` to format with Prettier
-3. Run `npm run check` to run svelte-check
+**Systemviews assets:**
+1. If you modified systemviews files such as `cmd/systemviews/` or `.templ` components, run `make build-systemviews` to regenerate embedded WASM assets
+2. Run `make check` to verify build, tests, and tools before committing
 
 Keep commits focused and use single-line commit messages.
 

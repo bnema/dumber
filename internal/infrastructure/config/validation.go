@@ -483,7 +483,7 @@ func validatePerformanceProfile(config *Config) []string {
 	// Validate profile name
 	if !IsValidPerformanceProfile(config.Engine.Profile) {
 		validationErrors = append(validationErrors, fmt.Sprintf(
-			"engine.profile must be one of: default, lite, max, custom (got: %s)",
+			"engine.profile must be one of: default, lite, balanced, max, custom (got: %s)",
 			config.Engine.Profile,
 		))
 	}

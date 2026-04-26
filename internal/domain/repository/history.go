@@ -18,8 +18,23 @@ type HistoryRepository interface {
 	// Search performs a fuzzy search on history entries.
 	Search(ctx context.Context, query string, limit int) ([]entity.HistoryMatch, error)
 
-	// GetRecent retrieves recent history entries with pagination.
+	// GetRecent retrieves recent history entries with pagination. A zero limit means all entries.
 	GetRecent(ctx context.Context, limit, offset int) ([]*entity.HistoryEntry, error)
+
+	// GetRecentByDomain retrieves recent history entries for a domain with pagination. A zero limit means all matching entries.
+	GetRecentByDomain(ctx context.Context, domain string, limit, offset int) ([]*entity.HistoryEntry, error)
+
+	// GetRecentWindow retrieves entries visited in [after, before), sorted by recency.
+	GetRecentWindow(ctx context.Context, before, after time.Time) ([]*entity.HistoryEntry, error)
+
+	// GetRecentWindowByDomain retrieves domain entries visited in [after, before), sorted by recency.
+	GetRecentWindowByDomain(ctx context.Context, domain string, before, after time.Time) ([]*entity.HistoryEntry, error)
+
+	// HasEntriesBefore reports whether any history entry was visited before the given time.
+	HasEntriesBefore(ctx context.Context, before time.Time) (bool, error)
+
+	// HasEntriesByDomainBefore reports whether any domain entry was visited before the given time.
+	HasEntriesByDomainBefore(ctx context.Context, domain string, before time.Time) (bool, error)
 
 	// GetRecentSince retrieves history entries visited within the last N days.
 	// days must be > 0.
@@ -43,6 +58,9 @@ type HistoryRepository interface {
 
 	// DeleteOlderThan removes entries older than the given time.
 	DeleteOlderThan(ctx context.Context, before time.Time) error
+
+	// DeleteSince removes entries visited at or after the given time.
+	DeleteSince(ctx context.Context, since time.Time) error
 
 	// DeleteAll removes all history entries.
 	DeleteAll(ctx context.Context) error

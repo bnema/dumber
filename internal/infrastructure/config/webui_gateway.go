@@ -4,7 +4,7 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/bnema/dumber/internal/application/port"
+	"github.com/bnema/dumber/internal/application/dto"
 )
 
 type WebUIConfigGateway struct {
@@ -33,7 +33,7 @@ func clampInt(v, lo, hi int) int {
 	return v
 }
 
-func (g *WebUIConfigGateway) SaveWebUIConfig(ctx context.Context, cfg port.WebUIConfig) error {
+func (g *WebUIConfigGateway) SaveWebUIConfig(ctx context.Context, cfg dto.WebUIConfig) error {
 	_ = ctx
 	if g == nil || g.mgr == nil {
 		return fmt.Errorf("config manager not initialized")
