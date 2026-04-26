@@ -42,7 +42,7 @@ help: ## Show this help message
 build: build-systemviews ## Build the application (pure Go, no CGO)
 	@echo "Building $(BINARY_NAME) $(VERSION) using $(NPROCS) cores..."
 	@mkdir -p $(DIST_DIR)
-	CGO_ENABLED=0 go build -p $(NPROCS) $(GCFLAGS) $(LDFLAGS) -o $(DIST_DIR)/$(BINARY_NAME) $(MAIN_PATH)
+	CGO_ENABLED=0 go build -buildvcs=false -p $(NPROCS) $(GCFLAGS) $(LDFLAGS) -o $(DIST_DIR)/$(BINARY_NAME) $(MAIN_PATH)
 	@rm -f $(DIST_DIR)/cef-helper
 	@echo "Build successful! Binary: $(DIST_DIR)/$(BINARY_NAME)"
 
@@ -63,7 +63,7 @@ build-systemviews: generate-systemviews ## Build the WASM systemviews runtime
 build-quick: ## Build quickly for backend development
 	@echo "Building $(BINARY_NAME) $(VERSION) (quick)..."
 	@mkdir -p $(DIST_DIR)
-	CGO_ENABLED=0 go build -p $(NPROCS) $(GCFLAGS) $(LDFLAGS) -o $(DIST_DIR)/$(BINARY_NAME) $(MAIN_PATH)
+	CGO_ENABLED=0 go build -buildvcs=false -p $(NPROCS) $(GCFLAGS) $(LDFLAGS) -o $(DIST_DIR)/$(BINARY_NAME) $(MAIN_PATH)
 	@rm -f $(DIST_DIR)/cef-helper
 	@echo "Build successful! Binary: $(DIST_DIR)/$(BINARY_NAME)"
 
