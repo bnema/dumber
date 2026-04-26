@@ -198,6 +198,16 @@ func TestSurfaceActionErrorWhileAsyncHydrationBlockedPreventsStaleMount(t *testi
 	assert.NotContains(t, dom.html, "Stale hydrated entry")
 }
 
+func TestCurrentHistoryRouteSnapshotIncludesWindowAfter(t *testing.T) {
+	cursor := time.Date(2026, 4, 25, 9, 0, 0, 0, time.UTC)
+	app := NewApp(Dependencies{History: &fakeHistoryService{}, LocationURI: "dumb://history"})
+	app.currentRoute = RouteHistory
+	app.historyWindowAfter = cursor
+
+	snapshot := app.currentHistoryRouteSnapshotLocked()
+	assert.Equal(t, cursor, snapshot.windowAfter)
+}
+
 func TestAppHandleHistoryLoadMoreAppendsOlderWindow(t *testing.T) {
 	t.Parallel()
 
@@ -792,7 +802,7 @@ func TestAppHandleConfigActionsRefreshesDOM(t *testing.T) {
 	}))
 	assert.True(t, service.calledSave)
 	assert.Equal(t, 18, service.savedConfig.Appearance.DefaultFontSize)
-	assert.Equal(t, 1.25, service.savedConfig.DefaultUIScale)
+	assert.InEpsilon(t, 1.25, service.savedConfig.DefaultUIScale, 0.001)
 	assert.Contains(t, dom.html, "Saved appearance settings")
 	assert.Contains(t, dom.html, `class="sv-app sv-light"`)
 
@@ -1287,13 +1297,24 @@ func TestHandleFavoriteCreateAcceptsInternalDumbRoutes(t *testing.T) {
 		Action: favoriteActionCreate,
 		Data:   map[string]string{"url": "dumb:history", "title": "History"},
 	}))
-	assert.Equal(t, "dumb://history", favorites.createdFavorite.URL)
+	assert.Equal(t, "dumb:history", favorites.createdFavorite.URL)
 
 	require.NoError(t, app.handleFavoriteAction(context.Background(), DOMAction{
 		Action: favoriteActionCreate,
 		Data:   map[string]string{"url": "dumb://config", "title": "Config"},
 	}))
 	assert.Equal(t, "dumb://config", favorites.createdFavorite.URL)
+}
+
+func TestParsePositiveInt64DistinguishesParseAndRangeErrors(t *testing.T) {
+	_, err := parsePositiveInt64("abc", "tag id")
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "invalid tag id")
+	assert.Contains(t, err.Error(), "invalid syntax")
+
+	_, err = parsePositiveInt64("0", "tag id")
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "tag id must be a positive integer")
 }
 
 func TestHandleFavoriteTagActionsAcceptSnakeCaseIDs(t *testing.T) {
@@ -1335,7 +1356,8 @@ func TestHandleHistorySearchClearsDomainFilter(t *testing.T) {
 func TestAppRunWithContextRejectsNilContext(t *testing.T) {
 	app := NewApp(Dependencies{DOM: &fakeDOM{}, LocationURI: "dumb://history"})
 
-	err := app.RunWithContext(nil)
+	var ctx context.Context
+	err := app.RunWithContext(ctx)
 
 	require.ErrorContains(t, err, "context is nil")
 }

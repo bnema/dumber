@@ -42,6 +42,7 @@ func (d *browserDOM) Mount(markup string) error {
 	d.target.Set("innerHTML", markup)
 	d.updateDocumentTitle()
 	d.scheduleAlertDismissal()
+	d.syncPerformanceCustomInputStates()
 	d.setupHistoryInfiniteScroll()
 	return nil
 }
@@ -286,6 +287,11 @@ func (d *browserDOM) setupHistoryInfiniteScroll() {
 	if d == nil || !d.target.Truthy() {
 		return
 	}
+	// setupHistoryInfiniteScroll callbacks close over the current load-more
+	// button. disconnectHistoryObserver owns the cleanup chain: it calls
+	// d.historyObserver.disconnect(), releases d.historyObserverCallback, and
+	// lets setupHistoryInfiniteScroll overwrite d.historyObserver with the new
+	// observer so old button closures are not retained.
 	d.disconnectHistoryObserver()
 	observerCtor := js.Global().Get("IntersectionObserver")
 	if !observerCtor.Truthy() {
@@ -388,6 +394,16 @@ func collectActionData(element js.Value) map[string]string {
 		data[key] = dataset.Get(key).String()
 	}
 	return data
+}
+
+func (d *browserDOM) syncPerformanceCustomInputStates() {
+	if d == nil || !d.target.Truthy() || !d.target.Get("querySelectorAll").Truthy() {
+		return
+	}
+	forms := d.target.Call("querySelectorAll", "[data-sv-performance-form]")
+	for i := 0; i < forms.Get("length").Int(); i++ {
+		updatePerformanceCustomInputs(forms.Index(i))
+	}
 }
 
 func updatePerformanceCustomInputs(form js.Value) {

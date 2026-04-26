@@ -112,17 +112,17 @@ func (rh *transcodingResourceHandler) setStartErr(err error, status int) {
 	rh.startErrStatus = status
 }
 
-func (rh *transcodingResourceHandler) getStartErr() (error, int) {
+func (rh *transcodingResourceHandler) getStartErr() (int, error) {
 	rh.mu.Lock()
 	defer rh.mu.Unlock()
-	return rh.startErr, rh.startErrStatus
+	return rh.startErrStatus, rh.startErr
 }
 
 // GetResponseHeaders sets the streaming response metadata.
 func (rh *transcodingResourceHandler) GetResponseHeaders(
 	response purecef.Response, responseLength *int64, _ uintptr,
 ) {
-	if startErr, status := rh.getStartErr(); startErr != nil {
+	if status, startErr := rh.getStartErr(); startErr != nil {
 		if status == 0 {
 			status = httpStatusBadGateway
 		}

@@ -7,6 +7,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/bnema/dumber/internal/application/dto"
 	"github.com/bnema/dumber/internal/application/port"
 	"github.com/bnema/dumber/internal/domain/entity"
 	"github.com/bnema/dumber/internal/logging"
@@ -58,7 +59,10 @@ func (h *HistoryHandlers) HandleTimeline() port.WebUIMessageHandler {
 			Int("offset", req.Offset).
 			Msg("handling history_timeline")
 		if req.Limit <= 0 {
-			return NewErrorResponse(req.RequestID, fmt.Errorf("history_timeline requires a positive limit; use history_timeline_window for lazy history loading")), nil
+			return NewErrorResponse(
+				req.RequestID,
+				fmt.Errorf("history_timeline requires a positive limit; use history_timeline_window for lazy history loading"),
+			), nil
 		}
 
 		entries, err := h.historyUC.GetRecent(ctx, req.Limit, req.Offset)
@@ -92,7 +96,10 @@ func (h *HistoryHandlers) HandleTimelineByDomain() port.WebUIMessageHandler {
 			Int("offset", req.Offset).
 			Msg("handling history_timeline_by_domain")
 		if req.Limit <= 0 {
-			return NewErrorResponse(req.RequestID, fmt.Errorf("history_timeline_by_domain requires a positive limit; use history_timeline_window for lazy history loading")), nil
+			return NewErrorResponse(
+				req.RequestID,
+				fmt.Errorf("history_timeline_by_domain requires a positive limit; use history_timeline_window for lazy history loading"),
+			), nil
 		}
 
 		entries, err := h.historyUC.GetRecentByDomain(ctx, req.Domain, req.Limit, req.Offset)
@@ -162,7 +169,7 @@ func (h *HistoryHandlers) HandleSearchFTS() port.WebUIMessageHandler {
 			Str("query", req.Query).
 			Msg("handling history_search_fts")
 
-		output, err := h.historyUC.Search(ctx, port.HistorySearchInput{
+		output, err := h.historyUC.Search(ctx, dto.HistorySearchInput{
 			Query: req.Query,
 			Limit: req.Limit,
 		})

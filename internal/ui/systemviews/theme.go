@@ -19,6 +19,7 @@ const (
 )
 
 var cssNamedColors = func() map[string]struct{} {
+	//nolint:lll // CSS named color list is clearer as a single literal.
 	names := strings.Fields(`aliceblue antiquewhite aqua aquamarine azure beige bisque black blanchedalmond blue blueviolet brown burlywood cadetblue chartreuse chocolate coral cornflowerblue cornsilk crimson cyan darkblue darkcyan darkgoldenrod darkgray darkgreen darkgrey darkkhaki darkmagenta darkolivegreen darkorange darkorchid darkred darksalmon darkseagreen darkslateblue darkslategray darkslategrey darkturquoise darkviolet deeppink deepskyblue dimgray dimgrey dodgerblue firebrick floralwhite forestgreen fuchsia gainsboro ghostwhite gold goldenrod gray green greenyellow grey honeydew hotpink indianred indigo ivory khaki lavender lavenderblush lawngreen lemonchiffon lightblue lightcoral lightcyan lightgoldenrodyellow lightgray lightgreen lightgrey lightpink lightsalmon lightseagreen lightskyblue lightslategray lightslategrey lightsteelblue lightyellow lime limegreen linen magenta maroon mediumaquamarine mediumblue mediumorchid mediumpurple mediumseagreen mediumslateblue mediumspringgreen mediumturquoise mediumvioletred midnightblue mintcream mistyrose moccasin navajowhite navy oldlace olive olivedrab orange orangered orchid palegoldenrod palegreen paleturquoise palevioletred papayawhip peachpuff peru pink plum powderblue purple rebeccapurple red rosybrown royalblue saddlebrown salmon sandybrown seagreen seashell sienna silver skyblue slateblue slategray slategrey snow springgreen steelblue tan teal thistle tomato turquoise violet wheat white whitesmoke yellow yellowgreen`)
 	colors := make(map[string]struct{}, len(names))
 	for _, name := range names {
@@ -143,7 +144,7 @@ func isHexColor(value string) bool {
 		return false
 	}
 	for _, r := range value[1:] {
-		if !((r >= '0' && r <= '9') || (r >= 'a' && r <= 'f') || (r >= 'A' && r <= 'F')) {
+		if (r < '0' || r > '9') && (r < 'a' || r > 'f') && (r < 'A' || r > 'F') {
 			return false
 		}
 	}
@@ -163,7 +164,7 @@ func isFunctionalColor(value string) bool {
 		return false
 	}
 	for _, r := range strings.TrimSuffix(value[strings.IndexByte(value, '(')+1:], ")") {
-		if !((r >= '0' && r <= '9') || (r >= 'a' && r <= 'z') || strings.ContainsRune(" .,%/-", r)) {
+		if (r < '0' || r > '9') && (r < 'a' || r > 'z') && !strings.ContainsRune(" .,%/-", r) {
 			return false
 		}
 	}

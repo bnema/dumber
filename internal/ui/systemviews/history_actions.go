@@ -86,6 +86,7 @@ func (a *App) HandleDOMAction(ctx context.Context, event DOMAction) error {
 	}
 }
 
+//nolint:gocyclo,funlen // Mechanical dispatcher keeps action routing in one place.
 func (a *App) handleHistoryAction(ctx context.Context, event DOMAction) error {
 	if a.deps.History == nil {
 		return fmt.Errorf("history service not configured")

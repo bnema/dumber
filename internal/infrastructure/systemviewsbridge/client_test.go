@@ -316,7 +316,7 @@ func TestClientConfigActionsUseExpectedMessageTypes(t *testing.T) {
 	}{
 		{
 			name: "save config",
-			call: func(t *testing.T, client *Client) error {
+			call: func(_ *testing.T, client *Client) error {
 				return client.Save(context.Background(), dto.WebUIConfig{DefaultSearchEngine: "DuckDuckGo"})
 			},
 			want:    "save_config",
@@ -353,7 +353,7 @@ func TestClientConfigActionsUseExpectedMessageTypes(t *testing.T) {
 		},
 		{
 			name: "reset keybinding",
-			call: func(t *testing.T, client *Client) error {
+			call: func(_ *testing.T, client *Client) error {
 				return client.ResetKeybinding(context.Background(), port.ResetKeybindingRequest{RequestID: "req-2", Mode: "default", Action: "open"})
 			},
 			want:    "reset_keybinding",
@@ -361,7 +361,7 @@ func TestClientConfigActionsUseExpectedMessageTypes(t *testing.T) {
 		},
 		{
 			name: "reset all keybindings",
-			call: func(t *testing.T, client *Client) error {
+			call: func(_ *testing.T, client *Client) error {
 				return client.ResetAllKeybindings(context.Background())
 			},
 			want: "reset_all_keybindings",
@@ -657,6 +657,7 @@ func TestClientRejectsInvalidFavoriteMutationIDs(t *testing.T) {
 		{name: "delete folder", call: func() error { return client.DeleteFolder(context.Background(), 0) }},
 		{name: "create tag", call: func() error { _, err := client.CreateTag(context.Background(), " ", ""); return err }},
 		{name: "update tag", call: func() error { return client.UpdateTag(context.Background(), 0, "Tag", "") }},
+		{name: "update tag name", call: func() error { return client.UpdateTag(context.Background(), 1, " ", "") }},
 		{name: "delete tag", call: func() error { return client.DeleteTag(context.Background(), 0) }},
 		{name: "assign favorite", call: func() error { return client.AssignTag(context.Background(), 0, 1) }},
 		{name: "assign tag", call: func() error { return client.AssignTag(context.Background(), 1, 0) }},

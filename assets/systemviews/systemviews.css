@@ -799,6 +799,12 @@ body {
   min-width: 4.75rem;
 }
 
+.sv-history-row-actions .sv-button-icon-only {
+  width: 2rem;
+  min-width: 2rem;
+  flex: 0 0 2rem;
+}
+
 .sv-button-active {
   border-color: var(--sv-accent, #8ab4ff);
   box-shadow: 0 0 0 1px var(--sv-accent, #8ab4ff) inset;

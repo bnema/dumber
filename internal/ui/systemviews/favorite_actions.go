@@ -28,6 +28,7 @@ const (
 	tagActionRemove            = "tag.remove"
 )
 
+//nolint:gocyclo,funlen // Mechanical dispatcher keeps action routing in one place.
 func (a *App) handleFavoriteAction(ctx context.Context, event DOMAction) error {
 	if a.deps.Favorites == nil {
 		return fmt.Errorf("favorites service not configured")
@@ -222,7 +223,7 @@ func validateFavoriteURL(raw string) (string, error) {
 			return favoriteURL, nil
 		}
 		if parsed.Opaque != "" {
-			return "dumb://" + strings.TrimPrefix(parsed.Opaque, "//"), nil
+			return favoriteURL, nil
 		}
 		return "", fmt.Errorf("favorite URL host is required")
 	default:
@@ -242,8 +243,11 @@ func firstActionValue(data map[string]string, keys ...string) string {
 
 func parsePositiveInt64(raw, label string) (int64, error) {
 	id, err := strconv.ParseInt(strings.TrimSpace(raw), 10, 64)
-	if err != nil || id <= 0 {
-		return 0, fmt.Errorf("invalid %s", label)
+	if err != nil {
+		return 0, fmt.Errorf("invalid %s: %w", label, err)
+	}
+	if id <= 0 {
+		return 0, fmt.Errorf("%s must be a positive integer", label)
 	}
 	return id, nil
 }

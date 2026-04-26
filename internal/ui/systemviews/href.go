@@ -5,6 +5,8 @@ import (
 	"strings"
 )
 
+const httpsScheme = "https"
+
 func sanitizeHref(raw string) string {
 	trimmed := strings.TrimSpace(raw)
 	if trimmed == "" || strings.HasPrefix(trimmed, "//") {
@@ -24,7 +26,7 @@ func sanitizeHref(raw string) string {
 	}
 
 	switch strings.ToLower(parsed.Scheme) {
-	case "http", "https":
+	case httpScheme, httpsScheme:
 		if parsed.Host == "" {
 			return "#"
 		}

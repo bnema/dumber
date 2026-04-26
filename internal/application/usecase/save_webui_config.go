@@ -85,11 +85,11 @@ func validateWebUIConfig(cfg dto.WebUIConfig) error {
 	}
 
 	switch cfg.Performance.Profile {
-	case "", "default", "lite", "max", "custom":
+	case "", "default", "lite", "balanced", "max", "custom":
 		// ok
 	default:
 		errs = append(errs, fmt.Sprintf(
-			"performance.profile must be one of: default, lite, max, custom (got: %s)",
+			"performance.profile must be one of: default, lite, balanced, max, custom (got: %s)",
 			cfg.Performance.Profile,
 		))
 	}

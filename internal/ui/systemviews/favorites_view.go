@@ -7,6 +7,8 @@ import (
 	"github.com/bnema/dumber/internal/domain/entity"
 )
 
+const defaultTagColor = "#808080"
+
 type favoritesRenderData struct {
 	Favorites    []*entity.Favorite
 	Folders      []*entity.Folder
@@ -120,16 +122,16 @@ func favoriteTagButtonClass(favorite *entity.Favorite, tag *entity.Tag) string {
 func safeTagColor(raw string) string {
 	value := strings.TrimSpace(raw)
 	if len(value) != 4 && len(value) != 7 {
-		return "#808080"
+		return defaultTagColor
 	}
 	if value[0] != '#' {
-		return "#808080"
+		return defaultTagColor
 	}
 	for _, ch := range value[1:] {
 		if (ch >= '0' && ch <= '9') || (ch >= 'a' && ch <= 'f') || (ch >= 'A' && ch <= 'F') {
 			continue
 		}
-		return "#808080"
+		return defaultTagColor
 	}
 	return value
 }

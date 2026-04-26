@@ -105,6 +105,7 @@ templ PerformanceSettings(config dto.SystemviewConfigPayload) {
 	<form class="sv-card-form sv-config-form" data-sv-action="config.performance.save" data-sv-performance-form>
 		<label><span>Profile</span><select name="profile" data-sv-performance-profile>
 			<option value="default" selected?={ performanceProfileSelected(config.Performance.Profile, "default") }>Default</option>
+			<option value="balanced" selected?={ performanceProfileSelected(config.Performance.Profile, "balanced") }>Balanced</option>
 			<option value="lite" selected?={ performanceProfileSelected(config.Performance.Profile, "lite") }>Lite</option>
 			<option value="max" selected?={ performanceProfileSelected(config.Performance.Profile, "max") }>Max</option>
 			<option value="custom" selected?={ performanceProfileSelected(config.Performance.Profile, "custom") }>Custom</option>

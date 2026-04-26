@@ -8,23 +8,12 @@ import (
 	"github.com/bnema/dumber/internal/domain/entity"
 )
 
-// HistorySearchInput holds search parameters (moved from usecase.SearchInput).
-type HistorySearchInput struct {
-	Query string
-	Limit int
-}
-
-// HistorySearchOutput holds search results (moved from usecase.SearchOutput).
-type HistorySearchOutput struct {
-	Matches []entity.HistoryMatch
-}
-
 // HomepageHistory provides history operations needed by the WebUI homepage handlers.
 type HomepageHistory interface {
 	GetRecent(ctx context.Context, limit, offset int) ([]*entity.HistoryEntry, error)
 	GetRecentByDomain(ctx context.Context, domain string, limit, offset int) ([]*entity.HistoryEntry, error)
 	GetRecentWindow(ctx context.Context, before time.Time, domain string) (*entity.HistoryWindow, error)
-	Search(ctx context.Context, input HistorySearchInput) (*HistorySearchOutput, error)
+	Search(ctx context.Context, input dto.HistorySearchInput) (*dto.HistorySearchOutput, error)
 	Delete(ctx context.Context, id int64) error
 	ClearRange(ctx context.Context, rangeID string) error
 	ClearAll(ctx context.Context) error

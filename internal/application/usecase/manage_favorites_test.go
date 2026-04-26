@@ -389,6 +389,19 @@ func TestManageFavoritesUseCase_AddFavoriteNormalizesURL(t *testing.T) {
 	assert.Equal(t, "Example", fav.Title)
 }
 
+func TestManageFavoritesUseCase_AddFavoriteRejectsInvalidTagIDs(t *testing.T) {
+	ctx := testContext()
+
+	favoriteRepo := repomocks.NewMockFavoriteRepository(t)
+	folderRepo := repomocks.NewMockFolderRepository(t)
+	tagRepo := repomocks.NewMockTagRepository(t)
+	uc := usecase.NewManageFavoritesUseCase(favoriteRepo, folderRepo, tagRepo)
+
+	_, err := uc.AddFavorite(ctx, dto.FavoriteCreateInput{URL: "https://example.com", Tags: []entity.TagID{1, 0}})
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "favorite tag id must be positive")
+}
+
 func TestManageFavoritesUseCase_AddFavoriteRejectsUnsafeOrMalformedURL(t *testing.T) {
 	ctx := testContext()
 

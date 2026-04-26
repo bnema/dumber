@@ -85,6 +85,8 @@ func ResolvePerformanceProfile(cfg *PerformanceConfig, hw *port.HardwareInfo) Re
 	switch cfg.Profile {
 	case ProfileLite:
 		return resolveLiteProfile(hw)
+	case ProfileBalanced:
+		return resolveBalancedProfile()
 	case ProfileMax:
 		return resolveMaxProfile(hw)
 	case ProfileCustom:
@@ -114,6 +116,12 @@ func resolveDefaultProfile() ResolvedPerformanceSettings {
 
 		WebViewPoolPrewarmCount: 4,
 	}
+}
+
+// resolveBalancedProfile preserves the legacy balanced profile as WebKit's
+// default tuning with the normal WebView prewarm count.
+func resolveBalancedProfile() ResolvedPerformanceSettings {
+	return resolveDefaultProfile()
 }
 
 // resolveLiteProfile returns settings optimized for low-RAM systems.
@@ -299,7 +307,7 @@ func HasCustomPerformanceFields(cfg *PerformanceConfig) bool {
 // IsValidPerformanceProfile returns true if the profile name is recognized.
 func IsValidPerformanceProfile(profile PerformanceProfile) bool {
 	switch profile {
-	case ProfileDefault, ProfileLite, ProfileMax, ProfileCustom, "":
+	case ProfileDefault, ProfileLite, ProfileBalanced, ProfileMax, ProfileCustom, "":
 		return true
 	default:
 		return false

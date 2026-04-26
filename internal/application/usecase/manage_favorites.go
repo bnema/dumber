@@ -102,6 +102,11 @@ func (uc *ManageFavoritesUseCase) addNewFavorite(ctx context.Context, input AddF
 
 // AddFavorite creates a favorite from the UI-facing application port.
 func (uc *ManageFavoritesUseCase) AddFavorite(ctx context.Context, input dto.FavoriteCreateInput) (*entity.Favorite, error) {
+	for _, tagID := range input.Tags {
+		if tagID <= 0 {
+			return nil, fmt.Errorf("favorite tag id must be positive, got %d", tagID)
+		}
+	}
 	favoriteURL, err := normalizeFavoriteURL(input.URL)
 	if err != nil {
 		return nil, err
@@ -111,12 +116,7 @@ func (uc *ManageFavoritesUseCase) AddFavorite(ctx context.Context, input dto.Fav
 	} else if existing != nil {
 		return existing, nil
 	}
-	tags := make([]entity.TagID, 0, len(input.Tags))
-	for _, tagID := range input.Tags {
-		if tagID > 0 {
-			tags = append(tags, tagID)
-		}
-	}
+	tags := append([]entity.TagID(nil), input.Tags...)
 	title := strings.TrimSpace(input.Title)
 	if title == "" {
 		title = favoriteURL
@@ -130,7 +130,11 @@ func (uc *ManageFavoritesUseCase) AddFavorite(ctx context.Context, input dto.Fav
 	})
 }
 
-func (uc *ManageFavoritesUseCase) findFavoriteByCanonicalOrRawURL(ctx context.Context, canonicalURL, rawURL string) (*entity.Favorite, error) {
+func (uc *ManageFavoritesUseCase) findFavoriteByCanonicalOrRawURL(
+	ctx context.Context,
+	canonicalURL string,
+	rawURL string,
+) (*entity.Favorite, error) {
 	existing, err := uc.favoriteRepo.FindByURL(ctx, canonicalURL)
 	if err != nil {
 		return nil, fmt.Errorf("failed to check existing favorite: %w", err)
@@ -229,16 +233,16 @@ func (uc *ManageFavoritesUseCase) Remove(ctx context.Context, id entity.Favorite
 }
 
 // RemoveByURL deletes a favorite by its URL.
-func (uc *ManageFavoritesUseCase) RemoveByURL(ctx context.Context, url string) error {
+func (uc *ManageFavoritesUseCase) RemoveByURL(ctx context.Context, favoriteURL string) error {
 	log := logging.FromContext(ctx)
-	log.Debug().Str("url", url).Msg("removing favorite by URL")
+	log.Debug().Str("url", favoriteURL).Msg("removing favorite by URL")
 
-	fav, err := uc.favoriteRepo.FindByURL(ctx, url)
+	fav, err := uc.favoriteRepo.FindByURL(ctx, favoriteURL)
 	if err != nil {
 		return fmt.Errorf("failed to find favorite: %w", err)
 	}
 	if fav == nil {
-		log.Debug().Str("url", url).Msg("favorite not found")
+		log.Debug().Str("url", favoriteURL).Msg("favorite not found")
 		return nil
 	}
 
@@ -308,11 +312,11 @@ func (uc *ManageFavoritesUseCase) GetByShortcut(ctx context.Context, key int) (*
 }
 
 // GetByURL finds a favorite by its URL.
-func (uc *ManageFavoritesUseCase) GetByURL(ctx context.Context, url string) (*entity.Favorite, error) {
+func (uc *ManageFavoritesUseCase) GetByURL(ctx context.Context, favoriteURL string) (*entity.Favorite, error) {
 	log := logging.FromContext(ctx)
-	log.Debug().Str("url", url).Msg("getting favorite by URL")
+	log.Debug().Str("url", favoriteURL).Msg("getting favorite by URL")
 
-	return uc.favoriteRepo.FindByURL(ctx, url)
+	return uc.favoriteRepo.FindByURL(ctx, favoriteURL)
 }
 
 // GetAll retrieves all favorites.
@@ -389,8 +393,8 @@ func (uc *ManageFavoritesUseCase) FilterForOmnibox(ctx context.Context, query st
 }
 
 // IsFavorite checks if a URL is favorited.
-func (uc *ManageFavoritesUseCase) IsFavorite(ctx context.Context, url string) (bool, error) {
-	fav, err := uc.favoriteRepo.FindByURL(ctx, url)
+func (uc *ManageFavoritesUseCase) IsFavorite(ctx context.Context, favoriteURL string) (bool, error) {
+	fav, err := uc.favoriteRepo.FindByURL(ctx, favoriteURL)
 	if err != nil {
 		return false, fmt.Errorf("failed to check favorite: %w", err)
 	}

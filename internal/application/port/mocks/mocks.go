@@ -7196,26 +7196,26 @@ func (_c *MockHomepageHistory_GetStats_Call) RunAndReturn(run func(ctx context.C
 }
 
 // Search provides a mock function for the type MockHomepageHistory
-func (_mock *MockHomepageHistory) Search(ctx context.Context, input port.HistorySearchInput) (*port.HistorySearchOutput, error) {
+func (_mock *MockHomepageHistory) Search(ctx context.Context, input dto.HistorySearchInput) (*dto.HistorySearchOutput, error) {
 	ret := _mock.Called(ctx, input)
 
 	if len(ret) == 0 {
 		panic("no return value specified for Search")
 	}
 
-	var r0 *port.HistorySearchOutput
+	var r0 *dto.HistorySearchOutput
 	var r1 error
-	if returnFunc, ok := ret.Get(0).(func(context.Context, port.HistorySearchInput) (*port.HistorySearchOutput, error)); ok {
+	if returnFunc, ok := ret.Get(0).(func(context.Context, dto.HistorySearchInput) (*dto.HistorySearchOutput, error)); ok {
 		return returnFunc(ctx, input)
 	}
-	if returnFunc, ok := ret.Get(0).(func(context.Context, port.HistorySearchInput) *port.HistorySearchOutput); ok {
+	if returnFunc, ok := ret.Get(0).(func(context.Context, dto.HistorySearchInput) *dto.HistorySearchOutput); ok {
 		r0 = returnFunc(ctx, input)
 	} else {
 		if ret.Get(0) != nil {
-			r0 = ret.Get(0).(*port.HistorySearchOutput)
+			r0 = ret.Get(0).(*dto.HistorySearchOutput)
 		}
 	}
-	if returnFunc, ok := ret.Get(1).(func(context.Context, port.HistorySearchInput) error); ok {
+	if returnFunc, ok := ret.Get(1).(func(context.Context, dto.HistorySearchInput) error); ok {
 		r1 = returnFunc(ctx, input)
 	} else {
 		r1 = ret.Error(1)
@@ -7230,20 +7230,20 @@ type MockHomepageHistory_Search_Call struct {
 
 // Search is a helper method to define mock.On call
 //   - ctx context.Context
-//   - input port.HistorySearchInput
+//   - input dto.HistorySearchInput
 func (_e *MockHomepageHistory_Expecter) Search(ctx interface{}, input interface{}) *MockHomepageHistory_Search_Call {
 	return &MockHomepageHistory_Search_Call{Call: _e.mock.On("Search", ctx, input)}
 }
 
-func (_c *MockHomepageHistory_Search_Call) Run(run func(ctx context.Context, input port.HistorySearchInput)) *MockHomepageHistory_Search_Call {
+func (_c *MockHomepageHistory_Search_Call) Run(run func(ctx context.Context, input dto.HistorySearchInput)) *MockHomepageHistory_Search_Call {
 	_c.Call.Run(func(args mock.Arguments) {
 		var arg0 context.Context
 		if args[0] != nil {
 			arg0 = args[0].(context.Context)
 		}
-		var arg1 port.HistorySearchInput
+		var arg1 dto.HistorySearchInput
 		if args[1] != nil {
-			arg1 = args[1].(port.HistorySearchInput)
+			arg1 = args[1].(dto.HistorySearchInput)
 		}
 		run(
 			arg0,
@@ -7253,12 +7253,12 @@ func (_c *MockHomepageHistory_Search_Call) Run(run func(ctx context.Context, inp
 	return _c
 }
 
-func (_c *MockHomepageHistory_Search_Call) Return(historySearchOutput *port.HistorySearchOutput, err error) *MockHomepageHistory_Search_Call {
+func (_c *MockHomepageHistory_Search_Call) Return(historySearchOutput *dto.HistorySearchOutput, err error) *MockHomepageHistory_Search_Call {
 	_c.Call.Return(historySearchOutput, err)
 	return _c
 }
 
-func (_c *MockHomepageHistory_Search_Call) RunAndReturn(run func(ctx context.Context, input port.HistorySearchInput) (*port.HistorySearchOutput, error)) *MockHomepageHistory_Search_Call {
+func (_c *MockHomepageHistory_Search_Call) RunAndReturn(run func(ctx context.Context, input dto.HistorySearchInput) (*dto.HistorySearchOutput, error)) *MockHomepageHistory_Search_Call {
 	_c.Call.Return(run)
 	return _c
 }

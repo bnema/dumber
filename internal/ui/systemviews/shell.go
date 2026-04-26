@@ -91,16 +91,8 @@ func listHTML(rows, emptyMessage string) string {
 }
 
 // listRowHTML inserts trusted, pre-sanitized raw HTML inside a list item.
-func listRowHTML(inner string) string {
-	return fmt.Sprintf(`<li class="sv-list-row">%s</li>`, inner)
-}
-
 func linkHTML(href, label string) string {
 	return fmt.Sprintf(`<a class=%q href=%q>%s</a>`, "sv-link", html.EscapeString(sanitizeHref(href)), html.EscapeString(label))
-}
-
-func metaHTML(text string) string {
-	return fmt.Sprintf(`<p class="sv-meta">%s</p>`, html.EscapeString(text))
 }
 
 func kvHTML(rows []kvPair) string {
@@ -138,5 +130,8 @@ func emptyStateHTML(message string) string {
 }
 
 func errorStateHTML(message string) string {
-	return fmt.Sprintf(`<div class="sv-error" role="alert"><p>Could not load this system view.</p><p class="sv-meta">%s</p></div>`, html.EscapeString(message))
+	return fmt.Sprintf(
+		`<div class="sv-error" role="alert"><p>Could not load this system view.</p><p class="sv-meta">%s</p></div>`,
+		html.EscapeString(message),
+	)
 }

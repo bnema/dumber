@@ -1,3 +1,5 @@
+//go:build !js || !wasm
+
 package transcoder
 
 import (
@@ -8,7 +10,6 @@ import (
 	"net"
 	"net/http"
 	"net/url"
-	"sort"
 	"strings"
 	"time"
 	"unsafe"
@@ -72,7 +73,7 @@ func validateTranscodeRedirect(req *http.Request, via []*http.Request) error {
 }
 
 func safeTranscodeDialContext(ctx context.Context, network, address string) (net.Conn, error) {
-	host, port, err := net.SplitHostPort(address)
+	host, portValue, err := net.SplitHostPort(address)
 	if err != nil {
 		return nil, err
 	}
@@ -85,7 +86,7 @@ func safeTranscodeDialContext(ctx context.Context, network, address string) (net
 	dialer := &net.Dialer{Timeout: 10 * time.Second}
 	var lastErr error
 	for _, ip := range ips {
-		conn, dialErr := dialer.DialContext(ctx, network, net.JoinHostPort(ip.String(), port))
+		conn, dialErr := dialer.DialContext(ctx, network, net.JoinHostPort(ip.String(), portValue))
 		if dialErr == nil {
 			return conn, nil
 		}
@@ -581,110 +582,6 @@ func (p *pipeline) openCustomIOInputContext(ctx context.Context) (unsafe.Pointer
 	return inFmtCtx, cleanup, nil
 }
 
-func (p *pipeline) openManifestInputContext() (unsafe.Pointer, func(), error) {
-	inFmtCtx := ffmpeg.FormatAllocContext()
-	if inFmtCtx == nil {
-		return nil, nil, errors.New("failed to allocate input format context")
-	}
-
-	var opts unsafe.Pointer
-	defer freeInputOptions(&opts)
-
-	if err := setInputOption(&opts, "protocol_whitelist", "file,http,https,tcp,tls,crypto"); err != nil {
-		ffmpeg.FormatFreeContext(inFmtCtx)
-		return nil, nil, err
-	}
-	if userAgent := p.headers["User-Agent"]; userAgent != "" {
-		if err := setInputOption(&opts, "user_agent", userAgent); err != nil {
-			ffmpeg.FormatFreeContext(inFmtCtx)
-			return nil, nil, err
-		}
-	}
-	if referer := p.headers["Referer"]; referer != "" {
-		if err := setInputOption(&opts, "referer", referer); err != nil {
-			ffmpeg.FormatFreeContext(inFmtCtx)
-			return nil, nil, err
-		}
-	}
-
-	headerLines := formatHTTPHeaderOptions(p.headers)
-	if headerLines != "" {
-		if err := setInputOption(&opts, "headers", headerLines); err != nil {
-			ffmpeg.FormatFreeContext(inFmtCtx)
-			return nil, nil, err
-		}
-	}
-
-	//nolint:gosec // FFmpeg requires pointer-to-pointer input opening for format contexts and option dictionaries.
-	if ret := ffmpeg.FormatOpenInput(unsafe.Pointer(&inFmtCtx), p.sourceURL, nil, unsafe.Pointer(&opts)); ret < 0 {
-		ffmpeg.FormatFreeContext(inFmtCtx)
-		return nil, nil, fmt.Errorf("open manifest input: %d", ret)
-	}
-
-	return inFmtCtx, func() {
-		//nolint:gosec // FFmpeg requires pointer-to-pointer cleanup for format contexts.
-		ffmpeg.FormatCloseInput(unsafe.Pointer(&inFmtCtx))
-	}, nil
-}
-
-func freeInputOptions(opts *unsafe.Pointer) {
-	if opts == nil || *opts == nil {
-		return
-	}
-	// av_dict_free expects an AVDictionary**. Passing the dictionary pointer
-	// itself corrupts memory and can crash inside libavutil during cleanup.
-	//nolint:gosec // FFmpeg requires passing the dictionary pointer by address for cleanup.
-	ffmpeg.DictFree(unsafe.Pointer(opts))
-	*opts = nil
-}
-
-func setInputOption(opts *unsafe.Pointer, key, value string) error {
-	if value == "" {
-		return nil
-	}
-	//nolint:gosec // FFmpeg requires passing the dictionary pointer by address for option updates.
-	if ret := ffmpeg.DictSet(unsafe.Pointer(opts), key, value, 0); ret < 0 {
-		return fmt.Errorf("set input option %q: %d", key, ret)
-	}
-	return nil
-}
-
-func formatHTTPHeaderOptions(headers map[string]string) string {
-	if len(headers) == 0 {
-		return ""
-	}
-
-	keys := make([]string, 0, len(headers))
-	for key, value := range headers {
-		if strings.TrimSpace(value) == "" {
-			continue
-		}
-		if strings.EqualFold(key, "User-Agent") || strings.EqualFold(key, "Referer") {
-			continue
-		}
-		keys = append(keys, key)
-	}
-	if len(keys) == 0 {
-		return ""
-	}
-
-	sort.Strings(keys)
-
-	var builder strings.Builder
-	for _, key := range keys {
-		builder.WriteString(key)
-		builder.WriteString(": ")
-		builder.WriteString(headers[key])
-		builder.WriteString("\r\n")
-	}
-	return builder.String()
-}
-
-// openVideoDecoder creates and opens a decoder context for the video stream.
-// It prefers hardware decoders (h264_vaapi, h264_cuvid) based on hwCaps,
-// falling back to the generic software decoder.
-//
-//nolint:gosec // FFmpeg decoder setup requires unsafe pointer-based contexts and cleanup.
 func (p *pipeline) openVideoDecoder(codecPar unsafe.Pointer) (unsafe.Pointer, error) {
 	codecID := ffmpeg.CodecParCodecID(codecPar)
 
@@ -711,11 +608,13 @@ func (p *pipeline) openVideoDecoder(codecPar unsafe.Pointer) (unsafe.Pointer, er
 	}
 
 	if ret := ffmpeg.CodecParametersToContext(decCtx, codecPar); ret < 0 {
+		//nolint:gosec // FFmpeg requires pointer-to-pointer cleanup for codec contexts.
 		ffmpeg.CodecFreeContext(unsafe.Pointer(&decCtx))
 		return nil, fmt.Errorf("copy video codec params: %d", ret)
 	}
 
 	if ret := ffmpeg.CodecOpen2(decCtx, dec, nil); ret < 0 {
+		//nolint:gosec // FFmpeg requires pointer-to-pointer cleanup for codec contexts.
 		ffmpeg.CodecFreeContext(unsafe.Pointer(&decCtx))
 		return nil, fmt.Errorf("open video decoder: %d", ret)
 	}

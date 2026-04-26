@@ -238,11 +238,11 @@ func (h *DumbSchemeHandler) handleFaviconAPI(req *SchemeRequest) *SchemeResponse
 	if !service.HasPNGSizedOnDisk(domain, size) {
 		return privateJSONErrorResponse(http.StatusNotFound, "favicon not cached")
 	}
-	path := service.DiskPathPNGSized(domain, size)
-	if path == "" {
+	diskPath := service.DiskPathPNGSized(domain, size)
+	if diskPath == "" {
 		return privateJSONErrorResponse(http.StatusNotFound, "favicon not cached")
 	}
-	data, err := os.ReadFile(path)
+	data, err := os.ReadFile(diskPath)
 	if err != nil || len(data) == 0 {
 		return privateJSONErrorResponse(http.StatusNotFound, "favicon not cached")
 	}
@@ -330,11 +330,11 @@ func buildConfigResponse(build func() ([]byte, error)) *SchemeResponse {
 }
 
 // RegisterPage registers a handler for a specific path.
-func (h *DumbSchemeHandler) RegisterPage(path string, handler PageHandler) {
+func (h *DumbSchemeHandler) RegisterPage(pagePath string, handler PageHandler) {
 	h.mu.Lock()
 	defer h.mu.Unlock()
-	h.handlers[path] = handler
-	h.logger.Debug().Str("path", path).Msg("registered page handler")
+	h.handlers[pagePath] = handler
+	h.logger.Debug().Str("path", pagePath).Msg("registered page handler")
 }
 
 // HandleRequest processes a scheme request and sends the response.
@@ -443,7 +443,7 @@ func (h *DumbSchemeHandler) handleAsset(u *url.URL) *SchemeResponse {
 		return nil
 	}
 
-	data, headers, err := readAssetWithEncoding(h.assets, fullPath, relPath)
+	data, err := readAssetWithEncoding(h.assets, fullPath, relPath)
 	if err != nil {
 		h.logger.Debug().Str("path", fullPath).Err(err).Msg("asset not found")
 		return nil
@@ -460,7 +460,7 @@ func (h *DumbSchemeHandler) handleAsset(u *url.URL) *SchemeResponse {
 		Data:        data,
 		ContentType: contentType,
 		StatusCode:  http.StatusOK,
-		Headers:     headers,
+		Headers:     nil,
 	}
 }
 
@@ -487,7 +487,7 @@ func safeSystemviewsAssetPath(assetDir, relPath string) (fullPath, cleanRelPath 
 	return fullPath, cleanRelPath, true
 }
 
-func readAssetWithEncoding(assets embed.FS, fullPath, relPath string) ([]byte, map[string]string, error) {
+func readAssetWithEncoding(assets embed.FS, fullPath, relPath string) ([]byte, error) {
 	var compressedErr error
 	if strings.HasSuffix(relPath, ".wasm") {
 		if compressed, err := fs.ReadFile(assets, fullPath+".br"); err == nil {
@@ -497,18 +497,18 @@ func readAssetWithEncoding(assets embed.FS, fullPath, relPath string) ([]byte, m
 			} else if len(data) > maxSystemviewsWASMBytes {
 				compressedErr = fmt.Errorf("decompressed asset %s exceeds %d bytes", fullPath, maxSystemviewsWASMBytes)
 			} else {
-				return data, nil, nil
+				return data, nil
 			}
 		}
 	}
 	data, err := fs.ReadFile(assets, fullPath)
 	if err == nil {
-		return data, nil, nil
+		return data, nil
 	}
 	if compressedErr != nil {
-		return nil, nil, compressedErr
+		return nil, compressedErr
 	}
-	return nil, nil, err
+	return nil, err
 }
 
 func resolveAssetPath(u *url.URL) (assetDir, relPath string, ok bool) {
@@ -528,11 +528,11 @@ func resolveAssetPath(u *url.URL) (assetDir, relPath string, ok bool) {
 	}
 
 	if root, ok := rootByHost[u.Host]; ok {
-		path := strings.TrimPrefix(u.Path, "/")
-		if path == "" {
+		assetPath := strings.TrimPrefix(u.Path, "/")
+		if assetPath == "" {
 			return root.assetDir, root.file, true
 		}
-		return root.assetDir, path, true
+		return root.assetDir, assetPath, true
 	}
 
 	switch u.Opaque {
@@ -543,13 +543,13 @@ func resolveAssetPath(u *url.URL) (assetDir, relPath string, ok bool) {
 	}
 }
 
-func shouldAddCORSHeaders(path string) bool {
-	path = strings.TrimSpace(path)
-	return strings.HasSuffix(path, ".wasm")
+func shouldAddCORSHeaders(requestPath string) bool {
+	requestPath = strings.TrimSpace(requestPath)
+	return strings.HasSuffix(requestPath, ".wasm")
 }
 
-func responseHeadersForPath(path, contentType string) map[string]string {
-	if !shouldAddCORSHeaders(path) {
+func responseHeadersForPath(requestPath, contentType string) map[string]string {
+	if !shouldAddCORSHeaders(requestPath) {
 		return nil
 	}
 

@@ -163,7 +163,12 @@ func (r *LazyHistoryRepository) GetRecentWindow(ctx context.Context, before, aft
 	return r.repo.GetRecentWindow(ctx, before, after)
 }
 
-func (r *LazyHistoryRepository) GetRecentWindowByDomain(ctx context.Context, domain string, before, after time.Time) ([]*entity.HistoryEntry, error) {
+func (r *LazyHistoryRepository) GetRecentWindowByDomain(
+	ctx context.Context,
+	domain string,
+	before time.Time,
+	after time.Time,
+) ([]*entity.HistoryEntry, error) {
 	if err := r.init(ctx); err != nil {
 		return nil, err
 	}

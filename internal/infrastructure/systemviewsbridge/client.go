@@ -416,10 +416,11 @@ func (c *Client) UpdateTag(ctx context.Context, id int64, name, color string) er
 	if id <= 0 {
 		return fmt.Errorf("update tag id must be positive, got %d", id)
 	}
-	var namePtr *string
-	if trimmedName := strings.TrimSpace(name); trimmedName != "" {
-		namePtr = &trimmedName
+	trimmedName := strings.TrimSpace(name)
+	if trimmedName == "" {
+		return fmt.Errorf("tag name is required")
 	}
+	namePtr := &trimmedName
 	var colorPtr *string
 	if trimmedColor := strings.TrimSpace(color); trimmedColor != "" {
 		colorPtr = &trimmedColor

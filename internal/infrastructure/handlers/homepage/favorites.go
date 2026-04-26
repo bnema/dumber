@@ -278,6 +278,10 @@ func (h *FavoritesHandlers) HandleSetFolder() port.WebUIMessageHandler {
 			Int64("favorite_id", req.FavoriteID).
 			Msg("handling favorite_set_folder")
 
+		if req.FavoriteID <= 0 {
+			return NewErrorResponse(req.RequestID, fmt.Errorf("invalid favorite_id")), nil
+		}
+
 		folderID, err := folderIDFromInt64(req.FolderID)
 		if err != nil {
 			return NewErrorResponse(req.RequestID, err), nil

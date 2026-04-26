@@ -549,6 +549,7 @@ type historyRouteSnapshot struct {
 	domainFilter string
 	offset       int
 	windowBefore time.Time
+	windowAfter  time.Time
 	notice       string
 	error        string
 }
@@ -572,6 +573,7 @@ func (a *App) currentHistoryRouteSnapshotLocked() historyRouteSnapshot {
 		domainFilter: a.historyDomainFilter,
 		offset:       a.historyOffset,
 		windowBefore: a.historyWindowBefore,
+		windowAfter:  a.historyWindowAfter,
 		notice:       a.historyNotice,
 		error:        a.historyError,
 	}
@@ -602,9 +604,11 @@ func (a *App) renderHistoryRouteSnapshot(ctx context.Context, snapshot historyRo
 		domains = nil
 	}
 	result := historyRouteResult{
-		entries: entries,
-		stats:   stats,
-		domains: domains,
+		entries:      entries,
+		stats:        stats,
+		domains:      domains,
+		windowBefore: snapshot.windowBefore,
+		windowAfter:  snapshot.windowAfter,
 	}
 	if window != nil {
 		result.windowBefore = window.Before
@@ -664,23 +668,6 @@ func (a *App) commitHistoryRouteResultLocked(result historyRouteResult) {
 	a.historyWindowAfter = result.windowAfter
 	a.historyHasMore = result.hasMore
 	a.renderedHTML = result.html
-}
-
-func (a *App) loadHistoryWindow(ctx context.Context) (*entity.HistoryWindow, []*entity.HistoryEntry, error) {
-	query := strings.TrimSpace(a.historyQuery)
-	domain := strings.TrimSpace(a.historyDomainFilter)
-	if query != "" {
-		entries, err := a.deps.History.Search(ctx, query, historySearchLimit)
-		return nil, entries, err
-	}
-	window, err := a.deps.History.TimelineWindow(ctx, a.historyWindowBefore, domain)
-	if err != nil {
-		return nil, nil, err
-	}
-	if window == nil {
-		return nil, nil, nil
-	}
-	return window, window.Entries, nil
 }
 
 func (a *App) loadFavoritesRoute(ctx context.Context) error {

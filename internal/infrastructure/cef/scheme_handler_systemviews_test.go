@@ -45,15 +45,12 @@ func TestResolveAssetPath_SystemviewsRootsUseSystemviewsShell(t *testing.T) {
 func TestReadAssetWithEncoding_DecompressesEmbeddedBrotliWASM(t *testing.T) {
 	t.Parallel()
 
-	data, headers, err := readAssetWithEncoding(assets.WebUIAssets, "systemviews/systemviews.wasm", "systemviews.wasm")
+	data, err := readAssetWithEncoding(assets.WebUIAssets, "systemviews/systemviews.wasm", "systemviews.wasm")
 	if err != nil {
 		t.Fatalf("readAssetWithEncoding() error = %v", err)
 	}
 	if len(data) < 4 || string(data[:4]) != "\x00asm" {
 		t.Fatalf("decompressed wasm magic = %q, want \\x00asm", data[:4])
-	}
-	if _, ok := headers["Content-Encoding"]; ok {
-		t.Fatalf("Content-Encoding header = %q, want absent after server-side decompression", headers["Content-Encoding"])
 	}
 }
 

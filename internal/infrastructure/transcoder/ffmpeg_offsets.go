@@ -1,3 +1,5 @@
+//go:build !js || !wasm
+
 package transcoder
 
 // Offset-based accessors for FFmpeg struct fields not yet exposed

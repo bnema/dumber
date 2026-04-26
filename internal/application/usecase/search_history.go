@@ -6,6 +6,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/bnema/dumber/internal/application/dto"
 	"github.com/bnema/dumber/internal/application/port"
 	"github.com/bnema/dumber/internal/domain/entity"
 	historydomain "github.com/bnema/dumber/internal/domain/history"
@@ -31,11 +32,11 @@ func NewSearchHistoryUseCase(historyRepo repository.HistoryRepository) *SearchHi
 	}
 }
 
-// SearchInput is an alias for port.HistorySearchInput.
-type SearchInput = port.HistorySearchInput
+// SearchInput is an alias for dto.HistorySearchInput.
+type SearchInput = dto.HistorySearchInput
 
-// SearchOutput is an alias for port.HistorySearchOutput.
-type SearchOutput = port.HistorySearchOutput
+// SearchOutput is an alias for dto.HistorySearchOutput.
+type SearchOutput = dto.HistorySearchOutput
 
 // Search performs a full-text search on history entries using SQLite FTS5.
 // Returns only entries that actually match the query terms.

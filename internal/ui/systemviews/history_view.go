@@ -12,6 +12,8 @@ import (
 
 const historyURLDisplayMaxRunes = 180
 
+const historySearchTitleMaxRunes = 48
+
 type historyRenderData struct {
 	Entries             []*entity.HistoryEntry
 	Stats               *entity.HistoryStats
@@ -56,7 +58,7 @@ func historyDocumentTitle(data historyRenderData) string {
 		return "History — Loading"
 	}
 	if query := strings.TrimSpace(data.Query); query != "" {
-		return "History — search: " + truncateTitle(query, 48)
+		return "History — search: " + truncateTitle(query, historySearchTitleMaxRunes)
 	}
 	if domain := strings.TrimSpace(data.DomainFilter); domain != "" {
 		label := browserurl.DisplayDomain(domain)
@@ -107,28 +109,6 @@ func historyLimit(data historyRenderData) int {
 
 func historyIsPaginated(data historyRenderData) bool {
 	return historyLimit(data) > 0
-}
-
-func previousHistoryOffset(data historyRenderData) int {
-	if !historyIsPaginated(data) {
-		return 0
-	}
-	offset := data.Offset - historyLimit(data)
-	if offset < 0 {
-		return 0
-	}
-	return offset
-}
-
-func nextHistoryOffset(data historyRenderData) int {
-	if !historyIsPaginated(data) {
-		return 0
-	}
-	return max(data.Offset, 0) + historyLimit(data)
-}
-
-func disableHistoryPrev(data historyRenderData) bool {
-	return !historyIsPaginated(data) || data.Offset <= 0 || strings.TrimSpace(data.Query) != ""
 }
 
 func disableHistoryNext(data historyRenderData) bool {

@@ -25,6 +25,9 @@ const (
 	configActionResetKeybinding         = "config.keybinding.reset"
 	configActionResetAllKeybindings     = "config.keybinding.resetAll"
 	configRequestIDPrefix               = "systemviews-config"
+	balancedPerformanceProfile          = "balanced"
+	customPerformanceProfile            = "custom"
+	httpScheme                          = "http"
 	maxCustomPerformanceThreads         = 8
 	maxCustomPerformanceWebMemoryMB     = 16384
 	maxCustomPerformanceNetworkMemoryMB = 4096
@@ -241,9 +244,9 @@ func (a *App) savePerformanceConfig(ctx context.Context, data map[string]string)
 		return fmt.Errorf("unknown performance profile: %q", profile)
 	}
 	cfg.Performance.Profile = profile
-	if profile != "custom" {
-		if err := a.saveEditableConfig(ctx, cfg); err != nil {
-			return err
+	if profile != customPerformanceProfile {
+		if saveErr := a.saveEditableConfig(ctx, cfg); saveErr != nil {
+			return saveErr
 		}
 		a.configNotice = "Saved performance settings. Restart may be required."
 		return nil
@@ -479,7 +482,7 @@ func requireSearchURLTemplate(raw, label string) (string, error) {
 		return "", fmt.Errorf("%s must include %%s placeholder", label)
 	}
 	parsed, err := url.Parse(strings.Replace(value, "%s", "example", 1))
-	if err != nil || parsed.Host == "" || (parsed.Scheme != "http" && parsed.Scheme != "https") {
+	if err != nil || parsed.Host == "" || (parsed.Scheme != httpScheme && parsed.Scheme != "https") {
 		return "", fmt.Errorf("%s must be an absolute http(s) URL", label)
 	}
 	return value, nil
@@ -503,7 +506,7 @@ func parseConfigFloat(raw, label string) (float64, error) {
 
 func isAllowedPerformanceProfile(profile string) bool {
 	switch profile {
-	case "default", "lite", "max", "custom":
+	case "default", balancedPerformanceProfile, "lite", "max", customPerformanceProfile:
 		return true
 	default:
 		return false

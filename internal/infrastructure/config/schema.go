@@ -170,6 +170,8 @@ const (
 	ProfileDefault PerformanceProfile = "default"
 	// ProfileLite reduces resource usage for low-RAM systems.
 	ProfileLite PerformanceProfile = "lite"
+	// ProfileBalanced is a conservative compatibility preset between lite and max.
+	ProfileBalanced PerformanceProfile = "balanced"
 	// ProfileMax maximizes responsiveness for heavy pages (GitHub PRs, etc).
 	ProfileMax PerformanceProfile = "max"
 	// ProfileCustom allows full control over individual performance settings.
@@ -226,7 +228,7 @@ type HistoryConfig struct {
 // These are not exposed in dumb://config UI but can be set in config file.
 type PerformanceConfig struct {
 	// Profile selects a preset performance configuration.
-	// Values: "default" (no tuning), "lite" (low RAM), "max" (heavy pages), "custom" (manual control)
+	// Values: "default" (no tuning), "lite" (low RAM), "balanced" (compatibility), "max" (heavy pages), "custom" (manual control)
 	// When profile is not "custom", individual tuning fields below are ignored and computed from the profile.
 	// Default: "default"
 	Profile PerformanceProfile `mapstructure:"profile" yaml:"profile" toml:"profile"`

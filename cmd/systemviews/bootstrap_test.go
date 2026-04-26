@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"strings"
 	"testing"
 	"time"
 
@@ -45,15 +46,16 @@ func TestNewBridgeApp_UsesCurrentConfigForNonConfigRoutes(t *testing.T) {
 			},
 		},
 	}
-	dom := &fakeDOM{}
+	dom := &fakeDOM{mounts: make(chan string, 4)}
 	app := newBridgeApp(dom, "dumb://history", bridge)
 
 	require.NoError(t, app.Run())
 	require.Eventually(t, func() bool { return bridge.calledHistory }, time.Second, 10*time.Millisecond)
 	assert.True(t, bridge.calledConfig)
 	assert.False(t, bridge.calledKeybindings)
-	assert.Contains(t, dom.html, `class="sv-app sv-dark"`)
-	assert.Contains(t, dom.html, `--sv-background: #111111;`)
+	html := receiveMountContaining(t, dom.mounts, `class="sv-app sv-dark"`, `--sv-background: #111111;`)
+	assert.Contains(t, html, `class="sv-app sv-dark"`)
+	assert.Contains(t, html, `--sv-background: #111111;`)
 }
 
 func TestNewBridgeApp_WiresFavoritesService(t *testing.T) {
@@ -90,12 +92,42 @@ func TestNewBridgeApp_WiresConfigService(t *testing.T) {
 }
 
 type fakeDOM struct {
-	html string
+	html   string
+	mounts chan string
 }
 
 func (f *fakeDOM) Mount(html string) error {
 	f.html = html
+	if f.mounts != nil {
+		select {
+		case f.mounts <- html:
+		default:
+		}
+	}
 	return nil
+}
+
+func receiveMountContaining(t *testing.T, mounts <-chan string, values ...string) string {
+	t.Helper()
+	deadline := time.After(time.Second)
+	for {
+		select {
+		case html := <-mounts:
+			matched := true
+			for _, value := range values {
+				if !strings.Contains(html, value) {
+					matched = false
+					break
+				}
+			}
+			if matched {
+				return html
+			}
+		case <-deadline:
+			t.Fatalf("timed out waiting for DOM mount containing %q", values)
+			return ""
+		}
+	}
 }
 
 // Handwritten fake intentionally tracks state across history, favorites, config,

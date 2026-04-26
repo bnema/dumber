@@ -276,11 +276,10 @@ func TestResponseHeadersForPath_WASMIncludesContentTypeAndCORS(t *testing.T) {
 func TestReadAssetWithEncodingDecompressesEmbeddedBrotliWASM(t *testing.T) {
 	t.Parallel()
 
-	data, headers, err := readAssetWithEncoding(assets.WebUIAssets, "systemviews/systemviews.wasm", "systemviews.wasm")
+	data, err := readAssetWithEncoding(assets.WebUIAssets, "systemviews/systemviews.wasm", "systemviews.wasm")
 	require.NoError(t, err)
 	require.GreaterOrEqual(t, len(data), 4)
 	assert.Equal(t, "\x00asm", string(data[:4]))
-	assert.NotContains(t, headers, "Content-Encoding")
 }
 
 func TestHandleAssetRejectsTraversalOutsideSystemviews(t *testing.T) {

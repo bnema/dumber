@@ -176,57 +176,68 @@ func flattenValue(rows *[]kvPair, path string, value reflect.Value, depth int) {
 
 	switch value.Kind() {
 	case reflect.Struct:
-		typeOfValue := value.Type()
-		for i := 0; i < value.NumField(); i++ {
-			field := typeOfValue.Field(i)
-			if !field.IsExported() {
-				continue
-			}
-			name := jsonFieldName(field)
-			if name == "-" {
-				continue
-			}
-			nextPath := name
-			if path != "" {
-				nextPath = path + "." + name
-			}
-			flattenValue(rows, nextPath, value.Field(i), depth+1)
-		}
+		flattenStructValue(rows, path, value, depth)
 	case reflect.Map:
-		if value.Len() == 0 {
-			appendFlatValue(rows, path, "{}")
-			return
-		}
-
-		keys := value.MapKeys()
-		sort.Slice(keys, func(i, j int) bool {
-			return mapKeyString(keys[i]) < mapKeyString(keys[j])
-		})
-
-		for _, key := range keys {
-			name := mapKeyString(key)
-			nextPath := name
-			if path != "" {
-				nextPath = path + "." + name
-			}
-			flattenValue(rows, nextPath, value.MapIndex(key), depth+1)
-		}
+		flattenMapValue(rows, path, value, depth)
 	case reflect.Slice, reflect.Array:
-		if value.Len() == 0 {
-			appendFlatValue(rows, path, "[]")
-			return
-		}
-
-		for i := 0; i < value.Len(); i++ {
-			nextPath := fmt.Sprintf("%s[%d]", path, i)
-			if path == "" {
-				nextPath = fmt.Sprintf("[%d]", i)
-			}
-			flattenValue(rows, nextPath, value.Index(i), depth+1)
-		}
+		flattenListValue(rows, path, value, depth)
 	default:
 		appendFlatValue(rows, path, formatFlatValue(value))
 	}
+}
+
+func flattenStructValue(rows *[]kvPair, path string, value reflect.Value, depth int) {
+	typeOfValue := value.Type()
+	for i := 0; i < value.NumField(); i++ {
+		field := typeOfValue.Field(i)
+		if !field.IsExported() {
+			continue
+		}
+		name := jsonFieldName(field)
+		if name == "-" {
+			continue
+		}
+		flattenValue(rows, childFlatPath(path, name), value.Field(i), depth+1)
+	}
+}
+
+func flattenMapValue(rows *[]kvPair, path string, value reflect.Value, depth int) {
+	if value.Len() == 0 {
+		appendFlatValue(rows, path, "{}")
+		return
+	}
+
+	keys := value.MapKeys()
+	sort.Slice(keys, func(i, j int) bool {
+		return mapKeyString(keys[i]) < mapKeyString(keys[j])
+	})
+
+	for _, key := range keys {
+		name := mapKeyString(key)
+		flattenValue(rows, childFlatPath(path, name), value.MapIndex(key), depth+1)
+	}
+}
+
+func flattenListValue(rows *[]kvPair, path string, value reflect.Value, depth int) {
+	if value.Len() == 0 {
+		appendFlatValue(rows, path, "[]")
+		return
+	}
+
+	for i := 0; i < value.Len(); i++ {
+		nextPath := fmt.Sprintf("%s[%d]", path, i)
+		if path == "" {
+			nextPath = fmt.Sprintf("[%d]", i)
+		}
+		flattenValue(rows, nextPath, value.Index(i), depth+1)
+	}
+}
+
+func childFlatPath(path, name string) string {
+	if path == "" {
+		return name
+	}
+	return path + "." + name
 }
 
 func appendFlatValue(rows *[]kvPair, path, value string) {
