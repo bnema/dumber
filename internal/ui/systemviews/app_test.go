@@ -309,8 +309,8 @@ func TestAppLoadInitialHistoryRouteRendersManagementActions(t *testing.T) {
 	assert.Contains(t, app.renderedHTML, `data-sv-action="history.deleteDomain"`)
 	assert.Contains(t, app.renderedHTML, `data-domain="example.com:8080"`)
 	assert.Contains(t, app.renderedHTML, `>example.com</button>`)
-	assert.Contains(t, app.renderedHTML, "Keys:")
-	assert.Contains(t, app.renderedHTML, "Enter")
+	assert.Contains(t, app.renderedHTML, `data-sv-history-search data-sv-autofocus`)
+	assert.NotContains(t, app.renderedHTML, "Keys:")
 }
 
 func TestAppHandleHistoryActionsRefreshesDOM(t *testing.T) {

@@ -43,6 +43,7 @@ func (d *browserDOM) Mount(markup string) error {
 	d.updateDocumentTitle()
 	d.scheduleAlertDismissal()
 	d.syncPerformanceCustomInputStates()
+	d.focusAutofocusTarget()
 	d.setupHistoryInfiniteScroll()
 	return nil
 }
@@ -114,6 +115,17 @@ func (d *browserDOM) updateDocumentTitle() {
 		return
 	}
 	d.document.Set("title", title)
+}
+
+func (d *browserDOM) focusAutofocusTarget() {
+	if d == nil || !d.target.Truthy() {
+		return
+	}
+	target := d.target.Call("querySelector", "[data-sv-autofocus]")
+	if !target.Truthy() || !target.Get("focus").Truthy() {
+		return
+	}
+	target.Call("focus")
 }
 
 func (d *browserDOM) scheduleAlertDismissal() {

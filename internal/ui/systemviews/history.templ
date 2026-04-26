@@ -12,12 +12,14 @@ templ HistoryView(data historyRenderData) {
 	@Section("sv-history-controls", "Manage history") {
 		@HistoryControls(data)
 	}
-	@Section("sv-history-summary", "History") {
-		@HistorySummary(data)
-	}
-	@Section("sv-history-domains", "Top domains") {
-		@HistoryDomains(data)
-	}
+	<div class="sv-history-overview">
+		@Section("sv-history-summary", "History stats") {
+			@HistorySummary(data)
+		}
+		@Section("sv-history-domains", "Top domains") {
+			@HistoryDomains(data)
+		}
+	</div>
 	@Section("sv-history-timeline", "Recent visits") {
 		@HistoryTimeline(data)
 	}
@@ -27,7 +29,7 @@ templ HistoryControls(data historyRenderData) {
 	<form class="sv-toolbar sv-history-search" data-sv-action="history.search">
 		<label class="sv-search-label">
 			<span>Search</span>
-			<input data-sv-history-search name="query" type="search" value={ data.Query } placeholder="Search title or URL" autocomplete="off"/>
+			<input data-sv-history-search data-sv-autofocus name="query" type="search" value={ data.Query } placeholder="Search title or URL" autocomplete="off" autofocus/>
 		</label>
 		<button class="sv-button" type="submit">@ButtonIconLabel(iconSearch, "Search")</button>
 		<button class="sv-button sv-button-secondary" type="button" data-sv-action="history.clear">@ButtonIconLabel(iconX, "Clear")</button>
@@ -53,7 +55,6 @@ templ HistoryControls(data historyRenderData) {
 			}
 		</div>
 	</div>
-	<p class="sv-meta sv-key-hints">Keys: <kbd>/</kbd> search, <kbd>j</kbd>/<kbd>k</kbd> move, <kbd>Enter</kbd> open, <kbd>d</kbd> delete focused entry.</p>
 }
 
 templ HistorySummary(data historyRenderData) {
