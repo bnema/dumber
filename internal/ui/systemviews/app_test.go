@@ -90,7 +90,7 @@ func TestAppLoadInitialHistoryRouteUsesStyledSections(t *testing.T) {
 	assert.NotContains(t, app.renderedHTML, "<body")
 	assert.Contains(t, app.renderedHTML, `class="sv-shell"`)
 	assert.Contains(t, app.renderedHTML, `data-route="history"`)
-	assert.Contains(t, app.renderedHTML, `data-page-title="History — 1 entry"`)
+	assert.Contains(t, app.renderedHTML, `data-page-title="History - 1 entry, 1 visit, 0 days"`)
 	assert.Contains(t, app.renderedHTML, `sv-section`)
 	assert.Contains(t, app.renderedHTML, `class="sv-list"`)
 }
@@ -110,10 +110,10 @@ func TestAppLoadInitialHistoryRouteShowsTotalStatsWithWindowedTimeline(t *testin
 	require.NoError(t, app.LoadInitial(context.Background()))
 	assert.True(t, history.statsCalled)
 	assert.Contains(t, app.renderedHTML, "Loaded 2 items")
-	assert.Contains(t, app.renderedHTML, `data-page-title="History — 8904 entries"`)
-	assert.Contains(t, app.renderedHTML, `<span class="sv-stat-value">8904</span><span class="sv-stat-label">Entries</span>`)
-	assert.Contains(t, app.renderedHTML, `<span class="sv-stat-value">40947</span><span class="sv-stat-label">Visits</span>`)
-	assert.Contains(t, app.renderedHTML, `<span class="sv-stat-value">121</span><span class="sv-stat-label">Days</span>`)
+	assert.Contains(t, app.renderedHTML, `data-page-title="History - 8904 entries, 40947 visits, 121 days"`)
+	assert.Contains(t, app.renderedHTML, `<h1 class="sv-title">History - 8904 entries, 40947 visits, 121 days</h1>`)
+	assert.NotContains(t, app.renderedHTML, `sv-history-summary`)
+	assert.NotContains(t, app.renderedHTML, `sv-stat-value`)
 }
 
 func TestAppRunMountsHistoryLoadingBeforeAsyncHydration(t *testing.T) {

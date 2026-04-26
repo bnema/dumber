@@ -12,14 +12,9 @@ templ HistoryView(data historyRenderData) {
 	@Section("sv-history-controls", "Manage history") {
 		@HistoryControls(data)
 	}
-	<div class="sv-history-overview">
-		@Section("sv-history-summary", "History stats") {
-			@HistorySummary(data)
-		}
-		@Section("sv-history-domains", "Top domains") {
-			@HistoryDomains(data)
-		}
-	</div>
+	@Section("sv-history-domains", "Top domains") {
+		@HistoryDomains(data)
+	}
 	@Section("sv-history-timeline", "Recent visits") {
 		@HistoryTimeline(data)
 	}
@@ -57,28 +52,6 @@ templ HistoryControls(data historyRenderData) {
 	</div>
 }
 
-templ HistorySummary(data historyRenderData) {
-	if historySummaryLoading(data) {
-		<div class="sv-stat-grid">
-			@LoadingCard("Entries")
-			@LoadingCard("Visits")
-			@LoadingCard("Days")
-		</div>
-	} else {
-		{{ entries, visits, days := historySummaryValues(data) }}
-		<div class="sv-stat-grid">
-			@HistoryStatCard("Entries", entries)
-			@HistoryStatCard("Visits", visits)
-			@HistoryStatCard("Days", days)
-		</div>
-	}
-}
-
-
-templ HistoryStatCard(label string, value int64) {
-	<div class="sv-stat-card"><span class="sv-stat-value">{ fmt.Sprintf("%d", value) }</span><span class="sv-stat-label">{ label }</span></div>
-}
-
 templ HistoryDomains(data historyRenderData) {
 	if data.Loading {
 		@LoadingPanel("Loading top domains…")
@@ -93,9 +66,9 @@ templ HistoryDomains(data historyRenderData) {
 					<span class="sv-domain-chip">
 						<span class="sv-domain-chip-main">
 							<button type="button" class="sv-domain-filter" data-sv-action="history.filterDomain" data-domain={ domainKey }>{ displayDomain }</button>
-							<span class="sv-domain-meta">{ fmt.Sprintf("%d pages · %d visits", domain.PageCount, domain.TotalVisits) }</span>
+							<span class="sv-domain-meta">{ fmt.Sprintf("%dp · %dv", domain.PageCount, domain.TotalVisits) }</span>
 						</span>
-						<button type="button" class="sv-icon-button sv-danger" data-sv-action="history.deleteDomain" data-domain={ domainKey } data-sv-confirm={ "Delete all history for " + displayDomain + "?" } aria-label={ "Delete history for " + displayDomain }>@IconOnly(iconTrash, "Delete history for " + displayDomain)</button>
+						<button type="button" class="sv-domain-delete" data-sv-action="history.deleteDomain" data-domain={ domainKey } data-sv-confirm={ "Delete all history for " + displayDomain + "?" } aria-label={ "Delete history for " + displayDomain }><span aria-hidden="true">×</span><span class="sv-sr-only">Delete history for { displayDomain }</span></button>
 					</span>
 				}
 			}

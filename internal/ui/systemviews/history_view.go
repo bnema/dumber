@@ -12,8 +12,6 @@ import (
 
 const historyURLDisplayMaxRunes = 180
 
-const historySearchTitleMaxRunes = 48
-
 type historyRenderData struct {
 	Entries             []*entity.HistoryEntry
 	Stats               *entity.HistoryStats
@@ -55,37 +53,23 @@ func historyTimelineAppendHTML(data historyRenderData) string {
 
 func historyDocumentTitle(data historyRenderData) string {
 	if data.Loading {
-		return "History — Loading"
+		return "History - Loading"
 	}
-	if query := strings.TrimSpace(data.Query); query != "" {
-		return "History — search: " + truncateTitle(query, historySearchTitleMaxRunes)
-	}
-	if domain := strings.TrimSpace(data.DomainFilter); domain != "" {
-		label := browserurl.DisplayDomain(domain)
-		if label == "" {
-			label = domain
-		}
-		return "History — " + label
-	}
-
-	entries := int64(countHistoryEntries(data.Entries))
-	if data.Stats != nil {
-		entries = data.Stats.TotalEntries
-	} else if data.Analytics != nil {
-		entries = data.Analytics.TotalEntries
-	}
-	if entries == 1 {
-		return "History — 1 entry"
-	}
-	return fmt.Sprintf("History — %d entries", entries)
+	entries, visits, days := historySummaryValues(data)
+	return fmt.Sprintf(
+		"History - %s, %s, %s",
+		historyCountLabel(entries, "entry", "entries"),
+		historyCountLabel(visits, "visit", "visits"),
+		historyCountLabel(days, "day", "days"),
+	)
 }
 
-func truncateTitle(value string, maxRunes int) string {
-	runes := []rune(strings.TrimSpace(value))
-	if maxRunes <= 0 || len(runes) <= maxRunes {
-		return string(runes)
+func historyCountLabel(count int64, singular, plural string) string {
+	label := plural
+	if count == 1 {
+		label = singular
 	}
-	return string(runes[:maxRunes]) + "…"
+	return fmt.Sprintf("%d %s", count, label)
 }
 
 var historyCleanupRanges = []historyCleanupItem{

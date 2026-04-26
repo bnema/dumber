@@ -235,10 +235,11 @@ func (a *App) handleHistoryLoadMore(ctx context.Context, event DOMAction) error 
 	if _, ok := dom.(DOMHistoryTimelineAppender); !ok {
 		fullData := data
 		fullData.Entries = a.historyEntries
+		title := historyDocumentTitle(fullData)
 		a.renderedHTML = renderAppFrame(renderedPage{
 			route:    RouteHistory,
-			title:    historyDocumentTitle(fullData),
-			subtitle: "Recent visits",
+			title:    title,
+			subtitle: title,
 			body:     historyHTML(fullData),
 		}, a.shellTheme)
 		fallbackHTML = a.renderedHTML

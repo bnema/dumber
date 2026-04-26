@@ -513,10 +513,11 @@ func (a *App) loadHistoryLoadingRoute() {
 		Error:        a.historyError,
 		Loading:      true,
 	}
+	title := historyDocumentTitle(data)
 	a.renderedHTML = renderAppFrame(renderedPage{
 		route:    RouteHistory,
-		title:    "History — Loading",
-		subtitle: "Recent visits",
+		title:    title,
+		subtitle: title,
 		body:     historyHTML(data),
 	}, a.shellTheme)
 }
@@ -527,7 +528,7 @@ func (a *App) loadHistoryRoute(ctx context.Context) error {
 		a.renderedHTML = renderAppFrame(renderedPage{
 			route:    a.currentRoute,
 			title:    routeDocumentTitle(RouteHistory),
-			subtitle: "Recent visits",
+			subtitle: routeDocumentTitle(RouteHistory),
 			body:     placeholderHTML(a.currentRoute),
 		}, a.shellTheme)
 		return nil
@@ -585,7 +586,7 @@ func (a *App) renderHistoryRouteSnapshot(ctx context.Context, snapshot historyRo
 			html: renderAppFrame(renderedPage{
 				route:    snapshot.route,
 				title:    routeDocumentTitle(RouteHistory),
-				subtitle: "Recent visits",
+				subtitle: routeDocumentTitle(RouteHistory),
 				body:     placeholderHTML(snapshot.route),
 			}, snapshot.shellTheme),
 		}, nil
@@ -630,10 +631,11 @@ func (a *App) renderHistoryRouteSnapshot(ctx context.Context, snapshot historyRo
 		Notice:       snapshot.notice,
 		Error:        snapshot.error,
 	}
+	title := historyDocumentTitle(data)
 	result.html = renderAppFrame(renderedPage{
 		route:    RouteHistory,
-		title:    historyDocumentTitle(data),
-		subtitle: "Recent visits",
+		title:    title,
+		subtitle: title,
 		body:     historyHTML(data),
 	}, snapshot.shellTheme)
 	return result, nil
