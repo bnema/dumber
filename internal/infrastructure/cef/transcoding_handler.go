@@ -75,6 +75,7 @@ func (rh *transcodingResourceHandler) Open(
 					Str("source_url", sourceURL).
 					Msg("cef: rejected transcoding source")
 				rh.setStartErr(err, httpStatusForbidden)
+				rh.cancel()
 				callback.Cont()
 				return
 			}
@@ -116,6 +117,19 @@ func (rh *transcodingResourceHandler) getStartErr() (int, error) {
 	rh.mu.Lock()
 	defer rh.mu.Unlock()
 	return rh.startErrStatus, rh.startErr
+}
+
+func (rh *transcodingResourceHandler) addTotalBytes(n int) int64 {
+	rh.mu.Lock()
+	defer rh.mu.Unlock()
+	rh.totalBytes += int64(n)
+	return rh.totalBytes
+}
+
+func (rh *transcodingResourceHandler) getTotalBytes() int64 {
+	rh.mu.Lock()
+	defer rh.mu.Unlock()
+	return rh.totalBytes
 }
 
 // GetResponseHeaders sets the streaming response metadata.
@@ -168,8 +182,8 @@ func (rh *transcodingResourceHandler) Read(
 	dst := unsafe.Slice((*byte)(dataOut), int(bytesToRead))
 	n, err := session.Read(dst)
 	if n > 0 {
-		rh.totalBytes += int64(n)
-		if rh.totalBytes == int64(n) {
+		totalBytes := rh.addTotalBytes(n)
+		if totalBytes == int64(n) {
 			rh.logger().Info().
 				Str("source_url", logging.TruncateURL(rh.sourceURL, maxTranscodingURLLength)).
 				Int("first_chunk_bytes", n).
@@ -181,13 +195,14 @@ func (rh *transcodingResourceHandler) Read(
 		return 1
 	}
 	if err != nil {
+		totalBytes := rh.getTotalBytes()
 		sourceURL := logging.TruncateURL(rh.sourceURL, maxTranscodingURLLength)
 		log := rh.logger().With().
 			Str("source_url", sourceURL).
-			Int64("total_bytes", rh.totalBytes).
+			Int64("total_bytes", totalBytes).
 			Logger()
 		switch {
-		case errors.Is(err, io.EOF) && rh.totalBytes == 0:
+		case errors.Is(err, io.EOF) && totalBytes == 0:
 			log.Warn().Msg("cef: transcoding resource stream ended before producing data")
 		case errors.Is(err, io.EOF):
 			log.Debug().Msg("cef: transcoding resource stream reached EOF")
@@ -202,9 +217,10 @@ func (rh *transcodingResourceHandler) Read(
 // Cancel aborts the transcode session and releases resources.
 func (rh *transcodingResourceHandler) Cancel() {
 	sourceURL := logging.TruncateURL(rh.sourceURL, maxTranscodingURLLength)
+	totalBytes := rh.getTotalBytes()
 	rh.logger().Debug().
 		Str("source_url", sourceURL).
-		Int64("total_bytes", rh.totalBytes).
+		Int64("total_bytes", totalBytes).
 		Msg("cef: transcoding resource stream canceled")
 	rh.mu.Lock()
 	session := rh.session

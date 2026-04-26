@@ -63,6 +63,19 @@ func TestSaveWebUIConfigUseCase_Validation(t *testing.T) {
 	}
 }
 
+func TestSaveWebUIConfigUseCase_RejectsDuplicateTrimmedSearchShortcutKeys(t *testing.T) {
+	saver := portmocks.NewMockWebUIConfigSaver(t)
+	uc := usecase.NewSaveWebUIConfigUseCase(saver)
+	cfg := validWebUIConfig()
+	cfg.SearchShortcuts["ddg"] = dto.SearchShortcut{URL: "https://duckduckgo.com/?q=%s", Description: "DuckDuckGo"}
+	cfg.SearchShortcuts[" ddg "] = dto.SearchShortcut{URL: "https://example.com/?q=%s", Description: "Duplicate"}
+
+	err := uc.Execute(context.Background(), cfg)
+
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "duplicates")
+}
+
 func TestSaveWebUIConfigUseCase_NormalizesAndSavesValidConfig(t *testing.T) {
 	saver := portmocks.NewMockWebUIConfigSaver(t)
 	var saved dto.WebUIConfig

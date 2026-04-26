@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"strings"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -20,10 +21,10 @@ func TestNewBridgeApp_WiresHistoryService(t *testing.T) {
 	app := newBridgeApp(&fakeDOM{}, "dumb://history", bridge)
 
 	require.NoError(t, app.LoadInitial(context.Background()))
-	assert.True(t, bridge.calledHistory)
-	assert.False(t, bridge.calledFavorites)
-	assert.True(t, bridge.calledConfig)
-	assert.False(t, bridge.calledKeybindings)
+	assert.True(t, bridge.calledHistory.Load())
+	assert.False(t, bridge.calledFavorites.Load())
+	assert.True(t, bridge.calledConfig.Load())
+	assert.False(t, bridge.calledKeybindings.Load())
 }
 
 func TestNewBridgeApp_UsesCurrentConfigForNonConfigRoutes(t *testing.T) {
@@ -50,9 +51,9 @@ func TestNewBridgeApp_UsesCurrentConfigForNonConfigRoutes(t *testing.T) {
 	app := newBridgeApp(dom, "dumb://history", bridge)
 
 	require.NoError(t, app.Run())
-	require.Eventually(t, func() bool { return bridge.calledHistory }, time.Second, 10*time.Millisecond)
-	assert.True(t, bridge.calledConfig)
-	assert.False(t, bridge.calledKeybindings)
+	require.Eventually(t, bridge.calledHistory.Load, time.Second, 10*time.Millisecond)
+	assert.True(t, bridge.calledConfig.Load())
+	assert.False(t, bridge.calledKeybindings.Load())
 	html := receiveMountContaining(t, dom.mounts, `class="sv-app sv-dark"`, `--sv-background: #111111;`)
 	assert.Contains(t, html, `class="sv-app sv-dark"`)
 	assert.Contains(t, html, `--sv-background: #111111;`)
@@ -69,10 +70,10 @@ func TestNewBridgeApp_WiresFavoritesService(t *testing.T) {
 	app := newBridgeApp(&fakeDOM{}, "dumb://favorites", bridge)
 
 	require.NoError(t, app.LoadInitial(context.Background()))
-	assert.False(t, bridge.calledHistory)
-	assert.True(t, bridge.calledFavorites)
-	assert.True(t, bridge.calledConfig)
-	assert.False(t, bridge.calledKeybindings)
+	assert.False(t, bridge.calledHistory.Load())
+	assert.True(t, bridge.calledFavorites.Load())
+	assert.True(t, bridge.calledConfig.Load())
+	assert.False(t, bridge.calledKeybindings.Load())
 }
 
 func TestNewBridgeApp_WiresConfigService(t *testing.T) {
@@ -85,10 +86,10 @@ func TestNewBridgeApp_WiresConfigService(t *testing.T) {
 	app := newBridgeApp(&fakeDOM{}, "dumb://config", bridge)
 
 	require.NoError(t, app.LoadInitial(context.Background()))
-	assert.False(t, bridge.calledHistory)
-	assert.False(t, bridge.calledFavorites)
-	assert.True(t, bridge.calledConfig)
-	assert.True(t, bridge.calledKeybindings)
+	assert.False(t, bridge.calledHistory.Load())
+	assert.False(t, bridge.calledFavorites.Load())
+	assert.True(t, bridge.calledConfig.Load())
+	assert.True(t, bridge.calledKeybindings.Load())
 }
 
 type fakeDOM struct {
@@ -133,10 +134,10 @@ func receiveMountContaining(t *testing.T, mounts <-chan string, values ...string
 // Handwritten fake intentionally tracks state across history, favorites, config,
 // and keybindings boundaries for the composite bootstrap assertions.
 type fakeBridgeService struct {
-	calledHistory     bool
-	calledFavorites   bool
-	calledConfig      bool
-	calledKeybindings bool
+	calledHistory     atomic.Bool
+	calledFavorites   atomic.Bool
+	calledConfig      atomic.Bool
+	calledKeybindings atomic.Bool
 
 	historyEntries []*entity.HistoryEntry
 	favorites      []*entity.Favorite
@@ -147,17 +148,17 @@ type fakeBridgeService struct {
 }
 
 func (f *fakeBridgeService) Timeline(context.Context, int, int) ([]*entity.HistoryEntry, error) {
-	f.calledHistory = true
+	f.calledHistory.Store(true)
 	return f.historyEntries, nil
 }
 
 func (f *fakeBridgeService) TimelineByDomain(context.Context, string, int, int) ([]*entity.HistoryEntry, error) {
-	f.calledHistory = true
+	f.calledHistory.Store(true)
 	return f.historyEntries, nil
 }
 
 func (f *fakeBridgeService) TimelineWindow(_ context.Context, before time.Time, _ string) (*entity.HistoryWindow, error) {
-	f.calledHistory = true
+	f.calledHistory.Store(true)
 	return &entity.HistoryWindow{Entries: f.historyEntries, Before: before, After: before.Add(-24 * time.Hour)}, nil
 }
 
@@ -184,7 +185,7 @@ func (*fakeBridgeService) DomainStats(context.Context, int) ([]*entity.DomainSta
 func (*fakeBridgeService) DeleteDomain(context.Context, string) error { return nil }
 
 func (f *fakeBridgeService) List(context.Context) ([]*entity.Favorite, error) {
-	f.calledFavorites = true
+	f.calledFavorites.Store(true)
 	return f.favorites, nil
 }
 
@@ -231,7 +232,7 @@ func (*fakeBridgeService) AssignTag(context.Context, int64, int64) error { retur
 func (*fakeBridgeService) RemoveTag(context.Context, int64, int64) error { return nil }
 
 func (f *fakeBridgeService) Current(context.Context) (dto.SystemviewConfigPayload, error) {
-	f.calledConfig = true
+	f.calledConfig.Store(true)
 	return f.currentConfig, nil
 }
 
@@ -242,7 +243,7 @@ func (*fakeBridgeService) Default(context.Context) (dto.SystemviewConfigPayload,
 func (*fakeBridgeService) Save(context.Context, dto.WebUIConfig) error { return nil }
 
 func (f *fakeBridgeService) GetKeybindings(context.Context) (port.KeybindingsConfig, error) {
-	f.calledKeybindings = true
+	f.calledKeybindings.Store(true)
 	return f.keybindings, nil
 }
 

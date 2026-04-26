@@ -108,6 +108,23 @@ func TestValidateTranscodeRedirectRejectsPrivateTarget(t *testing.T) {
 	}
 }
 
+func TestValidateTranscodeRedirectRejectsTenHopRedirect(t *testing.T) {
+	requestURL, err := url.Parse("https://93.184.216.34/video.mp4")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	via := make([]*http.Request, 10)
+	for i := range via {
+		via[i] = &http.Request{URL: requestURL}
+	}
+
+	err = validateTranscodeRedirect(&http.Request{URL: requestURL}, via)
+	if err == nil {
+		t.Fatal("validateTranscodeRedirect() expected error for ten-hop redirect")
+	}
+}
+
 func TestValidateTranscodeRedirectRejectsStreamingManifestTarget(t *testing.T) {
 	requestURL, err := url.Parse("https://93.184.216.34/playlist.m3u8")
 	if err != nil {

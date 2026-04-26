@@ -49,7 +49,10 @@ func TestReadAssetWithEncoding_DecompressesEmbeddedBrotliWASM(t *testing.T) {
 	if err != nil {
 		t.Fatalf("readAssetWithEncoding() error = %v", err)
 	}
-	if len(data) < 4 || string(data[:4]) != "\x00asm" {
+	if len(data) < 4 {
+		t.Fatalf("decompressed wasm too short: got %d bytes", len(data))
+	}
+	if string(data[:4]) != "\x00asm" {
 		t.Fatalf("decompressed wasm magic = %q, want \\x00asm", data[:4])
 	}
 }

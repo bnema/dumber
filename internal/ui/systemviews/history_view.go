@@ -139,10 +139,6 @@ func showHistoryLoadMore(data historyRenderData) bool {
 	return !data.Loading && strings.TrimSpace(data.Query) == "" && data.HasMore
 }
 
-func historySummaryLoading(data historyRenderData) bool {
-	return data.Loading
-}
-
 func historySummaryValues(data historyRenderData) (entries, visits, uniqueDays int64) {
 	if data.Stats != nil {
 		return data.Stats.TotalEntries, data.Stats.TotalVisits, data.Stats.UniqueDays

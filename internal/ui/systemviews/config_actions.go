@@ -101,16 +101,8 @@ func (a *App) saveAppearanceConfig(ctx context.Context, data map[string]string) 
 	cfg.Appearance.MonospaceFont = strings.TrimSpace(data["monospace_font"])
 	cfg.Appearance.DefaultFontSize = fontSize
 	cfg.Appearance.ColorScheme = strings.TrimSpace(data["color_scheme"])
-	lightPalette, err := paletteFromForm(data, "light")
-	if err != nil {
-		return err
-	}
-	darkPalette, err := paletteFromForm(data, "dark")
-	if err != nil {
-		return err
-	}
-	cfg.Appearance.LightPalette = lightPalette
-	cfg.Appearance.DarkPalette = darkPalette
+	cfg.Appearance.LightPalette = paletteFromForm(data, "light")
+	cfg.Appearance.DarkPalette = paletteFromForm(data, "dark")
 	cfg.DefaultUIScale = uiScale
 
 	if err := a.saveEditableConfig(ctx, cfg); err != nil {
@@ -413,57 +405,20 @@ func cloneSearchShortcuts(shortcuts map[string]dto.SearchShortcut) map[string]dt
 	return clone
 }
 
-func paletteFromForm(data map[string]string, prefix string) (dto.ColorPalette, error) {
-	color := func(field string) (string, error) {
-		value := strings.TrimSpace(data[prefix+"_"+field])
-		if value == "" || isValidHexColor(value) {
-			return value, nil
-		}
-		return "", fmt.Errorf("%s_%s must be a hex color", prefix, field)
-	}
-
-	background, err := color("background")
-	if err != nil {
-		return dto.ColorPalette{}, err
-	}
-	surface, err := color("surface")
-	if err != nil {
-		return dto.ColorPalette{}, err
-	}
-	surfaceVariant, err := color("surface_variant")
-	if err != nil {
-		return dto.ColorPalette{}, err
-	}
-	text, err := color("text")
-	if err != nil {
-		return dto.ColorPalette{}, err
-	}
-	muted, err := color("muted")
-	if err != nil {
-		return dto.ColorPalette{}, err
-	}
-	accent, err := color("accent")
-	if err != nil {
-		return dto.ColorPalette{}, err
-	}
-	border, err := color("border")
-	if err != nil {
-		return dto.ColorPalette{}, err
+func paletteFromForm(data map[string]string, prefix string) dto.ColorPalette {
+	color := func(field string) string {
+		return strings.TrimSpace(data[prefix+"_"+field])
 	}
 
 	return dto.ColorPalette{
-		Background:     background,
-		Surface:        surface,
-		SurfaceVariant: surfaceVariant,
-		Text:           text,
-		Muted:          muted,
-		Accent:         accent,
-		Border:         border,
-	}, nil
-}
-
-func isValidHexColor(value string) bool {
-	return isHexColor(strings.TrimSpace(value))
+		Background:     color("background"),
+		Surface:        color("surface"),
+		SurfaceVariant: color("surface_variant"),
+		Text:           color("text"),
+		Muted:          color("muted"),
+		Accent:         color("accent"),
+		Border:         color("border"),
+	}
 }
 
 func searchShortcutFromForm(data map[string]string, keyField string) (string, dto.SearchShortcut) {

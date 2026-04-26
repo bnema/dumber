@@ -143,11 +143,30 @@ func (a *App) refreshCurrentRouteAsync(ctx context.Context) {
 	if closed || snapshot.route != RouteHistory {
 		return
 	}
+
+	a.lockAction()
+	asyncCtx := a.actionCtx
+	if asyncCtx == nil {
+		asyncCtx = ctx
+	}
+	ready := !a.actionClosed && asyncCtx != nil && asyncCtx.Err() == nil
+	if ready {
+		a.actionWG.Add(1)
+	}
+	a.unlockAction()
+	if !ready {
+		return
+	}
+
 	go func() {
-		result, err := a.renderHistoryRouteSnapshot(ctx, snapshot)
+		defer a.actionWG.Done()
+		if asyncCtx.Err() != nil {
+			return
+		}
+		result, err := a.renderHistoryRouteSnapshot(asyncCtx, snapshot)
 
 		a.lockState()
-		if a.closed || ctx.Err() != nil || a.currentRoute != snapshot.route || a.renderGeneration != generation {
+		if a.closed || asyncCtx.Err() != nil || a.currentRoute != snapshot.route || a.renderGeneration != generation {
 			a.unlockState()
 			return
 		}
@@ -161,8 +180,8 @@ func (a *App) refreshCurrentRouteAsync(ctx context.Context) {
 		html := a.renderedHTML
 		a.unlockState()
 
-		if err := a.mountHTMLIfCurrent(ctx, html, mountGeneration); err != nil {
-			logActionMountError(ctx, err, nil)
+		if err := a.mountHTMLIfCurrent(asyncCtx, html, mountGeneration); err != nil {
+			logActionMountError(asyncCtx, err, nil)
 		}
 	}()
 }

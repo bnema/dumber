@@ -25,6 +25,9 @@ func configHTML(data configRenderData) string {
 }
 
 func configKeybindingSummary(keybindings port.KeybindingsConfig) string {
+	if keybindings.Groups == nil {
+		return "Keybindings unavailable"
+	}
 	groups, bindings := summarizeKeybindings(keybindings)
 	return fmt.Sprintf(
 		"Keybindings loaded (%d %s, %d %s)",
@@ -36,6 +39,9 @@ func configKeybindingSummary(keybindings port.KeybindingsConfig) string {
 }
 
 func configKeybindingGroups(keybindings port.KeybindingsConfig) []renderedKeybindingGroup {
+	if keybindings.Groups == nil {
+		return nil
+	}
 	return convertPortKeybindingGroups(keybindings.Groups)
 }
 

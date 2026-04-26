@@ -219,13 +219,10 @@ func validateFavoriteURL(raw string) (string, error) {
 			return "", fmt.Errorf("favorite URL host is required")
 		}
 	case "dumb":
-		if parsed.Host != "" {
+		if routeFromPageHost(parsed.Host, parsed.Opaque) != RouteUnknown {
 			return favoriteURL, nil
 		}
-		if parsed.Opaque != "" {
-			return favoriteURL, nil
-		}
-		return "", fmt.Errorf("favorite URL host is required")
+		return "", fmt.Errorf("favorite URL must target a known systemview route")
 	default:
 		return "", fmt.Errorf("favorite URL must use http, https, or dumb scheme")
 	}

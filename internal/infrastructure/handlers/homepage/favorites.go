@@ -218,6 +218,10 @@ func (h *FavoritesHandlers) HandleSetShortcut() port.WebUIMessageHandler {
 			Int64("favorite_id", req.FavoriteID).
 			Msg("handling favorite_set_shortcut")
 
+		if req.FavoriteID <= 0 {
+			return NewErrorResponse(req.RequestID, fmt.Errorf("invalid favorite id")), nil
+		}
+
 		if err := h.favoritesUC.SetShortcut(ctx, entity.FavoriteID(req.FavoriteID), req.ShortcutKey); err != nil {
 			return NewErrorResponse(req.RequestID, err), nil
 		}

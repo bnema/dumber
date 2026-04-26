@@ -24,12 +24,31 @@ func (uc *SaveWebUIConfigUseCase) Execute(ctx context.Context, cfg dto.WebUIConf
 		return fmt.Errorf("config saver is nil")
 	}
 
+	if err := validateSearchShortcutKeyCollisions(cfg.SearchShortcuts); err != nil {
+		return err
+	}
+
 	normalized := normalizeWebUIConfig(cfg)
 	if err := validateWebUIConfig(normalized); err != nil {
 		return err
 	}
 
 	return uc.saver.SaveWebUIConfig(ctx, normalized)
+}
+
+func validateSearchShortcutKeyCollisions(shortcuts map[string]dto.SearchShortcut) error {
+	seen := make(map[string]string, len(shortcuts))
+	for key := range shortcuts {
+		trimmedKey := strings.TrimSpace(key)
+		if trimmedKey == "" {
+			continue
+		}
+		if previous, ok := seen[trimmedKey]; ok && previous != key {
+			return fmt.Errorf("search shortcut key %q duplicates %q after trimming", key, previous)
+		}
+		seen[trimmedKey] = key
+	}
+	return nil
 }
 
 func normalizeWebUIConfig(cfg dto.WebUIConfig) dto.WebUIConfig {
