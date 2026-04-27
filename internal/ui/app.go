@@ -796,10 +796,10 @@ func (a *App) openFreshWindowWithTabsUC(ctx context.Context, url string, created
 }
 
 func (a *App) initialWindowURL() string {
-	if a.deps != nil && a.deps.InitialURL != "" {
-		return a.deps.InitialURL
+	if a.deps != nil {
+		return urlutil.ResolveBrowserStartupURL(a.deps.InitialURL)
 	}
-	return "dumb://history"
+	return urlutil.DefaultBrowserStartupURL()
 }
 
 func (a *App) initLayoutInfrastructure() {
