@@ -196,6 +196,20 @@ func TestPreInitializeAdwaitaForCEF_SkipsNonCEF(t *testing.T) {
 	}
 }
 
+func TestTryForwardBrowseURLToRunningInstance_ForwardsDefaultStartupURL(t *testing.T) {
+	relay := mocks.NewMockBrowserLaunchRelay(t)
+	relay.EXPECT().DeliverOpenFreshWindow(context.Background(), "dumb://history").Return(true, nil)
+
+	forwarded, err := tryForwardBrowseURLToRunningInstance(context.Background(), relay, "dumb://history")
+
+	if err != nil {
+		t.Fatalf("expected no error, got %v", err)
+	}
+	if !forwarded {
+		t.Fatal("expected default startup URL to be forwarded")
+	}
+}
+
 func TestTryForwardBrowseURLToRunningInstance_ReturnsTrueOnRelayHit(t *testing.T) {
 	relay := mocks.NewMockBrowserLaunchRelay(t)
 	relay.EXPECT().DeliverOpenFreshWindow(context.Background(), "https://example.com").Return(true, nil)

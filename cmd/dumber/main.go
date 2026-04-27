@@ -17,6 +17,7 @@ import (
 	"github.com/bnema/dumber/internal/domain/build"
 	"github.com/bnema/dumber/internal/domain/entity"
 	"github.com/bnema/dumber/internal/domain/repository"
+	domainurl "github.com/bnema/dumber/internal/domain/url"
 	"github.com/bnema/dumber/internal/infrastructure/cache"
 	infracef "github.com/bnema/dumber/internal/infrastructure/cef"
 	"github.com/bnema/dumber/internal/infrastructure/clipboard"
@@ -92,7 +93,7 @@ func launchModeFromArgs(args []string) (launchMode, string) {
 }
 
 func tryForwardBrowseURLToRunningInstance(ctx context.Context, relay port.BrowserLaunchRelay, browseURL string) (bool, error) {
-	if relay == nil || browseURL == "" {
+	if relay == nil {
 		return false, nil
 	}
 
@@ -148,18 +149,19 @@ func main() {
 	if mode == launchModeBrowse {
 		cfg := initConfig()
 		configureBrowserLaunchRelay(cfg)
-		if forwarded, err := tryForwardBrowseURLToRunningInstance(context.Background(), browserLaunchRelay, browseURL); err != nil {
+		startupURL := domainurl.ResolveBrowserStartupURL(browseURL)
+		if forwarded, err := tryForwardBrowseURLToRunningInstance(context.Background(), browserLaunchRelay, startupURL); err != nil {
 			fmt.Fprintf(
 				os.Stderr,
 				"warning: failed to forward browse URL %q to a running instance, falling back to a new process: %v\n",
-				browseURL,
+				startupURL,
 				err,
 			)
 		} else if forwarded {
 			os.Exit(0)
 		}
 
-		initialURL = browseURL
+		initialURL = startupURL
 		restoreSessionID = os.Getenv("DUMBER_RESTORE_SESSION")
 		os.Args = os.Args[:1]
 		os.Exit(runGUI(cfg))
