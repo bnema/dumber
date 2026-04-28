@@ -926,7 +926,7 @@ func (h *handlerSet) OnBeforeBrowse(browser purecef.Browser, frame purecef.Frame
 	}
 
 	logging.FromContext(h.currentContext()).Debug().
-		Str("url", logging.TruncateURL(url, maxTranscodingURLLength)).
+		Str("url", logging.TruncateURL(url, maxSchemeTruncatedURLLength)).
 		Msg("cef: forcing download for navigation")
 
 	host.StartDownload(url)

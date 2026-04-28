@@ -172,12 +172,10 @@ func wireEngine(
 		return nil, fmt.Errorf("GL loader: %w", err)
 	}
 
-	var mediaTranscoder port.MediaTranscoder
 	eng.gl = gl
 	eng.factory = newWebViewFactory(eng, gl, webViewFactoryOptions{
 		scale:               detectHiDPIScale(logger),
 		windowlessFrameRate: windowlessFrameRate,
-		transcoder:          mediaTranscoder,
 		audioOutputFactory:  audioFactory,
 	})
 	eng.pool = newWebViewPool(eng.factory)
@@ -187,7 +185,6 @@ func wireEngine(
 		ctx,
 		eng,
 		logger,
-		mediaTranscoder,
 		currentConfigPayload,
 		defaultConfigPayload,
 	)
@@ -207,7 +204,6 @@ func newEngineSchemeHandler(
 	ctx context.Context,
 	eng *Engine,
 	logger *zerolog.Logger,
-	mediaTranscoder port.MediaTranscoder,
 	currentConfigPayload func() ([]byte, error),
 	defaultConfigPayload func() ([]byte, error),
 ) (*MessageRouter, *dumbSchemeHandler, error) {
@@ -215,7 +211,6 @@ func newEngineSchemeHandler(
 	schemeHandler, err := newDumbSchemeHandler(
 		ctx,
 		messageRouter,
-		mediaTranscoder,
 		currentConfigPayload,
 		defaultConfigPayload,
 	)

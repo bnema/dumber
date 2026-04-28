@@ -382,16 +382,4 @@ type DownloadsConfig struct {
 	Path string `mapstructure:"path" yaml:"path" toml:"path"`
 }
 
-// Deprecated: TranscodingConfig is retained only for build compatibility with
-// the internal/infrastructure/transcoder package (to be deleted in p3-delete).
-// No public config schema or defaults are registered for it.
-//
-// TranscodingConfig controls GPU-accelerated media transcoding.
-type TranscodingConfig struct {
-	Enabled       bool   `mapstructure:"enabled" yaml:"enabled" toml:"enabled"`
-	HWAccel       string `mapstructure:"hwaccel" yaml:"hwaccel" toml:"hwaccel"`
-	MaxConcurrent int    `mapstructure:"max_concurrent" yaml:"max_concurrent" toml:"max_concurrent"`
-	Quality       string `mapstructure:"quality" yaml:"quality" toml:"quality"`
-}
-
 

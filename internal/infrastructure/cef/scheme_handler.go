@@ -56,7 +56,6 @@ var cefNewResourceHandler = purecef.NewResourceHandler
 type dumbSchemeHandler struct {
 	ctx                  context.Context
 	messageRouter        *MessageRouter
-	transcoder           port.MediaTranscoder
 	faviconService       port.FaviconService
 	assets               embed.FS
 	assetsSet            bool
@@ -92,7 +91,6 @@ type dumbSchemeHandler struct {
 func newDumbSchemeHandler(
 	ctx context.Context,
 	router *MessageRouter,
-	transcoder port.MediaTranscoder,
 	currentConfigPayload func() ([]byte, error),
 	defaultConfigPayload func() ([]byte, error),
 ) (*dumbSchemeHandler, error) {
@@ -107,7 +105,6 @@ func newDumbSchemeHandler(
 	return &dumbSchemeHandler{
 		ctx:                  ctx,
 		messageRouter:        router,
-		transcoder:           transcoder,
 		assetDir:             systemviewsAssetDir,
 		logger:               log.With().Str("component", "scheme-handler").Logger(),
 		currentConfigPayload: currentConfigPayload,
