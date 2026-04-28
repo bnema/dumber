@@ -23,13 +23,6 @@ type RuntimeConfig struct {
 	TraceHandlers       bool
 }
 
-type TranscodingRuntimeConfig struct {
-	Enabled       bool
-	HWAccel       string
-	MaxConcurrent int
-	Quality       string
-}
-
 type HandlerRegistrar func(context.Context, port.WebUIHandlerRouter, port.HandlerDependencies) error
 
 type AccentHandlerRegistrar func(context.Context, port.WebUIHandlerRouter, port.AccentKeyHandler) error
@@ -74,5 +67,4 @@ type EngineDependencies struct {
 	ContextMenuExecutorFactory port.ContextMenuActionExecutorFactory
 	Clipboard                  port.Clipboard
 	ImageDataResolver          port.ImageDataResolver
-	MediaClassifier            MediaClassifier
 }

@@ -18,7 +18,6 @@ import (
 	"github.com/bnema/dumber/assets"
 	"github.com/bnema/dumber/internal/application/port"
 	"github.com/bnema/dumber/internal/infrastructure/config"
-	transcoderpkg "github.com/bnema/dumber/internal/infrastructure/transcoder"
 	"github.com/bnema/dumber/internal/logging"
 )
 
@@ -37,12 +36,10 @@ func NewEngine(
 	opts port.EngineOptions,
 	paths RuntimePaths,
 	cfg RuntimeConfig,
-	transcodingCfg TranscodingRuntimeConfig,
 	audioFactory port.AudioOutputFactory,
 	deps EngineDependencies,
 ) (*Engine, error) {
 	logger := logging.FromContext(ctx)
-	deps.MediaClassifier = deps.MediaClassifier.normalize()
 	stateRoot := resolvedStateRoot(paths.StateRoot, opts)
 	cleanStaleSingletonLocks(logger, stateRoot)
 	windowlessFrameRate := config.CEFEngineConfig{WindowlessFrameRate: cfg.WindowlessFrameRate}.CEFWindowlessFrameRate()
@@ -67,7 +64,6 @@ func NewEngine(
 		ctxMenuExecutorFactory: deps.ContextMenuExecutorFactory,
 		clipboard:              deps.Clipboard,
 		resolver:               deps.ImageDataResolver,
-		mediaClassifier:        deps.MediaClassifier,
 	}
 
 	logger.Info().
@@ -87,11 +83,9 @@ func NewEngine(
 		ctx,
 		eng,
 		cfg,
-		transcodingCfg,
 		windowlessFrameRate,
 		audioFactory,
 		logger,
-		deps.MediaClassifier,
 		deps.CurrentConfigPayload,
 		deps.DefaultConfigPayload,
 	)
@@ -168,9 +162,8 @@ func initializeCEF(eng *Engine, settings purecef.Settings, logger *zerolog.Logge
 
 // wireEngine creates GL loader, factory, pool, and scheme handler after CEF init.
 func wireEngine(
-	ctx context.Context, eng *Engine, _ RuntimeConfig, transcodingCfg TranscodingRuntimeConfig,
+	ctx context.Context, eng *Engine, _ RuntimeConfig,
 	windowlessFrameRate int32, audioFactory port.AudioOutputFactory, logger *zerolog.Logger,
-	mediaClassifier MediaClassifier,
 	currentConfigPayload func() ([]byte, error), defaultConfigPayload func() ([]byte, error),
 ) (*Engine, error) {
 	gl, err := newGLLoader()
@@ -179,18 +172,16 @@ func wireEngine(
 		return nil, fmt.Errorf("GL loader: %w", err)
 	}
 
-	mediaTranscoder, transcoderState := initializeEngineTranscoder(transcodingCfg, logger)
+	var mediaTranscoder port.MediaTranscoder
 	eng.gl = gl
 	eng.factory = newWebViewFactory(eng, gl, webViewFactoryOptions{
 		scale:               detectHiDPIScale(logger),
 		windowlessFrameRate: windowlessFrameRate,
 		transcoder:          mediaTranscoder,
-		mediaClassifier:     mediaClassifier,
 		audioOutputFactory:  audioFactory,
 	})
 	eng.pool = newWebViewPool(eng.factory)
 	eng.contentInj = newContentInjector(eng, nil)
-	eng.transcoderState = transcoderState
 
 	messageRouter, schemeHandler, err := newEngineSchemeHandler(
 		ctx,
@@ -211,39 +202,6 @@ func wireEngine(
 	return eng, nil
 }
 
-func initializeEngineTranscoder(
-	transcodingCfg TranscodingRuntimeConfig,
-	logger *zerolog.Logger,
-) (port.MediaTranscoder, transcoderStartupState) {
-	transcoderState := buildTranscoderStartupState(transcodingCfg)
-	if !transcodingCfg.Enabled {
-		return nil, transcoderState
-	}
-
-	transcoderState.ProbeAttempted = true
-	tc := transcoderpkg.New(config.TranscodingConfig{
-		Enabled:       transcodingCfg.Enabled,
-		HWAccel:       transcodingCfg.HWAccel,
-		MaxConcurrent: transcodingCfg.MaxConcurrent,
-		Quality:       transcodingCfg.Quality,
-	}, logger)
-	caps := tc.Capabilities()
-	transcoderState.API = caps.API
-	transcoderState.Encoders = append([]string(nil), caps.Encoders...)
-	transcoderState.Decoders = append([]string(nil), caps.Decoders...)
-	if !tc.Available() {
-		transcoderState.Status = "unavailable_no_compatible_gpu"
-		logger.Warn().Msg("cef: GPU transcoding enabled but no compatible GPU found — feature disabled")
-		return nil, transcoderState
-	}
-
-	transcoderState.Status = "available"
-	logger.Info().
-		Str("api", caps.API).
-		Strs("encoders", caps.Encoders).
-		Msg("cef: GPU transcoding available")
-	return tc, transcoderState
-}
 
 func newEngineSchemeHandler(
 	ctx context.Context,
@@ -328,35 +286,6 @@ func registerEngineSchemeFactory(
 		Msg("cef: registered internal https handler factory")
 }
 
-func buildTranscoderStartupState(cfg TranscodingRuntimeConfig) transcoderStartupState {
-	hwaccel := cfg.HWAccel
-	if hwaccel == "" {
-		hwaccel = "auto"
-	}
-
-	maxConcurrent := cfg.MaxConcurrent
-	if maxConcurrent <= 0 {
-		maxConcurrent = 2
-	}
-
-	quality := cfg.Quality
-	if quality == "" {
-		quality = "medium"
-	}
-
-	status := "disabled_in_config"
-	if cfg.Enabled {
-		status = "configured_enabled"
-	}
-
-	return transcoderStartupState{
-		ConfigEnabled: cfg.Enabled,
-		HWAccel:       hwaccel,
-		MaxConcurrent: maxConcurrent,
-		Quality:       quality,
-		Status:        status,
-	}
-}
 
 // getPrimaryMonitor returns the primary GDK monitor, or nil if unavailable.
 func getPrimaryMonitor() *gdk.Monitor {

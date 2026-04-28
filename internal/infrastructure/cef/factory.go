@@ -26,7 +26,6 @@ type WebViewFactory struct {
 	windowlessFrameRate int32
 	bgColor             atomic.Uint32 // packed ARGB for BrowserSettings.BackgroundColor
 	transcoder          port.MediaTranscoder
-	mediaClassifier     MediaClassifier
 	audioOutputFactory  port.AudioOutputFactory
 }
 
@@ -34,7 +33,6 @@ type webViewFactoryOptions struct {
 	scale               int32
 	windowlessFrameRate int32
 	transcoder          port.MediaTranscoder
-	mediaClassifier     MediaClassifier
 	audioOutputFactory  port.AudioOutputFactory
 }
 
@@ -64,9 +62,8 @@ func newWebViewFactory(engine *Engine, gl *glLoader, opts webViewFactoryOptions)
 		gl:                  gl,
 		scale:               opts.scale,
 		windowlessFrameRate: opts.windowlessFrameRate,
-		transcoder:          opts.transcoder,
-		mediaClassifier:     opts.mediaClassifier,
-		audioOutputFactory:  opts.audioOutputFactory,
+		transcoder:         opts.transcoder,
+		audioOutputFactory: opts.audioOutputFactory,
 	}
 }
 
