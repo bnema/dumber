@@ -496,6 +496,13 @@ func (c *TabCoordinator) CreateWithPane(
 	// Set new tab as active
 	c.tabs.SetActive(output.Tab.ID)
 
+	// Notify app before adding tab to the visible tab bar.
+	// The app assigns window ownership and the scoped default name here,
+	// and TabBar.AddTab reads tab.Title() immediately when creating the button.
+	if c.onTabCreated != nil {
+		c.onTabCreated(ctx, output.Tab)
+	}
+
 	// Update tab bar
 	if c.mainWindow != nil && c.mainWindow.TabBar() != nil {
 		c.mainWindow.TabBar().AddTab(output.Tab)
@@ -504,11 +511,6 @@ func (c *TabCoordinator) CreateWithPane(
 
 	// Update tab bar visibility
 	c.UpdateBarVisibility(ctx)
-
-	// Notify app to create workspace view
-	if c.onTabCreated != nil {
-		c.onTabCreated(ctx, output.Tab)
-	}
 
 	// Attach the popup WebView to the new tab's workspace
 	if c.onAttachPopupToTab != nil {

@@ -2126,11 +2126,14 @@ func (a *App) initTabCoordinator(ctx context.Context) {
 		}
 		// Set a window-scoped default title so "Tab N" doesn't use global position.
 		// Count only live tabs owned by this window via the helper.
-		count := a.tabCountForBrowserWindow(bw)
-		if count <= 0 {
-			count = 1
+		// Only assign a default name if the creator did not supply one.
+		if strings.TrimSpace(tab.Name) == "" {
+			count := a.tabCountForBrowserWindow(bw)
+			if count <= 0 {
+				count = 1
+			}
+			tab.Name = defaultTabName(count)
 		}
-		tab.Name = defaultTabName(count)
 		a.createWorkspaceView(ctx, tab)
 	})
 	a.tabCoord.SetOnTabSwitched(func(ctx context.Context, tab *entity.Tab) {
