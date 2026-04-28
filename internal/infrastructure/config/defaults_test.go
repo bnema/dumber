@@ -13,10 +13,6 @@ func TestDefaultConfig_CoreDefaults(t *testing.T) {
 	assert.Equal(t, defaultMaxLogFiles, cfg.Logging.MaxFiles)
 	assert.False(t, cfg.Logging.CaptureGTKLogs)
 	assert.False(t, cfg.Media.ShowDiagnosticsOnStartup)
-	assert.False(t, cfg.Transcoding.Enabled)
-	assert.Equal(t, "auto", cfg.Transcoding.HWAccel)
-	assert.Equal(t, 3, cfg.Transcoding.MaxConcurrent)
-	assert.Equal(t, "medium", cfg.Transcoding.Quality)
 
 	// Engine defaults (replaces old Performance/Privacy sections)
 	assert.Equal(t, "webkit", cfg.Engine.Type)

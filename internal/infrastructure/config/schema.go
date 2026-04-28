@@ -110,8 +110,6 @@ type Config struct {
 	Downloads DownloadsConfig `mapstructure:"downloads" yaml:"downloads" toml:"downloads"`
 	// Engine holds engine selection and unified engine options.
 	Engine EngineConfig `mapstructure:"engine" toml:"engine" yaml:"engine"`
-	// Transcoding controls GPU-accelerated media transcoding for proprietary codecs.
-	Transcoding TranscodingConfig `mapstructure:"transcoding" yaml:"transcoding" toml:"transcoding"`
 }
 
 // CookiePolicy controls cookie acceptance behavior.
@@ -384,19 +382,16 @@ type DownloadsConfig struct {
 	Path string `mapstructure:"path" yaml:"path" toml:"path"`
 }
 
+// Deprecated: TranscodingConfig is retained only for build compatibility with
+// the internal/infrastructure/transcoder package (to be deleted in p3-delete).
+// No public config schema or defaults are registered for it.
+//
 // TranscodingConfig controls GPU-accelerated media transcoding.
-// When enabled, proprietary video formats (H.264, HEVC) are transcoded
-// to open codecs (VP9, AV1) that CEF can decode natively.
 type TranscodingConfig struct {
-	// Enabled controls whether transcoding is active (default: false).
-	Enabled bool `mapstructure:"enabled" yaml:"enabled" toml:"enabled"`
-	// HWAccel selects the hardware acceleration API: "auto", "vaapi", or "nvenc".
-	// Default: "auto" (tries VAAPI first, then CUDA).
-	HWAccel string `mapstructure:"hwaccel" yaml:"hwaccel" toml:"hwaccel"`
-	// MaxConcurrent is the maximum number of simultaneous transcode sessions.
-	// Default: 3.
-	MaxConcurrent int `mapstructure:"max_concurrent" yaml:"max_concurrent" toml:"max_concurrent"`
-	// Quality controls the encode quality preset: "low", "medium", or "high".
-	// Default: "medium".
-	Quality string `mapstructure:"quality" yaml:"quality" toml:"quality"`
+	Enabled       bool   `mapstructure:"enabled" yaml:"enabled" toml:"enabled"`
+	HWAccel       string `mapstructure:"hwaccel" yaml:"hwaccel" toml:"hwaccel"`
+	MaxConcurrent int    `mapstructure:"max_concurrent" yaml:"max_concurrent" toml:"max_concurrent"`
+	Quality       string `mapstructure:"quality" yaml:"quality" toml:"quality"`
 }
+
+
