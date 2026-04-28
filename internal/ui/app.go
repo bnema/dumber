@@ -63,6 +63,12 @@ func EnsureAdwaitaInitialized() {
 	})
 }
 
+// defaultTabName returns a window-scoped default tab name.
+// index is the 1-based tab position within the window.
+func defaultTabName(index int) string {
+	return fmt.Sprintf("Tab %d", index)
+}
+
 // App wraps the GTK Application and manages the browser lifecycle.
 type App struct {
 	deps       *Dependencies
@@ -2086,9 +2092,20 @@ func (a *App) initCoordinators(ctx context.Context) {
 	a.tabCoord.SetOnTabCreated(func(ctx context.Context, tab *entity.Tab) {
 		// Assign ownership BEFORE creating workspace view so windowForTab is set
 		// for scope filtering and browserWindowForTab resolution.
-		if bw := a.lastFocusedBrowserWindow(); bw != nil {
+		bw := a.lastFocusedBrowserWindow()
+		if bw != nil {
 			a.setBrowserWindowForTab(tab.ID, bw)
 		}
+		// Set a window-scoped default title so "Tab N" doesn't use global position.
+		// Count tabs already owned by this window (excluding the one just added).
+		windowTabCount := 0
+		for _, owner := range a.windowForTab {
+			if owner == bw {
+				windowTabCount++
+			}
+		}
+		// windowTabCount includes the tab just added, so it equals the 1-based index.
+		tab.Name = defaultTabName(windowTabCount)
 		a.createWorkspaceView(ctx, tab)
 	})
 	a.tabCoord.SetOnTabSwitched(func(ctx context.Context, tab *entity.Tab) {
