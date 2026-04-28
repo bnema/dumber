@@ -12,6 +12,10 @@ import (
 	"github.com/bnema/dumber/internal/ui/window"
 )
 
+// TabScopeFunc filters whether a tab belongs to the current window scope.
+// Returns true if the tab should be considered for window-local operations.
+type TabScopeFunc func(tab *entity.Tab, mainWindow *window.MainWindow) bool
+
 // TabCoordinator manages tab lifecycle operations.
 type TabCoordinator struct {
 	tabsUC                  *usecase.ManageTabsUseCase
@@ -19,12 +23,16 @@ type TabCoordinator struct {
 	mainWindow              *window.MainWindow
 	hideTabBarWhenSingleTab bool
 
+	// Window-scoped tab filtering (per-window tab ownership)
+	tabScope TabScopeFunc
+
 	// Callbacks to avoid circular dependencies
-	onTabCreated       func(ctx context.Context, tab *entity.Tab)
-	onTabSwitched      func(ctx context.Context, tab *entity.Tab)
-	onQuit             func()
-	onAttachPopupToTab func(ctx context.Context, tabID entity.TabID, pane *entity.Pane, wv port.WebView) // For popup tabs
-	onStateChanged     func()                                                                            // For session snapshots
+	onTabCreated         func(ctx context.Context, tab *entity.Tab)
+	onTabSwitched        func(ctx context.Context, tab *entity.Tab)
+	onQuit               func()
+	onCurrentWindowEmpty func(ctx context.Context, mainWindow *window.MainWindow)
+	onAttachPopupToTab   func(ctx context.Context, tabID entity.TabID, pane *entity.Pane, wv port.WebView) // For popup tabs
+	onStateChanged       func()                                                                            // For session snapshots
 }
 
 // TabCoordinatorConfig holds configuration for TabCoordinator.
@@ -67,6 +75,50 @@ func (c *TabCoordinator) SetOnQuit(fn func()) {
 // SetOnStateChanged sets the callback for when tab state changes (for session snapshots).
 func (c *TabCoordinator) SetOnStateChanged(fn func()) {
 	c.onStateChanged = fn
+}
+
+// SetTabScope sets the function used to filter tabs to the current window.
+// When set, tab operations (switch by index, next/prev, close) only consider
+// tabs for which the scope function returns true.
+func (c *TabCoordinator) SetTabScope(fn TabScopeFunc) {
+	c.tabScope = fn
+}
+
+// SetOnCurrentWindowEmpty sets the callback for when the last tab in the current
+// window is closed. This allows the app to close the window gracefully.
+func (c *TabCoordinator) SetOnCurrentWindowEmpty(fn func(ctx context.Context, mainWindow *window.MainWindow)) {
+	c.onCurrentWindowEmpty = fn
+}
+
+// scopedTabs returns tabs filtered by the tabScope function.
+// When no scope function is set, returns all tabs (backward compatible).
+func (c *TabCoordinator) scopedTabs() []*entity.Tab {
+	if c.tabs == nil {
+		return nil
+	}
+
+	if c.tabScope == nil {
+		return c.tabs.Tabs
+	}
+
+	scoped := make([]*entity.Tab, 0, len(c.tabs.Tabs))
+	for _, tab := range c.tabs.Tabs {
+		if tab != nil && c.tabScope(tab, c.mainWindow) {
+			scoped = append(scoped, tab)
+		}
+	}
+	return scoped
+}
+
+// indexOfTab returns the 0-based index of the given tab ID in a slice of tabs,
+// or -1 if not found.
+func indexOfTab(tabs []*entity.Tab, id entity.TabID) int {
+	for i, tab := range tabs {
+		if tab != nil && tab.ID == id {
+			return i
+		}
+	}
+	return -1
 }
 
 // SetMainWindow updates the window targeted by tab UI operations.
@@ -133,6 +185,9 @@ func (c *TabCoordinator) create(ctx context.Context, initialURL string, activate
 }
 
 // Close closes the active tab.
+// When scoped, prefers switching to a sibling tab in the same window.
+// If this was the last tab in the window, fires onCurrentWindowEmpty.
+// If this was the last tab globally, fires onQuit.
 func (c *TabCoordinator) Close(ctx context.Context) error {
 	log := logging.FromContext(ctx)
 
@@ -140,6 +195,19 @@ func (c *TabCoordinator) Close(ctx context.Context) error {
 	if activeID == "" {
 		log.Debug().Msg("no active tab to close")
 		return nil
+	}
+
+	// Compute the next scoped tab to activate BEFORE closing
+	scoped := c.scopedTabs()
+	activeIdx := indexOfTab(scoped, activeID)
+
+	var nextScopedID entity.TabID
+	if activeIdx >= 0 && len(scoped) > 1 {
+		if activeIdx < len(scoped)-1 {
+			nextScopedID = scoped[activeIdx+1].ID
+		} else {
+			nextScopedID = scoped[activeIdx-1].ID
+		}
 	}
 
 	wasLast, err := c.tabsUC.Close(ctx, c.tabs, activeID)
@@ -150,34 +218,51 @@ func (c *TabCoordinator) Close(ctx context.Context) error {
 
 	if c.mainWindow != nil && c.mainWindow.TabBar() != nil {
 		c.mainWindow.TabBar().RemoveTab(activeID)
-
-		// Switch to new active tab if any
-		if c.tabs.ActiveTabID != "" {
-			c.mainWindow.TabBar().SetActive(c.tabs.ActiveTabID)
-		}
 	}
 
 	// Update tab bar visibility
 	c.UpdateBarVisibility(ctx)
 
-	// Quit if no tabs left
-	if wasLast && c.onQuit != nil {
-		c.onQuit()
-	}
-
-	// Switch workspace view to new active tab (if not last)
-	if !wasLast && c.onTabSwitched != nil {
-		if tab := c.tabs.Find(c.tabs.ActiveTabID); tab != nil {
-			c.onTabSwitched(ctx, tab)
+	// Quit if no tabs left globally
+	if wasLast {
+		if c.onQuit != nil {
+			c.onQuit()
 		}
+		log.Debug().Str("tab_id", string(activeID)).Bool("was_last", wasLast).Msg("tab closed, last globally")
+		return nil
 	}
 
-	// Notify state change for session snapshots (unless quitting)
-	if !wasLast {
+	// If there's a sibling tab in the same window, switch to it
+	if nextScopedID != "" {
+		if err := c.tabsUC.Switch(ctx, c.tabs, nextScopedID); err != nil {
+			log.Error().Err(err).Str("tab_id", string(nextScopedID)).Msg("failed to switch to scoped sibling")
+			return err
+		}
+
+		if c.mainWindow != nil && c.mainWindow.TabBar() != nil {
+			c.mainWindow.TabBar().SetActive(nextScopedID)
+		}
+
+		if c.onTabSwitched != nil {
+			if tab := c.tabs.Find(nextScopedID); tab != nil {
+				c.onTabSwitched(ctx, tab)
+			}
+		}
+
+		// Notify state change for session snapshots
 		c.notifyStateChanged()
+
+		log.Debug().Str("tab_id", string(activeID)).Str("next", string(nextScopedID)).Msg("tab closed, switched to scoped sibling")
+		return nil
 	}
 
-	log.Debug().Str("tab_id", string(activeID)).Bool("was_last", wasLast).Msg("tab closed")
+	// Last tab in this window but not globally last — close the window
+	c.notifyStateChanged()
+	if c.onCurrentWindowEmpty != nil {
+		c.onCurrentWindowEmpty(ctx, c.mainWindow)
+	}
+
+	log.Debug().Str("tab_id", string(activeID)).Msg("tab closed, last in window")
 	return nil
 }
 
@@ -187,6 +272,14 @@ func (c *TabCoordinator) Switch(ctx context.Context, tabID entity.TabID) error {
 
 	// Skip if already active
 	if tabID == c.tabs.ActiveTabID {
+		return nil
+	}
+
+	// Reject switching to a tab outside the current window scope
+	if tab := c.tabs.Find(tabID); tab != nil && c.tabScope != nil && !c.tabScope(tab, c.mainWindow) {
+		log.Debug().
+			Str("tab_id", string(tabID)).
+			Msg("ignoring switch to tab outside current window scope")
 		return nil
 	}
 
@@ -216,79 +309,49 @@ func (c *TabCoordinator) Switch(ctx context.Context, tabID entity.TabID) error {
 	return nil
 }
 
-// SwitchNext switches to the next tab.
+// switchRelative switches to the tab delta positions away within the current window scope.
+// delta of +1 switches next, -1 switches previous, wrapping within the scoped list.
+func (c *TabCoordinator) switchRelative(ctx context.Context, delta int) error {
+	scoped := c.scopedTabs()
+	if len(scoped) <= 1 {
+		return nil
+	}
+
+	current := indexOfTab(scoped, c.tabs.ActiveTabID)
+	if current < 0 {
+		current = 0
+	} else {
+		current = (current + delta + len(scoped)) % len(scoped)
+	}
+
+	return c.Switch(ctx, scoped[current].ID)
+}
+
+// SwitchNext switches to the next tab within the current window scope.
 func (c *TabCoordinator) SwitchNext(ctx context.Context) error {
-	log := logging.FromContext(ctx)
-
-	if err := c.tabsUC.SwitchNext(ctx, c.tabs); err != nil {
-		log.Error().Err(err).Msg("failed to switch to next tab")
-		return err
-	}
-
-	if c.mainWindow != nil && c.mainWindow.TabBar() != nil {
-		c.mainWindow.TabBar().SetActive(c.tabs.ActiveTabID)
-	}
-
-	// Invoke callback for workspace view switching
-	if c.onTabSwitched != nil {
-		if tab := c.tabs.Find(c.tabs.ActiveTabID); tab != nil {
-			c.onTabSwitched(ctx, tab)
-		}
-	}
-
-	log.Debug().Str("tab_id", string(c.tabs.ActiveTabID)).Msg("switched to next tab")
-	return nil
+	return c.switchRelative(ctx, 1)
 }
 
-// SwitchPrev switches to the previous tab.
+// SwitchPrev switches to the previous tab within the current window scope.
 func (c *TabCoordinator) SwitchPrev(ctx context.Context) error {
-	log := logging.FromContext(ctx)
-
-	if err := c.tabsUC.SwitchPrevious(ctx, c.tabs); err != nil {
-		log.Error().Err(err).Msg("failed to switch to previous tab")
-		return err
-	}
-
-	if c.mainWindow != nil && c.mainWindow.TabBar() != nil {
-		c.mainWindow.TabBar().SetActive(c.tabs.ActiveTabID)
-	}
-
-	// Invoke callback for workspace view switching
-	if c.onTabSwitched != nil {
-		if tab := c.tabs.Find(c.tabs.ActiveTabID); tab != nil {
-			c.onTabSwitched(ctx, tab)
-		}
-	}
-
-	log.Debug().Str("tab_id", string(c.tabs.ActiveTabID)).Msg("switched to previous tab")
-	return nil
+	return c.switchRelative(ctx, -1)
 }
 
-// SwitchByIndex switches to a tab by 0-based index.
+// SwitchByIndex switches to a tab by 0-based index within the current window scope.
 func (c *TabCoordinator) SwitchByIndex(ctx context.Context, index int) error {
 	log := logging.FromContext(ctx)
 
-	if err := c.tabsUC.SwitchByIndex(ctx, c.tabs, index); err != nil {
-		log.Error().Err(err).Int("index", index).Msg("failed to switch to tab by index")
-		return err
+	scoped := c.scopedTabs()
+	if index < 0 || index >= len(scoped) {
+		log.Debug().Int("index", index).Int("scoped_count", len(scoped)).Msg("invalid scoped tab index")
+		return nil
 	}
 
-	if c.mainWindow != nil && c.mainWindow.TabBar() != nil {
-		c.mainWindow.TabBar().SetActive(c.tabs.ActiveTabID)
-	}
-
-	// Invoke callback for workspace view switching
-	if c.onTabSwitched != nil {
-		if tab := c.tabs.Find(c.tabs.ActiveTabID); tab != nil {
-			c.onTabSwitched(ctx, tab)
-		}
-	}
-
-	log.Debug().Int("index", index).Str("tab_id", string(c.tabs.ActiveTabID)).Msg("switched to tab by index")
-	return nil
+	return c.Switch(ctx, scoped[index].ID)
 }
 
-// EnsureTabByIndex creates tabs until the requested index exists, then switches to it.
+// EnsureTabByIndex creates tabs until the requested index exists within the current
+// window scope, then switches to it.
 func (c *TabCoordinator) EnsureTabByIndex(ctx context.Context, index int, initialURL string) error {
 	log := logging.FromContext(ctx)
 
@@ -301,12 +364,14 @@ func (c *TabCoordinator) EnsureTabByIndex(ctx context.Context, index int, initia
 		return fmt.Errorf("tab list is required")
 	}
 
-	if c.tabs.Count() <= index && initialURL == "" {
-		log.Debug().Int("index", index).Msg("cannot auto-create missing tabs without initial URL")
+	// Create tabs within the current window scope until we have enough
+	scoped := c.scopedTabs()
+	if len(scoped) <= index && initialURL == "" {
+		log.Debug().Int("index", index).Int("scoped_count", len(scoped)).Msg("cannot auto-create missing tabs without initial URL")
 		return fmt.Errorf("initial URL is required to auto-create missing tabs")
 	}
 
-	for c.tabs.Count() <= index {
+	for len(c.scopedTabs()) <= index {
 		if _, err := c.create(ctx, initialURL, false); err != nil {
 			log.Error().Err(err).Int("index", index).Msg("failed to create tab while ensuring tab index")
 			return err
@@ -317,27 +382,30 @@ func (c *TabCoordinator) EnsureTabByIndex(ctx context.Context, index int, initia
 }
 
 // SwitchToLastActive switches to the previously active tab (Alt+Tab style).
+// Uses per-window prevActiveTabID when scope is active; falls back to global otherwise.
 func (c *TabCoordinator) SwitchToLastActive(ctx context.Context) error {
 	log := logging.FromContext(ctx)
 
-	if err := c.tabsUC.SwitchToLastActive(ctx, c.tabs); err != nil {
-		log.Error().Err(err).Msg("failed to switch to last active tab")
-		return err
+	// Use the global PreviousActiveTabID directly when there's no window scope
+	prevID := c.tabs.PreviousActiveTabID
+	if prevID == "" || prevID == c.tabs.ActiveTabID {
+		return nil
 	}
 
-	if c.mainWindow != nil && c.mainWindow.TabBar() != nil {
-		c.mainWindow.TabBar().SetActive(c.tabs.ActiveTabID)
+	tab := c.tabs.Find(prevID)
+	if tab == nil {
+		c.tabs.PreviousActiveTabID = ""
+		return nil
 	}
 
-	// Invoke callback for workspace view switching
-	if c.onTabSwitched != nil {
-		if tab := c.tabs.Find(c.tabs.ActiveTabID); tab != nil {
-			c.onTabSwitched(ctx, tab)
-		}
+	// With a scope function, only allow switching to the previous tab if it's in scope.
+	// Per-window prevActiveTabID is tracked by the App layer and always in-scope.
+	if c.tabScope != nil && !c.tabScope(tab, c.mainWindow) {
+		log.Debug().Str("tab_id", string(prevID)).Msg("previous active tab outside current window scope")
+		return nil
 	}
 
-	log.Debug().Str("tab_id", string(c.tabs.ActiveTabID)).Msg("switched to last active tab")
-	return nil
+	return c.Switch(ctx, prevID)
 }
 
 // UpdateBarVisibility shows or hides the tab bar based on tab count.

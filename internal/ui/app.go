@@ -2084,10 +2084,16 @@ func (a *App) initCoordinators(ctx context.Context) {
 		HideTabBarWhenSingleTab: a.deps.Config.Workspace.HideTabBarWhenSingleTab,
 	})
 	a.tabCoord.SetOnTabCreated(func(ctx context.Context, tab *entity.Tab) {
+		// Assign ownership BEFORE creating workspace view so windowForTab is set
+		// for scope filtering and browserWindowForTab resolution.
+		if bw := a.lastFocusedBrowserWindow(); bw != nil {
+			a.setBrowserWindowForTab(tab.ID, bw)
+		}
 		a.createWorkspaceView(ctx, tab)
 	})
 	a.tabCoord.SetOnTabSwitched(func(ctx context.Context, tab *entity.Tab) {
 		if bw := a.browserWindowForTab(tab.ID); bw != nil {
+			bw.prevActiveTabID = bw.activeTabID
 			bw.activeTabID = tab.ID
 			a.activateBrowserWindow(bw)
 		}
@@ -2095,6 +2101,30 @@ func (a *App) initCoordinators(ctx context.Context) {
 	})
 	a.tabCoord.SetOnQuit(a.Quit)
 	a.tabCoord.SetOnStateChanged(a.MarkDirty)
+	// Wire per-window tab scoping
+	a.tabCoord.SetTabScope(func(tab *entity.Tab, mainWindow *window.MainWindow) bool {
+		if tab == nil {
+			return false
+		}
+		bw := a.browserWindowForMainWindow(mainWindow)
+		if bw == nil {
+			return true // backward-compatible fallback for single-window / test scenarios
+		}
+		owner := a.windowForTab[tab.ID]
+		if owner == nil {
+			return true // backward-compatible fallback for restored/unowned tabs
+		}
+		return owner == bw
+	})
+	a.tabCoord.SetOnCurrentWindowEmpty(func(ctx context.Context, mainWindow *window.MainWindow) {
+		bw := a.browserWindowForMainWindow(mainWindow)
+		if bw != nil {
+			a.removeBrowserWindow(bw.id)
+			if bw.mainWindow != nil {
+				bw.mainWindow.Destroy()
+			}
+		}
+	})
 	// Wire popup tab WebView attachment
 	a.tabCoord.SetOnAttachPopupToTab(func(ctx context.Context, tabID entity.TabID, pane *entity.Pane, wv port.WebView) {
 		a.attachPopupToTab(ctx, tabID, pane, wv)

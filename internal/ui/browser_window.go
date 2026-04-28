@@ -20,6 +20,7 @@ type browserWindow struct {
 	id                    string
 	initialURL            string
 	activeTabID           entity.TabID
+	prevActiveTabID       entity.TabID // per-window previous active tab (for Alt+Tab behavior)
 	mainWindow            *window.MainWindow
 	appToaster            *component.Toaster
 	modeToaster           *component.Toaster
