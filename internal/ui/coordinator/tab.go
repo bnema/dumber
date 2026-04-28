@@ -33,6 +33,10 @@ type TabCoordinator struct {
 	onCurrentWindowEmpty func(ctx context.Context, mainWindow *window.MainWindow)
 	onAttachPopupToTab   func(ctx context.Context, tabID entity.TabID, pane *entity.Pane, wv port.WebView) // For popup tabs
 	onStateChanged       func()                                                                            // For session snapshots
+
+	// previousActiveTabID provides the per-window previous active tab ID for Alt+Tab style switching.
+	// When set and tabScope is active, SwitchToLastActive prefers this over the global PreviousActiveTabID.
+	previousActiveTabID func(mainWindow *window.MainWindow) entity.TabID
 }
 
 // TabCoordinatorConfig holds configuration for TabCoordinator.
@@ -75,6 +79,13 @@ func (c *TabCoordinator) SetOnQuit(fn func()) {
 // SetOnStateChanged sets the callback for when tab state changes (for session snapshots).
 func (c *TabCoordinator) SetOnStateChanged(fn func()) {
 	c.onStateChanged = fn
+}
+
+// SetPreviousActiveTabIDProvider sets the callback for retrieving the per-window
+// previous active tab ID. When set and tabScope is active, SwitchToLastActive
+// prefers this provider over the global PreviousActiveTabID.
+func (c *TabCoordinator) SetPreviousActiveTabIDProvider(fn func(mainWindow *window.MainWindow) entity.TabID) {
+	c.previousActiveTabID = fn
 }
 
 // SetTabScope sets the function used to filter tabs to the current window.
@@ -202,6 +213,9 @@ func (c *TabCoordinator) Close(ctx context.Context) error {
 	// Compute the next scoped tab to activate BEFORE closing
 	scoped := c.scopedTabs()
 	activeIdx := indexOfTab(scoped, activeID)
+	if activeIdx < 0 && len(scoped) > 0 {
+		log.Debug().Str("active_tab_id", string(activeID)).Int("scoped_count", len(scoped)).Msg("active tab not in scoped list")
+	}
 
 	var nextScopedID entity.TabID
 	if activeIdx >= 0 && len(scoped) > 1 {
@@ -384,24 +398,35 @@ func (c *TabCoordinator) EnsureTabByIndex(ctx context.Context, index int, initia
 }
 
 // SwitchToLastActive switches to the previously active tab (Alt+Tab style).
-// Uses per-window prevActiveTabID when scope is active; falls back to global otherwise.
+// When window-scoped (tabScope is set and previousActiveTabID provider is available),
+// it uses the per-window previous active tab ID. Falls back to the global
+// PreviousActiveTabID otherwise.
 func (c *TabCoordinator) SwitchToLastActive(ctx context.Context) error {
 	log := logging.FromContext(ctx)
 
-	// Use the global PreviousActiveTabID directly when there's no window scope
-	prevID := c.tabs.PreviousActiveTabID
+	var prevID entity.TabID
+	if c.tabScope != nil && c.previousActiveTabID != nil {
+		// Use per-window previous active tab ID when scoped
+		prevID = c.previousActiveTabID(c.mainWindow)
+	} else {
+		// Fall back to global PreviousActiveTabID when not scoped or no provider
+		prevID = c.tabs.PreviousActiveTabID
+	}
+
 	if prevID == "" || prevID == c.tabs.ActiveTabID {
 		return nil
 	}
 
 	tab := c.tabs.Find(prevID)
 	if tab == nil {
-		c.tabs.PreviousActiveTabID = ""
+		// Only clear the global previous active tab ID if that's what we used
+		if c.tabScope == nil || c.previousActiveTabID == nil {
+			c.tabs.PreviousActiveTabID = ""
+		}
 		return nil
 	}
 
 	// With a scope function, only allow switching to the previous tab if it's in scope.
-	// Per-window prevActiveTabID is tracked by the App layer and always in-scope.
 	if c.tabScope != nil && !c.tabScope(tab, c.mainWindow) {
 		log.Debug().Str("tab_id", string(prevID)).Msg("previous active tab outside current window scope")
 		return nil
