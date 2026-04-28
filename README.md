@@ -85,14 +85,15 @@ To use it on Arch:
 sudo pacman -S cef
 ```
 
-Dumber discovers CEF in the following order: `CEF_DIR` environment variable, `/usr/lib/cef`, or `~/.local/share/cef`. Override via:
+CEF runtime precedence is deterministic: `CEF_DIR` wins first, then `engine.cef.cef_dir`, then `/usr/lib/cef`, then `~/.local/share/cef`.
+Set `engine.cef.cef_dir` in config when `CEF_DIR` is unset:
 
 ```toml
 [engine.cef]
 cef_dir = "/custom/path"
 ```
 
-Or set the `CEF_DIR` environment variable:
+Or set the higher-precedence `CEF_DIR` environment variable:
 
 ```bash
 CEF_DIR=/custom/path dumber browse

@@ -173,7 +173,7 @@ func TestHandleMessageAPIRequiresTrustedOriginOrReferrer(t *testing.T) {
 	cefNewResourceHandler = func(impl purecef.ResourceHandler) purecef.ResourceHandler { return impl }
 	defer func() { cefNewResourceHandler = oldNewResourceHandler }()
 
-	h, err := newDumbSchemeHandler(context.Background(), NewMessageRouter(context.Background()), func() ([]byte, error) { return []byte(`{}`), nil }, func() ([]byte, error) { return []byte(`{}`), nil })
+	h, err := newDumbSchemeHandler(context.Background(), NewMessageRouter(context.Background()), noopConfigPayload(), noopConfigPayload())
 	require.NoError(t, err)
 
 	trusted := cefmocks.NewMockRequest(t)
@@ -205,7 +205,7 @@ func TestHandleConfigAPIUsesPrivateNoCORSHeaders(t *testing.T) {
 	cefNewResourceHandler = func(impl purecef.ResourceHandler) purecef.ResourceHandler { return impl }
 	defer func() { cefNewResourceHandler = oldNewResourceHandler }()
 
-	h, err := newDumbSchemeHandler(context.Background(), nil, func() ([]byte, error) { return []byte(`{"ok":true}`), nil }, func() ([]byte, error) { return []byte(`{}`), nil })
+	h, err := newDumbSchemeHandler(context.Background(), nil, func() ([]byte, error) { return []byte(`{"ok":true}`), nil }, noopConfigPayload())
 	require.NoError(t, err)
 
 	response := cefmocks.NewMockResponse(t)
