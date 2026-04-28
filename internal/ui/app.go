@@ -63,6 +63,12 @@ func EnsureAdwaitaInitialized() {
 	})
 }
 
+// defaultTabName returns a window-scoped default tab name.
+// index is the 1-based tab position within the window.
+func defaultTabName(index int) string {
+	return fmt.Sprintf("Tab %d", index)
+}
+
 // App wraps the GTK Application and manages the browser lifecycle.
 type App struct {
 	deps       *Dependencies
@@ -503,6 +509,35 @@ func (a *App) browserWindowForTab(tabID entity.TabID) *browserWindow {
 		return a.tabCreationWindow
 	}
 	return a.browserWindowForMainWindow(a.mainWindow)
+}
+
+func (a *App) browserWindowHasLiveTab(bw *browserWindow, tabID entity.TabID) bool {
+	if a == nil || a.tabs == nil || bw == nil || tabID == "" {
+		return false
+	}
+	if a.tabs.Find(tabID) == nil {
+		return false
+	}
+	if a.windowForTab[tabID] != bw {
+		return false
+	}
+	return true
+}
+
+func (a *App) tabCountForBrowserWindow(bw *browserWindow) int {
+	if a.tabs == nil || bw == nil {
+		return 0
+	}
+	count := 0
+	for _, tab := range a.tabs.Tabs {
+		if tab == nil {
+			continue
+		}
+		if owner := a.windowForTab[tab.ID]; owner == bw {
+			count++
+		}
+	}
+	return count
 }
 
 func (a *App) browserWindowForPane(paneID entity.PaneID) *browserWindow {
@@ -1861,6 +1896,8 @@ func (a *App) restoreSession(ctx context.Context, sessionID entity.SessionID) er
 	// Replace tabs in-place to preserve references held by TabCoordinator
 	a.tabs.ReplaceFrom(restoredTabs)
 
+	a.assignRestoredTabsToCurrentWindow()
+
 	// Create UI for each restored tab and add to tab bar
 	// Don't attach to content area yet - only the active tab should be attached
 	tabBar := a.mainWindow.TabBar()
@@ -1890,6 +1927,34 @@ func (a *App) restoreSession(ctx context.Context, sessionID entity.SessionID) er
 	}
 
 	return nil
+}
+
+func (a *App) assignRestoredTabsToCurrentWindow() {
+	if a == nil || a.tabs == nil {
+		return
+	}
+
+	restoreWindow := a.browserWindowForMainWindow(a.mainWindow)
+	if restoreWindow == nil {
+		restoreWindow = a.lastFocusedBrowserWindow()
+	}
+	if restoreWindow == nil {
+		return
+	}
+
+	for _, tab := range a.tabs.Tabs {
+		if tab != nil {
+			a.setBrowserWindowForTab(tab.ID, restoreWindow)
+		}
+	}
+
+	restoreWindow.activeTabID = a.tabs.ActiveTabID
+	previousID := a.tabs.PreviousActiveTabID
+	if previousID != "" && previousID != a.tabs.ActiveTabID && a.tabs.Find(previousID) != nil {
+		restoreWindow.prevActiveTabID = previousID
+		return
+	}
+	restoreWindow.prevActiveTabID = ""
 }
 
 func (a *App) finalizeActivation(ctx context.Context) {
@@ -2057,6 +2122,95 @@ func (a *App) initContentCoordinator(
 	})
 }
 
+// initTabCoordinator creates the TabCoordinator and wires all its callbacks.
+func (a *App) initTabCoordinator(ctx context.Context) {
+	a.tabCoord = coordinator.NewTabCoordinator(ctx, coordinator.TabCoordinatorConfig{
+		TabsUC:                  a.tabsUC,
+		Tabs:                    a.tabs,
+		MainWindow:              a.mainWindow,
+		HideTabBarWhenSingleTab: a.deps.Config.Workspace.HideTabBarWhenSingleTab,
+	})
+	a.tabCoord.SetOnTabCreated(func(ctx context.Context, tab *entity.Tab) {
+		// Assign ownership BEFORE creating workspace view so windowForTab is set
+		// for scope filtering and browserWindowForTab resolution.
+		bw := a.browserWindowForTab(tab.ID)
+		if bw != nil {
+			a.setBrowserWindowForTab(tab.ID, bw)
+		}
+		// Set a window-scoped default title so "Tab N" doesn't use global position.
+		// Count only live tabs owned by this window via the helper.
+		// Only assign a default name if the creator did not supply one.
+		if strings.TrimSpace(tab.Name) == "" {
+			count := a.tabCountForBrowserWindow(bw)
+			if count <= 0 {
+				count = 1
+			}
+			tab.Name = defaultTabName(count)
+		}
+		a.createWorkspaceView(ctx, tab)
+	})
+	a.tabCoord.SetOnTabSwitched(func(ctx context.Context, tab *entity.Tab) {
+		if bw := a.browserWindowForTab(tab.ID); bw != nil {
+			oldActiveID := bw.activeTabID
+			if oldActiveID != "" && oldActiveID != tab.ID && a.tabs.Find(oldActiveID) != nil {
+				bw.prevActiveTabID = oldActiveID
+			} else if bw.prevActiveTabID == tab.ID || a.tabs.Find(bw.prevActiveTabID) == nil {
+				bw.prevActiveTabID = ""
+			}
+			bw.activeTabID = tab.ID
+			a.activateBrowserWindow(bw)
+		}
+		a.switchWorkspaceView(ctx, tab.ID)
+	})
+	a.tabCoord.SetOnQuit(a.Quit)
+	a.tabCoord.SetOnStateChanged(a.MarkDirty)
+	// Wire per-window tab scoping
+	a.tabCoord.SetTabScope(func(tab *entity.Tab, mainWindow *window.MainWindow) bool {
+		if tab == nil {
+			return false
+		}
+		bw := a.browserWindowForMainWindow(mainWindow)
+		if bw == nil {
+			return true // backward-compatible fallback for single-window / test scenarios
+		}
+		owner := a.windowForTab[tab.ID]
+		if owner == nil {
+			return false // unowned tabs are out of scope when a real window exists
+		}
+		return owner == bw
+	})
+	// Wire per-window previous active tab ID provider for scoped Alt+Tab switching
+	a.tabCoord.SetPreviousActiveTabIDProvider(func(mainWindow *window.MainWindow) entity.TabID {
+		bw := a.browserWindowForMainWindow(mainWindow)
+		if bw == nil {
+			return ""
+		}
+		prevID := bw.prevActiveTabID
+		if !a.browserWindowHasLiveTab(bw, prevID) {
+			bw.prevActiveTabID = ""
+			return ""
+		}
+		return prevID
+	})
+	a.tabCoord.SetOnCurrentWindowEmpty(func(ctx context.Context, mainWindow *window.MainWindow) {
+		bw := a.browserWindowForMainWindow(mainWindow)
+		if bw != nil {
+			a.removeBrowserWindow(bw.id)
+			if bw.mainWindow != nil {
+				bw.mainWindow.Destroy()
+			}
+		}
+	})
+	// Wire popup tab WebView attachment
+	a.tabCoord.SetOnAttachPopupToTab(func(ctx context.Context, tabID entity.TabID, pane *entity.Pane, wv port.WebView) {
+		a.attachPopupToTab(ctx, tabID, pane, wv)
+	})
+
+	for _, bw := range a.browserWindows {
+		a.wireBrowserWindowTabBar(ctx, bw)
+	}
+}
+
 // initCoordinators initializes all coordinators and wires their callbacks.
 func (a *App) initCoordinators(ctx context.Context) {
 	log := logging.FromContext(ctx)
@@ -2077,32 +2231,7 @@ func (a *App) initCoordinators(ctx context.Context) {
 	a.initContentCoordinator(ctx, getActiveWS)
 
 	// 2. Tab Coordinator
-	a.tabCoord = coordinator.NewTabCoordinator(ctx, coordinator.TabCoordinatorConfig{
-		TabsUC:                  a.tabsUC,
-		Tabs:                    a.tabs,
-		MainWindow:              a.mainWindow,
-		HideTabBarWhenSingleTab: a.deps.Config.Workspace.HideTabBarWhenSingleTab,
-	})
-	a.tabCoord.SetOnTabCreated(func(ctx context.Context, tab *entity.Tab) {
-		a.createWorkspaceView(ctx, tab)
-	})
-	a.tabCoord.SetOnTabSwitched(func(ctx context.Context, tab *entity.Tab) {
-		if bw := a.browserWindowForTab(tab.ID); bw != nil {
-			bw.activeTabID = tab.ID
-			a.activateBrowserWindow(bw)
-		}
-		a.switchWorkspaceView(ctx, tab.ID)
-	})
-	a.tabCoord.SetOnQuit(a.Quit)
-	a.tabCoord.SetOnStateChanged(a.MarkDirty)
-	// Wire popup tab WebView attachment
-	a.tabCoord.SetOnAttachPopupToTab(func(ctx context.Context, tabID entity.TabID, pane *entity.Pane, wv port.WebView) {
-		a.attachPopupToTab(ctx, tabID, pane, wv)
-	})
-
-	for _, bw := range a.browserWindows {
-		a.wireBrowserWindowTabBar(ctx, bw)
-	}
+	a.initTabCoordinator(ctx)
 
 	// Set fullscreen callback to hide/show tab bar (after tabCoord is initialized)
 	a.contentCoord.SetOnFullscreenChanged(func(paneID entity.PaneID, entering bool) {
