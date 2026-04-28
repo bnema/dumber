@@ -1028,7 +1028,7 @@ func (*SchemaProvider) getRuntimeKeys(defaults *Config) []entity.ConfigKeyInfo {
 			Key:         "engine.cef.cef_dir",
 			Type:        "string",
 			Default:     defaults.Engine.CEF.CEFDir,
-			Description: "Custom CEF runtime directory containing libcef and Resources",
+			Description: "Optional CEF runtime directory containing libcef.so and Resources; overrides the default runtime discovery order (CEF_DIR env, /usr/lib/cef, ~/.local/share/cef)",
 			Section:     SectionRuntime,
 		},
 		{
