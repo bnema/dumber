@@ -49,6 +49,20 @@ func (panicFaviconService) EnsureDiskCache(context.Context, string) {
 }
 func (panicFaviconService) Close() {}
 
+// noopConfigPayload returns a builder that always returns an empty JSON object.
+func noopConfigPayload() func() ([]byte, error) {
+	return func() ([]byte, error) { return []byte(`{}`), nil }
+}
+
+// newTestDumbSchemeHandler creates a dumbSchemeHandler with noop config payloads.
+// It calls t.Helper() and fails the test if construction errors.
+func newTestDumbSchemeHandler(t *testing.T) *dumbSchemeHandler {
+	t.Helper()
+	h, err := newDumbSchemeHandler(context.Background(), nil, noopConfigPayload(), noopConfigPayload())
+	require.NoError(t, err)
+	return h
+}
+
 func TestResolveConfigPayload_UsesInjectedBuilder(t *testing.T) {
 	data, err := resolveConfigPayload(func() ([]byte, error) {
 		return []byte(`{"engine_type":"cef"}`), nil
@@ -86,8 +100,7 @@ func TestNewDumbSchemeHandler_NilDefaultConfigPayloadFails(t *testing.T) {
 }
 
 func TestRejectForbiddenAPIOrigin_AllowsInternalOrigin(t *testing.T) {
-	h, err := newDumbSchemeHandler(context.Background(), nil, func() ([]byte, error) { return []byte(`{}`), nil }, func() ([]byte, error) { return []byte(`{}`), nil })
-	require.NoError(t, err)
+	h := newTestDumbSchemeHandler(t)
 
 	request := cefmocks.NewMockRequest(t)
 	request.EXPECT().GetHeaderByName("Origin").Return(actualInternalOrigin).Once()
@@ -100,8 +113,7 @@ func TestRejectForbiddenAPIOrigin_RejectsExternalOrigin(t *testing.T) {
 	cefNewResourceHandler = func(impl purecef.ResourceHandler) purecef.ResourceHandler { return impl }
 	defer func() { cefNewResourceHandler = oldNewResourceHandler }()
 
-	h, err := newDumbSchemeHandler(context.Background(), nil, func() ([]byte, error) { return []byte(`{}`), nil }, func() ([]byte, error) { return []byte(`{}`), nil })
-	require.NoError(t, err)
+	h := newTestDumbSchemeHandler(t)
 
 	request := cefmocks.NewMockRequest(t)
 	request.EXPECT().GetHeaderByName("Origin").Return("https://evil.example").Once()
@@ -124,8 +136,7 @@ func TestRejectUntrustedConfigRequesterRequiresTrustedOriginOrReferrer(t *testin
 	cefNewResourceHandler = func(impl purecef.ResourceHandler) purecef.ResourceHandler { return impl }
 	defer func() { cefNewResourceHandler = oldNewResourceHandler }()
 
-	h, err := newDumbSchemeHandler(context.Background(), nil, func() ([]byte, error) { return []byte(`{}`), nil }, func() ([]byte, error) { return []byte(`{}`), nil })
-	require.NoError(t, err)
+	h := newTestDumbSchemeHandler(t)
 
 	trustedOrigin := cefmocks.NewMockRequest(t)
 	trustedOrigin.EXPECT().GetHeaderByName("Origin").Return(actualInternalOrigin).Once()
@@ -214,8 +225,7 @@ func TestHandleConfigAPIOptionsUsesPrivateNoCORSHeaders(t *testing.T) {
 	cefNewResourceHandler = func(impl purecef.ResourceHandler) purecef.ResourceHandler { return impl }
 	defer func() { cefNewResourceHandler = oldNewResourceHandler }()
 
-	h, err := newDumbSchemeHandler(context.Background(), nil, func() ([]byte, error) { return []byte(`{}`), nil }, func() ([]byte, error) { return []byte(`{}`), nil })
-	require.NoError(t, err)
+	h := newTestDumbSchemeHandler(t)
 
 	request := cefmocks.NewMockRequest(t)
 	request.EXPECT().GetHeaderByName("Origin").Return(actualInternalOrigin).Once()
@@ -254,8 +264,7 @@ func TestIsTrustedSystemviewURL(t *testing.T) {
 }
 
 func TestRejectUntrustedFaviconRequesterAllowsTrustedOriginWithoutReferrer(t *testing.T) {
-	h, err := newDumbSchemeHandler(context.Background(), nil, func() ([]byte, error) { return []byte(`{}`), nil }, func() ([]byte, error) { return []byte(`{}`), nil })
-	require.NoError(t, err)
+	h := newTestDumbSchemeHandler(t)
 
 	request := cefmocks.NewMockRequest(t)
 	request.EXPECT().GetHeaderByName("Origin").Return(actualInternalOrigin).Once()
@@ -268,8 +277,7 @@ func TestRejectUntrustedFaviconRequesterRejectsUntrustedOriginEvenWithTrustedRef
 	cefNewResourceHandler = func(impl purecef.ResourceHandler) purecef.ResourceHandler { return impl }
 	defer func() { cefNewResourceHandler = oldNewResourceHandler }()
 
-	h, err := newDumbSchemeHandler(context.Background(), nil, func() ([]byte, error) { return []byte(`{}`), nil }, func() ([]byte, error) { return []byte(`{}`), nil })
-	require.NoError(t, err)
+	h := newTestDumbSchemeHandler(t)
 
 	request := cefmocks.NewMockRequest(t)
 	request.EXPECT().GetHeaderByName("Origin").Return("https://evil.example").Once()
@@ -282,8 +290,7 @@ func TestRejectUntrustedFaviconRequesterRequiresTrustedReferrerWhenOriginAbsent(
 	cefNewResourceHandler = func(impl purecef.ResourceHandler) purecef.ResourceHandler { return impl }
 	defer func() { cefNewResourceHandler = oldNewResourceHandler }()
 
-	h, err := newDumbSchemeHandler(context.Background(), nil, func() ([]byte, error) { return []byte(`{}`), nil }, func() ([]byte, error) { return []byte(`{}`), nil })
-	require.NoError(t, err)
+	h := newTestDumbSchemeHandler(t)
 
 	trusted := cefmocks.NewMockRequest(t)
 	trusted.EXPECT().GetHeaderByName("Origin").Return("").Once()
@@ -302,8 +309,7 @@ func TestHandleFaviconAPIDefersFaviconDiskChecksUntilResourceOpen(t *testing.T) 
 	cefNewResourceHandler = func(impl purecef.ResourceHandler) purecef.ResourceHandler { return impl }
 	defer func() { cefNewResourceHandler = oldNewResourceHandler }()
 
-	h, err := newDumbSchemeHandler(context.Background(), nil, func() ([]byte, error) { return []byte(`{}`), nil }, func() ([]byte, error) { return []byte(`{}`), nil })
-	require.NoError(t, err)
+	h := newTestDumbSchemeHandler(t)
 	h.setFaviconService(panicFaviconService{})
 
 	request := cefmocks.NewMockRequest(t)
@@ -342,8 +348,7 @@ func TestSchemeHandler_APIClipboardSetPathWritesClipboardPayload(t *testing.T) {
 	cefNewResourceHandler = func(impl purecef.ResourceHandler) purecef.ResourceHandler { return impl }
 	defer func() { cefNewResourceHandler = oldNewResourceHandler }()
 
-	h, err := newDumbSchemeHandler(context.Background(), nil, func() ([]byte, error) { return []byte(`{}`), nil }, func() ([]byte, error) { return []byte(`{}`), nil })
-	require.NoError(t, err)
+	h := newTestDumbSchemeHandler(t)
 
 	const bridgeNonce = "bridge-nonce"
 	browser := cefmocks.NewMockBrowser(t)
@@ -379,8 +384,7 @@ func TestSchemeHandler_APIFocusSyncRejectsRequestsWithoutTrustedBridgeHeader(t *
 	cefNewResourceHandler = func(impl purecef.ResourceHandler) purecef.ResourceHandler { return impl }
 	defer func() { cefNewResourceHandler = oldNewResourceHandler }()
 
-	h, err := newDumbSchemeHandler(context.Background(), nil, func() ([]byte, error) { return []byte(`{}`), nil }, func() ([]byte, error) { return []byte(`{}`), nil })
-	require.NoError(t, err)
+	h := newTestDumbSchemeHandler(t)
 
 	request := cefmocks.NewMockRequest(t)
 	request.EXPECT().GetHeaderByName(dumberBridgeActionHeaderName).Return("").Once()
@@ -404,8 +408,7 @@ func TestSchemeHandler_APIFocusSyncInvokesEditableFocusCallback(t *testing.T) {
 	cefNewResourceHandler = func(impl purecef.ResourceHandler) purecef.ResourceHandler { return impl }
 	defer func() { cefNewResourceHandler = oldNewResourceHandler }()
 
-	h, err := newDumbSchemeHandler(context.Background(), nil, func() ([]byte, error) { return []byte(`{}`), nil }, func() ([]byte, error) { return []byte(`{}`), nil })
-	require.NoError(t, err)
+	h := newTestDumbSchemeHandler(t)
 
 	const bridgeNonce = "bridge-nonce"
 	browser := cefmocks.NewMockBrowser(t)
@@ -440,8 +443,7 @@ func TestSchemeHandler_Create_ConceptualAPIRequestBypassesRedirect(t *testing.T)
 	cefNewResourceHandler = func(impl purecef.ResourceHandler) purecef.ResourceHandler { return impl }
 	defer func() { cefNewResourceHandler = oldNewResourceHandler }()
 
-	h, err := newDumbSchemeHandler(context.Background(), nil, func() ([]byte, error) { return []byte(`{}`), nil }, func() ([]byte, error) { return []byte(`{}`), nil })
-	require.NoError(t, err)
+	h := newTestDumbSchemeHandler(t)
 
 	const bridgeNonce = "bridge-nonce"
 	browser := cefmocks.NewMockBrowser(t)
@@ -479,8 +481,7 @@ func TestSchemeHandler_APIClipboardSetRejectsInvalidBridgeNonce(t *testing.T) {
 	cefNewResourceHandler = func(impl purecef.ResourceHandler) purecef.ResourceHandler { return impl }
 	defer func() { cefNewResourceHandler = oldNewResourceHandler }()
 
-	h, err := newDumbSchemeHandler(context.Background(), nil, func() ([]byte, error) { return []byte(`{}`), nil }, func() ([]byte, error) { return []byte(`{}`), nil })
-	require.NoError(t, err)
+	h := newTestDumbSchemeHandler(t)
 
 	browser := cefmocks.NewMockBrowser(t)
 	h.bridgeNonceValidator = func(_ purecef.Browser, _ string) bool { return false }
@@ -507,8 +508,7 @@ func TestSchemeHandler_APIPopupOpenInvokesPopupCallback(t *testing.T) {
 	cefNewResourceHandler = func(impl purecef.ResourceHandler) purecef.ResourceHandler { return impl }
 	defer func() { cefNewResourceHandler = oldNewResourceHandler }()
 
-	h, err := newDumbSchemeHandler(context.Background(), nil, func() ([]byte, error) { return []byte(`{}`), nil }, func() ([]byte, error) { return []byte(`{}`), nil })
-	require.NoError(t, err)
+	h := newTestDumbSchemeHandler(t)
 
 	const bridgeNonce = "bridge-nonce"
 	browser := cefmocks.NewMockBrowser(t)
@@ -551,8 +551,7 @@ func TestSchemeHandler_APIPopupNavigateInvokesPopupCallback(t *testing.T) {
 	cefNewResourceHandler = func(impl purecef.ResourceHandler) purecef.ResourceHandler { return impl }
 	defer func() { cefNewResourceHandler = oldNewResourceHandler }()
 
-	h, err := newDumbSchemeHandler(context.Background(), nil, func() ([]byte, error) { return []byte(`{}`), nil }, func() ([]byte, error) { return []byte(`{}`), nil })
-	require.NoError(t, err)
+	h := newTestDumbSchemeHandler(t)
 
 	const bridgeNonce = "bridge-nonce"
 	browser := cefmocks.NewMockBrowser(t)
@@ -592,8 +591,7 @@ func TestSchemeHandler_APIPopupCloseInvokesPopupCallback(t *testing.T) {
 	cefNewResourceHandler = func(impl purecef.ResourceHandler) purecef.ResourceHandler { return impl }
 	defer func() { cefNewResourceHandler = oldNewResourceHandler }()
 
-	h, err := newDumbSchemeHandler(context.Background(), nil, func() ([]byte, error) { return []byte(`{}`), nil }, func() ([]byte, error) { return []byte(`{}`), nil })
-	require.NoError(t, err)
+	h := newTestDumbSchemeHandler(t)
 
 	const bridgeNonce = "bridge-nonce"
 	browser := cefmocks.NewMockBrowser(t)
@@ -690,8 +688,7 @@ func TestSchemeHandler_APIPopupBridgeRejectsInvalidPayloads(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			h, err := newDumbSchemeHandler(context.Background(), nil, func() ([]byte, error) { return []byte(`{}`), nil }, func() ([]byte, error) { return []byte(`{}`), nil })
-			require.NoError(t, err)
+			h := newTestDumbSchemeHandler(t)
 
 			const bridgeNonce = "bridge-nonce"
 			browser := cefmocks.NewMockBrowser(t)
@@ -729,8 +726,7 @@ func TestSchemeHandler_APIOptionsReturnsCORSPreflightHeaders(t *testing.T) {
 	cefNewResourceHandler = func(impl purecef.ResourceHandler) purecef.ResourceHandler { return impl }
 	defer func() { cefNewResourceHandler = oldNewResourceHandler }()
 
-	h, err := newDumbSchemeHandler(context.Background(), nil, func() ([]byte, error) { return []byte(`{}`), nil }, func() ([]byte, error) { return []byte(`{}`), nil })
-	require.NoError(t, err)
+	h := newTestDumbSchemeHandler(t)
 
 	request := cefmocks.NewMockRequest(t)
 	response := cefmocks.NewMockResponse(t)

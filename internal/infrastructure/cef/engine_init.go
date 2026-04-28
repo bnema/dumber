@@ -82,7 +82,6 @@ func NewEngine(
 	return wireEngine(
 		ctx,
 		eng,
-		cfg,
 		windowlessFrameRate,
 		audioFactory,
 		logger,
@@ -162,7 +161,7 @@ func initializeCEF(eng *Engine, settings purecef.Settings, logger *zerolog.Logge
 
 // wireEngine creates GL loader, factory, pool, and scheme handler after CEF init.
 func wireEngine(
-	ctx context.Context, eng *Engine, _ RuntimeConfig,
+	ctx context.Context, eng *Engine,
 	windowlessFrameRate int32, audioFactory port.AudioOutputFactory, logger *zerolog.Logger,
 	currentConfigPayload func() ([]byte, error), defaultConfigPayload func() ([]byte, error),
 ) (*Engine, error) {
@@ -198,7 +197,6 @@ func wireEngine(
 	registerEngineSchemeFactories(logger, purecef.NewSchemeHandlerFactory(schemeHandler))
 	return eng, nil
 }
-
 
 func newEngineSchemeHandler(
 	ctx context.Context,
@@ -280,7 +278,6 @@ func registerEngineSchemeFactory(
 		Str("origin", actualInternalOrigin).
 		Msg("cef: registered internal https handler factory")
 }
-
 
 // getPrimaryMonitor returns the primary GDK monitor, or nil if unavailable.
 func getPrimaryMonitor() *gdk.Monitor {

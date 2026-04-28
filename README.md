@@ -85,7 +85,7 @@ To use it on Arch:
 sudo pacman -S cef
 ```
 
-Dumber uses `/usr/lib/cef` by default when available. Override via:
+Dumber discovers CEF in the following order: `CEF_DIR` environment variable, `/usr/lib/cef`, or `~/.local/share/cef`. Override via:
 
 ```toml
 [engine.cef]

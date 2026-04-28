@@ -1,5 +1,7 @@
 package url
 
+import "strings"
+
 const defaultBrowserStartupURL = "dumb://history"
 
 // DefaultBrowserStartupURL is the user-facing destination used when the browser
@@ -12,8 +14,9 @@ func DefaultBrowserStartupURL() string {
 // ResolveBrowserStartupURL returns the explicit URL when provided, otherwise
 // the global user-facing browser startup URL.
 func ResolveBrowserStartupURL(rawURL string) string {
-	if rawURL != "" {
-		return rawURL
+	trimmed := strings.TrimSpace(rawURL)
+	if trimmed != "" {
+		return trimmed
 	}
 	return defaultBrowserStartupURL
 }
