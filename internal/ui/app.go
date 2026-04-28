@@ -2097,7 +2097,7 @@ func (a *App) initCoordinators(ctx context.Context) {
 			a.setBrowserWindowForTab(tab.ID, bw)
 		}
 		// Set a window-scoped default title so "Tab N" doesn't use global position.
-		// Count tabs already owned by this window (excluding the one just added).
+		// Count tabs owned by this window. The new tab was just assigned above.
 		windowTabCount := 0
 		for _, owner := range a.windowForTab {
 			if owner == bw {

@@ -156,6 +156,13 @@ func (c *TabCoordinator) create(ctx context.Context, initialURL string, activate
 		c.tabs.SetActive(output.Tab.ID)
 	}
 
+	// Notify app before adding the tab to the visible tab bar.
+	// The app assigns window ownership and the window-scoped default name here,
+	// and TabBar.AddTab reads tab.Title() immediately when creating the button.
+	if c.onTabCreated != nil {
+		c.onTabCreated(ctx, output.Tab)
+	}
+
 	// Update tab bar
 	if c.mainWindow != nil && c.mainWindow.TabBar() != nil {
 		c.mainWindow.TabBar().AddTab(output.Tab)
@@ -166,11 +173,6 @@ func (c *TabCoordinator) create(ctx context.Context, initialURL string, activate
 
 	// Update tab bar visibility
 	c.UpdateBarVisibility(ctx)
-
-	// Notify app to create workspace view
-	if c.onTabCreated != nil {
-		c.onTabCreated(ctx, output.Tab)
-	}
 
 	// Switch to the new tab's workspace view when activation is requested.
 	if activate && c.onTabSwitched != nil {
