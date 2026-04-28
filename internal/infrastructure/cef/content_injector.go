@@ -300,7 +300,6 @@ func (ci *contentInjector) onLoadEnd(wv *WebView) {
 	if ci.videoDiagnosticsEnabled {
 		wv.RunJavaScript(context.Background(), videoDiagnosticJS)
 	}
-
 }
 
 // injectCSS injects a CSS string as a <style> element via JavaScript.
