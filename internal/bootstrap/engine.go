@@ -15,7 +15,6 @@ import (
 	"github.com/bnema/dumber/internal/infrastructure/env"
 	"github.com/bnema/dumber/internal/infrastructure/handlers"
 	"github.com/bnema/dumber/internal/infrastructure/runtimeprofile"
-	"github.com/bnema/dumber/internal/infrastructure/transcoder"
 	"github.com/bnema/dumber/internal/infrastructure/webkit"
 	"github.com/bnema/dumber/internal/ui/theme"
 	"github.com/rs/zerolog"
@@ -84,12 +83,6 @@ func BuildEngine(input EngineInput) (port.Engine, error) {
 			EnableAudioHandler:  cfg.Engine.CEF.EnableAudioHandler,
 			TraceHandlers:       cfg.Engine.CEF.TraceHandlers,
 		}
-		transcodingCfg := cef.TranscodingRuntimeConfig{
-			Enabled:       cfg.Transcoding.Enabled,
-			HWAccel:       cfg.Transcoding.HWAccel,
-			MaxConcurrent: cfg.Transcoding.MaxConcurrent,
-			Quality:       cfg.Transcoding.Quality,
-		}
 		deps := cef.EngineDependencies{
 			RegisterHandlers:           handlers.RegisterAll,
 			RegisterAccentHandlers:     handlers.RegisterAccentHandlers,
@@ -99,20 +92,12 @@ func BuildEngine(input EngineInput) (port.Engine, error) {
 			ContextMenuExecutorFactory: contextMenuExecutorFactory,
 			Clipboard:                  clipboardinfra.New(),
 			ImageDataResolver:          webkit.NewContextMenuResolver(),
-			MediaClassifier: cef.MediaClassifier{
-				IsProprietaryVideoMIME:     transcoder.IsProprietaryVideoMIME,
-				IsOpenVideoMIME:            transcoder.IsOpenVideoMIME,
-				IsStreamingManifestMIME:    transcoder.IsStreamingManifestMIME,
-				IsStreamingManifestURL:     transcoder.IsStreamingManifestURL,
-				IsEagerTranscodeURL:        transcoder.IsEagerTranscodeURL,
-				ParseSyntheticTranscodeURL: transcoder.ParseSyntheticTranscodeURL,
-			},
 		}
 		audioFactory := audiofactory.NewAudioOutputFactory()
 		return cef.NewEngine(input.Ctx, opts, cef.RuntimePaths{
 			StateRoot: profile.CEFUserDataDir(),
 			LogFile:   profile.CEFLogFile(),
-		}, cefCfg, transcodingCfg, audioFactory, deps)
+		}, cefCfg, audioFactory, deps)
 	default:
 		return nil, fmt.Errorf("unknown engine type: %q", engineType)
 	}

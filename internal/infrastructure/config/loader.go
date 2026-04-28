@@ -417,7 +417,6 @@ func (m *Manager) setDefaults() {
 	m.setDebugDefaults(defaults)
 	m.setAppearanceDefaults(defaults)
 	m.setEngineDefaults(defaults)
-	m.setTranscodingDefaults(defaults)
 	m.setZoomAndScaleDefaults(defaults)
 	m.setWorkspaceDefaults(defaults)
 	m.setContentFilteringDefaults(defaults)
@@ -611,13 +610,7 @@ func (m *Manager) setEngineDefaults(defaults *Config) {
 	m.viper.SetDefault("engine.webkit.network_process_memory_strict_threshold", wk.NetworkProcessMemoryStrictThreshold)
 }
 
-func (m *Manager) setTranscodingDefaults(defaults *Config) {
-	tc := defaults.Transcoding
-	m.viper.SetDefault("transcoding.enabled", tc.Enabled)
-	m.viper.SetDefault("transcoding.hwaccel", tc.HWAccel)
-	m.viper.SetDefault("transcoding.max_concurrent", tc.MaxConcurrent)
-	m.viper.SetDefault("transcoding.quality", tc.Quality)
-}
+
 
 // New returns a new default configuration instance.
 // This is a convenience function for getting default config without the full manager.

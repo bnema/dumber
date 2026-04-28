@@ -1025,11 +1025,12 @@ func (*SchemaProvider) getPerformanceKeys(defaults *Config) []entity.ConfigKeyIn
 func (*SchemaProvider) getRuntimeKeys(defaults *Config) []entity.ConfigKeyInfo {
 	return []entity.ConfigKeyInfo{
 		{
-			Key:         "engine.cef.cef_dir",
-			Type:        "string",
-			Default:     defaults.Engine.CEF.CEFDir,
-			Description: "Custom CEF runtime directory containing libcef and Resources",
-			Section:     SectionRuntime,
+			Key:     "engine.cef.cef_dir",
+			Type:    "string",
+			Default: defaults.Engine.CEF.CEFDir,
+			Description: "Optional CEF runtime directory containing libcef.so and Resources; overrides the default " +
+				"runtime discovery order (CEF_DIR env, /usr/lib/cef, ~/.local/share/cef)",
+			Section: SectionRuntime,
 		},
 		{
 			Key:         "engine.webkit.prefix",

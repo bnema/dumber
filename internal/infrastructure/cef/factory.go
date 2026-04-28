@@ -25,16 +25,12 @@ type WebViewFactory struct {
 	scale               int32
 	windowlessFrameRate int32
 	bgColor             atomic.Uint32 // packed ARGB for BrowserSettings.BackgroundColor
-	transcoder          port.MediaTranscoder
-	mediaClassifier     MediaClassifier
 	audioOutputFactory  port.AudioOutputFactory
 }
 
 type webViewFactoryOptions struct {
 	scale               int32
 	windowlessFrameRate int32
-	transcoder          port.MediaTranscoder
-	mediaClassifier     MediaClassifier
 	audioOutputFactory  port.AudioOutputFactory
 }
 
@@ -64,9 +60,7 @@ func newWebViewFactory(engine *Engine, gl *glLoader, opts webViewFactoryOptions)
 		gl:                  gl,
 		scale:               opts.scale,
 		windowlessFrameRate: opts.windowlessFrameRate,
-		transcoder:          opts.transcoder,
-		mediaClassifier:     opts.mediaClassifier,
-		audioOutputFactory:  opts.audioOutputFactory,
+		audioOutputFactory: opts.audioOutputFactory,
 	}
 }
 
@@ -121,19 +115,8 @@ func (f *WebViewFactory) newWebView(ctx context.Context) *WebView {
 		backgroundColor:     f.bgColor.Load(),
 	}
 
-	var transcodingHandler purecef.ResourceRequestHandler
-	if f.transcoder != nil {
-		transcodingHandler = newTranscodingRequestHandler(f.transcoder, f.mediaClassifier, func() context.Context {
-			if f.engine != nil {
-				return f.engine.currentContext()
-			}
-			return ctx
-		})
-	}
-
 	handlers := &handlerSet{
-		wv:                 wv,
-		transcodingHandler: transcodingHandler,
+		wv: wv,
 	}
 	wv.handlers = handlers
 	wv.findCtrl = newFindController()

@@ -76,6 +76,31 @@ sudo apt install libwebkitgtk-6.0-4 libgtk-4-1 gstreamer1.0-plugins-base gstream
 
 > ⚠️ Ubuntu 24.04 ships GLib 2.80, but Dumber requires GLib 2.84+. Use Arch, Fedora 41+, or the Flatpak.
 
+### CEF engine (optional)
+
+Dumber supports a Chromium Embedded Framework engine as an alternative to WebKit.
+To use it on Arch:
+
+```bash
+sudo pacman -S cef
+```
+
+CEF runtime precedence is deterministic: `CEF_DIR` wins first, then `engine.cef.cef_dir`, then `/usr/lib/cef`, then `~/.local/share/cef`.
+Set `engine.cef.cef_dir` in config when `CEF_DIR` is unset:
+
+```toml
+[engine.cef]
+cef_dir = "/custom/path"
+```
+
+Or set the higher-precedence `CEF_DIR` environment variable:
+
+```bash
+CEF_DIR=/custom/path dumber browse
+```
+
+Then set `engine.type = "cef"` in your config.
+
 ## Keyboard-Driven
 
 Four modal modes. Enter a mode, act, escape out. Vim and Zellij users already know this pattern.

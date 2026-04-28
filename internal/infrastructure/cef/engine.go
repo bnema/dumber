@@ -42,7 +42,6 @@ type Engine struct {
 	clipboardTextOrchestrator        port.ClipboardTextOrchestrator
 	onClipboardCopied                func(textLen int)
 	resolver                         port.ImageDataResolver
-	mediaClassifier                  MediaClassifier
 	downloadMu                       sync.RWMutex
 	downloadHandler                  *downloadHandler
 	alreadyRunningAppRelaunchMu      sync.RWMutex
@@ -71,20 +70,6 @@ type Engine struct {
 	browserCreateLastHeight atomic.Int32
 	browserCreateComplete   atomic.Bool
 
-	transcoderState       transcoderStartupState
-	transcoderStateLogged atomic.Bool
-}
-
-type transcoderStartupState struct {
-	ConfigEnabled  bool
-	ProbeAttempted bool
-	HWAccel        string
-	MaxConcurrent  int
-	Quality        string
-	Status         string
-	API            string
-	Encoders       []string
-	Decoders       []string
 }
 
 func (e *Engine) Factory() port.WebViewFactory {
@@ -387,7 +372,6 @@ func (e *Engine) SetHandlerContext(ctx context.Context) {
 	if e.messageRouter != nil {
 		e.messageRouter.SetBaseContext(ctx)
 	}
-	e.logTranscoderStartupState()
 }
 
 func (e *Engine) recordContextInitialized() {
@@ -492,32 +476,3 @@ func (e *Engine) currentDownloadHandler() *downloadHandler {
 	return e.downloadHandler
 }
 
-func (e *Engine) logTranscoderStartupState() {
-	if e == nil || !e.transcoderStateLogged.CompareAndSwap(false, true) {
-		return
-	}
-
-	state := e.transcoderState
-	log := logging.FromContext(e.currentContext())
-	event := log.Info().
-		Str("component", "cef-transcoder").
-		Bool("config_enabled", state.ConfigEnabled).
-		Bool("probe_attempted", state.ProbeAttempted).
-		Str("hwaccel", state.HWAccel).
-		Int("max_concurrent", state.MaxConcurrent).
-		Str("quality", state.Quality).
-		Str("status", state.Status).
-		Bool("request_handler_enabled", e.factory != nil && e.factory.transcoder != nil)
-
-	if state.API != "" {
-		event = event.Str("api", state.API)
-	}
-	if len(state.Encoders) > 0 {
-		event = event.Strs("encoders", state.Encoders)
-	}
-	if len(state.Decoders) > 0 {
-		event = event.Strs("decoders", state.Decoders)
-	}
-
-	event.Msg("cef: transcoder startup state")
-}

@@ -16,6 +16,13 @@ func TestResolveBrowserStartupURL_DefaultsToHistory(t *testing.T) {
 	}
 }
 
+func TestResolveBrowserStartupURL_WhitespaceOnlyDefaultsToHistory(t *testing.T) {
+	got := ResolveBrowserStartupURL("   ")
+	if got != "dumb://history" {
+		t.Fatalf("expected default browser startup URL for whitespace-only input, got %q", got)
+	}
+}
+
 func TestDefaultBrowserStartupURL(t *testing.T) {
 	got := DefaultBrowserStartupURL()
 	if got != "dumb://history" {

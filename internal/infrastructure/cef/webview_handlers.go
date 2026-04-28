@@ -8,23 +8,20 @@ import (
 
 	"github.com/bnema/dumber/internal/application/port"
 	downloadutil "github.com/bnema/dumber/internal/domain/download"
-	"github.com/bnema/dumber/internal/infrastructure/transcoder"
 	"github.com/bnema/dumber/internal/logging"
 )
 
 // Console message markers used by injected JavaScript for log filtering.
 const (
-	consoleMarkerVideoDiag        = "[VIDEO-DIAG]"
-	consoleMarkerRedditVideoPatch = "[REDDIT-VIDEO-PATCH]"
-	consoleMarkerAutoCopy         = "[AUTO-COPY]"
+	consoleMarkerVideoDiag = "[VIDEO-DIAG]"
+	consoleMarkerAutoCopy  = "[AUTO-COPY]"
 )
 
 // handlerSet implements all CEF handler interfaces and dispatches events to the
 // owning WebView. A single struct is used so that the Client's Get*Handler
 // methods can return the same receiver, avoiding extra allocations.
 type handlerSet struct {
-	wv                 *WebView
-	transcodingHandler purecef.ResourceRequestHandler
+	wv *WebView
 }
 
 // Compile-time interface checks.
@@ -495,7 +492,6 @@ func (h *handlerSet) OnConsoleMessage(
 ) int32 {
 	if h.wv != nil && h.wv.ctx != nil &&
 		(strings.Contains(message, consoleMarkerVideoDiag) ||
-			strings.Contains(message, consoleMarkerRedditVideoPatch) ||
 			strings.Contains(message, consoleMarkerAutoCopy)) {
 		log := logging.FromContext(h.wv.ctx).With().
 			Str("component", "cef-console").
@@ -928,7 +924,7 @@ func (h *handlerSet) OnBeforeBrowse(browser purecef.Browser, frame purecef.Frame
 	}
 
 	logging.FromContext(h.currentContext()).Debug().
-		Str("url", logging.TruncateURL(url, maxTranscodingURLLength)).
+		Str("url", logging.TruncateURL(url, maxSchemeTruncatedURLLength)).
 		Msg("cef: forcing download for navigation")
 
 	host.StartDownload(url)
@@ -993,21 +989,9 @@ func (h *handlerSet) OnOpenUrlfromTab(
 }
 
 func (h *handlerSet) GetResourceRequestHandler(
-	_ purecef.Browser, _ purecef.Frame, request purecef.Request,
-	_, _ int32, _ string, disableDefaultHandling *int32,
+	_ purecef.Browser, _ purecef.Frame, _ purecef.Request,
+	_, _ int32, _ string, _ *int32,
 ) purecef.ResourceRequestHandler {
-	if h.transcodingHandler != nil && request != nil && disableDefaultHandling != nil &&
-		transcoder.IsEagerTranscodeURL(request.GetURL()) {
-		*disableDefaultHandling = 1
-		if h.wv != nil && h.wv.ctx != nil {
-			logging.FromContext(h.wv.ctx).Info().
-				Str("url", logging.TruncateURL(request.GetURL(), maxTranscodingURLLength)).
-				Msg("cef: disabled default handling for eager transcode candidate")
-		}
-	}
-	if h.transcodingHandler != nil {
-		return h.transcodingHandler
-	}
 	return nil
 }
 
