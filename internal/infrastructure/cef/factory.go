@@ -121,19 +121,8 @@ func (f *WebViewFactory) newWebView(ctx context.Context) *WebView {
 		backgroundColor:     f.bgColor.Load(),
 	}
 
-	var transcodingHandler purecef.ResourceRequestHandler
-	if f.transcoder != nil {
-		transcodingHandler = newTranscodingRequestHandler(f.transcoder, f.mediaClassifier, func() context.Context {
-			if f.engine != nil {
-				return f.engine.currentContext()
-			}
-			return ctx
-		})
-	}
-
 	handlers := &handlerSet{
-		wv:                 wv,
-		transcodingHandler: transcodingHandler,
+		wv: wv,
 	}
 	wv.handlers = handlers
 	wv.findCtrl = newFindController()

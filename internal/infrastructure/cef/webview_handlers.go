@@ -8,7 +8,6 @@ import (
 
 	"github.com/bnema/dumber/internal/application/port"
 	downloadutil "github.com/bnema/dumber/internal/domain/download"
-	"github.com/bnema/dumber/internal/infrastructure/transcoder"
 	"github.com/bnema/dumber/internal/logging"
 )
 
@@ -23,8 +22,7 @@ const (
 // owning WebView. A single struct is used so that the Client's Get*Handler
 // methods can return the same receiver, avoiding extra allocations.
 type handlerSet struct {
-	wv                 *WebView
-	transcodingHandler purecef.ResourceRequestHandler
+	wv *WebView
 }
 
 // Compile-time interface checks.
@@ -993,21 +991,9 @@ func (h *handlerSet) OnOpenUrlfromTab(
 }
 
 func (h *handlerSet) GetResourceRequestHandler(
-	_ purecef.Browser, _ purecef.Frame, request purecef.Request,
-	_, _ int32, _ string, disableDefaultHandling *int32,
+	_ purecef.Browser, _ purecef.Frame, _ purecef.Request,
+	_, _ int32, _ string, _ *int32,
 ) purecef.ResourceRequestHandler {
-	if h.transcodingHandler != nil && request != nil && disableDefaultHandling != nil &&
-		transcoder.IsEagerTranscodeURL(request.GetURL()) {
-		*disableDefaultHandling = 1
-		if h.wv != nil && h.wv.ctx != nil {
-			logging.FromContext(h.wv.ctx).Info().
-				Str("url", logging.TruncateURL(request.GetURL(), maxTranscodingURLLength)).
-				Msg("cef: disabled default handling for eager transcode candidate")
-		}
-	}
-	if h.transcodingHandler != nil {
-		return h.transcodingHandler
-	}
 	return nil
 }
 
