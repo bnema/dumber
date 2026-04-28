@@ -506,8 +506,7 @@ func (e *Engine) logTranscoderStartupState() {
 		Str("hwaccel", state.HWAccel).
 		Int("max_concurrent", state.MaxConcurrent).
 		Str("quality", state.Quality).
-		Str("status", state.Status).
-		Bool("request_handler_enabled", e.factory != nil && e.factory.transcoder != nil)
+		Str("status", state.Status)
 
 	if state.API != "" {
 		event = event.Str("api", state.API)
