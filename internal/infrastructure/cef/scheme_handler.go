@@ -10,7 +10,6 @@ import (
 	"html"
 	"io"
 	"io/fs"
-	"net"
 	"net/http"
 	"net/url"
 	"os"
@@ -18,7 +17,6 @@ import (
 	"strconv"
 	"strings"
 	"sync"
-	"time"
 	"unsafe"
 
 	"github.com/andybalholm/brotli"
@@ -26,7 +24,6 @@ import (
 
 	"github.com/bnema/dumber/internal/application/port"
 	domainurl "github.com/bnema/dumber/internal/domain/url"
-	"github.com/bnema/dumber/internal/infrastructure/netguard"
 	"github.com/bnema/dumber/internal/infrastructure/webutil"
 	"github.com/bnema/dumber/internal/logging"
 	"github.com/rs/zerolog"
@@ -227,8 +224,6 @@ func (h *dumbSchemeHandler) handleAPIGet(requestPath string, request purecef.Req
 			return denied, true
 		}
 		return h.handleConfigAPI(h.defaultConfigPayload), true
-	case "/api/transcode":
-		return h.handleTranscodeAPI(request), true
 	case "/api/favicon":
 		return h.handleFaviconAPI(request), true
 	default:
@@ -370,92 +365,6 @@ func isTrustedSystemviewURL(raw string) bool {
 	return isInternalPageHost(host)
 }
 
-func (h *dumbSchemeHandler) handleTranscodeAPI(request purecef.Request) purecef.ResourceHandler {
-	if h.transcoder == nil {
-		return h.newAPIJSONResourceHandler(http.StatusServiceUnavailable, map[string]string{"error": "transcoder unavailable"})
-	}
-
-	reqURL := request.GetURL()
-	parsed, err := url.Parse(reqURL)
-	if err != nil {
-		return h.newAPIJSONResourceHandler(http.StatusBadRequest, map[string]string{"error": "invalid request URL"})
-	}
-
-	sourceURL := strings.TrimSpace(parsed.Query().Get("src"))
-	if sourceURL == "" {
-		return h.newAPIJSONResourceHandler(http.StatusBadRequest, map[string]string{"error": "missing src"})
-	}
-
-	sourceParsed, err := url.Parse(sourceURL)
-	if err != nil || sourceParsed.Host == "" || (sourceParsed.Scheme != "http" && sourceParsed.Scheme != actualInternalScheme) {
-		return h.newAPIJSONResourceHandler(http.StatusBadRequest, map[string]string{"error": "invalid src"})
-	}
-	headers := make(map[string]string)
-	if userAgent := request.GetHeaderByName("User-Agent"); userAgent != "" {
-		headers["User-Agent"] = userAgent
-	}
-	if referer := strings.TrimSpace(parsed.Query().Get("referer")); referer != "" {
-		headers["Referer"] = referer
-	} else if referer := request.GetReferrerURL(); referer != "" {
-		headers["Referer"] = referer
-	}
-	if origin := strings.TrimSpace(parsed.Query().Get("origin")); origin != "" {
-		headers["Origin"] = origin
-	}
-
-	ctx, cancel := context.WithTimeout(h.ctx, 5*time.Minute)
-	h.logger.Info().
-		Str("source_url", logging.TruncateURL(sourceURL, maxSchemeTruncatedURLLength)).
-		Int("forwarded_header_count", len(headers)).
-		Msg("scheme handler returning transcoding stream")
-
-	return cefNewResourceHandler(&transcodingResourceHandler{
-		transcoder: h.transcoder,
-		sourceURL:  sourceURL,
-		headers:    headers,
-		ctx:        ctx,
-		cancel:     cancel,
-		validateSource: func(ctx context.Context) error {
-			return validateTranscodeSourceURL(ctx, sourceParsed)
-		},
-		logf: func() zerolog.Logger {
-			return h.logger.With().Str("component", "scheme-transcoding").Logger()
-		},
-	})
-}
-
-func validateTranscodeSourceURL(ctx context.Context, source *url.URL) error {
-	if source == nil || source.Host == "" {
-		return fmt.Errorf("invalid src")
-	}
-	host := source.Hostname()
-	if host == "" {
-		return fmt.Errorf("invalid src host")
-	}
-	if ip := net.ParseIP(host); ip != nil {
-		if isBlockedTranscodeIP(ip) {
-			return fmt.Errorf("private src host not allowed")
-		}
-		return nil
-	}
-
-	lookupCtx, cancel := context.WithTimeout(ctx, 2*time.Second)
-	defer cancel()
-	addrs, err := net.DefaultResolver.LookupIPAddr(lookupCtx, host)
-	if err != nil || len(addrs) == 0 {
-		return fmt.Errorf("src host could not be resolved")
-	}
-	for _, addr := range addrs {
-		if isBlockedTranscodeIP(addr.IP) {
-			return fmt.Errorf("private src host not allowed")
-		}
-	}
-	return nil
-}
-
-func isBlockedTranscodeIP(ip net.IP) bool {
-	return netguard.IsBlockedTranscodeIP(ip)
-}
 
 func resolveConfigPayload(build func() ([]byte, error)) ([]byte, error) {
 	if build == nil {

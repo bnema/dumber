@@ -4,9 +4,7 @@ import (
 	"context"
 	"encoding/base64"
 	"errors"
-	"net"
 	"net/http"
-	"net/url"
 	"testing"
 
 	purecef "github.com/bnema/purego-cef/cef"
@@ -313,23 +311,6 @@ func TestHandleFaviconAPIDefersFaviconDiskChecksUntilResourceOpen(t *testing.T) 
 	request.EXPECT().GetURL().Return(actualInternalOrigin + "/api/favicon?domain=example.com&size=32").Once()
 
 	require.NotNil(t, h.handleFaviconAPI(request))
-}
-
-func TestValidateTranscodeSourceURL_RejectsPrivateHosts(t *testing.T) {
-	privateURL, err := url.Parse("http://127.0.0.1/video.mp4")
-	require.NoError(t, err)
-
-	err = validateTranscodeSourceURL(context.Background(), privateURL)
-	require.Error(t, err)
-	require.Contains(t, err.Error(), "private src host")
-}
-
-func TestIsBlockedTranscodeIPRejectsReservedInternalRanges(t *testing.T) {
-	for _, rawIP := range []string{"100.64.0.1", "198.18.0.1", "192.0.2.1", "64:ff9b::a00:1", "2001::1", "2001:db8::1", "2002:0a00:0001::1"} {
-		t.Run(rawIP, func(t *testing.T) {
-			require.True(t, isBlockedTranscodeIP(net.ParseIP(rawIP)))
-		})
-	}
 }
 
 func TestReadBodyFromHeader_DecodesBase64Payload(t *testing.T) {
