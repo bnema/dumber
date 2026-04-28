@@ -13,9 +13,8 @@ import (
 
 // Console message markers used by injected JavaScript for log filtering.
 const (
-	consoleMarkerVideoDiag        = "[VIDEO-DIAG]"
-	consoleMarkerRedditVideoPatch = "[REDDIT-VIDEO-PATCH]"
-	consoleMarkerAutoCopy         = "[AUTO-COPY]"
+	consoleMarkerVideoDiag = "[VIDEO-DIAG]"
+	consoleMarkerAutoCopy  = "[AUTO-COPY]"
 )
 
 // handlerSet implements all CEF handler interfaces and dispatches events to the
@@ -493,7 +492,6 @@ func (h *handlerSet) OnConsoleMessage(
 ) int32 {
 	if h.wv != nil && h.wv.ctx != nil &&
 		(strings.Contains(message, consoleMarkerVideoDiag) ||
-			strings.Contains(message, consoleMarkerRedditVideoPatch) ||
 			strings.Contains(message, consoleMarkerAutoCopy)) {
 		log := logging.FromContext(h.wv.ctx).With().
 			Str("component", "cef-console").

@@ -119,7 +119,7 @@ const videoDiagnosticJS = `(function(){
   }
 
   // Patch attachShadow to automatically observe new shadow roots.
-  // Use a marker to avoid double-patching if redditDirectVideoJS also patches.
+  // Use a marker to avoid double-patching.
   var origAttach = Element.prototype.__dumberOrigAttachShadow || Element.prototype.attachShadow;
   if (!Element.prototype.__dumberPatched) {
     Element.prototype.__dumberOrigAttachShadow = origAttach;
