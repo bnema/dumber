@@ -511,6 +511,19 @@ func (a *App) browserWindowForTab(tabID entity.TabID) *browserWindow {
 	return a.browserWindowForMainWindow(a.mainWindow)
 }
 
+func (a *App) browserWindowHasLiveTab(bw *browserWindow, tabID entity.TabID) bool {
+	if a == nil || a.tabs == nil || bw == nil || tabID == "" {
+		return false
+	}
+	if a.tabs.Find(tabID) == nil {
+		return false
+	}
+	if a.windowForTab[tabID] != bw {
+		return false
+	}
+	return true
+}
+
 func (a *App) tabCountForBrowserWindow(bw *browserWindow) int {
 	if a.tabs == nil || bw == nil {
 		return 0
@@ -2168,10 +2181,16 @@ func (a *App) initTabCoordinator(ctx context.Context) {
 	})
 	// Wire per-window previous active tab ID provider for scoped Alt+Tab switching
 	a.tabCoord.SetPreviousActiveTabIDProvider(func(mainWindow *window.MainWindow) entity.TabID {
-		if bw := a.browserWindowForMainWindow(mainWindow); bw != nil {
-			return bw.prevActiveTabID
+		bw := a.browserWindowForMainWindow(mainWindow)
+		if bw == nil {
+			return ""
 		}
-		return ""
+		prevID := bw.prevActiveTabID
+		if !a.browserWindowHasLiveTab(bw, prevID) {
+			bw.prevActiveTabID = ""
+			return ""
+		}
+		return prevID
 	})
 	a.tabCoord.SetOnCurrentWindowEmpty(func(ctx context.Context, mainWindow *window.MainWindow) {
 		bw := a.browserWindowForMainWindow(mainWindow)
