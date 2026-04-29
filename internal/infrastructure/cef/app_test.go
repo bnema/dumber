@@ -261,6 +261,42 @@ func TestConfigureCommandLine_WebAuthnUnsafeOverrideRemovesSwitchWhenOnlyWebAuth
 	}
 }
 
+func TestConfigureCommandLine_SetsOzonePlatformToWayland(t *testing.T) {
+	commandLine := newMutableCommandLineStub()
+	configureCommandLine(commandLine)
+
+	if got := commandLine.GetSwitchValue("ozone-platform"); got != "wayland" {
+		t.Fatalf("ozone-platform = %q, want %q", got, "wayland")
+	}
+
+	// Dumber-specific switches must remain present.
+	if !commandLine.HasSwitch("enable-smooth-scrolling") {
+		t.Fatal("expected enable-smooth-scrolling switch to be present")
+	}
+	if got := commandLine.GetSwitchValue("autoplay-policy"); got != "no-user-gesture-required" {
+		t.Fatalf("autoplay-policy = %q, want %q", got, "no-user-gesture-required")
+	}
+}
+
+func TestConfigureCommandLine_PreservesExistingOzonePlatform(t *testing.T) {
+	commandLine := newMutableCommandLineStub()
+	commandLine.AppendSwitchWithValue("ozone-platform", "x11")
+
+	configureCommandLine(commandLine)
+
+	if got := commandLine.GetSwitchValue("ozone-platform"); got != "x11" {
+		t.Fatalf("ozone-platform = %q, want %q (bridge preserves existing value)", got, "x11")
+	}
+
+	// Dumber-specific switches must remain present.
+	if !commandLine.HasSwitch("enable-smooth-scrolling") {
+		t.Fatal("expected enable-smooth-scrolling switch to be present")
+	}
+	if got := commandLine.GetSwitchValue("autoplay-policy"); got != "no-user-gesture-required" {
+		t.Fatalf("autoplay-policy = %q, want %q", got, "no-user-gesture-required")
+	}
+}
+
 func TestAppendUniqueCommaSeparatedSwitchValues(t *testing.T) {
 	t.Run("trims whitespace and skips empty existing values", func(t *testing.T) {
 		commandLine := newMutableCommandLineStub()

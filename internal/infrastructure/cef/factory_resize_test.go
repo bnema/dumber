@@ -6,6 +6,7 @@ import (
 	"time"
 
 	purecef "github.com/bnema/purego-cef/cef"
+	cef2gtk "github.com/bnema/purego-cef2gtk"
 	"github.com/stretchr/testify/require"
 )
 
@@ -27,6 +28,15 @@ func TestNotifyBrowserResize_CallsWasResizedThenInvalidate(t *testing.T) {
 	notifyBrowserResize(host)
 
 	require.Equal(t, []string{"WasResized", "Invalidate"}, host.calls)
+}
+
+func TestConfigureWindowInfo_SetsAcceleratedWindowlessAndSharedTexture(t *testing.T) {
+	info := purecef.NewWindowInfo()
+
+	cef2gtk.ConfigureWindowInfo(&info, cef2gtk.WindowInfoOptions{})
+
+	require.Equal(t, int32(1), info.WindowlessRenderingEnabled)
+	require.Equal(t, int32(1), info.SharedTextureEnabled)
 }
 
 func TestPostPendingBrowserCreate_RetriesWhenPostingTaskFails(t *testing.T) {
@@ -75,10 +85,13 @@ func TestPostPendingBrowserCreate_RetriesWhenPostingTaskFails(t *testing.T) {
 		require.NotNil(t, windowInfo)
 		require.NotNil(t, settings)
 		require.Equal(t, "about:blank", url)
+		require.Equal(t, int32(1), windowInfo.WindowlessRenderingEnabled)
+		require.Equal(t, int32(1), windowInfo.SharedTextureEnabled)
 		return 1
 	}
 
 	windowInfo := purecef.NewWindowInfo()
+	cef2gtk.ConfigureWindowInfo(&windowInfo, cef2gtk.WindowInfoOptions{})
 	settings := purecef.NewBrowserSettings()
 	wv := &WebView{
 		ctx: context.Background(),

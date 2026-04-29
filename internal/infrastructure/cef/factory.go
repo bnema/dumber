@@ -7,6 +7,7 @@ import (
 	"time"
 
 	purecef "github.com/bnema/purego-cef/cef"
+	cef2gtk "github.com/bnema/purego-cef2gtk"
 
 	"github.com/bnema/dumber/internal/application/port"
 	"github.com/bnema/dumber/internal/logging"
@@ -77,9 +78,9 @@ func (f *WebViewFactory) setDefaultBackgroundColor(r, g, b, a float64) {
 func (f *WebViewFactory) Create(ctx context.Context) (port.WebView, error) {
 	wv := f.newWebView(ctx)
 
-	// Configure WindowInfo for off-screen rendering (OSR).
+	// Delegate windowless/shared-texture setup to the GTK bridge.
 	windowInfo := purecef.NewWindowInfo()
-	windowInfo.WindowlessRenderingEnabled = 1
+	cef2gtk.ConfigureWindowInfo(&windowInfo, cef2gtk.WindowInfoOptions{})
 	if externalBeginFrameEnabled() {
 		windowInfo.ExternalBeginFrameEnabled = 1
 	}
@@ -323,7 +324,7 @@ func (f *WebViewFactory) CreateRelated(ctx context.Context, parentID port.WebVie
 	popupWV.markNativePopupCandidate(parent)
 
 	windowInfo := purecef.NewWindowInfo()
-	windowInfo.WindowlessRenderingEnabled = 1
+	cef2gtk.ConfigureWindowInfo(&windowInfo, cef2gtk.WindowInfoOptions{})
 	if externalBeginFrameEnabled() {
 		windowInfo.ExternalBeginFrameEnabled = 1
 	}

@@ -7,6 +7,7 @@ require (
 	github.com/andybalholm/brotli v1.2.1
 	github.com/bnema/purego v0.11.0-bnema.2
 	github.com/bnema/purego-cef v0.12.0
+	github.com/bnema/purego-cef2gtk v0.0.0-00010101000000-000000000000
 	github.com/bnema/purego-pipewire v0.1.2
 	github.com/bnema/purego-sqlite v0.1.2
 	github.com/bnema/puregotk v0.5.1
@@ -76,5 +77,7 @@ require (
 	golang.org/x/tools v0.43.0 // indirect
 	gopkg.in/check.v1 v1.0.0-20190902080502-41f04d3bba15 // indirect
 )
+
+replace github.com/bnema/purego-cef2gtk => ../purego-cef2gtk
 
 tool github.com/a-h/templ/cmd/templ

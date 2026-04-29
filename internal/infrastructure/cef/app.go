@@ -4,6 +4,7 @@ import (
 	"strings"
 
 	purecef "github.com/bnema/purego-cef/cef"
+	cef2gtk "github.com/bnema/purego-cef2gtk"
 
 	"github.com/bnema/dumber/internal/logging"
 )
@@ -40,6 +41,11 @@ func configureCommandLine(commandLine purecef.CommandLine) {
 	if commandLine == nil {
 		return
 	}
+
+	// Delegate Wayland accelerated rendering setup to the GTK bridge.
+	// Preserves any pre-existing ozone-platform value (e.g. set via
+	// CEF command-line args) — the bridge is a no-op when already present.
+	cef2gtk.ConfigureCommandLine(commandLine, cef2gtk.CommandLineOptions{})
 
 	// Enable Chromium's built-in smooth scrolling animation — without this,
 	// mouse wheel scroll jumps in discrete steps with no momentum/easing.
