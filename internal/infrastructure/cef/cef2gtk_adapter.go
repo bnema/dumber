@@ -2,6 +2,7 @@ package cef
 
 import (
 	"errors"
+	"sync/atomic"
 
 	purecef "github.com/bnema/purego-cef/cef"
 	cef2gtk "github.com/bnema/purego-cef2gtk"
@@ -24,7 +25,7 @@ var ErrAdapterDestroyed = errors.New("cef2gtk_adapter: adapter is destroyed")
 // controller implementation — those belong to purego-cef2gtk.
 type Cef2gtkAdapter struct {
 	view      *cef2gtk.View
-	destroyed bool
+	destroyed atomic.Bool
 }
 
 // NewCef2gtkAdapter creates a GtkGLArea-backed accelerated CEF view and wraps
@@ -40,7 +41,7 @@ func NewCef2gtkAdapter() *Cef2gtkAdapter {
 // Widget returns the native GTK widget for embedding into containers.
 // The returned pointer must be used from the GTK main thread for packing.
 func (a *Cef2gtkAdapter) Widget() *gtk.Widget {
-	if a == nil || a.view == nil {
+	if a == nil || a.destroyed.Load() || a.view == nil {
 		return nil
 	}
 	return a.view.Widget()
@@ -49,7 +50,7 @@ func (a *Cef2gtkAdapter) Widget() *gtk.Widget {
 // GLArea returns the underlying GtkGLArea for signal connections (resize,
 // tick, etc.). Signal connection/disconnection must happen on the GTK thread.
 func (a *Cef2gtkAdapter) GLArea() *gtk.GLArea {
-	if a == nil || a.view == nil {
+	if a == nil || a.destroyed.Load() || a.view == nil {
 		return nil
 	}
 	return a.view.GLArea()
@@ -68,7 +69,7 @@ func (a *Cef2gtkAdapter) NativeWidget() uintptr {
 // Size returns the bridge's last observed positive widget size, or 1x1 before
 // the GTK widget has been allocated. It is safe to call off the GTK thread.
 func (a *Cef2gtkAdapter) Size() (int32, int32) {
-	if a == nil || a.view == nil {
+	if a == nil || a.destroyed.Load() || a.view == nil {
 		return 1, 1
 	}
 	return a.view.Size()
@@ -77,7 +78,7 @@ func (a *Cef2gtkAdapter) Size() (int32, int32) {
 // DeviceScaleFactor returns the bridge's last observed GTK scale factor, or 1
 // before the widget has reported a scale. It is safe to call off the GTK thread.
 func (a *Cef2gtkAdapter) DeviceScaleFactor() float32 {
-	if a == nil || a.view == nil {
+	if a == nil || a.destroyed.Load() || a.view == nil {
 		return 1
 	}
 	return a.view.DeviceScaleFactor()
@@ -87,7 +88,7 @@ func (a *Cef2gtkAdapter) DeviceScaleFactor() float32 {
 // unregister from the GTK main thread; callbacks are invoked by the bridge from
 // GTK size notifications.
 func (a *Cef2gtkAdapter) AddSizeObserver(fn func(width, height int32)) func() {
-	if a == nil || a.view == nil {
+	if a == nil || a.destroyed.Load() || a.view == nil {
 		return func() {}
 	}
 	return a.view.AddSizeObserver(fn)
@@ -96,7 +97,7 @@ func (a *Cef2gtkAdapter) AddSizeObserver(fn func(width, height int32)) func() {
 // HasFocus reports whether the bridge widget currently has GTK focus. Must be
 // called on the GTK main thread.
 func (a *Cef2gtkAdapter) HasFocus() bool {
-	if a == nil || a.view == nil {
+	if a == nil || a.destroyed.Load() || a.view == nil {
 		return false
 	}
 	return a.view.HasFocus()
@@ -105,7 +106,7 @@ func (a *Cef2gtkAdapter) HasFocus() bool {
 // SetCursorFromName applies a named cursor to the bridge widget. Must be called
 // on the GTK main thread.
 func (a *Cef2gtkAdapter) SetCursorFromName(name string) {
-	if a == nil || a.view == nil {
+	if a == nil || a.destroyed.Load() || a.view == nil {
 		return
 	}
 	a.view.SetCursorFromName(name)
@@ -114,7 +115,7 @@ func (a *Cef2gtkAdapter) SetCursorFromName(name string) {
 // PrepareOnGTKThread initializes GL/EGL resources owned by purego-cef2gtk.
 // Must be called on the GTK main thread.
 func (a *Cef2gtkAdapter) PrepareOnGTKThread() error {
-	if a == nil || a.view == nil {
+	if a == nil || a.destroyed.Load() || a.view == nil {
 		return ErrAdapterDestroyed
 	}
 	return a.view.PrepareOnGTKThread()
@@ -126,7 +127,7 @@ func (a *Cef2gtkAdapter) PrepareOnGTKThread() error {
 //
 // hooks may be a zero-value cef2gtk.Hooks if no custom callbacks are needed.
 func (a *Cef2gtkAdapter) RenderHandler(hooks cef2gtk.Hooks) purecef.RenderHandler {
-	if a == nil || a.view == nil {
+	if a == nil || a.destroyed.Load() || a.view == nil {
 		return nil
 	}
 	return a.view.RenderHandler(hooks)
@@ -137,7 +138,7 @@ func (a *Cef2gtkAdapter) RenderHandler(hooks cef2gtk.Hooks) purecef.RenderHandle
 //
 // opts.Scale configures HiDPI scale for pointer coordinate translation.
 func (a *Cef2gtkAdapter) AttachInput(host purecef.BrowserHost, opts cef2gtk.InputOptions) error {
-	if a == nil || a.view == nil {
+	if a == nil || a.destroyed.Load() || a.view == nil {
 		return ErrAdapterDestroyed
 	}
 	return a.view.AttachInput(host, opts)
@@ -147,7 +148,7 @@ func (a *Cef2gtkAdapter) AttachInput(host purecef.BrowserHost, opts cef2gtk.Inpu
 // Must be called on the GTK main thread. Callers must call AttachInput first or
 // this returns an error from the underlying bridge.
 func (a *Cef2gtkAdapter) SetInputHost(host purecef.BrowserHost) error {
-	if a == nil || a.view == nil {
+	if a == nil || a.destroyed.Load() || a.view == nil {
 		return ErrAdapterDestroyed
 	}
 	return a.view.SetInputHost(host)
@@ -156,7 +157,7 @@ func (a *Cef2gtkAdapter) SetInputHost(host purecef.BrowserHost) error {
 // DetachInput removes GTK input controllers attached by AttachInput.
 // Must be called on the GTK main thread.
 func (a *Cef2gtkAdapter) DetachInput() error {
-	if a == nil || a.view == nil {
+	if a == nil || a.destroyed.Load() || a.view == nil {
 		return ErrAdapterDestroyed
 	}
 	return a.view.DetachInput()
@@ -165,7 +166,7 @@ func (a *Cef2gtkAdapter) DetachInput() error {
 // Diagnostics returns a point-in-time snapshot of bridge rendering diagnostics
 // including accelerated paint counts, import/render failures, and events.
 func (a *Cef2gtkAdapter) Diagnostics() cef2gtk.Diagnostics {
-	if a == nil || a.view == nil {
+	if a == nil || a.destroyed.Load() || a.view == nil {
 		return cef2gtk.Diagnostics{}
 	}
 	return a.view.Diagnostics()
@@ -181,16 +182,16 @@ func (a *Cef2gtkAdapter) Destroy() error {
 		return ErrAdapterDestroyed
 	}
 	if a.view == nil {
-		a.destroyed = true
+		a.destroyed.Store(true)
 		return ErrAdapterDestroyed
 	}
 	err := a.view.Destroy()
 	a.view = nil
-	a.destroyed = true
+	a.destroyed.Store(true)
 	return err
 }
 
 // IsDestroyed returns true if the adapter has been destroyed.
 func (a *Cef2gtkAdapter) IsDestroyed() bool {
-	return a == nil || a.destroyed
+	return a == nil || a.destroyed.Load()
 }

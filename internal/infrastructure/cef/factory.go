@@ -74,7 +74,10 @@ func (f *WebViewFactory) setDefaultBackgroundColor(r, g, b, a float64) {
 // asynchronously; the returned WebView is usable immediately but navigation
 // will fail with errNoBrowser until OnAfterCreated fires.
 func (f *WebViewFactory) Create(ctx context.Context) (port.WebView, error) {
-	wv := f.newWebView(ctx)
+	wv, err := f.newWebView(ctx)
+	if err != nil {
+		return nil, err
+	}
 
 	// Delegate windowless/shared-texture setup to the GTK bridge.
 	windowInfo := purecef.NewWindowInfo()
@@ -99,9 +102,12 @@ func (f *WebViewFactory) Create(ctx context.Context) (port.WebView, error) {
 	return wv, nil
 }
 
-func (f *WebViewFactory) newWebView(ctx context.Context) *WebView {
+func (f *WebViewFactory) newWebView(ctx context.Context) (*WebView, error) {
 	id := port.WebViewID(f.nextID.Add(1))
 	viewBridge := NewCef2gtkAdapter()
+	if viewBridge == nil {
+		return nil, fmt.Errorf("create cef2gtk view")
+	}
 
 	wv := &WebView{
 		id:                  id,
@@ -117,18 +123,21 @@ func (f *WebViewFactory) newWebView(ctx context.Context) *WebView {
 	wv.handlers = handlers
 	wv.findCtrl = newFindController()
 
-	if viewBridge != nil {
-		wv.runOnGTKSync(func() {
-			if err := viewBridge.PrepareOnGTKThread(); err != nil && ctx != nil {
-				logging.FromContext(ctx).Warn().Err(err).Uint64("webview_id", uint64(id)).Msg("cef: failed to prepare cef2gtk view")
-			}
-		})
+	var prepareErr error
+	wv.runOnGTKSync(func() {
+		prepareErr = viewBridge.PrepareOnGTKThread()
+	})
+	if prepareErr != nil {
+		if ctx != nil {
+			logging.FromContext(ctx).Error().Err(prepareErr).Uint64("webview_id", uint64(id)).Msg("cef: failed to prepare cef2gtk view")
+		}
+		return nil, fmt.Errorf("prepare cef2gtk view: %w", prepareErr)
 	}
 
 	// Build a CEF client backed by our handlerSet.
 	// Store on WebView to prevent GC collection before CEF AddRef's it.
 	wv.client = purecef.NewClient(wv.handlers)
-	return wv
+	return wv, nil
 }
 
 func (f *WebViewFactory) configureInitialBrowserCreation(
@@ -292,7 +301,10 @@ func (f *WebViewFactory) CreateRelated(ctx context.Context, parentID port.WebVie
 		return nil, fmt.Errorf("parent webview %d is destroyed", parentID)
 	}
 
-	popupWV := f.newWebView(ctx)
+	popupWV, err := f.newWebView(ctx)
+	if err != nil {
+		return nil, err
+	}
 	popupWV.markNativePopupCandidate(parent)
 
 	windowInfo := purecef.NewWindowInfo()

@@ -548,7 +548,7 @@ func (h *handlerSet) attachAfterCreatedBrowser(
 			if wv.viewBridge == nil {
 				return
 			}
-			_ = wv.viewBridge.AttachInput(host, cef2gtk.InputOptions{
+			if err := wv.viewBridge.AttachInput(host, cef2gtk.InputOptions{
 				Scale: wv.viewBridgeScale(),
 				OnMiddleClick: func(_, _ float64) bool {
 					return wv.handleMiddleClickFromBridge()
@@ -559,7 +559,9 @@ func (h *handlerSet) attachAfterCreatedBrowser(
 						wv.engine.handleExplicitClipboardBridgeText(wv.id, action, text)
 					}
 				},
-			})
+			}); err != nil && wv.ctx != nil {
+				logging.FromContext(wv.ctx).Warn().Err(err).Msg("cef: failed to attach input to cef2gtk bridge")
+			}
 		})
 	}
 
@@ -643,8 +645,11 @@ func (h *handlerSet) OnBeforeClose(browser purecef.Browser) {
 	if h.wv.viewBridge != nil {
 		wv := h.wv
 		wv.runOnGTK(func() {
-			if wv.viewBridge != nil {
-				_ = wv.viewBridge.SetInputHost(nil)
+			if wv.viewBridge == nil {
+				return
+			}
+			if err := wv.viewBridge.SetInputHost(nil); err != nil && wv.ctx != nil {
+				logging.FromContext(wv.ctx).Warn().Err(err).Msg("cef: failed to clear cef2gtk input host")
 			}
 		})
 	}
