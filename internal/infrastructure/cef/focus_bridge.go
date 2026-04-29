@@ -6,7 +6,11 @@ func syncWindowlessBrowserFocus(host purecef.BrowserHost) {
 	if host == nil {
 		return
 	}
-	host.WasHidden(0)
-	host.SetFocus(1)
+	const (
+		cefFalse = 0
+		cefTrue  = 1
+	)
+	host.WasHidden(cefFalse) // visible
+	host.SetFocus(cefTrue)   // focused
 	host.Invalidate(purecef.PaintElementTypePetView)
 }

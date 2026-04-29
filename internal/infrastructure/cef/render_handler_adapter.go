@@ -24,8 +24,7 @@ func newDumberRenderHandler(wv *WebView) purecef.RenderHandler {
 		},
 	}
 	if wv == nil || wv.viewBridge == nil {
-		var view *cef2gtk.View
-		return view.RenderHandler(hooks)
+		return nil
 	}
 	return wv.viewBridge.RenderHandler(hooks)
 }

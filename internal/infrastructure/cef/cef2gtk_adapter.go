@@ -181,13 +181,12 @@ func (a *Cef2gtkAdapter) Destroy() error {
 	if a == nil {
 		return ErrAdapterDestroyed
 	}
+	a.destroyed.Store(true)
 	if a.view == nil {
-		a.destroyed.Store(true)
 		return ErrAdapterDestroyed
 	}
 	err := a.view.Destroy()
 	a.view = nil
-	a.destroyed.Store(true)
 	return err
 }
 

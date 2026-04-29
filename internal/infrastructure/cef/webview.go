@@ -1020,18 +1020,14 @@ func (wv *WebView) Destroy() {
 	} else {
 		wv.runCloseCallbacks()
 	}
-	if wv.viewBridge != nil {
+	if bridge := wv.viewBridge; bridge != nil {
 		wv.runOnGTKSync(func() {
 			if wv.removeSizeObserver != nil {
 				wv.removeSizeObserver()
 				wv.removeSizeObserver = nil
 			}
-			bridge := wv.viewBridge
-			wv.viewBridge = nil
-			if bridge != nil {
-				_ = bridge.DetachInput()
-				_ = bridge.Destroy()
-			}
+			_ = bridge.DetachInput()
+			_ = bridge.Destroy()
 		})
 	}
 }

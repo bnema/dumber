@@ -500,17 +500,15 @@ func TestOptionalHandlersAreAlwaysEnabled(t *testing.T) {
 	// AudioHandler is always enabled (required for media decoding).
 	require.Same(t, h, h.GetAudioHandler())
 	require.Same(t, h, h.GetContextMenuHandler())
-	require.NotSame(t, h, h.GetRenderHandler())
+	require.Nil(t, h.GetRenderHandler())
 }
 
-func TestGetRenderHandlerPreservesTextSelectionCallback(t *testing.T) {
+func TestRenderTextSelectionHookPreservesWebViewState(t *testing.T) {
 	wv := &WebView{ctx: context.Background()}
-	h := &handlerSet{wv: wv}
 
-	rh := h.GetRenderHandler()
-	rh.OnTextSelectionChanged(nil, "selected via client", nil)
+	handleRenderTextSelectionChanged(wv, "selected via hook")
 
-	require.Equal(t, "selected via client", wv.selectedTextSnapshot())
+	require.Equal(t, "selected via hook", wv.selectedTextSnapshot())
 }
 
 func TestGetDownloadHandler_EnabledWhenEngineConfigured(t *testing.T) {
