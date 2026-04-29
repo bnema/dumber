@@ -8,6 +8,7 @@ import (
 	purecef "github.com/bnema/purego-cef/cef"
 
 	"github.com/bnema/dumber/internal/application/port"
+	"github.com/bnema/dumber/internal/infrastructure/gtkmenu"
 	"github.com/bnema/dumber/internal/logging"
 	"github.com/bnema/puregotk/v4/gtk"
 )
@@ -81,7 +82,7 @@ func (h *handlerSet) RunContextMenu(
 		}
 		glArea := wv.viewBridge.GLArea()
 		logContextMenuPopupRequest(h, glArea, params, x, y)
-		NewRenderer(nil).Show(
+		gtkmenu.NewRenderer(nil).Show(
 			items,
 			&glArea.Widget,
 			x,

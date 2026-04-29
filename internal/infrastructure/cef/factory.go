@@ -159,13 +159,13 @@ func (f *WebViewFactory) configureInitialBrowserCreation(
 				return
 			}
 
-			// On subsequent resizes, notify CEF so it re-queries GetViewRect.
-			log := logging.FromContext(ctx)
+			// Size observers run on the GTK thread; the captured firstResize state is
+			// therefore single-threaded.
 			wv.mu.RLock()
 			host := wv.host
 			wv.mu.RUnlock()
 			if host == nil {
-				log.Debug().
+				logging.FromContext(ctx).Debug().
 					Uint64("webview_id", uint64(wv.id)).
 					Int32("resize_width", w).
 					Int32("resize_height", h).
@@ -174,15 +174,8 @@ func (f *WebViewFactory) configureInitialBrowserCreation(
 					Msg("cef: resize observed before browser host existed")
 				return
 			}
-			log.Debug().
-				Uint64("webview_id", uint64(wv.id)).
-				Int32("resize_width", w).
-				Int32("resize_height", h).
-				Bool("host_nil", false).
-				Bool("browser_ready", true).
-				Msg("cef: browser resize observed before WasResized")
 			notifyBrowserResize(host)
-			log.Debug().
+			logging.FromContext(ctx).Debug().
 				Uint64("webview_id", uint64(wv.id)).
 				Int32("resize_width", w).
 				Int32("resize_height", h).

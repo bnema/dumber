@@ -302,7 +302,7 @@ func TestOnTextSelectionChanged_ForwardsSelectionToClipboardOrchestrator(t *test
 			clipboardTextOrchestrator: orchestrator,
 		},
 	}
-	h := &dumberRenderHandler{wv: wv}
+	h := &selectionRenderHandlerForTest{wv: wv}
 
 	h.OnTextSelectionChanged(nil, "selected text", nil)
 
@@ -332,7 +332,7 @@ func TestOnTextSelectionChanged_DebouncesAndCollapsesRapidUpdates(t *testing.T) 
 			clipboardTextOrchestrator: orchestrator,
 		},
 	}
-	h := &dumberRenderHandler{wv: wv}
+	h := &selectionRenderHandlerForTest{wv: wv}
 
 	h.OnTextSelectionChanged(nil, "first selection", nil)
 	h.OnTextSelectionChanged(nil, "second selection", nil)
@@ -375,7 +375,7 @@ func TestOnTextSelectionChanged_SuppressesAutoCopyWhenFocusedNodeEditableAndResu
 			clipboardTextOrchestrator: orchestrator,
 		},
 	}
-	h := &dumberRenderHandler{wv: wv}
+	h := &selectionRenderHandlerForTest{wv: wv}
 	clientHandlers := &handlerSet{wv: wv}
 	frame := cefmocks.NewMockFrame(t)
 	oldFactory := newRendererBridgeProcessMessage
@@ -449,7 +449,7 @@ func TestOnTextSelectionChanged_DoesNotEmitLateDebouncedUpdateAfterDestroy(t *te
 			clipboardTextOrchestrator: orchestrator,
 		},
 	}
-	h := &dumberRenderHandler{wv: wv}
+	h := &selectionRenderHandlerForTest{wv: wv}
 
 	h.OnTextSelectionChanged(nil, "selected text", nil)
 	require.Len(t, scheduler.callbacks, 1)
@@ -500,7 +500,7 @@ func TestOptionalHandlersAreAlwaysEnabled(t *testing.T) {
 	// AudioHandler is always enabled (required for media decoding).
 	require.Same(t, h, h.GetAudioHandler())
 	require.Same(t, h, h.GetContextMenuHandler())
-	require.IsType(t, &dumberRenderHandler{}, h.GetRenderHandler())
+	require.NotSame(t, h, h.GetRenderHandler())
 }
 
 func TestGetRenderHandlerPreservesTextSelectionCallback(t *testing.T) {
@@ -525,4 +525,10 @@ func TestGetDownloadHandler_EnabledWhenEngineConfigured(t *testing.T) {
 	}
 
 	require.Same(t, h, h.GetDownloadHandler())
+}
+
+type selectionRenderHandlerForTest struct{ wv *WebView }
+
+func (h *selectionRenderHandlerForTest) OnTextSelectionChanged(_ purecef.Browser, selectedText string, _ *purecef.Range) {
+	handleRenderTextSelectionChanged(h.wv, selectedText)
 }

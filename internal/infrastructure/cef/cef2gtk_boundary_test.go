@@ -1,27 +1,45 @@
 package cef
 
 import (
-	"os/exec"
+	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 )
 
 func TestCEF2GTKImportStaysInInfrastructureCEF(t *testing.T) {
-	cmd := exec.Command("go", "list", "-mod=mod", "-f", "{{.ImportPath}} {{join .Imports \" \"}}", "./...")
-	// Tests in this package run from internal/infrastructure/cef; ../../.. is the
-	// repository root for go list ./....
-	cmd.Dir = "../../.."
-	out, err := cmd.Output()
-	if err != nil {
-		t.Fatalf("go list imports: %v", err)
-	}
-	for _, line := range strings.Split(string(out), "\n") {
-		if !strings.Contains(line, "github.com/bnema/purego-cef2gtk") {
-			continue
+	root := filepath.Clean("../../..")
+	if err := filepath.WalkDir(root, func(path string, d os.DirEntry, err error) error {
+		if err != nil {
+			return err
 		}
-		if strings.HasPrefix(line, "github.com/bnema/dumber/internal/infrastructure/cef ") {
-			continue
+		if d.IsDir() {
+			switch d.Name() {
+			case ".git", "vendor", "dist", "tmp":
+				return filepath.SkipDir
+			}
+			return nil
 		}
-		t.Fatalf("purego-cef2gtk imported outside cef infrastructure: %s", line)
+		if filepath.Ext(path) != ".go" || strings.HasSuffix(path, "_test.go") {
+			return nil
+		}
+		body, err := os.ReadFile(path)
+		if err != nil {
+			return err
+		}
+		if !strings.Contains(string(body), "github.com/bnema/purego-cef2gtk") {
+			return nil
+		}
+		rel, err := filepath.Rel(root, path)
+		if err != nil {
+			return err
+		}
+		if strings.HasPrefix(filepath.ToSlash(rel), "internal/infrastructure/cef/") {
+			return nil
+		}
+		t.Fatalf("purego-cef2gtk imported outside cef infrastructure: %s", rel)
+		return nil
+	}); err != nil {
+		t.Fatalf("scan imports: %v", err)
 	}
 }
