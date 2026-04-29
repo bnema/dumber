@@ -188,6 +188,8 @@ func TestConfigureCommandLine_AppendsExpectedSwitches(t *testing.T) {
 }
 
 func TestConfigureCommandLine_DisablesWebAuthnByDefault(t *testing.T) {
+	t.Setenv(cefEnableWebAuthnUnsafeEnvVar, "")
+
 	commandLine := newMutableCommandLineStub()
 	configureCommandLine(commandLine)
 
@@ -226,6 +228,36 @@ func TestConfigureCommandLine_WebAuthnDisablePreservesExistingDisableFeatures(t 
 	}
 	if got := commandLine.GetSwitchValue(chromiumDisableBlinkFeaturesSwitch); got != "ExistingBlinkFeature,WebAuth" {
 		t.Fatalf("disable-blink-features = %q, want %q", got, "ExistingBlinkFeature,WebAuth")
+	}
+}
+
+func TestConfigureCommandLine_WebAuthnUnsafeOverrideRemovesExistingWebAuthTokens(t *testing.T) {
+	t.Setenv(cefEnableWebAuthnUnsafeEnvVar, "1")
+
+	commandLine := newMutableCommandLineStub()
+	commandLine.AppendSwitchWithValue(chromiumDisableFeaturesSwitch, "ExistingFeature,WebAuth,AnotherFeature")
+	commandLine.AppendSwitchWithValue(chromiumDisableBlinkFeaturesSwitch, "WebAuth,ExistingBlinkFeature")
+
+	configureCommandLine(commandLine)
+
+	if got := commandLine.GetSwitchValue(chromiumDisableFeaturesSwitch); got != "ExistingFeature,AnotherFeature" {
+		t.Fatalf("disable-features = %q, want %q", got, "ExistingFeature,AnotherFeature")
+	}
+	if got := commandLine.GetSwitchValue(chromiumDisableBlinkFeaturesSwitch); got != "ExistingBlinkFeature" {
+		t.Fatalf("disable-blink-features = %q, want %q", got, "ExistingBlinkFeature")
+	}
+}
+
+func TestConfigureCommandLine_WebAuthnUnsafeOverrideRemovesSwitchWhenOnlyWebAuth(t *testing.T) {
+	t.Setenv(cefEnableWebAuthnUnsafeEnvVar, "1")
+
+	commandLine := newMutableCommandLineStub()
+	commandLine.AppendSwitchWithValue(chromiumDisableFeaturesSwitch, "WebAuth")
+
+	configureCommandLine(commandLine)
+
+	if commandLine.HasSwitch(chromiumDisableFeaturesSwitch) {
+		t.Fatalf("disable-features switch should have been removed entirely, but has value %q", commandLine.GetSwitchValue(chromiumDisableFeaturesSwitch))
 	}
 }
 
@@ -282,6 +314,8 @@ func TestDumberBPH_OnBeforeChildProcessLaunch_AppendsNoZygote(t *testing.T) {
 }
 
 func TestDumberBPH_OnBeforeChildProcessLaunch_DisablesWebAuthnByDefault(t *testing.T) {
+	t.Setenv(cefEnableWebAuthnUnsafeEnvVar, "")
+
 	commandLine := newMutableCommandLineStub()
 	commandLine.AppendSwitchWithValue("type", "renderer")
 

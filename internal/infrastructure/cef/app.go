@@ -54,7 +54,12 @@ func configureCommandLine(commandLine purecef.CommandLine) {
 }
 
 func configureWebAuthnFeaturePolicy(commandLine purecef.CommandLine) {
-	if commandLine == nil || cefWebAuthnUnsafeEnabled() {
+	if commandLine == nil {
+		return
+	}
+	if cefWebAuthnUnsafeEnabled() {
+		removeCommaSeparatedSwitchValues(commandLine, chromiumDisableFeaturesSwitch, cefWebAuthnFeaturesDisabledByPolicy...)
+		removeCommaSeparatedSwitchValues(commandLine, chromiumDisableBlinkFeaturesSwitch, cefWebAuthnFeaturesDisabledByPolicy...)
 		return
 	}
 	appendUniqueCommaSeparatedSwitchValues(commandLine, chromiumDisableFeaturesSwitch, cefWebAuthnFeaturesDisabledByPolicy...)
@@ -95,6 +100,48 @@ func appendUniqueCommaSeparatedSwitchValues(commandLine purecef.CommandLine, nam
 		return
 	}
 	commandLine.AppendSwitchWithValue(name, strings.Join(combined, ","))
+}
+
+func removeCommaSeparatedSwitchValues(commandLine purecef.CommandLine, name string, values ...string) {
+	if commandLine == nil || len(values) == 0 {
+		return
+	}
+
+	existing := commandLine.GetSwitchValue(name)
+	if existing == "" {
+		return
+	}
+
+	removeSet := make(map[string]struct{}, len(values))
+	for _, v := range values {
+		removeSet[strings.TrimSpace(v)] = struct{}{}
+	}
+
+	tokens := strings.Split(existing, ",")
+	cleaned := make([]string, 0, len(tokens))
+	removed := false
+	for _, token := range tokens {
+		token = strings.TrimSpace(token)
+		if token == "" {
+			continue
+		}
+		if _, ok := removeSet[token]; ok {
+			removed = true
+			continue
+		}
+		cleaned = append(cleaned, token)
+	}
+
+	if !removed {
+		return
+	}
+
+	if len(cleaned) == 0 {
+		commandLine.RemoveSwitch(name)
+		return
+	}
+
+	commandLine.AppendSwitchWithValue(name, strings.Join(cleaned, ","))
 }
 
 // dumberApp implements purecef.App to provide custom scheme registration,
