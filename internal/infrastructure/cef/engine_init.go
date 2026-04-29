@@ -159,20 +159,13 @@ func initializeCEF(eng *Engine, settings purecef.Settings, logger *zerolog.Logge
 	return nil
 }
 
-// wireEngine creates GL loader, factory, pool, and scheme handler after CEF init.
+// wireEngine creates factory, pool, and scheme handler after CEF init.
 func wireEngine(
 	ctx context.Context, eng *Engine,
 	windowlessFrameRate int32, audioFactory port.AudioOutputFactory, logger *zerolog.Logger,
 	currentConfigPayload func() ([]byte, error), defaultConfigPayload func() ([]byte, error),
 ) (*Engine, error) {
-	gl, err := newGLLoader()
-	if err != nil {
-		purecef.Shutdown()
-		return nil, fmt.Errorf("GL loader: %w", err)
-	}
-
-	eng.gl = gl
-	eng.factory = newWebViewFactory(eng, gl, webViewFactoryOptions{
+	eng.factory = newWebViewFactory(eng, webViewFactoryOptions{
 		scale:               detectHiDPIScale(logger),
 		windowlessFrameRate: windowlessFrameRate,
 		audioOutputFactory:  audioFactory,

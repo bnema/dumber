@@ -17,11 +17,10 @@ import (
 var _ port.WebViewFactory = (*WebViewFactory)(nil)
 
 // WebViewFactory creates new CEF off-screen browser WebViews. Each WebView
-// gets a unique ID, its own renderPipeline and inputBridge, and an
-// asynchronously-created CEF browser (via BrowserHostCreateBrowser).
+// gets a unique ID, its own cef2gtk bridge view, and an asynchronously-created
+// CEF browser (via BrowserHostCreateBrowser).
 type WebViewFactory struct {
 	engine              *Engine
-	gl                  *glLoader
 	nextID              atomic.Uint64
 	scale               int32
 	windowlessFrameRate int32
@@ -48,8 +47,8 @@ const (
 )
 
 // newWebViewFactory returns a factory that will create WebViews using the
-// given GL loader and HiDPI scale factor.
-func newWebViewFactory(engine *Engine, gl *glLoader, opts webViewFactoryOptions) *WebViewFactory {
+// given HiDPI scale factor.
+func newWebViewFactory(engine *Engine, opts webViewFactoryOptions) *WebViewFactory {
 	if opts.scale < 1 {
 		opts.scale = 1
 	}
@@ -58,10 +57,9 @@ func newWebViewFactory(engine *Engine, gl *glLoader, opts webViewFactoryOptions)
 	}
 	return &WebViewFactory{
 		engine:              engine,
-		gl:                  gl,
 		scale:               opts.scale,
 		windowlessFrameRate: opts.windowlessFrameRate,
-		audioOutputFactory: opts.audioOutputFactory,
+		audioOutputFactory:  opts.audioOutputFactory,
 	}
 }
 
@@ -93,57 +91,37 @@ func (f *WebViewFactory) Create(ctx context.Context) (port.WebView, error) {
 		settings.BackgroundColor = bg
 	}
 
-	// Defer browser creation until the GL area has a non-zero size.
+	// Defer browser creation until the bridge view has a non-zero size.
 	// CEF requires GetViewRect to return a non-empty rect, but the GL area
 	// is not yet realized at this point.
-	f.configureInitialBrowserCreation(ctx, wv, wv.pipeline, wv.client, &windowInfo, &settings)
+	f.configureInitialBrowserCreation(ctx, wv, wv.client, &windowInfo, &settings, nil)
 
 	return wv, nil
 }
 
 func (f *WebViewFactory) newWebView(ctx context.Context) *WebView {
 	id := port.WebViewID(f.nextID.Add(1))
-	pipeline := newRenderPipeline(ctx, f.gl, f.scale, id)
+	viewBridge := NewCef2gtkAdapter()
 
 	wv := &WebView{
 		id:                  id,
 		ctx:                 ctx,
 		engine:              f.engine,
-		pipeline:            pipeline,
+		viewBridge:          viewBridge,
 		audioOutputFactory:  f.audioOutputFactory,
-		resizeReconciler:    newResizeReconciler(ctx, id),
 		windowlessFrameRate: f.windowlessFrameRate,
 		backgroundColor:     f.bgColor.Load(),
 	}
 
-	handlers := &handlerSet{
-		wv: wv,
-	}
+	handlers := &handlerSet{wv: wv}
 	wv.handlers = handlers
 	wv.findCtrl = newFindController()
 
-	input := newInputBridge(ctx, f.scale)
-	input.selectionText = wv.selectedTextSnapshot
-	input.explicitCopyText = func(action, text string) {
-		if f.engine != nil {
-			f.engine.handleExplicitClipboardBridgeText(wv.id, action, text)
-		}
-	}
-	input.attachTo(pipeline.glArea)
-	wv.input = input
-
-	// Wire middle-click → new tab using the cached hover URI.
-	input.onMiddleClick = func(_ string) {
-		wv.mu.RLock()
-		hoverURI := wv.lastHoverURI
-		cb := wv.callbacks
-		wv.mu.RUnlock()
-		if hoverURI == "" || cb == nil || cb.OnLinkMiddleClick == nil {
-			return
-		}
-		uri := hoverURI
-		wv.runOnGTK(func() {
-			cb.OnLinkMiddleClick(uri)
+	if viewBridge != nil {
+		wv.runOnGTKSync(func() {
+			if err := viewBridge.PrepareOnGTKThread(); err != nil && ctx != nil {
+				logging.FromContext(ctx).Warn().Err(err).Uint64("webview_id", uint64(id)).Msg("cef: failed to prepare cef2gtk view")
+			}
 		})
 	}
 
@@ -154,64 +132,65 @@ func (f *WebViewFactory) newWebView(ctx context.Context) *WebView {
 }
 
 func (f *WebViewFactory) configureInitialBrowserCreation(
-	ctx context.Context, wv *WebView, pipeline *renderPipeline, client purecef.RawClient,
+	ctx context.Context, wv *WebView, client purecef.RawClient,
 	windowInfo *purecef.WindowInfo, settings *purecef.BrowserSettings,
+	onFirstResize func(w, h int32),
 ) {
 	wv.pendingCreate = &pendingBrowserCreate{
 		windowInfo: windowInfo,
 		client:     client,
 		settings:   settings,
 	}
-
-	pipeline.onFirstResize = func(w, h int32) {
-		logging.FromContext(ctx).Debug().Int32("w", w).Int32("h", h).Msg("cef: onFirstResize fired, scheduling browser creation")
-		f.postPendingBrowserCreate(ctx, wv, w, h)
+	if onFirstResize == nil {
+		onFirstResize = func(w, h int32) {
+			logging.FromContext(ctx).Debug().Int32("w", w).Int32("h", h).Msg("cef: onFirstResize fired, scheduling browser creation")
+			f.postPendingBrowserCreate(ctx, wv, w, h)
+		}
 	}
+	if wv.viewBridge == nil {
+		return
+	}
+	firstResize := true
+	wv.runOnGTKSync(func() {
+		wv.removeSizeObserver = wv.viewBridge.AddSizeObserver(func(w, h int32) {
+			if firstResize {
+				firstResize = false
+				onFirstResize(w, h)
+				return
+			}
 
-	// On subsequent resizes, notify CEF so it re-queries GetViewRect.
-	pipeline.onResizeCB = func(w, h int32) {
-		log := logging.FromContext(ctx)
-		wv.mu.RLock()
-		host := wv.host
-		wv.mu.RUnlock()
-		if host == nil {
+			// On subsequent resizes, notify CEF so it re-queries GetViewRect.
+			log := logging.FromContext(ctx)
+			wv.mu.RLock()
+			host := wv.host
+			wv.mu.RUnlock()
+			if host == nil {
+				log.Debug().
+					Uint64("webview_id", uint64(wv.id)).
+					Int32("resize_width", w).
+					Int32("resize_height", h).
+					Bool("host_nil", true).
+					Bool("browser_ready", false).
+					Msg("cef: resize observed before browser host existed")
+				return
+			}
 			log.Debug().
 				Uint64("webview_id", uint64(wv.id)).
 				Int32("resize_width", w).
 				Int32("resize_height", h).
-				Bool("host_nil", true).
-				Bool("browser_ready", false).
-				Msg("cef: resize observed before browser host existed")
-			return
-		}
-		log.Debug().
-			Uint64("webview_id", uint64(wv.id)).
-			Int32("resize_width", w).
-			Int32("resize_height", h).
-			Bool("host_nil", false).
-			Bool("browser_ready", true).
-			Msg("cef: browser resize observed before WasResized")
-		notifyBrowserResize(host)
-		log.Debug().
-			Uint64("webview_id", uint64(wv.id)).
-			Int32("resize_width", w).
-			Int32("resize_height", h).
-			Bool("host_nil", false).
-			Bool("browser_ready", true).
-			Msg("cef: browser host WasResized invoked")
-		if wv.resizeReconciler != nil {
-			resizeSeq, _ := wv.pipeline.latestResizeDiagnostics()
-			wv.resizeReconciler.start(
-				resizeSeq,
-				func() resizeNotifiableBrowserHost {
-					wv.mu.RLock()
-					defer wv.mu.RUnlock()
-					return wv.host
-				},
-				func() bool { return wv.destroyed.Load() },
-			)
-		}
-	}
+				Bool("host_nil", false).
+				Bool("browser_ready", true).
+				Msg("cef: browser resize observed before WasResized")
+			notifyBrowserResize(host)
+			log.Debug().
+				Uint64("webview_id", uint64(wv.id)).
+				Int32("resize_width", w).
+				Int32("resize_height", h).
+				Bool("host_nil", false).
+				Bool("browser_ready", true).
+				Msg("cef: browser host WasResized invoked")
+		})
+	})
 }
 
 func (f *WebViewFactory) postPendingBrowserCreate(ctx context.Context, wv *WebView, w, h int32) {
@@ -336,8 +315,7 @@ func (f *WebViewFactory) CreateRelated(ctx context.Context, parentID port.WebVie
 		settings.BackgroundColor = bg
 	}
 
-	f.configureInitialBrowserCreation(ctx, popupWV, popupWV.pipeline, popupWV.client, &windowInfo, &settings)
-	popupWV.pipeline.onFirstResize = func(w, h int32) {
+	f.configureInitialBrowserCreation(ctx, popupWV, popupWV.client, &windowInfo, &settings, func(w, h int32) {
 		log := logging.FromContext(ctx)
 		if popupWV.awaitsNativePopupAttachment() {
 			log.Debug().Int32("w", w).Int32("h", h).Msg("cef: popup shell first resize, awaiting native popup attach")
@@ -358,6 +336,6 @@ func (f *WebViewFactory) CreateRelated(ctx context.Context, parentID port.WebVie
 		}
 		log.Debug().Int32("w", w).Int32("h", h).Msg("cef: popup shell first resize, creating browser directly")
 		f.postPendingBrowserCreate(ctx, popupWV, w, h)
-	}
+	})
 	return popupWV, nil
 }

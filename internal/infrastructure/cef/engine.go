@@ -24,7 +24,6 @@ var _ port.AlreadyRunningAppRelaunchHandlerSetter = (*Engine)(nil)
 // It manages the CEF lifecycle and provides access to all engine subsystems.
 type Engine struct {
 	ctx     context.Context
-	gl      *glLoader
 	factory *WebViewFactory
 	pool    *WebViewPool
 

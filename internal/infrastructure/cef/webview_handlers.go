@@ -5,6 +5,7 @@ import (
 	"strings"
 
 	purecef "github.com/bnema/purego-cef/cef"
+	cef2gtk "github.com/bnema/purego-cef2gtk"
 
 	"github.com/bnema/dumber/internal/application/port"
 	downloadutil "github.com/bnema/dumber/internal/domain/download"
@@ -27,7 +28,6 @@ type handlerSet struct {
 // Compile-time interface checks.
 var (
 	_ purecef.Client             = (*handlerSet)(nil)
-	_ purecef.RenderHandler      = (*handlerSet)(nil)
 	_ purecef.DisplayHandler     = (*handlerSet)(nil)
 	_ purecef.LoadHandler        = (*handlerSet)(nil)
 	_ purecef.LifeSpanHandler    = (*handlerSet)(nil)
@@ -69,8 +69,13 @@ func (h *handlerSet) GetKeyboardHandler() purecef.KeyboardHandler     { return n
 func (h *handlerSet) GetLifeSpanHandler() purecef.LifeSpanHandler     { return h }
 func (h *handlerSet) GetLoadHandler() purecef.LoadHandler             { return h }
 func (h *handlerSet) GetPrintHandler() purecef.PrintHandler           { return nil }
-func (h *handlerSet) GetRenderHandler() purecef.RenderHandler         { return h }
-func (h *handlerSet) GetRequestHandler() purecef.RequestHandler       { return h }
+func (h *handlerSet) GetRenderHandler() purecef.RenderHandler {
+	if h == nil {
+		return nil
+	}
+	return newDumberRenderHandler(h.wv)
+}
+func (h *handlerSet) GetRequestHandler() purecef.RequestHandler { return h }
 
 func (h *handlerSet) OnProcessMessageReceived(
 	browser purecef.Browser,
@@ -136,290 +141,10 @@ func (h *handlerSet) OnProcessMessageReceived(
 }
 
 // ===========================================================================
-// RenderHandler (17 methods)
+// RenderHandler methods live in render_handler_adapter.go. handlerSet keeps
+// Dumber's non-render CEF handlers and returns a delegating render handler from
+// GetRenderHandler.
 // ===========================================================================
-
-func (h *handlerSet) GetAccessibilityHandler() purecef.AccessibilityHandler { return nil }
-
-func (h *handlerSet) GetRootScreenRect(_ purecef.Browser, _ *purecef.Rect) int32 { return 0 }
-
-// GetViewRect fills the rect struct with the pipeline dimensions.
-func (h *handlerSet) GetViewRect(_ purecef.Browser, rect *purecef.Rect) {
-	if rect == nil {
-		return
-	}
-	callSeq := h.wv.pipeline.nextViewRectSeq()
-	w, ht, s := h.wv.pipeline.viewRectSize()
-
-	// CEF expects view geometry in DIP coordinates while OnPaint dimensions are
-	// in device pixels. The render pipeline tracks device pixels, so convert
-	// back to DIP before answering GetViewRect/GetScreenInfo.
-	w /= s
-	ht /= s
-
-	// CEF requires a non-empty rect. Return a 1x1 fallback if the GL area has
-	// not been realized yet.
-	if w <= 0 {
-		w = 1
-	}
-	if ht <= 0 {
-		ht = 1
-	}
-
-	rect.X = 0
-	rect.Y = 0
-	rect.Width = w
-	rect.Height = ht
-	if h.wv != nil && h.wv.ctx != nil {
-		logging.FromContext(h.wv.ctx).Debug().
-			Uint64("webview_id", uint64(h.wv.id)).
-			Uint64("view_rect_seq", callSeq).
-			Int32("width", rect.Width).
-			Int32("height", rect.Height).
-			Int32("scale", s).
-			Msg("cef: GetViewRect")
-	}
-}
-
-func (h *handlerSet) GetScreenPoint(_ purecef.Browser, _, _ int32, _, _ *int32) int32 {
-	return 0
-}
-
-func (h *handlerSet) GetScreenInfo(_ purecef.Browser, info *purecef.ScreenInfo) int32 {
-	if info == nil {
-		return 0
-	}
-	callSeq := h.wv.pipeline.nextScreenInfoSeq()
-	w, ht, s := h.wv.pipeline.viewRectSize()
-	w /= s
-	ht /= s
-	if w <= 0 {
-		w = 1
-	}
-	if ht <= 0 {
-		ht = 1
-	}
-
-	const (
-		screenDepth             = 24
-		screenDepthPerComponent = 8
-	)
-	r := purecef.Rect{X: 0, Y: 0, Width: w, Height: ht}
-	si := purecef.NewScreenInfo()
-	si.DeviceScaleFactor = float32(s)
-	si.Depth = screenDepth
-	si.DepthPerComponent = screenDepthPerComponent
-	si.Rect = r
-	si.AvailableRect = r
-	*info = si
-	if h.wv != nil && h.wv.ctx != nil {
-		logging.FromContext(h.wv.ctx).Debug().
-			Uint64("webview_id", uint64(h.wv.id)).
-			Uint64("screen_info_seq", callSeq).
-			Int32("width", w).
-			Int32("height", ht).
-			Int32("scale", s).
-			Msg("cef: GetScreenInfo")
-	}
-	return 1
-}
-
-func (h *handlerSet) OnPopupShow(_ purecef.Browser, show int32) {
-	if h.wv == nil || h.wv.pipeline == nil {
-		return
-	}
-	h.wv.runOnGTK(func() {
-		h.wv.pipeline.setPopupVisible(show != 0)
-	})
-}
-
-func (h *handlerSet) OnPopupSize(_ purecef.Browser, popupRect *purecef.Rect) {
-	if h.wv == nil || h.wv.pipeline == nil || popupRect == nil {
-		return
-	}
-	popup := rect{
-		X:      popupRect.X,
-		Y:      popupRect.Y,
-		Width:  popupRect.Width,
-		Height: popupRect.Height,
-	}
-	h.wv.runOnGTK(func() {
-		h.wv.pipeline.setPopupRect(popup)
-	})
-}
-
-// OnPaint receives the BGRA pixel buffer from CEF and forwards dirty rects
-// to the render pipeline for GPU upload. Main-view paints are copied directly
-// into the persistent staging buffer on the CEF UI thread; only the GTK
-// QueueRender hop remains. Popups still copy their transient buffer before
-// crossing threads because they are small and infrequent.
-func (h *handlerSet) OnPaint(
-	_ purecef.Browser, elementType purecef.PaintElementType,
-	dirtyRects []purecef.Rect, buffer []byte, width, height int32,
-) {
-	if len(buffer) == 0 || width <= 0 || height <= 0 {
-		return
-	}
-	paintSeq := h.wv.pipeline.nextPaintSeq()
-	resizeSeq, resizeAgeMs := uint64(0), int64(0)
-	if elementType != purecef.PaintElementTypePetPopup {
-		resizeSeq, resizeAgeMs = h.wv.pipeline.latestResizeDiagnostics()
-	}
-	if h.wv != nil && h.wv.ctx != nil {
-		log := logging.FromContext(h.wv.ctx).Trace().
-			Uint64("paint_seq", paintSeq).
-			Int32("width", width).
-			Int32("height", height).
-			Int("dirty_rect_count", len(dirtyRects)).
-			Int("buffer_len", len(buffer))
-		if elementType != purecef.PaintElementTypePetPopup {
-			log = log.
-				Uint64("resize_seq", resizeSeq).
-				Int64("time_since_resize_ms", resizeAgeMs)
-		}
-		log.Msg("cef: OnPaint begin")
-	}
-	if elementType != purecef.PaintElementTypePetPopup &&
-		!h.shouldAcceptMainViewPaint(width, height, dirtyRects, paintSeq, resizeSeq, resizeAgeMs) {
-		return
-	}
-	rects := make([]rect, len(dirtyRects))
-	for i, dr := range dirtyRects {
-		rects[i] = rect{X: dr.X, Y: dr.Y, Width: dr.Width, Height: dr.Height}
-	}
-
-	if elementType == purecef.PaintElementTypePetPopup {
-		pixels := make([]byte, len(buffer))
-		copy(pixels, buffer)
-		h.wv.runOnGTK(func() {
-			h.wv.pipeline.handlePopupPaint(pixels, width, height, paintSeq)
-		})
-		if h.wv != nil && h.wv.ctx != nil {
-			logging.FromContext(h.wv.ctx).Trace().
-				Uint64("paint_seq", paintSeq).
-				Msg("cef: OnPaint queued popup to GTK")
-		}
-		return
-	}
-
-	h.wv.pipeline.handlePaint(buffer, width, height, rects, paintSeq)
-	h.wv.runOnGTK(func() {
-		h.wv.pipeline.queuePaintRender()
-	})
-	if h.wv != nil && h.wv.ctx != nil {
-		logging.FromContext(h.wv.ctx).Trace().
-			Uint64("paint_seq", paintSeq).
-			Msg("cef: OnPaint queued to GTK")
-	}
-}
-
-func (h *handlerSet) shouldAcceptMainViewPaint(
-	width, height int32,
-	dirtyRects []purecef.Rect,
-	paintSeq uint64,
-	resizeSeq uint64,
-	resizeAgeMs int64,
-) bool {
-	expectedWidth, expectedHeight, _ := h.wv.pipeline.viewRectSize()
-	sizeMatchesCurrentView := width == expectedWidth && height == expectedHeight
-
-	if h.wv.resizeReconciler != nil {
-		h.wv.resizeReconciler.notePaint(resizeSeq, sizeMatchesCurrentView)
-	}
-
-	if h.wv.ctx != nil {
-		if sizeMatchesCurrentView {
-			_, _, shouldLog := h.wv.pipeline.markFirstPaintAfterResize()
-			if shouldLog {
-				logging.Trace().Mark("cef_first_content_paint")
-				logging.FromContext(h.wv.ctx).Debug().
-					Uint64("webview_id", uint64(h.wv.id)).
-					Uint64("paint_seq", paintSeq).
-					Uint64("resize_seq", resizeSeq).
-					Int64("time_since_resize_ms", resizeAgeMs).
-					Int32("width", width).
-					Int32("height", height).
-					Int("dirty_rect_count", len(dirtyRects)).
-					Msg("cef: first paint after resize")
-			}
-		} else if h.wv.pipeline.markStalePaintAfterResize(resizeSeq) {
-			logging.FromContext(h.wv.ctx).Debug().
-				Uint64("webview_id", uint64(h.wv.id)).
-				Uint64("paint_seq", paintSeq).
-				Uint64("resize_seq", resizeSeq).
-				Int64("time_since_resize_ms", resizeAgeMs).
-				Int32("width", width).
-				Int32("height", height).
-				Int32("expected_width", expectedWidth).
-				Int32("expected_height", expectedHeight).
-				Int("dirty_rect_count", len(dirtyRects)).
-				Msg("cef: stale-size paint after resize")
-		}
-	}
-
-	return sizeMatchesCurrentView
-}
-
-func (h *handlerSet) OnAcceleratedPaint(
-	_ purecef.Browser,
-	_ purecef.PaintElementType,
-	_ []purecef.Rect,
-	_ *purecef.AcceleratedPaintInfo,
-) {
-	count := h.wv.pipeline.recordAcceleratedPaint()
-	if count <= 5 || count%100 == 0 {
-		logging.FromContext(h.wv.ctx).Info().
-			Uint64("count", count).
-			Msg("cef: OnAcceleratedPaint")
-	}
-}
-
-func (h *handlerSet) GetTouchHandleSize(_ purecef.Browser, _ purecef.HorizontalAlignment, _ *purecef.Size) {
-}
-
-func (h *handlerSet) OnTouchHandleStateChanged(_ purecef.Browser, _ *purecef.TouchHandleState) {}
-
-func (h *handlerSet) StartDragging(
-	_ purecef.Browser,
-	_ purecef.DragData,
-	_ purecef.DragOperationsMask,
-	_, _ int32,
-) int32 {
-	return 0
-}
-
-func (h *handlerSet) UpdateDragCursor(_ purecef.Browser, _ purecef.DragOperationsMask) {}
-
-func (h *handlerSet) OnScrollOffsetChanged(_ purecef.Browser, _, _ float64) {}
-
-func (h *handlerSet) OnImeCompositionRangeChanged(_ purecef.Browser, _ *purecef.Range, _ []purecef.Rect) {
-}
-
-func (h *handlerSet) OnTextSelectionChanged(_ purecef.Browser, selectedText string, _ *purecef.Range) {
-	if h == nil || h.wv == nil {
-		return
-	}
-	previous, changed := h.wv.setSelectedText(selectedText)
-	if !changed {
-		return
-	}
-	if h.wv.ctx != nil && selectedText == "" {
-		if previous != "" {
-			logging.FromContext(h.wv.ctx).Debug().
-				Int("prev_text_len", len(previous)).
-				Msg("cef: text selection cleared")
-		}
-	} else if h.wv.ctx != nil {
-		logging.FromContext(h.wv.ctx).Debug().
-			Int("text_len", len(selectedText)).
-			Msg("cef: text selection changed")
-	}
-	if h.wv.engine != nil {
-		h.wv.scheduleSelectionUpdate(selectedText)
-	}
-}
-
-func (h *handlerSet) OnVirtualKeyboardRequested(_ purecef.Browser, _ purecef.TextInputMode) {}
 
 // ===========================================================================
 // DisplayHandler (13 methods)
@@ -528,9 +253,14 @@ func (h *handlerSet) OnCursorChange(
 	cursorType purecef.CursorType,
 	_ *purecef.CursorInfo,
 ) int32 {
+	if h == nil || h.wv == nil {
+		return 0
+	}
 	name := cefCursorToGDKName(cursorType)
 	h.wv.runOnGTK(func() {
-		h.wv.pipeline.glArea.SetCursorFromName(&name)
+		if h.wv.viewBridge != nil {
+			h.wv.viewBridge.SetCursorFromName(name)
+		}
 	})
 	return 1 // handled
 }
@@ -565,13 +295,17 @@ func (h *handlerSet) OnLoadingStateChange(_ purecef.Browser, isloading, cangobac
 			Msg("cef: OnLoadingStateChange")
 	}
 
-	if !loading && h.wv.input != nil && h.wv.input.hasGTKFocus() {
-		h.wv.mu.RLock()
-		host := h.wv.host
-		h.wv.mu.RUnlock()
-		if host != nil {
-			syncWindowlessBrowserFocus(host)
-		}
+	if !loading && h.wv.viewBridge != nil {
+		h.wv.runOnGTK(func() {
+			if h.wv.viewBridge != nil && h.wv.viewBridge.HasFocus() {
+				h.wv.mu.RLock()
+				host := h.wv.host
+				h.wv.mu.RUnlock()
+				if host != nil {
+					syncWindowlessBrowserFocus(host)
+				}
+			}
+		})
 	}
 
 	h.wv.mu.RLock()
@@ -783,13 +517,13 @@ func (h *handlerSet) attachAfterCreatedBrowser(
 ) afterCreatedState {
 	state := afterCreatedState{}
 	h.wv.mu.Lock()
-	defer h.wv.mu.Unlock()
 
 	if existing := h.wv.browser; existing != nil {
 		existingID := existing.GetIdentifier()
 		if existingID != 0 && existingID != browserID {
 			state.closeDuplicate = true
 			state.duplicateBrowserID = existingID
+			h.wv.mu.Unlock()
 			return state
 		}
 	}
@@ -797,7 +531,6 @@ func (h *handlerSet) attachAfterCreatedBrowser(
 	h.wv.browser = browser
 	h.wv.host = host
 	h.wv.pendingCreate = nil
-	h.wv.input.setHost(host)
 	if h.wv.findCtrl != nil {
 		h.wv.findCtrl.setHost(host)
 	}
@@ -806,23 +539,46 @@ func (h *handlerSet) attachAfterCreatedBrowser(
 	h.wv.nativePopupParent = nil
 	h.wv.nativePopupID = 0
 	h.wv.nativePopupFallbackStarted = false
+	state.hasPendingNavigation = strings.TrimSpace(h.wv.pendingURI) != ""
+	h.wv.mu.Unlock()
+
+	if h.wv.viewBridge != nil {
+		wv := h.wv
+		wv.runOnGTK(func() {
+			if wv.viewBridge == nil {
+				return
+			}
+			_ = wv.viewBridge.AttachInput(host, cef2gtk.InputOptions{
+				Scale: wv.viewBridgeScale(),
+				OnMiddleClick: func(_, _ float64) bool {
+					return wv.handleMiddleClickFromBridge()
+				},
+				SelectionText: wv.selectedTextSnapshot,
+				OnClipboardShortcut: func(action, text string) {
+					if wv.engine != nil {
+						wv.engine.handleExplicitClipboardBridgeText(wv.id, action, text)
+					}
+				},
+			})
+		})
+	}
 
 	// Mark browser as visible — CEF OSR starts in hidden state and suppresses
 	// painting/caret updates until explicitly told the browser is shown.
 	host.WasHidden(0)
 	state.shouldSyncFocus = h.afterCreatedShouldSyncFocus()
-	state.hasPendingNavigation = strings.TrimSpace(h.wv.pendingURI) != ""
 	return state
 }
 
 func (h *handlerSet) afterCreatedShouldSyncFocus() bool {
-	if h.wv.input == nil {
+	if h == nil || h.wv == nil || h.wv.viewBridge == nil {
 		return false
 	}
-	if h.wv.input.hasGTKFocus() {
-		return true
-	}
-	return h.wv.input.glArea != nil && h.wv.input.glArea.HasFocus()
+	focused := false
+	h.wv.runOnGTKSync(func() {
+		focused = h.wv.viewBridge != nil && h.wv.viewBridge.HasFocus()
+	})
+	return focused
 }
 
 func (h *handlerSet) finishAfterCreated(
@@ -841,7 +597,7 @@ func (h *handlerSet) finishAfterCreated(
 	} else {
 		// Request an initial OSR frame even before the first real navigation
 		// commits. This restores the about:blank warm-up paint that the stable
-		// startup path relied on and prevents the render pipeline from staying idle.
+		// startup path relied on and prevents the rendering bridge from staying idle.
 		host.Invalidate(purecef.PaintElementTypePetView)
 	}
 	if state.hasPendingNavigation {
@@ -880,12 +636,18 @@ func (h *handlerSet) OnBeforeClose(browser purecef.Browser) {
 	h.wv.mu.Lock()
 	h.wv.browser = nil
 	h.wv.host = nil
-	h.wv.input.setHost(nil)
 	if h.wv.findCtrl != nil {
 		h.wv.findCtrl.setHost(nil)
 	}
 	h.wv.mu.Unlock()
-	h.wv.resizeReconciler.stop()
+	if h.wv.viewBridge != nil {
+		wv := h.wv
+		wv.runOnGTK(func() {
+			if wv.viewBridge != nil {
+				_ = wv.viewBridge.SetInputHost(nil)
+			}
+		})
+	}
 	h.wv.scheduleStopBeginFrameLoop()
 
 	h.wv.mu.RLock()

@@ -67,31 +67,37 @@ func (h *handlerSet) RunContextMenu(
 			commandIDByAction[item.Action] = cmdID
 		}
 	}
-	if h.wv == nil || h.wv.pipeline == nil || h.wv.pipeline.glArea == nil {
+	if h.wv == nil || h.wv.viewBridge == nil {
 		return 0
 	}
 
-	x, y := contextMenuAnchorPosition(params, h.wv.pipeline.scale)
-	glArea := h.wv.pipeline.glArea
-	logContextMenuPopupRequest(h, glArea, params, x, y)
+	x, y := contextMenuAnchorPosition(params, h.wv.viewBridgeScale())
 	executor := h.contextMenuExecutor()
-
-	NewRenderer(h.wv.runOnGTK).Show(
-		items,
-		&glArea.Widget,
-		x,
-		y,
-		func(item port.MenuItem) {
-			var copiedCallback func(string)
-			if h.wv.engine != nil {
-				copiedCallback = h.wv.engine.notifyClipboardCopied
-			}
-			dispatchContextMenuSelection(h.wv.ctx, executor, callback, copiedCallback, commandIDByAction, item, menuContext)
-		},
-		func() {
+	wv := h.wv
+	wv.runOnGTK(func() {
+		if wv.viewBridge == nil || wv.viewBridge.GLArea() == nil {
 			callback.Cancel()
-		},
-	)
+			return
+		}
+		glArea := wv.viewBridge.GLArea()
+		logContextMenuPopupRequest(h, glArea, params, x, y)
+		NewRenderer(nil).Show(
+			items,
+			&glArea.Widget,
+			x,
+			y,
+			func(item port.MenuItem) {
+				var copiedCallback func(string)
+				if wv.engine != nil {
+					copiedCallback = wv.engine.notifyClipboardCopied
+				}
+				dispatchContextMenuSelection(wv.ctx, executor, callback, copiedCallback, commandIDByAction, item, menuContext)
+			},
+			func() {
+				callback.Cancel()
+			},
+		)
+	})
 	return 1
 }
 
@@ -123,7 +129,7 @@ func logContextMenuPopupRequest(
 	params purecef.ContextMenuParams,
 	x, y int32,
 ) {
-	if h == nil || h.wv == nil || h.wv.ctx == nil || h.wv.pipeline == nil || glArea == nil {
+	if h == nil || h.wv == nil || h.wv.ctx == nil || glArea == nil {
 		return
 	}
 	rawX, rawY := contextMenuRawPosition(params)
@@ -133,7 +139,7 @@ func logContextMenuPopupRequest(
 		Int32("raw_y", rawY).
 		Int32("popup_x", x).
 		Int32("popup_y", y).
-		Int32("scale", h.wv.pipeline.scale).
+		Int32("scale", h.wv.viewBridgeScale()).
 		Int("anchor_width", glArea.Widget.GetAllocatedWidth()).
 		Int("anchor_height", glArea.Widget.GetAllocatedHeight()).
 		Int("parent_width", cefWidgetAllocatedWidth(parent)).

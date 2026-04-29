@@ -56,7 +56,7 @@ func (a *Cef2gtkAdapter) GLArea() *gtk.GLArea {
 }
 
 // NativeWidget returns the uintptr of the GLArea for embedding via
-// port.NativeWidgetProvider.
+// port.NativeWidgetProvider. Call on the GTK main thread.
 func (a *Cef2gtkAdapter) NativeWidget() uintptr {
 	area := a.GLArea()
 	if area == nil {
@@ -173,8 +173,9 @@ func (a *Cef2gtkAdapter) Diagnostics() cef2gtk.Diagnostics {
 
 // Destroy releases GL resources owned by purego-cef2gtk and disconnects GTK
 // signal handlers. Must be called on the GTK main thread. Not safe for
-// concurrent use. After Destroy, the adapter is marked destroyed and all
-// subsequent operations return ErrAdapterDestroyed.
+// concurrent use; callers must ensure no concurrent adapter reads are in flight.
+// After Destroy, the adapter is marked destroyed and all subsequent operations
+// return ErrAdapterDestroyed.
 func (a *Cef2gtkAdapter) Destroy() error {
 	if a == nil {
 		return ErrAdapterDestroyed
