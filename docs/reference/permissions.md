@@ -23,6 +23,14 @@ These permissions require explicit user approval:
 
 When both microphone and camera are requested together, a combined dialog is shown.
 
+## WebAuthn / passkeys / security keys
+
+Dumber currently **disables** WebAuthn (`PublicKeyCredential`, passkeys, FIDO2/security keys) in embedded CEF panes. The current CEF integration uses windowless/OSR Alloy browsers and does not expose the Chromium WebAuthn request UI/delegate needed for PIN, account selection, or transport UI.
+
+If a site requires passkeys or hardware security keys, use the system browser for that auth flow until a dedicated Chrome-runtime auth-window prototype exists.
+
+> ⚠️ **Developer override (unsupported)**: Set `DUMBER_CEF_ENABLE_WEBAUTHN_UNSAFE=1` to temporarily re-enable WebAuthn. This is unsupported and may crash.
+
 ## Permission Dialog
 
 When a site requests mic/camera access, a dialog appears with four options:

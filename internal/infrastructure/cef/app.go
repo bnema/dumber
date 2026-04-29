@@ -8,7 +8,18 @@ import (
 	"github.com/bnema/dumber/internal/logging"
 )
 
-const dumbSchemeName = "dumb"
+const (
+	dumbSchemeName                     = "dumb"
+	chromiumDisableFeaturesSwitch      = "disable-features"
+	chromiumDisableBlinkFeaturesSwitch = "disable-blink-features"
+)
+
+// Chromium's core Blink runtime flag for the Web Authentication API is
+// "WebAuth" (PublicKeyCredential IDL uses RuntimeEnabled=WebAuth). The
+// longer "WebAuthentication*" names are separate subfeatures/metrics.
+var cefWebAuthnFeaturesDisabledByPolicy = []string{
+	"WebAuth",
+}
 
 func dumbSchemeOptions() int32 {
 	return purecef.SchemeOptionsSchemeOptionStandard |
@@ -38,6 +49,99 @@ func configureCommandLine(commandLine purecef.CommandLine) {
 	// Reddit autoplay muted videos in the feed; without this policy
 	// Chromium blocks them, showing an infinite spinner.
 	commandLine.AppendSwitchWithValue("autoplay-policy", "no-user-gesture-required")
+
+	configureWebAuthnFeaturePolicy(commandLine)
+}
+
+func configureWebAuthnFeaturePolicy(commandLine purecef.CommandLine) {
+	if commandLine == nil {
+		return
+	}
+	if cefWebAuthnUnsafeEnabled() {
+		removeCommaSeparatedSwitchValues(commandLine, chromiumDisableFeaturesSwitch, cefWebAuthnFeaturesDisabledByPolicy...)
+		removeCommaSeparatedSwitchValues(commandLine, chromiumDisableBlinkFeaturesSwitch, cefWebAuthnFeaturesDisabledByPolicy...)
+		return
+	}
+	appendUniqueCommaSeparatedSwitchValues(commandLine, chromiumDisableFeaturesSwitch, cefWebAuthnFeaturesDisabledByPolicy...)
+	appendUniqueCommaSeparatedSwitchValues(commandLine, chromiumDisableBlinkFeaturesSwitch, cefWebAuthnFeaturesDisabledByPolicy...)
+}
+
+func appendUniqueCommaSeparatedSwitchValues(commandLine purecef.CommandLine, name string, values ...string) {
+	if commandLine == nil || len(values) == 0 {
+		return
+	}
+
+	seen := make(map[string]struct{}, len(values))
+	combined := make([]string, 0, len(values))
+	for _, value := range strings.Split(commandLine.GetSwitchValue(name), ",") {
+		value = strings.TrimSpace(value)
+		if value == "" {
+			continue
+		}
+		if _, ok := seen[value]; ok {
+			continue
+		}
+		seen[value] = struct{}{}
+		combined = append(combined, value)
+	}
+	for _, value := range values {
+		value = strings.TrimSpace(value)
+		if value == "" {
+			continue
+		}
+		if _, ok := seen[value]; ok {
+			continue
+		}
+		seen[value] = struct{}{}
+		combined = append(combined, value)
+	}
+
+	if len(combined) == 0 {
+		return
+	}
+	commandLine.AppendSwitchWithValue(name, strings.Join(combined, ","))
+}
+
+func removeCommaSeparatedSwitchValues(commandLine purecef.CommandLine, name string, values ...string) {
+	if commandLine == nil || len(values) == 0 {
+		return
+	}
+
+	existing := commandLine.GetSwitchValue(name)
+	if existing == "" {
+		return
+	}
+
+	removeSet := make(map[string]struct{}, len(values))
+	for _, v := range values {
+		removeSet[strings.TrimSpace(v)] = struct{}{}
+	}
+
+	tokens := strings.Split(existing, ",")
+	cleaned := make([]string, 0, len(tokens))
+	removed := false
+	for _, token := range tokens {
+		token = strings.TrimSpace(token)
+		if token == "" {
+			continue
+		}
+		if _, ok := removeSet[token]; ok {
+			removed = true
+			continue
+		}
+		cleaned = append(cleaned, token)
+	}
+
+	if !removed {
+		return
+	}
+
+	if len(cleaned) == 0 {
+		commandLine.RemoveSwitch(name)
+		return
+	}
+
+	commandLine.AppendSwitchWithValue(name, strings.Join(cleaned, ","))
 }
 
 // dumberApp implements purecef.App to provide custom scheme registration,
@@ -73,6 +177,19 @@ func (a *dumberApp) OnBeforeCommandLineProcessing(processType string, commandLin
 	log := logging.FromContext(a.engine.ctx)
 	if commandLine != nil {
 		configureCommandLine(commandLine)
+
+		if processType == "" {
+			if cefWebAuthnUnsafeEnabled() {
+				log.Warn().
+					Str("env_var", cefEnableWebAuthnUnsafeEnvVar).
+					Msg("cef: WebAuthn enabled via unsupported developer override")
+			} else {
+				log.Info().
+					Strs("disabled_features", cefWebAuthnFeaturesDisabledByPolicy).
+					Str("override_env_var", cefEnableWebAuthnUnsafeEnvVar).
+					Msg("cef: WebAuthn disabled for CEF windowless/Alloy runtime")
+			}
+		}
 
 		cmdline := commandLine.GetCommandLineString()
 		if len(cmdline) > maxCmdLineLogLen {
@@ -124,6 +241,7 @@ func (h *dumberBPH) OnBeforeChildProcessLaunch(commandLine purecef.CommandLine) 
 	useAngle := ""
 	ozonePlatform := ""
 	if commandLine != nil {
+		configureWebAuthnFeaturePolicy(commandLine)
 		appendSwitchIfMissing(commandLine, "no-zygote")
 		processType = commandLine.GetSwitchValue("type")
 		commandLineString = commandLine.GetCommandLineString()
