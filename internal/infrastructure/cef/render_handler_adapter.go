@@ -8,23 +8,23 @@ import (
 )
 
 func newDumberRenderHandler(wv *WebView) purecef.RenderHandler {
+	if wv == nil || wv.viewBridge == nil {
+		return nil
+	}
 	hooks := cef2gtk.Hooks{
 		OnUnsupportedPaint: func() {
-			if wv != nil && wv.ctx != nil {
+			if wv.ctx != nil {
 				logging.FromContext(wv.ctx).Warn().Msg("cef: unsupported CPU paint from accelerated bridge")
 			}
 		},
 		OnError: func(err error) {
-			if wv != nil && wv.ctx != nil {
+			if wv.ctx != nil {
 				logging.FromContext(wv.ctx).Warn().Err(err).Msg("cef: accelerated render bridge error")
 			}
 		},
 		OnTextSelectionChanged: func(selectedText string, _ *purecef.Range) {
 			handleRenderTextSelectionChanged(wv, selectedText)
 		},
-	}
-	if wv == nil || wv.viewBridge == nil {
-		return nil
 	}
 	return wv.viewBridge.RenderHandler(hooks)
 }

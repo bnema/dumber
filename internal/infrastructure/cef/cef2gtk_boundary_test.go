@@ -27,7 +27,11 @@ func TestCEF2GTKImportStaysInInfrastructureCEF(t *testing.T) {
 		if filepath.Ext(path) != ".go" || strings.HasSuffix(path, "_test.go") {
 			return nil
 		}
-		if !importsCEF2GTK(path) {
+		importsBridge, err := importsCEF2GTK(path)
+		if err != nil {
+			return err
+		}
+		if !importsBridge {
 			return nil
 		}
 		rel, err := filepath.Rel(root, path)
@@ -44,18 +48,18 @@ func TestCEF2GTKImportStaysInInfrastructureCEF(t *testing.T) {
 	}
 }
 
-func importsCEF2GTK(path string) bool {
+func importsCEF2GTK(path string) (bool, error) {
 	file, err := parser.ParseFile(token.NewFileSet(), path, nil, parser.ImportsOnly)
 	if err != nil {
-		return false
+		return false, err
 	}
 	for _, spec := range file.Imports {
 		importPath, err := strconv.Unquote(spec.Path.Value)
-		if err == nil && importPath == "github.com/bnema/purego-cef2gtk" {
-			return true
+		if err == nil && strings.HasPrefix(importPath, "github.com/bnema/purego-cef2gtk") {
+			return true, nil
 		}
 	}
-	return false
+	return false, nil
 }
 
 func repoRoot(t *testing.T) string {

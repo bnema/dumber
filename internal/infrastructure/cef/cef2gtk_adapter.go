@@ -173,10 +173,11 @@ func (a *Cef2gtkAdapter) Diagnostics() cef2gtk.Diagnostics {
 }
 
 // Destroy releases GL resources owned by purego-cef2gtk and disconnects GTK
-// signal handlers. Must be called on the GTK main thread. Not safe for
-// concurrent use; callers must ensure no concurrent adapter reads are in flight.
-// After Destroy, the adapter is marked destroyed and all subsequent operations
-// return ErrAdapterDestroyed.
+// signal handlers. Must be called on the GTK main thread. The atomic destroyed
+// flag only communicates lifecycle state; accesses to view are not otherwise
+// synchronized, so callers must ensure no concurrent adapter method is using the
+// view while Destroy runs. After Destroy, operations return ErrAdapterDestroyed
+// or a zero-value result.
 func (a *Cef2gtkAdapter) Destroy() error {
 	if a == nil {
 		return ErrAdapterDestroyed
