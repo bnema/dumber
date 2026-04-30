@@ -123,17 +123,6 @@ func (f *WebViewFactory) newWebView(ctx context.Context) (*WebView, error) {
 	wv.handlers = handlers
 	wv.findCtrl = newFindController()
 
-	var prepareErr error
-	wv.runOnGTKSync(func() {
-		prepareErr = viewBridge.PrepareOnGTKThread()
-	})
-	if prepareErr != nil {
-		if ctx != nil {
-			logging.FromContext(ctx).Error().Err(prepareErr).Uint64("webview_id", uint64(id)).Msg("cef: failed to prepare cef2gtk view")
-		}
-		return nil, fmt.Errorf("prepare cef2gtk view: %w", prepareErr)
-	}
-
 	// Build a CEF client backed by our handlerSet.
 	// Store on WebView to prevent GC collection before CEF AddRef's it.
 	wv.client = purecef.NewClient(wv.handlers)
@@ -159,17 +148,27 @@ func (f *WebViewFactory) configureInitialBrowserCreation(
 	if wv.viewBridge == nil {
 		return
 	}
-	firstResize := true
+	browserCreateScheduled := false
 	wv.runOnGTKSync(func() {
 		wv.removeSizeObserver = wv.viewBridge.AddSizeObserver(func(w, h int32) {
-			if firstResize {
-				firstResize = false
+			// Size observers run on the GTK thread. Prepare the GtkGLArea only after it
+			// has been packed and allocated; preparing at WebView construction time can
+			// run before GTK has created a GL context.
+			if !browserCreateScheduled {
+				if err := wv.viewBridge.PrepareOnGTKThread(); err != nil {
+					logging.FromContext(ctx).Warn().
+						Err(err).
+						Uint64("webview_id", uint64(wv.id)).
+						Int32("resize_width", w).
+						Int32("resize_height", h).
+						Msg("cef: cef2gtk view not ready after resize, will retry")
+					return
+				}
+				browserCreateScheduled = true
 				onFirstResize(w, h)
 				return
 			}
 
-			// Size observers run on the GTK thread; the captured firstResize state is
-			// therefore single-threaded.
 			wv.mu.RLock()
 			host := wv.host
 			wv.mu.RUnlock()
