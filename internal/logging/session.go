@@ -1,6 +1,7 @@
 package logging
 
 import (
+	"context"
 	"crypto/rand"
 	"encoding/hex"
 	"errors"
@@ -53,6 +54,31 @@ func ParseSessionFilename(filename string) (sessionID string, ok bool) {
 // Example: "20251217_205106_a7b3" -> "session_20251217_205106_a7b3.log"
 func SessionFilename(sessionID string) string {
 	return "session_" + sessionID + ".log"
+}
+
+type sessionMetadataKey struct{}
+
+// SessionMetadata describes the active browser session log identity carried by context.
+type SessionMetadata struct {
+	ID      string
+	LogPath string
+}
+
+// WithSessionMetadata attaches active session metadata to ctx.
+func WithSessionMetadata(ctx context.Context, id, logPath string) context.Context {
+	if ctx == nil {
+		ctx = context.Background()
+	}
+	return context.WithValue(ctx, sessionMetadataKey{}, SessionMetadata{ID: id, LogPath: logPath})
+}
+
+// SessionMetadataFromContext returns active session metadata from ctx, if present.
+func SessionMetadataFromContext(ctx context.Context) (SessionMetadata, bool) {
+	if ctx == nil {
+		return SessionMetadata{}, false
+	}
+	metadata, ok := ctx.Value(sessionMetadataKey{}).(SessionMetadata)
+	return metadata, ok
 }
 
 type sessionLogFile struct {

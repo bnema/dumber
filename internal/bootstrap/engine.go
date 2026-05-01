@@ -95,8 +95,9 @@ func BuildEngine(input EngineInput) (port.Engine, error) {
 		}
 		audioFactory := audiofactory.NewAudioOutputFactory()
 		return cef.NewEngine(input.Ctx, opts, cef.RuntimePaths{
-			StateRoot: profile.CEFUserDataDir(),
-			LogFile:   profile.CEFLogFile(),
+			StateRoot:     profile.CEFUserDataDir(),
+			LogFile:       profile.CEFLogFile(),
+			ProfileLogDir: profile.Shared.LogDir,
 		}, cefCfg, audioFactory, deps)
 	default:
 		return nil, fmt.Errorf("unknown engine type: %q", engineType)

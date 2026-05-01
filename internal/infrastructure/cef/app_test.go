@@ -297,6 +297,77 @@ func TestConfigureCommandLine_PreservesExistingOzonePlatform(t *testing.T) {
 	}
 }
 
+func TestConfigureCommandLine_EnableVAAPIEnvAppendsHardwareDecodeFlags(t *testing.T) {
+	t.Setenv(cefEnableVAAPIEnvVar, "1")
+
+	commandLine := newMutableCommandLineStub()
+	commandLine.AppendSwitchWithValue(chromiumEnableFeaturesSwitch, "ExistingFeature")
+
+	configureCommandLine(commandLine)
+
+	if got := commandLine.GetSwitchValue(chromiumEnableFeaturesSwitch); got != "ExistingFeature,AcceleratedVideoDecoder,AcceleratedVideoDecodeLinuxGL,AcceleratedVideoDecodeLinuxZeroCopyGL,VaapiIgnoreDriverChecks" {
+		t.Fatalf("enable-features = %q, want VAAPI features appended", got)
+	}
+	if !commandLine.HasSwitch("ignore-gpu-blocklist") {
+		t.Fatal("expected ignore-gpu-blocklist switch")
+	}
+	if !commandLine.HasSwitch("enable-zero-copy") {
+		t.Fatal("expected enable-zero-copy switch")
+	}
+}
+
+func TestConfigureCommandLine_ChromiumFlagsEnvAppendsSwitches(t *testing.T) {
+	t.Setenv(cefChromiumFlagsEnvVar, `--enable-features=VaapiVideoDecoder,VaapiIgnoreDriverChecks --ignore-gpu-blocklist --autoplay-policy=document-user-activation-required ignored-arg`)
+
+	commandLine := newMutableCommandLineStub()
+	commandLine.AppendSwitchWithValue(chromiumEnableFeaturesSwitch, "ExistingFeature")
+
+	configureCommandLine(commandLine)
+
+	if got := commandLine.GetSwitchValue(chromiumEnableFeaturesSwitch); got != "ExistingFeature,VaapiVideoDecoder,VaapiIgnoreDriverChecks" {
+		t.Fatalf("enable-features = %q, want env features appended", got)
+	}
+	if !commandLine.HasSwitch("ignore-gpu-blocklist") {
+		t.Fatal("expected ignore-gpu-blocklist switch")
+	}
+	if got := commandLine.GetSwitchValue("autoplay-policy"); got != "document-user-activation-required" {
+		t.Fatalf("autoplay-policy = %q, want env override", got)
+	}
+	if commandLine.HasSwitch("ignored-arg") {
+		t.Fatal("non-switch env token should be ignored")
+	}
+}
+
+func TestParseChromiumSwitchToken(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name      string
+		token     string
+		wantName  string
+		wantValue string
+		wantOK    bool
+	}{
+		{name: "long switch with value", token: "--enable-features=VaapiVideoDecoder", wantName: "enable-features", wantValue: "VaapiVideoDecoder", wantOK: true},
+		{name: "long switch without value", token: "--ignore-gpu-blocklist", wantName: "ignore-gpu-blocklist", wantOK: true},
+		{name: "single dash switch", token: "-enable-zero-copy", wantName: "enable-zero-copy", wantOK: true},
+		{name: "empty value", token: "--flag=", wantName: "flag", wantOK: true},
+		{name: "embedded equals", token: "--flag=a=b", wantName: "flag", wantValue: "a=b", wantOK: true},
+		{name: "non switch", token: "youtube.com", wantOK: false},
+		{name: "sentinel", token: "--", wantOK: false},
+		{name: "empty", token: " ", wantOK: false},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			gotName, gotValue, gotOK := parseChromiumSwitchToken(tt.token)
+			if gotName != tt.wantName || gotValue != tt.wantValue || gotOK != tt.wantOK {
+				t.Fatalf("parseChromiumSwitchToken(%q) = (%q, %q, %v), want (%q, %q, %v)", tt.token, gotName, gotValue, gotOK, tt.wantName, tt.wantValue, tt.wantOK)
+			}
+		})
+	}
+}
+
 func TestAppendUniqueCommaSeparatedSwitchValues(t *testing.T) {
 	t.Run("trims whitespace and skips empty existing values", func(t *testing.T) {
 		commandLine := newMutableCommandLineStub()

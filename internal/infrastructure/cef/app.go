@@ -1,6 +1,7 @@
 package cef
 
 import (
+	"os"
 	"strings"
 
 	purecef "github.com/bnema/purego-cef/cef"
@@ -11,6 +12,7 @@ import (
 
 const (
 	dumbSchemeName                     = "dumb"
+	chromiumEnableFeaturesSwitch       = "enable-features"
 	chromiumDisableFeaturesSwitch      = "disable-features"
 	chromiumDisableBlinkFeaturesSwitch = "disable-blink-features"
 )
@@ -56,7 +58,94 @@ func configureCommandLine(commandLine purecef.CommandLine) {
 	// Chromium blocks them, showing an infinite spinner.
 	commandLine.AppendSwitchWithValue("autoplay-policy", "no-user-gesture-required")
 
+	configureHardwareVideoDecode(commandLine)
+	configureEnvChromiumFlags(commandLine)
 	configureWebAuthnFeaturePolicy(commandLine)
+}
+
+func configureHardwareVideoDecode(commandLine purecef.CommandLine) {
+	if commandLine == nil || !envBoolEnabled(cefEnableVAAPIEnvVar) {
+		return
+	}
+
+	appendUniqueCommaSeparatedSwitchValues(commandLine, chromiumEnableFeaturesSwitch,
+		"AcceleratedVideoDecoder",
+		"AcceleratedVideoDecodeLinuxGL",
+		"AcceleratedVideoDecodeLinuxZeroCopyGL",
+		"VaapiIgnoreDriverChecks",
+	)
+	appendSwitchIfMissing(commandLine, "ignore-gpu-blocklist")
+	appendSwitchIfMissing(commandLine, "enable-zero-copy")
+}
+
+func configureEnvChromiumFlags(commandLine purecef.CommandLine) {
+	if commandLine == nil {
+		return
+	}
+
+	for _, token := range parseChromiumFlagsEnv(os.Getenv(cefChromiumFlagsEnvVar)) {
+		applyChromiumFlagToken(commandLine, token)
+	}
+}
+
+func parseChromiumFlagsEnv(raw string) []string {
+	// Reuse Dumber's command-line tokenizer so developer env flags can contain
+	// quoted values without adding a second shell-like parser in the CEF adapter.
+	return parseRelaunchCommandLineArgs(raw)
+}
+
+func applyChromiumFlagToken(commandLine purecef.CommandLine, token string) {
+	if commandLine == nil {
+		return
+	}
+	token = strings.TrimSpace(token)
+	if token == "" || token == "--" {
+		return
+	}
+	name, value, ok := parseChromiumSwitchToken(token)
+	if !ok {
+		return
+	}
+
+	switch name {
+	case chromiumEnableFeaturesSwitch, chromiumDisableFeaturesSwitch, chromiumDisableBlinkFeaturesSwitch:
+		appendUniqueCommaSeparatedSwitchValues(commandLine, name, strings.Split(value, ",")...)
+	default:
+		if value == "" {
+			appendSwitchIfMissing(commandLine, name)
+			return
+		}
+		commandLine.AppendSwitchWithValue(name, value)
+	}
+}
+
+func parseChromiumSwitchToken(token string) (name, value string, ok bool) {
+	token = strings.TrimSpace(token)
+	if token == "" {
+		return "", "", false
+	}
+
+	switch {
+	case strings.HasPrefix(token, "--"):
+		token = strings.TrimPrefix(token, "--")
+	case strings.HasPrefix(token, "-"):
+		token = strings.TrimPrefix(token, "-")
+	default:
+		return "", "", false
+	}
+
+	if token == "" || strings.HasPrefix(token, "-") {
+		return "", "", false
+	}
+	name, value, found := strings.Cut(token, "=")
+	name = strings.TrimSpace(name)
+	if name == "" {
+		return "", "", false
+	}
+	if !found {
+		return name, "", true
+	}
+	return name, value, true
 }
 
 func configureWebAuthnFeaturePolicy(commandLine purecef.CommandLine) {

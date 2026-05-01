@@ -2,6 +2,7 @@ package cef
 
 import (
 	"context"
+	"errors"
 	"strings"
 
 	purecef "github.com/bnema/purego-cef/cef"
@@ -531,6 +532,9 @@ func (h *handlerSet) attachAfterCreatedBrowser(
 	h.wv.browser = browser
 	h.wv.host = host
 	h.wv.pendingCreate = nil
+	bridge := h.wv.viewBridge
+	h.wv.inputAttached = bridge == nil
+	state.inputAttached = h.wv.inputAttached
 	if h.wv.findCtrl != nil {
 		h.wv.findCtrl.setHost(host)
 	}
@@ -542,10 +546,11 @@ func (h *handlerSet) attachAfterCreatedBrowser(
 	state.hasPendingNavigation = strings.TrimSpace(h.wv.pendingURI) != ""
 	h.wv.mu.Unlock()
 
-	if h.wv.viewBridge != nil {
+	if bridge != nil {
 		wv := h.wv
 		wv.runOnGTK(func() {
-			if wv.viewBridge == nil {
+			if wv.destroyed.Load() || wv.viewBridge == nil {
+				wv.handleInputAttachFailure(ErrAdapterDestroyed, host)
 				return
 			}
 			if err := wv.viewBridge.AttachInput(host, cef2gtk.InputOptions{
@@ -559,28 +564,39 @@ func (h *handlerSet) attachAfterCreatedBrowser(
 						wv.engine.handleExplicitClipboardBridgeText(wv.id, action, text)
 					}
 				},
-			}); err != nil && wv.ctx != nil {
-				logging.FromContext(wv.ctx).Warn().Err(err).Msg("cef: failed to attach input to cef2gtk bridge")
+			}); err != nil {
+				wv.handleInputAttachFailure(err, host)
+				return
 			}
+			if wv.viewBridge != nil && wv.viewBridge.HasFocus() {
+				syncWindowlessBrowserFocus(host)
+			} else {
+				host.Invalidate(purecef.PaintElementTypePetView)
+			}
+			wv.markInputAttached()
 		})
 	}
 
 	// Mark browser as visible — CEF OSR starts in hidden state and suppresses
 	// painting/caret updates until explicitly told the browser is shown.
 	host.WasHidden(0)
-	state.shouldSyncFocus = h.afterCreatedShouldSyncFocus()
 	return state
 }
 
-func (h *handlerSet) afterCreatedShouldSyncFocus() bool {
-	if h == nil || h.wv == nil || h.wv.viewBridge == nil {
-		return false
+func (wv *WebView) handleInputAttachFailure(err error, host purecef.BrowserHost) {
+	if wv == nil || err == nil {
+		return
 	}
-	focused := false
-	h.wv.runOnGTKSync(func() {
-		focused = h.wv.viewBridge != nil && h.wv.viewBridge.HasFocus()
-	})
-	return focused
+	if wv.ctx != nil {
+		logging.FromContext(wv.ctx).Warn().Err(err).Msg("cef: failed to attach input to cef2gtk bridge")
+	}
+	if errors.Is(err, ErrAdapterDestroyed) {
+		if host != nil && !wv.destroyed.Load() {
+			host.CloseBrowser(1)
+			return
+		}
+		wv.runCloseCallbacks()
+	}
 }
 
 func (h *handlerSet) finishAfterCreated(
@@ -594,9 +610,7 @@ func (h *handlerSet) finishAfterCreated(
 		h.wv.engine.bindBrowserWebView(browser, h.wv)
 	}
 	h.wv.stopNativePopupFallbackTimer()
-	if state.shouldSyncFocus {
-		syncWindowlessBrowserFocus(host)
-	} else {
+	if state.inputAttached {
 		// Request an initial OSR frame even before the first real navigation
 		// commits. This restores the about:blank warm-up paint that the stable
 		// startup path relied on and prevents the rendering bridge from staying idle.
@@ -613,7 +627,7 @@ func (h *handlerSet) finishAfterCreated(
 }
 
 type afterCreatedState struct {
-	shouldSyncFocus      bool
+	inputAttached        bool
 	hasPendingNavigation bool
 	nativePopupParent    *WebView
 	nativePopupID        int32
@@ -638,6 +652,7 @@ func (h *handlerSet) OnBeforeClose(browser purecef.Browser) {
 	h.wv.mu.Lock()
 	h.wv.browser = nil
 	h.wv.host = nil
+	h.wv.inputAttached = false
 	if h.wv.findCtrl != nil {
 		h.wv.findCtrl.setHost(nil)
 	}

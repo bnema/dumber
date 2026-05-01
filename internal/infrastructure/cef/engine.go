@@ -23,9 +23,10 @@ var _ port.AlreadyRunningAppRelaunchHandlerSetter = (*Engine)(nil)
 // Engine implements port.Engine for the CEF browser backend.
 // It manages the CEF lifecycle and provides access to all engine subsystems.
 type Engine struct {
-	ctx     context.Context
-	factory *WebViewFactory
-	pool    *WebViewPool
+	ctx           context.Context
+	factory       *WebViewFactory
+	pool          *WebViewPool
+	profileLogDir string
 
 	messageRouter *MessageRouter
 	schemeHandler *dumbSchemeHandler
@@ -55,6 +56,12 @@ type Engine struct {
 	// during shutdown, replacing the busy-wait poll in closeActiveWebViews.
 	shutdownNotify chan struct{}
 
+	// Cross-layer render diagnostics.
+	cefHeartbeatStop chan struct{}
+	cefHeartbeatDone chan struct{}
+	cefUIHeartbeat   cefThreadHeartbeatState
+	cefIOHeartbeat   cefThreadHeartbeatState
+
 	// Diagnostic counters.
 	contextInitializedCount atomic.Uint64
 	childLaunchRenderer     atomic.Uint64
@@ -68,7 +75,6 @@ type Engine struct {
 	browserCreateLastWidth  atomic.Int32
 	browserCreateLastHeight atomic.Int32
 	browserCreateComplete   atomic.Bool
-
 }
 
 func (e *Engine) Factory() port.WebViewFactory {
@@ -196,6 +202,7 @@ func (e *Engine) Close() error {
 
 	e.closeActiveWebViews()
 	e.pool.Close()
+	e.stopCEFHeartbeat()
 
 	if activeAfter := e.activeWebViewCount(); activeAfter > 0 {
 		log.Warn().
@@ -474,4 +481,3 @@ func (e *Engine) currentDownloadHandler() *downloadHandler {
 	defer e.downloadMu.RUnlock()
 	return e.downloadHandler
 }
-

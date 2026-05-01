@@ -14,6 +14,7 @@ import (
 	"time"
 
 	purecef "github.com/bnema/purego-cef/cef"
+	cef2gtk "github.com/bnema/purego-cef2gtk"
 	"github.com/bnema/puregotk/v4/glib"
 	"github.com/bnema/puregotk/v4/gtk"
 
@@ -68,15 +69,24 @@ var (
 // driven through purego-cef2gtk. Dumber owns browser state and callbacks; the
 // bridge owns GTK rendering and input forwarding.
 type WebView struct {
-	id         port.WebViewID
-	ctx        context.Context
-	engine     *Engine
-	browser    purecef.Browser
-	host       purecef.BrowserHost
-	client     purecef.RawClient // prevent GC from collecting the client before CEF AddRef's it
-	viewBridge *Cef2gtkAdapter
-	handlers   *handlerSet
-	findCtrl   *cefFindController
+	id                        port.WebViewID
+	ctx                       context.Context
+	engine                    *Engine
+	browser                   purecef.Browser
+	host                      purecef.BrowserHost
+	client                    purecef.RawClient // prevent GC from collecting the client before CEF AddRef's it
+	viewBridge                *Cef2gtkAdapter
+	handlers                  *handlerSet
+	findCtrl                  *cefFindController
+	profileCleanup            func()
+	profileMu                 sync.Mutex
+	renderStallMu             sync.Mutex
+	renderStallStop           chan struct{}
+	renderStallDone           chan struct{}
+	renderStallRecoveryLastAt time.Time
+	latestProfileSnapshot     cef2gtk.ProfileSnapshot
+	previousProfileSnapshot   cef2gtk.ProfileSnapshot
+	latestProfileSnapshotAt   time.Time
 
 	removeSizeObserver func()
 
@@ -137,6 +147,7 @@ type WebView struct {
 	isLoading                 bool
 	selectedText              string
 	focusedEditable           bool
+	inputAttached             bool
 	bridgeNonce               string
 	selectionDebounceTimer    stoppableTimer
 	selectionDebounceSeq      uint64
@@ -513,9 +524,9 @@ func (wv *WebView) SetOnReadyToShow(fn func()) {
 	}
 	wv.mu.Lock()
 	wv.popupReadyToShow = fn
-	alreadyReady := wv.browser != nil && !wv.popupReadyShown && fn != nil
+	shouldTryReady := wv.browser != nil && fn != nil
 	wv.mu.Unlock()
-	if alreadyReady {
+	if shouldTryReady {
 		wv.fireReadyToShow()
 	}
 }
@@ -596,7 +607,7 @@ func (wv *WebView) fireReadyToShow() {
 		return
 	}
 	wv.mu.Lock()
-	if wv.popupReadyShown || wv.popupReadyToShow == nil {
+	if wv.popupReadyShown || wv.popupReadyToShow == nil || !wv.inputAttached {
 		wv.mu.Unlock()
 		return
 	}
@@ -604,6 +615,16 @@ func (wv *WebView) fireReadyToShow() {
 	wv.popupReadyShown = true
 	wv.mu.Unlock()
 	wv.runOnGTK(fn)
+}
+
+func (wv *WebView) markInputAttached() {
+	if wv == nil || wv.destroyed.Load() {
+		return
+	}
+	wv.mu.Lock()
+	wv.inputAttached = true
+	wv.mu.Unlock()
+	wv.fireReadyToShow()
 }
 
 func (wv *WebView) markNativePopupCandidate(parent *WebView) {
@@ -1000,6 +1021,7 @@ func (wv *WebView) Destroy() {
 	wv.openerMessageCallbacks = nil
 	wv.openerNavigationCallbacks = nil
 	wv.popupReadyToShow = nil
+	wv.inputAttached = false
 	wv.pendingNativePopups = nil
 	wv.nativePopupParent = nil
 	wv.nativePopupCandidate = false
@@ -1009,6 +1031,7 @@ func (wv *WebView) Destroy() {
 	wv.popupOpenerBridgeParentURI = ""
 	wv.mu.Unlock()
 	wv.stopNativePopupFallbackTimer()
+	wv.stopRenderStallWatchdog()
 	wv.cancelSelectionDebounce()
 	wv.closeAudioStream()
 	wv.scheduleStopBeginFrameLoop()
@@ -1030,13 +1053,17 @@ func (wv *WebView) Destroy() {
 			_ = bridge.Destroy()
 		})
 	}
+	if wv.profileCleanup != nil {
+		wv.profileCleanup()
+		wv.profileCleanup = nil
+	}
 }
 
 // ---------------------------------------------------------------------------
 // NativeWidgetProvider
 // ---------------------------------------------------------------------------
 
-// NativeWidget returns the uintptr for embedding the bridge GtkGLArea into GTK.
+// NativeWidget returns the uintptr for embedding the bridge GTK widget.
 func (wv *WebView) NativeWidget() uintptr {
 	if wv.viewBridge == nil {
 		return 0
@@ -1563,7 +1590,7 @@ func (wv *WebView) scheduleStopBeginFrameLoop() {
 }
 
 func (wv *WebView) startBeginFrameLoop() {
-	if wv.destroyed.Load() || wv.viewBridge == nil || wv.viewBridge.GLArea() == nil {
+	if wv.destroyed.Load() || wv.viewBridge == nil || wv.viewBridge.Widget() == nil {
 		return
 	}
 
@@ -1573,7 +1600,7 @@ func (wv *WebView) startBeginFrameLoop() {
 		return
 	}
 
-	glArea := wv.viewBridge.GLArea()
+	widget := wv.viewBridge.Widget()
 	cb := new(gtk.TickCallback)
 	*cb = func(_, _, _ uintptr) bool {
 		if wv.destroyed.Load() {
@@ -1589,7 +1616,7 @@ func (wv *WebView) startBeginFrameLoop() {
 		return true
 	}
 	wv.beginFrameTick = cb
-	wv.beginFrameTickID = glArea.AddTickCallback(cb, 0, nil)
+	wv.beginFrameTickID = widget.AddTickCallback(cb, 0, nil)
 	host := wv.host
 	wv.mu.Unlock()
 
@@ -1599,7 +1626,7 @@ func (wv *WebView) startBeginFrameLoop() {
 }
 
 func (wv *WebView) stopBeginFrameLoop() {
-	if wv.viewBridge == nil || wv.viewBridge.GLArea() == nil {
+	if wv.viewBridge == nil || wv.viewBridge.Widget() == nil {
 		return
 	}
 
@@ -1607,11 +1634,11 @@ func (wv *WebView) stopBeginFrameLoop() {
 	tickID := wv.beginFrameTickID
 	wv.beginFrameTickID = 0
 	wv.beginFrameTick = nil
-	glArea := wv.viewBridge.GLArea()
+	widget := wv.viewBridge.Widget()
 	wv.mu.Unlock()
 
 	if tickID != 0 {
-		glArea.RemoveTickCallback(tickID)
+		widget.RemoveTickCallback(tickID)
 	}
 }
 

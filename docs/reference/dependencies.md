@@ -71,6 +71,10 @@ sudo pacman -S gst-plugins-base gst-plugins-good gst-plugins-bad gst-plugins-ugl
 sudo pacman -S vulkan-tools  # for vulkaninfo
 ```
 
+### CEF Wayland rendering
+
+When `engine.type = "cef"`, Dumber defaults to the GPU-first Wayland stack: GDK DMABUF presentation with ANGLE/GSK Vulkan. No launch wrapper or render environment variables are required for normal use. Set `DUMBER_RENDER_STACK=legacy-gl` only when diagnosing the older GtkGLArea/OpenGL fallback path.
+
 ## Debian/Ubuntu
 
 ### Core GTK4 and WebKit

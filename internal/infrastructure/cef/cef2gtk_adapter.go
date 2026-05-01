@@ -28,8 +28,8 @@ type Cef2gtkAdapter struct {
 	destroyed atomic.Bool
 }
 
-// NewCef2gtkAdapter creates a GtkGLArea-backed accelerated CEF view and wraps
-// it in a thin Dumber adapter.
+// NewCef2gtkAdapter creates an accelerated CEF view and wraps it in a thin
+// Dumber adapter.
 func NewCef2gtkAdapter() *Cef2gtkAdapter {
 	v := cef2gtk.NewView()
 	if v == nil {
@@ -47,8 +47,8 @@ func (a *Cef2gtkAdapter) Widget() *gtk.Widget {
 	return a.view.Widget()
 }
 
-// GLArea returns the underlying GtkGLArea for signal connections (resize,
-// tick, etc.). Signal connection/disconnection must happen on the GTK thread.
+// GLArea returns the underlying GtkGLArea when the GLArea backend is active.
+// It returns nil for the GDK DMABUF backend.
 func (a *Cef2gtkAdapter) GLArea() *gtk.GLArea {
 	if a == nil || a.destroyed.Load() || a.view == nil {
 		return nil
@@ -56,14 +56,14 @@ func (a *Cef2gtkAdapter) GLArea() *gtk.GLArea {
 	return a.view.GLArea()
 }
 
-// NativeWidget returns the uintptr of the GLArea for embedding via
+// NativeWidget returns the uintptr of the active GTK widget for embedding via
 // port.NativeWidgetProvider. Call on the GTK main thread.
 func (a *Cef2gtkAdapter) NativeWidget() uintptr {
-	area := a.GLArea()
-	if area == nil {
+	widget := a.Widget()
+	if widget == nil {
 		return 0
 	}
-	return area.GoPointer()
+	return widget.GoPointer()
 }
 
 // Size returns the bridge's last observed positive widget size, or 1x1 before
@@ -112,7 +112,7 @@ func (a *Cef2gtkAdapter) SetCursorFromName(name string) {
 	a.view.SetCursorFromName(name)
 }
 
-// PrepareOnGTKThread initializes GL/EGL resources owned by purego-cef2gtk.
+// PrepareOnGTKThread initializes renderer resources owned by purego-cef2gtk.
 // Must be called on the GTK main thread.
 func (a *Cef2gtkAdapter) PrepareOnGTKThread() error {
 	if a == nil || a.destroyed.Load() || a.view == nil {
@@ -123,7 +123,7 @@ func (a *Cef2gtkAdapter) PrepareOnGTKThread() error {
 
 // RenderHandler returns a CEF render handler that delegates accelerated paint
 // handling to purego-cef2gtk. The returned handler satisfies cef.RenderHandler
-// and uses the bridge's DMABUF/EGL import path.
+// and uses the bridge's selected accelerated DMABUF import path.
 //
 // hooks may be a zero-value cef2gtk.Hooks if no custom callbacks are needed.
 func (a *Cef2gtkAdapter) RenderHandler(hooks cef2gtk.Hooks) purecef.RenderHandler {
@@ -131,6 +131,14 @@ func (a *Cef2gtkAdapter) RenderHandler(hooks cef2gtk.Hooks) purecef.RenderHandle
 		return nil
 	}
 	return a.view.RenderHandler(hooks)
+}
+
+// ConfigureProfiling enables or disables purego-cef2gtk render profiling for this view.
+func (a *Cef2gtkAdapter) ConfigureProfiling(opts cef2gtk.ProfileOptions) error {
+	if a == nil || a.destroyed.Load() || a.view == nil {
+		return ErrAdapterDestroyed
+	}
+	return a.view.ConfigureProfiling(opts)
 }
 
 // AttachInput attaches GTK event controllers to the view and forwards input
@@ -172,7 +180,7 @@ func (a *Cef2gtkAdapter) Diagnostics() cef2gtk.Diagnostics {
 	return a.view.Diagnostics()
 }
 
-// Destroy releases GL resources owned by purego-cef2gtk and disconnects GTK
+// Destroy releases renderer resources owned by purego-cef2gtk and disconnects GTK
 // signal handlers. Must be called on the GTK main thread. The atomic destroyed
 // flag only communicates lifecycle state; accesses to view are not otherwise
 // synchronized, so callers must ensure no concurrent adapter method is using the

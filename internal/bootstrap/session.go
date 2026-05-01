@@ -118,7 +118,11 @@ func StartBrowserSession(
 		logger.Info().Str("log_file", logPath).Msg("session log file")
 	}
 
-	sessionCtx := corelogging.WithContext(context.Background(), logger)
+	sessionCtx := corelogging.WithSessionMetadata(
+		corelogging.WithContext(context.Background(), logger),
+		string(session.ID),
+		logPath,
+	)
 
 	bs := &BrowserSession{
 		Session:    session,

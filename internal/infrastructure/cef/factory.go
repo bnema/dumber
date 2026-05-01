@@ -126,6 +126,12 @@ func (f *WebViewFactory) newWebView(ctx context.Context) (*WebView, error) {
 	// Build a CEF client backed by our handlerSet.
 	// Store on WebView to prevent GC collection before CEF AddRef's it.
 	wv.client = purecef.NewClient(wv.handlers)
+	if opts := f.engine.cef2gtkProfileOptions(wv); opts.Enabled {
+		if err := viewBridge.ConfigureProfiling(opts); err != nil {
+			logging.FromContext(ctx).Warn().Err(err).Uint64("webview_id", uint64(id)).Msg("cef2gtk: failed to enable profiling")
+		}
+	}
+	wv.startRenderStallWatchdog()
 	return wv, nil
 }
 

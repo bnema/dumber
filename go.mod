@@ -81,3 +81,5 @@ require (
 replace github.com/bnema/purego-cef2gtk => ../purego-cef2gtk
 
 tool github.com/a-h/templ/cmd/templ
+
+replace github.com/bnema/purego-pipewire => ../purego-pipewire

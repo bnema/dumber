@@ -690,8 +690,11 @@ All config values can be overridden via environment variables with the prefix `D
 DUMBER_DATABASE_PATH=/custom/path/db.sqlite
 
 # Rendering (examples)
-# Defaults: rendering.disable_dmabuf_renderer=false, rendering.gsk_renderer="auto"
+# CEF defaults to the GPU-first Vulkan DMABUF stack.
+# Use legacy-gl only as a diagnostic fallback.
+# DUMBER_RENDER_STACK=legacy-gl
 DUMBER_RENDERING_MODE=cpu
+# WebKit-specific rendering overrides:
 # DUMBER_RENDERING_DISABLE_DMABUF_RENDERER=true
 # DUMBER_RENDERING_GSK_RENDERER=opengl
 DUMBER_DEFAULT_WEBPAGE_ZOOM=1.5

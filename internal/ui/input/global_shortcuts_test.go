@@ -33,7 +33,15 @@ func TestGlobalShortcutHandlerAllowsRepeatingNavigationActions(t *testing.T) {
 }
 
 func TestGlobalShortcutHandlerSuppressesOneShotActionsAfterDetach(t *testing.T) {
-	h := &GlobalShortcutHandler{}
+	h := &GlobalShortcutHandler{
+		registered:     make(map[KeyBinding]Action),
+		lastDispatchAt: make(map[Action]time.Time),
+	}
+
+	if h.suppressRepeatedShortcut(ActionZoomReset, time.Unix(100, 0)) {
+		t.Fatal("one-shot shortcut was suppressed before detach")
+	}
+	h.Detach()
 	if !h.suppressRepeatedShortcut(ActionZoomReset, time.Unix(100, 0)) {
 		t.Fatal("one-shot shortcut was not suppressed with detached handler state")
 	}

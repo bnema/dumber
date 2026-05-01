@@ -76,15 +76,15 @@ func (h *handlerSet) RunContextMenu(
 	executor := h.contextMenuExecutor()
 	wv := h.wv
 	wv.runOnGTK(func() {
-		if wv.viewBridge == nil || wv.viewBridge.GLArea() == nil {
+		if wv.viewBridge == nil || wv.viewBridge.Widget() == nil {
 			callback.Cancel()
 			return
 		}
-		glArea := wv.viewBridge.GLArea()
-		logContextMenuPopupRequest(h, glArea, params, x, y)
+		widget := wv.viewBridge.Widget()
+		logContextMenuPopupRequest(h, widget, params, x, y)
 		gtkmenu.NewRenderer(nil).Show(
 			items,
-			&glArea.Widget,
+			widget,
 			x,
 			y,
 			func(item port.MenuItem) {
@@ -126,23 +126,23 @@ func contextMenuAnchorPosition(params purecef.ContextMenuParams, scale int32) (i
 
 func logContextMenuPopupRequest(
 	h *handlerSet,
-	glArea *gtk.GLArea,
+	widget *gtk.Widget,
 	params purecef.ContextMenuParams,
 	x, y int32,
 ) {
-	if h == nil || h.wv == nil || h.wv.ctx == nil || glArea == nil {
+	if h == nil || h.wv == nil || h.wv.ctx == nil || widget == nil {
 		return
 	}
 	rawX, rawY := contextMenuRawPosition(params)
-	parent := glArea.GetParent()
+	parent := widget.GetParent()
 	logging.FromContext(h.wv.ctx).Debug().
 		Int32("raw_x", rawX).
 		Int32("raw_y", rawY).
 		Int32("popup_x", x).
 		Int32("popup_y", y).
 		Int32("scale", h.wv.viewBridgeScale()).
-		Int("anchor_width", glArea.Widget.GetAllocatedWidth()).
-		Int("anchor_height", glArea.Widget.GetAllocatedHeight()).
+		Int("anchor_width", widget.GetAllocatedWidth()).
+		Int("anchor_height", widget.GetAllocatedHeight()).
 		Int("parent_width", cefWidgetAllocatedWidth(parent)).
 		Int("parent_height", cefWidgetAllocatedHeight(parent)).
 		Msg("cef: context menu popup request")

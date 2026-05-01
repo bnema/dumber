@@ -26,8 +26,9 @@ const CEFRootCachePathEnvVar = "DUMBER_CEF_ROOT_CACHE_PATH"
 
 // RuntimePaths contains the concrete filesystem paths the CEF adapter needs.
 type RuntimePaths struct {
-	StateRoot string
-	LogFile   string
+	StateRoot     string
+	LogFile       string
+	ProfileLogDir string
 }
 
 // NewEngine initializes the CEF runtime and returns a ready-to-use Engine.
@@ -56,6 +57,7 @@ func NewEngine(
 
 	eng := &Engine{
 		ctx:                    ctx,
+		profileLogDir:          paths.ProfileLogDir,
 		registerHandlers:       deps.RegisterHandlers,
 		registerAccentHandlers: deps.RegisterAccentHandlers,
 		currentConfigPayload:   deps.CurrentConfigPayload,
@@ -186,6 +188,7 @@ func wireEngine(
 	}
 	eng.messageRouter = messageRouter
 	eng.schemeHandler = schemeHandler
+	eng.startCEFHeartbeat()
 
 	registerEngineSchemeFactories(logger, purecef.NewSchemeHandlerFactory(schemeHandler))
 	return eng, nil

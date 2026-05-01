@@ -199,6 +199,7 @@ func runGUI(cfg *config.Config) int {
 	timer.Mark("config")
 
 	ctx := initStartupContextWithTrace(cfg)
+	applyCEFRenderStackDefault(ctx, cfg)
 	timer.Mark("logger")
 	bootstrapLog := logging.FromContext(ctx)
 
@@ -273,6 +274,7 @@ func runStandaloneOmnibox() int {
 	cfg := initConfig()
 	configureBrowserLaunchRelay(cfg)
 	ctx := initStartupContextWithTrace(cfg)
+	applyCEFRenderStackDefault(ctx, cfg)
 
 	initResult, err := runParallelInitPhase(ctx, cfg)
 	if err != nil {
@@ -318,6 +320,13 @@ func runStandaloneOmnibox() int {
 	runtimeCfg := ui.NewStandaloneOmniboxRuntime(ctx, uiDeps, nil)
 
 	return ui.RunStandaloneOmnibox(ctx, runtimeCfg)
+}
+
+func applyCEFRenderStackDefault(ctx context.Context, cfg *config.Config) {
+	if cfg == nil || cfg.Engine.ResolveEngineType() != config.EngineTypeCEF {
+		return
+	}
+	infracef.ApplyDefaultRenderStackEnvironment(ctx)
 }
 
 func preInitializeAdwaitaForCEF(cfg *config.Config, initResult *bootstrap.ParallelInitResult, initAdwaita func()) {

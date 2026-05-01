@@ -371,6 +371,8 @@ func (h *GlobalShortcutHandler) suppressRepeatedShortcut(action Action, now time
 		return false
 	}
 	if h.lastDispatchAt == nil {
+		// Detached/reloading handlers clear dispatch state; consume one-shot shortcuts
+		// rather than letting a stale GTK callback repeat destructive actions.
 		return true
 	}
 	if last, ok := h.lastDispatchAt[action]; ok && now.Sub(last) < globalShortcutRepeatSuppressWindow {
