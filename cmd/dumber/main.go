@@ -327,6 +327,7 @@ func applyCEFRenderStackDefault(ctx context.Context, cfg *config.Config) {
 		return
 	}
 	infracef.ApplyDefaultRenderStackEnvironment(ctx)
+	infracef.ApplyDefaultHardwareDecodeEnvironment(ctx, cfg)
 }
 
 func preInitializeAdwaitaForCEF(cfg *config.Config, initResult *bootstrap.ParallelInitResult, initAdwaita func()) {

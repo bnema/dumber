@@ -58,6 +58,7 @@ func NewEngine(
 	eng := &Engine{
 		ctx:                    ctx,
 		profileLogDir:          paths.ProfileLogDir,
+		runtimeCEFDir:          settings.CEFDir,
 		registerHandlers:       deps.RegisterHandlers,
 		registerAccentHandlers: deps.RegisterAccentHandlers,
 		currentConfigPayload:   deps.CurrentConfigPayload,
@@ -153,12 +154,43 @@ func prepareCEFSettings(
 // and browser-process callbacks (OnBeforeCommandLineProcessing, etc.).
 func initializeCEF(eng *Engine, settings purecef.Settings, logger *zerolog.Logger) error {
 	app := newDumberApp(eng)
+	logger.Info().
+		Str("settings_cef_dir", settings.CEFDir).
+		Str("env_cef_dir", os.Getenv("CEF_DIR")).
+		Msg("cef: runtime selection")
 	logger.Debug().Msg("cef: calling InitWithApp")
 	if err := purecef.InitWithApp(settings, app); err != nil {
 		return fmt.Errorf("cef.InitWithApp: %w", err)
 	}
+	if libcefPath := loadedLibCEFPath(); libcefPath != "" {
+		logger.Info().Str("libcef_path", libcefPath).Msg("cef: runtime library loaded")
+	} else {
+		logger.Warn().Msg("cef: runtime library loaded but libcef path was not found in /proc/self/maps")
+	}
 	logger.Debug().Msg("cef: InitWithApp returned OK")
 	return nil
+}
+
+func loadedLibCEFPath() string {
+	data, err := os.ReadFile("/proc/self/maps")
+	if err != nil {
+		return ""
+	}
+	return parseLoadedLibCEFPath(string(data))
+}
+
+func parseLoadedLibCEFPath(maps string) string {
+	for _, line := range strings.Split(maps, "\n") {
+		if !strings.Contains(line, "libcef.so") {
+			continue
+		}
+		pathStart := strings.Index(line, "/")
+		if pathStart < 0 {
+			continue
+		}
+		return strings.TrimSpace(line[pathStart:])
+	}
+	return ""
 }
 
 // wireEngine creates factory, pool, and scheme handler after CEF init.

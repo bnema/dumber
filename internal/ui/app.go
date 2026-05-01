@@ -2581,9 +2581,23 @@ func (a *App) MainWindow() *window.MainWindow {
 
 // Quit requests the application to quit.
 func (a *App) Quit() {
-	if a.gtkApp != nil {
-		a.gtkApp.Quit()
+	if a == nil || a.gtkApp == nil {
+		return
 	}
+	quit := func() {
+		if a.gtkApp != nil {
+			a.gtkApp.Quit()
+		}
+	}
+	glibCtx := glib.MainContextDefault()
+	if glibCtx != nil && glibCtx.IsOwner() {
+		quit()
+		return
+	}
+	cb := glib.SourceOnceFunc(func(_ uintptr) {
+		quit()
+	})
+	glib.IdleAddOnce(&cb, 0)
 }
 
 // RunWithArgs is a convenience function that creates and runs an App.

@@ -4,6 +4,7 @@ import (
 	"context"
 	"crypto/subtle"
 	"fmt"
+	"os"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -27,6 +28,7 @@ type Engine struct {
 	factory       *WebViewFactory
 	pool          *WebViewPool
 	profileLogDir string
+	runtimeCEFDir string
 
 	messageRouter *MessageRouter
 	schemeHandler *dumbSchemeHandler
@@ -215,7 +217,7 @@ func (e *Engine) Close() error {
 	return nil
 }
 
-const cefShutdownWaitTimeout = 2 * time.Second
+const cefShutdownWaitTimeout = 10 * time.Second
 
 func (e *Engine) activeWebViewCount() int {
 	return int(e.activeCount.Load())
@@ -252,6 +254,7 @@ func (e *Engine) closeActiveWebViews() {
 	// Check immediately in case all webviews closed synchronously.
 	if e.activeWebViewCount() == 0 {
 		log.Debug().Msg("cef: all active webviews closed before shutdown")
+		e.destroyClosedWebViewBridges(webViews)
 		return
 	}
 
@@ -264,6 +267,15 @@ func (e *Engine) closeActiveWebViews() {
 			Int("remaining", e.activeWebViewCount()).
 			Str("timeout", cefShutdownWaitTimeout.String()).
 			Msg("cef: timed out waiting for OnBeforeClose before shutdown")
+	}
+	e.destroyClosedWebViewBridges(webViews)
+}
+
+func (e *Engine) destroyClosedWebViewBridges(webViews []*WebView) {
+	for _, wv := range webViews {
+		if wv != nil && wv.destroyed.Load() {
+			wv.destroyViewBridgeOnGTKSync()
+		}
 	}
 }
 
@@ -375,6 +387,16 @@ func (e *Engine) notifyClipboardCopied(text string) {
 // SetHandlerContext sets the base context for message handler dispatch.
 func (e *Engine) SetHandlerContext(ctx context.Context) {
 	e.ctx = ctx
+	logger := logging.FromContext(ctx)
+	logger.Info().
+		Str("settings_cef_dir", e.runtimeCEFDir).
+		Str("env_cef_dir", os.Getenv("CEF_DIR")).
+		Msg("cef: runtime selection")
+	if libcefPath := loadedLibCEFPath(); libcefPath != "" {
+		logger.Info().Str("libcef_path", libcefPath).Msg("cef: runtime library loaded")
+	} else {
+		logger.Warn().Msg("cef: runtime library loaded but libcef path was not found in /proc/self/maps")
+	}
 	if e.messageRouter != nil {
 		e.messageRouter.SetBaseContext(ctx)
 	}

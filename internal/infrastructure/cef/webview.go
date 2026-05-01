@@ -1042,21 +1042,48 @@ func (wv *WebView) Destroy() {
 		host.CloseBrowser(1)
 	} else {
 		wv.runCloseCallbacks()
-	}
-	if bridge := wv.viewBridge; bridge != nil {
-		wv.runOnGTKSync(func() {
-			if wv.removeSizeObserver != nil {
-				wv.removeSizeObserver()
-				wv.removeSizeObserver = nil
-			}
-			_ = bridge.DetachInput()
-			_ = bridge.Destroy()
-		})
+		wv.destroyViewBridgeOnGTKSync()
 	}
 	if wv.profileCleanup != nil {
 		wv.profileCleanup()
 		wv.profileCleanup = nil
 	}
+}
+
+// destroyViewBridgeOnGTKSync, destroyViewBridgeOnGTKAsync, and
+// destroyViewBridgeOnGTKThread may race with one another during teardown. The
+// early viewBridge nil checks avoid scheduling unnecessary GTK work; the final
+// nil guard on the GTK thread is authoritative and makes duplicate scheduling
+// harmless.
+func (wv *WebView) destroyViewBridgeOnGTKSync() {
+	if wv == nil || wv.viewBridge == nil {
+		return
+	}
+	wv.runOnGTKSync(func() {
+		wv.destroyViewBridgeOnGTKThread()
+	})
+}
+
+func (wv *WebView) destroyViewBridgeOnGTKAsync() {
+	if wv == nil || wv.viewBridge == nil {
+		return
+	}
+	wv.runOnGTK(func() {
+		wv.destroyViewBridgeOnGTKThread()
+	})
+}
+
+func (wv *WebView) destroyViewBridgeOnGTKThread() {
+	if wv == nil || wv.viewBridge == nil {
+		return
+	}
+	if wv.removeSizeObserver != nil {
+		wv.removeSizeObserver()
+		wv.removeSizeObserver = nil
+	}
+	_ = wv.viewBridge.DetachInput()
+	_ = wv.viewBridge.Destroy()
+	wv.viewBridge = nil
 }
 
 // ---------------------------------------------------------------------------

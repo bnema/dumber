@@ -24,8 +24,9 @@ var ErrAdapterDestroyed = errors.New("cef2gtk_adapter: adapter is destroyed")
 // The adapter does NOT own GL/PBO staging, dirty-rect uploads, or GTK input
 // controller implementation — those belong to purego-cef2gtk.
 type Cef2gtkAdapter struct {
-	view      *cef2gtk.View
-	destroyed atomic.Bool
+	view       *cef2gtk.View
+	destroyed  atomic.Bool
+	destroyCnt atomic.Uint64
 }
 
 // NewCef2gtkAdapter creates an accelerated CEF view and wraps it in a thin
@@ -196,10 +197,18 @@ func (a *Cef2gtkAdapter) Destroy() error {
 	}
 	err := a.view.Destroy()
 	a.view = nil
+	a.destroyCnt.Add(1)
 	return err
 }
 
 // IsDestroyed returns true if the adapter has been destroyed.
 func (a *Cef2gtkAdapter) IsDestroyed() bool {
 	return a == nil || a.destroyed.Load()
+}
+
+func (a *Cef2gtkAdapter) destroyCount() uint64 {
+	if a == nil {
+		return 0
+	}
+	return a.destroyCnt.Load()
 }

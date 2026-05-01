@@ -657,7 +657,9 @@ func (h *handlerSet) OnBeforeClose(browser purecef.Browser) {
 		h.wv.findCtrl.setHost(nil)
 	}
 	h.wv.mu.Unlock()
-	if h.wv.viewBridge != nil {
+	if h.wv.destroyed.Load() {
+		h.wv.destroyViewBridgeOnGTKAsync()
+	} else if h.wv.viewBridge != nil {
 		wv := h.wv
 		wv.runOnGTK(func() {
 			if wv.viewBridge == nil {

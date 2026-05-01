@@ -4,9 +4,11 @@ import (
 	"context"
 	"os"
 	"testing"
+
+	"github.com/bnema/dumber/internal/infrastructure/config"
 )
 
-func TestApplyDefaultRenderStackEnvironment_DefaultsToGDKDMABUFWithANGLEGL(t *testing.T) {
+func TestApplyDefaultRenderStackEnvironment_DefaultsToGDKDMABUFWithANGLEVulkan(t *testing.T) {
 	t.Setenv(dumberRenderStackEnvVar, "")
 	t.Setenv("GSK_RENDERER", "")
 	t.Setenv("PUREGO_CEF2GTK_BACKEND", "")
@@ -23,8 +25,8 @@ func TestApplyDefaultRenderStackEnvironment_DefaultsToGDKDMABUFWithANGLEGL(t *te
 	if got := os.Getenv("PUREGO_CEF2GTK_BACKEND"); got != "gdk-dmabuf" {
 		t.Fatalf("PUREGO_CEF2GTK_BACKEND = %q, want gdk-dmabuf", got)
 	}
-	if got := os.Getenv("PUREGO_CEF2GTK_ANGLE_BACKEND"); got != "gl-egl" {
-		t.Fatalf("PUREGO_CEF2GTK_ANGLE_BACKEND = %q, want gl-egl", got)
+	if got := os.Getenv("PUREGO_CEF2GTK_ANGLE_BACKEND"); got != "vulkan" {
+		t.Fatalf("PUREGO_CEF2GTK_ANGLE_BACKEND = %q, want vulkan", got)
 	}
 }
 
@@ -66,5 +68,58 @@ func TestApplyDefaultRenderStackEnvironment_LegacyGLUsesGLArea(t *testing.T) {
 	}
 	if got := os.Getenv("PUREGO_CEF2GTK_ANGLE_BACKEND"); got != "gl-egl" {
 		t.Fatalf("PUREGO_CEF2GTK_ANGLE_BACKEND = %q, want gl-egl", got)
+	}
+}
+
+func TestApplyDefaultHardwareDecodeEnvironment_DefaultsCEFToVAAPIForAuto(t *testing.T) {
+	t.Setenv(cefEnableVAAPIEnvVar, "")
+
+	ApplyDefaultHardwareDecodeEnvironment(context.Background(), &config.Config{
+		Engine: config.EngineConfig{Type: config.EngineTypeCEF},
+		Media:  config.MediaConfig{HardwareDecodingMode: config.HardwareDecodingAuto},
+	})
+
+	if got := os.Getenv(cefEnableVAAPIEnvVar); got != "1" {
+		t.Fatalf("%s = %q, want 1", cefEnableVAAPIEnvVar, got)
+	}
+}
+
+func TestApplyDefaultHardwareDecodeEnvironment_PreservesExplicitLIBVADriver(t *testing.T) {
+	t.Setenv(cefEnableVAAPIEnvVar, "")
+	t.Setenv("LIBVA_DRIVER_NAME", "custom-driver")
+
+	ApplyDefaultHardwareDecodeEnvironment(context.Background(), &config.Config{
+		Engine: config.EngineConfig{Type: config.EngineTypeCEF},
+		Media:  config.MediaConfig{HardwareDecodingMode: config.HardwareDecodingAuto},
+	})
+
+	if got := os.Getenv("LIBVA_DRIVER_NAME"); got != "custom-driver" {
+		t.Fatalf("LIBVA_DRIVER_NAME = %q, want explicit custom-driver", got)
+	}
+}
+
+func TestApplyDefaultHardwareDecodeEnvironment_DisablesCEFVAAPIWhenMediaDisabled(t *testing.T) {
+	t.Setenv(cefEnableVAAPIEnvVar, "")
+
+	ApplyDefaultHardwareDecodeEnvironment(context.Background(), &config.Config{
+		Engine: config.EngineConfig{Type: config.EngineTypeCEF},
+		Media:  config.MediaConfig{HardwareDecodingMode: config.HardwareDecodingDisable},
+	})
+
+	if got := os.Getenv(cefEnableVAAPIEnvVar); got != "0" {
+		t.Fatalf("%s = %q, want 0", cefEnableVAAPIEnvVar, got)
+	}
+}
+
+func TestApplyDefaultHardwareDecodeEnvironment_PreservesExplicitCEFVAAPIOverride(t *testing.T) {
+	t.Setenv(cefEnableVAAPIEnvVar, "0")
+
+	ApplyDefaultHardwareDecodeEnvironment(context.Background(), &config.Config{
+		Engine: config.EngineConfig{Type: config.EngineTypeCEF},
+		Media:  config.MediaConfig{HardwareDecodingMode: config.HardwareDecodingAuto},
+	})
+
+	if got := os.Getenv(cefEnableVAAPIEnvVar); got != "0" {
+		t.Fatalf("%s = %q, want explicit 0", cefEnableVAAPIEnvVar, got)
 	}
 }

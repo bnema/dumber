@@ -5,6 +5,9 @@ import (
 	"os"
 	"strings"
 
+	"github.com/bnema/dumber/internal/application/port"
+	"github.com/bnema/dumber/internal/infrastructure/config"
+	renderenv "github.com/bnema/dumber/internal/infrastructure/env"
 	"github.com/bnema/dumber/internal/logging"
 )
 
@@ -30,7 +33,7 @@ const (
 //
 // DUMBER_RENDER_STACK accepts:
 //   - auto or empty: use the GPU-first GDK DMABUF stack
-//   - vulkan-dmabuf: force GDK DMABUF presentation with GSK Vulkan and CEF ANGLE GL/EGL
+//   - vulkan-dmabuf: force GDK DMABUF presentation with GSK Vulkan and CEF ANGLE Vulkan
 //   - legacy-gl: force the older GtkGLArea/OpenGL bridge for diagnostics
 //
 // Low-level env vars remain diagnostic escape hatches: when explicitly set,
@@ -49,8 +52,42 @@ func applyDefaultRenderStackEnvironment(ctx context.Context) string {
 	default:
 		setEnvDefault(ctx, gskRendererEnvVar, gskRendererVulkan)
 		setEnvDefault(ctx, cef2gtkBackendEnvVar, cef2gtkBackendGDKDMABUF)
-		setEnvDefault(ctx, cef2gtkAngleBackendVar, cef2gtkAngleGLEGL)
+		setEnvDefault(ctx, cef2gtkAngleBackendVar, cef2gtkAngleVulkan)
 		return renderStackVulkanDMABUF
+	}
+}
+
+// ApplyDefaultHardwareDecodeEnvironment maps Dumber's media config to CEF's
+// developer-facing VAAPI switch env var before CEF command-line callbacks run.
+// Existing explicit env values are preserved as low-level escape hatches.
+func ApplyDefaultHardwareDecodeEnvironment(ctx context.Context, cfg *config.Config) {
+	if cfg == nil || cfg.Engine.ResolveEngineType() != config.EngineTypeCEF {
+		return
+	}
+	if cfg.Media.HardwareDecodingMode == config.HardwareDecodingDisable {
+		setEnvDefault(ctx, cefEnableVAAPIEnvVar, "0")
+		return
+	}
+	setEnvDefault(ctx, cefEnableVAAPIEnvVar, "1")
+	applyDefaultLIBVADriverEnvironment(ctx)
+}
+
+func applyDefaultLIBVADriverEnvironment(ctx context.Context) {
+	if strings.TrimSpace(os.Getenv("LIBVA_DRIVER_NAME")) != "" {
+		return
+	}
+	manager := renderenv.NewManager()
+	switch manager.DetectGPUVendor(ctx) {
+	case port.GPUVendorAMD:
+		setEnvDefault(ctx, "LIBVA_DRIVER_NAME", "radeonsi")
+	case port.GPUVendorIntel:
+		setEnvDefault(ctx, "LIBVA_DRIVER_NAME", "iHD")
+	case port.GPUVendorNVIDIA:
+		if ctx == nil {
+			ctx = context.Background()
+		}
+		logging.FromContext(ctx).Warn().
+			Msg("cef: not defaulting LIBVA_DRIVER_NAME for NVIDIA; Chromium/CEF VAAPI support is driver-dependent")
 	}
 }
 

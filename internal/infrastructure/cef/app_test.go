@@ -305,14 +305,27 @@ func TestConfigureCommandLine_EnableVAAPIEnvAppendsHardwareDecodeFlags(t *testin
 
 	configureCommandLine(commandLine)
 
-	if got := commandLine.GetSwitchValue(chromiumEnableFeaturesSwitch); got != "ExistingFeature,AcceleratedVideoDecoder,AcceleratedVideoDecodeLinuxGL,AcceleratedVideoDecodeLinuxZeroCopyGL,VaapiIgnoreDriverChecks" {
-		t.Fatalf("enable-features = %q, want VAAPI features appended", got)
+	gotFeatures := commandLine.GetSwitchValue(chromiumEnableFeaturesSwitch)
+	for _, feature := range []string{
+		"ExistingFeature",
+		"AcceleratedVideoDecoder",
+		"AcceleratedVideoEncoder",
+		"AcceleratedVideoDecodeLinuxGL",
+		"AcceleratedVideoDecodeLinuxZeroCopyGL",
+		"VaapiIgnoreDriverChecks",
+	} {
+		if !strings.Contains(gotFeatures, feature) {
+			t.Fatalf("enable-features = %q, missing %q", gotFeatures, feature)
+		}
 	}
 	if !commandLine.HasSwitch("ignore-gpu-blocklist") {
 		t.Fatal("expected ignore-gpu-blocklist switch")
 	}
 	if !commandLine.HasSwitch("enable-zero-copy") {
 		t.Fatal("expected enable-zero-copy switch")
+	}
+	if !commandLine.HasSwitch("disable-gpu-driver-bug-workaround") {
+		t.Fatal("expected disable-gpu-driver-bug-workaround switch")
 	}
 }
 
@@ -417,6 +430,33 @@ func TestDumberBPH_OnBeforeChildProcessLaunch_AppendsNoZygote(t *testing.T) {
 
 	if !commandLine.HasSwitch("no-zygote") {
 		t.Fatal("expected no-zygote switch to be appended for child processes")
+	}
+}
+
+func TestDumberBPH_OnBeforeChildProcessLaunch_AppliesRenderingAndHardwareDecodeFlags(t *testing.T) {
+	t.Setenv(cef2gtkAngleBackendVar, "vulkan")
+	t.Setenv(cefEnableVAAPIEnvVar, "1")
+
+	commandLine := newMutableCommandLineStub()
+	commandLine.AppendSwitchWithValue("type", "gpu-process")
+	commandLine.AppendSwitchWithValue("use-angle", "gl-egl")
+
+	(&dumberBPH{engine: &Engine{ctx: context.Background()}}).OnBeforeChildProcessLaunch(commandLine)
+
+	if got := commandLine.GetSwitchValue("use-angle"); got != "vulkan" {
+		t.Fatalf("use-angle = %q, want vulkan", got)
+	}
+	if got := commandLine.GetSwitchValue(chromiumEnableFeaturesSwitch); !strings.Contains(got, "AcceleratedVideoDecoder") || !strings.Contains(got, "VulkanFromANGLE") {
+		t.Fatalf("enable-features = %q, want hardware decode and Vulkan ANGLE features", got)
+	}
+	if !commandLine.HasSwitch("ignore-gpu-blocklist") {
+		t.Fatal("expected ignore-gpu-blocklist switch")
+	}
+	if !commandLine.HasSwitch("enable-zero-copy") {
+		t.Fatal("expected enable-zero-copy switch")
+	}
+	if !commandLine.HasSwitch("no-zygote") {
+		t.Fatal("expected no-zygote switch")
 	}
 }
 

@@ -70,12 +70,14 @@ func configureHardwareVideoDecode(commandLine purecef.CommandLine) {
 
 	appendUniqueCommaSeparatedSwitchValues(commandLine, chromiumEnableFeaturesSwitch,
 		"AcceleratedVideoDecoder",
+		"AcceleratedVideoEncoder",
 		"AcceleratedVideoDecodeLinuxGL",
 		"AcceleratedVideoDecodeLinuxZeroCopyGL",
 		"VaapiIgnoreDriverChecks",
 	)
 	appendSwitchIfMissing(commandLine, "ignore-gpu-blocklist")
 	appendSwitchIfMissing(commandLine, "enable-zero-copy")
+	appendSwitchIfMissing(commandLine, "disable-gpu-driver-bug-workaround")
 }
 
 func configureEnvChromiumFlags(commandLine purecef.CommandLine) {
@@ -336,7 +338,7 @@ func (h *dumberBPH) OnBeforeChildProcessLaunch(commandLine purecef.CommandLine) 
 	useAngle := ""
 	ozonePlatform := ""
 	if commandLine != nil {
-		configureWebAuthnFeaturePolicy(commandLine)
+		configureCommandLine(commandLine)
 		appendSwitchIfMissing(commandLine, "no-zygote")
 		processType = commandLine.GetSwitchValue("type")
 		commandLineString = commandLine.GetCommandLineString()

@@ -46,6 +46,18 @@ func TestPrepareCEFSettings_UsesResolvedProfilePaths(t *testing.T) {
 	require.Empty(t, settings.BrowserSubprocessPath)
 }
 
+func TestParseLoadedLibCEFPath(t *testing.T) {
+	maps := "7f5fd4000000-7f5fd4200000 r--p 00000000 00:00 0 /usr/lib/libvulkan.so.1\n" +
+		"7f5fe0000000-7f5fe8200000 r-xp 00000000 00:00 0 /opt/cef-vaapi-runtime/usr/lib/cef/libcef.so\n" +
+		"7f5fe8200000-7f5fe8400000 r--p 08200000 00:00 0 /opt/cef-vaapi-runtime/usr/lib/cef/libcef.so\n"
+
+	require.Equal(t, "/opt/cef-vaapi-runtime/usr/lib/cef/libcef.so", parseLoadedLibCEFPath(maps))
+}
+
+func TestParseLoadedLibCEFPath_ReturnsEmptyWhenAbsent(t *testing.T) {
+	require.Empty(t, parseLoadedLibCEFPath("7f5fd4000000-7f5fd4200000 r--p 00000000 00:00 0 /usr/lib/libvulkan.so.1\n"))
+}
+
 func TestPrepareCEFSettings_RejectsNonDefaultCookiePolicy(t *testing.T) {
 	logger := zerolog.Nop()
 	profile := testCEFDevProfile(t)
