@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"strings"
+	"sync"
 
 	purecef "github.com/bnema/purego-cef/cef"
 	cef2gtk "github.com/bnema/purego-cef2gtk"
@@ -23,7 +24,9 @@ const (
 // owning WebView. A single struct is used so that the Client's Get*Handler
 // methods can return the same receiver, avoiding extra allocations.
 type handlerSet struct {
-	wv *WebView
+	wv                *WebView
+	renderHandlerOnce sync.Once
+	renderHandler     purecef.RenderHandler
 }
 
 // Compile-time interface checks.
@@ -74,7 +77,10 @@ func (h *handlerSet) GetRenderHandler() purecef.RenderHandler {
 	if h == nil {
 		return nil
 	}
-	return newDumberRenderHandler(h.wv)
+	h.renderHandlerOnce.Do(func() {
+		h.renderHandler = newDumberRenderHandler(h.wv)
+	})
+	return h.renderHandler
 }
 func (h *handlerSet) GetRequestHandler() purecef.RequestHandler { return h }
 

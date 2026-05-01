@@ -71,7 +71,7 @@ if [[ -z "$pid" || ! -d "/proc/$pid" ]]; then
   echo "could not find a live dumber PID; pass --pid" >&2
   exit 1
 fi
-if ! [[ "$samples" =~ ^[0-9]+$ && "$interval_ms" =~ ^[0-9]+$ ]]; then
+if ! [[ "$samples" =~ ^[1-9][0-9]*$ && "$interval_ms" =~ ^[1-9][0-9]*$ ]]; then
   echo "--samples and --interval-ms must be positive integers" >&2
   exit 2
 fi

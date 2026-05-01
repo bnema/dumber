@@ -82,7 +82,13 @@ func (wv *WebView) stopRenderStallWatchdog() {
 		return
 	}
 	close(stop)
-	<-done
+	select {
+	case <-done:
+	case <-time.After(cefHeartbeatStopTimeout):
+		if wv.ctx != nil {
+			logging.FromContext(wv.ctx).Warn().Msg("cef: render stall watchdog stop timed out")
+		}
+	}
 }
 
 func (wv *WebView) renderStallWatchdogLoop(bridge *Cef2gtkAdapter, stop <-chan struct{}, done chan<- struct{}) {

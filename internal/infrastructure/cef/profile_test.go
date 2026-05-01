@@ -23,6 +23,17 @@ func TestCEF2GTKProfilePathUsesSessionLogDirectory(t *testing.T) {
 	}
 }
 
+func TestCEF2GTKProfilePathUsesEngineProfileLogDirFallback(t *testing.T) {
+	profileLogDir := t.TempDir()
+	eng := &Engine{ctx: context.Background(), profileLogDir: profileLogDir}
+
+	got := eng.cef2gtkProfilePath()
+	want := filepath.Join(profileLogDir, "cef2gtk_profile.jsonl")
+	if got != want {
+		t.Fatalf("path = %q, want fallback output", got)
+	}
+}
+
 func TestCEF2GTKProfilePathAllowsExplicitOutput(t *testing.T) {
 	explicit := filepath.Join(t.TempDir(), "profile.jsonl")
 	t.Setenv(cef2gtkProfileOutputEnv, explicit)

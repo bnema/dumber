@@ -1,6 +1,8 @@
 package cef
 
 import (
+	"sync"
+
 	purecef "github.com/bnema/purego-cef/cef"
 	cef2gtk "github.com/bnema/purego-cef2gtk"
 
@@ -11,11 +13,14 @@ func newDumberRenderHandler(wv *WebView) purecef.RenderHandler {
 	if wv == nil || wv.viewBridge == nil {
 		return nil
 	}
+	var unsupportedPaintOnce sync.Once
 	hooks := cef2gtk.Hooks{
 		OnUnsupportedPaint: func() {
-			if wv.ctx != nil {
-				logging.FromContext(wv.ctx).Warn().Msg("cef: unsupported CPU paint from accelerated bridge")
-			}
+			unsupportedPaintOnce.Do(func() {
+				if wv.ctx != nil {
+					logging.FromContext(wv.ctx).Warn().Msg("cef: unsupported CPU paint from accelerated bridge")
+				}
+			})
 		},
 		OnError: func(err error) {
 			if wv.ctx != nil {

@@ -2,6 +2,7 @@ package cef
 
 import (
 	"errors"
+	"sync"
 	"sync/atomic"
 
 	purecef "github.com/bnema/purego-cef/cef"
@@ -24,6 +25,7 @@ var ErrAdapterDestroyed = errors.New("cef2gtk_adapter: adapter is destroyed")
 // The adapter does NOT own GL/PBO staging, dirty-rect uploads, or GTK input
 // controller implementation — those belong to purego-cef2gtk.
 type Cef2gtkAdapter struct {
+	viewMu     sync.RWMutex
 	view       *cef2gtk.View
 	destroyed  atomic.Bool
 	destroyCnt atomic.Uint64
@@ -42,7 +44,12 @@ func NewCef2gtkAdapter() *Cef2gtkAdapter {
 // Widget returns the native GTK widget for embedding into containers.
 // The returned pointer must be used from the GTK main thread for packing.
 func (a *Cef2gtkAdapter) Widget() *gtk.Widget {
-	if a == nil || a.destroyed.Load() || a.view == nil {
+	if a == nil || a.destroyed.Load() {
+		return nil
+	}
+	a.viewMu.RLock()
+	defer a.viewMu.RUnlock()
+	if a.view == nil {
 		return nil
 	}
 	return a.view.Widget()
@@ -51,7 +58,12 @@ func (a *Cef2gtkAdapter) Widget() *gtk.Widget {
 // GLArea returns the underlying GtkGLArea when the GLArea backend is active.
 // It returns nil for the GDK DMABUF backend.
 func (a *Cef2gtkAdapter) GLArea() *gtk.GLArea {
-	if a == nil || a.destroyed.Load() || a.view == nil {
+	if a == nil || a.destroyed.Load() {
+		return nil
+	}
+	a.viewMu.RLock()
+	defer a.viewMu.RUnlock()
+	if a.view == nil {
 		return nil
 	}
 	return a.view.GLArea()
@@ -70,7 +82,12 @@ func (a *Cef2gtkAdapter) NativeWidget() uintptr {
 // Size returns the bridge's last observed positive widget size, or 1x1 before
 // the GTK widget has been allocated. It is safe to call off the GTK thread.
 func (a *Cef2gtkAdapter) Size() (int32, int32) {
-	if a == nil || a.destroyed.Load() || a.view == nil {
+	if a == nil || a.destroyed.Load() {
+		return 1, 1
+	}
+	a.viewMu.RLock()
+	defer a.viewMu.RUnlock()
+	if a.view == nil {
 		return 1, 1
 	}
 	return a.view.Size()
@@ -79,7 +96,12 @@ func (a *Cef2gtkAdapter) Size() (int32, int32) {
 // DeviceScaleFactor returns the bridge's last observed GTK scale factor, or 1
 // before the widget has reported a scale. It is safe to call off the GTK thread.
 func (a *Cef2gtkAdapter) DeviceScaleFactor() float32 {
-	if a == nil || a.destroyed.Load() || a.view == nil {
+	if a == nil || a.destroyed.Load() {
+		return 1
+	}
+	a.viewMu.RLock()
+	defer a.viewMu.RUnlock()
+	if a.view == nil {
 		return 1
 	}
 	return a.view.DeviceScaleFactor()
@@ -89,7 +111,12 @@ func (a *Cef2gtkAdapter) DeviceScaleFactor() float32 {
 // unregister from the GTK main thread; callbacks are invoked by the bridge from
 // GTK size notifications.
 func (a *Cef2gtkAdapter) AddSizeObserver(fn func(width, height int32)) func() {
-	if a == nil || a.destroyed.Load() || a.view == nil {
+	if a == nil || a.destroyed.Load() {
+		return func() {}
+	}
+	a.viewMu.RLock()
+	defer a.viewMu.RUnlock()
+	if a.view == nil {
 		return func() {}
 	}
 	return a.view.AddSizeObserver(fn)
@@ -98,7 +125,12 @@ func (a *Cef2gtkAdapter) AddSizeObserver(fn func(width, height int32)) func() {
 // HasFocus reports whether the bridge widget currently has GTK focus. Must be
 // called on the GTK main thread.
 func (a *Cef2gtkAdapter) HasFocus() bool {
-	if a == nil || a.destroyed.Load() || a.view == nil {
+	if a == nil || a.destroyed.Load() {
+		return false
+	}
+	a.viewMu.RLock()
+	defer a.viewMu.RUnlock()
+	if a.view == nil {
 		return false
 	}
 	return a.view.HasFocus()
@@ -107,7 +139,12 @@ func (a *Cef2gtkAdapter) HasFocus() bool {
 // SetCursorFromName applies a named cursor to the bridge widget. Must be called
 // on the GTK main thread.
 func (a *Cef2gtkAdapter) SetCursorFromName(name string) {
-	if a == nil || a.destroyed.Load() || a.view == nil {
+	if a == nil || a.destroyed.Load() {
+		return
+	}
+	a.viewMu.RLock()
+	defer a.viewMu.RUnlock()
+	if a.view == nil {
 		return
 	}
 	a.view.SetCursorFromName(name)
@@ -116,7 +153,12 @@ func (a *Cef2gtkAdapter) SetCursorFromName(name string) {
 // PrepareOnGTKThread initializes renderer resources owned by purego-cef2gtk.
 // Must be called on the GTK main thread.
 func (a *Cef2gtkAdapter) PrepareOnGTKThread() error {
-	if a == nil || a.destroyed.Load() || a.view == nil {
+	if a == nil || a.destroyed.Load() {
+		return ErrAdapterDestroyed
+	}
+	a.viewMu.RLock()
+	defer a.viewMu.RUnlock()
+	if a.view == nil {
 		return ErrAdapterDestroyed
 	}
 	return a.view.PrepareOnGTKThread()
@@ -128,7 +170,12 @@ func (a *Cef2gtkAdapter) PrepareOnGTKThread() error {
 //
 // hooks may be a zero-value cef2gtk.Hooks if no custom callbacks are needed.
 func (a *Cef2gtkAdapter) RenderHandler(hooks cef2gtk.Hooks) purecef.RenderHandler {
-	if a == nil || a.destroyed.Load() || a.view == nil {
+	if a == nil || a.destroyed.Load() {
+		return nil
+	}
+	a.viewMu.RLock()
+	defer a.viewMu.RUnlock()
+	if a.view == nil {
 		return nil
 	}
 	return a.view.RenderHandler(hooks)
@@ -136,7 +183,12 @@ func (a *Cef2gtkAdapter) RenderHandler(hooks cef2gtk.Hooks) purecef.RenderHandle
 
 // ConfigureProfiling enables or disables purego-cef2gtk render profiling for this view.
 func (a *Cef2gtkAdapter) ConfigureProfiling(opts cef2gtk.ProfileOptions) error {
-	if a == nil || a.destroyed.Load() || a.view == nil {
+	if a == nil || a.destroyed.Load() {
+		return ErrAdapterDestroyed
+	}
+	a.viewMu.RLock()
+	defer a.viewMu.RUnlock()
+	if a.view == nil {
 		return ErrAdapterDestroyed
 	}
 	return a.view.ConfigureProfiling(opts)
@@ -147,7 +199,12 @@ func (a *Cef2gtkAdapter) ConfigureProfiling(opts cef2gtk.ProfileOptions) error {
 //
 // opts.Scale configures HiDPI scale for pointer coordinate translation.
 func (a *Cef2gtkAdapter) AttachInput(host purecef.BrowserHost, opts cef2gtk.InputOptions) error {
-	if a == nil || a.destroyed.Load() || a.view == nil {
+	if a == nil || a.destroyed.Load() {
+		return ErrAdapterDestroyed
+	}
+	a.viewMu.RLock()
+	defer a.viewMu.RUnlock()
+	if a.view == nil {
 		return ErrAdapterDestroyed
 	}
 	return a.view.AttachInput(host, opts)
@@ -157,7 +214,12 @@ func (a *Cef2gtkAdapter) AttachInput(host purecef.BrowserHost, opts cef2gtk.Inpu
 // Must be called on the GTK main thread. Callers must call AttachInput first or
 // this returns an error from the underlying bridge.
 func (a *Cef2gtkAdapter) SetInputHost(host purecef.BrowserHost) error {
-	if a == nil || a.destroyed.Load() || a.view == nil {
+	if a == nil || a.destroyed.Load() {
+		return ErrAdapterDestroyed
+	}
+	a.viewMu.RLock()
+	defer a.viewMu.RUnlock()
+	if a.view == nil {
 		return ErrAdapterDestroyed
 	}
 	return a.view.SetInputHost(host)
@@ -166,7 +228,12 @@ func (a *Cef2gtkAdapter) SetInputHost(host purecef.BrowserHost) error {
 // DetachInput removes GTK input controllers attached by AttachInput.
 // Must be called on the GTK main thread.
 func (a *Cef2gtkAdapter) DetachInput() error {
-	if a == nil || a.destroyed.Load() || a.view == nil {
+	if a == nil || a.destroyed.Load() {
+		return ErrAdapterDestroyed
+	}
+	a.viewMu.RLock()
+	defer a.viewMu.RUnlock()
+	if a.view == nil {
 		return ErrAdapterDestroyed
 	}
 	return a.view.DetachInput()
@@ -175,24 +242,27 @@ func (a *Cef2gtkAdapter) DetachInput() error {
 // Diagnostics returns a point-in-time snapshot of bridge rendering diagnostics
 // including accelerated paint counts, import/render failures, and events.
 func (a *Cef2gtkAdapter) Diagnostics() cef2gtk.Diagnostics {
-	if a == nil || a.destroyed.Load() || a.view == nil {
+	if a == nil || a.destroyed.Load() {
+		return cef2gtk.Diagnostics{}
+	}
+	a.viewMu.RLock()
+	defer a.viewMu.RUnlock()
+	if a.view == nil {
 		return cef2gtk.Diagnostics{}
 	}
 	return a.view.Diagnostics()
 }
 
 // Destroy releases renderer resources owned by purego-cef2gtk and disconnects GTK
-// signal handlers. Must be called on the GTK main thread. The atomic destroyed
-// flag only communicates lifecycle state; accesses to view are not otherwise
-// synchronized, so callers must ensure no concurrent adapter method is using the
-// view while Destroy runs. After Destroy, operations return ErrAdapterDestroyed
-// or a zero-value result.
+// signal handlers. Must be called on the GTK main thread. After Destroy,
+// operations return ErrAdapterDestroyed or a zero-value result.
 func (a *Cef2gtkAdapter) Destroy() error {
 	if a == nil {
 		return ErrAdapterDestroyed
 	}
-	a.destroyed.Store(true)
-	if a.view == nil {
+	a.viewMu.Lock()
+	defer a.viewMu.Unlock()
+	if !a.destroyed.CompareAndSwap(false, true) || a.view == nil {
 		return ErrAdapterDestroyed
 	}
 	err := a.view.Destroy()

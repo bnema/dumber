@@ -132,7 +132,6 @@ func (wv *WebView) maybeRunRenderStallRecovery(now time.Time, bridge *Cef2gtkAda
 		wv.renderStallMu.Unlock()
 		return
 	}
-	wv.renderStallRecoveryLastAt = now
 	wv.renderStallMu.Unlock()
 
 	wv.mu.RLock()
@@ -178,6 +177,9 @@ func (wv *WebView) maybeRunRenderStallRecovery(now time.Time, bridge *Cef2gtkAda
 	if result != 1 {
 		return
 	}
+	wv.renderStallMu.Lock()
+	wv.renderStallRecoveryLastAt = now
+	wv.renderStallMu.Unlock()
 	cefScheduleAfter(2*time.Second, func() {
 		if wv == nil || wv.viewBridge == nil || wv.destroyed.Load() || wv.ctx == nil {
 			return

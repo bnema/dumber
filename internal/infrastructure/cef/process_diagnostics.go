@@ -238,11 +238,17 @@ func (wv *WebView) maybeCaptureRenderStallBacktrace(reason string, classificatio
 		return
 	}
 	now := time.Now()
-	last := unixNSTime(renderStallBacktraceLastUnixNS.Load())
-	if !last.IsZero() && now.Sub(last) < renderStallBacktraceCooldown {
-		return
+	nowNS := now.UnixNano()
+	for {
+		lastNS := renderStallBacktraceLastUnixNS.Load()
+		last := unixNSTime(lastNS)
+		if !last.IsZero() && now.Sub(last) < renderStallBacktraceCooldown {
+			return
+		}
+		if renderStallBacktraceLastUnixNS.CompareAndSwap(lastNS, nowNS) {
+			break
+		}
 	}
-	renderStallBacktraceLastUnixNS.Store(now.UnixNano())
 	pid := os.Getpid()
 	if _, err := exec.LookPath("gdb"); err != nil {
 		logging.FromContext(wv.ctx).Warn().

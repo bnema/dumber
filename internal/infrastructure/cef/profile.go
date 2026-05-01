@@ -42,11 +42,14 @@ func (w *lockedProfileWriter) Write(p []byte) (int, error) {
 }
 
 func (w *lockedProfileWriter) Close() error {
-	if w == nil || w.file == nil {
+	if w == nil {
 		return nil
 	}
 	w.mu.Lock()
 	defer w.mu.Unlock()
+	if w.file == nil {
+		return nil
+	}
 	err := w.file.Close()
 	w.file = nil
 	return err
@@ -159,7 +162,10 @@ func (e *Engine) cef2gtkProfilePath() string {
 	}
 	metadata, ok := logging.SessionMetadataFromContext(e.ctx)
 	if !ok || metadata.ID == "" {
-		return ""
+		if e.profileLogDir == "" {
+			return ""
+		}
+		return filepath.Join(e.profileLogDir, "cef2gtk_profile.jsonl")
 	}
 	logDir := e.profileLogDir
 	if metadata.LogPath != "" {

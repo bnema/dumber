@@ -217,6 +217,10 @@ func (e *Engine) Close() error {
 	return nil
 }
 
+// cefShutdownWaitTimeout gives CEF browser destruction enough time to flush
+// GTK/DMABUF texture teardown and child-process shutdown on busy media pages.
+// It is intentionally longer than a UI-frame timeout; Close still logs if the
+// wait expires so slow shutdown remains visible during diagnostics.
 const cefShutdownWaitTimeout = 10 * time.Second
 
 func (e *Engine) activeWebViewCount() int {
