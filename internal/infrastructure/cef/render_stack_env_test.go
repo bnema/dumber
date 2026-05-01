@@ -14,7 +14,7 @@ func TestApplyDefaultRenderStackEnvironment_DefaultsToGDKDMABUFWithANGLEVulkan(t
 	t.Setenv("PUREGO_CEF2GTK_BACKEND", "")
 	t.Setenv("PUREGO_CEF2GTK_ANGLE_BACKEND", "")
 
-	got := applyDefaultRenderStackEnvironment(context.Background())
+	got := applyDefaultRenderStackEnvironment(nil)
 
 	if got != renderStackVulkanDMABUF {
 		t.Fatalf("render stack = %q, want %q", got, renderStackVulkanDMABUF)
@@ -37,7 +37,7 @@ func TestApplyDefaultRenderStackEnvironment_OverridesConflictingLowLevelDefaults
 	t.Setenv("PUREGO_CEF2GTK_BACKEND", "glarea")
 	t.Setenv("PUREGO_CEF2GTK_ANGLE_BACKEND", "gl-egl")
 
-	got := applyDefaultRenderStackEnvironment(context.Background())
+	got := applyDefaultRenderStackEnvironment(nil)
 
 	if got != renderStackVulkanDMABUF {
 		t.Fatalf("render stack = %q, want %q", got, renderStackVulkanDMABUF)
@@ -60,7 +60,7 @@ func TestApplyDefaultRenderStackEnvironment_AllowSplitPreservesExplicitLowLevelO
 	t.Setenv("PUREGO_CEF2GTK_BACKEND", "glarea")
 	t.Setenv("PUREGO_CEF2GTK_ANGLE_BACKEND", "gl-egl")
 
-	got := applyDefaultRenderStackEnvironment(context.Background())
+	got := applyDefaultRenderStackEnvironment(nil)
 
 	if got != renderStackVulkanDMABUF {
 		t.Fatalf("render stack = %q, want %q", got, renderStackVulkanDMABUF)
@@ -82,7 +82,7 @@ func TestApplyDefaultRenderStackEnvironment_LegacyGLUsesGLArea(t *testing.T) {
 	t.Setenv("PUREGO_CEF2GTK_BACKEND", "")
 	t.Setenv("PUREGO_CEF2GTK_ANGLE_BACKEND", "")
 
-	got := applyDefaultRenderStackEnvironment(context.Background())
+	got := applyDefaultRenderStackEnvironment(nil)
 
 	if got != renderStackLegacyGL {
 		t.Fatalf("render stack = %q, want %q", got, renderStackLegacyGL)
@@ -96,7 +96,7 @@ func TestApplyDefaultRenderStackEnvironment_LegacyGLUsesGLArea(t *testing.T) {
 }
 
 func TestNormalizeRenderStackUnknownFallsBackToGDKDMABUF(t *testing.T) {
-	got := normalizeRenderStack(context.Background(), "vulkan-dmabuff")
+	got := normalizeRenderStack(nil, "vulkan-dmabuff")
 
 	if got != renderStackVulkanDMABUF {
 		t.Fatalf("render stack = %q, want %q", got, renderStackVulkanDMABUF)

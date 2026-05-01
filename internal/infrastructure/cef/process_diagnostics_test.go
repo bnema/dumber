@@ -18,6 +18,8 @@ func TestSafeChromiumCmdlineFlagsOmitsPathBearingAndUnknownFlags(t *testing.T) {
 }
 
 func TestReserveRenderStallProcessDiagnosticsAppliesCooldown(t *testing.T) {
+	prev := renderStallProcessDiagnosticsLastUnixNS.Load()
+	t.Cleanup(func() { renderStallProcessDiagnosticsLastUnixNS.Store(prev) })
 	renderStallProcessDiagnosticsLastUnixNS.Store(0)
 	now := time.Unix(100, 0)
 

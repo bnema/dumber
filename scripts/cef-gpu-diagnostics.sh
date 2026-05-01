@@ -49,6 +49,14 @@ require_value() {
   fi
 }
 
+validate_devtools_port() {
+  local value="$1"
+  if [[ ! "$value" =~ ^[1-9][0-9]*$ ]] || (( value < 1 || value > 65535 )); then
+    echo "--devtools-port must be an integer between 1 and 65535" >&2
+    exit 2
+  fi
+}
+
 while [[ $# -gt 0 ]]; do
   case "$1" in
     -p|--pid) require_value "$1" "${2:-}"; pid="$2"; shift 2 ;;
@@ -58,7 +66,7 @@ while [[ $# -gt 0 ]]; do
     --session-log) require_value "$1" "${2:-}"; session_log="$2"; shift 2 ;;
     --codec-stats) require_value "$1" "${2:-}"; codec_stats="$2"; shift 2 ;;
     --codec-stats-file) require_value "$1" "${2:-}"; codec_stats_file="$2"; shift 2 ;;
-    --devtools-port) require_value "$1" "${2:-}"; devtools_port="$2"; shift 2 ;;
+    --devtools-port) require_value "$1" "${2:-}"; validate_devtools_port "$2"; devtools_port="$2"; shift 2 ;;
     -h|--help) usage; exit 0 ;;
     *) echo "unknown argument: $1" >&2; usage >&2; exit 2 ;;
   esac
@@ -188,6 +196,7 @@ EOF
 fi
 
 if [[ -n "$devtools_port" ]]; then
+  validate_devtools_port "$devtools_port"
   log "capturing DevTools metadata from port $devtools_port"
   if ! curl --connect-timeout 1 --max-time 3 -fsS "http://127.0.0.1:${devtools_port}/json/version" > "$out_dir/devtools_version.json" 2> "$out_dir/devtools.stderr"; then
     log "failed to fetch DevTools version metadata from port $devtools_port"

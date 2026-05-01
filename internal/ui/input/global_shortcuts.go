@@ -373,6 +373,9 @@ func (h *GlobalShortcutHandler) ReloadShortcuts(ctx context.Context, workspace *
 // but we clear our references here.
 func (h *GlobalShortcutHandler) Detach() {
 	h.generation++
+	if h.window != nil && h.controller != nil {
+		h.window.RemoveController(&h.controller.EventController)
+	}
 	h.controller = nil
 	h.callbacks = nil
 	h.registered = nil

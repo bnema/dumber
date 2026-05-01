@@ -6,7 +6,6 @@ import (
 	"strings"
 
 	"github.com/bnema/dumber/internal/application/port"
-	"github.com/bnema/dumber/internal/logging"
 )
 
 const (
@@ -39,38 +38,35 @@ const (
 // Low-level env vars are treated as library-development escape hatches only.
 // Dumber keeps the selected stack coherent by default and overwrites conflicts;
 // set DUMBER_RENDER_STACK_ALLOW_SPLIT=1 to preserve explicit split-stack values.
-func ApplyDefaultRenderStackEnvironment(ctx context.Context) string {
-	return applyDefaultRenderStackEnvironment(ctx)
+func ApplyDefaultRenderStackEnvironment(logger port.Logger) string {
+	return applyDefaultRenderStackEnvironment(logger)
 }
 
-func applyDefaultRenderStackEnvironment(ctx context.Context) string {
-	stack := normalizeRenderStack(ctx, os.Getenv(dumberRenderStackEnvVar))
+func applyDefaultRenderStackEnvironment(logger port.Logger) string {
+	stack := normalizeRenderStack(logger, os.Getenv(dumberRenderStackEnvVar))
 	switch stack {
 	case renderStackLegacyGL:
-		setRenderStackEnv(ctx, gskRendererEnvVar, gskRendererOpenGL)
-		setRenderStackEnv(ctx, cef2gtkBackendEnvVar, cef2gtkBackendGLArea)
-		setRenderStackEnv(ctx, cef2gtkAngleBackendVar, cef2gtkAngleGLEGL)
+		setRenderStackEnv(logger, gskRendererEnvVar, gskRendererOpenGL)
+		setRenderStackEnv(logger, cef2gtkBackendEnvVar, cef2gtkBackendGLArea)
+		setRenderStackEnv(logger, cef2gtkAngleBackendVar, cef2gtkAngleGLEGL)
 	default:
 		stack = renderStackVulkanDMABUF
-		setRenderStackEnv(ctx, gskRendererEnvVar, gskRendererVulkan)
-		setRenderStackEnv(ctx, cef2gtkBackendEnvVar, cef2gtkBackendGDKDMABUF)
-		setRenderStackEnv(ctx, cef2gtkAngleBackendVar, cef2gtkAngleVulkan)
+		setRenderStackEnv(logger, gskRendererEnvVar, gskRendererVulkan)
+		setRenderStackEnv(logger, cef2gtkBackendEnvVar, cef2gtkBackendGDKDMABUF)
+		setRenderStackEnv(logger, cef2gtkAngleBackendVar, cef2gtkAngleVulkan)
 	}
-	logRenderStackEnvironment(ctx, stack)
+	logRenderStackEnvironment(logger, stack)
 	return stack
 }
 
-func logRenderStackEnvironment(ctx context.Context, stack string) {
-	if ctx == nil {
-		ctx = context.Background()
-	}
-	logging.FromContext(ctx).Info().
-		Str("render_stack", stack).
-		Str("gsk_renderer", os.Getenv(gskRendererEnvVar)).
-		Str("cef2gtk_backend", os.Getenv(cef2gtkBackendEnvVar)).
-		Str("cef2gtk_angle_backend", os.Getenv(cef2gtkAngleBackendVar)).
-		Bool("split_stack_allowed", envBoolEnabled(dumberRenderStackAllowSplitEnvVar)).
-		Msg("cef: render stack environment configured")
+func logRenderStackEnvironment(logger port.Logger, stack string) {
+	logInfo(logger, "cef: render stack environment configured",
+		port.Field("render_stack", stack),
+		port.Field("gsk_renderer", os.Getenv(gskRendererEnvVar)),
+		port.Field("cef2gtk_backend", os.Getenv(cef2gtkBackendEnvVar)),
+		port.Field("cef2gtk_angle_backend", os.Getenv(cef2gtkAngleBackendVar)),
+		port.Field("split_stack_allowed", envBoolEnabled(dumberRenderStackAllowSplitEnvVar)),
+	)
 }
 
 // HardwareDecodeEnvironmentOptions carries config-derived CEF environment
@@ -80,6 +76,7 @@ type HardwareDecodeEnvironmentOptions struct {
 	EngineType               string
 	HardwareDecodingDisabled bool
 	RenderingEnvManager      port.RenderingEnvManager
+	Logger                   port.Logger
 }
 
 // ApplyDefaultHardwareDecodeEnvironment maps Dumber's media config to CEF's
@@ -90,32 +87,28 @@ func ApplyDefaultHardwareDecodeEnvironment(ctx context.Context, opts HardwareDec
 		return
 	}
 	if opts.HardwareDecodingDisabled {
-		setEnvDefault(ctx, cefEnableVAAPIEnvVar, "0")
+		setEnvDefault(opts.Logger, cefEnableVAAPIEnvVar, "0")
 		return
 	}
-	setEnvDefault(ctx, cefEnableVAAPIEnvVar, "1")
-	applyDefaultLIBVADriverEnvironment(ctx, opts.RenderingEnvManager)
+	setEnvDefault(opts.Logger, cefEnableVAAPIEnvVar, "1")
+	applyDefaultLIBVADriverEnvironment(ctx, opts.RenderingEnvManager, opts.Logger)
 }
 
-func applyDefaultLIBVADriverEnvironment(ctx context.Context, manager port.RenderingEnvManager) {
+func applyDefaultLIBVADriverEnvironment(ctx context.Context, manager port.RenderingEnvManager, logger port.Logger) {
 	if strings.TrimSpace(os.Getenv("LIBVA_DRIVER_NAME")) != "" || manager == nil {
 		return
 	}
 	switch manager.DetectGPUVendor(ctx) {
 	case port.GPUVendorAMD:
-		setEnvDefault(ctx, "LIBVA_DRIVER_NAME", "radeonsi")
+		setEnvDefault(logger, "LIBVA_DRIVER_NAME", "radeonsi")
 	case port.GPUVendorIntel:
-		setEnvDefault(ctx, "LIBVA_DRIVER_NAME", "iHD")
+		setEnvDefault(logger, "LIBVA_DRIVER_NAME", "iHD")
 	case port.GPUVendorNVIDIA:
-		if ctx == nil {
-			ctx = context.Background()
-		}
-		logging.FromContext(ctx).Warn().
-			Msg("cef: not defaulting LIBVA_DRIVER_NAME for NVIDIA; Chromium/CEF VAAPI support is driver-dependent")
+		logWarn(logger, "cef: not defaulting LIBVA_DRIVER_NAME for NVIDIA; Chromium/CEF VAAPI support is driver-dependent")
 	}
 }
 
-func normalizeRenderStack(ctx context.Context, value string) string {
+func normalizeRenderStack(logger port.Logger, value string) string {
 	normalized := strings.ToLower(strings.TrimSpace(value))
 	switch normalized {
 	case "", renderStackAuto, renderStackVulkanDMABUF:
@@ -123,49 +116,55 @@ func normalizeRenderStack(ctx context.Context, value string) string {
 	case renderStackLegacyGL:
 		return renderStackLegacyGL
 	default:
-		if ctx == nil {
-			ctx = context.Background()
-		}
-		logging.FromContext(ctx).Warn().
-			Str("render_stack", value).
-			Str("fallback", renderStackVulkanDMABUF).
-			Msg("cef: unknown render stack, falling back to default")
+		logWarn(logger, "cef: unknown render stack, falling back to default",
+			port.Field("render_stack", value),
+			port.Field("fallback", renderStackVulkanDMABUF),
+		)
 		return renderStackVulkanDMABUF
 	}
 }
 
-func setRenderStackEnv(ctx context.Context, key, value string) {
+func setRenderStackEnv(logger port.Logger, key, value string) {
 	if existing := strings.TrimSpace(os.Getenv(key)); existing != "" {
-		if ctx == nil {
-			ctx = context.Background()
+		fields := []port.LogField{
+			port.Field("key", key),
+			port.Field("value", existing),
+			port.Field("stack_value", value),
 		}
 		if envBoolEnabled(dumberRenderStackAllowSplitEnvVar) {
-			logging.FromContext(ctx).Warn().
-				Str("key", key).
-				Str("value", existing).
-				Str("stack_value", value).
-				Msg("cef: preserving explicit split render stack environment override")
+			logWarn(logger, "cef: preserving explicit split render stack environment override", fields...)
 			return
 		}
-		logging.FromContext(ctx).Warn().
-			Str("key", key).
-			Str("value", existing).
-			Str("stack_value", value).
-			Msg("cef: overriding low-level render stack environment to keep Dumber stack coherent")
+		logWarn(logger, "cef: overriding low-level render stack environment to keep Dumber stack coherent", fields...)
 	}
 	_ = os.Setenv(key, value)
 }
 
-func setEnvDefault(ctx context.Context, key, value string) {
+func setEnvDefault(logger port.Logger, key, value string) {
 	if existing := strings.TrimSpace(os.Getenv(key)); existing != "" {
-		if ctx == nil {
-			ctx = context.Background()
-		}
-		logging.FromContext(ctx).Debug().
-			Str("key", key).
-			Str("value", existing).
-			Msg("cef: preserving explicit environment override")
+		logDebug(logger, "cef: preserving explicit environment override",
+			port.Field("key", key),
+			port.Field("value", existing),
+		)
 		return
 	}
 	_ = os.Setenv(key, value)
+}
+
+func logDebug(logger port.Logger, msg string, fields ...port.LogField) {
+	if logger != nil {
+		logger.Debug(msg, fields...)
+	}
+}
+
+func logInfo(logger port.Logger, msg string, fields ...port.LogField) {
+	if logger != nil {
+		logger.Info(msg, fields...)
+	}
+}
+
+func logWarn(logger port.Logger, msg string, fields ...port.LogField) {
+	if logger != nil {
+		logger.Warn(msg, fields...)
+	}
 }

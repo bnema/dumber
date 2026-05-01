@@ -327,11 +327,13 @@ func applyCEFRenderStackDefault(ctx context.Context, cfg *config.Config) {
 	if cfg == nil || cfg.Engine.ResolveEngineType() != config.EngineTypeCEF {
 		return
 	}
-	infracef.ApplyDefaultRenderStackEnvironment(ctx)
+	logger := logging.NewPortLogger(ctx)
+	infracef.ApplyDefaultRenderStackEnvironment(logger)
 	infracef.ApplyDefaultHardwareDecodeEnvironment(ctx, infracef.HardwareDecodeEnvironmentOptions{
 		EngineType:               cfg.Engine.ResolveEngineType(),
 		HardwareDecodingDisabled: cfg.Media.HardwareDecodingMode == config.HardwareDecodingDisable,
 		RenderingEnvManager:      renderenv.NewManager(),
+		Logger:                   logger,
 	})
 }
 

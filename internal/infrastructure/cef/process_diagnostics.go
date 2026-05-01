@@ -206,6 +206,7 @@ func procThreadCount(pid int) int {
 }
 
 type procThreadSummary struct {
+	tid   int
 	text  string
 	ticks uint64
 }
@@ -234,17 +235,20 @@ func procThreadSummariesWithDetails(pid, limit int, detailed bool) []string {
 			continue
 		}
 		text, ticks := parseThreadStat(tid, string(b))
-		if detailed {
-			text = text + " wchan=" + procThreadWchan(pid, tid)
-			if stack := procThreadKernelStack(pid, tid); stack != "" {
-				text = text + " kernel_stack=" + stack
-			}
-		}
-		items = append(items, procThreadSummary{text: text, ticks: ticks})
+		items = append(items, procThreadSummary{tid: tid, text: text, ticks: ticks})
 	}
 	sort.Slice(items, func(i, j int) bool { return items[i].ticks > items[j].ticks })
 	if limit > 0 && len(items) > limit {
 		items = items[:limit]
+	}
+	if detailed {
+		for i := range items {
+			text := items[i].text + " wchan=" + procThreadWchan(pid, items[i].tid)
+			if stack := procThreadKernelStack(pid, items[i].tid); stack != "" {
+				text = text + " kernel_stack=" + stack
+			}
+			items[i].text = text
+		}
 	}
 	out := make([]string, 0, len(items))
 	for _, item := range items {

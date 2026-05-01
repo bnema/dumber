@@ -436,7 +436,7 @@ func (e *Engine) recordChildProcessLaunch(processType, useAngle, ozonePlatform, 
 		Str("use_angle", useAngle).
 		Str("ozone_platform", ozonePlatform).
 		Str("render_node_override", renderNodeOverride).
-		Str("command_line", commandLine).
+		Strs("command_line_flags", safeChromiumCmdlineFlags(commandLine)).
 		Uint64("renderer_launches", e.childLaunchRenderer.Load()).
 		Uint64("gpu_launches", e.childLaunchGPU.Load()).
 		Uint64("other_launches", e.childLaunchOther.Load()).

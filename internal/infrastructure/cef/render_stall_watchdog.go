@@ -192,10 +192,10 @@ func (wv *WebView) logRenderStall(bridge *Cef2gtkAdapter, now time.Time, diag re
 		Bool("cef_io_alive", classification.CEFIOAlive).
 		Uint64("webview_id", uint64(wv.id)).
 		Int32("browser_id", diag.browser.GetIdentifier()).
-		Str("uri", logging.TruncateURL(diag.uri, logging.PermissionLogURLMaxLen)).
-		Str("title", diag.title).
+		Bool("has_uri", diag.uri != "").
+		Bool("has_title", diag.title != "").
 		Bool("is_loading", diag.isLoading).
-		Str("pending_uri", logging.TruncateURL(diag.pendingURI, logging.PermissionLogURLMaxLen)).
+		Bool("has_pending_uri", diag.pendingURI != "").
 		Bool("audio_playing", diag.audioPlaying).
 		Int64("cef_ui_heartbeat_ack_age_ms", durationMillis(uiHeartbeat.LastAckAge)).
 		Int64("cef_ui_heartbeat_latency_ms", durationMillis(uiHeartbeat.Latency)).
@@ -233,7 +233,7 @@ func (wv *WebView) logRenderStall(bridge *Cef2gtkAdapter, now time.Time, diag re
 		Int("pending_schedule_failures", diag.diag.PendingScheduleFailures).
 		Int("pending_idle_callbacks", diag.diag.PendingIdleCallbacks).
 		Str("latest_render_event_kind", diag.latestEvent.Kind).
-		Str("latest_render_event_message", diag.latestEvent.Message).
+		Bool("latest_render_event_has_message", diag.latestEvent.Message != "").
 		Msg("cef: accelerated rendering appears stalled")
 }
 
