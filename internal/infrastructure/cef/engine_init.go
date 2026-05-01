@@ -17,12 +17,12 @@ import (
 
 	"github.com/bnema/dumber/assets"
 	"github.com/bnema/dumber/internal/application/port"
-	"github.com/bnema/dumber/internal/infrastructure/config"
 	"github.com/bnema/dumber/internal/logging"
 )
 
 const puregoCEFInitTraceEnvVar = "PUREGO_CEF_INIT_TRACE"
 const CEFRootCachePathEnvVar = "DUMBER_CEF_ROOT_CACHE_PATH"
+const defaultCEFWindowlessFrameRate = 60
 
 // RuntimePaths contains the concrete filesystem paths the CEF adapter needs.
 type RuntimePaths struct {
@@ -43,7 +43,7 @@ func NewEngine(
 	logger := logging.FromContext(ctx)
 	stateRoot := resolvedStateRoot(paths.StateRoot, opts)
 	cleanStaleSingletonLocks(logger, stateRoot)
-	windowlessFrameRate := config.CEFEngineConfig{WindowlessFrameRate: cfg.WindowlessFrameRate}.CEFWindowlessFrameRate()
+	windowlessFrameRate := normalizedWindowlessFrameRate(cfg.WindowlessFrameRate)
 
 	settings, err := prepareCEFSettings(opts, paths, cfg, logger)
 	if err != nil {
@@ -65,6 +65,7 @@ func NewEngine(
 		defaultConfigPayload:   deps.DefaultConfigPayload,
 		ctxMenuBuilder:         deps.ContextMenuBuilder,
 		ctxMenuExecutorFactory: deps.ContextMenuExecutorFactory,
+		ctxMenuRenderer:        deps.ContextMenuRenderer,
 		clipboard:              deps.Clipboard,
 		resolver:               deps.ImageDataResolver,
 	}
@@ -91,6 +92,13 @@ func NewEngine(
 		deps.CurrentConfigPayload,
 		deps.DefaultConfigPayload,
 	)
+}
+
+func normalizedWindowlessFrameRate(frameRate int32) int32 {
+	if frameRate > 0 {
+		return frameRate
+	}
+	return defaultCEFWindowlessFrameRate
 }
 
 func resolvedStateRoot(defaultStateRoot string, opts port.EngineOptions) string {

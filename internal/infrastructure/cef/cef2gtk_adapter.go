@@ -275,10 +275,3 @@ func (a *Cef2gtkAdapter) Destroy() error {
 func (a *Cef2gtkAdapter) IsDestroyed() bool {
 	return a == nil || a.destroyed.Load()
 }
-
-func (a *Cef2gtkAdapter) destroyCount() uint64 {
-	if a == nil {
-		return 0
-	}
-	return a.destroyCnt.Load()
-}

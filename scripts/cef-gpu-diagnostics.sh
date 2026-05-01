@@ -9,7 +9,7 @@ Capture a short, repeatable Dumber/CEF GPU-video diagnostic bundle while a
 YouTube video is playing.
 
 Options:
-  -p, --pid PID              Dumber browser/root PID. Defaults to newest dumber process.
+  -p, --pid PID              Dumber browser/root PID. Defaults to oldest/root dumber process.
   -o, --out DIR              Output directory. Default: .dev/dumber/gpu-diagnostics/<timestamp>
   -n, --samples N            amdgpu_top JSON samples. Default: 10
   -i, --interval-ms MS       amdgpu_top sample interval. Default: 1000
@@ -65,7 +65,11 @@ while [[ $# -gt 0 ]]; do
 done
 
 if [[ -z "$pid" ]]; then
-  pid="$(pgrep -n -x dumber || true)"
+  pid="$(pgrep -o -x dumber || true)"
+fi
+if [[ -n "$pid" && ! "$pid" =~ ^[1-9][0-9]*$ ]]; then
+  echo "--pid must be a positive integer" >&2
+  exit 2
 fi
 if [[ -z "$pid" || ! -d "/proc/$pid" ]]; then
   echo "could not find a live dumber PID; pass --pid" >&2
@@ -160,11 +164,19 @@ else
   log "amdgpu_top not found; skipping GPU samples"
 fi
 
-if [[ -n "$session_log" && -r "$session_log" ]]; then
-  cp "$session_log" "$out_dir/$(basename "$session_log")"
+if [[ -n "$session_log" ]]; then
+  if [[ ! -r "$session_log" ]]; then
+    log "--session-log is not readable: $session_log"
+    exit 2
+  fi
+  cp -- "$session_log" "$out_dir/$(basename -- "$session_log")"
 fi
-if [[ -n "$codec_stats_file" && -r "$codec_stats_file" ]]; then
-  cp "$codec_stats_file" "$out_dir/youtube_stats_for_nerds.txt"
+if [[ -n "$codec_stats_file" ]]; then
+  if [[ ! -r "$codec_stats_file" ]]; then
+    log "--codec-stats-file is not readable: $codec_stats_file"
+    exit 2
+  fi
+  cp -- "$codec_stats_file" "$out_dir/youtube_stats_for_nerds.txt"
 elif [[ -n "$codec_stats" ]]; then
   printf '%s\n' "$codec_stats" > "$out_dir/youtube_stats_for_nerds.txt"
 else
@@ -177,8 +189,14 @@ fi
 
 if [[ -n "$devtools_port" ]]; then
   log "capturing DevTools metadata from port $devtools_port"
-  curl --connect-timeout 1 --max-time 3 -fsS "http://127.0.0.1:${devtools_port}/json/version" > "$out_dir/devtools_version.json" 2> "$out_dir/devtools.stderr" || true
-  curl --connect-timeout 1 --max-time 3 -fsS "http://127.0.0.1:${devtools_port}/json" > "$out_dir/devtools_tabs.json" 2>> "$out_dir/devtools.stderr" || true
+  if ! curl --connect-timeout 1 --max-time 3 -fsS "http://127.0.0.1:${devtools_port}/json/version" > "$out_dir/devtools_version.json" 2> "$out_dir/devtools.stderr"; then
+    log "failed to fetch DevTools version metadata from port $devtools_port"
+    exit 1
+  fi
+  if ! curl --connect-timeout 1 --max-time 3 -fsS "http://127.0.0.1:${devtools_port}/json" > "$out_dir/devtools_tabs.json" 2>> "$out_dir/devtools.stderr"; then
+    log "failed to fetch DevTools tab metadata from port $devtools_port"
+    exit 1
+  fi
 fi
 
 log "bundle complete: $out_dir"

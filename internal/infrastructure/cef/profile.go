@@ -88,6 +88,11 @@ type cef2gtkProfileRecord struct {
 	Snapshot  cef2gtk.ProfileSnapshot `json:"snapshot"`
 }
 
+const (
+	profileLogDirPerm  = 0o755
+	profileLogFilePerm = 0o644
+)
+
 func (e *Engine) cef2gtkProfileOptions(wv *WebView) cef2gtk.ProfileOptions {
 	if e == nil || wv == nil || !cef2gtkProfileEnabled() {
 		return cef2gtk.ProfileOptions{}
@@ -96,11 +101,11 @@ func (e *Engine) cef2gtkProfileOptions(wv *WebView) cef2gtk.ProfileOptions {
 	if path == "" {
 		return cef2gtk.ProfileOptions{}
 	}
-	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
+	if err := os.MkdirAll(filepath.Dir(path), profileLogDirPerm); err != nil {
 		logging.FromContext(e.ctx).Warn().Err(err).Str("path", path).Msg("cef2gtk: failed to create profile log directory")
 		return cef2gtk.ProfileOptions{}
 	}
-	file, err := os.OpenFile(path, os.O_CREATE|os.O_APPEND|os.O_WRONLY, 0o644)
+	file, err := os.OpenFile(path, os.O_CREATE|os.O_APPEND|os.O_WRONLY, profileLogFilePerm)
 	if err != nil {
 		logging.FromContext(e.ctx).Warn().Err(err).Str("path", path).Msg("cef2gtk: failed to open profile log")
 		return cef2gtk.ProfileOptions{}

@@ -46,3 +46,16 @@ func TestGlobalShortcutHandlerSuppressesOneShotActionsAfterDetach(t *testing.T) 
 		t.Fatal("one-shot shortcut was not suppressed with detached handler state")
 	}
 }
+
+func TestGlobalShortcutHandlerGenerationMarksOldCallbacksStale(t *testing.T) {
+	h := &GlobalShortcutHandler{}
+	generation := h.generation
+
+	if h.isStaleGeneration(generation) {
+		t.Fatal("current generation was marked stale")
+	}
+	h.generation++
+	if !h.isStaleGeneration(generation) {
+		t.Fatal("old generation was not marked stale")
+	}
+}

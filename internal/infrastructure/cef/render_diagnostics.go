@@ -12,7 +12,7 @@ import (
 
 const renderStallRecoveryCooldown = 10 * time.Second
 
-func (e *Engine) logAllWebViewRenderSnapshots(now time.Time, stalledID port.WebViewID, reason string, classification renderStallClassification) {
+func (e *Engine) logAllWebViewRenderSnapshots(now time.Time, _ port.WebViewID, reason string, classification renderStallClassification) {
 	if e == nil {
 		return
 	}
@@ -33,7 +33,10 @@ func (e *Engine) logAllWebViewRenderSnapshots(now time.Time, stalledID port.WebV
 		isLoading := wv.isLoading
 		pendingURI := wv.pendingURI
 		wv.mu.RUnlock()
-		wv.logRenderDiagnosticSnapshot(now, reason, classification, wv.viewBridge, diag, lastPaintAge, browser, uri, title, isLoading, pendingURI, wv.audioPlaying.Load())
+		wv.logRenderDiagnosticSnapshot(
+			now, reason, classification, wv.viewBridge, diag, lastPaintAge,
+			browser, uri, title, isLoading, pendingURI, wv.audioPlaying.Load(),
+		)
 		return true
 	})
 }
@@ -122,7 +125,7 @@ func (wv *WebView) logRenderDiagnosticSnapshot(
 		Msg("cef: render diagnostic snapshot")
 }
 
-func (wv *WebView) maybeRunRenderStallRecovery(now time.Time, bridge *Cef2gtkAdapter, paintsBefore int) {
+func (wv *WebView) maybeRunRenderStallRecovery(now time.Time, _ *Cef2gtkAdapter, paintsBefore int) {
 	if wv == nil || wv.ctx == nil || wv.destroyed.Load() || !renderStallRecoveryEnabled() {
 		return
 	}

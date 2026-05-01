@@ -34,6 +34,7 @@ type EngineDependencies struct {
 	DefaultConfigPayload       func() ([]byte, error)
 	ContextMenuBuilder         port.ContextMenuBuilder
 	ContextMenuExecutorFactory port.ContextMenuActionExecutorFactory
+	ContextMenuRenderer        ContextMenuRenderer
 	Clipboard                  port.Clipboard
 	ImageDataResolver          port.ImageDataResolver
 }

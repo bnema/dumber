@@ -8,10 +8,16 @@ import (
 	purecef "github.com/bnema/purego-cef/cef"
 
 	"github.com/bnema/dumber/internal/application/port"
-	"github.com/bnema/dumber/internal/infrastructure/gtkmenu"
 	"github.com/bnema/dumber/internal/logging"
 	"github.com/bnema/puregotk/v4/gtk"
 )
+
+// ContextMenuRenderer renders normalized context menu items for the CEF adapter.
+// It is implemented by the GTK menu adapter and injected by bootstrap so this
+// adapter does not depend on a sibling infrastructure adapter.
+type ContextMenuRenderer interface {
+	Show(items []port.MenuItem, anchor *gtk.Widget, x, y int32, onSelect func(port.MenuItem), onClose func())
+}
 
 // ===========================================================================
 // ContextMenuHandler (implemented on handlerSet)
@@ -20,6 +26,7 @@ import (
 func (h *handlerSet) OnBeforeContextMenu(_ purecef.Browser, _ purecef.Frame, _ purecef.ContextMenuParams, _ purecef.MenuModel) {
 }
 
+//nolint:gocyclo // CEF callback coordinates menu extraction, rendering, and native fallback in one synchronous call.
 func (h *handlerSet) RunContextMenu(
 	_ purecef.Browser, _ purecef.Frame,
 	params purecef.ContextMenuParams, model purecef.MenuModel,
@@ -82,7 +89,12 @@ func (h *handlerSet) RunContextMenu(
 		}
 		widget := wv.viewBridge.Widget()
 		logContextMenuPopupRequest(h, widget, params, x, y)
-		gtkmenu.NewRenderer(nil).Show(
+		renderer := wv.engine.contextMenuRenderer()
+		if renderer == nil {
+			callback.Cancel()
+			return
+		}
+		renderer.Show(
 			items,
 			widget,
 			x,

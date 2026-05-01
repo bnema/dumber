@@ -36,7 +36,10 @@ type renderStallDiagnostics struct {
 
 func classifyRenderStall(uiHeartbeat, ioHeartbeat cefHeartbeatSnapshot) renderStallClassification {
 	uiBlocked := uiHeartbeat.PostResult == 1 && uiHeartbeat.InFlight && uiHeartbeat.LastAckAge >= renderStallCEFUIBlockedAfter
-	ioAlive := ioHeartbeat.PostResult == 1 && !ioHeartbeat.InFlight && ioHeartbeat.LastAckAge > 0 && ioHeartbeat.LastAckAge < renderStallCEFUIBlockedAfter
+	ioAlive := ioHeartbeat.PostResult == 1 &&
+		!ioHeartbeat.InFlight &&
+		ioHeartbeat.LastAckAge > 0 &&
+		ioHeartbeat.LastAckAge < renderStallCEFUIBlockedAfter
 	category := "osr-paint-stalled"
 	if uiBlocked {
 		category = "cef-ui-task-runner-blocked"
@@ -173,7 +176,10 @@ func (wv *WebView) collectStallDiagnostics(bridge *Cef2gtkAdapter, now time.Time
 func (wv *WebView) logRenderStall(bridge *Cef2gtkAdapter, now time.Time, diag renderStallDiagnostics) {
 	uiHeartbeat, ioHeartbeat := wv.cefHeartbeatSnapshots(now)
 	classification := classifyRenderStall(uiHeartbeat, ioHeartbeat)
-	wv.logRenderDiagnosticSnapshot(now, "stall", classification, bridge, diag.diag, diag.lastPaintAge, diag.browser, diag.uri, diag.title, diag.isLoading, diag.pendingURI, diag.audioPlaying)
+	wv.logRenderDiagnosticSnapshot(
+		now, "stall", classification, bridge, diag.diag, diag.lastPaintAge,
+		diag.browser, diag.uri, diag.title, diag.isLoading, diag.pendingURI, diag.audioPlaying,
+	)
 	wv.logCEFProcessDiagnostics("stall", classification)
 	if wv.engine != nil {
 		wv.engine.logAllWebViewRenderSnapshots(now, wv.id, "stall-global", classification)

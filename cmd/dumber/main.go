@@ -24,6 +24,7 @@ import (
 	"github.com/bnema/dumber/internal/infrastructure/config"
 	"github.com/bnema/dumber/internal/infrastructure/deps"
 	"github.com/bnema/dumber/internal/infrastructure/desktop"
+	renderenv "github.com/bnema/dumber/internal/infrastructure/env"
 	"github.com/bnema/dumber/internal/infrastructure/favicon"
 	"github.com/bnema/dumber/internal/infrastructure/filesystem"
 	"github.com/bnema/dumber/internal/infrastructure/idle"
@@ -327,7 +328,11 @@ func applyCEFRenderStackDefault(ctx context.Context, cfg *config.Config) {
 		return
 	}
 	infracef.ApplyDefaultRenderStackEnvironment(ctx)
-	infracef.ApplyDefaultHardwareDecodeEnvironment(ctx, cfg)
+	infracef.ApplyDefaultHardwareDecodeEnvironment(ctx, infracef.HardwareDecodeEnvironmentOptions{
+		EngineType:               cfg.Engine.ResolveEngineType(),
+		HardwareDecodingDisabled: cfg.Media.HardwareDecodingMode == config.HardwareDecodingDisable,
+		RenderingEnvManager:      renderenv.NewManager(),
+	})
 }
 
 func preInitializeAdwaitaForCEF(cfg *config.Config, initResult *bootstrap.ParallelInitResult, initAdwaita func()) {

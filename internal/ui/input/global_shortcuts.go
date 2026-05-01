@@ -25,6 +25,8 @@ type GlobalShortcutHandler struct {
 	ctx            context.Context
 	registered     map[KeyBinding]Action
 	lastDispatchAt map[Action]time.Time
+	// generation is mutated only from the GTK main thread alongside controller replacement.
+	generation uint64
 
 	// Keep references to callbacks to prevent GC from collecting them
 	callbacks []gtk.ShortcutFunc
@@ -184,11 +186,21 @@ func (h *GlobalShortcutHandler) registerShortcut(keyval uint, modifiers gdk.Modi
 		return false
 	}
 
-	// Create callback action
-	// We need to capture the action in the closure
+	// Create callback action.
+	// Capture the generation so callbacks from removed/reloaded controllers cannot
+	// dispatch one-shot actions after a shortcut reload.
 	actionToDispatch := action
+	generation := h.generation
 	callback := gtk.ShortcutFunc(func(_ uintptr, _ *glib.Variant, _ uintptr) bool {
 		log := logging.FromContext(h.ctx)
+		if h.isStaleGeneration(generation) {
+			log.Trace().
+				Str("action", string(actionToDispatch)).
+				Uint64("callback_generation", generation).
+				Uint64("current_generation", h.generation).
+				Msg("stale global shortcut callback ignored")
+			return true
+		}
 		if h.suppressRepeatedShortcut(actionToDispatch, time.Now()) {
 			log.Trace().
 				Str("action", string(actionToDispatch)).
@@ -275,6 +287,8 @@ func globalShortcutActionMap() map[string]Action {
 // are removed.
 func (h *GlobalShortcutHandler) ReloadShortcuts(ctx context.Context, workspace *entity.WorkspaceConfig, session *entity.SessionConfig) {
 	log := logging.FromContext(ctx)
+	h.ctx = ctx
+	h.generation++
 
 	if h.window == nil || h.controller == nil {
 		return
@@ -358,6 +372,7 @@ func (h *GlobalShortcutHandler) ReloadShortcuts(ctx context.Context, workspace *
 // Note: GTK handles cleanup when the widget is destroyed,
 // but we clear our references here.
 func (h *GlobalShortcutHandler) Detach() {
+	h.generation++
 	h.controller = nil
 	h.callbacks = nil
 	h.registered = nil
@@ -365,6 +380,10 @@ func (h *GlobalShortcutHandler) Detach() {
 }
 
 const globalShortcutRepeatSuppressWindow = 250 * time.Millisecond
+
+func (h *GlobalShortcutHandler) isStaleGeneration(generation uint64) bool {
+	return h == nil || generation != h.generation
+}
 
 func (h *GlobalShortcutHandler) suppressRepeatedShortcut(action Action, now time.Time) bool {
 	if h == nil || !isRepeatedGlobalShortcutSuppressed(action) {

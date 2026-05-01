@@ -40,6 +40,7 @@ type Engine struct {
 	defaultConfigPayload             func() ([]byte, error)
 	ctxMenuBuilder                   port.ContextMenuBuilder
 	ctxMenuExecutorFactory           port.ContextMenuActionExecutorFactory
+	ctxMenuRenderer                  ContextMenuRenderer
 	clipboard                        port.Clipboard
 	clipboardTextOrchestrator        port.ClipboardTextOrchestrator
 	onClipboardCopied                func(textLen int)
@@ -81,6 +82,13 @@ type Engine struct {
 
 func (e *Engine) Factory() port.WebViewFactory {
 	return &webViewFactoryAdapter{factory: e.factory}
+}
+
+func (e *Engine) contextMenuRenderer() ContextMenuRenderer {
+	if e == nil {
+		return nil
+	}
+	return e.ctxMenuRenderer
 }
 
 func (e *Engine) Pool() port.WebViewPool {

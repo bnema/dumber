@@ -2,7 +2,6 @@ package cef
 
 import (
 	"context"
-	"errors"
 	"strings"
 	"sync"
 
@@ -596,13 +595,11 @@ func (wv *WebView) handleInputAttachFailure(err error, host purecef.BrowserHost)
 	if wv.ctx != nil {
 		logging.FromContext(wv.ctx).Warn().Err(err).Msg("cef: failed to attach input to cef2gtk bridge")
 	}
-	if errors.Is(err, ErrAdapterDestroyed) {
-		if host != nil && !wv.destroyed.Load() {
-			host.CloseBrowser(1)
-			return
-		}
-		wv.runCloseCallbacks()
+	if host != nil && !wv.destroyed.Load() {
+		host.CloseBrowser(1)
+		return
 	}
+	wv.runCloseCallbacks()
 }
 
 func (h *handlerSet) finishAfterCreated(

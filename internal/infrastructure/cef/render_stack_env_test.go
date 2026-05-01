@@ -5,7 +5,7 @@ import (
 	"os"
 	"testing"
 
-	"github.com/bnema/dumber/internal/infrastructure/config"
+	"github.com/bnema/dumber/internal/application/port"
 )
 
 func TestApplyDefaultRenderStackEnvironment_DefaultsToGDKDMABUFWithANGLEVulkan(t *testing.T) {
@@ -95,13 +95,18 @@ func TestApplyDefaultRenderStackEnvironment_LegacyGLUsesGLArea(t *testing.T) {
 	}
 }
 
+func TestNormalizeRenderStackUnknownFallsBackToGDKDMABUF(t *testing.T) {
+	got := normalizeRenderStack(context.Background(), "vulkan-dmabuff")
+
+	if got != renderStackVulkanDMABUF {
+		t.Fatalf("render stack = %q, want %q", got, renderStackVulkanDMABUF)
+	}
+}
+
 func TestApplyDefaultHardwareDecodeEnvironment_DefaultsCEFToVAAPIForAuto(t *testing.T) {
 	t.Setenv(cefEnableVAAPIEnvVar, "")
 
-	ApplyDefaultHardwareDecodeEnvironment(context.Background(), &config.Config{
-		Engine: config.EngineConfig{Type: config.EngineTypeCEF},
-		Media:  config.MediaConfig{HardwareDecodingMode: config.HardwareDecodingAuto},
-	})
+	ApplyDefaultHardwareDecodeEnvironment(context.Background(), HardwareDecodeEnvironmentOptions{EngineType: cefEngineType})
 
 	if got := os.Getenv(cefEnableVAAPIEnvVar); got != "1" {
 		t.Fatalf("%s = %q, want 1", cefEnableVAAPIEnvVar, got)
@@ -112,9 +117,9 @@ func TestApplyDefaultHardwareDecodeEnvironment_PreservesExplicitLIBVADriver(t *t
 	t.Setenv(cefEnableVAAPIEnvVar, "")
 	t.Setenv("LIBVA_DRIVER_NAME", "custom-driver")
 
-	ApplyDefaultHardwareDecodeEnvironment(context.Background(), &config.Config{
-		Engine: config.EngineConfig{Type: config.EngineTypeCEF},
-		Media:  config.MediaConfig{HardwareDecodingMode: config.HardwareDecodingAuto},
+	ApplyDefaultHardwareDecodeEnvironment(context.Background(), HardwareDecodeEnvironmentOptions{
+		EngineType:          cefEngineType,
+		RenderingEnvManager: stubRenderingEnvManager{},
 	})
 
 	if got := os.Getenv("LIBVA_DRIVER_NAME"); got != "custom-driver" {
@@ -125,9 +130,9 @@ func TestApplyDefaultHardwareDecodeEnvironment_PreservesExplicitLIBVADriver(t *t
 func TestApplyDefaultHardwareDecodeEnvironment_DisablesCEFVAAPIWhenMediaDisabled(t *testing.T) {
 	t.Setenv(cefEnableVAAPIEnvVar, "")
 
-	ApplyDefaultHardwareDecodeEnvironment(context.Background(), &config.Config{
-		Engine: config.EngineConfig{Type: config.EngineTypeCEF},
-		Media:  config.MediaConfig{HardwareDecodingMode: config.HardwareDecodingDisable},
+	ApplyDefaultHardwareDecodeEnvironment(context.Background(), HardwareDecodeEnvironmentOptions{
+		EngineType:               cefEngineType,
+		HardwareDecodingDisabled: true,
 	})
 
 	if got := os.Getenv(cefEnableVAAPIEnvVar); got != "0" {
@@ -138,12 +143,16 @@ func TestApplyDefaultHardwareDecodeEnvironment_DisablesCEFVAAPIWhenMediaDisabled
 func TestApplyDefaultHardwareDecodeEnvironment_PreservesExplicitCEFVAAPIOverride(t *testing.T) {
 	t.Setenv(cefEnableVAAPIEnvVar, "0")
 
-	ApplyDefaultHardwareDecodeEnvironment(context.Background(), &config.Config{
-		Engine: config.EngineConfig{Type: config.EngineTypeCEF},
-		Media:  config.MediaConfig{HardwareDecodingMode: config.HardwareDecodingAuto},
-	})
+	ApplyDefaultHardwareDecodeEnvironment(context.Background(), HardwareDecodeEnvironmentOptions{EngineType: cefEngineType})
 
 	if got := os.Getenv(cefEnableVAAPIEnvVar); got != "0" {
 		t.Fatalf("%s = %q, want explicit 0", cefEnableVAAPIEnvVar, got)
 	}
 }
+
+type stubRenderingEnvManager struct{}
+
+func (stubRenderingEnvManager) DetectGPUVendor(context.Context) port.GPUVendor {
+	return port.GPUVendorAMD
+}
+func (stubRenderingEnvManager) GetAppliedVars() map[string]string { return nil }

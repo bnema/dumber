@@ -6,8 +6,6 @@ import (
 	"strings"
 
 	"github.com/bnema/dumber/internal/application/port"
-	"github.com/bnema/dumber/internal/infrastructure/config"
-	renderenv "github.com/bnema/dumber/internal/infrastructure/env"
 	"github.com/bnema/dumber/internal/logging"
 )
 
@@ -15,6 +13,7 @@ const (
 	dumberRenderStackEnvVar           = "DUMBER_RENDER_STACK"
 	dumberRenderStackAllowSplitEnvVar = "DUMBER_RENDER_STACK_ALLOW_SPLIT"
 
+	cefEngineType           = "cef"
 	renderStackAuto         = "auto"
 	renderStackVulkanDMABUF = "vulkan-dmabuf"
 	renderStackLegacyGL     = "legacy-gl"
@@ -45,7 +44,7 @@ func ApplyDefaultRenderStackEnvironment(ctx context.Context) string {
 }
 
 func applyDefaultRenderStackEnvironment(ctx context.Context) string {
-	stack := normalizeRenderStack(os.Getenv(dumberRenderStackEnvVar))
+	stack := normalizeRenderStack(ctx, os.Getenv(dumberRenderStackEnvVar))
 	switch stack {
 	case renderStackLegacyGL:
 		setRenderStackEnv(ctx, gskRendererEnvVar, gskRendererOpenGL)
@@ -74,26 +73,34 @@ func logRenderStackEnvironment(ctx context.Context, stack string) {
 		Msg("cef: render stack environment configured")
 }
 
+// HardwareDecodeEnvironmentOptions carries config-derived CEF environment
+// decisions from the composition root without making the CEF adapter import
+// sibling configuration or environment adapters directly.
+type HardwareDecodeEnvironmentOptions struct {
+	EngineType               string
+	HardwareDecodingDisabled bool
+	RenderingEnvManager      port.RenderingEnvManager
+}
+
 // ApplyDefaultHardwareDecodeEnvironment maps Dumber's media config to CEF's
 // developer-facing VAAPI switch env var before CEF command-line callbacks run.
 // Existing explicit env values are preserved as low-level escape hatches.
-func ApplyDefaultHardwareDecodeEnvironment(ctx context.Context, cfg *config.Config) {
-	if cfg == nil || cfg.Engine.ResolveEngineType() != config.EngineTypeCEF {
+func ApplyDefaultHardwareDecodeEnvironment(ctx context.Context, opts HardwareDecodeEnvironmentOptions) {
+	if opts.EngineType != cefEngineType {
 		return
 	}
-	if cfg.Media.HardwareDecodingMode == config.HardwareDecodingDisable {
+	if opts.HardwareDecodingDisabled {
 		setEnvDefault(ctx, cefEnableVAAPIEnvVar, "0")
 		return
 	}
 	setEnvDefault(ctx, cefEnableVAAPIEnvVar, "1")
-	applyDefaultLIBVADriverEnvironment(ctx)
+	applyDefaultLIBVADriverEnvironment(ctx, opts.RenderingEnvManager)
 }
 
-func applyDefaultLIBVADriverEnvironment(ctx context.Context) {
-	if strings.TrimSpace(os.Getenv("LIBVA_DRIVER_NAME")) != "" {
+func applyDefaultLIBVADriverEnvironment(ctx context.Context, manager port.RenderingEnvManager) {
+	if strings.TrimSpace(os.Getenv("LIBVA_DRIVER_NAME")) != "" || manager == nil {
 		return
 	}
-	manager := renderenv.NewManager()
 	switch manager.DetectGPUVendor(ctx) {
 	case port.GPUVendorAMD:
 		setEnvDefault(ctx, "LIBVA_DRIVER_NAME", "radeonsi")
@@ -108,13 +115,21 @@ func applyDefaultLIBVADriverEnvironment(ctx context.Context) {
 	}
 }
 
-func normalizeRenderStack(value string) string {
-	switch strings.ToLower(strings.TrimSpace(value)) {
+func normalizeRenderStack(ctx context.Context, value string) string {
+	normalized := strings.ToLower(strings.TrimSpace(value))
+	switch normalized {
 	case "", renderStackAuto, renderStackVulkanDMABUF:
 		return renderStackVulkanDMABUF
 	case renderStackLegacyGL:
 		return renderStackLegacyGL
 	default:
+		if ctx == nil {
+			ctx = context.Background()
+		}
+		logging.FromContext(ctx).Warn().
+			Str("render_stack", value).
+			Str("fallback", renderStackVulkanDMABUF).
+			Msg("cef: unknown render stack, falling back to default")
 		return renderStackVulkanDMABUF
 	}
 }
