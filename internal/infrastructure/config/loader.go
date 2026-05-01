@@ -610,8 +610,6 @@ func (m *Manager) setEngineDefaults(defaults *Config) {
 	m.viper.SetDefault("engine.webkit.network_process_memory_strict_threshold", wk.NetworkProcessMemoryStrictThreshold)
 }
 
-
-
 // New returns a new default configuration instance.
 // This is a convenience function for getting default config without the full manager.
 func New() *Config {

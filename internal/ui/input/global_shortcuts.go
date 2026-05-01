@@ -5,6 +5,7 @@ import (
 	"context"
 	"fmt"
 	"strings"
+	"time"
 
 	"github.com/bnema/dumber/internal/domain/entity"
 	"github.com/bnema/dumber/internal/logging"
@@ -17,12 +18,15 @@ import (
 // even when WebView has focus. It uses GtkShortcutController with GTK_SHORTCUT_SCOPE_GLOBAL
 // to intercept shortcuts before they reach the WebView.
 type GlobalShortcutHandler struct {
-	controller *gtk.ShortcutController
-	window     *gtk.ApplicationWindow
-	kbHandler  *KeyboardHandler
-	onAction   ActionHandler
-	ctx        context.Context
-	registered map[KeyBinding]Action
+	controller     *gtk.ShortcutController
+	window         *gtk.ApplicationWindow
+	kbHandler      *KeyboardHandler
+	onAction       ActionHandler
+	ctx            context.Context
+	registered     map[KeyBinding]Action
+	lastDispatchAt map[Action]time.Time
+	// generation is mutated only from the GTK main thread alongside controller replacement.
+	generation uint64
 
 	// Keep references to callbacks to prevent GC from collecting them
 	callbacks []gtk.ShortcutFunc
@@ -42,13 +46,14 @@ func NewGlobalShortcutHandler(
 	log.Debug().Msg("creating global shortcut handler")
 
 	h := &GlobalShortcutHandler{
-		controller: gtk.NewShortcutController(),
-		window:     window,
-		kbHandler:  kbHandler,
-		onAction:   onAction,
-		ctx:        ctx,
-		callbacks:  make([]gtk.ShortcutFunc, 0),
-		registered: make(map[KeyBinding]Action),
+		controller:     gtk.NewShortcutController(),
+		window:         window,
+		kbHandler:      kbHandler,
+		onAction:       onAction,
+		ctx:            ctx,
+		callbacks:      make([]gtk.ShortcutFunc, 0),
+		registered:     make(map[KeyBinding]Action),
+		lastDispatchAt: make(map[Action]time.Time),
 	}
 
 	if h.controller == nil {
@@ -181,11 +186,27 @@ func (h *GlobalShortcutHandler) registerShortcut(keyval uint, modifiers gdk.Modi
 		return false
 	}
 
-	// Create callback action
-	// We need to capture the action in the closure
+	// Create callback action.
+	// Capture the generation so callbacks from removed/reloaded controllers cannot
+	// dispatch one-shot actions after a shortcut reload.
 	actionToDispatch := action
+	generation := h.generation
 	callback := gtk.ShortcutFunc(func(_ uintptr, _ *glib.Variant, _ uintptr) bool {
 		log := logging.FromContext(h.ctx)
+		if h.isStaleGeneration(generation) {
+			log.Trace().
+				Str("action", string(actionToDispatch)).
+				Uint64("callback_generation", generation).
+				Uint64("current_generation", h.generation).
+				Msg("stale global shortcut callback ignored")
+			return true
+		}
+		if h.suppressRepeatedShortcut(actionToDispatch, time.Now()) {
+			log.Trace().
+				Str("action", string(actionToDispatch)).
+				Msg("global shortcut repeat suppressed")
+			return true
+		}
 		log.Debug().
 			Str("action", string(actionToDispatch)).
 			Msg("global shortcut triggered")
@@ -266,6 +287,8 @@ func globalShortcutActionMap() map[string]Action {
 // are removed.
 func (h *GlobalShortcutHandler) ReloadShortcuts(ctx context.Context, workspace *entity.WorkspaceConfig, session *entity.SessionConfig) {
 	log := logging.FromContext(ctx)
+	h.ctx = ctx
+	h.generation++
 
 	if h.window == nil || h.controller == nil {
 		return
@@ -283,6 +306,7 @@ func (h *GlobalShortcutHandler) ReloadShortcuts(ctx context.Context, workspace *
 	h.controller.SetScope(gtk.ShortcutScopeGlobalValue)
 	h.callbacks = make([]gtk.ShortcutFunc, 0)
 	h.registered = make(map[KeyBinding]Action)
+	h.lastDispatchAt = make(map[Action]time.Time)
 
 	// Re-register hardcoded shortcuts (Alt+1-9, Alt+0, Alt+Tab, Ctrl+Shift+S)
 	tabActions := []Action{
@@ -348,9 +372,45 @@ func (h *GlobalShortcutHandler) ReloadShortcuts(ctx context.Context, workspace *
 // Note: GTK handles cleanup when the widget is destroyed,
 // but we clear our references here.
 func (h *GlobalShortcutHandler) Detach() {
+	h.generation++
+	if h.window != nil && h.controller != nil {
+		h.window.RemoveController(&h.controller.EventController)
+	}
 	h.controller = nil
 	h.callbacks = nil
 	h.registered = nil
+	h.lastDispatchAt = nil
+}
+
+const globalShortcutRepeatSuppressWindow = 250 * time.Millisecond
+
+func (h *GlobalShortcutHandler) isStaleGeneration(generation uint64) bool {
+	return h == nil || generation != h.generation
+}
+
+func (h *GlobalShortcutHandler) suppressRepeatedShortcut(action Action, now time.Time) bool {
+	if h == nil || !isRepeatedGlobalShortcutSuppressed(action) {
+		return false
+	}
+	if h.lastDispatchAt == nil {
+		// Detached/reloading handlers clear dispatch state; consume one-shot shortcuts
+		// rather than letting a stale GTK callback repeat destructive actions.
+		return true
+	}
+	if last, ok := h.lastDispatchAt[action]; ok && now.Sub(last) < globalShortcutRepeatSuppressWindow {
+		return true
+	}
+	h.lastDispatchAt[action] = now
+	return false
+}
+
+func isRepeatedGlobalShortcutSuppressed(action Action) bool {
+	switch action {
+	case ActionZoomReset, ActionClosePane, ActionCloseTab, ActionQuit, ActionOpenSessionManager:
+		return true
+	default:
+		return false
+	}
 }
 
 func formatBinding(binding KeyBinding) string {

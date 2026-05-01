@@ -60,13 +60,6 @@ func (s *controlledSelectionScheduler) fire(index int) {
 	}
 }
 
-func newTestPipeline(w, h, s int32) *renderPipeline {
-	rp := &renderPipeline{scale: s}
-	rp.widthAtomic.Store(w)
-	rp.heightAtomic.Store(h)
-	return rp
-}
-
 type stubFrame struct {
 	main bool
 	url  string
@@ -309,7 +302,7 @@ func TestOnTextSelectionChanged_ForwardsSelectionToClipboardOrchestrator(t *test
 			clipboardTextOrchestrator: orchestrator,
 		},
 	}
-	h := &handlerSet{wv: wv}
+	h := &selectionRenderHandlerForTest{wv: wv}
 
 	h.OnTextSelectionChanged(nil, "selected text", nil)
 
@@ -339,7 +332,7 @@ func TestOnTextSelectionChanged_DebouncesAndCollapsesRapidUpdates(t *testing.T) 
 			clipboardTextOrchestrator: orchestrator,
 		},
 	}
-	h := &handlerSet{wv: wv}
+	h := &selectionRenderHandlerForTest{wv: wv}
 
 	h.OnTextSelectionChanged(nil, "first selection", nil)
 	h.OnTextSelectionChanged(nil, "second selection", nil)
@@ -382,7 +375,8 @@ func TestOnTextSelectionChanged_SuppressesAutoCopyWhenFocusedNodeEditableAndResu
 			clipboardTextOrchestrator: orchestrator,
 		},
 	}
-	h := &handlerSet{wv: wv}
+	h := &selectionRenderHandlerForTest{wv: wv}
+	clientHandlers := &handlerSet{wv: wv}
 	frame := cefmocks.NewMockFrame(t)
 	oldFactory := newRendererBridgeProcessMessage
 	t.Cleanup(func() { newRendererBridgeProcessMessage = oldFactory })
@@ -395,7 +389,7 @@ func TestOnTextSelectionChanged_SuppressesAutoCopyWhenFocusedNodeEditableAndResu
 		args := message.GetArgumentList()
 		require.Equal(t, "editable_focus_changed", args.GetString(0))
 		require.Equal(t, "1", args.GetString(1))
-		h.OnProcessMessageReceived(nil, nil, 0, message)
+		clientHandlers.OnProcessMessageReceived(nil, nil, 0, message)
 	}).Once()
 	(&rendererBridgeProcessHandler{}).OnFocusedNodeChanged(nil, frame, stubEditableDomnode{editable: true})
 
@@ -416,7 +410,7 @@ func TestOnTextSelectionChanged_SuppressesAutoCopyWhenFocusedNodeEditableAndResu
 		args := message.GetArgumentList()
 		require.Equal(t, "editable_focus_changed", args.GetString(0))
 		require.Equal(t, "0", args.GetString(1))
-		h.OnProcessMessageReceived(nil, nil, 0, message)
+		clientHandlers.OnProcessMessageReceived(nil, nil, 0, message)
 	}).Once()
 	(&rendererBridgeProcessHandler{}).OnFocusedNodeChanged(nil, frame, stubEditableDomnode{editable: false})
 
@@ -455,7 +449,7 @@ func TestOnTextSelectionChanged_DoesNotEmitLateDebouncedUpdateAfterDestroy(t *te
 			clipboardTextOrchestrator: orchestrator,
 		},
 	}
-	h := &handlerSet{wv: wv}
+	h := &selectionRenderHandlerForTest{wv: wv}
 
 	h.OnTextSelectionChanged(nil, "selected text", nil)
 	require.Len(t, scheduler.callbacks, 1)
@@ -500,49 +494,21 @@ func (n stubEditableDomnode) SetElementAttribute(string, string) int32 { return 
 func (n stubEditableDomnode) GetElementInnerText() string              { return "" }
 func (n stubEditableDomnode) GetElementBounds() uintptr                { return 0 }
 
-func TestGetViewRectUsesDIPCoordinates(t *testing.T) {
-	rect := &purecef.Rect{}
-	h := &handlerSet{
-		wv: &WebView{
-			ctx:      context.Background(),
-			pipeline: newTestPipeline(800, 600, 2),
-		},
-	}
-
-	h.GetViewRect(nil, rect)
-
-	require.Equal(t, int32(0), rect.X)
-	require.Equal(t, int32(0), rect.Y)
-	require.Equal(t, int32(400), rect.Width)
-	require.Equal(t, int32(300), rect.Height)
-}
-
-func TestGetScreenInfoUsesDIPRectAndScale(t *testing.T) {
-	si := purecef.NewScreenInfo()
-	info := &si
-	h := &handlerSet{
-		wv: &WebView{
-			ctx:      context.Background(),
-			pipeline: newTestPipeline(1500, 900, 3),
-		},
-	}
-
-	ok := h.GetScreenInfo(nil, info)
-
-	require.Equal(t, int32(1), ok)
-	require.InEpsilon(t, float32(3), info.DeviceScaleFactor, 0.001)
-	require.Equal(t, int32(500), info.Rect.Width)
-	require.Equal(t, int32(300), info.Rect.Height)
-	require.Equal(t, int32(500), info.AvailableRect.Width)
-	require.Equal(t, int32(300), info.AvailableRect.Height)
-}
-
 func TestOptionalHandlersAreAlwaysEnabled(t *testing.T) {
 	h := &handlerSet{}
 
 	// AudioHandler is always enabled (required for media decoding).
 	require.Same(t, h, h.GetAudioHandler())
 	require.Same(t, h, h.GetContextMenuHandler())
+	require.Nil(t, h.GetRenderHandler())
+}
+
+func TestRenderTextSelectionHookPreservesWebViewState(t *testing.T) {
+	wv := &WebView{ctx: context.Background()}
+
+	handleRenderTextSelectionChanged(wv, "selected via hook")
+
+	require.Equal(t, "selected via hook", wv.selectedTextSnapshot())
 }
 
 func TestGetDownloadHandler_EnabledWhenEngineConfigured(t *testing.T) {
@@ -559,26 +525,8 @@ func TestGetDownloadHandler_EnabledWhenEngineConfigured(t *testing.T) {
 	require.Same(t, h, h.GetDownloadHandler())
 }
 
-func TestOnPaint_DropsStaleMainViewPaint(t *testing.T) {
-	wv := &WebView{
-		id: 42,
-		pipeline: &renderPipeline{
-			ctx:   context.Background(),
-			scale: 1,
-		},
-	}
-	wv.pipeline.widthAtomic.Store(1269)
-	wv.pipeline.heightAtomic.Store(1035)
+type selectionRenderHandlerForTest struct{ wv *WebView }
 
-	h := &handlerSet{wv: wv}
-	buffer := make([]byte, 1269*2106*4)
-
-	h.OnPaint(nil, purecef.PaintElementTypePetView, []purecef.Rect{{X: 0, Y: 0, Width: 1269, Height: 2106}}, buffer, 1269, 2106)
-
-	require.Equal(t, int32(1269), wv.pipeline.widthAtomic.Load())
-	require.Equal(t, int32(1035), wv.pipeline.heightAtomic.Load())
-	require.Nil(t, wv.pipeline.staging)
-	require.Zero(t, wv.pipeline.lastQueuedPaintSeq.Load())
-	require.False(t, wv.pipeline.needsUpload)
-	require.Empty(t, wv.pipeline.dirtyRects)
+func (h *selectionRenderHandlerForTest) OnTextSelectionChanged(_ purecef.Browser, selectedText string, _ *purecef.Range) {
+	handleRenderTextSelectionChanged(h.wv, selectedText)
 }

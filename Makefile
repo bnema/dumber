@@ -42,7 +42,7 @@ help: ## Show this help message
 build: build-systemviews ## Build the application (pure Go, no CGO)
 	@echo "Building $(BINARY_NAME) $(VERSION) using $(NPROCS) cores..."
 	@mkdir -p $(DIST_DIR)
-	CGO_ENABLED=0 go build -buildvcs=false -p $(NPROCS) $(GCFLAGS) $(LDFLAGS) -o $(DIST_DIR)/$(BINARY_NAME) $(MAIN_PATH)
+	GOFLAGS=-mod=mod CGO_ENABLED=0 go build -buildvcs=false -p $(NPROCS) $(GCFLAGS) $(LDFLAGS) -o $(DIST_DIR)/$(BINARY_NAME) $(MAIN_PATH)
 	@rm -f $(DIST_DIR)/cef-helper
 	@echo "Build successful! Binary: $(DIST_DIR)/$(BINARY_NAME)"
 
@@ -63,7 +63,7 @@ build-systemviews: generate-systemviews ## Build the WASM systemviews runtime
 build-quick: ## Build quickly for backend development
 	@echo "Building $(BINARY_NAME) $(VERSION) (quick)..."
 	@mkdir -p $(DIST_DIR)
-	CGO_ENABLED=0 go build -buildvcs=false -p $(NPROCS) $(GCFLAGS) $(LDFLAGS) -o $(DIST_DIR)/$(BINARY_NAME) $(MAIN_PATH)
+	GOFLAGS=-mod=mod CGO_ENABLED=0 go build -buildvcs=false -p $(NPROCS) $(GCFLAGS) $(LDFLAGS) -o $(DIST_DIR)/$(BINARY_NAME) $(MAIN_PATH)
 	@rm -f $(DIST_DIR)/cef-helper
 	@echo "Build successful! Binary: $(DIST_DIR)/$(BINARY_NAME)"
 
@@ -102,15 +102,15 @@ mocks: ## Generate mock implementations with mockery
 # Testing
 test: ## Run tests
 	@echo "Running tests..."
-	go test -v ./...
+	GOFLAGS=-mod=mod go test -v ./...
 
 test-race: ## Run tests with race detection
 	@echo "Running tests with race detection..."
-	go test -race -v ./...
+	GOFLAGS=-mod=mod go test -race -v ./...
 
 test-cover: ## Run tests with coverage
 	@echo "Running tests with coverage..."
-	go test -coverprofile=coverage.out ./...
+	GOFLAGS=-mod=mod go test -coverprofile=coverage.out ./...
 	go tool cover -html=coverage.out -o coverage.html
 	@echo "Coverage report: coverage.html"
 

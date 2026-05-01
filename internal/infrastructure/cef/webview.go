@@ -14,6 +14,7 @@ import (
 	"time"
 
 	purecef "github.com/bnema/purego-cef/cef"
+	cef2gtk "github.com/bnema/purego-cef2gtk"
 	"github.com/bnema/puregotk/v4/glib"
 	"github.com/bnema/puregotk/v4/gtk"
 
@@ -64,20 +65,30 @@ var (
 	cefScheduleAfter   = func(delay time.Duration, fn func()) { time.AfterFunc(delay, fn) }
 )
 
-// WebView implements port.WebView using a CEF off-screen browser rendered
-// through a renderPipeline and driven by an inputBridge.
+// WebView implements port.WebView using a CEF off-screen browser rendered and
+// driven through purego-cef2gtk. Dumber owns browser state and callbacks; the
+// bridge owns GTK rendering and input forwarding.
 type WebView struct {
-	id               port.WebViewID
-	ctx              context.Context
-	engine           *Engine
-	browser          purecef.Browser
-	host             purecef.BrowserHost
-	client           purecef.RawClient // prevent GC from collecting the client before CEF AddRef's it
-	pipeline         *renderPipeline
-	input            *inputBridge
-	handlers         *handlerSet
-	findCtrl         *cefFindController
-	resizeReconciler *resizeReconciler
+	id                        port.WebViewID
+	ctx                       context.Context
+	engine                    *Engine
+	browser                   purecef.Browser
+	host                      purecef.BrowserHost
+	client                    purecef.RawClient // prevent GC from collecting the client before CEF AddRef's it
+	viewBridge                *Cef2gtkAdapter
+	handlers                  *handlerSet
+	findCtrl                  *cefFindController
+	profileCleanup            func()
+	profileMu                 sync.Mutex
+	renderStallMu             sync.Mutex
+	renderStallStop           chan struct{}
+	renderStallDone           chan struct{}
+	renderStallRecoveryLastAt time.Time
+	latestProfileSnapshot     cef2gtk.ProfileSnapshot
+	previousProfileSnapshot   cef2gtk.ProfileSnapshot
+	latestProfileSnapshotAt   time.Time
+
+	removeSizeObserver func()
 
 	// beginFrameTick drives CEF external BeginFrame requests while the GTK
 	// widget is visible. Access is guarded by mu.
@@ -136,6 +147,7 @@ type WebView struct {
 	isLoading                 bool
 	selectedText              string
 	focusedEditable           bool
+	inputAttached             bool
 	bridgeNonce               string
 	selectionDebounceTimer    stoppableTimer
 	selectionDebounceSeq      uint64
@@ -512,9 +524,9 @@ func (wv *WebView) SetOnReadyToShow(fn func()) {
 	}
 	wv.mu.Lock()
 	wv.popupReadyToShow = fn
-	alreadyReady := wv.browser != nil && !wv.popupReadyShown && fn != nil
+	shouldTryReady := wv.browser != nil && fn != nil
 	wv.mu.Unlock()
-	if alreadyReady {
+	if shouldTryReady {
 		wv.fireReadyToShow()
 	}
 }
@@ -595,7 +607,7 @@ func (wv *WebView) fireReadyToShow() {
 		return
 	}
 	wv.mu.Lock()
-	if wv.popupReadyShown || wv.popupReadyToShow == nil {
+	if wv.popupReadyShown || wv.popupReadyToShow == nil || !wv.inputAttached {
 		wv.mu.Unlock()
 		return
 	}
@@ -603,6 +615,16 @@ func (wv *WebView) fireReadyToShow() {
 	wv.popupReadyShown = true
 	wv.mu.Unlock()
 	wv.runOnGTK(fn)
+}
+
+func (wv *WebView) markInputAttached() {
+	if wv == nil || wv.destroyed.Load() {
+		return
+	}
+	wv.mu.Lock()
+	wv.inputAttached = true
+	wv.mu.Unlock()
+	wv.fireReadyToShow()
 }
 
 func (wv *WebView) markNativePopupCandidate(parent *WebView) {
@@ -999,6 +1021,7 @@ func (wv *WebView) Destroy() {
 	wv.openerMessageCallbacks = nil
 	wv.openerNavigationCallbacks = nil
 	wv.popupReadyToShow = nil
+	wv.inputAttached = false
 	wv.pendingNativePopups = nil
 	wv.nativePopupParent = nil
 	wv.nativePopupCandidate = false
@@ -1008,10 +1031,8 @@ func (wv *WebView) Destroy() {
 	wv.popupOpenerBridgeParentURI = ""
 	wv.mu.Unlock()
 	wv.stopNativePopupFallbackTimer()
+	wv.stopRenderStallWatchdog()
 	wv.cancelSelectionDebounce()
-	if wv.resizeReconciler != nil {
-		wv.resizeReconciler.stop()
-	}
 	wv.closeAudioStream()
 	wv.scheduleStopBeginFrameLoop()
 	wv.mu.RLock()
@@ -1021,22 +1042,66 @@ func (wv *WebView) Destroy() {
 		host.CloseBrowser(1)
 	} else {
 		wv.runCloseCallbacks()
+		wv.destroyViewBridgeOnGTKSync()
 	}
-	if wv.pipeline != nil {
-		wv.pipeline.destroy()
+	if wv.profileCleanup != nil {
+		wv.profileCleanup()
+		wv.profileCleanup = nil
 	}
+}
+
+// destroyViewBridgeOnGTKSync, destroyViewBridgeOnGTKAsync, and
+// destroyViewBridgeOnGTKThread may race with one another during teardown. The
+// early viewBridge nil checks avoid scheduling unnecessary GTK work; the final
+// nil guard on the GTK thread is authoritative and makes duplicate scheduling
+// harmless.
+func (wv *WebView) destroyViewBridgeOnGTKSync() {
+	if wv == nil || wv.viewBridge == nil {
+		return
+	}
+	wv.runOnGTKSync(func() {
+		wv.destroyViewBridgeOnGTKThread()
+	})
+}
+
+func (wv *WebView) destroyViewBridgeOnGTKAsync() {
+	if wv == nil || wv.viewBridge == nil {
+		return
+	}
+	wv.runOnGTK(func() {
+		wv.destroyViewBridgeOnGTKThread()
+	})
+}
+
+func (wv *WebView) destroyViewBridgeOnGTKThread() {
+	if wv == nil || wv.viewBridge == nil {
+		return
+	}
+	if wv.removeSizeObserver != nil {
+		wv.removeSizeObserver()
+		wv.removeSizeObserver = nil
+	}
+	_ = wv.viewBridge.DetachInput()
+	_ = wv.viewBridge.Destroy()
+	wv.viewBridge = nil
 }
 
 // ---------------------------------------------------------------------------
 // NativeWidgetProvider
 // ---------------------------------------------------------------------------
 
-// NativeWidget returns the uintptr for embedding the GLArea into GTK.
+// NativeWidget returns the uintptr for embedding the bridge GTK widget.
 func (wv *WebView) NativeWidget() uintptr {
-	if wv.pipeline == nil || wv.pipeline.glArea == nil {
+	if wv.viewBridge == nil {
 		return 0
 	}
-	return wv.pipeline.glArea.GoPointer()
+	var ptr uintptr
+	wv.runOnGTKSync(func() {
+		if wv.viewBridge != nil {
+			ptr = wv.viewBridge.NativeWidget()
+		}
+	})
+	return ptr
 }
 
 // ---------------------------------------------------------------------------
@@ -1263,6 +1328,35 @@ func (wv *WebView) selectedTextSnapshot() string {
 	return wv.selectedText
 }
 
+func (wv *WebView) viewBridgeScale() int32 {
+	if wv == nil || wv.viewBridge == nil {
+		return 1
+	}
+	scale := int32(math.Round(float64(wv.viewBridge.DeviceScaleFactor())))
+	if scale < 1 {
+		return 1
+	}
+	return scale
+}
+
+func (wv *WebView) handleMiddleClickFromBridge() bool {
+	if wv == nil {
+		return false
+	}
+	wv.mu.RLock()
+	hoverURI := wv.lastHoverURI
+	cb := wv.callbacks
+	wv.mu.RUnlock()
+	if hoverURI == "" || cb == nil || cb.OnLinkMiddleClick == nil {
+		return false
+	}
+	uri := hoverURI
+	wv.runOnGTK(func() {
+		cb.OnLinkMiddleClick(uri)
+	})
+	return true
+}
+
 func (wv *WebView) scheduleLoadWatchdogs(loadSeq uint64) {
 	for _, delay := range cefLoadWatchdogDelays {
 		d := delay
@@ -1294,9 +1388,18 @@ func (wv *WebView) logLoadWatchdog(loadSeq uint64, delay time.Duration) {
 		return
 	}
 
-	snap := renderPipelineSnapshot{}
-	if wv.pipeline != nil {
-		snap = wv.pipeline.diagnosticSnapshot()
+	var acceleratedPaints, unsupportedPaints, acceleratedPaintErrors, importFailures, renderFailures int
+	var surfaceWidth, surfaceHeight int32 = 1, 1
+	var surfaceScale float32 = 1
+	if wv.viewBridge != nil {
+		diag := wv.viewBridge.Diagnostics()
+		acceleratedPaints = diag.AcceleratedPaints
+		unsupportedPaints = diag.UnsupportedPaints
+		acceleratedPaintErrors = diag.AcceleratedPaintErrors
+		importFailures = diag.ImportFailures
+		renderFailures = diag.RenderFailures
+		surfaceWidth, surfaceHeight = wv.viewBridge.Size()
+		surfaceScale = wv.viewBridge.DeviceScaleFactor()
 	}
 
 	now := time.Now()
@@ -1311,24 +1414,14 @@ func (wv *WebView) logLoadWatchdog(loadSeq uint64, delay time.Duration) {
 		Str("title", title).
 		Float64("progress", progress).
 		Str("pending_uri", logging.TruncateURL(pendingURI, logging.PermissionLogURLMaxLen)).
-		Int32("surface_width", snap.Width).
-		Int32("surface_height", snap.Height).
-		Int32("surface_scale", snap.Scale).
-		Bool("gl_ready", snap.GLReady).
-		Bool("needs_upload", snap.NeedsUpload).
-		Bool("size_changed", snap.SizeChanged).
-		Bool("force_full_upload", snap.ForceFullUpload).
-		Uint64("view_rect_seq", snap.ViewRectSeq).
-		Uint64("screen_info_seq", snap.ScreenInfoSeq).
-		Uint64("paint_seq", snap.PaintSeq).
-		Uint64("resize_seq", snap.ResizeSeq).
-		Uint64("last_queued_paint_seq", snap.LastQueuedPaintSeq).
-		Uint64("gl_render_seq", snap.GLRenderSeq).
-		Uint64("paint_total", snap.PaintCount).
-		Uint64("queue_total", snap.QueueRenderCount).
-		Uint64("render_total", snap.RenderCount).
-		Uint64("upload_total", snap.UploadCount).
-		Uint64("full_upload_total", snap.FullUploadCount).
+		Int32("surface_width", surfaceWidth).
+		Int32("surface_height", surfaceHeight).
+		Float32("surface_scale", surfaceScale).
+		Int("accelerated_paints", acceleratedPaints).
+		Int("unsupported_paints", unsupportedPaints).
+		Int("accelerated_paint_errors", acceleratedPaintErrors).
+		Int("import_failures", importFailures).
+		Int("render_failures", renderFailures).
 		Msg("cef: loading watchdog")
 }
 
@@ -1524,7 +1617,7 @@ func (wv *WebView) scheduleStopBeginFrameLoop() {
 }
 
 func (wv *WebView) startBeginFrameLoop() {
-	if wv.destroyed.Load() || wv.pipeline == nil || wv.pipeline.glArea == nil {
+	if wv.destroyed.Load() || wv.viewBridge == nil || wv.viewBridge.Widget() == nil {
 		return
 	}
 
@@ -1534,7 +1627,7 @@ func (wv *WebView) startBeginFrameLoop() {
 		return
 	}
 
-	glArea := wv.pipeline.glArea
+	widget := wv.viewBridge.Widget()
 	cb := new(gtk.TickCallback)
 	*cb = func(_, _, _ uintptr) bool {
 		if wv.destroyed.Load() {
@@ -1550,7 +1643,7 @@ func (wv *WebView) startBeginFrameLoop() {
 		return true
 	}
 	wv.beginFrameTick = cb
-	wv.beginFrameTickID = glArea.AddTickCallback(cb, 0, nil)
+	wv.beginFrameTickID = widget.AddTickCallback(cb, 0, nil)
 	host := wv.host
 	wv.mu.Unlock()
 
@@ -1560,7 +1653,7 @@ func (wv *WebView) startBeginFrameLoop() {
 }
 
 func (wv *WebView) stopBeginFrameLoop() {
-	if wv.pipeline == nil || wv.pipeline.glArea == nil {
+	if wv.viewBridge == nil || wv.viewBridge.Widget() == nil {
 		return
 	}
 
@@ -1568,11 +1661,11 @@ func (wv *WebView) stopBeginFrameLoop() {
 	tickID := wv.beginFrameTickID
 	wv.beginFrameTickID = 0
 	wv.beginFrameTick = nil
-	glArea := wv.pipeline.glArea
+	widget := wv.viewBridge.Widget()
 	wv.mu.Unlock()
 
 	if tickID != 0 {
-		glArea.RemoveTickCallback(tickID)
+		widget.RemoveTickCallback(tickID)
 	}
 }
 

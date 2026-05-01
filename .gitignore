@@ -84,10 +84,11 @@ CLAUDE.local.md
 memory/
 notes/
 docs/plans/
-scripts/
+scripts/*
 !scripts/generate-types.js
 !scripts/verify_purego_only.sh
 !scripts/stress_omnibox_callbacks.go
+!scripts/cef-gpu-diagnostics.sh
 specs/
 templates/
 .serena/

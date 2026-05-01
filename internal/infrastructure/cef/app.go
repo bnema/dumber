@@ -1,17 +1,21 @@
 package cef
 
 import (
+	"os"
 	"strings"
 
 	purecef "github.com/bnema/purego-cef/cef"
+	cef2gtk "github.com/bnema/purego-cef2gtk"
 
 	"github.com/bnema/dumber/internal/logging"
 )
 
 const (
 	dumbSchemeName                     = "dumb"
+	chromiumEnableFeaturesSwitch       = "enable-features"
 	chromiumDisableFeaturesSwitch      = "disable-features"
 	chromiumDisableBlinkFeaturesSwitch = "disable-blink-features"
+	chromiumRenderNodeOverrideSwitch   = "render-node-override"
 )
 
 // Chromium's core Blink runtime flag for the Web Authentication API is
@@ -41,6 +45,11 @@ func configureCommandLine(commandLine purecef.CommandLine) {
 		return
 	}
 
+	// Delegate Wayland accelerated rendering setup to the GTK bridge.
+	// Preserves any pre-existing ozone-platform value (e.g. set via
+	// CEF command-line args) — the bridge is a no-op when already present.
+	cef2gtk.ConfigureCommandLine(commandLine, cef2gtk.CommandLineOptions{})
+
 	// Enable Chromium's built-in smooth scrolling animation — without this,
 	// mouse wheel scroll jumps in discrete steps with no momentum/easing.
 	commandLine.AppendSwitch("enable-smooth-scrolling")
@@ -50,7 +59,114 @@ func configureCommandLine(commandLine purecef.CommandLine) {
 	// Chromium blocks them, showing an infinite spinner.
 	commandLine.AppendSwitchWithValue("autoplay-policy", "no-user-gesture-required")
 
+	configureHardwareVideoDecode(commandLine)
+	configureEnvChromiumFlags(commandLine)
+	configureRenderNodeOverride(commandLine)
 	configureWebAuthnFeaturePolicy(commandLine)
+}
+
+func configureHardwareVideoDecode(commandLine purecef.CommandLine) {
+	if commandLine == nil || !envBoolEnabled(cefEnableVAAPIEnvVar) {
+		return
+	}
+
+	appendUniqueCommaSeparatedSwitchValues(commandLine, chromiumEnableFeaturesSwitch,
+		"AcceleratedVideoDecoder",
+		"AcceleratedVideoEncoder",
+		"AcceleratedVideoDecodeLinuxGL",
+		"AcceleratedVideoDecodeLinuxZeroCopyGL",
+		"VaapiIgnoreDriverChecks",
+	)
+	appendSwitchIfMissing(commandLine, "ignore-gpu-blocklist")
+	appendSwitchIfMissing(commandLine, "enable-zero-copy")
+	appendSwitchIfMissing(commandLine, "disable-gpu-driver-bug-workaround")
+}
+
+func configureEnvChromiumFlags(commandLine purecef.CommandLine) {
+	if commandLine == nil {
+		return
+	}
+
+	for _, token := range parseChromiumFlagsEnv(os.Getenv(cefChromiumFlagsEnvVar)) {
+		applyChromiumFlagToken(commandLine, token)
+	}
+}
+
+func configureRenderNodeOverride(commandLine purecef.CommandLine) {
+	if commandLine == nil {
+		return
+	}
+	value := strings.TrimSpace(os.Getenv(cefRenderNodeEnvVar))
+	if value == "" {
+		return
+	}
+	switch strings.ToLower(value) {
+	case "auto", "default", "none", "off", "disable", "disabled":
+		commandLine.RemoveSwitch(chromiumRenderNodeOverrideSwitch)
+		return
+	}
+	commandLine.RemoveSwitch(chromiumRenderNodeOverrideSwitch)
+	commandLine.AppendSwitchWithValue(chromiumRenderNodeOverrideSwitch, value)
+}
+
+func parseChromiumFlagsEnv(raw string) []string {
+	// Reuse Dumber's command-line tokenizer so developer env flags can contain
+	// quoted values without adding a second shell-like parser in the CEF adapter.
+	return parseRelaunchCommandLineArgs(raw)
+}
+
+func applyChromiumFlagToken(commandLine purecef.CommandLine, token string) {
+	if commandLine == nil {
+		return
+	}
+	token = strings.TrimSpace(token)
+	if token == "" || token == "--" {
+		return
+	}
+	name, value, ok := parseChromiumSwitchToken(token)
+	if !ok {
+		return
+	}
+
+	switch name {
+	case chromiumEnableFeaturesSwitch, chromiumDisableFeaturesSwitch, chromiumDisableBlinkFeaturesSwitch:
+		appendUniqueCommaSeparatedSwitchValues(commandLine, name, strings.Split(value, ",")...)
+	default:
+		if value == "" {
+			appendSwitchIfMissing(commandLine, name)
+			return
+		}
+		commandLine.AppendSwitchWithValue(name, value)
+	}
+}
+
+func parseChromiumSwitchToken(token string) (name, value string, ok bool) {
+	token = strings.TrimSpace(token)
+	if token == "" {
+		return "", "", false
+	}
+
+	switch {
+	case strings.HasPrefix(token, "--"):
+		token = strings.TrimPrefix(token, "--")
+	case strings.HasPrefix(token, "-"):
+		token = strings.TrimPrefix(token, "-")
+	default:
+		return "", "", false
+	}
+
+	if token == "" || strings.HasPrefix(token, "-") {
+		return "", "", false
+	}
+	name, value, found := strings.Cut(token, "=")
+	name = strings.TrimSpace(name)
+	if name == "" {
+		return "", "", false
+	}
+	if !found {
+		return name, "", true
+	}
+	return name, value, true
 }
 
 func configureWebAuthnFeaturePolicy(commandLine purecef.CommandLine) {
@@ -191,6 +307,7 @@ func (a *dumberApp) OnBeforeCommandLineProcessing(processType string, commandLin
 			}
 		}
 
+		renderNodeOverride := commandLine.GetSwitchValue(chromiumRenderNodeOverrideSwitch)
 		cmdline := commandLine.GetCommandLineString()
 		if len(cmdline) > maxCmdLineLogLen {
 			runes := []rune(cmdline)
@@ -200,6 +317,7 @@ func (a *dumberApp) OnBeforeCommandLineProcessing(processType string, commandLin
 		}
 		log.Debug().
 			Str("process_type", processType).
+			Str("render_node_override", renderNodeOverride).
 			Str("command_line", cmdline).
 			Msg("cef: OnBeforeCommandLineProcessing")
 	}
@@ -240,15 +358,17 @@ func (h *dumberBPH) OnBeforeChildProcessLaunch(commandLine purecef.CommandLine) 
 	commandLineString := ""
 	useAngle := ""
 	ozonePlatform := ""
+	renderNodeOverride := ""
 	if commandLine != nil {
-		configureWebAuthnFeaturePolicy(commandLine)
+		configureCommandLine(commandLine)
 		appendSwitchIfMissing(commandLine, "no-zygote")
 		processType = commandLine.GetSwitchValue("type")
 		commandLineString = commandLine.GetCommandLineString()
 		useAngle = commandLine.GetSwitchValue("use-angle")
 		ozonePlatform = commandLine.GetSwitchValue("ozone-platform")
+		renderNodeOverride = commandLine.GetSwitchValue(chromiumRenderNodeOverrideSwitch)
 	}
-	h.engine.recordChildProcessLaunch(processType, useAngle, ozonePlatform, commandLineString)
+	h.engine.recordChildProcessLaunch(processType, useAngle, ozonePlatform, renderNodeOverride, commandLineString)
 }
 
 func appendSwitchIfMissing(commandLine purecef.CommandLine, name string) {

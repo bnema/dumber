@@ -24,6 +24,7 @@ import (
 	"github.com/bnema/dumber/internal/infrastructure/config"
 	"github.com/bnema/dumber/internal/infrastructure/deps"
 	"github.com/bnema/dumber/internal/infrastructure/desktop"
+	renderenv "github.com/bnema/dumber/internal/infrastructure/env"
 	"github.com/bnema/dumber/internal/infrastructure/favicon"
 	"github.com/bnema/dumber/internal/infrastructure/filesystem"
 	"github.com/bnema/dumber/internal/infrastructure/idle"
@@ -199,6 +200,7 @@ func runGUI(cfg *config.Config) int {
 	timer.Mark("config")
 
 	ctx := initStartupContextWithTrace(cfg)
+	applyCEFRenderStackDefault(ctx, cfg)
 	timer.Mark("logger")
 	bootstrapLog := logging.FromContext(ctx)
 
@@ -273,6 +275,7 @@ func runStandaloneOmnibox() int {
 	cfg := initConfig()
 	configureBrowserLaunchRelay(cfg)
 	ctx := initStartupContextWithTrace(cfg)
+	applyCEFRenderStackDefault(ctx, cfg)
 
 	initResult, err := runParallelInitPhase(ctx, cfg)
 	if err != nil {
@@ -318,6 +321,20 @@ func runStandaloneOmnibox() int {
 	runtimeCfg := ui.NewStandaloneOmniboxRuntime(ctx, uiDeps, nil)
 
 	return ui.RunStandaloneOmnibox(ctx, runtimeCfg)
+}
+
+func applyCEFRenderStackDefault(ctx context.Context, cfg *config.Config) {
+	if cfg == nil || cfg.Engine.ResolveEngineType() != config.EngineTypeCEF {
+		return
+	}
+	logger := logging.NewPortLogger(ctx)
+	infracef.ApplyDefaultRenderStackEnvironment(logger)
+	infracef.ApplyDefaultHardwareDecodeEnvironment(ctx, infracef.HardwareDecodeEnvironmentOptions{
+		EngineType:               cfg.Engine.ResolveEngineType(),
+		HardwareDecodingDisabled: cfg.Media.HardwareDecodingMode == config.HardwareDecodingDisable,
+		RenderingEnvManager:      renderenv.NewManager(),
+		Logger:                   logger,
+	})
 }
 
 func preInitializeAdwaitaForCEF(cfg *config.Config, initResult *bootstrap.ParallelInitResult, initAdwaita func()) {

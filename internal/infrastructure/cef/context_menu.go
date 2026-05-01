@@ -12,6 +12,13 @@ import (
 	"github.com/bnema/puregotk/v4/gtk"
 )
 
+// ContextMenuRenderer renders normalized context menu items for the CEF adapter.
+// It is implemented by the GTK menu adapter and injected by bootstrap so this
+// adapter does not depend on a sibling infrastructure adapter.
+type ContextMenuRenderer interface {
+	Show(items []port.MenuItem, anchor *gtk.Widget, x, y int32, onSelect func(port.MenuItem), onClose func())
+}
+
 // ===========================================================================
 // ContextMenuHandler (implemented on handlerSet)
 // ===========================================================================
@@ -19,6 +26,7 @@ import (
 func (h *handlerSet) OnBeforeContextMenu(_ purecef.Browser, _ purecef.Frame, _ purecef.ContextMenuParams, _ purecef.MenuModel) {
 }
 
+//nolint:gocyclo // CEF callback coordinates menu extraction, rendering, and native fallback in one synchronous call.
 func (h *handlerSet) RunContextMenu(
 	_ purecef.Browser, _ purecef.Frame,
 	params purecef.ContextMenuParams, model purecef.MenuModel,
@@ -67,31 +75,42 @@ func (h *handlerSet) RunContextMenu(
 			commandIDByAction[item.Action] = cmdID
 		}
 	}
-	if h.wv == nil || h.wv.pipeline == nil || h.wv.pipeline.glArea == nil {
+	if h.wv == nil || h.wv.viewBridge == nil {
 		return 0
 	}
 
-	x, y := contextMenuAnchorPosition(params, h.wv.pipeline.scale)
-	glArea := h.wv.pipeline.glArea
-	logContextMenuPopupRequest(h, glArea, params, x, y)
+	x, y := contextMenuAnchorPosition(params, h.wv.viewBridgeScale())
 	executor := h.contextMenuExecutor()
-
-	NewRenderer(h.wv.runOnGTK).Show(
-		items,
-		&glArea.Widget,
-		x,
-		y,
-		func(item port.MenuItem) {
-			var copiedCallback func(string)
-			if h.wv.engine != nil {
-				copiedCallback = h.wv.engine.notifyClipboardCopied
-			}
-			dispatchContextMenuSelection(h.wv.ctx, executor, callback, copiedCallback, commandIDByAction, item, menuContext)
-		},
-		func() {
+	wv := h.wv
+	wv.runOnGTK(func() {
+		if wv.viewBridge == nil || wv.viewBridge.Widget() == nil {
 			callback.Cancel()
-		},
-	)
+			return
+		}
+		widget := wv.viewBridge.Widget()
+		logContextMenuPopupRequest(h, widget, params, x, y)
+		renderer := wv.engine.contextMenuRenderer()
+		if renderer == nil {
+			callback.Cancel()
+			return
+		}
+		renderer.Show(
+			items,
+			widget,
+			x,
+			y,
+			func(item port.MenuItem) {
+				var copiedCallback func(string)
+				if wv.engine != nil {
+					copiedCallback = wv.engine.notifyClipboardCopied
+				}
+				dispatchContextMenuSelection(wv.ctx, executor, callback, copiedCallback, commandIDByAction, item, menuContext)
+			},
+			func() {
+				callback.Cancel()
+			},
+		)
+	})
 	return 1
 }
 
@@ -119,23 +138,23 @@ func contextMenuAnchorPosition(params purecef.ContextMenuParams, scale int32) (i
 
 func logContextMenuPopupRequest(
 	h *handlerSet,
-	glArea *gtk.GLArea,
+	widget *gtk.Widget,
 	params purecef.ContextMenuParams,
 	x, y int32,
 ) {
-	if h == nil || h.wv == nil || h.wv.ctx == nil || h.wv.pipeline == nil || glArea == nil {
+	if h == nil || h.wv == nil || h.wv.ctx == nil || widget == nil {
 		return
 	}
 	rawX, rawY := contextMenuRawPosition(params)
-	parent := glArea.GetParent()
+	parent := widget.GetParent()
 	logging.FromContext(h.wv.ctx).Debug().
 		Int32("raw_x", rawX).
 		Int32("raw_y", rawY).
 		Int32("popup_x", x).
 		Int32("popup_y", y).
-		Int32("scale", h.wv.pipeline.scale).
-		Int("anchor_width", glArea.Widget.GetAllocatedWidth()).
-		Int("anchor_height", glArea.Widget.GetAllocatedHeight()).
+		Int32("scale", h.wv.viewBridgeScale()).
+		Int("anchor_width", widget.GetAllocatedWidth()).
+		Int("anchor_height", widget.GetAllocatedHeight()).
 		Int("parent_width", cefWidgetAllocatedWidth(parent)).
 		Int("parent_height", cefWidgetAllocatedHeight(parent)).
 		Msg("cef: context menu popup request")

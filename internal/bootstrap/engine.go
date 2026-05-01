@@ -13,6 +13,7 @@ import (
 	clipboardinfra "github.com/bnema/dumber/internal/infrastructure/clipboard"
 	"github.com/bnema/dumber/internal/infrastructure/config"
 	"github.com/bnema/dumber/internal/infrastructure/env"
+	"github.com/bnema/dumber/internal/infrastructure/gtkmenu"
 	"github.com/bnema/dumber/internal/infrastructure/handlers"
 	"github.com/bnema/dumber/internal/infrastructure/runtimeprofile"
 	"github.com/bnema/dumber/internal/infrastructure/webkit"
@@ -90,13 +91,15 @@ func BuildEngine(input EngineInput) (port.Engine, error) {
 			DefaultConfigPayload:       defaultConfigPayload,
 			ContextMenuBuilder:         contextMenuBuilder,
 			ContextMenuExecutorFactory: contextMenuExecutorFactory,
+			ContextMenuRenderer:        gtkmenu.NewRenderer(nil),
 			Clipboard:                  clipboardinfra.New(),
 			ImageDataResolver:          webkit.NewContextMenuResolver(),
 		}
 		audioFactory := audiofactory.NewAudioOutputFactory()
 		return cef.NewEngine(input.Ctx, opts, cef.RuntimePaths{
-			StateRoot: profile.CEFUserDataDir(),
-			LogFile:   profile.CEFLogFile(),
+			StateRoot:     profile.CEFUserDataDir(),
+			LogFile:       profile.CEFLogFile(),
+			ProfileLogDir: profile.Shared.LogDir,
 		}, cefCfg, audioFactory, deps)
 	default:
 		return nil, fmt.Errorf("unknown engine type: %q", engineType)

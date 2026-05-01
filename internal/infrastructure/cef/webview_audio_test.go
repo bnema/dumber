@@ -32,7 +32,7 @@ func TestEngine_WiresAudioOutputFactory(t *testing.T) {
 	assert.Equal(t, audioFactory, opts.audioOutputFactory)
 
 	// Verify the factory is passed through
-	factory := newWebViewFactory(&Engine{}, &glLoader{}, opts)
+	factory := newWebViewFactory(&Engine{}, opts)
 	require.NotNil(t, factory.audioOutputFactory)
 }
 
@@ -47,7 +47,7 @@ func TestWebViewFactory_AudioFactoryIsOptional(t *testing.T) {
 	}
 
 	// Act
-	factory := newWebViewFactory(&Engine{}, &glLoader{}, opts)
+	factory := newWebViewFactory(&Engine{}, opts)
 
 	// Assert
 	require.NotNil(t, factory)
@@ -423,7 +423,6 @@ func TestWebView_Destroy_ClosesAudioStream(t *testing.T) {
 	wv := &WebView{
 		ctx:               context.Background(),
 		activeAudioStream: mockStream,
-		pipeline:          &renderPipeline{},
 	}
 	wv.audioPlaying.Store(true)
 
@@ -439,8 +438,7 @@ func TestWebView_Destroy_ClosesAudioStream(t *testing.T) {
 // handles the case where no audio stream is active.
 func TestWebView_Destroy_NoAudioStream_DoesNotPanic(t *testing.T) {
 	wv := &WebView{
-		ctx:      context.Background(),
-		pipeline: &renderPipeline{},
+		ctx: context.Background(),
 	}
 
 	assert.NotPanics(t, func() {

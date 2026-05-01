@@ -17,17 +17,18 @@ import (
 
 	"github.com/bnema/dumber/assets"
 	"github.com/bnema/dumber/internal/application/port"
-	"github.com/bnema/dumber/internal/infrastructure/config"
 	"github.com/bnema/dumber/internal/logging"
 )
 
 const puregoCEFInitTraceEnvVar = "PUREGO_CEF_INIT_TRACE"
 const CEFRootCachePathEnvVar = "DUMBER_CEF_ROOT_CACHE_PATH"
+const defaultCEFWindowlessFrameRate = 60
 
 // RuntimePaths contains the concrete filesystem paths the CEF adapter needs.
 type RuntimePaths struct {
-	StateRoot string
-	LogFile   string
+	StateRoot     string
+	LogFile       string
+	ProfileLogDir string
 }
 
 // NewEngine initializes the CEF runtime and returns a ready-to-use Engine.
@@ -42,7 +43,7 @@ func NewEngine(
 	logger := logging.FromContext(ctx)
 	stateRoot := resolvedStateRoot(paths.StateRoot, opts)
 	cleanStaleSingletonLocks(logger, stateRoot)
-	windowlessFrameRate := config.CEFEngineConfig{WindowlessFrameRate: cfg.WindowlessFrameRate}.CEFWindowlessFrameRate()
+	windowlessFrameRate := normalizedWindowlessFrameRate(cfg.WindowlessFrameRate)
 
 	settings, err := prepareCEFSettings(opts, paths, cfg, logger)
 	if err != nil {
@@ -56,12 +57,15 @@ func NewEngine(
 
 	eng := &Engine{
 		ctx:                    ctx,
+		profileLogDir:          paths.ProfileLogDir,
+		runtimeCEFDir:          settings.CEFDir,
 		registerHandlers:       deps.RegisterHandlers,
 		registerAccentHandlers: deps.RegisterAccentHandlers,
 		currentConfigPayload:   deps.CurrentConfigPayload,
 		defaultConfigPayload:   deps.DefaultConfigPayload,
 		ctxMenuBuilder:         deps.ContextMenuBuilder,
 		ctxMenuExecutorFactory: deps.ContextMenuExecutorFactory,
+		ctxMenuRenderer:        deps.ContextMenuRenderer,
 		clipboard:              deps.Clipboard,
 		resolver:               deps.ImageDataResolver,
 	}
@@ -88,6 +92,13 @@ func NewEngine(
 		deps.CurrentConfigPayload,
 		deps.DefaultConfigPayload,
 	)
+}
+
+func normalizedWindowlessFrameRate(frameRate int32) int32 {
+	if frameRate > 0 {
+		return frameRate
+	}
+	return defaultCEFWindowlessFrameRate
 }
 
 func resolvedStateRoot(defaultStateRoot string, opts port.EngineOptions) string {
@@ -151,28 +162,52 @@ func prepareCEFSettings(
 // and browser-process callbacks (OnBeforeCommandLineProcessing, etc.).
 func initializeCEF(eng *Engine, settings purecef.Settings, logger *zerolog.Logger) error {
 	app := newDumberApp(eng)
+	logger.Info().
+		Str("settings_cef_dir", settings.CEFDir).
+		Str("env_cef_dir", os.Getenv("CEF_DIR")).
+		Msg("cef: runtime selection")
 	logger.Debug().Msg("cef: calling InitWithApp")
 	if err := purecef.InitWithApp(settings, app); err != nil {
 		return fmt.Errorf("cef.InitWithApp: %w", err)
+	}
+	if libcefPath := loadedLibCEFPath(); libcefPath != "" {
+		logger.Info().Str("libcef_path", libcefPath).Msg("cef: runtime library loaded")
+	} else {
+		logger.Warn().Msg("cef: runtime library loaded but libcef path was not found in /proc/self/maps")
 	}
 	logger.Debug().Msg("cef: InitWithApp returned OK")
 	return nil
 }
 
-// wireEngine creates GL loader, factory, pool, and scheme handler after CEF init.
+func loadedLibCEFPath() string {
+	data, err := os.ReadFile("/proc/self/maps")
+	if err != nil {
+		return ""
+	}
+	return parseLoadedLibCEFPath(string(data))
+}
+
+func parseLoadedLibCEFPath(maps string) string {
+	for _, line := range strings.Split(maps, "\n") {
+		if !strings.Contains(line, "libcef.so") {
+			continue
+		}
+		pathStart := strings.Index(line, "/")
+		if pathStart < 0 {
+			continue
+		}
+		return strings.TrimSpace(line[pathStart:])
+	}
+	return ""
+}
+
+// wireEngine creates factory, pool, and scheme handler after CEF init.
 func wireEngine(
 	ctx context.Context, eng *Engine,
 	windowlessFrameRate int32, audioFactory port.AudioOutputFactory, logger *zerolog.Logger,
 	currentConfigPayload func() ([]byte, error), defaultConfigPayload func() ([]byte, error),
 ) (*Engine, error) {
-	gl, err := newGLLoader()
-	if err != nil {
-		purecef.Shutdown()
-		return nil, fmt.Errorf("GL loader: %w", err)
-	}
-
-	eng.gl = gl
-	eng.factory = newWebViewFactory(eng, gl, webViewFactoryOptions{
+	eng.factory = newWebViewFactory(eng, webViewFactoryOptions{
 		scale:               detectHiDPIScale(logger),
 		windowlessFrameRate: windowlessFrameRate,
 		audioOutputFactory:  audioFactory,
@@ -193,6 +228,7 @@ func wireEngine(
 	}
 	eng.messageRouter = messageRouter
 	eng.schemeHandler = schemeHandler
+	eng.startCEFHeartbeat()
 
 	registerEngineSchemeFactories(logger, purecef.NewSchemeHandlerFactory(schemeHandler))
 	return eng, nil

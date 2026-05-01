@@ -4,6 +4,7 @@ import (
 	"context"
 	"crypto/subtle"
 	"fmt"
+	"os"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -23,10 +24,11 @@ var _ port.AlreadyRunningAppRelaunchHandlerSetter = (*Engine)(nil)
 // Engine implements port.Engine for the CEF browser backend.
 // It manages the CEF lifecycle and provides access to all engine subsystems.
 type Engine struct {
-	ctx     context.Context
-	gl      *glLoader
-	factory *WebViewFactory
-	pool    *WebViewPool
+	ctx           context.Context
+	factory       *WebViewFactory
+	pool          *WebViewPool
+	profileLogDir string
+	runtimeCEFDir string
 
 	messageRouter *MessageRouter
 	schemeHandler *dumbSchemeHandler
@@ -38,6 +40,7 @@ type Engine struct {
 	defaultConfigPayload             func() ([]byte, error)
 	ctxMenuBuilder                   port.ContextMenuBuilder
 	ctxMenuExecutorFactory           port.ContextMenuActionExecutorFactory
+	ctxMenuRenderer                  ContextMenuRenderer
 	clipboard                        port.Clipboard
 	clipboardTextOrchestrator        port.ClipboardTextOrchestrator
 	onClipboardCopied                func(textLen int)
@@ -56,6 +59,12 @@ type Engine struct {
 	// during shutdown, replacing the busy-wait poll in closeActiveWebViews.
 	shutdownNotify chan struct{}
 
+	// Cross-layer render diagnostics.
+	cefHeartbeatStop chan struct{}
+	cefHeartbeatDone chan struct{}
+	cefUIHeartbeat   cefThreadHeartbeatState
+	cefIOHeartbeat   cefThreadHeartbeatState
+
 	// Diagnostic counters.
 	contextInitializedCount atomic.Uint64
 	childLaunchRenderer     atomic.Uint64
@@ -69,11 +78,17 @@ type Engine struct {
 	browserCreateLastWidth  atomic.Int32
 	browserCreateLastHeight atomic.Int32
 	browserCreateComplete   atomic.Bool
-
 }
 
 func (e *Engine) Factory() port.WebViewFactory {
 	return &webViewFactoryAdapter{factory: e.factory}
+}
+
+func (e *Engine) contextMenuRenderer() ContextMenuRenderer {
+	if e == nil {
+		return nil
+	}
+	return e.ctxMenuRenderer
 }
 
 func (e *Engine) Pool() port.WebViewPool {
@@ -197,6 +212,7 @@ func (e *Engine) Close() error {
 
 	e.closeActiveWebViews()
 	e.pool.Close()
+	e.stopCEFHeartbeat()
 
 	if activeAfter := e.activeWebViewCount(); activeAfter > 0 {
 		log.Warn().
@@ -209,7 +225,11 @@ func (e *Engine) Close() error {
 	return nil
 }
 
-const cefShutdownWaitTimeout = 2 * time.Second
+// cefShutdownWaitTimeout gives CEF browser destruction enough time to flush
+// GTK/DMABUF texture teardown and child-process shutdown on busy media pages.
+// It is intentionally longer than a UI-frame timeout; Close still logs if the
+// wait expires so slow shutdown remains visible during diagnostics.
+const cefShutdownWaitTimeout = 10 * time.Second
 
 func (e *Engine) activeWebViewCount() int {
 	return int(e.activeCount.Load())
@@ -246,6 +266,7 @@ func (e *Engine) closeActiveWebViews() {
 	// Check immediately in case all webviews closed synchronously.
 	if e.activeWebViewCount() == 0 {
 		log.Debug().Msg("cef: all active webviews closed before shutdown")
+		e.destroyClosedWebViewBridges(webViews)
 		return
 	}
 
@@ -258,6 +279,15 @@ func (e *Engine) closeActiveWebViews() {
 			Int("remaining", e.activeWebViewCount()).
 			Str("timeout", cefShutdownWaitTimeout.String()).
 			Msg("cef: timed out waiting for OnBeforeClose before shutdown")
+	}
+	e.destroyClosedWebViewBridges(webViews)
+}
+
+func (e *Engine) destroyClosedWebViewBridges(webViews []*WebView) {
+	for _, wv := range webViews {
+		if wv != nil && wv.destroyed.Load() {
+			wv.destroyViewBridgeOnGTKSync()
+		}
 	}
 }
 
@@ -369,6 +399,16 @@ func (e *Engine) notifyClipboardCopied(text string) {
 // SetHandlerContext sets the base context for message handler dispatch.
 func (e *Engine) SetHandlerContext(ctx context.Context) {
 	e.ctx = ctx
+	logger := logging.FromContext(ctx)
+	logger.Info().
+		Str("settings_cef_dir", e.runtimeCEFDir).
+		Str("env_cef_dir", os.Getenv("CEF_DIR")).
+		Msg("cef: runtime selection")
+	if libcefPath := loadedLibCEFPath(); libcefPath != "" {
+		logger.Info().Str("libcef_path", libcefPath).Msg("cef: runtime library loaded")
+	} else {
+		logger.Warn().Msg("cef: runtime library loaded but libcef path was not found in /proc/self/maps")
+	}
 	if e.messageRouter != nil {
 		e.messageRouter.SetBaseContext(ctx)
 	}
@@ -381,7 +421,7 @@ func (e *Engine) recordContextInitialized() {
 		Msg("cef: OnContextInitialized")
 }
 
-func (e *Engine) recordChildProcessLaunch(processType, useAngle, ozonePlatform, commandLine string) {
+func (e *Engine) recordChildProcessLaunch(processType, useAngle, ozonePlatform, renderNodeOverride, commandLine string) {
 	switch processType {
 	case "renderer":
 		e.childLaunchRenderer.Add(1)
@@ -395,7 +435,8 @@ func (e *Engine) recordChildProcessLaunch(processType, useAngle, ozonePlatform, 
 		Str("process_type", processType).
 		Str("use_angle", useAngle).
 		Str("ozone_platform", ozonePlatform).
-		Str("command_line", commandLine).
+		Str("render_node_override", renderNodeOverride).
+		Strs("command_line_flags", safeChromiumCmdlineFlags(commandLine)).
 		Uint64("renderer_launches", e.childLaunchRenderer.Load()).
 		Uint64("gpu_launches", e.childLaunchGPU.Load()).
 		Uint64("other_launches", e.childLaunchOther.Load()).
@@ -475,4 +516,3 @@ func (e *Engine) currentDownloadHandler() *downloadHandler {
 	defer e.downloadMu.RUnlock()
 	return e.downloadHandler
 }
-

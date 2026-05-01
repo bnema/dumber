@@ -261,6 +261,126 @@ func TestConfigureCommandLine_WebAuthnUnsafeOverrideRemovesSwitchWhenOnlyWebAuth
 	}
 }
 
+func TestConfigureCommandLine_SetsOzonePlatformToWayland(t *testing.T) {
+	commandLine := newMutableCommandLineStub()
+	configureCommandLine(commandLine)
+
+	if got := commandLine.GetSwitchValue("ozone-platform"); got != "wayland" {
+		t.Fatalf("ozone-platform = %q, want %q", got, "wayland")
+	}
+
+	// Dumber-specific switches must remain present.
+	if !commandLine.HasSwitch("enable-smooth-scrolling") {
+		t.Fatal("expected enable-smooth-scrolling switch to be present")
+	}
+	if got := commandLine.GetSwitchValue("autoplay-policy"); got != "no-user-gesture-required" {
+		t.Fatalf("autoplay-policy = %q, want %q", got, "no-user-gesture-required")
+	}
+}
+
+func TestConfigureCommandLine_PreservesExistingOzonePlatform(t *testing.T) {
+	commandLine := newMutableCommandLineStub()
+	commandLine.AppendSwitchWithValue("ozone-platform", "x11")
+
+	configureCommandLine(commandLine)
+
+	if got := commandLine.GetSwitchValue("ozone-platform"); got != "x11" {
+		t.Fatalf("ozone-platform = %q, want %q (bridge preserves existing value)", got, "x11")
+	}
+
+	// Dumber-specific switches must remain present.
+	if !commandLine.HasSwitch("enable-smooth-scrolling") {
+		t.Fatal("expected enable-smooth-scrolling switch to be present")
+	}
+	if got := commandLine.GetSwitchValue("autoplay-policy"); got != "no-user-gesture-required" {
+		t.Fatalf("autoplay-policy = %q, want %q", got, "no-user-gesture-required")
+	}
+}
+
+func TestConfigureCommandLine_EnableVAAPIEnvAppendsHardwareDecodeFlags(t *testing.T) {
+	t.Setenv(cefEnableVAAPIEnvVar, "1")
+
+	commandLine := newMutableCommandLineStub()
+	commandLine.AppendSwitchWithValue(chromiumEnableFeaturesSwitch, "ExistingFeature")
+
+	configureCommandLine(commandLine)
+
+	gotFeatures := commandLine.GetSwitchValue(chromiumEnableFeaturesSwitch)
+	for _, feature := range []string{
+		"ExistingFeature",
+		"AcceleratedVideoDecoder",
+		"AcceleratedVideoEncoder",
+		"AcceleratedVideoDecodeLinuxGL",
+		"AcceleratedVideoDecodeLinuxZeroCopyGL",
+		"VaapiIgnoreDriverChecks",
+	} {
+		if !strings.Contains(gotFeatures, feature) {
+			t.Fatalf("enable-features = %q, missing %q", gotFeatures, feature)
+		}
+	}
+	if !commandLine.HasSwitch("ignore-gpu-blocklist") {
+		t.Fatal("expected ignore-gpu-blocklist switch")
+	}
+	if !commandLine.HasSwitch("enable-zero-copy") {
+		t.Fatal("expected enable-zero-copy switch")
+	}
+	if !commandLine.HasSwitch("disable-gpu-driver-bug-workaround") {
+		t.Fatal("expected disable-gpu-driver-bug-workaround switch")
+	}
+}
+
+func TestConfigureCommandLine_ChromiumFlagsEnvAppendsSwitches(t *testing.T) {
+	t.Setenv(cefChromiumFlagsEnvVar, `--enable-features=VaapiVideoDecoder,VaapiIgnoreDriverChecks --ignore-gpu-blocklist --autoplay-policy=document-user-activation-required ignored-arg`)
+
+	commandLine := newMutableCommandLineStub()
+	commandLine.AppendSwitchWithValue(chromiumEnableFeaturesSwitch, "ExistingFeature")
+
+	configureCommandLine(commandLine)
+
+	if got := commandLine.GetSwitchValue(chromiumEnableFeaturesSwitch); got != "ExistingFeature,VaapiVideoDecoder,VaapiIgnoreDriverChecks" {
+		t.Fatalf("enable-features = %q, want env features appended", got)
+	}
+	if !commandLine.HasSwitch("ignore-gpu-blocklist") {
+		t.Fatal("expected ignore-gpu-blocklist switch")
+	}
+	if got := commandLine.GetSwitchValue("autoplay-policy"); got != "document-user-activation-required" {
+		t.Fatalf("autoplay-policy = %q, want env override", got)
+	}
+	if commandLine.HasSwitch("ignored-arg") {
+		t.Fatal("non-switch env token should be ignored")
+	}
+}
+
+func TestParseChromiumSwitchToken(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name      string
+		token     string
+		wantName  string
+		wantValue string
+		wantOK    bool
+	}{
+		{name: "long switch with value", token: "--enable-features=VaapiVideoDecoder", wantName: "enable-features", wantValue: "VaapiVideoDecoder", wantOK: true},
+		{name: "long switch without value", token: "--ignore-gpu-blocklist", wantName: "ignore-gpu-blocklist", wantOK: true},
+		{name: "single dash switch", token: "-enable-zero-copy", wantName: "enable-zero-copy", wantOK: true},
+		{name: "empty value", token: "--flag=", wantName: "flag", wantOK: true},
+		{name: "embedded equals", token: "--flag=a=b", wantName: "flag", wantValue: "a=b", wantOK: true},
+		{name: "non switch", token: "youtube.com", wantOK: false},
+		{name: "sentinel", token: "--", wantOK: false},
+		{name: "empty", token: " ", wantOK: false},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			gotName, gotValue, gotOK := parseChromiumSwitchToken(tt.token)
+			if gotName != tt.wantName || gotValue != tt.wantValue || gotOK != tt.wantOK {
+				t.Fatalf("parseChromiumSwitchToken(%q) = (%q, %q, %v), want (%q, %q, %v)", tt.token, gotName, gotValue, gotOK, tt.wantName, tt.wantValue, tt.wantOK)
+			}
+		})
+	}
+}
+
 func TestAppendUniqueCommaSeparatedSwitchValues(t *testing.T) {
 	t.Run("trims whitespace and skips empty existing values", func(t *testing.T) {
 		commandLine := newMutableCommandLineStub()
@@ -310,6 +430,63 @@ func TestDumberBPH_OnBeforeChildProcessLaunch_AppendsNoZygote(t *testing.T) {
 
 	if !commandLine.HasSwitch("no-zygote") {
 		t.Fatal("expected no-zygote switch to be appended for child processes")
+	}
+}
+
+func TestConfigureCommandLine_CEFRenderNodeEnvOverridesExistingRenderNode(t *testing.T) {
+	t.Setenv(cefRenderNodeEnvVar, "/dev/dri/renderD129")
+
+	commandLine := newMutableCommandLineStub()
+	commandLine.AppendSwitchWithValue(chromiumRenderNodeOverrideSwitch, "/dev/dri/renderD128")
+
+	configureCommandLine(commandLine)
+
+	if got := commandLine.GetSwitchValue(chromiumRenderNodeOverrideSwitch); got != "/dev/dri/renderD129" {
+		t.Fatalf("render node override = %q, want /dev/dri/renderD129", got)
+	}
+}
+
+func TestConfigureCommandLine_CEFRenderNodeEnvSentinelsRemoveExistingRenderNode(t *testing.T) {
+	for _, value := range []string{"auto", "default", "none", "off", "disable", "disabled"} {
+		t.Run(value, func(t *testing.T) {
+			t.Setenv(cefRenderNodeEnvVar, value)
+
+			commandLine := newMutableCommandLineStub()
+			commandLine.AppendSwitchWithValue(chromiumRenderNodeOverrideSwitch, "/dev/dri/renderD128")
+
+			configureCommandLine(commandLine)
+
+			if commandLine.HasSwitch(chromiumRenderNodeOverrideSwitch) {
+				t.Fatalf("render node override still present: %q", commandLine.GetSwitchValue(chromiumRenderNodeOverrideSwitch))
+			}
+		})
+	}
+}
+
+func TestDumberBPH_OnBeforeChildProcessLaunch_AppliesRenderingAndHardwareDecodeFlags(t *testing.T) {
+	t.Setenv(cef2gtkAngleBackendVar, "vulkan")
+	t.Setenv(cefEnableVAAPIEnvVar, "1")
+
+	commandLine := newMutableCommandLineStub()
+	commandLine.AppendSwitchWithValue("type", "gpu-process")
+	commandLine.AppendSwitchWithValue("use-angle", "gl-egl")
+
+	(&dumberBPH{engine: &Engine{ctx: context.Background()}}).OnBeforeChildProcessLaunch(commandLine)
+
+	if got := commandLine.GetSwitchValue("use-angle"); got != "vulkan" {
+		t.Fatalf("use-angle = %q, want vulkan", got)
+	}
+	if got := commandLine.GetSwitchValue(chromiumEnableFeaturesSwitch); !strings.Contains(got, "AcceleratedVideoDecoder") || !strings.Contains(got, "VulkanFromANGLE") {
+		t.Fatalf("enable-features = %q, want hardware decode and Vulkan ANGLE features", got)
+	}
+	if !commandLine.HasSwitch("ignore-gpu-blocklist") {
+		t.Fatal("expected ignore-gpu-blocklist switch")
+	}
+	if !commandLine.HasSwitch("enable-zero-copy") {
+		t.Fatal("expected enable-zero-copy switch")
+	}
+	if !commandLine.HasSwitch("no-zygote") {
+		t.Fatal("expected no-zygote switch")
 	}
 }
 
