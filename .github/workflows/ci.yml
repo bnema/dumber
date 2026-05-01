@@ -1,5 +1,8 @@
 name: CI
 
+env:
+  GOLANGCI_LINT_VERSION: v2.11.4
+
 on:
   push:
     branches: [main]
@@ -67,7 +70,8 @@ jobs:
         run: make build
       - name: Install golangci-lint
         run: |
-          curl -sSfL https://raw.githubusercontent.com/golangci/golangci-lint/HEAD/install.sh | sh -s -- -b /usr/local/bin latest
+          curl -sSfL https://raw.githubusercontent.com/golangci/golangci-lint/HEAD/install.sh | sh -s -- -b /usr/local/bin "$GOLANGCI_LINT_VERSION"
+          golangci-lint version
       - name: Run golangci-lint
         run: |
           git config --global --add safe.directory "$GITHUB_WORKSPACE"
