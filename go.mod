@@ -7,10 +7,10 @@ require (
 	github.com/andybalholm/brotli v1.2.1
 	github.com/bnema/purego v0.11.0-bnema.2
 	github.com/bnema/purego-cef v0.12.0
-	github.com/bnema/purego-cef2gtk v0.0.0-20260501141125-47b4a0cc3a3c
+	github.com/bnema/purego-cef2gtk v0.1.0
 	github.com/bnema/purego-pipewire v0.1.2
 	github.com/bnema/purego-sqlite v0.1.2
-	github.com/bnema/puregotk v0.5.2-0.20260501141022-98dbb7db4eb0
+	github.com/bnema/puregotk v0.5.2
 	github.com/charmbracelet/bubbles v1.0.0
 	github.com/charmbracelet/bubbletea v1.3.10
 	github.com/charmbracelet/lipgloss v1.1.0
@@ -58,6 +58,7 @@ require (
 	github.com/natefinch/atomic v1.0.1 // indirect
 	github.com/pmezard/go-difflib v1.0.0 // indirect
 	github.com/rivo/uniseg v0.4.7 // indirect
+	github.com/rogpeppe/go-internal v1.14.1 // indirect
 	github.com/russross/blackfriday/v2 v2.1.0 // indirect
 	github.com/sagikazarmark/locafero v0.12.0 // indirect
 	github.com/sahilm/fuzzy v0.1.1 // indirect
