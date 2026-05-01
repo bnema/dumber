@@ -202,11 +202,24 @@ func (wv *WebView) logRenderStall(bridge *Cef2gtkAdapter, now time.Time, diag re
 		Uint64("profile_frames_queued", profile.FramesQueued).
 		Uint64("profile_frames_rendered", profile.FramesRendered).
 		Uint32("profile_gc_delta", profile.GC.NumGCDelta).
+		Str("render_backend", diag.diag.Backend).
 		Int("accelerated_paints", diag.diag.AcceleratedPaints).
 		Int("unsupported_paints", diag.diag.UnsupportedPaints).
 		Int("accelerated_paint_errors", diag.diag.AcceleratedPaintErrors).
 		Int("import_failures", diag.diag.ImportFailures).
 		Int("render_failures", diag.diag.RenderFailures).
+		Int("textures_built", diag.diag.TexturesBuilt).
+		Int("texture_build_failures", diag.diag.TextureBuildFailures).
+		Int("fd_dup_failures", diag.diag.FDDupFailures).
+		Int("unsupported_formats", diag.diag.UnsupportedFormats).
+		Int("paintable_swaps", diag.diag.PaintableSwaps).
+		Bool("pending_frame", diag.diag.PendingFrame).
+		Bool("pending_scheduled", diag.diag.PendingScheduled).
+		Int64("pending_age_ms", durationMillis(diag.diag.PendingAge)).
+		Uint("pending_source_id", diag.diag.PendingSourceID).
+		Int("pending_reschedules", diag.diag.PendingReschedules).
+		Int("pending_schedule_failures", diag.diag.PendingScheduleFailures).
+		Int("pending_idle_callbacks", diag.diag.PendingIdleCallbacks).
 		Str("latest_render_event_kind", diag.latestEvent.Kind).
 		Str("latest_render_event_message", diag.latestEvent.Message).
 		Msg("cef: accelerated rendering appears stalled")

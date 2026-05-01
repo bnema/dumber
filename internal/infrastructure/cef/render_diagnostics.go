@@ -81,11 +81,24 @@ func (wv *WebView) logRenderDiagnosticSnapshot(
 		Uint64("audio_packets", wv.audioPacketCount.Load()).
 		Uint64("audio_writes", wv.audioWriteCount.Load()).
 		Int64("last_accelerated_paint_age_ms", durationMillis(lastPaintAge)).
+		Str("render_backend", diag.Backend).
 		Int("accelerated_paints", diag.AcceleratedPaints).
 		Int("unsupported_paints", diag.UnsupportedPaints).
 		Int("accelerated_paint_errors", diag.AcceleratedPaintErrors).
 		Int("import_failures", diag.ImportFailures).
 		Int("render_failures", diag.RenderFailures).
+		Int("textures_built", diag.TexturesBuilt).
+		Int("texture_build_failures", diag.TextureBuildFailures).
+		Int("fd_dup_failures", diag.FDDupFailures).
+		Int("unsupported_formats", diag.UnsupportedFormats).
+		Int("paintable_swaps", diag.PaintableSwaps).
+		Bool("pending_frame", diag.PendingFrame).
+		Bool("pending_scheduled", diag.PendingScheduled).
+		Int64("pending_age_ms", durationMillis(diag.PendingAge)).
+		Uint("pending_source_id", diag.PendingSourceID).
+		Int("pending_reschedules", diag.PendingReschedules).
+		Int("pending_schedule_failures", diag.PendingScheduleFailures).
+		Int("pending_idle_callbacks", diag.PendingIdleCallbacks).
 		Int32("surface_width", width).
 		Int32("surface_height", height).
 		Float32("surface_scale", scale).

@@ -10,6 +10,7 @@ const (
 	cefEnableWebAuthnUnsafeEnvVar = "DUMBER_CEF_ENABLE_WEBAUTHN_UNSAFE"
 	cefChromiumFlagsEnvVar        = "DUMBER_CEF_CHROMIUM_FLAGS"
 	cefEnableVAAPIEnvVar          = "DUMBER_CEF_ENABLE_VAAPI"
+	cefRenderNodeEnvVar           = "DUMBER_CEF_RENDER_NODE"
 	cefRenderStallRecoveryEnvVar  = "DUMBER_CEF_RENDER_STALL_RECOVERY"
 	cefRenderStallBacktraceEnvVar = "DUMBER_CEF_RENDER_STALL_BACKTRACE"
 )

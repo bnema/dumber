@@ -59,7 +59,7 @@
 | `rendering.show_fps` | bool | `false` | |
 | `rendering.sample_memory` | bool | `false` | |
 | `rendering.debug_frames` | bool | `false` | |
-| `DUMBER_RENDER_STACK` env | string | `auto` | `auto`, `vulkan-dmabuf`, `legacy-gl` |
+| `DUMBER_RENDER_STACK` env | string | `vulkan-dmabuf` | `vulkan-dmabuf`, `auto`, `legacy-gl` |
 | `default_ui_scale` | float | `1.0` | > 0 |
 | `default_webpage_zoom` | float | `1.2` | > 0 |
 | `workspace.new_pane_url` | string | `about:blank` | |

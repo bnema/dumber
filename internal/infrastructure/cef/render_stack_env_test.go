@@ -30,8 +30,32 @@ func TestApplyDefaultRenderStackEnvironment_DefaultsToGDKDMABUFWithANGLEVulkan(t
 	}
 }
 
-func TestApplyDefaultRenderStackEnvironment_PreservesExplicitLowLevelOverrides(t *testing.T) {
+func TestApplyDefaultRenderStackEnvironment_OverridesConflictingLowLevelDefaults(t *testing.T) {
 	t.Setenv(dumberRenderStackEnvVar, "")
+	t.Setenv(dumberRenderStackAllowSplitEnvVar, "")
+	t.Setenv("GSK_RENDERER", "ngl")
+	t.Setenv("PUREGO_CEF2GTK_BACKEND", "glarea")
+	t.Setenv("PUREGO_CEF2GTK_ANGLE_BACKEND", "gl-egl")
+
+	got := applyDefaultRenderStackEnvironment(context.Background())
+
+	if got != renderStackVulkanDMABUF {
+		t.Fatalf("render stack = %q, want %q", got, renderStackVulkanDMABUF)
+	}
+	if got := os.Getenv("GSK_RENDERER"); got != "vulkan" {
+		t.Fatalf("GSK_RENDERER = %q, want coherent vulkan default", got)
+	}
+	if got := os.Getenv("PUREGO_CEF2GTK_BACKEND"); got != "gdk-dmabuf" {
+		t.Fatalf("PUREGO_CEF2GTK_BACKEND = %q, want coherent gdk-dmabuf default", got)
+	}
+	if got := os.Getenv("PUREGO_CEF2GTK_ANGLE_BACKEND"); got != "vulkan" {
+		t.Fatalf("PUREGO_CEF2GTK_ANGLE_BACKEND = %q, want coherent vulkan default", got)
+	}
+}
+
+func TestApplyDefaultRenderStackEnvironment_AllowSplitPreservesExplicitLowLevelOverrides(t *testing.T) {
+	t.Setenv(dumberRenderStackEnvVar, "")
+	t.Setenv(dumberRenderStackAllowSplitEnvVar, "1")
 	t.Setenv("GSK_RENDERER", "ngl")
 	t.Setenv("PUREGO_CEF2GTK_BACKEND", "glarea")
 	t.Setenv("PUREGO_CEF2GTK_ANGLE_BACKEND", "gl-egl")

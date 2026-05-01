@@ -409,7 +409,7 @@ func (e *Engine) recordContextInitialized() {
 		Msg("cef: OnContextInitialized")
 }
 
-func (e *Engine) recordChildProcessLaunch(processType, useAngle, ozonePlatform, commandLine string) {
+func (e *Engine) recordChildProcessLaunch(processType, useAngle, ozonePlatform, renderNodeOverride, commandLine string) {
 	switch processType {
 	case "renderer":
 		e.childLaunchRenderer.Add(1)
@@ -423,6 +423,7 @@ func (e *Engine) recordChildProcessLaunch(processType, useAngle, ozonePlatform, 
 		Str("process_type", processType).
 		Str("use_angle", useAngle).
 		Str("ozone_platform", ozonePlatform).
+		Str("render_node_override", renderNodeOverride).
 		Str("command_line", commandLine).
 		Uint64("renderer_launches", e.childLaunchRenderer.Load()).
 		Uint64("gpu_launches", e.childLaunchGPU.Load()).

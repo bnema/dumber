@@ -433,6 +433,36 @@ func TestDumberBPH_OnBeforeChildProcessLaunch_AppendsNoZygote(t *testing.T) {
 	}
 }
 
+func TestConfigureCommandLine_CEFRenderNodeEnvOverridesExistingRenderNode(t *testing.T) {
+	t.Setenv(cefRenderNodeEnvVar, "/dev/dri/renderD129")
+
+	commandLine := newMutableCommandLineStub()
+	commandLine.AppendSwitchWithValue(chromiumRenderNodeOverrideSwitch, "/dev/dri/renderD128")
+
+	configureCommandLine(commandLine)
+
+	if got := commandLine.GetSwitchValue(chromiumRenderNodeOverrideSwitch); got != "/dev/dri/renderD129" {
+		t.Fatalf("render node override = %q, want /dev/dri/renderD129", got)
+	}
+}
+
+func TestConfigureCommandLine_CEFRenderNodeEnvSentinelsRemoveExistingRenderNode(t *testing.T) {
+	for _, value := range []string{"auto", "default", "none", "off", "disable", "disabled"} {
+		t.Run(value, func(t *testing.T) {
+			t.Setenv(cefRenderNodeEnvVar, value)
+
+			commandLine := newMutableCommandLineStub()
+			commandLine.AppendSwitchWithValue(chromiumRenderNodeOverrideSwitch, "/dev/dri/renderD128")
+
+			configureCommandLine(commandLine)
+
+			if commandLine.HasSwitch(chromiumRenderNodeOverrideSwitch) {
+				t.Fatalf("render node override still present: %q", commandLine.GetSwitchValue(chromiumRenderNodeOverrideSwitch))
+			}
+		})
+	}
+}
+
 func TestDumberBPH_OnBeforeChildProcessLaunch_AppliesRenderingAndHardwareDecodeFlags(t *testing.T) {
 	t.Setenv(cef2gtkAngleBackendVar, "vulkan")
 	t.Setenv(cefEnableVAAPIEnvVar, "1")

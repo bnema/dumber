@@ -15,6 +15,7 @@ const (
 	chromiumEnableFeaturesSwitch       = "enable-features"
 	chromiumDisableFeaturesSwitch      = "disable-features"
 	chromiumDisableBlinkFeaturesSwitch = "disable-blink-features"
+	chromiumRenderNodeOverrideSwitch   = "render-node-override"
 )
 
 // Chromium's core Blink runtime flag for the Web Authentication API is
@@ -60,6 +61,7 @@ func configureCommandLine(commandLine purecef.CommandLine) {
 
 	configureHardwareVideoDecode(commandLine)
 	configureEnvChromiumFlags(commandLine)
+	configureRenderNodeOverride(commandLine)
 	configureWebAuthnFeaturePolicy(commandLine)
 }
 
@@ -88,6 +90,23 @@ func configureEnvChromiumFlags(commandLine purecef.CommandLine) {
 	for _, token := range parseChromiumFlagsEnv(os.Getenv(cefChromiumFlagsEnvVar)) {
 		applyChromiumFlagToken(commandLine, token)
 	}
+}
+
+func configureRenderNodeOverride(commandLine purecef.CommandLine) {
+	if commandLine == nil {
+		return
+	}
+	value := strings.TrimSpace(os.Getenv(cefRenderNodeEnvVar))
+	if value == "" {
+		return
+	}
+	switch strings.ToLower(value) {
+	case "auto", "default", "none", "off", "disable", "disabled":
+		commandLine.RemoveSwitch(chromiumRenderNodeOverrideSwitch)
+		return
+	}
+	commandLine.RemoveSwitch(chromiumRenderNodeOverrideSwitch)
+	commandLine.AppendSwitchWithValue(chromiumRenderNodeOverrideSwitch, value)
 }
 
 func parseChromiumFlagsEnv(raw string) []string {
@@ -288,6 +307,7 @@ func (a *dumberApp) OnBeforeCommandLineProcessing(processType string, commandLin
 			}
 		}
 
+		renderNodeOverride := commandLine.GetSwitchValue(chromiumRenderNodeOverrideSwitch)
 		cmdline := commandLine.GetCommandLineString()
 		if len(cmdline) > maxCmdLineLogLen {
 			runes := []rune(cmdline)
@@ -297,6 +317,7 @@ func (a *dumberApp) OnBeforeCommandLineProcessing(processType string, commandLin
 		}
 		log.Debug().
 			Str("process_type", processType).
+			Str("render_node_override", renderNodeOverride).
 			Str("command_line", cmdline).
 			Msg("cef: OnBeforeCommandLineProcessing")
 	}
@@ -337,6 +358,7 @@ func (h *dumberBPH) OnBeforeChildProcessLaunch(commandLine purecef.CommandLine) 
 	commandLineString := ""
 	useAngle := ""
 	ozonePlatform := ""
+	renderNodeOverride := ""
 	if commandLine != nil {
 		configureCommandLine(commandLine)
 		appendSwitchIfMissing(commandLine, "no-zygote")
@@ -344,8 +366,9 @@ func (h *dumberBPH) OnBeforeChildProcessLaunch(commandLine purecef.CommandLine) 
 		commandLineString = commandLine.GetCommandLineString()
 		useAngle = commandLine.GetSwitchValue("use-angle")
 		ozonePlatform = commandLine.GetSwitchValue("ozone-platform")
+		renderNodeOverride = commandLine.GetSwitchValue(chromiumRenderNodeOverrideSwitch)
 	}
-	h.engine.recordChildProcessLaunch(processType, useAngle, ozonePlatform, commandLineString)
+	h.engine.recordChildProcessLaunch(processType, useAngle, ozonePlatform, renderNodeOverride, commandLineString)
 }
 
 func appendSwitchIfMissing(commandLine purecef.CommandLine, name string) {
