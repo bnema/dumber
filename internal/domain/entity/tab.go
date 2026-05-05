@@ -111,6 +111,10 @@ func (tl *TabList) Find(id TabID) *Tab {
 	tl.mu.RLock()
 	defer tl.mu.RUnlock()
 
+	return tl.findNoLock(id)
+}
+
+func (tl *TabList) findNoLock(id TabID) *Tab {
 	for _, tab := range tl.Tabs {
 		if tab.ID == id {
 			return tab
@@ -121,7 +125,10 @@ func (tl *TabList) Find(id TabID) *Tab {
 
 // ActiveTab returns the currently active tab.
 func (tl *TabList) ActiveTab() *Tab {
-	return tl.Find(tl.ActiveTabID)
+	tl.mu.RLock()
+	defer tl.mu.RUnlock()
+
+	return tl.findNoLock(tl.ActiveTabID)
 }
 
 // Count returns the number of tabs.
@@ -185,10 +192,8 @@ func (tl *TabList) Move(id TabID, newPos int) bool {
 	return true
 }
 
-// Snapshot returns a shallow copy of the TabList safe for concurrent read.
-// The returned TabList shares the underlying Tab pointers but has its own
-// slice header and scalar fields, protecting against races from concurrent
-// structural mutations (add/remove) and ActiveTabID changes on the original.
+// Snapshot returns an isolated copy of the TabList safe for concurrent read.
+// The returned TabList has its own slice, Tab values, and workspace tree.
 func (tl *TabList) Snapshot() *TabList {
 	if tl == nil {
 		return nil
@@ -196,13 +201,63 @@ func (tl *TabList) Snapshot() *TabList {
 	tl.mu.RLock()
 	defer tl.mu.RUnlock()
 
-	tabs := make([]*Tab, len(tl.Tabs))
-	copy(tabs, tl.Tabs)
+	tabs := make([]*Tab, 0, len(tl.Tabs))
+	for _, tab := range tl.Tabs {
+		tabs = append(tabs, cloneTab(tab))
+	}
 	return &TabList{
 		Tabs:                tabs,
 		ActiveTabID:         tl.ActiveTabID,
 		PreviousActiveTabID: tl.PreviousActiveTabID,
 	}
+}
+
+func cloneTab(tab *Tab) *Tab {
+	if tab == nil {
+		return nil
+	}
+	cloned := *tab
+	cloned.Workspace = cloneWorkspace(tab.Workspace)
+	return &cloned
+}
+
+func cloneWorkspace(workspace *Workspace) *Workspace {
+	if workspace == nil {
+		return nil
+	}
+	cloned := *workspace
+	cloned.Root = clonePaneNode(workspace.Root, nil)
+	return &cloned
+}
+
+func clonePaneNode(node, parent *PaneNode) *PaneNode {
+	if node == nil {
+		return nil
+	}
+	cloned := *node
+	cloned.Parent = parent
+	cloned.Pane = clonePane(node.Pane)
+	if len(node.Children) > 0 {
+		cloned.Children = make([]*PaneNode, 0, len(node.Children))
+		for _, child := range node.Children {
+			cloned.Children = append(cloned.Children, clonePaneNode(child, &cloned))
+		}
+	} else {
+		cloned.Children = nil
+	}
+	return &cloned
+}
+
+func clonePane(pane *Pane) *Pane {
+	if pane == nil {
+		return nil
+	}
+	cloned := *pane
+	if pane.ParentPaneID != nil {
+		parentPaneID := *pane.ParentPaneID
+		cloned.ParentPaneID = &parentPaneID
+	}
+	return &cloned
 }
 
 // ReplaceFrom replaces this TabList's contents with those from another TabList.

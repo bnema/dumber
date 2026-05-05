@@ -262,6 +262,59 @@ func TestTabList_ReplaceFrom(t *testing.T) {
 	assert.Equal(t, "https://new1.com", ref.Tabs[0].Workspace.Root.Pane.URI)
 }
 
+func TestTabList_SnapshotClonesTabsAndWorkspace(t *testing.T) {
+	parentPaneID := entity.PaneID("parent-pane")
+	pane := entity.NewPane("pane-1")
+	pane.URI = "https://original.example"
+	pane.ParentPaneID = &parentPaneID
+	tab := entity.NewTab("tab-1", "workspace-1", pane)
+	tab.Name = "Original"
+	tabs := entity.NewTabList()
+	tabs.Add(tab)
+
+	snapshot := tabs.Snapshot()
+
+	tab.Position = 99
+	tab.Name = "Mutated"
+	tab.Workspace.Root.Pane.URI = "https://mutated.example"
+	*tab.Workspace.Root.Pane.ParentPaneID = entity.PaneID("mutated-parent")
+
+	require.Len(t, snapshot.Tabs, 1)
+	clonedTab := snapshot.Tabs[0]
+	assert.NotSame(t, tab, clonedTab)
+	assert.Equal(t, 0, clonedTab.Position)
+	assert.Equal(t, "Original", clonedTab.Name)
+	require.NotNil(t, clonedTab.Workspace)
+	assert.NotSame(t, tab.Workspace, clonedTab.Workspace)
+	require.NotNil(t, clonedTab.Workspace.Root)
+	assert.NotSame(t, tab.Workspace.Root, clonedTab.Workspace.Root)
+	require.NotNil(t, clonedTab.Workspace.Root.Pane)
+	assert.NotSame(t, tab.Workspace.Root.Pane, clonedTab.Workspace.Root.Pane)
+	assert.Equal(t, "https://original.example", clonedTab.Workspace.Root.Pane.URI)
+	require.NotNil(t, clonedTab.Workspace.Root.Pane.ParentPaneID)
+	assert.Equal(t, entity.PaneID("parent-pane"), *clonedTab.Workspace.Root.Pane.ParentPaneID)
+}
+
+func TestTabList_ReplaceFromClonesSnapshotSource(t *testing.T) {
+	pane := entity.NewPane("pane-1")
+	pane.URI = "https://original.example"
+	tab := entity.NewTab("tab-1", "workspace-1", pane)
+	other := entity.NewTabList()
+	other.Add(tab)
+
+	original := entity.NewTabList()
+	original.ReplaceFrom(other)
+
+	tab.Name = "Mutated"
+	tab.Workspace.Root.Pane.URI = "https://mutated.example"
+
+	restored := original.Find("tab-1")
+	require.NotNil(t, restored)
+	assert.NotSame(t, tab, restored)
+	assert.Empty(t, restored.Name)
+	assert.Equal(t, "https://original.example", restored.Workspace.Root.Pane.URI)
+}
+
 func TestTabList_ReplaceFrom_Nil(t *testing.T) {
 	original := entity.NewTabList()
 	pane := entity.NewPane("pane1")

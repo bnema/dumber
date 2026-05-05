@@ -61,11 +61,17 @@ func TestNavigationCoordinator_WebViewTargetedActionsUseProvidedWebView(t *testi
 	t.Run("OpenDevToolsWebView with nil webview returns error", func(t *testing.T) {
 		testOpenDevToolsWebViewNilWebView(t, ctx)
 	})
+	t.Run("OpenDevToolsWebView unsupported capability returns error", func(t *testing.T) {
+		testOpenDevToolsWebViewUnsupportedCapability(t, ctx)
+	})
 	t.Run("OpenDevToolsWebView calls OpenDevTools once", func(t *testing.T) {
 		testOpenDevToolsWebViewTargetsProvidedWebView(t, ctx)
 	})
 	t.Run("PrintWebView with nil webview returns error", func(t *testing.T) {
 		testPrintWebViewNilWebView(t, ctx)
+	})
+	t.Run("PrintWebView unsupported capability returns error", func(t *testing.T) {
+		testPrintWebViewUnsupportedCapability(t, ctx)
 	})
 	t.Run("PrintWebView calls PrintPage once", func(t *testing.T) {
 		testPrintWebViewTargetsProvidedWebView(t, ctx)
@@ -198,6 +204,20 @@ func testOpenDevToolsWebViewNilWebView(t *testing.T, ctx context.Context) {
 	}
 }
 
+func testOpenDevToolsWebViewUnsupportedCapability(t *testing.T, ctx context.Context) {
+	t.Helper()
+	wv := mocks.NewMockWebView(t)
+	wv.EXPECT().ID().Return(port.WebViewID(1)).Once()
+	c := &NavigationCoordinator{}
+	err := c.OpenDevToolsWebView(ctx, wv)
+	if err == nil {
+		t.Fatal("expected unsupported devtools error, got nil")
+	}
+	if got, want := err.Error(), "webview does not support devtools"; got != want {
+		t.Fatalf("error = %q, want %q", got, want)
+	}
+}
+
 func testOpenDevToolsWebViewTargetsProvidedWebView(t *testing.T, ctx context.Context) {
 	t.Helper()
 	base := mocks.NewMockWebView(t)
@@ -218,6 +238,20 @@ func testPrintWebViewNilWebView(t *testing.T, ctx context.Context) {
 	err := c.PrintWebView(ctx, nil)
 	if err == nil {
 		t.Fatal("expected error for nil webview, got nil")
+	}
+}
+
+func testPrintWebViewUnsupportedCapability(t *testing.T, ctx context.Context) {
+	t.Helper()
+	wv := mocks.NewMockWebView(t)
+	wv.EXPECT().ID().Return(port.WebViewID(1)).Once()
+	c := &NavigationCoordinator{}
+	err := c.PrintWebView(ctx, wv)
+	if err == nil {
+		t.Fatal("expected unsupported printing error, got nil")
+	}
+	if got, want := err.Error(), "webview does not support printing"; got != want {
+		t.Fatalf("error = %q, want %q", got, want)
 	}
 }
 

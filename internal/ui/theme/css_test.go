@@ -188,16 +188,12 @@ func TestGenerateCSSWithScale_UsesMediumWeightForOmniboxSuggestionTitle(t *testi
 func TestGenerateCSS_ContentAreaTabBarInset(t *testing.T) {
 	css := GenerateCSS(DefaultDarkPalette())
 
-	if !strings.Contains(css, ".content-area-tabbar-inset-top") {
-		t.Fatal("expected .content-area-tabbar-inset-top selector in generated CSS")
-	}
-	if !strings.Contains(css, "padding-top: 2em;") {
+	topBlock := cssRuleBlock(t, css, ".content-area-tabbar-inset-top")
+	if !strings.Contains(topBlock, "padding-top: 2em;") {
 		t.Fatal("expected padding-top: 2em in .content-area-tabbar-inset-top block")
 	}
-	if !strings.Contains(css, ".content-area-tabbar-inset-bottom") {
-		t.Fatal("expected .content-area-tabbar-inset-bottom selector in generated CSS")
-	}
-	if !strings.Contains(css, "padding-bottom: 2em;") {
+	bottomBlock := cssRuleBlock(t, css, ".content-area-tabbar-inset-bottom")
+	if !strings.Contains(bottomBlock, "padding-bottom: 2em;") {
 		t.Fatal("expected padding-bottom: 2em in .content-area-tabbar-inset-bottom block")
 	}
 	if !strings.Contains(css, ".tab-bar") {
@@ -206,6 +202,16 @@ func TestGenerateCSS_ContentAreaTabBarInset(t *testing.T) {
 	if !strings.Contains(css, "min-height: 2em;") {
 		t.Fatal("expected min-height: 2em in .tab-bar block")
 	}
+}
+
+func cssRuleBlock(t *testing.T, css, selector string) string {
+	t.Helper()
+	re := regexp.MustCompile(regexp.QuoteMeta(selector) + `\s*\{([^}]*)\}`)
+	matches := re.FindStringSubmatch(css)
+	if len(matches) != 2 {
+		t.Fatalf("expected %s selector in generated CSS", selector)
+	}
+	return matches[1]
 }
 
 func TestGenerateCSS_DoesNotEmitUnsupportedGTKProperties(t *testing.T) {
