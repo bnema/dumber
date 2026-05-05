@@ -36,9 +36,9 @@ pkgver() {
 build() {
     cd dumber
     export CGO_ENABLED=0
-    # Do not set -buildmode=pie globally: the build also compiles js/wasm
-    # systemview assets, and Go does not support PIE for GOOS=js/GOARCH=wasm.
+    # Keep global GOFLAGS wasm-safe; apply PIE only to native Go builds.
     export GOFLAGS="-trimpath -mod=readonly -modcacherw"
+    export NATIVE_GOFLAGS="${GOFLAGS} -buildmode=pie"
     make build
 }
 

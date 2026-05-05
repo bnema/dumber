@@ -9,6 +9,16 @@ import (
 	"github.com/bnema/dumber/internal/domain/entity"
 )
 
+type mockDevToolsWebView struct {
+	*mocks.MockWebView
+	*mocks.MockDevToolsOpener
+}
+
+type mockPrinterWebView struct {
+	*mocks.MockWebView
+	*mocks.MockPrinter
+}
+
 // TestNavigationCoordinator_WebViewTargetedActionsUseProvidedWebView verifies that
 // the explicit WebView-targeted navigation methods call the correct methods on the
 // provided WebView rather than resolving through the content coordinator.
@@ -47,6 +57,18 @@ func TestNavigationCoordinator_WebViewTargetedActionsUseProvidedWebView(t *testi
 	})
 	t.Run("GoForwardWebView calls GoForward once", func(t *testing.T) {
 		testGoForwardWebViewCallsGoForward(t, ctx)
+	})
+	t.Run("OpenDevToolsWebView with nil webview returns error", func(t *testing.T) {
+		testOpenDevToolsWebViewNilWebView(t, ctx)
+	})
+	t.Run("OpenDevToolsWebView calls OpenDevTools once", func(t *testing.T) {
+		testOpenDevToolsWebViewTargetsProvidedWebView(t, ctx)
+	})
+	t.Run("PrintWebView with nil webview returns error", func(t *testing.T) {
+		testPrintWebViewNilWebView(t, ctx)
+	})
+	t.Run("PrintWebView calls PrintPage once", func(t *testing.T) {
+		testPrintWebViewTargetsProvidedWebView(t, ctx)
 	})
 }
 
@@ -162,6 +184,52 @@ func testGoForwardWebViewCallsGoForward(t *testing.T, ctx context.Context) {
 	wv.EXPECT().GoForward(ctx).Return(nil).Once()
 	c := &NavigationCoordinator{}
 	err := c.GoForwardWebView(ctx, wv)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+}
+
+func testOpenDevToolsWebViewNilWebView(t *testing.T, ctx context.Context) {
+	t.Helper()
+	c := &NavigationCoordinator{}
+	err := c.OpenDevToolsWebView(ctx, nil)
+	if err == nil {
+		t.Fatal("expected error for nil webview, got nil")
+	}
+}
+
+func testOpenDevToolsWebViewTargetsProvidedWebView(t *testing.T, ctx context.Context) {
+	t.Helper()
+	base := mocks.NewMockWebView(t)
+	opener := mocks.NewMockDevToolsOpener(t)
+	wv := &mockDevToolsWebView{MockWebView: base, MockDevToolsOpener: opener}
+	base.EXPECT().ID().Return(port.WebViewID(1)).Once()
+	opener.EXPECT().OpenDevTools().Return().Once()
+	c := &NavigationCoordinator{}
+	err := c.OpenDevToolsWebView(ctx, wv)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+}
+
+func testPrintWebViewNilWebView(t *testing.T, ctx context.Context) {
+	t.Helper()
+	c := &NavigationCoordinator{}
+	err := c.PrintWebView(ctx, nil)
+	if err == nil {
+		t.Fatal("expected error for nil webview, got nil")
+	}
+}
+
+func testPrintWebViewTargetsProvidedWebView(t *testing.T, ctx context.Context) {
+	t.Helper()
+	base := mocks.NewMockWebView(t)
+	printer := mocks.NewMockPrinter(t)
+	wv := &mockPrinterWebView{MockWebView: base, MockPrinter: printer}
+	base.EXPECT().ID().Return(port.WebViewID(1)).Once()
+	printer.EXPECT().PrintPage().Return().Once()
+	c := &NavigationCoordinator{}
+	err := c.PrintWebView(ctx, wv)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}

@@ -117,9 +117,8 @@ func (mw *MainWindow) assembleLayout() {
 	mw.contentOverlay.AddOverlay(tabBarWidget)
 	mw.contentOverlay.SetClipOverlay(tabBarWidget, false)
 	// Keep the tab bar out of measurement so showing/hiding it never changes the
-	// WebView content allocation; the content area reserves a stable inset for
-	// bottom-position bars while the overlay remains non-measured to avoid
-	// WebView allocation changes.
+	// WebView content allocation; the content area reserves a stable inset while
+	// the overlay remains non-measured to avoid WebView allocation changes.
 	mw.contentOverlay.SetMeasureOverlay(tabBarWidget, false)
 
 	mw.logger.Debug().
@@ -201,31 +200,38 @@ func (mw *MainWindow) ContentOverlay() *gtk.Overlay {
 	return mw.contentOverlay
 }
 
-// SetTabBarContentInsetVisible adds or removes the bottom tab bar inset CSS class
-// on the content area. Only effective when tabBarPosition is "bottom".
-// Avoids duplicate add/remove if already in the desired state.
+// SetTabBarContentInsetVisible adds or removes the tab bar inset CSS class
+// on the content area. Avoids duplicate add/remove if already in the desired state.
 func (mw *MainWindow) SetTabBarContentInsetVisible(visible bool) {
-	if mw.tabBarPosition != "bottom" || mw.contentArea == nil {
+	if mw.contentArea == nil {
 		return
 	}
+	class := mw.tabBarContentInsetClass()
 	if visible {
-		if !mw.contentArea.HasCssClass("content-area-tabbar-inset-bottom") {
-			mw.contentArea.AddCssClass("content-area-tabbar-inset-bottom")
+		if !mw.contentArea.HasCssClass(class) {
+			mw.contentArea.AddCssClass(class)
 		}
 	} else {
-		if mw.contentArea.HasCssClass("content-area-tabbar-inset-bottom") {
-			mw.contentArea.RemoveCssClass("content-area-tabbar-inset-bottom")
+		if mw.contentArea.HasCssClass(class) {
+			mw.contentArea.RemoveCssClass(class)
 		}
 	}
 }
 
-// HasTabBarContentInset returns whether the bottom tab bar inset CSS class
-// is currently applied to the content area.
+// HasTabBarContentInset returns whether the tab bar inset CSS class is currently
+// applied to the content area.
 func (mw *MainWindow) HasTabBarContentInset() bool {
-	if mw.tabBarPosition != "bottom" || mw.contentArea == nil {
+	if mw.contentArea == nil {
 		return false
 	}
-	return mw.contentArea.HasCssClass("content-area-tabbar-inset-bottom")
+	return mw.contentArea.HasCssClass(mw.tabBarContentInsetClass())
+}
+
+func (mw *MainWindow) tabBarContentInsetClass() string {
+	if mw.tabBarPosition == "bottom" {
+		return "content-area-tabbar-inset-bottom"
+	}
+	return "content-area-tabbar-inset-top"
 }
 
 // AddOverlay adds a widget as an overlay above the content area.

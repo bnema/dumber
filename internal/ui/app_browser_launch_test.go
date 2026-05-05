@@ -1297,6 +1297,34 @@ func TestApp_UpdateBrowserWindowTabBarVisibilityAutoHidesSingleTabButPreservesAl
 	assertWindowTabBarAutoHidden(t, mainWindow, true)
 }
 
+func TestTabBarSetVisibleDoesNotClearAutoHiddenInteractionState(t *testing.T) {
+	gtkApp := requireGTKDisplayApp(t)
+	defer gtkApp.Unref()
+
+	tabBar := component.NewTabBar()
+	if tabBar == nil {
+		t.Fatal("tab bar creation failed")
+	}
+
+	tabBar.SetAutoHidden(true)
+	tabBar.SetVisible(false)
+	tabBar.SetVisible(true)
+
+	box := tabBar.Box()
+	if !box.GetVisible() {
+		t.Fatal("tab bar should stay mounted when explicitly visible")
+	}
+	if got := box.GetOpacity(); got != 0.0 {
+		t.Fatalf("tab bar opacity = %v, want 0 while auto-hidden", got)
+	}
+	if got := box.GetCanTarget(); got {
+		t.Fatalf("tab bar can target = %v, want false while auto-hidden", got)
+	}
+	if got := box.GetFocusable(); got {
+		t.Fatalf("tab bar focusable = %v, want false while auto-hidden", got)
+	}
+}
+
 func TestApp_UpdateBrowserWindowTabBarVisibilityHonorsHideWhenSingleTabDisabled(t *testing.T) {
 	gtkApp := requireGTKDisplayApp(t)
 	defer gtkApp.Unref()
@@ -2474,7 +2502,7 @@ func TestMainWindow_BottomTabBar_ContentAreaHasInset(t *testing.T) {
 	}
 }
 
-func TestMainWindow_TopTabBar_NoContentAreaInset(t *testing.T) {
+func TestMainWindow_TopTabBar_ContentAreaHasTopInset(t *testing.T) {
 	gtkApp := requireGTKDisplayApp(t)
 	defer gtkApp.Unref()
 
@@ -2484,19 +2512,33 @@ func TestMainWindow_TopTabBar_NoContentAreaInset(t *testing.T) {
 	}
 	defer mw.Destroy()
 
-	// Top should never have the bottom inset class
+	if mw.ContentArea().HasCssClass("content-area-tabbar-inset-top") {
+		t.Fatal("top-tab-bar content area: should NOT have inset at window creation")
+	}
 	if mw.ContentArea().HasCssClass("content-area-tabbar-inset-bottom") {
 		t.Fatal("top-tab-bar content area: should NOT have content-area-tabbar-inset-bottom CSS class")
 	}
 
-	// Even after SetTabBarContentInsetVisible(true), top must not get bottom inset
 	mw.SetTabBarContentInsetVisible(true)
+	if !mw.ContentArea().HasCssClass("content-area-tabbar-inset-top") {
+		t.Fatal("top-tab-bar content area: expected content-area-tabbar-inset-top CSS class after SetTabBarContentInsetVisible(true)")
+	}
 	if mw.ContentArea().HasCssClass("content-area-tabbar-inset-bottom") {
-		t.Fatal("top-tab-bar content area: should NOT have inset after SetTabBarContentInsetVisible(true)")
+		t.Fatal("top-tab-bar content area: should NOT have bottom inset after SetTabBarContentInsetVisible(true)")
+	}
+	if !mw.HasTabBarContentInset() {
+		t.Fatal("HasTabBarContentInset should return true for top inset")
 	}
 
-	// HasTabBarContentInset must return false for top
+	mw.SetTabBarContentInsetVisible(false)
+	if mw.ContentArea().HasCssClass("content-area-tabbar-inset-top") {
+		t.Fatal("top-tab-bar content area: should NOT have inset after SetTabBarContentInsetVisible(false)")
+	}
 	if mw.HasTabBarContentInset() {
-		t.Fatal("HasTabBarContentInset should return false for top tab bar position")
+		t.Fatal("HasTabBarContentInset should return false after removing top inset")
+	}
+
+	if mw.ContentOverlay().GetMeasureOverlay(mw.TabBar().Widget()) {
+		t.Fatal("top-tab-bar: expected tab bar to remain a non-measured overlay")
 	}
 }

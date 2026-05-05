@@ -2,6 +2,7 @@ package entity
 
 import (
 	"fmt"
+	"sync"
 	"time"
 )
 
@@ -51,6 +52,8 @@ type TabList struct {
 	Tabs                []*Tab
 	ActiveTabID         TabID
 	PreviousActiveTabID TabID // Tracks last active tab for Alt+Tab style switching
+
+	mu sync.RWMutex
 }
 
 // NewTabList creates an empty tab list.
@@ -62,6 +65,9 @@ func NewTabList() *TabList {
 
 // Add appends a tab to the list.
 func (tl *TabList) Add(tab *Tab) {
+	tl.mu.Lock()
+	defer tl.mu.Unlock()
+
 	tab.Position = len(tl.Tabs)
 	tl.Tabs = append(tl.Tabs, tab)
 	if tl.ActiveTabID == "" {
@@ -71,6 +77,9 @@ func (tl *TabList) Add(tab *Tab) {
 
 // Remove removes a tab by ID and reindexes positions.
 func (tl *TabList) Remove(id TabID) bool {
+	tl.mu.Lock()
+	defer tl.mu.Unlock()
+
 	for i, tab := range tl.Tabs {
 		if tab.ID == id {
 			tl.Tabs = append(tl.Tabs[:i], tl.Tabs[i+1:]...)
@@ -99,6 +108,9 @@ func (tl *TabList) Remove(id TabID) bool {
 
 // Find returns a tab by ID.
 func (tl *TabList) Find(id TabID) *Tab {
+	tl.mu.RLock()
+	defer tl.mu.RUnlock()
+
 	for _, tab := range tl.Tabs {
 		if tab.ID == id {
 			return tab
@@ -114,11 +126,17 @@ func (tl *TabList) ActiveTab() *Tab {
 
 // Count returns the number of tabs.
 func (tl *TabList) Count() int {
+	tl.mu.RLock()
+	defer tl.mu.RUnlock()
+
 	return len(tl.Tabs)
 }
 
 // SetActive sets the active tab and updates the previous active tab.
 func (tl *TabList) SetActive(id TabID) {
+	tl.mu.Lock()
+	defer tl.mu.Unlock()
+
 	if id != tl.ActiveTabID && tl.ActiveTabID != "" {
 		tl.PreviousActiveTabID = tl.ActiveTabID
 	}
@@ -127,6 +145,9 @@ func (tl *TabList) SetActive(id TabID) {
 
 // TabAt returns the tab at the given 0-based index.
 func (tl *TabList) TabAt(index int) *Tab {
+	tl.mu.RLock()
+	defer tl.mu.RUnlock()
+
 	if index < 0 || index >= len(tl.Tabs) {
 		return nil
 	}
@@ -135,6 +156,9 @@ func (tl *TabList) TabAt(index int) *Tab {
 
 // Move moves a tab to a new position.
 func (tl *TabList) Move(id TabID, newPos int) bool {
+	tl.mu.Lock()
+	defer tl.mu.Unlock()
+
 	if newPos < 0 || newPos >= len(tl.Tabs) {
 		return false
 	}
@@ -169,6 +193,9 @@ func (tl *TabList) Snapshot() *TabList {
 	if tl == nil {
 		return nil
 	}
+	tl.mu.RLock()
+	defer tl.mu.RUnlock()
+
 	tabs := make([]*Tab, len(tl.Tabs))
 	copy(tabs, tl.Tabs)
 	return &TabList{
@@ -181,13 +208,18 @@ func (tl *TabList) Snapshot() *TabList {
 // ReplaceFrom replaces this TabList's contents with those from another TabList.
 // This modifies in-place so existing references to this TabList remain valid.
 func (tl *TabList) ReplaceFrom(other *TabList) {
-	if other == nil {
+	snapshot := other.Snapshot()
+
+	tl.mu.Lock()
+	defer tl.mu.Unlock()
+
+	if snapshot == nil {
 		tl.Tabs = make([]*Tab, 0)
 		tl.ActiveTabID = ""
 		tl.PreviousActiveTabID = ""
 		return
 	}
-	tl.Tabs = other.Tabs
-	tl.ActiveTabID = other.ActiveTabID
-	tl.PreviousActiveTabID = other.PreviousActiveTabID
+	tl.Tabs = snapshot.Tabs
+	tl.ActiveTabID = snapshot.ActiveTabID
+	tl.PreviousActiveTabID = snapshot.PreviousActiveTabID
 }

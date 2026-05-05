@@ -609,6 +609,17 @@ func TestSnapshotFromWindowTabLists_EmptyWindows(t *testing.T) {
 	assert.Equal(t, 0, state.ActiveWindowIndex)
 }
 
+func TestSessionStateCountPanesUsesVersionForWindowSnapshots(t *testing.T) {
+	state := &entity.SessionState{
+		Version: entity.SessionStateVersion,
+		Tabs: []entity.TabSnapshot{{
+			Workspace: entity.WorkspaceSnapshot{Root: &entity.PaneNodeSnapshot{Pane: &entity.PaneSnapshot{ID: "legacy-pane"}}},
+		}},
+	}
+
+	assert.Equal(t, 0, state.CountPanes())
+}
+
 func TestSnapshotFromWindowTabLists_InvalidWindowIndex(t *testing.T) {
 	pane := entity.NewPane("p1")
 	pane.URI = "https://x.com"

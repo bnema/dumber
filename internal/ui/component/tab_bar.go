@@ -13,6 +13,7 @@ type TabBar struct {
 	buttons map[entity.TabID]*TabButton
 
 	explicitlyVisible bool
+	autoHidden        bool
 
 	// Active tab tracking
 	activeTabID entity.TabID
@@ -166,14 +167,7 @@ func (tb *TabBar) SetVisible(visible bool) {
 		return
 	}
 	tb.explicitlyVisible = visible
-	tb.box.SetVisible(visible)
-	if !visible {
-		tb.box.SetFocusable(false)
-		tb.box.SetCanTarget(false)
-	} else {
-		tb.box.SetFocusable(true)
-		tb.box.SetCanTarget(true)
-	}
+	tb.applyVisibilityState()
 }
 
 // SetAutoHidden hides the tab bar visually while keeping the overlay widget
@@ -185,19 +179,24 @@ func (tb *TabBar) SetAutoHidden(hidden bool) {
 		return
 	}
 
-	// Fullscreen and other explicit hide states must win over auto-hide updates.
-	tb.box.SetVisible(tb.explicitlyVisible)
+	tb.autoHidden = hidden
+	tb.applyVisibilityState()
+}
 
-	if hidden {
-		tb.box.SetOpacity(0.0)
-		tb.box.SetCanTarget(false)
-		tb.box.SetFocusable(false)
+func (tb *TabBar) applyVisibilityState() {
+	if tb == nil || tb.box == nil {
 		return
 	}
 
-	tb.box.SetOpacity(1.0)
-	tb.box.SetCanTarget(tb.explicitlyVisible)
-	tb.box.SetFocusable(tb.explicitlyVisible)
+	interactive := tb.explicitlyVisible && !tb.autoHidden
+	tb.box.SetVisible(tb.explicitlyVisible)
+	if interactive {
+		tb.box.SetOpacity(1.0)
+	} else {
+		tb.box.SetOpacity(0.0)
+	}
+	tb.box.SetCanTarget(interactive)
+	tb.box.SetFocusable(interactive)
 }
 
 // Destroy cleans up all tab bar resources.

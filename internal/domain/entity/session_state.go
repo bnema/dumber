@@ -154,7 +154,7 @@ type SessionInfo struct {
 // CountPanes returns the total number of panes in the session state.
 func (s *SessionState) CountPanes() int {
 	// v2: count across windows
-	if len(s.Windows) > 0 {
+	if s.Version >= SessionStateVersion {
 		count := 0
 		for _, w := range s.Windows {
 			for _, tab := range w.Tabs {

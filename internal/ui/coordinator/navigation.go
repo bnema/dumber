@@ -84,8 +84,6 @@ func (c *NavigationCoordinator) NavigateWebView(ctx context.Context, url string,
 		return err
 	}
 
-	c.trackNavigationOrigin(ctx, paneID, url)
-
 	paneIDStr := string(paneID)
 
 	if c.navigateUC != nil {
@@ -99,6 +97,7 @@ func (c *NavigationCoordinator) NavigateWebView(ctx context.Context, url string,
 			log.Error().Err(err).Str("url", url).Str("pane_id", paneIDStr).Msg("navigation failed")
 			return err
 		}
+		c.trackNavigationOrigin(ctx, paneID, url)
 		log.Debug().
 			Str("url", url).
 			Str("pane_id", paneIDStr).
@@ -114,6 +113,7 @@ func (c *NavigationCoordinator) NavigateWebView(ctx context.Context, url string,
 		return err
 	}
 
+	c.trackNavigationOrigin(ctx, paneID, url)
 	log.Debug().Str("url", url).Uint64("webview_id", uint64(wv.ID())).Msg("navigated explicit webview (direct)")
 	return nil
 }
