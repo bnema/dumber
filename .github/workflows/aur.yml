@@ -81,7 +81,9 @@ jobs:
             'build() {' \
             '    cd dumber' \
             '    export CGO_ENABLED=0' \
-            '    export GOFLAGS="-buildmode=pie -trimpath -mod=readonly -modcacherw"' \
+            '    # Do not set -buildmode=pie globally: the build also compiles js/wasm' \
+            '    # systemview assets, and Go does not support PIE for GOOS=js/GOARCH=wasm.' \
+            '    export GOFLAGS="-trimpath -mod=readonly -modcacherw"' \
             '    make build' \
             '}' \
             '' \
