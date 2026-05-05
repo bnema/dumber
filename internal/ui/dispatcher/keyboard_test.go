@@ -6,7 +6,6 @@ import (
 
 	"github.com/bnema/dumber/internal/application/usecase"
 	"github.com/bnema/dumber/internal/domain/entity"
-	domainurl "github.com/bnema/dumber/internal/domain/url"
 	"github.com/bnema/dumber/internal/ui/component"
 	"github.com/bnema/dumber/internal/ui/coordinator"
 	"github.com/bnema/dumber/internal/ui/input"
@@ -14,105 +13,55 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestKeyboardDispatcher_AltNumberCreatesTabsUntilRequestedIndexExists(t *testing.T) {
+func TestKeyboardDispatcher_TabActionsUseInjectedKeyboardActions(t *testing.T) {
 	ctx := context.Background()
-	ids := []string{
-		"tab-1", "ws-1", "pane-1",
-		"tab-2", "ws-2", "pane-2",
-		"tab-3", "ws-3", "pane-3",
-	}
-	idx := 0
-	tabsUC := usecase.NewManageTabsUseCase(func() string {
-		id := ids[idx]
-		idx++
-		return id
-	})
-	tabs := entity.NewTabList()
-	tabCoord := coordinator.NewTabCoordinator(ctx, coordinator.TabCoordinatorConfig{
-		TabsUC: tabsUC,
-		Tabs:   tabs,
-	})
+	called := make([]string, 0)
+	var switchedIndex int
+	d := NewKeyboardDispatcher(
+		ctx,
+		&coordinator.WorkspaceCoordinator{},
+		&coordinator.NavigationCoordinator{},
+		nil,
+		nil,
+		KeyboardActions{
+			NewTab: func(context.Context) error {
+				called = append(called, "new")
+				return nil
+			},
+			CloseTab: func(context.Context) error {
+				called = append(called, "close")
+				return nil
+			},
+			NextTab: func(context.Context) error {
+				called = append(called, "next")
+				return nil
+			},
+			PreviousTab: func(context.Context) error {
+				called = append(called, "previous")
+				return nil
+			},
+			SwitchLastTab: func(context.Context) error {
+				called = append(called, "last")
+				return nil
+			},
+			SwitchTabIndex: func(_ context.Context, index int) error {
+				called = append(called, "index")
+				switchedIndex = index
+				return nil
+			},
+		},
+		func(context.Context) entity.PaneID { return "" },
+	)
 
-	_, err := tabCoord.Create(ctx, "https://initial.example")
-	require.NoError(t, err)
+	require.NoError(t, d.Dispatch(ctx, input.ActionNewTab))
+	require.NoError(t, d.Dispatch(ctx, input.ActionCloseTab))
+	require.NoError(t, d.Dispatch(ctx, input.ActionNextTab))
+	require.NoError(t, d.Dispatch(ctx, input.ActionPreviousTab))
+	require.NoError(t, d.Dispatch(ctx, input.ActionSwitchLastTab))
+	require.NoError(t, d.Dispatch(ctx, input.ActionSwitchTabIndex5))
 
-	d := NewKeyboardDispatcher(ctx, tabCoord, &coordinator.WorkspaceCoordinator{}, &coordinator.NavigationCoordinator{}, nil, nil, "https://new.example", func(context.Context) entity.PaneID { return "" })
-
-	err = d.Dispatch(ctx, input.ActionSwitchTabIndex3)
-	require.NoError(t, err)
-
-	require.Len(t, tabs.Tabs, 3)
-	require.NotNil(t, tabs.ActiveTab())
-	assert.Equal(t, tabs.TabAt(2).ID, tabs.ActiveTabID)
-	assert.Equal(t, tabs.TabAt(0).ID, tabs.PreviousActiveTabID)
-	assert.Equal(t, 2, tabs.ActiveTab().Position)
-	assert.Equal(t, domainurl.Normalize("https://new.example"), tabs.TabAt(1).Workspace.Root.Pane.URI)
-	assert.Equal(t, domainurl.Normalize("https://new.example"), tabs.TabAt(2).Workspace.Root.Pane.URI)
-
-	err = tabCoord.SwitchToLastActive(ctx)
-	require.NoError(t, err)
-	assert.Equal(t, tabs.TabAt(0).ID, tabs.ActiveTabID)
-}
-
-func TestKeyboardDispatcher_AltNumberSwitchesToExistingTabWithoutNewPaneURL(t *testing.T) {
-	ctx := context.Background()
-	ids := []string{
-		"tab-1", "ws-1", "pane-1",
-		"tab-2", "ws-2", "pane-2",
-	}
-	idx := 0
-	tabsUC := usecase.NewManageTabsUseCase(func() string {
-		id := ids[idx]
-		idx++
-		return id
-	})
-	tabs := entity.NewTabList()
-	tabCoord := coordinator.NewTabCoordinator(ctx, coordinator.TabCoordinatorConfig{
-		TabsUC: tabsUC,
-		Tabs:   tabs,
-	})
-
-	_, err := tabCoord.Create(ctx, "https://first.example")
-	require.NoError(t, err)
-	_, err = tabCoord.Create(ctx, "https://second.example")
-	require.NoError(t, err)
-
-	d := NewKeyboardDispatcher(ctx, tabCoord, &coordinator.WorkspaceCoordinator{}, &coordinator.NavigationCoordinator{}, nil, nil, "", func(context.Context) entity.PaneID { return "" })
-
-	err = d.Dispatch(ctx, input.ActionSwitchTabIndex2)
-	require.NoError(t, err)
-
-	require.Len(t, tabs.Tabs, 2)
-	assert.Equal(t, tabs.TabAt(1).ID, tabs.ActiveTabID)
-	assert.Equal(t, domainurl.Normalize("https://second.example"), tabs.TabAt(1).Workspace.Root.Pane.URI)
-}
-
-func TestKeyboardDispatcher_AltNumberErrorsWhenMissingTabRequiresCreationWithoutNewPaneURL(t *testing.T) {
-	ctx := context.Background()
-	ids := []string{
-		"tab-1", "ws-1", "pane-1",
-	}
-	idx := 0
-	tabsUC := usecase.NewManageTabsUseCase(func() string {
-		id := ids[idx]
-		idx++
-		return id
-	})
-	tabs := entity.NewTabList()
-	tabCoord := coordinator.NewTabCoordinator(ctx, coordinator.TabCoordinatorConfig{
-		TabsUC: tabsUC,
-		Tabs:   tabs,
-	})
-
-	_, err := tabCoord.Create(ctx, "https://first.example")
-	require.NoError(t, err)
-
-	d := NewKeyboardDispatcher(ctx, tabCoord, &coordinator.WorkspaceCoordinator{}, &coordinator.NavigationCoordinator{}, nil, nil, "", func(context.Context) entity.PaneID { return "" })
-
-	err = d.Dispatch(ctx, input.ActionSwitchTabIndex2)
-	require.Error(t, err)
-	require.Len(t, tabs.Tabs, 1)
-	assert.Equal(t, tabs.TabAt(0).ID, tabs.ActiveTabID)
+	assert.Equal(t, []string{"new", "close", "next", "previous", "last", "index"}, called)
+	assert.Equal(t, 4, switchedIndex)
 }
 
 func TestKeyboardDispatcher_ToggleHistorySystemViewOpensRightSplit(t *testing.T) {
@@ -135,7 +84,7 @@ func TestKeyboardDispatcher_ToggleHistorySystemViewOpensRightSplit(t *testing.T)
 		},
 	})
 
-	d := NewKeyboardDispatcher(ctx, &coordinator.TabCoordinator{}, wsCoord, &coordinator.NavigationCoordinator{}, nil, nil, "", func(context.Context) entity.PaneID { return "" })
+	d := NewKeyboardDispatcher(ctx, wsCoord, &coordinator.NavigationCoordinator{}, nil, nil, KeyboardActions{}, func(context.Context) entity.PaneID { return "" })
 
 	err := d.Dispatch(ctx, input.ActionToggleHistorySystemView)
 	require.NoError(t, err)
@@ -151,7 +100,7 @@ func TestKeyboardDispatcher_ToggleHistorySystemViewOpensRightSplit(t *testing.T)
 func TestKeyboardDispatcher_PassesActivePaneIDToShellCallbacks(t *testing.T) {
 	ctx := context.Background()
 	activePaneID := entity.PaneID("pane-1")
-	d := NewKeyboardDispatcher(ctx, &coordinator.TabCoordinator{}, &coordinator.WorkspaceCoordinator{}, &coordinator.NavigationCoordinator{}, nil, nil, "", func(context.Context) entity.PaneID {
+	d := NewKeyboardDispatcher(ctx, &coordinator.WorkspaceCoordinator{}, &coordinator.NavigationCoordinator{}, nil, nil, KeyboardActions{}, func(context.Context) entity.PaneID {
 		return activePaneID
 	})
 

@@ -845,7 +845,7 @@ func buildUIDependencies(
 		SessionStateRepo: repos.sessionState,
 		CurrentSessionID: currentSessionID,
 		SnapshotUC:       uc.snapshot,
-		SnapshotServiceFactory: func(provider port.TabListProvider, intervalMs int) port.SnapshotService {
+		SnapshotServiceFactory: func(provider port.WindowStateProvider, intervalMs int) port.SnapshotService {
 			return snapshot.NewService(uc.snapshot, provider, intervalMs)
 		},
 		CheckUpdateUC:       uc.checkUpdate,

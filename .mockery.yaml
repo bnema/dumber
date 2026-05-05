@@ -16,6 +16,7 @@ packages:
       SessionLogger: {}
       SessionSpawner: {}
       TabListProvider: {}
+      WindowStateProvider: {}
       WebView: {}
       WebViewFactory: {}
       WebViewPool: {}

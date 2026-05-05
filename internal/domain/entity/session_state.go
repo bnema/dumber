@@ -2,18 +2,24 @@ package entity
 
 import "time"
 
+const LegacySessionStateVersion = 1
+
 // SessionStateVersion is the current schema version for session state.
 // Increment when making breaking changes to the serialization format.
-const SessionStateVersion = 1
+// Version 2: added window-scoped sessions (Windows, ActiveWindowIndex).
+const SessionStateVersion = 2
 
 // SessionState represents a complete snapshot of a browser session.
 // This is serialized to JSON and stored in the database.
 type SessionState struct {
 	Version        int           `json:"version"`
 	SessionID      SessionID     `json:"session_id"`
-	Tabs           []TabSnapshot `json:"tabs"`
-	ActiveTabIndex int           `json:"active_tab_index"`
-	SavedAt        time.Time     `json:"saved_at"`
+	Tabs           []TabSnapshot `json:"tabs,omitempty"`
+	ActiveTabIndex int           `json:"active_tab_index,omitempty"`
+	// v2: window-scoped sessions
+	Windows           []WindowSnapshot `json:"windows,omitempty"`
+	ActiveWindowIndex int              `json:"active_window_index,omitempty"`
+	SavedAt           time.Time        `json:"saved_at"`
 }
 
 // TabSnapshot captures the state of a single tab.
@@ -55,7 +61,7 @@ type PaneSnapshot struct {
 func SnapshotFromTabList(sessionID SessionID, tabs *TabList) *SessionState {
 	if tabs == nil {
 		return &SessionState{
-			Version:   SessionStateVersion,
+			Version:   LegacySessionStateVersion,
 			SessionID: sessionID,
 			Tabs:      []TabSnapshot{},
 			SavedAt:   time.Now(),
@@ -73,7 +79,7 @@ func SnapshotFromTabList(sessionID SessionID, tabs *TabList) *SessionState {
 	}
 
 	return &SessionState{
-		Version:        SessionStateVersion,
+		Version:        LegacySessionStateVersion,
 		SessionID:      sessionID,
 		Tabs:           snapTabs,
 		ActiveTabIndex: activeTabIndex,
@@ -147,6 +153,17 @@ type SessionInfo struct {
 
 // CountPanes returns the total number of panes in the session state.
 func (s *SessionState) CountPanes() int {
+	// v2: count across windows
+	if len(s.Windows) > 0 {
+		count := 0
+		for _, w := range s.Windows {
+			for _, tab := range w.Tabs {
+				count += countPanesInNode(tab.Workspace.Root)
+			}
+		}
+		return count
+	}
+	// v1: legacy flat tabs
 	count := 0
 	for _, tab := range s.Tabs {
 		count += countPanesInNode(tab.Workspace.Root)
@@ -171,17 +188,12 @@ func countPanesInNode(node *PaneNodeSnapshot) int {
 // IDGenerator is a function that generates unique IDs.
 type IDGenerator func() string
 
-// TabListFromSnapshot reconstructs a TabList from a SessionState snapshot.
-// Generates new IDs for all entities using the provided generator.
-// This is the inverse of SnapshotFromTabList.
-func TabListFromSnapshot(state *SessionState, idGen IDGenerator) *TabList {
-	if state == nil {
-		return NewTabList()
-	}
-
+// tabListFromSnapshots converts a slice of TabSnapshots to a live TabList.
+// activeIndex is the index in snapshots that should become the active tab.
+func tabListFromSnapshots(snaps []TabSnapshot, activeIndex int, idGen IDGenerator) *TabList {
 	tabs := NewTabList()
 
-	for i, tabSnap := range state.Tabs {
+	for i, tabSnap := range snaps {
 		tab := tabFromSnapshot(&tabSnap, idGen)
 		if tab == nil {
 			continue
@@ -189,7 +201,7 @@ func TabListFromSnapshot(state *SessionState, idGen IDGenerator) *TabList {
 		tabs.Tabs = append(tabs.Tabs, tab)
 		tab.Position = len(tabs.Tabs) - 1
 
-		if i == state.ActiveTabIndex {
+		if i == activeIndex {
 			tabs.ActiveTabID = tab.ID
 		}
 	}
@@ -200,6 +212,45 @@ func TabListFromSnapshot(state *SessionState, idGen IDGenerator) *TabList {
 	}
 
 	return tabs
+}
+
+// TabListFromSnapshot reconstructs a TabList from a SessionState snapshot.
+// Generates new IDs for all entities using the provided generator.
+// This is the inverse of SnapshotFromTabList.
+func TabListFromSnapshot(state *SessionState, idGen IDGenerator) *TabList {
+	if state == nil {
+		return NewTabList()
+	}
+	if state.Version >= SessionStateVersion {
+		tabs, activeIndex := flattenWindowTabSnapshots(state.Windows, state.ActiveWindowIndex)
+		return tabListFromSnapshots(tabs, activeIndex, idGen)
+	}
+
+	return tabListFromSnapshots(state.Tabs, state.ActiveTabIndex, idGen)
+}
+
+func flattenWindowTabSnapshots(windows []WindowSnapshot, activeWindowIndex int) ([]TabSnapshot, int) {
+	if activeWindowIndex < 0 || activeWindowIndex >= len(windows) {
+		activeWindowIndex = 0
+	}
+	flattened := make([]TabSnapshot, 0)
+	activeTabIndex := 0
+	for i, win := range windows {
+		if i == activeWindowIndex {
+			if len(win.Tabs) == 0 {
+				// Active window has zero tabs; activeTabIndex stays at 0
+				// (first tab overall if any), not len(flattened).
+			} else {
+				winActiveIndex := win.ActiveTabIndex
+				if winActiveIndex < 0 || winActiveIndex >= len(win.Tabs) {
+					winActiveIndex = 0
+				}
+				activeTabIndex = len(flattened) + winActiveIndex
+			}
+		}
+		flattened = append(flattened, win.Tabs...)
+	}
+	return flattened, activeTabIndex
 }
 
 func tabFromSnapshot(snap *TabSnapshot, idGen IDGenerator) *Tab {

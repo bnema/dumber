@@ -104,13 +104,23 @@ func (mw *MainWindow) assembleLayout() {
 		tabBarPos = mw.tabBarPosition
 	}
 
+	mw.rootBox.Append(&mw.contentOverlay.Widget)
+
+	tabBarWidget := mw.tabBar.Widget()
+	tabBarWidget.SetHalign(gtk.AlignFillValue)
+	tabBarWidget.SetValign(gtk.AlignStartValue)
 	if tabBarPos == "bottom" {
-		mw.rootBox.Append(&mw.contentOverlay.Widget)
-		mw.rootBox.Append(mw.tabBar.Widget())
-	} else {
-		mw.rootBox.Append(mw.tabBar.Widget())
-		mw.rootBox.Append(&mw.contentOverlay.Widget)
+		tabBarWidget.SetValign(gtk.AlignEndValue)
+		// Inset is NOT applied unconditionally. See SetTabBarContentInsetVisible
+		// which is called when the bottom tab bar is actually visible.
 	}
+	mw.contentOverlay.AddOverlay(tabBarWidget)
+	mw.contentOverlay.SetClipOverlay(tabBarWidget, false)
+	// Keep the tab bar out of measurement so showing/hiding it never changes the
+	// WebView content allocation; the content area reserves a stable inset for
+	// bottom-position bars while the overlay remains non-measured to avoid
+	// WebView allocation changes.
+	mw.contentOverlay.SetMeasureOverlay(tabBarWidget, false)
 
 	mw.logger.Debug().
 		Str("tab_bar_position", tabBarPos).
@@ -189,6 +199,33 @@ func (mw *MainWindow) SetTitle(title string) {
 // ContentOverlay returns the overlay container for the content area.
 func (mw *MainWindow) ContentOverlay() *gtk.Overlay {
 	return mw.contentOverlay
+}
+
+// SetTabBarContentInsetVisible adds or removes the bottom tab bar inset CSS class
+// on the content area. Only effective when tabBarPosition is "bottom".
+// Avoids duplicate add/remove if already in the desired state.
+func (mw *MainWindow) SetTabBarContentInsetVisible(visible bool) {
+	if mw.tabBarPosition != "bottom" || mw.contentArea == nil {
+		return
+	}
+	if visible {
+		if !mw.contentArea.HasCssClass("content-area-tabbar-inset-bottom") {
+			mw.contentArea.AddCssClass("content-area-tabbar-inset-bottom")
+		}
+	} else {
+		if mw.contentArea.HasCssClass("content-area-tabbar-inset-bottom") {
+			mw.contentArea.RemoveCssClass("content-area-tabbar-inset-bottom")
+		}
+	}
+}
+
+// HasTabBarContentInset returns whether the bottom tab bar inset CSS class
+// is currently applied to the content area.
+func (mw *MainWindow) HasTabBarContentInset() bool {
+	if mw.tabBarPosition != "bottom" || mw.contentArea == nil {
+		return false
+	}
+	return mw.contentArea.HasCssClass("content-area-tabbar-inset-bottom")
 }
 
 // AddOverlay adds a widget as an overlay above the content area.

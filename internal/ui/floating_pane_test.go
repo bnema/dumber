@@ -365,13 +365,19 @@ func newFloatingPaneTestApp(t *testing.T) (*App, entity.TabID, *floatingWorkspac
 	tabID := entity.TabID("tab-1")
 	workspace := &entity.Workspace{ActivePaneID: entity.PaneID("pane-one")}
 	tabs := entity.NewTabList()
-	tabs.Add(&entity.Tab{ID: tabID, Workspace: workspace})
+	tab := &entity.Tab{ID: tabID, Workspace: workspace}
+	tabs.Add(tab)
+	tabs.SetActive(tabID)
+	bw := &browserWindow{id: "window-1", tabs: tabs}
 
 	session := newFloatingPaneSession(tabID, floatingSessionIDDefault)
 
 	app := &App{
-		tabs:           tabs,
-		workspaceViews: make(map[entity.TabID]*component.WorkspaceView),
+		tabs:                tabs,
+		browserWindows:      map[string]*browserWindow{bw.id: bw},
+		lastFocusedWindowID: bw.id,
+		windowForTab:        map[entity.TabID]*browserWindow{tabID: bw},
+		workspaceViews:      make(map[entity.TabID]*component.WorkspaceView),
 		floatingSessions: map[floatingSessionKey]*floatingWorkspaceSession{
 			{tabID: tabID, sessionID: floatingSessionIDDefault}: session,
 		},

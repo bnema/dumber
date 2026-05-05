@@ -161,6 +161,23 @@ func (tl *TabList) Move(id TabID, newPos int) bool {
 	return true
 }
 
+// Snapshot returns a shallow copy of the TabList safe for concurrent read.
+// The returned TabList shares the underlying Tab pointers but has its own
+// slice header and scalar fields, protecting against races from concurrent
+// structural mutations (add/remove) and ActiveTabID changes on the original.
+func (tl *TabList) Snapshot() *TabList {
+	if tl == nil {
+		return nil
+	}
+	tabs := make([]*Tab, len(tl.Tabs))
+	copy(tabs, tl.Tabs)
+	return &TabList{
+		Tabs:                tabs,
+		ActiveTabID:         tl.ActiveTabID,
+		PreviousActiveTabID: tl.PreviousActiveTabID,
+	}
+}
+
 // ReplaceFrom replaces this TabList's contents with those from another TabList.
 // This modifies in-place so existing references to this TabList remain valid.
 func (tl *TabList) ReplaceFrom(other *TabList) {

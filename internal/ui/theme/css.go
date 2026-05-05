@@ -144,6 +144,12 @@ func GenerateCSSFull(p Palette, _ float64, fonts FontConfig, modeColors ModeColo
 // Uses em units for scalable UI.
 func generateTabBarCSS(p Palette) string {
 	return `/* Tab bar styling */
+/* Content area inset for bottom-positioned tab bar — uses the same 2em token as
+   .tab-bar min-height and remains static to avoid OSR vertical reallocations. */
+.content-area-tabbar-inset-bottom {
+	padding-bottom: 2em;
+}
+
 .tab-bar {
 	background-color: var(--surface);
 	border-top: 0.125em solid var(--border);

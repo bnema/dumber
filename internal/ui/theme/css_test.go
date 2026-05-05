@@ -185,6 +185,23 @@ func TestGenerateCSSWithScale_UsesMediumWeightForOmniboxSuggestionTitle(t *testi
 	assert.NotContains(t, css, ".omnibox-suggestion-title {\n\tfont-size: 0.875em;\n\tcolor: var(--text);\n\tfont-weight: 400;")
 }
 
+func TestGenerateCSS_ContentAreaTabBarInsetBottom(t *testing.T) {
+	css := GenerateCSS(DefaultDarkPalette())
+
+	if !strings.Contains(css, ".content-area-tabbar-inset-bottom") {
+		t.Fatal("expected .content-area-tabbar-inset-bottom selector in generated CSS")
+	}
+	if !strings.Contains(css, "padding-bottom: 2em;") {
+		t.Fatal("expected padding-bottom: 2em in .content-area-tabbar-inset-bottom block")
+	}
+	if !strings.Contains(css, ".tab-bar") {
+		t.Fatal("expected .tab-bar selector in generated CSS")
+	}
+	if !strings.Contains(css, "min-height: 2em;") {
+		t.Fatal("expected min-height: 2em in .tab-bar block")
+	}
+}
+
 func TestGenerateCSS_DoesNotEmitUnsupportedGTKProperties(t *testing.T) {
 	css := GenerateCSS(DefaultDarkPalette())
 

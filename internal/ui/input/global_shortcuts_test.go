@@ -20,7 +20,7 @@ func TestGlobalShortcutHandlerSuppressesRepeatedOneShotActions(t *testing.T) {
 	}
 }
 
-func TestGlobalShortcutHandlerAllowsRepeatingNavigationActions(t *testing.T) {
+func TestGlobalShortcutHandlerAllowsRepeatingFocusNavigationActions(t *testing.T) {
 	h := &GlobalShortcutHandler{lastDispatchAt: make(map[Action]time.Time)}
 	now := time.Unix(100, 0)
 
@@ -29,6 +29,47 @@ func TestGlobalShortcutHandlerAllowsRepeatingNavigationActions(t *testing.T) {
 	}
 	if h.suppressRepeatedShortcut(ActionFocusRight, now.Add(time.Millisecond)) {
 		t.Fatal("focus-right repeat was suppressed")
+	}
+}
+
+func TestGlobalShortcutHandlerSuppressesRepeatedBrowserNavigationActions(t *testing.T) {
+	h := &GlobalShortcutHandler{lastDispatchAt: make(map[Action]time.Time)}
+	now := time.Unix(100, 0)
+
+	if h.suppressRepeatedShortcut(ActionGoBack, now) {
+		t.Fatal("first go-back dispatch was suppressed")
+	}
+	if !h.suppressRepeatedShortcut(ActionGoBack, now.Add(time.Millisecond)) {
+		t.Fatal("repeated go-back dispatch was not suppressed")
+	}
+}
+
+func TestGlobalShortcutHandlerSuppressesRepeatedTabIndexSwitchActions(t *testing.T) {
+	actions := []Action{
+		ActionSwitchTabIndex1,
+		ActionSwitchTabIndex2,
+		ActionSwitchTabIndex3,
+		ActionSwitchTabIndex4,
+		ActionSwitchTabIndex5,
+		ActionSwitchTabIndex6,
+		ActionSwitchTabIndex7,
+		ActionSwitchTabIndex8,
+		ActionSwitchTabIndex9,
+		ActionSwitchTabIndex10,
+	}
+
+	for _, action := range actions {
+		t.Run(string(action), func(t *testing.T) {
+			h := &GlobalShortcutHandler{lastDispatchAt: make(map[Action]time.Time)}
+			now := time.Unix(100, 0)
+
+			if h.suppressRepeatedShortcut(action, now) {
+				t.Fatalf("first %s dispatch was suppressed", action)
+			}
+			if !h.suppressRepeatedShortcut(action, now.Add(time.Millisecond)) {
+				t.Fatalf("repeated %s dispatch was not suppressed", action)
+			}
+		})
 	}
 }
 
@@ -57,5 +98,40 @@ func TestGlobalShortcutHandlerGenerationMarksOldCallbacksStale(t *testing.T) {
 	h.generation++
 	if !h.isStaleGeneration(generation) {
 		t.Fatal("old generation was not marked stale")
+	}
+}
+
+func TestGlobalShortcutHandlerReturnsInactiveForNilOrDetached(t *testing.T) {
+	var nilHandler *GlobalShortcutHandler
+	if nilHandler.isActiveWindowShortcutHandler() {
+		t.Fatal("nil handler should return inactive")
+	}
+	if (&GlobalShortcutHandler{}).isActiveWindowShortcutHandler() {
+		t.Fatal("handler with nil window should return inactive")
+	}
+
+	h := &GlobalShortcutHandler{
+		registered:     make(map[KeyBinding]Action),
+		lastDispatchAt: make(map[Action]time.Time),
+	}
+	h.Detach()
+	if h.isActiveWindowShortcutHandler() {
+		t.Fatal("detached handler with nil controller should return inactive")
+	}
+}
+
+func TestGlobalShortcutHandlerSuppressesActionSwitchLastTab(t *testing.T) {
+	if !isRepeatedGlobalShortcutSuppressed(ActionSwitchLastTab) {
+		t.Fatal("ActionSwitchLastTab should be suppressed")
+	}
+
+	h := &GlobalShortcutHandler{lastDispatchAt: make(map[Action]time.Time)}
+	now := time.Unix(100, 0)
+
+	if h.suppressRepeatedShortcut(ActionSwitchLastTab, now) {
+		t.Fatal("first ActionSwitchLastTab dispatch was suppressed")
+	}
+	if !h.suppressRepeatedShortcut(ActionSwitchLastTab, now.Add(time.Millisecond)) {
+		t.Fatal("repeated ActionSwitchLastTab dispatch was not suppressed")
 	}
 }
