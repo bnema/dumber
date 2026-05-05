@@ -15,7 +15,6 @@ packages:
       DiffFormatter: {}
       SessionLogger: {}
       SessionSpawner: {}
-      TabListProvider: {}
       WindowStateProvider: {}
       WebView: {}
       WebViewFactory: {}

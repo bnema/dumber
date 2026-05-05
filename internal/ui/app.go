@@ -680,8 +680,7 @@ func (a *App) activateBrowserWindow(bw *browserWindow) {
 	if a.tabs != nil && activeID != "" {
 		if a.tabs.Find(activeID) == nil {
 			if tab := perWinTabs.Find(activeID); tab != nil {
-				tabSnapshot := *tab
-				a.tabs.Add(&tabSnapshot)
+				a.tabs.Add(cloneTabForGlobalList(tab))
 			}
 		}
 		if a.tabs.Find(activeID) != nil {
@@ -1900,12 +1899,7 @@ func (a *App) initUpdateCoordinator(ctx context.Context) {
 	log.Debug().Msg("update coordinator initialized")
 }
 
-// GetTabList implements port.TabListProvider.
-func (a *App) GetTabList() *entity.TabList {
-	return a.tabs
-}
-
-// GetSessionID implements port.TabListProvider and port.WindowStateProvider.
+// GetSessionID implements port.WindowStateProvider.
 func (a *App) GetSessionID() entity.SessionID {
 	if a.deps == nil {
 		return ""
@@ -1979,7 +1973,7 @@ func (a *App) GetWindowSnapshotState() ([]entity.WindowTabListState, int) {
 			tabs = entity.NewTabList()
 			for _, tab := range globalTabs.Tabs {
 				if tabOwners[tab.ID] == wid {
-					tabs.Add(tab)
+					tabs.Add(cloneTabForGlobalList(tab))
 				}
 			}
 

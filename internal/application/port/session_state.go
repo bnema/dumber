@@ -6,17 +6,6 @@ import (
 	"github.com/bnema/dumber/internal/domain/entity"
 )
 
-// TabListProvider provides access to the current tab list state.
-// Implemented by the UI layer to allow the snapshot service to read state.
-//
-// Deprecated: use WindowStateProvider for v2 window-scoped snapshots.
-type TabListProvider interface {
-	// GetTabList returns the current tab list state.
-	GetTabList() *entity.TabList
-	// GetSessionID returns the current session ID.
-	GetSessionID() entity.SessionID
-}
-
 // WindowStateProvider provides window-scoped browser state for v2 snapshots.
 // Implemented by the UI layer and consumed by the snapshot service.
 type WindowStateProvider interface {
