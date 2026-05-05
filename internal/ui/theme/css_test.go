@@ -185,6 +185,35 @@ func TestGenerateCSSWithScale_UsesMediumWeightForOmniboxSuggestionTitle(t *testi
 	assert.NotContains(t, css, ".omnibox-suggestion-title {\n\tfont-size: 0.875em;\n\tcolor: var(--text);\n\tfont-weight: 400;")
 }
 
+func TestGenerateCSS_ContentAreaTabBarInset(t *testing.T) {
+	css := GenerateCSS(DefaultDarkPalette())
+
+	topBlock := cssRuleBlock(t, css, ".content-area-tabbar-inset-top")
+	if !strings.Contains(topBlock, "padding-top: 2em;") {
+		t.Fatal("expected padding-top: 2em in .content-area-tabbar-inset-top block")
+	}
+	bottomBlock := cssRuleBlock(t, css, ".content-area-tabbar-inset-bottom")
+	if !strings.Contains(bottomBlock, "padding-bottom: 2em;") {
+		t.Fatal("expected padding-bottom: 2em in .content-area-tabbar-inset-bottom block")
+	}
+	if !strings.Contains(css, ".tab-bar") {
+		t.Fatal("expected .tab-bar selector in generated CSS")
+	}
+	if !strings.Contains(css, "min-height: 2em;") {
+		t.Fatal("expected min-height: 2em in .tab-bar block")
+	}
+}
+
+func cssRuleBlock(t *testing.T, css, selector string) string {
+	t.Helper()
+	re := regexp.MustCompile(regexp.QuoteMeta(selector) + `\s*\{([^}]*)\}`)
+	matches := re.FindStringSubmatch(css)
+	if len(matches) != 2 {
+		t.Fatalf("expected %s selector in generated CSS", selector)
+	}
+	return matches[1]
+}
+
 func TestGenerateCSS_DoesNotEmitUnsupportedGTKProperties(t *testing.T) {
 	css := GenerateCSS(DefaultDarkPalette())
 

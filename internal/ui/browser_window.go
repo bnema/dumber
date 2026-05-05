@@ -9,6 +9,7 @@ import (
 	"github.com/bnema/dumber/internal/domain/entity"
 	"github.com/bnema/dumber/internal/logging"
 	"github.com/bnema/dumber/internal/ui/component"
+	"github.com/bnema/dumber/internal/ui/coordinator"
 	"github.com/bnema/dumber/internal/ui/focus"
 	"github.com/bnema/dumber/internal/ui/input"
 	"github.com/bnema/dumber/internal/ui/layout"
@@ -19,8 +20,7 @@ import (
 type browserWindow struct {
 	id                    string
 	initialURL            string
-	activeTabID           entity.TabID
-	prevActiveTabID       entity.TabID // per-window previous active tab (for Alt+Tab behavior)
+	tabs                  *entity.TabList // per-window tab list (single source of truth for tab state)
 	mainWindow            *window.MainWindow
 	appToaster            *component.Toaster
 	modeToaster           *component.Toaster
@@ -231,14 +231,29 @@ func (bw *browserWindow) initTabPicker(ctx context.Context, a *App) {
 	log.Debug().Msg("tab picker initialized")
 }
 
+func (bw *browserWindow) ensureTabs() {
+	if bw != nil && bw.tabs == nil {
+		bw.tabs = entity.NewTabList()
+	}
+}
+
 func (a *App) registerBrowserWindow(bw *browserWindow) {
 	if bw == nil {
 		return
 	}
+	bw.ensureTabs()
 	if a.browserWindows == nil {
 		a.browserWindows = make(map[string]*browserWindow)
 	}
 	a.browserWindows[bw.id] = bw
+
+	// Track registration order, guarding against duplicates.
+	for _, id := range a.browserWindowOrder {
+		if id == bw.id {
+			return
+		}
+	}
+	a.browserWindowOrder = append(a.browserWindowOrder, bw.id)
 }
 
 func (a *App) removeBrowserWindow(id string) {
@@ -246,6 +261,14 @@ func (a *App) removeBrowserWindow(id string) {
 		return
 	}
 	removed := a.browserWindows[id]
+
+	// Remove from registration order
+	for i, wid := range a.browserWindowOrder {
+		if wid == id {
+			a.browserWindowOrder = append(a.browserWindowOrder[:i], a.browserWindowOrder[i+1:]...)
+			break
+		}
+	}
 	wasMainWindow := removed != nil && removed.mainWindow == a.mainWindow
 	ownedTabIDs := make([]entity.TabID, 0)
 	for tabID, bw := range a.windowForTab {
@@ -284,7 +307,7 @@ func (a *App) removeBrowserWindow(id string) {
 		a.keyboardHandler = nil
 		a.globalShortcutHandler = nil
 		if a.tabCoord != nil {
-			a.tabCoord.SetMainWindow(nil)
+			a.tabCoord.SetCurrentTarget(coordinator.TabTarget{})
 		}
 	}
 }
@@ -292,6 +315,13 @@ func (a *App) removeBrowserWindow(id string) {
 func (a *App) deterministicBrowserWindowFallback() *browserWindow {
 	if a.browserWindows == nil {
 		return nil
+	}
+	for _, id := range a.browserWindowOrder {
+		bw := a.browserWindows[id]
+		if id == "" || bw == nil || bw.mainWindow == nil {
+			continue
+		}
+		return bw
 	}
 	ids := make([]string, 0, len(a.browserWindows))
 	for id, bw := range a.browserWindows {

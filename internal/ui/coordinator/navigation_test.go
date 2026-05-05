@@ -4,38 +4,28 @@ import (
 	"context"
 	"testing"
 
-	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
 
 type fakeOmniboxProvider struct {
-	onNavigate func(string)
+	toggled     bool
+	zoomUpdates []float64
 }
 
-func (f *fakeOmniboxProvider) ToggleOmnibox(context.Context) {}
+func (f *fakeOmniboxProvider) ToggleOmnibox(context.Context) { f.toggled = true }
 
-func (f *fakeOmniboxProvider) UpdateOmniboxZoom(float64) {}
-
-func (f *fakeOmniboxProvider) SetOmniboxOnNavigate(fn func(url string)) {
-	f.onNavigate = fn
+func (f *fakeOmniboxProvider) UpdateOmniboxZoom(factor float64) {
+	f.zoomUpdates = append(f.zoomUpdates, factor)
 }
 
-func TestNavigationCoordinator_NavigateWithoutContentCoordinatorReturnsError(t *testing.T) {
-	c := &NavigationCoordinator{}
-
-	err := c.Navigate(context.Background(), "https://example.com")
-	require.Error(t, err)
-	assert.Contains(t, err.Error(), "content coordinator")
-}
-
-func TestNavigationCoordinator_OmniboxCallbackDoesNotPanicOnNavigateError(t *testing.T) {
+func TestNavigationCoordinator_OmniboxProviderOpenAndZoom(t *testing.T) {
 	c := &NavigationCoordinator{}
 	provider := &fakeOmniboxProvider{}
 
 	c.SetOmniboxProvider(provider)
-	require.NotNil(t, provider.onNavigate)
+	require.NoError(t, c.OpenOmnibox(context.Background()))
+	c.NotifyZoomChanged(context.Background(), 1.25)
 
-	assert.NotPanics(t, func() {
-		provider.onNavigate("https://example.com")
-	})
+	require.True(t, provider.toggled)
+	require.Equal(t, []float64{1.25}, provider.zoomUpdates)
 }

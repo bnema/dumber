@@ -16,7 +16,6 @@ import (
 type OmniboxProvider interface {
 	ToggleOmnibox(ctx context.Context)
 	UpdateOmniboxZoom(factor float64)
-	SetOmniboxOnNavigate(fn func(url string))
 }
 
 // NavigationCoordinator handles URL navigation, history, and browser controls.
@@ -51,137 +50,138 @@ func NewNavigationCoordinator(
 // SetOmniboxProvider sets the omnibox provider for toggle/zoom operations.
 func (c *NavigationCoordinator) SetOmniboxProvider(provider OmniboxProvider) {
 	c.omniboxProvider = provider
-	if c.omniboxProvider != nil {
-		c.omniboxProvider.SetOmniboxOnNavigate(func(url string) {
-			navCtx := context.Background()
-			if c.contextProvider != nil {
-				navCtx = c.contextProvider()
-			}
-			if err := c.Navigate(navCtx, url); err != nil {
-				logging.FromContext(navCtx).Warn().Err(err).Str("url", url).Msg("omnibox-initiated navigation failed")
-			}
-		})
-	}
 }
 
-// Navigate loads a URL in the active pane using NavigateUseCase.
-// This properly handles history recording and zoom application.
-func (c *NavigationCoordinator) Navigate(ctx context.Context, url string) error {
-	log := logging.FromContext(ctx)
-	if c.contentCoord == nil {
-		log.Warn().Str("url", url).Msg("content coordinator not initialized")
-		return fmt.Errorf("content coordinator not initialized")
-	}
-
-	wv := c.contentCoord.ActiveWebView(ctx)
+// requireWebView returns an error if wv is nil, preserving stable error text.
+func requireWebView(wv port.WebView) error {
 	if wv == nil {
-		log.Warn().Str("url", url).Msg("no active webview for navigation")
-		return fmt.Errorf("no active webview")
+		return fmt.Errorf("no webview provided")
+	}
+	return nil
+}
+
+func (c *NavigationCoordinator) trackNavigationOrigin(ctx context.Context, paneID entity.PaneID, url string) {
+	if c.contentCoord == nil || paneID == "" {
+		return
+	}
+	c.contentCoord.SetNavigationOrigin(paneID, url)
+	go func() {
+		preloadCtx, cancelPreload := context.WithTimeout(ctx, faviconPreloadTimeout)
+		defer cancelPreload()
+		c.contentCoord.PreloadCachedFavicon(preloadCtx, paneID, url)
+	}()
+}
+
+// NavigateWebView loads a URL in the specified pane using the provided WebView.
+// This is the explicit-target equivalent of Navigate: it uses NavigateUseCase if
+// available, falling back to direct LoadURI. Origin tracking via contentCoord is
+// performed when contentCoord and paneID are available.
+func (c *NavigationCoordinator) NavigateWebView(ctx context.Context, url string, paneID entity.PaneID, wv port.WebView) error {
+	log := logging.FromContext(ctx)
+
+	if err := requireWebView(wv); err != nil {
+		log.Warn().Str("url", url).Msg("NavigateWebView called with nil webview")
+		return err
 	}
 
-	// Get active pane ID for tracking
-	activePaneID := c.contentCoord.ActivePaneID(ctx)
-	paneID := string(activePaneID)
-	if activePaneID != "" {
-		// Track original URL for cross-domain redirect favicon caching
-		c.contentCoord.SetNavigationOrigin(activePaneID, url)
-		// Pre-load cached favicon asynchronously (don't block navigation start)
-		go func() {
-			preloadCtx, cancelPreload := context.WithTimeout(ctx, faviconPreloadTimeout)
-			defer cancelPreload()
-			c.contentCoord.PreloadCachedFavicon(preloadCtx, activePaneID, url)
-		}()
-	}
+	paneIDStr := string(paneID)
 
-	// Use NavigateUseCase which handles history + zoom
 	if c.navigateUC != nil {
 		input := usecase.NavigateInput{
 			URL:     url,
-			PaneID:  paneID,
-			WebView: wv, // webkit.WebView implements port.WebView
+			PaneID:  paneIDStr,
+			WebView: wv,
 		}
 		output, err := c.navigateUC.Execute(ctx, input)
 		if err != nil {
-			log.Error().Err(err).Str("url", url).Msg("navigation failed")
+			log.Error().Err(err).Str("url", url).Str("pane_id", paneIDStr).Msg("navigation failed")
 			return err
 		}
+		c.trackNavigationOrigin(ctx, paneID, url)
 		log.Debug().
 			Str("url", url).
+			Str("pane_id", paneIDStr).
 			Float64("zoom", output.AppliedZoom).
+			Uint64("webview_id", uint64(wv.ID())).
 			Msg("navigation initiated via usecase")
 		return nil
 	}
 
-	// Fallback: direct navigation without usecase
 	log.Warn().Msg("navigateUC not available, using direct LoadURI")
 	if err := wv.LoadURI(ctx, url); err != nil {
 		log.Error().Err(err).Str("url", url).Msg("failed to navigate")
 		return err
 	}
 
-	log.Debug().Str("url", url).Msg("navigated active pane (direct)")
+	c.trackNavigationOrigin(ctx, paneID, url)
+	log.Debug().Str("url", url).Uint64("webview_id", uint64(wv.ID())).Msg("navigated explicit webview (direct)")
 	return nil
 }
 
-// Reload reloads the current page.
-func (c *NavigationCoordinator) Reload(ctx context.Context) error {
+// ReloadWebView reloads the page in the provided WebView, optionally bypassing cache.
+func (c *NavigationCoordinator) ReloadWebView(ctx context.Context, wv port.WebView, bypassCache bool) error {
 	log := logging.FromContext(ctx)
 
-	wv := c.contentCoord.ActiveWebView(ctx)
-	if wv == nil {
-		log.Debug().Msg("no active webview for reload")
-		return nil
+	if err := requireWebView(wv); err != nil {
+		log.Debug().Msg("ReloadWebView called with nil webview")
+		return err
 	}
 
 	if c.navigateUC != nil {
-		return c.navigateUC.Reload(ctx, wv, false)
+		return c.navigateUC.Reload(ctx, wv, bypassCache)
 	}
 
+	if bypassCache {
+		log.Debug().Uint64("webview_id", uint64(wv.ID())).Msg("reloading explicit webview bypassing cache")
+		return wv.ReloadBypassCache(ctx)
+	}
+
+	log.Debug().Uint64("webview_id", uint64(wv.ID())).Msg("reloading explicit webview")
 	return wv.Reload(ctx)
 }
 
-// HardReload reloads the current page bypassing cache.
-func (c *NavigationCoordinator) HardReload(ctx context.Context) error {
+// StopWebView stops loading in the provided WebView.
+func (c *NavigationCoordinator) StopWebView(ctx context.Context, wv port.WebView) error {
 	log := logging.FromContext(ctx)
 
-	wv := c.contentCoord.ActiveWebView(ctx)
-	if wv == nil {
-		log.Debug().Msg("no active webview for hard reload")
-		return nil
+	if err := requireWebView(wv); err != nil {
+		log.Debug().Msg("StopWebView called with nil webview")
+		return err
 	}
 
 	if c.navigateUC != nil {
-		return c.navigateUC.Reload(ctx, wv, true)
+		return c.navigateUC.Stop(ctx, wv)
 	}
 
-	return wv.ReloadBypassCache(ctx)
+	log.Debug().Uint64("webview_id", uint64(wv.ID())).Msg("stopping explicit webview")
+	return wv.Stop(ctx)
 }
 
-// GoBack navigates back in history.
+// GoBackWebView navigates back in history for the provided WebView.
 // Calls webview directly - the webview layer handles SPA navigation via JS fallback.
-func (c *NavigationCoordinator) GoBack(ctx context.Context) error {
+func (c *NavigationCoordinator) GoBackWebView(ctx context.Context, wv port.WebView) error {
 	log := logging.FromContext(ctx)
 
-	wv := c.contentCoord.ActiveWebView(ctx)
-	if wv == nil {
-		log.Debug().Msg("no active webview for go back")
-		return nil
+	if err := requireWebView(wv); err != nil {
+		log.Debug().Msg("GoBackWebView called with nil webview")
+		return err
 	}
 
+	log.Debug().Uint64("webview_id", uint64(wv.ID())).Msg("going back in explicit webview")
 	return wv.GoBack(ctx)
 }
 
-// GoForward navigates forward in history.
+// GoForwardWebView navigates forward in history for the provided WebView.
 // Calls webview directly - the webview layer handles SPA navigation via JS fallback.
-func (c *NavigationCoordinator) GoForward(ctx context.Context) error {
+func (c *NavigationCoordinator) GoForwardWebView(ctx context.Context, wv port.WebView) error {
 	log := logging.FromContext(ctx)
 
-	wv := c.contentCoord.ActiveWebView(ctx)
-	if wv == nil {
-		log.Debug().Msg("no active webview for go forward")
-		return nil
+	if err := requireWebView(wv); err != nil {
+		log.Debug().Msg("GoForwardWebView called with nil webview")
+		return err
 	}
 
+	log.Debug().Uint64("webview_id", uint64(wv.ID())).Msg("going forward in explicit webview")
 	return wv.GoForward(ctx)
 }
 
@@ -199,14 +199,13 @@ func (c *NavigationCoordinator) OpenOmnibox(ctx context.Context) error {
 	return nil
 }
 
-// OpenDevTools opens the WebKit inspector for the active WebView.
-func (c *NavigationCoordinator) OpenDevTools(ctx context.Context) error {
+// OpenDevToolsWebView opens the WebKit inspector for the provided WebView.
+func (c *NavigationCoordinator) OpenDevToolsWebView(ctx context.Context, wv port.WebView) error {
 	log := logging.FromContext(ctx)
 
-	wv := c.contentCoord.ActiveWebView(ctx)
-	if wv == nil {
-		log.Warn().Msg("no active webview for devtools")
-		return fmt.Errorf("no active webview")
+	if err := requireWebView(wv); err != nil {
+		log.Warn().Msg("OpenDevToolsWebView called with nil webview")
+		return err
 	}
 
 	log.Debug().Uint64("webview_id", uint64(wv.ID())).Msg("opening devtools")
@@ -219,14 +218,13 @@ func (c *NavigationCoordinator) OpenDevTools(ctx context.Context) error {
 	return fmt.Errorf("webview does not support devtools")
 }
 
-// PrintPage opens the print dialog for the active WebView.
-func (c *NavigationCoordinator) PrintPage(ctx context.Context) error {
+// PrintWebView opens the print dialog for the provided WebView.
+func (c *NavigationCoordinator) PrintWebView(ctx context.Context, wv port.WebView) error {
 	log := logging.FromContext(ctx)
 
-	wv := c.contentCoord.ActiveWebView(ctx)
-	if wv == nil {
-		log.Warn().Msg("no active webview for print")
-		return fmt.Errorf("no active webview")
+	if err := requireWebView(wv); err != nil {
+		log.Warn().Msg("PrintWebView called with nil webview")
+		return err
 	}
 
 	log.Debug().Uint64("webview_id", uint64(wv.ID())).Msg("opening print dialog")
@@ -263,11 +261,6 @@ func (c *NavigationCoordinator) ClearPaneHistory(paneID entity.PaneID) {
 		return
 	}
 	c.navigateUC.ClearPaneHistory(string(paneID))
-}
-
-// ActiveWebView returns the WebView for the active pane (for zoom operations).
-func (c *NavigationCoordinator) ActiveWebView(ctx context.Context) port.WebView {
-	return c.contentCoord.ActiveWebView(ctx)
 }
 
 // NotifyZoomChanged updates the omnibox zoom indicator.

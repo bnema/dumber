@@ -14,6 +14,8 @@ import (
 	"github.com/bnema/dumber/internal/ui/layout"
 	"github.com/bnema/dumber/internal/ui/window"
 	"github.com/bnema/puregotk/v4/gtk"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func TestBrowserWindow_RemoveBrowserWindowClearsShellState(t *testing.T) {
@@ -66,8 +68,12 @@ func TestBrowserWindow_RemoveBrowserWindowCleansOwnedTabState(t *testing.T) {
 	otherTab := entity.NewTab(entity.TabID("tab-other"), entity.WorkspaceID("workspace-other"), entity.NewPane(entity.PaneID("pane-other")))
 	removedMainWindow := &window.MainWindow{}
 	remainingMainWindow := &window.MainWindow{}
-	removed := &browserWindow{id: "window-1", mainWindow: removedMainWindow}
-	remaining := &browserWindow{id: "window-2", mainWindow: remainingMainWindow}
+	removedTabs := entity.NewTabList()
+	removedTabs.Add(ownedTab)
+	remainingTabs := entity.NewTabList()
+	remainingTabs.Add(otherTab)
+	removed := &browserWindow{id: "window-1", mainWindow: removedMainWindow, tabs: removedTabs}
+	remaining := &browserWindow{id: "window-2", mainWindow: remainingMainWindow, tabs: remainingTabs}
 	ownedSessionKey := floatingSessionKey{tabID: ownedTab.ID, sessionID: "profile:owned"}
 	otherSessionKey := floatingSessionKey{tabID: otherTab.ID, sessionID: "profile:other"}
 	app := &App{
@@ -110,6 +116,7 @@ func TestBrowserWindow_RemoveBrowserWindowCleansOwnedTabState(t *testing.T) {
 	if _, ok := app.floatingSessions[otherSessionKey]; !ok {
 		t.Fatalf("other floating session should remain")
 	}
+	assertWindowOwnershipInvariant(t, app)
 }
 
 func TestBrowserWindow_RegisterAndRemoveTrackCollection(t *testing.T) {
@@ -128,6 +135,9 @@ func TestBrowserWindow_RegisterAndRemoveTrackCollection(t *testing.T) {
 	}
 	if _, ok := app.browserWindows[second.id]; !ok {
 		t.Fatalf("second browser window was not registered")
+	}
+	if first.tabs == nil || second.tabs == nil {
+		t.Fatalf("registered browser windows must have non-nil tab lists")
 	}
 
 	app.removeBrowserWindow(first.id)
@@ -308,4 +318,535 @@ func (*testLayoutWidget) AddController(*gtk.EventController) {}
 type testPermissionDialogPresenter struct{}
 
 func (*testPermissionDialogPresenter) ShowPermissionDialog(context.Context, string, []entity.PermissionType, entity.PermissionMetadata, func(port.PermissionDialogResult)) {
+}
+
+// --- Window tab list tests ---
+
+func TestGetWindowTabLists_RespectsRegistrationOrder(t *testing.T) {
+	// Register windows in non-lexicographic order: window-2 first, then window-1.
+	// The result should preserve creation order, not sorted order.
+	app := &App{
+		browserWindows: make(map[string]*browserWindow),
+	}
+
+	first := &browserWindow{id: "window-2"}
+	second := &browserWindow{id: "window-1"}
+	app.registerBrowserWindow(first)
+	app.registerBrowserWindow(second)
+
+	// Give each window a tab so they show up in results.
+	pane1 := entity.NewPane(entity.PaneID("p-w2"))
+	tab1 := entity.NewTab(entity.TabID("t-w2"), entity.WorkspaceID("ws-w2"), pane1)
+	pane2 := entity.NewPane(entity.PaneID("p-w1"))
+	tab2 := entity.NewTab(entity.TabID("t-w1"), entity.WorkspaceID("ws-w1"), pane2)
+
+	app.tabs = entity.NewTabList()
+	app.tabs.Add(tab1)
+	app.tabs.Add(tab2)
+	first.tabs.Add(tab1)
+	second.tabs.Add(tab2)
+	app.windowForTab = map[entity.TabID]*browserWindow{
+		tab1.ID: first,
+		tab2.ID: second,
+	}
+
+	result := app.GetWindowTabLists()
+
+	require.Len(t, result, 2)
+	assert.Equal(t, entity.WindowID("window-2"), result[0].WindowID, "first registered window should be first")
+	assert.Equal(t, entity.WindowID("window-1"), result[1].WindowID, "second registered window should be second")
+}
+
+func TestGetWindowTabLists_NoBrowserWindowsReturnsGlobalSnapshot(t *testing.T) {
+	pane := entity.NewPane(entity.PaneID("p1"))
+	tab := entity.NewTab(entity.TabID("t1"), entity.WorkspaceID("ws1"), pane)
+	tabs := entity.NewTabList()
+	tabs.Add(tab)
+
+	app := &App{tabs: tabs}
+
+	result := app.GetWindowTabLists()
+
+	require.Len(t, result, 1)
+	assert.Equal(t, entity.WindowID(""), result[0].WindowID)
+	// Snapshot returns a copy so pointer identity is not expected; verify
+	// structural equality instead.
+	assert.Equal(t, tabs.ActiveTabID, result[0].Tabs.ActiveTabID)
+	assert.Len(t, result[0].Tabs.Tabs, len(tabs.Tabs))
+}
+
+func TestGetWindowTabLists_AppliesActiveTabIndex(t *testing.T) {
+	// A window with its own TabList where the second tab is active.
+	app := &App{
+		browserWindows: make(map[string]*browserWindow),
+	}
+
+	pane1 := entity.NewPane(entity.PaneID("p1"))
+	tab1 := entity.NewTab(entity.TabID("t1"), entity.WorkspaceID("ws1"), pane1)
+	pane2 := entity.NewPane(entity.PaneID("p2"))
+	tab2 := entity.NewTab(entity.TabID("t2"), entity.WorkspaceID("ws2"), pane2)
+
+	app.tabs = entity.NewTabList()
+	app.tabs.Add(tab1)
+	app.tabs.Add(tab2)
+
+	bwTabs := entity.NewTabList()
+	bwTabs.Add(tab1)
+	bwTabs.Add(tab2)
+	bwTabs.SetActive(entity.TabID("t2"))
+	bw := &browserWindow{id: "w1", tabs: bwTabs}
+	app.registerBrowserWindow(bw)
+	app.windowForTab = map[entity.TabID]*browserWindow{
+		tab1.ID: bw,
+		tab2.ID: bw,
+	}
+
+	result := app.GetWindowTabLists()
+
+	require.Len(t, result, 1)
+	assert.Equal(t, entity.TabID("t2"), result[0].Tabs.ActiveTabID, "should reflect bw.tabs.ActiveTabID")
+}
+
+func TestGetWindowTabLists_PreservesPreviousActiveTabID(t *testing.T) {
+	app := &App{
+		browserWindows: make(map[string]*browserWindow),
+	}
+
+	pane1 := entity.NewPane(entity.PaneID("p1"))
+	tab1 := entity.NewTab(entity.TabID("t1"), entity.WorkspaceID("ws1"), pane1)
+	pane2 := entity.NewPane(entity.PaneID("p2"))
+	tab2 := entity.NewTab(entity.TabID("t2"), entity.WorkspaceID("ws2"), pane2)
+
+	app.tabs = entity.NewTabList()
+	app.tabs.Add(tab1)
+	app.tabs.Add(tab2)
+
+	bwTabs := entity.NewTabList()
+	bwTabs.Add(tab1)
+	bwTabs.Add(tab2)
+	bwTabs.SetActive(entity.TabID("t2")) // t2 becomes active, t1 becomes previous
+
+	bw := &browserWindow{id: "w1", tabs: bwTabs}
+	app.registerBrowserWindow(bw)
+	app.windowForTab = map[entity.TabID]*browserWindow{
+		tab1.ID: bw,
+		tab2.ID: bw,
+	}
+
+	result := app.GetWindowTabLists()
+
+	require.Len(t, result, 1)
+	assert.Equal(t, entity.TabID("t1"), result[0].Tabs.PreviousActiveTabID, "should preserve bw.tabs.PreviousActiveTabID")
+}
+
+func TestGetActiveWindowIndex_MatchesRegistrationOrder(t *testing.T) {
+	// Register windows in non-lexicographic order; lastFocusedWindowID should
+	// map to the correct index in registration order.
+	app := &App{
+		browserWindows: make(map[string]*browserWindow),
+	}
+
+	app.registerBrowserWindow(&browserWindow{id: "z-window"})
+	app.registerBrowserWindow(&browserWindow{id: "a-window"})
+	app.lastFocusedWindowID = "a-window"
+
+	idx := app.GetActiveWindowIndex()
+	assert.Equal(t, 1, idx, "a-window is the second registered window, index should be 1")
+}
+
+func TestGetActiveWindowIndex_MatchesGetWindowTabLists(t *testing.T) {
+	// The order of windows in GetWindowTabLists must match the indices returned
+	// by GetActiveWindowIndex.
+	app := &App{
+		browserWindows: make(map[string]*browserWindow),
+	}
+
+	w1 := &browserWindow{id: "w1"}
+	w2 := &browserWindow{id: "w2"}
+	w3 := &browserWindow{id: "w3"}
+	app.registerBrowserWindow(w1)
+	app.registerBrowserWindow(w2)
+	app.registerBrowserWindow(w3)
+
+	// Give each window a tab.
+	p1 := entity.NewPane(entity.PaneID("p1"))
+	t1 := entity.NewTab(entity.TabID("t1"), entity.WorkspaceID("ws1"), p1)
+	p2 := entity.NewPane(entity.PaneID("p2"))
+	t2 := entity.NewTab(entity.TabID("t2"), entity.WorkspaceID("ws2"), p2)
+	p3 := entity.NewPane(entity.PaneID("p3"))
+	t3 := entity.NewTab(entity.TabID("t3"), entity.WorkspaceID("ws3"), p3)
+	app.tabs = entity.NewTabList()
+	app.tabs.Add(t1)
+	app.tabs.Add(t2)
+	app.tabs.Add(t3)
+	w1.tabs.Add(t1)
+	w2.tabs.Add(t2)
+	w3.tabs.Add(t3)
+	app.windowForTab = map[entity.TabID]*browserWindow{
+		t1.ID: w1,
+		t2.ID: w2,
+		t3.ID: w3,
+	}
+
+	app.lastFocusedWindowID = "w2"
+
+	lists := app.GetWindowTabLists()
+	idx := app.GetActiveWindowIndex()
+
+	require.Len(t, lists, 3)
+	assert.Equal(t, entity.WindowID("w2"), lists[idx].WindowID, "active window ID must match the lists index")
+}
+
+func TestWindowOrder_FallbackWhenRegistrationOrderEmpty(t *testing.T) {
+	// When browserWindowOrder is empty (e.g., old tests / direct map manipulation),
+	// windowOrder must fall back to a deterministic (sorted) order.
+	app := &App{
+		browserWindows: map[string]*browserWindow{
+			"z-window": {id: "z-window"},
+			"a-window": {id: "a-window"},
+		},
+	}
+
+	order := app.windowOrder()
+
+	require.Len(t, order, 2)
+	// Sorted order: "a-window" < "z-window"
+	assert.Equal(t, "a-window", order[0])
+	assert.Equal(t, "z-window", order[1])
+}
+
+func TestRemoveBrowserWindow_RemovesFromOrder(t *testing.T) {
+	app := &App{
+		browserWindows: make(map[string]*browserWindow),
+	}
+
+	w1 := &browserWindow{id: "w1"}
+	w2 := &browserWindow{id: "w2"}
+	w3 := &browserWindow{id: "w3"}
+	app.registerBrowserWindow(w1)
+	app.registerBrowserWindow(w2)
+	app.registerBrowserWindow(w3)
+
+	app.removeBrowserWindow("w2")
+
+	require.Len(t, app.browserWindowOrder, 2)
+	assert.Equal(t, "w1", app.browserWindowOrder[0])
+	assert.Equal(t, "w3", app.browserWindowOrder[1])
+}
+
+func TestRegisterBrowserWindow_DuplicateIgnores(t *testing.T) {
+	app := &App{
+		browserWindows: make(map[string]*browserWindow),
+	}
+
+	bw := &browserWindow{id: "w1"}
+	app.registerBrowserWindow(bw)
+	app.registerBrowserWindow(bw) // duplicate
+
+	require.Len(t, app.browserWindowOrder, 1)
+}
+
+func TestApp_GetWindowTabListsUsesCreationOrderAndActiveIndex(t *testing.T) {
+	// Create two windows with per-window bw.tabs as the real source of truth.
+	// Ensure GetWindowTabLists returns them in registration order, with correct
+	// WindowID, and that the returned Tabs pointers are the per-window bw.tabs
+	// (not copies or derived from global App.tabs).
+	firstTabs := entity.NewTabList()
+	firstTab := entity.NewTab(entity.TabID("tab-1"), entity.WorkspaceID("ws-1"), entity.NewPane(entity.PaneID("pane-1")))
+	firstTabs.Add(firstTab)
+	firstTabs.SetActive(entity.TabID("tab-1"))
+
+	secondTabs := entity.NewTabList()
+	secondTab := entity.NewTab(entity.TabID("tab-2"), entity.WorkspaceID("ws-2"), entity.NewPane(entity.PaneID("pane-2")))
+	secondTabs.Add(secondTab)
+
+	first := &browserWindow{id: "window-1", tabs: firstTabs}
+	second := &browserWindow{id: "window-2", tabs: secondTabs}
+
+	app := &App{
+		browserWindows:      map[string]*browserWindow{first.id: first, second.id: second},
+		browserWindowOrder:  []string{"window-1", "window-2"},
+		lastFocusedWindowID: "window-2",
+	}
+
+	result := app.GetWindowTabLists()
+
+	require.Len(t, result, 2)
+	assert.Equal(t, entity.WindowID("window-1"), result[0].WindowID)
+	assert.Equal(t, entity.WindowID("window-2"), result[1].WindowID)
+
+	// The returned Tabs are snapshot copies of per-window bw.tabs.
+	// Verify structural equality (not pointer identity, since
+	// GetWindowTabLists returns a snapshot for safe concurrent read).
+	assert.Equal(t, firstTabs.ActiveTabID, result[0].Tabs.ActiveTabID)
+	assert.Len(t, result[0].Tabs.Tabs, len(firstTabs.Tabs))
+	assert.Equal(t, secondTabs.ActiveTabID, result[1].Tabs.ActiveTabID)
+	assert.Len(t, result[1].Tabs.Tabs, len(secondTabs.Tabs))
+
+	// Active state reflects per-window bw.tabs.
+	assert.Equal(t, entity.TabID("tab-1"), result[0].Tabs.ActiveTabID)
+	assert.Equal(t, entity.TabID("tab-2"), result[1].Tabs.ActiveTabID)
+
+	// GetActiveWindowIndex respects lastFocusedWindowID mapped to registration order.
+	idx := app.GetActiveWindowIndex()
+	assert.Equal(t, 1, idx, "window-2 is second registered, index should be 1")
+}
+
+func TestApp_AssignRestoredWindowTabListsUsesFreshRuntimeWindowIDs(t *testing.T) {
+	// Create two restored TabLists with distinct tabs.
+	firstTabs := entity.NewTabList()
+	firstTab := entity.NewTab(entity.TabID("tab-1"), entity.WorkspaceID("ws-1"), entity.NewPane(entity.PaneID("pane-1")))
+	firstTabs.Add(firstTab)
+	firstTabs.SetActive(entity.TabID("tab-1"))
+
+	secondTabs := entity.NewTabList()
+	secondTab := entity.NewTab(entity.TabID("tab-2"), entity.WorkspaceID("ws-2"), entity.NewPane(entity.PaneID("pane-2")))
+	secondTabs.Add(secondTab)
+
+	// Create two runtime browser windows with fresh IDs distinct from saved IDs.
+	firstBW := &browserWindow{id: "runtime-w1"}
+	secondBW := &browserWindow{id: "runtime-w2"}
+
+	app := &App{
+		browserWindows: map[string]*browserWindow{"runtime-w1": firstBW, "runtime-w2": secondBW},
+	}
+
+	// Assign restored state using saved window IDs (simulating session restore).
+	app.assignRestoredWindowTabList(firstBW, entity.WindowTabListState{
+		WindowID: "saved-w1",
+		Tabs:     firstTabs,
+	})
+	app.assignRestoredWindowTabList(secondBW, entity.WindowTabListState{
+		WindowID: "saved-w2",
+		Tabs:     secondTabs,
+	})
+
+	// Tabs must be owned by runtime windows, not saved.
+	require.Same(t, firstTabs, firstBW.tabs, "first window tabs must be assigned")
+	require.Same(t, secondTabs, secondBW.tabs, "second window tabs must be assigned")
+
+	// windowForTab must map tabs to runtime windows.
+	require.Equal(t, firstBW, app.browserWindowForTab(firstTab.ID), "tab-1 must be owned by runtime-w1")
+	require.Equal(t, secondBW, app.browserWindowForTab(secondTab.ID), "tab-2 must be owned by runtime-w2")
+
+	// Saved window IDs must never leak into browserWindows.
+	require.Nil(t, app.browserWindows["saved-w1"], "saved-w1 must not appear in browserWindows")
+	require.Nil(t, app.browserWindows["saved-w2"], "saved-w2 must not appear in browserWindows")
+	assertWindowOwnershipInvariant(t, app)
+}
+
+func TestApp_BrowserWindowsOwnIndependentTabLists(t *testing.T) {
+	// Construct first browser window with its own TabList and distinct tabs.
+	firstTabs := entity.NewTabList()
+	firstTab := entity.NewTab(entity.TabID("tab-first"), entity.WorkspaceID("ws-first"), entity.NewPane(entity.PaneID("pane-first")))
+	firstTabs.Add(firstTab)
+
+	first := &browserWindow{
+		id:   "window-first",
+		tabs: firstTabs,
+	}
+
+	// Construct second browser window with its own TabList and distinct tabs.
+	secondTabs := entity.NewTabList()
+	secondTab := entity.NewTab(entity.TabID("tab-second"), entity.WorkspaceID("ws-second"), entity.NewPane(entity.PaneID("pane-second")))
+	secondTabs.Add(secondTab)
+
+	second := &browserWindow{
+		id:   "window-second",
+		tabs: secondTabs,
+	}
+
+	app := &App{
+		browserWindows: map[string]*browserWindow{
+			first.id:  first,
+			second.id: second,
+		},
+	}
+
+	// tabListForBrowserWindow returns the correct TabList for each window.
+	got := app.tabListForBrowserWindow(first)
+	if got != firstTabs {
+		t.Fatalf("tabListForBrowserWindow(first) = %p, want %p", got, firstTabs)
+	}
+	got = app.tabListForBrowserWindow(second)
+	if got != secondTabs {
+		t.Fatalf("tabListForBrowserWindow(second) = %p, want %p", got, secondTabs)
+	}
+
+	// Each window's tabs do not contain the other window's tabs.
+	if firstTabs.Find(secondTab.ID) != nil {
+		t.Fatalf("first window tabs unexpectedly contain second tab")
+	}
+	if secondTabs.Find(firstTab.ID) != nil {
+		t.Fatalf("second window tabs unexpectedly contain first tab")
+	}
+
+	// activeTabForBrowserWindow returns the correct active tab for each window.
+	gotTab := app.activeTabForBrowserWindow(first)
+	if gotTab != firstTab {
+		t.Fatalf("activeTabForBrowserWindow(first) = %p, want %p", gotTab, firstTab)
+	}
+	gotTab = app.activeTabForBrowserWindow(second)
+	if gotTab != secondTab {
+		t.Fatalf("activeTabForBrowserWindow(second) = %p, want %p", gotTab, secondTab)
+	}
+
+	app.windowForTab = map[entity.TabID]*browserWindow{firstTab.ID: first, secondTab.ID: second}
+	assertWindowOwnershipInvariant(t, app)
+}
+
+func TestRestoreSession_RemovesStaleBrowserWindows(t *testing.T) {
+	// After restore, only runtime windows should remain in browserWindows
+	// and browserWindowOrder. Stale pre-existing windows must be removed.
+
+	// Runtime windows with tabs (what restoreSession produces).
+	runtime1Tabs := entity.NewTabList()
+	r1Tab := entity.NewTab(entity.TabID("r1-t1"), entity.WorkspaceID("ws-r1"), entity.NewPane(entity.PaneID("p-r1")))
+	runtime1Tabs.Add(r1Tab)
+	runtime1Tabs.SetActive(entity.TabID("r1-t1"))
+
+	runtime2Tabs := entity.NewTabList()
+	r2Tab := entity.NewTab(entity.TabID("r2-t1"), entity.WorkspaceID("ws-r2"), entity.NewPane(entity.PaneID("p-r2")))
+	runtime2Tabs.Add(r2Tab)
+	runtime2Tabs.SetActive(entity.TabID("r2-t1"))
+
+	runtime1 := &browserWindow{id: "runtime-w1", tabs: runtime1Tabs}
+	runtime2 := &browserWindow{id: "runtime-w2", tabs: runtime2Tabs}
+
+	// Stale pre-existing browser window (no longer in runtime set).
+	staleTabs := entity.NewTabList()
+	staleTab := entity.NewTab(entity.TabID("stale-t1"), entity.WorkspaceID("ws-stale"), entity.NewPane(entity.PaneID("p-stale")))
+	staleTabs.Add(staleTab)
+	stale := &browserWindow{id: "stale-window", tabs: staleTabs}
+
+	app := &App{
+		browserWindows: map[string]*browserWindow{
+			"stale-window": stale,
+			"runtime-w1":   runtime1,
+			"runtime-w2":   runtime2,
+		},
+		tabs: entity.NewTabList(),
+		windowForTab: map[entity.TabID]*browserWindow{
+			staleTab.ID: stale,
+			r1Tab.ID:    runtime1,
+			r2Tab.ID:    runtime2,
+		},
+	}
+
+	// Simulate post-restore cleanup: remove stale windows not in runtime set.
+	runtimeIDs := []string{"runtime-w1", "runtime-w2"}
+	app.pruneStaleBrowserWindows([]*browserWindow{runtime1, runtime2})
+
+	// After cleanup, browserWindows contains only runtime windows.
+	require.Len(t, app.browserWindows, 2)
+	require.NotNil(t, app.browserWindows["runtime-w1"])
+	require.NotNil(t, app.browserWindows["runtime-w2"])
+	require.Nil(t, app.browserWindows["stale-window"])
+
+	// browserWindowOrder matches runtime order.
+	require.Equal(t, runtimeIDs, app.browserWindowOrder)
+
+	// GetWindowTabLists returns only runtime windows.
+	result := app.GetWindowTabLists()
+	require.Len(t, result, 2)
+	assert.Equal(t, entity.WindowID("runtime-w1"), result[0].WindowID)
+	assert.Equal(t, entity.WindowID("runtime-w2"), result[1].WindowID)
+
+	// No stale tabs leak into the result.
+	// Verify structural equality (snapshot copies, not live pointers).
+	assert.Equal(t, runtime1Tabs.ActiveTabID, result[0].Tabs.ActiveTabID)
+	assert.Len(t, result[0].Tabs.Tabs, len(runtime1Tabs.Tabs))
+	assert.Equal(t, runtime2Tabs.ActiveTabID, result[1].Tabs.ActiveTabID)
+	assert.Len(t, result[1].Tabs.Tabs, len(runtime2Tabs.Tabs))
+	assertWindowOwnershipInvariant(t, app)
+}
+
+func TestRestoreSession_BrowserWindowOrderStartsWithFirstReusedWindow(t *testing.T) {
+	// When the first restored window reuses a browser window that was not
+	// already in browserWindowOrder, the restored order must start with
+	// the reused window ID followed by newly-created window IDs.
+
+	reuseTabs := entity.NewTabList()
+	reuseTab := entity.NewTab(entity.TabID("reuse-t1"), entity.WorkspaceID("ws-reuse"), entity.NewPane(entity.PaneID("p-reuse")))
+	reuseTabs.Add(reuseTab)
+	reuseBW := &browserWindow{id: "reused-window", tabs: reuseTabs}
+
+	createdTabs := entity.NewTabList()
+	createdTab := entity.NewTab(entity.TabID("created-t1"), entity.WorkspaceID("ws-created"), entity.NewPane(entity.PaneID("p-created")))
+	createdTabs.Add(createdTab)
+	createdBW := &browserWindow{id: "created-window", tabs: createdTabs}
+
+	// Pre-existing browserWindowOrder does NOT contain the reused window.
+	app := &App{
+		browserWindows: map[string]*browserWindow{
+			"reused-window":  reuseBW,
+			"created-window": createdBW,
+		},
+		browserWindowOrder: []string{"old-stale-window"}, // reused window not present
+		tabs:               entity.NewTabList(),
+		windowForTab:       map[entity.TabID]*browserWindow{},
+	}
+
+	// Exercise the helper used by restoreSession to prune stale windows and
+	// replace browserWindowOrder with the runtime restore order.
+	runtimeWindows := []*browserWindow{reuseBW, createdBW}
+	app.pruneStaleBrowserWindows(runtimeWindows)
+
+	require.Len(t, app.browserWindowOrder, 2)
+	assert.Equal(t, "reused-window", app.browserWindowOrder[0],
+		"first reused window must be first in order")
+	assert.Equal(t, "created-window", app.browserWindowOrder[1],
+		"newly-created window must follow the reused window")
+
+	// GetWindowTabLists respects the order.
+	result := app.GetWindowTabLists()
+	require.Len(t, result, 2)
+	assert.Equal(t, entity.WindowID("reused-window"), result[0].WindowID)
+	assert.Equal(t, entity.WindowID("created-window"), result[1].WindowID)
+}
+
+func TestRestoreSession_ActiveWindowIndexSyncsState(t *testing.T) {
+	// After restore, GetActiveWindowIndex must return the restored active index.
+	// The focused window state must be consistent: lastFocusedWindowID matches
+	// the window at that index, and the active window's tab target aligns.
+
+	runtime1Tabs := entity.NewTabList()
+	r1Tab := entity.NewTab(entity.TabID("a1-t1"), entity.WorkspaceID("ws-a1"), entity.NewPane(entity.PaneID("p-a1")))
+	runtime1Tabs.Add(r1Tab)
+	runtime1Tabs.SetActive(entity.TabID("a1-t1"))
+
+	runtime2Tabs := entity.NewTabList()
+	r2Tab := entity.NewTab(entity.TabID("a2-t1"), entity.WorkspaceID("ws-a2"), entity.NewPane(entity.PaneID("p-a2")))
+	runtime2Tabs.Add(r2Tab)
+	runtime2Tabs.SetActive(entity.TabID("a2-t1"))
+
+	runtime1 := &browserWindow{id: "active-w1", tabs: runtime1Tabs}
+	runtime2 := &browserWindow{id: "active-w2", tabs: runtime2Tabs}
+
+	app := &App{
+		browserWindows: map[string]*browserWindow{
+			"active-w1": runtime1,
+			"active-w2": runtime2,
+		},
+		browserWindowOrder:  []string{"active-w1", "active-w2"},
+		lastFocusedWindowID: "active-w2",
+		tabs:                entity.NewTabList(),
+		windowForTab:        map[entity.TabID]*browserWindow{},
+	}
+
+	// Active index should be 1 (second window in order).
+	idx := app.GetActiveWindowIndex()
+	assert.Equal(t, 1, idx)
+
+	// The focused window is the one at that index.
+	focused := app.lastFocusedBrowserWindow()
+	require.NotNil(t, focused)
+	assert.Equal(t, "active-w2", focused.id)
+
+	// Verify that GetActiveWindowIndex and GetWindowTabLists are consistent:
+	// the window at the active index matches the focused window.
+	result := app.GetWindowTabLists()
+	require.Len(t, result, 2)
+	assert.Equal(t, entity.WindowID("active-w2"), result[idx].WindowID,
+		"window at active index must match focused window ID")
 }

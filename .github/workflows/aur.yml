@@ -81,7 +81,9 @@ jobs:
             'build() {' \
             '    cd dumber' \
             '    export CGO_ENABLED=0' \
-            '    export GOFLAGS="-buildmode=pie -trimpath -mod=readonly -modcacherw"' \
+            '    # Keep global GOFLAGS wasm-safe; apply PIE only to native Go builds.' \
+            '    export GOFLAGS="-trimpath -mod=readonly -modcacherw"' \
+            '    export NATIVE_GOFLAGS="${GOFLAGS} -buildmode=pie"' \
             '    make build' \
             '}' \
             '' \

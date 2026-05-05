@@ -12,6 +12,9 @@ type TabBar struct {
 	box     *gtk.Box
 	buttons map[entity.TabID]*TabButton
 
+	explicitlyVisible bool
+	autoHidden        bool
+
 	// Active tab tracking
 	activeTabID entity.TabID
 
@@ -26,7 +29,8 @@ type TabBar struct {
 // NewTabBar creates a new tab bar widget.
 func NewTabBar() *TabBar {
 	tb := &TabBar{
-		buttons: make(map[entity.TabID]*TabButton),
+		buttons:           make(map[entity.TabID]*TabButton),
+		explicitlyVisible: true,
 	}
 
 	// Create horizontal box container
@@ -157,12 +161,42 @@ func (tb *TabBar) ActiveTabID() entity.TabID {
 	return tb.activeTabID
 }
 
-// SetVisible shows or hides the tab bar.
+// SetVisible explicitly shows or hides the tab bar.
 func (tb *TabBar) SetVisible(visible bool) {
-	if tb.box == nil {
+	if tb == nil || tb.box == nil {
 		return
 	}
-	tb.box.SetVisible(visible)
+	tb.explicitlyVisible = visible
+	tb.applyVisibilityState()
+}
+
+// SetAutoHidden hides the tab bar visually while keeping the overlay widget
+// visible to GTK when the bar has not been explicitly hidden. It is used for
+// hide_tab_bar_when_single_tab; WebView viewport height stays stable because the
+// tab bar is mounted as a non-measured overlay above the content.
+func (tb *TabBar) SetAutoHidden(hidden bool) {
+	if tb == nil || tb.box == nil {
+		return
+	}
+
+	tb.autoHidden = hidden
+	tb.applyVisibilityState()
+}
+
+func (tb *TabBar) applyVisibilityState() {
+	if tb == nil || tb.box == nil {
+		return
+	}
+
+	interactive := tb.explicitlyVisible && !tb.autoHidden
+	tb.box.SetVisible(tb.explicitlyVisible)
+	if interactive {
+		tb.box.SetOpacity(1.0)
+	} else {
+		tb.box.SetOpacity(0.0)
+	}
+	tb.box.SetCanTarget(interactive)
+	tb.box.SetFocusable(interactive)
 }
 
 // Destroy cleans up all tab bar resources.

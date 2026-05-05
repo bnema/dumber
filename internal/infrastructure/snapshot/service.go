@@ -10,6 +10,7 @@ import (
 
 	"github.com/bnema/dumber/internal/application/port"
 	"github.com/bnema/dumber/internal/application/usecase"
+	"github.com/bnema/dumber/internal/domain/entity"
 	"github.com/bnema/dumber/internal/logging"
 )
 
@@ -25,7 +26,7 @@ var _ port.SnapshotService = (*Service)(nil)
 // Service handles debounced session state snapshots.
 type Service struct {
 	snapshotUC *usecase.SnapshotSessionUseCase
-	provider   port.TabListProvider
+	provider   port.WindowStateProvider
 	interval   time.Duration
 	retries    int
 	retryDelay time.Duration
@@ -41,7 +42,7 @@ type Service struct {
 // NewService creates a new snapshot service.
 func NewService(
 	snapshotUC *usecase.SnapshotSessionUseCase,
-	provider port.TabListProvider,
+	provider port.WindowStateProvider,
 	intervalMs int,
 ) *Service {
 	if intervalMs <= 0 {
@@ -163,7 +164,6 @@ func (s *Service) saveSnapshot(ctx context.Context) error {
 	s.dirty = false
 	s.mu.Unlock()
 
-	tabList := s.provider.GetTabList()
 	sessionID := s.provider.GetSessionID()
 
 	if sessionID == "" {
@@ -171,10 +171,23 @@ func (s *Service) saveSnapshot(ctx context.Context) error {
 		return nil
 	}
 
-	if err := s.executeWithRetry(ctx, usecase.SnapshotInput{
-		SessionID: sessionID,
-		TabList:   tabList,
-	}); err != nil {
+	windows, activeWindowIndex := s.provider.GetWindowSnapshotState()
+	if windows == nil {
+		windows = make([]entity.WindowTabListState, 0)
+	}
+	input := usecase.SnapshotInput{
+		SessionID:         sessionID,
+		Windows:           windows,
+		ActiveWindowIndex: activeWindowIndex,
+	}
+	// single window with WindowID == "" is legacy v1 sentinel; populate TabList and clear Windows/ActiveWindowIndex.
+	if len(windows) == 1 && windows[0].WindowID == "" {
+		input.Windows = nil
+		input.ActiveWindowIndex = 0
+		input.TabList = windows[0].Tabs
+	}
+
+	if err := s.executeWithRetry(ctx, input); err != nil {
 		s.markDirty()
 		return err
 	}

@@ -201,6 +201,12 @@ func (h *GlobalShortcutHandler) registerShortcut(keyval uint, modifiers gdk.Modi
 				Msg("stale global shortcut callback ignored")
 			return true
 		}
+		if !h.isActiveWindowShortcutHandler() {
+			log.Trace().
+				Str("action", string(actionToDispatch)).
+				Msg("inactive window global shortcut callback ignored")
+			return false
+		}
 		if h.suppressRepeatedShortcut(actionToDispatch, time.Now()) {
 			log.Trace().
 				Str("action", string(actionToDispatch)).
@@ -388,6 +394,10 @@ func (h *GlobalShortcutHandler) isStaleGeneration(generation uint64) bool {
 	return h == nil || generation != h.generation
 }
 
+func (h *GlobalShortcutHandler) isActiveWindowShortcutHandler() bool {
+	return h != nil && h.controller != nil && h.window != nil && h.window.IsActive()
+}
+
 func (h *GlobalShortcutHandler) suppressRepeatedShortcut(action Action, now time.Time) bool {
 	if h == nil || !isRepeatedGlobalShortcutSuppressed(action) {
 		return false
@@ -406,7 +416,24 @@ func (h *GlobalShortcutHandler) suppressRepeatedShortcut(action Action, now time
 
 func isRepeatedGlobalShortcutSuppressed(action Action) bool {
 	switch action {
-	case ActionZoomReset, ActionClosePane, ActionCloseTab, ActionQuit, ActionOpenSessionManager:
+	case ActionGoBack,
+		ActionGoForward,
+		ActionZoomReset,
+		ActionClosePane,
+		ActionCloseTab,
+		ActionQuit,
+		ActionOpenSessionManager,
+		ActionSwitchTabIndex1,
+		ActionSwitchTabIndex2,
+		ActionSwitchTabIndex3,
+		ActionSwitchTabIndex4,
+		ActionSwitchTabIndex5,
+		ActionSwitchTabIndex6,
+		ActionSwitchTabIndex7,
+		ActionSwitchTabIndex8,
+		ActionSwitchTabIndex9,
+		ActionSwitchTabIndex10,
+		ActionSwitchLastTab:
 		return true
 	default:
 		return false

@@ -77,9 +77,9 @@ type Dependencies struct {
 	SessionRepo      repository.SessionRepository
 	CurrentSessionID entity.SessionID
 	SnapshotUC       *usecase.SnapshotSessionUseCase
-	// SnapshotServiceFactory creates a snapshot service bound to the given tab-list provider.
+	// SnapshotServiceFactory creates a snapshot service bound to the given window state provider.
 	// Called after the App is initialized so the App can serve as the provider.
-	SnapshotServiceFactory func(provider port.TabListProvider, intervalMs int) port.SnapshotService
+	SnapshotServiceFactory func(provider port.WindowStateProvider, intervalMs int) port.SnapshotService
 	// SessionSpawner spawns a new dumber instance for session restoration.
 	SessionSpawner port.SessionSpawner
 	// FileSystem provides file operations (e.g., for download deduplication).

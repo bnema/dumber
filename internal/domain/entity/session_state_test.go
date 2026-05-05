@@ -1,6 +1,7 @@
 package entity_test
 
 import (
+	"encoding/json"
 	"sync/atomic"
 	"testing"
 	"time"
@@ -261,6 +262,59 @@ func TestTabList_ReplaceFrom(t *testing.T) {
 	assert.Equal(t, "https://new1.com", ref.Tabs[0].Workspace.Root.Pane.URI)
 }
 
+func TestTabList_SnapshotClonesTabsAndWorkspace(t *testing.T) {
+	parentPaneID := entity.PaneID("parent-pane")
+	pane := entity.NewPane("pane-1")
+	pane.URI = "https://original.example"
+	pane.ParentPaneID = &parentPaneID
+	tab := entity.NewTab("tab-1", "workspace-1", pane)
+	tab.Name = "Original"
+	tabs := entity.NewTabList()
+	tabs.Add(tab)
+
+	snapshot := tabs.Snapshot()
+
+	tab.Position = 99
+	tab.Name = "Mutated"
+	tab.Workspace.Root.Pane.URI = "https://mutated.example"
+	*tab.Workspace.Root.Pane.ParentPaneID = entity.PaneID("mutated-parent")
+
+	require.Len(t, snapshot.Tabs, 1)
+	clonedTab := snapshot.Tabs[0]
+	assert.NotSame(t, tab, clonedTab)
+	assert.Equal(t, 0, clonedTab.Position)
+	assert.Equal(t, "Original", clonedTab.Name)
+	require.NotNil(t, clonedTab.Workspace)
+	assert.NotSame(t, tab.Workspace, clonedTab.Workspace)
+	require.NotNil(t, clonedTab.Workspace.Root)
+	assert.NotSame(t, tab.Workspace.Root, clonedTab.Workspace.Root)
+	require.NotNil(t, clonedTab.Workspace.Root.Pane)
+	assert.NotSame(t, tab.Workspace.Root.Pane, clonedTab.Workspace.Root.Pane)
+	assert.Equal(t, "https://original.example", clonedTab.Workspace.Root.Pane.URI)
+	require.NotNil(t, clonedTab.Workspace.Root.Pane.ParentPaneID)
+	assert.Equal(t, entity.PaneID("parent-pane"), *clonedTab.Workspace.Root.Pane.ParentPaneID)
+}
+
+func TestTabList_ReplaceFromClonesSnapshotSource(t *testing.T) {
+	pane := entity.NewPane("pane-1")
+	pane.URI = "https://original.example"
+	tab := entity.NewTab("tab-1", "workspace-1", pane)
+	other := entity.NewTabList()
+	other.Add(tab)
+
+	original := entity.NewTabList()
+	original.ReplaceFrom(other)
+
+	tab.Name = "Mutated"
+	tab.Workspace.Root.Pane.URI = "https://mutated.example"
+
+	restored := original.Find("tab-1")
+	require.NotNil(t, restored)
+	assert.NotSame(t, tab, restored)
+	assert.Empty(t, restored.Name)
+	assert.Equal(t, "https://original.example", restored.Workspace.Root.Pane.URI)
+}
+
 func TestTabList_ReplaceFrom_Nil(t *testing.T) {
 	original := entity.NewTabList()
 	pane := entity.NewPane("pane1")
@@ -380,6 +434,263 @@ func TestFindPaneAcrossTabs(t *testing.T) {
 	assert.Nil(t, notFound)
 }
 
+// --- Window-scoped snapshot tests ---
+
+func TestSnapshotFromWindowTabLists_V2State(t *testing.T) {
+	// Create two windows, each with tabs
+	pane1_1 := entity.NewPane("p1_w1")
+	pane1_1.URI = "https://window1.com"
+	tab1_1 := entity.NewTab("t1_w1", "ws1_w1", pane1_1)
+	tab1_1.Name = "Window1 Tab1"
+
+	pane1_2 := entity.NewPane("p1_w2")
+	pane1_2.URI = "https://window2.com"
+	tab1_2 := entity.NewTab("t1_w2", "ws1_w2", pane1_2)
+	tab1_2.Name = "Window2 Tab1"
+
+	pane1_2b := entity.NewPane("p2_w2")
+	pane1_2b.URI = "https://window2-tab2.com"
+	tab1_2b := entity.NewTab("t2_w2", "ws2_w2", pane1_2b)
+	tab1_2b.Name = "Window2 Tab2"
+
+	tabs1 := entity.NewTabList()
+	tabs1.Add(tab1_1)
+
+	tabs2 := entity.NewTabList()
+	tabs2.Add(tab1_2)
+	tabs2.Add(tab1_2b)
+	tabs2.SetActive("t2_w2")
+
+	windows := []entity.WindowTabListState{
+		{WindowID: "w1", Tabs: tabs1},
+		{WindowID: "w2", Tabs: tabs2},
+	}
+
+	sessionID := entity.SessionID("test_v2")
+	state := entity.SnapshotFromWindowTabLists(sessionID, windows, 1, time.Unix(123, 0))
+
+	require.NotNil(t, state)
+	assert.Equal(t, 2, state.Version)
+	assert.Equal(t, sessionID, state.SessionID)
+
+	// Windows field populated
+	require.Len(t, state.Windows, 2)
+	assert.Equal(t, entity.WindowID("w1"), state.Windows[0].ID)
+	assert.Equal(t, entity.WindowID("w2"), state.Windows[1].ID)
+
+	// Active window index set
+	assert.Equal(t, 1, state.ActiveWindowIndex)
+
+	// No legacy Tabs when using windows
+	assert.Empty(t, state.Tabs)
+
+	// CountPanes across windows
+	assert.Equal(t, 3, state.CountPanes())
+}
+
+func TestWindowTabListsFromSnapshot_V2Restore(t *testing.T) {
+	// Create a v2 snapshot from windows, then restore
+	pane := entity.NewPane("p_w1_t1")
+	pane.URI = "https://example.com"
+	tab := entity.NewTab("t_w1_t1", "ws_w1", pane)
+	tab.Name = "MyTab"
+
+	tabs := entity.NewTabList()
+	tabs.Add(tab)
+
+	windows := []entity.WindowTabListState{
+		{WindowID: "window-1", Tabs: tabs},
+	}
+
+	state := entity.SnapshotFromWindowTabLists("sess", windows, 0, time.Unix(123, 0))
+
+	idGen := mockIDGenerator()
+	restored := entity.WindowTabListsFromSnapshot(state, idGen)
+
+	require.Len(t, restored, 1)
+	assert.Equal(t, entity.WindowID("window-1"), restored[0].WindowID)
+	require.NotNil(t, restored[0].Tabs)
+	require.Len(t, restored[0].Tabs.Tabs, 1)
+	assert.Equal(t, "MyTab", restored[0].Tabs.Tabs[0].Name)
+	assert.Equal(t, "https://example.com", restored[0].Tabs.Tabs[0].Workspace.Root.Pane.URI)
+}
+
+func TestWindowTabListsFromSnapshot_V1LegacySingleWindow(t *testing.T) {
+	// Legacy v1 flat tabs should be restored as a single window with empty WindowID
+	state := &entity.SessionState{
+		Version:        1,
+		SessionID:      "old_sess",
+		ActiveTabIndex: 1,
+		Tabs: []entity.TabSnapshot{
+			{
+				ID:   "tab1",
+				Name: "First",
+				Workspace: entity.WorkspaceSnapshot{
+					Root: &entity.PaneNodeSnapshot{
+						Pane: &entity.PaneSnapshot{ID: "p1", URI: "https://first.com"},
+					},
+				},
+			},
+			{
+				ID:   "tab2",
+				Name: "Second",
+				Workspace: entity.WorkspaceSnapshot{
+					Root: &entity.PaneNodeSnapshot{
+						Pane: &entity.PaneSnapshot{ID: "p2", URI: "https://second.com"},
+					},
+				},
+			},
+		},
+	}
+
+	idGen := mockIDGenerator()
+	restored := entity.WindowTabListsFromSnapshot(state, idGen)
+
+	require.Len(t, restored, 1)
+	// Legacy window gets empty WindowID
+	assert.Equal(t, entity.WindowID(""), restored[0].WindowID)
+	require.NotNil(t, restored[0].Tabs)
+	require.Len(t, restored[0].Tabs.Tabs, 2)
+	assert.Equal(t, "Second", restored[0].Tabs.Tabs[1].Name)
+	// Active tab should be second (index 1)
+	assert.Equal(t, restored[0].Tabs.Tabs[1].ID, restored[0].Tabs.ActiveTabID)
+}
+
+func TestWindowTabListsFromSnapshot_NilState(t *testing.T) {
+	idGen := mockIDGenerator()
+	restored := entity.WindowTabListsFromSnapshot(nil, idGen)
+	assert.Nil(t, restored)
+}
+
+func TestWindowTabListsFromSnapshot_InvalidIndexesFallback(t *testing.T) {
+	// Tab with active tab index out of range should fall back to first tab
+	state := &entity.SessionState{
+		Version:        1,
+		ActiveTabIndex: 999, // beyond bounds
+		Tabs: []entity.TabSnapshot{
+			{
+				ID:   "tab_a",
+				Name: "TabA",
+				Workspace: entity.WorkspaceSnapshot{
+					Root: &entity.PaneNodeSnapshot{
+						Pane: &entity.PaneSnapshot{ID: "pa", URI: "https://a.com"},
+					},
+				},
+			},
+		},
+	}
+
+	idGen := mockIDGenerator()
+	restored := entity.WindowTabListsFromSnapshot(state, idGen)
+
+	require.Len(t, restored, 1)
+	require.NotNil(t, restored[0].Tabs)
+	// Should have fallen back to first tab
+	assert.Equal(t, restored[0].Tabs.Tabs[0].ID, restored[0].Tabs.ActiveTabID)
+}
+
+func TestTabListFromSnapshot_ActiveWindowWithZeroTabsFallsBackToFirstOverallTab(t *testing.T) {
+	// Regression: when the active window has zero tabs, the active tab should
+	// be the first tab overall (window 0's tab), not the third window's tab.
+	state := &entity.SessionState{
+		Version:           entity.SessionStateVersion,
+		ActiveWindowIndex: 1,
+		Windows: []entity.WindowSnapshot{
+			{ID: "w1", ActiveTabIndex: 0, Tabs: []entity.TabSnapshot{
+				{Name: "First", Workspace: entity.WorkspaceSnapshot{Root: &entity.PaneNodeSnapshot{Pane: &entity.PaneSnapshot{ID: "p1", URI: "https://first.example"}}}},
+			}},
+			{ID: "w2", ActiveTabIndex: 0, Tabs: []entity.TabSnapshot{}},
+			{ID: "w3", ActiveTabIndex: 0, Tabs: []entity.TabSnapshot{
+				{Name: "Third", Workspace: entity.WorkspaceSnapshot{Root: &entity.PaneNodeSnapshot{Pane: &entity.PaneSnapshot{ID: "p3", URI: "https://third.example"}}}},
+			}},
+		},
+	}
+
+	tabs := entity.TabListFromSnapshot(state, mockIDGenerator())
+
+	require.Len(t, tabs.Tabs, 2)
+	assert.Equal(t, "First", tabs.ActiveTab().Name, "active tab should be the first overall tab, not the third window's tab")
+}
+
+func TestTabListFromSnapshot_FlattensV2WindowSnapshots(t *testing.T) {
+	state := &entity.SessionState{
+		Version:           entity.SessionStateVersion,
+		ActiveWindowIndex: 1,
+		Windows: []entity.WindowSnapshot{
+			{ID: "w1", ActiveTabIndex: 0, Tabs: []entity.TabSnapshot{
+				{Name: "First", Workspace: entity.WorkspaceSnapshot{Root: &entity.PaneNodeSnapshot{Pane: &entity.PaneSnapshot{ID: "p1", URI: "https://first.example"}}}},
+			}},
+			{ID: "w2", ActiveTabIndex: 1, Tabs: []entity.TabSnapshot{
+				{Name: "Second", Workspace: entity.WorkspaceSnapshot{Root: &entity.PaneNodeSnapshot{Pane: &entity.PaneSnapshot{ID: "p2", URI: "https://second.example"}}}},
+				{Name: "Active", Workspace: entity.WorkspaceSnapshot{Root: &entity.PaneNodeSnapshot{Pane: &entity.PaneSnapshot{ID: "p3", URI: "https://active.example"}}}},
+			}},
+		},
+	}
+
+	tabs := entity.TabListFromSnapshot(state, mockIDGenerator())
+
+	require.Len(t, tabs.Tabs, 3)
+	assert.Equal(t, "Active", tabs.ActiveTab().Name)
+}
+
+func TestWindowTabListsFromSnapshot_FutureV2VersionWithEmptyWindowsStaysEmpty(t *testing.T) {
+	state := &entity.SessionState{Version: entity.SessionStateVersion + 1, Windows: []entity.WindowSnapshot{}}
+
+	restored := entity.WindowTabListsFromSnapshot(state, mockIDGenerator())
+
+	assert.Empty(t, restored)
+}
+
+func TestSnapshotFromWindowTabLists_NilTabs(t *testing.T) {
+	windows := []entity.WindowTabListState{
+		{WindowID: "w1", Tabs: nil},
+	}
+
+	state := entity.SnapshotFromWindowTabLists("sess", windows, 0, time.Unix(123, 0))
+
+	require.Len(t, state.Windows, 1)
+	assert.Empty(t, state.Windows[0].Tabs)
+	assert.Equal(t, 0, state.CountPanes())
+}
+
+func TestSnapshotFromWindowTabLists_EmptyWindows(t *testing.T) {
+	state := entity.SnapshotFromWindowTabLists("sess", nil, 0, time.Unix(123, 0))
+
+	require.NotNil(t, state)
+	assert.Equal(t, 2, state.Version)
+	assert.Empty(t, state.Windows)
+	assert.Equal(t, 0, state.ActiveWindowIndex)
+}
+
+func TestSessionStateCountPanesUsesVersionForWindowSnapshots(t *testing.T) {
+	state := &entity.SessionState{
+		Version: entity.SessionStateVersion,
+		Tabs: []entity.TabSnapshot{{
+			Workspace: entity.WorkspaceSnapshot{Root: &entity.PaneNodeSnapshot{Pane: &entity.PaneSnapshot{ID: "legacy-pane"}}},
+		}},
+	}
+
+	assert.Equal(t, 0, state.CountPanes())
+}
+
+func TestSnapshotFromWindowTabLists_InvalidWindowIndex(t *testing.T) {
+	pane := entity.NewPane("p1")
+	pane.URI = "https://x.com"
+	tab := entity.NewTab("t1", "ws1", pane)
+	tabs := entity.NewTabList()
+	tabs.Add(tab)
+
+	windows := []entity.WindowTabListState{
+		{WindowID: "w1", Tabs: tabs},
+	}
+
+	// Active window index out of range
+	state := entity.SnapshotFromWindowTabLists("sess", windows, 999, time.Unix(123, 0))
+
+	// Should clamp to 0
+	assert.Equal(t, 0, state.ActiveWindowIndex)
+}
+
 func TestFindPaneInNestedStructure(t *testing.T) {
 	// Create a tab with split panes
 	pane1 := entity.NewPane("left_pane")
@@ -427,4 +738,80 @@ func TestFindPaneInNestedStructure(t *testing.T) {
 	// Verify update persisted
 	rightNodeAgain := tab.Workspace.FindPane("right_pane")
 	assert.Equal(t, "https://right-updated.com", rightNodeAgain.Pane.URI)
+}
+
+func TestV2SnapshotJSON_OmitEmptyLegacyFields(t *testing.T) {
+	// When using SnapshotFromWindowTabLists (v2 path), the JSON output must
+	// NOT include top-level legacy "tabs" or "active_tab_index" fields.
+	// They should be omitted by omitempty.
+	pane := entity.NewPane(entity.PaneID("p1"))
+	pane.URI = "https://example.com"
+	tab := entity.NewTab(entity.TabID("t1"), entity.WorkspaceID("ws1"), pane)
+	tabs := entity.NewTabList()
+	tabs.Add(tab)
+
+	windows := []entity.WindowTabListState{
+		{WindowID: entity.WindowID("w1"), Tabs: tabs},
+	}
+
+	state := entity.SnapshotFromWindowTabLists("sess", windows, 0, time.Unix(123, 0))
+
+	data, err := json.Marshal(state)
+	require.NoError(t, err)
+
+	var raw map[string]any
+	err = json.Unmarshal(data, &raw)
+	require.NoError(t, err)
+
+	// v2 JSON must not contain top-level legacy fields.
+	_, hasTabs := raw["tabs"]
+	_, hasActiveTabIdx := raw["active_tab_index"]
+	assert.False(t, hasTabs, "v2 JSON must not include legacy 'tabs' field")
+	assert.False(t, hasActiveTabIdx, "v2 JSON must not include legacy 'active_tab_index' field")
+
+	// But must still have the v2 windows field.
+	windowsRaw, ok := raw["windows"]
+	require.True(t, ok, "v2 JSON must include 'windows' field")
+	windowsArr, _ := windowsRaw.([]any)
+	require.Len(t, windowsArr, 1)
+}
+
+func TestV2SnapshotJSON_CanStillReadV1(t *testing.T) {
+	// When reading a v1 JSON with the legacy fields, they must still be
+	// populated correctly (omitempty is only for writes).
+	v1JSON := `{
+		"version": 1,
+		"session_id": "old-sess",
+		"tabs": [{
+			"id": "tab1",
+			"name": "MyTab",
+			"position": 0,
+			"is_pinned": false,
+			"workspace": {
+				"id": "ws1",
+				"root": {
+					"id": "node1",
+					"pane": {"id": "p1", "uri": "https://example.com", "title": "", "zoom_factor": 0},
+					"split_dir": 0,
+					"split_ratio": 0,
+					"is_stacked": false,
+					"active_stack_index": 0
+				},
+				"active_pane_id": ""
+			}
+		}],
+		"active_tab_index": 0,
+		"saved_at": "2026-01-01T00:00:00Z"
+	}`
+
+	var state entity.SessionState
+	err := json.Unmarshal([]byte(v1JSON), &state)
+	require.NoError(t, err)
+
+	assert.Equal(t, 1, state.Version)
+	assert.Equal(t, entity.SessionID("old-sess"), state.SessionID)
+	require.Len(t, state.Tabs, 1)
+	assert.Equal(t, entity.TabID("tab1"), state.Tabs[0].ID)
+	assert.Equal(t, "MyTab", state.Tabs[0].Name)
+	assert.Equal(t, 0, state.ActiveTabIndex)
 }

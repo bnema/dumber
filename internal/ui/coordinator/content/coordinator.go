@@ -275,6 +275,11 @@ func (c *Coordinator) ClearActivePaneOverride() {
 	c.activePaneOverrideMu.Unlock()
 }
 
+// ActivePaneOverrideID returns the currently forced active pane override, if any.
+func (c *Coordinator) ActivePaneOverrideID() (entity.PaneID, bool) {
+	return c.activePaneOverrideID()
+}
+
 func (c *Coordinator) activePaneOverrideID() (entity.PaneID, bool) {
 	c.activePaneOverrideMu.RLock()
 	defer c.activePaneOverrideMu.RUnlock()

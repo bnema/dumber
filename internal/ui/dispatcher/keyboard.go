@@ -4,9 +4,9 @@ import (
 	"context"
 	"fmt"
 
+	"github.com/bnema/dumber/internal/application/port"
 	"github.com/bnema/dumber/internal/application/usecase"
 	"github.com/bnema/dumber/internal/domain/entity"
-	domainurl "github.com/bnema/dumber/internal/domain/url"
 	"github.com/bnema/dumber/internal/logging"
 	"github.com/bnema/dumber/internal/ui/component"
 	"github.com/bnema/dumber/internal/ui/coordinator"
@@ -20,14 +20,23 @@ const (
 	configSystemViewURL    = "dumb://config"
 )
 
+type KeyboardActions struct {
+	NewTab         func(context.Context) error
+	CloseTab       func(context.Context) error
+	NextTab        func(context.Context) error
+	PreviousTab    func(context.Context) error
+	SwitchLastTab  func(context.Context) error
+	SwitchTabIndex func(context.Context, int) error
+	ActiveWebView  func(context.Context) port.WebView
+}
+
 // KeyboardDispatcher routes keyboard actions to appropriate coordinators.
 type KeyboardDispatcher struct {
-	tabCoord         *coordinator.TabCoordinator
+	actions          KeyboardActions
 	wsCoord          *coordinator.WorkspaceCoordinator
 	navCoord         *coordinator.NavigationCoordinator
 	zoomUC           *usecase.ManageZoomUseCase
 	copyURLUC        *usecase.CopyURLUseCase
-	newPaneURL       string
 	actionHandlers   map[input.Action]func(ctx context.Context) error
 	onQuit           func()
 	onFindOpen       func(ctx context.Context) error
@@ -45,24 +54,22 @@ type KeyboardDispatcher struct {
 // NewKeyboardDispatcher creates a new KeyboardDispatcher.
 func NewKeyboardDispatcher(
 	ctx context.Context,
-	tabCoord *coordinator.TabCoordinator,
 	wsCoord *coordinator.WorkspaceCoordinator,
 	navCoord *coordinator.NavigationCoordinator,
 	zoomUC *usecase.ManageZoomUseCase,
 	copyURLUC *usecase.CopyURLUseCase,
-	newPaneURL string,
+	actions KeyboardActions,
 	activePaneID func(context.Context) entity.PaneID,
 ) *KeyboardDispatcher {
 	log := logging.FromContext(ctx)
 	log.Debug().Msg("creating keyboard dispatcher")
 
 	dispatcher := &KeyboardDispatcher{
-		tabCoord:     tabCoord,
+		actions:      actions,
 		wsCoord:      wsCoord,
 		navCoord:     navCoord,
 		zoomUC:       zoomUC,
 		copyURLUC:    copyURLUC,
-		newPaneURL:   newPaneURL,
 		activePaneID: activePaneID,
 	}
 	dispatcher.initActionHandlers()
@@ -140,18 +147,15 @@ func (d *KeyboardDispatcher) initActionHandlers() {
 	)
 	d.actionHandlers = map[input.Action]func(ctx context.Context) error{
 		// Tab actions
-		input.ActionNewTab: func(ctx context.Context) error {
-			if d.newPaneURL == "" {
-				logging.FromContext(ctx).Warn().Msg("ActionNewTab: newPaneURL is empty, cannot open new tab")
-				return fmt.Errorf("newPaneURL is not configured")
-			}
-			_, err := d.tabCoord.Create(ctx, domainurl.Normalize(d.newPaneURL))
-			return err
+		input.ActionNewTab:   func(ctx context.Context) error { return d.handleKeyboardAction(ctx, "new tab", d.actions.NewTab) },
+		input.ActionCloseTab: func(ctx context.Context) error { return d.handleKeyboardAction(ctx, "close tab", d.actions.CloseTab) },
+		input.ActionNextTab:  func(ctx context.Context) error { return d.handleKeyboardAction(ctx, "next tab", d.actions.NextTab) },
+		input.ActionPreviousTab: func(ctx context.Context) error {
+			return d.handleKeyboardAction(ctx, "previous tab", d.actions.PreviousTab)
 		},
-		input.ActionCloseTab:         d.tabCoord.Close,
-		input.ActionNextTab:          d.tabCoord.SwitchNext,
-		input.ActionPreviousTab:      d.tabCoord.SwitchPrev,
-		input.ActionSwitchLastTab:    d.tabCoord.SwitchToLastActive,
+		input.ActionSwitchLastTab: func(ctx context.Context) error {
+			return d.handleKeyboardAction(ctx, "switch last tab", d.actions.SwitchLastTab)
+		},
 		input.ActionSwitchTabIndex1:  func(ctx context.Context) error { return d.handleSwitchTabIndex(ctx, firstTabIndex) },
 		input.ActionSwitchTabIndex2:  func(ctx context.Context) error { return d.handleSwitchTabIndex(ctx, secondTabIndex) },
 		input.ActionSwitchTabIndex3:  func(ctx context.Context) error { return d.handleSwitchTabIndex(ctx, thirdTabIndex) },
@@ -209,11 +213,11 @@ func (d *KeyboardDispatcher) initActionHandlers() {
 		input.ActionStackNavUp:   func(ctx context.Context) error { return d.wsCoord.NavigateStack(ctx, "up") },
 		input.ActionStackNavDown: func(ctx context.Context) error { return d.wsCoord.NavigateStack(ctx, "down") },
 		// Navigation
-		input.ActionGoBack:     d.navCoord.GoBack,
-		input.ActionGoForward:  d.navCoord.GoForward,
-		input.ActionReload:     d.navCoord.Reload,
-		input.ActionHardReload: d.navCoord.HardReload,
-		input.ActionPrintPage:  d.navCoord.PrintPage,
+		input.ActionGoBack:     d.handleGoBack,
+		input.ActionGoForward:  d.handleGoForward,
+		input.ActionReload:     d.handleReload,
+		input.ActionHardReload: d.handleHardReload,
+		input.ActionPrintPage:  d.handlePrintPage,
 		// Zoom actions
 		input.ActionZoomIn:    func(ctx context.Context) error { return d.handleZoom(ctx, "in") },
 		input.ActionZoomOut:   func(ctx context.Context) error { return d.handleZoom(ctx, "out") },
@@ -224,7 +228,7 @@ func (d *KeyboardDispatcher) initActionHandlers() {
 		input.ActionFindNext:     d.handleFindNext,
 		input.ActionFindPrev:     d.handleFindPrev,
 		input.ActionCloseFind:    d.handleFindClose,
-		input.ActionOpenDevTools: d.navCoord.OpenDevTools,
+		input.ActionOpenDevTools: d.handleOpenDevTools,
 		input.ActionToggleFloatingPane: func(ctx context.Context) error {
 			if d.onToggleFloating != nil {
 				return d.onToggleFloating(ctx)
@@ -330,7 +334,27 @@ func (d *KeyboardDispatcher) handleMovePaneToNextTab(ctx context.Context) error 
 }
 
 func (d *KeyboardDispatcher) handleSwitchTabIndex(ctx context.Context, index int) error {
-	return d.tabCoord.EnsureTabByIndex(ctx, index, domainurl.Normalize(d.newPaneURL))
+	if d.actions.SwitchTabIndex == nil {
+		logging.FromContext(ctx).Debug().Int("index", index).Msg("switch tab index action ignored (no handler)")
+		return nil
+	}
+	return d.actions.SwitchTabIndex(ctx, index)
+}
+
+func (d *KeyboardDispatcher) handleKeyboardAction(ctx context.Context, name string, fn func(context.Context) error) error {
+	if fn == nil {
+		logging.FromContext(ctx).Debug().Str("action", name).Msg("keyboard action ignored (no handler)")
+		return nil
+	}
+	return fn(ctx)
+}
+
+func (d *KeyboardDispatcher) activeWebView(ctx context.Context) port.WebView {
+	if d.actions.ActiveWebView == nil {
+		logging.FromContext(ctx).Debug().Msg("active webview unavailable (no handler)")
+		return nil
+	}
+	return d.actions.ActiveWebView(ctx)
 }
 
 func (d *KeyboardDispatcher) logNoop(ctx context.Context, message string) error {
@@ -351,6 +375,51 @@ func (d *KeyboardDispatcher) handleQuit(ctx context.Context) error {
 	return nil
 }
 
+func (d *KeyboardDispatcher) withActiveWebView(ctx context.Context, action string, fn func(port.WebView) error) error {
+	wv := d.activeWebView(ctx)
+	if wv == nil {
+		logging.FromContext(ctx).Debug().Str("action", action).Msg("no active webview for keyboard action")
+		return nil
+	}
+	return fn(wv)
+}
+
+func (d *KeyboardDispatcher) handleReload(ctx context.Context) error {
+	return d.withActiveWebView(ctx, "reload", func(wv port.WebView) error {
+		return d.navCoord.ReloadWebView(ctx, wv, false)
+	})
+}
+
+func (d *KeyboardDispatcher) handleHardReload(ctx context.Context) error {
+	return d.withActiveWebView(ctx, "hard reload", func(wv port.WebView) error {
+		return d.navCoord.ReloadWebView(ctx, wv, true)
+	})
+}
+
+func (d *KeyboardDispatcher) handleGoBack(ctx context.Context) error {
+	return d.withActiveWebView(ctx, "go back", func(wv port.WebView) error {
+		return d.navCoord.GoBackWebView(ctx, wv)
+	})
+}
+
+func (d *KeyboardDispatcher) handleGoForward(ctx context.Context) error {
+	return d.withActiveWebView(ctx, "go forward", func(wv port.WebView) error {
+		return d.navCoord.GoForwardWebView(ctx, wv)
+	})
+}
+
+func (d *KeyboardDispatcher) handlePrintPage(ctx context.Context) error {
+	return d.withActiveWebView(ctx, "print page", func(wv port.WebView) error {
+		return d.navCoord.PrintWebView(ctx, wv)
+	})
+}
+
+func (d *KeyboardDispatcher) handleOpenDevTools(ctx context.Context) error {
+	return d.withActiveWebView(ctx, "open devtools", func(wv port.WebView) error {
+		return d.navCoord.OpenDevToolsWebView(ctx, wv)
+	})
+}
+
 // handleZoom processes zoom in/out/reset actions for the active WebView.
 func (d *KeyboardDispatcher) handleZoom(ctx context.Context, action string) error {
 	log := logging.FromContext(ctx)
@@ -360,7 +429,7 @@ func (d *KeyboardDispatcher) handleZoom(ctx context.Context, action string) erro
 		return nil
 	}
 
-	wv := d.navCoord.ActiveWebView(ctx)
+	wv := d.activeWebView(ctx)
 	if wv == nil {
 		log.Debug().Msg("no active webview for zoom")
 		return nil
@@ -424,7 +493,7 @@ func (d *KeyboardDispatcher) handleCopyURL(ctx context.Context) error {
 		return nil
 	}
 
-	wv := d.navCoord.ActiveWebView(ctx)
+	wv := d.activeWebView(ctx)
 	if wv == nil {
 		log.Debug().Msg("no active webview for copy URL")
 		return nil
