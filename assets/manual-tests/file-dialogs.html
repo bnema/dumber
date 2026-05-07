@@ -1,0 +1,233 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Test des dialogues de fichiers — Dumber</title>
+<style>
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    max-width: 800px;
+    margin: 2rem auto;
+    padding: 0 1rem;
+    background: #fafafa;
+    color: #222;
+    line-height: 1.5;
+  }
+  h1 { font-size: 1.4rem; margin-bottom: 0.25rem; }
+  h2 { font-size: 1.1rem; margin: 1.5rem 0 0.75rem; }
+  section {
+    background: #fff;
+    border: 1px solid #ddd;
+    border-radius: 6px;
+    padding: 1rem 1.25rem;
+    margin-bottom: 1rem;
+  }
+  label { display: block; margin-bottom: 0.5rem; font-weight: 600; }
+  input[type="file"] { display: block; margin-bottom: 0.75rem; }
+  button {
+    font-size: 0.95rem;
+    padding: 0.4rem 1rem;
+    border: 1px solid #888;
+    border-radius: 4px;
+    background: #eee;
+    cursor: pointer;
+  }
+  button:active { background: #ddd; }
+  #log {
+    background: #1e1e1e;
+    color: #d4d4d4;
+    font-family: "Cascadia Code", "Fira Code", "JetBrains Mono", Consolas, monospace;
+    font-size: 0.85rem;
+    padding: 0.75rem 1rem;
+    border-radius: 6px;
+    max-height: 20em;
+    overflow-y: auto;
+    white-space: pre-wrap;
+    overflow-wrap: anywhere;
+  }
+  #log .info  { color: #6bc; }
+  #log .ok    { color: #6c6; }
+  #log .warn  { color: #da5; }
+  #log .error { color: #e55; }
+  .instructions {
+    background: #f0f6ff;
+    border: 1px solid #b8d4fe;
+    font-size: 0.9rem;
+    padding: 0.75rem 1rem;
+    border-radius: 6px;
+    margin-bottom: 1.5rem;
+  }
+  .instructions code {
+    background: #e3edf7;
+    padding: 0.1em 0.4em;
+    border-radius: 3px;
+    font-size: 0.85rem;
+  }
+  hr { border: none; border-top: 1px solid #ddd; margin: 1.5rem 0; }
+</style>
+</head>
+<body>
+
+<h1>🧪 Test des dialogues de fichiers</h1>
+<p>Page HTML simple pour tester les sélecteurs de fichiers et l'emplacement de sauvegarde dans Dumber.</p>
+
+<div class="instructions">
+  <strong>Ouvrir cette page dans Dumber :</strong><br>
+  <code>ENV=dev DUMBER_LOG_LEVEL=debug ./dist/dumber browse /home/brice/dev/projects/dumber/assets/manual-tests/file-dialogs.html</code>
+  <p style="margin:0.6rem 0 0; color:#555;">
+    Note : le choix de dossier via <code>webkitdirectory</code> et la boîte de dialogue de sauvegarde via <code>showSaveFilePicker()</code>
+    dépendent du moteur navigateur embarqué.
+  </p>
+</div>
+
+<!-- ───── Upload section ───── -->
+<section>
+  <h2>📤 Upload / Ouverture</h2>
+
+  <label for="single-file">Un seul fichier</label>
+  <input type="file" id="single-file" onclick="this.value = null">
+
+  <label for="multi-file">Plusieurs fichiers</label>
+  <input type="file" id="multi-file" multiple onclick="this.value = null">
+
+  <label for="dir-picker">Dossier (webkitdirectory)</label>
+  <input type="file" id="dir-picker" webkitdirectory multiple onclick="this.value = null">
+</section>
+
+<!-- ───── Save section ───── -->
+<section>
+  <h2>💾 Emplacement de sauvegarde</h2>
+  <p style="margin:0 0 0.75rem; font-size:0.9rem; color:#555;">
+    Utilise <code>window.showSaveFilePicker()</code> — disponible dans les navigateurs basés sur Chromium.
+  </p>
+  <button type="button" id="save-btn">Choisir un emplacement et écrire le fichier</button>
+</section>
+
+<!-- ───── Status log ───── -->
+<section>
+  <div style="display:flex; align-items:center; justify-content:space-between; gap:1rem; margin-bottom:0.75rem;">
+    <h2 style="margin:0;">📋 Journal des événements</h2>
+    <button type="button" id="clear-log-btn">Vider le journal</button>
+  </div>
+  <div id="log">[journal prêt]</div>
+</section>
+
+<script>
+  const logger = (() => {
+    const el = document.getElementById('log');
+    return (level, msg) => {
+      const line = document.createElement('div');
+      line.className = level;
+      line.textContent = `[${new Date().toLocaleTimeString()}] ${msg}`;
+      el.appendChild(line);
+      el.scrollTop = el.scrollHeight;
+    };
+  })();
+
+  function info(msg)  { logger('info', msg); }
+  function ok(msg)    { logger('ok', msg);   }
+  function warn(msg)  { logger('warn', msg); }
+  function error(msg) { logger('error', msg); }
+
+  document.getElementById('clear-log-btn').addEventListener('click', function () {
+    document.getElementById('log').textContent = '[journal vidé]';
+  });
+
+  if (!('webkitdirectory' in document.createElement('input'))) {
+    warn('Le support de webkitdirectory ne semble pas disponible dans ce navigateur.');
+  }
+
+  if (!window.showSaveFilePicker) {
+    warn('showSaveFilePicker() ne semble pas disponible dans ce navigateur.');
+  }
+
+  // ── Single file ──
+  document.getElementById('single-file').addEventListener('change', function (e) {
+    const file = this.files[0];
+    if (!file) { info('Single file: selection cleared'); return; }
+    ok(`Single file: "${file.name}" (${(file.size / 1024).toFixed(1)} KB, type: ${file.type || 'unknown'})`);
+  });
+
+  // ── Multiple files ──
+  document.getElementById('multi-file').addEventListener('change', function () {
+    const files = this.files;
+    if (!files.length) { info('Multiple files: selection cleared'); return; }
+    ok(`Multiple files: ${files.length} selected`);
+    for (let i = 0; i < files.length; i++) {
+      const f = files[i];
+      ok(`  [${i}] "${f.name}" (${(f.size / 1024).toFixed(1)} KB)`);
+    }
+  });
+
+  // ── Directory ──
+  document.getElementById('dir-picker').addEventListener('change', function () {
+    const files = this.files;
+    if (!files.length) { info('Folder: selection cleared'); return; }
+    ok(`Folder: ${files.length} entries selected`);
+
+    // Collect folder names
+    const dirs = new Set();
+    for (let i = 0; i < files.length; i++) {
+      const path = files[i].webkitRelativePath;
+      const parts = path.split('/');
+      if (parts.length > 1) dirs.add(parts[0]);
+    }
+    for (const d of dirs) {
+      ok(`  folder: "${d}"`);
+    }
+    // Show up to 5 filenames
+    const maxShow = 5;
+    for (let i = 0; i < Math.min(files.length, maxShow); i++) {
+      const f = files[i];
+      ok(`  file: "${f.webkitRelativePath}" (${(f.size / 1024).toFixed(1)} KB)`);
+    }
+    if (files.length > maxShow) {
+      ok(`  … and ${files.length - maxShow} more entries`);
+    }
+  });
+
+  // ── Save file picker ──
+  const saveButton = document.getElementById('save-btn');
+  saveButton.addEventListener('click', async function () {
+    if (saveButton.disabled) return;
+
+    saveButton.disabled = true;
+    info('Ouverture de la boîte de dialogue de sauvegarde…');
+
+    if (!window.showSaveFilePicker) {
+      warn('showSaveFilePicker() n\'est pas disponible dans ce navigateur.');
+      warn('Essayez avec un navigateur basé sur Chromium.');
+      saveButton.disabled = false;
+      return;
+    }
+
+    try {
+      const handle = await window.showSaveFilePicker({
+        suggestedName: 'dumber-save-test.txt',
+        types: [{
+          description: 'Text files',
+          accept: { 'text/plain': ['.txt'] }
+        }]
+      });
+
+      const writable = await handle.createWritable();
+      const payload = 'Dumber save test — ' + new Date().toISOString() + '\n';
+      await writable.write(payload);
+      await writable.close();
+
+      ok(`Fichier sauvegardé : "${handle.name}"`);
+    } catch (err) {
+      if (err?.name === 'AbortError' || err?.name === 'SecurityError') {
+        warn('Sauvegarde annulée ou permission refusée.');
+      } else {
+        error(`Échec de la sauvegarde : ${err?.message ?? err}`);
+      }
+    } finally {
+      saveButton.disabled = false;
+    }
+  });
+</script>
+
+</body>
+</html>
