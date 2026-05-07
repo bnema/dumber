@@ -81,7 +81,7 @@ func TestOnFileDialogDelegatesDecodedRequestToPresenter(t *testing.T) {
 	require.Equal(t, []string{"Image Files", "Text Files"}, gotReq.AcceptDescriptions)
 }
 
-func TestFolderUploadExperimentPathsExpandsDirectoryFiles(t *testing.T) {
+func TestFolderUploadPathsExpandsDirectoryFiles(t *testing.T) {
 	dir := t.TempDir()
 	first := filepath.Join(dir, "first.txt")
 	second := filepath.Join(dir, "nested", "second.txt")
@@ -89,15 +89,15 @@ func TestFolderUploadExperimentPathsExpandsDirectoryFiles(t *testing.T) {
 	require.NoError(t, os.WriteFile(first, []byte("first"), 0o644))
 	require.NoError(t, os.WriteFile(second, []byte("second"), 0o644))
 
-	got := folderUploadExperimentPaths(&WebView{ctx: context.Background()}, purecef.FileDialogModeFileDialogOpenFolder, []string{dir})
+	got := folderUploadPaths(&WebView{ctx: context.Background()}, purecef.FileDialogModeFileDialogOpenFolder, []string{dir})
 
 	require.ElementsMatch(t, []string{first, second}, got)
 }
 
-func TestFolderUploadExperimentPathsKeepsEmptyDirectoryPath(t *testing.T) {
+func TestFolderUploadPathsKeepsEmptyDirectoryPath(t *testing.T) {
 	dir := t.TempDir()
 
-	got := folderUploadExperimentPaths(&WebView{ctx: context.Background()}, purecef.FileDialogModeFileDialogOpenFolder, []string{dir})
+	got := folderUploadPaths(&WebView{ctx: context.Background()}, purecef.FileDialogModeFileDialogOpenFolder, []string{dir})
 
 	require.Equal(t, []string{dir}, got)
 }

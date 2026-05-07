@@ -29,7 +29,7 @@ type cefFileDialogRequest struct {
 
 type fileDialogPresenter func(*WebView, cefFileDialogRequest, purecef.FileDialogCallback)
 
-const maxFolderUploadExperimentFiles = 5000
+const maxExpandedFolderUploadFiles = 5000
 
 var (
 	decodeCEFStringList   = purecef.StringListToSlice
@@ -118,7 +118,7 @@ func presentGTKFileDialog(wv *WebView, req cefFileDialogRequest, callback purece
 				Int("path_count", len(paths)).
 				Strs("paths", paths).
 				Msg("cef: file dialog selection captured")
-			paths = folderUploadExperimentPaths(wv, req.Mode, paths)
+			paths = folderUploadPaths(wv, req.Mode, paths)
 			dispatchFileDialogResult(wv, callback, paths)
 		}
 		dialog.ConnectResponse(&onResponse)
@@ -343,7 +343,7 @@ func selectedFileDialogPaths(dialog *gtk.FileChooserNative, mode purecef.FileDia
 	return nil
 }
 
-func folderUploadExperimentPaths(wv *WebView, mode purecef.FileDialogMode, paths []string) []string {
+func folderUploadPaths(wv *WebView, mode purecef.FileDialogMode, paths []string) []string {
 	if mode != purecef.FileDialogModeFileDialogOpenFolder || len(paths) != 1 {
 		return paths
 	}
@@ -353,7 +353,7 @@ func folderUploadExperimentPaths(wv *WebView, mode purecef.FileDialogMode, paths
 	}
 	info, err := os.Stat(folder)
 	if err != nil || !info.IsDir() {
-		logCEFFileDialog(wv).Warn().Err(err).Str("path", folder).Msg("cef: folder mode experiment skipped; selected path is not a directory")
+		logCEFFileDialog(wv).Warn().Err(err).Str("path", folder).Msg("cef: folder upload path expansion skipped; selected path is not a directory")
 		return paths
 	}
 
@@ -361,7 +361,7 @@ func folderUploadExperimentPaths(wv *WebView, mode purecef.FileDialogMode, paths
 	truncated := false
 	walkErr := filepath.WalkDir(folder, func(path string, entry fs.DirEntry, err error) error {
 		if err != nil {
-			logCEFFileDialog(wv).Debug().Err(err).Str("path", path).Msg("cef: folder mode experiment skipped unreadable entry")
+			logCEFFileDialog(wv).Debug().Err(err).Str("path", path).Msg("cef: folder upload path expansion skipped unreadable entry")
 			return nil
 		}
 		if path == folder || entry.IsDir() || entry.Type()&os.ModeSymlink != 0 {
@@ -372,18 +372,18 @@ func folderUploadExperimentPaths(wv *WebView, mode purecef.FileDialogMode, paths
 			return nil
 		}
 		files = append(files, path)
-		if len(files) >= maxFolderUploadExperimentFiles {
+		if len(files) >= maxExpandedFolderUploadFiles {
 			truncated = true
 			return filepath.SkipAll
 		}
 		return nil
 	})
 	if walkErr != nil {
-		logCEFFileDialog(wv).Warn().Err(walkErr).Str("folder", folder).Msg("cef: folder mode experiment failed to enumerate selected folder")
+		logCEFFileDialog(wv).Warn().Err(walkErr).Str("folder", folder).Msg("cef: folder upload descendant enumeration failed; using selected directory path")
 		return paths
 	}
 	if len(files) == 0 {
-		logCEFFileDialog(wv).Warn().Str("folder", folder).Msg("cef: folder mode experiment found no descendant files; using selected directory path")
+		logCEFFileDialog(wv).Warn().Str("folder", folder).Msg("cef: folder upload descendant enumeration found no regular files; using selected directory path")
 		return paths
 	}
 
@@ -391,7 +391,7 @@ func folderUploadExperimentPaths(wv *WebView, mode purecef.FileDialogMode, paths
 		Str("folder", folder).
 		Int("file_count", len(files)).
 		Bool("truncated", truncated).
-		Msg("cef: folder mode experiment passing descendant file paths instead of selected directory")
+		Msg("cef: folder upload expanded selected directory to descendant file paths")
 	return files
 }
 
