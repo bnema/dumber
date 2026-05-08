@@ -2,6 +2,7 @@ package cef
 
 import (
 	"context"
+	"fmt"
 	"os"
 	"path/filepath"
 	"testing"
@@ -100,6 +101,100 @@ func TestFolderUploadPathsKeepsEmptyDirectoryPath(t *testing.T) {
 	got := folderUploadPaths(&WebView{ctx: context.Background()}, purecef.FileDialogModeFileDialogOpenFolder, []string{dir})
 
 	require.Equal(t, []string{dir}, got)
+}
+
+func TestParseDefaultDialogPathSaveModeWithExistingDirectory(t *testing.T) {
+	dir := t.TempDir()
+	info := parseDefaultDialogPath(purecef.FileDialogModeFileDialogSave, dir)
+	require.Equal(t, dir, info.setFolder)
+	require.Empty(t, info.setName)
+	require.Empty(t, info.setFile)
+}
+
+func TestParseDefaultDialogPathSaveModeWithFilePath(t *testing.T) {
+	info := parseDefaultDialogPath(purecef.FileDialogModeFileDialogSave, "/tmp/foo/bar.txt")
+	require.Equal(t, "/tmp/foo", info.setFolder)
+	require.Equal(t, "bar.txt", info.setName)
+	require.Empty(t, info.setFile)
+}
+
+func TestParseDefaultDialogPathSaveModeWithRelativeFilePath(t *testing.T) {
+	info := parseDefaultDialogPath(purecef.FileDialogModeFileDialogSave, "bar.txt")
+	require.Empty(t, info.setFolder)
+	require.Equal(t, "bar.txt", info.setName)
+	require.Empty(t, info.setFile)
+}
+
+func TestParseDefaultDialogPathOpenModeWithDirectory(t *testing.T) {
+	dir := t.TempDir()
+	info := parseDefaultDialogPath(purecef.FileDialogModeFileDialogOpen, dir)
+	require.Equal(t, dir, info.setFolder)
+	require.Empty(t, info.setFile)
+}
+
+func TestParseDefaultDialogPathOpenModeWithFilePath(t *testing.T) {
+	info := parseDefaultDialogPath(purecef.FileDialogModeFileDialogOpen, "/tmp/foo/bar.txt")
+	require.Equal(t, "/tmp/foo", info.setFolder)
+	require.Equal(t, "/tmp/foo/bar.txt", info.setFile)
+}
+
+func TestParseDefaultDialogPathOpenFolderMode(t *testing.T) {
+	info := parseDefaultDialogPath(purecef.FileDialogModeFileDialogOpenFolder, "/tmp/foo/bar.txt")
+	require.Equal(t, "/tmp/foo", info.setFolder)
+	require.Empty(t, info.setFile)
+}
+
+func TestParseDefaultDialogPathEmptyPath(t *testing.T) {
+	info := parseDefaultDialogPath(purecef.FileDialogModeFileDialogSave, "")
+	require.Empty(t, info.setFolder)
+	require.Empty(t, info.setName)
+	require.Empty(t, info.setFile)
+
+	info = parseDefaultDialogPath(purecef.FileDialogModeFileDialogOpen, "  ")
+	require.Empty(t, info.setFolder)
+	require.Empty(t, info.setName)
+	require.Empty(t, info.setFile)
+}
+
+func TestFolderUploadPathsTruncationCancels(t *testing.T) {
+	prev := maxExpandedFolderUploadFiles
+	maxExpandedFolderUploadFiles = 2
+	defer func() { maxExpandedFolderUploadFiles = prev }()
+
+	dir := t.TempDir()
+	for i := 0; i < 5; i++ {
+		p := filepath.Join(dir, fmt.Sprintf("file_%d.txt", i))
+		require.NoError(t, os.WriteFile(p, []byte("data"), 0o644))
+	}
+
+	got := folderUploadPaths(&WebView{ctx: context.Background()}, purecef.FileDialogModeFileDialogOpenFolder, []string{dir})
+	require.Nil(t, got)
+}
+
+func TestDispatchFileDialogResultCancelsWhenEngineMissing(t *testing.T) {
+	callback := &stubFileDialogCallback{}
+	dispatchFileDialogResult(&WebView{ctx: context.Background()}, callback, []string{"/tmp/test.txt"})
+	require.True(t, callback.canceled)
+}
+
+func TestDispatchFileDialogResultCancelsWhenCefPostTaskFails(t *testing.T) {
+	prevNewTask := cefNewTask
+	cefNewTask = func(task purecef.Task) purecef.Task { return task }
+	defer func() { cefNewTask = prevNewTask }()
+
+	prevPost := cefPostTask
+	cefPostTask = func(_ purecef.ThreadID, _ purecef.Task) int32 {
+		return 0
+	}
+	defer func() { cefPostTask = prevPost }()
+
+	callback := &stubFileDialogCallback{}
+	wv := &WebView{
+		ctx:    context.Background(),
+		engine: &Engine{},
+	}
+	dispatchFileDialogResult(wv, callback, []string{"/tmp/test.txt"})
+	require.True(t, callback.canceled)
 }
 
 func TestOnFileDialogPresenterCanContinueCallback(t *testing.T) {

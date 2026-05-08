@@ -29,7 +29,7 @@ type cefFileDialogRequest struct {
 
 type fileDialogPresenter func(*WebView, cefFileDialogRequest, purecef.FileDialogCallback)
 
-const maxExpandedFolderUploadFiles = 5000
+var maxExpandedFolderUploadFiles = 5000
 
 var (
 	decodeCEFStringList   = purecef.StringListToSlice
@@ -68,7 +68,7 @@ func (h *handlerSet) OnFileDialog(
 	logCEFFileDialog(h.wv).Debug().
 		Int32("mode", mode).
 		Str("title", title).
-		Str("default_file_path", defaultFilePath).
+		Bool("has_default_file_path", strings.TrimSpace(defaultFilePath) != "").
 		Int("accept_filter_count", len(req.AcceptFilters)).
 		Int("accept_extension_count", len(req.AcceptExtensions)).
 		Msg("cef: file dialog requested")
@@ -86,7 +86,7 @@ func presentGTKFileDialog(wv *WebView, req cefFileDialogRequest, callback purece
 		logCEFFileDialog(wv).Debug().
 			Int32("mode", req.Mode).
 			Str("title", req.Title).
-			Str("default_file_path", req.DefaultFilePath).
+			Bool("has_default_file_path", strings.TrimSpace(req.DefaultFilePath) != "").
 			Msg("cef: presenting GTK file dialog")
 		dialog, ok := newNativeFileDialog(wv, req)
 		if !ok || dialog == nil {
@@ -116,7 +116,6 @@ func presentGTKFileDialog(wv *WebView, req cefFileDialogRequest, callback purece
 			paths := selectedFileDialogPaths(dialog, req.Mode)
 			logCEFFileDialog(wv).Debug().
 				Int("path_count", len(paths)).
-				Strs("paths", paths).
 				Msg("cef: file dialog selection captured")
 			paths = folderUploadPaths(wv, req.Mode, paths)
 			dispatchFileDialogResult(wv, callback, paths)
@@ -184,44 +183,69 @@ func fileDialogParentWindow(wv *WebView) *gtk.Window {
 	return gtk.WindowNewFromInternalPtr(ancestor.GoPointer())
 }
 
+// defaultDialogPathInfo holds the result of parsing DefaultFilePath for use by
+// applyDefaultDialogPath. It is a pure value type to remain unit-testable without
+// GTK objects.
+type defaultDialogPathInfo struct {
+	setFolder string // path to set as current folder (empty = don't set)
+	setName   string // name to set as current name (empty = don't set)
+	setFile   string // path to set as selected file (empty = don't set)
+}
+
+// parseDefaultDialogPath extracts folder/name/file settings from DefaultFilePath
+// without any GTK dependencies. For save mode, if the path points to an existing
+// directory, it sets that as the current folder without a current name.
+func parseDefaultDialogPath(mode purecef.FileDialogMode, defaultFilePath string) defaultDialogPathInfo {
+	path := strings.TrimSpace(defaultFilePath)
+	if path == "" {
+		return defaultDialogPathInfo{}
+	}
+
+	if mode == purecef.FileDialogModeFileDialogSave {
+		if info, err := os.Stat(path); err == nil && info.IsDir() {
+			return defaultDialogPathInfo{setFolder: path}
+		}
+		name := filepath.Base(path)
+		if name == "." || name == string(filepath.Separator) {
+			name = ""
+		}
+		info := defaultDialogPathInfo{setName: name}
+		if dir := filepath.Dir(path); dir != "." && dir != "" {
+			info.setFolder = dir
+		}
+		return info
+	}
+
+	if info, err := os.Stat(path); err == nil && info.IsDir() {
+		return defaultDialogPathInfo{setFolder: path}
+	}
+
+	info := defaultDialogPathInfo{}
+	if dir := filepath.Dir(path); dir != "." && dir != "" {
+		info.setFolder = dir
+	}
+	if mode != purecef.FileDialogModeFileDialogOpenFolder {
+		info.setFile = path
+	}
+	return info
+}
+
 func applyDefaultDialogPath(dialog *gtk.FileChooserNative, req cefFileDialogRequest) {
 	if dialog == nil {
 		return
 	}
-	path := strings.TrimSpace(req.DefaultFilePath)
-	if path == "" {
-		return
-	}
-
-	if req.Mode == purecef.FileDialogModeFileDialogSave {
-		if dir := filepath.Dir(path); dir != "." && dir != "" {
-			if folder := gio.FileNewForPath(dir); folder != nil {
-				defer unrefGObjectPointer(folder.GoPointer())
-				_, _ = dialog.SetCurrentFolder(folder)
-			}
-		}
-		if name := filepath.Base(path); name != "." && name != string(filepath.Separator) {
-			dialog.SetCurrentName(name)
-		}
-		return
-	}
-
-	if info, err := os.Stat(path); err == nil && info.IsDir() {
-		if folder := gio.FileNewForPath(path); folder != nil {
-			defer unrefGObjectPointer(folder.GoPointer())
-			_, _ = dialog.SetCurrentFolder(folder)
-		}
-		return
-	}
-
-	if dir := filepath.Dir(path); dir != "." && dir != "" {
-		if folder := gio.FileNewForPath(dir); folder != nil {
+	dpi := parseDefaultDialogPath(req.Mode, req.DefaultFilePath)
+	if dpi.setFolder != "" {
+		if folder := gio.FileNewForPath(dpi.setFolder); folder != nil {
 			defer unrefGObjectPointer(folder.GoPointer())
 			_, _ = dialog.SetCurrentFolder(folder)
 		}
 	}
-	if req.Mode != purecef.FileDialogModeFileDialogOpenFolder {
-		if file := gio.FileNewForPath(path); file != nil {
+	if dpi.setName != "" {
+		dialog.SetCurrentName(dpi.setName)
+	}
+	if dpi.setFile != "" {
+		if file := gio.FileNewForPath(dpi.setFile); file != nil {
 			defer unrefGObjectPointer(file.GoPointer())
 			_, _ = dialog.SetFile(file)
 		}
@@ -358,8 +382,6 @@ func folderUploadPaths(wv *WebView, mode purecef.FileDialogMode, paths []string)
 	info, err := os.Stat(folder)
 	if err != nil || !info.IsDir() {
 		logCEFFileDialog(wv).Warn().
-			Err(err).
-			Str("path", folder).
 			Msg("cef: folder upload path expansion skipped; selected path is not a directory")
 		return paths
 	}
@@ -368,7 +390,7 @@ func folderUploadPaths(wv *WebView, mode purecef.FileDialogMode, paths []string)
 	truncated := false
 	walkErr := filepath.WalkDir(folder, func(path string, entry fs.DirEntry, err error) error {
 		if err != nil {
-			logCEFFileDialog(wv).Debug().Err(err).Str("path", path).Msg("cef: folder upload path expansion skipped unreadable entry")
+			logCEFFileDialog(wv).Debug().Msg("cef: folder upload path expansion skipped unreadable entry")
 			return nil
 		}
 		if path == folder || entry.IsDir() || entry.Type()&os.ModeSymlink != 0 {
@@ -387,22 +409,24 @@ func folderUploadPaths(wv *WebView, mode purecef.FileDialogMode, paths []string)
 	})
 	if walkErr != nil {
 		logCEFFileDialog(wv).Warn().
-			Err(walkErr).
-			Str("folder", folder).
 			Msg("cef: folder upload descendant enumeration failed; using selected directory path")
 		return paths
 	}
 	if len(files) == 0 {
 		logCEFFileDialog(wv).Warn().
-			Str("folder", folder).
 			Msg("cef: folder upload descendant enumeration found no regular files; using selected directory path")
 		return paths
 	}
 
-	logCEFFileDialog(wv).Warn().
-		Str("folder", folder).
+	if truncated {
+		logCEFFileDialog(wv).Warn().
+			Int("limit", maxExpandedFolderUploadFiles).
+			Msg("cef: folder upload expansion truncated; canceling selection")
+		return nil
+	}
+
+	logCEFFileDialog(wv).Debug().
 		Int("file_count", len(files)).
-		Bool("truncated", truncated).
 		Msg("cef: folder upload expanded selected directory to descendant file paths")
 	return files
 }
@@ -431,27 +455,30 @@ func dispatchFileDialogResult(wv *WebView, callback purecef.FileDialogCallback, 
 	if callback == nil {
 		return
 	}
+	logger := logCEFFileDialog(wv)
 	if wv == nil || wv.engine == nil {
+		logger.Warn().Msg("cef: webview engine unavailable; canceling file dialog selection")
+		continueCEFFileDialog(logger, callback)
 		return
 	}
 
 	task := cefNewTask(cefTaskFunc(func() {
-		logger := logCEFFileDialog(wv)
 		logger.Debug().
 			Int("path_count", len(paths)).
-			Strs("paths", paths).
 			Int32("currently_on_ui", purecef.CurrentlyOn(purecef.ThreadIDTidUi)).
 			Msg("cef: file dialog continuation task executing")
 		continueCEFFileDialog(logger, callback, paths...)
 		logger.Debug().
 			Int("path_count", len(paths)).
-			Strs("paths", paths).
 			Msg("cef: file dialog continuation task finished")
 	}))
 	if result := cefPostTask(purecef.ThreadIDTidUi, task); result != 1 {
-		logCEFFileDialog(wv).Warn().Int32("post_result", result).Msg("cef: failed to post file dialog continuation to CEF UI thread")
+		logger.Warn().
+			Int32("post_result", result).
+			Msg("cef: failed to post file dialog continuation to CEF UI thread; canceling selection")
+		continueCEFFileDialog(logger, callback)
 	} else {
-		logCEFFileDialog(wv).Debug().Int("path_count", len(paths)).Strs("paths", paths).Msg("cef: file dialog continuation task posted")
+		logger.Debug().Int("path_count", len(paths)).Msg("cef: file dialog continuation task posted")
 	}
 }
 
@@ -474,7 +501,6 @@ func continueCEFFileDialogWithLogs(logger *zerolog.Logger, callback purecef.File
 	logger.Debug().
 		Uint64("callback_ptr", uint64(callbackPtr)).
 		Int("path_count", len(filePaths)).
-		Strs("paths", filePaths).
 		Msg("cef: allocating file dialog CEF string list")
 	list := newCEFStringList(filePaths...)
 	if list == 0 {
@@ -498,7 +524,6 @@ func continueCEFFileDialogWithLogs(logger *zerolog.Logger, callback purecef.File
 		Uint64("callback_ptr", uint64(callbackPtr)).
 		Uint64("string_list", listValue).
 		Int("path_count", len(filePaths)).
-		Strs("paths", filePaths).
 		Msg("cef: invoking file dialog callback continuation")
 	callback.Cont(list)
 	logger.Debug().
