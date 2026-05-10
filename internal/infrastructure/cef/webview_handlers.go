@@ -23,9 +23,10 @@ const (
 // owning WebView. A single struct is used so that the Client's Get*Handler
 // methods can return the same receiver, avoiding extra allocations.
 type handlerSet struct {
-	wv                *WebView
-	renderHandlerOnce sync.Once
-	renderHandler     purecef.RenderHandler
+	wv                  *WebView
+	fileDialogPresenter fileDialogPresenter
+	renderHandlerOnce   sync.Once
+	renderHandler       purecef.RenderHandler
 }
 
 // Compile-time interface checks.
@@ -37,6 +38,7 @@ var (
 	_ purecef.RequestHandler     = (*handlerSet)(nil)
 	_ purecef.AudioHandler       = (*handlerSet)(nil)
 	_ purecef.ContextMenuHandler = (*handlerSet)(nil)
+	_ purecef.DialogHandler      = (*handlerSet)(nil)
 	_ purecef.DownloadHandler    = (*handlerSet)(nil)
 	_ purecef.FindHandler        = (*handlerSet)(nil)
 )
@@ -54,7 +56,7 @@ func (h *handlerSet) GetAudioHandler() purecef.AudioHandler {
 }
 func (h *handlerSet) GetCommandHandler() purecef.CommandHandler         { return nil }
 func (h *handlerSet) GetContextMenuHandler() purecef.ContextMenuHandler { return h }
-func (h *handlerSet) GetDialogHandler() purecef.DialogHandler           { return nil }
+func (h *handlerSet) GetDialogHandler() purecef.DialogHandler           { return h }
 func (h *handlerSet) GetDisplayHandler() purecef.DisplayHandler         { return h }
 func (h *handlerSet) GetDownloadHandler() purecef.DownloadHandler {
 	if h.downloadHandler() != nil {

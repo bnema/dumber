@@ -6,7 +6,7 @@ require (
 	github.com/a-h/templ v0.3.1001
 	github.com/andybalholm/brotli v1.2.1
 	github.com/bnema/purego v0.11.0-bnema.2
-	github.com/bnema/purego-cef v0.12.0
+	github.com/bnema/purego-cef v0.13.0
 	github.com/bnema/purego-cef2gtk v0.1.0
 	github.com/bnema/purego-pipewire v0.1.2
 	github.com/bnema/purego-sqlite v0.1.2
