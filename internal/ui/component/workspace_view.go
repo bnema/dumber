@@ -4,7 +4,6 @@ package component
 import (
 	"context"
 	"errors"
-	"fmt"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -218,12 +217,9 @@ func (wv *WorkspaceView) SetWorkspace(ctx context.Context, ws *entity.Workspace)
 	}
 
 	// Set initial active pane. A persisted workspace can contain a stale active
-	// pane ID after restore/rebuild; that should not abort initialization.
-	if ws.ActivePaneID != "" {
-		if err := wv.setActivePaneIDInternal(ws.ActivePaneID, true); err != nil {
-			return fmt.Errorf("set initial active pane: %w", err)
-		}
-	}
+	// pane ID after restore/rebuild; choose a valid fallback instead of leaving
+	// later active-pane logic pointing at a missing pane.
+	wv.restoreActivePaneInternal()
 
 	// Update single-pane mode based on pane count
 	wv.updateSinglePaneModeInternal()
@@ -235,7 +231,7 @@ func (wv *WorkspaceView) SetWorkspace(ctx context.Context, ws *entity.Workspace)
 func (wv *WorkspaceView) SetActivePaneID(paneID entity.PaneID) error {
 	wv.mu.Lock()
 	currentActiveID := wv.getActivePaneIDInternal()
-	err := wv.setActivePaneIDInternal(paneID, false)
+	err := wv.setActivePaneIDInternal(paneID)
 	callback := wv.onActivePaneChanged
 	wv.mu.Unlock()
 	if err != nil {
@@ -247,9 +243,32 @@ func (wv *WorkspaceView) SetActivePaneID(paneID entity.PaneID) error {
 	return nil
 }
 
+// restoreActivePaneInternal restores the active pane after building paneViews.
+// Must be called with the lock held.
+func (wv *WorkspaceView) restoreActivePaneInternal() {
+	if wv.workspace == nil {
+		return
+	}
+
+	paneID := wv.workspace.ActivePaneID
+	if paneID != "" {
+		if _, ok := wv.paneViews[paneID]; ok {
+			_ = wv.setActivePaneIDInternal(paneID)
+			return
+		}
+		wv.logger.Debug().Str("pane_id", string(paneID)).Msg("stale active pane ignored")
+		wv.workspace.ActivePaneID = ""
+	}
+
+	for fallbackID := range wv.paneViews {
+		_ = wv.setActivePaneIDInternal(fallbackID)
+		return
+	}
+}
+
 // setActivePaneIDInternal updates active pane without locking.
 // Updates the domain model as the single source of truth.
-func (wv *WorkspaceView) setActivePaneIDInternal(paneID entity.PaneID, allowMissing bool) error {
+func (wv *WorkspaceView) setActivePaneIDInternal(paneID entity.PaneID) error {
 	currentActiveID := wv.getActivePaneIDInternal()
 
 	wv.logger.Debug().
@@ -261,10 +280,6 @@ func (wv *WorkspaceView) setActivePaneIDInternal(paneID entity.PaneID, allowMiss
 	// should leave the current active pane styling and overlays untouched.
 	newPV, ok := wv.paneViews[paneID]
 	if !ok {
-		if allowMissing {
-			wv.logger.Debug().Str("pane_id", string(paneID)).Msg("stale active pane ignored")
-			return nil
-		}
 		return ErrPaneNotFound
 	}
 

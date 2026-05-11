@@ -3804,38 +3804,48 @@ func (a *App) getActiveWebViewTarget() port.TextInputTarget {
 // This is called when a popup uses tabbed behavior.
 func (a *App) attachPopupToTab(ctx context.Context, tabID entity.TabID, pane *entity.Pane, wv port.WebView) {
 	log := logging.FromContext(ctx)
+	cleanupUnattachedPopup := func() {
+		if wv != nil {
+			wv.Destroy()
+		}
+	}
 
 	wsView := a.workspaceViews[tabID]
 	if wsView == nil {
+		cleanupUnattachedPopup()
 		log.Warn().Str("tab_id", string(tabID)).Msg("workspace view not found for popup tab")
 		return
 	}
 	if pane == nil {
+		cleanupUnattachedPopup()
 		log.Warn().Str("tab_id", string(tabID)).Msg("popup pane is nil")
 		return
 	}
 	if wsView.GetPaneView(pane.ID) == nil {
+		cleanupUnattachedPopup()
 		log.Warn().Str("pane_id", string(pane.ID)).Msg("pane view not found for popup")
 		return
 	}
+	if a.contentCoord == nil {
+		cleanupUnattachedPopup()
+		log.Warn().Str("pane_id", string(pane.ID)).Msg("content coordinator not configured for popup")
+		return
+	}
 
-	// Register WebView with content coordinator
-	if a.contentCoord != nil {
-		// Track the WebView
-		a.contentCoord.RegisterPopupWebView(pane.ID, wv)
+	// Register WebView with content coordinator.
+	a.contentCoord.RegisterPopupWebView(pane.ID, wv)
 
-		// Wrap and attach widget
-		widget := a.contentCoord.WrapWidget(ctx, wv)
-		if widget == nil {
-			a.contentCoord.ReleaseWebView(ctx, pane.ID)
-			log.Warn().Str("pane_id", string(pane.ID)).Msg("failed to wrap popup webview")
-			return
-		}
-		if err := wsView.SetWebViewWidget(pane.ID, widget); err != nil {
-			a.contentCoord.ReleaseWebView(ctx, pane.ID)
-			log.Warn().Err(err).Str("pane_id", string(pane.ID)).Msg("pane view not found for popup")
-			return
-		}
+	// Wrap and attach widget.
+	widget := a.contentCoord.WrapWidget(ctx, wv)
+	if widget == nil {
+		a.contentCoord.ReleaseWebView(ctx, pane.ID)
+		log.Warn().Str("pane_id", string(pane.ID)).Msg("failed to wrap popup webview")
+		return
+	}
+	if err := wsView.SetWebViewWidget(pane.ID, widget); err != nil {
+		a.contentCoord.ReleaseWebView(ctx, pane.ID)
+		log.Warn().Err(err).Str("pane_id", string(pane.ID)).Msg("pane view not found for popup")
+		return
 	}
 	log.Debug().
 		Str("tab_id", string(tabID)).

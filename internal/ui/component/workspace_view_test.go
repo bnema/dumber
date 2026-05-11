@@ -266,12 +266,13 @@ func TestSetWorkspace_StaleActivePaneID_DoesNotFailInitialization(t *testing.T) 
 
 	wv := component.NewWorkspaceView(ctx, mockFactory)
 
-	mockOverlay, _ := setupWorkspacePaneViewMocks(t, mockFactory)
+	mockOverlay, mockBorderBox := setupWorkspacePaneViewMocks(t, mockFactory)
 	mockStackBox := setupStackedLeafMocks(t, mockFactory, mockOverlay)
 
 	mockStackBox.EXPECT().SetVisible(true).Once()
 	mockBox.EXPECT().Append(mockStackBox).Once()
 	mockBox.EXPECT().AddCssClass("single-pane").Once()
+	mockBorderBox.EXPECT().AddCssClass("pane-active").Once()
 
 	pane := entity.NewPane(entity.PaneID("pane-1"))
 	node := &entity.PaneNode{ID: "node-1", Pane: pane}
@@ -287,8 +288,8 @@ func TestSetWorkspace_StaleActivePaneID_DoesNotFailInitialization(t *testing.T) 
 	// Assert
 	require.NoError(t, err)
 	assert.Equal(t, 1, wv.PaneCount())
-	assert.Equal(t, entity.PaneID("stale-pane"), wv.GetActivePaneID())
-	assert.False(t, wv.GetPaneView(pane.ID).IsActive())
+	assert.Equal(t, pane.ID, wv.GetActivePaneID())
+	assert.True(t, wv.GetPaneView(pane.ID).IsActive())
 }
 
 func TestWorkspaceView_HoverFocusLockState(t *testing.T) {

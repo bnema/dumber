@@ -1763,6 +1763,7 @@ type fakeRecordingWebView struct {
 	setZoomLevelLastLevel  float64
 	openDevToolsCalls      int
 	printPageCalls         int
+	destroyCalls           int
 }
 
 func (f *fakeRecordingWebView) ID() port.WebViewID { return f.id }
@@ -1832,8 +1833,33 @@ func (f *fakeRecordingWebView) Favicon() port.Texture                     { retu
 func (f *fakeRecordingWebView) Generation() uint64                        { return 0 }
 func (f *fakeRecordingWebView) IsFullscreen() bool                        { return false }
 func (f *fakeRecordingWebView) IsPlayingAudio() bool                      { return false }
-func (f *fakeRecordingWebView) IsDestroyed() bool                         { return false }
-func (f *fakeRecordingWebView) Destroy()                                  {}
+func (f *fakeRecordingWebView) IsDestroyed() bool                         { return f.destroyCalls > 0 }
+func (f *fakeRecordingWebView) Destroy()                                  { f.destroyCalls++ }
+
+func TestApp_AttachPopupToTabDestroysPopupWhenWorkspaceViewMissing(t *testing.T) {
+	ctx := context.Background()
+	popupWV := &fakeRecordingWebView{id: 1}
+	app := &App{workspaceViews: map[entity.TabID]*component.WorkspaceView{}}
+
+	app.attachPopupToTab(ctx, entity.TabID("missing-tab"), entity.NewPane(entity.PaneID("popup-pane")), popupWV)
+
+	if popupWV.destroyCalls != 1 {
+		t.Fatalf("popup webview destroy calls = %d, want 1", popupWV.destroyCalls)
+	}
+}
+
+func TestApp_AttachPopupToTabDestroysPopupWhenPaneNil(t *testing.T) {
+	ctx := context.Background()
+	popupWV := &fakeRecordingWebView{id: 1}
+	tabID := entity.TabID("tab-1")
+	app := &App{workspaceViews: map[entity.TabID]*component.WorkspaceView{tabID: &component.WorkspaceView{}}}
+
+	app.attachPopupToTab(ctx, tabID, nil, popupWV)
+
+	if popupWV.destroyCalls != 1 {
+		t.Fatalf("popup webview destroy calls = %d, want 1", popupWV.destroyCalls)
+	}
+}
 
 func TestApp_AttachPopupToTabSkipsRegistrationWhenPaneViewMissing(t *testing.T) {
 	ctx := context.Background()
@@ -1847,10 +1873,14 @@ func TestApp_AttachPopupToTabSkipsRegistrationWhenPaneViewMissing(t *testing.T) 
 		},
 	}
 
-	app.attachPopupToTab(ctx, tabID, pane, &fakeRecordingWebView{id: 1})
+	popupWV := &fakeRecordingWebView{id: 1}
+	app.attachPopupToTab(ctx, tabID, pane, popupWV)
 
 	if got := contentCoord.GetWebView(pane.ID); got != nil {
 		t.Fatalf("popup webview was registered for missing pane view: %v", got)
+	}
+	if popupWV.destroyCalls != 1 {
+		t.Fatalf("popup webview destroy calls = %d, want 1", popupWV.destroyCalls)
 	}
 }
 
