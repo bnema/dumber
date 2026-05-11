@@ -124,7 +124,6 @@ func (wv *WebView) scheduleResizeRepaintPulse(ctx context.Context, reason string
 	}
 	seq := wv.viewportResizePulseSeq.Add(1)
 	for _, delayMs := range [...]int64{16, 48} {
-		delayMs := delayMs
 		task := cefNewTask(cefTaskFunc(func() {
 			if wv == nil || wv.destroyed.Load() || wv.viewportResizePulseSeq.Load() != seq {
 				return

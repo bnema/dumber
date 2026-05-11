@@ -259,6 +259,8 @@ func TestLifecycle_RegisterPopupWebView_IgnoresNil(t *testing.T) {
 	assert.Nil(t, c.GetWebView("popup-1"))
 }
 
+type syncViewportContextKey struct{}
+
 type syncViewportCapableStub struct {
 	port.WebView
 	called bool
@@ -280,7 +282,7 @@ func TestLifecycle_SyncWebViewViewport_DelegatesWhenCapabilityPresent(t *testing
 	c := newMinimalCoordinator()
 	c.webViews[entity.PaneID("pane-1")] = wv
 
-	ctx := context.WithValue(context.Background(), struct{}{}, "marker")
+	ctx := context.WithValue(context.Background(), syncViewportContextKey{}, "marker")
 	c.SyncWebViewViewport(ctx, "pane-1", "unit-test")
 
 	require.True(t, wv.called)
