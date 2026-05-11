@@ -217,9 +217,10 @@ func (wv *WorkspaceView) SetWorkspace(ctx context.Context, ws *entity.Workspace)
 		}
 	}
 
-	// Set initial active pane
+	// Set initial active pane. A persisted workspace can contain a stale active
+	// pane ID after restore/rebuild; that should not abort initialization.
 	if ws.ActivePaneID != "" {
-		if err := wv.setActivePaneIDInternal(ws.ActivePaneID); err != nil {
+		if err := wv.setActivePaneIDInternal(ws.ActivePaneID, true); err != nil {
 			return fmt.Errorf("set initial active pane: %w", err)
 		}
 	}
@@ -234,7 +235,7 @@ func (wv *WorkspaceView) SetWorkspace(ctx context.Context, ws *entity.Workspace)
 func (wv *WorkspaceView) SetActivePaneID(paneID entity.PaneID) error {
 	wv.mu.Lock()
 	currentActiveID := wv.getActivePaneIDInternal()
-	err := wv.setActivePaneIDInternal(paneID)
+	err := wv.setActivePaneIDInternal(paneID, false)
 	callback := wv.onActivePaneChanged
 	wv.mu.Unlock()
 	if err != nil {
@@ -248,7 +249,7 @@ func (wv *WorkspaceView) SetActivePaneID(paneID entity.PaneID) error {
 
 // setActivePaneIDInternal updates active pane without locking.
 // Updates the domain model as the single source of truth.
-func (wv *WorkspaceView) setActivePaneIDInternal(paneID entity.PaneID) error {
+func (wv *WorkspaceView) setActivePaneIDInternal(paneID entity.PaneID, allowMissing bool) error {
 	currentActiveID := wv.getActivePaneIDInternal()
 
 	wv.logger.Debug().
@@ -260,6 +261,10 @@ func (wv *WorkspaceView) setActivePaneIDInternal(paneID entity.PaneID) error {
 	// should leave the current active pane styling and overlays untouched.
 	newPV, ok := wv.paneViews[paneID]
 	if !ok {
+		if allowMissing {
+			wv.logger.Debug().Str("pane_id", string(paneID)).Msg("stale active pane ignored")
+			return nil
+		}
 		return ErrPaneNotFound
 	}
 

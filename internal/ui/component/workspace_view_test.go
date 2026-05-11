@@ -259,6 +259,38 @@ func TestSetWorkspace_SinglePane_CreatesPaneView(t *testing.T) {
 	assert.NotNil(t, wv.GetPaneView(pane.ID))
 }
 
+func TestSetWorkspace_StaleActivePaneID_DoesNotFailInitialization(t *testing.T) {
+	// Arrange
+	mockFactory := mocks.NewMockWidgetFactory(t)
+	ctx, mockBox := setupWorkspaceViewBase(t, mockFactory)
+
+	wv := component.NewWorkspaceView(ctx, mockFactory)
+
+	mockOverlay, _ := setupWorkspacePaneViewMocks(t, mockFactory)
+	mockStackBox := setupStackedLeafMocks(t, mockFactory, mockOverlay)
+
+	mockStackBox.EXPECT().SetVisible(true).Once()
+	mockBox.EXPECT().Append(mockStackBox).Once()
+	mockBox.EXPECT().AddCssClass("single-pane").Once()
+
+	pane := entity.NewPane(entity.PaneID("pane-1"))
+	node := &entity.PaneNode{ID: "node-1", Pane: pane}
+	ws := &entity.Workspace{
+		ID:           "ws-1",
+		Root:         node,
+		ActivePaneID: entity.PaneID("stale-pane"),
+	}
+
+	// Act
+	err := wv.SetWorkspace(ctx, ws)
+
+	// Assert
+	require.NoError(t, err)
+	assert.Equal(t, 1, wv.PaneCount())
+	assert.Equal(t, entity.PaneID("stale-pane"), wv.GetActivePaneID())
+	assert.False(t, wv.GetPaneView(pane.ID).IsActive())
+}
+
 func TestWorkspaceView_HoverFocusLockState(t *testing.T) {
 	// Intentional zero-value check: hoverFocusLock is an atomic.Bool and should
 	// be safe with its language-level zero value before constructor wiring.

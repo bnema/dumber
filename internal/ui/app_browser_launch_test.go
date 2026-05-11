@@ -1854,6 +1854,43 @@ func TestApp_AttachPopupToTabSkipsRegistrationWhenPaneViewMissing(t *testing.T) 
 	}
 }
 
+func TestApp_AttachPopupToTabReleasesRegistrationWhenWrapFails(t *testing.T) {
+	ctx := context.Background()
+	contentCoord := contentcoord.NewCoordinator(ctx, nil, nil, nil, nil, nil, nil, nil)
+	tabID := entity.TabID("tab-1")
+	pane := entity.NewPane(entity.PaneID("popup-pane"))
+
+	factory := layoutmocks.NewMockWidgetFactory(t)
+	container := layoutmocks.NewMockBoxWidget(t)
+	overlay := layoutmocks.NewMockOverlayWidget(t)
+	factory.EXPECT().NewBox(layout.OrientationVertical, 0).Return(container).Once()
+	container.EXPECT().SetHexpand(true).Once()
+	container.EXPECT().SetVexpand(true).Once()
+	container.EXPECT().SetVisible(true).Once()
+	factory.EXPECT().NewOverlay().Return(overlay).Once()
+	overlay.EXPECT().SetHexpand(true).Once()
+	overlay.EXPECT().SetVexpand(true).Once()
+	overlay.EXPECT().SetChild(container).Once()
+	overlay.EXPECT().SetVisible(true).Once()
+
+	wsView := component.NewWorkspaceView(ctx, factory)
+	container.EXPECT().AddCssClass("single-pane").Once()
+	wsView.RegisterPaneView(pane.ID, &component.PaneView{})
+
+	app := &App{
+		contentCoord: contentCoord,
+		workspaceViews: map[entity.TabID]*component.WorkspaceView{
+			tabID: wsView,
+		},
+	}
+
+	app.attachPopupToTab(ctx, tabID, pane, &fakeRecordingWebView{id: 1})
+
+	if got := contentCoord.GetWebView(pane.ID); got != nil {
+		t.Fatalf("popup webview registration remained after wrap failure: %v", got)
+	}
+}
+
 type fakeZoomRepo struct{}
 
 func (f *fakeZoomRepo) Get(context.Context, string) (*entity.ZoomLevel, error) { return nil, nil }

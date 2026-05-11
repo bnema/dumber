@@ -3826,11 +3826,15 @@ func (a *App) attachPopupToTab(ctx context.Context, tabID entity.TabID, pane *en
 
 		// Wrap and attach widget
 		widget := a.contentCoord.WrapWidget(ctx, wv)
-		if widget != nil {
-			if err := wsView.SetWebViewWidget(pane.ID, widget); err != nil {
-				log.Warn().Err(err).Str("pane_id", string(pane.ID)).Msg("pane view not found for popup")
-				return
-			}
+		if widget == nil {
+			a.contentCoord.ReleaseWebView(ctx, pane.ID)
+			log.Warn().Str("pane_id", string(pane.ID)).Msg("failed to wrap popup webview")
+			return
+		}
+		if err := wsView.SetWebViewWidget(pane.ID, widget); err != nil {
+			a.contentCoord.ReleaseWebView(ctx, pane.ID)
+			log.Warn().Err(err).Str("pane_id", string(pane.ID)).Msg("pane view not found for popup")
+			return
 		}
 	}
 	log.Debug().
