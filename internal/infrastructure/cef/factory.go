@@ -113,6 +113,7 @@ func (f *WebViewFactory) newWebView(ctx context.Context) (*WebView, error) {
 		id:                  id,
 		ctx:                 ctx,
 		engine:              f.engine,
+		factory:             f,
 		viewBridge:          viewBridge,
 		audioOutputFactory:  f.audioOutputFactory,
 		windowlessFrameRate: f.windowlessFrameRate,
@@ -131,6 +132,7 @@ func (f *WebViewFactory) newWebView(ctx context.Context) (*WebView, error) {
 			logging.FromContext(ctx).Warn().Err(err).Uint64("webview_id", uint64(id)).Msg("cef2gtk: failed to enable profiling")
 		}
 	}
+	wv.installViewportSyncHooks()
 	wv.startRenderStallWatchdog()
 	return wv, nil
 }
@@ -175,27 +177,13 @@ func (f *WebViewFactory) configureInitialBrowserCreation(
 				return
 			}
 
-			wv.mu.RLock()
-			host := wv.host
-			wv.mu.RUnlock()
-			if host == nil {
-				logging.FromContext(ctx).Debug().
-					Uint64("webview_id", uint64(wv.id)).
-					Int32("resize_width", w).
-					Int32("resize_height", h).
-					Bool("host_nil", true).
-					Bool("browser_ready", false).
-					Msg("cef: resize observed before browser host existed")
-				return
-			}
-			notifyBrowserResize(host)
+			synced := wv.syncResizeViewportOnGTK(ctx, "gtk-size-observer")
 			logging.FromContext(ctx).Debug().
 				Uint64("webview_id", uint64(wv.id)).
 				Int32("resize_width", w).
 				Int32("resize_height", h).
-				Bool("host_nil", false).
-				Bool("browser_ready", true).
-				Msg("cef: browser host WasResized invoked")
+				Bool("browser_ready", synced).
+				Msg("cef: viewport sync handled after GTK size change")
 		})
 	})
 }

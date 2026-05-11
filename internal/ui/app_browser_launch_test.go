@@ -1763,6 +1763,7 @@ type fakeRecordingWebView struct {
 	setZoomLevelLastLevel  float64
 	openDevToolsCalls      int
 	printPageCalls         int
+	destroyCalls           int
 }
 
 func (f *fakeRecordingWebView) ID() port.WebViewID { return f.id }
@@ -1832,8 +1833,97 @@ func (f *fakeRecordingWebView) Favicon() port.Texture                     { retu
 func (f *fakeRecordingWebView) Generation() uint64                        { return 0 }
 func (f *fakeRecordingWebView) IsFullscreen() bool                        { return false }
 func (f *fakeRecordingWebView) IsPlayingAudio() bool                      { return false }
-func (f *fakeRecordingWebView) IsDestroyed() bool                         { return false }
-func (f *fakeRecordingWebView) Destroy()                                  {}
+func (f *fakeRecordingWebView) IsDestroyed() bool                         { return f.destroyCalls > 0 }
+func (f *fakeRecordingWebView) Destroy()                                  { f.destroyCalls++ }
+
+func TestApp_AttachPopupToTabDestroysPopupWhenWorkspaceViewMissing(t *testing.T) {
+	ctx := context.Background()
+	popupWV := &fakeRecordingWebView{id: 1}
+	app := &App{workspaceViews: map[entity.TabID]*component.WorkspaceView{}}
+
+	app.attachPopupToTab(ctx, entity.TabID("missing-tab"), entity.NewPane(entity.PaneID("popup-pane")), popupWV)
+
+	if popupWV.destroyCalls != 1 {
+		t.Fatalf("popup webview destroy calls = %d, want 1", popupWV.destroyCalls)
+	}
+}
+
+func TestApp_AttachPopupToTabDestroysPopupWhenPaneNil(t *testing.T) {
+	ctx := context.Background()
+	popupWV := &fakeRecordingWebView{id: 1}
+	tabID := entity.TabID("tab-1")
+	app := &App{workspaceViews: map[entity.TabID]*component.WorkspaceView{tabID: &component.WorkspaceView{}}}
+
+	app.attachPopupToTab(ctx, tabID, nil, popupWV)
+
+	if popupWV.destroyCalls != 1 {
+		t.Fatalf("popup webview destroy calls = %d, want 1", popupWV.destroyCalls)
+	}
+}
+
+func TestApp_AttachPopupToTabSkipsRegistrationWhenPaneViewMissing(t *testing.T) {
+	ctx := context.Background()
+	contentCoord := contentcoord.NewCoordinator(ctx, nil, nil, nil, nil, nil, nil, nil)
+	tabID := entity.TabID("tab-1")
+	pane := entity.NewPane(entity.PaneID("missing-pane"))
+	app := &App{
+		contentCoord: contentCoord,
+		workspaceViews: map[entity.TabID]*component.WorkspaceView{
+			tabID: &component.WorkspaceView{},
+		},
+	}
+
+	popupWV := &fakeRecordingWebView{id: 1}
+	app.attachPopupToTab(ctx, tabID, pane, popupWV)
+
+	if got := contentCoord.GetWebView(pane.ID); got != nil {
+		t.Fatalf("popup webview was registered for missing pane view: %v", got)
+	}
+	if popupWV.destroyCalls != 1 {
+		t.Fatalf("popup webview destroy calls = %d, want 1", popupWV.destroyCalls)
+	}
+}
+
+func TestApp_AttachPopupToTabReleasesRegistrationWhenWrapFails(t *testing.T) {
+	ctx := context.Background()
+	contentCoord := contentcoord.NewCoordinator(ctx, nil, nil, nil, nil, nil, nil, nil)
+	tabID := entity.TabID("tab-1")
+	pane := entity.NewPane(entity.PaneID("popup-pane"))
+
+	factory := layoutmocks.NewMockWidgetFactory(t)
+	container := layoutmocks.NewMockBoxWidget(t)
+	overlay := layoutmocks.NewMockOverlayWidget(t)
+	factory.EXPECT().NewBox(layout.OrientationVertical, 0).Return(container).Once()
+	container.EXPECT().SetHexpand(true).Once()
+	container.EXPECT().SetVexpand(true).Once()
+	container.EXPECT().SetVisible(true).Once()
+	factory.EXPECT().NewOverlay().Return(overlay).Once()
+	overlay.EXPECT().SetHexpand(true).Once()
+	overlay.EXPECT().SetVexpand(true).Once()
+	overlay.EXPECT().SetChild(container).Once()
+	overlay.EXPECT().SetVisible(true).Once()
+
+	wsView := component.NewWorkspaceView(ctx, factory)
+	container.EXPECT().AddCssClass("single-pane").Once()
+	wsView.RegisterPaneView(pane.ID, &component.PaneView{})
+
+	app := &App{
+		contentCoord: contentCoord,
+		workspaceViews: map[entity.TabID]*component.WorkspaceView{
+			tabID: wsView,
+		},
+	}
+	popupWV := &fakeRecordingWebView{id: 1}
+
+	app.attachPopupToTab(ctx, tabID, pane, popupWV)
+
+	if got := contentCoord.GetWebView(pane.ID); got != nil {
+		t.Fatalf("popup webview registration remained after wrap failure: %v", got)
+	}
+	if popupWV.destroyCalls != 1 {
+		t.Fatalf("popup webview destroy calls = %d, want 1", popupWV.destroyCalls)
+	}
+}
 
 type fakeZoomRepo struct{}
 

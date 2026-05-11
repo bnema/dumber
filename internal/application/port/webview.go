@@ -336,6 +336,16 @@ type PopupOpenerCapable interface {
 	HasActivePopupOpenerBridge() bool
 }
 
+// ViewportSyncCapable is implemented by WebViews that can explicitly resync
+// their internal viewport state after UI lifecycle events such as reparenting,
+// visibility toggles, or layout promotion that may not emit a size change.
+//
+// Implementations should make this cheap, safe to call often, and resilient to
+// duplicate requests.
+type ViewportSyncCapable interface {
+	SyncViewport(ctx context.Context, reason string)
+}
+
 // OAuthCallbackCapable is implemented by WebViews that support OAuth auto-close callbacks.
 // It is an optional capability; callers should type-assert port.WebView to this interface
 // before use and degrade gracefully when it is absent.

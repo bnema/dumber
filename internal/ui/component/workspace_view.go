@@ -4,7 +4,6 @@ package component
 import (
 	"context"
 	"errors"
-	"fmt"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -51,6 +50,8 @@ type WorkspaceView struct {
 	paneViews map[entity.PaneID]*PaneView
 
 	onPaneFocused       func(paneID entity.PaneID)
+	onActivePaneChanged func(paneID entity.PaneID)
+	onWebViewAttached   func(paneID entity.PaneID)
 	onSplitRatioDragged func(nodeID string, ratio float64)
 
 	// Hover suppression for keyboard navigation (Issue #89)
@@ -215,12 +216,10 @@ func (wv *WorkspaceView) SetWorkspace(ctx context.Context, ws *entity.Workspace)
 		}
 	}
 
-	// Set initial active pane
-	if ws.ActivePaneID != "" {
-		if err := wv.setActivePaneIDInternal(ws.ActivePaneID); err != nil {
-			return fmt.Errorf("set initial active pane: %w", err)
-		}
-	}
+	// Set initial active pane. A persisted workspace can contain a stale active
+	// pane ID after restore/rebuild; choose a valid fallback instead of leaving
+	// later active-pane logic pointing at a missing pane.
+	wv.restoreActivePaneInternal()
 
 	// Update single-pane mode based on pane count
 	wv.updateSinglePaneModeInternal()
@@ -231,9 +230,63 @@ func (wv *WorkspaceView) SetWorkspace(ctx context.Context, ws *entity.Workspace)
 // SetActivePaneID updates which pane is visually marked as active.
 func (wv *WorkspaceView) SetActivePaneID(paneID entity.PaneID) error {
 	wv.mu.Lock()
-	defer wv.mu.Unlock()
+	currentActiveID := wv.getActivePaneIDInternal()
+	err := wv.setActivePaneIDInternal(paneID)
+	callback := wv.onActivePaneChanged
+	wv.mu.Unlock()
+	if err != nil {
+		return err
+	}
+	if currentActiveID != paneID && callback != nil {
+		callback(paneID)
+	}
+	return nil
+}
 
-	return wv.setActivePaneIDInternal(paneID)
+// restoreActivePaneInternal restores the active pane after building paneViews.
+// Must be called with the lock held.
+func (wv *WorkspaceView) restoreActivePaneInternal() {
+	if wv.workspace == nil {
+		return
+	}
+
+	paneID := wv.workspace.ActivePaneID
+	if paneID != "" {
+		if pv, ok := wv.paneViews[paneID]; ok && pv != nil {
+			_ = wv.setActivePaneIDInternal(paneID)
+			return
+		}
+		wv.logger.Debug().Str("pane_id", string(paneID)).Msg("stale active pane ignored")
+		wv.workspace.ActivePaneID = ""
+	}
+
+	if fallbackID, ok := wv.firstPaneIDInTreeInternal(); ok {
+		_ = wv.setActivePaneIDInternal(fallbackID)
+	}
+}
+
+func (wv *WorkspaceView) firstPaneIDInTreeInternal() (entity.PaneID, bool) {
+	if wv.workspace == nil {
+		return "", false
+	}
+	return wv.firstPaneIDInNodeInternal(wv.workspace.Root)
+}
+
+func (wv *WorkspaceView) firstPaneIDInNodeInternal(node *entity.PaneNode) (entity.PaneID, bool) {
+	if node == nil {
+		return "", false
+	}
+	if node.Pane != nil {
+		paneID := node.Pane.ID
+		pv, ok := wv.paneViews[paneID]
+		return paneID, ok && pv != nil
+	}
+	for _, child := range node.Children {
+		if paneID, ok := wv.firstPaneIDInNodeInternal(child); ok {
+			return paneID, true
+		}
+	}
+	return "", false
 }
 
 // setActivePaneIDInternal updates active pane without locking.
@@ -245,6 +298,13 @@ func (wv *WorkspaceView) setActivePaneIDInternal(paneID entity.PaneID) error {
 		Str("from_pane", string(currentActiveID)).
 		Str("to_pane", string(paneID)).
 		Msg("active pane changing")
+
+	// Validate the target pane before mutating UI state. Invalid/stale IDs
+	// should leave the current active pane styling and overlays untouched.
+	newPV, ok := wv.paneViews[paneID]
+	if !ok || newPV == nil {
+		return ErrPaneNotFound
+	}
 
 	// Destroy find bar if active pane is changing
 	if currentActiveID != paneID && wv.findBar != nil {
@@ -258,15 +318,9 @@ func (wv *WorkspaceView) setActivePaneIDInternal(paneID entity.PaneID) error {
 
 	// Deactivate current active pane
 	if currentActiveID != "" {
-		if oldPV, ok := wv.paneViews[currentActiveID]; ok {
+		if oldPV, ok := wv.paneViews[currentActiveID]; ok && oldPV != nil {
 			oldPV.SetActive(false)
 		}
-	}
-
-	// Activate new pane
-	newPV, ok := wv.paneViews[paneID]
-	if !ok {
-		return ErrPaneNotFound
 	}
 
 	newPV.SetActive(true)
@@ -357,6 +411,22 @@ func (wv *WorkspaceView) SetOnPaneFocused(fn func(paneID entity.PaneID)) {
 	wv.onPaneFocused = fn
 }
 
+// SetOnActivePaneChanged sets the callback invoked after the active pane changes.
+func (wv *WorkspaceView) SetOnActivePaneChanged(fn func(paneID entity.PaneID)) {
+	wv.mu.Lock()
+	defer wv.mu.Unlock()
+
+	wv.onActivePaneChanged = fn
+}
+
+// SetOnWebViewAttached sets the callback invoked after a pane receives a WebView widget.
+func (wv *WorkspaceView) SetOnWebViewAttached(fn func(paneID entity.PaneID)) {
+	wv.mu.Lock()
+	defer wv.mu.Unlock()
+
+	wv.onWebViewAttached = fn
+}
+
 func (wv *WorkspaceView) SetOnSplitRatioDragged(fn func(nodeID string, ratio float64)) {
 	wv.mu.Lock()
 	defer wv.mu.Unlock()
@@ -408,13 +478,17 @@ func (wv *WorkspaceView) DeactivatePane(paneID entity.PaneID) {
 func (wv *WorkspaceView) SetWebViewWidget(paneID entity.PaneID, widget layout.Widget) error {
 	wv.mu.RLock()
 	pv, ok := wv.paneViews[paneID]
+	callback := wv.onWebViewAttached
 	wv.mu.RUnlock()
 
-	if !ok {
+	if !ok || pv == nil {
 		return ErrPaneNotFound
 	}
 
 	pv.SetWebViewWidget(widget)
+	if widget != nil && callback != nil {
+		callback(paneID)
+	}
 	return nil
 }
 

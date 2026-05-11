@@ -605,7 +605,9 @@ func (c *WorkspaceCoordinator) doIncrementalStackSplit(
 
 	widget := c.contentCoord.WrapWidget(ctx, wv)
 	if widget != nil {
-		newPaneView.SetWebViewWidget(widget)
+		if err := wsView.SetWebViewWidget(output.NewPaneNode.Pane.ID, widget); err != nil {
+			log.Warn().Err(err).Str("pane_id", string(output.NewPaneNode.Pane.ID)).Msg("failed to attach webview widget for stack split")
+		}
 	}
 
 	log.Debug().Msg("incremental stack split completed successfully")
@@ -743,7 +745,9 @@ func (c *WorkspaceCoordinator) doIncrementalSplit(
 
 	widget := c.contentCoord.WrapWidget(ctx, wv)
 	if widget != nil {
-		newPaneView.SetWebViewWidget(widget)
+		if err := wsView.SetWebViewWidget(output.NewPaneNode.Pane.ID, widget); err != nil {
+			log.Warn().Err(err).Str("pane_id", string(output.NewPaneNode.Pane.ID)).Msg("failed to attach webview widget for split")
+		}
 	}
 
 	log.Debug().Msg("incremental split completed successfully")
@@ -1622,7 +1626,9 @@ func (c *WorkspaceCoordinator) StackPane(ctx context.Context) error {
 	} else {
 		widget := c.contentCoord.WrapWidget(ctx, wv)
 		if widget != nil {
-			newPaneView.SetWebViewWidget(widget)
+			if err := stackCtx.wsView.SetWebViewWidget(newPaneID, widget); err != nil {
+				log.Warn().Err(err).Str("pane_id", string(newPaneID)).Msg("failed to attach webview widget for stacked pane")
+			}
 		}
 		// Load initial page for the new pane
 		if err := wv.LoadURI(ctx, newPane.URI); err != nil {
@@ -2089,11 +2095,9 @@ func (c *WorkspaceCoordinator) attachPopupWebView(
 		return
 	}
 
-	paneView := wsView.GetPaneView(input.PopupPane.ID)
-	if paneView == nil {
-		return
+	if err := wsView.SetWebViewWidget(input.PopupPane.ID, widget); err != nil {
+		logging.FromContext(ctx).Warn().Err(err).Str("pane_id", string(input.PopupPane.ID)).Msg("failed to attach popup webview widget")
 	}
-	paneView.SetWebViewWidget(widget)
 }
 
 // insertPopupStacked inserts a popup as a stacked pane on top of the parent.
@@ -2259,7 +2263,9 @@ func (c *WorkspaceCoordinator) attachPopupPaneView(
 	if input.WebView != nil {
 		widget := c.contentCoord.WrapWidget(ctx, input.WebView)
 		if widget != nil {
-			newPaneView.SetWebViewWidget(widget)
+			if err := wsView.SetWebViewWidget(input.PopupPane.ID, widget); err != nil {
+				log.Warn().Err(err).Str("pane_id", string(input.PopupPane.ID)).Msg("failed to attach stacked popup webview widget")
+			}
 		}
 	}
 
