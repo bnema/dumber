@@ -51,6 +51,8 @@ type WorkspaceView struct {
 	paneViews map[entity.PaneID]*PaneView
 
 	onPaneFocused       func(paneID entity.PaneID)
+	onActivePaneChanged func(paneID entity.PaneID)
+	onWebViewAttached   func(paneID entity.PaneID)
 	onSplitRatioDragged func(nodeID string, ratio float64)
 
 	// Hover suppression for keyboard navigation (Issue #89)
@@ -231,9 +233,17 @@ func (wv *WorkspaceView) SetWorkspace(ctx context.Context, ws *entity.Workspace)
 // SetActivePaneID updates which pane is visually marked as active.
 func (wv *WorkspaceView) SetActivePaneID(paneID entity.PaneID) error {
 	wv.mu.Lock()
-	defer wv.mu.Unlock()
-
-	return wv.setActivePaneIDInternal(paneID)
+	currentActiveID := wv.getActivePaneIDInternal()
+	err := wv.setActivePaneIDInternal(paneID)
+	callback := wv.onActivePaneChanged
+	wv.mu.Unlock()
+	if err != nil {
+		return err
+	}
+	if currentActiveID != paneID && callback != nil {
+		callback(paneID)
+	}
+	return nil
 }
 
 // setActivePaneIDInternal updates active pane without locking.
@@ -357,6 +367,22 @@ func (wv *WorkspaceView) SetOnPaneFocused(fn func(paneID entity.PaneID)) {
 	wv.onPaneFocused = fn
 }
 
+// SetOnActivePaneChanged sets the callback invoked after the active pane changes.
+func (wv *WorkspaceView) SetOnActivePaneChanged(fn func(paneID entity.PaneID)) {
+	wv.mu.Lock()
+	defer wv.mu.Unlock()
+
+	wv.onActivePaneChanged = fn
+}
+
+// SetOnWebViewAttached sets the callback invoked after a pane receives a WebView widget.
+func (wv *WorkspaceView) SetOnWebViewAttached(fn func(paneID entity.PaneID)) {
+	wv.mu.Lock()
+	defer wv.mu.Unlock()
+
+	wv.onWebViewAttached = fn
+}
+
 func (wv *WorkspaceView) SetOnSplitRatioDragged(fn func(nodeID string, ratio float64)) {
 	wv.mu.Lock()
 	defer wv.mu.Unlock()
@@ -408,6 +434,7 @@ func (wv *WorkspaceView) DeactivatePane(paneID entity.PaneID) {
 func (wv *WorkspaceView) SetWebViewWidget(paneID entity.PaneID, widget layout.Widget) error {
 	wv.mu.RLock()
 	pv, ok := wv.paneViews[paneID]
+	callback := wv.onWebViewAttached
 	wv.mu.RUnlock()
 
 	if !ok {
@@ -415,6 +442,9 @@ func (wv *WorkspaceView) SetWebViewWidget(paneID entity.PaneID, widget layout.Wi
 	}
 
 	pv.SetWebViewWidget(widget)
+	if widget != nil && callback != nil {
+		callback(paneID)
+	}
 	return nil
 }
 

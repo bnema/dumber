@@ -29,6 +29,7 @@ var (
 	_ port.DevToolsOpener        = (*WebView)(nil)
 	_ port.PopupLifecycleCapable = (*WebView)(nil)
 	_ port.PopupOpenerCapable    = (*WebView)(nil)
+	_ port.ViewportSyncCapable   = (*WebView)(nil)
 	_ port.OAuthCallbackCapable  = (*WebView)(nil)
 )
 
@@ -72,6 +73,7 @@ type WebView struct {
 	id                        port.WebViewID
 	ctx                       context.Context
 	engine                    *Engine
+	factory                   *WebViewFactory
 	browser                   purecef.Browser
 	host                      purecef.BrowserHost
 	client                    purecef.RawClient // prevent GC from collecting the client before CEF AddRef's it
@@ -88,7 +90,13 @@ type WebView struct {
 	previousProfileSnapshot   cef2gtk.ProfileSnapshot
 	latestProfileSnapshotAt   time.Time
 
-	removeSizeObserver func()
+	removeSizeObserver  func()
+	viewportSyncMu      sync.Mutex
+	viewportSyncPending bool
+	viewportSyncReason  string
+	viewportMapFunc     func(gtk.Widget)
+	viewportShowFunc    func(gtk.Widget)
+	viewportRealizeFunc func(gtk.Widget)
 
 	// beginFrameTick drives CEF external BeginFrame requests while the GTK
 	// widget is visible. Access is guarded by mu.
@@ -541,12 +549,7 @@ func (wv *WebView) Show() {
 	if wv == nil || wv.destroyed.Load() {
 		return
 	}
-	wv.mu.RLock()
-	host := wv.host
-	wv.mu.RUnlock()
-	if host != nil {
-		host.WasHidden(0)
-	}
+	wv.SyncViewport(wv.ctx, "popup-show")
 }
 
 // PrimePopupNavigation implements port.PopupLifecycleCapable.
@@ -1081,6 +1084,9 @@ func (wv *WebView) destroyViewBridgeOnGTKThread() {
 		wv.removeSizeObserver()
 		wv.removeSizeObserver = nil
 	}
+	wv.viewportMapFunc = nil
+	wv.viewportShowFunc = nil
+	wv.viewportRealizeFunc = nil
 	_ = wv.viewBridge.DetachInput()
 	_ = wv.viewBridge.Destroy()
 	wv.viewBridge = nil

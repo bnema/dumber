@@ -258,3 +258,42 @@ func TestLifecycle_RegisterPopupWebView_IgnoresNil(t *testing.T) {
 
 	assert.Nil(t, c.GetWebView("popup-1"))
 }
+
+type syncViewportCapableStub struct {
+	port.WebView
+	called bool
+	ctx    context.Context
+	reason string
+}
+
+func (s *syncViewportCapableStub) SyncViewport(ctx context.Context, reason string) {
+	s.called = true
+	s.ctx = ctx
+	s.reason = reason
+}
+
+func TestLifecycle_SyncWebViewViewport_DelegatesWhenCapabilityPresent(t *testing.T) {
+	t.Parallel()
+
+	base := mocks.NewMockWebView(t)
+	wv := &syncViewportCapableStub{WebView: base}
+	c := newMinimalCoordinator()
+	c.webViews[entity.PaneID("pane-1")] = wv
+
+	ctx := context.WithValue(context.Background(), struct{}{}, "marker")
+	c.SyncWebViewViewport(ctx, "pane-1", "unit-test")
+
+	require.True(t, wv.called)
+	require.Equal(t, "unit-test", wv.reason)
+	require.Same(t, ctx, wv.ctx)
+}
+
+func TestLifecycle_SyncWebViewViewport_NoopWithoutCapability(t *testing.T) {
+	t.Parallel()
+
+	wv := mocks.NewMockWebView(t)
+	c := newMinimalCoordinator()
+	c.webViews[entity.PaneID("pane-1")] = wv
+
+	c.SyncWebViewViewport(context.Background(), "pane-1", "unit-test")
+}

@@ -128,7 +128,7 @@ func setupWorkspacePaneViewMocks(t *testing.T, mockFactory *mocks.MockWidgetFact
 	mockOverlay.EXPECT().SetMeasureOverlay(mockBorderBox, false).Once()
 
 	// GtkWidget is called when attaching hover handler - return nil for tests
-	mockOverlay.EXPECT().GtkWidget().Return(nil).Once()
+	mockOverlay.EXPECT().GtkWidget().Return(nil).Maybe()
 
 	return mockOverlay, mockBorderBox
 }
@@ -415,6 +415,10 @@ func TestSetActivePaneID_UpdatesStyling(t *testing.T) {
 	// Now change active pane
 	mockBorderBox1.EXPECT().RemoveCssClass("pane-active").Once()
 	mockBorderBox2.EXPECT().AddCssClass("pane-active").Once()
+	activatedPane := entity.PaneID("")
+	wv.SetOnActivePaneChanged(func(paneID entity.PaneID) {
+		activatedPane = paneID
+	})
 
 	// Act
 	err = wv.SetActivePaneID(pane2.ID)
@@ -422,6 +426,7 @@ func TestSetActivePaneID_UpdatesStyling(t *testing.T) {
 	// Assert
 	require.NoError(t, err)
 	assert.Equal(t, pane2.ID, wv.GetActivePaneID())
+	assert.Equal(t, pane2.ID, activatedPane)
 }
 
 func TestSetActivePaneID_InvalidID_ReturnsError(t *testing.T) {
@@ -436,4 +441,34 @@ func TestSetActivePaneID_InvalidID_ReturnsError(t *testing.T) {
 
 	// Assert
 	assert.ErrorIs(t, err, component.ErrPaneNotFound)
+}
+
+func TestSetWebViewWidget_InvokesAttachedCallback(t *testing.T) {
+	mockFactory := mocks.NewMockWidgetFactory(t)
+	ctx, mockBox := setupWorkspaceViewBase(t, mockFactory)
+
+	wv := component.NewWorkspaceView(ctx, mockFactory)
+	mockOverlay, _ := setupWorkspacePaneViewMocks(t, mockFactory)
+	pv := component.NewPaneView(ctx, mockFactory, entity.PaneID("pane-1"), nil)
+	mockBox.EXPECT().AddCssClass("single-pane").Once()
+	wv.RegisterPaneView(entity.PaneID("pane-1"), pv)
+
+	attachedPane := entity.PaneID("")
+	wv.SetOnWebViewAttached(func(paneID entity.PaneID) {
+		attachedPane = paneID
+	})
+
+	mockWebViewWidget := mocks.NewMockWidget(t)
+	mockOverlay.EXPECT().GetAllocatedWidth().Return(0).Twice()
+	mockOverlay.EXPECT().GetAllocatedHeight().Return(0).Twice()
+	mockWebViewWidget.EXPECT().GetParent().Return(nil).Once()
+	mockWebViewWidget.EXPECT().IsVisible().Return(false).Once()
+	mockWebViewWidget.EXPECT().GetAllocatedWidth().Return(0).Twice()
+	mockWebViewWidget.EXPECT().GetAllocatedHeight().Return(0).Twice()
+	mockOverlay.EXPECT().SetChild(mockWebViewWidget).Once()
+
+	err := wv.SetWebViewWidget(entity.PaneID("pane-1"), mockWebViewWidget)
+
+	require.NoError(t, err)
+	assert.Equal(t, entity.PaneID("pane-1"), attachedPane)
 }

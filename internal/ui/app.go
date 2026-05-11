@@ -3686,6 +3686,18 @@ func (a *App) createWorkspaceViewWithoutAttach(ctx context.Context, tab *entity.
 		return
 	}
 	a.installFloatingOverlayPositioning(tab.ID, wsView.WorkspaceOverlayWidget())
+	if a.contentCoord != nil {
+		syncCtx := ctx
+		if a.deps != nil && a.deps.Ctx != nil {
+			syncCtx = a.deps.Ctx
+		}
+		wsView.SetOnWebViewAttached(func(paneID entity.PaneID) {
+			a.contentCoord.SyncWebViewViewport(syncCtx, paneID, "workspace-widget-attached")
+		})
+		wsView.SetOnActivePaneChanged(func(paneID entity.PaneID) {
+			a.contentCoord.SyncWebViewViewport(syncCtx, paneID, "workspace-pane-activated")
+		})
+	}
 
 	// Set the workspace
 	if err := wsView.SetWorkspace(ctx, tab.Workspace); err != nil {
@@ -3807,11 +3819,8 @@ func (a *App) attachPopupToTab(ctx context.Context, tabID entity.TabID, pane *en
 		// Wrap and attach widget
 		widget := a.contentCoord.WrapWidget(ctx, wv)
 		if widget != nil {
-			paneView := wsView.GetPaneView(pane.ID)
-			if paneView != nil {
-				paneView.SetWebViewWidget(widget)
-			} else {
-				log.Warn().Str("pane_id", string(pane.ID)).Msg("pane view not found for popup")
+			if err := wsView.SetWebViewWidget(pane.ID, widget); err != nil {
+				log.Warn().Err(err).Str("pane_id", string(pane.ID)).Msg("pane view not found for popup")
 			}
 		}
 	}
@@ -4393,6 +4402,13 @@ func (a *App) resizeFloatingWidget(session *floatingWorkspaceSession) {
 	session.widget.SetSizeRequest(width, height)
 	session.appliedWidth = width
 	session.appliedHeight = height
+	if a.contentCoord != nil {
+		syncCtx := context.Background()
+		if a.deps != nil && a.deps.Ctx != nil {
+			syncCtx = a.deps.Ctx
+		}
+		a.contentCoord.SyncWebViewViewport(syncCtx, session.paneID, "floating-resize")
+	}
 }
 
 func (a *App) handleFloatingViewportTick(session *floatingWorkspaceSession) bool {

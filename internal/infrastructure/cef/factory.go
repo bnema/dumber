@@ -113,6 +113,7 @@ func (f *WebViewFactory) newWebView(ctx context.Context) (*WebView, error) {
 		id:                  id,
 		ctx:                 ctx,
 		engine:              f.engine,
+		factory:             f,
 		viewBridge:          viewBridge,
 		audioOutputFactory:  f.audioOutputFactory,
 		windowlessFrameRate: f.windowlessFrameRate,
@@ -131,6 +132,7 @@ func (f *WebViewFactory) newWebView(ctx context.Context) (*WebView, error) {
 			logging.FromContext(ctx).Warn().Err(err).Uint64("webview_id", uint64(id)).Msg("cef2gtk: failed to enable profiling")
 		}
 	}
+	wv.installViewportSyncHooks()
 	wv.startRenderStallWatchdog()
 	return wv, nil
 }

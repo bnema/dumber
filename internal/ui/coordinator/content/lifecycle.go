@@ -137,6 +137,7 @@ func (c *Coordinator) AttachToWorkspace(ctx context.Context, ws *entity.Workspac
 
 		if err := wsView.SetWebViewWidget(pane.ID, widget); err != nil {
 			log.Warn().Err(err).Str("pane_id", string(pane.ID)).Msg("failed to attach webview widget")
+			continue
 		}
 		logging.Trace().Mark("webview_attached")
 	}
@@ -228,4 +229,22 @@ func (c *Coordinator) RegisterPopupWebView(paneID entity.PaneID, wv port.WebView
 	if wv != nil && paneID != "" {
 		c.setWebViewLocked(paneID, wv)
 	}
+}
+
+// SyncWebViewViewport requests an explicit viewport resync when the engine
+// supports it. This is useful after widget attachment, reparenting, visibility
+// changes, or layout promotion paths that may not emit a size change.
+func (c *Coordinator) SyncWebViewViewport(ctx context.Context, paneID entity.PaneID, reason string) {
+	if c == nil || paneID == "" {
+		return
+	}
+	wv := c.getWebViewLocked(paneID)
+	if wv == nil {
+		return
+	}
+	syncer, ok := wv.(port.ViewportSyncCapable)
+	if !ok {
+		return
+	}
+	syncer.SyncViewport(ctx, reason)
 }
