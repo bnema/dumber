@@ -1835,6 +1835,25 @@ func (f *fakeRecordingWebView) IsPlayingAudio() bool                      { retu
 func (f *fakeRecordingWebView) IsDestroyed() bool                         { return false }
 func (f *fakeRecordingWebView) Destroy()                                  {}
 
+func TestApp_AttachPopupToTabSkipsRegistrationWhenPaneViewMissing(t *testing.T) {
+	ctx := context.Background()
+	contentCoord := contentcoord.NewCoordinator(ctx, nil, nil, nil, nil, nil, nil, nil)
+	tabID := entity.TabID("tab-1")
+	pane := entity.NewPane(entity.PaneID("missing-pane"))
+	app := &App{
+		contentCoord: contentCoord,
+		workspaceViews: map[entity.TabID]*component.WorkspaceView{
+			tabID: &component.WorkspaceView{},
+		},
+	}
+
+	app.attachPopupToTab(ctx, tabID, pane, &fakeRecordingWebView{id: 1})
+
+	if got := contentCoord.GetWebView(pane.ID); got != nil {
+		t.Fatalf("popup webview was registered for missing pane view: %v", got)
+	}
+}
+
 type fakeZoomRepo struct{}
 
 func (f *fakeZoomRepo) Get(context.Context, string) (*entity.ZoomLevel, error) { return nil, nil }

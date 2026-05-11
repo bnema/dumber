@@ -256,6 +256,13 @@ func (wv *WorkspaceView) setActivePaneIDInternal(paneID entity.PaneID) error {
 		Str("to_pane", string(paneID)).
 		Msg("active pane changing")
 
+	// Validate the target pane before mutating UI state. Invalid/stale IDs
+	// should leave the current active pane styling and overlays untouched.
+	newPV, ok := wv.paneViews[paneID]
+	if !ok {
+		return ErrPaneNotFound
+	}
+
 	// Destroy find bar if active pane is changing
 	if currentActiveID != paneID && wv.findBar != nil {
 		wv.hideFindBarInternal()
@@ -271,12 +278,6 @@ func (wv *WorkspaceView) setActivePaneIDInternal(paneID entity.PaneID) error {
 		if oldPV, ok := wv.paneViews[currentActiveID]; ok {
 			oldPV.SetActive(false)
 		}
-	}
-
-	// Activate new pane
-	newPV, ok := wv.paneViews[paneID]
-	if !ok {
-		return ErrPaneNotFound
 	}
 
 	newPV.SetActive(true)

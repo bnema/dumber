@@ -3810,6 +3810,14 @@ func (a *App) attachPopupToTab(ctx context.Context, tabID entity.TabID, pane *en
 		log.Warn().Str("tab_id", string(tabID)).Msg("workspace view not found for popup tab")
 		return
 	}
+	if pane == nil {
+		log.Warn().Str("tab_id", string(tabID)).Msg("popup pane is nil")
+		return
+	}
+	if wsView.GetPaneView(pane.ID) == nil {
+		log.Warn().Str("pane_id", string(pane.ID)).Msg("pane view not found for popup")
+		return
+	}
 
 	// Register WebView with content coordinator
 	if a.contentCoord != nil {
