@@ -1913,11 +1913,15 @@ func TestApp_AttachPopupToTabReleasesRegistrationWhenWrapFails(t *testing.T) {
 			tabID: wsView,
 		},
 	}
+	popupWV := &fakeRecordingWebView{id: 1}
 
-	app.attachPopupToTab(ctx, tabID, pane, &fakeRecordingWebView{id: 1})
+	app.attachPopupToTab(ctx, tabID, pane, popupWV)
 
 	if got := contentCoord.GetWebView(pane.ID); got != nil {
 		t.Fatalf("popup webview registration remained after wrap failure: %v", got)
+	}
+	if popupWV.destroyCalls != 1 {
+		t.Fatalf("popup webview destroy calls = %d, want 1", popupWV.destroyCalls)
 	}
 }
 

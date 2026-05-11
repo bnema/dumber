@@ -3687,7 +3687,7 @@ func (a *App) createWorkspaceViewWithoutAttach(ctx context.Context, tab *entity.
 	}
 	a.installFloatingOverlayPositioning(tab.ID, wsView.WorkspaceOverlayWidget())
 	if a.contentCoord != nil {
-		syncCtx := ctx
+		syncCtx := context.Background()
 		if a.deps != nil && a.deps.Ctx != nil {
 			syncCtx = a.deps.Ctx
 		}

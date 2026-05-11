@@ -292,6 +292,60 @@ func TestSetWorkspace_StaleActivePaneID_DoesNotFailInitialization(t *testing.T) 
 	assert.True(t, wv.GetPaneView(pane.ID).IsActive())
 }
 
+func TestSetWorkspace_StaleActivePaneID_UsesFirstPaneInTree(t *testing.T) {
+	// Arrange
+	mockFactory := mocks.NewMockWidgetFactory(t)
+	ctx, mockBox := setupWorkspaceViewBase(t, mockFactory)
+	wv := component.NewWorkspaceView(ctx, mockFactory)
+
+	pane1 := entity.NewPane(entity.PaneID("pane-1"))
+	pane2 := entity.NewPane(entity.PaneID("pane-2"))
+	node1 := &entity.PaneNode{ID: "node-1", Pane: pane1}
+	node2 := &entity.PaneNode{ID: "node-2", Pane: pane2}
+
+	mockPaned := mocks.NewMockPanedWidget(t)
+	mockOverlay1, mockBorderBox1 := setupWorkspacePaneViewMocks(t, mockFactory)
+	mockStackBox1 := setupStackedLeafMocks(t, mockFactory, mockOverlay1)
+	mockOverlay2, _ := setupWorkspacePaneViewMocks(t, mockFactory)
+	mockStackBox2 := setupStackedLeafMocks(t, mockFactory, mockOverlay2)
+
+	mockFactory.EXPECT().NewPaned(layout.OrientationHorizontal).Return(mockPaned).Once()
+	mockPaned.EXPECT().SetResizeStartChild(true).Once()
+	mockPaned.EXPECT().SetResizeEndChild(true).Once()
+	mockPaned.EXPECT().SetVisible(true).Twice()
+	mockStackBox1.EXPECT().SetVisible(true).Once()
+	mockStackBox2.EXPECT().SetVisible(true).Once()
+	mockPaned.EXPECT().SetStartChild(mockStackBox1).Once()
+	mockPaned.EXPECT().SetEndChild(mockStackBox2).Once()
+	mockPaned.EXPECT().ConnectNotifyPosition(mock.Anything).Return(uint(0)).Once()
+	mockPaned.EXPECT().GetAllocatedWidth().Return(0).Once()
+	mockPaned.EXPECT().ConnectMap(mock.Anything).Return(uint(0)).Once()
+	mockPaned.EXPECT().AddTickCallback(mock.Anything).Return(uint(0)).Once()
+	mockBox.EXPECT().Append(mockPaned).Once()
+	mockBox.EXPECT().RemoveCssClass("single-pane").Once()
+	mockBorderBox1.EXPECT().AddCssClass("pane-active").Once()
+
+	ws := &entity.Workspace{
+		ID: "ws-1",
+		Root: &entity.PaneNode{
+			ID:         "split",
+			SplitDir:   entity.SplitHorizontal,
+			SplitRatio: 0.5,
+			Children:   []*entity.PaneNode{node1, node2},
+		},
+		ActivePaneID: entity.PaneID("stale-pane"),
+	}
+
+	// Act
+	err := wv.SetWorkspace(ctx, ws)
+
+	// Assert
+	require.NoError(t, err)
+	assert.Equal(t, pane1.ID, wv.GetActivePaneID())
+	assert.True(t, wv.GetPaneView(pane1.ID).IsActive())
+	assert.False(t, wv.GetPaneView(pane2.ID).IsActive())
+}
+
 func TestWorkspaceView_HoverFocusLockState(t *testing.T) {
 	// Intentional zero-value check: hoverFocusLock is an atomic.Bool and should
 	// be safe with its language-level zero value before constructor wiring.

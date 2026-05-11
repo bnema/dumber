@@ -260,10 +260,33 @@ func (wv *WorkspaceView) restoreActivePaneInternal() {
 		wv.workspace.ActivePaneID = ""
 	}
 
-	for fallbackID := range wv.paneViews {
+	if fallbackID, ok := wv.firstPaneIDInTreeInternal(); ok {
 		_ = wv.setActivePaneIDInternal(fallbackID)
-		return
 	}
+}
+
+func (wv *WorkspaceView) firstPaneIDInTreeInternal() (entity.PaneID, bool) {
+	if wv.workspace == nil {
+		return "", false
+	}
+	return wv.firstPaneIDInNodeInternal(wv.workspace.Root)
+}
+
+func (wv *WorkspaceView) firstPaneIDInNodeInternal(node *entity.PaneNode) (entity.PaneID, bool) {
+	if node == nil {
+		return "", false
+	}
+	if node.Pane != nil {
+		paneID := node.Pane.ID
+		_, ok := wv.paneViews[paneID]
+		return paneID, ok
+	}
+	for _, child := range node.Children {
+		if paneID, ok := wv.firstPaneIDInNodeInternal(child); ok {
+			return paneID, true
+		}
+	}
+	return "", false
 }
 
 // setActivePaneIDInternal updates active pane without locking.
