@@ -90,13 +90,17 @@ type WebView struct {
 	previousProfileSnapshot   cef2gtk.ProfileSnapshot
 	latestProfileSnapshotAt   time.Time
 
-	removeSizeObserver  func()
-	viewportSyncMu      sync.Mutex
-	viewportSyncPending bool
-	viewportSyncReason  string
-	viewportMapFunc     func(gtk.Widget)
-	viewportShowFunc    func(gtk.Widget)
-	viewportRealizeFunc func(gtk.Widget)
+	removeSizeObserver      func()
+	viewportSyncMu          sync.Mutex
+	viewportSyncPending     bool
+	viewportSyncReason      string
+	viewportMapFunc         func(gtk.Widget)
+	viewportShowFunc        func(gtk.Widget)
+	viewportRealizeFunc     func(gtk.Widget)
+	viewportMapSignalID     uint
+	viewportShowSignalID    uint
+	viewportRealizeSignalID uint
+	viewportResizePulseSeq  atomic.Uint64
 
 	// beginFrameTick drives CEF external BeginFrame requests while the GTK
 	// widget is visible. Access is guarded by mu.
@@ -1084,9 +1088,7 @@ func (wv *WebView) destroyViewBridgeOnGTKThread() {
 		wv.removeSizeObserver()
 		wv.removeSizeObserver = nil
 	}
-	wv.viewportMapFunc = nil
-	wv.viewportShowFunc = nil
-	wv.viewportRealizeFunc = nil
+	wv.disconnectViewportSyncHooksOnGTKThread()
 	_ = wv.viewBridge.DetachInput()
 	_ = wv.viewBridge.Destroy()
 	wv.viewBridge = nil

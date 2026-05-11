@@ -1,6 +1,7 @@
 package cef
 
 import (
+	"context"
 	"testing"
 
 	purecef "github.com/bnema/purego-cef/cef"
@@ -8,6 +9,7 @@ import (
 )
 
 type viewportSyncOrderHost struct {
+	purecef.BrowserHost
 	calls []string
 }
 
@@ -44,4 +46,42 @@ func TestNotifyBrowserViewportSync_HiddenSkipsWasHidden(t *testing.T) {
 	notifyBrowserViewportSync(host, false)
 
 	require.Equal(t, []string{"NotifyScreenInfoChanged", "WasResized", "Invalidate"}, host.calls)
+}
+
+func TestScheduleResizeRepaintPulse_CoalescesToLatestSequence(t *testing.T) {
+	oldNewTask := cefNewTask
+	oldPostDelayedTask := cefPostDelayedTask
+	defer func() {
+		cefNewTask = oldNewTask
+		cefPostDelayedTask = oldPostDelayedTask
+	}()
+
+	cefNewTask = func(task purecef.Task) purecef.Task { return task }
+
+	var scheduled []purecef.Task
+	var delays []int64
+	cefPostDelayedTask = func(threadID purecef.ThreadID, task purecef.Task, delayMs int64) int32 {
+		require.Equal(t, purecef.ThreadIDTidUi, threadID)
+		require.NotNil(t, task)
+		scheduled = append(scheduled, task)
+		delays = append(delays, delayMs)
+		return 1
+	}
+
+	host := &viewportSyncOrderHost{}
+	wv := &WebView{ctx: context.Background(), host: host}
+
+	wv.scheduleResizeRepaintPulse(context.Background(), "first")
+	wv.scheduleResizeRepaintPulse(context.Background(), "second")
+
+	require.Equal(t, []int64{16, 48, 16, 48}, delays)
+	require.Len(t, scheduled, 4)
+
+	scheduled[0].Execute()
+	scheduled[1].Execute()
+	require.Empty(t, host.calls)
+
+	scheduled[2].Execute()
+	scheduled[3].Execute()
+	require.Equal(t, []string{"Invalidate", "Invalidate"}, host.calls)
 }

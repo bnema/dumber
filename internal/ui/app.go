@@ -3821,6 +3821,7 @@ func (a *App) attachPopupToTab(ctx context.Context, tabID entity.TabID, pane *en
 		if widget != nil {
 			if err := wsView.SetWebViewWidget(pane.ID, widget); err != nil {
 				log.Warn().Err(err).Str("pane_id", string(pane.ID)).Msg("pane view not found for popup")
+				return
 			}
 		}
 	}

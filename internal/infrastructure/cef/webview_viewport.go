@@ -4,8 +4,11 @@ import (
 	"context"
 	"strings"
 
-	"github.com/bnema/dumber/internal/logging"
+	purecef "github.com/bnema/purego-cef/cef"
+	"github.com/bnema/puregotk/v4/gobject"
 	"github.com/bnema/puregotk/v4/gtk"
+
+	"github.com/bnema/dumber/internal/logging"
 )
 
 type viewportSyncBrowserHost interface {
@@ -66,13 +69,23 @@ func (wv *WebView) syncViewportOnGTK(ctx context.Context) {
 	if wv == nil {
 		return
 	}
-	reason := wv.takeViewportSyncReason()
+	wv.syncViewportNowOnGTK(ctx, wv.takeViewportSyncReason())
+}
+
+func (wv *WebView) syncViewportNowOnGTK(ctx context.Context, reason string) bool {
+	if wv == nil {
+		return false
+	}
+	reason = strings.TrimSpace(reason)
+	if reason == "" {
+		reason = "manual"
+	}
 	if wv.destroyed.Load() || wv.viewBridge == nil {
-		return
+		return false
 	}
 
 	if wv.tryStartPendingBrowserCreateOnGTKThread(ctx, reason) {
-		return
+		return false
 	}
 
 	wv.mu.RLock()
@@ -83,7 +96,7 @@ func (wv *WebView) syncViewportOnGTK(ctx context.Context) {
 			Uint64("webview_id", uint64(wv.id)).
 			Str("reason", reason).
 			Msg("cef: viewport sync skipped; browser host not ready")
-		return
+		return false
 	}
 
 	widget := wv.viewBridge.Widget()
@@ -94,6 +107,46 @@ func (wv *WebView) syncViewportOnGTK(ctx context.Context) {
 		Bool("visible", visible).
 		Str("reason", reason).
 		Msg("cef: viewport sync requested")
+	return true
+}
+
+func (wv *WebView) syncResizeViewportOnGTK(ctx context.Context, reason string) bool {
+	if !wv.syncViewportNowOnGTK(ctx, reason) {
+		return false
+	}
+	wv.scheduleResizeRepaintPulse(ctx, reason)
+	return true
+}
+
+func (wv *WebView) scheduleResizeRepaintPulse(ctx context.Context, reason string) {
+	if wv == nil || wv.destroyed.Load() {
+		return
+	}
+	seq := wv.viewportResizePulseSeq.Add(1)
+	for _, delayMs := range [...]int64{16, 48} {
+		delayMs := delayMs
+		task := cefNewTask(cefTaskFunc(func() {
+			if wv == nil || wv.destroyed.Load() || wv.viewportResizePulseSeq.Load() != seq {
+				return
+			}
+			wv.mu.RLock()
+			host := wv.host
+			wv.mu.RUnlock()
+			if host == nil {
+				return
+			}
+			host.Invalidate(purecef.PaintElementTypePetView)
+			logging.FromContext(ctx).Debug().
+				Uint64("webview_id", uint64(wv.id)).
+				Int64("delay_ms", delayMs).
+				Str("reason", reason).
+				Msg("cef: delayed resize repaint pulse")
+		}))
+		if task == nil {
+			continue
+		}
+		cefPostDelayedTask(purecef.ThreadIDTidUi, task, delayMs)
+	}
 }
 
 func (wv *WebView) tryStartPendingBrowserCreateOnGTKThread(ctx context.Context, reason string) bool {
@@ -179,9 +232,37 @@ func (wv *WebView) installViewportSyncHooksOnGTKThread() {
 		wv.SyncViewport(wv.ctx, "gtk-realize")
 	}
 
-	widget.ConnectMap(&wv.viewportMapFunc)
-	widget.ConnectShow(&wv.viewportShowFunc)
-	widget.ConnectRealize(&wv.viewportRealizeFunc)
+	wv.viewportMapSignalID = widget.ConnectMap(&wv.viewportMapFunc)
+	wv.viewportShowSignalID = widget.ConnectShow(&wv.viewportShowFunc)
+	wv.viewportRealizeSignalID = widget.ConnectRealize(&wv.viewportRealizeFunc)
+}
+
+func (wv *WebView) disconnectViewportSyncHooksOnGTKThread() {
+	if wv == nil || wv.viewBridge == nil {
+		return
+	}
+	widget := wv.viewBridge.Widget()
+	if widget != nil {
+		widgetPtr := widget.GoPointer()
+		if widgetPtr != 0 {
+			obj := gobject.ObjectNewFromInternalPtr(widgetPtr)
+			if wv.viewportMapSignalID != 0 {
+				gobject.SignalHandlerDisconnect(obj, wv.viewportMapSignalID)
+				wv.viewportMapSignalID = 0
+			}
+			if wv.viewportShowSignalID != 0 {
+				gobject.SignalHandlerDisconnect(obj, wv.viewportShowSignalID)
+				wv.viewportShowSignalID = 0
+			}
+			if wv.viewportRealizeSignalID != 0 {
+				gobject.SignalHandlerDisconnect(obj, wv.viewportRealizeSignalID)
+				wv.viewportRealizeSignalID = 0
+			}
+		}
+	}
+	wv.viewportMapFunc = nil
+	wv.viewportShowFunc = nil
+	wv.viewportRealizeFunc = nil
 }
 
 func notifyBrowserViewportSync(host viewportSyncBrowserHost, visible bool) {
