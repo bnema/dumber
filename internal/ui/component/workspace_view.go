@@ -252,7 +252,7 @@ func (wv *WorkspaceView) restoreActivePaneInternal() {
 
 	paneID := wv.workspace.ActivePaneID
 	if paneID != "" {
-		if _, ok := wv.paneViews[paneID]; ok {
+		if pv, ok := wv.paneViews[paneID]; ok && pv != nil {
 			_ = wv.setActivePaneIDInternal(paneID)
 			return
 		}
@@ -278,8 +278,8 @@ func (wv *WorkspaceView) firstPaneIDInNodeInternal(node *entity.PaneNode) (entit
 	}
 	if node.Pane != nil {
 		paneID := node.Pane.ID
-		_, ok := wv.paneViews[paneID]
-		return paneID, ok
+		pv, ok := wv.paneViews[paneID]
+		return paneID, ok && pv != nil
 	}
 	for _, child := range node.Children {
 		if paneID, ok := wv.firstPaneIDInNodeInternal(child); ok {
@@ -302,7 +302,7 @@ func (wv *WorkspaceView) setActivePaneIDInternal(paneID entity.PaneID) error {
 	// Validate the target pane before mutating UI state. Invalid/stale IDs
 	// should leave the current active pane styling and overlays untouched.
 	newPV, ok := wv.paneViews[paneID]
-	if !ok {
+	if !ok || newPV == nil {
 		return ErrPaneNotFound
 	}
 
@@ -318,7 +318,7 @@ func (wv *WorkspaceView) setActivePaneIDInternal(paneID entity.PaneID) error {
 
 	// Deactivate current active pane
 	if currentActiveID != "" {
-		if oldPV, ok := wv.paneViews[currentActiveID]; ok {
+		if oldPV, ok := wv.paneViews[currentActiveID]; ok && oldPV != nil {
 			oldPV.SetActive(false)
 		}
 	}
@@ -481,7 +481,7 @@ func (wv *WorkspaceView) SetWebViewWidget(paneID entity.PaneID, widget layout.Wi
 	callback := wv.onWebViewAttached
 	wv.mu.RUnlock()
 
-	if !ok {
+	if !ok || pv == nil {
 		return ErrPaneNotFound
 	}
 

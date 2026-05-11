@@ -530,6 +530,38 @@ func TestSetActivePaneID_InvalidID_ReturnsError(t *testing.T) {
 	assert.ErrorIs(t, err, component.ErrPaneNotFound)
 }
 
+func TestSetActivePaneID_NilRegisteredPaneView_ReturnsError(t *testing.T) {
+	// Arrange
+	mockFactory := mocks.NewMockWidgetFactory(t)
+	ctx, mockBox := setupWorkspaceViewBase(t, mockFactory)
+
+	wv := component.NewWorkspaceView(ctx, mockFactory)
+	mockBox.EXPECT().AddCssClass("single-pane").Once()
+	wv.RegisterPaneView(entity.PaneID("pane-1"), nil)
+
+	// Act
+	err := wv.SetActivePaneID(entity.PaneID("pane-1"))
+
+	// Assert
+	require.ErrorIs(t, err, component.ErrPaneNotFound)
+}
+
+func TestSetWebViewWidget_NilRegisteredPaneView_ReturnsError(t *testing.T) {
+	// Arrange
+	mockFactory := mocks.NewMockWidgetFactory(t)
+	ctx, mockBox := setupWorkspaceViewBase(t, mockFactory)
+
+	wv := component.NewWorkspaceView(ctx, mockFactory)
+	mockBox.EXPECT().AddCssClass("single-pane").Once()
+	wv.RegisterPaneView(entity.PaneID("pane-1"), nil)
+
+	// Act
+	err := wv.SetWebViewWidget(entity.PaneID("pane-1"), mocks.NewMockWidget(t))
+
+	// Assert
+	require.ErrorIs(t, err, component.ErrPaneNotFound)
+}
+
 func TestSetActivePaneID_InvalidID_PreservesCurrentActivePane(t *testing.T) {
 	// Arrange
 	mockFactory := mocks.NewMockWidgetFactory(t)
