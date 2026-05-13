@@ -9,6 +9,7 @@ import (
 	"github.com/bnema/dumber/internal/domain/entity"
 	"github.com/bnema/dumber/internal/logging"
 	"github.com/bnema/dumber/internal/ui/coordinator/content"
+	"github.com/bnema/dumber/internal/ui/layout"
 	"github.com/bnema/dumber/internal/ui/window"
 	"github.com/bnema/puregotk/v4/gtk"
 )
@@ -35,6 +36,19 @@ func destroyFailedNativePopupSetup(popupShell nativePopupDestroyer, wv port.WebV
 	}
 }
 
+func prepareNativePopupContentWidget(widget layout.Widget) (*gtk.Widget, error) {
+	if widget == nil {
+		return nil, fmt.Errorf("failed to wrap native popup webview widget")
+	}
+	gtkWidget := widget.GtkWidget()
+	if gtkWidget == nil {
+		return nil, fmt.Errorf("failed to wrap native popup webview widget")
+	}
+	widget.SetHexpand(true)
+	widget.SetVexpand(true)
+	return gtkWidget, nil
+}
+
 func (a *App) ensureNativePopupWindows() {
 	if a.nativePopupWindows == nil {
 		a.nativePopupWindows = make(map[port.WebViewID]*nativePopupWindow)
@@ -58,11 +72,12 @@ func (a *App) openNativePopupWindow(ctx context.Context, input content.NativePop
 		return fmt.Errorf("content coordinator not available for native popup")
 	}
 	widget := a.contentCoord.WrapWidget(ctx, input.PopupWebView)
-	if widget == nil || widget.GtkWidget() == nil {
+	gtkWidget, err := prepareNativePopupContentWidget(widget)
+	if err != nil {
 		destroyFailedNativePopupSetup(popupShell, input.PopupWebView)
-		return fmt.Errorf("failed to wrap native popup webview widget")
+		return err
 	}
-	popupShell.SetContent(widget.GtkWidget())
+	popupShell.SetContent(gtkWidget)
 
 	parentWindowID := ""
 	if bw := a.browserWindowForAnyPane(input.ParentPaneID); bw != nil {
