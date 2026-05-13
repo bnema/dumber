@@ -562,6 +562,56 @@ func TestHandlePopupCreate_ReusesNamedPopup(t *testing.T) {
 	assert.Equal(t, "https://example.com/second", currentURI)
 }
 
+func TestHandlePopupCreate_FallsBackToNewPaneWhenNamedReuseBecomesUnavailable(t *testing.T) {
+	ctx := context.Background()
+	parentPaneID := entity.PaneID("parent-pane")
+	stalePaneID := entity.PaneID("stale-pane")
+	parentWV := mocks.NewMockWebView(t)
+	parentWV.EXPECT().ID().Return(port.WebViewID(101)).Once()
+
+	staleWV := mocks.NewMockWebView(t)
+	staleWV.EXPECT().IsDestroyed().Return(false).Once()
+	staleWV.EXPECT().ID().Return(port.WebViewID(202)).Once()
+	staleWV.EXPECT().IsDestroyed().Return(true).Once()
+
+	newWV := &popupNavigationWebViewStub{MockWebView: mocks.NewMockWebView(t)}
+	newWV.EXPECT().ID().Return(port.WebViewID(303)).Maybe()
+	newWV.EXPECT().Generation().Return(uint64(1)).Maybe()
+	newWV.EXPECT().SetCallbacks(mock.Anything).Maybe()
+
+	factory := mocks.NewMockWebViewFactory(t)
+	factory.EXPECT().CreateRelated(mock.Anything, port.WebViewID(101)).Return(newWV, nil).Once()
+
+	insertCalls := 0
+	c := &Coordinator{
+		webViews: map[entity.PaneID]port.WebView{
+			stalePaneID: staleWV,
+		},
+		popups: newPopupManager(),
+	}
+	c.SetPopupConfig(factory, nil, nil)
+	c.SetPopupWindowIDResolver(func(entity.PaneID) (string, bool) { return "window-1", true })
+	c.popups.namedContexts.Register("window-1", "shared-pane", stalePaneID, port.WebViewID(202))
+	c.SetOnInsertPopup(func(context.Context, InsertPopupInput) error {
+		insertCalls++
+		return nil
+	})
+
+	created := c.handlePopupCreate(ctx, parentPaneID, parentWV, port.PopupRequest{
+		TargetURI:     "https://example.com/replacement",
+		FrameName:     "shared-pane",
+		IsUserGesture: true,
+	})
+
+	require.Same(t, newWV, created)
+	assert.Equal(t, 1, insertCalls)
+	decision, hasDecision := newWV.BrowsingContextHostDecision()
+	require.True(t, hasDecision)
+	assert.Equal(t, dto.HostDecisionCreatePane, decision.Kind)
+	assert.Empty(t, decision.ReuseContextName)
+	assert.Equal(t, "shared-pane", decision.BrowsingContextName)
+}
+
 // ---------------------------------------------------------------------------
 // trackOAuthPopup / capturePopupOAuthState
 // ---------------------------------------------------------------------------

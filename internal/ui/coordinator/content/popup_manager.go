@@ -509,12 +509,14 @@ func (pm *popupManager) handlePopupCreate(
 			return nil
 		}
 		reused, ok := pm.reuseNamedPopup(ctx, hooks, parentPaneID, req.FrameName, req.TargetURI)
-		if !ok {
-			log.Warn().Str("frame_name", req.FrameName).Msg("named browsing context reuse requested but target was unavailable")
-			return nil
+		if ok {
+			pm.setBrowsingContextDecision(reused, decision)
+			return reused
 		}
-		pm.setBrowsingContextDecision(reused, decision)
-		return reused
+		log.Warn().Str("frame_name", req.FrameName).Msg("named browsing context reuse requested but target was unavailable")
+		decision.Kind = dto.HostDecisionCreatePane
+		decision.ReuseContextName = ""
+		decision.Reason = "named browsing context unavailable; creating replacement pane"
 	case dto.HostDecisionCreateNativeWin:
 		return pm.openNativePopup(ctx, parentPaneID, parentID, parentURIAtOpen, req, decision)
 	case dto.HostDecisionCreatePane:

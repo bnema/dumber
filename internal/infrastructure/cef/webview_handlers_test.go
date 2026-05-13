@@ -98,6 +98,39 @@ type stubStoppableTimer struct{}
 
 func (stubStoppableTimer) Stop() bool { return true }
 
+type spyStoppableTimer struct{ stopped bool }
+
+func (t *spyStoppableTimer) Stop() bool {
+	t.stopped = true
+	return true
+}
+
+func TestPreparePaneHostedBrowsingContext_ClearsNativePopupFallbackState(t *testing.T) {
+	parent := &WebView{ctx: context.Background()}
+	timer := &spyStoppableTimer{}
+	wv := &WebView{
+		nativePopupCandidate:       true,
+		nativePopupParent:          parent,
+		nativePopupID:              77,
+		nativePopupFallbackStarted: true,
+		nativePopupFallbackTimer:   timer,
+		pendingCreate:              &pendingBrowserCreate{},
+		popupOpenerBridgeParent:    parent,
+		popupOpenerBridgeParentURI: "https://example.com/login",
+	}
+
+	wv.PreparePaneHostedBrowsingContext()
+
+	require.False(t, wv.nativePopupCandidate)
+	require.Nil(t, wv.nativePopupParent)
+	require.Zero(t, wv.nativePopupID)
+	require.False(t, wv.nativePopupFallbackStarted)
+	require.Nil(t, wv.nativePopupFallbackTimer)
+	require.True(t, timer.stopped)
+	require.Nil(t, wv.popupOpenerBridgeParent)
+	require.Empty(t, wv.popupOpenerBridgeParentURI)
+}
+
 func TestStartNativePopupFallback_AllowsPopupShellAwaitingArm(t *testing.T) {
 	wv := &WebView{
 		nativePopupCandidate: true,

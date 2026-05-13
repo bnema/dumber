@@ -664,11 +664,21 @@ func (wv *WebView) discardNativePopupCandidate() {
 	if wv == nil {
 		return
 	}
+	var timer stoppableTimer
 	wv.mu.Lock()
+	timer = wv.nativePopupFallbackTimer
+	wv.nativePopupFallbackTimer = nil
 	wv.nativePopupCandidate = false
 	wv.nativePopupParent = nil
 	wv.nativePopupID = 0
+	wv.nativePopupFallbackStarted = false
+	wv.popupOpenerBridgeParent = nil
+	wv.popupOpenerBridgeParentURI = ""
+	wv.syncPopupOpenerBridgeExtraInfoLocked()
 	wv.mu.Unlock()
+	if timer != nil {
+		timer.Stop()
+	}
 }
 
 func (wv *WebView) PreparePaneHostedBrowsingContext() {
