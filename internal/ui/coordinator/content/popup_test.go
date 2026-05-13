@@ -10,6 +10,7 @@ import (
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 
+	"github.com/bnema/dumber/internal/application/dto"
 	"github.com/bnema/dumber/internal/application/port"
 	"github.com/bnema/dumber/internal/application/port/mocks"
 	"github.com/bnema/dumber/internal/domain/entity"
@@ -361,7 +362,7 @@ func TestHandleLinkMiddleClick_UsesRelatedWebView(t *testing.T) {
 	assert.Equal(t, 1, insertCalls)
 	decision, hasDecision := newWV.BrowsingContextHostDecision()
 	require.True(t, hasDecision)
-	assert.Equal(t, port.HostDecisionCreatePane, decision.Kind)
+	assert.Equal(t, dto.HostDecisionCreatePane, decision.Kind)
 }
 
 func TestHandlePopupCreate_OpensNativePopupForAuthIntent(t *testing.T) {
@@ -421,12 +422,19 @@ func TestHandlePopupCreate_NativePopupDoesNotForceOAuthObservationWhenDisabled(t
 	factory := mocks.NewMockWebViewFactory(t)
 	factory.EXPECT().CreateRelated(mock.Anything, port.WebViewID(101)).Return(popupWV, nil).Once()
 
+	insertCalls := 0
+	nativeCalls := 0
 	c := &Coordinator{
 		webViews: make(map[entity.PaneID]port.WebView),
 		popups:   newPopupManager(),
 	}
 	c.SetPopupConfig(factory, &entity.BrowsingContextConfig{OpenInNewPane: true, OAuthAutoClose: false}, nil)
+	c.SetOnInsertPopup(func(context.Context, InsertPopupInput) error {
+		insertCalls++
+		return nil
+	})
 	c.SetOnOpenNativePopup(func(_ context.Context, input NativePopupInput) error {
+		nativeCalls++
 		assert.False(t, input.ObserveOAuthAutoClose)
 		return nil
 	})
@@ -438,6 +446,8 @@ func TestHandlePopupCreate_NativePopupDoesNotForceOAuthObservationWhenDisabled(t
 	})
 
 	require.Equal(t, popupWV, created)
+	assert.Equal(t, 1, nativeCalls)
+	assert.Equal(t, 0, insertCalls)
 }
 
 func TestHandlePopupCreate_DoesNotReuseNamedPopupWhenNoJavaScriptAccess(t *testing.T) {
@@ -678,7 +688,7 @@ func TestSetPopupConfig_NilConfigAllowed(t *testing.T) {
 type popupNavigationWebViewStub struct {
 	*mocks.MockWebView
 	primed                     []string
-	browsingContextDecision    port.HostDecision
+	browsingContextDecision    dto.HostDecision
 	hasBrowsingContextDecision bool
 }
 
@@ -686,12 +696,12 @@ func (s *popupNavigationWebViewStub) PrimePopupNavigation(uri string) {
 	s.primed = append(s.primed, uri)
 }
 
-func (s *popupNavigationWebViewStub) SetBrowsingContextHostDecision(decision port.HostDecision) {
+func (s *popupNavigationWebViewStub) SetBrowsingContextHostDecision(decision dto.HostDecision) {
 	s.browsingContextDecision = decision
 	s.hasBrowsingContextDecision = true
 }
 
-func (s *popupNavigationWebViewStub) BrowsingContextHostDecision() (port.HostDecision, bool) {
+func (s *popupNavigationWebViewStub) BrowsingContextHostDecision() (dto.HostDecision, bool) {
 	return s.browsingContextDecision, s.hasBrowsingContextDecision
 }
 

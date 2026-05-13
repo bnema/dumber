@@ -3,7 +3,11 @@
 // remain independent of specific implementations (WebKit, GTK, etc.).
 package port
 
-import "context"
+import (
+	"context"
+
+	"github.com/bnema/dumber/internal/application/dto"
+)
 
 // WebViewID uniquely identifies a WebView instance.
 type WebViewID uint64
@@ -72,7 +76,7 @@ type PopupRequest struct {
 	SourceFrameID   string
 	SourceFrameURL  string
 
-	TargetDisposition WindowDisposition
+	TargetDisposition dto.WindowDisposition
 	WindowFeatures    string
 }
 

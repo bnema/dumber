@@ -18,6 +18,7 @@ import (
 	"github.com/bnema/puregotk/v4/glib"
 	"github.com/bnema/puregotk/v4/gtk"
 
+	"github.com/bnema/dumber/internal/application/dto"
 	"github.com/bnema/dumber/internal/application/port"
 	"github.com/bnema/dumber/internal/logging"
 )
@@ -120,7 +121,7 @@ type WebView struct {
 	// Callbacks and browsing-context state set by the UI layer.
 	mu                         sync.RWMutex
 	callbacks                  *port.WebViewCallbacks
-	browsingContextDecision    port.HostDecision
+	browsingContextDecision    dto.HostDecision
 	hasBrowsingContextDecision bool
 	nativePopupHostAbort       func()
 
@@ -677,7 +678,7 @@ func (wv *WebView) PreparePaneHostedBrowsingContext() {
 	wv.discardNativePopupCandidate()
 }
 
-func (wv *WebView) SetBrowsingContextHostDecision(decision port.HostDecision) {
+func (wv *WebView) SetBrowsingContextHostDecision(decision dto.HostDecision) {
 	if wv == nil {
 		return
 	}
@@ -687,9 +688,9 @@ func (wv *WebView) SetBrowsingContextHostDecision(decision port.HostDecision) {
 	wv.mu.Unlock()
 }
 
-func (wv *WebView) BrowsingContextHostDecision() (port.HostDecision, bool) {
+func (wv *WebView) BrowsingContextHostDecision() (dto.HostDecision, bool) {
 	if wv == nil {
-		return port.HostDecision{}, false
+		return dto.HostDecision{}, false
 	}
 	wv.mu.RLock()
 	defer wv.mu.RUnlock()

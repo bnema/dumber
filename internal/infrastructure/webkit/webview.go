@@ -10,6 +10,7 @@ import (
 	"sync/atomic"
 	"time"
 
+	"github.com/bnema/dumber/internal/application/dto"
 	"github.com/bnema/dumber/internal/application/port"
 	downloadutil "github.com/bnema/dumber/internal/domain/download"
 	"github.com/bnema/dumber/internal/domain/entity"
@@ -161,7 +162,7 @@ type WebView struct {
 	OnAudioStateChanged        func(playing bool)          // Called when audio playback starts/stops
 	OnLinkHover                func(uri string)            // Called when hovering over a link/image/media (empty string when leaving)
 	OnWebProcessTerminated     func(reason webkit.WebProcessTerminationReason, reasonLabel string, uri string)
-	browsingContextDecision    port.HostDecision
+	browsingContextDecision    dto.HostDecision
 	hasBrowsingContextDecision bool
 	nativePopupHostAbort       func()
 
@@ -521,14 +522,14 @@ func (wv *WebView) connectCloseSignal() {
 	wv.signalIDs = append(wv.signalIDs, uintptr(sigID))
 }
 
-func (wv *WebView) SetBrowsingContextHostDecision(decision port.HostDecision) {
+func (wv *WebView) SetBrowsingContextHostDecision(decision dto.HostDecision) {
 	wv.mu.Lock()
 	wv.browsingContextDecision = decision
 	wv.hasBrowsingContextDecision = true
 	wv.mu.Unlock()
 }
 
-func (wv *WebView) BrowsingContextHostDecision() (port.HostDecision, bool) {
+func (wv *WebView) BrowsingContextHostDecision() (dto.HostDecision, bool) {
 	wv.mu.RLock()
 	defer wv.mu.RUnlock()
 	return wv.browsingContextDecision, wv.hasBrowsingContextDecision
@@ -1927,7 +1928,7 @@ func (wv *WebView) DestroyWithPolicy(policy string) {
 	// 3. Clear async callback references and popup-hosting state
 	wv.mu.Lock()
 	wv.asyncCallbacks = nil
-	wv.browsingContextDecision = port.HostDecision{}
+	wv.browsingContextDecision = dto.HostDecision{}
 	wv.hasBrowsingContextDecision = false
 	wv.nativePopupHostAbort = nil
 	wv.mu.Unlock()
@@ -1997,7 +1998,7 @@ func (wv *WebView) ResetForPoolReuse() {
 	wv.isLoading = false
 	wv.asyncCallbacks = nil
 	wv.runJSErrorStats = make(map[string]runJSErrorStat)
-	wv.browsingContextDecision = port.HostDecision{}
+	wv.browsingContextDecision = dto.HostDecision{}
 	wv.hasBrowsingContextDecision = false
 	wv.nativePopupHostAbort = nil
 	wv.lastProgressUpdate.Store(0)

@@ -1,11 +1,15 @@
 package ui
 
 import (
+	"context"
+	"errors"
 	"testing"
 
 	"github.com/bnema/dumber/internal/application/port"
 	portmocks "github.com/bnema/dumber/internal/application/port/mocks"
+	"github.com/bnema/dumber/internal/ui/coordinator/content"
 	layoutmocks "github.com/bnema/dumber/internal/ui/layout/mocks"
+	"github.com/bnema/dumber/internal/ui/window"
 	"github.com/bnema/puregotk/v4/gtk"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -38,6 +42,26 @@ func TestPrepareNativePopupContentWidget_ErrorsWhenWrappedGTKWidgetMissing(t *te
 	got, err := prepareNativePopupContentWidget(widget)
 	require.Error(t, err)
 	assert.Nil(t, got)
+}
+
+func TestOpenNativePopupWindow_DestroysWebViewWhenPopupShellCreationFails(t *testing.T) {
+	oldNewPopupWindow := newPopupWindow
+	t.Cleanup(func() {
+		newPopupWindow = oldNewPopupWindow
+	})
+
+	expectedErr := errors.New("boom")
+	newPopupWindow = func(context.Context, *gtk.Application) (*window.PopupWindow, error) {
+		return nil, expectedErr
+	}
+
+	wv := portmocks.NewMockWebView(t)
+	wv.EXPECT().IsDestroyed().Return(false).Once()
+	wv.EXPECT().Destroy().Once()
+
+	app := &App{gtkApp: &gtk.Application{}}
+	err := app.openNativePopupWindow(context.Background(), content.NativePopupInput{PopupWebView: wv})
+	require.ErrorIs(t, err, expectedErr)
 }
 
 func TestDestroyFailedNativePopupSetup_DestroysWebViewAndShell(t *testing.T) {

@@ -250,7 +250,7 @@ func TestOnBeforePopup_PrimesPopupShellWhenNativePopupCannotBeArmed(t *testing.T
 func TestOnBeforePopup_PaneDecisionBlocksNativePopupAndKeepsPanePath(t *testing.T) {
 	parentWV := &WebView{ctx: context.Background(), id: 41}
 	popupWV := &WebView{ctx: context.Background(), id: 42}
-	popupWV.SetBrowsingContextHostDecision(port.HostDecision{Kind: port.HostDecisionCreatePane})
+	popupWV.SetBrowsingContextHostDecision(dto.HostDecision{Kind: dto.HostDecisionCreatePane})
 	parentWV.SetCallbacks(&port.WebViewCallbacks{
 		OnCreate: func(req port.PopupRequest) port.WebView {
 			popupWV.PreparePaneHostedBrowsingContext()
@@ -270,7 +270,7 @@ func TestOnBeforePopup_NativeDecisionAbortsHostWhenArmingFails(t *testing.T) {
 	parentWV := &WebView{ctx: context.Background(), id: 51}
 	popupWV := &WebView{ctx: context.Background(), id: 52}
 	popupWV.markNativePopupCandidate(parentWV)
-	popupWV.SetBrowsingContextHostDecision(port.HostDecision{Kind: port.HostDecisionCreateNativeWin})
+	popupWV.SetBrowsingContextHostDecision(dto.HostDecision{Kind: dto.HostDecisionCreateNativeWin})
 	aborted := false
 	popupWV.SetNativePopupHostAbort(func() { aborted = true })
 	parentWV.SetCallbacks(&port.WebViewCallbacks{

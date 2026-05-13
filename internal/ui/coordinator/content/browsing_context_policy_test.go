@@ -3,6 +3,7 @@ package content
 import (
 	"testing"
 
+	"github.com/bnema/dumber/internal/application/dto"
 	"github.com/bnema/dumber/internal/application/port"
 	"github.com/stretchr/testify/assert"
 )
@@ -13,76 +14,76 @@ func TestBrowsingContextPolicyDecide(t *testing.T) {
 	policy := browsingContextPolicy{}
 	tests := []struct {
 		name              string
-		request           port.NewBrowsingContextRequest
+		request           dto.NewBrowsingContextRequest
 		namedContextExist bool
-		wantKind          port.HostDecisionKind
+		wantKind          dto.HostDecisionKind
 		wantName          string
 	}{
 		{
 			name: "blank target stays pane-hosted",
-			request: port.NewBrowsingContextRequest{
+			request: dto.NewBrowsingContextRequest{
 				TargetURI:                 "https://example.com/docs",
 				TargetFrameName:           "_blank",
-				TriggerKind:               port.TriggerLinkNewPage,
-				TargetDisposition:         port.WindowDispositionNewTab,
-				RequestContextDisposition: port.RequestContextInheritParent,
+				TriggerKind:               dto.TriggerLinkNewPage,
+				TargetDisposition:         dto.WindowDispositionNewTab,
+				RequestContextDisposition: dto.RequestContextInheritParent,
 			},
-			wantKind: port.HostDecisionCreatePane,
+			wantKind: dto.HostDecisionCreatePane,
 		},
 		{
 			name: "named target reuses existing pane in same window",
-			request: port.NewBrowsingContextRequest{
+			request: dto.NewBrowsingContextRequest{
 				TargetURI:                 "https://example.com/second",
 				TargetFrameName:           "shared-pane",
-				TriggerKind:               port.TriggerNamedTargetNavigation,
-				TargetDisposition:         port.WindowDispositionNewPopup,
-				RequestContextDisposition: port.RequestContextInheritParent,
+				TriggerKind:               dto.TriggerNamedTargetNavigation,
+				TargetDisposition:         dto.WindowDispositionNewPopup,
+				RequestContextDisposition: dto.RequestContextInheritParent,
 			},
 			namedContextExist: true,
-			wantKind:          port.HostDecisionReuseNamedPane,
+			wantKind:          dto.HostDecisionReuseNamedPane,
 			wantName:          "shared-pane",
 		},
 		{
 			name: "ordinary window.open stays pane-hosted",
-			request: port.NewBrowsingContextRequest{
+			request: dto.NewBrowsingContextRequest{
 				TargetURI:                 "https://example.com/help",
-				TriggerKind:               port.TriggerScriptWindowOpen,
-				TargetDisposition:         port.WindowDispositionNewPopup,
+				TriggerKind:               dto.TriggerScriptWindowOpen,
+				TargetDisposition:         dto.WindowDispositionNewPopup,
 				NoJavaScriptAccess:        false,
-				RequestContextDisposition: port.RequestContextInheritParent,
+				RequestContextDisposition: dto.RequestContextInheritParent,
 			},
-			wantKind: port.HostDecisionCreatePane,
+			wantKind: dto.HostDecisionCreatePane,
 		},
 		{
 			name: "auth intent forces native window",
-			request: port.NewBrowsingContextRequest{
+			request: dto.NewBrowsingContextRequest{
 				TargetURI:                 "https://accounts.google.com/o/oauth2/v2/auth",
-				TriggerKind:               port.TriggerScriptWindowOpen,
-				TargetDisposition:         port.WindowDispositionNewPopup,
+				TriggerKind:               dto.TriggerScriptWindowOpen,
+				TargetDisposition:         dto.WindowDispositionNewPopup,
 				AuthIntent:                true,
-				RequestContextDisposition: port.RequestContextInheritParent,
+				RequestContextDisposition: dto.RequestContextInheritParent,
 			},
-			wantKind: port.HostDecisionCreateNativeWin,
+			wantKind: dto.HostDecisionCreateNativeWin,
 		},
 		{
 			name: "ambiguous opener-coupled request prefers native",
-			request: port.NewBrowsingContextRequest{
+			request: dto.NewBrowsingContextRequest{
 				TargetURI:                 "https://example.com/popup",
-				TriggerKind:               port.TriggerUnknown,
-				TargetDisposition:         port.WindowDispositionNewPopup,
+				TriggerKind:               dto.TriggerUnknown,
+				TargetDisposition:         dto.WindowDispositionNewPopup,
 				NoJavaScriptAccess:        false,
-				RequestContextDisposition: port.RequestContextInheritParent,
+				RequestContextDisposition: dto.RequestContextInheritParent,
 			},
-			wantKind: port.HostDecisionCreateNativeWin,
+			wantKind: dto.HostDecisionCreateNativeWin,
 		},
 		{
 			name: "empty target is denied",
-			request: port.NewBrowsingContextRequest{
+			request: dto.NewBrowsingContextRequest{
 				TargetURI:                 "",
-				TriggerKind:               port.TriggerLinkNewPage,
-				RequestContextDisposition: port.RequestContextInheritParent,
+				TriggerKind:               dto.TriggerLinkNewPage,
+				RequestContextDisposition: dto.RequestContextInheritParent,
 			},
-			wantKind: port.HostDecisionDeny,
+			wantKind: dto.HostDecisionDeny,
 		},
 	}
 
@@ -92,7 +93,7 @@ func TestBrowsingContextPolicyDecide(t *testing.T) {
 			got := policy.Decide(tt.request, tt.namedContextExist)
 			assert.Equal(t, tt.wantKind, got.Kind)
 			assert.Equal(t, tt.wantName, got.BrowsingContextName)
-			assert.Equal(t, port.RequestContextInheritParent, got.RequestContextDisposition)
+			assert.Equal(t, dto.RequestContextInheritParent, got.RequestContextDisposition)
 		})
 	}
 }
@@ -103,10 +104,10 @@ func TestInferPopupTriggerKind_DoesNotTreatNoJavaScriptAccessFalseAsNativeSignal
 	req := port.PopupRequest{
 		TargetURI:          "https://example.com/window-open",
 		NoJavaScriptAccess: false,
-		TargetDisposition:  port.WindowDispositionNewPopup,
+		TargetDisposition:  dto.WindowDispositionNewPopup,
 	}
 
-	assert.Equal(t, port.TriggerScriptWindowOpen, inferPopupTriggerKind(req))
+	assert.Equal(t, dto.TriggerScriptWindowOpen, inferPopupTriggerKind(req))
 }
 
 func TestInferPopupTriggerKind_ClassifiesCurrentTabAsNavigation(t *testing.T) {
@@ -115,24 +116,24 @@ func TestInferPopupTriggerKind_ClassifiesCurrentTabAsNavigation(t *testing.T) {
 	tests := []struct {
 		name string
 		req  port.PopupRequest
-		want port.TriggerKind
+		want dto.TriggerKind
 	}{
 		{
 			name: "unnamed current-tab request stays a navigation",
 			req: port.PopupRequest{
 				TargetURI:         "https://example.com/docs",
-				TargetDisposition: port.WindowDispositionCurrentTab,
+				TargetDisposition: dto.WindowDispositionCurrentTab,
 			},
-			want: port.TriggerLinkNewPage,
+			want: dto.TriggerLinkNewPage,
 		},
 		{
 			name: "named current-tab request is treated as named target navigation",
 			req: port.PopupRequest{
 				TargetURI:         "https://example.com/docs",
 				FrameName:         "shared-pane",
-				TargetDisposition: port.WindowDispositionCurrentTab,
+				TargetDisposition: dto.WindowDispositionCurrentTab,
 			},
-			want: port.TriggerNamedTargetNavigation,
+			want: dto.TriggerNamedTargetNavigation,
 		},
 	}
 
@@ -150,17 +151,17 @@ func TestInferPopupWindowDisposition_NormalizesBlankTarget(t *testing.T) {
 	tests := []struct {
 		name string
 		req  port.PopupRequest
-		want port.WindowDisposition
+		want dto.WindowDisposition
 	}{
 		{
 			name: "mixed-case blank target is treated as new tab",
 			req:  port.PopupRequest{FrameName: " _BlAnK "},
-			want: port.WindowDispositionNewTab,
+			want: dto.WindowDispositionNewTab,
 		},
 		{
 			name: "named target still defaults to popup",
 			req:  port.PopupRequest{FrameName: "shared-pane"},
-			want: port.WindowDispositionNewPopup,
+			want: dto.WindowDispositionNewPopup,
 		},
 	}
 

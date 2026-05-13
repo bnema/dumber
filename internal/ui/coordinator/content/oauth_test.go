@@ -148,6 +148,40 @@ func TestObserveNativePopupAuth_DoesNotTrackWhenWebViewLacksOAuthCallbacks(t *te
 	assert.False(t, ok)
 }
 
+func TestObserveNativePopupAuth_SchedulesCloseOnlyOnce(t *testing.T) {
+	popupID := port.WebViewID(1002)
+	wv := &popupOAuthAutoCloseWebViewStub{MockWebView: portmocks.NewMockWebView(t)}
+	wv.EXPECT().ID().Return(popupID).Once()
+	wv.EXPECT().IsDestroyed().Return(false).Once()
+
+	oldSchedule := scheduleNativePopupOAuthClose
+	t.Cleanup(func() {
+		scheduleNativePopupOAuthClose = oldSchedule
+	})
+
+	scheduledCalls := 0
+	scheduleNativePopupOAuthClose = func(delay time.Duration, fn func()) {
+		scheduledCalls++
+		assert.Equal(t, nativePopupOAuthCloseDelay, delay)
+		fn()
+	}
+
+	c := &Coordinator{popups: newPopupManager()}
+	c.ObserveNativePopupAuth(context.Background(), NativePopupInput{
+		ParentPaneID:    entity.PaneID("parent-pane"),
+		ParentURIAtOpen: "https://x.com/i/flow/login",
+		PopupWebView:    wv,
+		TargetURI:       "https://accounts.google.com/o/oauth2/v2/auth",
+	})
+	require.Len(t, wv.navigationCallbacks, 1)
+
+	wv.navigationCallbacks[0]("https://x.com/googlepopupcallback?code=123")
+	wv.navigationCallbacks[0]("https://x.com/googlepopupcallback?code=123")
+
+	assert.Equal(t, 1, scheduledCalls)
+	assert.Equal(t, 1, wv.closeCount)
+}
+
 func TestSetupOAuthAutoClose_NavigationIgnoresNonTerminalURI(t *testing.T) {
 	popupID := port.WebViewID(1000)
 	wv := &popupOAuthAutoCloseWebViewStub{MockWebView: portmocks.NewMockWebView(t)}

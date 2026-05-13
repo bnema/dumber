@@ -27,6 +27,8 @@ type nativePopupDestroyer interface {
 	Destroy()
 }
 
+var newPopupWindow = window.NewPopup
+
 func destroyFailedNativePopupSetup(popupShell nativePopupDestroyer, wv port.WebView) {
 	if wv != nil && !wv.IsDestroyed() {
 		wv.Destroy()
@@ -63,8 +65,9 @@ func (a *App) openNativePopupWindow(ctx context.Context, input content.NativePop
 		return fmt.Errorf("native popup webview is nil")
 	}
 
-	popupShell, err := window.NewPopup(ctx, a.gtkApp)
+	popupShell, err := newPopupWindow(ctx, a.gtkApp)
 	if err != nil {
+		destroyFailedNativePopupSetup(nil, input.PopupWebView)
 		return err
 	}
 	if a.contentCoord == nil {

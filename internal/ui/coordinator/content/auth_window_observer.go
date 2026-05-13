@@ -2,6 +2,7 @@ package content
 
 import (
 	"context"
+	"sync"
 	"time"
 
 	"github.com/bnema/dumber/internal/application/port"
@@ -10,6 +11,16 @@ import (
 )
 
 const nativePopupOAuthCloseDelay = 500 * time.Millisecond
+
+var scheduleNativePopupOAuthClose = func(delay time.Duration, fn func()) {
+	time.AfterFunc(delay, func() {
+		cb := glib.SourceFunc(func(_ uintptr) bool {
+			fn()
+			return false
+		})
+		glib.IdleAdd(&cb, 0)
+	})
+}
 
 func (c *Coordinator) ObserveNativePopupAuth(ctx context.Context, input NativePopupInput) {
 	if c == nil || input.PopupWebView == nil || !IsOAuthURL(input.TargetURI) {
@@ -27,19 +38,18 @@ func (c *Coordinator) ObserveNativePopupAuth(ctx context.Context, input NativePo
 	}
 	c.trackOAuthPopup(popupID, input.ParentPaneID, input.ParentURIAtOpen)
 
+	var requestCloseOnce sync.Once
 	requestClose := func(reason string) {
-		logging.FromContext(ctx).Info().
-			Uint64("popup_id", uint64(popupID)).
-			Str("reason", reason).
-			Msg("native popup oauth callback detected, closing popup")
-		time.AfterFunc(nativePopupOAuthCloseDelay, func() {
-			cb := glib.SourceFunc(func(_ uintptr) bool {
+		requestCloseOnce.Do(func() {
+			logging.FromContext(ctx).Info().
+				Uint64("popup_id", uint64(popupID)).
+				Str("reason", reason).
+				Msg("native popup oauth callback detected, closing popup")
+			scheduleNativePopupOAuthClose(nativePopupOAuthCloseDelay, func() {
 				if input.PopupWebView != nil && !input.PopupWebView.IsDestroyed() {
 					oauthWV.Close()
 				}
-				return false
 			})
-			glib.IdleAdd(&cb, 0)
 		})
 	}
 

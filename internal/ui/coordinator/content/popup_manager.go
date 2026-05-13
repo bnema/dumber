@@ -7,6 +7,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/bnema/dumber/internal/application/dto"
 	"github.com/bnema/dumber/internal/application/port"
 	"github.com/bnema/dumber/internal/domain/entity"
 	"github.com/bnema/dumber/internal/logging"
@@ -122,7 +123,7 @@ func popupTabInsertionConfig(cfg *entity.BrowsingContextConfig) (entity.PopupBeh
 	return behavior, placement
 }
 
-func (*popupManager) setBrowsingContextDecision(wv port.WebView, decision port.HostDecision) {
+func (*popupManager) setBrowsingContextDecision(wv port.WebView, decision dto.HostDecision) {
 	if carrier, ok := wv.(port.BrowsingContextHostDecisionCapable); ok {
 		carrier.SetBrowsingContextHostDecision(decision)
 	}
@@ -426,7 +427,7 @@ func (pm *popupManager) openNativePopup(
 	parentID port.WebViewID,
 	parentURIAtOpen string,
 	req port.PopupRequest,
-	decision port.HostDecision,
+	decision dto.HostDecision,
 ) port.WebView {
 	log := logging.FromContext(ctx)
 	if pm.onOpenNativePopup == nil {
@@ -500,9 +501,9 @@ func (pm *popupManager) handlePopupCreate(
 		Msg("browsing context host decision")
 
 	switch decision.Kind {
-	case port.HostDecisionDeny:
+	case dto.HostDecisionDeny:
 		return nil
-	case port.HostDecisionReuseNamedPane:
+	case dto.HostDecisionReuseNamedPane:
 		if req.NoJavaScriptAccess {
 			log.Warn().Str("frame_name", req.FrameName).Msg("named browsing context reuse denied for noopener popup")
 			return nil
@@ -514,9 +515,9 @@ func (pm *popupManager) handlePopupCreate(
 		}
 		pm.setBrowsingContextDecision(reused, decision)
 		return reused
-	case port.HostDecisionCreateNativeWin:
+	case dto.HostDecisionCreateNativeWin:
 		return pm.openNativePopup(ctx, parentPaneID, parentID, parentURIAtOpen, req, decision)
-	case port.HostDecisionCreatePane:
+	case dto.HostDecisionCreatePane:
 		// Continue below.
 		break
 	}
@@ -812,7 +813,7 @@ func (pm *popupManager) handleLinkMiddleClick(
 		Str("decision", string(decision.Kind)).
 		Str("reason", decision.Reason).
 		Msg("middle-click browsing context host decision")
-	if decision.Kind != port.HostDecisionCreatePane {
+	if decision.Kind != dto.HostDecisionCreatePane {
 		log.Info().Str("decision", string(decision.Kind)).Msg("middle-click browsing context not pane-hosted")
 		return false
 	}

@@ -8,6 +8,7 @@ import (
 	purecef "github.com/bnema/purego-cef/cef"
 	cef2gtk "github.com/bnema/purego-cef2gtk"
 
+	"github.com/bnema/dumber/internal/application/dto"
 	"github.com/bnema/dumber/internal/application/port"
 	downloadutil "github.com/bnema/dumber/internal/domain/download"
 	"github.com/bnema/dumber/internal/logging"
@@ -419,19 +420,19 @@ func (h *handlerSet) OnLoadEnd(_ purecef.Browser, frame purecef.Frame, httpStatu
 func (h *handlerSet) OnLoadError(_ purecef.Browser, _ purecef.Frame, _ purecef.Errorcode, _, _ string) {
 }
 
-func mapCEFWindowDisposition(disposition purecef.WindowOpenDisposition) port.WindowDisposition {
+func mapCEFWindowDisposition(disposition purecef.WindowOpenDisposition) dto.WindowDisposition {
 	switch disposition {
 	case purecef.WindowOpenDispositionWodCurrentTab:
-		return port.WindowDispositionCurrentTab
+		return dto.WindowDispositionCurrentTab
 	case purecef.WindowOpenDispositionWodNewPopup:
-		return port.WindowDispositionNewPopup
+		return dto.WindowDispositionNewPopup
 	case purecef.WindowOpenDispositionWodNewWindow:
-		return port.WindowDispositionNewWindow
+		return dto.WindowDispositionNewWindow
 	case purecef.WindowOpenDispositionWodNewForegroundTab,
 		purecef.WindowOpenDispositionWodNewBackgroundTab,
 		purecef.WindowOpenDispositionWodSingletonTab,
 		purecef.WindowOpenDispositionWodSwitchToTab:
-		return port.WindowDispositionNewTab
+		return dto.WindowDispositionNewTab
 	default:
 		return ""
 	}
@@ -498,7 +499,7 @@ func (h *handlerSet) OnBeforePopup(
 		return true
 	}
 
-	decision := port.HostDecision{}
+	decision := dto.HostDecision{}
 	if carrier, ok := popup.(port.BrowsingContextHostDecisionCapable); ok {
 		if got, hasDecision := carrier.BrowsingContextHostDecision(); hasDecision {
 			decision = got
@@ -507,7 +508,7 @@ func (h *handlerSet) OnBeforePopup(
 
 	cefPopup.setPopupNoJavaScriptAccess(requestNoJavaScriptAccess)
 	switch decision.Kind {
-	case port.HostDecisionCreateNativeWin:
+	case dto.HostDecisionCreateNativeWin:
 		if cefPopup.prepareNativePopup(popupID, targetURL, windowInfo, clientSlot, settings) {
 			logging.FromContext(h.currentContext()).Debug().
 				Int32("popup_id", popupID).
@@ -524,7 +525,7 @@ func (h *handlerSet) OnBeforePopup(
 			Str("target_url", logging.TruncateURL(targetURL, logging.PermissionLogURLMaxLen)).
 			Msg("cef: native popup arming failed, denying without fallback")
 		return true
-	case port.HostDecisionCreatePane, port.HostDecisionReuseNamedPane:
+	case dto.HostDecisionCreatePane, dto.HostDecisionReuseNamedPane:
 		logging.FromContext(h.currentContext()).Debug().
 			Int32("popup_id", popupID).
 			Str("target_url", logging.TruncateURL(targetURL, logging.PermissionLogURLMaxLen)).
