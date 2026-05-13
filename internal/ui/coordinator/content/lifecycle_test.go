@@ -131,6 +131,7 @@ func TestLifecycle_ReleaseWebView_ReleasesToPool(t *testing.T) {
 	t.Parallel()
 
 	wv := mocks.NewMockWebView(t)
+	wv.EXPECT().ID().Return(port.WebViewID(11)).Maybe()
 	// idleInhibitor is nil so these won't be called
 	wv.EXPECT().IsFullscreen().Return(false).Maybe()
 	wv.EXPECT().IsPlayingAudio().Return(false).Maybe()
@@ -146,6 +147,41 @@ func TestLifecycle_ReleaseWebView_ReleasesToPool(t *testing.T) {
 
 	_, exists := c.webViews[entity.PaneID("pane-1")]
 	assert.False(t, exists, "webview should be removed from map after release")
+}
+
+func TestLifecycle_ReleaseWebView_ClearsNamedBrowsingContextRegistration(t *testing.T) {
+	t.Parallel()
+
+	paneID := entity.PaneID("pane-1")
+	windowID := "window-1"
+	wv := mocks.NewMockWebView(t)
+	wv.EXPECT().ID().Return(port.WebViewID(15)).Maybe()
+	wv.EXPECT().IsDestroyed().Return(false).Maybe()
+	wv.EXPECT().IsFullscreen().Return(false).Maybe()
+	wv.EXPECT().IsPlayingAudio().Return(false).Maybe()
+
+	pool := mocks.NewMockWebViewPool(t)
+	pool.EXPECT().Release(wv)
+
+	c := newMinimalCoordinator()
+	c.pool = pool
+	c.popups = newPopupManager()
+	c.popups.setWindowIDResolver(func(id entity.PaneID) (string, bool) {
+		if id == paneID {
+			return windowID, true
+		}
+		return "", false
+	})
+	c.webViews[paneID] = wv
+	c.popups.namedContexts.Register(windowID, "named-popup", paneID, wv.ID())
+
+	_, _, okBefore := c.popups.namedContexts.Lookup(windowID, "named-popup", c.getWebViewLocked, c.popups.windowIDForPane)
+	require.True(t, okBefore)
+
+	c.ReleaseWebView(context.Background(), paneID)
+
+	_, _, okAfter := c.popups.namedContexts.Lookup(windowID, "named-popup", c.getWebViewLocked, c.popups.windowIDForPane)
+	assert.False(t, okAfter)
 }
 
 func TestLifecycle_ReleaseWebView_NoopForUnknownPane(t *testing.T) {
@@ -165,6 +201,7 @@ func TestLifecycle_ReleaseWebView_UninhibitsIdleIfFullscreen(t *testing.T) {
 	t.Parallel()
 
 	wv := mocks.NewMockWebView(t)
+	wv.EXPECT().ID().Return(port.WebViewID(12)).Maybe()
 	wv.EXPECT().IsFullscreen().Return(true)
 	wv.EXPECT().IsPlayingAudio().Return(false)
 
@@ -186,6 +223,7 @@ func TestLifecycle_ReleaseWebView_UninhibitsIdleIfPlayingAudio(t *testing.T) {
 	t.Parallel()
 
 	wv := mocks.NewMockWebView(t)
+	wv.EXPECT().ID().Return(port.WebViewID(13)).Maybe()
 	wv.EXPECT().IsFullscreen().Return(false)
 	wv.EXPECT().IsPlayingAudio().Return(true)
 
@@ -207,6 +245,7 @@ func TestLifecycle_ReleaseWebView_DestroysWebViewWhenPoolIsNil(t *testing.T) {
 	t.Parallel()
 
 	wv := mocks.NewMockWebView(t)
+	wv.EXPECT().ID().Return(port.WebViewID(14)).Maybe()
 	// idleInhibitor is nil so these won't be called
 	wv.EXPECT().IsFullscreen().Return(false).Maybe()
 	wv.EXPECT().IsPlayingAudio().Return(false).Maybe()

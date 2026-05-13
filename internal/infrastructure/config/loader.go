@@ -65,6 +65,9 @@ func NewManager() (*Manager, error) {
 	if err := v.BindEnv("logging.format", "DUMBER_LOG_FORMAT"); err != nil {
 		return nil, fmt.Errorf("failed to bind DUMBER_LOG_FORMAT: %w", err)
 	}
+	if err := bindBrowsingContextEnvAliases(v); err != nil {
+		return nil, err
+	}
 
 	return &Manager{
 		viper:     v,
@@ -145,15 +148,114 @@ func (m *Manager) readConfigFile() error {
 // transformLegacyConfig converts old-format action bindings and engine config to the new format.
 // This is called after reading config but before unmarshaling.
 func (m *Manager) transformLegacyConfig() {
+	legacyPopupsInConfig := m.viper.InConfig("workspace.popups")
+
 	rawConfig := m.viper.AllSettings()
 	transformer := NewLegacyConfigTransformer()
 	transformer.TransformLegacyActions(rawConfig)
 	transformer.TransformLegacyEngineConfig(rawConfig)
 
+	// AllSettings includes defaults, so workspace.browsing_contexts may already be
+	// present even when the user only configured legacy workspace.popups. Always
+	// merge legacy popup values field-by-field into the canonical section while
+	// preserving explicit canonical file/env overrides.
+	if legacyPopupsInConfig {
+		m.mergeLegacyPopupsIntoCanonicalBrowsingContexts(rawConfig)
+	} else {
+		transformer.TransformLegacyPopupsToBrowsingContexts(rawConfig)
+	}
+
 	// Apply transformed config back to viper
 	for key, value := range rawConfig {
 		m.viper.Set(key, value)
 	}
+}
+
+func (m *Manager) mergeLegacyPopupsIntoCanonicalBrowsingContexts(rawConfig map[string]any) {
+	workspace, ok := rawConfig["workspace"].(map[string]any)
+	if !ok {
+		return
+	}
+
+	legacyPopups, ok := workspace["popups"].(map[string]any)
+	if !ok {
+		return
+	}
+
+	canonical, ok := workspace["browsing_contexts"].(map[string]any)
+	if !ok || canonical == nil {
+		canonical = make(map[string]any, len(legacyPopups))
+		workspace["browsing_contexts"] = canonical
+	}
+
+	for key, value := range legacyPopups {
+		if m.hasCanonicalBrowsingContextsOverride(key) {
+			continue
+		}
+		canonical[key] = value
+	}
+
+	delete(workspace, "popups")
+}
+
+func (m *Manager) hasCanonicalBrowsingContextsOverride(field string) bool {
+	if m.viper.InConfig("workspace.browsing_contexts." + field) {
+		return true
+	}
+	return m.hasCanonicalBrowsingContextsEnvOverride(field)
+}
+
+func (*Manager) hasCanonicalBrowsingContextsEnvOverride(field string) bool {
+	suffix := strings.ToUpper(strings.ReplaceAll(field, ".", "_"))
+	for _, envKey := range []string{
+		"DUMBER_WORKSPACE_BROWSING_CONTEXTS_" + suffix,
+		"DUMBER_WORKSPACE_POPUPS_" + suffix,
+	} {
+		if _, ok := os.LookupEnv(envKey); ok {
+			return true
+		}
+	}
+	return false
+}
+
+func bindBrowsingContextEnvAliases(v *viper.Viper) error {
+	bindings := map[string][]string{
+		"workspace.browsing_contexts.behavior": {
+			"DUMBER_WORKSPACE_BROWSING_CONTEXTS_BEHAVIOR",
+			"DUMBER_WORKSPACE_POPUPS_BEHAVIOR",
+		},
+		"workspace.browsing_contexts.placement": {
+			"DUMBER_WORKSPACE_BROWSING_CONTEXTS_PLACEMENT",
+			"DUMBER_WORKSPACE_POPUPS_PLACEMENT",
+		},
+		"workspace.browsing_contexts.open_in_new_pane": {
+			"DUMBER_WORKSPACE_BROWSING_CONTEXTS_OPEN_IN_NEW_PANE",
+			"DUMBER_WORKSPACE_POPUPS_OPEN_IN_NEW_PANE",
+		},
+		"workspace.browsing_contexts.follow_pane_context": {
+			"DUMBER_WORKSPACE_BROWSING_CONTEXTS_FOLLOW_PANE_CONTEXT",
+			"DUMBER_WORKSPACE_POPUPS_FOLLOW_PANE_CONTEXT",
+		},
+		"workspace.browsing_contexts.blank_target_behavior": {
+			"DUMBER_WORKSPACE_BROWSING_CONTEXTS_BLANK_TARGET_BEHAVIOR",
+			"DUMBER_WORKSPACE_POPUPS_BLANK_TARGET_BEHAVIOR",
+		},
+		"workspace.browsing_contexts.enable_smart_detection": {
+			"DUMBER_WORKSPACE_BROWSING_CONTEXTS_ENABLE_SMART_DETECTION",
+			"DUMBER_WORKSPACE_POPUPS_ENABLE_SMART_DETECTION",
+		},
+		"workspace.browsing_contexts.oauth_auto_close": {
+			"DUMBER_WORKSPACE_BROWSING_CONTEXTS_OAUTH_AUTO_CLOSE",
+			"DUMBER_WORKSPACE_POPUPS_OAUTH_AUTO_CLOSE",
+		},
+	}
+	for key, envs := range bindings {
+		args := append([]string{key}, envs...)
+		if err := v.BindEnv(args...); err != nil {
+			return fmt.Errorf("failed to bind browsing-context env aliases for %s: %w", key, err)
+		}
+	}
+	return nil
 }
 
 // checkLegacyFormat detects old config format and returns an error directing user to migrate.
@@ -208,6 +310,13 @@ func normalizeConfig(config *Config) {
 	normalizeAppearance(config)
 	normalizeMedia(config)
 	normalizeEngineConfig(config)
+	normalizeBrowsingContexts(config)
+}
+
+// normalizeBrowsingContexts ensures the deprecated Popups field mirrors BrowsingContexts
+// for runtime compatibility. Existing code can keep reading config.Workspace.Popups.
+func normalizeBrowsingContexts(config *Config) {
+	config.Workspace.Popups = config.Workspace.BrowsingContexts
 }
 
 func normalizeEngineConfig(config *Config) {
@@ -313,8 +422,13 @@ func (m *Manager) Save(cfg *Config) error {
 		return fmt.Errorf("config is nil")
 	}
 
+	// Normalize a copy before writing/publishing so deprecated runtime aliases
+	// stay in sync even when the watcher skips reload after Save().
+	cfgToSave := *cfg
+	normalizeConfig(&cfgToSave)
+
 	// Validate before writing so UI gets immediate errors.
-	if err := validateConfig(cfg); err != nil {
+	if err := validateConfig(&cfgToSave); err != nil {
 		return fmt.Errorf("configuration validation failed: %w", err)
 	}
 
@@ -332,14 +446,15 @@ func (m *Manager) Save(cfg *Config) error {
 	// overwriting our in-memory config with stale viper cache
 	m.skipNextReload = true
 
-	if err := WriteConfigOrdered(cfg, configFile); err != nil {
+	if err := WriteConfigOrdered(&cfgToSave, configFile); err != nil {
 		m.skipNextReload = false // Reset on error
 		return fmt.Errorf("failed to write config: %w", err)
 	}
 
-	// Update in-memory config immediately (don't wait for file watcher)
-	// This ensures subsequent Get() calls return the new values
-	m.config = cfg
+	// Update in-memory config immediately (don't wait for file watcher).
+	// This ensures subsequent Get() calls return normalized values even when
+	// the watcher intentionally skips reload for our own Save().
+	m.config = &cfgToSave
 
 	// Also reload from disk to sync Viper's internal state (if not watching)
 	if !m.watching {
@@ -500,13 +615,13 @@ func (m *Manager) setWorkspaceDefaults(defaults *Config) {
 	m.viper.SetDefault("workspace.tab_bar_position", defaults.Workspace.TabBarPosition)
 	m.viper.SetDefault("workspace.hide_tab_bar_when_single_tab", defaults.Workspace.HideTabBarWhenSingleTab)
 	m.viper.SetDefault("workspace.switch_to_tab_on_move", defaults.Workspace.SwitchToTabOnMove)
-	m.viper.SetDefault("workspace.popups.behavior", string(defaults.Workspace.Popups.Behavior))
-	m.viper.SetDefault("workspace.popups.placement", defaults.Workspace.Popups.Placement)
-	m.viper.SetDefault("workspace.popups.open_in_new_pane", defaults.Workspace.Popups.OpenInNewPane)
-	m.viper.SetDefault("workspace.popups.follow_pane_context", defaults.Workspace.Popups.FollowPaneContext)
-	m.viper.SetDefault("workspace.popups.blank_target_behavior", defaults.Workspace.Popups.BlankTargetBehavior)
-	m.viper.SetDefault("workspace.popups.enable_smart_detection", defaults.Workspace.Popups.EnableSmartDetection)
-	m.viper.SetDefault("workspace.popups.oauth_auto_close", defaults.Workspace.Popups.OAuthAutoClose)
+	m.viper.SetDefault("workspace.browsing_contexts.behavior", string(defaults.Workspace.BrowsingContexts.Behavior))
+	m.viper.SetDefault("workspace.browsing_contexts.placement", defaults.Workspace.BrowsingContexts.Placement)
+	m.viper.SetDefault("workspace.browsing_contexts.open_in_new_pane", defaults.Workspace.BrowsingContexts.OpenInNewPane)
+	m.viper.SetDefault("workspace.browsing_contexts.follow_pane_context", defaults.Workspace.BrowsingContexts.FollowPaneContext)
+	m.viper.SetDefault("workspace.browsing_contexts.blank_target_behavior", defaults.Workspace.BrowsingContexts.BlankTargetBehavior)
+	m.viper.SetDefault("workspace.browsing_contexts.enable_smart_detection", defaults.Workspace.BrowsingContexts.EnableSmartDetection)
+	m.viper.SetDefault("workspace.browsing_contexts.oauth_auto_close", defaults.Workspace.BrowsingContexts.OAuthAutoClose)
 	m.viper.SetDefault("workspace.styling.border_width", defaults.Workspace.Styling.BorderWidth)
 	m.viper.SetDefault("workspace.styling.border_color", defaults.Workspace.Styling.BorderColor)
 	m.viper.SetDefault("workspace.styling.mode_border_width", defaults.Workspace.Styling.ModeBorderWidth)

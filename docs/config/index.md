@@ -377,17 +377,17 @@ url = "https://github.com"
 desc = "Open floating pane on GitHub"
 ```
 
-### Popup Behavior
+### Browsing Context Behavior
 
 | Key | Type | Default | Valid Values | Description |
 |-----|------|---------|--------------|-------------|
-| `workspace.popups.behavior` | string | `"split"` | `split`, `stacked`, `tabbed`, `windowed` | Popup opening mode |
-| `workspace.popups.placement` | string | `"right"` | `right`, `left`, `top`, `bottom` | Split direction |
-| `workspace.popups.open_in_new_pane` | bool | `true` | - | Open popups in workspace |
-| `workspace.popups.follow_pane_context` | bool | `true` | - | Follow parent pane context |
-| `workspace.popups.blank_target_behavior` | string | `"pane"` | `pane`, `tab` | `_blank` target handling |
-| `workspace.popups.enable_smart_detection` | bool | `true` | - | Use WindowProperties for detection |
-| `workspace.popups.oauth_auto_close` | bool | `true` | - | Auto-close OAuth popups |
+| `workspace.browsing_contexts.behavior` | string | `"split"` | `split`, `stacked`, `tabbed`, `windowed` | Placement mode for script-opened browsing contexts |
+| `workspace.browsing_contexts.placement` | string | `"right"` | `right`, `left`, `top`, `bottom` | Split direction when behavior is `split` |
+| `workspace.browsing_contexts.open_in_new_pane` | bool | `true` | - | Allow new browsing contexts to open in the workspace |
+| `workspace.browsing_contexts.follow_pane_context` | bool | `true` | - | Keep new browsing contexts aligned with the parent pane context |
+| `workspace.browsing_contexts.blank_target_behavior` | string | `"stacked"` | `split`, `stacked`, `tabbed` | Placement mode for `_blank` / new-page link contexts |
+| `workspace.browsing_contexts.enable_smart_detection` | bool | `true` | - | Use window properties to refine browsing-context classification |
+| `workspace.browsing_contexts.oauth_auto_close` | bool | `true` | - | Auto-close OAuth browsing contexts after success |
 
 ### Workspace Styling
 

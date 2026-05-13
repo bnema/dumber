@@ -117,32 +117,34 @@ func validateSearchEngine(config *Config) []string {
 
 func validatePopups(config *Config) []string {
 	var validationErrors []string
-	switch config.Workspace.Popups.Behavior {
+	// Validate against BrowsingContexts (canonical field).
+	// Popups is a runtime alias synced during normalization.
+	switch config.Workspace.BrowsingContexts.Behavior {
 	case PopupBehaviorSplit, PopupBehaviorStacked, PopupBehaviorTabbed, PopupBehaviorWindowed:
 	default:
 		validationErrors = append(validationErrors, fmt.Sprintf(
-			"workspace.popups.behavior must be one of: split, stacked, tabbed, windowed (got: %s)",
-			config.Workspace.Popups.Behavior,
+			"workspace.browsing_contexts.behavior must be one of: split, stacked, tabbed, windowed (got: %s)",
+			config.Workspace.BrowsingContexts.Behavior,
 		))
 	}
 
-	if config.Workspace.Popups.Behavior == PopupBehaviorSplit {
-		switch config.Workspace.Popups.Placement {
+	if config.Workspace.BrowsingContexts.Behavior == PopupBehaviorSplit {
+		switch config.Workspace.BrowsingContexts.Placement {
 		case "right", "left", "top", "bottom":
 		default:
 			validationErrors = append(validationErrors, fmt.Sprintf(
-				"workspace.popups.placement must be one of: right, left, top, bottom (got: %s)",
-				config.Workspace.Popups.Placement,
+				"workspace.browsing_contexts.placement must be one of: right, left, top, bottom (got: %s)",
+				config.Workspace.BrowsingContexts.Placement,
 			))
 		}
 	}
 
-	switch config.Workspace.Popups.BlankTargetBehavior {
+	switch config.Workspace.BrowsingContexts.BlankTargetBehavior {
 	case "split", "stacked", "tabbed":
 	default:
 		validationErrors = append(validationErrors, fmt.Sprintf(
-			"workspace.popups.blank_target_behavior must be one of: split, stacked, tabbed (got: %s)",
-			config.Workspace.Popups.BlankTargetBehavior,
+			"workspace.browsing_contexts.blank_target_behavior must be one of: split, stacked, tabbed (got: %s)",
+			config.Workspace.BrowsingContexts.BlankTargetBehavior,
 		))
 	}
 	return validationErrors

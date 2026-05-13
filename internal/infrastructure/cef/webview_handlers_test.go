@@ -247,6 +247,60 @@ func TestOnBeforePopup_PrimesPopupShellWhenNativePopupCannotBeArmed(t *testing.T
 	require.Equal(t, "https://example.com/login", popupWV.pendingNavigationURI())
 }
 
+func TestOnBeforePopup_PaneDecisionBlocksNativePopupAndKeepsPanePath(t *testing.T) {
+	parentWV := &WebView{ctx: context.Background(), id: 41}
+	popupWV := &WebView{ctx: context.Background(), id: 42}
+	popupWV.SetBrowsingContextHostDecision(port.HostDecision{Kind: port.HostDecisionCreatePane})
+	parentWV.SetCallbacks(&port.WebViewCallbacks{
+		OnCreate: func(req port.PopupRequest) port.WebView {
+			popupWV.PreparePaneHostedBrowsingContext()
+			popupWV.PrimePopupNavigation(req.TargetURI)
+			return popupWV
+		},
+	})
+
+	h := &handlerSet{wv: parentWV}
+	blocked := h.OnBeforePopup(nil, nil, 81, "https://example.com/pane", "_blank", 0, 1, nil, nil, nil, nil, nil, nil)
+
+	require.True(t, blocked)
+	require.Equal(t, "https://example.com/pane", popupWV.pendingNavigationURI())
+}
+
+func TestOnBeforePopup_NativeDecisionAbortsHostWhenArmingFails(t *testing.T) {
+	parentWV := &WebView{ctx: context.Background(), id: 51}
+	popupWV := &WebView{ctx: context.Background(), id: 52}
+	popupWV.markNativePopupCandidate(parentWV)
+	popupWV.SetBrowsingContextHostDecision(port.HostDecision{Kind: port.HostDecisionCreateNativeWin})
+	aborted := false
+	popupWV.SetNativePopupHostAbort(func() { aborted = true })
+	parentWV.SetCallbacks(&port.WebViewCallbacks{
+		OnCreate: func(req port.PopupRequest) port.WebView {
+			popupWV.PrimePopupNavigation(req.TargetURI)
+			return popupWV
+		},
+	})
+
+	h := &handlerSet{wv: parentWV}
+	blocked := h.OnBeforePopup(nil, nil, 82, "https://accounts.google.com/o/oauth2/v2/auth", "oauth", 0, 1, nil, nil, nil, nil, nil, nil)
+
+	require.True(t, blocked)
+	require.True(t, aborted)
+}
+
+func TestConfigureNativePopupWindow_UsesSharedTextureWindowlessDefaults(t *testing.T) {
+	windowInfo := purecef.NewWindowInfo()
+	settings := purecef.NewBrowserSettings()
+
+	configureNativePopupWindow(&windowInfo, &settings, 72, 0xFF112233)
+
+	require.Equal(t, purecef.WindowHandle(0), windowInfo.ParentWindow)
+	require.Equal(t, int32(1), windowInfo.WindowlessRenderingEnabled)
+	require.Equal(t, int32(1), windowInfo.SharedTextureEnabled)
+	require.Equal(t, int32(72), settings.WindowlessFrameRate)
+	require.Equal(t, int32(1), settings.LocalStorage)
+	require.Equal(t, uint32(0xFF112233), settings.BackgroundColor)
+}
+
 func TestOnLoadStartFiresCommittedAndUpdatesURI(t *testing.T) {
 	wv := &WebView{ctx: context.Background()}
 	var gotEvents []port.LoadEvent

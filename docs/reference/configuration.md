@@ -79,13 +79,13 @@
 | `workspace.floating_pane.profiles.<name>.keys` | []string | | at least one key |
 | `workspace.floating_pane.profiles.<name>.url` | string | | required URL |
 | `workspace.floating_pane.profiles.<name>.desc` | string | | |
-| `workspace.popups.behavior` | string | `split` | `split`, `stacked`, `tabbed`, `windowed` |
-| `workspace.popups.placement` | string | `right` | `right`, `left`, `top`, `bottom` |
-| `workspace.popups.open_in_new_pane` | bool | `true` | |
-| `workspace.popups.follow_pane_context` | bool | `true` | |
-| `workspace.popups.blank_target_behavior` | string | `pane` | `pane`, `tab` |
-| `workspace.popups.enable_smart_detection` | bool | `true` | |
-| `workspace.popups.oauth_auto_close` | bool | `true` | |
+| `workspace.browsing_contexts.behavior` | string | `split` | `split`, `stacked`, `tabbed`, `windowed` |
+| `workspace.browsing_contexts.placement` | string | `right` | `right`, `left`, `top`, `bottom` |
+| `workspace.browsing_contexts.open_in_new_pane` | bool | `true` | |
+| `workspace.browsing_contexts.follow_pane_context` | bool | `true` | |
+| `workspace.browsing_contexts.blank_target_behavior` | string | `stacked` | `split`, `stacked`, `tabbed` |
+| `workspace.browsing_contexts.enable_smart_detection` | bool | `true` | |
+| `workspace.browsing_contexts.oauth_auto_close` | bool | `true` | |
 | `workspace.styling.border_width` | int | `1` | |
 | `workspace.styling.border_color` | string | `@theme_selected_bg_color` | |
 | `workspace.styling.mode_border_width` | int | `4` | |

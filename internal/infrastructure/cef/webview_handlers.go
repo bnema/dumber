@@ -419,6 +419,24 @@ func (h *handlerSet) OnLoadEnd(_ purecef.Browser, frame purecef.Frame, httpStatu
 func (h *handlerSet) OnLoadError(_ purecef.Browser, _ purecef.Frame, _ purecef.Errorcode, _, _ string) {
 }
 
+func mapCEFWindowDisposition(disposition purecef.WindowOpenDisposition) port.WindowDisposition {
+	switch disposition {
+	case purecef.WindowOpenDispositionWodCurrentTab:
+		return port.WindowDispositionCurrentTab
+	case purecef.WindowOpenDispositionWodNewPopup:
+		return port.WindowDispositionNewPopup
+	case purecef.WindowOpenDispositionWodNewWindow:
+		return port.WindowDispositionNewWindow
+	case purecef.WindowOpenDispositionWodNewForegroundTab,
+		purecef.WindowOpenDispositionWodNewBackgroundTab,
+		purecef.WindowOpenDispositionWodSingletonTab,
+		purecef.WindowOpenDispositionWodSwitchToTab:
+		return port.WindowDispositionNewTab
+	default:
+		return ""
+	}
+}
+
 // ===========================================================================
 // LifeSpanHandler (6 methods)
 // ===========================================================================
@@ -429,8 +447,8 @@ func (h *handlerSet) OnLoadError(_ purecef.Browser, _ purecef.Frame, _ purecef.E
 // preserved. Otherwise we keep blocking and let the coordinator's fallback
 // pane handle the navigation.
 func (h *handlerSet) OnBeforePopup(
-	_ purecef.Browser, _ purecef.Frame, popupID int32, targetURL, targetFrameName string,
-	_ purecef.WindowOpenDisposition, userGesture int32, _ *purecef.PopupFeatures,
+	browser purecef.Browser, frame purecef.Frame, popupID int32, targetURL, targetFrameName string,
+	targetDisposition purecef.WindowOpenDisposition, userGesture int32, _ *purecef.PopupFeatures,
 	windowInfo *purecef.WindowInfo, clientSlot *purecef.RawClientWriteSlot, settings *purecef.BrowserSettings,
 	_ *purecef.DictionaryValue, noJavaScriptAccess *bool,
 ) bool {
@@ -450,6 +468,17 @@ func (h *handlerSet) OnBeforePopup(
 		requestNoJavaScriptAccess = *noJavaScriptAccess
 	}
 	var popup port.WebView
+	sourceBrowserID := int32(0)
+	if browser != nil {
+		sourceBrowserID = browser.GetIdentifier()
+	}
+	sourceFrameID := ""
+	sourceFrameURL := ""
+	if frame != nil {
+		sourceFrameID = frame.GetIdentifier()
+		sourceFrameURL = frame.GetURL()
+	}
+
 	h.wv.runOnGTKSync(func() {
 		popup = cb.OnCreate(port.PopupRequest{
 			TargetURI:          targetURL,
@@ -457,6 +486,10 @@ func (h *handlerSet) OnBeforePopup(
 			IsUserGesture:      userGesture != 0,
 			NoJavaScriptAccess: requestNoJavaScriptAccess,
 			ParentViewID:       h.wv.id,
+			SourceBrowserID:    sourceBrowserID,
+			SourceFrameID:      sourceFrameID,
+			SourceFrameURL:     sourceFrameURL,
+			TargetDisposition:  mapCEFWindowDisposition(targetDisposition),
 		})
 	})
 
@@ -464,17 +497,52 @@ func (h *handlerSet) OnBeforePopup(
 	if !ok || cefPopup == nil {
 		return true
 	}
-	cefPopup.setPopupNoJavaScriptAccess(requestNoJavaScriptAccess)
-	if cefPopup.prepareNativePopup(popupID, targetURL, windowInfo, clientSlot, settings) {
-		return false
+
+	decision := port.HostDecision{}
+	if carrier, ok := popup.(port.BrowsingContextHostDecisionCapable); ok {
+		if got, hasDecision := carrier.BrowsingContextHostDecision(); hasDecision {
+			decision = got
+		}
 	}
 
-	cefPopup.discardNativePopupCandidate()
-	logging.FromContext(h.currentContext()).Debug().
-		Int32("popup_id", popupID).
-		Str("target_url", logging.TruncateURL(targetURL, logging.PermissionLogURLMaxLen)).
-		Msg("cef: native popup bridge unavailable, blocking CEF popup and using popup shell browser creation")
-	return true
+	cefPopup.setPopupNoJavaScriptAccess(requestNoJavaScriptAccess)
+	switch decision.Kind {
+	case port.HostDecisionCreateNativeWin:
+		if cefPopup.prepareNativePopup(popupID, targetURL, windowInfo, clientSlot, settings) {
+			logging.FromContext(h.currentContext()).Debug().
+				Int32("popup_id", popupID).
+				Str("target_url", logging.TruncateURL(targetURL, logging.PermissionLogURLMaxLen)).
+				Msg("cef: native popup armed")
+			return false
+		}
+		if aborter, ok := popup.(port.NativePopupHostAbortCapable); ok {
+			aborter.AbortNativePopupHost()
+		}
+		cefPopup.discardNativePopupCandidate()
+		logging.FromContext(h.currentContext()).Warn().
+			Int32("popup_id", popupID).
+			Str("target_url", logging.TruncateURL(targetURL, logging.PermissionLogURLMaxLen)).
+			Msg("cef: native popup arming failed, denying without fallback")
+		return true
+	case port.HostDecisionCreatePane, port.HostDecisionReuseNamedPane:
+		logging.FromContext(h.currentContext()).Debug().
+			Int32("popup_id", popupID).
+			Str("target_url", logging.TruncateURL(targetURL, logging.PermissionLogURLMaxLen)).
+			Str("decision", string(decision.Kind)).
+			Msg("cef: pane-hosted browsing context, blocking native popup and using related shell browser creation")
+		return true
+	default:
+		if cefPopup.prepareNativePopup(popupID, targetURL, windowInfo, clientSlot, settings) {
+			return false
+		}
+
+		cefPopup.discardNativePopupCandidate()
+		logging.FromContext(h.currentContext()).Debug().
+			Int32("popup_id", popupID).
+			Str("target_url", logging.TruncateURL(targetURL, logging.PermissionLogURLMaxLen)).
+			Msg("cef: native popup bridge unavailable, blocking CEF popup and using popup shell browser creation")
+		return true
+	}
 }
 
 func (h *handlerSet) OnBeforePopupAborted(_ purecef.Browser, popupID int32) {

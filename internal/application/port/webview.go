@@ -67,6 +67,13 @@ type PopupRequest struct {
 	IsUserGesture      bool
 	NoJavaScriptAccess bool // true for noopener/noreferrer-style popups with no opener access
 	ParentViewID       WebViewID
+
+	SourceBrowserID int32
+	SourceFrameID   string
+	SourceFrameURL  string
+
+	TargetDisposition WindowDisposition
+	WindowFeatures    string
 }
 
 // Texture represents a graphics texture returned by the engine.

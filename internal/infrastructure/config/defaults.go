@@ -254,6 +254,15 @@ func DefaultConfig() *Config {
 			},
 			TabBarPosition:          defaultTabBarPosition,
 			HideTabBarWhenSingleTab: true,
+			BrowsingContexts: BrowsingContextConfig{
+				Behavior:             PopupBehaviorSplit, // Default: open JavaScript popups in split panes
+				Placement:            defaultPopupPlacement,
+				OpenInNewPane:        true,
+				FollowPaneContext:    true,
+				BlankTargetBehavior:  "stacked", // Default: open _blank links in stacked mode
+				EnableSmartDetection: true,      // Use WindowProperties to detect popup vs tab
+				OAuthAutoClose:       true,      // Auto-close OAuth popups on success
+			},
 			Popups: PopupBehaviorConfig{
 				Behavior:             PopupBehaviorSplit, // Default: open JavaScript popups in split panes
 				Placement:            defaultPopupPlacement,

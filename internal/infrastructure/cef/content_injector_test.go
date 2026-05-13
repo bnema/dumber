@@ -63,20 +63,15 @@ func TestClipboardSelectionFetchBridgeJS_PatchesAsyncClipboardAPIs(t *testing.T)
 	require.Contains(t, script, "test-bridge-nonce")
 }
 
-func TestTrustedPageFetchBridgeJS_ShimsWindowOpenToBridgePopupRequests(t *testing.T) {
+func TestTrustedPageFetchBridgeJS_DoesNotShimWindowOpen(t *testing.T) {
 	script := testTrustedPageFetchBridgeJS()
 
-	require.Contains(t, script, "window.__dumberPopupBridgePatched")
-	require.Contains(t, script, "window.open = function(url, target, features)")
-	require.Contains(t, script, "dumb:///api/popup-open")
-	require.Contains(t, script, "dumb:///api/popup-navigate")
-	require.Contains(t, script, "dumb:///api/popup-close")
-	require.Contains(t, script, "proxy_id")
-	require.Contains(t, script, "createSyntheticPopupProxy")
-	require.Contains(t, script, "createPopupProxyID")
-	require.Contains(t, script, "crypto.getRandomValues")
-	require.Contains(t, script, "no_javascript_access")
-	require.Contains(t, script, "Object.defineProperty(proxy, 'closed'")
+	require.NotContains(t, script, "window.__dumberPopupBridgePatched")
+	require.NotContains(t, script, "window.open = function(url, target, features)")
+	require.NotContains(t, script, "dumb:///api/popup-open")
+	require.NotContains(t, script, "dumb:///api/popup-navigate")
+	require.NotContains(t, script, "dumb:///api/popup-close")
+	require.NotContains(t, script, "createSyntheticPopupProxy")
 	require.Contains(t, script, "test-bridge-nonce")
 	require.NotContains(t, script, "__DUMBER_BRIDGE_NONCE__")
 }

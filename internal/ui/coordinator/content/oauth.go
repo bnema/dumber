@@ -221,17 +221,7 @@ func composeOnLoadChanged(existing, next func(port.LoadEvent)) func(port.LoadEve
 
 // setupOAuthAutoClose monitors the popup for OAuth callback URLs and auto-closes.
 // It uses URL pattern detection for standard OAuth callbacks (code=, access_token=, etc.)
-// For providers using postMessage (like Google Sign-In), we rely on the provider calling
-// window.close() which triggers WebKit's close signal.
-// A long safety timeout (30s) catches popups that get stuck.
-func popupUsesSyntheticOpenerSignals(wv port.WebView) bool {
-	if wv == nil {
-		return false
-	}
-	opener, ok := wv.(port.PopupOpenerCapable)
-	return ok && opener.HasActivePopupOpenerBridge()
-}
-
+// and a long safety timeout for stuck popups.
 func (c *Coordinator) setupOAuthAutoClose(
 	ctx context.Context,
 	paneID entity.PaneID,
@@ -313,11 +303,9 @@ func (c *Coordinator) setupOAuthAutoClose(
 
 	// Start safety timer immediately.
 	startSafetyTimer()
-	deferCloseOnNavigation := popupUsesSyntheticOpenerSignals(wv)
 	log.Debug().
 		Str("pane", string(paneID)).
 		Uint64("popup_id", uint64(popupID)).
-		Bool("synthetic_opener_active", deferCloseOnNavigation).
 		Msg("oauth auto-close configured")
 
 	// Register navigation callback to check for OAuth callbacks on URI changes and committed loads.
@@ -326,25 +314,8 @@ func (c *Coordinator) setupOAuthAutoClose(
 			return
 		}
 		c.capturePopupOAuthState(popupID, uri)
-		if deferCloseOnNavigation {
-			cancelSafetyTimer()
-			return
-		}
 		requestOAuthClose("navigation")
 	})
-	if opener, ok := wv.(port.PopupOpenerCapable); ok {
-		opener.AddOpenerNavigationCallback(func(uri string) {
-			if !ShouldAutoClose(uri) {
-				return
-			}
-			c.capturePopupOAuthState(popupID, uri)
-			requestOAuthClose("opener-navigation")
-		})
-		opener.AddOpenerMessageCallback(func() {
-			c.capturePopupOAuthMessage(popupID)
-			requestOAuthClose("opener-message")
-		})
-	}
 
 	// Cancel safety timer on any close path.
 	oauthWV.AddCloseCallback(func() {

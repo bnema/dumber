@@ -14,17 +14,6 @@ import (
 	"github.com/bnema/dumber/internal/domain/entity"
 )
 
-type popupOpenerBridgeStateStub struct {
-	*portmocks.MockWebView
-	active bool
-}
-
-func (s *popupOpenerBridgeStateStub) EnablePopupOpenerBridge(port.WebView, bool) {}
-func (s *popupOpenerBridgeStateStub) AddOpenerMessageCallback(func())            {}
-func (s *popupOpenerBridgeStateStub) AddOpenerNavigationCallback(func(string)) {
-}
-func (s *popupOpenerBridgeStateStub) HasActivePopupOpenerBridge() bool { return s.active }
-
 type popupOAuthAutoCloseWebViewStub struct {
 	*portmocks.MockWebView
 	active                  bool
@@ -32,6 +21,7 @@ type popupOAuthAutoCloseWebViewStub struct {
 	closeCallbacks          []func()
 	openerMessageCallbacks  []func()
 	openerNavigateCallbacks []func(string)
+	closeCount              int
 }
 
 func (s *popupOAuthAutoCloseWebViewStub) AddNavigationCallback(fn func(string)) {
@@ -42,7 +32,7 @@ func (s *popupOAuthAutoCloseWebViewStub) AddCloseCallback(fn func()) {
 	s.closeCallbacks = append(s.closeCallbacks, fn)
 }
 
-func (*popupOAuthAutoCloseWebViewStub) Close() {}
+func (s *popupOAuthAutoCloseWebViewStub) Close() { s.closeCount++ }
 
 func (*popupOAuthAutoCloseWebViewStub) EnablePopupOpenerBridge(port.WebView, bool) {}
 
@@ -55,16 +45,6 @@ func (s *popupOAuthAutoCloseWebViewStub) AddOpenerNavigationCallback(fn func(str
 }
 
 func (s *popupOAuthAutoCloseWebViewStub) HasActivePopupOpenerBridge() bool { return s.active }
-
-func TestPopupUsesSyntheticOpenerSignals_DetectsActiveBridge(t *testing.T) {
-	wv := &popupOpenerBridgeStateStub{MockWebView: portmocks.NewMockWebView(t), active: true}
-	assert.True(t, popupUsesSyntheticOpenerSignals(wv))
-}
-
-func TestPopupUsesSyntheticOpenerSignals_RejectsPlainWebView(t *testing.T) {
-	wv := portmocks.NewMockWebView(t)
-	assert.False(t, popupUsesSyntheticOpenerSignals(wv))
-}
 
 func TestComposeOnClose_Order(t *testing.T) {
 	var calls []string
@@ -119,19 +99,46 @@ func TestCapturePopupOAuthMessage_MarksPopupSeenAndSuccessful(t *testing.T) {
 	assert.Equal(t, "postmessage://oauth-complete", state.CallbackURI)
 }
 
-func TestSetupOAuthAutoClose_OpenerNavigationIgnoresNonTerminalURI(t *testing.T) {
+func TestObserveNativePopupAuth_CapturesOAuthStateAndSchedulesParentResumeOnClose(t *testing.T) {
+	popupID := port.WebViewID(999)
+	wv := &popupOAuthAutoCloseWebViewStub{MockWebView: portmocks.NewMockWebView(t)}
+	wv.EXPECT().ID().Return(popupID).Once()
+	wv.EXPECT().IsDestroyed().Return(false).Maybe()
+
+	c := &Coordinator{popups: newPopupManager()}
+	c.ObserveNativePopupAuth(context.Background(), NativePopupInput{
+		ParentPaneID:    entity.PaneID("parent-pane"),
+		ParentURIAtOpen: "https://x.com/i/flow/login",
+		PopupWebView:    wv,
+		TargetURI:       "https://accounts.google.com/o/oauth2/v2/auth",
+	})
+	require.Len(t, wv.navigationCallbacks, 1)
+	require.Len(t, wv.closeCallbacks, 1)
+
+	wv.navigationCallbacks[0]("https://x.com/googlepopupcallback?code=123")
+	state := c.popups.popupOAuth[popupID]
+	require.NotNil(t, state)
+	assert.True(t, state.Seen)
+	assert.True(t, state.Success)
+	assert.Equal(t, "https://x.com/googlepopupcallback?code=123", state.CallbackURI)
+
+	wv.closeCallbacks[0]()
+	c.popups.mu.RLock()
+	refreshTimer := c.popups.popupRefresh[entity.PaneID("parent-pane")]
+	c.popups.mu.RUnlock()
+	assert.NotNil(t, refreshTimer)
+}
+
+func TestSetupOAuthAutoClose_NavigationIgnoresNonTerminalURI(t *testing.T) {
 	popupID := port.WebViewID(1000)
-	wv := &popupOAuthAutoCloseWebViewStub{
-		MockWebView: portmocks.NewMockWebView(t),
-		active:      true,
-	}
+	wv := &popupOAuthAutoCloseWebViewStub{MockWebView: portmocks.NewMockWebView(t)}
 	c := &Coordinator{popups: newPopupManager()}
 	c.trackOAuthPopup(popupID, entity.PaneID("parent-pane"), "https://example.com/start")
 
 	c.setupOAuthAutoClose(context.Background(), entity.PaneID("popup-pane"), popupID, wv)
-	require.Len(t, wv.openerNavigateCallbacks, 1)
+	require.Len(t, wv.navigationCallbacks, 1)
 
-	wv.openerNavigateCallbacks[0]("https://example.com/intermediate")
+	wv.navigationCallbacks[0]("https://example.com/intermediate")
 
 	state, ok := c.popups.popupOAuth[popupID]
 	require.True(t, ok)

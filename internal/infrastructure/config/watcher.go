@@ -87,6 +87,8 @@ func (m *Manager) reload() error {
 		return err
 	}
 
+	m.transformLegacyConfig()
+
 	config := &Config{}
 	if err := m.viper.Unmarshal(config); err != nil {
 		return err

@@ -399,8 +399,13 @@ func (h *GlobalShortcutHandler) isActiveWindowShortcutHandler() bool {
 }
 
 func (h *GlobalShortcutHandler) suppressRepeatedShortcut(action Action, now time.Time) bool {
-	if h == nil || !isRepeatedGlobalShortcutSuppressed(action) {
+	if h == nil {
 		return false
+	}
+	if !isRepeatedGlobalShortcutSuppressed(action) {
+		if _, ok := ParseFloatingProfileTarget(action); !ok {
+			return false
+		}
 	}
 	if h.lastDispatchAt == nil {
 		// Detached/reloading handlers clear dispatch state; consume one-shot shortcuts
@@ -419,6 +424,22 @@ func isRepeatedGlobalShortcutSuppressed(action Action) bool {
 	case ActionGoBack,
 		ActionGoForward,
 		ActionZoomReset,
+		ActionReload,
+		ActionHardReload,
+		ActionPrintPage,
+		ActionOpenOmnibox,
+		ActionOpenFind,
+		ActionOpenDevTools,
+		ActionToggleFullscreen,
+		ActionToggleFloatingPane,
+		ActionToggleHistorySystemView,
+		ActionToggleFavoritesSystemView,
+		ActionToggleConfigSystemView,
+		ActionCopyURL,
+		ActionConsumeOrExpelLeft,
+		ActionConsumeOrExpelRight,
+		ActionConsumeOrExpelUp,
+		ActionConsumeOrExpelDown,
 		ActionClosePane,
 		ActionCloseTab,
 		ActionQuit,

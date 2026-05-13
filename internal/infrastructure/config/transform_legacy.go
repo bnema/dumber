@@ -97,6 +97,43 @@ func (t *LegacyConfigTransformer) transformActionSection(rawConfig map[string]an
 	}
 }
 
+// TransformLegacyPopupsToBrowsingContexts maps old workspace.popups.* keys to
+// workspace.browsing_contexts.* when the new section is absent. This allows
+// existing user configs with [workspace.popups] to be silently migrated.
+func (t *LegacyConfigTransformer) TransformLegacyPopupsToBrowsingContexts(rawConfig map[string]any) {
+	workspace, ok := rawConfig["workspace"].(map[string]any)
+	if !ok {
+		return
+	}
+
+	// Only transform if the new key does not already exist.
+	if _, hasNew := workspace["browsing_contexts"]; hasNew {
+		return
+	}
+
+	t.ForceLegacyPopupsToBrowsingContexts(rawConfig)
+}
+
+// ForceLegacyPopupsToBrowsingContexts maps old workspace.popups.* keys to
+// workspace.browsing_contexts.* even when the new section already exists in the
+// raw map. This is used by the loader because Viper's AllSettings includes
+// defaults for the new section that do not indicate user intent.
+func (*LegacyConfigTransformer) ForceLegacyPopupsToBrowsingContexts(rawConfig map[string]any) {
+	workspace, ok := rawConfig["workspace"].(map[string]any)
+	if !ok {
+		return
+	}
+
+	oldPopups, ok := workspace["popups"]
+	if !ok {
+		return
+	}
+
+	// Move the popups map to browsing_contexts and delete the old key.
+	workspace["browsing_contexts"] = oldPopups
+	delete(workspace, "popups")
+}
+
 func (t *LegacyConfigTransformer) getDefaultDesc(path []string, actionName string) string {
 	switch {
 	case path[0] == sectionWorkspace && path[1] == "pane_mode":

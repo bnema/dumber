@@ -166,8 +166,9 @@ const (
 	OmniboxInitialBehaviorNone        OmniboxInitialBehavior = "none"
 )
 
-// PopupBehaviorConfig controls how popup windows are handled.
-type PopupBehaviorConfig struct {
+// BrowsingContextConfig controls how browsing contexts (popups, tabs, new windows) are handled.
+// This is the canonical config type; PopupBehaviorConfig is a compatibility alias.
+type BrowsingContextConfig struct {
 	Behavior PopupBehavior `mapstructure:"behavior" yaml:"behavior" toml:"behavior" json:"behavior"`
 
 	Placement string `mapstructure:"placement" yaml:"placement" toml:"placement" json:"placement"`
@@ -183,6 +184,9 @@ type PopupBehaviorConfig struct {
 	OAuthAutoClose bool `mapstructure:"oauth_auto_close" yaml:"oauth_auto_close" toml:"oauth_auto_close" json:"oauth_auto_close"`
 }
 
+// Deprecated: PopupBehaviorConfig is a compatibility alias for BrowsingContextConfig.
+type PopupBehaviorConfig = BrowsingContextConfig
+
 // WorkspaceConfig holds all workspace layout and behavior settings.
 type WorkspaceConfig struct {
 	NewPaneURL   string                `mapstructure:"new_pane_url" yaml:"new_pane_url" toml:"new_pane_url" json:"new_pane_url"`
@@ -196,7 +200,14 @@ type WorkspaceConfig struct {
 	HideTabBarWhenSingleTab bool   `mapstructure:"hide_tab_bar_when_single_tab" yaml:"hide_tab_bar_when_single_tab" toml:"hide_tab_bar_when_single_tab" json:"hide_tab_bar_when_single_tab"` //nolint:lll // struct tags must stay on one line
 	SwitchToTabOnMove       bool   `mapstructure:"switch_to_tab_on_move" yaml:"switch_to_tab_on_move" toml:"switch_to_tab_on_move" json:"switch_to_tab_on_move"`                             //nolint:lll // struct tags must stay on one line
 
-	Popups  PopupBehaviorConfig    `mapstructure:"popups" yaml:"popups" toml:"popups" json:"popups"`
+	// BrowsingContexts is the canonical field for browsing context behavior.
+	// It replaces the legacy popups configuration.
+	BrowsingContexts BrowsingContextConfig `mapstructure:"browsing_contexts" yaml:"browsing_contexts" toml:"browsing_contexts" json:"browsing_contexts"` //nolint:lll // struct tags must stay on one line
+
+	// Popups is a runtime compatibility alias synced from BrowsingContexts during normalization.
+	// It is not serialized or deserialized from config files.
+	Popups BrowsingContextConfig `mapstructure:"-" yaml:"-" toml:"-" json:"-"`
+
 	Styling WorkspaceStylingConfig `mapstructure:"styling" yaml:"styling" toml:"styling" json:"styling"`
 }
 
