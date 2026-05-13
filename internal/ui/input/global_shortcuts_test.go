@@ -44,18 +44,6 @@ func TestGlobalShortcutHandlerSuppressesRepeatedBrowserNavigationActions(t *test
 	}
 }
 
-func TestGlobalShortcutHandlerSuppressesRepeatedPrintPageAction(t *testing.T) {
-	h := &GlobalShortcutHandler{lastDispatchAt: make(map[Action]time.Time)}
-	now := time.Unix(100, 0)
-
-	if h.suppressRepeatedShortcut(ActionPrintPage, now) {
-		t.Fatal("first print-page dispatch was suppressed")
-	}
-	if !h.suppressRepeatedShortcut(ActionPrintPage, now.Add(time.Millisecond)) {
-		t.Fatal("repeated print-page dispatch was not suppressed")
-	}
-}
-
 func TestGlobalShortcutHandlerSuppressesRepeatedTabIndexSwitchActions(t *testing.T) {
 	actions := []Action{
 		ActionSwitchTabIndex1,
@@ -132,45 +120,13 @@ func TestGlobalShortcutHandlerReturnsInactiveForNilOrDetached(t *testing.T) {
 	}
 }
 
-func TestGlobalShortcutHandlerSuppressesRepeatedReloadAction(t *testing.T) {
-	h := &GlobalShortcutHandler{lastDispatchAt: make(map[Action]time.Time)}
-	now := time.Unix(100, 0)
-
-	if h.suppressRepeatedShortcut(ActionReload, now) {
-		t.Fatal("first reload dispatch was suppressed")
-	}
-	if !h.suppressRepeatedShortcut(ActionReload, now.Add(time.Millisecond)) {
-		t.Fatal("repeated reload dispatch was not suppressed")
-	}
-}
-
-func TestGlobalShortcutHandlerSuppressesRepeatedToggleFullscreenAction(t *testing.T) {
-	h := &GlobalShortcutHandler{lastDispatchAt: make(map[Action]time.Time)}
-	now := time.Unix(100, 0)
-
-	if h.suppressRepeatedShortcut(ActionToggleFullscreen, now) {
-		t.Fatal("first toggle-fullscreen dispatch was suppressed")
-	}
-	if !h.suppressRepeatedShortcut(ActionToggleFullscreen, now.Add(time.Millisecond)) {
-		t.Fatal("repeated toggle-fullscreen dispatch was not suppressed")
-	}
-}
-
-func TestGlobalShortcutHandlerSuppressesRepeatedToggleHistorySystemViewAction(t *testing.T) {
-	h := &GlobalShortcutHandler{lastDispatchAt: make(map[Action]time.Time)}
-	now := time.Unix(100, 0)
-
-	if h.suppressRepeatedShortcut(ActionToggleHistorySystemView, now) {
-		t.Fatal("first toggle-history-systemview dispatch was suppressed")
-	}
-	if !h.suppressRepeatedShortcut(ActionToggleHistorySystemView, now.Add(time.Millisecond)) {
-		t.Fatal("repeated toggle-history-systemview dispatch was not suppressed")
-	}
-}
-
 func TestGlobalShortcutHandlerSuppressesRepeatedAdditionalOneShotUIActions(t *testing.T) {
 	actions := []Action{
+		ActionPrintPage,
+		ActionReload,
 		ActionHardReload,
+		ActionToggleFullscreen,
+		ActionToggleHistorySystemView,
 		ActionOpenOmnibox,
 		ActionOpenFind,
 		ActionOpenDevTools,

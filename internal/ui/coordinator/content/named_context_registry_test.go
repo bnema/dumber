@@ -78,3 +78,90 @@ func TestNamedBrowsingContextRegistry_DropsStaleWindowOwnershipOnLookup(t *testi
 	)
 	assert.False(t, ok)
 }
+
+func TestNamedBrowsingContextRegistry_LookupDoesNotDeleteReRegisteredEntryAfterWindowMismatch(t *testing.T) {
+	t.Parallel()
+
+	reg := newNamedBrowsingContextRegistry()
+	oldPaneID := entity.PaneID("pane-old")
+	newPaneID := entity.PaneID("pane-new")
+	newWebViewID := port.WebViewID(42)
+	reg.Register("window-1", "shared-pane", oldPaneID, port.WebViewID(41))
+
+	_, _, ok := reg.Lookup(
+		"window-1",
+		"shared-pane",
+		func(entity.PaneID) port.WebView { return nil },
+		func(gotPaneID entity.PaneID) (string, bool) {
+			assert.Equal(t, oldPaneID, gotPaneID)
+			reg.Register("window-1", "shared-pane", newPaneID, newWebViewID)
+			return "window-2", true
+		},
+	)
+	assert.False(t, ok)
+
+	wv := mocks.NewMockWebView(t)
+	wv.EXPECT().IsDestroyed().Return(false).Once()
+	wv.EXPECT().ID().Return(newWebViewID).Once()
+
+	state, gotWV, ok := reg.Lookup(
+		"window-1",
+		"shared-pane",
+		func(gotPaneID entity.PaneID) port.WebView {
+			assert.Equal(t, newPaneID, gotPaneID)
+			return wv
+		},
+		func(gotPaneID entity.PaneID) (string, bool) {
+			assert.Equal(t, newPaneID, gotPaneID)
+			return "window-1", true
+		},
+	)
+	assert.True(t, ok)
+	assert.Equal(t, newPaneID, state.PaneID)
+	assert.Same(t, wv, gotWV)
+}
+
+func TestNamedBrowsingContextRegistry_LookupDoesNotDeleteReRegisteredEntryAfterStaleWebView(t *testing.T) {
+	t.Parallel()
+
+	reg := newNamedBrowsingContextRegistry()
+	oldPaneID := entity.PaneID("pane-old")
+	newPaneID := entity.PaneID("pane-new")
+	newWebViewID := port.WebViewID(42)
+	reg.Register("window-1", "shared-pane", oldPaneID, port.WebViewID(41))
+
+	_, _, ok := reg.Lookup(
+		"window-1",
+		"shared-pane",
+		func(gotPaneID entity.PaneID) port.WebView {
+			assert.Equal(t, oldPaneID, gotPaneID)
+			reg.Register("window-1", "shared-pane", newPaneID, newWebViewID)
+			return nil
+		},
+		func(gotPaneID entity.PaneID) (string, bool) {
+			assert.Equal(t, oldPaneID, gotPaneID)
+			return "window-1", true
+		},
+	)
+	assert.False(t, ok)
+
+	wv := mocks.NewMockWebView(t)
+	wv.EXPECT().IsDestroyed().Return(false).Once()
+	wv.EXPECT().ID().Return(newWebViewID).Once()
+
+	state, gotWV, ok := reg.Lookup(
+		"window-1",
+		"shared-pane",
+		func(gotPaneID entity.PaneID) port.WebView {
+			assert.Equal(t, newPaneID, gotPaneID)
+			return wv
+		},
+		func(gotPaneID entity.PaneID) (string, bool) {
+			assert.Equal(t, newPaneID, gotPaneID)
+			return "window-1", true
+		},
+	)
+	assert.True(t, ok)
+	assert.Equal(t, newPaneID, state.PaneID)
+	assert.Same(t, wv, gotWV)
+}

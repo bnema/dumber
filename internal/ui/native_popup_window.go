@@ -22,6 +22,19 @@ type nativePopupWindow struct {
 	closeOnce      sync.Once
 }
 
+type nativePopupDestroyer interface {
+	Destroy()
+}
+
+func destroyFailedNativePopupSetup(popupShell nativePopupDestroyer, wv port.WebView) {
+	if wv != nil && !wv.IsDestroyed() {
+		wv.Destroy()
+	}
+	if popupShell != nil {
+		popupShell.Destroy()
+	}
+}
+
 func (a *App) ensureNativePopupWindows() {
 	if a.nativePopupWindows == nil {
 		a.nativePopupWindows = make(map[port.WebViewID]*nativePopupWindow)
@@ -40,9 +53,13 @@ func (a *App) openNativePopupWindow(ctx context.Context, input content.NativePop
 	if err != nil {
 		return err
 	}
+	if a.contentCoord == nil {
+		destroyFailedNativePopupSetup(popupShell, input.PopupWebView)
+		return fmt.Errorf("content coordinator not available for native popup")
+	}
 	widget := a.contentCoord.WrapWidget(ctx, input.PopupWebView)
 	if widget == nil || widget.GtkWidget() == nil {
-		popupShell.Destroy()
+		destroyFailedNativePopupSetup(popupShell, input.PopupWebView)
 		return fmt.Errorf("failed to wrap native popup webview widget")
 	}
 	popupShell.SetContent(widget.GtkWidget())

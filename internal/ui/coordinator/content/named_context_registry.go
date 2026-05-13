@@ -59,21 +59,28 @@ func (r *namedBrowsingContextRegistry) Lookup(
 
 	currentWindowID, ok := resolveWindowID(state.PaneID)
 	if !ok || currentWindowID != windowID {
-		r.mu.Lock()
-		delete(r.contexts, key)
-		r.mu.Unlock()
+		r.deleteIfStateMatches(key, state)
 		return namedBrowsingContextState{}, nil, false
 	}
 
 	wv := lookupWebView(state.PaneID)
 	if wv == nil || wv.IsDestroyed() || wv.ID() != state.WebViewID {
-		r.mu.Lock()
-		delete(r.contexts, key)
-		r.mu.Unlock()
+		r.deleteIfStateMatches(key, state)
 		return namedBrowsingContextState{}, nil, false
 	}
 
 	return state, wv, true
+}
+
+func (r *namedBrowsingContextRegistry) deleteIfStateMatches(key namedBrowsingContextKey, state namedBrowsingContextState) {
+	if r == nil {
+		return
+	}
+	r.mu.Lock()
+	if currentState, ok := r.contexts[key]; ok && currentState == state {
+		delete(r.contexts, key)
+	}
+	r.mu.Unlock()
 }
 
 func (r *namedBrowsingContextRegistry) UnregisterByPaneID(paneID entity.PaneID) {

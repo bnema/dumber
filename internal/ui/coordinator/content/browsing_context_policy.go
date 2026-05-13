@@ -56,34 +56,34 @@ func (browsingContextPolicy) Decide(req port.NewBrowsingContextRequest, namedCon
 
 func buildPopupBrowsingContextRequest(req port.PopupRequest) port.NewBrowsingContextRequest {
 	return port.NewBrowsingContextRequest{
-		ParentWebViewID:            req.ParentViewID,
-		SourceBrowserID:            req.SourceBrowserID,
-		SourceFrameID:              req.SourceFrameID,
-		SourceFrameURL:             req.SourceFrameURL,
-		TargetURI:                  req.TargetURI,
-		TargetFrameName:            req.FrameName,
-		TargetDisposition:          inferPopupWindowDisposition(req),
-		IsUserGesture:              req.IsUserGesture,
-		NoJavaScriptAccess:         req.NoJavaScriptAccess,
-		WindowFeatures:             req.WindowFeatures,
-		TriggerKind:                inferPopupTriggerKind(req),
-		AuthIntent:                 IsOAuthURL(req.TargetURI),
-		RequiresNativeOpener:       false,
-		RequestContextDisposition:  port.RequestContextInheritParent,
+		ParentWebViewID:           req.ParentViewID,
+		SourceBrowserID:           req.SourceBrowserID,
+		SourceFrameID:             req.SourceFrameID,
+		SourceFrameURL:            req.SourceFrameURL,
+		TargetURI:                 req.TargetURI,
+		TargetFrameName:           req.FrameName,
+		TargetDisposition:         inferPopupWindowDisposition(req),
+		IsUserGesture:             req.IsUserGesture,
+		NoJavaScriptAccess:        req.NoJavaScriptAccess,
+		WindowFeatures:            req.WindowFeatures,
+		TriggerKind:               inferPopupTriggerKind(req),
+		AuthIntent:                IsOAuthURL(req.TargetURI),
+		RequiresNativeOpener:      false,
+		RequestContextDisposition: port.RequestContextInheritParent,
 	}
 }
 
 func buildLinkBrowsingContextRequest(parentWebViewID port.WebViewID, uri string) port.NewBrowsingContextRequest {
 	return port.NewBrowsingContextRequest{
-		ParentWebViewID:            parentWebViewID,
-		TargetURI:                  uri,
-		TargetFrameName:            "_blank",
-		TargetDisposition:          port.WindowDispositionNewTab,
-		IsUserGesture:              true,
-		NoJavaScriptAccess:         true,
-		TriggerKind:                port.TriggerLinkNewPage,
-		AuthIntent:                 IsOAuthURL(uri),
-		RequestContextDisposition:  port.RequestContextInheritParent,
+		ParentWebViewID:           parentWebViewID,
+		TargetURI:                 uri,
+		TargetFrameName:           "_blank",
+		TargetDisposition:         port.WindowDispositionNewTab,
+		IsUserGesture:             true,
+		NoJavaScriptAccess:        true,
+		TriggerKind:               port.TriggerLinkNewPage,
+		AuthIntent:                IsOAuthURL(uri),
+		RequestContextDisposition: port.RequestContextInheritParent,
 	}
 }
 
@@ -99,6 +99,11 @@ func inferPopupWindowDisposition(req port.PopupRequest) port.WindowDisposition {
 
 func inferPopupTriggerKind(req port.PopupRequest) port.TriggerKind {
 	switch inferPopupWindowDisposition(req) {
+	case port.WindowDispositionCurrentTab:
+		if reusableBrowsingContextName(req.FrameName) != "" {
+			return port.TriggerNamedTargetNavigation
+		}
+		return port.TriggerLinkNewPage
 	case port.WindowDispositionNewTab:
 		if reusableBrowsingContextName(req.FrameName) != "" {
 			return port.TriggerNamedTargetNavigation

@@ -108,3 +108,38 @@ func TestInferPopupTriggerKind_DoesNotTreatNoJavaScriptAccessFalseAsNativeSignal
 
 	assert.Equal(t, port.TriggerScriptWindowOpen, inferPopupTriggerKind(req))
 }
+
+func TestInferPopupTriggerKind_ClassifiesCurrentTabAsNavigation(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name string
+		req  port.PopupRequest
+		want port.TriggerKind
+	}{
+		{
+			name: "unnamed current-tab request stays a navigation",
+			req: port.PopupRequest{
+				TargetURI:         "https://example.com/docs",
+				TargetDisposition: port.WindowDispositionCurrentTab,
+			},
+			want: port.TriggerLinkNewPage,
+		},
+		{
+			name: "named current-tab request is treated as named target navigation",
+			req: port.PopupRequest{
+				TargetURI:         "https://example.com/docs",
+				FrameName:         "shared-pane",
+				TargetDisposition: port.WindowDispositionCurrentTab,
+			},
+			want: port.TriggerNamedTargetNavigation,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+			assert.Equal(t, tt.want, inferPopupTriggerKind(tt.req))
+		})
+	}
+}

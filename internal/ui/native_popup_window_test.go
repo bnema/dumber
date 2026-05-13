@@ -8,6 +8,25 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
+type popupDestroySpy struct {
+	destroyed bool
+}
+
+func (p *popupDestroySpy) Destroy() {
+	p.destroyed = true
+}
+
+func TestDestroyFailedNativePopupSetup_DestroysWebViewAndShell(t *testing.T) {
+	wv := portmocks.NewMockWebView(t)
+	wv.EXPECT().IsDestroyed().Return(false).Once()
+	wv.EXPECT().Destroy().Once()
+
+	shell := &popupDestroySpy{}
+	destroyFailedNativePopupSetup(shell, wv)
+
+	assert.True(t, shell.destroyed)
+}
+
 func TestReleaseNativePopupWindow_DestroysWebViewAndRemovesState(t *testing.T) {
 	wv := portmocks.NewMockWebView(t)
 	wv.EXPECT().IsDestroyed().Return(false).Once()
