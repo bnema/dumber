@@ -87,10 +87,17 @@ func (m *Migrator) DetectChanges() ([]port.KeyChange, error) {
 		return nil, nil
 	}
 
-	// Get user-defined keys with values
+	// Get user-defined keys with values after compatibility transforms.
 	userKeysWithValues, err := m.getUserConfigKeysWithValues(configFile)
 	if err != nil {
 		return nil, fmt.Errorf("failed to parse user config: %w", err)
+	}
+
+	// Get raw user-defined keys before popup compatibility transforms so legacy
+	// workspace.popups -> workspace.browsing_contexts renames are still reported.
+	rawUserKeysWithValues, err := m.getRawUserConfigKeysWithValues(configFile)
+	if err != nil {
+		return nil, fmt.Errorf("failed to parse raw user config: %w", err)
 	}
 
 	// Get all default keys
@@ -106,13 +113,22 @@ func (m *Migrator) DetectChanges() ([]port.KeyChange, error) {
 		userKeySet[k] = true
 	}
 
+	legacyBrowsingContextRenames := m.detectLegacyBrowsingContextRenames(rawUserKeysWithValues)
 	var changes []port.KeyChange
+	changes = append(changes, legacyBrowsingContextRenames...)
+
+	handledLegacyDeprecatedKeys := make(map[string]bool, len(legacyBrowsingContextRenames))
+	handledLegacyMissingKeys := make(map[string]bool, len(legacyBrowsingContextRenames))
+	for _, change := range legacyBrowsingContextRenames {
+		handledLegacyDeprecatedKeys[change.OldKey] = true
+		handledLegacyMissingKeys[change.NewKey] = true
+	}
 
 	// Find deprecated keys (in user config but not in defaults)
-	deprecatedKeys := m.findDeprecatedKeys(userKeysWithValues, defaultKeySet)
+	deprecatedKeys := excludeKeys(m.findDeprecatedKeys(userKeysWithValues, defaultKeySet), handledLegacyDeprecatedKeys)
 
 	// Find missing keys (in defaults but not in user config)
-	missingKeys := m.findMissingKeys(defaultKeys, userKeySet)
+	missingKeys := excludeKeys(m.findMissingKeys(defaultKeys, userKeySet), handledLegacyMissingKeys)
 	missingKeys = appendUniqueKeys(missingKeys, m.detectMissingWorkspaceShortcutActions(userKeysWithValues))
 
 	// Try to match deprecated keys with missing keys (detect renames)
@@ -378,9 +394,11 @@ func (m *Migrator) Migrate() ([]string, error) {
 	}
 
 	// Transform legacy action bindings (slice -> ActionBinding struct)
+	// and migrate popups -> browsing_contexts
 	transformer := NewLegacyConfigTransformer()
 	transformer.TransformLegacyActions(rawConfig)
 	transformer.TransformLegacyEngineConfig(rawConfig)
+	transformer.TransformLegacyPopupsToBrowsingContexts(rawConfig)
 
 	// Build sets of keys to remove and renames to apply
 	keysToRemove := make(map[string]bool)
@@ -657,27 +675,69 @@ func (m *Migrator) getUserConfigKeys(configFile string) (map[string]bool, error)
 
 // getUserConfigKeysWithValues parses the user's TOML file and returns keys with their values.
 func (m *Migrator) getUserConfigKeysWithValues(configFile string) (map[string]any, error) {
-	data, err := os.ReadFile(configFile)
+	rawConfig, err := m.readRawConfig(configFile)
 	if err != nil {
-		return nil, fmt.Errorf("failed to read config file: %w", err)
+		return nil, err
 	}
 
-	// Parse TOML into a generic map
-	var rawConfig map[string]any
-	if err := toml.Unmarshal(data, &rawConfig); err != nil {
-		return nil, fmt.Errorf("failed to parse TOML: %w", err)
-	}
-
-	// Transform legacy action bindings before flattening
+	// Transform legacy action bindings and popups before flattening.
 	transformer := NewLegacyConfigTransformer()
 	transformer.TransformLegacyActions(rawConfig)
 	transformer.TransformLegacyEngineConfig(rawConfig)
+	transformer.TransformLegacyPopupsToBrowsingContexts(rawConfig)
 
-	// Flatten the map to dot-notation keys with values
+	// Flatten the map to dot-notation keys with values.
 	result := make(map[string]any)
 	m.flattenMapWithValues(rawConfig, "", result)
 
 	return result, nil
+}
+
+func (m *Migrator) getRawUserConfigKeysWithValues(configFile string) (map[string]any, error) {
+	rawConfig, err := m.readRawConfig(configFile)
+	if err != nil {
+		return nil, err
+	}
+
+	result := make(map[string]any)
+	m.flattenMapWithValues(rawConfig, "", result)
+	return result, nil
+}
+
+func (m *Migrator) detectLegacyBrowsingContextRenames(rawUserKeys map[string]any) []port.KeyChange {
+	type renamePair struct {
+		oldKey string
+		newKey string
+	}
+
+	renamePairs := []renamePair{
+		{"workspace.popups.behavior", "workspace.browsing_contexts.behavior"},
+		{"workspace.popups.placement", "workspace.browsing_contexts.placement"},
+		{"workspace.popups.open_in_new_pane", "workspace.browsing_contexts.open_in_new_pane"},
+		{"workspace.popups.follow_pane_context", "workspace.browsing_contexts.follow_pane_context"},
+		{"workspace.popups.blank_target_behavior", "workspace.browsing_contexts.blank_target_behavior"},
+		{"workspace.popups.enable_smart_detection", "workspace.browsing_contexts.enable_smart_detection"},
+		{"workspace.popups.oauth_auto_close", "workspace.browsing_contexts.oauth_auto_close"},
+	}
+
+	changes := make([]port.KeyChange, 0, len(renamePairs))
+	for _, pair := range renamePairs {
+		oldValue, hasOld := rawUserKeys[pair.oldKey]
+		if !hasOld {
+			continue
+		}
+		if _, hasNew := rawUserKeys[pair.newKey]; hasNew {
+			continue
+		}
+		changes = append(changes, port.KeyChange{
+			Type:     port.KeyChangeRenamed,
+			OldKey:   pair.oldKey,
+			NewKey:   pair.newKey,
+			OldValue: m.formatValue(oldValue),
+			NewValue: m.formatValue(m.defaultValueForKey(pair.newKey)),
+		})
+	}
+	return changes
 }
 
 // flattenMapWithValues recursively flattens a nested map to dot-notation keys with values.
@@ -835,6 +895,21 @@ func appendUniqueKeys(base, extra []string) []string {
 
 	sort.Strings(base)
 	return base
+}
+
+func excludeKeys(keys []string, excluded map[string]bool) []string {
+	if len(excluded) == 0 {
+		return keys
+	}
+
+	filtered := make([]string, 0, len(keys))
+	for _, key := range keys {
+		if excluded[key] {
+			continue
+		}
+		filtered = append(filtered, key)
+	}
+	return filtered
 }
 
 func (*Migrator) toStringAnyMap(value any) (map[string]any, bool) {

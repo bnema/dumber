@@ -58,6 +58,8 @@ func (c *Coordinator) ReleaseWebView(ctx context.Context, paneID entity.PaneID) 
 	if wv == nil {
 		return
 	}
+	c.ensurePopupManager().clearReusableNamedPopupByPaneID(paneID)
+	c.ensurePopupManager().clearReusableNamedPopupByWebViewID(wv.ID())
 	c.clearPendingAppearance(paneID)
 
 	// CRITICAL: If this webview was inhibiting idle (fullscreen or audio playing),

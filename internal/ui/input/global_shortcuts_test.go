@@ -120,6 +120,54 @@ func TestGlobalShortcutHandlerReturnsInactiveForNilOrDetached(t *testing.T) {
 	}
 }
 
+func TestGlobalShortcutHandlerSuppressesRepeatedAdditionalOneShotUIActions(t *testing.T) {
+	actions := []Action{
+		ActionPrintPage,
+		ActionReload,
+		ActionHardReload,
+		ActionToggleFullscreen,
+		ActionToggleHistorySystemView,
+		ActionOpenOmnibox,
+		ActionOpenFind,
+		ActionOpenDevTools,
+		ActionToggleFloatingPane,
+		ActionToggleFavoritesSystemView,
+		ActionToggleConfigSystemView,
+		ActionCopyURL,
+		ActionConsumeOrExpelLeft,
+		ActionConsumeOrExpelRight,
+		ActionConsumeOrExpelUp,
+		ActionConsumeOrExpelDown,
+	}
+
+	for _, action := range actions {
+		t.Run(string(action), func(t *testing.T) {
+			h := &GlobalShortcutHandler{lastDispatchAt: make(map[Action]time.Time)}
+			now := time.Unix(100, 0)
+
+			if h.suppressRepeatedShortcut(action, now) {
+				t.Fatalf("first %s dispatch was suppressed", action)
+			}
+			if !h.suppressRepeatedShortcut(action, now.Add(time.Millisecond)) {
+				t.Fatalf("repeated %s dispatch was not suppressed", action)
+			}
+		})
+	}
+}
+
+func TestGlobalShortcutHandlerSuppressesRepeatedFloatingProfileAction(t *testing.T) {
+	h := &GlobalShortcutHandler{lastDispatchAt: make(map[Action]time.Time)}
+	now := time.Unix(100, 0)
+	action := NewFloatingProfileAction("work", "https://example.com")
+
+	if h.suppressRepeatedShortcut(action, now) {
+		t.Fatal("first floating-profile dispatch was suppressed")
+	}
+	if !h.suppressRepeatedShortcut(action, now.Add(time.Millisecond)) {
+		t.Fatal("repeated floating-profile dispatch was not suppressed")
+	}
+}
+
 func TestGlobalShortcutHandlerSuppressesActionSwitchLastTab(t *testing.T) {
 	if !isRepeatedGlobalShortcutSuppressed(ActionSwitchLastTab) {
 		t.Fatal("ActionSwitchLastTab should be suppressed")

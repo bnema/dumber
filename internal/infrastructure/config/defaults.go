@@ -76,6 +76,18 @@ const (
 	defaultSkiaGPUPaintingThreads = -1 // -1 means unset; 0 would disable GPU tile painting
 )
 
+func defaultBrowsingContextConfig() BrowsingContextConfig {
+	return BrowsingContextConfig{
+		Behavior:             PopupBehaviorSplit,
+		Placement:            defaultPopupPlacement,
+		OpenInNewPane:        true,
+		FollowPaneContext:    true,
+		BlankTargetBehavior:  "stacked",
+		EnableSmartDetection: true,
+		OAuthAutoClose:       true,
+	}
+}
+
 // getDefaultLogDir returns the default log directory, falls back to empty string on error
 func getDefaultLogDir() string {
 	logDir, err := GetLogDir()
@@ -87,6 +99,8 @@ func getDefaultLogDir() string {
 
 // DefaultConfig returns the default configuration values for dumber.
 func DefaultConfig() *Config {
+	browsingContextDefaults := defaultBrowsingContextConfig()
+
 	return &Config{
 		Database: DatabaseConfig{
 			// Path is set dynamically in config.Load()
@@ -254,15 +268,8 @@ func DefaultConfig() *Config {
 			},
 			TabBarPosition:          defaultTabBarPosition,
 			HideTabBarWhenSingleTab: true,
-			Popups: PopupBehaviorConfig{
-				Behavior:             PopupBehaviorSplit, // Default: open JavaScript popups in split panes
-				Placement:            defaultPopupPlacement,
-				OpenInNewPane:        true,
-				FollowPaneContext:    true,
-				BlankTargetBehavior:  "stacked", // Default: open _blank links in stacked mode
-				EnableSmartDetection: true,      // Use WindowProperties to detect popup vs tab
-				OAuthAutoClose:       true,      // Auto-close OAuth popups on success
-			},
+			BrowsingContexts:        browsingContextDefaults,
+			Popups:                  browsingContextDefaults,
 			Styling: WorkspaceStylingConfig{
 				BorderWidth:                 defaultBorderWidth,
 				BorderColor:                 defaultBorderColor,

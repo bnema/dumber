@@ -287,6 +287,9 @@ func (a *App) removeBrowserWindow(id string) {
 	if removed != nil {
 		removed.clearShellState()
 	}
+	if a.contentCoord != nil {
+		a.contentCoord.ClearPopupNamedContextsForWindow(id)
+	}
 	delete(a.browserWindows, id)
 	fallback := a.deterministicBrowserWindowFallback()
 	if a.lastFocusedWindowID == id {

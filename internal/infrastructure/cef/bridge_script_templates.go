@@ -1,7 +1,6 @@
 package cef
 
 import (
-	"fmt"
 	"strings"
 
 	"github.com/bnema/dumber/internal/infrastructure/webutil"
@@ -12,234 +11,11 @@ import (
 // bridge nonce placeholder is replaced per navigation.
 var trustedPageFetchBridgeBaseJS = buildTrustedPageFetchBridgeBaseJS()
 
-// rendererBridgeExtensionJS is assembled once from the shared popup proxy
-// builder so the renderer-extension and fetch-based popup bridges stay aligned.
+// rendererBridgeExtensionJS is assembled once for renderer-process bridge helpers.
 var rendererBridgeExtensionJS = buildRendererBridgeExtensionJS()
 
-type popupProxyBridgeDispatch struct {
-	patchFlag string
-	helpers   string
-}
-
-const popupProxyBridgeBodyTemplateJS = `
-  if (typeof window === 'undefined') return;
-  if (window.__DUMBER_POPUP_PATCH_FLAG__) return;
-
-  __DUMBER_POPUP_DISPATCH_HELPERS__
-
-  function resolvePopupURL(rawURL) {
-    if (rawURL == null || rawURL === '') return '';
-    try {
-      return new URL(String(rawURL), (document && document.baseURI) || location.href).href;
-    } catch (_) {
-      return String(rawURL);
-    }
-  }
-
-  function hasUserGesture() {
-    try {
-      return !!(navigator && navigator.userActivation && navigator.userActivation.isActive);
-    } catch (_) {
-      return false;
-    }
-  }
-
-  function popupHasNoOpener(features) {
-    if (features == null || features === '') return false;
-    var normalized = String(features).toLowerCase();
-    return normalized.indexOf('noopener') !== -1 || normalized.indexOf('noreferrer') !== -1;
-  }
-
-  function shouldDelegateWindowOpen(target) {
-    return target === '_self' || target === '_top' || target === '_parent';
-  }
-
-  function createPopupProxyID() {
-    var timestamp = Date.now();
-    try {
-      if (typeof crypto !== 'undefined' && crypto && typeof crypto.getRandomValues === 'function') {
-        var bytes = new Uint8Array(4);
-        crypto.getRandomValues(bytes);
-        var nonce = '';
-        for (var i = 0; i < bytes.length; i++) {
-          nonce += ('0' + bytes[i].toString(16)).slice(-2);
-        }
-        return 'popup-' + timestamp + '-' + nonce;
-      }
-    } catch (_) {}
-    return 'popup-' + timestamp + '-' + Math.random().toString(36).slice(2);
-  }
-
-  function createSyntheticPopupProxy(proxyID, initialURL, features) {
-    var href = initialURL || 'about:blank';
-    var closed = false;
-    var noJavaScriptAccess = popupHasNoOpener(features);
-
-    function navigate(nextURL) {
-      href = resolvePopupURL(nextURL);
-      dispatchPopupNavigate(proxyID, href);
-      return href;
-    }
-
-    var locationProxy = {
-      assign: function(nextURL) { return navigate(nextURL); },
-      replace: function(nextURL) { return navigate(nextURL); },
-      toString: function() { return href; }
-    };
-    try {
-      Object.defineProperty(locationProxy, 'href', {
-        configurable: true,
-        enumerable: true,
-        get: function() { return href; },
-        set: function(nextURL) { navigate(nextURL); }
-      });
-    } catch (_) {
-      locationProxy.href = href;
-    }
-
-    var proxy = {
-      blur: function() { return undefined; },
-      close: function() {
-        if (closed) return;
-        closed = true;
-        dispatchPopupClose(proxyID);
-      },
-      focus: function() { return undefined; },
-      postMessage: function() { return undefined; }
-    };
-    proxy.opener = noJavaScriptAccess ? null : window;
-    proxy.self = proxy;
-    proxy.window = proxy;
-
-    try {
-      Object.defineProperty(proxy, 'closed', {
-        configurable: true,
-        enumerable: true,
-        get: function() { return closed; },
-        set: function(next) { closed = !!next; }
-      });
-    } catch (_) {
-      proxy.closed = false;
-    }
-
-    try {
-      Object.defineProperty(proxy, 'location', {
-        configurable: true,
-        enumerable: true,
-        get: function() { return locationProxy; },
-        set: function(nextURL) { navigate(nextURL); }
-      });
-    } catch (_) {
-      proxy.location = locationProxy;
-    }
-
-    try {
-      Object.defineProperty(proxy, Symbol.toStringTag, {
-        configurable: true,
-        value: 'Window'
-      });
-    } catch (_) {}
-
-    return proxy;
-  }
-
-  try {
-    var originalWindowOpen = typeof window.open === 'function' ? window.open : null;
-    if (!originalWindowOpen) return;
-
-    window.__DUMBER_POPUP_PATCH_FLAG__ = true;
-    window.open = function(url, target, features) {
-      var normalizedTarget = target == null ? '' : String(target);
-      if (shouldDelegateWindowOpen(normalizedTarget)) {
-        return originalWindowOpen.apply(this, arguments);
-      }
-
-      var proxyID = createPopupProxyID();
-      var resolvedURL = resolvePopupURL(url);
-      var noJavaScriptAccess = popupHasNoOpener(features);
-      var popupProxy = createSyntheticPopupProxy(proxyID, resolvedURL, features);
-      dispatchPopupOpen({
-        proxy_id: proxyID,
-        url: resolvedURL,
-        frame_name: normalizedTarget,
-        user_gesture: hasUserGesture(),
-        no_javascript_access: noJavaScriptAccess
-      });
-      return popupProxy;
-    };
-  } catch (_) {
-    window.__DUMBER_POPUP_PATCH_FLAG__ = false;
-  }
-`
-
-const popupFetchBridgeHelpersJSTemplate = `
-  var bridgeNonce = '__DUMBER_BRIDGE_NONCE__';
-
-  function encodeBody(body) {
-    try {
-      return btoa(unescape(encodeURIComponent(body)));
-    } catch (_) {
-      return '';
-    }
-  }
-
-  function postBridge(url, payload) {
-    var encoded = encodeBody(JSON.stringify(payload));
-    if (!encoded) return;
-    fetch(url, {
-      method: 'POST',
-      headers: {
-        'X-Dumber-Body': encoded,
-        'X-Dumber-Bridge-Nonce': bridgeNonce
-      }
-    }).catch(function() {});
-  }
-
-  function dispatchPopupOpen(payload) {
-    postBridge('dumb:///api/popup-open', payload);
-  }
-
-  function dispatchPopupNavigate(proxyID, url) {
-    postBridge('dumb:///api/popup-navigate', { proxy_id: proxyID, url: url });
-  }
-
-  function dispatchPopupClose(proxyID) {
-    postBridge('dumb:///api/popup-close', { proxy_id: proxyID });
-  }
-`
-
-const rendererPopupDispatchHelpersJS = `
-  function dispatchPopupOpen(payload) {
-    send('popup_open', JSON.stringify(payload));
-  }
-
-  function dispatchPopupNavigate(proxyID, url) {
-    send('popup_navigate', JSON.stringify({ proxy_id: proxyID, url: url }));
-  }
-
-  function dispatchPopupClose(proxyID) {
-    send('popup_close', JSON.stringify({ proxy_id: proxyID }));
-  }
-`
-
-func buildPopupProxyBridgeBodyJS(dispatch popupProxyBridgeDispatch) string {
-	replacer := strings.NewReplacer(
-		"__DUMBER_POPUP_PATCH_FLAG__", dispatch.patchFlag,
-		"__DUMBER_POPUP_DISPATCH_HELPERS__", dispatch.helpers,
-	)
-	return replacer.Replace(popupProxyBridgeBodyTemplateJS)
-}
-
-func wrapSelfExecutingScript(body string) string {
-	return fmt.Sprintf("(function() {\n%s\n})();", body)
-}
-
 func buildTrustedPageFetchBridgeBaseJS() string {
-	popupBridge := wrapSelfExecutingScript(buildPopupProxyBridgeBodyJS(popupProxyBridgeDispatch{
-		patchFlag: "__dumberPopupBridgePatched",
-		helpers:   popupFetchBridgeHelpersJSTemplate,
-	}))
-	return clipboardSelectionFetchBridgeJSTemplate + "\n" + popupBridge
+	return clipboardSelectionFetchBridgeJSTemplate
 }
 
 const bridgeNoncePlaceholder = "__DUMBER_BRIDGE_NONCE__"
@@ -252,11 +28,7 @@ func buildTrustedPageFetchBridgeJS(bridgeNonce string) string {
 }
 
 func buildRendererBridgeExtensionJS() string {
-	popupBridgeBody := buildPopupProxyBridgeBodyJS(popupProxyBridgeDispatch{
-		patchFlag: "__dumberPopupOpenPatched",
-		helpers:   rendererPopupDispatchHelpersJS,
-	})
-	return strings.ReplaceAll(rendererBridgeExtensionTemplateJS, "__DUMBER_POPUP_PROXY_BRIDGE_BODY__", popupBridgeBody)
+	return strings.ReplaceAll(rendererBridgeExtensionTemplateJS, "__DUMBER_POPUP_PROXY_BRIDGE_BODY__", "")
 }
 
 func buildPopupOpenerBridgeJS(bridgeNonce, parentURI string) string {

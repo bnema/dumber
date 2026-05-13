@@ -10,6 +10,7 @@ import (
 	"sync/atomic"
 	"time"
 
+	"github.com/bnema/dumber/internal/application/dto"
 	"github.com/bnema/dumber/internal/application/port"
 	downloadutil "github.com/bnema/dumber/internal/domain/download"
 	"github.com/bnema/dumber/internal/domain/entity"
@@ -147,20 +148,23 @@ type WebView struct {
 	generation atomic.Uint64
 
 	// Callbacks (set by UI layer)
-	OnLoadChanged          func(LoadEvent)
-	OnTitleChanged         func(string)
-	OnURIChanged           func(string)
-	OnProgressChanged      func(float64)
-	OnFaviconChanged       func(*gdk.Texture) // Called when page favicon changes
-	OnClose                func()
-	OnCreate               func(PopupRequest) *WebView // Return new WebView or nil to block popup
-	OnReadyToShow          func()                      // Called when popup is ready to display
-	OnLinkMiddleClick      func(uri string) bool       // Return true if handled (blocks navigation)
-	OnEnterFullscreen      func() bool                 // Return true to prevent fullscreen
-	OnLeaveFullscreen      func() bool                 // Return true to prevent leaving fullscreen
-	OnAudioStateChanged    func(playing bool)          // Called when audio playback starts/stops
-	OnLinkHover            func(uri string)            // Called when hovering over a link/image/media (empty string when leaving)
-	OnWebProcessTerminated func(reason webkit.WebProcessTerminationReason, reasonLabel string, uri string)
+	OnLoadChanged              func(LoadEvent)
+	OnTitleChanged             func(string)
+	OnURIChanged               func(string)
+	OnProgressChanged          func(float64)
+	OnFaviconChanged           func(*gdk.Texture) // Called when page favicon changes
+	OnClose                    func()
+	OnCreate                   func(PopupRequest) *WebView // Return new WebView or nil to block popup
+	OnReadyToShow              func()                      // Called when popup is ready to display
+	OnLinkMiddleClick          func(uri string) bool       // Return true if handled (blocks navigation)
+	OnEnterFullscreen          func() bool                 // Return true to prevent fullscreen
+	OnLeaveFullscreen          func() bool                 // Return true to prevent leaving fullscreen
+	OnAudioStateChanged        func(playing bool)          // Called when audio playback starts/stops
+	OnLinkHover                func(uri string)            // Called when hovering over a link/image/media (empty string when leaving)
+	OnWebProcessTerminated     func(reason webkit.WebProcessTerminationReason, reasonLabel string, uri string)
+	browsingContextDecision    dto.HostDecision
+	hasBrowsingContextDecision bool
+	nativePopupHostAbort       func()
 
 	// PermissionRequest is called when a site requests permission (mic, camera, screen sharing).
 	// Return true to indicate the request was handled. Call allow()/deny() to respond.
@@ -516,6 +520,34 @@ func (wv *WebView) connectCloseSignal() {
 	}
 	sigID := wv.inner.ConnectClose(&closeCb)
 	wv.signalIDs = append(wv.signalIDs, uintptr(sigID))
+}
+
+func (wv *WebView) SetBrowsingContextHostDecision(decision dto.HostDecision) {
+	wv.mu.Lock()
+	wv.browsingContextDecision = decision
+	wv.hasBrowsingContextDecision = true
+	wv.mu.Unlock()
+}
+
+func (wv *WebView) BrowsingContextHostDecision() (dto.HostDecision, bool) {
+	wv.mu.RLock()
+	defer wv.mu.RUnlock()
+	return wv.browsingContextDecision, wv.hasBrowsingContextDecision
+}
+
+func (wv *WebView) SetNativePopupHostAbort(fn func()) {
+	wv.mu.Lock()
+	wv.nativePopupHostAbort = fn
+	wv.mu.Unlock()
+}
+
+func (wv *WebView) AbortNativePopupHost() {
+	wv.mu.RLock()
+	fn := wv.nativePopupHostAbort
+	wv.mu.RUnlock()
+	if fn != nil {
+		fn()
+	}
 }
 
 func (wv *WebView) connectCreateSignal() {
@@ -1893,9 +1925,12 @@ func (wv *WebView) DestroyWithPolicy(policy string) {
 	wv.OnWebProcessTerminated = nil
 	wv.OnPermissionRequest = nil
 
-	// 3. Clear async callback references
+	// 3. Clear async callback references and popup-hosting state
 	wv.mu.Lock()
 	wv.asyncCallbacks = nil
+	wv.browsingContextDecision = dto.HostDecision{}
+	wv.hasBrowsingContextDecision = false
+	wv.nativePopupHostAbort = nil
 	wv.mu.Unlock()
 
 	// 4. Unparent from GTK hierarchy (must happen before process termination)
@@ -1963,6 +1998,9 @@ func (wv *WebView) ResetForPoolReuse() {
 	wv.isLoading = false
 	wv.asyncCallbacks = nil
 	wv.runJSErrorStats = make(map[string]runJSErrorStat)
+	wv.browsingContextDecision = dto.HostDecision{}
+	wv.hasBrowsingContextDecision = false
+	wv.nativePopupHostAbort = nil
 	wv.lastProgressUpdate.Store(0)
 	wv.mu.Unlock()
 

@@ -78,19 +78,6 @@ type PendingPopup struct {
 	CreatedAt time.Time
 }
 
-type namedPopupKey struct {
-	ParentPaneID entity.PaneID
-	FrameName    string
-}
-
-type namedPopupState struct {
-	WebView port.WebView
-}
-
-func isReusableNamedPopupFrame(frameName string) bool {
-	return frameName != "" && frameName != "_blank"
-}
-
 // InsertPopupInput contains the data needed to insert a popup into the workspace.
 type InsertPopupInput struct {
 	// ParentPaneID is the pane that spawned this popup.
@@ -116,8 +103,20 @@ type InsertPopupInput struct {
 	TargetURI string
 }
 
+// NativePopupInput contains the data needed to host a native-required popup in
+// a dedicated top-level GTK window instead of the workspace.
+type NativePopupInput struct {
+	ParentPaneID          entity.PaneID
+	ParentWebViewID       port.WebViewID
+	ParentURIAtOpen       string
+	PopupWebView          port.WebView
+	TargetURI             string
+	Request               port.PopupRequest
+	ObserveOAuthAutoClose bool
+}
+
 // GetBehavior returns the appropriate behavior based on popup type and config.
-func GetBehavior(popupType PopupType, cfg *entity.PopupBehaviorConfig) entity.PopupBehavior {
+func GetBehavior(popupType PopupType, cfg *entity.BrowsingContextConfig) entity.PopupBehavior {
 	if cfg == nil {
 		return entity.PopupBehaviorSplit // Default
 	}
@@ -146,10 +145,18 @@ func GetBehavior(popupType PopupType, cfg *entity.PopupBehaviorConfig) entity.Po
 // SetPopupConfig configures popup handling.
 func (c *Coordinator) SetPopupConfig(
 	factory port.WebViewFactory,
-	popupConfig *entity.PopupBehaviorConfig,
+	popupConfig *entity.BrowsingContextConfig,
 	generateID func() string,
 ) {
 	c.ensurePopupManager().setConfig(factory, popupConfig, generateID)
+}
+
+func (c *Coordinator) SetPopupWindowIDResolver(fn func(entity.PaneID) (string, bool)) {
+	c.ensurePopupManager().setWindowIDResolver(fn)
+}
+
+func (c *Coordinator) ClearPopupNamedContextsForWindow(windowID string) {
+	c.ensurePopupManager().clearReusableNamedPopupsForWindow(windowID)
 }
 
 // SetOnInsertPopup sets the callback to insert popups into the workspace.
@@ -160,6 +167,10 @@ func (c *Coordinator) SetOnInsertPopup(fn func(ctx context.Context, input Insert
 // SetOnClosePane sets the callback to close a pane when its popup closes.
 func (c *Coordinator) SetOnClosePane(fn func(ctx context.Context, paneID entity.PaneID) error) {
 	c.ensurePopupManager().setOnClosePane(fn)
+}
+
+func (c *Coordinator) SetOnOpenNativePopup(fn func(ctx context.Context, input NativePopupInput) error) {
+	c.ensurePopupManager().setOnOpenNativePopup(fn)
 }
 
 // buildPopupCreateHandler returns the OnCreate callback for a WebView.

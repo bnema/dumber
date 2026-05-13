@@ -98,6 +98,39 @@ type stubStoppableTimer struct{}
 
 func (stubStoppableTimer) Stop() bool { return true }
 
+type spyStoppableTimer struct{ stopped bool }
+
+func (t *spyStoppableTimer) Stop() bool {
+	t.stopped = true
+	return true
+}
+
+func TestPreparePaneHostedBrowsingContext_ClearsNativePopupFallbackState(t *testing.T) {
+	parent := &WebView{ctx: context.Background()}
+	timer := &spyStoppableTimer{}
+	wv := &WebView{
+		nativePopupCandidate:       true,
+		nativePopupParent:          parent,
+		nativePopupID:              77,
+		nativePopupFallbackStarted: true,
+		nativePopupFallbackTimer:   timer,
+		pendingCreate:              &pendingBrowserCreate{},
+		popupOpenerBridgeParent:    parent,
+		popupOpenerBridgeParentURI: "https://example.com/login",
+	}
+
+	wv.PreparePaneHostedBrowsingContext()
+
+	require.False(t, wv.nativePopupCandidate)
+	require.Nil(t, wv.nativePopupParent)
+	require.Zero(t, wv.nativePopupID)
+	require.False(t, wv.nativePopupFallbackStarted)
+	require.Nil(t, wv.nativePopupFallbackTimer)
+	require.True(t, timer.stopped)
+	require.Nil(t, wv.popupOpenerBridgeParent)
+	require.Empty(t, wv.popupOpenerBridgeParentURI)
+}
+
 func TestStartNativePopupFallback_AllowsPopupShellAwaitingArm(t *testing.T) {
 	wv := &WebView{
 		nativePopupCandidate: true,
@@ -245,6 +278,60 @@ func TestOnBeforePopup_PrimesPopupShellWhenNativePopupCannotBeArmed(t *testing.T
 	require.True(t, blocked)
 	require.False(t, popupWV.isNativePopupCandidate())
 	require.Equal(t, "https://example.com/login", popupWV.pendingNavigationURI())
+}
+
+func TestOnBeforePopup_PaneDecisionBlocksNativePopupAndKeepsPanePath(t *testing.T) {
+	parentWV := &WebView{ctx: context.Background(), id: 41}
+	popupWV := &WebView{ctx: context.Background(), id: 42}
+	popupWV.SetBrowsingContextHostDecision(dto.HostDecision{Kind: dto.HostDecisionCreatePane})
+	parentWV.SetCallbacks(&port.WebViewCallbacks{
+		OnCreate: func(req port.PopupRequest) port.WebView {
+			popupWV.PreparePaneHostedBrowsingContext()
+			popupWV.PrimePopupNavigation(req.TargetURI)
+			return popupWV
+		},
+	})
+
+	h := &handlerSet{wv: parentWV}
+	blocked := h.OnBeforePopup(nil, nil, 81, "https://example.com/pane", "_blank", 0, 1, nil, nil, nil, nil, nil, nil)
+
+	require.True(t, blocked)
+	require.Equal(t, "https://example.com/pane", popupWV.pendingNavigationURI())
+}
+
+func TestOnBeforePopup_NativeDecisionAbortsHostWhenArmingFails(t *testing.T) {
+	parentWV := &WebView{ctx: context.Background(), id: 51}
+	popupWV := &WebView{ctx: context.Background(), id: 52}
+	popupWV.markNativePopupCandidate(parentWV)
+	popupWV.SetBrowsingContextHostDecision(dto.HostDecision{Kind: dto.HostDecisionCreateNativeWin})
+	aborted := false
+	popupWV.SetNativePopupHostAbort(func() { aborted = true })
+	parentWV.SetCallbacks(&port.WebViewCallbacks{
+		OnCreate: func(req port.PopupRequest) port.WebView {
+			popupWV.PrimePopupNavigation(req.TargetURI)
+			return popupWV
+		},
+	})
+
+	h := &handlerSet{wv: parentWV}
+	blocked := h.OnBeforePopup(nil, nil, 82, "https://accounts.google.com/o/oauth2/v2/auth", "oauth", 0, 1, nil, nil, nil, nil, nil, nil)
+
+	require.True(t, blocked)
+	require.True(t, aborted)
+}
+
+func TestConfigureNativePopupWindow_UsesSharedTextureWindowlessDefaults(t *testing.T) {
+	windowInfo := purecef.NewWindowInfo()
+	settings := purecef.NewBrowserSettings()
+
+	configureNativePopupWindow(&windowInfo, &settings, 72, 0xFF112233)
+
+	require.Equal(t, purecef.WindowHandle(0), windowInfo.ParentWindow)
+	require.Equal(t, int32(1), windowInfo.WindowlessRenderingEnabled)
+	require.Equal(t, int32(1), windowInfo.SharedTextureEnabled)
+	require.Equal(t, int32(72), settings.WindowlessFrameRate)
+	require.Equal(t, int32(1), settings.LocalStorage)
+	require.Equal(t, uint32(0xFF112233), settings.BackgroundColor)
 }
 
 func TestOnLoadStartFiresCommittedAndUpdatesURI(t *testing.T) {

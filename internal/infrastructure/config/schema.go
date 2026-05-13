@@ -68,8 +68,11 @@ const (
 	OmniboxInitialBehaviorNone = entity.OmniboxInitialBehaviorNone
 )
 
-// PopupBehaviorConfig defines handling for popup windows.
-type PopupBehaviorConfig = entity.PopupBehaviorConfig
+// BrowsingContextConfig defines handling for browsing contexts (popups, tabs, new windows).
+type BrowsingContextConfig = entity.BrowsingContextConfig
+
+// Deprecated: PopupBehaviorConfig is a compatibility alias for BrowsingContextConfig.
+type PopupBehaviorConfig = entity.BrowsingContextConfig
 
 // WorkspaceConfig captures layout, pane, and tab behavior preferences.
 type WorkspaceConfig = entity.WorkspaceConfig
@@ -381,5 +384,3 @@ type DownloadsConfig struct {
 	// Empty string means use XDG_DOWNLOAD_DIR or ~/Downloads.
 	Path string `mapstructure:"path" yaml:"path" toml:"path"`
 }
-
-

@@ -18,6 +18,7 @@ import (
 	"github.com/bnema/puregotk/v4/glib"
 	"github.com/bnema/puregotk/v4/gtk"
 
+	"github.com/bnema/dumber/internal/application/dto"
 	"github.com/bnema/dumber/internal/application/port"
 	"github.com/bnema/dumber/internal/logging"
 )
@@ -117,9 +118,12 @@ type WebView struct {
 	// crash → redirect → crash loops.
 	crashCount atomic.Int32
 
-	// Callbacks set by use case layer.
-	mu        sync.RWMutex
-	callbacks *port.WebViewCallbacks
+	// Callbacks and browsing-context state set by the UI layer.
+	mu                         sync.RWMutex
+	callbacks                  *port.WebViewCallbacks
+	browsingContextDecision    dto.HostDecision
+	hasBrowsingContextDecision bool
+	nativePopupHostAbort       func()
 
 	// Synthetic popup proxies created by the renderer bridge's window.open shim.
 	syntheticPopupMu sync.Mutex
@@ -656,31 +660,72 @@ func (wv *WebView) isNativePopupCandidate() bool {
 	return wv.nativePopupCandidate
 }
 
-func popupParentWindowHandle(parent *WebView) uintptr {
-	if parent == nil {
-		return 0
-	}
-	parent.mu.RLock()
-	host := parent.host
-	parent.mu.RUnlock()
-	if host == nil {
-		return 0
-	}
-	if handle := host.GetWindowHandle(); handle != 0 {
-		return handle
-	}
-	return host.GetOpenerWindowHandle()
-}
-
 func (wv *WebView) discardNativePopupCandidate() {
 	if wv == nil {
 		return
 	}
+	var timer stoppableTimer
 	wv.mu.Lock()
+	timer = wv.nativePopupFallbackTimer
+	wv.nativePopupFallbackTimer = nil
 	wv.nativePopupCandidate = false
 	wv.nativePopupParent = nil
 	wv.nativePopupID = 0
+	wv.nativePopupFallbackStarted = false
+	wv.popupOpenerBridgeParent = nil
+	wv.popupOpenerBridgeParentURI = ""
+	wv.syncPopupOpenerBridgeExtraInfoLocked()
 	wv.mu.Unlock()
+	if timer != nil {
+		timer.Stop()
+	}
+}
+
+func (wv *WebView) PreparePaneHostedBrowsingContext() {
+	if wv == nil {
+		return
+	}
+	wv.discardNativePopupCandidate()
+}
+
+func (wv *WebView) SetBrowsingContextHostDecision(decision dto.HostDecision) {
+	if wv == nil {
+		return
+	}
+	wv.mu.Lock()
+	wv.browsingContextDecision = decision
+	wv.hasBrowsingContextDecision = true
+	wv.mu.Unlock()
+}
+
+func (wv *WebView) BrowsingContextHostDecision() (dto.HostDecision, bool) {
+	if wv == nil {
+		return dto.HostDecision{}, false
+	}
+	wv.mu.RLock()
+	defer wv.mu.RUnlock()
+	return wv.browsingContextDecision, wv.hasBrowsingContextDecision
+}
+
+func (wv *WebView) SetNativePopupHostAbort(fn func()) {
+	if wv == nil {
+		return
+	}
+	wv.mu.Lock()
+	wv.nativePopupHostAbort = fn
+	wv.mu.Unlock()
+}
+
+func (wv *WebView) AbortNativePopupHost() {
+	if wv == nil {
+		return
+	}
+	wv.mu.RLock()
+	fn := wv.nativePopupHostAbort
+	wv.mu.RUnlock()
+	if fn != nil {
+		fn()
+	}
 }
 
 func (wv *WebView) awaitsNativePopupAttachment() bool {
@@ -836,10 +881,6 @@ func (wv *WebView) prepareNativePopup(
 	if !ok {
 		return false
 	}
-	parentWindowHandle := popupParentWindowHandle(prep.parent)
-	if parentWindowHandle == 0 {
-		return false
-	}
 	client, ok := wv.activateNativePopup(popupID, targetURL)
 	if !ok {
 		return false
@@ -848,7 +889,7 @@ func (wv *WebView) prepareNativePopup(
 		prep.parent.trackPendingNativePopup(popupID, wv)
 	}
 
-	configureNativePopupWindow(windowInfo, settings, parentWindowHandle, prep.frameRate, prep.backgroundColor)
+	configureNativePopupWindow(windowInfo, settings, prep.frameRate, prep.backgroundColor)
 	clientSlot.Set(client)
 	return true
 }
@@ -900,11 +941,10 @@ func (wv *WebView) canPrepareNativePopupLocked() bool {
 func configureNativePopupWindow(
 	windowInfo *purecef.WindowInfo,
 	settings *purecef.BrowserSettings,
-	parentWindowHandle uintptr,
 	frameRate int32,
 	backgroundColor uint32,
 ) {
-	purecef.SetAsWindowless(windowInfo, purecef.WindowHandle(parentWindowHandle), false)
+	cef2gtk.ConfigureWindowInfo(windowInfo, cef2gtk.WindowInfoOptions{})
 	if externalBeginFrameEnabled() {
 		windowInfo.ExternalBeginFrameEnabled = 1
 	}

@@ -3,8 +3,10 @@ package config
 import (
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 
+	port "github.com/bnema/dumber/internal/application/port"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -914,6 +916,201 @@ func TestMigrator_DeleteNestedKey(t *testing.T) {
 		m.deleteNestedKey(config, "nonexistent")
 		assert.Contains(t, config, "keep")
 	})
+}
+
+// --- Migrate-path popup → browsing_contexts transform tests ---
+
+func TestMigrator_GetUserConfigKeysWithValues_TransformsLegacyPopups(t *testing.T) {
+	m := NewMigrator()
+
+	tmpDir := t.TempDir()
+	configFile := filepath.Join(tmpDir, "config.toml")
+
+	content := `
+[workspace]
+new_pane_url = "about:blank"
+
+[workspace.popups]
+behavior = "tabbed"
+placement = "left"
+oauth_auto_close = false
+`
+	err := os.WriteFile(configFile, []byte(content), 0o644)
+	require.NoError(t, err)
+
+	keysWithValues, err := m.getUserConfigKeysWithValues(configFile)
+	require.NoError(t, err)
+
+	// Legacy popups keys should NOT appear after transform.
+	_, hasPopupsBehavior := keysWithValues["workspace.popups.behavior"]
+	assert.False(t, hasPopupsBehavior, "workspace.popups.behavior should not exist after transform")
+
+	// Browsing_contexts flattened keys should carry the legacy values.
+	assert.Equal(t, "tabbed", keysWithValues["workspace.browsing_contexts.behavior"])
+	assert.Equal(t, "left", keysWithValues["workspace.browsing_contexts.placement"])
+	assert.Equal(t, false, keysWithValues["workspace.browsing_contexts.oauth_auto_close"])
+}
+
+func TestMigrator_GetUserConfigKeysWithValues_BrowsingContextsAlreadyPresent(t *testing.T) {
+	m := NewMigrator()
+
+	tmpDir := t.TempDir()
+	configFile := filepath.Join(tmpDir, "config.toml")
+
+	// Both popups and browsing_contexts present — transform should be a no-op for popups.
+	content := `
+[workspace]
+new_pane_url = "about:blank"
+
+[workspace.popups]
+behavior = "tabbed"
+
+[workspace.browsing_contexts]
+behavior = "split"
+placement = "right"
+`
+	err := os.WriteFile(configFile, []byte(content), 0o644)
+	require.NoError(t, err)
+
+	keysWithValues, err := m.getUserConfigKeysWithValues(configFile)
+	require.NoError(t, err)
+
+	// Browsing_contexts flattened keys should retain their original values.
+	assert.Equal(t, "split", keysWithValues["workspace.browsing_contexts.behavior"])
+	assert.Equal(t, "right", keysWithValues["workspace.browsing_contexts.placement"])
+
+	// Popups should still exist (transform skipped when browsing_contexts already present).
+	_, hasPopups := keysWithValues["workspace.popups.behavior"]
+	assert.True(t, hasPopups, "popups should still exist when browsing_contexts already present")
+}
+
+func TestMigrator_GetUserConfigKeysWithValues_NoPopupsKey(t *testing.T) {
+	m := NewMigrator()
+
+	tmpDir := t.TempDir()
+	configFile := filepath.Join(tmpDir, "config.toml")
+
+	content := `
+[workspace]
+new_pane_url = "about:blank"
+
+[workspace.browsing_contexts]
+behavior = "stacked"
+`
+	err := os.WriteFile(configFile, []byte(content), 0o644)
+	require.NoError(t, err)
+
+	keysWithValues, err := m.getUserConfigKeysWithValues(configFile)
+	require.NoError(t, err)
+
+	// Should only have browsing_contexts, no popups.
+	assert.Equal(t, "stacked", keysWithValues["workspace.browsing_contexts.behavior"])
+
+	_, hasPopups := keysWithValues["workspace.popups.behavior"]
+	assert.False(t, hasPopups, "popups should not exist when absent from config")
+}
+
+func TestMigrator_DetectChanges_ReportsLegacyBrowsingContextsRename(t *testing.T) {
+	home := t.TempDir()
+	t.Setenv("HOME", home)
+	t.Setenv("XDG_CONFIG_HOME", filepath.Join(home, ".config"))
+	t.Setenv("XDG_DATA_HOME", filepath.Join(home, ".local", "share"))
+	t.Setenv("XDG_STATE_HOME", filepath.Join(home, ".local", "state"))
+	t.Setenv("XDG_CACHE_HOME", filepath.Join(home, ".cache"))
+
+	configFile, err := GetConfigFile()
+	require.NoError(t, err)
+	require.NoError(t, os.MkdirAll(filepath.Dir(configFile), 0o755))
+
+	content, err := encodeConfigToTOML(DefaultConfig())
+	require.NoError(t, err)
+	content = strings.Replace(content, "[workspace.browsing_contexts]", "[workspace.popups]", 1)
+	require.NoError(t, os.WriteFile(configFile, []byte(content), 0o644))
+
+	m := NewMigrator()
+	changes, err := m.DetectChanges()
+	require.NoError(t, err)
+
+	found := false
+	for _, change := range changes {
+		if change.Type == port.KeyChangeRenamed &&
+			change.OldKey == "workspace.popups.behavior" &&
+			change.NewKey == "workspace.browsing_contexts.behavior" {
+			found = true
+			break
+		}
+	}
+	assert.True(t, found, "expected legacy workspace.popups.behavior rename to be reported")
+}
+
+func TestMigrator_Migrate_AppliesLegacyBrowsingContextsRename(t *testing.T) {
+	home := t.TempDir()
+	t.Setenv("HOME", home)
+	t.Setenv("XDG_CONFIG_HOME", filepath.Join(home, ".config"))
+	t.Setenv("XDG_DATA_HOME", filepath.Join(home, ".local", "share"))
+	t.Setenv("XDG_STATE_HOME", filepath.Join(home, ".local", "state"))
+	t.Setenv("XDG_CACHE_HOME", filepath.Join(home, ".cache"))
+
+	configFile, err := GetConfigFile()
+	require.NoError(t, err)
+	require.NoError(t, os.MkdirAll(filepath.Dir(configFile), 0o755))
+
+	content, err := encodeConfigToTOML(DefaultConfig())
+	require.NoError(t, err)
+	content = strings.Replace(content, "[workspace.browsing_contexts]", "[workspace.popups]", 1)
+	require.NoError(t, os.WriteFile(configFile, []byte(content), 0o644))
+
+	m := NewMigrator()
+	appliedKeys, err := m.Migrate()
+	require.NoError(t, err)
+	assert.Contains(t, appliedKeys, "workspace.popups.behavior -> workspace.browsing_contexts.behavior")
+
+	migrated, err := os.ReadFile(configFile)
+	require.NoError(t, err)
+	assert.Contains(t, string(migrated), "[workspace.browsing_contexts]")
+	assert.NotContains(t, string(migrated), "[workspace.popups]")
+}
+
+func TestMigrator_DetectChanges_MixedBrowsingContextsDoesNotDoubleReportLegacyRename(t *testing.T) {
+	home := t.TempDir()
+	t.Setenv("HOME", home)
+	t.Setenv("XDG_CONFIG_HOME", filepath.Join(home, ".config"))
+	t.Setenv("XDG_DATA_HOME", filepath.Join(home, ".local", "share"))
+	t.Setenv("XDG_STATE_HOME", filepath.Join(home, ".local", "state"))
+	t.Setenv("XDG_CACHE_HOME", filepath.Join(home, ".cache"))
+
+	configFile, err := GetConfigFile()
+	require.NoError(t, err)
+	require.NoError(t, os.MkdirAll(filepath.Dir(configFile), 0o755))
+	require.NoError(t, os.WriteFile(configFile, []byte(`
+[workspace.popups]
+placement = "left"
+
+[workspace.browsing_contexts]
+behavior = "tabbed"
+`), 0o644))
+
+	m := NewMigrator()
+	changes, err := m.DetectChanges()
+	require.NoError(t, err)
+
+	renameCount := 0
+	for _, change := range changes {
+		if change.Type == port.KeyChangeRenamed &&
+			change.OldKey == "workspace.popups.placement" &&
+			change.NewKey == "workspace.browsing_contexts.placement" {
+			renameCount++
+		}
+		assert.False(t,
+			change.Type == port.KeyChangeRemoved && change.OldKey == "workspace.popups.placement",
+			"legacy popup placement should be reported as a rename, not also a removal",
+		)
+		assert.False(t,
+			change.Type == port.KeyChangeAdded && change.NewKey == "workspace.browsing_contexts.placement",
+			"canonical browsing_contexts placement should be reported as a rename, not also an addition",
+		)
+	}
+	assert.Equal(t, 1, renameCount)
 }
 
 func TestMigrator_ReadRawConfig(t *testing.T) {

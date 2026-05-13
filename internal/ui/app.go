@@ -79,6 +79,7 @@ type App struct {
 	browserWindows       map[string]*browserWindow
 	browserWindowOrder   []string // registration order of window IDs
 	lastFocusedWindowID  string
+	nativePopupWindows   map[port.WebViewID]*nativePopupWindow
 	browserWindowFactory func(context.Context, string) (*browserWindow, error)
 	dispatchOnMainThread func(func())
 
@@ -2918,6 +2919,15 @@ func (a *App) onShutdown(ctx context.Context) {
 	for _, tabID := range tabIDs {
 		a.releaseFloatingSessionsForTab(ctx, tabID)
 	}
+	if len(a.nativePopupWindows) > 0 {
+		popupIDs := make([]port.WebViewID, 0, len(a.nativePopupWindows))
+		for popupID := range a.nativePopupWindows {
+			popupIDs = append(popupIDs, popupID)
+		}
+		for _, popupID := range popupIDs {
+			a.releaseNativePopupWindow(popupID, false, true)
+		}
+	}
 	if a.engine != nil {
 		if err := a.engine.Close(); err != nil {
 			log.Warn().Err(err).Msg("failed to close engine")
@@ -3097,15 +3107,29 @@ func (a *App) initCoordinators(ctx context.Context) {
 	}
 	a.contentCoord.SetPopupConfig(
 		a.engine.Factory(),
-		&a.deps.Config.Workspace.Popups,
+		&a.deps.Config.Workspace.BrowsingContexts,
 		a.generateID,
 	)
+	a.contentCoord.SetPopupWindowIDResolver(func(paneID entity.PaneID) (string, bool) {
+		bw := a.browserWindowForAnyPane(paneID)
+		if bw == nil {
+			return "", false
+		}
+		return bw.id, true
+	})
 	a.contentCoord.SetOnInsertPopup(func(ctx context.Context, input content.InsertPopupInput) error {
+		if bw := a.browserWindowForAnyPane(input.ParentPaneID); bw != nil {
+			a.activateBrowserWindow(bw)
+		}
 		return a.wsCoord.InsertPopup(ctx, input)
 	})
 	a.contentCoord.SetOnClosePane(func(ctx context.Context, paneID entity.PaneID) error {
+		if bw := a.browserWindowForAnyPane(paneID); bw != nil {
+			a.activateBrowserWindow(bw)
+		}
 		return a.wsCoord.ClosePaneByID(ctx, paneID)
 	})
+	a.contentCoord.SetOnOpenNativePopup(a.openNativePopupWindow)
 	// Wire tabbed popup behavior to create new tabs in the originating window.
 	a.wsCoord.SetOnCreatePopupTab(a.createPopupTab)
 
