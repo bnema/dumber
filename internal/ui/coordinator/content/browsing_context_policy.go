@@ -91,7 +91,7 @@ func inferPopupWindowDisposition(req port.PopupRequest) port.WindowDisposition {
 	if req.TargetDisposition != "" {
 		return req.TargetDisposition
 	}
-	if req.FrameName == "_blank" {
+	if strings.EqualFold(strings.TrimSpace(req.FrameName), "_blank") {
 		return port.WindowDispositionNewTab
 	}
 	return port.WindowDispositionNewPopup

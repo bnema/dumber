@@ -143,3 +143,31 @@ func TestInferPopupTriggerKind_ClassifiesCurrentTabAsNavigation(t *testing.T) {
 		})
 	}
 }
+
+func TestInferPopupWindowDisposition_NormalizesBlankTarget(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name string
+		req  port.PopupRequest
+		want port.WindowDisposition
+	}{
+		{
+			name: "mixed-case blank target is treated as new tab",
+			req:  port.PopupRequest{FrameName: " _BlAnK "},
+			want: port.WindowDispositionNewTab,
+		},
+		{
+			name: "named target still defaults to popup",
+			req:  port.PopupRequest{FrameName: "shared-pane"},
+			want: port.WindowDispositionNewPopup,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+			assert.Equal(t, tt.want, inferPopupWindowDisposition(tt.req))
+		})
+	}
+}

@@ -1,6 +1,6 @@
 // Package port defines interfaces (ports) for use cases to depend on.
-// These types are the seam for the approved browsing-context architecture.
-// They are standalone for now; no callbacks are wired yet.
+// These types are the active seam for the approved browsing-context architecture
+// shared across policy, UI, and engine integrations.
 
 package port
 

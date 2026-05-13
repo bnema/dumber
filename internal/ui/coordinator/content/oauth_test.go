@@ -129,6 +129,25 @@ func TestObserveNativePopupAuth_CapturesOAuthStateAndSchedulesParentResumeOnClos
 	assert.NotNil(t, refreshTimer)
 }
 
+func TestObserveNativePopupAuth_DoesNotTrackWhenWebViewLacksOAuthCallbacks(t *testing.T) {
+	popupID := port.WebViewID(1001)
+	wv := portmocks.NewMockWebView(t)
+	wv.EXPECT().ID().Return(popupID).Once()
+
+	c := &Coordinator{popups: newPopupManager()}
+	c.ObserveNativePopupAuth(context.Background(), NativePopupInput{
+		ParentPaneID:    entity.PaneID("parent-pane"),
+		ParentURIAtOpen: "https://x.com/i/flow/login",
+		PopupWebView:    wv,
+		TargetURI:       "https://accounts.google.com/o/oauth2/v2/auth",
+	})
+
+	c.popups.mu.RLock()
+	_, ok := c.popups.popupOAuth[popupID]
+	c.popups.mu.RUnlock()
+	assert.False(t, ok)
+}
+
 func TestSetupOAuthAutoClose_NavigationIgnoresNonTerminalURI(t *testing.T) {
 	popupID := port.WebViewID(1000)
 	wv := &popupOAuthAutoCloseWebViewStub{MockWebView: portmocks.NewMockWebView(t)}

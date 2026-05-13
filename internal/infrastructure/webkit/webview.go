@@ -1924,9 +1924,12 @@ func (wv *WebView) DestroyWithPolicy(policy string) {
 	wv.OnWebProcessTerminated = nil
 	wv.OnPermissionRequest = nil
 
-	// 3. Clear async callback references
+	// 3. Clear async callback references and popup-hosting state
 	wv.mu.Lock()
 	wv.asyncCallbacks = nil
+	wv.browsingContextDecision = port.HostDecision{}
+	wv.hasBrowsingContextDecision = false
+	wv.nativePopupHostAbort = nil
 	wv.mu.Unlock()
 
 	// 4. Unparent from GTK hierarchy (must happen before process termination)
@@ -1994,6 +1997,9 @@ func (wv *WebView) ResetForPoolReuse() {
 	wv.isLoading = false
 	wv.asyncCallbacks = nil
 	wv.runJSErrorStats = make(map[string]runJSErrorStat)
+	wv.browsingContextDecision = port.HostDecision{}
+	wv.hasBrowsingContextDecision = false
+	wv.nativePopupHostAbort = nil
 	wv.lastProgressUpdate.Store(0)
 	wv.mu.Unlock()
 

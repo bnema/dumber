@@ -15,9 +15,10 @@ const (
 
 // PopupWindow is a lightweight top-level GTK host for native-required popup flows.
 type PopupWindow struct {
-	window  *gtk.ApplicationWindow
-	content *gtk.Box
-	logger  zerolog.Logger
+	window         *gtk.ApplicationWindow
+	content        *gtk.Box
+	currentContent *gtk.Widget
+	logger         zerolog.Logger
 }
 
 func NewPopup(ctx context.Context, app *gtk.Application) (*PopupWindow, error) {
@@ -48,11 +49,16 @@ func (pw *PopupWindow) SetContent(widget *gtk.Widget) {
 	if pw == nil || pw.content == nil {
 		return
 	}
+	if pw.currentContent != nil {
+		pw.content.Remove(pw.currentContent)
+		pw.currentContent = nil
+	}
 	if widget == nil {
 		return
 	}
 	widget.SetVisible(true)
 	pw.content.Append(widget)
+	pw.currentContent = widget
 }
 
 func (pw *PopupWindow) Show() {
@@ -76,6 +82,7 @@ func (pw *PopupWindow) Destroy() {
 	pw.window.Destroy()
 	pw.window = nil
 	pw.content = nil
+	pw.currentContent = nil
 }
 
 func (pw *PopupWindow) Window() *gtk.ApplicationWindow {

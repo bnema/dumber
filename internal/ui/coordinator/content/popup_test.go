@@ -333,7 +333,7 @@ func TestHandleLinkMiddleClick_UsesRelatedWebView(t *testing.T) {
 	parentWV := mocks.NewMockWebView(t)
 	parentWV.EXPECT().ID().Return(port.WebViewID(101)).Twice()
 
-	newWV := mocks.NewMockWebView(t)
+	newWV := &popupNavigationWebViewStub{MockWebView: mocks.NewMockWebView(t)}
 	newWV.EXPECT().ID().Return(port.WebViewID(301)).Maybe()
 	newWV.EXPECT().Generation().Return(uint64(1)).Maybe()
 	newWV.EXPECT().SetCallbacks(mock.Anything).Maybe()
@@ -359,6 +359,9 @@ func TestHandleLinkMiddleClick_UsesRelatedWebView(t *testing.T) {
 	handled := c.handleLinkMiddleClick(ctx, parentPaneID, "https://example.com/middle-click")
 	assert.True(t, handled)
 	assert.Equal(t, 1, insertCalls)
+	decision, hasDecision := newWV.BrowsingContextHostDecision()
+	require.True(t, hasDecision)
+	assert.Equal(t, port.HostDecisionCreatePane, decision.Kind)
 }
 
 func TestHandlePopupCreate_OpensNativePopupForAuthIntent(t *testing.T) {
@@ -674,11 +677,22 @@ func TestSetPopupConfig_NilConfigAllowed(t *testing.T) {
 
 type popupNavigationWebViewStub struct {
 	*mocks.MockWebView
-	primed []string
+	primed                     []string
+	browsingContextDecision    port.HostDecision
+	hasBrowsingContextDecision bool
 }
 
 func (s *popupNavigationWebViewStub) PrimePopupNavigation(uri string) {
 	s.primed = append(s.primed, uri)
+}
+
+func (s *popupNavigationWebViewStub) SetBrowsingContextHostDecision(decision port.HostDecision) {
+	s.browsingContextDecision = decision
+	s.hasBrowsingContextDecision = true
+}
+
+func (s *popupNavigationWebViewStub) BrowsingContextHostDecision() (port.HostDecision, bool) {
+	return s.browsingContextDecision, s.hasBrowsingContextDecision
 }
 
 func (*popupNavigationWebViewStub) SetOnReadyToShow(func()) {}

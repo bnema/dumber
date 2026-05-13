@@ -113,6 +113,15 @@ func (pm *popupManager) setWindowIDResolver(fn func(entity.PaneID) (string, bool
 	pm.windowIDForPane = fn
 }
 
+func popupTabInsertionConfig(cfg *entity.BrowsingContextConfig) (entity.PopupBehavior, string) {
+	behavior := GetBehavior(PopupTypeTab, cfg)
+	placement := "right"
+	if cfg != nil {
+		placement = cfg.Placement
+	}
+	return behavior, placement
+}
+
 func (*popupManager) setBrowsingContextDecision(wv port.WebView, decision port.HostDecision) {
 	if carrier, ok := wv.(port.BrowsingContextHostDecisionCapable); ok {
 		carrier.SetBrowsingContextHostDecision(decision)
@@ -813,6 +822,7 @@ func (pm *popupManager) handleLinkMiddleClick(
 		log.Error().Err(err).Msg("failed to create webview for middle-click")
 		return false
 	}
+	pm.setBrowsingContextDecision(newWV, decision)
 
 	var paneID entity.PaneID
 	if pm.generatePaneID != nil {
@@ -832,11 +842,7 @@ func (pm *popupManager) handleLinkMiddleClick(
 		hooks.setupWebViewCallbacks(ctx, paneID, newWV)
 	}
 
-	behavior := GetBehavior(PopupTypeTab, pm.popupConfig)
-	placement := "right"
-	if pm.popupConfig != nil {
-		placement = pm.popupConfig.Placement
-	}
+	behavior, placement := popupTabInsertionConfig(pm.popupConfig)
 
 	if pm.onInsertPopup != nil {
 		popupInput := InsertPopupInput{

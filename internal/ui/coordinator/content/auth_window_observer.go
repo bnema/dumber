@@ -17,7 +17,6 @@ func (c *Coordinator) ObserveNativePopupAuth(ctx context.Context, input NativePo
 	}
 
 	popupID := input.PopupWebView.ID()
-	c.trackOAuthPopup(popupID, input.ParentPaneID, input.ParentURIAtOpen)
 
 	oauthWV, ok := input.PopupWebView.(port.OAuthCallbackCapable)
 	if !ok {
@@ -26,6 +25,7 @@ func (c *Coordinator) ObserveNativePopupAuth(ctx context.Context, input NativePo
 			Msg("native popup auth observation skipped: webview lacks OAuth callbacks")
 		return
 	}
+	c.trackOAuthPopup(popupID, input.ParentPaneID, input.ParentURIAtOpen)
 
 	requestClose := func(reason string) {
 		logging.FromContext(ctx).Info().
