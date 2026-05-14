@@ -16,6 +16,8 @@ github.com/bnema/purego-cef v0.13.0 h1:TNPY19mBOqlJeFi5CZCLJIDfAgTEMp9tviQEyZgnv
 github.com/bnema/purego-cef v0.13.0/go.mod h1:AIW4lrXr4f2vesO4WnMDN49yAyfivYHV4x6hxpu5SmM=
 github.com/bnema/purego-cef2gtk v0.1.0 h1:8EFmT+WjtWrPEbo5ZJ+r7eOuf2ipA3pheWkSkcr8jhg=
 github.com/bnema/purego-cef2gtk v0.1.0/go.mod h1:xDVdLTepKdPngYlwT/BscGHh5ohaCB4LLUeThW/Ml7c=
+github.com/bnema/purego-cef2gtk v0.1.1 h1:ZPmfFdry860/l+X+efkMNXGfqBuH+LIz2p7T5mI0pNw=
+github.com/bnema/purego-cef2gtk v0.1.1/go.mod h1:xDVdLTepKdPngYlwT/BscGHh5ohaCB4LLUeThW/Ml7c=
 github.com/bnema/purego-pipewire v0.1.2 h1:U057iOlpQatwlis6nfrZQJVrT3aGDFdagRLUz+ll7Ik=
 github.com/bnema/purego-pipewire v0.1.2/go.mod h1:kchW7Bkfjc+NkX2IZw3LnlYfQxk6jxhl32Id88u04y8=
 github.com/bnema/purego-sqlite v0.1.2 h1:dhqfe3KfNRBh7tlrwxL7bf4FPZk2VCajdBESMbrvmoE=

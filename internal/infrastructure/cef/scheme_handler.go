@@ -362,7 +362,6 @@ func isTrustedSystemviewURL(raw string) bool {
 	return isInternalPageHost(host)
 }
 
-
 func resolveConfigPayload(build func() ([]byte, error)) ([]byte, error) {
 	if build == nil {
 		return nil, fmt.Errorf("config payload builder not configured")
