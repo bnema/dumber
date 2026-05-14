@@ -39,5 +39,3 @@ func TestNormalizeConfig_EngineCookiePolicy(t *testing.T) {
 
 	assert.Equal(t, CookiePolicyAlways, cfg.Engine.CookiePolicy)
 }
-
-
