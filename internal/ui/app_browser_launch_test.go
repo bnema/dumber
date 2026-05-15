@@ -2213,12 +2213,16 @@ func TestApp_DispatchBrowserWindowActionZoomInSupportsFileURLs(t *testing.T) {
 
 	app := &App{
 		browserWindows: map[string]*browserWindow{bw.id: bw},
+		tabs:           entity.NewTabList(),
+		windowForTab:   map[entity.TabID]*browserWindow{tab.ID: bw},
 		contentCoord:   contentCoord,
 		deps:           &Dependencies{ZoomUC: usecase.NewManageZoomUseCase(&fakeZoomRepo{}, 1.0, nil)},
 		workspaceViews: map[entity.TabID]*component.WorkspaceView{
 			tab.ID: &component.WorkspaceView{},
 		},
 	}
+	app.tabs.Add(tab)
+	app.tabs.SetActive(tab.ID)
 
 	if err := app.dispatchBrowserWindowAction(ctx, bw, input.ActionZoomIn); err != nil {
 		t.Fatalf("dispatchBrowserWindowAction returned error: %v", err)

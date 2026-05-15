@@ -108,6 +108,7 @@ func (c *Coordinator) onLoadCommitted(ctx context.Context, paneID entity.PaneID,
 
 	zoomKey, err := usecase.ExtractZoomKey(uri)
 	if err != nil {
+		log.Debug().Err(err).Str("uri", uri).Msg("skipping zoom application: cannot extract zoom key")
 		return
 	}
 
