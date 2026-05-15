@@ -2221,9 +2221,9 @@ func (a *App) zoomBrowserWindow(ctx context.Context, bw *browserWindow, action s
 		return nil
 	}
 
-	domain, err := usecase.ExtractDomain(wv.URI())
+	zoomKey, err := usecase.ExtractZoomKey(wv.URI())
 	if err != nil {
-		logging.FromContext(ctx).Debug().Str("uri", wv.URI()).Msg("cannot extract domain for zoom")
+		logging.FromContext(ctx).Debug().Str("uri", wv.URI()).Msg("cannot extract zoom key")
 		return nil
 	}
 
@@ -2231,13 +2231,13 @@ func (a *App) zoomBrowserWindow(ctx context.Context, bw *browserWindow, action s
 	var newZoom *entity.ZoomLevel
 	switch action {
 	case "in":
-		newZoom, err = a.deps.ZoomUC.ZoomIn(ctx, domain, current)
+		newZoom, err = a.deps.ZoomUC.ZoomIn(ctx, zoomKey, current)
 	case "out":
-		newZoom, err = a.deps.ZoomUC.ZoomOut(ctx, domain, current)
+		newZoom, err = a.deps.ZoomUC.ZoomOut(ctx, zoomKey, current)
 	case "reset":
-		err = a.deps.ZoomUC.ResetZoom(ctx, domain)
+		err = a.deps.ZoomUC.ResetZoom(ctx, zoomKey)
 		if err == nil {
-			newZoom = entity.NewZoomLevel(domain, a.deps.ZoomUC.DefaultZoom())
+			newZoom = entity.NewZoomLevel(zoomKey, a.deps.ZoomUC.DefaultZoom())
 		}
 	default:
 		return fmt.Errorf("unknown zoom action %q", action)

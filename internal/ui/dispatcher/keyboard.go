@@ -435,9 +435,9 @@ func (d *KeyboardDispatcher) handleZoom(ctx context.Context, action string) erro
 		return nil
 	}
 
-	domain, err := usecase.ExtractDomain(wv.URI())
+	zoomKey, err := usecase.ExtractZoomKey(wv.URI())
 	if err != nil {
-		log.Debug().Str("uri", wv.URI()).Msg("cannot extract domain for zoom")
+		log.Debug().Str("uri", wv.URI()).Msg("cannot extract zoom key")
 		return nil
 	}
 
@@ -446,13 +446,13 @@ func (d *KeyboardDispatcher) handleZoom(ctx context.Context, action string) erro
 
 	switch action {
 	case "in":
-		newZoom, err = d.zoomUC.ZoomIn(ctx, domain, current)
+		newZoom, err = d.zoomUC.ZoomIn(ctx, zoomKey, current)
 	case "out":
-		newZoom, err = d.zoomUC.ZoomOut(ctx, domain, current)
+		newZoom, err = d.zoomUC.ZoomOut(ctx, zoomKey, current)
 	case "reset":
-		err = d.zoomUC.ResetZoom(ctx, domain)
+		err = d.zoomUC.ResetZoom(ctx, zoomKey)
 		if err == nil {
-			newZoom = entity.NewZoomLevel(domain, d.zoomUC.DefaultZoom())
+			newZoom = entity.NewZoomLevel(zoomKey, d.zoomUC.DefaultZoom())
 		}
 	}
 
@@ -475,7 +475,7 @@ func (d *KeyboardDispatcher) handleZoom(ctx context.Context, action string) erro
 		d.wsCoord.ShowZoomToast(ctx, zoomPercent)
 
 		log.Debug().
-			Str("domain", domain).
+			Str("zoom_key", zoomKey).
 			Str("action", action).
 			Float64("zoom", newZoom.ZoomFactor).
 			Msg("zoom applied")

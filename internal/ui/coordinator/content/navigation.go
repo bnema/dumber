@@ -106,12 +106,13 @@ func (c *Coordinator) onLoadCommitted(ctx context.Context, paneID entity.PaneID,
 		return
 	}
 
-	domain, err := usecase.ExtractDomain(uri)
+	zoomKey, err := usecase.ExtractZoomKey(uri)
 	if err != nil {
+		log.Debug().Err(err).Str("uri", uri).Msg("skipping zoom application: cannot extract zoom key")
 		return
 	}
 
-	_ = c.zoomUC.ApplyToWebView(ctx, wv, domain)
+	_ = c.zoomUC.ApplyToWebView(ctx, wv, zoomKey)
 }
 
 func (c *Coordinator) notifyActiveNavigation(paneID entity.PaneID, uri string) {
