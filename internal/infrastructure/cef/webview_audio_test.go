@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"context"
 	"errors"
-	"strings"
 	"testing"
 	"time"
 
@@ -451,7 +450,7 @@ func TestHandlerSet_OnAudioStreamError_ShutdownSocketCloseLogsDebug(t *testing.T
 	assert.Contains(t, output, `"level":"debug"`)
 	assert.NotContains(t, output, `"level":"warn"`)
 	assert.Contains(t, output, `"message":"cef: audio stream closed during shutdown"`)
-	assert.True(t, strings.Contains(output, `"error":"Socket closed unexpectedly"`))
+	assert.Contains(t, output, `"error":"Socket closed unexpectedly"`)
 }
 
 // TestWebView_Destroy_ClosesAudioStream verifies that destroying
