@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"io"
+	"math"
 	"os"
 	"path/filepath"
 	"reflect"
@@ -2195,6 +2196,39 @@ func TestApp_DispatchBrowserWindowActionUsesSourceWindow(t *testing.T) {
 
 	// Assert second fake webview receives exactly one call per action.
 	assertRecordingWebViewBrowserActionsCalledOnce(t, "second", fakeWv2)
+}
+
+func TestApp_DispatchBrowserWindowActionZoomInSupportsFileURLs(t *testing.T) {
+	ctx := context.Background()
+
+	tab := entity.NewTab(entity.TabID("tab-1"), entity.WorkspaceID("ws-1"), entity.NewPane(entity.PaneID("pane-1")))
+	tabs := entity.NewTabList()
+	tabs.Add(tab)
+	tabs.SetActive(tab.ID)
+	bw := &browserWindow{id: "window-1", tabs: tabs}
+
+	fakeWv := &fakeRecordingWebView{id: 1, loadURILastURI: "file:///tmp/demo.html"}
+	contentCoord := contentcoord.NewCoordinator(ctx, nil, nil, nil, nil, nil, nil, nil)
+	contentCoord.RegisterPopupWebView(entity.PaneID("pane-1"), fakeWv)
+
+	app := &App{
+		browserWindows: map[string]*browserWindow{bw.id: bw},
+		contentCoord:   contentCoord,
+		deps:           &Dependencies{ZoomUC: usecase.NewManageZoomUseCase(&fakeZoomRepo{}, 1.0, nil)},
+		workspaceViews: map[entity.TabID]*component.WorkspaceView{
+			tab.ID: &component.WorkspaceView{},
+		},
+	}
+
+	if err := app.dispatchBrowserWindowAction(ctx, bw, input.ActionZoomIn); err != nil {
+		t.Fatalf("dispatchBrowserWindowAction returned error: %v", err)
+	}
+	if fakeWv.setZoomLevelCalls != 1 {
+		t.Fatalf("webview SetZoomLevel calls = %d, want 1", fakeWv.setZoomLevelCalls)
+	}
+	if diff := math.Abs(fakeWv.setZoomLevelLastLevel - 1.1); diff > 0.0001 {
+		t.Fatalf("webview SetZoomLevel level = %f, want 1.1", fakeWv.setZoomLevelLastLevel)
+	}
 }
 
 func counterIDGen() func() string {

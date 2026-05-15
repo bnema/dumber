@@ -5,6 +5,7 @@ import (
 	"context"
 	"fmt"
 	"net/url"
+	"strings"
 
 	"github.com/bnema/dumber/internal/application/port"
 	"github.com/bnema/dumber/internal/domain/entity"
@@ -196,6 +197,28 @@ func (uc *ManageZoomUseCase) GetAll(ctx context.Context) ([]*entity.ZoomLevel, e
 
 	log.Debug().Int("count", len(levels)).Msg("retrieved zoom levels")
 	return levels, nil
+}
+
+// ExtractZoomKey extracts the persistent zoom storage key from a URL string.
+// Host-based URLs use their host; file:// URLs use the file URI without query
+// or fragment so local documents can persist zoom too.
+func ExtractZoomKey(rawURL string) (string, error) {
+	u, err := url.Parse(rawURL)
+	if err != nil {
+		return "", fmt.Errorf("invalid URL: %w", err)
+	}
+	if strings.EqualFold(u.Scheme, "file") {
+		if u.Path == "" {
+			return "", fmt.Errorf("file URL has no path: %s", rawURL)
+		}
+		u.RawQuery = ""
+		u.Fragment = ""
+		return u.String(), nil
+	}
+	if u.Host == "" {
+		return "", fmt.Errorf("URL has no host: %s", rawURL)
+	}
+	return u.Host, nil
 }
 
 // ExtractDomain extracts the host from a URL string.
