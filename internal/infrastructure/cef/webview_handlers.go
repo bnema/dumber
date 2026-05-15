@@ -1080,11 +1080,17 @@ func (h *handlerSet) OnAudioStreamStopped(_ purecef.Browser) {
 // OnAudioStreamError handles stream errors.
 func (h *handlerSet) OnAudioStreamError(_ purecef.Browser, message string) {
 	if h.wv.ctx != nil {
-		logging.FromContext(h.wv.ctx).Warn().
+		event := logging.FromContext(h.wv.ctx).Warn()
+		logMsg := "cef: audio stream error"
+		if h.wv.destroyed.Load() && message == "Socket closed unexpectedly" {
+			event = logging.FromContext(h.wv.ctx).Debug()
+			logMsg = "cef: audio stream closed during shutdown"
+		}
+		event.
 			Str("error", message).
 			Uint64("packets_received", h.wv.audioPacketCount.Load()).
 			Uint64("writes_succeeded", h.wv.audioWriteCount.Load()).
-			Msg("cef: audio stream error")
+			Msg(logMsg)
 	}
 	h.wv.setAudioPlaying(false)
 	h.wv.closeAudioStream()
