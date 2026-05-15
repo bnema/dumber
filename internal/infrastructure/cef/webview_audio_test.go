@@ -1,6 +1,7 @@
 package cef
 
 import (
+	"bytes"
 	"context"
 	"errors"
 	"testing"
@@ -8,7 +9,9 @@ import (
 
 	"github.com/bnema/dumber/internal/application/port"
 	"github.com/bnema/dumber/internal/infrastructure/audio/null"
+	"github.com/bnema/dumber/internal/logging"
 	purecef "github.com/bnema/purego-cef/cef"
+	"github.com/rs/zerolog"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -414,6 +417,40 @@ func TestHandlerSet_OnAudioStreamError_NoActiveStream_DoesNotPanic(t *testing.T)
 	})
 
 	assert.False(t, wv.audioPlaying.Load())
+}
+
+func TestHandlerSet_OnAudioStreamError_LogsWarnForNormalError(t *testing.T) {
+	var logs bytes.Buffer
+	logger := zerolog.New(&logs).Level(zerolog.DebugLevel)
+	ctx := logging.WithContext(context.Background(), logger)
+
+	wv := &WebView{ctx: ctx}
+	handlers := &handlerSet{wv: wv}
+
+	handlers.OnAudioStreamError(nil, "test error")
+
+	output := logs.String()
+	assert.Contains(t, output, `"level":"warn"`)
+	assert.Contains(t, output, `"message":"cef: audio stream error"`)
+	assert.Contains(t, output, `"error":"test error"`)
+}
+
+func TestHandlerSet_OnAudioStreamError_ShutdownSocketCloseLogsDebug(t *testing.T) {
+	var logs bytes.Buffer
+	logger := zerolog.New(&logs).Level(zerolog.DebugLevel)
+	ctx := logging.WithContext(context.Background(), logger)
+
+	wv := &WebView{ctx: ctx}
+	wv.destroyed.Store(true)
+	handlers := &handlerSet{wv: wv}
+
+	handlers.OnAudioStreamError(nil, "Socket closed unexpectedly")
+
+	output := logs.String()
+	assert.Contains(t, output, `"level":"debug"`)
+	assert.NotContains(t, output, `"level":"warn"`)
+	assert.Contains(t, output, `"message":"cef: audio stream closed during shutdown"`)
+	assert.Contains(t, output, `"error":"Socket closed unexpectedly"`)
 }
 
 // TestWebView_Destroy_ClosesAudioStream verifies that destroying
