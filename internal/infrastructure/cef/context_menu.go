@@ -8,7 +8,6 @@ import (
 	purecef "github.com/bnema/purego-cef/cef"
 
 	"github.com/bnema/dumber/internal/application/port"
-	"github.com/bnema/dumber/internal/infrastructure/gtkutil"
 	"github.com/bnema/dumber/internal/logging"
 	"github.com/bnema/puregotk/v4/gtk"
 )
@@ -134,7 +133,7 @@ func contextMenuAnchorPosition(params purecef.ContextMenuParams, scale, backingS
 	if backingScale <= 1 {
 		return params.GetXcoord(), params.GetYcoord()
 	}
-	return gtkutil.DeviceToLogical(params.GetXcoord(), scale), gtkutil.DeviceToLogical(params.GetYcoord(), scale)
+	return deviceToLogicalCoord(params.GetXcoord(), scale), deviceToLogicalCoord(params.GetYcoord(), scale)
 }
 
 func logContextMenuPopupRequest(

@@ -1,13 +1,29 @@
 package gtkutil
 
-import "testing"
+import (
+	"math"
+	"testing"
+)
 
 func TestNormalizeScale(t *testing.T) {
-	if got := NormalizeScale(0); got != 1 {
-		t.Fatalf("NormalizeScale(0) = %v, want 1", got)
+	tests := []struct {
+		name  string
+		input float64
+		want  float64
+	}{
+		{name: "zero", input: 0, want: 1},
+		{name: "fractional", input: 1.2, want: 1.2},
+		{name: "nan", input: math.NaN(), want: 1},
+		{name: "positive_infinity", input: math.Inf(1), want: 1},
+		{name: "negative_infinity", input: math.Inf(-1), want: 1},
+		{name: "negative", input: -1, want: 1},
 	}
-	if got := NormalizeScale(1.2); got != 1.2 {
-		t.Fatalf("NormalizeScale(1.2) = %v, want 1.2", got)
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := NormalizeScale(tt.input); got != tt.want {
+				t.Fatalf("NormalizeScale(%v) = %v, want %v", tt.input, got, tt.want)
+			}
+		})
 	}
 }
 

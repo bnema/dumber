@@ -20,7 +20,6 @@ import (
 
 	"github.com/bnema/dumber/internal/application/dto"
 	"github.com/bnema/dumber/internal/application/port"
-	"github.com/bnema/dumber/internal/infrastructure/gtkutil"
 	"github.com/bnema/dumber/internal/logging"
 )
 
@@ -445,11 +444,27 @@ func cefZoomFromFactor(factor float64) float64 {
 }
 
 func cefZoomFromPageAndBackingFactor(pageZoom, backingScale float64) float64 {
-	return cefZoomFromFactor(pageZoom / gtkutil.NormalizeScale(backingScale))
+	return cefZoomFromFactor(pageZoom / normalizeScale(backingScale))
 }
 
 func pageZoomFromCEFAndBackingLevel(level, backingScale float64) float64 {
-	return factorFromCEFZoom(level) * gtkutil.NormalizeScale(backingScale)
+	return factorFromCEFZoom(level) * normalizeScale(backingScale)
+}
+
+func (wv *WebView) applyCEFZoomLevel(host purecef.BrowserHost, factor, cefLevel float64) {
+	host.SetZoomLevel(cefLevel)
+	// Force CEF to produce a new frame at the new zoom level. In OSR mode,
+	// SetZoomLevel changes the Blink layout zoom but doesn't guarantee a
+	// repaint. WasResized is a no-op when view dimensions haven't changed.
+	// NotifyScreenInfoChanged forces surface ID invalidation + a full
+	// SynchronizeVisualProperties cycle, which makes the renderer produce
+	// a new compositor frame at the new zoom level.
+	host.NotifyScreenInfoChanged()
+	// Zoom is applied asynchronously in the renderer process. Request a couple
+	// of follow-up refreshes on the CEF UI thread so OSR captures the updated
+	// compositor frame after the zoom IPC has been processed.
+	wv.scheduleZoomRefresh()
+	wv.scheduleZoomReadback(factor, cefLevel)
 }
 
 // factorFromCEFZoom converts a Chromium/CEF logarithmic zoom level back to a
@@ -484,20 +499,8 @@ func (wv *WebView) SetZoomLevel(_ context.Context, factor float64) error {
 		Float64("cef_level", cefLevel).
 		Float64("osr_backing_scale", backingScale).
 		Msg("cef: SetZoomLevel")
-	host.SetZoomLevel(cefLevel)
+	wv.applyCEFZoomLevel(host, factor, cefLevel)
 	wv.zoomFactor.Store(factor)
-	// Force CEF to produce a new frame at the new zoom level. In OSR mode,
-	// SetZoomLevel changes the Blink layout zoom but doesn't guarantee a
-	// repaint. WasResized is a no-op when view dimensions haven't changed.
-	// NotifyScreenInfoChanged forces surface ID invalidation + a full
-	// SynchronizeVisualProperties cycle, which makes the renderer produce
-	// a new compositor frame at the new zoom level.
-	host.NotifyScreenInfoChanged()
-	// Zoom is applied asynchronously in the renderer process. Request a couple
-	// of follow-up refreshes on the CEF UI thread so OSR captures the updated
-	// compositor frame after the zoom IPC has been processed.
-	wv.scheduleZoomRefresh()
-	wv.scheduleZoomReadback(factor, cefLevel)
 	return nil
 }
 
@@ -1391,14 +1394,14 @@ func (wv *WebView) viewBridgeScale() float64 {
 	if wv == nil || wv.viewBridge == nil {
 		return 1
 	}
-	return gtkutil.NormalizeScale(float64(wv.viewBridge.DeviceScaleFactor()))
+	return normalizeScale(float64(wv.viewBridge.DeviceScaleFactor()))
 }
 
 func (wv *WebView) osrBackingScaleFactor() float64 {
 	if wv == nil || wv.viewBridge == nil {
 		return 1
 	}
-	return gtkutil.NormalizeScale(wv.viewBridge.OSRBackingScaleFactor())
+	return normalizeScale(wv.viewBridge.OSRBackingScaleFactor())
 }
 
 func (wv *WebView) handleMiddleClickFromBridge() bool {
@@ -1679,7 +1682,7 @@ func (wv *WebView) reapplyCurrentZoomForBackingScale(reason string) {
 	factor := wv.GetZoomLevel()
 	backingScale := wv.osrBackingScaleFactor()
 	cefLevel := cefZoomFromPageAndBackingFactor(factor, backingScale)
-	host.SetZoomLevel(cefLevel)
+	wv.applyCEFZoomLevel(host, factor, cefLevel)
 	logging.FromContext(wv.ctx).Debug().
 		Str("reason", reason).
 		Float64("factor", factor).
