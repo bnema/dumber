@@ -216,11 +216,15 @@ func TestContextMenuSelectionFallsBackToNativeCopySelectionWhenTextUnavailable(t
 	require.Zero(t, executor.executeCalls)
 }
 
-func TestContextMenuAnchorPositionScalesCEFCoordinates(t *testing.T) {
-	x, y := contextMenuAnchorPosition(stubContextMenuParams{x: 320, y: 180}, 2)
+func TestContextMenuAnchorPositionScalesCEFCoordinatesForDeviceBacking(t *testing.T) {
+	x, y := contextMenuAnchorPosition(stubContextMenuParams{x: 320, y: 180}, 1.25, 1)
 
-	require.Equal(t, int32(160), x)
-	require.Equal(t, int32(90), y)
+	require.Equal(t, int32(320), x)
+	require.Equal(t, int32(180), y)
+
+	x, y = contextMenuAnchorPosition(stubContextMenuParams{x: 320, y: 180}, 1.25, 1.25)
+	require.Equal(t, int32(256), x)
+	require.Equal(t, int32(144), y)
 }
 
 func TestContextMenuRawPositionDefaultsToZeroWhenParamsNil(t *testing.T) {

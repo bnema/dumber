@@ -17,3 +17,13 @@ func TestZoomConversionsRoundTrip(t *testing.T) {
 		})
 	}
 }
+
+func TestZoomConversionsCompensateOSRBackingScale(t *testing.T) {
+	level := cefZoomFromPageAndBackingFactor(1.0, 1.2)
+	assert.InDelta(t, 1.0/1.2, factorFromCEFZoom(level), 1e-9)
+	assert.InDelta(t, 1.0, pageZoomFromCEFAndBackingLevel(level, 1.2), 1e-9)
+
+	level = cefZoomFromPageAndBackingFactor(1.75, 1.2)
+	assert.InDelta(t, 1.75/1.2, factorFromCEFZoom(level), 1e-9)
+	assert.InDelta(t, 1.75, pageZoomFromCEFAndBackingLevel(level, 1.2), 1e-9)
+}

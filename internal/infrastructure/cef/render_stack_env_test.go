@@ -13,6 +13,7 @@ func TestApplyDefaultRenderStackEnvironment_DefaultsToGDKDMABUFWithANGLEVulkan(t
 	t.Setenv("GSK_RENDERER", "")
 	t.Setenv("PUREGO_CEF2GTK_BACKEND", "")
 	t.Setenv("PUREGO_CEF2GTK_ANGLE_BACKEND", "")
+	t.Setenv(cef2gtkOSRBackingScaleEnvVar, "")
 
 	got := applyDefaultRenderStackEnvironment(nil)
 
@@ -28,6 +29,9 @@ func TestApplyDefaultRenderStackEnvironment_DefaultsToGDKDMABUFWithANGLEVulkan(t
 	if got := os.Getenv("PUREGO_CEF2GTK_ANGLE_BACKEND"); got != "vulkan" {
 		t.Fatalf("PUREGO_CEF2GTK_ANGLE_BACKEND = %q, want vulkan", got)
 	}
+	if got := os.Getenv(cef2gtkOSRBackingScaleEnvVar); got != "auto" {
+		t.Fatalf("%s = %q, want auto", cef2gtkOSRBackingScaleEnvVar, got)
+	}
 }
 
 func TestApplyDefaultRenderStackEnvironment_OverridesConflictingLowLevelDefaults(t *testing.T) {
@@ -36,6 +40,7 @@ func TestApplyDefaultRenderStackEnvironment_OverridesConflictingLowLevelDefaults
 	t.Setenv("GSK_RENDERER", "ngl")
 	t.Setenv("PUREGO_CEF2GTK_BACKEND", "glarea")
 	t.Setenv("PUREGO_CEF2GTK_ANGLE_BACKEND", "gl-egl")
+	t.Setenv(cef2gtkOSRBackingScaleEnvVar, "")
 
 	got := applyDefaultRenderStackEnvironment(nil)
 
@@ -51,6 +56,9 @@ func TestApplyDefaultRenderStackEnvironment_OverridesConflictingLowLevelDefaults
 	if got := os.Getenv("PUREGO_CEF2GTK_ANGLE_BACKEND"); got != "vulkan" {
 		t.Fatalf("PUREGO_CEF2GTK_ANGLE_BACKEND = %q, want coherent vulkan default", got)
 	}
+	if got := os.Getenv(cef2gtkOSRBackingScaleEnvVar); got != "auto" {
+		t.Fatalf("%s = %q, want auto", cef2gtkOSRBackingScaleEnvVar, got)
+	}
 }
 
 func TestApplyDefaultRenderStackEnvironment_AllowSplitPreservesExplicitLowLevelOverrides(t *testing.T) {
@@ -59,6 +67,7 @@ func TestApplyDefaultRenderStackEnvironment_AllowSplitPreservesExplicitLowLevelO
 	t.Setenv("GSK_RENDERER", "ngl")
 	t.Setenv("PUREGO_CEF2GTK_BACKEND", "glarea")
 	t.Setenv("PUREGO_CEF2GTK_ANGLE_BACKEND", "gl-egl")
+	t.Setenv(cef2gtkOSRBackingScaleEnvVar, "off")
 
 	got := applyDefaultRenderStackEnvironment(nil)
 
@@ -74,6 +83,9 @@ func TestApplyDefaultRenderStackEnvironment_AllowSplitPreservesExplicitLowLevelO
 	if got := os.Getenv("PUREGO_CEF2GTK_ANGLE_BACKEND"); got != "gl-egl" {
 		t.Fatalf("PUREGO_CEF2GTK_ANGLE_BACKEND = %q, want explicit gl-egl", got)
 	}
+	if got := os.Getenv(cef2gtkOSRBackingScaleEnvVar); got != "off" {
+		t.Fatalf("%s = %q, want explicit off", cef2gtkOSRBackingScaleEnvVar, got)
+	}
 }
 
 func TestApplyDefaultRenderStackEnvironment_LegacyGLUsesGLArea(t *testing.T) {
@@ -81,6 +93,7 @@ func TestApplyDefaultRenderStackEnvironment_LegacyGLUsesGLArea(t *testing.T) {
 	t.Setenv("GSK_RENDERER", "")
 	t.Setenv("PUREGO_CEF2GTK_BACKEND", "")
 	t.Setenv("PUREGO_CEF2GTK_ANGLE_BACKEND", "")
+	t.Setenv(cef2gtkOSRBackingScaleEnvVar, "")
 
 	got := applyDefaultRenderStackEnvironment(nil)
 
@@ -92,6 +105,9 @@ func TestApplyDefaultRenderStackEnvironment_LegacyGLUsesGLArea(t *testing.T) {
 	}
 	if got := os.Getenv("PUREGO_CEF2GTK_ANGLE_BACKEND"); got != "gl-egl" {
 		t.Fatalf("PUREGO_CEF2GTK_ANGLE_BACKEND = %q, want gl-egl", got)
+	}
+	if got := os.Getenv(cef2gtkOSRBackingScaleEnvVar); got != "" {
+		t.Fatalf("%s = %q, want unset for legacy-gl", cef2gtkOSRBackingScaleEnvVar, got)
 	}
 }
 

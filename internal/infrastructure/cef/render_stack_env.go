@@ -12,19 +12,20 @@ const (
 	dumberRenderStackEnvVar           = "DUMBER_RENDER_STACK"
 	dumberRenderStackAllowSplitEnvVar = "DUMBER_RENDER_STACK_ALLOW_SPLIT"
 
-	cefEngineType           = "cef"
-	renderStackAuto         = "auto"
-	renderStackVulkanDMABUF = "vulkan-dmabuf"
-	renderStackLegacyGL     = "legacy-gl"
-	cef2gtkBackendEnvVar    = "PUREGO_CEF2GTK_BACKEND"
-	cef2gtkAngleBackendVar  = "PUREGO_CEF2GTK_ANGLE_BACKEND"
-	gskRendererEnvVar       = "GSK_RENDERER"
-	cef2gtkBackendGDKDMABUF = "gdk-dmabuf"
-	cef2gtkBackendGLArea    = "glarea"
-	cef2gtkAngleVulkan      = "vulkan"
-	cef2gtkAngleGLEGL       = "gl-egl"
-	gskRendererVulkan       = "vulkan"
-	gskRendererOpenGL       = "opengl"
+	cefEngineType                = "cef"
+	renderStackAuto              = "auto"
+	renderStackVulkanDMABUF      = "vulkan-dmabuf"
+	renderStackLegacyGL          = "legacy-gl"
+	cef2gtkBackendEnvVar         = "PUREGO_CEF2GTK_BACKEND"
+	cef2gtkAngleBackendVar       = "PUREGO_CEF2GTK_ANGLE_BACKEND"
+	cef2gtkOSRBackingScaleEnvVar = "PUREGO_CEF2GTK_OSR_BACKING_SCALE"
+	gskRendererEnvVar            = "GSK_RENDERER"
+	cef2gtkBackendGDKDMABUF      = "gdk-dmabuf"
+	cef2gtkBackendGLArea         = "glarea"
+	cef2gtkAngleVulkan           = "vulkan"
+	cef2gtkAngleGLEGL            = "gl-egl"
+	gskRendererVulkan            = "vulkan"
+	gskRendererOpenGL            = "opengl"
 )
 
 // ApplyDefaultRenderStackEnvironment configures the process environment for
@@ -54,6 +55,7 @@ func applyDefaultRenderStackEnvironment(logger port.Logger) string {
 		setRenderStackEnv(logger, gskRendererEnvVar, gskRendererVulkan)
 		setRenderStackEnv(logger, cef2gtkBackendEnvVar, cef2gtkBackendGDKDMABUF)
 		setRenderStackEnv(logger, cef2gtkAngleBackendVar, cef2gtkAngleVulkan)
+		setEnvDefault(logger, cef2gtkOSRBackingScaleEnvVar, "auto")
 	}
 	logRenderStackEnvironment(logger, stack)
 	return stack
@@ -65,6 +67,7 @@ func logRenderStackEnvironment(logger port.Logger, stack string) {
 		port.Field("gsk_renderer", os.Getenv(gskRendererEnvVar)),
 		port.Field("cef2gtk_backend", os.Getenv(cef2gtkBackendEnvVar)),
 		port.Field("cef2gtk_angle_backend", os.Getenv(cef2gtkAngleBackendVar)),
+		port.Field("cef2gtk_osr_backing_scale", os.Getenv(cef2gtkOSRBackingScaleEnvVar)),
 		port.Field("split_stack_allowed", envBoolEnabled(dumberRenderStackAllowSplitEnvVar)),
 	)
 }

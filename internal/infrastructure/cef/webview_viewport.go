@@ -101,7 +101,7 @@ func (wv *WebView) syncViewportNowOnGTK(ctx context.Context, reason string) bool
 
 	widget := wv.viewBridge.Widget()
 	visible := widget != nil && widget.IsVisible()
-	notifyBrowserViewportSync(host, visible)
+	wv.notifyViewportSyncOnCEFUIThread(host, visible)
 	logging.FromContext(ctx).Debug().
 		Uint64("webview_id", uint64(wv.id)).
 		Bool("visible", visible).
@@ -262,6 +262,13 @@ func (wv *WebView) disconnectViewportSyncHooksOnGTKThread() {
 	wv.viewportMapFunc = nil
 	wv.viewportShowFunc = nil
 	wv.viewportRealizeFunc = nil
+}
+
+func (wv *WebView) notifyViewportSyncOnCEFUIThread(host viewportSyncBrowserHost, visible bool) {
+	notifyBrowserViewportSync(host, visible)
+	if wv != nil {
+		wv.reapplyCurrentZoomForBackingScale("viewport-sync")
+	}
 }
 
 func notifyBrowserViewportSync(host viewportSyncBrowserHost, visible bool) {

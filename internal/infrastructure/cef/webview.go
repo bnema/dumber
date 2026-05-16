@@ -20,6 +20,7 @@ import (
 
 	"github.com/bnema/dumber/internal/application/dto"
 	"github.com/bnema/dumber/internal/application/port"
+	"github.com/bnema/dumber/internal/infrastructure/gtkutil"
 	"github.com/bnema/dumber/internal/logging"
 )
 
@@ -443,6 +444,14 @@ func cefZoomFromFactor(factor float64) float64 {
 	return math.Log(factor) / math.Log(chromiumZoomBase)
 }
 
+func cefZoomFromPageAndBackingFactor(pageZoom, backingScale float64) float64 {
+	return cefZoomFromFactor(pageZoom / gtkutil.NormalizeScale(backingScale))
+}
+
+func pageZoomFromCEFAndBackingLevel(level, backingScale float64) float64 {
+	return factorFromCEFZoom(level) * gtkutil.NormalizeScale(backingScale)
+}
+
 // factorFromCEFZoom converts a Chromium/CEF logarithmic zoom level back to a
 // linear zoom factor.
 func factorFromCEFZoom(level float64) float64 {
@@ -468,10 +477,12 @@ func (wv *WebView) SetZoomLevel(_ context.Context, factor float64) error {
 	if host == nil {
 		return errNoBrowser
 	}
-	cefLevel := cefZoomFromFactor(factor)
+	backingScale := wv.osrBackingScaleFactor()
+	cefLevel := cefZoomFromPageAndBackingFactor(factor, backingScale)
 	logging.FromContext(wv.ctx).Debug().
 		Float64("factor", factor).
 		Float64("cef_level", cefLevel).
+		Float64("osr_backing_scale", backingScale).
 		Msg("cef: SetZoomLevel")
 	host.SetZoomLevel(cefLevel)
 	wv.zoomFactor.Store(factor)
@@ -1376,15 +1387,18 @@ func (wv *WebView) selectedTextSnapshot() string {
 	return wv.selectedText
 }
 
-func (wv *WebView) viewBridgeScale() int32 {
+func (wv *WebView) viewBridgeScale() float64 {
 	if wv == nil || wv.viewBridge == nil {
 		return 1
 	}
-	scale := int32(math.Round(float64(wv.viewBridge.DeviceScaleFactor())))
-	if scale < 1 {
+	return gtkutil.NormalizeScale(float64(wv.viewBridge.DeviceScaleFactor()))
+}
+
+func (wv *WebView) osrBackingScaleFactor() float64 {
+	if wv == nil || wv.viewBridge == nil {
 		return 1
 	}
-	return scale
+	return gtkutil.NormalizeScale(wv.viewBridge.OSRBackingScaleFactor())
 }
 
 func (wv *WebView) handleMiddleClickFromBridge() bool {
@@ -1637,16 +1651,41 @@ func (wv *WebView) scheduleZoomReadback(expectedFactor, expectedLevel float64) {
 			if host == nil {
 				return
 			}
+			backingScale := wv.osrBackingScaleFactor()
 			actualLevel := host.GetZoomLevel()
 			logging.FromContext(wv.ctx).Debug().
 				Int64("delay_ms", delayMs).
 				Float64("expected_factor", expectedFactor).
 				Float64("expected_cef_level", expectedLevel).
-				Float64("actual_factor", factorFromCEFZoom(actualLevel)).
+				Float64("actual_factor", pageZoomFromCEFAndBackingLevel(actualLevel, backingScale)).
+				Float64("actual_cef_factor", factorFromCEFZoom(actualLevel)).
 				Float64("actual_cef_level", actualLevel).
+				Float64("osr_backing_scale", backingScale).
 				Msg("cef: zoom level readback")
 		})), delayMs)
 	}
+}
+
+func (wv *WebView) reapplyCurrentZoomForBackingScale(reason string) {
+	if wv == nil || wv.destroyed.Load() {
+		return
+	}
+	wv.mu.RLock()
+	host := wv.host
+	wv.mu.RUnlock()
+	if host == nil {
+		return
+	}
+	factor := wv.GetZoomLevel()
+	backingScale := wv.osrBackingScaleFactor()
+	cefLevel := cefZoomFromPageAndBackingFactor(factor, backingScale)
+	host.SetZoomLevel(cefLevel)
+	logging.FromContext(wv.ctx).Debug().
+		Str("reason", reason).
+		Float64("factor", factor).
+		Float64("cef_level", cefLevel).
+		Float64("osr_backing_scale", backingScale).
+		Msg("cef: reapplied zoom for OSR backing scale")
 }
 
 func (wv *WebView) scheduleStartBeginFrameLoop() {
