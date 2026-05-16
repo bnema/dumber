@@ -26,7 +26,6 @@ func TestEngine_WiresAudioOutputFactory(t *testing.T) {
 
 	// Verify webViewFactoryOptions can hold the audio factory
 	opts := webViewFactoryOptions{
-		scale:               1,
 		windowlessFrameRate: 60,
 		audioOutputFactory:  audioFactory,
 	}
@@ -44,7 +43,6 @@ func TestEngine_WiresAudioOutputFactory(t *testing.T) {
 func TestWebViewFactory_AudioFactoryIsOptional(t *testing.T) {
 	// Arrange
 	opts := webViewFactoryOptions{
-		scale:               1,
 		windowlessFrameRate: 60,
 		audioOutputFactory:  nil,
 	}

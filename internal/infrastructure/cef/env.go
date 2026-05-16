@@ -13,6 +13,8 @@ const (
 	cefRenderNodeEnvVar           = "DUMBER_CEF_RENDER_NODE"
 	cefRenderStallRecoveryEnvVar  = "DUMBER_CEF_RENDER_STALL_RECOVERY"
 	cefRenderStallBacktraceEnvVar = "DUMBER_CEF_RENDER_STALL_BACKTRACE"
+	cefScaleProbeEnvVar           = "DUMBER_CEF_SCALE_PROBE"
+	cef2GTKTraceScaleEnvVar       = "PUREGO_CEF2GTK_TRACE_SCALE"
 )
 
 // envBoolEnabled returns true when the given environment variable is set
@@ -40,4 +42,8 @@ func renderStallRecoveryEnabled() bool {
 
 func renderStallBacktraceEnabled() bool {
 	return envBoolEnabled(cefRenderStallBacktraceEnvVar)
+}
+
+func cefScaleProbeEnabled() bool {
+	return envBoolEnabled(cefScaleProbeEnvVar) || os.Getenv(cef2GTKTraceScaleEnvVar) != ""
 }

@@ -107,6 +107,21 @@ func (a *Cef2gtkAdapter) DeviceScaleFactor() float32 {
 	return a.view.DeviceScaleFactor()
 }
 
+// OSRBackingScaleFactor returns the device backing scale used for CEF OSR
+// coordinates. It returns 1 when purego-cef2gtk is using CEF's normal logical
+// OSR contract.
+func (a *Cef2gtkAdapter) OSRBackingScaleFactor() float64 {
+	if a == nil || a.destroyed.Load() {
+		return 1
+	}
+	a.viewMu.RLock()
+	defer a.viewMu.RUnlock()
+	if a.view == nil {
+		return 1
+	}
+	return cef2gtk.OSRBackingScaleFactorForScale(float64(a.view.DeviceScaleFactor()))
+}
+
 // AddSizeObserver registers a positive-size change callback. Register and
 // unregister from the GTK main thread; callbacks are invoked by the bridge from
 // GTK size notifications.

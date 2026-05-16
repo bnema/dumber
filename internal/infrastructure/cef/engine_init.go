@@ -208,7 +208,6 @@ func wireEngine(
 	currentConfigPayload func() ([]byte, error), defaultConfigPayload func() ([]byte, error),
 ) (*Engine, error) {
 	eng.factory = newWebViewFactory(eng, webViewFactoryOptions{
-		scale:               detectHiDPIScale(logger),
 		windowlessFrameRate: windowlessFrameRate,
 		audioOutputFactory:  audioFactory,
 	})
@@ -313,40 +312,6 @@ func registerEngineSchemeFactory(
 	logger.Info().
 		Str("origin", actualInternalOrigin).
 		Msg("cef: registered internal https handler factory")
-}
-
-// getPrimaryMonitor returns the primary GDK monitor, or nil if unavailable.
-func getPrimaryMonitor() *gdk.Monitor {
-	display := gdk.DisplayGetDefault()
-	if display == nil {
-		return nil
-	}
-	monitors := display.GetMonitors()
-	if monitors == nil {
-		return nil
-	}
-	obj := monitors.GetObject(0)
-	if obj == nil {
-		return nil
-	}
-	mon := &gdk.Monitor{}
-	mon.SetGoPointer(obj.GoPointer())
-	return mon
-}
-
-// detectHiDPIScale queries the primary GDK monitor for its scale factor.
-func detectHiDPIScale(logger *zerolog.Logger) int32 {
-	mon := getPrimaryMonitor()
-	if mon == nil {
-		logger.Debug().Msg("cef: no primary monitor, using scale=1")
-		return 1
-	}
-	if s := mon.GetScaleFactor(); s > 0 {
-		logger.Info().Int32("scale", int32(s)).Msg("cef: detected HiDPI scale from monitor")
-		return int32(s)
-	}
-	logger.Debug().Msg("cef: monitor scale factor <= 0, using scale=1")
-	return 1
 }
 
 // appendIfMissing appends flag to args if it's not already present.

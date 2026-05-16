@@ -79,7 +79,7 @@ func (h *handlerSet) RunContextMenu(
 		return 0
 	}
 
-	x, y := contextMenuAnchorPosition(params, h.wv.viewBridgeScale())
+	x, y := contextMenuAnchorPosition(params, h.wv.viewBridgeScale(), h.wv.osrBackingScaleFactor())
 	executor := h.contextMenuExecutor()
 	wv := h.wv
 	wv.runOnGTK(func() {
@@ -126,14 +126,14 @@ func (h *handlerSet) contextMenuExecutor() port.ContextMenuActionExecutor {
 	)
 }
 
-func contextMenuAnchorPosition(params purecef.ContextMenuParams, scale int32) (int32, int32) {
+func contextMenuAnchorPosition(params purecef.ContextMenuParams, scale, backingScale float64) (int32, int32) {
 	if params == nil {
 		return 0, 0
 	}
-	if scale <= 0 {
-		scale = 1
+	if backingScale <= 1 {
+		return params.GetXcoord(), params.GetYcoord()
 	}
-	return params.GetXcoord() / scale, params.GetYcoord() / scale
+	return deviceToLogicalCoord(params.GetXcoord(), scale), deviceToLogicalCoord(params.GetYcoord(), scale)
 }
 
 func logContextMenuPopupRequest(
@@ -152,7 +152,7 @@ func logContextMenuPopupRequest(
 		Int32("raw_y", rawY).
 		Int32("popup_x", x).
 		Int32("popup_y", y).
-		Int32("scale", h.wv.viewBridgeScale()).
+		Float64("scale", h.wv.viewBridgeScale()).
 		Int("anchor_width", widget.GetAllocatedWidth()).
 		Int("anchor_height", widget.GetAllocatedHeight()).
 		Int("parent_width", cefWidgetAllocatedWidth(parent)).

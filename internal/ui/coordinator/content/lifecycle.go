@@ -6,11 +6,11 @@ import (
 
 	"github.com/bnema/dumber/internal/application/port"
 	"github.com/bnema/dumber/internal/domain/entity"
+	"github.com/bnema/dumber/internal/infrastructure/gtkutil"
 	"github.com/bnema/dumber/internal/logging"
 	"github.com/bnema/dumber/internal/ui/component"
 	"github.com/bnema/dumber/internal/ui/input"
 	"github.com/bnema/dumber/internal/ui/layout"
-	"github.com/bnema/puregotk/v4/gtk"
 )
 
 // EnsureWebView acquires or reuses a WebView for the given pane.
@@ -167,8 +167,10 @@ func (c *Coordinator) WrapWidget(ctx context.Context, wv port.WebView) layout.Wi
 		return nil
 	}
 
-	gtkWidget := &gtk.Widget{}
-	gtkWidget.Ptr = ptr
+	gtkWidget := gtkutil.WidgetFromNativePointer(ptr)
+	if gtkWidget == nil {
+		return nil
+	}
 	widget := c.widgetFactory.WrapWidget(gtkWidget)
 
 	// Attach gesture handler for mouse button 8/9 navigation

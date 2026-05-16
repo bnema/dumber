@@ -16,8 +16,9 @@ import (
 
 // Console message markers used by injected JavaScript for log filtering.
 const (
-	consoleMarkerVideoDiag = "[VIDEO-DIAG]"
-	consoleMarkerAutoCopy  = "[AUTO-COPY]"
+	consoleMarkerVideoDiag  = "[VIDEO-DIAG]"
+	consoleMarkerAutoCopy   = "[AUTO-COPY]"
+	consoleMarkerScaleProbe = "[SCALE-PROBE]"
 )
 
 // handlerSet implements all CEF handler interfaces and dispatches events to the
@@ -226,7 +227,8 @@ func (h *handlerSet) OnConsoleMessage(
 ) int32 {
 	if h.wv != nil && h.wv.ctx != nil &&
 		(strings.Contains(message, consoleMarkerVideoDiag) ||
-			strings.Contains(message, consoleMarkerAutoCopy)) {
+			strings.Contains(message, consoleMarkerAutoCopy) ||
+			strings.Contains(message, consoleMarkerScaleProbe)) {
 		log := logging.FromContext(h.wv.ctx).With().
 			Str("component", "cef-console").
 			Str("source", source).
@@ -399,6 +401,14 @@ func (h *handlerSet) OnLoadEnd(_ purecef.Browser, frame purecef.Frame, httpStatu
 	// Inject scripts and styles after page load.
 	// Must run on GTK thread — OnLoadEnd fires on the CEF IO thread,
 	// and JavaScript injection requires the main thread.
+	if cefScaleProbeEnabled() && httpStatusCode >= 0 && !strings.EqualFold(strings.TrimSpace(frameURL), "about:blank") {
+		// Do not retain/use CEF callback-scoped frame wrappers across the GTK idle hop.
+		// Re-read the current main frame through WebView.RunJavaScript instead.
+		h.wv.runOnGTK(func() {
+			logging.FromContext(h.wv.ctx).Debug().Msg("cef: injecting scale probe")
+			h.wv.RunJavaScript(context.Background(), cefScaleProbeScript)
+		})
+	}
 	if h.wv.engine != nil && h.wv.engine.contentInj != nil {
 		h.wv.runOnGTK(func() {
 			h.wv.engine.contentInj.onLoadEnd(h.wv)
@@ -630,7 +640,7 @@ func (h *handlerSet) attachAfterCreatedBrowser(
 				return
 			}
 			if err := wv.viewBridge.AttachInput(host, cef2gtk.InputOptions{
-				Scale: wv.viewBridgeScale(),
+				Scale: 0,
 				OnMiddleClick: func(_, _ float64) bool {
 					return wv.handleMiddleClickFromBridge()
 				},
@@ -656,6 +666,9 @@ func (h *handlerSet) attachAfterCreatedBrowser(
 	// Mark browser as visible — CEF OSR starts in hidden state and suppresses
 	// painting/caret updates until explicitly told the browser is shown.
 	host.WasHidden(0)
+	if h.wv != nil {
+		h.wv.SyncViewport(h.wv.ctx, "after-created")
+	}
 	return state
 }
 

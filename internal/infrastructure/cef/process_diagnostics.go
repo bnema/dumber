@@ -94,7 +94,8 @@ func safeChromiumCmdlineFlags(cmdline string) []string {
 		var safe string
 		switch name {
 		case "--type", "--lang", "--enable-features", "--disable-features", "--ozone-platform",
-			"--use-gl", "--use-angle", "--enable-logging", "--log-severity":
+			"--use-gl", "--use-angle", "--enable-logging", "--log-severity",
+			"--force-device-scale-factor", "--high-dpi-support", "--enable-use-zoom-for-dsf":
 			if hasValue && value != "" {
 				safe = name + "=" + value
 			} else {

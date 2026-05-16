@@ -22,14 +22,12 @@ var _ port.WebViewFactory = (*WebViewFactory)(nil)
 type WebViewFactory struct {
 	engine              *Engine
 	nextID              atomic.Uint64
-	scale               int32
 	windowlessFrameRate int32
 	bgColor             atomic.Uint32 // packed ARGB for BrowserSettings.BackgroundColor
 	audioOutputFactory  port.AudioOutputFactory
 }
 
 type webViewFactoryOptions struct {
-	scale               int32
 	windowlessFrameRate int32
 	audioOutputFactory  port.AudioOutputFactory
 }
@@ -46,18 +44,13 @@ const (
 	pendingBrowserCreateMaxPostRetries = 3
 )
 
-// newWebViewFactory returns a factory that will create WebViews using the
-// given HiDPI scale factor.
+// newWebViewFactory returns a factory that will create WebViews.
 func newWebViewFactory(engine *Engine, opts webViewFactoryOptions) *WebViewFactory {
-	if opts.scale < 1 {
-		opts.scale = 1
-	}
 	if opts.windowlessFrameRate < 1 {
 		opts.windowlessFrameRate = 60
 	}
 	return &WebViewFactory{
 		engine:              engine,
-		scale:               opts.scale,
 		windowlessFrameRate: opts.windowlessFrameRate,
 		audioOutputFactory:  opts.audioOutputFactory,
 	}

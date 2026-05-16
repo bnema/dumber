@@ -10,7 +10,8 @@ import (
 
 type viewportSyncOrderHost struct {
 	purecef.BrowserHost
-	calls []string
+	calls     []string
+	zoomLevel float64
 }
 
 func (h *viewportSyncOrderHost) WasHidden(state int32) {
@@ -32,6 +33,15 @@ func (h *viewportSyncOrderHost) Invalidate(_ purecef.PaintElementType) {
 	h.calls = append(h.calls, "Invalidate")
 }
 
+func (h *viewportSyncOrderHost) SetZoomLevel(level float64) {
+	h.calls = append(h.calls, "SetZoomLevel")
+	h.zoomLevel = level
+}
+
+func (h *viewportSyncOrderHost) GetZoomLevel() float64 {
+	return h.zoomLevel
+}
+
 func TestNotifyBrowserViewportSync_VisibleCallsFullSequence(t *testing.T) {
 	host := &viewportSyncOrderHost{}
 
@@ -46,6 +56,97 @@ func TestNotifyBrowserViewportSync_HiddenSkipsWasHidden(t *testing.T) {
 	notifyBrowserViewportSync(host, false)
 
 	require.Equal(t, []string{"NotifyScreenInfoChanged", "WasResized", "Invalidate"}, host.calls)
+}
+
+func TestNotifyViewportSyncOnCEFUIThread_PostsCEFWork(t *testing.T) {
+	oldNewTask := cefNewTask
+	oldPostDelayedTask := cefPostDelayedTask
+	defer func() {
+		cefNewTask = oldNewTask
+		cefPostDelayedTask = oldPostDelayedTask
+	}()
+
+	cefNewTask = func(task purecef.Task) purecef.Task { return task }
+
+	var scheduled purecef.Task
+	cefPostDelayedTask = func(threadID purecef.ThreadID, task purecef.Task, delayMs int64) int32 {
+		require.Equal(t, purecef.ThreadIDTidUi, threadID)
+		require.NotNil(t, task)
+		if delayMs == 0 && scheduled == nil {
+			scheduled = task
+		}
+		return 1
+	}
+
+	host := &viewportSyncOrderHost{}
+	wv := &WebView{ctx: context.Background(), host: host}
+	wv.notifyViewportSyncOnCEFUIThread(host, true)
+
+	require.Empty(t, host.calls)
+	require.NotNil(t, scheduled)
+
+	scheduled.Execute()
+	require.Equal(t, []string{
+		"WasHidden",
+		"NotifyScreenInfoChanged",
+		"WasResized",
+		"Invalidate",
+		"SetZoomLevel",
+		"NotifyScreenInfoChanged",
+	}, host.calls)
+}
+
+func TestNotifyViewportSyncOnCEFUIThread_SkipsStaleHost(t *testing.T) {
+	oldNewTask := cefNewTask
+	oldPostDelayedTask := cefPostDelayedTask
+	defer func() {
+		cefNewTask = oldNewTask
+		cefPostDelayedTask = oldPostDelayedTask
+	}()
+
+	cefNewTask = func(task purecef.Task) purecef.Task { return task }
+
+	var scheduled purecef.Task
+	cefPostDelayedTask = func(_ purecef.ThreadID, task purecef.Task, _ int64) int32 {
+		scheduled = task
+		return 1
+	}
+
+	capturedHost := &viewportSyncOrderHost{}
+	currentHost := &viewportSyncOrderHost{}
+	wv := &WebView{ctx: context.Background(), host: currentHost}
+	wv.notifyViewportSyncOnCEFUIThread(capturedHost, true)
+
+	require.NotNil(t, scheduled)
+	scheduled.Execute()
+	require.Empty(t, capturedHost.calls)
+	require.Empty(t, currentHost.calls)
+}
+
+func TestNotifyViewportSyncOnCEFUIThread_SkipsDestroyedWebView(t *testing.T) {
+	oldNewTask := cefNewTask
+	oldPostDelayedTask := cefPostDelayedTask
+	defer func() {
+		cefNewTask = oldNewTask
+		cefPostDelayedTask = oldPostDelayedTask
+	}()
+
+	cefNewTask = func(task purecef.Task) purecef.Task { return task }
+
+	var scheduled purecef.Task
+	cefPostDelayedTask = func(_ purecef.ThreadID, task purecef.Task, _ int64) int32 {
+		scheduled = task
+		return 1
+	}
+
+	host := &viewportSyncOrderHost{}
+	wv := &WebView{ctx: context.Background(), host: host}
+	wv.destroyed.Store(true)
+	wv.notifyViewportSyncOnCEFUIThread(host, true)
+
+	require.NotNil(t, scheduled)
+	scheduled.Execute()
+	require.Empty(t, host.calls)
 }
 
 func TestScheduleResizeRepaintPulse_CoalescesToLatestSequence(t *testing.T) {
