@@ -269,10 +269,17 @@ func (wv *WebView) notifyViewportSyncOnCEFUIThread(host viewportSyncBrowserHost,
 		return
 	}
 	task := cefNewTask(cefTaskFunc(func() {
-		notifyBrowserViewportSync(host, visible)
-		if wv != nil {
-			wv.reapplyCurrentZoomForBackingScale("viewport-sync")
+		if wv == nil || wv.destroyed.Load() {
+			return
 		}
+		wv.mu.RLock()
+		currentHost := wv.host
+		wv.mu.RUnlock()
+		if currentHost != host {
+			return
+		}
+		notifyBrowserViewportSync(host, visible)
+		wv.reapplyCurrentZoomForBackingScale("viewport-sync")
 	}))
 	if task == nil {
 		return

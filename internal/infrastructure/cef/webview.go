@@ -1620,7 +1620,7 @@ func (wv *WebView) updateHoverURI(uri string) {
 // These values are empirically tuned for CEF's async zoom application.
 func (wv *WebView) scheduleZoomRefresh() {
 	for _, delayMs := range [...]int64{16, 48} {
-		purecef.PostDelayedTask(purecef.ThreadIDTidUi, purecef.NewTask(cefTaskFunc(func() {
+		task := cefNewTask(cefTaskFunc(func() {
 			if wv.destroyed.Load() {
 				return
 			}
@@ -1631,7 +1631,11 @@ func (wv *WebView) scheduleZoomRefresh() {
 				return
 			}
 			host.Invalidate(purecef.PaintElementTypePetView)
-		})), delayMs)
+		}))
+		if task == nil {
+			continue
+		}
+		cefPostDelayedTask(purecef.ThreadIDTidUi, task, delayMs)
 	}
 }
 
@@ -1644,7 +1648,7 @@ func (wv *WebView) scheduleZoomRefresh() {
 // These values are empirically tuned for CEF's async zoom application.
 func (wv *WebView) scheduleZoomReadback(expectedFactor, expectedLevel float64) {
 	for _, delayMs := range [...]int64{0, 64} {
-		purecef.PostDelayedTask(purecef.ThreadIDTidUi, purecef.NewTask(cefTaskFunc(func() {
+		task := cefNewTask(cefTaskFunc(func() {
 			if wv.destroyed.Load() {
 				return
 			}
@@ -1665,7 +1669,11 @@ func (wv *WebView) scheduleZoomReadback(expectedFactor, expectedLevel float64) {
 				Float64("actual_cef_level", actualLevel).
 				Float64("osr_backing_scale", backingScale).
 				Msg("cef: zoom level readback")
-		})), delayMs)
+		}))
+		if task == nil {
+			continue
+		}
+		cefPostDelayedTask(purecef.ThreadIDTidUi, task, delayMs)
 	}
 }
 
