@@ -265,10 +265,19 @@ func (wv *WebView) disconnectViewportSyncHooksOnGTKThread() {
 }
 
 func (wv *WebView) notifyViewportSyncOnCEFUIThread(host viewportSyncBrowserHost, visible bool) {
-	notifyBrowserViewportSync(host, visible)
-	if wv != nil {
-		wv.reapplyCurrentZoomForBackingScale("viewport-sync")
+	if host == nil {
+		return
 	}
+	task := cefNewTask(cefTaskFunc(func() {
+		notifyBrowserViewportSync(host, visible)
+		if wv != nil {
+			wv.reapplyCurrentZoomForBackingScale("viewport-sync")
+		}
+	}))
+	if task == nil {
+		return
+	}
+	cefPostDelayedTask(purecef.ThreadIDTidUi, task, 0)
 }
 
 func notifyBrowserViewportSync(host viewportSyncBrowserHost, visible bool) {

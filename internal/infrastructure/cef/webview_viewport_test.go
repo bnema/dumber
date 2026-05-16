@@ -48,6 +48,36 @@ func TestNotifyBrowserViewportSync_HiddenSkipsWasHidden(t *testing.T) {
 	require.Equal(t, []string{"NotifyScreenInfoChanged", "WasResized", "Invalidate"}, host.calls)
 }
 
+func TestNotifyViewportSyncOnCEFUIThread_PostsCEFWork(t *testing.T) {
+	oldNewTask := cefNewTask
+	oldPostDelayedTask := cefPostDelayedTask
+	defer func() {
+		cefNewTask = oldNewTask
+		cefPostDelayedTask = oldPostDelayedTask
+	}()
+
+	cefNewTask = func(task purecef.Task) purecef.Task { return task }
+
+	var scheduled purecef.Task
+	cefPostDelayedTask = func(threadID purecef.ThreadID, task purecef.Task, delayMs int64) int32 {
+		require.Equal(t, purecef.ThreadIDTidUi, threadID)
+		require.Zero(t, delayMs)
+		require.NotNil(t, task)
+		scheduled = task
+		return 1
+	}
+
+	host := &viewportSyncOrderHost{}
+	wv := &WebView{}
+	wv.notifyViewportSyncOnCEFUIThread(host, true)
+
+	require.Empty(t, host.calls)
+	require.NotNil(t, scheduled)
+
+	scheduled.Execute()
+	require.Equal(t, []string{"WasHidden", "NotifyScreenInfoChanged", "WasResized", "Invalidate"}, host.calls)
+}
+
 func TestScheduleResizeRepaintPulse_CoalescesToLatestSequence(t *testing.T) {
 	oldNewTask := cefNewTask
 	oldPostDelayedTask := cefPostDelayedTask
