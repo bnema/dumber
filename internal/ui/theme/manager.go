@@ -21,6 +21,7 @@ type Manager struct {
 	darkPalette   Palette // Dark theme colors
 	uiScale       float64 // UI scaling factor (1.0 = 100%)
 	fonts         FontConfig
+	gtkFont       string
 	modeColors    ModeColors // Modal mode indicator colors
 	cssProvider   *gtk.CssProvider
 	appliedFont   string
@@ -68,9 +69,12 @@ func NewManager(
 	}
 
 	fonts := DefaultFontConfig()
+	gtkFont := DefaultGTKFont()
 	if appearance != nil {
 		fonts.SansFont = Coalesce(appearance.SansFont, fonts.SansFont)
 		fonts.MonospaceFont = Coalesce(appearance.MonospaceFont, fonts.MonospaceFont)
+		gtkFont = Coalesce(appearance.GtkFont, gtkFont)
+		fonts.GtkFont = gtkFont
 	}
 
 	// Build mode colors from config
@@ -82,6 +86,7 @@ func NewManager(
 		Float64("ui_scale", uiScale).
 		Str("sans_font", fonts.SansFont).
 		Str("monospace_font", fonts.MonospaceFont).
+		Str("gtk_font", gtkFont).
 		Msg("theme manager initialized")
 
 	return &Manager{
@@ -91,6 +96,7 @@ func NewManager(
 		darkPalette:   darkPalette,
 		uiScale:       uiScale,
 		fonts:         fonts,
+		gtkFont:       gtkFont,
 		modeColors:    modeColors,
 		colorResolver: resolver,
 	}
@@ -155,10 +161,12 @@ func (m *Manager) GetWebUIThemeCSS() string {
 
 const gtkDefaultFontPointSize = 11
 
+func DefaultGTKFont() string { return "Adwaita Sans" }
+
 func formatGTKFontName(family string, uiScale float64) string {
 	family = strings.TrimSpace(family)
 	if family == "" {
-		family = DefaultFontConfig().SansFont
+		family = DefaultGTKFont()
 	}
 	if uiScale <= 0 {
 		uiScale = 1.0
@@ -186,7 +194,7 @@ func (m *Manager) ApplyToDisplay(ctx context.Context, display *gdk.Display) {
 	// Generate CSS with current palette, UI scale, fonts, and mode colors
 	palette := m.GetCurrentPalette()
 	css := GenerateCSSFull(palette, m.uiScale, m.fonts, m.modeColors)
-	fontName := formatGTKFontName(m.fonts.SansFont, m.uiScale)
+	fontName := formatGTKFontName(m.gtkFont, m.uiScale)
 
 	settings := gtk.SettingsGetForDisplay(display)
 	if settings == nil {
@@ -279,9 +287,11 @@ func (m *Manager) UpdateFromConfig(
 	}
 
 	defaults := DefaultFontConfig()
+	m.gtkFont = Coalesce(appearance.GtkFont, DefaultGTKFont())
 	m.fonts = FontConfig{
 		SansFont:      Coalesce(appearance.SansFont, defaults.SansFont),
 		MonospaceFont: Coalesce(appearance.MonospaceFont, defaults.MonospaceFont),
+		GtkFont:       m.gtkFont,
 	}
 
 	// Update mode colors
@@ -295,6 +305,7 @@ func (m *Manager) UpdateFromConfig(
 		Float64("ui_scale", m.uiScale).
 		Str("sans_font", m.fonts.SansFont).
 		Str("monospace_font", m.fonts.MonospaceFont).
+		Str("gtk_font", m.gtkFont).
 		Msg("theme manager updated from config")
 
 	// Re-apply CSS if display is available

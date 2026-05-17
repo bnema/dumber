@@ -72,6 +72,7 @@ func validateAppearance(config *Config) []string {
 	}
 	validationErrors = append(validationErrors, domainvalidation.ValidateFontFamily("appearance.sans_font", config.Appearance.SansFont)...)
 	validationErrors = append(validationErrors, domainvalidation.ValidateFontFamily("appearance.serif_font", config.Appearance.SerifFont)...)
+	validationErrors = append(validationErrors, domainvalidation.ValidateFontFamily("appearance.gtk_font", config.Appearance.GtkFont)...)
 	validationErrors = append(
 		validationErrors,
 		domainvalidation.ValidateFontFamily("appearance.monospace_font", config.Appearance.MonospaceFont)...,

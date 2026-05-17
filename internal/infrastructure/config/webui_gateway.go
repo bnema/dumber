@@ -43,6 +43,7 @@ func (g *WebUIConfigGateway) SaveWebUIConfig(ctx context.Context, cfg dto.WebUIC
 	current.Appearance.SansFont = cfg.Appearance.SansFont
 	current.Appearance.SerifFont = cfg.Appearance.SerifFont
 	current.Appearance.MonospaceFont = cfg.Appearance.MonospaceFont
+	current.Appearance.GtkFont = cfg.Appearance.GtkFont
 	current.Appearance.DefaultFontSize = cfg.Appearance.DefaultFontSize
 	current.Appearance.ColorScheme = cfg.Appearance.ColorScheme
 	current.Appearance.LightPalette = ColorPalette{

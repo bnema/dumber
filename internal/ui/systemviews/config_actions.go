@@ -99,6 +99,7 @@ func (a *App) saveAppearanceConfig(ctx context.Context, data map[string]string) 
 	cfg.Appearance.SansFont = strings.TrimSpace(data["sans_font"])
 	cfg.Appearance.SerifFont = strings.TrimSpace(data["serif_font"])
 	cfg.Appearance.MonospaceFont = strings.TrimSpace(data["monospace_font"])
+	cfg.Appearance.GtkFont = strings.TrimSpace(data["gtk_font"])
 	cfg.Appearance.DefaultFontSize = fontSize
 	cfg.Appearance.ColorScheme = strings.TrimSpace(data["color_scheme"])
 	cfg.Appearance.LightPalette = paletteFromForm(data, "light")

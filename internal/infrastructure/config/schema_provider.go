@@ -139,6 +139,13 @@ func (*SchemaProvider) getAppearanceKeys(defaults *Config) []entity.ConfigKeyInf
 			Section:     SectionAppearance,
 		},
 		{
+			Key:         "appearance.gtk_font",
+			Type:        "string",
+			Default:     defaults.Appearance.GtkFont,
+			Description: "Native GTK UI font family for app chrome",
+			Section:     SectionAppearance,
+		},
+		{
 			Key:         "default_webpage_zoom",
 			Type:        "float64",
 			Default:     fmt.Sprintf("%.1f", defaults.DefaultWebpageZoom),

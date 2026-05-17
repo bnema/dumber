@@ -70,6 +70,7 @@ type WebUIAppearanceConfig struct {
 	SansFont        string       `json:"sans_font"`
 	SerifFont       string       `json:"serif_font"`
 	MonospaceFont   string       `json:"monospace_font"`
+	GtkFont         string       `json:"gtk_font"`
 	DefaultFontSize int          `json:"default_font_size"`
 	ColorScheme     string       `json:"color_scheme"`
 	LightPalette    ColorPalette `json:"light_palette"`

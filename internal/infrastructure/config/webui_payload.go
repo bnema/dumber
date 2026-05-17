@@ -53,6 +53,7 @@ func buildSystemviewAppearancePayload(appearance AppearanceConfig) dto.WebUIAppe
 		SansFont:        appearance.SansFont,
 		SerifFont:       appearance.SerifFont,
 		MonospaceFont:   appearance.MonospaceFont,
+		GtkFont:         appearance.GtkFont,
 		DefaultFontSize: appearance.DefaultFontSize,
 		ColorScheme:     appearance.ColorScheme,
 		LightPalette:    buildSystemviewPalettePayload(appearance.LightPalette, defaults.LightPalette),
