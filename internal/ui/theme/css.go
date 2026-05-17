@@ -21,6 +21,7 @@ func GenerateCSSWithScale(p Palette, scale float64) string {
 type FontConfig struct {
 	SansFont      string
 	MonospaceFont string
+	GtkFont       string
 }
 
 // DefaultFontConfig returns safe font fallbacks.
@@ -28,6 +29,7 @@ func DefaultFontConfig() FontConfig {
 	return FontConfig{
 		SansFont:      "sans-serif",
 		MonospaceFont: "monospace",
+		GtkFont:       DefaultGTKFont(),
 	}
 }
 
@@ -37,13 +39,14 @@ func FontCSSVars(fonts FontConfig) string {
 	// Quote the configured family; include generic fallback.
 	fmt.Fprintf(&sb, "  --font-sans: %q, sans-serif;\n", fonts.SansFont)
 	fmt.Fprintf(&sb, "  --font-mono: %q, monospace;\n", fonts.MonospaceFont)
+	fmt.Fprintf(&sb, "  --font-gtk: %q, sans-serif;\n", fonts.GtkFont)
 	return sb.String()
 }
 
 func generateFontCSS() string {
 	return `/* Font styling */
 window, tooltip, popover {
-	font-family: var(--font-sans);
+	font-family: var(--font-gtk);
 }
 `
 }
@@ -62,6 +65,7 @@ func GenerateCSSFull(p Palette, _ float64, fonts FontConfig, modeColors ModeColo
 	fonts = FontConfig{
 		SansFont:      Coalesce(fonts.SansFont, defaults.SansFont),
 		MonospaceFont: Coalesce(fonts.MonospaceFont, defaults.MonospaceFont),
+		GtkFont:       Coalesce(fonts.GtkFont, defaults.GtkFont),
 	}
 
 	var sb strings.Builder

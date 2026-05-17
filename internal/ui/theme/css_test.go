@@ -8,6 +8,20 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
+func TestGenerateCSS_UsesGTKFontForNativeWidgets(t *testing.T) {
+	css := GenerateCSSWithScaleAndFonts(DefaultDarkPalette(), 1.0, FontConfig{
+		SansFont:      "Fira Sans",
+		MonospaceFont: "Fira Code",
+		GtkFont:       "Adwaita Sans",
+	})
+
+	assert.Contains(t, css, `--font-sans: "Fira Sans", sans-serif;`)
+	assert.Contains(t, css, `--font-mono: "Fira Code", monospace;`)
+	assert.Contains(t, css, `--font-gtk: "Adwaita Sans", sans-serif;`)
+	assert.Contains(t, css, "window, tooltip, popover {\n\tfont-family: var(--font-gtk);\n}")
+	assert.NotContains(t, css, "window, tooltip, popover {\n\tfont-family: var(--font-sans);\n}")
+}
+
 func TestGenerateCSS_StandaloneOmniboxWindowUsesTransparentBackground(t *testing.T) {
 	css := GenerateCSS(DefaultDarkPalette())
 

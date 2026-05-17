@@ -55,6 +55,7 @@ func normalizeWebUIConfig(cfg dto.WebUIConfig) dto.WebUIConfig {
 	cfg.Appearance.SansFont = strings.TrimSpace(cfg.Appearance.SansFont)
 	cfg.Appearance.SerifFont = strings.TrimSpace(cfg.Appearance.SerifFont)
 	cfg.Appearance.MonospaceFont = strings.TrimSpace(cfg.Appearance.MonospaceFont)
+	cfg.Appearance.GtkFont = strings.TrimSpace(cfg.Appearance.GtkFont)
 	cfg.Appearance.ColorScheme = strings.TrimSpace(cfg.Appearance.ColorScheme)
 	cfg.DefaultSearchEngine = strings.TrimSpace(cfg.DefaultSearchEngine)
 	if len(cfg.SearchShortcuts) > 0 {
@@ -86,6 +87,7 @@ func validateWebUIConfig(cfg dto.WebUIConfig) error {
 	errs = append(errs, validation.ValidateFontFamily("appearance.sans_font", cfg.Appearance.SansFont)...)
 	errs = append(errs, validation.ValidateFontFamily("appearance.serif_font", cfg.Appearance.SerifFont)...)
 	errs = append(errs, validation.ValidateFontFamily("appearance.monospace_font", cfg.Appearance.MonospaceFont)...)
+	errs = append(errs, validation.ValidateFontFamily("appearance.gtk_font", cfg.Appearance.GtkFont)...)
 
 	for _, err := range validation.ValidateShortcutURL(cfg.DefaultSearchEngine) {
 		errs = append(errs, fmt.Sprintf("default_search_engine: %s", err))

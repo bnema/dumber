@@ -276,6 +276,7 @@ func TestManager_Fonts(t *testing.T) {
 	appearance := &entity.AppearanceConfig{
 		SansFont:      "Inter",
 		MonospaceFont: "JetBrains Mono",
+		GtkFont:       "Adwaita Sans",
 	}
 
 	mockResolver := mocks.NewMockColorSchemeResolver(t)
@@ -314,13 +315,18 @@ func TestManager_ModeColors(t *testing.T) {
 	assert.Equal(t, "#ffff00", modeColors.ResizeMode)
 }
 
-func TestFormatGTKFontName_UsesScaledConfiguredSansFont(t *testing.T) {
-	assert.Equal(t, "Fira Sans 14", formatGTKFontName("Fira Sans", 1.3))
+func TestDefaultGTKFont(t *testing.T) {
+	assert.Equal(t, "Adwaita Sans", DefaultGTKFont())
+}
+
+func TestFormatGTKFontName_UsesScaledConfiguredGTKFont(t *testing.T) {
+	assert.Equal(t, "Adwaita Sans 14", formatGTKFontName("Adwaita Sans", 1.3))
 }
 
 func TestFormatGTKFontName_DefaultsScaleAndRoundsToNearestPoint(t *testing.T) {
 	assert.Equal(t, "Inter 11", formatGTKFontName("Inter", 0))
 	assert.Equal(t, "Inter 12", formatGTKFontName("Inter", 1.05))
+	assert.Equal(t, "Adwaita Sans 11", formatGTKFontName("", 1.0))
 }
 
 func TestShouldApplyGTKFontName(t *testing.T) {

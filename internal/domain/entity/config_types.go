@@ -9,6 +9,7 @@ type AppearanceConfig struct {
 	SansFont        string       `mapstructure:"sans_font" yaml:"sans_font" toml:"sans_font" json:"sans_font"`
 	SerifFont       string       `mapstructure:"serif_font" yaml:"serif_font" toml:"serif_font" json:"serif_font"`
 	MonospaceFont   string       `mapstructure:"monospace_font" yaml:"monospace_font" toml:"monospace_font" json:"monospace_font"`
+	GtkFont         string       `mapstructure:"gtk_font" yaml:"gtk_font" toml:"gtk_font" json:"gtk_font"`
 	DefaultFontSize int          `mapstructure:"default_font_size" yaml:"default_font_size" toml:"default_font_size" json:"default_font_size"`
 	LightPalette    ColorPalette `mapstructure:"light_palette" yaml:"light_palette" toml:"light_palette" json:"light_palette"`
 	DarkPalette     ColorPalette `mapstructure:"dark_palette" yaml:"dark_palette" toml:"dark_palette" json:"dark_palette"`

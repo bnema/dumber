@@ -184,6 +184,7 @@ func isZeroAppearance(appearance dto.WebUIAppearanceConfig) bool {
 		appearance.SansFont == "" &&
 		appearance.SerifFont == "" &&
 		appearance.MonospaceFont == "" &&
+		appearance.GtkFont == "" &&
 		appearance.DefaultFontSize == 0 &&
 		appearance.LightPalette == (dto.ColorPalette{}) &&
 		appearance.DarkPalette == (dto.ColorPalette{})

@@ -31,6 +31,7 @@ templ AppearanceForm(config dto.SystemviewConfigPayload) {
 		<label><span>Sans font</span><input name="sans_font" type="text" value={ config.Appearance.SansFont } required/></label>
 		<label><span>Serif font</span><input name="serif_font" type="text" value={ config.Appearance.SerifFont } required/></label>
 		<label><span>Monospace font</span><input name="monospace_font" type="text" value={ config.Appearance.MonospaceFont } required/></label>
+		<label><span>GTK UI font</span><input name="gtk_font" type="text" value={ config.Appearance.GtkFont } required/></label>
 		<label><span>Default font size</span><input name="default_font_size" type="number" min="1" max="72" value={ formatConfigInt(config.Appearance.DefaultFontSize) } required/></label>
 		<label><span>UI scale</span><input name="default_ui_scale" type="number" min="0.5" max="3" step="0.05" value={ formatConfigFloat(config.DefaultUIScale) } required/></label>
 		<label><span>Color scheme</span><select name="color_scheme">

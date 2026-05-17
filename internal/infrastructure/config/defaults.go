@@ -136,6 +136,7 @@ func DefaultConfig() *Config {
 			SansFont:        "Fira Sans",
 			SerifFont:       "Fira Sans",
 			MonospaceFont:   "Fira Code",
+			GtkFont:         "Adwaita Sans",
 			DefaultFontSize: defaultFontSize,
 			LightPalette: ColorPalette{
 				Background:     "#fafafa",

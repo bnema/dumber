@@ -584,6 +584,7 @@ func (m *Manager) setAppearanceDefaults(defaults *Config) {
 	m.viper.SetDefault("appearance.sans_font", defaults.Appearance.SansFont)
 	m.viper.SetDefault("appearance.serif_font", defaults.Appearance.SerifFont)
 	m.viper.SetDefault("appearance.monospace_font", defaults.Appearance.MonospaceFont)
+	m.viper.SetDefault("appearance.gtk_font", defaults.Appearance.GtkFont)
 	m.viper.SetDefault("appearance.default_font_size", defaults.Appearance.DefaultFontSize)
 	m.viper.SetDefault("appearance.light_palette", defaults.Appearance.LightPalette)
 	m.viper.SetDefault("appearance.dark_palette", defaults.Appearance.DarkPalette)

@@ -112,6 +112,7 @@ func validWebUIConfig() dto.WebUIConfig {
 			SansFont:        "Inter",
 			SerifFont:       "Georgia",
 			MonospaceFont:   "JetBrains Mono",
+			GtkFont:         "Adwaita Sans",
 			DefaultFontSize: 16,
 			ColorScheme:     "prefer-dark",
 			LightPalette:    palette,
