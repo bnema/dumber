@@ -779,7 +779,48 @@ func (o *Omnibox) initList() error {
 	o.retainedCallbacks = append(o.retainedCallbacks, rowActivatedCb)
 	o.listBox.ConnectRowActivated(&rowActivatedCb)
 
+	o.setupListHoverSelection()
+
 	return nil
+}
+
+func (o *Omnibox) setupListHoverSelection() {
+	motionCtrl := gtk.NewEventControllerMotion()
+	if motionCtrl == nil {
+		logging.FromContext(o.ctx).Error().Msg("failed to create motion event controller")
+		return
+	}
+
+	motionCb := func(_ gtk.EventControllerMotion, _ float64, y float64) {
+		o.handleListHoverSelection(y)
+	}
+	o.retainedCallbacks = append(o.retainedCallbacks, motionCb)
+	motionCtrl.ConnectMotion(&motionCb)
+	o.listBox.AddController(&motionCtrl.EventController)
+}
+
+func (o *Omnibox) handleListHoverSelection(y float64) {
+	o.mu.RLock()
+	realInput := o.realInput
+	hasGhostText := o.ghostSuffix != ""
+	hasNavigated := o.hasNavigated
+	selectedIndex := o.selectedIndex
+	o.mu.RUnlock()
+
+	if !shouldPromoteHoverSelection(realInput, hasGhostText, hasNavigated) {
+		return
+	}
+
+	row := o.listBox.GetRowAtY(int(y))
+	if row == nil {
+		return
+	}
+
+	index := row.GetIndex()
+	if index < 0 || index == selectedIndex {
+		return
+	}
+	o.selectIndex(index)
 }
 
 func (o *Omnibox) assembleWidgets() {
@@ -2087,7 +2128,6 @@ func (o *Omnibox) createRowWithFaviconURL(
 		return nil
 	}
 	row.AddCssClass("omnibox-row")
-	o.attachRowHoverSelection(row, index)
 
 	const rowSpacing = 8
 	hbox := gtk.NewBox(gtk.OrientationHorizontalValue, rowSpacing)
@@ -2117,29 +2157,6 @@ func (o *Omnibox) createRowWithFaviconURL(
 
 	row.SetChild(&hbox.Widget)
 	return row
-}
-
-func (o *Omnibox) attachRowHoverSelection(row *gtk.ListBoxRow, index int) {
-	motionCtrl := gtk.NewEventControllerMotion()
-	if motionCtrl == nil {
-		return
-	}
-
-	enterCb := func(_ gtk.EventControllerMotion, _ float64, _ float64) {
-		o.mu.RLock()
-		realInput := o.realInput
-		hasGhostText := o.ghostSuffix != ""
-		hasNavigated := o.hasNavigated
-		o.mu.RUnlock()
-
-		if !shouldPromoteHoverSelection(realInput, hasGhostText, hasNavigated) {
-			return
-		}
-		o.selectIndex(index)
-	}
-	o.retainedCallbacks = append(o.retainedCallbacks, enterCb)
-	motionCtrl.ConnectEnter(&enterCb)
-	row.AddController(&motionCtrl.EventController)
 }
 
 func shouldPromoteHoverSelection(realInput string, hasGhostText, hasNavigated bool) bool {
