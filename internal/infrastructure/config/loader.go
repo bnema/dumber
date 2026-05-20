@@ -694,7 +694,9 @@ func (m *Manager) setEngineDefaults(defaults *Config) {
 	m.viper.SetDefault("engine.cef.render_stack", string(ce.CEFRenderStack()))
 	m.viper.SetDefault("engine.cef.log_file", ce.LogFile)
 	m.viper.SetDefault("engine.cef.log_severity", ce.LogSeverity)
-	m.viper.SetDefault("engine.cef.windowless_frame_rate", ce.CEFWindowlessFrameRate())
+	m.viper.SetDefault("engine.cef.adaptive_windowless_frame_rate", ce.AdaptiveWindowlessFrameRate)
+	m.viper.SetDefault("engine.cef.windowless_frame_rate", ce.WindowlessFrameRate)
+	m.viper.SetDefault("engine.cef.windowless_frame_rate_max", ce.CEFWindowlessFrameRateMax())
 	m.viper.SetDefault("engine.cef.enable_audio_handler", ce.EnableAudioHandler)
 	m.viper.SetDefault("engine.cef.trace_handlers", ce.TraceHandlers)
 

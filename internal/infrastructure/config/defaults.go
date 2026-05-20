@@ -67,9 +67,10 @@ const (
 	defaultUIScale            = 1.0 // UI scale multiplier (1.0 = 100%, 1.2 = 120%)
 
 	// Performance defaults
-	defaultZoomCacheSize           = 256 // domains to cache (~20KB memory)
-	defaultWebViewPoolPrewarmCount = 4   // WebViews to pre-create at startup
-	defaultCEFWindowlessFrameRate  = 60  // OSR frame rate for CEF
+	defaultZoomCacheSize             = 256 // domains to cache (~20KB memory)
+	defaultWebViewPoolPrewarmCount   = 4   // WebViews to pre-create at startup
+	defaultCEFWindowlessFrameRate    = 60  // fallback OSR frame rate for CEF
+	defaultCEFWindowlessFrameRateMax = 240 // adaptive OSR frame-rate hard cap
 
 	// Skia threading defaults (0 = unset, -1 = unset for GPU threads)
 	defaultSkiaCPUPaintingThreads = 0
@@ -171,10 +172,12 @@ func DefaultConfig() *Config {
 			// matches Epiphany's model and avoids a misleading setting.
 			CookiePolicy: CookiePolicyAlways,
 			CEF: CEFEngineConfig{
-				RenderStack:         CEFRenderStackVulkan,
-				WindowlessFrameRate: defaultCEFWindowlessFrameRate,
-				LogFile:             "",
-				EnableAudioHandler:  true,
+				RenderStack:                 CEFRenderStackVulkan,
+				AdaptiveWindowlessFrameRate: true,
+				WindowlessFrameRate:         0,
+				WindowlessFrameRateMax:      defaultCEFWindowlessFrameRateMax,
+				LogFile:                     "",
+				EnableAudioHandler:          true,
 			},
 			WebKit: WebKitEngineConfig{
 				ITPEnabled:             true,

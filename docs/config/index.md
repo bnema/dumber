@@ -190,6 +190,9 @@ border = "#363636"
 | `rendering.sample_memory` | bool | `false` | - | Enable WebKit memory sampling (`WEBKIT_SAMPLE_MEMORY`) |
 | `rendering.debug_frames` | bool | `false` | - | Enable GTK frame timing debug (`GDK_DEBUG=frames`) |
 | `engine.cef.render_stack` | string | `"vulkan"` | `vulkan`, `egl` | CEF GPU render stack |
+| `engine.cef.adaptive_windowless_frame_rate` | bool | `true` | - | Adapt CEF OSR FPS to the active Wayland monitor when `windowless_frame_rate = 0` |
+| `engine.cef.windowless_frame_rate` | int32 | `0` | >= 0 | Explicit CEF OSR FPS cap; 0 lets adaptive mode choose |
+| `engine.cef.windowless_frame_rate_max` | int32 | `240` | > 0 | Hard cap for adaptive CEF OSR FPS |
 | `default_ui_scale` | float | `1.0` | > 0 | GTK widget UI scale (1.0=100%, 2.0=200%) |
 | `default_webpage_zoom` | float | `1.2` | > 0 | Default page zoom (1.0=100%, 1.2=120%) |
 

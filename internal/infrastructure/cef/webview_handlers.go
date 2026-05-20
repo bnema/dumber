@@ -667,6 +667,11 @@ func (h *handlerSet) attachAfterCreatedBrowser(
 	// painting/caret updates until explicitly told the browser is shown.
 	host.WasHidden(0)
 	if h.wv != nil {
+		if h.wv.ctx != nil {
+			logging.FromContext(h.wv.ctx).Info().
+				Int32("windowless_frame_rate_runtime", host.GetWindowlessFrameRate()).
+				Msg("cef: browser runtime windowless frame rate")
+		}
 		h.wv.SyncViewport(h.wv.ctx, "after-created")
 	}
 	return state
@@ -709,6 +714,7 @@ func (h *handlerSet) finishAfterCreated(
 	if state.nativePopupParent != nil && state.nativePopupID != 0 {
 		state.nativePopupParent.clearPendingNativePopup(state.nativePopupID, h.wv)
 	}
+	h.wv.scheduleStartAdaptiveFrameRatePolling()
 	h.wv.scheduleStartBeginFrameLoop()
 	h.wv.fireReadyToShow()
 }
@@ -757,6 +763,7 @@ func (h *handlerSet) OnBeforeClose(browser purecef.Browser) {
 			}
 		})
 	}
+	h.wv.scheduleStopAdaptiveFrameRatePolling()
 	h.wv.scheduleStopBeginFrameLoop()
 
 	h.wv.mu.RLock()

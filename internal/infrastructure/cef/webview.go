@@ -103,6 +103,12 @@ type WebView struct {
 	viewportRealizeSignalID uint
 	viewportResizePulseSeq  atomic.Uint64
 
+	adaptiveWindowlessFrameRate bool
+	windowlessFrameRateMax      int32
+	adaptiveFrameRatePoll       *glib.SourceFunc
+	adaptiveFrameRatePollID     uint
+	lastAdaptiveFrameRate       int32
+
 	// beginFrameTick drives CEF external BeginFrame requests while the GTK
 	// widget is visible. Access is guarded by mu.
 	beginFrameTick   *gtk.TickCallback
@@ -1093,6 +1099,7 @@ func (wv *WebView) Destroy() {
 	wv.stopRenderStallWatchdog()
 	wv.cancelSelectionDebounce()
 	wv.closeAudioStream()
+	wv.scheduleStopAdaptiveFrameRatePolling()
 	wv.scheduleStopBeginFrameLoop()
 	wv.mu.RLock()
 	host := wv.host
@@ -1736,6 +1743,9 @@ func (wv *WebView) startBeginFrameLoop() {
 			return false
 		}
 		host.SendExternalBeginFrame()
+		if wv.viewBridge != nil {
+			wv.viewBridge.RecordExternalBeginFrameSent()
+		}
 		return true
 	}
 	wv.beginFrameTick = cb
@@ -1745,6 +1755,9 @@ func (wv *WebView) startBeginFrameLoop() {
 
 	if host != nil {
 		host.SendExternalBeginFrame()
+		if wv.viewBridge != nil {
+			wv.viewBridge.RecordExternalBeginFrameSent()
+		}
 	}
 }
 

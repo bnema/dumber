@@ -358,6 +358,9 @@ func validateCEF(config *Config) []string {
 	if config.Engine.CEF.WindowlessFrameRate < 0 {
 		validationErrors = append(validationErrors, "engine.cef.windowless_frame_rate must be >= 0")
 	}
+	if config.Engine.CEF.WindowlessFrameRateMax < 0 {
+		validationErrors = append(validationErrors, "engine.cef.windowless_frame_rate_max must be >= 0")
+	}
 
 	return validationErrors
 }

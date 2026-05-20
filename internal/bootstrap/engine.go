@@ -77,13 +77,15 @@ func BuildEngine(input EngineInput) (port.Engine, error) {
 			CookiePolicy: port.CookiePolicy(cfg.Engine.CookiePolicy),
 		}
 		cefCfg := cef.RuntimeConfig{
-			CEFDir:              cfg.Engine.CEF.CEFDir,
-			LogFile:             cfg.Engine.CEF.LogFile,
-			LogSeverity:         cfg.Engine.CEF.LogSeverity,
-			RenderStack:         string(cfg.Engine.CEF.CEFRenderStack()),
-			WindowlessFrameRate: cfg.Engine.CEF.WindowlessFrameRate,
-			EnableAudioHandler:  cfg.Engine.CEF.EnableAudioHandler,
-			TraceHandlers:       cfg.Engine.CEF.TraceHandlers,
+			CEFDir:                      cfg.Engine.CEF.CEFDir,
+			LogFile:                     cfg.Engine.CEF.LogFile,
+			LogSeverity:                 cfg.Engine.CEF.LogSeverity,
+			RenderStack:                 string(cfg.Engine.CEF.CEFRenderStack()),
+			AdaptiveWindowlessFrameRate: cfg.Engine.CEF.CEFAdaptiveWindowlessFrameRate(),
+			WindowlessFrameRate:         cfg.Engine.CEF.WindowlessFrameRate,
+			WindowlessFrameRateMax:      cfg.Engine.CEF.CEFWindowlessFrameRateMax(),
+			EnableAudioHandler:          cfg.Engine.CEF.EnableAudioHandler,
+			TraceHandlers:               cfg.Engine.CEF.TraceHandlers,
 		}
 		deps := cef.EngineDependencies{
 			RegisterHandlers:           handlers.RegisterAll,

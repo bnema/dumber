@@ -209,6 +209,20 @@ func (a *Cef2gtkAdapter) ConfigureProfiling(opts cef2gtk.ProfileOptions) error {
 	return a.view.ConfigureProfiling(opts)
 }
 
+// RecordExternalBeginFrameSent records one externally-driven CEF BeginFrame in
+// the bridge profiler when profiling is enabled. It is a no-op otherwise.
+func (a *Cef2gtkAdapter) RecordExternalBeginFrameSent() {
+	if a == nil || a.destroyed.Load() {
+		return
+	}
+	a.viewMu.RLock()
+	defer a.viewMu.RUnlock()
+	if a.view == nil {
+		return
+	}
+	a.view.RecordExternalBeginFrameSent()
+}
+
 // AttachInput attaches GTK event controllers to the view and forwards input
 // to the given CEF browser host. Must be called on the GTK main thread.
 //
