@@ -189,6 +189,7 @@ border = "#363636"
 | `rendering.show_fps` | bool | `false` | - | Show WebKit FPS counter (`WEBKIT_SHOW_FPS`) |
 | `rendering.sample_memory` | bool | `false` | - | Enable WebKit memory sampling (`WEBKIT_SAMPLE_MEMORY`) |
 | `rendering.debug_frames` | bool | `false` | - | Enable GTK frame timing debug (`GDK_DEBUG=frames`) |
+| `engine.cef.render_stack` | string | `"vulkan"` | `vulkan`, `egl` | CEF GPU render stack |
 | `default_ui_scale` | float | `1.0` | > 0 | GTK widget UI scale (1.0=100%, 2.0=200%) |
 | `default_webpage_zoom` | float | `1.2` | > 0 | Default page zoom (1.0=100%, 1.2=120%) |
 
@@ -691,8 +692,8 @@ DUMBER_DATABASE_PATH=/custom/path/db.sqlite
 
 # Rendering (examples)
 # CEF defaults to the GPU-first Vulkan DMABUF stack.
-# Use legacy-gl only as a diagnostic fallback.
-# DUMBER_RENDER_STACK=legacy-gl
+# Use EGL/OpenGL for driver compatibility:
+# DUMBER_ENGINE_CEF_RENDER_STACK=egl
 DUMBER_RENDERING_MODE=cpu
 # WebKit-specific rendering overrides:
 # DUMBER_RENDERING_DISABLE_DMABUF_RENDERER=true

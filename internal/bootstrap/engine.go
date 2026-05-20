@@ -80,6 +80,7 @@ func BuildEngine(input EngineInput) (port.Engine, error) {
 			CEFDir:              cfg.Engine.CEF.CEFDir,
 			LogFile:             cfg.Engine.CEF.LogFile,
 			LogSeverity:         cfg.Engine.CEF.LogSeverity,
+			RenderStack:         string(cfg.Engine.CEF.CEFRenderStack()),
 			WindowlessFrameRate: cfg.Engine.CEF.WindowlessFrameRate,
 			EnableAudioHandler:  cfg.Engine.CEF.EnableAudioHandler,
 			TraceHandlers:       cfg.Engine.CEF.TraceHandlers,

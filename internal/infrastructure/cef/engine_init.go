@@ -11,6 +11,7 @@ import (
 	"syscall"
 
 	purecef "github.com/bnema/purego-cef/cef"
+	cef2gtk "github.com/bnema/purego-cef2gtk"
 	"github.com/bnema/puregotk/v4/gdk"
 	"github.com/bnema/puregotk/v4/glib"
 	"github.com/rs/zerolog"
@@ -44,6 +45,11 @@ func NewEngine(
 	stateRoot := resolvedStateRoot(paths.StateRoot, opts)
 	cleanStaleSingletonLocks(logger, stateRoot)
 	windowlessFrameRate := normalizedWindowlessFrameRate(cfg.WindowlessFrameRate)
+	renderStackPlan, err := resolveCEFRenderStackPlan(cfg.RenderStack)
+	if err != nil {
+		return nil, err
+	}
+	cef2gtk.ConfigureRenderStackEnvironment(renderStackPlan)
 
 	settings, err := prepareCEFSettings(opts, paths, cfg, logger)
 	if err != nil {
@@ -59,6 +65,7 @@ func NewEngine(
 		ctx:                    ctx,
 		profileLogDir:          paths.ProfileLogDir,
 		runtimeCEFDir:          settings.CEFDir,
+		renderStackPlan:        renderStackPlan,
 		registerHandlers:       deps.RegisterHandlers,
 		registerAccentHandlers: deps.RegisterAccentHandlers,
 		currentConfigPayload:   deps.CurrentConfigPayload,
@@ -72,6 +79,10 @@ func NewEngine(
 
 	logger.Info().
 		Int32("windowless_frame_rate", windowlessFrameRate).
+		Str("render_stack", string(renderStackPlan.Stack)).
+		Str("render_backend", renderStackPlan.Backend.String()).
+		Str("angle_backend", renderStackPlan.ANGLEBackend).
+		Str("gsk_renderer", renderStackPlan.GSKRenderer).
 		Bool("external_begin_frame", externalBeginFrameEnabled()).
 		Bool("trace_handlers", cfg.TraceHandlers).
 		Bool("enable_audio_handler", cfg.EnableAudioHandler).

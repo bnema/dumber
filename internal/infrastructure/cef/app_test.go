@@ -297,6 +297,17 @@ func TestConfigureCommandLine_PreservesExistingOzonePlatform(t *testing.T) {
 	}
 }
 
+func TestConfigureCommandLine_PreservesInheritedANGLEBackend(t *testing.T) {
+	commandLine := newMutableCommandLineStub()
+	commandLine.AppendSwitchWithValue("use-angle", "gl-egl")
+
+	configureCommandLine(commandLine)
+
+	if got := commandLine.GetSwitchValue("use-angle"); got != "gl-egl" {
+		t.Fatalf("use-angle = %q, want inherited gl-egl", got)
+	}
+}
+
 func TestConfigureCommandLine_EnableVAAPIEnvAppendsHardwareDecodeFlags(t *testing.T) {
 	t.Setenv(cefEnableVAAPIEnvVar, "1")
 
@@ -337,8 +348,8 @@ func TestConfigureCommandLine_ChromiumFlagsEnvAppendsSwitches(t *testing.T) {
 
 	configureCommandLine(commandLine)
 
-	if got := commandLine.GetSwitchValue(chromiumEnableFeaturesSwitch); got != "ExistingFeature,VaapiVideoDecoder,VaapiIgnoreDriverChecks" {
-		t.Fatalf("enable-features = %q, want env features appended", got)
+	if got := commandLine.GetSwitchValue(chromiumEnableFeaturesSwitch); got != "ExistingFeature,Vulkan,DefaultANGLEVulkan,VulkanFromANGLE,VaapiVideoDecoder,VaapiIgnoreDriverChecks" {
+		t.Fatalf("enable-features = %q, want render stack and env features appended", got)
 	}
 	if !commandLine.HasSwitch("ignore-gpu-blocklist") {
 		t.Fatal("expected ignore-gpu-blocklist switch")

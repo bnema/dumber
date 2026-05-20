@@ -965,9 +965,7 @@ func configureNativePopupWindow(
 	if settings == nil {
 		return
 	}
-	if frameRate > 0 {
-		settings.WindowlessFrameRate = frameRate
-	}
+	cef2gtk.ConfigureBrowserSettings(settings, cef2gtk.BrowserSettingsOptions{WindowlessFrameRate: frameRate})
 	settings.LocalStorage = 1
 	if backgroundColor != 0 {
 		settings.BackgroundColor = backgroundColor

@@ -11,6 +11,7 @@ import (
 	"unicode/utf8"
 
 	purecef "github.com/bnema/purego-cef/cef"
+	cef2gtk "github.com/bnema/purego-cef2gtk"
 
 	"github.com/bnema/dumber/internal/application/dto"
 	"github.com/bnema/dumber/internal/application/port"
@@ -24,11 +25,12 @@ var _ port.AlreadyRunningAppRelaunchHandlerSetter = (*Engine)(nil)
 // Engine implements port.Engine for the CEF browser backend.
 // It manages the CEF lifecycle and provides access to all engine subsystems.
 type Engine struct {
-	ctx           context.Context
-	factory       *WebViewFactory
-	pool          *WebViewPool
-	profileLogDir string
-	runtimeCEFDir string
+	ctx             context.Context
+	factory         *WebViewFactory
+	pool            *WebViewPool
+	profileLogDir   string
+	runtimeCEFDir   string
+	renderStackPlan cef2gtk.RenderStackPlan
 
 	messageRouter *MessageRouter
 	schemeHandler *dumbSchemeHandler

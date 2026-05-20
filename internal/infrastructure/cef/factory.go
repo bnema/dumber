@@ -81,7 +81,7 @@ func (f *WebViewFactory) Create(ctx context.Context) (port.WebView, error) {
 
 	// Configure BrowserSettings.
 	settings := purecef.NewBrowserSettings()
-	settings.WindowlessFrameRate = f.windowlessFrameRate
+	cef2gtk.ConfigureBrowserSettings(&settings, cef2gtk.BrowserSettingsOptions{WindowlessFrameRate: f.windowlessFrameRate})
 	settings.LocalStorage = 1 // CEF_STATE_ENABLED
 	if bg := f.bgColor.Load(); bg != 0 {
 		settings.BackgroundColor = bg
@@ -97,7 +97,7 @@ func (f *WebViewFactory) Create(ctx context.Context) (port.WebView, error) {
 
 func (f *WebViewFactory) newWebView(ctx context.Context) (*WebView, error) {
 	id := port.WebViewID(f.nextID.Add(1))
-	viewBridge := NewCef2gtkAdapter()
+	viewBridge := NewCef2gtkAdapter(f.engine.renderStackPlan)
 	if viewBridge == nil {
 		return nil, fmt.Errorf("create cef2gtk view")
 	}
@@ -300,7 +300,7 @@ func (f *WebViewFactory) CreateRelated(ctx context.Context, parentID port.WebVie
 	}
 
 	settings := purecef.NewBrowserSettings()
-	settings.WindowlessFrameRate = f.windowlessFrameRate
+	cef2gtk.ConfigureBrowserSettings(&settings, cef2gtk.BrowserSettingsOptions{WindowlessFrameRate: f.windowlessFrameRate})
 	settings.LocalStorage = 1 // CEF_STATE_ENABLED
 	if bg := f.bgColor.Load(); bg != 0 {
 		settings.BackgroundColor = bg

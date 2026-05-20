@@ -41,6 +41,10 @@ func registerDumbScheme(registrar purecef.SchemeRegistrar) {
 }
 
 func configureCommandLine(commandLine purecef.CommandLine) {
+	configureCommandLineWithRenderStack(commandLine, cef2gtk.RenderStackPlan{})
+}
+
+func configureCommandLineWithRenderStack(commandLine purecef.CommandLine, renderStackPlan cef2gtk.RenderStackPlan) {
 	if commandLine == nil {
 		return
 	}
@@ -48,7 +52,7 @@ func configureCommandLine(commandLine purecef.CommandLine) {
 	// Delegate Wayland accelerated rendering setup to the GTK bridge.
 	// Preserves any pre-existing ozone-platform value (e.g. set via
 	// CEF command-line args) — the bridge is a no-op when already present.
-	cef2gtk.ConfigureCommandLine(commandLine, cef2gtk.CommandLineOptions{})
+	cef2gtk.ConfigureCommandLine(commandLine, cef2gtk.CommandLineOptions{RenderStackPlan: renderStackPlan})
 
 	// Enable Chromium's built-in smooth scrolling animation — without this,
 	// mouse wheel scroll jumps in discrete steps with no momentum/easing.
@@ -292,7 +296,7 @@ const maxCmdLineLogLen = 200
 func (a *dumberApp) OnBeforeCommandLineProcessing(processType string, commandLine purecef.CommandLine) {
 	log := logging.FromContext(a.engine.ctx)
 	if commandLine != nil {
-		configureCommandLine(commandLine)
+		configureCommandLineWithRenderStack(commandLine, a.engine.renderStackPlan)
 
 		if processType == "" {
 			if cefWebAuthnUnsafeEnabled() {
@@ -360,7 +364,7 @@ func (h *dumberBPH) OnBeforeChildProcessLaunch(commandLine purecef.CommandLine) 
 	ozonePlatform := ""
 	renderNodeOverride := ""
 	if commandLine != nil {
-		configureCommandLine(commandLine)
+		configureCommandLineWithRenderStack(commandLine, h.engine.renderStackPlan)
 		appendSwitchIfMissing(commandLine, "no-zygote")
 		processType = commandLine.GetSwitchValue("type")
 		commandLineString = commandLine.GetCommandLineString()
