@@ -188,6 +188,62 @@ func TestTransformLegacyEngineConfig_RemovesDeprecatedContextMenuHandler(t *test
 	assert.False(t, exists)
 }
 
+func TestTransformLegacyEngineConfig_MigratesLegacyCEFWindowlessFrameRateDefault(t *testing.T) {
+	transformer := NewLegacyConfigTransformer()
+	rawConfig := map[string]any{
+		"engine": map[string]any{
+			"cef": map[string]any{
+				"windowless_frame_rate": 60,
+			},
+		},
+	}
+
+	transformer.TransformLegacyEngineConfig(rawConfig)
+
+	cef := rawConfig["engine"].(map[string]any)["cef"].(map[string]any)
+	assert.Equal(t, true, cef["adaptive_windowless_frame_rate"])
+	assert.Equal(t, 0, cef["windowless_frame_rate"])
+	assert.Equal(t, defaultCEFWindowlessFrameRateMax, cef["windowless_frame_rate_max"])
+}
+
+func TestTransformLegacyEngineConfig_PreservesExplicitCEFWindowlessFrameRate(t *testing.T) {
+	transformer := NewLegacyConfigTransformer()
+	rawConfig := map[string]any{
+		"engine": map[string]any{
+			"cef": map[string]any{
+				"adaptive_windowless_frame_rate": false,
+				"windowless_frame_rate":          60,
+			},
+		},
+	}
+
+	transformer.TransformLegacyEngineConfig(rawConfig)
+
+	cef := rawConfig["engine"].(map[string]any)["cef"].(map[string]any)
+	assert.Equal(t, false, cef["adaptive_windowless_frame_rate"])
+	assert.Equal(t, 60, cef["windowless_frame_rate"])
+	_, hasMax := cef["windowless_frame_rate_max"]
+	assert.False(t, hasMax)
+}
+
+func TestTransformLegacyEngineConfig_PreservesNonDefaultCEFWindowlessFrameRate(t *testing.T) {
+	transformer := NewLegacyConfigTransformer()
+	rawConfig := map[string]any{
+		"engine": map[string]any{
+			"cef": map[string]any{
+				"windowless_frame_rate": 144,
+			},
+		},
+	}
+
+	transformer.TransformLegacyEngineConfig(rawConfig)
+
+	cef := rawConfig["engine"].(map[string]any)["cef"].(map[string]any)
+	_, hasAdaptive := cef["adaptive_windowless_frame_rate"]
+	assert.False(t, hasAdaptive)
+	assert.Equal(t, 144, cef["windowless_frame_rate"])
+}
+
 func TestTransformLegacyEngineConfig_MissingCefSection(t *testing.T) {
 	transformer := NewLegacyConfigTransformer()
 	rawConfig := map[string]any{

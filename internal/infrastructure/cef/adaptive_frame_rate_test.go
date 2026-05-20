@@ -12,6 +12,8 @@ func TestAdaptiveFrameRateForRefresh(t *testing.T) {
 	}{
 		{name: "fallback unknown", refreshMilliHz: 0, fallbackFPS: 60, maxFPS: 240, want: 60},
 		{name: "uses monitor refresh", refreshMilliHz: 144000, fallbackFPS: 60, maxFPS: 240, want: 144},
+		{name: "uses lower refresh monitor", refreshMilliHz: 50000, fallbackFPS: 60, maxFPS: 240, want: 50},
+		{name: "floors very low refresh monitor", refreshMilliHz: 24000, fallbackFPS: 60, maxFPS: 240, want: 30},
 		{name: "hard caps extreme monitor", refreshMilliHz: 500000, fallbackFPS: 60, maxFPS: 240, want: 240},
 	}
 

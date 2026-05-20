@@ -54,6 +54,52 @@ func (*LegacyConfigTransformer) TransformLegacyEngineConfig(rawConfig map[string
 	}
 
 	delete(cef, "enable_context_menu_handler")
+	migrateLegacyCEFWindowlessFrameRateDefault(cef)
+}
+
+func migrateLegacyCEFWindowlessFrameRateDefault(cef map[string]any) {
+	if _, hasAdaptive := cef["adaptive_windowless_frame_rate"]; hasAdaptive {
+		return
+	}
+	frameRate, ok := int64ConfigValue(cef["windowless_frame_rate"])
+	if !ok || frameRate != defaultCEFWindowlessFrameRate {
+		return
+	}
+	cef["adaptive_windowless_frame_rate"] = true
+	cef["windowless_frame_rate"] = 0
+	if _, hasMax := cef["windowless_frame_rate_max"]; !hasMax {
+		cef["windowless_frame_rate_max"] = defaultCEFWindowlessFrameRateMax
+	}
+}
+
+func int64ConfigValue(value any) (int64, bool) {
+	switch v := value.(type) {
+	case int:
+		return int64(v), true
+	case int8:
+		return int64(v), true
+	case int16:
+		return int64(v), true
+	case int32:
+		return int64(v), true
+	case int64:
+		return v, true
+	case uint:
+		return int64(v), true
+	case uint8:
+		return int64(v), true
+	case uint16:
+		return int64(v), true
+	case uint32:
+		return int64(v), true
+	case uint64:
+		if v > 1<<63-1 {
+			return 0, false
+		}
+		return int64(v), true
+	default:
+		return 0, false
+	}
 }
 
 func (t *LegacyConfigTransformer) transformActionSection(rawConfig map[string]any, path []string) {

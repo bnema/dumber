@@ -10,12 +10,15 @@ import (
 	"github.com/bnema/dumber/internal/logging"
 )
 
-const adaptiveFrameRatePollIntervalMS = 1000
+const (
+	adaptiveFrameRatePollIntervalMS = 1000
+	adaptiveFrameRateMinFPS         = 30
+)
 
 func adaptiveFrameRateForRefresh(refreshRateMilliHz int, fallbackFPS, maxFPS int32) int32 {
 	return cef2gtk.WindowlessFrameRateForMonitorRefresh(refreshRateMilliHz, cef2gtk.RefreshRateOptions{
 		DefaultFPS: fallbackFPS,
-		MinFPS:     fallbackFPS,
+		MinFPS:     adaptiveFrameRateMinFPS,
 		MaxFPS:     maxFPS,
 	})
 }

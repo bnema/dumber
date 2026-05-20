@@ -32,3 +32,43 @@ func TestCEFAdaptiveWindowlessFrameRateDisabledByExplicitFrameRate(t *testing.T)
 		t.Fatalf("explicit frame-rate = %d, want 144", got)
 	}
 }
+
+func TestCEFWindowlessFrameRateFallbackWhenAdaptiveDisabled(t *testing.T) {
+	cfg := CEFEngineConfig{AdaptiveWindowlessFrameRate: false, WindowlessFrameRate: 0}
+
+	if cfg.CEFAdaptiveWindowlessFrameRate() {
+		t.Fatal("adaptive should be disabled when adaptive flag is false")
+	}
+	if got := cfg.CEFWindowlessFrameRate(); got != defaultCEFWindowlessFrameRate {
+		t.Fatalf("frame-rate = %d, want default %d", got, defaultCEFWindowlessFrameRate)
+	}
+}
+
+func TestCEFWindowlessFrameRateUsesExplicitValueWhenAdaptiveDisabled(t *testing.T) {
+	cfg := CEFEngineConfig{AdaptiveWindowlessFrameRate: false, WindowlessFrameRate: 75}
+
+	if cfg.CEFAdaptiveWindowlessFrameRate() {
+		t.Fatal("adaptive should remain disabled with explicit frame-rate")
+	}
+	if got := cfg.CEFWindowlessFrameRate(); got != 75 {
+		t.Fatalf("frame-rate = %d, want explicit 75", got)
+	}
+}
+
+func TestCEFWindowlessFrameRateBoundaries(t *testing.T) {
+	tests := []struct {
+		name string
+		cfg  CEFEngineConfig
+		want int32
+	}{
+		{name: "negative falls back", cfg: CEFEngineConfig{WindowlessFrameRate: -1}, want: defaultCEFWindowlessFrameRate},
+		{name: "above max remains explicit", cfg: CEFEngineConfig{WindowlessFrameRate: 300, WindowlessFrameRateMax: 240}, want: 300},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := tt.cfg.CEFWindowlessFrameRate(); got != tt.want {
+				t.Fatalf("CEFWindowlessFrameRate() = %d, want %d", got, tt.want)
+			}
+		})
+	}
+}

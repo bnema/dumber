@@ -69,7 +69,7 @@ const (
 	// Performance defaults
 	defaultZoomCacheSize             = 256 // domains to cache (~20KB memory)
 	defaultWebViewPoolPrewarmCount   = 4   // WebViews to pre-create at startup
-	defaultCEFWindowlessFrameRate    = 60  // fallback OSR frame rate for CEF
+	defaultCEFWindowlessFrameRate    = 60  // static OSR frame rate when adaptive CEF pacing is disabled
 	defaultCEFWindowlessFrameRateMax = 240 // adaptive OSR frame-rate hard cap
 
 	// Skia threading defaults (0 = unset, -1 = unset for GPU threads)

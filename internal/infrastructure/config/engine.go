@@ -103,13 +103,13 @@ type CEFEngineConfig struct {
 	// AdaptiveWindowlessFrameRate polls the active Wayland monitor refresh rate
 	// and updates CEF's OSR frame-rate while the browser moves across monitors.
 	// It is ignored when WindowlessFrameRate is explicitly set.
-	AdaptiveWindowlessFrameRate bool `mapstructure:"adaptive_windowless_frame_rate" toml:"adaptive_windowless_frame_rate" yaml:"adaptive_windowless_frame_rate"`
+	AdaptiveWindowlessFrameRate bool `mapstructure:"adaptive_windowless_frame_rate" toml:"adaptive_windowless_frame_rate" yaml:"adaptive_windowless_frame_rate"` //nolint:lll // struct tags exceed lll limit
 	// WindowlessFrameRate is the maximum frame rate for off-screen rendering.
 	// When 0 and adaptive_windowless_frame_rate is true, Dumber adapts to the
 	// active Wayland monitor refresh rate.
-	WindowlessFrameRate int32 `mapstructure:"windowless_frame_rate" toml:"windowless_frame_rate" yaml:"windowless_frame_rate"`
+	WindowlessFrameRate int32 `mapstructure:"windowless_frame_rate" toml:"windowless_frame_rate" yaml:"windowless_frame_rate"` //nolint:lll // struct tags exceed lll limit
 	// WindowlessFrameRateMax is the hard cap for adaptive monitor refresh rates.
-	WindowlessFrameRateMax int32 `mapstructure:"windowless_frame_rate_max" toml:"windowless_frame_rate_max" yaml:"windowless_frame_rate_max"`
+	WindowlessFrameRateMax int32 `mapstructure:"windowless_frame_rate_max" toml:"windowless_frame_rate_max" yaml:"windowless_frame_rate_max"` //nolint:lll // struct tags exceed lll limit
 	// EnableAudioHandler opts into the experimental CEF AudioHandler bridge.
 	EnableAudioHandler bool `mapstructure:"enable_audio_handler" toml:"enable_audio_handler" yaml:"enable_audio_handler"`
 	// TraceHandlers enables purego-cef handler/refcount tracing for diagnostics.
