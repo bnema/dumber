@@ -26,10 +26,27 @@ func TestAdaptiveFrameRateForRefresh(t *testing.T) {
 }
 
 func TestIsWaylandDisplayName(t *testing.T) {
-	if !isWaylandDisplayName("Wayland") || !isWaylandDisplayName("wayland-0") {
-		t.Fatal("expected wayland display names to match")
+	tests := []struct {
+		name  string
+		input string
+		want  bool
+	}{
+		{name: "exact lowercase", input: "wayland", want: true},
+		{name: "exact uppercase", input: "WAYLAND", want: true},
+		{name: "mixed case", input: "WayLand", want: true},
+		{name: "numeric suffix", input: "wayland-1", want: true},
+		{name: "punctuation suffix", input: "wayland:0", want: true},
+		{name: "leading whitespace", input: " wayland ", want: true},
+		{name: "substring", input: "mywayland-display", want: true},
+		{name: "x11", input: "x11", want: false},
+		{name: "empty", input: "", want: false},
+		{name: "whitespace", input: "   ", want: false},
 	}
-	if isWaylandDisplayName("x11") || isWaylandDisplayName("") {
-		t.Fatal("unexpected non-wayland display match")
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := isWaylandDisplayName(tt.input); got != tt.want {
+				t.Fatalf("isWaylandDisplayName(%q) = %v, want %v", tt.input, got, tt.want)
+			}
+		})
 	}
 }

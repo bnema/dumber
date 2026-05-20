@@ -101,7 +101,9 @@ CEF_DIR=/custom/path dumber browse
 
 Then set `engine.type = "cef"` in your config.
 
-CEF uses Dumber's GPU-first Wayland render stack by default: GDK DMABUF presentation with ANGLE/GSK Vulkan. For driver compatibility, switch to the EGL/OpenGL stack with `engine.cef.render_stack = "egl"`; the default is `"vulkan"`. CEF OSR frame rate adapts to the active Wayland monitor refresh rate by default, capped by `engine.cef.windowless_frame_rate_max = 240`; set `engine.cef.windowless_frame_rate` to a positive value for an explicit fixed cap.
+CEF uses Dumber's GPU-first Wayland render stack by default: GDK DMABUF presentation with ANGLE/GSK Vulkan. For driver compatibility, switch to the EGL/OpenGL stack with `engine.cef.render_stack = "egl"`; the default is `"vulkan"`.
+
+CEF OSR frame rate adapts to the active Wayland monitor refresh rate by default when `engine.cef.adaptive_windowless_frame_rate = true`. Adaptive mode is capped by `engine.cef.windowless_frame_rate_max = 240`. To use a fixed frame rate instead, set `engine.cef.windowless_frame_rate` to a positive value.
 
 ## Keyboard-Driven
 

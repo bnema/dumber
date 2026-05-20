@@ -958,8 +958,8 @@ func (*SchemaProvider) getPerformanceKeys(defaults *Config) []entity.ConfigKeyIn
 			Key:         "engine.cef.windowless_frame_rate_max",
 			Type:        "int32",
 			Default:     fmt.Sprintf("%d", defaults.Engine.CEF.CEFWindowlessFrameRateMax()),
-			Description: "Hard cap for adaptive CEF OSR frame rate",
-			Range:       ">0",
+			Description: "Hard cap for adaptive CEF OSR frame rate; 0 uses the built-in default cap",
+			Range:       ">=0",
 			Section:     SectionPerformance,
 		},
 		{
