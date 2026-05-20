@@ -7,6 +7,14 @@ const (
 	EngineTypeCEF    = "cef"
 )
 
+// CEFRenderStack selects Dumber's CEF GPU render stack.
+type CEFRenderStack string
+
+const (
+	CEFRenderStackVulkan CEFRenderStack = "vulkan"
+	CEFRenderStackEGL    CEFRenderStack = "egl"
+)
+
 // EngineConfig holds engine selection and universal engine options.
 type EngineConfig struct {
 	Type             string             `mapstructure:"type" toml:"type" yaml:"type"`
@@ -90,6 +98,8 @@ type CEFEngineConfig struct {
 	// LogSeverity controls CEF's internal log verbosity.
 	// 0 = default, 1 = verbose, 2 = info, 3 = warning, 4 = error, 99 = disable.
 	LogSeverity int32 `mapstructure:"log_severity" toml:"log_severity" yaml:"log_severity"`
+	// RenderStack selects the CEF GPU render stack. Empty falls back to vulkan.
+	RenderStack CEFRenderStack `mapstructure:"render_stack" toml:"render_stack" yaml:"render_stack"`
 	// WindowlessFrameRate is the maximum frame rate for off-screen rendering.
 	// Default: 60. Higher values increase CPU usage.
 	WindowlessFrameRate int32 `mapstructure:"windowless_frame_rate" toml:"windowless_frame_rate" yaml:"windowless_frame_rate"`
@@ -97,6 +107,14 @@ type CEFEngineConfig struct {
 	EnableAudioHandler bool `mapstructure:"enable_audio_handler" toml:"enable_audio_handler" yaml:"enable_audio_handler"`
 	// TraceHandlers enables purego-cef handler/refcount tracing for diagnostics.
 	TraceHandlers bool `mapstructure:"trace_handlers" toml:"trace_handlers" yaml:"trace_handlers"`
+}
+
+// CEFRenderStack returns the effective CEF GPU render stack.
+func (c CEFEngineConfig) CEFRenderStack() CEFRenderStack {
+	if c.RenderStack != "" {
+		return c.RenderStack
+	}
+	return CEFRenderStackVulkan
 }
 
 // CEFWindowlessFrameRate returns the effective OSR frame rate.

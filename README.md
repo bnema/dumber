@@ -101,7 +101,7 @@ CEF_DIR=/custom/path dumber browse
 
 Then set `engine.type = "cef"` in your config.
 
-CEF uses Dumber's GPU-first Wayland render stack by default: GDK DMABUF presentation with ANGLE/GSK Vulkan. You normally do not need render environment variables or helper scripts. For diagnostics only, set `DUMBER_RENDER_STACK=legacy-gl` to use the older GtkGLArea/OpenGL bridge, or `DUMBER_RENDER_STACK=vulkan-dmabuf` to force the default explicitly.
+CEF uses Dumber's GPU-first Wayland render stack by default: GDK DMABUF presentation with ANGLE/GSK Vulkan. For driver compatibility, switch to the EGL/OpenGL stack with `engine.cef.render_stack = "egl"`; the default is `"vulkan"`.
 
 ## Keyboard-Driven
 

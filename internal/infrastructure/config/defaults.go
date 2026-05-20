@@ -171,6 +171,7 @@ func DefaultConfig() *Config {
 			// matches Epiphany's model and avoids a misleading setting.
 			CookiePolicy: CookiePolicyAlways,
 			CEF: CEFEngineConfig{
+				RenderStack:         CEFRenderStackVulkan,
 				WindowlessFrameRate: defaultCEFWindowlessFrameRate,
 				LogFile:             "",
 				EnableAudioHandler:  true,

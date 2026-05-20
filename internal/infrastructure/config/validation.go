@@ -336,6 +336,15 @@ func validateLogging(config *Config) []string {
 func validateCEF(config *Config) []string {
 	var validationErrors []string
 
+	switch config.Engine.CEF.CEFRenderStack() {
+	case CEFRenderStackVulkan, CEFRenderStackEGL:
+	default:
+		validationErrors = append(validationErrors, fmt.Sprintf(
+			"engine.cef.render_stack must be one of: vulkan, egl (got: %s)",
+			config.Engine.CEF.RenderStack,
+		))
+	}
+
 	switch config.Engine.CEF.LogSeverity {
 	case 0, 1, 2, 3, 4, cefLogSeverityDisabled:
 	default:

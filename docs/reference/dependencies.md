@@ -73,7 +73,7 @@ sudo pacman -S vulkan-tools  # for vulkaninfo
 
 ### CEF Wayland rendering
 
-When `engine.type = "cef"`, Dumber defaults to the GPU-first Wayland stack: GDK DMABUF presentation with ANGLE/GSK Vulkan. No launch wrapper or render environment variables are required for normal use. Set `DUMBER_RENDER_STACK=legacy-gl` only when diagnosing the older GtkGLArea/OpenGL fallback path.
+When `engine.type = "cef"`, Dumber defaults to the GPU-first Wayland stack: GDK DMABUF presentation with ANGLE/GSK Vulkan. No launch wrapper or render environment variables are required for normal use. For driver compatibility, set `engine.cef.render_stack = "egl"` (or `DUMBER_ENGINE_CEF_RENDER_STACK=egl`) to use the GtkGLArea/EGL/OpenGL stack.
 
 ## Debian/Ubuntu
 

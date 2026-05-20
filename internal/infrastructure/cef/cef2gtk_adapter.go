@@ -33,8 +33,8 @@ type Cef2gtkAdapter struct {
 
 // NewCef2gtkAdapter creates an accelerated CEF view and wraps it in a thin
 // Dumber adapter.
-func NewCef2gtkAdapter() *Cef2gtkAdapter {
-	v := cef2gtk.NewView()
+func NewCef2gtkAdapter(renderStackPlan cef2gtk.RenderStackPlan) *Cef2gtkAdapter {
+	v := cef2gtk.NewViewWithOptions(cef2gtk.ViewOptions{RenderStackPlan: renderStackPlan})
 	if v == nil {
 		return nil
 	}

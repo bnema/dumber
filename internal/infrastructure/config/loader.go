@@ -691,6 +691,7 @@ func (m *Manager) setEngineDefaults(defaults *Config) {
 
 	ce := e.CEF
 	m.viper.SetDefault("engine.cef.cef_dir", ce.CEFDir)
+	m.viper.SetDefault("engine.cef.render_stack", string(ce.CEFRenderStack()))
 	m.viper.SetDefault("engine.cef.log_file", ce.LogFile)
 	m.viper.SetDefault("engine.cef.log_severity", ce.LogSeverity)
 	m.viper.SetDefault("engine.cef.windowless_frame_rate", ce.CEFWindowlessFrameRate())

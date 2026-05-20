@@ -932,6 +932,14 @@ func (*SchemaProvider) getPerformanceKeys(defaults *Config) []entity.ConfigKeyIn
 			Section:     SectionPerformance,
 		},
 		{
+			Key:         "engine.cef.render_stack",
+			Type:        "string",
+			Default:     string(defaults.Engine.CEF.CEFRenderStack()),
+			Description: "CEF GPU render stack",
+			Values:      []string{"vulkan", "egl"},
+			Section:     SectionPerformance,
+		},
+		{
 			Key:         "engine.cef.windowless_frame_rate",
 			Type:        "int32",
 			Default:     fmt.Sprintf("%d", defaults.Engine.CEF.CEFWindowlessFrameRate()),
