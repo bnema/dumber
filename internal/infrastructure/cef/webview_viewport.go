@@ -126,6 +126,7 @@ func (wv *WebView) syncViewportNowOnGTK(ctx context.Context, reason string) bool
 	widget := wv.viewBridge.Widget()
 	visible := widget != nil && widget.IsVisible()
 	wv.notifyViewportSyncOnCEFUIThread(host, visible)
+	wv.syncZoomForBackingScaleOnCEFUIThread(host, reason)
 	logging.FromContext(ctx).Debug().
 		Uint64("webview_id", uint64(wv.id)).
 		Bool("visible", visible).
@@ -471,7 +472,35 @@ func (wv *WebView) notifyViewportSyncOnCEFUIThread(host viewportSyncBrowserHost,
 			return
 		}
 		notifyBrowserViewportSync(host, visible)
-		wv.reapplyCurrentZoomForBackingScale("viewport-sync")
+	}))
+	if task == nil {
+		return
+	}
+	cefPostDelayedTask(purecef.ThreadIDTidUi, task, 0)
+}
+
+func (wv *WebView) syncZoomForBackingScaleOnCEFUIThread(host purecef.BrowserHost, reason string) {
+	if host == nil || wv == nil {
+		return
+	}
+	if !wv.shouldReapplyZoomForBackingScale(wv.osrBackingScaleFactor()) {
+		return
+	}
+	task := cefNewTask(cefTaskFunc(func() {
+		if wv == nil || wv.destroyed.Load() {
+			return
+		}
+		wv.mu.RLock()
+		currentHost := wv.host
+		wv.mu.RUnlock()
+		if currentHost != host {
+			return
+		}
+		backingScale := wv.osrBackingScaleFactor()
+		if !wv.shouldReapplyZoomForBackingScale(backingScale) {
+			return
+		}
+		wv.reapplyCurrentZoomForBackingScale(reason)
 	}))
 	if task == nil {
 		return

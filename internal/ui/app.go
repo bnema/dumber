@@ -2361,20 +2361,26 @@ func (a *App) switchBrowserWindowTabIndex(ctx context.Context, bw *browserWindow
 		logging.FromContext(ctx).Warn().Msg("switch tab index ignored: no browser window")
 		return nil
 	}
-	a.activateBrowserWindow(bw)
-	target := a.ensureTabTargetForBrowserWindow(bw)
 	if index < 0 {
 		logging.FromContext(ctx).Debug().Int("index", index).Msg("switch tab index ignored: invalid negative index")
 		return nil
 	}
-	if index < target.Tabs.Count() {
+	target := a.tabTargetForBrowserWindow(bw)
+	tabCount := 0
+	if target.Tabs != nil {
+		tabCount = target.Tabs.Count()
+	}
+	if index < tabCount {
+		a.activateBrowserWindow(bw)
 		return a.tabCoord.SwitchByIndex(ctx, target, index)
 	}
 	if a.deps == nil || a.deps.Config == nil || a.deps.Config.Workspace.NewPaneURL == "" {
 		logging.FromContext(ctx).Warn().Msg("switch tab index ignored: new pane URL is not configured")
 		return fmt.Errorf("newPaneURL is not configured")
 	}
-	_, err := a.tabCoord.Create(ctx, target, urlutil.Normalize(a.deps.Config.Workspace.NewPaneURL))
+	a.activateBrowserWindow(bw)
+	ensureTarget := a.ensureTabTargetForBrowserWindow(bw)
+	_, err := a.tabCoord.Create(ctx, ensureTarget, urlutil.Normalize(a.deps.Config.Workspace.NewPaneURL))
 	return err
 }
 

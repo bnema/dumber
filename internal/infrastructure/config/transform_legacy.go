@@ -44,7 +44,16 @@ func (t *LegacyConfigTransformer) TransformLegacyActions(rawConfig map[string]an
 }
 
 // TransformLegacyEngineConfig removes deprecated engine config keys.
-func (*LegacyConfigTransformer) TransformLegacyEngineConfig(rawConfig map[string]any) {
+func (t *LegacyConfigTransformer) TransformLegacyEngineConfig(rawConfig map[string]any) {
+	adaptiveEnabled, hasAdaptive := nestedConfigBoolValue(rawConfig, "engine", "cef", "adaptive_windowless_frame_rate")
+	t.transformLegacyEngineConfig(rawConfig, hasAdaptive, adaptiveEnabled)
+}
+
+func (t *LegacyConfigTransformer) TransformLegacyEngineConfigWithExplicitAdaptive(rawConfig map[string]any, hasAdaptive bool, adaptiveEnabled bool) {
+	t.transformLegacyEngineConfig(rawConfig, hasAdaptive, adaptiveEnabled)
+}
+
+func (*LegacyConfigTransformer) transformLegacyEngineConfig(rawConfig map[string]any, hasAdaptive, adaptiveEnabled bool) {
 	engine, ok := rawConfig["engine"].(map[string]any)
 	if !ok {
 		return
@@ -56,11 +65,11 @@ func (*LegacyConfigTransformer) TransformLegacyEngineConfig(rawConfig map[string
 	}
 
 	delete(cef, "enable_context_menu_handler")
-	migrateLegacyCEFWindowlessFrameRateDefault(cef)
+	migrateLegacyCEFWindowlessFrameRateDefault(cef, hasAdaptive, adaptiveEnabled)
 }
 
-func migrateLegacyCEFWindowlessFrameRateDefault(cef map[string]any) {
-	if _, hasAdaptive := cef["adaptive_windowless_frame_rate"]; hasAdaptive {
+func migrateLegacyCEFWindowlessFrameRateDefault(cef map[string]any, hasAdaptive, adaptiveEnabled bool) {
+	if hasAdaptive && !adaptiveEnabled {
 		return
 	}
 	frameRate, ok := int64ConfigValue(cef["windowless_frame_rate"])
@@ -72,6 +81,26 @@ func migrateLegacyCEFWindowlessFrameRateDefault(cef map[string]any) {
 	if _, hasMax := cef["windowless_frame_rate_max"]; !hasMax {
 		cef["windowless_frame_rate_max"] = defaultCEFWindowlessFrameRateMax
 	}
+}
+
+func nestedConfigBoolValue(rawConfig map[string]any, path ...string) (bool, bool) {
+	current := rawConfig
+	for i, key := range path {
+		value, ok := current[key]
+		if !ok {
+			return false, false
+		}
+		if i == len(path)-1 {
+			parsed, ok := value.(bool)
+			return parsed, ok
+		}
+		next, ok := value.(map[string]any)
+		if !ok {
+			return false, false
+		}
+		current = next
+	}
+	return false, false
 }
 
 func int64ConfigValue(value any) (int64, bool) {
