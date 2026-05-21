@@ -123,6 +123,17 @@ func (f *WebViewFactory) newWebView(ctx context.Context) (*WebView, error) {
 		windowlessFrameRateMax:      f.windowlessFrameRateMax,
 		backgroundColor:             f.bgColor.Load(),
 	}
+	wv.runOnGTKSync(func() {
+		nativeWidget := viewBridge.Widget()
+		popupSurface := newPopupBridgeSurface(ctx, nativeWidget, f.engine.renderStackPlan)
+		wv.nativeWidget = nativeWidget
+		if popupSurface != nil {
+			wv.popupSurface = popupSurface
+			if popupRoot := popupSurface.RootWidget(); popupRoot != nil {
+				wv.nativeWidget = popupRoot
+			}
+		}
+	})
 
 	handlers := &handlerSet{wv: wv}
 	wv.handlers = handlers
