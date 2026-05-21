@@ -429,6 +429,8 @@ func isRepeatedGlobalShortcutSuppressed(action Action) bool {
 		ActionPrintPage,
 		ActionOpenOmnibox,
 		ActionOpenFind,
+		ActionFindNext,
+		ActionFindPrev,
 		ActionOpenDevTools,
 		ActionToggleFullscreen,
 		ActionToggleFloatingPane,

@@ -617,6 +617,7 @@ func (h *handlerSet) attachAfterCreatedBrowser(
 
 	h.wv.browser = browser
 	h.wv.host = host
+	h.wv.lastAppliedOSRBackingScaleBits.Store(0)
 	h.wv.pendingCreate = nil
 	bridge := h.wv.viewBridge
 	h.wv.inputAttached = bridge == nil
@@ -667,6 +668,11 @@ func (h *handlerSet) attachAfterCreatedBrowser(
 	// painting/caret updates until explicitly told the browser is shown.
 	host.WasHidden(0)
 	if h.wv != nil {
+		if h.wv.ctx != nil {
+			logging.FromContext(h.wv.ctx).Info().
+				Int32("windowless_frame_rate_configured", host.GetWindowlessFrameRate()).
+				Msg("cef: browser initial/configured windowless frame rate")
+		}
 		h.wv.SyncViewport(h.wv.ctx, "after-created")
 	}
 	return state
@@ -709,6 +715,7 @@ func (h *handlerSet) finishAfterCreated(
 	if state.nativePopupParent != nil && state.nativePopupID != 0 {
 		state.nativePopupParent.clearPendingNativePopup(state.nativePopupID, h.wv)
 	}
+	h.wv.scheduleStartAdaptiveFrameRatePolling()
 	h.wv.scheduleStartBeginFrameLoop()
 	h.wv.fireReadyToShow()
 }
@@ -739,6 +746,7 @@ func (h *handlerSet) OnBeforeClose(browser purecef.Browser) {
 	h.wv.mu.Lock()
 	h.wv.browser = nil
 	h.wv.host = nil
+	h.wv.lastAppliedOSRBackingScaleBits.Store(0)
 	h.wv.inputAttached = false
 	if h.wv.findCtrl != nil {
 		h.wv.findCtrl.setHost(nil)
@@ -757,6 +765,7 @@ func (h *handlerSet) OnBeforeClose(browser purecef.Browser) {
 			}
 		})
 	}
+	h.wv.scheduleStopAdaptiveFrameRatePolling()
 	h.wv.scheduleStopBeginFrameLoop()
 
 	h.wv.mu.RLock()

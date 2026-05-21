@@ -97,8 +97,12 @@ func NewEngine(
 	return wireEngine(
 		ctx,
 		eng,
-		windowlessFrameRate,
-		audioFactory,
+		webViewFactoryOptions{
+			adaptiveWindowlessFrameRate: cfg.AdaptiveWindowlessFrameRate,
+			windowlessFrameRate:         windowlessFrameRate,
+			windowlessFrameRateMax:      cfg.WindowlessFrameRateMax,
+			audioOutputFactory:          audioFactory,
+		},
 		logger,
 		deps.CurrentConfigPayload,
 		deps.DefaultConfigPayload,
@@ -215,13 +219,10 @@ func parseLoadedLibCEFPath(maps string) string {
 // wireEngine creates factory, pool, and scheme handler after CEF init.
 func wireEngine(
 	ctx context.Context, eng *Engine,
-	windowlessFrameRate int32, audioFactory port.AudioOutputFactory, logger *zerolog.Logger,
+	factoryOptions webViewFactoryOptions, logger *zerolog.Logger,
 	currentConfigPayload func() ([]byte, error), defaultConfigPayload func() ([]byte, error),
 ) (*Engine, error) {
-	eng.factory = newWebViewFactory(eng, webViewFactoryOptions{
-		windowlessFrameRate: windowlessFrameRate,
-		audioOutputFactory:  audioFactory,
-	})
+	eng.factory = newWebViewFactory(eng, factoryOptions)
 	eng.pool = newWebViewPool(eng.factory)
 	eng.contentInj = newContentInjector(eng, nil)
 

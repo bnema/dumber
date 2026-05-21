@@ -103,6 +103,12 @@ type WebView struct {
 	viewportRealizeSignalID uint
 	viewportResizePulseSeq  atomic.Uint64
 
+	adaptiveWindowlessFrameRate bool
+	windowlessFrameRateMax      int32
+	adaptiveFrameRatePoll       *glib.SourceFunc
+	adaptiveFrameRatePollID     uint
+	lastAdaptiveFrameRate       int32
+
 	// beginFrameTick drives CEF external BeginFrame requests while the GTK
 	// widget is visible. Access is guarded by mu.
 	beginFrameTick   *gtk.TickCallback
@@ -110,6 +116,10 @@ type WebView struct {
 
 	// pendingCreate holds browser creation params until the GL area is realized.
 	pendingCreate *pendingBrowserCreate
+	// initialBrowserCreateResizeHandled gates the one-shot onFirstResize path so
+	// later size observer events fall through to normal viewport sync even when
+	// browser creation started from another GTK lifecycle path.
+	initialBrowserCreateResizeHandled bool
 
 	// pendingURI is set when LoadURI is called before the browser exists.
 	pendingURI string
@@ -181,11 +191,12 @@ type WebView struct {
 	loadDiagLastLoadStateAt time.Time
 
 	// Atomic state.
-	destroyed    atomic.Bool
-	fullscreen   atomic.Bool
-	generation   atomic.Uint64
-	audioPlaying atomic.Bool
-	zoomFactor   atomic.Value // float64, initialized to 1.0
+	destroyed                      atomic.Bool
+	fullscreen                     atomic.Bool
+	generation                     atomic.Uint64
+	audioPlaying                   atomic.Bool
+	zoomFactor                     atomic.Value // float64, initialized to 1.0
+	lastAppliedOSRBackingScaleBits atomic.Uint64
 
 	// Browser creation defaults copied from the factory so native popup shells
 	// can apply the same settings in OnBeforePopup.
@@ -205,11 +216,13 @@ type WebView struct {
 // pendingBrowserCreate holds the parameters needed to create a CEF browser,
 // deferred until the GL area has a non-zero size.
 type pendingBrowserCreate struct {
-	windowInfo      *purecef.WindowInfo
-	client          purecef.RawClient
-	settings        *purecef.BrowserSettings
-	extraInfo       purecef.DictionaryValue
-	postTaskRetries int
+	windowInfo                 *purecef.WindowInfo
+	client                     purecef.RawClient
+	settings                   *purecef.BrowserSettings
+	extraInfo                  purecef.DictionaryValue
+	postTaskRetries            int
+	observedSizeRetries        int
+	observedSizeRetryScheduled bool
 }
 
 type cefTaskFunc func()
@@ -451,7 +464,7 @@ func pageZoomFromCEFAndBackingLevel(level, backingScale float64) float64 {
 	return factorFromCEFZoom(level) * normalizeScale(backingScale)
 }
 
-func (wv *WebView) applyCEFZoomLevel(host purecef.BrowserHost, factor, cefLevel float64) {
+func (wv *WebView) applyCEFZoomLevel(host purecef.BrowserHost, factor, cefLevel, backingScale float64) {
 	host.SetZoomLevel(cefLevel)
 	// Force CEF to produce a new frame at the new zoom level. In OSR mode,
 	// SetZoomLevel changes the Blink layout zoom but doesn't guarantee a
@@ -460,6 +473,7 @@ func (wv *WebView) applyCEFZoomLevel(host purecef.BrowserHost, factor, cefLevel 
 	// SynchronizeVisualProperties cycle, which makes the renderer produce
 	// a new compositor frame at the new zoom level.
 	host.NotifyScreenInfoChanged()
+	wv.recordAppliedOSRBackingScale(backingScale)
 	// Zoom is applied asynchronously in the renderer process. Request a couple
 	// of follow-up refreshes on the CEF UI thread so OSR captures the updated
 	// compositor frame after the zoom IPC has been processed.
@@ -499,7 +513,7 @@ func (wv *WebView) SetZoomLevel(_ context.Context, factor float64) error {
 		Float64("cef_level", cefLevel).
 		Float64("osr_backing_scale", backingScale).
 		Msg("cef: SetZoomLevel")
-	wv.applyCEFZoomLevel(host, factor, cefLevel)
+	wv.applyCEFZoomLevel(host, factor, cefLevel, backingScale)
 	wv.zoomFactor.Store(factor)
 	return nil
 }
@@ -1093,6 +1107,7 @@ func (wv *WebView) Destroy() {
 	wv.stopRenderStallWatchdog()
 	wv.cancelSelectionDebounce()
 	wv.closeAudioStream()
+	wv.scheduleStopAdaptiveFrameRatePolling()
 	wv.scheduleStopBeginFrameLoop()
 	wv.mu.RLock()
 	host := wv.host
@@ -1402,6 +1417,25 @@ func (wv *WebView) osrBackingScaleFactor() float64 {
 	return normalizeScale(wv.viewBridge.OSRBackingScaleFactor())
 }
 
+func (wv *WebView) recordAppliedOSRBackingScale(scale float64) {
+	if wv == nil {
+		return
+	}
+	wv.lastAppliedOSRBackingScaleBits.Store(math.Float64bits(normalizeScale(scale)))
+}
+
+func (wv *WebView) shouldReapplyZoomForBackingScale(scale float64) bool {
+	if wv == nil {
+		return false
+	}
+	normalized := normalizeScale(scale)
+	bits := wv.lastAppliedOSRBackingScaleBits.Load()
+	if bits == 0 {
+		return true
+	}
+	return math.Float64frombits(bits) != normalized
+}
+
 func (wv *WebView) handleMiddleClickFromBridge() bool {
 	if wv == nil {
 		return false
@@ -1688,7 +1722,7 @@ func (wv *WebView) reapplyCurrentZoomForBackingScale(reason string) {
 	factor := wv.GetZoomLevel()
 	backingScale := wv.osrBackingScaleFactor()
 	cefLevel := cefZoomFromPageAndBackingFactor(factor, backingScale)
-	wv.applyCEFZoomLevel(host, factor, cefLevel)
+	wv.applyCEFZoomLevel(host, factor, cefLevel, backingScale)
 	logging.FromContext(wv.ctx).Debug().
 		Str("reason", reason).
 		Float64("factor", factor).
@@ -1736,6 +1770,9 @@ func (wv *WebView) startBeginFrameLoop() {
 			return false
 		}
 		host.SendExternalBeginFrame()
+		if wv.viewBridge != nil {
+			wv.viewBridge.RecordExternalBeginFrameSent()
+		}
 		return true
 	}
 	wv.beginFrameTick = cb
@@ -1745,6 +1782,9 @@ func (wv *WebView) startBeginFrameLoop() {
 
 	if host != nil {
 		host.SendExternalBeginFrame()
+		if wv.viewBridge != nil {
+			wv.viewBridge.RecordExternalBeginFrameSent()
+		}
 	}
 }
 
@@ -1845,6 +1885,24 @@ func (wv *WebView) runNavigationCallbacks(uri string) {
 			}
 		}
 	})
+}
+
+func (wv *WebView) shouldStartBrowserCreateFromSizeObserver() bool {
+	if wv == nil {
+		return false
+	}
+	wv.mu.RLock()
+	defer wv.mu.RUnlock()
+	return wv.pendingCreate != nil && !wv.initialBrowserCreateResizeHandled
+}
+
+func (wv *WebView) markInitialBrowserCreateResizeHandled() {
+	if wv == nil {
+		return
+	}
+	wv.mu.Lock()
+	defer wv.mu.Unlock()
+	wv.initialBrowserCreateResizeHandled = true
 }
 
 func (wv *WebView) takePendingCreate() *pendingBrowserCreate {

@@ -165,6 +165,21 @@ func (a *Cef2gtkAdapter) SetCursorFromName(name string) {
 	a.view.SetCursorFromName(name)
 }
 
+// RefreshObservedSizeOnGTKThread synchronously refreshes the bridge's cached
+// observed size from the current GTK allocation. Must be called on the GTK
+// main thread.
+func (a *Cef2gtkAdapter) RefreshObservedSizeOnGTKThread() (int32, int32) {
+	if a == nil || a.destroyed.Load() {
+		return 1, 1
+	}
+	a.viewMu.RLock()
+	defer a.viewMu.RUnlock()
+	if a.view == nil {
+		return 1, 1
+	}
+	return a.view.RefreshObservedSizeOnGTKThread()
+}
+
 // PrepareOnGTKThread initializes renderer resources owned by purego-cef2gtk.
 // Must be called on the GTK main thread.
 func (a *Cef2gtkAdapter) PrepareOnGTKThread() error {
@@ -207,6 +222,20 @@ func (a *Cef2gtkAdapter) ConfigureProfiling(opts cef2gtk.ProfileOptions) error {
 		return ErrAdapterDestroyed
 	}
 	return a.view.ConfigureProfiling(opts)
+}
+
+// RecordExternalBeginFrameSent records one externally-driven CEF BeginFrame in
+// the bridge profiler when profiling is enabled. It is a no-op otherwise.
+func (a *Cef2gtkAdapter) RecordExternalBeginFrameSent() {
+	if a == nil || a.destroyed.Load() {
+		return
+	}
+	a.viewMu.RLock()
+	defer a.viewMu.RUnlock()
+	if a.view == nil {
+		return
+	}
+	a.view.RecordExternalBeginFrameSent()
 }
 
 // AttachInput attaches GTK event controllers to the view and forwards input

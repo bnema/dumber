@@ -103,6 +103,8 @@ Then set `engine.type = "cef"` in your config.
 
 CEF uses Dumber's GPU-first Wayland render stack by default: GDK DMABUF presentation with ANGLE/GSK Vulkan. For driver compatibility, switch to the EGL/OpenGL stack with `engine.cef.render_stack = "egl"`; the default is `"vulkan"`.
 
+CEF OSR frame rate adapts to the active Wayland monitor refresh rate when both `engine.cef.adaptive_windowless_frame_rate = true` and `engine.cef.windowless_frame_rate = 0` (the defaults). Adaptive mode is capped by `engine.cef.windowless_frame_rate_max = 240`. Setting `engine.cef.windowless_frame_rate` to a positive value forces a fixed rate instead. This adaptive polling path is Wayland-specific; other platforms fall back to the configured fixed/default CEF behavior.
+
 ## Keyboard-Driven
 
 Four modal modes. Enter a mode, act, escape out. Vim and Zellij users already know this pattern.

@@ -1,5 +1,7 @@
 package config
 
+import "math"
+
 const (
 	sectionWorkspace = "workspace"
 	sectionSession   = "session"
@@ -42,7 +44,19 @@ func (t *LegacyConfigTransformer) TransformLegacyActions(rawConfig map[string]an
 }
 
 // TransformLegacyEngineConfig removes deprecated engine config keys.
-func (*LegacyConfigTransformer) TransformLegacyEngineConfig(rawConfig map[string]any) {
+func (t *LegacyConfigTransformer) TransformLegacyEngineConfig(rawConfig map[string]any) {
+	adaptiveEnabled, hasAdaptive := nestedConfigBoolValue(rawConfig, "engine", "cef", "adaptive_windowless_frame_rate")
+	t.transformLegacyEngineConfig(rawConfig, hasAdaptive, adaptiveEnabled)
+}
+
+func (t *LegacyConfigTransformer) TransformLegacyEngineConfigWithExplicitAdaptive(
+	rawConfig map[string]any,
+	hasAdaptive, adaptiveEnabled bool,
+) {
+	t.transformLegacyEngineConfig(rawConfig, hasAdaptive, adaptiveEnabled)
+}
+
+func (*LegacyConfigTransformer) transformLegacyEngineConfig(rawConfig map[string]any, hasAdaptive, adaptiveEnabled bool) {
 	engine, ok := rawConfig["engine"].(map[string]any)
 	if !ok {
 		return
@@ -54,6 +68,72 @@ func (*LegacyConfigTransformer) TransformLegacyEngineConfig(rawConfig map[string
 	}
 
 	delete(cef, "enable_context_menu_handler")
+	migrateLegacyCEFWindowlessFrameRateDefault(cef, hasAdaptive, adaptiveEnabled)
+}
+
+func migrateLegacyCEFWindowlessFrameRateDefault(cef map[string]any, hasAdaptive, adaptiveEnabled bool) {
+	if hasAdaptive && !adaptiveEnabled {
+		return
+	}
+	frameRate, ok := int64ConfigValue(cef["windowless_frame_rate"])
+	if !ok || frameRate != defaultCEFWindowlessFrameRate {
+		return
+	}
+	cef["adaptive_windowless_frame_rate"] = true
+	cef["windowless_frame_rate"] = 0
+	if _, hasMax := cef["windowless_frame_rate_max"]; !hasMax {
+		cef["windowless_frame_rate_max"] = defaultCEFWindowlessFrameRateMax
+	}
+}
+
+func nestedConfigBoolValue(rawConfig map[string]any, path ...string) (bool, bool) {
+	current := rawConfig
+	for i, key := range path {
+		value, ok := current[key]
+		if !ok {
+			return false, false
+		}
+		if i == len(path)-1 {
+			parsed, parsedOK := value.(bool)
+			return parsed, parsedOK
+		}
+		next, ok := value.(map[string]any)
+		if !ok {
+			return false, false
+		}
+		current = next
+	}
+	return false, false
+}
+
+func int64ConfigValue(value any) (int64, bool) {
+	switch v := value.(type) {
+	case int:
+		return int64(v), true
+	case int8:
+		return int64(v), true
+	case int16:
+		return int64(v), true
+	case int32:
+		return int64(v), true
+	case int64:
+		return v, true
+	case uint:
+		return int64(v), true
+	case uint8:
+		return int64(v), true
+	case uint16:
+		return int64(v), true
+	case uint32:
+		return int64(v), true
+	case uint64:
+		if v > math.MaxInt64 {
+			return 0, false
+		}
+		return int64(v), true
+	default:
+		return 0, false
+	}
 }
 
 func (t *LegacyConfigTransformer) transformActionSection(rawConfig map[string]any, path []string) {

@@ -100,9 +100,16 @@ type CEFEngineConfig struct {
 	LogSeverity int32 `mapstructure:"log_severity" toml:"log_severity" yaml:"log_severity"`
 	// RenderStack selects the CEF GPU render stack. Empty falls back to vulkan.
 	RenderStack CEFRenderStack `mapstructure:"render_stack" toml:"render_stack" yaml:"render_stack"`
+	// AdaptiveWindowlessFrameRate polls the active Wayland monitor refresh rate
+	// and updates CEF's OSR frame-rate while the browser moves across monitors.
+	// It is ignored when WindowlessFrameRate is explicitly set.
+	AdaptiveWindowlessFrameRate bool `mapstructure:"adaptive_windowless_frame_rate" toml:"adaptive_windowless_frame_rate" yaml:"adaptive_windowless_frame_rate"` //nolint:lll // struct tags exceed lll limit
 	// WindowlessFrameRate is the maximum frame rate for off-screen rendering.
-	// Default: 60. Higher values increase CPU usage.
-	WindowlessFrameRate int32 `mapstructure:"windowless_frame_rate" toml:"windowless_frame_rate" yaml:"windowless_frame_rate"`
+	// When 0 and adaptive_windowless_frame_rate is true, Dumber adapts to the
+	// active Wayland monitor refresh rate.
+	WindowlessFrameRate int32 `mapstructure:"windowless_frame_rate" toml:"windowless_frame_rate" yaml:"windowless_frame_rate"` //nolint:lll // struct tags exceed lll limit
+	// WindowlessFrameRateMax is the hard cap for adaptive monitor refresh rates.
+	WindowlessFrameRateMax int32 `mapstructure:"windowless_frame_rate_max" toml:"windowless_frame_rate_max" yaml:"windowless_frame_rate_max"` //nolint:lll // struct tags exceed lll limit
 	// EnableAudioHandler opts into the experimental CEF AudioHandler bridge.
 	EnableAudioHandler bool `mapstructure:"enable_audio_handler" toml:"enable_audio_handler" yaml:"enable_audio_handler"`
 	// TraceHandlers enables purego-cef handler/refcount tracing for diagnostics.
@@ -125,6 +132,17 @@ func (c CEFEngineConfig) CEFWindowlessFrameRate() int32 {
 		return c.WindowlessFrameRate
 	}
 	return defaultCEFWindowlessFrameRate
+}
+
+func (c CEFEngineConfig) CEFWindowlessFrameRateMax() int32 {
+	if c.WindowlessFrameRateMax > 0 {
+		return c.WindowlessFrameRateMax
+	}
+	return defaultCEFWindowlessFrameRateMax
+}
+
+func (c CEFEngineConfig) CEFAdaptiveWindowlessFrameRate() bool {
+	return c.AdaptiveWindowlessFrameRate && c.WindowlessFrameRate <= 0
 }
 
 // PerformanceConfigFromEngine constructs a PerformanceConfig from the

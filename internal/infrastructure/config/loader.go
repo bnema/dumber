@@ -19,15 +19,26 @@ import (
 type Manager struct {
 	config         *Config
 	viper          *viper.Viper
+	automaticEnv   automaticEnvConfig
 	mu             sync.RWMutex
 	callbacks      []func(*Config)
 	watching       bool
 	skipNextReload bool // Set by Save() to prevent fsnotify reload from overwriting in-memory config
 }
 
+type automaticEnvConfig struct {
+	enabled     bool
+	prefix      string
+	keyReplacer *strings.Replacer
+}
+
 // NewManager creates a new configuration manager.
 func NewManager() (*Manager, error) {
 	v := viper.New()
+	m := &Manager{
+		viper:     v,
+		callbacks: make([]func(*Config), 0),
+	}
 
 	// Configure Viper for TOML as default format
 	v.SetConfigName("config") // Name without extension
@@ -42,9 +53,7 @@ func NewManager() (*Manager, error) {
 	v.AddConfigPath(".") // Current directory for development
 
 	// Set up environment variable support
-	v.SetEnvPrefix("DUMBER")
-	v.SetEnvKeyReplacer(strings.NewReplacer(".", "_"))
-	v.AutomaticEnv()
+	m.configureAutomaticEnv()
 
 	// Note: Most environment variables are handled automatically via AutomaticEnv()
 	// with the DUMBER_ prefix (e.g., DUMBER_DATABASE_PATH, DUMBER_LOGGING_LEVEL).
@@ -69,10 +78,7 @@ func NewManager() (*Manager, error) {
 		return nil, err
 	}
 
-	return &Manager{
-		viper:     v,
-		callbacks: make([]func(*Config), 0),
-	}, nil
+	return m, nil
 }
 
 // Load loads the configuration from file and environment variables.
@@ -153,7 +159,11 @@ func (m *Manager) transformLegacyConfig() {
 	rawConfig := m.viper.AllSettings()
 	transformer := NewLegacyConfigTransformer()
 	transformer.TransformLegacyActions(rawConfig)
-	transformer.TransformLegacyEngineConfig(rawConfig)
+	transformer.TransformLegacyEngineConfigWithExplicitAdaptive(
+		rawConfig,
+		m.hasExplicitAdaptiveWindowlessFrameRateSetting(),
+		m.viper.GetBool("engine.cef.adaptive_windowless_frame_rate"),
+	)
 
 	// AllSettings includes defaults, so workspace.browsing_contexts may already be
 	// present even when the user only configured legacy workspace.popups. Always
@@ -169,6 +179,43 @@ func (m *Manager) transformLegacyConfig() {
 	for key, value := range rawConfig {
 		m.viper.Set(key, value)
 	}
+}
+
+func (m *Manager) configureAutomaticEnv() {
+	if m == nil || m.viper == nil {
+		return
+	}
+	replacer := strings.NewReplacer(".", "_")
+	m.viper.SetEnvPrefix("DUMBER")
+	m.viper.SetEnvKeyReplacer(replacer)
+	m.viper.AutomaticEnv()
+	m.automaticEnv = automaticEnvConfig{
+		enabled:     true,
+		prefix:      "DUMBER",
+		keyReplacer: replacer,
+	}
+}
+
+func (m *Manager) hasExplicitAdaptiveWindowlessFrameRateSetting() bool {
+	if m == nil || m.viper == nil {
+		return false
+	}
+	if m.viper.InConfig("engine.cef.adaptive_windowless_frame_rate") {
+		return true
+	}
+	if !m.automaticEnv.enabled {
+		return false
+	}
+	envKey := "engine.cef.adaptive_windowless_frame_rate"
+	if m.automaticEnv.keyReplacer != nil {
+		envKey = m.automaticEnv.keyReplacer.Replace(envKey)
+	}
+	envKey = strings.ToUpper(envKey)
+	if prefix := strings.TrimSpace(m.automaticEnv.prefix); prefix != "" {
+		envKey = prefix + "_" + envKey
+	}
+	value, ok := os.LookupEnv(envKey)
+	return ok && value != ""
 }
 
 func (m *Manager) mergeLegacyPopupsIntoCanonicalBrowsingContexts(rawConfig map[string]any) {
@@ -694,7 +741,9 @@ func (m *Manager) setEngineDefaults(defaults *Config) {
 	m.viper.SetDefault("engine.cef.render_stack", string(ce.CEFRenderStack()))
 	m.viper.SetDefault("engine.cef.log_file", ce.LogFile)
 	m.viper.SetDefault("engine.cef.log_severity", ce.LogSeverity)
-	m.viper.SetDefault("engine.cef.windowless_frame_rate", ce.CEFWindowlessFrameRate())
+	m.viper.SetDefault("engine.cef.adaptive_windowless_frame_rate", ce.AdaptiveWindowlessFrameRate)
+	m.viper.SetDefault("engine.cef.windowless_frame_rate", ce.WindowlessFrameRate)
+	m.viper.SetDefault("engine.cef.windowless_frame_rate_max", ce.CEFWindowlessFrameRateMax())
 	m.viper.SetDefault("engine.cef.enable_audio_handler", ce.EnableAudioHandler)
 	m.viper.SetDefault("engine.cef.trace_handlers", ce.TraceHandlers)
 

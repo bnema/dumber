@@ -2243,10 +2243,54 @@ func counterIDGen() func() string {
 	}
 }
 
-func TestApp_DispatchBrowserWindowActionSwitchTabIndexCreatesInSourceWindow(t *testing.T) {
+func TestApp_DispatchBrowserWindowActionSwitchTabIndexUsesSourceWindow(t *testing.T) {
 	ctx := context.Background()
 
-	// Two windows, each with one tab.
+	firstTab := entity.NewTab(entity.TabID("first-tab"), entity.WorkspaceID("ws-first"), entity.NewPane(entity.PaneID("pane-first")))
+	firstTabs := entity.NewTabList()
+	firstTabs.Add(firstTab)
+	firstTabs.SetActive(firstTab.ID)
+	first := &browserWindow{id: "window-1", tabs: firstTabs}
+
+	secondTab1 := entity.NewTab(entity.TabID("second-tab-1"), entity.WorkspaceID("ws-second-1"), entity.NewPane(entity.PaneID("pane-second-1")))
+	secondTab2 := entity.NewTab(entity.TabID("second-tab-2"), entity.WorkspaceID("ws-second-2"), entity.NewPane(entity.PaneID("pane-second-2")))
+	secondTabs := entity.NewTabList()
+	secondTabs.Add(secondTab1)
+	secondTabs.Add(secondTab2)
+	secondTabs.SetActive(secondTab1.ID)
+	second := &browserWindow{id: "window-2", tabs: secondTabs}
+
+	app := &App{
+		deps: &Dependencies{
+			Config: &config.Config{
+				Workspace: config.WorkspaceConfig{
+					NewPaneURL: "about:blank",
+				},
+			},
+		},
+		tabsUC:              usecase.NewManageTabsUseCase(counterIDGen()),
+		browserWindows:      map[string]*browserWindow{first.id: first, second.id: second},
+		windowForTab:        map[entity.TabID]*browserWindow{firstTab.ID: first, secondTab1.ID: second, secondTab2.ID: second},
+		lastFocusedWindowID: first.id, // stale — should NOT be used
+	}
+	app.initTabCoordinator(ctx)
+
+	err := app.dispatchBrowserWindowAction(ctx, second, input.ActionSwitchTabIndex2)
+	if err != nil {
+		t.Fatalf("dispatchBrowserWindowAction returned error: %v", err)
+	}
+
+	if got := secondTabs.ActiveTabID; got != secondTab2.ID {
+		t.Fatalf("second active tab = %q, want %q", got, secondTab2.ID)
+	}
+	if got := firstTabs.ActiveTabID; got != firstTab.ID {
+		t.Fatalf("first active tab = %q, want %q", got, firstTab.ID)
+	}
+}
+
+func TestApp_DispatchBrowserWindowActionSwitchTabIndexCreatesOnlyOneMissingTab(t *testing.T) {
+	ctx := context.Background()
+
 	firstTab := entity.NewTab(entity.TabID("first-tab"), entity.WorkspaceID("ws-first"), entity.NewPane(entity.PaneID("pane-first")))
 	firstTabs := entity.NewTabList()
 	firstTabs.Add(firstTab)
@@ -2280,24 +2324,135 @@ func TestApp_DispatchBrowserWindowActionSwitchTabIndexCreatesInSourceWindow(t *t
 		t.Fatalf("dispatchBrowserWindowAction returned error: %v", err)
 	}
 
-	// secondTabs should have 4 tabs (1 existing + 3 new).
-	if got := secondTabs.Count(); got != 4 {
-		t.Fatalf("second target tab count = %d, want 4", got)
+	// Out-of-range switches should create a single new tab in the source window.
+	if got := secondTabs.Count(); got != 2 {
+		t.Fatalf("second target tab count = %d, want 2", got)
 	}
-	if got := secondTabs.ActiveTabID; got != secondTabs.Tabs[3].ID {
-		t.Fatalf("active tab = %q, want %q (index 3)", got, secondTabs.Tabs[3].ID)
+	if got := secondTabs.ActiveTabID; got != secondTabs.Tabs[1].ID {
+		t.Fatalf("active tab = %q, want %q", got, secondTabs.Tabs[1].ID)
 	}
 
-	// firstTabs must be completely unchanged.
 	if got := firstTabs.Count(); got != 1 {
 		t.Fatalf("first target tab count = %d, want 1", got)
 	}
+	if got := firstTabs.ActiveTabID; got != firstTab.ID {
+		t.Fatalf("first active tab = %q, want %q", got, firstTab.ID)
+	}
 
-	// windowForTab should map all second window tabs to second.
-	for _, tab := range secondTabs.Tabs {
-		if got := app.windowForTab[tab.ID]; got != second {
-			t.Fatalf("windowForTab[%s] = %p, want second window %p", tab.ID, got, second)
-		}
+	if got := app.windowForTab[secondTabs.Tabs[1].ID]; got != second {
+		t.Fatalf("windowForTab[%s] = %p, want second window %p", secondTabs.Tabs[1].ID, got, second)
+	}
+}
+
+func TestApp_SwitchBrowserWindowTabIndexNegativeIndexIsIgnored(t *testing.T) {
+	ctx := context.Background()
+
+	secondTab := entity.NewTab(entity.TabID("second-tab-1"), entity.WorkspaceID("ws-second-1"), entity.NewPane(entity.PaneID("pane-second-1")))
+	secondTabs := entity.NewTabList()
+	secondTabs.Add(secondTab)
+	secondTabs.SetActive(secondTab.ID)
+	second := &browserWindow{id: "window-2", tabs: secondTabs}
+
+	app := &App{
+		deps: &Dependencies{
+			Config: &config.Config{Workspace: config.WorkspaceConfig{NewPaneURL: "about:blank"}},
+		},
+		tabsUC:         usecase.NewManageTabsUseCase(counterIDGen()),
+		browserWindows: map[string]*browserWindow{second.id: second},
+		windowForTab:   map[entity.TabID]*browserWindow{secondTab.ID: second},
+	}
+	app.initTabCoordinator(ctx)
+
+	err := app.switchBrowserWindowTabIndex(ctx, second, -1)
+	if err != nil {
+		t.Fatalf("switchBrowserWindowTabIndex returned error: %v", err)
+	}
+	if got := secondTabs.Count(); got != 1 {
+		t.Fatalf("second target tab count = %d, want 1", got)
+	}
+	if got := secondTabs.ActiveTabID; got != secondTab.ID {
+		t.Fatalf("active tab = %q, want %q", got, secondTab.ID)
+	}
+}
+
+func TestApp_DispatchBrowserWindowActionSwitchTabIndexNegativeDoesNotMutateWindowState(t *testing.T) {
+	ctx := context.Background()
+
+	second := &browserWindow{id: "window-2"}
+
+	app := &App{
+		deps: &Dependencies{
+			Config: &config.Config{Workspace: config.WorkspaceConfig{NewPaneURL: "about:blank"}},
+		},
+		tabsUC:              usecase.NewManageTabsUseCase(counterIDGen()),
+		browserWindows:      map[string]*browserWindow{second.id: second},
+		lastFocusedWindowID: "window-1",
+	}
+	app.initTabCoordinator(ctx)
+
+	err := app.switchBrowserWindowTabIndex(ctx, second, -1)
+	if err != nil {
+		t.Fatalf("switchBrowserWindowTabIndex returned error: %v", err)
+	}
+	if got := app.lastFocusedWindowID; got != "window-1" {
+		t.Fatalf("lastFocusedWindowID = %q, want %q", got, "window-1")
+	}
+	if second.tabs != nil {
+		t.Fatalf("second tabs should stay nil for invalid index")
+	}
+}
+
+func TestApp_DispatchBrowserWindowActionSwitchTabIndexMissingURLDoesNotCreateTab(t *testing.T) {
+	ctx := context.Background()
+
+	secondTab := entity.NewTab(entity.TabID("second-tab-1"), entity.WorkspaceID("ws-second-1"), entity.NewPane(entity.PaneID("pane-second-1")))
+	secondTabs := entity.NewTabList()
+	secondTabs.Add(secondTab)
+	secondTabs.SetActive(secondTab.ID)
+	second := &browserWindow{id: "window-2", tabs: secondTabs}
+
+	app := &App{
+		deps:           &Dependencies{Config: &config.Config{}},
+		tabsUC:         usecase.NewManageTabsUseCase(counterIDGen()),
+		browserWindows: map[string]*browserWindow{second.id: second},
+		windowForTab:   map[entity.TabID]*browserWindow{secondTab.ID: second},
+	}
+	app.initTabCoordinator(ctx)
+
+	err := app.dispatchBrowserWindowAction(ctx, second, input.ActionSwitchTabIndex4)
+	if err == nil {
+		t.Fatal("dispatchBrowserWindowAction returned nil error, want config error")
+	}
+	if got := secondTabs.Count(); got != 1 {
+		t.Fatalf("second target tab count = %d, want 1", got)
+	}
+	if got := secondTabs.ActiveTabID; got != secondTab.ID {
+		t.Fatalf("active tab = %q, want %q", got, secondTab.ID)
+	}
+}
+
+func TestApp_SwitchBrowserWindowTabIndexMissingURLDoesNotMutateWindowState(t *testing.T) {
+	ctx := context.Background()
+
+	second := &browserWindow{id: "window-2"}
+
+	app := &App{
+		deps:                &Dependencies{Config: &config.Config{}},
+		tabsUC:              usecase.NewManageTabsUseCase(counterIDGen()),
+		browserWindows:      map[string]*browserWindow{second.id: second},
+		lastFocusedWindowID: "window-1",
+	}
+	app.initTabCoordinator(ctx)
+
+	err := app.switchBrowserWindowTabIndex(ctx, second, 3)
+	if err == nil {
+		t.Fatal("switchBrowserWindowTabIndex returned nil error, want config error")
+	}
+	if got := app.lastFocusedWindowID; got != "window-1" {
+		t.Fatalf("lastFocusedWindowID = %q, want %q", got, "window-1")
+	}
+	if second.tabs != nil {
+		t.Fatalf("second tabs should stay nil when new pane URL is missing")
 	}
 }
 

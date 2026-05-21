@@ -15,13 +15,15 @@ var (
 )
 
 type RuntimeConfig struct {
-	CEFDir              string
-	LogFile             string
-	LogSeverity         int32
-	RenderStack         string
-	WindowlessFrameRate int32
-	EnableAudioHandler  bool
-	TraceHandlers       bool
+	CEFDir                      string
+	LogFile                     string
+	LogSeverity                 int32
+	RenderStack                 string
+	AdaptiveWindowlessFrameRate bool
+	WindowlessFrameRate         int32
+	WindowlessFrameRateMax      int32
+	EnableAudioHandler          bool
+	TraceHandlers               bool
 }
 
 type HandlerRegistrar func(context.Context, port.WebUIHandlerRouter, port.HandlerDependencies) error

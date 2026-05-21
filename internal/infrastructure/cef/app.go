@@ -219,6 +219,7 @@ func appendUniqueCommaSeparatedSwitchValues(commandLine purecef.CommandLine, nam
 	if len(combined) == 0 {
 		return
 	}
+	commandLine.RemoveSwitch(name)
 	commandLine.AppendSwitchWithValue(name, strings.Join(combined, ","))
 }
 
@@ -261,6 +262,7 @@ func removeCommaSeparatedSwitchValues(commandLine purecef.CommandLine, name stri
 		return
 	}
 
+	commandLine.RemoveSwitch(name)
 	commandLine.AppendSwitchWithValue(name, strings.Join(cleaned, ","))
 }
 
