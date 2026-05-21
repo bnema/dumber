@@ -3,6 +3,7 @@ package factory
 import (
 	"context"
 	"errors"
+	"fmt"
 	"testing"
 
 	"github.com/bnema/dumber/internal/application/port"
@@ -133,40 +134,28 @@ func TestSelector_BothFail_ReturnsError(t *testing.T) {
 }
 
 // TestNewAudioOutputFactory_ReturnsWorkingFactory verifies that
-// NewAudioOutputFactory returns a working Selector with PipeWire primary
-// and null fallback.
+// NewAudioOutputFactory wires PipeWire as primary and null as fallback without
+// requiring a real PipeWire session.
 func TestNewAudioOutputFactory_ReturnsWorkingFactory(t *testing.T) {
 	factory := NewAudioOutputFactory()
 	if factory == nil {
 		t.Fatal("Expected non-nil factory")
 	}
 
-	// Verify the factory produces a working stream
-	format := port.AudioStreamFormat{
-		SampleRate:      48000,
-		ChannelCount:    2,
-		FramesPerBuffer: 512,
+	selector, ok := factory.(*Selector)
+	if !ok {
+		t.Fatalf("Expected *Selector, got %T", factory)
 	}
-	ctx := context.Background()
-
-	stream, err := factory.NewStream(ctx, format)
-	if err != nil {
-		t.Fatalf("Expected no error creating stream, got: %v", err)
+	if selector.Primary == nil {
+		t.Fatal("Expected non-nil primary backend")
 	}
-	if stream == nil {
-		t.Fatal("Expected non-nil stream")
+	if selector.Fallback == nil {
+		t.Fatal("Expected non-nil fallback backend")
 	}
-
-	// Verify the stream works
-	samples := make([][]float32, format.ChannelCount)
-	for i := range samples {
-		samples[i] = make([]float32, format.FramesPerBuffer)
+	if got := fmt.Sprintf("%T", selector.Primary); got != "*pipewire.Factory" {
+		t.Fatalf("Expected PipeWire primary backend, got %s", got)
 	}
-
-	if err := stream.Write(samples); err != nil {
-		t.Errorf("Write failed: %v", err)
-	}
-	if err := stream.Close(); err != nil {
-		t.Errorf("Close failed: %v", err)
+	if got := fmt.Sprintf("%T", selector.Fallback); got != "*null.Factory" {
+		t.Fatalf("Expected null fallback backend, got %s", got)
 	}
 }

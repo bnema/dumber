@@ -2347,7 +2347,11 @@ func (a *App) dispatchBrowserWindowAction(ctx context.Context, bw *browserWindow
 }
 
 // switchBrowserWindowTabIndex activates the given browser window and switches to
-// the tab at the given 0-based index in that window, creating tabs as needed.
+// the tab at the given 0-based index in that window.
+//
+// If the requested tab already exists, it switches to it. If the index is out
+// of range, it creates exactly one new tab instead of backfilling all missing
+// intermediate tab slots.
 func (a *App) switchBrowserWindowTabIndex(ctx context.Context, bw *browserWindow, index int) error {
 	if a.tabCoord == nil {
 		logging.FromContext(ctx).Warn().Msg("switch tab index ignored: tab coordinator is nil")
@@ -2359,11 +2363,19 @@ func (a *App) switchBrowserWindowTabIndex(ctx context.Context, bw *browserWindow
 	}
 	a.activateBrowserWindow(bw)
 	target := a.ensureTabTargetForBrowserWindow(bw)
-	initialURL := ""
-	if a.deps != nil && a.deps.Config != nil && a.deps.Config.Workspace.NewPaneURL != "" {
-		initialURL = urlutil.Normalize(a.deps.Config.Workspace.NewPaneURL)
+	if index < 0 {
+		logging.FromContext(ctx).Debug().Int("index", index).Msg("switch tab index ignored: invalid negative index")
+		return nil
 	}
-	return a.tabCoord.SwitchByIndexCreating(ctx, target, index, initialURL)
+	if index < target.Tabs.Count() {
+		return a.tabCoord.SwitchByIndex(ctx, target, index)
+	}
+	if a.deps == nil || a.deps.Config == nil || a.deps.Config.Workspace.NewPaneURL == "" {
+		logging.FromContext(ctx).Warn().Msg("switch tab index ignored: new pane URL is not configured")
+		return fmt.Errorf("newPaneURL is not configured")
+	}
+	_, err := a.tabCoord.Create(ctx, target, urlutil.Normalize(a.deps.Config.Workspace.NewPaneURL))
+	return err
 }
 
 // windowOrder returns window IDs in registration order.

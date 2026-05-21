@@ -1,5 +1,7 @@
 package config
 
+import "math"
+
 const (
 	sectionWorkspace = "workspace"
 	sectionSession   = "session"
@@ -93,7 +95,7 @@ func int64ConfigValue(value any) (int64, bool) {
 	case uint32:
 		return int64(v), true
 	case uint64:
-		if v > 1<<63-1 {
+		if v > math.MaxInt64 {
 			return 0, false
 		}
 		return int64(v), true

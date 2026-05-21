@@ -669,8 +669,8 @@ func (h *handlerSet) attachAfterCreatedBrowser(
 	if h.wv != nil {
 		if h.wv.ctx != nil {
 			logging.FromContext(h.wv.ctx).Info().
-				Int32("windowless_frame_rate_runtime", host.GetWindowlessFrameRate()).
-				Msg("cef: browser runtime windowless frame rate")
+				Int32("windowless_frame_rate_configured", host.GetWindowlessFrameRate()).
+				Msg("cef: browser initial/configured windowless frame rate")
 		}
 		h.wv.SyncViewport(h.wv.ctx, "after-created")
 	}

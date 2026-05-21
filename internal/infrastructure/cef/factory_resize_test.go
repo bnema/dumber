@@ -39,6 +39,22 @@ func TestConfigureWindowInfo_SetsAcceleratedWindowlessAndSharedTexture(t *testin
 	require.Equal(t, int32(1), info.SharedTextureEnabled)
 }
 
+func TestShouldStartBrowserCreateFromSizeObserver_FalseAfterInitialResizeHandled(t *testing.T) {
+	wv := &WebView{pendingCreate: &pendingBrowserCreate{}}
+
+	require.True(t, wv.shouldStartBrowserCreateFromSizeObserver())
+	wv.markInitialBrowserCreateResizeHandled()
+	require.False(t, wv.shouldStartBrowserCreateFromSizeObserver())
+}
+
+func TestShouldStartBrowserCreateFromSizeObserver_FalseAfterPendingCreateConsumed(t *testing.T) {
+	wv := &WebView{pendingCreate: &pendingBrowserCreate{}}
+
+	require.True(t, wv.shouldStartBrowserCreateFromSizeObserver())
+	require.NotNil(t, wv.takePendingCreate())
+	require.False(t, wv.shouldStartBrowserCreateFromSizeObserver())
+}
+
 func TestPostPendingBrowserCreate_RetriesWhenPostingTaskFails(t *testing.T) {
 	oldNewTask := cefNewTask
 	oldPostTask := cefPostTask

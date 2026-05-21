@@ -3,6 +3,7 @@ package cef
 import (
 	"context"
 	"strings"
+	"time"
 
 	purecef "github.com/bnema/purego-cef/cef"
 	"github.com/bnema/puregotk/v4/gobject"
@@ -16,6 +17,29 @@ type viewportSyncBrowserHost interface {
 	NotifyScreenInfoChanged()
 	WasHidden(int32)
 }
+
+type pendingBrowserCreateObservedSizeBridge interface {
+	Size() (int32, int32)
+	RefreshObservedSizeOnGTKThread() (int32, int32)
+}
+
+const (
+	// pendingBrowserCreateObservedSizeRetryDelay spaces retries while waiting
+	// for the GTK bridge to observe the widget's allocated size.
+	pendingBrowserCreateObservedSizeRetryDelay = 16 * time.Millisecond
+	// pendingBrowserCreateObservedSizeMaxRetries caps observed-size retries
+	// before browser creation proceeds despite a remaining size mismatch.
+	pendingBrowserCreateObservedSizeMaxRetries = 8
+)
+
+type pendingBrowserCreateObservedSizeRetryAction uint8
+
+const (
+	pendingBrowserCreateObservedSizeRetryUnavailable pendingBrowserCreateObservedSizeRetryAction = iota
+	pendingBrowserCreateObservedSizeRetryAlreadyScheduled
+	pendingBrowserCreateObservedSizeRetryScheduled
+	pendingBrowserCreateObservedSizeRetryProceedWithoutDelay
+)
 
 // SyncViewport requests an explicit viewport resync for CEF OSR browsers.
 //
@@ -182,6 +206,64 @@ func (wv *WebView) tryStartPendingBrowserCreateOnGTKThread(ctx context.Context, 
 			Msg("cef: viewport sync skipped pending browser creation; widget has no allocation yet")
 		return false
 	}
+
+	observedWidth, observedHeight, observedReady := pendingBrowserCreateObservedSize(wv.viewBridge, width, height)
+	if !observedReady {
+		widget.QueueAllocate()
+		widget.QueueResize()
+		attempt, action := wv.preparePendingBrowserCreateObservedSizeRetry(ctx, reason)
+		switch action {
+		case pendingBrowserCreateObservedSizeRetryUnavailable:
+			return false
+		case pendingBrowserCreateObservedSizeRetryAlreadyScheduled:
+			logging.FromContext(ctx).Debug().
+				Uint64("webview_id", uint64(wv.id)).
+				Int32("observed_width", observedWidth).
+				Int32("observed_height", observedHeight).
+				Int32("width", width).
+				Int32("height", height).
+				Int("attempt", attempt).
+				Str("reason", reason).
+				Msg("cef: pending browser creation retry already scheduled while awaiting bridge size")
+			return false
+		case pendingBrowserCreateObservedSizeRetryScheduled:
+			logging.FromContext(ctx).Debug().
+				Uint64("webview_id", uint64(wv.id)).
+				Int32("observed_width", observedWidth).
+				Int32("observed_height", observedHeight).
+				Int32("width", width).
+				Int32("height", height).
+				Int("attempt", attempt).
+				Int("max_attempts", pendingBrowserCreateObservedSizeMaxRetries).
+				Str("reason", reason).
+				Msg("cef: delaying pending browser creation until bridge observes widget size")
+			return false
+		case pendingBrowserCreateObservedSizeRetryProceedWithoutDelay:
+			// Creating the browser here is intentional: after bounded retries we
+			// fall back to the current GTK allocation rather than stalling popup
+			// creation.
+			logging.FromContext(ctx).Debug().
+				Uint64("webview_id", uint64(wv.id)).
+				Int32("observed_width", observedWidth).
+				Int32("observed_height", observedHeight).
+				Int32("width", width).
+				Int32("height", height).
+				Int("attempt", attempt).
+				Str("reason", reason).
+				Msg("cef: bridge size observation did not settle before browser creation; continuing")
+		}
+	}
+
+	if wv.shouldDeferPendingBrowserCreateFromViewportSync() {
+		logging.FromContext(ctx).Debug().
+			Uint64("webview_id", uint64(wv.id)).
+			Int32("width", width).
+			Int32("height", height).
+			Str("reason", reason).
+			Msg("cef: viewport sync deferred pending browser creation while awaiting native popup attach")
+		return false
+	}
+
 	if err := wv.viewBridge.PrepareOnGTKThread(); err != nil {
 		logging.FromContext(ctx).Debug().
 			Err(err).
@@ -193,6 +275,7 @@ func (wv *WebView) tryStartPendingBrowserCreateOnGTKThread(ctx context.Context, 
 		return false
 	}
 
+	wv.markInitialBrowserCreateResizeHandled()
 	wv.factory.postPendingBrowserCreate(ctx, wv, width, height)
 	logging.FromContext(ctx).Debug().
 		Uint64("webview_id", uint64(wv.id)).
@@ -201,6 +284,115 @@ func (wv *WebView) tryStartPendingBrowserCreateOnGTKThread(ctx context.Context, 
 		Str("reason", reason).
 		Msg("cef: viewport sync nudged pending browser creation")
 	return true
+}
+
+func (wv *WebView) shouldDeferPendingBrowserCreateFromViewportSync() bool {
+	return wv != nil && wv.awaitsNativePopupAttachment()
+}
+
+func pendingBrowserCreateObservedSize(bridge pendingBrowserCreateObservedSizeBridge, allocatedWidth, allocatedHeight int32) (observedWidth, observedHeight int32, ready bool) {
+	if bridge == nil {
+		return 0, 0, false
+	}
+	observedWidth, observedHeight = bridge.Size()
+	if observedViewportSizeReady(observedWidth, observedHeight, allocatedWidth, allocatedHeight) {
+		return observedWidth, observedHeight, true
+	}
+	observedWidth, observedHeight = bridge.RefreshObservedSizeOnGTKThread()
+	return observedWidth, observedHeight, observedViewportSizeReady(observedWidth, observedHeight, allocatedWidth, allocatedHeight)
+}
+
+// observedViewportSizeReady reports whether observedWidth/observedHeight match
+// allocatedWidth/allocatedHeight within a ±1px tolerance.
+//
+// Fallback observed sizes (<=1) and non-positive allocated dimensions are
+// treated as not ready.
+func observedViewportSizeReady(observedWidth, observedHeight, allocatedWidth, allocatedHeight int32) bool {
+	if allocatedWidth <= 0 || allocatedHeight <= 0 {
+		return false
+	}
+	if observedWidth <= 1 || observedHeight <= 1 {
+		return false
+	}
+	return abs32(observedWidth-allocatedWidth) <= 1 && abs32(observedHeight-allocatedHeight) <= 1
+}
+
+// abs32 returns the absolute value of v.
+func abs32(v int32) int32 {
+	if v < 0 {
+		return -v
+	}
+	return v
+}
+
+// preparePendingBrowserCreateObservedSizeRetry updates the observed-size retry
+// state machine for a pending browser create.
+//
+// It returns the current attempt count and the resulting action. Scheduling is
+// coalesced so only one delayed retry is pending at a time, while the max-retry
+// path proceeds without leaving the scheduled flag set.
+func (wv *WebView) preparePendingBrowserCreateObservedSizeRetry(ctx context.Context, reason string) (attempt int, action pendingBrowserCreateObservedSizeRetryAction) {
+	if wv == nil {
+		return 0, pendingBrowserCreateObservedSizeRetryUnavailable
+	}
+
+	shouldSchedule := false
+	wv.mu.Lock()
+	if wv.pendingCreate == nil {
+		wv.mu.Unlock()
+		return 0, pendingBrowserCreateObservedSizeRetryUnavailable
+	}
+	if wv.pendingCreate.observedSizeRetryScheduled {
+		attempt = wv.pendingCreate.observedSizeRetries
+		wv.mu.Unlock()
+		return attempt, pendingBrowserCreateObservedSizeRetryAlreadyScheduled
+	}
+	wv.pendingCreate.observedSizeRetries++
+	attempt = wv.pendingCreate.observedSizeRetries
+	if attempt <= pendingBrowserCreateObservedSizeMaxRetries {
+		wv.pendingCreate.observedSizeRetryScheduled = true
+		shouldSchedule = true
+	}
+	wv.mu.Unlock()
+
+	if !shouldSchedule {
+		return attempt, pendingBrowserCreateObservedSizeRetryProceedWithoutDelay
+	}
+	wv.schedulePendingBrowserCreateObservedSizeRetry(ctx, reason)
+	return attempt, pendingBrowserCreateObservedSizeRetryScheduled
+}
+
+// clearPendingBrowserCreateObservedSizeRetry clears the scheduled-retry flag
+// so a future observed-size reservation can schedule another attempt.
+func (wv *WebView) clearPendingBrowserCreateObservedSizeRetry() {
+	if wv == nil {
+		return
+	}
+	wv.mu.Lock()
+	defer wv.mu.Unlock()
+	if wv.pendingCreate != nil {
+		wv.pendingCreate.observedSizeRetryScheduled = false
+	}
+}
+
+// schedulePendingBrowserCreateObservedSizeRetry schedules a delayed viewport
+// sync retry using ctx after pendingBrowserCreateObservedSizeRetryDelay.
+//
+// It clears the scheduled flag before re-invoking syncViewportNowOnGTK with a
+// retry-specific suffix appended to reason.
+func (wv *WebView) schedulePendingBrowserCreateObservedSizeRetry(ctx context.Context, reason string) {
+	if wv == nil || wv.destroyed.Load() {
+		return
+	}
+	cefScheduleAfter(pendingBrowserCreateObservedSizeRetryDelay, func() {
+		if wv == nil || wv.destroyed.Load() {
+			return
+		}
+		wv.clearPendingBrowserCreateObservedSizeRetry()
+		wv.runOnGTK(func() {
+			wv.syncViewportNowOnGTK(ctx, reason+"-await-observed-size")
+		})
+	})
 }
 
 func (wv *WebView) installViewportSyncHooks() {

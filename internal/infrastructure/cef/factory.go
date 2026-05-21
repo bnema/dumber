@@ -160,13 +160,13 @@ func (f *WebViewFactory) configureInitialBrowserCreation(
 	if wv.viewBridge == nil {
 		return
 	}
-	browserCreateScheduled := false
 	wv.runOnGTKSync(func() {
 		wv.removeSizeObserver = wv.viewBridge.AddSizeObserver(func(w, h int32) {
-			// Size observers run on the GTK thread. Prepare the GtkGLArea only after it
-			// has been packed and allocated; preparing at WebView construction time can
-			// run before GTK has created a GL context.
-			if !browserCreateScheduled {
+			// Size observers run on the GTK thread. Prepare the GtkGLArea only for
+			// the one-shot initial resize path; once that path has been consumed,
+			// later size events must go through normal viewport sync even if popup
+			// attachment keeps pendingCreate alive a little longer.
+			if wv.shouldStartBrowserCreateFromSizeObserver() {
 				if err := wv.viewBridge.PrepareOnGTKThread(); err != nil {
 					logging.FromContext(ctx).Warn().
 						Err(err).
@@ -176,7 +176,7 @@ func (f *WebViewFactory) configureInitialBrowserCreation(
 						Msg("cef: cef2gtk view not ready after resize, will retry")
 					return
 				}
-				browserCreateScheduled = true
+				wv.markInitialBrowserCreateResizeHandled()
 				onFirstResize(w, h)
 				return
 			}

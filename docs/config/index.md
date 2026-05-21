@@ -192,7 +192,7 @@ border = "#363636"
 | `engine.cef.render_stack` | string | `"vulkan"` | `vulkan`, `egl` | CEF GPU render stack |
 | `engine.cef.adaptive_windowless_frame_rate` | bool | `true` | - | Enable adaptive CEF OSR FPS polling (only applies when `windowless_frame_rate = 0`) |
 | `engine.cef.windowless_frame_rate` | int32 | `0` | >= 0 | Explicit CEF OSR FPS cap; 0 uses adaptive mode if enabled, otherwise CEF default |
-| `engine.cef.windowless_frame_rate_max` | int32 | `240` | >= 0 | Hard cap for adaptive CEF OSR FPS; 0 uses the built-in default cap |
+| `engine.cef.windowless_frame_rate_max` | int32 | `240` | >= 0 | Hard cap for adaptive CEF OSR FPS; 0 falls back to the built-in default cap selected by Dumber/CEF |
 | `default_ui_scale` | float | `1.0` | > 0 | GTK widget UI scale (1.0=100%, 2.0=200%) |
 | `default_webpage_zoom` | float | `1.2` | > 0 | Default page zoom (1.0=100%, 1.2=120%) |
 

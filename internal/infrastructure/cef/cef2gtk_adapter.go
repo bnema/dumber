@@ -165,6 +165,21 @@ func (a *Cef2gtkAdapter) SetCursorFromName(name string) {
 	a.view.SetCursorFromName(name)
 }
 
+// RefreshObservedSizeOnGTKThread synchronously refreshes the bridge's cached
+// observed size from the current GTK allocation. Must be called on the GTK
+// main thread.
+func (a *Cef2gtkAdapter) RefreshObservedSizeOnGTKThread() (int32, int32) {
+	if a == nil || a.destroyed.Load() {
+		return 1, 1
+	}
+	a.viewMu.RLock()
+	defer a.viewMu.RUnlock()
+	if a.view == nil {
+		return 1, 1
+	}
+	return a.view.RefreshObservedSizeOnGTKThread()
+}
+
 // PrepareOnGTKThread initializes renderer resources owned by purego-cef2gtk.
 // Must be called on the GTK main thread.
 func (a *Cef2gtkAdapter) PrepareOnGTKThread() error {

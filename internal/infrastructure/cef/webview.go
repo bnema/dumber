@@ -116,6 +116,10 @@ type WebView struct {
 
 	// pendingCreate holds browser creation params until the GL area is realized.
 	pendingCreate *pendingBrowserCreate
+	// initialBrowserCreateResizeHandled gates the one-shot onFirstResize path so
+	// later size observer events fall through to normal viewport sync even when
+	// browser creation started from another GTK lifecycle path.
+	initialBrowserCreateResizeHandled bool
 
 	// pendingURI is set when LoadURI is called before the browser exists.
 	pendingURI string
@@ -211,11 +215,13 @@ type WebView struct {
 // pendingBrowserCreate holds the parameters needed to create a CEF browser,
 // deferred until the GL area has a non-zero size.
 type pendingBrowserCreate struct {
-	windowInfo      *purecef.WindowInfo
-	client          purecef.RawClient
-	settings        *purecef.BrowserSettings
-	extraInfo       purecef.DictionaryValue
-	postTaskRetries int
+	windowInfo                 *purecef.WindowInfo
+	client                     purecef.RawClient
+	settings                   *purecef.BrowserSettings
+	extraInfo                  purecef.DictionaryValue
+	postTaskRetries            int
+	observedSizeRetries        int
+	observedSizeRetryScheduled bool
 }
 
 type cefTaskFunc func()
@@ -1858,6 +1864,24 @@ func (wv *WebView) runNavigationCallbacks(uri string) {
 			}
 		}
 	})
+}
+
+func (wv *WebView) shouldStartBrowserCreateFromSizeObserver() bool {
+	if wv == nil {
+		return false
+	}
+	wv.mu.RLock()
+	defer wv.mu.RUnlock()
+	return wv.pendingCreate != nil && !wv.initialBrowserCreateResizeHandled
+}
+
+func (wv *WebView) markInitialBrowserCreateResizeHandled() {
+	if wv == nil {
+		return
+	}
+	wv.mu.Lock()
+	defer wv.mu.Unlock()
+	wv.initialBrowserCreateResizeHandled = true
 }
 
 func (wv *WebView) takePendingCreate() *pendingBrowserCreate {
