@@ -79,6 +79,8 @@ type WebView struct {
 	host                      purecef.BrowserHost
 	client                    purecef.RawClient // prevent GC from collecting the client before CEF AddRef's it
 	viewBridge                *Cef2gtkAdapter
+	popupSurface              *popupBridgeSurface
+	nativeWidget              *gtk.Widget
 	handlers                  *handlerSet
 	findCtrl                  *cefFindController
 	profileCleanup            func()
@@ -1156,9 +1158,14 @@ func (wv *WebView) destroyViewBridgeOnGTKThread() {
 		wv.removeSizeObserver = nil
 	}
 	wv.disconnectViewportSyncHooksOnGTKThread()
+	if wv.popupSurface != nil {
+		wv.popupSurface.DestroyOnGTKThread()
+		wv.popupSurface = nil
+	}
 	_ = wv.viewBridge.DetachInput()
 	_ = wv.viewBridge.Destroy()
 	wv.viewBridge = nil
+	wv.nativeWidget = nil
 }
 
 // ---------------------------------------------------------------------------
@@ -1167,12 +1174,15 @@ func (wv *WebView) destroyViewBridgeOnGTKThread() {
 
 // NativeWidget returns the uintptr for embedding the bridge GTK widget.
 func (wv *WebView) NativeWidget() uintptr {
-	if wv.viewBridge == nil {
+	if wv == nil {
 		return 0
 	}
 	var ptr uintptr
 	wv.runOnGTKSync(func() {
-		if wv.viewBridge != nil {
+		switch {
+		case wv.nativeWidget != nil:
+			ptr = wv.nativeWidget.GoPointer()
+		case wv.viewBridge != nil:
 			ptr = wv.viewBridge.NativeWidget()
 		}
 	})
