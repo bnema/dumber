@@ -25,10 +25,11 @@ var ErrAdapterDestroyed = errors.New("cef2gtk_adapter: adapter is destroyed")
 // The adapter does NOT own GL/PBO staging, dirty-rect uploads, or GTK input
 // controller implementation — those belong to purego-cef2gtk.
 type Cef2gtkAdapter struct {
-	viewMu     sync.RWMutex
-	view       *cef2gtk.View
-	destroyed  atomic.Bool
-	destroyCnt atomic.Uint64
+	viewMu            sync.RWMutex
+	view              *cef2gtk.View
+	inputTargetWidget *gtk.Widget
+	destroyed         atomic.Bool
+	destroyCnt        atomic.Uint64
 }
 
 // NewCef2gtkAdapter creates an accelerated CEF view and wraps it in a thin
@@ -137,8 +138,8 @@ func (a *Cef2gtkAdapter) AddSizeObserver(fn func(width, height int32)) func() {
 	return a.view.AddSizeObserver(fn)
 }
 
-// HasFocus reports whether the bridge widget currently has GTK focus. Must be
-// called on the GTK main thread.
+// HasFocus reports whether the effective GTK input target currently has focus.
+// Must be called on the GTK main thread.
 func (a *Cef2gtkAdapter) HasFocus() bool {
 	if a == nil || a.destroyed.Load() {
 		return false
@@ -147,6 +148,9 @@ func (a *Cef2gtkAdapter) HasFocus() bool {
 	defer a.viewMu.RUnlock()
 	if a.view == nil {
 		return false
+	}
+	if a.inputTargetWidget != nil {
+		return a.inputTargetWidget.HasFocus()
 	}
 	return a.view.HasFocus()
 }
@@ -243,15 +247,41 @@ func (a *Cef2gtkAdapter) RecordExternalBeginFrameSent() {
 //
 // opts.Scale configures HiDPI scale for pointer coordinate translation.
 func (a *Cef2gtkAdapter) AttachInput(host purecef.BrowserHost, opts cef2gtk.InputOptions) error {
+	return a.AttachInputToWidget(host, nil, opts)
+}
+
+// AttachInputToWidget attaches GTK event controllers to the specified target
+// widget and forwards input to the given CEF browser host. When targetWidget is
+// nil, it falls back to the bridge render widget. Must be called on the GTK
+// main thread.
+func (a *Cef2gtkAdapter) AttachInputToWidget(host purecef.BrowserHost, targetWidget *gtk.Widget, opts cef2gtk.InputOptions) error {
 	if a == nil || a.destroyed.Load() {
 		return ErrAdapterDestroyed
 	}
-	a.viewMu.RLock()
-	defer a.viewMu.RUnlock()
+	a.viewMu.Lock()
+	defer a.viewMu.Unlock()
 	if a.view == nil {
 		return ErrAdapterDestroyed
 	}
-	return a.view.AttachInput(host, opts)
+	effectiveTarget := targetWidget
+	if effectiveTarget == nil {
+		effectiveTarget = a.view.Widget()
+	}
+	type inputWidgetAttacher interface {
+		AttachInputToWidget(purecef.BrowserHost, *gtk.Widget, cef2gtk.InputOptions) error
+	}
+	var err error
+	if attacher, ok := any(a.view).(inputWidgetAttacher); ok {
+		err = attacher.AttachInputToWidget(host, effectiveTarget, opts)
+	} else {
+		err = a.view.AttachInput(host, opts)
+	}
+	if err != nil {
+		a.inputTargetWidget = nil
+		return err
+	}
+	a.inputTargetWidget = effectiveTarget
+	return nil
 }
 
 // SetInputHost updates the CEF browser host used by the attached input bridge.
@@ -275,12 +305,14 @@ func (a *Cef2gtkAdapter) DetachInput() error {
 	if a == nil || a.destroyed.Load() {
 		return ErrAdapterDestroyed
 	}
-	a.viewMu.RLock()
-	defer a.viewMu.RUnlock()
+	a.viewMu.Lock()
+	defer a.viewMu.Unlock()
 	if a.view == nil {
 		return ErrAdapterDestroyed
 	}
-	return a.view.DetachInput()
+	err := a.view.DetachInput()
+	a.inputTargetWidget = nil
+	return err
 }
 
 // Diagnostics returns a point-in-time snapshot of bridge rendering diagnostics
@@ -311,6 +343,7 @@ func (a *Cef2gtkAdapter) Destroy() error {
 	}
 	err := a.view.Destroy()
 	a.view = nil
+	a.inputTargetWidget = nil
 	a.destroyCnt.Add(1)
 	return err
 }

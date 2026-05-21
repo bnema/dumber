@@ -6,7 +6,6 @@ import (
 	"sync"
 
 	purecef "github.com/bnema/purego-cef/cef"
-	cef2gtk "github.com/bnema/purego-cef2gtk"
 
 	"github.com/bnema/dumber/internal/application/dto"
 	"github.com/bnema/dumber/internal/application/port"
@@ -640,18 +639,7 @@ func (h *handlerSet) attachAfterCreatedBrowser(
 				wv.handleInputAttachFailure(ErrAdapterDestroyed, host)
 				return
 			}
-			if err := wv.viewBridge.AttachInput(host, cef2gtk.InputOptions{
-				Scale: 0,
-				OnMiddleClick: func(_, _ float64) bool {
-					return wv.handleMiddleClickFromBridge()
-				},
-				SelectionText: wv.selectedTextSnapshot,
-				OnClipboardShortcut: func(action, text string) {
-					if wv.engine != nil {
-						wv.engine.handleExplicitClipboardBridgeText(wv.id, action, text)
-					}
-				},
-			}); err != nil {
+			if err := wv.viewBridge.AttachInputToWidget(host, wv.nativeWidget, wv.bridgeInputOptions()); err != nil {
 				wv.handleInputAttachFailure(err, host)
 				return
 			}

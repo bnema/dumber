@@ -61,8 +61,9 @@ func newPopupBridgeSurface(ctx context.Context, mainWidget *gtk.Widget, plan cef
 	root := &overlay.Widget
 	root.SetHexpand(true)
 	root.SetVexpand(true)
+	root.SetCanFocus(true)
+	root.SetFocusable(true)
 	root.SetFocusOnClick(true)
-	root.SetFocusChild(mainWidget)
 	return &popupBridgeSurface{
 		ctx:         ctx,
 		root:        root,

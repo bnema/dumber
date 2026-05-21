@@ -27,26 +27,13 @@ type gtkWidget struct {
 	inner *gtk.Widget
 }
 
-func (w *gtkWidget) Show()                      { w.inner.Show() }
-func (w *gtkWidget) Hide()                      { w.inner.Hide() }
-func (w *gtkWidget) SetVisible(visible bool)    { w.inner.SetVisible(visible) }
-func (w *gtkWidget) IsVisible() bool            { return w.inner.GetVisible() }
-func (w *gtkWidget) SetOpacity(opacity float64) { w.inner.SetOpacity(opacity) }
-func (w *gtkWidget) GrabFocus() bool {
-	if focusChild := gtkWidgetFocusChild(w.inner); focusChild != nil && focusChild.GrabFocus() {
-		return true
-	}
-	return w.inner.GrabFocus()
-}
-func (w *gtkWidget) HasFocus() bool {
-	if w.inner.HasFocus() {
-		return true
-	}
-	if focusChild := gtkWidgetFocusChild(w.inner); focusChild != nil {
-		return focusChild.HasFocus()
-	}
-	return false
-}
+func (w *gtkWidget) Show()                         { w.inner.Show() }
+func (w *gtkWidget) Hide()                         { w.inner.Hide() }
+func (w *gtkWidget) SetVisible(visible bool)       { w.inner.SetVisible(visible) }
+func (w *gtkWidget) IsVisible() bool               { return w.inner.GetVisible() }
+func (w *gtkWidget) SetOpacity(opacity float64)    { w.inner.SetOpacity(opacity) }
+func (w *gtkWidget) GrabFocus() bool               { return w.inner.GrabFocus() }
+func (w *gtkWidget) HasFocus() bool                { return w.inner.HasFocus() }
 func (w *gtkWidget) SetCanFocus(canFocus bool)     { w.inner.SetCanFocus(canFocus) }
 func (w *gtkWidget) SetFocusable(focusable bool)   { w.inner.SetFocusable(focusable) }
 func (w *gtkWidget) SetFocusOnClick(focus bool)    { w.inner.SetFocusOnClick(focus) }
@@ -90,17 +77,6 @@ func (w *gtkWidget) ComputePoint(target Widget) (x, y float64, ok bool) {
 		return 0, 0, false
 	}
 	return float64(outPoint.X), float64(outPoint.Y), true
-}
-
-func gtkWidgetFocusChild(widget *gtk.Widget) *gtk.Widget {
-	if widget == nil {
-		return nil
-	}
-	focusChild := widget.GetFocusChild()
-	if focusChild == nil || focusChild.GoPointer() == widget.GoPointer() {
-		return nil
-	}
-	return focusChild
 }
 
 // gtkPaned wraps gtk.Paned to implement PanedWidget.

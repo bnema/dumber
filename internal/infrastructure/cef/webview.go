@@ -1413,6 +1413,24 @@ func (wv *WebView) selectedTextSnapshot() string {
 	return wv.selectedText
 }
 
+func (wv *WebView) bridgeInputOptions() cef2gtk.InputOptions {
+	if wv == nil {
+		return cef2gtk.InputOptions{}
+	}
+	return cef2gtk.InputOptions{
+		Scale: 0,
+		OnMiddleClick: func(_, _ float64) bool {
+			return wv.handleMiddleClickFromBridge()
+		},
+		SelectionText: wv.selectedTextSnapshot,
+		OnClipboardShortcut: func(action, text string) {
+			if wv.engine != nil {
+				wv.engine.handleExplicitClipboardBridgeText(wv.id, action, text)
+			}
+		},
+	}
+}
+
 func (wv *WebView) viewBridgeScale() float64 {
 	if wv == nil || wv.viewBridge == nil {
 		return 1
