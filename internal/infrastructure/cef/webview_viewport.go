@@ -291,7 +291,10 @@ func (wv *WebView) shouldDeferPendingBrowserCreateFromViewportSync() bool {
 	return wv != nil && wv.awaitsNativePopupAttachment()
 }
 
-func pendingBrowserCreateObservedSize(bridge pendingBrowserCreateObservedSizeBridge, allocatedWidth, allocatedHeight int32) (observedWidth, observedHeight int32, ready bool) {
+func pendingBrowserCreateObservedSize(
+	bridge pendingBrowserCreateObservedSizeBridge,
+	allocatedWidth, allocatedHeight int32,
+) (observedWidth, observedHeight int32, ready bool) {
 	if bridge == nil {
 		return 0, 0, false
 	}
@@ -332,7 +335,10 @@ func abs32(v int32) int32 {
 // It returns the current attempt count and the resulting action. Scheduling is
 // coalesced so only one delayed retry is pending at a time, while the max-retry
 // path proceeds without leaving the scheduled flag set.
-func (wv *WebView) preparePendingBrowserCreateObservedSizeRetry(ctx context.Context, reason string) (attempt int, action pendingBrowserCreateObservedSizeRetryAction) {
+func (wv *WebView) preparePendingBrowserCreateObservedSizeRetry(
+	ctx context.Context,
+	reason string,
+) (attempt int, action pendingBrowserCreateObservedSizeRetryAction) {
 	if wv == nil {
 		return 0, pendingBrowserCreateObservedSizeRetryUnavailable
 	}

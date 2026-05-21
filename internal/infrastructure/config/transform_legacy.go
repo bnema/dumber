@@ -49,7 +49,10 @@ func (t *LegacyConfigTransformer) TransformLegacyEngineConfig(rawConfig map[stri
 	t.transformLegacyEngineConfig(rawConfig, hasAdaptive, adaptiveEnabled)
 }
 
-func (t *LegacyConfigTransformer) TransformLegacyEngineConfigWithExplicitAdaptive(rawConfig map[string]any, hasAdaptive bool, adaptiveEnabled bool) {
+func (t *LegacyConfigTransformer) TransformLegacyEngineConfigWithExplicitAdaptive(
+	rawConfig map[string]any,
+	hasAdaptive, adaptiveEnabled bool,
+) {
 	t.transformLegacyEngineConfig(rawConfig, hasAdaptive, adaptiveEnabled)
 }
 
@@ -91,8 +94,8 @@ func nestedConfigBoolValue(rawConfig map[string]any, path ...string) (bool, bool
 			return false, false
 		}
 		if i == len(path)-1 {
-			parsed, ok := value.(bool)
-			return parsed, ok
+			parsed, parsedOK := value.(bool)
+			return parsed, parsedOK
 		}
 		next, ok := value.(map[string]any)
 		if !ok {

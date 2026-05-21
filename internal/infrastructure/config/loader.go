@@ -159,7 +159,11 @@ func (m *Manager) transformLegacyConfig() {
 	rawConfig := m.viper.AllSettings()
 	transformer := NewLegacyConfigTransformer()
 	transformer.TransformLegacyActions(rawConfig)
-	transformer.TransformLegacyEngineConfigWithExplicitAdaptive(rawConfig, m.hasExplicitAdaptiveWindowlessFrameRateSetting(), m.viper.GetBool("engine.cef.adaptive_windowless_frame_rate"))
+	transformer.TransformLegacyEngineConfigWithExplicitAdaptive(
+		rawConfig,
+		m.hasExplicitAdaptiveWindowlessFrameRateSetting(),
+		m.viper.GetBool("engine.cef.adaptive_windowless_frame_rate"),
+	)
 
 	// AllSettings includes defaults, so workspace.browsing_contexts may already be
 	// present even when the user only configured legacy workspace.popups. Always
