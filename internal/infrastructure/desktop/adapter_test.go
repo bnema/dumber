@@ -1,6 +1,7 @@
 package desktop
 
 import (
+	"context"
 	"errors"
 	"os"
 	"os/exec"
@@ -8,6 +9,9 @@ import (
 	"strings"
 	"testing"
 	"time"
+
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 
 	"github.com/bnema/dumber/internal/domain/entity"
 )
@@ -214,6 +218,57 @@ func TestLaunchBrowserBrowseURL_SpawnErrorDoesNotLeakURL(t *testing.T) {
 	if strings.Contains(err.Error(), "token=secret") || strings.Contains(err.Error(), "https://example.com") {
 		t.Fatalf("expected error to redact URL, got %q", err)
 	}
+}
+
+func TestSetAsDefaultBrowserAlsoUpdatesMimeHandlers(t *testing.T) {
+	t.Setenv("HOME", t.TempDir())
+	t.Setenv("XDG_DATA_HOME", filepath.Join(os.Getenv("HOME"), ".local", "share"))
+
+	desktopPath, err := getDesktopFilePath()
+	require.NoError(t, err)
+	require.NoError(t, os.MkdirAll(filepath.Dir(desktopPath), 0o755))
+	require.NoError(t, os.WriteFile(desktopPath, []byte(desktopFileTemplate), 0o644))
+
+	binDir := t.TempDir()
+	logPath := filepath.Join(binDir, "commands.log")
+
+	xdgSettingsPath := writeExecutable(t, filepath.Join(binDir, "xdg-settings"), "#!/bin/sh\necho \"$@\" >> \""+logPath+"\"\n")
+	xdgMimePath := writeExecutable(t, filepath.Join(binDir, "xdg-mime"), "#!/bin/sh\necho \"$@\" >> \""+logPath+"\"\n")
+
+	a := &Adapter{xdgSettingsPath: xdgSettingsPath, xdgMimePath: xdgMimePath}
+	desktopFile := a.findDesktopFile(context.Background())
+	require.NotEmpty(t, desktopFile)
+
+	err = a.SetAsDefaultBrowser(context.Background())
+	require.NoError(t, err)
+
+	logged, err := os.ReadFile(logPath)
+	require.NoError(t, err)
+	commands := strings.Split(strings.TrimSpace(string(logged)), "\n")
+
+	assert.Contains(t, commands, "set default-web-browser "+desktopFile)
+	assert.Contains(t, commands, "default "+desktopFile+" x-scheme-handler/http x-scheme-handler/https text/html text/xml application/xhtml+xml")
+}
+
+func TestGetStatusRequiresBrowserLinkMimeHandlersToMatch(t *testing.T) {
+	t.Setenv("HOME", t.TempDir())
+	t.Setenv("XDG_DATA_HOME", filepath.Join(os.Getenv("HOME"), ".local", "share"))
+
+	binDir := t.TempDir()
+	xdgSettingsPath := writeExecutable(t, filepath.Join(binDir, "xdg-settings"), "#!/bin/sh\nif [ \"$1\" = \"get\" ]; then\n  echo dumber.desktop\nfi\n")
+	xdgMimePath := writeExecutable(t, filepath.Join(binDir, "xdg-mime"), "#!/bin/sh\nif [ \"$1\" = \"query\" ]; then\n  if [ \"$3\" = \"x-scheme-handler/http\" ]; then\n    echo zen.desktop\n  else\n    echo dumber.desktop\n  fi\nfi\n")
+
+	a := &Adapter{xdgSettingsPath: xdgSettingsPath, xdgMimePath: xdgMimePath}
+
+	status, err := a.GetStatus(context.Background())
+	require.NoError(t, err)
+	assert.False(t, status.IsDefaultBrowser)
+}
+
+func writeExecutable(t *testing.T, path, content string) string {
+	t.Helper()
+	require.NoError(t, os.WriteFile(path, []byte(content), 0o755))
+	return path
 }
 
 func requireNoError(t *testing.T, err error) {
