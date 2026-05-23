@@ -43,6 +43,7 @@ StartupWMClass=dumber
 // Adapter implements port.DesktopIntegration using XDG tools.
 type Adapter struct {
 	xdgSettingsPath string
+	xdgMimePath     string
 	updateDesktopDB string
 }
 
@@ -53,6 +54,11 @@ func New() port.DesktopIntegration {
 	// Detect xdg-settings
 	if path, err := exec.LookPath("xdg-settings"); err == nil {
 		a.xdgSettingsPath = path
+	}
+
+	// Detect xdg-mime
+	if path, err := exec.LookPath("xdg-mime"); err == nil {
+		a.xdgMimePath = path
 	}
 
 	// Detect update-desktop-database (optional)
@@ -160,6 +166,10 @@ func (a *Adapter) GetStatus(ctx context.Context) (*port.DesktopIntegrationStatus
 			currentDefault := strings.TrimSpace(string(out))
 			status.IsDefaultBrowser = currentDefault == desktopFileName || currentDefault == packageDesktopFileName
 		}
+	}
+
+	if status.IsDefaultBrowser && a.xdgMimePath != "" {
+		status.IsDefaultBrowser = a.hasDefaultBrowserLinkHandlers(ctx)
 	}
 
 	log.Debug().
@@ -320,12 +330,55 @@ func (a *Adapter) SetAsDefaultBrowser(ctx context.Context) error {
 		return fmt.Errorf("xdg-settings failed: %s", strings.TrimSpace(string(out)))
 	}
 
+	if a.xdgMimePath != "" {
+		mimeArgs := []string{"default", desktopFile}
+		mimeArgs = append(mimeArgs, browserMimeTypes()...)
+		cmd = exec.CommandContext(ctx, a.xdgMimePath, mimeArgs...)
+		if out, err := cmd.CombinedOutput(); err != nil {
+			return fmt.Errorf("xdg-mime failed: %w: %s", err, strings.TrimSpace(string(out)))
+		}
+	}
+
 	log.Info().Str("desktop_file", desktopFile).Msg("dumber set as default browser")
 	return nil
 }
 
 // findDesktopFile returns the desktop file name to use for default browser setting.
 // Checks system paths first (AUR/Flatpak), then user path (manual install).
+func browserMimeTypes() []string {
+	return []string{
+		"x-scheme-handler/http",
+		"x-scheme-handler/https",
+		"text/html",
+		"text/xml",
+		"application/xhtml+xml",
+	}
+}
+
+func browserLinkMimeTypes() []string {
+	return []string{
+		"x-scheme-handler/http",
+		"x-scheme-handler/https",
+		"text/html",
+	}
+}
+
+func (a *Adapter) hasDefaultBrowserLinkHandlers(ctx context.Context) bool {
+	for _, mimeType := range browserLinkMimeTypes() {
+		out, err := exec.CommandContext(ctx, a.xdgMimePath, "query", "default", mimeType).Output()
+		if err != nil {
+			return false
+		}
+
+		currentDefault := strings.TrimSpace(string(out))
+		if currentDefault != desktopFileName && currentDefault != packageDesktopFileName {
+			return false
+		}
+	}
+
+	return true
+}
+
 func (a *Adapter) findDesktopFile(ctx context.Context) string {
 	log := logging.FromContext(ctx)
 
