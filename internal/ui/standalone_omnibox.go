@@ -2,6 +2,7 @@ package ui
 
 import (
 	"context"
+	"fmt"
 	"os"
 	"strings"
 
@@ -154,14 +155,18 @@ func goTestFlagConsumesNextArg(arg string) bool {
 	}
 }
 
-func wrapStandaloneOmniboxNavigate(original func(string), quit func()) func(string) {
-	return func(url string) {
-		if original != nil {
-			original(url)
+func wrapStandaloneOmniboxNavigate(original func(context.Context, string) error, quit func()) func(context.Context, string) error {
+	return func(ctx context.Context, url string) error {
+		if original == nil {
+			return fmt.Errorf("standalone omnibox navigate handler is not configured")
+		}
+		if err := original(ctx, url); err != nil {
+			return err
 		}
 		if quit != nil {
 			quit()
 		}
+		return nil
 	}
 }
 

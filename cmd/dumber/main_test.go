@@ -9,6 +9,7 @@ import (
 	"github.com/bnema/dumber/internal/bootstrap"
 	"github.com/bnema/dumber/internal/infrastructure/colorscheme"
 	"github.com/bnema/dumber/internal/infrastructure/config"
+	"github.com/bnema/dumber/internal/infrastructure/desktop"
 )
 
 func TestLaunchModeFromArgs_DetectsStandaloneOmnibox(t *testing.T) {
@@ -235,6 +236,42 @@ func TestTryForwardBrowseURLToRunningInstance_ReturnsFalseOnRelayMiss(t *testing
 	}
 	if forwarded {
 		t.Fatal("expected browse URL to remain unforwarded")
+	}
+}
+
+func TestTryForwardBrowseURLToRunningInstance_ReturnsTrueOnUnconfirmedRelayDelivery(t *testing.T) {
+	relay := mocks.NewMockBrowserLaunchRelay(t)
+	relay.EXPECT().DeliverOpenFreshWindow(context.Background(), "https://example.com").Return(true, desktop.ErrBrowserLaunchRelayUnconfirmed)
+
+	forwarded, err := tryForwardBrowseURLToRunningInstance(context.Background(), relay, "https://example.com")
+
+	if err != nil {
+		t.Fatalf("expected no error, got %v", err)
+	}
+	if !forwarded {
+		t.Fatal("expected unconfirmed relay delivery to be treated as forwarded")
+	}
+}
+
+func TestLaunchStandaloneBrowserURL_TreatsUnconfirmedLaunchAsAccepted(t *testing.T) {
+	err := launchStandaloneBrowserURL(context.Background(), func(context.Context, string) error {
+		return desktop.ErrBrowserLaunchRelayUnconfirmed
+	}, "https://example.com")
+
+	if err != nil {
+		t.Fatalf("expected no error, got %v", err)
+	}
+}
+
+func TestLaunchStandaloneBrowserURL_PropagatesOtherErrors(t *testing.T) {
+	wantErr := errors.New("boom")
+
+	err := launchStandaloneBrowserURL(context.Background(), func(context.Context, string) error {
+		return wantErr
+	}, "https://example.com")
+
+	if !errors.Is(err, wantErr) {
+		t.Fatalf("expected error %v, got %v", wantErr, err)
 	}
 }
 

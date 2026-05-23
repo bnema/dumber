@@ -2,12 +2,16 @@ package desktop
 
 import (
 	"context"
+	"errors"
 	"fmt"
-	"os"
 	"os/exec"
 
 	"github.com/bnema/dumber/internal/application/port"
 )
+
+// ErrBrowserLaunchUnconfirmed reports that a running browser instance may have
+// received the request, but the caller could not confirm that in time.
+var ErrBrowserLaunchUnconfirmed = errors.New("browser launch could not be confirmed")
 
 // BrowserLauncher opens URLs in a relay-first dumber browser instance.
 type BrowserLauncher struct {
@@ -26,20 +30,26 @@ func NewBrowserLauncher(relay port.BrowserLaunchRelay) *BrowserLauncher {
 }
 
 // LaunchURL forwards the URL to a running instance when possible, otherwise spawns a new one.
-func (l *BrowserLauncher) LaunchURL(ctx context.Context, url string) {
+func (l *BrowserLauncher) LaunchURL(ctx context.Context, url string) error {
 	if l == nil {
-		return
+		return nil
 	}
 
 	if l.relay != nil {
 		delivered, err := l.relay.DeliverOpenFreshWindow(ctx, url)
 		if err != nil {
-			fmt.Fprintf(os.Stderr, "failed to forward dumber browser URL %q: %v\n", url, err)
+			if delivered && errors.Is(err, ErrBrowserLaunchRelayUnconfirmed) {
+				return ErrBrowserLaunchUnconfirmed
+			}
+			return fmt.Errorf("forward dumber browser URL %q: %w", url, err)
 		}
 		if delivered {
-			return
+			return nil
 		}
 	}
 
-	launchBrowserBrowseURL(url, l.resolveExecutablePath, l.startDetachedProcess)
+	if err := launchBrowserBrowseURL(url, l.resolveExecutablePath, l.startDetachedProcess); err != nil {
+		return fmt.Errorf("launch dumber browse for URL %q: %w", url, err)
+	}
+	return nil
 }

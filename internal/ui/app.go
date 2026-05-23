@@ -1290,7 +1290,7 @@ func (a *App) Cancel(ctx context.Context) {
 }
 
 type omniboxCallbacks struct {
-	OnNavigate         func(url string)
+	OnNavigate         func(ctx context.Context, url string) error
 	OnToast            func(ctx context.Context, message string, level component.ToastLevel)
 	OnFocusIn          func(entry *gtk.SearchEntry)
 	OnFocusOut         func()
@@ -1346,8 +1346,8 @@ func NewStandaloneOmniboxRuntime(
 	}
 
 	omniboxCfg := buildOmniboxConfig(deps, faviconAdapter, omniboxCallbacks{
-		OnNavigate: func(url string) {
-			handleStandaloneOmniboxNavigation(deps, ctx, url)
+		OnNavigate: func(navCtx context.Context, url string) error {
+			return handleStandaloneOmniboxNavigation(deps, navCtx, url)
 		},
 		OnToast: func(toastCtx context.Context, message string, level component.ToastLevel) {
 			logging.FromContext(toastCtx).Debug().Str("message", message).Int("level", int(level)).Msg("standalone omnibox toast")
@@ -1365,18 +1365,21 @@ func NewStandaloneOmniboxRuntime(
 	}}
 }
 
-func handleStandaloneOmniboxNavigation(deps *Dependencies, ctx context.Context, rawURL string) {
-	if urlutil.IsExternalScheme(rawURL) {
-		if deps != nil && deps.LaunchExternalURL != nil {
-			deps.LaunchExternalURL(rawURL)
-			return
-		}
-	} else if deps != nil && deps.LaunchBrowserURL != nil {
-		deps.LaunchBrowserURL(rawURL)
-		return
+func handleStandaloneOmniboxNavigation(deps *Dependencies, ctx context.Context, rawURL string) error {
+	if deps == nil {
+		return fmt.Errorf("standalone omnibox dependencies are not configured")
 	}
-
-	logging.FromContext(ctx).Info().Str("url", rawURL).Msg("standalone omnibox navigate submitted")
+	if urlutil.IsExternalScheme(rawURL) {
+		if deps.LaunchExternalURL == nil {
+			return fmt.Errorf("external launcher is not configured")
+		}
+		deps.LaunchExternalURL(rawURL)
+		return nil
+	}
+	if deps.LaunchBrowserURL == nil {
+		return fmt.Errorf("browser launcher is not configured")
+	}
+	return deps.LaunchBrowserURL(ctx, rawURL)
 }
 
 func (a *App) initOmniboxConfig(ctx context.Context) {
@@ -1384,12 +1387,12 @@ func (a *App) initOmniboxConfig(ctx context.Context) {
 		return
 	}
 
-	log := logging.FromContext(ctx)
 	a.omniboxCfg = buildOmniboxConfig(a.deps, a.faviconAdapter, omniboxCallbacks{
-		OnNavigate: func(url string) {
-			if err := a.navigateFromOmnibox(ctx, url); err != nil {
-				log.Error().Err(err).Str("url", url).Msg("navigation failed")
-			}
+		OnNavigate: func(navCtx context.Context, url string) error {
+			return a.navigateFromOmnibox(navCtx, url)
+		},
+		OnToast: func(toastCtx context.Context, message string, level component.ToastLevel) {
+			a.showToastOnLastFocusedBrowserWindow(toastCtx, message, level)
 		},
 		OnFocusIn: func(entry *gtk.SearchEntry) {
 			// Set omnibox entry as the focused input for accent picker
@@ -1413,7 +1416,7 @@ func (a *App) initOmniboxConfig(ctx context.Context) {
 		},
 	})
 	a.navCoord.SetOmniboxProvider(a)
-	log.Debug().Msg("omnibox config stored, provider set")
+	logging.FromContext(ctx).Debug().Msg("omnibox config stored, provider set")
 }
 
 func (a *App) initFindBarConfig(ctx context.Context) {
@@ -2128,15 +2131,12 @@ func omniboxNavigateForBrowserWindow(
 	ctx context.Context,
 	bw *browserWindow,
 	navigate func(context.Context, *browserWindow, string) error,
-) func(string) {
-	return func(url string) {
-		if err := navigate(ctx, bw, url); err != nil {
-			logging.FromContext(ctx).Error().
-				Err(err).
-				Str("url", url).
-				Str("window_id", bw.id).
-				Msg("omnibox navigation failed")
+) func(context.Context, string) error {
+	return func(navCtx context.Context, url string) error {
+		if navCtx == nil {
+			navCtx = ctx
 		}
+		return navigate(navCtx, bw, url)
 	}
 }
 
@@ -4368,13 +4368,14 @@ func (a *App) showFloatingOmnibox(ctx context.Context, session *floatingWorkspac
 
 	if session.omnibox == nil {
 		cfg := a.omniboxCfg
-		cfg.OnNavigate = func(url string) {
+		cfg.OnNavigate = func(navCtx context.Context, url string) error {
 			if session.pane == nil {
-				return
+				return fmt.Errorf("floating pane is not available")
 			}
-			if err := session.pane.Navigate(ctx, url); err != nil {
-				logging.FromContext(ctx).Error().Err(err).Str("url", url).Msg("floating omnibox navigation failed")
+			if navCtx == nil {
+				navCtx = ctx
 			}
+			return session.pane.Navigate(navCtx, url)
 		}
 		cfg.OnToast = func(toastCtx context.Context, message string, level component.ToastLevel) {
 			a.showToastOnLastFocusedBrowserWindow(toastCtx, message, level)

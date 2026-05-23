@@ -120,7 +120,7 @@ type Omnibox struct {
 	ctx                   context.Context
 
 	// Callbacks
-	onNavigate         func(url string)
+	onNavigate         func(ctx context.Context, url string) error
 	onClose            func()
 	onToast            func(ctx context.Context, message string, level ToastLevel)
 	onAccentKeyPress   func(keyval uint, state gdk.ModifierType) bool
@@ -164,14 +164,15 @@ type OmniboxConfig struct {
 	InitialBehavior     entity.OmniboxInitialBehavior
 	MostVisitedDays     int
 	SaveInitialBehavior func(ctx context.Context, behavior entity.OmniboxInitialBehavior) error
-	UIScale             float64                                                     // UI scale for favicon sizing
-	OnNavigate          func(url string)                                            // Callback when user navigates via omnibox
-	OnToast             func(ctx context.Context, message string, level ToastLevel) // Callback to show toast notification
-	OnFocusIn           func(entry *gtk.SearchEntry)                                // Callback when entry gains focus (for accent picker)
-	OnFocusOut          func()                                                      // Callback when entry loses focus
-	OnAccentKeyPress    func(keyval uint, state gdk.ModifierType) bool              // Long-press accent detection
-	OnAccentKeyRelease  func(keyval uint)                                           // Key release for accent cancel
-	SizeConfig          ModalSizeConfig                                             // Optional geometry override for omnibox sizing
+	UIScale             float64 // UI scale for favicon sizing
+	// OnNavigate is called when the user submits a URL; returning nil closes the omnibox.
+	OnNavigate         func(ctx context.Context, url string) error
+	OnToast            func(ctx context.Context, message string, level ToastLevel) // Callback to show toast notification
+	OnFocusIn          func(entry *gtk.SearchEntry)                                // Callback when entry gains focus (for accent picker)
+	OnFocusOut         func()                                                      // Callback when entry loses focus
+	OnAccentKeyPress   func(keyval uint, state gdk.ModifierType) bool              // Long-press accent detection
+	OnAccentKeyRelease func(keyval uint)                                           // Key release for accent cancel
+	SizeConfig         ModalSizeConfig                                             // Optional geometry override for omnibox sizing
 }
 
 // NewOmnibox creates a new native GTK4 omnibox widget.
@@ -771,9 +772,8 @@ func (o *Omnibox) initList() error {
 
 		targetURL := resolveTargetURLForSelection(mode, idx, o.effectiveMaxRows(), suggestions, favorites)
 
-		if targetURL != "" && o.onNavigate != nil {
-			o.Hide(o.ctx)
-			o.onNavigate(targetURL)
+		if targetURL != "" {
+			o.submitNavigation(targetURL)
 		}
 	}
 	o.retainedCallbacks = append(o.retainedCallbacks, rowActivatedCb)
@@ -2284,10 +2284,25 @@ func (o *Omnibox) selectAndNavigate(index int) {
 		return
 	}
 
-	o.Hide(o.ctx)
-	if o.onNavigate != nil {
-		o.onNavigate(targetURL)
+	o.submitNavigation(targetURL)
+}
+
+func (o *Omnibox) submitNavigation(targetURL string) {
+	if targetURL == "" {
+		return
 	}
+	if o.onNavigate == nil {
+		logging.FromContext(o.ctx).Warn().Msg("omnibox navigate handler is nil")
+		return
+	}
+	if err := o.onNavigate(o.ctx, targetURL); err != nil {
+		logging.FromContext(o.ctx).Error().Err(err).Msg("omnibox navigation failed")
+		if o.onToast != nil {
+			o.onToast(o.ctx, "Unable to open URL", ToastError)
+		}
+		return
+	}
+	o.Hide(o.ctx)
 }
 
 // navigateToSelected navigates to the currently selected item or typed URL.
@@ -2313,10 +2328,7 @@ func (o *Omnibox) navigateToSelected() {
 				if targetURL == "" {
 					return
 				}
-				o.Hide(o.ctx)
-				if o.onNavigate != nil {
-					o.onNavigate(targetURL)
-				}
+				o.submitNavigation(targetURL)
 				return
 			}
 		}
@@ -2342,11 +2354,7 @@ func (o *Omnibox) navigateToSelected() {
 		return
 	}
 
-	o.Hide(o.ctx)
-
-	if o.onNavigate != nil {
-		o.onNavigate(targetURL)
-	}
+	o.submitNavigation(targetURL)
 }
 
 func resolveTargetURLForSelection(mode ViewMode, idx, maxVisible int, suggestions []Suggestion, favorites []Favorite) string {
@@ -2780,7 +2788,7 @@ func (o *Omnibox) IsVisible() bool {
 }
 
 // SetOnNavigate sets the callback for URL navigation.
-func (o *Omnibox) SetOnNavigate(fn func(url string)) {
+func (o *Omnibox) SetOnNavigate(fn func(ctx context.Context, url string) error) {
 	o.onNavigate = fn
 }
 

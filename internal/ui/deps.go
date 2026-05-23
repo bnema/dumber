@@ -102,8 +102,9 @@ type Dependencies struct {
 	// Optional: if nil, external URLs are silently dropped.
 	LaunchExternalURL func(uri string)
 	// LaunchBrowserURL opens a URL in a new dumber browser window.
-	// Optional: if nil, standalone omnibox web navigations are logged only.
-	LaunchBrowserURL func(uri string)
+	// Returns an error when the launcher is unavailable or the launch fails.
+	// Optional: if nil, standalone omnibox navigation returns a configuration error.
+	LaunchBrowserURL func(ctx context.Context, uri string) error
 	// BrowserLaunchRelay listens for in-process browser launch requests.
 	BrowserLaunchRelay port.BrowserLaunchRelay
 }

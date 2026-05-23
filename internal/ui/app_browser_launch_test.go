@@ -214,7 +214,7 @@ func setWindowTabBar(t *testing.T, mw *window.MainWindow, tabBar *component.TabB
 	reflect.NewAt(fv.Type(), unsafe.Pointer(fv.UnsafeAddr())).Elem().Set(reflect.ValueOf(tabBar))
 }
 
-func omniboxNavigateCallbackForTest(t *testing.T, omnibox *component.Omnibox) func(string) {
+func omniboxNavigateCallbackForTest(t *testing.T, omnibox *component.Omnibox) func(context.Context, string) error {
 	t.Helper()
 	if omnibox == nil {
 		t.Fatal("omnibox is nil")
@@ -225,7 +225,7 @@ func omniboxNavigateCallbackForTest(t *testing.T, omnibox *component.Omnibox) fu
 	if !fv.IsValid() {
 		t.Fatal("Omnibox missing onNavigate field")
 	}
-	cb, ok := reflect.NewAt(fv.Type(), unsafe.Pointer(fv.UnsafeAddr())).Elem().Interface().(func(string))
+	cb, ok := reflect.NewAt(fv.Type(), unsafe.Pointer(fv.UnsafeAddr())).Elem().Interface().(func(context.Context, string) error)
 	if !ok || cb == nil {
 		t.Fatal("omnibox onNavigate callback is nil or has unexpected type")
 	}
@@ -2117,7 +2117,9 @@ func TestApp_OmniboxNavigateCallbackCapturesBrowserWindow(t *testing.T) {
 
 	ctx := context.Background()
 	cb := omniboxNavigateForBrowserWindow(ctx, second, testNavigate)
-	cb("https://google.com")
+	if err := cb(ctx, "https://google.com"); err != nil {
+		t.Fatalf("omnibox navigate callback returned error: %v", err)
+	}
 
 	if capturedBW != second {
 		capturedID := "<nil>"
@@ -2496,7 +2498,9 @@ func TestApp_WorkspaceOmniboxNavigateUsesOwnerWindow(t *testing.T) {
 	}
 	wsView.ShowOmnibox(ctx, "")
 	cb := omniboxNavigateCallbackForTest(t, wsView.GetOmnibox())
-	cb("https://example.com")
+	if err := cb(ctx, "https://example.com"); err != nil {
+		t.Fatalf("omnibox navigate callback returned error: %v", err)
+	}
 
 	if fakeWv1.loadURICalled {
 		t.Errorf("first window webview navigated to %q, want no navigation", fakeWv1.loadURILastURI)
@@ -2530,7 +2534,9 @@ func TestApp_FloatingOmniboxNavigateUsesSessionPane(t *testing.T) {
 
 	app.showFloatingOmnibox(ctx, session)
 	cb := omniboxNavigateCallbackForTest(t, session.omnibox)
-	cb("https://example.com")
+	if err := cb(ctx, "https://example.com"); err != nil {
+		t.Fatalf("floating omnibox navigate callback returned error: %v", err)
+	}
 
 	if loadedURL != "https://example.com" {
 		t.Fatalf("floating pane loaded URL = %q, want https://example.com", loadedURL)

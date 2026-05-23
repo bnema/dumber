@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"io"
 	"net"
+	neturl "net/url"
 	"os"
 	"path/filepath"
 	"sync"
@@ -20,9 +21,16 @@ import (
 
 const browserLaunchSocketName = "browser-launch.sock"
 
-const browserLaunchIOTimeout = 50 * time.Millisecond
+// Local browser-launch handoff needs enough headroom for a busy browser
+// process to accept and acknowledge the request before callers classify the
+// handoff as ambiguous.
+const browserLaunchIOTimeout = 250 * time.Millisecond
 
 const browserLaunchDirPerm = 0o700
+
+// ErrBrowserLaunchRelayUnconfirmed reports that the relay accepted a launch
+// request but the caller did not receive a confirmation response in time.
+var ErrBrowserLaunchRelayUnconfirmed = errors.New("browser launch relay did not confirm delivery")
 
 type browserLaunchRelay struct {
 	ipc runtimeprofile.IPCPaths
@@ -82,7 +90,11 @@ func (r *browserLaunchRelay) DeliverOpenFreshWindow(ctx context.Context, url str
 					return false, ctxErr
 				}
 				if _, ok := ctx.Deadline(); !ok {
-					return true, nil
+					logging.FromContext(ctx).Warn().
+						Str("url_host", safeURLHost(url)).
+						Dur("timeout", browserLaunchIOTimeout).
+						Msg("browser launch relay response timed out without caller deadline; delivery is unconfirmed")
+					return true, ErrBrowserLaunchRelayUnconfirmed
 				}
 				if deadlineErr := setBrowserLaunchConnDeadline(ctx, conn); deadlineErr != nil {
 					return false, deadlineErr
@@ -102,6 +114,14 @@ func (r *browserLaunchRelay) DeliverOpenFreshWindow(ctx context.Context, url str
 
 func isMissingRelayListener(err error) bool {
 	return os.IsNotExist(err) || errors.Is(err, syscall.ECONNREFUSED) || errors.Is(err, syscall.ENOENT)
+}
+
+func safeURLHost(raw string) string {
+	parsed, err := neturl.Parse(raw)
+	if err != nil {
+		return ""
+	}
+	return parsed.Host
 }
 
 func isBrowserLaunchReadTimeout(err error) bool {
