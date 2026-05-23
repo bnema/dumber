@@ -32,7 +32,7 @@ func NewBrowserLauncher(relay port.BrowserLaunchRelay) *BrowserLauncher {
 // LaunchURL forwards the URL to a running instance when possible, otherwise spawns a new one.
 func (l *BrowserLauncher) LaunchURL(ctx context.Context, url string) error {
 	if l == nil {
-		return nil
+		return errors.New("browser launcher is unavailable")
 	}
 
 	if l.relay != nil {
@@ -41,7 +41,7 @@ func (l *BrowserLauncher) LaunchURL(ctx context.Context, url string) error {
 			if delivered && errors.Is(err, ErrBrowserLaunchRelayUnconfirmed) {
 				return ErrBrowserLaunchUnconfirmed
 			}
-			return fmt.Errorf("forward dumber browser URL %q: %w", url, err)
+			return fmt.Errorf("forward dumber browser URL: %w", err)
 		}
 		if delivered {
 			return nil
@@ -49,7 +49,7 @@ func (l *BrowserLauncher) LaunchURL(ctx context.Context, url string) error {
 	}
 
 	if err := launchBrowserBrowseURL(url, l.resolveExecutablePath, l.startDetachedProcess); err != nil {
-		return fmt.Errorf("launch dumber browse for URL %q: %w", url, err)
+		return fmt.Errorf("launch dumber browse: %w", err)
 	}
 	return nil
 }

@@ -93,5 +93,15 @@ func TestBrowserLauncher_LaunchURL_PropagatesRelayError(t *testing.T) {
 	err := launcher.LaunchURL(context.Background(), "https://example.com")
 
 	require.Error(t, err)
-	assert.ErrorIs(t, err, wantErr)
+	require.ErrorIs(t, err, wantErr)
+	assert.NotContains(t, err.Error(), "https://example.com")
+}
+
+func TestBrowserLauncher_LaunchURL_NilLauncherReturnsError(t *testing.T) {
+	var launcher *BrowserLauncher
+
+	err := launcher.LaunchURL(context.Background(), "https://example.com")
+
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "unavailable")
 }

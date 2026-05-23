@@ -422,13 +422,13 @@ func launchBrowserBrowseURL(uri string, resolveExecutablePath func() (string, er
 
 	execPath, err := resolveExecutablePath()
 	if err != nil {
-		return fmt.Errorf("failed to resolve dumber executable for URL %q: %w", uri, err)
+		return fmt.Errorf("failed to resolve dumber executable for requested URL: %w", err)
 	}
 
 	cmd := exec.Command(execPath, "browse", uri)
 	cmd.Env = sanitizedChildEnv(os.Environ())
 	if err := spawnDetachedProcess(cmd); err != nil {
-		return fmt.Errorf("failed to launch dumber browse for URL %q: %w", uri, err)
+		return fmt.Errorf("failed to launch dumber browse for requested URL: %w", err)
 	}
 	return nil
 }

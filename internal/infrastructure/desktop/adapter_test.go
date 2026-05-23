@@ -1,7 +1,9 @@
 package desktop
 
 import (
+	"errors"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"strings"
 	"testing"
@@ -171,6 +173,46 @@ func TestSessionSpawner_SpawnWithSession_OmitsEngineOverrideWhenNotConfigured(t 
 	}
 	if got := env[testRootCacheEnvVar]; got != "" {
 		t.Fatalf("engine state root env = %q, want empty", got)
+	}
+}
+
+func TestLaunchBrowserBrowseURL_ResolveErrorDoesNotLeakURL(t *testing.T) {
+	wantErr := errors.New("resolve failed")
+
+	err := launchBrowserBrowseURL(
+		"https://example.com/private?token=secret",
+		func() (string, error) { return "", wantErr },
+		nil,
+	)
+
+	if err == nil {
+		t.Fatal("expected resolve error")
+	}
+	if !errors.Is(err, wantErr) {
+		t.Fatalf("expected error %v, got %v", wantErr, err)
+	}
+	if strings.Contains(err.Error(), "token=secret") || strings.Contains(err.Error(), "https://example.com") {
+		t.Fatalf("expected error to redact URL, got %q", err)
+	}
+}
+
+func TestLaunchBrowserBrowseURL_SpawnErrorDoesNotLeakURL(t *testing.T) {
+	wantErr := errors.New("spawn failed")
+
+	err := launchBrowserBrowseURL(
+		"https://example.com/private?token=secret",
+		func() (string, error) { return "/usr/bin/dumber", nil },
+		func(*exec.Cmd) error { return wantErr },
+	)
+
+	if err == nil {
+		t.Fatal("expected spawn error")
+	}
+	if !errors.Is(err, wantErr) {
+		t.Fatalf("expected error %v, got %v", wantErr, err)
+	}
+	if strings.Contains(err.Error(), "token=secret") || strings.Contains(err.Error(), "https://example.com") {
+		t.Fatalf("expected error to redact URL, got %q", err)
 	}
 }
 
