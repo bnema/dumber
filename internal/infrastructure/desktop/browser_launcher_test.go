@@ -3,8 +3,6 @@ package desktop
 import (
 	"context"
 	"errors"
-	"io"
-	"os"
 	"os/exec"
 	"testing"
 
@@ -28,8 +26,9 @@ func TestBrowserLauncher_LaunchURL_ReturnsWithoutSpawningWhenRelayDelivers(t *te
 		return nil
 	}
 
-	launcher.LaunchURL(context.Background(), "https://example.com")
+	err := launcher.LaunchURL(context.Background(), "https://example.com")
 
+	require.NoError(t, err)
 	assert.False(t, spawned)
 }
 
@@ -48,17 +47,17 @@ func TestBrowserLauncher_LaunchURL_FallsBackToSpawnWhenRelayMisses(t *testing.T)
 		return nil
 	}
 
-	launcher.LaunchURL(context.Background(), "https://example.com")
+	err := launcher.LaunchURL(context.Background(), "https://example.com")
 
+	require.NoError(t, err)
 	require.NotNil(t, gotCmd)
 	assert.Equal(t, "/usr/bin/dumber", gotCmd.Path)
 	assert.Equal(t, []string{"/usr/bin/dumber", "browse", "https://example.com"}, gotCmd.Args)
 }
 
-func TestBrowserLauncher_LaunchURL_ReportsRelayErrorWhenDelivered(t *testing.T) {
+func TestBrowserLauncher_LaunchURL_ReturnsUnconfirmedErrorWhenRelayDeliveryIsAmbiguous(t *testing.T) {
 	relay := mocks.NewMockBrowserLaunchRelay(t)
-	wantErr := errors.New("relay exploded")
-	relay.EXPECT().DeliverOpenFreshWindow(context.Background(), "https://example.com").Return(true, wantErr)
+	relay.EXPECT().DeliverOpenFreshWindow(context.Background(), "https://example.com").Return(true, ErrBrowserLaunchRelayUnconfirmed)
 
 	launcher := NewBrowserLauncher(relay)
 	launcher.resolveExecutablePath = func() (string, error) {
@@ -66,22 +65,43 @@ func TestBrowserLauncher_LaunchURL_ReportsRelayErrorWhenDelivered(t *testing.T) 
 		return "", nil
 	}
 	launcher.startDetachedProcess = func(_ *exec.Cmd) error {
-		t.Fatal("expected launch to stop after relay delivery")
+		t.Fatal("expected launch to stop after ambiguous relay delivery")
 		return nil
 	}
 
-	oldStderr := os.Stderr
-	r, w, err := os.Pipe()
-	require.NoError(t, err)
-	os.Stderr = w
-	t.Cleanup(func() {
-		os.Stderr = oldStderr
-	})
+	err := launcher.LaunchURL(context.Background(), "https://example.com")
 
-	launcher.LaunchURL(context.Background(), "https://example.com")
+	require.Error(t, err)
+	assert.ErrorIs(t, err, ErrBrowserLaunchUnconfirmed)
+}
 
-	require.NoError(t, w.Close())
-	output, err := io.ReadAll(r)
-	require.NoError(t, err)
-	assert.Contains(t, string(output), wantErr.Error())
+func TestBrowserLauncher_LaunchURL_PropagatesRelayError(t *testing.T) {
+	relay := mocks.NewMockBrowserLaunchRelay(t)
+	wantErr := errors.New("relay exploded")
+	relay.EXPECT().DeliverOpenFreshWindow(context.Background(), "https://example.com").Return(false, wantErr)
+
+	launcher := NewBrowserLauncher(relay)
+	launcher.resolveExecutablePath = func() (string, error) {
+		t.Fatal("expected executable path resolution to be skipped")
+		return "", nil
+	}
+	launcher.startDetachedProcess = func(_ *exec.Cmd) error {
+		t.Fatal("expected launch to stop after relay error")
+		return nil
+	}
+
+	err := launcher.LaunchURL(context.Background(), "https://example.com")
+
+	require.Error(t, err)
+	require.ErrorIs(t, err, wantErr)
+	assert.NotContains(t, err.Error(), "https://example.com")
+}
+
+func TestBrowserLauncher_LaunchURL_NilLauncherReturnsError(t *testing.T) {
+	var launcher *BrowserLauncher
+
+	err := launcher.LaunchURL(context.Background(), "https://example.com")
+
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "unavailable")
 }

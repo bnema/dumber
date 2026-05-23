@@ -407,10 +407,12 @@ func LaunchExternalURL(uri string) {
 
 // LaunchBrowserURL opens a URL in a new dumber browser window.
 func LaunchBrowserURL(uri string) {
-	launchBrowserBrowseURL(uri, getExecutablePath, startDetachedProcess)
+	if err := launchBrowserBrowseURL(uri, getExecutablePath, startDetachedProcess); err != nil {
+		fmt.Fprintf(os.Stderr, "%v\n", err)
+	}
 }
 
-func launchBrowserBrowseURL(uri string, resolveExecutablePath func() (string, error), spawnDetachedProcess func(*exec.Cmd) error) {
+func launchBrowserBrowseURL(uri string, resolveExecutablePath func() (string, error), spawnDetachedProcess func(*exec.Cmd) error) error {
 	if resolveExecutablePath == nil {
 		resolveExecutablePath = getExecutablePath
 	}
@@ -420,15 +422,15 @@ func launchBrowserBrowseURL(uri string, resolveExecutablePath func() (string, er
 
 	execPath, err := resolveExecutablePath()
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "failed to resolve dumber executable for URL %q: %v\n", uri, err)
-		return
+		return fmt.Errorf("failed to resolve dumber executable for requested URL: %w", err)
 	}
 
 	cmd := exec.Command(execPath, "browse", uri)
 	cmd.Env = sanitizedChildEnv(os.Environ())
 	if err := spawnDetachedProcess(cmd); err != nil {
-		fmt.Fprintf(os.Stderr, "failed to launch dumber browse for URL %q: %v\n", uri, err)
+		return fmt.Errorf("failed to launch dumber browse for requested URL: %w", err)
 	}
+	return nil
 }
 
 func startDetachedProcess(cmd *exec.Cmd) error {

@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"database/sql"
+	"errors"
 	"fmt"
 	"os"
 	"os/signal"
@@ -98,7 +99,27 @@ func tryForwardBrowseURLToRunningInstance(ctx context.Context, relay port.Browse
 		return false, nil
 	}
 
-	return relay.DeliverOpenFreshWindow(ctx, browseURL)
+	delivered, err := relay.DeliverOpenFreshWindow(ctx, browseURL)
+	if err != nil {
+		if delivered && errors.Is(err, desktop.ErrBrowserLaunchRelayUnconfirmed) {
+			return true, nil
+		}
+		return false, err
+	}
+	return delivered, nil
+}
+
+func launchStandaloneBrowserURL(ctx context.Context, launch func(context.Context, string) error, uri string) error {
+	if launch == nil {
+		return fmt.Errorf("browser launcher is not configured")
+	}
+	if err := launch(ctx, uri); err != nil {
+		if errors.Is(err, desktop.ErrBrowserLaunchRelayUnconfirmed) || errors.Is(err, desktop.ErrBrowserLaunchUnconfirmed) {
+			return nil
+		}
+		return err
+	}
+	return nil
 }
 
 func resolveBrowserLaunchRelay(cfg *config.Config) (port.BrowserLaunchRelay, error) {
@@ -871,8 +892,8 @@ func buildUIDependencies(
 			return config.GetManager().Watch()
 		},
 		LaunchExternalURL: desktop.LaunchExternalURL,
-		LaunchBrowserURL: func(uri string) {
-			browserLauncher.LaunchURL(ctx, uri)
+		LaunchBrowserURL: func(navCtx context.Context, uri string) error {
+			return launchStandaloneBrowserURL(navCtx, browserLauncher.LaunchURL, uri)
 		},
 		BrowserLaunchRelay: browserLaunchRelay,
 		ConfigMigrator:     config.NewMigrator(),

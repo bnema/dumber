@@ -12,13 +12,16 @@ import (
 
 func TestWrapStandaloneOmniboxNavigate_CallsOriginalThenQuit(t *testing.T) {
 	var calls []string
-	wrapped := wrapStandaloneOmniboxNavigate(func(url string) {
+	wrapped := wrapStandaloneOmniboxNavigate(func(_ context.Context, url string) error {
 		calls = append(calls, "navigate:"+url)
+		return nil
 	}, func() {
 		calls = append(calls, "quit")
 	})
 
-	wrapped("https://example.com")
+	if err := wrapped(context.Background(), "https://example.com"); err != nil {
+		t.Fatalf("wrapped navigate returned error: %v", err)
+	}
 
 	if len(calls) != 2 {
 		t.Fatalf("expected 2 calls, got %d: %#v", len(calls), calls)
@@ -31,16 +34,19 @@ func TestWrapStandaloneOmniboxNavigate_CallsOriginalThenQuit(t *testing.T) {
 	}
 }
 
-func TestWrapStandaloneOmniboxNavigate_QuitsWithoutOriginalNavigate(t *testing.T) {
+func TestWrapStandaloneOmniboxNavigate_DoesNotQuitWhenNavigateFails(t *testing.T) {
 	called := false
-	wrapped := wrapStandaloneOmniboxNavigate(nil, func() {
+	wrapped := wrapStandaloneOmniboxNavigate(func(context.Context, string) error {
+		return context.DeadlineExceeded
+	}, func() {
 		called = true
 	})
 
-	wrapped("https://example.com")
-
-	if !called {
-		t.Fatalf("expected quit to be called")
+	if err := wrapped(context.Background(), "https://example.com"); err == nil {
+		t.Fatal("expected wrapped navigate to return an error")
+	}
+	if called {
+		t.Fatalf("expected quit to be skipped when navigate fails")
 	}
 }
 
