@@ -19,13 +19,16 @@ import (
 // even when WebView has focus. It uses GtkShortcutController with GTK_SHORTCUT_SCOPE_GLOBAL
 // to intercept shortcuts before they reach the WebView.
 type GlobalShortcutHandler struct {
-	controller     *gtk.ShortcutController
-	window         *gtk.ApplicationWindow
-	kbHandler      *KeyboardHandler
-	onAction       ActionHandler
-	ctx            context.Context
-	registered     map[KeyBinding]Action
-	lastDispatchAt map[Action]time.Time
+	controller        *gtk.ShortcutController
+	releaseController *gtk.EventControllerKey
+	window            *gtk.ApplicationWindow
+	kbHandler         *KeyboardHandler
+	onAction          ActionHandler
+	ctx               context.Context
+	registered        map[KeyBinding]Action
+	lastDispatchAt    map[Action]time.Time
+	heldShortcuts     map[globalShortcutHoldKey]time.Time
+	keyReleasedCb     func(gtk.EventControllerKey, uint, uint, gdk.ModifierType)
 	// generation is mutated only from the GTK main thread alongside controller replacement.
 	generation uint64
 
@@ -47,24 +50,35 @@ func NewGlobalShortcutHandler(
 	log.Debug().Msg("creating global shortcut handler")
 
 	h := &GlobalShortcutHandler{
-		controller:     gtk.NewShortcutController(),
-		window:         window,
-		kbHandler:      kbHandler,
-		onAction:       onAction,
-		ctx:            ctx,
-		callbacks:      make([]gtk.ShortcutFunc, 0),
-		registered:     make(map[KeyBinding]Action),
-		lastDispatchAt: make(map[Action]time.Time),
+		controller:        gtk.NewShortcutController(),
+		releaseController: gtk.NewEventControllerKey(),
+		window:            window,
+		kbHandler:         kbHandler,
+		onAction:          onAction,
+		ctx:               ctx,
+		callbacks:         make([]gtk.ShortcutFunc, 0),
+		registered:        make(map[KeyBinding]Action),
+		lastDispatchAt:    make(map[Action]time.Time),
+		heldShortcuts:     make(map[globalShortcutHoldKey]time.Time),
 	}
 
 	if h.controller == nil {
 		log.Error().Msg("failed to create shortcut controller")
 		return nil
 	}
+	if h.releaseController == nil {
+		log.Error().Msg("failed to create global shortcut release controller")
+		return nil
+	}
 
 	// Set global scope - this is the key to making shortcuts work
 	// even when WebView has focus
 	h.controller.SetScope(gtk.ShortcutScopeGlobalValue)
+	h.releaseController.SetPropagationPhase(gtk.PhaseCaptureValue)
+	h.keyReleasedCb = func(_ gtk.EventControllerKey, keyval uint, keycode uint, _ gdk.ModifierType) {
+		h.releaseHeldGlobalShortcuts(keyval, keycode)
+	}
+	h.releaseController.ConnectKeyReleased(&h.keyReleasedCb)
 
 	// Register Alt+1 through Alt+9 for tab switching
 	tabActions := []Action{
@@ -157,6 +171,7 @@ func NewGlobalShortcutHandler(
 	}
 
 	// Attach to window
+	window.AddController(&h.releaseController.EventController)
 	window.AddController(&h.controller.EventController)
 
 	log.Debug().
@@ -215,6 +230,13 @@ func (h *GlobalShortcutHandler) registerShortcut(keyval uint, modifiers gdk.Modi
 		if !shouldDispatchGlobalShortcutEvent(eventInfo) {
 			appendGlobalShortcutEventFields(log.Trace(), bindingForLog, actionToDispatch, eventInfo).
 				Msg("global shortcut ignored without current key event")
+			return true
+		}
+		if h.suppressHeldShortcut(actionToDispatch, eventInfo, time.Now()) {
+			log.Trace().
+				Str("action", string(actionToDispatch)).
+				Str("shortcut", formatBinding(bindingForLog)).
+				Msg("held global shortcut repeat suppressed")
 			return true
 		}
 		if h.suppressRepeatedShortcut(actionToDispatch, time.Now()) {
@@ -277,6 +299,11 @@ func (h *GlobalShortcutHandler) registerShortcut(keyval uint, modifiers gdk.Modi
 }
 
 // globalShortcutActionMap returns a fresh map of workspace action names to global shortcut actions.
+type globalShortcutHoldKey struct {
+	keyval  uint
+	keycode uint
+}
+
 type globalShortcutEventInfo struct {
 	hasCurrentEvent        bool
 	eventType              gdk.EventType
@@ -432,6 +459,7 @@ func (h *GlobalShortcutHandler) ReloadShortcuts(ctx context.Context, workspace *
 	h.callbacks = make([]gtk.ShortcutFunc, 0)
 	h.registered = make(map[KeyBinding]Action)
 	h.lastDispatchAt = make(map[Action]time.Time)
+	h.heldShortcuts = make(map[globalShortcutHoldKey]time.Time)
 
 	// Re-register hardcoded shortcuts (Alt+1-9, Alt+0, Alt+Tab, Ctrl+Shift+S)
 	tabActions := []Action{
@@ -501,10 +529,16 @@ func (h *GlobalShortcutHandler) Detach() {
 	if h.window != nil && h.controller != nil {
 		h.window.RemoveController(&h.controller.EventController)
 	}
+	if h.window != nil && h.releaseController != nil {
+		h.window.RemoveController(&h.releaseController.EventController)
+	}
 	h.controller = nil
+	h.releaseController = nil
+	h.keyReleasedCb = nil
 	h.callbacks = nil
 	h.registered = nil
 	h.lastDispatchAt = nil
+	h.heldShortcuts = nil
 }
 
 const globalShortcutRepeatSuppressWindow = 250 * time.Millisecond
@@ -515,6 +549,36 @@ func (h *GlobalShortcutHandler) isStaleGeneration(generation uint64) bool {
 
 func (h *GlobalShortcutHandler) isActiveWindowShortcutHandler() bool {
 	return h != nil && h.controller != nil && h.window != nil && h.window.IsActive()
+}
+
+func (h *GlobalShortcutHandler) suppressHeldShortcut(action Action, info globalShortcutEventInfo, now time.Time) bool {
+	if h == nil || !isHeldGlobalShortcutSuppressed(action) || !info.hasCurrentEvent {
+		return false
+	}
+	if h.heldShortcuts == nil {
+		return true
+	}
+	key := globalShortcutHoldKey{keyval: normalizeKeyval(info.eventKeyval), keycode: info.eventKeycode}
+	if key.keyval == 0 && key.keycode == 0 {
+		return false
+	}
+	if _, ok := h.heldShortcuts[key]; ok {
+		return true
+	}
+	h.heldShortcuts[key] = now
+	return false
+}
+
+func (h *GlobalShortcutHandler) releaseHeldGlobalShortcuts(keyval, keycode uint) {
+	if h == nil || len(h.heldShortcuts) == 0 {
+		return
+	}
+	keyval = normalizeKeyval(keyval)
+	for key := range h.heldShortcuts {
+		if (keyval != 0 && key.keyval == keyval) || (keycode != 0 && key.keycode == keycode) {
+			delete(h.heldShortcuts, key)
+		}
+	}
 }
 
 func (h *GlobalShortcutHandler) suppressRepeatedShortcut(action Action, now time.Time) bool {
@@ -536,6 +600,10 @@ func (h *GlobalShortcutHandler) suppressRepeatedShortcut(action Action, now time
 	}
 	h.lastDispatchAt[action] = now
 	return false
+}
+
+func isHeldGlobalShortcutSuppressed(action Action) bool {
+	return isRepeatedGlobalShortcutSuppressed(action) || isModeAction(action)
 }
 
 func isRepeatedGlobalShortcutSuppressed(action Action) bool {
