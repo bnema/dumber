@@ -12,6 +12,7 @@ import (
 	"github.com/bnema/puregotk/v4/gdk"
 	"github.com/bnema/puregotk/v4/glib"
 	"github.com/bnema/puregotk/v4/gtk"
+	"github.com/rs/zerolog"
 )
 
 // GlobalShortcutHandler manages keyboard shortcuts that must work globally,
@@ -191,11 +192,13 @@ func (h *GlobalShortcutHandler) registerShortcut(keyval uint, modifiers gdk.Modi
 	// dispatch one-shot actions after a shortcut reload.
 	actionToDispatch := action
 	generation := h.generation
+	bindingForLog := binding
 	callback := gtk.ShortcutFunc(func(_ uintptr, _ *glib.Variant, _ uintptr) bool {
 		log := logging.FromContext(h.ctx)
 		if h.isStaleGeneration(generation) {
 			log.Trace().
 				Str("action", string(actionToDispatch)).
+				Str("shortcut", formatBinding(bindingForLog)).
 				Uint64("callback_generation", generation).
 				Uint64("current_generation", h.generation).
 				Msg("stale global shortcut callback ignored")
@@ -204,17 +207,24 @@ func (h *GlobalShortcutHandler) registerShortcut(keyval uint, modifiers gdk.Modi
 		if !h.isActiveWindowShortcutHandler() {
 			log.Trace().
 				Str("action", string(actionToDispatch)).
+				Str("shortcut", formatBinding(bindingForLog)).
 				Msg("inactive window global shortcut callback ignored")
 			return false
+		}
+		eventInfo := h.inspectCurrentShortcutEvent()
+		if !shouldDispatchGlobalShortcutEvent(eventInfo) {
+			appendGlobalShortcutEventFields(log.Trace(), bindingForLog, actionToDispatch, eventInfo).
+				Msg("global shortcut ignored without current key event")
+			return true
 		}
 		if h.suppressRepeatedShortcut(actionToDispatch, time.Now()) {
 			log.Trace().
 				Str("action", string(actionToDispatch)).
+				Str("shortcut", formatBinding(bindingForLog)).
 				Msg("global shortcut repeat suppressed")
 			return true
 		}
-		log.Debug().
-			Str("action", string(actionToDispatch)).
+		appendGlobalShortcutEventFields(log.Debug(), bindingForLog, actionToDispatch, eventInfo).
 			Msg("global shortcut triggered")
 
 		// Mode-enter/exit actions go through KeyboardHandler for modal state
@@ -267,6 +277,115 @@ func (h *GlobalShortcutHandler) registerShortcut(keyval uint, modifiers gdk.Modi
 }
 
 // globalShortcutActionMap returns a fresh map of workspace action names to global shortcut actions.
+type globalShortcutEventInfo struct {
+	hasCurrentEvent        bool
+	eventType              gdk.EventType
+	eventKeyval            uint
+	eventKeycode           uint
+	eventLayout            uint
+	eventLevel             uint
+	eventState             gdk.ModifierType
+	eventConsumedModifiers gdk.ModifierType
+	eventTime              uint32
+	hasDevice              bool
+	deviceName             string
+	deviceSource           gdk.InputSource
+	controllerState        gdk.ModifierType
+	controllerTime         uint32
+}
+
+func (h *GlobalShortcutHandler) inspectCurrentShortcutEvent() globalShortcutEventInfo {
+	var info globalShortcutEventInfo
+	if h == nil || h.controller == nil {
+		return info
+	}
+
+	info.controllerState = h.controller.GetCurrentEventState()
+	info.controllerTime = h.controller.GetCurrentEventTime()
+	if device := h.controller.GetCurrentEventDevice(); device != nil {
+		info.hasDevice = true
+		info.deviceName = device.GetName()
+		info.deviceSource = device.GetSource()
+	}
+
+	event := h.controller.GetCurrentEvent()
+	if event == nil {
+		return info
+	}
+	info.hasCurrentEvent = true
+	info.eventType = event.GetEventType()
+	info.eventState = event.GetModifierState()
+	info.eventTime = event.GetTime()
+	if !info.hasDevice {
+		if device := event.GetDevice(); device != nil {
+			info.hasDevice = true
+			info.deviceName = device.GetName()
+			info.deviceSource = device.GetSource()
+		}
+	}
+
+	switch info.eventType {
+	case gdk.KeyPressValue, gdk.KeyReleaseValue:
+		keyEvent := gdk.KeyEventNewFromInternalPtr(event.GoPointer())
+		info.eventKeyval = keyEvent.GetKeyval()
+		info.eventKeycode = keyEvent.GetKeycode()
+		info.eventLayout = keyEvent.GetLayout()
+		info.eventLevel = keyEvent.GetLevel()
+		info.eventConsumedModifiers = keyEvent.GetConsumedModifiers()
+	}
+
+	return info
+}
+
+func shouldDispatchGlobalShortcutEvent(info globalShortcutEventInfo) bool {
+	return info.hasCurrentEvent && info.eventType == gdk.KeyPressValue
+}
+
+func appendGlobalShortcutEventFields(evt *zerolog.Event, binding KeyBinding, action Action, info globalShortcutEventInfo) *zerolog.Event {
+	if evt == nil {
+		return nil
+	}
+	evt = evt.
+		Str("action", string(action)).
+		Str("shortcut", formatBinding(binding)).
+		Uint("shortcut_keyval", binding.Keyval).
+		Str("shortcut_key", formatKeyval(binding.Keyval)).
+		Str("shortcut_modifiers", formatModifierMask(gdk.ModifierType(binding.Modifiers))).
+		Str("controller_modifiers", formatModifierMask(info.controllerState)).
+		Uint32("controller_event_time", info.controllerTime).
+		Bool("has_current_event", info.hasCurrentEvent)
+	if info.hasCurrentEvent {
+		evt = evt.
+			Str("event_type", formatEventType(info.eventType)).
+			Int("event_type_value", int(info.eventType)).
+			Str("event_modifiers", formatModifierMask(info.eventState)).
+			Uint32("event_time", info.eventTime)
+		if info.eventKeyval != 0 {
+			evt = evt.
+				Uint("event_keyval", info.eventKeyval).
+				Str("event_key", formatKeyval(info.eventKeyval))
+		}
+		if info.eventKeycode != 0 {
+			evt = evt.Uint("event_keycode", info.eventKeycode)
+		}
+		if info.eventLayout != 0 {
+			evt = evt.Uint("event_layout", info.eventLayout)
+		}
+		if info.eventLevel != 0 {
+			evt = evt.Uint("event_level", info.eventLevel)
+		}
+		if info.eventConsumedModifiers != 0 {
+			evt = evt.Str("event_consumed_modifiers", formatModifierMask(info.eventConsumedModifiers))
+		}
+	}
+	if info.hasDevice {
+		evt = evt.
+			Str("event_device", info.deviceName).
+			Int("event_device_source", int(info.deviceSource))
+	}
+	return evt
+}
+
 func globalShortcutActionMap() map[string]Action {
 	return map[string]Action{
 		"toggle_floating_pane":        ActionToggleFloatingPane,
@@ -474,12 +593,69 @@ func formatBinding(binding KeyBinding) string {
 	if binding.Modifiers&ModAlt != 0 {
 		parts = append(parts, "alt")
 	}
-	keyName := gdk.KeyvalName(binding.Keyval)
-	if keyName == "" {
-		keyName = fmt.Sprintf("0x%x", binding.Keyval)
-	}
-	parts = append(parts, strings.ToLower(keyName))
+	parts = append(parts, formatKeyval(binding.Keyval))
 	return strings.Join(parts, "+")
+}
+
+func formatKeyval(keyval uint) string {
+	if keyval == 0 {
+		return ""
+	}
+	keyName := gdk.KeyvalName(keyval)
+	if keyName == "" {
+		return fmt.Sprintf("0x%x", keyval)
+	}
+	return strings.ToLower(keyName)
+}
+
+func formatModifierMask(modifiers gdk.ModifierType) string {
+	if modifiers == 0 {
+		return "none"
+	}
+	parts := make([]string, 0, 4)
+	if modifiers&gdk.ControlMaskValue != 0 {
+		parts = append(parts, "ctrl")
+	}
+	if modifiers&gdk.ShiftMaskValue != 0 {
+		parts = append(parts, "shift")
+	}
+	if modifiers&gdk.AltMaskValue != 0 {
+		parts = append(parts, "alt")
+	}
+	remaining := modifiers &^ (gdk.ControlMaskValue | gdk.ShiftMaskValue | gdk.AltMaskValue)
+	if remaining != 0 {
+		parts = append(parts, fmt.Sprintf("0x%x", uint(remaining)))
+	}
+	return strings.Join(parts, "+")
+}
+
+func formatEventType(eventType gdk.EventType) string {
+	switch eventType {
+	case gdk.KeyPressValue:
+		return "key-press"
+	case gdk.KeyReleaseValue:
+		return "key-release"
+	case gdk.ButtonPressValue:
+		return "button-press"
+	case gdk.ButtonReleaseValue:
+		return "button-release"
+	case gdk.MotionNotifyValue:
+		return "motion"
+	case gdk.ScrollValue:
+		return "scroll"
+	case gdk.TouchBeginValue:
+		return "touch-begin"
+	case gdk.TouchUpdateValue:
+		return "touch-update"
+	case gdk.TouchEndValue:
+		return "touch-end"
+	case gdk.FocusChangeValue:
+		return "focus-change"
+	case gdk.DeleteValue:
+		return "delete"
+	default:
+		return fmt.Sprintf("event-%d", int(eventType))
+	}
 }
 
 func isModeAction(action Action) bool {

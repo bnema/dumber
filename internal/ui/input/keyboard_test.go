@@ -230,3 +230,115 @@ func TestHandleKeyPress_NoRouteCallback_DefaultsToShortcuts(t *testing.T) {
 	result := h.handleKeyPress(uint('z'), 0, 0)
 	assert.False(t, result, "unregistered key in ModeNormal returns false")
 }
+
+func TestHandleKeyPress_SuppressesHeldHardwareFallbackTabSwitchUntilRelease(t *testing.T) {
+	h := NewKeyboardHandler(context.Background(), newTestWorkspace(), newTestSession())
+	calls := 0
+	h.SetOnAction(func(_ context.Context, action Action) error {
+		calls++
+		if action != ActionSwitchTabIndex2 {
+			t.Fatalf("action = %s, want %s", action, ActionSwitchTabIndex2)
+		}
+		return nil
+	})
+
+	const fallbackKeycode = 11
+	if got := KeycodeToTabAction[fallbackKeycode]; got != ActionSwitchTabIndex2 {
+		t.Fatalf("KeycodeToTabAction[%d] = %s, want %s", fallbackKeycode, got, ActionSwitchTabIndex2)
+	}
+
+	if !h.handleKeyPress(uint('x'), fallbackKeycode, gdk.AltMaskValue) {
+		t.Fatal("first tab-switch key press should be consumed")
+	}
+	if !h.handleKeyPress(uint('x'), fallbackKeycode, gdk.AltMaskValue) {
+		t.Fatal("repeated held tab-switch key press should still be consumed")
+	}
+	if calls != 1 {
+		t.Fatalf("tab switch handler calls while key held = %d, want 1", calls)
+	}
+
+	h.handleKeyRelease(uint('x'))
+	if !h.handleKeyPress(uint('x'), fallbackKeycode, gdk.AltMaskValue) {
+		t.Fatal("tab-switch key press after release should be consumed")
+	}
+	if calls != 2 {
+		t.Fatalf("tab switch handler calls after release = %d, want 2", calls)
+	}
+}
+
+func TestHandleKeyPress_DoesNotExitResizeModeWhileActivationKeyIsHeld(t *testing.T) {
+	h := NewKeyboardHandler(context.Background(), newTestWorkspace(), newTestSession())
+	const resizeKeycode = 27
+	mods := gdk.ControlMaskValue | gdk.AltMaskValue
+
+	if !h.handleKeyPress(uint('r'), resizeKeycode, mods) {
+		t.Fatal("first resize-mode activation should be consumed")
+	}
+	if got := h.Mode(); got != ModeResize {
+		t.Fatalf("mode after first press = %v, want %v", got, ModeResize)
+	}
+
+	if !h.handleKeyPress(uint('r'), resizeKeycode, mods) {
+		t.Fatal("repeated held resize-mode activation should be consumed")
+	}
+	if got := h.Mode(); got != ModeResize {
+		t.Fatalf("mode after repeated held press = %v, want %v", got, ModeResize)
+	}
+
+	h.handleKeyRelease(uint('x'))
+	if !h.handleKeyPress(uint('r'), resizeKeycode, mods) {
+		t.Fatal("resize-mode activation after unrelated release should still be consumed")
+	}
+	if got := h.Mode(); got != ModeResize {
+		t.Fatalf("mode after unrelated release = %v, want %v", got, ModeResize)
+	}
+
+	h.handleKeyRelease(uint('r'))
+	if !h.handleKeyPress(uint('r'), resizeKeycode, mods) {
+		t.Fatal("resize-mode activation after release should be consumed")
+	}
+	if got := h.Mode(); got != ModeNormal {
+		t.Fatalf("mode after press following release = %v, want %v", got, ModeNormal)
+	}
+}
+
+func TestHandleKeyPress_DoesNotRetoggleFloatingPaneAfterUnrelatedRelease(t *testing.T) {
+	workspace := newTestWorkspace()
+	workspace.Shortcuts.Actions = map[string]entity.ActionBinding{
+		"toggle_floating_pane": {Keys: []string{"alt+f"}},
+	}
+	h := NewKeyboardHandler(context.Background(), workspace, newTestSession())
+	calls := 0
+	h.SetOnAction(func(_ context.Context, action Action) error {
+		calls++
+		if action != ActionToggleFloatingPane {
+			t.Fatalf("action = %s, want %s", action, ActionToggleFloatingPane)
+		}
+		return nil
+	})
+
+	if !h.handleKeyPress(uint('f'), 41, gdk.AltMaskValue) {
+		t.Fatal("first floating pane toggle should be consumed")
+	}
+	h.handleKeyRelease(uint('x'))
+	if !h.handleKeyPress(uint('f'), 41, gdk.AltMaskValue) {
+		t.Fatal("held floating pane toggle repeat should still be consumed")
+	}
+	if calls != 1 {
+		t.Fatalf("floating pane toggle calls while key held = %d, want 1", calls)
+	}
+
+	h.handleKeyRelease(uint('f'))
+	if !h.handleKeyPress(uint('f'), 41, gdk.AltMaskValue) {
+		t.Fatal("floating pane toggle after release should be consumed")
+	}
+	if calls != 2 {
+		t.Fatalf("floating pane toggle calls after release = %d, want 2", calls)
+	}
+}
+
+func TestIsRepeatedKeyboardActionSuppressed_AllowsResizeStepRepeats(t *testing.T) {
+	if isRepeatedKeyboardActionSuppressed(ActionResizeIncreaseLeft) {
+		t.Fatal("ActionResizeIncreaseLeft should not be suppressed")
+	}
+}
