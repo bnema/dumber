@@ -556,6 +556,8 @@ func (h *GlobalShortcutHandler) suppressHeldShortcut(action Action, info globalS
 		return false
 	}
 	if h.heldShortcuts == nil {
+		// Defensive: if hold tracking is unavailable during detach/reload,
+		// suppress rather than risk dispatching a stale global callback.
 		return true
 	}
 	key := globalShortcutHoldKey{keyval: normalizeKeyval(info.eventKeyval), keycode: info.eventKeycode}
