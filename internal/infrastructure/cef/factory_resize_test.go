@@ -55,6 +55,175 @@ func TestShouldStartBrowserCreateFromSizeObserver_FalseAfterPendingCreateConsume
 	require.False(t, wv.shouldStartBrowserCreateFromSizeObserver())
 }
 
+func TestInitialBrowserCreateSizeReadyFromObserver(t *testing.T) {
+	tests := []struct {
+		name   string
+		width  int32
+		height int32
+		want   bool
+	}{
+		{name: "rejects bootstrap one by one", width: 1, height: 1, want: false},
+		{name: "rejects zero width", width: 0, height: 480, want: false},
+		{name: "rejects one pixel height", width: 640, height: 1, want: false},
+		{name: "accepts real positive size", width: 640, height: 480, want: true},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			require.Equal(t, tt.want, initialBrowserCreateSizeReadyFromObserver(tt.width, tt.height))
+		})
+	}
+}
+
+func TestHandleInitialBrowserCreateSizeObserver_IgnoresBootstrapForNormalWebView(t *testing.T) {
+	factory := &WebViewFactory{}
+	wv := &WebView{pendingCreate: &pendingBrowserCreate{}}
+	prepared := false
+	resized := false
+
+	handled := factory.handleInitialBrowserCreateSizeObserver(
+		context.Background(),
+		wv,
+		func(int32, int32) { resized = true },
+		func() error {
+			prepared = true
+			return nil
+		},
+		1,
+		1,
+	)
+
+	require.True(t, handled)
+	require.False(t, prepared)
+	require.False(t, resized)
+	require.True(t, wv.shouldStartBrowserCreateFromSizeObserver())
+}
+
+func TestHandleInitialBrowserCreateSizeObserver_BootstrapPopupArmsFallbackWithoutPreparing(t *testing.T) {
+	factory := &WebViewFactory{}
+	wv := &WebView{pendingCreate: &pendingBrowserCreate{}, nativePopupCandidate: true}
+	prepared := false
+	var scheduled func()
+	wv.nativePopupFallbackSchedule = func(_ time.Duration, fn func()) stoppableTimer {
+		scheduled = fn
+		return stubStoppableTimer{}
+	}
+
+	handled := factory.handleInitialBrowserCreateSizeObserver(
+		context.Background(),
+		wv,
+		func(w, h int32) {
+			factory.handlePopupShellInitialResize(context.Background(), wv, nil, w, h)
+		},
+		func() error {
+			prepared = true
+			return nil
+		},
+		1,
+		1,
+	)
+
+	require.True(t, handled)
+	require.False(t, prepared)
+	require.NotNil(t, scheduled)
+	require.True(t, wv.shouldStartBrowserCreateFromSizeObserver())
+}
+
+func TestHandleInitialBrowserCreateSizeObserver_ReadySizePreparesAndConsumesInitialResize(t *testing.T) {
+	factory := &WebViewFactory{}
+	wv := &WebView{pendingCreate: &pendingBrowserCreate{}}
+	prepared := 0
+	resizes := 0
+
+	handled := factory.handleInitialBrowserCreateSizeObserver(
+		context.Background(),
+		wv,
+		func(int32, int32) { resizes++ },
+		func() error {
+			prepared++
+			return nil
+		},
+		640,
+		480,
+	)
+
+	require.True(t, handled)
+	require.Equal(t, 1, prepared)
+	require.Equal(t, 1, resizes)
+	require.False(t, wv.shouldStartBrowserCreateFromSizeObserver())
+}
+
+func TestHandleInitialBrowserCreateSizeObserver_ReadySizeAfterPopupFallbackPostsCreate(t *testing.T) {
+	factory := &WebViewFactory{}
+	wv := &WebView{pendingCreate: &pendingBrowserCreate{}, nativePopupCandidate: true}
+	prepared := 0
+	posted := 0
+	var scheduled func()
+	wv.nativePopupFallbackSchedule = func(_ time.Duration, fn func()) stoppableTimer {
+		scheduled = fn
+		return stubStoppableTimer{}
+	}
+	onFirstResize := func(w, h int32) {
+		factory.handlePopupShellInitialResize(context.Background(), wv, func(int32, int32) {
+			posted++
+		}, w, h)
+	}
+
+	handled := factory.handleInitialBrowserCreateSizeObserver(
+		context.Background(),
+		wv,
+		onFirstResize,
+		func() error {
+			prepared++
+			return nil
+		},
+		0,
+		480,
+	)
+	require.True(t, handled)
+	require.Equal(t, 0, prepared)
+	require.Equal(t, 0, posted)
+	require.NotNil(t, scheduled)
+	require.True(t, wv.shouldStartBrowserCreateFromSizeObserver())
+
+	scheduled()
+	require.True(t, wv.awaitsBrowserCreateFromNativePopupFallback())
+
+	handled = factory.handleInitialBrowserCreateSizeObserver(
+		context.Background(),
+		wv,
+		onFirstResize,
+		func() error {
+			prepared++
+			return nil
+		},
+		640,
+		480,
+	)
+	require.True(t, handled)
+	require.Equal(t, 1, prepared)
+	require.Equal(t, 1, posted)
+	require.False(t, wv.shouldStartBrowserCreateFromSizeObserver())
+}
+
+func TestSchedulePopupShellNativeFallback_StartsFallbackOnTimeout(t *testing.T) {
+	factory := &WebViewFactory{}
+	wv := &WebView{pendingCreate: &pendingBrowserCreate{}, nativePopupCandidate: true}
+	var scheduled func()
+	wv.nativePopupFallbackSchedule = func(_ time.Duration, fn func()) stoppableTimer {
+		scheduled = fn
+		return stubStoppableTimer{}
+	}
+
+	factory.schedulePopupShellNativeFallback(context.Background(), wv)
+	require.NotNil(t, scheduled)
+
+	scheduled()
+
+	require.True(t, wv.nativePopupFallbackStarted)
+	require.False(t, wv.nativePopupCandidate)
+}
+
 func TestPostPendingBrowserCreate_RetriesWhenPostingTaskFails(t *testing.T) {
 	oldNewTask := cefNewTask
 	oldPostTask := cefPostTask
