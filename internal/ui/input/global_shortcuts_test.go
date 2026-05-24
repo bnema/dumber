@@ -222,6 +222,19 @@ func TestGlobalShortcutHandlerSuppressesHeldModeAction(t *testing.T) {
 	}
 }
 
+func TestGlobalShortcutHandlerSuppressesHeldFloatingProfileAction(t *testing.T) {
+	h := &GlobalShortcutHandler{heldShortcuts: make(map[globalShortcutHoldKey]time.Time)}
+	info := globalShortcutEventInfo{hasCurrentEvent: true, eventType: gdk.KeyPressValue, eventKeyval: uint('o'), eventKeycode: 32}
+	action := NewFloatingProfileAction("work", "https://example.com")
+
+	if h.suppressHeldShortcut(action, info, time.Unix(100, 0)) {
+		t.Fatal("first floating-profile shortcut dispatch was suppressed")
+	}
+	if !h.suppressHeldShortcut(action, info, time.Unix(101, 0)) {
+		t.Fatal("held floating-profile shortcut repeat was not suppressed")
+	}
+}
+
 func TestShouldDispatchGlobalShortcutEventRequiresCurrentKeyEvent(t *testing.T) {
 	if shouldDispatchGlobalShortcutEvent(globalShortcutEventInfo{}) {
 		t.Fatal("global shortcut without current event should not dispatch")

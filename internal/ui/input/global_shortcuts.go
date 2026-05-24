@@ -605,7 +605,11 @@ func (h *GlobalShortcutHandler) suppressRepeatedShortcut(action Action, now time
 }
 
 func isHeldGlobalShortcutSuppressed(action Action) bool {
-	return isRepeatedGlobalShortcutSuppressed(action) || isModeAction(action)
+	if isRepeatedGlobalShortcutSuppressed(action) || isModeAction(action) {
+		return true
+	}
+	_, ok := ParseFloatingProfileTarget(action)
+	return ok
 }
 
 func isRepeatedGlobalShortcutSuppressed(action Action) bool {
