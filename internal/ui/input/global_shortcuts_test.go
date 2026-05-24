@@ -200,7 +200,7 @@ func TestGlobalShortcutHandlerSuppressesHeldGlobalShortcutUntilRelease(t *testin
 	}
 
 	h.releaseHeldGlobalShortcuts(uint('x'), 0)
-	if !h.suppressHeldShortcut(ActionToggleFloatingPane, info, time.Unix(102, 0)) {
+	if !h.suppressHeldShortcut(ActionToggleFloatingPane, info, time.Unix(101, 0)) {
 		t.Fatal("unrelated key release re-armed held global shortcut")
 	}
 

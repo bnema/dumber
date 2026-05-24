@@ -29,10 +29,14 @@ const (
 // GestureHandler handles mouse button gestures for navigation.
 // It recognizes mouse buttons 8 (back) and 9 (forward) on WebView widgets.
 type GestureHandler struct {
-	clickGesture *gtk.GestureClick
+	clickGesture     *gtk.GestureClick
+	widget           *gtk.Widget
+	pressedHandlerID uint
+	destroyHandlerID uint
 
 	// Callback retention: must stay reachable by Go GC.
 	pressedCb func(gtk.GestureClick, int, float64, float64)
+	destroyCb func(gtk.Widget)
 
 	// Action handler callback (fallback if no direct navigator)
 	onAction ActionHandler
@@ -81,6 +85,7 @@ func (h *GestureHandler) AttachTo(widget *gtk.Widget) {
 		log.Error().Msg("cannot attach gesture handler to nil widget")
 		return
 	}
+	h.detachExistingAttachment()
 
 	// Create click gesture that listens to all buttons
 	h.clickGesture = gtk.NewGestureClick()
@@ -96,7 +101,12 @@ func (h *GestureHandler) AttachTo(widget *gtk.Widget) {
 	h.pressedCb = func(_ gtk.GestureClick, nPress int, _ float64, _ float64) {
 		h.handlePressed(nPress)
 	}
-	h.clickGesture.ConnectPressed(&h.pressedCb)
+	h.pressedHandlerID = h.clickGesture.ConnectPressed(&h.pressedCb)
+	h.widget = widget
+	h.destroyCb = func(_ gtk.Widget) {
+		h.Detach()
+	}
+	h.destroyHandlerID = widget.ConnectDestroy(&h.destroyCb)
 
 	// Add controller to widget
 	widget.AddController(&h.clickGesture.EventController)
@@ -160,10 +170,46 @@ func (h *GestureHandler) handlePressed(nPress int) {
 	}
 }
 
-// Detach removes the gesture handler.
-// Note: GTK handles cleanup when the widget is destroyed,
-// but we clear our reference here.
+func (h *GestureHandler) detachExistingAttachment() {
+	if h == nil {
+		return
+	}
+	h.mu.RLock()
+	attached := h.widget != nil || h.clickGesture != nil || h.pressedHandlerID != 0 || h.destroyHandlerID != 0
+	h.mu.RUnlock()
+	if attached {
+		h.Detach()
+	}
+}
+
+// Detach removes the gesture handler and disconnects its GTK signals.
 func (h *GestureHandler) Detach() {
+	if h == nil {
+		return
+	}
+	h.mu.Lock()
+	widget := h.widget
+	clickGesture := h.clickGesture
+	pressedHandlerID := h.pressedHandlerID
+	destroyHandlerID := h.destroyHandlerID
+
+	h.widget = nil
 	h.clickGesture = nil
+	h.pressedHandlerID = 0
+	h.destroyHandlerID = 0
 	h.pressedCb = nil
+	h.destroyCb = nil
+	h.onAction = nil
+	h.navigator = nil
+	h.mu.Unlock()
+
+	if clickGesture != nil && pressedHandlerID != 0 {
+		clickGesture.DisconnectSignal(pressedHandlerID)
+	}
+	if widget != nil && destroyHandlerID != 0 {
+		widget.DisconnectSignal(destroyHandlerID)
+	}
+	if widget != nil && clickGesture != nil {
+		widget.RemoveController(&clickGesture.EventController)
+	}
 }

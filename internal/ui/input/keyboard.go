@@ -243,6 +243,8 @@ func (h *KeyboardHandler) AttachTo(window *gtk.ApplicationWindow) {
 // Note: GTK handles cleanup when the widget is destroyed,
 // but we clear our reference here.
 func (h *KeyboardHandler) Detach() {
+	h.mu.Lock()
+	defer h.mu.Unlock()
 	h.controller = nil
 	h.keyPressedCb = nil
 	h.keyReleasedCb = nil

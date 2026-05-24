@@ -19,16 +19,17 @@ import (
 // even when WebView has focus. It uses GtkShortcutController with GTK_SHORTCUT_SCOPE_GLOBAL
 // to intercept shortcuts before they reach the WebView.
 type GlobalShortcutHandler struct {
-	controller        *gtk.ShortcutController
-	releaseController *gtk.EventControllerKey
-	window            *gtk.ApplicationWindow
-	kbHandler         *KeyboardHandler
-	onAction          ActionHandler
-	ctx               context.Context
-	registered        map[KeyBinding]Action
-	lastDispatchAt    map[Action]time.Time
-	heldShortcuts     map[globalShortcutHoldKey]time.Time
-	keyReleasedCb     func(gtk.EventControllerKey, uint, uint, gdk.ModifierType)
+	controller           *gtk.ShortcutController
+	releaseController    *gtk.EventControllerKey
+	window               *gtk.ApplicationWindow
+	kbHandler            *KeyboardHandler
+	onAction             ActionHandler
+	ctx                  context.Context
+	registered           map[KeyBinding]Action
+	lastDispatchAt       map[Action]time.Time
+	heldShortcuts        map[globalShortcutHoldKey]time.Time
+	keyReleasedCb        func(gtk.EventControllerKey, uint, uint, gdk.ModifierType)
+	keyReleasedHandlerID uint
 	// generation is mutated only from the GTK main thread alongside controller replacement.
 	generation uint64
 
@@ -71,57 +72,8 @@ func NewGlobalShortcutHandler(
 		return nil
 	}
 
-	// Set global scope - this is the key to making shortcuts work
-	// even when WebView has focus
-	h.controller.SetScope(gtk.ShortcutScopeGlobalValue)
-	h.releaseController.SetPropagationPhase(gtk.PhaseCaptureValue)
-	h.keyReleasedCb = func(_ gtk.EventControllerKey, keyval uint, keycode uint, _ gdk.ModifierType) {
-		h.releaseHeldGlobalShortcuts(keyval, keycode)
-	}
-	h.releaseController.ConnectKeyReleased(&h.keyReleasedCb)
-
-	// Register Alt+1 through Alt+9 for tab switching
-	tabActions := []Action{
-		ActionSwitchTabIndex1,
-		ActionSwitchTabIndex2,
-		ActionSwitchTabIndex3,
-		ActionSwitchTabIndex4,
-		ActionSwitchTabIndex5,
-		ActionSwitchTabIndex6,
-		ActionSwitchTabIndex7,
-		ActionSwitchTabIndex8,
-		ActionSwitchTabIndex9,
-	}
-
-	for i, action := range tabActions {
-		keyval := uint(gdk.KEY_1) + uint(i) // KEY_1, KEY_2, ..., KEY_9
-		h.registerShortcut(keyval, gdk.AltMaskValue, action)
-		log.Trace().
-			Uint("keyval", keyval).
-			Str("action", string(action)).
-			Msg("registered global shortcut")
-	}
-
-	// Alt+0 for tab 10
-	h.registerShortcut(uint(gdk.KEY_0), gdk.AltMaskValue, ActionSwitchTabIndex10)
-	log.Trace().
-		Uint("keyval", uint(gdk.KEY_0)).
-		Str("action", string(ActionSwitchTabIndex10)).
-		Msg("registered global shortcut")
-
-	// Alt+Tab for switching to last active tab
-	h.registerShortcut(uint(gdk.KEY_Tab), gdk.AltMaskValue, ActionSwitchLastTab)
-	log.Trace().
-		Uint("keyval", uint(gdk.KEY_Tab)).
-		Str("action", string(ActionSwitchLastTab)).
-		Msg("registered global shortcut")
-
-	// Ctrl+Shift+S for direct session manager access (needs global scope for WebView focus)
-	h.registerShortcut(uint(gdk.KEY_s), gdk.ControlMaskValue|gdk.ShiftMaskValue, ActionOpenSessionManager)
-	log.Trace().
-		Uint("keyval", uint(gdk.KEY_s)).
-		Str("action", string(ActionOpenSessionManager)).
-		Msg("registered global shortcut")
+	h.configureGlobalControllers()
+	h.registerDefaultGlobalShortcuts(log)
 
 	if workspace != nil {
 		actionMap := globalShortcutActionMap()
@@ -179,6 +131,62 @@ func NewGlobalShortcutHandler(
 		Msg("global shortcut handler created and attached")
 
 	return h
+}
+
+func (h *GlobalShortcutHandler) configureGlobalControllers() {
+	// Set global scope - this is the key to making shortcuts work
+	// even when WebView has focus.
+	h.controller.SetScope(gtk.ShortcutScopeGlobalValue)
+	h.releaseController.SetPropagationPhase(gtk.PhaseCaptureValue)
+	h.keyReleasedCb = func(_ gtk.EventControllerKey, keyval uint, keycode uint, _ gdk.ModifierType) {
+		h.releaseHeldGlobalShortcuts(keyval, keycode)
+	}
+	h.keyReleasedHandlerID = h.releaseController.ConnectKeyReleased(&h.keyReleasedCb)
+}
+
+func (h *GlobalShortcutHandler) registerDefaultGlobalShortcuts(log *zerolog.Logger) {
+	// Register Alt+1 through Alt+9 for tab switching.
+	tabActions := []Action{
+		ActionSwitchTabIndex1,
+		ActionSwitchTabIndex2,
+		ActionSwitchTabIndex3,
+		ActionSwitchTabIndex4,
+		ActionSwitchTabIndex5,
+		ActionSwitchTabIndex6,
+		ActionSwitchTabIndex7,
+		ActionSwitchTabIndex8,
+		ActionSwitchTabIndex9,
+	}
+
+	for i, action := range tabActions {
+		keyval := uint(gdk.KEY_1) + uint(i) // KEY_1, KEY_2, ..., KEY_9
+		h.registerShortcut(keyval, gdk.AltMaskValue, action)
+		log.Trace().
+			Uint("keyval", keyval).
+			Str("action", string(action)).
+			Msg("registered global shortcut")
+	}
+
+	// Alt+0 for tab 10.
+	h.registerShortcut(uint(gdk.KEY_0), gdk.AltMaskValue, ActionSwitchTabIndex10)
+	log.Trace().
+		Uint("keyval", uint(gdk.KEY_0)).
+		Str("action", string(ActionSwitchTabIndex10)).
+		Msg("registered global shortcut")
+
+	// Alt+Tab for switching to last active tab.
+	h.registerShortcut(uint(gdk.KEY_Tab), gdk.AltMaskValue, ActionSwitchLastTab)
+	log.Trace().
+		Uint("keyval", uint(gdk.KEY_Tab)).
+		Str("action", string(ActionSwitchLastTab)).
+		Msg("registered global shortcut")
+
+	// Ctrl+Shift+S for direct session manager access (needs global scope for WebView focus).
+	h.registerShortcut(uint(gdk.KEY_s), gdk.ControlMaskValue|gdk.ShiftMaskValue, ActionOpenSessionManager)
+	log.Trace().
+		Uint("keyval", uint(gdk.KEY_s)).
+		Str("action", string(ActionOpenSessionManager)).
+		Msg("registered global shortcut")
 }
 
 // registerShortcut creates and registers a single shortcut with the controller.
@@ -461,18 +469,7 @@ func (h *GlobalShortcutHandler) ReloadShortcuts(ctx context.Context, workspace *
 	h.lastDispatchAt = make(map[Action]time.Time)
 	h.heldShortcuts = make(map[globalShortcutHoldKey]time.Time)
 
-	// Re-register hardcoded shortcuts (Alt+1-9, Alt+0, Alt+Tab, Ctrl+Shift+S)
-	tabActions := []Action{
-		ActionSwitchTabIndex1, ActionSwitchTabIndex2, ActionSwitchTabIndex3,
-		ActionSwitchTabIndex4, ActionSwitchTabIndex5, ActionSwitchTabIndex6,
-		ActionSwitchTabIndex7, ActionSwitchTabIndex8, ActionSwitchTabIndex9,
-	}
-	for i, action := range tabActions {
-		h.registerShortcut(uint(gdk.KEY_1)+uint(i), gdk.AltMaskValue, action)
-	}
-	h.registerShortcut(uint(gdk.KEY_0), gdk.AltMaskValue, ActionSwitchTabIndex10)
-	h.registerShortcut(uint(gdk.KEY_Tab), gdk.AltMaskValue, ActionSwitchLastTab)
-	h.registerShortcut(uint(gdk.KEY_s), gdk.ControlMaskValue|gdk.ShiftMaskValue, ActionOpenSessionManager)
+	h.registerDefaultGlobalShortcuts(log)
 
 	// Re-register config-driven shortcuts
 	if workspace != nil {
@@ -529,12 +526,16 @@ func (h *GlobalShortcutHandler) Detach() {
 	if h.window != nil && h.controller != nil {
 		h.window.RemoveController(&h.controller.EventController)
 	}
+	if h.releaseController != nil && h.keyReleasedHandlerID != 0 {
+		h.releaseController.DisconnectSignal(h.keyReleasedHandlerID)
+	}
 	if h.window != nil && h.releaseController != nil {
 		h.window.RemoveController(&h.releaseController.EventController)
 	}
 	h.controller = nil
 	h.releaseController = nil
 	h.keyReleasedCb = nil
+	h.keyReleasedHandlerID = 0
 	h.callbacks = nil
 	h.registered = nil
 	h.lastDispatchAt = nil
