@@ -189,48 +189,48 @@ func TestGlobalShortcutHandlerSuppressesActionSwitchLastTab(t *testing.T) {
 }
 
 func TestGlobalShortcutHandlerSuppressesHeldGlobalShortcutUntilRelease(t *testing.T) {
-	h := &GlobalShortcutHandler{heldShortcuts: make(map[globalShortcutHoldKey]time.Time)}
+	h := &GlobalShortcutHandler{heldShortcuts: make(map[globalShortcutHoldKey]struct{})}
 	info := globalShortcutEventInfo{hasCurrentEvent: true, eventType: gdk.KeyPressValue, eventKeyval: uint('f'), eventKeycode: 41}
 
-	if h.suppressHeldShortcut(ActionToggleFloatingPane, info, time.Unix(100, 0)) {
+	if h.suppressHeldShortcut(ActionToggleFloatingPane, info) {
 		t.Fatal("first held global shortcut dispatch was suppressed")
 	}
-	if !h.suppressHeldShortcut(ActionToggleFloatingPane, info, time.Unix(101, 0)) {
+	if !h.suppressHeldShortcut(ActionToggleFloatingPane, info) {
 		t.Fatal("held global shortcut repeat after cooldown was not suppressed")
 	}
 
 	h.releaseHeldGlobalShortcuts(uint('x'), 0)
-	if !h.suppressHeldShortcut(ActionToggleFloatingPane, info, time.Unix(101, 0)) {
+	if !h.suppressHeldShortcut(ActionToggleFloatingPane, info) {
 		t.Fatal("unrelated key release re-armed held global shortcut")
 	}
 
 	h.releaseHeldGlobalShortcuts(uint('f'), 0)
-	if h.suppressHeldShortcut(ActionToggleFloatingPane, info, time.Unix(103, 0)) {
+	if h.suppressHeldShortcut(ActionToggleFloatingPane, info) {
 		t.Fatal("matching key release did not re-arm held global shortcut")
 	}
 }
 
 func TestGlobalShortcutHandlerSuppressesHeldModeAction(t *testing.T) {
-	h := &GlobalShortcutHandler{heldShortcuts: make(map[globalShortcutHoldKey]time.Time)}
+	h := &GlobalShortcutHandler{heldShortcuts: make(map[globalShortcutHoldKey]struct{})}
 	info := globalShortcutEventInfo{hasCurrentEvent: true, eventType: gdk.KeyPressValue, eventKeyval: uint('p'), eventKeycode: 33}
 
-	if h.suppressHeldShortcut(ActionEnterPaneMode, info, time.Unix(100, 0)) {
+	if h.suppressHeldShortcut(ActionEnterPaneMode, info) {
 		t.Fatal("first mode shortcut dispatch was suppressed")
 	}
-	if !h.suppressHeldShortcut(ActionEnterPaneMode, info, time.Unix(101, 0)) {
+	if !h.suppressHeldShortcut(ActionEnterPaneMode, info) {
 		t.Fatal("held mode shortcut repeat was not suppressed")
 	}
 }
 
 func TestGlobalShortcutHandlerSuppressesHeldFloatingProfileAction(t *testing.T) {
-	h := &GlobalShortcutHandler{heldShortcuts: make(map[globalShortcutHoldKey]time.Time)}
+	h := &GlobalShortcutHandler{heldShortcuts: make(map[globalShortcutHoldKey]struct{})}
 	info := globalShortcutEventInfo{hasCurrentEvent: true, eventType: gdk.KeyPressValue, eventKeyval: uint('o'), eventKeycode: 32}
 	action := NewFloatingProfileAction("work", "https://example.com")
 
-	if h.suppressHeldShortcut(action, info, time.Unix(100, 0)) {
+	if h.suppressHeldShortcut(action, info) {
 		t.Fatal("first floating-profile shortcut dispatch was suppressed")
 	}
-	if !h.suppressHeldShortcut(action, info, time.Unix(101, 0)) {
+	if !h.suppressHeldShortcut(action, info) {
 		t.Fatal("held floating-profile shortcut repeat was not suppressed")
 	}
 }

@@ -27,7 +27,7 @@ type GlobalShortcutHandler struct {
 	ctx                  context.Context
 	registered           map[KeyBinding]Action
 	lastDispatchAt       map[Action]time.Time
-	heldShortcuts        map[globalShortcutHoldKey]time.Time
+	heldShortcuts        map[globalShortcutHoldKey]struct{}
 	keyReleasedCb        func(gtk.EventControllerKey, uint, uint, gdk.ModifierType)
 	keyReleasedHandlerID uint
 	// generation is mutated only from the GTK main thread alongside controller replacement.
@@ -60,7 +60,7 @@ func NewGlobalShortcutHandler(
 		callbacks:         make([]gtk.ShortcutFunc, 0),
 		registered:        make(map[KeyBinding]Action),
 		lastDispatchAt:    make(map[Action]time.Time),
-		heldShortcuts:     make(map[globalShortcutHoldKey]time.Time),
+		heldShortcuts:     make(map[globalShortcutHoldKey]struct{}),
 	}
 
 	if h.controller == nil {
@@ -240,7 +240,7 @@ func (h *GlobalShortcutHandler) registerShortcut(keyval uint, modifiers gdk.Modi
 				Msg("global shortcut ignored without current key event")
 			return true
 		}
-		if h.suppressHeldShortcut(actionToDispatch, eventInfo, time.Now()) {
+		if h.suppressHeldShortcut(actionToDispatch, eventInfo) {
 			log.Trace().
 				Str("action", string(actionToDispatch)).
 				Str("shortcut", formatBinding(bindingForLog)).
@@ -467,7 +467,7 @@ func (h *GlobalShortcutHandler) ReloadShortcuts(ctx context.Context, workspace *
 	h.callbacks = make([]gtk.ShortcutFunc, 0)
 	h.registered = make(map[KeyBinding]Action)
 	h.lastDispatchAt = make(map[Action]time.Time)
-	h.heldShortcuts = make(map[globalShortcutHoldKey]time.Time)
+	h.heldShortcuts = make(map[globalShortcutHoldKey]struct{})
 
 	h.registerDefaultGlobalShortcuts(log)
 
@@ -552,7 +552,7 @@ func (h *GlobalShortcutHandler) isActiveWindowShortcutHandler() bool {
 	return h != nil && h.controller != nil && h.window != nil && h.window.IsActive()
 }
 
-func (h *GlobalShortcutHandler) suppressHeldShortcut(action Action, info globalShortcutEventInfo, now time.Time) bool {
+func (h *GlobalShortcutHandler) suppressHeldShortcut(action Action, info globalShortcutEventInfo) bool {
 	if h == nil || !isHeldGlobalShortcutSuppressed(action) || !info.hasCurrentEvent {
 		return false
 	}
@@ -568,7 +568,7 @@ func (h *GlobalShortcutHandler) suppressHeldShortcut(action Action, info globalS
 	if _, ok := h.heldShortcuts[key]; ok {
 		return true
 	}
-	h.heldShortcuts[key] = now
+	h.heldShortcuts[key] = struct{}{}
 	return false
 }
 
