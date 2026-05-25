@@ -767,6 +767,15 @@ func (wv *WebView) awaitsNativePopupAttachment() bool {
 	return wv.browser == nil && !wv.nativePopupFallbackStarted && (wv.nativePopupCandidate || wv.nativePopupID != 0)
 }
 
+func (wv *WebView) awaitsBrowserCreateFromNativePopupFallback() bool {
+	if wv == nil {
+		return false
+	}
+	wv.mu.RLock()
+	defer wv.mu.RUnlock()
+	return wv.browser == nil && wv.nativePopupFallbackStarted && wv.pendingCreate != nil
+}
+
 func (wv *WebView) nativePopupFallbackScheduler() func(time.Duration, func()) stoppableTimer {
 	if wv != nil && wv.nativePopupFallbackSchedule != nil {
 		return wv.nativePopupFallbackSchedule

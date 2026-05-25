@@ -177,18 +177,7 @@ func (f *WebViewFactory) configureInitialBrowserCreation(
 			// the one-shot initial resize path; once that path has been consumed,
 			// later size events must go through normal viewport sync even if popup
 			// attachment keeps pendingCreate alive a little longer.
-			if wv.shouldStartBrowserCreateFromSizeObserver() {
-				if err := wv.viewBridge.PrepareOnGTKThread(); err != nil {
-					logging.FromContext(ctx).Warn().
-						Err(err).
-						Uint64("webview_id", uint64(wv.id)).
-						Int32("resize_width", w).
-						Int32("resize_height", h).
-						Msg("cef: cef2gtk view not ready after resize, will retry")
-					return
-				}
-				wv.markInitialBrowserCreateResizeHandled()
-				onFirstResize(w, h)
+			if f.handleInitialBrowserCreateSizeObserver(ctx, wv, onFirstResize, wv.viewBridge.PrepareOnGTKThread, w, h) {
 				return
 			}
 
@@ -201,6 +190,49 @@ func (f *WebViewFactory) configureInitialBrowserCreation(
 				Msg("cef: viewport sync handled after GTK size change")
 		})
 	})
+}
+
+func (f *WebViewFactory) handleInitialBrowserCreateSizeObserver(
+	ctx context.Context,
+	wv *WebView,
+	onFirstResize func(w, h int32),
+	prepareOnGTK func() error,
+	w, h int32,
+) bool {
+	if wv == nil || !wv.shouldStartBrowserCreateFromSizeObserver() {
+		return false
+	}
+	if !initialBrowserCreateSizeReadyFromObserver(w, h) {
+		if wv.awaitsNativePopupAttachment() && onFirstResize != nil {
+			onFirstResize(w, h)
+		}
+		logging.FromContext(ctx).Debug().
+			Uint64("webview_id", uint64(wv.id)).
+			Int32("resize_width", w).
+			Int32("resize_height", h).
+			Msg("cef: ignoring bootstrap size observer event before real view size is ready")
+		return true
+	}
+	if prepareOnGTK != nil {
+		if err := prepareOnGTK(); err != nil {
+			logging.FromContext(ctx).Warn().
+				Err(err).
+				Uint64("webview_id", uint64(wv.id)).
+				Int32("resize_width", w).
+				Int32("resize_height", h).
+				Msg("cef: cef2gtk view not ready after resize, will retry")
+			return true
+		}
+	}
+	wv.markInitialBrowserCreateResizeHandled()
+	if onFirstResize != nil {
+		onFirstResize(w, h)
+	}
+	return true
+}
+
+func initialBrowserCreateSizeReadyFromObserver(width, height int32) bool {
+	return observedViewportSizeReady(width, height, width, height)
 }
 
 func (f *WebViewFactory) postPendingBrowserCreate(ctx context.Context, wv *WebView, w, h int32) {
@@ -329,26 +361,61 @@ func (f *WebViewFactory) CreateRelated(ctx context.Context, parentID port.WebVie
 	}
 
 	f.configureInitialBrowserCreation(ctx, popupWV, popupWV.client, &windowInfo, &settings, func(w, h int32) {
-		log := logging.FromContext(ctx)
-		if popupWV.awaitsNativePopupAttachment() {
-			log.Debug().Int32("w", w).Int32("h", h).Msg("cef: popup shell first resize, awaiting native popup attach")
-			popupWV.scheduleNativePopupFallback(nativePopupAttachFallbackDelay, func() {
-				if !popupWV.startNativePopupFallback() {
-					return
-				}
-				logging.FromContext(ctx).Warn().
-					Uint64("webview_id", uint64(popupWV.id)).
-					Msg("cef: native popup attach timed out, creating popup browser directly")
-				f.postPendingBrowserCreate(ctx, popupWV, w, h)
-			})
-			return
-		}
-
-		if !popupWV.preparePopupShellDirectBrowserCreation() {
-			return
-		}
-		log.Debug().Int32("w", w).Int32("h", h).Msg("cef: popup shell first resize, creating browser directly")
-		f.postPendingBrowserCreate(ctx, popupWV, w, h)
+		f.handlePopupShellInitialResize(ctx, popupWV, func(w, h int32) {
+			f.postPendingBrowserCreate(ctx, popupWV, w, h)
+		}, w, h)
 	})
 	return popupWV, nil
+}
+
+func (f *WebViewFactory) handlePopupShellInitialResize(
+	ctx context.Context,
+	popupWV *WebView,
+	postPendingCreate func(w, h int32),
+	w, h int32,
+) {
+	if popupWV == nil {
+		return
+	}
+	log := logging.FromContext(ctx)
+	if popupWV.awaitsNativePopupAttachment() {
+		log.Debug().Int32("w", w).Int32("h", h).Msg("cef: popup shell initial size observed, awaiting native popup attach")
+		f.schedulePopupShellNativeFallback(ctx, popupWV)
+		return
+	}
+	if popupWV.awaitsBrowserCreateFromNativePopupFallback() {
+		log.Debug().Int32("w", w).Int32("h", h).Msg("cef: popup shell size ready after fallback, creating browser directly")
+		if postPendingCreate != nil {
+			postPendingCreate(w, h)
+		}
+		return
+	}
+	if !popupWV.preparePopupShellDirectBrowserCreation() {
+		return
+	}
+	log.Debug().Int32("w", w).Int32("h", h).Msg("cef: popup shell first resize, creating browser directly")
+	if postPendingCreate != nil {
+		postPendingCreate(w, h)
+	}
+}
+
+func (f *WebViewFactory) schedulePopupShellNativeFallback(ctx context.Context, popupWV *WebView) {
+	if popupWV == nil {
+		return
+	}
+	popupWV.scheduleNativePopupFallback(nativePopupAttachFallbackDelay, func() {
+		popupWV.runOnGTK(func() {
+			if !popupWV.startNativePopupFallback() {
+				return
+			}
+			logging.FromContext(ctx).Warn().
+				Uint64("webview_id", uint64(popupWV.id)).
+				Msg("cef: native popup attach timed out, starting direct popup fallback")
+			synced := popupWV.syncViewportNowOnGTK(ctx, "native-popup-fallback-timeout")
+			logging.FromContext(ctx).Debug().
+				Uint64("webview_id", uint64(popupWV.id)).
+				Bool("browser_ready", synced).
+				Msg("cef: popup fallback viewport sync requested")
+		})
+	})
 }

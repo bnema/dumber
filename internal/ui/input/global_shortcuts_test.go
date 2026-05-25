@@ -3,6 +3,8 @@ package input
 import (
 	"testing"
 	"time"
+
+	"github.com/bnema/puregotk/v4/gdk"
 )
 
 func TestGlobalShortcutHandlerSuppressesRepeatedOneShotActions(t *testing.T) {
@@ -183,5 +185,83 @@ func TestGlobalShortcutHandlerSuppressesActionSwitchLastTab(t *testing.T) {
 	}
 	if !h.suppressRepeatedShortcut(ActionSwitchLastTab, now.Add(time.Millisecond)) {
 		t.Fatal("repeated ActionSwitchLastTab dispatch was not suppressed")
+	}
+}
+
+func TestGlobalShortcutHandlerSuppressesHeldGlobalShortcutUntilRelease(t *testing.T) {
+	h := &GlobalShortcutHandler{heldShortcuts: make(map[globalShortcutHoldKey]struct{})}
+	info := globalShortcutEventInfo{hasCurrentEvent: true, eventType: gdk.KeyPressValue, eventKeyval: uint('f'), eventKeycode: 41}
+
+	if h.suppressHeldShortcut(ActionToggleFloatingPane, info) {
+		t.Fatal("first held global shortcut dispatch was suppressed")
+	}
+	if !h.suppressHeldShortcut(ActionToggleFloatingPane, info) {
+		t.Fatal("held global shortcut repeat after cooldown was not suppressed")
+	}
+
+	h.releaseHeldGlobalShortcuts(uint('x'), 0)
+	if !h.suppressHeldShortcut(ActionToggleFloatingPane, info) {
+		t.Fatal("unrelated key release re-armed held global shortcut")
+	}
+
+	h.releaseHeldGlobalShortcuts(uint('f'), 0)
+	if h.suppressHeldShortcut(ActionToggleFloatingPane, info) {
+		t.Fatal("matching key release did not re-arm held global shortcut")
+	}
+}
+
+func TestGlobalShortcutHandlerSuppressesHeldModeAction(t *testing.T) {
+	h := &GlobalShortcutHandler{heldShortcuts: make(map[globalShortcutHoldKey]struct{})}
+	info := globalShortcutEventInfo{hasCurrentEvent: true, eventType: gdk.KeyPressValue, eventKeyval: uint('p'), eventKeycode: 33}
+
+	if h.suppressHeldShortcut(ActionEnterPaneMode, info) {
+		t.Fatal("first mode shortcut dispatch was suppressed")
+	}
+	if !h.suppressHeldShortcut(ActionEnterPaneMode, info) {
+		t.Fatal("held mode shortcut repeat was not suppressed")
+	}
+}
+
+func TestGlobalShortcutHandlerSuppressesHeldFloatingProfileAction(t *testing.T) {
+	h := &GlobalShortcutHandler{heldShortcuts: make(map[globalShortcutHoldKey]struct{})}
+	info := globalShortcutEventInfo{hasCurrentEvent: true, eventType: gdk.KeyPressValue, eventKeyval: uint('o'), eventKeycode: 32}
+	action := NewFloatingProfileAction("work", "https://example.com")
+
+	if h.suppressHeldShortcut(action, info) {
+		t.Fatal("first floating-profile shortcut dispatch was suppressed")
+	}
+	if !h.suppressHeldShortcut(action, info) {
+		t.Fatal("held floating-profile shortcut repeat was not suppressed")
+	}
+}
+
+func TestShouldDispatchGlobalShortcutEventRequiresCurrentKeyEvent(t *testing.T) {
+	if shouldDispatchGlobalShortcutEvent(globalShortcutEventInfo{}) {
+		t.Fatal("global shortcut without current event should not dispatch")
+	}
+	if shouldDispatchGlobalShortcutEvent(globalShortcutEventInfo{hasCurrentEvent: true, eventType: gdk.KeyReleaseValue}) {
+		t.Fatal("global shortcut from key-release event should not dispatch")
+	}
+	if !shouldDispatchGlobalShortcutEvent(globalShortcutEventInfo{hasCurrentEvent: true, eventType: gdk.KeyPressValue}) {
+		t.Fatal("global shortcut from key-press event should dispatch")
+	}
+}
+
+func TestFormatModifierMask(t *testing.T) {
+	got := formatModifierMask(gdk.ControlMaskValue | gdk.ShiftMaskValue | gdk.ModifierType(0x2000))
+	if got != "ctrl+shift+0x2000" {
+		t.Fatalf("unexpected modifier mask: %q", got)
+	}
+	if formatModifierMask(0) != "none" {
+		t.Fatal("zero modifier mask should render as none")
+	}
+}
+
+func TestFormatEventType(t *testing.T) {
+	if got := formatEventType(gdk.KeyPressValue); got != "key-press" {
+		t.Fatalf("unexpected key press event type: %q", got)
+	}
+	if got := formatEventType(gdk.EventType(99)); got != "event-99" {
+		t.Fatalf("unexpected fallback event type: %q", got)
 	}
 }

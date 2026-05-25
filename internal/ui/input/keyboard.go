@@ -76,8 +76,9 @@ type KeyboardHandler struct {
 	keyPressedCb  func(gtk.EventControllerKey, uint, uint, gdk.ModifierType) bool
 	keyReleasedCb func(gtk.EventControllerKey, uint, uint, gdk.ModifierType)
 
-	ctx context.Context
-	mu  sync.RWMutex
+	activePressedActions map[Action]uint
+	ctx                  context.Context
+	mu                   sync.RWMutex
 }
 
 // NewKeyboardHandler creates a new keyboard handler.
@@ -87,11 +88,12 @@ func NewKeyboardHandler(ctx context.Context, workspace *entity.WorkspaceConfig, 
 	log.Debug().Msg("creating keyboard handler")
 
 	h := &KeyboardHandler{
-		shortcuts: NewShortcutSet(ctx, workspace, session),
-		modal:     NewModalState(ctx),
-		workspace: workspace,
-		session:   session,
-		ctx:       ctx,
+		shortcuts:            NewShortcutSet(ctx, workspace, session),
+		modal:                NewModalState(ctx),
+		workspace:            workspace,
+		session:              session,
+		activePressedActions: make(map[Action]uint),
+		ctx:                  ctx,
 	}
 
 	return h
@@ -241,9 +243,12 @@ func (h *KeyboardHandler) AttachTo(window *gtk.ApplicationWindow) {
 // Note: GTK handles cleanup when the widget is destroyed,
 // but we clear our reference here.
 func (h *KeyboardHandler) Detach() {
+	h.mu.Lock()
+	defer h.mu.Unlock()
 	h.controller = nil
 	h.keyPressedCb = nil
 	h.keyReleasedCb = nil
+	h.activePressedActions = nil
 }
 
 // handleKeyPress processes a key press event.
@@ -313,6 +318,12 @@ func (h *KeyboardHandler) handleKeyPress(keyval, keycode uint, state gdk.Modifie
 	if !found {
 		return mode != ModeNormal // Consume unrecognized keys in modal mode
 	}
+	if h.suppressHeldAction(action, keyval) {
+		log.Trace().
+			Str("action", string(action)).
+			Msg("held keyboard action repeat suppressed")
+		return true
+	}
 
 	return h.dispatchAction(action, mode)
 }
@@ -371,6 +382,47 @@ func (h *KeyboardHandler) dispatchAction(action Action, mode Mode) bool {
 	}
 
 	return true // Consumed the key
+}
+
+func (h *KeyboardHandler) suppressHeldAction(action Action, keyval uint) bool {
+	if h == nil || !isRepeatedKeyboardActionSuppressed(action) {
+		return false
+	}
+
+	h.mu.Lock()
+	defer h.mu.Unlock()
+	if h.activePressedActions == nil {
+		return true
+	}
+	if pressedKeyval, ok := h.activePressedActions[action]; ok && pressedKeyval == keyval {
+		return true
+	}
+	h.activePressedActions[action] = keyval
+	return false
+}
+
+func isRepeatedKeyboardActionSuppressed(action Action) bool {
+	if isRepeatedGlobalShortcutSuppressed(action) {
+		return true
+	}
+	switch action {
+	case ActionEnterTabMode,
+		ActionEnterPaneMode,
+		ActionEnterSessionMode,
+		ActionEnterResizeMode,
+		ActionNewTab,
+		ActionRenameTab,
+		ActionSplitRight,
+		ActionSplitLeft,
+		ActionSplitUp,
+		ActionSplitDown,
+		ActionStackPane,
+		ActionMovePaneToTab,
+		ActionMovePaneToNextTab:
+		return true
+	default:
+		return false
+	}
 }
 
 func (h *KeyboardHandler) lookupAction(
@@ -536,9 +588,17 @@ func (h *KeyboardHandler) DispatchAction(action Action) {
 
 // handleKeyRelease processes a key release event for accent detection.
 func (h *KeyboardHandler) handleKeyRelease(keyval uint) {
-	h.mu.RLock()
+	h.mu.Lock()
 	accentHandler := h.accentHandler
-	h.mu.RUnlock()
+	if len(h.activePressedActions) > 0 {
+		keyval = normalizeKeyval(keyval)
+		for action, pressedKeyval := range h.activePressedActions {
+			if pressedKeyval == keyval {
+				delete(h.activePressedActions, action)
+			}
+		}
+	}
+	h.mu.Unlock()
 
 	if accentHandler == nil {
 		return
