@@ -131,21 +131,24 @@ release:
 
     **Arch Linux:**
     ```bash
-    # Core WebKitGTK 6.0 and GTK4
-    sudo pacman -S webkitgtk-6.0 gtk4
+    # Core CEF, WebKit fallback, and GTK4
+    sudo pacman -S cef webkitgtk-6.0 gtk4
 
-    # GStreamer for media playback
+    # GStreamer for WebKit media playback
     sudo pacman -S gst-plugins-base gst-plugins-good gst-plugins-bad gst-plugins-ugly gst-libav gst-plugin-pipewire pipewire pipewire-pulse
 
-    # Hardware acceleration (choose based on your GPU)
-    # AMD: sudo pacman -S gstreamer-vaapi mesa
-    # NVIDIA: sudo pacman -S gstreamer-vaapi libva-nvidia-driver
-    # Intel: sudo pacman -S gstreamer-vaapi libva-intel-driver intel-media-driver
+    # Optional CEF build with VA-API hardware video decoding
+    # paru -S cef-vaapi
+
+    # Hardware acceleration drivers (choose based on your GPU)
+    # AMD: sudo pacman -S mesa
+    # NVIDIA: sudo pacman -S libva-nvidia-driver
+    # Intel: sudo pacman -S libva-intel-driver intel-media-driver
     ```
 
     **Debian/Ubuntu:**
     ```bash
-    # Core WebKitGTK and GTK4
+    # GTK4 and WebKit fallback
     sudo apt install libwebkitgtk-6.0-4 libgtk-4-1
 
     # GStreamer for media playback

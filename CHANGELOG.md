@@ -4,6 +4,8 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+## [0.29.0] - 2026-05-27
+
 ### Added
 
 - **CEF as the default browser engine**: New installs and configs without an explicit engine now use CEF by default. WebKit remains available by setting `engine.type = "webkit"`.
