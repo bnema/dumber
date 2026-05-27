@@ -1,16 +1,16 @@
 module github.com/bnema/dumber
 
-go 1.26.1
+go 1.26.3
 
 require (
 	github.com/a-h/templ v0.3.1020
 	github.com/andybalholm/brotli v1.2.1
-	github.com/bnema/purego v0.11.0-bnema.2
-	github.com/bnema/purego-cef v0.13.1
-	github.com/bnema/purego-cef2gtk v0.5.4
-	github.com/bnema/purego-pipewire v0.1.3
-	github.com/bnema/purego-sqlite v0.1.2
-	github.com/bnema/puregotk v0.5.3
+	github.com/bnema/purego v0.11.0-bnema.3
+	github.com/bnema/purego-cef v0.13.2
+	github.com/bnema/purego-cef2gtk v0.5.5
+	github.com/bnema/purego-pipewire v0.1.4
+	github.com/bnema/purego-sqlite v0.1.3
+	github.com/bnema/puregotk v0.5.4
 	github.com/charmbracelet/bubbles v1.0.0
 	github.com/charmbracelet/bubbletea v1.3.10
 	github.com/charmbracelet/lipgloss v1.1.0
@@ -22,8 +22,8 @@ require (
 	github.com/spf13/cobra v1.10.2
 	github.com/spf13/viper v1.21.0
 	github.com/stretchr/testify v1.11.1
-	golang.org/x/image v0.40.0
-	golang.org/x/sys v0.44.0
+	golang.org/x/image v0.41.0
+	golang.org/x/sys v0.45.0
 	gopkg.in/yaml.v3 v3.0.1
 )
 
