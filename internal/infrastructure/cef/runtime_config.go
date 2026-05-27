@@ -24,6 +24,7 @@ type RuntimeConfig struct {
 	WindowlessFrameRateMax      int32
 	EnableAudioHandler          bool
 	TraceHandlers               bool
+	ApplicationScale            float64
 }
 
 type HandlerRegistrar func(context.Context, port.WebUIHandlerRouter, port.HandlerDependencies) error

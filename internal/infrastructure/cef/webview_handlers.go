@@ -400,11 +400,16 @@ func (h *handlerSet) OnLoadEnd(_ purecef.Browser, frame purecef.Frame, httpStatu
 	// Inject scripts and styles after page load.
 	// Must run on GTK thread — OnLoadEnd fires on the CEF IO thread,
 	// and JavaScript injection requires the main thread.
-	if cefScaleProbeEnabled() && httpStatusCode >= 0 && !strings.EqualFold(strings.TrimSpace(frameURL), "about:blank") {
+	if cefScaleProbeEnabled() && shouldRunCEFScaleProbe(frameURL, httpStatusCode) {
 		// Do not retain/use CEF callback-scoped frame wrappers across the GTK idle hop.
 		// Re-read the current main frame through WebView.RunJavaScript instead.
 		h.wv.runOnGTK(func() {
-			logging.FromContext(h.wv.ctx).Debug().Msg("cef: injecting scale probe")
+			snapshot := cefScaleProbeSnapshot(h.wv)
+			event := logging.FromContext(h.wv.ctx).Debug()
+			for key, value := range snapshot.logFields() {
+				event = event.Interface(key, value)
+			}
+			event.Msg("cef: injecting scale probe")
 			h.wv.RunJavaScript(context.Background(), cefScaleProbeScript)
 		})
 	}

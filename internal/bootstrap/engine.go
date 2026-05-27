@@ -86,6 +86,7 @@ func BuildEngine(input EngineInput) (port.Engine, error) {
 			WindowlessFrameRateMax:      cfg.Engine.CEF.CEFWindowlessFrameRateMax(),
 			EnableAudioHandler:          cfg.Engine.CEF.EnableAudioHandler,
 			TraceHandlers:               cfg.Engine.CEF.TraceHandlers,
+			ApplicationScale:            cfg.DefaultUIScale,
 		}
 		deps := cef.EngineDependencies{
 			RegisterHandlers:           handlers.RegisterAll,
