@@ -459,11 +459,11 @@ func cefZoomFromFactor(factor float64) float64 {
 }
 
 func cefZoomFromPageAndBackingFactor(pageZoom, backingScale float64) float64 {
-	return cefZoomFromFactor(pageZoom / normalizeScale(backingScale))
+	return cefZoomFromFactor(pageZoom * normalizeScale(backingScale))
 }
 
 func pageZoomFromCEFAndBackingLevel(level, backingScale float64) float64 {
-	return factorFromCEFZoom(level) * normalizeScale(backingScale)
+	return factorFromCEFZoom(level) / normalizeScale(backingScale)
 }
 
 func (wv *WebView) applyCEFZoomLevel(host purecef.BrowserHost, factor, cefLevel, backingScale float64) {
@@ -1765,7 +1765,7 @@ func (wv *WebView) reapplyCurrentZoomForBackingScale(reason string) {
 		Float64("factor", factor).
 		Float64("cef_level", cefLevel).
 		Float64("osr_backing_scale", backingScale).
-		Msg("cef: reapplied zoom for OSR backing scale")
+		Msg("cef: reapplied zoom after OSR backing scale change")
 }
 
 func (wv *WebView) scheduleStartBeginFrameLoop() {

@@ -10,6 +10,8 @@ import (
 	"time"
 	"unicode/utf8"
 
+	"github.com/bnema/dumber/internal/infrastructure/config"
+
 	purecef "github.com/bnema/purego-cef/cef"
 	cef2gtk "github.com/bnema/purego-cef2gtk"
 
@@ -25,12 +27,13 @@ var _ port.AlreadyRunningAppRelaunchHandlerSetter = (*Engine)(nil)
 // Engine implements port.Engine for the CEF browser backend.
 // It manages the CEF lifecycle and provides access to all engine subsystems.
 type Engine struct {
-	ctx             context.Context
-	factory         *WebViewFactory
-	pool            *WebViewPool
-	profileLogDir   string
-	runtimeCEFDir   string
-	renderStackPlan cef2gtk.RenderStackPlan
+	ctx              context.Context
+	factory          *WebViewFactory
+	pool             *WebViewPool
+	profileLogDir    string
+	runtimeCEFDir    string
+	renderStackPlan  cef2gtk.RenderStackPlan
+	applicationScale float64
 
 	messageRouter *MessageRouter
 	schemeHandler *dumbSchemeHandler
@@ -346,8 +349,26 @@ func (e *Engine) UpdateAppearance(_ context.Context, r, g, b, alpha float64) err
 	return nil
 }
 
-// UpdateSettings applies runtime config changes to engine internals (Phase 1 stub).
-func (e *Engine) UpdateSettings(_ context.Context, _ port.EngineSettingsUpdate) error {
+// UpdateSettings applies runtime config changes to engine internals.
+//
+// CEF view scaling is fixed when each cef2gtk view is constructed. Changes to
+// default_ui_scale therefore apply to newly-created CEF views in this engine;
+// existing views continue using their construction-time scale until reload under
+// a new engine lifetime. Browser zoom remains independently adjustable at
+// runtime through SetZoomLevel.
+func (e *Engine) UpdateSettings(ctx context.Context, update port.EngineSettingsUpdate) error {
+	cfg, ok := update.Raw.(*config.Config)
+	if !ok {
+		return fmt.Errorf("UpdateSettings: expected *config.Config, got %T", update.Raw)
+	}
+	newScale := normalizedApplicationScale(cfg.DefaultUIScale)
+	if e.applicationScale != newScale {
+		logging.FromContext(ctx).Info().
+			Float64("old_application_scale", e.applicationScale).
+			Float64("new_application_scale", newScale).
+			Msg("cef: application scale update will apply to newly-created CEF views")
+		e.applicationScale = newScale
+	}
 	return nil
 }
 

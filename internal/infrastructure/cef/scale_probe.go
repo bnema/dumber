@@ -1,5 +1,70 @@
 package cef
 
+import (
+	"math"
+	"strings"
+)
+
+type cefScaleProbeMetrics struct {
+	SurfaceWidth      int32
+	SurfaceHeight     int32
+	SurfaceScale      float64
+	OSRBackingScale   float64
+	UserZoom          float64
+	InternalCEFFactor float64
+}
+
+func shouldRunCEFScaleProbe(frameURL string, httpStatusCode int32) bool {
+	url := strings.ToLower(strings.TrimSpace(frameURL))
+	if url == "" || url == "about:blank" {
+		return false
+	}
+	if strings.HasPrefix(url, "http://") || strings.HasPrefix(url, "https://") {
+		return httpStatusCode >= 200 && httpStatusCode < 400
+	}
+	return httpStatusCode >= 0
+}
+
+func cefScaleProbeSnapshot(wv *WebView) cefScaleProbeMetrics {
+	m := cefScaleProbeMetrics{
+		SurfaceWidth:      1,
+		SurfaceHeight:     1,
+		SurfaceScale:      1,
+		OSRBackingScale:   1,
+		UserZoom:          1,
+		InternalCEFFactor: 1,
+	}
+	if wv == nil {
+		return m
+	}
+	m.UserZoom = normalizeScale(wv.GetZoomLevel())
+	m.OSRBackingScale = normalizeScale(wv.osrBackingScaleFactor())
+	m.InternalCEFFactor = m.UserZoom * m.OSRBackingScale
+	if wv.viewBridge != nil {
+		m.SurfaceWidth, m.SurfaceHeight = wv.viewBridge.Size()
+		m.SurfaceScale = normalizeScale(float64(wv.viewBridge.DeviceScaleFactor()))
+	}
+	return m
+}
+
+func (m cefScaleProbeMetrics) logFields() map[string]interface{} {
+	return map[string]interface{}{
+		"surface_width":       m.SurfaceWidth,
+		"surface_height":      m.SurfaceHeight,
+		"surface_scale":       roundedScale(m.SurfaceScale),
+		"osr_backing_scale":   roundedScale(m.OSRBackingScale),
+		"user_zoom":           roundedScale(m.UserZoom),
+		"internal_cef_factor": roundedScale(m.InternalCEFFactor),
+	}
+}
+
+func roundedScale(v float64) float64 {
+	if math.IsNaN(v) || math.IsInf(v, 0) {
+		return 1
+	}
+	return math.Round(v*1_000_000) / 1_000_000
+}
+
 const cefScaleProbeScript = `(function(){
   try {
     var vv = window.visualViewport;

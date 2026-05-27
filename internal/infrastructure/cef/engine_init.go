@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"math"
 	"os"
 	"path/filepath"
 	"strconv"
@@ -66,6 +67,7 @@ func NewEngine(
 		profileLogDir:          paths.ProfileLogDir,
 		runtimeCEFDir:          settings.CEFDir,
 		renderStackPlan:        renderStackPlan,
+		applicationScale:       normalizedApplicationScale(cfg.ApplicationScale),
 		registerHandlers:       deps.RegisterHandlers,
 		registerAccentHandlers: deps.RegisterAccentHandlers,
 		currentConfigPayload:   deps.CurrentConfigPayload,
@@ -86,6 +88,7 @@ func NewEngine(
 		Bool("external_begin_frame", externalBeginFrameEnabled()).
 		Bool("trace_handlers", cfg.TraceHandlers).
 		Bool("enable_audio_handler", cfg.EnableAudioHandler).
+		Float64("application_scale", eng.applicationScale).
 		Msg("cef: configured engine")
 
 	if err := initializeCEF(eng, settings, logger); err != nil {
@@ -107,6 +110,13 @@ func NewEngine(
 		deps.CurrentConfigPayload,
 		deps.DefaultConfigPayload,
 	)
+}
+
+func normalizedApplicationScale(scale float64) float64 {
+	if math.IsNaN(scale) || math.IsInf(scale, 0) || scale <= 0 {
+		return 1
+	}
+	return scale
 }
 
 func normalizedWindowlessFrameRate(frameRate int32) int32 {

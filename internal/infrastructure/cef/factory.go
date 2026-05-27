@@ -106,7 +106,7 @@ func (f *WebViewFactory) Create(ctx context.Context) (port.WebView, error) {
 
 func (f *WebViewFactory) newWebView(ctx context.Context) (*WebView, error) {
 	id := port.WebViewID(f.nextID.Add(1))
-	viewBridge := NewCef2gtkAdapter(f.engine.renderStackPlan)
+	viewBridge := NewCef2gtkAdapter(f.engine.renderStackPlan, f.engine.applicationScale)
 	if viewBridge == nil {
 		return nil, fmt.Errorf("create cef2gtk view")
 	}
@@ -125,7 +125,7 @@ func (f *WebViewFactory) newWebView(ctx context.Context) (*WebView, error) {
 	}
 	wv.runOnGTKSync(func() {
 		nativeWidget := viewBridge.Widget()
-		popupSurface := newPopupBridgeSurface(ctx, nativeWidget, f.engine.renderStackPlan)
+		popupSurface := newPopupBridgeSurface(ctx, nativeWidget, f.engine.renderStackPlan, f.engine.applicationScale)
 		wv.nativeWidget = nativeWidget
 		if popupSurface != nil {
 			wv.popupSurface = popupSurface
