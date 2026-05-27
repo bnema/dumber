@@ -5,6 +5,8 @@ import (
 	"strings"
 )
 
+const scaleProbeRoundFactor = 1_000_000
+
 type cefScaleProbeMetrics struct {
 	SurfaceWidth      int32
 	SurfaceHeight     int32
@@ -62,7 +64,7 @@ func roundedScale(v float64) float64 {
 	if math.IsNaN(v) || math.IsInf(v, 0) {
 		return 1
 	}
-	return math.Round(v*1_000_000) / 1_000_000
+	return math.Round(v*scaleProbeRoundFactor) / scaleProbeRoundFactor
 }
 
 const cefScaleProbeScript = `(function(){

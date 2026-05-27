@@ -142,22 +142,22 @@ type Engine interface {
 	SetHandlerContext(ctx context.Context)
 }
 
+// EngineSettingsPayload is the engine-facing boundary view of runtime config.
+// Add fields here only when an engine needs to react to them at runtime.
+type EngineSettingsPayload struct {
+	DefaultUIScale float64
+}
+
 // EngineSettingsUpdate carries a runtime config change to the engine.
 //
-// The Raw field holds the implementation-specific config object; each engine
-// implementation type-asserts it to its concrete config type (e.g. the WebKit
-// engine asserts to *infrastructure/config.Config).
-//
-// This is the only intentional use of `any` in the Engine port. A fully typed
-// approach would require either moving the entire config schema into the domain
-// layer (a large refactor) or defining a SettingsProvider interface — which
-// would itself reduce to `any` because callers would embed engine-specific data
-// behind an empty interface. Until the config schema is promoted to domain,
-// the type assertion in the engine implementation is the least-invasive option.
+// Settings exposes the typed boundary payload that engine adapters should prefer.
+// Raw remains for legacy adapters that still consume implementation-specific
+// config until their settings managers are narrowed to boundary fields.
 type EngineSettingsUpdate struct {
-	// Raw holds the implementation-specific config.
-	// WebKit engine expects *infrastructure/config.Config.
-	Raw any //nolint:iface // intentional: see type comment above
+	Settings EngineSettingsPayload
+	// Raw holds the implementation-specific config for legacy adapters.
+	// WebKit engine currently expects *infrastructure/config.Config.
+	Raw any //nolint:iface // intentional legacy bridge; prefer Settings for new code
 }
 
 // WebUIMessageHandler handles a decoded message payload from the JS bridge.

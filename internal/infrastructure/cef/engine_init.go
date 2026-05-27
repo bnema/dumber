@@ -88,7 +88,7 @@ func NewEngine(
 		Bool("external_begin_frame", externalBeginFrameEnabled()).
 		Bool("trace_handlers", cfg.TraceHandlers).
 		Bool("enable_audio_handler", cfg.EnableAudioHandler).
-		Float64("application_scale", eng.applicationScale).
+		Float64("application_scale", eng.currentApplicationScale()).
 		Msg("cef: configured engine")
 
 	if err := initializeCEF(eng, settings, logger); err != nil {

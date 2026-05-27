@@ -23,7 +23,12 @@ type popupBridgeSurface struct {
 
 // newPopupBridgeSurface must be called on the GTK thread because it creates
 // and packs GTK widgets around the primary CEF widget.
-func newPopupBridgeSurface(ctx context.Context, mainWidget *gtk.Widget, plan cef2gtk.RenderStackPlan, applicationScale float64) *popupBridgeSurface {
+func newPopupBridgeSurface(
+	ctx context.Context,
+	mainWidget *gtk.Widget,
+	plan cef2gtk.RenderStackPlan,
+	applicationScale float64,
+) *popupBridgeSurface {
 	mainContext := glib.MainContextDefault()
 	if mainContext == nil || !mainContext.IsOwner() {
 		logging.FromContext(popupSurfaceLogContext(ctx)).Error().Msg("cef: newPopupBridgeSurface called off GTK thread")

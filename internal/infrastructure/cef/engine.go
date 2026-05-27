@@ -10,8 +10,6 @@ import (
 	"time"
 	"unicode/utf8"
 
-	"github.com/bnema/dumber/internal/infrastructure/config"
-
 	purecef "github.com/bnema/purego-cef/cef"
 	cef2gtk "github.com/bnema/purego-cef2gtk"
 
@@ -27,13 +25,14 @@ var _ port.AlreadyRunningAppRelaunchHandlerSetter = (*Engine)(nil)
 // Engine implements port.Engine for the CEF browser backend.
 // It manages the CEF lifecycle and provides access to all engine subsystems.
 type Engine struct {
-	ctx              context.Context
-	factory          *WebViewFactory
-	pool             *WebViewPool
-	profileLogDir    string
-	runtimeCEFDir    string
-	renderStackPlan  cef2gtk.RenderStackPlan
-	applicationScale float64
+	ctx                context.Context
+	factory            *WebViewFactory
+	pool               *WebViewPool
+	profileLogDir      string
+	runtimeCEFDir      string
+	renderStackPlan    cef2gtk.RenderStackPlan
+	applicationScaleMu sync.RWMutex
+	applicationScale   float64
 
 	messageRouter *MessageRouter
 	schemeHandler *dumbSchemeHandler
@@ -357,19 +356,30 @@ func (e *Engine) UpdateAppearance(_ context.Context, r, g, b, alpha float64) err
 // a new engine lifetime. Browser zoom remains independently adjustable at
 // runtime through SetZoomLevel.
 func (e *Engine) UpdateSettings(ctx context.Context, update port.EngineSettingsUpdate) error {
-	cfg, ok := update.Raw.(*config.Config)
-	if !ok {
-		return fmt.Errorf("UpdateSettings: expected *config.Config, got %T", update.Raw)
-	}
-	newScale := normalizedApplicationScale(cfg.DefaultUIScale)
-	if e.applicationScale != newScale {
-		logging.FromContext(ctx).Info().
-			Float64("old_application_scale", e.applicationScale).
-			Float64("new_application_scale", newScale).
-			Msg("cef: application scale update will apply to newly-created CEF views")
+	newScale := normalizedApplicationScale(update.Settings.DefaultUIScale)
+	e.applicationScaleMu.Lock()
+	oldScale := e.applicationScale
+	if oldScale != newScale {
 		e.applicationScale = newScale
 	}
+	e.applicationScaleMu.Unlock()
+
+	if oldScale != newScale {
+		logging.FromContext(ctx).Info().
+			Float64("old_application_scale", oldScale).
+			Float64("new_application_scale", newScale).
+			Msg("cef: application scale update will apply to newly-created CEF views")
+	}
 	return nil
+}
+
+func (e *Engine) currentApplicationScale() float64 {
+	if e == nil {
+		return 1
+	}
+	e.applicationScaleMu.RLock()
+	defer e.applicationScaleMu.RUnlock()
+	return normalizedApplicationScale(e.applicationScale)
 }
 
 func (e *Engine) handleExplicitClipboardBridgeText(viewID port.WebViewID, action, text string) {
