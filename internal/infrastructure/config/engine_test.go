@@ -2,6 +2,15 @@ package config
 
 import "testing"
 
+func TestResolveEngineTypeDefaultsToCEF(t *testing.T) {
+	t.Parallel()
+
+	cfg := EngineConfig{}
+	if got := cfg.ResolveEngineType(); got != EngineTypeCEF {
+		t.Fatalf("default engine type = %q, want %q", got, EngineTypeCEF)
+	}
+}
+
 func TestCEFWindowlessFrameRateFallsBackToDefault(t *testing.T) {
 	t.Parallel()
 

@@ -27,12 +27,12 @@ type EngineConfig struct {
 }
 
 // ResolveEngineType returns the effective engine type from config + env override.
-// It defaults to "webkit" when no type is configured, and allows DUMBER_ENGINE
+// It defaults to "cef" when no type is configured, and allows DUMBER_ENGINE
 // to override the configured value for smoke testing.
 func (e *EngineConfig) ResolveEngineType() string {
 	engineType := e.Type
 	if engineType == "" {
-		engineType = EngineTypeWebKit
+		engineType = EngineTypeCEF
 	}
 	if envEngine := os.Getenv("DUMBER_ENGINE"); envEngine != "" {
 		engineType = envEngine
