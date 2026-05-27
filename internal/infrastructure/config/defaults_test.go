@@ -15,7 +15,7 @@ func TestDefaultConfig_CoreDefaults(t *testing.T) {
 	assert.False(t, cfg.Media.ShowDiagnosticsOnStartup)
 
 	// Engine defaults (replaces old Performance/Privacy sections)
-	assert.Equal(t, "webkit", cfg.Engine.Type)
+	assert.Equal(t, EngineTypeCEF, cfg.Engine.Type)
 	assert.Equal(t, ProfileDefault, cfg.Engine.Profile)
 	assert.Equal(t, CookiePolicyAlways, cfg.Engine.CookiePolicy)
 	assert.Equal(t, CEFRenderStackVulkan, cfg.Engine.CEF.CEFRenderStack())

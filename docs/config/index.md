@@ -189,6 +189,7 @@ border = "#363636"
 | `rendering.show_fps` | bool | `false` | - | Show WebKit FPS counter (`WEBKIT_SHOW_FPS`) |
 | `rendering.sample_memory` | bool | `false` | - | Enable WebKit memory sampling (`WEBKIT_SAMPLE_MEMORY`) |
 | `rendering.debug_frames` | bool | `false` | - | Enable GTK frame timing debug (`GDK_DEBUG=frames`) |
+| `engine.type` | string | `"cef"` | `cef`, `webkit` | Browser engine. WebKit remains available as a fallback. |
 | `engine.cef.render_stack` | string | `"vulkan"` | `vulkan`, `egl` | CEF GPU render stack |
 | `engine.cef.adaptive_windowless_frame_rate` | bool | `true` | - | Enable adaptive CEF OSR FPS polling (only applies when `windowless_frame_rate = 0`) |
 | `engine.cef.windowless_frame_rate` | int32 | `0` | >= 0 | Explicit CEF OSR FPS cap; 0 uses adaptive mode if enabled, otherwise CEF default |

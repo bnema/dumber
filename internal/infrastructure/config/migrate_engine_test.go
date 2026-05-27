@@ -81,7 +81,7 @@ func TestMigrateToEngineConfig_OldFormat(t *testing.T) {
 	engine, ok := engineAny.(map[string]any)
 	require.True(t, ok, "engine must be a map")
 
-	// engine.type defaults to "webkit"
+	// legacy engine migration preserves WebKit because the old rendering/media sections are WebKit-specific
 	assert.Equal(t, "webkit", engine["type"])
 
 	// [performance] -> [engine] universal fields
@@ -280,5 +280,5 @@ show_fps = true
 	require.True(t, ok, "raw[\"engine\"] should exist")
 	engine, ok := engineAny.(map[string]any)
 	require.True(t, ok, "raw[\"engine\"] should be map[string]any, got %T", engineAny)
-	assert.Equal(t, "webkit", engine["type"], "engine.type should default to webkit")
+	assert.Equal(t, EngineTypeWebKit, engine["type"], "legacy engine migration should preserve WebKit")
 }

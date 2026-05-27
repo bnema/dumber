@@ -163,7 +163,7 @@ func DefaultConfig() *Config {
 			EnableDevTools: true,
 		},
 		Engine: EngineConfig{
-			Type:             "webkit",
+			Type:             EngineTypeCEF,
 			Profile:          ProfileDefault,
 			PoolPrewarmCount: defaultWebViewPoolPrewarmCount,
 			ZoomCacheSize:    defaultZoomCacheSize,

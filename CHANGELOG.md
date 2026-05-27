@@ -6,21 +6,31 @@ All notable changes to this project will be documented in this file.
 
 ### Added
 
+- **CEF as the default browser engine**: New installs and configs without an explicit engine now use CEF by default. WebKit remains available by setting `engine.type = "webkit"`.
+- **CEF browser backend**: CEF is now available as a full browser engine with audio output, shared downloads, context menus, file dialogs, popups, zoom, and system view support.
+- **System views rewrite**: The old Svelte `webui/` has been replaced by native/WASM-backed system views for config, history, and favorites.
 - **Standalone omnibox launcher**: `dumber omnibox` now opens the omnibox in a standalone window.
-- **CEF engine support**: The CEF engine is now available alongside WebKit, including audio output support.
 - **Fresh browser windows**: Browser launches can now open in dedicated fresh windows.
-- **Unified context menus**: Right-click menus now behave consistently across WebKit and CEF.
-- **Shared download handling**: Downloads now use the same handling in WebKit and CEF, with progress and completion toasts.
+- **GTK UI font setting**: GTK chrome now has its own configurable UI font.
 
 ### Changed
 
-- **Omnibox default order toggle**: You can now persist and switch the default history order.
-- **Omnibox most-visited window**: The most-visited view now uses a 30-day history window by default.
+- **CEF runtime integration**: CEF now uses `purego-cef2gtk`, a codec-enabled runtime path, deterministic runtime discovery, and XDG-scoped user data.
+- **CEF rendering defaults**: CEF uses a GPU-first Wayland render stack by default, with Vulkan/DMABUF presentation, EGL fallback, adaptive OSR frame rate, and fractional-scale handling.
+- **Unified browser plumbing**: Downloads, context menus, internal pages, favicons, clipboard handling, and browser launch flows now share more code across WebKit and CEF.
+- **Window-scoped tabs and browsing contexts**: Tab shortcuts, popup handling, OAuth windows, and native browser windows now track the owning window/context more consistently.
+- **Omnibox behavior**: The default order can be persisted, most-visited history uses a 30-day window, hover callbacks are lighter, and standalone launch behavior is more reliable.
+- **Logging cleanup**: Session log cleanup can cap log files by count as well as age.
+- **Tooling and dependencies**: Go/runtime dependencies, GitHub Actions, golangci-lint, PipeWire audio dependencies, and AUR metadata were refreshed.
 
 ### Fixed
 
-- **CEF storage location**: CEF user data now uses the XDG data directory.
-- **CEF clipboard and focus**: Clipboard and input focus handling in CEF is more reliable.
+- **CEF rendering stability**: Hardened OSR browser creation, live resize repainting, viewport sync, popup surfaces, and bounded size observation.
+- **CEF input and focus**: Improved clipboard, keyboard focus, tab shortcuts, global shortcut release behavior, gesture callback release, and ghost shortcut suppression.
+- **CEF file dialogs and local files**: Hardened GTK file-dialog callbacks, GIO cleanup, file-dialog edge cases, and zoom for local `file://` URLs.
+- **CEF popups and OAuth**: Improved popup lifecycle cleanup, native popup content widgets, pane-hosted popup fallback cleanup, and OAuth auto-close behavior.
+- **Desktop integration**: Browser MIME handler sync and browser launch error redaction are more reliable.
+- **Session and pane resilience**: Stale pane restore paths, nil workspace pane views, and popup restore cleanup are safer.
 
 ## [0.28.0] - 2026-03-27
 

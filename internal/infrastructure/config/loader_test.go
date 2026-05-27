@@ -12,7 +12,7 @@ func TestSetEngineDefaults(t *testing.T) {
 	mgr.setDefaults()
 
 	// Universal engine fields
-	assert.Equal(t, "webkit", mgr.viper.GetString("engine.type"))
+	assert.Equal(t, EngineTypeCEF, mgr.viper.GetString("engine.type"))
 	assert.Equal(t, "default", mgr.viper.GetString("engine.profile"))
 	assert.Equal(t, "always", mgr.viper.GetString("engine.cookie_policy"))
 	assert.Equal(t, 4, mgr.viper.GetInt("engine.pool_prewarm_count"))

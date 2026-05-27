@@ -59,6 +59,7 @@
 | `rendering.show_fps` | bool | `false` | |
 | `rendering.sample_memory` | bool | `false` | |
 | `rendering.debug_frames` | bool | `false` | |
+| `engine.type` | string | `cef` | `cef`, `webkit` |
 | `engine.cef.render_stack` | string | `vulkan` | `vulkan`, `egl` |
 | `engine.cef.adaptive_windowless_frame_rate` | bool | `true` | |
 | `engine.cef.windowless_frame_rate` | int32 | `0` | >= 0 |

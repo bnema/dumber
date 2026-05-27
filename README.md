@@ -65,7 +65,7 @@ flatpak run dev.bnema.Dumber browse
 **Arch Linux:**
 
 ```bash
-sudo pacman -S webkitgtk-6.0 gtk4 gst-plugins-base gst-plugins-good gst-plugins-bad gst-plugin-va
+sudo pacman -S cef webkitgtk-6.0 gtk4 gst-plugins-base gst-plugins-good gst-plugins-bad gst-plugin-va
 ```
 
 **Debian/Ubuntu:**
@@ -76,14 +76,15 @@ sudo apt install libwebkitgtk-6.0-4 libgtk-4-1 gstreamer1.0-plugins-base gstream
 
 > ⚠️ Ubuntu 24.04 ships GLib 2.80, but Dumber requires GLib 2.84+. Use Arch, Fedora 41+, or the Flatpak.
 
-### CEF engine (optional)
+### Browser engine
 
-Dumber supports a Chromium Embedded Framework engine as an alternative to WebKit.
-To use it on Arch:
+Dumber uses the Chromium Embedded Framework engine by default. On Arch, install the CEF runtime with:
 
 ```bash
 sudo pacman -S cef
 ```
+
+For hardware video decoding, `cef-vaapi` is also available from the AUR as an optional CEF build.
 
 CEF runtime precedence is deterministic: `CEF_DIR` wins first, then `engine.cef.cef_dir`, then `/usr/lib/cef`, then `~/.local/share/cef`.
 Set `engine.cef.cef_dir` in config when `CEF_DIR` is unset:
@@ -99,7 +100,12 @@ Or set the higher-precedence `CEF_DIR` environment variable:
 CEF_DIR=/custom/path dumber browse
 ```
 
-Then set `engine.type = "cef"` in your config.
+WebKit remains available as a fallback:
+
+```toml
+[engine]
+type = "webkit"
+```
 
 CEF uses Dumber's GPU-first Wayland render stack by default: GDK DMABUF presentation with ANGLE/GSK Vulkan. For driver compatibility, switch to the EGL/OpenGL stack with `engine.cef.render_stack = "egl"`; the default is `"vulkan"`.
 

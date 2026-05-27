@@ -4,10 +4,10 @@ This page lists the system dependencies required to run Dumber on different Linu
 
 ## Arch Linux
 
-### Core GTK4 and WebKit
+### Core GTK4, CEF, and WebKit fallback
 
 ```bash
-sudo pacman -S gtk4 webkitgtk-6.0
+sudo pacman -S gtk4 cef webkitgtk-6.0
 ```
 
 ### VA-API (Hardware Video Acceleration)
@@ -15,6 +15,8 @@ sudo pacman -S gtk4 webkitgtk-6.0
 ```bash
 sudo pacman -S libva libva-utils
 ```
+
+For CEF hardware video decoding, `cef-vaapi` is available from the AUR as an optional CEF build.
 
 #### VA-API Drivers (install one based on GPU)
 
@@ -73,7 +75,7 @@ sudo pacman -S vulkan-tools  # for vulkaninfo
 
 ### CEF Wayland rendering
 
-When `engine.type = "cef"`, Dumber defaults to the GPU-first Wayland stack: GDK DMABUF presentation with ANGLE/GSK Vulkan. No launch wrapper or render environment variables are required for normal use. For driver compatibility, set `engine.cef.render_stack = "egl"` (or `DUMBER_ENGINE_CEF_RENDER_STACK=egl`) to use the GtkGLArea/EGL/OpenGL stack.
+CEF is Dumber's default engine. It uses the GPU-first Wayland stack: GDK DMABUF presentation with ANGLE/GSK Vulkan. No launch wrapper or render environment variables are required for normal use. For driver compatibility, set `engine.cef.render_stack = "egl"` (or `DUMBER_ENGINE_CEF_RENDER_STACK=egl`) to use the GtkGLArea/EGL/OpenGL stack.
 
 ## Debian/Ubuntu
 
