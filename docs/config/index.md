@@ -199,6 +199,9 @@ border = "#363636"
 | `engine.cef.input.scroll_horizontal_multiplier` | float | `1.0` | > 0 | Horizontal scroll sensitivity multiplier |
 | `engine.cef.input.scroll_vertical_multiplier` | float | `1.0` | > 0 | Vertical scroll sensitivity multiplier |
 | `engine.cef.input.scroll_max_delta` | int32 | `0` | >= 0 | Maximum absolute scroll delta after scaling; 0 disables clamping |
+| `engine.cef.input.touchpad_navigation_enabled` | bool | `true` | - | Enable two-finger touchpad swipe back/forward navigation |
+| `engine.cef.input.touchpad_navigation_min_delta` | float | `80.0` | > 0 | Minimum accumulated horizontal swipe delta required for navigation |
+| `engine.cef.input.touchpad_navigation_max_vertical_ratio` | float | `0.5` | > 0 | Maximum vertical-to-horizontal delta ratio allowed for navigation swipes |
 | `default_ui_scale` | float | `1.0` | > 0 | GTK widget UI scale (1.0=100%, 2.0=200%) |
 | `default_webpage_zoom` | float | `1.2` | > 0 | Default page zoom (1.0=100%, 1.2=120%) |
 

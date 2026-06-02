@@ -29,11 +29,14 @@ type RuntimeConfig struct {
 }
 
 type RuntimeInputConfig struct {
-	ScrollWheelMultiplier      float64
-	ScrollTouchpadMultiplier   float64
-	ScrollHorizontalMultiplier float64
-	ScrollVerticalMultiplier   float64
-	ScrollMaxDelta             int32
+	ScrollWheelMultiplier              float64
+	ScrollTouchpadMultiplier           float64
+	ScrollHorizontalMultiplier         float64
+	ScrollVerticalMultiplier           float64
+	ScrollMaxDelta                     int32
+	TouchpadNavigationEnabled          bool
+	TouchpadNavigationMinDelta         float64
+	TouchpadNavigationMaxVerticalRatio float64
 }
 
 type HandlerRegistrar func(context.Context, port.WebUIHandlerRouter, port.HandlerDependencies) error

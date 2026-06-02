@@ -135,6 +135,22 @@ func TestValidateConfig_CEFConfig(t *testing.T) {
 			wantErr:  true,
 			wantText: "engine.cef.input.scroll_max_delta",
 		},
+		{
+			name: "zero touchpad navigation min delta",
+			mutate: func(cfg *Config) {
+				cfg.Engine.CEF.Input.TouchpadNavigationMinDelta = 0
+			},
+			wantErr:  true,
+			wantText: "engine.cef.input.touchpad_navigation_min_delta",
+		},
+		{
+			name: "nan touchpad navigation max vertical ratio",
+			mutate: func(cfg *Config) {
+				cfg.Engine.CEF.Input.TouchpadNavigationMaxVerticalRatio = math.NaN()
+			},
+			wantErr:  true,
+			wantText: "engine.cef.input.touchpad_navigation_max_vertical_ratio",
+		},
 	}
 
 	for _, tt := range tests {

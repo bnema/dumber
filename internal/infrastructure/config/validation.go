@@ -379,6 +379,12 @@ func validateCEF(config *Config) []string {
 	if input.ScrollMaxDelta < 0 {
 		validationErrors = append(validationErrors, "engine.cef.input.scroll_max_delta must be >= 0")
 	}
+	if invalidPositiveFloat(input.TouchpadNavigationMinDelta) {
+		validationErrors = append(validationErrors, "engine.cef.input.touchpad_navigation_min_delta must be > 0")
+	}
+	if invalidPositiveFloat(input.TouchpadNavigationMaxVerticalRatio) {
+		validationErrors = append(validationErrors, "engine.cef.input.touchpad_navigation_max_vertical_ratio must be > 0")
+	}
 
 	return validationErrors
 }

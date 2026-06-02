@@ -74,6 +74,9 @@ const (
 	defaultCEFScrollMultiplier         = 1.0
 	defaultCEFScrollTouchpadMultiplier = 0.35
 	defaultCEFScrollMaxDelta           = 0
+	defaultCEFTouchpadNavigation       = true
+	defaultCEFTouchpadNavigationDelta  = 80.0
+	defaultCEFTouchpadNavigationRatio  = 0.5
 
 	// Skia threading defaults (0 = unset, -1 = unset for GPU threads)
 	defaultSkiaCPUPaintingThreads = 0
@@ -182,11 +185,14 @@ func DefaultConfig() *Config {
 				LogFile:                     "",
 				EnableAudioHandler:          true,
 				Input: CEFInputConfig{
-					ScrollWheelMultiplier:      defaultCEFScrollMultiplier,
-					ScrollTouchpadMultiplier:   defaultCEFScrollTouchpadMultiplier,
-					ScrollHorizontalMultiplier: defaultCEFScrollMultiplier,
-					ScrollVerticalMultiplier:   defaultCEFScrollMultiplier,
-					ScrollMaxDelta:             defaultCEFScrollMaxDelta,
+					ScrollWheelMultiplier:              defaultCEFScrollMultiplier,
+					ScrollTouchpadMultiplier:           defaultCEFScrollTouchpadMultiplier,
+					ScrollHorizontalMultiplier:         defaultCEFScrollMultiplier,
+					ScrollVerticalMultiplier:           defaultCEFScrollMultiplier,
+					ScrollMaxDelta:                     defaultCEFScrollMaxDelta,
+					TouchpadNavigationEnabled:          defaultCEFTouchpadNavigation,
+					TouchpadNavigationMinDelta:         defaultCEFTouchpadNavigationDelta,
+					TouchpadNavigationMaxVerticalRatio: defaultCEFTouchpadNavigationRatio,
 				},
 			},
 			WebKit: WebKitEngineConfig{
