@@ -101,20 +101,27 @@ func TestGenerateCSS_FavoriteRowsOnlyTintTrailingAffordance(t *testing.T) {
 	}
 }
 
-func TestGenerateCSS_OmniboxSearchAreaMatchesHeaderSurface(t *testing.T) {
+func TestGenerateCSS_OmniboxSearchEntryUsesControlSurface(t *testing.T) {
 	css := GenerateCSS(DefaultDarkPalette())
 
 	containerRe := regexp.MustCompile(`(?s)\.omnibox-container\s*\{[^}]*background-color:\s*var\(--surface\);`)
 	if !containerRe.MatchString(css) {
 		t.Fatalf("expected omnibox container to use the header surface color")
 	}
-	entryRe := regexp.MustCompile(`(?s)entry\.omnibox-entry\s*,\s*entry\.omnibox-entry\s*>\s*text\s*\{[^}]*background-color:\s*alpha\(var\(--bg\),\s*0\.88\);[^}]*background-image:\s*none;`)
+	entryRe := regexp.MustCompile(`(?s)entry\.omnibox-entry\s*,\s*entry\.omnibox-entry\s*>\s*text\s*\{[^}]*background-color:\s*var\(--surface-variant\);[^}]*background-image:\s*none;`)
 	if !entryRe.MatchString(css) {
-		t.Fatalf("expected omnibox entry and its text node to use the darker background fill")
+		t.Fatalf("expected omnibox entry and its text node to use the control surface fill")
 	}
-	focusedEntryRe := regexp.MustCompile(`(?s)entry\.omnibox-entry:focus[^\{]*,\s*entry\.omnibox-entry:focus-within[^\{]*,\s*entry\.omnibox-entry:focus-visible[^\{]*,\s*entry\.omnibox-entry:focus\s*>\s*text[^\{]*,\s*entry\.omnibox-entry:focus-within\s*>\s*text[^\{]*,\s*entry\.omnibox-entry:focus-visible\s*>\s*text\s*\{[^}]*background-color:\s*shade\(var\(--bg\),\s*1\.05\);`)
+	focusedEntryRe := regexp.MustCompile(`(?s)entry\.omnibox-entry:focus[^\{]*,\s*entry\.omnibox-entry:focus-within[^\{]*,\s*entry\.omnibox-entry:focus-visible[^\{]*,\s*entry\.omnibox-entry:focus\s*>\s*text[^\{]*,\s*entry\.omnibox-entry:focus-within\s*>\s*text[^\{]*,\s*entry\.omnibox-entry:focus-visible\s*>\s*text\s*\{[^}]*background-color:\s*shade\(var\(--surface-variant\),\s*1\.08\);`)
 	if !focusedEntryRe.MatchString(css) {
-		t.Fatalf("expected focused omnibox entry text node to keep the darker bg-based fill")
+		t.Fatalf("expected focused omnibox entry text node to keep a distinct control-surface fill")
+	}
+	bangActiveRe := regexp.MustCompile(`(?s)entry\.omnibox-entry\.omnibox-entry-bang-active[^\{]*\{[^}]*background-color:\s*shade\(var\(--surface-variant\),\s*1\.08\);`)
+	if !bangActiveRe.MatchString(css) {
+		t.Fatalf("expected bang-active omnibox entry to keep a distinct control-surface fill")
+	}
+	if strings.Contains(css, "background-color: alpha(var(--bg), 0.88);") || strings.Contains(css, "background-color: shade(var(--bg), 1.05);") {
+		t.Fatalf("expected omnibox entry fills not to derive from the page background")
 	}
 	scrolledRe := regexp.MustCompile(`(?s)\.omnibox-scrolled\s*\{[^}]*background-color:\s*var\(--surface\);`)
 	if !scrolledRe.MatchString(css) {

@@ -1,0 +1,22 @@
+{
+  "source": "noctalia-user-template",
+  "mode": "{{mode}}",
+  "light": {
+    "background": "{{colors.background.light.hex}}",
+    "surface": "{{colors.surface.light.hex}}",
+    "surface_variant": "{{colors.surface_variant.light.hex}}",
+    "text": "{{colors.on_surface.light.hex}}",
+    "muted": "{{colors.on_surface_variant.light.hex}}",
+    "accent": "{{colors.primary.light.hex}}",
+    "border": "{{colors.outline.light.hex}}"
+  },
+  "dark": {
+    "background": "{{colors.background.dark.hex}}",
+    "surface": "{{colors.surface.dark.hex}}",
+    "surface_variant": "{{colors.surface_variant.dark.hex}}",
+    "text": "{{colors.on_surface.dark.hex}}",
+    "muted": "{{colors.on_surface_variant.dark.hex}}",
+    "accent": "{{colors.primary.dark.hex}}",
+    "border": "{{colors.outline.dark.hex}}"
+  }
+}

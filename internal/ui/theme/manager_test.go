@@ -4,315 +4,163 @@ import (
 	"context"
 	"testing"
 
-	"github.com/bnema/dumber/internal/application/port"
-	"github.com/bnema/dumber/internal/application/port/mocks"
 	"github.com/bnema/dumber/internal/domain/entity"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
 
-func TestNewManager_DarkMode(t *testing.T) {
-	ctx := context.Background()
-	appearance := &entity.AppearanceConfig{
-		ColorScheme: "default",
+func resolvedThemeFixture(prefersDark bool) entity.ResolvedTheme {
+	light := entity.ColorPalette{
+		Background:     "#ffffff",
+		Surface:        "#f8f8f8",
+		SurfaceVariant: "#eeeeee",
+		Text:           "#111111",
+		Muted:          "#666666",
+		Accent:         "#0055ff",
+		Border:         "#dddddd",
 	}
-
-	mockResolver := mocks.NewMockColorSchemeResolver(t)
-	mockResolver.EXPECT().Resolve().Return(port.ColorSchemePreference{
-		PrefersDark: true,
-		Source:      "test",
-	})
-
-	manager := NewManager(ctx, appearance, 1.0, nil, mockResolver)
-
-	assert.True(t, manager.PrefersDark())
-	assert.Equal(t, "default", manager.scheme)
+	dark := entity.ColorPalette{
+		Background:     "#101010",
+		Surface:        "#181818",
+		SurfaceVariant: "#242424",
+		Text:           "#f5f5f5",
+		Muted:          "#999999",
+		Accent:         "#66aaff",
+		Border:         "#333333",
+	}
+	active := light
+	if prefersDark {
+		active = dark
+	}
+	return entity.ResolvedTheme{
+		LightPalette:      light,
+		DarkPalette:       dark,
+		ActivePalette:     active,
+		PrefersDark:       prefersDark,
+		ColorSchemeSource: "test",
+		ThemeSource:       entity.ThemeSourceMetadata{Kind: entity.ThemeSourceConfig},
+		Fonts: entity.ThemeFonts{
+			SansFont:      "Inter",
+			SerifFont:     "Georgia",
+			MonospaceFont: "JetBrains Mono",
+			GtkFont:       "Adwaita Sans",
+			DefaultSize:   16,
+		},
+		UIScale: 1.5,
+		ModeColors: entity.ThemeModeColors{
+			PaneMode:    "#ff0000",
+			TabMode:     "#00ff00",
+			SessionMode: "#0000ff",
+			ResizeMode:  "#ffff00",
+		},
+	}
 }
 
-func TestNewManager_LightMode(t *testing.T) {
+func TestNewManager_UsesResolvedThemeFields(t *testing.T) {
 	ctx := context.Background()
-	appearance := &entity.AppearanceConfig{
-		ColorScheme: "default",
-	}
+	resolved := resolvedThemeFixture(true)
 
-	mockResolver := mocks.NewMockColorSchemeResolver(t)
-	mockResolver.EXPECT().Resolve().Return(port.ColorSchemePreference{
-		PrefersDark: false,
-		Source:      "test",
-	})
-
-	manager := NewManager(ctx, appearance, 1.0, nil, mockResolver)
-
-	assert.False(t, manager.PrefersDark())
-}
-
-func TestNewManager_WithNilConfig(t *testing.T) {
-	ctx := context.Background()
-
-	mockResolver := mocks.NewMockColorSchemeResolver(t)
-	mockResolver.EXPECT().Resolve().Return(port.ColorSchemePreference{
-		PrefersDark: true,
-		Source:      "fallback",
-	})
-
-	manager := NewManager(ctx, nil, 0, nil, mockResolver)
+	manager := NewManager(ctx, resolved)
 
 	require.NotNil(t, manager)
 	assert.True(t, manager.PrefersDark())
-	assert.Equal(t, "system", manager.scheme)
+	assert.Equal(t, "#ffffff", manager.GetLightPalette().Background)
+	assert.Equal(t, "#101010", manager.GetDarkPalette().Background)
+	assert.Equal(t, manager.GetDarkPalette(), manager.GetCurrentPalette())
+	assert.Equal(t, "#ff0000", manager.GetModeColors().PaneMode)
+	assert.Equal(t, FontConfig{SansFont: "Inter", MonospaceFont: "JetBrains Mono", GtkFont: "Adwaita Sans"}, manager.fonts)
+	assert.Equal(t, "Adwaita Sans", manager.gtkFont)
+	assert.InDelta(t, 1.5, manager.uiScale, 0.000001)
 }
 
-func TestNewManager_UsesConfigScheme(t *testing.T) {
+func TestNewManager_DefaultsInvalidScaleToOne(t *testing.T) {
 	ctx := context.Background()
-	appearance := &entity.AppearanceConfig{
-		ColorScheme: "prefer-dark",
-	}
+	resolved := resolvedThemeFixture(true)
+	resolved.UIScale = 0
 
-	mockResolver := mocks.NewMockColorSchemeResolver(t)
-	mockResolver.EXPECT().Resolve().Return(port.ColorSchemePreference{
-		PrefersDark: true,
-		Source:      "config",
-	})
+	manager := NewManager(ctx, resolved)
 
-	manager := NewManager(ctx, appearance, 1.0, nil, mockResolver)
-
-	assert.Equal(t, "prefer-dark", manager.scheme)
+	require.NotNil(t, manager)
+	assert.InDelta(t, 1.0, manager.uiScale, 0.000001)
 }
 
-func TestManager_GetCurrentPalette_Dark(t *testing.T) {
+func TestManager_UpdateFromResolvedReplacesResolvedValues(t *testing.T) {
 	ctx := context.Background()
+	manager := NewManager(ctx, resolvedThemeFixture(true))
+	updated := resolvedThemeFixture(false)
+	updated.LightPalette.Background = "#abcdef"
+	updated.DarkPalette.Background = "#123456"
+	updated.Fonts.SansFont = "Recursive"
+	updated.UIScale = 2.0
+	updated.ModeColors.PaneMode = "#654321"
 
-	mockResolver := mocks.NewMockColorSchemeResolver(t)
-	mockResolver.EXPECT().Resolve().Return(port.ColorSchemePreference{
-		PrefersDark: true,
-		Source:      "test",
-	})
-
-	manager := NewManager(ctx, nil, 0, nil, mockResolver)
-	palette := manager.GetCurrentPalette()
-
-	// Dark palette should be returned
-	assert.Equal(t, manager.GetDarkPalette(), palette)
-}
-
-func TestManager_GetCurrentPalette_Light(t *testing.T) {
-	ctx := context.Background()
-
-	mockResolver := mocks.NewMockColorSchemeResolver(t)
-	mockResolver.EXPECT().Resolve().Return(port.ColorSchemePreference{
-		PrefersDark: false,
-		Source:      "test",
-	})
-
-	manager := NewManager(ctx, nil, 0, nil, mockResolver)
-	palette := manager.GetCurrentPalette()
-
-	// Light palette should be returned
-	assert.Equal(t, manager.GetLightPalette(), palette)
-}
-
-func TestManager_SetColorScheme(t *testing.T) {
-	ctx := context.Background()
-
-	mockResolver := mocks.NewMockColorSchemeResolver(t)
-	// Initial resolve call
-	mockResolver.EXPECT().Resolve().Return(port.ColorSchemePreference{
-		PrefersDark: true,
-		Source:      "test",
-	})
-	// Refresh call when SetColorScheme is called
-	mockResolver.EXPECT().Refresh().Return(port.ColorSchemePreference{
-		PrefersDark: false,
-		Source:      "config",
-	})
-
-	manager := NewManager(ctx, nil, 0, nil, mockResolver)
-	assert.True(t, manager.PrefersDark())
-
-	// Change scheme - this calls Refresh on resolver
-	manager.SetColorScheme(ctx, "prefer-light", nil)
+	manager.UpdateFromResolved(ctx, updated, nil)
 
 	assert.False(t, manager.PrefersDark())
-	assert.Equal(t, "prefer-light", manager.scheme)
-}
-
-func TestManager_UpdateFromConfig(t *testing.T) {
-	ctx := context.Background()
-	appearance := &entity.AppearanceConfig{
-		ColorScheme: "default",
-	}
-
-	mockResolver := mocks.NewMockColorSchemeResolver(t)
-	// Initial resolve
-	mockResolver.EXPECT().Resolve().Return(port.ColorSchemePreference{
-		PrefersDark: true,
-		Source:      "test",
-	})
-	// Refresh when UpdateFromConfig is called
-	mockResolver.EXPECT().Refresh().Return(port.ColorSchemePreference{
-		PrefersDark: false,
-		Source:      "config",
-	})
-
-	manager := NewManager(ctx, appearance, 1.0, nil, mockResolver)
-	assert.True(t, manager.PrefersDark())
-
-	// Update with new config
-	newAppearance := &entity.AppearanceConfig{
-		ColorScheme: "prefer-light",
-	}
-	manager.UpdateFromConfig(ctx, newAppearance, 0, nil, nil)
-
-	assert.False(t, manager.PrefersDark())
-	assert.Equal(t, "prefer-light", manager.scheme)
-}
-
-func TestManager_UpdateFromConfig_NilConfig(t *testing.T) {
-	ctx := context.Background()
-
-	mockResolver := mocks.NewMockColorSchemeResolver(t)
-	mockResolver.EXPECT().Resolve().Return(port.ColorSchemePreference{
-		PrefersDark: true,
-		Source:      "test",
-	})
-
-	manager := NewManager(ctx, nil, 0, nil, mockResolver)
-	initialScheme := manager.scheme
-
-	// UpdateFromConfig with nil appearance should be a no-op
-	manager.UpdateFromConfig(ctx, nil, 0, nil, nil)
-
-	assert.Equal(t, initialScheme, manager.scheme)
+	assert.Equal(t, "#abcdef", manager.GetLightPalette().Background)
+	assert.Equal(t, "#123456", manager.GetDarkPalette().Background)
+	assert.Equal(t, manager.GetLightPalette(), manager.GetCurrentPalette())
+	assert.Equal(t, "Recursive", manager.fonts.SansFont)
+	assert.InDelta(t, 2.0, manager.uiScale, 0.000001)
+	assert.Equal(t, "#654321", manager.GetModeColors().PaneMode)
 }
 
 func TestManager_GetWebUIThemeCSS(t *testing.T) {
 	ctx := context.Background()
+	manager := NewManager(ctx, resolvedThemeFixture(true))
 
-	mockResolver := mocks.NewMockColorSchemeResolver(t)
-	mockResolver.EXPECT().Resolve().Return(port.ColorSchemePreference{
-		PrefersDark: true,
-		Source:      "test",
-	})
-
-	manager := NewManager(ctx, nil, 0, nil, mockResolver)
 	css := manager.GetWebUIThemeCSS()
 
-	// Should contain both light and dark variables
 	assert.Contains(t, css, ":root{")
 	assert.Contains(t, css, ".dark{")
+	assert.Contains(t, css, "--background: #ffffff")
+	assert.Contains(t, css, "--background: #101010")
 }
 
-func TestManager_GetBackgroundRGBA(t *testing.T) {
+func TestManager_GetBackgroundRGBAUsesCurrentPalette(t *testing.T) {
 	ctx := context.Background()
+	manager := NewManager(ctx, resolvedThemeFixture(true))
 
-	mockResolver := mocks.NewMockColorSchemeResolver(t)
-	mockResolver.EXPECT().Resolve().Return(port.ColorSchemePreference{
-		PrefersDark: true,
-		Source:      "test",
-	})
-
-	manager := NewManager(ctx, nil, 0, nil, mockResolver)
 	r, g, b, a := manager.GetBackgroundRGBA()
 
-	// Should return valid RGBA values (0-1 range)
-	assert.GreaterOrEqual(t, r, float32(0))
-	assert.LessOrEqual(t, r, float32(1))
-	assert.GreaterOrEqual(t, g, float32(0))
-	assert.LessOrEqual(t, g, float32(1))
-	assert.GreaterOrEqual(t, b, float32(0))
-	assert.LessOrEqual(t, b, float32(1))
-	assert.GreaterOrEqual(t, a, float32(0))
-	assert.LessOrEqual(t, a, float32(1))
+	assert.InDelta(t, float32(0x10)/255, r, 0.0001)
+	assert.InDelta(t, float32(0x10)/255, g, 0.0001)
+	assert.InDelta(t, float32(0x10)/255, b, 0.0001)
+	assert.InDelta(t, float32(1), a, 0.0001)
 }
 
-func TestManager_CustomPalettes(t *testing.T) {
-	ctx := context.Background()
-	appearance := &entity.AppearanceConfig{
-		LightPalette: entity.ColorPalette{
-			Background: "#ffffff",
-			Text:       "#000000",
-		},
-		DarkPalette: entity.ColorPalette{
-			Background: "#000000",
-			Text:       "#ffffff",
-		},
-	}
+func TestPaletteFromEntityAddsSemanticDefaults(t *testing.T) {
+	palette := PaletteFromEntity(entity.ColorPalette{Background: "#ffffff", Text: "#111111"}, false)
 
-	mockResolver := mocks.NewMockColorSchemeResolver(t)
-	mockResolver.EXPECT().Resolve().Return(port.ColorSchemePreference{
-		PrefersDark: true,
-		Source:      "test",
+	assert.Equal(t, "#ffffff", palette.Background)
+	assert.Equal(t, "#111111", palette.Text)
+	assert.Equal(t, DefaultLightPalette().Success, palette.Success)
+	assert.Equal(t, DefaultLightPalette().Warning, palette.Warning)
+	assert.Equal(t, DefaultLightPalette().Destructive, palette.Destructive)
+}
+
+func TestModeColorsFromEntity(t *testing.T) {
+	modeColors := ModeColorsFromEntity(entity.ThemeModeColors{
+		PaneMode:    "#111111",
+		TabMode:     "#222222",
+		SessionMode: "#333333",
+		ResizeMode:  "#444444",
 	})
 
-	manager := NewManager(ctx, appearance, 1.0, nil, mockResolver)
-
-	lightPalette := manager.GetLightPalette()
-	darkPalette := manager.GetDarkPalette()
-
-	assert.Equal(t, "#ffffff", lightPalette.Background)
-	assert.Equal(t, "#000000", lightPalette.Text)
-	assert.Equal(t, "#000000", darkPalette.Background)
-	assert.Equal(t, "#ffffff", darkPalette.Text)
+	assert.Equal(t, "#111111", modeColors.PaneMode)
+	assert.Equal(t, "#222222", modeColors.TabMode)
+	assert.Equal(t, "#333333", modeColors.SessionMode)
+	assert.Equal(t, "#444444", modeColors.ResizeMode)
 }
 
-func TestManager_UIScale(t *testing.T) {
-	ctx := context.Background()
-
-	mockResolver := mocks.NewMockColorSchemeResolver(t)
-	mockResolver.EXPECT().Resolve().Return(port.ColorSchemePreference{
-		PrefersDark: true,
-		Source:      "test",
-	})
-
-	manager := NewManager(ctx, nil, 1.5, nil, mockResolver)
-
-	// UI scale should be stored (we can't directly access it, but we can verify
-	// the manager was created without error)
-	require.NotNil(t, manager)
-}
-
-func TestManager_Fonts(t *testing.T) {
-	ctx := context.Background()
-	appearance := &entity.AppearanceConfig{
+func TestFontConfigFromEntity(t *testing.T) {
+	fonts := FontConfigFromEntity(entity.ThemeFonts{
 		SansFont:      "Inter",
 		MonospaceFont: "JetBrains Mono",
 		GtkFont:       "Adwaita Sans",
-	}
-
-	mockResolver := mocks.NewMockColorSchemeResolver(t)
-	mockResolver.EXPECT().Resolve().Return(port.ColorSchemePreference{
-		PrefersDark: true,
-		Source:      "test",
 	})
 
-	manager := NewManager(ctx, appearance, 1.0, nil, mockResolver)
-
-	// Fonts should be stored (manager creation should succeed)
-	require.NotNil(t, manager)
-}
-
-func TestManager_ModeColors(t *testing.T) {
-	ctx := context.Background()
-	styling := &entity.WorkspaceStylingConfig{
-		PaneModeColor:    "#ff0000",
-		TabModeColor:     "#00ff00",
-		SessionModeColor: "#0000ff",
-		ResizeModeColor:  "#ffff00",
-	}
-
-	mockResolver := mocks.NewMockColorSchemeResolver(t)
-	mockResolver.EXPECT().Resolve().Return(port.ColorSchemePreference{
-		PrefersDark: true,
-		Source:      "test",
-	})
-
-	manager := NewManager(ctx, nil, 1.0, styling, mockResolver)
-	modeColors := manager.GetModeColors()
-
-	assert.Equal(t, "#ff0000", modeColors.PaneMode)
-	assert.Equal(t, "#00ff00", modeColors.TabMode)
-	assert.Equal(t, "#0000ff", modeColors.SessionMode)
-	assert.Equal(t, "#ffff00", modeColors.ResizeMode)
+	assert.Equal(t, FontConfig{SansFont: "Inter", MonospaceFont: "JetBrains Mono", GtkFont: "Adwaita Sans"}, fonts)
 }
 
 func TestDefaultGTKFont(t *testing.T) {

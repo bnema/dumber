@@ -141,6 +141,10 @@ auto_open_on_new_pane = false
 | `appearance.monospace_font` | string | `"Fira Code"` | Monospace font |
 | `appearance.default_font_size` | int | `16` | Font size in points |
 | `appearance.color_scheme` | string | `"default"` | `prefer-dark`, `prefer-light`, `default` |
+| `appearance.external_theme.enabled` | bool | `false` | Enable an external palette source |
+| `appearance.external_theme.provider` | string | `"noctalia"` | External provider. Only `noctalia` is supported |
+| `appearance.external_theme.format` | string | `"colors-json"` | External file format: `colors-json` or `dumber-json` |
+| `appearance.external_theme.path` | string | `$XDG_CONFIG_HOME/noctalia/colors.json` | Path to the external theme JSON file |
 
 ### Color Palettes
 
@@ -167,6 +171,70 @@ muted = "#848484"
 accent = "#a8a8a8"
 border = "#363636"
 ```
+
+### External Theme: Noctalia
+
+Dumber can follow Noctalia by reading the native Noctalia palette file directly. No user template is required for the default integration.
+
+```toml
+[appearance.external_theme]
+enabled = true
+provider = "noctalia"
+format = "colors-json" # default
+# Optional. Defaults to $XDG_CONFIG_HOME/noctalia/colors.json.
+path = "~/.config/noctalia/colors.json"
+```
+
+The external file overrides palette colors only. Fonts, UI scale, pane-mode colors, and other appearance settings still come from Dumber config.
+
+#### `colors-json` contract
+
+`colors-json` reads Noctalia's active `colors.json` palette. Example file: [`docs/examples/noctalia-colors.json`](../examples/noctalia-colors.json).
+
+Dumber maps Noctalia roles like this:
+
+| Noctalia key | Dumber palette field |
+|--------------|----------------------|
+| `mShadow` | `background` when present, otherwise `mSurface` |
+| `mSurface` | `surface` |
+| `mHover` | `surface_variant` when present, otherwise `mSurfaceVariant` |
+| `mOnSurface` | `text` |
+| `mOnSurfaceVariant` | `muted` |
+| `mPrimary` | `accent` |
+| `mOutline` | `border` |
+
+Every mapped value must be a CSS-safe 6-digit hex color such as `#AABBCC`. `mShadow` and `mHover` are optional nuance roles; when they are present they are validated and used to preserve Dumber's background/surface/input contrast. Because Noctalia's native file contains the active palette only, Dumber applies that mapped palette to both resolved light and dark palettes so the app follows the file immediately.
+
+#### Advanced: `dumber-json` user template
+
+`dumber-json` remains supported for an explicit Dumber-specific Noctalia user template:
+
+```toml
+[appearance.external_theme]
+enabled = true
+provider = "noctalia"
+format = "dumber-json"
+# Optional for dumber-json. Defaults to $XDG_CONFIG_HOME/dumber/noctalia-theme.json.
+path = "~/.config/dumber/noctalia-theme.json"
+```
+
+The file must be JSON with root `light` and `dark` objects. Optional `source`, `name`, and `mode` metadata fields are accepted; `name` or `source` is used only as source metadata. Dumber chooses the active palette from `appearance.color_scheme` and the system color-scheme preference.
+
+Supported palette fields are:
+
+- `background`
+- `surface`
+- `surface_variant`
+- `text`
+- `muted`
+- `accent`
+- `border`
+
+Each non-empty palette value must be a CSS-safe 6-digit hex color such as `#AABBCC`. Empty or omitted palette fields inherit from the configured Dumber palette for that mode.
+
+Example rendered file: [`docs/examples/noctalia-dumber-theme.json`](../examples/noctalia-dumber-theme.json). Example template: [`docs/examples/noctalia-dumber-theme.template.json`](../examples/noctalia-dumber-theme.template.json).
+
+When Noctalia rewrites the watched file, Dumber reapplies the same resolved theme path used by config reloads. A malformed or temporarily missing file keeps the last valid external palette when one exists; disabling `appearance.external_theme.enabled` clears that last-good external palette and returns to Dumber's configured palettes.
 
 ## Debug Options
 

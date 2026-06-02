@@ -11,10 +11,12 @@ import (
 
 	"github.com/bnema/dumber/internal/application/port"
 	"github.com/bnema/dumber/internal/application/usecase"
+	"github.com/bnema/dumber/internal/domain/entity"
 	"github.com/bnema/dumber/internal/infrastructure/colorscheme"
 	"github.com/bnema/dumber/internal/infrastructure/config"
 	"github.com/bnema/dumber/internal/infrastructure/deps"
 	"github.com/bnema/dumber/internal/infrastructure/env"
+	"github.com/bnema/dumber/internal/infrastructure/externaltheme/noctalia"
 	"github.com/bnema/dumber/internal/infrastructure/media"
 	"github.com/bnema/dumber/internal/infrastructure/persistence/sqlite"
 	"github.com/bnema/dumber/internal/infrastructure/runtimeprofile"
@@ -30,11 +32,15 @@ type DatabaseResult struct {
 
 // ParallelInitResult holds the results of parallel initialization phase.
 type ParallelInitResult struct {
-	RuntimeProfile  runtimeprofile.Profile
-	ThemeManager    *theme.Manager
-	ColorResolver   port.ColorSchemeResolver
-	AdwaitaDetector *colorscheme.AdwaitaDetector
-	Duration        time.Duration
+	RuntimeProfile       runtimeprofile.Profile
+	ThemeManager         *theme.Manager
+	ResolvedTheme        entity.ResolvedTheme
+	ResolveThemeUC       *usecase.ResolveThemeUseCase
+	ExternalThemeSource  port.ConfigurableExternalThemeSource
+	ExternalThemeWatcher port.ExternalThemeWatcher
+	ColorResolver        port.ColorSchemeResolver
+	AdwaitaDetector      *colorscheme.AdwaitaDetector
+	Duration             time.Duration
 }
 
 // DeferredInitResult holds results from deferred initialization checks.
@@ -90,8 +96,9 @@ func (e *RuntimeRequirementsError) LogDetails(ctx context.Context) {
 // Returns the first fatal error encountered, or nil with the results.
 func RunParallelInit(input ParallelInitInput) (*ParallelInitResult, error) {
 	var (
-		dirsErr error
-		wg      sync.WaitGroup
+		dirsErr  error
+		themeErr error
+		wg       sync.WaitGroup
 	)
 
 	profile, err := ResolveRuntimeProfile(input.Config)
@@ -122,14 +129,28 @@ func RunParallelInit(input ParallelInitInput) (*ParallelInitResult, error) {
 		dirsErr = resolveWebKitDirs(profile)
 	}()
 
-	// Theme manager (CPU-bound, no I/O)
+	// Theme manager. External theme file reads, when enabled, are non-fatal
+	// and reported as theme warnings by the usecase.
+	externalThemeSource := noctalia.NewFileSourceFromConfig(input.Config.Appearance.ExternalTheme)
+	resolveThemeUC := usecase.NewResolveThemeUseCase(externalThemeSource)
 	var themeManager *theme.Manager
+	var resolvedTheme entity.ResolvedTheme
 	go func() {
 		defer wg.Done()
-		themeManager = theme.NewManager(
-			input.Ctx, &input.Config.Appearance, input.Config.DefaultUIScale,
-			&input.Config.Workspace.Styling, resolver,
-		)
+		preference := resolver.Resolve()
+		resolved, err := resolveThemeUC.Execute(input.Ctx, usecase.ResolveThemeInputFromConfig(
+			&input.Config.Appearance,
+			input.Config.DefaultUIScale,
+			&input.Config.Workspace.Styling,
+			preference,
+		))
+		if err != nil {
+			themeErr = err
+			return
+		}
+		LogResolvedTheme(input.Ctx, resolved.Theme)
+		resolvedTheme = resolved.Theme
+		themeManager = theme.NewManager(input.Ctx, resolved.Theme)
 	}()
 
 	wg.Wait()
@@ -139,14 +160,40 @@ func RunParallelInit(input ParallelInitInput) (*ParallelInitResult, error) {
 	if dirsErr != nil {
 		return nil, fmt.Errorf("resolve directories: %w", dirsErr)
 	}
+	if themeErr != nil {
+		return nil, fmt.Errorf("resolve theme: %w", themeErr)
+	}
 
 	return &ParallelInitResult{
-		RuntimeProfile:  profile,
-		ThemeManager:    themeManager,
-		ColorResolver:   resolver,
-		AdwaitaDetector: adwaitaDetector,
-		Duration:        duration,
+		RuntimeProfile:       profile,
+		ThemeManager:         themeManager,
+		ResolvedTheme:        resolvedTheme,
+		ResolveThemeUC:       resolveThemeUC,
+		ExternalThemeSource:  externalThemeSource,
+		ExternalThemeWatcher: noctalia.NewFileWatcher(),
+		ColorResolver:        resolver,
+		AdwaitaDetector:      adwaitaDetector,
+		Duration:             duration,
 	}, nil
+}
+
+// LogResolvedTheme writes a compact theme-source summary and non-fatal warnings.
+func LogResolvedTheme(ctx context.Context, resolved entity.ResolvedTheme) {
+	log := logging.FromContext(ctx)
+	for _, warning := range resolved.Warnings {
+		log.Warn().Str("field", warning.Field).Msg(warning.Message)
+	}
+	event := log.Info().
+		Str("theme_source", string(resolved.ThemeSource.Kind)).
+		Str("color_scheme_source", resolved.ColorSchemeSource).
+		Bool("prefers_dark", resolved.PrefersDark)
+	if resolved.ThemeSource.Provider != "" {
+		event = event.Str("provider", resolved.ThemeSource.Provider)
+	}
+	if resolved.ThemeSource.LastGood {
+		event = event.Bool("last_good", true)
+	}
+	event.Msg("theme resolved")
 }
 
 // RunDeferredInit runs deferred initialization checks off the critical path.
@@ -275,11 +322,12 @@ type ParallelDBEngineResult struct {
 
 // ParallelDBEngineInput holds inputs for parallel DB and engine initialization.
 type ParallelDBEngineInput struct {
-	Ctx            context.Context
-	Config         *config.Config
-	RuntimeProfile runtimeprofile.Profile
-	ThemeManager   *theme.Manager
-	ColorResolver  port.ColorSchemeResolver
+	Ctx                 context.Context
+	Config              *config.Config
+	RuntimeProfile      runtimeprofile.Profile
+	ThemeManager        *theme.Manager
+	ExternalThemeSource port.ExternalThemeSource
+	ColorResolver       port.ColorSchemeResolver
 }
 
 // Note: Database path is resolved via config.GetDatabaseFile() internally.
@@ -314,12 +362,13 @@ func RunParallelDBEngine(input ParallelDBEngineInput) (*ParallelDBEngineResult, 
 
 	// Engine on main thread (GTK requirement)
 	engine, err := BuildEngine(EngineInput{
-		Ctx:            input.Ctx,
-		Config:         input.Config,
-		RuntimeProfile: input.RuntimeProfile,
-		ThemeManager:   input.ThemeManager,
-		ColorResolver:  input.ColorResolver,
-		Logger:         *log,
+		Ctx:                 input.Ctx,
+		Config:              input.Config,
+		RuntimeProfile:      input.RuntimeProfile,
+		ThemeManager:        input.ThemeManager,
+		ExternalThemeSource: input.ExternalThemeSource,
+		ColorResolver:       input.ColorResolver,
+		Logger:              *log,
 	})
 	if err != nil {
 		dbRes := <-dbCh

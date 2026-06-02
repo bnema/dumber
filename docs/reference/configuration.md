@@ -33,6 +33,10 @@
 | `appearance.monospace_font` | string | `Fira Code` | |
 | `appearance.default_font_size` | int | `16` | |
 | `appearance.color_scheme` | string | `default` | `prefer-dark`, `prefer-light`, `default` |
+| `appearance.external_theme.enabled` | bool | `false` | |
+| `appearance.external_theme.provider` | string | `noctalia` | `noctalia` |
+| `appearance.external_theme.format` | string | `colors-json` | `colors-json`, `dumber-json` |
+| `appearance.external_theme.path` | string | `$XDG_CONFIG_HOME/noctalia/colors.json` | path to Noctalia colors.json or explicit dumber-json |
 | `appearance.light_palette.background` | string | `#f8f8f8` | |
 | `appearance.light_palette.surface` | string | `#f2f2f2` | |
 | `appearance.light_palette.surface_variant` | string | `#ececec` | |

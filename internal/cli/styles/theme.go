@@ -4,6 +4,7 @@ package styles
 import (
 	"github.com/charmbracelet/lipgloss"
 
+	"github.com/bnema/dumber/internal/domain/entity"
 	"github.com/bnema/dumber/internal/infrastructure/config"
 )
 
@@ -78,6 +79,18 @@ func NewTheme(cfg *config.Config) *Theme {
 		p = DefaultDarkPalette()
 	}
 
+	return NewThemeFromPalette(p)
+}
+
+// NewThemeFromResolved creates a Theme from the active resolved palette.
+func NewThemeFromResolved(resolved entity.ResolvedTheme) *Theme {
+	p := resolved.ActivePalette
+	if p == (entity.ColorPalette{}) {
+		p = resolved.DarkPalette
+	}
+	if p == (entity.ColorPalette{}) {
+		p = DefaultDarkPalette()
+	}
 	return NewThemeFromPalette(p)
 }
 

@@ -102,6 +102,10 @@ func (a *App) saveAppearanceConfig(ctx context.Context, data map[string]string) 
 	cfg.Appearance.GtkFont = strings.TrimSpace(data["gtk_font"])
 	cfg.Appearance.DefaultFontSize = fontSize
 	cfg.Appearance.ColorScheme = strings.TrimSpace(data["color_scheme"])
+	cfg.Appearance.ExternalTheme.Enabled = configCheckboxEnabled(data["external_theme_enabled"])
+	cfg.Appearance.ExternalTheme.Provider = strings.TrimSpace(data["external_theme_provider"])
+	cfg.Appearance.ExternalTheme.Format = strings.TrimSpace(data["external_theme_format"])
+	cfg.Appearance.ExternalTheme.Path = strings.TrimSpace(data["external_theme_path"])
 	cfg.Appearance.LightPalette = paletteFromForm(data, "light")
 	cfg.Appearance.DarkPalette = paletteFromForm(data, "dark")
 	cfg.DefaultUIScale = uiScale
@@ -111,6 +115,15 @@ func (a *App) saveAppearanceConfig(ctx context.Context, data map[string]string) 
 	}
 	a.configNotice = "Saved appearance settings"
 	return nil
+}
+
+func configCheckboxEnabled(value string) bool {
+	switch strings.ToLower(strings.TrimSpace(value)) {
+	case "on", "true", "1", "yes":
+		return true
+	default:
+		return false
+	}
 }
 
 func (a *App) resetAppearanceConfig(ctx context.Context) error {
