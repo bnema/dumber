@@ -22,6 +22,9 @@ func TestSetEngineDefaults(t *testing.T) {
 	assert.InDelta(t, defaultCEFScrollMultiplier, mgr.viper.GetFloat64("engine.cef.input.scroll_horizontal_multiplier"), 0.001)
 	assert.InDelta(t, defaultCEFScrollMultiplier, mgr.viper.GetFloat64("engine.cef.input.scroll_vertical_multiplier"), 0.001)
 	assert.Equal(t, defaultCEFScrollMaxDelta, mgr.viper.GetInt("engine.cef.input.scroll_max_delta"))
+	assert.Equal(t, defaultCEFTouchpadNavigation, mgr.viper.GetBool("engine.cef.input.touchpad_navigation_enabled"))
+	assert.InDelta(t, defaultCEFTouchpadNavigationDelta, mgr.viper.GetFloat64("engine.cef.input.touchpad_navigation_min_delta"), 0.001)
+	assert.InDelta(t, defaultCEFTouchpadNavigationRatio, mgr.viper.GetFloat64("engine.cef.input.touchpad_navigation_max_vertical_ratio"), 0.001)
 
 	// WebKit-specific engine fields
 	assert.True(t, mgr.viper.GetBool("engine.webkit.itp_enabled"))

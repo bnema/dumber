@@ -746,11 +746,7 @@ func (m *Manager) setEngineDefaults(defaults *Config) {
 	m.viper.SetDefault("engine.cef.windowless_frame_rate_max", ce.CEFWindowlessFrameRateMax())
 	m.viper.SetDefault("engine.cef.enable_audio_handler", ce.EnableAudioHandler)
 	m.viper.SetDefault("engine.cef.trace_handlers", ce.TraceHandlers)
-	m.viper.SetDefault("engine.cef.input.scroll_wheel_multiplier", ce.Input.ScrollWheelMultiplier)
-	m.viper.SetDefault("engine.cef.input.scroll_touchpad_multiplier", ce.Input.ScrollTouchpadMultiplier)
-	m.viper.SetDefault("engine.cef.input.scroll_horizontal_multiplier", ce.Input.ScrollHorizontalMultiplier)
-	m.viper.SetDefault("engine.cef.input.scroll_vertical_multiplier", ce.Input.ScrollVerticalMultiplier)
-	m.viper.SetDefault("engine.cef.input.scroll_max_delta", ce.Input.ScrollMaxDelta)
+	m.setCEFInputDefaults(ce.Input)
 
 	wk := e.WebKit
 	m.viper.SetDefault("engine.webkit.itp_enabled", wk.ITPEnabled)
@@ -779,6 +775,17 @@ func (m *Manager) setEngineDefaults(defaults *Config) {
 	m.viper.SetDefault("engine.webkit.network_process_memory_poll_interval_sec", wk.NetworkProcessMemoryPollIntervalSec)
 	m.viper.SetDefault("engine.webkit.network_process_memory_conservative_threshold", wk.NetworkProcessMemoryConservativeThreshold)
 	m.viper.SetDefault("engine.webkit.network_process_memory_strict_threshold", wk.NetworkProcessMemoryStrictThreshold)
+}
+
+func (m *Manager) setCEFInputDefaults(input CEFInputConfig) {
+	m.viper.SetDefault("engine.cef.input.scroll_wheel_multiplier", input.ScrollWheelMultiplier)
+	m.viper.SetDefault("engine.cef.input.scroll_touchpad_multiplier", input.ScrollTouchpadMultiplier)
+	m.viper.SetDefault("engine.cef.input.scroll_horizontal_multiplier", input.ScrollHorizontalMultiplier)
+	m.viper.SetDefault("engine.cef.input.scroll_vertical_multiplier", input.ScrollVerticalMultiplier)
+	m.viper.SetDefault("engine.cef.input.scroll_max_delta", input.ScrollMaxDelta)
+	m.viper.SetDefault("engine.cef.input.touchpad_navigation_enabled", input.TouchpadNavigationEnabled)
+	m.viper.SetDefault("engine.cef.input.touchpad_navigation_min_delta", input.TouchpadNavigationMinDelta)
+	m.viper.SetDefault("engine.cef.input.touchpad_navigation_max_vertical_ratio", input.TouchpadNavigationMaxVerticalRatio)
 }
 
 // New returns a new default configuration instance.

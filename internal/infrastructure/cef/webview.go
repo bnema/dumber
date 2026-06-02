@@ -205,6 +205,8 @@ type WebView struct {
 	windowlessFrameRate int32
 	backgroundColor     uint32
 	inputConfig         RuntimeInputConfig
+	touchpadSwipeDX     float64
+	touchpadSwipeDY     float64
 
 	// Audio output factory and active stream.
 	audioOutputFactory port.AudioOutputFactory
@@ -1439,6 +1441,12 @@ func (wv *WebView) bridgeInputOptions() cef2gtk.InputOptions {
 		OnMiddleClick: func(_, _ float64) bool {
 			return wv.handleMiddleClickFromBridge()
 		},
+		OnTouchpadSwipe: func(event cef2gtk.TouchpadSwipeEvent) cef2gtk.TouchpadSwipeDecision {
+			if wv.handleTouchpadNavigationSwipe(event) {
+				return cef2gtk.TouchpadSwipeConsume
+			}
+			return cef2gtk.TouchpadSwipePassthrough
+		},
 		SelectionText: wv.selectedTextSnapshot,
 		OnClipboardShortcut: func(action, text string) {
 			if wv.engine != nil {
@@ -1446,6 +1454,97 @@ func (wv *WebView) bridgeInputOptions() cef2gtk.InputOptions {
 			}
 		},
 	}
+}
+
+type touchpadNavigationAction int
+
+const (
+	touchpadNavigationNone touchpadNavigationAction = iota
+	touchpadNavigationBack
+	touchpadNavigationForward
+)
+
+func (wv *WebView) handleTouchpadNavigationSwipe(event cef2gtk.TouchpadSwipeEvent) bool {
+	cfg := wv.inputConfig
+	if !cfg.TouchpadNavigationEnabled || event.Fingers != 2 {
+		wv.resetTouchpadNavigationSwipe()
+		return false
+	}
+
+	switch event.Phase {
+	case cef2gtk.TouchpadGesturePhaseBegin:
+		wv.resetTouchpadNavigationSwipe()
+		return false
+	case cef2gtk.TouchpadGesturePhaseUpdate:
+		wv.accumulateTouchpadNavigationSwipe(event.DX, event.DY)
+		return false
+	case cef2gtk.TouchpadGesturePhaseEnd:
+		dx, dy := wv.finishTouchpadNavigationSwipe()
+		switch chooseTouchpadNavigationAction(cfg, dx, dy, wv.CanGoBack(), wv.CanGoForward()) {
+		case touchpadNavigationBack:
+			if err := wv.GoBack(wv.ctx); err != nil {
+				logging.FromContext(wv.ctx).Warn().Err(err).Msg("touchpad back navigation failed")
+				return false
+			}
+			return true
+		case touchpadNavigationForward:
+			if err := wv.GoForward(wv.ctx); err != nil {
+				logging.FromContext(wv.ctx).Warn().Err(err).Msg("touchpad forward navigation failed")
+				return false
+			}
+			return true
+		default:
+			return false
+		}
+	case cef2gtk.TouchpadGesturePhaseCancel:
+		wv.resetTouchpadNavigationSwipe()
+		return false
+	default:
+		return false
+	}
+}
+
+func (wv *WebView) resetTouchpadNavigationSwipe() {
+	wv.mu.Lock()
+	wv.touchpadSwipeDX = 0
+	wv.touchpadSwipeDY = 0
+	wv.mu.Unlock()
+}
+
+func (wv *WebView) accumulateTouchpadNavigationSwipe(dx, dy float64) {
+	wv.mu.Lock()
+	wv.touchpadSwipeDX += dx
+	wv.touchpadSwipeDY += dy
+	wv.mu.Unlock()
+}
+
+func (wv *WebView) finishTouchpadNavigationSwipe() (float64, float64) {
+	wv.mu.Lock()
+	defer wv.mu.Unlock()
+	dx, dy := wv.touchpadSwipeDX, wv.touchpadSwipeDY
+	wv.touchpadSwipeDX = 0
+	wv.touchpadSwipeDY = 0
+	return dx, dy
+}
+
+func chooseTouchpadNavigationAction(cfg RuntimeInputConfig, dx, dy float64, canGoBack, canGoForward bool) touchpadNavigationAction {
+	if !cfg.TouchpadNavigationEnabled {
+		return touchpadNavigationNone
+	}
+	absDX, absDY := math.Abs(dx), math.Abs(dy)
+	if absDX < cfg.TouchpadNavigationMinDelta {
+		return touchpadNavigationNone
+	}
+	if absDY > absDX*cfg.TouchpadNavigationMaxVerticalRatio {
+		return touchpadNavigationNone
+	}
+	if dx > 0 && canGoBack {
+		return touchpadNavigationBack
+	}
+	if dx < 0 && canGoForward {
+		return touchpadNavigationForward
+	}
+	return touchpadNavigationNone
 }
 
 func (wv *WebView) viewBridgeScale() float64 {

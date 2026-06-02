@@ -120,11 +120,14 @@ type CEFEngineConfig struct {
 
 // CEFInputConfig holds CEF-specific input translation options.
 type CEFInputConfig struct {
-	ScrollWheelMultiplier      float64 `mapstructure:"scroll_wheel_multiplier" toml:"scroll_wheel_multiplier" yaml:"scroll_wheel_multiplier"`                //nolint:lll // struct tags exceed lll limit
-	ScrollTouchpadMultiplier   float64 `mapstructure:"scroll_touchpad_multiplier" toml:"scroll_touchpad_multiplier" yaml:"scroll_touchpad_multiplier"`       //nolint:lll // struct tags exceed lll limit
-	ScrollHorizontalMultiplier float64 `mapstructure:"scroll_horizontal_multiplier" toml:"scroll_horizontal_multiplier" yaml:"scroll_horizontal_multiplier"` //nolint:lll // struct tags exceed lll limit
-	ScrollVerticalMultiplier   float64 `mapstructure:"scroll_vertical_multiplier" toml:"scroll_vertical_multiplier" yaml:"scroll_vertical_multiplier"`       //nolint:lll // struct tags exceed lll limit
-	ScrollMaxDelta             int32   `mapstructure:"scroll_max_delta" toml:"scroll_max_delta" yaml:"scroll_max_delta"`                                     //nolint:lll // struct tags exceed lll limit
+	ScrollWheelMultiplier              float64 `mapstructure:"scroll_wheel_multiplier" toml:"scroll_wheel_multiplier" yaml:"scroll_wheel_multiplier"`                                              //nolint:lll // struct tags exceed lll limit
+	ScrollTouchpadMultiplier           float64 `mapstructure:"scroll_touchpad_multiplier" toml:"scroll_touchpad_multiplier" yaml:"scroll_touchpad_multiplier"`                                     //nolint:lll // struct tags exceed lll limit
+	ScrollHorizontalMultiplier         float64 `mapstructure:"scroll_horizontal_multiplier" toml:"scroll_horizontal_multiplier" yaml:"scroll_horizontal_multiplier"`                               //nolint:lll // struct tags exceed lll limit
+	ScrollVerticalMultiplier           float64 `mapstructure:"scroll_vertical_multiplier" toml:"scroll_vertical_multiplier" yaml:"scroll_vertical_multiplier"`                                     //nolint:lll // struct tags exceed lll limit
+	ScrollMaxDelta                     int32   `mapstructure:"scroll_max_delta" toml:"scroll_max_delta" yaml:"scroll_max_delta"`                                                                   //nolint:lll // struct tags exceed lll limit
+	TouchpadNavigationEnabled          bool    `mapstructure:"touchpad_navigation_enabled" toml:"touchpad_navigation_enabled" yaml:"touchpad_navigation_enabled"`                                  //nolint:lll // struct tags exceed lll limit
+	TouchpadNavigationMinDelta         float64 `mapstructure:"touchpad_navigation_min_delta" toml:"touchpad_navigation_min_delta" yaml:"touchpad_navigation_min_delta"`                            //nolint:lll // struct tags exceed lll limit
+	TouchpadNavigationMaxVerticalRatio float64 `mapstructure:"touchpad_navigation_max_vertical_ratio" toml:"touchpad_navigation_max_vertical_ratio" yaml:"touchpad_navigation_max_vertical_ratio"` //nolint:lll // struct tags exceed lll limit
 }
 
 // CEFRenderStack returns the effective CEF GPU render stack.
