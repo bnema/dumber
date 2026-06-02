@@ -94,9 +94,11 @@ func BuildEngine(input EngineInput) (port.Engine, error) {
 				TouchpadNavigationMinDelta:         cfg.Engine.CEF.Input.TouchpadNavigationMinDelta,
 				TouchpadNavigationMaxVerticalRatio: cfg.Engine.CEF.Input.TouchpadNavigationMaxVerticalRatio,
 			},
-			EnableAudioHandler: cfg.Engine.CEF.EnableAudioHandler,
-			TraceHandlers:      cfg.Engine.CEF.TraceHandlers,
-			ApplicationScale:   cfg.DefaultUIScale,
+			ContentFilteringEnabled:    cfg.ContentFiltering.Enabled,
+			ContentFilteringAutoUpdate: cfg.ContentFiltering.AutoUpdate,
+			EnableAudioHandler:         cfg.Engine.CEF.EnableAudioHandler,
+			TraceHandlers:              cfg.Engine.CEF.TraceHandlers,
+			ApplicationScale:           cfg.DefaultUIScale,
 		}
 		deps := cef.EngineDependencies{
 			RegisterHandlers:           handlers.RegisterAll,

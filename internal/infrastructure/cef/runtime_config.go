@@ -23,6 +23,8 @@ type RuntimeConfig struct {
 	WindowlessFrameRate         int32
 	WindowlessFrameRateMax      int32
 	Input                       RuntimeInputConfig
+	ContentFilteringEnabled     bool
+	ContentFilteringAutoUpdate  bool
 	EnableAudioHandler          bool
 	TraceHandlers               bool
 	ApplicationScale            float64

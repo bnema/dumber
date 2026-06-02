@@ -20,6 +20,7 @@ import (
 
 // Compile-time interface check.
 var _ port.Engine = (*Engine)(nil)
+var _ port.FilterManagerProvider = (*Engine)(nil)
 var _ port.AlreadyRunningAppRelaunchHandlerSetter = (*Engine)(nil)
 
 // Engine implements port.Engine for the CEF browser backend.
@@ -31,6 +32,8 @@ type Engine struct {
 	profileLogDir      string
 	runtimeCEFDir      string
 	renderStackPlan    cef2gtk.RenderStackPlan
+	filterManager      port.FilterManager
+	filterBackend      cefFilterBackend
 	applicationScaleMu sync.RWMutex
 	applicationScale   float64
 
@@ -111,10 +114,13 @@ func (e *Engine) SettingsApplier() port.SettingsApplier {
 	return &noopSettingsApplier{}
 }
 
-// FilterApplier returns nil (content filtering not yet supported for CEF).
+// FilterApplier returns nil because CEF filtering is applied through request interception.
 func (e *Engine) FilterApplier() port.FilterApplier {
 	return nil
 }
+
+// InternalFilterManager returns the shared lifecycle manager for CEF request filtering.
+func (e *Engine) InternalFilterManager() port.FilterManager { return e.filterManager }
 
 // FaviconDatabase returns a no-op database (Phase 1 stub).
 func (e *Engine) FaviconDatabase() port.FaviconDatabase {

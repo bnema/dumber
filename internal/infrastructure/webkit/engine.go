@@ -21,6 +21,7 @@ type Engine struct {
 	pool                   *WebViewPool
 	factory                *WebViewFactory
 	filterManager          *filtering.Manager
+	filterApplier          FilterApplier
 	schemeHandler          *DumbSchemeHandler
 	schemePath             string
 	logger                 zerolog.Logger
@@ -70,10 +71,10 @@ func (e *Engine) SettingsApplier() port.SettingsApplier {
 
 // FilterApplier returns a port.FilterApplier adapter, or nil if filtering is disabled.
 func (e *Engine) FilterApplier() port.FilterApplier {
-	if e.filterManager == nil {
+	if e.filterApplier == nil {
 		return nil
 	}
-	return &filterApplierAdapter{manager: e.filterManager}
+	return &filterApplierAdapter{applier: e.filterApplier}
 }
 
 // FaviconDatabase returns a port.FaviconDatabase adapter for async favicon lookups.

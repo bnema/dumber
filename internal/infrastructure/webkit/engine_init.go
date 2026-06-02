@@ -10,6 +10,7 @@ import (
 	"github.com/bnema/dumber/internal/infrastructure/config"
 	"github.com/bnema/dumber/internal/infrastructure/env"
 	"github.com/bnema/dumber/internal/infrastructure/filtering"
+	"github.com/bnema/dumber/internal/infrastructure/filtering/webkitfilter"
 	"github.com/bnema/dumber/internal/infrastructure/runtimeprofile"
 	"github.com/bnema/dumber/internal/logging"
 	"github.com/bnema/dumber/internal/ui/theme"
@@ -54,7 +55,7 @@ func NewEngine(
 	logging.Trace().Mark("webkit_context")
 
 	// --- Filter manager ---
-	filterManager := engineInitFilterManager(ctx, cfg, profile.Shared.DataDir, logger)
+	filterManager, filterApplier := engineInitFilterManager(ctx, cfg, profile.Shared.DataDir, logger)
 
 	// --- Scheme handler ---
 	schemeHandler := NewDumbSchemeHandler(ctx)
@@ -89,8 +90,8 @@ func NewEngine(
 	bgR, bgG, bgB, bgA := themeManager.GetBackgroundRGBA()
 	pool.SetBackgroundColor(bgR, bgG, bgB, bgA)
 
-	if filterManager != nil {
-		pool.SetFilterApplier(filterManager)
+	if filterApplier != nil {
+		pool.SetFilterApplier(filterApplier)
 	}
 
 	if gdk.DisplayGetDefault() != nil {
@@ -105,8 +106,8 @@ func NewEngine(
 	// --- WebView factory ---
 	factory := NewWebViewFactory(wkCtx, settings, pool, injector, messageRouter)
 	factory.SetBackgroundColor(bgR, bgG, bgB, bgA)
-	if filterManager != nil {
-		factory.SetFilterApplier(filterManager)
+	if filterApplier != nil {
+		factory.SetFilterApplier(filterApplier)
 	}
 
 	// --- Assemble Engine ---
@@ -119,6 +120,7 @@ func NewEngine(
 		pool:                   pool,
 		factory:                factory,
 		filterManager:          filterManager,
+		filterApplier:          filterApplier,
 		schemeHandler:          schemeHandler,
 		schemePath:             "dumb://",
 		logger:                 logger,
@@ -256,24 +258,34 @@ func engineBuildContextOptions(
 }
 
 // engineInitFilterManager creates and initializes the content filter manager.
-func engineInitFilterManager(ctx context.Context, cfg *config.Config, dataDir string, logger zerolog.Logger) *filtering.Manager {
+func engineInitFilterManager(
+	ctx context.Context,
+	cfg *config.Config,
+	dataDir string,
+	logger zerolog.Logger,
+) (*filtering.Manager, FilterApplier) {
 	filterStoreDir := filepath.Join(dataDir, "filters", "store")
 	filterJSONDir := filepath.Join(dataDir, "filters", "json")
+	backend, err := webkitfilter.NewBackend(webkitfilter.Config{StoreDir: filterStoreDir})
+	if err != nil {
+		logger.Warn().Err(err).Msg("failed to create WebKit filter backend, continuing without content filtering")
+		return nil, nil
+	}
 	filterManager, err := filtering.NewManager(filtering.ManagerConfig{
-		StoreDir:   filterStoreDir,
 		JSONDir:    filterJSONDir,
 		Enabled:    cfg.ContentFiltering.Enabled,
 		AutoUpdate: cfg.ContentFiltering.AutoUpdate,
+		Backend:    backend,
 	})
 	if err != nil {
 		logger.Warn().Err(err).Msg("failed to create filter manager, continuing without content filtering")
-		return nil
+		return nil, nil
 	}
 	if err := filterManager.Initialize(ctx); err != nil {
 		logger.Warn().Err(err).Msg("failed to initialize filters, will load async")
 	}
 	logging.Trace().Mark("filter_manager")
-	return filterManager
+	return filterManager, backend
 }
 
 // engineHasWebProcessMemoryConfig returns true if any web process memory setting is configured.

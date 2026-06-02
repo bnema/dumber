@@ -1,4 +1,4 @@
-package filtering
+package webkitfilter
 
 import (
 	"context"

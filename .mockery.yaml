@@ -110,8 +110,8 @@ packages:
       filename: mocks.go
       pkgname: mocks
     interfaces:
+      Backend: {}
       FilterDownloader: {}
-      FilterStore: {}
   github.com/bnema/dumber/internal/ui/layout:
     config:
       dir: '{{.InterfaceDir}}/mocks'

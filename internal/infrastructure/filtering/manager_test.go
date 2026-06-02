@@ -5,17 +5,13 @@ import (
 	"errors"
 	"os"
 	"path/filepath"
-	"strings"
 	"sync"
 	"testing"
 	"time"
 
 	"github.com/bnema/dumber/internal/infrastructure/filtering"
-	"github.com/bnema/dumber/internal/infrastructure/filtering/mocks"
 	"github.com/bnema/dumber/internal/logging"
-	"github.com/bnema/puregotk/v4/webkit"
 	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 )
 
@@ -24,156 +20,203 @@ func testContext() context.Context {
 	return logging.WithContext(context.Background(), logger)
 }
 
-func TestManager_LoadAsync_ChecksCacheFirst(t *testing.T) {
-	// Setup temp directories
-	tmpDir := t.TempDir()
-	storeDir := filepath.Join(tmpDir, "store")
-	jsonDir := filepath.Join(tmpDir, "json")
+type fakeBackend struct {
+	mu          sync.Mutex
+	cacheResult bool
+	cacheErr    error
+	activateErr error
+	clearErr    error
+	active      bool
+	calls       []string
+	activePaths [][]string
+	clearCalls  int
+}
 
-	// Create test JSON file for fallback download
-	testJSON := `[{"trigger":{"url-filter":"test"},"action":{"type":"block"}}]`
-	jsonFile := filepath.Join(jsonDir, "combined-part1.json")
-	require.NoError(t, os.MkdirAll(jsonDir, 0o755))
-	require.NoError(t, os.WriteFile(jsonFile, []byte(testJSON), 0o644))
-
-	// Create mocks
-	mockStore := mocks.NewMockFilterStore(t)
-	mockDownloader := mocks.NewMockFilterDownloader(t)
-
-	// Setup expectations: filter identifier exists in store but Load returns nil
-	// This verifies the cache check path is taken, then falls back to download
-	mockStore.EXPECT().
-		FetchIdentifiers(mock.Anything).
-		Return([]string{"ublock-combined-0"}, nil).Once()
-
-	mockStore.EXPECT().
-		Load(mock.Anything, "ublock-combined-0").
-		Return(nil, nil) // nil filter triggers fallback to download
-
-	// Fallback: download will be triggered since Load returned nil filter
-	mockDownloader.EXPECT().
-		GetCachedFilterPaths().
-		Return(nil)
-
-	mockDownloader.EXPECT().
-		DownloadFilters(mock.Anything, mock.Anything).
-		Return([]string{jsonFile}, nil)
-
-	mockStore.EXPECT().
-		Compile(mock.Anything, mock.MatchedBy(func(s string) bool { return strings.HasPrefix(s, filtering.FilterIdentifierPrefix) }), mock.Anything).
-		Return(&webkit.UserContentFilter{}, nil)
-
-	mockDownloader.EXPECT().
-		GetCachedManifest().
-		Return(&filtering.Manifest{Version: "2025.12.19"}, nil)
-
-	// Create manager with mocks
-	mgr, err := filtering.NewManager(filtering.ManagerConfig{
-		StoreDir:   storeDir,
-		JSONDir:    jsonDir,
-		Enabled:    true,
-		AutoUpdate: false,
-		Store:      mockStore,
-		Downloader: mockDownloader,
-	})
-	require.NoError(t, err)
-
-	// Track status changes
-	var statuses []filtering.FilterStatus
-	var mu sync.Mutex
-	mgr.SetStatusCallback(func(status filtering.FilterStatus) {
-		mu.Lock()
-		statuses = append(statuses, status)
-		mu.Unlock()
-	})
-
-	// Initialize and load
-	ctx := testContext()
-	err = mgr.Initialize(ctx)
-	require.NoError(t, err)
-
-	// Start async load and wait for completion
-	done := make(chan struct{})
-	go func() {
-		mgr.LoadAsync(ctx)
-		close(done)
-	}()
-
-	select {
-	case <-done:
-		// Success
-	case <-time.After(5 * time.Second):
-		t.Fatal("LoadAsync timed out")
+func (b *fakeBackend) ActivateCached(_ context.Context) (bool, error) {
+	b.mu.Lock()
+	defer b.mu.Unlock()
+	b.calls = append(b.calls, "cache")
+	if b.cacheErr != nil {
+		return false, b.cacheErr
 	}
+	if b.cacheResult {
+		b.active = true
+	}
+	return b.cacheResult, nil
+}
 
-	// Give callbacks time to fire
-	time.Sleep(100 * time.Millisecond)
+func (b *fakeBackend) ActivateFiles(_ context.Context, paths []string) error {
+	b.mu.Lock()
+	defer b.mu.Unlock()
+	b.calls = append(b.calls, "files")
+	b.activePaths = append(b.activePaths, append([]string(nil), paths...))
+	if b.activateErr != nil {
+		return b.activateErr
+	}
+	b.active = true
+	return nil
+}
 
-	// Verify status progression
-	mu.Lock()
-	defer mu.Unlock()
+func (b *fakeBackend) HasActive() bool {
+	b.mu.Lock()
+	defer b.mu.Unlock()
+	return b.active
+}
 
-	// Should have loading states followed by active
-	require.GreaterOrEqual(t, len(statuses), 2, "Expected at least 2 status updates")
+func (b *fakeBackend) Clear(_ context.Context) error {
+	b.mu.Lock()
+	defer b.mu.Unlock()
+	b.calls = append(b.calls, "clear")
+	b.clearCalls++
+	b.active = false
+	return b.clearErr
+}
 
-	// Final status should be active
-	finalStatus := statuses[len(statuses)-1]
-	assert.Equal(t, filtering.StateActive, finalStatus.State)
-	assert.Equal(t, "2025.12.19", finalStatus.Version)
+func (b *fakeBackend) snapshot() (calls []string, activePaths [][]string, clearCalls int, active bool) {
+	b.mu.Lock()
+	defer b.mu.Unlock()
+	paths := make([][]string, 0, len(b.activePaths))
+	for _, p := range b.activePaths {
+		paths = append(paths, append([]string(nil), p...))
+	}
+	return append([]string(nil), b.calls...), paths, b.clearCalls, b.active
+}
+
+type fakeDownloader struct {
+	mu               sync.Mutex
+	manifest         *filtering.Manifest
+	cachedPaths      []string
+	stale            bool
+	needsUpdate      bool
+	needsUpdateErr   error
+	downloadPaths    []string
+	downloadErr      error
+	clearErr         error
+	downloadCalls    int
+	clearCalls       int
+	needsUpdateCalls int
+}
+
+func (d *fakeDownloader) GetCachedManifest() (*filtering.Manifest, error) {
+	d.mu.Lock()
+	defer d.mu.Unlock()
+	return d.manifest, nil
+}
+
+func (d *fakeDownloader) FetchManifest(context.Context) (*filtering.Manifest, error) {
+	d.mu.Lock()
+	defer d.mu.Unlock()
+	return d.manifest, nil
+}
+
+func (d *fakeDownloader) DownloadFilters(context.Context, func(filtering.DownloadProgress)) ([]string, error) {
+	d.mu.Lock()
+	defer d.mu.Unlock()
+	d.downloadCalls++
+	if d.downloadErr != nil {
+		return nil, d.downloadErr
+	}
+	return append([]string(nil), d.downloadPaths...), nil
+}
+
+func (d *fakeDownloader) NeedsUpdate(context.Context) (bool, error) {
+	d.mu.Lock()
+	defer d.mu.Unlock()
+	d.needsUpdateCalls++
+	if d.needsUpdateErr != nil {
+		return false, d.needsUpdateErr
+	}
+	return d.needsUpdate, nil
+}
+
+func (d *fakeDownloader) ClearCache() error {
+	d.mu.Lock()
+	defer d.mu.Unlock()
+	d.clearCalls++
+	return d.clearErr
+}
+
+func (d *fakeDownloader) HasCachedFilters() bool {
+	d.mu.Lock()
+	defer d.mu.Unlock()
+	return len(d.cachedPaths) > 0
+}
+
+func (d *fakeDownloader) GetCachedFilterPaths() []string {
+	d.mu.Lock()
+	defer d.mu.Unlock()
+	return append([]string(nil), d.cachedPaths...)
+}
+
+func (d *fakeDownloader) IsCacheStale(time.Duration) bool {
+	d.mu.Lock()
+	defer d.mu.Unlock()
+	return d.stale
+}
+
+func (d *fakeDownloader) snapshot() (downloadCalls, clearCalls, needsUpdateCalls int) {
+	d.mu.Lock()
+	defer d.mu.Unlock()
+	return d.downloadCalls, d.clearCalls, d.needsUpdateCalls
+}
+
+func validRuleFile(t *testing.T, dir string) string {
+	t.Helper()
+	path := filepath.Join(dir, "combined-part1.json")
+	require.NoError(t, os.MkdirAll(dir, 0o755))
+	require.NoError(t, os.WriteFile(path, []byte(`[{"trigger":{"url-filter":"test"},"action":{"type":"block"}}]`), 0o644))
+	return path
+}
+
+func newTestManager(t *testing.T, backend *fakeBackend, downloader *fakeDownloader, enabled, autoUpdate bool) *filtering.Manager {
+	t.Helper()
+	mgr, err := filtering.NewManager(filtering.ManagerConfig{
+		JSONDir:    filepath.Join(t.TempDir(), "json"),
+		Enabled:    enabled,
+		AutoUpdate: autoUpdate,
+		Backend:    backend,
+		Downloader: downloader,
+	})
+	require.NoError(t, err)
+	return mgr
+}
+
+func waitForState(t *testing.T, mgr *filtering.Manager, state filtering.FilterState) filtering.FilterStatus {
+	t.Helper()
+	require.Eventually(t, func() bool {
+		return mgr.Status().State == state
+	}, 3*time.Second, 50*time.Millisecond)
+	return mgr.Status()
+}
+
+func TestManager_LoadAsync_ChecksCacheFirst(t *testing.T) {
+	backend := &fakeBackend{cacheResult: true}
+	downloader := &fakeDownloader{manifest: &filtering.Manifest{Version: "2025.12.19"}}
+	mgr := newTestManager(t, backend, downloader, true, false)
+
+	ctx := testContext()
+	require.NoError(t, mgr.Initialize(ctx))
+	mgr.LoadAsync(ctx)
+
+	status := waitForState(t, mgr, filtering.StateActive)
+	assert.Equal(t, "2025.12.19", status.Version)
+	calls, activePaths, _, _ := backend.snapshot()
+	assert.Equal(t, []string{"cache"}, calls)
+	assert.Empty(t, activePaths)
+	downloadCalls, _, _ := downloader.snapshot()
+	assert.Zero(t, downloadCalls)
 }
 
 func TestManager_LoadAsync_DownloadsWhenCacheMiss(t *testing.T) {
-	// Setup temp directories
 	tmpDir := t.TempDir()
-	storeDir := filepath.Join(tmpDir, "store")
-	jsonDir := filepath.Join(tmpDir, "json")
+	jsonFile := validRuleFile(t, filepath.Join(tmpDir, "json"))
+	backend := &fakeBackend{cacheResult: false}
+	downloader := &fakeDownloader{
+		manifest:      &filtering.Manifest{Version: "2025.12.19"},
+		downloadPaths: []string{jsonFile},
+	}
+	mgr := newTestManager(t, backend, downloader, true, false)
 
-	// Create test JSON files
-	testJSON := `[{"trigger":{"url-filter":"test"},"action":{"type":"block"}}]`
-	jsonFile := filepath.Join(jsonDir, "combined-part1.json")
-	require.NoError(t, os.MkdirAll(jsonDir, 0o755))
-	require.NoError(t, os.WriteFile(jsonFile, []byte(testJSON), 0o644))
-
-	// Create mocks
-	mockStore := mocks.NewMockFilterStore(t)
-	mockDownloader := mocks.NewMockFilterDownloader(t)
-
-	// Setup expectations: no filter in store
-	mockStore.EXPECT().
-		FetchIdentifiers(mock.Anything).
-		Return([]string{}, nil)
-
-	// Download should be triggered
-	mockDownloader.EXPECT().
-		GetCachedFilterPaths().
-		Return(nil)
-
-	mockDownloader.EXPECT().
-		DownloadFilters(mock.Anything, mock.Anything).
-		Return([]string{jsonFile}, nil)
-
-	// Compile should be called
-	mockStore.EXPECT().
-		Compile(mock.Anything, "ublock-combined-0", mock.Anything).
-		Return(&webkit.UserContentFilter{}, nil)
-
-	// GetCachedManifest for version
-	mockDownloader.EXPECT().
-		GetCachedManifest().
-		Return(&filtering.Manifest{Version: "2025.12.19"}, nil)
-
-	// Create manager with mocks
-	mgr, err := filtering.NewManager(filtering.ManagerConfig{
-		StoreDir:   storeDir,
-		JSONDir:    jsonDir,
-		Enabled:    true,
-		AutoUpdate: false,
-		Store:      mockStore,
-		Downloader: mockDownloader,
-	})
-	require.NoError(t, err)
-
-	// Track status changes
 	var statuses []filtering.FilterStatus
 	var mu sync.Mutex
 	mgr.SetStatusCallback(func(status filtering.FilterStatus) {
@@ -182,381 +225,170 @@ func TestManager_LoadAsync_DownloadsWhenCacheMiss(t *testing.T) {
 		mu.Unlock()
 	})
 
-	// Initialize and load
 	ctx := testContext()
-	err = mgr.Initialize(ctx)
-	require.NoError(t, err)
+	require.NoError(t, mgr.Initialize(ctx))
+	mgr.LoadAsync(ctx)
 
-	// Start async load and wait for completion
-	done := make(chan struct{})
-	go func() {
-		mgr.LoadAsync(ctx)
-		close(done)
-	}()
+	waitForState(t, mgr, filtering.StateActive)
+	calls, activePaths, _, _ := backend.snapshot()
+	assert.Equal(t, []string{"cache", "files"}, calls)
+	require.Len(t, activePaths, 1)
+	assert.Equal(t, []string{jsonFile}, activePaths[0])
+	downloadCalls, _, _ := downloader.snapshot()
+	assert.Equal(t, 1, downloadCalls)
 
-	select {
-	case <-done:
-		// Success
-	case <-time.After(5 * time.Second):
-		t.Fatal("LoadAsync timed out")
-	}
-
-	// Give callbacks time to fire
-	time.Sleep(100 * time.Millisecond)
-
-	// Verify status progression
 	mu.Lock()
 	defer mu.Unlock()
+	assert.NotEmpty(t, statuses)
+	assert.Contains(t, states(statuses), filtering.StateLoading)
+	assert.Contains(t, states(statuses), filtering.StateActive)
+}
 
-	// Should have loading states followed by active
-	foundLoading := false
-	foundActive := false
-	for _, s := range statuses {
-		if s.State == filtering.StateLoading {
-			foundLoading = true
-		}
-		if s.State == filtering.StateActive {
-			foundActive = true
-		}
+func TestManager_LoadAsync_UsesLocalCachedFilesBeforeDownload(t *testing.T) {
+	jsonFile := validRuleFile(t, filepath.Join(t.TempDir(), "json"))
+	backend := &fakeBackend{cacheResult: false}
+	downloader := &fakeDownloader{
+		manifest:    &filtering.Manifest{Version: "local"},
+		cachedPaths: []string{jsonFile},
 	}
-	assert.True(t, foundLoading, "Expected loading state")
-	assert.True(t, foundActive, "Expected active state")
+	mgr := newTestManager(t, backend, downloader, true, false)
+
+	ctx := testContext()
+	require.NoError(t, mgr.Initialize(ctx))
+	mgr.LoadAsync(ctx)
+
+	waitForState(t, mgr, filtering.StateActive)
+	calls, activePaths, _, _ := backend.snapshot()
+	assert.Equal(t, []string{"cache", "files"}, calls)
+	require.Len(t, activePaths, 1)
+	assert.Equal(t, []string{jsonFile}, activePaths[0])
+	downloadCalls, _, _ := downloader.snapshot()
+	assert.Zero(t, downloadCalls)
 }
 
 func TestManager_CheckForUpdates_DownloadsWhenNewVersionAvailable(t *testing.T) {
-	// Setup temp directories
-	tmpDir := t.TempDir()
-	storeDir := filepath.Join(tmpDir, "store")
-	jsonDir := filepath.Join(tmpDir, "json")
-
-	// Create test JSON files
-	testJSON := `[{"trigger":{"url-filter":"test"},"action":{"type":"block"}}]`
-	jsonFile := filepath.Join(jsonDir, "combined-part1.json")
-	require.NoError(t, os.MkdirAll(jsonDir, 0o755))
-	require.NoError(t, os.WriteFile(jsonFile, []byte(testJSON), 0o644))
-
-	// Create mocks
-	mockStore := mocks.NewMockFilterStore(t)
-	mockDownloader := mocks.NewMockFilterDownloader(t)
-
-	// NeedsUpdate returns true (new version available)
-	mockDownloader.EXPECT().
-		NeedsUpdate(mock.Anything).
-		Return(true, nil)
-
-	// Download triggered
-	mockDownloader.EXPECT().
-		DownloadFilters(mock.Anything, mock.Anything).
-		Return([]string{jsonFile}, nil)
-
-	// Compile called
-	mockStore.EXPECT().
-		Compile(mock.Anything, "ublock-combined-0", mock.Anything).
-		Return(&webkit.UserContentFilter{}, nil)
-
-	// GetCachedManifest for version
-	mockDownloader.EXPECT().
-		GetCachedManifest().
-		Return(&filtering.Manifest{Version: "2025.12.20"}, nil)
-
-	// Create manager with mocks
-	mgr, err := filtering.NewManager(filtering.ManagerConfig{
-		StoreDir:   storeDir,
-		JSONDir:    jsonDir,
-		Enabled:    true,
-		AutoUpdate: true,
-		Store:      mockStore,
-		Downloader: mockDownloader,
-	})
-	require.NoError(t, err)
-
-	// Track status changes
-	var statuses []filtering.FilterStatus
-	var mu sync.Mutex
-	mgr.SetStatusCallback(func(s filtering.FilterStatus) {
-		mu.Lock()
-		statuses = append(statuses, s)
-		mu.Unlock()
-	})
-
-	// Call CheckForUpdates
-	ctx := testContext()
-	err = mgr.CheckForUpdates(ctx)
-	require.NoError(t, err)
-
-	// Verify final status is active with new version
-	mu.Lock()
-	defer mu.Unlock()
-
-	if len(statuses) > 0 {
-		finalStatus := statuses[len(statuses)-1]
-		assert.Equal(t, filtering.StateActive, finalStatus.State)
-		assert.Equal(t, "2025.12.20", finalStatus.Version)
+	jsonFile := validRuleFile(t, filepath.Join(t.TempDir(), "json"))
+	backend := &fakeBackend{}
+	downloader := &fakeDownloader{
+		manifest:      &filtering.Manifest{Version: "2025.12.20"},
+		needsUpdate:   true,
+		downloadPaths: []string{jsonFile},
 	}
+	mgr := newTestManager(t, backend, downloader, true, true)
+
+	err := mgr.CheckForUpdates(testContext())
+	require.NoError(t, err)
+
+	status := mgr.Status()
+	assert.Equal(t, filtering.StateActive, status.State)
+	assert.Equal(t, "2025.12.20", status.Version)
+	_, activePaths, _, _ := backend.snapshot()
+	require.Len(t, activePaths, 1)
+	assert.Equal(t, []string{jsonFile}, activePaths[0])
 }
 
 func TestManager_CheckForUpdates_SkipsWhenUpToDate(t *testing.T) {
-	// Setup temp directories
-	tmpDir := t.TempDir()
-	storeDir := filepath.Join(tmpDir, "store")
-	jsonDir := filepath.Join(tmpDir, "json")
+	backend := &fakeBackend{}
+	downloader := &fakeDownloader{needsUpdate: false}
+	mgr := newTestManager(t, backend, downloader, true, true)
 
-	// Create mocks
-	mockStore := mocks.NewMockFilterStore(t)
-	mockDownloader := mocks.NewMockFilterDownloader(t)
-
-	// NeedsUpdate returns false (already up to date)
-	mockDownloader.EXPECT().
-		NeedsUpdate(mock.Anything).
-		Return(false, nil)
-
-	// Download should NOT be called (we verify this via no expectation)
-
-	// Create manager with mocks
-	mgr, err := filtering.NewManager(filtering.ManagerConfig{
-		StoreDir:   storeDir,
-		JSONDir:    jsonDir,
-		Enabled:    true,
-		AutoUpdate: true,
-		Store:      mockStore,
-		Downloader: mockDownloader,
-	})
+	err := mgr.CheckForUpdates(testContext())
 	require.NoError(t, err)
 
-	// Call CheckForUpdates
-	ctx := testContext()
-	err = mgr.CheckForUpdates(ctx)
-	require.NoError(t, err)
-
-	// Mock expectations will verify DownloadFilters was not called
+	downloadCalls, _, needsUpdateCalls := downloader.snapshot()
+	assert.Equal(t, 1, needsUpdateCalls)
+	assert.Zero(t, downloadCalls)
 }
 
 func TestManager_CheckForUpdates_SkipsWhenDisabled(t *testing.T) {
-	// Setup temp directories
-	tmpDir := t.TempDir()
-	storeDir := filepath.Join(tmpDir, "store")
-	jsonDir := filepath.Join(tmpDir, "json")
+	backend := &fakeBackend{}
+	downloader := &fakeDownloader{needsUpdate: true}
+	mgr := newTestManager(t, backend, downloader, true, false)
 
-	// Create mocks
-	mockStore := mocks.NewMockFilterStore(t)
-	mockDownloader := mocks.NewMockFilterDownloader(t)
-
-	// No expectations - nothing should be called when disabled
-
-	// Create manager with mocks - autoUpdate disabled
-	mgr, err := filtering.NewManager(filtering.ManagerConfig{
-		StoreDir:   storeDir,
-		JSONDir:    jsonDir,
-		Enabled:    true,
-		AutoUpdate: false, // Disabled
-		Store:      mockStore,
-		Downloader: mockDownloader,
-	})
+	err := mgr.CheckForUpdates(testContext())
 	require.NoError(t, err)
 
-	// Call CheckForUpdates
-	ctx := testContext()
-	err = mgr.CheckForUpdates(ctx)
-	require.NoError(t, err)
-
-	// Mock expectations will verify nothing was called
+	downloadCalls, _, needsUpdateCalls := downloader.snapshot()
+	assert.Zero(t, needsUpdateCalls)
+	assert.Zero(t, downloadCalls)
 }
 
 func TestManager_Clear_RemovesFilterAndCache(t *testing.T) {
-	// Setup temp directories
-	tmpDir := t.TempDir()
-	storeDir := filepath.Join(tmpDir, "store")
-	jsonDir := filepath.Join(tmpDir, "json")
+	backend := &fakeBackend{active: true}
+	downloader := &fakeDownloader{}
+	mgr := newTestManager(t, backend, downloader, true, false)
 
-	// Create mocks
-	mockStore := mocks.NewMockFilterStore(t)
-	mockDownloader := mocks.NewMockFilterDownloader(t)
-
-	// FetchIdentifiers + Remove should be called for each part
-	mockStore.EXPECT().
-		FetchIdentifiers(mock.Anything).
-		Return([]string{"ublock-combined-0", "ublock-combined-1"}, nil)
-	mockStore.EXPECT().
-		Remove(mock.Anything, "ublock-combined-0").
-		Return(nil)
-	mockStore.EXPECT().
-		Remove(mock.Anything, "ublock-combined-1").
-		Return(nil)
-
-	// ClearCache should be called
-	mockDownloader.EXPECT().
-		ClearCache().
-		Return(nil)
-
-	// Create manager with mocks
-	mgr, err := filtering.NewManager(filtering.ManagerConfig{
-		StoreDir:   storeDir,
-		JSONDir:    jsonDir,
-		Enabled:    true,
-		AutoUpdate: false,
-		Store:      mockStore,
-		Downloader: mockDownloader,
-	})
+	err := mgr.Clear(testContext())
 	require.NoError(t, err)
 
-	// Clear filters
-	ctx := testContext()
-	err = mgr.Clear(ctx)
-	require.NoError(t, err)
-
-	// Verify status is uninitialized
 	status := mgr.Status()
 	assert.Equal(t, filtering.StateUninitialized, status.State)
+	_, _, clearCalls, active := backend.snapshot()
+	assert.Equal(t, 1, clearCalls)
+	assert.False(t, active)
+	_, clearCacheCalls, _ := downloader.snapshot()
+	assert.Equal(t, 1, clearCacheCalls)
 }
 
 func TestManager_Initialize_DisabledByConfig(t *testing.T) {
-	// Setup temp directories
-	tmpDir := t.TempDir()
-	storeDir := filepath.Join(tmpDir, "store")
-	jsonDir := filepath.Join(tmpDir, "json")
+	backend := &fakeBackend{}
+	downloader := &fakeDownloader{}
+	mgr := newTestManager(t, backend, downloader, false, false)
 
-	// Create mocks (no expectations - nothing should be called)
-	mockStore := mocks.NewMockFilterStore(t)
-	mockDownloader := mocks.NewMockFilterDownloader(t)
-
-	// Create manager with filtering disabled
-	mgr, err := filtering.NewManager(filtering.ManagerConfig{
-		StoreDir:   storeDir,
-		JSONDir:    jsonDir,
-		Enabled:    false, // Disabled
-		AutoUpdate: false,
-		Store:      mockStore,
-		Downloader: mockDownloader,
-	})
+	err := mgr.Initialize(testContext())
 	require.NoError(t, err)
 
-	// Initialize
-	ctx := testContext()
-	err = mgr.Initialize(ctx)
-	require.NoError(t, err)
-
-	// Verify status is disabled
 	status := mgr.Status()
 	assert.Equal(t, filtering.StateDisabled, status.State)
 }
 
 func TestManager_StatusCallback_CalledOnStateChange(t *testing.T) {
-	// Setup temp directories
-	tmpDir := t.TempDir()
-	storeDir := filepath.Join(tmpDir, "store")
-	jsonDir := filepath.Join(tmpDir, "json")
+	jsonFile := validRuleFile(t, filepath.Join(t.TempDir(), "json"))
+	backend := &fakeBackend{cacheResult: false}
+	downloader := &fakeDownloader{downloadPaths: []string{jsonFile}}
+	mgr := newTestManager(t, backend, downloader, true, false)
 
-	// Create test JSON file
-	testJSON := `[{"trigger":{"url-filter":"test"},"action":{"type":"block"}}]`
-	jsonFile := filepath.Join(jsonDir, "combined-part1.json")
-	require.NoError(t, os.MkdirAll(jsonDir, 0o755))
-	require.NoError(t, os.WriteFile(jsonFile, []byte(testJSON), 0o644))
-
-	// Create mocks
-	mockStore := mocks.NewMockFilterStore(t)
-	mockDownloader := mocks.NewMockFilterDownloader(t)
-
-	// Setup for a load with fallback to download (since we can't return real filter)
-	mockStore.EXPECT().
-		FetchIdentifiers(mock.Anything).
-		Return([]string{"ublock-combined-0"}, nil).Once()
-	mockStore.EXPECT().
-		Load(mock.Anything, "ublock-combined-0").
-		Return(nil, nil) // nil triggers download fallback
-	mockDownloader.EXPECT().
-		GetCachedFilterPaths().
-		Return(nil)
-	mockDownloader.EXPECT().
-		DownloadFilters(mock.Anything, mock.Anything).
-		Return([]string{jsonFile}, nil)
-	mockStore.EXPECT().
-		Compile(mock.Anything, "ublock-combined-0", mock.Anything).
-		Return(&webkit.UserContentFilter{}, nil)
-	mockDownloader.EXPECT().
-		GetCachedManifest().
-		Return(&filtering.Manifest{Version: "test"}, nil)
-
-	// Create manager
-	mgr, err := filtering.NewManager(filtering.ManagerConfig{
-		StoreDir:   storeDir,
-		JSONDir:    jsonDir,
-		Enabled:    true,
-		AutoUpdate: false,
-		Store:      mockStore,
-		Downloader: mockDownloader,
-	})
-	require.NoError(t, err)
-
-	// Track callback invocations
 	callCount := 0
 	var mu sync.Mutex
-	mgr.SetStatusCallback(func(_ filtering.FilterStatus) {
+	mgr.SetStatusCallback(func(filtering.FilterStatus) {
 		mu.Lock()
 		callCount++
 		mu.Unlock()
 	})
 
-	// Initialize and load
 	ctx := testContext()
-	_ = mgr.Initialize(ctx)
+	require.NoError(t, mgr.Initialize(ctx))
+	mgr.LoadAsync(ctx)
+	waitForState(t, mgr, filtering.StateActive)
 
-	done := make(chan struct{})
-	go func() {
-		mgr.LoadAsync(ctx)
-		close(done)
-	}()
-	<-done
-
-	time.Sleep(100 * time.Millisecond)
-
-	// Verify callback was called multiple times
 	mu.Lock()
 	defer mu.Unlock()
 	assert.GreaterOrEqual(t, callCount, 2, "Expected callback to be called at least twice")
 }
 
 func TestManager_LoadAsync_QuarantinesInvalidDownloadedPayload(t *testing.T) {
-	tmpDir := t.TempDir()
-	storeDir := filepath.Join(tmpDir, "store")
-	jsonDir := filepath.Join(tmpDir, "json")
-
+	jsonDir := filepath.Join(t.TempDir(), "json")
 	invalidJSONFile := filepath.Join(jsonDir, "combined-part1.json")
 	require.NoError(t, os.MkdirAll(jsonDir, 0o755))
 	require.NoError(t, os.WriteFile(invalidJSONFile, []byte(`{"invalid":`), 0o644))
 
-	mockStore := mocks.NewMockFilterStore(t)
-	mockDownloader := mocks.NewMockFilterDownloader(t)
-
-	mockStore.EXPECT().
-		FetchIdentifiers(mock.Anything).
-		Return([]string{}, nil)
-	mockDownloader.EXPECT().
-		GetCachedFilterPaths().
-		Return(nil)
-
-	mockDownloader.EXPECT().
-		DownloadFilters(mock.Anything, mock.Anything).
-		Return([]string{invalidJSONFile}, nil)
-
+	backend := &fakeBackend{cacheResult: false}
+	downloader := &fakeDownloader{downloadPaths: []string{invalidJSONFile}}
 	mgr, err := filtering.NewManager(filtering.ManagerConfig{
-		StoreDir:   storeDir,
 		JSONDir:    jsonDir,
 		Enabled:    true,
 		AutoUpdate: false,
-		Store:      mockStore,
-		Downloader: mockDownloader,
+		Backend:    backend,
+		Downloader: downloader,
 	})
 	require.NoError(t, err)
 
 	ctx := testContext()
 	require.NoError(t, mgr.Initialize(ctx))
-
 	mgr.LoadAsync(ctx)
 
-	require.Eventually(t, func() bool {
-		return mgr.Status().State == filtering.StateError
-	}, 3*time.Second, 50*time.Millisecond)
-	assert.Equal(t, "Invalid downloaded filters", mgr.Status().Message)
+	status := waitForState(t, mgr, filtering.StateError)
+	assert.Equal(t, "Invalid downloaded filters", status.Message)
 
 	_, statErr := os.Stat(invalidJSONFile)
 	require.ErrorIs(t, statErr, os.ErrNotExist)
@@ -567,67 +399,44 @@ func TestManager_LoadAsync_QuarantinesInvalidDownloadedPayload(t *testing.T) {
 	require.Len(t, entries, 1)
 }
 
-func TestManager_CheckForUpdates_CompileFailureKeepsActiveFilter(t *testing.T) {
-	tmpDir := t.TempDir()
-	storeDir := filepath.Join(tmpDir, "store")
-	jsonDir := filepath.Join(tmpDir, "json")
+func TestManager_CheckForUpdates_ActivationFailureWithoutActiveFilterSetsError(t *testing.T) {
+	jsonFile := validRuleFile(t, filepath.Join(t.TempDir(), "json"))
+	backend := &fakeBackend{activateErr: errors.New("compile failed")}
+	downloader := &fakeDownloader{
+		needsUpdate:   true,
+		downloadPaths: []string{jsonFile},
+	}
+	mgr := newTestManager(t, backend, downloader, true, true)
 
-	validJSON := `[{"trigger":{"url-filter":"test"},"action":{"type":"block"}}]`
-	jsonFile := filepath.Join(jsonDir, "combined-part1.json")
-	require.NoError(t, os.MkdirAll(jsonDir, 0o755))
-	require.NoError(t, os.WriteFile(jsonFile, []byte(validJSON), 0o644))
-
-	mockStore := mocks.NewMockFilterStore(t)
-	mockDownloader := mocks.NewMockFilterDownloader(t)
-
-	activeFilter := &webkit.UserContentFilter{}
-
-	// loadFromCache succeeds — returns activeFilter
-	mockStore.EXPECT().
-		FetchIdentifiers(mock.Anything).
-		Return([]string{"ublock-combined-0"}, nil).Once()
-	mockStore.EXPECT().
-		Load(mock.Anything, "ublock-combined-0").
-		Return(activeFilter, nil).Once()
-	mockDownloader.EXPECT().
-		GetCachedManifest().
-		Return(&filtering.Manifest{Version: "2025.12.19"}, nil)
-	mockDownloader.EXPECT().
-		IsCacheStale(filtering.CacheMaxAge).
-		Return(false).Once()
-
-	// CheckForUpdates: compile fails, should keep active filter
-	mockDownloader.EXPECT().
-		NeedsUpdate(mock.Anything).
-		Return(true, nil).Once()
-	mockDownloader.EXPECT().
-		DownloadFilters(mock.Anything, mock.Anything).
-		Return([]string{jsonFile}, nil).Once()
-	mockStore.EXPECT().
-		Compile(mock.Anything, "ublock-combined-0", mock.Anything).
-		Return(nil, errors.New("compile failed")).Once()
-
-	mgr, err := filtering.NewManager(filtering.ManagerConfig{
-		StoreDir:   storeDir,
-		JSONDir:    jsonDir,
-		Enabled:    true,
-		AutoUpdate: true,
-		Store:      mockStore,
-		Downloader: mockDownloader,
-	})
-	require.NoError(t, err)
-
-	ctx := testContext()
-	require.NoError(t, mgr.Initialize(ctx))
-	mgr.LoadAsync(ctx)
-
-	require.Eventually(t, func() bool {
-		return len(mgr.GetFilters()) > 0 && mgr.Status().State == filtering.StateActive
-	}, 3*time.Second, 50*time.Millisecond)
-
-	err = mgr.CheckForUpdates(ctx)
+	err := mgr.CheckForUpdates(testContext())
 	require.ErrorIs(t, err, filtering.ErrUpdateSkipped)
-	require.Len(t, mgr.GetFilters(), 1)
-	assert.Same(t, activeFilter, mgr.GetFilters()[0])
+	assert.Equal(t, filtering.StateError, mgr.Status().State)
+	assert.Equal(t, "Compilation failed", mgr.Status().Message)
+}
+
+func TestManager_CheckForUpdates_ActivationFailureKeepsActiveFilter(t *testing.T) {
+	jsonFile := validRuleFile(t, filepath.Join(t.TempDir(), "json"))
+	backend := &fakeBackend{active: true, activateErr: errors.New("compile failed")}
+	downloader := &fakeDownloader{
+		manifest:      &filtering.Manifest{Version: "2025.12.19"},
+		needsUpdate:   true,
+		downloadPaths: []string{jsonFile},
+	}
+	mgr := newTestManager(t, backend, downloader, true, true)
+
+	err := mgr.CheckForUpdates(testContext())
+	require.ErrorIs(t, err, filtering.ErrUpdateSkipped)
 	assert.Equal(t, filtering.StateActive, mgr.Status().State)
+	assert.Equal(t, "Filters active (update skipped)", mgr.Status().Message)
+	_, activePaths, _, active := backend.snapshot()
+	assert.True(t, active)
+	require.Len(t, activePaths, 1)
+}
+
+func states(statuses []filtering.FilterStatus) []filtering.FilterState {
+	out := make([]filtering.FilterState, 0, len(statuses))
+	for _, status := range statuses {
+		out = append(out, status.State)
+	}
+	return out
 }

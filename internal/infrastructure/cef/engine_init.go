@@ -19,6 +19,8 @@ import (
 
 	"github.com/bnema/dumber/assets"
 	"github.com/bnema/dumber/internal/application/port"
+	"github.com/bnema/dumber/internal/infrastructure/filtering"
+	"github.com/bnema/dumber/internal/infrastructure/filtering/ceffilter"
 	"github.com/bnema/dumber/internal/logging"
 )
 
@@ -56,6 +58,7 @@ func NewEngine(
 	if err != nil {
 		return nil, err
 	}
+	filterManager, filterBackend := initCEFFilterManager(ctx, stateRoot, cfg, logger)
 
 	// Inject --no-zygote temporarily for cef_initialize, then restore.
 	// Safe: runs during single-threaded startup before concurrent goroutines.
@@ -76,6 +79,8 @@ func NewEngine(
 		ctxMenuExecutorFactory: deps.ContextMenuExecutorFactory,
 		ctxMenuRenderer:        deps.ContextMenuRenderer,
 		clipboard:              deps.Clipboard,
+		filterManager:          filterManager,
+		filterBackend:          filterBackend,
 		resolver:               deps.ImageDataResolver,
 	}
 
@@ -138,6 +143,30 @@ func resolvedStateRoot(defaultStateRoot string, opts port.EngineOptions) string 
 		return opts.DataDir
 	}
 	return defaultStateRoot
+}
+
+func initCEFFilterManager(
+	ctx context.Context,
+	stateRoot string,
+	cfg RuntimeConfig,
+	logger *zerolog.Logger,
+) (*filtering.Manager, *ceffilter.Backend) {
+	backend := ceffilter.NewBackend()
+	filterJSONDir := filepath.Join(stateRoot, "filters", "json")
+	filterManager, err := filtering.NewManager(filtering.ManagerConfig{
+		JSONDir:    filterJSONDir,
+		Enabled:    cfg.ContentFilteringEnabled,
+		AutoUpdate: cfg.ContentFilteringAutoUpdate,
+		Backend:    backend,
+	})
+	if err != nil {
+		logger.Warn().Err(err).Msg("cef: failed to create filter manager, continuing without content filtering")
+		return nil, nil
+	}
+	if err := filterManager.Initialize(ctx); err != nil {
+		logger.Warn().Err(err).Msg("cef: failed to initialize filters, will load async")
+	}
+	return filterManager, backend
 }
 
 // prepareCEFSettings builds purecef.Settings from the engine config.

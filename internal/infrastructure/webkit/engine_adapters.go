@@ -5,7 +5,6 @@ import (
 	"fmt"
 
 	"github.com/bnema/dumber/internal/application/port"
-	"github.com/bnema/dumber/internal/infrastructure/filtering"
 	"github.com/bnema/dumber/internal/logging"
 	"github.com/bnema/puregotk/v4/gio"
 )
@@ -100,15 +99,15 @@ func (a *settingsApplierAdapter) ApplyToAll(ctx context.Context, webviews []port
 
 // --- FilterApplier adapter ---
 
-// filterApplierAdapter bridges *filtering.Manager to port.FilterApplier.
+// filterApplierAdapter bridges a WebKit filter applier to port.FilterApplier.
 type filterApplierAdapter struct {
-	manager *filtering.Manager
+	applier FilterApplier
 }
 
 func (a *filterApplierAdapter) ApplyToAll(ctx context.Context, webviews []port.WebView) {
 	for _, wv := range webviews {
 		if wwv, ok := wv.(*WebView); ok && !wwv.IsDestroyed() {
-			a.manager.ApplyTo(ctx, wwv.UserContentManager())
+			a.applier.ApplyTo(ctx, wwv.UserContentManager())
 		}
 	}
 }

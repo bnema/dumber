@@ -14,17 +14,14 @@ import (
 
 	"github.com/bnema/dumber/internal/application/port"
 	"github.com/bnema/dumber/internal/logging"
-	"github.com/bnema/puregotk/v4/webkit"
 )
 
 // Compile-time check that Manager satisfies port.FilterManager.
 var _ port.FilterManager = (*Manager)(nil)
 
 const (
-	storeDirPerm   = 0o755
 	jsonDirPerm    = 0o755
 	quarantinePerm = 0o755
-	mergedFilePerm = 0o644
 
 	// CacheMaxAge is the maximum age of the filter cache before it's considered stale.
 	CacheMaxAge = 24 * time.Hour
@@ -35,54 +32,39 @@ const (
 var ErrUpdateSkipped = errors.New("filter update skipped")
 
 // Manager orchestrates the content filter lifecycle.
-// It handles downloading, compiling, loading, and applying filters to WebViews.
+// It handles downloading, cache policy, validation, status updates, and delegates
+// engine-specific activation to a backend.
 type Manager struct {
-	store      FilterStore
+	backend    Backend
 	downloader FilterDownloader
 
-	storeDir string
-	jsonDir  string
+	jsonDir string
 
-	filters    []*webkit.UserContentFilter
-	filterMu   sync.RWMutex
-	status     atomic.Value // FilterStatus
-	enabled    bool
-	autoUpdate bool
+	status atomic.Value // FilterStatus
 
-	// Callbacks for status updates (e.g., toast notifications)
-	onStatusChange func(FilterStatus)
+	mu             sync.RWMutex
+	enabled        bool
+	autoUpdate     bool
+	onStatusChange func(FilterStatus) // callback for status updates (e.g., for toast notifications)
 }
 
 // ManagerConfig holds configuration for the filter manager.
 type ManagerConfig struct {
-	StoreDir   string // Where to store compiled filter bytecode
 	JSONDir    string // Where to cache downloaded JSON files
 	Enabled    bool   // Whether filtering is enabled
 	AutoUpdate bool   // Whether to auto-update filters
 
-	// Optional: custom implementations for testing
-	Store      FilterStore      // If nil, creates default Store
+	Backend    Backend          // Engine-specific filter activator
 	Downloader FilterDownloader // If nil, creates default Downloader
 }
 
 // NewManager creates a new filter Manager.
 func NewManager(cfg ManagerConfig) (*Manager, error) {
-	// Ensure directories exist
-	if err := os.MkdirAll(cfg.StoreDir, storeDirPerm); err != nil {
-		return nil, fmt.Errorf("failed to create store dir: %w", err)
+	if cfg.Backend == nil {
+		return nil, fmt.Errorf("filter backend is required")
 	}
 	if err := os.MkdirAll(cfg.JSONDir, jsonDirPerm); err != nil {
 		return nil, fmt.Errorf("failed to create json dir: %w", err)
-	}
-
-	// Use provided implementations or create defaults
-	store := cfg.Store
-	if store == nil {
-		newStore := NewStore(cfg.StoreDir)
-		if newStore == nil {
-			return nil, fmt.Errorf("failed to create filter store at %s", cfg.StoreDir)
-		}
-		store = newStore
 	}
 
 	downloader := cfg.Downloader
@@ -91,9 +73,8 @@ func NewManager(cfg ManagerConfig) (*Manager, error) {
 	}
 
 	m := &Manager{
-		store:      store,
+		backend:    cfg.Backend,
 		downloader: downloader,
-		storeDir:   cfg.StoreDir,
 		jsonDir:    cfg.JSONDir,
 		enabled:    cfg.Enabled,
 		autoUpdate: cfg.AutoUpdate,
@@ -105,14 +86,19 @@ func NewManager(cfg ManagerConfig) (*Manager, error) {
 
 // SetStatusCallback sets a callback for status changes (e.g., for toast notifications).
 func (m *Manager) SetStatusCallback(cb func(FilterStatus)) {
+	m.mu.Lock()
 	m.onStatusChange = cb
+	m.mu.Unlock()
 }
 
 // setStatus updates the current status and notifies callback.
 func (m *Manager) setStatus(status FilterStatus) {
 	m.status.Store(status)
-	if m.onStatusChange != nil {
-		m.onStatusChange(status)
+	m.mu.RLock()
+	cb := m.onStatusChange
+	m.mu.RUnlock()
+	if cb != nil {
+		cb(status)
 	}
 }
 
@@ -125,29 +111,28 @@ func (m *Manager) Status() FilterStatus {
 }
 
 // Initialize performs fast initialization.
-// This is called BEFORE GTK starts, so we cannot use GIO async operations.
-// Just sets up state - actual filter loading happens in LoadAsync after GTK starts.
+// This is called BEFORE GTK starts, so engine backends should only set up state.
+// Actual filter loading happens in LoadAsync after the UI is running.
 func (m *Manager) Initialize(ctx context.Context) error {
 	log := logging.FromContext(ctx).With().
 		Str("component", "filter-manager").
 		Logger()
 
-	if !m.enabled {
+	if !m.IsEnabled() {
 		log.Info().Msg("content filtering disabled")
 		m.setStatus(FilterStatus{State: StateDisabled})
 		return nil
 	}
 
-	log.Debug().Msg("filter manager initialized (filters will load after GTK starts)")
+	log.Debug().Msg("filter manager initialized (filters will load after UI startup)")
 	m.setStatus(FilterStatus{State: StateUninitialized, Message: "Filters pending"})
 	return nil
 }
 
 // LoadAsync loads or downloads filters in the background.
-// Call this after the browser window is shown (GTK main loop running).
-// First tries to load from cache, then downloads if needed.
+// First tries to load from backend cache, then local JSON files, then download.
 func (m *Manager) LoadAsync(ctx context.Context) {
-	if !m.enabled {
+	if !m.IsEnabled() {
 		return
 	}
 
@@ -159,7 +144,7 @@ func (m *Manager) loadAsyncWorker(ctx context.Context) {
 		Str("component", "filter-manager").
 		Logger()
 
-	if m.hasActiveFilter() {
+	if m.backend.HasActive() {
 		log.Debug().Msg("filters already loaded, skipping async load")
 		return
 	}
@@ -169,18 +154,17 @@ func (m *Manager) loadAsyncWorker(ctx context.Context) {
 		return
 	}
 
-	// If local JSON files exist on disk, compile from them directly instead
-	// of downloading. This respects auto_update=false on cold start with an
-	// empty compiled store and allows testing with patched local JSON.
+	// If local JSON files exist on disk, activate from them directly instead of
+	// downloading. This respects auto_update=false on cold start with an empty
+	// backend cache and allows testing with patched local JSON.
 	if paths := m.downloader.GetCachedFilterPaths(); len(paths) > 0 {
-		log.Info().Int("files", len(paths)).Msg("compiling filters from local JSON (skipping download)")
-		filters, err := m.compileFilterParts(ctx, paths)
-		if err == nil {
-			version := m.setActiveFilters(filters, "Filters active")
-			log.Info().Str("version", version).Int("parts", len(filters)).Msg("filters compiled from local JSON")
+		log.Info().Int("files", len(paths)).Msg("activating filters from local JSON (skipping download)")
+		if err := m.activateFiles(ctx, paths, "Filters active"); err == nil {
+			log.Info().Str("version", m.getCachedVersion()).Int("parts", len(paths)).Msg("filters activated from local JSON")
 			return
+		} else {
+			log.Warn().Err(err).Msg("failed to activate local JSON, falling back to download")
 		}
-		log.Warn().Err(err).Msg("failed to compile local JSON, falling back to download")
 	}
 
 	m.downloadCompileAndActivate(ctx)
@@ -193,34 +177,17 @@ func (m *Manager) loadFromCache(ctx context.Context) bool {
 
 	m.setStatus(FilterStatus{State: StateLoading, Message: "Loading filters..."})
 
-	// Discover how many compiled parts exist via stored identifiers
-	identifiers, err := m.store.FetchIdentifiers(ctx)
+	loaded, err := m.backend.ActivateCached(ctx)
 	if err != nil {
+		log.Warn().Err(err).Msg("failed to activate cached filters, will download")
 		return false
 	}
-	var partIDs []string
-	for _, id := range identifiers {
-		if strings.HasPrefix(id, FilterIdentifierPrefix) {
-			partIDs = append(partIDs, id)
-		}
-	}
-	if len(partIDs) == 0 {
+	if !loaded {
 		return false
 	}
 
-	log.Debug().Int("parts", len(partIDs)).Msg("found compiled filters, loading from cache")
-	var filters []*webkit.UserContentFilter
-	for _, id := range partIDs {
-		filter, loadErr := m.store.Load(ctx, id)
-		if loadErr != nil || filter == nil {
-			log.Warn().Err(loadErr).Str("id", id).Msg("failed to load cached filter part, will download")
-			return false
-		}
-		filters = append(filters, filter)
-	}
-
-	version := m.setActiveFilters(filters, "Filters active")
-	log.Info().Str("version", version).Int("parts", len(filters)).Msg("filters loaded from cache")
+	version := m.setActiveStatus("Filters active")
+	log.Info().Str("version", version).Msg("filters loaded from backend cache")
 	return true
 }
 
@@ -236,22 +203,19 @@ func (m *Manager) downloadCompileAndActivate(ctx context.Context) {
 		return
 	}
 
-	validateErr := m.validateDownloadedFiles(ctx, paths)
-	if validateErr != nil {
+	if validateErr := m.validateDownloadedFiles(ctx, paths); validateErr != nil {
 		log.Error().Err(validateErr).Msg("downloaded filter validation failed")
 		m.setStatus(FilterStatus{State: StateError, Message: "Invalid downloaded filters"})
 		return
 	}
 
-	filters, err := m.compileFilterParts(ctx, paths)
-	if err != nil {
-		log.Error().Err(err).Msg("failed to compile filters")
-		m.handleCompilationFailure()
+	if err := m.activateFiles(ctx, paths, "Filters active"); err != nil {
+		log.Error().Err(err).Msg("failed to activate filters")
+		m.handleActivationFailure()
 		return
 	}
 
-	version := m.setActiveFilters(filters, "Filters active")
-	log.Info().Str("version", version).Int("parts", len(filters)).Msg("filters compiled and active")
+	log.Info().Str("version", m.getCachedVersion()).Int("parts", len(paths)).Msg("filters compiled and active")
 }
 
 func (m *Manager) downloadFiltersWithProgress(ctx context.Context) ([]string, error) {
@@ -262,51 +226,28 @@ func (m *Manager) downloadFiltersWithProgress(ctx context.Context) ([]string, er
 	})
 }
 
-// compileFilterParts compiles each downloaded part file as a separate WebKit filter.
-// Each part gets a unique identifier (e.g., "ublock-combined-0", "ublock-combined-1").
-func (m *Manager) compileFilterParts(ctx context.Context, paths []string) ([]*webkit.UserContentFilter, error) {
-	log := logging.FromContext(ctx).With().
-		Str("component", "filter-manager").
-		Logger()
-
+func (m *Manager) activateFiles(ctx context.Context, paths []string, message string) error {
 	m.setStatus(FilterStatus{State: StateLoading, Message: "Compiling filters..."})
-
-	filters := make([]*webkit.UserContentFilter, 0, len(paths))
-	for i, path := range paths {
-		identifier := fmt.Sprintf("%s-%d", FilterIdentifierPrefix, i)
-		log.Debug().Str("id", identifier).Str("path", path).Msg("compiling filter part")
-
-		filter, err := m.store.Compile(ctx, identifier, path)
-		if err != nil {
-			return nil, fmt.Errorf("compile %s: %w", identifier, err)
-		}
-		if filter == nil {
-			return nil, fmt.Errorf("compile %s returned nil filter", identifier)
-		}
-		filters = append(filters, filter)
+	if err := m.backend.ActivateFiles(ctx, paths); err != nil {
+		return err
 	}
-
-	return filters, nil
+	m.setActiveStatus(message)
+	return nil
 }
 
-func (m *Manager) handleCompilationFailure() {
-	if m.hasActiveFilter() {
-		version := m.getCachedVersion()
+func (m *Manager) handleActivationFailure() {
+	if m.backend.HasActive() {
 		m.setStatus(FilterStatus{
 			State:   StateActive,
 			Message: "Filters active (update skipped)",
-			Version: version,
+			Version: m.getCachedVersion(),
 		})
 		return
 	}
 	m.setStatus(FilterStatus{State: StateError, Message: "Compilation failed"})
 }
 
-func (m *Manager) setActiveFilters(filters []*webkit.UserContentFilter, message string) string {
-	m.filterMu.Lock()
-	m.filters = filters
-	m.filterMu.Unlock()
-
+func (m *Manager) setActiveStatus(message string) string {
 	version := m.getCachedVersion()
 	m.setStatus(FilterStatus{
 		State:   StateActive,
@@ -339,42 +280,10 @@ func (m *Manager) getCachedVersion() string {
 	return manifest.Version
 }
 
-// ApplyTo adds the active filters to a WebView's UserContentManager.
-// Safe to call even if filters are not yet loaded (no-op in that case).
-func (m *Manager) ApplyTo(ctx context.Context, ucm *webkit.UserContentManager) {
-	log := logging.FromContext(ctx).With().
-		Str("component", "filter-manager").
-		Logger()
-
-	if ucm == nil {
-		return
-	}
-
-	m.filterMu.RLock()
-	filters := m.filters
-	m.filterMu.RUnlock()
-
-	if len(filters) > 0 {
-		for _, filter := range filters {
-			ucm.AddFilter(filter)
-		}
-		log.Debug().Int("parts", len(filters)).Msg("content filters applied to webview")
-	} else {
-		log.Debug().Msg("no filter available to apply (filters still loading?)")
-	}
-}
-
-// GetFilters returns the currently loaded filters, or nil if none.
-func (m *Manager) GetFilters() []*webkit.UserContentFilter {
-	m.filterMu.RLock()
-	defer m.filterMu.RUnlock()
-	return m.filters
-}
-
 // CheckForUpdates checks if newer filters are available and downloads them.
 // This should be called periodically in the background.
 func (m *Manager) CheckForUpdates(ctx context.Context) error {
-	if !m.enabled || !m.autoUpdate {
+	if !m.shouldAutoUpdate() {
 		return nil
 	}
 
@@ -395,42 +304,31 @@ func (m *Manager) CheckForUpdates(ctx context.Context) error {
 
 	log.Info().Msg("filter update available, downloading")
 
-	// Download new filters
 	paths, err := m.downloader.DownloadFilters(ctx, nil)
 	if err != nil {
 		return fmt.Errorf("failed to download filter update: %w", err)
 	}
-	validateErr := m.validateDownloadedFiles(ctx, paths)
-	if validateErr != nil {
+	if validateErr := m.validateDownloadedFiles(ctx, paths); validateErr != nil {
 		log.Warn().Err(validateErr).Msg("invalid downloaded filters, keeping existing active filter")
 		return fmt.Errorf("%w: validation failed: %w", ErrUpdateSkipped, validateErr)
 	}
 
-	filters, err := m.compileFilterParts(ctx, paths)
-	if err != nil {
-		log.Warn().Err(err).Msg("failed to compile updated filters, keeping existing active filter")
-		// Restore status if we still have an active filter
-		if m.hasActiveFilter() {
-			version := m.getCachedVersion()
+	if err := m.activateFiles(ctx, paths, "Filters updated"); err != nil {
+		log.Warn().Err(err).Msg("failed to activate updated filters, keeping existing active filter")
+		if m.backend.HasActive() {
 			m.setStatus(FilterStatus{
 				State:   StateActive,
 				Message: "Filters active (update skipped)",
-				Version: version,
+				Version: m.getCachedVersion(),
 			})
+		} else {
+			m.setStatus(FilterStatus{State: StateError, Message: "Compilation failed"})
 		}
 		return fmt.Errorf("%w: compile failed: %w", ErrUpdateSkipped, err)
 	}
 
-	version := m.setActiveFilters(filters, "Filters updated")
-	log.Info().Str("version", version).Int("parts", len(filters)).Msg("filters updated successfully")
-
+	log.Info().Str("version", m.getCachedVersion()).Int("parts", len(paths)).Msg("filters updated successfully")
 	return nil
-}
-
-func (m *Manager) hasActiveFilter() bool {
-	m.filterMu.RLock()
-	defer m.filterMu.RUnlock()
-	return len(m.filters) > 0
 }
 
 func (m *Manager) validateDownloadedFiles(ctx context.Context, paths []string) error {
@@ -536,22 +434,13 @@ func (m *Manager) Enable(ctx context.Context) {
 		Str("component", "filter-manager").
 		Logger()
 
-	m.enabled = true
+	m.setEnabled(true)
 	log.Info().Msg("content filtering enabled")
 
-	// Try to load filters if not already loaded
-	m.filterMu.RLock()
-	hasFilters := len(m.filters) > 0
-	m.filterMu.RUnlock()
-
-	if !hasFilters {
+	if !m.backend.HasActive() {
 		m.LoadAsync(ctx)
 	} else {
-		m.setStatus(FilterStatus{
-			State:   StateActive,
-			Message: "Filters active",
-			Version: m.getCachedVersion(),
-		})
+		m.setActiveStatus("Filters active")
 	}
 }
 
@@ -561,14 +450,28 @@ func (m *Manager) Disable(ctx context.Context) {
 		Str("component", "filter-manager").
 		Logger()
 
-	m.enabled = false
+	m.setEnabled(false)
 	m.setStatus(FilterStatus{State: StateDisabled})
 	log.Info().Msg("content filtering disabled")
 }
 
 // IsEnabled returns whether content filtering is enabled.
 func (m *Manager) IsEnabled() bool {
+	m.mu.RLock()
+	defer m.mu.RUnlock()
 	return m.enabled
+}
+
+func (m *Manager) setEnabled(enabled bool) {
+	m.mu.Lock()
+	m.enabled = enabled
+	m.mu.Unlock()
+}
+
+func (m *Manager) shouldAutoUpdate() bool {
+	m.mu.RLock()
+	defer m.mu.RUnlock()
+	return m.enabled && m.autoUpdate
 }
 
 // Clear removes all compiled and cached filters.
@@ -577,21 +480,8 @@ func (m *Manager) Clear(ctx context.Context) error {
 		Str("component", "filter-manager").
 		Logger()
 
-	m.filterMu.Lock()
-	m.filters = nil
-	m.filterMu.Unlock()
-
-	// Remove all compiled filter parts
-	identifiers, err := m.store.FetchIdentifiers(ctx)
-	if err != nil {
-		log.Warn().Err(err).Msg("failed to fetch identifiers for cleanup")
-	}
-	for _, id := range identifiers {
-		if strings.HasPrefix(id, FilterIdentifierPrefix) {
-			if err := m.store.Remove(ctx, id); err != nil {
-				log.Warn().Err(err).Str("id", id).Msg("failed to remove compiled filter")
-			}
-		}
+	if err := m.backend.Clear(ctx); err != nil {
+		log.Warn().Err(err).Msg("failed to clear backend filters")
 	}
 
 	if err := m.downloader.ClearCache(); err != nil {

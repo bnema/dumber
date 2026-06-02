@@ -862,10 +862,26 @@ func (h *handlerSet) OnOpenUrlfromTab(
 }
 
 func (h *handlerSet) GetResourceRequestHandler(
-	_ purecef.Browser, _ purecef.Frame, _ purecef.Request,
-	_, _ int32, _ string, _ *int32,
+	_ purecef.Browser,
+	_ purecef.Frame,
+	_ purecef.Request,
+	isNavigation int32,
+	_ int32,
+	requestInitiator string,
+	_ *int32,
 ) purecef.ResourceRequestHandler {
-	return nil
+	if h == nil || h.wv == nil || h.wv.engine == nil || h.wv.engine.filterBackend == nil {
+		return nil
+	}
+	if !h.wv.engine.filterBackend.HasActive() {
+		return nil
+	}
+	return &filterResourceRequestHandler{
+		ctx:              h.currentContext(),
+		backend:          h.wv.engine.filterBackend,
+		requestInitiator: requestInitiator,
+		isNavigation:     isNavigation != 0,
+	}
 }
 
 func (h *handlerSet) GetAuthCredentials(

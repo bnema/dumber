@@ -3,30 +3,24 @@ package filtering
 import (
 	"context"
 	"time"
-
-	"github.com/bnema/puregotk/v4/webkit"
 )
 
-// FilterStore abstracts the WebKit UserContentFilterStore operations.
-// This interface enables testing without requiring GTK/WebKit.
-type FilterStore interface {
-	// Compile compiles a JSON filter file and stores it with the given identifier.
-	Compile(ctx context.Context, identifier string, jsonPath string) (*webkit.UserContentFilter, error)
+// Backend owns engine-specific filter activation and compiled-state storage.
+// Implementations must be safe to call from Manager background workers.
+type Backend interface {
+	// ActivateCached loads previously compiled filters/rules.
+	// It returns false with nil error when no usable cache exists.
+	ActivateCached(ctx context.Context) (bool, error)
 
-	// Load loads a previously compiled filter by its identifier.
-	Load(ctx context.Context, identifier string) (*webkit.UserContentFilter, error)
+	// ActivateFiles compiles or parses downloaded filter rule files and makes the
+	// result active for future engine requests/webviews.
+	ActivateFiles(ctx context.Context, paths []string) error
 
-	// Remove removes a compiled filter by its identifier.
-	Remove(ctx context.Context, identifier string) error
+	// HasActive reports whether this backend currently has active filters/rules.
+	HasActive() bool
 
-	// HasCompiledFilter checks if a compiled filter exists for the given identifier.
-	HasCompiledFilter(ctx context.Context, identifier string) bool
-
-	// FetchIdentifiers returns all stored filter identifiers.
-	FetchIdentifiers(ctx context.Context) ([]string, error)
-
-	// Path returns the storage path for compiled filters.
-	Path() string
+	// Clear removes active and cached backend filter state.
+	Clear(ctx context.Context) error
 }
 
 // FilterDownloader abstracts the filter download operations.
@@ -58,7 +52,4 @@ type FilterDownloader interface {
 }
 
 // Ensure concrete types implement the interfaces.
-var (
-	_ FilterStore      = (*Store)(nil)
-	_ FilterDownloader = (*Downloader)(nil)
-)
+var _ FilterDownloader = (*Downloader)(nil)

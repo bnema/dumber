@@ -19,7 +19,7 @@ func TestCEF2GTKImportStaysInInfrastructureCEF(t *testing.T) {
 		}
 		if d.IsDir() {
 			switch d.Name() {
-			case ".git", "vendor", "dist", "tmp":
+			case ".git", ".worktrees", "vendor", "dist", "tmp":
 				return filepath.SkipDir
 			}
 			return nil
