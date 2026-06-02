@@ -204,6 +204,7 @@ type WebView struct {
 	// can apply the same settings in OnBeforePopup.
 	windowlessFrameRate int32
 	backgroundColor     uint32
+	inputConfig         RuntimeInputConfig
 
 	// Audio output factory and active stream.
 	audioOutputFactory port.AudioOutputFactory
@@ -1428,6 +1429,13 @@ func (wv *WebView) bridgeInputOptions() cef2gtk.InputOptions {
 	}
 	return cef2gtk.InputOptions{
 		Scale: 0,
+		Scroll: cef2gtk.ScrollOptions{
+			WheelMultiplier:      wv.inputConfig.ScrollWheelMultiplier,
+			TouchpadMultiplier:   wv.inputConfig.ScrollTouchpadMultiplier,
+			HorizontalMultiplier: wv.inputConfig.ScrollHorizontalMultiplier,
+			VerticalMultiplier:   wv.inputConfig.ScrollVerticalMultiplier,
+			MaxDelta:             wv.inputConfig.ScrollMaxDelta,
+		},
 		OnMiddleClick: func(_, _ float64) bool {
 			return wv.handleMiddleClickFromBridge()
 		},

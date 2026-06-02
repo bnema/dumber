@@ -104,6 +104,7 @@ func NewEngine(
 			adaptiveWindowlessFrameRate: cfg.AdaptiveWindowlessFrameRate,
 			windowlessFrameRate:         windowlessFrameRate,
 			windowlessFrameRateMax:      cfg.WindowlessFrameRateMax,
+			inputConfig:                 cfg.Input,
 			audioOutputFactory:          audioFactory,
 		},
 		logger,

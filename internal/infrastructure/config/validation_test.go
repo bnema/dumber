@@ -1,6 +1,7 @@
 package config
 
 import (
+	"math"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -70,6 +71,69 @@ func TestValidateConfig_CEFConfig(t *testing.T) {
 			},
 			wantErr:  true,
 			wantText: "engine.cef.windowless_frame_rate",
+		},
+		{
+			name: "zero wheel multiplier",
+			mutate: func(cfg *Config) {
+				cfg.Engine.CEF.Input.ScrollWheelMultiplier = 0
+			},
+			wantErr:  true,
+			wantText: "engine.cef.input.scroll_wheel_multiplier",
+		},
+		{
+			name: "negative touchpad multiplier",
+			mutate: func(cfg *Config) {
+				cfg.Engine.CEF.Input.ScrollTouchpadMultiplier = -0.1
+			},
+			wantErr:  true,
+			wantText: "engine.cef.input.scroll_touchpad_multiplier",
+		},
+		{
+			name: "zero horizontal multiplier",
+			mutate: func(cfg *Config) {
+				cfg.Engine.CEF.Input.ScrollHorizontalMultiplier = 0
+			},
+			wantErr:  true,
+			wantText: "engine.cef.input.scroll_horizontal_multiplier",
+		},
+		{
+			name: "negative vertical multiplier",
+			mutate: func(cfg *Config) {
+				cfg.Engine.CEF.Input.ScrollVerticalMultiplier = -0.1
+			},
+			wantErr:  true,
+			wantText: "engine.cef.input.scroll_vertical_multiplier",
+		},
+		{
+			name: "nan horizontal multiplier",
+			mutate: func(cfg *Config) {
+				cfg.Engine.CEF.Input.ScrollHorizontalMultiplier = math.NaN()
+			},
+			wantErr:  true,
+			wantText: "engine.cef.input.scroll_horizontal_multiplier",
+		},
+		{
+			name: "infinite vertical multiplier",
+			mutate: func(cfg *Config) {
+				cfg.Engine.CEF.Input.ScrollVerticalMultiplier = math.Inf(1)
+			},
+			wantErr:  true,
+			wantText: "engine.cef.input.scroll_vertical_multiplier",
+		},
+		{
+			name: "zero max delta disables clamp",
+			mutate: func(cfg *Config) {
+				cfg.Engine.CEF.Input.ScrollMaxDelta = 0
+			},
+			wantErr: false,
+		},
+		{
+			name: "negative max delta",
+			mutate: func(cfg *Config) {
+				cfg.Engine.CEF.Input.ScrollMaxDelta = -1
+			},
+			wantErr:  true,
+			wantText: "engine.cef.input.scroll_max_delta",
 		},
 	}
 

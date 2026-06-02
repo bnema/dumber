@@ -84,9 +84,16 @@ func BuildEngine(input EngineInput) (port.Engine, error) {
 			AdaptiveWindowlessFrameRate: cfg.Engine.CEF.CEFAdaptiveWindowlessFrameRate(),
 			WindowlessFrameRate:         cfg.Engine.CEF.WindowlessFrameRate,
 			WindowlessFrameRateMax:      cfg.Engine.CEF.CEFWindowlessFrameRateMax(),
-			EnableAudioHandler:          cfg.Engine.CEF.EnableAudioHandler,
-			TraceHandlers:               cfg.Engine.CEF.TraceHandlers,
-			ApplicationScale:            cfg.DefaultUIScale,
+			Input: cef.RuntimeInputConfig{
+				ScrollWheelMultiplier:      cfg.Engine.CEF.Input.ScrollWheelMultiplier,
+				ScrollTouchpadMultiplier:   cfg.Engine.CEF.Input.ScrollTouchpadMultiplier,
+				ScrollHorizontalMultiplier: cfg.Engine.CEF.Input.ScrollHorizontalMultiplier,
+				ScrollVerticalMultiplier:   cfg.Engine.CEF.Input.ScrollVerticalMultiplier,
+				ScrollMaxDelta:             cfg.Engine.CEF.Input.ScrollMaxDelta,
+			},
+			EnableAudioHandler: cfg.Engine.CEF.EnableAudioHandler,
+			TraceHandlers:      cfg.Engine.CEF.TraceHandlers,
+			ApplicationScale:   cfg.DefaultUIScale,
 		}
 		deps := cef.EngineDependencies{
 			RegisterHandlers:           handlers.RegisterAll,

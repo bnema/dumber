@@ -67,10 +67,13 @@ const (
 	defaultUIScale            = 1.0 // UI scale multiplier (1.0 = 100%, 1.2 = 120%)
 
 	// Performance defaults
-	defaultZoomCacheSize             = 256 // domains to cache (~20KB memory)
-	defaultWebViewPoolPrewarmCount   = 4   // WebViews to pre-create at startup
-	defaultCEFWindowlessFrameRate    = 60  // static OSR frame rate when adaptive CEF pacing is disabled
-	defaultCEFWindowlessFrameRateMax = 240 // adaptive OSR frame-rate hard cap
+	defaultZoomCacheSize               = 256 // domains to cache (~20KB memory)
+	defaultWebViewPoolPrewarmCount     = 4   // WebViews to pre-create at startup
+	defaultCEFWindowlessFrameRate      = 60  // static OSR frame rate when adaptive CEF pacing is disabled
+	defaultCEFWindowlessFrameRateMax   = 240 // adaptive OSR frame-rate hard cap
+	defaultCEFScrollMultiplier         = 1.0
+	defaultCEFScrollTouchpadMultiplier = 0.35
+	defaultCEFScrollMaxDelta           = 0
 
 	// Skia threading defaults (0 = unset, -1 = unset for GPU threads)
 	defaultSkiaCPUPaintingThreads = 0
@@ -178,6 +181,13 @@ func DefaultConfig() *Config {
 				WindowlessFrameRateMax:      defaultCEFWindowlessFrameRateMax,
 				LogFile:                     "",
 				EnableAudioHandler:          true,
+				Input: CEFInputConfig{
+					ScrollWheelMultiplier:      defaultCEFScrollMultiplier,
+					ScrollTouchpadMultiplier:   defaultCEFScrollTouchpadMultiplier,
+					ScrollHorizontalMultiplier: defaultCEFScrollMultiplier,
+					ScrollVerticalMultiplier:   defaultCEFScrollMultiplier,
+					ScrollMaxDelta:             defaultCEFScrollMaxDelta,
+				},
 			},
 			WebKit: WebKitEngineConfig{
 				ITPEnabled:             true,

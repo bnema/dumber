@@ -22,9 +22,18 @@ type RuntimeConfig struct {
 	AdaptiveWindowlessFrameRate bool
 	WindowlessFrameRate         int32
 	WindowlessFrameRateMax      int32
+	Input                       RuntimeInputConfig
 	EnableAudioHandler          bool
 	TraceHandlers               bool
 	ApplicationScale            float64
+}
+
+type RuntimeInputConfig struct {
+	ScrollWheelMultiplier      float64
+	ScrollTouchpadMultiplier   float64
+	ScrollHorizontalMultiplier float64
+	ScrollVerticalMultiplier   float64
+	ScrollMaxDelta             int32
 }
 
 type HandlerRegistrar func(context.Context, port.WebUIHandlerRouter, port.HandlerDependencies) error
