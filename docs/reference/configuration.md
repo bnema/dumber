@@ -64,6 +64,11 @@
 | `engine.cef.adaptive_windowless_frame_rate` | bool | `true` | |
 | `engine.cef.windowless_frame_rate` | int32 | `0` | >= 0 |
 | `engine.cef.windowless_frame_rate_max` | int32 | `240` | >= 0 |
+| `engine.cef.input.scroll_wheel_multiplier` | float | `1.0` | > 0 |
+| `engine.cef.input.scroll_touchpad_multiplier` | float | `0.35` | > 0 |
+| `engine.cef.input.scroll_horizontal_multiplier` | float | `1.0` | > 0 |
+| `engine.cef.input.scroll_vertical_multiplier` | float | `1.0` | > 0 |
+| `engine.cef.input.scroll_max_delta` | int32 | `0` | >= 0 |
 | `default_ui_scale` | float | `1.0` | > 0 |
 | `default_webpage_zoom` | float | `1.2` | > 0 |
 | `workspace.new_pane_url` | string | `about:blank` | |

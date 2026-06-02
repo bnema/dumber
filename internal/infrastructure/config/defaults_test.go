@@ -25,6 +25,11 @@ func TestDefaultConfig_CoreDefaults(t *testing.T) {
 	assert.Empty(t, cfg.Engine.CEF.LogFile)
 	assert.True(t, cfg.Engine.CEF.EnableAudioHandler)
 	assert.False(t, cfg.Engine.CEF.TraceHandlers)
+	assert.InDelta(t, defaultCEFScrollMultiplier, cfg.Engine.CEF.Input.ScrollWheelMultiplier, 0.001)
+	assert.InDelta(t, defaultCEFScrollTouchpadMultiplier, cfg.Engine.CEF.Input.ScrollTouchpadMultiplier, 0.001)
+	assert.InDelta(t, defaultCEFScrollMultiplier, cfg.Engine.CEF.Input.ScrollHorizontalMultiplier, 0.001)
+	assert.InDelta(t, defaultCEFScrollMultiplier, cfg.Engine.CEF.Input.ScrollVerticalMultiplier, 0.001)
+	assert.Equal(t, int32(defaultCEFScrollMaxDelta), cfg.Engine.CEF.Input.ScrollMaxDelta)
 	assert.True(t, cfg.Engine.WebKit.ITPEnabled)
 
 	// System view shortcuts are first-class global actions.

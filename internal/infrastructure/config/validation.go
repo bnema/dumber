@@ -2,6 +2,7 @@ package config
 
 import (
 	"fmt"
+	"math"
 	"net/url"
 	"sort"
 	"strings"
@@ -362,7 +363,28 @@ func validateCEF(config *Config) []string {
 		validationErrors = append(validationErrors, "engine.cef.windowless_frame_rate_max must be >= 0")
 	}
 
+	input := config.Engine.CEF.Input
+	if invalidPositiveFloat(input.ScrollWheelMultiplier) {
+		validationErrors = append(validationErrors, "engine.cef.input.scroll_wheel_multiplier must be > 0")
+	}
+	if invalidPositiveFloat(input.ScrollTouchpadMultiplier) {
+		validationErrors = append(validationErrors, "engine.cef.input.scroll_touchpad_multiplier must be > 0")
+	}
+	if invalidPositiveFloat(input.ScrollHorizontalMultiplier) {
+		validationErrors = append(validationErrors, "engine.cef.input.scroll_horizontal_multiplier must be > 0")
+	}
+	if invalidPositiveFloat(input.ScrollVerticalMultiplier) {
+		validationErrors = append(validationErrors, "engine.cef.input.scroll_vertical_multiplier must be > 0")
+	}
+	if input.ScrollMaxDelta < 0 {
+		validationErrors = append(validationErrors, "engine.cef.input.scroll_max_delta must be >= 0")
+	}
+
 	return validationErrors
+}
+
+func invalidPositiveFloat(value float64) bool {
+	return value <= 0 || math.IsNaN(value) || math.IsInf(value, 0)
 }
 
 func validateWorkspaceNewPaneURL(config *Config) []string {

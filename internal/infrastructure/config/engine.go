@@ -110,10 +110,21 @@ type CEFEngineConfig struct {
 	WindowlessFrameRate int32 `mapstructure:"windowless_frame_rate" toml:"windowless_frame_rate" yaml:"windowless_frame_rate"` //nolint:lll // struct tags exceed lll limit
 	// WindowlessFrameRateMax is the hard cap for adaptive monitor refresh rates.
 	WindowlessFrameRateMax int32 `mapstructure:"windowless_frame_rate_max" toml:"windowless_frame_rate_max" yaml:"windowless_frame_rate_max"` //nolint:lll // struct tags exceed lll limit
+	// Input controls GTK input translation before events are forwarded to CEF.
+	Input CEFInputConfig `mapstructure:"input" toml:"input" yaml:"input"`
 	// EnableAudioHandler opts into the experimental CEF AudioHandler bridge.
 	EnableAudioHandler bool `mapstructure:"enable_audio_handler" toml:"enable_audio_handler" yaml:"enable_audio_handler"`
 	// TraceHandlers enables purego-cef handler/refcount tracing for diagnostics.
 	TraceHandlers bool `mapstructure:"trace_handlers" toml:"trace_handlers" yaml:"trace_handlers"`
+}
+
+// CEFInputConfig holds CEF-specific input translation options.
+type CEFInputConfig struct {
+	ScrollWheelMultiplier      float64 `mapstructure:"scroll_wheel_multiplier" toml:"scroll_wheel_multiplier" yaml:"scroll_wheel_multiplier"`                //nolint:lll // struct tags exceed lll limit
+	ScrollTouchpadMultiplier   float64 `mapstructure:"scroll_touchpad_multiplier" toml:"scroll_touchpad_multiplier" yaml:"scroll_touchpad_multiplier"`       //nolint:lll // struct tags exceed lll limit
+	ScrollHorizontalMultiplier float64 `mapstructure:"scroll_horizontal_multiplier" toml:"scroll_horizontal_multiplier" yaml:"scroll_horizontal_multiplier"` //nolint:lll // struct tags exceed lll limit
+	ScrollVerticalMultiplier   float64 `mapstructure:"scroll_vertical_multiplier" toml:"scroll_vertical_multiplier" yaml:"scroll_vertical_multiplier"`       //nolint:lll // struct tags exceed lll limit
+	ScrollMaxDelta             int32   `mapstructure:"scroll_max_delta" toml:"scroll_max_delta" yaml:"scroll_max_delta"`                                     //nolint:lll // struct tags exceed lll limit
 }
 
 // CEFRenderStack returns the effective CEF GPU render stack.

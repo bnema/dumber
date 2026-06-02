@@ -9,11 +9,25 @@ import (
 
 func TestWebViewBridgeInputOptions_LeavesTargetSelectionToAdapter(t *testing.T) {
 	nativeWidget := &gtk.Widget{}
-	wv := &WebView{nativeWidget: nativeWidget}
+	wv := &WebView{
+		nativeWidget: nativeWidget,
+		inputConfig: RuntimeInputConfig{
+			ScrollWheelMultiplier:      1.25,
+			ScrollTouchpadMultiplier:   0.35,
+			ScrollHorizontalMultiplier: 0.75,
+			ScrollVerticalMultiplier:   1.5,
+			ScrollMaxDelta:             120,
+		},
+	}
 
 	opts := wv.bridgeInputOptions()
 
 	require.Zero(t, opts.Scale)
+	require.InDelta(t, 1.25, opts.Scroll.WheelMultiplier, 0.001)
+	require.InDelta(t, 0.35, opts.Scroll.TouchpadMultiplier, 0.001)
+	require.InDelta(t, 0.75, opts.Scroll.HorizontalMultiplier, 0.001)
+	require.InDelta(t, 1.5, opts.Scroll.VerticalMultiplier, 0.001)
+	require.Equal(t, int32(120), opts.Scroll.MaxDelta)
 	require.NotNil(t, opts.OnMiddleClick)
 	require.NotNil(t, opts.SelectionText)
 	require.NotNil(t, opts.OnClipboardShortcut)

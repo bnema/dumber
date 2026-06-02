@@ -25,6 +25,7 @@ type WebViewFactory struct {
 	adaptiveWindowlessFrameRate bool
 	windowlessFrameRate         int32
 	windowlessFrameRateMax      int32
+	inputConfig                 RuntimeInputConfig
 	bgColor                     atomic.Uint32 // packed ARGB for BrowserSettings.BackgroundColor
 	audioOutputFactory          port.AudioOutputFactory
 }
@@ -33,6 +34,7 @@ type webViewFactoryOptions struct {
 	adaptiveWindowlessFrameRate bool
 	windowlessFrameRate         int32
 	windowlessFrameRateMax      int32
+	inputConfig                 RuntimeInputConfig
 	audioOutputFactory          port.AudioOutputFactory
 }
 
@@ -61,6 +63,7 @@ func newWebViewFactory(engine *Engine, opts webViewFactoryOptions) *WebViewFacto
 		adaptiveWindowlessFrameRate: opts.adaptiveWindowlessFrameRate,
 		windowlessFrameRate:         opts.windowlessFrameRate,
 		windowlessFrameRateMax:      opts.windowlessFrameRateMax,
+		inputConfig:                 opts.inputConfig,
 		audioOutputFactory:          opts.audioOutputFactory,
 	}
 }
@@ -122,6 +125,7 @@ func (f *WebViewFactory) newWebView(ctx context.Context) (*WebView, error) {
 		adaptiveWindowlessFrameRate: f.adaptiveWindowlessFrameRate,
 		windowlessFrameRate:         f.windowlessFrameRate,
 		windowlessFrameRateMax:      f.windowlessFrameRateMax,
+		inputConfig:                 f.inputConfig,
 		backgroundColor:             f.bgColor.Load(),
 	}
 	wv.runOnGTKSync(func() {

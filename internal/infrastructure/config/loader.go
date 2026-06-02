@@ -746,6 +746,11 @@ func (m *Manager) setEngineDefaults(defaults *Config) {
 	m.viper.SetDefault("engine.cef.windowless_frame_rate_max", ce.CEFWindowlessFrameRateMax())
 	m.viper.SetDefault("engine.cef.enable_audio_handler", ce.EnableAudioHandler)
 	m.viper.SetDefault("engine.cef.trace_handlers", ce.TraceHandlers)
+	m.viper.SetDefault("engine.cef.input.scroll_wheel_multiplier", ce.Input.ScrollWheelMultiplier)
+	m.viper.SetDefault("engine.cef.input.scroll_touchpad_multiplier", ce.Input.ScrollTouchpadMultiplier)
+	m.viper.SetDefault("engine.cef.input.scroll_horizontal_multiplier", ce.Input.ScrollHorizontalMultiplier)
+	m.viper.SetDefault("engine.cef.input.scroll_vertical_multiplier", ce.Input.ScrollVerticalMultiplier)
+	m.viper.SetDefault("engine.cef.input.scroll_max_delta", ce.Input.ScrollMaxDelta)
 
 	wk := e.WebKit
 	m.viper.SetDefault("engine.webkit.itp_enabled", wk.ITPEnabled)
