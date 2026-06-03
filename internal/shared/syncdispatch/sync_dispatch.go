@@ -122,6 +122,9 @@ func RunSynchronousDispatch(opts SyncDispatchOptions, fn func()) SyncDispatchRes
 		if state != dispatchStateInit {
 			return false
 		}
+		// Check deadline and transition to dispatchStateStarted under one lock so
+		// the timer cannot mark dispatchStateTimedOut after this callback is allowed
+		// to start. Late-start cleanup opts out through AllowLateStartAfterTimeout.
 		if !opts.AllowLateStartAfterTimeout && time.Now().After(deadline) {
 			state = dispatchStateTimedOut
 			return false
@@ -159,6 +162,8 @@ func RunSynchronousDispatch(opts SyncDispatchOptions, fn func()) SyncDispatchRes
 		stateMu.Lock()
 		currentState := state
 		if opts.AllowLateStartAfterTimeout && currentState == dispatchStateInit {
+			// Cleanup work may remain queued after timer expiry; decision callbacks
+			// instead fall through and mark dispatchStateTimedOut while still unstarted.
 			stateMu.Unlock()
 			result.Status = SyncDispatchQueuedAfterTimeout
 			result.Elapsed = time.Since(start)
@@ -172,6 +177,8 @@ func RunSynchronousDispatch(opts SyncDispatchOptions, fn func()) SyncDispatchRes
 			return result
 		}
 		stateMu.Unlock()
+		// dispatchStateStarted means the worker already owns fn side effects; wait on
+		// done so the caller reports completed-after-timeout only after completion.
 		<-done
 		if loadState() == dispatchStateTimedOut {
 			result.Status = SyncDispatchTimedOut
