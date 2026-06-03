@@ -2,6 +2,7 @@ package cef
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"sync/atomic"
 	"time"
@@ -102,7 +103,10 @@ func (f *WebViewFactory) Create(ctx context.Context) (port.WebView, error) {
 	// Defer browser creation until the bridge view has a non-zero size.
 	// CEF requires GetViewRect to return a non-empty rect, but the GL area
 	// is not yet realized at this point.
-	f.configureInitialBrowserCreation(ctx, wv, wv.client, &windowInfo, &settings, nil)
+	if err := f.configureInitialBrowserCreation(ctx, wv, wv.client, &windowInfo, &settings, nil); err != nil {
+		wv.Destroy()
+		return nil, err
+	}
 
 	return wv, nil
 }
@@ -128,7 +132,7 @@ func (f *WebViewFactory) newWebView(ctx context.Context) (*WebView, error) {
 		inputConfig:                 f.inputConfig,
 		backgroundColor:             f.bgColor.Load(),
 	}
-	wv.runOnGTKSync(func() {
+	result := wv.runOnGTKSyncLabel("cef.new_webview.init_widgets", func() {
 		nativeWidget := viewBridge.Widget()
 		popupSurface := newPopupBridgeSurface(ctx, nativeWidget, f.engine.renderStackPlan, applicationScale)
 		wv.nativeWidget = nativeWidget
@@ -139,6 +143,10 @@ func (f *WebViewFactory) newWebView(ctx context.Context) (*WebView, error) {
 			}
 		}
 	})
+	if !result.Completed() {
+		wv.destroyViewBridgeOnGTKAsync()
+		return nil, errGTKSyncDispatchIncomplete("initialize CEF GTK widgets", result)
+	}
 
 	handlers := &handlerSet{wv: wv}
 	wv.handlers = handlers
@@ -152,7 +160,11 @@ func (f *WebViewFactory) newWebView(ctx context.Context) (*WebView, error) {
 			logging.FromContext(ctx).Warn().Err(err).Uint64("webview_id", uint64(id)).Msg("cef2gtk: failed to enable profiling")
 		}
 	}
-	wv.installViewportSyncHooks()
+	viewportHooksResult := wv.installViewportSyncHooks()
+	if !viewportHooksResult.Completed() {
+		wv.destroyViewBridgeOnGTKAsync()
+		return nil, errGTKSyncDispatchIncomplete("install CEF viewport sync hooks", viewportHooksResult)
+	}
 	wv.startRenderStallWatchdog()
 	return wv, nil
 }
@@ -161,7 +173,10 @@ func (f *WebViewFactory) configureInitialBrowserCreation(
 	ctx context.Context, wv *WebView, client purecef.RawClient,
 	windowInfo *purecef.WindowInfo, settings *purecef.BrowserSettings,
 	onFirstResize func(w, h int32),
-) {
+) error {
+	if wv == nil {
+		return errors.New("configure initial browser creation: webview is nil")
+	}
 	wv.pendingCreate = &pendingBrowserCreate{
 		windowInfo: windowInfo,
 		client:     client,
@@ -174,9 +189,9 @@ func (f *WebViewFactory) configureInitialBrowserCreation(
 		}
 	}
 	if wv.viewBridge == nil {
-		return
+		return nil
 	}
-	wv.runOnGTKSync(func() {
+	result := wv.runOnGTKSyncLabel("cef.configure_initial_browser_creation", func() {
 		wv.removeSizeObserver = wv.viewBridge.AddSizeObserver(func(w, h int32) {
 			// Size observers run on the GTK thread. Prepare the GtkGLArea only for
 			// the one-shot initial resize path; once that path has been consumed,
@@ -195,6 +210,11 @@ func (f *WebViewFactory) configureInitialBrowserCreation(
 				Msg("cef: viewport sync handled after GTK size change")
 		})
 	})
+	if !result.Completed() {
+		wv.pendingCreate = nil
+		return errGTKSyncDispatchIncomplete("configure initial browser creation", result)
+	}
+	return nil
 }
 
 func (f *WebViewFactory) handleInitialBrowserCreateSizeObserver(
@@ -365,11 +385,14 @@ func (f *WebViewFactory) CreateRelated(ctx context.Context, parentID port.WebVie
 		settings.BackgroundColor = bg
 	}
 
-	f.configureInitialBrowserCreation(ctx, popupWV, popupWV.client, &windowInfo, &settings, func(w, h int32) {
+	if err := f.configureInitialBrowserCreation(ctx, popupWV, popupWV.client, &windowInfo, &settings, func(w, h int32) {
 		f.handlePopupShellInitialResize(ctx, popupWV, func(w, h int32) {
 			f.postPendingBrowserCreate(ctx, popupWV, w, h)
 		}, w, h)
-	})
+	}); err != nil {
+		popupWV.Destroy()
+		return nil, err
+	}
 	return popupWV, nil
 }
 

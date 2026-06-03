@@ -172,6 +172,13 @@ func (s *Service) saveSnapshot(ctx context.Context) error {
 	}
 
 	windows, activeWindowIndex := s.provider.GetWindowSnapshotState()
+	// A nil window list with no active index means the snapshot is truly unavailable,
+	// not merely empty. Keep the session dirty so a later capture can retry.
+	if windows == nil && activeWindowIndex < 0 {
+		s.markDirty()
+		logging.FromContext(ctx).Warn().Msg("window snapshot unavailable; keeping session snapshot dirty")
+		return nil
+	}
 	if windows == nil {
 		windows = make([]entity.WindowTabListState, 0)
 	}

@@ -3,6 +3,7 @@ package cef
 import (
 	"context"
 	"sync"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -215,6 +216,27 @@ func TestStartNativePopupFallback_RejectsDestroyedWebView(t *testing.T) {
 	require.False(t, wv.startNativePopupFallback())
 }
 
+func TestNativePopupActivationDoesNotLetInitialBlankLoadClearPendingNavigationBeforeReplay(t *testing.T) {
+	parent := &WebView{}
+	wv := &WebView{
+		ctx:                  context.Background(),
+		nativePopupCandidate: true,
+		nativePopupParent:    parent,
+		client:               cefmocks.NewMockRawClient(t),
+		pendingCreate:        &pendingBrowserCreate{},
+	}
+
+	rawClient, ok := wv.activateNativePopup(55, "https://example.com/oauth")
+	require.True(t, ok)
+	require.NotNil(t, rawClient)
+	require.Equal(t, "https://example.com/oauth", wv.pendingNavigationURI())
+
+	wv.updateURI("about:blank")
+	wv.updateLoadState(false, false, false)
+
+	require.Equal(t, "https://example.com/oauth", wv.pendingNavigationURI())
+}
+
 func TestHandleNativePopupAborted_PreservesPrimedNavigationForFallback(t *testing.T) {
 	closed := false
 	parent := &WebView{}
@@ -238,6 +260,36 @@ func TestHandleNativePopupAborted_PreservesPrimedNavigationForFallback(t *testin
 	require.Same(t, parent, wv.nativePopupParent)
 	require.Equal(t, int32(0), wv.nativePopupID)
 	require.True(t, wv.isLoading)
+}
+
+func TestOnBeforePopup_TimesOutGTKDispatchAndBlocksPopup(t *testing.T) {
+	var delayed func()
+	parentWV := &WebView{
+		ctx:            context.Background(),
+		id:             16,
+		gtkSyncTimeout: 5 * time.Millisecond,
+		gtkSyncIsOwner: func() bool { return false },
+		gtkSyncDispatch: func(fn func()) {
+			delayed = fn
+		},
+	}
+	var createCalls atomic.Int32
+	parentWV.SetCallbacks(&port.WebViewCallbacks{
+		OnCreate: func(_ port.PopupRequest) port.WebView {
+			createCalls.Add(1)
+			return &WebView{ctx: context.Background(), id: 24}
+		},
+	})
+
+	h := &handlerSet{wv: parentWV}
+	blocked := h.OnBeforePopup(nil, nil, 90, "https://example.com/slow-popup", "slow-popup", 0, 1, nil, nil, nil, nil, nil, nil)
+
+	require.True(t, blocked)
+	require.Zero(t, createCalls.Load())
+	require.NotNil(t, delayed)
+
+	delayed()
+	require.Zero(t, createCalls.Load())
 }
 
 func TestOnBeforePopup_PrimesPopupNavigationWhenCEFPopupBlocksNativeCreation(t *testing.T) {

@@ -9,6 +9,7 @@ import (
 
 	"github.com/bnema/dumber/internal/application/port"
 	"github.com/bnema/dumber/internal/domain/entity"
+	"github.com/bnema/dumber/internal/shared/syncdispatch"
 	"github.com/bnema/dumber/internal/ui/component"
 	"github.com/bnema/dumber/internal/ui/focus"
 	"github.com/bnema/dumber/internal/ui/layout"
@@ -215,9 +216,13 @@ func TestOpenFreshWindow_DispatchesAndTracksBrowserWindow(t *testing.T) {
 
 	dispatched := false
 	createdURL := ""
-	app.dispatchOnMainThread = func(fn func()) {
+	app.dispatchOnMainThread = func(label string, fn func()) syncdispatch.SyncDispatchResult {
 		dispatched = true
+		if label != "ui.open_fresh_window" {
+			t.Fatalf("dispatch label = %q, want ui.open_fresh_window", label)
+		}
 		fn()
+		return syncdispatch.SyncDispatchResult{Label: label, Status: syncdispatch.SyncDispatchCompleted}
 	}
 	app.browserWindowFactory = func(ctx context.Context, url string) (*browserWindow, error) {
 		createdURL = url
@@ -246,7 +251,10 @@ func TestOpenFreshWindow_DispatchesAndTracksBrowserWindow(t *testing.T) {
 
 func TestOpenFreshWindow_PropagatesFactoryError(t *testing.T) {
 	app := &App{browserWindows: make(map[string]*browserWindow)}
-	app.dispatchOnMainThread = func(fn func()) { fn() }
+	app.dispatchOnMainThread = func(label string, fn func()) syncdispatch.SyncDispatchResult {
+		fn()
+		return syncdispatch.SyncDispatchResult{Label: label, Status: syncdispatch.SyncDispatchCompleted}
+	}
 	wantErr := errors.New("factory error")
 	app.browserWindowFactory = func(context.Context, string) (*browserWindow, error) {
 		return nil, wantErr

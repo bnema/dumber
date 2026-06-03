@@ -110,19 +110,19 @@ func (a *App) openNativePopupWindow(ctx context.Context, input content.NativePop
 
 	if aborter, ok := input.PopupWebView.(port.NativePopupHostAbortCapable); ok {
 		aborter.SetNativePopupHostAbort(func() {
-			a.dispatchOnMainThread(func() {
+			a.dispatchNativePopupLifecycle("ui.native_popup.abort", popupID, func() {
 				a.releaseNativePopupWindow(popupID, true, false)
 			})
 		})
 	}
 	if lifecycle, ok := input.PopupWebView.(port.PopupLifecycleCapable); ok {
 		lifecycle.SetOnReadyToShow(func() {
-			a.dispatchOnMainThread(func() {
+			a.dispatchNativePopupLifecycle("ui.native_popup.ready_to_show", popupID, func() {
 				a.showNativePopupWindow(popupID)
 			})
 		})
 		lifecycle.SetOnClose(func() {
-			a.dispatchOnMainThread(func() {
+			a.dispatchNativePopupLifecycle("ui.native_popup.close", popupID, func() {
 				a.releaseNativePopupWindow(popupID, true, false)
 			})
 		})
@@ -131,7 +131,7 @@ func (a *App) openNativePopupWindow(ctx context.Context, input content.NativePop
 	}
 	if oauthWV, ok := input.PopupWebView.(port.OAuthCallbackCapable); ok {
 		oauthWV.AddCloseCallback(func() {
-			a.dispatchOnMainThread(func() {
+			a.dispatchNativePopupLifecycle("ui.native_popup.oauth_close", popupID, func() {
 				a.releaseNativePopupWindow(popupID, true, false)
 			})
 		})
@@ -146,6 +146,30 @@ func (a *App) openNativePopupWindow(ctx context.Context, input content.NativePop
 		Str("parent_pane_id", string(input.ParentPaneID)).
 		Msg("native popup host created")
 	return nil
+}
+
+func (a *App) dispatchNativePopupLifecycle(label string, popupID port.WebViewID, fn func()) {
+	if a == nil || fn == nil {
+		return
+	}
+	if a.dispatchOnMainThread == nil {
+		fn()
+		return
+	}
+	result := a.dispatchOnMainThread(label, fn)
+	if result.Completed() {
+		return
+	}
+	ctx := context.Background()
+	if a.deps != nil && a.deps.Ctx != nil {
+		ctx = a.deps.Ctx
+	}
+	logging.FromContext(ctx).Warn().
+		Uint64("popup_id", uint64(popupID)).
+		Str("dispatch_label", result.Label).
+		Dur("elapsed", result.Elapsed).
+		Str("dispatch_status", string(result.Status)).
+		Msg("native popup lifecycle dispatch did not complete")
 }
 
 func (a *App) showNativePopupWindow(popupID port.WebViewID) {

@@ -21,6 +21,7 @@ import (
 	"github.com/bnema/dumber/internal/application/dto"
 	"github.com/bnema/dumber/internal/application/port"
 	"github.com/bnema/dumber/internal/logging"
+	"github.com/bnema/dumber/internal/shared/syncdispatch"
 )
 
 // Compile-time interface checks.
@@ -59,6 +60,11 @@ var cefLoadWatchdogDelays = []time.Duration{
 	15 * time.Second,
 	30 * time.Second,
 }
+
+const (
+	cefGTKSyncDispatchTimeout       = 2 * time.Second
+	cefGTKSyncDispatchSlowThreshold = 250 * time.Millisecond
+)
 
 var (
 	cefNewTask         = purecef.NewTask
@@ -124,7 +130,15 @@ type WebView struct {
 	initialBrowserCreateResizeHandled bool
 
 	// pendingURI is set when LoadURI is called before the browser exists.
-	pendingURI string
+	pendingURI          string
+	pendingURISetAt     time.Time
+	pendingURIStartedAt time.Time
+
+	// GTK sync dispatch hooks are injectable for tests. Production uses the GTK
+	// default main context through runOnGTK and isOnGTKThread.
+	gtkSyncDispatch func(func())
+	gtkSyncIsOwner  func() bool
+	gtkSyncTimeout  time.Duration
 
 	// crashCount tracks consecutive renderer crashes to prevent infinite
 	// crash → redirect → crash loops.
@@ -259,7 +273,7 @@ func (wv *WebView) LoadURI(_ context.Context, uri string) error {
 	browser := wv.browser
 	// Always remember the latest requested URI so a browser/main-frame race
 	// cannot strand startup on about:blank.
-	wv.pendingURI = actualURI
+	wv.setPendingNavigationLocked(actualURI, time.Now())
 	wv.mu.Unlock()
 	if browser == nil {
 		return nil
@@ -604,7 +618,7 @@ func (wv *WebView) PrimePopupNavigation(uri string) {
 	}
 	wv.mu.Lock()
 	browser := wv.browser
-	wv.pendingURI = actualURI
+	wv.setPendingNavigationLocked(actualURI, time.Now())
 	wv.mu.Unlock()
 	if browser != nil {
 		wv.schedulePendingNavigationReplay(0)
@@ -965,7 +979,7 @@ func (wv *WebView) activateNativePopup(popupID int32, targetURL string) (purecef
 	wv.nativePopupID = popupID
 	wv.nativePopupFallbackStarted = false
 	if strings.TrimSpace(wv.pendingURI) == "" {
-		wv.pendingURI = toActualInternalURL(targetURL)
+		wv.setPendingNavigationLocked(toActualInternalURL(targetURL), time.Now())
 	}
 	if strings.TrimSpace(wv.pendingURI) != "" {
 		wv.uri = toConceptualInternalURL(wv.pendingURI)
@@ -1147,7 +1161,7 @@ func (wv *WebView) destroyViewBridgeOnGTKSync() {
 	if wv == nil || wv.viewBridge == nil {
 		return
 	}
-	wv.runOnGTKSync(func() {
+	wv.runOnGTKSyncLabelAllowLateStart("cef.destroy_view_bridge", true, func() {
 		wv.destroyViewBridgeOnGTKThread()
 	})
 }
@@ -1212,10 +1226,7 @@ func (wv *WebView) updateURI(uri string) {
 	wv.uri = uri
 	wv.loadDiagLastAddressAt = now
 	cb := wv.callbacks
-	pendingMatched := pendingURIEquivalent(wv.pendingURI, uri)
-	if pendingMatched {
-		wv.pendingURI = ""
-	}
+	pendingMatched := wv.clearPendingNavigationIfEquivalentLocked(uri)
 	wv.mu.Unlock()
 
 	if pendingMatched && wv.ctx != nil {
@@ -1276,8 +1287,20 @@ func (wv *WebView) updateLoadState(loading, back, fwd bool) {
 		wv.loadDiagLastAddressAt = time.Time{}
 		loadDiagSeq = wv.loadDiagSeq
 	}
+	clearedPendingURI := ""
+	currentURI := ""
+	if !loading && wv.hasObservedAddressForPendingNavigationLocked() {
+		clearedPendingURI = wv.clearPendingNavigationLocked()
+		currentURI = wv.uri
+	}
 	wv.mu.Unlock()
 
+	if clearedPendingURI != "" && wv.ctx != nil {
+		logging.FromContext(wv.ctx).Debug().
+			Str("pending_uri", logging.TruncateURL(clearedPendingURI, logging.PermissionLogURLMaxLen)).
+			Str("uri", logging.TruncateURL(currentURI, logging.PermissionLogURLMaxLen)).
+			Msg("cef: cleared pending navigation after load finished at final address")
+	}
 	if loadDiagSeq != 0 {
 		wv.scheduleLoadWatchdogs(loadDiagSeq)
 	}
@@ -1675,6 +1698,49 @@ func (wv *WebView) pendingNavigationURI() string {
 	return wv.pendingURI
 }
 
+func (wv *WebView) setPendingNavigationLocked(uri string, at time.Time) {
+	wv.pendingURI = uri
+	wv.pendingURIStartedAt = time.Time{}
+	if uri == "" {
+		wv.pendingURISetAt = time.Time{}
+		return
+	}
+	wv.pendingURISetAt = at
+}
+
+func (wv *WebView) markPendingNavigationStartedLocked(uri string, at time.Time) {
+	if !pendingURIEquivalent(wv.pendingURI, uri) {
+		return
+	}
+	wv.pendingURIStartedAt = at
+}
+
+func (wv *WebView) clearPendingNavigationLocked() string {
+	cleared := wv.pendingURI
+	wv.pendingURI = ""
+	wv.pendingURISetAt = time.Time{}
+	wv.pendingURIStartedAt = time.Time{}
+	return cleared
+}
+
+func (wv *WebView) clearPendingNavigationIfEquivalentLocked(uri string) bool {
+	if !pendingURIEquivalent(wv.pendingURI, uri) {
+		return false
+	}
+	wv.clearPendingNavigationLocked()
+	return true
+}
+
+func (wv *WebView) hasObservedAddressForPendingNavigationLocked() bool {
+	if strings.TrimSpace(wv.pendingURI) == "" || strings.TrimSpace(wv.uri) == "" {
+		return false
+	}
+	if wv.loadDiagLastAddressAt.IsZero() || wv.pendingURIStartedAt.IsZero() {
+		return false
+	}
+	return !wv.loadDiagLastAddressAt.Before(wv.pendingURIStartedAt)
+}
+
 func (wv *WebView) schedulePendingNavigationReplay(attempt int) {
 	if wv == nil || wv.destroyed.Load() {
 		return
@@ -1746,9 +1812,7 @@ func (wv *WebView) replayPendingNavigation(attempt int) {
 	currentURL := frame.GetURL()
 	if pendingURIEquivalent(currentURL, uri) {
 		wv.mu.Lock()
-		if pendingURIEquivalent(wv.pendingURI, uri) {
-			wv.pendingURI = ""
-		}
+		wv.clearPendingNavigationIfEquivalentLocked(uri)
 		wv.mu.Unlock()
 		if wv.ctx != nil {
 			logging.FromContext(wv.ctx).Debug().
@@ -1758,6 +1822,9 @@ func (wv *WebView) replayPendingNavigation(attempt int) {
 		}
 		return
 	}
+	wv.mu.Lock()
+	wv.markPendingNavigationStartedLocked(uri, time.Now())
+	wv.mu.Unlock()
 	frame.LoadURL(uri)
 	if wv.ctx != nil {
 		logging.FromContext(wv.ctx).Debug().
@@ -1973,23 +2040,106 @@ func (wv *WebView) isOnGTKThread() bool {
 }
 
 // runOnGTKSync executes fn on the GTK main context and waits for completion.
-// Callers already running on the GTK thread must execute inline to avoid
-// self-deadlocking while waiting for an IdleAddOnce callback.
-func (wv *WebView) runOnGTKSync(fn func()) {
-	if fn == nil {
-		return
+// Callers already running on the GTK thread execute inline to avoid
+// self-deadlocking while waiting for an IdleAddOnce callback. Calls are bounded
+// so a wedged GTK loop cannot block CEF callbacks forever.
+func (wv *WebView) runOnGTKSync(fn func()) syncdispatch.SyncDispatchResult {
+	return wv.runOnGTKSyncLabel("cef.gtk_sync", fn)
+}
+
+func (wv *WebView) runOnGTKSyncLabel(label string, fn func()) syncdispatch.SyncDispatchResult {
+	return wv.runOnGTKSyncLabelAllowLateStart(label, false, fn)
+}
+
+func (wv *WebView) runOnGTKSyncLabelAllowLateStart(
+	label string,
+	allowLateStartAfterTimeout bool,
+	fn func(),
+) syncdispatch.SyncDispatchResult {
+	if wv == nil {
+		if fn != nil {
+			fn()
+		}
+		return syncdispatch.SyncDispatchResult{Label: label, Status: syncdispatch.SyncDispatchInline}
 	}
-	if wv == nil || wv.engine == nil || wv.isOnGTKThread() {
-		fn()
-		return
+	if wv.engine == nil && wv.gtkSyncDispatch == nil && wv.gtkSyncIsOwner == nil {
+		if fn != nil {
+			fn()
+		}
+		return syncdispatch.SyncDispatchResult{Label: label, Status: syncdispatch.SyncDispatchInline}
 	}
 
-	done := make(chan struct{})
-	wv.runOnGTK(func() {
-		defer close(done)
-		fn()
-	})
-	<-done
+	isOwner := wv.gtkSyncIsOwner
+	if isOwner == nil {
+		isOwner = wv.isOnGTKThread
+	}
+	dispatch := wv.gtkSyncDispatch
+	if dispatch == nil {
+		dispatch = wv.runOnGTK
+	}
+	timeout := wv.gtkSyncTimeout
+	if timeout <= 0 {
+		timeout = cefGTKSyncDispatchTimeout
+	}
+
+	result := syncdispatch.RunSynchronousDispatch(syncdispatch.SyncDispatchOptions{
+		Label:                      label,
+		Timeout:                    timeout,
+		IsOwner:                    isOwner,
+		Dispatch:                   dispatch,
+		AllowLateStartAfterTimeout: allowLateStartAfterTimeout,
+	}, fn)
+	wv.logGTKSyncDispatchResult(result)
+	return result
+}
+
+func (wv *WebView) logGTKSyncDispatchResult(result syncdispatch.SyncDispatchResult) {
+	if wv == nil {
+		return
+	}
+	logger := logging.FromContext(wv.ctx)
+	switch result.Status {
+	case syncdispatch.SyncDispatchTimedOut:
+		logger.Warn().
+			Str("dispatch_label", result.Label).
+			Dur("elapsed", result.Elapsed).
+			Dur("timeout", wv.effectiveGTKSyncTimeout()).
+			Uint64("webview_id", uint64(wv.id)).
+			Msg("cef: GTK synchronous dispatch timed out before callback started")
+	case syncdispatch.SyncDispatchCompletedAfterTimeout:
+		logger.Warn().
+			Str("dispatch_label", result.Label).
+			Dur("elapsed", result.Elapsed).
+			Dur("timeout", wv.effectiveGTKSyncTimeout()).
+			Uint64("webview_id", uint64(wv.id)).
+			Msg("cef: GTK synchronous dispatch completed after timeout")
+	case syncdispatch.SyncDispatchQueuedAfterTimeout:
+		logger.Warn().
+			Str("dispatch_label", result.Label).
+			Dur("elapsed", result.Elapsed).
+			Dur("timeout", wv.effectiveGTKSyncTimeout()).
+			Uint64("webview_id", uint64(wv.id)).
+			Msg("cef: GTK synchronous dispatch left queued after timeout")
+	case syncdispatch.SyncDispatchCompleted:
+		if result.Elapsed >= cefGTKSyncDispatchSlowThreshold {
+			logger.Debug().
+				Str("dispatch_label", result.Label).
+				Dur("elapsed", result.Elapsed).
+				Uint64("webview_id", uint64(wv.id)).
+				Msg("cef: GTK synchronous dispatch completed slowly")
+		}
+	}
+}
+
+func (wv *WebView) effectiveGTKSyncTimeout() time.Duration {
+	if wv != nil && wv.gtkSyncTimeout > 0 {
+		return wv.gtkSyncTimeout
+	}
+	return cefGTKSyncDispatchTimeout
+}
+
+func errGTKSyncDispatchIncomplete(operation string, result syncdispatch.SyncDispatchResult) error {
+	return fmt.Errorf("%s: GTK dispatch did not complete: %s", operation, result.Status)
 }
 
 func (wv *WebView) runCloseCallbacks() {

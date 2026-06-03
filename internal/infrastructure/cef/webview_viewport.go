@@ -10,6 +10,7 @@ import (
 	"github.com/bnema/puregotk/v4/gtk"
 
 	"github.com/bnema/dumber/internal/logging"
+	"github.com/bnema/dumber/internal/shared/syncdispatch"
 )
 
 type viewportSyncBrowserHost interface {
@@ -402,11 +403,11 @@ func (wv *WebView) schedulePendingBrowserCreateObservedSizeRetry(ctx context.Con
 	})
 }
 
-func (wv *WebView) installViewportSyncHooks() {
+func (wv *WebView) installViewportSyncHooks() syncdispatch.SyncDispatchResult {
 	if wv == nil || wv.viewBridge == nil {
-		return
+		return syncdispatch.SyncDispatchResult{Label: "cef.install_viewport_sync_hooks", Status: syncdispatch.SyncDispatchInline}
 	}
-	wv.runOnGTKSync(func() {
+	return wv.runOnGTKSyncLabel("cef.install_viewport_sync_hooks", func() {
 		wv.installViewportSyncHooksOnGTKThread()
 	})
 }
