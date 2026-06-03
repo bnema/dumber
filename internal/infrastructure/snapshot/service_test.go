@@ -176,6 +176,22 @@ func TestService_SaveNowPassesWindowSnapshots(t *testing.T) {
 	assert.False(t, svc.dirty)
 }
 
+func TestService_SaveSnapshotKeepsDirtyWhenWindowSnapshotUnavailable(t *testing.T) {
+	repo := repomocks.NewMockSessionStateRepository(t)
+	uc := usecase.NewSnapshotSessionUseCase(repo)
+	provider := mocks.NewMockWindowStateProvider(t)
+	provider.EXPECT().GetSessionID().Return(entity.SessionID("20260501_snapshot_unavailable")).Once()
+	provider.EXPECT().GetWindowSnapshotState().Return(nil, -1).Once()
+
+	svc := NewService(uc, provider, 1)
+	svc.ready = true
+	svc.dirty = true
+
+	err := svc.saveSnapshot(context.Background())
+	require.NoError(t, err)
+	assert.True(t, svc.dirty)
+}
+
 func TestService_SaveNowPersistsEmptyWindowSnapshotAsV2(t *testing.T) {
 	repo := repomocks.NewMockSessionStateRepository(t)
 	sessionID := entity.SessionID("20260501_empty_window_snap")

@@ -20,6 +20,7 @@ import (
 	"github.com/bnema/dumber/internal/domain/entity"
 	"github.com/bnema/dumber/internal/domain/repository"
 	"github.com/bnema/dumber/internal/infrastructure/config"
+	"github.com/bnema/dumber/internal/shared/syncdispatch"
 	"github.com/bnema/dumber/internal/ui/component"
 	"github.com/bnema/dumber/internal/ui/coordinator"
 	contentcoord "github.com/bnema/dumber/internal/ui/coordinator/content"
@@ -31,6 +32,7 @@ import (
 	"github.com/bnema/puregotk/v4/gdk"
 	"github.com/bnema/puregotk/v4/gio"
 	"github.com/bnema/puregotk/v4/gtk"
+	"github.com/stretchr/testify/require"
 )
 
 type testBrowserLaunchRelay struct {
@@ -397,6 +399,49 @@ func TestApp_FinalizeActivationStartsBrowserLaunchRelayOnceAndClosesOnShutdown(t
 
 	if !relay.closer.closed {
 		t.Fatalf("relay listener closer was not closed")
+	}
+}
+
+func TestApp_GetWindowSnapshotStateReturnsUnavailableWhenMainThreadDispatchTimesOut(t *testing.T) {
+	app := &App{
+		tabs:           entity.NewTabList(),
+		browserWindows: map[string]*browserWindow{},
+		dispatchOnMainThread: func(label string, fn func()) syncdispatch.SyncDispatchResult {
+			if label != "ui.snapshot_window_state" {
+				t.Fatalf("dispatch label = %q, want ui.snapshot_window_state", label)
+			}
+			return syncdispatch.SyncDispatchResult{Label: label, Status: syncdispatch.SyncDispatchTimedOut, Elapsed: 5 * time.Millisecond}
+		},
+	}
+
+	windows, activeWindowIndex := app.GetWindowSnapshotState()
+
+	require.Nil(t, windows)
+	require.Equal(t, -1, activeWindowIndex)
+}
+
+func TestApp_OpenFreshWindowReportsMainThreadDispatchTimeout(t *testing.T) {
+	var factoryCalls int
+	app := &App{
+		dispatchOnMainThread: func(label string, fn func()) syncdispatch.SyncDispatchResult {
+			return syncdispatch.SyncDispatchResult{Label: label, Status: syncdispatch.SyncDispatchTimedOut, Elapsed: 5 * time.Millisecond}
+		},
+		browserWindowFactory: func(context.Context, string) (*browserWindow, error) {
+			factoryCalls++
+			return &browserWindow{id: "window-timeout", tabs: entity.NewTabList()}, nil
+		},
+	}
+
+	err := app.OpenFreshWindow(context.Background(), "https://example.com")
+
+	if err == nil {
+		t.Fatal("OpenFreshWindow returned nil error, want dispatch timeout")
+	}
+	if !strings.Contains(err.Error(), "main thread dispatch did not complete") {
+		t.Fatalf("OpenFreshWindow error = %q, want dispatch timeout", err.Error())
+	}
+	if factoryCalls != 0 {
+		t.Fatalf("browserWindowFactory calls = %d, want 0", factoryCalls)
 	}
 }
 

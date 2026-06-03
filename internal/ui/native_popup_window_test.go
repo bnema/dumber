@@ -4,9 +4,11 @@ import (
 	"context"
 	"errors"
 	"testing"
+	"time"
 
 	"github.com/bnema/dumber/internal/application/port"
 	portmocks "github.com/bnema/dumber/internal/application/port/mocks"
+	"github.com/bnema/dumber/internal/shared/syncdispatch"
 	"github.com/bnema/dumber/internal/ui/coordinator/content"
 	layoutmocks "github.com/bnema/dumber/internal/ui/layout/mocks"
 	"github.com/bnema/dumber/internal/ui/window"
@@ -73,6 +75,33 @@ func TestDestroyFailedNativePopupSetup_DestroysWebViewAndShell(t *testing.T) {
 	destroyFailedNativePopupSetup(shell, wv)
 
 	assert.True(t, shell.destroyed)
+}
+
+func TestDispatchNativePopupLifecycleSkipsWorkWhenDispatchTimesOutBeforeStart(t *testing.T) {
+	var ran bool
+	app := &App{
+		dispatchOnMainThread: func(label string, fn func()) syncdispatch.SyncDispatchResult {
+			return syncdispatch.SyncDispatchResult{Label: label, Status: syncdispatch.SyncDispatchTimedOut, Elapsed: 5 * time.Millisecond}
+		},
+	}
+
+	app.dispatchNativePopupLifecycle("ui.native_popup.close", port.WebViewID(99), func() { ran = true })
+
+	assert.False(t, ran)
+}
+
+func TestDispatchNativePopupLifecycleTreatsCompletedAfterTimeoutAsCompleted(t *testing.T) {
+	var ran bool
+	app := &App{
+		dispatchOnMainThread: func(label string, fn func()) syncdispatch.SyncDispatchResult {
+			fn()
+			return syncdispatch.SyncDispatchResult{Label: label, Status: syncdispatch.SyncDispatchCompletedAfterTimeout, Elapsed: 10 * time.Millisecond}
+		},
+	}
+
+	app.dispatchNativePopupLifecycle("ui.native_popup.close", port.WebViewID(99), func() { ran = true })
+
+	assert.True(t, ran)
 }
 
 func TestReleaseNativePopupWindow_DestroysWebViewAndRemovesState(t *testing.T) {

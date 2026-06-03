@@ -2,6 +2,8 @@ package desktop
 
 import (
 	"context"
+	"crypto/rand"
+	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -37,11 +39,14 @@ type browserLaunchRelay struct {
 }
 
 type browserLaunchRequest struct {
-	URL string `json:"url"`
+	RequestID string `json:"request_id,omitempty"`
+	URL       string `json:"url"`
 }
 
 type browserLaunchResponse struct {
-	Error string `json:"error,omitempty"`
+	RequestID string `json:"request_id,omitempty"`
+	Accepted  bool   `json:"accepted,omitempty"`
+	Error     string `json:"error,omitempty"`
 }
 
 type browserLaunchRelayListener struct {
@@ -49,6 +54,14 @@ type browserLaunchRelayListener struct {
 	socketPath string
 	once       sync.Once
 	err        error
+}
+
+var newBrowserLaunchRequestID = func() string {
+	var buf [8]byte
+	if _, err := rand.Read(buf[:]); err == nil {
+		return "blr-" + hex.EncodeToString(buf[:])
+	}
+	return fmt.Sprintf("blr-%d", time.Now().UnixNano())
 }
 
 func NewBrowserLaunchRelay(ipc runtimeprofile.IPCPaths) port.BrowserLaunchRelay {
@@ -70,10 +83,17 @@ func (r *browserLaunchRelay) DeliverOpenFreshWindow(ctx context.Context, url str
 	}
 	defer func() { _ = conn.Close() }()
 
+	requestID := newBrowserLaunchRequestID()
+	log := logging.FromContext(ctx)
+	log.Debug().
+		Str("request_id", requestID).
+		Str("url_host", safeURLHost(url)).
+		Msg("browser launch relay delivery started")
+
 	if err := setBrowserLaunchConnDeadline(ctx, conn); err != nil {
 		return false, err
 	}
-	if err := json.NewEncoder(conn).Encode(browserLaunchRequest{URL: url}); err != nil {
+	if err := json.NewEncoder(conn).Encode(browserLaunchRequest{RequestID: requestID, URL: url}); err != nil {
 		return false, err
 	}
 
@@ -90,7 +110,8 @@ func (r *browserLaunchRelay) DeliverOpenFreshWindow(ctx context.Context, url str
 					return false, ctxErr
 				}
 				if _, ok := ctx.Deadline(); !ok {
-					logging.FromContext(ctx).Warn().
+					log.Warn().
+						Str("request_id", requestID).
 						Str("url_host", safeURLHost(url)).
 						Dur("timeout", browserLaunchIOTimeout).
 						Msg("browser launch relay response timed out without caller deadline; delivery is unconfirmed")
@@ -105,10 +126,23 @@ func (r *browserLaunchRelay) DeliverOpenFreshWindow(ctx context.Context, url str
 		}
 		break
 	}
+	if response.RequestID != "" && response.RequestID != requestID {
+		return true, fmt.Errorf("mismatched browser launch relay response request id: got %q, want %q", response.RequestID, requestID)
+	}
 	if response.Error != "" {
+		log.Warn().
+			Str("request_id", requestID).
+			Str("url_host", safeURLHost(url)).
+			Str("relay_error", response.Error).
+			Msg("browser launch relay delivery rejected")
 		return true, errors.New(response.Error)
 	}
 
+	log.Debug().
+		Str("request_id", requestID).
+		Str("url_host", safeURLHost(url)).
+		Bool("accepted", response.Accepted || response.RequestID == "").
+		Msg("browser launch relay delivery acknowledged")
 	return true, nil
 }
 
@@ -240,6 +274,7 @@ func (l *browserLaunchRelayListener) serve(ctx context.Context, opener port.Brow
 
 func (*browserLaunchRelayListener) handleConnection(ctx context.Context, conn *net.UnixConn, opener port.BrowserWindowOpener) {
 	defer func() { _ = conn.Close() }()
+	log := logging.FromContext(ctx)
 	if err := conn.SetDeadline(time.Now().Add(browserLaunchIOTimeout)); err != nil {
 		return
 	}
@@ -248,20 +283,53 @@ func (*browserLaunchRelayListener) handleConnection(ctx context.Context, conn *n
 	if err := json.NewDecoder(conn).Decode(&request); err != nil {
 		return
 	}
+	requestID := request.RequestID
+	if requestID == "" {
+		requestID = newBrowserLaunchRequestID()
+	}
+	log.Debug().
+		Str("request_id", requestID).
+		Str("url_host", safeURLHost(request.URL)).
+		Msg("browser launch relay request received")
 
 	if err := conn.SetDeadline(time.Now().Add(browserLaunchIOTimeout)); err != nil {
 		return
 	}
-	if err := json.NewEncoder(conn).Encode(browserLaunchResponse{}); err != nil {
-		log := logging.FromContext(ctx)
-		log.Warn().Err(err).Str("url", request.URL).Msg("failed to encode browser launch response")
+	if err := json.NewEncoder(conn).Encode(browserLaunchResponse{RequestID: requestID, Accepted: true}); err != nil {
+		log.Warn().Err(err).
+			Str("request_id", requestID).
+			Str("url_host", safeURLHost(request.URL)).
+			Msg("failed to encode browser launch response")
 		return
 	}
+	log.Debug().
+		Str("request_id", requestID).
+		Str("url_host", safeURLHost(request.URL)).
+		Msg("browser launch relay request accepted")
 
 	go func() {
-		if err := opener.OpenFreshWindow(ctx, request.URL); err != nil {
-			logging.FromContext(ctx).Warn().Err(err).Str("url", request.URL).Msg("failed to open fresh browser window")
+		if opener == nil {
+			log.Warn().
+				Str("request_id", requestID).
+				Str("url_host", safeURLHost(request.URL)).
+				Msg("browser launch relay accepted request without opener")
+			return
 		}
+		log.Debug().
+			Str("request_id", requestID).
+			Str("url_host", safeURLHost(request.URL)).
+			Msg("browser launch relay opening fresh window")
+		if err := opener.OpenFreshWindow(ctx, request.URL); err != nil {
+			log.Warn().Err(err).
+				Str("request_id", requestID).
+				Str("url_host", safeURLHost(request.URL)).
+				Msg("failed to open fresh browser window")
+			return
+		}
+		log.Debug().
+			Str("request_id", requestID).
+			Str("url_host", safeURLHost(request.URL)).
+			Msg("browser launch relay opened fresh window")
 	}()
 }
 

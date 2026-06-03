@@ -10,12 +10,14 @@ import (
 	"sort"
 	"strings"
 	"sync"
+	"time"
 	"unsafe"
 
 	"github.com/bnema/dumber/internal/application/port"
 	"github.com/bnema/dumber/internal/application/usecase"
 	"github.com/bnema/dumber/internal/domain/entity"
 	urlutil "github.com/bnema/dumber/internal/domain/url"
+	"github.com/bnema/dumber/internal/shared/syncdispatch"
 
 	"github.com/bnema/dumber/internal/logging"
 	"github.com/bnema/dumber/internal/ui/adapter"
@@ -81,7 +83,7 @@ type App struct {
 	lastFocusedWindowID  string
 	nativePopupWindows   map[port.WebViewID]*nativePopupWindow
 	browserWindowFactory func(context.Context, string) (*browserWindow, error)
-	dispatchOnMainThread func(func())
+	dispatchOnMainThread func(string, func()) syncdispatch.SyncDispatchResult
 
 	// State
 	tabs   *entity.TabList
@@ -179,17 +181,22 @@ func New(deps *Dependencies) (*App, error) {
 	ctx, cancel := context.WithCancelCause(deps.Ctx)
 
 	app := &App{
-		deps:                 deps,
-		tabs:                 entity.NewTabList(),
-		tabsUC:               deps.TabsUC,
-		panesUC:              deps.PanesUC,
-		workspaceViews:       make(map[entity.TabID]*component.WorkspaceView),
-		windowForTab:         make(map[entity.TabID]*browserWindow),
-		floatingSessions:     make(map[floatingSessionKey]*floatingWorkspaceSession),
-		browserWindows:       make(map[string]*browserWindow),
-		dispatchOnMainThread: func(fn func()) { fn() },
-		engine:               deps.Engine,
-		cancel:               cancel,
+		deps:             deps,
+		tabs:             entity.NewTabList(),
+		tabsUC:           deps.TabsUC,
+		panesUC:          deps.PanesUC,
+		workspaceViews:   make(map[entity.TabID]*component.WorkspaceView),
+		windowForTab:     make(map[entity.TabID]*browserWindow),
+		floatingSessions: make(map[floatingSessionKey]*floatingWorkspaceSession),
+		browserWindows:   make(map[string]*browserWindow),
+		dispatchOnMainThread: func(label string, fn func()) syncdispatch.SyncDispatchResult {
+			if fn != nil {
+				fn()
+			}
+			return syncdispatch.SyncDispatchResult{Label: label, Status: syncdispatch.SyncDispatchInline}
+		},
+		engine: deps.Engine,
+		cancel: cancel,
 	}
 	var autoCopyConfig port.AutoCopyConfig
 	var clipboardOrchestrator port.ClipboardTextOrchestrator
@@ -1911,82 +1918,102 @@ func (a *App) GetSessionID() entity.SessionID {
 	return a.deps.CurrentSessionID
 }
 
+type windowSnapshotCapture struct {
+	browserTabs         map[string]*entity.TabList
+	windowOrder         []string
+	globalTabs          *entity.TabList
+	tabOwners           map[entity.TabID]string
+	lastFocusedWindowID string
+}
+
 // GetWindowSnapshotState implements port.WindowStateProvider.
 // Returns per-window tab lists and active window index from one main-thread capture.
 func (a *App) GetWindowSnapshotState() ([]entity.WindowTabListState, int) {
-	var (
-		browserTabs         map[string]*entity.TabList
-		windowOrder         []string
-		globalTabs          *entity.TabList
-		tabOwners           map[entity.TabID]string
-		lastFocusedWindowID string
-	)
-
-	capture := func() {
-		globalTabs = entity.NewTabList()
-		if a.tabs != nil {
-			globalTabs = a.tabs.Snapshot()
-		}
-
-		browserTabs = make(map[string]*entity.TabList, len(a.browserWindows))
-		for id, bw := range a.browserWindows {
-			if bw == nil {
-				continue
-			}
-			if bw.tabs != nil {
-				browserTabs[id] = bw.tabs.Snapshot()
-			} else {
-				browserTabs[id] = nil
-			}
-		}
-
-		windowOrder = append([]string(nil), a.browserWindowOrder...)
-		tabOwners = make(map[entity.TabID]string, len(a.windowForTab))
-		for tabID, bw := range a.windowForTab {
-			if bw != nil {
-				tabOwners[tabID] = bw.id
-			}
-		}
-		lastFocusedWindowID = a.lastFocusedWindowID
+	capture, ok := a.captureWindowSnapshotState()
+	if !ok {
+		return nil, -1
 	}
-	if a.dispatchOnMainThread != nil {
-		a.dispatchOnMainThread(capture)
-	} else {
+	return buildWindowSnapshotState(capture)
+}
+
+func (a *App) captureWindowSnapshotState() (windowSnapshotCapture, bool) {
+	var capture windowSnapshotCapture
+	captureFn := func() {
+		capture = a.captureWindowSnapshotStateOnMainThread()
+	}
+	if a.dispatchOnMainThread == nil {
 		// nil dispatchOnMainThread is for single-threaded tests only;
 		// production should marshal capture to GTK main thread.
-		capture()
+		captureFn()
+		return capture, true
 	}
 
-	if len(browserTabs) == 0 {
+	result := a.dispatchOnMainThread("ui.snapshot_window_state", captureFn)
+	if result.Completed() {
+		return capture, true
+	}
+
+	ctx := context.Background()
+	if a.deps != nil && a.deps.Ctx != nil {
+		ctx = a.deps.Ctx
+	}
+	logging.FromContext(ctx).Warn().
+		Dur("elapsed", result.Elapsed).
+		Str("dispatch_status", string(result.Status)).
+		Msg("ui: window state snapshot unavailable after main-thread dispatch did not complete")
+	return windowSnapshotCapture{}, false
+}
+
+func (a *App) captureWindowSnapshotStateOnMainThread() windowSnapshotCapture {
+	capture := windowSnapshotCapture{
+		globalTabs: entity.NewTabList(),
+	}
+	if a.tabs != nil {
+		capture.globalTabs = a.tabs.Snapshot()
+	}
+
+	capture.browserTabs = make(map[string]*entity.TabList, len(a.browserWindows))
+	for id, bw := range a.browserWindows {
+		if bw == nil {
+			continue
+		}
+		if bw.tabs != nil {
+			capture.browserTabs[id] = bw.tabs.Snapshot()
+		} else {
+			capture.browserTabs[id] = nil
+		}
+	}
+
+	capture.windowOrder = append([]string(nil), a.browserWindowOrder...)
+	capture.tabOwners = make(map[entity.TabID]string, len(a.windowForTab))
+	for tabID, bw := range a.windowForTab {
+		if bw != nil {
+			capture.tabOwners[tabID] = bw.id
+		}
+	}
+	capture.lastFocusedWindowID = a.lastFocusedWindowID
+	return capture
+}
+
+func buildWindowSnapshotState(capture windowSnapshotCapture) ([]entity.WindowTabListState, int) {
+	if len(capture.browserTabs) == 0 {
 		return []entity.WindowTabListState{
-			{WindowID: "", Tabs: globalTabs},
+			{WindowID: "", Tabs: capture.globalTabs},
 		}, 0
 	}
 
-	windowIDs := windowOrderFrom(browserTabs, windowOrder)
+	windowIDs := windowOrderFrom(capture.browserTabs, capture.windowOrder)
 	result := make([]entity.WindowTabListState, 0, len(windowIDs))
 	activeWindowIndex := 0
 	anyOwnedWindow := false
 	for i, wid := range windowIDs {
-		if wid == lastFocusedWindowID {
+		if wid == capture.lastFocusedWindowID {
 			activeWindowIndex = i
 		}
 
-		tabs := browserTabs[wid]
+		tabs := capture.browserTabs[wid]
 		if tabs == nil {
-			tabs = entity.NewTabList()
-			for _, tab := range globalTabs.Tabs {
-				if tabOwners[tab.ID] == wid {
-					tabs.Add(cloneTabForGlobalList(tab))
-				}
-			}
-
-			// Derive active tab from the global list when no per-window TabList
-			// exists only for snapshot/export compatibility with older flat snapshot state.
-			globalActive := globalTabs.ActiveTabID
-			if globalActive != "" && tabs.Find(globalActive) != nil {
-				tabs.SetActive(globalActive)
-			}
+			tabs = tabsForWindowFromGlobalList(capture.globalTabs, capture.tabOwners, wid)
 		}
 		if tabs.Count() > 0 {
 			anyOwnedWindow = true
@@ -1997,13 +2024,33 @@ func (a *App) GetWindowSnapshotState() ([]entity.WindowTabListState, int) {
 			Tabs:     tabs,
 		})
 	}
-	if !anyOwnedWindow && globalTabs.Count() > 0 {
+	if !anyOwnedWindow && capture.globalTabs.Count() > 0 {
 		// No window ownership populated; return the flat global list for
 		// snapshot/export compatibility rather than snapshotting empty windows.
-		return []entity.WindowTabListState{{WindowID: "", Tabs: globalTabs}}, 0
+		return []entity.WindowTabListState{{WindowID: "", Tabs: capture.globalTabs}}, 0
 	}
 
 	return result, activeWindowIndex
+}
+
+func tabsForWindowFromGlobalList(globalTabs *entity.TabList, tabOwners map[entity.TabID]string, windowID string) *entity.TabList {
+	tabs := entity.NewTabList()
+	if globalTabs == nil {
+		return tabs
+	}
+	for _, tab := range globalTabs.Tabs {
+		if tabOwners[tab.ID] == windowID {
+			tabs.Add(cloneTabForGlobalList(tab))
+		}
+	}
+
+	// Derive active tab from the global list when no per-window TabList exists
+	// only for snapshot/export compatibility with older flat snapshot state.
+	globalActive := globalTabs.ActiveTabID
+	if globalActive != "" && tabs.Find(globalActive) != nil {
+		tabs.SetActive(globalActive)
+	}
+	return tabs
 }
 
 // GetWindowTabLists implements port.WindowStateProvider.
@@ -3470,25 +3517,65 @@ func (a *App) generateWindowID() string {
 	return fmt.Sprintf("w%d", a.windowIDCounter)
 }
 
-// runOnMainThread executes fn inline when already on the GTK main context;
-// otherwise it dispatches fn to the GTK main loop and waits for completion.
-func (a *App) runOnMainThread(fn func()) {
-	if fn == nil {
-		return
-	}
-	glibCtx := glib.MainContextDefault()
-	if glibCtx != nil && glibCtx.IsOwner() {
-		fn()
-		return
-	}
+const (
+	uiMainThreadDispatchTimeout       = 2 * time.Second
+	uiMainThreadDispatchSlowThreshold = 250 * time.Millisecond
+)
 
-	done := make(chan struct{})
-	cb := glib.SourceOnceFunc(func(_ uintptr) {
-		fn()
-		close(done)
-	})
-	glib.IdleAddOnce(&cb, 0)
-	<-done
+// runOnMainThread executes fn inline when already on the GTK main context;
+// otherwise it dispatches fn to the GTK main loop and waits for bounded
+// completion so IPC and CEF callback paths do not wait forever on a wedged UI.
+func (a *App) runOnMainThread(label string, fn func()) syncdispatch.SyncDispatchResult {
+	result := syncdispatch.RunSynchronousDispatch(syncdispatch.SyncDispatchOptions{
+		Label:   label,
+		Timeout: uiMainThreadDispatchTimeout,
+		IsOwner: func() bool {
+			glibCtx := glib.MainContextDefault()
+			return glibCtx != nil && glibCtx.IsOwner()
+		},
+		Dispatch: func(cb func()) {
+			wrapped := new(glib.SourceOnceFunc)
+			*wrapped = func(_ uintptr) { cb() }
+			glib.IdleAddOnce(wrapped, 0)
+		},
+	}, fn)
+	a.logMainThreadDispatchResult(result)
+	return result
+}
+
+func (a *App) logMainThreadDispatchResult(result syncdispatch.SyncDispatchResult) {
+	ctx := context.Background()
+	if a != nil && a.deps != nil && a.deps.Ctx != nil {
+		ctx = a.deps.Ctx
+	}
+	logger := logging.FromContext(ctx)
+	switch result.Status {
+	case syncdispatch.SyncDispatchTimedOut:
+		logger.Warn().
+			Str("dispatch_label", result.Label).
+			Dur("elapsed", result.Elapsed).
+			Dur("timeout", uiMainThreadDispatchTimeout).
+			Msg("ui: main-thread dispatch timed out before callback started")
+	case syncdispatch.SyncDispatchCompletedAfterTimeout:
+		logger.Warn().
+			Str("dispatch_label", result.Label).
+			Dur("elapsed", result.Elapsed).
+			Dur("timeout", uiMainThreadDispatchTimeout).
+			Msg("ui: main-thread dispatch completed after timeout")
+	case syncdispatch.SyncDispatchQueuedAfterTimeout:
+		logger.Warn().
+			Str("dispatch_label", result.Label).
+			Dur("elapsed", result.Elapsed).
+			Dur("timeout", uiMainThreadDispatchTimeout).
+			Msg("ui: main-thread dispatch left queued after timeout")
+	case syncdispatch.SyncDispatchCompleted:
+		if result.Elapsed >= uiMainThreadDispatchSlowThreshold {
+			logger.Debug().
+				Str("dispatch_label", result.Label).
+				Dur("elapsed", result.Elapsed).
+				Msg("ui: main-thread dispatch completed slowly")
+		}
+	}
 }
 
 // generateID generates a unique ID for tabs and panes.

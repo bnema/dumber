@@ -162,3 +162,62 @@ func TestWebViewUpdateURI_ClearsMatchingPendingNavigation(t *testing.T) {
 
 	require.Empty(t, wv.pendingNavigationURI())
 }
+
+func TestWebViewUpdateLoadState_ClearsStalePendingNavigationAfterStartedRedirectCompletes(t *testing.T) {
+	wv := &WebView{ctx: context.Background()}
+	pending := "https://duckduckgo.com/?q=pi+agent+reddit"
+	startedAt := time.Now().Add(-time.Second)
+	wv.mu.Lock()
+	wv.setPendingNavigationLocked(pending, startedAt.Add(-time.Millisecond))
+	wv.markPendingNavigationStartedLocked(pending, startedAt)
+	wv.mu.Unlock()
+	wv.updateURI("https://www.reddit.com/r/somewhere/")
+
+	wv.updateLoadState(false, true, false)
+
+	require.Empty(t, wv.pendingNavigationURI())
+}
+
+func TestWebViewUpdateLoadState_KeepsPendingNavigationBeforeReplayStarts(t *testing.T) {
+	wv := &WebView{ctx: context.Background()}
+	pending := "https://duckduckgo.com/?q=pi+agent+reddit"
+	wv.updateURI("https://old.example/still-finishing")
+	wv.mu.Lock()
+	wv.setPendingNavigationLocked(pending, time.Now())
+	wv.mu.Unlock()
+
+	wv.updateLoadState(false, true, false)
+
+	require.Equal(t, pending, wv.pendingNavigationURI())
+}
+
+func TestWebViewUpdateLoadState_DoesNotClearPendingNavigationWhenOnlyOlderAddressWasObserved(t *testing.T) {
+	wv := &WebView{ctx: context.Background()}
+	pending := "https://duckduckgo.com/?q=pi+agent+reddit"
+	observedAt := time.Now()
+	wv.mu.Lock()
+	wv.uri = "https://old.example/final"
+	wv.loadDiagLastAddressAt = observedAt
+	wv.setPendingNavigationLocked(pending, observedAt.Add(time.Millisecond))
+	wv.markPendingNavigationStartedLocked(pending, observedAt.Add(time.Millisecond))
+	wv.mu.Unlock()
+
+	wv.updateLoadState(false, true, false)
+
+	require.Equal(t, pending, wv.pendingNavigationURI())
+}
+
+func TestWebViewUpdateLoadState_KeepsPendingNavigationWhileLoading(t *testing.T) {
+	wv := &WebView{ctx: context.Background()}
+	pending := "https://duckduckgo.com/?q=pi+agent+reddit"
+	startedAt := time.Now().Add(-time.Second)
+	wv.mu.Lock()
+	wv.setPendingNavigationLocked(pending, startedAt.Add(-time.Millisecond))
+	wv.markPendingNavigationStartedLocked(pending, startedAt)
+	wv.mu.Unlock()
+	wv.updateURI("https://www.reddit.com/r/somewhere/")
+
+	wv.updateLoadState(true, true, false)
+
+	require.Equal(t, pending, wv.pendingNavigationURI())
+}

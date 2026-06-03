@@ -3,6 +3,7 @@ package desktop
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"net"
 	"os"
 	"path/filepath"
@@ -66,6 +67,13 @@ func testNamespacedIPC(root, engine string) runtimeprofile.IPCPaths {
 	}
 }
 
+func overrideBrowserLaunchRequestID(t *testing.T, id string) func() {
+	t.Helper()
+	previous := newBrowserLaunchRequestID
+	newBrowserLaunchRequestID = func() string { return id }
+	return func() { newBrowserLaunchRequestID = previous }
+}
+
 func TestBrowserLaunchRelay_DeliverOpenFreshWindow_MissingListenerReturnsFalseNil(t *testing.T) {
 	relay := NewBrowserLaunchRelay(testIPC(shortTempDir(t)))
 
@@ -104,6 +112,78 @@ func TestBrowserLaunchRelay_DevCEFAndDevWebKit_UseDifferentSockets(t *testing.T)
 	cefIPC := testNamespacedIPC(root, "cef")
 	wkIPC := testNamespacedIPC(root, "webkit")
 	require.NotEqual(t, cefIPC.BrowserLaunchSocket, wkIPC.BrowserLaunchSocket)
+}
+
+func TestBrowserLaunchRelay_DeliverOpenFreshWindow_SendsRequestIDAndAcceptsMatchingResponse(t *testing.T) {
+	ipc := testIPC(shortTempDir(t))
+	relay := NewBrowserLaunchRelay(ipc)
+	restore := overrideBrowserLaunchRequestID(t, "request-test-1")
+	defer restore()
+
+	receivedRequest := make(chan browserLaunchRequest, 1)
+	require.NoError(t, os.MkdirAll(ipc.RuntimeDir, 0o700))
+	listener, err := net.ListenUnix("unix", &net.UnixAddr{Name: ipc.BrowserLaunchSocket, Net: "unix"})
+	require.NoError(t, err)
+	defer func() {
+		_ = listener.Close()
+		_ = os.Remove(ipc.BrowserLaunchSocket)
+	}()
+
+	go func() {
+		conn, acceptErr := listener.AcceptUnix()
+		if acceptErr != nil {
+			return
+		}
+		defer conn.Close()
+		var request browserLaunchRequest
+		if decodeErr := json.NewDecoder(conn).Decode(&request); decodeErr != nil {
+			return
+		}
+		receivedRequest <- request
+		_ = json.NewEncoder(conn).Encode(browserLaunchResponse{RequestID: request.RequestID, Accepted: true})
+	}()
+
+	delivered, err := relay.DeliverOpenFreshWindow(context.Background(), "https://example.com/request-id")
+
+	require.NoError(t, err)
+	require.True(t, delivered)
+	request := <-receivedRequest
+	require.Equal(t, "request-test-1", request.RequestID)
+	require.Equal(t, "https://example.com/request-id", request.URL)
+}
+
+func TestBrowserLaunchRelay_DeliverOpenFreshWindow_RejectsMismatchedResponseRequestID(t *testing.T) {
+	ipc := testIPC(shortTempDir(t))
+	relay := NewBrowserLaunchRelay(ipc)
+	restore := overrideBrowserLaunchRequestID(t, "request-test-2")
+	defer restore()
+
+	require.NoError(t, os.MkdirAll(ipc.RuntimeDir, 0o700))
+	listener, err := net.ListenUnix("unix", &net.UnixAddr{Name: ipc.BrowserLaunchSocket, Net: "unix"})
+	require.NoError(t, err)
+	defer func() {
+		_ = listener.Close()
+		_ = os.Remove(ipc.BrowserLaunchSocket)
+	}()
+
+	go func() {
+		conn, acceptErr := listener.AcceptUnix()
+		if acceptErr != nil {
+			return
+		}
+		defer conn.Close()
+		var request browserLaunchRequest
+		if decodeErr := json.NewDecoder(conn).Decode(&request); decodeErr != nil {
+			return
+		}
+		_ = json.NewEncoder(conn).Encode(browserLaunchResponse{RequestID: "different-request", Accepted: true})
+	}()
+
+	delivered, err := relay.DeliverOpenFreshWindow(context.Background(), "https://example.com/request-id-mismatch")
+
+	require.Error(t, err)
+	require.True(t, delivered)
+	require.Contains(t, err.Error(), "mismatched browser launch relay response")
 }
 
 func TestBrowserLaunchRelay_DeliverOpenFreshWindow_RoundTrip(t *testing.T) {
@@ -385,11 +465,13 @@ func TestBrowserLaunchRelay_AcknowledgesBeforeOpenerReturns(t *testing.T) {
 	require.NoError(t, err)
 	defer conn.Close()
 	require.NoError(t, conn.SetDeadline(time.Now().Add(300*time.Millisecond)))
-	require.NoError(t, json.NewEncoder(conn).Encode(browserLaunchRequest{URL: "https://example.com/slow-but-healthy"}))
+	require.NoError(t, json.NewEncoder(conn).Encode(browserLaunchRequest{RequestID: "raw-request-1", URL: "https://example.com/slow-but-healthy"}))
 
 	var response browserLaunchResponse
 	require.NoError(t, json.NewDecoder(conn).Decode(&response))
 	assert.Empty(t, response.Error)
+	assert.True(t, response.Accepted)
+	assert.Equal(t, "raw-request-1", response.RequestID)
 
 	select {
 	case <-started:
@@ -397,6 +479,42 @@ func TestBrowserLaunchRelay_AcknowledgesBeforeOpenerReturns(t *testing.T) {
 		t.Fatal("expected opener to be invoked after acknowledgement")
 	}
 	close(release)
+}
+
+func TestBrowserLaunchRelay_AcknowledgesAcceptedEvenWhenOpenerReturnsLateError(t *testing.T) {
+	ipc := testIPC(shortTempDir(t))
+	relay := NewBrowserLaunchRelay(ipc)
+
+	started := make(chan struct{})
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	closer, err := relay.Listen(ctx, browserWindowOpenerFunc(func(_ context.Context, _ string) error {
+		close(started)
+		return errors.New("late open failure")
+	}))
+	require.NoError(t, err)
+	defer closer.Close()
+
+	waitForSocket(t, ipc.BrowserLaunchSocket)
+
+	conn, err := net.Dial("unix", ipc.BrowserLaunchSocket)
+	require.NoError(t, err)
+	defer conn.Close()
+	require.NoError(t, conn.SetDeadline(time.Now().Add(300*time.Millisecond)))
+	require.NoError(t, json.NewEncoder(conn).Encode(browserLaunchRequest{RequestID: "raw-request-2", URL: "https://example.com/fails-later"}))
+
+	var response browserLaunchResponse
+	require.NoError(t, json.NewDecoder(conn).Decode(&response))
+	assert.Empty(t, response.Error)
+	assert.True(t, response.Accepted)
+	assert.Equal(t, "raw-request-2", response.RequestID)
+
+	select {
+	case <-started:
+	case <-time.After(time.Second):
+		t.Fatal("expected opener to be invoked after accepted acknowledgement")
+	}
 }
 
 func TestBrowserLaunchRelay_SilentClientDoesNotStallListener(t *testing.T) {

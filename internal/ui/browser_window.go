@@ -2,12 +2,14 @@ package ui
 
 import (
 	"context"
+	"fmt"
 	"sort"
 
 	"github.com/bnema/dumber/internal/application/port"
 	"github.com/bnema/dumber/internal/application/usecase"
 	"github.com/bnema/dumber/internal/domain/entity"
 	"github.com/bnema/dumber/internal/logging"
+	"github.com/bnema/dumber/internal/shared/syncdispatch"
 	"github.com/bnema/dumber/internal/ui/component"
 	"github.com/bnema/dumber/internal/ui/coordinator"
 	"github.com/bnema/dumber/internal/ui/focus"
@@ -343,13 +345,26 @@ func (a *App) deterministicBrowserWindowFallback() *browserWindow {
 func (a *App) OpenFreshWindow(ctx context.Context, url string) error {
 	dispatch := a.dispatchOnMainThread
 	if dispatch == nil {
-		dispatch = func(fn func()) { fn() }
+		dispatch = func(label string, fn func()) syncdispatch.SyncDispatchResult {
+			if fn != nil {
+				fn()
+			}
+			return syncdispatch.SyncDispatchResult{Label: label, Status: syncdispatch.SyncDispatchInline}
+		}
 	}
 
 	var openErr error
-	dispatch(func() {
+	result := dispatch("ui.open_fresh_window", func() {
 		openErr = a.openFreshWindow(ctx, url)
 	})
+	if !result.Completed() {
+		logging.FromContext(ctx).Warn().
+			Str("url", logging.TruncateURL(url, logging.PermissionLogURLMaxLen)).
+			Dur("elapsed", result.Elapsed).
+			Str("dispatch_status", string(result.Status)).
+			Msg("ui: open fresh window skipped after main-thread dispatch did not complete")
+		return fmt.Errorf("main thread dispatch did not complete: %s", result.Status)
+	}
 
 	return openErr
 }

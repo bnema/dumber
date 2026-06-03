@@ -172,6 +172,11 @@ func (s *Service) saveSnapshot(ctx context.Context) error {
 	}
 
 	windows, activeWindowIndex := s.provider.GetWindowSnapshotState()
+	if windows == nil && activeWindowIndex < 0 {
+		s.markDirty()
+		logging.FromContext(ctx).Warn().Msg("window snapshot unavailable; keeping session snapshot dirty")
+		return nil
+	}
 	if windows == nil {
 		windows = make([]entity.WindowTabListState, 0)
 	}

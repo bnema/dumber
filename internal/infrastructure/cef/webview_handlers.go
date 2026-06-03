@@ -494,7 +494,7 @@ func (h *handlerSet) OnBeforePopup(
 		sourceFrameURL = frame.GetURL()
 	}
 
-	h.wv.runOnGTKSync(func() {
+	dispatchResult := h.wv.runOnGTKSyncLabel("cef.on_before_popup", func() {
 		popup = cb.OnCreate(port.PopupRequest{
 			TargetURI:          targetURL,
 			FrameName:          targetFrameName,
@@ -507,6 +507,15 @@ func (h *handlerSet) OnBeforePopup(
 			TargetDisposition:  mapCEFWindowDisposition(targetDisposition),
 		})
 	})
+	if !dispatchResult.Completed() {
+		logging.FromContext(h.currentContext()).Warn().
+			Str("target_url", logging.TruncateURL(targetURL, logging.PermissionLogURLMaxLen)).
+			Str("target_frame", targetFrameName).
+			Dur("elapsed", dispatchResult.Elapsed).
+			Str("dispatch_status", string(dispatchResult.Status)).
+			Msg("cef: blocked popup after GTK dispatch did not complete")
+		return true
+	}
 
 	cefPopup, ok := popup.(*WebView)
 	if !ok || cefPopup == nil {
