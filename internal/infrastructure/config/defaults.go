@@ -220,6 +220,7 @@ func DefaultConfig() *Config {
 					"close-pane":            {Keys: []string{"x"}, Desc: "Close current pane"},
 					"move-pane-to-tab":      {Keys: []string{"m"}, Desc: "Move pane to different tab"},
 					"move-pane-to-next-tab": {Keys: []string{"M", "shift+m"}, Desc: "Move pane to next tab"},
+					"eject-pane-to-window":  {Keys: []string{"w"}, Desc: "Eject active pane to a new window"},
 
 					"consume-or-expel-left":  {Keys: []string{"["}, Desc: "Consume/expel pane left"},
 					"consume-or-expel-right": {Keys: []string{"]"}, Desc: "Consume/expel pane right"},

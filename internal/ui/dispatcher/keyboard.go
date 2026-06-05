@@ -32,23 +32,24 @@ type KeyboardActions struct {
 
 // KeyboardDispatcher routes keyboard actions to appropriate coordinators.
 type KeyboardDispatcher struct {
-	actions          KeyboardActions
-	wsCoord          *coordinator.WorkspaceCoordinator
-	navCoord         *coordinator.NavigationCoordinator
-	zoomUC           *usecase.ManageZoomUseCase
-	copyURLUC        *usecase.CopyURLUseCase
-	actionHandlers   map[input.Action]func(ctx context.Context) error
-	onQuit           func()
-	onFindOpen       func(ctx context.Context) error
-	onFindNext       func(ctx context.Context) error
-	onFindPrev       func(ctx context.Context) error
-	onFindClose      func(ctx context.Context) error
-	activePaneID     func(ctx context.Context) entity.PaneID
-	onSessionOpen    func(ctx context.Context, paneID entity.PaneID) error
-	onMovePaneToTab  func(ctx context.Context, paneID entity.PaneID) error
-	onMovePaneToNext func(ctx context.Context, paneID entity.PaneID) error
-	onToggleFloating func(ctx context.Context) error
-	onOpenFloating   func(ctx context.Context, target input.FloatingProfileTarget) error
+	actions             KeyboardActions
+	wsCoord             *coordinator.WorkspaceCoordinator
+	navCoord            *coordinator.NavigationCoordinator
+	zoomUC              *usecase.ManageZoomUseCase
+	copyURLUC           *usecase.CopyURLUseCase
+	actionHandlers      map[input.Action]func(ctx context.Context) error
+	onQuit              func()
+	onFindOpen          func(ctx context.Context) error
+	onFindNext          func(ctx context.Context) error
+	onFindPrev          func(ctx context.Context) error
+	onFindClose         func(ctx context.Context) error
+	activePaneID        func(ctx context.Context) entity.PaneID
+	onSessionOpen       func(ctx context.Context, paneID entity.PaneID) error
+	onMovePaneToTab     func(ctx context.Context, paneID entity.PaneID) error
+	onMovePaneToNext    func(ctx context.Context, paneID entity.PaneID) error
+	onEjectPaneToWindow func(ctx context.Context, paneID entity.PaneID) error
+	onToggleFloating    func(ctx context.Context) error
+	onOpenFloating      func(ctx context.Context, target input.FloatingProfileTarget) error
 }
 
 // NewKeyboardDispatcher creates a new KeyboardDispatcher.
@@ -112,6 +113,10 @@ func (d *KeyboardDispatcher) SetOnMovePaneToTab(fn func(ctx context.Context, pan
 
 func (d *KeyboardDispatcher) SetOnMovePaneToNextTab(fn func(ctx context.Context, paneID entity.PaneID) error) {
 	d.onMovePaneToNext = fn
+}
+
+func (d *KeyboardDispatcher) SetOnEjectPaneToWindow(fn func(ctx context.Context, paneID entity.PaneID) error) {
+	d.onEjectPaneToWindow = fn
 }
 
 func (d *KeyboardDispatcher) SetOnToggleFloatingPane(fn func(ctx context.Context) error) {
@@ -181,6 +186,9 @@ func (d *KeyboardDispatcher) initActionHandlers() {
 		},
 		input.ActionMovePaneToNextTab: func(ctx context.Context) error {
 			return d.handleMovePaneToNextTab(ctx)
+		},
+		input.ActionEjectPaneToWindow: func(ctx context.Context) error {
+			return d.handleEjectPaneToWindow(ctx)
 		},
 		input.ActionConsumeOrExpelLeft: func(ctx context.Context) error {
 			return d.wsCoord.ConsumeOrExpelPane(ctx, usecase.ConsumeOrExpelLeft)
@@ -330,6 +338,14 @@ func (d *KeyboardDispatcher) handleMovePaneToNextTab(ctx context.Context) error 
 		return d.onMovePaneToNext(ctx, d.activePaneID(ctx))
 	}
 	logging.FromContext(ctx).Debug().Msg("move pane to next tab action (no handler)")
+	return nil
+}
+
+func (d *KeyboardDispatcher) handleEjectPaneToWindow(ctx context.Context) error {
+	if d.onEjectPaneToWindow != nil {
+		return d.onEjectPaneToWindow(ctx, d.activePaneID(ctx))
+	}
+	logging.FromContext(ctx).Debug().Msg("eject pane to window action (no handler)")
 	return nil
 }
 

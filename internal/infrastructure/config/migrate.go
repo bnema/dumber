@@ -14,6 +14,7 @@ import (
 	"gopkg.in/yaml.v3"
 
 	"github.com/bnema/dumber/internal/application/port"
+	"github.com/bnema/dumber/internal/domain/entity"
 )
 
 // Migrator implements port.ConfigMigrator for comparing and merging config files.
@@ -23,6 +24,11 @@ type Migrator struct {
 	// defaultConfig holds the default configuration.
 	defaultConfig *Config
 }
+
+// configMigrator reuses the default-action metadata needed during config load.
+// It is immutable after initialization; per-command migration still constructs
+// explicit Migrator instances when callers need independent state.
+var configMigrator = NewMigrator()
 
 // NewMigrator creates a new Migrator instance.
 func NewMigrator() *Migrator {
@@ -129,7 +135,7 @@ func (m *Migrator) DetectChanges() ([]port.KeyChange, error) {
 
 	// Find missing keys (in defaults but not in user config)
 	missingKeys := excludeKeys(m.findMissingKeys(defaultKeys, userKeySet), handledLegacyMissingKeys)
-	missingKeys = appendUniqueKeys(missingKeys, m.detectMissingWorkspaceShortcutActions(userKeysWithValues))
+	missingKeys = appendUniqueKeys(missingKeys, m.detectMissingDefaultActions(userKeysWithValues))
 
 	// Try to match deprecated keys with missing keys (detect renames)
 	renames, unmatchedDeprecated, unmatchedMissing := m.matchRenamedKeys(deprecatedKeys, missingKeys)
@@ -280,9 +286,23 @@ const (
 	configFormatTOML             = "toml"
 	configFormatYAML             = "yaml"
 	configFormatJSON             = "json"
-	databasePathKey              = "database.path"
-	workspaceShortcutsActionsKey = "workspace.shortcuts.actions"
+	databasePathKey = "database.path"
 )
+
+type defaultActionMap struct {
+	key     string
+	actions map[string]entity.ActionBinding
+}
+
+func (m *Migrator) defaultActionMaps() []defaultActionMap {
+	return []defaultActionMap{
+		{key: "workspace.shortcuts.actions", actions: m.defaultConfig.Workspace.Shortcuts.Actions},
+		{key: "workspace.pane_mode.actions", actions: m.defaultConfig.Workspace.PaneMode.Actions},
+		{key: "workspace.tab_mode.actions", actions: m.defaultConfig.Workspace.TabMode.Actions},
+		{key: "workspace.resize_mode.actions", actions: m.defaultConfig.Workspace.ResizeMode.Actions},
+		{key: "session.session_mode.actions", actions: m.defaultConfig.Session.SessionMode.Actions},
+	}
+}
 
 // typesAreCompatible checks if the default types for two keys are compatible.
 // This prevents matching int keys with string keys during rename detection.
@@ -430,7 +450,7 @@ func (m *Migrator) Migrate() ([]string, error) {
 	for key := range keysToRemove {
 		m.deleteNestedKey(rawConfig, key)
 	}
-	m.mergeMissingWorkspaceShortcutActions(rawConfig)
+	m.mergeMissingDefaultActions(rawConfig)
 
 	// Create a new Viper instance with defaults for added keys
 	userViper := viper.New()
@@ -631,10 +651,12 @@ func (m *Migrator) defaultValueForKey(key string) any {
 		return value
 	}
 
-	if strings.HasPrefix(key, workspaceShortcutsActionsKey+".") {
-		actionName := strings.TrimPrefix(key, workspaceShortcutsActionsKey+".")
-		if action, ok := m.defaultConfig.Workspace.Shortcuts.Actions[actionName]; ok {
-			return action
+	for _, actionMap := range m.defaultActionMaps() {
+		if strings.HasPrefix(key, actionMap.key+".") {
+			actionName := strings.TrimPrefix(key, actionMap.key+".")
+			if action, ok := actionMap.actions[actionName]; ok {
+				return action
+			}
 		}
 	}
 
@@ -811,68 +833,66 @@ func (*Migrator) isUserDataSection(keyPath string) bool {
 	return false
 }
 
-// detectMissingWorkspaceShortcutActions finds default global shortcut actions not present in user config.
-func (m *Migrator) detectMissingWorkspaceShortcutActions(userKeysWithValues map[string]any) []string {
+// detectMissingDefaultActions finds default shortcut/modal actions not present in user config.
+func (m *Migrator) detectMissingDefaultActions(userKeysWithValues map[string]any) []string {
 	if userKeysWithValues == nil {
 		return nil
 	}
 
-	userActionsValue, ok := userKeysWithValues[workspaceShortcutsActionsKey]
-	if !ok {
-		return nil
-	}
-
-	userActions, ok := m.toStringAnyMap(userActionsValue)
-	if !ok {
-		return nil
-	}
-
-	defaultActions := m.defaultConfig.Workspace.Shortcuts.Actions
-	if len(defaultActions) == 0 {
-		return nil
-	}
-
 	missing := make([]string, 0)
-	for actionName := range defaultActions {
-		if _, exists := userActions[actionName]; exists {
+	for _, actionMap := range m.defaultActionMaps() {
+		userActionsValue, ok := userKeysWithValues[actionMap.key]
+		if !ok {
 			continue
 		}
-		legacyActionName := strings.ReplaceAll(actionName, "-", "_")
-		if _, exists := userActions[legacyActionName]; exists {
+
+		userActions, ok := m.toStringAnyMap(userActionsValue)
+		if !ok || len(actionMap.actions) == 0 {
 			continue
 		}
-		missing = append(missing, workspaceShortcutsActionsKey+"."+actionName)
+
+		for actionName := range actionMap.actions {
+			if _, exists := userActions[actionName]; exists {
+				continue
+			}
+			legacyActionName := strings.ReplaceAll(actionName, "-", "_")
+			if _, exists := userActions[legacyActionName]; exists {
+				continue
+			}
+			missing = append(missing, actionMap.key+"."+actionName)
+		}
 	}
 
 	sort.Strings(missing)
 	return missing
 }
 
-// mergeMissingWorkspaceShortcutActions injects new default shortcut actions while preserving user overrides.
-func (m *Migrator) mergeMissingWorkspaceShortcutActions(rawConfig map[string]any) {
-	actionsValue := m.getNestedValue(rawConfig, workspaceShortcutsActionsKey)
-	if actionsValue == nil {
-		return
-	}
-
-	userActions, ok := m.toStringAnyMap(actionsValue)
-	if !ok {
-		return
-	}
-
-	defaultActions := m.defaultConfig.Workspace.Shortcuts.Actions
-	for actionName, defaultAction := range defaultActions {
-		if _, exists := userActions[actionName]; exists {
+// mergeMissingDefaultActions injects new default shortcut/modal actions while preserving user overrides.
+func (m *Migrator) mergeMissingDefaultActions(rawConfig map[string]any) {
+	for _, actionMap := range m.defaultActionMaps() {
+		actionsValue := m.getNestedValue(rawConfig, actionMap.key)
+		if actionsValue == nil {
 			continue
 		}
-		legacyActionName := strings.ReplaceAll(actionName, "-", "_")
-		if _, exists := userActions[legacyActionName]; exists {
+
+		userActions, ok := m.toStringAnyMap(actionsValue)
+		if !ok {
 			continue
 		}
-		userActions[actionName] = defaultAction
-	}
 
-	m.setNestedValue(rawConfig, workspaceShortcutsActionsKey, userActions)
+		for actionName, defaultAction := range actionMap.actions {
+			if _, exists := userActions[actionName]; exists {
+				continue
+			}
+			legacyActionName := strings.ReplaceAll(actionName, "-", "_")
+			if _, exists := userActions[legacyActionName]; exists {
+				continue
+			}
+			userActions[actionName] = defaultAction
+		}
+
+		m.setNestedValue(rawConfig, actionMap.key, userActions)
+	}
 }
 
 func appendUniqueKeys(base, extra []string) []string {

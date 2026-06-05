@@ -175,6 +175,10 @@ func (m *Manager) transformLegacyConfig() {
 		transformer.TransformLegacyPopupsToBrowsingContexts(rawConfig)
 	}
 
+	// Merge newly added default actions into in-memory config so existing persisted
+	// action maps keep working before the user writes a migrated config to disk.
+	configMigrator.mergeMissingDefaultActions(rawConfig)
+
 	// Apply transformed config back to viper
 	for key, value := range rawConfig {
 		m.viper.Set(key, value)

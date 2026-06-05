@@ -351,6 +351,7 @@ func TestShouldAutoExitMode(t *testing.T) {
 		ActionStackPane,
 		ActionMovePaneToTab,
 		ActionMovePaneToNextTab,
+		ActionEjectPaneToWindow,
 	}
 
 	stayActions := []Action{
@@ -373,6 +374,17 @@ func TestShouldAutoExitMode(t *testing.T) {
 		if ShouldAutoExitMode(action) {
 			t.Errorf("ShouldAutoExitMode(%s) = true, want false", action)
 		}
+	}
+}
+
+func TestMapConfigAction_EjectPaneToWindowAliases(t *testing.T) {
+	tests := []string{"eject_pane_to_window", "eject-pane-to-window"}
+	for _, name := range tests {
+		t.Run(name, func(t *testing.T) {
+			if got := mapConfigAction(name); got != ActionEjectPaneToWindow {
+				t.Fatalf("mapConfigAction(%s) = %s, want %s", name, got, ActionEjectPaneToWindow)
+			}
+		})
 	}
 }
 

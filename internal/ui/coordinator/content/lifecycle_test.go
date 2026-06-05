@@ -12,6 +12,9 @@ import (
 	"github.com/bnema/dumber/internal/application/port"
 	"github.com/bnema/dumber/internal/application/port/mocks"
 	"github.com/bnema/dumber/internal/domain/entity"
+	"github.com/bnema/dumber/internal/ui/component"
+	"github.com/bnema/dumber/internal/ui/layout"
+	layoutmocks "github.com/bnema/dumber/internal/ui/layout/mocks"
 )
 
 // newMinimalCoordinator returns a Coordinator with the maps required by
@@ -121,6 +124,53 @@ func TestLifecycle_EnsureWebView_ErrorWhenAcquireFails(t *testing.T) {
 
 	require.Error(t, err)
 	assert.Equal(t, acquireErr, err)
+}
+
+func TestLifecycle_AttachToWorkspace_ReusesRegisteredWebViewByPaneID(t *testing.T) {
+	t.Parallel()
+
+	paneID := entity.PaneID("pane-1")
+	wv := mocks.NewMockWebView(t)
+	wv.EXPECT().IsDestroyed().Return(false).Once()
+	wv.EXPECT().ID().Return(port.WebViewID(104)).Once()
+	wv.EXPECT().URI().Return("").Maybe()
+
+	pool := mocks.NewMockWebViewPool(t)
+	widgetFactory := layoutmocks.NewMockWidgetFactory(t)
+	ctx, wsView := newAttachWorkspaceView(t, widgetFactory)
+	workspace := &entity.Workspace{
+		ID:           "workspace-1",
+		Root:         &entity.PaneNode{ID: "node-1", Pane: entity.NewPane(paneID)},
+		ActivePaneID: paneID,
+	}
+
+	c := newMinimalCoordinator()
+	c.pool = pool
+	c.widgetFactory = widgetFactory
+	c.webViews[paneID] = wv
+
+	c.AttachToWorkspace(ctx, workspace, wsView)
+
+	assert.Same(t, wv, c.webViews[paneID])
+}
+
+func newAttachWorkspaceView(t *testing.T, factory *layoutmocks.MockWidgetFactory) (context.Context, *component.WorkspaceView) {
+	t.Helper()
+	ctx := context.Background()
+	container := layoutmocks.NewMockBoxWidget(t)
+	overlay := layoutmocks.NewMockOverlayWidget(t)
+
+	factory.EXPECT().NewBox(layout.OrientationVertical, 0).Return(container).Once()
+	container.EXPECT().SetHexpand(true).Once()
+	container.EXPECT().SetVexpand(true).Once()
+	container.EXPECT().SetVisible(true).Once()
+	factory.EXPECT().NewOverlay().Return(overlay).Once()
+	overlay.EXPECT().SetHexpand(true).Once()
+	overlay.EXPECT().SetVexpand(true).Once()
+	overlay.EXPECT().SetChild(container).Once()
+	overlay.EXPECT().SetVisible(true).Once()
+
+	return ctx, component.NewWorkspaceView(ctx, factory)
 }
 
 // ---------------------------------------------------------------------------
