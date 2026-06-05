@@ -35,6 +35,10 @@ func TestDefaultConfig_CoreDefaults(t *testing.T) {
 	assert.InDelta(t, defaultCEFTouchpadNavigationRatio, cfg.Engine.CEF.Input.TouchpadNavigationMaxVerticalRatio, 0.001)
 	assert.True(t, cfg.Engine.WebKit.ITPEnabled)
 
+	// Pane mode actions.
+	requireActionBinding(t, cfg.Workspace.PaneMode.Actions, "eject-pane-to-window", []string{"w"})
+	assert.Equal(t, "Eject active pane to a new window", cfg.Workspace.PaneMode.Actions["eject-pane-to-window"].Desc)
+
 	// System view shortcuts are first-class global actions.
 	requireActionBinding(t, cfg.Workspace.Shortcuts.Actions, "toggle-history-systemview", []string{"ctrl+h"})
 	requireActionBinding(t, cfg.Workspace.Shortcuts.Actions, "toggle-favorites-systemview", []string{})

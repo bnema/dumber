@@ -13,6 +13,8 @@ Dumber uses modal keybindings inspired by Zellij. Press a mode activation key, t
 
 Press `Escape` or `Enter` to exit any mode.
 
+Keybinding tables use uppercase letters as visual labels for unshifted letter keys. In config, use lowercase (for example, `["w"]` for Pane Mode eject). Shifted keys are shown with an explicit `Shift+` prefix.
+
 ## Pane Mode (`Ctrl+P`)
 
 | Action | Keys |
@@ -25,6 +27,7 @@ Press `Escape` or `Enter` to exit any mode.
 | Close pane | `X` |
 | Move to tab | `M` |
 | Move to next tab | `Shift+M` |
+| Eject to window | `W` |
 | Focus right | `Shift+→`, `Shift+L` |
 | Focus left | `Shift+←`, `Shift+H` |
 | Focus up | `Shift+↑`, `Shift+K` |

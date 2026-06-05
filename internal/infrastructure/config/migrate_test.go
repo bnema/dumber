@@ -689,24 +689,33 @@ func TestMigrator_GetConfigType(t *testing.T) {
 	}
 }
 
-func TestMigrator_DetectMissingWorkspaceShortcutActions(t *testing.T) {
+func TestMigrator_DetectMissingDefaultActions(t *testing.T) {
 	m := NewMigrator()
 
-	defaultActions := m.defaultConfig.Workspace.Shortcuts.Actions
-	userActions := make(map[string]any, len(defaultActions))
-	for actionName, value := range defaultActions {
-		userActions[actionName] = value
+	shortcutActions := make(map[string]any, len(m.defaultConfig.Workspace.Shortcuts.Actions))
+	for actionName, value := range m.defaultConfig.Workspace.Shortcuts.Actions {
+		shortcutActions[actionName] = value
 	}
-	delete(userActions, "toggle-floating-pane")
+	delete(shortcutActions, "toggle-floating-pane")
 
-	missing := m.detectMissingWorkspaceShortcutActions(map[string]any{
-		"workspace.shortcuts.actions": userActions,
+	paneActions := make(map[string]any, len(m.defaultConfig.Workspace.PaneMode.Actions))
+	for actionName, value := range m.defaultConfig.Workspace.PaneMode.Actions {
+		paneActions[actionName] = value
+	}
+	delete(paneActions, "eject-pane-to-window")
+
+	missing := m.detectMissingDefaultActions(map[string]any{
+		"workspace.shortcuts.actions": shortcutActions,
+		"workspace.pane_mode.actions": paneActions,
 	})
 
-	assert.Equal(t, []string{"workspace.shortcuts.actions.toggle-floating-pane"}, missing)
+	assert.Equal(t, []string{
+		"workspace.pane_mode.actions.eject-pane-to-window",
+		"workspace.shortcuts.actions.toggle-floating-pane",
+	}, missing)
 }
 
-func TestMigrator_MergeMissingWorkspaceShortcutActions(t *testing.T) {
+func TestMigrator_MergeMissingDefaultActions(t *testing.T) {
 	m := NewMigrator()
 
 	rawConfig := map[string]any{
@@ -746,7 +755,7 @@ func TestMigrator_MergeMissingWorkspaceShortcutActions(t *testing.T) {
 		},
 	}
 
-	m.mergeMissingWorkspaceShortcutActions(rawConfig)
+	m.mergeMissingDefaultActions(rawConfig)
 
 	actionsAny := m.getNestedValue(rawConfig, "workspace.shortcuts.actions")
 	actions, ok := actionsAny.(map[string]any)
@@ -770,6 +779,43 @@ func TestMigrator_MergeMissingWorkspaceShortcutActions(t *testing.T) {
 	assert.NotContains(t, actions, "consume-or-expel-down")
 }
 
+func TestMigrator_MergeMissingDefaultActions_PaneMode(t *testing.T) {
+	m := NewMigrator()
+
+	rawConfig := map[string]any{
+		"workspace": map[string]any{
+			"pane_mode": map[string]any{
+				"actions": map[string]any{
+					"stack-pane": map[string]any{
+						"keys": []string{"s"},
+						"desc": "Stack pane with sibling",
+					},
+					"move-pane-to-tab": map[string]any{
+						"keys": []string{"m"},
+						"desc": "Custom move pane",
+					},
+				},
+			},
+		},
+	}
+
+	m.mergeMissingDefaultActions(rawConfig)
+
+	actionsAny := m.getNestedValue(rawConfig, "workspace.pane_mode.actions")
+	actions, ok := actionsAny.(map[string]any)
+	require.True(t, ok)
+
+	ejectAny, hasEject := actions["eject-pane-to-window"]
+	assert.True(t, hasEject)
+	assert.NotNil(t, ejectAny)
+
+	moveAny, hasMove := actions["move-pane-to-tab"]
+	require.True(t, hasMove)
+	move, ok := moveAny.(map[string]any)
+	require.True(t, ok)
+	assert.Equal(t, "Custom move pane", move["desc"])
+}
+
 func TestMigrator_DefaultValueForKey_WorkspaceShortcutAction(t *testing.T) {
 	m := NewMigrator()
 
@@ -778,6 +824,16 @@ func TestMigrator_DefaultValueForKey_WorkspaceShortcutAction(t *testing.T) {
 	action, ok := value.(ActionBinding)
 	require.True(t, ok)
 	assert.Equal(t, []string{"alt+f"}, action.Keys)
+}
+
+func TestMigrator_DefaultValueForKey_PaneModeAction(t *testing.T) {
+	m := NewMigrator()
+
+	value := m.defaultValueForKey("workspace.pane_mode.actions.eject-pane-to-window")
+
+	action, ok := value.(ActionBinding)
+	require.True(t, ok)
+	assert.Equal(t, []string{"w"}, action.Keys)
 }
 
 func TestMigrator_DefaultValueForKey_RegularKey(t *testing.T) {

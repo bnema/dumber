@@ -234,6 +234,7 @@ func detachFromStackIfNeeded(ws *entity.Workspace, leaf *entity.PaneNode) (bool,
 	}
 
 	stackNode.Children = append(stackNode.Children[:idx], stackNode.Children[idx+1:]...)
+	leaf.Parent = nil
 	if stackNode.ActiveStackIndex >= len(stackNode.Children) {
 		stackNode.ActiveStackIndex = len(stackNode.Children) - 1
 	}
@@ -248,6 +249,7 @@ func detachFromStackIfNeeded(ws *entity.Workspace, leaf *entity.PaneNode) (bool,
 		stackNode.Children = nil
 		stackNode.IsStacked = false
 		stackNode.ActiveStackIndex = 0
+		remaining.Parent = nil
 		if stackNode.Pane != nil {
 			ws.ActivePaneID = stackNode.Pane.ID
 		} else {
@@ -280,6 +282,8 @@ func detachLeafFromWorkspace(ws *entity.Workspace, leaf *entity.PaneNode) error 
 	}
 
 	promoteSibling(ws, parent, sibling)
+	leaf.Parent = nil
+	parent.Children = nil
 	ws.ActivePaneID = findFirstLeafPaneID(sibling)
 	return nil
 }

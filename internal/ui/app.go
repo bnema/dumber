@@ -100,8 +100,9 @@ type App struct {
 	panesUC        *usecase.ManagePanesUseCase
 	workspaceViews map[entity.TabID]*component.WorkspaceView
 	windowForTab   map[entity.TabID]*browserWindow
-	widgetFactory  layout.WidgetFactory
-	stackedPaneMgr *component.StackedPaneManager
+	widgetFactory                layout.WidgetFactory
+	workspaceViewCreateOverride func(context.Context, *entity.Tab) bool
+	stackedPaneMgr              *component.StackedPaneManager
 
 	// Input handling
 	keyboardHandler       *input.KeyboardHandler
@@ -137,7 +138,8 @@ type App struct {
 	windowIDMu            sync.Mutex
 	firstWebViewShownOnce sync.Once
 
-	movePaneToTabUC *usecase.MovePaneToTabUseCase
+	movePaneToTabUC        *usecase.MovePaneToTabUseCase
+	extractPaneToTabListUC *usecase.ExtractPaneToTabListUseCase
 
 	// Accent picker for dead keys support
 	accentFocusProvider port.FocusedInputProvider
@@ -1772,7 +1774,11 @@ func (a *App) ensureTargetTabUI(ctx context.Context, tab *entity.Tab, targetWind
 	if tabBar := a.tabBarForBrowserWindow(targetWindow); tabBar != nil {
 		tabBar.AddTab(tab)
 	}
-	a.createWorkspaceViewWithoutAttach(ctx, tab)
+	if a.workspaceViews[tab.ID] == nil {
+		if !a.createWorkspaceViewWithoutAttach(ctx, tab) {
+			return
+		}
+	}
 }
 
 func (a *App) rebuildAndAttachWorkspace(ctx context.Context, tabID entity.TabID, tab *entity.Tab) {
@@ -2834,7 +2840,9 @@ func (a *App) buildRestoredTabUI(ctx context.Context, bw *browserWindow, tabBar 
 	if tab == nil {
 		return
 	}
-	a.createWorkspaceViewWithoutAttach(ctx, tab)
+	if !a.createWorkspaceViewWithoutAttach(ctx, tab) {
+		return
+	}
 	wsView := a.workspaceViews[tab.ID]
 	if a.wsCoord != nil && wsView != nil {
 		a.wsCoord.SetupStackedPaneCallbacks(ctx, tab.Workspace, wsView)
@@ -3198,8 +3206,9 @@ func (a *App) initCoordinators(ctx context.Context) {
 	// Wire tabbed popup behavior to create new tabs in the originating window.
 	a.wsCoord.SetOnCreatePopupTab(a.createPopupTab)
 
-	// Move pane use case (cross-tab)
+	// Move pane use cases (cross-tab/cross-window)
 	a.movePaneToTabUC = usecase.NewMovePaneToTabUseCase(a.generateID)
+	a.extractPaneToTabListUC = usecase.NewExtractPaneToTabListUseCase(a.generateID)
 
 	// 4. Navigation Coordinator
 	a.navCoord = coordinator.NewNavigationCoordinator(
@@ -3371,6 +3380,12 @@ func (a *App) wireKeyboardActions() {
 			a.activateBrowserWindow(bw)
 		}
 		return a.HandleMovePaneToNextTab(ctx)
+	})
+	a.kbDispatcher.SetOnEjectPaneToWindow(func(ctx context.Context, paneID entity.PaneID) error {
+		if bw := a.ownerOrLastFocusedBrowserWindow("", paneID); bw != nil {
+			a.activateBrowserWindow(bw)
+		}
+		return a.EjectActivePaneToWindow(ctx, paneID)
 	})
 	a.kbDispatcher.SetOnToggleFloatingPane(func(ctx context.Context) error {
 		return a.ToggleFloatingPane(ctx)
@@ -3778,7 +3793,9 @@ func (a *App) applyResizeModeBorder(ctx context.Context, ws *entity.Workspace) {
 
 // createWorkspaceView creates a WorkspaceView for a tab and attaches it to the content area.
 func (a *App) createWorkspaceView(ctx context.Context, tab *entity.Tab) {
-	a.createWorkspaceViewWithoutAttach(ctx, tab)
+	if !a.createWorkspaceViewWithoutAttach(ctx, tab) {
+		return
+	}
 
 	target := a.browserWindowForTab(tab.ID)
 	if target != nil {
@@ -3800,19 +3817,23 @@ func (a *App) createWorkspaceView(ctx context.Context, tab *entity.Tab) {
 
 // createWorkspaceViewWithoutAttach creates a WorkspaceView for a tab without attaching to content area.
 // Used during session restoration where we create all views first, then attach only the active one.
-func (a *App) createWorkspaceViewWithoutAttach(ctx context.Context, tab *entity.Tab) {
+func (a *App) createWorkspaceViewWithoutAttach(ctx context.Context, tab *entity.Tab) bool {
+	if a.workspaceViewCreateOverride != nil {
+		return a.workspaceViewCreateOverride(ctx, tab)
+	}
+
 	log := logging.FromContext(ctx)
 
 	if a.widgetFactory == nil {
 		log.Error().Msg("widget factory not initialized")
-		return
+		return false
 	}
 
 	// Create workspace view
 	wsView := component.NewWorkspaceView(ctx, a.widgetFactory)
 	if wsView == nil {
 		log.Error().Msg("failed to create workspace view")
-		return
+		return false
 	}
 	a.installFloatingOverlayPositioning(tab.ID, wsView.WorkspaceOverlayWidget())
 	if a.contentCoord != nil {
@@ -3831,7 +3852,7 @@ func (a *App) createWorkspaceViewWithoutAttach(ctx context.Context, tab *entity.
 	// Set the workspace
 	if err := wsView.SetWorkspace(ctx, tab.Workspace); err != nil {
 		log.Error().Err(err).Msg("failed to set workspace in view")
-		return
+		return false
 	}
 
 	// Ensure WebViews are attached to panes
@@ -3883,6 +3904,7 @@ func (a *App) createWorkspaceViewWithoutAttach(ctx context.Context, tab *entity.
 	a.syncFloatingFocus()
 
 	log.Debug().Str("tab_id", string(tab.ID)).Msg("workspace view created")
+	return true
 }
 
 // activeWorkspace returns the workspace of the focused browser window's active tab.

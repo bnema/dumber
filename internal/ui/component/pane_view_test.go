@@ -226,6 +226,39 @@ func TestSetWebViewWidget_ReplacesWidget(t *testing.T) {
 	assert.Equal(t, mockNewWebView, pv.WebViewWidget())
 }
 
+func TestSetWebViewWidget_ReparentsWidgetWithExistingParent(t *testing.T) {
+	// Arrange
+	mockFactory := mocks.NewMockWidgetFactory(t)
+	mockOverlay := mocks.NewMockOverlayWidget(t)
+	mockBorderBox := mocks.NewMockBoxWidget(t)
+	mockOldWebView := mocks.NewMockWidget(t)
+	mockNewWebView := mocks.NewMockWidget(t)
+	mockParent := mocks.NewMockWidget(t)
+
+	setupPaneViewMocks(t, mockFactory, mockOverlay, mockBorderBox, mockOldWebView)
+
+	pv := component.NewPaneView(context.Background(), mockFactory, entity.PaneID("pane-1"), mockOldWebView)
+
+	mockOverlay.EXPECT().SetChild(nil).Once()
+	mockOverlay.EXPECT().GetAllocatedWidth().Return(0).Twice()
+	mockOverlay.EXPECT().GetAllocatedHeight().Return(0).Twice()
+	mockNewWebView.EXPECT().GetAllocatedWidth().Return(0).Twice()
+	mockNewWebView.EXPECT().GetAllocatedHeight().Return(0).Twice()
+	mockNewWebView.EXPECT().GetParent().Return(mockParent).Once()
+	mockNewWebView.EXPECT().IsVisible().Return(true).Once()
+	mockNewWebView.EXPECT().Unparent().Once()
+	mockOverlay.EXPECT().SetChild(mockNewWebView).Once()
+	mockNewWebView.EXPECT().SetVisible(true).Once()
+
+	// Loading skeleton is hidden immediately for a reparented, already-visible widget.
+
+	// Act
+	pv.SetWebViewWidget(mockNewWebView)
+
+	// Assert
+	assert.Equal(t, mockNewWebView, pv.WebViewWidget())
+}
+
 func TestSetWebViewWidget_FromNil(t *testing.T) {
 	// Arrange
 	mockFactory := mocks.NewMockWidgetFactory(t)
@@ -538,7 +571,7 @@ func setupLoadingSkeletonMocks(
 	mockLoadingContainer.EXPECT().SetCanFocus(false).Maybe()
 	mockLoadingContainer.EXPECT().SetCanTarget(false).Maybe()
 	mockLoadingContainer.EXPECT().AddCssClass("loading-skeleton").Maybe()
-	mockLoadingContainer.EXPECT().SetVisible(true).Maybe()
+	mockLoadingContainer.EXPECT().SetVisible(mock.Anything).Maybe()
 
 	mockFactory.EXPECT().NewBox(layout.OrientationVertical, 6).Return(mockLoadingContent).Once()
 	mockLoadingContent.EXPECT().SetHalign(mock.Anything).Maybe()
@@ -565,6 +598,7 @@ func setupLoadingSkeletonMocks(
 	mockLoadingSpinner.EXPECT().SetSizeRequest(32, 32).Maybe()
 	mockLoadingSpinner.EXPECT().AddCssClass("loading-skeleton-spinner").Maybe()
 	mockLoadingSpinner.EXPECT().Start().Maybe()
+	mockLoadingSpinner.EXPECT().Stop().Maybe()
 
 	mockFactory.EXPECT().NewLabel(mock.Anything).Return(mockLoadingVersion).Once()
 	mockLoadingVersion.EXPECT().SetHalign(mock.Anything).Maybe()

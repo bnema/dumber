@@ -239,6 +239,7 @@ stack-pane = ["s"]
 close-pane = ["x"]
 move-pane-to-tab = ["m"]
 move-pane-to-next-tab = ["M", "shift+m"]
+eject-pane-to-window = ["w"]
 
 # Consume-or-expel (niri-style) - very alpha
 consume-or-expel-left = ["["]

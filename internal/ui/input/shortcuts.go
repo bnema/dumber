@@ -137,6 +137,7 @@ const (
 
 	ActionMovePaneToTab     Action = "move_pane_to_tab"
 	ActionMovePaneToNextTab Action = "move_pane_to_next_tab"
+	ActionEjectPaneToWindow Action = "eject_pane_to_window"
 
 	ActionConsumeOrExpelLeft  Action = "consume_or_expel_left"
 	ActionConsumeOrExpelRight Action = "consume_or_expel_right"
@@ -601,6 +602,8 @@ var configActionToAction = map[string]Action{
 	"move-pane-to-tab":      ActionMovePaneToTab,
 	"move_pane_to_next_tab": ActionMovePaneToNextTab,
 	"move-pane-to-next-tab": ActionMovePaneToNextTab,
+	"eject_pane_to_window":  ActionEjectPaneToWindow,
+	"eject-pane-to-window":  ActionEjectPaneToWindow,
 
 	"consume_or_expel_left":  ActionConsumeOrExpelLeft,
 	"consume-or-expel-left":  ActionConsumeOrExpelLeft,
@@ -824,7 +827,7 @@ func ShouldAutoExitMode(action Action) bool {
 	case ActionNewTab, ActionCloseTab, ActionRenameTab,
 		ActionSplitRight, ActionSplitLeft, ActionSplitUp, ActionSplitDown,
 		ActionClosePane, ActionStackPane,
-		ActionMovePaneToTab, ActionMovePaneToNextTab,
+		ActionMovePaneToTab, ActionMovePaneToNextTab, ActionEjectPaneToWindow,
 		ActionConsumeOrExpelLeft, ActionConsumeOrExpelRight, ActionConsumeOrExpelUp, ActionConsumeOrExpelDown,
 		ActionOpenSessionManager:
 		return true

@@ -124,6 +124,11 @@ func TestKeyboardDispatcher_PassesActivePaneIDToShellCallbacks(t *testing.T) {
 			set:    d.SetOnMovePaneToNextTab,
 			invoke: d.handleMovePaneToNextTab,
 		},
+		{
+			name:   "eject pane to window",
+			set:    d.SetOnEjectPaneToWindow,
+			invoke: d.handleEjectPaneToWindow,
+		},
 	}
 
 	for _, tc := range tests {
