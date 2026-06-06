@@ -83,7 +83,7 @@ jobs:
       - name: Install dependencies
         run: |
           pacman -Syu --noconfirm
-          pacman -S --noconfirm git go webkitgtk-6.0 gtk4 libadwaita gobject-introspection base-devel brotli
+          pacman -S --noconfirm git go webkitgtk-6.0 gtk4 libadwaita gobject-introspection base-devel brotli dbus
       - uses: actions/checkout@v6
       - name: Cache Go modules
         uses: actions/cache@v5
