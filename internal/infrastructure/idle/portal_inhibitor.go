@@ -135,7 +135,10 @@ func (p *PortalInhibitor) Inhibit(ctx context.Context, reason string) error {
 func (p *PortalInhibitor) watchForResponse(ctx context.Context, handlePath dbus.ObjectPath) {
 	log := logging.FromContext(ctx)
 
-	if p.conn == nil {
+	p.mu.Lock()
+	conn := p.conn
+	p.mu.Unlock()
+	if conn == nil {
 		return
 	}
 
@@ -145,18 +148,18 @@ func (p *PortalInhibitor) watchForResponse(ctx context.Context, handlePath dbus.
 		requestIface, handlePath,
 	)
 
-	if err := p.conn.BusObject().Call("org.freedesktop.DBus.AddMatch", 0, matchRule).Err; err != nil {
+	if err := conn.BusObject().Call("org.freedesktop.DBus.AddMatch", 0, matchRule).Err; err != nil {
 		log.Debug().Err(err).Msg("idle inhibitor: failed to add signal match")
 		return
 	}
 
 	// Create a channel to receive signals
 	signals := make(chan *dbus.Signal, 1)
-	p.conn.Signal(signals)
+	conn.Signal(signals)
 
 	defer func() {
-		p.conn.RemoveSignal(signals)
-		_ = p.conn.BusObject().Call("org.freedesktop.DBus.RemoveMatch", 0, matchRule).Err
+		conn.RemoveSignal(signals)
+		_ = conn.BusObject().Call("org.freedesktop.DBus.RemoveMatch", 0, matchRule).Err
 	}()
 
 	// Wait for either a Response signal or context cancellation
