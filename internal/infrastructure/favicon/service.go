@@ -29,9 +29,6 @@ func NewService(cacheDir string) *Service {
 }
 
 func (s *Service) Cache() *Cache {
-	if s == nil {
-		return nil
-	}
 	return s.cache
 }
 

@@ -388,6 +388,7 @@ func (wv *WebView) retainFaviconSourceVisitor(visitor purecef.StringVisitor) fun
 		defer wv.faviconSourceVisitorsMu.Unlock()
 		for i, candidate := range wv.faviconSourceVisitors {
 			if candidate.id == id {
+				wv.faviconSourceVisitors[i].visitor = nil
 				wv.faviconSourceVisitors = append(wv.faviconSourceVisitors[:i], wv.faviconSourceVisitors[i+1:]...)
 				return
 			}

@@ -71,6 +71,7 @@ func (f PageHandlerFunc) Handle(req *SchemeRequest) *SchemeResponse {
 
 // DumbSchemeHandler handles dumb:// URI scheme requests.
 type DumbSchemeHandler struct {
+	ctx                  context.Context
 	handlers             map[string]PageHandler
 	assets               embed.FS
 	faviconResolver      port.FaviconSystemviewResolver
@@ -86,6 +87,7 @@ func NewDumbSchemeHandler(ctx context.Context) *DumbSchemeHandler {
 	log := logging.FromContext(ctx)
 
 	h := &DumbSchemeHandler{
+		ctx:      ctx,
 		handlers: make(map[string]PageHandler),
 		assetDir: systemviewsAssetDir,
 		logger:   log.With().Str("component", "scheme-handler").Logger(),
@@ -233,7 +235,11 @@ func (h *DumbSchemeHandler) handleFaviconAPI(req *SchemeRequest) *SchemeResponse
 		size = parsedSize
 	}
 
-	resolved, err := resolver.ResolveSystemviewIcon(context.Background(), domain, size)
+	resolveCtx := h.ctx
+	if resolveCtx == nil {
+		resolveCtx = context.Background()
+	}
+	resolved, err := resolver.ResolveSystemviewIcon(resolveCtx, domain, size)
 	if err != nil || resolved == nil || len(resolved.Bytes) == 0 {
 		return privateJSONErrorResponse(http.StatusNotFound, "favicon not cached")
 	}

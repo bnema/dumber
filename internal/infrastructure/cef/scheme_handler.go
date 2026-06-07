@@ -837,8 +837,10 @@ func newFaviconResourceHandler(
 	domain string,
 	size int,
 ) purecef.ResourceHandler {
+	reqCtx, cancel := context.WithCancel(ctx) //nolint:gosec // canceled by load completion or CEF Cancel callback
 	return cefNewResourceHandler(&faviconResourceHandler{
-		ctx:      ctx,
+		ctx:      reqCtx,
+		cancel:   cancel,
 		resolver: resolver,
 		domain:   domain,
 		size:     size,
@@ -849,6 +851,8 @@ func newFaviconResourceHandler(
 
 type faviconResourceHandler struct {
 	ctx         context.Context
+	cancel      context.CancelFunc
+	cancelOnce  sync.Once
 	resolver    port.FaviconSystemviewResolver
 	domain      string
 	size        int
@@ -863,6 +867,7 @@ type faviconResourceHandler struct {
 
 func (rh *faviconResourceHandler) load() {
 	defer close(rh.done)
+	defer rh.cancelRequest()
 	rh.statusCode = http.StatusNotFound
 	rh.contentType = "application/json"
 	rh.data = []byte(`{"error":"favicon not cached"}`)
@@ -954,7 +959,13 @@ func (rh *faviconResourceHandler) ReadResponse(_ unsafe.Pointer, _ int32, _ *int
 	return 0
 }
 
-func (rh *faviconResourceHandler) Cancel() {}
+func (rh *faviconResourceHandler) Cancel() { rh.cancelRequest() }
+
+func (rh *faviconResourceHandler) cancelRequest() {
+	if rh.cancel != nil {
+		rh.cancelOnce.Do(rh.cancel)
+	}
+}
 
 // Open handles the request immediately (synchronous).
 func (rh *staticResourceHandler) Open(_ purecef.Request, handleRequest *int32, _ purecef.Callback) int32 {

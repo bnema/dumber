@@ -209,7 +209,7 @@ func (uc *FaviconUseCase) Observe(
 	var converted *appport.ConvertedFavicon
 	if uc.converter != nil {
 		var err error
-		converted, err = uc.converter.Convert(ctx, bytes, contentType, []int{32})
+		converted, err = uc.converter.Convert(ctx, bytes, contentType, []int{SystemviewIconSize})
 		if err != nil {
 			return nil, err
 		}
@@ -227,8 +227,8 @@ func (uc *FaviconUseCase) Observe(
 				return nil, err
 			}
 		}
-		if b := converted.SizedPNG[32]; len(b) > 0 {
-			if err := uc.blobs.WriteSizedPNG(ctx, key, 32, b); err != nil {
+		if b := converted.SizedPNG[SystemviewIconSize]; len(b) > 0 {
+			if err := uc.blobs.WriteSizedPNG(ctx, key, SystemviewIconSize, b); err != nil {
 				return nil, err
 			}
 		}
