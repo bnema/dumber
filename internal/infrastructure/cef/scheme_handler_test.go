@@ -10,6 +10,8 @@ import (
 	purecef "github.com/bnema/purego-cef/cef"
 	cefmocks "github.com/bnema/purego-cef/cef/mocks"
 	"github.com/stretchr/testify/require"
+
+	"github.com/bnema/dumber/internal/application/port"
 )
 
 func expectAPIResponseHeaders(response *cefmocks.MockResponse) {
@@ -28,26 +30,11 @@ func expectPrivateAPIResponseHeaders(response *cefmocks.MockResponse) {
 	response.EXPECT().SetHeaderByName("Cache-Control", "no-store", int32(1)).Once()
 }
 
-type panicFaviconService struct{}
+type panicSystemviewFaviconResolver struct{}
 
-func (panicFaviconService) GetCached(context.Context, string) ([]byte, bool) {
+func (panicSystemviewFaviconResolver) ResolveSystemviewIcon(context.Context, string, int) (*port.ResolvedFavicon, error) {
 	panic("unexpected favicon lookup")
 }
-func (panicFaviconService) Get(context.Context, string) ([]byte, error) {
-	panic("unexpected favicon lookup")
-}
-func (panicFaviconService) DiskPathPNG(string) string           { panic("unexpected favicon lookup") }
-func (panicFaviconService) HasPNGOnDisk(string) bool            { panic("unexpected favicon lookup") }
-func (panicFaviconService) HasPNGSizedOnDisk(string, int) bool  { panic("unexpected favicon lookup") }
-func (panicFaviconService) DiskPathPNGSized(string, int) string { panic("unexpected favicon lookup") }
-func (panicFaviconService) EnsureSizedPNG(context.Context, string, int) error {
-	panic("unexpected favicon lookup")
-}
-func (panicFaviconService) EnsureCacheDir() error { panic("unexpected favicon lookup") }
-func (panicFaviconService) EnsureDiskCache(context.Context, string) {
-	panic("unexpected favicon lookup")
-}
-func (panicFaviconService) Close() {}
 
 // noopConfigPayload returns a builder that always returns an empty JSON object.
 func noopConfigPayload() func() ([]byte, error) {
@@ -310,7 +297,7 @@ func TestHandleFaviconAPIDefersFaviconDiskChecksUntilResourceOpen(t *testing.T) 
 	defer func() { cefNewResourceHandler = oldNewResourceHandler }()
 
 	h := newTestDumbSchemeHandler(t)
-	h.setFaviconService(panicFaviconService{})
+	h.setFaviconResolver(panicSystemviewFaviconResolver{})
 
 	request := cefmocks.NewMockRequest(t)
 	request.EXPECT().GetHeaderByName("Origin").Return(actualInternalOrigin).Once()

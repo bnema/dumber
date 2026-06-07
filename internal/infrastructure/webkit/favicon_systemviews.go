@@ -2,13 +2,13 @@ package webkit
 
 import "github.com/bnema/dumber/internal/application/port"
 
-var _ port.SystemviewFaviconServiceSetter = (*Engine)(nil)
+var _ port.SystemviewFaviconResolverSetter = (*Engine)(nil)
 
-// SetSystemviewFaviconService exposes cached favicons to systemview pages via
-// dumb://api/favicon without triggering remote favicon fetches during History rendering.
-func (e *Engine) SetSystemviewFaviconService(service port.FaviconService) {
+// SetSystemviewFaviconResolver exposes the application favicon resolver to
+// systemview pages via dumb://api/favicon without disk-service access.
+func (e *Engine) SetSystemviewFaviconResolver(resolver port.FaviconSystemviewResolver) {
 	if e == nil || e.schemeHandler == nil {
 		return
 	}
-	e.schemeHandler.SetFaviconService(service)
+	e.schemeHandler.SetFaviconResolver(resolver)
 }

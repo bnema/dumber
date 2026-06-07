@@ -12,7 +12,6 @@ import (
 	"io/fs"
 	"net/http"
 	"net/url"
-	"os"
 	"path"
 	"strconv"
 	"strings"
@@ -23,7 +22,6 @@ import (
 	purecef "github.com/bnema/purego-cef/cef"
 
 	"github.com/bnema/dumber/internal/application/port"
-	domainurl "github.com/bnema/dumber/internal/domain/url"
 	"github.com/bnema/dumber/internal/infrastructure/webutil"
 	"github.com/bnema/dumber/internal/logging"
 	"github.com/rs/zerolog"
@@ -56,7 +54,7 @@ var cefNewResourceHandler = purecef.NewResourceHandler
 type dumbSchemeHandler struct {
 	ctx                  context.Context
 	messageRouter        *MessageRouter
-	faviconService       port.FaviconService
+	faviconResolver      port.FaviconSystemviewResolver
 	assets               embed.FS
 	assetsSet            bool
 	assetDir             string
@@ -121,10 +119,10 @@ func (h *dumbSchemeHandler) setAssets(assets embed.FS) {
 	h.logger.Debug().Msg("assets filesystem configured")
 }
 
-func (h *dumbSchemeHandler) setFaviconService(service port.FaviconService) {
+func (h *dumbSchemeHandler) setFaviconResolver(resolver port.FaviconSystemviewResolver) {
 	h.mu.Lock()
 	defer h.mu.Unlock()
-	h.faviconService = service
+	h.faviconResolver = resolver
 }
 
 // Create implements purecef.SchemeHandlerFactory. Called on the CEF IO thread
@@ -311,9 +309,9 @@ func (h *dumbSchemeHandler) handleFaviconAPI(request purecef.Request) purecef.Re
 	}
 
 	h.mu.RLock()
-	service := h.faviconService
+	resolver := h.faviconResolver
 	h.mu.RUnlock()
-	if service == nil {
+	if resolver == nil {
 		return h.newPrivateAPIJSONResourceHandler(http.StatusNotFound, map[string]string{"error": "favicon unavailable"})
 	}
 
@@ -321,7 +319,7 @@ func (h *dumbSchemeHandler) handleFaviconAPI(request purecef.Request) purecef.Re
 	if err != nil {
 		return h.newPrivateAPIJSONResourceHandler(http.StatusBadRequest, map[string]string{"error": "invalid request URL"})
 	}
-	domain := domainurl.CanonicalDomain(parsed.Query().Get("domain"))
+	domain := strings.TrimSpace(parsed.Query().Get("domain"))
 	if domain == "" {
 		return h.newPrivateAPIJSONResourceHandler(http.StatusBadRequest, map[string]string{"error": "missing domain"})
 	}
@@ -334,7 +332,7 @@ func (h *dumbSchemeHandler) handleFaviconAPI(request purecef.Request) purecef.Re
 		size = parsedSize
 	}
 
-	return newFaviconResourceHandler(service, domain, size)
+	return newFaviconResourceHandler(h.ctx, resolver, domain, size)
 }
 
 func (h *dumbSchemeHandler) rejectUntrustedFaviconRequester(request purecef.Request) purecef.ResourceHandler {
@@ -833,91 +831,25 @@ func (h *dumbSchemeHandler) newPrivateAPIJSONResourceHandler(status int, v any) 
 	return h.newPrivateAPIRawResourceHandler(status, "application/json", data)
 }
 
-func newFaviconResourceHandler(service port.FaviconService, domain string, size int) purecef.ResourceHandler {
+func newFaviconResourceHandler(
+	ctx context.Context,
+	resolver port.FaviconSystemviewResolver,
+	domain string,
+	size int,
+) purecef.ResourceHandler {
 	return cefNewResourceHandler(&faviconResourceHandler{
-		service: service,
-		domain:  domain,
-		size:    size,
-		done:    make(chan struct{}),
-		headers: map[string]string{"Cache-Control": "no-store"},
+		ctx:      ctx,
+		resolver: resolver,
+		domain:   domain,
+		size:     size,
+		done:     make(chan struct{}),
+		headers:  map[string]string{"Cache-Control": "no-store"},
 	})
 }
 
-const maxFaviconMemoryCacheEntries = 256
-
-var systemviewFaviconCache = newFaviconMemoryCache(maxFaviconMemoryCacheEntries)
-
-type faviconCacheEntry struct {
-	statusCode  int
-	contentType string
-	data        []byte
-}
-
-type faviconMemoryCache struct {
-	mu      sync.Mutex
-	max     int
-	entries map[string]faviconCacheEntry
-	order   []string
-}
-
-func newFaviconMemoryCache(maxEntries int) *faviconMemoryCache {
-	return &faviconMemoryCache{
-		max:     maxEntries,
-		entries: make(map[string]faviconCacheEntry),
-		order:   make([]string, 0, maxEntries),
-	}
-}
-
-func faviconCacheKey(domain string, size int) string {
-	return strings.ToLower(strings.TrimSpace(domain)) + "\x00" + strconv.Itoa(size)
-}
-
-func (c *faviconMemoryCache) get(key string) (faviconCacheEntry, bool) {
-	if c == nil || key == "" {
-		return faviconCacheEntry{}, false
-	}
-	c.mu.Lock()
-	defer c.mu.Unlock()
-	entry, ok := c.entries[key]
-	if !ok {
-		return faviconCacheEntry{}, false
-	}
-	c.moveToBackLocked(key)
-	return entry, true
-}
-
-func (c *faviconMemoryCache) put(key string, entry faviconCacheEntry) {
-	if c == nil || key == "" || c.max <= 0 {
-		return
-	}
-	c.mu.Lock()
-	defer c.mu.Unlock()
-	if _, ok := c.entries[key]; !ok {
-		c.order = append(c.order, key)
-	} else {
-		c.moveToBackLocked(key)
-	}
-	c.entries[key] = entry
-	for len(c.order) > c.max {
-		oldest := c.order[0]
-		c.order = c.order[1:]
-		delete(c.entries, oldest)
-	}
-}
-
-func (c *faviconMemoryCache) moveToBackLocked(key string) {
-	for i, candidate := range c.order {
-		if candidate != key {
-			continue
-		}
-		copy(c.order[i:], c.order[i+1:])
-		c.order[len(c.order)-1] = key
-		return
-	}
-}
-
 type faviconResourceHandler struct {
-	service     port.FaviconService
+	ctx         context.Context
+	resolver    port.FaviconSystemviewResolver
 	domain      string
 	size        int
 	headers     map[string]string
@@ -934,35 +866,19 @@ func (rh *faviconResourceHandler) load() {
 	rh.statusCode = http.StatusNotFound
 	rh.contentType = "application/json"
 	rh.data = []byte(`{"error":"favicon not cached"}`)
-	if rh.service == nil {
+	if rh.resolver == nil {
 		return
 	}
-	cacheKey := faviconCacheKey(rh.domain, rh.size)
-	if entry, ok := systemviewFaviconCache.get(cacheKey); ok {
-		rh.statusCode = entry.statusCode
-		rh.contentType = entry.contentType
-		rh.data = entry.data
-		return
-	}
-	if !rh.service.HasPNGSizedOnDisk(rh.domain, rh.size) {
-		return
-	}
-	diskPath := rh.service.DiskPathPNGSized(rh.domain, rh.size)
-	if diskPath == "" {
-		return
-	}
-	data, err := os.ReadFile(diskPath)
-	if err != nil || len(data) == 0 {
+	resolved, err := rh.resolver.ResolveSystemviewIcon(rh.ctx, rh.domain, rh.size)
+	if err != nil || resolved == nil || len(resolved.Bytes) == 0 {
 		return
 	}
 	rh.statusCode = http.StatusOK
-	rh.contentType = "image/png"
-	rh.data = data
-	systemviewFaviconCache.put(cacheKey, faviconCacheEntry{
-		statusCode:  rh.statusCode,
-		contentType: rh.contentType,
-		data:        data,
-	})
+	rh.contentType = resolved.ContentType
+	if rh.contentType == "" {
+		rh.contentType = "image/png"
+	}
+	rh.data = resolved.Bytes
 }
 
 func (rh *faviconResourceHandler) Open(_ purecef.Request, handleRequest *int32, callback purecef.Callback) int32 {

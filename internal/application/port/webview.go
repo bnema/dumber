@@ -101,6 +101,8 @@ type WebViewCallbacks struct {
 	// OnFaviconChanged is called when the page favicon changes.
 	// The parameter is a *gdk.Texture (passed as Texture interface to avoid GTK import in port layer).
 	OnFaviconChanged func(favicon Texture)
+	// OnFaviconURLChanged is called when the engine discovers ordered favicon URL candidates for a page.
+	OnFaviconURLChanged func(pageURL string, iconURLs []string)
 	// OnClose is called when the WebView requests to close.
 	OnClose func()
 	// OnCreate is called when a popup window is requested.

@@ -59,11 +59,13 @@ type Dependencies struct {
 	CopyURLUC    *usecase.CopyURLUseCase
 
 	// Infrastructure Adapters
-	Clipboard            port.Clipboard
-	FaviconService       port.FaviconService
-	FaviconAdapterConfig adapter.FaviconAdapterConfig
-	FilterManager        port.FilterManager
-	IdleInhibitor        port.IdleInhibitor
+	Clipboard                 port.Clipboard
+	FaviconService            port.FaviconService
+	FaviconResolver           port.FaviconResolver
+	SystemviewFaviconResolver port.FaviconSystemviewResolver
+	FaviconAdapterConfig      adapter.FaviconAdapterConfig
+	FilterManager             port.FilterManager
+	IdleInhibitor             port.IdleInhibitor
 
 	// Accent picker for dead keys support
 	InsertAccentUC      *usecase.InsertAccentUseCase

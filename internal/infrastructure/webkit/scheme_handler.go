@@ -9,7 +9,6 @@ import (
 	"io/fs"
 	"net/http"
 	"net/url"
-	"os"
 	"path"
 	"strconv"
 	"strings"
@@ -17,7 +16,6 @@ import (
 
 	"github.com/andybalholm/brotli"
 	"github.com/bnema/dumber/internal/application/port"
-	domainurl "github.com/bnema/dumber/internal/domain/url"
 	"github.com/bnema/dumber/internal/infrastructure/webutil"
 	"github.com/bnema/dumber/internal/logging"
 	"github.com/bnema/puregotk/v4/gio"
@@ -75,7 +73,7 @@ func (f PageHandlerFunc) Handle(req *SchemeRequest) *SchemeResponse {
 type DumbSchemeHandler struct {
 	handlers             map[string]PageHandler
 	assets               embed.FS
-	faviconService       port.FaviconService
+	faviconResolver      port.FaviconSystemviewResolver
 	assetDir             string // default subdirectory within embed.FS (e.g., "systemviews")
 	logger               zerolog.Logger
 	mu                   sync.RWMutex
@@ -116,10 +114,10 @@ func (h *DumbSchemeHandler) SetConfigPayloadBuilders(current, defaultPayload fun
 	h.logger.Debug().Msg("config payload builders configured")
 }
 
-func (h *DumbSchemeHandler) SetFaviconService(service port.FaviconService) {
+func (h *DumbSchemeHandler) SetFaviconResolver(resolver port.FaviconSystemviewResolver) {
 	h.mu.Lock()
 	defer h.mu.Unlock()
-	h.faviconService = service
+	h.faviconResolver = resolver
 }
 
 // registerDefaults sets up default page handlers.
@@ -210,9 +208,9 @@ func (h *DumbSchemeHandler) handleFaviconAPI(req *SchemeRequest) *SchemeResponse
 		return privateJSONErrorResponse(http.StatusForbidden, "forbidden")
 	}
 	h.mu.RLock()
-	service := h.faviconService
+	resolver := h.faviconResolver
 	h.mu.RUnlock()
-	if service == nil {
+	if resolver == nil {
 		return privateJSONErrorResponse(http.StatusNotFound, "favicon unavailable")
 	}
 	if req == nil {
@@ -222,7 +220,7 @@ func (h *DumbSchemeHandler) handleFaviconAPI(req *SchemeRequest) *SchemeResponse
 	if err != nil {
 		return privateJSONErrorResponse(http.StatusBadRequest, "invalid request URL")
 	}
-	domain := domainurl.CanonicalDomain(parsed.Query().Get("domain"))
+	domain := strings.TrimSpace(parsed.Query().Get("domain"))
 	if domain == "" {
 		return privateJSONErrorResponse(http.StatusBadRequest, "missing domain")
 	}
@@ -235,20 +233,17 @@ func (h *DumbSchemeHandler) handleFaviconAPI(req *SchemeRequest) *SchemeResponse
 		size = parsedSize
 	}
 
-	if !service.HasPNGSizedOnDisk(domain, size) {
+	resolved, err := resolver.ResolveSystemviewIcon(context.Background(), domain, size)
+	if err != nil || resolved == nil || len(resolved.Bytes) == 0 {
 		return privateJSONErrorResponse(http.StatusNotFound, "favicon not cached")
 	}
-	diskPath := service.DiskPathPNGSized(domain, size)
-	if diskPath == "" {
-		return privateJSONErrorResponse(http.StatusNotFound, "favicon not cached")
-	}
-	data, err := os.ReadFile(diskPath)
-	if err != nil || len(data) == 0 {
-		return privateJSONErrorResponse(http.StatusNotFound, "favicon not cached")
+	contentType := resolved.ContentType
+	if contentType == "" {
+		contentType = "image/png"
 	}
 	return &SchemeResponse{
-		Data:                   data,
-		ContentType:            "image/png",
+		Data:                   resolved.Bytes,
+		ContentType:            contentType,
 		StatusCode:             http.StatusOK,
 		Headers:                map[string]string{"Cache-Control": "no-store"},
 		SuppressDefaultHeaders: true,

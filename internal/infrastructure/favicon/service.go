@@ -15,24 +15,27 @@ const InternalScheme = "dumb://"
 // InternalDomain is the pseudo-domain used for caching internal page favicons.
 const InternalDomain = "dumb"
 
-// Service implements the domain FaviconService interface.
-// It coordinates between the cache and fetcher components.
+// Service is the legacy favicon cache adapter kept for callers that have not yet
+// been migrated to the application favicon usecase. It must not own refresh or
+// remote-fetch policy; new code should use the usecase plus BlobStore/Fetcher.
 type Service struct {
-	cache   *Cache
-	fetcher *Fetcher
+	cache *Cache
 }
 
 // NewService creates a new favicon service.
 // cacheDir is the directory for disk caching; empty string disables disk caching.
 func NewService(cacheDir string) *Service {
-	return &Service{
-		cache:   NewCache(cacheDir),
-		fetcher: NewFetcher(),
-	}
+	return &Service{cache: NewCache(cacheDir)}
 }
 
-// Get returns favicon bytes for a domain.
-// Checks memory cache, then disk cache, then fetches from external API.
+func (s *Service) Cache() *Cache {
+	if s == nil {
+		return nil
+	}
+	return s.cache
+}
+
+// Get returns favicon bytes for a domain from the legacy cache only.
 func (s *Service) Get(ctx context.Context, domain string) ([]byte, error) {
 	if domain == "" {
 		return nil, nil
@@ -46,7 +49,6 @@ func (s *Service) Get(ctx context.Context, domain string) ([]byte, error) {
 		return assets.LogoSVG, nil
 	}
 
-	// Check cache first (memory + disk)
 	if data, ok := s.cache.Get(ctx, domain); ok {
 		log.Debug().
 			Str("domain", domain).
@@ -54,24 +56,8 @@ func (s *Service) Get(ctx context.Context, domain string) ([]byte, error) {
 			Msg("favicon: Service.Get cache hit")
 		return data, nil
 	}
-
-	// Fetch from external API
-	data, err := s.fetcher.Fetch(ctx, domain)
-	if err != nil {
-		log.Debug().Err(err).Str("domain", domain).Msg("favicon: Service.Get fetch error")
-		return nil, err
-	}
-
-	// Store in cache if we got data
-	if len(data) > 0 {
-		s.cache.Set(ctx, domain, data)
-	}
-	log.Debug().
-		Str("domain", domain).
-		Int("bytes", len(data)).
-		Msg("favicon: Service.Get end")
-
-	return data, nil
+	log.Debug().Str("domain", domain).Msg("favicon: Service.Get cache miss")
+	return nil, nil
 }
 
 // IsInternalURL checks if a URL uses the internal dumb:// scheme.
@@ -127,35 +113,10 @@ func (s *Service) Close() {
 	s.cache.Close()
 }
 
-// EnsureDiskCache fetches favicon from external API and saves to disk if not already cached.
-// This is used when we receive a texture from WebKit but want to ensure disk persistence.
-func (s *Service) EnsureDiskCache(ctx context.Context, domain string) {
-	if domain == "" {
-		return
-	}
-	log := logging.FromContext(ctx)
-	log.Debug().Str("domain", domain).Msg("favicon: EnsureDiskCache begin")
-
-	// Already on disk?
-	if s.cache.HasOnDisk(domain) {
-		log.Debug().Str("domain", domain).Msg("favicon: EnsureDiskCache already on disk")
-		return
-	}
-
-	// Fetch and store
-	data, err := s.fetcher.Fetch(ctx, domain)
-	if err != nil {
-		log.Debug().Err(err).Str("domain", domain).Msg("failed to fetch favicon for disk cache")
-		return
-	}
-
-	if len(data) > 0 {
-		s.cache.Set(ctx, domain, data)
-	}
-	log.Debug().
-		Str("domain", domain).
-		Int("bytes", len(data)).
-		Msg("favicon: EnsureDiskCache end")
+// EnsureDiskCache is a legacy no-op. Disk population is handled by explicit
+// texture/blob writes after EnsureCacheDir; remote refresh policy belongs to the application usecase.
+func (*Service) EnsureDiskCache(ctx context.Context, domain string) {
+	logging.FromContext(ctx).Debug().Str("domain", domain).Msg("favicon: legacy EnsureDiskCache skipped")
 }
 
 // DiskPathPNGSized returns the filesystem path for a sized PNG favicon.
@@ -168,8 +129,8 @@ func (s *Service) HasPNGSizedOnDisk(domain string, size int) bool {
 	return s.cache.HasPNGSizedOnDisk(domain, size)
 }
 
-// EnsureSizedPNG creates a resized PNG from the original if it doesn't exist.
-// This is used to generate normalized icons for dmenu/fuzzel.
+// EnsureSizedPNG creates or overwrites a resized PNG from the original PNG.
+// This is a legacy adapter method; new code should use the favicon usecase.
 func (s *Service) EnsureSizedPNG(ctx context.Context, domain string, size int) error {
 	if domain == "" {
 		return nil
@@ -180,16 +141,6 @@ func (s *Service) EnsureSizedPNG(ctx context.Context, domain string, size int) e
 		Int("size", size).
 		Msg("favicon: EnsureSizedPNG begin")
 
-	// Already exists?
-	if s.HasPNGSizedOnDisk(domain, size) {
-		log.Debug().
-			Str("domain", domain).
-			Int("size", size).
-			Msg("favicon: EnsureSizedPNG already exists")
-		return nil
-	}
-
-	// Check source PNG exists
 	srcPath := s.DiskPathPNG(domain)
 	if srcPath == "" || !s.HasPNGOnDisk(domain) {
 		return fmt.Errorf("source PNG not found for domain %s", domain)

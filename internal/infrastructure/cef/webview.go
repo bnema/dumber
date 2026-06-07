@@ -67,10 +67,11 @@ const (
 )
 
 var (
-	cefNewTask         = purecef.NewTask
-	cefPostTask        = purecef.PostTask
-	cefPostDelayedTask = purecef.PostDelayedTask
-	cefScheduleAfter   = func(delay time.Duration, fn func()) { time.AfterFunc(delay, fn) }
+	cefNewTask          = purecef.NewTask
+	cefNewStringVisitor = purecef.NewStringVisitor
+	cefPostTask         = purecef.PostTask
+	cefPostDelayedTask  = purecef.PostDelayedTask
+	cefScheduleAfter    = func(delay time.Duration, fn func()) { time.AfterFunc(delay, fn) }
 )
 
 // WebView implements port.WebView using a CEF off-screen browser rendered and
@@ -198,6 +199,11 @@ type WebView struct {
 
 	// Last known hover URI for middle-click → new tab.
 	lastHoverURI string
+
+	// Favicon source visitors are retained until CEF calls them back because
+	// GetSource delivers asynchronously through a C callback pointer.
+	faviconSourceVisitorsMu sync.Mutex
+	faviconSourceVisitors   []faviconSourceVisitorRetention
 
 	// Load diagnostics state (mutex-protected).
 	loadDiagSeq             uint64
