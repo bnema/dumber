@@ -234,7 +234,7 @@ func (a *FaviconAdapter) resolveTexture(ctx context.Context, pageURL string, sch
 	}
 	texture := a.textureFromBytesOnGTK(ctx, resolved.Bytes)
 	if texture != nil {
-		a.setTexture(string(resolved.Key), texture)
+		a.setResolvedTexture(pageURL, resolved.Key, texture)
 	}
 	return texture
 }
@@ -512,10 +512,19 @@ func (a *FaviconAdapter) Close() {
 	}
 }
 
-// Invalidate clears one resolved-key texture cache entry.
+// Invalidate clears one resolved-key texture cache entry and any domain aliases
+// pointing at the same texture.
 func (a *FaviconAdapter) Invalidate(_ context.Context, key favicon.Key) error {
 	a.mu.Lock()
+	texture := a.textureCache[string(key)]
 	delete(a.textureCache, string(key))
+	if texture != nil {
+		for cacheKey, cached := range a.textureCache {
+			if cached == texture {
+				delete(a.textureCache, cacheKey)
+			}
+		}
+	}
 	a.mu.Unlock()
 	return nil
 }
@@ -533,6 +542,16 @@ func (a *FaviconAdapter) Size() int {
 	size := len(a.textureCache)
 	a.mu.RUnlock()
 	return size
+}
+
+// setResolvedTexture stores resolver results under both the resolved favicon key
+// and the current page domain. The domain alias keeps UI lookups fast while
+// Invalidate removes aliases sharing the same texture during the migration path.
+func (a *FaviconAdapter) setResolvedTexture(pageURL string, key favicon.Key, texture *gdk.Texture) {
+	a.setTexture(string(key), texture)
+	if domain := domainurl.ExtractDomain(pageURL); domain != "" {
+		a.setTexture(domain, texture)
+	}
 }
 
 // setTexture stores a texture in the cache.

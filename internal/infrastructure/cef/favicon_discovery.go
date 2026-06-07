@@ -87,8 +87,12 @@ func faviconRel(rel string) bool {
 }
 
 func resolveFaviconURL(pageURL, rawIconURL string) (string, bool) {
-	icon, err := url.Parse(strings.TrimSpace(rawIconURL))
-	if err != nil || rawIconURL == "" {
+	trimmed := strings.TrimSpace(rawIconURL)
+	if trimmed == "" {
+		return "", false
+	}
+	icon, err := url.Parse(trimmed)
+	if err != nil {
 		return "", false
 	}
 	if icon.IsAbs() {

@@ -1,11 +1,30 @@
 package adapter
 
 import (
+	"context"
 	"sync/atomic"
 	"testing"
 
+	"github.com/bnema/dumber/internal/domain/favicon"
+	"github.com/bnema/puregotk/v4/gdk"
 	"github.com/rs/zerolog"
 )
+
+func TestFaviconAdapterInvalidateRemovesResolvedTextureAliases(t *testing.T) {
+	adapter := NewFaviconAdapter(nil, nil, FaviconAdapterConfig{})
+	texture := &gdk.Texture{}
+	adapter.setResolvedTexture("https://docs.example.com/page", favicon.Key("example.com"), texture)
+
+	if adapter.GetTexture("example.com") == nil || adapter.GetTexture("docs.example.com") == nil {
+		t.Fatal("expected both resolved key and domain alias to be cached")
+	}
+	if err := adapter.Invalidate(context.Background(), "example.com"); err != nil {
+		t.Fatal(err)
+	}
+	if adapter.GetTexture("example.com") != nil || adapter.GetTexture("docs.example.com") != nil {
+		t.Fatal("expected invalidation to remove resolved key and alias")
+	}
+}
 
 func TestFaviconWarningDedup_FirstAndRepeated(t *testing.T) {
 	adapter := NewFaviconAdapter(nil, nil, FaviconAdapterConfig{})

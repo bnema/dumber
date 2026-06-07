@@ -45,6 +45,11 @@ func TestFaviconDiscoveryIgnoresUnsafeIconURLs(t *testing.T) {
 	require.Equal(t, []string{"https://cdn.example.com/icon.png", "https://example.com/favicon.ico"}, got)
 }
 
+func TestFaviconDiscoveryIgnoresWhitespaceOnlyHrefs(t *testing.T) {
+	got := DiscoverFaviconCandidates("https://example.com/path", `<link rel="icon" href="  ">`)
+	require.Equal(t, []string{"https://example.com/favicon.ico"}, got)
+}
+
 func TestCEFOnFaviconUrlchangeForwardsOrderedCandidates(t *testing.T) {
 	prevDecode := decodeCEFStringList
 	decodeCEFStringList = func(list purecef.StringList) []string {
