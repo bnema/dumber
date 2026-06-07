@@ -55,6 +55,18 @@ func TestFaviconResolveRepairsOrphanCanonicalBlobMetadata(t *testing.T) {
 	}
 }
 
+func TestFaviconResolveRepairOrphanWithoutConverterReturnsMiss(t *testing.T) {
+	fx := newFaviconFixture()
+	fx.uc.converter = nil
+	fx.blobs.original["example.com"] = []byte("original")
+	fx.blobs.contentTypes["example.com"] = "image/png"
+
+	_, err := fx.uc.ResolveSystemviewIcon(context.Background(), "example.com", SystemviewIconSize)
+	if !errors.Is(err, ErrFaviconMiss) {
+		t.Fatalf("expected favicon miss, got %v", err)
+	}
+}
+
 func TestFaviconResolveStaleSchedulesDedupedBackgroundRefresh(t *testing.T) {
 	fx := newFaviconFixture()
 	fx.seed("example.com", []byte("old"), true)

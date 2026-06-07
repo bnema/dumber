@@ -23,6 +23,7 @@ type FaviconAdapter struct {
 	resolver     port.FaviconResolver
 	faviconDB    port.FaviconDatabase
 	textureCache map[string]*gdk.Texture
+	aliasesByKey map[favicon.Key]map[string]struct{}
 	mu           sync.RWMutex
 	warnMu       sync.Mutex
 	warnCounts   map[string]int
@@ -74,6 +75,7 @@ func NewFaviconAdapterWithResolver(
 		resolver:           resolver,
 		faviconDB:          faviconDB,
 		textureCache:       make(map[string]*gdk.Texture),
+		aliasesByKey:       make(map[favicon.Key]map[string]struct{}),
 		warnCounts:         make(map[string]int),
 		isInternalURL:      cfg.IsInternalURL,
 		internalDomain:     cfg.InternalDomain,
@@ -512,19 +514,15 @@ func (a *FaviconAdapter) Close() {
 	}
 }
 
-// Invalidate clears one resolved-key texture cache entry and any domain aliases
-// pointing at the same texture.
+// Invalidate clears one resolved-key texture cache entry and all domain aliases
+// explicitly bound to that canonical favicon key.
 func (a *FaviconAdapter) Invalidate(_ context.Context, key favicon.Key) error {
 	a.mu.Lock()
-	texture := a.textureCache[string(key)]
 	delete(a.textureCache, string(key))
-	if texture != nil {
-		for cacheKey, cached := range a.textureCache {
-			if cached == texture {
-				delete(a.textureCache, cacheKey)
-			}
-		}
+	for alias := range a.aliasesByKey[key] {
+		delete(a.textureCache, alias)
 	}
+	delete(a.aliasesByKey, key)
 	a.mu.Unlock()
 	return nil
 }
@@ -533,6 +531,7 @@ func (a *FaviconAdapter) Invalidate(_ context.Context, key favicon.Key) error {
 func (a *FaviconAdapter) Clear() {
 	a.mu.Lock()
 	a.textureCache = make(map[string]*gdk.Texture)
+	a.aliasesByKey = make(map[favicon.Key]map[string]struct{})
 	a.mu.Unlock()
 }
 
@@ -545,12 +544,33 @@ func (a *FaviconAdapter) Size() int {
 }
 
 // setResolvedTexture stores resolver results under both the resolved favicon key
-// and the current page domain. The domain alias keeps UI lookups fast while
-// Invalidate removes aliases sharing the same texture during the migration path.
+// and the current page domain. Aliases are indexed by canonical key so
+// invalidation does not depend on pointer equality with the latest texture.
 func (a *FaviconAdapter) setResolvedTexture(pageURL string, key favicon.Key, texture *gdk.Texture) {
-	a.setTexture(string(key), texture)
-	if domain := domainurl.ExtractDomain(pageURL); domain != "" {
-		a.setTexture(domain, texture)
+	if key == "" || texture == nil {
+		return
+	}
+	domain := domainurl.ExtractDomain(pageURL)
+	a.mu.Lock()
+	defer a.mu.Unlock()
+	a.textureCache[string(key)] = texture
+	if domain == "" {
+		return
+	}
+	a.removeAliasLocked(domain)
+	a.textureCache[domain] = texture
+	if a.aliasesByKey[key] == nil {
+		a.aliasesByKey[key] = make(map[string]struct{})
+	}
+	a.aliasesByKey[key][domain] = struct{}{}
+}
+
+func (a *FaviconAdapter) removeAliasLocked(alias string) {
+	for key, aliases := range a.aliasesByKey {
+		delete(aliases, alias)
+		if len(aliases) == 0 {
+			delete(a.aliasesByKey, key)
+		}
 	}
 }
 

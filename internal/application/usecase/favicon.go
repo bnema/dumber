@@ -386,6 +386,9 @@ func (uc *FaviconUseCase) EnsureSized(ctx context.Context, key favicon.Key, size
 	if err != nil {
 		return err
 	}
+	if uc.converter == nil {
+		return ErrFaviconMiss
+	}
 	converted, err := uc.converter.Convert(ctx, orig, ct, []int{size})
 	if err != nil {
 		return err

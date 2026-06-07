@@ -26,6 +26,19 @@ func TestFaviconAdapterInvalidateRemovesResolvedTextureAliases(t *testing.T) {
 	}
 }
 
+func TestFaviconAdapterInvalidateRemovesOlderAliasesAfterKeyRebind(t *testing.T) {
+	adapter := NewFaviconAdapter(nil, nil, FaviconAdapterConfig{})
+	adapter.setResolvedTexture("https://docs.example.com/page", favicon.Key("example.com"), &gdk.Texture{})
+	adapter.setResolvedTexture("https://blog.example.com/page", favicon.Key("example.com"), &gdk.Texture{})
+
+	if err := adapter.Invalidate(context.Background(), "example.com"); err != nil {
+		t.Fatal(err)
+	}
+	if adapter.GetTexture("example.com") != nil || adapter.GetTexture("docs.example.com") != nil || adapter.GetTexture("blog.example.com") != nil {
+		t.Fatal("expected invalidation to remove canonical key and all aliases")
+	}
+}
+
 func TestFaviconWarningDedup_FirstAndRepeated(t *testing.T) {
 	adapter := NewFaviconAdapter(nil, nil, FaviconAdapterConfig{})
 
