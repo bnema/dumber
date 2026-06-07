@@ -18,9 +18,3 @@ type FaviconService interface {
 	EnsureDiskCache(ctx context.Context, domain string)
 	Close()
 }
-
-// SystemviewFaviconServiceSetter is an optional engine capability that lets the
-// UI expose cached favicons to internal systemview pages without remote image loads.
-type SystemviewFaviconServiceSetter interface {
-	SetSystemviewFaviconService(service FaviconService)
-}

@@ -73,6 +73,21 @@ func TestLaunchModeFromArgs_OmniboxFlagFallsBackToCLI(t *testing.T) {
 	}
 }
 
+func TestCreateLazyRepositoriesIncludesFaviconRepo(t *testing.T) {
+	provider := mocks.NewMockDatabaseProvider(t)
+	repos := createLazyRepositories(provider)
+	if repos.faviconRepo == nil {
+		t.Fatal("expected lazy favicon repository to be wired")
+	}
+}
+
+func TestFaviconResolverNilHelperAvoidsTypedNilInterface(t *testing.T) {
+	var resolver any = faviconResolver(&useCases{})
+	if resolver != nil {
+		t.Fatalf("expected nil interface-safe resolver, got %#v", resolver)
+	}
+}
+
 func TestIsCEFSubprocess(t *testing.T) {
 	tests := []struct {
 		name string

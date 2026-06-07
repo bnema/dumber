@@ -26,7 +26,7 @@ import (
 	"github.com/bnema/dumber/internal/infrastructure/deps"
 	"github.com/bnema/dumber/internal/infrastructure/desktop"
 	renderenv "github.com/bnema/dumber/internal/infrastructure/env"
-	"github.com/bnema/dumber/internal/infrastructure/favicon"
+	infrafavicon "github.com/bnema/dumber/internal/infrastructure/favicon"
 	"github.com/bnema/dumber/internal/infrastructure/filesystem"
 	"github.com/bnema/dumber/internal/infrastructure/idle"
 	"github.com/bnema/dumber/internal/infrastructure/persistence/sqlite"
@@ -688,6 +688,7 @@ type repositories struct {
 	permission   port.PermissionRepository
 	session      repository.SessionRepository
 	sessionState repository.SessionStateRepository
+	faviconRepo  port.FaviconRepository
 }
 
 func createRepositories(db *sql.DB) *repositories {
@@ -700,6 +701,7 @@ func createRepositories(db *sql.DB) *repositories {
 		permission:   sqlite.NewPermissionRepository(db),
 		session:      sqlite.NewSessionRepository(db),
 		sessionState: sqlite.NewSessionStateRepository(db),
+		faviconRepo:  sqlite.NewFaviconRepository(db),
 	}
 }
 
@@ -713,6 +715,7 @@ func createLazyRepositories(provider port.DatabaseProvider) *repositories {
 		permission:   sqlite.NewLazyPermissionRepository(provider),
 		session:      sqlite.NewLazySessionRepository(provider),
 		sessionState: sqlite.NewLazySessionStateRepository(provider),
+		faviconRepo:  sqlite.NewLazyFaviconRepository(provider),
 	}
 }
 
@@ -731,7 +734,8 @@ type useCases struct {
 	checkUpdate    *usecase.CheckUpdateUseCase
 	applyUpdate    *usecase.ApplyUpdateUseCase
 	clipboard      port.Clipboard
-	favicon        *favicon.Service
+	favicon        *infrafavicon.Service
+	faviconUC      *usecase.FaviconUseCase
 }
 
 func createUseCases(repos *repositories, cfg *config.Config) *useCases {
@@ -744,6 +748,17 @@ func createUseCases(repos *repositories, cfg *config.Config) *useCases {
 
 	clipboardAdapter := clipboard.New()
 	faviconCacheDir, _ := config.GetFaviconCacheDir()
+	faviconService := infrafavicon.NewService(faviconCacheDir)
+	var faviconUC *usecase.FaviconUseCase
+	if repos.faviconRepo != nil {
+		faviconUC = usecase.NewFaviconUseCase(usecase.FaviconDeps{
+			Repository: repos.faviconRepo,
+			BlobStore:  infrafavicon.NewBlobStoreFromCache(faviconService.Cache()),
+			Converter:  infrafavicon.NewImageConverter(),
+			Fetcher:    infrafavicon.NewFetcher(),
+			Scheduler:  infrafavicon.NewRefreshScheduler(),
+		})
+	}
 	xdgDirs, _ := config.GetXDGDirs()
 	stateDir, _ := config.GetStateDir()
 	defaultZoom := cfg.DefaultWebpageZoom
@@ -776,7 +791,8 @@ func createUseCases(repos *repositories, cfg *config.Config) *useCases {
 		checkUpdate:    usecase.NewCheckUpdateUseCase(updateChecker, updateApplier, buildInfo),
 		applyUpdate:    usecase.NewApplyUpdateUseCase(updateDownloader, updateApplier, xdgDirs.CacheHome),
 		clipboard:      clipboardAdapter,
-		favicon:        favicon.NewService(faviconCacheDir),
+		favicon:        faviconService,
+		faviconUC:      faviconUC,
 	}
 }
 
@@ -797,6 +813,20 @@ func isCEFSubprocess(args []string) bool {
 		len(args) > 2 &&
 		args[2] != "" &&
 		!strings.HasPrefix(args[2], "-")
+}
+
+func faviconResolver(uc *useCases) port.FaviconResolver {
+	if uc == nil || uc.faviconUC == nil {
+		return nil
+	}
+	return uc.faviconUC
+}
+
+func legacyFaviconService(uc *useCases) port.FaviconService {
+	if uc == nil || uc.faviconUC != nil {
+		return nil
+	}
+	return uc.favicon
 }
 
 func buildUIDependencies(
@@ -839,27 +869,29 @@ func buildUIDependencies(
 			runtimeProfile.Mode == runtimeprofile.ModeDev,
 			bootstrap.ResolveXDGRuntimeDir(runtimeProfile),
 		),
-		Engine:         engine,
-		FilterManager:  filterManager,
-		HistoryRepo:    repos.history,
-		FavoriteRepo:   repos.favorite,
-		ZoomRepo:       repos.zoom,
-		PermissionRepo: repos.permission,
-		TabsUC:         uc.tabs,
-		PanesUC:        uc.panes,
-		HistoryUC:      uc.history,
-		FavoritesUC:    uc.favorites,
-		ZoomUC:         uc.zoom,
-		PermissionUC:   uc.permission,
-		NavigateUC:     uc.navigate,
-		CopyURLUC:      uc.copyURL,
-		Clipboard:      uc.clipboard,
-		FaviconService: uc.favicon,
+		Engine:                    engine,
+		FilterManager:             filterManager,
+		HistoryRepo:               repos.history,
+		FavoriteRepo:              repos.favorite,
+		ZoomRepo:                  repos.zoom,
+		PermissionRepo:            repos.permission,
+		TabsUC:                    uc.tabs,
+		PanesUC:                   uc.panes,
+		HistoryUC:                 uc.history,
+		FavoritesUC:               uc.favorites,
+		ZoomUC:                    uc.zoom,
+		PermissionUC:              uc.permission,
+		NavigateUC:                uc.navigate,
+		CopyURLUC:                 uc.copyURL,
+		Clipboard:                 uc.clipboard,
+		FaviconService:            legacyFaviconService(uc),
+		FaviconResolver:           faviconResolver(uc),
+		SystemviewFaviconResolver: faviconResolver(uc),
 		FaviconAdapterConfig: adapter.FaviconAdapterConfig{
-			IsInternalURL:      favicon.IsInternalURL,
-			InternalDomain:     favicon.InternalDomain,
-			NormalizedIconSize: favicon.NormalizedIconSize,
-			GetLogoBytes:       favicon.GetLogoBytes,
+			IsInternalURL:      infrafavicon.IsInternalURL,
+			InternalDomain:     infrafavicon.InternalDomain,
+			NormalizedIconSize: infrafavicon.NormalizedIconSize,
+			GetLogoBytes:       infrafavicon.GetLogoBytes,
 		},
 		IdleInhibitor:    idleInhibitor,
 		SessionRepo:      repos.session,

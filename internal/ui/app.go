@@ -97,10 +97,10 @@ type App struct {
 	kbDispatcher *dispatcher.KeyboardDispatcher
 
 	// Pane management (used by coordinators)
-	panesUC        *usecase.ManagePanesUseCase
-	workspaceViews map[entity.TabID]*component.WorkspaceView
-	windowForTab   map[entity.TabID]*browserWindow
-	widgetFactory                layout.WidgetFactory
+	panesUC                     *usecase.ManagePanesUseCase
+	workspaceViews              map[entity.TabID]*component.WorkspaceView
+	windowForTab                map[entity.TabID]*browserWindow
+	widgetFactory               layout.WidgetFactory
 	workspaceViewCreateOverride func(context.Context, *entity.Tab) bool
 	stackedPaneMgr              *component.StackedPaneManager
 
@@ -220,8 +220,14 @@ func New(deps *Dependencies) (*App, error) {
 			glib.IdleAdd(&cb, 0)
 		})
 	}
-	if faviconSetter, ok := deps.Engine.(port.SystemviewFaviconServiceSetter); ok {
-		faviconSetter.SetSystemviewFaviconService(deps.FaviconService)
+	if faviconSetter, ok := deps.Engine.(port.SystemviewFaviconResolverSetter); ok {
+		resolver := deps.SystemviewFaviconResolver
+		if resolver == nil {
+			resolver = deps.FaviconResolver
+		}
+		if resolver != nil {
+			faviconSetter.SetSystemviewFaviconResolver(resolver)
+		}
 	}
 
 	// Register message handlers through the engine.
@@ -1344,14 +1350,23 @@ func buildOmniboxConfig(
 	}
 }
 
+func registerFaviconInvalidator(resolver port.FaviconResolver, invalidator port.FaviconInvalidator) {
+	registry, ok := resolver.(port.FaviconInvalidatorRegistry)
+	if !ok || invalidator == nil {
+		return
+	}
+	registry.RegisterFaviconInvalidator(invalidator)
+}
+
 func NewStandaloneOmniboxRuntime(
 	ctx context.Context,
 	deps *Dependencies,
 	faviconDB port.FaviconDatabase,
 ) *StandaloneOmniboxRuntime {
 	var faviconAdapter *adapter.FaviconAdapter
-	if deps != nil && deps.FaviconService != nil {
-		faviconAdapter = adapter.NewFaviconAdapter(deps.FaviconService, faviconDB, deps.FaviconAdapterConfig)
+	if deps != nil && (deps.FaviconService != nil || deps.FaviconResolver != nil) {
+		faviconAdapter = adapter.NewFaviconAdapterWithResolver(deps.FaviconService, deps.FaviconResolver, faviconDB, deps.FaviconAdapterConfig)
+		registerFaviconInvalidator(deps.FaviconResolver, faviconAdapter)
 	}
 
 	omniboxCfg := buildOmniboxConfig(deps, faviconAdapter, omniboxCallbacks{
@@ -3136,10 +3151,19 @@ func (a *App) initCoordinators(ctx context.Context) {
 		return a.activeWorkspace(), a.activeWorkspaceView()
 	}
 
-	// Create FaviconAdapter with service and engine FaviconDatabase.
-	// Skip if FaviconService is nil (e.g. in tests or when favicon support is disabled).
-	if a.deps.FaviconService != nil {
-		a.faviconAdapter = adapter.NewFaviconAdapter(a.deps.FaviconService, a.engine.FaviconDatabase(), a.deps.FaviconAdapterConfig)
+	// Create FaviconAdapter with resolver/service and engine FaviconDatabase.
+	// Skip if favicon support is not wired (e.g. in tests or when disabled).
+	if a.deps.FaviconService != nil || a.deps.FaviconResolver != nil {
+		a.faviconAdapter = adapter.NewFaviconAdapterWithResolver(
+			a.deps.FaviconService,
+			a.deps.FaviconResolver,
+			a.engine.FaviconDatabase(),
+			a.deps.FaviconAdapterConfig,
+		)
+		registerFaviconInvalidator(a.deps.FaviconResolver, a.faviconAdapter)
+		if invalidator, ok := a.engine.(port.FaviconInvalidator); ok {
+			registerFaviconInvalidator(a.deps.FaviconResolver, invalidator)
+		}
 	}
 
 	// 1. Content Coordinator (no dependencies on other coordinators)

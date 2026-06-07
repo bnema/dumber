@@ -4,6 +4,8 @@ import (
 	"context"
 	"strings"
 	"sync"
+	"sync/atomic"
+	"time"
 
 	purecef "github.com/bnema/purego-cef/cef"
 
@@ -176,7 +178,25 @@ func (h *handlerSet) OnTitleChange(_ purecef.Browser, title string) {
 	h.wv.updateTitle(title)
 }
 
-func (h *handlerSet) OnFaviconUrlchange(_ purecef.Browser, _ purecef.StringList) {}
+func (h *handlerSet) OnFaviconUrlchange(_ purecef.Browser, iconURLs purecef.StringList) {
+	if h == nil || h.wv == nil {
+		return
+	}
+	h.wv.mu.RLock()
+	pageURL := h.wv.uri
+	cb := h.wv.callbacks
+	h.wv.mu.RUnlock()
+	if cb == nil || cb.OnFaviconURLChanged == nil {
+		return
+	}
+	candidates := resolveFaviconCandidates(pageURL, decodeCEFStringList(iconURLs))
+	if len(candidates) == 0 {
+		return
+	}
+	h.wv.runOnGTK(func() {
+		cb.OnFaviconURLChanged(pageURL, candidates)
+	})
+}
 
 // OnFullscreenModeChange toggles the fullscreen atomic and fires callbacks.
 func (h *handlerSet) OnFullscreenModeChange(_ purecef.Browser, fullscreen int32) {
@@ -285,8 +305,23 @@ func (h *handlerSet) GetRootWindowScreenRect(_ purecef.Browser, _ *purecef.Rect)
 // LoadHandler (4 methods)
 // ===========================================================================
 
+type faviconSourceVisitorRetention struct {
+	id      uint64
+	visitor purecef.StringVisitor
+}
+
+type faviconSourceVisitor struct {
+	visit func(string)
+}
+
+func (v faviconSourceVisitor) Visit(source string) {
+	if v.visit != nil {
+		v.visit(source)
+	}
+}
+
 // OnLoadingStateChange updates the loading/navigation state cache and fires callbacks.
-func (h *handlerSet) OnLoadingStateChange(_ purecef.Browser, isloading, cangoback, cangoforward int32) {
+func (h *handlerSet) OnLoadingStateChange(browser purecef.Browser, isloading, cangoback, cangoforward int32) {
 	loading := isloading != 0
 	h.wv.updateLoadState(loading, cangoback != 0, cangoforward != 0)
 	if h.wv != nil && h.wv.ctx != nil {
@@ -320,7 +355,11 @@ func (h *handlerSet) OnLoadingStateChange(_ purecef.Browser, isloading, cangobac
 
 	h.wv.mu.RLock()
 	cb := h.wv.callbacks
+	pageURL := h.wv.uri
 	h.wv.mu.RUnlock()
+	if !loading && cb != nil && cb.OnFaviconURLChanged != nil {
+		h.emitDiscoveredFaviconCandidates(browser, pageURL, cb)
+	}
 	if cb != nil && cb.OnLoadChanged != nil {
 		if loading {
 			h.wv.runOnGTK(func() {
@@ -332,6 +371,79 @@ func (h *handlerSet) OnLoadingStateChange(_ purecef.Browser, isloading, cangobac
 			})
 		}
 	}
+}
+
+var faviconSourceVisitorRetentionID atomic.Uint64
+
+func (wv *WebView) retainFaviconSourceVisitor(visitor purecef.StringVisitor) func() {
+	if wv == nil || visitor == nil {
+		return func() {}
+	}
+	id := faviconSourceVisitorRetentionID.Add(1)
+	wv.faviconSourceVisitorsMu.Lock()
+	wv.faviconSourceVisitors = append(wv.faviconSourceVisitors, faviconSourceVisitorRetention{id: id, visitor: visitor})
+	wv.faviconSourceVisitorsMu.Unlock()
+	return func() {
+		wv.faviconSourceVisitorsMu.Lock()
+		defer wv.faviconSourceVisitorsMu.Unlock()
+		for i, candidate := range wv.faviconSourceVisitors {
+			if candidate.id != id {
+				continue
+			}
+			last := len(wv.faviconSourceVisitors) - 1
+			copy(wv.faviconSourceVisitors[i:], wv.faviconSourceVisitors[i+1:])
+			wv.faviconSourceVisitors[last] = faviconSourceVisitorRetention{}
+			wv.faviconSourceVisitors = wv.faviconSourceVisitors[:last]
+			return
+		}
+	}
+}
+
+func (h *handlerSet) emitDiscoveredFaviconCandidates(browser purecef.Browser, pageURL string, cb *port.WebViewCallbacks) {
+	if h == nil || h.wv == nil || cb == nil || cb.OnFaviconURLChanged == nil {
+		return
+	}
+	fallback := fallbackFaviconCandidates(pageURL)
+	emit := func(candidates []string) {
+		if len(candidates) == 0 {
+			return
+		}
+		h.wv.runOnGTK(func() {
+			cb.OnFaviconURLChanged(pageURL, candidates)
+		})
+	}
+	if browser == nil {
+		emit(fallback)
+		return
+	}
+	frame := browser.GetMainFrame()
+	if frame == nil {
+		emit(fallback)
+		return
+	}
+	var releaseOnce sync.Once
+	var release func()
+	visitor := cefNewStringVisitor(faviconSourceVisitor{visit: func(source string) {
+		releaseOnce.Do(func() {
+			if release != nil {
+				release()
+			}
+		})
+		candidates := DiscoverFaviconCandidates(pageURL, source)
+		if len(candidates) == 0 {
+			candidates = fallback
+		}
+		emit(candidates)
+	}})
+	release = h.wv.retainFaviconSourceVisitor(visitor)
+	time.AfterFunc(5*time.Second, func() {
+		releaseOnce.Do(func() {
+			if release != nil {
+				release()
+			}
+		})
+	})
+	frame.GetSource(visitor)
 }
 
 // OnLoadStart fires LoadCommitted for main frame navigations.

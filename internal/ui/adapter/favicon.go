@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/bnema/dumber/internal/application/port"
+	"github.com/bnema/dumber/internal/domain/favicon"
 	domainurl "github.com/bnema/dumber/internal/domain/url"
 	"github.com/bnema/dumber/internal/logging"
 	"github.com/bnema/puregotk/v4/gdk"
@@ -19,8 +20,10 @@ import (
 // gdk.Texture conversion and WebKit FaviconDatabase integration.
 type FaviconAdapter struct {
 	service      port.FaviconService
+	resolver     port.FaviconResolver
 	faviconDB    port.FaviconDatabase
 	textureCache map[string]*gdk.Texture
+	aliasesByKey map[favicon.Key]map[string]struct{}
 	mu           sync.RWMutex
 	warnMu       sync.Mutex
 	warnCounts   map[string]int
@@ -57,11 +60,22 @@ type FaviconAdapterConfig struct {
 // NewFaviconAdapter creates a new FaviconAdapter.
 // The faviconDB can be nil if a favicon database is not available.
 func NewFaviconAdapter(service port.FaviconService, faviconDB port.FaviconDatabase, cfg FaviconAdapterConfig) *FaviconAdapter {
+	return NewFaviconAdapterWithResolver(service, nil, faviconDB, cfg)
+}
+
+func NewFaviconAdapterWithResolver(
+	service port.FaviconService,
+	resolver port.FaviconResolver,
+	faviconDB port.FaviconDatabase,
+	cfg FaviconAdapterConfig,
+) *FaviconAdapter {
 	disabled := os.Getenv(disableFaviconsEnv) == "1"
 	return &FaviconAdapter{
 		service:            service,
+		resolver:           resolver,
 		faviconDB:          faviconDB,
 		textureCache:       make(map[string]*gdk.Texture),
+		aliasesByKey:       make(map[favicon.Key]map[string]struct{}),
 		warnCounts:         make(map[string]int),
 		isInternalURL:      cfg.IsInternalURL,
 		internalDomain:     cfg.InternalDomain,
@@ -132,26 +146,34 @@ func (a *FaviconAdapter) GetOrFetch(ctx context.Context, pageURL string, callbac
 		return
 	}
 
+	// Check application resolver before falling back to the legacy service.
+	if texture := a.resolveTexture(ctx, pageURL, true); texture != nil {
+		callback(texture)
+		return
+	}
+
 	// Check service cache (memory + disk) and convert to texture
-	if data, ok := a.service.GetCached(ctx, domain); ok && len(data) > 0 {
-		log.Debug().
-			Str("domain", domain).
-			Int("bytes", len(data)).
-			Msg("favicon: service cache hit")
-		texture := a.textureFromBytesOnGTK(ctx, data)
-		if texture != nil {
-			a.setTexture(domain, texture)
-			// Ensure sized PNG exists for CLI tools (async, idempotent)
-			go a.ensureSizedPNG(ctx, domain)
-			callback(texture)
-			return
+	if a.service != nil {
+		if data, ok := a.service.GetCached(ctx, domain); ok && len(data) > 0 {
+			log.Debug().
+				Str("domain", domain).
+				Int("bytes", len(data)).
+				Msg("favicon: service cache hit")
+			texture := a.textureFromBytesOnGTK(ctx, data)
+			if texture != nil {
+				a.setTexture(domain, texture)
+				// Ensure sized PNG exists for CLI tools (async, idempotent)
+				go a.ensureSizedPNG(ctx, domain)
+				callback(texture)
+				return
+			}
 		}
 	}
 
 	// Try engine FaviconDatabase if available
 	if a.faviconDB != nil {
 		a.faviconDB.GetFaviconAsync(pageURL, func(tex port.Texture) {
-			a.handleEngineFaviconDBTexture(ctx, domain, callback, tex)
+			a.handleEngineFaviconDBTexture(ctx, pageURL, domain, callback, tex)
 		})
 		return
 	}
@@ -162,6 +184,9 @@ func (a *FaviconAdapter) GetOrFetch(ctx context.Context, pageURL string, callbac
 }
 
 func (a *FaviconAdapter) invokeCallbackOnGTK(ctx context.Context, domain string, callback func(*gdk.Texture), texture *gdk.Texture) {
+	if callback == nil {
+		return
+	}
 	log := logging.FromContext(ctx)
 	log.Debug().
 		Str("domain", domain).
@@ -178,7 +203,49 @@ func (a *FaviconAdapter) invokeCallbackOnGTK(ctx context.Context, domain string,
 	glib.IdleAdd(&cb, 0)
 }
 
+func (a *FaviconAdapter) RefreshFromIconURLs(ctx context.Context, pageURL string, iconURLs []string, callback func(*gdk.Texture)) {
+	domain := domainurl.ExtractDomain(pageURL)
+	if a.resolver == nil {
+		a.invokeCallbackOnGTK(ctx, domain, callback, nil)
+		return
+	}
+	go func() {
+		if err := a.resolver.RefreshFromIconURLs(ctx, pageURL, iconURLs); err != nil {
+			logging.FromContext(ctx).Debug().Err(err).Str("page_url", pageURL).Msg("favicon: RefreshFromIconURLs failed")
+		}
+		if callback == nil {
+			return
+		}
+		a.GetOrFetch(ctx, pageURL, func(texture *gdk.Texture) {
+			a.invokeCallbackOnGTK(ctx, domain, callback, texture)
+		})
+	}()
+}
+
+func (a *FaviconAdapter) resolveTexture(ctx context.Context, pageURL string, scheduleRefresh bool) *gdk.Texture {
+	if a.resolver == nil {
+		return nil
+	}
+	options := port.FaviconResolveOptions{Purpose: port.FaviconResolvePurposeUI}
+	if scheduleRefresh {
+		options.ScheduleBackgroundRefresh = true
+	}
+	resolved, err := a.resolver.Resolve(ctx, pageURL, 0, options)
+	if err != nil || resolved == nil || len(resolved.Bytes) == 0 {
+		return nil
+	}
+	texture := a.textureFromBytesOnGTK(ctx, resolved.Bytes)
+	if texture != nil {
+		a.setResolvedTexture(pageURL, resolved.Key, texture)
+	}
+	return texture
+}
+
 func (a *FaviconAdapter) fetchViaService(ctx context.Context, domain string, callback func(*gdk.Texture)) {
+	if a.service == nil {
+		a.invokeCallbackOnGTK(ctx, domain, callback, nil)
+		return
+	}
 	go func() {
 		log := logging.FromContext(ctx)
 		log.Debug().Str("domain", domain).Msg("favicon: fetchViaService begin")
@@ -209,7 +276,12 @@ func (a *FaviconAdapter) fetchViaService(ctx context.Context, domain string, cal
 	}()
 }
 
-func (a *FaviconAdapter) handleEngineFaviconDBTexture(ctx context.Context, domain string, callback func(*gdk.Texture), tex port.Texture) {
+func (a *FaviconAdapter) handleEngineFaviconDBTexture(
+	ctx context.Context,
+	pageURL, domain string,
+	callback func(*gdk.Texture),
+	tex port.Texture,
+) {
 	log := logging.FromContext(ctx)
 	log.Debug().
 		Str("domain", domain).
@@ -228,7 +300,7 @@ func (a *FaviconAdapter) handleEngineFaviconDBTexture(ctx context.Context, domai
 	}
 	a.setTexture(domain, gdkTex)
 	a.invokeCallbackOnGTK(ctx, domain, callback, gdkTex)
-	a.saveFaviconToDisk(ctx, domain, gdkTex)
+	a.storeTextureObservation(ctx, pageURL, gdkTex)
 }
 
 // StoreFromWebKit stores a favicon texture received from WebKit signals.
@@ -252,7 +324,12 @@ func (a *FaviconAdapter) StoreFromWebKit(ctx context.Context, pageURL string, te
 	// Store in texture cache
 	a.setTexture(domain, texture)
 
-	// Export as PNG and ensure disk cache
+	if a.resolver != nil {
+		a.storeTextureObservation(ctx, pageURL, texture)
+		return
+	}
+
+	// Legacy fallback for callers not yet wired to the application resolver.
 	a.saveFaviconToDisk(ctx, domain, texture)
 }
 
@@ -269,14 +346,55 @@ func (a *FaviconAdapter) StoreFromWebKitWithOrigin(
 		currentDomain := domainurl.ExtractDomain(currentURL)
 		if originDomain != "" && originDomain != currentDomain {
 			a.setTexture(originDomain, texture)
-			a.saveFaviconToDisk(ctx, originDomain, texture)
+			if a.resolver != nil {
+				a.storeTextureObservation(ctx, originURL, texture)
+			} else {
+				a.saveFaviconToDisk(ctx, originDomain, texture)
+			}
 		}
 	}
+}
+
+func (a *FaviconAdapter) storeTextureObservation(ctx context.Context, pageURL string, texture *gdk.Texture) {
+	if a.resolver == nil || texture == nil || pageURL == "" {
+		return
+	}
+	cb := glib.SourceFunc(func(_ uintptr) bool {
+		tmp, err := os.CreateTemp("", "dumber-favicon-*.png")
+		if err != nil {
+			logging.FromContext(ctx).Debug().Err(err).Msg("favicon: failed to create temp PNG for observation")
+			return false
+		}
+		path := tmp.Name()
+		_ = tmp.Close()
+		defer func() { _ = os.Remove(path) }()
+		if ok := texture.SaveToPng(path); !ok {
+			logging.FromContext(ctx).Debug().Str("page_url", pageURL).Msg("favicon: failed to export texture for observation")
+			return false
+		}
+		data, err := os.ReadFile(path)
+		if err != nil || len(data) == 0 {
+			logging.FromContext(ctx).Debug().Err(err).Str("page_url", pageURL).Msg("favicon: failed to read exported observation")
+			return false
+		}
+		go func() {
+			// Engine-provided textures do not expose the original icon URL, so pageURL
+			// is passed as the observation iconURL fallback for SourceEngine records.
+			if _, err := a.resolver.Observe(ctx, pageURL, pageURL, data, favicon.SourceEngine, "image/png"); err != nil {
+				logging.FromContext(ctx).Debug().Err(err).Str("page_url", pageURL).Msg("favicon: failed to observe engine texture")
+			}
+		}()
+		return false
+	})
+	glib.IdleAdd(&cb, 0)
 }
 
 // saveFaviconToDisk exports a favicon texture to PNG and ensures disk cache is populated.
 // Uses glib.IdleAdd to defer disk I/O until GTK main loop is idle, avoiding UI blocking.
 func (a *FaviconAdapter) saveFaviconToDisk(ctx context.Context, domain string, texture *gdk.Texture) {
+	if a.service == nil {
+		return
+	}
 	log := logging.FromContext(ctx)
 	cacheDirWarnKey := "cache-dir"
 	savePNGWarnKey := "save-png:" + domain
@@ -359,16 +477,23 @@ func (a *FaviconAdapter) PreloadFromCache(ctx context.Context, pageURL string) *
 		return texture
 	}
 
+	// Check application resolver before falling back to the legacy service.
+	if texture := a.resolveTexture(ctx, pageURL, false); texture != nil {
+		return texture
+	}
+
 	// Check service cache (memory + disk)
-	if data, ok := a.service.GetCached(ctx, domain); ok && len(data) > 0 {
-		log.Debug().
-			Str("domain", domain).
-			Int("bytes", len(data)).
-			Msg("favicon: PreloadFromCache service hit")
-		texture := a.textureFromBytesOnGTK(ctx, data)
-		if texture != nil {
-			a.setTexture(domain, texture)
-			return texture
+	if a.service != nil {
+		if data, ok := a.service.GetCached(ctx, domain); ok && len(data) > 0 {
+			log.Debug().
+				Str("domain", domain).
+				Int("bytes", len(data)).
+				Msg("favicon: PreloadFromCache service hit")
+			texture := a.textureFromBytesOnGTK(ctx, data)
+			if texture != nil {
+				a.setTexture(domain, texture)
+				return texture
+			}
 		}
 	}
 
@@ -384,13 +509,29 @@ func (a *FaviconAdapter) Service() port.FaviconService {
 
 // Close shuts down the adapter and underlying service.
 func (a *FaviconAdapter) Close() {
-	a.service.Close()
+	if a.service != nil {
+		a.service.Close()
+	}
+}
+
+// Invalidate clears one resolved-key texture cache entry and all domain aliases
+// explicitly bound to that canonical favicon key.
+func (a *FaviconAdapter) Invalidate(_ context.Context, key favicon.Key) error {
+	a.mu.Lock()
+	delete(a.textureCache, string(key))
+	for alias := range a.aliasesByKey[key] {
+		delete(a.textureCache, alias)
+	}
+	delete(a.aliasesByKey, key)
+	a.mu.Unlock()
+	return nil
 }
 
 // Clear removes all entries from the texture cache.
 func (a *FaviconAdapter) Clear() {
 	a.mu.Lock()
 	a.textureCache = make(map[string]*gdk.Texture)
+	a.aliasesByKey = make(map[favicon.Key]map[string]struct{})
 	a.mu.Unlock()
 }
 
@@ -400,6 +541,37 @@ func (a *FaviconAdapter) Size() int {
 	size := len(a.textureCache)
 	a.mu.RUnlock()
 	return size
+}
+
+// setResolvedTexture stores resolver results under both the resolved favicon key
+// and the current page domain. Aliases are indexed by canonical key so
+// invalidation does not depend on pointer equality with the latest texture.
+func (a *FaviconAdapter) setResolvedTexture(pageURL string, key favicon.Key, texture *gdk.Texture) {
+	if key == "" || texture == nil {
+		return
+	}
+	domain := domainurl.ExtractDomain(pageURL)
+	a.mu.Lock()
+	defer a.mu.Unlock()
+	a.textureCache[string(key)] = texture
+	if domain == "" {
+		return
+	}
+	a.removeAliasLocked(domain)
+	a.textureCache[domain] = texture
+	if a.aliasesByKey[key] == nil {
+		a.aliasesByKey[key] = make(map[string]struct{})
+	}
+	a.aliasesByKey[key][domain] = struct{}{}
+}
+
+func (a *FaviconAdapter) removeAliasLocked(alias string) {
+	for key, aliases := range a.aliasesByKey {
+		delete(aliases, alias)
+		if len(aliases) == 0 {
+			delete(a.aliasesByKey, key)
+		}
+	}
 }
 
 // setTexture stores a texture in the cache.
@@ -415,7 +587,7 @@ func (a *FaviconAdapter) setTexture(domain string, texture *gdk.Texture) {
 // ensureSizedPNG ensures the sized PNG exists for CLI tools.
 // This is idempotent - it only creates the file if it doesn't exist.
 func (a *FaviconAdapter) ensureSizedPNG(ctx context.Context, domain string) {
-	if domain == "" {
+	if domain == "" || a.service == nil {
 		return
 	}
 

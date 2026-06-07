@@ -9,7 +9,6 @@ import (
 	"github.com/bnema/dumber/internal/application/usecase"
 	"github.com/bnema/dumber/internal/domain/entity"
 	"github.com/bnema/dumber/internal/logging"
-	"github.com/bnema/puregotk/v4/gdk"
 )
 
 // internalSchemePath is the host used in dumb:// crash-page URIs.
@@ -122,16 +121,7 @@ func (c *Coordinator) setupWebViewCallbacks(ctx context.Context, paneID entity.P
 		},
 	}
 
-	// Favicon changes - use Generation() from port.WebView to detect stale callbacks
-	faviconGen := wv.Generation()
-	callbacks.OnFaviconChanged = func(favicon port.Texture) {
-		if wv.Generation() != faviconGen {
-			return // WebView was reused, ignore stale signal
-		}
-		if gdkTexture, ok := favicon.(*gdk.Texture); ok {
-			c.onFaviconChanged(ctx, paneID, wv, gdkTexture)
-		}
-	}
+	c.setupFaviconCallbacks(ctx, paneID, wv, callbacks)
 
 	// Middle-click link handler
 	callbacks.OnLinkMiddleClick = func(uri string) bool {

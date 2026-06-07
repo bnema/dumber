@@ -19,6 +19,7 @@ type Querier interface {
 	DeleteAllHistory(ctx context.Context) error
 	// Deletes exited browser sessions older than the given cutoff time.
 	DeleteExitedSessionsBefore(ctx context.Context, endedAt sql.NullTime) (int64, error)
+	DeleteFavicon(ctx context.Context, key string) error
 	DeleteFavorite(ctx context.Context, id int64) error
 	DeleteFolder(ctx context.Context, id int64) error
 	DeleteHistoryByDomain(ctx context.Context, domain sql.NullString) error
@@ -44,6 +45,7 @@ type Querier interface {
 	GetChildFolders(ctx context.Context, parentID sql.NullInt64) ([]FavoriteFolder, error)
 	GetDailyVisitCount(ctx context.Context, date interface{}) ([]GetDailyVisitCountRow, error)
 	GetDomainStats(ctx context.Context, limit int64) ([]GetDomainStatsRow, error)
+	GetFavicon(ctx context.Context, key string) (Favicon, error)
 	GetFavoriteByID(ctx context.Context, id int64) (Favorite, error)
 	GetFavoriteByShortcut(ctx context.Context, shortcutKey sql.NullInt64) (Favorite, error)
 	GetFavoriteByURL(ctx context.Context, url string) (Favorite, error)
@@ -90,11 +92,13 @@ type Querier interface {
 	SetFavoriteShortcut(ctx context.Context, arg SetFavoriteShortcutParams) error
 	SetPermission(ctx context.Context, arg SetPermissionParams) error
 	SetZoomLevel(ctx context.Context, arg SetZoomLevelParams) error
+	UpdateFaviconLastChecked(ctx context.Context, arg UpdateFaviconLastCheckedParams) error
 	UpdateFavorite(ctx context.Context, arg UpdateFavoriteParams) error
 	UpdateFavoritePosition(ctx context.Context, arg UpdateFavoritePositionParams) error
 	UpdateFolder(ctx context.Context, arg UpdateFolderParams) error
 	UpdateFolderPosition(ctx context.Context, arg UpdateFolderPositionParams) error
 	UpdateTag(ctx context.Context, arg UpdateTagParams) error
+	UpsertFavicon(ctx context.Context, arg UpsertFaviconParams) error
 	UpsertHistory(ctx context.Context, arg UpsertHistoryParams) error
 	UpsertSessionState(ctx context.Context, arg UpsertSessionStateParams) error
 }

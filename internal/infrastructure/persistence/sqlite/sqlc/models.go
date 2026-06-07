@@ -15,6 +15,17 @@ type ContentWhitelist struct {
 	CreatedAt sql.NullTime `json:"created_at"`
 }
 
+type Favicon struct {
+	Key           string         `json:"key"`
+	SourceUrl     sql.NullString `json:"source_url"`
+	PageUrl       sql.NullString `json:"page_url"`
+	Source        string         `json:"source"`
+	ContentHash   string         `json:"content_hash"`
+	ContentType   sql.NullString `json:"content_type"`
+	UpdatedAt     time.Time      `json:"updated_at"`
+	LastCheckedAt time.Time      `json:"last_checked_at"`
+}
+
 type Favorite struct {
 	ID          int64          `json:"id"`
 	Url         string         `json:"url"`
