@@ -34,6 +34,27 @@ func TestFaviconResolveParentFallback(t *testing.T) {
 	}
 }
 
+func TestFaviconResolveRepairsOrphanCanonicalBlobMetadata(t *testing.T) {
+	fx := newFaviconFixture()
+	fx.blobs.png["example.com"] = []byte("png")
+	fx.blobs.sized["example.com"] = map[int][]byte{SystemviewIconSize: []byte("png32")}
+
+	got, err := fx.uc.ResolveSystemviewIcon(context.Background(), "example.com", SystemviewIconSize)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got.Key != "example.com" || string(got.Bytes) != "png32" {
+		t.Fatalf("unexpected resolve: %#v %q", got, got.Bytes)
+	}
+	meta := fx.repo.byKey["example.com"]
+	if meta == nil {
+		t.Fatal("expected metadata to be repaired")
+	}
+	if meta.Source != favicon.SourceImported || meta.ContentType != "image/png" || meta.ContentHash != favicon.Hash([]byte("png32")) {
+		t.Fatalf("unexpected repaired metadata: %#v", meta)
+	}
+}
+
 func TestFaviconResolveStaleSchedulesDedupedBackgroundRefresh(t *testing.T) {
 	fx := newFaviconFixture()
 	fx.seed("example.com", []byte("old"), true)

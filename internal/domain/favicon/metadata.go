@@ -9,6 +9,7 @@ const (
 	SourcePageDiscovery Source = "page_discovery"
 	SourceDuckDuckGo    Source = "duckduckgo"
 	SourceInternal      Source = "internal"
+	SourceImported      Source = "imported"
 	SourceManual        Source = "manual"
 )
 

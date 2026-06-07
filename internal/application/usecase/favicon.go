@@ -147,7 +147,14 @@ func (uc *FaviconUseCase) Resolve(
 			return nil, err
 		}
 		if meta == nil {
-			continue
+			repaired, repairErr := uc.repairOrphanBlobMetadata(ctx, key, rawURLOrDomain, size)
+			if repairErr != nil {
+				if !errors.Is(repairErr, ErrFaviconMiss) {
+					return nil, repairErr
+				}
+				continue
+			}
+			return repaired, nil
 		}
 		bytes, contentType, err := uc.readForSize(ctx, key, size)
 		if err != nil {
@@ -180,6 +187,36 @@ func (uc *FaviconUseCase) ResolveSystemviewIcon(ctx context.Context, rawDomain s
 		return nil, ErrFaviconMiss
 	}
 	return uc.Resolve(ctx, rawDomain, size, ResolveOptions{Purpose: ResolvePurposeSystemview})
+}
+
+func (uc *FaviconUseCase) repairOrphanBlobMetadata(
+	ctx context.Context,
+	key favicon.Key,
+	rawURLOrDomain string,
+	size int,
+) (*appport.ResolvedFavicon, error) {
+	bytes, contentType, err := uc.readForSize(ctx, key, size)
+	if err != nil {
+		return nil, err
+	}
+	if contentType == "" {
+		contentType = "image/png"
+	}
+	now := uc.now()
+	meta := favicon.Metadata{
+		Key:           key,
+		SourceURL:     rawURLOrDomain,
+		PageURL:       rawURLOrDomain,
+		Source:        favicon.SourceImported,
+		ContentHash:   favicon.Hash(bytes),
+		ContentType:   contentType,
+		UpdatedAt:     now,
+		LastCheckedAt: now,
+	}
+	if err := uc.repo.Upsert(ctx, meta); err != nil {
+		return nil, err
+	}
+	return &appport.ResolvedFavicon{Key: key, Bytes: bytes, ContentType: contentType, Metadata: &meta}, nil
 }
 
 func (uc *FaviconUseCase) Observe(
