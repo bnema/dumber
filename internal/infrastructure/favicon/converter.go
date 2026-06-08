@@ -9,8 +9,6 @@ import (
 	"image/color"
 	"image/png"
 	"mime"
-	"regexp"
-	"strconv"
 	"strings"
 
 	appport "github.com/bnema/dumber/internal/application/port"
@@ -53,7 +51,7 @@ func (*ImageConverter) Convert(ctx context.Context, original []byte, contentType
 func decodeFaviconImage(data []byte, ct string) (image.Image, error) {
 	switch ct {
 	case "image/svg+xml":
-		return renderSimpleSVG(data)
+		return nil, fmt.Errorf("%w: svg favicon conversion is disabled", appport.ErrFaviconMiss)
 	case "image/x-icon", "image/vnd.microsoft.icon", "image/ico":
 		img, err := decodeICO(data)
 		if err != nil {
@@ -61,7 +59,7 @@ func decodeFaviconImage(data []byte, ct string) (image.Image, error) {
 		}
 		return img, nil
 	case "image/webp":
-		return renderWEBPPlaceholder(data)
+		return nil, fmt.Errorf("%w: webp favicon conversion is disabled", appport.ErrFaviconMiss)
 	}
 	if ct != "" && ct != "image/png" && ct != "image/jpeg" && ct != "image/gif" && ct != "image/webp" {
 		return nil, fmt.Errorf("%w: unsupported favicon content type %s", appport.ErrFaviconMiss, ct)
@@ -208,54 +206,4 @@ func decodeICODIB(data []byte, bitCountHint int) (image.Image, error) {
 		}
 	}
 	return img, nil
-}
-
-var svgSizeRe = regexp.MustCompile(`(?i)\b(width|height)=["']?(\d+)`) // intentionally small safe subset
-var svgFillRe = regexp.MustCompile(`(?i)\bfill=["']#?([0-9a-f]{6})`)
-
-func renderWEBPPlaceholder(data []byte) (image.Image, error) {
-	if len(data) < 12 || !bytes.HasPrefix(data, []byte("RIFF")) || string(data[8:12]) != "WEBP" {
-		return nil, fmt.Errorf("%w: malformed webp", appport.ErrFaviconMiss)
-	}
-	return solidImage(64, color.RGBA{R: 128, G: 128, B: 128, A: 255}), nil
-}
-
-func renderSimpleSVG(data []byte) (image.Image, error) {
-	trimmed := bytes.TrimSpace(data)
-	if !bytes.Contains(trimmed, []byte("<svg")) {
-		return nil, fmt.Errorf("%w: malformed svg", appport.ErrFaviconMiss)
-	}
-	size := 64
-	for _, m := range svgSizeRe.FindAllSubmatch(trimmed, -1) {
-		if v, err := strconv.Atoi(string(m[2])); err == nil && v > 0 && v <= 1024 {
-			size = v
-			break
-		}
-	}
-	fill := color.RGBA{R: 128, G: 128, B: 128, A: 255}
-	if m := svgFillRe.FindSubmatch(trimmed); len(m) == 2 {
-		if parsed, ok := parseHexColor(string(m[1])); ok {
-			fill = parsed
-		}
-	}
-	return solidImage(size, fill), nil
-}
-
-func solidImage(size int, fill color.RGBA) image.Image {
-	img := image.NewRGBA(image.Rect(0, 0, size, size))
-	for y := 0; y < size; y++ {
-		for x := 0; x < size; x++ {
-			img.SetRGBA(x, y, fill)
-		}
-	}
-	return img
-}
-
-func parseHexColor(hex string) (color.RGBA, bool) {
-	v, err := strconv.ParseUint(hex, 16, 32)
-	if err != nil {
-		return color.RGBA{}, false
-	}
-	const greenShift = 8
-	return color.RGBA{R: uint8(v >> 16), G: uint8(v >> greenShift), B: uint8(v), A: 255}, true
 }
