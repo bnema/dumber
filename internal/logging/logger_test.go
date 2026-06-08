@@ -6,6 +6,25 @@ import (
 	"testing"
 )
 
+func TestSafeURLHostDropsPathQueryAndFragment(t *testing.T) {
+	t.Parallel()
+
+	got := SafeURLHost("https://example.com/private/path?token=secret#frag")
+	if got != "example.com" {
+		t.Fatalf("SafeURLHost returned %q, want %q", got, "example.com")
+	}
+}
+
+func TestSafeURLHostReturnsEmptyForOpaqueOrInvalidInput(t *testing.T) {
+	t.Parallel()
+
+	for _, raw := range []string{"about:blank", "not a url"} {
+		if got := SafeURLHost(raw); got != "" {
+			t.Fatalf("SafeURLHost(%q) returned %q, want empty host", raw, got)
+		}
+	}
+}
+
 func TestSessionFileWriter_DropsWritesAfterClose(t *testing.T) {
 	t.Parallel()
 

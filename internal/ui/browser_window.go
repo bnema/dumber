@@ -343,6 +343,11 @@ func (a *App) deterministicBrowserWindowFallback() *browserWindow {
 }
 
 func (a *App) OpenFreshWindow(ctx context.Context, url string) error {
+	log := logging.FromContext(ctx)
+	log.Debug().
+		Str("url_host", logging.SafeURLHost(url)).
+		Msg("ui: open fresh window dispatch requested")
+
 	dispatch := a.dispatchOnMainThread
 	if dispatch == nil {
 		dispatch = func(label string, fn func()) syncdispatch.SyncDispatchResult {
@@ -354,17 +359,46 @@ func (a *App) OpenFreshWindow(ctx context.Context, url string) error {
 	}
 
 	var openErr error
+	var windowCountBefore int
+	var windowCountAfter int
+	var hasTabCoord bool
+	var hasTabsUC bool
 	result := dispatch("ui.open_fresh_window", func() {
+		windowCountBefore = len(a.browserWindows)
+		hasTabCoord = a.tabCoord != nil
+		hasTabsUC = a.tabsUC != nil
+		log.Debug().
+			Str("url_host", logging.SafeURLHost(url)).
+			Int("window_count_before", windowCountBefore).
+			Bool("has_tab_coord", hasTabCoord).
+			Bool("has_tabs_uc", hasTabsUC).
+			Msg("ui: open fresh window main-thread work started")
 		openErr = a.openFreshWindow(ctx, url)
+		windowCountAfter = len(a.browserWindows)
 	})
 	if !result.Completed() {
-		logging.FromContext(ctx).Warn().
-			Str("url", logging.TruncateURL(url, logging.PermissionLogURLMaxLen)).
+		log.Warn().
+			Str("url_host", logging.SafeURLHost(url)).
 			Dur("elapsed", result.Elapsed).
 			Str("dispatch_status", string(result.Status)).
 			Msg("ui: open fresh window skipped after main-thread dispatch did not complete")
 		return fmt.Errorf("main thread dispatch did not complete: %s", result.Status)
 	}
+	if openErr != nil {
+		log.Warn().Err(openErr).
+			Str("url_host", logging.SafeURLHost(url)).
+			Dur("elapsed", result.Elapsed).
+			Str("dispatch_status", string(result.Status)).
+			Int("window_count_after", windowCountAfter).
+			Msg("ui: open fresh window failed")
+		return openErr
+	}
 
-	return openErr
+	log.Debug().
+		Str("url_host", logging.SafeURLHost(url)).
+		Dur("elapsed", result.Elapsed).
+		Str("dispatch_status", string(result.Status)).
+		Int("window_count_after", windowCountAfter).
+		Msg("ui: open fresh window completed")
+	return nil
 }

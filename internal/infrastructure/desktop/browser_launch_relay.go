@@ -315,21 +315,24 @@ func (*browserLaunchRelayListener) handleConnection(ctx context.Context, conn *n
 				Msg("browser launch relay accepted request without opener")
 			return
 		}
+		started := time.Now()
 		log.Debug().
 			Str("request_id", requestID).
 			Str("url_host", safeURLHost(request.URL)).
-			Msg("browser launch relay opening fresh window")
+			Msg("browser launch relay calling browser window opener")
 		if err := opener.OpenFreshWindow(ctx, request.URL); err != nil {
 			log.Warn().Err(err).
 				Str("request_id", requestID).
 				Str("url_host", safeURLHost(request.URL)).
-				Msg("failed to open fresh browser window")
+				Dur("elapsed", time.Since(started)).
+				Msg("browser launch relay opener failed")
 			return
 		}
 		log.Debug().
 			Str("request_id", requestID).
 			Str("url_host", safeURLHost(request.URL)).
-			Msg("browser launch relay opened fresh window")
+			Dur("elapsed", time.Since(started)).
+			Msg("browser launch relay opener returned success")
 	}()
 }
 
