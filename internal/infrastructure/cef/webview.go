@@ -1534,6 +1534,8 @@ func (wv *WebView) handleScrollInputDiagnostic(event cef2gtk.ScrollEvent) cef2gt
 		Int64("cef_delta_x_sum", deltaX).
 		Int64("cef_delta_y_sum", deltaY).
 		Bool("nav_enabled", wv.inputConfig.TouchpadNavigationEnabled).
+		Float64("nav_min_delta", wv.inputConfig.TouchpadNavigationMinDelta).
+		Float64("nav_max_vertical_ratio", wv.inputConfig.TouchpadNavigationMaxVerticalRatio).
 		Bool("can_go_back", wv.CanGoBack()).
 		Bool("can_go_forward", wv.CanGoForward()).
 		Msg("cef: touchpad horizontal scroll diagnostic")
