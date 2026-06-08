@@ -30,7 +30,7 @@ type RuntimeConfig struct {
 
 type RuntimeInputConfig struct {
 	ScrollWheelMultiplier              float64
-	ScrollTouchpadMultiplier           float64
+	ScrollPreciseMultiplier            float64
 	ScrollHorizontalMultiplier         float64
 	ScrollVerticalMultiplier           float64
 	ScrollMaxDelta                     int32

@@ -971,10 +971,10 @@ func (*SchemaProvider) getPerformanceKeys(defaults *Config) []entity.ConfigKeyIn
 			Section:     SectionPerformance,
 		},
 		{
-			Key:         "engine.cef.input.scroll_touchpad_multiplier",
+			Key:         "engine.cef.input.scroll_precise_multiplier",
 			Type:        "float64",
-			Default:     fmt.Sprintf("%.2f", defaults.Engine.CEF.Input.ScrollTouchpadMultiplier),
-			Description: "CEF touchpad/smooth scroll delta multiplier",
+			Default:     fmt.Sprintf("%.2f", defaults.Engine.CEF.Input.ScrollPreciseMultiplier),
+			Description: "CEF precise/surface scroll delta multiplier",
 			Range:       ">0",
 			Section:     SectionPerformance,
 		},

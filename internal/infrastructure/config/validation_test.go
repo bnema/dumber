@@ -81,12 +81,12 @@ func TestValidateConfig_CEFConfig(t *testing.T) {
 			wantText: "engine.cef.input.scroll_wheel_multiplier",
 		},
 		{
-			name: "negative touchpad multiplier",
+			name: "negative precise multiplier",
 			mutate: func(cfg *Config) {
-				cfg.Engine.CEF.Input.ScrollTouchpadMultiplier = -0.1
+				cfg.Engine.CEF.Input.ScrollPreciseMultiplier = -0.1
 			},
 			wantErr:  true,
-			wantText: "engine.cef.input.scroll_touchpad_multiplier",
+			wantText: "engine.cef.input.scroll_precise_multiplier",
 		},
 		{
 			name: "zero horizontal multiplier",

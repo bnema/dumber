@@ -86,7 +86,7 @@ func BuildEngine(input EngineInput) (port.Engine, error) {
 			WindowlessFrameRateMax:      cfg.Engine.CEF.CEFWindowlessFrameRateMax(),
 			Input: cef.RuntimeInputConfig{
 				ScrollWheelMultiplier:              cfg.Engine.CEF.Input.ScrollWheelMultiplier,
-				ScrollTouchpadMultiplier:           cfg.Engine.CEF.Input.ScrollTouchpadMultiplier,
+				ScrollPreciseMultiplier:            cfg.Engine.CEF.Input.ScrollPreciseMultiplier,
 				ScrollHorizontalMultiplier:         cfg.Engine.CEF.Input.ScrollHorizontalMultiplier,
 				ScrollVerticalMultiplier:           cfg.Engine.CEF.Input.ScrollVerticalMultiplier,
 				ScrollMaxDelta:                     cfg.Engine.CEF.Input.ScrollMaxDelta,

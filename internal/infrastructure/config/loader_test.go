@@ -18,7 +18,7 @@ func TestSetEngineDefaults(t *testing.T) {
 	assert.Equal(t, 4, mgr.viper.GetInt("engine.pool_prewarm_count"))
 	assert.Equal(t, 256, mgr.viper.GetInt("engine.zoom_cache_size"))
 	assert.InDelta(t, defaultCEFScrollMultiplier, mgr.viper.GetFloat64("engine.cef.input.scroll_wheel_multiplier"), 0.001)
-	assert.InDelta(t, defaultCEFScrollTouchpadMultiplier, mgr.viper.GetFloat64("engine.cef.input.scroll_touchpad_multiplier"), 0.001)
+	assert.InDelta(t, defaultCEFScrollPreciseMultiplier, mgr.viper.GetFloat64("engine.cef.input.scroll_precise_multiplier"), 0.001)
 	assert.InDelta(t, defaultCEFScrollMultiplier, mgr.viper.GetFloat64("engine.cef.input.scroll_horizontal_multiplier"), 0.001)
 	assert.InDelta(t, defaultCEFScrollMultiplier, mgr.viper.GetFloat64("engine.cef.input.scroll_vertical_multiplier"), 0.001)
 	assert.Equal(t, defaultCEFScrollMaxDelta, mgr.viper.GetInt("engine.cef.input.scroll_max_delta"))
