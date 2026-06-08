@@ -1523,7 +1523,7 @@ func (wv *WebView) handleScrollInputDiagnostic(event cef2gtk.ScrollEvent) cef2gt
 	wv.inputDiagLastLog = now
 	wv.inputDiagMu.Unlock()
 
-	logging.FromContext(wv.ctx).Debug().
+	logging.FromContext(wv.ctx).Trace().
 		Uint64("webview_id", uint64(wv.id)).
 		Int("events", count).
 		Str("phase", fmt.Sprint(event.Phase)).
@@ -1544,20 +1544,22 @@ func (wv *WebView) handleScrollInputDiagnostic(event cef2gtk.ScrollEvent) cef2gt
 }
 
 func (wv *WebView) handleNavigationSwipeAction(action cef2gtk.NavigationSwipeAction) {
-	logging.FromContext(wv.ctx).Debug().
-		Uint64("webview_id", uint64(wv.id)).
-		Str("action", fmt.Sprint(action)).
-		Bool("can_go_back", wv.CanGoBack()).
-		Bool("can_go_forward", wv.CanGoForward()).
-		Msg("cef: touchpad navigation swipe recognized")
+	if wv.ctx != nil {
+		logging.FromContext(wv.ctx).Debug().
+			Uint64("webview_id", uint64(wv.id)).
+			Str("action", fmt.Sprint(action)).
+			Bool("can_go_back", wv.CanGoBack()).
+			Bool("can_go_forward", wv.CanGoForward()).
+			Msg("cef: touchpad navigation swipe recognized")
+	}
 
 	switch action {
 	case cef2gtk.NavigationSwipeBack:
-		if err := wv.GoBack(wv.ctx); err != nil {
+		if err := wv.GoBack(wv.ctx); err != nil && wv.ctx != nil {
 			logging.FromContext(wv.ctx).Warn().Err(err).Msg("touchpad back navigation failed")
 		}
 	case cef2gtk.NavigationSwipeForward:
-		if err := wv.GoForward(wv.ctx); err != nil {
+		if err := wv.GoForward(wv.ctx); err != nil && wv.ctx != nil {
 			logging.FromContext(wv.ctx).Warn().Err(err).Msg("touchpad forward navigation failed")
 		}
 	}

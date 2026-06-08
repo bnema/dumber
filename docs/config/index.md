@@ -203,6 +203,8 @@ border = "#363636"
 | `engine.cef.input.touchpad_navigation_min_delta` | float | `200.0` | > 0 | Minimum accumulated horizontal swipe delta required for navigation |
 | `engine.cef.input.touchpad_navigation_max_vertical_ratio` | float | `0.5` | > 0 | Maximum vertical-to-horizontal delta ratio allowed for navigation swipes |
 | `default_ui_scale` | float | `1.0` | > 0 | GTK widget UI scale (1.0=100%, 2.0=200%) |
+
+`engine.cef.input.touchpad_navigation_min_delta` uses raw GTK touchpad surface units for back/forward gestures. The default `200.0` matches WebKit-style commit distance to reduce accidental navigation; raise or lower it in `config.toml` to tune gesture sensitivity.
 | `default_webpage_zoom` | float | `1.2` | > 0 | Default page zoom (1.0=100%, 1.2=120%) |
 
 ## Workspace Configuration
