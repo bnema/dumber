@@ -39,8 +39,6 @@ func TestConverterAcceptedFaviconFormatsProducePNGs(t *testing.T) {
 		{"png", "image/png", testPNG(t, 16, 16)},
 		{"ico with png payload", "image/x-icon", testICOWithPNG(t, testPNG(t, 16, 16))},
 		{"ico with bitmap payload", "image/x-icon", testICOWithDIB(t)},
-		{"svg", "image/svg+xml", []byte(`<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16"><rect width="16" height="16" fill="#ff0000"/></svg>`)},
-		{"webp placeholder", "image/webp", []byte("RIFF\x04\x00\x00\x00WEBPVP8 ")},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			out, err := conv.Convert(context.Background(), tc.data, tc.ct, []int{32})
@@ -56,6 +54,23 @@ func TestConverterAcceptedFaviconFormatsProducePNGs(t *testing.T) {
 			}
 			if img.Bounds().Dx() != 32 || img.Bounds().Dy() != 32 {
 				t.Fatalf("size = %v", img.Bounds())
+			}
+		})
+	}
+}
+
+func TestConverterRejectsFormatsThatWouldProducePlaceholders(t *testing.T) {
+	conv := NewImageConverter()
+	for _, tc := range []struct {
+		name, ct string
+		data     []byte
+	}{
+		{"svg", "image/svg+xml", []byte(`<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16"><rect width="16" height="16" fill="#ff0000"/></svg>`)},
+		{"webp", "image/webp", []byte("RIFF\x04\x00\x00\x00WEBPVP8 ")},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			if _, err := conv.Convert(context.Background(), tc.data, tc.ct, []int{32}); !errors.Is(err, appport.ErrFaviconMiss) {
+				t.Fatalf("err = %v, want favicon miss", err)
 			}
 		})
 	}
