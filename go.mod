@@ -5,12 +5,12 @@ go 1.26.3
 require (
 	github.com/a-h/templ v0.3.1020
 	github.com/andybalholm/brotli v1.2.1
-	github.com/bnema/purego v0.11.0-bnema.3
-	github.com/bnema/purego-cef v0.13.2
-	github.com/bnema/purego-cef2gtk v0.8.0
+	github.com/bnema/purego v0.11.0-bnema.4
+	github.com/bnema/purego-cef v0.13.3
+	github.com/bnema/purego-cef2gtk v0.8.1
 	github.com/bnema/purego-pipewire v0.1.4
 	github.com/bnema/purego-sqlite v0.1.3
-	github.com/bnema/puregotk v0.6.0
+	github.com/bnema/puregotk v0.7.0
 	github.com/charmbracelet/bubbles v1.0.0
 	github.com/charmbracelet/bubbletea v1.3.10
 	github.com/charmbracelet/lipgloss v1.1.0

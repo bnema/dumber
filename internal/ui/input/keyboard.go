@@ -71,10 +71,13 @@ type KeyboardHandler struct {
 
 	// GTK controller (nil until attached)
 	controller *gtk.EventControllerKey
+	window     *gtk.ApplicationWindow
 
 	// Callback retention: must stay reachable by Go GC.
-	keyPressedCb  func(gtk.EventControllerKey, uint, uint, gdk.ModifierType) bool
-	keyReleasedCb func(gtk.EventControllerKey, uint, uint, gdk.ModifierType)
+	keyPressedCb         func(gtk.EventControllerKey, uint, uint, gdk.ModifierType) bool
+	keyReleasedCb        func(gtk.EventControllerKey, uint, uint, gdk.ModifierType)
+	keyPressedHandlerID  uint
+	keyReleasedHandlerID uint
 
 	activePressedActions map[Action]uint
 	ctx                  context.Context
@@ -225,29 +228,40 @@ func (h *KeyboardHandler) AttachTo(window *gtk.ApplicationWindow) {
 	h.keyPressedCb = func(_ gtk.EventControllerKey, keyval uint, keycode uint, state gdk.ModifierType) bool {
 		return h.handleKeyPress(keyval, keycode, state)
 	}
-	h.controller.ConnectKeyPressed(&h.keyPressedCb)
+	h.keyPressedHandlerID = h.controller.ConnectKeyPressed(&h.keyPressedCb)
 
 	// Connect key released handler for accent detection.
 	h.keyReleasedCb = func(_ gtk.EventControllerKey, keyval uint, _ uint, _ gdk.ModifierType) {
 		h.handleKeyRelease(keyval)
 	}
-	h.controller.ConnectKeyReleased(&h.keyReleasedCb)
+	h.keyReleasedHandlerID = h.controller.ConnectKeyReleased(&h.keyReleasedCb)
 
 	// Add controller to window
+	h.window = window
 	window.AddController(&h.controller.EventController)
 
 	log.Debug().Msg("keyboard handler attached to window")
 }
 
-// Detach removes the keyboard handler.
-// Note: GTK handles cleanup when the widget is destroyed,
-// but we clear our reference here.
+// Detach removes the keyboard handler and releases its GTK signal callbacks.
 func (h *KeyboardHandler) Detach() {
 	h.mu.Lock()
 	defer h.mu.Unlock()
+	if h.controller != nil && h.keyPressedHandlerID != 0 {
+		h.controller.DisconnectSignal(h.keyPressedHandlerID)
+	}
+	if h.controller != nil && h.keyReleasedHandlerID != 0 {
+		h.controller.DisconnectSignal(h.keyReleasedHandlerID)
+	}
+	if h.window != nil && h.controller != nil {
+		h.window.RemoveController(&h.controller.EventController)
+	}
 	h.controller = nil
+	h.window = nil
 	h.keyPressedCb = nil
 	h.keyReleasedCb = nil
+	h.keyPressedHandlerID = 0
+	h.keyReleasedHandlerID = 0
 	h.activePressedActions = nil
 }
 

@@ -12,6 +12,7 @@ import (
 	"github.com/bnema/dumber/internal/shared/syncdispatch"
 	"github.com/bnema/dumber/internal/ui/component"
 	"github.com/bnema/dumber/internal/ui/focus"
+	"github.com/bnema/dumber/internal/ui/input"
 	"github.com/bnema/dumber/internal/ui/layout"
 	"github.com/bnema/dumber/internal/ui/window"
 	"github.com/bnema/puregotk/v4/gtk"
@@ -38,6 +39,8 @@ func TestBrowserWindow_RemoveBrowserWindowClearsShellState(t *testing.T) {
 	setShellField(t, removed, "tabPickerPaneID", entity.PaneID("pane-1"))
 	setShellField(t, removed, "insertAccentUC", newTestAccentUseCase(t, false))
 	setShellField(t, removed, "accentPicker", &component.AccentPicker{})
+	setShellField(t, removed, "keyboardHandler", &input.KeyboardHandler{})
+	setShellField(t, removed, "globalShortcutHandler", &input.GlobalShortcutHandler{})
 	setShellField(t, removed, "permissionDialog", (*testPermissionDialogPresenter)(nil))
 	setShellField(t, removed, "webrtcIndicator", &component.WebRTCPermissionIndicator{})
 

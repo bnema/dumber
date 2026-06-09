@@ -5,7 +5,50 @@ import (
 	"time"
 
 	"github.com/bnema/puregotk/v4/gdk"
+	"github.com/bnema/puregotk/v4/gio"
+	"github.com/bnema/puregotk/v4/gtk"
 )
+
+func TestGlobalShortcutHandlerCallbackBudgetIsIndependentOfShortcutCount(t *testing.T) {
+	h := &GlobalShortcutHandler{
+		registered:   make(map[KeyBinding]Action),
+		shortcutRefs: make(map[string]globalShortcutRegistration),
+	}
+
+	for i := 0; i < 57; i++ {
+		binding := KeyBinding{Keyval: uint(gdk.KEY_1) + uint(i), Modifiers: Modifier(gdk.AltMaskValue)}
+		action := ActionSwitchTabIndex1
+		shortcutID := encodeGlobalShortcutID(action, binding, h.generation)
+		h.registered[binding] = action
+		h.shortcutRefs[shortcutID] = globalShortcutRegistration{action: action, binding: binding, generation: h.generation}
+	}
+	if got := h.estimatedPuregoCallbackBudget(); got != 0 {
+		t.Fatalf("callback budget without retained GTK callbacks = %d, want 0", got)
+	}
+
+	h.globalActionCb = func(_ gio.SimpleAction, _ uintptr) {}
+	h.keyReleasedCb = func(_ gtk.EventControllerKey, _ uint, _ uint, _ gdk.ModifierType) {}
+	if got := h.estimatedPuregoCallbackBudget(); got != 2 {
+		t.Fatalf("callback budget with 57 shortcuts = %d, want 2", got)
+	}
+}
+
+func TestGlobalShortcutIDIncludesBinding(t *testing.T) {
+	first := encodeGlobalShortcutID(ActionSwitchTabIndex1, KeyBinding{Keyval: uint(gdk.KEY_1), Modifiers: Modifier(gdk.AltMaskValue)}, 0)
+	second := encodeGlobalShortcutID(ActionSwitchTabIndex1, KeyBinding{Keyval: uint(gdk.KEY_2), Modifiers: Modifier(gdk.AltMaskValue)}, 0)
+	if first == second {
+		t.Fatal("global shortcut IDs should distinguish bindings for the same action")
+	}
+}
+
+func TestGlobalShortcutIDIncludesGeneration(t *testing.T) {
+	binding := KeyBinding{Keyval: uint(gdk.KEY_1), Modifiers: Modifier(gdk.AltMaskValue)}
+	first := encodeGlobalShortcutID(ActionSwitchTabIndex1, binding, 1)
+	second := encodeGlobalShortcutID(ActionSwitchTabIndex1, binding, 2)
+	if first == second {
+		t.Fatal("global shortcut IDs should distinguish registrations across reload generations")
+	}
+}
 
 func TestGlobalShortcutHandlerSuppressesRepeatedOneShotActions(t *testing.T) {
 	h := &GlobalShortcutHandler{lastDispatchAt: make(map[Action]time.Time)}
