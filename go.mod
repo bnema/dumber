@@ -83,3 +83,11 @@ require (
 )
 
 tool github.com/a-h/templ/cmd/templ
+
+replace github.com/bnema/purego-cef2gtk => ../purego-cef2gtk
+
+replace github.com/bnema/puregotk => ../puregotk
+
+replace github.com/bnema/purego => ../purego
+
+replace github.com/bnema/purego-cef => ../purego-cef

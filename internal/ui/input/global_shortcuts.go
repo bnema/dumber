@@ -10,6 +10,7 @@ import (
 	"github.com/bnema/dumber/internal/domain/entity"
 	"github.com/bnema/dumber/internal/logging"
 	"github.com/bnema/puregotk/v4/gdk"
+	"github.com/bnema/puregotk/v4/gio"
 	"github.com/bnema/puregotk/v4/glib"
 	"github.com/bnema/puregotk/v4/gtk"
 	"github.com/rs/zerolog"
@@ -19,22 +20,24 @@ import (
 // even when WebView has focus. It uses GtkShortcutController with GTK_SHORTCUT_SCOPE_GLOBAL
 // to intercept shortcuts before they reach the WebView.
 type GlobalShortcutHandler struct {
-	controller           *gtk.ShortcutController
-	releaseController    *gtk.EventControllerKey
-	window               *gtk.ApplicationWindow
-	kbHandler            *KeyboardHandler
-	onAction             ActionHandler
-	ctx                  context.Context
-	registered           map[KeyBinding]Action
-	lastDispatchAt       map[Action]time.Time
-	heldShortcuts        map[globalShortcutHoldKey]struct{}
-	keyReleasedCb        func(gtk.EventControllerKey, uint, uint, gdk.ModifierType)
-	keyReleasedHandlerID uint
+	controller            *gtk.ShortcutController
+	releaseController     *gtk.EventControllerKey
+	window                *gtk.ApplicationWindow
+	kbHandler             *KeyboardHandler
+	onAction              ActionHandler
+	ctx                   context.Context
+	registered            map[KeyBinding]Action
+	shortcutRefs          map[string]globalShortcutRegistration
+	lastDispatchAt        map[Action]time.Time
+	heldShortcuts         map[globalShortcutHoldKey]struct{}
+	shortcutAction        *gtk.NamedAction
+	globalAction          *gio.SimpleAction
+	globalActionCb        func(gio.SimpleAction, uintptr)
+	globalActionHandlerID uint
+	keyReleasedCb         func(gtk.EventControllerKey, uint, uint, gdk.ModifierType)
+	keyReleasedHandlerID  uint
 	// generation is mutated only from the GTK main thread alongside controller replacement.
 	generation uint64
-
-	// Keep references to callbacks to prevent GC from collecting them
-	callbacks []gtk.ShortcutFunc
 }
 
 // NewGlobalShortcutHandler creates a new global shortcut handler for shortcuts
@@ -57,8 +60,8 @@ func NewGlobalShortcutHandler(
 		kbHandler:         kbHandler,
 		onAction:          onAction,
 		ctx:               ctx,
-		callbacks:         make([]gtk.ShortcutFunc, 0),
 		registered:        make(map[KeyBinding]Action),
+		shortcutRefs:      make(map[string]globalShortcutRegistration),
 		lastDispatchAt:    make(map[Action]time.Time),
 		heldShortcuts:     make(map[globalShortcutHoldKey]struct{}),
 	}
@@ -127,7 +130,7 @@ func NewGlobalShortcutHandler(
 	window.AddController(&h.controller.EventController)
 
 	log.Debug().
-		Int("shortcuts", len(h.callbacks)).
+		Int("shortcuts", len(h.registered)).
 		Msg("global shortcut handler created and attached")
 
 	return h
@@ -137,6 +140,15 @@ func (h *GlobalShortcutHandler) configureGlobalControllers() {
 	// Set global scope - this is the key to making shortcuts work
 	// even when WebView has focus.
 	h.controller.SetScope(gtk.ShortcutScopeGlobalValue)
+	h.shortcutAction = gtk.NewNamedAction(globalShortcutActionFullName)
+	h.globalAction = gio.NewSimpleAction(globalShortcutActionName, glib.NewVariantType("s"))
+	if h.globalAction != nil {
+		h.globalActionCb = func(_ gio.SimpleAction, parameter uintptr) {
+			h.activateGlobalShortcut(parameter)
+		}
+		h.globalActionHandlerID = h.globalAction.ConnectActivate(&h.globalActionCb)
+		h.window.AddAction(h.globalAction)
+	}
 	h.releaseController.SetPropagationPhase(gtk.PhaseCaptureValue)
 	h.keyReleasedCb = func(_ gtk.EventControllerKey, keyval uint, keycode uint, _ gdk.ModifierType) {
 		h.releaseHeldGlobalShortcuts(keyval, keycode)
@@ -201,7 +213,14 @@ func (h *GlobalShortcutHandler) registerShortcut(keyval uint, modifiers gdk.Modi
 		return false
 	}
 
-	// Create trigger for this key combination
+	if h.shortcutAction == nil {
+		logging.FromContext(h.ctx).Error().
+			Uint("keyval", keyval).
+			Msg("global shortcut action is unavailable")
+		return false
+	}
+
+	// Create trigger for this key combination.
 	trigger := gtk.NewKeyvalTrigger(keyval, modifiers)
 	if trigger == nil {
 		logging.FromContext(h.ctx).Error().
@@ -210,89 +229,7 @@ func (h *GlobalShortcutHandler) registerShortcut(keyval uint, modifiers gdk.Modi
 		return false
 	}
 
-	// Create callback action.
-	// Capture the generation so callbacks from removed/reloaded controllers cannot
-	// dispatch one-shot actions after a shortcut reload.
-	actionToDispatch := action
-	generation := h.generation
-	bindingForLog := binding
-	callback := gtk.ShortcutFunc(func(_ uintptr, _ *glib.Variant, _ uintptr) bool {
-		log := logging.FromContext(h.ctx)
-		if h.isStaleGeneration(generation) {
-			log.Trace().
-				Str("action", string(actionToDispatch)).
-				Str("shortcut", formatBinding(bindingForLog)).
-				Uint64("callback_generation", generation).
-				Uint64("current_generation", h.generation).
-				Msg("stale global shortcut callback ignored")
-			return true
-		}
-		if !h.isActiveWindowShortcutHandler() {
-			log.Trace().
-				Str("action", string(actionToDispatch)).
-				Str("shortcut", formatBinding(bindingForLog)).
-				Msg("inactive window global shortcut callback ignored")
-			return false
-		}
-		eventInfo := h.inspectCurrentShortcutEvent()
-		if !shouldDispatchGlobalShortcutEvent(eventInfo) {
-			appendGlobalShortcutEventFields(log.Trace(), bindingForLog, actionToDispatch, eventInfo).
-				Msg("global shortcut ignored without current key event")
-			return true
-		}
-		if h.suppressHeldShortcut(actionToDispatch, eventInfo) {
-			log.Trace().
-				Str("action", string(actionToDispatch)).
-				Str("shortcut", formatBinding(bindingForLog)).
-				Msg("held global shortcut repeat suppressed")
-			return true
-		}
-		if h.suppressRepeatedShortcut(actionToDispatch, time.Now()) {
-			log.Trace().
-				Str("action", string(actionToDispatch)).
-				Str("shortcut", formatBinding(bindingForLog)).
-				Msg("global shortcut repeat suppressed")
-			return true
-		}
-		appendGlobalShortcutEventFields(log.Debug(), bindingForLog, actionToDispatch, eventInfo).
-			Msg("global shortcut triggered")
-
-		// Mode-enter/exit actions go through KeyboardHandler for modal state
-		if isModeAction(actionToDispatch) {
-			if h.kbHandler != nil {
-				h.kbHandler.DispatchAction(actionToDispatch)
-				return true
-			}
-			log.Warn().
-				Str("action", string(actionToDispatch)).
-				Msg("mode action triggered but keyboard handler not set, falling through to default handler")
-		}
-
-		if h.onAction != nil {
-			if err := h.onAction(h.ctx, actionToDispatch); err != nil {
-				log.Error().
-					Err(err).
-					Str("action", string(actionToDispatch)).
-					Msg("global shortcut action failed")
-			}
-		}
-		return true // Event consumed
-	})
-
-	// Store callback reference to prevent GC
-	h.callbacks = append(h.callbacks, callback)
-
-	// Create the shortcut action
-	shortcutAction := gtk.NewCallbackAction(&callback, 0, nil)
-	if shortcutAction == nil {
-		logging.FromContext(h.ctx).Error().
-			Uint("keyval", keyval).
-			Msg("failed to create callback action")
-		return false
-	}
-
-	// Create the shortcut combining trigger and action
-	shortcut := gtk.NewShortcut(&trigger.ShortcutTrigger, &shortcutAction.ShortcutAction)
+	shortcut := gtk.NewShortcut(&trigger.ShortcutTrigger, &h.shortcutAction.ShortcutAction)
 	if shortcut == nil {
 		logging.FromContext(h.ctx).Error().
 			Uint("keyval", keyval).
@@ -300,10 +237,131 @@ func (h *GlobalShortcutHandler) registerShortcut(keyval uint, modifiers gdk.Modi
 		return false
 	}
 
-	// Add to controller
+	shortcutID := encodeGlobalShortcutID(action, binding)
+	shortcut.SetArguments(glib.NewVariantString(shortcutID))
+
+	// Add to controller.
 	h.controller.AddShortcut(shortcut)
 	h.registered[binding] = action
+	h.shortcutRefs[shortcutID] = globalShortcutRegistration{
+		action:  action,
+		binding: binding,
+	}
 	return true
+}
+
+func (h *GlobalShortcutHandler) activateGlobalShortcut(parameter uintptr) {
+	log := logging.FromContext(h.ctx)
+	registration, ok := h.globalShortcutRegistration(parameter)
+	if !ok {
+		log.Warn().Msg("global shortcut activated without registered argument")
+		return
+	}
+	h.dispatchGlobalShortcut(registration.action, registration.binding, h.generation)
+}
+
+func (h *GlobalShortcutHandler) globalShortcutRegistration(parameter uintptr) (globalShortcutRegistration, bool) {
+	if parameter == 0 || h.shortcutRefs == nil {
+		return globalShortcutRegistration{}, false
+	}
+	variant := glib.VariantNewFromInternalPtr(parameter)
+	if variant == nil {
+		return globalShortcutRegistration{}, false
+	}
+	shortcutID := variant.GetString(nil)
+	registration, ok := h.shortcutRefs[shortcutID]
+	return registration, ok
+}
+
+func (h *GlobalShortcutHandler) dispatchGlobalShortcut(actionToDispatch Action, bindingForLog KeyBinding, generation uint64) bool {
+	log := logging.FromContext(h.ctx)
+	if h.isStaleGeneration(generation) {
+		log.Trace().
+			Str("action", string(actionToDispatch)).
+			Str("shortcut", formatBinding(bindingForLog)).
+			Uint64("callback_generation", generation).
+			Uint64("current_generation", h.generation).
+			Msg("stale global shortcut callback ignored")
+		return true
+	}
+	if !h.isActiveWindowShortcutHandler() {
+		log.Trace().
+			Str("action", string(actionToDispatch)).
+			Str("shortcut", formatBinding(bindingForLog)).
+			Msg("inactive window global shortcut callback ignored")
+		return false
+	}
+	eventInfo := h.inspectCurrentShortcutEvent()
+	if !shouldDispatchGlobalShortcutEvent(eventInfo) {
+		appendGlobalShortcutEventFields(log.Trace(), bindingForLog, actionToDispatch, eventInfo).
+			Msg("global shortcut ignored without current key event")
+		return true
+	}
+	if h.suppressHeldShortcut(actionToDispatch, eventInfo) {
+		log.Trace().
+			Str("action", string(actionToDispatch)).
+			Str("shortcut", formatBinding(bindingForLog)).
+			Msg("held global shortcut repeat suppressed")
+		return true
+	}
+	if h.suppressRepeatedShortcut(actionToDispatch, time.Now()) {
+		log.Trace().
+			Str("action", string(actionToDispatch)).
+			Str("shortcut", formatBinding(bindingForLog)).
+			Msg("global shortcut repeat suppressed")
+		return true
+	}
+	appendGlobalShortcutEventFields(log.Debug(), bindingForLog, actionToDispatch, eventInfo).
+		Msg("global shortcut triggered")
+
+	// Mode-enter/exit actions go through KeyboardHandler for modal state.
+	if isModeAction(actionToDispatch) {
+		if h.kbHandler != nil {
+			h.kbHandler.DispatchAction(actionToDispatch)
+			return true
+		}
+		log.Warn().
+			Str("action", string(actionToDispatch)).
+			Msg("mode action triggered but keyboard handler not set, falling through to default handler")
+	}
+
+	if h.onAction != nil {
+		if err := h.onAction(h.ctx, actionToDispatch); err != nil {
+			log.Error().
+				Err(err).
+				Str("action", string(actionToDispatch)).
+				Msg("global shortcut action failed")
+		}
+	}
+	return true
+}
+
+const (
+	globalShortcutActionName     = "dumber-global-shortcut"
+	globalShortcutActionFullName = "win." + globalShortcutActionName
+)
+
+type globalShortcutRegistration struct {
+	action  Action
+	binding KeyBinding
+}
+
+func encodeGlobalShortcutID(action Action, binding KeyBinding) string {
+	return fmt.Sprintf("%s\x1f%d\x1f%d", action, binding.Keyval, binding.Modifiers)
+}
+
+func (h *GlobalShortcutHandler) estimatedPuregoCallbackBudget() int {
+	if h == nil {
+		return 0
+	}
+	callbacks := 0
+	if h.globalActionCb != nil {
+		callbacks++
+	}
+	if h.keyReleasedCb != nil {
+		callbacks++
+	}
+	return callbacks
 }
 
 // globalShortcutActionMap returns a fresh map of workspace action names to global shortcut actions.
@@ -464,8 +522,8 @@ func (h *GlobalShortcutHandler) ReloadShortcuts(ctx context.Context, workspace *
 		return
 	}
 	h.controller.SetScope(gtk.ShortcutScopeGlobalValue)
-	h.callbacks = make([]gtk.ShortcutFunc, 0)
 	h.registered = make(map[KeyBinding]Action)
+	h.shortcutRefs = make(map[string]globalShortcutRegistration)
 	h.lastDispatchAt = make(map[Action]time.Time)
 	h.heldShortcuts = make(map[globalShortcutHoldKey]struct{})
 
@@ -514,7 +572,7 @@ func (h *GlobalShortcutHandler) ReloadShortcuts(ctx context.Context, workspace *
 	h.window.AddController(&h.controller.EventController)
 
 	log.Debug().
-		Int("shortcuts", len(h.callbacks)).
+		Int("shortcuts", len(h.registered)).
 		Msg("global shortcuts reloaded")
 }
 
@@ -532,12 +590,22 @@ func (h *GlobalShortcutHandler) Detach() {
 	if h.window != nil && h.releaseController != nil {
 		h.window.RemoveController(&h.releaseController.EventController)
 	}
+	if h.globalAction != nil && h.globalActionHandlerID != 0 {
+		h.globalAction.DisconnectSignal(h.globalActionHandlerID)
+	}
+	if h.window != nil && h.globalAction != nil {
+		h.window.RemoveAction(globalShortcutActionName)
+	}
 	h.controller = nil
 	h.releaseController = nil
+	h.shortcutAction = nil
+	h.globalAction = nil
+	h.globalActionCb = nil
+	h.globalActionHandlerID = 0
 	h.keyReleasedCb = nil
 	h.keyReleasedHandlerID = 0
-	h.callbacks = nil
 	h.registered = nil
+	h.shortcutRefs = nil
 	h.lastDispatchAt = nil
 	h.heldShortcuts = nil
 }
