@@ -783,7 +783,7 @@ func (m *Manager) setEngineDefaults(defaults *Config) {
 
 func (m *Manager) setCEFInputDefaults(input CEFInputConfig) {
 	m.viper.SetDefault("engine.cef.input.scroll_wheel_multiplier", input.ScrollWheelMultiplier)
-	m.viper.SetDefault("engine.cef.input.scroll_touchpad_multiplier", input.ScrollTouchpadMultiplier)
+	m.viper.SetDefault("engine.cef.input.scroll_precise_multiplier", input.ScrollPreciseMultiplier)
 	m.viper.SetDefault("engine.cef.input.scroll_horizontal_multiplier", input.ScrollHorizontalMultiplier)
 	m.viper.SetDefault("engine.cef.input.scroll_vertical_multiplier", input.ScrollVerticalMultiplier)
 	m.viper.SetDefault("engine.cef.input.scroll_max_delta", input.ScrollMaxDelta)

@@ -121,7 +121,7 @@ type CEFEngineConfig struct {
 // CEFInputConfig holds CEF-specific input translation options.
 type CEFInputConfig struct {
 	ScrollWheelMultiplier              float64 `mapstructure:"scroll_wheel_multiplier" toml:"scroll_wheel_multiplier" yaml:"scroll_wheel_multiplier"`                                              //nolint:lll // struct tags exceed lll limit
-	ScrollTouchpadMultiplier           float64 `mapstructure:"scroll_touchpad_multiplier" toml:"scroll_touchpad_multiplier" yaml:"scroll_touchpad_multiplier"`                                     //nolint:lll // struct tags exceed lll limit
+	ScrollPreciseMultiplier            float64 `mapstructure:"scroll_precise_multiplier" toml:"scroll_precise_multiplier" yaml:"scroll_precise_multiplier"`                                        //nolint:lll // struct tags exceed lll limit
 	ScrollHorizontalMultiplier         float64 `mapstructure:"scroll_horizontal_multiplier" toml:"scroll_horizontal_multiplier" yaml:"scroll_horizontal_multiplier"`                               //nolint:lll // struct tags exceed lll limit
 	ScrollVerticalMultiplier           float64 `mapstructure:"scroll_vertical_multiplier" toml:"scroll_vertical_multiplier" yaml:"scroll_vertical_multiplier"`                                     //nolint:lll // struct tags exceed lll limit
 	ScrollMaxDelta                     int32   `mapstructure:"scroll_max_delta" toml:"scroll_max_delta" yaml:"scroll_max_delta"`                                                                   //nolint:lll // struct tags exceed lll limit

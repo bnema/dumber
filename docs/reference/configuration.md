@@ -65,14 +65,16 @@
 | `engine.cef.windowless_frame_rate` | int32 | `0` | >= 0 |
 | `engine.cef.windowless_frame_rate_max` | int32 | `240` | >= 0 |
 | `engine.cef.input.scroll_wheel_multiplier` | float | `1.0` | > 0 |
-| `engine.cef.input.scroll_touchpad_multiplier` | float | `0.35` | > 0 |
+| `engine.cef.input.scroll_precise_multiplier` | float | `2.5` | > 0 |
 | `engine.cef.input.scroll_horizontal_multiplier` | float | `1.0` | > 0 |
 | `engine.cef.input.scroll_vertical_multiplier` | float | `1.0` | > 0 |
 | `engine.cef.input.scroll_max_delta` | int32 | `0` | >= 0 |
 | `engine.cef.input.touchpad_navigation_enabled` | bool | `true` | |
-| `engine.cef.input.touchpad_navigation_min_delta` | float | `80.0` | > 0 |
+| `engine.cef.input.touchpad_navigation_min_delta` | float | `200.0` | > 0 |
 | `engine.cef.input.touchpad_navigation_max_vertical_ratio` | float | `0.5` | > 0 |
 | `default_ui_scale` | float | `1.0` | > 0 |
+
+`engine.cef.input.touchpad_navigation_min_delta` is measured in raw GTK touchpad surface units. The default `200.0` matches WebKit-style commit distance to reduce accidental back/forward navigation and can be overridden in `config.toml`.
 | `default_webpage_zoom` | float | `1.2` | > 0 |
 | `workspace.new_pane_url` | string | `about:blank` | |
 | `workspace.switch_to_tab_on_move` | bool | `true` | |
