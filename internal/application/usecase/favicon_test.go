@@ -238,6 +238,36 @@ func TestFaviconRefreshFromIconURLsUsesPageURLKey(t *testing.T) {
 	}
 }
 
+func TestFaviconRefreshFromIconURLsSkipsUnsupportedCandidates(t *testing.T) {
+	fx := newFaviconFixture()
+	fx.fetcher.responses = map[string]fakeFetchedIcon{
+		"https://cdn.example.net/icon.svg": {bytes: []byte("svg"), contentType: "image/svg+xml"},
+		"https://cdn.example.net/icon.png": {bytes: []byte("png"), contentType: "image/png"},
+	}
+	fx.converter.errByContentType = map[string]error{"image/svg+xml": ErrFaviconMiss}
+
+	err := fx.uc.RefreshFromIconURLs(context.Background(), "https://docs.example.com/page", []string{
+		"https://cdn.example.net/icon.svg",
+		"https://cdn.example.net/icon.png",
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if fx.fetcher.calls != 2 {
+		t.Fatalf("fetcher calls=%d, want 2", fx.fetcher.calls)
+	}
+	meta := fx.repo.byKey["docs.example.com"]
+	if meta == nil {
+		t.Fatalf("expected page URL key to be stored; keys=%v", fx.repo.byKey)
+	}
+	if meta.SourceURL != "https://cdn.example.net/icon.png" || meta.ContentType != "image/png" {
+		t.Fatalf("stored meta = %+v, want png candidate", meta)
+	}
+	if string(fx.blobs.original["docs.example.com"]) != "png" {
+		t.Fatalf("stored original = %q, want png", fx.blobs.original["docs.example.com"])
+	}
+}
+
 func TestFaviconObserveConversionErrorDoesNotMutateExistingAssets(t *testing.T) {
 	fx := newFaviconFixture()
 	fx.seedOriginal([]byte("old"))
@@ -462,14 +492,18 @@ func (b *fakeBlobStore) RemoveDerived(_ context.Context, key favicon.Key) error 
 }
 
 type fakeConverter struct {
-	calls int
-	err   error
+	calls            int
+	err              error
+	errByContentType map[string]error
 }
 
-func (c *fakeConverter) Convert(_ context.Context, original []byte, _ string, sizes []int) (*appport.ConvertedFavicon, error) {
+func (c *fakeConverter) Convert(_ context.Context, original []byte, contentType string, sizes []int) (*appport.ConvertedFavicon, error) {
 	c.calls++
 	if c.err != nil {
 		return nil, c.err
+	}
+	if err := c.errByContentType[contentType]; err != nil {
+		return nil, err
 	}
 	out := &appport.ConvertedFavicon{PNG: append([]byte("png:"), original...), SizedPNG: map[int][]byte{}}
 	for _, s := range sizes {
@@ -514,9 +548,15 @@ func (i *fakeInvalidators) InvalidateAll(_ context.Context, _ favicon.Key) error
 	return nil
 }
 
+type fakeFetchedIcon struct {
+	bytes       []byte
+	contentType string
+}
+
 type fakeFetcher struct {
-	calls int
-	err   error
+	calls     int
+	err       error
+	responses map[string]fakeFetchedIcon
 }
 
 func (f *fakeFetcher) Fetch(_ context.Context, req appport.FaviconFetchRequest) (*appport.FaviconFetchedIcon, error) {
@@ -528,5 +568,9 @@ func (f *fakeFetcher) Fetch(_ context.Context, req appport.FaviconFetchRequest) 
 	if iconURL == "" {
 		iconURL = "https://example.com/favicon.ico"
 	}
-	return &appport.FaviconFetchedIcon{PageURL: req.PageURL, IconURL: iconURL, Bytes: []byte("fetched"), Source: favicon.SourceDuckDuckGo, ContentType: "image/png"}, nil
+	response := f.responses[iconURL]
+	if response.bytes == nil {
+		response = fakeFetchedIcon{bytes: []byte("fetched"), contentType: "image/png"}
+	}
+	return &appport.FaviconFetchedIcon{PageURL: req.PageURL, IconURL: iconURL, Bytes: response.bytes, Source: favicon.SourceDuckDuckGo, ContentType: response.contentType}, nil
 }

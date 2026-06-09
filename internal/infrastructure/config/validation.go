@@ -367,8 +367,8 @@ func validateCEF(config *Config) []string {
 	if invalidPositiveFloat(input.ScrollWheelMultiplier) {
 		validationErrors = append(validationErrors, "engine.cef.input.scroll_wheel_multiplier must be > 0")
 	}
-	if invalidPositiveFloat(input.ScrollTouchpadMultiplier) {
-		validationErrors = append(validationErrors, "engine.cef.input.scroll_touchpad_multiplier must be > 0")
+	if invalidPositiveFloat(input.ScrollPreciseMultiplier) {
+		validationErrors = append(validationErrors, "engine.cef.input.scroll_precise_multiplier must be > 0")
 	}
 	if invalidPositiveFloat(input.ScrollHorizontalMultiplier) {
 		validationErrors = append(validationErrors, "engine.cef.input.scroll_horizontal_multiplier must be > 0")

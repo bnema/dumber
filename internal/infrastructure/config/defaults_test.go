@@ -26,7 +26,7 @@ func TestDefaultConfig_CoreDefaults(t *testing.T) {
 	assert.True(t, cfg.Engine.CEF.EnableAudioHandler)
 	assert.False(t, cfg.Engine.CEF.TraceHandlers)
 	assert.InDelta(t, defaultCEFScrollMultiplier, cfg.Engine.CEF.Input.ScrollWheelMultiplier, 0.001)
-	assert.InDelta(t, defaultCEFScrollTouchpadMultiplier, cfg.Engine.CEF.Input.ScrollTouchpadMultiplier, 0.001)
+	assert.InDelta(t, defaultCEFScrollPreciseMultiplier, cfg.Engine.CEF.Input.ScrollPreciseMultiplier, 0.001)
 	assert.InDelta(t, defaultCEFScrollMultiplier, cfg.Engine.CEF.Input.ScrollHorizontalMultiplier, 0.001)
 	assert.InDelta(t, defaultCEFScrollMultiplier, cfg.Engine.CEF.Input.ScrollVerticalMultiplier, 0.001)
 	assert.Equal(t, int32(defaultCEFScrollMaxDelta), cfg.Engine.CEF.Input.ScrollMaxDelta)
