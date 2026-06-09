@@ -18,9 +18,9 @@ func TestGlobalShortcutHandlerCallbackBudgetIsIndependentOfShortcutCount(t *test
 	for i := 0; i < 57; i++ {
 		binding := KeyBinding{Keyval: uint(gdk.KEY_1) + uint(i), Modifiers: Modifier(gdk.AltMaskValue)}
 		action := ActionSwitchTabIndex1
-		shortcutID := encodeGlobalShortcutID(action, binding)
+		shortcutID := encodeGlobalShortcutID(action, binding, h.generation)
 		h.registered[binding] = action
-		h.shortcutRefs[shortcutID] = globalShortcutRegistration{action: action, binding: binding}
+		h.shortcutRefs[shortcutID] = globalShortcutRegistration{action: action, binding: binding, generation: h.generation}
 	}
 	if got := h.estimatedPuregoCallbackBudget(); got != 0 {
 		t.Fatalf("callback budget without retained GTK callbacks = %d, want 0", got)
@@ -34,10 +34,19 @@ func TestGlobalShortcutHandlerCallbackBudgetIsIndependentOfShortcutCount(t *test
 }
 
 func TestGlobalShortcutIDIncludesBinding(t *testing.T) {
-	first := encodeGlobalShortcutID(ActionSwitchTabIndex1, KeyBinding{Keyval: uint(gdk.KEY_1), Modifiers: Modifier(gdk.AltMaskValue)})
-	second := encodeGlobalShortcutID(ActionSwitchTabIndex1, KeyBinding{Keyval: uint(gdk.KEY_2), Modifiers: Modifier(gdk.AltMaskValue)})
+	first := encodeGlobalShortcutID(ActionSwitchTabIndex1, KeyBinding{Keyval: uint(gdk.KEY_1), Modifiers: Modifier(gdk.AltMaskValue)}, 0)
+	second := encodeGlobalShortcutID(ActionSwitchTabIndex1, KeyBinding{Keyval: uint(gdk.KEY_2), Modifiers: Modifier(gdk.AltMaskValue)}, 0)
 	if first == second {
 		t.Fatal("global shortcut IDs should distinguish bindings for the same action")
+	}
+}
+
+func TestGlobalShortcutIDIncludesGeneration(t *testing.T) {
+	binding := KeyBinding{Keyval: uint(gdk.KEY_1), Modifiers: Modifier(gdk.AltMaskValue)}
+	first := encodeGlobalShortcutID(ActionSwitchTabIndex1, binding, 1)
+	second := encodeGlobalShortcutID(ActionSwitchTabIndex1, binding, 2)
+	if first == second {
+		t.Fatal("global shortcut IDs should distinguish registrations across reload generations")
 	}
 }
 

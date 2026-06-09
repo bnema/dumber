@@ -237,15 +237,17 @@ func (h *GlobalShortcutHandler) registerShortcut(keyval uint, modifiers gdk.Modi
 		return false
 	}
 
-	shortcutID := encodeGlobalShortcutID(action, binding)
+	generation := h.generation
+	shortcutID := encodeGlobalShortcutID(action, binding, generation)
 	shortcut.SetArguments(glib.NewVariantString(shortcutID))
 
 	// Add to controller.
 	h.controller.AddShortcut(shortcut)
 	h.registered[binding] = action
 	h.shortcutRefs[shortcutID] = globalShortcutRegistration{
-		action:  action,
-		binding: binding,
+		action:     action,
+		binding:    binding,
+		generation: generation,
 	}
 	return true
 }
@@ -257,7 +259,7 @@ func (h *GlobalShortcutHandler) activateGlobalShortcut(parameter uintptr) {
 		log.Warn().Msg("global shortcut activated without registered argument")
 		return
 	}
-	h.dispatchGlobalShortcut(registration.action, registration.binding, h.generation)
+	h.dispatchGlobalShortcut(registration.action, registration.binding, registration.generation)
 }
 
 func (h *GlobalShortcutHandler) globalShortcutRegistration(parameter uintptr) (globalShortcutRegistration, bool) {
@@ -342,12 +344,13 @@ const (
 )
 
 type globalShortcutRegistration struct {
-	action  Action
-	binding KeyBinding
+	action     Action
+	binding    KeyBinding
+	generation uint64
 }
 
-func encodeGlobalShortcutID(action Action, binding KeyBinding) string {
-	return fmt.Sprintf("%s\x1f%d\x1f%d", action, binding.Keyval, binding.Modifiers)
+func encodeGlobalShortcutID(action Action, binding KeyBinding, generation uint64) string {
+	return fmt.Sprintf("%s\x1f%d\x1f%d\x1f%d", action, binding.Keyval, binding.Modifiers, generation)
 }
 
 func (h *GlobalShortcutHandler) estimatedPuregoCallbackBudget() int {
