@@ -3,6 +3,7 @@ package logging
 import (
 	"errors"
 	"io"
+	neturl "net/url"
 	"os"
 	"path/filepath"
 	"sync"
@@ -247,4 +248,13 @@ func TruncateURL(url string, maxLen int) string {
 		return url
 	}
 	return url[:maxLen] + "..."
+}
+
+// SafeURLHost returns only the host portion of a URL for privacy-preserving diagnostics.
+func SafeURLHost(raw string) string {
+	parsed, err := neturl.Parse(raw)
+	if err != nil {
+		return ""
+	}
+	return parsed.Host
 }
