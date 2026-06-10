@@ -13,8 +13,10 @@ import (
 	"github.com/bnema/dumber/internal/bootstrap"
 	"github.com/bnema/dumber/internal/cli/styles"
 	"github.com/bnema/dumber/internal/domain/build"
+	"github.com/bnema/dumber/internal/domain/entity"
 	"github.com/bnema/dumber/internal/domain/repository"
 	"github.com/bnema/dumber/internal/infrastructure/config"
+	"github.com/bnema/dumber/internal/infrastructure/externaltheme/noctalia"
 	"github.com/bnema/dumber/internal/infrastructure/favicon"
 	infralogging "github.com/bnema/dumber/internal/infrastructure/logging"
 	"github.com/bnema/dumber/internal/infrastructure/persistence/sqlite"
@@ -56,8 +58,9 @@ func NewApp() (*App, error) {
 		return nil, fmt.Errorf("resolve runtime profile: %w", err)
 	}
 
-	// Create theme from config
-	theme := styles.NewTheme(cfg)
+	// Create theme through the shared resolver. CLI keeps the historical dark default
+	// unless config explicitly requests a light scheme.
+	theme := styles.NewThemeFromResolved(resolveCLITheme(cfg))
 
 	// Start with a quiet logger. If a browser session is active, we'll attach to it.
 	logLevel := cfg.Logging.Level
@@ -155,6 +158,42 @@ func (a *App) Close() error {
 		return a.db.Close()
 	}
 	return nil
+}
+
+func resolveCLITheme(cfg *config.Config) entity.ResolvedTheme {
+	colorScheme := ""
+	if cfg != nil {
+		colorScheme = cfg.Appearance.ColorScheme
+	}
+	preference := usecase.ColorSchemePreferenceFromConfig(colorScheme, port.ColorSchemePreference{
+		PrefersDark: true,
+		Source:      "cli",
+	})
+
+	var appearance *entity.AppearanceConfig
+	var styling *entity.WorkspaceStylingConfig
+	var uiScale float64
+	if cfg != nil {
+		appearance = &cfg.Appearance
+		styling = &cfg.Workspace.Styling
+		uiScale = cfg.DefaultUIScale
+	}
+
+	externalThemeSource := noctalia.NewFileSource(false, "")
+	if cfg != nil {
+		externalThemeSource.Configure(cfg.Appearance.ExternalTheme)
+	}
+	uc := usecase.NewResolveThemeUseCase(externalThemeSource)
+	out, err := uc.Execute(context.Background(), usecase.ResolveThemeInputFromConfig(
+		appearance,
+		uiScale,
+		styling,
+		preference,
+	))
+	if err != nil {
+		return entity.ResolvedTheme{ActivePalette: entity.DefaultDarkPalette()}
+	}
+	return out.Theme
 }
 
 // Ctx returns the application context with logger.

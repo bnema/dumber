@@ -58,6 +58,12 @@ func buildSystemviewAppearancePayload(appearance AppearanceConfig) dto.WebUIAppe
 		ColorScheme:     appearance.ColorScheme,
 		LightPalette:    buildSystemviewPalettePayload(appearance.LightPalette, defaults.LightPalette),
 		DarkPalette:     buildSystemviewPalettePayload(appearance.DarkPalette, defaults.DarkPalette),
+		ExternalTheme: dto.WebUIExternalThemeConfig{
+			Enabled:  appearance.ExternalTheme.Enabled,
+			Provider: appearance.ExternalTheme.Provider,
+			Format:   appearance.ExternalTheme.Format,
+			Path:     appearance.ExternalTheme.Path,
+		},
 	}
 }
 

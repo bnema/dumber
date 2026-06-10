@@ -6,7 +6,6 @@ import (
 	"math"
 	"strings"
 
-	"github.com/bnema/dumber/internal/application/port"
 	"github.com/bnema/dumber/internal/domain/entity"
 	"github.com/bnema/dumber/internal/logging"
 	"github.com/bnema/puregotk/v4/gdk"
@@ -14,106 +13,51 @@ import (
 )
 
 // Manager handles theme state and CSS application.
+// Theme precedence and fallback are resolved before data reaches this adapter.
 type Manager struct {
-	scheme        string  // "light", "dark", "system"
-	prefersDark   bool    // Resolved dark mode preference
-	lightPalette  Palette // Light theme colors
-	darkPalette   Palette // Dark theme colors
-	uiScale       float64 // UI scaling factor (1.0 = 100%)
-	fonts         FontConfig
-	gtkFont       string
-	modeColors    ModeColors // Modal mode indicator colors
-	cssProvider   *gtk.CssProvider
-	appliedFont   string
-	colorResolver port.ColorSchemeResolver // Resolver for dynamic detection
+	prefersDark  bool    // Resolved dark mode preference
+	lightPalette Palette // Light theme colors
+	darkPalette  Palette // Dark theme colors
+	uiScale      float64 // UI scaling factor (1.0 = 100%)
+	fonts        FontConfig
+	gtkFont      string
+	modeColors   ModeColors // Modal mode indicator colors
+	cssProvider  *gtk.CssProvider
+	appliedFont  string
 }
 
-// NewManager creates a new theme manager from configuration.
-// The ColorSchemeResolver is required for proper color scheme detection.
-//
-// appearance controls fonts, palette overrides and color scheme.
-// uiScale is the GTK UI scale factor (0 or negative means use default 1.0).
-// styling controls mode indicator colors; may be nil to use defaults.
-func NewManager(
-	ctx context.Context,
-	appearance *entity.AppearanceConfig,
-	uiScale float64,
-	styling *entity.WorkspaceStylingConfig,
-	resolver port.ColorSchemeResolver,
-) *Manager {
+// NewManager creates a new theme manager from an already-resolved theme.
+func NewManager(ctx context.Context, resolved entity.ResolvedTheme) *Manager {
 	log := logging.FromContext(ctx)
 
-	// Determine color scheme preference
-	scheme := "system"
-	if appearance != nil && appearance.ColorScheme != "" {
-		scheme = appearance.ColorScheme
-	}
-
-	// Resolve whether we should use dark mode via resolver
-	pref := resolver.Resolve()
-	prefersDark := pref.PrefersDark
-
-	// Build palettes from config or defaults
-	var lightPalette, darkPalette Palette
-	if appearance != nil {
-		lightPalette = PaletteFromConfig(&appearance.LightPalette, false)
-		darkPalette = PaletteFromConfig(&appearance.DarkPalette, true)
-	} else {
-		lightPalette = DefaultLightPalette()
-		darkPalette = DefaultDarkPalette()
-	}
-
-	// Get UI scale factor (default to 1.0 if not set)
-	if uiScale <= 0 {
-		uiScale = 1.0
-	}
-
-	fonts := DefaultFontConfig()
-	gtkFont := DefaultGTKFont()
-	if appearance != nil {
-		fonts.SansFont = Coalesce(appearance.SansFont, fonts.SansFont)
-		fonts.MonospaceFont = Coalesce(appearance.MonospaceFont, fonts.MonospaceFont)
-		gtkFont = Coalesce(appearance.GtkFont, gtkFont)
-		fonts.GtkFont = gtkFont
-	}
-
-	// Build mode colors from config
-	modeColors := modeColorsFromStyling(styling)
+	m := &Manager{}
+	m.applyResolvedTheme(resolved)
 
 	log.Debug().
-		Str("scheme", scheme).
-		Bool("prefers_dark", prefersDark).
-		Float64("ui_scale", uiScale).
-		Str("sans_font", fonts.SansFont).
-		Str("monospace_font", fonts.MonospaceFont).
-		Str("gtk_font", gtkFont).
+		Bool("prefers_dark", m.prefersDark).
+		Float64("ui_scale", m.uiScale).
+		Str("sans_font", m.fonts.SansFont).
+		Str("monospace_font", m.fonts.MonospaceFont).
+		Str("gtk_font", m.gtkFont).
 		Msg("theme manager initialized")
 
-	return &Manager{
-		scheme:        scheme,
-		prefersDark:   prefersDark,
-		lightPalette:  lightPalette,
-		darkPalette:   darkPalette,
-		uiScale:       uiScale,
-		fonts:         fonts,
-		gtkFont:       gtkFont,
-		modeColors:    modeColors,
-		colorResolver: resolver,
-	}
+	return m
 }
 
-// modeColorsFromStyling extracts mode colors from styling config, using defaults for missing values.
-func modeColorsFromStyling(styling *entity.WorkspaceStylingConfig) ModeColors {
-	defaults := DefaultModeColors()
-	if styling == nil {
-		return defaults
+func (m *Manager) applyResolvedTheme(resolved entity.ResolvedTheme) {
+	m.prefersDark = resolved.PrefersDark
+	m.lightPalette = PaletteFromEntity(resolved.LightPalette, false)
+	m.darkPalette = PaletteFromEntity(resolved.DarkPalette, true)
+	m.uiScale = resolved.UIScale
+	if m.uiScale <= 0 {
+		m.uiScale = 1.0
 	}
-	return ModeColors{
-		PaneMode:    Coalesce(styling.PaneModeColor, defaults.PaneMode),
-		TabMode:     Coalesce(styling.TabModeColor, defaults.TabMode),
-		SessionMode: Coalesce(styling.SessionModeColor, defaults.SessionMode),
-		ResizeMode:  Coalesce(styling.ResizeModeColor, defaults.ResizeMode),
+	m.fonts = FontConfigFromEntity(resolved.Fonts)
+	if m.fonts.GtkFont == "" {
+		m.fonts.GtkFont = DefaultGTKFont()
 	}
+	m.gtkFont = m.fonts.GtkFont
+	m.modeColors = ModeColorsFromEntity(resolved.ModeColors)
 }
 
 // PrefersDark returns true if dark mode is active.
@@ -121,7 +65,7 @@ func (m *Manager) PrefersDark() bool {
 	return m.prefersDark
 }
 
-// GetCurrentPalette returns the active palette based on current scheme.
+// GetCurrentPalette returns the active palette based on current preference.
 func (m *Manager) GetCurrentPalette() Palette {
 	if m.prefersDark {
 		return m.darkPalette
@@ -230,83 +174,19 @@ func (m *Manager) ApplyToDisplay(ctx context.Context, display *gdk.Display) {
 		Msg("theme CSS applied to display")
 }
 
-// SetColorScheme changes the active color scheme at runtime.
-func (m *Manager) SetColorScheme(ctx context.Context, scheme string, display *gdk.Display) {
+// UpdateFromResolved updates the theme manager state from a resolved theme.
+func (m *Manager) UpdateFromResolved(ctx context.Context, resolved entity.ResolvedTheme, display *gdk.Display) {
 	log := logging.FromContext(ctx)
 
-	m.scheme = scheme
-	pref := m.colorResolver.Refresh()
-	m.prefersDark = pref.PrefersDark
+	m.applyResolvedTheme(resolved)
 
 	log.Info().
-		Str("scheme", scheme).
-		Bool("prefers_dark", m.prefersDark).
-		Str("source", pref.Source).
-		Msg("color scheme changed")
-
-	// Re-apply CSS if display is available
-	if display != nil {
-		m.ApplyToDisplay(ctx, display)
-	}
-}
-
-// UpdateFromConfig updates the theme manager state from new config values.
-//
-// appearance controls fonts, palette overrides and color scheme.
-// uiScale is the GTK UI scale factor (0 or negative means keep existing scale).
-// styling controls mode indicator colors; may be nil to keep existing colors.
-func (m *Manager) UpdateFromConfig(
-	ctx context.Context,
-	appearance *entity.AppearanceConfig,
-	uiScale float64,
-	styling *entity.WorkspaceStylingConfig,
-	display *gdk.Display,
-) {
-	log := logging.FromContext(ctx)
-
-	if appearance == nil {
-		return
-	}
-
-	// Update scheme and resolve prefersDark via resolver
-	scheme := "system"
-	if appearance.ColorScheme != "" {
-		scheme = appearance.ColorScheme
-	}
-	m.scheme = scheme
-	pref := m.colorResolver.Refresh()
-	m.prefersDark = pref.PrefersDark
-
-	// Update palettes
-	m.lightPalette = PaletteFromConfig(&appearance.LightPalette, false)
-	m.darkPalette = PaletteFromConfig(&appearance.DarkPalette, true)
-
-	// Update UI scale
-	if uiScale > 0 {
-		m.uiScale = uiScale
-	}
-
-	defaults := DefaultFontConfig()
-	m.gtkFont = Coalesce(appearance.GtkFont, DefaultGTKFont())
-	m.fonts = FontConfig{
-		SansFont:      Coalesce(appearance.SansFont, defaults.SansFont),
-		MonospaceFont: Coalesce(appearance.MonospaceFont, defaults.MonospaceFont),
-		GtkFont:       m.gtkFont,
-	}
-
-	// Update mode colors
-	if styling != nil {
-		m.modeColors = modeColorsFromStyling(styling)
-	}
-
-	log.Info().
-		Str("scheme", m.scheme).
 		Bool("prefers_dark", m.prefersDark).
 		Float64("ui_scale", m.uiScale).
 		Str("sans_font", m.fonts.SansFont).
 		Str("monospace_font", m.fonts.MonospaceFont).
 		Str("gtk_font", m.gtkFont).
-		Msg("theme manager updated from config")
+		Msg("theme manager updated from resolved theme")
 
 	// Re-apply CSS if display is available
 	if display != nil {

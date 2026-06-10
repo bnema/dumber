@@ -642,6 +642,12 @@ func TestAppLoadInitialConfigRouteRendersData(t *testing.T) {
 				Accent:         "#66aaff",
 				Border:         "#333333",
 			},
+			ExternalTheme: dto.WebUIExternalThemeConfig{
+				Enabled:  true,
+				Provider: "noctalia",
+				Format:   "dumber-json",
+				Path:     "/tmp/noctalia-dumber.json",
+			},
 		},
 		Performance: dto.SystemviewPerformancePayload{
 			Profile: "balanced",
@@ -707,6 +713,13 @@ func TestAppLoadInitialConfigRouteRendersData(t *testing.T) {
 	assert.Contains(t, app.renderedHTML, "Inter")
 	assert.Contains(t, app.renderedHTML, "appearance.light_palette.background")
 	assert.Contains(t, app.renderedHTML, "#ffffff")
+	assert.Contains(t, app.renderedHTML, "appearance.external_theme.enabled")
+	assert.Contains(t, app.renderedHTML, "appearance.external_theme.provider")
+	assert.Contains(t, app.renderedHTML, "appearance.external_theme.format")
+	assert.Contains(t, app.renderedHTML, "appearance.external_theme.path")
+	assert.Contains(t, app.renderedHTML, "noctalia")
+	assert.Contains(t, app.renderedHTML, "dumber-json")
+	assert.Contains(t, app.renderedHTML, "/tmp/noctalia-dumber.json")
 	assert.Contains(t, app.renderedHTML, "performance.profile")
 	assert.Contains(t, app.renderedHTML, "balanced")
 	assert.Contains(t, app.renderedHTML, "performance.custom.skia_cpu_threads")
@@ -761,6 +774,13 @@ func TestAppLoadInitialConfigRouteRendersEditControls(t *testing.T) {
 	require.NoError(t, app.LoadInitial(context.Background()))
 	assert.Contains(t, app.renderedHTML, `data-sv-action="config.appearance.save"`)
 	assert.Contains(t, app.renderedHTML, `data-sv-action="config.appearance.reset"`)
+	assert.Contains(t, app.renderedHTML, `name="external_theme_enabled"`)
+	assert.Contains(t, app.renderedHTML, `name="external_theme_provider"`)
+	assert.Contains(t, app.renderedHTML, `name="external_theme_format"`)
+	assert.Contains(t, app.renderedHTML, `name="external_theme_path"`)
+	assert.Contains(t, app.renderedHTML, `value="noctalia"`)
+	assert.Contains(t, app.renderedHTML, `value="dumber-json"`)
+	assert.Contains(t, app.renderedHTML, `/tmp/noctalia-dumber.json`)
 	assert.Contains(t, app.renderedHTML, `data-sv-action="config.search.save"`)
 	assert.Contains(t, app.renderedHTML, `data-sv-action="config.searchShortcut.create"`)
 	assert.Contains(t, app.renderedHTML, `data-sv-action="config.searchShortcut.update"`)
@@ -796,6 +816,7 @@ func TestAppHandleConfigActionsRefreshesDOM(t *testing.T) {
 		Data: map[string]string{
 			"sans_font": "Inter", "serif_font": "Georgia", "monospace_font": "JetBrains Mono",
 			"default_font_size": "18", "default_ui_scale": "1.25", "color_scheme": "prefer-light",
+			"external_theme_enabled": "yes", "external_theme_provider": " noctalia ", "external_theme_format": " dumber-json ", "external_theme_path": " /tmp/noctalia-dumber.json ",
 			"light_background": "#ffffff", "light_surface": "#fafafa", "light_surface_variant": "#eeeeee", "light_text": "#111111", "light_muted": "#666666", "light_accent": "#0055ff", "light_border": "#dddddd",
 			"dark_background": "#111111", "dark_surface": "#1a1a1a", "dark_surface_variant": "#2a2a2a", "dark_text": "#f5f5f5", "dark_muted": "#a0a0a0", "dark_accent": "#66aaff", "dark_border": "#333333",
 		},
@@ -803,6 +824,10 @@ func TestAppHandleConfigActionsRefreshesDOM(t *testing.T) {
 	assert.True(t, service.calledSave)
 	assert.Equal(t, 18, service.savedConfig.Appearance.DefaultFontSize)
 	assert.InEpsilon(t, 1.25, service.savedConfig.DefaultUIScale, 0.001)
+	assert.True(t, service.savedConfig.Appearance.ExternalTheme.Enabled)
+	assert.Equal(t, "noctalia", service.savedConfig.Appearance.ExternalTheme.Provider)
+	assert.Equal(t, "dumber-json", service.savedConfig.Appearance.ExternalTheme.Format)
+	assert.Equal(t, "/tmp/noctalia-dumber.json", service.savedConfig.Appearance.ExternalTheme.Path)
 	assert.Contains(t, dom.HTML(), "Saved appearance settings")
 	assert.Contains(t, dom.HTML(), `class="sv-app sv-light"`)
 
@@ -876,6 +901,28 @@ func TestAppRejectsSearchURLsWithoutPlaceholder(t *testing.T) {
 	assert.False(t, service.calledSave)
 }
 
+func TestAppLoadInitialConfigRouteUsesResolvedAppearanceOnlyForShellTheme(t *testing.T) {
+	t.Parallel()
+
+	cfg := testConfigPayload()
+	resolved := cfg.Appearance
+	resolved.DarkPalette.Background = "#222222"
+	resolved.DarkPalette.SurfaceVariant = "#444444"
+	cfg.ResolvedAppearance = &resolved
+	service := &fakeConfigService{
+		current:     cfg,
+		keybindings: port.KeybindingsConfig{},
+	}
+
+	app := NewApp(Dependencies{Config: service, LocationURI: "dumb://config"})
+
+	require.NoError(t, app.LoadInitial(context.Background()))
+	assert.Contains(t, app.renderedHTML, `--sv-background: #222222;`)
+	assert.Contains(t, app.renderedHTML, `--sv-surface-variant: #444444;`)
+	assert.Contains(t, app.renderedHTML, `value="#111111"`)
+	assert.Contains(t, app.renderedHTML, `value="#2a2a2a"`)
+}
+
 func testConfigPayload() dto.SystemviewConfigPayload {
 	return dto.SystemviewConfigPayload{
 		EngineType: "webkit",
@@ -887,6 +934,7 @@ func testConfigPayload() dto.SystemviewConfigPayload {
 			DefaultFontSize: 16,
 			LightPalette:    dto.ColorPalette{Background: "#ffffff", Surface: "#fafafa", SurfaceVariant: "#eeeeee", Text: "#111111", Muted: "#666666", Accent: "#0055ff", Border: "#dddddd"},
 			DarkPalette:     dto.ColorPalette{Background: "#111111", Surface: "#1a1a1a", SurfaceVariant: "#2a2a2a", Text: "#f5f5f5", Muted: "#a0a0a0", Accent: "#66aaff", Border: "#333333"},
+			ExternalTheme:   dto.WebUIExternalThemeConfig{Enabled: true, Provider: "noctalia", Format: "dumber-json", Path: "/tmp/noctalia-dumber.json"},
 		},
 		DefaultUIScale:      1,
 		DefaultSearchEngine: "https://duckduckgo.com/?q=%s",

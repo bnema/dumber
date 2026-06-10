@@ -104,7 +104,36 @@ func validateAppearance(config *Config) []string {
 	if config.DefaultUIScale < 0.5 || config.DefaultUIScale > 3.0 {
 		validationErrors = append(validationErrors, "default_ui_scale must be between 0.5 and 3.0")
 	}
+	validationErrors = append(validationErrors, validateExternalTheme(config)...)
 	return validationErrors
+}
+
+func validateExternalTheme(config *Config) []string {
+	externalTheme := config.Appearance.ExternalTheme
+	if !externalTheme.Enabled {
+		return nil
+	}
+
+	var validationErrors []string
+	if externalTheme.Provider != defaultExternalThemeProvider {
+		validationErrors = append(validationErrors, "appearance.external_theme.provider must be one of: noctalia")
+	}
+	if !isSupportedExternalThemeFormat(externalTheme.Format) {
+		validationErrors = append(validationErrors, "appearance.external_theme.format must be one of: colors-json, dumber-json")
+	}
+	if strings.TrimSpace(externalTheme.Path) == "" {
+		validationErrors = append(validationErrors, "appearance.external_theme.path is required when external_theme is enabled")
+	}
+	return validationErrors
+}
+
+func isSupportedExternalThemeFormat(format string) bool {
+	switch format {
+	case defaultExternalThemeFormat, defaultExternalThemeTemplateFormat:
+		return true
+	default:
+		return false
+	}
 }
 
 func validateSearchEngine(config *Config) []string {

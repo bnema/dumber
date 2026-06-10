@@ -1,0 +1,22 @@
+{
+  "source": "noctalia-user-template",
+  "mode": "dark",
+  "light": {
+    "background": "#fbf8ff",
+    "surface": "#f4eff7",
+    "surface_variant": "#e7e0ec",
+    "text": "#1d1b20",
+    "muted": "#49454f",
+    "accent": "#6750a4",
+    "border": "#79747e"
+  },
+  "dark": {
+    "background": "#141218",
+    "surface": "#211f26",
+    "surface_variant": "#49454f",
+    "text": "#e6e0e9",
+    "muted": "#cac4d0",
+    "accent": "#d0bcff",
+    "border": "#938f99"
+  }
+}

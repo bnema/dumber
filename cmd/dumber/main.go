@@ -249,6 +249,7 @@ func runGUI(cfg *config.Config) int {
 
 	ctx, browserSession, sessionCleanup := initBrowserSession(ctx, cfg, repos, bootstrapLog)
 	defer sessionCleanup()
+	bootstrap.LogResolvedTheme(ctx, initResult.ResolvedTheme)
 	timer.Mark("session")
 
 	log := logging.FromContext(ctx)
@@ -326,6 +327,9 @@ func runStandaloneOmnibox() int {
 		cfg,
 		initResult.RuntimeProfile,
 		initResult.ThemeManager,
+		initResult.ResolveThemeUC,
+		initResult.ExternalThemeSource,
+		initResult.ExternalThemeWatcher,
 		initResult.ColorResolver,
 		initResult.AdwaitaDetector,
 		nil,
@@ -471,7 +475,8 @@ func buildAndConfigureApp(
 ) (*ui.App, error) {
 	uiDeps, err := buildUIDependencies(
 		ctx, cfg, initResult.RuntimeProfile, initResult.ThemeManager,
-		initResult.ColorResolver, initResult.AdwaitaDetector,
+		initResult.ResolveThemeUC, initResult.ExternalThemeSource,
+		initResult.ExternalThemeWatcher, initResult.ColorResolver, initResult.AdwaitaDetector,
 		engine, repos, useCases, idleInhibitor, browserSession.Session.ID, browserSession.CrashReports(),
 	)
 	if err != nil {
@@ -506,11 +511,12 @@ func initStackAndRepos(
 	if needsEagerDB {
 		// Parallel phase 2: Database + engine initialize concurrently
 		dbEngine, err := bootstrap.RunParallelDBEngine(bootstrap.ParallelDBEngineInput{
-			Ctx:            ctx,
-			Config:         cfg,
-			RuntimeProfile: initResult.RuntimeProfile,
-			ThemeManager:   initResult.ThemeManager,
-			ColorResolver:  initResult.ColorResolver,
+			Ctx:                 ctx,
+			Config:              cfg,
+			RuntimeProfile:      initResult.RuntimeProfile,
+			ThemeManager:        initResult.ThemeManager,
+			ExternalThemeSource: initResult.ExternalThemeSource,
+			ColorResolver:       initResult.ColorResolver,
 		})
 		if err != nil {
 			return nil, nil, nil, err
@@ -520,12 +526,13 @@ func initStackAndRepos(
 
 	log := logging.FromContext(ctx)
 	engine, err := bootstrap.BuildEngine(bootstrap.EngineInput{
-		Ctx:            ctx,
-		Config:         cfg,
-		RuntimeProfile: initResult.RuntimeProfile,
-		ThemeManager:   initResult.ThemeManager,
-		ColorResolver:  initResult.ColorResolver,
-		Logger:         *log,
+		Ctx:                 ctx,
+		Config:              cfg,
+		RuntimeProfile:      initResult.RuntimeProfile,
+		ThemeManager:        initResult.ThemeManager,
+		ExternalThemeSource: initResult.ExternalThemeSource,
+		ColorResolver:       initResult.ColorResolver,
+		Logger:              *log,
 	})
 	if err != nil {
 		return nil, nil, nil, err
@@ -834,6 +841,9 @@ func buildUIDependencies(
 	cfg *config.Config,
 	runtimeProfile runtimeprofile.Profile,
 	themeManager *theme.Manager,
+	resolveThemeUC *usecase.ResolveThemeUseCase,
+	externalThemeSource port.ConfigurableExternalThemeSource,
+	externalThemeWatcher port.ExternalThemeWatcher,
 	colorResolver port.ColorSchemeResolver,
 	adwaitaDetector port.ToolkitAvailabilityNotifier,
 	engine port.Engine,
@@ -857,14 +867,17 @@ func buildUIDependencies(
 	browserLauncher := desktop.NewBrowserLauncher(browserLaunchRelay)
 
 	uiDeps := &ui.Dependencies{
-		Ctx:                 ctx,
-		Config:              cfg,
-		InitialURL:          initialURL,
-		RestoreSessionID:    restoreSessionID,
-		StartupCrashReports: startupCrashReports,
-		Theme:               themeManager,
-		ColorResolver:       colorResolver,
-		AdwaitaDetector:     adwaitaDetector,
+		Ctx:                  ctx,
+		Config:               cfg,
+		InitialURL:           initialURL,
+		RestoreSessionID:     restoreSessionID,
+		StartupCrashReports:  startupCrashReports,
+		Theme:                themeManager,
+		ResolveThemeUC:       resolveThemeUC,
+		ExternalThemeSource:  externalThemeSource,
+		ExternalThemeWatcher: externalThemeWatcher,
+		ColorResolver:        colorResolver,
+		AdwaitaDetector:      adwaitaDetector,
 		XDG: xdg.New(
 			runtimeProfile.Mode == runtimeprofile.ModeDev,
 			bootstrap.ResolveXDGRuntimeDir(runtimeProfile),

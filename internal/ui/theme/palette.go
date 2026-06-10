@@ -112,6 +112,47 @@ func PaletteFromConfig(cfg *entity.ColorPalette, isDark bool) Palette {
 	}
 }
 
+// PaletteFromEntity creates a CSS adapter palette from a resolved domain palette.
+// Resolved palettes already contain validated color tokens; this adapter only adds
+// semantic status colors used by GTK/WebUI CSS.
+func PaletteFromEntity(p entity.ColorPalette, isDark bool) Palette {
+	defaults := DefaultLightPalette()
+	if isDark {
+		defaults = DefaultDarkPalette()
+	}
+	return Palette{
+		Background:     p.Background,
+		Surface:        p.Surface,
+		SurfaceVariant: p.SurfaceVariant,
+		Text:           p.Text,
+		Muted:          p.Muted,
+		Accent:         p.Accent,
+		Border:         p.Border,
+		Success:        defaults.Success,
+		Warning:        defaults.Warning,
+		Destructive:    defaults.Destructive,
+	}
+}
+
+// ModeColorsFromEntity creates CSS adapter mode colors from resolved domain mode colors.
+func ModeColorsFromEntity(colors entity.ThemeModeColors) ModeColors {
+	return ModeColors{
+		PaneMode:    colors.PaneMode,
+		TabMode:     colors.TabMode,
+		SessionMode: colors.SessionMode,
+		ResizeMode:  colors.ResizeMode,
+	}
+}
+
+// FontConfigFromEntity creates CSS adapter font config from resolved domain fonts.
+func FontConfigFromEntity(fonts entity.ThemeFonts) FontConfig {
+	return FontConfig{
+		SansFont:      fonts.SansFont,
+		MonospaceFont: fonts.MonospaceFont,
+		GtkFont:       fonts.GtkFont,
+	}
+}
+
 // Coalesce returns the first non-empty string.
 func Coalesce(values ...string) string {
 	for _, v := range values {

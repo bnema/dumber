@@ -64,6 +64,7 @@ func (g *WebUIConfigGateway) SaveWebUIConfig(ctx context.Context, cfg dto.WebUIC
 		Accent:         cfg.Appearance.DarkPalette.Accent,
 		Border:         cfg.Appearance.DarkPalette.Border,
 	}
+	current.Appearance.ExternalTheme = cfg.Appearance.ExternalTheme
 	current.DefaultUIScale = cfg.DefaultUIScale
 	current.DefaultSearchEngine = cfg.DefaultSearchEngine
 	if len(cfg.SearchShortcuts) == 0 {

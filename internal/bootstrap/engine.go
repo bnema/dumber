@@ -23,19 +23,27 @@ import (
 
 // EngineInput holds the input for BuildEngine.
 type EngineInput struct {
-	Ctx            context.Context
-	Config         *config.Config
-	RuntimeProfile runtimeprofile.Profile
-	ThemeManager   *theme.Manager
-	ColorResolver  port.ColorSchemeResolver
-	Logger         zerolog.Logger
+	Ctx                 context.Context
+	Config              *config.Config
+	RuntimeProfile      runtimeprofile.Profile
+	ThemeManager        *theme.Manager
+	ExternalThemeSource port.ExternalThemeSource
+	ColorResolver       port.ColorSchemeResolver
+	Logger              zerolog.Logger
 }
 
 // BuildEngine constructs a port.Engine for the engine type specified in cfg.Engine.Type.
 func BuildEngine(input EngineInput) (port.Engine, error) {
 	cfg := input.Config
 	systemviewReader := config.NewSystemviewConfigReader(env.NewHardwareSurveyor())
-	systemviewUC := usecase.NewReadSystemviewConfigUseCase(systemviewReader)
+	systemviewUC := usecase.NewReadSystemviewConfigUseCase(
+		systemviewReader,
+		usecase.WithSystemviewResolvedAppearance(
+			input.ExternalThemeSource,
+			input.ColorResolver,
+			prefersDarkProvider(input.ThemeManager),
+		),
+	)
 	buildConfigPayload := func(read func(context.Context) (dto.SystemviewConfigPayload, error)) func() ([]byte, error) {
 		return func() ([]byte, error) {
 			payload, err := read(input.Ctx)
@@ -117,6 +125,15 @@ func BuildEngine(input EngineInput) (port.Engine, error) {
 		}, cefCfg, audioFactory, deps)
 	default:
 		return nil, fmt.Errorf("unknown engine type: %q", engineType)
+	}
+}
+
+func prefersDarkProvider(manager *theme.Manager) func() bool {
+	return func() bool {
+		if manager == nil {
+			return true
+		}
+		return manager.PrefersDark()
 	}
 }
 
