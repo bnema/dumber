@@ -43,7 +43,9 @@ func NewFileWatcher() *FileWatcher {
 func (w *FileWatcher) Start(ctx context.Context, cfg entity.ExternalThemeConfig, onChange func()) error {
 	path, enabled, err := watchPathFromConfig(cfg)
 	if err != nil {
-		_ = w.Stop()
+		if stopErr := w.Stop(); stopErr != nil {
+			return errors.Join(err, fmt.Errorf("stop noctalia theme watcher: %w", stopErr))
+		}
 		return err
 	}
 	if !enabled || path == "" {
@@ -75,7 +77,12 @@ func (w *FileWatcher) Start(ctx context.Context, cfg entity.ExternalThemeConfig,
 		return fmt.Errorf("create noctalia theme watcher: %w", err)
 	}
 	if err := watcher.Add(parent); err != nil {
-		_ = watcher.Close()
+		if closeErr := watcher.Close(); closeErr != nil {
+			return errors.Join(
+				fmt.Errorf("watch noctalia theme parent directory: %w", err),
+				fmt.Errorf("close noctalia theme watcher after add failure: %w", closeErr),
+			)
+		}
 		return fmt.Errorf("watch noctalia theme parent directory: %w", err)
 	}
 

@@ -659,7 +659,6 @@ func (m *Manager) setAppearanceDefaults(defaults *Config) {
 	m.viper.SetDefault("appearance.external_theme.enabled", defaults.Appearance.ExternalTheme.Enabled)
 	m.viper.SetDefault("appearance.external_theme.provider", defaults.Appearance.ExternalTheme.Provider)
 	m.viper.SetDefault("appearance.external_theme.format", defaults.Appearance.ExternalTheme.Format)
-	m.viper.SetDefault("appearance.external_theme.path", defaults.Appearance.ExternalTheme.Path)
 }
 
 func (m *Manager) setZoomAndScaleDefaults(defaults *Config) {

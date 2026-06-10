@@ -4,6 +4,7 @@ import (
 	"context"
 	"os"
 	"path/filepath"
+	"runtime"
 	"testing"
 
 	"github.com/bnema/dumber/internal/domain/entity"
@@ -38,7 +39,7 @@ func TestParseColorsJSONValidActivePalette(t *testing.T) {
 }
 
 func TestParseColorsJSONDocsExample(t *testing.T) {
-	path := filepath.Join("..", "..", "..", "..", "docs", "examples", "noctalia-colors.json")
+	path := docsExamplePath(t, "noctalia-colors.json")
 	data, err := os.ReadFile(path)
 	if err != nil {
 		t.Fatalf("ReadFile(%q) error = %v", path, err)
@@ -48,7 +49,7 @@ func TestParseColorsJSONDocsExample(t *testing.T) {
 	if err != nil {
 		t.Fatalf("ParseColorsJSON(docs example) error = %v", err)
 	}
-	if theme.Provider != "noctalia" || theme.DarkPalette.Accent == "" {
+	if theme == nil || theme.DarkPalette == nil || theme.Provider != "noctalia" || theme.DarkPalette.Accent == "" {
 		t.Fatalf("parsed docs example = %+v", theme)
 	}
 }
@@ -142,7 +143,7 @@ func TestParseDumberJSONValidFullPalette(t *testing.T) {
 }
 
 func TestParseDumberJSONDocsExample(t *testing.T) {
-	path := filepath.Join("..", "..", "..", "..", "docs", "examples", "noctalia-dumber-theme.json")
+	path := docsExamplePath(t, "noctalia-dumber-theme.json")
 	data, err := os.ReadFile(path)
 	if err != nil {
 		t.Fatalf("ReadFile(%q) error = %v", path, err)
@@ -152,7 +153,7 @@ func TestParseDumberJSONDocsExample(t *testing.T) {
 	if err != nil {
 		t.Fatalf("ParseDumberJSON(docs example) error = %v", err)
 	}
-	if theme.Provider != "noctalia" || theme.LightPalette.Background == "" || theme.DarkPalette.Background == "" {
+	if theme == nil || theme.LightPalette == nil || theme.DarkPalette == nil || theme.Provider != "noctalia" || theme.LightPalette.Background == "" || theme.DarkPalette.Background == "" {
 		t.Fatalf("parsed docs example = %+v", theme)
 	}
 }
@@ -231,6 +232,30 @@ func TestExpandPath(t *testing.T) {
 	want := filepath.Join(home, "theme.json")
 	if got != want {
 		t.Fatalf("ExpandPath() = %q, want %q", got, want)
+	}
+}
+
+func TestFileSourceIdentityUsesExpandedPath(t *testing.T) {
+	home := t.TempDir()
+	t.Setenv("HOME", home)
+
+	path := filepath.Join(home, ".config", "noctalia", "colors.json")
+	source := NewFileSourceFromConfig(entity.ExternalThemeConfig{
+		Enabled:  true,
+		Provider: "noctalia",
+		Format:   "colors-json",
+		Path:     path,
+	})
+	absoluteIdentity := source.ExternalThemeIdentity()
+
+	source.Configure(entity.ExternalThemeConfig{
+		Enabled:  true,
+		Provider: "noctalia",
+		Format:   "colors-json",
+		Path:     "~/.config/noctalia/colors.json",
+	})
+	if source.ExternalThemeIdentity() != absoluteIdentity {
+		t.Fatalf("ExternalThemeIdentity() = %q, want %q", source.ExternalThemeIdentity(), absoluteIdentity)
 	}
 }
 
@@ -333,6 +358,15 @@ func TestFileSourceConfigureUpdatesSettings(t *testing.T) {
 	if source.IsEnabled() {
 		t.Fatal("IsEnabled() = true for unsupported format, want false")
 	}
+}
+
+func docsExamplePath(t *testing.T, name string) string {
+	t.Helper()
+	_, file, _, ok := runtime.Caller(0)
+	if !ok {
+		t.Fatal("runtime.Caller(0) failed")
+	}
+	return filepath.Join(filepath.Dir(file), "..", "..", "..", "..", "docs", "examples", name)
 }
 
 func noctaliaColorsJSON() []byte {

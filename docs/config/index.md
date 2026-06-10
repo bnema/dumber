@@ -144,7 +144,7 @@ auto_open_on_new_pane = false
 | `appearance.external_theme.enabled` | bool | `false` | Enable an external palette source |
 | `appearance.external_theme.provider` | string | `"noctalia"` | External provider. Only `noctalia` is supported |
 | `appearance.external_theme.format` | string | `"colors-json"` | External file format: `colors-json` or `dumber-json` |
-| `appearance.external_theme.path` | string | `$XDG_CONFIG_HOME/noctalia/colors.json` | Path to the external theme JSON file |
+| `appearance.external_theme.path` | string | `$XDG_CONFIG_HOME/noctalia/colors.json` for `colors-json`; built-in dumber-json template path for `dumber-json` | Path to the external theme JSON file |
 
 ### Color Palettes
 
@@ -174,7 +174,7 @@ border = "#363636"
 
 ### External Theme: Noctalia
 
-Dumber can follow Noctalia by reading the native Noctalia palette file directly. No user template is required for the default integration.
+Dumber can integrate with Noctalia by reading the native Noctalia palette file directly. No user template is required for the default integration.
 
 ```toml
 [appearance.external_theme]
@@ -203,7 +203,11 @@ Dumber maps Noctalia roles like this:
 | `mPrimary` | `accent` |
 | `mOutline` | `border` |
 
-Every mapped value must be a CSS-safe 6-digit hex color such as `#AABBCC`. `mShadow` and `mHover` are optional nuance roles; when they are present they are validated and used to preserve Dumber's background/surface/input contrast. Because Noctalia's native file contains the active palette only, Dumber applies that mapped palette to both resolved light and dark palettes so the app follows the file immediately.
+Every mapped value must be a CSS-safe 6-digit hex color such as `#aabbcc`.
+
+`mShadow` and `mHover` are optional nuance roles. When present, they are validated and used to preserve Dumber's background/surface/input contrast.
+
+Because Noctalia's native file contains the active palette only, Dumber applies that mapped palette to both resolved light and dark palettes so the app follows the file immediately.
 
 #### Advanced: `dumber-json` user template
 

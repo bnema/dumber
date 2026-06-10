@@ -238,7 +238,7 @@ func waitForStringChange(t *testing.T, ch <-chan string) string {
 	case <-time.After(500 * time.Millisecond):
 		t.Fatal("timed out waiting for callback")
 	}
-	return ""
+	panic("unreachable")
 }
 
 func assertNoStringChange(t *testing.T, ch <-chan string, d time.Duration) {

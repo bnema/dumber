@@ -48,3 +48,16 @@ func TestNewThemeFromResolvedFallsBackToDarkPalette(t *testing.T) {
 	require.Equal(t, lipgloss.Color("#111111"), theme.Background)
 	require.Equal(t, lipgloss.Color("#fedcba"), theme.Accent)
 }
+
+func TestNewThemeFromResolvedFallsBackToDefaultDarkPalette(t *testing.T) {
+	resolved := entity.ResolvedTheme{}
+	palette := styles.DefaultDarkPalette()
+
+	theme := styles.NewThemeFromResolved(resolved)
+
+	require.Equal(t, lipgloss.Color(palette.Background), theme.Background)
+	require.Equal(t, lipgloss.Color(palette.Surface), theme.Surface)
+	require.Equal(t, lipgloss.Color(palette.Text), theme.Text)
+	require.Equal(t, lipgloss.Color(palette.Accent), theme.Accent)
+	require.Equal(t, lipgloss.Color(palette.Accent), theme.Success)
+}

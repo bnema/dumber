@@ -27,10 +27,7 @@ func TestManagerSetDefaults_ExternalThemeViperDefaults(t *testing.T) {
 	require.False(t, mgr.viper.GetBool("appearance.external_theme.enabled"))
 	require.Equal(t, "noctalia", mgr.viper.GetString("appearance.external_theme.provider"))
 	require.Equal(t, "colors-json", mgr.viper.GetString("appearance.external_theme.format"))
-	require.Equal(t, filepath.Join("noctalia", "colors.json"), lastPathElements(
-		mgr.viper.GetString("appearance.external_theme.path"),
-		2,
-	))
+	require.Empty(t, mgr.viper.GetString("appearance.external_theme.path"))
 }
 
 func TestManagerLoad_ExternalThemeEnabledEmptyPathUsesDefaultColorsJSON(t *testing.T) {
@@ -71,6 +68,31 @@ enabled = true
 provider = 'noctalia'
 format = 'dumber-json'
 path = ''
+`), filePerm))
+
+	mgr, err := NewManager()
+	require.NoError(t, err)
+	require.NoError(t, mgr.Load())
+
+	externalTheme := mgr.Get().Appearance.ExternalTheme
+	require.True(t, externalTheme.Enabled)
+	require.Equal(t, "noctalia", externalTheme.Provider)
+	require.Equal(t, "dumber-json", externalTheme.Format)
+	require.Equal(t, filepath.Join(configDir, defaultExternalThemeTemplateFilename), externalTheme.Path)
+}
+
+func TestManagerLoad_ExternalThemeDumberJSONOmittedPathUsesTemplateDefault(t *testing.T) {
+	configHome := t.TempDir()
+	t.Setenv("ENV", "")
+	t.Setenv("XDG_CONFIG_HOME", configHome)
+
+	configDir := filepath.Join(configHome, appName)
+	require.NoError(t, os.MkdirAll(configDir, dirPerm))
+	require.NoError(t, os.WriteFile(filepath.Join(configDir, "config.toml"), []byte(`
+[appearance.external_theme]
+enabled = true
+provider = 'noctalia'
+format = 'dumber-json'
 `), filePerm))
 
 	mgr, err := NewManager()

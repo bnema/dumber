@@ -63,13 +63,17 @@ func (s *FileSource) Configure(cfg entity.ExternalThemeConfig) {
 	provider, format := normalizeProviderAndFormat(cfg.Provider, cfg.Format)
 	enabled := cfg.Enabled && provider == providerName && isSupportedFormat(format)
 	path := strings.TrimSpace(cfg.Path)
+	identityPath := path
+	if expandedPath, err := ExpandPath(path); err == nil {
+		identityPath = expandedPath
+	}
 
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	s.enabled = enabled
 	s.path = path
 	s.format = format
-	s.identity = externalThemeIdentity(enabled, provider, format, path)
+	s.identity = externalThemeIdentity(enabled, provider, format, identityPath)
 }
 
 // ExternalThemeIdentity returns the current normalized external theme identity.
