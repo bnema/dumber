@@ -1,5 +1,12 @@
 package config
 
+import (
+	"os"
+	"path/filepath"
+
+	"github.com/bnema/dumber/internal/domain/entity"
+)
+
 // Default configuration constants
 const (
 	// History defaults
@@ -14,7 +21,12 @@ const (
 	defaultMaxLogFiles   = 100 // session log files
 
 	// Appearance defaults
-	defaultFontSize = 16 // points
+	defaultFontSize                      = 16 // points
+	defaultExternalThemeProvider         = "noctalia"
+	defaultExternalThemeFormat           = "colors-json"
+	defaultExternalThemeColorsFilename   = "colors.json"
+	defaultExternalThemeTemplateFormat   = "dumber-json"
+	defaultExternalThemeTemplateFilename = "noctalia-theme.json"
 
 	// Workspace defaults
 	defaultNewPaneURL = "about:blank"
@@ -104,6 +116,36 @@ func getDefaultLogDir() string {
 	return logDir
 }
 
+// getDefaultExternalThemePath returns Noctalia's native colors.json path.
+func getDefaultExternalThemePath() string {
+	return getDefaultExternalThemePathForFormat(defaultExternalThemeFormat)
+}
+
+func getDefaultExternalThemePathForFormat(format string) string {
+	switch format {
+	case defaultExternalThemeTemplateFormat:
+		return getDefaultExternalThemeTemplatePath()
+	default:
+		return getDefaultNoctaliaColorsPath()
+	}
+}
+
+func getDefaultNoctaliaColorsPath() string {
+	configHome, err := os.UserConfigDir()
+	if err != nil {
+		return ""
+	}
+	return filepath.Join(configHome, defaultExternalThemeProvider, defaultExternalThemeColorsFilename)
+}
+
+func getDefaultExternalThemeTemplatePath() string {
+	configDir, err := GetConfigDir()
+	if err != nil {
+		return ""
+	}
+	return filepath.Join(configDir, defaultExternalThemeTemplateFilename)
+}
+
 // DefaultConfig returns the default configuration values for dumber.
 func DefaultConfig() *Config {
 	browsingContextDefaults := defaultBrowsingContextConfig()
@@ -164,6 +206,12 @@ func DefaultConfig() *Config {
 				Border:         "#3f3f46",
 			},
 			ColorScheme: "default", // default follows system theme
+			ExternalTheme: entity.ExternalThemeConfig{
+				Enabled:  false,
+				Provider: defaultExternalThemeProvider,
+				Format:   defaultExternalThemeFormat,
+				Path:     getDefaultExternalThemePath(),
+			},
 		},
 		Debug: DebugConfig{
 			EnableDevTools: true,

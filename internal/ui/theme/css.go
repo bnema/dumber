@@ -256,7 +256,7 @@ window.standalone-omnibox-window {
 /* Search entry field */
 entry.omnibox-entry,
 entry.omnibox-entry > text {
-	background-color: alpha(var(--bg), 0.88);
+	background-color: var(--surface-variant);
 	background-image: none;
 	color: var(--text);
 	caret-color: var(--accent);
@@ -278,7 +278,7 @@ entry.omnibox-entry:focus > text,
 entry.omnibox-entry:focus-within > text,
 entry.omnibox-entry:focus-visible > text {
 	border-color: var(--accent);
-	background-color: shade(var(--bg), 1.05);
+	background-color: shade(var(--surface-variant), 1.08);
 	background-image: none;
 	outline-style: none;
 	outline-width: 0px;
@@ -463,7 +463,7 @@ entry.omnibox-entry.omnibox-entry-bang-active:focus > text,
 entry.omnibox-entry.omnibox-entry-bang-active:focus-within > text,
 entry.omnibox-entry.omnibox-entry-bang-active:focus-visible > text {
 	border-color: var(--accent);
-	background-color: shade(var(--bg), 1.05);
+	background-color: shade(var(--surface-variant), 1.08);
 	background-image: none;
 }
 

@@ -429,6 +429,22 @@ func normalizeEngineConfig(config *Config) {
 }
 
 func normalizeAppearance(config *Config) {
+	config.Appearance.ExternalTheme.Provider = strings.ToLower(strings.TrimSpace(config.Appearance.ExternalTheme.Provider))
+	config.Appearance.ExternalTheme.Format = strings.ToLower(strings.TrimSpace(config.Appearance.ExternalTheme.Format))
+	config.Appearance.ExternalTheme.Path = strings.TrimSpace(config.Appearance.ExternalTheme.Path)
+	if config.Appearance.ExternalTheme.Provider == "" {
+		config.Appearance.ExternalTheme.Provider = defaultExternalThemeProvider
+	}
+	if config.Appearance.ExternalTheme.Format == "" {
+		config.Appearance.ExternalTheme.Format = defaultExternalThemeFormat
+	}
+	if config.Appearance.ExternalTheme.Enabled &&
+		config.Appearance.ExternalTheme.Provider == defaultExternalThemeProvider &&
+		isSupportedExternalThemeFormat(config.Appearance.ExternalTheme.Format) &&
+		config.Appearance.ExternalTheme.Path == "" {
+		config.Appearance.ExternalTheme.Path = getDefaultExternalThemePathForFormat(config.Appearance.ExternalTheme.Format)
+	}
+
 	switch strings.ToLower(strings.TrimSpace(config.Appearance.ColorScheme)) {
 	case strings.ToLower(ThemePreferDark):
 		config.Appearance.ColorScheme = ThemePreferDark
@@ -640,6 +656,9 @@ func (m *Manager) setAppearanceDefaults(defaults *Config) {
 	m.viper.SetDefault("appearance.light_palette", defaults.Appearance.LightPalette)
 	m.viper.SetDefault("appearance.dark_palette", defaults.Appearance.DarkPalette)
 	m.viper.SetDefault("appearance.color_scheme", defaults.Appearance.ColorScheme)
+	m.viper.SetDefault("appearance.external_theme.enabled", defaults.Appearance.ExternalTheme.Enabled)
+	m.viper.SetDefault("appearance.external_theme.provider", defaults.Appearance.ExternalTheme.Provider)
+	m.viper.SetDefault("appearance.external_theme.format", defaults.Appearance.ExternalTheme.Format)
 }
 
 func (m *Manager) setZoomAndScaleDefaults(defaults *Config) {

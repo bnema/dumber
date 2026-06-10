@@ -175,6 +175,36 @@ func (*SchemaProvider) getAppearanceKeys(defaults *Config) []entity.ConfigKeyInf
 			Description: "Dark theme color palette (background, surface, surface_variant, text, muted, accent, border)",
 			Section:     SectionAppearance,
 		},
+		{
+			Key:         "appearance.external_theme.enabled",
+			Type:        "bool",
+			Default:     fmt.Sprintf("%t", defaults.Appearance.ExternalTheme.Enabled),
+			Description: "Enable loading theme settings from an external provider",
+			Section:     SectionAppearance,
+		},
+		{
+			Key:         "appearance.external_theme.provider",
+			Type:        "string",
+			Default:     defaults.Appearance.ExternalTheme.Provider,
+			Description: "External theme provider",
+			Values:      []string{"noctalia"},
+			Section:     SectionAppearance,
+		},
+		{
+			Key:         "appearance.external_theme.format",
+			Type:        "string",
+			Default:     defaults.Appearance.ExternalTheme.Format,
+			Description: "External theme file format",
+			Values:      []string{"colors-json", "dumber-json"},
+			Section:     SectionAppearance,
+		},
+		{
+			Key:         "appearance.external_theme.path",
+			Type:        "string",
+			Default:     defaults.Appearance.ExternalTheme.Path,
+			Description: "Path to the external theme file",
+			Section:     SectionAppearance,
+		},
 	}
 }
 

@@ -39,6 +39,14 @@ templ AppearanceForm(config dto.SystemviewConfigPayload) {
 			<option value="prefer-light" selected?={ colorSchemeSelected(config.Appearance.ColorScheme, "prefer-light") }>Prefer light</option>
 			<option value="prefer-dark" selected?={ colorSchemeSelected(config.Appearance.ColorScheme, "prefer-dark") }>Prefer dark</option>
 		</select></label>
+		<fieldset class="sv-fieldset">
+			<legend>External theme</legend>
+			<p class="sv-meta">Provider noctalia supports colors-json (default Noctalia colors.json) and dumber-json (advanced user template).</p>
+			<label><span>Enable external theme</span><input name="external_theme_enabled" type="checkbox" checked?={ config.Appearance.ExternalTheme.Enabled }/></label>
+			<label><span>Provider</span><input name="external_theme_provider" type="text" value={ config.Appearance.ExternalTheme.Provider } placeholder="noctalia"/></label>
+			<label><span>Format</span><input name="external_theme_format" type="text" value={ config.Appearance.ExternalTheme.Format } placeholder="colors-json"/></label>
+			<label><span>Path</span><input name="external_theme_path" type="text" value={ config.Appearance.ExternalTheme.Path } placeholder="~/.config/noctalia/colors.json"/></label>
+		</fieldset>
 		@PaletteFields("Light palette", "light", config.Appearance.LightPalette)
 		@PaletteFields("Dark palette", "dark", config.Appearance.DarkPalette)
 		<div class="sv-button-row sv-form-actions">

@@ -1,5 +1,7 @@
 package dto
 
+import "github.com/bnema/dumber/internal/domain/entity"
+
 // WebUIConfig represents the subset of configuration editable in dumb://config.
 type WebUIConfig struct {
 	Appearance          WebUIAppearanceConfig     `json:"appearance"`
@@ -43,7 +45,11 @@ type SystemviewPerformancePayload struct {
 
 // SystemviewConfigPayload is the full JSON shape expected by dumb://config.
 type SystemviewConfigPayload struct {
-	Appearance          WebUIAppearanceConfig        `json:"appearance"`
+	// Appearance is the editable config snapshot.
+	Appearance WebUIAppearanceConfig `json:"appearance"`
+	// ResolvedAppearance is optional, display-only appearance resolved from config
+	// plus external theme sources. Forms must save Appearance, never this field.
+	ResolvedAppearance  *WebUIAppearanceConfig       `json:"resolved_appearance,omitempty"`
 	Performance         SystemviewPerformancePayload `json:"performance"`
 	DefaultUIScale      float64                      `json:"default_ui_scale"`
 	DefaultSearchEngine string                       `json:"default_search_engine"`
@@ -66,28 +72,27 @@ type WebUICustomPerformanceConfig struct {
 	WebViewPoolPrewarm     int `json:"webview_pool_prewarm"`
 }
 
-type WebUIAppearanceConfig struct {
-	SansFont        string       `json:"sans_font"`
-	SerifFont       string       `json:"serif_font"`
-	MonospaceFont   string       `json:"monospace_font"`
-	GtkFont         string       `json:"gtk_font"`
-	DefaultFontSize int          `json:"default_font_size"`
-	ColorScheme     string       `json:"color_scheme"`
-	LightPalette    ColorPalette `json:"light_palette"`
-	DarkPalette     ColorPalette `json:"dark_palette"`
-}
+type WebUIAppearanceConfig = entity.AppearanceConfig
 
-type ColorPalette struct {
-	Background     string `json:"background"`
-	Surface        string `json:"surface"`
-	SurfaceVariant string `json:"surface_variant"`
-	Text           string `json:"text"`
-	Muted          string `json:"muted"`
-	Accent         string `json:"accent"`
-	Border         string `json:"border"`
-}
+type WebUIExternalThemeConfig = entity.ExternalThemeConfig
+
+type ColorPalette = entity.ColorPalette
 
 type SearchShortcut struct {
 	URL         string `json:"url"`
 	Description string `json:"description"`
+}
+
+// WebUIAppearanceWithResolvedTheme builds a display-only appearance payload from
+// resolved theme values while preserving fields that are not theme-resolution
+// outputs, such as ColorScheme and ExternalTheme.
+func WebUIAppearanceWithResolvedTheme(base WebUIAppearanceConfig, resolved entity.ResolvedTheme) WebUIAppearanceConfig {
+	base.SansFont = resolved.Fonts.SansFont
+	base.SerifFont = resolved.Fonts.SerifFont
+	base.MonospaceFont = resolved.Fonts.MonospaceFont
+	base.GtkFont = resolved.Fonts.GtkFont
+	base.DefaultFontSize = resolved.Fonts.DefaultSize
+	base.LightPalette = resolved.LightPalette
+	base.DarkPalette = resolved.DarkPalette
+	return base
 }

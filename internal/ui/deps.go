@@ -28,9 +28,12 @@ type Dependencies struct {
 	OnCrashReportsDetected func([]string)
 
 	// Theme and color scheme management
-	Theme           *theme.Manager
-	ColorResolver   port.ColorSchemeResolver
-	AdwaitaDetector port.ToolkitAvailabilityNotifier
+	Theme                *theme.Manager
+	ResolveThemeUC       *usecase.ResolveThemeUseCase
+	ExternalThemeSource  port.ConfigurableExternalThemeSource
+	ExternalThemeWatcher port.ExternalThemeWatcher
+	ColorResolver        port.ColorSchemeResolver
+	AdwaitaDetector      port.ToolkitAvailabilityNotifier
 
 	// XDG paths
 	XDG port.XDGPaths

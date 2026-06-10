@@ -3072,6 +3072,11 @@ func (a *App) onShutdown(ctx context.Context) {
 
 	// Stop accepting relaunches before teardown starts.
 	a.closeBrowserLaunchRelayListener()
+	if a.deps != nil && a.deps.ExternalThemeWatcher != nil {
+		if err := a.deps.ExternalThemeWatcher.Stop(); err != nil {
+			log.Warn().Err(err).Msg("failed to stop external theme watcher")
+		}
+	}
 
 	// Cancel context to signal all goroutines
 	a.cancel(errors.New("application shutdown"))
@@ -5001,12 +5006,14 @@ func (a *App) UpdateOmniboxZoom(factor float64) {
 func (a *App) initConfigWatcher(ctx context.Context) {
 	log := logging.FromContext(ctx)
 
+	a.syncExternalThemeWatcher(ctx)
+
 	if a.deps.WatchConfig == nil || a.deps.OnConfigChange == nil {
-		log.Debug().Msg("no config watcher available, skipping")
+		log.Debug().Msg("no config watcher available, skipping config file watcher")
 		return
 	}
 
-	// Start viper watcher
+	// Start viper watcher.
 	if err := a.deps.WatchConfig(); err != nil {
 		log.Warn().Err(err).Msg("failed to start config watcher")
 		return
@@ -5016,6 +5023,7 @@ func (a *App) initConfigWatcher(ctx context.Context) {
 	// deps.Config is updated in-place before this callback fires.
 	a.deps.OnConfigChange(func() {
 		cb := glib.SourceFunc(func(_ uintptr) bool {
+			a.syncExternalThemeWatcher(ctx)
 			a.applyAppearanceConfig(ctx)
 			for _, bw := range a.browserWindows {
 				if bw == nil {
@@ -5034,6 +5042,21 @@ func (a *App) initConfigWatcher(ctx context.Context) {
 	})
 
 	log.Debug().Msg("config watcher initialized")
+}
+
+func (a *App) syncExternalThemeWatcher(ctx context.Context) {
+	if a == nil || a.deps == nil || a.deps.Config == nil || a.deps.ExternalThemeWatcher == nil {
+		return
+	}
+	log := logging.FromContext(ctx)
+	cfg := a.deps.Config.Appearance.ExternalTheme
+	if err := a.deps.ExternalThemeWatcher.Start(ctx, cfg, func() {
+		a.dispatchOnMainThread("ui.external_theme_reload", func() {
+			a.applyAppearanceConfig(ctx)
+		})
+	}); err != nil {
+		log.Warn().Err(err).Msg("failed to start external theme watcher")
+	}
 }
 
 func (a *App) applyAppearanceConfig(ctx context.Context) {
@@ -5057,43 +5080,92 @@ func (a *App) applyAppearanceConfig(ctx context.Context) {
 		a.contentCoord.ApplySettingsToAll(ctx)
 	}
 
-	// Update GTK theme and injected WebUI theme vars
-	if a.deps.Theme != nil {
-		var display *gdk.Display
-		if a.mainWindow != nil && a.mainWindow.Window() != nil {
-			display = a.mainWindow.Window().GetDisplay()
-		}
-		a.deps.Theme.UpdateFromConfig(ctx, &cfg.Appearance, cfg.DefaultUIScale, &cfg.Workspace.Styling, display)
+	a.applyThemeAppearance(ctx)
 
-		var inj port.ContentInjector
-		if a.engine != nil {
-			inj = a.engine.ContentInjector()
-		}
+	log.Info().Msg("appearance config updated")
+}
 
-		if inj != nil {
-			findCSS := theme.GenerateFindHighlightCSS(a.deps.Theme.GetCurrentPalette())
-			if err := inj.InjectFindHighlightCSS(ctx, findCSS); err != nil {
-				log.Warn().Err(err).Msg("failed to update find highlight CSS")
-			}
-		}
+func (a *App) applyThemeAppearance(ctx context.Context) {
+	log := logging.FromContext(ctx)
+	if a.deps == nil || a.deps.Config == nil || a.deps.Theme == nil {
+		return
+	}
+	cfg := a.deps.Config
 
-		prepareThemeUC := usecase.NewPrepareWebUIThemeUseCase(inj)
-		cssText := a.deps.Theme.GetWebUIThemeCSS()
-		if err := prepareThemeUC.Execute(ctx, usecase.PrepareWebUIThemeInput{CSSVars: cssText}); err != nil {
-			log.Warn().Err(err).Msg("failed to update WebUI theme CSS")
-		}
+	var display *gdk.Display
+	if a.mainWindow != nil && a.mainWindow.Window() != nil {
+		display = a.mainWindow.Window().GetDisplay()
+	}
 
-		if a.contentCoord != nil && inj != nil {
-			a.contentCoord.RefreshInjectedScriptsToAll(ctx)
-		}
+	preference := port.ColorSchemePreference{PrefersDark: a.deps.Theme.PrefersDark(), Source: "theme"}
+	if a.deps.ColorResolver != nil {
+		preference = a.deps.ColorResolver.Refresh()
+	}
+	if a.deps.ExternalThemeSource != nil {
+		a.deps.ExternalThemeSource.Configure(cfg.Appearance.ExternalTheme)
+	}
+	resolveThemeUC := a.deps.ResolveThemeUC
+	if resolveThemeUC == nil {
+		resolveThemeUC = usecase.NewResolveThemeUseCase(a.deps.ExternalThemeSource)
+	}
+	resolved, err := resolveThemeUC.Refresh(ctx, usecase.ResolveThemeInputFromConfig(
+		&cfg.Appearance,
+		cfg.DefaultUIScale,
+		&cfg.Workspace.Styling,
+		preference,
+	))
+	if err != nil {
+		log.Warn().Err(err).Msg("failed to resolve theme")
+	} else {
+		logThemeResolution(ctx, resolved.Theme)
+		a.deps.Theme.UpdateFromResolved(ctx, resolved.Theme, display)
+		a.setupPoolBackgroundColor(ctx)
+	}
 
-		// Apply WebUI theme to already-loaded dumb:// pages
-		if a.contentCoord != nil {
-			a.contentCoord.ApplyWebUIThemeToAll(ctx, a.deps.Theme.PrefersDark(), cssText)
+	var inj port.ContentInjector
+	if a.engine != nil {
+		inj = a.engine.ContentInjector()
+	}
+
+	if inj != nil {
+		findCSS := theme.GenerateFindHighlightCSS(a.deps.Theme.GetCurrentPalette())
+		if err := inj.InjectFindHighlightCSS(ctx, findCSS); err != nil {
+			log.Warn().Err(err).Msg("failed to update find highlight CSS")
 		}
 	}
 
-	log.Info().Msg("appearance config updated")
+	prepareThemeUC := usecase.NewPrepareWebUIThemeUseCase(inj)
+	cssText := a.deps.Theme.GetWebUIThemeCSS()
+	if err := prepareThemeUC.Execute(ctx, usecase.PrepareWebUIThemeInput{CSSVars: cssText}); err != nil {
+		log.Warn().Err(err).Msg("failed to update WebUI theme CSS")
+	}
+
+	if a.contentCoord != nil && inj != nil {
+		a.contentCoord.RefreshInjectedScriptsToAll(ctx)
+	}
+
+	// Apply WebUI theme to already-loaded dumb:// pages
+	if a.contentCoord != nil {
+		a.contentCoord.ApplyWebUIThemeToAll(ctx, a.deps.Theme.PrefersDark(), cssText)
+	}
+}
+
+func logThemeResolution(ctx context.Context, resolved entity.ResolvedTheme) {
+	log := logging.FromContext(ctx)
+	for _, warning := range resolved.Warnings {
+		log.Warn().Str("field", warning.Field).Msg(warning.Message)
+	}
+	event := log.Info().
+		Str("theme_source", string(resolved.ThemeSource.Kind)).
+		Str("color_scheme_source", resolved.ColorSchemeSource).
+		Bool("prefers_dark", resolved.PrefersDark)
+	if resolved.ThemeSource.Provider != "" {
+		event = event.Str("provider", resolved.ThemeSource.Provider)
+	}
+	if resolved.ThemeSource.LastGood {
+		event = event.Bool("last_good", true)
+	}
+	event.Msg("theme resolved")
 }
 
 func (a *App) initFilteringAsync(ctx context.Context) {

@@ -794,7 +794,11 @@ func (a *App) loadShellTheme(ctx context.Context) {
 
 	config, err := a.deps.Config.Current(ctx)
 	if err == nil {
-		a.shellTheme = resolveShellTheme(config.Appearance)
+		appearance := config.Appearance
+		if config.ResolvedAppearance != nil {
+			appearance = *config.ResolvedAppearance
+		}
+		a.shellTheme = resolveShellTheme(appearance)
 	}
 }
 
