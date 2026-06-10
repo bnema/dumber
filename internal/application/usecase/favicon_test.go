@@ -34,6 +34,62 @@ func TestFaviconResolveParentFallback(t *testing.T) {
 	}
 }
 
+func TestFaviconResolvePrefersParentPathFallbackBeforeDomain(t *testing.T) {
+	fx := newFaviconFixture()
+	fx.seed("github.com", []byte("github-default"), false)
+	fx.seed("github.com/bnema/gordon", []byte("repo-default"), false)
+
+	got, err := fx.uc.Resolve(context.Background(), "https://github.com/bnema/gordon/issues/5", 32, ResolveOptions{Purpose: ResolvePurposeUI})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got.Key != "github.com/bnema/gordon" || string(got.Bytes) != "repo-default" {
+		t.Fatalf("expected repository fallback before domain: key=%q bytes=%q", got.Key, got.Bytes)
+	}
+}
+
+func TestFaviconResolvePathSpecificDoesNotLeakToParentOrSiblings(t *testing.T) {
+	fx := newFaviconFixture()
+	fx.seed("github.com", []byte("github-default"), false)
+
+	if _, err := fx.uc.Observe(
+		context.Background(),
+		"https://github.com/bnema/gordon/pull/123",
+		"https://github.com/favicon-status-success.png",
+		[]byte("pr-success"),
+		favicon.SourceEngine,
+		"image/png",
+	); err != nil {
+		t.Fatal(err)
+	}
+
+	pr, err := fx.uc.Resolve(context.Background(), "https://github.com/bnema/gordon/pull/123", 32, ResolveOptions{Purpose: ResolvePurposeUI})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if pr.Key != "github.com/bnema/gordon/pull/123" || string(pr.Bytes) != "png32:pr-success" {
+		t.Fatalf("PR resolve used wrong icon: key=%q bytes=%q", pr.Key, pr.Bytes)
+	}
+
+	for _, rawURL := range []string{
+		"https://github.com/bnema/gordon",
+		"https://github.com/notifications",
+		"https://github.com/bnema?tab=repositories",
+	} {
+		got, err := fx.uc.Resolve(context.Background(), rawURL, 32, ResolveOptions{Purpose: ResolvePurposeUI})
+		if err != nil {
+			t.Fatalf("Resolve(%q): %v", rawURL, err)
+		}
+		if got.Key != "github.com" || string(got.Bytes) != "github-default" {
+			t.Fatalf("Resolve(%q) leaked path-specific favicon: key=%q bytes=%q", rawURL, got.Key, got.Bytes)
+		}
+	}
+
+	if _, err := fx.uc.Resolve(context.Background(), "https://gitlab.com/bnema/gordon", 32, ResolveOptions{Purpose: ResolvePurposeUI}); !errors.Is(err, ErrFaviconMiss) {
+		t.Fatalf("expected cross-domain miss, got %v", err)
+	}
+}
+
 func TestFaviconResolveRepairsOrphanCanonicalBlobMetadata(t *testing.T) {
 	fx := newFaviconFixture()
 	fx.blobs.png["example.com"] = []byte("png")
@@ -112,7 +168,7 @@ func TestFaviconResolveStaleExactRefreshIgnoresFreshParent(t *testing.T) {
 func TestFaviconObserveSameHashUpdatesMetadataOnly(t *testing.T) {
 	fx := newFaviconFixture()
 	fx.seedOriginal([]byte("same"))
-	if _, err := fx.uc.Observe(context.Background(), "https://example.com/page", "https://cdn.test/icon.png", []byte("same"), favicon.SourceEngine, "image/png"); err != nil {
+	if _, err := fx.uc.Observe(context.Background(), "https://example.com", "https://cdn.test/icon.png", []byte("same"), favicon.SourceEngine, "image/png"); err != nil {
 		t.Fatal(err)
 	}
 	if fx.blobs.writeOriginals != 0 || fx.converter.calls != 0 || fx.invalidators.calls != 0 {
@@ -126,7 +182,7 @@ func TestFaviconObserveSameHashUpdatesMetadataOnly(t *testing.T) {
 func TestFaviconObserveChangedHashRegeneratesAndInvalidates(t *testing.T) {
 	fx := newFaviconFixture()
 	fx.seedOriginal([]byte("old"))
-	if _, err := fx.uc.Observe(context.Background(), "https://example.com/page", "https://cdn.test/icon.png", []byte("new"), favicon.SourceEngine, "image/png"); err != nil {
+	if _, err := fx.uc.Observe(context.Background(), "https://example.com", "https://cdn.test/icon.png", []byte("new"), favicon.SourceEngine, "image/png"); err != nil {
 		t.Fatal(err)
 	}
 	if fx.blobs.writeOriginals != 1 || fx.converter.calls != 1 || fx.blobs.removeDerived != 1 || fx.invalidators.calls != 1 {
@@ -143,7 +199,7 @@ func TestFaviconObserveChangedHashRegeneratesAndInvalidates(t *testing.T) {
 func TestFaviconObserveWithoutConverterStoresOriginalOnly(t *testing.T) {
 	fx := newFaviconFixture()
 	fx.uc.converter = nil
-	if _, err := fx.uc.Observe(context.Background(), "https://example.com/page", "https://example.com/icon.png", []byte("raw"), favicon.SourceEngine, "image/png"); err != nil {
+	if _, err := fx.uc.Observe(context.Background(), "https://example.com", "https://example.com/icon.png", []byte("raw"), favicon.SourceEngine, "image/png"); err != nil {
 		t.Fatal(err)
 	}
 	if string(fx.blobs.original["example.com"]) != "raw" {
@@ -230,11 +286,71 @@ func TestFaviconRefreshFromIconURLsUsesPageURLKey(t *testing.T) {
 	if err := fx.uc.RefreshFromIconURLs(context.Background(), "https://docs.example.com/page", []string{"https://cdn.example.net/icon.png"}); err != nil {
 		t.Fatal(err)
 	}
-	if _, ok := fx.repo.byKey["docs.example.com"]; !ok {
+	if _, ok := fx.repo.byKey["docs.example.com/page"]; !ok {
 		t.Fatalf("page URL key was not stored; keys=%v", fx.repo.byKey)
 	}
-	if _, ok := fx.repo.byKey["cdn.example.net"]; ok {
-		t.Fatal("icon URL host should not be used as cache key")
+	if _, ok := fx.repo.byKey["cdn.example.net/icon.png"]; ok {
+		t.Fatal("icon URL should not be used as cache key")
+	}
+}
+
+func TestFaviconRefreshStoresDuckDuckGoFallbackUnderHostKey(t *testing.T) {
+	fx := newFaviconFixture()
+	fx.fetcher.responses = map[string]fakeFetchedIcon{
+		"https://example.com/favicon.ico": {
+			bytes:       []byte("host-fallback"),
+			contentType: "image/png",
+			resolvedKey: "github.com",
+		},
+	}
+
+	if err := fx.uc.RefreshIfStale(context.Background(), "https://github.com/bnema/gordon/pull/123"); err != nil {
+		t.Fatal(err)
+	}
+	if _, ok := fx.repo.byKey["github.com"]; !ok {
+		t.Fatalf("host fallback key was not stored; keys=%v", fx.repo.byKey)
+	}
+	if _, ok := fx.repo.byKey["github.com/bnema/gordon/pull/123"]; ok {
+		t.Fatal("duckduckgo host fallback should not be stored under the exact path key")
+	}
+}
+
+func TestFaviconRefreshRejectsResolvedKeyOutsideCandidateHierarchy(t *testing.T) {
+	fx := newFaviconFixture()
+	fx.fetcher.responses = map[string]fakeFetchedIcon{
+		"https://example.com/favicon.ico": {
+			bytes:       []byte("bad-fallback"),
+			contentType: "image/png",
+			resolvedKey: "evil.example.com",
+		},
+	}
+
+	err := fx.uc.RefreshIfStale(context.Background(), "https://github.com/bnema/gordon/pull/123")
+	if !errors.Is(err, ErrFaviconMiss) {
+		t.Fatalf("RefreshIfStale err=%v, want favicon miss", err)
+	}
+	if len(fx.repo.byKey) != 0 {
+		t.Fatalf("invalid resolved key should not persist metadata: %v", fx.repo.byKey)
+	}
+}
+
+func TestFaviconRefreshRejectsFetcherPageURLOutsideRequestedHierarchy(t *testing.T) {
+	fx := newFaviconFixture()
+	fx.fetcher.responses = map[string]fakeFetchedIcon{
+		"https://example.com/favicon.ico": {
+			bytes:       []byte("bad-page-url"),
+			contentType: "image/png",
+			pageURL:     "https://evil.example.com/pwned",
+			resolvedKey: "evil.example.com/pwned",
+		},
+	}
+
+	err := fx.uc.RefreshIfStale(context.Background(), "https://github.com/bnema/gordon/pull/123")
+	if !errors.Is(err, ErrFaviconMiss) {
+		t.Fatalf("RefreshIfStale err=%v, want favicon miss", err)
+	}
+	if len(fx.repo.byKey) != 0 {
+		t.Fatalf("fetcher-controlled pageURL should not expand storage scope: %v", fx.repo.byKey)
 	}
 }
 
@@ -256,15 +372,15 @@ func TestFaviconRefreshFromIconURLsSkipsUnsupportedCandidates(t *testing.T) {
 	if fx.fetcher.calls != 2 {
 		t.Fatalf("fetcher calls=%d, want 2", fx.fetcher.calls)
 	}
-	meta := fx.repo.byKey["docs.example.com"]
+	meta := fx.repo.byKey["docs.example.com/page"]
 	if meta == nil {
 		t.Fatalf("expected page URL key to be stored; keys=%v", fx.repo.byKey)
 	}
 	if meta.SourceURL != "https://cdn.example.net/icon.png" || meta.ContentType != "image/png" {
 		t.Fatalf("stored meta = %+v, want png candidate", meta)
 	}
-	if string(fx.blobs.original["docs.example.com"]) != "png" {
-		t.Fatalf("stored original = %q, want png", fx.blobs.original["docs.example.com"])
+	if string(fx.blobs.original["docs.example.com/page"]) != "png" {
+		t.Fatalf("stored original = %q, want png", fx.blobs.original["docs.example.com/page"])
 	}
 }
 
@@ -551,6 +667,8 @@ func (i *fakeInvalidators) InvalidateAll(_ context.Context, _ favicon.Key) error
 type fakeFetchedIcon struct {
 	bytes       []byte
 	contentType string
+	pageURL     string
+	resolvedKey favicon.Key
 }
 
 type fakeFetcher struct {
@@ -572,5 +690,9 @@ func (f *fakeFetcher) Fetch(_ context.Context, req appport.FaviconFetchRequest) 
 	if response.bytes == nil {
 		response = fakeFetchedIcon{bytes: []byte("fetched"), contentType: "image/png"}
 	}
-	return &appport.FaviconFetchedIcon{PageURL: req.PageURL, IconURL: iconURL, Bytes: response.bytes, Source: favicon.SourceDuckDuckGo, ContentType: response.contentType}, nil
+	pageURL := req.PageURL
+	if response.pageURL != "" {
+		pageURL = response.pageURL
+	}
+	return &appport.FaviconFetchedIcon{PageURL: pageURL, IconURL: iconURL, ResolvedKey: response.resolvedKey, Bytes: response.bytes, Source: favicon.SourceDuckDuckGo, ContentType: response.contentType}, nil
 }

@@ -3,6 +3,7 @@ package url
 import (
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 )
 
@@ -475,6 +476,53 @@ func TestNormalize_IPAddressGetsHTTPByDefault(t *testing.T) {
 				t.Errorf("Normalize(%q) = %q, want %q", tt.input, got, tt.want)
 			}
 		})
+	}
+}
+
+func TestSanitizeDomainForPNGPathKeysDoNotCollide(t *testing.T) {
+	pathKey := SanitizeDomainForPNG("example.com/a/b")
+	underscoreKey := SanitizeDomainForPNG("example.com/a_b")
+	if pathKey == underscoreKey {
+		t.Fatalf("path key filename collision: %q", pathKey)
+	}
+	if pathKey != "example.com%2Fa%2Fb.png" {
+		t.Fatalf("path key filename = %q, want example.com%%2Fa%%2Fb.png", pathKey)
+	}
+	if underscoreKey != "example.com%2Fa_b.png" {
+		t.Fatalf("underscore key filename = %q, want example.com%%2Fa_b.png", underscoreKey)
+	}
+}
+
+func TestSanitizeDomainForLongPathKeysUsesBoundedDeterministicFilenames(t *testing.T) {
+	longKeyA := "example.com/" + strings.Repeat("very-long-segment/", 24) + "alpha"
+	longKeyB := "example.com/" + strings.Repeat("very-long-segment/", 24) + "beta"
+
+	pngA := SanitizeDomainForPNG(longKeyA)
+	pngB := SanitizeDomainForPNG(longKeyB)
+	if len(pngA) > 240 {
+		t.Fatalf("png filename too long: len=%d name=%q", len(pngA), pngA)
+	}
+	if pngA == pngB {
+		t.Fatalf("distinct long keys collided: %q", pngA)
+	}
+	if !strings.HasSuffix(pngA, ".png") {
+		t.Fatalf("png filename missing suffix: %q", pngA)
+	}
+
+	ico := SanitizeDomainForFilename(longKeyA)
+	if len(ico) > 240 {
+		t.Fatalf("ico filename too long: len=%d name=%q", len(ico), ico)
+	}
+	if !strings.HasSuffix(ico, ".ico") {
+		t.Fatalf("ico filename missing suffix: %q", ico)
+	}
+
+	sized := SanitizeDomainForPNGSized(longKeyA, 32)
+	if len(sized) > 240 {
+		t.Fatalf("sized png filename too long: len=%d name=%q", len(sized), sized)
+	}
+	if !strings.HasSuffix(sized, ".32.png") {
+		t.Fatalf("sized png filename missing suffix: %q", sized)
 	}
 }
 

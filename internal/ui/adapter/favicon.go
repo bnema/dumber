@@ -23,7 +23,6 @@ type FaviconAdapter struct {
 	resolver     port.FaviconResolver
 	faviconDB    port.FaviconDatabase
 	textureCache map[string]*gdk.Texture
-	aliasesByKey map[favicon.Key]map[string]struct{}
 	mu           sync.RWMutex
 	warnMu       sync.Mutex
 	warnCounts   map[string]int
@@ -75,7 +74,6 @@ func NewFaviconAdapterWithResolver(
 		resolver:           resolver,
 		faviconDB:          faviconDB,
 		textureCache:       make(map[string]*gdk.Texture),
-		aliasesByKey:       make(map[favicon.Key]map[string]struct{}),
 		warnCounts:         make(map[string]int),
 		isInternalURL:      cfg.IsInternalURL,
 		internalDomain:     cfg.InternalDomain,
@@ -97,19 +95,41 @@ func (a *FaviconAdapter) GetTexture(domain string) *gdk.Texture {
 	return texture
 }
 
-// GetTextureByURL returns a cached texture by extracting domain from URL.
-// For internal dumb:// URLs, returns the app logo texture.
+// GetTextureByURL returns a cached texture for the most specific URL key,
+// falling back toward the domain key. For internal dumb:// URLs, returns the
+// app logo texture.
 func (a *FaviconAdapter) GetTextureByURL(pageURL string) *gdk.Texture {
-	// Handle internal dumb:// scheme URLs
+	texture, _, _ := a.getTextureForURL(pageURL)
+	return texture
+}
+
+func (a *FaviconAdapter) getTextureForURL(pageURL string) (*gdk.Texture, favicon.Key, bool) {
 	if a.isInternalURL != nil && a.isInternalURL(pageURL) {
-		return a.GetTexture(a.internalDomain)
+		texture := a.GetTexture(a.internalDomain)
+		return texture, favicon.Key(a.internalDomain), texture != nil
 	}
-	domain := domainurl.ExtractDomain(pageURL)
-	return a.GetTexture(domain)
+	exactKey, _ := favicon.CanonicalKey(pageURL)
+	for _, key := range favicon.Candidates(pageURL) {
+		if texture := a.GetTexture(string(key)); texture != nil {
+			return texture, key, exactKey != "" && key == exactKey
+		}
+	}
+	return nil, "", false
+}
+
+func (a *FaviconAdapter) setTextureForURL(pageURL string, texture *gdk.Texture) {
+	key, ok := favicon.CanonicalKey(pageURL)
+	if !ok {
+		return
+	}
+	a.setTexture(string(key), texture)
 }
 
 // GetOrFetch retrieves a favicon texture, checking caches and fetching if needed.
-// The callback is invoked on the GTK main thread with the texture (or nil).
+// The callback is invoked on the GTK main thread with the best currently
+// available texture (or nil). When a fallback texture is shown first and a more
+// specific exact engine favicon is discovered asynchronously, the callback may
+// be invoked a second time with that exact update.
 // For internal dumb:// URLs, returns the app logo texture.
 func (a *FaviconAdapter) GetOrFetch(ctx context.Context, pageURL string, callback func(*gdk.Texture)) {
 	if callback == nil {
@@ -137,18 +157,27 @@ func (a *FaviconAdapter) GetOrFetch(ctx context.Context, pageURL string, callbac
 		Str("domain", domain).
 		Msg("favicon: GetOrFetch begin")
 
-	// Check texture cache first
-	if texture := a.GetTexture(domain); texture != nil {
-		log.Debug().Str("domain", domain).Msg("favicon: texture cache hit")
-		// Ensure sized PNG exists for CLI tools (async, idempotent)
-		go a.ensureSizedPNG(ctx, domain)
+	// Exact in-memory hits can short-circuit immediately. Fallback hits still
+	// consult the resolver first so persisted exact/path-specific favicons win.
+	if texture, key, exact := a.getTextureForURL(pageURL); texture != nil && exact {
+		log.Debug().Str("domain", domain).Str("key", string(key)).Msg("favicon: exact texture cache hit")
+		go a.ensureSizedPNG(ctx, string(key))
 		callback(texture)
 		return
 	}
 
-	// Check application resolver before falling back to the legacy service.
-	if texture := a.resolveTexture(ctx, pageURL, true); texture != nil {
+	// Check application resolver before using any cached parent/domain fallback.
+	if texture, key := a.resolveTexture(ctx, pageURL, true); texture != nil {
 		callback(texture)
+		a.probeExactEngineFavicon(ctx, pageURL, domain, key, callback)
+		return
+	}
+
+	if texture, key, _ := a.getTextureForURL(pageURL); texture != nil {
+		log.Debug().Str("domain", domain).Str("key", string(key)).Msg("favicon: fallback texture cache hit")
+		go a.ensureSizedPNG(ctx, string(key))
+		callback(texture)
+		a.probeExactEngineFavicon(ctx, pageURL, domain, key, callback)
 		return
 	}
 
@@ -165,6 +194,7 @@ func (a *FaviconAdapter) GetOrFetch(ctx context.Context, pageURL string, callbac
 				// Ensure sized PNG exists for CLI tools (async, idempotent)
 				go a.ensureSizedPNG(ctx, domain)
 				callback(texture)
+				a.probeExactEngineFavicon(ctx, pageURL, domain, favicon.Key(domain), callback)
 				return
 			}
 		}
@@ -172,9 +202,7 @@ func (a *FaviconAdapter) GetOrFetch(ctx context.Context, pageURL string, callbac
 
 	// Try engine FaviconDatabase if available
 	if a.faviconDB != nil {
-		a.faviconDB.GetFaviconAsync(pageURL, func(tex port.Texture) {
-			a.handleEngineFaviconDBTexture(ctx, pageURL, domain, callback, tex)
-		})
+		a.queryEngineFaviconDB(ctx, pageURL, domain, callback, true)
 		return
 	}
 
@@ -222,9 +250,9 @@ func (a *FaviconAdapter) RefreshFromIconURLs(ctx context.Context, pageURL string
 	}()
 }
 
-func (a *FaviconAdapter) resolveTexture(ctx context.Context, pageURL string, scheduleRefresh bool) *gdk.Texture {
+func (a *FaviconAdapter) resolveTexture(ctx context.Context, pageURL string, scheduleRefresh bool) (*gdk.Texture, favicon.Key) {
 	if a.resolver == nil {
-		return nil
+		return nil, ""
 	}
 	options := port.FaviconResolveOptions{Purpose: port.FaviconResolvePurposeUI}
 	if scheduleRefresh {
@@ -232,13 +260,13 @@ func (a *FaviconAdapter) resolveTexture(ctx context.Context, pageURL string, sch
 	}
 	resolved, err := a.resolver.Resolve(ctx, pageURL, 0, options)
 	if err != nil || resolved == nil || len(resolved.Bytes) == 0 {
-		return nil
+		return nil, ""
 	}
 	texture := a.textureFromBytesOnGTK(ctx, resolved.Bytes)
 	if texture != nil {
 		a.setResolvedTexture(pageURL, resolved.Key, texture)
 	}
-	return texture
+	return texture, resolved.Key
 }
 
 func (a *FaviconAdapter) fetchViaService(ctx context.Context, domain string, callback func(*gdk.Texture)) {
@@ -276,11 +304,39 @@ func (a *FaviconAdapter) fetchViaService(ctx context.Context, domain string, cal
 	}()
 }
 
+func (a *FaviconAdapter) probeExactEngineFavicon(
+	ctx context.Context,
+	pageURL, domain string,
+	resolvedKey favicon.Key,
+	callback func(*gdk.Texture),
+) {
+	if a.faviconDB == nil {
+		return
+	}
+	exactKey, ok := favicon.CanonicalKey(pageURL)
+	if !ok || exactKey == resolvedKey {
+		return
+	}
+	a.queryEngineFaviconDB(ctx, pageURL, domain, callback, false)
+}
+
+func (a *FaviconAdapter) queryEngineFaviconDB(
+	ctx context.Context,
+	pageURL, domain string,
+	callback func(*gdk.Texture),
+	fetchViaServiceOnMiss bool,
+) {
+	a.faviconDB.GetFaviconAsync(pageURL, func(tex port.Texture) {
+		a.handleEngineFaviconDBTexture(ctx, pageURL, domain, callback, tex, fetchViaServiceOnMiss)
+	})
+}
+
 func (a *FaviconAdapter) handleEngineFaviconDBTexture(
 	ctx context.Context,
 	pageURL, domain string,
 	callback func(*gdk.Texture),
 	tex port.Texture,
+	fetchViaServiceOnMiss bool,
 ) {
 	log := logging.FromContext(ctx)
 	log.Debug().
@@ -288,17 +344,25 @@ func (a *FaviconAdapter) handleEngineFaviconDBTexture(
 		Bool("texture_nil", tex == nil).
 		Msg("favicon: engine db callback")
 	if tex == nil {
-		log.Debug().Str("domain", domain).Msg("favicon not in engine db, fetching via service")
-		a.fetchViaService(ctx, domain, callback)
+		if fetchViaServiceOnMiss {
+			log.Debug().Str("domain", domain).Msg("favicon not in engine db, fetching via service")
+			a.fetchViaService(ctx, domain, callback)
+		}
 		return
 	}
 	// Convert port.Texture to *gdk.Texture
 	gdkTex, ok := tex.(*gdk.Texture)
 	if !ok {
-		a.fetchViaService(ctx, domain, callback)
+		if fetchViaServiceOnMiss {
+			a.fetchViaService(ctx, domain, callback)
+		}
 		return
 	}
-	a.setTexture(domain, gdkTex)
+	if a.resolver != nil {
+		a.setTextureForURL(pageURL, gdkTex)
+	} else {
+		a.setTexture(domain, gdkTex)
+	}
 	a.invokeCallbackOnGTK(ctx, domain, callback, gdkTex)
 	a.storeTextureObservation(ctx, pageURL, gdkTex)
 }
@@ -321,15 +385,14 @@ func (a *FaviconAdapter) StoreFromWebKit(ctx context.Context, pageURL string, te
 		return
 	}
 
-	// Store in texture cache
-	a.setTexture(domain, texture)
-
 	if a.resolver != nil {
+		a.setTextureForURL(pageURL, texture)
 		a.storeTextureObservation(ctx, pageURL, texture)
 		return
 	}
 
 	// Legacy fallback for callers not yet wired to the application resolver.
+	a.setTexture(domain, texture)
 	a.saveFaviconToDisk(ctx, domain, texture)
 }
 
@@ -340,18 +403,21 @@ func (a *FaviconAdapter) StoreFromWebKitWithOrigin(
 ) {
 	a.StoreFromWebKit(ctx, currentURL, texture)
 
-	// Also store under original URL domain if different
-	if originURL != "" && originURL != currentURL {
-		originDomain := domainurl.ExtractDomain(originURL)
-		currentDomain := domainurl.ExtractDomain(currentURL)
-		if originDomain != "" && originDomain != currentDomain {
-			a.setTexture(originDomain, texture)
-			if a.resolver != nil {
-				a.storeTextureObservation(ctx, originURL, texture)
-			} else {
-				a.saveFaviconToDisk(ctx, originDomain, texture)
-			}
-		}
+	if originURL == "" || originURL == currentURL {
+		return
+	}
+	if a.resolver != nil {
+		// In path-aware resolver mode, redirect target favicons may carry state.
+		// Keep them scoped to the current URL only; aliasing them onto the origin
+		// URL would leak exact/path-specific state across sibling paths or hosts.
+		return
+	}
+
+	originDomain := domainurl.ExtractDomain(originURL)
+	currentDomain := domainurl.ExtractDomain(currentURL)
+	if originDomain != "" && originDomain != currentDomain {
+		a.setTexture(originDomain, texture)
+		a.saveFaviconToDisk(ctx, originDomain, texture)
 	}
 }
 
@@ -471,14 +537,18 @@ func (a *FaviconAdapter) PreloadFromCache(ctx context.Context, pageURL string) *
 		Str("domain", domain).
 		Msg("favicon: PreloadFromCache begin")
 
-	// Check texture cache
-	if texture := a.GetTexture(domain); texture != nil {
-		log.Debug().Str("domain", domain).Msg("favicon: PreloadFromCache texture hit")
+	if texture, key, exact := a.getTextureForURL(pageURL); texture != nil && exact {
+		log.Debug().Str("domain", domain).Str("key", string(key)).Msg("favicon: PreloadFromCache exact texture hit")
 		return texture
 	}
 
-	// Check application resolver before falling back to the legacy service.
-	if texture := a.resolveTexture(ctx, pageURL, false); texture != nil {
+	// Check application resolver before falling back to cached parent/domain entries.
+	if texture, _ := a.resolveTexture(ctx, pageURL, false); texture != nil {
+		return texture
+	}
+
+	if texture, key, _ := a.getTextureForURL(pageURL); texture != nil {
+		log.Debug().Str("domain", domain).Str("key", string(key)).Msg("favicon: PreloadFromCache fallback texture hit")
 		return texture
 	}
 
@@ -514,15 +584,10 @@ func (a *FaviconAdapter) Close() {
 	}
 }
 
-// Invalidate clears one resolved-key texture cache entry and all domain aliases
-// explicitly bound to that canonical favicon key.
+// Invalidate clears one resolved-key texture cache entry.
 func (a *FaviconAdapter) Invalidate(_ context.Context, key favicon.Key) error {
 	a.mu.Lock()
 	delete(a.textureCache, string(key))
-	for alias := range a.aliasesByKey[key] {
-		delete(a.textureCache, alias)
-	}
-	delete(a.aliasesByKey, key)
 	a.mu.Unlock()
 	return nil
 }
@@ -531,7 +596,6 @@ func (a *FaviconAdapter) Invalidate(_ context.Context, key favicon.Key) error {
 func (a *FaviconAdapter) Clear() {
 	a.mu.Lock()
 	a.textureCache = make(map[string]*gdk.Texture)
-	a.aliasesByKey = make(map[favicon.Key]map[string]struct{})
 	a.mu.Unlock()
 }
 
@@ -543,35 +607,17 @@ func (a *FaviconAdapter) Size() int {
 	return size
 }
 
-// setResolvedTexture stores resolver results under both the resolved favicon key
-// and the current page domain. Aliases are indexed by canonical key so
-// invalidation does not depend on pointer equality with the latest texture.
-func (a *FaviconAdapter) setResolvedTexture(pageURL string, key favicon.Key, texture *gdk.Texture) {
+// setResolvedTexture stores resolver results only under the resolved favicon
+// key. Exact/parent/domain fallback ordering is handled by favicon.Candidates
+// during lookup, so synthetic aliases would only risk masking more specific
+// entries that arrive later.
+func (a *FaviconAdapter) setResolvedTexture(_ string, key favicon.Key, texture *gdk.Texture) {
 	if key == "" || texture == nil {
 		return
 	}
-	domain := domainurl.ExtractDomain(pageURL)
 	a.mu.Lock()
-	defer a.mu.Unlock()
 	a.textureCache[string(key)] = texture
-	if domain == "" {
-		return
-	}
-	a.removeAliasLocked(domain)
-	a.textureCache[domain] = texture
-	if a.aliasesByKey[key] == nil {
-		a.aliasesByKey[key] = make(map[string]struct{})
-	}
-	a.aliasesByKey[key][domain] = struct{}{}
-}
-
-func (a *FaviconAdapter) removeAliasLocked(alias string) {
-	for key, aliases := range a.aliasesByKey {
-		delete(aliases, alias)
-		if len(aliases) == 0 {
-			delete(a.aliasesByKey, key)
-		}
-	}
+	a.mu.Unlock()
 }
 
 // setTexture stores a texture in the cache.
