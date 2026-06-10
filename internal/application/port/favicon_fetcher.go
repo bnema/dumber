@@ -14,10 +14,13 @@ type FaviconFetchRequest struct {
 }
 
 // FaviconFetchedIcon contains fetched favicon bytes and their source metadata.
-// PageURL is the source page, IconURL is the resource URL, Source identifies discovery origin, and ContentType is the MIME type.
+// PageURL is the source page, IconURL is the resource URL, ResolvedKey optionally
+// overrides the storage key when a provider is host/domain scoped rather than exact-page scoped,
+// Source identifies discovery origin, and ContentType is the MIME type.
 type FaviconFetchedIcon struct {
 	PageURL     string
 	IconURL     string
+	ResolvedKey favicon.Key
 	Bytes       []byte
 	Source      favicon.Source
 	ContentType string

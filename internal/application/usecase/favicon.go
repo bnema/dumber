@@ -230,6 +230,20 @@ func (uc *FaviconUseCase) Observe(
 	if !ok || len(bytes) == 0 {
 		return nil, ErrFaviconMiss
 	}
+	return uc.observeKey(ctx, key, pageURL, iconURL, bytes, source, contentType)
+}
+
+func (uc *FaviconUseCase) observeKey(
+	ctx context.Context,
+	key favicon.Key,
+	pageURL, iconURL string,
+	bytes []byte,
+	source favicon.Source,
+	contentType string,
+) (*favicon.Metadata, error) {
+	if key == "" || len(bytes) == 0 {
+		return nil, ErrFaviconMiss
+	}
 	old, err := uc.repo.Get(ctx, key)
 	if err != nil {
 		return nil, err
@@ -310,7 +324,7 @@ func (uc *FaviconUseCase) RefreshFromIconURLs(ctx context.Context, pageURL strin
 		if err != nil {
 			return err
 		}
-		_, err = uc.Observe(ctx, fetched.PageURL, fetched.IconURL, fetched.Bytes, fetched.Source, fetched.ContentType)
+		err = uc.observeFetched(ctx, pageURL, fetched)
 		if errors.Is(err, ErrFaviconMiss) {
 			lastMiss = err
 			continue
@@ -372,7 +386,29 @@ func (uc *FaviconUseCase) fetchAndObserve(ctx context.Context, pageURL string) e
 	if err != nil {
 		return err
 	}
-	_, err = uc.Observe(ctx, fetched.PageURL, fetched.IconURL, fetched.Bytes, fetched.Source, fetched.ContentType)
+	err = uc.observeFetched(ctx, pageURL, fetched)
+	return err
+}
+
+func (uc *FaviconUseCase) observeFetched(ctx context.Context, requestedPageURL string, fetched *appport.FaviconFetchedIcon) error {
+	if fetched == nil {
+		return ErrFaviconMiss
+	}
+	if fetched.ResolvedKey != "" {
+		allowed := false
+		for _, candidate := range favicon.Candidates(requestedPageURL) {
+			if candidate == fetched.ResolvedKey {
+				allowed = true
+				break
+			}
+		}
+		if !allowed {
+			return ErrFaviconMiss
+		}
+		_, err := uc.observeKey(ctx, fetched.ResolvedKey, requestedPageURL, fetched.IconURL, fetched.Bytes, fetched.Source, fetched.ContentType)
+		return err
+	}
+	_, err := uc.Observe(ctx, requestedPageURL, fetched.IconURL, fetched.Bytes, fetched.Source, fetched.ContentType)
 	return err
 }
 

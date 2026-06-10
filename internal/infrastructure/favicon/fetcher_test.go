@@ -10,6 +10,7 @@ import (
 	"testing"
 
 	appport "github.com/bnema/dumber/internal/application/port"
+	domainfavicon "github.com/bnema/dumber/internal/domain/favicon"
 )
 
 func TestFetcherExplicitIconURLAndDuckDuckGoFallback(t *testing.T) {
@@ -28,6 +29,24 @@ func TestFetcherExplicitIconURLAndDuckDuckGoFallback(t *testing.T) {
 	got, err = fetcher.Fetch(context.Background(), appport.FaviconFetchRequest{PageURL: "https://example.com/page"})
 	if err != nil || got.Source == "" || len(got.Bytes) == 0 {
 		t.Fatalf("fallback got=%+v err=%v", got, err)
+	}
+}
+
+func TestFetcherResolveURLUsesHostKeyForDuckDuckGoFallback(t *testing.T) {
+	fetcher := NewFetcherWithClient(http.DefaultClient, "https://icons.example/%s.ico")
+
+	got, resolvedKey, source, err := fetcher.resolveURL(appport.FaviconFetchRequest{PageURL: "https://github.com/bnema/gordon/pull/123"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if source != domainfavicon.SourceDuckDuckGo {
+		t.Fatalf("source = %q, want %q", source, domainfavicon.SourceDuckDuckGo)
+	}
+	if resolvedKey != "github.com" {
+		t.Fatalf("resolvedKey = %q, want github.com", resolvedKey)
+	}
+	if got != "https://icons.example/github.com.ico" {
+		t.Fatalf("duckduckgo URL = %q, want host-based fallback URL", got)
 	}
 }
 

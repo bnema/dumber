@@ -2,6 +2,8 @@
 package url
 
 import (
+	"crypto/sha256"
+	"encoding/hex"
 	"fmt"
 	"net"
 	"net/url"
@@ -207,39 +209,54 @@ func DisplayDomain(raw string) string {
 	return domain
 }
 
-// SanitizeDomainForFilename converts a domain to a safe filename with .ico extension.
-// Replaces unsafe filesystem characters with underscores.
+// maxSanitizedFilenameLen leaves headroom under common 255-byte filename
+// limits for favicon sidecars such as ".content-type".
+const maxSanitizedFilenameLen = 240
+
+// SanitizeDomainForFilename converts a domain/key to a safe bounded filename with .ico extension.
 func SanitizeDomainForFilename(domain string) string {
-	return sanitizeDomain(domain) + ".ico"
+	return sanitizeDomainWithSuffix(domain, ".ico")
 }
 
-// SanitizeDomainForPNG converts a domain to a safe filename with .png extension.
+// SanitizeDomainForPNG converts a domain/key to a safe bounded filename with .png extension.
 // Used for favicon export for tools like rofi/fuzzel that require PNG format.
 func SanitizeDomainForPNG(domain string) string {
-	return sanitizeDomain(domain) + ".png"
+	return sanitizeDomainWithSuffix(domain, ".png")
 }
 
-// sanitizeDomain replaces unsafe filesystem characters with underscores.
+// sanitizeDomain percent-escapes filesystem-unsafe characters while preserving
+// ordinary domain filenames. Percent escapes avoid collisions between path keys
+// such as example.com/a_b and example.com/a/b.
 func sanitizeDomain(domain string) string {
 	replacer := strings.NewReplacer(
-		":", "_",
-		"/", "_",
-		"\\", "_",
-		"*", "_",
-		"?", "_",
-		"\"", "_",
-		"<", "_",
-		">", "_",
-		"|", "_",
+		"%", "%25",
+		":", "%3A",
+		"/", "%2F",
+		"\\", "%5C",
+		"*", "%2A",
+		"?", "%3F",
+		"\"", "%22",
+		"<", "%3C",
+		">", "%3E",
+		"|", "%7C",
 	)
 	return replacer.Replace(domain)
+}
+
+func sanitizeDomainWithSuffix(domain, suffix string) string {
+	sanitized := sanitizeDomain(domain)
+	if len(sanitized)+len(suffix) <= maxSanitizedFilenameLen {
+		return sanitized + suffix
+	}
+	sum := sha256.Sum256([]byte(domain))
+	return "sha256-" + hex.EncodeToString(sum[:]) + suffix
 }
 
 // SanitizeDomainForPNGSized converts a domain to a safe filename with size suffix.
 // Example: "google.com" with size 32 -> "google.com.32.png"
 // Used for normalized favicon export for tools like rofi/fuzzel.
 func SanitizeDomainForPNGSized(domain string, size int) string {
-	return fmt.Sprintf("%s.%d.png", sanitizeDomain(domain), size)
+	return sanitizeDomainWithSuffix(domain, fmt.Sprintf(".%d.png", size))
 }
 
 // TrimLeadingSpacesIfURL removes leading whitespace from input if the trimmed

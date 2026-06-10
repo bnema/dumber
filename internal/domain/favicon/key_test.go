@@ -8,20 +8,24 @@ func TestKeyCandidates(t *testing.T) {
 		raw  string
 		want []Key
 	}{
-		{name: "walks public host to registrable domain", raw: "https://app.docs.example.com/path", want: []Key{"app.docs.example.com", "docs.example.com", "example.com"}},
+		{name: "walks path before public host to registrable domain", raw: "https://app.docs.example.com/path", want: []Key{"app.docs.example.com/path", "app.docs.example.com", "docs.example.com", "example.com"}},
 		{name: "strips www", raw: "https://www.example.com", want: []Key{"example.com"}},
-		{name: "localhost with port is exact", raw: "http://localhost:1455/path", want: []Key{"localhost:1455"}},
-		{name: "ip with port is exact", raw: "http://127.0.0.1:8080/path", want: []Key{"127.0.0.1:8080"}},
-		{name: "ipv6 with port is exact", raw: "http://[::1]:8080/path", want: []Key{"[::1]:8080"}},
-		{name: "uses public suffix for co uk", raw: "https://news.bbc.co.uk/story", want: []Key{"news.bbc.co.uk", "bbc.co.uk"}},
+		{name: "localhost with port is exact", raw: "http://localhost:1455/path", want: []Key{"localhost:1455/path", "localhost:1455"}},
+		{name: "ip with port is exact", raw: "http://127.0.0.1:8080/path", want: []Key{"127.0.0.1:8080/path", "127.0.0.1:8080"}},
+		{name: "ipv6 with port is exact", raw: "http://[::1]:8080/path", want: []Key{"[::1]:8080/path", "[::1]:8080"}},
+		{name: "uses public suffix for co uk", raw: "https://news.bbc.co.uk/story", want: []Key{"news.bbc.co.uk/story", "news.bbc.co.uk", "bbc.co.uk"}},
+		{name: "path candidates walk from exact path to host", raw: "https://github.com/bnema/gordon/pull/123", want: []Key{"github.com/bnema/gordon/pull/123", "github.com/bnema/gordon/pull", "github.com/bnema/gordon", "github.com/bnema", "github.com"}},
+		{name: "trailing slash normalizes to parent path key", raw: "https://github.com/bnema/gordon/", want: []Key{"github.com/bnema/gordon", "github.com/bnema", "github.com"}},
+		{name: "path normalization removes dot segments and query fragments", raw: "https://github.com/bnema/./gordon/issues/../pull/123?x#y", want: []Key{"github.com/bnema/gordon/pull/123", "github.com/bnema/gordon/pull", "github.com/bnema/gordon", "github.com/bnema", "github.com"}},
+		{name: "host-like string preserves path before host fallback", raw: "github.com/bnema?tab=repositories", want: []Key{"github.com/bnema", "github.com"}},
 
-		{name: "drops default https port", raw: "https://example.com:443/path", want: []Key{"example.com"}},
-		{name: "non default url port is exact", raw: "https://example.com:8443/path", want: []Key{"example.com:8443"}},
+		{name: "drops default https port", raw: "https://example.com:443/path", want: []Key{"example.com/path", "example.com"}},
+		{name: "non default url port is exact", raw: "https://example.com:8443/path", want: []Key{"example.com:8443/path", "example.com:8443"}},
 		{name: "host-like string lowercases and trims trailing dot", raw: "Docs.Example.COM.", want: []Key{"docs.example.com", "example.com"}},
 		{name: "strips www before preserving non default port", raw: "https://www.example.com:8443", want: []Key{"example.com:8443"}},
 		{name: "host-like string with port preserves port exact", raw: "example.com:443", want: []Key{"example.com:443"}},
-		{name: "unicode host normalizes to punycode", raw: "https://bücher.example/path", want: []Key{"xn--bcher-kva.example"}},
-		{name: "punycode equivalent matches unicode", raw: "https://xn--bcher-kva.example/path", want: []Key{"xn--bcher-kva.example"}},
+		{name: "unicode host normalizes to punycode", raw: "https://bücher.example/path", want: []Key{"xn--bcher-kva.example/path", "xn--bcher-kva.example"}},
+		{name: "punycode equivalent matches unicode", raw: "https://xn--bcher-kva.example/path", want: []Key{"xn--bcher-kva.example/path", "xn--bcher-kva.example"}},
 		{name: "empty input has no candidates", raw: "", want: nil},
 		{name: "about url has no candidates", raw: "about:blank", want: nil},
 		{name: "unsupported scheme has no candidates", raw: "file:///tmp/icon.html", want: nil},
@@ -47,11 +51,25 @@ func TestCanonicalKey(t *testing.T) {
 	if !ok {
 		t.Fatal("CanonicalKey returned false")
 	}
-	if key != "example.com" {
-		t.Fatalf("CanonicalKey = %q, want example.com", key)
+	if key != "example.com/path" {
+		t.Fatalf("CanonicalKey = %q, want example.com/path", key)
 	}
 
 	if key, ok := CanonicalKey("about:blank"); ok || key != "" {
 		t.Fatalf("CanonicalKey(about:blank) = %q, %v; want empty false", key, ok)
+	}
+}
+
+func TestCanonicalHostKey(t *testing.T) {
+	key, ok := CanonicalHostKey("https://www.Example.COM.:443/path")
+	if !ok {
+		t.Fatal("CanonicalHostKey returned false")
+	}
+	if key != "example.com" {
+		t.Fatalf("CanonicalHostKey = %q, want example.com", key)
+	}
+
+	if key, ok := CanonicalHostKey("about:blank"); ok || key != "" {
+		t.Fatalf("CanonicalHostKey(about:blank) = %q, %v; want empty false", key, ok)
 	}
 }

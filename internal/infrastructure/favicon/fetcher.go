@@ -68,7 +68,7 @@ func (f *Fetcher) safeTransport(base http.RoundTripper) http.RoundTripper {
 }
 
 func (f *Fetcher) Fetch(ctx context.Context, req appport.FaviconFetchRequest) (*appport.FaviconFetchedIcon, error) {
-	fetchURL, source, err := f.resolveURL(req)
+	fetchURL, resolvedKey, source, err := f.resolveURL(req)
 	if err != nil {
 		return nil, err
 	}
@@ -76,7 +76,14 @@ func (f *Fetcher) Fetch(ctx context.Context, req appport.FaviconFetchRequest) (*
 	if err != nil {
 		return nil, err
 	}
-	return &appport.FaviconFetchedIcon{PageURL: req.PageURL, IconURL: fetchURL, Bytes: data, Source: source, ContentType: ct}, nil
+	return &appport.FaviconFetchedIcon{
+		PageURL:     req.PageURL,
+		IconURL:     fetchURL,
+		ResolvedKey: resolvedKey,
+		Bytes:       data,
+		Source:      source,
+		ContentType: ct,
+	}, nil
 }
 
 // FetchDomain preserves the old DuckDuckGo-only API for legacy callers.
@@ -94,22 +101,22 @@ func (f *Fetcher) FetchDomain(ctx context.Context, domain string) ([]byte, error
 	return got.Bytes, nil
 }
 
-func (f *Fetcher) resolveURL(req appport.FaviconFetchRequest) (string, domainfavicon.Source, error) {
+func (f *Fetcher) resolveURL(req appport.FaviconFetchRequest) (string, domainfavicon.Key, domainfavicon.Source, error) {
 	if req.IconURL != "" {
 		u, err := url.Parse(req.IconURL)
 		if err != nil || (u.Scheme != "http" && u.Scheme != "https") || u.Hostname() == "" {
-			return "", "", appport.ErrFaviconMiss
+			return "", "", "", appport.ErrFaviconMiss
 		}
 		if !allowedURLForPage(req.PageURL, u) {
-			return "", "", appport.ErrFaviconMiss
+			return "", "", "", appport.ErrFaviconMiss
 		}
-		return u.String(), domainfavicon.SourcePageDiscovery, nil
+		return u.String(), "", domainfavicon.SourcePageDiscovery, nil
 	}
-	key, ok := domainfavicon.CanonicalKey(req.PageURL)
+	key, ok := domainfavicon.CanonicalHostKey(req.PageURL)
 	if !ok {
-		return "", "", appport.ErrFaviconMiss
+		return "", "", "", appport.ErrFaviconMiss
 	}
-	return fmt.Sprintf(f.duckDuckGoURL, url.QueryEscape(string(key))), domainfavicon.SourceDuckDuckGo, nil
+	return fmt.Sprintf(f.duckDuckGoURL, url.QueryEscape(string(key))), key, domainfavicon.SourceDuckDuckGo, nil
 }
 
 func (f *Fetcher) fetchURL(ctx context.Context, raw, pageURL string) ([]byte, string, error) {
