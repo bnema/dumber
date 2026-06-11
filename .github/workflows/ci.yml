@@ -68,7 +68,9 @@ jobs:
       - name: Verify generated systemviews artifacts
         run: make verify-generated
       - name: Install golangci-lint
-        run: make install-golangci-lint TOOL_BIN_DIR=/usr/local/bin
+        run: |
+          make install-golangci-lint
+          echo "$(go env GOPATH)/bin" >> "$GITHUB_PATH"
       - name: Run golangci-lint
         run: |
           git config --global --add safe.directory "$GITHUB_WORKSPACE"
@@ -102,8 +104,6 @@ jobs:
             ${{ runner.os }}-go-build-
       - name: Build application and systemviews assets
         run: make build
-      - name: Verify generated systemviews artifacts
-        run: make verify-generated
       - name: Run tests
         env:
           GDK_BACKEND: wayland
