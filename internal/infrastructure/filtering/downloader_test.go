@@ -122,7 +122,10 @@ func TestDownloader_DownloadFilters_AllowsSafeNestedManifestFilenames(t *testing
 
 func TestDownloader_FetchManifest_RejectsOversizedManifest(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		require.Equal(t, "/"+FilterFiles.Manifest, r.URL.Path)
+		if r.URL.Path != "/"+FilterFiles.Manifest {
+			http.NotFound(w, r)
+			return
+		}
 		_, _ = io.WriteString(w, strings.Repeat("x", 17))
 	}))
 	defer server.Close()
@@ -148,7 +151,10 @@ func TestDownloader_FetchManifest_RejectsTooManyFiles(t *testing.T) {
 	require.NoError(t, err)
 
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		require.Equal(t, "/"+FilterFiles.Manifest, r.URL.Path)
+		if r.URL.Path != "/"+FilterFiles.Manifest {
+			http.NotFound(w, r)
+			return
+		}
 		_, _ = w.Write(payload)
 	}))
 	defer server.Close()

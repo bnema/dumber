@@ -7,7 +7,7 @@ import (
 	"io"
 	"net/http"
 	"os"
-	"path"
+	pathpkg "path"
 	"path/filepath"
 	"strings"
 	"time"
@@ -312,8 +312,8 @@ func validateFilterFilename(filename string) (string, error) {
 		}
 	}
 
-	clean := path.Clean(filename)
-	if path.Ext(clean) != ".json" {
+	clean := pathpkg.Clean(filename)
+	if pathpkg.Ext(clean) != ".json" {
 		return "", fmt.Errorf("invalid filter filename %q: expected .json extension", filename)
 	}
 
