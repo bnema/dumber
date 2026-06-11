@@ -18,7 +18,16 @@ import (
 // Compile-time check: SearchHistoryUseCase must satisfy port.HomepageHistory.
 var _ port.HomepageHistory = (*SearchHistoryUseCase)(nil)
 
-const historyWindowDuration = 24 * time.Hour
+const (
+	historyWindowDuration = 24 * time.Hour
+
+	defaultHistoryPageLimit   = 50
+	maxHistoryPageLimit       = 500
+	defaultHistorySearchLimit = 20
+	maxHistorySearchLimit     = 100
+	defaultDomainStatsLimit   = 20
+	maxDomainStatsLimit       = 100
+)
 
 // SearchHistoryUseCase handles history search and retrieval operations.
 type SearchHistoryUseCase struct {
@@ -47,10 +56,7 @@ func (uc *SearchHistoryUseCase) Search(ctx context.Context, input SearchInput) (
 		return &SearchOutput{Matches: []entity.HistoryMatch{}}, nil
 	}
 
-	limit := input.Limit
-	if limit <= 0 {
-		limit = 20 // Default limit
-	}
+	limit := clampPositiveLimit(input.Limit, defaultHistorySearchLimit, maxHistorySearchLimit)
 
 	// Use repository's FTS5 search
 	matches, err := uc.historyRepo.Search(ctx, input.Query, limit)
@@ -67,11 +73,10 @@ func (uc *SearchHistoryUseCase) Search(ctx context.Context, input SearchInput) (
 }
 
 // GetRecent retrieves recent history entries. A zero limit means all entries;
-// negative limits retain the historical default page size.
+// negative limits retain the historical default page size. Positive limits are
+// capped to keep WebUI-originated queries bounded.
 func (uc *SearchHistoryUseCase) GetRecent(ctx context.Context, limit, offset int) ([]*entity.HistoryEntry, error) {
-	if limit < 0 {
-		limit = 50 // Default limit for invalid negative values.
-	}
+	limit = clampOptionalLimit(limit, defaultHistoryPageLimit, maxHistoryPageLimit)
 
 	entries, err := uc.historyRepo.GetRecent(ctx, limit, offset)
 	if err != nil {
@@ -82,11 +87,10 @@ func (uc *SearchHistoryUseCase) GetRecent(ctx context.Context, limit, offset int
 }
 
 // GetRecentByDomain retrieves recent history entries for a canonical domain. A
-// zero limit means all matching entries; negative limits use the default page size.
+// zero limit means all matching entries; negative limits use the default page
+// size. Positive limits are capped to keep WebUI-originated queries bounded.
 func (uc *SearchHistoryUseCase) GetRecentByDomain(ctx context.Context, domain string, limit, offset int) ([]*entity.HistoryEntry, error) {
-	if limit < 0 {
-		limit = 50
-	}
+	limit = clampOptionalLimit(limit, defaultHistoryPageLimit, maxHistoryPageLimit)
 	domain, err := canonicalHistoryDomain(domain)
 	if err != nil {
 		return nil, err
@@ -298,11 +302,29 @@ func (uc *SearchHistoryUseCase) GetDomainStats(ctx context.Context, limit int) (
 	log := logging.FromContext(ctx)
 	log.Debug().Int("limit", limit).Msg("getting domain stats")
 
-	if limit <= 0 {
-		limit = 20
-	}
+	limit = clampPositiveLimit(limit, defaultDomainStatsLimit, maxDomainStatsLimit)
 
 	return uc.historyRepo.GetDomainStats(ctx, limit)
+}
+
+func clampOptionalLimit(limit, defaultLimit, maxLimit int) int {
+	if limit < 0 {
+		return defaultLimit
+	}
+	if limit > maxLimit {
+		return maxLimit
+	}
+	return limit
+}
+
+func clampPositiveLimit(limit, defaultLimit, maxLimit int) int {
+	if limit <= 0 {
+		return defaultLimit
+	}
+	if limit > maxLimit {
+		return maxLimit
+	}
+	return limit
 }
 
 // GetStats retrieves lightweight aggregate history statistics.

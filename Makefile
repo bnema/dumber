@@ -1,6 +1,6 @@
 # Makefile for dumber (Clean Architecture - puregotk)
 
-.PHONY: build build-systemviews generate-systemviews build-quick install-local test lint clean install-tools dev generate help init man flatpak-deps flatpak-build flatpak-install flatpak-run flatpak-clean stress-omnibox-callbacks verify-purego check
+.PHONY: build build-systemviews generate-systemviews build-quick install-local test lint staticcheck clean install-tools install-golangci-lint install-staticcheck dev generate help init man flatpak-deps flatpak-build flatpak-install flatpak-run flatpak-clean stress-omnibox-callbacks verify-purego verify-generated check
 
 # Load local overrides from .env.local if present (Makefile syntax)
 ifneq (,$(wildcard .env.local))
@@ -13,6 +13,9 @@ BINARY_NAME=dumber
 MAIN_PATH=./cmd/dumber
 DIST_DIR=dist
 LOCAL_BIN_DIR?=$(HOME)/.local/bin
+TOOL_BIN_DIR?=$(shell go env GOPATH)/bin
+GOLANGCI_LINT_VERSION?=v2.12.2
+STATICCHECK_VERSION?=v0.7.0
 
 # Detect number of CPU cores for parallel compilation
 NPROCS?=$(shell nproc 2>/dev/null || echo 1)
@@ -126,6 +129,13 @@ stress-omnibox-callbacks: ## Run placeholder omnibox callback stress harness
 verify-purego: ## Ensure callback path stays cgo/export free
 	bash ./scripts/verify_purego_only.sh
 
+verify-generated: ## Verify generated systemviews artifacts are committed
+	@echo "Verifying generated systemviews artifacts..."
+	@git diff --exit-code -- assets/systemviews internal/ui/systemviews || { \
+		echo "Generated systemviews artifacts are out of date. Run 'make build-systemviews' and commit the result."; \
+		exit 1; \
+	}
+
 # Linting
 lint: ## Run golangci-lint
 	@echo "Running golangci-lint..."
@@ -135,16 +145,28 @@ lint-fix: ## Run golangci-lint with --fix
 	@echo "Running golangci-lint with --fix..."
 	golangci-lint run --fix
 
+staticcheck: ## Run Staticcheck
+	@echo "Running staticcheck..."
+	staticcheck ./...
+
 # Format code
 fmt: ## Format Go code with gofmt
 	@echo "Formatting Go code..."
 	go fmt ./...
 
 # Tools installation
-install-tools: ## Install development tools
+install-golangci-lint: ## Install pinned golangci-lint
+	@echo "Installing golangci-lint $(GOLANGCI_LINT_VERSION) to $(TOOL_BIN_DIR)..."
+	@mkdir -p $(TOOL_BIN_DIR)
+	curl -sSfL https://raw.githubusercontent.com/golangci/golangci-lint/$(GOLANGCI_LINT_VERSION)/install.sh | sh -s -- -b $(TOOL_BIN_DIR) $(GOLANGCI_LINT_VERSION)
+
+install-staticcheck: ## Install pinned Staticcheck with the active Go toolchain
+	@echo "Installing staticcheck $(STATICCHECK_VERSION)..."
+	go install honnef.co/go/tools/cmd/staticcheck@$(STATICCHECK_VERSION)
+
+install-tools: install-golangci-lint install-staticcheck ## Install development tools
 	@echo "Installing development tools..."
 	go install github.com/sqlc-dev/sqlc/cmd/sqlc@latest
-	go install github.com/golangci/golangci-lint/cmd/golangci-lint@latest
 	@echo "Tools installed successfully"
 
 # Cleanup

@@ -198,15 +198,25 @@ func (r *MessageRouter) handleScriptMessage(senderUCM webkit.UserContentManager,
 		log.Warn().Err(err).Str("json", rawJSON).Msg("failed to unmarshal script message")
 		return
 	}
-	if msg.WebViewID == 0 && msg.WebViewIDAlt != 0 {
-		msg.WebViewID = msg.WebViewIDAlt
+
+	senderWV := lookupSenderWebView(senderUCM)
+	if senderWV == nil {
+		log.Warn().Msg("rejecting script message from unknown sender")
+		return
 	}
-	if msg.WebViewID == 0 {
-		if senderWV := lookupSenderWebView(senderUCM); senderWV != nil {
-			msg.WebViewID = uint64(senderWV.ID())
-			r.syncWebViewID(senderWV)
-		}
+	if !isTrustedBridgeWebView(senderWV) {
+		log.Warn().
+			Str("type", msg.Type).
+			Uint64("sender_webview_id", uint64(senderWV.ID())).
+			Str("uri", senderWV.URI()).
+			Msg("rejecting script message from untrusted page")
+		return
 	}
+
+	// Trust the sender WebView resolved from WebKit's UserContentManager, not a
+	// caller-provided webViewId field in page-controlled JSON.
+	msg.WebViewID = uint64(senderWV.ID())
+	r.syncWebViewID(senderWV)
 
 	if msg.Type == "" {
 		log.Warn().Msg("script message missing type")
@@ -260,6 +270,17 @@ func lookupSenderWebView(senderUCM webkit.UserContentManager) *WebView {
 		return nil
 	}
 	return LookupWebViewByUCMPointer(ptr)
+}
+
+func isTrustedBridgeWebView(wv *WebView) bool {
+	if wv == nil {
+		return false
+	}
+	return isTrustedBridgeURI(wv.URI())
+}
+
+func isTrustedBridgeURI(raw string) bool {
+	return isTrustedSystemviewURL(raw)
 }
 
 func (r *MessageRouter) syncWebViewID(wv *WebView) {

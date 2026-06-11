@@ -65,9 +65,10 @@ jobs:
             ${{ runner.os }}-go-build-
       - name: Build application and systemviews assets
         run: make build
+      - name: Verify generated systemviews artifacts
+        run: make verify-generated
       - name: Install golangci-lint
-        run: |
-          curl -sSfL https://raw.githubusercontent.com/golangci/golangci-lint/HEAD/install.sh | sh -s -- -b /usr/local/bin latest
+        run: make install-golangci-lint TOOL_BIN_DIR=/usr/local/bin
       - name: Run golangci-lint
         run: |
           git config --global --add safe.directory "$GITHUB_WORKSPACE"
@@ -101,6 +102,8 @@ jobs:
             ${{ runner.os }}-go-build-
       - name: Build application and systemviews assets
         run: make build
+      - name: Verify generated systemviews artifacts
+        run: make verify-generated
       - name: Run tests
         env:
           GDK_BACKEND: wayland
