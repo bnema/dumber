@@ -89,7 +89,8 @@ func TestFileWatcherPathChangeRestartsAndDisabledStops(t *testing.T) {
 func TestFileWatcherDebouncesBurstToOneCallback(t *testing.T) {
 	dir := t.TempDir()
 	path := writeThemeFile(t, dir, "theme.json")
-	watcher := newFastWatcher()
+	watcher := NewFileWatcher()
+	watcher.delay = 100 * time.Millisecond
 	changes := make(chan struct{}, 8)
 
 	if err := watcher.Start(context.Background(), watcherConfig(path), func() { changes <- struct{}{} }); err != nil {
@@ -100,7 +101,7 @@ func TestFileWatcherDebouncesBurstToOneCallback(t *testing.T) {
 	}
 
 	waitForChange(t, changes)
-	assertNoChange(t, changes, 80*time.Millisecond)
+	assertNoChange(t, changes, 150*time.Millisecond)
 }
 
 func TestFileWatcherAtomicRenameWriteEmitsCallback(t *testing.T) {
