@@ -158,9 +158,10 @@ fmt: ## Format Go code with gofmt
 install-golangci-lint: ## Install pinned golangci-lint
 	@echo "Installing golangci-lint $(GOLANGCI_LINT_VERSION) to $(TOOL_BIN_DIR)..."
 	@mkdir -p $(TOOL_BIN_DIR)
-	# Accepted trade-off: use the upstream installer entrypoint, but keep the
-	# requested golangci-lint version pinned in this repo for reproducible tool use.
-	curl -sSfL https://raw.githubusercontent.com/golangci/golangci-lint/master/install.sh | sh -s -- -b $(TOOL_BIN_DIR) $(GOLANGCI_LINT_VERSION)
+	# Build the pinned version with the active Go toolchain instead of using the
+	# upstream install.sh helper, which currently misidentifies release assets now
+	# that golangci-lint publishes sibling .sbom.json files for each tarball.
+	GOBIN=$(TOOL_BIN_DIR) go install github.com/golangci/golangci-lint/v2/cmd/golangci-lint@$(GOLANGCI_LINT_VERSION)
 
 install-staticcheck: ## Install pinned Staticcheck with the active Go toolchain
 	@echo "Installing staticcheck $(STATICCHECK_VERSION)..."
