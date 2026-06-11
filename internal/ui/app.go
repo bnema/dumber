@@ -2838,10 +2838,14 @@ func (a *App) pruneStaleBrowserWindows(runtimeWindows []*browserWindow) {
 	}
 	for id, bw := range a.browserWindows {
 		if !runtimeSet[id] {
-			if bw != nil && bw.mainWindow != nil {
-				bw.mainWindow.Destroy()
+			var mainWindowToDestroy *window.MainWindow
+			if bw != nil {
+				mainWindowToDestroy = bw.mainWindow
 			}
 			a.removeBrowserWindow(id)
+			if mainWindowToDestroy != nil {
+				mainWindowToDestroy.Destroy()
+			}
 		}
 	}
 

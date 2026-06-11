@@ -579,24 +579,34 @@ func (h *GlobalShortcutHandler) ReloadShortcuts(ctx context.Context, workspace *
 		Msg("global shortcuts reloaded")
 }
 
-// Detach removes the global shortcut handler from the window.
-// Note: GTK handles cleanup when the widget is destroyed,
-// but we clear our references here.
+// Detach removes the global shortcut handler from a live GTK window.
+// Use DetachForDestroy when the window is already closing or being destroyed.
 func (h *GlobalShortcutHandler) Detach() {
+	h.detach(true)
+}
+
+// DetachForDestroy releases retained GTK callbacks during window teardown
+// without mutating the window's controller or action lists while GTK is
+// destroying them.
+func (h *GlobalShortcutHandler) DetachForDestroy() {
+	h.detach(false)
+}
+
+func (h *GlobalShortcutHandler) detach(removeFromWindow bool) {
 	h.generation++
-	if h.window != nil && h.controller != nil {
+	if removeFromWindow && h.window != nil && h.controller != nil {
 		h.window.RemoveController(&h.controller.EventController)
 	}
 	if h.releaseController != nil && h.keyReleasedHandlerID != 0 {
 		h.releaseController.DisconnectSignal(h.keyReleasedHandlerID)
 	}
-	if h.window != nil && h.releaseController != nil {
+	if removeFromWindow && h.window != nil && h.releaseController != nil {
 		h.window.RemoveController(&h.releaseController.EventController)
 	}
 	if h.globalAction != nil && h.globalActionHandlerID != 0 {
 		h.globalAction.DisconnectSignal(h.globalActionHandlerID)
 	}
-	if h.window != nil && h.globalAction != nil {
+	if removeFromWindow && h.window != nil && h.globalAction != nil {
 		h.window.RemoveAction(globalShortcutActionName)
 	}
 	h.controller = nil

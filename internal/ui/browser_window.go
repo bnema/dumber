@@ -39,15 +39,15 @@ type browserWindow struct {
 	webrtcIndicator       *component.WebRTCPermissionIndicator
 }
 
-func (bw *browserWindow) detachInput() {
+func (bw *browserWindow) detachInputForDestroy() {
 	if bw == nil {
 		return
 	}
 	if bw.keyboardHandler != nil {
-		bw.keyboardHandler.Detach()
+		bw.keyboardHandler.DetachForDestroy()
 	}
 	if bw.globalShortcutHandler != nil {
-		bw.globalShortcutHandler.Detach()
+		bw.globalShortcutHandler.DetachForDestroy()
 	}
 }
 
@@ -299,7 +299,7 @@ func (a *App) removeBrowserWindow(id string) {
 		}
 	}
 	if removed != nil {
-		removed.detachInput()
+		removed.detachInputForDestroy()
 		removed.clearShellState()
 	}
 	if a.contentCoord != nil {

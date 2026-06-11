@@ -6,6 +6,7 @@ import (
 
 	"github.com/bnema/dumber/internal/domain/entity"
 	"github.com/bnema/puregotk/v4/gdk"
+	"github.com/bnema/puregotk/v4/gtk"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -229,6 +230,25 @@ func TestHandleKeyPress_NoRouteCallback_DefaultsToShortcuts(t *testing.T) {
 	// 'z' is not a registered shortcut in ModeNormal, so returns false
 	result := h.handleKeyPress(uint('z'), 0, 0)
 	assert.False(t, result, "unregistered key in ModeNormal returns false")
+}
+
+func TestKeyboardHandlerDetachForDestroyClearsRetainedCallbacksAndState(t *testing.T) {
+	h := NewKeyboardHandler(context.Background(), newTestWorkspace(), newTestSession())
+	h.keyPressedCb = func(gtk.EventControllerKey, uint, uint, gdk.ModifierType) bool { return true }
+	h.keyReleasedCb = func(gtk.EventControllerKey, uint, uint, gdk.ModifierType) {}
+	h.keyPressedHandlerID = 1
+	h.keyReleasedHandlerID = 2
+	h.activePressedActions = map[Action]uint{ActionReload: 1}
+
+	h.DetachForDestroy()
+
+	assert.Nil(t, h.controller)
+	assert.Nil(t, h.window)
+	assert.Nil(t, h.keyPressedCb)
+	assert.Nil(t, h.keyReleasedCb)
+	assert.Zero(t, h.keyPressedHandlerID)
+	assert.Zero(t, h.keyReleasedHandlerID)
+	assert.Nil(t, h.activePressedActions)
 }
 
 func TestHandleKeyPress_SuppressesHeldHardwareFallbackTabSwitchUntilRelease(t *testing.T) {
