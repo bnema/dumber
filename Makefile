@@ -158,6 +158,8 @@ fmt: ## Format Go code with gofmt
 install-golangci-lint: ## Install pinned golangci-lint
 	@echo "Installing golangci-lint $(GOLANGCI_LINT_VERSION) to $(TOOL_BIN_DIR)..."
 	@mkdir -p $(TOOL_BIN_DIR)
+	# Accepted trade-off: use the upstream installer entrypoint, but keep the
+	# requested golangci-lint version pinned in this repo for reproducible tool use.
 	curl -sSfL https://raw.githubusercontent.com/golangci/golangci-lint/master/install.sh | sh -s -- -b $(TOOL_BIN_DIR) $(GOLANGCI_LINT_VERSION)
 
 install-staticcheck: ## Install pinned Staticcheck with the active Go toolchain

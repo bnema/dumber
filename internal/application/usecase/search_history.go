@@ -307,6 +307,10 @@ func (uc *SearchHistoryUseCase) GetDomainStats(ctx context.Context, limit int) (
 	return uc.historyRepo.GetDomainStats(ctx, limit)
 }
 
+// clampOptionalLimit normalizes an optional limit where zero remains a valid
+// "no limit" value, negatives fall back to defaultLimit, and values above
+// maxLimit are capped. Use clampPositiveLimit instead when zero should be
+// treated as invalid input.
 func clampOptionalLimit(limit, defaultLimit, maxLimit int) int {
 	if limit < 0 {
 		return defaultLimit
@@ -317,6 +321,11 @@ func clampOptionalLimit(limit, defaultLimit, maxLimit int) int {
 	return limit
 }
 
+// clampPositiveLimit normalizes a required positive limit. Values less than or
+// equal to zero fall back to defaultLimit, values above maxLimit are capped,
+// and the result stays within the expected positive range. Use this for
+// required limits like domain stats, and clampOptionalLimit when zero has its
+// own meaning.
 func clampPositiveLimit(limit, defaultLimit, maxLimit int) int {
 	if limit <= 0 {
 		return defaultLimit

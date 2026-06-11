@@ -2808,7 +2808,11 @@ func (a *App) cleanupCreatedBrowserWindows(createdWindows []*browserWindow) {
 			continue
 		}
 		mainWindow := bw.mainWindow
-		a.removeBrowserWindow(bw.id)
+		if _, tracked := a.browserWindows[bw.id]; tracked {
+			a.removeBrowserWindow(bw.id)
+		} else {
+			a.cleanupTransientBrowserWindowForDestroy(bw)
+		}
 		if mainWindow != nil {
 			if a.mainWindow == mainWindow {
 				a.mainWindow = nil

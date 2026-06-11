@@ -51,6 +51,14 @@ func (bw *browserWindow) detachInputForDestroy() {
 	}
 }
 
+func (bw *browserWindow) teardownForDestroy() {
+	if bw == nil {
+		return
+	}
+	bw.detachInputForDestroy()
+	bw.clearShellState()
+}
+
 func (bw *browserWindow) clearShellState() {
 	if bw == nil {
 		return
@@ -299,8 +307,7 @@ func (a *App) removeBrowserWindow(id string) {
 		}
 	}
 	if removed != nil {
-		removed.detachInputForDestroy()
-		removed.clearShellState()
+		removed.teardownForDestroy()
 	}
 	if a.contentCoord != nil {
 		a.contentCoord.ClearPopupNamedContextsForWindow(id)
@@ -315,6 +322,38 @@ func (a *App) removeBrowserWindow(id string) {
 		}
 	}
 	if wasMainWindow {
+		a.clearResizeModeBorder()
+		if fallback != nil {
+			a.activateBrowserWindow(fallback)
+			return
+		}
+		a.lastFocusedWindowID = ""
+		a.mainWindow = nil
+		a.keyboardHandler = nil
+		a.globalShortcutHandler = nil
+		if a.tabCoord != nil {
+			a.tabCoord.SetCurrentTarget(coordinator.TabTarget{})
+		}
+	}
+}
+
+func (a *App) cleanupTransientBrowserWindowForDestroy(bw *browserWindow) {
+	if bw == nil {
+		return
+	}
+	bw.teardownForDestroy()
+	if a.contentCoord != nil {
+		a.contentCoord.ClearPopupNamedContextsForWindow(bw.id)
+	}
+	fallback := a.deterministicBrowserWindowFallback()
+	if a.lastFocusedWindowID == bw.id {
+		if fallback != nil {
+			a.lastFocusedWindowID = fallback.id
+		} else {
+			a.lastFocusedWindowID = ""
+		}
+	}
+	if bw.mainWindow == a.mainWindow {
 		a.clearResizeModeBorder()
 		if fallback != nil {
 			a.activateBrowserWindow(fallback)
