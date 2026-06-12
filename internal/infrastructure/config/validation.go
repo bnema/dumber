@@ -104,6 +104,9 @@ func validateAppearance(config *Config) []string {
 	if config.DefaultUIScale < 0.5 || config.DefaultUIScale > 3.0 {
 		validationErrors = append(validationErrors, "default_ui_scale must be between 0.5 and 3.0")
 	}
+	if config.SidebarWidth != 0 && (config.SidebarWidth < 280 || config.SidebarWidth > 380) {
+		validationErrors = append(validationErrors, "sidebar_width must be between 280 and 380, or 0 for default")
+	}
 	validationErrors = append(validationErrors, validateExternalTheme(config)...)
 	return validationErrors
 }

@@ -18,16 +18,29 @@ const (
 )
 
 // MainWindow represents the main browser window.
+//
+// Layout hierarchy:
+//
+//	window
+//	  rootBox (vertical)
+//	    contentOverlay
+//	      contentAreaHBox (horizontal)
+//	        mainContentBox (vertical, expand) ← workspace tab content
+//	        sidebarBox (vertical, fixed width) ← optional sidebar
+//	      tabBar (overlay, not measured)
 type MainWindow struct {
 	window         *gtk.ApplicationWindow
 	rootBox        *gtk.Box // Vertical: tab bar + content
 	tabBar         *component.TabBar
 	contentOverlay *gtk.Overlay // Overlay for content + omnibox
-	contentArea    *gtk.Box     // Container for workspace content
+	contentAreaBox *gtk.Box     // Horizontal: main content + sidebar
+	mainContentBox *gtk.Box     // Vertical container for workspace content
+	sidebarBox     *gtk.Box     // Vertical container for sidebar (hidden by default)
 	currentContent *gtk.Widget  // Track current content for removal on tab switch
 
-	tabBarPosition string // "top" or "bottom"
-	logger         zerolog.Logger
+	tabBarPosition      string             // "top" or "bottom"
+	lastSidebarWidthCfg SidebarWidthConfig // last config passed to SetSidebarWidth (zero-value = unset; test seam)
+	logger              zerolog.Logger
 }
 
 // New creates a new main browser window.
@@ -76,20 +89,52 @@ func New(ctx context.Context, app *gtk.Application, tabBarPosition string) (*Mai
 	mw.contentOverlay.SetVexpand(true)
 	mw.contentOverlay.SetVisible(true)
 
-	mw.contentArea = gtk.NewBox(gtk.OrientationVerticalValue, 0)
-	if mw.contentArea == nil {
+	// Horizontal box to hold both main content and sidebar side by side.
+	mw.contentAreaBox = gtk.NewBox(gtk.OrientationHorizontalValue, 0)
+	if mw.contentAreaBox == nil {
 		mw.contentOverlay.Unref()
 		mw.tabBar.Destroy()
 		mw.rootBox.Unref()
 		mw.window.Unref()
-		return nil, ErrWidgetCreationFailed("contentArea")
+		return nil, ErrWidgetCreationFailed("contentAreaBox")
 	}
-	mw.contentArea.SetHexpand(true)
-	mw.contentArea.SetVexpand(true)
-	mw.contentArea.SetVisible(true)
-	mw.contentArea.AddCssClass("content-area")
+	mw.contentAreaBox.SetHexpand(true)
+	mw.contentAreaBox.SetVexpand(true)
+	mw.contentAreaBox.SetVisible(true)
 
-	mw.contentOverlay.SetChild(&mw.contentArea.Widget)
+	// Main content box (vertical) for workspace content.
+	mw.mainContentBox = gtk.NewBox(gtk.OrientationVerticalValue, 0)
+	if mw.mainContentBox == nil {
+		mw.contentAreaBox.Unref()
+		mw.contentOverlay.Unref()
+		mw.tabBar.Destroy()
+		mw.rootBox.Unref()
+		mw.window.Unref()
+		return nil, ErrWidgetCreationFailed("mainContentBox")
+	}
+	mw.mainContentBox.SetHexpand(true)
+	mw.mainContentBox.SetVexpand(true)
+	mw.mainContentBox.SetVisible(true)
+	mw.mainContentBox.AddCssClass("content-area")
+
+	// Sidebar box (hidden by default).
+	mw.sidebarBox = gtk.NewBox(gtk.OrientationVerticalValue, 0)
+	if mw.sidebarBox == nil {
+		mw.mainContentBox.Unref()
+		mw.contentAreaBox.Unref()
+		mw.contentOverlay.Unref()
+		mw.tabBar.Destroy()
+		mw.rootBox.Unref()
+		mw.window.Unref()
+		return nil, ErrWidgetCreationFailed("sidebarBox")
+	}
+	mw.sidebarBox.SetHexpand(false)
+	mw.sidebarBox.SetVexpand(true)
+	mw.sidebarBox.SetVisible(false)
+
+	mw.contentAreaBox.Append(&mw.mainContentBox.Widget)
+	mw.contentAreaBox.Append(&mw.sidebarBox.Widget)
+	mw.contentOverlay.SetChild(&mw.contentAreaBox.Widget)
 
 	mw.assembleLayout()
 
@@ -147,21 +192,119 @@ func (mw *MainWindow) TabBar() *component.TabBar {
 	return mw.tabBar
 }
 
-// ContentArea returns the main content container widget.
+// ContentArea returns the main content container widget (the vertical
+// box where workspace content is placed).
 func (mw *MainWindow) ContentArea() *gtk.Box {
-	return mw.contentArea
+	return mw.mainContentBox
 }
 
-// SetContent replaces the current content widget with the given widget.
+// SidebarWidthConfig defines the initial/recommended width range for the sidebar.
+type SidebarWidthConfig struct {
+	// WidthPx is the preferred sidebar width.
+	WidthPx int
+	// MinPx is the minimum clamped width (default 280).
+	MinPx int
+	// MaxPx is the maximum clamping bound (default 380).
+	MaxPx int
+}
+
+// SidebarDefaultWidth returns a sensible default width configuration:
+// preferred 320px, clamped to [280, 380].
+func SidebarDefaultWidth() SidebarWidthConfig {
+	return SidebarWidthConfig{
+		WidthPx: 320,
+		MinPx:   280,
+		MaxPx:   380,
+	}
+}
+
+// SidebarBox returns the sidebar container widget for embedding sidebar
+// components. The sidebar box is hidden by default.
+func (mw *MainWindow) SidebarBox() *gtk.Box {
+	return mw.sidebarBox
+}
+
+// SetSidebarWidth sets the sidebar box width to widthPx, clamped to the
+// config's [MinPx, MaxPx] bounds. Using the zero-value SidebarWidthConfig{}
+// sets sensible defaults (320px clamped to [280, 380]).
+func (mw *MainWindow) SetSidebarWidth(cfg SidebarWidthConfig) {
+	mw.lastSidebarWidthCfg = cfg // record for testability
+	if mw.sidebarBox == nil {
+		return
+	}
+	if cfg.MinPx == 0 {
+		cfg.MinPx = 280
+	}
+	if cfg.MaxPx == 0 {
+		cfg.MaxPx = 380
+	}
+	if cfg.WidthPx == 0 {
+		cfg.WidthPx = 320
+	}
+	clamped := cfg.WidthPx
+	if clamped < cfg.MinPx {
+		clamped = cfg.MinPx
+	}
+	if clamped > cfg.MaxPx {
+		clamped = cfg.MaxPx
+	}
+	mw.sidebarBox.SetSizeRequest(clamped, -1)
+	mw.logger.Debug().Int("sidebar_width", clamped).Msg("sidebar width set")
+}
+
+// SetSidebarVisible shows or hides the sidebar pane.
+func (mw *MainWindow) SetSidebarVisible(visible bool) {
+	if mw.sidebarBox == nil {
+		return
+	}
+	mw.sidebarBox.SetVisible(visible)
+	mw.logger.Debug().Bool("sidebar_visible", visible).Msg("sidebar visibility changed")
+}
+
+// IsSidebarVisible returns whether the sidebar pane is currently visible.
+func (mw *MainWindow) IsSidebarVisible() bool {
+	if mw.sidebarBox == nil {
+		return false
+	}
+	return mw.sidebarBox.GetVisible()
+}
+
+// LastSidebarWidthCfg returns the last SidebarWidthConfig passed to
+// SetSidebarWidth. Returns the zero value if never called (test seam).
+func (mw *MainWindow) LastSidebarWidthCfg() SidebarWidthConfig {
+	return mw.lastSidebarWidthCfg
+}
+
+// SetSidebarWidget replaces the current sidebar content widget.
+func (mw *MainWindow) SetSidebarWidget(widget *gtk.Widget) {
+	if mw.sidebarBox == nil {
+		return
+	}
+	// Remove existing children
+	for {
+		child := mw.sidebarBox.GetFirstChild()
+		if child == nil {
+			break
+		}
+		mw.sidebarBox.Remove(child)
+	}
+	if widget != nil {
+		widget.SetVisible(true)
+		mw.sidebarBox.Append(widget)
+	}
+}
+
+// SetContent replaces the current content widget in the main content area
+// (the vertical box that holds workspace tab content).
 func (mw *MainWindow) SetContent(widget *gtk.Widget) {
 	if mw.currentContent != nil {
-		mw.contentArea.Remove(mw.currentContent)
+		mw.mainContentBox.Remove(mw.currentContent)
 		mw.currentContent = nil
 	}
 
 	if widget != nil {
 		widget.SetVisible(true)
-		mw.contentArea.Append(widget)
+		mw.mainContentBox.Append(widget)
 		mw.currentContent = widget
 	}
 }
@@ -201,30 +344,30 @@ func (mw *MainWindow) ContentOverlay() *gtk.Overlay {
 }
 
 // SetTabBarContentInsetVisible adds or removes the tab bar inset CSS class
-// on the content area. Avoids duplicate add/remove if already in the desired state.
+// on the main content area. Avoids duplicate add/remove if already in the desired state.
 func (mw *MainWindow) SetTabBarContentInsetVisible(visible bool) {
-	if mw.contentArea == nil {
+	if mw.mainContentBox == nil {
 		return
 	}
 	class := mw.tabBarContentInsetClass()
 	if visible {
-		if !mw.contentArea.HasCssClass(class) {
-			mw.contentArea.AddCssClass(class)
+		if !mw.mainContentBox.HasCssClass(class) {
+			mw.mainContentBox.AddCssClass(class)
 		}
 	} else {
-		if mw.contentArea.HasCssClass(class) {
-			mw.contentArea.RemoveCssClass(class)
+		if mw.mainContentBox.HasCssClass(class) {
+			mw.mainContentBox.RemoveCssClass(class)
 		}
 	}
 }
 
 // HasTabBarContentInset returns whether the tab bar inset CSS class is currently
-// applied to the content area.
+// applied to the main content area.
 func (mw *MainWindow) HasTabBarContentInset() bool {
-	if mw.contentArea == nil {
+	if mw.mainContentBox == nil {
 		return false
 	}
-	return mw.contentArea.HasCssClass(mw.tabBarContentInsetClass())
+	return mw.mainContentBox.HasCssClass(mw.tabBarContentInsetClass())
 }
 
 func (mw *MainWindow) tabBarContentInsetClass() string {
@@ -247,9 +390,17 @@ func (mw *MainWindow) Destroy() {
 		mw.tabBar.Destroy()
 		mw.tabBar = nil
 	}
-	if mw.contentArea != nil {
-		mw.contentArea.Unref()
-		mw.contentArea = nil
+	if mw.sidebarBox != nil {
+		mw.sidebarBox.Unref()
+		mw.sidebarBox = nil
+	}
+	if mw.mainContentBox != nil {
+		mw.mainContentBox.Unref()
+		mw.mainContentBox = nil
+	}
+	if mw.contentAreaBox != nil {
+		mw.contentAreaBox.Unref()
+		mw.contentAreaBox = nil
 	}
 	if mw.rootBox != nil {
 		mw.rootBox.Unref()

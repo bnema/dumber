@@ -283,10 +283,10 @@ const (
 
 // Config format constants.
 const (
-	configFormatTOML             = "toml"
-	configFormatYAML             = "yaml"
-	configFormatJSON             = "json"
-	databasePathKey = "database.path"
+	configFormatTOML = "toml"
+	configFormatYAML = "yaml"
+	configFormatJSON = "json"
+	databasePathKey  = "database.path"
 )
 
 type defaultActionMap struct {

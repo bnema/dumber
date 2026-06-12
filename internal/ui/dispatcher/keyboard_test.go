@@ -2,6 +2,7 @@ package dispatcher
 
 import (
 	"context"
+	"fmt"
 	"testing"
 
 	"github.com/bnema/dumber/internal/application/usecase"
@@ -64,7 +65,22 @@ func TestKeyboardDispatcher_TabActionsUseInjectedKeyboardActions(t *testing.T) {
 	assert.Equal(t, 4, switchedIndex)
 }
 
-func TestKeyboardDispatcher_ToggleHistorySystemViewOpensRightSplit(t *testing.T) {
+func TestKeyboardDispatcher_ToggleHistorySidebarCallsCallback(t *testing.T) {
+	ctx := context.Background()
+	d := NewKeyboardDispatcher(ctx, &coordinator.WorkspaceCoordinator{}, &coordinator.NavigationCoordinator{}, nil, nil, KeyboardActions{}, func(context.Context) entity.PaneID { return "" })
+
+	var called bool
+	d.SetOnToggleHistorySidebar(func(context.Context) error {
+		called = true
+		return nil
+	})
+
+	err := d.Dispatch(ctx, input.ActionToggleHistorySystemView)
+	require.NoError(t, err)
+	assert.True(t, called, "onToggleHistorySidebar should have been called")
+}
+
+func TestKeyboardDispatcher_ToggleHistorySystemViewFallsBackToSystemView(t *testing.T) {
 	ctx := context.Background()
 	ids := []string{"pane-2", "split-1"}
 	idx := 0
@@ -86,6 +102,7 @@ func TestKeyboardDispatcher_ToggleHistorySystemViewOpensRightSplit(t *testing.T)
 
 	d := NewKeyboardDispatcher(ctx, wsCoord, &coordinator.NavigationCoordinator{}, nil, nil, KeyboardActions{}, func(context.Context) entity.PaneID { return "" })
 
+	// No onToggleHistorySidebar set; should fall back to ToggleSystemViewRight
 	err := d.Dispatch(ctx, input.ActionToggleHistorySystemView)
 	require.NoError(t, err)
 
@@ -94,6 +111,60 @@ func TestKeyboardDispatcher_ToggleHistorySystemViewOpensRightSplit(t *testing.T)
 	require.NotNil(t, active)
 	require.NotNil(t, active.Pane)
 	assert.Equal(t, entity.PaneID("pane-2"), active.Pane.ID)
+	assert.Equal(t, "dumb://history", active.Pane.URI)
+}
+
+func TestKeyboardDispatcher_ToggleHistorySidebarErrorPropagation(t *testing.T) {
+	ctx := context.Background()
+	d := NewKeyboardDispatcher(ctx, &coordinator.WorkspaceCoordinator{}, &coordinator.NavigationCoordinator{}, nil, nil, KeyboardActions{}, func(context.Context) entity.PaneID { return "" })
+
+	wantErr := fmt.Errorf("sidebar toggle failed")
+	d.SetOnToggleHistorySidebar(func(context.Context) error {
+		return wantErr
+	})
+
+	err := d.Dispatch(ctx, input.ActionToggleHistorySystemView)
+	require.Error(t, err)
+	assert.ErrorIs(t, err, wantErr, "onToggleHistorySidebar error should propagate")
+}
+
+func TestKeyboardDispatcher_ToggleHistorySidebarSetThenUnsetFallsBack(t *testing.T) {
+	ctx := context.Background()
+	ids := []string{"pane-3", "split-2"}
+	idx := 0
+	panesUC := usecase.NewManagePanesUseCase(func() string {
+		id := ids[idx]
+		idx++
+		return id
+	})
+
+	initialPane := entity.NewPane("pane-1")
+	initialPane.URI = "https://example.com"
+	ws := entity.NewWorkspace("ws-1", initialPane)
+	wsCoord := coordinator.NewWorkspaceCoordinator(ctx, coordinator.WorkspaceCoordinatorConfig{
+		PanesUC: panesUC,
+		GetActiveWS: func() (*entity.Workspace, *component.WorkspaceView) {
+			return ws, nil
+		},
+	})
+
+	d := NewKeyboardDispatcher(ctx, wsCoord, &coordinator.NavigationCoordinator{}, nil, nil, KeyboardActions{}, func(context.Context) entity.PaneID { return "" })
+
+	// Set a callback that returns nil, then unset it by setting nil
+	d.SetOnToggleHistorySidebar(func(context.Context) error {
+		return nil
+	})
+	// Setting to nil should clear the callback
+	d.SetOnToggleHistorySidebar(nil)
+
+	err := d.Dispatch(ctx, input.ActionToggleHistorySystemView)
+	require.NoError(t, err)
+
+	// Fallback path should have opened dumb://history in right split
+	require.Equal(t, 2, ws.PaneCount())
+	active := ws.ActivePane()
+	require.NotNil(t, active)
+	require.NotNil(t, active.Pane)
 	assert.Equal(t, "dumb://history", active.Pane.URI)
 }
 
