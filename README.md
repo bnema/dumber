@@ -101,9 +101,9 @@ Set `ENV=dev` to use `.dev/dumber/` for config/data instead of XDG paths.
 ### Build From Source
 
 **Prerequisites:**
-- Go 1.25+
-- Node.js 20+ (for frontend assets)
+- Go 1.26.3+
 - WebKitGTK 6.0 and GTK4 dev packages
+- `brotli` for compressed systemviews assets
 
 ```bash
 git clone https://github.com/bnema/dumber
@@ -116,8 +116,8 @@ make build
 
 | Target | Description |
 |--------|-------------|
-| `make build` | Build frontend + binary |
-| `make build-quick` | Build binary only (skip frontend) |
+| `make build` | Build systemviews assets and the browser binary |
+| `make build-quick` | Build the browser binary only (skip systemviews asset generation) |
 | `make dev` | Run with `go run` |
 | `make test` | Run tests |
 | `make lint` | Run golangci-lint |

@@ -23,15 +23,17 @@ flatpak install dumber.flatpak
 ```bash
 git clone https://github.com/bnema/dumber
 cd dumber
-go build -o dumber ./cmd/dumber
+make build
+./dist/dumber browse
 ```
 
 ### Build Dependencies
 
-- Go 1.25+
+- Go 1.26.3+
 - GTK4 development libraries
 - WebKitGTK 2.42+ development libraries
 - GStreamer development libraries
+- `brotli` for compressed systemviews assets
 
 ## Post-Install
 
