@@ -67,6 +67,40 @@ func TestBrowserWindow_RemoveBrowserWindowClearsShellState(t *testing.T) {
 	}
 }
 
+func TestApp_CleanupCreatedBrowserWindowsDetachesUnregisteredWindowBeforeDestroy(t *testing.T) {
+	transientMainWindow := &window.MainWindow{}
+	fallbackMainWindow := &window.MainWindow{}
+	transient := &browserWindow{id: "window-transient", mainWindow: transientMainWindow}
+	fallback := &browserWindow{id: "window-fallback", mainWindow: fallbackMainWindow}
+	app := &App{
+		mainWindow:          transientMainWindow,
+		browserWindows:      map[string]*browserWindow{fallback.id: fallback},
+		browserWindowOrder:  []string{fallback.id},
+		lastFocusedWindowID: transient.id,
+	}
+
+	setShellField(t, transient, "keyboardHandler", &input.KeyboardHandler{})
+	setShellField(t, transient, "globalShortcutHandler", &input.GlobalShortcutHandler{})
+	setShellField(t, transient, "accentPicker", &component.AccentPicker{})
+
+	app.cleanupCreatedBrowserWindows([]*browserWindow{transient})
+
+	for _, name := range []string{"keyboardHandler", "globalShortcutHandler", "accentPicker"} {
+		if !fieldIsZero(t, transient, name) {
+			t.Fatalf("transient browserWindow.%s was not cleared", name)
+		}
+	}
+	if app.mainWindow != fallbackMainWindow {
+		t.Fatalf("mainWindow = %p, want fallback main window %p", app.mainWindow, fallbackMainWindow)
+	}
+	if app.lastFocusedWindowID != fallback.id {
+		t.Fatalf("lastFocusedWindowID = %q, want %q", app.lastFocusedWindowID, fallback.id)
+	}
+	if got := app.browserWindows[fallback.id]; got != fallback {
+		t.Fatalf("fallback browser window changed during transient cleanup: got %p want %p", got, fallback)
+	}
+}
+
 func TestBrowserWindow_RemoveBrowserWindowCleansOwnedTabState(t *testing.T) {
 	ownedTab := entity.NewTab(entity.TabID("tab-owned"), entity.WorkspaceID("workspace-owned"), entity.NewPane(entity.PaneID("pane-owned")))
 	otherTab := entity.NewTab(entity.TabID("tab-other"), entity.WorkspaceID("workspace-other"), entity.NewPane(entity.PaneID("pane-other")))

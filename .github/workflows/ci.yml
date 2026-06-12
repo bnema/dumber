@@ -1,5 +1,8 @@
 name: CI
 
+permissions:
+  contents: read
+
 on:
   push:
     branches: [main]
@@ -49,6 +52,13 @@ jobs:
           pacman -Syu --noconfirm
           pacman -S --noconfirm git go webkitgtk-6.0 gtk4 gobject-introspection base-devel brotli
       - uses: actions/checkout@v6
+      - name: Allow git commands in container checkout
+        run: git config --global --add safe.directory "$GITHUB_WORKSPACE"
+      - name: Set up pinned Go toolchain
+        uses: actions/setup-go@4a3601121dd01d1626a1e23e37211e3254c1c06c
+        with:
+          go-version-file: go.mod
+          cache: false
       - name: Cache Go modules
         uses: actions/cache@v5
         with:
@@ -65,13 +75,14 @@ jobs:
             ${{ runner.os }}-go-build-
       - name: Build application and systemviews assets
         run: make build
+      - name: Verify generated systemviews artifacts
+        run: make verify-generated
       - name: Install golangci-lint
         run: |
-          curl -sSfL https://raw.githubusercontent.com/golangci/golangci-lint/HEAD/install.sh | sh -s -- -b /usr/local/bin latest
+          make install-golangci-lint
+          echo "$(go env GOPATH)/bin" >> "$GITHUB_PATH"
       - name: Run golangci-lint
-        run: |
-          git config --global --add safe.directory "$GITHUB_WORKSPACE"
-          golangci-lint run --timeout=20m
+        run: golangci-lint run --timeout=20m
 
   test:
     needs: changes
@@ -85,6 +96,11 @@ jobs:
           pacman -Syu --noconfirm
           pacman -S --noconfirm git go webkitgtk-6.0 gtk4 libadwaita gobject-introspection base-devel brotli dbus
       - uses: actions/checkout@v6
+      - name: Set up pinned Go toolchain
+        uses: actions/setup-go@4a3601121dd01d1626a1e23e37211e3254c1c06c
+        with:
+          go-version-file: go.mod
+          cache: false
       - name: Cache Go modules
         uses: actions/cache@v5
         with:

@@ -38,6 +38,31 @@ func TestSearchHistoryUseCase_GetRecent_NegativeLimitDefaultsToPageSize(t *testi
 	assert.Empty(t, result)
 }
 
+func TestSearchHistoryUseCase_GetRecent_ClampsOversizedLimit(t *testing.T) {
+	ctx := testContext()
+	historyRepo := repomocks.NewMockHistoryRepository(t)
+	historyRepo.EXPECT().GetRecent(mock.Anything, 500, 10).Return([]*entity.HistoryEntry{}, nil).Once()
+
+	uc := usecase.NewSearchHistoryUseCase(historyRepo)
+	result, err := uc.GetRecent(ctx, 10_000, 10)
+
+	require.NoError(t, err)
+	assert.Empty(t, result)
+}
+
+func TestSearchHistoryUseCase_Search_ClampsOversizedLimit(t *testing.T) {
+	ctx := testContext()
+	historyRepo := repomocks.NewMockHistoryRepository(t)
+	historyRepo.EXPECT().Search(mock.Anything, "dumber", 100).Return([]entity.HistoryMatch{}, nil).Once()
+
+	uc := usecase.NewSearchHistoryUseCase(historyRepo)
+	result, err := uc.Search(ctx, usecase.SearchInput{Query: "dumber", Limit: 10_000})
+
+	require.NoError(t, err)
+	require.NotNil(t, result)
+	assert.Empty(t, result.Matches)
+}
+
 func TestSearchHistoryUseCase_GetRecentWindow_InvalidDomainReturnsValidationError(t *testing.T) {
 	ctx := testContext()
 	historyRepo := repomocks.NewMockHistoryRepository(t)
@@ -189,6 +214,18 @@ func TestSearchHistoryUseCase_GetMostVisited_ReturnsEmptyWhenNoHistory(t *testin
 	assert.Empty(t, result)
 }
 
+func TestSearchHistoryUseCase_GetDomainStats_ClampsOversizedLimit(t *testing.T) {
+	ctx := testContext()
+	historyRepo := repomocks.NewMockHistoryRepository(t)
+	historyRepo.EXPECT().GetDomainStats(mock.Anything, 100).Return([]*entity.DomainStat{}, nil).Once()
+
+	uc := usecase.NewSearchHistoryUseCase(historyRepo)
+	result, err := uc.GetDomainStats(ctx, 10_000)
+
+	require.NoError(t, err)
+	assert.Empty(t, result)
+}
+
 func TestSearchHistoryUseCase_ClearRange_RecentRangeDeletesSinceCutoff(t *testing.T) {
 	ctx := testContext()
 	historyRepo := repomocks.NewMockHistoryRepository(t)
@@ -255,6 +292,18 @@ func TestSearchHistoryUseCase_GetRecentByDomainAllowsUnderscoreDomains(t *testin
 
 	require.NoError(t, err)
 	assert.Equal(t, want, result)
+}
+
+func TestSearchHistoryUseCase_GetRecentByDomain_ClampsOversizedLimit(t *testing.T) {
+	ctx := testContext()
+	historyRepo := repomocks.NewMockHistoryRepository(t)
+	historyRepo.EXPECT().GetRecentByDomain(mock.Anything, "example.com", 500, 25).Return([]*entity.HistoryEntry{}, nil).Once()
+	uc := usecase.NewSearchHistoryUseCase(historyRepo)
+
+	result, err := uc.GetRecentByDomain(ctx, "example.com", 10_000, 25)
+
+	require.NoError(t, err)
+	assert.Empty(t, result)
 }
 
 func TestSearchHistoryUseCase_DeleteByDomainAllowsUnderscoreDomains(t *testing.T) {

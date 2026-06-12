@@ -133,6 +133,58 @@ func TestGlobalShortcutHandlerSuppressesOneShotActionsAfterDetach(t *testing.T) 
 	}
 }
 
+func TestGlobalShortcutHandlerDetachForDestroyClearsRetainedState(t *testing.T) {
+	h := &GlobalShortcutHandler{
+		registered:            make(map[KeyBinding]Action),
+		shortcutRefs:          make(map[string]globalShortcutRegistration),
+		lastDispatchAt:        make(map[Action]time.Time),
+		heldShortcuts:         make(map[globalShortcutHoldKey]struct{}),
+		globalActionCb:        func(_ gio.SimpleAction, _ uintptr) {},
+		globalActionHandlerID: 1,
+		keyReleasedCb:         func(_ gtk.EventControllerKey, _ uint, _ uint, _ gdk.ModifierType) {},
+		keyReleasedHandlerID:  2,
+	}
+
+	h.DetachForDestroy()
+
+	if h.controller != nil {
+		t.Fatal("controller should be cleared during destroy detach")
+	}
+	if h.releaseController != nil {
+		t.Fatal("releaseController should be cleared during destroy detach")
+	}
+	if h.shortcutAction != nil {
+		t.Fatal("shortcutAction should be cleared during destroy detach")
+	}
+	if h.globalAction != nil {
+		t.Fatal("globalAction should be cleared during destroy detach")
+	}
+	if h.globalActionCb != nil {
+		t.Fatal("globalActionCb should be cleared during destroy detach")
+	}
+	if h.keyReleasedCb != nil {
+		t.Fatal("keyReleasedCb should be cleared during destroy detach")
+	}
+	if h.globalActionHandlerID != 0 {
+		t.Fatal("globalActionHandlerID should be reset during destroy detach")
+	}
+	if h.keyReleasedHandlerID != 0 {
+		t.Fatal("keyReleasedHandlerID should be reset during destroy detach")
+	}
+	if h.registered != nil {
+		t.Fatal("registered shortcuts should be cleared during destroy detach")
+	}
+	if h.shortcutRefs != nil {
+		t.Fatal("shortcut refs should be cleared during destroy detach")
+	}
+	if h.lastDispatchAt != nil {
+		t.Fatal("lastDispatchAt should be cleared during destroy detach")
+	}
+	if h.heldShortcuts != nil {
+		t.Fatal("heldShortcuts should be cleared during destroy detach")
+	}
+}
+
 func TestGlobalShortcutHandlerGenerationMarksOldCallbacksStale(t *testing.T) {
 	h := &GlobalShortcutHandler{}
 	generation := h.generation

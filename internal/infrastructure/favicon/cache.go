@@ -30,6 +30,7 @@ type Cache struct {
 	diskDir   string
 	writeChan chan diskWrite
 	closeOnce sync.Once
+	closed    bool
 	mu        sync.RWMutex
 }
 
@@ -100,8 +101,12 @@ func (c *Cache) Set(ctx context.Context, domain string, data []byte) {
 		Int("bytes", len(data)).
 		Msg("favicon: Cache.Set")
 
-	// Write to memory cache
+	// Write to memory cache unless the cache is already shutting down.
 	c.mu.Lock()
+	if c.closed {
+		c.mu.Unlock()
+		return
+	}
 	c.memCache[domain] = data
 	c.mu.Unlock()
 
@@ -228,6 +233,10 @@ func (c *Cache) HasOnDisk(domain string) bool {
 // Close shuts down the background writer goroutine.
 func (c *Cache) Close() {
 	c.closeOnce.Do(func() {
+		c.mu.Lock()
+		defer c.mu.Unlock()
+
+		c.closed = true
 		if c.writeChan != nil {
 			close(c.writeChan)
 		}
@@ -308,6 +317,13 @@ func (c *Cache) queueDiskWrite(domain string, data []byte) {
 	if c.diskDir == "" {
 		return
 	}
+
+	c.mu.RLock()
+	defer c.mu.RUnlock()
+	if c.closed {
+		return
+	}
+
 	select {
 	case c.writeChan <- diskWrite{domain: domain, data: data}:
 		// queued successfully

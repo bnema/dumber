@@ -243,8 +243,20 @@ func (h *KeyboardHandler) AttachTo(window *gtk.ApplicationWindow) {
 	log.Debug().Msg("keyboard handler attached to window")
 }
 
-// Detach removes the keyboard handler and releases its GTK signal callbacks.
+// Detach removes the keyboard handler from a live GTK window and releases its
+// retained GTK signal callbacks.
 func (h *KeyboardHandler) Detach() {
+	h.detach(true)
+}
+
+// DetachForDestroy releases retained GTK signal callbacks during window
+// teardown without mutating the window's controller list while GTK is
+// destroying it.
+func (h *KeyboardHandler) DetachForDestroy() {
+	h.detach(false)
+}
+
+func (h *KeyboardHandler) detach(removeController bool) {
 	h.mu.Lock()
 	defer h.mu.Unlock()
 	if h.controller != nil && h.keyPressedHandlerID != 0 {
@@ -253,7 +265,7 @@ func (h *KeyboardHandler) Detach() {
 	if h.controller != nil && h.keyReleasedHandlerID != 0 {
 		h.controller.DisconnectSignal(h.keyReleasedHandlerID)
 	}
-	if h.window != nil && h.controller != nil {
+	if removeController && h.window != nil && h.controller != nil {
 		h.window.RemoveController(&h.controller.EventController)
 	}
 	h.controller = nil

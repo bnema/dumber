@@ -104,7 +104,7 @@ func (h *GestureHandler) AttachTo(widget *gtk.Widget) {
 	h.pressedHandlerID = h.clickGesture.ConnectPressed(&h.pressedCb)
 	h.widget = widget
 	h.destroyCb = func(_ gtk.Widget) {
-		h.Detach()
+		h.DetachForDestroy()
 	}
 	h.destroyHandlerID = widget.ConnectDestroy(&h.destroyCb)
 
@@ -182,8 +182,19 @@ func (h *GestureHandler) detachExistingAttachment() {
 	}
 }
 
-// Detach removes the gesture handler and disconnects its GTK signals.
+// Detach removes the gesture handler from a live widget and disconnects its
+// GTK signals.
 func (h *GestureHandler) Detach() {
+	h.detach(true)
+}
+
+// DetachForDestroy disconnects retained GTK callbacks during widget teardown
+// without mutating the widget's controller list while GTK is destroying it.
+func (h *GestureHandler) DetachForDestroy() {
+	h.detach(false)
+}
+
+func (h *GestureHandler) detach(removeController bool) {
 	if h == nil {
 		return
 	}
@@ -209,7 +220,7 @@ func (h *GestureHandler) Detach() {
 	if widget != nil && destroyHandlerID != 0 {
 		widget.DisconnectSignal(destroyHandlerID)
 	}
-	if widget != nil && clickGesture != nil {
+	if removeController && widget != nil && clickGesture != nil {
 		widget.RemoveController(&clickGesture.EventController)
 	}
 }

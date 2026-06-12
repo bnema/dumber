@@ -208,9 +208,11 @@ Set `ENV=dev` to use `.dev/dumber/` for config and data instead of XDG paths.
 
 **Prerequisites:**
 
-- Go 1.25+
-- Node.js 20+ for frontend assets
+- Go 1.26+
 - WebKitGTK 6.0 and GTK4 development packages
+- Brotli for compressed systemviews assets
+
+Systemviews assets are generated with `go tool templ` and Go's `js/wasm` toolchain; no root Node toolchain is required.
 
 ```bash
 git clone https://github.com/bnema/dumber
@@ -223,12 +225,16 @@ make build
 
 | Target | Description |
 |--------|-------------|
-| `make build` | Build frontend and binary |
-| `make build-quick` | Build binary only, skipping frontend |
+| `make build` | Build systemviews assets and binary |
+| `make build-quick` | Build binary only, skipping systemviews assets |
 | `make dev` | Run with `go run` |
 | `make test` | Run tests |
-| `make lint` | Run golangci-lint |
+| `make lint` | Run the pinned golangci-lint version |
+| `make staticcheck` | Run Staticcheck with the pinned tool version |
+| `make verify-generated` | Verify generated systemviews artifacts are committed |
 | `make flatpak-build` | Build Flatpak bundle |
+
+Development tool versions are pinned in `Makefile` (`GOLANGCI_LINT_VERSION`, `STATICCHECK_VERSION`). Bump those values intentionally when refreshing lint/static analysis tooling.
 
 ## Contributing
 

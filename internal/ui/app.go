@@ -2808,7 +2808,11 @@ func (a *App) cleanupCreatedBrowserWindows(createdWindows []*browserWindow) {
 			continue
 		}
 		mainWindow := bw.mainWindow
-		a.removeBrowserWindow(bw.id)
+		if _, tracked := a.browserWindows[bw.id]; tracked {
+			a.removeBrowserWindow(bw.id)
+		} else {
+			a.cleanupTransientBrowserWindowForDestroy(bw)
+		}
 		if mainWindow != nil {
 			if a.mainWindow == mainWindow {
 				a.mainWindow = nil
@@ -2838,10 +2842,14 @@ func (a *App) pruneStaleBrowserWindows(runtimeWindows []*browserWindow) {
 	}
 	for id, bw := range a.browserWindows {
 		if !runtimeSet[id] {
-			if bw != nil && bw.mainWindow != nil {
-				bw.mainWindow.Destroy()
+			var mainWindowToDestroy *window.MainWindow
+			if bw != nil {
+				mainWindowToDestroy = bw.mainWindow
 			}
 			a.removeBrowserWindow(id)
+			if mainWindowToDestroy != nil {
+				mainWindowToDestroy.Destroy()
+			}
 		}
 	}
 
