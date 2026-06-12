@@ -2,7 +2,6 @@ package theme
 
 import (
 	"crypto/sha256"
-	"fmt"
 	"strings"
 	"testing"
 
@@ -36,14 +35,15 @@ func TestGenerateHistorySidebarCSS_ContainsExpectedSelectors(t *testing.T) {
 }
 
 func TestGenerateHistorySidebarCSS_AccentAlphaInterpolation(t *testing.T) {
-	darkPalette := DefaultDarkPalette()
-	css := generateHistorySidebarCSS(darkPalette)
+	css := generateHistorySidebarCSS(DefaultDarkPalette())
 
-	expectedAlpha := fmt.Sprintf("alpha(%s, 0.18)", darkPalette.Accent)
+	expectedAlpha := "alpha(var(--accent), 0.18)"
 	assert.Contains(t, css, expectedAlpha,
-		"expected accent alpha value %q in generated CSS", expectedAlpha)
+		"expected accent alpha variable usage %q in generated CSS", expectedAlpha)
+	assert.NotContains(t, css, "alpha(#",
+		"history sidebar CSS should not inline hardcoded accent hex values")
 
-	// The accent alpha should appear in hover, selected, and focus blocks
+	// The accent alpha should appear in hover, selected, and focus blocks.
 	assert.GreaterOrEqual(t, strings.Count(css, expectedAlpha), 3,
 		"expected accent alpha to appear at least 3 times (hover/selected/focus)")
 }
@@ -60,24 +60,14 @@ func TestGenerateHistorySidebarCSS_DeterministicOutput(t *testing.T) {
 	assert.Equal(t, hash1, hash2, "CSS output must be deterministic for the same palette")
 }
 
-func TestGenerateHistorySidebarCSS_DifferentPalettesProduceDifferentCSS(t *testing.T) {
+func TestGenerateHistorySidebarCSS_UsesPaletteVariablesInsteadOfInliningColors(t *testing.T) {
 	darkCSS := generateHistorySidebarCSS(DefaultDarkPalette())
 	lightCSS := generateHistorySidebarCSS(DefaultLightPalette())
 
-	hashDark := sha256.Sum256([]byte(darkCSS))
-	hashLight := sha256.Sum256([]byte(lightCSS))
-
-	assert.NotEqual(t, hashDark, hashLight,
-		"dark and light palettes should produce different CSS")
-}
-
-func TestGenerateHistorySidebarCSS_LightPaletteContainsAccentAlpha(t *testing.T) {
-	lightPalette := DefaultLightPalette()
-	css := generateHistorySidebarCSS(lightPalette)
-
-	expectedAlpha := fmt.Sprintf("alpha(%s, 0.18)", lightPalette.Accent)
-	assert.Contains(t, css, expectedAlpha,
-		"expected light palette accent alpha value %q in generated CSS", expectedAlpha)
+	assert.Equal(t, darkCSS, lightCSS,
+		"history sidebar fragment should be palette-independent when it relies on CSS variables")
+	assert.Contains(t, darkCSS, "alpha(var(--accent), 0.18)")
+	assert.NotContains(t, darkCSS, "alpha(#")
 }
 
 func TestGenerateHistorySidebarCSS_ThroughGenerateCSS(t *testing.T) {
@@ -126,8 +116,10 @@ func TestGenerateHistorySidebarCSS_CustomPaletteValuesInterpolated(t *testing.T)
 
 	css := generateHistorySidebarCSS(customPalette)
 
-	assert.Contains(t, css, "alpha(#ff6600, 0.18)",
-		"custom accent should be interpolated into CSS")
+	assert.Contains(t, css, "alpha(var(--accent), 0.18)",
+		"sidebar CSS should use the shared accent variable")
+	assert.NotContains(t, css, "#ff6600",
+		"sidebar fragment should not inline palette-specific accent values")
 
 	assert.Contains(t, css, ".history-sidebar-outer {")
 	assert.Contains(t, css, ".history-sidebar-row-title {")
@@ -284,13 +276,14 @@ func TestGenerateHistorySidebarCSS_LiveReloadFullPath(t *testing.T) {
 	assert.NotEqual(t, darkCSS, customCSS, "dark and custom GenerateCSSFull output must differ")
 	assert.NotEqual(t, lightCSS, customCSS, "light and custom GenerateCSSFull output must differ")
 
-	// The accent alpha interpolation must use each palette's accent.
-	assert.Contains(t, darkCSS, fmt.Sprintf("alpha(%s, 0.18)", darkPalette.Accent),
-		"dark CSS must contain dark palette accent alpha")
-	assert.Contains(t, lightCSS, fmt.Sprintf("alpha(%s, 0.18)", lightPalette.Accent),
-		"light CSS must contain light palette accent alpha")
-	assert.Contains(t, customCSS, fmt.Sprintf("alpha(%s, 0.18)", customPalette.Accent),
-		"custom CSS must contain custom palette accent alpha")
+	// Sidebar CSS should always use the accent variable, while the :root block
+	// carries the palette-specific value that changes on live reload.
+	assert.Contains(t, darkCSS, "alpha(var(--accent), 0.18)")
+	assert.Contains(t, lightCSS, "alpha(var(--accent), 0.18)")
+	assert.Contains(t, customCSS, "alpha(var(--accent), 0.18)")
+	assert.Contains(t, darkCSS, "\n  --accent: "+darkPalette.Accent+";\n")
+	assert.Contains(t, lightCSS, "\n  --accent: "+lightPalette.Accent+";\n")
+	assert.Contains(t, customCSS, "\n  --accent: "+customPalette.Accent+";\n")
 
 	// All three outputs must be syntactically valid: every '{' has a matching '}'.
 	for name, css := range map[string]string{
@@ -312,23 +305,23 @@ func TestGenerateHistorySidebarCSS_LiveReloadPaletteSwitch(t *testing.T) {
 	current := DefaultDarkPalette()
 	cssBefore := GenerateCSSFull(current, 1.0, DefaultFontConfig(), DefaultModeColors())
 
-	// Verify the initial dark accent is in the sidebar sections.
-	assert.Contains(t, cssBefore, fmt.Sprintf("alpha(%s, 0.18)", current.Accent),
-		"initial dark palette accent must appear in generated CSS")
+	// Verify the sidebar section uses the shared accent variable.
+	assert.Contains(t, cssBefore, "alpha(var(--accent), 0.18)",
+		"initial palette should render sidebar CSS through the accent variable")
+	assert.Contains(t, cssBefore, "\n  --accent: "+current.Accent+";\n")
 
 	// Switch to light palette (simulating runtime theme change).
 	current = DefaultLightPalette()
 	cssAfter := GenerateCSSFull(current, 1.0, DefaultFontConfig(), DefaultModeColors())
 
-	// Verify the light accent replaces the dark one.
-	assert.Contains(t, cssAfter, fmt.Sprintf("alpha(%s, 0.18)", current.Accent),
-		"light palette accent must appear in CSS after switch")
+	assert.Contains(t, cssAfter, "alpha(var(--accent), 0.18)",
+		"updated palette should still use the shared accent variable")
+	assert.Contains(t, cssAfter, "\n  --accent: "+current.Accent+";\n")
 
-	// The dark accent value must NOT appear in the light CSS.
+	// The old palette variable definition must not remain after switching.
 	darkAccent := DefaultDarkPalette().Accent
 	if current.Accent != darkAccent {
-		assert.NotContains(t, cssAfter, fmt.Sprintf("alpha(%s, 0.18)", darkAccent),
-			"dark accent must not remain in CSS after switching to light palette")
+		assert.NotContains(t, cssAfter, "\n  --accent: "+darkAccent+";\n")
 	}
 
 	// History sidebar selectors must be present in both.

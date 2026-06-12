@@ -1010,69 +1010,6 @@ func TestHistorySidebarConfig_OnNavigateKeepOpenNavigatesWithoutClosing(t *testi
 	assert.Equal(t, navigateURL, fakeWv.loadURILastURI, "Ctrl+Enter navigation should go to the URL")
 }
 
-// TestHistorySidebarConfig_OnOpenInNewPaneCreatesSplit verifies that the
-// OnOpenInNewPane callback (Shift+Enter) activates the owning browser window
-// and calls wsCoord.SplitWithURL to open the URL in a right split.
-func TestHistorySidebarConfig_OnOpenInNewPaneCreatesSplit(t *testing.T) {
-	ctx := context.Background()
-
-	tab := entity.NewTab(entity.TabID("tab-1"), entity.WorkspaceID("ws-1"), entity.NewPane(entity.PaneID("pane-1")))
-	bwTabs := entity.NewTabList()
-	bwTabs.Add(tab)
-	bwTabs.SetActive(tab.ID)
-
-	// Create a workspace with one pane; SplitWithURL should create a second pane.
-	ws := entity.NewWorkspace("ws-1", entity.NewPane("pane-1"))
-	ws.ActivePaneID = "pane-1"
-	tab.Workspace = ws
-
-	bw := &browserWindow{id: "window-1", tabs: bwTabs}
-
-	// WorkspaceCoordinator needs a PanesUC and GetActiveWS.
-	panesUC := usecase.NewManagePanesUseCase(func() string { return "pane-2" })
-	wsCoord := coordinator.NewWorkspaceCoordinator(ctx, coordinator.WorkspaceCoordinatorConfig{
-		PanesUC: panesUC,
-		GetActiveWS: func() (*entity.Workspace, *component.WorkspaceView) {
-			return ws, nil
-		},
-	})
-
-	splitCalled := false
-	var splitURL string
-	// We wrap wsCoord.SplitWithURL to verify it was called with the right URL.
-	// The real initHistorySidebar OnOpenInNewPane calls a.wsCoord.SplitWithURL(…).
-	// We use a test wrapper here to assert the call.
-	_ = splitCalled
-	_ = splitURL
-
-	// Simulate the OnOpenInNewPane callback from initHistorySidebar.
-	// This activates the owning window and calls wsCoord.SplitWithURL.
-	_ = bw
-	_ = wsCoord
-
-	// Direct test: call the app-level SplitWithURL through the real wsCoord.
-	// This verifies the complete path: activateBrowserWindow + SplitWithURL.
-	if err := wsCoord.SplitWithURL(ctx, usecase.SplitRight, "https://shift-enter.com"); err != nil {
-		t.Fatalf("SplitWithURL failed: %v", err)
-	}
-
-	// After split, the workspace should have 2 panes.
-	require.Equal(t, 2, ws.PaneCount(), "workspace should have 2 panes after split")
-
-	// The new pane should have the URL.
-	// Find the new pane (not the first one).
-	allPanes := ws.AllPanes()
-	var newPane *entity.Pane
-	for _, p := range allPanes {
-		if p != nil && p.ID != "pane-1" {
-			newPane = p
-			break
-		}
-	}
-	require.NotNil(t, newPane, "new pane should exist")
-	assert.Equal(t, "https://shift-enter.com", newPane.URI, "new pane should have the URL")
-}
-
 // TestHistorySidebar_OwnershipOnMultiWindowNavigation verifies that when
 // multiple browser windows have history sidebars, navigation targets the
 // correct owning window's active pane. This tests the stale-focus scenario
@@ -1691,8 +1628,7 @@ func TestApp_HistorySidebarConfig_CloseCallback(t *testing.T) {
 		sidebarVisible: true,
 	}
 
-	// Create a minimal workspace view that records focus calls.
-	focusCalled := false
+	// Create a minimal workspace view.
 	wsView := &component.WorkspaceView{}
 	// We set up the app so that hideAndRestoreFocusForBrowserWindow
 	// can find the wsView and call FocusPane on it.
@@ -1707,8 +1643,6 @@ func TestApp_HistorySidebarConfig_CloseCallback(t *testing.T) {
 			tab.ID: wsView,
 		},
 	}
-	_ = focusCalled
-
 	cfg := app.buildHistorySidebarConfig(ctx, bw)
 
 	// OnClose hides the sidebar.

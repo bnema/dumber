@@ -190,10 +190,11 @@ func TestDoFTSearch_WithFakeUC_StaleGenerationDropsResults(t *testing.T) {
 }
 
 func TestDoFTSearch_WithFakeUC_CurrentGenApplied(t *testing.T) {
-	searchDone := make(chan struct{}, 1)
+	searchCalled := make(chan struct{}, 1)
 
 	repo := &fakeHistoryRepo{
 		searchFn: func(_ context.Context, query string, _ int) ([]entity.HistoryMatch, error) {
+			searchCalled <- struct{}{}
 			return []entity.HistoryMatch{
 				{Entry: &entity.HistoryEntry{ID: 1, URL: "https://live.com", Title: "Live", LastVisited: time.Now()}},
 			}, nil
@@ -206,41 +207,26 @@ func TestDoFTSearch_WithFakeUC_CurrentGenApplied(t *testing.T) {
 	hs.historyUC = fakeUC
 	hs.searchGen = 1
 
-	// Spin up a goroutine that polls for results to be applied.
-	go func() {
-		for {
-			hs.mu.RLock()
-			if hs.searchDone {
-				hs.mu.RUnlock()
-				searchDone <- struct{}{}
-				return
-			}
-			hs.mu.RUnlock()
-			time.Sleep(5 * time.Millisecond)
-		}
-	}()
-
-	// Start the search; goroutine fetches and tries to idle-apply.
+	// Start the search and wait for the use case to be invoked.
 	hs.doFTSearch("live", 1)
+	select {
+	case <-searchCalled:
+	case <-time.After(time.Second):
+		t.Fatal("timed out waiting for search use case to be invoked")
+	}
 
-	// glib.IdleAdd is a no-op without GTK, so the idle callback never runs.
-	// We simulate it by calling applySearchResults ourselves, as the
-	// production idle callback would.
-	hs.applySearchResults([]*entity.HistoryEntry{
+	// glib.IdleAdd is a no-op without GTK, so apply the callback effect directly.
+	applied := hs.applySearchResults([]*entity.HistoryEntry{
 		{ID: 1, URL: "https://live.com", Title: "Live", LastVisited: time.Now()},
 	}, 1, nil)
+	require.True(t, applied)
 
-	select {
-	case <-searchDone:
-		hs.mu.RLock()
-		assert.NotNil(t, hs.searchResults)
-		assert.True(t, hs.searchDone)
-		assert.Len(t, hs.searchResults, 1)
-		assert.Equal(t, "https://live.com", hs.searchResults[0].URL)
-		hs.mu.RUnlock()
-	case <-time.After(time.Second):
-		t.Fatal("timed out waiting for search results to be applied")
-	}
+	hs.mu.RLock()
+	assert.NotNil(t, hs.searchResults)
+	assert.True(t, hs.searchDone)
+	assert.Len(t, hs.searchResults, 1)
+	assert.Equal(t, "https://live.com", hs.searchResults[0].URL)
+	hs.mu.RUnlock()
 }
 
 // =============================================================================
@@ -248,29 +234,13 @@ func TestDoFTSearch_WithFakeUC_CurrentGenApplied(t *testing.T) {
 // =============================================================================
 
 // TestHistorySidebar_ReloadPreservesQuery verifies that Reload preserves the
-// search query and resets internal state without losing the query string.
-// This is a seam test that uses applyReloadState and the Reload method's
-// state transitions without GTK widgets.
+// active query while resetting browse/search state before the refreshed load.
 func TestHistorySidebar_ReloadPreservesQuery(t *testing.T) {
-	// Use the pure-model reload state function to confirm the expected
-	// transition when a query is active.
-	withQuery := applyReloadState("search-term")
-	assert.Equal(t, "search-term", withQuery.PreservedQuery)
-	assert.False(t, withQuery.ResetBrowse)
-	assert.True(t, withQuery.ClearSearch)
-
-	withoutQuery := applyReloadState("")
-	assert.Equal(t, "", withoutQuery.PreservedQuery)
-	assert.True(t, withoutQuery.ResetBrowse)
-	assert.False(t, withoutQuery.ClearSearch)
-
-	// Now test the actual Reload method seam on a minimal HistorySidebar.
 	hs := newTestSidebarSearchHarness()
 	hs.currentQuery = "preserved"
 	hs.historyUC = usecase.NewSearchHistoryUseCase(&fakeHistoryRepo{})
 	hs.ctx = context.Background()
 
-	// Simulate the parts of Reload that don't require GTK widgets.
 	hs.mu.Lock()
 	oldGen := hs.searchGen
 	hs.loadDone = true
@@ -278,32 +248,22 @@ func TestHistorySidebar_ReloadPreservesQuery(t *testing.T) {
 		{ID: 1, URL: "https://old.com", Title: "Old", LastVisited: time.Now()},
 	}
 	hs.groups = groupHistoryByDay(hs.allEntries)
+	hs.searchResults = []*entity.HistoryEntry{{ID: 2, URL: "https://stale.com", Title: "Stale", LastVisited: time.Now()}}
+	hs.searchDone = true
 	hs.mu.Unlock()
 
-	// Call Reload (skipping the startLoadHistory which needs GTK).
-	// Reload resets state and preserves query.
-	savedQuery := hs.currentQuery // "preserved"
-	hs.preserveScrollAndSelection()
-	hs.loadDone = false
-	hs.loadStarted = false
-	hs.totalLoaded = 0
-	hs.hasMore = hs.historyUC != nil
-	hs.isLoading = false
-	hs.allEntries = nil
-	hs.groups = nil
-	hs.searchResults = nil
-	hs.searchDone = false
-	hs.searchErr = nil
-	hs.currentQuery = savedQuery
-	hs.searchGen++
+	hs.Reload()
 
+	hs.mu.RLock()
 	assert.Equal(t, "preserved", hs.currentQuery, "query must be preserved after Reload")
 	assert.False(t, hs.loadDone, "loadDone must be reset")
+	assert.False(t, hs.loadStarted, "loadStarted must be reset")
 	assert.Nil(t, hs.allEntries, "entries must be cleared")
 	assert.Nil(t, hs.groups, "groups must be cleared")
-	assert.Nil(t, hs.searchResults, "searchResults must be cleared")
+	assert.Nil(t, hs.searchResults, "searchResults must be cleared before refreshed search applies")
 	assert.False(t, hs.searchDone, "searchDone must be reset")
 	assert.Equal(t, oldGen+1, hs.searchGen, "searchGen must be incremented")
+	hs.mu.RUnlock()
 }
 
 // =============================================================================

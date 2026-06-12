@@ -3531,6 +3531,9 @@ func (a *App) wireKeyboardActions() {
 			bw.toggleHistorySidebar()
 			return nil
 		}
+		if a.wsCoord == nil {
+			return nil
+		}
 		// Fall back to dumb://history system view when the native
 		// GTK sidebar is unavailable (HistoryUC nil or creation failed).
 		return a.wsCoord.ToggleSystemViewRight(ctx, "dumb://history")
@@ -5064,7 +5067,7 @@ func (a *App) initConfigWatcher(ctx context.Context) {
 				if bw == nil {
 					continue
 				}
-				// Reapply sidebar width from live config (reloads after sidebare_width
+				// Reapply sidebar width from live config (reloads after sidebar_width
 				// changes in the config file).
 				bw.applySidebarWidthConfig(a)
 				if bw.keyboardHandler != nil {

@@ -82,8 +82,6 @@ func dayLabelForKey(key dayKey, todayStart time.Time, now time.Time) string {
 		return dayLabelYesterday
 	case key.year == now.Year():
 		return dayStart.Format("Monday, January 2")
-	case key.year == now.Year()-1:
-		return dayStart.Format("Monday, January 2")
 	default:
 		return dayStart.Format(dayLabelOtherYearFormat)
 	}
@@ -326,48 +324,4 @@ func (m keyboardNavModel) entryCount() int {
 		n += len(g.Entries)
 	}
 	return n
-}
-
-// searchStateSnapshot captures the observable state of a history search
-// at a point in time. This is a pure-data type for testing search
-// transitions without GTK dependencies.
-type searchStateSnapshot struct {
-	Query         string
-	HasSearchDone bool
-	HasResults    bool
-	ResultCount   int
-}
-
-// transitionSearchState models a search state transition: given a current
-// snapshot and a new query, what should the next snapshot look like?
-// This pure function encodes the expected transitions without GTK.
-func transitionSearchState(_ searchStateSnapshot, newQuery string, resultCount int) searchStateSnapshot {
-	return searchStateSnapshot{
-		Query:         newQuery,
-		HasSearchDone: newQuery != "",
-		HasResults:    newQuery != "" && resultCount > 0,
-		ResultCount:   resultCount,
-	}
-}
-
-// reloadPreservationSnapshot captures the preserved state during a reload.
-type reloadPreservationSnapshot struct {
-	PreservedQuery string
-	ResetBrowse    bool
-	ClearSearch    bool
-}
-
-// applyReloadState computes the expected state after a reload given the
-// current query. When query is empty browse state is reset; when query is
-// non-empty search is cleared and re-triggered.
-func applyReloadState(currentQuery string) reloadPreservationSnapshot {
-	s := reloadPreservationSnapshot{
-		PreservedQuery: currentQuery,
-	}
-	if currentQuery == "" {
-		s.ResetBrowse = true
-	} else {
-		s.ClearSearch = true
-	}
-	return s
 }

@@ -41,6 +41,7 @@ func TestGroupHistoryByDay_TodayYesterdayOlder(t *testing.T) {
 	require.Len(t, groups, 3)
 	assert.Equal(t, "Today", groups[0].Label)
 	assert.Equal(t, "Yesterday", groups[1].Label)
+	assert.NotEmpty(t, groups[2].Label, "older entry should have a formatted date label")
 	assert.Len(t, groups[2].Entries, 1)
 }
 
@@ -98,15 +99,10 @@ func TestGroupHistoryByDay_CrossYearDifferentLabels(t *testing.T) {
 	}
 	groups := groupHistoryByDay(entries)
 	require.Len(t, groups, 3)
-	// Most recent entry label depends on whether it's today
-	if now.YearDay() == thisYear.YearDay() && now.Year() == thisYear.Year() {
-		assert.Equal(t, "Today", groups[0].Label)
-	}
+	assert.Equal(t, "Today", groups[0].Label)
+	assert.Equal(t, lastYear.Format(dayLabelOtherYearFormat), groups[1].Label)
+	assert.Equal(t, twoYearsAgo.Format(dayLabelOtherYearFormat), groups[2].Label)
 	assert.Len(t, groups[2].Entries, 1)
-	// Two-year-old entry should include year if not current year
-	if twoYearsAgo.Year() != now.Year() && twoYearsAgo.Year() != now.Year()-1 {
-		assert.Contains(t, groups[2].Label, twoYearsAgo.Format("2006"), "two-year-old entry should include year")
-	}
 }
 
 func TestGroupHistoryByDay_MaintainsInputOrderWithinDay(t *testing.T) {
@@ -214,12 +210,10 @@ func TestRelativeTime_Future(t *testing.T) {
 func TestRelativeTime_DifferentYear(t *testing.T) {
 	// An entry from a previous year should show a date with month abbreviation
 	// and year when not current year.
-	lastYear := time.Now().AddDate(-1, -1, 0) // >1 year ago, definitely a different year
+	lastYear := time.Now().AddDate(-1, -1, 0)
 	result := relativeTime(lastYear)
-	if lastYear.Year() != time.Now().Year() {
-		// Format: "Jan 2, 2006" — verify it's longer than a short relative label
-		assert.Greater(t, len(result), 5, "old entry should return a date string, got %q", result)
-	}
+	_, err := time.Parse("Jan 2, 2006", result)
+	assert.NoError(t, err, "old entry should use the Jan 2, 2006 layout, got %q", result)
 }
 
 func TestDayLabelForKey_MultiYearAgo(t *testing.T) {
@@ -353,6 +347,7 @@ func TestKeyboardNavModel_InvalidDirection(t *testing.T) {
 	m := newKeyboardNavModel(groups)
 	assert.Equal(t, -1, m.nextSelectableIndex(0, 0))
 	assert.Equal(t, -1, m.nextSelectableIndex(0, 2))
+	assert.Equal(t, -1, m.nextSelectableIndex(0, -2))
 }
 
 func TestKeyboardNavModel_DayBoundaries(t *testing.T) {
@@ -587,15 +582,6 @@ func TestKeyboardNavModel_NextPreviousSelectable_EmptyGroups(t *testing.T) {
 	assert.Equal(t, -1, m.nextSelectableIndex(0, -1))
 }
 
-func TestKeyboardNavModel_NegativeDirectionReturnsAllNil(t *testing.T) {
-	groups := makeGroups(2)
-	m := newKeyboardNavModel(groups)
-
-	assert.Equal(t, -1, m.nextSelectableIndex(0, 0))
-	assert.Equal(t, -1, m.nextSelectableIndex(0, 2))
-	assert.Equal(t, -1, m.nextSelectableIndex(0, -2))
-}
-
 func TestKeyboardNavModel_EntryCountWithEmptyGroups(t *testing.T) {
 	groups := []historyGroup{
 		{Label: "A", Entries: []*entity.HistoryEntry{{
@@ -666,25 +652,6 @@ func TestTransitionSearchState_SearchThenClearThenReSearch(t *testing.T) {
 	assert.Equal(t, 7, s.ResultCount)
 }
 
-// TestTransitionSearchState_LateResultAfterClear verifies that if a stale
-// search result arrives after the user cleared the query, the next state
-// correctly transitions. This is the pure-model equivalent of what happens
-// when searchGen protects against stale idle callbacks.
-func TestTransitionSearchState_LateResultAfterClear(t *testing.T) {
-	// Current state: query cleared, no results.
-	current := searchStateSnapshot{Query: "", HasSearchDone: false, HasResults: false, ResultCount: 0}
-
-	// A late result from a stale search arrives with different query.
-	// Production code guards against this via searchGen; the pure model
-	// accepts it because it has no concept of staleness. The test documents
-	// that the generation guard lives in the HistorySidebar callback.
-	staleResult := transitionSearchState(current, "stale-query", 3)
-	assert.Equal(t, "stale-query", staleResult.Query, "the pure model accepts the result; stale protection is in HistorySidebar")
-	assert.True(t, staleResult.HasSearchDone)
-	assert.True(t, staleResult.HasResults)
-	assert.Equal(t, 3, staleResult.ResultCount)
-}
-
 // TestApplyReloadState_EmptyAndNonEmpty verifies all reload preservation
 // states are correctly modeled by the pure function.
 func TestApplyReloadState_EmptyAndNonEmpty(t *testing.T) {
@@ -727,10 +694,7 @@ func TestDayLabelForKey_DifferentYears(t *testing.T) {
 	lastYear := now.AddDate(-1, 0, 0)
 	key = dayKey{lastYear.Year(), lastYear.Month(), lastYear.Day()}
 	label = dayLabelForKey(key, todayStart, now)
-	// Should include weekday but not year in format
-	if lastYear.Year() == now.Year()-1 {
-		assert.NotContains(t, label, lastYear.Format("2006"), "last-year label should use short format")
-	}
+	assert.Equal(t, lastYear.Format(dayLabelOtherYearFormat), label)
 
 	// Multiple years ago
 	twoYearsAgo := now.AddDate(-2, 0, 0)

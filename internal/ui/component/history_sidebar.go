@@ -196,16 +196,16 @@ func (hs *HistorySidebar) Destroy() {
 		return
 	}
 	hs.destroyed = true
+	timerID := hs.debounceTimer
+	hs.debounceTimer = 0
 	hs.mu.Unlock()
 
 	if hs.cancel != nil {
 		hs.cancel()
 	}
 
-	// Cancel pending debounce
-	if hs.debounceTimer != 0 {
-		glib.SourceRemove(hs.debounceTimer)
-		hs.debounceTimer = 0
+	if timerID != 0 {
+		glib.SourceRemove(timerID)
 	}
 }
 
@@ -578,7 +578,7 @@ func (hs *HistorySidebar) preserveScrollAndSelection() {
 	}
 	if hs.listBox != nil {
 		if selected := hs.listBox.GetSelectedRow(); selected != nil {
-			if url := hs.getRowURL(selected); url != "" {
+			if url := hs.entryURLAtIndex(selected.GetIndex()); url != "" {
 				hs.prevSelectedURL = url
 			}
 		}
@@ -633,19 +633,7 @@ func (hs *HistorySidebar) getRowURL(row *gtk.ListBoxRow) string {
 // entryURLAtIndex returns the URL of the history entry at the given
 // linear list index (including group headers which return "").
 func (hs *HistorySidebar) entryURLAtIndex(index int) string {
-	linearEntryIdx := 0
-	for _, group := range hs.groups {
-		if index == linearEntryIdx {
-			return "" // header
-		}
-		linearEntryIdx++ // Skip header
-
-		if index < linearEntryIdx+len(group.Entries) {
-			return group.Entries[index-linearEntryIdx].URL
-		}
-		linearEntryIdx += len(group.Entries)
-	}
-	return ""
+	return newKeyboardNavModel(hs.groups).entryURLAt(index)
 }
 
 // selectRowByURL finds and selects a row whose URL matches.
@@ -686,19 +674,36 @@ func (hs *HistorySidebar) setupSearchHandler() {
 
 func (hs *HistorySidebar) onSearchChanged() {
 	hs.mu.Lock()
+	if hs.destroyed {
+		hs.mu.Unlock()
+		return
+	}
 	hs.currentQuery = hs.searchEntry.GetText()
 	hs.preserveScrollAndSelection()
+	oldTimer := hs.debounceTimer
+	hs.debounceTimer = 0
 	hs.mu.Unlock()
 
-	// Debounce filtering/search
-	if hs.debounceTimer != 0 {
-		glib.SourceRemove(hs.debounceTimer)
+	if oldTimer != 0 {
+		glib.SourceRemove(oldTimer)
 	}
+
 	filterCb := glib.SourceFunc(func(uintptr) bool {
 		hs.applyFilter()
 		return false
 	})
-	hs.debounceTimer = glib.TimeoutAdd(uint(sidebarSearchDebounceMs), &filterCb, 0)
+	timerID := glib.TimeoutAdd(uint(sidebarSearchDebounceMs), &filterCb, 0)
+
+	hs.mu.Lock()
+	if hs.destroyed {
+		hs.mu.Unlock()
+		if timerID != 0 {
+			glib.SourceRemove(timerID)
+		}
+		return
+	}
+	hs.debounceTimer = timerID
+	hs.mu.Unlock()
 }
 
 func (hs *HistorySidebar) applyFilter() {
@@ -1176,58 +1181,49 @@ func (hs *HistorySidebar) handleDeleteKey() bool {
 	if row == nil || !row.GetSelectable() {
 		return false
 	}
+	if hs.historyUC == nil {
+		return false
+	}
 
 	idx := row.GetIndex()
-	// Find the entry URL and ID from the in-memory groups under one lock.
+
 	hs.mu.RLock()
 	url := hs.entryURLAtIndex(idx)
 	entryID := hs.findEntryIDByIndex(idx)
+	nextSelectedURL := ""
+	if nextRow := hs.findNextSelectableAfter(idx); nextRow != -1 {
+		nextSelectedURL = hs.entryURLAtIndex(nextRow)
+	}
 	hs.mu.RUnlock()
 
 	if url == "" || entryID <= 0 {
 		return false
 	}
 
-	// Find the next row to select before deletion
-	nextRow := hs.findNextSelectableAfter(idx)
-
-	// Delete via the search history use case
-	cb := glib.SourceFunc(func(uintptr) bool {
-		if hs.historyUC == nil {
-			return false
-		}
+	go func() {
 		if err := hs.historyUC.Delete(hs.ctx, entryID); err != nil {
 			hs.logger.Error().Err(err).Int64("entry_id", entryID).Msg("failed to delete history entry")
-			return false
+			return
 		}
-		return false
-	})
-	glib.IdleAdd(&cb, 0)
 
-	// Remove the entry from local data and rebuild the list.
-	// Must also remove from allEntries and searchResults so the
-	// deleted entry does not reappear after rebuildLocalGroups
-	// (which re-groups from allEntries).
-	hs.mu.Lock()
-	hs.removeEntryByIndex(idx)
-	hs.removeFromAllEntries(url, entryID)
-	hs.removeFromSearchResults(entryID)
-	hs.rebuildLocalGroups()
-	hs.mu.Unlock()
-
-	hs.scheduleRebuild()
-
-	// After rebuild, select the next row
-	// (scheduled after rebuild to ensure rows exist)
-	if nextRow != -1 {
-		selectCb := glib.SourceFunc(func(uintptr) bool {
-			if target := hs.listBox.GetRowAtIndex(nextRow); target != nil {
-				hs.listBox.SelectRow(target)
+		cb := glib.SourceFunc(func(uintptr) bool {
+			hs.mu.Lock()
+			if hs.destroyed {
+				hs.mu.Unlock()
+				return false
 			}
+			hs.preserveScrollAndSelection()
+			hs.prevSelectedURL = nextSelectedURL
+			hs.removeFromAllEntries(url, entryID)
+			hs.removeFromSearchResults(entryID)
+			hs.rebuildLocalGroups()
+			hs.mu.Unlock()
+
+			hs.rebuildList()
 			return false
 		})
-		glib.IdleAdd(&selectCb, 0)
-	}
+		glib.IdleAdd(&cb, 0)
+	}()
 
 	return true
 }
@@ -1235,37 +1231,11 @@ func (hs *HistorySidebar) handleDeleteKey() bool {
 // findEntryIDByIndex returns the entry ID for the linear ListBox index.
 // Must be called with hs.mu read lock held.
 func (hs *HistorySidebar) findEntryIDByIndex(index int) int64 {
-	linearEntryIdx := 0
-	for _, group := range hs.groups {
-		if index == linearEntryIdx {
-			return 0 // header row
-		}
-		linearEntryIdx++
-		if index < linearEntryIdx+len(group.Entries) {
-			return group.Entries[index-linearEntryIdx].ID
-		}
-		linearEntryIdx += len(group.Entries)
+	entry := newKeyboardNavModel(hs.groups).entryAt(index)
+	if entry == nil {
+		return 0
 	}
-	return 0
-}
-
-// removeEntryByIndex removes an entry from the groups slice by linear index.
-// Must be called with hs.mu write lock held.
-func (hs *HistorySidebar) removeEntryByIndex(index int) {
-	linearEntryIdx := 0
-	for gi, group := range hs.groups {
-		linearEntryIdx++ // skip header
-		if index >= linearEntryIdx && index < linearEntryIdx+len(group.Entries) {
-			entryIdx := index - linearEntryIdx
-			hs.groups[gi].Entries = append(group.Entries[:entryIdx], group.Entries[entryIdx+1:]...)
-			// Remove empty groups
-			if len(hs.groups[gi].Entries) == 0 {
-				hs.groups = append(hs.groups[:gi], hs.groups[gi+1:]...)
-			}
-			return
-		}
-		linearEntryIdx += len(group.Entries)
-	}
+	return entry.ID
 }
 
 // rebuildLocalGroups rebuilds hs.groups from the current allEntries and query.
@@ -1313,28 +1283,17 @@ func (hs *HistorySidebar) removeFromSearchResults(id int64) {
 }
 
 // findNextSelectableAfter returns the ListBox index of the next selectable
-// row after the given index, preferring the same position then previous.
+// row after the given index, falling back to the previous selectable row.
+// Must be called with hs.mu read lock held.
 func (hs *HistorySidebar) findNextSelectableAfter(idx int) int {
-	hs.mu.RLock()
-	defer hs.mu.RUnlock()
-
-	total := 0
-	for _, group := range hs.groups {
-		total++ // header
-		total += len(group.Entries)
+	model := newKeyboardNavModel(hs.groups)
+	if next := model.nextSelectableIndex(idx, +1); next != -1 {
+		return next
 	}
-
-	// Try same position first
-	candidate := idx
-	// Adjust for next rebuild (lose 1 entry, possibly a group header)
-	// Worst case: we just pick (idx) if within range
-	if candidate >= total-1 {
-		candidate = total - 2
+	if prev := model.nextSelectableIndex(idx, -1); prev != -1 {
+		return prev
 	}
-	if candidate < 0 {
-		candidate = 0
-	}
-	return candidate
+	return -1
 }
 
 // scrollByPage scrolls the list by one page up or down,
@@ -1370,36 +1329,19 @@ func (hs *HistorySidebar) jumpToPreviousDay() {
 		currentIdx = row.GetIndex()
 	}
 
-	// Walk backwards through rows to find the previous group header,
-	// then select the first entry after it.
-	prevHeaderIdx := -1
-	for i := currentIdx - 1; i >= 0; i-- {
-		row := hs.listBox.GetRowAtIndex(i)
-		if row == nil {
-			break
-		}
-		if !row.GetSelectable() {
-			prevHeaderIdx = i
-			break
-		}
-	}
-
-	if prevHeaderIdx == -1 {
-		// No previous group; try the very first row (header or entry)
+	hs.mu.RLock()
+	targetIdx := newKeyboardNavModel(hs.groups).previousDayBoundary(currentIdx)
+	hs.mu.RUnlock()
+	if targetIdx == -1 {
 		hs.jumpToFirstSelectable()
 		return
 	}
-
-	// Select the first entry after the previous header
-	firstEntryIdx := prevHeaderIdx + 1
-	if row := hs.listBox.GetRowAtIndex(firstEntryIdx); row != nil && row.GetSelectable() {
+	if row := hs.listBox.GetRowAtIndex(targetIdx); row != nil && row.GetSelectable() {
 		hs.listBox.SelectRow(row)
-		// Ensure the selected row is scrolled into view
-		hs.scrollRowIntoView(firstEntryIdx)
-	} else {
-		// No entry in this group
-		hs.jumpToFirstSelectable()
+		hs.scrollRowIntoView(targetIdx)
+		return
 	}
+	hs.jumpToFirstSelectable()
 }
 
 // jumpToNextDay selects the first entry in the next day group
@@ -1410,43 +1352,19 @@ func (hs *HistorySidebar) jumpToNextDay() {
 		currentIdx = row.GetIndex()
 	}
 
-	totalRows := 0
-	for {
-		if hs.listBox.GetRowAtIndex(totalRows) == nil {
-			break
-		}
-		totalRows++
-	}
-
-	// Walk forwards through rows to find the next group header,
-	// then select the first entry after it.
-	nextHeaderIdx := -1
-	for i := currentIdx + 1; i < totalRows; i++ {
-		row := hs.listBox.GetRowAtIndex(i)
-		if row == nil {
-			break
-		}
-		if !row.GetSelectable() {
-			nextHeaderIdx = i
-			break
-		}
-	}
-
-	if nextHeaderIdx == -1 {
-		// No next group; jump to last selectable entry
+	hs.mu.RLock()
+	targetIdx := newKeyboardNavModel(hs.groups).nextDayBoundary(currentIdx)
+	hs.mu.RUnlock()
+	if targetIdx == -1 {
 		hs.jumpToLastSelectable()
 		return
 	}
-
-	// Select the first entry after the next header
-	firstEntryIdx := nextHeaderIdx + 1
-	if row := hs.listBox.GetRowAtIndex(firstEntryIdx); row != nil && row.GetSelectable() {
+	if row := hs.listBox.GetRowAtIndex(targetIdx); row != nil && row.GetSelectable() {
 		hs.listBox.SelectRow(row)
-		hs.scrollRowIntoView(firstEntryIdx)
-	} else {
-		// Empty group header?
-		hs.jumpToLastSelectable()
+		hs.scrollRowIntoView(targetIdx)
+		return
 	}
+	hs.jumpToLastSelectable()
 }
 
 // scrollRowIntoView scrolls the scrolled window to ensure the row at
@@ -1540,44 +1458,32 @@ func (hs *HistorySidebar) selectAdjacentRow(direction int) {
 		return
 	}
 
-	totalRows := 0
-	for {
-		if hs.listBox.GetRowAtIndex(totalRows) == nil {
-			break
-		}
-		totalRows++
-	}
-	if totalRows == 0 {
-		return
-	}
-
 	current := -1
 	if row := hs.listBox.GetSelectedRow(); row != nil {
 		current = row.GetIndex()
 	}
 
-	// Nothing selected yet — pick first/last depending on direction.
+	hs.mu.RLock()
+	model := newKeyboardNavModel(hs.groups)
+	target := -1
 	if current < 0 {
 		if direction > 0 {
-			hs.jumpToFirstSelectable()
+			target = model.firstSelectableIndex()
 		} else {
-			hs.jumpToLastSelectable()
+			target = model.lastSelectableIndex()
 		}
+	} else {
+		target = model.nextSelectableIndex(current, direction)
+	}
+	hs.mu.RUnlock()
+
+	if target == -1 {
 		return
 	}
-
-	// Walk in the given direction to find the next selectable row.
-	candidate := current + direction
-	for candidate >= 0 && candidate < totalRows {
-		row := hs.listBox.GetRowAtIndex(candidate)
-		if row != nil && row.GetSelectable() {
-			hs.listBox.SelectRow(row)
-			hs.ensureRowVisible(candidate)
-			return
-		}
-		candidate += direction
+	if row := hs.listBox.GetRowAtIndex(target); row != nil && row.GetSelectable() {
+		hs.listBox.SelectRow(row)
+		hs.ensureRowVisible(target)
 	}
-	// No more selectable rows in this direction; selection unchanged.
 }
 
 // ensureRowVisible adjusts the scrolled window so the row at index is
@@ -1645,31 +1551,13 @@ func (hs *HistorySidebar) onRowActivated(row *gtk.ListBoxRow) {
 		hs.mu.RUnlock()
 		return
 	}
-
-	index := row.GetIndex()
-
-	// Compute entry index across all groups, excluding header rows.
-	// ListBox indices: for each group, 1 header row + N entry rows.
-	linearEntryIdx := 0
-	for _, group := range hs.groups {
-		// Check if index falls on the header row for this group
-		if index == linearEntryIdx {
-			// Header row - not an activatable entry
-			hs.mu.RUnlock()
-			return
-		}
-		linearEntryIdx++ // Skip header
-
-		if index < linearEntryIdx+len(group.Entries) {
-			entry := group.Entries[index-linearEntryIdx]
-			url := entry.URL
-			hs.mu.RUnlock()
-			hs.navigateToURL(url)
-			return
-		}
-		linearEntryIdx += len(group.Entries)
-	}
+	entry := newKeyboardNavModel(hs.groups).entryAt(row.GetIndex())
 	hs.mu.RUnlock()
+	if entry == nil || entry.URL == "" {
+		return
+	}
+
+	hs.navigateToURL(entry.URL)
 }
 
 func (hs *HistorySidebar) navigateToURL(url string) {
@@ -1687,7 +1575,7 @@ func (hs *HistorySidebar) navigateToURL(url string) {
 // navigateWithoutClosing navigates to the URL but does NOT close the sidebar.
 // Used by Ctrl+Enter activation.
 func (hs *HistorySidebar) navigateWithoutClosing(url string) {
-	if hs.onURL == nil || url == "" {
+	if hs.onNavigateKeepOpen == nil || url == "" {
 		return
 	}
 
