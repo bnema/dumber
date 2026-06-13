@@ -1,8 +1,6 @@
 package component
 
 import (
-	"fmt"
-
 	"github.com/bnema/puregotk/v4/gtk"
 	"github.com/bnema/puregotk/v4/pango"
 
@@ -78,7 +76,7 @@ func (hs *HistorySidebar) showLoadingOrEmpty(query string, searchDone bool) {
 	case query != "" && !searchDone:
 		label.SetText("Searching...")
 	case query != "":
-		label.SetText(fmt.Sprintf("No results for %q", query))
+		label.SetText(noResultsText(query))
 	default:
 		label.SetText("No browsing history")
 	}
@@ -97,6 +95,10 @@ func (hs *HistorySidebar) showLoadingOrEmpty(query string, searchDone bool) {
 	hs.listBox.Append(&row.Widget)
 }
 
+func noResultsText(query string) string {
+	return "No results for \"" + query + "\""
+}
+
 func (hs *HistorySidebar) showEmptyState(query string) {
 	label := gtk.NewLabel(nil)
 	if label == nil {
@@ -105,7 +107,7 @@ func (hs *HistorySidebar) showEmptyState(query string) {
 	label.AddCssClass("history-sidebar-empty")
 
 	if query != "" {
-		label.SetText(fmt.Sprintf("No results for %q", query))
+		label.SetText(noResultsText(query))
 	} else {
 		label.SetText("No browsing history")
 	}

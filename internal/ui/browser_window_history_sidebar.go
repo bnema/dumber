@@ -28,10 +28,12 @@ func (bw *browserWindow) initHistorySidebar(ctx context.Context, a *App) {
 	}
 
 	bw.historySidebar = sidebar
-	bw.sidebarVisible = false
 
-	// Mount into the main window's sidebar box
+	// Mount into the main window's sidebar box.
 	bw.mainWindow.SetSidebarWidget(sidebar.Widget())
+	bw.historySidebar.Hide()
+	bw.mainWindow.SetSidebarVisible(false)
+	bw.sidebarVisible = false
 
 	// Apply sidebar width from config, falling back to the default 320px.
 	// The width is clamped to [280, 380] by SetSidebarWidth internally.
