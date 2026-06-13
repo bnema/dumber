@@ -164,7 +164,7 @@ func TestApplySearchResults_StaleGenerationDropsResultsAfterSearch(t *testing.T)
 	}
 
 	hs := newTestSidebarSearchHarness()
-	hs.ctx = context.Background()
+	hs.ctx = t.Context()
 	hs.historyUC = history
 	hs.searchGen = 1
 	hs.idleScheduler = func(cb glib.SourceFunc) {
@@ -212,7 +212,7 @@ func TestApplySearchResults_CurrentGenerationAppliedAfterSearch(t *testing.T) {
 	}
 
 	hs := newTestSidebarSearchHarness()
-	hs.ctx = context.Background()
+	hs.ctx = t.Context()
 	hs.historyUC = history
 	hs.searchGen = 1
 	hs.idleScheduler = func(cb glib.SourceFunc) {
@@ -260,7 +260,7 @@ func TestHistorySidebar_ReloadPreservesQuery(t *testing.T) {
 	hs := newTestSidebarSearchHarness()
 	hs.currentQuery = "preserved"
 	hs.historyUC = history
-	hs.ctx = context.Background()
+	hs.ctx = t.Context()
 
 	hs.mu.Lock()
 	oldGen := hs.searchGen
@@ -314,7 +314,7 @@ func TestFetchPage_StaleGenerationDoesNotMutateLoadingState(t *testing.T) {
 	}
 
 	hs := newTestSidebarSearchHarness()
-	hs.ctx = context.Background()
+	hs.ctx = t.Context()
 	hs.historyUC = history
 
 	// Simulate: gen 1 started, then gen 2 started (e.g. by Reload/Show).

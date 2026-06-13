@@ -911,7 +911,7 @@ func TestRestoreSession_ActiveWindowIndexSyncsState(t *testing.T) {
 // that the default OnNavigate callback targets the owning browser window's
 // active pane and keeps the sidebar visible.
 func TestHistorySidebarConfig_OnNavigateNavigatesActivePaneAndKeepsSidebar(t *testing.T) {
-	ctx := context.Background()
+	ctx := t.Context()
 
 	// Build two browser windows with independent tabs and panes.
 	tab1 := entity.NewTab(entity.TabID("tab-1"), entity.WorkspaceID("ws-1"), entity.NewPane(entity.PaneID("pane-1")))
@@ -973,7 +973,7 @@ func TestHistorySidebarConfig_OnNavigateNavigatesActivePaneAndKeepsSidebar(t *te
 // that the OnNavigateKeepOpen callback (Ctrl+Enter) navigates the owning window's
 // active pane and keeps the sidebar visible.
 func TestHistorySidebarConfig_OnNavigateKeepOpenNavigatesWithoutClosing(t *testing.T) {
-	ctx := context.Background()
+	ctx := t.Context()
 
 	tab := entity.NewTab(entity.TabID("tab-1"), entity.WorkspaceID("ws-1"), entity.NewPane(entity.PaneID("pane-1")))
 	bwTabs := entity.NewTabList()
@@ -1011,7 +1011,7 @@ func TestHistorySidebarConfig_OnNavigateKeepOpenNavigatesWithoutClosing(t *testi
 // correct owning window's active pane. This tests the stale-focus scenario
 // where a different window is globally focused.
 func TestHistorySidebar_OwnershipOnMultiWindowNavigation(t *testing.T) {
-	ctx := context.Background()
+	ctx := t.Context()
 
 	// Two windows, each with their own tab and pane.
 	tab1 := entity.NewTab(entity.TabID("tab-1"), entity.WorkspaceID("ws-1"), entity.NewPane(entity.PaneID("pane-1")))
@@ -1225,7 +1225,7 @@ func TestApp_HistorySidebarToggleHandler_NilFocusedWindowIsNoOp(t *testing.T) {
 // TestHistorySidebarConfig_OnCloseHidesSidebar verifies that the OnClose
 // callback hides the sidebar for the owning browser window.
 func TestHistorySidebarConfig_OnCloseHidesSidebar(t *testing.T) {
-	ctx := context.Background()
+	ctx := t.Context()
 	tab := entity.NewTab(entity.TabID("tab-1"), entity.WorkspaceID("ws-1"), entity.NewPane(entity.PaneID("pane-1")))
 	bwTabs := entity.NewTabList()
 	bwTabs.Add(tab)
@@ -1261,7 +1261,7 @@ func TestHistorySidebarConfig_OnCloseHidesSidebar(t *testing.T) {
 // dispatches ActionToggleHistorySystemView, asserting the focused browser
 // window's sidebar visibility toggles.
 func TestApp_HistorySidebar_ToggleThroughKeyboardDispatcher(t *testing.T) {
-	ctx := context.Background()
+	ctx := t.Context()
 
 	focusedBW := &browserWindow{
 		id:             "focused",
@@ -1309,7 +1309,7 @@ func TestApp_HistorySidebar_ToggleThroughKeyboardDispatcher(t *testing.T) {
 // TestApp_HistorySidebar_ToggleThroughDispatcher_UnavailableReturnsError verifies that
 // when the focused window has no history sidebar, Ctrl+H returns a clean error.
 func TestApp_HistorySidebar_ToggleThroughDispatcher_UnavailableReturnsError(t *testing.T) {
-	ctx := context.Background()
+	ctx := t.Context()
 
 	bw := &browserWindow{
 		id:         "no-sidebar",
@@ -1342,7 +1342,7 @@ func TestApp_HistorySidebar_ToggleThroughDispatcher_UnavailableReturnsError(t *t
 // TestApp_HistorySidebar_ToggleThroughDispatcher_NilFocusedReturnsError verifies
 // that the toggle handler returns a clean error when there is no focused window.
 func TestApp_HistorySidebar_ToggleThroughDispatcher_NilFocusedReturnsError(t *testing.T) {
-	ctx := context.Background()
+	ctx := t.Context()
 
 	app := &App{
 		browserWindows:      make(map[string]*browserWindow),
@@ -1373,7 +1373,7 @@ func TestApp_HistorySidebar_ToggleThroughDispatcher_NilFocusedReturnsError(t *te
 // callback from buildHistorySidebarConfig navigates the owning browser window's
 // active pane to the given URL.
 func TestApp_HistorySidebarConfig_NavigateCallbackNavigates(t *testing.T) {
-	ctx := context.Background()
+	ctx := t.Context()
 
 	paneID := entity.PaneID("pane-1")
 	tab := entity.NewTab(entity.TabID("tab-1"), entity.WorkspaceID("ws-1"), entity.NewPane(paneID))
@@ -1421,7 +1421,7 @@ func TestApp_HistorySidebarConfig_NavigateCallbackNavigates(t *testing.T) {
 }
 
 func TestApp_NavigateHistorySidebarSelection_KeepsSidebarVisible(t *testing.T) {
-	ctx := context.Background()
+	ctx := t.Context()
 
 	paneID := entity.PaneID("pane-1")
 	tab := entity.NewTab(entity.TabID("tab-1"), entity.WorkspaceID("ws-1"), entity.NewPane(paneID))
@@ -1464,7 +1464,7 @@ func TestApp_NavigateHistorySidebarSelection_KeepsSidebarVisible(t *testing.T) {
 // OnNavigate targets the callback's owning window, not the globally focused
 // window, when they differ.
 func TestApp_HistorySidebarConfig_NavigateCallbackOwnership(t *testing.T) {
-	ctx := context.Background()
+	ctx := t.Context()
 
 	tab1 := entity.NewTab(entity.TabID("tab-1"), entity.WorkspaceID("ws-1"), entity.NewPane(entity.PaneID("pane-1")))
 	tab2 := entity.NewTab(entity.TabID("tab-2"), entity.WorkspaceID("ws-2"), entity.NewPane(entity.PaneID("pane-2")))
@@ -1519,7 +1519,7 @@ func TestApp_HistorySidebarConfig_NavigateCallbackOwnership(t *testing.T) {
 // TestApp_HistorySidebarConfig_KeepOpenCallback verifies that
 // OnNavigateKeepOpen navigates the owning window without hiding the sidebar.
 func TestApp_HistorySidebarConfig_KeepOpenCallback(t *testing.T) {
-	ctx := context.Background()
+	ctx := t.Context()
 
 	paneID := entity.PaneID("pane-1")
 	tab := entity.NewTab(entity.TabID("tab-1"), entity.WorkspaceID("ws-1"), entity.NewPane(paneID))
@@ -1569,7 +1569,7 @@ func TestApp_HistorySidebarConfig_KeepOpenCallback(t *testing.T) {
 // OnOpenInNewPane activates the owning browser window and creates a split
 // with the target URL.
 func TestApp_HistorySidebarConfig_OpenInNewPaneCallback(t *testing.T) {
-	ctx := context.Background()
+	ctx := t.Context()
 
 	paneID := entity.PaneID("pane-1")
 	tab := entity.NewTab(entity.TabID("tab-1"), entity.WorkspaceID("ws-1"), entity.NewPane(paneID))
@@ -1627,7 +1627,7 @@ func TestApp_HistorySidebarConfig_OpenInNewPaneCallback(t *testing.T) {
 // TestApp_HistorySidebarConfig_CloseCallback verifies that OnClose hides the
 // sidebar for the owning browser window and restores focus to the active pane.
 func TestApp_HistorySidebarConfig_CloseCallback(t *testing.T) {
-	ctx := context.Background()
+	ctx := t.Context()
 
 	paneID := entity.PaneID("pane-1")
 	tab := entity.NewTab(entity.TabID("tab-1"), entity.WorkspaceID("ws-1"), entity.NewPane(paneID))
@@ -1674,7 +1674,7 @@ func TestApp_HistorySidebarConfig_CloseCallback(t *testing.T) {
 // OnClose (hideAndRestoreFocusForBrowserWindow) is safe when the browser
 // window has no sidebar or is nil.
 func TestApp_HistorySidebarConfig_CloseWithNoSidebarIsSafe(t *testing.T) {
-	ctx := context.Background()
+	ctx := t.Context()
 
 	bw := &browserWindow{
 		id:         "no-sidebar",

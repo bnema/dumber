@@ -10,7 +10,7 @@ type searchStateSnapshot struct {
 }
 
 // transitionSearchState models a search state transition for tests without GTK.
-func transitionSearchState(_ searchStateSnapshot, newQuery string, resultCount int) searchStateSnapshot {
+func transitionSearchState(newQuery string, resultCount int) searchStateSnapshot {
 	return searchStateSnapshot{
 		Query:         newQuery,
 		HasSearchDone: newQuery != "",

@@ -417,8 +417,7 @@ func TestKeyboardNavModel_EntryCount(t *testing.T) {
 // =============================================================================
 
 func TestTransitionSearchState_EmptyQuery(t *testing.T) {
-	initial := searchStateSnapshot{}
-	next := transitionSearchState(initial, "", 0)
+	next := transitionSearchState("", 0)
 	assert.Equal(t, "", next.Query)
 	assert.False(t, next.HasSearchDone)
 	assert.False(t, next.HasResults)
@@ -426,8 +425,7 @@ func TestTransitionSearchState_EmptyQuery(t *testing.T) {
 }
 
 func TestTransitionSearchState_NewQuery(t *testing.T) {
-	initial := searchStateSnapshot{}
-	next := transitionSearchState(initial, "example", 5)
+	next := transitionSearchState("example", 5)
 	assert.Equal(t, "example", next.Query)
 	assert.True(t, next.HasSearchDone)
 	assert.True(t, next.HasResults)
@@ -435,8 +433,7 @@ func TestTransitionSearchState_NewQuery(t *testing.T) {
 }
 
 func TestTransitionSearchState_QueryWithNoResults(t *testing.T) {
-	initial := searchStateSnapshot{}
-	next := transitionSearchState(initial, "nonexistent", 0)
+	next := transitionSearchState("nonexistent", 0)
 	assert.Equal(t, "nonexistent", next.Query)
 	assert.True(t, next.HasSearchDone)
 	assert.False(t, next.HasResults)
@@ -444,8 +441,7 @@ func TestTransitionSearchState_QueryWithNoResults(t *testing.T) {
 }
 
 func TestTransitionSearchState_QueryToQuery(t *testing.T) {
-	initial := searchStateSnapshot{Query: "old", HasSearchDone: true, HasResults: true, ResultCount: 3}
-	next := transitionSearchState(initial, "new", 7)
+	next := transitionSearchState("new", 7)
 	assert.Equal(t, "new", next.Query)
 	assert.True(t, next.HasSearchDone)
 	assert.True(t, next.HasResults)
@@ -453,8 +449,7 @@ func TestTransitionSearchState_QueryToQuery(t *testing.T) {
 }
 
 func TestTransitionSearchState_QueryToEmpty(t *testing.T) {
-	initial := searchStateSnapshot{Query: "old", HasSearchDone: true, HasResults: true, ResultCount: 3}
-	next := transitionSearchState(initial, "", 0)
+	next := transitionSearchState("", 0)
 	assert.Equal(t, "", next.Query)
 	assert.False(t, next.HasSearchDone)
 	assert.False(t, next.HasResults)
@@ -610,15 +605,14 @@ func TestKeyboardNavModel_EntryCountWithEmptyGroups(t *testing.T) {
 // where a later result arrives after the gen has moved on.
 func TestTransitionSearchState_SequentialSearches(t *testing.T) {
 	// Search 1: "foo" -> 5 results
-	s1 := searchStateSnapshot{}
-	next1 := transitionSearchState(s1, "foo", 5)
+	next1 := transitionSearchState("foo", 5)
 	assert.Equal(t, "foo", next1.Query)
 	assert.True(t, next1.HasSearchDone)
 	assert.True(t, next1.HasResults)
 	assert.Equal(t, 5, next1.ResultCount)
 
 	// Search 2: "foobar" -> 3 results (supersedes search 1)
-	next2 := transitionSearchState(next1, "foobar", 3)
+	next2 := transitionSearchState("foobar", 3)
 	assert.Equal(t, "foobar", next2.Query)
 	assert.True(t, next2.HasSearchDone)
 	assert.True(t, next2.HasResults)
@@ -631,21 +625,21 @@ func TestTransitionSearchState_SearchThenClearThenReSearch(t *testing.T) {
 	s := searchStateSnapshot{}
 
 	// Search "term" -> 2 results
-	s = transitionSearchState(s, "term", 2)
+	s = transitionSearchState("term", 2)
 	assert.Equal(t, "term", s.Query)
 	assert.True(t, s.HasSearchDone)
 	assert.True(t, s.HasResults)
 	assert.Equal(t, 2, s.ResultCount)
 
 	// Clear: query becomes ""
-	s = transitionSearchState(s, "", 0)
+	s = transitionSearchState("", 0)
 	assert.Equal(t, "", s.Query)
 	assert.False(t, s.HasSearchDone)
 	assert.False(t, s.HasResults)
 	assert.Equal(t, 0, s.ResultCount)
 
 	// Re-search: new term
-	s = transitionSearchState(s, "other", 7)
+	s = transitionSearchState("other", 7)
 	assert.Equal(t, "other", s.Query)
 	assert.True(t, s.HasSearchDone)
 	assert.True(t, s.HasResults)
