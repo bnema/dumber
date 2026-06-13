@@ -94,7 +94,13 @@ func TestHistorySidebarConfig_OnNavigateKeepOpenNavigatesWithoutClosing(t *testi
 	bwTabs.Add(tab)
 	bwTabs.SetActive(tab.ID)
 
-	bw := &browserWindow{id: "window-1", tabs: bwTabs}
+	bw := &browserWindow{
+		id:             "window-1",
+		tabs:           bwTabs,
+		mainWindow:     &window.MainWindow{},
+		historySidebar: &component.HistorySidebar{},
+		sidebarVisible: true,
+	}
 
 	contentCoord := contentcoord.NewCoordinator(ctx, nil, nil, nil, nil, nil, nil, nil)
 	fakeWv := &fakeRecordingWebView{id: 1}
@@ -118,6 +124,7 @@ func TestHistorySidebarConfig_OnNavigateKeepOpenNavigatesWithoutClosing(t *testi
 	require.NoError(t, err)
 	assert.True(t, fakeWv.loadURICalled)
 	assert.Equal(t, navigateURL, fakeWv.loadURILastURI, "Ctrl+Enter navigation should go to the URL")
+	assert.True(t, bw.sidebarVisible, "Ctrl+Enter navigation should keep the sidebar visible")
 }
 
 // TestHistorySidebar_OwnershipOnMultiWindowNavigation verifies that when
@@ -844,8 +851,6 @@ func TestApp_HideAndRestoreFocusForBrowserWindow_HidesSidebar(t *testing.T) {
 
 	// Sidebar must be hidden.
 	assert.False(t, bw.sidebarVisible, "sidebar must be hidden")
-
-	_ = wsView
 }
 
 // TestApp_HideAndRestoreFocusForBrowserWindow_NilBWIsSafe verifies that

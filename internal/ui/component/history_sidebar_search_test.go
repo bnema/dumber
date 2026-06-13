@@ -271,7 +271,7 @@ func TestApplySearchResults_CurrentGenerationAppliedAfterSearch(t *testing.T) {
 	}
 
 	hs.mu.RLock()
-	assert.NotNil(t, hs.searchResults)
+	require.NotNil(t, hs.searchResults)
 	assert.True(t, hs.searchDone)
 	assert.Len(t, hs.searchResults, 1)
 	assert.Equal(t, "https://live.com", hs.searchResults[0].URL)

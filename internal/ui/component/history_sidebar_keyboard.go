@@ -229,10 +229,10 @@ func (hs *HistorySidebar) rebuildLocalGroups() {
 
 // removeFromAllEntries removes all history entries matching the given URL or ID
 // from hs.allEntries. Must be called with hs.mu write lock held.
-func (hs *HistorySidebar) removeFromAllEntries(url string, id int64) {
+func (hs *HistorySidebar) removeFromAllEntries(_ string, id int64) {
 	filtered := make([]*entity.HistoryEntry, 0, len(hs.allEntries))
 	for _, e := range hs.allEntries {
-		if e != nil && (e.URL == url || e.ID == id) {
+		if e != nil && e.ID == id {
 			continue
 		}
 		filtered = append(filtered, e)
@@ -377,6 +377,8 @@ func (hs *HistorySidebar) jumpToLastSelectable() {
 			lastRow = row
 		}
 	}
+	// GetRowAtIndex returns nil once the index is past the end of the list,
+	// so this scan terminates naturally at the first missing row.
 	// If we found a selectable row, try it. Otherwise fall back to last row.
 	if lastRow != nil {
 		hs.listBox.SelectRow(lastRow)

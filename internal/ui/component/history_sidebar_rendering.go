@@ -24,6 +24,7 @@ func (hs *HistorySidebar) rebuildList() {
 	rows := hs.displayRows
 	query := hs.currentQuery
 	hasSearchResults := hs.searchResults != nil
+	searchDone := hs.searchDone
 	totalLoaded := hs.totalLoaded
 	hs.mu.RUnlock()
 
@@ -33,7 +34,7 @@ func (hs *HistorySidebar) rebuildList() {
 	if len(rows) == 0 {
 		if !hasSearchResults && totalLoaded == 0 {
 			// Browse has not loaded yet AND no search has completed.
-			hs.showLoadingOrEmpty()
+			hs.showLoadingOrEmpty(query, searchDone)
 			return
 		}
 		// Search completed with 0 results, or browse loaded but empty (no history).
@@ -60,7 +61,7 @@ func (hs *HistorySidebar) rebuildList() {
 	hs.ensureAtLeastOneSelection()
 }
 
-func (hs *HistorySidebar) showLoadingOrEmpty() {
+func (hs *HistorySidebar) showLoadingOrEmpty(query string, searchDone bool) {
 	label := gtk.NewLabel(nil)
 	if label == nil {
 		return
@@ -69,12 +70,13 @@ func (hs *HistorySidebar) showLoadingOrEmpty() {
 
 	hs.mu.RLock()
 	isLoading := hs.isLoading
-	query := hs.currentQuery
 	hs.mu.RUnlock()
 
 	switch {
 	case isLoading && query == "":
 		label.SetText("Loading history...")
+	case query != "" && !searchDone:
+		label.SetText("Searching...")
 	case query != "":
 		label.SetText(fmt.Sprintf("No results for \"%s\"", query))
 	default:

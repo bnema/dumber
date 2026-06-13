@@ -255,7 +255,7 @@ func (hs *HistorySidebar) Show() {
 		hs.Reload()
 		return false
 	})
-	glib.IdleAdd(&reloadCb, 0)
+	hs.scheduleIdle(reloadCb)
 
 	// Focus search entry via idle callback to ensure layout is stable.
 	cb := glib.SourceFunc(func(uintptr) bool {
@@ -269,7 +269,7 @@ func (hs *HistorySidebar) Show() {
 		entry.GrabFocus()
 		return false
 	})
-	glib.IdleAdd(&cb, 0)
+	hs.scheduleIdle(cb)
 }
 
 // Hide hides the sidebar.

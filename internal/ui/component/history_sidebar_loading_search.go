@@ -353,14 +353,15 @@ func (hs *HistorySidebar) applyFilter() {
 func (hs *HistorySidebar) doFTSearch(query string, gen uint64) {
 	hs.mu.RLock()
 	uc := hs.historyUC
+	ctx := hs.ctx
 	hs.mu.RUnlock()
 
-	if uc == nil {
+	if uc == nil || ctx == nil {
 		return
 	}
 
 	go func() {
-		out, err := uc.Search(hs.ctx, dto.HistorySearchInput{Query: query, Limit: sidebarSearchLimit})
+		out, err := uc.Search(ctx, dto.HistorySearchInput{Query: query, Limit: sidebarSearchLimit})
 		var entries []*entity.HistoryEntry
 		if out != nil {
 			entries = make([]*entity.HistoryEntry, len(out.Matches))
@@ -397,9 +398,7 @@ func (hs *HistorySidebar) applySearchResults(entries []*entity.HistoryEntry, gen
 	}
 	hs.searchResults = entries
 	hs.searchDone = true
-	if err != nil {
-		hs.searchErr = err
-	}
+	hs.searchErr = err
 	hs.setDisplayGroupsLocked(groupHistoryByDay(entries))
 	return true
 }

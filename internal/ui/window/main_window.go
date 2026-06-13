@@ -114,7 +114,6 @@ func New(ctx context.Context, app *gtk.Application, tabBarPosition string) (*Mai
 	mw.mainContentBox.SetHexpand(true)
 	mw.mainContentBox.SetVexpand(true)
 	mw.mainContentBox.SetVisible(true)
-	mw.mainContentBox.AddCssClass("content-area")
 
 	// Sidebar box (hidden by default).
 	mw.sidebarBox = gtk.NewBox(gtk.OrientationVerticalValue, 0)
