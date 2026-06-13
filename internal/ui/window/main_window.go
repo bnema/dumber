@@ -230,14 +230,15 @@ func (mw *MainWindow) SetSidebarWidth(cfg SidebarWidthConfig) {
 	if mw.sidebarBox == nil {
 		return
 	}
+	defaults := SidebarDefaultWidth()
 	if cfg.MinPx == 0 {
-		cfg.MinPx = 280
+		cfg.MinPx = defaults.MinPx
 	}
 	if cfg.MaxPx == 0 {
-		cfg.MaxPx = 380
+		cfg.MaxPx = defaults.MaxPx
 	}
 	if cfg.WidthPx == 0 {
-		cfg.WidthPx = 320
+		cfg.WidthPx = defaults.WidthPx
 	}
 	clamped := cfg.WidthPx
 	if clamped < cfg.MinPx {

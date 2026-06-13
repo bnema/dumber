@@ -3,7 +3,6 @@ package ui
 import (
 	"context"
 	"errors"
-	"fmt"
 	"reflect"
 	"testing"
 	"unsafe"
@@ -1284,8 +1283,7 @@ func TestApp_HistorySidebar_ToggleThroughKeyboardDispatcher(t *testing.T) {
 		lastFocusedWindowID: focusedBW.id,
 	}
 
-	// Create a KeyboardDispatcher and wire the same toggle handler closure
-	// that App.wireKeyboardActions would register.
+	// Create a KeyboardDispatcher and wire the production toggle handler.
 	kbDispatcher := dispatcher.NewKeyboardDispatcher(
 		ctx,
 		&coordinator.WorkspaceCoordinator{},
@@ -1295,18 +1293,7 @@ func TestApp_HistorySidebar_ToggleThroughKeyboardDispatcher(t *testing.T) {
 		func(context.Context) entity.PaneID { return "" },
 	)
 
-	// Wire the exact closure from App.wireKeyboardActions.
-	kbDispatcher.SetOnToggleHistorySidebar(func(ctx context.Context) error {
-		bw := app.lastFocusedBrowserWindow()
-		if bw == nil {
-			return nil
-		}
-		if bw.historySidebar != nil {
-			bw.toggleHistorySidebar()
-			return nil
-		}
-		return nil
-	})
+	kbDispatcher.SetOnToggleHistorySidebar(app.toggleHistorySidebarAction)
 
 	// First dispatch: toggle ON.
 	err := kbDispatcher.Dispatch(ctx, input.ActionToggleHistorySystemView)
@@ -1345,17 +1332,7 @@ func TestApp_HistorySidebar_ToggleThroughDispatcher_UnavailableReturnsError(t *t
 		func(context.Context) entity.PaneID { return "" },
 	)
 
-	kbDispatcher.SetOnToggleHistorySidebar(func(ctx context.Context) error {
-		bw := app.lastFocusedBrowserWindow()
-		if bw == nil {
-			return fmt.Errorf("history sidebar unavailable: no focused browser window")
-		}
-		if bw.historySidebar != nil {
-			bw.toggleHistorySidebar()
-			return nil
-		}
-		return fmt.Errorf("history sidebar unavailable: native sidebar not initialized")
-	})
+	kbDispatcher.SetOnToggleHistorySidebar(app.toggleHistorySidebarAction)
 
 	err := kbDispatcher.Dispatch(ctx, input.ActionToggleHistorySystemView)
 	require.Error(t, err)
@@ -1382,13 +1359,7 @@ func TestApp_HistorySidebar_ToggleThroughDispatcher_NilFocusedReturnsError(t *te
 		func(context.Context) entity.PaneID { return "" },
 	)
 
-	kbDispatcher.SetOnToggleHistorySidebar(func(ctx context.Context) error {
-		bw := app.lastFocusedBrowserWindow()
-		if bw == nil {
-			return fmt.Errorf("history sidebar unavailable: no focused browser window")
-		}
-		return nil
-	})
+	kbDispatcher.SetOnToggleHistorySidebar(app.toggleHistorySidebarAction)
 
 	err := kbDispatcher.Dispatch(ctx, input.ActionToggleHistorySystemView)
 	require.Error(t, err)

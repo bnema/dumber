@@ -254,10 +254,10 @@ func (m keyboardNavModel) cumulativeOffsetAtGroup(gi int) int {
 // firstEntryOfGroup returns the linear index of the first entry in the
 // group at gi, or -1 if the group has no entries.
 func (m keyboardNavModel) firstEntryOfGroup(gi int) int {
-	offset := m.cumulativeOffsetAtGroup(gi)
 	if gi < 0 || gi >= len(m.groups) {
 		return -1
 	}
+	offset := m.cumulativeOffsetAtGroup(gi)
 	firstEntry := offset + 1
 	if firstEntry < m.totalRows() && m.isSelectable(firstEntry) {
 		return firstEntry

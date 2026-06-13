@@ -301,7 +301,7 @@ func (bw *browserWindow) initHistorySidebar(ctx context.Context, a *App) {
 // buildHistorySidebarConfig constructs the HistorySidebarConfig for the given
 // browser window. Extracted from initHistorySidebar for testability.
 func (a *App) buildHistorySidebarConfig(ctx context.Context, bw *browserWindow) component.HistorySidebarConfig {
-	var historyUC port.HomepageHistory
+	var historyUC port.HistorySidebarHistory
 	if a.deps != nil {
 		historyUC = a.deps.HistoryUC
 	}
@@ -348,7 +348,7 @@ func (bw *browserWindow) toggleHistorySidebar(widthCfg ...window.SidebarWidthCon
 // showHistorySidebar makes the sidebar visible and grabs focus for the search
 // entry. An optional width config can be provided to override the default width.
 func (bw *browserWindow) showHistorySidebar(widthCfg ...window.SidebarWidthConfig) {
-	if bw == nil || bw.historySidebar == nil {
+	if bw == nil || bw.historySidebar == nil || bw.mainWindow == nil {
 		return
 	}
 	// Apply width config if provided
@@ -371,6 +371,18 @@ func historySidebarWidthConfig(widthPx int) window.SidebarWidthConfig {
 	return cfg
 }
 
+func (a *App) toggleHistorySidebarAction(ctx context.Context) error {
+	bw := a.lastFocusedBrowserWindow()
+	if bw == nil {
+		return fmt.Errorf("history sidebar unavailable: no focused browser window")
+	}
+	if bw.historySidebar == nil {
+		return fmt.Errorf("history sidebar unavailable: native sidebar not initialized")
+	}
+	bw.toggleHistorySidebar()
+	return nil
+}
+
 func (bw *browserWindow) applySidebarWidthConfig(a *App) {
 	if bw == nil || bw.mainWindow == nil || a == nil || a.deps == nil || a.deps.Config == nil {
 		return
@@ -381,7 +393,7 @@ func (bw *browserWindow) applySidebarWidthConfig(a *App) {
 // hideHistorySidebar hides the sidebar. Callers should also restore focus
 // to the active content pane after calling this.
 func (bw *browserWindow) hideHistorySidebar() {
-	if bw == nil || bw.historySidebar == nil {
+	if bw == nil || bw.historySidebar == nil || bw.mainWindow == nil {
 		return
 	}
 	bw.historySidebar.Hide()

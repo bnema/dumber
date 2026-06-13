@@ -3522,17 +3522,7 @@ func (a *App) wireKeyboardActions() {
 		}
 		return a.EjectActivePaneToWindow(ctx, paneID)
 	})
-	a.kbDispatcher.SetOnToggleHistorySidebar(func(ctx context.Context) error {
-		bw := a.lastFocusedBrowserWindow()
-		if bw == nil {
-			return fmt.Errorf("history sidebar unavailable: no focused browser window")
-		}
-		if bw.historySidebar == nil {
-			return fmt.Errorf("history sidebar unavailable: native sidebar not initialized")
-		}
-		bw.toggleHistorySidebar()
-		return nil
-	})
+	a.kbDispatcher.SetOnToggleHistorySidebar(a.toggleHistorySidebarAction)
 	a.kbDispatcher.SetOnToggleFloatingPane(func(ctx context.Context) error {
 		return a.ToggleFloatingPane(ctx)
 	})

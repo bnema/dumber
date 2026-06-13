@@ -8,11 +8,9 @@ import (
 	"time"
 
 	"github.com/bnema/dumber/internal/application/dto"
-	appportmocks "github.com/bnema/dumber/internal/application/port/mocks"
 	"github.com/bnema/dumber/internal/domain/entity"
 	"github.com/rs/zerolog"
 	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 )
 
@@ -120,23 +118,48 @@ func TestApplySearchResults_EmptyResultsApplied(t *testing.T) {
 }
 
 // =============================================================================
-// doFTSearch seam: controllable history port mock
+// doFTSearch seam: controllable history port fake
 // =============================================================================
 
-func newMockHomepageHistory(t *testing.T) *appportmocks.MockHomepageHistory {
-	return appportmocks.NewMockHomepageHistory(t)
+type fakeHistorySidebarHistory struct {
+	getRecentFn func(ctx context.Context, limit, offset int) ([]*entity.HistoryEntry, error)
+	searchFn    func(ctx context.Context, input dto.HistorySearchInput) (*dto.HistorySearchOutput, error)
+	deleteFn    func(ctx context.Context, id int64) error
+}
+
+func (f *fakeHistorySidebarHistory) GetRecent(ctx context.Context, limit, offset int) ([]*entity.HistoryEntry, error) {
+	if f.getRecentFn != nil {
+		return f.getRecentFn(ctx, limit, offset)
+	}
+	<-make(chan struct{})
+	return nil, nil
+}
+
+func (f *fakeHistorySidebarHistory) Search(ctx context.Context, input dto.HistorySearchInput) (*dto.HistorySearchOutput, error) {
+	if f.searchFn != nil {
+		return f.searchFn(ctx, input)
+	}
+	return &dto.HistorySearchOutput{Matches: []entity.HistoryMatch{}}, nil
+}
+
+func (f *fakeHistorySidebarHistory) Delete(ctx context.Context, id int64) error {
+	if f.deleteFn != nil {
+		return f.deleteFn(ctx, id)
+	}
+	return nil
 }
 
 func TestDoFTSearch_WithFakeUC_StaleGenerationDropsResults(t *testing.T) {
 	searchCalled := make(chan struct{}, 1)
 
-	history := newMockHomepageHistory(t)
-	history.EXPECT().Search(mock.Anything, dto.HistorySearchInput{Query: "test", Limit: sidebarSearchLimit}).RunAndReturn(func(context.Context, dto.HistorySearchInput) (*dto.HistorySearchOutput, error) {
-		searchCalled <- struct{}{}
-		return &dto.HistorySearchOutput{Matches: []entity.HistoryMatch{
-			{Entry: &entity.HistoryEntry{ID: 1, URL: "https://result.com", Title: "Result", LastVisited: time.Now()}},
-		}}, nil
-	})
+	history := &fakeHistorySidebarHistory{
+		searchFn: func(context.Context, dto.HistorySearchInput) (*dto.HistorySearchOutput, error) {
+			searchCalled <- struct{}{}
+			return &dto.HistorySearchOutput{Matches: []entity.HistoryMatch{
+				{Entry: &entity.HistoryEntry{ID: 1, URL: "https://result.com", Title: "Result", LastVisited: time.Now()}},
+			}}, nil
+		},
+	}
 
 	hs := newTestSidebarSearchHarness()
 	hs.ctx = context.Background()
@@ -147,21 +170,19 @@ func TestDoFTSearch_WithFakeUC_StaleGenerationDropsResults(t *testing.T) {
 	hs.doFTSearch("test", 1)
 	<-searchCalled // Wait for the goroutine to pick up the search
 
-	// Advance gen before the idle callback can apply results.
-	// The callback runs inside the goroutine after the search completes.
+	// Advance gen before the UI callback would apply results.
 	hs.mu.Lock()
 	hs.searchGen = 2
 	hs.mu.Unlock()
 
-	// Wait briefly for the idle callback to attempt applying.
-	// Since gen=1 != gen=2, results should be silently dropped
-	// (glib.IdleAdd is a no-op outside GTK, but we verify the
-	// gen comparison via applySearchResults).
-	time.Sleep(50 * time.Millisecond)
+	applied := hs.applySearchResults([]*entity.HistoryEntry{{
+		ID: 1, URL: "https://result.com", Title: "Result", LastVisited: time.Now(),
+	}}, 1, nil)
+	assert.False(t, applied, "stale search results must be dropped")
 
 	hs.mu.RLock()
 	defer hs.mu.RUnlock()
-	assert.Nil(t, hs.searchResults, "stale search results must be dropped")
+	assert.Nil(t, hs.searchResults)
 	assert.False(t, hs.searchDone)
 	assert.Nil(t, hs.groups)
 }
@@ -169,13 +190,14 @@ func TestDoFTSearch_WithFakeUC_StaleGenerationDropsResults(t *testing.T) {
 func TestDoFTSearch_WithFakeUC_CurrentGenApplied(t *testing.T) {
 	searchCalled := make(chan struct{}, 1)
 
-	history := newMockHomepageHistory(t)
-	history.EXPECT().Search(mock.Anything, dto.HistorySearchInput{Query: "live", Limit: sidebarSearchLimit}).RunAndReturn(func(context.Context, dto.HistorySearchInput) (*dto.HistorySearchOutput, error) {
-		searchCalled <- struct{}{}
-		return &dto.HistorySearchOutput{Matches: []entity.HistoryMatch{
-			{Entry: &entity.HistoryEntry{ID: 1, URL: "https://live.com", Title: "Live", LastVisited: time.Now()}},
-		}}, nil
-	})
+	history := &fakeHistorySidebarHistory{
+		searchFn: func(context.Context, dto.HistorySearchInput) (*dto.HistorySearchOutput, error) {
+			searchCalled <- struct{}{}
+			return &dto.HistorySearchOutput{Matches: []entity.HistoryMatch{
+				{Entry: &entity.HistoryEntry{ID: 1, URL: "https://live.com", Title: "Live", LastVisited: time.Now()}},
+			}}, nil
+		},
+	}
 
 	hs := newTestSidebarSearchHarness()
 	hs.ctx = context.Background()
@@ -212,11 +234,12 @@ func TestDoFTSearch_WithFakeUC_CurrentGenApplied(t *testing.T) {
 // active query while resetting browse/search state before the refreshed load.
 func TestHistorySidebar_ReloadPreservesQuery(t *testing.T) {
 	searchCalled := make(chan struct{}, 1)
-	history := newMockHomepageHistory(t)
-	history.EXPECT().Search(mock.Anything, dto.HistorySearchInput{Query: "preserved", Limit: sidebarSearchLimit}).RunAndReturn(func(context.Context, dto.HistorySearchInput) (*dto.HistorySearchOutput, error) {
-		searchCalled <- struct{}{}
-		return &dto.HistorySearchOutput{Matches: []entity.HistoryMatch{}}, nil
-	})
+	history := &fakeHistorySidebarHistory{
+		searchFn: func(context.Context, dto.HistorySearchInput) (*dto.HistorySearchOutput, error) {
+			searchCalled <- struct{}{}
+			return &dto.HistorySearchOutput{Matches: []entity.HistoryMatch{}}, nil
+		},
+	}
 
 	hs := newTestSidebarSearchHarness()
 	hs.currentQuery = "preserved"
@@ -266,12 +289,13 @@ func TestFetchPage_StaleGenerationDoesNotMutateLoadingState(t *testing.T) {
 	getRecentCalled := make(chan struct{})
 	proceed := make(chan struct{})
 
-	history := newMockHomepageHistory(t)
-	history.EXPECT().GetRecent(mock.Anything, sidebarPageSize, 0).RunAndReturn(func(context.Context, int, int) ([]*entity.HistoryEntry, error) {
-		close(getRecentCalled)
-		<-proceed
-		return []*entity.HistoryEntry{}, nil
-	})
+	history := &fakeHistorySidebarHistory{
+		getRecentFn: func(context.Context, int, int) ([]*entity.HistoryEntry, error) {
+			close(getRecentCalled)
+			<-proceed
+			return []*entity.HistoryEntry{}, nil
+		},
+	}
 
 	hs := newTestSidebarSearchHarness()
 	hs.ctx = context.Background()

@@ -54,7 +54,7 @@ type HistorySidebar struct {
 	listBox     *gtk.ListBox
 
 	// Dependencies
-	historyUC          port.HomepageHistory
+	historyUC          port.HistorySidebarHistory
 	onURL              func(ctx context.Context, url string)
 	onOpenInNewPane    func(ctx context.Context, url string) error
 	onNavigateKeepOpen func(ctx context.Context, url string)
@@ -103,7 +103,7 @@ type HistorySidebar struct {
 // HistorySidebarConfig holds configuration for creating a HistorySidebar.
 type HistorySidebarConfig struct {
 	// HistoryUC provides history query and delete operations.
-	HistoryUC port.HomepageHistory
+	HistoryUC port.HistorySidebarHistory
 
 	// OnNavigate is called when the user activates a history entry.
 	// The default Enter / click behavior keeps the sidebar open after navigating.
@@ -245,19 +245,27 @@ func (hs *HistorySidebar) Show() {
 	// Schedule a background reload so the sidebar shows fresh data
 	// when it becomes visible, not stale data captured at init time.
 	reloadCb := glib.SourceFunc(func(uintptr) bool {
+		hs.mu.RLock()
+		destroyed := hs.destroyed
+		hs.mu.RUnlock()
+		if destroyed {
+			return false
+		}
 		hs.Reload()
 		return false
 	})
 	glib.IdleAdd(&reloadCb, 0)
 
-	// Focus search entry via idle callback to ensure layout is stable
+	// Focus search entry via idle callback to ensure layout is stable.
 	cb := glib.SourceFunc(func(uintptr) bool {
 		hs.mu.RLock()
+		destroyed := hs.destroyed
 		entry := hs.searchEntry
 		hs.mu.RUnlock()
-		if entry != nil {
-			entry.GrabFocus()
+		if destroyed || entry == nil {
+			return false
 		}
+		entry.GrabFocus()
 		return false
 	})
 	glib.IdleAdd(&cb, 0)
@@ -287,6 +295,10 @@ func (hs *HistorySidebar) IsVisible() bool {
 // query, scroll position, and selection.
 func (hs *HistorySidebar) Reload() {
 	hs.mu.Lock()
+	if hs.destroyed {
+		hs.mu.Unlock()
+		return
+	}
 	hs.preserveScrollAndSelection()
 	savedQuery := hs.currentQuery
 
@@ -446,6 +458,10 @@ func (hs *HistorySidebar) fetchPage(offset int, gen uint64) {
 		// No provider; show empty state
 		cb := glib.SourceFunc(func(uintptr) bool {
 			hs.mu.Lock()
+			if hs.destroyed {
+				hs.mu.Unlock()
+				return false
+			}
 			hs.loadStarted = false
 			hs.isLoading = false
 			hs.loadDone = true
@@ -798,7 +814,7 @@ func (hs *HistorySidebar) doFTSearch(query string, gen uint64) {
 func (hs *HistorySidebar) applySearchResults(entries []*entity.HistoryEntry, gen uint64, err error) bool {
 	hs.mu.Lock()
 	defer hs.mu.Unlock()
-	if gen != hs.searchGen {
+	if hs.destroyed || gen != hs.searchGen {
 		return false
 	}
 	hs.searchResults = entries
@@ -814,11 +830,13 @@ func (hs *HistorySidebar) applySearchResults(entries []*entity.HistoryEntry, gen
 func (hs *HistorySidebar) scheduleClearList() {
 	cb := glib.SourceFunc(func(uintptr) bool {
 		hs.mu.RLock()
+		destroyed := hs.destroyed
 		listBox := hs.listBox
 		hs.mu.RUnlock()
-		if listBox != nil {
-			listBox.RemoveAll()
+		if destroyed || listBox == nil {
+			return false
 		}
+		listBox.RemoveAll()
 		return false
 	})
 	glib.IdleAdd(&cb, 0)
@@ -1087,6 +1105,9 @@ func (hs *HistorySidebar) setupKeyboardNavigation() {
 
 		// --- Delete: remove selected entry ---
 		case uint(gdk.KEY_Delete), uint(gdk.KEY_KP_Delete):
+			if hs.searchEntry != nil && hs.searchEntry.GetText() != "" {
+				return false
+			}
 			return hs.handleDeleteKey()
 
 		// --- PageUp / PageDown: scroll by page ---
@@ -1373,19 +1394,7 @@ func (hs *HistorySidebar) jumpToNextDay() {
 // scrollRowIntoView scrolls the scrolled window to ensure the row at
 // the given ListBox index is visible.
 func (hs *HistorySidebar) scrollRowIntoView(index int) {
-	if hs.scrolledWin == nil {
-		return
-	}
-	vadj := hs.scrolledWin.GetVadjustment()
-	if vadj == nil {
-		return
-	}
-	row := hs.listBox.GetRowAtIndex(index)
-	if row == nil {
-		return
-	}
-	// GrabFocus on the row scrolls it into view in a GTK ListBox
-	row.GrabFocus()
+	hs.ensureRowVisible(index)
 }
 
 // jumpToFirstSelectable selects the first selectable row in the list.
@@ -1397,8 +1406,7 @@ func (hs *HistorySidebar) jumpToFirstSelectable() {
 		}
 		if row.GetSelectable() {
 			hs.listBox.SelectRow(row)
-			// Scroll to visible
-			row.GrabFocus()
+			hs.ensureRowVisible(i)
 			return
 		}
 	}
@@ -1422,14 +1430,14 @@ func (hs *HistorySidebar) jumpToLastSelectable() {
 	// If we found a selectable row, try it. Otherwise fall back to last row.
 	if lastRow != nil {
 		hs.listBox.SelectRow(lastRow)
-		lastRow.GrabFocus()
+		hs.ensureRowVisible(lastRow.GetIndex())
 		return
 	}
 	// Fallback: last row regardless of selectability
 	if maxIdx > 0 {
 		if row := hs.listBox.GetRowAtIndex(maxIdx); row != nil {
 			hs.listBox.SelectRow(row)
-			row.GrabFocus()
+			hs.ensureRowVisible(maxIdx)
 		}
 	}
 }
