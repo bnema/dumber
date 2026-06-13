@@ -199,6 +199,9 @@ func (mw *MainWindow) ContentArea() *gtk.Box {
 // SetContent replaces the current content widget in the main content area
 // (the vertical box that holds workspace tab content).
 func (mw *MainWindow) SetContent(widget *gtk.Widget) {
+	if mw == nil || mw.mainContentBox == nil {
+		return
+	}
 	if mw.currentContent != nil {
 		mw.mainContentBox.Remove(mw.currentContent)
 		mw.currentContent = nil
