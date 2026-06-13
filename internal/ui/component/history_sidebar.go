@@ -10,7 +10,8 @@ import (
 	"github.com/bnema/puregotk/v4/gtk"
 	"github.com/bnema/puregotk/v4/pango"
 
-	"github.com/bnema/dumber/internal/application/usecase"
+	"github.com/bnema/dumber/internal/application/dto"
+	"github.com/bnema/dumber/internal/application/port"
 	"github.com/bnema/dumber/internal/domain/entity"
 	"github.com/bnema/dumber/internal/logging"
 	"github.com/bnema/dumber/internal/ui/layout"
@@ -53,7 +54,7 @@ type HistorySidebar struct {
 	listBox     *gtk.ListBox
 
 	// Dependencies
-	historyUC          *usecase.SearchHistoryUseCase
+	historyUC          port.HomepageHistory
 	onURL              func(ctx context.Context, url string)
 	onOpenInNewPane    func(ctx context.Context, url string) error
 	onNavigateKeepOpen func(ctx context.Context, url string)
@@ -102,7 +103,7 @@ type HistorySidebar struct {
 // HistorySidebarConfig holds configuration for creating a HistorySidebar.
 type HistorySidebarConfig struct {
 	// HistoryUC provides history query and delete operations.
-	HistoryUC *usecase.SearchHistoryUseCase
+	HistoryUC port.HomepageHistory
 
 	// OnNavigate is called when the user activates a history entry.
 	// The default Enter / click behavior keeps the sidebar open after navigating.
@@ -765,7 +766,7 @@ func (hs *HistorySidebar) doFTSearch(query string, gen uint64) {
 	}
 
 	go func() {
-		out, err := uc.Search(hs.ctx, usecase.SearchInput{Query: query, Limit: sidebarSearchLimit})
+		out, err := uc.Search(hs.ctx, dto.HistorySearchInput{Query: query, Limit: sidebarSearchLimit})
 		var entries []*entity.HistoryEntry
 		if out != nil {
 			entries = make([]*entity.HistoryEntry, len(out.Matches))

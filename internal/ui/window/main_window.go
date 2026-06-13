@@ -38,9 +38,8 @@ type MainWindow struct {
 	sidebarBox     *gtk.Box     // Vertical container for sidebar (hidden by default)
 	currentContent *gtk.Widget  // Track current content for removal on tab switch
 
-	tabBarPosition      string             // "top" or "bottom"
-	lastSidebarWidthCfg SidebarWidthConfig // last config passed to SetSidebarWidth (zero-value = unset; test seam)
-	logger              zerolog.Logger
+	tabBarPosition string // "top" or "bottom"
+	logger         zerolog.Logger
 }
 
 // New creates a new main browser window.
@@ -228,7 +227,6 @@ func (mw *MainWindow) SidebarBox() *gtk.Box {
 // config's [MinPx, MaxPx] bounds. Using the zero-value SidebarWidthConfig{}
 // sets sensible defaults (320px clamped to [280, 380]).
 func (mw *MainWindow) SetSidebarWidth(cfg SidebarWidthConfig) {
-	mw.lastSidebarWidthCfg = cfg // record for testability
 	if mw.sidebarBox == nil {
 		return
 	}
@@ -267,12 +265,6 @@ func (mw *MainWindow) IsSidebarVisible() bool {
 		return false
 	}
 	return mw.sidebarBox.GetVisible()
-}
-
-// LastSidebarWidthCfg returns the last SidebarWidthConfig passed to
-// SetSidebarWidth. Returns the zero value if never called (test seam).
-func (mw *MainWindow) LastSidebarWidthCfg() SidebarWidthConfig {
-	return mw.lastSidebarWidthCfg
 }
 
 // SetSidebarWidget replaces the current sidebar content widget.

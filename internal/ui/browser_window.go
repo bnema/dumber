@@ -301,7 +301,7 @@ func (bw *browserWindow) initHistorySidebar(ctx context.Context, a *App) {
 // buildHistorySidebarConfig constructs the HistorySidebarConfig for the given
 // browser window. Extracted from initHistorySidebar for testability.
 func (a *App) buildHistorySidebarConfig(ctx context.Context, bw *browserWindow) component.HistorySidebarConfig {
-	var historyUC *usecase.SearchHistoryUseCase
+	var historyUC port.HomepageHistory
 	if a.deps != nil {
 		historyUC = a.deps.HistoryUC
 	}
@@ -363,15 +363,19 @@ func (bw *browserWindow) showHistorySidebar(widthCfg ...window.SidebarWidthConfi
 // applySidebarWidthConfig extracts the config-backed sidebar width and
 // applies it via the MainWindow.SetSidebarWidth path. It is called during
 // initialization and can be reused if config is reloaded at runtime.
+func historySidebarWidthConfig(widthPx int) window.SidebarWidthConfig {
+	cfg := window.SidebarDefaultWidth()
+	if widthPx > 0 {
+		cfg.WidthPx = widthPx
+	}
+	return cfg
+}
+
 func (bw *browserWindow) applySidebarWidthConfig(a *App) {
 	if bw == nil || bw.mainWindow == nil || a == nil || a.deps == nil || a.deps.Config == nil {
 		return
 	}
-	widthCfg := window.SidebarDefaultWidth()
-	if w := a.deps.Config.SidebarWidth; w > 0 {
-		widthCfg.WidthPx = w
-	}
-	bw.mainWindow.SetSidebarWidth(widthCfg)
+	bw.mainWindow.SetSidebarWidth(historySidebarWidthConfig(a.deps.Config.SidebarWidth))
 }
 
 // hideHistorySidebar hides the sidebar. Callers should also restore focus

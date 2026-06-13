@@ -1774,50 +1774,18 @@ func TestApp_HideAndRestoreFocusForBrowserWindow_NilBWIsSafe(t *testing.T) {
 }
 
 // =============================================================================
-// applySidebarWidthConfig tests
+// Sidebar width config tests
 // =============================================================================
 
-// TestBrowserWindow_ApplySidebarWidthConfig_ConfigValue verifies that
-// applySidebarWidthConfig reads the SidebarWidth from deps.Config and
-// passes it to SetSidebarWidth as the width config, overriding the default.
-func TestBrowserWindow_ApplySidebarWidthConfig_ConfigValue(t *testing.T) {
-	mw := &window.MainWindow{}
-	bw := &browserWindow{mainWindow: mw}
-
-	app := &App{
-		deps: &Dependencies{
-			Config: &config.Config{
-				SidebarWidth: 350,
-			},
-		},
-	}
-
-	bw.applySidebarWidthConfig(app)
-
-	// SetSidebarWidth should have been called with WidthPx = 350.
-	cfg := mw.LastSidebarWidthCfg()
+func TestHistorySidebarWidthConfig_ConfigValue(t *testing.T) {
+	cfg := historySidebarWidthConfig(350)
 	assert.Equal(t, 350, cfg.WidthPx, "should apply config-backed width of 350px")
 	assert.Equal(t, 280, cfg.MinPx, "should keep default min clamp")
 	assert.Equal(t, 380, cfg.MaxPx, "should keep default max clamp")
 }
 
-// TestBrowserWindow_ApplySidebarWidthConfig_DefaultValue verifies that when
-// SidebarWidth is 0 (unset), applySidebarWidthConfig passes the default 320px.
-func TestBrowserWindow_ApplySidebarWidthConfig_DefaultValue(t *testing.T) {
-	mw := &window.MainWindow{}
-	bw := &browserWindow{mainWindow: mw}
-
-	app := &App{
-		deps: &Dependencies{
-			Config: &config.Config{
-				SidebarWidth: 0,
-			},
-		},
-	}
-
-	bw.applySidebarWidthConfig(app)
-
-	cfg := mw.LastSidebarWidthCfg()
+func TestHistorySidebarWidthConfig_DefaultValue(t *testing.T) {
+	cfg := historySidebarWidthConfig(0)
 	assert.Equal(t, 320, cfg.WidthPx, "should use default width of 320px when config is 0")
 	assert.Equal(t, 280, cfg.MinPx, "should keep default min clamp")
 	assert.Equal(t, 380, cfg.MaxPx, "should keep default max clamp")
