@@ -78,7 +78,7 @@ func (hs *HistorySidebar) showLoadingOrEmpty(query string, searchDone bool) {
 	case query != "" && !searchDone:
 		label.SetText("Searching...")
 	case query != "":
-		label.SetText(fmt.Sprintf("No results for \"%s\"", query))
+		label.SetText(fmt.Sprintf("No results for %q", query))
 	default:
 		label.SetText("No browsing history")
 	}
@@ -105,7 +105,7 @@ func (hs *HistorySidebar) showEmptyState(query string) {
 	label.AddCssClass("history-sidebar-empty")
 
 	if query != "" {
-		label.SetText(fmt.Sprintf("No results for \"%s\"", query))
+		label.SetText(fmt.Sprintf("No results for %q", query))
 	} else {
 		label.SetText("No browsing history")
 	}

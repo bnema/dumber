@@ -61,10 +61,26 @@ func New(ctx context.Context, app *gtk.Application, tabBarPosition string) (*Mai
 	mw.window.SetTitle(&title)
 	mw.window.SetDefaultSize(defaultWidth, defaultHeight)
 
+	if err := mw.initLayoutWidgets(); err != nil {
+		return nil, err
+	}
+
+	mw.contentAreaBox.Append(&mw.mainContentBox.Widget)
+	mw.contentAreaBox.Append(&mw.sidebarBox.Widget)
+	mw.contentOverlay.SetChild(&mw.contentAreaBox.Widget)
+
+	mw.assembleLayout()
+
+	mw.window.SetChild(&mw.rootBox.Widget)
+
+	return mw, nil
+}
+
+func (mw *MainWindow) initLayoutWidgets() error {
 	mw.rootBox = gtk.NewBox(gtk.OrientationVerticalValue, 0)
 	if mw.rootBox == nil {
 		mw.window.Unref()
-		return nil, ErrWidgetCreationFailed("rootBox")
+		return ErrWidgetCreationFailed("rootBox")
 	}
 	mw.rootBox.SetHexpand(true)
 	mw.rootBox.SetVexpand(true)
@@ -74,15 +90,22 @@ func New(ctx context.Context, app *gtk.Application, tabBarPosition string) (*Mai
 	if mw.tabBar == nil {
 		mw.rootBox.Unref()
 		mw.window.Unref()
-		return nil, ErrWidgetCreationFailed("tabBar")
+		return ErrWidgetCreationFailed("tabBar")
 	}
 
+	if err := mw.initContentWidgets(); err != nil {
+		return err
+	}
+	return nil
+}
+
+func (mw *MainWindow) initContentWidgets() error {
 	mw.contentOverlay = gtk.NewOverlay()
 	if mw.contentOverlay == nil {
 		mw.tabBar.Destroy()
 		mw.rootBox.Unref()
 		mw.window.Unref()
-		return nil, ErrWidgetCreationFailed("contentOverlay")
+		return ErrWidgetCreationFailed("contentOverlay")
 	}
 	mw.contentOverlay.SetHexpand(true)
 	mw.contentOverlay.SetVexpand(true)
@@ -95,12 +118,19 @@ func New(ctx context.Context, app *gtk.Application, tabBarPosition string) (*Mai
 		mw.tabBar.Destroy()
 		mw.rootBox.Unref()
 		mw.window.Unref()
-		return nil, ErrWidgetCreationFailed("contentAreaBox")
+		return ErrWidgetCreationFailed("contentAreaBox")
 	}
 	mw.contentAreaBox.SetHexpand(true)
 	mw.contentAreaBox.SetVexpand(true)
 	mw.contentAreaBox.SetVisible(true)
 
+	if err := mw.initContentBoxes(); err != nil {
+		return err
+	}
+	return nil
+}
+
+func (mw *MainWindow) initContentBoxes() error {
 	// Main content box (vertical) for workspace content.
 	mw.mainContentBox = gtk.NewBox(gtk.OrientationVerticalValue, 0)
 	if mw.mainContentBox == nil {
@@ -109,7 +139,7 @@ func New(ctx context.Context, app *gtk.Application, tabBarPosition string) (*Mai
 		mw.tabBar.Destroy()
 		mw.rootBox.Unref()
 		mw.window.Unref()
-		return nil, ErrWidgetCreationFailed("mainContentBox")
+		return ErrWidgetCreationFailed("mainContentBox")
 	}
 	mw.mainContentBox.SetHexpand(true)
 	mw.mainContentBox.SetVexpand(true)
@@ -124,21 +154,13 @@ func New(ctx context.Context, app *gtk.Application, tabBarPosition string) (*Mai
 		mw.tabBar.Destroy()
 		mw.rootBox.Unref()
 		mw.window.Unref()
-		return nil, ErrWidgetCreationFailed("sidebarBox")
+		return ErrWidgetCreationFailed("sidebarBox")
 	}
 	mw.sidebarBox.SetHexpand(false)
 	mw.sidebarBox.SetVexpand(true)
 	mw.sidebarBox.SetVisible(false)
 
-	mw.contentAreaBox.Append(&mw.mainContentBox.Widget)
-	mw.contentAreaBox.Append(&mw.sidebarBox.Widget)
-	mw.contentOverlay.SetChild(&mw.contentAreaBox.Widget)
-
-	mw.assembleLayout()
-
-	mw.window.SetChild(&mw.rootBox.Widget)
-
-	return mw, nil
+	return nil
 }
 
 func (mw *MainWindow) assembleLayout() {

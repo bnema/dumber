@@ -19,7 +19,7 @@ func (bw *browserWindow) initHistorySidebar(ctx context.Context, a *App) {
 	}
 	log := logging.FromContext(ctx)
 
-	cfg := a.buildHistorySidebarConfig(ctx, bw)
+	cfg := a.buildHistorySidebarConfig(bw)
 
 	sidebar := component.NewHistorySidebar(ctx, cfg)
 	if sidebar == nil {
@@ -42,7 +42,7 @@ func (bw *browserWindow) initHistorySidebar(ctx context.Context, a *App) {
 
 // buildHistorySidebarConfig constructs the HistorySidebarConfig for the given
 // browser window. Extracted from initHistorySidebar for testability.
-func (a *App) buildHistorySidebarConfig(ctx context.Context, bw *browserWindow) component.HistorySidebarConfig {
+func (a *App) buildHistorySidebarConfig(bw *browserWindow) component.HistorySidebarConfig {
 	var historyUC port.HistorySidebarHistory
 	if a.deps != nil {
 		historyUC = a.deps.HistoryUC
@@ -76,9 +76,8 @@ func (a *App) navigateHistorySidebarSelection(ctx context.Context, bw *browserWi
 	return a.navigateFromBrowserWindow(ctx, bw, url)
 }
 
-// toggleHistorySidebar toggles sidebar visibility. An optional width config
-// can be provided and is applied when showing the sidebar.
-func (bw *browserWindow) toggleHistorySidebar(widthCfg ...window.SidebarWidthConfig) {
+// toggleHistorySidebar toggles sidebar visibility.
+func (bw *browserWindow) toggleHistorySidebar() {
 	if bw == nil || bw.historySidebar == nil {
 		return
 	}
@@ -86,19 +85,15 @@ func (bw *browserWindow) toggleHistorySidebar(widthCfg ...window.SidebarWidthCon
 	if bw.sidebarVisible {
 		bw.hideHistorySidebar()
 	} else {
-		bw.showHistorySidebar(widthCfg...)
+		bw.showHistorySidebar()
 	}
 }
 
 // showHistorySidebar makes the sidebar visible and grabs focus for the search
-// entry. An optional width config can be provided to override the default width.
-func (bw *browserWindow) showHistorySidebar(widthCfg ...window.SidebarWidthConfig) {
+// entry.
+func (bw *browserWindow) showHistorySidebar() {
 	if bw == nil || bw.historySidebar == nil || bw.mainWindow == nil {
 		return
-	}
-	// Apply width config if provided
-	if len(widthCfg) > 0 {
-		bw.mainWindow.SetSidebarWidth(widthCfg[0])
 	}
 	bw.historySidebar.Show()
 	bw.mainWindow.SetSidebarVisible(true)

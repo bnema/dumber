@@ -28,6 +28,7 @@ const (
 	dayLabelToday           = "Today"
 	dayLabelYesterday       = "Yesterday"
 	dayLabelOtherYearFormat = "January 2, 2006"
+	hoursPerDay             = 24
 )
 
 // groupHistoryByDay groups entries by calendar day, newest-first.
@@ -73,7 +74,7 @@ func groupHistoryByDay(entries []*entity.HistoryEntry) []historyGroup {
 	return groups
 }
 
-func dayLabelForKey(key dayKey, todayStart time.Time, now time.Time) string {
+func dayLabelForKey(key dayKey, todayStart, now time.Time) string {
 	dayStart := time.Date(key.year, key.month, key.day, 0, 0, 0, 0, now.Location())
 	switch {
 	case dayStart.Equal(todayStart):
@@ -119,14 +120,14 @@ func relativeTime(t time.Time) string {
 			return "1m ago"
 		}
 		return strconv.Itoa(m) + "m ago"
-	case d < 24*time.Hour:
+	case d < hoursPerDay*time.Hour:
 		h := int(d.Hours())
 		if h < 2 {
 			return "1h ago"
 		}
 		return strconv.Itoa(h) + "h ago"
-	case d < 7*24*time.Hour:
-		days := int(d.Hours() / 24)
+	case d < 7*hoursPerDay*time.Hour:
+		days := int(d.Hours() / hoursPerDay)
 		if days < 2 {
 			return "1d ago"
 		}
@@ -231,13 +232,13 @@ func (m keyboardNavModel) groupIndexAt(index int) int {
 }
 
 func (m keyboardNavModel) maxGroupIndex() int {
-	max := -1
+	maxIndex := -1
 	for _, row := range m.rows {
-		if row.GroupIndex > max {
-			max = row.GroupIndex
+		if row.GroupIndex > maxIndex {
+			maxIndex = row.GroupIndex
 		}
 	}
-	return max
+	return maxIndex
 }
 
 func (m keyboardNavModel) cumulativeOffsetAtGroup(gi int) int {

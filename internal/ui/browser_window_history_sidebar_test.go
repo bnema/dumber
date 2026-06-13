@@ -69,7 +69,7 @@ func TestHistorySidebarConfig_OnNavigateNavigatesActivePaneAndKeepsSidebar(t *te
 	second.historySidebar = &component.HistorySidebar{}
 	second.sidebarVisible = true
 
-	cfg := app.buildHistorySidebarConfig(ctx, second)
+	cfg := app.buildHistorySidebarConfig(second)
 	navigateURL := "https://example.com"
 	err := cfg.OnNavigate(ctx, navigateURL)
 	require.NoError(t, err, "OnNavigate should succeed")
@@ -118,7 +118,7 @@ func TestHistorySidebarConfig_OnNavigateKeepOpenNavigatesWithoutClosing(t *testi
 	}
 	app.tabs.Add(tab)
 
-	cfg := app.buildHistorySidebarConfig(ctx, bw)
+	cfg := app.buildHistorySidebarConfig(bw)
 	navigateURL := "https://keep-open.com"
 	err := cfg.OnNavigateKeepOpen(ctx, navigateURL)
 	require.NoError(t, err)
@@ -346,7 +346,6 @@ func TestApp_HistorySidebarToggleHandler_NilFocusedWindowIsNoOp(t *testing.T) {
 // TestHistorySidebarConfig_OnCloseHidesSidebar verifies that the OnClose
 // callback hides the sidebar for the owning browser window.
 func TestHistorySidebarConfig_OnCloseHidesSidebar(t *testing.T) {
-	ctx := t.Context()
 	tab := entity.NewTab(entity.TabID("tab-1"), entity.WorkspaceID("ws-1"), entity.NewPane(entity.PaneID("pane-1")))
 	bwTabs := entity.NewTabList()
 	bwTabs.Add(tab)
@@ -367,7 +366,7 @@ func TestHistorySidebarConfig_OnCloseHidesSidebar(t *testing.T) {
 	}
 	app.tabs.Add(tab)
 
-	cfg := app.buildHistorySidebarConfig(ctx, bw)
+	cfg := app.buildHistorySidebarConfig(bw)
 	cfg.OnClose()
 
 	assert.False(t, bw.sidebarVisible, "sidebar must be hidden by OnClose")
@@ -456,7 +455,7 @@ func TestApp_HistorySidebar_ToggleThroughDispatcher_UnavailableReturnsError(t *t
 
 	err := kbDispatcher.Dispatch(ctx, input.ActionToggleHistorySystemView)
 	require.Error(t, err)
-	assert.ErrorContains(t, err, "history sidebar unavailable")
+	require.ErrorContains(t, err, "history sidebar unavailable")
 	assert.False(t, bw.sidebarVisible, "sidebar must remain invisible when not wired")
 }
 
@@ -483,7 +482,7 @@ func TestApp_HistorySidebar_ToggleThroughDispatcher_NilFocusedReturnsError(t *te
 
 	err := kbDispatcher.Dispatch(ctx, input.ActionToggleHistorySystemView)
 	require.Error(t, err)
-	assert.ErrorContains(t, err, "history sidebar unavailable")
+	require.ErrorContains(t, err, "history sidebar unavailable")
 }
 
 // =============================================================================
@@ -527,7 +526,7 @@ func TestApp_HistorySidebarConfig_NavigateCallbackNavigates(t *testing.T) {
 	app.tabs.Add(tab)
 
 	// Build the config using the extracted seam.
-	cfg := app.buildHistorySidebarConfig(ctx, bw)
+	cfg := app.buildHistorySidebarConfig(bw)
 	require.NotNil(t, cfg.OnNavigate, "OnNavigate callback must be non-nil")
 
 	// Invoke the OnNavigate callback.
@@ -623,7 +622,7 @@ func TestApp_HistorySidebarConfig_NavigateCallbackOwnership(t *testing.T) {
 	app.tabs.Add(tab2)
 
 	// Build config for the SECOND window, even though first is globally focused.
-	cfg := app.buildHistorySidebarConfig(ctx, second)
+	cfg := app.buildHistorySidebarConfig(second)
 
 	// Invoke OnNavigate — should navigate through second window's pane-2.
 	err := cfg.OnNavigate(ctx, "https://ownership.com")
@@ -672,7 +671,7 @@ func TestApp_HistorySidebarConfig_KeepOpenCallback(t *testing.T) {
 	}
 	app.tabs.Add(tab)
 
-	cfg := app.buildHistorySidebarConfig(ctx, bw)
+	cfg := app.buildHistorySidebarConfig(bw)
 
 	// OnNavigateKeepOpen navigates but does NOT close the sidebar.
 	navigateURL := "https://keep-open.com"
@@ -722,7 +721,7 @@ func TestApp_HistorySidebarConfig_OpenInNewPaneCallback(t *testing.T) {
 	}
 	app.tabs.Add(tab)
 
-	cfg := app.buildHistorySidebarConfig(ctx, bw)
+	cfg := app.buildHistorySidebarConfig(bw)
 
 	// OnOpenInNewPane should activate the owning window and split with URL.
 	splitURL := "https://shift-enter.com"
@@ -748,8 +747,6 @@ func TestApp_HistorySidebarConfig_OpenInNewPaneCallback(t *testing.T) {
 // TestApp_HistorySidebarConfig_CloseCallback verifies that OnClose hides the
 // sidebar for the owning browser window and restores focus to the active pane.
 func TestApp_HistorySidebarConfig_CloseCallback(t *testing.T) {
-	ctx := t.Context()
-
 	paneID := entity.PaneID("pane-1")
 	tab := entity.NewTab(entity.TabID("tab-1"), entity.WorkspaceID("ws-1"), entity.NewPane(paneID))
 	bwTabs := entity.NewTabList()
@@ -783,7 +780,7 @@ func TestApp_HistorySidebarConfig_CloseCallback(t *testing.T) {
 			tab.ID: wsView,
 		},
 	}
-	cfg := app.buildHistorySidebarConfig(ctx, bw)
+	cfg := app.buildHistorySidebarConfig(bw)
 
 	// OnClose hides the sidebar.
 	cfg.OnClose()
@@ -795,8 +792,6 @@ func TestApp_HistorySidebarConfig_CloseCallback(t *testing.T) {
 // OnClose (hideAndRestoreFocusForBrowserWindow) is safe when the browser
 // window has no sidebar or is nil.
 func TestApp_HistorySidebarConfig_CloseWithNoSidebarIsSafe(t *testing.T) {
-	ctx := t.Context()
-
 	bw := &browserWindow{
 		id:         "no-sidebar",
 		mainWindow: &window.MainWindow{},
@@ -808,7 +803,7 @@ func TestApp_HistorySidebarConfig_CloseWithNoSidebarIsSafe(t *testing.T) {
 		browserWindows: map[string]*browserWindow{bw.id: bw},
 	}
 
-	cfg := app.buildHistorySidebarConfig(ctx, bw)
+	cfg := app.buildHistorySidebarConfig(bw)
 
 	// Should not panic even with nil sidebar.
 	require.NotPanics(t, func() { cfg.OnClose() })

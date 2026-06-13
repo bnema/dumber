@@ -48,7 +48,7 @@ func (hs *HistorySidebar) fetchPage(offset int, gen uint64) {
 			hs.scheduleRebuild()
 			return false
 		})
-		glib.IdleAdd(&cb, 0)
+		hs.scheduleIdle(cb)
 		return
 	}
 
@@ -105,7 +105,7 @@ func (hs *HistorySidebar) fetchPage(offset int, gen uint64) {
 		hs.rebuildList()
 		return false
 	})
-	glib.IdleAdd(&cb, 0)
+	hs.scheduleIdle(cb)
 }
 
 // LoadMore fetches the next page and appends it to the existing entries.

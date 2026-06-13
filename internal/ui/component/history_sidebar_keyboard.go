@@ -40,7 +40,7 @@ func (hs *HistorySidebar) setupKeyboardNavigation() {
 
 		// --- Enter variants ---
 		case uint(gdk.KEY_Return), uint(gdk.KEY_KP_Enter):
-			return hs.handleEnterKey(keyval, state)
+			return hs.handleEnterKey(state)
 
 		// --- Delete: remove selected entry ---
 		case uint(gdk.KEY_Delete), uint(gdk.KEY_KP_Delete):
@@ -94,7 +94,7 @@ func (hs *HistorySidebar) setupKeyboardNavigation() {
 
 // handleEnterKey processes Enter, Ctrl+Enter, and Shift+Enter on a selected row.
 // Returns true if the key was consumed.
-func (hs *HistorySidebar) handleEnterKey(keyval uint, state gdk.ModifierType) bool {
+func (hs *HistorySidebar) handleEnterKey(state gdk.ModifierType) bool {
 	// Determine activation mode from modifiers
 	var action HistorySidebarKeyboardAction
 
@@ -175,7 +175,7 @@ func (hs *HistorySidebar) handleDeleteKey() bool {
 				hs.mu.Unlock()
 				return false
 			}
-			hs.applyDeletedEntryLocked(url, entryID, nextSelectedURL)
+			hs.applyDeletedEntryLocked(entryID, nextSelectedURL)
 			hs.mu.Unlock()
 
 			hs.rebuildList()
@@ -189,7 +189,7 @@ func (hs *HistorySidebar) handleDeleteKey() bool {
 
 // applyDeletedEntryLocked updates local sidebar state after a successful
 // history delete. Must be called with hs.mu write lock held.
-func (hs *HistorySidebar) applyDeletedEntryLocked(url string, entryID int64, nextSelectedURL string) {
+func (hs *HistorySidebar) applyDeletedEntryLocked(entryID int64, nextSelectedURL string) {
 	hs.preserveScrollAndSelection()
 	hs.prevSelectedURL = nextSelectedURL
 	hs.searchGen++
@@ -428,7 +428,7 @@ func (hs *HistorySidebar) selectAdjacentRow(direction int) {
 
 	hs.mu.RLock()
 	model := newKeyboardNavModelFromRows(hs.displayRows)
-	target := -1
+	var target int
 	if current < 0 {
 		if direction > 0 {
 			target = model.firstSelectableIndex()

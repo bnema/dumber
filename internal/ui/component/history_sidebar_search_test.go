@@ -40,7 +40,7 @@ func TestApplySearchResults_NonStaleApplied(t *testing.T) {
 	applied := hs.applySearchResults(entries, 1, nil)
 	assert.True(t, applied, "non-stale results must be applied")
 	assert.True(t, hs.searchDone)
-	assert.Nil(t, hs.searchErr)
+	require.NoError(t, hs.searchErr)
 	require.NotNil(t, hs.searchResults)
 	assert.Len(t, hs.searchResults, 1)
 	assert.Equal(t, "https://example.com", hs.searchResults[0].URL)
@@ -100,7 +100,7 @@ func TestApplySearchResults_ErrorStored(t *testing.T) {
 	applied := hs.applySearchResults(entries, 1, wantErr)
 	assert.True(t, applied)
 	assert.True(t, hs.searchDone)
-	assert.ErrorIs(t, hs.searchErr, wantErr)
+	require.ErrorIs(t, hs.searchErr, wantErr)
 	require.NotNil(t, hs.searchResults)
 	assert.Empty(t, hs.searchResults)
 }
@@ -112,7 +112,7 @@ func TestApplySearchResults_EmptyResultsApplied(t *testing.T) {
 	applied := hs.applySearchResults([]*entity.HistoryEntry{}, 1, nil)
 	assert.True(t, applied)
 	assert.True(t, hs.searchDone)
-	assert.Nil(t, hs.searchErr)
+	require.NoError(t, hs.searchErr)
 	require.NotNil(t, hs.searchResults)
 	assert.Empty(t, hs.searchResults)
 	// Groups from empty entries should be nil or empty
@@ -135,7 +135,7 @@ func TestApplyDeletedEntryLocked_RecomputesBrowseState(t *testing.T) {
 	hs.setDisplayGroupsLocked(groupHistoryByDay(hs.allEntries))
 
 	hs.mu.Lock()
-	hs.applyDeletedEntryLocked(deleteMe.URL, deleteMe.ID, keepB.URL)
+	hs.applyDeletedEntryLocked(deleteMe.ID, keepB.URL)
 	hs.mu.Unlock()
 
 	assert.Equal(t, uint64(8), hs.loadGen, "deletes must invalidate in-flight browse loads")

@@ -270,7 +270,7 @@ func TestKeyboardNavModel_EmptyGroups(t *testing.T) {
 	assert.Equal(t, -1, m.firstSelectableIndex())
 	assert.Equal(t, -1, m.lastSelectableIndex())
 	assert.Nil(t, m.entryAt(0))
-	assert.Equal(t, "", m.entryURLAt(0))
+	assert.Empty(t, m.entryURLAt(0))
 
 	m = newKeyboardNavModel([]historyGroup{})
 	assert.Equal(t, 0, m.totalRows())
@@ -285,7 +285,7 @@ func TestKeyboardNavModel_SingleGroup(t *testing.T) {
 	// Row 0: header (not selectable)
 	assert.False(t, m.isSelectable(0))
 	assert.Nil(t, m.entryAt(0))
-	assert.Equal(t, "", m.entryURLAt(0))
+	assert.Empty(t, m.entryURLAt(0))
 
 	// Rows 1-3: entries (selectable)
 	for i := 1; i <= 3; i++ {
@@ -395,13 +395,13 @@ func TestKeyboardNavModel_EntryAtURL(t *testing.T) {
 
 	// Header rows return nil / ""
 	assert.Nil(t, m.entryAt(0)) // H0
-	assert.Equal(t, "", m.entryURLAt(0))
+	assert.Empty(t, m.entryURLAt(0))
 	assert.Nil(t, m.entryAt(2)) // H1
-	assert.Equal(t, "", m.entryURLAt(2))
+	assert.Empty(t, m.entryURLAt(2))
 
 	// Out of range
 	assert.Nil(t, m.entryAt(99))
-	assert.Equal(t, "", m.entryURLAt(99))
+	assert.Empty(t, m.entryURLAt(99))
 	assert.Nil(t, m.entryAt(-1))
 }
 
@@ -463,7 +463,7 @@ func TestKeyboardNavModelFromRows_UsesExplicitDisplayRows(t *testing.T) {
 
 func TestTransitionSearchState_EmptyQuery(t *testing.T) {
 	next := transitionSearchState("", 0)
-	assert.Equal(t, "", next.Query)
+	assert.Empty(t, next.Query)
 	assert.False(t, next.HasSearchDone)
 	assert.False(t, next.HasResults)
 	assert.Equal(t, 0, next.ResultCount)
@@ -495,7 +495,7 @@ func TestTransitionSearchState_QueryToQuery(t *testing.T) {
 
 func TestTransitionSearchState_QueryToEmpty(t *testing.T) {
 	next := transitionSearchState("", 0)
-	assert.Equal(t, "", next.Query)
+	assert.Empty(t, next.Query)
 	assert.False(t, next.HasSearchDone)
 	assert.False(t, next.HasResults)
 	assert.Equal(t, 0, next.ResultCount)
@@ -507,7 +507,7 @@ func TestTransitionSearchState_QueryToEmpty(t *testing.T) {
 
 func TestApplyReloadState_WithoutQuery(t *testing.T) {
 	s := applyReloadState("")
-	assert.Equal(t, "", s.PreservedQuery)
+	assert.Empty(t, s.PreservedQuery)
 	assert.True(t, s.ResetBrowse)
 	assert.False(t, s.ClearSearch)
 }
@@ -667,10 +667,8 @@ func TestTransitionSearchState_SequentialSearches(t *testing.T) {
 // TestTransitionSearchState_SearchThenClearThenReSearch verifies the
 // transition from search -> empty -> new search produces correct state.
 func TestTransitionSearchState_SearchThenClearThenReSearch(t *testing.T) {
-	s := searchStateSnapshot{}
-
 	// Search "term" -> 2 results
-	s = transitionSearchState("term", 2)
+	s := transitionSearchState("term", 2)
 	assert.Equal(t, "term", s.Query)
 	assert.True(t, s.HasSearchDone)
 	assert.True(t, s.HasResults)
@@ -678,7 +676,7 @@ func TestTransitionSearchState_SearchThenClearThenReSearch(t *testing.T) {
 
 	// Clear: query becomes ""
 	s = transitionSearchState("", 0)
-	assert.Equal(t, "", s.Query)
+	assert.Empty(t, s.Query)
 	assert.False(t, s.HasSearchDone)
 	assert.False(t, s.HasResults)
 	assert.Equal(t, 0, s.ResultCount)

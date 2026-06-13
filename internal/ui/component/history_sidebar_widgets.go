@@ -76,7 +76,7 @@ func (hs *HistorySidebar) initListArea() error {
 	hs.listBox.SetActivateOnSingleClick(true)
 	hs.listBox.SetSelectionMode(gtk.SelectionSingleValue)
 
-	// Connect row activation (Enter or double-click)
+	// Connect row activation (single-click and keyboard activation)
 	rowActivatedCb := func(_ gtk.ListBox, rowPtr uintptr) {
 		row := gtk.ListBoxRowNewFromInternalPtr(rowPtr)
 		if row == nil {

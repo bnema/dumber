@@ -234,14 +234,14 @@ func (hs *HistorySidebar) Widget() *gtk.Widget {
 // current recent visits, not stale data from initialization.
 func (hs *HistorySidebar) Show() {
 	hs.mu.Lock()
-	defer hs.mu.Unlock()
-
 	if hs.outerBox == nil || hs.destroyed {
+		hs.mu.Unlock()
 		return
 	}
 
 	hs.outerBox.SetVisible(true)
 	hs.visible = true
+	hs.mu.Unlock()
 
 	// Schedule a background reload so the sidebar shows fresh data
 	// when it becomes visible, not stale data captured at init time.
