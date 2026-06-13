@@ -83,7 +83,7 @@ These work outside modal modes:
 | Action | Keys |
 |--------|------|
 | Toggle floating pane | `Alt+F` |
-| Toggle History sidebar (native GTK sidebar panel; fallback: opens dumb://history in a right split when sidebar is unavailable). Ctrl+H may conflict with the browser's default History shortcut; behavior can vary by browser. | `Ctrl+H` |
+| Toggle History sidebar (native GTK sidebar panel only). Ctrl+H may conflict with the browser's default History shortcut; behavior can vary by browser. | `Ctrl+H` |
 | Toggle Favorites system view in right split | unbound by default |
 | Toggle Config system view in right split | unbound by default |
 | Close pane (or release floating pane) | `Ctrl+W` |
@@ -96,7 +96,7 @@ These work outside modal modes:
 
 - `Alt+F` is the only floating-pane shortcut enabled by default.
 - `Alt+F` toggles floating visibility and keeps floating pane state intact.
-- `Ctrl+H` toggles the native GTK history sidebar when the history use case is available. The sidebar shows browsing history grouped by day with search/filter, keyboard navigation (arrows, Home/End, Ctrl+arrows for day jumps), and activation modes (Enter to navigate and close sidebar, Ctrl+Enter to navigate while keeping the sidebar open, Shift+Enter to open in a new split). When the history use case is unavailable (e.g., no database backend), Ctrl+H opens `dumb://history` in a right split as a fallback.
+- `Ctrl+H` toggles the native GTK history sidebar. The sidebar shows browsing history grouped by day with search/filter, keyboard navigation (arrows, Home/End, Ctrl+arrows for day jumps), and activation modes (Enter to navigate and close sidebar, Ctrl+Enter to navigate while keeping the sidebar open, Shift+Enter to open in a new split). If the native sidebar is unavailable, the shortcut returns an error instead of falling back to `dumb://history`.
 - `Ctrl+W` closes the active pane; when the floating pane is active, it fully releases that floating session.
 - Any URL shortcut (for example `Alt+G`) must be defined explicitly in `workspace.floating_pane.profiles`.
 - Floating profile shortcuts support modifier combos with `ctrl`, `shift`, and `alt` (for example `ctrl+shift+y` or `ctrl+alt+m`).

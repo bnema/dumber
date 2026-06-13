@@ -3,6 +3,7 @@ package ui
 import (
 	"context"
 	"errors"
+	"fmt"
 	"reflect"
 	"testing"
 	"unsafe"
@@ -1319,10 +1320,9 @@ func TestApp_HistorySidebar_ToggleThroughKeyboardDispatcher(t *testing.T) {
 	assert.False(t, focusedBW.sidebarVisible, "focused window sidebar must be hidden after second toggle")
 }
 
-// TestApp_HistorySidebar_ToggleThroughDispatcher_FallbackPath verifies that
-// when the focused window has no history sidebar, the dispatcher returns nil
-// (no fallback system view in this test since we have no wsCoord).
-func TestApp_HistorySidebar_ToggleThroughDispatcher_FallbackPath(t *testing.T) {
+// TestApp_HistorySidebar_ToggleThroughDispatcher_UnavailableReturnsError verifies that
+// when the focused window has no history sidebar, Ctrl+H returns a clean error.
+func TestApp_HistorySidebar_ToggleThroughDispatcher_UnavailableReturnsError(t *testing.T) {
 	ctx := context.Background()
 
 	bw := &browserWindow{
@@ -1348,23 +1348,24 @@ func TestApp_HistorySidebar_ToggleThroughDispatcher_FallbackPath(t *testing.T) {
 	kbDispatcher.SetOnToggleHistorySidebar(func(ctx context.Context) error {
 		bw := app.lastFocusedBrowserWindow()
 		if bw == nil {
-			return nil
+			return fmt.Errorf("history sidebar unavailable: no focused browser window")
 		}
 		if bw.historySidebar != nil {
 			bw.toggleHistorySidebar()
 			return nil
 		}
-		return nil
+		return fmt.Errorf("history sidebar unavailable: native sidebar not initialized")
 	})
 
 	err := kbDispatcher.Dispatch(ctx, input.ActionToggleHistorySystemView)
-	require.NoError(t, err)
+	require.Error(t, err)
+	assert.ErrorContains(t, err, "history sidebar unavailable")
 	assert.False(t, bw.sidebarVisible, "sidebar must remain invisible when not wired")
 }
 
-// TestApp_HistorySidebar_ToggleThroughDispatcher_NilFocusedIsNoOp verifies
-// that the toggle handler is a safe no-op when lastFocusedBrowserWindow returns nil.
-func TestApp_HistorySidebar_ToggleThroughDispatcher_NilFocusedIsNoOp(t *testing.T) {
+// TestApp_HistorySidebar_ToggleThroughDispatcher_NilFocusedReturnsError verifies
+// that the toggle handler returns a clean error when there is no focused window.
+func TestApp_HistorySidebar_ToggleThroughDispatcher_NilFocusedReturnsError(t *testing.T) {
 	ctx := context.Background()
 
 	app := &App{
@@ -1384,13 +1385,14 @@ func TestApp_HistorySidebar_ToggleThroughDispatcher_NilFocusedIsNoOp(t *testing.
 	kbDispatcher.SetOnToggleHistorySidebar(func(ctx context.Context) error {
 		bw := app.lastFocusedBrowserWindow()
 		if bw == nil {
-			return nil
+			return fmt.Errorf("history sidebar unavailable: no focused browser window")
 		}
 		return nil
 	})
 
 	err := kbDispatcher.Dispatch(ctx, input.ActionToggleHistorySystemView)
-	require.NoError(t, err, "dispatch must not error when lastFocusedBrowserWindow returns nil")
+	require.Error(t, err)
+	assert.ErrorContains(t, err, "history sidebar unavailable")
 }
 
 // =============================================================================

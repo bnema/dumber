@@ -16,19 +16,9 @@ import (
 
 const (
 	// historySystemViewURL is the full-page/systemview history surface.
-	// It is preserved for two scenarios:
-	//   1. Direct navigation: the user can type "dumb://history" in the
-	//      omnibox to open a full-page history viewer in any pane.
-	//   2. Fallback: if native sidebar SetOnToggleHistorySidebar is nil
-	//      (history usecase unavailable), Ctrl+H degenerates to opening
-	//      this URL in a right split.
-	//
-	// Ctrl+H always prefers the native sidebar path when wired (see
-	// ActionToggleHistorySystemView handler). The native sidebar is a
-	// GTK panel; dumb://history is an HTML system view with more
-	// features (delete entries, domain filtering, CSV export). They
-	// coexist: Ctrl+H opens the native sidebar; dumb://history is
-	// reached by direct navigation.
+	// It remains reachable by direct navigation (for example typing
+	// dumb://history in the omnibox), but Ctrl+H no longer falls back to it.
+	// Ctrl+H is reserved for the native GTK history sidebar only.
 	historySystemViewURL   = "dumb://history"
 	favoritesSystemViewURL = "dumb://favorites"
 	configSystemViewURL    = "dumb://config"
@@ -262,15 +252,14 @@ func (d *KeyboardDispatcher) initActionHandlers() {
 			}
 			return d.logNoop(ctx, "toggle floating pane action (no handler)")
 		},
-		// ActionToggleHistorySystemView (default Ctrl+H) prefers the native
-		// GTK sidebar path (onToggleHistorySidebar). Falls back to the
-		// dumb://history full-page systemview when no sidebar is wired.
-		// See historySystemViewURL docstring for the coexistence story.
+		// ActionToggleHistorySystemView (default Ctrl+H) is intentionally bound
+		// to the native GTK history sidebar only. The dumb://history systemview
+		// remains available through direct navigation, not shortcut fallback.
 		input.ActionToggleHistorySystemView: func(ctx context.Context) error {
-			if d.onToggleHistorySidebar != nil {
-				return d.onToggleHistorySidebar(ctx)
+			if d.onToggleHistorySidebar == nil {
+				return fmt.Errorf("history sidebar unavailable: toggle handler not wired")
 			}
-			return d.wsCoord.ToggleSystemViewRight(ctx, historySystemViewURL)
+			return d.onToggleHistorySidebar(ctx)
 		},
 		input.ActionToggleFavoritesSystemView: func(ctx context.Context) error {
 			return d.wsCoord.ToggleSystemViewRight(ctx, favoritesSystemViewURL)

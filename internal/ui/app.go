@@ -3525,18 +3525,13 @@ func (a *App) wireKeyboardActions() {
 	a.kbDispatcher.SetOnToggleHistorySidebar(func(ctx context.Context) error {
 		bw := a.lastFocusedBrowserWindow()
 		if bw == nil {
-			return nil
+			return fmt.Errorf("history sidebar unavailable: no focused browser window")
 		}
-		if bw.historySidebar != nil {
-			bw.toggleHistorySidebar()
-			return nil
+		if bw.historySidebar == nil {
+			return fmt.Errorf("history sidebar unavailable: native sidebar not initialized")
 		}
-		if a.wsCoord == nil {
-			return nil
-		}
-		// Fall back to dumb://history system view when the native
-		// GTK sidebar is unavailable (HistoryUC nil or creation failed).
-		return a.wsCoord.ToggleSystemViewRight(ctx, "dumb://history")
+		bw.toggleHistorySidebar()
+		return nil
 	})
 	a.kbDispatcher.SetOnToggleFloatingPane(func(ctx context.Context) error {
 		return a.ToggleFloatingPane(ctx)
