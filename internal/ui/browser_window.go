@@ -315,7 +315,7 @@ func (a *App) buildHistorySidebarConfig(ctx context.Context, bw *browserWindow) 
 			return a.navigateHistorySidebarSelection(navCtx, bw, url)
 		},
 		OnOpenInNewPane: func(splitCtx context.Context, url string) error {
-			if a.wsCoord == nil {
+			if a.wsCoord == nil || !a.hasBrowserWindow(bw) {
 				return nil
 			}
 			a.activateBrowserWindow(bw)
@@ -328,6 +328,9 @@ func (a *App) buildHistorySidebarConfig(ctx context.Context, bw *browserWindow) 
 }
 
 func (a *App) navigateHistorySidebarSelection(ctx context.Context, bw *browserWindow, url string) error {
+	if a == nil || bw == nil || !a.hasBrowserWindow(bw) {
+		return nil
+	}
 	return a.navigateFromBrowserWindow(ctx, bw, url)
 }
 
@@ -399,6 +402,14 @@ func (bw *browserWindow) hideHistorySidebar() {
 	bw.historySidebar.Hide()
 	bw.mainWindow.SetSidebarVisible(false)
 	bw.sidebarVisible = false
+}
+
+func (a *App) hasBrowserWindow(target *browserWindow) bool {
+	if a == nil || target == nil || a.browserWindows == nil {
+		return false
+	}
+	bw, ok := a.browserWindows[target.id]
+	return ok && bw == target
 }
 
 func (a *App) registerBrowserWindow(bw *browserWindow) {

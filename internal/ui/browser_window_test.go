@@ -907,13 +907,10 @@ func TestRestoreSession_ActiveWindowIndexSyncsState(t *testing.T) {
 // History sidebar integration tests
 // =============================================================================
 
-// TestHistorySidebarConfig_OnNavigateNavigatesActivePaneAndCloses verifies
-// that the OnNavigate callback wiring (from initHistorySidebar) calls
-// navigateFromBrowserWindow for the owning browser window's active pane,
-// then schedules a hide+focus-restore via idle callback. We verify the
-// navigation target directly and confirm the idle hide intent is registered
-// (without executing GTK idle callbacks).
-func TestHistorySidebarConfig_OnNavigateNavigatesActivePaneAndCloses(t *testing.T) {
+// TestHistorySidebarConfig_OnNavigateNavigatesActivePaneAndKeepsSidebar verifies
+// that the default OnNavigate callback targets the owning browser window's
+// active pane and keeps the sidebar visible.
+func TestHistorySidebarConfig_OnNavigateNavigatesActivePaneAndKeepsSidebar(t *testing.T) {
 	ctx := context.Background()
 
 	// Build two browser windows with independent tabs and panes.
@@ -954,25 +951,27 @@ func TestHistorySidebarConfig_OnNavigateNavigatesActivePaneAndCloses(t *testing.
 	app.tabs.Add(tab1)
 	app.tabs.Add(tab2)
 
-	navigateURL := "https://example.com"
+	second.mainWindow = &window.MainWindow{}
+	second.historySidebar = &component.HistorySidebar{}
+	second.sidebarVisible = true
 
-	// Simulate the initHistorySidebar OnNavigate wiring for the SECOND window:
-	// it should navigate through the second window's active pane (pane2 → fakeWv2).
-	err := app.navigateFromBrowserWindow(ctx, second, navigateURL)
-	require.NoError(t, err, "navigateFromBrowserWindow should succeed")
+	cfg := app.buildHistorySidebarConfig(ctx, second)
+	navigateURL := "https://example.com"
+	err := cfg.OnNavigate(ctx, navigateURL)
+	require.NoError(t, err, "OnNavigate should succeed")
 
 	// The second window's webview must have received the navigation.
 	assert.True(t, fakeWv2.loadURICalled, "second window webview should receive navigation")
 	assert.Equal(t, navigateURL, fakeWv2.loadURILastURI)
+	assert.True(t, second.sidebarVisible, "default history activation should keep the sidebar visible")
 
 	// The first window's webview must NOT have been touched (stale-focus guard).
-	assert.False(t, fakeWv1.loadURICalled, "first window webview must not receive navigation from second window call")
+	assert.False(t, fakeWv1.loadURICalled, "first window webview must not receive navigation from second window callback")
 }
 
 // TestHistorySidebarConfig_OnNavigateKeepOpenNavigatesWithoutClosing verifies
 // that the OnNavigateKeepOpen callback (Ctrl+Enter) navigates the owning window's
-// active pane but does NOT close the sidebar. The idle callback that would hide
-// the sidebar is NOT scheduled by OnNavigateKeepOpen.
+// active pane and keeps the sidebar visible.
 func TestHistorySidebarConfig_OnNavigateKeepOpenNavigatesWithoutClosing(t *testing.T) {
 	ctx := context.Background()
 
@@ -999,12 +998,9 @@ func TestHistorySidebarConfig_OnNavigateKeepOpenNavigatesWithoutClosing(t *testi
 	}
 	app.tabs.Add(tab)
 
-	// This is the key OnNavigateKeepOpen behavior: the sidebar window tracks
-	// visible state separately. OnNavigateKeepOpen does NOT call hideAndRestoreFocus.
-	// By calling navigateFromBrowserWindow directly we verify the navigation path;
-	// the absence of the hide side-effect is the structural guarantee.
+	cfg := app.buildHistorySidebarConfig(ctx, bw)
 	navigateURL := "https://keep-open.com"
-	err := app.navigateFromBrowserWindow(ctx, bw, navigateURL)
+	err := cfg.OnNavigateKeepOpen(ctx, navigateURL)
 	require.NoError(t, err)
 	assert.True(t, fakeWv.loadURICalled)
 	assert.Equal(t, navigateURL, fakeWv.loadURILastURI, "Ctrl+Enter navigation should go to the URL")
@@ -1226,10 +1222,9 @@ func TestApp_HistorySidebarToggleHandler_NilFocusedWindowIsNoOp(t *testing.T) {
 // History sidebar config callbacks: focus restoration on close
 // =============================================================================
 
-// TestHistorySidebarConfig_OnCloseRestoresFocusToActivePane verifies that
-// the OnClose callback (from initHistorySidebar) hides the sidebar,
-// which is the first step before restores focus to the active pane.
-func TestHistorySidebarConfig_OnCloseRestoresFocusToActivePane(t *testing.T) {
+// TestHistorySidebarConfig_OnCloseHidesSidebar verifies that the OnClose
+// callback hides the sidebar for the owning browser window.
+func TestHistorySidebarConfig_OnCloseHidesSidebar(t *testing.T) {
 	tab := entity.NewTab(entity.TabID("tab-1"), entity.WorkspaceID("ws-1"), entity.NewPane(entity.PaneID("pane-1")))
 	bwTabs := entity.NewTabList()
 	bwTabs.Add(tab)
@@ -1247,10 +1242,6 @@ func TestHistorySidebarConfig_OnCloseRestoresFocusToActivePane(t *testing.T) {
 	bw.hideHistorySidebar()
 	assert.False(t, bw.sidebarVisible, "sidebar must be hidden by hideAndRestoreFocus")
 
-	// The focus restoration (wsView.FocusPane) is called after the hide.
-	// We verify the hide part here; the focus restoration relies on
-	// activeWorkspaceViewForBrowserWindow which requires full App wiring.
-	_ = tab
 }
 
 // =============================================================================
@@ -1694,9 +1685,9 @@ func TestApp_HistorySidebarConfig_CloseWithNoSidebarIsSafe(t *testing.T) {
 	require.NotPanics(t, func() { cfg.OnClose() })
 }
 
-// TestApp_HideAndRestoreFocusForBrowserWindow_HidesAndFocuses verifies that
-// hideAndRestoreFocusForBrowserWindow hides the sidebar and restores focus.
-func TestApp_HideAndRestoreFocusForBrowserWindow_HidesAndFocuses(t *testing.T) {
+// TestApp_HideAndRestoreFocusForBrowserWindow_HidesSidebar verifies that
+// hideAndRestoreFocusForBrowserWindow hides the sidebar.
+func TestApp_HideAndRestoreFocusForBrowserWindow_HidesSidebar(t *testing.T) {
 	paneID := entity.PaneID("pane-1")
 	tab := entity.NewTab(entity.TabID("tab-1"), entity.WorkspaceID("ws-1"), entity.NewPane(paneID))
 	bwTabs := entity.NewTabList()
@@ -1732,8 +1723,6 @@ func TestApp_HideAndRestoreFocusForBrowserWindow_HidesAndFocuses(t *testing.T) {
 	// Sidebar must be hidden.
 	assert.False(t, bw.sidebarVisible, "sidebar must be hidden")
 
-	// Focus restoration is called on the wsView (GTK-dependent).
-	// We verify the state changes we can check without GTK.
 	_ = wsView
 }
 

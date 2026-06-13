@@ -118,7 +118,7 @@ func TestApplySearchResults_EmptyResultsApplied(t *testing.T) {
 }
 
 // =============================================================================
-// doFTSearch seam: controllable history port fake
+// Async search seam: controllable history port fake
 // =============================================================================
 
 type fakeHistorySidebarHistory struct {
@@ -149,7 +149,7 @@ func (f *fakeHistorySidebarHistory) Delete(ctx context.Context, id int64) error 
 	return nil
 }
 
-func TestDoFTSearch_WithFakeUC_StaleGenerationDropsResults(t *testing.T) {
+func TestApplySearchResults_StaleGenerationDropsResultsAfterSearch(t *testing.T) {
 	searchCalled := make(chan struct{}, 1)
 
 	history := &fakeHistorySidebarHistory{
@@ -187,7 +187,7 @@ func TestDoFTSearch_WithFakeUC_StaleGenerationDropsResults(t *testing.T) {
 	assert.Nil(t, hs.groups)
 }
 
-func TestDoFTSearch_WithFakeUC_CurrentGenApplied(t *testing.T) {
+func TestApplySearchResults_CurrentGenerationAppliedAfterSearch(t *testing.T) {
 	searchCalled := make(chan struct{}, 1)
 
 	history := &fakeHistorySidebarHistory{

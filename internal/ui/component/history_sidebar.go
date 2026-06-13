@@ -1238,6 +1238,7 @@ func (hs *HistorySidebar) handleDeleteKey() bool {
 			}
 			hs.preserveScrollAndSelection()
 			hs.prevSelectedURL = nextSelectedURL
+			hs.searchGen++
 			hs.removeFromAllEntries(url, entryID)
 			hs.removeFromSearchResults(entryID)
 			hs.rebuildLocalGroups()
@@ -1577,6 +1578,12 @@ func (hs *HistorySidebar) navigateToURL(url string) {
 	}
 
 	navigateCb := glib.SourceFunc(func(uintptr) bool {
+		hs.mu.RLock()
+		destroyed := hs.destroyed
+		hs.mu.RUnlock()
+		if destroyed {
+			return false
+		}
 		hs.onURL(hs.ctx, url)
 		return false
 	})
@@ -1597,6 +1604,12 @@ func (hs *HistorySidebar) navigateWithoutClosing(url string) {
 // default activation behavior when they need a distinct keep-open action.
 func (hs *HistorySidebar) doNavigateWithoutClose(url string) {
 	navigateCb := glib.SourceFunc(func(uintptr) bool {
+		hs.mu.RLock()
+		destroyed := hs.destroyed
+		hs.mu.RUnlock()
+		if destroyed {
+			return false
+		}
 		hs.onNavigateKeepOpen(hs.ctx, url)
 		return false
 	})
@@ -1611,6 +1624,12 @@ func (hs *HistorySidebar) navigateToNewPane(url string) {
 	}
 
 	navigateCb := glib.SourceFunc(func(uintptr) bool {
+		hs.mu.RLock()
+		destroyed := hs.destroyed
+		hs.mu.RUnlock()
+		if destroyed {
+			return false
+		}
 		if err := hs.onOpenInNewPane(hs.ctx, url); err != nil {
 			hs.logger.Error().Err(err).Str("url", url).Msg("history sidebar new-pane navigation failed")
 		}
