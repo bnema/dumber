@@ -664,6 +664,7 @@ func (m *Manager) setAppearanceDefaults(defaults *Config) {
 func (m *Manager) setZoomAndScaleDefaults(defaults *Config) {
 	m.viper.SetDefault("default_webpage_zoom", defaults.DefaultWebpageZoom)
 	m.viper.SetDefault("default_ui_scale", defaults.DefaultUIScale)
+	m.viper.SetDefault("sidebar_width", defaults.SidebarWidth)
 }
 
 func (m *Manager) setWorkspaceDefaults(defaults *Config) {

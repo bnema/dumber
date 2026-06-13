@@ -140,6 +140,10 @@ func GenerateCSSFull(p Palette, _ float64, fonts FontConfig, modeColors ModeColo
 
 	// Accent picker styling
 	sb.WriteString(generateAccentPickerCSS(p))
+	sb.WriteString("\n")
+
+	// History sidebar styling
+	sb.WriteString(generateHistorySidebarCSS(p))
 
 	return sb.String()
 }

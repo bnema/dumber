@@ -15,8 +15,10 @@ import (
 	"github.com/bnema/dumber/internal/logging"
 )
 
-// Compile-time check: SearchHistoryUseCase must satisfy port.HomepageHistory.
+// Compile-time checks: SearchHistoryUseCase must satisfy the application
+// history ports used by WebUI handlers and the native GTK history sidebar.
 var _ port.HomepageHistory = (*SearchHistoryUseCase)(nil)
+var _ port.HistorySidebarHistory = (*SearchHistoryUseCase)(nil)
 
 const (
 	historyWindowDuration = 24 * time.Hour

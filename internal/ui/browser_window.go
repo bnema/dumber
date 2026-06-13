@@ -37,6 +37,8 @@ type browserWindow struct {
 	globalShortcutHandler *input.GlobalShortcutHandler
 	permissionDialog      port.PermissionDialogPresenter
 	webrtcIndicator       *component.WebRTCPermissionIndicator
+	historySidebar        *component.HistorySidebar
+	sidebarVisible        bool
 }
 
 func (bw *browserWindow) detachInputForDestroy() {
@@ -63,6 +65,12 @@ func (bw *browserWindow) clearShellState() {
 	if bw == nil {
 		return
 	}
+	// Destroy the history sidebar before releasing the reference so its
+	// context, debounce timer, callbacks, and in-flight goroutines are
+	// cleaned up before the window itself is torn down.
+	if bw.historySidebar != nil {
+		bw.historySidebar.Destroy()
+	}
 	bw.appToaster = nil
 	bw.modeToaster = nil
 	bw.borderMgr = nil
@@ -76,6 +84,7 @@ func (bw *browserWindow) clearShellState() {
 	bw.globalShortcutHandler = nil
 	bw.permissionDialog = nil
 	bw.webrtcIndicator = nil
+	bw.historySidebar = nil
 }
 
 func (bw *browserWindow) initChrome(ctx context.Context, a *App) {
@@ -88,6 +97,7 @@ func (bw *browserWindow) initChrome(ctx context.Context, a *App) {
 	bw.initAccentPicker(ctx, a)
 	bw.initSessionManager(ctx, a)
 	bw.initTabPicker(ctx, a)
+	bw.initHistorySidebar(ctx, a)
 }
 
 func (bw *browserWindow) initToasterOverlay(a *App) {
@@ -257,6 +267,14 @@ func (bw *browserWindow) ensureTabs() {
 	if bw != nil && bw.tabs == nil {
 		bw.tabs = entity.NewTabList()
 	}
+}
+
+func (a *App) hasBrowserWindow(target *browserWindow) bool {
+	if a == nil || target == nil || a.browserWindows == nil {
+		return false
+	}
+	bw, ok := a.browserWindows[target.id]
+	return ok && bw == target
 }
 
 func (a *App) registerBrowserWindow(bw *browserWindow) {

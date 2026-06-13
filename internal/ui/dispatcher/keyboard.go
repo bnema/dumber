@@ -15,6 +15,10 @@ import (
 )
 
 const (
+	// historySystemViewURL is the full-page/systemview history surface.
+	// It remains reachable by direct navigation (for example typing
+	// dumb://history in the omnibox), but Ctrl+H no longer falls back to it.
+	// Ctrl+H is reserved for the native GTK history sidebar only.
 	historySystemViewURL   = "dumb://history"
 	favoritesSystemViewURL = "dumb://favorites"
 	configSystemViewURL    = "dumb://config"
@@ -32,24 +36,25 @@ type KeyboardActions struct {
 
 // KeyboardDispatcher routes keyboard actions to appropriate coordinators.
 type KeyboardDispatcher struct {
-	actions             KeyboardActions
-	wsCoord             *coordinator.WorkspaceCoordinator
-	navCoord            *coordinator.NavigationCoordinator
-	zoomUC              *usecase.ManageZoomUseCase
-	copyURLUC           *usecase.CopyURLUseCase
-	actionHandlers      map[input.Action]func(ctx context.Context) error
-	onQuit              func()
-	onFindOpen          func(ctx context.Context) error
-	onFindNext          func(ctx context.Context) error
-	onFindPrev          func(ctx context.Context) error
-	onFindClose         func(ctx context.Context) error
-	activePaneID        func(ctx context.Context) entity.PaneID
-	onSessionOpen       func(ctx context.Context, paneID entity.PaneID) error
-	onMovePaneToTab     func(ctx context.Context, paneID entity.PaneID) error
-	onMovePaneToNext    func(ctx context.Context, paneID entity.PaneID) error
-	onEjectPaneToWindow func(ctx context.Context, paneID entity.PaneID) error
-	onToggleFloating    func(ctx context.Context) error
-	onOpenFloating      func(ctx context.Context, target input.FloatingProfileTarget) error
+	actions                KeyboardActions
+	wsCoord                *coordinator.WorkspaceCoordinator
+	navCoord               *coordinator.NavigationCoordinator
+	zoomUC                 *usecase.ManageZoomUseCase
+	copyURLUC              *usecase.CopyURLUseCase
+	actionHandlers         map[input.Action]func(ctx context.Context) error
+	onQuit                 func()
+	onFindOpen             func(ctx context.Context) error
+	onFindNext             func(ctx context.Context) error
+	onFindPrev             func(ctx context.Context) error
+	onFindClose            func(ctx context.Context) error
+	activePaneID           func(ctx context.Context) entity.PaneID
+	onSessionOpen          func(ctx context.Context, paneID entity.PaneID) error
+	onMovePaneToTab        func(ctx context.Context, paneID entity.PaneID) error
+	onMovePaneToNext       func(ctx context.Context, paneID entity.PaneID) error
+	onEjectPaneToWindow    func(ctx context.Context, paneID entity.PaneID) error
+	onToggleHistorySidebar func(ctx context.Context) error
+	onToggleFloating       func(ctx context.Context) error
+	onOpenFloating         func(ctx context.Context, target input.FloatingProfileTarget) error
 }
 
 // NewKeyboardDispatcher creates a new KeyboardDispatcher.
@@ -117,6 +122,10 @@ func (d *KeyboardDispatcher) SetOnMovePaneToNextTab(fn func(ctx context.Context,
 
 func (d *KeyboardDispatcher) SetOnEjectPaneToWindow(fn func(ctx context.Context, paneID entity.PaneID) error) {
 	d.onEjectPaneToWindow = fn
+}
+
+func (d *KeyboardDispatcher) SetOnToggleHistorySidebar(fn func(ctx context.Context) error) {
+	d.onToggleHistorySidebar = fn
 }
 
 func (d *KeyboardDispatcher) SetOnToggleFloatingPane(fn func(ctx context.Context) error) {
@@ -243,8 +252,14 @@ func (d *KeyboardDispatcher) initActionHandlers() {
 			}
 			return d.logNoop(ctx, "toggle floating pane action (no handler)")
 		},
+		// ActionToggleHistorySystemView (default Ctrl+H) is intentionally bound
+		// to the native GTK history sidebar only. The dumb://history systemview
+		// remains available through direct navigation, not shortcut fallback.
 		input.ActionToggleHistorySystemView: func(ctx context.Context) error {
-			return d.wsCoord.ToggleSystemViewRight(ctx, historySystemViewURL)
+			if d.onToggleHistorySidebar == nil {
+				return fmt.Errorf("history sidebar unavailable: toggle handler not wired")
+			}
+			return d.onToggleHistorySidebar(ctx)
 		},
 		input.ActionToggleFavoritesSystemView: func(ctx context.Context) error {
 			return d.wsCoord.ToggleSystemViewRight(ctx, favoritesSystemViewURL)

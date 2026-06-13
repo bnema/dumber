@@ -2,11 +2,10 @@ package dispatcher
 
 import (
 	"context"
+	"fmt"
 	"testing"
 
-	"github.com/bnema/dumber/internal/application/usecase"
 	"github.com/bnema/dumber/internal/domain/entity"
-	"github.com/bnema/dumber/internal/ui/component"
 	"github.com/bnema/dumber/internal/ui/coordinator"
 	"github.com/bnema/dumber/internal/ui/input"
 	"github.com/stretchr/testify/assert"
@@ -64,37 +63,56 @@ func TestKeyboardDispatcher_TabActionsUseInjectedKeyboardActions(t *testing.T) {
 	assert.Equal(t, 4, switchedIndex)
 }
 
-func TestKeyboardDispatcher_ToggleHistorySystemViewOpensRightSplit(t *testing.T) {
+func TestKeyboardDispatcher_ToggleHistorySidebarCallsCallback(t *testing.T) {
 	ctx := context.Background()
-	ids := []string{"pane-2", "split-1"}
-	idx := 0
-	panesUC := usecase.NewManagePanesUseCase(func() string {
-		id := ids[idx]
-		idx++
-		return id
-	})
+	d := NewKeyboardDispatcher(ctx, &coordinator.WorkspaceCoordinator{}, &coordinator.NavigationCoordinator{}, nil, nil, KeyboardActions{}, func(context.Context) entity.PaneID { return "" })
 
-	initialPane := entity.NewPane("pane-1")
-	initialPane.URI = "https://example.com"
-	ws := entity.NewWorkspace("ws-1", initialPane)
-	wsCoord := coordinator.NewWorkspaceCoordinator(ctx, coordinator.WorkspaceCoordinatorConfig{
-		PanesUC: panesUC,
-		GetActiveWS: func() (*entity.Workspace, *component.WorkspaceView) {
-			return ws, nil
-		},
+	var called bool
+	d.SetOnToggleHistorySidebar(func(context.Context) error {
+		called = true
+		return nil
 	})
-
-	d := NewKeyboardDispatcher(ctx, wsCoord, &coordinator.NavigationCoordinator{}, nil, nil, KeyboardActions{}, func(context.Context) entity.PaneID { return "" })
 
 	err := d.Dispatch(ctx, input.ActionToggleHistorySystemView)
 	require.NoError(t, err)
+	assert.True(t, called, "onToggleHistorySidebar should have been called")
+}
 
-	require.Equal(t, 2, ws.PaneCount())
-	active := ws.ActivePane()
-	require.NotNil(t, active)
-	require.NotNil(t, active.Pane)
-	assert.Equal(t, entity.PaneID("pane-2"), active.Pane.ID)
-	assert.Equal(t, "dumb://history", active.Pane.URI)
+func TestKeyboardDispatcher_ToggleHistorySystemViewReturnsErrorWhenHandlerMissing(t *testing.T) {
+	ctx := context.Background()
+	d := NewKeyboardDispatcher(ctx, &coordinator.WorkspaceCoordinator{}, &coordinator.NavigationCoordinator{}, nil, nil, KeyboardActions{}, func(context.Context) entity.PaneID { return "" })
+
+	err := d.Dispatch(ctx, input.ActionToggleHistorySystemView)
+	require.Error(t, err)
+	assert.ErrorContains(t, err, "history sidebar unavailable")
+}
+
+func TestKeyboardDispatcher_ToggleHistorySidebarErrorPropagation(t *testing.T) {
+	ctx := context.Background()
+	d := NewKeyboardDispatcher(ctx, &coordinator.WorkspaceCoordinator{}, &coordinator.NavigationCoordinator{}, nil, nil, KeyboardActions{}, func(context.Context) entity.PaneID { return "" })
+
+	wantErr := fmt.Errorf("sidebar toggle failed")
+	d.SetOnToggleHistorySidebar(func(context.Context) error {
+		return wantErr
+	})
+
+	err := d.Dispatch(ctx, input.ActionToggleHistorySystemView)
+	require.Error(t, err)
+	assert.ErrorIs(t, err, wantErr, "onToggleHistorySidebar error should propagate")
+}
+
+func TestKeyboardDispatcher_ToggleHistorySidebarSetThenUnsetReturnsError(t *testing.T) {
+	ctx := context.Background()
+	d := NewKeyboardDispatcher(ctx, &coordinator.WorkspaceCoordinator{}, &coordinator.NavigationCoordinator{}, nil, nil, KeyboardActions{}, func(context.Context) entity.PaneID { return "" })
+
+	d.SetOnToggleHistorySidebar(func(context.Context) error {
+		return nil
+	})
+	d.SetOnToggleHistorySidebar(nil)
+
+	err := d.Dispatch(ctx, input.ActionToggleHistorySystemView)
+	require.Error(t, err)
+	assert.ErrorContains(t, err, "history sidebar unavailable")
 }
 
 func TestKeyboardDispatcher_PassesActivePaneIDToShellCallbacks(t *testing.T) {

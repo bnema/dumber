@@ -21,7 +21,8 @@ const (
 	defaultMaxLogFiles   = 100 // session log files
 
 	// Appearance defaults
-	defaultFontSize                      = 16 // points
+	defaultSidebarWidth                  = 320 // px, clamped to [280, 380]
+	defaultFontSize                      = 16  // points
 	defaultExternalThemeProvider         = "noctalia"
 	defaultExternalThemeFormat           = "colors-json"
 	defaultExternalThemeColorsFilename   = "colors.json"
@@ -251,8 +252,9 @@ func DefaultConfig() *Config {
 				GLRenderingMode:        GLRenderingModeAuto,
 			},
 		},
-		DefaultWebpageZoom: 1.2,            // 120% default zoom for better readability
-		DefaultUIScale:     defaultUIScale, // 1.0 = 100%, 2.0 = 200%
+		DefaultWebpageZoom: 1.2,                 // 120% default zoom for better readability
+		DefaultUIScale:     defaultUIScale,      // 1.0 = 100%, 2.0 = 200%
+		SidebarWidth:       defaultSidebarWidth, // 320px, clamped to [280, 380]
 		Workspace: WorkspaceConfig{
 			NewPaneURL:        defaultNewPaneURL,
 			SwitchToTabOnMove: true,

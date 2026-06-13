@@ -95,6 +95,9 @@ type Config struct {
 	DefaultWebpageZoom float64 `mapstructure:"default_webpage_zoom" yaml:"default_webpage_zoom" toml:"default_webpage_zoom"`
 	// DefaultUIScale sets the default UI scale for GTK widgets (1.0 = 100%, 2.0 = 200%)
 	DefaultUIScale float64 `mapstructure:"default_ui_scale" yaml:"default_ui_scale" toml:"default_ui_scale"`
+	// SidebarWidth sets the preferred width (px) for the history sidebar.
+	// Clamped to [280, 380] at runtime. 0 means use default (320).
+	SidebarWidth int `mapstructure:"sidebar_width" yaml:"sidebar_width" toml:"sidebar_width"`
 	// Workspace defines workspace, pane, and tab handling behavior.
 	Workspace WorkspaceConfig `mapstructure:"workspace" yaml:"workspace" toml:"workspace"`
 	// Session controls session persistence and restoration.

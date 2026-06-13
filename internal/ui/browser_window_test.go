@@ -43,6 +43,7 @@ func TestBrowserWindow_RemoveBrowserWindowClearsShellState(t *testing.T) {
 	setShellField(t, removed, "globalShortcutHandler", &input.GlobalShortcutHandler{})
 	setShellField(t, removed, "permissionDialog", (*testPermissionDialogPresenter)(nil))
 	setShellField(t, removed, "webrtcIndicator", &component.WebRTCPermissionIndicator{})
+	setShellField(t, removed, "historySidebar", &component.HistorySidebar{})
 
 	app.removeBrowserWindow(removed.id)
 
@@ -60,6 +61,7 @@ func TestBrowserWindow_RemoveBrowserWindowClearsShellState(t *testing.T) {
 		"globalShortcutHandler",
 		"permissionDialog",
 		"webrtcIndicator",
+		"historySidebar",
 	} {
 		if !fieldIsZero(t, removed, name) {
 			t.Fatalf("browserWindow.%s was not cleared", name)

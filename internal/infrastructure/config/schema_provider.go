@@ -162,6 +162,14 @@ func (*SchemaProvider) getAppearanceKeys(defaults *Config) []entity.ConfigKeyInf
 			Section:     SectionAppearance,
 		},
 		{
+			Key:         "sidebar_width",
+			Type:        "int",
+			Default:     fmt.Sprintf("%d", defaults.SidebarWidth),
+			Description: "Preferred width (px) for the history sidebar. 0 = default",
+			Range:       "0 or 280-380",
+			Section:     SectionAppearance,
+		},
+		{
 			Key:         "appearance.light_palette.*",
 			Type:        "string",
 			Default:     "(hex colors)",

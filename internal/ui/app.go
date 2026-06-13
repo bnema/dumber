@@ -2222,6 +2222,20 @@ func (a *App) activeWorkspaceViewForBrowserWindow(bw *browserWindow) *component.
 	return a.workspaceViews[tab.ID]
 }
 
+// hideAndRestoreFocusForBrowserWindow hides the sidebar and restores focus to
+// the active content pane/webview of the given browser window.
+func (a *App) hideAndRestoreFocusForBrowserWindow(bw *browserWindow) {
+	if bw == nil {
+		return
+	}
+	bw.hideHistorySidebar()
+	if wsView := a.activeWorkspaceViewForBrowserWindow(bw); wsView != nil {
+		if ws := a.activeWorkspaceForBrowserWindow(bw); ws != nil {
+			wsView.FocusPane(ws.ActivePaneID)
+		}
+	}
+}
+
 // tabTargetForBrowserWindow returns a coordinator.TabTarget scoped to the given browser window.
 // It does not allocate a TabList; callers that mutate tabs should use
 // ensureTabTargetForBrowserWindow instead.
@@ -3508,6 +3522,7 @@ func (a *App) wireKeyboardActions() {
 		}
 		return a.EjectActivePaneToWindow(ctx, paneID)
 	})
+	a.kbDispatcher.SetOnToggleHistorySidebar(a.toggleHistorySidebarAction)
 	a.kbDispatcher.SetOnToggleFloatingPane(func(ctx context.Context) error {
 		return a.ToggleFloatingPane(ctx)
 	})
@@ -5037,6 +5052,9 @@ func (a *App) initConfigWatcher(ctx context.Context) {
 				if bw == nil {
 					continue
 				}
+				// Reapply sidebar width from live config (reloads after sidebar_width
+				// changes in the config file).
+				bw.applySidebarWidthConfig(a)
 				if bw.keyboardHandler != nil {
 					bw.keyboardHandler.ReloadShortcuts(ctx, &a.deps.Config.Workspace, &a.deps.Config.Session)
 				}
