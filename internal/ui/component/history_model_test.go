@@ -412,6 +412,51 @@ func TestKeyboardNavModel_EntryCount(t *testing.T) {
 	assert.Equal(t, 10, newKeyboardNavModel(makeGroups(3, 3, 4)).entryCount())
 }
 
+func TestBuildHistoryDisplayRows_IncludesHeadersAndEntries(t *testing.T) {
+	now := time.Now()
+	entryA := &entity.HistoryEntry{ID: 1, URL: "https://a.com", Title: "A", LastVisited: now}
+	entryB := &entity.HistoryEntry{ID: 2, URL: "https://b.com", Title: "B", LastVisited: now.Add(-time.Hour)}
+	groups := []historyGroup{
+		{Label: "Today", Entries: []*entity.HistoryEntry{entryA, entryB}},
+		{Label: "Yesterday", Entries: nil},
+	}
+
+	rows := buildHistoryDisplayRows(groups)
+	require.Len(t, rows, 4)
+	assert.Equal(t, historyDisplayRowHeader, rows[0].Kind)
+	assert.Equal(t, "Today", rows[0].Label)
+	assert.Equal(t, 0, rows[0].GroupIndex)
+	assert.Equal(t, historyDisplayRowEntry, rows[1].Kind)
+	assert.Same(t, entryA, rows[1].Entry)
+	assert.Equal(t, 0, rows[1].GroupIndex)
+	assert.Equal(t, historyDisplayRowEntry, rows[2].Kind)
+	assert.Same(t, entryB, rows[2].Entry)
+	assert.Equal(t, historyDisplayRowHeader, rows[3].Kind)
+	assert.Equal(t, "Yesterday", rows[3].Label)
+	assert.Equal(t, 1, rows[3].GroupIndex)
+}
+
+func TestKeyboardNavModelFromRows_UsesExplicitDisplayRows(t *testing.T) {
+	now := time.Now()
+	entryA := &entity.HistoryEntry{ID: 1, URL: "https://a.com", Title: "A", LastVisited: now}
+	entryB := &entity.HistoryEntry{ID: 2, URL: "https://b.com", Title: "B", LastVisited: now.Add(-24 * time.Hour)}
+	rows := buildHistoryDisplayRows([]historyGroup{
+		{Label: "Today", Entries: []*entity.HistoryEntry{entryA}},
+		{Label: "Yesterday", Entries: []*entity.HistoryEntry{entryB}},
+	})
+
+	m := newKeyboardNavModelFromRows(rows)
+	assert.Equal(t, 4, m.totalRows())
+	assert.False(t, m.isSelectable(0))
+	assert.True(t, m.isSelectable(1))
+	assert.False(t, m.isSelectable(2))
+	assert.True(t, m.isSelectable(3))
+	assert.Same(t, entryA, m.entryAt(1))
+	assert.Equal(t, entryB.URL, m.entryURLAt(3))
+	assert.Equal(t, 3, m.nextDayBoundary(1))
+	assert.Equal(t, 1, m.previousDayBoundary(3))
+}
+
 // =============================================================================
 // Search state transition tests
 // =============================================================================

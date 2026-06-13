@@ -139,52 +139,60 @@ func relativeTime(t time.Time) string {
 	}
 }
 
-// keyboardNavModel provides pure functions for keyboard navigation over
-// day-grouped history entries. It has no GTK dependencies and can be tested
-// directly. A "linear index" refers to the ListBox row position: group
-// headers occupy one row, followed by each entry row.
+// historyDisplayRowKind identifies the type of row rendered in the sidebar.
+type historyDisplayRowKind int
+
+const (
+	historyDisplayRowHeader historyDisplayRowKind = iota
+	historyDisplayRowEntry
+)
+
+// historyDisplayRow is the explicit row model rendered by the history sidebar.
+// It is the only source used for row lookup, selection, activation, and delete.
+type historyDisplayRow struct {
+	Kind       historyDisplayRowKind
+	Label      string
+	Entry      *entity.HistoryEntry
+	GroupIndex int
+}
+
+func buildHistoryDisplayRows(groups []historyGroup) []historyDisplayRow {
+	if len(groups) == 0 {
+		return nil
+	}
+	rows := make([]historyDisplayRow, 0)
+	for gi, group := range groups {
+		rows = append(rows, historyDisplayRow{Kind: historyDisplayRowHeader, Label: group.Label, GroupIndex: gi})
+		for _, entry := range group.Entries {
+			rows = append(rows, historyDisplayRow{Kind: historyDisplayRowEntry, Entry: entry, GroupIndex: gi})
+		}
+	}
+	return rows
+}
+
+// keyboardNavModel provides pure functions for keyboard navigation over the
+// explicit display rows. It has no GTK dependencies and can be tested directly.
 type keyboardNavModel struct {
-	groups []historyGroup
+	rows []historyDisplayRow
 }
 
-// newKeyboardNavModel creates a keyboardNavModel over the given groups.
+// newKeyboardNavModel creates a keyboardNavModel over day-grouped history.
 func newKeyboardNavModel(groups []historyGroup) keyboardNavModel {
-	return keyboardNavModel{groups: groups}
+	return newKeyboardNavModelFromRows(buildHistoryDisplayRows(groups))
 }
 
-// totalRows returns the number of linear rows (one per group header +
-// one per entry).
-func (m keyboardNavModel) totalRows() int {
-	n := 0
-	for _, g := range m.groups {
-		n++ // header
-		n += len(g.Entries)
-	}
-	return n
+func newKeyboardNavModelFromRows(rows []historyDisplayRow) keyboardNavModel {
+	return keyboardNavModel{rows: rows}
 }
 
-// isSelectable returns true when the linear index corresponds to an entry
-// row (not a group header).
+// totalRows returns the number of explicit display rows.
+func (m keyboardNavModel) totalRows() int { return len(m.rows) }
+
+// isSelectable returns true when the display row corresponds to an entry.
 func (m keyboardNavModel) isSelectable(index int) bool {
-	if index < 0 {
-		return false
-	}
-	linear := 0
-	for _, g := range m.groups {
-		if index == linear {
-			return false // header
-		}
-		linear++ // skip header
-		if index < linear+len(g.Entries) {
-			return true
-		}
-		linear += len(g.Entries)
-	}
-	return false
+	return index >= 0 && index < len(m.rows) && m.rows[index].Kind == historyDisplayRowEntry && m.rows[index].Entry != nil
 }
 
-// firstSelectableIndex returns the linear index of the first entry row,
-// or -1 when there are no entries.
 func (m keyboardNavModel) firstSelectableIndex() int {
 	for i := 0; i < m.totalRows(); i++ {
 		if m.isSelectable(i) {
@@ -194,8 +202,6 @@ func (m keyboardNavModel) firstSelectableIndex() int {
 	return -1
 }
 
-// lastSelectableIndex returns the linear index of the last entry row,
-// or -1 when there are no entries.
 func (m keyboardNavModel) lastSelectableIndex() int {
 	for i := m.totalRows() - 1; i >= 0; i-- {
 		if m.isSelectable(i) {
@@ -205,69 +211,56 @@ func (m keyboardNavModel) lastSelectableIndex() int {
 	return -1
 }
 
-// nextSelectableIndex returns the next selectable index in direction dir
-// (-1 or +1), or -1 when there is no further selectable row in that
-// direction. Skips group headers.
 func (m keyboardNavModel) nextSelectableIndex(from, dir int) int {
 	if dir != -1 && dir != +1 {
 		return -1
 	}
-	i := from + dir
-	for i >= 0 && i < m.totalRows() {
+	for i := from + dir; i >= 0 && i < m.totalRows(); i += dir {
 		if m.isSelectable(i) {
 			return i
 		}
-		i += dir
 	}
 	return -1
 }
 
-// groupIndexAt returns the index of the group containing the given linear row.
 func (m keyboardNavModel) groupIndexAt(index int) int {
-	linear := 0
-	for gi, g := range m.groups {
-		if index == linear {
-			return gi // header
-		}
-		linear++ // skip header
-		if index < linear+len(g.Entries) {
-			return gi
-		}
-		linear += len(g.Entries)
+	if index < 0 || index >= len(m.rows) {
+		return -1
 	}
-	return -1
+	return m.rows[index].GroupIndex
 }
 
-// cumulativeOffsetAtGroup returns the linear index of the group header row
-// for the group at gi.
+func (m keyboardNavModel) maxGroupIndex() int {
+	max := -1
+	for _, row := range m.rows {
+		if row.GroupIndex > max {
+			max = row.GroupIndex
+		}
+	}
+	return max
+}
+
 func (m keyboardNavModel) cumulativeOffsetAtGroup(gi int) int {
-	if gi < 0 || gi >= len(m.groups) {
+	if gi < 0 {
 		return -1
 	}
-	offset := 0
-	for i := 0; i < gi; i++ {
-		offset += 1 + len(m.groups[i].Entries)
-	}
-	return offset
-}
-
-// firstEntryOfGroup returns the linear index of the first entry in the
-// group at gi, or -1 if the group has no entries.
-func (m keyboardNavModel) firstEntryOfGroup(gi int) int {
-	if gi < 0 || gi >= len(m.groups) {
-		return -1
-	}
-	offset := m.cumulativeOffsetAtGroup(gi)
-	firstEntry := offset + 1
-	if firstEntry < m.totalRows() && m.isSelectable(firstEntry) {
-		return firstEntry
+	for i, row := range m.rows {
+		if row.GroupIndex == gi && row.Kind == historyDisplayRowHeader {
+			return i
+		}
 	}
 	return -1
 }
 
-// previousDayBoundary returns the linear index of the first entry in the
-// day group that precedes the row at fromIndex. Returns -1 when there is
-// no earlier day group.
+func (m keyboardNavModel) firstEntryOfGroup(gi int) int {
+	for i, row := range m.rows {
+		if row.GroupIndex == gi && row.Kind == historyDisplayRowEntry && row.Entry != nil {
+			return i
+		}
+	}
+	return -1
+}
+
 func (m keyboardNavModel) previousDayBoundary(from int) int {
 	gi := m.groupIndexAt(from)
 	if gi <= 0 {
@@ -276,39 +269,21 @@ func (m keyboardNavModel) previousDayBoundary(from int) int {
 	return m.firstEntryOfGroup(gi - 1)
 }
 
-// nextDayBoundary returns the linear index of the first entry in the day
-// group that follows the row at fromIndex. Returns -1 when there is no
-// later day group.
 func (m keyboardNavModel) nextDayBoundary(from int) int {
 	gi := m.groupIndexAt(from)
-	if gi < 0 || gi >= len(m.groups)-1 {
+	if gi < 0 || gi >= m.maxGroupIndex() {
 		return -1
 	}
 	return m.firstEntryOfGroup(gi + 1)
 }
 
-// entryAt returns the history entry at the given linear index, or nil
-// when the index is out of range or points at a group header.
 func (m keyboardNavModel) entryAt(index int) *entity.HistoryEntry {
-	if index < 0 {
+	if !m.isSelectable(index) {
 		return nil
 	}
-	linear := 0
-	for _, g := range m.groups {
-		if index == linear {
-			return nil // header
-		}
-		linear++
-		if index < linear+len(g.Entries) {
-			return g.Entries[index-linear]
-		}
-		linear += len(g.Entries)
-	}
-	return nil
+	return m.rows[index].Entry
 }
 
-// entryURLAt returns the URL of the entry at the given linear index, or
-// "" for header rows or out-of-range indices.
 func (m keyboardNavModel) entryURLAt(index int) string {
 	e := m.entryAt(index)
 	if e == nil {
@@ -317,11 +292,12 @@ func (m keyboardNavModel) entryURLAt(index int) string {
 	return e.URL
 }
 
-// entryCount returns the total number of history entries (selectable rows).
 func (m keyboardNavModel) entryCount() int {
 	n := 0
-	for _, g := range m.groups {
-		n += len(g.Entries)
+	for i := range m.rows {
+		if m.isSelectable(i) {
+			n++
+		}
 	}
 	return n
 }

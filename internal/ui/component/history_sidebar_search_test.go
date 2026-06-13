@@ -118,6 +118,42 @@ func TestApplySearchResults_EmptyResultsApplied(t *testing.T) {
 	assert.Nil(t, hs.groups, "empty entries should produce nil groups")
 }
 
+func TestApplyDeletedEntryLocked_RecomputesBrowseState(t *testing.T) {
+	now := time.Now()
+	keepA := &entity.HistoryEntry{ID: 1, URL: "https://keep-a.com", Title: "Keep A", LastVisited: now}
+	deleteMe := &entity.HistoryEntry{ID: 2, URL: "https://delete-me.com", Title: "Delete Me", LastVisited: now.Add(-time.Minute)}
+	keepB := &entity.HistoryEntry{ID: 3, URL: "https://keep-b.com", Title: "Keep B", LastVisited: now.Add(-2 * time.Minute)}
+
+	hs := newTestSidebarSearchHarness()
+	hs.allEntries = []*entity.HistoryEntry{keepA, deleteMe, keepB}
+	hs.totalLoaded = len(hs.allEntries)
+	hs.loadGen = 7
+	hs.isLoading = true
+	hs.loadStarted = true
+	hs.searchResults = []*entity.HistoryEntry{deleteMe, keepB}
+	hs.setDisplayGroupsLocked(groupHistoryByDay(hs.allEntries))
+
+	hs.mu.Lock()
+	hs.applyDeletedEntryLocked(deleteMe.URL, deleteMe.ID, keepB.URL)
+	hs.mu.Unlock()
+
+	assert.Equal(t, uint64(8), hs.loadGen, "deletes must invalidate in-flight browse loads")
+	assert.False(t, hs.isLoading, "delete should clear stale loading state")
+	assert.False(t, hs.loadStarted, "delete should clear stale loadStarted state")
+	assert.Equal(t, 2, hs.totalLoaded, "browse pagination offset must track remaining loaded entries")
+	assert.Equal(t, keepB.URL, hs.prevSelectedURL)
+	assert.Len(t, hs.allEntries, 2)
+	assert.Equal(t, []string{keepA.URL, keepB.URL}, []string{hs.allEntries[0].URL, hs.allEntries[1].URL})
+	assert.Len(t, hs.searchResults, 1)
+	assert.Equal(t, keepB.URL, hs.searchResults[0].URL)
+	require.Len(t, hs.groups, 1)
+	require.Len(t, hs.groups[0].Entries, 2)
+	require.Len(t, hs.displayRows, 3, "one header plus two remaining entries")
+	assert.Equal(t, historyDisplayRowHeader, hs.displayRows[0].Kind)
+	assert.Equal(t, historyDisplayRowEntry, hs.displayRows[1].Kind)
+	assert.Equal(t, historyDisplayRowEntry, hs.displayRows[2].Kind)
+}
+
 // =============================================================================
 // Async search seam: controllable history port fake
 // =============================================================================
