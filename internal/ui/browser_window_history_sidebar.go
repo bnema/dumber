@@ -146,6 +146,10 @@ func (a *App) toggleHistorySidebarAction(ctx context.Context) error {
 	if bw.historySidebar == nil {
 		return fmt.Errorf("history sidebar unavailable: native sidebar not initialized")
 	}
+	if bw.sidebarVisible {
+		a.hideAndRestoreFocusForBrowserWindow(bw)
+		return nil
+	}
 	bw.toggleHistorySidebar()
 	return nil
 }

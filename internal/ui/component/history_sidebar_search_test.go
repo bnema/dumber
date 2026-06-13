@@ -3,6 +3,7 @@ package component
 import (
 	"context"
 	"errors"
+	"fmt"
 	"sync"
 	"testing"
 	"time"
@@ -168,8 +169,7 @@ func (f *fakeHistorySidebarHistory) GetRecent(ctx context.Context, limit, offset
 	if f.getRecentFn != nil {
 		return f.getRecentFn(ctx, limit, offset)
 	}
-	<-make(chan struct{})
-	return nil, nil
+	return nil, fmt.Errorf("unexpected GetRecent call in fakeHistorySidebarHistory")
 }
 
 func (f *fakeHistorySidebarHistory) Search(ctx context.Context, input dto.HistorySearchInput) (*dto.HistorySearchOutput, error) {

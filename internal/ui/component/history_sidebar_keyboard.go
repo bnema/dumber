@@ -196,7 +196,7 @@ func (hs *HistorySidebar) applyDeletedEntryLocked(url string, entryID int64, nex
 	hs.loadGen++
 	hs.isLoading = false
 	hs.loadStarted = false
-	hs.removeFromAllEntries(url, entryID)
+	hs.removeFromAllEntries(entryID)
 	hs.totalLoaded = len(hs.allEntries)
 	hs.removeFromSearchResults(entryID)
 	hs.rebuildLocalGroups()
@@ -229,7 +229,7 @@ func (hs *HistorySidebar) rebuildLocalGroups() {
 
 // removeFromAllEntries removes all history entries matching the given URL or ID
 // from hs.allEntries. Must be called with hs.mu write lock held.
-func (hs *HistorySidebar) removeFromAllEntries(_ string, id int64) {
+func (hs *HistorySidebar) removeFromAllEntries(id int64) {
 	filtered := make([]*entity.HistoryEntry, 0, len(hs.allEntries))
 	for _, e := range hs.allEntries {
 		if e != nil && e.ID == id {

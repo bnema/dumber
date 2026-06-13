@@ -197,9 +197,7 @@ func (hs *HistorySidebar) restoreScrollAndSelection() {
 			if hs.prevScrollValue > maxVal {
 				hs.prevScrollValue = maxVal
 			}
-			if hs.prevScrollValue >= 0 {
-				vadj.SetValue(hs.prevScrollValue)
-			}
+			vadj.SetValue(hs.prevScrollValue)
 		}
 	}
 
