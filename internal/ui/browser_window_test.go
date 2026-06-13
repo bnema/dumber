@@ -1225,6 +1225,7 @@ func TestApp_HistorySidebarToggleHandler_NilFocusedWindowIsNoOp(t *testing.T) {
 // TestHistorySidebarConfig_OnCloseHidesSidebar verifies that the OnClose
 // callback hides the sidebar for the owning browser window.
 func TestHistorySidebarConfig_OnCloseHidesSidebar(t *testing.T) {
+	ctx := context.Background()
 	tab := entity.NewTab(entity.TabID("tab-1"), entity.WorkspaceID("ws-1"), entity.NewPane(entity.PaneID("pane-1")))
 	bwTabs := entity.NewTabList()
 	bwTabs.Add(tab)
@@ -1238,10 +1239,17 @@ func TestHistorySidebarConfig_OnCloseHidesSidebar(t *testing.T) {
 		sidebarVisible: true,
 	}
 
-	// Simulate the hide step used by OnClose's hideAndRestoreFocus closure.
-	bw.hideHistorySidebar()
-	assert.False(t, bw.sidebarVisible, "sidebar must be hidden by hideAndRestoreFocus")
+	app := &App{
+		tabs:           entity.NewTabList(),
+		browserWindows: map[string]*browserWindow{bw.id: bw},
+		workspaceViews: map[entity.TabID]*component.WorkspaceView{tab.ID: {}},
+	}
+	app.tabs.Add(tab)
 
+	cfg := app.buildHistorySidebarConfig(ctx, bw)
+	cfg.OnClose()
+
+	assert.False(t, bw.sidebarVisible, "sidebar must be hidden by OnClose")
 }
 
 // =============================================================================

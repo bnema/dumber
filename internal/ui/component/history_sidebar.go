@@ -95,6 +95,10 @@ type HistorySidebar struct {
 	// Retained callbacks
 	retainedCallbacks []interface{}
 
+	// idleScheduler dispatches work onto the GTK main thread.
+	// Tests may override it to exercise scheduled callbacks deterministically.
+	idleScheduler func(glib.SourceFunc)
+
 	// Context
 	ctx    context.Context
 	cancel context.CancelFunc
@@ -804,7 +808,7 @@ func (hs *HistorySidebar) doFTSearch(query string, gen uint64) {
 			}
 			return false
 		})
-		glib.IdleAdd(&cb, 0)
+		hs.scheduleIdle(cb)
 	}()
 }
 
@@ -826,6 +830,14 @@ func (hs *HistorySidebar) applySearchResults(entries []*entity.HistoryEntry, gen
 	return true
 }
 
+func (hs *HistorySidebar) scheduleIdle(cb glib.SourceFunc) {
+	if hs != nil && hs.idleScheduler != nil {
+		hs.idleScheduler(cb)
+		return
+	}
+	glib.IdleAdd(&cb, 0)
+}
+
 // scheduleClearList clears the list box on the GTK main thread.
 func (hs *HistorySidebar) scheduleClearList() {
 	cb := glib.SourceFunc(func(uintptr) bool {
@@ -839,7 +851,7 @@ func (hs *HistorySidebar) scheduleClearList() {
 		listBox.RemoveAll()
 		return false
 	})
-	glib.IdleAdd(&cb, 0)
+	hs.scheduleIdle(cb)
 }
 
 // scheduleRebuild schedules a list rebuild on the GTK main thread.
@@ -848,7 +860,7 @@ func (hs *HistorySidebar) scheduleRebuild() {
 		hs.rebuildList()
 		return false
 	})
-	glib.IdleAdd(&cb, 0)
+	hs.scheduleIdle(cb)
 }
 
 // =============================================================================
@@ -1240,6 +1252,7 @@ func (hs *HistorySidebar) handleDeleteKey() bool {
 			hs.prevSelectedURL = nextSelectedURL
 			hs.searchGen++
 			hs.removeFromAllEntries(url, entryID)
+			hs.totalLoaded = len(hs.allEntries)
 			hs.removeFromSearchResults(entryID)
 			hs.rebuildLocalGroups()
 			hs.mu.Unlock()

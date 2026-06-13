@@ -9,6 +9,7 @@ import (
 
 	"github.com/bnema/dumber/internal/application/dto"
 	"github.com/bnema/dumber/internal/domain/entity"
+	"github.com/bnema/puregotk/v4/glib"
 	"github.com/rs/zerolog"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -151,6 +152,7 @@ func (f *fakeHistorySidebarHistory) Delete(ctx context.Context, id int64) error 
 
 func TestApplySearchResults_StaleGenerationDropsResultsAfterSearch(t *testing.T) {
 	searchCalled := make(chan struct{}, 1)
+	idleCalled := make(chan glib.SourceFunc, 1)
 
 	history := &fakeHistorySidebarHistory{
 		searchFn: func(context.Context, dto.HistorySearchInput) (*dto.HistorySearchOutput, error) {
@@ -165,20 +167,29 @@ func TestApplySearchResults_StaleGenerationDropsResultsAfterSearch(t *testing.T)
 	hs.ctx = context.Background()
 	hs.historyUC = history
 	hs.searchGen = 1
+	hs.idleScheduler = func(cb glib.SourceFunc) {
+		idleCalled <- cb
+	}
 
-	// Start search with gen=1
+	// Start search with gen=1.
 	hs.doFTSearch("test", 1)
-	<-searchCalled // Wait for the goroutine to pick up the search
+	select {
+	case <-searchCalled:
+	case <-time.After(time.Second):
+		t.Fatal("timed out waiting for search use case to be invoked")
+	}
 
-	// Advance gen before the UI callback would apply results.
+	// Advance gen before the queued UI callback applies results.
 	hs.mu.Lock()
 	hs.searchGen = 2
 	hs.mu.Unlock()
 
-	applied := hs.applySearchResults([]*entity.HistoryEntry{{
-		ID: 1, URL: "https://result.com", Title: "Result", LastVisited: time.Now(),
-	}}, 1, nil)
-	assert.False(t, applied, "stale search results must be dropped")
+	select {
+	case cb := <-idleCalled:
+		cb(0)
+	case <-time.After(time.Second):
+		t.Fatal("timed out waiting for scheduled idle callback")
+	}
 
 	hs.mu.RLock()
 	defer hs.mu.RUnlock()
@@ -189,6 +200,7 @@ func TestApplySearchResults_StaleGenerationDropsResultsAfterSearch(t *testing.T)
 
 func TestApplySearchResults_CurrentGenerationAppliedAfterSearch(t *testing.T) {
 	searchCalled := make(chan struct{}, 1)
+	idleCalled := make(chan glib.SourceFunc, 1)
 
 	history := &fakeHistorySidebarHistory{
 		searchFn: func(context.Context, dto.HistorySearchInput) (*dto.HistorySearchOutput, error) {
@@ -203,6 +215,9 @@ func TestApplySearchResults_CurrentGenerationAppliedAfterSearch(t *testing.T) {
 	hs.ctx = context.Background()
 	hs.historyUC = history
 	hs.searchGen = 1
+	hs.idleScheduler = func(cb glib.SourceFunc) {
+		idleCalled <- cb
+	}
 
 	// Start the search and wait for the use case to be invoked.
 	hs.doFTSearch("live", 1)
@@ -212,11 +227,12 @@ func TestApplySearchResults_CurrentGenerationAppliedAfterSearch(t *testing.T) {
 		t.Fatal("timed out waiting for search use case to be invoked")
 	}
 
-	// glib.IdleAdd is a no-op without GTK, so apply the callback effect directly.
-	applied := hs.applySearchResults([]*entity.HistoryEntry{
-		{ID: 1, URL: "https://live.com", Title: "Live", LastVisited: time.Now()},
-	}, 1, nil)
-	require.True(t, applied)
+	select {
+	case cb := <-idleCalled:
+		cb(0)
+	case <-time.After(time.Second):
+		t.Fatal("timed out waiting for scheduled idle callback")
+	}
 
 	hs.mu.RLock()
 	assert.NotNil(t, hs.searchResults)
