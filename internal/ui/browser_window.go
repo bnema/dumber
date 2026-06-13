@@ -309,18 +309,10 @@ func (a *App) buildHistorySidebarConfig(ctx context.Context, bw *browserWindow) 
 	return component.HistorySidebarConfig{
 		HistoryUC: historyUC,
 		OnNavigate: func(navCtx context.Context, url string) error {
-			if err := a.navigateFromBrowserWindow(navCtx, bw, url); err != nil {
-				return err
-			}
-			cb := glib.SourceFunc(func(_ uintptr) bool {
-				a.hideAndRestoreFocusForBrowserWindow(bw)
-				return false
-			})
-			glib.IdleAdd(&cb, 0)
-			return nil
+			return a.navigateHistorySidebarSelection(navCtx, bw, url)
 		},
 		OnNavigateKeepOpen: func(navCtx context.Context, url string) error {
-			return a.navigateFromBrowserWindow(navCtx, bw, url)
+			return a.navigateHistorySidebarSelection(navCtx, bw, url)
 		},
 		OnOpenInNewPane: func(splitCtx context.Context, url string) error {
 			if a.wsCoord == nil {
@@ -333,6 +325,10 @@ func (a *App) buildHistorySidebarConfig(ctx context.Context, bw *browserWindow) 
 			a.hideAndRestoreFocusForBrowserWindow(bw)
 		},
 	}
+}
+
+func (a *App) navigateHistorySidebarSelection(ctx context.Context, bw *browserWindow, url string) error {
+	return a.navigateFromBrowserWindow(ctx, bw, url)
 }
 
 // toggleHistorySidebar toggles sidebar visibility. An optional width config

@@ -1411,7 +1411,13 @@ func TestApp_HistorySidebarConfig_NavigateCallbackNavigates(t *testing.T) {
 	bwTabs.Add(tab)
 	bwTabs.SetActive(tab.ID)
 
-	bw := &browserWindow{id: "window-1", tabs: bwTabs}
+	bw := &browserWindow{
+		id:             "window-1",
+		tabs:           bwTabs,
+		mainWindow:     &window.MainWindow{},
+		historySidebar: &component.HistorySidebar{},
+		sidebarVisible: true,
+	}
 
 	fakeWv := &fakeRecordingWebView{id: 1}
 	contentCoord := contentcoord.NewCoordinator(ctx, nil, nil, nil, nil, nil, nil, nil)
@@ -1441,6 +1447,47 @@ func TestApp_HistorySidebarConfig_NavigateCallbackNavigates(t *testing.T) {
 	// Verify the navigation reached the correct webview.
 	assert.True(t, fakeWv.loadURICalled, "webview must receive navigation")
 	assert.Equal(t, navigateURL, fakeWv.loadURILastURI)
+	assert.True(t, bw.sidebarVisible, "default history navigation should keep the sidebar open")
+}
+
+func TestApp_NavigateHistorySidebarSelection_KeepsSidebarVisible(t *testing.T) {
+	ctx := context.Background()
+
+	paneID := entity.PaneID("pane-1")
+	tab := entity.NewTab(entity.TabID("tab-1"), entity.WorkspaceID("ws-1"), entity.NewPane(paneID))
+	bwTabs := entity.NewTabList()
+	bwTabs.Add(tab)
+	bwTabs.SetActive(tab.ID)
+
+	bw := &browserWindow{
+		id:             "window-1",
+		tabs:           bwTabs,
+		mainWindow:     &window.MainWindow{},
+		historySidebar: &component.HistorySidebar{},
+		sidebarVisible: true,
+	}
+
+	fakeWv := &fakeRecordingWebView{id: 1}
+	contentCoord := contentcoord.NewCoordinator(ctx, nil, nil, nil, nil, nil, nil, nil)
+	contentCoord.RegisterPopupWebView(paneID, fakeWv)
+	navCoord := coordinator.NewNavigationCoordinator(ctx, nil, contentCoord)
+
+	app := &App{
+		tabs:           entity.NewTabList(),
+		browserWindows: map[string]*browserWindow{bw.id: bw},
+		contentCoord:   contentCoord,
+		navCoord:       navCoord,
+		workspaceViews: map[entity.TabID]*component.WorkspaceView{
+			tab.ID: {},
+		},
+	}
+	app.tabs.Add(tab)
+
+	err := app.navigateHistorySidebarSelection(ctx, bw, "https://open.com")
+	require.NoError(t, err)
+	assert.True(t, fakeWv.loadURICalled)
+	assert.Equal(t, "https://open.com", fakeWv.loadURILastURI)
+	assert.True(t, bw.sidebarVisible, "history selection navigation should not hide the sidebar")
 }
 
 // TestApp_HistorySidebarConfig_NavigateCallbackOwnership verifies that

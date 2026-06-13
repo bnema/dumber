@@ -31,7 +31,8 @@ const (
 type HistorySidebarKeyboardAction int
 
 const (
-	// SidebarActionCloseOnActivate is the default: navigate and close the sidebar.
+	// SidebarActionCloseOnActivate is the default activation path.
+	// The host currently keeps the sidebar visible for default activation.
 	SidebarActionCloseOnActivate HistorySidebarKeyboardAction = iota
 	// SidebarActionKeepOpenOnActivate navigates but leaves the sidebar visible.
 	SidebarActionKeepOpenOnActivate
@@ -104,7 +105,7 @@ type HistorySidebarConfig struct {
 	HistoryUC *usecase.SearchHistoryUseCase
 
 	// OnNavigate is called when the user activates a history entry.
-	// The default Enter / click behavior closes the sidebar after navigating.
+	// The default Enter / click behavior keeps the sidebar open after navigating.
 	OnNavigate func(ctx context.Context, url string) error
 
 	// OnOpenInNewPane is called when Shift+Enter activates a URL.
@@ -153,7 +154,8 @@ func NewHistorySidebar(ctx context.Context, cfg HistorySidebarConfig) *HistorySi
 					log.Error().Err(err).Str("url", url).Msg("history sidebar keep-open navigate failed")
 				}
 			} else if cfg.OnNavigate != nil {
-				// Fall back to default navigate (which may close the sidebar)
+				// Fall back to the default navigate path when no dedicated
+				// keep-open callback is configured.
 				if err := cfg.OnNavigate(callCtx, url); err != nil {
 					log.Error().Err(err).Str("url", url).Msg("history sidebar keep-open fallback failed")
 				}
@@ -1143,7 +1145,7 @@ func (hs *HistorySidebar) handleEnterKey(keyval uint, state gdk.ModifierType) bo
 		// Shift+Enter: navigate in new pane
 		action = SidebarActionNewPaneOnActivate
 	default:
-		// Plain Enter: navigate and close sidebar (via onRowActivated or direct)
+		// Plain Enter: navigate using the default activation behavior.
 		action = SidebarActionCloseOnActivate
 	}
 
@@ -1578,29 +1580,12 @@ func (hs *HistorySidebar) navigateWithoutClosing(url string) {
 	if hs.onNavigateKeepOpen == nil || url == "" {
 		return
 	}
-
-	// Wrap onURL so that the configured OnNavigate callback is called
-	// but we do NOT trigger the auto-close path (which is in OnNavigate).
-	// Since OnNavigate already controls closing, we call the raw onURL
-	// closure which calls OnNavigate directly — the OnNavigate callback
-	// in browser_window.go has the auto-hide logic. We override that by
-	// scheduling the navigation on idle but NOT scheduling a hide.
-	//
-	// The cleanest approach: call the raw onURL (which calls OnNavigate)
-	// and let the caller decide about sidebar visibility.
-	// OnNavigate in the browser window already hides; for keep-open we
-	// need a different path.
-	//
-	// Solution: call a deferred navigate that does NOT include the
-	// auto-close. We use a dedicated idle callback that navigates
-	// without scheduling hide.
 	hs.doNavigateWithoutClose(url)
 }
 
 // doNavigateWithoutClose schedules navigation without closing the sidebar.
-// Uses the dedicated OnNavigateKeepOpen path so the host never hides
-// the sidebar. When OnNavigateKeepOpen is not configured, falls back
-// to the normal onURL path (which may close the sidebar).
+// Uses the dedicated OnNavigateKeepOpen path so hosts can override the
+// default activation behavior when they need a distinct keep-open action.
 func (hs *HistorySidebar) doNavigateWithoutClose(url string) {
 	navigateCb := glib.SourceFunc(func(uintptr) bool {
 		hs.onNavigateKeepOpen(hs.ctx, url)
