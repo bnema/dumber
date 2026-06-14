@@ -362,6 +362,7 @@ cancel = ["escape"]
 | `workspace.page_mode.actions` | map | See below | Action→binding mappings |
 
 **Default page mode actions:**
+
 ```toml
 [workspace.page_mode.actions.page-scroll-left]
 keys = ["h"]

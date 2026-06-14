@@ -59,7 +59,7 @@ func (m *Manager) applyResolvedTheme(resolved entity.ResolvedTheme) {
 	}
 	m.gtkFont = m.fonts.GtkFont
 	m.modeColors = ModeColorsFromEntity(resolved.ModeColors)
-	if m.transitionDurationMs < 0 {
+	if m.transitionDurationMs <= 0 {
 		m.transitionDurationMs = defaultTransitionDurationMs
 	}
 }

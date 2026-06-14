@@ -35,6 +35,8 @@ func TestGenerateCSS_StandaloneOmniboxWindowUsesTransparentBackground(t *testing
 }
 
 func TestGenerateCSSFullWithTiming_PageModePulseUsesConfiguredTransitionDuration(t *testing.T) {
+	// Page mode pulse timings scale from the base transition duration:
+	// normal pulse = 3× (150ms -> 450ms), fast pulse = 6× (150ms -> 900ms).
 	css := GenerateCSSFullWithTiming(DefaultDarkPalette(), 1.0, DefaultFontConfig(), DefaultModeColors(), 150)
 
 	assert.Contains(t, css, "animation: page-mode-pulse-anim 450ms ease-in-out;")

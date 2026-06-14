@@ -56,7 +56,9 @@ func TestPageScroll_HorizontalDirectionMapping(t *testing.T) {
 	t.Run("right", func(t *testing.T) {
 		wv := newScrollableStub(nil)
 		uc := NewPageScrollUseCase()
-		uc.Scroll(context.Background(), wv, PageScrollRight)
+		if err := uc.Scroll(context.Background(), wv, PageScrollRight); err != nil {
+			t.Fatalf("Scroll() unexpected error: %v", err)
+		}
 
 		wantDx, wantDy := 80, 0
 		if wv.lastDx != wantDx || wv.lastDy != wantDy {
