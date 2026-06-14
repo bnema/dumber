@@ -34,6 +34,13 @@ func TestGenerateCSS_StandaloneOmniboxWindowUsesTransparentBackground(t *testing
 	}
 }
 
+func TestGenerateCSSFullWithTiming_PageModePulseUsesConfiguredTransitionDuration(t *testing.T) {
+	css := GenerateCSSFullWithTiming(DefaultDarkPalette(), 1.0, DefaultFontConfig(), DefaultModeColors(), 150)
+
+	assert.Contains(t, css, "animation: page-mode-pulse-anim 450ms ease-in-out;")
+	assert.Contains(t, css, "animation: page-mode-pulse-fast-anim 900ms ease-in-out;")
+}
+
 func TestGenerateCSS_OmniboxHeaderIsOpaque(t *testing.T) {
 	css := GenerateCSS(DefaultDarkPalette())
 

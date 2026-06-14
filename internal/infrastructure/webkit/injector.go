@@ -182,28 +182,33 @@ const explicitCopyScript = `(function() {
 // accentDetectionScript is built at init from entity.AccentMap so the JS
 // filter stays in sync with the Go-side accent table.
 var accentDetectionScript string
+var accentDetectionScriptKeys string
 
 func buildExplicitCopyScript() string {
 	return explicitCopyScript
 }
 
-func init() {
-	// Build JS Set literal from AccentMap keys: "new Set(['a','c','e',...])"
-	keys := make([]string, 0, len(entity.AccentMap))
-	for k := range entity.AccentMap {
-		keys = append(keys, fmt.Sprintf("'%c'", k))
-	}
-	sort.Strings(keys)
-
-	accentDetectionScript = fmt.Sprintf(`(function() {
+func buildAccentDetectionScript(token string) string {
+	return fmt.Sprintf(`(function() {
     'use strict';
     const accentKeys = new Set([%s]);
+    const editableFocusToken = %q;
     let pressedKey = null;
+
+    function postEditableFocus(editable) {
+        if (!(window.webkit && window.webkit.messageHandlers && window.webkit.messageHandlers.dumber)) return;
+        window.webkit.messageHandlers.dumber.postMessage({
+            type: 'editable_focus_changed',
+            payload: { editable: editable, token: editableFocusToken }
+        });
+    }
 
     function isEditableTarget(target) {
         const el = target instanceof Element ? target : null;
         if (!el) return false;
-        if (el.closest('[contenteditable=""], [contenteditable="true"]')) return true;
+        if (el.isContentEditable) return true;
+        const editableAncestor = el.closest('[contenteditable]');
+        if (editableAncestor && editableAncestor.isContentEditable) return true;
         if (el.closest('textarea')) return true;
         const input = el.closest('input');
         if (!input) return false;
@@ -234,12 +239,44 @@ func init() {
         }
     }, true);
 
-	    document.addEventListener('focusin', function(e) {
-	        if (isEditableTarget(e.target)) {
-	            window.__dumber_lastEditableEl = e.target;
-	        }
-	    }, true);
-})();`, strings.Join(keys, ","))
+    document.addEventListener('focusin', function(e) {
+        if (e && e.isTrusted === false) return;
+        if (isEditableTarget(e.target)) {
+            window.__dumber_lastEditableEl = e.target;
+            postEditableFocus(true);
+            return;
+        }
+        postEditableFocus(false);
+    }, true);
+
+    document.addEventListener('focusout', function(e) {
+        if (e && e.isTrusted === false) return;
+        if (!isEditableTarget(e.target)) return;
+        setTimeout(function() {
+            if (!isEditableTarget(document.activeElement)) {
+                postEditableFocus(false);
+            }
+        }, 0);
+    }, true);
+
+    if (isEditableTarget(document.activeElement)) {
+        window.__dumber_lastEditableEl = document.activeElement;
+        postEditableFocus(true);
+    } else {
+        postEditableFocus(false);
+    }
+})();`, accentDetectionScriptKeys, token)
+}
+
+func init() {
+	// Build JS Set literal from AccentMap keys: "new Set(['a','c','e',...])"
+	keys := make([]string, 0, len(entity.AccentMap))
+	for k := range entity.AccentMap {
+		keys = append(keys, fmt.Sprintf("'%c'", k))
+	}
+	sort.Strings(keys)
+	accentDetectionScriptKeys = strings.Join(keys, ",")
+	accentDetectionScript = buildAccentDetectionScript("")
 }
 
 // accentDetectionInjectionMode controls which frames receive the accent detection script.
@@ -449,9 +486,13 @@ func (ci *ContentInjector) InjectScripts(ctx context.Context, ucm *webkit.UserCo
 
 	// 8. Inject accent key detection for all pages and all frames (unconditional).
 	// JS only reports keydown/keyup events; Go handles timing and picker display.
+	accentScript := accentDetectionScript
+	if wv := LookupWebView(webviewID); wv != nil && wv.editableFocusBridgeToken != "" {
+		accentScript = buildAccentDetectionScript(wv.editableFocusBridgeToken)
+	}
 	addScript(
 		webkit.NewUserScript(
-			accentDetectionScript,
+			accentScript,
 			accentDetectionInjectionMode,
 			webkit.UserScriptInjectAtDocumentEndValue,
 			nil, // all pages

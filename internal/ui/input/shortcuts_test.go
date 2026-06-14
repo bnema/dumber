@@ -1,8 +1,10 @@
 package input
 
 import (
+	"context"
 	"testing"
 
+	"github.com/bnema/dumber/internal/domain/entity"
 	"github.com/bnema/puregotk/v4/gdk"
 )
 
@@ -456,6 +458,138 @@ func TestGlobalShortcutActionMap_ConsumeOrExpelHyphenAliases(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			if got := actions[tt.name]; got != tt.want {
 				t.Fatalf("globalShortcutActionMap()[%s] = %s, want %s", tt.name, got, tt.want)
+			}
+		})
+	}
+}
+
+func TestNewShortcutSet_PageModeActivationShortcut(t *testing.T) {
+	workspace := &entity.WorkspaceConfig{
+		TabMode:  entity.TabModeConfig{ActivationShortcut: "ctrl+t"},
+		PaneMode: entity.PaneModeConfig{ActivationShortcut: "ctrl+p"},
+		PageMode: entity.PageModeConfig{ActivationShortcut: "ctrl+y"},
+	}
+
+	set := NewShortcutSet(context.Background(), workspace, nil)
+
+	binding, ok := ParseKeyString("ctrl+y")
+	if !ok {
+		t.Fatal("failed to parse ctrl+y")
+	}
+
+	action, found := set.Global[binding]
+	if !found {
+		t.Fatal("page mode activation shortcut not found in Global")
+	}
+	if action != ActionEnterPageMode {
+		t.Fatalf("Global shortcut action = %s, want %s", action, ActionEnterPageMode)
+	}
+}
+
+func TestShortcutSet_Lookup_PageMode(t *testing.T) {
+	set := &ShortcutSet{
+		Global: ShortcutTable{
+			{uint(gdk.KEY_q), ModCtrl}: ActionQuit,
+		},
+		PageMode: ShortcutTable{
+			{uint('h'), ModNone}:            ActionPageScrollLeft,
+			{uint('j'), ModNone}:            ActionPageScrollDown,
+			{uint('k'), ModNone}:            ActionPageScrollUp,
+			{uint('l'), ModNone}:            ActionPageScrollRight,
+			{uint(gdk.KEY_Escape), ModNone}: ActionExitMode,
+			{uint(gdk.KEY_Return), ModNone}: ActionExitMode,
+		},
+	}
+
+	tests := []struct {
+		name    string
+		binding KeyBinding
+		want    Action
+		wantOk  bool
+	}{
+		{
+			name:    "scroll left",
+			binding: KeyBinding{uint('h'), ModNone},
+			want:    ActionPageScrollLeft,
+			wantOk:  true,
+		},
+		{
+			name:    "scroll down",
+			binding: KeyBinding{uint('j'), ModNone},
+			want:    ActionPageScrollDown,
+			wantOk:  true,
+		},
+		{
+			name:    "scroll up",
+			binding: KeyBinding{uint('k'), ModNone},
+			want:    ActionPageScrollUp,
+			wantOk:  true,
+		},
+		{
+			name:    "scroll right",
+			binding: KeyBinding{uint('l'), ModNone},
+			want:    ActionPageScrollRight,
+			wantOk:  true,
+		},
+		{
+			name:    "escape exits page mode",
+			binding: KeyBinding{uint(gdk.KEY_Escape), ModNone},
+			want:    ActionExitMode,
+			wantOk:  true,
+		},
+		{
+			name:    "enter exits page mode",
+			binding: KeyBinding{uint(gdk.KEY_Return), ModNone},
+			want:    ActionExitMode,
+			wantOk:  true,
+		},
+		{
+			name:    "unknown key in normal mode falls back to global",
+			binding: KeyBinding{uint(gdk.KEY_q), ModCtrl},
+			want:    ActionQuit,
+			wantOk:  true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got, ok := set.Lookup(tt.binding, ModePage)
+			if ok != tt.wantOk {
+				t.Errorf("Lookup() ok = %v, want %v", ok, tt.wantOk)
+				return
+			}
+			if got != tt.want {
+				t.Errorf("Lookup() = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}
+
+func TestMapConfigAction_PageScrollActions(t *testing.T) {
+	tests := []struct {
+		name     string
+		config   string
+		expected Action
+	}{
+		{name: "page_scroll_left", config: "page_scroll_left", expected: ActionPageScrollLeft},
+		{name: "page-scroll-left", config: "page-scroll-left", expected: ActionPageScrollLeft},
+		{name: "page_scroll_down", config: "page_scroll_down", expected: ActionPageScrollDown},
+		{name: "page-scroll-down", config: "page-scroll-down", expected: ActionPageScrollDown},
+		{name: "page_scroll_up", config: "page_scroll_up", expected: ActionPageScrollUp},
+		{name: "page-scroll-up", config: "page-scroll-up", expected: ActionPageScrollUp},
+		{name: "page_scroll_right", config: "page_scroll_right", expected: ActionPageScrollRight},
+		{name: "page-scroll-right", config: "page-scroll-right", expected: ActionPageScrollRight},
+		{name: "page_scroll_down_fast", config: "page_scroll_down_fast", expected: ActionPageScrollDownFast},
+		{name: "page-scroll-down-fast", config: "page-scroll-down-fast", expected: ActionPageScrollDownFast},
+		{name: "page_scroll_up_fast", config: "page_scroll_up_fast", expected: ActionPageScrollUpFast},
+		{name: "page-scroll-up-fast", config: "page-scroll-up-fast", expected: ActionPageScrollUpFast},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := mapConfigAction(tt.config)
+			if got != tt.expected {
+				t.Fatalf("mapConfigAction(%s) = %s, want %s", tt.config, got, tt.expected)
 			}
 		})
 	}

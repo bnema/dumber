@@ -95,6 +95,9 @@ type Coordinator struct {
 	// Callback when WebView gains focus (for accent picker text input targeting)
 	onWebViewFocused func(paneID entity.PaneID, wv port.WebView)
 
+	// Callback when a page editable target gains or loses focus.
+	onEditableFocusChanged func(paneID entity.PaneID, editable bool)
+
 	// Callback for first load_started event (triggers deferred initialization)
 	onFirstLoadStarted func()
 	loadStartedOnce    sync.Once
@@ -220,6 +223,11 @@ func (c *Coordinator) SetOnFullscreenChanged(fn func(paneID entity.PaneID, enter
 // SetOnWebViewFocused sets the callback for when a WebView gains focus.
 func (c *Coordinator) SetOnWebViewFocused(fn func(paneID entity.PaneID, wv port.WebView)) {
 	c.onWebViewFocused = fn
+}
+
+// SetOnEditableFocusChanged sets the callback for page editable focus changes.
+func (c *Coordinator) SetOnEditableFocusChanged(fn func(paneID entity.PaneID, editable bool)) {
+	c.onEditableFocusChanged = fn
 }
 
 // SetOnFirstLoadStarted sets the callback for when the first navigation starts.

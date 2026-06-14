@@ -111,6 +111,9 @@ type App struct {
 	// Focus tracking stays app-global.
 	focusMgr *focus.Manager
 
+	pageModePolicyUC        *usecase.PageModePolicyUseCase
+	pageEditableFocusByPane map[entity.PaneID]bool
+
 	resizeModeBorderTarget layout.Widget
 
 	// Omnibox configuration (omnibox is created per workspace view)
@@ -183,14 +186,16 @@ func New(deps *Dependencies) (*App, error) {
 	ctx, cancel := context.WithCancelCause(deps.Ctx)
 
 	app := &App{
-		deps:             deps,
-		tabs:             entity.NewTabList(),
-		tabsUC:           deps.TabsUC,
-		panesUC:          deps.PanesUC,
-		workspaceViews:   make(map[entity.TabID]*component.WorkspaceView),
-		windowForTab:     make(map[entity.TabID]*browserWindow),
-		floatingSessions: make(map[floatingSessionKey]*floatingWorkspaceSession),
-		browserWindows:   make(map[string]*browserWindow),
+		deps:                    deps,
+		tabs:                    entity.NewTabList(),
+		tabsUC:                  deps.TabsUC,
+		panesUC:                 deps.PanesUC,
+		workspaceViews:          make(map[entity.TabID]*component.WorkspaceView),
+		windowForTab:            make(map[entity.TabID]*browserWindow),
+		floatingSessions:        make(map[floatingSessionKey]*floatingWorkspaceSession),
+		browserWindows:          make(map[string]*browserWindow),
+		pageModePolicyUC:        usecase.NewPageModePolicyUseCase(),
+		pageEditableFocusByPane: make(map[entity.PaneID]bool),
 		dispatchOnMainThread: func(label string, fn func()) syncdispatch.SyncDispatchResult {
 			if fn != nil {
 				fn()
@@ -199,6 +204,9 @@ func New(deps *Dependencies) (*App, error) {
 		},
 		engine: deps.Engine,
 		cancel: cancel,
+	}
+	if deps.Theme != nil && deps.Config != nil {
+		deps.Theme.SetTransitionDuration(deps.Config.Workspace.Styling.TransitionDuration)
 	}
 	var autoCopyConfig port.AutoCopyConfig
 	var clipboardOrchestrator port.ClipboardTextOrchestrator
@@ -1007,6 +1015,9 @@ func (a *App) wireSessionManagerShortcut() {
 			return nil
 		}
 		bw.sessionManager.Toggle(ctx)
+		if bw.sessionManager.IsVisible() {
+			a.handlePageModeFocusTrigger(ctx, bw, usecase.PageModePolicyTriggerOverlayFocus)
+		}
 		return nil
 	})
 }
@@ -1264,7 +1275,7 @@ func (a *App) initBrowserWindowInput(ctx context.Context, bw *browserWindow) {
 	})
 	bw.keyboardHandler.SetOnModeChange(func(from, to input.Mode) {
 		a.activateBrowserWindow(bw)
-		a.handleModeChange(ctx, from, to)
+		a.handleModeChange(ctx, bw, from, to)
 	})
 	bw.keyboardHandler.SetRouteKey(func(kc input.KeyContext) input.KeyRoute {
 		if bw.sessionManager != nil && bw.sessionManager.IsVisible() {
@@ -1291,6 +1302,9 @@ func (a *App) initBrowserWindowInput(ctx context.Context, bw *browserWindow) {
 		}
 
 		return input.RouteHandleShortcuts
+	})
+	bw.keyboardHandler.SetPageModeActivationPassthrough(func() bool {
+		return a.shouldBypassPageModeActivation(bw)
 	})
 	bw.keyboardHandler.SetAccentHandler(a)
 	bw.keyboardHandler.AttachTo(bw.mainWindow.Window())
@@ -1509,6 +1523,7 @@ func (a *App) initOmniboxConfig(ctx context.Context) {
 					a.accentFocusProvider.SetFocusedInput(a.deps.NewGTKEntryTarget(entry))
 				}
 			}
+			a.handlePageModeFocusTrigger(ctx, a.lastFocusedBrowserWindow(), usecase.PageModePolicyTriggerOmniboxFocus)
 		},
 		OnFocusOut: func() {
 			// When omnibox loses focus, set WebView as the focused input
@@ -1547,6 +1562,7 @@ func (a *App) initFindBarConfig(ctx context.Context) {
 					a.accentFocusProvider.SetFocusedInput(a.deps.NewGTKEntryTarget(entry))
 				}
 			}
+			a.handlePageModeFocusTrigger(ctx, a.lastFocusedBrowserWindow(), usecase.PageModePolicyTriggerFindBarFocus)
 		},
 		OnFocusOut: func() {
 			// When find bar loses focus, set WebView as the focused input
@@ -1570,6 +1586,9 @@ func (a *App) ToggleSessionManager(ctx context.Context) {
 		return
 	}
 	bw.sessionManager.Toggle(ctx)
+	if bw.sessionManager.IsVisible() {
+		a.handlePageModeFocusTrigger(ctx, bw, usecase.PageModePolicyTriggerOverlayFocus)
+	}
 }
 
 func (a *App) attachTabPickerToActivePane() {
@@ -1668,6 +1687,7 @@ func (a *App) HandleMovePaneToTab(ctx context.Context) error {
 
 	a.attachTabPickerToActivePane()
 	bw.tabPicker.Show(ctx, items)
+	a.handlePageModeFocusTrigger(ctx, bw, usecase.PageModePolicyTriggerOverlayFocus)
 	return nil
 }
 
@@ -3219,6 +3239,7 @@ func (a *App) initTabCoordinator(ctx context.Context) {
 		// tracks ActiveTabID and PreviousActiveTabID on bw.tabs. No manual bw state needed.
 		if bw := a.browserWindowForTabTarget(target); bw != nil {
 			a.activateBrowserWindow(bw)
+			a.handlePageModeTabSwitch(ctx, bw)
 		}
 		a.switchWorkspaceView(ctx, tab.ID)
 	})
@@ -3351,8 +3372,13 @@ func (a *App) initCoordinators(ctx context.Context) {
 		a.deps.NavigateUC,
 		a.contentCoord,
 	)
+	// Wire the page scroll usecase so semantic scroll commands (left, right,
+	// up, down, fast up, fast down) can be dispatched through the
+	// NavigationCoordinator to the active WebView.
+	a.navCoord.SetPageScrollUseCase(usecase.NewPageScrollUseCase())
 	a.wsCoord.SetOnPaneClosed(func(paneID entity.PaneID) {
 		a.navCoord.ClearPaneHistory(paneID)
+		a.clearPageEditableFocusState(paneID)
 	})
 
 	// Wire title updates to history persistence
@@ -3362,6 +3388,7 @@ func (a *App) initCoordinators(ctx context.Context) {
 
 	// Wire history recording on LoadCommitted (URI is guaranteed correct at this point)
 	a.contentCoord.SetOnHistoryRecord(func(ctx context.Context, paneID entity.PaneID, url string) {
+		a.clearPageEditableFocusState(paneID)
 		a.navCoord.RecordHistory(ctx, paneID, url)
 	})
 
@@ -3376,6 +3403,9 @@ func (a *App) initCoordinators(ctx context.Context) {
 		a.updateFloatingSessionURI(paneID, url)
 		// Mark dirty so snapshot captures the new URI
 		a.MarkDirty()
+	})
+	a.contentCoord.SetOnEditableFocusChanged(func(paneID entity.PaneID, editable bool) {
+		a.handlePageEditableFocusChanged(ctx, paneID, editable)
 	})
 
 	// Hide loading skeleton once the WebView paints
@@ -3488,6 +3518,9 @@ func (a *App) withFocusedTabTarget(ctx context.Context, action string, ensure bo
 
 func (a *App) wireKeyboardActions() {
 	a.kbDispatcher.SetOnQuit(a.Quit)
+	a.kbDispatcher.SetOnPageModePulse(func(ctx context.Context, fast bool) {
+		a.triggerPageModePulse(ctx, fast)
+	})
 	a.kbDispatcher.SetOnFindOpen(func(ctx context.Context) error {
 		a.ToggleFindBar(ctx)
 		return nil
@@ -3817,8 +3850,128 @@ func (a *App) updateWindowTitleFromActivePane(tabID entity.TabID) {
 	a.updateWindowTitle(title, a.ownerOrLastFocusedBrowserWindow(tabID, ""))
 }
 
-// handleModeChange is called when the input mode changes.
-func (a *App) handleModeChange(ctx context.Context, from, to input.Mode) {
+func (a *App) pageModePolicy() *usecase.PageModePolicyUseCase {
+	if a == nil {
+		return usecase.NewPageModePolicyUseCase()
+	}
+	if a.pageModePolicyUC == nil {
+		a.pageModePolicyUC = usecase.NewPageModePolicyUseCase()
+	}
+	return a.pageModePolicyUC
+}
+
+func (a *App) ensurePageEditableFocusMap() {
+	if a != nil && a.pageEditableFocusByPane == nil {
+		a.pageEditableFocusByPane = make(map[entity.PaneID]bool)
+	}
+}
+
+func (a *App) pageEditableFocused(paneID entity.PaneID) bool {
+	if a == nil || paneID == "" || a.pageEditableFocusByPane == nil {
+		return false
+	}
+	return a.pageEditableFocusByPane[paneID]
+}
+
+func (a *App) setPageEditableFocused(paneID entity.PaneID, editable bool) {
+	if a == nil || paneID == "" {
+		return
+	}
+	a.ensurePageEditableFocusMap()
+	if editable {
+		a.pageEditableFocusByPane[paneID] = true
+		return
+	}
+	delete(a.pageEditableFocusByPane, paneID)
+}
+
+func (a *App) clearPageEditableFocusState(paneID entity.PaneID) {
+	a.setPageEditableFocused(paneID, false)
+}
+
+func (a *App) pageModeActiveForBrowserWindow(bw *browserWindow) bool {
+	return bw != nil && bw.keyboardHandler != nil && bw.keyboardHandler.Mode() == input.ModePage
+}
+
+func (a *App) applyPageModePolicyTransition(_ context.Context, bw *browserWindow, transition usecase.PageModePolicyTransition) {
+	if transition != usecase.PageModePolicyTransitionExit || bw == nil || bw.keyboardHandler == nil {
+		return
+	}
+	if bw.keyboardHandler.Mode() != input.ModePage {
+		return
+	}
+	bw.keyboardHandler.ExitMode()
+}
+
+func (a *App) handlePageModeFocusTrigger(ctx context.Context, bw *browserWindow, trigger usecase.PageModePolicyTrigger) {
+	if bw == nil {
+		return
+	}
+	transition := a.pageModePolicy().Evaluate(usecase.PageModePolicyInput{
+		Trigger:        trigger,
+		PageModeActive: a.pageModeActiveForBrowserWindow(bw),
+	})
+	a.applyPageModePolicyTransition(ctx, bw, transition)
+}
+
+func (a *App) handlePageModeTabSwitch(_ context.Context, bw *browserWindow) {
+	if bw == nil || bw.tabs == nil || !a.pageModeActiveForBrowserWindow(bw) {
+		return
+	}
+	transition := a.pageModePolicy().Evaluate(usecase.PageModePolicyInput{
+		Trigger:                 usecase.PageModePolicyTriggerContextChanged,
+		PageModeActive:          true,
+		PreserveOnContextChange: false,
+	})
+	if transition != usecase.PageModePolicyTransitionExit {
+		return
+	}
+	if prevTabID := bw.tabs.PreviousActiveTabID; prevTabID != "" {
+		if prevView := a.workspaceViews[prevTabID]; prevView != nil {
+			if pv := prevView.GetPaneView(bw.pageModePaneID); pv != nil {
+				pv.SetPageMode(false)
+			}
+		}
+	}
+	bw.pageModePaneID = ""
+	bw.keyboardHandler.ExitMode()
+}
+
+func (a *App) handlePageEditableFocusChanged(ctx context.Context, paneID entity.PaneID, editable bool) {
+	if paneID == "" {
+		return
+	}
+	a.setPageEditableFocused(paneID, editable)
+
+	bw := a.browserWindowForAnyPane(paneID)
+	if bw == nil {
+		return
+	}
+	ws := a.activeWorkspaceForBrowserWindow(bw)
+	activeContext := ws != nil && ws.ActivePaneID == paneID && a.lastFocusedBrowserWindow() == bw
+	transition := a.pageModePolicy().Evaluate(usecase.PageModePolicyInput{
+		Trigger:              usecase.PageModePolicyTriggerPageEditableFocusChanged,
+		PageModeActive:       a.pageModeActiveForBrowserWindow(bw),
+		PageEditableFocused:  editable,
+		EventInActiveContext: activeContext,
+	})
+	a.applyPageModePolicyTransition(ctx, bw, transition)
+}
+
+func (a *App) shouldBypassPageModeActivation(bw *browserWindow) bool {
+	ws := a.activeWorkspaceForBrowserWindow(bw)
+	if ws == nil {
+		return false
+	}
+	transition := a.pageModePolicy().Evaluate(usecase.PageModePolicyInput{
+		Trigger:             usecase.PageModePolicyTriggerActivationAttempt,
+		PageEditableFocused: a.pageEditableFocused(ws.ActivePaneID),
+	})
+	return transition == usecase.PageModePolicyTransitionBlockActivation
+}
+
+// handleModeChange is called when the input mode changes for a specific browser window.
+func (a *App) handleModeChange(ctx context.Context, bw *browserWindow, from, to input.Mode) {
 	log := logging.FromContext(ctx)
 	log.Debug().Str("from", from.String()).Str("to", to.String()).Msg("input mode changed")
 
@@ -3830,14 +3983,153 @@ func (a *App) handleModeChange(ctx context.Context, from, to input.Mode) {
 		a.applyResizeModeBorder(ctx, a.activeWorkspace())
 	}
 
+	// Handle page mode visual ownership.
+	// Entering page mode activates the indicator on the active pane only.
+	// Leaving page mode (to any other mode) deactivates it.
+	a.handlePageModeOwnership(ctx, bw, to, from)
+
 	// Update global border overlay visibility based on mode.
 	// Note: resize mode border is handled per-pane (stack container), not via global overlay.
-	if bw := a.lastFocusedBrowserWindow(); bw != nil && bw.borderMgr != nil {
+	// Page mode explicitly skips the global border overlay.
+	if bw != nil && bw.borderMgr != nil {
 		bw.borderMgr.OnModeChange(ctx, from, to)
 	}
 
-	// Show/hide mode indicator toaster based on config.
+	// Show/hide mode indicator toaster based on mode and config.
 	a.updateModeIndicatorToaster(ctx, to)
+}
+
+// transferPageModeOwnershipToPane transfers the page mode indicator from the
+// current owning pane to the given pane within a specific browser window.
+// The transfer only happens when that window is actively in page mode.
+func (a *App) transferPageModeOwnershipToPane(ctx context.Context, bw *browserWindow, newPaneID entity.PaneID) {
+	if bw == nil {
+		return
+	}
+
+	// Only transfer if page mode is currently active and the owner is changing.
+	if bw.pageModePaneID == "" || bw.pageModePaneID == newPaneID {
+		return
+	}
+
+	// Check if this window is actually in page mode.
+	if bw.keyboardHandler == nil || bw.keyboardHandler.Mode() != input.ModePage {
+		// Page mode not active on this window; just clear stale ownership.
+		bw.pageModePaneID = ""
+		return
+	}
+
+	wsView := a.activeWorkspaceViewForBrowserWindow(bw)
+	if wsView == nil {
+		return
+	}
+
+	transition := a.pageModePolicy().Evaluate(usecase.PageModePolicyInput{
+		Trigger:                 usecase.PageModePolicyTriggerContextChanged,
+		PageModeActive:          true,
+		PreserveOnContextChange: !a.pageEditableFocused(newPaneID),
+	})
+	if transition == usecase.PageModePolicyTransitionExit {
+		a.applyPageModePolicyTransition(ctx, bw, transition)
+		return
+	}
+
+	oldPaneID := bw.pageModePaneID
+
+	// Deactivate the old owning pane.
+	if oldPV := wsView.GetPaneView(oldPaneID); oldPV != nil {
+		oldPV.SetPageMode(false)
+	}
+
+	// Activate the new pane.
+	if newPV := wsView.GetPaneView(newPaneID); newPV != nil {
+		newPV.SetPageMode(true)
+	}
+	bw.pageModePaneID = newPaneID
+
+	logging.FromContext(ctx).Debug().
+		Str("window_id", bw.id).
+		Str("old_pane_id", string(oldPaneID)).
+		Str("new_pane_id", string(newPaneID)).
+		Msg("page mode ownership transferred")
+}
+
+// handlePageModeOwnership manages the pane-local page mode indicator
+// for a specific browser window when input modes change.
+func (a *App) handlePageModeOwnership(ctx context.Context, bw *browserWindow, to, from input.Mode) {
+	if bw == nil {
+		return
+	}
+
+	ws := a.activeWorkspaceForBrowserWindow(bw)
+	wsView := a.activeWorkspaceViewForBrowserWindow(bw)
+	if ws == nil || wsView == nil {
+		// If there's no workspace yet (startup), just track the intent.
+		if to != input.ModePage && from == input.ModePage {
+			bw.pageModePaneID = ""
+		}
+		return
+	}
+
+	if to == input.ModePage && from != input.ModePage {
+		// Entering page mode: activate on the current active pane of this window.
+		paneID := ws.ActivePaneID
+		if pv := wsView.GetPaneView(paneID); pv != nil {
+			pv.SetPageMode(true)
+			bw.pageModePaneID = paneID
+			logging.FromContext(ctx).Debug().
+				Str("window_id", bw.id).
+				Str("pane_id", string(paneID)).
+				Msg("page mode activated on pane")
+		}
+	} else if from == input.ModePage && to != input.ModePage {
+		// Leaving page mode: deactivate the pane that owns the indicator.
+		a.clearPageModeOwnership(ctx, bw)
+	}
+}
+
+// triggerPageModePulse triggers a pane-local page mode pulse on the
+// last-focused browser window's owning pane. This is called by the
+// keyboard dispatcher after a page scroll action. The bw used is the
+// window that was active when the action was dispatched (via
+// dispatchBrowserWindowAction which calls activateBrowserWindow first).
+// If no pane is currently in page mode, the pulse is a no-op.
+func (a *App) triggerPageModePulse(_ context.Context, fast bool) {
+	bw := a.lastFocusedBrowserWindow()
+	if bw == nil || bw.pageModePaneID == "" {
+		return
+	}
+	wsView := a.activeWorkspaceViewForBrowserWindow(bw)
+	if wsView == nil {
+		return
+	}
+	if pv := wsView.GetPaneView(bw.pageModePaneID); pv != nil {
+		if fast {
+			pv.TriggerPageModePulseFast()
+		} else {
+			pv.TriggerPageModePulse()
+		}
+	}
+}
+
+// clearPageModeOwnership deactivates page mode on the owning pane for a
+// specific browser window and resets its tracked pane ID.
+func (a *App) clearPageModeOwnership(ctx context.Context, bw *browserWindow) {
+	if bw == nil || bw.pageModePaneID == "" {
+		return
+	}
+
+	wsView := a.activeWorkspaceViewForBrowserWindow(bw)
+	if wsView != nil {
+		if pv := wsView.GetPaneView(bw.pageModePaneID); pv != nil {
+			pv.SetPageMode(false)
+			logging.FromContext(ctx).Debug().
+				Str("window_id", bw.id).
+				Str("pane_id", string(bw.pageModePaneID)).
+				Msg("page mode deactivated on pane")
+		}
+	}
+	bw.pageModePaneID = ""
 }
 
 // updateModeIndicatorToaster shows or hides the mode indicator toaster based on mode and config.
@@ -3858,9 +4150,21 @@ func (a *App) updateModeIndicatorToaster(ctx context.Context, mode input.Mode) {
 		return
 	}
 
+	modeClass := getModeToastClass(mode)
+
+	if mode == input.ModePage {
+		// Page mode toast is brief/non-authoritative rather than persistent.
+		// The pane-local PAGE indicator badge provides the ongoing visual cue.
+		bw.modeToaster.Show(ctx, mode.DisplayName(), component.ToastInfo,
+			component.WithDuration(component.ToastBriefDurationMs),
+			component.WithPosition(component.ToastPositionBottomLeft),
+			component.WithModeClass(modeClass),
+		)
+		return
+	}
+
 	// Show persistent toaster at bottom-left with mode display name.
 	// Mode class is applied atomically with Show() to avoid visual flicker.
-	modeClass := getModeToastClass(mode)
 	bw.modeToaster.Show(ctx, mode.DisplayName(), component.ToastInfo,
 		component.WithDuration(0), // Persistent until mode exits.
 		component.WithPosition(component.ToastPositionBottomLeft),
@@ -3982,6 +4286,9 @@ func (a *App) createWorkspaceViewWithoutAttach(ctx context.Context, tab *entity.
 		})
 		wsView.SetOnActivePaneChanged(func(paneID entity.PaneID) {
 			a.contentCoord.SyncWebViewViewport(syncCtx, paneID, "workspace-pane-activated")
+			if bw := a.browserWindowForTab(tab.ID); bw != nil {
+				a.transferPageModeOwnershipToPane(ctx, bw, paneID)
+			}
 		})
 	}
 
@@ -5134,6 +5441,7 @@ func (a *App) applyThemeAppearance(ctx context.Context) {
 	if resolveThemeUC == nil {
 		resolveThemeUC = usecase.NewResolveThemeUseCase(a.deps.ExternalThemeSource)
 	}
+	a.deps.Theme.SetTransitionDuration(cfg.Workspace.Styling.TransitionDuration)
 	resolved, err := resolveThemeUC.Refresh(ctx, usecase.ResolveThemeInputFromConfig(
 		&cfg.Appearance,
 		cfg.DefaultUIScale,

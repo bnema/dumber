@@ -44,6 +44,8 @@ const (
 	defaultTabTimeoutMilliseconds    = 3000
 	defaultResizeActivationShortcut  = "ctrl+n"
 	defaultResizeTimeoutMilliseconds = 3000
+	defaultPageActivationShortcut    = "ctrl+y"
+	defaultPageTimeoutMilliseconds   = 0
 	defaultResizeStepPercent         = 5.0
 	defaultResizeMinPanePercent      = 10.0
 	defaultTabBarPosition            = "bottom"
@@ -296,6 +298,20 @@ func DefaultConfig() *Config {
 					"rename-tab":   {Keys: []string{"r"}, Desc: "Rename current tab"},
 					"confirm":      {Keys: []string{"enter"}, Desc: "Confirm action"},
 					"cancel":       {Keys: []string{"escape"}, Desc: "Cancel/exit mode"},
+				},
+			},
+			PageMode: PageModeConfig{
+				ActivationShortcut:  defaultPageActivationShortcut,
+				TimeoutMilliseconds: defaultPageTimeoutMilliseconds,
+				Actions: map[string]ActionBinding{
+					"page-scroll-left":      {Keys: []string{"h"}, Desc: "Scroll page left"},
+					"page-scroll-down":      {Keys: []string{"j"}, Desc: "Scroll page down"},
+					"page-scroll-up":        {Keys: []string{"k"}, Desc: "Scroll page up"},
+					"page-scroll-right":     {Keys: []string{"l"}, Desc: "Scroll page right"},
+					"page-scroll-down-fast": {Keys: []string{"shift+j"}, Desc: "Scroll page down fast"},
+					"page-scroll-up-fast":   {Keys: []string{"shift+k"}, Desc: "Scroll page up fast"},
+					"confirm":               {Keys: []string{"enter"}, Desc: "Confirm action"},
+					"cancel":                {Keys: []string{"escape"}, Desc: "Cancel/exit mode"},
 				},
 			},
 			ResizeMode: ResizeModeConfig{

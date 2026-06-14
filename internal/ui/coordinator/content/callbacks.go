@@ -169,6 +169,12 @@ func (c *Coordinator) setupWebViewCallbacks(ctx context.Context, paneID entity.P
 		}
 	}
 
+	callbacks.OnEditableFocusChanged = func(editable bool) {
+		if c.onEditableFocusChanged != nil {
+			c.onEditableFocusChanged(paneID, editable)
+		}
+	}
+
 	// Add popup create handler if popup handling is configured
 	callbacks.OnCreate = c.buildPopupCreateHandler(ctx, paneID, wv)
 

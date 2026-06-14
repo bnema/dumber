@@ -20,6 +20,7 @@ import (
 
 	"github.com/bnema/dumber/internal/application/dto"
 	"github.com/bnema/dumber/internal/application/port"
+	"github.com/bnema/dumber/internal/infrastructure/webutil"
 	"github.com/bnema/dumber/internal/logging"
 	"github.com/bnema/dumber/internal/shared/syncdispatch"
 )
@@ -33,6 +34,7 @@ var (
 	_ port.PopupOpenerCapable    = (*WebView)(nil)
 	_ port.ViewportSyncCapable   = (*WebView)(nil)
 	_ port.OAuthCallbackCapable  = (*WebView)(nil)
+	_ port.Scrollable            = (*WebView)(nil)
 )
 
 // errDestroyed is returned when an operation is attempted on a destroyed WebView.
@@ -1348,22 +1350,27 @@ func (wv *WebView) setEditableFocus(editable bool) {
 	wv.mu.Lock()
 	previous := wv.focusedEditable
 	wv.focusedEditable = editable
+	cb := wv.callbacks
+	var timer stoppableTimer
 	if editable {
 		wv.selectionDebounceSeq++
-		timer := wv.selectionDebounceTimer
+		timer = wv.selectionDebounceTimer
 		wv.selectionDebounceTimer = nil
-		wv.mu.Unlock()
-		if timer != nil {
-			timer.Stop()
-		}
-		if previous != editable && wv.ctx != nil {
-			logging.FromContext(wv.ctx).Debug().Bool("editable", editable).Msg("cef: editable focus changed")
-		}
-		return
 	}
 	wv.mu.Unlock()
-	if previous != editable && wv.ctx != nil {
+	if timer != nil {
+		timer.Stop()
+	}
+	if previous == editable {
+		return
+	}
+	if wv.ctx != nil {
 		logging.FromContext(wv.ctx).Debug().Bool("editable", editable).Msg("cef: editable focus changed")
+	}
+	if cb != nil && cb.OnEditableFocusChanged != nil {
+		wv.runOnGTK(func() {
+			cb.OnEditableFocusChanged(editable)
+		})
 	}
 }
 
@@ -2200,6 +2207,17 @@ func (wv *WebView) takePendingCreate() *pendingBrowserCreate {
 	pc := wv.pendingCreate
 	wv.pendingCreate = nil
 	return pc
+}
+
+// ScrollBy scrolls the page by the given delta in CSS pixels using JavaScript.
+// Implements port.Scrollable.
+func (wv *WebView) ScrollBy(ctx context.Context, dx, dy int) error {
+	if wv.destroyed.Load() {
+		return errDestroyed
+	}
+	js := webutil.BuildScrollByJS(dx, dy)
+	wv.RunJavaScript(ctx, js)
+	return nil
 }
 
 // closeAudioStream closes and clears the active audio output stream.

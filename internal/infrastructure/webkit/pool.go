@@ -176,6 +176,11 @@ func (p *WebViewPool) Acquire(ctx context.Context) (*WebView, error) {
 
 			// Ensure frontend is attached even if this WebView was pooled before injection was configured.
 			_ = wv.AttachFrontend(ctx, p.injector, p.router)
+			if p.injector != nil && wv.ucm != nil {
+				wv.ucm.RemoveAllScripts()
+				wv.ucm.RemoveAllStyleSheets()
+				p.injector.InjectScripts(ctx, wv.ucm, wv.ID())
+			}
 			// Apply filters if available (may not have been applied during prewarm)
 			if p.filterApplier != nil {
 				p.filterApplier.ApplyTo(ctx, wv.ucm)

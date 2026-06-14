@@ -137,6 +137,10 @@ type WebViewCallbacks struct {
 
 	// OnAudioStateChanged is called when audio playback starts or stops.
 	OnAudioStateChanged func(playing bool)
+
+	// OnEditableFocusChanged is called when the page focus enters or leaves an
+	// editable target such as input, textarea, or contenteditable content.
+	OnEditableFocusChanged func(editable bool)
 }
 
 // FindOptions configures search behavior.
@@ -378,4 +382,13 @@ type OAuthCallbackCapable interface {
 // text input method integration.
 type TextInputTargetProvider interface {
 	TextInputTarget() TextInputTarget
+}
+
+// Scrollable is an optional capability for WebViews that support programmatic
+// page scrolling. Page scrolling is used by keyboard-driven navigation modes
+// such as Page mode.
+type Scrollable interface {
+	// ScrollBy scrolls the page by the given delta in CSS pixels.
+	// Positive dx scrolls right, positive dy scrolls down.
+	ScrollBy(ctx context.Context, dx, dy int) error
 }

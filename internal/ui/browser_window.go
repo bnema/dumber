@@ -39,6 +39,11 @@ type browserWindow struct {
 	webrtcIndicator       *component.WebRTCPermissionIndicator
 	historySidebar        *component.HistorySidebar
 	sidebarVisible        bool
+
+	// Page mode ownership — which pane within this window owns the page mode
+	// indicator. This is per-window because each browser window independently
+	// manages its own input modes and active pane tracking.
+	pageModePaneID entity.PaneID
 }
 
 func (bw *browserWindow) detachInputForDestroy() {
@@ -85,6 +90,7 @@ func (bw *browserWindow) clearShellState() {
 	bw.permissionDialog = nil
 	bw.webrtcIndicator = nil
 	bw.historySidebar = nil
+	bw.pageModePaneID = ""
 }
 
 func (bw *browserWindow) initChrome(ctx context.Context, a *App) {

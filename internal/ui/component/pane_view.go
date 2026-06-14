@@ -9,11 +9,25 @@ import (
 	"github.com/bnema/dumber/internal/logging"
 	"github.com/bnema/dumber/internal/ui/input"
 	"github.com/bnema/dumber/internal/ui/layout"
+	"github.com/bnema/puregotk/v4/gtk"
 )
 
 const (
 	// CSS class applied to active pane's border overlay
 	activePaneClass = "pane-active"
+
+	// pageModeActiveClass is added to the pane overlay when Page mode is active.
+	// It produces a subtle local border accent using the pane mode color.
+	pageModeActiveClass = "page-mode-active"
+
+	// pageModePulseClass triggers a normal scroll pulse on the pane overlay
+	// itself (box-shadow animation), not just the indicator badge.
+	// Repeated calls must remove-then-add to restart the CSS animation.
+	pageModePulseClass = "page-mode-pulse"
+
+	// pageModeFastPulseClass triggers a fast/stronger scroll pulse on the
+	// pane overlay itself.
+	pageModeFastPulseClass = "page-mode-pulse-fast"
 )
 
 // PaneView is a container for a single WebView with active state indication.
@@ -30,6 +44,10 @@ type PaneView struct {
 	loading       *LoadingSkeleton   // Placeholder shown until WebView paints
 	paneID        entity.PaneID
 	isActive      bool
+
+	// Page mode state
+	pageMode      bool
+	pageIndicator *PageModeIndicator
 
 	onFocusIn     func(paneID entity.PaneID)
 	onFocusOut    func(paneID entity.PaneID)
@@ -92,6 +110,8 @@ func NewPaneView(ctx context.Context, factory layout.WidgetFactory, paneID entit
 		loading:       loading,
 		paneID:        paneID,
 		isActive:      false,
+		pageMode:      false,
+		pageIndicator: nil, // Created lazily in ensurePageModeIndicator()
 	}
 }
 
@@ -505,6 +525,106 @@ func (pv *PaneView) HideLinkStatus() {
 	}
 }
 
+// SetPageMode activates or deactivates Page mode on this pane.
+// When active, the page mode indicator is shown and the pane overlay
+// receives the page-mode-active CSS class for a subtle local border accent.
+// When inactive, the indicator is hidden and the CSS class is removed.
+func (pv *PaneView) SetPageMode(active bool) {
+	pv.mu.Lock()
+	defer pv.mu.Unlock()
+
+	if pv.pageMode == active {
+		return
+	}
+
+	pv.pageMode = active
+
+	if active {
+		pmi := pv.ensurePageModeIndicator()
+		pmi.SetVisible(true)
+		pv.overlay.AddCssClass(pageModeActiveClass)
+	} else {
+		if pv.pageIndicator != nil {
+			pv.pageIndicator.SetVisible(false)
+		}
+		pv.overlay.RemoveCssClass(pageModeActiveClass)
+	}
+}
+
+// IsPageMode returns whether Page mode is currently active on this pane.
+func (pv *PaneView) IsPageMode() bool {
+	pv.mu.RLock()
+	defer pv.mu.RUnlock()
+
+	return pv.pageMode
+}
+
+// TriggerPageModePulse triggers a normal scroll pulse on both the page mode
+// indicator badge and the pane overlay itself. The overlay pulse animates the
+// box-shadow border accent so the whole pane participates in the visual flash.
+func (pv *PaneView) TriggerPageModePulse() {
+	pv.mu.Lock()
+	pmi := pv.ensurePageModeIndicator()
+	pv.mu.Unlock()
+
+	pmi.TriggerPulse()
+	pv.triggerOverlayPulse(false)
+}
+
+// TriggerPageModePulseFast triggers a fast (stronger/longer) scroll pulse
+// on both the page mode indicator badge and the pane overlay itself.
+func (pv *PaneView) TriggerPageModePulseFast() {
+	pv.mu.Lock()
+	pmi := pv.ensurePageModeIndicator()
+	pv.mu.Unlock()
+
+	pmi.TriggerFastPulse()
+	pv.triggerOverlayPulse(true)
+}
+
+// triggerOverlayPulse adds a transient pulse CSS class to the pane overlay
+// so the pane border accent animates together with the indicator badge.
+// fast=true uses the stronger/longer pulse animation.
+// Both pulse classes are removed first to reliably re-trigger the animation.
+func (pv *PaneView) triggerOverlayPulse(fast bool) {
+	pv.overlay.RemoveCssClass(pageModePulseClass)
+	pv.overlay.RemoveCssClass(pageModeFastPulseClass)
+	if fast {
+		pv.overlay.AddCssClass(pageModeFastPulseClass)
+	} else {
+		pv.overlay.AddCssClass(pageModePulseClass)
+	}
+}
+
+// PageModeIndicator returns the page mode indicator, creating it if needed.
+// This allows external callers to directly manipulate the indicator if required.
+func (pv *PaneView) PageModeIndicator() *PageModeIndicator {
+	pv.mu.Lock()
+	defer pv.mu.Unlock()
+
+	return pv.ensurePageModeIndicator()
+}
+
+// ensurePageModeIndicator creates the page mode indicator lazily on first use.
+// Must be called with write lock held.
+func (pv *PaneView) ensurePageModeIndicator() *PageModeIndicator {
+	if pv.pageIndicator != nil {
+		return pv.pageIndicator
+	}
+
+	pmi := NewPageModeIndicator(pv.factory)
+	// Position the indicator at top-left of the pane.
+	// Halign=Start and Valign=Start anchor it to the top-left corner
+	// so it stays fixed relative to the pane rather than floating.
+	pmi.Widget().SetHalign(gtk.AlignStartValue)
+	pmi.Widget().SetValign(gtk.AlignStartValue)
+	pv.overlay.AddOverlay(pmi.Widget())
+	pv.overlay.SetClipOverlay(pmi.Widget(), false)
+	pv.overlay.SetMeasureOverlay(pmi.Widget(), false)
+	pv.pageIndicator = pmi
+	return pmi
+}
+
 // Cleanup removes the WebView widget from the overlay and clears references.
 // This must be called before destroying the WebView to ensure proper GTK cleanup.
 // After calling Cleanup, the PaneView should not be reused.
@@ -542,5 +662,11 @@ func (pv *PaneView) Cleanup() {
 		pv.linkStatus.Cleanup() // Cancel pending timers before removal
 		pv.overlay.RemoveOverlay(pv.linkStatus.Widget())
 		pv.linkStatus = nil
+	}
+
+	// Clean up page mode indicator if present
+	if pv.pageIndicator != nil {
+		pv.overlay.RemoveOverlay(pv.pageIndicator.Widget())
+		pv.pageIndicator = nil
 	}
 }

@@ -24,6 +24,9 @@ type TabModeConfig = entity.TabModeConfig
 // ResizeModeConfig defines modal behavior for resizing panes (Zellij-style).
 type ResizeModeConfig = entity.ResizeModeConfig
 
+// PageModeConfig defines modal behavior for page scrolling.
+type PageModeConfig = entity.PageModeConfig
+
 // SessionModeConfig defines modal behavior for session management.
 type SessionModeConfig = entity.SessionModeConfig
 

@@ -11,6 +11,7 @@ import (
 	"github.com/bnema/dumber/internal/logging"
 	"github.com/bnema/puregotk/v4/javascriptcore"
 	"github.com/bnema/puregotk/v4/webkit"
+	"github.com/rs/zerolog"
 )
 
 // Message is the JS -> Go message envelope sent via postMessage.
@@ -170,38 +171,17 @@ func (r *MessageRouter) handleScriptMessage(senderUCM webkit.UserContentManager,
 
 	log.Debug().Uint64("value_ptr", uint64(valuePtr)).Msg("handleScriptMessage entry")
 
-	if valuePtr == 0 {
-		log.Warn().Msg("received script message with nil value pointer")
-		return
-	}
-
-	jscValue := javascriptcore.ValueNewFromInternalPtr(valuePtr)
-	if jscValue == nil {
-		log.Warn().Msg("failed to wrap script message JSC value")
-		return
-	}
-
-	rawJSON := jscValue.ToJson(0)
-	log.Debug().Int("json_len", len(rawJSON)).Msg("ToJson result")
-	if rawJSON == "" {
-		// This typically happens when the JS side sends non-serializable values
-		// like Svelte 5 Proxy objects or functions. The frontend should use
-		// JSON.parse(JSON.stringify(obj)) to convert Proxies to plain objects.
-		log.Error().
-			Msg("script message JSON serialization failed (ToJson returned empty) - " +
-				"this usually means JS sent non-serializable values like Proxy objects")
-		return
-	}
-
-	var msg Message
-	if err := json.Unmarshal([]byte(rawJSON), &msg); err != nil {
-		log.Warn().Err(err).Str("json", rawJSON).Msg("failed to unmarshal script message")
+	msg, ok := decodeScriptMessage(valuePtr, log)
+	if !ok {
 		return
 	}
 
 	senderWV := lookupSenderWebView(senderUCM)
 	if senderWV == nil {
 		log.Warn().Msg("rejecting script message from unknown sender")
+		return
+	}
+	if r.handleAllowlistedBridgeMessage(senderWV, msg) {
 		return
 	}
 	if !isTrustedBridgeWebView(senderWV) {
@@ -262,6 +242,60 @@ func (r *MessageRouter) handleScriptMessage(senderUCM webkit.UserContentManager,
 				Msg("failed to dispatch callback response")
 		}
 	}
+}
+
+func decodeScriptMessage(valuePtr uintptr, log zerolog.Logger) (Message, bool) {
+	if valuePtr == 0 {
+		log.Warn().Msg("received script message with nil value pointer")
+		return Message{}, false
+	}
+
+	jscValue := javascriptcore.ValueNewFromInternalPtr(valuePtr)
+	if jscValue == nil {
+		log.Warn().Msg("failed to wrap script message JSC value")
+		return Message{}, false
+	}
+
+	rawJSON := jscValue.ToJson(0)
+	log.Debug().Int("json_len", len(rawJSON)).Msg("ToJson result")
+	if rawJSON == "" {
+		log.Error().
+			Msg("script message JSON serialization failed (ToJson returned empty) - " +
+				"this usually means JS sent non-serializable values like Proxy objects")
+		return Message{}, false
+	}
+
+	var msg Message
+	if err := json.Unmarshal([]byte(rawJSON), &msg); err != nil {
+		log.Warn().Err(err).Str("json", rawJSON).Msg("failed to unmarshal script message")
+		return Message{}, false
+	}
+	return msg, true
+}
+
+func (r *MessageRouter) handleAllowlistedBridgeMessage(senderWV *WebView, msg Message) bool {
+	if msg.Type != "editable_focus_changed" {
+		return false
+	}
+	if senderWV == nil {
+		return true
+	}
+	var payload struct {
+		Editable bool   `json:"editable"`
+		Token    string `json:"token"`
+	}
+	if len(msg.Payload) != 0 {
+		if err := json.Unmarshal(msg.Payload, &payload); err != nil {
+			logging.FromContext(r.baseCtx).Warn().Err(err).Str("type", msg.Type).Msg("failed to decode allowlisted bridge payload")
+			return true
+		}
+	}
+	if payload.Token == "" || payload.Token != senderWV.editableFocusBridgeToken {
+		logging.FromContext(r.baseCtx).Warn().Str("type", msg.Type).Msg("rejecting allowlisted bridge message with invalid token")
+		return true
+	}
+	senderWV.dispatchEditableFocusChanged(payload.Editable)
+	return true
 }
 
 func lookupSenderWebView(senderUCM webkit.UserContentManager) *WebView {

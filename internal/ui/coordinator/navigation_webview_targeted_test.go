@@ -6,8 +6,14 @@ import (
 
 	"github.com/bnema/dumber/internal/application/port"
 	"github.com/bnema/dumber/internal/application/port/mocks"
+	"github.com/bnema/dumber/internal/application/usecase"
 	"github.com/bnema/dumber/internal/domain/entity"
 )
+
+type mockScrollableWebView struct {
+	*mocks.MockWebView
+	*mocks.MockScrollable
+}
 
 type mockDevToolsWebView struct {
 	*mocks.MockWebView
@@ -75,6 +81,15 @@ func TestNavigationCoordinator_WebViewTargetedActionsUseProvidedWebView(t *testi
 	})
 	t.Run("PrintWebView calls PrintPage once", func(t *testing.T) {
 		testPrintWebViewTargetsProvidedWebView(t, ctx)
+	})
+	t.Run("ScrollWebView with nil webview returns error", func(t *testing.T) {
+		testScrollWebViewNilWebView(t, ctx)
+	})
+	t.Run("ScrollWebView delegates each scroll command through usecase", func(t *testing.T) {
+		testScrollWebViewDelegatesEachCommand(t, ctx)
+	})
+	t.Run("ScrollWebView usecase not set returns error", func(t *testing.T) {
+		testScrollWebViewUsecaseNotSet(t, ctx)
 	})
 }
 
@@ -266,5 +281,63 @@ func testPrintWebViewTargetsProvidedWebView(t *testing.T, ctx context.Context) {
 	err := c.PrintWebView(ctx, wv)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
+	}
+}
+
+func testScrollWebViewNilWebView(t *testing.T, ctx context.Context) {
+	t.Helper()
+	c := &NavigationCoordinator{}
+	c.SetPageScrollUseCase(usecase.NewPageScrollUseCase())
+	err := c.ScrollWebView(ctx, nil, usecase.PageScrollDown)
+	if err == nil {
+		t.Fatal("expected error for nil webview, got nil")
+	}
+}
+
+func testScrollWebViewDelegatesEachCommand(t *testing.T, ctx context.Context) {
+	t.Helper()
+	commands := []struct {
+		cmd usecase.PageScrollCommand
+		dx  int
+		dy  int
+	}{
+		{usecase.PageScrollLeft, -80, 0},
+		{usecase.PageScrollRight, 80, 0},
+		{usecase.PageScrollUp, 0, -80},
+		{usecase.PageScrollDown, 0, 80},
+		{usecase.PageScrollUpFast, 0, -320},
+		{usecase.PageScrollDownFast, 0, 320},
+	}
+
+	for _, tc := range commands {
+		t.Run(tc.cmd.String(), func(t *testing.T) {
+			base := mocks.NewMockWebView(t)
+			scroller := mocks.NewMockScrollable(t)
+			wv := &mockScrollableWebView{MockWebView: base, MockScrollable: scroller}
+			base.EXPECT().ID().Return(port.WebViewID(42)).Once()
+			scroller.EXPECT().ScrollBy(ctx, tc.dx, tc.dy).Return(nil).Once()
+
+			c := &NavigationCoordinator{}
+			c.SetPageScrollUseCase(usecase.NewPageScrollUseCase())
+			err := c.ScrollWebView(ctx, wv, tc.cmd)
+			if err != nil {
+				t.Fatalf("unexpected error for %s: %v", tc.cmd, err)
+			}
+		})
+	}
+}
+
+func testScrollWebViewUsecaseNotSet(t *testing.T, ctx context.Context) {
+	t.Helper()
+	base := mocks.NewMockWebView(t)
+	wv := &mockScrollableWebView{MockWebView: base, MockScrollable: mocks.NewMockScrollable(t)}
+	base.EXPECT().ID().Return(port.WebViewID(1)).Once()
+	c := &NavigationCoordinator{}
+	err := c.ScrollWebView(ctx, wv, usecase.PageScrollDown)
+	if err == nil {
+		t.Fatal("expected error for missing usecase, got nil")
+	}
+	if got, want := err.Error(), "page scroll usecase not set"; got != want {
+		t.Fatalf("error = %q, want %q", got, want)
 	}
 }

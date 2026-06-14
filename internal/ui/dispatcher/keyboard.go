@@ -52,6 +52,7 @@ type KeyboardDispatcher struct {
 	onMovePaneToTab        func(ctx context.Context, paneID entity.PaneID) error
 	onMovePaneToNext       func(ctx context.Context, paneID entity.PaneID) error
 	onEjectPaneToWindow    func(ctx context.Context, paneID entity.PaneID) error
+	onPageModePulse        func(ctx context.Context, fast bool) // pane-local pulse for Page mode scroll feedback
 	onToggleHistorySidebar func(ctx context.Context) error
 	onToggleFloating       func(ctx context.Context) error
 	onOpenFloating         func(ctx context.Context, target input.FloatingProfileTarget) error
@@ -144,6 +145,22 @@ func (d *KeyboardDispatcher) SetOnOpenFloatingURL(fn func(ctx context.Context, u
 
 func (d *KeyboardDispatcher) SetOnOpenFloatingTarget(fn func(ctx context.Context, target input.FloatingProfileTarget) error) {
 	d.onOpenFloating = fn
+}
+
+// SetOnPageModePulse registers a callback for pane-local Page mode pulse
+// visual feedback triggered after a page scroll action.
+// The cb receives a bool indicating whether the pulse should be "fast"
+// (stronger/longer for up-fast/down-fast).
+// If nil, pulse callbacks are no-ops.
+func (d *KeyboardDispatcher) SetOnPageModePulse(cb func(ctx context.Context, fast bool)) {
+	d.onPageModePulse = cb
+}
+
+// triggerPulse calls the registered pulse callback if set, or no-ops otherwise.
+func (d *KeyboardDispatcher) triggerPulse(ctx context.Context, fast bool) {
+	if d.onPageModePulse != nil {
+		d.onPageModePulse(ctx, fast)
+	}
 }
 
 func (d *KeyboardDispatcher) initActionHandlers() {
@@ -239,6 +256,63 @@ func (d *KeyboardDispatcher) initActionHandlers() {
 		input.ActionZoomIn:    func(ctx context.Context) error { return d.handleZoom(ctx, "in") },
 		input.ActionZoomOut:   func(ctx context.Context) error { return d.handleZoom(ctx, "out") },
 		input.ActionZoomReset: func(ctx context.Context) error { return d.handleZoom(ctx, "reset") },
+		// Page mode scroll actions
+		// Each maps a keyboard action to its semantic PageScrollCommand
+		// and triggers a pane-local visual pulse via the registered callback.
+		input.ActionPageScrollLeft: func(ctx context.Context) error {
+			return d.withActiveWebView(ctx, "page scroll left", func(wv port.WebView) error {
+				if err := d.navCoord.ScrollWebView(ctx, wv, usecase.PageScrollLeft); err != nil {
+					return err
+				}
+				d.triggerPulse(ctx, false)
+				return nil
+			})
+		},
+		input.ActionPageScrollRight: func(ctx context.Context) error {
+			return d.withActiveWebView(ctx, "page scroll right", func(wv port.WebView) error {
+				if err := d.navCoord.ScrollWebView(ctx, wv, usecase.PageScrollRight); err != nil {
+					return err
+				}
+				d.triggerPulse(ctx, false)
+				return nil
+			})
+		},
+		input.ActionPageScrollUp: func(ctx context.Context) error {
+			return d.withActiveWebView(ctx, "page scroll up", func(wv port.WebView) error {
+				if err := d.navCoord.ScrollWebView(ctx, wv, usecase.PageScrollUp); err != nil {
+					return err
+				}
+				d.triggerPulse(ctx, false)
+				return nil
+			})
+		},
+		input.ActionPageScrollDown: func(ctx context.Context) error {
+			return d.withActiveWebView(ctx, "page scroll down", func(wv port.WebView) error {
+				if err := d.navCoord.ScrollWebView(ctx, wv, usecase.PageScrollDown); err != nil {
+					return err
+				}
+				d.triggerPulse(ctx, false)
+				return nil
+			})
+		},
+		input.ActionPageScrollUpFast: func(ctx context.Context) error {
+			return d.withActiveWebView(ctx, "page scroll up fast", func(wv port.WebView) error {
+				if err := d.navCoord.ScrollWebView(ctx, wv, usecase.PageScrollUpFast); err != nil {
+					return err
+				}
+				d.triggerPulse(ctx, true)
+				return nil
+			})
+		},
+		input.ActionPageScrollDownFast: func(ctx context.Context) error {
+			return d.withActiveWebView(ctx, "page scroll down fast", func(wv port.WebView) error {
+				if err := d.navCoord.ScrollWebView(ctx, wv, usecase.PageScrollDownFast); err != nil {
+					return err
+				}
+				d.triggerPulse(ctx, true)
+				return nil
+			})
+		},
 		// UI
 		input.ActionOpenOmnibox:  d.navCoord.OpenOmnibox,
 		input.ActionOpenFind:     d.handleFindOpen,

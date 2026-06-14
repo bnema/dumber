@@ -681,3 +681,332 @@ func setupPaneViewMocksNoWebView(
 	mockOverlay.EXPECT().SetClipOverlay(mockBorderBox, false).Once()
 	mockOverlay.EXPECT().SetMeasureOverlay(mockBorderBox, false).Once()
 }
+
+// Helper to set up mock expectations for page mode indicator creation.
+// The returned mockLabel must be used for subsequent indicator expectations.
+func setupPageModeIndicatorMocks(
+	t *testing.T,
+	mockFactory *mocks.MockWidgetFactory,
+	mockOverlay *mocks.MockOverlayWidget,
+) *mocks.MockLabelWidget {
+	mockLabel := mocks.NewMockLabelWidget(t)
+
+	mockFactory.EXPECT().NewLabel("PAGE").Return(mockLabel).Once()
+	mockLabel.EXPECT().SetCanFocus(false).Once()
+	mockLabel.EXPECT().SetCanTarget(false).Once()
+	mockLabel.EXPECT().AddCssClass("page-mode-indicator").Once()
+	mockLabel.EXPECT().SetVisible(false).Once()
+	// Indicator positioning: anchored at top-left corner of the pane
+	mockLabel.EXPECT().SetHalign(mock.Anything).Once()
+	mockLabel.EXPECT().SetValign(mock.Anything).Once()
+	mockOverlay.EXPECT().AddOverlay(mockLabel).Once()
+	mockOverlay.EXPECT().SetClipOverlay(mockLabel, false).Once()
+	mockOverlay.EXPECT().SetMeasureOverlay(mockLabel, false).Once()
+
+	return mockLabel
+}
+
+func TestSetPageMode_True_ShowsIndicatorAndAddsCSSClass(t *testing.T) {
+	// Arrange
+	mockFactory := mocks.NewMockWidgetFactory(t)
+	mockOverlay := mocks.NewMockOverlayWidget(t)
+	mockBorderBox := mocks.NewMockBoxWidget(t)
+	mockWebView := mocks.NewMockWidget(t)
+
+	setupPaneViewMocks(t, mockFactory, mockOverlay, mockBorderBox, mockWebView)
+
+	pv := component.NewPaneView(context.Background(), mockFactory, entity.PaneID("pane-1"), mockWebView)
+
+	// Set up indicator creation expectations
+	mockLabel := setupPageModeIndicatorMocks(t, mockFactory, mockOverlay)
+
+	// SetPageMode(true) expectations:
+	// 1. Indicator is shown
+	mockLabel.EXPECT().SetVisible(true).Once()
+	// 2. Overlay gets page-mode-active class
+	mockOverlay.EXPECT().AddCssClass("page-mode-active").Once()
+
+	// Act
+	pv.SetPageMode(true)
+
+	// Assert
+	require.True(t, pv.IsPageMode())
+}
+
+func TestSetPageMode_False_HidesIndicatorAndRemovesCSSClass(t *testing.T) {
+	// Arrange
+	mockFactory := mocks.NewMockWidgetFactory(t)
+	mockOverlay := mocks.NewMockOverlayWidget(t)
+	mockBorderBox := mocks.NewMockBoxWidget(t)
+	mockWebView := mocks.NewMockWidget(t)
+
+	setupPaneViewMocks(t, mockFactory, mockOverlay, mockBorderBox, mockWebView)
+
+	pv := component.NewPaneView(context.Background(), mockFactory, entity.PaneID("pane-1"), mockWebView)
+
+	// Activate page mode first
+	mockLabel := setupPageModeIndicatorMocks(t, mockFactory, mockOverlay)
+	mockLabel.EXPECT().SetVisible(true).Once()
+	mockOverlay.EXPECT().AddCssClass("page-mode-active").Once()
+	pv.SetPageMode(true)
+
+	// Then deactivate
+	mockLabel.EXPECT().SetVisible(false).Once()
+	mockOverlay.EXPECT().RemoveCssClass("page-mode-active").Once()
+
+	// Act
+	pv.SetPageMode(false)
+
+	// Assert
+	require.False(t, pv.IsPageMode())
+}
+
+func TestSetPageMode_NoChangeWhenSameState(t *testing.T) {
+	// Arrange
+	mockFactory := mocks.NewMockWidgetFactory(t)
+	mockOverlay := mocks.NewMockOverlayWidget(t)
+	mockBorderBox := mocks.NewMockBoxWidget(t)
+	mockWebView := mocks.NewMockWidget(t)
+
+	setupPaneViewMocks(t, mockFactory, mockOverlay, mockBorderBox, mockWebView)
+
+	pv := component.NewPaneView(context.Background(), mockFactory, entity.PaneID("pane-1"), mockWebView)
+
+	// Act - setting false when already false should not create indicator or toggle classes
+	pv.SetPageMode(false)
+
+	// Assert
+	require.False(t, pv.IsPageMode())
+}
+
+func TestSetPageMode_TrueThenTrueIsIdempotent(t *testing.T) {
+	// Arrange
+	mockFactory := mocks.NewMockWidgetFactory(t)
+	mockOverlay := mocks.NewMockOverlayWidget(t)
+	mockBorderBox := mocks.NewMockBoxWidget(t)
+	mockWebView := mocks.NewMockWidget(t)
+
+	setupPaneViewMocks(t, mockFactory, mockOverlay, mockBorderBox, mockWebView)
+
+	pv := component.NewPaneView(context.Background(), mockFactory, entity.PaneID("pane-1"), mockWebView)
+
+	// First activate
+	mockLabel := setupPageModeIndicatorMocks(t, mockFactory, mockOverlay)
+	mockLabel.EXPECT().SetVisible(true).Once()
+	mockOverlay.EXPECT().AddCssClass("page-mode-active").Once()
+	pv.SetPageMode(true)
+
+	// Second activation should be no-op (no additional mock calls)
+	// Act
+	pv.SetPageMode(true)
+
+	// Assert
+	require.True(t, pv.IsPageMode())
+}
+
+func TestTriggerPageModePulse_PulsesIndicatorAndOverlay(t *testing.T) {
+	// Arrange
+	mockFactory := mocks.NewMockWidgetFactory(t)
+	mockOverlay := mocks.NewMockOverlayWidget(t)
+	mockBorderBox := mocks.NewMockBoxWidget(t)
+	mockWebView := mocks.NewMockWidget(t)
+
+	setupPaneViewMocks(t, mockFactory, mockOverlay, mockBorderBox, mockWebView)
+
+	pv := component.NewPaneView(context.Background(), mockFactory, entity.PaneID("pane-1"), mockWebView)
+
+	// First activate page mode to create indicator
+	mockLabel := setupPageModeIndicatorMocks(t, mockFactory, mockOverlay)
+	mockLabel.EXPECT().SetVisible(true).Once()
+	mockOverlay.EXPECT().AddCssClass("page-mode-active").Once()
+	pv.SetPageMode(true)
+
+	// Indicator pulse (removes both classes, then adds normal)
+	mockLabel.EXPECT().RemoveCssClass("page-mode-indicator-pulse").Once()
+	mockLabel.EXPECT().RemoveCssClass("page-mode-indicator-pulse-fast").Once()
+	mockLabel.EXPECT().AddCssClass("page-mode-indicator-pulse").Once()
+
+	// Overlay pulse (removes both overlay pulse classes, then adds normal)
+	mockOverlay.EXPECT().RemoveCssClass("page-mode-pulse").Once()
+	mockOverlay.EXPECT().RemoveCssClass("page-mode-pulse-fast").Once()
+	mockOverlay.EXPECT().AddCssClass("page-mode-pulse").Once()
+
+	// Act
+	pv.TriggerPageModePulse()
+}
+
+func TestTriggerPageModePulseFast_PulsesIndicatorAndOverlay(t *testing.T) {
+	// Arrange
+	mockFactory := mocks.NewMockWidgetFactory(t)
+	mockOverlay := mocks.NewMockOverlayWidget(t)
+	mockBorderBox := mocks.NewMockBoxWidget(t)
+	mockWebView := mocks.NewMockWidget(t)
+
+	setupPaneViewMocks(t, mockFactory, mockOverlay, mockBorderBox, mockWebView)
+
+	pv := component.NewPaneView(context.Background(), mockFactory, entity.PaneID("pane-1"), mockWebView)
+
+	// First activate page mode to create indicator
+	mockLabel := setupPageModeIndicatorMocks(t, mockFactory, mockOverlay)
+	mockLabel.EXPECT().SetVisible(true).Once()
+	mockOverlay.EXPECT().AddCssClass("page-mode-active").Once()
+	pv.SetPageMode(true)
+
+	// Indicator fast pulse (removes both classes, then adds fast)
+	mockLabel.EXPECT().RemoveCssClass("page-mode-indicator-pulse").Once()
+	mockLabel.EXPECT().RemoveCssClass("page-mode-indicator-pulse-fast").Once()
+	mockLabel.EXPECT().AddCssClass("page-mode-indicator-pulse-fast").Once()
+
+	// Overlay fast pulse (removes both overlay pulse classes, then adds fast)
+	mockOverlay.EXPECT().RemoveCssClass("page-mode-pulse").Once()
+	mockOverlay.EXPECT().RemoveCssClass("page-mode-pulse-fast").Once()
+	mockOverlay.EXPECT().AddCssClass("page-mode-pulse-fast").Once()
+
+	// Act
+	pv.TriggerPageModePulseFast()
+}
+
+func TestTriggerPageModePulse_CreatesIndicatorLazily(t *testing.T) {
+	// Arrange
+	mockFactory := mocks.NewMockWidgetFactory(t)
+	mockOverlay := mocks.NewMockOverlayWidget(t)
+	mockBorderBox := mocks.NewMockBoxWidget(t)
+	mockWebView := mocks.NewMockWidget(t)
+
+	setupPaneViewMocks(t, mockFactory, mockOverlay, mockBorderBox, mockWebView)
+
+	pv := component.NewPaneView(context.Background(), mockFactory, entity.PaneID("pane-1"), mockWebView)
+
+	// Trigger page mode pulse WITHOUT having called SetPageMode first.
+	// This should lazily create the indicator (but NOT show it).
+	mockLabel := setupPageModeIndicatorMocks(t, mockFactory, mockOverlay)
+
+	// Indicator pulse (removes both classes before adding normal)
+	mockLabel.EXPECT().RemoveCssClass("page-mode-indicator-pulse").Once()
+	mockLabel.EXPECT().RemoveCssClass("page-mode-indicator-pulse-fast").Once()
+	mockLabel.EXPECT().AddCssClass("page-mode-indicator-pulse").Once()
+
+	// Overlay pulse (removes both overlay pulse classes, then adds normal)
+	mockOverlay.EXPECT().RemoveCssClass("page-mode-pulse").Once()
+	mockOverlay.EXPECT().RemoveCssClass("page-mode-pulse-fast").Once()
+	mockOverlay.EXPECT().AddCssClass("page-mode-pulse").Once()
+
+	// Act - should not panic or error
+	pv.TriggerPageModePulse()
+}
+
+func TestTriggerPageModePulse_RepeatedCallsReTriggerAnimation(t *testing.T) {
+	// Arrange
+	mockFactory := mocks.NewMockWidgetFactory(t)
+	mockOverlay := mocks.NewMockOverlayWidget(t)
+	mockBorderBox := mocks.NewMockBoxWidget(t)
+	mockWebView := mocks.NewMockWidget(t)
+
+	setupPaneViewMocks(t, mockFactory, mockOverlay, mockBorderBox, mockWebView)
+
+	pv := component.NewPaneView(context.Background(), mockFactory, entity.PaneID("pane-1"), mockWebView)
+
+	// Activate page mode to create indicator
+	mockLabel := setupPageModeIndicatorMocks(t, mockFactory, mockOverlay)
+	mockLabel.EXPECT().SetVisible(true).Once()
+	mockOverlay.EXPECT().AddCssClass("page-mode-active").Once()
+	pv.SetPageMode(true)
+
+	// First pulse (normal)
+	mockLabel.EXPECT().RemoveCssClass("page-mode-indicator-pulse").Once()
+	mockLabel.EXPECT().RemoveCssClass("page-mode-indicator-pulse-fast").Once()
+	mockLabel.EXPECT().AddCssClass("page-mode-indicator-pulse").Once()
+	mockOverlay.EXPECT().RemoveCssClass("page-mode-pulse").Once()
+	mockOverlay.EXPECT().RemoveCssClass("page-mode-pulse-fast").Once()
+	mockOverlay.EXPECT().AddCssClass("page-mode-pulse").Once()
+	pv.TriggerPageModePulse()
+
+	// Second pulse — fast. The remove-then-add pattern ensures the CSS
+	// animation restarts even though the previous class may still be set.
+	mockLabel.EXPECT().RemoveCssClass("page-mode-indicator-pulse").Once()
+	mockLabel.EXPECT().RemoveCssClass("page-mode-indicator-pulse-fast").Once()
+	mockLabel.EXPECT().AddCssClass("page-mode-indicator-pulse-fast").Once()
+	mockOverlay.EXPECT().RemoveCssClass("page-mode-pulse").Once()
+	mockOverlay.EXPECT().RemoveCssClass("page-mode-pulse-fast").Once()
+	mockOverlay.EXPECT().AddCssClass("page-mode-pulse-fast").Once()
+	pv.TriggerPageModePulseFast()
+
+	// Third pulse — normal again, confirm works after fast pulse.
+	mockLabel.EXPECT().RemoveCssClass("page-mode-indicator-pulse").Once()
+	mockLabel.EXPECT().RemoveCssClass("page-mode-indicator-pulse-fast").Once()
+	mockLabel.EXPECT().AddCssClass("page-mode-indicator-pulse").Once()
+	mockOverlay.EXPECT().RemoveCssClass("page-mode-pulse").Once()
+	mockOverlay.EXPECT().RemoveCssClass("page-mode-pulse-fast").Once()
+	mockOverlay.EXPECT().AddCssClass("page-mode-pulse").Once()
+	pv.TriggerPageModePulse()
+}
+
+func TestPageModeIndicator_DoesNotLeakInCleanup(t *testing.T) {
+	// Arrange
+	mockFactory := mocks.NewMockWidgetFactory(t)
+	mockOverlay := mocks.NewMockOverlayWidget(t)
+	mockBorderBox := mocks.NewMockBoxWidget(t)
+	mockWebView := mocks.NewMockWidget(t)
+
+	setupPaneViewMocks(t, mockFactory, mockOverlay, mockBorderBox, mockWebView)
+
+	pv := component.NewPaneView(context.Background(), mockFactory, entity.PaneID("pane-1"), mockWebView)
+
+	// Create the indicator by activating page mode
+	mockLabel := setupPageModeIndicatorMocks(t, mockFactory, mockOverlay)
+	mockLabel.EXPECT().SetVisible(true).Once()
+	mockOverlay.EXPECT().AddCssClass("page-mode-active").Once()
+	pv.SetPageMode(true)
+
+	// Cleanup should remove the indicator overlay
+	mockOverlay.EXPECT().RemoveOverlay(mockLabel).Once()
+
+	// Cleanup also cleans up existing widgets - WebView, etc.
+	mockOverlay.EXPECT().SetChild(nil).Once()
+
+	// Act
+	pv.Cleanup()
+}
+
+func TestPageModeIndicator_NewPaneView_HiddenByDefault(t *testing.T) {
+	// Arrange
+	mockFactory := mocks.NewMockWidgetFactory(t)
+	mockOverlay := mocks.NewMockOverlayWidget(t)
+	mockBorderBox := mocks.NewMockBoxWidget(t)
+	mockWebView := mocks.NewMockWidget(t)
+
+	setupPaneViewMocks(t, mockFactory, mockOverlay, mockBorderBox, mockWebView)
+
+	// Act
+	pv := component.NewPaneView(context.Background(), mockFactory, entity.PaneID("pane-1"), mockWebView)
+
+	// Assert
+	require.False(t, pv.IsPageMode())
+}
+
+func TestPageModeIndicator_ReturnsIndicator(t *testing.T) {
+	// Arrange
+	mockFactory := mocks.NewMockWidgetFactory(t)
+	mockOverlay := mocks.NewMockOverlayWidget(t)
+	mockBorderBox := mocks.NewMockBoxWidget(t)
+	mockWebView := mocks.NewMockWidget(t)
+
+	setupPaneViewMocks(t, mockFactory, mockOverlay, mockBorderBox, mockWebView)
+
+	pv := component.NewPaneView(context.Background(), mockFactory, entity.PaneID("pane-1"), mockWebView)
+	_ = pv
+
+	// Access PageModeIndicator without activating page mode first
+	// This should lazily create the indicator.
+
+	// The existing helper expects the full creation sequence.
+	// For this test we need to create the indicator via PageModeIndicator() getter.
+	mockLabel := setupPageModeIndicatorMocks(t, mockFactory, mockOverlay)
+
+	// Act
+	indicator := pv.PageModeIndicator()
+
+	// Assert
+	require.NotNil(t, indicator)
+	require.Equal(t, mockLabel, indicator.Widget())
+}

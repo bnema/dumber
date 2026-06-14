@@ -61,6 +61,9 @@ func (bm *BorderManager) OnModeChange(ctx context.Context, from, to input.Mode) 
 		bm.borderOverlay.RemoveCssClass(tabModeClass)
 	case input.ModeSession:
 		bm.borderOverlay.RemoveCssClass(sessionModeClass)
+	case input.ModePage:
+		// Page mode never activates the global border overlay.
+		// No class to remove.
 	}
 
 	// Add new mode class and set visibility
@@ -74,6 +77,11 @@ func (bm *BorderManager) OnModeChange(ctx context.Context, from, to input.Mode) 
 	case input.ModeSession:
 		bm.borderOverlay.AddCssClass(sessionModeClass)
 		bm.borderOverlay.SetVisible(true)
+	case input.ModePage:
+		// Page mode must not activate the workspace-wide border overlay.
+		// The pane-local page-mode-active CSS class and indicator are
+		// managed by PaneView.SetPageMode / app handleModeChange.
+		bm.borderOverlay.SetVisible(false)
 	case input.ModeNormal:
 		bm.borderOverlay.SetVisible(false)
 	default:

@@ -22,6 +22,7 @@ type OmniboxProvider interface {
 type NavigationCoordinator struct {
 	contextProvider func() context.Context
 	navigateUC      *usecase.NavigateUseCase
+	pageScrollUC    *usecase.PageScrollUseCase
 	contentCoord    *content.Coordinator
 	omniboxProvider OmniboxProvider
 }
@@ -261,6 +262,34 @@ func (c *NavigationCoordinator) ClearPaneHistory(paneID entity.PaneID) {
 		return
 	}
 	c.navigateUC.ClearPaneHistory(string(paneID))
+}
+
+// SetPageScrollUseCase sets the PageScrollUseCase for page scrolling operations.
+// This is an optional dependency: ScrollWebView will return an error if not set.
+func (c *NavigationCoordinator) SetPageScrollUseCase(uc *usecase.PageScrollUseCase) {
+	c.pageScrollUC = uc
+}
+
+// ScrollWebView applies a semantic page scroll command to the provided WebView.
+// It delegates to PageScrollUseCase for delta computation and Scrollable dispatch.
+// The PageScrollUseCase must be set via SetPageScrollUseCase before calling this.
+func (c *NavigationCoordinator) ScrollWebView(ctx context.Context, wv port.WebView, cmd usecase.PageScrollCommand) error {
+	log := logging.FromContext(ctx)
+
+	if err := requireWebView(wv); err != nil {
+		log.Warn().Str("command", cmd.String()).Msg("ScrollWebView called with nil webview")
+		return err
+	}
+
+	log.Debug().Str("command", cmd.String()).Uint64("webview_id", uint64(wv.ID())).Msg("scrolling webview")
+
+	if c.pageScrollUC == nil {
+		err := fmt.Errorf("page scroll usecase not set")
+		log.Error().Msg(err.Error())
+		return err
+	}
+
+	return c.pageScrollUC.Scroll(ctx, wv, cmd)
 }
 
 // NotifyZoomChanged updates the omnibox zoom indicator.

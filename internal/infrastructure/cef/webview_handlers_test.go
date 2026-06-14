@@ -568,6 +568,40 @@ func TestOnTextSelectionChanged_SuppressesAutoCopyWhenFocusedNodeEditableAndResu
 	require.Equal(t, "free selection", recorder.selection.Text)
 }
 
+func TestSetEditableFocus_InvokesCallbackOnTransitions(t *testing.T) {
+	var states []bool
+	wv := &WebView{ctx: context.Background()}
+	wv.SetCallbacks(&port.WebViewCallbacks{
+		OnEditableFocusChanged: func(editable bool) {
+			states = append(states, editable)
+		},
+	})
+
+	wv.setEditableFocus(true)
+	wv.setEditableFocus(true)
+	wv.setEditableFocus(false)
+
+	require.Equal(t, []bool{true, false}, states)
+}
+
+func TestOnLoadStart_ClearsEditableFocus(t *testing.T) {
+	var states []bool
+	wv := &WebView{ctx: context.Background(), focusedEditable: true}
+	wv.SetCallbacks(&port.WebViewCallbacks{
+		OnEditableFocusChanged: func(editable bool) {
+			states = append(states, editable)
+		},
+	})
+	frame := cefmocks.NewMockFrame(t)
+	frame.EXPECT().IsMain().Return(true).Once()
+	frame.EXPECT().GetURL().Return("https://example.com").Maybe()
+
+	(&handlerSet{wv: wv}).OnLoadStart(nil, frame, 0)
+
+	require.Equal(t, []bool{false}, states)
+	require.False(t, wv.focusedEditable)
+}
+
 func TestDestroy_WithoutHostRunsCloseCallbacks(t *testing.T) {
 	called := false
 	wv := &WebView{closeCallbacks: []func(){func() { called = true }}}

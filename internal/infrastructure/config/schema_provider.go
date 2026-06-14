@@ -461,6 +461,29 @@ func (*SchemaProvider) getWorkspaceKeys(defaults *Config) []entity.ConfigKeyInfo
 			Description: "Key bindings for tab mode actions",
 			Section:     SectionWorkspace,
 		},
+		// Page mode
+		{
+			Key:         "workspace.page_mode.activation_shortcut",
+			Type:        "string",
+			Default:     defaults.Workspace.PageMode.ActivationShortcut,
+			Description: "Shortcut to enter page scroll mode",
+			Section:     SectionWorkspace,
+		},
+		{
+			Key:         "workspace.page_mode.timeout_ms",
+			Type:        "int",
+			Default:     fmt.Sprintf("%d", defaults.Workspace.PageMode.TimeoutMilliseconds),
+			Description: "Page mode timeout in milliseconds (0 = no timeout)",
+			Range:       ">=0",
+			Section:     SectionWorkspace,
+		},
+		{
+			Key:         "workspace.page_mode.actions.<action>",
+			Type:        "[]string",
+			Default:     "(see defaults)",
+			Description: "Key bindings for page mode actions",
+			Section:     SectionWorkspace,
+		},
 		// Resize mode
 		{
 			Key:         "workspace.resize_mode.activation_shortcut",

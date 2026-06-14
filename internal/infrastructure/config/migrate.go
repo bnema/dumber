@@ -299,6 +299,7 @@ func (m *Migrator) defaultActionMaps() []defaultActionMap {
 		{key: "workspace.shortcuts.actions", actions: m.defaultConfig.Workspace.Shortcuts.Actions},
 		{key: "workspace.pane_mode.actions", actions: m.defaultConfig.Workspace.PaneMode.Actions},
 		{key: "workspace.tab_mode.actions", actions: m.defaultConfig.Workspace.TabMode.Actions},
+		{key: "workspace.page_mode.actions", actions: m.defaultConfig.Workspace.PageMode.Actions},
 		{key: "workspace.resize_mode.actions", actions: m.defaultConfig.Workspace.ResizeMode.Actions},
 		{key: "session.session_mode.actions", actions: m.defaultConfig.Session.SessionMode.Actions},
 	}

@@ -114,10 +114,16 @@ func NewGlobalShortcutHandler(
 			}
 		}
 
-		// Register all app-reserved shortcuts (mode activations, Ctrl+L, Ctrl+F, etc.)
+		// Register app-reserved shortcuts (Ctrl+L, Ctrl+F, other mode activations, etc.)
 		// so they work even when WebView has focus.
+		// Page mode activation is intentionally excluded here: it must flow through
+		// the normal KeyboardHandler path so editable page contexts can pass Ctrl+Y
+		// through instead of having a global shortcut controller consume it first.
 		shortcuts := NewShortcutSet(ctx, workspace, session)
 		for binding, action := range shortcuts.Global {
+			if action == ActionEnterPageMode {
+				continue
+			}
 			if _, exists := h.registered[binding]; exists {
 				continue
 			}
@@ -319,8 +325,7 @@ func (h *GlobalShortcutHandler) dispatchGlobalShortcut(actionToDispatch Action, 
 	// Mode-enter/exit actions go through KeyboardHandler for modal state.
 	if isModeAction(actionToDispatch) {
 		if h.kbHandler != nil {
-			h.kbHandler.DispatchAction(actionToDispatch)
-			return true
+			return h.kbHandler.DispatchAction(actionToDispatch)
 		}
 		log.Warn().
 			Str("action", string(actionToDispatch)).
@@ -816,7 +821,7 @@ func formatEventType(eventType gdk.EventType) string {
 
 func isModeAction(action Action) bool {
 	switch action {
-	case ActionEnterTabMode, ActionEnterPaneMode, ActionEnterSessionMode, ActionEnterResizeMode, ActionExitMode:
+	case ActionEnterTabMode, ActionEnterPaneMode, ActionEnterSessionMode, ActionEnterResizeMode, ActionEnterPageMode, ActionExitMode:
 		return true
 	default:
 		return false

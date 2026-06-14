@@ -26,6 +26,7 @@ func validateConfig(config *Config) error {
 	validationErrors = append(validationErrors, validatePaneMode(config)...)
 	validationErrors = append(validationErrors, validateTabBar(config)...)
 	validationErrors = append(validationErrors, validateTabMode(config)...)
+	validationErrors = append(validationErrors, validatePageMode(config)...)
 	validationErrors = append(validationErrors, validateFloatingPane(config)...)
 	validationErrors = append(validationErrors, validateLogging(config)...)
 	validationErrors = append(validationErrors, validateWorkspaceNewPaneURL(config)...)
@@ -260,6 +261,35 @@ func validateTabMode(config *Config) []string {
 				))
 			}
 			tabSeenKeys[key] = action
+		}
+	}
+	return validationErrors
+}
+
+func validatePageMode(config *Config) []string {
+	var validationErrors []string
+	if config.Workspace.PageMode.TimeoutMilliseconds < 0 {
+		validationErrors = append(validationErrors, "workspace.page_mode.timeout_ms must be non-negative")
+	}
+	if len(config.Workspace.PageMode.Actions) == 0 {
+		validationErrors = append(validationErrors, "workspace.page_mode.actions cannot be empty")
+	}
+
+	seenKeys := make(map[string]string)
+	for action, binding := range config.Workspace.PageMode.Actions {
+		if len(binding.Keys) == 0 {
+			validationErrors = append(validationErrors, fmt.Sprintf("workspace.page_mode.actions.%s must have at least one key binding", action))
+		}
+		for _, key := range binding.Keys {
+			if existingAction, exists := seenKeys[key]; exists {
+				validationErrors = append(validationErrors, fmt.Sprintf(
+					"duplicate key binding '%s' found in page_mode actions '%s' and '%s'",
+					key,
+					existingAction,
+					action,
+				))
+			}
+			seenKeys[key] = action
 		}
 	}
 	return validationErrors

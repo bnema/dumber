@@ -51,6 +51,8 @@ window, tooltip, popover {
 `
 }
 
+const defaultTransitionDurationMs = 120
+
 // GenerateCSSWithScaleAndFonts creates GTK4 CSS using the provided palette, UI scale factor and fonts.
 // Scale affects widget sizing that uses relative units; text scaling is handled via GtkSettings.
 // Uses default mode colors.
@@ -58,9 +60,16 @@ func GenerateCSSWithScaleAndFonts(p Palette, scale float64, fonts FontConfig) st
 	return GenerateCSSFull(p, scale, fonts, DefaultModeColors())
 }
 
-// GenerateCSSFull creates GTK4 CSS using all provided configuration.
+// GenerateCSSFull creates GTK4 CSS using all provided configuration with the
+// default transition duration.
 // Text scaling is handled via GtkSettings; CSS here stays scale-independent.
 func GenerateCSSFull(p Palette, _ float64, fonts FontConfig, modeColors ModeColors) string {
+	return GenerateCSSFullWithTiming(p, 1.0, fonts, modeColors, defaultTransitionDurationMs)
+}
+
+// GenerateCSSFullWithTiming creates GTK4 CSS using all provided configuration
+// and an explicit transition duration from workspace styling config.
+func GenerateCSSFullWithTiming(p Palette, _ float64, fonts FontConfig, modeColors ModeColors, transitionDurationMs int) string {
 	defaults := DefaultFontConfig()
 	fonts = FontConfig{
 		SansFont:      Coalesce(fonts.SansFont, defaults.SansFont),
@@ -100,6 +109,10 @@ func GenerateCSSFull(p Palette, _ float64, fonts FontConfig, modeColors ModeColo
 
 	// Stacked pane styling
 	sb.WriteString(generateStackedPaneCSS(p))
+	sb.WriteString("\n")
+
+	// Page mode styling
+	sb.WriteString(generatePageModeCSS(transitionDurationMs))
 	sb.WriteString("\n")
 
 	// Progress bar styling
@@ -568,6 +581,75 @@ entry.find-bar-entry:focus-visible {
 
 // generatePaneCSS creates pane border styles.
 // Uses em units for scalable UI.
+// generatePageModeCSS creates Page mode indicator and border styling.
+// Reuses the existing --pane-mode-color CSS variable (from workspace.styling.pane_mode_color).
+func generatePageModeCSS(transitionDurationMs int) string {
+	if transitionDurationMs < 0 {
+		transitionDurationMs = defaultTransitionDurationMs
+	}
+	normalPulseMs := transitionDurationMs * 3
+	fastPulseMs := transitionDurationMs * 6
+	return fmt.Sprintf(`/* ===== Page Mode Styling ===== */
+
+/* Page mode indicator label — small "PAGE" badge near top-left of the pane.
+   Positioned via overlay with Halign=Start / Valign=Start from Go code.
+   Does not affect pane layout (SetClipOverlay=false, SetMeasureOverlay=false). */
+.page-mode-indicator {
+	background-color: alpha(var(--pane-mode-color), 0.12);
+	color: var(--pane-mode-color);
+	font-size: 0.6em;
+	font-weight: 700;
+	letter-spacing: 0.1em;
+	padding: 0.1em 0.4em;
+	margin: 0.25em;
+	border-radius: 0.2em;
+	/* Prevent text selection/focus */
+	user-select: none;
+	caret-color: transparent;
+}
+
+/* Page mode active — subtle local border accent on the pane overlay.
+   Uses the existing pane mode color token via CSS variable.
+   This is independent of the workspace-level pane-mode border overlay. */
+.page-mode-active {
+	box-shadow: inset 0 0 0 0.125em alpha(var(--pane-mode-color), 0.35);
+	border-radius: 0;
+}
+
+/* Pulse animation keyframes — brief glow/flash using the pane mode color. */
+@keyframes page-mode-pulse-anim {
+	0%%   { box-shadow: inset 0 0 0 0em alpha(var(--pane-mode-color), 0); }
+	35%%  { box-shadow: inset 0 0 0 0.125em alpha(var(--pane-mode-color), 0.55); }
+	100%% { box-shadow: inset 0 0 0 0em alpha(var(--pane-mode-color), 0); }
+}
+
+@keyframes page-mode-pulse-fast-anim {
+	0%%   { box-shadow: inset 0 0 0 0em alpha(var(--pane-mode-color), 0); }
+	25%%  { box-shadow: inset 0 0 0 0.2em alpha(var(--pane-mode-color), 0.7); }
+	100%% { box-shadow: inset 0 0 0 0em alpha(var(--pane-mode-color), 0); }
+}
+
+/* Normal scroll pulse — derived from workspace.styling.transition_duration. */
+.page-mode-indicator-pulse {
+	animation: page-mode-pulse-anim %dms ease-in-out;
+}
+
+/* Fast scroll pulse — stronger/longer, derived from transition_duration too. */
+.page-mode-indicator-pulse-fast {
+	animation: page-mode-pulse-fast-anim %dms ease-in-out;
+}
+
+/* Pane overlay scroll pulse — same timing as the badge pulse. */
+.page-mode-pulse {
+	animation: page-mode-pulse-anim %dms ease-in-out;
+}
+
+.page-mode-pulse-fast {
+	animation: page-mode-pulse-fast-anim %dms ease-in-out;
+}
+`, normalPulseMs, fastPulseMs, normalPulseMs, fastPulseMs)
+}
+
 func generatePaneCSS(p Palette) string {
 	return `/* ===== Pane Styling ===== */
 

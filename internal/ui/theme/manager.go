@@ -15,15 +15,16 @@ import (
 // Manager handles theme state and CSS application.
 // Theme precedence and fallback are resolved before data reaches this adapter.
 type Manager struct {
-	prefersDark  bool    // Resolved dark mode preference
-	lightPalette Palette // Light theme colors
-	darkPalette  Palette // Dark theme colors
-	uiScale      float64 // UI scaling factor (1.0 = 100%)
-	fonts        FontConfig
-	gtkFont      string
-	modeColors   ModeColors // Modal mode indicator colors
-	cssProvider  *gtk.CssProvider
-	appliedFont  string
+	prefersDark          bool    // Resolved dark mode preference
+	lightPalette         Palette // Light theme colors
+	darkPalette          Palette // Dark theme colors
+	uiScale              float64 // UI scaling factor (1.0 = 100%)
+	fonts                FontConfig
+	gtkFont              string
+	modeColors           ModeColors // Modal mode indicator colors
+	transitionDurationMs int
+	cssProvider          *gtk.CssProvider
+	appliedFont          string
 }
 
 // NewManager creates a new theme manager from an already-resolved theme.
@@ -58,6 +59,18 @@ func (m *Manager) applyResolvedTheme(resolved entity.ResolvedTheme) {
 	}
 	m.gtkFont = m.fonts.GtkFont
 	m.modeColors = ModeColorsFromEntity(resolved.ModeColors)
+	if m.transitionDurationMs < 0 {
+		m.transitionDurationMs = defaultTransitionDurationMs
+	}
+}
+
+// SetTransitionDuration sets the CSS transition duration used for theme-driven
+// animations such as Page mode pulse timing.
+func (m *Manager) SetTransitionDuration(ms int) {
+	if ms < 0 {
+		ms = defaultTransitionDurationMs
+	}
+	m.transitionDurationMs = ms
 }
 
 // PrefersDark returns true if dark mode is active.
@@ -135,9 +148,10 @@ func (m *Manager) ApplyToDisplay(ctx context.Context, display *gdk.Display) {
 		return
 	}
 
-	// Generate CSS with current palette, UI scale, fonts, and mode colors
+	// Generate CSS with current palette, UI scale, fonts, mode colors, and the
+	// configured transition duration.
 	palette := m.GetCurrentPalette()
-	css := GenerateCSSFull(palette, m.uiScale, m.fonts, m.modeColors)
+	css := GenerateCSSFullWithTiming(palette, m.uiScale, m.fonts, m.modeColors, m.transitionDurationMs)
 	fontName := formatGTKFontName(m.gtkFont, m.uiScale)
 
 	settings := gtk.SettingsGetForDisplay(display)

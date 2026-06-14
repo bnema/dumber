@@ -68,6 +68,9 @@ type KeyboardHandler struct {
 	accentHandler AccentHandler
 	// Optional escape hook for app-level overlays
 	onEscape func(ctx context.Context) bool
+	// Optional hook that blocks Page mode activation and lets the original key
+	// event pass through to the focused widget/page instead.
+	pageModeActivationPassthrough func() bool
 
 	// GTK controller (nil until attached)
 	controller *gtk.EventControllerKey
@@ -107,6 +110,14 @@ func (h *KeyboardHandler) SetOnAction(fn ActionHandler) {
 	h.mu.Lock()
 	defer h.mu.Unlock()
 	h.onAction = fn
+}
+
+// SetPageModeActivationPassthrough sets the callback that can block Page mode
+// activation and let the original key event propagate instead.
+func (h *KeyboardHandler) SetPageModeActivationPassthrough(fn func() bool) {
+	h.mu.Lock()
+	defer h.mu.Unlock()
+	h.pageModeActivationPassthrough = fn
 }
 
 // ReloadShortcuts rebuilds the shortcut set from new config values.
@@ -344,6 +355,9 @@ func (h *KeyboardHandler) handleKeyPress(keyval, keycode uint, state gdk.Modifie
 	if !found {
 		return mode != ModeNormal // Consume unrecognized keys in modal mode
 	}
+	if h.shouldPassthroughPageModeActivation(action, mode) {
+		return false
+	}
 	if h.suppressHeldAction(action, keyval) {
 		log.Trace().
 			Str("action", string(action)).
@@ -402,6 +416,9 @@ func (h *KeyboardHandler) dispatchAction(action Action, mode Mode) bool {
 	if mode == ModeResize && isResizeAction(action) {
 		h.modal.ResetTimeout(h.ctx)
 	}
+	if mode == ModePage && isPageScrollAction(action) {
+		h.modal.ResetTimeout(h.ctx)
+	}
 
 	if mode != ModeNormal && ShouldAutoExitMode(action) {
 		h.modal.ExitMode(h.ctx)
@@ -436,6 +453,7 @@ func isRepeatedKeyboardActionSuppressed(action Action) bool {
 		ActionEnterPaneMode,
 		ActionEnterSessionMode,
 		ActionEnterResizeMode,
+		ActionEnterPageMode,
 		ActionNewTab,
 		ActionRenameTab,
 		ActionSplitRight,
@@ -512,6 +530,20 @@ func isResizeAction(action Action) bool {
 	}
 }
 
+func isPageScrollAction(action Action) bool {
+	switch action {
+	case ActionPageScrollLeft,
+		ActionPageScrollDown,
+		ActionPageScrollUp,
+		ActionPageScrollRight,
+		ActionPageScrollDownFast,
+		ActionPageScrollUpFast:
+		return true
+	default:
+		return false
+	}
+}
+
 func (h *KeyboardHandler) handleModeAction(action Action) bool {
 	h.mu.RLock()
 	workspace := h.workspace
@@ -550,6 +582,13 @@ func (h *KeyboardHandler) handleModeAction(action Action) bool {
 			ms = workspace.ResizeMode.TimeoutMilliseconds
 		}
 		h.modal.EnterResizeMode(h.ctx, time.Duration(ms)*time.Millisecond)
+		return true
+	case ActionEnterPageMode:
+		var pgms int
+		if workspace != nil {
+			pgms = workspace.PageMode.TimeoutMilliseconds
+		}
+		h.modal.EnterPageMode(h.ctx, time.Duration(pgms)*time.Millisecond)
 		return true
 	case ActionExitMode:
 		h.modal.ExitMode(h.ctx)
@@ -598,18 +637,45 @@ func (h *KeyboardHandler) EnterSessionMode() {
 	h.modal.EnterSessionMode(h.ctx, time.Duration(ms)*time.Millisecond)
 }
 
+// EnterPageMode programmatically enters page scrolling mode.
+// Useful for testing or programmatic mode changes.
+func (h *KeyboardHandler) EnterPageMode() {
+	h.mu.RLock()
+	workspace := h.workspace
+	h.mu.RUnlock()
+	var ms int
+	if workspace != nil {
+		ms = workspace.PageMode.TimeoutMilliseconds
+	}
+	h.modal.EnterPageMode(h.ctx, time.Duration(ms)*time.Millisecond)
+}
+
 // ExitMode programmatically exits modal mode.
 // Useful for testing or programmatic mode changes.
 func (h *KeyboardHandler) ExitMode() {
 	h.modal.ExitMode(h.ctx)
 }
 
+func (h *KeyboardHandler) shouldPassthroughPageModeActivation(action Action, mode Mode) bool {
+	if action != ActionEnterPageMode || mode != ModeNormal {
+		return false
+	}
+	h.mu.RLock()
+	passthrough := h.pageModeActivationPassthrough
+	h.mu.RUnlock()
+	return passthrough != nil && passthrough()
+}
+
 // DispatchAction processes an action externally triggered (e.g., by a global
 // shortcut). Mode-enter actions update modal state; other actions are forwarded
-// to the registered action handler.
-func (h *KeyboardHandler) DispatchAction(action Action) {
+// to the registered action handler. It returns whether the action was consumed.
+func (h *KeyboardHandler) DispatchAction(action Action) bool {
 	mode := h.modal.Mode()
+	if h.shouldPassthroughPageModeActivation(action, mode) {
+		return false
+	}
 	h.dispatchAction(action, mode)
+	return true
 }
 
 // handleKeyRelease processes a key release event for accent detection.
