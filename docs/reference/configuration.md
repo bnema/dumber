@@ -86,6 +86,8 @@
 | `workspace.pane_mode.timeout_ms` | int | `3000` | |
 | `workspace.tab_mode.activation_shortcut` | string | `ctrl+t` | |
 | `workspace.tab_mode.timeout_ms` | int | `3000` | |
+| `workspace.page_mode.activation_shortcut` | string | `ctrl+y` | |
+| `workspace.page_mode.timeout_ms` | int | `0` | >= 0 |
 | `workspace.resize_mode.activation_shortcut` | string | `ctrl+n` | |
 | `workspace.resize_mode.timeout_ms` | int | `3000` | |
 | `workspace.resize_mode.step_percent` | float | `5.0` | |

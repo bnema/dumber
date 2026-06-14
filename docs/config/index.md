@@ -353,6 +353,54 @@ cancel = ["escape"]
 
 > **Note:** Actions are inverted to key→action map in memory for O(1) lookup performance during navigation.
 
+### Page Mode
+
+| Key | Type | Default | Description |
+|-----|------|---------|-------------|
+| `workspace.page_mode.activation_shortcut` | string | `"ctrl+y"` | Page mode activation key |
+| `workspace.page_mode.timeout_ms` | int | `0` | Page mode timeout in milliseconds (`0` disables auto-timeout) |
+| `workspace.page_mode.actions` | map | See below | Action→binding mappings |
+
+**Default page mode actions:**
+```toml
+[workspace.page_mode.actions.page-scroll-left]
+keys = ["h"]
+desc = "Scroll page left"
+
+[workspace.page_mode.actions.page-scroll-down]
+keys = ["j"]
+desc = "Scroll page down"
+
+[workspace.page_mode.actions.page-scroll-up]
+keys = ["k"]
+desc = "Scroll page up"
+
+[workspace.page_mode.actions.page-scroll-right]
+keys = ["l"]
+desc = "Scroll page right"
+
+[workspace.page_mode.actions.page-scroll-down-fast]
+keys = ["shift+j"]
+desc = "Scroll page down fast"
+
+[workspace.page_mode.actions.page-scroll-up-fast]
+keys = ["shift+k"]
+desc = "Scroll page up fast"
+
+[workspace.page_mode.actions.confirm]
+keys = ["enter"]
+desc = "Confirm action"
+
+[workspace.page_mode.actions.cancel]
+keys = ["escape"]
+desc = "Cancel/exit mode"
+```
+
+Notes:
+- Page Mode scrolls the active webpage inside the active pane only.
+- The default `timeout_ms = 0` means Page Mode stays active until you exit it or focus moves into an editable/browser UI context.
+- `workspace.styling.pane_mode_color`, `workspace.styling.transition_duration`, and `workspace.styling.mode_indicator_toaster_enabled` control the pane-local Page Mode visuals.
+
 ### Resize Mode
 
 | Key | Type | Default | Description |
@@ -484,12 +532,12 @@ desc = "Open floating pane on GitHub"
 | `workspace.styling.border_width` | int | `1` | Active pane border width (px) - overlay |
 | `workspace.styling.border_color` | string | `"@theme_selected_bg_color"` | Active pane border color |
 | `workspace.styling.mode_border_width` | int | `4` | Modal mode border width (px) - applies to all modes |
-| `workspace.styling.pane_mode_color` | string | `"#4A90E2"` | Pane mode color (blue) - used for border and toaster |
+| `workspace.styling.pane_mode_color` | string | `"#4A90E2"` | Pane mode color (blue); also reused for Page mode pane-local accent, indicator, and pulse |
 | `workspace.styling.tab_mode_color` | string | `"#FFA500"` | Tab mode color (orange) - used for border and toaster |
 | `workspace.styling.session_mode_color` | string | `"#9B59B6"` | Session mode color (purple) - used for border and toaster |
 | `workspace.styling.resize_mode_color` | string | `"#00D4AA"` | Resize mode color (teal) - used for border and toaster |
-| `workspace.styling.mode_indicator_toaster_enabled` | bool | `true` | Show toaster notification when modal modes are active |
-| `workspace.styling.transition_duration` | int | `120` | Border transition duration (ms) |
+| `workspace.styling.mode_indicator_toaster_enabled` | bool | `true` | Show toaster notification when modal modes are active; Page mode uses it only as brief secondary feedback |
+| `workspace.styling.transition_duration` | int | `120` | Border and pulse transition duration (ms) |
 
 **Example:**
 ```toml
@@ -497,7 +545,7 @@ desc = "Open floating pane on GitHub"
 border_width = 1
 border_color = "@theme_selected_bg_color"
 mode_border_width = 4
-pane_mode_color = "#4A90E2"      # Blue for pane mode
+pane_mode_color = "#4A90E2"      # Blue for pane mode and Page mode local accent
 tab_mode_color = "#FFA500"       # Orange for tab mode
 session_mode_color = "#9B59B6"   # Purple for session mode
 resize_mode_color = "#00D4AA"    # Teal for resize mode

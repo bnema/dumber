@@ -24,7 +24,7 @@ Dumber uses three layout levels:
 - **Workspaces** hold a layout of panes.
 - **Panes** display web pages and can be split, stacked, moved, resized, or closed.
 
-Most browser-management actions are exposed through modal keybindings. Enter a mode, run one or more commands, then leave the mode. The default modes cover pane management, tabs, resizing, and session commands.
+Most browser-management actions are exposed through modal keybindings. Enter a mode, run one or more commands, then leave the mode. The default modes cover pane management, tabs, page scrolling, resizing, and session commands.
 
 The browser chrome stays out of the way by default. Open the omnibox when you want to navigate; otherwise the pane is just the page or web app you are using. This makes Dumber work well as a side pane next to an editor, terminal, or another desktop application.
 
@@ -46,7 +46,7 @@ The browser chrome stays out of the way by default. Open the omnibox when you wa
 
 ### Keyboard workflow
 
-- Pane, tab, resize, and session modes
+- Pane, tab, page, resize, and session modes
 - Vim/Zellij-style navigation patterns
 - Search bangs such as `!g`, `!gi`, and `!ddg`
 - Launcher integration for `rofi`, `fuzzel`, and `dmenu`
@@ -99,6 +99,7 @@ Dumber uses modal keybindings for browser management.
 |------|-------------|----------|
 | Pane | `Ctrl+P` | Split, stack, close, and move panes |
 | Tab | `Ctrl+T` | Create, close, switch, and rename tabs |
+| Page | `Ctrl+Y` | Scroll the active webpage with `h/j/k/l` and `Shift+J/K` |
 | Resize | `Ctrl+N` | Resize panes with `hjkl` or arrow keys |
 | Session | `Ctrl+O` | Snapshot, restore, and browse sessions |
 

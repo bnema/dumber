@@ -16,10 +16,12 @@ Dumber uses modal keybindings inspired by Zellij:
 |------|------------|---------|
 | Pane Mode | `Ctrl+P` | Split, close, focus panes |
 | Tab Mode | `Ctrl+T` | Create, close, switch tabs |
+| Page Mode | `Ctrl+Y` | Scroll the active webpage with `h/j/k/l` and `Shift+J/K` |
 | Resize Mode | `Ctrl+N` | Resize pane splits |
 | Session Mode | `Ctrl+O` | Session management |
 
 Press `Escape` or `Enter` to exit any mode.
+Page Mode stays local to the active pane and automatically leaves the mode when focus moves into the omnibox, find bar, overlays, or a page editable.
 
 ## Pane Mode Quick Reference
 
@@ -27,6 +29,14 @@ Press `Escape` or `Enter` to exit any mode.
 2. Use arrow keys or `hjkl` to split in that direction
 3. `Shift+arrows` to focus adjacent panes
 4. `X` to close current pane
+
+## Page Mode Quick Reference
+
+1. Press `Ctrl+Y` to enter Page Mode
+2. Use `h`, `j`, `k`, `l` to scroll left, down, up, or right
+3. Use `Shift+J` / `Shift+K` for faster vertical jumps
+4. Press `Escape` or `Enter` to leave the mode
+5. If a page input or editor is already focused, `Ctrl+Y` is passed through instead of stealing the keypress
 
 ## Omnibox
 

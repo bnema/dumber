@@ -8,10 +8,12 @@ Dumber uses modal keybindings inspired by Zellij. Press a mode activation key, t
 |------|-----|---------|
 | Pane Mode | `Ctrl+P` | Split, close, focus panes |
 | Tab Mode | `Ctrl+T` | Create, close, switch tabs |
+| Page Mode | `Ctrl+Y` | Scroll the active webpage with `h/j/k/l` and `Shift+J/K` |
 | Resize Mode | `Ctrl+N` | Resize pane splits |
 | Session Mode | `Ctrl+O` | Session management |
 
 Press `Escape` or `Enter` to exit any mode.
+Page Mode activation is passed through when the focused webpage element is already editable, so browser-page editors keep their own `Ctrl+Y` behavior.
 
 Keybinding tables use uppercase letters as visual labels for unshifted letter keys. In config, use lowercase (for example, `["w"]` for Pane Mode eject). Shifted keys are shown with an explicit `Shift+` prefix.
 
@@ -48,6 +50,21 @@ Keybinding tables use uppercase letters as visual labels for unshifted letter ke
 | Next tab | `L`, `Tab` |
 | Previous tab | `H`, `Shift+Tab` |
 | Rename tab | `R` |
+| Confirm | `Enter` |
+| Cancel | `Escape` |
+
+## Page Mode (`Ctrl+Y`)
+
+Page Mode is an explicit page-scrolling mode for the active pane only. It shows a local `PAGE` indicator on the owning pane, uses `workspace.styling.pane_mode_color` for the local accent, and exits automatically when focus moves into the omnibox, find bar, overlays, or an editable element inside the page. The default `timeout_ms` is `0`, so Page Mode does not auto-time out unless you configure one.
+
+| Action | Keys |
+|--------|------|
+| Scroll left | `H` |
+| Scroll down | `J` |
+| Scroll up | `K` |
+| Scroll right | `L` |
+| Scroll down fast | `Shift+J` |
+| Scroll up fast | `Shift+K` |
 | Confirm | `Enter` |
 | Cancel | `Escape` |
 
@@ -114,6 +131,28 @@ All keybindings can be customized in `~/.config/dumber/config.toml`:
 [workspace.pane_mode.actions]
 split-right = ["arrowright", "r"]
 close-pane = ["x", "q"]
+
+[workspace.page_mode]
+activation_shortcut = "ctrl+y"
+timeout_ms = 0
+
+[workspace.page_mode.actions.page-scroll-left]
+keys = ["h"]
+
+[workspace.page_mode.actions.page-scroll-down]
+keys = ["j"]
+
+[workspace.page_mode.actions.page-scroll-up]
+keys = ["k"]
+
+[workspace.page_mode.actions.page-scroll-right]
+keys = ["l"]
+
+[workspace.page_mode.actions.page-scroll-down-fast]
+keys = ["shift+j"]
+
+[workspace.page_mode.actions.page-scroll-up-fast]
+keys = ["shift+k"]
 
 [workspace.shortcuts.actions.close-pane]
 keys = ["ctrl+w"]
