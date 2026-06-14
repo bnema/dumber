@@ -831,29 +831,3 @@ func TestPageMode_GlobalBorderOverlayStaysOff(t *testing.T) {
 	mockBox.EXPECT().SetVisible(false).Once()
 	bm.OnModeChange(context.Background(), input.ModePage, input.ModeNormal)
 }
-
-// ============================================================================
-// NavCoord wiring (keep existing coverage)
-// ============================================================================
-
-type navCoordStub struct {
-	scrollUC interface{}
-}
-
-func (s *navCoordStub) SetPageScrollUseCase(uc interface{}) { s.scrollUC = uc }
-func (s *navCoordStub) ScrollWebView(_ context.Context, wv, _ interface{}) error {
-	if wv == nil {
-		return assert.AnError
-	}
-	if s.scrollUC == nil {
-		return assert.AnError
-	}
-	return nil
-}
-
-func TestPageMode_AppWiring_SetsPageScrollUseCase(t *testing.T) {
-	s := &navCoordStub{}
-	s.SetPageScrollUseCase(struct{}{})
-	assert.NotNil(t, s.scrollUC)
-	assert.Error(t, s.ScrollWebView(context.Background(), nil, struct{}{}))
-}

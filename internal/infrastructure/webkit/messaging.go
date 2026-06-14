@@ -273,6 +273,12 @@ func decodeScriptMessage(valuePtr uintptr, log zerolog.Logger) (Message, bool) {
 	return msg, true
 }
 
+// handleAllowlistedBridgeMessage handles the one narrow page-origin hint that
+// is allowed before trusted-page routing: editable focus state for Page mode.
+// This is intentionally not a privileged bridge command; the only effect is
+// updating editable-focus state on the sender WebView so Page mode can block or
+// exit locally. The per-WebView token is a reuse/staleness guard, not a broad
+// authorization boundary for page privileges.
 func (r *MessageRouter) handleAllowlistedBridgeMessage(senderWV *WebView, msg Message) bool {
 	if msg.Type != "editable_focus_changed" {
 		return false
