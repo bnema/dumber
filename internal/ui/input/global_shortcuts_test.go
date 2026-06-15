@@ -9,6 +9,27 @@ import (
 	"github.com/bnema/puregotk/v4/gtk"
 )
 
+func TestShouldRegisterGTKGlobalShortcut_ExcludesPageModeActivation(t *testing.T) {
+	if shouldRegisterGTKGlobalShortcut(ActionEnterPageMode) {
+		t.Fatal("ActionEnterPageMode should stay off the GTK global shortcut controller")
+	}
+	if !shouldRegisterGTKGlobalShortcut(ActionOpenOmnibox) {
+		t.Fatal("non-page-mode global shortcuts should remain registerable")
+	}
+}
+
+func TestShouldIgnoreGlobalShortcutInMode_PageModeBlocksNonToggleActions(t *testing.T) {
+	if !shouldIgnoreGlobalShortcutInMode(ModePage, ActionOpenOmnibox) {
+		t.Fatal("Page mode should ignore app-global shortcuts like omnibox")
+	}
+	if shouldIgnoreGlobalShortcutInMode(ModeNormal, ActionOpenOmnibox) {
+		t.Fatal("normal mode should not ignore app-global shortcuts")
+	}
+	if shouldIgnoreGlobalShortcutInMode(ModePage, ActionEnterPageMode) {
+		t.Fatal("page mode toggle should not be blocked by the mode guard")
+	}
+}
+
 func TestGlobalShortcutHandlerCallbackBudgetIsIndependentOfShortcutCount(t *testing.T) {
 	h := &GlobalShortcutHandler{
 		registered:   make(map[KeyBinding]Action),

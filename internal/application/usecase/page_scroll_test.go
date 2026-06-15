@@ -17,8 +17,8 @@ func TestPageScroll_SmallVerticalDown(t *testing.T) {
 		t.Fatalf("Scroll() unexpected error: %v", err)
 	}
 
-	if wv.lastRequest.Command != int(PageScrollDown) {
-		t.Fatalf("ScrollPage request.Command = %d, want %d", wv.lastRequest.Command, int(PageScrollDown))
+	if wv.lastRequest.Command != port.PageScrollCommandDown {
+		t.Fatalf("ScrollPage request.Command = %d, want %d", wv.lastRequest.Command, port.PageScrollCommandDown)
 	}
 	if wv.lastRequest.FallbackDX != 0 || wv.lastRequest.FallbackDY != 80 {
 		t.Fatalf("ScrollPage request fallback delta = (%d, %d), want (0, 80)", wv.lastRequest.FallbackDX, wv.lastRequest.FallbackDY)
@@ -34,8 +34,8 @@ func TestPageScroll_FastVerticalUp(t *testing.T) {
 		t.Fatalf("Scroll() unexpected error: %v", err)
 	}
 
-	if wv.lastRequest.Command != int(PageScrollUpFast) {
-		t.Fatalf("ScrollPage request.Command = %d, want %d", wv.lastRequest.Command, int(PageScrollUpFast))
+	if wv.lastRequest.Command != port.PageScrollCommandUpFast {
+		t.Fatalf("ScrollPage request.Command = %d, want %d", wv.lastRequest.Command, port.PageScrollCommandUpFast)
 	}
 	if wv.lastRequest.FallbackDX != 0 || wv.lastRequest.FallbackDY != -320 {
 		t.Fatalf("ScrollPage request fallback delta = (%d, %d), want (0, -320)", wv.lastRequest.FallbackDX, wv.lastRequest.FallbackDY)
@@ -51,8 +51,8 @@ func TestPageScroll_HorizontalDirectionMapping(t *testing.T) {
 			t.Fatalf("Scroll() unexpected error: %v", err)
 		}
 
-		if wv.lastRequest.Command != int(PageScrollLeft) {
-			t.Fatalf("ScrollPage request.Command = %d, want %d", wv.lastRequest.Command, int(PageScrollLeft))
+		if wv.lastRequest.Command != port.PageScrollCommandLeft {
+			t.Fatalf("ScrollPage request.Command = %d, want %d", wv.lastRequest.Command, port.PageScrollCommandLeft)
 		}
 		if wv.lastRequest.FallbackDX != -80 || wv.lastRequest.FallbackDY != 0 {
 			t.Fatalf("ScrollPage request fallback delta = (%d, %d), want (-80, 0)", wv.lastRequest.FallbackDX, wv.lastRequest.FallbackDY)
@@ -66,8 +66,8 @@ func TestPageScroll_HorizontalDirectionMapping(t *testing.T) {
 			t.Fatalf("Scroll() unexpected error: %v", err)
 		}
 
-		if wv.lastRequest.Command != int(PageScrollRight) {
-			t.Fatalf("ScrollPage request.Command = %d, want %d", wv.lastRequest.Command, int(PageScrollRight))
+		if wv.lastRequest.Command != port.PageScrollCommandRight {
+			t.Fatalf("ScrollPage request.Command = %d, want %d", wv.lastRequest.Command, port.PageScrollCommandRight)
 		}
 		if wv.lastRequest.FallbackDX != 80 || wv.lastRequest.FallbackDY != 0 {
 			t.Fatalf("ScrollPage request fallback delta = (%d, %d), want (80, 0)", wv.lastRequest.FallbackDX, wv.lastRequest.FallbackDY)
@@ -177,11 +177,11 @@ func TestPageScroll_CommandIdentityPropagation(t *testing.T) {
 		t.Fatalf("Scroll() unexpected error: %v", err)
 	}
 
-	if wv.lastRequest.Command != int(PageScrollDownFast) {
+	if wv.lastRequest.Command != port.PageScrollCommandDownFast {
 		t.Fatalf("ScrollPage request.Command = %d, want %d (PageScrollDownFast)",
-			wv.lastRequest.Command, int(PageScrollDownFast))
+			wv.lastRequest.Command, port.PageScrollCommandDownFast)
 	}
-	if wv.lastRequest.Command == wv.lastRequest.FallbackDY {
+	if int(wv.lastRequest.Command) == wv.lastRequest.FallbackDY {
 		t.Fatal("command identity must NOT be confused with fallback delta: Command and FallbackDY should differ")
 	}
 	if wv.lastRequest.FallbackDX != 0 || wv.lastRequest.FallbackDY != 320 {

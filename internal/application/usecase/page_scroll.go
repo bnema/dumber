@@ -56,7 +56,7 @@ func (*PageScrollUseCase) Scroll(ctx context.Context, wv port.WebView, cmd PageS
 
 	dx, dy := scrollDelta(cmd)
 	req := port.PageScrollRequest{
-		Command:    int(cmd),
+		Command:    toPortPageScrollCommand(cmd),
 		FallbackDX: dx,
 		FallbackDY: dy,
 	}
@@ -64,6 +64,25 @@ func (*PageScrollUseCase) Scroll(ctx context.Context, wv port.WebView, cmd PageS
 		return fmt.Errorf("page scroll: %w", err)
 	}
 	return nil
+}
+
+func toPortPageScrollCommand(cmd PageScrollCommand) port.PageScrollCommand {
+	switch cmd {
+	case PageScrollLeft:
+		return port.PageScrollCommandLeft
+	case PageScrollRight:
+		return port.PageScrollCommandRight
+	case PageScrollUp:
+		return port.PageScrollCommandUp
+	case PageScrollDown:
+		return port.PageScrollCommandDown
+	case PageScrollUpFast:
+		return port.PageScrollCommandUpFast
+	case PageScrollDownFast:
+		return port.PageScrollCommandDownFast
+	default:
+		return port.PageScrollCommand(-1)
+	}
 }
 
 // scrollDelta returns the pixel delta for a PageScrollCommand.

@@ -210,7 +210,7 @@ func TestKeyboardDispatcher_PageModeActionsRouteToCorrectScrollCommand(t *testin
 			)
 
 			base.EXPECT().ID().Return(port.WebViewID(42)).Once()
-			req := port.PageScrollRequest{Command: int(tc.cmd), FallbackDX: tc.expectedDx, FallbackDY: tc.expectedDy}
+			req := port.PageScrollRequest{Command: port.PageScrollCommand(tc.cmd), FallbackDX: tc.expectedDx, FallbackDY: tc.expectedDy}
 			scroller.EXPECT().ScrollPage(ctx, req).Return(nil).Once()
 
 			err := d.Dispatch(ctx, tc.action)

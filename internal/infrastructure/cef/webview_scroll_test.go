@@ -17,17 +17,17 @@ import (
 
 func TestScrollCommandToNativeKey_MapsAllKnownCommands(t *testing.T) {
 	tests := []struct {
-		command int
+		command port.PageScrollCommand
 		wantVK  int32
 		wantOK  bool
 		name    string
 	}{
-		{0, vkLeft, true, "PageScrollLeft → VK_LEFT"},
-		{1, vkRight, true, "PageScrollRight → VK_RIGHT"},
-		{2, vkUp, true, "PageScrollUp → VK_UP"},
-		{3, vkDown, true, "PageScrollDown → VK_DOWN"},
-		{4, vkPrior, true, "PageScrollUpFast → VK_PRIOR"},
-		{5, vkNext, true, "PageScrollDownFast → VK_NEXT"},
+		{port.PageScrollCommandLeft, vkLeft, true, "PageScrollLeft → VK_LEFT"},
+		{port.PageScrollCommandRight, vkRight, true, "PageScrollRight → VK_RIGHT"},
+		{port.PageScrollCommandUp, vkUp, true, "PageScrollUp → VK_UP"},
+		{port.PageScrollCommandDown, vkDown, true, "PageScrollDown → VK_DOWN"},
+		{port.PageScrollCommandUpFast, vkPrior, true, "PageScrollUpFast → VK_PRIOR"},
+		{port.PageScrollCommandDownFast, vkNext, true, "PageScrollDownFast → VK_NEXT"},
 	}
 
 	for _, tt := range tests {
@@ -45,7 +45,7 @@ func TestScrollCommandToNativeKey_MapsAllKnownCommands(t *testing.T) {
 
 func TestScrollCommandToNativeKey_UnknownCommandReturnsFalse(t *testing.T) {
 	// Commands outside the known 0-5 range, including negative values.
-	unknowns := []int{-1, 6, 42, 999}
+	unknowns := []port.PageScrollCommand{-1, 6, 42, 999}
 	for _, cmd := range unknowns {
 		t.Run("", func(t *testing.T) {
 			vk, ok := scrollCommandToNativeKey(cmd)
@@ -98,7 +98,7 @@ func TestScrollPage_NativePath_SendsKeyDownAndKeyUp(t *testing.T) {
 	wv := &WebView{host: host}
 
 	req := port.PageScrollRequest{
-		Command:    3, // PageScrollDown (VK_DOWN)
+		Command:    port.PageScrollCommandDown,
 		FallbackDX: 0,
 		FallbackDY: 80,
 	}
@@ -137,16 +137,16 @@ func TestScrollPage_NativePath_AllCommandsProduceCorrectKeyCode(t *testing.T) {
 	wv := &WebView{host: host}
 
 	commands := []struct {
-		command int
+		command port.PageScrollCommand
 		wantVK  int32
 		name    string
 	}{
-		{0, vkLeft, "PageScrollLeft"},
-		{1, vkRight, "PageScrollRight"},
-		{2, vkUp, "PageScrollUp"},
-		{3, vkDown, "PageScrollDown"},
-		{4, vkPrior, "PageScrollUpFast"},
-		{5, vkNext, "PageScrollDownFast"},
+		{port.PageScrollCommandLeft, vkLeft, "PageScrollLeft"},
+		{port.PageScrollCommandRight, vkRight, "PageScrollRight"},
+		{port.PageScrollCommandUp, vkUp, "PageScrollUp"},
+		{port.PageScrollCommandDown, vkDown, "PageScrollDown"},
+		{port.PageScrollCommandUpFast, vkPrior, "PageScrollUpFast"},
+		{port.PageScrollCommandDownFast, vkNext, "PageScrollDownFast"},
 	}
 
 	for _, tt := range commands {
@@ -181,7 +181,7 @@ func TestScrollPage_NativePath_FallbackToJSWhenHostIsNil(t *testing.T) {
 	// No .host set — will be nil.
 
 	req := port.PageScrollRequest{
-		Command:    3, // PageScrollDown — has native mapping
+		Command:    port.PageScrollCommandDown,
 		FallbackDX: 0,
 		FallbackDY: 80,
 	}
@@ -201,7 +201,7 @@ func TestScrollPage_UnmappedCommand_FallsBackToJS(t *testing.T) {
 	// A command outside the 0-5 range has no native mapping and must not
 	// attempt to send key events.
 	req := port.PageScrollRequest{
-		Command:    42,
+		Command:    port.PageScrollCommand(42),
 		FallbackDX: 0,
 		FallbackDY: 80,
 	}

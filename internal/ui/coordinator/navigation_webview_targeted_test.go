@@ -315,7 +315,7 @@ func testScrollWebViewDelegatesEachCommand(t *testing.T, ctx context.Context) {
 			scroller := mocks.NewMockScrollable(t)
 			wv := &mockScrollableWebView{MockWebView: base, MockScrollable: scroller}
 			base.EXPECT().ID().Return(port.WebViewID(42)).Once()
-			req := port.PageScrollRequest{Command: int(tc.cmd), FallbackDX: tc.dx, FallbackDY: tc.dy}
+			req := port.PageScrollRequest{Command: port.PageScrollCommand(tc.cmd), FallbackDX: tc.dx, FallbackDY: tc.dy}
 			scroller.EXPECT().ScrollPage(ctx, req).Return(nil).Once()
 
 			c := &NavigationCoordinator{}

@@ -384,14 +384,24 @@ type TextInputTargetProvider interface {
 	TextInputTarget() TextInputTarget
 }
 
+// PageScrollCommand identifies a semantic page-scroll request at the
+// application boundary without depending on usecase package enums.
+type PageScrollCommand int
+
+const (
+	PageScrollCommandLeft PageScrollCommand = iota
+	PageScrollCommandRight
+	PageScrollCommandUp
+	PageScrollCommandDown
+	PageScrollCommandUpFast
+	PageScrollCommandDownFast
+)
+
 // PageScrollRequest carries a semantic page-scroll command identity and its
 // fallback pixel deltas. Engines own the execution strategy and may use the
 // fallback delta when no native mechanism exists for the command.
 type PageScrollRequest struct {
-	// Command is the semantic scroll command identity (maps to
-	// usecase.PageScrollCommand). It is stored as int to avoid port-layer
-	// dependency on application use cases.
-	Command    int
+	Command    PageScrollCommand
 	FallbackDX int
 	FallbackDY int
 }

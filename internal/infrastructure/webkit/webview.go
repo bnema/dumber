@@ -38,6 +38,11 @@ var _ port.PopupLifecycleCapable = (*WebView)(nil)
 var _ port.OAuthCallbackCapable = (*WebView)(nil)
 var _ port.PageScrollable = (*WebView)(nil)
 
+var buildPageScrollFallbackJS = webutil.BuildScrollByJS
+var runPageScrollFallbackJS = func(wv *WebView, ctx context.Context, script string) {
+	wv.RunJavaScript(ctx, script)
+}
+
 // WebViewID is an alias to port.WebViewID for clean architecture compliance.
 // Infrastructure layer uses the type defined in the application port.
 type WebViewID = port.WebViewID
@@ -2337,7 +2342,7 @@ func (wv *WebView) ScrollPage(ctx context.Context, request port.PageScrollReques
 	if wv.destroyed.Load() {
 		return fmt.Errorf("webview %d is destroyed", wv.id)
 	}
-	js := webutil.BuildScrollByJS(request.FallbackDX, request.FallbackDY)
-	wv.RunJavaScript(ctx, js)
+	js := buildPageScrollFallbackJS(request.FallbackDX, request.FallbackDY)
+	runPageScrollFallbackJS(wv, ctx, js)
 	return nil
 }

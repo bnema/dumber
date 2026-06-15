@@ -2222,19 +2222,19 @@ const (
 // scrollCommandToNativeKey maps a port.PageScrollRequest.Command identity to a
 // Windows virtual key code suitable for CEF SendKeyEvent. Returns ok=false
 // when the command has no native counterpart (should fall back to JS).
-func scrollCommandToNativeKey(command int) (vk int32, ok bool) {
+func scrollCommandToNativeKey(command port.PageScrollCommand) (vk int32, ok bool) {
 	switch command {
-	case 0: // PageScrollLeft
+	case port.PageScrollCommandLeft:
 		return vkLeft, true
-	case 1: // PageScrollRight
+	case port.PageScrollCommandRight:
 		return vkRight, true
-	case 2: // PageScrollUp
+	case port.PageScrollCommandUp:
 		return vkUp, true
-	case 3: // PageScrollDown
+	case port.PageScrollCommandDown:
 		return vkDown, true
-	case 4: // PageScrollUpFast
+	case port.PageScrollCommandUpFast:
 		return vkPrior, true
-	case 5: // PageScrollDownFast
+	case port.PageScrollCommandDownFast:
 		return vkNext, true
 	default:
 		return 0, false

@@ -121,7 +121,7 @@ func NewGlobalShortcutHandler(
 		// through instead of having a global shortcut controller consume it first.
 		shortcuts := NewShortcutSet(ctx, workspace, session)
 		for binding, action := range shortcuts.Global {
-			if action == ActionEnterPageMode {
+			if !shouldRegisterGTKGlobalShortcut(action) {
 				continue
 			}
 			if _, exists := h.registered[binding]; exists {
@@ -298,6 +298,14 @@ func (h *GlobalShortcutHandler) dispatchGlobalShortcut(actionToDispatch Action, 
 			Str("shortcut", formatBinding(bindingForLog)).
 			Msg("inactive window global shortcut callback ignored")
 		return false
+	}
+	if h.kbHandler != nil && shouldIgnoreGlobalShortcutInMode(h.kbHandler.Mode(), actionToDispatch) {
+		log.Trace().
+			Str("action", string(actionToDispatch)).
+			Str("shortcut", formatBinding(bindingForLog)).
+			Str("mode", h.kbHandler.Mode().String()).
+			Msg("global shortcut ignored in current modal mode")
+		return true
 	}
 	eventInfo := h.inspectCurrentShortcutEvent()
 	if !shouldDispatchGlobalShortcutEvent(eventInfo) {
@@ -487,6 +495,14 @@ func appendGlobalShortcutEventFields(evt *zerolog.Event, binding KeyBinding, act
 	return evt
 }
 
+func shouldRegisterGTKGlobalShortcut(action Action) bool {
+	return action != ActionEnterPageMode
+}
+
+func shouldIgnoreGlobalShortcutInMode(mode Mode, action Action) bool {
+	return mode == ModePage && action != ActionEnterPageMode
+}
+
 func globalShortcutActionMap() map[string]Action {
 	return map[string]Action{
 		"toggle_floating_pane":        ActionToggleFloatingPane,
@@ -569,6 +585,9 @@ func (h *GlobalShortcutHandler) ReloadShortcuts(ctx context.Context, workspace *
 
 		shortcuts := NewShortcutSet(ctx, workspace, session)
 		for binding, action := range shortcuts.Global {
+			if !shouldRegisterGTKGlobalShortcut(action) {
+				continue
+			}
 			if _, exists := h.registered[binding]; exists {
 				continue
 			}
