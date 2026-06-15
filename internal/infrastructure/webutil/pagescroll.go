@@ -2,8 +2,8 @@ package webutil
 
 import "fmt"
 
-// BuildScrollByJS returns a JavaScript string that performs an instant scroll
-// in a web page by the given CSS-pixel delta.
+// BuildScrollByJS returns a JavaScript string that scrolls a web page by the
+// given CSS-pixel delta.
 //
 // Semantics (frontend scroll-target resolution):
 //  1. Start from document.activeElement.
@@ -12,8 +12,9 @@ import "fmt"
 //  3. Fall back to document.scrollingElement (or documentElement).
 //  4. Fall back to window scrolling.
 //
-// The scroll is instant via direct scrollLeft/scrollTop assignment or native
-// window scroll APIs rather than smooth scrolling.
+// The helper prefers native smooth scrolling when available, while keeping the
+// target-resolution semantics stable. Older engines fall back to direct
+// scrollLeft/scrollTop assignment.
 func BuildScrollByJS(dx, dy int) string {
 	return fmt.Sprintf(`(function(){
 var dx=%d,dy=%d,doc=document;
@@ -41,14 +42,18 @@ function canScroll(el){
 }
 function scrollElement(el){
   if(!el)return false;
-  var beforeLeft=el.scrollLeft,beforeTop=el.scrollTop;
   try{
+    if(typeof el.scrollBy==='function'){
+      el.scrollBy({left:dx,top:dy,behavior:'smooth'});
+      return true;
+    }
+    var beforeLeft=el.scrollLeft,beforeTop=el.scrollTop;
     if(dx!==0)el.scrollLeft=beforeLeft+dx;
     if(dy!==0)el.scrollTop=beforeTop+dy;
+    return el.scrollLeft!==beforeLeft||el.scrollTop!==beforeTop;
   }catch(_){
     return false;
   }
-  return el.scrollLeft!==beforeLeft||el.scrollTop!==beforeTop;
 }
 try{
   var node=doc.activeElement;
@@ -59,7 +64,7 @@ try{
   var scroller=doc.scrollingElement||doc.documentElement;
   if(scroller&&canScroll(scroller)&&scrollElement(scroller))return;
   if(typeof window.scrollBy==='function'){
-    window.scrollBy(dx,dy);
+    window.scrollBy({left:dx,top:dy,behavior:'smooth'});
     return;
   }
   if(typeof window.scrollTo==='function'){

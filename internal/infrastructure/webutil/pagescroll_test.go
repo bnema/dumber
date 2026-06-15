@@ -29,11 +29,12 @@ func TestBuildScrollByJS_ContainsRequiredOperations(t *testing.T) {
 		{"JS must use getComputedStyle", []string{"getComputedStyle"}},
 		{"JS must check overflowY", []string{"overflowY"}},
 		{"JS must check overflowX", []string{"overflowX"}},
-		{"JS must use instant scrollLeft/scrollTop assignments", []string{"scrollLeft", "scrollTop"}},
+		{"JS must support smooth element scrolling", []string{"scrollBy({left:dx,top:dy,behavior:'smooth'})"}},
 		{"JS must check vertical direction-specific remaining scroll", []string{"dy<0&&el.scrollTop>0", "dy>0&&el.scrollTop<maxTop"}},
 		{"JS must check horizontal direction-specific remaining scroll", []string{"dx<0&&el.scrollLeft>0", "dx>0&&el.scrollLeft<maxLeft"}},
 		{"JS must check scrollable overflow values", []string{"'scroll'", "'auto'", "'overlay'"}},
 		{"JS must wrap in try/catch", []string{"try{", "catch(e)"}},
+		{"JS must support smooth window scrolling", []string{"window.scrollBy({left:dx,top:dy,behavior:'smooth'})"}},
 	}
 
 	for _, tt := range tests {
@@ -58,6 +59,9 @@ func TestBuildScrollByJS_SpecificDelta(t *testing.T) {
 	js := BuildScrollByJS(0, 80)
 	if !strings.Contains(js, "var dx=0,dy=80") {
 		t.Errorf("expected dy=80 in JS variables, got: %s", js)
+	}
+	if !strings.Contains(js, "behavior:'smooth'") {
+		t.Errorf("expected smooth scroll behavior in JS, got: %s", js)
 	}
 
 	js = BuildScrollByJS(-80, 0)
