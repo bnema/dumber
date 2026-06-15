@@ -167,6 +167,16 @@ WebKit can be selected explicitly:
 type = "webkit"
 ```
 
+### Page scroll execution
+
+Page Mode scroll commands are routed through `port.PageScrollable`, and each
+engine owns its execution strategy:
+- **CEF** sends synthetic native key events (arrow keys, Page Up/Down) through
+the Chromium browser host for the best compatibility with SPA scroll containers.
+- **WebKit** falls back to JavaScript scroll delta injection using the shared
+`BuildScrollByJS` helper, which coalesces rapid held-key repeats via
+`requestAnimationFrame` and resolves the nearest scrollable ancestor.
+
 ### Rendering notes
 
 CEF uses Dumber's GPU-first Wayland render stack by default: GDK DMABUF presentation with ANGLE/GSK Vulkan. For driver compatibility, switch to the EGL/OpenGL stack with `engine.cef.render_stack = "egl"`; the default is `"vulkan"`.

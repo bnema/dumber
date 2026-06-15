@@ -36,7 +36,7 @@ var _ port.DevToolsOpener = (*WebView)(nil)
 var _ port.Printer = (*WebView)(nil)
 var _ port.PopupLifecycleCapable = (*WebView)(nil)
 var _ port.OAuthCallbackCapable = (*WebView)(nil)
-var _ port.Scrollable = (*WebView)(nil)
+var _ port.PageScrollable = (*WebView)(nil)
 
 // WebViewID is an alias to port.WebViewID for clean architecture compliance.
 // Infrastructure layer uses the type defined in the application port.
@@ -2330,13 +2330,14 @@ func (wv *WebView) AttachFrontend(ctx context.Context, injector *ContentInjector
 	return nil
 }
 
-// ScrollBy scrolls the page by the given delta in CSS pixels using JavaScript.
-// Implements port.Scrollable.
-func (wv *WebView) ScrollBy(ctx context.Context, dx, dy int) error {
+// ScrollPage scrolls the page using a semantic page-scroll request.
+// Currently uses the JS fallback with request fallback deltas.
+// Implements port.PageScrollable.
+func (wv *WebView) ScrollPage(ctx context.Context, request port.PageScrollRequest) error {
 	if wv.destroyed.Load() {
 		return fmt.Errorf("webview %d is destroyed", wv.id)
 	}
-	js := webutil.BuildScrollByJS(dx, dy)
+	js := webutil.BuildScrollByJS(request.FallbackDX, request.FallbackDY)
 	wv.RunJavaScript(ctx, js)
 	return nil
 }

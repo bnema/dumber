@@ -40,6 +40,10 @@ Page Mode stays local to the active pane and automatically leaves the mode when 
 6. Press `Escape` or `Enter` to leave the mode
 7. If a page input or editor is already focused, `Ctrl+Y` is passed through instead of stealing the keypress
 
+> **Engine behavior**: CEF sends native arrow key and Page Up/Down events for
+> scroll execution, matching Chromium's built-in scroll behaviour. WebKit uses
+> JavaScript scroll delta injection as a fallback.
+
 ## Omnibox
 
 Press `Ctrl+L` to open the omnibox for:

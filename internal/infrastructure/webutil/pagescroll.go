@@ -5,6 +5,11 @@ import "fmt"
 // BuildScrollByJS returns a JavaScript string that scrolls a web page by the
 // given CSS-pixel delta.
 //
+// THIS IS A FALLBACK IMPLEMENTATION. The primary page-scroll abstraction is
+// port.PageScrollable.ScrollPage. Engines should attempt native scrolling
+// first and call this function only when no native mechanism exists for the
+// requested command.
+//
 // Semantics (frontend scroll-target resolution):
 //  1. Start from document.activeElement.
 //  2. Walk up the DOM tree to find the nearest scrollable ancestor that can

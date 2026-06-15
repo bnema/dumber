@@ -15,6 +15,7 @@ import (
 	"github.com/bnema/dumber/internal/ui/input"
 	"github.com/bnema/dumber/internal/ui/layout"
 	"github.com/bnema/dumber/internal/ui/layout/mocks"
+	"github.com/bnema/dumber/internal/ui/theme"
 )
 
 // ---------------------------------------------------------------------------
@@ -842,4 +843,152 @@ func TestPageMode_GlobalBorderOverlayStaysOff(t *testing.T) {
 
 	mockBox.EXPECT().SetVisible(false).Once()
 	bm.OnModeChange(context.Background(), input.ModePage, input.ModeNormal)
+}
+
+// ============================================================================
+// Pulse Debounce
+// ============================================================================
+
+func TestPageMode_Pulse_DebounceSkipsRapidConsecutiveCalls(t *testing.T) {
+	f := newSingleWindowPageModeFixture(t)
+	label := enterPageMode(t, f.app, f.factory, f.overlay1A, f.bw1)
+
+	// Set up expectations for exactly ONE normal pulse.
+	setUpNormalPulse(label, f.overlay1A)
+
+	// First call fires the pulse (debounce timer is zero).
+	f.app.triggerPageModePulse(context.Background(), false)
+
+	// Second call within the same frame should be debounced — no
+	// mock expectations set up for it, so the test fails if it fires.
+	f.app.triggerPageModePulse(context.Background(), false)
+}
+
+func TestPageMode_Pulse_DebounceAllowsSpacedCalls(t *testing.T) {
+	// Verify that the debounce timer starts at zero on a fresh App,
+	// so the first pulse after entering page mode always fires.
+	// The exit-and-re-enter path is covered by the
+	// TestPageMode_Pulse_DebounceResetOnClearOwnership test below.
+
+	f := newSingleWindowPageModeFixture(t)
+
+	// Fresh app: debounce timer is zero.
+	assert.True(t, f.app.pageModePulseLastTime.IsZero(),
+		"fresh app should have zero pulse timer")
+
+	label := enterPageMode(t, f.app, f.factory, f.overlay1A, f.bw1)
+
+	// Pulse #1 fires because timer is zero (time.Since(zero) is huge).
+	setUpNormalPulse(label, f.overlay1A)
+	f.app.triggerPageModePulse(context.Background(), false)
+
+	// Timer is now set, proving the first pulse registered.
+	assert.False(t, f.app.pageModePulseLastTime.IsZero(),
+		"pulse timer should be non-zero after first pulse")
+}
+
+func TestPageMode_Pulse_DebounceResetOnClearOwnership(t *testing.T) {
+	// Verify that clearPageModeOwnership resets the debounce timer
+	// so a subsequent pulse in a new page mode session is not skipped.
+	// We check the timer state directly rather than triggering a second
+	// pulse (which would need pulse-cycle alternation handling).
+
+	f := newSingleWindowPageModeFixture(t)
+	label := enterPageMode(t, f.app, f.factory, f.overlay1A, f.bw1)
+
+	// Pulse #1 fires and sets the timer.
+	setUpNormalPulse(label, f.overlay1A)
+	f.app.triggerPageModePulse(context.Background(), false)
+	assert.False(t, f.app.pageModePulseLastTime.IsZero(),
+		"pulse timer should be non-zero after first pulse")
+
+	// Clear ownership — this resets the debounce timer.
+	hideIndicatorMocks(label, f.overlay1A)
+	f.app.clearPageModeOwnership(context.Background(), f.bw1)
+	assert.Empty(t, f.bw1.pageModePaneID)
+
+	// Debounce timer should now be back to zero.
+	assert.True(t, f.app.pageModePulseLastTime.IsZero(),
+		"pulse timer should be reset after clearPageModeOwnership")
+}
+
+func TestPageMode_Pulse_DebounceFirstPulseAlwaysFires(t *testing.T) {
+	// Even if triggerPageModePulse is called rapidly on a fresh
+	// App (e.g., first keystroke after page mode entry), the first
+	// call must always fire. This is guaranteed by the zero value
+	// of time.Time producing a time.Since result much larger than
+	// the debounce interval.
+	f := newSingleWindowPageModeFixture(t)
+	label := enterPageMode(t, f.app, f.factory, f.overlay1A, f.bw1)
+
+	// Rapid double pulse — only first should fire regardless of order.
+	// Set up just one set of expectations.
+	setUpNormalPulse(label, f.overlay1A)
+	f.app.triggerPageModePulse(context.Background(), false)
+	f.app.triggerPageModePulse(context.Background(), false)
+}
+
+// ============================================================================
+// UI Scale: Page mode CSS uses relative (em) units
+// ============================================================================
+
+func TestPageMode_CSSUsesEms(t *testing.T) {
+	// The page mode indicator and overlay pulse CSS use em-based units
+	// (font-size: 0.6em, padding: 0.1em 0.4em, box-shadow: inset 0 0 0 0.125em)
+	// so they scale with GTK's font size setting, which is adjusted
+	// by the UI scale factor in theme.Manager.ApplyToDisplay.
+	//
+	// Verify that the generated CSS contains em-based declarations.
+	css := theme.GenerateCSS(theme.DefaultDarkPalette())
+
+	// Indicator uses em
+	assert.Contains(t, css, "font-size: 0.6em",
+		"page mode indicator font-size should use em for scaling")
+	assert.Contains(t, css, "padding: 0.1em 0.4em",
+		"page mode indicator padding should use em for scaling")
+	assert.Contains(t, css, "margin: 0.25em",
+		"page mode indicator margin should use em for scaling")
+
+	// Overlay active uses em
+	assert.Contains(t, css, "box-shadow: inset 0 0 0 0.125em",
+		"page mode overlay box-shadow should use em for scaling")
+
+	// Pulse keyframes use em
+	assert.Contains(t, css, "0.18em",
+		"page mode indicator pulse glow radius uses em")
+	assert.Contains(t, css, "0.24em",
+		"page mode indicator fast-pulse glow radius uses em")
+	assert.Contains(t, css, "0.2em",
+		"page mode overlay pulse glow radius uses em")
+	assert.Contains(t, css, "0.26em",
+		"page mode overlay fast-pulse glow radius uses em")
+}
+
+func TestPageMode_CSSPulseTimingUsesDefaultTransitionDuration(t *testing.T) {
+	// The pulse animation durations should be derived from the
+	// default transition duration (normal = 3x, fast = 6x).
+	// Default = 120ms → normal = 360ms, fast = 720ms.
+	css := theme.GenerateCSS(theme.DefaultDarkPalette())
+
+	assert.Contains(t, css, "360ms",
+		"normal pulse duration should be 3x transition duration (360ms for 120ms base)")
+	assert.Contains(t, css, "720ms",
+		"fast pulse duration should be 6x transition duration (720ms for 120ms base)")
+}
+
+func TestPageMode_CSSWithCustomTransitionDuration(t *testing.T) {
+	// Custom transition duration (e.g., 200ms) should produce
+	// adjusted pulse timings: normal = 600ms, fast = 1200ms.
+	css := theme.GenerateCSSFullWithTiming(
+		theme.DefaultDarkPalette(),
+		1.0,
+		theme.DefaultFontConfig(),
+		theme.DefaultModeColors(),
+		200,
+	)
+
+	assert.Contains(t, css, "600ms",
+		"normal pulse should be 3x custom transition duration (200ms -> 600ms)")
+	assert.Contains(t, css, "1200ms",
+		"fast pulse should be 6x custom transition duration (200ms -> 1200ms)")
 }

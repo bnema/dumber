@@ -384,11 +384,25 @@ type TextInputTargetProvider interface {
 	TextInputTarget() TextInputTarget
 }
 
-// Scrollable is an optional capability for WebViews that support programmatic
+// PageScrollRequest carries a semantic page-scroll command identity and its
+// fallback pixel deltas. Engines own the execution strategy and may use the
+// fallback delta when no native mechanism exists for the command.
+type PageScrollRequest struct {
+	// Command is the semantic scroll command identity (maps to
+	// usecase.PageScrollCommand). It is stored as int to avoid port-layer
+	// dependency on application use cases.
+	Command    int
+	FallbackDX int
+	FallbackDY int
+}
+
+// PageScrollable is an optional capability for WebViews that support semantic
 // page scrolling. Page scrolling is used by keyboard-driven navigation modes
 // such as Page mode.
-type Scrollable interface {
-	// ScrollBy scrolls the page by the given delta in CSS pixels.
-	// Positive dx scrolls right, positive dy scrolls down.
-	ScrollBy(ctx context.Context, dx, dy int) error
+//
+// Engines own the execution strategy. When a native mechanism exists for the
+// requested command, the engine may ignore the fallback delta. Otherwise it
+// should use the fallback delta as a JavaScript-driven scroll amount.
+type PageScrollable interface {
+	ScrollPage(ctx context.Context, request PageScrollRequest) error
 }

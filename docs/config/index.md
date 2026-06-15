@@ -403,6 +403,7 @@ Notes:
 - Arrow keys still use the browser engine's native page-navigation path while Page Mode is active.
 - Other app-level shortcuts stay suspended until Page Mode exits, except for the Page Mode toggle itself.
 - `workspace.styling.pane_mode_color`, `workspace.styling.transition_duration`, and `workspace.styling.mode_indicator_toaster_enabled` control the pane-local Page Mode visuals.
+- Scroll execution depends on the engine: CEF uses native Chromium key events (arrow keys, Page Up/Down) for all six scroll commands; WebKit falls back to JavaScript scroll delta injection.
 
 ### Resize Mode
 

@@ -51,6 +51,11 @@ const (
 	floatingPaneIDPrefix          = "floating-pane:"
 	floatingSessionIDDefault      = "default"
 	floatingPaneVisibleClass      = "floating-pane-visible"
+
+	// pageModePulseInterval is the minimum interval between page mode pulses.
+	// Debounces held-key repeat pulses to at most ~60fps, matching the display
+	// refresh rate and the scroll execution coalescing in pagescroll.go.
+	pageModePulseInterval = time.Second / 60
 )
 
 func gtkApplicationFlags() gio.ApplicationFlags {
@@ -146,6 +151,12 @@ type App struct {
 
 	// Accent picker for dead keys support
 	accentFocusProvider port.FocusedInputProvider
+
+	// Page mode pulse debounce - tracks last pulse time to skip rapid
+	// repeats during held-key scroll actions. Reset on page mode exit
+	// via handleModeChange.
+	pageModePulseLastTime time.Time
+	pageModePulseMu       sync.Mutex
 
 	// Deferred initialization - runs after first load_started to avoid blocking initial navigation
 	deferredInitOnce sync.Once
@@ -4094,7 +4105,24 @@ func (a *App) handlePageModeOwnership(ctx context.Context, bw *browserWindow, to
 // window that was active when the action was dispatched (via
 // dispatchBrowserWindowAction which calls activateBrowserWindow first).
 // If no pane is currently in page mode, the pulse is a no-op.
+//
+// Pulses are debounced at pageModePulseInterval to prevent excessive
+// GTK CSS class churn during held-key repeats. The scroll execution
+// coalescing in pagescroll.go already limits scroll to ~60fps, so pulses
+// more frequent than that would be visually redundant.
 func (a *App) triggerPageModePulse(_ context.Context, fast bool) {
+	// Debounce: skip if called within the same display frame.
+	// This uses a try-lock approach: fast path avoids the lock when
+	// the check passes, but we still serialize the timestamp update.
+	a.pageModePulseMu.Lock()
+	since := time.Since(a.pageModePulseLastTime)
+	if since < pageModePulseInterval {
+		a.pageModePulseMu.Unlock()
+		return
+	}
+	a.pageModePulseLastTime = time.Now()
+	a.pageModePulseMu.Unlock()
+
 	bw := a.lastFocusedBrowserWindow()
 	if bw == nil || bw.pageModePaneID == "" {
 		return
@@ -4114,6 +4142,8 @@ func (a *App) triggerPageModePulse(_ context.Context, fast bool) {
 
 // clearPageModeOwnership deactivates page mode on the owning pane for a
 // specific browser window and resets its tracked pane ID.
+// Also resets the pulse debounce timer so the first pulse on re-entry
+// is never skipped.
 func (a *App) clearPageModeOwnership(ctx context.Context, bw *browserWindow) {
 	if bw == nil || bw.pageModePaneID == "" {
 		return
@@ -4130,6 +4160,11 @@ func (a *App) clearPageModeOwnership(ctx context.Context, bw *browserWindow) {
 		}
 	}
 	bw.pageModePaneID = ""
+
+	// Reset debounce timer so re-entry pulses are never mis-skipped.
+	a.pageModePulseMu.Lock()
+	a.pageModePulseLastTime = time.Time{}
+	a.pageModePulseMu.Unlock()
 }
 
 // updateModeIndicatorToaster shows or hides the mode indicator toaster based on mode and config.

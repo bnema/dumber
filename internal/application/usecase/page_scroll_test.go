@@ -17,9 +17,11 @@ func TestPageScroll_SmallVerticalDown(t *testing.T) {
 		t.Fatalf("Scroll() unexpected error: %v", err)
 	}
 
-	wantDx, wantDy := 0, 80
-	if wv.lastDx != wantDx || wv.lastDy != wantDy {
-		t.Fatalf("ScrollBy called with (%d, %d), want (%d, %d)", wv.lastDx, wv.lastDy, wantDx, wantDy)
+	if wv.lastRequest.Command != int(PageScrollDown) {
+		t.Fatalf("ScrollPage request.Command = %d, want %d", wv.lastRequest.Command, int(PageScrollDown))
+	}
+	if wv.lastRequest.FallbackDX != 0 || wv.lastRequest.FallbackDY != 80 {
+		t.Fatalf("ScrollPage request fallback delta = (%d, %d), want (0, 80)", wv.lastRequest.FallbackDX, wv.lastRequest.FallbackDY)
 	}
 }
 
@@ -32,9 +34,11 @@ func TestPageScroll_FastVerticalUp(t *testing.T) {
 		t.Fatalf("Scroll() unexpected error: %v", err)
 	}
 
-	wantDx, wantDy := 0, -320
-	if wv.lastDx != wantDx || wv.lastDy != wantDy {
-		t.Fatalf("ScrollBy called with (%d, %d), want (%d, %d)", wv.lastDx, wv.lastDy, wantDx, wantDy)
+	if wv.lastRequest.Command != int(PageScrollUpFast) {
+		t.Fatalf("ScrollPage request.Command = %d, want %d", wv.lastRequest.Command, int(PageScrollUpFast))
+	}
+	if wv.lastRequest.FallbackDX != 0 || wv.lastRequest.FallbackDY != -320 {
+		t.Fatalf("ScrollPage request fallback delta = (%d, %d), want (0, -320)", wv.lastRequest.FallbackDX, wv.lastRequest.FallbackDY)
 	}
 }
 
@@ -47,9 +51,11 @@ func TestPageScroll_HorizontalDirectionMapping(t *testing.T) {
 			t.Fatalf("Scroll() unexpected error: %v", err)
 		}
 
-		wantDx, wantDy := -80, 0
-		if wv.lastDx != wantDx || wv.lastDy != wantDy {
-			t.Fatalf("ScrollBy called with (%d, %d), want (%d, %d)", wv.lastDx, wv.lastDy, wantDx, wantDy)
+		if wv.lastRequest.Command != int(PageScrollLeft) {
+			t.Fatalf("ScrollPage request.Command = %d, want %d", wv.lastRequest.Command, int(PageScrollLeft))
+		}
+		if wv.lastRequest.FallbackDX != -80 || wv.lastRequest.FallbackDY != 0 {
+			t.Fatalf("ScrollPage request fallback delta = (%d, %d), want (-80, 0)", wv.lastRequest.FallbackDX, wv.lastRequest.FallbackDY)
 		}
 	})
 
@@ -60,9 +66,11 @@ func TestPageScroll_HorizontalDirectionMapping(t *testing.T) {
 			t.Fatalf("Scroll() unexpected error: %v", err)
 		}
 
-		wantDx, wantDy := 80, 0
-		if wv.lastDx != wantDx || wv.lastDy != wantDy {
-			t.Fatalf("ScrollBy called with (%d, %d), want (%d, %d)", wv.lastDx, wv.lastDy, wantDx, wantDy)
+		if wv.lastRequest.Command != int(PageScrollRight) {
+			t.Fatalf("ScrollPage request.Command = %d, want %d", wv.lastRequest.Command, int(PageScrollRight))
+		}
+		if wv.lastRequest.FallbackDX != 80 || wv.lastRequest.FallbackDY != 0 {
+			t.Fatalf("ScrollPage request fallback delta = (%d, %d), want (80, 0)", wv.lastRequest.FallbackDX, wv.lastRequest.FallbackDY)
 		}
 	})
 }
@@ -74,6 +82,9 @@ func TestPageScroll_UnsupportedWebView(t *testing.T) {
 	err := uc.Scroll(context.Background(), wv, PageScrollDown)
 	if err == nil {
 		t.Fatal("Scroll() expected error for unsupported webview, got nil")
+	}
+	if err.Error() != "page scroll: webview does not support page scrolling" {
+		t.Fatalf("Scroll() error = %q, want %q", err.Error(), "page scroll: webview does not support page scrolling")
 	}
 }
 
@@ -95,6 +106,9 @@ func TestPageScroll_UnsupportedWebView_AllCommandsStable(t *testing.T) {
 		if err == nil {
 			t.Fatalf("Scroll(command=%s) expected error for unsupported webview, got nil", cmd)
 		}
+		if err.Error() != "page scroll: webview does not support page scrolling" {
+			t.Fatalf("Scroll(command=%s) error = %q, want %q", cmd, err.Error(), "page scroll: webview does not support page scrolling")
+		}
 	}
 }
 
@@ -104,6 +118,9 @@ func TestPageScroll_NilWebView_StableFailure(t *testing.T) {
 	err := uc.Scroll(context.Background(), nil, PageScrollDown)
 	if err == nil {
 		t.Fatal("Scroll() expected error for nil webview, got nil")
+	}
+	if err.Error() != "page scroll: nil webview" {
+		t.Fatalf("Scroll() error = %q, want %q", err.Error(), "page scroll: nil webview")
 	}
 }
 
@@ -149,6 +166,30 @@ func TestPageScroll_DeltaMethod(t *testing.T) {
 	}
 }
 
+func TestPageScroll_CommandIdentityPropagation(t *testing.T) {
+	// Prove that PageScrollDownFast forwards command identity separately
+	// from fallback delta (dy=320).
+	wv := newScrollableStub(nil)
+	uc := NewPageScrollUseCase()
+
+	err := uc.Scroll(context.Background(), wv, PageScrollDownFast)
+	if err != nil {
+		t.Fatalf("Scroll() unexpected error: %v", err)
+	}
+
+	if wv.lastRequest.Command != int(PageScrollDownFast) {
+		t.Fatalf("ScrollPage request.Command = %d, want %d (PageScrollDownFast)",
+			wv.lastRequest.Command, int(PageScrollDownFast))
+	}
+	if wv.lastRequest.Command == wv.lastRequest.FallbackDY {
+		t.Fatal("command identity must NOT be confused with fallback delta: Command and FallbackDY should differ")
+	}
+	if wv.lastRequest.FallbackDX != 0 || wv.lastRequest.FallbackDY != 320 {
+		t.Fatalf("ScrollPage request fallback delta = (%d, %d), want (0, 320)",
+			wv.lastRequest.FallbackDX, wv.lastRequest.FallbackDY)
+	}
+}
+
 func TestPageScroll_UnknownCommand_ReturnsNoOp(t *testing.T) {
 	dx, dy := scrollDelta(PageScrollCommand(999))
 	if dx != 0 || dy != 0 {
@@ -164,11 +205,11 @@ func TestPageScroll_UnknownCommand_ReturnsNoOp(t *testing.T) {
 // --- test helpers ---
 
 // scrollableStub satisfies both port.WebView (via embedded nonScrollableStub)
-// and port.Scrollable (via ScrollBy).
+// and port.PageScrollable (via ScrollPage).
 type scrollableStub struct {
 	*nonScrollableStub
-	lastDx, lastDy int
-	scrollErr      error
+	lastRequest port.PageScrollRequest
+	scrollErr   error
 }
 
 func newScrollableStub(scrollErr error) *scrollableStub {
@@ -178,14 +219,13 @@ func newScrollableStub(scrollErr error) *scrollableStub {
 	}
 }
 
-// ScrollBy implements port.Scrollable.
-func (s *scrollableStub) ScrollBy(_ context.Context, dx, dy int) error {
-	s.lastDx = dx
-	s.lastDy = dy
+// ScrollPage implements port.PageScrollable.
+func (s *scrollableStub) ScrollPage(_ context.Context, req port.PageScrollRequest) error {
+	s.lastRequest = req
 	return s.scrollErr
 }
 
-// nonScrollableStub satisfies port.WebView but NOT port.Scrollable.
+// nonScrollableStub satisfies port.WebView but NOT port.PageScrollable.
 type nonScrollableStub struct{}
 
 func (*nonScrollableStub) ID() port.WebViewID                              { return 0 }

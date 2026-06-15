@@ -42,20 +42,25 @@ func NewPageScrollUseCase() *PageScrollUseCase {
 }
 
 // Scroll applies a semantic scroll command to a WebView.
-// It returns an error if the WebView does not support programmatic scrolling
-// (i.e., does not implement port.Scrollable).
+// It returns an error if the WebView does not support semantic page scrolling
+// (i.e., does not implement port.PageScrollable).
 func (*PageScrollUseCase) Scroll(ctx context.Context, wv port.WebView, cmd PageScrollCommand) error {
 	if wv == nil {
 		return errors.New("page scroll: nil webview")
 	}
 
-	scroller, ok := wv.(port.Scrollable)
+	scroller, ok := wv.(port.PageScrollable)
 	if !ok {
-		return errors.New("page scroll: webview does not support programmatic scrolling")
+		return errors.New("page scroll: webview does not support page scrolling")
 	}
 
 	dx, dy := scrollDelta(cmd)
-	if err := scroller.ScrollBy(ctx, dx, dy); err != nil {
+	req := port.PageScrollRequest{
+		Command:    int(cmd),
+		FallbackDX: dx,
+		FallbackDY: dy,
+	}
+	if err := scroller.ScrollPage(ctx, req); err != nil {
 		return fmt.Errorf("page scroll: %w", err)
 	}
 	return nil
