@@ -616,38 +616,94 @@ func generatePageModeCSS(transitionDurationMs int) string {
 	border-radius: 0;
 }
 
-/* Pulse animation keyframes — brief glow/flash using the pane mode color. */
-@keyframes page-mode-pulse-anim {
-	0%%   { box-shadow: inset 0 0 0 0em alpha(var(--pane-mode-color), 0); }
-	35%%  { box-shadow: inset 0 0 0 0.125em alpha(var(--pane-mode-color), 0.55); }
-	100%% { box-shadow: inset 0 0 0 0em alpha(var(--pane-mode-color), 0); }
+/* Indicator pulse keyframes — brighten the PAGE badge so scroll feedback is
+   visible even when the pane border is subtle. Duplicate A/B variants are used
+   to force GTK to restart the animation on repeated scrolls. */
+@keyframes page-mode-indicator-pulse-anim-a {
+	0%%   { background-color: alpha(var(--pane-mode-color), 0.12); box-shadow: 0 0 0 0em alpha(var(--pane-mode-color), 0); }
+	35%%  { background-color: alpha(var(--pane-mode-color), 0.34); box-shadow: 0 0 0 0.18em alpha(var(--pane-mode-color), 0.72); }
+	100%% { background-color: alpha(var(--pane-mode-color), 0.12); box-shadow: 0 0 0 0em alpha(var(--pane-mode-color), 0); }
 }
 
-@keyframes page-mode-pulse-fast-anim {
-	0%%   { box-shadow: inset 0 0 0 0em alpha(var(--pane-mode-color), 0); }
-	25%%  { box-shadow: inset 0 0 0 0.2em alpha(var(--pane-mode-color), 0.7); }
-	100%% { box-shadow: inset 0 0 0 0em alpha(var(--pane-mode-color), 0); }
+@keyframes page-mode-indicator-pulse-anim-b {
+	0%%   { background-color: alpha(var(--pane-mode-color), 0.12); box-shadow: 0 0 0 0em alpha(var(--pane-mode-color), 0); }
+	35%%  { background-color: alpha(var(--pane-mode-color), 0.34); box-shadow: 0 0 0 0.18em alpha(var(--pane-mode-color), 0.72); }
+	100%% { background-color: alpha(var(--pane-mode-color), 0.12); box-shadow: 0 0 0 0em alpha(var(--pane-mode-color), 0); }
+}
+
+@keyframes page-mode-indicator-pulse-fast-anim-a {
+	0%%   { background-color: alpha(var(--pane-mode-color), 0.12); box-shadow: 0 0 0 0em alpha(var(--pane-mode-color), 0); }
+	25%%  { background-color: alpha(var(--pane-mode-color), 0.42); box-shadow: 0 0 0 0.24em alpha(var(--pane-mode-color), 0.9); }
+	100%% { background-color: alpha(var(--pane-mode-color), 0.12); box-shadow: 0 0 0 0em alpha(var(--pane-mode-color), 0); }
+}
+
+@keyframes page-mode-indicator-pulse-fast-anim-b {
+	0%%   { background-color: alpha(var(--pane-mode-color), 0.12); box-shadow: 0 0 0 0em alpha(var(--pane-mode-color), 0); }
+	25%%  { background-color: alpha(var(--pane-mode-color), 0.42); box-shadow: 0 0 0 0.24em alpha(var(--pane-mode-color), 0.9); }
+	100%% { background-color: alpha(var(--pane-mode-color), 0.12); box-shadow: 0 0 0 0em alpha(var(--pane-mode-color), 0); }
+}
+
+/* Pane overlay pulse keyframes — start/end at the active accent state so the
+   pane keeps its Page mode border while briefly flaring brighter. */
+@keyframes page-mode-overlay-pulse-anim-a {
+	0%%   { box-shadow: inset 0 0 0 0.125em alpha(var(--pane-mode-color), 0.35); }
+	35%%  { box-shadow: inset 0 0 0 0.2em alpha(var(--pane-mode-color), 0.78); }
+	100%% { box-shadow: inset 0 0 0 0.125em alpha(var(--pane-mode-color), 0.35); }
+}
+
+@keyframes page-mode-overlay-pulse-anim-b {
+	0%%   { box-shadow: inset 0 0 0 0.125em alpha(var(--pane-mode-color), 0.35); }
+	35%%  { box-shadow: inset 0 0 0 0.2em alpha(var(--pane-mode-color), 0.78); }
+	100%% { box-shadow: inset 0 0 0 0.125em alpha(var(--pane-mode-color), 0.35); }
+}
+
+@keyframes page-mode-overlay-pulse-fast-anim-a {
+	0%%   { box-shadow: inset 0 0 0 0.125em alpha(var(--pane-mode-color), 0.35); }
+	25%%  { box-shadow: inset 0 0 0 0.26em alpha(var(--pane-mode-color), 0.95); }
+	100%% { box-shadow: inset 0 0 0 0.125em alpha(var(--pane-mode-color), 0.35); }
+}
+
+@keyframes page-mode-overlay-pulse-fast-anim-b {
+	0%%   { box-shadow: inset 0 0 0 0.125em alpha(var(--pane-mode-color), 0.35); }
+	25%%  { box-shadow: inset 0 0 0 0.26em alpha(var(--pane-mode-color), 0.95); }
+	100%% { box-shadow: inset 0 0 0 0.125em alpha(var(--pane-mode-color), 0.35); }
 }
 
 /* Normal scroll pulse — derived from workspace.styling.transition_duration. */
-.page-mode-indicator-pulse {
-	animation: page-mode-pulse-anim %dms ease-in-out;
+.page-mode-indicator-pulse.page-mode-pulse-cycle-a {
+	animation: page-mode-indicator-pulse-anim-a %dms ease-in-out;
+}
+
+.page-mode-indicator-pulse.page-mode-pulse-cycle-b {
+	animation: page-mode-indicator-pulse-anim-b %dms ease-in-out;
 }
 
 /* Fast scroll pulse — stronger/longer, derived from transition_duration too. */
-.page-mode-indicator-pulse-fast {
-	animation: page-mode-pulse-fast-anim %dms ease-in-out;
+.page-mode-indicator-pulse-fast.page-mode-pulse-cycle-a {
+	animation: page-mode-indicator-pulse-fast-anim-a %dms ease-in-out;
+}
+
+.page-mode-indicator-pulse-fast.page-mode-pulse-cycle-b {
+	animation: page-mode-indicator-pulse-fast-anim-b %dms ease-in-out;
 }
 
 /* Pane overlay scroll pulse — same timing as the badge pulse. */
-.page-mode-pulse {
-	animation: page-mode-pulse-anim %dms ease-in-out;
+.page-mode-pulse.page-mode-pulse-cycle-a {
+	animation: page-mode-overlay-pulse-anim-a %dms ease-in-out;
 }
 
-.page-mode-pulse-fast {
-	animation: page-mode-pulse-fast-anim %dms ease-in-out;
+.page-mode-pulse.page-mode-pulse-cycle-b {
+	animation: page-mode-overlay-pulse-anim-b %dms ease-in-out;
 }
-`, normalPulseMs, fastPulseMs, normalPulseMs, fastPulseMs)
+
+.page-mode-pulse-fast.page-mode-pulse-cycle-a {
+	animation: page-mode-overlay-pulse-fast-anim-a %dms ease-in-out;
+}
+
+.page-mode-pulse-fast.page-mode-pulse-cycle-b {
+	animation: page-mode-overlay-pulse-fast-anim-b %dms ease-in-out;
+}
+`, normalPulseMs, normalPulseMs, fastPulseMs, fastPulseMs, normalPulseMs, normalPulseMs, fastPulseMs, fastPulseMs)
 }
 
 func generatePaneCSS(p Palette) string {

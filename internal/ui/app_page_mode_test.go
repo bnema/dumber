@@ -490,19 +490,31 @@ func TestPageMode_Transfer_EmptyOwnershipIsNoop(t *testing.T) {
 func setUpNormalPulse(label *mocks.MockLabelWidget, overlay *mocks.MockOverlayWidget) {
 	label.EXPECT().RemoveCssClass("page-mode-indicator-pulse").Once()
 	label.EXPECT().RemoveCssClass("page-mode-indicator-pulse-fast").Once()
+	label.EXPECT().RemoveCssClass("page-mode-pulse-cycle-a").Once()
+	label.EXPECT().RemoveCssClass("page-mode-pulse-cycle-b").Once()
 	label.EXPECT().AddCssClass("page-mode-indicator-pulse").Once()
+	label.EXPECT().AddCssClass("page-mode-pulse-cycle-a").Once()
 	overlay.EXPECT().RemoveCssClass("page-mode-pulse").Once()
 	overlay.EXPECT().RemoveCssClass("page-mode-pulse-fast").Once()
+	overlay.EXPECT().RemoveCssClass("page-mode-pulse-cycle-a").Once()
+	overlay.EXPECT().RemoveCssClass("page-mode-pulse-cycle-b").Once()
 	overlay.EXPECT().AddCssClass("page-mode-pulse").Once()
+	overlay.EXPECT().AddCssClass("page-mode-pulse-cycle-a").Once()
 }
 
 func setUpFastPulse(label *mocks.MockLabelWidget, overlay *mocks.MockOverlayWidget) {
 	label.EXPECT().RemoveCssClass("page-mode-indicator-pulse").Once()
 	label.EXPECT().RemoveCssClass("page-mode-indicator-pulse-fast").Once()
+	label.EXPECT().RemoveCssClass("page-mode-pulse-cycle-a").Once()
+	label.EXPECT().RemoveCssClass("page-mode-pulse-cycle-b").Once()
 	label.EXPECT().AddCssClass("page-mode-indicator-pulse-fast").Once()
+	label.EXPECT().AddCssClass("page-mode-pulse-cycle-a").Once()
 	overlay.EXPECT().RemoveCssClass("page-mode-pulse").Once()
 	overlay.EXPECT().RemoveCssClass("page-mode-pulse-fast").Once()
+	overlay.EXPECT().RemoveCssClass("page-mode-pulse-cycle-a").Once()
+	overlay.EXPECT().RemoveCssClass("page-mode-pulse-cycle-b").Once()
 	overlay.EXPECT().AddCssClass("page-mode-pulse-fast").Once()
+	overlay.EXPECT().AddCssClass("page-mode-pulse-cycle-a").Once()
 }
 
 func TestPageMode_Pulse_NormalTriggersOnOwningPane(t *testing.T) {

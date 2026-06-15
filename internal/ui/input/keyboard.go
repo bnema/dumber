@@ -305,17 +305,28 @@ func (h *KeyboardHandler) handleKeyPress(keyval, keycode uint, state gdk.Modifie
 	}
 
 	modifiers := Modifier(state) & modifierMask
+	mode := h.modal.Mode()
 
 	// Escape in normal mode: check app-level escape hook first
-	if h.modal.Mode() == ModeNormal && keyval == uint(gdk.KEY_Escape) && modifiers == 0 {
+	if mode == ModeNormal && keyval == uint(gdk.KEY_Escape) && modifiers == 0 {
 		if onEscape != nil && onEscape(h.ctx) {
+			return true
+		}
+	}
+
+	// Escape / Enter should always leave modal modes even if the current config
+	// omits explicit confirm/cancel bindings.
+	if mode != ModeNormal && modifiers == 0 {
+		switch keyval {
+		case uint(gdk.KEY_Escape), uint(gdk.KEY_Return), uint(gdk.KEY_KP_Enter):
+			h.modal.ExitMode(h.ctx)
 			return true
 		}
 	}
 
 	// Determine routing for this key event
 	route := RouteHandleShortcuts // default: process through shortcut system
-	if routeKey != nil && h.modal.Mode() == ModeNormal {
+	if routeKey != nil && mode == ModeNormal {
 		route = routeKey(KeyContext{
 			Keyval:    keyval,
 			Keycode:   keycode,
@@ -349,7 +360,6 @@ func (h *KeyboardHandler) handleKeyPress(keyval, keycode uint, state gdk.Modifie
 	keyval = normalizeKeyval(keyval)
 
 	binding := KeyBinding{Keyval: keyval, Modifiers: modifiers}
-	mode := h.modal.Mode()
 	action, found := h.lookupAction(log, binding, mode, modifiers, keycode)
 
 	if !found {
@@ -584,6 +594,10 @@ func (h *KeyboardHandler) handleModeAction(action Action) bool {
 		h.modal.EnterResizeMode(h.ctx, time.Duration(ms)*time.Millisecond)
 		return true
 	case ActionEnterPageMode:
+		if h.modal.Mode() == ModePage {
+			h.modal.ExitMode(h.ctx)
+			return true
+		}
 		var pgms int
 		if workspace != nil {
 			pgms = workspace.PageMode.TimeoutMilliseconds

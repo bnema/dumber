@@ -48,6 +48,7 @@ type PaneView struct {
 	// Page mode state
 	pageMode      bool
 	pageIndicator *PageModeIndicator
+	pulseCycle    bool
 
 	onFocusIn     func(paneID entity.PaneID)
 	onFocusOut    func(paneID entity.PaneID)
@@ -587,13 +588,24 @@ func (pv *PaneView) TriggerPageModePulseFast() {
 // fast=true uses the stronger/longer pulse animation.
 // Both pulse classes are removed first to reliably re-trigger the animation.
 func (pv *PaneView) triggerOverlayPulse(fast bool) {
+	pv.mu.Lock()
+	defer pv.mu.Unlock()
+
 	pv.overlay.RemoveCssClass(pageModePulseClass)
 	pv.overlay.RemoveCssClass(pageModeFastPulseClass)
+	pv.overlay.RemoveCssClass(pageModePulseCycleClassA)
+	pv.overlay.RemoveCssClass(pageModePulseCycleClassB)
 	if fast {
 		pv.overlay.AddCssClass(pageModeFastPulseClass)
 	} else {
 		pv.overlay.AddCssClass(pageModePulseClass)
 	}
+	cycle := pageModePulseCycleClassA
+	if pv.pulseCycle {
+		cycle = pageModePulseCycleClassB
+	}
+	pv.pulseCycle = !pv.pulseCycle
+	pv.overlay.AddCssClass(cycle)
 }
 
 // PageModeIndicator returns the page mode indicator, creating it if needed.

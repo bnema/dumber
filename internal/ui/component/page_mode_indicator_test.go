@@ -91,11 +91,14 @@ func TestPageModeIndicator_TriggerPulse_AddsPulseClass(t *testing.T) {
 	mockLabel.EXPECT().AddCssClass("page-mode-indicator").Once()
 	mockLabel.EXPECT().SetVisible(false).Once()
 
-	// TriggerPulse removes BOTH pulse classes first (supporting re-trigger)
-	// then adds normal pulse
+	// TriggerPulse removes both pulse base classes and both cycle classes,
+	// then adds the normal pulse base class plus the first cycle variant.
 	mockLabel.EXPECT().RemoveCssClass("page-mode-indicator-pulse").Once()
 	mockLabel.EXPECT().RemoveCssClass("page-mode-indicator-pulse-fast").Once()
+	mockLabel.EXPECT().RemoveCssClass("page-mode-pulse-cycle-a").Once()
+	mockLabel.EXPECT().RemoveCssClass("page-mode-pulse-cycle-b").Once()
 	mockLabel.EXPECT().AddCssClass("page-mode-indicator-pulse").Once()
+	mockLabel.EXPECT().AddCssClass("page-mode-pulse-cycle-a").Once()
 
 	pmi := NewPageModeIndicator(mockFactory)
 	pmi.TriggerPulse()
@@ -111,14 +114,48 @@ func TestPageModeIndicator_TriggerFastPulse_AddsFastPulseClass(t *testing.T) {
 	mockLabel.EXPECT().AddCssClass("page-mode-indicator").Once()
 	mockLabel.EXPECT().SetVisible(false).Once()
 
-	// TriggerFastPulse removes BOTH pulse classes first (supporting re-trigger)
-	// then adds fast pulse
+	// TriggerFastPulse removes both pulse base classes and both cycle classes,
+	// then adds the fast pulse base class plus the first cycle variant.
 	mockLabel.EXPECT().RemoveCssClass("page-mode-indicator-pulse").Once()
 	mockLabel.EXPECT().RemoveCssClass("page-mode-indicator-pulse-fast").Once()
+	mockLabel.EXPECT().RemoveCssClass("page-mode-pulse-cycle-a").Once()
+	mockLabel.EXPECT().RemoveCssClass("page-mode-pulse-cycle-b").Once()
 	mockLabel.EXPECT().AddCssClass("page-mode-indicator-pulse-fast").Once()
+	mockLabel.EXPECT().AddCssClass("page-mode-pulse-cycle-a").Once()
 
 	pmi := NewPageModeIndicator(mockFactory)
 	pmi.TriggerFastPulse()
+}
+
+func TestPageModeIndicator_TriggerPulse_AlternatesCycleClass(t *testing.T) {
+	mockFactory := mocks.NewMockWidgetFactory(t)
+	mockLabel := mocks.NewMockLabelWidget(t)
+
+	mockFactory.EXPECT().NewLabel("PAGE").Return(mockLabel).Once()
+	mockLabel.EXPECT().SetCanFocus(false).Once()
+	mockLabel.EXPECT().SetCanTarget(false).Once()
+	mockLabel.EXPECT().AddCssClass("page-mode-indicator").Once()
+	mockLabel.EXPECT().SetVisible(false).Once()
+
+	// First pulse uses cycle-a.
+	mockLabel.EXPECT().RemoveCssClass("page-mode-indicator-pulse").Once()
+	mockLabel.EXPECT().RemoveCssClass("page-mode-indicator-pulse-fast").Once()
+	mockLabel.EXPECT().RemoveCssClass("page-mode-pulse-cycle-a").Once()
+	mockLabel.EXPECT().RemoveCssClass("page-mode-pulse-cycle-b").Once()
+	mockLabel.EXPECT().AddCssClass("page-mode-indicator-pulse").Once()
+	mockLabel.EXPECT().AddCssClass("page-mode-pulse-cycle-a").Once()
+
+	// Second pulse flips to cycle-b so GTK restarts the animation reliably.
+	mockLabel.EXPECT().RemoveCssClass("page-mode-indicator-pulse").Once()
+	mockLabel.EXPECT().RemoveCssClass("page-mode-indicator-pulse-fast").Once()
+	mockLabel.EXPECT().RemoveCssClass("page-mode-pulse-cycle-a").Once()
+	mockLabel.EXPECT().RemoveCssClass("page-mode-pulse-cycle-b").Once()
+	mockLabel.EXPECT().AddCssClass("page-mode-indicator-pulse").Once()
+	mockLabel.EXPECT().AddCssClass("page-mode-pulse-cycle-b").Once()
+
+	pmi := NewPageModeIndicator(mockFactory)
+	pmi.TriggerPulse()
+	pmi.TriggerPulse()
 }
 
 func TestPageModeIndicator_DoesNotAffectLayout(t *testing.T) {

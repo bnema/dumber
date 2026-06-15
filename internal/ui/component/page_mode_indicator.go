@@ -14,11 +14,18 @@ const (
 	// pageModeIndicatorFastPulseClass is added for a fast (stronger/longer) scroll pulse.
 	pageModeIndicatorFastPulseClass = "page-mode-indicator-pulse-fast"
 
+	// pageModePulseCycleClassA/B alternate between two equivalent animation
+	// variants so repeated scrolls reliably restart the GTK CSS animation.
+	pageModePulseCycleClassA = "page-mode-pulse-cycle-a"
+	pageModePulseCycleClassB = "page-mode-pulse-cycle-b"
+
 	// Exported aliases for testing and external inspection.
 	PageModeIndicatorClass          = pageModeIndicatorClass
 	PageModeActiveClass             = "page-mode-active"
 	PageModeIndicatorPulseClass     = pageModeIndicatorPulseClass
 	PageModeIndicatorFastPulseClass = pageModeIndicatorFastPulseClass
+	PageModePulseCycleClassA        = pageModePulseCycleClassA
+	PageModePulseCycleClassB        = pageModePulseCycleClassB
 	// Pane overlay pulse classes (separate from indicator badge classes).
 	PageModePulseClass     = "page-mode-pulse"
 	PageModeFastPulseClass = "page-mode-pulse-fast"
@@ -28,8 +35,9 @@ const (
 // while Page mode is active. It is added as a non-measuring overlay so it
 // does not affect pane layout.
 type PageModeIndicator struct {
-	label   layout.LabelWidget
-	visible bool
+	label      layout.LabelWidget
+	visible    bool
+	pulseCycle bool
 }
 
 // NewPageModeIndicator creates a new Page mode indicator label.
@@ -46,6 +54,22 @@ func NewPageModeIndicator(factory layout.WidgetFactory) *PageModeIndicator {
 		label:   label,
 		visible: false,
 	}
+}
+
+func (pmi *PageModeIndicator) nextPulseCycleClass() string {
+	cycle := pageModePulseCycleClassA
+	if pmi.pulseCycle {
+		cycle = pageModePulseCycleClassB
+	}
+	pmi.pulseCycle = !pmi.pulseCycle
+	return cycle
+}
+
+func (pmi *PageModeIndicator) resetPulseClasses() {
+	pmi.label.RemoveCssClass(pageModeIndicatorPulseClass)
+	pmi.label.RemoveCssClass(pageModeIndicatorFastPulseClass)
+	pmi.label.RemoveCssClass(pageModePulseCycleClassA)
+	pmi.label.RemoveCssClass(pageModePulseCycleClassB)
 }
 
 // Widget returns the underlying label widget for embedding.
@@ -69,9 +93,9 @@ func (pmi *PageModeIndicator) IsVisible() bool {
 // Both pulse classes are removed first so that repeated calls safely
 // re-trigger the CSS animation.
 func (pmi *PageModeIndicator) TriggerPulse() {
-	pmi.label.RemoveCssClass(pageModeIndicatorPulseClass)
-	pmi.label.RemoveCssClass(pageModeIndicatorFastPulseClass)
+	pmi.resetPulseClasses()
 	pmi.label.AddCssClass(pageModeIndicatorPulseClass)
+	pmi.label.AddCssClass(pmi.nextPulseCycleClass())
 }
 
 // TriggerFastPulse adds the fast scroll pulse CSS class.
@@ -79,7 +103,7 @@ func (pmi *PageModeIndicator) TriggerPulse() {
 // Both pulse classes are removed first so that repeated calls safely
 // re-trigger the CSS animation.
 func (pmi *PageModeIndicator) TriggerFastPulse() {
-	pmi.label.RemoveCssClass(pageModeIndicatorPulseClass)
-	pmi.label.RemoveCssClass(pageModeIndicatorFastPulseClass)
+	pmi.resetPulseClasses()
 	pmi.label.AddCssClass(pageModeIndicatorFastPulseClass)
+	pmi.label.AddCssClass(pmi.nextPulseCycleClass())
 }

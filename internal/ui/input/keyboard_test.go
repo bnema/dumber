@@ -544,6 +544,57 @@ func TestHandleKeyPress_PageModeEnterExits(t *testing.T) {
 	}
 }
 
+func TestHandleKeyPress_PageModeActivationTogglesOff(t *testing.T) {
+	ctx := context.Background()
+	workspace := newTestWorkspace()
+	workspace.PageMode = entity.PageModeConfig{
+		ActivationShortcut: "ctrl+y",
+	}
+
+	h := NewKeyboardHandler(ctx, workspace, newTestSession())
+
+	if !h.handleKeyPress(uint('y'), 0, gdk.ControlMaskValue) {
+		t.Fatal("first Ctrl+Y should be consumed")
+	}
+	if h.Mode() != ModePage {
+		t.Fatalf("mode after first Ctrl+Y = %v, want ModePage", h.Mode())
+	}
+
+	h.handleKeyRelease(uint('y'))
+	if !h.handleKeyPress(uint('y'), 0, gdk.ControlMaskValue) {
+		t.Fatal("second Ctrl+Y should be consumed")
+	}
+	if h.Mode() != ModeNormal {
+		t.Fatalf("mode after second Ctrl+Y = %v, want ModeNormal", h.Mode())
+	}
+}
+
+func TestHandleKeyPress_PageModeEscapeExitsWithoutCancelBinding(t *testing.T) {
+	ctx := context.Background()
+	workspace := newTestWorkspace()
+	workspace.PageMode = entity.PageModeConfig{
+		ActivationShortcut: "ctrl+y",
+		Actions: map[string]entity.ActionBinding{
+			"page-scroll-down": {Keys: []string{"j"}},
+		},
+	}
+
+	h := NewKeyboardHandler(ctx, workspace, newTestSession())
+	if !h.handleKeyPress(uint('y'), 0, gdk.ControlMaskValue) {
+		t.Fatal("Ctrl+Y should be consumed")
+	}
+	if h.Mode() != ModePage {
+		t.Fatal("failed to enter page mode")
+	}
+
+	if !h.handleKeyPress(uint(gdk.KEY_Escape), 0, 0) {
+		t.Fatal("Escape should still be consumed without explicit cancel binding")
+	}
+	if h.Mode() != ModeNormal {
+		t.Fatalf("mode after Escape fallback = %v, want ModeNormal", h.Mode())
+	}
+}
+
 func TestHandleKeyPress_PageModeActivationNotInPassThrough(t *testing.T) {
 	ctx := context.Background()
 	workspace := newTestWorkspace()

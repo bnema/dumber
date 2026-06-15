@@ -804,6 +804,32 @@ func TestSetPageMode_TrueThenTrueIsIdempotent(t *testing.T) {
 	require.True(t, pv.IsPageMode())
 }
 
+func expectPageModeIndicatorPulse(label *mocks.MockLabelWidget, fast bool, cycle string) {
+	label.EXPECT().RemoveCssClass("page-mode-indicator-pulse").Once()
+	label.EXPECT().RemoveCssClass("page-mode-indicator-pulse-fast").Once()
+	label.EXPECT().RemoveCssClass("page-mode-pulse-cycle-a").Once()
+	label.EXPECT().RemoveCssClass("page-mode-pulse-cycle-b").Once()
+	if fast {
+		label.EXPECT().AddCssClass("page-mode-indicator-pulse-fast").Once()
+	} else {
+		label.EXPECT().AddCssClass("page-mode-indicator-pulse").Once()
+	}
+	label.EXPECT().AddCssClass(cycle).Once()
+}
+
+func expectPageModeOverlayPulse(overlay *mocks.MockOverlayWidget, fast bool, cycle string) {
+	overlay.EXPECT().RemoveCssClass("page-mode-pulse").Once()
+	overlay.EXPECT().RemoveCssClass("page-mode-pulse-fast").Once()
+	overlay.EXPECT().RemoveCssClass("page-mode-pulse-cycle-a").Once()
+	overlay.EXPECT().RemoveCssClass("page-mode-pulse-cycle-b").Once()
+	if fast {
+		overlay.EXPECT().AddCssClass("page-mode-pulse-fast").Once()
+	} else {
+		overlay.EXPECT().AddCssClass("page-mode-pulse").Once()
+	}
+	overlay.EXPECT().AddCssClass(cycle).Once()
+}
+
 func TestTriggerPageModePulse_PulsesIndicatorAndOverlay(t *testing.T) {
 	// Arrange
 	mockFactory := mocks.NewMockWidgetFactory(t)
@@ -821,15 +847,8 @@ func TestTriggerPageModePulse_PulsesIndicatorAndOverlay(t *testing.T) {
 	mockOverlay.EXPECT().AddCssClass("page-mode-active").Once()
 	pv.SetPageMode(true)
 
-	// Indicator pulse (removes both classes, then adds normal)
-	mockLabel.EXPECT().RemoveCssClass("page-mode-indicator-pulse").Once()
-	mockLabel.EXPECT().RemoveCssClass("page-mode-indicator-pulse-fast").Once()
-	mockLabel.EXPECT().AddCssClass("page-mode-indicator-pulse").Once()
-
-	// Overlay pulse (removes both overlay pulse classes, then adds normal)
-	mockOverlay.EXPECT().RemoveCssClass("page-mode-pulse").Once()
-	mockOverlay.EXPECT().RemoveCssClass("page-mode-pulse-fast").Once()
-	mockOverlay.EXPECT().AddCssClass("page-mode-pulse").Once()
+	expectPageModeIndicatorPulse(mockLabel, false, "page-mode-pulse-cycle-a")
+	expectPageModeOverlayPulse(mockOverlay, false, "page-mode-pulse-cycle-a")
 
 	// Act
 	pv.TriggerPageModePulse()
@@ -852,15 +871,8 @@ func TestTriggerPageModePulseFast_PulsesIndicatorAndOverlay(t *testing.T) {
 	mockOverlay.EXPECT().AddCssClass("page-mode-active").Once()
 	pv.SetPageMode(true)
 
-	// Indicator fast pulse (removes both classes, then adds fast)
-	mockLabel.EXPECT().RemoveCssClass("page-mode-indicator-pulse").Once()
-	mockLabel.EXPECT().RemoveCssClass("page-mode-indicator-pulse-fast").Once()
-	mockLabel.EXPECT().AddCssClass("page-mode-indicator-pulse-fast").Once()
-
-	// Overlay fast pulse (removes both overlay pulse classes, then adds fast)
-	mockOverlay.EXPECT().RemoveCssClass("page-mode-pulse").Once()
-	mockOverlay.EXPECT().RemoveCssClass("page-mode-pulse-fast").Once()
-	mockOverlay.EXPECT().AddCssClass("page-mode-pulse-fast").Once()
+	expectPageModeIndicatorPulse(mockLabel, true, "page-mode-pulse-cycle-a")
+	expectPageModeOverlayPulse(mockOverlay, true, "page-mode-pulse-cycle-a")
 
 	// Act
 	pv.TriggerPageModePulseFast()
@@ -881,15 +893,8 @@ func TestTriggerPageModePulse_CreatesIndicatorLazily(t *testing.T) {
 	// This should lazily create the indicator (but NOT show it).
 	mockLabel := setupPageModeIndicatorMocks(t, mockFactory, mockOverlay)
 
-	// Indicator pulse (removes both classes before adding normal)
-	mockLabel.EXPECT().RemoveCssClass("page-mode-indicator-pulse").Once()
-	mockLabel.EXPECT().RemoveCssClass("page-mode-indicator-pulse-fast").Once()
-	mockLabel.EXPECT().AddCssClass("page-mode-indicator-pulse").Once()
-
-	// Overlay pulse (removes both overlay pulse classes, then adds normal)
-	mockOverlay.EXPECT().RemoveCssClass("page-mode-pulse").Once()
-	mockOverlay.EXPECT().RemoveCssClass("page-mode-pulse-fast").Once()
-	mockOverlay.EXPECT().AddCssClass("page-mode-pulse").Once()
+	expectPageModeIndicatorPulse(mockLabel, false, "page-mode-pulse-cycle-a")
+	expectPageModeOverlayPulse(mockOverlay, false, "page-mode-pulse-cycle-a")
 
 	// Act - should not panic or error
 	pv.TriggerPageModePulse()
@@ -913,31 +918,18 @@ func TestTriggerPageModePulse_RepeatedCallsReTriggerAnimation(t *testing.T) {
 	pv.SetPageMode(true)
 
 	// First pulse (normal)
-	mockLabel.EXPECT().RemoveCssClass("page-mode-indicator-pulse").Once()
-	mockLabel.EXPECT().RemoveCssClass("page-mode-indicator-pulse-fast").Once()
-	mockLabel.EXPECT().AddCssClass("page-mode-indicator-pulse").Once()
-	mockOverlay.EXPECT().RemoveCssClass("page-mode-pulse").Once()
-	mockOverlay.EXPECT().RemoveCssClass("page-mode-pulse-fast").Once()
-	mockOverlay.EXPECT().AddCssClass("page-mode-pulse").Once()
+	expectPageModeIndicatorPulse(mockLabel, false, "page-mode-pulse-cycle-a")
+	expectPageModeOverlayPulse(mockOverlay, false, "page-mode-pulse-cycle-a")
 	pv.TriggerPageModePulse()
 
-	// Second pulse — fast. The remove-then-add pattern ensures the CSS
-	// animation restarts even though the previous class may still be set.
-	mockLabel.EXPECT().RemoveCssClass("page-mode-indicator-pulse").Once()
-	mockLabel.EXPECT().RemoveCssClass("page-mode-indicator-pulse-fast").Once()
-	mockLabel.EXPECT().AddCssClass("page-mode-indicator-pulse-fast").Once()
-	mockOverlay.EXPECT().RemoveCssClass("page-mode-pulse").Once()
-	mockOverlay.EXPECT().RemoveCssClass("page-mode-pulse-fast").Once()
-	mockOverlay.EXPECT().AddCssClass("page-mode-pulse-fast").Once()
+	// Second pulse — fast. Alternate cycle class to re-arm the GTK animation.
+	expectPageModeIndicatorPulse(mockLabel, true, "page-mode-pulse-cycle-b")
+	expectPageModeOverlayPulse(mockOverlay, true, "page-mode-pulse-cycle-b")
 	pv.TriggerPageModePulseFast()
 
-	// Third pulse — normal again, confirm works after fast pulse.
-	mockLabel.EXPECT().RemoveCssClass("page-mode-indicator-pulse").Once()
-	mockLabel.EXPECT().RemoveCssClass("page-mode-indicator-pulse-fast").Once()
-	mockLabel.EXPECT().AddCssClass("page-mode-indicator-pulse").Once()
-	mockOverlay.EXPECT().RemoveCssClass("page-mode-pulse").Once()
-	mockOverlay.EXPECT().RemoveCssClass("page-mode-pulse-fast").Once()
-	mockOverlay.EXPECT().AddCssClass("page-mode-pulse").Once()
+	// Third pulse — normal again, cycling back to the first variant.
+	expectPageModeIndicatorPulse(mockLabel, false, "page-mode-pulse-cycle-a")
+	expectPageModeOverlayPulse(mockOverlay, false, "page-mode-pulse-cycle-a")
 	pv.TriggerPageModePulse()
 }
 

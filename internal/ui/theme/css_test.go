@@ -39,8 +39,10 @@ func TestGenerateCSSFullWithTiming_PageModePulseUsesConfiguredTransitionDuration
 	// normal pulse = 3× (150ms -> 450ms), fast pulse = 6× (150ms -> 900ms).
 	css := GenerateCSSFullWithTiming(DefaultDarkPalette(), 1.0, DefaultFontConfig(), DefaultModeColors(), 150)
 
-	assert.Contains(t, css, "animation: page-mode-pulse-anim 450ms ease-in-out;")
-	assert.Contains(t, css, "animation: page-mode-pulse-fast-anim 900ms ease-in-out;")
+	assert.Contains(t, css, "animation: page-mode-indicator-pulse-anim-a 450ms ease-in-out;")
+	assert.Contains(t, css, "animation: page-mode-indicator-pulse-fast-anim-a 900ms ease-in-out;")
+	assert.Contains(t, css, "animation: page-mode-overlay-pulse-anim-a 450ms ease-in-out;")
+	assert.Contains(t, css, "animation: page-mode-overlay-pulse-fast-anim-a 900ms ease-in-out;")
 }
 
 func TestGenerateCSS_OmniboxHeaderIsOpaque(t *testing.T) {
