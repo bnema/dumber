@@ -759,3 +759,40 @@ func TestHandleKeyPress_PageModeNoAutoExitForScrollActions(t *testing.T) {
 		t.Fatalf("action calls = %d, want 2", actionCalls)
 	}
 }
+
+func TestHandleKeyPress_PageModeArrowKeysPassThroughNatively(t *testing.T) {
+	ctx := context.Background()
+	workspace := newTestWorkspace()
+	workspace.PageMode = entity.PageModeConfig{
+		ActivationShortcut: "ctrl+y",
+		Actions: map[string]entity.ActionBinding{
+			"page-scroll-down": {Keys: []string{"j"}},
+		},
+	}
+
+	h := NewKeyboardHandler(ctx, workspace, newTestSession())
+	actionCalls := 0
+	h.SetOnAction(func(ctx context.Context, action Action) error {
+		actionCalls++
+		return nil
+	})
+
+	h.handleKeyPress(uint('y'), 0, gdk.ControlMaskValue)
+	if h.Mode() != ModePage {
+		t.Fatal("failed to enter page mode")
+	}
+
+	for _, keyval := range []uint{uint(gdk.KEY_Left), uint(gdk.KEY_Right), uint(gdk.KEY_Up), uint(gdk.KEY_Down)} {
+		consumed := h.handleKeyPress(keyval, 0, 0)
+		if consumed {
+			t.Fatalf("arrow key %d should pass through to native page handling in page mode", keyval)
+		}
+		if h.Mode() != ModePage {
+			t.Fatalf("arrow key %d should keep page mode active", keyval)
+		}
+	}
+
+	if actionCalls != 0 {
+		t.Fatalf("arrow key passthrough should not dispatch page-mode action, got %d calls", actionCalls)
+	}
+}

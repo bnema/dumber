@@ -361,8 +361,22 @@ func (h *KeyboardHandler) handleKeyPress(keyval, keycode uint, state gdk.Modifie
 
 	binding := KeyBinding{Keyval: keyval, Modifiers: modifiers}
 	action, found := h.lookupAction(log, binding, mode, modifiers, keycode)
+	return h.handleShortcutLookupResult(log, action, found, mode, keyval, modifiers)
+}
 
+func (h *KeyboardHandler) handleShortcutLookupResult(
+	log *zerolog.Logger,
+	action Action,
+	found bool,
+	mode Mode,
+	keyval uint,
+	modifiers Modifier,
+) bool {
 	if !found {
+		if shouldPassthroughNativePageModeNavigation(mode, keyval, modifiers) {
+			log.Trace().Uint("keyval", keyval).Msg("routing native page navigation key to focused widget in page mode")
+			return false
+		}
 		return mode != ModeNormal // Consume unrecognized keys in modal mode
 	}
 	if h.shouldPassthroughPageModeActivation(action, mode) {
@@ -374,7 +388,6 @@ func (h *KeyboardHandler) handleKeyPress(keyval, keycode uint, state gdk.Modifie
 			Msg("held keyboard action repeat suppressed")
 		return true
 	}
-
 	return h.dispatchAction(action, mode)
 }
 
@@ -404,6 +417,18 @@ func normalizeKeyval(keyval uint) uint {
 		return keyval + (uint('a') - uint('A'))
 	}
 	return keyval
+}
+
+func shouldPassthroughNativePageModeNavigation(mode Mode, keyval uint, modifiers Modifier) bool {
+	if mode != ModePage || modifiers != ModNone {
+		return false
+	}
+	switch keyval {
+	case uint(gdk.KEY_Left), uint(gdk.KEY_Right), uint(gdk.KEY_Up), uint(gdk.KEY_Down):
+		return true
+	default:
+		return false
+	}
 }
 
 // dispatchAction dispatches the action and handles mode-related logic.

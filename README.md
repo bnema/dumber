@@ -99,7 +99,7 @@ Dumber uses modal keybindings for browser management.
 |------|-------------|----------|
 | Pane | `Ctrl+P` | Split, stack, close, and move panes |
 | Tab | `Ctrl+T` | Create, close, switch, and rename tabs |
-| Page | `Ctrl+Y` | Scroll the active webpage with `h/j/k/l` and `Shift+J/K` |
+| Page | `Ctrl+Y` | Scroll the active webpage with `h/j/k/l` and `Shift+J/K`; arrow keys still work natively |
 | Resize | `Ctrl+N` | Resize panes with `hjkl` or arrow keys |
 | Session | `Ctrl+O` | Snapshot, restore, and browse sessions |
 
