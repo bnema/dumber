@@ -29,12 +29,12 @@ func TestBuildScrollByJS_ContainsRequiredOperations(t *testing.T) {
 		{"JS must use getComputedStyle", []string{"getComputedStyle"}},
 		{"JS must check overflowY", []string{"overflowY"}},
 		{"JS must check overflowX", []string{"overflowX"}},
-		{"JS must support coalesced animation state", []string{"__dumberPageModeScrollState", "requestAnimationFrame"}},
+		{"JS must use direct element scroll offsets", []string{"scrollLeft=beforeLeft+dx", "scrollTop=beforeTop+dy"}},
 		{"JS must check vertical direction-specific remaining scroll", []string{"dy<0&&el.scrollTop>0", "dy>0&&el.scrollTop<maxTop"}},
 		{"JS must check horizontal direction-specific remaining scroll", []string{"dx<0&&el.scrollLeft>0", "dx>0&&el.scrollLeft<maxLeft"}},
 		{"JS must check scrollable overflow values", []string{"'scroll'", "'auto'", "'overlay'"}},
 		{"JS must wrap in try/catch", []string{"try{", "catch(e)"}},
-		{"JS must support window step application", []string{"applyWindowStep", "window.scrollBy(stepX,stepY)"}},
+		{"JS must support immediate window scrolling", []string{"window.scrollBy(dx,dy)"}},
 	}
 
 	for _, tt := range tests {
@@ -60,8 +60,8 @@ func TestBuildScrollByJS_SpecificDelta(t *testing.T) {
 	if !strings.Contains(js, "var dx=0,dy=80") {
 		t.Errorf("expected dy=80 in JS variables, got: %s", js)
 	}
-	if !strings.Contains(js, "requestAnimationFrame") {
-		t.Errorf("expected requestAnimationFrame smoothing in JS, got: %s", js)
+	if strings.Contains(js, "requestAnimationFrame") {
+		t.Errorf("expected immediate fallback scroll step without requestAnimationFrame, got: %s", js)
 	}
 
 	js = BuildScrollByJS(-80, 0)

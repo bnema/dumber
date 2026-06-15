@@ -17,10 +17,9 @@ import "fmt"
 //  3. Fall back to document.scrollingElement (or documentElement).
 //  4. Fall back to window scrolling.
 //
-// Repeated Page mode actions can arrive quickly while a key is held. Instead of
-// asking the engine to start a brand new native smooth-scroll animation for each
-// keystroke, the helper coalesces deltas into a tiny requestAnimationFrame loop.
-// That keeps hold-to-scroll responsive without stacked, competing animations.
+// The app-level Page Mode repeater now owns held-key cadence. This helper
+// performs one immediate fallback scroll step for each semantic Page Mode tick
+// instead of maintaining its own RAF-based repeat loop.
 func BuildScrollByJS(dx, dy int) string {
 	return fmt.Sprintf(`(function(){
 var dx=%d,dy=%d,doc=document;
@@ -46,87 +45,32 @@ function canScroll(el){
   }
   return false;
 }
-function resolveScrollTarget(){
+function scrollElement(el){
+  if(!el)return false;
+  var beforeLeft=el.scrollLeft,beforeTop=el.scrollTop;
+  try{
+    if(dx!==0)el.scrollLeft=beforeLeft+dx;
+    if(dy!==0)el.scrollTop=beforeTop+dy;
+  }catch(_){
+    return false;
+  }
+  return el.scrollLeft!==beforeLeft||el.scrollTop!==beforeTop;
+}
+try{
   var node=doc.activeElement;
   while(node&&node!==doc.body&&node!==doc.documentElement){
-    if(canScroll(node))return {kind:'element',target:node};
+    if(canScroll(node)&&scrollElement(node))return;
     node=node.parentElement;
   }
   var scroller=doc.scrollingElement||doc.documentElement;
-  if(scroller&&canScroll(scroller))return {kind:'element',target:scroller};
-  if(typeof window.scrollBy==='function'||typeof window.scrollTo==='function'){
-    return {kind:'window',target:window};
-  }
-  return null;
-}
-function nextStep(pending){
-  if(pending===0)return 0;
-  if(Math.abs(pending)<=1)return pending;
-  var scaled=pending*0.35;
-  if(pending>0)return Math.max(1, Math.round(scaled));
-  return Math.min(-1, Math.round(scaled));
-}
-function applyElementStep(el, stepX, stepY){
-  var beforeLeft=el.scrollLeft,beforeTop=el.scrollTop;
-  if(stepX!==0)el.scrollLeft=beforeLeft+stepX;
-  if(stepY!==0)el.scrollTop=beforeTop+stepY;
-  return {movedX:el.scrollLeft-beforeLeft,movedY:el.scrollTop-beforeTop};
-}
-function applyWindowStep(stepX, stepY){
-  var beforeX=window.scrollX||window.pageXOffset||0;
-  var beforeY=window.scrollY||window.pageYOffset||0;
+  if(scroller&&canScroll(scroller)&&scrollElement(scroller))return;
   if(typeof window.scrollBy==='function'){
-    window.scrollBy(stepX,stepY);
-  }else if(typeof window.scrollTo==='function'){
-    window.scrollTo(beforeX+stepX,beforeY+stepY);
+    window.scrollBy(dx,dy);
+    return;
   }
-  var afterX=window.scrollX||window.pageXOffset||0;
-  var afterY=window.scrollY||window.pageYOffset||0;
-  return {movedX:afterX-beforeX,movedY:afterY-beforeY};
-}
-function schedule(state){
-  if(state.raf) return;
-  state.raf=window.requestAnimationFrame(function tick(){
-    state.raf=0;
-    if(!state.target||state.pendingX===0&&state.pendingY===0)return;
-    var stepX=nextStep(state.pendingX);
-    var stepY=nextStep(state.pendingY);
-    var moved;
-    try{
-      moved=state.kind==='window'
-        ? applyWindowStep(stepX,stepY)
-        : applyElementStep(state.target,stepX,stepY);
-    }catch(_){
-      state.pendingX=0;
-      state.pendingY=0;
-      return;
-    }
-    state.pendingX-=moved.movedX;
-    state.pendingY-=moved.movedY;
-    if(moved.movedX===0&&moved.movedY===0){
-      state.pendingX=0;
-      state.pendingY=0;
-      return;
-    }
-    if(state.pendingX!==0||state.pendingY!==0)schedule(state);
-  });
-}
-try{
-  var resolved=resolveScrollTarget();
-  if(!resolved)return;
-  var state=window.__dumberPageModeScrollState;
-  if(!state){
-    state=window.__dumberPageModeScrollState={target:null,kind:'',pendingX:0,pendingY:0,raf:0};
+  if(typeof window.scrollTo==='function'){
+    window.scrollTo(window.scrollX+dx,window.scrollY+dy);
   }
-  if(state.target!==resolved.target||state.kind!==resolved.kind){
-    state.target=resolved.target;
-    state.kind=resolved.kind;
-    state.pendingX=0;
-    state.pendingY=0;
-  }
-  state.pendingX+=dx;
-  state.pendingY+=dy;
-  schedule(state);
 }catch(e){}
 })()`, dx, dy)
 }

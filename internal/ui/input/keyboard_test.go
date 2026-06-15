@@ -7,6 +7,7 @@ import (
 
 	"github.com/bnema/dumber/internal/domain/entity"
 	"github.com/bnema/puregotk/v4/gdk"
+	"github.com/bnema/puregotk/v4/glib"
 	"github.com/bnema/puregotk/v4/gtk"
 	"github.com/stretchr/testify/assert"
 )
@@ -416,8 +417,16 @@ func TestHandleKeyPress_PageModeStaysActiveAfterScroll(t *testing.T) {
 		t.Fatal("failed to enter page mode")
 	}
 
-	// Repeated scroll actions should stay in page mode
-	for i := 0; i < 5; i++ {
+	var repeatTick glib.SourceFunc
+	h.pageScrollRepeatAdd = func(_ uint, cb *glib.SourceFunc) uint {
+		repeatTick = *cb
+		return 1
+	}
+	h.pageScrollRepeatRemove = func(uint) bool { return true }
+
+	// Repeated scroll actions should stay in page mode and transition onto the
+	// smooth repeater instead of depending on every physical key repeat.
+	for i := 0; i < 2; i++ {
 		scrolled := h.handleKeyPress(uint('j'), 0, 0)
 		if !scrolled {
 			t.Fatalf("scroll down iteration %d: key not consumed", i)
@@ -426,6 +435,18 @@ func TestHandleKeyPress_PageModeStaysActiveAfterScroll(t *testing.T) {
 			t.Fatalf("scroll down iteration %d: mode = %v, want ModePage", i, h.Mode())
 		}
 	}
+	if repeatTick == nil {
+		t.Fatal("expected held page scroll to register smooth repeater")
+	}
+	for i := 0; i < 3; i++ {
+		if !repeatTick(0) {
+			t.Fatalf("repeat tick %d stopped unexpectedly", i)
+		}
+		if h.Mode() != ModePage {
+			t.Fatalf("repeat tick %d: mode = %v, want ModePage", i, h.Mode())
+		}
+	}
+	h.handleKeyRelease(uint('j'))
 
 	// Scroll up also stays in page mode
 	result = h.handleKeyPress(uint('k'), 0, 0)
@@ -831,5 +852,94 @@ func TestHandleKeyPress_PageModeBlocksGlobalShortcutFallback(t *testing.T) {
 	}
 	if h.Mode() != ModePage {
 		t.Fatalf("mode after blocked Ctrl+L = %v, want ModePage", h.Mode())
+	}
+}
+
+func TestHandleKeyPress_PageModeSmoothRepeaterStartsAfterHeldRepeat(t *testing.T) {
+	ctx := context.Background()
+	workspace := newTestWorkspace()
+	workspace.PageMode = entity.PageModeConfig{
+		ActivationShortcut: "ctrl+y",
+		Actions: map[string]entity.ActionBinding{
+			"page-scroll-down": {Keys: []string{"j"}},
+		},
+	}
+
+	h := NewKeyboardHandler(ctx, workspace, newTestSession())
+	var repeatTick glib.SourceFunc
+	var removedTimer uint
+	h.pageScrollRepeatAdd = func(intervalMS uint, cb *glib.SourceFunc) uint {
+		if intervalMS != uint(pageScrollRepeatInterval/time.Millisecond) {
+			t.Fatalf("repeat interval = %dms, want %dms", intervalMS, uint(pageScrollRepeatInterval/time.Millisecond))
+		}
+		repeatTick = *cb
+		return 99
+	}
+	h.pageScrollRepeatRemove = func(id uint) bool {
+		removedTimer = id
+		return true
+	}
+
+	actionCalls := 0
+	h.SetOnAction(func(ctx context.Context, action Action) error {
+		actionCalls++
+		if action != ActionPageScrollDown {
+			t.Fatalf("action = %s, want %s", action, ActionPageScrollDown)
+		}
+		return nil
+	})
+
+	if !h.handleKeyPress(uint('y'), 0, gdk.ControlMaskValue) {
+		t.Fatal("Ctrl+Y should be consumed")
+	}
+	if !h.handleKeyPress(uint('j'), 0, 0) {
+		t.Fatal("first J press should be consumed")
+	}
+	if actionCalls != 1 {
+		t.Fatalf("actionCalls after first press = %d, want 1", actionCalls)
+	}
+	if h.pageScrollRepeatTimer != 0 {
+		t.Fatal("smooth repeater should not start before the first held repeat arrives")
+	}
+
+	if !h.handleKeyPress(uint('j'), 0, 0) {
+		t.Fatal("held J repeat should be consumed")
+	}
+	if actionCalls != 2 {
+		t.Fatalf("actionCalls after held repeat = %d, want 2", actionCalls)
+	}
+	if h.pageScrollRepeatTimer != 99 {
+		t.Fatalf("pageScrollRepeatTimer = %d, want 99", h.pageScrollRepeatTimer)
+	}
+	if repeatTick == nil {
+		t.Fatal("smooth repeater callback should be registered")
+	}
+
+	if !repeatTick(0) {
+		t.Fatal("smooth repeater tick should continue while key remains held")
+	}
+	if actionCalls != 3 {
+		t.Fatalf("actionCalls after smooth repeater tick = %d, want 3", actionCalls)
+	}
+
+	if !h.handleKeyPress(uint('j'), 0, 0) {
+		t.Fatal("subsequent physical repeats should remain consumed")
+	}
+	if actionCalls != 3 {
+		t.Fatalf("physical repeats should defer to smooth repeater; got %d calls", actionCalls)
+	}
+
+	h.handleKeyRelease(uint('j'))
+	if removedTimer != 99 {
+		t.Fatalf("removed timer id = %d, want 99", removedTimer)
+	}
+	if h.pageScrollRepeatTimer != 0 {
+		t.Fatal("smooth repeater should stop on key release")
+	}
+	if repeatTick(0) {
+		t.Fatal("smooth repeater tick should stop after key release")
+	}
+	if actionCalls != 3 {
+		t.Fatalf("no extra actions expected after release, got %d", actionCalls)
 	}
 }

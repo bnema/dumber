@@ -2248,9 +2248,11 @@ func sendNativeKeyTap(host purecef.BrowserHost, windowsKeyCode int32) {
 	keyEvent := purecef.NewKeyEvent()
 	keyEvent.Type = purecef.KeyEventTypeKeyeventRawkeydown
 	keyEvent.WindowsKeyCode = windowsKeyCode
+	keyEvent.NativeKeyCode = windowsKeyCode
 	host.SendKeyEvent(&keyEvent)
 	keyEvent.Type = purecef.KeyEventTypeKeyeventKeyup
 	keyEvent.WindowsKeyCode = windowsKeyCode
+	keyEvent.NativeKeyCode = windowsKeyCode
 	host.SendKeyEvent(&keyEvent)
 }
 

@@ -53,9 +53,10 @@ const (
 	floatingPaneVisibleClass      = "floating-pane-visible"
 
 	// pageModePulseInterval is the minimum interval between page mode pulses.
-	// Debounces held-key repeat pulses to at most ~60fps, matching the display
-	// refresh rate and the scroll execution coalescing in pagescroll.go.
-	pageModePulseInterval = time.Second / 60
+	// Held Page Mode scrolling now runs on its own smooth repeater, so the pulse
+	// is intentionally throttled well below scroll cadence to avoid GTK CSS churn
+	// becoming part of the perceived scroll jank.
+	pageModePulseInterval = 120 * time.Millisecond
 )
 
 func gtkApplicationFlags() gio.ApplicationFlags {
@@ -4106,14 +4107,15 @@ func (a *App) handlePageModeOwnership(ctx context.Context, bw *browserWindow, to
 // dispatchBrowserWindowAction which calls activateBrowserWindow first).
 // If no pane is currently in page mode, the pulse is a no-op.
 //
-// Pulses are debounced at pageModePulseInterval to prevent excessive
-// GTK CSS class churn during held-key repeats. The scroll execution
-// coalescing in pagescroll.go already limits scroll to ~60fps, so pulses
-// more frequent than that would be visually redundant.
+// Pulses are debounced at pageModePulseInterval to prevent excessive GTK CSS
+// class churn during held-key repeats. Smooth scroll cadence is owned by the
+// Page Mode repeater and backend scroll path; pulse feedback is deliberately
+// slower so indicator/overlay animation work does not become part of the
+// scrolling critical path.
 func (a *App) triggerPageModePulse(_ context.Context, fast bool) {
-	// Debounce: skip if called within the same display frame.
-	// This uses a try-lock approach: fast path avoids the lock when
-	// the check passes, but we still serialize the timestamp update.
+	// Debounce: skip if called again too soon during a continuous hold.
+	// We still serialize the timestamp update so repeated dispatcher calls do
+	// not restart CSS animations at scroll cadence.
 	a.pageModePulseMu.Lock()
 	since := time.Since(a.pageModePulseLastTime)
 	if since < pageModePulseInterval {
