@@ -498,6 +498,7 @@ func TestShortcutSet_Lookup_PageMode(t *testing.T) {
 			{uint('l'), ModNone}:            ActionPageScrollRight,
 			{uint(gdk.KEY_Escape), ModNone}: ActionExitMode,
 			{uint(gdk.KEY_Return), ModNone}: ActionExitMode,
+			{uint('y'), ModCtrl}:            ActionEnterPageMode,
 		},
 	}
 
@@ -544,10 +545,16 @@ func TestShortcutSet_Lookup_PageMode(t *testing.T) {
 			wantOk:  true,
 		},
 		{
-			name:    "unknown key in normal mode falls back to global",
-			binding: KeyBinding{uint(gdk.KEY_q), ModCtrl},
-			want:    ActionQuit,
+			name:    "activation shortcut still toggles page mode",
+			binding: KeyBinding{uint('y'), ModCtrl},
+			want:    ActionEnterPageMode,
 			wantOk:  true,
+		},
+		{
+			name:    "global shortcut does not fire inside page mode",
+			binding: KeyBinding{uint(gdk.KEY_q), ModCtrl},
+			want:    "",
+			wantOk:  false,
 		},
 	}
 

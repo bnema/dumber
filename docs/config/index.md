@@ -401,6 +401,7 @@ Notes:
 - Page Mode scrolls the active webpage inside the active pane only.
 - The default `timeout_ms = 0` means Page Mode stays active until you exit it or focus moves into an editable/browser UI context.
 - Arrow keys still use the browser engine's native page-navigation path while Page Mode is active.
+- Other app-level shortcuts stay suspended until Page Mode exits, except for the Page Mode toggle itself.
 - `workspace.styling.pane_mode_color`, `workspace.styling.transition_duration`, and `workspace.styling.mode_indicator_toaster_enabled` control the pane-local Page Mode visuals.
 
 ### Resize Mode

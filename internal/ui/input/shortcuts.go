@@ -302,7 +302,18 @@ func (s *ShortcutSet) buildResizeModeShortcuts(ctx context.Context, cfg *entity.
 
 // buildPageModeShortcuts populates page mode shortcuts from config.
 func (s *ShortcutSet) buildPageModeShortcuts(ctx context.Context, cfg *entity.WorkspaceConfig) {
+	log := logging.FromContext(ctx)
 	s.buildModeShortcuts(ctx, cfg.PageMode.GetKeyBindings(), s.PageMode, "page")
+	if binding, ok := ParseKeyString(cfg.PageMode.ActivationShortcut); ok {
+		s.PageMode[binding] = ActionEnterPageMode
+		log.Trace().
+			Str("shortcut", cfg.PageMode.ActivationShortcut).
+			Uint("keyval", binding.Keyval).
+			Uint("mod", uint(binding.Modifiers)).
+			Msg("page mode toggle registered in page mode table")
+	} else {
+		log.Warn().Str("shortcut", cfg.PageMode.ActivationShortcut).Msg("failed to parse page mode activation shortcut for page mode table")
+	}
 }
 
 func (s *ShortcutSet) registerActivationShortcutsFromParts(
@@ -832,7 +843,9 @@ func stringToKeyval(s string) (uint, bool) {
 }
 
 // Lookup finds an action for the given key binding in the appropriate table.
-// It first checks the mode-specific table, then falls back to global.
+// It first checks the mode-specific table, then falls back to global unless
+// the current mode is Page Mode. Page Mode intentionally stays self-contained
+// so app-global shortcuts do not interrupt held page scrolling.
 func (s *ShortcutSet) Lookup(binding KeyBinding, mode Mode) (Action, bool) {
 	// Normalize the binding modifiers
 	binding.Modifiers &= modifierMask
@@ -855,6 +868,9 @@ func (s *ShortcutSet) Lookup(binding KeyBinding, mode Mode) (Action, bool) {
 	if modeTable != nil {
 		if action, ok := modeTable[binding]; ok {
 			return action, true
+		}
+		if mode == ModePage {
+			return "", false
 		}
 	}
 

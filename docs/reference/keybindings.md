@@ -8,7 +8,7 @@ Dumber uses modal keybindings inspired by Zellij. Press a mode activation key, t
 |------|-----|---------|
 | Pane Mode | `Ctrl+P` | Split, close, focus panes |
 | Tab Mode | `Ctrl+T` | Create, close, switch tabs |
-| Page Mode | `Ctrl+Y` | Scroll the active webpage with `h/j/k/l` and `Shift+J/K`; arrow keys still work natively |
+| Page Mode | `Ctrl+Y` | Scroll the active webpage with `h/j/k/l` and `Shift+J/K`; arrow keys stay native and other app shortcuts wait until exit |
 | Resize Mode | `Ctrl+N` | Resize pane splits |
 | Session Mode | `Ctrl+O` | Session management |
 
@@ -55,7 +55,7 @@ Keybinding tables use uppercase letters as visual labels for unshifted letter ke
 
 ## Page Mode (`Ctrl+Y`)
 
-Page Mode is an explicit page-scrolling mode for the active pane only. It shows a local `PAGE` indicator on the owning pane, uses `workspace.styling.pane_mode_color` for the local accent, and exits automatically when focus moves into the omnibox, find bar, overlays, or an editable element inside the page. The default `timeout_ms` is `0`, so Page Mode does not auto-time out unless you configure one. Arrow keys continue to flow through the browser engine's native page-navigation path while Page Mode is active.
+Page Mode is an explicit page-scrolling mode for the active pane only. It shows a local `PAGE` indicator on the owning pane, uses `workspace.styling.pane_mode_color` for the local accent, and exits automatically when focus moves into the omnibox, find bar, overlays, or an editable element inside the page. The default `timeout_ms` is `0`, so Page Mode does not auto-time out unless you configure one. Arrow keys continue to flow through the browser engine's native page-navigation path while Page Mode is active, while other app-level shortcuts stay suspended until you leave the mode.
 
 | Action | Keys |
 |--------|------|

@@ -796,3 +796,40 @@ func TestHandleKeyPress_PageModeArrowKeysPassThroughNatively(t *testing.T) {
 		t.Fatalf("arrow key passthrough should not dispatch page-mode action, got %d calls", actionCalls)
 	}
 }
+
+func TestHandleKeyPress_PageModeBlocksGlobalShortcutFallback(t *testing.T) {
+	ctx := context.Background()
+	workspace := newTestWorkspace()
+	workspace.PageMode = entity.PageModeConfig{
+		ActivationShortcut: "ctrl+y",
+		Actions: map[string]entity.ActionBinding{
+			"page-scroll-down": {Keys: []string{"j"}},
+		},
+	}
+
+	h := NewKeyboardHandler(ctx, workspace, newTestSession())
+	actionCalls := 0
+	var lastAction Action
+	h.SetOnAction(func(ctx context.Context, action Action) error {
+		actionCalls++
+		lastAction = action
+		return nil
+	})
+
+	if !h.handleKeyPress(uint('y'), 0, gdk.ControlMaskValue) {
+		t.Fatal("Ctrl+Y should be consumed")
+	}
+	if h.Mode() != ModePage {
+		t.Fatal("failed to enter page mode")
+	}
+
+	if !h.handleKeyPress(uint('l'), 0, gdk.ControlMaskValue) {
+		t.Fatal("Ctrl+L should be consumed inside page mode")
+	}
+	if actionCalls != 0 {
+		t.Fatalf("Ctrl+L should not dispatch a global action in page mode, got %d calls (%s)", actionCalls, lastAction)
+	}
+	if h.Mode() != ModePage {
+		t.Fatalf("mode after blocked Ctrl+L = %v, want ModePage", h.Mode())
+	}
+}
