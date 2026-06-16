@@ -37,10 +37,9 @@ import (
 type ActionHandler func(ctx context.Context, action Action) error
 
 const (
-	// pageScrollRepeatInterval drives held Page Mode hjkl repeats at a stable
-	// frame-paced cadence after the platform repeat threshold has been crossed.
-	// This avoids tying semantic page scrolling directly to coarse GTK key
-	// repeat timing while preserving quick single-tap behavior.
+	// pageScrollRepeatInterval is the fallback cadence when the handler is not
+	// attached to a GTK widget. Attached handlers use GTK tick callbacks instead,
+	// which run at the output device's frame rate.
 	pageScrollRepeatInterval = time.Second / 60
 )
 
@@ -94,12 +93,14 @@ type KeyboardHandler struct {
 	ctx                  context.Context
 	mu                   sync.RWMutex
 
-	pageScrollRepeatAction Action
-	pageScrollRepeatKeyval uint
-	pageScrollRepeatTimer  uint
-	pageScrollRepeatCb     glib.SourceFunc
-	pageScrollRepeatAdd    func(intervalMS uint, cb *glib.SourceFunc) uint
-	pageScrollRepeatRemove func(id uint) bool
+	pageScrollRepeatAction       Action
+	pageScrollRepeatKeyval       uint
+	pageScrollRepeatTimer        uint
+	pageScrollRepeatCb           glib.SourceFunc
+	pageScrollRepeatTickCb       gtk.TickCallback
+	pageScrollRepeatAdd          func(intervalMS uint, cb *glib.SourceFunc) uint
+	pageScrollRepeatRemove       func(id uint) bool
+	pageScrollRepeatActiveRemove func(id uint) bool
 }
 
 // NewKeyboardHandler creates a new keyboard handler.
@@ -315,6 +316,11 @@ func (h *KeyboardHandler) detach(removeController bool) {
 	h.pageScrollRepeatKeyval = 0
 	h.pageScrollRepeatTimer = 0
 	h.pageScrollRepeatCb = nil
+	h.pageScrollRepeatTickCb = nil
+	if h.pageScrollRepeatActiveRemove != nil {
+		remove = h.pageScrollRepeatActiveRemove
+	}
+	h.pageScrollRepeatActiveRemove = nil
 	h.mu.Unlock()
 	if timerID != 0 && remove != nil {
 		remove(timerID)
@@ -463,6 +469,21 @@ func (h *KeyboardHandler) startPageScrollRepeat(action Action, keyval uint) {
 		h.mu.Unlock()
 		return
 	}
+	if h.window != nil {
+		window := h.window
+		cb := gtk.TickCallback(func(_, _, _ uintptr) bool {
+			return h.pageScrollRepeatTick(action, keyval)
+		})
+		h.pageScrollRepeatTickCb = cb
+		h.pageScrollRepeatActiveRemove = func(id uint) bool {
+			window.RemoveTickCallback(id)
+			return true
+		}
+		h.pageScrollRepeatTimer = window.AddTickCallback(&h.pageScrollRepeatTickCb, 0, nil)
+		h.mu.Unlock()
+		return
+	}
+
 	add := h.pageScrollRepeatAdd
 	if add == nil {
 		h.mu.Unlock()
@@ -496,6 +517,11 @@ func (h *KeyboardHandler) stopPageScrollRepeat() {
 	h.pageScrollRepeatKeyval = 0
 	h.pageScrollRepeatTimer = 0
 	h.pageScrollRepeatCb = nil
+	h.pageScrollRepeatTickCb = nil
+	if h.pageScrollRepeatActiveRemove != nil {
+		remove = h.pageScrollRepeatActiveRemove
+	}
+	h.pageScrollRepeatActiveRemove = nil
 	h.mu.Unlock()
 	if timerID != 0 && remove != nil {
 		remove(timerID)

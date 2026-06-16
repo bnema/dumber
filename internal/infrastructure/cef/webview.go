@@ -2209,73 +2209,49 @@ func (wv *WebView) takePendingCreate() *pendingBrowserCreate {
 	return pc
 }
 
-// Windows virtual key codes used for native page-scroll emulation.
-const (
-	vkPrior = 33 // Page Up
-	vkNext  = 34 // Page Down
-	vkLeft  = 37
-	vkUp    = 38
-	vkRight = 39
-	vkDown  = 40
-)
-
-// scrollCommandToNativeKey maps a port.PageScrollRequest.Command identity to a
-// Windows virtual key code suitable for CEF SendKeyEvent. Returns ok=false
-// when the command has no native counterpart (should fall back to JS).
-func scrollCommandToNativeKey(command port.PageScrollCommand) (vk int32, ok bool) {
-	switch command {
-	case port.PageScrollCommandLeft:
-		return vkLeft, true
-	case port.PageScrollCommandRight:
-		return vkRight, true
-	case port.PageScrollCommandUp:
-		return vkUp, true
-	case port.PageScrollCommandDown:
-		return vkDown, true
-	case port.PageScrollCommandUpFast:
-		return vkPrior, true
-	case port.PageScrollCommandDownFast:
-		return vkNext, true
-	default:
-		return 0, false
+// pageScrollWheelEvent builds the CEF mouse wheel event used for keyboard-driven
+// Page Mode scrolling. It targets the center of the current OSR view so the
+// scroll goes through Chromium's compositor/input pipeline instead of a series
+// of synthetic key taps.
+func (wv *WebView) pageScrollWheelEvent() purecef.MouseEvent {
+	width, height := int32(1), int32(1)
+	if wv != nil && wv.viewBridge != nil {
+		width, height = wv.viewBridge.Size()
+	}
+	scale := normalizeScale(wv.osrBackingScaleFactor())
+	return purecef.MouseEvent{
+		X:         int32(math.Floor(float64(width) * scale / 2)),
+		Y:         int32(math.Floor(float64(height) * scale / 2)),
+		Modifiers: uint32(purecef.EventFlagsEventflagPrecisionScrollingDelta),
 	}
 }
 
-// sendNativeKeyTap sends a synthetic keyboard tap (RawKeyDown then KeyUp) for
-// the given Windows virtual key code through the CEF browser host. This is used
-// by ScrollPage to trigger native Chromium scroll behavior for Page Mode.
-func sendNativeKeyTap(host purecef.BrowserHost, windowsKeyCode int32) {
-	keyEvent := purecef.NewKeyEvent()
-	keyEvent.Type = purecef.KeyEventTypeKeyeventRawkeydown
-	keyEvent.WindowsKeyCode = windowsKeyCode
-	keyEvent.NativeKeyCode = windowsKeyCode
-	host.SendKeyEvent(&keyEvent)
-	keyEvent.Type = purecef.KeyEventTypeKeyeventKeyup
-	keyEvent.WindowsKeyCode = windowsKeyCode
-	keyEvent.NativeKeyCode = windowsKeyCode
-	host.SendKeyEvent(&keyEvent)
+func pageScrollWheelDeltas(request port.PageScrollRequest) (deltaX, deltaY int32) {
+	return int32(request.FallbackDX), int32(-request.FallbackDY)
 }
 
 // ScrollPage scrolls the page using a semantic page-scroll request.
-// When the command maps to a native Chromium key (arrow keys, PageUp/Down),
-// ScrollPage sends synthetic key events through the CEF browser host instead
-// of executing JavaScript. Unmapped commands fall back to JS scrolling.
+// For CEF, Page Mode uses native wheel input rather than synthetic key taps:
+// repeated RawKeyDown/KeyUp pairs reset Chromium's keyboard-scroll handling and
+// feel saccaded when held. Wheel input uses the same compositor path as GTK
+// scrolling, with precision deltas matching the application-layer pixel step.
+// If no browser host is available yet, ScrollPage falls back to JavaScript.
 // Implements port.PageScrollable.
 func (wv *WebView) ScrollPage(ctx context.Context, request port.PageScrollRequest) error {
 	if wv.destroyed.Load() {
 		return errDestroyed
 	}
 
-	// Try native key event path first.
-	if vk, ok := scrollCommandToNativeKey(request.Command); ok {
-		wv.mu.RLock()
-		host := wv.host
-		wv.mu.RUnlock()
-		if host != nil {
-			sendNativeKeyTap(host, vk)
-			return nil
+	wv.mu.RLock()
+	host := wv.host
+	wv.mu.RUnlock()
+	if host != nil {
+		deltaX, deltaY := pageScrollWheelDeltas(request)
+		if deltaX != 0 || deltaY != 0 {
+			event := wv.pageScrollWheelEvent()
+			host.SendMouseWheelEvent(&event, deltaX, deltaY)
 		}
-		// Host unavailable; fall through to JS fallback.
+		return nil
 	}
 
 	// Fallback: JS-based scroll.

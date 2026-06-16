@@ -11,78 +11,56 @@ import (
 	"github.com/bnema/dumber/internal/application/port"
 )
 
-// ---------------------------------------------------------------------------
-// scrollCommandToNativeKey mapping tests (pure Go, no CEF host needed)
-// ---------------------------------------------------------------------------
-
-func TestScrollCommandToNativeKey_MapsAllKnownCommands(t *testing.T) {
+func TestPageScrollWheelDeltas_UseFallbackDeltasWithCEFSign(t *testing.T) {
 	tests := []struct {
-		command port.PageScrollCommand
-		wantVK  int32
-		wantOK  bool
-		name    string
+		name       string
+		req        port.PageScrollRequest
+		wantDeltaX int32
+		wantDeltaY int32
 	}{
-		{port.PageScrollCommandLeft, vkLeft, true, "PageScrollLeft → VK_LEFT"},
-		{port.PageScrollCommandRight, vkRight, true, "PageScrollRight → VK_RIGHT"},
-		{port.PageScrollCommandUp, vkUp, true, "PageScrollUp → VK_UP"},
-		{port.PageScrollCommandDown, vkDown, true, "PageScrollDown → VK_DOWN"},
-		{port.PageScrollCommandUpFast, vkPrior, true, "PageScrollUpFast → VK_PRIOR"},
-		{port.PageScrollCommandDownFast, vkNext, true, "PageScrollDownFast → VK_NEXT"},
+		{"left", port.PageScrollRequest{FallbackDX: -80}, -80, 0},
+		{"right", port.PageScrollRequest{FallbackDX: 80}, 80, 0},
+		{"up", port.PageScrollRequest{FallbackDY: -80}, 0, 80},
+		{"down", port.PageScrollRequest{FallbackDY: 80}, 0, -80},
+		{"up fast", port.PageScrollRequest{FallbackDY: -320}, 0, 320},
+		{"down fast", port.PageScrollRequest{FallbackDY: 320}, 0, -320},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			vk, ok := scrollCommandToNativeKey(tt.command)
-			if ok != tt.wantOK {
-				t.Fatalf("scrollCommandToNativeKey(%d) ok = %v, want %v", tt.command, ok, tt.wantOK)
-			}
-			if vk != tt.wantVK {
-				t.Fatalf("scrollCommandToNativeKey(%d) vk = %d, want %d", tt.command, vk, tt.wantVK)
+			gotDeltaX, gotDeltaY := pageScrollWheelDeltas(tt.req)
+			if gotDeltaX != tt.wantDeltaX || gotDeltaY != tt.wantDeltaY {
+				t.Fatalf("pageScrollWheelDeltas() = (%d, %d), want (%d, %d)", gotDeltaX, gotDeltaY, tt.wantDeltaX, tt.wantDeltaY)
 			}
 		})
 	}
 }
 
-func TestScrollCommandToNativeKey_UnknownCommandReturnsFalse(t *testing.T) {
-	// Commands outside the known 0-5 range, including negative values.
-	unknowns := []port.PageScrollCommand{-1, 6, 42, 999}
-	for _, cmd := range unknowns {
-		t.Run("", func(t *testing.T) {
-			vk, ok := scrollCommandToNativeKey(cmd)
-			if ok {
-				t.Fatalf("scrollCommandToNativeKey(%d) ok = true, want false", cmd)
-			}
-			if vk != 0 {
-				t.Fatalf("scrollCommandToNativeKey(%d) vk = %d, want 0", cmd, vk)
-			}
-		})
-	}
-}
-
-// ---------------------------------------------------------------------------
-// ScrollPage integration tests (use a stub host that records SendKeyEvent)
-// ---------------------------------------------------------------------------
-
-// scrollRecorderHost wraps purecef.BrowserHost and records every SendKeyEvent
-// call, allowing tests to verify that native key taps were issued.
+// scrollRecorderHost wraps purecef.BrowserHost and records mouse wheel events,
+// allowing tests to verify that Page Mode uses Chromium's native scroll path.
 type scrollRecorderHost struct {
-	purecef.BrowserHost // embedded nil — only SendKeyEvent is called in these tests
+	purecef.BrowserHost // embedded nil — only SendMouseWheelEvent is called in these tests
 
 	mu     sync.Mutex
-	events []purecef.KeyEvent
+	events []recordedWheelEvent
 }
 
-func (h *scrollRecorderHost) SendKeyEvent(event *purecef.KeyEvent) {
+type recordedWheelEvent struct {
+	event          purecef.MouseEvent
+	deltaX, deltaY int32
+}
+
+func (h *scrollRecorderHost) SendMouseWheelEvent(event *purecef.MouseEvent, deltaX int32, deltaY int32) {
 	h.mu.Lock()
 	defer h.mu.Unlock()
 	// Record a copy so the test can inspect it after the call returns.
-	h.events = append(h.events, *event)
+	h.events = append(h.events, recordedWheelEvent{event: *event, deltaX: deltaX, deltaY: deltaY})
 }
 
-func (h *scrollRecorderHost) recordedEvents() []purecef.KeyEvent {
+func (h *scrollRecorderHost) recordedEvents() []recordedWheelEvent {
 	h.mu.Lock()
 	defer h.mu.Unlock()
-	out := make([]purecef.KeyEvent, len(h.events))
+	out := make([]recordedWheelEvent, len(h.events))
 	copy(out, h.events)
 	return out
 }
@@ -93,7 +71,7 @@ func (h *scrollRecorderHost) resetRecords() {
 	h.events = nil
 }
 
-func TestScrollPage_NativePath_SendsKeyDownAndKeyUp(t *testing.T) {
+func TestScrollPage_NativeWheelPath_SendsPrecisionWheelEvent(t *testing.T) {
 	host := &scrollRecorderHost{}
 	wv := &WebView{host: host}
 
@@ -109,76 +87,69 @@ func TestScrollPage_NativePath_SendsKeyDownAndKeyUp(t *testing.T) {
 	}
 
 	events := host.recordedEvents()
-	if len(events) != 2 {
-		t.Fatalf("expected 2 key events (RawKeyDown + KeyUp), got %d", len(events))
+	if len(events) != 1 {
+		t.Fatalf("expected 1 wheel event, got %d", len(events))
 	}
-
-	// First event: RawKeyDown
-	if events[0].Type != purecef.KeyEventTypeKeyeventRawkeydown {
-		t.Fatalf("event[0].Type = %d, want %d (KeyEventTypeKeyeventRawkeydown)",
-			events[0].Type, purecef.KeyEventTypeKeyeventRawkeydown)
+	if events[0].deltaX != 0 || events[0].deltaY != -80 {
+		t.Fatalf("wheel delta = (%d, %d), want (0, -80)", events[0].deltaX, events[0].deltaY)
 	}
-	if events[0].WindowsKeyCode != vkDown {
-		t.Fatalf("event[0].WindowsKeyCode = %d, want %d (VK_DOWN)", events[0].WindowsKeyCode, vkDown)
-	}
-
-	// Second event: KeyUp
-	if events[1].Type != purecef.KeyEventTypeKeyeventKeyup {
-		t.Fatalf("event[1].Type = %d, want %d (KeyEventTypeKeyeventKeyup)",
-			events[1].Type, purecef.KeyEventTypeKeyeventKeyup)
-	}
-	if events[1].WindowsKeyCode != vkDown {
-		t.Fatalf("event[1].WindowsKeyCode = %d, want %d (VK_DOWN)", events[1].WindowsKeyCode, vkDown)
+	if events[0].event.Modifiers&uint32(purecef.EventFlagsEventflagPrecisionScrollingDelta) == 0 {
+		t.Fatal("wheel event should set EVENTFLAG_PRECISION_SCROLLING_DELTA")
 	}
 }
 
-func TestScrollPage_NativePath_AllCommandsProduceCorrectKeyCode(t *testing.T) {
+func TestScrollPage_NativeWheelPath_AllCommandsUseFallbackDeltas(t *testing.T) {
 	host := &scrollRecorderHost{}
 	wv := &WebView{host: host}
 
 	commands := []struct {
-		command port.PageScrollCommand
-		wantVK  int32
-		name    string
+		name       string
+		req        port.PageScrollRequest
+		wantDeltaX int32
+		wantDeltaY int32
 	}{
-		{port.PageScrollCommandLeft, vkLeft, "PageScrollLeft"},
-		{port.PageScrollCommandRight, vkRight, "PageScrollRight"},
-		{port.PageScrollCommandUp, vkUp, "PageScrollUp"},
-		{port.PageScrollCommandDown, vkDown, "PageScrollDown"},
-		{port.PageScrollCommandUpFast, vkPrior, "PageScrollUpFast"},
-		{port.PageScrollCommandDownFast, vkNext, "PageScrollDownFast"},
+		{"PageScrollLeft", port.PageScrollRequest{Command: port.PageScrollCommandLeft, FallbackDX: -80}, -80, 0},
+		{"PageScrollRight", port.PageScrollRequest{Command: port.PageScrollCommandRight, FallbackDX: 80}, 80, 0},
+		{"PageScrollUp", port.PageScrollRequest{Command: port.PageScrollCommandUp, FallbackDY: -80}, 0, 80},
+		{"PageScrollDown", port.PageScrollRequest{Command: port.PageScrollCommandDown, FallbackDY: 80}, 0, -80},
+		{"PageScrollUpFast", port.PageScrollRequest{Command: port.PageScrollCommandUpFast, FallbackDY: -320}, 0, 320},
+		{"PageScrollDownFast", port.PageScrollRequest{Command: port.PageScrollCommandDownFast, FallbackDY: 320}, 0, -320},
 	}
 
 	for _, tt := range commands {
 		t.Run(tt.name, func(t *testing.T) {
 			host.resetRecords()
 
-			req := port.PageScrollRequest{
-				Command: tt.command,
-			}
-			if err := wv.ScrollPage(context.Background(), req); err != nil {
+			if err := wv.ScrollPage(context.Background(), tt.req); err != nil {
 				t.Fatalf("ScrollPage() error: %v", err)
 			}
 
 			events := host.recordedEvents()
-			if len(events) != 2 {
-				t.Fatalf("expected 2 key events, got %d", len(events))
+			if len(events) != 1 {
+				t.Fatalf("expected 1 wheel event, got %d", len(events))
 			}
-			if events[0].WindowsKeyCode != tt.wantVK {
-				t.Fatalf("RawKeyDown WindowsKeyCode = %d, want %d", events[0].WindowsKeyCode, tt.wantVK)
-			}
-			if events[1].WindowsKeyCode != tt.wantVK {
-				t.Fatalf("KeyUp WindowsKeyCode = %d, want %d", events[1].WindowsKeyCode, tt.wantVK)
+			if events[0].deltaX != tt.wantDeltaX || events[0].deltaY != tt.wantDeltaY {
+				t.Fatalf("wheel delta = (%d, %d), want (%d, %d)", events[0].deltaX, events[0].deltaY, tt.wantDeltaX, tt.wantDeltaY)
 			}
 		})
 	}
 }
 
+func TestScrollPage_NativeWheelPath_ZeroDeltaDoesNotSendEvent(t *testing.T) {
+	host := &scrollRecorderHost{}
+	wv := &WebView{host: host}
+
+	if err := wv.ScrollPage(context.Background(), port.PageScrollRequest{}); err != nil {
+		t.Fatalf("ScrollPage() error: %v", err)
+	}
+	if events := host.recordedEvents(); len(events) != 0 {
+		t.Fatalf("expected no wheel events for zero delta, got %d", len(events))
+	}
+}
+
 func TestScrollPage_NativePath_FallbackToJSWhenHostIsNil(t *testing.T) {
-	// With no host set, ScrollPage should still succeed via the JS fallback
-	// (the host == nil check before calling SendKeyEvent).
+	// With no host set, ScrollPage should still succeed via the JS fallback.
 	wv := &WebView{}
-	// No .host set — will be nil.
 
 	req := port.PageScrollRequest{
 		Command:    port.PageScrollCommandDown,
@@ -191,29 +162,6 @@ func TestScrollPage_NativePath_FallbackToJSWhenHostIsNil(t *testing.T) {
 	err := wv.ScrollPage(context.Background(), req)
 	if err != nil {
 		t.Fatalf("ScrollPage() with nil host should not return error: %v", err)
-	}
-}
-
-func TestScrollPage_UnmappedCommand_FallsBackToJS(t *testing.T) {
-	host := &scrollRecorderHost{}
-	wv := &WebView{host: host}
-
-	// A command outside the 0-5 range has no native mapping and must not
-	// attempt to send key events.
-	req := port.PageScrollRequest{
-		Command:    port.PageScrollCommand(42),
-		FallbackDX: 0,
-		FallbackDY: 80,
-	}
-
-	err := wv.ScrollPage(context.Background(), req)
-	if err != nil {
-		t.Fatalf("ScrollPage() with unmapped command should fall back: %v", err)
-	}
-
-	events := host.recordedEvents()
-	if len(events) != 0 {
-		t.Fatalf("expected 0 key events for unmapped command, got %d", len(events))
 	}
 }
 
