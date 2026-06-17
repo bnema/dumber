@@ -1056,12 +1056,13 @@ func (*SchemaProvider) getPerformanceKeys(defaults *Config) []entity.ConfigKeyIn
 			Section:     SectionPerformance,
 		},
 		{
-			Key:         "engine.cef.input.touchpad_navigation_max_vertical_ratio",
-			Type:        "float64",
-			Default:     fmt.Sprintf("%.2f", defaults.Engine.CEF.Input.TouchpadNavigationMaxVerticalRatio),
-			Description: "Maximum vertical-to-horizontal delta ratio allowed for CEF touchpad back/forward swipes; does not affect vertical scroll speed",
-			Range:       ">0",
-			Section:     SectionPerformance,
+			Key:     "engine.cef.input.touchpad_navigation_max_vertical_ratio",
+			Type:    "float64",
+			Default: fmt.Sprintf("%.2f", defaults.Engine.CEF.Input.TouchpadNavigationMaxVerticalRatio),
+			Description: "Maximum vertical-to-horizontal delta ratio allowed for CEF touchpad back/forward swipes; " +
+				"does not affect vertical scroll speed",
+			Range:   ">0",
+			Section: SectionPerformance,
 		},
 		{
 			Key:         "engine.webkit.skia_cpu_painting_threads",

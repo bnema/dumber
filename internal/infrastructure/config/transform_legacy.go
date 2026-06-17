@@ -72,7 +72,10 @@ func (*LegacyConfigTransformer) transformLegacyEngineConfig(rawConfig map[string
 	migrateLegacyCEFInputScrollDefaults(cef)
 }
 
-const legacyCEFScrollTouchpadMultiplierDefault = 0.35
+const (
+	legacyCEFScrollTouchpadMultiplierDefault = 0.35
+	configFloatTolerance                     = 0.000001
+)
 
 func migrateLegacyCEFInputScrollDefaults(cef map[string]any) {
 	input, ok := cef["input"].(map[string]any)
@@ -114,7 +117,7 @@ func migratedCEFPreciseScrollMultiplier(value any) any {
 }
 
 func sameConfigFloat(a, b float64) bool {
-	return math.Abs(a-b) <= 0.000001
+	return math.Abs(a-b) <= configFloatTolerance
 }
 
 func migrateLegacyCEFWindowlessFrameRateDefault(cef map[string]any, hasAdaptive, adaptiveEnabled bool) {

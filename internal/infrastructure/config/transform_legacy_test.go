@@ -221,7 +221,7 @@ func TestTransformLegacyEngineConfig_UpgradesObsoletePreciseScrollDefault(t *tes
 	transformer.TransformLegacyEngineConfig(rawConfig)
 
 	input := rawConfig["engine"].(map[string]any)["cef"].(map[string]any)["input"].(map[string]any)
-	assert.Equal(t, defaultCEFScrollPreciseMultiplier, input["scroll_precise_multiplier"])
+	assert.InDelta(t, defaultCEFScrollPreciseMultiplier, input["scroll_precise_multiplier"], 0.001)
 }
 
 func TestTransformLegacyEngineConfig_MigratesLegacyTouchpadScrollKey(t *testing.T) {
@@ -239,7 +239,7 @@ func TestTransformLegacyEngineConfig_MigratesLegacyTouchpadScrollKey(t *testing.
 	transformer.TransformLegacyEngineConfig(rawConfig)
 
 	input := rawConfig["engine"].(map[string]any)["cef"].(map[string]any)["input"].(map[string]any)
-	assert.Equal(t, defaultCEFScrollPreciseMultiplier, input["scroll_precise_multiplier"])
+	assert.InDelta(t, defaultCEFScrollPreciseMultiplier, input["scroll_precise_multiplier"], 0.001)
 	assert.NotContains(t, input, "scroll_touchpad_multiplier")
 }
 
@@ -258,7 +258,7 @@ func TestTransformLegacyEngineConfig_PreservesCustomPreciseScrollMultiplier(t *t
 	transformer.TransformLegacyEngineConfig(rawConfig)
 
 	input := rawConfig["engine"].(map[string]any)["cef"].(map[string]any)["input"].(map[string]any)
-	assert.Equal(t, 4.0, input["scroll_precise_multiplier"])
+	assert.InDelta(t, 4.0, input["scroll_precise_multiplier"], 0.001)
 }
 
 func TestTransformLegacyEngineConfig_PreservesCustomLegacyTouchpadScrollMultiplier(t *testing.T) {
@@ -276,7 +276,7 @@ func TestTransformLegacyEngineConfig_PreservesCustomLegacyTouchpadScrollMultipli
 	transformer.TransformLegacyEngineConfig(rawConfig)
 
 	input := rawConfig["engine"].(map[string]any)["cef"].(map[string]any)["input"].(map[string]any)
-	assert.Equal(t, 4.0, input["scroll_precise_multiplier"])
+	assert.InDelta(t, 4.0, input["scroll_precise_multiplier"], 0.001)
 	assert.NotContains(t, input, "scroll_touchpad_multiplier")
 }
 
@@ -296,7 +296,7 @@ func TestTransformLegacyEngineConfig_PrefersCustomLegacyTouchpadOverGeneratedPre
 	transformer.TransformLegacyEngineConfig(rawConfig)
 
 	input := rawConfig["engine"].(map[string]any)["cef"].(map[string]any)["input"].(map[string]any)
-	assert.Equal(t, 4.0, input["scroll_precise_multiplier"])
+	assert.InDelta(t, 4.0, input["scroll_precise_multiplier"], 0.001)
 	assert.NotContains(t, input, "scroll_touchpad_multiplier")
 }
 
