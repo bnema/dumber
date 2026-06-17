@@ -8,9 +8,12 @@ import (
 	"unsafe"
 
 	"github.com/bnema/dumber/internal/application/port"
+	"github.com/bnema/dumber/internal/application/usecase"
 	"github.com/bnema/dumber/internal/domain/entity"
+	"github.com/bnema/dumber/internal/infrastructure/config"
 	"github.com/bnema/dumber/internal/shared/syncdispatch"
 	"github.com/bnema/dumber/internal/ui/component"
+	contentcoord "github.com/bnema/dumber/internal/ui/coordinator/content"
 	"github.com/bnema/dumber/internal/ui/focus"
 	"github.com/bnema/dumber/internal/ui/input"
 	"github.com/bnema/dumber/internal/ui/layout"
@@ -101,6 +104,171 @@ func TestApp_CleanupCreatedBrowserWindowsDetachesUnregisteredWindowBeforeDestroy
 	if got := app.browserWindows[fallback.id]; got != fallback {
 		t.Fatalf("fallback browser window changed during transient cleanup: got %p want %p", got, fallback)
 	}
+}
+
+type recordingWebViewPool struct {
+	released []port.WebView
+}
+
+func (p *recordingWebViewPool) Acquire(context.Context) (port.WebView, error) {
+	return nil, errors.New("not implemented")
+}
+func (p *recordingWebViewPool) Release(wv port.WebView)           { p.released = append(p.released, wv) }
+func (p *recordingWebViewPool) Prewarm(int)                       {}
+func (p *recordingWebViewPool) PrewarmAsync(context.Context, int) {}
+func (p *recordingWebViewPool) Size() int                         { return 0 }
+func (p *recordingWebViewPool) Close()                            {}
+
+func TestTabCoordinator_CloseReleasesClosedTabWorkspaceWebViews(t *testing.T) {
+	ctx := context.Background()
+	closedTab := entity.NewTab(entity.TabID("tab-x"), entity.WorkspaceID("workspace-x"), entity.NewPane(entity.PaneID("pane-x")))
+	survivingTab := entity.NewTab(entity.TabID("tab-survivor"), entity.WorkspaceID("workspace-survivor"), entity.NewPane(entity.PaneID("pane-survivor")))
+	tabs := entity.NewTabList()
+	tabs.Add(closedTab)
+	tabs.Add(survivingTab)
+	tabs.SetActive(closedTab.ID)
+
+	pool := &recordingWebViewPool{}
+	contentCoord := contentcoord.NewCoordinator(ctx, pool, nil, nil, nil, nil, nil, nil)
+	closedWV := &fakeRecordingWebView{id: 101}
+	survivingWV := &fakeRecordingWebView{id: 102}
+	contentCoord.RegisterPopupWebView(closedTab.Workspace.ActivePaneID, closedWV)
+	contentCoord.RegisterPopupWebView(survivingTab.Workspace.ActivePaneID, survivingWV)
+
+	bw := &browserWindow{id: "window-1", tabs: tabs}
+	app := &App{
+		deps:             &Dependencies{Config: config.DefaultConfig()},
+		tabsUC:           usecase.NewManageTabsUseCase(counterIDGen()),
+		contentCoord:     contentCoord,
+		browserWindows:   map[string]*browserWindow{bw.id: bw},
+		tabs:             entity.NewTabList(),
+		workspaceViews:   map[entity.TabID]*component.WorkspaceView{closedTab.ID: {}, survivingTab.ID: {}},
+		windowForTab:     map[entity.TabID]*browserWindow{closedTab.ID: bw, survivingTab.ID: bw},
+		floatingSessions: map[floatingSessionKey]*floatingWorkspaceSession{},
+	}
+	app.tabs.Add(closedTab)
+	app.tabs.Add(survivingTab)
+	app.initTabCoordinator(ctx)
+
+	require.NoError(t, app.tabCoord.Close(ctx, app.ensureTabTargetForBrowserWindow(bw)))
+
+	require.Len(t, pool.released, 1)
+	assert.Same(t, closedWV, pool.released[0])
+	assert.Nil(t, contentCoord.GetWebView(closedTab.Workspace.ActivePaneID))
+	assert.Same(t, survivingWV, contentCoord.GetWebView(survivingTab.Workspace.ActivePaneID))
+	assert.Nil(t, app.workspaceViews[closedTab.ID])
+	assert.Nil(t, app.windowForTab[closedTab.ID])
+	assert.Nil(t, app.tabs.Find(closedTab.ID))
+	assert.Equal(t, survivingTab.ID, tabs.ActiveTabID)
+}
+
+func TestTabCoordinator_SwitchDoesNotReleaseWorkspaceWebViews(t *testing.T) {
+	ctx := context.Background()
+	firstTab := entity.NewTab(entity.TabID("tab-first"), entity.WorkspaceID("workspace-first"), entity.NewPane(entity.PaneID("pane-first")))
+	secondTab := entity.NewTab(entity.TabID("tab-second"), entity.WorkspaceID("workspace-second"), entity.NewPane(entity.PaneID("pane-second")))
+	tabs := entity.NewTabList()
+	tabs.Add(firstTab)
+	tabs.Add(secondTab)
+	tabs.SetActive(firstTab.ID)
+
+	pool := &recordingWebViewPool{}
+	contentCoord := contentcoord.NewCoordinator(ctx, pool, nil, nil, nil, nil, nil, nil)
+	firstWV := &fakeRecordingWebView{id: 111}
+	secondWV := &fakeRecordingWebView{id: 112}
+	contentCoord.RegisterPopupWebView(firstTab.Workspace.ActivePaneID, firstWV)
+	contentCoord.RegisterPopupWebView(secondTab.Workspace.ActivePaneID, secondWV)
+
+	bw := &browserWindow{id: "window-1", tabs: tabs}
+	app := &App{
+		deps:             &Dependencies{Config: config.DefaultConfig()},
+		tabsUC:           usecase.NewManageTabsUseCase(counterIDGen()),
+		contentCoord:     contentCoord,
+		browserWindows:   map[string]*browserWindow{bw.id: bw},
+		tabs:             entity.NewTabList(),
+		workspaceViews:   map[entity.TabID]*component.WorkspaceView{firstTab.ID: {}, secondTab.ID: {}},
+		windowForTab:     map[entity.TabID]*browserWindow{firstTab.ID: bw, secondTab.ID: bw},
+		floatingSessions: map[floatingSessionKey]*floatingWorkspaceSession{},
+	}
+	app.tabs.Add(firstTab)
+	app.tabs.Add(secondTab)
+	app.initTabCoordinator(ctx)
+
+	require.NoError(t, app.tabCoord.Switch(ctx, app.ensureTabTargetForBrowserWindow(bw), secondTab.ID))
+
+	assert.Empty(t, pool.released)
+	assert.Same(t, firstWV, contentCoord.GetWebView(firstTab.Workspace.ActivePaneID))
+	assert.Same(t, secondWV, contentCoord.GetWebView(secondTab.Workspace.ActivePaneID))
+}
+
+func TestTabCoordinator_CloseLastTabReleasesWorkspaceBeforeWindowRemoval(t *testing.T) {
+	ctx := context.Background()
+	closedTab := entity.NewTab(entity.TabID("tab-only"), entity.WorkspaceID("workspace-only"), entity.NewPane(entity.PaneID("pane-only")))
+	tabs := entity.NewTabList()
+	tabs.Add(closedTab)
+	tabs.SetActive(closedTab.ID)
+
+	pool := &recordingWebViewPool{}
+	contentCoord := contentcoord.NewCoordinator(ctx, pool, nil, nil, nil, nil, nil, nil)
+	closedWV := &fakeRecordingWebView{id: 121}
+	contentCoord.RegisterPopupWebView(closedTab.Workspace.ActivePaneID, closedWV)
+
+	bw := &browserWindow{id: "window-1", tabs: tabs}
+	app := &App{
+		deps:             &Dependencies{Config: config.DefaultConfig()},
+		tabsUC:           usecase.NewManageTabsUseCase(counterIDGen()),
+		contentCoord:     contentCoord,
+		browserWindows:   map[string]*browserWindow{bw.id: bw},
+		tabs:             entity.NewTabList(),
+		workspaceViews:   map[entity.TabID]*component.WorkspaceView{closedTab.ID: {}},
+		windowForTab:     map[entity.TabID]*browserWindow{closedTab.ID: bw},
+		floatingSessions: map[floatingSessionKey]*floatingWorkspaceSession{},
+	}
+	app.tabs.Add(closedTab)
+	app.initTabCoordinator(ctx)
+
+	require.NoError(t, app.tabCoord.Close(ctx, app.ensureTabTargetForBrowserWindow(bw)))
+
+	require.Len(t, pool.released, 1)
+	assert.Same(t, closedWV, pool.released[0])
+	assert.Nil(t, contentCoord.GetWebView(closedTab.Workspace.ActivePaneID))
+	assert.Empty(t, app.browserWindows)
+	assert.Nil(t, app.workspaceViews[closedTab.ID])
+	assert.Nil(t, app.windowForTab[closedTab.ID])
+}
+
+func TestBrowserWindow_RemoveBrowserWindowReleasesOwnedTabWorkspaceWebViews(t *testing.T) {
+	ctx := context.Background()
+	ownedTab := entity.NewTab(entity.TabID("tab-owned"), entity.WorkspaceID("workspace-owned"), entity.NewPane(entity.PaneID("pane-owned")))
+	otherTab := entity.NewTab(entity.TabID("tab-other"), entity.WorkspaceID("workspace-other"), entity.NewPane(entity.PaneID("pane-other")))
+	removed := &browserWindow{id: "window-1", tabs: entity.NewTabList()}
+	remaining := &browserWindow{id: "window-2", tabs: entity.NewTabList()}
+	removed.tabs.Add(ownedTab)
+	remaining.tabs.Add(otherTab)
+
+	pool := &recordingWebViewPool{}
+	contentCoord := contentcoord.NewCoordinator(ctx, pool, nil, nil, nil, nil, nil, nil)
+	ownedWV := &fakeRecordingWebView{id: 201}
+	otherWV := &fakeRecordingWebView{id: 202}
+	contentCoord.RegisterPopupWebView(ownedTab.Workspace.ActivePaneID, ownedWV)
+	contentCoord.RegisterPopupWebView(otherTab.Workspace.ActivePaneID, otherWV)
+
+	app := &App{
+		contentCoord:     contentCoord,
+		browserWindows:   map[string]*browserWindow{removed.id: removed, remaining.id: remaining},
+		tabs:             entity.NewTabList(),
+		workspaceViews:   map[entity.TabID]*component.WorkspaceView{ownedTab.ID: {}, otherTab.ID: {}},
+		windowForTab:     map[entity.TabID]*browserWindow{ownedTab.ID: removed, otherTab.ID: remaining},
+		floatingSessions: map[floatingSessionKey]*floatingWorkspaceSession{},
+	}
+	app.tabs.Add(ownedTab)
+	app.tabs.Add(otherTab)
+
+	app.removeBrowserWindow(removed.id)
+
+	require.Len(t, pool.released, 1)
+	assert.Same(t, ownedWV, pool.released[0])
+	assert.Nil(t, contentCoord.GetWebView(ownedTab.Workspace.ActivePaneID))
+	assert.Same(t, otherWV, contentCoord.GetWebView(otherTab.Workspace.ActivePaneID))
 }
 
 func TestBrowserWindow_RemoveBrowserWindowCleansOwnedTabState(t *testing.T) {

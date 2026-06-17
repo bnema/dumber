@@ -296,6 +296,30 @@ func (a *App) registerBrowserWindow(bw *browserWindow) {
 	a.browserWindowOrder = append(a.browserWindowOrder, bw.id)
 }
 
+func (a *App) releaseTabWorkspace(ctx context.Context, tab *entity.Tab) {
+	if tab == nil {
+		return
+	}
+	if ctx == nil {
+		ctx = context.Background()
+	}
+
+	a.releaseFloatingSessionsForTab(ctx, tab.ID)
+	if a.contentCoord != nil && tab.Workspace != nil {
+		for _, pane := range tab.Workspace.AllPanes() {
+			if pane == nil {
+				continue
+			}
+			a.contentCoord.ReleaseWebView(ctx, pane.ID)
+		}
+	}
+	delete(a.workspaceViews, tab.ID)
+	delete(a.windowForTab, tab.ID)
+	if a.tabs != nil && a.tabs.Find(tab.ID) != nil {
+		a.tabs.Remove(tab.ID)
+	}
+}
+
 func (a *App) removeBrowserWindow(id string) {
 	if id == "" || a.browserWindows == nil {
 		return
@@ -310,18 +334,42 @@ func (a *App) removeBrowserWindow(id string) {
 		}
 	}
 	wasMainWindow := removed != nil && removed.mainWindow == a.mainWindow
-	ownedTabIDs := make([]entity.TabID, 0)
-	for tabID, bw := range a.windowForTab {
-		if bw != nil && bw.id == id {
-			ownedTabIDs = append(ownedTabIDs, tabID)
+	ownedTabs := make(map[entity.TabID]*entity.Tab)
+	if removed != nil && removed.tabs != nil {
+		for _, tab := range removed.tabs.Tabs {
+			if tab != nil {
+				ownedTabs[tab.ID] = tab
+			}
 		}
 	}
+	for tabID, bw := range a.windowForTab {
+		if bw != nil && bw.id == id {
+			if bw.tabs != nil {
+				if tab := bw.tabs.Find(tabID); tab != nil {
+					ownedTabs[tabID] = tab
+					continue
+				}
+			}
+			if a.tabs != nil {
+				ownedTabs[tabID] = a.tabs.Find(tabID)
+			}
+		}
+	}
+	ownedTabIDs := make([]entity.TabID, 0, len(ownedTabs))
+	for tabID := range ownedTabs {
+		ownedTabIDs = append(ownedTabIDs, tabID)
+	}
+	sort.Slice(ownedTabIDs, func(i, j int) bool { return ownedTabIDs[i] < ownedTabIDs[j] })
 	for _, tabID := range ownedTabIDs {
-		a.releaseFloatingSessionsForTab(context.Background(), tabID)
-		delete(a.workspaceViews, tabID)
-		delete(a.windowForTab, tabID)
-		if a.tabs != nil && a.tabs.Find(tabID) != nil {
-			a.tabs.Remove(tabID)
+		a.releaseTabWorkspace(context.Background(), ownedTabs[tabID])
+	}
+	for tabID, bw := range a.windowForTab {
+		if bw != nil && bw.id == id {
+			delete(a.workspaceViews, tabID)
+			delete(a.windowForTab, tabID)
+			if a.tabs != nil && a.tabs.Find(tabID) != nil {
+				a.tabs.Remove(tabID)
+			}
 		}
 	}
 	if removed != nil {
