@@ -32,6 +32,7 @@ type TabCoordinator struct {
 	// Callbacks to avoid circular dependencies
 	onTabCreated         func(ctx context.Context, target TabTarget, tab *entity.Tab)
 	onTabSwitched        func(ctx context.Context, target TabTarget, tab *entity.Tab)
+	onTabClosed          func(ctx context.Context, target TabTarget, tab *entity.Tab)
 	onQuit               func()
 	onCurrentWindowEmpty func(ctx context.Context, target TabTarget)
 	onAttachPopupToTab   func(ctx context.Context, tabID entity.TabID, pane *entity.Pane, wv port.WebView) // For popup tabs
@@ -85,6 +86,11 @@ func (c *TabCoordinator) SetOnTabCreated(fn func(ctx context.Context, target Tab
 // This is used to swap workspace views in the content area.
 func (c *TabCoordinator) SetOnTabSwitched(fn func(ctx context.Context, target TabTarget, tab *entity.Tab)) {
 	c.onTabSwitched = fn
+}
+
+// SetOnTabClosed sets the callback for when a tab is removed from its target.
+func (c *TabCoordinator) SetOnTabClosed(fn func(ctx context.Context, target TabTarget, tab *entity.Tab)) {
+	c.onTabClosed = fn
 }
 
 // SetOnQuit sets the callback for when the last tab is closed.
@@ -236,10 +242,15 @@ func (c *TabCoordinator) Close(ctx context.Context, target TabTarget) error {
 		}
 	}
 
+	closedTab := target.Tabs.Find(activeID)
 	wasLast, err := c.tabsUC.Close(ctx, target.Tabs, activeID)
 	if err != nil {
 		log.Error().Err(err).Msg("failed to close tab")
 		return err
+	}
+
+	if c.onTabClosed != nil && closedTab != nil {
+		c.onTabClosed(ctx, target, closedTab)
 	}
 
 	if target.MainWindow != nil && target.MainWindow.TabBar() != nil {

@@ -296,34 +296,39 @@ func (a *App) registerBrowserWindow(bw *browserWindow) {
 	a.browserWindowOrder = append(a.browserWindowOrder, bw.id)
 }
 
+func (a *App) releaseTabWorkspace(ctx context.Context, tab *entity.Tab) {
+	if tab == nil {
+		return
+	}
+	if ctx == nil {
+		ctx = context.Background()
+	}
+
+	a.releaseFloatingSessionsForTab(ctx, tab.ID)
+	if a.contentCoord != nil && tab.Workspace != nil {
+		for _, pane := range tab.Workspace.AllPanes() {
+			if pane == nil {
+				continue
+			}
+			a.contentCoord.ReleaseWebView(ctx, pane.ID)
+		}
+	}
+	delete(a.workspaceViews, tab.ID)
+	delete(a.windowForTab, tab.ID)
+	if a.tabs != nil && a.tabs.Find(tab.ID) != nil {
+		a.tabs.Remove(tab.ID)
+	}
+}
+
 func (a *App) removeBrowserWindow(id string) {
 	if id == "" || a.browserWindows == nil {
 		return
 	}
 	removed := a.browserWindows[id]
-
-	// Remove from registration order
-	for i, wid := range a.browserWindowOrder {
-		if wid == id {
-			a.browserWindowOrder = append(a.browserWindowOrder[:i], a.browserWindowOrder[i+1:]...)
-			break
-		}
-	}
 	wasMainWindow := removed != nil && removed.mainWindow == a.mainWindow
-	ownedTabIDs := make([]entity.TabID, 0)
-	for tabID, bw := range a.windowForTab {
-		if bw != nil && bw.id == id {
-			ownedTabIDs = append(ownedTabIDs, tabID)
-		}
-	}
-	for _, tabID := range ownedTabIDs {
-		a.releaseFloatingSessionsForTab(context.Background(), tabID)
-		delete(a.workspaceViews, tabID)
-		delete(a.windowForTab, tabID)
-		if a.tabs != nil && a.tabs.Find(tabID) != nil {
-			a.tabs.Remove(tabID)
-		}
-	}
+
+	a.removeBrowserWindowOrder(id)
+	a.releaseBrowserWindowTabs(context.Background(), id, removed)
 	if removed != nil {
 		removed.teardownForDestroy()
 	}
@@ -331,27 +336,107 @@ func (a *App) removeBrowserWindow(id string) {
 		a.contentCoord.ClearPopupNamedContextsForWindow(id)
 	}
 	delete(a.browserWindows, id)
+
 	fallback := a.deterministicBrowserWindowFallback()
-	if a.lastFocusedWindowID == id {
-		if fallback != nil {
-			a.lastFocusedWindowID = fallback.id
-		} else {
-			a.lastFocusedWindowID = ""
-		}
-	}
+	a.updateLastFocusedWindowAfterRemoval(id, fallback)
 	if wasMainWindow {
-		a.clearResizeModeBorder()
-		if fallback != nil {
-			a.activateBrowserWindow(fallback)
+		a.clearMainBrowserWindowAfterRemoval(fallback)
+	}
+}
+
+func (a *App) removeBrowserWindowOrder(id string) {
+	for i, wid := range a.browserWindowOrder {
+		if wid == id {
+			a.browserWindowOrder = append(a.browserWindowOrder[:i], a.browserWindowOrder[i+1:]...)
 			return
 		}
-		a.lastFocusedWindowID = ""
-		a.mainWindow = nil
-		a.keyboardHandler = nil
-		a.globalShortcutHandler = nil
-		if a.tabCoord != nil {
-			a.tabCoord.SetCurrentTarget(coordinator.TabTarget{})
+	}
+}
+
+func (a *App) releaseBrowserWindowTabs(ctx context.Context, windowID string, bw *browserWindow) {
+	ownedTabs := a.collectBrowserWindowTabs(windowID, bw)
+	for _, tabID := range sortedTabIDs(ownedTabs) {
+		a.releaseTabWorkspace(ctx, ownedTabs[tabID])
+	}
+	a.cleanupStaleTabMappingsForWindow(windowID)
+}
+
+func (a *App) collectBrowserWindowTabs(windowID string, bw *browserWindow) map[entity.TabID]*entity.Tab {
+	ownedTabs := make(map[entity.TabID]*entity.Tab)
+	if bw != nil && bw.tabs != nil {
+		for _, tab := range bw.tabs.Tabs {
+			if tab != nil {
+				ownedTabs[tab.ID] = tab
+			}
 		}
+	}
+	for tabID, owner := range a.windowForTab {
+		if owner == nil || owner.id != windowID {
+			continue
+		}
+		if tab := tabFromBrowserWindow(owner, tabID); tab != nil {
+			ownedTabs[tabID] = tab
+			continue
+		}
+		if a.tabs != nil {
+			ownedTabs[tabID] = a.tabs.Find(tabID)
+		}
+	}
+	return ownedTabs
+}
+
+func tabFromBrowserWindow(bw *browserWindow, tabID entity.TabID) *entity.Tab {
+	if bw == nil || bw.tabs == nil {
+		return nil
+	}
+	return bw.tabs.Find(tabID)
+}
+
+func sortedTabIDs(tabs map[entity.TabID]*entity.Tab) []entity.TabID {
+	ids := make([]entity.TabID, 0, len(tabs))
+	for tabID := range tabs {
+		ids = append(ids, tabID)
+	}
+	sort.Slice(ids, func(i, j int) bool { return ids[i] < ids[j] })
+	return ids
+}
+
+func (a *App) cleanupStaleTabMappingsForWindow(windowID string) {
+	for tabID, bw := range a.windowForTab {
+		if bw == nil || bw.id != windowID {
+			continue
+		}
+		delete(a.workspaceViews, tabID)
+		delete(a.windowForTab, tabID)
+		if a.tabs != nil && a.tabs.Find(tabID) != nil {
+			a.tabs.Remove(tabID)
+		}
+	}
+}
+
+func (a *App) updateLastFocusedWindowAfterRemoval(removedID string, fallback *browserWindow) {
+	if a.lastFocusedWindowID != removedID {
+		return
+	}
+	if fallback != nil {
+		a.lastFocusedWindowID = fallback.id
+		return
+	}
+	a.lastFocusedWindowID = ""
+}
+
+func (a *App) clearMainBrowserWindowAfterRemoval(fallback *browserWindow) {
+	a.clearResizeModeBorder()
+	if fallback != nil {
+		a.activateBrowserWindow(fallback)
+		return
+	}
+	a.lastFocusedWindowID = ""
+	a.mainWindow = nil
+	a.keyboardHandler = nil
+	a.globalShortcutHandler = nil
+	if a.tabCoord != nil {
+		a.tabCoord.SetCurrentTarget(coordinator.TabTarget{})
 	}
 }
 

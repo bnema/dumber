@@ -3222,6 +3222,9 @@ func (a *App) initTabCoordinator(ctx context.Context) {
 		}
 		a.switchWorkspaceView(ctx, tab.ID)
 	})
+	a.tabCoord.SetOnTabClosed(func(ctx context.Context, _ coordinator.TabTarget, tab *entity.Tab) {
+		a.releaseTabWorkspace(ctx, tab)
+	})
 	a.tabCoord.SetOnStateChanged(a.MarkDirty)
 	// Per-window tab ownership is now enforced through explicit TabTarget.
 	// The per-window TabList (bw.tabs) is the source of truth; no scope filtering needed.
