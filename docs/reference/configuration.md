@@ -78,6 +78,8 @@
 | `engine.cef.input.touchpad_navigation_max_vertical_ratio` | float | `0.5` | > 0 |
 | `default_ui_scale` | float | `1.0` | > 0 |
 
+Touchpad vertical scroll speed is controlled by `engine.cef.input.scroll_precise_multiplier` and the additional axis-specific `engine.cef.input.scroll_vertical_multiplier`. `engine.cef.input.touchpad_navigation_max_vertical_ratio` only filters horizontal back/forward swipe recognition; it does not tune vertical scroll speed.
+
 `engine.cef.input.touchpad_navigation_min_delta` is measured in raw GTK touchpad surface units. The default `200.0` matches WebKit-style commit distance to reduce accidental back/forward navigation and can be overridden in `config.toml`.
 | `default_webpage_zoom` | float | `1.2` | > 0 |
 | `workspace.new_pane_url` | string | `about:blank` | |

@@ -206,6 +206,100 @@ func TestTransformLegacyEngineConfig_MigratesLegacyCEFWindowlessFrameRateDefault
 	assert.Equal(t, defaultCEFWindowlessFrameRateMax, cef["windowless_frame_rate_max"])
 }
 
+func TestTransformLegacyEngineConfig_UpgradesObsoletePreciseScrollDefault(t *testing.T) {
+	transformer := NewLegacyConfigTransformer()
+	rawConfig := map[string]any{
+		"engine": map[string]any{
+			"cef": map[string]any{
+				"input": map[string]any{
+					"scroll_precise_multiplier": 0.35,
+				},
+			},
+		},
+	}
+
+	transformer.TransformLegacyEngineConfig(rawConfig)
+
+	input := rawConfig["engine"].(map[string]any)["cef"].(map[string]any)["input"].(map[string]any)
+	assert.Equal(t, defaultCEFScrollPreciseMultiplier, input["scroll_precise_multiplier"])
+}
+
+func TestTransformLegacyEngineConfig_MigratesLegacyTouchpadScrollKey(t *testing.T) {
+	transformer := NewLegacyConfigTransformer()
+	rawConfig := map[string]any{
+		"engine": map[string]any{
+			"cef": map[string]any{
+				"input": map[string]any{
+					"scroll_touchpad_multiplier": 0.35,
+				},
+			},
+		},
+	}
+
+	transformer.TransformLegacyEngineConfig(rawConfig)
+
+	input := rawConfig["engine"].(map[string]any)["cef"].(map[string]any)["input"].(map[string]any)
+	assert.Equal(t, defaultCEFScrollPreciseMultiplier, input["scroll_precise_multiplier"])
+	assert.NotContains(t, input, "scroll_touchpad_multiplier")
+}
+
+func TestTransformLegacyEngineConfig_PreservesCustomPreciseScrollMultiplier(t *testing.T) {
+	transformer := NewLegacyConfigTransformer()
+	rawConfig := map[string]any{
+		"engine": map[string]any{
+			"cef": map[string]any{
+				"input": map[string]any{
+					"scroll_precise_multiplier": 4.0,
+				},
+			},
+		},
+	}
+
+	transformer.TransformLegacyEngineConfig(rawConfig)
+
+	input := rawConfig["engine"].(map[string]any)["cef"].(map[string]any)["input"].(map[string]any)
+	assert.Equal(t, 4.0, input["scroll_precise_multiplier"])
+}
+
+func TestTransformLegacyEngineConfig_PreservesCustomLegacyTouchpadScrollMultiplier(t *testing.T) {
+	transformer := NewLegacyConfigTransformer()
+	rawConfig := map[string]any{
+		"engine": map[string]any{
+			"cef": map[string]any{
+				"input": map[string]any{
+					"scroll_touchpad_multiplier": 4.0,
+				},
+			},
+		},
+	}
+
+	transformer.TransformLegacyEngineConfig(rawConfig)
+
+	input := rawConfig["engine"].(map[string]any)["cef"].(map[string]any)["input"].(map[string]any)
+	assert.Equal(t, 4.0, input["scroll_precise_multiplier"])
+	assert.NotContains(t, input, "scroll_touchpad_multiplier")
+}
+
+func TestTransformLegacyEngineConfig_PrefersCustomLegacyTouchpadOverGeneratedPreciseDefault(t *testing.T) {
+	transformer := NewLegacyConfigTransformer()
+	rawConfig := map[string]any{
+		"engine": map[string]any{
+			"cef": map[string]any{
+				"input": map[string]any{
+					"scroll_touchpad_multiplier": 4.0,
+					"scroll_precise_multiplier":  0.35,
+				},
+			},
+		},
+	}
+
+	transformer.TransformLegacyEngineConfig(rawConfig)
+
+	input := rawConfig["engine"].(map[string]any)["cef"].(map[string]any)["input"].(map[string]any)
+	assert.Equal(t, 4.0, input["scroll_precise_multiplier"])
+	assert.NotContains(t, input, "scroll_touchpad_multiplier")
+}
+
 func TestTransformLegacyEngineConfig_PreservesExplicitCEFWindowlessFrameRate(t *testing.T) {
 	transformer := NewLegacyConfigTransformer()
 	rawConfig := map[string]any{

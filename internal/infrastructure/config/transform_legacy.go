@@ -69,6 +69,52 @@ func (*LegacyConfigTransformer) transformLegacyEngineConfig(rawConfig map[string
 
 	delete(cef, "enable_context_menu_handler")
 	migrateLegacyCEFWindowlessFrameRateDefault(cef, hasAdaptive, adaptiveEnabled)
+	migrateLegacyCEFInputScrollDefaults(cef)
+}
+
+const legacyCEFScrollTouchpadMultiplierDefault = 0.35
+
+func migrateLegacyCEFInputScrollDefaults(cef map[string]any) {
+	input, ok := cef["input"].(map[string]any)
+	if !ok {
+		return
+	}
+
+	if legacyTouchpad, hasLegacyTouchpad := input["scroll_touchpad_multiplier"]; hasLegacyTouchpad {
+		if precise, hasPrecise := input["scroll_precise_multiplier"]; !hasPrecise {
+			input["scroll_precise_multiplier"] = migratedCEFPreciseScrollMultiplier(legacyTouchpad)
+		} else if shouldPreferLegacyTouchpadScrollMultiplier(legacyTouchpad, precise) {
+			input["scroll_precise_multiplier"] = legacyTouchpad
+		}
+		delete(input, "scroll_touchpad_multiplier")
+	}
+
+	if current, hasPrecise := input["scroll_precise_multiplier"]; hasPrecise {
+		input["scroll_precise_multiplier"] = migratedCEFPreciseScrollMultiplier(current)
+	}
+}
+
+func shouldPreferLegacyTouchpadScrollMultiplier(legacyTouchpad, precise any) bool {
+	legacyMultiplier, legacyOK := float64ConfigValue(legacyTouchpad)
+	preciseMultiplier, preciseOK := float64ConfigValue(precise)
+	if !legacyOK || !preciseOK {
+		return false
+	}
+	return !sameConfigFloat(legacyMultiplier, legacyCEFScrollTouchpadMultiplierDefault) &&
+		(sameConfigFloat(preciseMultiplier, defaultCEFScrollPreciseMultiplier) ||
+			sameConfigFloat(preciseMultiplier, legacyCEFScrollTouchpadMultiplierDefault))
+}
+
+func migratedCEFPreciseScrollMultiplier(value any) any {
+	multiplier, ok := float64ConfigValue(value)
+	if !ok || !sameConfigFloat(multiplier, legacyCEFScrollTouchpadMultiplierDefault) {
+		return value
+	}
+	return defaultCEFScrollPreciseMultiplier
+}
+
+func sameConfigFloat(a, b float64) bool {
+	return math.Abs(a-b) <= 0.000001
 }
 
 func migrateLegacyCEFWindowlessFrameRateDefault(cef map[string]any, hasAdaptive, adaptiveEnabled bool) {
@@ -104,6 +150,37 @@ func nestedConfigBoolValue(rawConfig map[string]any, path ...string) (bool, bool
 		current = next
 	}
 	return false, false
+}
+
+func float64ConfigValue(value any) (float64, bool) {
+	switch v := value.(type) {
+	case float32:
+		return float64(v), true
+	case float64:
+		return v, true
+	case int:
+		return float64(v), true
+	case int8:
+		return float64(v), true
+	case int16:
+		return float64(v), true
+	case int32:
+		return float64(v), true
+	case int64:
+		return float64(v), true
+	case uint:
+		return float64(v), true
+	case uint8:
+		return float64(v), true
+	case uint16:
+		return float64(v), true
+	case uint32:
+		return float64(v), true
+	case uint64:
+		return float64(v), true
+	default:
+		return 0, false
+	}
 }
 
 func int64ConfigValue(value any) (int64, bool) {

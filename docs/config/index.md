@@ -267,14 +267,16 @@ When Noctalia rewrites the watched file, Dumber reapplies the same resolved them
 | `engine.cef.windowless_frame_rate` | int32 | `0` | >= 0 | Explicit CEF OSR FPS cap; 0 uses adaptive mode if enabled, otherwise CEF default |
 | `engine.cef.windowless_frame_rate_max` | int32 | `240` | >= 0 | Hard cap for adaptive CEF OSR FPS; 0 falls back to the built-in default cap selected by Dumber/CEF |
 | `engine.cef.input.scroll_wheel_multiplier` | float | `1.0` | > 0 | Mouse wheel scroll sensitivity multiplier |
-| `engine.cef.input.scroll_precise_multiplier` | float | `2.5` | > 0 | Precise/surface scroll sensitivity multiplier |
+| `engine.cef.input.scroll_precise_multiplier` | float | `2.5` | > 0 | Precise/surface scroll sensitivity multiplier for touchpads and high-resolution wheels |
 | `engine.cef.input.scroll_horizontal_multiplier` | float | `1.0` | > 0 | Horizontal scroll sensitivity multiplier |
-| `engine.cef.input.scroll_vertical_multiplier` | float | `1.0` | > 0 | Vertical scroll sensitivity multiplier |
+| `engine.cef.input.scroll_vertical_multiplier` | float | `1.0` | > 0 | Vertical scroll sensitivity multiplier; touchpad vertical speed uses this together with `scroll_precise_multiplier` |
 | `engine.cef.input.scroll_max_delta` | int32 | `0` | >= 0 | Maximum absolute scroll delta after scaling; 0 disables clamping |
 | `engine.cef.input.touchpad_navigation_enabled` | bool | `true` | - | Enable two-finger touchpad swipe back/forward navigation |
 | `engine.cef.input.touchpad_navigation_min_delta` | float | `200.0` | > 0 | Minimum accumulated horizontal swipe delta required for navigation |
-| `engine.cef.input.touchpad_navigation_max_vertical_ratio` | float | `0.5` | > 0 | Maximum vertical-to-horizontal delta ratio allowed for navigation swipes |
+| `engine.cef.input.touchpad_navigation_max_vertical_ratio` | float | `0.5` | > 0 | Maximum vertical-to-horizontal delta ratio allowed for navigation swipes; does not affect vertical scroll speed |
 | `default_ui_scale` | float | `1.0` | > 0 | GTK widget UI scale (1.0=100%, 2.0=200%) |
+
+`engine.cef.input.scroll_precise_multiplier` controls touchpad/high-resolution wheel scroll speed, and `engine.cef.input.scroll_vertical_multiplier` applies an additional vertical-only scale. `engine.cef.input.touchpad_navigation_max_vertical_ratio` only filters horizontal back/forward swipe recognition; it does not tune vertical scroll speed.
 
 `engine.cef.input.touchpad_navigation_min_delta` uses raw GTK touchpad surface units for back/forward gestures. The default `200.0` matches WebKit-style commit distance to reduce accidental navigation; raise or lower it in `config.toml` to tune gesture sensitivity.
 | `default_webpage_zoom` | float | `1.2` | > 0 | Default page zoom (1.0=100%, 1.2=120%) |

@@ -1497,7 +1497,7 @@ func (wv *WebView) bridgeInputOptions() cef2gtk.InputOptions {
 }
 
 func (wv *WebView) handleScrollInputDiagnostic(event cef2gtk.ScrollEvent) cef2gtk.ScrollDecision {
-	if event.Phase != cef2gtk.ScrollPhaseUpdate || math.Abs(event.DX) == 0 {
+	if event.Phase != cef2gtk.ScrollPhaseUpdate || (math.Abs(event.DX) == 0 && math.Abs(event.DY) == 0) {
 		return cef2gtk.ScrollForwardToCEF
 	}
 
@@ -1533,12 +1533,17 @@ func (wv *WebView) handleScrollInputDiagnostic(event cef2gtk.ScrollEvent) cef2gt
 		Float64("dy_sum", dy).
 		Int64("cef_delta_x_sum", deltaX).
 		Int64("cef_delta_y_sum", deltaY).
+		Float64("scroll_wheel_multiplier", wv.inputConfig.ScrollWheelMultiplier).
+		Float64("scroll_precise_multiplier", wv.inputConfig.ScrollPreciseMultiplier).
+		Float64("scroll_horizontal_multiplier", wv.inputConfig.ScrollHorizontalMultiplier).
+		Float64("scroll_vertical_multiplier", wv.inputConfig.ScrollVerticalMultiplier).
+		Int32("scroll_max_delta", wv.inputConfig.ScrollMaxDelta).
 		Bool("nav_enabled", wv.inputConfig.TouchpadNavigationEnabled).
 		Float64("nav_min_delta", wv.inputConfig.TouchpadNavigationMinDelta).
 		Float64("nav_max_vertical_ratio", wv.inputConfig.TouchpadNavigationMaxVerticalRatio).
 		Bool("can_go_back", wv.CanGoBack()).
 		Bool("can_go_forward", wv.CanGoForward()).
-		Msg("cef: touchpad horizontal scroll diagnostic")
+		Msg("cef: touchpad scroll diagnostic")
 
 	return cef2gtk.ScrollForwardToCEF
 }
