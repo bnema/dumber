@@ -1,8 +1,11 @@
 package cef
 
 import (
+	"context"
 	"testing"
 
+	"github.com/bnema/purego-cef2gtk"
+	"github.com/bnema/puregotk/v4/gdk"
 	"github.com/bnema/puregotk/v4/gtk"
 	"github.com/stretchr/testify/require"
 )
@@ -42,4 +45,26 @@ func TestWebViewBridgeInputOptions_LeavesTargetSelectionToAdapter(t *testing.T) 
 	require.NotNil(t, opts.SelectionText)
 	require.NotNil(t, opts.OnClipboardShortcut)
 	require.Same(t, nativeWidget, wv.nativeWidget)
+}
+
+func TestWebViewHandleScrollInput_ForwardsOrdinaryHorizontalScroll(t *testing.T) {
+	wv := &WebView{
+		ctx: context.Background(),
+		inputConfig: RuntimeInputConfig{
+			TouchpadNavigationEnabled:          true,
+			TouchpadNavigationMinDelta:         200,
+			TouchpadNavigationMaxVerticalRatio: 0.5,
+		},
+		canGoBack: true,
+	}
+
+	decision := wv.handleScrollInput(cef2gtk.ScrollEvent{
+		Phase:     cef2gtk.ScrollPhaseUpdate,
+		X:         500,
+		DX:        -240,
+		Unit:      gdk.ScrollUnitSurfaceValue,
+		UnitKnown: true,
+	})
+
+	require.Equal(t, cef2gtk.ScrollForwardToCEF, decision)
 }
