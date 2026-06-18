@@ -311,6 +311,18 @@ func (mw *MainWindow) AddOverlay(widget *gtk.Widget) {
 	}
 }
 
+// AddNonMeasuringOverlay adds a widget as a visual overlay that does not affect
+// content measurement or get clipped to the main child allocation. Use this for
+// transient indicators that should float above the WebView.
+func (mw *MainWindow) AddNonMeasuringOverlay(widget *gtk.Widget) {
+	if mw.contentOverlay == nil || widget == nil {
+		return
+	}
+	mw.contentOverlay.AddOverlay(widget)
+	mw.contentOverlay.SetClipOverlay(widget, false)
+	mw.contentOverlay.SetMeasureOverlay(widget, false)
+}
+
 // Destroy releases all GTK resources held by the window.
 func (mw *MainWindow) Destroy() {
 	if mw.tabBar != nil {

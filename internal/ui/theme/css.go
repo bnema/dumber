@@ -106,6 +106,10 @@ func GenerateCSSFull(p Palette, _ float64, fonts FontConfig, modeColors ModeColo
 	sb.WriteString(generateProgressBarCSS(p))
 	sb.WriteString("\n")
 
+	// Touchpad history navigation indicator styling
+	sb.WriteString(generateTouchpadNavigationIndicatorCSS(p))
+	sb.WriteString("\n")
+
 	// Toaster styling
 	sb.WriteString(generateToasterCSS(p))
 	sb.WriteString("\n")
@@ -756,6 +760,48 @@ progressbar.osd progress {
 	min-width: 2px;
 	margin: 0;
 	padding: 0;
+	background-color: var(--accent);
+}
+`
+}
+
+func generateTouchpadNavigationIndicatorCSS(p Palette) string {
+	_ = p
+	return `/* ===== Touchpad Navigation Indicator Styling ===== */
+
+.touchpad-navigation-indicator {
+	background-color: alpha(var(--surface-variant), 0.92);
+	color: var(--text);
+	border: 1px solid alpha(var(--accent), 0.45);
+	border-radius: 999px;
+	padding: 10px 12px;
+	box-shadow: 0 10px 24px alpha(#000000, 0.28);
+}
+
+.touchpad-navigation-indicator.threshold-reached {
+	border-color: var(--accent);
+	background-color: alpha(var(--accent), 0.20);
+}
+
+.touchpad-navigation-label {
+	font-weight: 600;
+	font-size: 0.9em;
+}
+
+progressbar.touchpad-navigation-progress {
+	min-height: 4px;
+}
+
+progressbar.touchpad-navigation-progress trough {
+	min-height: 4px;
+	min-width: 96px;
+	border-radius: 999px;
+	background-color: alpha(var(--text), 0.16);
+}
+
+progressbar.touchpad-navigation-progress progress {
+	min-height: 4px;
+	border-radius: 999px;
 	background-color: var(--accent);
 }
 `

@@ -89,6 +89,22 @@ type Texture interface {
 
 // WebViewCallbacks defines callback handlers for WebView events.
 // Implementations should invoke these on the main thread/goroutine.
+type TouchpadNavigationAction int
+
+const (
+	TouchpadNavigationBack TouchpadNavigationAction = iota
+	TouchpadNavigationForward
+)
+
+// TouchpadNavigationGesture describes visual progress for a deliberate
+// two-finger history navigation gesture.
+type TouchpadNavigationGesture struct {
+	Action           TouchpadNavigationAction
+	Progress         float64
+	ThresholdReached bool
+	Active           bool
+}
+
 type WebViewCallbacks struct {
 	// OnLoadChanged is called when load state changes.
 	OnLoadChanged func(event LoadEvent)
@@ -137,6 +153,9 @@ type WebViewCallbacks struct {
 
 	// OnAudioStateChanged is called when audio playback starts or stops.
 	OnAudioStateChanged func(playing bool)
+	// OnTouchpadNavigationGesture is called while a CEF two-finger history
+	// navigation gesture is progressing or finishing.
+	OnTouchpadNavigationGesture func(gesture TouchpadNavigationGesture)
 }
 
 // FindOptions configures search behavior.

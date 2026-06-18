@@ -228,6 +228,7 @@ type WebView struct {
 
 	// Touchpad input diagnostics are debounced to avoid flooding logs while
 	// debugging continuous scroll streams.
+	touchpadNavigation *touchpadNavigationRecognizer
 	inputDiagMu        sync.Mutex
 	inputDiagLastLog   time.Time
 	inputDiagEvents    int
@@ -1478,11 +1479,12 @@ func (wv *WebView) bridgeInputOptions() cef2gtk.InputOptions {
 		OnMiddleClick: func(_, _ float64) bool {
 			return wv.handleMiddleClickFromBridge()
 		},
-		OnScroll: wv.handleScrollInputDiagnostic,
+		OnScroll: wv.handleScrollInput,
 		NavigationSwipe: cef2gtk.NavigationSwipeOptions{
-			Enabled:          wv.inputConfig.TouchpadNavigationEnabled,
-			MinDelta:         wv.inputConfig.TouchpadNavigationMinDelta,
-			MaxVerticalRatio: wv.inputConfig.TouchpadNavigationMaxVerticalRatio,
+			// Dumber handles thresholding and progress UI locally from OnScroll so
+			// horizontal scrolling continues to reach CEF while history navigation
+			// waits for a deliberate release past the visual threshold.
+			Enabled: false,
 		},
 		CanNavigateBack:    wv.CanGoBack,
 		CanNavigateForward: wv.CanGoForward,
@@ -1493,6 +1495,44 @@ func (wv *WebView) bridgeInputOptions() cef2gtk.InputOptions {
 				wv.engine.handleExplicitClipboardBridgeText(wv.id, action, text)
 			}
 		},
+	}
+}
+
+func (wv *WebView) handleScrollInput(event cef2gtk.ScrollEvent) cef2gtk.ScrollDecision {
+	wv.handleTouchpadNavigationScroll(event)
+	return wv.handleScrollInputDiagnostic(event)
+}
+
+func (wv *WebView) handleTouchpadNavigationScroll(event cef2gtk.ScrollEvent) {
+	if wv == nil {
+		return
+	}
+	if wv.touchpadNavigation == nil {
+		wv.touchpadNavigation = newTouchpadNavigationRecognizer()
+	}
+	result := wv.touchpadNavigation.Handle(touchpadNavigationInput{
+		Event:        event,
+		Config:       wv.inputConfig,
+		CanGoBack:    wv.CanGoBack(),
+		CanGoForward: wv.CanGoForward(),
+	})
+	if result.HasIndicator {
+		wv.emitTouchpadNavigationGesture(result.Indicator)
+	}
+	if result.HasAction {
+		wv.handleNavigationSwipeAction(result.Action)
+	}
+}
+
+func (wv *WebView) emitTouchpadNavigationGesture(gesture port.TouchpadNavigationGesture) {
+	if wv == nil {
+		return
+	}
+	wv.mu.RLock()
+	cb := wv.callbacks
+	wv.mu.RUnlock()
+	if cb != nil && cb.OnTouchpadNavigationGesture != nil {
+		cb.OnTouchpadNavigationGesture(gesture)
 	}
 }
 
