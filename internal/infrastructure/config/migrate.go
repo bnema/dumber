@@ -195,7 +195,7 @@ func (m *Migrator) DetectChanges() ([]port.KeyChange, error) {
 func (m *Migrator) findDeprecatedKeys(userKeys map[string]any, defaultKeys map[string]bool) []string {
 	var deprecated []string
 	for userKey := range userKeys {
-		if userKey == databasePathKey {
+		if m.isMigrationIgnoredDeprecatedKey(userKey) {
 			continue
 		}
 		if !m.keyOrRelatedExistsInDefaults(userKey, defaultKeys) {
@@ -670,8 +670,7 @@ func (m *Migrator) getAllDefaultKeys() []string {
 	// Filter out keys that should not be migrated
 	filtered := make([]string, 0, len(keys))
 	for _, key := range keys {
-		// Skip database.path as it's set dynamically
-		if key == databasePathKey {
+		if m.isMigrationIgnoredDeprecatedKey(key) {
 			continue
 		}
 		filtered = append(filtered, key)
@@ -813,9 +812,12 @@ func (m *Migrator) flattenMap(data map[string]any, prefix string, keys map[strin
 // isUserDataSection checks if a key path represents user-defined data
 // that should not be compared key-by-key (e.g., search shortcuts, action bindings).
 func (*Migrator) isUserDataSection(keyPath string) bool {
-	// User data sections - treat entire section as one key
+	// User data sections - treat entire section as one key.
+	// Some of these sections legitimately default to an empty map/table; keeping
+	// them as leaf keys makes detection agree with TOML writing.
 	switch keyPath {
-	case "search_shortcuts":
+	case "search_shortcuts",
+		"workspace.floating_pane.profiles":
 		return true
 	}
 
@@ -915,6 +917,20 @@ func appendUniqueKeys(base, extra []string) []string {
 
 	sort.Strings(base)
 	return base
+}
+
+func (*Migrator) isMigrationIgnoredDeprecatedKey(key string) bool {
+	switch key {
+	case databasePathKey:
+		return true
+	case "appearance.external_theme.path":
+		// Runtime may derive this path when it is omitted, so it is not a Viper
+		// default. It remains a valid explicit config key and should not be
+		// removed as deprecated.
+		return true
+	default:
+		return false
+	}
 }
 
 func excludeKeys(keys []string, excluded map[string]bool) []string {
