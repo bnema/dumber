@@ -514,6 +514,66 @@ func TestTouchpadNavigationRecognizer_CancelsVerticalGestures(t *testing.T) {
 	require.False(t, end.HasAction)
 }
 
+func TestTouchpadNavigationRecognizer_HidesVisibleIndicatorOnVerticalCancelAndResets(t *testing.T) {
+	recognizer := newTouchpadNavigationRecognizer()
+	cfg := RuntimeInputConfig{
+		TouchpadNavigationEnabled:          true,
+		TouchpadNavigationMinDelta:         200,
+		TouchpadNavigationMaxVerticalRatio: 0.5,
+	}
+
+	_ = recognizer.Handle(touchpadNavigationInput{
+		Event:     touchpadNavigationScrollEvent(cef2gtk.ScrollPhaseBegin, 0, 0),
+		Config:    cfg,
+		CanGoBack: true,
+		ViewWidth: 1000,
+	})
+	shown := recognizer.Handle(touchpadNavigationInput{
+		Event:     touchpadNavigationScrollEvent(cef2gtk.ScrollPhaseUpdate, -120, 0),
+		Config:    cfg,
+		CanGoBack: true,
+	})
+	require.True(t, shown.HasIndicator)
+	require.True(t, shown.Indicator.Active)
+
+	canceled := recognizer.Handle(touchpadNavigationInput{
+		Event:     touchpadNavigationScrollEvent(cef2gtk.ScrollPhaseUpdate, 0, 80),
+		Config:    cfg,
+		CanGoBack: true,
+	})
+	require.True(t, canceled.HasIndicator)
+	require.False(t, canceled.Indicator.Active)
+	require.False(t, canceled.HasAction)
+
+	end := recognizer.Handle(touchpadNavigationInput{
+		Event:     touchpadNavigationScrollEvent(cef2gtk.ScrollPhaseEnd, 0, 0),
+		Config:    cfg,
+		CanGoBack: true,
+	})
+	require.False(t, end.HasIndicator)
+	require.False(t, end.HasAction)
+
+	_ = recognizer.Handle(touchpadNavigationInput{
+		Event:     touchpadNavigationScrollEvent(cef2gtk.ScrollPhaseBegin, 0, 0),
+		Config:    cfg,
+		CanGoBack: true,
+		ViewWidth: 1000,
+	})
+	valid := recognizer.Handle(touchpadNavigationInput{
+		Event:     touchpadNavigationScrollEvent(cef2gtk.ScrollPhaseUpdate, -240, 0),
+		Config:    cfg,
+		CanGoBack: true,
+	})
+	require.True(t, valid.HasIndicator)
+	validEnd := recognizer.Handle(touchpadNavigationInput{
+		Event:     touchpadNavigationScrollEvent(cef2gtk.ScrollPhaseEnd, 0, 0),
+		Config:    cfg,
+		CanGoBack: true,
+	})
+	require.True(t, validEnd.HasAction)
+	require.Equal(t, cef2gtk.NavigationSwipeBack, validEnd.Action)
+}
+
 func touchpadNavigationScrollEvent(phase cef2gtk.ScrollPhase, dx, dy float64) cef2gtk.ScrollEvent {
 	return touchpadNavigationScrollEventAt(phase, 0, dx, dy)
 }

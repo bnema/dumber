@@ -1508,6 +1508,9 @@ func (wv *WebView) handleTouchpadNavigationScroll(event cef2gtk.ScrollEvent) {
 	if wv == nil || wv.destroyed.Load() {
 		return
 	}
+	if !wv.inputConfig.TouchpadNavigationEnabled {
+		return
+	}
 	wv.mu.Lock()
 	if wv.destroyed.Load() {
 		wv.mu.Unlock()
@@ -1550,9 +1553,9 @@ func (wv *WebView) emitTouchpadNavigationGesture(gesture dto.TouchpadNavigationG
 	cb := wv.callbacks
 	wv.mu.RUnlock()
 	if cb != nil && cb.OnTouchpadNavigationGesture != nil {
-		wv.runOnGTK(func() {
-			cb.OnTouchpadNavigationGesture(gesture)
-		})
+		// Scroll input is delivered from GTK callbacks, so invoking directly keeps
+		// progress and final indicators ordered before any navigation action.
+		cb.OnTouchpadNavigationGesture(gesture)
 	}
 }
 
