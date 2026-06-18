@@ -770,16 +770,22 @@ func generateTouchpadNavigationIndicatorCSS(p Palette) string {
 	return `/* ===== Touchpad Navigation Indicator Styling ===== */
 
 .touchpad-navigation-indicator {
-	background-color: alpha(var(--surface), 0.94);
+	background-color: alpha(var(--surface), 0.90);
 	color: var(--text);
 	border: 0.0625em solid alpha(var(--border), 0.72);
 	border-radius: 1.125em;
 	padding: 0.75em 0.875em 0.8125em;
+	opacity: 1;
+	filter: blur(0px);
+	backdrop-filter: blur(0.75em);
 	box-shadow: 0 1em 2.25em alpha(black, 0.30),
 	            0 0.0625em 0 alpha(white, 0.06) inset;
-	transition: background-color 140ms ease-out,
+	transition: opacity 220ms ease-out,
+	            filter 220ms ease-out,
+	            backdrop-filter 220ms ease-out,
+	            background-color 140ms ease-out,
 	            border-color 140ms ease-out,
-	            box-shadow 140ms ease-out;
+	            box-shadow 220ms ease-out;
 }
 
 .touchpad-navigation-indicator.back {
@@ -795,6 +801,13 @@ func generateTouchpadNavigationIndicatorCSS(p Palette) string {
 	background-color: alpha(var(--accent), 0.18);
 	box-shadow: 0 1.125em 2.5em alpha(black, 0.34),
 	            0 0 0 0.0625em alpha(var(--accent), 0.24) inset;
+}
+
+.touchpad-navigation-indicator.hiding {
+	opacity: 0;
+	filter: blur(0.0625em);
+	box-shadow: 0 0.375em 0.875em alpha(black, 0.10),
+	            0 0 0 0.0625em alpha(var(--accent), 0.04) inset;
 }
 
 .touchpad-navigation-header {

@@ -235,6 +235,24 @@ func cssRuleBlock(t *testing.T, css, selector string) string {
 	return matches[1]
 }
 
+func TestGenerateCSS_TouchpadNavigationIndicatorFadesWholeOverlay(t *testing.T) {
+	css := GenerateCSS(DefaultDarkPalette())
+
+	baseBlock := cssRuleBlock(t, css, ".touchpad-navigation-indicator")
+	assert.Contains(t, baseBlock, "opacity: 1;")
+	assert.Contains(t, baseBlock, "filter: blur(0px);")
+	assert.Contains(t, baseBlock, "backdrop-filter: blur(0.75em);")
+	assert.Contains(t, baseBlock, "transition: opacity 220ms ease-out,")
+	assert.Contains(t, baseBlock, "filter 220ms ease-out,")
+	assert.Contains(t, baseBlock, "backdrop-filter 220ms ease-out,")
+	assert.Contains(t, baseBlock, "box-shadow 220ms ease-out;")
+
+	hidingBlock := cssRuleBlock(t, css, ".touchpad-navigation-indicator.hiding")
+	assert.Contains(t, hidingBlock, "opacity: 0;")
+	assert.Contains(t, hidingBlock, "filter: blur(0.0625em);")
+	assert.Contains(t, hidingBlock, "box-shadow:")
+}
+
 func TestGenerateCSS_DoesNotEmitUnsupportedGTKProperties(t *testing.T) {
 	css := GenerateCSS(DefaultDarkPalette())
 

@@ -120,6 +120,7 @@ func (i *TouchpadNavigationIndicator) ShowGesture(gesture port.TouchpadNavigatio
 	}
 	i.cancelHideTimer()
 
+	i.container.RemoveCssClass("hiding")
 	i.container.RemoveCssClass("back")
 	i.container.RemoveCssClass("forward")
 	if gesture.Action == port.TouchpadNavigationForward {
@@ -173,6 +174,9 @@ func (i *TouchpadNavigationIndicator) scheduleHide(triggered bool) {
 		i.hide()
 		return
 	}
+	if i.container != nil {
+		i.container.AddCssClass("hiding")
+	}
 	cb := glib.SourceFunc(func(_ uintptr) bool {
 		i.hideTimer = 0
 		i.hide()
@@ -184,6 +188,7 @@ func (i *TouchpadNavigationIndicator) scheduleHide(triggered bool) {
 func (i *TouchpadNavigationIndicator) hide() {
 	i.cancelHideTimer()
 	if i.container != nil {
+		i.container.RemoveCssClass("hiding")
 		i.container.RemoveCssClass("threshold-reached")
 		i.container.RemoveCssClass("back")
 		i.container.RemoveCssClass("forward")
