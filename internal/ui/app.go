@@ -593,6 +593,24 @@ func (a *App) browserWindowForAnyPane(paneID entity.PaneID) *browserWindow {
 	return nil
 }
 
+func (a *App) handleTouchpadNavigationGesture(paneID entity.PaneID, gesture entity.TouchpadNavigationGesture) {
+	if a == nil {
+		return
+	}
+	run := func() {
+		bw := a.browserWindowForAnyPane(paneID)
+		if bw == nil || bw.touchpadNavIndicator == nil {
+			return
+		}
+		bw.touchpadNavIndicator.ShowGesture(gesture)
+	}
+	if a.dispatchOnMainThread != nil {
+		a.dispatchOnMainThread("touchpad-navigation-gesture", run)
+		return
+	}
+	run()
+}
+
 func (a *App) lastFocusedBrowserWindow() *browserWindow {
 	if a.lastFocusedWindowID == "" || a.browserWindows == nil {
 		return nil
@@ -3175,6 +3193,10 @@ func (a *App) initContentCoordinator(
 	if a.deps.LaunchExternalURL != nil {
 		a.contentCoord.SetOnLaunchExternalURL(a.deps.LaunchExternalURL)
 	}
+
+	a.contentCoord.SetOnTouchpadNavigationGesture(func(paneID entity.PaneID, gesture entity.TouchpadNavigationGesture) {
+		a.handleTouchpadNavigationGesture(paneID, gesture)
+	})
 
 	// Wire deferred init trigger - runs after first navigation starts
 	a.contentCoord.SetOnFirstLoadStarted(func() {

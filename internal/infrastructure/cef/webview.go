@@ -20,6 +20,7 @@ import (
 
 	"github.com/bnema/dumber/internal/application/dto"
 	"github.com/bnema/dumber/internal/application/port"
+	"github.com/bnema/dumber/internal/domain/entity"
 	"github.com/bnema/dumber/internal/logging"
 	"github.com/bnema/dumber/internal/shared/syncdispatch"
 )
@@ -228,6 +229,7 @@ type WebView struct {
 
 	// Touchpad input diagnostics are debounced to avoid flooding logs while
 	// debugging continuous scroll streams.
+	touchpadNavigation *touchpadNavigationRecognizer
 	inputDiagMu        sync.Mutex
 	inputDiagLastLog   time.Time
 	inputDiagEvents    int
@@ -1136,6 +1138,7 @@ func (wv *WebView) Destroy() {
 	wv.openerMessageCallbacks = nil
 	wv.openerNavigationCallbacks = nil
 	wv.popupReadyToShow = nil
+	wv.touchpadNavigation = nil
 	wv.inputAttached = false
 	wv.pendingNativePopups = nil
 	wv.nativePopupParent = nil
@@ -1478,21 +1481,82 @@ func (wv *WebView) bridgeInputOptions() cef2gtk.InputOptions {
 		OnMiddleClick: func(_, _ float64) bool {
 			return wv.handleMiddleClickFromBridge()
 		},
-		OnScroll: wv.handleScrollInputDiagnostic,
+		OnScroll: wv.handleScrollInput,
 		NavigationSwipe: cef2gtk.NavigationSwipeOptions{
-			Enabled:          wv.inputConfig.TouchpadNavigationEnabled,
-			MinDelta:         wv.inputConfig.TouchpadNavigationMinDelta,
-			MaxVerticalRatio: wv.inputConfig.TouchpadNavigationMaxVerticalRatio,
+			// Dumber handles thresholding and progress UI locally from OnScroll so
+			// horizontal scrolling continues to reach CEF while history navigation
+			// waits for a deliberate release past the visual threshold.
+			Enabled: false,
 		},
-		CanNavigateBack:    wv.CanGoBack,
-		CanNavigateForward: wv.CanGoForward,
-		OnNavigateSwipe:    wv.handleNavigationSwipeAction,
-		SelectionText:      wv.selectedTextSnapshot,
+		SelectionText: wv.selectedTextSnapshot,
 		OnClipboardShortcut: func(action, text string) {
 			if wv.engine != nil {
 				wv.engine.handleExplicitClipboardBridgeText(wv.id, action, text)
 			}
 		},
+	}
+}
+
+// handleScrollInput is invoked by cef2gtk from GTK scroll event callbacks on
+// the GTK main thread, which keeps lazy touchpad recognizer ownership
+// single-threaded while every scroll event is still forwarded to CEF.
+func (wv *WebView) handleScrollInput(event cef2gtk.ScrollEvent) cef2gtk.ScrollDecision {
+	wv.handleTouchpadNavigationScroll(event)
+	return wv.handleScrollInputDiagnostic(event)
+}
+
+func (wv *WebView) handleTouchpadNavigationScroll(event cef2gtk.ScrollEvent) {
+	if wv == nil || wv.destroyed.Load() {
+		return
+	}
+	if !wv.inputConfig.TouchpadNavigationEnabled {
+		return
+	}
+	wv.mu.Lock()
+	if wv.destroyed.Load() {
+		wv.mu.Unlock()
+		return
+	}
+	if wv.touchpadNavigation == nil {
+		wv.touchpadNavigation = newTouchpadNavigationRecognizer()
+	}
+	result := wv.touchpadNavigation.Handle(touchpadNavigationInput{
+		Event:        event,
+		Config:       wv.inputConfig,
+		CanGoBack:    wv.canGoBack,
+		CanGoForward: wv.canGoFwd,
+		ViewWidth:    wv.touchpadNavigationViewWidth(),
+	})
+	wv.mu.Unlock()
+	if result.HasIndicator {
+		wv.emitTouchpadNavigationGesture(result.Indicator)
+	}
+	if result.HasAction {
+		wv.handleNavigationSwipeAction(result.Action)
+	}
+}
+
+func (wv *WebView) touchpadNavigationViewWidth() float64 {
+	if wv == nil || wv.nativeWidget == nil {
+		return 0
+	}
+	if width := wv.nativeWidget.GetAllocatedWidth(); width > 0 {
+		return float64(width)
+	}
+	return float64(wv.nativeWidget.GetWidth())
+}
+
+func (wv *WebView) emitTouchpadNavigationGesture(gesture entity.TouchpadNavigationGesture) {
+	if wv == nil {
+		return
+	}
+	wv.mu.RLock()
+	cb := wv.callbacks
+	wv.mu.RUnlock()
+	if cb != nil && cb.OnTouchpadNavigationGesture != nil {
+		// Scroll input is delivered from GTK callbacks, so invoking directly keeps
+		// progress and final indicators ordered before any navigation action.
+		cb.OnTouchpadNavigationGesture(gesture)
 	}
 }
 

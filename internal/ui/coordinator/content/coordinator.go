@@ -64,6 +64,9 @@ type Coordinator struct {
 	// Callback when the active pane commits a navigation (new page loading).
 	onActiveNavigationCommitted func(paneID entity.PaneID, uri string)
 
+	// Callback when a CEF touchpad history navigation gesture progresses.
+	onTouchpadNavigationGesture func(paneID entity.PaneID, gesture entity.TouchpadNavigationGesture)
+
 	// Callback when the WebView becomes visible (first real commit)
 	onWebViewShown func(paneID entity.PaneID)
 
@@ -190,6 +193,12 @@ func (c *Coordinator) SetOnActiveNavigationCommitted(fn func(paneID entity.PaneI
 // SetOnPaneURIUpdated sets the callback for pane URI changes (for session snapshots).
 func (c *Coordinator) SetOnPaneURIUpdated(fn func(paneID entity.PaneID, url string)) {
 	c.onPaneURIUpdated = fn
+}
+
+// SetOnTouchpadNavigationGesture sets the callback for CEF two-finger history
+// navigation gesture progress.
+func (c *Coordinator) SetOnTouchpadNavigationGesture(fn func(paneID entity.PaneID, gesture entity.TouchpadNavigationGesture)) {
+	c.onTouchpadNavigationGesture = fn
 }
 
 // SetOnWindowTitleChanged sets the callback for active pane title changes (for window title updates).

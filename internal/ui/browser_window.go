@@ -26,6 +26,7 @@ type browserWindow struct {
 	mainWindow            *window.MainWindow
 	appToaster            *component.Toaster
 	modeToaster           *component.Toaster
+	touchpadNavIndicator  *component.TouchpadNavigationIndicator
 	borderMgr             *focus.BorderManager
 	sessionManager        *component.SessionManager
 	tabPicker             *component.TabPicker
@@ -71,8 +72,12 @@ func (bw *browserWindow) clearShellState() {
 	if bw.historySidebar != nil {
 		bw.historySidebar.Destroy()
 	}
+	if bw.touchpadNavIndicator != nil {
+		bw.touchpadNavIndicator.Destroy()
+	}
 	bw.appToaster = nil
 	bw.modeToaster = nil
+	bw.touchpadNavIndicator = nil
 	bw.borderMgr = nil
 	bw.sessionManager = nil
 	bw.tabPicker = nil
@@ -93,6 +98,7 @@ func (bw *browserWindow) initChrome(ctx context.Context, a *App) {
 	}
 
 	bw.initToasterOverlay(a)
+	bw.initTouchpadNavigationIndicator()
 	bw.initBorderOverlay(a)
 	bw.initAccentPicker(ctx, a)
 	bw.initSessionManager(ctx, a)
@@ -121,6 +127,19 @@ func (bw *browserWindow) initToasterOverlay(a *App) {
 				bw.mainWindow.AddOverlay(gtkWidget)
 			}
 		}
+	}
+}
+
+func (bw *browserWindow) initTouchpadNavigationIndicator() {
+	if bw == nil || bw.mainWindow == nil {
+		return
+	}
+	bw.touchpadNavIndicator = component.NewTouchpadNavigationIndicator()
+	if bw.touchpadNavIndicator == nil {
+		return
+	}
+	if widget := bw.touchpadNavIndicator.Widget(); widget != nil {
+		bw.mainWindow.AddNonMeasuringOverlay(widget)
 	}
 }
 

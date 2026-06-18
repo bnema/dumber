@@ -88,7 +88,9 @@ const (
 	defaultCEFScrollPreciseMultiplier = 2.5
 	defaultCEFScrollMaxDelta          = 0
 	defaultCEFTouchpadNavigation      = true
-	defaultCEFTouchpadNavigationDelta = 200.0
+	// Require a deliberate swipe before history navigation so ordinary
+	// horizontal scrolling is unlikely to cross the commit threshold.
+	defaultCEFTouchpadNavigationDelta = 320.0
 	defaultCEFTouchpadNavigationRatio = 0.5
 
 	// Skia threading defaults (0 = unset, -1 = unset for GPU threads)

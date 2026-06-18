@@ -87,6 +87,11 @@ func (c *Coordinator) setupWebViewCallbacks(ctx context.Context, paneID entity.P
 		OnLinkHover: func(uri string) {
 			c.onLinkHover(paneID, uri)
 		},
+		OnTouchpadNavigationGesture: func(gesture entity.TouchpadNavigationGesture) {
+			if c.onTouchpadNavigationGesture != nil {
+				c.onTouchpadNavigationGesture(paneID, gesture)
+			}
+		},
 		OnWebProcessTerminated: func(reason port.WebProcessTerminationReason, reasonLabel string, uri string) {
 			originalURI := extractOriginalURIFromCrashPage(uri)
 			if !shouldRenderCrashPage(reason) {
