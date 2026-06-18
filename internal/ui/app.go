@@ -13,6 +13,7 @@ import (
 	"time"
 	"unsafe"
 
+	"github.com/bnema/dumber/internal/application/dto"
 	"github.com/bnema/dumber/internal/application/port"
 	"github.com/bnema/dumber/internal/application/usecase"
 	"github.com/bnema/dumber/internal/domain/entity"
@@ -593,7 +594,7 @@ func (a *App) browserWindowForAnyPane(paneID entity.PaneID) *browserWindow {
 	return nil
 }
 
-func (a *App) handleTouchpadNavigationGesture(paneID entity.PaneID, gesture port.TouchpadNavigationGesture) {
+func (a *App) handleTouchpadNavigationGesture(paneID entity.PaneID, gesture dto.TouchpadNavigationGesture) {
 	if a == nil {
 		return
 	}
@@ -3194,7 +3195,7 @@ func (a *App) initContentCoordinator(
 		a.contentCoord.SetOnLaunchExternalURL(a.deps.LaunchExternalURL)
 	}
 
-	a.contentCoord.SetOnTouchpadNavigationGesture(func(paneID entity.PaneID, gesture port.TouchpadNavigationGesture) {
+	a.contentCoord.SetOnTouchpadNavigationGesture(func(paneID entity.PaneID, gesture dto.TouchpadNavigationGesture) {
 		a.handleTouchpadNavigationGesture(paneID, gesture)
 	})
 

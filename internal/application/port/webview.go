@@ -87,38 +87,6 @@ type Texture interface {
 	GoPointer() uintptr
 }
 
-// TouchpadNavigationAction indicates the direction of a touchpad navigation gesture.
-type TouchpadNavigationAction int
-
-const (
-	// TouchpadNavigationBack indicates a backward navigation gesture.
-	TouchpadNavigationBack TouchpadNavigationAction = iota
-	// TouchpadNavigationForward indicates a forward navigation gesture.
-	TouchpadNavigationForward
-)
-
-// String returns a human-readable representation of the navigation action.
-func (a TouchpadNavigationAction) String() string {
-	switch a {
-	case TouchpadNavigationBack:
-		return "back"
-	case TouchpadNavigationForward:
-		return "forward"
-	default:
-		return "unknown"
-	}
-}
-
-// TouchpadNavigationGesture describes visual progress for a deliberate
-// two-finger history navigation gesture.
-type TouchpadNavigationGesture struct {
-	Action TouchpadNavigationAction
-	// Progress is normalized gesture progress from 0.0 to 1.0.
-	Progress         float64
-	ThresholdReached bool
-	Active           bool
-}
-
 // WebViewCallbacks defines callback handlers for WebView events.
 // Implementations should invoke these on the main thread/goroutine.
 type WebViewCallbacks struct {
@@ -171,7 +139,7 @@ type WebViewCallbacks struct {
 	OnAudioStateChanged func(playing bool)
 	// OnTouchpadNavigationGesture is called while a two-finger touchpad history
 	// navigation gesture is progressing or finishing.
-	OnTouchpadNavigationGesture func(gesture TouchpadNavigationGesture)
+	OnTouchpadNavigationGesture func(gesture dto.TouchpadNavigationGesture)
 }
 
 // FindOptions configures search behavior.

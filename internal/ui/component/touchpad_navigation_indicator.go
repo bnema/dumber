@@ -1,7 +1,7 @@
 package component
 
 import (
-	"github.com/bnema/dumber/internal/application/port"
+	"github.com/bnema/dumber/internal/application/dto"
 	"github.com/bnema/puregotk/v4/glib"
 	"github.com/bnema/puregotk/v4/gtk"
 )
@@ -114,7 +114,7 @@ func (i *TouchpadNavigationIndicator) Widget() *gtk.Widget {
 	return &i.container.Widget
 }
 
-func (i *TouchpadNavigationIndicator) ShowGesture(gesture port.TouchpadNavigationGesture) {
+func (i *TouchpadNavigationIndicator) ShowGesture(gesture dto.TouchpadNavigationGesture) {
 	if i == nil || i.container == nil || i.icon == nil || i.label == nil || i.bar == nil {
 		return
 	}
@@ -123,7 +123,7 @@ func (i *TouchpadNavigationIndicator) ShowGesture(gesture port.TouchpadNavigatio
 	i.container.RemoveCssClass("hiding")
 	i.container.RemoveCssClass("back")
 	i.container.RemoveCssClass("forward")
-	if gesture.Action == port.TouchpadNavigationForward {
+	if gesture.Action == dto.TouchpadNavigationForward {
 		i.container.AddCssClass("forward")
 		i.container.SetHalign(gtk.AlignEndValue)
 		i.bar.SetInverted(true)
@@ -206,16 +206,16 @@ func (i *TouchpadNavigationIndicator) cancelHideTimer() {
 	}
 }
 
-func touchpadNavigationIndicatorIcon(gesture port.TouchpadNavigationGesture) string {
-	if gesture.Action == port.TouchpadNavigationForward {
+func touchpadNavigationIndicatorIcon(gesture dto.TouchpadNavigationGesture) string {
+	if gesture.Action == dto.TouchpadNavigationForward {
 		return "→"
 	}
 	return "←"
 }
 
-func touchpadNavigationIndicatorLabel(gesture port.TouchpadNavigationGesture) string {
+func touchpadNavigationIndicatorLabel(gesture dto.TouchpadNavigationGesture) string {
 	suffix := "Back"
-	if gesture.Action == port.TouchpadNavigationForward {
+	if gesture.Action == dto.TouchpadNavigationForward {
 		suffix = "Forward"
 	}
 	if gesture.ThresholdReached {

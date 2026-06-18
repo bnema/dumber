@@ -1508,16 +1508,22 @@ func (wv *WebView) handleTouchpadNavigationScroll(event cef2gtk.ScrollEvent) {
 	if wv == nil || wv.destroyed.Load() {
 		return
 	}
+	wv.mu.Lock()
+	if wv.destroyed.Load() {
+		wv.mu.Unlock()
+		return
+	}
 	if wv.touchpadNavigation == nil {
 		wv.touchpadNavigation = newTouchpadNavigationRecognizer()
 	}
 	result := wv.touchpadNavigation.Handle(touchpadNavigationInput{
 		Event:        event,
 		Config:       wv.inputConfig,
-		CanGoBack:    wv.CanGoBack(),
-		CanGoForward: wv.CanGoForward(),
+		CanGoBack:    wv.canGoBack,
+		CanGoForward: wv.canGoFwd,
 		ViewWidth:    wv.touchpadNavigationViewWidth(),
 	})
+	wv.mu.Unlock()
 	if result.HasIndicator {
 		wv.emitTouchpadNavigationGesture(result.Indicator)
 	}
@@ -1536,7 +1542,7 @@ func (wv *WebView) touchpadNavigationViewWidth() float64 {
 	return float64(wv.nativeWidget.GetWidth())
 }
 
-func (wv *WebView) emitTouchpadNavigationGesture(gesture port.TouchpadNavigationGesture) {
+func (wv *WebView) emitTouchpadNavigationGesture(gesture dto.TouchpadNavigationGesture) {
 	if wv == nil {
 		return
 	}
