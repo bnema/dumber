@@ -11,7 +11,10 @@ import (
 
 func TestApp_EjectActivePaneToWindowRegistersTargetOwnership(t *testing.T) {
 	app, sourceWindow, sourceTab := newEjectTestApp(t, stackedTab("source-tab-a", "source-ws-a", "pane-a", "pane-b", "pane-c"))
+	// ActivePaneID is the source of truth. Keep ActiveStackIndex stale to cover
+	// ejection after stack/UI state drift with more than two panes.
 	sourceTab.Workspace.ActivePaneID = "pane-b"
+	sourceTab.Workspace.Root.ActiveStackIndex = 0
 
 	if err := app.EjectActivePaneToWindow(context.Background(), ""); err != nil {
 		t.Fatalf("EjectActivePaneToWindow returned error: %v", err)
@@ -39,6 +42,12 @@ func TestApp_EjectActivePaneToWindowRegistersTargetOwnership(t *testing.T) {
 	}
 	if got := sourceTab.Workspace.FindPane("pane-b"); got != nil {
 		t.Fatal("source workspace still contains moved pane")
+	}
+	if got := sourceTab.Workspace.ActivePaneID; got != entity.PaneID("pane-c") {
+		t.Fatalf("source active pane = %q, want pane-c", got)
+	}
+	if got := sourceTab.Workspace.Root.ActiveStackIndex; got != 1 {
+		t.Fatalf("source active stack index = %d, want 1", got)
 	}
 	if got := app.lastFocusedWindowID; got != targetWindow.id {
 		t.Fatalf("lastFocusedWindowID = %q, want %q", got, targetWindow.id)
@@ -120,6 +129,42 @@ func TestApp_EjectActivePaneToWindowSnapshotRetainsSourceWindowWhenTabsRemain(t 
 		t.Fatalf("source snapshot missing retained tab %q", sourceTab.ID)
 	}
 	assertTargetSnapshotContainsPane(t, windows[1], "pane-b")
+}
+
+func TestApp_EjectActivePaneToWindowHandlesThreePaneSplitTree(t *testing.T) {
+	app, sourceWindow, sourceTab := newEjectTestApp(t, splitTreeTab("source-tab", "source-ws", "pane-a", "pane-b", "pane-c"))
+	sourceTab.Workspace.ActivePaneID = "pane-c"
+
+	if err := app.EjectActivePaneToWindow(context.Background(), ""); err != nil {
+		t.Fatalf("EjectActivePaneToWindow returned error: %v", err)
+	}
+
+	if got := len(app.browserWindows); got != 2 {
+		t.Fatalf("browserWindows length = %d, want source and target", got)
+	}
+	if app.browserWindows[sourceWindow.id] == nil {
+		t.Fatal("source window should remain registered")
+	}
+	if got := sourceTab.Workspace.PaneCount(); got != 2 {
+		t.Fatalf("source pane count = %d, want 2", got)
+	}
+	if sourceTab.Workspace.FindPane("pane-a") == nil || sourceTab.Workspace.FindPane("pane-b") == nil {
+		t.Fatal("source workspace missing remaining split panes")
+	}
+	if got := sourceTab.Workspace.FindPane("pane-c"); got != nil {
+		t.Fatal("source workspace still contains moved split pane")
+	}
+	targetWindow := app.browserWindows["target-window"]
+	if targetWindow == nil || targetWindow.tabs.Count() != 1 {
+		t.Fatalf("target window/tabs not created correctly: %#v", targetWindow)
+	}
+	newTab := targetWindow.tabs.Tabs[0]
+	if got := newTab.Workspace.ActivePaneID; got != entity.PaneID("pane-c") {
+		t.Fatalf("target active pane = %q, want pane-c", got)
+	}
+	if got := app.windowForTab[newTab.ID]; got != targetWindow {
+		t.Fatalf("target owner = %p, want target window %p", got, targetWindow)
+	}
 }
 
 func TestApp_EjectActivePaneToWindowSnapshotReplacesEmptySourceWindow(t *testing.T) {
@@ -275,6 +320,25 @@ func stackedTab(tabID entity.TabID, workspaceID entity.WorkspaceID, paneIDs ...e
 	}
 	stack.Children = children
 	workspace := &entity.Workspace{ID: workspaceID, Root: stack, ActivePaneID: paneIDs[0]}
+	return &entity.Tab{ID: tabID, Workspace: workspace}
+}
+
+func splitTreeTab(tabID entity.TabID, workspaceID entity.WorkspaceID, paneAID, paneBID, paneCID entity.PaneID) *entity.Tab {
+	paneA := entity.NewPane(paneAID)
+	paneB := entity.NewPane(paneBID)
+	paneC := entity.NewPane(paneCID)
+
+	leftSplit := &entity.PaneNode{ID: "left-split", SplitDir: entity.SplitVertical, SplitRatio: 0.5}
+	leafA := &entity.PaneNode{ID: string(paneAID) + "-node", Pane: paneA, Parent: leftSplit}
+	leafB := &entity.PaneNode{ID: string(paneBID) + "-node", Pane: paneB, Parent: leftSplit}
+	leftSplit.Children = []*entity.PaneNode{leafA, leafB}
+
+	root := &entity.PaneNode{ID: "root-split", SplitDir: entity.SplitHorizontal, SplitRatio: 0.5}
+	leafC := &entity.PaneNode{ID: string(paneCID) + "-node", Pane: paneC, Parent: root}
+	leftSplit.Parent = root
+	root.Children = []*entity.PaneNode{leftSplit, leafC}
+
+	workspace := &entity.Workspace{ID: workspaceID, Root: root, ActivePaneID: paneAID}
 	return &entity.Tab{ID: tabID, Workspace: workspace}
 }
 

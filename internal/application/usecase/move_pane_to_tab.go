@@ -221,26 +221,17 @@ func detachFromStackIfNeeded(ws *entity.Workspace, leaf *entity.PaneNode) (bool,
 	}
 
 	stackNode := leaf.Parent
-
-	idx := -1
-	for i, child := range stackNode.Children {
-		if child == leaf {
-			idx = i
-			break
-		}
-	}
-	if idx < 0 {
+	removedIndex := stackChildIndex(stackNode, leaf)
+	if removedIndex < 0 {
 		return false, fmt.Errorf("pane not found in stack")
 	}
+	activeIndex, activeInStack := stackPaneIndex(stackNode, ws.ActivePaneID)
+	if !activeInStack {
+		activeIndex = stackNode.ActiveStackIndex
+	}
 
-	stackNode.Children = append(stackNode.Children[:idx], stackNode.Children[idx+1:]...)
+	stackNode.Children = append(stackNode.Children[:removedIndex], stackNode.Children[removedIndex+1:]...)
 	leaf.Parent = nil
-	if stackNode.ActiveStackIndex >= len(stackNode.Children) {
-		stackNode.ActiveStackIndex = len(stackNode.Children) - 1
-	}
-	if stackNode.ActiveStackIndex < 0 {
-		stackNode.ActiveStackIndex = 0
-	}
 
 	// If only one pane remains in stack, dissolve it into a leaf node.
 	if len(stackNode.Children) == 1 {
@@ -258,11 +249,57 @@ func detachFromStackIfNeeded(ws *entity.Workspace, leaf *entity.PaneNode) (bool,
 		return true, nil
 	}
 
-	// Otherwise, set workspace active pane to the stack's current active.
-	if stackNode.ActivePane() != nil && stackNode.ActivePane().Pane != nil {
-		ws.ActivePaneID = stackNode.ActivePane().Pane.ID
+	stackNode.ActiveStackIndex = nextStackActiveIndex(activeIndex, removedIndex, len(stackNode.Children))
+	if activeChild := stackNode.ActivePane(); activeChild != nil && activeChild.Pane != nil {
+		ws.ActivePaneID = activeChild.Pane.ID
 	}
 	return true, nil
+}
+
+func stackChildIndex(stackNode, child *entity.PaneNode) int {
+	if stackNode == nil {
+		return -1
+	}
+	for i, candidate := range stackNode.Children {
+		if candidate == child {
+			return i
+		}
+	}
+	return -1
+}
+
+func stackPaneIndex(stackNode *entity.PaneNode, paneID entity.PaneID) (int, bool) {
+	if stackNode == nil || paneID == "" {
+		return -1, false
+	}
+	for i, child := range stackNode.Children {
+		if child != nil && child.Pane != nil && child.Pane.ID == paneID {
+			return i, true
+		}
+	}
+	return -1, false
+}
+
+func nextStackActiveIndex(activeIndex, removedIndex, remainingCount int) int {
+	if remainingCount <= 0 {
+		return 0
+	}
+	if activeIndex == removedIndex {
+		if removedIndex >= remainingCount {
+			return remainingCount - 1
+		}
+		return removedIndex
+	}
+	if activeIndex > removedIndex {
+		activeIndex--
+	}
+	if activeIndex < 0 {
+		return 0
+	}
+	if activeIndex >= remainingCount {
+		return remainingCount - 1
+	}
+	return activeIndex
 }
 
 func detachLeafFromWorkspace(ws *entity.Workspace, leaf *entity.PaneNode) error {

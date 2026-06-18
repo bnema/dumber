@@ -45,6 +45,39 @@ func TestExtractPaneToTabList_FromThreePaneStack(t *testing.T) {
 	require.Nil(t, out.MovedPaneNode.Parent)
 }
 
+func TestExtractPaneToTabList_FromThreePaneStackUsesWorkspaceActivePaneWhenStackIndexIsStale(t *testing.T) {
+	uc := NewExtractPaneToTabListUseCase(newTestIDGen())
+	sourceTabs := entity.NewTabList()
+	targetTabs := entity.NewTabList()
+
+	paneA := entity.NewPane(entity.PaneID("pA"))
+	paneB := entity.NewPane(entity.PaneID("pB"))
+	paneC := entity.NewPane(entity.PaneID("pC"))
+	sourceTab := newStackedTab("tA", "wA", paneA, paneB, paneC)
+	// ActivePaneID is the workspace source of truth, but stacked UI state can lag.
+	// Eject should remove pB deterministically and activate the pane that takes its slot.
+	sourceTab.Workspace.ActivePaneID = paneB.ID
+	sourceTab.Workspace.Root.ActiveStackIndex = 0
+	sourceTabs.Add(sourceTab)
+
+	out, err := uc.Execute(ExtractPaneToTabListInput{
+		SourceTabs:   sourceTabs,
+		SourceTabID:  sourceTab.ID,
+		SourcePaneID: paneB.ID,
+		TargetTabs:   targetTabs,
+	})
+	require.NoError(t, err)
+	require.False(t, out.SourceTabClosed)
+
+	require.True(t, sourceTab.Workspace.Root.IsStacked)
+	require.Len(t, sourceTab.Workspace.Root.Children, 2)
+	require.Equal(t, paneA.ID, sourceTab.Workspace.Root.Children[0].Pane.ID)
+	require.Equal(t, paneC.ID, sourceTab.Workspace.Root.Children[1].Pane.ID)
+	require.Equal(t, 1, sourceTab.Workspace.Root.ActiveStackIndex)
+	require.Equal(t, paneC.ID, sourceTab.Workspace.ActivePaneID)
+	require.Same(t, paneB, out.NewTab.Workspace.Root.Pane)
+}
+
 func TestExtractPaneToTabList_FromTwoPaneStackDissolvesSource(t *testing.T) {
 	uc := NewExtractPaneToTabListUseCase(newTestIDGen())
 	sourceTabs := entity.NewTabList()
