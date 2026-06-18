@@ -154,6 +154,22 @@ func TestApp_EjectActivePaneToWindowHandlesThreePaneSplitTree(t *testing.T) {
 	if got := sourceTab.Workspace.FindPane("pane-c"); got != nil {
 		t.Fatal("source workspace still contains moved split pane")
 	}
+	if got := sourceTab.Workspace.ActivePaneID; got != entity.PaneID("pane-b") {
+		t.Fatalf("source active pane = %q, want pane-b", got)
+	}
+	if sourceTab.Workspace.Root == nil || sourceTab.Workspace.Root.ID != "left-split" || !sourceTab.Workspace.Root.IsSplit() {
+		t.Fatalf("source root = %#v, want promoted left split", sourceTab.Workspace.Root)
+	}
+	if got := sourceTab.Workspace.Root.Parent; got != nil {
+		t.Fatalf("source root parent = %#v, want nil", got)
+	}
+	if got := sourceTab.Workspace.Root.Left(); got == nil || got.Pane == nil || got.Pane.ID != entity.PaneID("pane-a") {
+		t.Fatalf("source left leaf = %#v, want pane-a", got)
+	}
+	if got := sourceTab.Workspace.Root.Right(); got == nil || got.Pane == nil || got.Pane.ID != entity.PaneID("pane-b") {
+		t.Fatalf("source right leaf = %#v, want pane-b", got)
+	}
+	assertPaneTreeParents(t, sourceTab.Workspace.Root, nil)
 	targetWindow := app.browserWindows["target-window"]
 	if targetWindow == nil || targetWindow.tabs.Count() != 1 {
 		t.Fatalf("target window/tabs not created correctly: %#v", targetWindow)
@@ -161,6 +177,9 @@ func TestApp_EjectActivePaneToWindowHandlesThreePaneSplitTree(t *testing.T) {
 	newTab := targetWindow.tabs.Tabs[0]
 	if got := newTab.Workspace.ActivePaneID; got != entity.PaneID("pane-c") {
 		t.Fatalf("target active pane = %q, want pane-c", got)
+	}
+	if got := newTab.Workspace.Root.Parent; got != nil {
+		t.Fatalf("target root parent = %#v, want nil", got)
 	}
 	if got := app.windowForTab[newTab.ID]; got != targetWindow {
 		t.Fatalf("target owner = %p, want target window %p", got, targetWindow)
@@ -340,6 +359,19 @@ func splitTreeTab(tabID entity.TabID, workspaceID entity.WorkspaceID, paneAID, p
 
 	workspace := &entity.Workspace{ID: workspaceID, Root: root, ActivePaneID: paneAID}
 	return &entity.Tab{ID: tabID, Workspace: workspace}
+}
+
+func assertPaneTreeParents(t *testing.T, node, wantParent *entity.PaneNode) {
+	t.Helper()
+	if node == nil {
+		return
+	}
+	if node.Parent != wantParent {
+		t.Fatalf("node %q parent = %#v, want %#v", node.ID, node.Parent, wantParent)
+	}
+	for _, child := range node.Children {
+		assertPaneTreeParents(t, child, node)
+	}
 }
 
 func assertTargetSnapshotContainsPane(t *testing.T, window entity.WindowTabListState, paneID entity.PaneID) {
