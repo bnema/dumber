@@ -139,51 +139,9 @@ func TestApp_EjectActivePaneToWindowHandlesThreePaneSplitTree(t *testing.T) {
 		t.Fatalf("EjectActivePaneToWindow returned error: %v", err)
 	}
 
-	if got := len(app.browserWindows); got != 2 {
-		t.Fatalf("browserWindows length = %d, want source and target", got)
-	}
-	if app.browserWindows[sourceWindow.id] == nil {
-		t.Fatal("source window should remain registered")
-	}
-	if got := sourceTab.Workspace.PaneCount(); got != 2 {
-		t.Fatalf("source pane count = %d, want 2", got)
-	}
-	if sourceTab.Workspace.FindPane("pane-a") == nil || sourceTab.Workspace.FindPane("pane-b") == nil {
-		t.Fatal("source workspace missing remaining split panes")
-	}
-	if got := sourceTab.Workspace.FindPane("pane-c"); got != nil {
-		t.Fatal("source workspace still contains moved split pane")
-	}
-	if got := sourceTab.Workspace.ActivePaneID; got != entity.PaneID("pane-b") {
-		t.Fatalf("source active pane = %q, want pane-b", got)
-	}
-	if sourceTab.Workspace.Root == nil || sourceTab.Workspace.Root.ID != "left-split" || !sourceTab.Workspace.Root.IsSplit() {
-		t.Fatalf("source root = %#v, want promoted left split", sourceTab.Workspace.Root)
-	}
-	if got := sourceTab.Workspace.Root.Parent; got != nil {
-		t.Fatalf("source root parent = %#v, want nil", got)
-	}
-	if got := sourceTab.Workspace.Root.Left(); got == nil || got.Pane == nil || got.Pane.ID != entity.PaneID("pane-a") {
-		t.Fatalf("source left leaf = %#v, want pane-a", got)
-	}
-	if got := sourceTab.Workspace.Root.Right(); got == nil || got.Pane == nil || got.Pane.ID != entity.PaneID("pane-b") {
-		t.Fatalf("source right leaf = %#v, want pane-b", got)
-	}
-	assertPaneTreeParents(t, sourceTab.Workspace.Root, nil)
-	targetWindow := app.browserWindows["target-window"]
-	if targetWindow == nil || targetWindow.tabs.Count() != 1 {
-		t.Fatalf("target window/tabs not created correctly: %#v", targetWindow)
-	}
-	newTab := targetWindow.tabs.Tabs[0]
-	if got := newTab.Workspace.ActivePaneID; got != entity.PaneID("pane-c") {
-		t.Fatalf("target active pane = %q, want pane-c", got)
-	}
-	if got := newTab.Workspace.Root.Parent; got != nil {
-		t.Fatalf("target root parent = %#v, want nil", got)
-	}
-	if got := app.windowForTab[newTab.ID]; got != targetWindow {
-		t.Fatalf("target owner = %p, want target window %p", got, targetWindow)
-	}
+	assertEjectWindowCount(t, app, sourceWindow)
+	assertEjectedThreePaneSplitSource(t, sourceTab)
+	assertEjectedThreePaneSplitTarget(t, app, "pane-c")
 }
 
 func TestApp_EjectActivePaneToWindowSnapshotReplacesEmptySourceWindow(t *testing.T) {
@@ -340,6 +298,71 @@ func stackedTab(tabID entity.TabID, workspaceID entity.WorkspaceID, paneIDs ...e
 	stack.Children = children
 	workspace := &entity.Workspace{ID: workspaceID, Root: stack, ActivePaneID: paneIDs[0]}
 	return &entity.Tab{ID: tabID, Workspace: workspace}
+}
+
+func assertEjectWindowCount(t *testing.T, app *App, sourceWindow *browserWindow) {
+	t.Helper()
+	if got := len(app.browserWindows); got != 2 {
+		t.Fatalf("browserWindows length = %d, want source and target", got)
+	}
+	if app.browserWindows[sourceWindow.id] == nil {
+		t.Fatal("source window should remain registered")
+	}
+}
+
+func assertEjectedThreePaneSplitSource(t *testing.T, sourceTab *entity.Tab) {
+	t.Helper()
+	if got := sourceTab.Workspace.PaneCount(); got != 2 {
+		t.Fatalf("source pane count = %d, want 2", got)
+	}
+	if sourceTab.Workspace.FindPane("pane-a") == nil || sourceTab.Workspace.FindPane("pane-b") == nil {
+		t.Fatal("source workspace missing remaining split panes")
+	}
+	if got := sourceTab.Workspace.FindPane("pane-c"); got != nil {
+		t.Fatal("source workspace still contains moved split pane")
+	}
+	if got := sourceTab.Workspace.ActivePaneID; got != entity.PaneID("pane-b") {
+		t.Fatalf("source active pane = %q, want pane-b", got)
+	}
+	assertPromotedLeftSplitRoot(t, sourceTab.Workspace.Root)
+}
+
+func assertPromotedLeftSplitRoot(t *testing.T, root *entity.PaneNode) {
+	t.Helper()
+	if root == nil || root.ID != "left-split" || !root.IsSplit() {
+		t.Fatalf("source root = %#v, want promoted left split", root)
+	}
+	if got := root.Parent; got != nil {
+		t.Fatalf("source root parent = %#v, want nil", got)
+	}
+	assertLeafPaneID(t, root.Left(), "pane-a")
+	assertLeafPaneID(t, root.Right(), "pane-b")
+	assertPaneTreeParents(t, root, nil)
+}
+
+func assertEjectedThreePaneSplitTarget(t *testing.T, app *App, paneID entity.PaneID) {
+	t.Helper()
+	targetWindow := app.browserWindows["target-window"]
+	if targetWindow == nil || targetWindow.tabs.Count() != 1 {
+		t.Fatalf("target window/tabs not created correctly: %#v", targetWindow)
+	}
+	newTab := targetWindow.tabs.Tabs[0]
+	if got := newTab.Workspace.ActivePaneID; got != paneID {
+		t.Fatalf("target active pane = %q, want %q", got, paneID)
+	}
+	if got := newTab.Workspace.Root.Parent; got != nil {
+		t.Fatalf("target root parent = %#v, want nil", got)
+	}
+	if got := app.windowForTab[newTab.ID]; got != targetWindow {
+		t.Fatalf("target owner = %p, want target window %p", got, targetWindow)
+	}
+}
+
+func assertLeafPaneID(t *testing.T, node *entity.PaneNode, paneID entity.PaneID) {
+	t.Helper()
+	if node == nil || node.Pane == nil || node.Pane.ID != paneID {
+		t.Fatalf("leaf = %#v, want %s", node, paneID)
+	}
 }
 
 func splitTreeTab(tabID entity.TabID, workspaceID entity.WorkspaceID, paneAID, paneBID, paneCID entity.PaneID) *entity.Tab {

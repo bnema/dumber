@@ -15,7 +15,7 @@ func TestExtractPaneToTabList_FromThreePaneStack(t *testing.T) {
 	paneA := entity.NewPane(entity.PaneID("pA"))
 	paneB := entity.NewPane(entity.PaneID("pB"))
 	paneC := entity.NewPane(entity.PaneID("pC"))
-	sourceTab := newStackedTab("tA", "wA", paneA, paneB, paneC)
+	sourceTab := newStackedTab(paneA, paneB, paneC)
 	sourceTab.Workspace.ActivePaneID = paneB.ID
 	sourceTabs.Add(sourceTab)
 
@@ -53,7 +53,7 @@ func TestExtractPaneToTabList_FromThreePaneStackUsesWorkspaceActivePaneWhenStack
 	paneA := entity.NewPane(entity.PaneID("pA"))
 	paneB := entity.NewPane(entity.PaneID("pB"))
 	paneC := entity.NewPane(entity.PaneID("pC"))
-	sourceTab := newStackedTab("tA", "wA", paneA, paneB, paneC)
+	sourceTab := newStackedTab(paneA, paneB, paneC)
 	// ActivePaneID is the workspace source of truth, but stacked UI state can lag.
 	// Eject should remove pB deterministically and activate the pane that takes its slot.
 	sourceTab.Workspace.ActivePaneID = paneB.ID
@@ -85,7 +85,7 @@ func TestExtractPaneToTabList_FromTwoPaneStackDissolvesSource(t *testing.T) {
 
 	paneA := entity.NewPane(entity.PaneID("pA"))
 	paneB := entity.NewPane(entity.PaneID("pB"))
-	sourceTab := newStackedTab("tA", "wA", paneA, paneB)
+	sourceTab := newStackedTab(paneA, paneB)
 	sourceTab.Workspace.ActivePaneID = paneB.ID
 	sourceTabs.Add(sourceTab)
 
@@ -333,7 +333,7 @@ func TestExtractPaneToTabList_ParentPointerTreeIntegrity(t *testing.T) {
 	paneA := entity.NewPane(entity.PaneID("pA"))
 	paneB := entity.NewPane(entity.PaneID("pB"))
 	paneC := entity.NewPane(entity.PaneID("pC"))
-	sourceTab := newStackedTab("tA", "wA", paneA, paneB, paneC)
+	sourceTab := newStackedTab(paneA, paneB, paneC)
 	sourceTabs.Add(sourceTab)
 
 	out, err := uc.Execute(ExtractPaneToTabListInput{
@@ -349,8 +349,8 @@ func TestExtractPaneToTabList_ParentPointerTreeIntegrity(t *testing.T) {
 	require.Nil(t, out.MovedPaneNode.Parent)
 }
 
-func newStackedTab(tabID entity.TabID, workspaceID entity.WorkspaceID, panes ...*entity.Pane) *entity.Tab {
-	tab := entity.NewTab(tabID, workspaceID, panes[0])
+func newStackedTab(panes ...*entity.Pane) *entity.Tab {
+	tab := entity.NewTab("tA", "wA", panes[0])
 	stack := &entity.PaneNode{ID: "stack", IsStacked: true, ActiveStackIndex: 0}
 	for _, pane := range panes {
 		child := &entity.PaneNode{ID: string(pane.ID), Pane: pane, Parent: stack}
