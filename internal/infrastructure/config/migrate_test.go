@@ -974,6 +974,54 @@ func TestMigrator_DeleteNestedKey(t *testing.T) {
 	})
 }
 
+func TestMigrator_Migrate_IsIdempotentForExternalThemePathAndEmptyProfiles(t *testing.T) {
+	home := t.TempDir()
+	t.Setenv("HOME", home)
+	t.Setenv("XDG_CONFIG_HOME", filepath.Join(home, ".config"))
+	t.Setenv("XDG_DATA_HOME", filepath.Join(home, ".local", "share"))
+	t.Setenv("XDG_STATE_HOME", filepath.Join(home, ".local", "state"))
+	t.Setenv("XDG_CACHE_HOME", filepath.Join(home, ".cache"))
+
+	configFile, err := GetConfigFile()
+	require.NoError(t, err)
+	require.NoError(t, os.MkdirAll(filepath.Dir(configFile), 0o755))
+
+	content, err := encodeConfigToTOML(DefaultConfig())
+	require.NoError(t, err)
+	require.Contains(t, content, "path = '")
+	require.Contains(t, content, "[workspace.floating_pane.profiles]")
+	content = strings.Replace(content, "\n    [workspace.floating_pane.profiles]\n", "", 1)
+	require.NoError(t, os.WriteFile(configFile, []byte(content), 0o644))
+
+	m := NewMigrator()
+	firstChanges, err := m.DetectChanges()
+	require.NoError(t, err)
+	assertContainsChange(t, firstChanges, port.KeyChangeAdded, "", "workspace.floating_pane.profiles")
+
+	appliedKeys, err := m.Migrate()
+	require.NoError(t, err)
+	require.NotEmpty(t, appliedKeys, "first migration should apply the missing profiles default")
+
+	secondChanges, err := m.DetectChanges()
+	require.NoError(t, err)
+	assert.Empty(t, secondChanges, "second migration detection should report no changes after a successful migration")
+
+	secondAppliedKeys, err := m.Migrate()
+	require.NoError(t, err)
+	assert.Empty(t, secondAppliedKeys, "second migration should be a no-op")
+}
+
+func assertContainsChange(t *testing.T, changes []port.KeyChange, changeType port.KeyChangeType, oldKey, newKey string) {
+	t.Helper()
+
+	for _, change := range changes {
+		if change.Type == changeType && change.OldKey == oldKey && change.NewKey == newKey {
+			return
+		}
+	}
+	assert.Failf(t, "missing expected change", "type=%v old=%q new=%q changes=%v", changeType, oldKey, newKey, changes)
+}
+
 // --- Migrate-path popup → browsing_contexts transform tests ---
 
 func TestMigrator_GetUserConfigKeysWithValues_TransformsLegacyPopups(t *testing.T) {
