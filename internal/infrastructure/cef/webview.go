@@ -20,6 +20,7 @@ import (
 
 	"github.com/bnema/dumber/internal/application/dto"
 	"github.com/bnema/dumber/internal/application/port"
+	"github.com/bnema/dumber/internal/domain/entity"
 	"github.com/bnema/dumber/internal/logging"
 	"github.com/bnema/dumber/internal/shared/syncdispatch"
 )
@@ -1545,7 +1546,7 @@ func (wv *WebView) touchpadNavigationViewWidth() float64 {
 	return float64(wv.nativeWidget.GetWidth())
 }
 
-func (wv *WebView) emitTouchpadNavigationGesture(gesture dto.TouchpadNavigationGesture) {
+func (wv *WebView) emitTouchpadNavigationGesture(gesture entity.TouchpadNavigationGesture) {
 	if wv == nil {
 		return
 	}

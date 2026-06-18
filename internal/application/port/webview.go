@@ -7,6 +7,7 @@ import (
 	"context"
 
 	"github.com/bnema/dumber/internal/application/dto"
+	"github.com/bnema/dumber/internal/domain/entity"
 )
 
 // WebViewID uniquely identifies a WebView instance.
@@ -139,7 +140,7 @@ type WebViewCallbacks struct {
 	OnAudioStateChanged func(playing bool)
 	// OnTouchpadNavigationGesture is called while a two-finger touchpad history
 	// navigation gesture is progressing or finishing.
-	OnTouchpadNavigationGesture func(gesture dto.TouchpadNavigationGesture)
+	OnTouchpadNavigationGesture func(gesture entity.TouchpadNavigationGesture)
 }
 
 // FindOptions configures search behavior.

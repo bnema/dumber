@@ -3,7 +3,7 @@ package cef
 import (
 	"testing"
 
-	"github.com/bnema/dumber/internal/application/dto"
+	"github.com/bnema/dumber/internal/domain/entity"
 	cef2gtk "github.com/bnema/purego-cef2gtk"
 	"github.com/bnema/puregotk/v4/gdk"
 	"github.com/stretchr/testify/require"
@@ -43,7 +43,7 @@ func TestTouchpadNavigationRecognizer_ReportsProgressAndNavigatesOnReleaseAfterT
 		CanGoForward: true,
 	})
 	require.True(t, progress.HasIndicator)
-	require.Equal(t, dto.TouchpadNavigationBack, progress.Indicator.Action)
+	require.Equal(t, entity.TouchpadNavigationBack, progress.Indicator.Action)
 	require.True(t, progress.Indicator.Active)
 	require.InDelta(t, 0.6, progress.Indicator.Progress, 0.001)
 	require.False(t, progress.Indicator.ThresholdReached)
@@ -56,7 +56,7 @@ func TestTouchpadNavigationRecognizer_ReportsProgressAndNavigatesOnReleaseAfterT
 		CanGoForward: true,
 	})
 	require.True(t, armed.HasIndicator)
-	require.Equal(t, dto.TouchpadNavigationBack, armed.Indicator.Action)
+	require.Equal(t, entity.TouchpadNavigationBack, armed.Indicator.Action)
 	require.True(t, armed.Indicator.Active)
 	require.InDelta(t, 1.0, armed.Indicator.Progress, 0.001)
 	require.True(t, armed.Indicator.ThresholdReached)
@@ -99,7 +99,7 @@ func TestTouchpadNavigationRecognizer_ReportsForwardProgressAndNavigatesOnReleas
 		CanGoForward: true,
 	})
 	require.True(t, armed.HasIndicator)
-	require.Equal(t, dto.TouchpadNavigationForward, armed.Indicator.Action)
+	require.Equal(t, entity.TouchpadNavigationForward, armed.Indicator.Action)
 	require.True(t, armed.Indicator.Active)
 	require.InDelta(t, 1.0, armed.Indicator.Progress, 0.001)
 	require.True(t, armed.Indicator.ThresholdReached)
@@ -466,7 +466,7 @@ func TestTouchpadNavigationRecognizer_ResetsBetweenConsecutiveGestures(t *testin
 		CanGoForward: true,
 	})
 	require.True(t, secondUpdate.HasIndicator)
-	require.Equal(t, dto.TouchpadNavigationForward, secondUpdate.Indicator.Action)
+	require.Equal(t, entity.TouchpadNavigationForward, secondUpdate.Indicator.Action)
 	secondEnd := recognizer.Handle(touchpadNavigationInput{
 		Event:        touchpadNavigationScrollEventAt(cef2gtk.ScrollPhaseEnd, 976, 0, 0),
 		Config:       cfg,

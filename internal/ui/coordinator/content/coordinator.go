@@ -4,7 +4,6 @@ import (
 	"context"
 	"sync"
 
-	"github.com/bnema/dumber/internal/application/dto"
 	"github.com/bnema/dumber/internal/application/port"
 	"github.com/bnema/dumber/internal/application/usecase"
 	"github.com/bnema/dumber/internal/domain/entity"
@@ -66,7 +65,7 @@ type Coordinator struct {
 	onActiveNavigationCommitted func(paneID entity.PaneID, uri string)
 
 	// Callback when a CEF touchpad history navigation gesture progresses.
-	onTouchpadNavigationGesture func(paneID entity.PaneID, gesture dto.TouchpadNavigationGesture)
+	onTouchpadNavigationGesture func(paneID entity.PaneID, gesture entity.TouchpadNavigationGesture)
 
 	// Callback when the WebView becomes visible (first real commit)
 	onWebViewShown func(paneID entity.PaneID)
@@ -198,7 +197,7 @@ func (c *Coordinator) SetOnPaneURIUpdated(fn func(paneID entity.PaneID, url stri
 
 // SetOnTouchpadNavigationGesture sets the callback for CEF two-finger history
 // navigation gesture progress.
-func (c *Coordinator) SetOnTouchpadNavigationGesture(fn func(paneID entity.PaneID, gesture dto.TouchpadNavigationGesture)) {
+func (c *Coordinator) SetOnTouchpadNavigationGesture(fn func(paneID entity.PaneID, gesture entity.TouchpadNavigationGesture)) {
 	c.onTouchpadNavigationGesture = fn
 }
 

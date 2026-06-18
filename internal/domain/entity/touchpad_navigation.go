@@ -1,4 +1,4 @@
-package dto
+package entity
 
 // TouchpadNavigationAction indicates the direction of a touchpad navigation gesture.
 type TouchpadNavigationAction int

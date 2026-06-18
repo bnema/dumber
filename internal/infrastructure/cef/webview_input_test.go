@@ -4,8 +4,8 @@ import (
 	"context"
 	"testing"
 
-	"github.com/bnema/dumber/internal/application/dto"
 	"github.com/bnema/dumber/internal/application/port"
+	"github.com/bnema/dumber/internal/domain/entity"
 	cefmocks "github.com/bnema/purego-cef/cef/mocks"
 	"github.com/bnema/purego-cef2gtk"
 	"github.com/bnema/puregotk/v4/gdk"
@@ -92,7 +92,7 @@ func TestWebViewHandleScrollInput_EmitsFinalGestureBeforeNavigation(t *testing.T
 		canGoBack: true,
 		browser:   browser,
 		callbacks: &port.WebViewCallbacks{
-			OnTouchpadNavigationGesture: func(gesture dto.TouchpadNavigationGesture) {
+			OnTouchpadNavigationGesture: func(gesture entity.TouchpadNavigationGesture) {
 				if !gesture.Active && gesture.ThresholdReached {
 					events = append(events, "indicator-finished")
 				}
