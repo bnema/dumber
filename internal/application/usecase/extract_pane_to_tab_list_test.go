@@ -15,7 +15,7 @@ func TestExtractPaneToTabList_FromThreePaneStack(t *testing.T) {
 	paneA := entity.NewPane(entity.PaneID("pA"))
 	paneB := entity.NewPane(entity.PaneID("pB"))
 	paneC := entity.NewPane(entity.PaneID("pC"))
-	sourceTab := newStackedTab("tA", "wA", paneA, paneB, paneC)
+	sourceTab := newStackedTab(paneA, paneB, paneC)
 	sourceTab.Workspace.ActivePaneID = paneB.ID
 	sourceTabs.Add(sourceTab)
 
@@ -45,6 +45,39 @@ func TestExtractPaneToTabList_FromThreePaneStack(t *testing.T) {
 	require.Nil(t, out.MovedPaneNode.Parent)
 }
 
+func TestExtractPaneToTabList_FromThreePaneStackUsesWorkspaceActivePaneWhenStackIndexIsStale(t *testing.T) {
+	uc := NewExtractPaneToTabListUseCase(newTestIDGen())
+	sourceTabs := entity.NewTabList()
+	targetTabs := entity.NewTabList()
+
+	paneA := entity.NewPane(entity.PaneID("pA"))
+	paneB := entity.NewPane(entity.PaneID("pB"))
+	paneC := entity.NewPane(entity.PaneID("pC"))
+	sourceTab := newStackedTab(paneA, paneB, paneC)
+	// ActivePaneID is the workspace source of truth, but stacked UI state can lag.
+	// Eject should remove pB deterministically and activate the pane that takes its slot.
+	sourceTab.Workspace.ActivePaneID = paneB.ID
+	sourceTab.Workspace.Root.ActiveStackIndex = 0
+	sourceTabs.Add(sourceTab)
+
+	out, err := uc.Execute(ExtractPaneToTabListInput{
+		SourceTabs:   sourceTabs,
+		SourceTabID:  sourceTab.ID,
+		SourcePaneID: paneB.ID,
+		TargetTabs:   targetTabs,
+	})
+	require.NoError(t, err)
+	require.False(t, out.SourceTabClosed)
+
+	require.True(t, sourceTab.Workspace.Root.IsStacked)
+	require.Len(t, sourceTab.Workspace.Root.Children, 2)
+	require.Equal(t, paneA.ID, sourceTab.Workspace.Root.Children[0].Pane.ID)
+	require.Equal(t, paneC.ID, sourceTab.Workspace.Root.Children[1].Pane.ID)
+	require.Equal(t, 1, sourceTab.Workspace.Root.ActiveStackIndex)
+	require.Equal(t, paneC.ID, sourceTab.Workspace.ActivePaneID)
+	require.Same(t, paneB, out.NewTab.Workspace.Root.Pane)
+}
+
 func TestExtractPaneToTabList_FromTwoPaneStackDissolvesSource(t *testing.T) {
 	uc := NewExtractPaneToTabListUseCase(newTestIDGen())
 	sourceTabs := entity.NewTabList()
@@ -52,7 +85,7 @@ func TestExtractPaneToTabList_FromTwoPaneStackDissolvesSource(t *testing.T) {
 
 	paneA := entity.NewPane(entity.PaneID("pA"))
 	paneB := entity.NewPane(entity.PaneID("pB"))
-	sourceTab := newStackedTab("tA", "wA", paneA, paneB)
+	sourceTab := newStackedTab(paneA, paneB)
 	sourceTab.Workspace.ActivePaneID = paneB.ID
 	sourceTabs.Add(sourceTab)
 
@@ -95,6 +128,121 @@ func TestExtractPaneToTabList_LastPaneClosesSourceTab(t *testing.T) {
 	require.Equal(t, 0, sourceTabs.Count())
 	require.Equal(t, 1, targetTabs.Count())
 	require.Same(t, pane, out.NewTab.Workspace.Root.Pane)
+}
+
+func TestExtractPaneToTabList_FromStackPreservesActivePaneOutsideStack(t *testing.T) {
+	uc := NewExtractPaneToTabListUseCase(newTestIDGen())
+	sourceTabs := entity.NewTabList()
+	targetTabs := entity.NewTabList()
+
+	paneA := entity.NewPane(entity.PaneID("pA"))
+	paneB := entity.NewPane(entity.PaneID("pB"))
+	paneC := entity.NewPane(entity.PaneID("pC"))
+	paneD := entity.NewPane(entity.PaneID("pD"))
+	stack := &entity.PaneNode{ID: "stack", IsStacked: true, ActiveStackIndex: 2}
+	stack.Children = []*entity.PaneNode{
+		{ID: string(paneA.ID), Pane: paneA, Parent: stack},
+		{ID: string(paneB.ID), Pane: paneB, Parent: stack},
+		{ID: string(paneC.ID), Pane: paneC, Parent: stack},
+	}
+	root := &entity.PaneNode{ID: "root", SplitDir: entity.SplitHorizontal, SplitRatio: 0.5}
+	paneDNode := &entity.PaneNode{ID: string(paneD.ID), Pane: paneD, Parent: root}
+	stack.Parent = root
+	root.Children = []*entity.PaneNode{stack, paneDNode}
+	sourceTab := &entity.Tab{ID: "tA", Workspace: &entity.Workspace{ID: "wA", Root: root, ActivePaneID: paneD.ID}}
+	sourceTabs.Add(sourceTab)
+
+	out, err := uc.Execute(ExtractPaneToTabListInput{
+		SourceTabs:   sourceTabs,
+		SourceTabID:  sourceTab.ID,
+		SourcePaneID: paneB.ID,
+		TargetTabs:   targetTabs,
+	})
+	require.NoError(t, err)
+	require.False(t, out.SourceTabClosed)
+
+	require.Equal(t, paneD.ID, sourceTab.Workspace.ActivePaneID)
+	require.True(t, stack.IsStacked)
+	require.Len(t, stack.Children, 2)
+	require.Equal(t, 1, stack.ActiveStackIndex)
+	require.Same(t, paneB, out.NewTab.Workspace.Root.Pane)
+	assertParentPointers(t, sourceTab.Workspace.Root, nil)
+	assertParentPointers(t, out.NewTab.Workspace.Root, nil)
+}
+
+func TestExtractPaneToTabList_FromTwoPaneStackDissolvePreservesActivePaneOutsideStack(t *testing.T) {
+	uc := NewExtractPaneToTabListUseCase(newTestIDGen())
+	sourceTabs := entity.NewTabList()
+	targetTabs := entity.NewTabList()
+
+	paneA := entity.NewPane(entity.PaneID("pA"))
+	paneB := entity.NewPane(entity.PaneID("pB"))
+	paneC := entity.NewPane(entity.PaneID("pC"))
+	stack := &entity.PaneNode{ID: "stack", IsStacked: true, ActiveStackIndex: 1}
+	stack.Children = []*entity.PaneNode{
+		{ID: string(paneA.ID), Pane: paneA, Parent: stack},
+		{ID: string(paneB.ID), Pane: paneB, Parent: stack},
+	}
+	root := &entity.PaneNode{ID: "root", SplitDir: entity.SplitHorizontal, SplitRatio: 0.5}
+	paneCNode := &entity.PaneNode{ID: string(paneC.ID), Pane: paneC, Parent: root}
+	stack.Parent = root
+	root.Children = []*entity.PaneNode{stack, paneCNode}
+	sourceTab := &entity.Tab{ID: "tA", Workspace: &entity.Workspace{ID: "wA", Root: root, ActivePaneID: paneC.ID}}
+	sourceTabs.Add(sourceTab)
+
+	out, err := uc.Execute(ExtractPaneToTabListInput{
+		SourceTabs:   sourceTabs,
+		SourceTabID:  sourceTab.ID,
+		SourcePaneID: paneB.ID,
+		TargetTabs:   targetTabs,
+	})
+	require.NoError(t, err)
+	require.False(t, out.SourceTabClosed)
+
+	require.Equal(t, paneC.ID, sourceTab.Workspace.ActivePaneID)
+	require.True(t, stack.IsLeaf())
+	require.Same(t, paneA, stack.Pane)
+	require.Same(t, paneB, out.NewTab.Workspace.Root.Pane)
+	assertParentPointers(t, sourceTab.Workspace.Root, nil)
+	assertParentPointers(t, out.NewTab.Workspace.Root, nil)
+}
+
+func TestExtractPaneToTabList_FromNestedSplitPreservesActivePaneOutsidePromotedSibling(t *testing.T) {
+	uc := NewExtractPaneToTabListUseCase(newTestIDGen())
+	sourceTabs := entity.NewTabList()
+	targetTabs := entity.NewTabList()
+
+	paneA := entity.NewPane(entity.PaneID("pA"))
+	paneB := entity.NewPane(entity.PaneID("pB"))
+	paneC := entity.NewPane(entity.PaneID("pC"))
+	root := &entity.PaneNode{ID: "root", SplitDir: entity.SplitHorizontal, SplitRatio: 0.5}
+	leftLeaf := &entity.PaneNode{ID: string(paneA.ID), Pane: paneA, Parent: root}
+	rightSplit := &entity.PaneNode{ID: "right-split", SplitDir: entity.SplitVertical, SplitRatio: 0.5, Parent: root}
+	paneBNode := &entity.PaneNode{ID: string(paneB.ID), Pane: paneB, Parent: rightSplit}
+	paneCNode := &entity.PaneNode{ID: string(paneC.ID), Pane: paneC, Parent: rightSplit}
+	rightSplit.Children = []*entity.PaneNode{paneBNode, paneCNode}
+	root.Children = []*entity.PaneNode{leftLeaf, rightSplit}
+	sourceTab := &entity.Tab{ID: "tA", Workspace: &entity.Workspace{ID: "wA", Root: root, ActivePaneID: paneA.ID}}
+	sourceTabs.Add(sourceTab)
+
+	out, err := uc.Execute(ExtractPaneToTabListInput{
+		SourceTabs:   sourceTabs,
+		SourceTabID:  sourceTab.ID,
+		SourcePaneID: paneC.ID,
+		TargetTabs:   targetTabs,
+	})
+	require.NoError(t, err)
+	require.False(t, out.SourceTabClosed)
+
+	require.Equal(t, paneA.ID, sourceTab.Workspace.ActivePaneID)
+	require.Same(t, root, sourceTab.Workspace.Root)
+	require.Same(t, leftLeaf, sourceTab.Workspace.Root.Left())
+	require.Same(t, paneBNode, sourceTab.Workspace.Root.Right())
+	require.Nil(t, paneCNode.Parent)
+	require.Empty(t, rightSplit.Children)
+	require.Same(t, paneC, out.NewTab.Workspace.Root.Pane)
+	assertParentPointers(t, sourceTab.Workspace.Root, nil)
+	assertParentPointers(t, out.NewTab.Workspace.Root, nil)
 }
 
 func TestExtractPaneToTabList_FromSplitSeversMovedNode(t *testing.T) {
@@ -185,7 +333,7 @@ func TestExtractPaneToTabList_ParentPointerTreeIntegrity(t *testing.T) {
 	paneA := entity.NewPane(entity.PaneID("pA"))
 	paneB := entity.NewPane(entity.PaneID("pB"))
 	paneC := entity.NewPane(entity.PaneID("pC"))
-	sourceTab := newStackedTab("tA", "wA", paneA, paneB, paneC)
+	sourceTab := newStackedTab(paneA, paneB, paneC)
 	sourceTabs.Add(sourceTab)
 
 	out, err := uc.Execute(ExtractPaneToTabListInput{
@@ -201,8 +349,8 @@ func TestExtractPaneToTabList_ParentPointerTreeIntegrity(t *testing.T) {
 	require.Nil(t, out.MovedPaneNode.Parent)
 }
 
-func newStackedTab(tabID entity.TabID, workspaceID entity.WorkspaceID, panes ...*entity.Pane) *entity.Tab {
-	tab := entity.NewTab(tabID, workspaceID, panes[0])
+func newStackedTab(panes ...*entity.Pane) *entity.Tab {
+	tab := entity.NewTab("tA", "wA", panes[0])
 	stack := &entity.PaneNode{ID: "stack", IsStacked: true, ActiveStackIndex: 0}
 	for _, pane := range panes {
 		child := &entity.PaneNode{ID: string(pane.ID), Pane: pane, Parent: stack}
