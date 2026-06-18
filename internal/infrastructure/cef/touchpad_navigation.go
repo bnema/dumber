@@ -9,8 +9,9 @@ import (
 )
 
 const (
-	defaultTouchpadNavigationCommitDistance = 320.0
-	defaultTouchpadNavigationVerticalRatio  = 0.5
+	defaultTouchpadNavigationCommitDistance       = 320.0
+	defaultTouchpadNavigationVerticalRatio        = 0.5
+	touchpadNavigationIndicatorActivationFraction = 0.5
 )
 
 type touchpadNavigationRecognizer struct {
@@ -84,6 +85,9 @@ func (r *touchpadNavigationRecognizer) handleUpdate(input touchpadNavigationInpu
 	threshold := normalizedTouchpadNavigationMinDelta(input.Config.TouchpadNavigationMinDelta)
 	progress := clampFloat(math.Abs(r.cumulativeDX)/threshold, 0, 1)
 	r.thresholdReached = progress >= 1
+	if !r.indicatorShown && progress < touchpadNavigationIndicatorActivationFraction {
+		return touchpadNavigationResult{}
+	}
 	r.indicatorShown = true
 	r.lastIndicatorAction = action
 	return touchpadNavigationResult{
@@ -113,12 +117,12 @@ func (r *touchpadNavigationRecognizer) handleEnd(input touchpadNavigationInput) 
 }
 
 func (r *touchpadNavigationRecognizer) finishIndicator(input touchpadNavigationInput, triggered bool) touchpadNavigationResult {
-	action, ok := r.indicatorAction(input)
-	if !ok && r.indicatorShown {
-		action, ok = r.lastIndicatorAction, true
-	}
-	if !ok {
+	if !r.indicatorShown {
 		return touchpadNavigationResult{}
+	}
+	action, ok := r.indicatorAction(input)
+	if !ok {
+		action, ok = r.lastIndicatorAction, true
 	}
 	threshold := normalizedTouchpadNavigationMinDelta(input.Config.TouchpadNavigationMinDelta)
 	return touchpadNavigationResult{

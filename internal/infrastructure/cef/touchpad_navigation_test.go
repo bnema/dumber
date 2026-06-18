@@ -26,8 +26,17 @@ func TestTouchpadNavigationRecognizer_ReportsProgressAndNavigatesOnReleaseAfterT
 	require.False(t, begin.HasIndicator)
 	require.False(t, begin.HasAction)
 
-	progress := recognizer.Handle(touchpadNavigationInput{
+	ordinaryScroll := recognizer.Handle(touchpadNavigationInput{
 		Event:        touchpadNavigationScrollEvent(cef2gtk.ScrollPhaseUpdate, -80, 0),
+		Config:       cfg,
+		CanGoBack:    true,
+		CanGoForward: true,
+	})
+	require.False(t, ordinaryScroll.HasIndicator, "ordinary horizontal scrolling below the activation distance should not show navigation UI")
+	require.False(t, ordinaryScroll.HasAction)
+
+	progress := recognizer.Handle(touchpadNavigationInput{
+		Event:        touchpadNavigationScrollEvent(cef2gtk.ScrollPhaseUpdate, -40, 0),
 		Config:       cfg,
 		CanGoBack:    true,
 		CanGoForward: true,
@@ -35,12 +44,12 @@ func TestTouchpadNavigationRecognizer_ReportsProgressAndNavigatesOnReleaseAfterT
 	require.True(t, progress.HasIndicator)
 	require.Equal(t, port.TouchpadNavigationBack, progress.Indicator.Action)
 	require.True(t, progress.Indicator.Active)
-	require.InDelta(t, 0.4, progress.Indicator.Progress, 0.001)
+	require.InDelta(t, 0.6, progress.Indicator.Progress, 0.001)
 	require.False(t, progress.Indicator.ThresholdReached)
 	require.False(t, progress.HasAction)
 
 	armed := recognizer.Handle(touchpadNavigationInput{
-		Event:        touchpadNavigationScrollEvent(cef2gtk.ScrollPhaseUpdate, -140, 0),
+		Event:        touchpadNavigationScrollEvent(cef2gtk.ScrollPhaseUpdate, -100, 0),
 		Config:       cfg,
 		CanGoBack:    true,
 		CanGoForward: true,
@@ -64,7 +73,37 @@ func TestTouchpadNavigationRecognizer_ReportsProgressAndNavigatesOnReleaseAfterT
 	require.Equal(t, cef2gtk.NavigationSwipeBack, end.Action)
 }
 
-func TestTouchpadNavigationRecognizer_DoesNotNavigateBelowThreshold(t *testing.T) {
+func TestTouchpadNavigationRecognizer_DoesNotShowIndicatorBelowActivationDistance(t *testing.T) {
+	recognizer := newTouchpadNavigationRecognizer()
+	cfg := RuntimeInputConfig{
+		TouchpadNavigationEnabled:          true,
+		TouchpadNavigationMinDelta:         200,
+		TouchpadNavigationMaxVerticalRatio: 0.5,
+	}
+
+	_ = recognizer.Handle(touchpadNavigationInput{
+		Event:     touchpadNavigationScrollEvent(cef2gtk.ScrollPhaseBegin, 0, 0),
+		Config:    cfg,
+		CanGoBack: true,
+	})
+	ordinaryScroll := recognizer.Handle(touchpadNavigationInput{
+		Event:     touchpadNavigationScrollEvent(cef2gtk.ScrollPhaseUpdate, -80, 0),
+		Config:    cfg,
+		CanGoBack: true,
+	})
+	require.False(t, ordinaryScroll.HasIndicator)
+	require.False(t, ordinaryScroll.HasAction)
+
+	end := recognizer.Handle(touchpadNavigationInput{
+		Event:     touchpadNavigationScrollEvent(cef2gtk.ScrollPhaseEnd, 0, 0),
+		Config:    cfg,
+		CanGoBack: true,
+	})
+	require.False(t, end.HasAction)
+	require.False(t, end.HasIndicator)
+}
+
+func TestTouchpadNavigationRecognizer_HidesIndicatorWithoutNavigatingWhenReleasedAfterActivationBelowThreshold(t *testing.T) {
 	recognizer := newTouchpadNavigationRecognizer()
 	cfg := RuntimeInputConfig{
 		TouchpadNavigationEnabled:          true,
