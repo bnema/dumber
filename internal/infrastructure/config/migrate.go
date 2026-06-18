@@ -670,8 +670,7 @@ func (m *Migrator) getAllDefaultKeys() []string {
 	// Filter out keys that should not be migrated
 	filtered := make([]string, 0, len(keys))
 	for _, key := range keys {
-		// Skip database.path as it's set dynamically
-		if key == databasePathKey {
+		if m.isMigrationIgnoredDeprecatedKey(key) {
 			continue
 		}
 		filtered = append(filtered, key)
