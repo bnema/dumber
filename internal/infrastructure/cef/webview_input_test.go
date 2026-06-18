@@ -39,9 +39,9 @@ func TestWebViewBridgeInputOptions_LeavesTargetSelectionToAdapter(t *testing.T) 
 	require.False(t, opts.NavigationSwipe.Enabled)
 	require.Zero(t, opts.NavigationSwipe.MinDelta)
 	require.Zero(t, opts.NavigationSwipe.MaxVerticalRatio)
-	require.NotNil(t, opts.CanNavigateBack)
-	require.NotNil(t, opts.CanNavigateForward)
-	require.NotNil(t, opts.OnNavigateSwipe)
+	require.Nil(t, opts.CanNavigateBack)
+	require.Nil(t, opts.CanNavigateForward)
+	require.Nil(t, opts.OnNavigateSwipe)
 	require.NotNil(t, opts.SelectionText)
 	require.NotNil(t, opts.OnClipboardShortcut)
 	require.Same(t, nativeWidget, wv.nativeWidget)
@@ -58,6 +58,9 @@ func TestWebViewHandleScrollInput_ForwardsOrdinaryHorizontalScroll(t *testing.T)
 		canGoBack: true,
 	}
 
+	// This verifies the bridge-level forwarding contract for ordinary scroll
+	// updates. The nil native widget leaves view width unknown, so local history
+	// gesture recognition fails closed and the event continues to CEF.
 	decision := wv.handleScrollInput(cef2gtk.ScrollEvent{
 		Phase:     cef2gtk.ScrollPhaseUpdate,
 		X:         500,

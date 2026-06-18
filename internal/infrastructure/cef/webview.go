@@ -1137,6 +1137,7 @@ func (wv *WebView) Destroy() {
 	wv.openerMessageCallbacks = nil
 	wv.openerNavigationCallbacks = nil
 	wv.popupReadyToShow = nil
+	wv.touchpadNavigation = nil
 	wv.inputAttached = false
 	wv.pendingNativePopups = nil
 	wv.nativePopupParent = nil
@@ -1486,10 +1487,7 @@ func (wv *WebView) bridgeInputOptions() cef2gtk.InputOptions {
 			// waits for a deliberate release past the visual threshold.
 			Enabled: false,
 		},
-		CanNavigateBack:    wv.CanGoBack,
-		CanNavigateForward: wv.CanGoForward,
-		OnNavigateSwipe:    wv.handleNavigationSwipeAction,
-		SelectionText:      wv.selectedTextSnapshot,
+		SelectionText: wv.selectedTextSnapshot,
 		OnClipboardShortcut: func(action, text string) {
 			if wv.engine != nil {
 				wv.engine.handleExplicitClipboardBridgeText(wv.id, action, text)
@@ -1498,13 +1496,16 @@ func (wv *WebView) bridgeInputOptions() cef2gtk.InputOptions {
 	}
 }
 
+// handleScrollInput is invoked by cef2gtk from GTK scroll event callbacks on
+// the GTK main thread, which keeps lazy touchpad recognizer ownership
+// single-threaded while every scroll event is still forwarded to CEF.
 func (wv *WebView) handleScrollInput(event cef2gtk.ScrollEvent) cef2gtk.ScrollDecision {
 	wv.handleTouchpadNavigationScroll(event)
 	return wv.handleScrollInputDiagnostic(event)
 }
 
 func (wv *WebView) handleTouchpadNavigationScroll(event cef2gtk.ScrollEvent) {
-	if wv == nil {
+	if wv == nil || wv.destroyed.Load() {
 		return
 	}
 	if wv.touchpadNavigation == nil {
@@ -1543,7 +1544,9 @@ func (wv *WebView) emitTouchpadNavigationGesture(gesture port.TouchpadNavigation
 	cb := wv.callbacks
 	wv.mu.RUnlock()
 	if cb != nil && cb.OnTouchpadNavigationGesture != nil {
-		cb.OnTouchpadNavigationGesture(gesture)
+		wv.runOnGTK(func() {
+			cb.OnTouchpadNavigationGesture(gesture)
+		})
 	}
 }
 

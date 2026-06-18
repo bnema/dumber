@@ -93,8 +93,9 @@ func (r *touchpadNavigationRecognizer) handleUpdate(input touchpadNavigationInpu
 	}
 
 	threshold := normalizedTouchpadNavigationMinDelta(input.Config.TouchpadNavigationMinDelta)
-	progress := clampFloat(math.Abs(r.cumulativeDX)/threshold, 0, 1)
-	r.thresholdReached = progress >= 1
+	absDX := math.Abs(r.cumulativeDX)
+	progress := clampFloat(absDX/threshold, 0, 1)
+	r.thresholdReached = absDX > threshold
 	if !r.indicatorShown && progress < touchpadNavigationIndicatorActivationFraction {
 		return touchpadNavigationResult{}
 	}
@@ -147,23 +148,18 @@ func (r *touchpadNavigationRecognizer) finishIndicator(input touchpadNavigationI
 }
 
 func (r *touchpadNavigationRecognizer) indicatorAction(input touchpadNavigationInput) (port.TouchpadNavigationAction, bool) {
-	if r.cumulativeDX > 0 && input.CanGoBack && r.startedAtNavigationEdge(port.TouchpadNavigationBack) {
-		return port.TouchpadNavigationBack, true
-	}
-	if r.cumulativeDX < 0 && input.CanGoForward && r.startedAtNavigationEdge(port.TouchpadNavigationForward) {
-		return port.TouchpadNavigationForward, true
-	}
-	return port.TouchpadNavigationBack, false
+	return r.resolvedDirection(input)
 }
 
 func (r *touchpadNavigationRecognizer) cancelAsTooVertical() touchpadNavigationResult {
-	action, ok := r.indicatorAction(touchpadNavigationInput{})
-	if !ok && r.indicatorShown {
-		action, ok = r.lastIndicatorAction, true
+	var action port.TouchpadNavigationAction
+	hasAction := r.indicatorShown
+	if hasAction {
+		action = r.lastIndicatorAction
 	}
 	r.reset()
 	r.verticalCanceled = true
-	if !ok {
+	if !hasAction {
 		return touchpadNavigationResult{}
 	}
 	return touchpadNavigationResult{
@@ -176,13 +172,24 @@ func (r *touchpadNavigationRecognizer) cancelAsTooVertical() touchpadNavigationR
 }
 
 func (r *touchpadNavigationRecognizer) navigationAction(input touchpadNavigationInput) (cef2gtk.NavigationSwipeAction, bool) {
-	if r.cumulativeDX > 0 && input.CanGoBack && r.startedAtNavigationEdge(port.TouchpadNavigationBack) {
-		return cef2gtk.NavigationSwipeBack, true
+	action, ok := r.resolvedDirection(input)
+	if !ok {
+		return cef2gtk.NavigationSwipeBack, false
 	}
-	if r.cumulativeDX < 0 && input.CanGoForward && r.startedAtNavigationEdge(port.TouchpadNavigationForward) {
+	if action == port.TouchpadNavigationForward {
 		return cef2gtk.NavigationSwipeForward, true
 	}
-	return cef2gtk.NavigationSwipeBack, false
+	return cef2gtk.NavigationSwipeBack, true
+}
+
+func (r *touchpadNavigationRecognizer) resolvedDirection(input touchpadNavigationInput) (port.TouchpadNavigationAction, bool) {
+	if r.cumulativeDX > 0 && input.CanGoBack && r.startedAtNavigationEdge(port.TouchpadNavigationBack) {
+		return port.TouchpadNavigationBack, true
+	}
+	if r.cumulativeDX < 0 && input.CanGoForward && r.startedAtNavigationEdge(port.TouchpadNavigationForward) {
+		return port.TouchpadNavigationForward, true
+	}
+	return port.TouchpadNavigationBack, false
 }
 
 func (r *touchpadNavigationRecognizer) setGestureStart(input touchpadNavigationInput) {
@@ -193,7 +200,7 @@ func (r *touchpadNavigationRecognizer) setGestureStart(input touchpadNavigationI
 
 func (r *touchpadNavigationRecognizer) startedAtNavigationEdge(action port.TouchpadNavigationAction) bool {
 	if r.gestureViewWidth <= 0 {
-		return true
+		return false
 	}
 	edgeDistance := math.Min(r.gestureViewWidth*touchpadNavigationEdgeFraction, touchpadNavigationMaxEdgeDistance)
 	if action == port.TouchpadNavigationForward {

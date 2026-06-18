@@ -1,8 +1,6 @@
 package component
 
 import (
-	"sync"
-
 	"github.com/bnema/dumber/internal/application/port"
 	"github.com/bnema/puregotk/v4/glib"
 	"github.com/bnema/puregotk/v4/gtk"
@@ -29,7 +27,6 @@ type TouchpadNavigationIndicator struct {
 	bar       *gtk.ProgressBar
 
 	hideTimer uint
-	mu        sync.Mutex
 }
 
 func NewTouchpadNavigationIndicator() *TouchpadNavigationIndicator {
@@ -121,9 +118,7 @@ func (i *TouchpadNavigationIndicator) ShowGesture(gesture port.TouchpadNavigatio
 	if i == nil || i.container == nil || i.icon == nil || i.label == nil || i.bar == nil {
 		return
 	}
-	i.mu.Lock()
-	defer i.mu.Unlock()
-	i.cancelHideTimerLocked()
+	i.cancelHideTimer()
 
 	i.container.RemoveCssClass("back")
 	i.container.RemoveCssClass("forward")
@@ -149,29 +144,19 @@ func (i *TouchpadNavigationIndicator) ShowGesture(gesture port.TouchpadNavigatio
 	i.container.SetVisible(true)
 
 	if !gesture.Active {
-		i.scheduleHideLocked(gesture.ThresholdReached)
+		i.scheduleHide(gesture.ThresholdReached)
 	}
-}
-
-func (i *TouchpadNavigationIndicator) Hide() {
-	if i == nil || i.container == nil {
-		return
-	}
-	i.mu.Lock()
-	defer i.mu.Unlock()
-	i.hideLocked()
 }
 
 func (i *TouchpadNavigationIndicator) Destroy() {
 	if i == nil {
 		return
 	}
-	i.mu.Lock()
-	defer i.mu.Unlock()
-	i.cancelHideTimerLocked()
+	i.cancelHideTimer()
 	if i.container != nil {
 		i.container.SetVisible(false)
 		i.container.Unparent()
+		i.container.Unref()
 	}
 	i.container = nil
 	i.icon = nil
@@ -179,27 +164,25 @@ func (i *TouchpadNavigationIndicator) Destroy() {
 	i.bar = nil
 }
 
-func (i *TouchpadNavigationIndicator) scheduleHideLocked(triggered bool) {
+func (i *TouchpadNavigationIndicator) scheduleHide(triggered bool) {
 	delay := uint(0)
 	if triggered {
 		delay = touchpadNavigationIndicatorHideMs
 	}
-	cb := glib.SourceFunc(func(_ uintptr) bool {
-		i.mu.Lock()
-		defer i.mu.Unlock()
-		i.hideTimer = 0
-		i.hideLocked()
-		return false
-	})
 	if delay == 0 {
-		i.hideLocked()
+		i.hide()
 		return
 	}
+	cb := glib.SourceFunc(func(_ uintptr) bool {
+		i.hideTimer = 0
+		i.hide()
+		return false
+	})
 	i.hideTimer = glib.TimeoutAdd(delay, &cb, 0)
 }
 
-func (i *TouchpadNavigationIndicator) hideLocked() {
-	i.cancelHideTimerLocked()
+func (i *TouchpadNavigationIndicator) hide() {
+	i.cancelHideTimer()
 	if i.container != nil {
 		i.container.RemoveCssClass("threshold-reached")
 		i.container.RemoveCssClass("back")
@@ -211,7 +194,7 @@ func (i *TouchpadNavigationIndicator) hideLocked() {
 	}
 }
 
-func (i *TouchpadNavigationIndicator) cancelHideTimerLocked() {
+func (i *TouchpadNavigationIndicator) cancelHideTimer() {
 	if i.hideTimer != 0 {
 		glib.SourceRemove(i.hideTimer)
 		i.hideTimer = 0

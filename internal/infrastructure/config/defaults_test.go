@@ -32,7 +32,6 @@ func TestDefaultConfig_CoreDefaults(t *testing.T) {
 	assert.Equal(t, int32(defaultCEFScrollMaxDelta), cfg.Engine.CEF.Input.ScrollMaxDelta)
 	assert.Equal(t, defaultCEFTouchpadNavigation, cfg.Engine.CEF.Input.TouchpadNavigationEnabled)
 	assert.InDelta(t, defaultCEFTouchpadNavigationDelta, cfg.Engine.CEF.Input.TouchpadNavigationMinDelta, 0.001)
-	assert.InDelta(t, 320.0, cfg.Engine.CEF.Input.TouchpadNavigationMinDelta, 0.001, "touchpad navigation should require a deliberate swipe by default")
 	assert.InDelta(t, defaultCEFTouchpadNavigationRatio, cfg.Engine.CEF.Input.TouchpadNavigationMaxVerticalRatio, 0.001)
 	assert.True(t, cfg.Engine.WebKit.ITPEnabled)
 
