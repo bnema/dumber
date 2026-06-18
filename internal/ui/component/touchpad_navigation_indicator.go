@@ -9,11 +9,14 @@ import (
 )
 
 const (
-	touchpadNavigationIndicatorHideMs    = 220
-	touchpadNavigationIndicatorSpacing   = 6
-	touchpadNavigationIndicatorMargin    = 28
-	touchpadNavigationIndicatorWidth     = 96
-	touchpadNavigationIndicatorBarHeight = 4
+	touchpadNavigationIndicatorHideMs       = 220
+	touchpadNavigationIndicatorSpacing      = 8
+	touchpadNavigationIndicatorHeaderGap    = 10
+	touchpadNavigationIndicatorMargin       = 32
+	touchpadNavigationIndicatorWidth        = 156
+	touchpadNavigationIndicatorBarHeight    = 5
+	touchpadNavigationIndicatorIconMinChars = 2
+	touchpadNavigationIndicatorIconXAlign   = 0.5
 )
 
 // TouchpadNavigationIndicator is a lightweight overlay that makes CEF
@@ -21,6 +24,7 @@ const (
 // fills toward the commit threshold, and briefly shows the triggered state.
 type TouchpadNavigationIndicator struct {
 	container *gtk.Box
+	icon      *gtk.Label
 	label     *gtk.Label
 	bar       *gtk.ProgressBar
 
@@ -44,16 +48,11 @@ func NewTouchpadNavigationIndicator() *TouchpadNavigationIndicator {
 	container.SetCanFocus(false)
 	container.SetVisible(false)
 
-	text := ""
-	label := gtk.NewLabel(&text)
-	if label == nil {
+	icon, label, ok := appendTouchpadNavigationHeader(container)
+	if !ok {
 		container.Unref()
 		return nil
 	}
-	label.AddCssClass("touchpad-navigation-label")
-	label.SetCanTarget(false)
-	label.SetCanFocus(false)
-	container.Append(&label.Widget)
 
 	bar := gtk.NewProgressBar()
 	if bar == nil {
@@ -69,9 +68,46 @@ func NewTouchpadNavigationIndicator() *TouchpadNavigationIndicator {
 
 	return &TouchpadNavigationIndicator{
 		container: container,
+		icon:      icon,
 		label:     label,
 		bar:       bar,
 	}
+}
+
+func appendTouchpadNavigationHeader(container *gtk.Box) (*gtk.Label, *gtk.Label, bool) {
+	header := gtk.NewBox(gtk.OrientationHorizontalValue, touchpadNavigationIndicatorHeaderGap)
+	if header == nil {
+		return nil, nil, false
+	}
+	header.AddCssClass("touchpad-navigation-header")
+	header.SetCanTarget(false)
+	header.SetCanFocus(false)
+	container.Append(&header.Widget)
+
+	iconText := "←"
+	icon := gtk.NewLabel(&iconText)
+	if icon == nil {
+		return nil, nil, false
+	}
+	icon.AddCssClass("touchpad-navigation-icon")
+	icon.SetWidthChars(touchpadNavigationIndicatorIconMinChars)
+	icon.SetXalign(touchpadNavigationIndicatorIconXAlign)
+	icon.SetCanTarget(false)
+	icon.SetCanFocus(false)
+	header.Append(&icon.Widget)
+
+	text := "Slide Back"
+	label := gtk.NewLabel(&text)
+	if label == nil {
+		return nil, nil, false
+	}
+	label.AddCssClass("touchpad-navigation-label")
+	label.SetXalign(0)
+	label.SetCanTarget(false)
+	label.SetCanFocus(false)
+	header.Append(&label.Widget)
+
+	return icon, label, true
 }
 
 func (i *TouchpadNavigationIndicator) Widget() *gtk.Widget {
@@ -82,17 +118,21 @@ func (i *TouchpadNavigationIndicator) Widget() *gtk.Widget {
 }
 
 func (i *TouchpadNavigationIndicator) ShowGesture(gesture port.TouchpadNavigationGesture) {
-	if i == nil || i.container == nil || i.label == nil || i.bar == nil {
+	if i == nil || i.container == nil || i.icon == nil || i.label == nil || i.bar == nil {
 		return
 	}
 	i.mu.Lock()
 	defer i.mu.Unlock()
 	i.cancelHideTimerLocked()
 
+	i.container.RemoveCssClass("back")
+	i.container.RemoveCssClass("forward")
 	if gesture.Action == port.TouchpadNavigationForward {
+		i.container.AddCssClass("forward")
 		i.container.SetHalign(gtk.AlignEndValue)
 		i.bar.SetInverted(true)
 	} else {
+		i.container.AddCssClass("back")
 		i.container.SetHalign(gtk.AlignStartValue)
 		i.bar.SetInverted(false)
 	}
@@ -103,6 +143,7 @@ func (i *TouchpadNavigationIndicator) ShowGesture(gesture port.TouchpadNavigatio
 		i.container.RemoveCssClass("threshold-reached")
 	}
 
+	i.icon.SetLabel(touchpadNavigationIndicatorIcon(gesture))
 	i.label.SetLabel(touchpadNavigationIndicatorLabel(gesture))
 	i.bar.SetFraction(clampIndicatorProgress(gesture.Progress))
 	i.container.SetVisible(true)
@@ -133,6 +174,7 @@ func (i *TouchpadNavigationIndicator) Destroy() {
 		i.container.Unparent()
 	}
 	i.container = nil
+	i.icon = nil
 	i.label = nil
 	i.bar = nil
 }
@@ -160,6 +202,8 @@ func (i *TouchpadNavigationIndicator) hideLocked() {
 	i.cancelHideTimerLocked()
 	if i.container != nil {
 		i.container.RemoveCssClass("threshold-reached")
+		i.container.RemoveCssClass("back")
+		i.container.RemoveCssClass("forward")
 		i.container.SetVisible(false)
 	}
 	if i.bar != nil {
@@ -174,15 +218,22 @@ func (i *TouchpadNavigationIndicator) cancelHideTimerLocked() {
 	}
 }
 
-func touchpadNavigationIndicatorLabel(gesture port.TouchpadNavigationGesture) string {
-	suffix := "back"
+func touchpadNavigationIndicatorIcon(gesture port.TouchpadNavigationGesture) string {
 	if gesture.Action == port.TouchpadNavigationForward {
-		suffix = "forward"
+		return "→"
+	}
+	return "←"
+}
+
+func touchpadNavigationIndicatorLabel(gesture port.TouchpadNavigationGesture) string {
+	suffix := "Back"
+	if gesture.Action == port.TouchpadNavigationForward {
+		suffix = "Forward"
 	}
 	if gesture.ThresholdReached {
-		return "Release to go " + suffix
+		return "Release for " + suffix
 	}
-	return "Slide to go " + suffix
+	return "Slide " + suffix
 }
 
 func clampIndicatorProgress(progress float64) float64 {

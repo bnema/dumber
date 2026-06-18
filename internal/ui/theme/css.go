@@ -770,39 +770,75 @@ func generateTouchpadNavigationIndicatorCSS(p Palette) string {
 	return `/* ===== Touchpad Navigation Indicator Styling ===== */
 
 .touchpad-navigation-indicator {
-	background-color: alpha(var(--surface-variant), 0.92);
+	background-color: alpha(var(--surface), 0.94);
 	color: var(--text);
-	border: 1px solid alpha(var(--accent), 0.45);
-	border-radius: 999px;
-	padding: 10px 12px;
-	box-shadow: 0 10px 24px alpha(#000000, 0.28);
+	border: 0.0625em solid alpha(var(--border), 0.72);
+	border-radius: 1.125em;
+	padding: 0.75em 0.875em 0.8125em;
+	box-shadow: 0 1em 2.25em alpha(black, 0.30),
+	            0 0.0625em 0 alpha(white, 0.06) inset;
+	transition: background-color 140ms ease-out,
+	            border-color 140ms ease-out,
+	            box-shadow 140ms ease-out;
+}
+
+.touchpad-navigation-indicator.back {
+	border-left: 0.1875em solid alpha(var(--accent), 0.82);
+}
+
+.touchpad-navigation-indicator.forward {
+	border-right: 0.1875em solid alpha(var(--accent), 0.82);
 }
 
 .touchpad-navigation-indicator.threshold-reached {
-	border-color: var(--accent);
-	background-color: alpha(var(--accent), 0.20);
+	border-color: alpha(var(--accent), 0.95);
+	background-color: alpha(var(--accent), 0.18);
+	box-shadow: 0 1.125em 2.5em alpha(black, 0.34),
+	            0 0 0 0.0625em alpha(var(--accent), 0.24) inset;
+}
+
+.touchpad-navigation-header {
+	min-width: 9.75em;
+}
+
+.touchpad-navigation-icon {
+	background-color: alpha(var(--accent), 0.16);
+	color: var(--accent);
+	border-radius: 999px;
+	font-size: 0.95em;
+	font-weight: 700;
+	padding: 0.125em 0.375em;
+}
+
+.touchpad-navigation-indicator.threshold-reached .touchpad-navigation-icon {
+	background-color: var(--accent);
+	color: var(--bg);
 }
 
 .touchpad-navigation-label {
-	font-weight: 600;
-	font-size: 0.9em;
+	color: var(--text);
+	font-weight: 700;
+	font-size: 0.92em;
+	letter-spacing: 0.01em;
 }
 
 progressbar.touchpad-navigation-progress {
-	min-height: 4px;
+	min-height: 0.3125em;
 }
 
 progressbar.touchpad-navigation-progress trough {
-	min-height: 4px;
-	min-width: 96px;
+	min-height: 0.3125em;
+	min-width: 9.75em;
 	border-radius: 999px;
-	background-color: alpha(var(--text), 0.16);
+	background-color: alpha(var(--muted), 0.24);
+	box-shadow: 0 0.0625em 0 alpha(white, 0.06) inset;
 }
 
 progressbar.touchpad-navigation-progress progress {
-	min-height: 4px;
+	min-height: 0.3125em;
 	border-radius: 999px;
 	background-color: var(--accent);
+	box-shadow: 0 0 0.35em alpha(var(--accent), 0.35);
 }
 `
 }

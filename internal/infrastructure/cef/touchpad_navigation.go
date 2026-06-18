@@ -132,7 +132,7 @@ func (r *touchpadNavigationRecognizer) finishIndicator(input touchpadNavigationI
 	}
 	action, ok := r.indicatorAction(input)
 	if !ok {
-		action, ok = r.lastIndicatorAction, true
+		action = r.lastIndicatorAction
 	}
 	threshold := normalizedTouchpadNavigationMinDelta(input.Config.TouchpadNavigationMinDelta)
 	return touchpadNavigationResult{
