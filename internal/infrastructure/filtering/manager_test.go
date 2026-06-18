@@ -223,6 +223,60 @@ func TestManager_LoadAsync_DownloadsWhenCacheMiss(t *testing.T) {
 	assert.True(t, foundActive, "Expected active state")
 }
 
+func TestManager_LoadAsync_ChecksForUpdatesAfterCacheLoadEvenWhenCacheIsFresh(t *testing.T) {
+	// Setup temp directories
+	tmpDir := t.TempDir()
+	storeDir := filepath.Join(tmpDir, "store")
+	jsonDir := filepath.Join(tmpDir, "json")
+
+	mockStore := mocks.NewMockFilterStore(t)
+	mockDownloader := mocks.NewMockFilterDownloader(t)
+	updateChecked := make(chan struct{})
+
+	mockStore.EXPECT().
+		FetchIdentifiers(mock.Anything).
+		Return([]string{"ublock-combined-0"}, nil)
+	mockStore.EXPECT().
+		Load(mock.Anything, "ublock-combined-0").
+		Return(&webkit.UserContentFilter{}, nil)
+	mockDownloader.EXPECT().
+		GetCachedManifest().
+		Return(&filtering.Manifest{
+			Version: "2026.03.27",
+			Combined: filtering.CombinedInfo{
+				Files: []string{"combined-part1.json"},
+			},
+		}, nil)
+	mockDownloader.EXPECT().
+		NeedsUpdate(mock.Anything).
+		Run(func(_ context.Context) { close(updateChecked) }).
+		Return(false, nil).
+		Once()
+
+	mgr, err := filtering.NewManager(filtering.ManagerConfig{
+		StoreDir:   storeDir,
+		JSONDir:    jsonDir,
+		Enabled:    true,
+		AutoUpdate: true,
+		Store:      mockStore,
+		Downloader: mockDownloader,
+	})
+	require.NoError(t, err)
+
+	ctx := testContext()
+	require.NoError(t, mgr.Initialize(ctx))
+	mgr.LoadAsync(ctx)
+
+	require.Eventually(t, func() bool {
+		select {
+		case <-updateChecked:
+			return true
+		default:
+			return false
+		}
+	}, 3*time.Second, 50*time.Millisecond)
+}
+
 func TestManager_CheckForUpdates_DownloadsWhenNewVersionAvailable(t *testing.T) {
 	// Setup temp directories
 	tmpDir := t.TempDir()
@@ -253,6 +307,10 @@ func TestManager_CheckForUpdates_DownloadsWhenNewVersionAvailable(t *testing.T) 
 	mockStore.EXPECT().
 		Compile(mock.Anything, "ublock-combined-0", mock.Anything).
 		Return(&webkit.UserContentFilter{}, nil)
+
+	mockStore.EXPECT().
+		FetchIdentifiers(mock.Anything).
+		Return([]string{"ublock-combined-0"}, nil)
 
 	// GetCachedManifest for version
 	mockDownloader.EXPECT().
@@ -293,6 +351,68 @@ func TestManager_CheckForUpdates_DownloadsWhenNewVersionAvailable(t *testing.T) 
 		assert.Equal(t, filtering.StateActive, finalStatus.State)
 		assert.Equal(t, "2025.12.20", finalStatus.Version)
 	}
+}
+
+func TestManager_CheckForUpdates_PrunesObsoleteCompiledFiltersAfterSuccessfulUpdate(t *testing.T) {
+	tmpDir := t.TempDir()
+	storeDir := filepath.Join(tmpDir, "store")
+	jsonDir := filepath.Join(tmpDir, "json")
+
+	validJSON := `[{
+		"trigger":{"url-filter":"test"},
+		"action":{"type":"block"}
+	}]`
+	jsonFile1 := filepath.Join(jsonDir, "combined-part1.json")
+	jsonFile2 := filepath.Join(jsonDir, "combined-part2.json")
+	require.NoError(t, os.MkdirAll(jsonDir, 0o755))
+	require.NoError(t, os.WriteFile(jsonFile1, []byte(validJSON), 0o644))
+	require.NoError(t, os.WriteFile(jsonFile2, []byte(validJSON), 0o644))
+
+	mockStore := mocks.NewMockFilterStore(t)
+	mockDownloader := mocks.NewMockFilterDownloader(t)
+
+	mockDownloader.EXPECT().
+		NeedsUpdate(mock.Anything).
+		Return(true, nil)
+	mockDownloader.EXPECT().
+		DownloadFilters(mock.Anything, mock.Anything).
+		Return([]string{jsonFile1, jsonFile2}, nil)
+	mockStore.EXPECT().
+		Compile(mock.Anything, "ublock-combined-0", jsonFile1).
+		Return(&webkit.UserContentFilter{}, nil)
+	mockStore.EXPECT().
+		Compile(mock.Anything, "ublock-combined-1", jsonFile2).
+		Return(&webkit.UserContentFilter{}, nil)
+	mockDownloader.EXPECT().
+		GetCachedManifest().
+		Return(&filtering.Manifest{
+			Version: "2026.03.28",
+			Combined: filtering.CombinedInfo{
+				Files: []string{"combined-part1.json", "combined-part2.json"},
+			},
+		}, nil)
+	mockStore.EXPECT().
+		FetchIdentifiers(mock.Anything).
+		Return([]string{"ublock-combined", "ublock-combined-0", "ublock-combined-1", "ublock-combined-2", "other-filter"}, nil)
+	mockStore.EXPECT().
+		Remove(mock.Anything, "ublock-combined").
+		Return(nil)
+	mockStore.EXPECT().
+		Remove(mock.Anything, "ublock-combined-2").
+		Return(nil)
+
+	mgr, err := filtering.NewManager(filtering.ManagerConfig{
+		StoreDir:   storeDir,
+		JSONDir:    jsonDir,
+		Enabled:    true,
+		AutoUpdate: true,
+		Store:      mockStore,
+		Downloader: mockDownloader,
+	})
+	require.NoError(t, err)
+
+	ctx := testContext()
+	require.NoError(t, mgr.CheckForUpdates(ctx))
 }
 
 func TestManager_CheckForUpdates_SkipsWhenUpToDate(t *testing.T) {
@@ -592,11 +712,13 @@ func TestManager_CheckForUpdates_CompileFailureKeepsActiveFilter(t *testing.T) {
 	mockDownloader.EXPECT().
 		GetCachedManifest().
 		Return(&filtering.Manifest{Version: "2025.12.19"}, nil)
-	mockDownloader.EXPECT().
-		IsCacheStale(filtering.CacheMaxAge).
-		Return(false).Once()
 
-	// CheckForUpdates: compile fails, should keep active filter
+	// Background CheckForUpdates after cache load should observe no update.
+	mockDownloader.EXPECT().
+		NeedsUpdate(mock.Anything).
+		Return(false, nil).Once()
+
+	// Explicit CheckForUpdates: compile fails, should keep active filter
 	mockDownloader.EXPECT().
 		NeedsUpdate(mock.Anything).
 		Return(true, nil).Once()

@@ -208,6 +208,11 @@ func (m *Manager) loadFromCache(ctx context.Context) bool {
 		return false
 	}
 
+	partIDs = m.compiledIDsForCachedManifest(partIDs)
+	if len(partIDs) == 0 {
+		return false
+	}
+
 	log.Debug().Int("parts", len(partIDs)).Msg("found compiled filters, loading from cache")
 	var filters []*webkit.UserContentFilter
 	for _, id := range partIDs {
@@ -316,18 +321,74 @@ func (m *Manager) setActiveFilters(filters []*webkit.UserContentFilter, message 
 	return version
 }
 
-// checkStaleCacheAndUpdate checks if the cache is stale and triggers a background update.
-func (m *Manager) checkStaleCacheAndUpdate(ctx context.Context) {
-	if !m.downloader.IsCacheStale(CacheMaxAge) {
-		return
+func (m *Manager) compiledIDsForCachedManifest(storedIDs []string) []string {
+	manifest, err := m.downloader.GetCachedManifest()
+	if err != nil || manifest == nil || len(manifest.Combined.Files) == 0 {
+		return storedIDs
 	}
+
+	available := make(map[string]struct{}, len(storedIDs))
+	for _, id := range storedIDs {
+		available[id] = struct{}{}
+	}
+
+	expectedIDs := expectedCompiledFilterIDs(len(manifest.Combined.Files))
+	ids := make([]string, 0, len(expectedIDs))
+	for _, id := range expectedIDs {
+		if _, ok := available[id]; !ok {
+			return nil
+		}
+		ids = append(ids, id)
+	}
+	return ids
+}
+
+// checkStaleCacheAndUpdate checks for updates after loading cached filters.
+func (m *Manager) checkStaleCacheAndUpdate(ctx context.Context) {
 	log := logging.FromContext(ctx)
-	log.Info().Msg("filter cache is stale, checking for updates in background")
+	log.Info().Msg("checking for filter updates in background")
 	go func() {
 		if err := m.CheckForUpdates(ctx); err != nil {
 			log.Warn().Err(err).Msg("background filter update check failed")
 		}
 	}()
+}
+
+func expectedCompiledFilterIDs(count int) []string {
+	ids := make([]string, 0, count)
+	for i := range count {
+		ids = append(ids, fmt.Sprintf("%s-%d", FilterIdentifierPrefix, i))
+	}
+	return ids
+}
+
+func (m *Manager) pruneObsoleteCompiledFilters(ctx context.Context, expectedCount int) {
+	log := logging.FromContext(ctx).With().
+		Str("component", "filter-manager").
+		Logger()
+
+	identifiers, err := m.store.FetchIdentifiers(ctx)
+	if err != nil {
+		log.Warn().Err(err).Msg("failed to fetch compiled filter identifiers for pruning")
+		return
+	}
+
+	expected := make(map[string]struct{}, expectedCount)
+	for _, id := range expectedCompiledFilterIDs(expectedCount) {
+		expected[id] = struct{}{}
+	}
+
+	for _, id := range identifiers {
+		if !strings.HasPrefix(id, FilterIdentifierPrefix) {
+			continue
+		}
+		if _, ok := expected[id]; ok {
+			continue
+		}
+		if err := m.store.Remove(ctx, id); err != nil {
+			log.Warn().Err(err).Str("id", id).Msg("failed to remove obsolete compiled filter")
+		}
+	}
 }
 
 // getCachedVersion returns the version from the cached manifest.
@@ -420,6 +481,8 @@ func (m *Manager) CheckForUpdates(ctx context.Context) error {
 		}
 		return fmt.Errorf("%w: compile failed: %w", ErrUpdateSkipped, err)
 	}
+
+	m.pruneObsoleteCompiledFilters(ctx, len(paths))
 
 	version := m.setActiveFilters(filters, "Filters updated")
 	log.Info().Str("version", version).Int("parts", len(filters)).Msg("filters updated successfully")

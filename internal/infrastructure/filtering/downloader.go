@@ -9,6 +9,7 @@ import (
 	"os"
 	pathpkg "path"
 	"path/filepath"
+	"slices"
 	"strings"
 	"time"
 
@@ -202,10 +203,44 @@ func (d *Downloader) DownloadFilters(ctx context.Context, onProgress func(Downlo
 	// Cache the manifest we already fetched
 	if err := d.cacheManifest(manifest); err != nil {
 		log.Warn().Err(err).Msg("failed to cache manifest")
+	} else if err := d.pruneObsoleteCachedFilterFiles(files); err != nil {
+		log.Warn().Err(err).Msg("failed to prune obsolete cached filter files")
 	}
 
 	log.Info().Int("files", len(paths)).Int64("total_bytes", totalBytes).Msg("filter download complete")
 	return paths, nil
+}
+
+func (d *Downloader) pruneObsoleteCachedFilterFiles(currentFiles []string) error {
+	current := make(map[string]struct{}, len(currentFiles))
+	for _, filename := range currentFiles {
+		_, safeFilename, err := d.cachePathForFilterFile(filename)
+		if err != nil {
+			return err
+		}
+		current[safeFilename] = struct{}{}
+	}
+
+	entries, err := os.ReadDir(d.cacheDir)
+	if err != nil {
+		return err
+	}
+	for _, entry := range entries {
+		if entry.IsDir() {
+			continue
+		}
+		name := entry.Name()
+		if !strings.HasPrefix(name, "combined-part") || !strings.HasSuffix(name, ".json") {
+			continue
+		}
+		if _, ok := current[name]; ok {
+			continue
+		}
+		if err := os.Remove(filepath.Join(d.cacheDir, name)); err != nil {
+			return fmt.Errorf("remove obsolete cached filter %s: %w", name, err)
+		}
+	}
+	return nil
 }
 
 // downloadFile downloads a single file and returns its local path.
@@ -420,7 +455,7 @@ func (d *Downloader) NeedsUpdate(ctx context.Context) (bool, error) {
 		return false, err // Can't check, return error
 	}
 
-	needsUpdate := cached.Version != latest.Version
+	needsUpdate := !sameManifestRelease(cached, latest)
 	if needsUpdate {
 		log.Info().
 			Str("cached_version", cached.Version).
@@ -431,6 +466,16 @@ func (d *Downloader) NeedsUpdate(ctx context.Context) (bool, error) {
 	}
 
 	return needsUpdate, nil
+}
+
+func sameManifestRelease(cached, latest *Manifest) bool {
+	if cached == nil || latest == nil {
+		return false
+	}
+	return cached.Version == latest.Version &&
+		cached.GeneratedAt.Equal(latest.GeneratedAt) &&
+		cached.Combined.TotalRules == latest.Combined.TotalRules &&
+		slices.Equal(cached.Combined.Files, latest.Combined.Files)
 }
 
 // ClearCache removes all cached filter files.

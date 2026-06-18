@@ -13,13 +13,20 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestRunSessionCleanup_SkipsCurrentActiveSession(t *testing.T) {
+type fakeProcessProbe struct {
+	alive map[int]bool
+}
+
+func (p fakeProcessProbe) IsProcessAlive(_ context.Context, pid int) (bool, error) {
+	return p.alive[pid], nil
+}
+
+func TestRunSessionCleanup_DoesNotEndOtherActiveBrowserSessionsWithoutLivenessProof(t *testing.T) {
 	t.Parallel()
 
 	ctx := context.Background()
 	repo := repomocks.NewMockSessionRepository(t)
-	sessionUC := usecase.NewManageSessionUseCase(repo, nil)
-	cleanupUC := usecase.NewCleanupSessionsUseCase(repo)
+	cleanupUC := usecase.NewCleanupSessionsUseCase(repo, fakeProcessProbe{alive: map[int]bool{1234: true}})
 	cfg := config.DefaultConfig()
 	logDir := t.TempDir()
 
@@ -29,24 +36,19 @@ func TestRunSessionCleanup_SkipsCurrentActiveSession(t *testing.T) {
 		Type:      entity.SessionTypeBrowser,
 		StartedAt: now,
 	}
-	stale := &entity.Session{
-		ID:        entity.SessionID("stale"),
+	livePID := 1234
+	live := &entity.Session{
+		ID:        entity.SessionID("live-other-process"),
 		Type:      entity.SessionTypeBrowser,
 		StartedAt: now.Add(-time.Hour),
+		ProcessID: &livePID,
 	}
 
-	repo.EXPECT().GetRecent(mock.Anything, recentSessionsLimit).Return([]*entity.Session{current, stale}, nil).Once()
-	repo.EXPECT().MarkEnded(mock.Anything, stale.ID, mock.MatchedBy(func(t time.Time) bool {
-		diff := t.Sub(now)
-		if diff < 0 {
-			diff = -diff
-		}
-		return diff < 2*time.Second
-	})).Return(nil).Once()
+	repo.EXPECT().GetRecent(mock.Anything, recentSessionsLimit).Return([]*entity.Session{current, live}, nil).Once()
 	repo.EXPECT().DeleteExitedBefore(mock.Anything, mock.MatchedBy(func(time.Time) bool { return true })).Return(int64(0), nil).Once()
 	repo.EXPECT().DeleteOldestExited(mock.Anything, cfg.Session.MaxExitedSessions).Return(int64(0), nil).Once()
 
-	runSessionCleanup(ctx, sessionUC, cleanupUC, cfg, logDir, current.ID, nil)
+	runSessionCleanup(ctx, cleanupUC, cfg, logDir, current.ID, nil)
 }
 
 func TestRunSessionCleanup_NoPanicOnNilSessions(t *testing.T) {
@@ -54,8 +56,7 @@ func TestRunSessionCleanup_NoPanicOnNilSessions(t *testing.T) {
 
 	ctx := context.Background()
 	repo := repomocks.NewMockSessionRepository(t)
-	sessionUC := usecase.NewManageSessionUseCase(repo, nil)
-	cleanupUC := usecase.NewCleanupSessionsUseCase(repo)
+	cleanupUC := usecase.NewCleanupSessionsUseCase(repo, fakeProcessProbe{})
 	cfg := config.DefaultConfig()
 	logDir := t.TempDir()
 
@@ -64,6 +65,6 @@ func TestRunSessionCleanup_NoPanicOnNilSessions(t *testing.T) {
 	repo.EXPECT().DeleteOldestExited(mock.Anything, cfg.Session.MaxExitedSessions).Return(int64(0), nil).Once()
 
 	require.NotPanics(t, func() {
-		runSessionCleanup(ctx, sessionUC, cleanupUC, cfg, logDir, entity.SessionID("current"), nil)
+		runSessionCleanup(ctx, cleanupUC, cfg, logDir, entity.SessionID("current"), nil)
 	})
 }

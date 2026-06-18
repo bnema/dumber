@@ -1,6 +1,6 @@
 -- name: InsertSession :exec
-INSERT INTO sessions (id, type, started_at, ended_at)
-VALUES (?, ?, ?, ?);
+INSERT INTO sessions (id, type, started_at, ended_at, process_id)
+VALUES (?, ?, ?, ?, ?);
 
 -- name: GetSessionByID :one
 SELECT * FROM sessions WHERE id = ? LIMIT 1;

@@ -32,12 +32,17 @@ func (r *sessionRepo) Save(ctx context.Context, session *entity.Session) error {
 	if session.EndedAt != nil {
 		endedAt = sql.NullTime{Time: session.EndedAt.UTC(), Valid: true}
 	}
+	var processID sql.NullInt64
+	if session.ProcessID != nil {
+		processID = sql.NullInt64{Int64: int64(*session.ProcessID), Valid: true}
+	}
 
 	return r.queries.InsertSession(ctx, sqlc.InsertSessionParams{
 		ID:        string(session.ID),
 		Type:      string(session.Type),
 		StartedAt: session.StartedAt.UTC(),
 		EndedAt:   endedAt,
+		ProcessID: processID,
 	})
 }
 
@@ -127,10 +132,17 @@ func sessionFromRow(row sqlc.Session) *entity.Session {
 		endedAt = &t
 	}
 
+	var processID *int
+	if row.ProcessID.Valid {
+		pid := int(row.ProcessID.Int64)
+		processID = &pid
+	}
+
 	return &entity.Session{
 		ID:        entity.SessionID(row.ID),
 		Type:      entity.SessionType(row.Type),
 		StartedAt: row.StartedAt.UTC(),
 		EndedAt:   endedAt,
+		ProcessID: processID,
 	}
 }

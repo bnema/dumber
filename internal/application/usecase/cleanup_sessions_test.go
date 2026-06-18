@@ -5,12 +5,81 @@ import (
 	"testing"
 	"time"
 
+	portmocks "github.com/bnema/dumber/internal/application/port/mocks"
 	"github.com/bnema/dumber/internal/application/usecase"
+	"github.com/bnema/dumber/internal/domain/entity"
 	repomocks "github.com/bnema/dumber/internal/domain/repository/mocks"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 )
+
+func TestCleanupSessionsUseCase_ReconcileActiveBrowserSessions_EndsOnlyProvenDeadSessions(t *testing.T) {
+	ctx := testContext()
+
+	sessionRepo := repomocks.NewMockSessionRepository(t)
+	processProbe := portmocks.NewMockSessionProcessProbe(t)
+
+	now := time.Date(2026, 6, 18, 20, 0, 0, 0, time.UTC)
+	livePID := 111
+	deadPID := 222
+	current := &entity.Session{ID: "current", Type: entity.SessionTypeBrowser, StartedAt: now}
+	live := &entity.Session{ID: "live", Type: entity.SessionTypeBrowser, StartedAt: now.Add(-time.Minute), ProcessID: &livePID}
+	dead := &entity.Session{ID: "dead", Type: entity.SessionTypeBrowser, StartedAt: now.Add(-2 * time.Minute), ProcessID: &deadPID}
+	unknown := &entity.Session{ID: "unknown", Type: entity.SessionTypeBrowser, StartedAt: now.Add(-3 * time.Minute)}
+
+	sessionRepo.EXPECT().
+		GetRecent(ctx, 25).
+		Return([]*entity.Session{current, live, dead, unknown}, nil)
+	processProbe.EXPECT().
+		IsProcessAlive(ctx, livePID).
+		Return(true, nil)
+	processProbe.EXPECT().
+		IsProcessAlive(ctx, deadPID).
+		Return(false, nil)
+	sessionRepo.EXPECT().
+		MarkEnded(ctx, dead.ID, now).
+		Return(nil)
+
+	uc := usecase.NewCleanupSessionsUseCase(sessionRepo, processProbe)
+
+	output, err := uc.ReconcileActiveBrowserSessions(ctx, usecase.ReconcileActiveBrowserSessionsInput{
+		CurrentSessionID: current.ID,
+		RecentLimit:      25,
+		EndedAt:          now,
+	})
+
+	require.NoError(t, err)
+	assert.Equal(t, int64(1), output.EndedDeadSessions)
+}
+
+func TestCleanupSessionsUseCase_ReconcileActiveBrowserSessions_SkipsWhenProbeErrors(t *testing.T) {
+	ctx := testContext()
+
+	sessionRepo := repomocks.NewMockSessionRepository(t)
+	processProbe := portmocks.NewMockSessionProcessProbe(t)
+
+	now := time.Date(2026, 6, 18, 20, 30, 0, 0, time.UTC)
+	pid := 333
+	active := &entity.Session{ID: "active", Type: entity.SessionTypeBrowser, StartedAt: now.Add(-time.Minute), ProcessID: &pid}
+
+	sessionRepo.EXPECT().
+		GetRecent(ctx, 20).
+		Return([]*entity.Session{active}, nil)
+	processProbe.EXPECT().
+		IsProcessAlive(ctx, pid).
+		Return(false, errors.New("probe failed"))
+
+	uc := usecase.NewCleanupSessionsUseCase(sessionRepo, processProbe)
+
+	output, err := uc.ReconcileActiveBrowserSessions(ctx, usecase.ReconcileActiveBrowserSessionsInput{
+		RecentLimit: 20,
+		EndedAt:     now,
+	})
+
+	require.NoError(t, err)
+	assert.Equal(t, int64(0), output.EndedDeadSessions)
+}
 
 func TestCleanupSessionsUseCase_Execute_AgeAndCountCleanup(t *testing.T) {
 	ctx := testContext()
@@ -32,7 +101,7 @@ func TestCleanupSessionsUseCase_Execute_AgeAndCountCleanup(t *testing.T) {
 		DeleteOldestExited(ctx, 50).
 		Return(int64(2), nil)
 
-	uc := usecase.NewCleanupSessionsUseCase(sessionRepo)
+	uc := usecase.NewCleanupSessionsUseCase(sessionRepo, nil)
 
 	output, err := uc.Execute(ctx, usecase.CleanupSessionsInput{
 		MaxExitedSessions:       50,
@@ -57,7 +126,7 @@ func TestCleanupSessionsUseCase_Execute_AgeOnlyCleanup(t *testing.T) {
 
 	// Count-based with -1 should be skipped (disabled)
 	// MaxExitedSessions >= 0 triggers count cleanup, so use -1 to disable
-	uc := usecase.NewCleanupSessionsUseCase(sessionRepo)
+	uc := usecase.NewCleanupSessionsUseCase(sessionRepo, nil)
 
 	output, err := uc.Execute(ctx, usecase.CleanupSessionsInput{
 		MaxExitedSessions:       -1, // Disabled
@@ -80,7 +149,7 @@ func TestCleanupSessionsUseCase_Execute_CountOnlyCleanup(t *testing.T) {
 		DeleteOldestExited(ctx, 10).
 		Return(int64(4), nil)
 
-	uc := usecase.NewCleanupSessionsUseCase(sessionRepo)
+	uc := usecase.NewCleanupSessionsUseCase(sessionRepo, nil)
 
 	output, err := uc.Execute(ctx, usecase.CleanupSessionsInput{
 		MaxExitedSessions:       10,
@@ -107,7 +176,7 @@ func TestCleanupSessionsUseCase_Execute_NoCleanupNeeded(t *testing.T) {
 		DeleteOldestExited(ctx, 50).
 		Return(int64(0), nil)
 
-	uc := usecase.NewCleanupSessionsUseCase(sessionRepo)
+	uc := usecase.NewCleanupSessionsUseCase(sessionRepo, nil)
 
 	output, err := uc.Execute(ctx, usecase.CleanupSessionsInput{
 		MaxExitedSessions:       50,
@@ -135,7 +204,7 @@ func TestCleanupSessionsUseCase_Execute_AgeDeleteError_ContinuesToCount(t *testi
 		DeleteOldestExited(ctx, 50).
 		Return(int64(3), nil)
 
-	uc := usecase.NewCleanupSessionsUseCase(sessionRepo)
+	uc := usecase.NewCleanupSessionsUseCase(sessionRepo, nil)
 
 	output, err := uc.Execute(ctx, usecase.CleanupSessionsInput{
 		MaxExitedSessions:       50,
@@ -164,7 +233,7 @@ func TestCleanupSessionsUseCase_Execute_CountDeleteError(t *testing.T) {
 		DeleteOldestExited(ctx, 50).
 		Return(int64(0), errors.New("db error"))
 
-	uc := usecase.NewCleanupSessionsUseCase(sessionRepo)
+	uc := usecase.NewCleanupSessionsUseCase(sessionRepo, nil)
 
 	output, err := uc.Execute(ctx, usecase.CleanupSessionsInput{
 		MaxExitedSessions:       50,
@@ -187,7 +256,7 @@ func TestCleanupSessionsUseCase_Execute_BothDisabled(t *testing.T) {
 	// Actually, count with 0 means "keep 0" which will trigger cleanup
 	// So we need -1 for count and 0 for age to fully disable
 
-	uc := usecase.NewCleanupSessionsUseCase(sessionRepo)
+	uc := usecase.NewCleanupSessionsUseCase(sessionRepo, nil)
 
 	output, err := uc.Execute(ctx, usecase.CleanupSessionsInput{
 		MaxExitedSessions:       -1, // Disabled
@@ -210,7 +279,7 @@ func TestCleanupSessionsUseCase_Execute_ZeroMaxSessions(t *testing.T) {
 		DeleteOldestExited(ctx, 0).
 		Return(int64(10), nil)
 
-	uc := usecase.NewCleanupSessionsUseCase(sessionRepo)
+	uc := usecase.NewCleanupSessionsUseCase(sessionRepo, nil)
 
 	output, err := uc.Execute(ctx, usecase.CleanupSessionsInput{
 		MaxExitedSessions:       0, // Keep 0 = delete all

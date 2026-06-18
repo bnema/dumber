@@ -10,6 +10,7 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/require"
 )
@@ -120,6 +121,37 @@ func TestDownloader_DownloadFilters_AllowsSafeNestedManifestFilenames(t *testing
 	require.Equal(t, body, string(content))
 }
 
+func TestDownloader_DownloadFilters_PrunesObsoleteCachedCombinedParts(t *testing.T) {
+	cacheDir := filepath.Join(t.TempDir(), "cache")
+	require.NoError(t, os.MkdirAll(cacheDir, cacheDirPerm))
+	require.NoError(t, os.WriteFile(filepath.Join(cacheDir, "combined-part3.json"), []byte(`[]`), manifestFilePerm))
+	require.NoError(t, os.WriteFile(filepath.Join(cacheDir, "other.json"), []byte(`[]`), manifestFilePerm))
+
+	body := `[{"trigger":{"url-filter":"test"},"action":{"type":"block"}}]`
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch r.URL.Path {
+		case "/" + FilterFiles.Manifest:
+			_, _ = io.WriteString(w, `{"version":"test","combined":{"total_rules":2,"files":["combined-part1.json","combined-part2.json"]}}`)
+		case "/combined-part1.json", "/combined-part2.json":
+			_, _ = io.WriteString(w, body)
+		default:
+			http.NotFound(w, r)
+		}
+	}))
+	defer server.Close()
+
+	d := NewDownloader(cacheDir)
+	d.baseURL = server.URL
+
+	paths, err := d.DownloadFilters(context.Background(), nil)
+	require.NoError(t, err)
+	require.Len(t, paths, 2)
+	require.FileExists(t, filepath.Join(cacheDir, "combined-part1.json"))
+	require.FileExists(t, filepath.Join(cacheDir, "combined-part2.json"))
+	require.NoFileExists(t, filepath.Join(cacheDir, "combined-part3.json"))
+	require.FileExists(t, filepath.Join(cacheDir, "other.json"))
+}
+
 func TestDownloader_FetchManifest_RejectsOversizedManifest(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.URL.Path != "/"+FilterFiles.Manifest {
@@ -167,6 +199,52 @@ func TestDownloader_FetchManifest_RejectsTooManyFiles(t *testing.T) {
 	require.Error(t, err)
 	require.Nil(t, manifest)
 	require.Contains(t, err.Error(), "limit is 2")
+}
+
+func TestDownloader_NeedsUpdate_DetectsSameVersionManifestMetadataChange(t *testing.T) {
+	cacheDir := filepath.Join(t.TempDir(), "cache")
+	require.NoError(t, os.MkdirAll(cacheDir, cacheDirPerm))
+
+	cachedGeneratedAt := time.Date(2026, 3, 28, 4, 0, 0, 0, time.UTC)
+	latestGeneratedAt := time.Date(2026, 3, 28, 5, 0, 0, 0, time.UTC)
+	cachedManifest := Manifest{
+		Version:     "2026.03.28",
+		GeneratedAt: cachedGeneratedAt,
+		Combined: CombinedInfo{
+			TotalRules: 3,
+			Files:      []string{"combined-part1.json", "combined-part2.json", "combined-part3.json"},
+		},
+	}
+	cachedPayload, err := json.Marshal(cachedManifest)
+	require.NoError(t, err)
+	require.NoError(t, os.WriteFile(filepath.Join(cacheDir, FilterFiles.Manifest), cachedPayload, manifestFilePerm))
+
+	latestManifest := Manifest{
+		Version:     "2026.03.28",
+		GeneratedAt: latestGeneratedAt,
+		Combined: CombinedInfo{
+			TotalRules: 2,
+			Files:      []string{"combined-part1.json", "combined-part2.json"},
+		},
+	}
+	latestPayload, err := json.Marshal(latestManifest)
+	require.NoError(t, err)
+
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path != "/"+FilterFiles.Manifest {
+			http.NotFound(w, r)
+			return
+		}
+		_, _ = w.Write(latestPayload)
+	}))
+	defer server.Close()
+
+	d := NewDownloader(cacheDir)
+	d.baseURL = server.URL
+
+	needsUpdate, err := d.NeedsUpdate(context.Background())
+	require.NoError(t, err)
+	require.True(t, needsUpdate)
 }
 
 func TestDownloader_DownloadFilters_RejectsOversizedFilterFile(t *testing.T) {
