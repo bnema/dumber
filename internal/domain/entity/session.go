@@ -24,6 +24,7 @@ type Session struct {
 	Type      SessionType
 	StartedAt time.Time
 	EndedAt   *time.Time
+	ProcessID *int
 }
 
 func (s *Session) ShortID() string {

@@ -18,6 +18,7 @@ import (
 	"github.com/bnema/dumber/internal/domain/repository"
 	"github.com/bnema/dumber/internal/infrastructure/config"
 	infralogging "github.com/bnema/dumber/internal/infrastructure/logging"
+	"github.com/bnema/dumber/internal/infrastructure/process"
 	corelogging "github.com/bnema/dumber/internal/logging"
 	"github.com/rs/zerolog"
 )
@@ -86,13 +87,15 @@ func StartBrowserSession(
 
 	sessionLoggerAdapter := infralogging.NewSessionLoggerAdapter()
 	sessionUC := usecase.NewManageSessionUseCase(sessionRepo, sessionLoggerAdapter)
-	cleanupUC := usecase.NewCleanupSessionsUseCase(sessionRepo)
+	cleanupUC := usecase.NewCleanupSessionsUseCase(sessionRepo, process.NewLivenessProbe())
 
 	now := time.Now()
+	pid := os.Getpid()
 	session := &entity.Session{
 		ID:        entity.SessionID(corelogging.GenerateSessionID()),
 		Type:      entity.SessionTypeBrowser,
 		StartedAt: now.UTC(),
+		ProcessID: &pid,
 	}
 	if err := session.Validate(); err != nil {
 		return nil, ctx, err
@@ -160,7 +163,7 @@ func StartBrowserSession(
 			}
 
 			// Background cleanup of old sessions.
-			go runSessionCleanup(persistCtx, sessionUC, cleanupUC, cfg, logDir, session.ID, log)
+			go runSessionCleanup(persistCtx, cleanupUC, cfg, logDir, session.ID, log)
 		})
 		return persistErr
 	}
@@ -311,7 +314,6 @@ func sessionIDFromLogPath(logPath string) string {
 
 func runSessionCleanup(
 	startupCtx context.Context,
-	sessionUC *usecase.ManageSessionUseCase,
 	cleanupUC *usecase.CleanupSessionsUseCase,
 	cfg *config.Config,
 	logDir string,
@@ -320,22 +322,18 @@ func runSessionCleanup(
 ) {
 	bgCtx := context.WithoutCancel(startupCtx)
 
-	// End stale active sessions that have no running process.
-	recent, err := sessionUC.GetRecentSessions(bgCtx, recentSessionsLimit)
+	// End only active browser sessions whose recorded process is proven dead.
+	staleOutput, err := cleanupUC.ReconcileActiveBrowserSessions(bgCtx, usecase.ReconcileActiveBrowserSessionsInput{
+		CurrentSessionID: currentSessionID,
+		RecentLimit:      recentSessionsLimit,
+		EndedAt:          time.Now(),
+	})
 	if err != nil {
 		if log != nil {
-			log.Warn().Err(err).Msg("background: failed to list recent sessions")
+			log.Warn().Err(err).Msg("background: failed to reconcile active sessions")
 		}
-	} else {
-		now := time.Now()
-		for _, s := range recent {
-			if s != nil &&
-				s.ID != currentSessionID &&
-				s.Type == entity.SessionTypeBrowser &&
-				s.IsActive() {
-				_ = sessionUC.EndSession(bgCtx, s.ID, now)
-			}
-		}
+	} else if staleOutput.EndedDeadSessions > 0 && log != nil {
+		log.Info().Int64("ended", staleOutput.EndedDeadSessions).Msg("background: ended dead browser sessions")
 	}
 
 	// Clean up old exited sessions.

@@ -83,10 +83,11 @@ type Permission struct {
 }
 
 type Session struct {
-	ID        string       `json:"id"`
-	Type      string       `json:"type"`
-	StartedAt time.Time    `json:"started_at"`
-	EndedAt   sql.NullTime `json:"ended_at"`
+	ID        string        `json:"id"`
+	Type      string        `json:"type"`
+	StartedAt time.Time     `json:"started_at"`
+	EndedAt   sql.NullTime  `json:"ended_at"`
+	ProcessID sql.NullInt64 `json:"process_id"`
 }
 
 type SessionState struct {

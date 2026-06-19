@@ -56,7 +56,7 @@ func (q *Queries) DeleteSession(ctx context.Context, id string) error {
 }
 
 const GetActiveBrowserSession = `-- name: GetActiveBrowserSession :one
-SELECT id, type, started_at, ended_at FROM sessions
+SELECT id, type, started_at, ended_at, process_id FROM sessions
 WHERE type = 'browser' AND ended_at IS NULL
 ORDER BY started_at DESC
 LIMIT 1
@@ -70,12 +70,13 @@ func (q *Queries) GetActiveBrowserSession(ctx context.Context) (Session, error) 
 		&i.Type,
 		&i.StartedAt,
 		&i.EndedAt,
+		&i.ProcessID,
 	)
 	return i, err
 }
 
 const GetRecentSessions = `-- name: GetRecentSessions :many
-SELECT id, type, started_at, ended_at FROM sessions
+SELECT id, type, started_at, ended_at, process_id FROM sessions
 ORDER BY started_at DESC
 LIMIT ?
 `
@@ -94,6 +95,7 @@ func (q *Queries) GetRecentSessions(ctx context.Context, limit int64) ([]Session
 			&i.Type,
 			&i.StartedAt,
 			&i.EndedAt,
+			&i.ProcessID,
 		); err != nil {
 			return nil, err
 		}
@@ -109,7 +111,7 @@ func (q *Queries) GetRecentSessions(ctx context.Context, limit int64) ([]Session
 }
 
 const GetSessionByID = `-- name: GetSessionByID :one
-SELECT id, type, started_at, ended_at FROM sessions WHERE id = ? LIMIT 1
+SELECT id, type, started_at, ended_at, process_id FROM sessions WHERE id = ? LIMIT 1
 `
 
 func (q *Queries) GetSessionByID(ctx context.Context, id string) (Session, error) {
@@ -120,20 +122,22 @@ func (q *Queries) GetSessionByID(ctx context.Context, id string) (Session, error
 		&i.Type,
 		&i.StartedAt,
 		&i.EndedAt,
+		&i.ProcessID,
 	)
 	return i, err
 }
 
 const InsertSession = `-- name: InsertSession :exec
-INSERT INTO sessions (id, type, started_at, ended_at)
-VALUES (?, ?, ?, ?)
+INSERT INTO sessions (id, type, started_at, ended_at, process_id)
+VALUES (?, ?, ?, ?, ?)
 `
 
 type InsertSessionParams struct {
-	ID        string       `json:"id"`
-	Type      string       `json:"type"`
-	StartedAt time.Time    `json:"started_at"`
-	EndedAt   sql.NullTime `json:"ended_at"`
+	ID        string        `json:"id"`
+	Type      string        `json:"type"`
+	StartedAt time.Time     `json:"started_at"`
+	EndedAt   sql.NullTime  `json:"ended_at"`
+	ProcessID sql.NullInt64 `json:"process_id"`
 }
 
 func (q *Queries) InsertSession(ctx context.Context, arg InsertSessionParams) error {
@@ -142,6 +146,7 @@ func (q *Queries) InsertSession(ctx context.Context, arg InsertSessionParams) er
 		arg.Type,
 		arg.StartedAt,
 		arg.EndedAt,
+		arg.ProcessID,
 	)
 	return err
 }

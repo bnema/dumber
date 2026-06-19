@@ -18,6 +18,32 @@ func testCtx() context.Context {
 	return logging.WithContext(context.Background(), logger)
 }
 
+func TestSessionRepository_CRUD_NilProcessID(t *testing.T) {
+	ctx := testCtx()
+	dbPath := filepath.Join(t.TempDir(), "dumber.db")
+
+	db, err := sqlite.NewConnection(ctx, dbPath)
+	require.NoError(t, err)
+	t.Cleanup(func() { _ = db.Close() })
+
+	repo := sqlite.NewSessionRepository(db)
+
+	startedAt := time.Date(2025, 12, 22, 7, 0, 0, 0, time.UTC)
+	s := &entity.Session{ID: "20251222_070000_nilp", Type: entity.SessionTypeBrowser, StartedAt: startedAt}
+	require.NoError(t, repo.Save(ctx, s))
+
+	got, err := repo.FindByID(ctx, s.ID)
+	require.NoError(t, err)
+	require.NotNil(t, got)
+	assert.Nil(t, got.ProcessID)
+
+	active, err := repo.GetActive(ctx)
+	require.NoError(t, err)
+	require.NotNil(t, active)
+	assert.Equal(t, s.ID, active.ID)
+	assert.Nil(t, active.ProcessID)
+}
+
 func TestSessionRepository_CRUD(t *testing.T) {
 	ctx := testCtx()
 	dbPath := filepath.Join(t.TempDir(), "dumber.db")
@@ -29,7 +55,8 @@ func TestSessionRepository_CRUD(t *testing.T) {
 	repo := sqlite.NewSessionRepository(db)
 
 	startedAt := time.Date(2025, 12, 22, 8, 0, 0, 0, time.UTC)
-	s := &entity.Session{ID: "20251222_080000_abcd", Type: entity.SessionTypeBrowser, StartedAt: startedAt}
+	pid := 4321
+	s := &entity.Session{ID: "20251222_080000_abcd", Type: entity.SessionTypeBrowser, StartedAt: startedAt, ProcessID: &pid}
 	require.NoError(t, repo.Save(ctx, s))
 
 	got, err := repo.FindByID(ctx, s.ID)
@@ -38,12 +65,16 @@ func TestSessionRepository_CRUD(t *testing.T) {
 	assert.Equal(t, s.ID, got.ID)
 	assert.Equal(t, s.Type, got.Type)
 	assert.True(t, got.StartedAt.Equal(startedAt))
+	require.NotNil(t, got.ProcessID)
+	assert.Equal(t, pid, *got.ProcessID)
 	assert.Nil(t, got.EndedAt)
 
 	active, err := repo.GetActive(ctx)
 	require.NoError(t, err)
 	require.NotNil(t, active)
 	assert.Equal(t, s.ID, active.ID)
+	require.NotNil(t, active.ProcessID)
+	assert.Equal(t, pid, *active.ProcessID)
 
 	endedAt := time.Date(2025, 12, 22, 9, 0, 0, 0, time.UTC)
 	require.NoError(t, repo.MarkEnded(ctx, s.ID, endedAt))
@@ -61,4 +92,6 @@ func TestSessionRepository_CRUD(t *testing.T) {
 	require.NoError(t, err)
 	require.Len(t, recent, 1)
 	assert.Equal(t, s.ID, recent[0].ID)
+	require.NotNil(t, recent[0].ProcessID)
+	assert.Equal(t, pid, *recent[0].ProcessID)
 }

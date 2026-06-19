@@ -4,19 +4,26 @@ import (
 	"context"
 	"time"
 
+	"github.com/bnema/dumber/internal/application/port"
+	"github.com/bnema/dumber/internal/domain/entity"
 	"github.com/bnema/dumber/internal/domain/repository"
 	"github.com/bnema/dumber/internal/logging"
 )
 
 // CleanupSessionsUseCase handles automatic cleanup of old exited sessions.
 type CleanupSessionsUseCase struct {
-	sessionRepo repository.SessionRepository
+	sessionRepo  repository.SessionRepository
+	processProbe port.SessionProcessProbe
 }
 
 // NewCleanupSessionsUseCase creates a new CleanupSessionsUseCase.
-func NewCleanupSessionsUseCase(sessionRepo repository.SessionRepository) *CleanupSessionsUseCase {
+func NewCleanupSessionsUseCase(
+	sessionRepo repository.SessionRepository,
+	processProbe port.SessionProcessProbe,
+) *CleanupSessionsUseCase {
 	return &CleanupSessionsUseCase{
-		sessionRepo: sessionRepo,
+		sessionRepo:  sessionRepo,
+		processProbe: processProbe,
 	}
 }
 
@@ -42,6 +49,63 @@ type CleanupSessionsOutput struct {
 
 	// TotalDeleted is the total number of sessions deleted.
 	TotalDeleted int64
+}
+
+type ReconcileActiveBrowserSessionsInput struct {
+	CurrentSessionID entity.SessionID
+	RecentLimit      int
+	EndedAt          time.Time
+}
+
+type ReconcileActiveBrowserSessionsOutput struct {
+	EndedDeadSessions int64
+}
+
+// ReconcileActiveBrowserSessions ends only active browser sessions whose recorded process is proven dead.
+func (uc *CleanupSessionsUseCase) ReconcileActiveBrowserSessions(
+	ctx context.Context,
+	input ReconcileActiveBrowserSessionsInput,
+) (ReconcileActiveBrowserSessionsOutput, error) {
+	log := logging.FromContext(ctx)
+	output := ReconcileActiveBrowserSessionsOutput{}
+	if uc.processProbe == nil {
+		return output, nil
+	}
+	if input.RecentLimit <= 0 {
+		input.RecentLimit = 20
+	}
+	endedAt := input.EndedAt
+	if endedAt.IsZero() {
+		endedAt = time.Now()
+	}
+
+	recent, err := uc.sessionRepo.GetRecent(ctx, input.RecentLimit)
+	if err != nil {
+		return output, err
+	}
+	for _, s := range recent {
+		if s == nil || s.ID == input.CurrentSessionID || s.Type != entity.SessionTypeBrowser || !s.IsActive() {
+			continue
+		}
+		if s.ProcessID == nil {
+			log.Debug().Str("session_id", string(s.ID)).Msg("skipping active session without process id")
+			continue
+		}
+		alive, probeErr := uc.processProbe.IsProcessAlive(ctx, *s.ProcessID)
+		if probeErr != nil {
+			log.Warn().Err(probeErr).Str("session_id", string(s.ID)).Int("pid", *s.ProcessID).Msg("failed to probe session process")
+			continue
+		}
+		if alive {
+			continue
+		}
+		if err := uc.sessionRepo.MarkEnded(ctx, s.ID, endedAt); err != nil {
+			return output, err
+		}
+		log.Info().Str("session_id", string(s.ID)).Int("pid", *s.ProcessID).Msg("ended dead browser session")
+		output.EndedDeadSessions++
+	}
+	return output, nil
 }
 
 // Execute cleans up old exited sessions based on the provided configuration.
