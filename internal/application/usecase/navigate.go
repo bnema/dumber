@@ -124,7 +124,7 @@ type NavigateOutput struct {
 func (uc *NavigateUseCase) Execute(ctx context.Context, input NavigateInput) (*NavigateOutput, error) {
 	log := logging.FromContext(ctx)
 	log.Debug().
-		Str("url", input.URL).
+		Str("url", logging.RedactURL(input.URL)).
 		Str("pane_id", input.PaneID).
 		Msg("navigating to URL")
 
@@ -135,7 +135,7 @@ func (uc *NavigateUseCase) Execute(ctx context.Context, input NavigateInput) (*N
 	}
 
 	log.Info().
-		Str("url", input.URL).
+		Str("url", logging.RedactURL(input.URL)).
 		Msg("navigation initiated")
 
 	return &NavigateOutput{
@@ -309,7 +309,7 @@ func (uc *NavigateUseCase) persistHistory(ctx context.Context, record historyRec
 	// Check if entry exists
 	existing, err := uc.historyRepo.FindByURL(ctx, record.url)
 	if err != nil {
-		log.Warn().Err(err).Str("url", record.url).Msg("failed to check history")
+		log.Warn().Err(err).Str("url", logging.RedactURL(record.url)).Msg("failed to check history")
 		return
 	}
 
@@ -317,7 +317,7 @@ func (uc *NavigateUseCase) persistHistory(ctx context.Context, record historyRec
 		delta := max(1, record.visits)
 		if deltaWriter, ok := uc.historyRepo.(historyVisitDeltaIncrementer); ok {
 			if err := deltaWriter.IncrementVisitCountBy(ctx, record.url, delta); err != nil {
-				log.Warn().Err(err).Str("url", record.url).Int("delta", delta).Msg("failed to increment visit count by delta")
+				log.Warn().Err(err).Str("url", logging.RedactURL(record.url)).Int("delta", delta).Msg("failed to increment visit count by delta")
 				return
 			}
 			return
@@ -325,7 +325,7 @@ func (uc *NavigateUseCase) persistHistory(ctx context.Context, record historyRec
 		iterations := delta
 		if iterations > historyFallbackIncrementCap {
 			log.Warn().
-				Str("url", record.url).
+				Str("url", logging.RedactURL(record.url)).
 				Int("delta", delta).
 				Int("cap", historyFallbackIncrementCap).
 				Msg("visit count fallback increment capped")
@@ -333,7 +333,7 @@ func (uc *NavigateUseCase) persistHistory(ctx context.Context, record historyRec
 		}
 		for i := 0; i < iterations; i++ {
 			if err := uc.historyRepo.IncrementVisitCount(ctx, record.url); err != nil {
-				log.Warn().Err(err).Str("url", record.url).Msg("failed to increment visit count")
+				log.Warn().Err(err).Str("url", logging.RedactURL(record.url)).Msg("failed to increment visit count")
 				return
 			}
 		}
@@ -342,7 +342,7 @@ func (uc *NavigateUseCase) persistHistory(ctx context.Context, record historyRec
 		entry := entity.NewHistoryEntry(record.url, "")
 		entry.VisitCount = int64(max(1, record.visits))
 		if err := uc.historyRepo.Save(ctx, entry); err != nil {
-			log.Warn().Err(err).Str("url", record.url).Msg("failed to save history")
+			log.Warn().Err(err).Str("url", logging.RedactURL(record.url)).Msg("failed to save history")
 		}
 	}
 }
@@ -358,7 +358,7 @@ func (uc *NavigateUseCase) persistTitleUpdate(ctx context.Context, historyURL, t
 
 	entry, err := uc.historyRepo.FindByURL(ctx, historyURL)
 	if err != nil {
-		log.Warn().Err(err).Str("url", historyURL).Msg("failed to find history entry for title update")
+		log.Warn().Err(err).Str("url", logging.RedactURL(historyURL)).Msg("failed to find history entry for title update")
 		return
 	}
 	if entry == nil {
@@ -368,12 +368,12 @@ func (uc *NavigateUseCase) persistTitleUpdate(ctx context.Context, historyURL, t
 	entry.Title = title
 	if updater, ok := uc.historyRepo.(historyMetadataUpdater); ok {
 		if err := updater.UpdateMetadata(ctx, entry); err != nil {
-			log.Warn().Err(err).Str("url", historyURL).Msg("failed to update history metadata")
+			log.Warn().Err(err).Str("url", logging.RedactURL(historyURL)).Msg("failed to update history metadata")
 		}
 		return
 	}
 	if err := uc.historyRepo.Save(ctx, entry); err != nil {
-		log.Warn().Err(err).Str("url", historyURL).Msg("failed to update history title")
+		log.Warn().Err(err).Str("url", logging.RedactURL(historyURL)).Msg("failed to update history title")
 	}
 }
 
@@ -392,7 +392,7 @@ func (uc *NavigateUseCase) UpdateHistoryTitle(_ context.Context, historyURL, tit
 	select {
 	case uc.historyQueue <- historyRecord{url: historyURL, title: title}:
 	default:
-		logging.FromContext(uc.ctx).Warn().Str("url", historyURL).Msg("history queue full, title update dropped")
+		logging.FromContext(uc.ctx).Warn().Str("url", logging.RedactURL(historyURL)).Msg("history queue full, title update dropped")
 	}
 }
 
