@@ -59,7 +59,7 @@ type AddFavoriteInput struct {
 // Add creates a new favorite.
 func (uc *ManageFavoritesUseCase) Add(ctx context.Context, input AddFavoriteInput) (*entity.Favorite, error) {
 	log := logging.FromContext(ctx)
-	log.Debug().Str("url", input.URL).Str("title", input.Title).Msg("adding favorite")
+	log.Debug().Str("url", logging.RedactURL(input.URL)).Msg("adding favorite")
 
 	// Check if already favorited
 	existing, err := uc.favoriteRepo.FindByURL(ctx, input.URL)
@@ -67,7 +67,7 @@ func (uc *ManageFavoritesUseCase) Add(ctx context.Context, input AddFavoriteInpu
 		return nil, fmt.Errorf("failed to check existing favorite: %w", err)
 	}
 	if existing != nil {
-		log.Debug().Str("url", input.URL).Msg("URL already favorited")
+		log.Debug().Str("url", logging.RedactURL(input.URL)).Msg("URL already favorited")
 		return existing, nil
 	}
 
@@ -95,7 +95,7 @@ func (uc *ManageFavoritesUseCase) addNewFavorite(ctx context.Context, input AddF
 		}
 	}
 
-	log.Info().Str("url", input.URL).Int64("id", int64(fav.ID)).Msg("favorite added")
+	log.Info().Str("url", logging.RedactURL(input.URL)).Int64("id", int64(fav.ID)).Msg("favorite added")
 	uc.invalidateCache()
 	return fav, nil
 }
@@ -235,14 +235,14 @@ func (uc *ManageFavoritesUseCase) Remove(ctx context.Context, id entity.Favorite
 // RemoveByURL deletes a favorite by its URL.
 func (uc *ManageFavoritesUseCase) RemoveByURL(ctx context.Context, favoriteURL string) error {
 	log := logging.FromContext(ctx)
-	log.Debug().Str("url", favoriteURL).Msg("removing favorite by URL")
+	log.Debug().Str("url", logging.RedactURL(favoriteURL)).Msg("removing favorite by URL")
 
 	fav, err := uc.favoriteRepo.FindByURL(ctx, favoriteURL)
 	if err != nil {
 		return fmt.Errorf("failed to find favorite: %w", err)
 	}
 	if fav == nil {
-		log.Debug().Str("url", favoriteURL).Msg("favorite not found")
+		log.Debug().Str("url", logging.RedactURL(favoriteURL)).Msg("favorite not found")
 		return nil
 	}
 
@@ -314,7 +314,7 @@ func (uc *ManageFavoritesUseCase) GetByShortcut(ctx context.Context, key int) (*
 // GetByURL finds a favorite by its URL.
 func (uc *ManageFavoritesUseCase) GetByURL(ctx context.Context, favoriteURL string) (*entity.Favorite, error) {
 	log := logging.FromContext(ctx)
-	log.Debug().Str("url", favoriteURL).Msg("getting favorite by URL")
+	log.Debug().Str("url", logging.RedactURL(favoriteURL)).Msg("getting favorite by URL")
 
 	return uc.favoriteRepo.FindByURL(ctx, favoriteURL)
 }
@@ -455,7 +455,7 @@ func (uc *ManageFavoritesUseCase) Toggle(ctx context.Context, rawURL, title stri
 	title = strings.TrimSpace(title)
 
 	log := logging.FromContext(ctx)
-	log.Debug().Str("url", favoriteURL).Msg("toggling favorite")
+	log.Debug().Str("url", logging.RedactURL(favoriteURL)).Msg("toggling favorite")
 
 	// Check if already favorited, including legacy rows stored before URL canonicalization.
 	existing, err := uc.findFavoriteByCanonicalOrRawURL(ctx, favoriteURL, rawURL)
@@ -468,7 +468,7 @@ func (uc *ManageFavoritesUseCase) Toggle(ctx context.Context, rawURL, title stri
 		if err := uc.favoriteRepo.Delete(ctx, existing.ID); err != nil {
 			return nil, fmt.Errorf("failed to remove favorite: %w", err)
 		}
-		log.Info().Str("url", favoriteURL).Int64("id", int64(existing.ID)).Msg("favorite removed via toggle")
+		log.Info().Str("url", logging.RedactURL(favoriteURL)).Int64("id", int64(existing.ID)).Msg("favorite removed via toggle")
 		uc.invalidateCache()
 		return &ToggleResult{
 			Added:   false,
@@ -483,7 +483,7 @@ func (uc *ManageFavoritesUseCase) Toggle(ctx context.Context, rawURL, title stri
 	if err := uc.favoriteRepo.Save(ctx, fav); err != nil {
 		return nil, fmt.Errorf("failed to add favorite: %w", err)
 	}
-	log.Info().Str("url", favoriteURL).Int64("id", int64(fav.ID)).Msg("favorite added via toggle")
+	log.Info().Str("url", logging.RedactURL(favoriteURL)).Int64("id", int64(fav.ID)).Msg("favorite added via toggle")
 	uc.invalidateCache()
 	return &ToggleResult{
 		Added:   true,

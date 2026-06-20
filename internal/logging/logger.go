@@ -6,6 +6,7 @@ import (
 	neturl "net/url"
 	"os"
 	"path/filepath"
+	"strings"
 	"sync"
 	"time"
 
@@ -71,8 +72,8 @@ func New(cfg Config) zerolog.Logger {
 // Returns the logger and a cleanup function to close the file.
 func NewWithFile(cfg Config, fileCfg FileConfig) (zerolog.Logger, func(), error) {
 	const (
-		logDirPerm  = 0o755
-		logFilePerm = 0o644
+		logDirPerm  = 0o700
+		logFilePerm = 0o600
 	)
 	var writers []io.Writer
 	cleanup := func() {}
@@ -97,14 +98,22 @@ func NewWithFile(cfg Config, fileCfg FileConfig) (zerolog.Logger, func(), error)
 
 	// Session file output (JSON format for parsing)
 	if fileCfg.Enabled && fileCfg.LogDir != "" && fileCfg.SessionID != "" {
-		// Ensure log directory exists (LogDir is from config, may not have logs subdir)
+		// Ensure log directory exists (LogDir is from config, may not have logs subdir).
+		// Session logs may contain browsing metadata, so keep them user-private.
 		if err := os.MkdirAll(fileCfg.LogDir, logDirPerm); err != nil {
+			return zerolog.Logger{}, nil, err
+		}
+		if err := os.Chmod(fileCfg.LogDir, logDirPerm); err != nil {
 			return zerolog.Logger{}, nil, err
 		}
 
 		filename := filepath.Join(fileCfg.LogDir, SessionFilename(fileCfg.SessionID))
 		file, err := os.OpenFile(filename, os.O_CREATE|os.O_APPEND|os.O_WRONLY, logFilePerm)
 		if err != nil {
+			return zerolog.Logger{}, nil, err
+		}
+		if err := file.Chmod(logFilePerm); err != nil {
+			_ = file.Close()
 			return zerolog.Logger{}, nil, err
 		}
 
@@ -242,12 +251,44 @@ func ParseLevel(level string) zerolog.Level {
 // PermissionLogURLMaxLen is the standard max length for permission-related URL logging.
 const PermissionLogURLMaxLen = 96
 
-// TruncateURL truncates a URL to maxLen characters for logging.
-func TruncateURL(url string, maxLen int) string {
-	if len(url) <= maxLen {
-		return url
+// RedactedURLPlaceholder is emitted when input looks like a URL/path but has no safe host.
+const RedactedURLPlaceholder = "[redacted-url]"
+
+// RedactURL returns privacy-preserving URL diagnostics. Absolute URLs with a
+// host are reduced to host-only; query strings, fragments, paths, credentials,
+// and local file paths are omitted.
+func RedactURL(raw string) string {
+	raw = strings.TrimSpace(raw)
+	if raw == "" {
+		return ""
 	}
-	return url[:maxLen] + "..."
+
+	parsed, err := neturl.Parse(raw)
+	if err != nil {
+		return RedactedURLPlaceholder
+	}
+	if parsed.Host != "" {
+		return parsed.Hostname()
+	}
+	if parsed.Scheme == "about" && parsed.Opaque != "" {
+		// Use Opaque directly instead of parsed.String() to avoid leaking
+		// RawQuery and Fragment (Go's URL parser separates them from Opaque,
+		// but String() reconstructs the full URL including query/fragment).
+		return parsed.Scheme + ":" + parsed.Opaque
+	}
+	if parsed.Scheme != "" {
+		return parsed.Scheme + ":" + RedactedURLPlaceholder
+	}
+	return RedactedURLPlaceholder
+}
+
+// TruncateURL redacts and then truncates a URL for logging.
+func TruncateURL(url string, maxLen int) string {
+	redacted := RedactURL(url)
+	if len(redacted) <= maxLen {
+		return redacted
+	}
+	return redacted[:maxLen] + "..."
 }
 
 // SafeURLHost returns only the host portion of a URL for privacy-preserving diagnostics.
@@ -256,5 +297,5 @@ func SafeURLHost(raw string) string {
 	if err != nil {
 		return ""
 	}
-	return parsed.Host
+	return parsed.Hostname()
 }
