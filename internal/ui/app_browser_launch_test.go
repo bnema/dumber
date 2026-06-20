@@ -7,6 +7,7 @@ import (
 	"errors"
 	"io"
 	"math"
+	"net"
 	"os"
 	"path/filepath"
 	"reflect"
@@ -81,7 +82,28 @@ func (r *fakeSessionStateRepo) GetAllSnapshots(context.Context) ([]*entity.Sessi
 
 func (r *fakeSessionStateRepo) GetTotalSnapshotsSize(context.Context) (int64, error) { return 0, nil }
 
+func testPathIsSocket(path string) bool {
+	info, err := os.Stat(path)
+	return err == nil && info.Mode()&os.ModeSocket != 0
+}
+
+func testGDKBackendAllows(backend string) bool {
+	configured := os.Getenv("GDK_BACKEND")
+	if configured == "" {
+		return true
+	}
+	for _, candidate := range strings.Split(configured, ",") {
+		if strings.TrimSpace(candidate) == backend {
+			return true
+		}
+	}
+	return false
+}
+
 func testHasUsableWaylandDisplay() bool {
+	if !testGDKBackendAllows("wayland") {
+		return false
+	}
 	waylandDisplay := os.Getenv("WAYLAND_DISPLAY")
 	if waylandDisplay == "" {
 		return false
@@ -91,7 +113,7 @@ func testHasUsableWaylandDisplay() bool {
 		candidates = append([]string{filepath.Join(runtimeDir, waylandDisplay)}, candidates...)
 	}
 	for _, candidate := range candidates {
-		if _, err := os.Stat(candidate); err == nil {
+		if testPathIsSocket(candidate) {
 			return true
 		}
 	}
@@ -99,6 +121,9 @@ func testHasUsableWaylandDisplay() bool {
 }
 
 func testHasUsableX11Display() bool {
+	if !testGDKBackendAllows("x11") {
+		return false
+	}
 	display := os.Getenv("DISPLAY")
 	if display == "" {
 		return false
@@ -114,7 +139,7 @@ func testHasUsableX11Display() bool {
 			x11SocketCandidates = append(x11SocketCandidates, fallback)
 		}
 		for _, candidate := range x11SocketCandidates {
-			if _, err := os.Stat(candidate); err == nil {
+			if testPathIsSocket(candidate) {
 				return true
 			}
 		}
@@ -192,8 +217,8 @@ func testXauthorityHasDisplay(data []byte, displayNum string) bool {
 		if !ok {
 			return false
 		}
-		if string(num) == displayNum {
-			return len(name) > 0 && len(cookie) > 0
+		if string(num) == displayNum && len(name) > 0 && len(cookie) > 0 {
+			return true
 		}
 		data = rest
 	}
@@ -212,12 +237,49 @@ func testReadXauthorityField(data []byte) ([]byte, []byte, bool) {
 	return data[:fieldLen], data[fieldLen:], true
 }
 
-// testNeedsX11Auth reports whether GTK is expected to use the X11 backend,
-// meaning X11 authorization must be available. When a usable Wayland display
-// is present and GDK_BACKEND is not forced to x11, X11 auth is not required
-// because GTK will use the Wayland backend.
+// testNeedsX11Auth reports whether GTK may need the X11 backend and therefore
+// requires X11 authorization before GTK initialization. Wayland-only backend
+// configuration never needs X11 auth; X11 is required when it is the only usable
+// allowed backend.
 func testNeedsX11Auth() bool {
-	return !testHasUsableWaylandDisplay() || os.Getenv("GDK_BACKEND") == "x11"
+	if !testGDKBackendAllows("x11") {
+		return false
+	}
+	return !testGDKBackendAllows("wayland") || !testHasUsableWaylandDisplay()
+}
+
+func testCreateUnixSocket(t *testing.T, path string) {
+	t.Helper()
+	if err := os.MkdirAll(filepath.Dir(path), 0755); err != nil {
+		t.Fatal(err)
+	}
+	listener, err := net.Listen("unix", path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() {
+		_ = listener.Close()
+		_ = os.Remove(path)
+	})
+}
+
+func testUnusedX11DisplayNumber(t *testing.T) string {
+	t.Helper()
+	for display := 90; display < 300; display++ {
+		displayNum := strconv.Itoa(display)
+		if !testPathIsSocket("/tmp/.X11-unix/X" + displayNum) {
+			return displayNum
+		}
+	}
+	t.Fatal("could not find an unused X11 display number")
+	return ""
+}
+
+func testCreateX11Socket(t *testing.T, displayNum string) {
+	t.Helper()
+	tmpDir := t.TempDir()
+	t.Setenv("TMPDIR", tmpDir)
+	testCreateUnixSocket(t, filepath.Join(tmpDir, ".X11-unix", "X"+displayNum))
 }
 
 func requireGTKDisplayApp(t *testing.T) *gtk.Application {
@@ -227,8 +289,7 @@ func requireGTKDisplayApp(t *testing.T) *gtk.Application {
 	if !hasWayland && !hasX11 {
 		t.Skip("GTK display not available (no DISPLAY/WAYLAND_DISPLAY socket)")
 	}
-	// Only require X11 auth when the X11 backend will be used:
-	// no Wayland (fallback to X11), or GDK_BACKEND explicitly set to x11.
+	// Only require X11 auth when X11 is the only usable allowed backend.
 	if testNeedsX11Auth() && !testHasX11Auth() {
 		t.Skip("GTK display not available (X11 authorization unavailable)")
 	}
@@ -254,16 +315,17 @@ func Test_testHasUsableGTKDisplay_PureProbe(t *testing.T) {
 	})
 
 	t.Run("DISPLAY numeric without socket", func(t *testing.T) {
-		t.Setenv("DISPLAY", ":99")
+		displayNum := testUnusedX11DisplayNumber(t)
+		t.Setenv("DISPLAY", ":"+displayNum)
 		t.Setenv("WAYLAND_DISPLAY", "")
-		// No /tmp/.X11-unix/X99 socket exists
 		if got := testHasUsableGTKDisplay(); got {
 			t.Errorf("testHasUsableGTKDisplay() = %v, want false", got)
 		}
 	})
 
 	t.Run("DISPLAY with screen without socket", func(t *testing.T) {
-		t.Setenv("DISPLAY", ":99.0")
+		displayNum := testUnusedX11DisplayNumber(t)
+		t.Setenv("DISPLAY", ":"+displayNum+".0")
 		t.Setenv("WAYLAND_DISPLAY", "")
 		if got := testHasUsableGTKDisplay(); got {
 			t.Errorf("testHasUsableGTKDisplay() = %v, want false", got)
@@ -287,13 +349,15 @@ func Test_testHasUsableGTKDisplay_PureProbe(t *testing.T) {
 	})
 
 	t.Run("DISPLAY with existing socket", func(t *testing.T) {
-		t.Setenv("DISPLAY", ":0")
+		displayNum := testUnusedX11DisplayNumber(t)
+		tmpDir := t.TempDir()
+		t.Setenv("TMPDIR", tmpDir)
+		t.Setenv("DISPLAY", ":"+displayNum)
 		t.Setenv("WAYLAND_DISPLAY", "")
-		// /tmp/.X11-unix/X0 exists on this machine
-		got := testHasUsableGTKDisplay()
-		// We can't guarantee the socket exists in all environments,
-		// but this verifies it doesn't crash.
-		t.Logf("testHasUsableGTKDisplay() = %v (depends on /tmp/.X11-unix/X0)", got)
+		testCreateUnixSocket(t, filepath.Join(tmpDir, ".X11-unix", "X"+displayNum))
+		if got := testHasUsableGTKDisplay(); !got {
+			t.Errorf("testHasUsableGTKDisplay() = %v, want true with existing X11 socket", got)
+		}
 	})
 
 	t.Run("WAYLAND_DISPLAY with existing socket", func(t *testing.T) {
@@ -301,9 +365,7 @@ func Test_testHasUsableGTKDisplay_PureProbe(t *testing.T) {
 		t.Setenv("WAYLAND_DISPLAY", "wayland-1")
 		tmpDir := t.TempDir()
 		socketPath := filepath.Join(tmpDir, "wayland-1")
-		if err := os.WriteFile(socketPath, nil, 0644); err != nil {
-			t.Fatal(err)
-		}
+		testCreateUnixSocket(t, socketPath)
 		// XDG_RUNTIME_DIR controls where Wayland sockets are looked up
 		t.Setenv("XDG_RUNTIME_DIR", tmpDir)
 		if got := testHasUsableGTKDisplay(); !got {
@@ -323,9 +385,7 @@ func Test_testHasUsableGTKDisplay_PureProbe(t *testing.T) {
 	t.Run("WAYLAND_DISPLAY absolute path with existing socket", func(t *testing.T) {
 		t.Setenv("DISPLAY", "")
 		socketPath := filepath.Join(t.TempDir(), "wayland.sock")
-		if err := os.WriteFile(socketPath, nil, 0644); err != nil {
-			t.Fatal(err)
-		}
+		testCreateUnixSocket(t, socketPath)
 		t.Setenv("WAYLAND_DISPLAY", socketPath)
 		t.Setenv("XDG_RUNTIME_DIR", "/nonexistent") // Should be ignored for absolute paths
 		if got := testHasUsableGTKDisplay(); !got {
@@ -518,6 +578,21 @@ func Test_testHasX11Auth_MalformedRecords(t *testing.T) {
 			t.Errorf("testHasX11Auth() = %v, want true for third entry matching display :3", got)
 		}
 	})
+
+	t.Run("invalid matching entry does not hide later valid match", func(t *testing.T) {
+		t.Setenv("DISPLAY", ":3")
+		authFile := filepath.Join(t.TempDir(), ".Xauthority")
+		var buf bytes.Buffer
+		writeXauthRecord(&buf, "3", "", []byte{0x01, 0x02, 0x03, 0x04})
+		writeXauthRecord(&buf, "3", "MIT-MAGIC-COOKIE-1", []byte{0x09, 0x0a, 0x0b, 0x0c})
+		if err := os.WriteFile(authFile, buf.Bytes(), 0644); err != nil {
+			t.Fatal(err)
+		}
+		t.Setenv("XAUTHORITY", authFile)
+		if got := testHasX11Auth(); !got {
+			t.Errorf("testHasX11Auth() = %v, want true for later valid matching display", got)
+		}
+	})
 }
 
 func Test_testHasUsableWaylandDisplay_PureProbe(t *testing.T) {
@@ -532,9 +607,7 @@ func Test_testHasUsableWaylandDisplay_PureProbe(t *testing.T) {
 		t.Setenv("WAYLAND_DISPLAY", "wayland-1")
 		tmpDir := t.TempDir()
 		socketPath := filepath.Join(tmpDir, "wayland-1")
-		if err := os.WriteFile(socketPath, nil, 0644); err != nil {
-			t.Fatal(err)
-		}
+		testCreateUnixSocket(t, socketPath)
 		t.Setenv("XDG_RUNTIME_DIR", tmpDir)
 		if got := testHasUsableWaylandDisplay(); !got {
 			t.Errorf("testHasUsableWaylandDisplay() = %v, want true with existing wayland socket", got)
@@ -543,9 +616,7 @@ func Test_testHasUsableWaylandDisplay_PureProbe(t *testing.T) {
 
 	t.Run("WAYLAND_DISPLAY absolute path", func(t *testing.T) {
 		socketPath := filepath.Join(t.TempDir(), "wayland.sock")
-		if err := os.WriteFile(socketPath, nil, 0644); err != nil {
-			t.Fatal(err)
-		}
+		testCreateUnixSocket(t, socketPath)
 		t.Setenv("WAYLAND_DISPLAY", socketPath)
 		t.Setenv("XDG_RUNTIME_DIR", "/nonexistent")
 		if got := testHasUsableWaylandDisplay(); !got {
@@ -563,7 +634,8 @@ func Test_testHasUsableX11Display_PureProbe(t *testing.T) {
 	})
 
 	t.Run("DISPLAY numeric without socket", func(t *testing.T) {
-		t.Setenv("DISPLAY", ":99")
+		displayNum := testUnusedX11DisplayNumber(t)
+		t.Setenv("DISPLAY", ":"+displayNum)
 		if got := testHasUsableX11Display(); got {
 			t.Errorf("testHasUsableX11Display() = %v, want false", got)
 		}
@@ -577,15 +649,54 @@ func Test_testHasUsableX11Display_PureProbe(t *testing.T) {
 	})
 }
 
+func Test_testHasUsableGTKDisplay_GDKBackendSelection(t *testing.T) {
+	t.Run("GDK_BACKEND=x11 ignores Wayland-only socket", func(t *testing.T) {
+		t.Setenv("GDK_BACKEND", "x11")
+		t.Setenv("WAYLAND_DISPLAY", "wayland-1")
+		tmpDir := t.TempDir()
+		testCreateUnixSocket(t, filepath.Join(tmpDir, "wayland-1"))
+		t.Setenv("XDG_RUNTIME_DIR", tmpDir)
+		t.Setenv("DISPLAY", ":"+testUnusedX11DisplayNumber(t))
+		if got := testHasUsableGTKDisplay(); got {
+			t.Errorf("testHasUsableGTKDisplay() = %v, want false when x11 is forced without an X11 socket", got)
+		}
+	})
+
+	t.Run("GDK_BACKEND=wayland ignores X11-only socket", func(t *testing.T) {
+		displayNum := testUnusedX11DisplayNumber(t)
+		t.Setenv("GDK_BACKEND", "wayland")
+		t.Setenv("DISPLAY", ":"+displayNum)
+		t.Setenv("WAYLAND_DISPLAY", "wayland-missing")
+		t.Setenv("XDG_RUNTIME_DIR", t.TempDir())
+		testCreateX11Socket(t, displayNum)
+		if got := testHasUsableGTKDisplay(); got {
+			t.Errorf("testHasUsableGTKDisplay() = %v, want false when wayland is forced without a Wayland socket", got)
+		}
+	})
+
+	t.Run("GDK_BACKEND=wayland,x11 allows X11 fallback", func(t *testing.T) {
+		displayNum := testUnusedX11DisplayNumber(t)
+		t.Setenv("GDK_BACKEND", "wayland,x11")
+		t.Setenv("DISPLAY", ":"+displayNum)
+		t.Setenv("WAYLAND_DISPLAY", "wayland-missing")
+		t.Setenv("XDG_RUNTIME_DIR", t.TempDir())
+		testCreateX11Socket(t, displayNum)
+		if got := testHasUsableGTKDisplay(); !got {
+			t.Errorf("testHasUsableGTKDisplay() = %v, want true with X11 fallback socket", got)
+		}
+		if got := testNeedsX11Auth(); !got {
+			t.Errorf("testNeedsX11Auth() = %v, want true when X11 is the only usable backend", got)
+		}
+	})
+}
+
 func Test_testNeedsX11Auth_PureProbe(t *testing.T) {
 	t.Run("Wayland available forces no X11 auth", func(t *testing.T) {
 		t.Setenv("GDK_BACKEND", "")
 		t.Setenv("WAYLAND_DISPLAY", "wayland-1")
 		tmpDir := t.TempDir()
 		socketPath := filepath.Join(tmpDir, "wayland-1")
-		if err := os.WriteFile(socketPath, nil, 0644); err != nil {
-			t.Fatal(err)
-		}
+		testCreateUnixSocket(t, socketPath)
 		t.Setenv("XDG_RUNTIME_DIR", tmpDir)
 		t.Setenv("DISPLAY", ":0")
 		if got := testNeedsX11Auth(); got {
@@ -598,9 +709,7 @@ func Test_testNeedsX11Auth_PureProbe(t *testing.T) {
 		t.Setenv("WAYLAND_DISPLAY", "wayland-1")
 		tmpDir := t.TempDir()
 		socketPath := filepath.Join(tmpDir, "wayland-1")
-		if err := os.WriteFile(socketPath, nil, 0644); err != nil {
-			t.Fatal(err)
-		}
+		testCreateUnixSocket(t, socketPath)
 		t.Setenv("XDG_RUNTIME_DIR", tmpDir)
 		if got := testNeedsX11Auth(); !got {
 			t.Errorf("testNeedsX11Auth() = %v, want true when GDK_BACKEND=x11", got)
