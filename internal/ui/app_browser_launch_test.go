@@ -1,7 +1,9 @@
 package ui
 
 import (
+	"bytes"
 	"context"
+	"encoding/binary"
 	"errors"
 	"io"
 	"math"
@@ -79,51 +81,160 @@ func (r *fakeSessionStateRepo) GetAllSnapshots(context.Context) ([]*entity.Sessi
 
 func (r *fakeSessionStateRepo) GetTotalSnapshotsSize(context.Context) (int64, error) { return 0, nil }
 
-func testHasUsableGTKDisplay() bool {
-	if waylandDisplay := os.Getenv("WAYLAND_DISPLAY"); waylandDisplay != "" {
-		candidates := []string{waylandDisplay}
-		if runtimeDir := os.Getenv("XDG_RUNTIME_DIR"); runtimeDir != "" && !filepath.IsAbs(waylandDisplay) {
-			candidates = append([]string{filepath.Join(runtimeDir, waylandDisplay)}, candidates...)
+func testHasUsableWaylandDisplay() bool {
+	waylandDisplay := os.Getenv("WAYLAND_DISPLAY")
+	if waylandDisplay == "" {
+		return false
+	}
+	candidates := []string{waylandDisplay}
+	if runtimeDir := os.Getenv("XDG_RUNTIME_DIR"); runtimeDir != "" && !filepath.IsAbs(waylandDisplay) {
+		candidates = append([]string{filepath.Join(runtimeDir, waylandDisplay)}, candidates...)
+	}
+	for _, candidate := range candidates {
+		if _, err := os.Stat(candidate); err == nil {
+			return true
 		}
-		for _, candidate := range candidates {
+	}
+	return false
+}
+
+func testHasUsableX11Display() bool {
+	display := os.Getenv("DISPLAY")
+	if display == "" {
+		return false
+	}
+	if strings.HasPrefix(display, ":") {
+		displayNum := strings.TrimPrefix(display, ":")
+		displayNum = strings.SplitN(displayNum, ".", 2)[0]
+		if displayNum == "" {
+			return false
+		}
+		x11SocketCandidates := []string{filepath.Join(os.TempDir(), ".X11-unix", "X"+displayNum)}
+		if fallback := "/tmp/.X11-unix/X" + displayNum; fallback != x11SocketCandidates[0] {
+			x11SocketCandidates = append(x11SocketCandidates, fallback)
+		}
+		for _, candidate := range x11SocketCandidates {
 			if _, err := os.Stat(candidate); err == nil {
 				return true
 			}
 		}
+		return false
 	}
+	return true // TCP display
+}
 
-	if display := os.Getenv("DISPLAY"); display != "" {
-		if strings.HasPrefix(display, ":") {
-			displayNum := strings.TrimPrefix(display, ":")
-			displayNum = strings.SplitN(displayNum, ".", 2)[0]
-			if displayNum == "" {
-				return false
-			}
-			x11SocketCandidates := []string{filepath.Join(os.TempDir(), ".X11-unix", "X"+displayNum)}
-			if fallback := "/tmp/.X11-unix/X" + displayNum; fallback != x11SocketCandidates[0] {
-				x11SocketCandidates = append(x11SocketCandidates, fallback)
-			}
-			for _, candidate := range x11SocketCandidates {
-				if _, err := os.Stat(candidate); err == nil {
-					return true
-				}
-			}
-			return false
-		}
+func testHasUsableGTKDisplay() bool {
+	return testHasUsableWaylandDisplay() || testHasUsableX11Display()
+}
+
+// testHasX11Auth checks whether X11 authorization is available for the current
+// DISPLAY before any GTK/Adwaita initialization. It is a pure function that
+// inspects env vars and the .Xauthority file only; no GTK calls.
+func testHasX11Auth() bool {
+	display := os.Getenv("DISPLAY")
+	if display == "" || !strings.HasPrefix(display, ":") {
+		// No DISPLAY or TCP-style display; can't check locally.
+		// Let GTK try and fall through to gdk.DisplayGetDefault().
 		return true
 	}
 
+	displayNum := strings.TrimPrefix(display, ":")
+	displayNum = strings.SplitN(displayNum, ".", 2)[0]
+	if displayNum == "" {
+		return false
+	}
+
+	// Find the X authority file.
+	authFile := os.Getenv("XAUTHORITY")
+	if authFile == "" {
+		home, err := os.UserHomeDir()
+		if err != nil {
+			return false
+		}
+		authFile = filepath.Join(home, ".Xauthority")
+	}
+
+	if _, err := os.Stat(authFile); err != nil {
+		return false // No authority file; X11 auth will fail.
+	}
+
+	// Parse the .Xauthority file to look for a matching display entry.
+	// Format: sequence of {family(2B), addrLen(2B), addr, numLen(2B), num, nameLen(2B), name, dataLen(2B), data}
+	// All multi-byte values are big-endian (network byte order).
+	data, err := os.ReadFile(authFile)
+	if err != nil {
+		return false
+	}
+
+	return testXauthorityHasDisplay(data, displayNum)
+}
+
+func testXauthorityHasDisplay(data []byte, displayNum string) bool {
+	for len(data) > 0 {
+		if len(data) < 2 {
+			return false
+		}
+		data = data[2:] // family, unused
+
+		_, rest, ok := testReadXauthorityField(data) // address
+		if !ok {
+			return false
+		}
+		num, rest, ok := testReadXauthorityField(rest)
+		if !ok {
+			return false
+		}
+		name, rest, ok := testReadXauthorityField(rest)
+		if !ok {
+			return false
+		}
+		cookie, rest, ok := testReadXauthorityField(rest)
+		if !ok {
+			return false
+		}
+		if string(num) == displayNum {
+			return len(name) > 0 && len(cookie) > 0
+		}
+		data = rest
+	}
 	return false
+}
+
+func testReadXauthorityField(data []byte) ([]byte, []byte, bool) {
+	if len(data) < 2 {
+		return nil, nil, false
+	}
+	fieldLen := int(binary.BigEndian.Uint16(data[:2]))
+	data = data[2:]
+	if len(data) < fieldLen {
+		return nil, nil, false
+	}
+	return data[:fieldLen], data[fieldLen:], true
+}
+
+// testNeedsX11Auth reports whether GTK is expected to use the X11 backend,
+// meaning X11 authorization must be available. When a usable Wayland display
+// is present and GDK_BACKEND is not forced to x11, X11 auth is not required
+// because GTK will use the Wayland backend.
+func testNeedsX11Auth() bool {
+	return !testHasUsableWaylandDisplay() || os.Getenv("GDK_BACKEND") == "x11"
 }
 
 func requireGTKDisplayApp(t *testing.T) *gtk.Application {
 	t.Helper()
-	if !testHasUsableGTKDisplay() {
-		t.Skip("GTK display not available")
+	hasWayland := testHasUsableWaylandDisplay()
+	hasX11 := testHasUsableX11Display()
+	if !hasWayland && !hasX11 {
+		t.Skip("GTK display not available (no DISPLAY/WAYLAND_DISPLAY socket)")
+	}
+	// Only require X11 auth when the X11 backend will be used:
+	// no Wayland (fallback to X11), or GDK_BACKEND explicitly set to x11.
+	if testNeedsX11Auth() && !testHasX11Auth() {
+		t.Skip("GTK display not available (X11 authorization unavailable)")
 	}
 	EnsureAdwaitaInitialized()
 	if gdk.DisplayGetDefault() == nil {
-		t.Skip("GTK display not available")
+		t.Skip("GTK display not available (gdk.DisplayGetDefault returned nil)")
 	}
 	appID := AppID
 	gtkApp := gtk.NewApplication(&appID, gio.GApplicationNonUniqueValue)
@@ -131,6 +242,424 @@ func requireGTKDisplayApp(t *testing.T) *gtk.Application {
 		t.Fatal("gtk application creation failed")
 	}
 	return gtkApp
+}
+
+func Test_testHasUsableGTKDisplay_PureProbe(t *testing.T) {
+	t.Run("no display env vars", func(t *testing.T) {
+		t.Setenv("DISPLAY", "")
+		t.Setenv("WAYLAND_DISPLAY", "")
+		if got := testHasUsableGTKDisplay(); got {
+			t.Errorf("testHasUsableGTKDisplay() = %v, want false", got)
+		}
+	})
+
+	t.Run("DISPLAY numeric without socket", func(t *testing.T) {
+		t.Setenv("DISPLAY", ":99")
+		t.Setenv("WAYLAND_DISPLAY", "")
+		// No /tmp/.X11-unix/X99 socket exists
+		if got := testHasUsableGTKDisplay(); got {
+			t.Errorf("testHasUsableGTKDisplay() = %v, want false", got)
+		}
+	})
+
+	t.Run("DISPLAY with screen without socket", func(t *testing.T) {
+		t.Setenv("DISPLAY", ":99.0")
+		t.Setenv("WAYLAND_DISPLAY", "")
+		if got := testHasUsableGTKDisplay(); got {
+			t.Errorf("testHasUsableGTKDisplay() = %v, want false", got)
+		}
+	})
+
+	t.Run("DISPLAY colon only no number", func(t *testing.T) {
+		t.Setenv("DISPLAY", ":")
+		t.Setenv("WAYLAND_DISPLAY", "")
+		if got := testHasUsableGTKDisplay(); got {
+			t.Errorf("testHasUsableGTKDisplay() = %v, want false for empty display number", got)
+		}
+	})
+
+	t.Run("DISPLAY TCP always passes socket check", func(t *testing.T) {
+		t.Setenv("DISPLAY", "remote-host:0")
+		t.Setenv("WAYLAND_DISPLAY", "")
+		if got := testHasUsableGTKDisplay(); !got {
+			t.Errorf("testHasUsableGTKDisplay() = %v, want true for TCP display", got)
+		}
+	})
+
+	t.Run("DISPLAY with existing socket", func(t *testing.T) {
+		t.Setenv("DISPLAY", ":0")
+		t.Setenv("WAYLAND_DISPLAY", "")
+		// /tmp/.X11-unix/X0 exists on this machine
+		got := testHasUsableGTKDisplay()
+		// We can't guarantee the socket exists in all environments,
+		// but this verifies it doesn't crash.
+		t.Logf("testHasUsableGTKDisplay() = %v (depends on /tmp/.X11-unix/X0)", got)
+	})
+
+	t.Run("WAYLAND_DISPLAY with existing socket", func(t *testing.T) {
+		t.Setenv("DISPLAY", "")
+		t.Setenv("WAYLAND_DISPLAY", "wayland-1")
+		tmpDir := t.TempDir()
+		socketPath := filepath.Join(tmpDir, "wayland-1")
+		if err := os.WriteFile(socketPath, nil, 0644); err != nil {
+			t.Fatal(err)
+		}
+		// XDG_RUNTIME_DIR controls where Wayland sockets are looked up
+		t.Setenv("XDG_RUNTIME_DIR", tmpDir)
+		if got := testHasUsableGTKDisplay(); !got {
+			t.Errorf("testHasUsableGTKDisplay() = %v, want true with existing wayland socket", got)
+		}
+	})
+
+	t.Run("WAYLAND_DISPLAY without socket", func(t *testing.T) {
+		t.Setenv("DISPLAY", "")
+		t.Setenv("WAYLAND_DISPLAY", "wayland-nonexistent")
+		t.Setenv("XDG_RUNTIME_DIR", t.TempDir())
+		if got := testHasUsableGTKDisplay(); got {
+			t.Errorf("testHasUsableGTKDisplay() = %v, want false without wayland socket", got)
+		}
+	})
+
+	t.Run("WAYLAND_DISPLAY absolute path with existing socket", func(t *testing.T) {
+		t.Setenv("DISPLAY", "")
+		socketPath := filepath.Join(t.TempDir(), "wayland.sock")
+		if err := os.WriteFile(socketPath, nil, 0644); err != nil {
+			t.Fatal(err)
+		}
+		t.Setenv("WAYLAND_DISPLAY", socketPath)
+		t.Setenv("XDG_RUNTIME_DIR", "/nonexistent") // Should be ignored for absolute paths
+		if got := testHasUsableGTKDisplay(); !got {
+			t.Errorf("testHasUsableGTKDisplay() = %v, want true with absolute wayland socket path", got)
+		}
+	})
+}
+
+func Test_testHasX11Auth_PureProbe(t *testing.T) {
+	t.Run("DISPLAY unset", func(t *testing.T) {
+		t.Setenv("DISPLAY", "")
+		t.Setenv("XAUTHORITY", "")
+		if got := testHasX11Auth(); !got {
+			t.Errorf("testHasX11Auth() = %v, want true when DISPLAY unset", got)
+		}
+	})
+
+	t.Run("DISPLAY TCP remote", func(t *testing.T) {
+		t.Setenv("DISPLAY", "remote-host:0")
+		t.Setenv("XAUTHORITY", "")
+		if got := testHasX11Auth(); !got {
+			t.Errorf("testHasX11Auth() = %v, want true for TCP display", got)
+		}
+	})
+
+	t.Run("DISPLAY local no auth file", func(t *testing.T) {
+		t.Setenv("DISPLAY", ":0")
+		t.Setenv("XAUTHORITY", "")
+		// Use a temp home dir with no .Xauthority
+		t.Setenv("HOME", t.TempDir())
+		if got := testHasX11Auth(); got {
+			t.Errorf("testHasX11Auth() = %v, want false without auth file", got)
+		}
+	})
+
+	t.Run("DISPLAY local XAUTHORITY env missing file", func(t *testing.T) {
+		t.Setenv("DISPLAY", ":0")
+		t.Setenv("XAUTHORITY", "/nonexistent/.Xauthority")
+		if got := testHasX11Auth(); got {
+			t.Errorf("testHasX11Auth() = %v, want false when XAUTHORITY file missing", got)
+		}
+	})
+
+	t.Run("DISPLAY local XAUTHORITY with matching entry", func(t *testing.T) {
+		t.Setenv("DISPLAY", ":1")
+		authFile := filepath.Join(t.TempDir(), ".Xauthority")
+		createXauthFile(t, authFile, "1", "MIT-MAGIC-COOKIE-1", []byte{0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08, 0x09, 0x0a, 0x0b, 0x0c, 0x0d, 0x0e, 0x0f, 0x10})
+		t.Setenv("XAUTHORITY", authFile)
+		if got := testHasX11Auth(); !got {
+			t.Errorf("testHasX11Auth() = %v, want true with matching auth entry", got)
+		}
+	})
+
+	t.Run("DISPLAY local XAUTHORITY with non-matching entry", func(t *testing.T) {
+		t.Setenv("DISPLAY", ":2")
+		authFile := filepath.Join(t.TempDir(), ".Xauthority")
+		createXauthFile(t, authFile, "0", "MIT-MAGIC-COOKIE-1", []byte{0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08, 0x09, 0x0a, 0x0b, 0x0c, 0x0d, 0x0e, 0x0f, 0x10})
+		t.Setenv("XAUTHORITY", authFile)
+		if got := testHasX11Auth(); got {
+			t.Errorf("testHasX11Auth() = %v, want false with non-matching auth entry", got)
+		}
+	})
+
+	t.Run("DISPLAY local with screen number", func(t *testing.T) {
+		t.Setenv("DISPLAY", ":0.0")
+		authFile := filepath.Join(t.TempDir(), ".Xauthority")
+		createXauthFile(t, authFile, "0", "MIT-MAGIC-COOKIE-1", []byte{0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08, 0x09, 0x0a, 0x0b, 0x0c, 0x0d, 0x0e, 0x0f, 0x10})
+		t.Setenv("XAUTHORITY", authFile)
+		if got := testHasX11Auth(); !got {
+			t.Errorf("testHasX11Auth() = %v, want true with screen suffix stripped", got)
+		}
+	})
+
+	t.Run("DISPLAY colon only no number defaults to false", func(t *testing.T) {
+		t.Setenv("DISPLAY", ":")
+		t.Setenv("XAUTHORITY", "")
+		if got := testHasX11Auth(); got {
+			t.Errorf("testHasX11Auth() = %v, want false for empty display number", got)
+		}
+	})
+}
+
+// writeXauthRecord appends one local-family .Xauthority record to buf with the given fields.
+// If name or data is empty, the length byte is written as zero but the field
+// data is omitted, producing a truncated record suitable for malformed tests.
+func writeXauthRecord(buf *bytes.Buffer, num, name string, data []byte) {
+	// family (2 bytes, big-endian)
+	familyBytes := make([]byte, 2)
+	binary.BigEndian.PutUint16(familyBytes, 256)
+	buf.Write(familyBytes)
+
+	// address
+	addrLen := make([]byte, 2)
+	addr := "host"
+	binary.BigEndian.PutUint16(addrLen, uint16(len(addr)))
+	buf.Write(addrLen)
+	buf.WriteString(addr)
+
+	// number
+	numLen := make([]byte, 2)
+	binary.BigEndian.PutUint16(numLen, uint16(len(num)))
+	buf.Write(numLen)
+	buf.WriteString(num)
+
+	// name
+	nameLen := make([]byte, 2)
+	binary.BigEndian.PutUint16(nameLen, uint16(len(name)))
+	buf.Write(nameLen)
+	if name != "" {
+		buf.WriteString(name)
+	}
+
+	// data
+	dLen := make([]byte, 2)
+	binary.BigEndian.PutUint16(dLen, uint16(len(data)))
+	buf.Write(dLen)
+	if len(data) > 0 {
+		buf.Write(data)
+	}
+}
+
+func Test_testHasX11Auth_MalformedRecords(t *testing.T) {
+	t.Run("matching display with empty name field", func(t *testing.T) {
+		t.Setenv("DISPLAY", ":1")
+		authFile := filepath.Join(t.TempDir(), ".Xauthority")
+		var buf bytes.Buffer
+		writeXauthRecord(&buf, "1", "", []byte{0x01, 0x02, 0x03, 0x04})
+		if err := os.WriteFile(authFile, buf.Bytes(), 0644); err != nil {
+			t.Fatal(err)
+		}
+		t.Setenv("XAUTHORITY", authFile)
+		if got := testHasX11Auth(); got {
+			t.Errorf("testHasX11Auth() = %v, want false for matching display with empty name", got)
+		}
+	})
+
+	t.Run("matching display with empty data field", func(t *testing.T) {
+		t.Setenv("DISPLAY", ":1")
+		authFile := filepath.Join(t.TempDir(), ".Xauthority")
+		var buf bytes.Buffer
+		writeXauthRecord(&buf, "1", "MIT-MAGIC-COOKIE-1", nil)
+		if err := os.WriteFile(authFile, buf.Bytes(), 0644); err != nil {
+			t.Fatal(err)
+		}
+		t.Setenv("XAUTHORITY", authFile)
+		if got := testHasX11Auth(); got {
+			t.Errorf("testHasX11Auth() = %v, want false for matching display with empty data", got)
+		}
+	})
+
+	t.Run("truncated record after display number", func(t *testing.T) {
+		t.Setenv("DISPLAY", ":1")
+		authFile := filepath.Join(t.TempDir(), ".Xauthority")
+		var buf bytes.Buffer
+		family := make([]byte, 2)
+		binary.BigEndian.PutUint16(family, 256)
+		buf.Write(family)
+		addr := "host"
+		addrLen := make([]byte, 2)
+		binary.BigEndian.PutUint16(addrLen, uint16(len(addr)))
+		buf.Write(addrLen)
+		buf.WriteString(addr)
+		num := "1"
+		numLen := make([]byte, 2)
+		binary.BigEndian.PutUint16(numLen, uint16(len(num)))
+		buf.Write(numLen)
+		buf.WriteString(num)
+		// Record ends here — no name or data fields follow.
+		if err := os.WriteFile(authFile, buf.Bytes(), 0644); err != nil {
+			t.Fatal(err)
+		}
+		t.Setenv("XAUTHORITY", authFile)
+		if got := testHasX11Auth(); got {
+			t.Errorf("testHasX11Auth() = %v, want false for truncated record", got)
+		}
+	})
+
+	t.Run("multiple entries with one matching and valid", func(t *testing.T) {
+		t.Setenv("DISPLAY", ":3")
+		authFile := filepath.Join(t.TempDir(), ".Xauthority")
+		var buf bytes.Buffer
+		writeXauthRecord(&buf, "0", "MIT-MAGIC-COOKIE-1", []byte{0x01, 0x02, 0x03, 0x04})
+		writeXauthRecord(&buf, "1", "MIT-MAGIC-COOKIE-1", []byte{0x05, 0x06, 0x07, 0x08})
+		writeXauthRecord(&buf, "3", "MIT-MAGIC-COOKIE-1", []byte{0x09, 0x0a, 0x0b, 0x0c})
+		if err := os.WriteFile(authFile, buf.Bytes(), 0644); err != nil {
+			t.Fatal(err)
+		}
+		t.Setenv("XAUTHORITY", authFile)
+		if got := testHasX11Auth(); !got {
+			t.Errorf("testHasX11Auth() = %v, want true for third entry matching display :3", got)
+		}
+	})
+}
+
+func Test_testHasUsableWaylandDisplay_PureProbe(t *testing.T) {
+	t.Run("no WAYLAND_DISPLAY", func(t *testing.T) {
+		t.Setenv("WAYLAND_DISPLAY", "")
+		if got := testHasUsableWaylandDisplay(); got {
+			t.Errorf("testHasUsableWaylandDisplay() = %v, want false", got)
+		}
+	})
+
+	t.Run("WAYLAND_DISPLAY with existing socket", func(t *testing.T) {
+		t.Setenv("WAYLAND_DISPLAY", "wayland-1")
+		tmpDir := t.TempDir()
+		socketPath := filepath.Join(tmpDir, "wayland-1")
+		if err := os.WriteFile(socketPath, nil, 0644); err != nil {
+			t.Fatal(err)
+		}
+		t.Setenv("XDG_RUNTIME_DIR", tmpDir)
+		if got := testHasUsableWaylandDisplay(); !got {
+			t.Errorf("testHasUsableWaylandDisplay() = %v, want true with existing wayland socket", got)
+		}
+	})
+
+	t.Run("WAYLAND_DISPLAY absolute path", func(t *testing.T) {
+		socketPath := filepath.Join(t.TempDir(), "wayland.sock")
+		if err := os.WriteFile(socketPath, nil, 0644); err != nil {
+			t.Fatal(err)
+		}
+		t.Setenv("WAYLAND_DISPLAY", socketPath)
+		t.Setenv("XDG_RUNTIME_DIR", "/nonexistent")
+		if got := testHasUsableWaylandDisplay(); !got {
+			t.Errorf("testHasUsableWaylandDisplay() = %v, want true with absolute path", got)
+		}
+	})
+}
+
+func Test_testHasUsableX11Display_PureProbe(t *testing.T) {
+	t.Run("no DISPLAY", func(t *testing.T) {
+		t.Setenv("DISPLAY", "")
+		if got := testHasUsableX11Display(); got {
+			t.Errorf("testHasUsableX11Display() = %v, want false", got)
+		}
+	})
+
+	t.Run("DISPLAY numeric without socket", func(t *testing.T) {
+		t.Setenv("DISPLAY", ":99")
+		if got := testHasUsableX11Display(); got {
+			t.Errorf("testHasUsableX11Display() = %v, want false", got)
+		}
+	})
+
+	t.Run("DISPLAY TCP always passes socket check", func(t *testing.T) {
+		t.Setenv("DISPLAY", "remote-host:0")
+		if got := testHasUsableX11Display(); !got {
+			t.Errorf("testHasUsableX11Display() = %v, want true for TCP display", got)
+		}
+	})
+}
+
+func Test_testNeedsX11Auth_PureProbe(t *testing.T) {
+	t.Run("Wayland available forces no X11 auth", func(t *testing.T) {
+		t.Setenv("GDK_BACKEND", "")
+		t.Setenv("WAYLAND_DISPLAY", "wayland-1")
+		tmpDir := t.TempDir()
+		socketPath := filepath.Join(tmpDir, "wayland-1")
+		if err := os.WriteFile(socketPath, nil, 0644); err != nil {
+			t.Fatal(err)
+		}
+		t.Setenv("XDG_RUNTIME_DIR", tmpDir)
+		t.Setenv("DISPLAY", ":0")
+		if got := testNeedsX11Auth(); got {
+			t.Errorf("testNeedsX11Auth() = %v, want false when Wayland is available and GDK_BACKEND is unset", got)
+		}
+	})
+
+	t.Run("GDK_BACKEND=x11 forces X11 auth even with Wayland", func(t *testing.T) {
+		t.Setenv("GDK_BACKEND", "x11")
+		t.Setenv("WAYLAND_DISPLAY", "wayland-1")
+		tmpDir := t.TempDir()
+		socketPath := filepath.Join(tmpDir, "wayland-1")
+		if err := os.WriteFile(socketPath, nil, 0644); err != nil {
+			t.Fatal(err)
+		}
+		t.Setenv("XDG_RUNTIME_DIR", tmpDir)
+		if got := testNeedsX11Auth(); !got {
+			t.Errorf("testNeedsX11Auth() = %v, want true when GDK_BACKEND=x11", got)
+		}
+	})
+
+	t.Run("No Wayland fallback needs X11 auth", func(t *testing.T) {
+		t.Setenv("GDK_BACKEND", "")
+		t.Setenv("WAYLAND_DISPLAY", "")
+		t.Setenv("DISPLAY", ":0")
+		if got := testNeedsX11Auth(); !got {
+			t.Errorf("testNeedsX11Auth() = %v, want true when only X11 is available", got)
+		}
+	})
+}
+
+// createXauthFile writes a minimal .Xauthority file with one entry.
+// family=256 (FamilyLocal), address=hostname, number=displayNum, name=proto, data=cookie.
+func createXauthFile(t *testing.T, path, displayNum, proto string, cookie []byte) {
+	t.Helper()
+
+	hostname, err := os.Hostname()
+	if err != nil {
+		hostname = "localhost"
+	}
+
+	var buf bytes.Buffer
+	// family (2 bytes, big-endian) - 256 = FamilyLocal
+	family := make([]byte, 2)
+	binary.BigEndian.PutUint16(family, 256)
+	buf.Write(family)
+
+	// address length + address (hostname)
+	addrLen := make([]byte, 2)
+	binary.BigEndian.PutUint16(addrLen, uint16(len(hostname)))
+	buf.Write(addrLen)
+	buf.WriteString(hostname)
+
+	// number length + number (display number)
+	numLen := make([]byte, 2)
+	binary.BigEndian.PutUint16(numLen, uint16(len(displayNum)))
+	buf.Write(numLen)
+	buf.WriteString(displayNum)
+
+	// name length + name (auth protocol)
+	nameLen := make([]byte, 2)
+	binary.BigEndian.PutUint16(nameLen, uint16(len(proto)))
+	buf.Write(nameLen)
+	buf.WriteString(proto)
+
+	// data length + data (auth cookie)
+	dataLen := make([]byte, 2)
+	binary.BigEndian.PutUint16(dataLen, uint16(len(cookie)))
+	buf.Write(dataLen)
+	buf.Write(cookie)
+
+	if err := os.WriteFile(path, buf.Bytes(), 0644); err != nil {
+		t.Fatal(err)
+	}
 }
 
 // setDependencyField uses reflection to reach unexported dependency fields for tests.
