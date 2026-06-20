@@ -7,7 +7,7 @@ require (
 	github.com/andybalholm/brotli v1.2.1
 	github.com/bnema/purego v0.11.0-bnema.4
 	github.com/bnema/purego-cef v0.13.3
-	github.com/bnema/purego-cef2gtk v0.8.2-0.20260620140111-e7e819925e8a
+	github.com/bnema/purego-cef2gtk v0.8.2-0.20260620142512-33162fc2478b
 	github.com/bnema/purego-pipewire v0.1.4
 	github.com/bnema/purego-sqlite v0.1.3
 	github.com/bnema/puregotk v0.7.0
