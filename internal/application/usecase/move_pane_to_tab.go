@@ -46,12 +46,9 @@ func (uc *MovePaneToTabUseCase) Execute(input MovePaneToTabInput) (*MovePaneToTa
 		return nil, err
 	}
 
-	if detachErr := detachPaneFromWorkspace(sourceTab.Workspace, sourceNode); detachErr != nil {
-		return nil, detachErr
-	}
-
-	sourceTabClosed := closeSourceTabIfEmpty(input.TabList, sourceTab)
-
+	// CORRECTNESS-02: Resolve/prepare the target BEFORE mutating source.
+	// This ensures that target resolution (idGenerator check for new tabs)
+	// and insertion validation happen while source state is still intact.
 	targetTab, newTabCreated, err := uc.resolveTargetTab(input.TabList, input.TargetTabID, movedPane)
 	if err != nil {
 		return nil, err
@@ -60,7 +57,29 @@ func (uc *MovePaneToTabUseCase) Execute(input MovePaneToTabInput) (*MovePaneToTa
 		return nil, fmt.Errorf("target tab/workspace is nil")
 	}
 
+	// Pre-validate insertion prerequisites before mutating source.
+	// Insertion into an existing non-empty workspace requires idGenerator
+	// for creating split parent nodes (for non-empty targets with Root != nil),
+	// and requires a valid active pane. Fail early if either is unavailable.
+	if !newTabCreated && targetTab.Workspace.Root != nil {
+		if uc.idGenerator == nil {
+			return nil, fmt.Errorf("id generator is required to insert pane into existing workspace")
+		}
+		activePane := targetTab.Workspace.ActivePane()
+		if activePane == nil || activePane.Pane == nil {
+			return nil, fmt.Errorf("target tab has no active pane")
+		}
+	}
+
+	// Now mutate source — pane is detached from original location.
+	if detachErr := detachPaneFromWorkspace(sourceTab.Workspace, sourceNode); detachErr != nil {
+		return nil, detachErr
+	}
+
+	sourceTabClosed := closeSourceTabIfEmpty(input.TabList, sourceTab)
+
 	if newTabCreated {
+		input.TabList.Add(targetTab)
 		return &MovePaneToTabOutput{
 			TargetTab:       targetTab,
 			MovedPaneNode:   targetTab.Workspace.Root,
@@ -158,7 +177,10 @@ func (uc *MovePaneToTabUseCase) resolveTargetTab(
 	tabID := entity.TabID(uc.idGenerator())
 	wsID := entity.WorkspaceID(uc.idGenerator())
 	targetTab := entity.NewTab(tabID, wsID, movedPane)
-	tl.Add(targetTab)
+	// NOTE: tab is NOT added to TabList here. Addition is deferred until
+	// after successful detach in Execute() (see newTabCreated path).
+	// This prevents leaving a stale/duplicate tab in the list if detach fails
+	// (CORRECTNESS-02).
 	return targetTab, true, nil
 }
 
