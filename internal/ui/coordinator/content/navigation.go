@@ -330,25 +330,19 @@ func (c *Coordinator) handleURIChanged(ctx context.Context, paneID entity.PaneID
 	isExternal := urlutil.IsExternalScheme(uri)
 
 	if isExternal {
-		log.Info().Str("pane_id", string(paneID)).Str("uri", uri).Msg("external scheme detected, launching externally")
+		log.Info().Str("pane_id", string(paneID)).Str("uri", uri).Msg("external scheme URI change blocked")
 
-		// Launch externally via injected callback
-		if c.onLaunchExternalURL != nil {
-			c.onLaunchExternalURL(uri)
-		} else {
-			log.Warn().Str("pane_id", string(paneID)).Str("uri", uri).Msg("external URL not launched: no handler registered")
-		}
-
-		// Stop loading to prevent WebKit from showing an error page
-		// The page stays on the previous URL before the JS redirect
+		// External schemes must only be launched from WebKit's navigation-policy path,
+		// where NavigationAction.IsUserGesture is available and verified. URI changes can
+		// be driven by page script or redirects, so this path only cleans up WebKit state.
 		if err := wv.Stop(ctx); err != nil {
-			log.Warn().Str("pane_id", string(paneID)).Str("uri", uri).Err(err).Msg("stop webview for external URL")
+			log.Warn().Str("pane_id", string(paneID)).Str("uri", uri).Err(err).Msg("stop webview for blocked external URL")
 		}
 
-		// Navigate back to avoid stale URI in omnibox/history
+		// Navigate back to avoid stale URI in omnibox/history.
 		if wv.CanGoBack() {
 			if err := wv.GoBack(ctx); err != nil {
-				log.Warn().Str("pane_id", string(paneID)).Err(err).Msg("GoBack after external URL")
+				log.Warn().Str("pane_id", string(paneID)).Err(err).Msg("GoBack after blocked external URL")
 			}
 		}
 		return
