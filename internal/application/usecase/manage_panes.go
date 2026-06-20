@@ -112,6 +112,14 @@ func (uc *ManagePanesUseCase) Split(ctx context.Context, input SplitPaneInput) (
 		return nil, fmt.Errorf("target pane is required")
 	}
 
+	// Validate split direction before any mutations
+	switch input.Direction {
+	case SplitLeft, SplitRight, SplitUp, SplitDown:
+		// valid
+	default:
+		return nil, fmt.Errorf("invalid split direction: %s", input.Direction)
+	}
+
 	// If target is inside a stack, split around the entire stack
 	// (i.e., create the new pane as a sibling to the stack, not inside it)
 	// This applies to all directions - we don't want to nest split containers inside stacks.
