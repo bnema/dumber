@@ -51,9 +51,9 @@ func WithTabID(ctx context.Context, tabID string) context.Context {
 	return WithContext(ctx, childLogger)
 }
 
-// WithURL creates a child logger with a url field
+// WithURL creates a child logger with a redacted url field.
 func WithURL(ctx context.Context, url string) context.Context {
 	logger := FromContext(ctx)
-	childLogger := logger.With().Str("url", url).Logger()
+	childLogger := logger.With().Str("url", RedactURL(url)).Logger()
 	return WithContext(ctx, childLogger)
 }
