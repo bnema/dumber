@@ -450,5 +450,14 @@ func TestScheduleResizeRepaintPulse_CoalescesToLatestSequence(t *testing.T) {
 
 	scheduled[2].Execute()
 	scheduled[3].Execute()
-	require.Equal(t, []string{"Invalidate", "Invalidate"}, host.calls)
+	require.Equal(t, []string{
+		"WasHidden",
+		"NotifyScreenInfoChanged",
+		"WasResized",
+		"Invalidate",
+		"WasHidden",
+		"NotifyScreenInfoChanged",
+		"WasResized",
+		"Invalidate",
+	}, host.calls)
 }

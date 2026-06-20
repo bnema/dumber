@@ -94,7 +94,11 @@ func (wv *WebView) syncViewportOnGTK(ctx context.Context) {
 	if wv == nil {
 		return
 	}
-	wv.syncViewportNowOnGTK(ctx, wv.takeViewportSyncReason())
+	reason := wv.takeViewportSyncReason()
+	ctx = wv.viewportSyncContext(ctx)
+	if wv.syncViewportNowOnGTK(ctx, reason) {
+		wv.scheduleResizeRepaintPulse(ctx, reason)
+	}
 }
 
 func (wv *WebView) syncViewportNowOnGTK(ctx context.Context, reason string) bool {
@@ -148,6 +152,12 @@ func (wv *WebView) scheduleResizeRepaintPulse(ctx context.Context, reason string
 	if wv == nil || wv.destroyed.Load() {
 		return
 	}
+	visible := true
+	if wv.viewBridge != nil {
+		if widget := wv.viewBridge.Widget(); widget != nil {
+			visible = widget.IsVisible()
+		}
+	}
 	seq := wv.viewportResizePulseSeq.Add(1)
 	for _, delayMs := range [...]int64{16, 48} {
 		task := cefNewTask(cefTaskFunc(func() {
@@ -160,12 +170,13 @@ func (wv *WebView) scheduleResizeRepaintPulse(ctx context.Context, reason string
 			if host == nil {
 				return
 			}
-			host.Invalidate(purecef.PaintElementTypePetView)
+			notifyBrowserViewportSync(host, visible)
 			logging.FromContext(ctx).Debug().
 				Uint64("webview_id", uint64(wv.id)).
 				Int64("delay_ms", delayMs).
+				Bool("visible", visible).
 				Str("reason", reason).
-				Msg("cef: delayed resize repaint pulse")
+				Msg("cef: delayed resize viewport sync")
 		}))
 		if task == nil {
 			continue
