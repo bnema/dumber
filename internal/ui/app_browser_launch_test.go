@@ -306,6 +306,8 @@ func requireGTKDisplayApp(t *testing.T) *gtk.Application {
 }
 
 func Test_testHasUsableGTKDisplay_PureProbe(t *testing.T) {
+	t.Setenv("GDK_BACKEND", "")
+
 	t.Run("no display env vars", func(t *testing.T) {
 		t.Setenv("DISPLAY", "")
 		t.Setenv("WAYLAND_DISPLAY", "")
@@ -596,6 +598,8 @@ func Test_testHasX11Auth_MalformedRecords(t *testing.T) {
 }
 
 func Test_testHasUsableWaylandDisplay_PureProbe(t *testing.T) {
+	t.Setenv("GDK_BACKEND", "")
+
 	t.Run("no WAYLAND_DISPLAY", func(t *testing.T) {
 		t.Setenv("WAYLAND_DISPLAY", "")
 		if got := testHasUsableWaylandDisplay(); got {
@@ -626,6 +630,8 @@ func Test_testHasUsableWaylandDisplay_PureProbe(t *testing.T) {
 }
 
 func Test_testHasUsableX11Display_PureProbe(t *testing.T) {
+	t.Setenv("GDK_BACKEND", "")
+
 	t.Run("no DISPLAY", func(t *testing.T) {
 		t.Setenv("DISPLAY", "")
 		if got := testHasUsableX11Display(); got {
