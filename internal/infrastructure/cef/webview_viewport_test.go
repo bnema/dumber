@@ -471,7 +471,7 @@ func TestScheduleResizeRepaintPulse_SkipsStaleHost(t *testing.T) {
 	cefNewTask = func(task purecef.Task) purecef.Task { return task }
 
 	var scheduled []purecef.Task
-	cefPostDelayedTask = func(threadID purecef.ThreadID, task purecef.Task, delayMs int64) int32 {
+	cefPostDelayedTask = func(threadID purecef.ThreadID, task purecef.Task, _ int64) int32 {
 		require.Equal(t, purecef.ThreadIDTidUi, threadID)
 		require.NotNil(t, task)
 		scheduled = append(scheduled, task)
@@ -527,7 +527,7 @@ func TestScheduleResizeRepaintPulse_SkipsWhenHostClearedBeforeExecution(t *testi
 	cefNewTask = func(task purecef.Task) purecef.Task { return task }
 
 	var scheduled []purecef.Task
-	cefPostDelayedTask = func(threadID purecef.ThreadID, task purecef.Task, delayMs int64) int32 {
+	cefPostDelayedTask = func(threadID purecef.ThreadID, task purecef.Task, _ int64) int32 {
 		require.Equal(t, purecef.ThreadIDTidUi, threadID)
 		require.NotNil(t, task)
 		scheduled = append(scheduled, task)
