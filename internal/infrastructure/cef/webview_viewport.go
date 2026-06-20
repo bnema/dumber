@@ -152,11 +152,11 @@ func (wv *WebView) scheduleResizeRepaintPulse(ctx context.Context, reason string
 	if wv == nil || wv.destroyed.Load() {
 		return
 	}
-	visible := true
-	if wv.viewBridge != nil {
-		if widget := wv.viewBridge.Widget(); widget != nil {
-			visible = widget.IsVisible()
-		}
+	wv.mu.RLock()
+	host := wv.host
+	wv.mu.RUnlock()
+	if host == nil {
+		return
 	}
 	seq := wv.viewportResizePulseSeq.Add(1)
 	for _, delayMs := range [...]int64{16, 48} {
@@ -165,16 +165,15 @@ func (wv *WebView) scheduleResizeRepaintPulse(ctx context.Context, reason string
 				return
 			}
 			wv.mu.RLock()
-			host := wv.host
+			currentHost := wv.host
 			wv.mu.RUnlock()
-			if host == nil {
+			if currentHost != host {
 				return
 			}
-			notifyBrowserViewportSync(host, visible)
+			notifyBrowserViewportResize(host)
 			logging.FromContext(ctx).Debug().
 				Uint64("webview_id", uint64(wv.id)).
 				Int64("delay_ms", delayMs).
-				Bool("visible", visible).
 				Str("reason", reason).
 				Msg("cef: delayed resize viewport sync")
 		}))
@@ -532,6 +531,13 @@ func notifyBrowserViewportSync(host viewportSyncBrowserHost, visible bool) {
 	}
 	if visible {
 		host.WasHidden(0)
+	}
+	notifyBrowserViewportResize(host)
+}
+
+func notifyBrowserViewportResize(host viewportSyncBrowserHost) {
+	if host == nil {
+		return
 	}
 	host.NotifyScreenInfoChanged()
 	notifyBrowserResize(host)

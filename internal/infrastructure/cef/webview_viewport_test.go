@@ -451,13 +451,44 @@ func TestScheduleResizeRepaintPulse_CoalescesToLatestSequence(t *testing.T) {
 	scheduled[2].Execute()
 	scheduled[3].Execute()
 	require.Equal(t, []string{
-		"WasHidden",
 		"NotifyScreenInfoChanged",
 		"WasResized",
 		"Invalidate",
-		"WasHidden",
 		"NotifyScreenInfoChanged",
 		"WasResized",
 		"Invalidate",
 	}, host.calls)
+}
+
+func TestScheduleResizeRepaintPulse_SkipsStaleHost(t *testing.T) {
+	oldNewTask := cefNewTask
+	oldPostDelayedTask := cefPostDelayedTask
+	defer func() {
+		cefNewTask = oldNewTask
+		cefPostDelayedTask = oldPostDelayedTask
+	}()
+
+	cefNewTask = func(task purecef.Task) purecef.Task { return task }
+
+	var scheduled []purecef.Task
+	cefPostDelayedTask = func(threadID purecef.ThreadID, task purecef.Task, delayMs int64) int32 {
+		require.Equal(t, purecef.ThreadIDTidUi, threadID)
+		require.NotNil(t, task)
+		scheduled = append(scheduled, task)
+		return 1
+	}
+
+	capturedHost := &viewportSyncOrderHost{}
+	currentHost := &viewportSyncOrderHost{}
+	wv := &WebView{ctx: context.Background(), host: capturedHost}
+
+	wv.scheduleResizeRepaintPulse(context.Background(), "stale-host")
+	wv.host = currentHost
+
+	require.Len(t, scheduled, 2)
+	scheduled[0].Execute()
+	scheduled[1].Execute()
+
+	require.Empty(t, capturedHost.calls)
+	require.Empty(t, currentHost.calls)
 }
