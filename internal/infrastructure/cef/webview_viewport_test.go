@@ -450,5 +450,99 @@ func TestScheduleResizeRepaintPulse_CoalescesToLatestSequence(t *testing.T) {
 
 	scheduled[2].Execute()
 	scheduled[3].Execute()
-	require.Equal(t, []string{"Invalidate", "Invalidate"}, host.calls)
+	require.Equal(t, []string{
+		"NotifyScreenInfoChanged",
+		"WasResized",
+		"Invalidate",
+		"NotifyScreenInfoChanged",
+		"WasResized",
+		"Invalidate",
+	}, host.calls)
+}
+
+func TestScheduleResizeRepaintPulse_SkipsStaleHost(t *testing.T) {
+	oldNewTask := cefNewTask
+	oldPostDelayedTask := cefPostDelayedTask
+	defer func() {
+		cefNewTask = oldNewTask
+		cefPostDelayedTask = oldPostDelayedTask
+	}()
+
+	cefNewTask = func(task purecef.Task) purecef.Task { return task }
+
+	var scheduled []purecef.Task
+	cefPostDelayedTask = func(threadID purecef.ThreadID, task purecef.Task, _ int64) int32 {
+		require.Equal(t, purecef.ThreadIDTidUi, threadID)
+		require.NotNil(t, task)
+		scheduled = append(scheduled, task)
+		return 1
+	}
+
+	capturedHost := &viewportSyncOrderHost{}
+	currentHost := &viewportSyncOrderHost{}
+	wv := &WebView{ctx: context.Background(), host: capturedHost}
+
+	wv.scheduleResizeRepaintPulse(context.Background(), "stale-host")
+	wv.host = currentHost
+
+	require.Len(t, scheduled, 2)
+	scheduled[0].Execute()
+	scheduled[1].Execute()
+
+	require.Empty(t, capturedHost.calls)
+	require.Empty(t, currentHost.calls)
+}
+
+func TestScheduleResizeRepaintPulse_SkipsWhenHostNilAtScheduleTime(t *testing.T) {
+	oldNewTask := cefNewTask
+	oldPostDelayedTask := cefPostDelayedTask
+	defer func() {
+		cefNewTask = oldNewTask
+		cefPostDelayedTask = oldPostDelayedTask
+	}()
+
+	cefNewTask = func(task purecef.Task) purecef.Task { return task }
+
+	var scheduled []purecef.Task
+	cefPostDelayedTask = func(_ purecef.ThreadID, task purecef.Task, _ int64) int32 {
+		scheduled = append(scheduled, task)
+		return 1
+	}
+
+	wv := &WebView{ctx: context.Background()}
+
+	wv.scheduleResizeRepaintPulse(context.Background(), "nil-host")
+
+	require.Empty(t, scheduled)
+}
+
+func TestScheduleResizeRepaintPulse_SkipsWhenHostClearedBeforeExecution(t *testing.T) {
+	oldNewTask := cefNewTask
+	oldPostDelayedTask := cefPostDelayedTask
+	defer func() {
+		cefNewTask = oldNewTask
+		cefPostDelayedTask = oldPostDelayedTask
+	}()
+
+	cefNewTask = func(task purecef.Task) purecef.Task { return task }
+
+	var scheduled []purecef.Task
+	cefPostDelayedTask = func(threadID purecef.ThreadID, task purecef.Task, _ int64) int32 {
+		require.Equal(t, purecef.ThreadIDTidUi, threadID)
+		require.NotNil(t, task)
+		scheduled = append(scheduled, task)
+		return 1
+	}
+
+	host := &viewportSyncOrderHost{}
+	wv := &WebView{ctx: context.Background(), host: host}
+
+	wv.scheduleResizeRepaintPulse(context.Background(), "nil-host-before-execute")
+	wv.host = nil
+
+	require.Len(t, scheduled, 2)
+	scheduled[0].Execute()
+	scheduled[1].Execute()
+
+	require.Empty(t, host.calls)
 }
