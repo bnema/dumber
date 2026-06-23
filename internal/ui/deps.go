@@ -20,8 +20,9 @@ type Dependencies struct {
 	// Core context and configuration
 	Ctx                    context.Context
 	Config                 *config.Config // TODO: replace with port interface in a later milestone
-	InitialURL             string         // URL to open on startup (optional)
-	RestoreSessionID       string         // Session ID to restore on startup (optional)
+	EngineSettingsPayload  func() port.EngineSettingsPayload
+	InitialURL             string // URL to open on startup (optional)
+	RestoreSessionID       string // Session ID to restore on startup (optional)
 	StartupCrashReports    []string
 	OnFirstWebViewShown    func(context.Context)
 	OnSessionPersisted     func() // Called by main after session is persisted to DB

@@ -867,8 +867,11 @@ func buildUIDependencies(
 	browserLauncher := desktop.NewBrowserLauncher(browserLaunchRelay)
 
 	uiDeps := &ui.Dependencies{
-		Ctx:                  ctx,
-		Config:               cfg,
+		Ctx:    ctx,
+		Config: cfg,
+		EngineSettingsPayload: func() port.EngineSettingsPayload {
+			return bootstrap.EngineSettingsPayloadFromConfig(cfg)
+		},
 		InitialURL:           initialURL,
 		RestoreSessionID:     restoreSessionID,
 		StartupCrashReports:  startupCrashReports,

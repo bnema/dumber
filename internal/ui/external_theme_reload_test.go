@@ -8,6 +8,7 @@ import (
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 
+	"github.com/bnema/dumber/internal/application/port"
 	portmocks "github.com/bnema/dumber/internal/application/port/mocks"
 	"github.com/bnema/dumber/internal/application/usecase"
 	"github.com/bnema/dumber/internal/domain/entity"
@@ -66,6 +67,55 @@ func (s *mutableExternalThemeSource) Get(context.Context) (*entity.ExternalTheme
 func immediateDispatchForExternalThemeTest(label string, fn func()) syncdispatch.SyncDispatchResult {
 	fn()
 	return syncdispatch.SyncDispatchResult{Label: label, Status: syncdispatch.SyncDispatchCompleted}
+}
+
+func TestApplyAppearanceConfigSendsCompleteEngineSettingsPayload(t *testing.T) {
+	ctx := context.Background()
+	cfg := config.DefaultConfig()
+	cfg.DefaultUIScale = 1.25
+	cfg.Appearance.SansFont = "Inter"
+	cfg.Appearance.SerifFont = "Literata"
+	cfg.Appearance.MonospaceFont = "Fira Code"
+	cfg.Appearance.DefaultFontSize = 17
+	cfg.Debug.EnableDevTools = true
+	cfg.Logging.CaptureConsole = true
+	cfg.Engine.WebKit.DrawCompositingIndicators = true
+	cfg.Media.HardwareDecodingMode = config.HardwareDecodingForce
+	expected := port.EngineSettingsPayload{
+		DefaultUIScale: cfg.DefaultUIScale,
+		WebContent: port.EngineWebContentSettingsPayload{
+			SansFont:                  cfg.Appearance.SansFont,
+			SerifFont:                 cfg.Appearance.SerifFont,
+			MonospaceFont:             cfg.Appearance.MonospaceFont,
+			DefaultFontSize:           cfg.Appearance.DefaultFontSize,
+			EnableDevTools:            cfg.Debug.EnableDevTools,
+			CaptureConsole:            cfg.Logging.CaptureConsole,
+			DrawCompositingIndicators: cfg.Engine.WebKit.DrawCompositingIndicators,
+			HardwareDecoding:          port.EngineHardwareDecodingForce,
+		},
+	}
+	engine := portmocks.NewMockEngine(t)
+	var captured port.EngineSettingsUpdate
+	engine.EXPECT().UpdateSettings(mock.Anything, mock.Anything).
+		Run(func(_ context.Context, update port.EngineSettingsUpdate) {
+			captured = update
+		}).
+		Return(nil).
+		Once()
+	app := &App{
+		deps: &Dependencies{
+			Config: cfg,
+			EngineSettingsPayload: func() port.EngineSettingsPayload {
+				return expected
+			},
+		},
+		engine: engine,
+	}
+
+	app.applyAppearanceConfig(ctx)
+
+	require.Equal(t, expected, captured.Settings)
+	require.Nil(t, captured.Raw)
 }
 
 func TestExternalThemeWatcherCallbackAppliesThemeThroughSharedPath(t *testing.T) {

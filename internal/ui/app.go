@@ -5118,9 +5118,12 @@ func (a *App) applyAppearanceConfig(ctx context.Context) {
 	cfg := a.deps.Config
 
 	if a.engine != nil {
+		settings := port.EngineSettingsPayload{DefaultUIScale: cfg.DefaultUIScale}
+		if a.deps.EngineSettingsPayload != nil {
+			settings = a.deps.EngineSettingsPayload()
+		}
 		if err := a.engine.UpdateSettings(ctx, port.EngineSettingsUpdate{
-			Settings: port.EngineSettingsPayload{DefaultUIScale: cfg.DefaultUIScale},
-			Raw:      cfg,
+			Settings: settings,
 		}); err != nil {
 			log.Warn().Err(err).Msg("failed to apply engine settings update")
 		}
