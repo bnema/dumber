@@ -5,7 +5,7 @@ packages:
   github.com/bnema/dumber/internal/application/port:
     config:
       dir: '{{.InterfaceDir}}/mocks'
-      filename: mocks.go
+      filename: '{{ .InterfaceFile | base }}'
       pkgname: mocks
     interfaces:
       ConfigMigrator: {}
@@ -75,9 +75,8 @@ packages:
       NativeWidgetProvider: {}
       Notification: {}
       RenderingEnvManager: {}
-      RuntimeConfigProvider:
-        config:
-          filename: runtime_config_provider.go
+      FaviconResolver: {}
+      RuntimeConfigProvider: {}
       RuntimeVersionProbe: {}
       ScriptRefresher: {}
       SnapshotService: {}
@@ -98,7 +97,7 @@ packages:
   github.com/bnema/dumber/internal/domain/repository:
     config:
       dir: '{{.InterfaceDir}}/mocks'
-      filename: mocks.go
+      filename: '{{ .InterfaceFile | base }}'
       pkgname: mocks
     interfaces:
       ContentWhitelistRepository: {}
@@ -112,7 +111,7 @@ packages:
   github.com/bnema/dumber/internal/infrastructure/filtering:
     config:
       dir: '{{.InterfaceDir}}/mocks'
-      filename: mocks.go
+      filename: '{{ .InterfaceFile | base }}'
       pkgname: mocks
     interfaces:
       FilterDownloader: {}
@@ -120,7 +119,7 @@ packages:
   github.com/bnema/dumber/internal/ui/layout:
     config:
       dir: '{{.InterfaceDir}}/mocks'
-      filename: mocks.go
+      filename: '{{ .InterfaceFile | base }}'
       pkgname: mocks
     interfaces:
       BoxWidget: {}

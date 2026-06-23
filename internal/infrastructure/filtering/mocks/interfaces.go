@@ -77,7 +77,7 @@ type MockFilterStore_Compile_Call struct {
 //   - ctx context.Context
 //   - identifier string
 //   - jsonPath string
-func (_e *MockFilterStore_Expecter) Compile(ctx interface{}, identifier interface{}, jsonPath interface{}) *MockFilterStore_Compile_Call {
+func (_e *MockFilterStore_Expecter) Compile(ctx any, identifier any, jsonPath any) *MockFilterStore_Compile_Call {
 	return &MockFilterStore_Compile_Call{Call: _e.mock.On("Compile", ctx, identifier, jsonPath)}
 }
 
@@ -149,7 +149,7 @@ type MockFilterStore_FetchIdentifiers_Call struct {
 
 // FetchIdentifiers is a helper method to define mock.On call
 //   - ctx context.Context
-func (_e *MockFilterStore_Expecter) FetchIdentifiers(ctx interface{}) *MockFilterStore_FetchIdentifiers_Call {
+func (_e *MockFilterStore_Expecter) FetchIdentifiers(ctx any) *MockFilterStore_FetchIdentifiers_Call {
 	return &MockFilterStore_FetchIdentifiers_Call{Call: _e.mock.On("FetchIdentifiers", ctx)}
 }
 
@@ -201,7 +201,7 @@ type MockFilterStore_HasCompiledFilter_Call struct {
 // HasCompiledFilter is a helper method to define mock.On call
 //   - ctx context.Context
 //   - identifier string
-func (_e *MockFilterStore_Expecter) HasCompiledFilter(ctx interface{}, identifier interface{}) *MockFilterStore_HasCompiledFilter_Call {
+func (_e *MockFilterStore_Expecter) HasCompiledFilter(ctx any, identifier any) *MockFilterStore_HasCompiledFilter_Call {
 	return &MockFilterStore_HasCompiledFilter_Call{Call: _e.mock.On("HasCompiledFilter", ctx, identifier)}
 }
 
@@ -269,7 +269,7 @@ type MockFilterStore_Load_Call struct {
 // Load is a helper method to define mock.On call
 //   - ctx context.Context
 //   - identifier string
-func (_e *MockFilterStore_Expecter) Load(ctx interface{}, identifier interface{}) *MockFilterStore_Load_Call {
+func (_e *MockFilterStore_Expecter) Load(ctx any, identifier any) *MockFilterStore_Load_Call {
 	return &MockFilterStore_Load_Call{Call: _e.mock.On("Load", ctx, identifier)}
 }
 
@@ -370,7 +370,7 @@ type MockFilterStore_Remove_Call struct {
 // Remove is a helper method to define mock.On call
 //   - ctx context.Context
 //   - identifier string
-func (_e *MockFilterStore_Expecter) Remove(ctx interface{}, identifier interface{}) *MockFilterStore_Remove_Call {
+func (_e *MockFilterStore_Expecter) Remove(ctx any, identifier any) *MockFilterStore_Remove_Call {
 	return &MockFilterStore_Remove_Call{Call: _e.mock.On("Remove", ctx, identifier)}
 }
 
@@ -509,7 +509,7 @@ type MockFilterDownloader_DownloadFilters_Call struct {
 // DownloadFilters is a helper method to define mock.On call
 //   - ctx context.Context
 //   - onProgress func(filtering.DownloadProgress)
-func (_e *MockFilterDownloader_Expecter) DownloadFilters(ctx interface{}, onProgress interface{}) *MockFilterDownloader_DownloadFilters_Call {
+func (_e *MockFilterDownloader_Expecter) DownloadFilters(ctx any, onProgress any) *MockFilterDownloader_DownloadFilters_Call {
 	return &MockFilterDownloader_DownloadFilters_Call{Call: _e.mock.On("DownloadFilters", ctx, onProgress)}
 }
 
@@ -576,7 +576,7 @@ type MockFilterDownloader_FetchManifest_Call struct {
 
 // FetchManifest is a helper method to define mock.On call
 //   - ctx context.Context
-func (_e *MockFilterDownloader_Expecter) FetchManifest(ctx interface{}) *MockFilterDownloader_FetchManifest_Call {
+func (_e *MockFilterDownloader_Expecter) FetchManifest(ctx any) *MockFilterDownloader_FetchManifest_Call {
 	return &MockFilterDownloader_FetchManifest_Call{Call: _e.mock.On("FetchManifest", ctx)}
 }
 
@@ -772,7 +772,7 @@ type MockFilterDownloader_IsCacheStale_Call struct {
 
 // IsCacheStale is a helper method to define mock.On call
 //   - maxAge time.Duration
-func (_e *MockFilterDownloader_Expecter) IsCacheStale(maxAge interface{}) *MockFilterDownloader_IsCacheStale_Call {
+func (_e *MockFilterDownloader_Expecter) IsCacheStale(maxAge any) *MockFilterDownloader_IsCacheStale_Call {
 	return &MockFilterDownloader_IsCacheStale_Call{Call: _e.mock.On("IsCacheStale", maxAge)}
 }
 
@@ -832,7 +832,7 @@ type MockFilterDownloader_NeedsUpdate_Call struct {
 
 // NeedsUpdate is a helper method to define mock.On call
 //   - ctx context.Context
-func (_e *MockFilterDownloader_Expecter) NeedsUpdate(ctx interface{}) *MockFilterDownloader_NeedsUpdate_Call {
+func (_e *MockFilterDownloader_Expecter) NeedsUpdate(ctx any) *MockFilterDownloader_NeedsUpdate_Call {
 	return &MockFilterDownloader_NeedsUpdate_Call{Call: _e.mock.On("NeedsUpdate", ctx)}
 }
 
