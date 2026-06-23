@@ -173,6 +173,9 @@ func (p *WebViewPool) Acquire(ctx context.Context) (*WebView, error) {
 			wv.inner.AddCssClass("webview-themed")
 			// Keep pooled WebViews hidden until we explicitly reveal them.
 			wv.inner.SetVisible(false)
+			if shouldReapplySettingsOnAcquire(p.settings, wv) {
+				p.settings.ApplyToWebView(ctx, wv.inner)
+			}
 
 			// Ensure frontend is attached even if this WebView was pooled before injection was configured.
 			_ = wv.AttachFrontend(ctx, p.injector, p.router)
@@ -235,6 +238,10 @@ func (p *WebViewPool) Acquire(ctx context.Context) (*WebView, error) {
 
 func needsExplicitContextMenuSignalOnAcquire(wv *WebView, pipeline *contextMenuPipeline) bool {
 	return wv != nil && pipeline != nil && len(wv.signalIDs) > 0
+}
+
+func shouldReapplySettingsOnAcquire(settings *SettingsManager, wv *WebView) bool {
+	return settings != nil && wv != nil && wv.inner != nil
 }
 
 func (p *WebViewPool) createWebView(ctx context.Context) (*WebView, error) {

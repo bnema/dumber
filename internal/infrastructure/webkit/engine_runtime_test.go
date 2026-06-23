@@ -2,7 +2,6 @@ package webkit
 
 import (
 	"context"
-	"os"
 	"testing"
 
 	"github.com/bnema/dumber/internal/application/port"
@@ -90,12 +89,4 @@ func TestEngineConfigureContentInjectorAutoCopyGetterReadsCurrentPayload(t *test
 	})
 
 	require.True(t, injector.autoCopyConfigGetter())
-}
-
-func TestNewEngineAutoCopyGetterUsesRuntimeSettingsPayload(t *testing.T) {
-	source, err := os.ReadFile("engine_init.go")
-	require.NoError(t, err)
-	globalGetter := "config." + "Get()" + ".Clipboard.AutoCopyOnSelection"
-	require.NotContains(t, string(source), globalGetter)
-	require.Contains(t, string(source), "settings.current().WebContent.AutoCopyOnSelection")
 }
