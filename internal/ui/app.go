@@ -511,6 +511,31 @@ func (a *App) createBrowserWindow(ctx context.Context, initialURL string) (*brow
 	}
 	mainWindow.Window().ConnectCloseRequest(&closeRequestCb)
 
+	a.initBrowserWindowOverlays(mainWindow, browserWindow, runtimeCfg)
+	a.wireBrowserWindowPermissionIndicator(browserWindow)
+	if a.kbDispatcher != nil {
+		a.initBrowserWindowInput(ctx, browserWindow)
+	}
+	if a.tabCoord != nil {
+		a.wireBrowserWindowTabBar(ctx, browserWindow)
+	}
+	browserWindow.initChrome(ctx, a)
+
+	// Apply GTK CSS styling from theme manager.
+	if a.deps == nil || a.deps.Theme == nil {
+		return browserWindow, nil
+	}
+	if display := mainWindow.Window().GetDisplay(); display != nil {
+		a.deps.Theme.ApplyToDisplay(ctx, display)
+	}
+	log.Debug().
+		Str("window_id", browserWindow.id).
+		Str("url_host", logging.SafeURLHost(initialURL)).
+		Msg("ui: create browser window completed")
+	return browserWindow, nil
+}
+
+func (a *App) initBrowserWindowOverlays(mainWindow *window.MainWindow, browserWindow *browserWindow, runtimeCfg port.RuntimeUIConfig) {
 	// Create permission popup and dialog presenter
 	if a.deps != nil && a.deps.PermissionUC != nil {
 		uiScale := runtimeCfg.DefaultUIScale
@@ -535,27 +560,6 @@ func (a *App) createBrowserWindow(ctx context.Context, initialURL string) (*brow
 		}
 		browserWindow.webrtcIndicator = indicator
 	}
-	a.wireBrowserWindowPermissionIndicator(browserWindow)
-	if a.kbDispatcher != nil {
-		a.initBrowserWindowInput(ctx, browserWindow)
-	}
-	if a.tabCoord != nil {
-		a.wireBrowserWindowTabBar(ctx, browserWindow)
-	}
-	browserWindow.initChrome(ctx, a)
-
-	// Apply GTK CSS styling from theme manager.
-	if a.deps == nil || a.deps.Theme == nil {
-		return browserWindow, nil
-	}
-	if display := mainWindow.Window().GetDisplay(); display != nil {
-		a.deps.Theme.ApplyToDisplay(ctx, display)
-	}
-	log.Debug().
-		Str("window_id", browserWindow.id).
-		Str("url_host", logging.SafeURLHost(initialURL)).
-		Msg("ui: create browser window completed")
-	return browserWindow, nil
 }
 
 func (a *App) ensureWindowForTabMap() {
