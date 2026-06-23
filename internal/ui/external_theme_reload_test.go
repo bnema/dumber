@@ -82,6 +82,7 @@ func TestApplyAppearanceConfigSendsCompleteEngineSettingsPayload(t *testing.T) {
 	cfg.Logging.CaptureConsole = true
 	cfg.Engine.WebKit.DrawCompositingIndicators = true
 	cfg.Media.HardwareDecodingMode = config.HardwareDecodingForce
+	cfg.Clipboard.AutoCopyOnSelection = true
 	expected := port.EngineSettingsPayload{
 		DefaultUIScale: cfg.DefaultUIScale,
 		WebContent: port.EngineWebContentSettingsPayload{
@@ -93,6 +94,7 @@ func TestApplyAppearanceConfigSendsCompleteEngineSettingsPayload(t *testing.T) {
 			CaptureConsole:            cfg.Logging.CaptureConsole,
 			DrawCompositingIndicators: cfg.Engine.WebKit.DrawCompositingIndicators,
 			HardwareDecoding:          port.EngineHardwareDecodingForce,
+			AutoCopyOnSelection:       cfg.Clipboard.AutoCopyOnSelection,
 		},
 	}
 	engine := portmocks.NewMockEngine(t)
