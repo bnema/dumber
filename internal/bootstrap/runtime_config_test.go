@@ -1,6 +1,7 @@
 package bootstrap
 
 import (
+	"reflect"
 	"testing"
 
 	"github.com/bnema/dumber/internal/application/port"
@@ -44,6 +45,53 @@ func TestEngineSettingsPayloadFromNilConfigReturnsZeroPayload(t *testing.T) {
 	got := EngineSettingsPayloadFromConfig(nil)
 	if got != (port.EngineSettingsPayload{}) {
 		t.Fatalf("payload=%#v, want zero value", got)
+	}
+}
+
+func TestRuntimeConfigSnapshotFromConfigMapsUIRuntimeFields(t *testing.T) {
+	cfg := config.DefaultConfig()
+	cfg.DefaultUIScale = 1.4
+	cfg.SidebarWidth = 333
+	cfg.Downloads.Path = "/tmp/downloads"
+	cfg.DefaultSearchEngine = "https://search.example/?q=%s"
+	cfg.SearchShortcuts = map[string]config.SearchShortcut{
+		"gh": {URL: "https://github.com/search?q=%s", Description: "GitHub"},
+	}
+	cfg.Workspace.NewPaneURL = "about:blank"
+	cfg.Session.SnapshotIntervalMs = 7000
+	cfg.Clipboard.AutoCopyOnSelection = true
+	cfg.Omnibox.AutoOpenOnNewPane = true
+	cfg.Update.NotifyOnNewSettings = true
+
+	got := RuntimeConfigSnapshotFromConfig(cfg)
+
+	if got.EngineSettings != EngineSettingsPayloadFromConfig(cfg) {
+		t.Fatalf("EngineSettings=%#v, want %#v", got.EngineSettings, EngineSettingsPayloadFromConfig(cfg))
+	}
+	if got.UI.DefaultUIScale != 1.4 ||
+		got.UI.SidebarWidth != 333 ||
+		got.UI.Downloads.Path != "/tmp/downloads" ||
+		got.UI.DefaultSearchEngine != "https://search.example/?q=%s" ||
+		got.UI.Workspace.NewPaneURL != "about:blank" ||
+		got.UI.Session.SnapshotIntervalMs != 7000 ||
+		!got.UI.Clipboard.AutoCopyOnSelection ||
+		!got.UI.Omnibox.AutoOpenOnNewPane ||
+		!got.UI.Update.NotifyOnNewSettings {
+		t.Fatalf("snapshot not mapped: %#v", got.UI)
+	}
+	if got.UI.SearchShortcuts["gh"].URL != "https://github.com/search?q=%s" {
+		t.Fatalf("search shortcut not mapped: %#v", got.UI.SearchShortcuts)
+	}
+	got.UI.SearchShortcuts["gh"] = port.RuntimeSearchShortcut{URL: "mutated"}
+	if cfg.SearchShortcuts["gh"].URL == "mutated" {
+		t.Fatal("snapshot must deep-copy search shortcut map")
+	}
+}
+
+func TestRuntimeConfigSnapshotFromNilConfigReturnsZeroSnapshot(t *testing.T) {
+	got := RuntimeConfigSnapshotFromConfig(nil)
+	if !reflect.DeepEqual(got, port.RuntimeConfigSnapshot{}) {
+		t.Fatalf("snapshot=%#v, want zero value", got)
 	}
 }
 
