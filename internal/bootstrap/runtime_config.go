@@ -65,6 +65,7 @@ func EngineSettingsPayloadFromConfig(cfg *config.Config) port.EngineSettingsPayl
 			CaptureConsole:            cfg.Logging.CaptureConsole,
 			DrawCompositingIndicators: cfg.Engine.WebKit.DrawCompositingIndicators,
 			HardwareDecoding:          engineHardwareDecodingModeFromConfig(cfg.Media.HardwareDecodingMode),
+			AutoCopyOnSelection:       cfg.Clipboard.AutoCopyOnSelection,
 		},
 	}
 }

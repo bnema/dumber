@@ -10,6 +10,21 @@ import (
 	"github.com/rs/zerolog"
 )
 
+const hardwareRequiredContentTypes = "video/av01;video/mp4;video/webm;video/x-h264;video/x-h265"
+
+type mediaSettings interface {
+	SetEnableWebaudio(bool)
+	SetEnableWebgl(bool)
+	SetEnableMedia(bool)
+	SetEnableMediasource(bool)
+	SetEnableMediaCapabilities(bool)
+	SetEnableEncryptedMedia(bool)
+	SetMediaPlaybackRequiresUserGesture(bool)
+	SetMediaPlaybackAllowsInline(bool)
+	SetHardwareAccelerationPolicy(webkit.HardwareAccelerationPolicy)
+	SetMediaContentTypesRequiringHardwareSupport(*string)
+}
+
 // SettingsManager creates and manages WebKit Settings instances from payloads.
 type SettingsManager struct {
 	settings port.EngineSettingsPayload
@@ -104,7 +119,7 @@ func applyBrowsingSettings(settings *webkit.Settings) {
 	settings.SetEnableSiteSpecificQuirks(true)
 }
 
-func applyMediaSettings(settings *webkit.Settings, mode port.EngineHardwareDecodingMode, log *zerolog.Logger) {
+func applyMediaSettings(settings mediaSettings, mode port.EngineHardwareDecodingMode, log *zerolog.Logger) {
 	settings.SetEnableWebaudio(true)
 	settings.SetEnableWebgl(true)
 	settings.SetEnableMedia(true)
@@ -116,14 +131,18 @@ func applyMediaSettings(settings *webkit.Settings, mode port.EngineHardwareDecod
 
 	switch mode {
 	case port.EngineHardwareDecodingForce:
-		hwTypes := "video/av01;video/mp4;video/webm;video/x-h264;video/x-h265"
+		hwTypes := hardwareRequiredContentTypes
+		settings.SetHardwareAccelerationPolicy(webkit.HardwareAccelerationPolicyAlwaysValue)
 		settings.SetMediaContentTypesRequiringHardwareSupport(&hwTypes)
 		log.Debug().Msg("hardware decoding: forced (may fail without hw support)")
 	case port.EngineHardwareDecodingDisable:
+		emptyTypes := ""
 		settings.SetHardwareAccelerationPolicy(webkit.HardwareAccelerationPolicyNeverValue)
+		settings.SetMediaContentTypesRequiringHardwareSupport(&emptyTypes)
 		log.Debug().Msg("hardware decoding: disabled (software only)")
 	default:
 		emptyTypes := ""
+		settings.SetHardwareAccelerationPolicy(webkit.HardwareAccelerationPolicyAlwaysValue)
 		settings.SetMediaContentTypesRequiringHardwareSupport(&emptyTypes)
 		log.Debug().Msg("hardware decoding: auto (hw preferred, software fallback)")
 	}

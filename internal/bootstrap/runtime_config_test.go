@@ -58,6 +58,7 @@ func TestEngineSettingsPayloadFromConfigMapsRuntimeFields(t *testing.T) {
 	cfg.Logging.CaptureConsole = true
 	cfg.Engine.WebKit.DrawCompositingIndicators = true
 	cfg.Media.HardwareDecodingMode = config.HardwareDecodingForce
+	cfg.Clipboard.AutoCopyOnSelection = true
 
 	got := EngineSettingsPayloadFromConfig(cfg)
 
@@ -77,6 +78,10 @@ func TestEngineSettingsPayloadFromConfigMapsRuntimeFields(t *testing.T) {
 	}
 	if got.WebContent.HardwareDecoding != port.EngineHardwareDecodingForce {
 		t.Fatalf("HardwareDecoding=%q, want %q", got.WebContent.HardwareDecoding, port.EngineHardwareDecodingForce)
+	}
+	autoCopyField := reflect.ValueOf(got.WebContent).FieldByName("AutoCopyOnSelection")
+	if !autoCopyField.IsValid() || !autoCopyField.Bool() {
+		t.Fatalf("AutoCopyOnSelection not mapped in web content payload: %#v", got.WebContent)
 	}
 }
 

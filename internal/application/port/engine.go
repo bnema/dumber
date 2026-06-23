@@ -162,6 +162,7 @@ type EngineWebContentSettingsPayload struct {
 	CaptureConsole            bool
 	DrawCompositingIndicators bool
 	HardwareDecoding          EngineHardwareDecodingMode
+	AutoCopyOnSelection       bool
 }
 
 // EngineSettingsPayload is the engine-facing boundary view of runtime config.

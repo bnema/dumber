@@ -22,6 +22,7 @@ func TestEngineSettingsPayloadContainsRuntimeWebContentFields(t *testing.T) {
 		"CaptureConsole",
 		"DrawCompositingIndicators",
 		"HardwareDecoding",
+		"AutoCopyOnSelection",
 	} {
 		if _, ok := webContentType.FieldByName(field); !ok {
 			t.Fatalf("EngineWebContentSettingsPayload missing %s", field)

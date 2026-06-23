@@ -67,9 +67,7 @@ func NewEngine(
 	settings := NewSettingsManager(ctx, initialSettings)
 	injector := NewContentInjector(colorResolver)
 
-	injector.SetAutoCopyConfigGetter(func() bool {
-		return config.Get().Clipboard.AutoCopyOnSelection
-	})
+	engineConfigureContentInjectorRuntimeSettings(injector, settings)
 
 	prepareThemeUC := usecase.NewPrepareWebUIThemeUseCase(injector)
 	themeCSSText := themeManager.GetWebUIThemeCSS()
@@ -128,6 +126,18 @@ func NewEngine(
 	}
 
 	return engine, nil
+}
+
+func engineConfigureContentInjectorRuntimeSettings(injector *ContentInjector, settings *SettingsManager) {
+	if injector == nil {
+		return
+	}
+	injector.SetAutoCopyConfigGetter(func() bool {
+		if settings == nil {
+			return false
+		}
+		return settings.current().WebContent.AutoCopyOnSelection
+	})
 }
 
 // engineSurveyHardwareAndResolveProfile surveys hardware and resolves the performance profile.

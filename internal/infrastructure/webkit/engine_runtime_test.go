@@ -2,6 +2,7 @@ package webkit
 
 import (
 	"context"
+	"os"
 	"testing"
 
 	"github.com/bnema/dumber/internal/application/port"
@@ -71,4 +72,30 @@ func TestEngine_Close_NilPool(t *testing.T) {
 	e := &Engine{}
 	err := e.Close()
 	require.NoError(t, err)
+}
+
+func TestEngineConfigureContentInjectorAutoCopyGetterReadsCurrentPayload(t *testing.T) {
+	settings := NewSettingsManager(context.Background(), port.EngineSettingsPayload{})
+	injector := NewContentInjector(nil)
+
+	engineConfigureContentInjectorRuntimeSettings(injector, settings)
+
+	require.NotNil(t, injector.autoCopyConfigGetter)
+	require.False(t, injector.autoCopyConfigGetter())
+
+	settings.UpdateFromPayload(context.Background(), port.EngineSettingsPayload{
+		WebContent: port.EngineWebContentSettingsPayload{
+			AutoCopyOnSelection: true,
+		},
+	})
+
+	require.True(t, injector.autoCopyConfigGetter())
+}
+
+func TestNewEngineAutoCopyGetterUsesRuntimeSettingsPayload(t *testing.T) {
+	source, err := os.ReadFile("engine_init.go")
+	require.NoError(t, err)
+	globalGetter := "config." + "Get()" + ".Clipboard.AutoCopyOnSelection"
+	require.NotContains(t, string(source), globalGetter)
+	require.Contains(t, string(source), "settings.current().WebContent.AutoCopyOnSelection")
 }
