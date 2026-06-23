@@ -78,9 +78,7 @@ type App struct {
 	gtkApp     *gtk.Application
 	mainWindow *window.MainWindow
 
-	runtimeConfig         port.RuntimeConfigSnapshot
-	runtimeConfigLoaded   bool
-	popupBrowsingContexts entity.BrowsingContextConfig
+	runtimeConfig *runtimeConfigState
 
 	browserWindows       map[string]*browserWindow
 	browserWindowOrder   []string // registration order of window IDs
@@ -185,20 +183,17 @@ func New(deps *Dependencies) (*App, error) {
 		return nil, err
 	}
 	ctx, cancel := context.WithCancelCause(deps.Ctx)
-	initialRuntimeConfig := deps.RuntimeConfig.Current()
 
 	app := &App{
-		deps:                  deps,
-		runtimeConfig:         initialRuntimeConfig,
-		runtimeConfigLoaded:   true,
-		popupBrowsingContexts: initialRuntimeConfig.UI.Workspace.BrowsingContexts,
-		tabs:                  entity.NewTabList(),
-		tabsUC:                deps.TabsUC,
-		panesUC:               deps.PanesUC,
-		workspaceViews:        make(map[entity.TabID]*component.WorkspaceView),
-		windowForTab:          make(map[entity.TabID]*browserWindow),
-		floatingSessions:      make(map[floatingSessionKey]*floatingWorkspaceSession),
-		browserWindows:        make(map[string]*browserWindow),
+		deps:             deps,
+		runtimeConfig:    newRuntimeConfigState(deps.RuntimeConfig),
+		tabs:             entity.NewTabList(),
+		tabsUC:           deps.TabsUC,
+		panesUC:          deps.PanesUC,
+		workspaceViews:   make(map[entity.TabID]*component.WorkspaceView),
+		windowForTab:     make(map[entity.TabID]*browserWindow),
+		floatingSessions: make(map[floatingSessionKey]*floatingWorkspaceSession),
+		browserWindows:   make(map[string]*browserWindow),
 		dispatchOnMainThread: func(label string, fn func()) syncdispatch.SyncDispatchResult {
 			if fn != nil {
 				fn()
@@ -264,37 +259,13 @@ func (a *App) runtimeConfigSnapshot() port.RuntimeConfigSnapshot {
 	if a == nil {
 		return port.RuntimeConfigSnapshot{}
 	}
-	if a.runtimeConfigLoaded {
-		return a.runtimeConfig
+	if a.runtimeConfig != nil {
+		return a.runtimeConfig.Current()
 	}
 	if a.deps != nil && a.deps.RuntimeConfig != nil {
 		return a.deps.RuntimeConfig.Current()
 	}
 	return port.RuntimeConfigSnapshot{}
-}
-
-func (a *App) updateRuntimeConfig(snapshot port.RuntimeConfigSnapshot) {
-	if a != nil {
-		a.runtimeConfig = snapshot
-		a.runtimeConfigLoaded = true
-		a.updatePopupRuntimeConfig(snapshot.UI.Workspace.BrowsingContexts)
-	}
-}
-
-func (a *App) updatePopupRuntimeConfig(cfg entity.BrowsingContextConfig) {
-	if a != nil {
-		a.popupBrowsingContexts = cfg
-	}
-}
-
-func (a *App) popupBrowsingContextConfig() *entity.BrowsingContextConfig {
-	if a == nil {
-		return nil
-	}
-	if !a.runtimeConfigLoaded {
-		a.updatePopupRuntimeConfig(a.runtimeConfigSnapshot().UI.Workspace.BrowsingContexts)
-	}
-	return &a.popupBrowsingContexts
 }
 
 // Run starts the GTK application and blocks until it exits.
@@ -3394,7 +3365,7 @@ func (a *App) initCoordinators(ctx context.Context) {
 	}
 	a.contentCoord.SetPopupConfig(
 		a.engine.Factory(),
-		a.popupBrowsingContextConfig(),
+		&runtimeCfg.Workspace.BrowsingContexts,
 		a.generateID,
 	)
 	a.contentCoord.SetPopupWindowIDResolver(func(paneID entity.PaneID) (string, bool) {
@@ -5115,33 +5086,53 @@ func (a *App) initConfigWatcher(ctx context.Context) {
 
 	// Hot-reload appearance and keybindings on config change.
 	a.deps.RuntimeConfig.OnChange(func(snapshot port.RuntimeConfigSnapshot) {
-		cb := glib.SourceFunc(func(_ uintptr) bool {
-			a.updateRuntimeConfig(snapshot)
-			runtimeCfg := snapshot.UI
-			workspaceCfg := runtimeCfg.Workspace
-			sessionCfg := runtimeCfg.Session
-			a.syncExternalThemeWatcher(ctx)
-			a.applyAppearanceConfig(ctx)
-			for _, bw := range a.browserWindows {
-				if bw == nil {
-					continue
-				}
-				// Reapply sidebar width from live config (reloads after sidebar_width
-				// changes in the config file).
-				bw.applySidebarWidthConfig(a)
-				if bw.keyboardHandler != nil {
-					bw.keyboardHandler.ReloadShortcuts(ctx, &workspaceCfg, &sessionCfg)
-				}
-				if bw.globalShortcutHandler != nil {
-					bw.globalShortcutHandler.ReloadShortcuts(ctx, &workspaceCfg, &sessionCfg)
-				}
-			}
-			return false
-		})
-		glib.IdleAdd(&cb, 0)
+		a.dispatchRuntimeConfigChange(ctx, snapshot)
 	})
 
 	log.Debug().Msg("config watcher initialized")
+}
+
+func (a *App) dispatchRuntimeConfigChange(ctx context.Context, snapshot port.RuntimeConfigSnapshot) {
+	run := func() {
+		a.applyRuntimeConfigChange(ctx, snapshot)
+	}
+	if a != nil && a.dispatchOnMainThread != nil {
+		a.dispatchOnMainThread("ui.runtime_config_reload", run)
+		return
+	}
+	run()
+}
+
+func (a *App) applyRuntimeConfigChange(ctx context.Context, snapshot port.RuntimeConfigSnapshot) {
+	if a == nil {
+		return
+	}
+	if a.runtimeConfig == nil {
+		a.runtimeConfig = newRuntimeConfigState(nil)
+	}
+	a.runtimeConfig.Update(snapshot)
+	if a.contentCoord != nil {
+		a.contentCoord.UpdatePopupConfig(snapshot.UI.Workspace.BrowsingContexts)
+	}
+	runtimeCfg := snapshot.UI
+	workspaceCfg := runtimeCfg.Workspace
+	sessionCfg := runtimeCfg.Session
+	a.syncExternalThemeWatcher(ctx)
+	a.applyAppearanceConfig(ctx)
+	for _, bw := range a.browserWindows {
+		if bw == nil {
+			continue
+		}
+		// Reapply sidebar width from live config (reloads after sidebar_width
+		// changes in the config file).
+		bw.applySidebarWidthConfig(a)
+		if bw.keyboardHandler != nil {
+			bw.keyboardHandler.ReloadShortcuts(ctx, &workspaceCfg, &sessionCfg)
+		}
+		if bw.globalShortcutHandler != nil {
+			bw.globalShortcutHandler.ReloadShortcuts(ctx, &workspaceCfg, &sessionCfg)
+		}
+	}
 }
 
 func (a *App) syncExternalThemeWatcher(ctx context.Context) {

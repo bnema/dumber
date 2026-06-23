@@ -4,10 +4,14 @@ import (
 	"context"
 	"testing"
 
+	"github.com/stretchr/testify/mock"
+
 	"github.com/bnema/dumber/internal/application/dto"
 	"github.com/bnema/dumber/internal/application/port"
 	portmocks "github.com/bnema/dumber/internal/application/port/mocks"
 	"github.com/bnema/dumber/internal/domain/entity"
+	"github.com/bnema/dumber/internal/shared/syncdispatch"
+	"github.com/bnema/dumber/internal/ui/coordinator/content"
 )
 
 func TestDependenciesValidateAcceptsRuntimeConfigOnly(t *testing.T) {
@@ -49,9 +53,9 @@ func TestAppRuntimeConfigReturnsProviderSnapshot(t *testing.T) {
 	}
 }
 
-func TestAppUpdateRuntimeConfigStoresLatestSnapshot(t *testing.T) {
+func TestAppRuntimeConfigStateStoresLatestSnapshot(t *testing.T) {
 	app := &App{}
-	app.updateRuntimeConfig(port.RuntimeConfigSnapshot{
+	setRuntimeConfigSnapshotForTest(app, port.RuntimeConfigSnapshot{
 		UI: port.RuntimeUIConfig{SidebarWidth: 340},
 	})
 
@@ -61,32 +65,62 @@ func TestAppUpdateRuntimeConfigStoresLatestSnapshot(t *testing.T) {
 	}
 }
 
-func TestAppUpdateRuntimeConfigRefreshesStablePopupConfigPointer(t *testing.T) {
-	app := &App{}
-	app.updateRuntimeConfig(port.RuntimeConfigSnapshot{
+func TestConfigWatcherOnChangeUpdatesRuntimeConfigState(t *testing.T) {
+	ctx := context.Background()
+	provider := portmocks.NewMockRuntimeConfigProvider(t)
+	provider.EXPECT().Watch().Return(nil).Once()
+	var onChange func(port.RuntimeConfigSnapshot)
+	provider.EXPECT().
+		OnChange(mock.Anything).
+		Run(func(fn func(port.RuntimeConfigSnapshot)) {
+			onChange = fn
+		}).
+		Once()
+
+	initial := port.RuntimeConfigSnapshot{
 		UI: port.RuntimeUIConfig{
 			Workspace: entity.WorkspaceConfig{
 				BrowsingContexts: entity.BrowsingContextConfig{OpenInNewPane: true},
 			},
 		},
-	})
-	ptr := app.popupBrowsingContextConfig()
+	}
+	app := &App{
+		deps:           &Dependencies{RuntimeConfig: provider},
+		runtimeConfig:  runtimeConfigStateFromSnapshotForTest(initial),
+		contentCoord:   &content.Coordinator{},
+		browserWindows: map[string]*browserWindow{},
+		dispatchOnMainThread: func(label string, fn func()) syncdispatch.SyncDispatchResult {
+			if label != "ui.runtime_config_reload" {
+				t.Fatalf("dispatch label=%q, want ui.runtime_config_reload", label)
+			}
+			fn()
+			return syncdispatch.SyncDispatchResult{Label: label, Status: syncdispatch.SyncDispatchCompleted}
+		},
+	}
+	app.contentCoord.SetPopupConfig(nil, &initial.UI.Workspace.BrowsingContexts, nil)
 
-	app.updateRuntimeConfig(port.RuntimeConfigSnapshot{
+	app.initConfigWatcher(ctx)
+	if onChange == nil {
+		t.Fatal("runtime config OnChange callback was not registered")
+	}
+
+	onChange(port.RuntimeConfigSnapshot{
 		UI: port.RuntimeUIConfig{
+			SidebarWidth: 360,
 			Workspace: entity.WorkspaceConfig{
 				BrowsingContexts: entity.BrowsingContextConfig{OpenInNewPane: false, OAuthAutoClose: true},
 			},
 		},
 	})
 
-	if ptr != app.popupBrowsingContextConfig() {
-		t.Fatal("popup config pointer must remain stable for content coordinator")
+	got := app.runtimeConfigSnapshot()
+	if got.UI.SidebarWidth != 360 {
+		t.Fatalf("SidebarWidth=%d, want 360", got.UI.SidebarWidth)
 	}
-	if ptr.OpenInNewPane {
-		t.Fatal("popup config pointer did not observe updated OpenInNewPane")
+	if got.UI.Workspace.BrowsingContexts.OpenInNewPane {
+		t.Fatal("runtime config state did not observe updated popup OpenInNewPane")
 	}
-	if !ptr.OAuthAutoClose {
-		t.Fatal("popup config pointer did not observe updated OAuthAutoClose")
+	if !got.UI.Workspace.BrowsingContexts.OAuthAutoClose {
+		t.Fatal("runtime config state did not observe updated popup OAuthAutoClose")
 	}
 }

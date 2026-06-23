@@ -1023,8 +1023,7 @@ func TestApp_CheckConfigMigrationUsesLastFocusedBrowserWindowToaster(t *testing.
 		deps: &Dependencies{
 			MigrationChecker: migrator,
 		},
-		runtimeConfig:       runtimeConfigSnapshotForTest(cfg),
-		runtimeConfigLoaded: true,
+		runtimeConfig:       runtimeConfigStateForTest(cfg),
 		browserWindows:      map[string]*browserWindow{bw.id: bw},
 		lastFocusedWindowID: bw.id,
 	}
@@ -1136,8 +1135,7 @@ func TestApp_RestoreSessionHandlesEmptyWindowSnapshotAsSuccess(t *testing.T) {
 		deps: &Dependencies{
 			SessionStateRepo: mockSessionStateRepoWithSnapshot(t, sessionID, state),
 		},
-		runtimeConfig:       runtimeConfigSnapshotForTest(&config.Config{}),
-		runtimeConfigLoaded: true,
+		runtimeConfig:       runtimeConfigStateForTest(&config.Config{}),
 		tabs:                entity.NewTabList(),
 		browserWindows:      map[string]*browserWindow{staleWindow.id: staleWindow},
 		lastFocusedWindowID: staleWindow.id,
@@ -1178,8 +1176,7 @@ func TestApp_CreateInitialTabNoFallbackAfterEmptyWindowRestore(t *testing.T) {
 			InitialURL:       "https://fallback.example",
 			SessionStateRepo: mockSessionStateRepoWithSnapshot(t, sessionID, state),
 		},
-		runtimeConfig:       runtimeConfigSnapshotForTest(&config.Config{}),
-		runtimeConfigLoaded: true,
+		runtimeConfig:       runtimeConfigStateForTest(&config.Config{}),
 		tabs:                entity.NewTabList(),
 		tabsUC:              tabsUC,
 		tabCoord:            coordinator.NewTabCoordinator(ctx, coordinator.TabCoordinatorConfig{TabsUC: tabsUC, Tabs: entity.NewTabList()}),
@@ -1219,14 +1216,13 @@ func TestApp_RestoreSessionClearsStaleUIStateBeforeApplyingRestoredTabs(t *testi
 		deps: &Dependencies{
 			SessionStateRepo: mockSessionStateRepoWithSnapshot(t, restoredSessionID, entity.SnapshotFromTabList(restoredSessionID, restoredTabs)),
 		},
-		runtimeConfig:       runtimeConfigSnapshotForTest(&config.Config{}),
-		runtimeConfigLoaded: true,
-		mainWindow:          mainWindow,
-		widgetFactory:       layout.NewGtkWidgetFactory(),
-		tabs:                entity.NewTabList(),
-		browserWindows:      map[string]*browserWindow{staleWindow.id: staleWindow},
-		workspaceViews:      map[entity.TabID]*component.WorkspaceView{staleTab.ID: &component.WorkspaceView{}},
-		windowForTab:        map[entity.TabID]*browserWindow{staleTab.ID: staleWindow},
+		runtimeConfig:  runtimeConfigStateForTest(&config.Config{}),
+		mainWindow:     mainWindow,
+		widgetFactory:  layout.NewGtkWidgetFactory(),
+		tabs:           entity.NewTabList(),
+		browserWindows: map[string]*browserWindow{staleWindow.id: staleWindow},
+		workspaceViews: map[entity.TabID]*component.WorkspaceView{staleTab.ID: &component.WorkspaceView{}},
+		windowForTab:   map[entity.TabID]*browserWindow{staleTab.ID: staleWindow},
 		floatingSessions: map[floatingSessionKey]*floatingWorkspaceSession{
 			staleSessionKey: {},
 		},
@@ -1287,16 +1283,15 @@ func TestApp_RestoreSessionWiresStackedPaneTitleBarCallbacks(t *testing.T) {
 		deps: &Dependencies{
 			SessionStateRepo: mockSessionStateRepoWithSnapshot(t, stackedSessionID, entity.SnapshotFromTabList(stackedSessionID, stackedTabs)),
 		},
-		runtimeConfig:       runtimeConfigSnapshotForTest(&config.Config{}),
-		runtimeConfigLoaded: true,
-		mainWindow:          mainWindow,
-		widgetFactory:       layout.NewGtkWidgetFactory(),
-		contentCoord:        &contentcoord.Coordinator{},
-		wsCoord:             coordinator.NewWorkspaceCoordinator(context.Background(), coordinator.WorkspaceCoordinatorConfig{ContentCoord: &contentcoord.Coordinator{}}),
-		tabs:                entity.NewTabList(),
-		browserWindows:      map[string]*browserWindow{},
-		workspaceViews:      map[entity.TabID]*component.WorkspaceView{},
-		windowForTab:        map[entity.TabID]*browserWindow{},
+		runtimeConfig:  runtimeConfigStateForTest(&config.Config{}),
+		mainWindow:     mainWindow,
+		widgetFactory:  layout.NewGtkWidgetFactory(),
+		contentCoord:   &contentcoord.Coordinator{},
+		wsCoord:        coordinator.NewWorkspaceCoordinator(context.Background(), coordinator.WorkspaceCoordinatorConfig{ContentCoord: &contentcoord.Coordinator{}}),
+		tabs:           entity.NewTabList(),
+		browserWindows: map[string]*browserWindow{},
+		workspaceViews: map[entity.TabID]*component.WorkspaceView{},
+		windowForTab:   map[entity.TabID]*browserWindow{},
 	}
 
 	if err := app.restoreSession(context.Background(), stackedSessionID); err != nil {
@@ -1774,8 +1769,7 @@ func TestApp_MoveActivePaneToTabFromBrowserWindowAnchorsOwningWindow(t *testing.
 		tabs:                tabs,
 		movePaneToTabUC:     usecase.NewMovePaneToTabUseCase(func() string { return "new-tab" }),
 		deps:                &Dependencies{},
-		runtimeConfig:       runtimeConfigSnapshotForTest(&config.Config{}),
-		runtimeConfigLoaded: true,
+		runtimeConfig:       runtimeConfigStateForTest(&config.Config{}),
 		browserWindows:      map[string]*browserWindow{first.id: first, second.id: second},
 		lastFocusedWindowID: second.id,
 	}
@@ -1813,8 +1807,7 @@ func TestApp_MoveActivePaneToTabFromBrowserWindowActivatesTargetOwnerForCrossWin
 		tabs:                tabs,
 		movePaneToTabUC:     usecase.NewMovePaneToTabUseCase(func() string { return "generated" }),
 		deps:                &Dependencies{},
-		runtimeConfig:       runtimeConfigSnapshotForTest(&config.Config{}),
-		runtimeConfigLoaded: true,
+		runtimeConfig:       runtimeConfigStateForTest(&config.Config{}),
 		browserWindows:      map[string]*browserWindow{first.id: first, second.id: second},
 		windowForTab:        map[entity.TabID]*browserWindow{tab1.ID: first, tab2.ID: second, tab3.ID: second},
 		lastFocusedWindowID: first.id,
@@ -1870,8 +1863,7 @@ func TestApp_MoveActivePaneToTabFromBrowserWindowCrossWindowDerivedMirror(t *tes
 		tabs:                tabs,
 		movePaneToTabUC:     usecase.NewMovePaneToTabUseCase(func() string { return "generated" }),
 		deps:                &Dependencies{},
-		runtimeConfig:       runtimeConfigSnapshotForTest(&config.Config{}),
-		runtimeConfigLoaded: true,
+		runtimeConfig:       runtimeConfigStateForTest(&config.Config{}),
 		browserWindows:      map[string]*browserWindow{first.id: first, second.id: second},
 		windowForTab:        map[entity.TabID]*browserWindow{tab1.ID: first, tab3.ID: second},
 		lastFocusedWindowID: first.id,
@@ -1921,12 +1913,11 @@ func TestApp_InitKeyboardHandlerDoesNotReattachExistingWindowInput(t *testing.T)
 		globalShortcutHandler: sentinelShortcutHandler,
 	}
 	app := &App{
-		deps:                &Dependencies{},
-		runtimeConfig:       runtimeConfigSnapshotForTest(&config.Config{}),
-		runtimeConfigLoaded: true,
-		mainWindow:          mainWindow,
-		browserWindows:      map[string]*browserWindow{bw.id: bw},
-		kbDispatcher:        dispatcher.NewKeyboardDispatcher(context.Background(), nil, nil, nil, nil, dispatcher.KeyboardActions{}, func(context.Context) entity.PaneID { return "" }),
+		deps:           &Dependencies{},
+		runtimeConfig:  runtimeConfigStateForTest(&config.Config{}),
+		mainWindow:     mainWindow,
+		browserWindows: map[string]*browserWindow{bw.id: bw},
+		kbDispatcher:   dispatcher.NewKeyboardDispatcher(context.Background(), nil, nil, nil, nil, dispatcher.KeyboardActions{}, func(context.Context) entity.PaneID { return "" }),
 	}
 
 	app.initKeyboardHandler(context.Background())
@@ -1978,9 +1969,8 @@ func TestApp_UpdateBrowserWindowTabBarVisibilityAutoHidesSingleTabButPreservesAl
 	cfg := &config.Config{}
 	cfg.Workspace.HideTabBarWhenSingleTab = true
 	app := &App{
-		deps:                &Dependencies{},
-		runtimeConfig:       runtimeConfigSnapshotForTest(cfg),
-		runtimeConfigLoaded: true,
+		deps:          &Dependencies{},
+		runtimeConfig: runtimeConfigStateForTest(cfg),
 	}
 
 	tab1 := entity.NewTab(entity.TabID("tab-1"), entity.WorkspaceID("workspace-1"), entity.NewPane(entity.PaneID("pane-1")))
@@ -2051,9 +2041,8 @@ func TestApp_UpdateBrowserWindowTabBarVisibilityHonorsHideWhenSingleTabDisabled(
 	cfg := &config.Config{}
 	cfg.Workspace.HideTabBarWhenSingleTab = false
 	app := &App{
-		deps:                &Dependencies{},
-		runtimeConfig:       runtimeConfigSnapshotForTest(cfg),
-		runtimeConfigLoaded: true,
+		deps:          &Dependencies{},
+		runtimeConfig: runtimeConfigStateForTest(cfg),
 	}
 
 	app.updateBrowserWindowTabBarVisibility(bw)
@@ -2111,9 +2100,8 @@ func TestApp_UpdateBrowserWindowTabBarVisibility_BottomInset(t *testing.T) {
 	cfg := &config.Config{}
 	cfg.Workspace.HideTabBarWhenSingleTab = true
 	app := &App{
-		deps:                &Dependencies{},
-		runtimeConfig:       runtimeConfigSnapshotForTest(cfg),
-		runtimeConfigLoaded: true,
+		deps:          &Dependencies{},
+		runtimeConfig: runtimeConfigStateForTest(cfg),
 	}
 
 	tab1 := entity.NewTab(entity.TabID("tab-1"), entity.WorkspaceID("workspace-1"), entity.NewPane(entity.PaneID("pane-1")))
@@ -2171,8 +2159,7 @@ func TestApp_HandlePaneFullscreenChanged_ClearsBottomInset(t *testing.T) {
 	app := &App{
 		tabs:                tabs,
 		deps:                &Dependencies{},
-		runtimeConfig:       runtimeConfigSnapshotForTest(cfg),
-		runtimeConfigLoaded: true,
+		runtimeConfig:       runtimeConfigStateForTest(cfg),
 		browserWindows:      map[string]*browserWindow{bw.id: bw},
 		lastFocusedWindowID: bw.id,
 	}
@@ -2291,8 +2278,7 @@ func TestApp_CreatePopupTabUsesParentPaneOwnerWhenFocusIsStale(t *testing.T) {
 	second := &browserWindow{id: "window-2", tabs: secondTabs, mainWindow: &window.MainWindow{}}
 	app := &App{
 		deps:                &Dependencies{},
-		runtimeConfig:       runtimeConfigSnapshotForTest(&config.Config{}),
-		runtimeConfigLoaded: true,
+		runtimeConfig:       runtimeConfigStateForTest(&config.Config{}),
 		tabs:                globalTabs,
 		tabsUC:              usecase.NewManageTabsUseCase(func() string { return "popup-tab" }),
 		browserWindows:      map[string]*browserWindow{first.id: first, second.id: second},
@@ -2353,8 +2339,7 @@ func TestApp_TabCoordinatorCallbacksUseTargetWindowWhenFocusIsStale(t *testing.T
 	second := &browserWindow{id: "window-2", tabs: secondTabs, mainWindow: &window.MainWindow{}}
 	app := &App{
 		deps:                &Dependencies{},
-		runtimeConfig:       runtimeConfigSnapshotForTest(&config.Config{}),
-		runtimeConfigLoaded: true,
+		runtimeConfig:       runtimeConfigStateForTest(&config.Config{}),
 		tabs:                entity.NewTabList(),
 		tabsUC:              usecase.NewManageTabsUseCase(func() string { return "created-tab" }),
 		browserWindows:      map[string]*browserWindow{first.id: first, second.id: second},
@@ -2987,8 +2972,7 @@ func TestApp_DispatchBrowserWindowActionSwitchTabIndexUsesSourceWindow(t *testin
 	}
 	app := &App{
 		deps:                &Dependencies{},
-		runtimeConfig:       runtimeConfigSnapshotForTest(cfg),
-		runtimeConfigLoaded: true,
+		runtimeConfig:       runtimeConfigStateForTest(cfg),
 		tabsUC:              usecase.NewManageTabsUseCase(counterIDGen()),
 		browserWindows:      map[string]*browserWindow{first.id: first, second.id: second},
 		windowForTab:        map[entity.TabID]*browserWindow{firstTab.ID: first, secondTab1.ID: second, secondTab2.ID: second},
@@ -3031,8 +3015,7 @@ func TestApp_DispatchBrowserWindowActionSwitchTabIndexCreatesOnlyOneMissingTab(t
 	}
 	app := &App{
 		deps:                &Dependencies{},
-		runtimeConfig:       runtimeConfigSnapshotForTest(cfg),
-		runtimeConfigLoaded: true,
+		runtimeConfig:       runtimeConfigStateForTest(cfg),
 		tabsUC:              usecase.NewManageTabsUseCase(counterIDGen()),
 		browserWindows:      map[string]*browserWindow{first.id: first, second.id: second},
 		windowForTab:        map[entity.TabID]*browserWindow{firstTab.ID: first, secondTab.ID: second},
@@ -3077,12 +3060,11 @@ func TestApp_SwitchBrowserWindowTabIndexNegativeIndexIsIgnored(t *testing.T) {
 
 	cfg := &config.Config{Workspace: config.WorkspaceConfig{NewPaneURL: "about:blank"}}
 	app := &App{
-		deps:                &Dependencies{},
-		runtimeConfig:       runtimeConfigSnapshotForTest(cfg),
-		runtimeConfigLoaded: true,
-		tabsUC:              usecase.NewManageTabsUseCase(counterIDGen()),
-		browserWindows:      map[string]*browserWindow{second.id: second},
-		windowForTab:        map[entity.TabID]*browserWindow{secondTab.ID: second},
+		deps:           &Dependencies{},
+		runtimeConfig:  runtimeConfigStateForTest(cfg),
+		tabsUC:         usecase.NewManageTabsUseCase(counterIDGen()),
+		browserWindows: map[string]*browserWindow{second.id: second},
+		windowForTab:   map[entity.TabID]*browserWindow{secondTab.ID: second},
 	}
 	app.initTabCoordinator(ctx)
 
@@ -3106,8 +3088,7 @@ func TestApp_DispatchBrowserWindowActionSwitchTabIndexNegativeDoesNotMutateWindo
 	cfg := &config.Config{Workspace: config.WorkspaceConfig{NewPaneURL: "about:blank"}}
 	app := &App{
 		deps:                &Dependencies{},
-		runtimeConfig:       runtimeConfigSnapshotForTest(cfg),
-		runtimeConfigLoaded: true,
+		runtimeConfig:       runtimeConfigStateForTest(cfg),
 		tabsUC:              usecase.NewManageTabsUseCase(counterIDGen()),
 		browserWindows:      map[string]*browserWindow{second.id: second},
 		lastFocusedWindowID: "window-1",
@@ -3136,12 +3117,11 @@ func TestApp_DispatchBrowserWindowActionSwitchTabIndexMissingURLDoesNotCreateTab
 	second := &browserWindow{id: "window-2", tabs: secondTabs}
 
 	app := &App{
-		deps:                &Dependencies{},
-		runtimeConfig:       runtimeConfigSnapshotForTest(&config.Config{}),
-		runtimeConfigLoaded: true,
-		tabsUC:              usecase.NewManageTabsUseCase(counterIDGen()),
-		browserWindows:      map[string]*browserWindow{second.id: second},
-		windowForTab:        map[entity.TabID]*browserWindow{secondTab.ID: second},
+		deps:           &Dependencies{},
+		runtimeConfig:  runtimeConfigStateForTest(&config.Config{}),
+		tabsUC:         usecase.NewManageTabsUseCase(counterIDGen()),
+		browserWindows: map[string]*browserWindow{second.id: second},
+		windowForTab:   map[entity.TabID]*browserWindow{secondTab.ID: second},
 	}
 	app.initTabCoordinator(ctx)
 
@@ -3164,8 +3144,7 @@ func TestApp_SwitchBrowserWindowTabIndexMissingURLDoesNotMutateWindowState(t *te
 
 	app := &App{
 		deps:                &Dependencies{},
-		runtimeConfig:       runtimeConfigSnapshotForTest(&config.Config{}),
-		runtimeConfigLoaded: true,
+		runtimeConfig:       runtimeConfigStateForTest(&config.Config{}),
 		tabsUC:              usecase.NewManageTabsUseCase(counterIDGen()),
 		browserWindows:      map[string]*browserWindow{second.id: second},
 		lastFocusedWindowID: "window-1",
@@ -3208,8 +3187,7 @@ func TestApp_WorkspaceOmniboxNavigateUsesOwnerWindow(t *testing.T) {
 
 	app := &App{
 		deps:                &Dependencies{},
-		runtimeConfig:       runtimeConfigSnapshotForTest(&config.Config{}),
-		runtimeConfigLoaded: true,
+		runtimeConfig:       runtimeConfigStateForTest(&config.Config{}),
 		widgetFactory:       layout.NewGtkWidgetFactory(),
 		browserWindows:      map[string]*browserWindow{first.id: first, second.id: second},
 		windowForTab:        map[entity.TabID]*browserWindow{tab1.ID: first, tab2.ID: second},
@@ -3306,9 +3284,8 @@ func TestApp_RestoreSessionDoesNotLeakStaleWindowsIntoTabMerge(t *testing.T) {
 		deps: &Dependencies{
 			SessionStateRepo: mockSessionStateRepoWithSnapshot(t, sessionID, state),
 		},
-		runtimeConfig:       runtimeConfigSnapshotForTest(&config.Config{}),
-		runtimeConfigLoaded: true,
-		mainWindow:          mainWindow,
+		runtimeConfig: runtimeConfigStateForTest(&config.Config{}),
+		mainWindow:    mainWindow,
 		browserWindows: map[string]*browserWindow{
 			staleBW1.id:  staleBW1,
 			staleBW2.id:  staleBW2,
@@ -3387,14 +3364,13 @@ func TestApp_RestoreSessionHonorsActiveWindowIndex(t *testing.T) {
 		deps: &Dependencies{
 			SessionStateRepo: mockSessionStateRepoWithSnapshot(t, sessionID, state),
 		},
-		runtimeConfig:       runtimeConfigSnapshotForTest(&config.Config{}),
-		runtimeConfigLoaded: true,
-		mainWindow:          mainWindow,
-		widgetFactory:       layout.NewGtkWidgetFactory(),
-		browserWindows:      map[string]*browserWindow{firstBW.id: firstBW},
-		tabs:                entity.NewTabList(),
-		windowForTab:        map[entity.TabID]*browserWindow{},
-		workspaceViews:      map[entity.TabID]*component.WorkspaceView{},
+		runtimeConfig:  runtimeConfigStateForTest(&config.Config{}),
+		mainWindow:     mainWindow,
+		widgetFactory:  layout.NewGtkWidgetFactory(),
+		browserWindows: map[string]*browserWindow{firstBW.id: firstBW},
+		tabs:           entity.NewTabList(),
+		windowForTab:   map[entity.TabID]*browserWindow{},
+		workspaceViews: map[entity.TabID]*component.WorkspaceView{},
 		browserWindowFactory: func(ctx context.Context, url string) (*browserWindow, error) {
 			runtimeW1 = &browserWindow{id: "runtime-w1", mainWindow: mainWindow}
 			return runtimeW1, nil
@@ -3455,12 +3431,11 @@ func TestApp_RestoreSessionFailsOnAdditionalWindowCreationError(t *testing.T) {
 		deps: &Dependencies{
 			SessionStateRepo: mockSessionStateRepoWithSnapshot(t, sessionID, state),
 		},
-		runtimeConfig:       runtimeConfigSnapshotForTest(&config.Config{}),
-		runtimeConfigLoaded: true,
-		mainWindow:          mainWindow,
-		browserWindows:      map[string]*browserWindow{firstBW.id: firstBW},
-		tabs:                entity.NewTabList(),
-		windowForTab:        map[entity.TabID]*browserWindow{},
+		runtimeConfig:  runtimeConfigStateForTest(&config.Config{}),
+		mainWindow:     mainWindow,
+		browserWindows: map[string]*browserWindow{firstBW.id: firstBW},
+		tabs:           entity.NewTabList(),
+		windowForTab:   map[entity.TabID]*browserWindow{},
 		browserWindowFactory: func(ctx context.Context, url string) (*browserWindow, error) {
 			return nil, factoryErr
 		},

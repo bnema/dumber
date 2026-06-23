@@ -719,7 +719,10 @@ func TestSetPopupConfig_SetsFields(t *testing.T) {
 	c.SetPopupConfig(factory, cfg, genID)
 
 	assert.Equal(t, factory, c.popups.factory)
-	assert.Equal(t, cfg, c.popups.popupConfig)
+	assert.True(t, c.popups.hasPopupConfig)
+	assert.Equal(t, *cfg, c.popups.popupConfig)
+	cfg.Behavior = entity.PopupBehaviorWindowed
+	assert.Equal(t, entity.PopupBehaviorSplit, c.popups.popupConfig.Behavior)
 	assert.NotNil(t, c.popups.generatePaneID)
 	assert.Equal(t, "test-id", c.popups.generatePaneID())
 }
@@ -731,8 +734,25 @@ func TestSetPopupConfig_NilConfigAllowed(t *testing.T) {
 	c.SetPopupConfig(nil, nil, nil)
 
 	assert.Nil(t, c.popups.factory)
-	assert.Nil(t, c.popups.popupConfig)
+	assert.False(t, c.popups.hasPopupConfig)
+	assert.Equal(t, entity.BrowsingContextConfig{}, c.popups.popupConfig)
 	assert.Nil(t, c.popups.generatePaneID)
+}
+
+func TestUpdatePopupConfig_CopiesLatestValue(t *testing.T) {
+	t.Parallel()
+
+	c := &Coordinator{}
+	initial := &entity.BrowsingContextConfig{OpenInNewPane: true, OAuthAutoClose: false}
+	c.SetPopupConfig(nil, initial, nil)
+
+	c.UpdatePopupConfig(entity.BrowsingContextConfig{OpenInNewPane: false, OAuthAutoClose: true})
+
+	assert.True(t, c.popups.hasPopupConfig)
+	assert.False(t, c.popups.popupConfig.OpenInNewPane)
+	assert.True(t, c.popups.popupConfig.OAuthAutoClose)
+	assert.True(t, initial.OpenInNewPane)
+	assert.False(t, initial.OAuthAutoClose)
 }
 
 type popupNavigationWebViewStub struct {

@@ -106,10 +106,9 @@ func TestApplyAppearanceConfigSendsCompleteEngineSettingsPayload(t *testing.T) {
 		Return(nil).
 		Once()
 	app := &App{
-		deps:                &Dependencies{},
-		runtimeConfig:       bootstrap.RuntimeConfigSnapshotFromConfig(cfg),
-		runtimeConfigLoaded: true,
-		engine:              engine,
+		deps:          &Dependencies{},
+		runtimeConfig: runtimeConfigStateFromSnapshotForTest(bootstrap.RuntimeConfigSnapshotFromConfig(cfg)),
+		engine:        engine,
 	}
 
 	app.applyAppearanceConfig(ctx)
@@ -151,8 +150,7 @@ func TestExternalThemeWatcherCallbackAppliesThemeThroughSharedPath(t *testing.T)
 			ExternalThemeSource:  source,
 			ExternalThemeWatcher: watcher,
 		},
-		runtimeConfig:        bootstrap.RuntimeConfigSnapshotFromConfig(cfg),
-		runtimeConfigLoaded:  true,
+		runtimeConfig:        runtimeConfigStateFromSnapshotForTest(bootstrap.RuntimeConfigSnapshotFromConfig(cfg)),
 		dispatchOnMainThread: immediateDispatchForExternalThemeTest,
 		engine:               engine,
 	}
@@ -186,8 +184,7 @@ func TestExternalThemeReloadKeepsLastGoodAndDisablingClearsIt(t *testing.T) {
 			ResolveThemeUC:      usecase.NewResolveThemeUseCase(source),
 			ExternalThemeSource: source,
 		},
-		runtimeConfig:        bootstrap.RuntimeConfigSnapshotFromConfig(cfg),
-		runtimeConfigLoaded:  true,
+		runtimeConfig:        runtimeConfigStateFromSnapshotForTest(bootstrap.RuntimeConfigSnapshotFromConfig(cfg)),
 		dispatchOnMainThread: immediateDispatchForExternalThemeTest,
 	}
 
@@ -204,7 +201,7 @@ func TestExternalThemeReloadKeepsLastGoodAndDisablingClearsIt(t *testing.T) {
 	require.Equal(t, "#000000", app.deps.Theme.GetCurrentPalette().Background)
 
 	cfg.Appearance.ExternalTheme.Enabled = false
-	app.updateRuntimeConfig(bootstrap.RuntimeConfigSnapshotFromConfig(cfg))
+	setRuntimeConfigSnapshotForTest(app, bootstrap.RuntimeConfigSnapshotFromConfig(cfg))
 	app.applyAppearanceConfig(ctx)
 	require.Equal(t, cfg.Appearance.DarkPalette.Background, app.deps.Theme.GetCurrentPalette().Background)
 }
@@ -227,8 +224,7 @@ func TestExternalThemeReloadKeepsLastGoodOnReadError(t *testing.T) {
 			ResolveThemeUC:      usecase.NewResolveThemeUseCase(source),
 			ExternalThemeSource: source,
 		},
-		runtimeConfig:        bootstrap.RuntimeConfigSnapshotFromConfig(cfg),
-		runtimeConfigLoaded:  true,
+		runtimeConfig:        runtimeConfigStateFromSnapshotForTest(bootstrap.RuntimeConfigSnapshotFromConfig(cfg)),
 		dispatchOnMainThread: immediateDispatchForExternalThemeTest,
 	}
 
@@ -259,8 +255,7 @@ func TestExternalThemeReloadRecoversAfterMalformedUpdate(t *testing.T) {
 			ResolveThemeUC:      usecase.NewResolveThemeUseCase(source),
 			ExternalThemeSource: source,
 		},
-		runtimeConfig:        bootstrap.RuntimeConfigSnapshotFromConfig(cfg),
-		runtimeConfigLoaded:  true,
+		runtimeConfig:        runtimeConfigStateFromSnapshotForTest(bootstrap.RuntimeConfigSnapshotFromConfig(cfg)),
 		dispatchOnMainThread: immediateDispatchForExternalThemeTest,
 	}
 
