@@ -21,7 +21,7 @@ import (
 	portmocks "github.com/bnema/dumber/internal/application/port/mocks"
 	"github.com/bnema/dumber/internal/application/usecase"
 	"github.com/bnema/dumber/internal/domain/entity"
-	"github.com/bnema/dumber/internal/domain/repository"
+	repomocks "github.com/bnema/dumber/internal/domain/repository/mocks"
 	"github.com/bnema/dumber/internal/infrastructure/config"
 	"github.com/bnema/dumber/internal/shared/syncdispatch"
 	"github.com/bnema/dumber/internal/ui/component"
@@ -35,6 +35,7 @@ import (
 	"github.com/bnema/puregotk/v4/gdk"
 	"github.com/bnema/puregotk/v4/gio"
 	"github.com/bnema/puregotk/v4/gtk"
+	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 )
 
@@ -62,29 +63,33 @@ func (c *testCloser) Close() error {
 	return nil
 }
 
-type fakeSessionStateRepo struct {
-	state *entity.SessionState
-}
-
-var _ repository.SessionStateRepository = (*fakeSessionStateRepo)(nil)
-
-func (r *fakeSessionStateRepo) SaveSnapshot(context.Context, *entity.SessionState) error { return nil }
-
-func (r *fakeSessionStateRepo) GetSnapshot(context.Context, entity.SessionID) (*entity.SessionState, error) {
-	return r.state, nil
-}
-
-func (r *fakeSessionStateRepo) DeleteSnapshot(context.Context, entity.SessionID) error { return nil }
-
-func (r *fakeSessionStateRepo) GetAllSnapshots(context.Context) ([]*entity.SessionState, error) {
-	return nil, nil
-}
-
-func (r *fakeSessionStateRepo) GetTotalSnapshotsSize(context.Context) (int64, error) { return 0, nil }
-
 func testPathIsSocket(path string) bool {
 	info, err := os.Stat(path)
 	return err == nil && info.Mode()&os.ModeSocket != 0
+}
+
+func mockSessionStateRepoWithSnapshot(t *testing.T, sessionID entity.SessionID, state *entity.SessionState) *repomocks.MockSessionStateRepository {
+	t.Helper()
+	repo := repomocks.NewMockSessionStateRepository(t)
+	repo.EXPECT().
+		GetSnapshot(mock.Anything, sessionID).
+		Return(state, nil).
+		Once()
+	return repo
+}
+
+func mockZoomRepo(t *testing.T) *repomocks.MockZoomRepository {
+	t.Helper()
+	repo := repomocks.NewMockZoomRepository(t)
+	repo.EXPECT().
+		Get(mock.Anything, mock.Anything).
+		Return((*entity.ZoomLevel)(nil), nil).
+		Maybe()
+	repo.EXPECT().
+		Set(mock.Anything, mock.Anything).
+		Return(nil).
+		Maybe()
+	return repo
 }
 
 func testGDKBackendAllows(backend string) bool {
@@ -1128,7 +1133,7 @@ func TestApp_RestoreSessionHandlesEmptyWindowSnapshotAsSuccess(t *testing.T) {
 	app := &App{
 		deps: &Dependencies{
 			Config:           &config.Config{},
-			SessionStateRepo: &fakeSessionStateRepo{state: state},
+			SessionStateRepo: mockSessionStateRepoWithSnapshot(t, sessionID, state),
 		},
 		tabs:                entity.NewTabList(),
 		browserWindows:      map[string]*browserWindow{staleWindow.id: staleWindow},
@@ -1169,7 +1174,7 @@ func TestApp_CreateInitialTabNoFallbackAfterEmptyWindowRestore(t *testing.T) {
 			Config:           &config.Config{},
 			RestoreSessionID: string(sessionID),
 			InitialURL:       "https://fallback.example",
-			SessionStateRepo: &fakeSessionStateRepo{state: state},
+			SessionStateRepo: mockSessionStateRepoWithSnapshot(t, sessionID, state),
 		},
 		tabs:                entity.NewTabList(),
 		tabsUC:              tabsUC,
@@ -1209,7 +1214,7 @@ func TestApp_RestoreSessionClearsStaleUIStateBeforeApplyingRestoredTabs(t *testi
 	app := &App{
 		deps: &Dependencies{
 			Config:           &config.Config{},
-			SessionStateRepo: &fakeSessionStateRepo{state: entity.SnapshotFromTabList(restoredSessionID, restoredTabs)},
+			SessionStateRepo: mockSessionStateRepoWithSnapshot(t, restoredSessionID, entity.SnapshotFromTabList(restoredSessionID, restoredTabs)),
 		},
 		mainWindow:     mainWindow,
 		widgetFactory:  layout.NewGtkWidgetFactory(),
@@ -1276,7 +1281,7 @@ func TestApp_RestoreSessionWiresStackedPaneTitleBarCallbacks(t *testing.T) {
 	app := &App{
 		deps: &Dependencies{
 			Config:           &config.Config{},
-			SessionStateRepo: &fakeSessionStateRepo{state: entity.SnapshotFromTabList(stackedSessionID, stackedTabs)},
+			SessionStateRepo: mockSessionStateRepoWithSnapshot(t, stackedSessionID, entity.SnapshotFromTabList(stackedSessionID, stackedTabs)),
 		},
 		mainWindow:     mainWindow,
 		widgetFactory:  layout.NewGtkWidgetFactory(),
@@ -2615,13 +2620,6 @@ func TestApp_AttachPopupToTabReleasesRegistrationWhenWrapFails(t *testing.T) {
 	}
 }
 
-type fakeZoomRepo struct{}
-
-func (f *fakeZoomRepo) Get(context.Context, string) (*entity.ZoomLevel, error) { return nil, nil }
-func (f *fakeZoomRepo) Set(context.Context, *entity.ZoomLevel) error           { return nil }
-func (f *fakeZoomRepo) Delete(context.Context, string) error                   { return nil }
-func (f *fakeZoomRepo) GetAll(context.Context) ([]*entity.ZoomLevel, error)    { return nil, nil }
-
 func TestApp_BrowserWindowWebViewActionsIgnoreStaleFocusedWindow(t *testing.T) {
 	ctx := context.Background()
 
@@ -2857,7 +2855,7 @@ func TestApp_DispatchBrowserWindowActionUsesSourceWindow(t *testing.T) {
 		lastFocusedWindowID: first.id, // stale! should NOT be used
 		contentCoord:        contentCoord,
 		navCoord:            navCoord,
-		deps:                &Dependencies{ZoomUC: usecase.NewManageZoomUseCase(&fakeZoomRepo{}, 1.0, nil)},
+		deps:                &Dependencies{ZoomUC: usecase.NewManageZoomUseCase(mockZoomRepo(t), 1.0, nil)},
 		workspaceViews: map[entity.TabID]*component.WorkspaceView{
 			tab1.ID: &component.WorkspaceView{},
 			tab2.ID: &component.WorkspaceView{},
@@ -2907,7 +2905,7 @@ func TestApp_DispatchBrowserWindowActionZoomInSupportsFileURLs(t *testing.T) {
 		tabs:           entity.NewTabList(),
 		windowForTab:   map[entity.TabID]*browserWindow{tab.ID: bw},
 		contentCoord:   contentCoord,
-		deps:           &Dependencies{ZoomUC: usecase.NewManageZoomUseCase(&fakeZoomRepo{}, 1.0, nil)},
+		deps:           &Dependencies{ZoomUC: usecase.NewManageZoomUseCase(mockZoomRepo(t), 1.0, nil)},
 		workspaceViews: map[entity.TabID]*component.WorkspaceView{
 			tab.ID: &component.WorkspaceView{},
 		},
@@ -3266,7 +3264,7 @@ func TestApp_RestoreSessionDoesNotLeakStaleWindowsIntoTabMerge(t *testing.T) {
 	app := &App{
 		deps: &Dependencies{
 			Config:           &config.Config{},
-			SessionStateRepo: &fakeSessionStateRepo{state: state},
+			SessionStateRepo: mockSessionStateRepoWithSnapshot(t, sessionID, state),
 		},
 		mainWindow: mainWindow,
 		browserWindows: map[string]*browserWindow{
@@ -3346,7 +3344,7 @@ func TestApp_RestoreSessionHonorsActiveWindowIndex(t *testing.T) {
 	app := &App{
 		deps: &Dependencies{
 			Config:           &config.Config{},
-			SessionStateRepo: &fakeSessionStateRepo{state: state},
+			SessionStateRepo: mockSessionStateRepoWithSnapshot(t, sessionID, state),
 		},
 		mainWindow:     mainWindow,
 		widgetFactory:  layout.NewGtkWidgetFactory(),
@@ -3413,7 +3411,7 @@ func TestApp_RestoreSessionFailsOnAdditionalWindowCreationError(t *testing.T) {
 	app := &App{
 		deps: &Dependencies{
 			Config:           &config.Config{},
-			SessionStateRepo: &fakeSessionStateRepo{state: state},
+			SessionStateRepo: mockSessionStateRepoWithSnapshot(t, sessionID, state),
 		},
 		mainWindow:     mainWindow,
 		browserWindows: map[string]*browserWindow{firstBW.id: firstBW},
