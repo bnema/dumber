@@ -1,9 +1,57 @@
 package bootstrap
 
 import (
+	"sync"
+
 	"github.com/bnema/dumber/internal/application/port"
 	"github.com/bnema/dumber/internal/infrastructure/config"
 )
+
+type configChangeManager interface {
+	Watch() error
+	OnConfigChange(func(*config.Config))
+}
+
+type runtimeConfigProvider struct {
+	mu      sync.RWMutex
+	current port.RuntimeConfigSnapshot
+	manager configChangeManager
+}
+
+func NewRuntimeConfigProvider(cfg *config.Config, manager configChangeManager) port.RuntimeConfigProvider {
+	return &runtimeConfigProvider{
+		current: RuntimeConfigSnapshotFromConfig(cfg),
+		manager: manager,
+	}
+}
+
+func (p *runtimeConfigProvider) Current() port.RuntimeConfigSnapshot {
+	p.mu.RLock()
+	defer p.mu.RUnlock()
+	return cloneRuntimeConfigSnapshot(p.current)
+}
+
+func (p *runtimeConfigProvider) Watch() error {
+	if p == nil || p.manager == nil {
+		return nil
+	}
+	return p.manager.Watch()
+}
+
+func (p *runtimeConfigProvider) OnChange(callback func(port.RuntimeConfigSnapshot)) {
+	if p == nil || p.manager == nil {
+		return
+	}
+	p.manager.OnConfigChange(func(cfg *config.Config) {
+		snapshot := RuntimeConfigSnapshotFromConfig(cfg)
+		p.mu.Lock()
+		p.current = snapshot
+		p.mu.Unlock()
+		if callback != nil {
+			callback(cloneRuntimeConfigSnapshot(snapshot))
+		}
+	})
+}
 
 func EngineSettingsPayloadFromConfig(cfg *config.Config) port.EngineSettingsPayload {
 	if cfg == nil {
@@ -61,6 +109,22 @@ func runtimeSearchShortcutsFromConfig(in map[string]config.SearchShortcut) map[s
 			URL:         shortcut.URL,
 			Description: shortcut.Description,
 		}
+	}
+	return out
+}
+
+func cloneRuntimeConfigSnapshot(snapshot port.RuntimeConfigSnapshot) port.RuntimeConfigSnapshot {
+	snapshot.UI.SearchShortcuts = cloneRuntimeSearchShortcuts(snapshot.UI.SearchShortcuts)
+	return snapshot
+}
+
+func cloneRuntimeSearchShortcuts(in map[string]port.RuntimeSearchShortcut) map[string]port.RuntimeSearchShortcut {
+	if in == nil {
+		return nil
+	}
+	out := make(map[string]port.RuntimeSearchShortcut, len(in))
+	for key, shortcut := range in {
+		out[key] = shortcut
 	}
 	return out
 }

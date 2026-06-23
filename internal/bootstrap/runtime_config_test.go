@@ -8,6 +8,20 @@ import (
 	"github.com/bnema/dumber/internal/infrastructure/config"
 )
 
+type fakeConfigManager struct {
+	watchCalls int
+	callbacks  []func(*config.Config)
+}
+
+func (f *fakeConfigManager) Watch() error {
+	f.watchCalls++
+	return nil
+}
+
+func (f *fakeConfigManager) OnConfigChange(callback func(*config.Config)) {
+	f.callbacks = append(f.callbacks, callback)
+}
+
 func TestEngineSettingsPayloadFromConfigMapsRuntimeFields(t *testing.T) {
 	cfg := config.DefaultConfig()
 	cfg.DefaultUIScale = 1.25
@@ -38,6 +52,57 @@ func TestEngineSettingsPayloadFromConfigMapsRuntimeFields(t *testing.T) {
 	}
 	if got.WebContent.HardwareDecoding != port.EngineHardwareDecodingForce {
 		t.Fatalf("HardwareDecoding=%q, want %q", got.WebContent.HardwareDecoding, port.EngineHardwareDecodingForce)
+	}
+}
+
+func TestRuntimeConfigProviderUpdatesSnapshotBeforeCallback(t *testing.T) {
+	initial := config.DefaultConfig()
+	initial.DefaultUIScale = 1
+	manager := &fakeConfigManager{}
+	provider := NewRuntimeConfigProvider(initial, manager)
+
+	var seen port.RuntimeConfigSnapshot
+	provider.OnChange(func(snapshot port.RuntimeConfigSnapshot) {
+		seen = snapshot
+	})
+
+	next := config.DefaultConfig()
+	next.DefaultUIScale = 1.8
+	manager.callbacks[0](next)
+
+	if got := provider.Current().UI.DefaultUIScale; got != 1.8 {
+		t.Fatalf("Current DefaultUIScale=%v, want 1.8", got)
+	}
+	if seen.UI.DefaultUIScale != 1.8 {
+		t.Fatalf("callback DefaultUIScale=%v, want 1.8", seen.UI.DefaultUIScale)
+	}
+}
+
+func TestRuntimeConfigProviderWatchDelegatesToManager(t *testing.T) {
+	manager := &fakeConfigManager{}
+	provider := NewRuntimeConfigProvider(config.DefaultConfig(), manager)
+
+	if err := provider.Watch(); err != nil {
+		t.Fatalf("Watch returned error: %v", err)
+	}
+	if manager.watchCalls != 1 {
+		t.Fatalf("watchCalls=%d, want 1", manager.watchCalls)
+	}
+}
+
+func TestRuntimeConfigProviderCurrentReturnsMapClone(t *testing.T) {
+	cfg := config.DefaultConfig()
+	cfg.SearchShortcuts = map[string]config.SearchShortcut{
+		"gh": {URL: "https://github.com/search?q=%s", Description: "GitHub"},
+	}
+	provider := NewRuntimeConfigProvider(cfg, &fakeConfigManager{})
+
+	first := provider.Current()
+	first.UI.SearchShortcuts["gh"] = port.RuntimeSearchShortcut{URL: "mutated"}
+	second := provider.Current()
+
+	if second.UI.SearchShortcuts["gh"].URL == "mutated" {
+		t.Fatal("Current must return a snapshot clone so callers cannot mutate provider state")
 	}
 }
 
