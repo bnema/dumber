@@ -4,28 +4,19 @@ import (
 	"context"
 	"testing"
 
-	"github.com/stretchr/testify/require"
+	coordinatormocks "github.com/bnema/dumber/internal/ui/coordinator/mocks"
+	"github.com/stretchr/testify/mock"
 )
-
-type fakeOmniboxProvider struct {
-	toggled     bool
-	zoomUpdates []float64
-}
-
-func (f *fakeOmniboxProvider) ToggleOmnibox(context.Context) { f.toggled = true }
-
-func (f *fakeOmniboxProvider) UpdateOmniboxZoom(factor float64) {
-	f.zoomUpdates = append(f.zoomUpdates, factor)
-}
 
 func TestNavigationCoordinator_OmniboxProviderOpenAndZoom(t *testing.T) {
 	c := &NavigationCoordinator{}
-	provider := &fakeOmniboxProvider{}
+	provider := coordinatormocks.NewMockOmniboxProvider(t)
+	provider.EXPECT().ToggleOmnibox(mock.Anything).Once()
+	provider.EXPECT().UpdateOmniboxZoom(1.25).Once()
 
 	c.SetOmniboxProvider(provider)
-	require.NoError(t, c.OpenOmnibox(context.Background()))
+	if err := c.OpenOmnibox(context.Background()); err != nil {
+		t.Fatal(err)
+	}
 	c.NotifyZoomChanged(context.Background(), 1.25)
-
-	require.True(t, provider.toggled)
-	require.Equal(t, []float64{1.25}, provider.zoomUpdates)
 }

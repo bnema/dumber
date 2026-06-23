@@ -66,6 +66,6 @@ func TestHandlePopupOpenerPostMessage_UsesPopupCommittedURIForSourceMetadata(t *
 		DataKind:     "json",
 		TargetOrigin: "https://app.example",
 		SourceOrigin: "https://evil.example",
-		SourceHref:   "https://evil.example/fake",
+		SourceHref:   "https://evil.example/decoy",
 	})
 }

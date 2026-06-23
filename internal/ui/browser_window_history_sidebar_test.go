@@ -41,13 +41,13 @@ func TestHistorySidebarConfig_OnNavigateNavigatesActivePaneAndKeepsSidebar(t *te
 	secondTabs.SetActive(tab2.ID)
 	second := &browserWindow{id: "window-2", tabs: secondTabs}
 
-	// Create fake webviews, one per pane.
-	fakeWv1 := &fakeRecordingWebView{id: 1}
-	fakeWv2 := &fakeRecordingWebView{id: 2}
+	// Create recording webviews, one per pane.
+	recordingWv1 := &recordingWebView{id: 1}
+	recordingWv2 := &recordingWebView{id: 2}
 
 	contentCoord := contentcoord.NewCoordinator(ctx, nil, nil, nil, nil, nil, nil, nil)
-	contentCoord.RegisterPopupWebView(entity.PaneID("pane-1"), fakeWv1)
-	contentCoord.RegisterPopupWebView(entity.PaneID("pane-2"), fakeWv2)
+	contentCoord.RegisterPopupWebView(entity.PaneID("pane-1"), recordingWv1)
+	contentCoord.RegisterPopupWebView(entity.PaneID("pane-2"), recordingWv2)
 
 	navCoord := coordinator.NewNavigationCoordinator(ctx, nil, contentCoord)
 
@@ -75,12 +75,12 @@ func TestHistorySidebarConfig_OnNavigateNavigatesActivePaneAndKeepsSidebar(t *te
 	require.NoError(t, err, "OnNavigate should succeed")
 
 	// The second window's webview must have received the navigation.
-	assert.True(t, fakeWv2.loadURICalled, "second window webview should receive navigation")
-	assert.Equal(t, navigateURL, fakeWv2.loadURILastURI)
+	assert.True(t, recordingWv2.loadURICalled, "second window webview should receive navigation")
+	assert.Equal(t, navigateURL, recordingWv2.loadURILastURI)
 	assert.True(t, second.sidebarVisible, "default history activation should keep the sidebar visible")
 
 	// The first window's webview must NOT have been touched (stale-focus guard).
-	assert.False(t, fakeWv1.loadURICalled, "first window webview must not receive navigation from second window callback")
+	assert.False(t, recordingWv1.loadURICalled, "first window webview must not receive navigation from second window callback")
 }
 
 // TestHistorySidebarConfig_OnNavigateKeepOpenNavigatesWithoutClosing verifies
@@ -103,8 +103,8 @@ func TestHistorySidebarConfig_OnNavigateKeepOpenNavigatesWithoutClosing(t *testi
 	}
 
 	contentCoord := contentcoord.NewCoordinator(ctx, nil, nil, nil, nil, nil, nil, nil)
-	fakeWv := &fakeRecordingWebView{id: 1}
-	contentCoord.RegisterPopupWebView(entity.PaneID("pane-1"), fakeWv)
+	recordingWv := &recordingWebView{id: 1}
+	contentCoord.RegisterPopupWebView(entity.PaneID("pane-1"), recordingWv)
 	navCoord := coordinator.NewNavigationCoordinator(ctx, nil, contentCoord)
 
 	app := &App{
@@ -122,8 +122,8 @@ func TestHistorySidebarConfig_OnNavigateKeepOpenNavigatesWithoutClosing(t *testi
 	navigateURL := "https://keep-open.com"
 	err := cfg.OnNavigateKeepOpen(ctx, navigateURL)
 	require.NoError(t, err)
-	assert.True(t, fakeWv.loadURICalled)
-	assert.Equal(t, navigateURL, fakeWv.loadURILastURI, "Ctrl+Enter navigation should go to the URL")
+	assert.True(t, recordingWv.loadURICalled)
+	assert.Equal(t, navigateURL, recordingWv.loadURILastURI, "Ctrl+Enter navigation should go to the URL")
 	assert.True(t, bw.sidebarVisible, "Ctrl+Enter navigation should keep the sidebar visible")
 }
 
@@ -148,12 +148,12 @@ func TestHistorySidebar_OwnershipOnMultiWindowNavigation(t *testing.T) {
 	secondTabs.SetActive(tab2.ID)
 	second := &browserWindow{id: "window-2", tabs: secondTabs}
 
-	fakeWv1 := &fakeRecordingWebView{id: 1}
-	fakeWv2 := &fakeRecordingWebView{id: 2}
+	recordingWv1 := &recordingWebView{id: 1}
+	recordingWv2 := &recordingWebView{id: 2}
 
 	contentCoord := contentcoord.NewCoordinator(ctx, nil, nil, nil, nil, nil, nil, nil)
-	contentCoord.RegisterPopupWebView(entity.PaneID("pane-1"), fakeWv1)
-	contentCoord.RegisterPopupWebView(entity.PaneID("pane-2"), fakeWv2)
+	contentCoord.RegisterPopupWebView(entity.PaneID("pane-1"), recordingWv1)
+	contentCoord.RegisterPopupWebView(entity.PaneID("pane-2"), recordingWv2)
 
 	navCoord := coordinator.NewNavigationCoordinator(ctx, nil, contentCoord)
 
@@ -177,11 +177,11 @@ func TestHistorySidebar_OwnershipOnMultiWindowNavigation(t *testing.T) {
 	require.NoError(t, err)
 
 	// Second window's webview must receive the navigation.
-	assert.True(t, fakeWv2.loadURICalled, "second window webview should receive navigation")
-	assert.Equal(t, "https://second-window.com", fakeWv2.loadURILastURI)
+	assert.True(t, recordingWv2.loadURICalled, "second window webview should receive navigation")
+	assert.Equal(t, "https://second-window.com", recordingWv2.loadURILastURI)
 
 	// First window's webview must NOT have been touched.
-	assert.False(t, fakeWv1.loadURICalled, "first window webview should NOT receive navigation when second was targeted")
+	assert.False(t, recordingWv1.loadURICalled, "first window webview should NOT receive navigation when second was targeted")
 }
 
 // =============================================================================
@@ -509,9 +509,9 @@ func TestApp_HistorySidebarConfig_NavigateCallbackNavigates(t *testing.T) {
 		sidebarVisible: true,
 	}
 
-	fakeWv := &fakeRecordingWebView{id: 1}
+	recordingWv := &recordingWebView{id: 1}
 	contentCoord := contentcoord.NewCoordinator(ctx, nil, nil, nil, nil, nil, nil, nil)
-	contentCoord.RegisterPopupWebView(paneID, fakeWv)
+	contentCoord.RegisterPopupWebView(paneID, recordingWv)
 	navCoord := coordinator.NewNavigationCoordinator(ctx, nil, contentCoord)
 
 	app := &App{
@@ -535,8 +535,8 @@ func TestApp_HistorySidebarConfig_NavigateCallbackNavigates(t *testing.T) {
 	require.NoError(t, err)
 
 	// Verify the navigation reached the correct webview.
-	assert.True(t, fakeWv.loadURICalled, "webview must receive navigation")
-	assert.Equal(t, navigateURL, fakeWv.loadURILastURI)
+	assert.True(t, recordingWv.loadURICalled, "webview must receive navigation")
+	assert.Equal(t, navigateURL, recordingWv.loadURILastURI)
 	assert.True(t, bw.sidebarVisible, "default history navigation should keep the sidebar open")
 }
 
@@ -557,9 +557,9 @@ func TestApp_NavigateHistorySidebarSelection_KeepsSidebarVisible(t *testing.T) {
 		sidebarVisible: true,
 	}
 
-	fakeWv := &fakeRecordingWebView{id: 1}
+	recordingWv := &recordingWebView{id: 1}
 	contentCoord := contentcoord.NewCoordinator(ctx, nil, nil, nil, nil, nil, nil, nil)
-	contentCoord.RegisterPopupWebView(paneID, fakeWv)
+	contentCoord.RegisterPopupWebView(paneID, recordingWv)
 	navCoord := coordinator.NewNavigationCoordinator(ctx, nil, contentCoord)
 
 	app := &App{
@@ -575,8 +575,8 @@ func TestApp_NavigateHistorySidebarSelection_KeepsSidebarVisible(t *testing.T) {
 
 	err := app.navigateHistorySidebarSelection(ctx, bw, "https://open.com")
 	require.NoError(t, err)
-	assert.True(t, fakeWv.loadURICalled)
-	assert.Equal(t, "https://open.com", fakeWv.loadURILastURI)
+	assert.True(t, recordingWv.loadURICalled)
+	assert.Equal(t, "https://open.com", recordingWv.loadURILastURI)
 	assert.True(t, bw.sidebarVisible, "history selection navigation should not hide the sidebar")
 }
 
@@ -599,12 +599,12 @@ func TestApp_HistorySidebarConfig_NavigateCallbackOwnership(t *testing.T) {
 	secondTabs.SetActive(tab2.ID)
 	second := &browserWindow{id: "window-2", tabs: secondTabs}
 
-	fakeWv1 := &fakeRecordingWebView{id: 1}
-	fakeWv2 := &fakeRecordingWebView{id: 2}
+	recordingWv1 := &recordingWebView{id: 1}
+	recordingWv2 := &recordingWebView{id: 2}
 
 	contentCoord := contentcoord.NewCoordinator(ctx, nil, nil, nil, nil, nil, nil, nil)
-	contentCoord.RegisterPopupWebView(entity.PaneID("pane-1"), fakeWv1)
-	contentCoord.RegisterPopupWebView(entity.PaneID("pane-2"), fakeWv2)
+	contentCoord.RegisterPopupWebView(entity.PaneID("pane-1"), recordingWv1)
+	contentCoord.RegisterPopupWebView(entity.PaneID("pane-2"), recordingWv2)
 	navCoord := coordinator.NewNavigationCoordinator(ctx, nil, contentCoord)
 
 	app := &App{
@@ -629,11 +629,11 @@ func TestApp_HistorySidebarConfig_NavigateCallbackOwnership(t *testing.T) {
 	require.NoError(t, err)
 
 	// Second window's webview must receive navigation.
-	assert.True(t, fakeWv2.loadURICalled, "second window webview must receive navigation")
-	assert.Equal(t, "https://ownership.com", fakeWv2.loadURILastURI)
+	assert.True(t, recordingWv2.loadURICalled, "second window webview must receive navigation")
+	assert.Equal(t, "https://ownership.com", recordingWv2.loadURILastURI)
 
 	// First window's webview must NOT be touched.
-	assert.False(t, fakeWv1.loadURICalled, "first window webview must not receive navigation")
+	assert.False(t, recordingWv1.loadURICalled, "first window webview must not receive navigation")
 }
 
 // TestApp_HistorySidebarConfig_KeepOpenCallback verifies that
@@ -655,9 +655,9 @@ func TestApp_HistorySidebarConfig_KeepOpenCallback(t *testing.T) {
 		sidebarVisible: true,
 	}
 
-	fakeWv := &fakeRecordingWebView{id: 1}
+	recordingWv := &recordingWebView{id: 1}
 	contentCoord := contentcoord.NewCoordinator(ctx, nil, nil, nil, nil, nil, nil, nil)
-	contentCoord.RegisterPopupWebView(paneID, fakeWv)
+	contentCoord.RegisterPopupWebView(paneID, recordingWv)
 	navCoord := coordinator.NewNavigationCoordinator(ctx, nil, contentCoord)
 
 	app := &App{
@@ -678,8 +678,8 @@ func TestApp_HistorySidebarConfig_KeepOpenCallback(t *testing.T) {
 	err := cfg.OnNavigateKeepOpen(ctx, navigateURL)
 	require.NoError(t, err)
 
-	assert.True(t, fakeWv.loadURICalled, "webview must receive navigation")
-	assert.Equal(t, navigateURL, fakeWv.loadURILastURI)
+	assert.True(t, recordingWv.loadURICalled, "webview must receive navigation")
+	assert.Equal(t, navigateURL, recordingWv.loadURILastURI)
 
 	// Sidebar must remain visible (keep-open contract).
 	assert.True(t, bw.sidebarVisible, "sidebar must stay visible after keep-open navigation")

@@ -7,11 +7,13 @@ import (
 	"time"
 
 	appport "github.com/bnema/dumber/internal/application/port"
+	portmocks "github.com/bnema/dumber/internal/application/port/mocks"
 	"github.com/bnema/dumber/internal/domain/favicon"
+	"github.com/stretchr/testify/mock"
 )
 
 func TestFaviconResolveExactHit(t *testing.T) {
-	fx := newFaviconFixture()
+	fx := newFaviconFixture(t)
 	fx.seed("docs.example.com", []byte("png32"), false)
 	got, err := fx.uc.Resolve(context.Background(), "https://docs.example.com/a", 32, ResolveOptions{Purpose: ResolvePurposeUI})
 	if err != nil {
@@ -23,7 +25,7 @@ func TestFaviconResolveExactHit(t *testing.T) {
 }
 
 func TestFaviconResolveParentFallback(t *testing.T) {
-	fx := newFaviconFixture()
+	fx := newFaviconFixture(t)
 	fx.seed("example.com", []byte("parent"), false)
 	got, err := fx.uc.Resolve(context.Background(), "https://docs.example.com/a", 32, ResolveOptions{Purpose: ResolvePurposeUI})
 	if err != nil {
@@ -35,7 +37,7 @@ func TestFaviconResolveParentFallback(t *testing.T) {
 }
 
 func TestFaviconResolvePrefersParentPathFallbackBeforeDomain(t *testing.T) {
-	fx := newFaviconFixture()
+	fx := newFaviconFixture(t)
 	fx.seed("github.com", []byte("github-default"), false)
 	fx.seed("github.com/bnema/gordon", []byte("repo-default"), false)
 
@@ -49,7 +51,7 @@ func TestFaviconResolvePrefersParentPathFallbackBeforeDomain(t *testing.T) {
 }
 
 func TestFaviconResolvePathSpecificDoesNotLeakToParentOrSiblings(t *testing.T) {
-	fx := newFaviconFixture()
+	fx := newFaviconFixture(t)
 	fx.seed("github.com", []byte("github-default"), false)
 
 	if _, err := fx.uc.Observe(
@@ -91,7 +93,7 @@ func TestFaviconResolvePathSpecificDoesNotLeakToParentOrSiblings(t *testing.T) {
 }
 
 func TestFaviconResolveRepairsOrphanCanonicalBlobMetadata(t *testing.T) {
-	fx := newFaviconFixture()
+	fx := newFaviconFixture(t)
 	fx.blobs.png["example.com"] = []byte("png")
 	fx.blobs.sized["example.com"] = map[int][]byte{SystemviewIconSize: []byte("png32")}
 
@@ -112,7 +114,7 @@ func TestFaviconResolveRepairsOrphanCanonicalBlobMetadata(t *testing.T) {
 }
 
 func TestFaviconResolveRepairOrphanWithoutConverterReturnsMiss(t *testing.T) {
-	fx := newFaviconFixture()
+	fx := newFaviconFixture(t)
 	fx.uc.converter = nil
 	fx.blobs.original["example.com"] = []byte("original")
 	fx.blobs.contentTypes["example.com"] = "image/png"
@@ -124,7 +126,7 @@ func TestFaviconResolveRepairOrphanWithoutConverterReturnsMiss(t *testing.T) {
 }
 
 func TestFaviconResolveStaleSchedulesDedupedBackgroundRefresh(t *testing.T) {
-	fx := newFaviconFixture()
+	fx := newFaviconFixture(t)
 	fx.seed("example.com", []byte("old"), true)
 	for i := 0; i < 2; i++ {
 		got, err := fx.uc.Resolve(context.Background(), "https://example.com", 32, ResolveOptions{ScheduleBackgroundRefresh: true})
@@ -144,7 +146,7 @@ func TestFaviconResolveStaleSchedulesDedupedBackgroundRefresh(t *testing.T) {
 }
 
 func TestFaviconResolveStaleExactRefreshIgnoresFreshParent(t *testing.T) {
-	fx := newFaviconFixture()
+	fx := newFaviconFixture(t)
 	fx.seed("docs.example.com", []byte("old-exact"), true)
 	fx.seed("example.com", []byte("fresh-parent"), false)
 	got, err := fx.uc.Resolve(
@@ -166,7 +168,7 @@ func TestFaviconResolveStaleExactRefreshIgnoresFreshParent(t *testing.T) {
 }
 
 func TestFaviconObserveSameHashUpdatesMetadataOnly(t *testing.T) {
-	fx := newFaviconFixture()
+	fx := newFaviconFixture(t)
 	fx.seedOriginal([]byte("same"))
 	if _, err := fx.uc.Observe(context.Background(), "https://example.com", "https://cdn.test/icon.png", []byte("same"), favicon.SourceEngine, "image/png"); err != nil {
 		t.Fatal(err)
@@ -180,7 +182,7 @@ func TestFaviconObserveSameHashUpdatesMetadataOnly(t *testing.T) {
 }
 
 func TestFaviconObserveChangedHashRegeneratesAndInvalidates(t *testing.T) {
-	fx := newFaviconFixture()
+	fx := newFaviconFixture(t)
 	fx.seedOriginal([]byte("old"))
 	if _, err := fx.uc.Observe(context.Background(), "https://example.com", "https://cdn.test/icon.png", []byte("new"), favicon.SourceEngine, "image/png"); err != nil {
 		t.Fatal(err)
@@ -197,7 +199,7 @@ func TestFaviconObserveChangedHashRegeneratesAndInvalidates(t *testing.T) {
 }
 
 func TestFaviconObserveWithoutConverterStoresOriginalOnly(t *testing.T) {
-	fx := newFaviconFixture()
+	fx := newFaviconFixture(t)
 	fx.uc.converter = nil
 	if _, err := fx.uc.Observe(context.Background(), "https://example.com", "https://example.com/icon.png", []byte("raw"), favicon.SourceEngine, "image/png"); err != nil {
 		t.Fatal(err)
@@ -211,7 +213,7 @@ func TestFaviconObserveWithoutConverterStoresOriginalOnly(t *testing.T) {
 }
 
 func TestFaviconResolveMissingFetchesOnlyWhenBlockingAllowed(t *testing.T) {
-	fx := newFaviconFixture()
+	fx := newFaviconFixture(t)
 	if _, err := fx.uc.Resolve(context.Background(), "https://example.com", 32, ResolveOptions{}); !errors.Is(err, ErrFaviconMiss) {
 		t.Fatalf("default resolve err=%v", err)
 	}
@@ -228,7 +230,7 @@ func TestFaviconResolveMissingFetchesOnlyWhenBlockingAllowed(t *testing.T) {
 }
 
 func TestFaviconRefreshIfStaleUsesParentFallbackBeforeFetching(t *testing.T) {
-	fx := newFaviconFixture()
+	fx := newFaviconFixture(t)
 	fx.seed("example.com", []byte("parent"), false)
 	if err := fx.uc.RefreshIfStale(context.Background(), "https://docs.example.com/page"); err != nil {
 		t.Fatal(err)
@@ -239,7 +241,7 @@ func TestFaviconRefreshIfStaleUsesParentFallbackBeforeFetching(t *testing.T) {
 }
 
 func TestFaviconUseCasePropagatesRepositoryErrors(t *testing.T) {
-	fx := newFaviconFixture()
+	fx := newFaviconFixture(t)
 	fx.repo.err = errors.New("database unavailable")
 	if _, err := fx.uc.Resolve(context.Background(), "https://example.com", 32, ResolveOptions{}); !errors.Is(err, fx.repo.err) {
 		t.Fatalf("Resolve err=%v, want %v", err, fx.repo.err)
@@ -253,7 +255,7 @@ func TestFaviconUseCasePropagatesRepositoryErrors(t *testing.T) {
 }
 
 func TestFaviconResolvePropagatesBlobErrors(t *testing.T) {
-	fx := newFaviconFixture()
+	fx := newFaviconFixture(t)
 	fx.seed("example.com", []byte("cached"), false)
 	fx.blobs.err = errors.New("disk unavailable")
 	if _, err := fx.uc.Resolve(context.Background(), "https://example.com", 32, ResolveOptions{}); !errors.Is(err, fx.blobs.err) {
@@ -262,7 +264,7 @@ func TestFaviconResolvePropagatesBlobErrors(t *testing.T) {
 }
 
 func TestFaviconResolveBlockingRefreshesWhenMetadataFreshButBlobMissing(t *testing.T) {
-	fx := newFaviconFixture()
+	fx := newFaviconFixture(t)
 	fx.repo.byKey["example.com"] = &favicon.Metadata{Key: "example.com", PageURL: "https://example.com", ContentHash: favicon.Hash([]byte("old")), LastCheckedAt: fx.now}
 	got, err := fx.uc.Resolve(context.Background(), "https://example.com", 32, ResolveOptions{AllowBlockingRefresh: true})
 	if err != nil {
@@ -274,7 +276,7 @@ func TestFaviconResolveBlockingRefreshesWhenMetadataFreshButBlobMissing(t *testi
 }
 
 func TestFaviconResolveBlockingPropagatesFetchErrors(t *testing.T) {
-	fx := newFaviconFixture()
+	fx := newFaviconFixture(t)
 	fx.fetcher.err = errors.New("network unavailable")
 	if _, err := fx.uc.Resolve(context.Background(), "https://example.com", 32, ResolveOptions{AllowBlockingRefresh: true}); !errors.Is(err, fx.fetcher.err) {
 		t.Fatalf("Resolve err=%v, want %v", err, fx.fetcher.err)
@@ -282,7 +284,7 @@ func TestFaviconResolveBlockingPropagatesFetchErrors(t *testing.T) {
 }
 
 func TestFaviconRefreshFromIconURLsUsesPageURLKey(t *testing.T) {
-	fx := newFaviconFixture()
+	fx := newFaviconFixture(t)
 	if err := fx.uc.RefreshFromIconURLs(context.Background(), "https://docs.example.com/page", []string{"https://cdn.example.net/icon.png"}); err != nil {
 		t.Fatal(err)
 	}
@@ -295,8 +297,8 @@ func TestFaviconRefreshFromIconURLsUsesPageURLKey(t *testing.T) {
 }
 
 func TestFaviconRefreshStoresDuckDuckGoFallbackUnderHostKey(t *testing.T) {
-	fx := newFaviconFixture()
-	fx.fetcher.responses = map[string]fakeFetchedIcon{
+	fx := newFaviconFixture(t)
+	fx.fetcher.responses = map[string]faviconFetchResponse{
 		"https://example.com/favicon.ico": {
 			bytes:       []byte("host-fallback"),
 			contentType: "image/png",
@@ -316,8 +318,8 @@ func TestFaviconRefreshStoresDuckDuckGoFallbackUnderHostKey(t *testing.T) {
 }
 
 func TestFaviconRefreshRejectsResolvedKeyOutsideCandidateHierarchy(t *testing.T) {
-	fx := newFaviconFixture()
-	fx.fetcher.responses = map[string]fakeFetchedIcon{
+	fx := newFaviconFixture(t)
+	fx.fetcher.responses = map[string]faviconFetchResponse{
 		"https://example.com/favicon.ico": {
 			bytes:       []byte("bad-fallback"),
 			contentType: "image/png",
@@ -335,8 +337,8 @@ func TestFaviconRefreshRejectsResolvedKeyOutsideCandidateHierarchy(t *testing.T)
 }
 
 func TestFaviconRefreshRejectsFetcherPageURLOutsideRequestedHierarchy(t *testing.T) {
-	fx := newFaviconFixture()
-	fx.fetcher.responses = map[string]fakeFetchedIcon{
+	fx := newFaviconFixture(t)
+	fx.fetcher.responses = map[string]faviconFetchResponse{
 		"https://example.com/favicon.ico": {
 			bytes:       []byte("bad-page-url"),
 			contentType: "image/png",
@@ -355,8 +357,8 @@ func TestFaviconRefreshRejectsFetcherPageURLOutsideRequestedHierarchy(t *testing
 }
 
 func TestFaviconRefreshFromIconURLsSkipsUnsupportedCandidates(t *testing.T) {
-	fx := newFaviconFixture()
-	fx.fetcher.responses = map[string]fakeFetchedIcon{
+	fx := newFaviconFixture(t)
+	fx.fetcher.responses = map[string]faviconFetchResponse{
 		"https://cdn.example.net/icon.svg": {bytes: []byte("svg"), contentType: "image/svg+xml"},
 		"https://cdn.example.net/icon.png": {bytes: []byte("png"), contentType: "image/png"},
 	}
@@ -385,7 +387,7 @@ func TestFaviconRefreshFromIconURLsSkipsUnsupportedCandidates(t *testing.T) {
 }
 
 func TestFaviconObserveConversionErrorDoesNotMutateExistingAssets(t *testing.T) {
-	fx := newFaviconFixture()
+	fx := newFaviconFixture(t)
 	fx.seedOriginal([]byte("old"))
 	fx.blobs.png["example.com"] = []byte("old-png")
 	fx.blobs.sized["example.com"] = map[int][]byte{32: []byte("old-32")}
@@ -403,7 +405,7 @@ func TestFaviconObserveConversionErrorDoesNotMutateExistingAssets(t *testing.T) 
 }
 
 func TestFaviconEnsureSizedPropagatesReadSizedErrors(t *testing.T) {
-	fx := newFaviconFixture()
+	fx := newFaviconFixture(t)
 	fx.seedOriginal([]byte("old"))
 	fx.blobs.readSizedErr = errors.New("sized store unavailable")
 	if err := fx.uc.EnsureSized(context.Background(), "example.com", 32); !errors.Is(err, fx.blobs.readSizedErr) {
@@ -415,12 +417,12 @@ func TestFaviconEnsureSizedPropagatesReadSizedErrors(t *testing.T) {
 }
 
 type faviconFixture struct {
-	repo         *fakeFaviconRepo
-	blobs        *fakeBlobStore
-	converter    *fakeConverter
-	scheduler    *fakeScheduler
-	invalidators *fakeInvalidators
-	fetcher      *fakeFetcher
+	repo         *faviconRepoState
+	blobs        *faviconBlobStoreState
+	converter    *faviconConverterState
+	scheduler    *faviconSchedulerState
+	invalidators *faviconInvalidatorsState
+	fetcher      *faviconFetcherState
 	uc           *FaviconUseCase
 	now          time.Time
 }
@@ -429,29 +431,98 @@ type faviconTestContextKey string
 
 const faviconFixtureBackgroundKey faviconTestContextKey = "bg"
 
-func newFaviconFixture() *faviconFixture {
+func newFaviconFixture(t *testing.T) *faviconFixture {
+	t.Helper()
+
 	now := time.Date(2025, 1, 1, 0, 0, 0, 0, time.UTC)
 	fx := &faviconFixture{
-		repo:         newFakeRepo(),
-		blobs:        newFakeBlobStore(),
-		converter:    &fakeConverter{},
-		scheduler:    &fakeScheduler{seen: map[favicon.Key]bool{}},
-		invalidators: &fakeInvalidators{},
-		fetcher:      &fakeFetcher{},
+		repo:         newFaviconRepoState(),
+		blobs:        newFaviconBlobStoreState(),
+		converter:    &faviconConverterState{},
+		scheduler:    &faviconSchedulerState{seen: map[favicon.Key]bool{}},
+		invalidators: &faviconInvalidatorsState{},
+		fetcher:      &faviconFetcherState{},
 		now:          now,
 	}
+
+	repo := mockFaviconRepository(t, fx.repo)
+	blobs := mockFaviconBlobStore(t, fx.blobs)
+	converter := mockFaviconConverter(t, fx.converter)
+	scheduler := mockFaviconScheduler(t, fx.scheduler)
+	invalidators := mockFaviconInvalidators(t, fx.invalidators)
+	fetcher := mockFaviconFetcher(t, fx.fetcher)
+
 	fx.uc = NewFaviconUseCase(FaviconDeps{
-		Repository:   fx.repo,
-		BlobStore:    fx.blobs,
-		Converter:    fx.converter,
-		Scheduler:    fx.scheduler,
-		Invalidators: fx.invalidators,
-		Fetcher:      fx.fetcher,
+		Repository:   repo,
+		BlobStore:    blobs,
+		Converter:    converter,
+		Scheduler:    scheduler,
+		Invalidators: invalidators,
+		Fetcher:      fetcher,
 		Now:          func() time.Time { return fx.now },
 		Background:   context.WithValue(context.Background(), faviconFixtureBackgroundKey, true),
 	})
 	return fx
 }
+
+func mockFaviconRepository(t *testing.T, state *faviconRepoState) *portmocks.MockFaviconRepository {
+	t.Helper()
+
+	repo := portmocks.NewMockFaviconRepository(t)
+	repo.EXPECT().Get(mock.Anything, mock.Anything).RunAndReturn(state.get).Maybe()
+	repo.EXPECT().FindFirst(mock.Anything, mock.Anything).RunAndReturn(state.findFirst).Maybe()
+	repo.EXPECT().Upsert(mock.Anything, mock.Anything).RunAndReturn(state.upsert).Maybe()
+	repo.EXPECT().UpdateLastChecked(mock.Anything, mock.Anything, mock.Anything, mock.Anything).RunAndReturn(state.updateLastChecked).Maybe()
+	repo.EXPECT().Delete(mock.Anything, mock.Anything).RunAndReturn(state.delete).Maybe()
+	return repo
+}
+
+func mockFaviconBlobStore(t *testing.T, state *faviconBlobStoreState) *portmocks.MockFaviconBlobStore {
+	t.Helper()
+
+	blobs := portmocks.NewMockFaviconBlobStore(t)
+	blobs.EXPECT().ReadOriginal(mock.Anything, mock.Anything).RunAndReturn(state.readOriginal).Maybe()
+	blobs.EXPECT().WriteOriginal(mock.Anything, mock.Anything, mock.Anything, mock.Anything).RunAndReturn(state.writeOriginal).Maybe()
+	blobs.EXPECT().ReadPNG(mock.Anything, mock.Anything).RunAndReturn(state.readPNG).Maybe()
+	blobs.EXPECT().WritePNG(mock.Anything, mock.Anything, mock.Anything).RunAndReturn(state.writePNG).Maybe()
+	blobs.EXPECT().ReadSizedPNG(mock.Anything, mock.Anything, mock.Anything).RunAndReturn(state.readSizedPNG).Maybe()
+	blobs.EXPECT().WriteSizedPNG(mock.Anything, mock.Anything, mock.Anything, mock.Anything).RunAndReturn(state.writeSizedPNG).Maybe()
+	blobs.EXPECT().RemoveDerived(mock.Anything, mock.Anything).RunAndReturn(state.removeDerivedForKey).Maybe()
+	return blobs
+}
+
+func mockFaviconConverter(t *testing.T, state *faviconConverterState) *portmocks.MockFaviconImageConverter {
+	t.Helper()
+
+	converter := portmocks.NewMockFaviconImageConverter(t)
+	converter.EXPECT().Convert(mock.Anything, mock.Anything, mock.Anything, mock.Anything).RunAndReturn(state.convert).Maybe()
+	return converter
+}
+
+func mockFaviconScheduler(t *testing.T, state *faviconSchedulerState) *portmocks.MockFaviconRefreshScheduler {
+	t.Helper()
+
+	scheduler := portmocks.NewMockFaviconRefreshScheduler(t)
+	scheduler.EXPECT().Schedule(mock.Anything, mock.Anything, mock.Anything).RunAndReturn(state.schedule).Maybe()
+	return scheduler
+}
+
+func mockFaviconInvalidators(t *testing.T, state *faviconInvalidatorsState) *portmocks.MockFaviconInvalidators {
+	t.Helper()
+
+	invalidators := portmocks.NewMockFaviconInvalidators(t)
+	invalidators.EXPECT().InvalidateAll(mock.Anything, mock.Anything).RunAndReturn(state.invalidateAll).Maybe()
+	return invalidators
+}
+
+func mockFaviconFetcher(t *testing.T, state *faviconFetcherState) *portmocks.MockFaviconFetcher {
+	t.Helper()
+
+	fetcher := portmocks.NewMockFaviconFetcher(t)
+	fetcher.EXPECT().Fetch(mock.Anything, mock.Anything).RunAndReturn(state.fetch).Maybe()
+	return fetcher
+}
+
 func (f *faviconFixture) seed(key string, sized []byte, stale bool) {
 	checked := f.now
 	if stale {
@@ -460,6 +531,7 @@ func (f *faviconFixture) seed(key string, sized []byte, stale bool) {
 	f.repo.byKey[favicon.Key(key)] = &favicon.Metadata{Key: favicon.Key(key), PageURL: "https://" + key, ContentHash: favicon.Hash([]byte("orig")), LastCheckedAt: checked}
 	f.blobs.sized[favicon.Key(key)] = map[int][]byte{32: sized}
 }
+
 func (f *faviconFixture) seedOriginal(b []byte) {
 	const contentType = "image/png"
 	key := favicon.Key("example.com")
@@ -474,15 +546,16 @@ func (f *faviconFixture) seedOriginal(b []byte) {
 	f.blobs.contentTypes[key] = contentType
 }
 
-type fakeFaviconRepo struct {
+type faviconRepoState struct {
 	byKey map[favicon.Key]*favicon.Metadata
 	err   error
 }
 
-func newFakeRepo() *fakeFaviconRepo {
-	return &fakeFaviconRepo{byKey: map[favicon.Key]*favicon.Metadata{}}
+func newFaviconRepoState() *faviconRepoState {
+	return &faviconRepoState{byKey: map[favicon.Key]*favicon.Metadata{}}
 }
-func (r *fakeFaviconRepo) Get(_ context.Context, key favicon.Key) (*favicon.Metadata, error) {
+
+func (r *faviconRepoState) get(_ context.Context, key favicon.Key) (*favicon.Metadata, error) {
 	if r.err != nil {
 		return nil, r.err
 	}
@@ -492,18 +565,20 @@ func (r *fakeFaviconRepo) Get(_ context.Context, key favicon.Key) (*favicon.Meta
 	}
 	return nil, nil
 }
-func (r *fakeFaviconRepo) FindFirst(ctx context.Context, keys []favicon.Key) (*favicon.Metadata, error) {
+
+func (r *faviconRepoState) findFirst(ctx context.Context, keys []favicon.Key) (*favicon.Metadata, error) {
 	if r.err != nil {
 		return nil, r.err
 	}
 	for _, k := range keys {
-		if m, _ := r.Get(ctx, k); m != nil {
+		if m, _ := r.get(ctx, k); m != nil {
 			return m, nil
 		}
 	}
 	return nil, nil
 }
-func (r *fakeFaviconRepo) Upsert(_ context.Context, meta favicon.Metadata) error {
+
+func (r *faviconRepoState) upsert(_ context.Context, meta favicon.Metadata) error {
 	if r.err != nil {
 		return r.err
 	}
@@ -511,7 +586,8 @@ func (r *fakeFaviconRepo) Upsert(_ context.Context, meta favicon.Metadata) error
 	r.byKey[meta.Key] = &cp
 	return nil
 }
-func (r *fakeFaviconRepo) UpdateLastChecked(_ context.Context, key favicon.Key, hash string, checkedAt time.Time) error {
+
+func (r *faviconRepoState) updateLastChecked(_ context.Context, key favicon.Key, hash string, checkedAt time.Time) error {
 	if r.err != nil {
 		return r.err
 	}
@@ -519,7 +595,8 @@ func (r *fakeFaviconRepo) UpdateLastChecked(_ context.Context, key favicon.Key, 
 	r.byKey[key].LastCheckedAt = checkedAt
 	return nil
 }
-func (r *fakeFaviconRepo) Delete(_ context.Context, key favicon.Key) error {
+
+func (r *faviconRepoState) delete(_ context.Context, key favicon.Key) error {
 	if r.err != nil {
 		return r.err
 	}
@@ -527,7 +604,7 @@ func (r *fakeFaviconRepo) Delete(_ context.Context, key favicon.Key) error {
 	return nil
 }
 
-type fakeBlobStore struct {
+type faviconBlobStoreState struct {
 	original, png                 map[favicon.Key][]byte
 	sized                         map[favicon.Key]map[int][]byte
 	contentTypes                  map[favicon.Key]string
@@ -536,10 +613,16 @@ type fakeBlobStore struct {
 	readSizedErr                  error
 }
 
-func newFakeBlobStore() *fakeBlobStore {
-	return &fakeBlobStore{original: map[favicon.Key][]byte{}, png: map[favicon.Key][]byte{}, sized: map[favicon.Key]map[int][]byte{}, contentTypes: map[favicon.Key]string{}}
+func newFaviconBlobStoreState() *faviconBlobStoreState {
+	return &faviconBlobStoreState{
+		original:     map[favicon.Key][]byte{},
+		png:          map[favicon.Key][]byte{},
+		sized:        map[favicon.Key]map[int][]byte{},
+		contentTypes: map[favicon.Key]string{},
+	}
 }
-func (b *fakeBlobStore) ReadOriginal(_ context.Context, key favicon.Key) ([]byte, string, error) {
+
+func (b *faviconBlobStoreState) readOriginal(_ context.Context, key favicon.Key) ([]byte, string, error) {
 	if b.err != nil {
 		return nil, "", b.err
 	}
@@ -549,7 +632,8 @@ func (b *fakeBlobStore) ReadOriginal(_ context.Context, key favicon.Key) ([]byte
 	}
 	return v, b.contentTypes[key], nil
 }
-func (b *fakeBlobStore) WriteOriginal(_ context.Context, key favicon.Key, data []byte, ct string) error {
+
+func (b *faviconBlobStoreState) writeOriginal(_ context.Context, key favicon.Key, data []byte, ct string) error {
 	if b.err != nil {
 		return b.err
 	}
@@ -558,7 +642,8 @@ func (b *fakeBlobStore) WriteOriginal(_ context.Context, key favicon.Key, data [
 	b.contentTypes[key] = ct
 	return nil
 }
-func (b *fakeBlobStore) ReadPNG(_ context.Context, key favicon.Key) ([]byte, string, error) {
+
+func (b *faviconBlobStoreState) readPNG(_ context.Context, key favicon.Key) ([]byte, string, error) {
 	if b.err != nil {
 		return nil, "", b.err
 	}
@@ -568,14 +653,16 @@ func (b *fakeBlobStore) ReadPNG(_ context.Context, key favicon.Key) ([]byte, str
 	}
 	return v, "image/png", nil
 }
-func (b *fakeBlobStore) WritePNG(_ context.Context, key favicon.Key, data []byte) error {
+
+func (b *faviconBlobStoreState) writePNG(_ context.Context, key favicon.Key, data []byte) error {
 	if b.err != nil {
 		return b.err
 	}
 	b.png[key] = data
 	return nil
 }
-func (b *fakeBlobStore) ReadSizedPNG(_ context.Context, key favicon.Key, size int) ([]byte, string, error) {
+
+func (b *faviconBlobStoreState) readSizedPNG(_ context.Context, key favicon.Key, size int) ([]byte, string, error) {
 	if b.err != nil {
 		return nil, "", b.err
 	}
@@ -587,7 +674,8 @@ func (b *fakeBlobStore) ReadSizedPNG(_ context.Context, key favicon.Key, size in
 	}
 	return b.sized[key][size], "image/png", nil
 }
-func (b *fakeBlobStore) WriteSizedPNG(_ context.Context, key favicon.Key, size int, data []byte) error {
+
+func (b *faviconBlobStoreState) writeSizedPNG(_ context.Context, key favicon.Key, size int, data []byte) error {
 	if b.err != nil {
 		return b.err
 	}
@@ -597,7 +685,8 @@ func (b *fakeBlobStore) WriteSizedPNG(_ context.Context, key favicon.Key, size i
 	b.sized[key][size] = data
 	return nil
 }
-func (b *fakeBlobStore) RemoveDerived(_ context.Context, key favicon.Key) error {
+
+func (b *faviconBlobStoreState) removeDerivedForKey(_ context.Context, key favicon.Key) error {
 	if b.err != nil {
 		return b.err
 	}
@@ -607,13 +696,13 @@ func (b *fakeBlobStore) RemoveDerived(_ context.Context, key favicon.Key) error 
 	return nil
 }
 
-type fakeConverter struct {
+type faviconConverterState struct {
 	calls            int
 	err              error
 	errByContentType map[string]error
 }
 
-func (c *fakeConverter) Convert(_ context.Context, original []byte, contentType string, sizes []int) (*appport.ConvertedFavicon, error) {
+func (c *faviconConverterState) convert(_ context.Context, original []byte, contentType string, sizes []int) (*appport.ConvertedFavicon, error) {
 	c.calls++
 	if c.err != nil {
 		return nil, c.err
@@ -628,14 +717,14 @@ func (c *fakeConverter) Convert(_ context.Context, original []byte, contentType 
 	return out, nil
 }
 
-type fakeScheduler struct {
+type faviconSchedulerState struct {
 	seen              map[favicon.Key]bool
 	works             map[favicon.Key]func(context.Context)
 	schedules         int
 	usedCallerContext bool
 }
 
-func (s *fakeScheduler) Schedule(ctx context.Context, key favicon.Key, work func(context.Context)) bool {
+func (s *faviconSchedulerState) schedule(ctx context.Context, key favicon.Key, work func(context.Context)) bool {
 	if ctx.Value(faviconFixtureBackgroundKey) != true {
 		s.usedCallerContext = true
 	}
@@ -651,33 +740,33 @@ func (s *fakeScheduler) Schedule(ctx context.Context, key favicon.Key, work func
 	return true
 }
 
-func (s *fakeScheduler) run(key favicon.Key) {
+func (s *faviconSchedulerState) run(key favicon.Key) {
 	if work := s.works[key]; work != nil {
 		work(context.Background())
 	}
 }
 
-type fakeInvalidators struct{ calls int }
+type faviconInvalidatorsState struct{ calls int }
 
-func (i *fakeInvalidators) InvalidateAll(_ context.Context, _ favicon.Key) error {
+func (i *faviconInvalidatorsState) invalidateAll(_ context.Context, _ favicon.Key) error {
 	i.calls++
 	return nil
 }
 
-type fakeFetchedIcon struct {
+type faviconFetchResponse struct {
 	bytes       []byte
 	contentType string
 	pageURL     string
 	resolvedKey favicon.Key
 }
 
-type fakeFetcher struct {
+type faviconFetcherState struct {
 	calls     int
 	err       error
-	responses map[string]fakeFetchedIcon
+	responses map[string]faviconFetchResponse
 }
 
-func (f *fakeFetcher) Fetch(_ context.Context, req appport.FaviconFetchRequest) (*appport.FaviconFetchedIcon, error) {
+func (f *faviconFetcherState) fetch(_ context.Context, req appport.FaviconFetchRequest) (*appport.FaviconFetchedIcon, error) {
 	f.calls++
 	if f.err != nil {
 		return nil, f.err
@@ -688,11 +777,18 @@ func (f *fakeFetcher) Fetch(_ context.Context, req appport.FaviconFetchRequest) 
 	}
 	response := f.responses[iconURL]
 	if response.bytes == nil {
-		response = fakeFetchedIcon{bytes: []byte("fetched"), contentType: "image/png"}
+		response = faviconFetchResponse{bytes: []byte("fetched"), contentType: "image/png"}
 	}
 	pageURL := req.PageURL
 	if response.pageURL != "" {
 		pageURL = response.pageURL
 	}
-	return &appport.FaviconFetchedIcon{PageURL: pageURL, IconURL: iconURL, ResolvedKey: response.resolvedKey, Bytes: response.bytes, Source: favicon.SourceDuckDuckGo, ContentType: response.contentType}, nil
+	return &appport.FaviconFetchedIcon{
+		PageURL:     pageURL,
+		IconURL:     iconURL,
+		ResolvedKey: response.resolvedKey,
+		Bytes:       response.bytes,
+		Source:      favicon.SourceDuckDuckGo,
+		ContentType: response.contentType,
+	}, nil
 }

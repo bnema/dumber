@@ -48,7 +48,7 @@ func TestParseRoute(t *testing.T) {
 func TestAppRunMountsPlaceholderAndRecordsRoute(t *testing.T) {
 	t.Parallel()
 
-	dom := &fakeDOM{}
+	dom := &recordingDOM{}
 	app := NewApp(Dependencies{
 		DOM:         dom,
 		LocationURI: "dumb://history",
@@ -64,7 +64,7 @@ func TestAppRunMountsPlaceholderAndRecordsRoute(t *testing.T) {
 func TestAppLoadInitialHistoryRouteUsesStyledSections(t *testing.T) {
 	t.Parallel()
 
-	history := &fakeHistoryService{entries: []*entity.HistoryEntry{{
+	history := &recordingHistoryService{entries: []*entity.HistoryEntry{{
 		URL:   "https://example.com",
 		Title: "Example",
 	}}}
@@ -98,7 +98,7 @@ func TestAppLoadInitialHistoryRouteUsesStyledSections(t *testing.T) {
 func TestAppLoadInitialHistoryRouteShowsTotalStatsWithWindowedTimeline(t *testing.T) {
 	t.Parallel()
 
-	history := &fakeHistoryService{
+	history := &recordingHistoryService{
 		entries: []*entity.HistoryEntry{
 			{ID: 1, URL: "https://older.example", Title: "Older", VisitCount: 2},
 			{ID: 2, URL: "https://newer.example", Title: "Newer", VisitCount: 3},
@@ -119,8 +119,8 @@ func TestAppLoadInitialHistoryRouteShowsTotalStatsWithWindowedTimeline(t *testin
 func TestAppRunMountsHistoryLoadingBeforeAsyncHydration(t *testing.T) {
 	t.Parallel()
 
-	dom := &fakeActionDOM{fakeDOM: fakeDOM{mounts: make(chan string, 4)}}
-	history := &fakeHistoryService{
+	dom := &recordingActionDOM{recordingDOM: recordingDOM{mounts: make(chan string, 4)}}
+	history := &recordingHistoryService{
 		entries:         []*entity.HistoryEntry{{ID: 1, URL: "https://example.com", Title: "Loaded entry"}},
 		timelineStarted: make(chan struct{}),
 		releaseTimeline: make(chan struct{}),
@@ -147,7 +147,7 @@ func TestAppRunMountsHistoryLoadingBeforeAsyncHydration(t *testing.T) {
 func TestSurfaceActionErrorPreventsStaleAsyncHydrationMount(t *testing.T) {
 	t.Parallel()
 
-	dom := &fakeDOM{mounts: make(chan string, 4)}
+	dom := &recordingDOM{mounts: make(chan string, 4)}
 	app := NewApp(Dependencies{DOM: dom, LocationURI: "dumb://history"})
 	app.currentRoute = RouteHistory
 	staleHTML := "<div>Stale hydrated entry</div>"
@@ -168,8 +168,8 @@ func TestSurfaceActionErrorPreventsStaleAsyncHydrationMount(t *testing.T) {
 func TestSurfaceActionErrorWhileAsyncHydrationBlockedPreventsStaleMount(t *testing.T) {
 	t.Parallel()
 
-	dom := &fakeActionDOM{fakeDOM: fakeDOM{mounts: make(chan string, 4)}}
-	history := &fakeHistoryService{
+	dom := &recordingActionDOM{recordingDOM: recordingDOM{mounts: make(chan string, 4)}}
+	history := &recordingHistoryService{
 		entries:         []*entity.HistoryEntry{{ID: 1, URL: "https://example.com", Title: "Stale hydrated entry"}},
 		timelineStarted: make(chan struct{}),
 		releaseTimeline: make(chan struct{}),
@@ -200,7 +200,7 @@ func TestSurfaceActionErrorWhileAsyncHydrationBlockedPreventsStaleMount(t *testi
 
 func TestCurrentHistoryRouteSnapshotIncludesWindowAfter(t *testing.T) {
 	cursor := time.Date(2026, 4, 25, 9, 0, 0, 0, time.UTC)
-	app := NewApp(Dependencies{History: &fakeHistoryService{}, LocationURI: "dumb://history"})
+	app := NewApp(Dependencies{History: &recordingHistoryService{}, LocationURI: "dumb://history"})
 	app.currentRoute = RouteHistory
 	app.historyWindowAfter = cursor
 
@@ -212,13 +212,13 @@ func TestAppHandleHistoryLoadMoreAppendsOlderWindow(t *testing.T) {
 	t.Parallel()
 
 	cursor := time.Date(2026, 4, 25, 9, 0, 0, 0, time.UTC)
-	history := &fakeHistoryService{window: &entity.HistoryWindow{
+	history := &recordingHistoryService{window: &entity.HistoryWindow{
 		Entries: []*entity.HistoryEntry{{ID: 2, URL: "https://older.example", Title: "Older entry", LastVisited: cursor.Add(-time.Hour)}},
 		Before:  cursor,
 		After:   cursor.Add(-24 * time.Hour),
 		HasMore: true,
 	}}
-	dom := &fakeActionDOM{}
+	dom := &recordingActionDOM{}
 	app := NewApp(Dependencies{DOM: dom, History: history, LocationURI: "dumb://history"})
 	app.currentRoute = RouteHistory
 	app.historyEntries = []*entity.HistoryEntry{{ID: 1, URL: "https://newer.example", Title: "Newer entry", LastVisited: cursor}}
@@ -240,13 +240,13 @@ func TestAppHandleHistoryLoadMoreRemountsWhenAppendUnavailable(t *testing.T) {
 	t.Parallel()
 
 	cursor := time.Date(2026, 4, 25, 9, 0, 0, 0, time.UTC)
-	history := &fakeHistoryService{window: &entity.HistoryWindow{
+	history := &recordingHistoryService{window: &entity.HistoryWindow{
 		Entries: []*entity.HistoryEntry{{ID: 2, URL: "https://older.example", Title: "Older entry", LastVisited: cursor.Add(-time.Hour)}},
 		Before:  cursor,
 		After:   cursor.Add(-24 * time.Hour),
 		HasMore: true,
 	}}
-	dom := &fakeDOM{}
+	dom := &recordingDOM{}
 	app := NewApp(Dependencies{DOM: dom, History: history, LocationURI: "dumb://history"})
 	app.currentRoute = RouteHistory
 	app.historyEntries = []*entity.HistoryEntry{{ID: 1, URL: "https://newer.example", Title: "Newer entry", LastVisited: cursor}}
@@ -267,8 +267,8 @@ func TestAppHandleHistoryLoadMoreIgnoresStaleCursor(t *testing.T) {
 	t.Parallel()
 
 	cursor := time.Date(2026, 4, 25, 9, 0, 0, 0, time.UTC)
-	history := &fakeHistoryService{window: &entity.HistoryWindow{Entries: []*entity.HistoryEntry{{ID: 2, URL: "https://older.example"}}}}
-	dom := &fakeActionDOM{}
+	history := &recordingHistoryService{window: &entity.HistoryWindow{Entries: []*entity.HistoryEntry{{ID: 2, URL: "https://older.example"}}}}
+	dom := &recordingActionDOM{}
 	app := NewApp(Dependencies{DOM: dom, History: history, LocationURI: "dumb://history"})
 	app.currentRoute = RouteHistory
 	app.historyWindowAfter = cursor
@@ -285,7 +285,7 @@ func TestAppHandleHistoryLoadMoreIgnoresStaleCursor(t *testing.T) {
 func TestAppLoadInitialHistoryRouteRendersManagementActions(t *testing.T) {
 	t.Parallel()
 
-	history := &fakeHistoryService{
+	history := &recordingHistoryService{
 		entries: []*entity.HistoryEntry{{
 			ID:    42,
 			URL:   "https://example.com/page",
@@ -314,8 +314,8 @@ func TestAppLoadInitialHistoryRouteRendersManagementActions(t *testing.T) {
 }
 
 func TestAppHandleHistoryActionsRefreshesDOM(t *testing.T) {
-	dom := &fakeDOM{}
-	history := &fakeHistoryService{
+	dom := &recordingDOM{}
+	history := &recordingHistoryService{
 		entries:       []*entity.HistoryEntry{{ID: 42, URL: "https://example.com", Title: "Example"}},
 		searchEntries: []*entity.HistoryEntry{{ID: 7, URL: "https://search.example", Title: "Search result"}},
 	}
@@ -364,8 +364,8 @@ func TestAppHandleHistoryActionsRefreshesDOM(t *testing.T) {
 }
 
 func TestAppCloseStopsActionWorkerAndReleasesDOM(t *testing.T) {
-	dom := &fakeActionDOM{}
-	history := &fakeHistoryService{entries: []*entity.HistoryEntry{{ID: 1, URL: "https://example.com"}}}
+	dom := &recordingActionDOM{}
+	history := &recordingHistoryService{entries: []*entity.HistoryEntry{{ID: 1, URL: "https://example.com"}}}
 	app := NewApp(Dependencies{DOM: dom, History: history, LocationURI: "dumb://history"})
 
 	ctx, cancel := context.WithCancel(context.Background())
@@ -396,8 +396,8 @@ func TestAppRunCleansActionWorkerWhenBindingFails(t *testing.T) {
 }
 
 func TestAppRunReleasesDOMWhenActionWorkerCannotStart(t *testing.T) {
-	dom := &fakeActionDOM{}
-	history := &fakeHistoryService{entries: []*entity.HistoryEntry{{ID: 1, URL: "https://example.com"}}}
+	dom := &recordingActionDOM{}
+	history := &recordingHistoryService{entries: []*entity.HistoryEntry{{ID: 1, URL: "https://example.com"}}}
 	app := NewApp(Dependencies{DOM: dom, History: history, LocationURI: "dumb://history"})
 
 	ctx, cancel := context.WithCancel(context.Background())
@@ -415,7 +415,7 @@ func TestAppRunReleasesDOMWhenActionWorkerCannotStart(t *testing.T) {
 func TestAppLoadInitialHistoryRouteRendersErrorState(t *testing.T) {
 	t.Parallel()
 
-	history := &fakeHistoryService{err: errors.New("database unavailable")}
+	history := &recordingHistoryService{err: errors.New("database unavailable")}
 	app := NewApp(Dependencies{
 		History:     history,
 		LocationURI: "dumb://history",
@@ -432,11 +432,11 @@ func TestAppLoadInitialHistoryRouteRendersErrorState(t *testing.T) {
 func TestAppLoadInitialHistoryRouteAppliesThemeTokens(t *testing.T) {
 	t.Parallel()
 
-	history := &fakeHistoryService{entries: []*entity.HistoryEntry{{
+	history := &recordingHistoryService{entries: []*entity.HistoryEntry{{
 		URL:   "https://example.com",
 		Title: "Example",
 	}}}
-	config := &fakeConfigService{current: dto.SystemviewConfigPayload{
+	config := &recordingConfigService{current: dto.SystemviewConfigPayload{
 		Appearance: dto.WebUIAppearanceConfig{
 			ColorScheme: "prefer-light",
 			LightPalette: dto.ColorPalette{
@@ -479,7 +479,7 @@ func TestAppLoadInitialHistoryRouteAppliesThemeTokens(t *testing.T) {
 func TestAppLoadInitialFavoritesRouteRendersData(t *testing.T) {
 	t.Parallel()
 
-	favorites := &fakeFavoritesService{
+	favorites := &recordingFavoritesService{
 		favorites: []*entity.Favorite{{URL: "https://example.com", Title: "Example"}},
 		folders:   []*entity.Folder{{Name: "Read Later"}},
 		tags:      []*entity.Tag{{Name: "Go"}},
@@ -519,7 +519,7 @@ func TestAppLoadInitialFavoritesRouteRendersCRUDControls(t *testing.T) {
 
 	folderID := entity.FolderID(1)
 	shortcut := 3
-	favorites := &fakeFavoritesService{
+	favorites := &recordingFavoritesService{
 		favorites: []*entity.Favorite{{ID: 42, URL: "https://example.com", Title: "Example", FolderID: &folderID, ShortcutKey: &shortcut}},
 		folders:   []*entity.Folder{{ID: folderID, Name: "Read Later", Icon: "📚"}},
 		tags:      []*entity.Tag{{ID: 7, Name: "Go", Color: "#00add8"}},
@@ -546,8 +546,8 @@ func TestAppLoadInitialFavoritesRouteRendersCRUDControls(t *testing.T) {
 }
 
 func TestAppHandleFavoriteActionsRefreshesDOM(t *testing.T) {
-	dom := &fakeDOM{}
-	favorites := &fakeFavoritesService{
+	dom := &recordingDOM{}
+	favorites := &recordingFavoritesService{
 		favorites: []*entity.Favorite{{ID: 42, URL: "https://example.com", Title: "Example"}},
 		folders:   []*entity.Folder{{ID: 5, Name: "Read Later"}},
 		tags:      []*entity.Tag{{ID: 7, Name: "Go", Color: "#00add8"}},
@@ -675,7 +675,7 @@ func TestAppLoadInitialConfigRouteRendersData(t *testing.T) {
 			},
 		},
 	}
-	service := &fakeConfigService{
+	service := &recordingConfigService{
 		current: config,
 		keybindings: port.KeybindingsConfig{Groups: []port.KeybindingGroup{
 			{
@@ -756,7 +756,7 @@ func TestAppLoadInitialConfigRouteRendersData(t *testing.T) {
 func TestAppLoadInitialConfigRouteRendersEditControls(t *testing.T) {
 	t.Parallel()
 
-	service := &fakeConfigService{
+	service := &recordingConfigService{
 		current: testConfigPayload(),
 		keybindings: port.KeybindingsConfig{Groups: []port.KeybindingGroup{{
 			Mode:        "default",
@@ -793,8 +793,8 @@ func TestAppLoadInitialConfigRouteRendersEditControls(t *testing.T) {
 }
 
 func TestAppHandleConfigActionsRefreshesDOM(t *testing.T) {
-	dom := &fakeDOM{}
-	service := &fakeConfigService{
+	dom := &recordingDOM{}
+	service := &recordingConfigService{
 		current:    testConfigPayload(),
 		defaultCfg: testDefaultConfigPayload(),
 		keybindings: port.KeybindingsConfig{Groups: []port.KeybindingGroup{{
@@ -883,7 +883,7 @@ func TestAppHandleConfigActionsRefreshesDOM(t *testing.T) {
 func TestAppRejectsSearchURLsWithoutPlaceholder(t *testing.T) {
 	t.Parallel()
 
-	service := &fakeConfigService{current: testConfigPayload(), defaultCfg: testDefaultConfigPayload()}
+	service := &recordingConfigService{current: testConfigPayload(), defaultCfg: testDefaultConfigPayload()}
 	app := NewApp(Dependencies{Config: service, LocationURI: "dumb://config"})
 
 	err := app.handleConfigAction(context.Background(), DOMAction{
@@ -909,7 +909,7 @@ func TestAppLoadInitialConfigRouteUsesResolvedAppearanceOnlyForShellTheme(t *tes
 	resolved.DarkPalette.Background = "#222222"
 	resolved.DarkPalette.SurfaceVariant = "#444444"
 	cfg.ResolvedAppearance = &resolved
-	service := &fakeConfigService{
+	service := &recordingConfigService{
 		current:     cfg,
 		keybindings: port.KeybindingsConfig{},
 	}
@@ -956,8 +956,8 @@ func testDefaultConfigPayload() dto.SystemviewConfigPayload {
 	return cfg
 }
 
-// Handwritten fake to capture DOM mounts for stateful render assertions.
-type fakeDOM struct {
+// Recording fixture to capture DOM mounts for stateful render assertions.
+type recordingDOM struct {
 	mu           sync.Mutex
 	mounted      bool
 	html         string
@@ -965,7 +965,7 @@ type fakeDOM struct {
 	mounts       chan string
 }
 
-func (d *fakeDOM) Mount(markup string) error {
+func (d *recordingDOM) Mount(markup string) error {
 	d.mu.Lock()
 	d.mounted = true
 	d.html = markup
@@ -980,19 +980,19 @@ func (d *fakeDOM) Mount(markup string) error {
 	return nil
 }
 
-func (d *fakeDOM) Mounted() bool {
+func (d *recordingDOM) Mounted() bool {
 	d.mu.Lock()
 	defer d.mu.Unlock()
 	return d.mounted
 }
 
-func (d *fakeDOM) HTML() string {
+func (d *recordingDOM) HTML() string {
 	d.mu.Lock()
 	defer d.mu.Unlock()
 	return d.html
 }
 
-func (d *fakeDOM) AppendedHTML() string {
+func (d *recordingDOM) AppendedHTML() string {
 	d.mu.Lock()
 	defer d.mu.Unlock()
 	return d.appendedHTML
@@ -1018,30 +1018,30 @@ func assertNoMount(t *testing.T, mounts <-chan string, wait time.Duration) {
 	}
 }
 
-type fakeActionDOM struct {
-	fakeDOM
+type recordingActionDOM struct {
+	recordingDOM
 	handler  DOMActionHandler
 	released bool
 }
 
-func (d *fakeActionDOM) BindActions(handler DOMActionHandler) error {
+func (d *recordingActionDOM) BindActions(handler DOMActionHandler) error {
 	d.handler = handler
 	return nil
 }
 
-func (d *fakeActionDOM) AppendHistoryTimeline(markup string) error {
+func (d *recordingActionDOM) AppendHistoryTimeline(markup string) error {
 	d.mu.Lock()
 	d.appendedHTML += markup
 	d.mu.Unlock()
 	return nil
 }
 
-func (d *fakeActionDOM) Release() {
+func (d *recordingActionDOM) Release() {
 	d.released = true
 }
 
 type failingActionDOM struct {
-	fakeDOM
+	recordingDOM
 	bindErr error
 }
 
@@ -1049,8 +1049,8 @@ func (d *failingActionDOM) BindActions(DOMActionHandler) error {
 	return d.bindErr
 }
 
-// Handwritten fake to capture history state for stateful render assertions.
-type fakeHistoryService struct {
+// Recording fixture to capture history state for stateful render assertions.
+type recordingHistoryService struct {
 	called       bool
 	limit        int
 	offset       int
@@ -1080,7 +1080,7 @@ type fakeHistoryService struct {
 	startOnce       sync.Once
 }
 
-func (s *fakeHistoryService) Timeline(_ context.Context, limit, offset int) ([]*entity.HistoryEntry, error) {
+func (s *recordingHistoryService) Timeline(_ context.Context, limit, offset int) ([]*entity.HistoryEntry, error) {
 	s.called = true
 	s.limit = limit
 	s.offset = offset
@@ -1093,7 +1093,7 @@ func (s *fakeHistoryService) Timeline(_ context.Context, limit, offset int) ([]*
 	return s.entries, s.err
 }
 
-func (s *fakeHistoryService) TimelineByDomain(_ context.Context, domain string, limit, offset int) ([]*entity.HistoryEntry, error) {
+func (s *recordingHistoryService) TimelineByDomain(_ context.Context, domain string, limit, offset int) ([]*entity.HistoryEntry, error) {
 	s.domainCalled = true
 	s.domain = domain
 	s.limit = limit
@@ -1101,7 +1101,7 @@ func (s *fakeHistoryService) TimelineByDomain(_ context.Context, domain string, 
 	return s.entries, s.err
 }
 
-func (s *fakeHistoryService) TimelineWindow(_ context.Context, before time.Time, domain string) (*entity.HistoryWindow, error) {
+func (s *recordingHistoryService) TimelineWindow(_ context.Context, before time.Time, domain string) (*entity.HistoryWindow, error) {
 	s.called = true
 	s.windowBefore = before
 	s.windowDomain = domain
@@ -1120,7 +1120,7 @@ func (s *fakeHistoryService) TimelineWindow(_ context.Context, before time.Time,
 	return &entity.HistoryWindow{Entries: s.entries, Before: before, After: before.Add(-24 * time.Hour)}, nil
 }
 
-func (s *fakeHistoryService) Search(_ context.Context, query string, limit int) ([]*entity.HistoryEntry, error) {
+func (s *recordingHistoryService) Search(_ context.Context, query string, limit int) ([]*entity.HistoryEntry, error) {
 	s.searchCalled = true
 	s.query = query
 	s.searchLimit = limit
@@ -1130,37 +1130,37 @@ func (s *fakeHistoryService) Search(_ context.Context, query string, limit int) 
 	return s.entries, nil
 }
 
-func (s *fakeHistoryService) DeleteEntry(_ context.Context, id int64) error {
+func (s *recordingHistoryService) DeleteEntry(_ context.Context, id int64) error {
 	s.deletedEntryID = id
 	return nil
 }
 
-func (s *fakeHistoryService) DeleteRange(_ context.Context, rangeID string) error {
+func (s *recordingHistoryService) DeleteRange(_ context.Context, rangeID string) error {
 	s.deletedRangeID = rangeID
 	return nil
 }
 
-func (s *fakeHistoryService) Stats(context.Context) (*entity.HistoryStats, error) {
+func (s *recordingHistoryService) Stats(context.Context) (*entity.HistoryStats, error) {
 	s.statsCalled = true
 	return s.stats, nil
 }
 
-func (s *fakeHistoryService) Analytics(context.Context) (*entity.HistoryAnalytics, error) {
+func (s *recordingHistoryService) Analytics(context.Context) (*entity.HistoryAnalytics, error) {
 	s.analyticsCalled = true
 	return nil, nil
 }
 
-func (s *fakeHistoryService) DomainStats(context.Context, int) ([]*entity.DomainStat, error) {
+func (s *recordingHistoryService) DomainStats(context.Context, int) ([]*entity.DomainStat, error) {
 	return s.domainStats, nil
 }
 
-func (s *fakeHistoryService) DeleteDomain(_ context.Context, domain string) error {
+func (s *recordingHistoryService) DeleteDomain(_ context.Context, domain string) error {
 	s.deletedDomain = domain
 	return nil
 }
 
-// Handwritten fake to capture favorites state for stateful render assertions.
-type fakeFavoritesService struct {
+// Recording fixture to capture favorites state for stateful render assertions.
+type recordingFavoritesService struct {
 	calledList    bool
 	calledFolders bool
 	calledTags    bool
@@ -1184,85 +1184,85 @@ type fakeFavoritesService struct {
 	removedTagID       int64
 }
 
-func (s *fakeFavoritesService) List(context.Context) ([]*entity.Favorite, error) {
+func (s *recordingFavoritesService) List(context.Context) ([]*entity.Favorite, error) {
 	s.calledList = true
 	return s.favorites, nil
 }
 
-func (s *fakeFavoritesService) ListFolders(context.Context) ([]*entity.Folder, error) {
+func (s *recordingFavoritesService) ListFolders(context.Context) ([]*entity.Folder, error) {
 	s.calledFolders = true
 	return s.folders, nil
 }
 
-func (s *fakeFavoritesService) ListTags(context.Context) ([]*entity.Tag, error) {
+func (s *recordingFavoritesService) ListTags(context.Context) ([]*entity.Tag, error) {
 	s.calledTags = true
 	return s.tags, nil
 }
 
-func (s *fakeFavoritesService) CreateFavorite(_ context.Context, input dto.FavoriteCreateInput) (*entity.Favorite, error) {
+func (s *recordingFavoritesService) CreateFavorite(_ context.Context, input dto.FavoriteCreateInput) (*entity.Favorite, error) {
 	s.createdFavorite = input
 	return &entity.Favorite{ID: 99, URL: input.URL, Title: input.Title, FolderID: input.FolderID}, nil
 }
 
-func (s *fakeFavoritesService) UpdateFavorite(_ context.Context, input dto.FavoriteUpdateInput) (*entity.Favorite, error) {
+func (s *recordingFavoritesService) UpdateFavorite(_ context.Context, input dto.FavoriteUpdateInput) (*entity.Favorite, error) {
 	s.updatedFavorite = input
 	return &entity.Favorite{ID: input.ID, URL: "https://example.com", Title: input.Title, FaviconURL: input.FaviconURL, FolderID: input.FolderID, ShortcutKey: input.ShortcutKey}, nil
 }
 
-func (s *fakeFavoritesService) DeleteFavorite(_ context.Context, id int64) error {
+func (s *recordingFavoritesService) DeleteFavorite(_ context.Context, id int64) error {
 	s.deletedFavorite = id
 	return nil
 }
 
-func (s *fakeFavoritesService) SetShortcut(context.Context, int64, *int) error { return nil }
+func (s *recordingFavoritesService) SetShortcut(context.Context, int64, *int) error { return nil }
 
-func (s *fakeFavoritesService) SetFolder(context.Context, int64, *int64) error { return nil }
+func (s *recordingFavoritesService) SetFolder(context.Context, int64, *int64) error { return nil }
 
-func (s *fakeFavoritesService) CreateFolder(_ context.Context, name, icon string, _ *int64) (*entity.Folder, error) {
+func (s *recordingFavoritesService) CreateFolder(_ context.Context, name, icon string, _ *int64) (*entity.Folder, error) {
 	s.createdFolder = name
 	s.createdFolderIcon = icon
 	return &entity.Folder{ID: 77, Name: name, Icon: icon}, nil
 }
 
-func (s *fakeFavoritesService) UpdateFolder(_ context.Context, id int64, _, _ string) error {
+func (s *recordingFavoritesService) UpdateFolder(_ context.Context, id int64, _, _ string) error {
 	s.updatedFolderID = id
 	return nil
 }
 
-func (s *fakeFavoritesService) DeleteFolder(_ context.Context, id int64) error {
+func (s *recordingFavoritesService) DeleteFolder(_ context.Context, id int64) error {
 	s.deletedFolderID = id
 	return nil
 }
 
-func (s *fakeFavoritesService) CreateTag(_ context.Context, name, color string) (*entity.Tag, error) {
+func (s *recordingFavoritesService) CreateTag(_ context.Context, name, color string) (*entity.Tag, error) {
 	s.createdTag = name
 	return &entity.Tag{ID: 55, Name: name, Color: color}, nil
 }
 
-func (s *fakeFavoritesService) UpdateTag(_ context.Context, id int64, _, _ string) error {
+func (s *recordingFavoritesService) UpdateTag(_ context.Context, id int64, _, _ string) error {
 	s.updatedTagID = id
 	return nil
 }
 
-func (s *fakeFavoritesService) DeleteTag(_ context.Context, id int64) error {
+func (s *recordingFavoritesService) DeleteTag(_ context.Context, id int64) error {
 	s.deletedTagID = id
 	return nil
 }
 
-func (s *fakeFavoritesService) AssignTag(_ context.Context, favoriteID, tagID int64) error {
+func (s *recordingFavoritesService) AssignTag(_ context.Context, favoriteID, tagID int64) error {
 	s.assignedFavoriteID = favoriteID
 	s.assignedTagID = tagID
 	return nil
 }
 
-func (s *fakeFavoritesService) RemoveTag(_ context.Context, favoriteID, tagID int64) error {
+func (s *recordingFavoritesService) RemoveTag(_ context.Context, favoriteID, tagID int64) error {
 	s.removedFavoriteID = favoriteID
 	s.removedTagID = tagID
 	return nil
 }
 
-// Handwritten fake to capture config state for stateful render assertions.
-type fakeConfigService struct {
+// Recording fixture to capture config state for stateful render assertions.
+type recordingConfigService struct {
 	calledCurrent     bool
 	calledDefault     bool
 	calledSave        bool
@@ -1280,17 +1280,17 @@ type fakeConfigService struct {
 	resetReq    port.ResetKeybindingRequest
 }
 
-func (s *fakeConfigService) Current(context.Context) (dto.SystemviewConfigPayload, error) {
+func (s *recordingConfigService) Current(context.Context) (dto.SystemviewConfigPayload, error) {
 	s.calledCurrent = true
 	return s.current, nil
 }
 
-func (s *fakeConfigService) Default(context.Context) (dto.SystemviewConfigPayload, error) {
+func (s *recordingConfigService) Default(context.Context) (dto.SystemviewConfigPayload, error) {
 	s.calledDefault = true
 	return s.defaultCfg, nil
 }
 
-func (s *fakeConfigService) Save(_ context.Context, cfg dto.WebUIConfig) error {
+func (s *recordingConfigService) Save(_ context.Context, cfg dto.WebUIConfig) error {
 	s.calledSave = true
 	s.savedConfig = cfg
 	s.current.Appearance = cfg.Appearance
@@ -1308,30 +1308,30 @@ func (s *fakeConfigService) Save(_ context.Context, cfg dto.WebUIConfig) error {
 	return nil
 }
 
-func (s *fakeConfigService) GetKeybindings(context.Context) (port.KeybindingsConfig, error) {
+func (s *recordingConfigService) GetKeybindings(context.Context) (port.KeybindingsConfig, error) {
 	s.calledKeybindings = true
 	return s.keybindings, nil
 }
 
-func (s *fakeConfigService) SetKeybinding(_ context.Context, req port.SetKeybindingRequest) (port.SetKeybindingResponse, error) {
+func (s *recordingConfigService) SetKeybinding(_ context.Context, req port.SetKeybindingRequest) (port.SetKeybindingResponse, error) {
 	s.calledSet = true
 	s.setReq = req
 	return s.setResp, nil
 }
 
-func (s *fakeConfigService) ResetKeybinding(_ context.Context, req port.ResetKeybindingRequest) error {
+func (s *recordingConfigService) ResetKeybinding(_ context.Context, req port.ResetKeybindingRequest) error {
 	s.calledReset = true
 	s.resetReq = req
 	return nil
 }
 
-func (s *fakeConfigService) ResetAllKeybindings(context.Context) error {
+func (s *recordingConfigService) ResetAllKeybindings(context.Context) error {
 	s.calledResetAll = true
 	return nil
 }
 
 func TestHandleFavoriteActionValidatesCreateURL(t *testing.T) {
-	app := NewApp(Dependencies{Favorites: &fakeFavoritesService{}})
+	app := NewApp(Dependencies{Favorites: &recordingFavoritesService{}})
 
 	err := app.handleFavoriteAction(context.Background(), DOMAction{
 		Action: favoriteActionCreate,
@@ -1356,7 +1356,7 @@ func TestHandleFavoriteActionValidatesCreateURL(t *testing.T) {
 }
 
 func TestHandleFavoriteCreateAcceptsInternalDumbRoutes(t *testing.T) {
-	favorites := &fakeFavoritesService{}
+	favorites := &recordingFavoritesService{}
 	app := NewApp(Dependencies{Favorites: favorites})
 
 	require.NoError(t, app.handleFavoriteAction(context.Background(), DOMAction{
@@ -1373,7 +1373,7 @@ func TestHandleFavoriteCreateAcceptsInternalDumbRoutes(t *testing.T) {
 }
 
 func TestHandleFavoriteCreateRejectsUnknownDumbRoutes(t *testing.T) {
-	favorites := &fakeFavoritesService{}
+	favorites := &recordingFavoritesService{}
 	app := NewApp(Dependencies{Favorites: favorites})
 
 	err := app.handleFavoriteAction(context.Background(), DOMAction{
@@ -1397,7 +1397,7 @@ func TestParsePositiveInt64DistinguishesParseAndRangeErrors(t *testing.T) {
 }
 
 func TestHandleFavoriteTagActionsAcceptSnakeCaseIDs(t *testing.T) {
-	favorites := &fakeFavoritesService{}
+	favorites := &recordingFavoritesService{}
 	app := NewApp(Dependencies{Favorites: favorites})
 
 	require.NoError(t, app.handleFavoriteAction(context.Background(), DOMAction{
@@ -1416,8 +1416,8 @@ func TestHandleFavoriteTagActionsAcceptSnakeCaseIDs(t *testing.T) {
 }
 
 func TestHandleHistorySearchClearsDomainFilter(t *testing.T) {
-	dom := &fakeDOM{}
-	history := &fakeHistoryService{searchEntries: []*entity.HistoryEntry{{ID: 7, URL: "https://search.example", Title: "Search result"}}}
+	dom := &recordingDOM{}
+	history := &recordingHistoryService{searchEntries: []*entity.HistoryEntry{{ID: 7, URL: "https://search.example", Title: "Search result"}}}
 	app := NewApp(Dependencies{DOM: dom, History: history, LocationURI: "dumb://history"})
 	app.historyDomainFilter = "example.com"
 
@@ -1433,7 +1433,7 @@ func TestHandleHistorySearchClearsDomainFilter(t *testing.T) {
 }
 
 func TestAppRunWithContextRejectsNilContext(t *testing.T) {
-	app := NewApp(Dependencies{DOM: &fakeDOM{}, LocationURI: "dumb://history"})
+	app := NewApp(Dependencies{DOM: &recordingDOM{}, LocationURI: "dumb://history"})
 
 	var ctx context.Context
 	err := app.RunWithContext(ctx)
@@ -1442,7 +1442,7 @@ func TestAppRunWithContextRejectsNilContext(t *testing.T) {
 }
 
 func TestAppRunWithContextRequiresDOMBeforeLoading(t *testing.T) {
-	history := &fakeHistoryService{entries: []*entity.HistoryEntry{{ID: 1, URL: "https://example.com"}}}
+	history := &recordingHistoryService{entries: []*entity.HistoryEntry{{ID: 1, URL: "https://example.com"}}}
 	app := NewApp(Dependencies{History: history, LocationURI: "dumb://history"})
 
 	err := app.RunWithContext(context.Background())
@@ -1453,9 +1453,9 @@ func TestAppRunWithContextRequiresDOMBeforeLoading(t *testing.T) {
 
 func TestHandleActionsRejectUnknownAction(t *testing.T) {
 	app := NewApp(Dependencies{
-		History:   &fakeHistoryService{},
-		Favorites: &fakeFavoritesService{},
-		Config:    &fakeConfigService{current: testConfigPayload()},
+		History:   &recordingHistoryService{},
+		Favorites: &recordingFavoritesService{},
+		Config:    &recordingConfigService{current: testConfigPayload()},
 	})
 
 	require.ErrorContains(t, app.handleHistoryAction(context.Background(), DOMAction{Action: "history.unknown"}), "unknown history action")
@@ -1464,7 +1464,7 @@ func TestHandleActionsRejectUnknownAction(t *testing.T) {
 }
 
 func TestSavePerformanceConfigRejectsOutOfRangeValues(t *testing.T) {
-	service := &fakeConfigService{current: testConfigPayload()}
+	service := &recordingConfigService{current: testConfigPayload()}
 	app := NewApp(Dependencies{Config: service})
 
 	err := app.handleConfigAction(context.Background(), DOMAction{

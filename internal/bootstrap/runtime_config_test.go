@@ -5,32 +5,44 @@ import (
 	"testing"
 
 	"github.com/bnema/dumber/internal/application/port"
+	bootstrapmocks "github.com/bnema/dumber/internal/bootstrap/mocks"
 	"github.com/bnema/dumber/internal/domain/entity"
 	"github.com/bnema/dumber/internal/infrastructure/config"
+	"github.com/stretchr/testify/mock"
 )
 
-type fakeConfigManager struct {
+type configManagerState struct {
 	current    *config.Config
 	watchCalls int
 	callbacks  []func(*config.Config)
 }
 
-func (f *fakeConfigManager) Watch() error {
-	f.watchCalls++
+func newMockConfigManager(t *testing.T, state *configManagerState) *bootstrapmocks.MockConfigChangeManager {
+	t.Helper()
+
+	manager := bootstrapmocks.NewMockConfigChangeManager(t)
+	manager.EXPECT().Get().RunAndReturn(state.get).Maybe()
+	manager.EXPECT().Watch().RunAndReturn(state.watch).Maybe()
+	manager.EXPECT().OnConfigChange(mock.Anything).RunAndReturn(state.onConfigChange).Maybe()
+	return manager
+}
+
+func (s *configManagerState) watch() error {
+	s.watchCalls++
 	return nil
 }
 
-func (f *fakeConfigManager) OnConfigChange(callback func(*config.Config)) {
-	f.callbacks = append(f.callbacks, callback)
+func (s *configManagerState) onConfigChange(callback func(*config.Config)) {
+	s.callbacks = append(s.callbacks, callback)
 }
 
-func (f *fakeConfigManager) Get() *config.Config {
-	return f.current
+func (s *configManagerState) get() *config.Config {
+	return s.current
 }
 
-func (f *fakeConfigManager) emit(next *config.Config) {
-	f.current = next
-	for _, callback := range f.callbacks {
+func (s *configManagerState) emit(next *config.Config) {
+	s.current = next
+	for _, callback := range s.callbacks {
 		callback(next)
 	}
 }
@@ -71,8 +83,8 @@ func TestEngineSettingsPayloadFromConfigMapsRuntimeFields(t *testing.T) {
 func TestRuntimeConfigProviderUpdatesSnapshotBeforeCallback(t *testing.T) {
 	initial := config.DefaultConfig()
 	initial.DefaultUIScale = 1
-	manager := &fakeConfigManager{}
-	provider := NewRuntimeConfigProvider(initial, manager)
+	manager := &configManagerState{}
+	provider := NewRuntimeConfigProvider(initial, newMockConfigManager(t, manager))
 
 	var seen port.RuntimeConfigSnapshot
 	provider.OnChange(func(snapshot port.RuntimeConfigSnapshot) {
@@ -94,8 +106,8 @@ func TestRuntimeConfigProviderUpdatesSnapshotBeforeCallback(t *testing.T) {
 func TestRuntimeConfigProviderCurrentReflectsManagerGetWithoutSubscription(t *testing.T) {
 	initial := config.DefaultConfig()
 	initial.DefaultUIScale = 1
-	manager := &fakeConfigManager{current: initial}
-	provider := NewRuntimeConfigProvider(initial, manager)
+	manager := &configManagerState{current: initial}
+	provider := NewRuntimeConfigProvider(initial, newMockConfigManager(t, manager))
 
 	next := config.DefaultConfig()
 	next.DefaultUIScale = 1.8
@@ -109,8 +121,8 @@ func TestRuntimeConfigProviderCurrentReflectsManagerGetWithoutSubscription(t *te
 func TestRuntimeConfigProviderOnChangeCallbackCanCallCurrent(t *testing.T) {
 	initial := config.DefaultConfig()
 	initial.DefaultUIScale = 1
-	manager := &fakeConfigManager{current: initial}
-	provider := NewRuntimeConfigProvider(initial, manager)
+	manager := &configManagerState{current: initial}
+	provider := NewRuntimeConfigProvider(initial, newMockConfigManager(t, manager))
 
 	completed := false
 	var seen port.RuntimeConfigSnapshot
@@ -132,8 +144,8 @@ func TestRuntimeConfigProviderOnChangeCallbackCanCallCurrent(t *testing.T) {
 }
 
 func TestRuntimeConfigProviderOnChangeNilCallbackDoesNotRegister(t *testing.T) {
-	manager := &fakeConfigManager{current: config.DefaultConfig()}
-	provider := NewRuntimeConfigProvider(config.DefaultConfig(), manager)
+	manager := &configManagerState{current: config.DefaultConfig()}
+	provider := NewRuntimeConfigProvider(config.DefaultConfig(), newMockConfigManager(t, manager))
 
 	provider.OnChange(nil)
 
@@ -143,8 +155,8 @@ func TestRuntimeConfigProviderOnChangeNilCallbackDoesNotRegister(t *testing.T) {
 }
 
 func TestRuntimeConfigProviderWatchDelegatesToManager(t *testing.T) {
-	manager := &fakeConfigManager{}
-	provider := NewRuntimeConfigProvider(config.DefaultConfig(), manager)
+	manager := &configManagerState{}
+	provider := NewRuntimeConfigProvider(config.DefaultConfig(), newMockConfigManager(t, manager))
 
 	if err := provider.Watch(); err != nil {
 		t.Fatalf("Watch returned error: %v", err)
@@ -159,7 +171,7 @@ func TestRuntimeConfigProviderCurrentReturnsMapClone(t *testing.T) {
 	cfg.SearchShortcuts = map[string]config.SearchShortcut{
 		"gh": {URL: "https://github.com/search?q=%s", Description: "GitHub"},
 	}
-	provider := NewRuntimeConfigProvider(cfg, &fakeConfigManager{current: cfg})
+	provider := NewRuntimeConfigProvider(cfg, newMockConfigManager(t, &configManagerState{current: cfg}))
 
 	first := provider.Current()
 	first.UI.SearchShortcuts["gh"] = port.RuntimeSearchShortcut{URL: "mutated"}
@@ -172,7 +184,7 @@ func TestRuntimeConfigProviderCurrentReturnsMapClone(t *testing.T) {
 
 func TestRuntimeConfigProviderCurrentReturnsNestedConfigClone(t *testing.T) {
 	cfg := runtimeConfigWithNestedMutableFields()
-	provider := NewRuntimeConfigProvider(cfg, &fakeConfigManager{current: cfg})
+	provider := NewRuntimeConfigProvider(cfg, newMockConfigManager(t, &configManagerState{current: cfg}))
 
 	first := provider.Current()
 	mutateNestedRuntimeConfigSnapshot(first)
@@ -182,8 +194,8 @@ func TestRuntimeConfigProviderCurrentReturnsNestedConfigClone(t *testing.T) {
 }
 
 func TestRuntimeConfigProviderOnChangePassesNestedConfigClone(t *testing.T) {
-	manager := &fakeConfigManager{}
-	provider := NewRuntimeConfigProvider(config.DefaultConfig(), manager)
+	manager := &configManagerState{}
+	provider := NewRuntimeConfigProvider(config.DefaultConfig(), newMockConfigManager(t, manager))
 
 	provider.OnChange(func(snapshot port.RuntimeConfigSnapshot) {
 		mutateNestedRuntimeConfigSnapshot(snapshot)
@@ -246,7 +258,7 @@ func mutateNestedRuntimeConfigSnapshot(snapshot port.RuntimeConfigSnapshot) {
 	snapshot.UI.Session.SessionMode.Actions["added-session"] = entity.ActionBinding{Keys: []string{"added"}}
 }
 
-func mutateActionBinding(actions map[string]entity.ActionBinding, action string, key string) {
+func mutateActionBinding(actions map[string]entity.ActionBinding, action, key string) {
 	binding := actions[action]
 	binding.Keys[0] = key
 	actions[action] = binding
@@ -279,7 +291,7 @@ func assertNestedRuntimeConfigSnapshotUnchanged(t *testing.T, snapshot port.Runt
 	assertMapEntryAbsent(t, snapshot.UI.Session.SessionMode.Actions, "added-session")
 }
 
-func assertActionBinding(t *testing.T, actions map[string]entity.ActionBinding, action string, wantKey string) {
+func assertActionBinding(t *testing.T, actions map[string]entity.ActionBinding, action, wantKey string) {
 	t.Helper()
 
 	binding, ok := actions[action]

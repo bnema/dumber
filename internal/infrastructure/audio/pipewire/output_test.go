@@ -8,15 +8,15 @@ import (
 	"testing"
 
 	"github.com/bnema/dumber/internal/application/port"
+	pipewiremocks "github.com/bnema/dumber/internal/infrastructure/audio/pipewire/mocks"
 	pwpipewire "github.com/bnema/purego-pipewire/pipewire"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
 
-// --- Test doubles ---
+type playerRecorder struct {
+	*pipewiremocks.MockPlayer
 
-// fakePlayer is a test double for purego-pipewire Player.
-type fakePlayer struct {
 	started    bool
 	paused     bool
 	stopped    bool
@@ -28,7 +28,19 @@ type fakePlayer struct {
 	closeErr error
 }
 
-func (p *fakePlayer) Start() error {
+func newPlayerRecorder(t *testing.T) *playerRecorder {
+	t.Helper()
+
+	recorder := &playerRecorder{MockPlayer: pipewiremocks.NewMockPlayer(t)}
+	recorder.EXPECT().Start().RunAndReturn(recorder.start).Maybe()
+	recorder.EXPECT().Pause().RunAndReturn(recorder.pause).Maybe()
+	recorder.EXPECT().Stop().RunAndReturn(recorder.stop).Maybe()
+	recorder.EXPECT().Close().RunAndReturn(recorder.close).Maybe()
+	recorder.EXPECT().State().RunAndReturn(recorder.currentState).Maybe()
+	return recorder
+}
+
+func (p *playerRecorder) start() error {
 	if p.startErr != nil {
 		return p.startErr
 	}
@@ -37,13 +49,13 @@ func (p *fakePlayer) Start() error {
 	return nil
 }
 
-func (p *fakePlayer) Pause() error {
+func (p *playerRecorder) pause() error {
 	p.paused = true
 	p.state = pwpipewire.PlayerStatePaused
 	return nil
 }
 
-func (p *fakePlayer) Stop() error {
+func (p *playerRecorder) stop() error {
 	if p.stopErr != nil {
 		return p.stopErr
 	}
@@ -52,7 +64,7 @@ func (p *fakePlayer) Stop() error {
 	return nil
 }
 
-func (p *fakePlayer) Close() error {
+func (p *playerRecorder) close() error {
 	if p.closeErr != nil {
 		return p.closeErr
 	}
@@ -61,7 +73,7 @@ func (p *fakePlayer) Close() error {
 	return nil
 }
 
-func (p *fakePlayer) State() pwpipewire.PlayerState {
+func (p *playerRecorder) currentState() pwpipewire.PlayerState {
 	return p.state
 }
 
@@ -69,7 +81,7 @@ func (p *fakePlayer) State() pwpipewire.PlayerState {
 
 func TestFactory_NewStream_ValidFormat_CreatesStream(t *testing.T) {
 	var capturedConfig pwpipewire.PlayerConfig
-	player := &fakePlayer{}
+	player := newPlayerRecorder(t)
 
 	factory := &Factory{
 		createPlayer: func(config pwpipewire.PlayerConfig, _ pwpipewire.PlayerCallbacks) (pwpipewire.Player, error) {
@@ -175,7 +187,8 @@ func TestFactory_NewStream_PlayerCreationFails_ReturnsError(t *testing.T) {
 }
 
 func TestFactory_NewStream_PlayerStartFails_ClosesAndReturnsError(t *testing.T) {
-	player := &fakePlayer{startErr: errors.New("start failed")}
+	player := newPlayerRecorder(t)
+	player.startErr = errors.New("start failed")
 	factory := &Factory{
 		createPlayer: func(_ pwpipewire.PlayerConfig, _ pwpipewire.PlayerCallbacks) (pwpipewire.Player, error) {
 			return player, nil
@@ -224,7 +237,7 @@ func TestFactory_NewStream_MultipleFormats_Accepted(t *testing.T) {
 					assert.Equal(t, fmt.SampleRate, config.SampleRate)
 					assert.Equal(t, fmt.ChannelCount, config.Channels)
 					assert.Equal(t, fmt.FramesPerBuffer, config.FramesPerBuffer)
-					return &fakePlayer{}, nil
+					return newPlayerRecorder(t), nil
 				},
 			}
 
@@ -244,7 +257,7 @@ func TestFactory_ImplementsPortInterface(_ *testing.T) {
 // --- Stream adapter tests ---
 
 func TestPlayerStreamAdapter_Write_SendsToBuffer(t *testing.T) {
-	player := &fakePlayer{}
+	player := newPlayerRecorder(t)
 	adapter := &playerStreamAdapter{
 		player: player,
 		buf:    make(chan [][]float32, 4),
@@ -265,7 +278,7 @@ func TestPlayerStreamAdapter_Write_SendsToBuffer(t *testing.T) {
 }
 
 func TestPlayerStreamAdapter_Write_AfterClose_ReturnsError(t *testing.T) {
-	player := &fakePlayer{}
+	player := newPlayerRecorder(t)
 	adapter := &playerStreamAdapter{
 		player: player,
 		buf:    make(chan [][]float32, 4),
@@ -279,7 +292,7 @@ func TestPlayerStreamAdapter_Write_AfterClose_ReturnsError(t *testing.T) {
 }
 
 func TestPlayerStreamAdapter_Close_StopsAndClosesPlayer(t *testing.T) {
-	player := &fakePlayer{}
+	player := newPlayerRecorder(t)
 	adapter := &playerStreamAdapter{
 		player: player,
 		buf:    make(chan [][]float32, 4),
@@ -294,7 +307,7 @@ func TestPlayerStreamAdapter_Close_StopsAndClosesPlayer(t *testing.T) {
 }
 
 func TestPlayerStreamAdapter_Close_IsIdempotent(t *testing.T) {
-	player := &fakePlayer{}
+	player := newPlayerRecorder(t)
 	adapter := &playerStreamAdapter{
 		player: player,
 		buf:    make(chan [][]float32, 4),
@@ -306,7 +319,8 @@ func TestPlayerStreamAdapter_Close_IsIdempotent(t *testing.T) {
 }
 
 func TestPlayerStreamAdapter_Close_PropagatesStopError(t *testing.T) {
-	player := &fakePlayer{stopErr: errors.New("stop error")}
+	player := newPlayerRecorder(t)
+	player.stopErr = errors.New("stop error")
 	adapter := &playerStreamAdapter{
 		player: player,
 		buf:    make(chan [][]float32, 4),
@@ -319,7 +333,8 @@ func TestPlayerStreamAdapter_Close_PropagatesStopError(t *testing.T) {
 }
 
 func TestPlayerStreamAdapter_Close_PropagatesCloseError(t *testing.T) {
-	player := &fakePlayer{closeErr: errors.New("close error")}
+	player := newPlayerRecorder(t)
+	player.closeErr = errors.New("close error")
 	adapter := &playerStreamAdapter{
 		player: player,
 		buf:    make(chan [][]float32, 4),
@@ -427,7 +442,7 @@ func TestCopyToPCM_EmptySamples_ReturnsZero(t *testing.T) {
 
 func TestPlayerStreamAdapter_Write_DropsWhenBufferFull(t *testing.T) {
 	adapter := &playerStreamAdapter{
-		player: &fakePlayer{},
+		player: newPlayerRecorder(t),
 		buf:    make(chan [][]float32, 4),
 		closed: make(chan struct{}),
 	}
@@ -450,7 +465,7 @@ func TestPlayerStreamAdapter_Write_DropsWhenBufferFull(t *testing.T) {
 
 func TestPlayerStreamAdapter_Write_DropsLogOnlyOnFirstAndPowerOfTwo(t *testing.T) {
 	adapter := &playerStreamAdapter{
-		player: &fakePlayer{},
+		player: newPlayerRecorder(t),
 		buf:    make(chan [][]float32, 1), // tiny buffer to force drops
 		closed: make(chan struct{}),
 	}
@@ -470,7 +485,7 @@ func TestPlayerStreamAdapter_Write_DropsLogOnlyOnFirstAndPowerOfTwo(t *testing.T
 // --- Concurrent Write / Close tests ---
 
 func TestPlayerStreamAdapter_ConcurrentWriteClose_NoRace(t *testing.T) {
-	player := &fakePlayer{}
+	player := newPlayerRecorder(t)
 	adapter := &playerStreamAdapter{
 		player: player,
 		buf:    make(chan [][]float32, 4),
@@ -507,7 +522,7 @@ func TestNewFactory_Succeeds(t *testing.T) {
 
 func TestStream_WriteFlowsThroughToFill(t *testing.T) {
 	var capturedCallbacks pwpipewire.PlayerCallbacks
-	player := &fakePlayer{}
+	player := newPlayerRecorder(t)
 
 	factory := &Factory{
 		createPlayer: func(_ pwpipewire.PlayerConfig, callbacks pwpipewire.PlayerCallbacks) (pwpipewire.Player, error) {

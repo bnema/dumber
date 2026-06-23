@@ -17,8 +17,8 @@ import (
 func TestNewBridgeApp_WiresHistoryService(t *testing.T) {
 	t.Parallel()
 
-	bridge := &fakeBridgeService{historyEntries: []*entity.HistoryEntry{{Title: "Example", URL: "https://example.com"}}}
-	app := newBridgeApp(&fakeDOM{}, "dumb://history", bridge)
+	bridge := &bridgeServiceRecorder{historyEntries: []*entity.HistoryEntry{{Title: "Example", URL: "https://example.com"}}}
+	app := newBridgeApp(&recordingDOM{}, "dumb://history", bridge)
 
 	require.NoError(t, app.LoadInitial(context.Background()))
 	assert.True(t, bridge.calledHistory.Load())
@@ -30,7 +30,7 @@ func TestNewBridgeApp_WiresHistoryService(t *testing.T) {
 func TestNewBridgeApp_UsesCurrentConfigForNonConfigRoutes(t *testing.T) {
 	t.Parallel()
 
-	bridge := &fakeBridgeService{
+	bridge := &bridgeServiceRecorder{
 		historyEntries: []*entity.HistoryEntry{{Title: "Example", URL: "https://example.com"}},
 		currentConfig: dto.SystemviewConfigPayload{
 			Appearance: dto.WebUIAppearanceConfig{
@@ -47,7 +47,7 @@ func TestNewBridgeApp_UsesCurrentConfigForNonConfigRoutes(t *testing.T) {
 			},
 		},
 	}
-	dom := &fakeDOM{mounts: make(chan string, 4)}
+	dom := &recordingDOM{mounts: make(chan string, 4)}
 	app := newBridgeApp(dom, "dumb://history", bridge)
 
 	require.NoError(t, app.Run())
@@ -62,12 +62,12 @@ func TestNewBridgeApp_UsesCurrentConfigForNonConfigRoutes(t *testing.T) {
 func TestNewBridgeApp_WiresFavoritesService(t *testing.T) {
 	t.Parallel()
 
-	bridge := &fakeBridgeService{
+	bridge := &bridgeServiceRecorder{
 		favorites: []*entity.Favorite{{Title: "Example", URL: "https://example.com"}},
 		folders:   []*entity.Folder{{Name: "Read Later"}},
 		tags:      []*entity.Tag{{Name: "Go"}},
 	}
-	app := newBridgeApp(&fakeDOM{}, "dumb://favorites", bridge)
+	app := newBridgeApp(&recordingDOM{}, "dumb://favorites", bridge)
 
 	require.NoError(t, app.LoadInitial(context.Background()))
 	assert.False(t, bridge.calledHistory.Load())
@@ -79,11 +79,11 @@ func TestNewBridgeApp_WiresFavoritesService(t *testing.T) {
 func TestNewBridgeApp_WiresConfigService(t *testing.T) {
 	t.Parallel()
 
-	bridge := &fakeBridgeService{
+	bridge := &bridgeServiceRecorder{
 		currentConfig: dto.SystemviewConfigPayload{EngineType: "webkit"},
 		keybindings:   port.KeybindingsConfig{Groups: []port.KeybindingGroup{{DisplayName: "Default"}}},
 	}
-	app := newBridgeApp(&fakeDOM{}, "dumb://config", bridge)
+	app := newBridgeApp(&recordingDOM{}, "dumb://config", bridge)
 
 	require.NoError(t, app.LoadInitial(context.Background()))
 	assert.False(t, bridge.calledHistory.Load())
@@ -92,12 +92,12 @@ func TestNewBridgeApp_WiresConfigService(t *testing.T) {
 	assert.True(t, bridge.calledKeybindings.Load())
 }
 
-type fakeDOM struct {
+type recordingDOM struct {
 	html   string
 	mounts chan string
 }
 
-func (f *fakeDOM) Mount(html string) error {
+func (f *recordingDOM) Mount(html string) error {
 	f.html = html
 	if f.mounts != nil {
 		select {
@@ -131,9 +131,9 @@ func receiveMountContaining(t *testing.T, mounts <-chan string, values ...string
 	}
 }
 
-// Handwritten fake intentionally tracks state across history, favorites, config,
+// Recording fixture intentionally tracks state across history, favorites, config,
 // and keybindings boundaries for the composite bootstrap assertions.
-type fakeBridgeService struct {
+type bridgeServiceRecorder struct {
 	calledHistory     atomic.Bool
 	calledFavorites   atomic.Bool
 	calledConfig      atomic.Bool
@@ -147,112 +147,112 @@ type fakeBridgeService struct {
 	keybindings    port.KeybindingsConfig
 }
 
-func (f *fakeBridgeService) Timeline(context.Context, int, int) ([]*entity.HistoryEntry, error) {
+func (f *bridgeServiceRecorder) Timeline(context.Context, int, int) ([]*entity.HistoryEntry, error) {
 	f.calledHistory.Store(true)
 	return f.historyEntries, nil
 }
 
-func (f *fakeBridgeService) TimelineByDomain(context.Context, string, int, int) ([]*entity.HistoryEntry, error) {
+func (f *bridgeServiceRecorder) TimelineByDomain(context.Context, string, int, int) ([]*entity.HistoryEntry, error) {
 	f.calledHistory.Store(true)
 	return f.historyEntries, nil
 }
 
-func (f *fakeBridgeService) TimelineWindow(_ context.Context, before time.Time, _ string) (*entity.HistoryWindow, error) {
+func (f *bridgeServiceRecorder) TimelineWindow(_ context.Context, before time.Time, _ string) (*entity.HistoryWindow, error) {
 	f.calledHistory.Store(true)
 	return &entity.HistoryWindow{Entries: f.historyEntries, Before: before, After: before.Add(-24 * time.Hour)}, nil
 }
 
-func (*fakeBridgeService) Search(context.Context, string, int) ([]*entity.HistoryEntry, error) {
+func (*bridgeServiceRecorder) Search(context.Context, string, int) ([]*entity.HistoryEntry, error) {
 	return nil, nil
 }
 
-func (*fakeBridgeService) DeleteEntry(context.Context, int64) error { return nil }
+func (*bridgeServiceRecorder) DeleteEntry(context.Context, int64) error { return nil }
 
-func (*fakeBridgeService) DeleteRange(context.Context, string) error { return nil }
+func (*bridgeServiceRecorder) DeleteRange(context.Context, string) error { return nil }
 
-func (*fakeBridgeService) Stats(context.Context) (*entity.HistoryStats, error) {
+func (*bridgeServiceRecorder) Stats(context.Context) (*entity.HistoryStats, error) {
 	return nil, nil
 }
 
-func (*fakeBridgeService) Analytics(context.Context) (*entity.HistoryAnalytics, error) {
+func (*bridgeServiceRecorder) Analytics(context.Context) (*entity.HistoryAnalytics, error) {
 	return nil, nil
 }
 
-func (*fakeBridgeService) DomainStats(context.Context, int) ([]*entity.DomainStat, error) {
+func (*bridgeServiceRecorder) DomainStats(context.Context, int) ([]*entity.DomainStat, error) {
 	return nil, nil
 }
 
-func (*fakeBridgeService) DeleteDomain(context.Context, string) error { return nil }
+func (*bridgeServiceRecorder) DeleteDomain(context.Context, string) error { return nil }
 
-func (f *fakeBridgeService) List(context.Context) ([]*entity.Favorite, error) {
+func (f *bridgeServiceRecorder) List(context.Context) ([]*entity.Favorite, error) {
 	f.calledFavorites.Store(true)
 	return f.favorites, nil
 }
 
-func (*fakeBridgeService) CreateFavorite(context.Context, dto.FavoriteCreateInput) (*entity.Favorite, error) {
+func (*bridgeServiceRecorder) CreateFavorite(context.Context, dto.FavoriteCreateInput) (*entity.Favorite, error) {
 	return nil, nil
 }
 
-func (*fakeBridgeService) UpdateFavorite(context.Context, dto.FavoriteUpdateInput) (*entity.Favorite, error) {
+func (*bridgeServiceRecorder) UpdateFavorite(context.Context, dto.FavoriteUpdateInput) (*entity.Favorite, error) {
 	return nil, nil
 }
 
-func (*fakeBridgeService) DeleteFavorite(context.Context, int64) error { return nil }
+func (*bridgeServiceRecorder) DeleteFavorite(context.Context, int64) error { return nil }
 
-func (f *fakeBridgeService) ListFolders(context.Context) ([]*entity.Folder, error) {
+func (f *bridgeServiceRecorder) ListFolders(context.Context) ([]*entity.Folder, error) {
 	return f.folders, nil
 }
 
-func (f *fakeBridgeService) ListTags(context.Context) ([]*entity.Tag, error) {
+func (f *bridgeServiceRecorder) ListTags(context.Context) ([]*entity.Tag, error) {
 	return f.tags, nil
 }
 
-func (*fakeBridgeService) SetShortcut(context.Context, int64, *int) error { return nil }
+func (*bridgeServiceRecorder) SetShortcut(context.Context, int64, *int) error { return nil }
 
-func (*fakeBridgeService) SetFolder(context.Context, int64, *int64) error { return nil }
+func (*bridgeServiceRecorder) SetFolder(context.Context, int64, *int64) error { return nil }
 
-func (*fakeBridgeService) CreateFolder(context.Context, string, string, *int64) (*entity.Folder, error) {
+func (*bridgeServiceRecorder) CreateFolder(context.Context, string, string, *int64) (*entity.Folder, error) {
 	return nil, nil
 }
 
-func (*fakeBridgeService) UpdateFolder(context.Context, int64, string, string) error { return nil }
+func (*bridgeServiceRecorder) UpdateFolder(context.Context, int64, string, string) error { return nil }
 
-func (*fakeBridgeService) DeleteFolder(context.Context, int64) error { return nil }
+func (*bridgeServiceRecorder) DeleteFolder(context.Context, int64) error { return nil }
 
-func (*fakeBridgeService) CreateTag(context.Context, string, string) (*entity.Tag, error) {
+func (*bridgeServiceRecorder) CreateTag(context.Context, string, string) (*entity.Tag, error) {
 	return nil, nil
 }
 
-func (*fakeBridgeService) UpdateTag(context.Context, int64, string, string) error { return nil }
+func (*bridgeServiceRecorder) UpdateTag(context.Context, int64, string, string) error { return nil }
 
-func (*fakeBridgeService) DeleteTag(context.Context, int64) error { return nil }
+func (*bridgeServiceRecorder) DeleteTag(context.Context, int64) error { return nil }
 
-func (*fakeBridgeService) AssignTag(context.Context, int64, int64) error { return nil }
+func (*bridgeServiceRecorder) AssignTag(context.Context, int64, int64) error { return nil }
 
-func (*fakeBridgeService) RemoveTag(context.Context, int64, int64) error { return nil }
+func (*bridgeServiceRecorder) RemoveTag(context.Context, int64, int64) error { return nil }
 
-func (f *fakeBridgeService) Current(context.Context) (dto.SystemviewConfigPayload, error) {
+func (f *bridgeServiceRecorder) Current(context.Context) (dto.SystemviewConfigPayload, error) {
 	f.calledConfig.Store(true)
 	return f.currentConfig, nil
 }
 
-func (*fakeBridgeService) Default(context.Context) (dto.SystemviewConfigPayload, error) {
+func (*bridgeServiceRecorder) Default(context.Context) (dto.SystemviewConfigPayload, error) {
 	return dto.SystemviewConfigPayload{}, nil
 }
 
-func (*fakeBridgeService) Save(context.Context, dto.WebUIConfig) error { return nil }
+func (*bridgeServiceRecorder) Save(context.Context, dto.WebUIConfig) error { return nil }
 
-func (f *fakeBridgeService) GetKeybindings(context.Context) (port.KeybindingsConfig, error) {
+func (f *bridgeServiceRecorder) GetKeybindings(context.Context) (port.KeybindingsConfig, error) {
 	f.calledKeybindings.Store(true)
 	return f.keybindings, nil
 }
 
-func (*fakeBridgeService) SetKeybinding(context.Context, port.SetKeybindingRequest) (port.SetKeybindingResponse, error) {
+func (*bridgeServiceRecorder) SetKeybinding(context.Context, port.SetKeybindingRequest) (port.SetKeybindingResponse, error) {
 	return port.SetKeybindingResponse{}, nil
 }
 
-func (*fakeBridgeService) ResetKeybinding(context.Context, port.ResetKeybindingRequest) error {
+func (*bridgeServiceRecorder) ResetKeybinding(context.Context, port.ResetKeybindingRequest) error {
 	return nil
 }
 
-func (*fakeBridgeService) ResetAllKeybindings(context.Context) error { return nil }
+func (*bridgeServiceRecorder) ResetAllKeybindings(context.Context) error { return nil }

@@ -9,10 +9,14 @@ import (
 	"testing"
 
 	"github.com/bnema/dumber/internal/domain/entity"
+	clipboardmocks "github.com/bnema/dumber/internal/infrastructure/clipboard/mocks"
+	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 )
 
-type fakeToolkitClipboard struct {
+type toolkitClipboardRecorder struct {
+	*clipboardmocks.MockToolkitClipboard
+
 	writeTextCalls  int
 	readTextCalls   int
 	writeImageCalls int
@@ -23,67 +27,81 @@ type fakeToolkitClipboard struct {
 	writeImageErr   error
 }
 
-func (f *fakeToolkitClipboard) WriteText(_ context.Context, text string) error {
-	f.writeTextCalls++
-	f.text = text
-	return f.writeTextErr
+func newToolkitClipboardRecorder(t *testing.T) *toolkitClipboardRecorder {
+	t.Helper()
+
+	recorder := &toolkitClipboardRecorder{MockToolkitClipboard: clipboardmocks.NewMockToolkitClipboard(t)}
+	recorder.EXPECT().WriteText(mock.Anything, mock.Anything).RunAndReturn(recorder.writeText).Maybe()
+	recorder.EXPECT().ReadText(mock.Anything).RunAndReturn(recorder.readText).Maybe()
+	recorder.EXPECT().WriteImage(mock.Anything, mock.Anything).RunAndReturn(recorder.writeImage).Maybe()
+	return recorder
 }
 
-func (f *fakeToolkitClipboard) ReadText(_ context.Context) (string, error) {
-	f.readTextCalls++
-	return f.text, f.readTextErr
+func (r *toolkitClipboardRecorder) writeText(_ context.Context, text string) error {
+	r.writeTextCalls++
+	r.text = text
+	return r.writeTextErr
 }
 
-func (f *fakeToolkitClipboard) WriteImage(_ context.Context, image entity.ImageData) error {
-	f.writeImageCalls++
-	f.image = image
-	return f.writeImageErr
+func (r *toolkitClipboardRecorder) readText(_ context.Context) (string, error) {
+	r.readTextCalls++
+	return r.text, r.readTextErr
+}
+
+func (r *toolkitClipboardRecorder) writeImage(_ context.Context, image entity.ImageData) error {
+	r.writeImageCalls++
+	r.image = image
+	return r.writeImageErr
 }
 
 func TestAdapter_ReadTextFallsBackToToolkitClipboardWhenNoSystemTool(t *testing.T) {
-	fake := &fakeToolkitClipboard{text: "toolkit text"}
-	adapter := &Adapter{toolkit: fake}
+	toolkit := newToolkitClipboardRecorder(t)
+	toolkit.text = "toolkit text"
+	adapter := &Adapter{toolkit: toolkit}
 
 	text, err := adapter.ReadText(context.Background())
 
 	require.NoError(t, err)
 	require.Equal(t, "toolkit text", text)
-	require.Equal(t, 1, fake.readTextCalls)
+	require.Equal(t, 1, toolkit.readTextCalls)
 }
 
 func TestAdapter_HasTextReturnsTrueWhenToolkitFallbackHasText(t *testing.T) {
-	fake := &fakeToolkitClipboard{text: "toolkit text"}
-	adapter := &Adapter{toolkit: fake}
+	toolkit := newToolkitClipboardRecorder(t)
+	toolkit.text = "toolkit text"
+	adapter := &Adapter{toolkit: toolkit}
 
 	hasText, err := adapter.HasText(context.Background())
 
 	require.NoError(t, err)
 	require.True(t, hasText)
-	require.Equal(t, 1, fake.readTextCalls)
+	require.Equal(t, 1, toolkit.readTextCalls)
 }
 
 func TestAdapter_WriteTextReturnsToolkitErrorWhenNoSystemTool(t *testing.T) {
 	sentinel := errors.New("toolkit text failed")
-	fake := &fakeToolkitClipboard{writeTextErr: sentinel}
-	adapter := &Adapter{toolkit: fake}
+	toolkit := newToolkitClipboardRecorder(t)
+	toolkit.writeTextErr = sentinel
+	adapter := &Adapter{toolkit: toolkit}
 
 	err := adapter.WriteText(context.Background(), "hello")
 
 	require.Equal(t, sentinel, err)
-	require.Equal(t, 1, fake.writeTextCalls)
-	require.Equal(t, "hello", fake.text)
+	require.Equal(t, 1, toolkit.writeTextCalls)
+	require.Equal(t, "hello", toolkit.text)
 }
 
 func TestAdapter_WriteImageReturnsToolkitErrorWhenNoSystemTool(t *testing.T) {
 	sentinel := errors.New("toolkit image failed")
-	fake := &fakeToolkitClipboard{writeImageErr: sentinel}
-	adapter := &Adapter{toolkit: fake}
+	toolkit := newToolkitClipboardRecorder(t)
+	toolkit.writeImageErr = sentinel
+	adapter := &Adapter{toolkit: toolkit}
 
 	err := adapter.WriteImage(context.Background(), entity.ImageData{Bytes: []byte{1}, MimeType: "image/png"})
 
 	require.Equal(t, sentinel, err)
-	require.Equal(t, 1, fake.writeImageCalls)
-	require.Equal(t, entity.ImageData{Bytes: []byte{1}, MimeType: "image/png"}, fake.image)
+	require.Equal(t, 1, toolkit.writeImageCalls)
+	require.Equal(t, entity.ImageData{Bytes: []byte{1}, MimeType: "image/png"}, toolkit.image)
 }
 
 func TestNew_FallsBackToToolkitClipboardWhenSystemToolsUnavailable(t *testing.T) {
@@ -94,9 +112,9 @@ func TestNew_FallsBackToToolkitClipboardWhenSystemToolsUnavailable(t *testing.T)
 		lookPath = oldLookPath
 	})
 
-	fake := &fakeToolkitClipboard{}
+	toolkit := newToolkitClipboardRecorder(t)
 	newToolkitClipboard = func() toolkitClipboard {
-		return fake
+		return toolkit
 	}
 	lookPath = func(_ string) (string, error) {
 		return "", errors.New("missing")
@@ -107,8 +125,8 @@ func TestNew_FallsBackToToolkitClipboardWhenSystemToolsUnavailable(t *testing.T)
 
 	adapter := New().(*Adapter)
 	require.NoError(t, adapter.WriteImage(context.Background(), entity.ImageData{Bytes: []byte{1, 2, 3}}))
-	require.Equal(t, 1, fake.writeImageCalls)
-	require.Equal(t, []byte{1, 2, 3}, fake.image.Bytes)
+	require.Equal(t, 1, toolkit.writeImageCalls)
+	require.Equal(t, []byte{1, 2, 3}, toolkit.image.Bytes)
 }
 
 func TestAdapter_WriteImagePrefersToolkitClipboardWhenAvailable(t *testing.T) {
@@ -123,14 +141,14 @@ func TestAdapter_WriteImagePrefersToolkitClipboardWhenAvailable(t *testing.T) {
 	script := "#!/bin/sh\ncat > \"" + stdinPath + "\"\n"
 	require.NoError(t, os.WriteFile(scriptPath, []byte(script), 0o755))
 
-	fake := &fakeToolkitClipboard{}
-	newToolkitClipboard = func() toolkitClipboard { return fake }
+	toolkit := newToolkitClipboardRecorder(t)
+	newToolkitClipboard = func() toolkitClipboard { return toolkit }
 	adapter := &Adapter{copyCmd: scriptPath}
 	image := entity.ImageData{Bytes: []byte{1, 2, 3}, MimeType: "image/png"}
 
 	require.NoError(t, adapter.WriteImage(context.Background(), image))
-	require.Equal(t, 1, fake.writeImageCalls)
-	require.Equal(t, image, fake.image)
+	require.Equal(t, 1, toolkit.writeImageCalls)
+	require.Equal(t, image, toolkit.image)
 
 	_, err := os.Stat(stdinPath)
 	require.Error(t, err)
@@ -193,14 +211,14 @@ func TestAdapter_WriteImageRejectsEmptyBytes(t *testing.T) {
 		lookPath = oldLookPath
 	})
 
-	fake := &fakeToolkitClipboard{}
-	newToolkitClipboard = func() toolkitClipboard { return fake }
+	toolkit := newToolkitClipboardRecorder(t)
+	newToolkitClipboard = func() toolkitClipboard { return toolkit }
 	lookPath = func(_ string) (string, error) { return "/usr/bin/clipboard", nil }
 
 	err := New().(*Adapter).WriteImage(context.Background(), entity.ImageData{})
 	require.Error(t, err)
 	require.Contains(t, err.Error(), "empty image data")
-	require.Zero(t, fake.writeImageCalls)
+	require.Zero(t, toolkit.writeImageCalls)
 }
 
 func TestAdapter_WriteImageWithCommandUsesImageMimeType(t *testing.T) {

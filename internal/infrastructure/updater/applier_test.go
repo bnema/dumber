@@ -122,7 +122,7 @@ func TestApplier_StageUpdate(t *testing.T) {
 	applier := NewApplier(tmpDir)
 	ctx := context.Background()
 
-	// Create a fake binary to stage
+	// Create a dummy binary to stage
 	srcBinary := filepath.Join(tmpDir, "new-binary")
 	binaryContent := []byte("#!/bin/sh\necho 'new version'\n")
 	require.NoError(t, os.WriteFile(srcBinary, binaryContent, 0o755))
