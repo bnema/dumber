@@ -877,7 +877,7 @@ func TestHistorySidebarWidthConfig_DefaultValue(t *testing.T) {
 // that applySidebarWidthConfig handles nil mainWindow without panic.
 func TestBrowserWindow_ApplySidebarWidthConfig_NilMainWindowIsSafe(t *testing.T) {
 	bw := &browserWindow{mainWindow: nil}
-	app := &App{deps: &Dependencies{Config: &config.Config{SidebarWidth: 300}}}
+	app := appWithRuntimeConfigForTest(&config.Config{SidebarWidth: 300})
 	require.NotPanics(t, func() { bw.applySidebarWidthConfig(app) })
 }
 

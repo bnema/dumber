@@ -1,12 +1,36 @@
 package ui
 
 import (
+	"context"
 	"testing"
 
+	"github.com/bnema/dumber/internal/application/dto"
 	"github.com/bnema/dumber/internal/application/port"
 	portmocks "github.com/bnema/dumber/internal/application/port/mocks"
 	"github.com/bnema/dumber/internal/domain/entity"
 )
+
+func TestDependenciesValidateAcceptsRuntimeConfigOnly(t *testing.T) {
+	runtimeConfig := portmocks.NewMockRuntimeConfigProvider(t)
+	engine := portmocks.NewMockEngine(t)
+	deps := &Dependencies{
+		Ctx:           context.Background(),
+		RuntimeConfig: runtimeConfig,
+		Engine:        engine,
+		HandlerDeps: port.HandlerDeps{
+			SaveConfig: func(context.Context, dto.WebUIConfig) error {
+				return nil
+			},
+			SaveOmniboxInitialBehavior: func(context.Context, entity.OmniboxInitialBehavior) error {
+				return nil
+			},
+		},
+	}
+
+	if err := deps.Validate(); err != nil {
+		t.Fatalf("Validate() error = %v, want nil", err)
+	}
+}
 
 func TestAppRuntimeConfigReturnsProviderSnapshot(t *testing.T) {
 	provider := portmocks.NewMockRuntimeConfigProvider(t)

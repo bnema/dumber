@@ -8,7 +8,6 @@ import (
 	"github.com/bnema/dumber/internal/application/port"
 	portmocks "github.com/bnema/dumber/internal/application/port/mocks"
 	"github.com/bnema/dumber/internal/domain/entity"
-	"github.com/bnema/dumber/internal/infrastructure/config"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 )
@@ -31,7 +30,6 @@ func TestNew_DoesNotWireClipboardOrchestratorWhenClipboardMissing(t *testing.T) 
 
 	deps := &Dependencies{
 		Ctx:           ctx,
-		Config:        &config.Config{},
 		RuntimeConfig: runtimeConfig,
 		Engine:        engine,
 		HandlerDeps: port.HandlerDeps{
@@ -66,7 +64,6 @@ func TestNew_WiresClipboardOrchestratorWhenClipboardPresent(t *testing.T) {
 
 	deps := &Dependencies{
 		Ctx:           ctx,
-		Config:        &config.Config{},
 		RuntimeConfig: runtimeConfig,
 		Engine:        engine,
 		HandlerDeps: port.HandlerDeps{

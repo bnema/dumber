@@ -137,14 +137,16 @@ func TestTabCoordinator_CloseReleasesClosedTabWorkspaceWebViews(t *testing.T) {
 
 	bw := &browserWindow{id: "window-1", tabs: tabs}
 	app := &App{
-		deps:             &Dependencies{Config: config.DefaultConfig()},
-		tabsUC:           usecase.NewManageTabsUseCase(counterIDGen()),
-		contentCoord:     contentCoord,
-		browserWindows:   map[string]*browserWindow{bw.id: bw},
-		tabs:             entity.NewTabList(),
-		workspaceViews:   map[entity.TabID]*component.WorkspaceView{closedTab.ID: {}, survivingTab.ID: {}},
-		windowForTab:     map[entity.TabID]*browserWindow{closedTab.ID: bw, survivingTab.ID: bw},
-		floatingSessions: map[floatingSessionKey]*floatingWorkspaceSession{},
+		deps:                &Dependencies{},
+		runtimeConfig:       runtimeConfigSnapshotForTest(config.DefaultConfig()),
+		runtimeConfigLoaded: true,
+		tabsUC:              usecase.NewManageTabsUseCase(counterIDGen()),
+		contentCoord:        contentCoord,
+		browserWindows:      map[string]*browserWindow{bw.id: bw},
+		tabs:                entity.NewTabList(),
+		workspaceViews:      map[entity.TabID]*component.WorkspaceView{closedTab.ID: {}, survivingTab.ID: {}},
+		windowForTab:        map[entity.TabID]*browserWindow{closedTab.ID: bw, survivingTab.ID: bw},
+		floatingSessions:    map[floatingSessionKey]*floatingWorkspaceSession{},
 	}
 	app.tabs.Add(closedTab)
 	app.tabs.Add(survivingTab)
@@ -180,14 +182,16 @@ func TestTabCoordinator_SwitchDoesNotReleaseWorkspaceWebViews(t *testing.T) {
 
 	bw := &browserWindow{id: "window-1", tabs: tabs}
 	app := &App{
-		deps:             &Dependencies{Config: config.DefaultConfig()},
-		tabsUC:           usecase.NewManageTabsUseCase(counterIDGen()),
-		contentCoord:     contentCoord,
-		browserWindows:   map[string]*browserWindow{bw.id: bw},
-		tabs:             entity.NewTabList(),
-		workspaceViews:   map[entity.TabID]*component.WorkspaceView{firstTab.ID: {}, secondTab.ID: {}},
-		windowForTab:     map[entity.TabID]*browserWindow{firstTab.ID: bw, secondTab.ID: bw},
-		floatingSessions: map[floatingSessionKey]*floatingWorkspaceSession{},
+		deps:                &Dependencies{},
+		runtimeConfig:       runtimeConfigSnapshotForTest(config.DefaultConfig()),
+		runtimeConfigLoaded: true,
+		tabsUC:              usecase.NewManageTabsUseCase(counterIDGen()),
+		contentCoord:        contentCoord,
+		browserWindows:      map[string]*browserWindow{bw.id: bw},
+		tabs:                entity.NewTabList(),
+		workspaceViews:      map[entity.TabID]*component.WorkspaceView{firstTab.ID: {}, secondTab.ID: {}},
+		windowForTab:        map[entity.TabID]*browserWindow{firstTab.ID: bw, secondTab.ID: bw},
+		floatingSessions:    map[floatingSessionKey]*floatingWorkspaceSession{},
 	}
 	app.tabs.Add(firstTab)
 	app.tabs.Add(secondTab)
@@ -214,14 +218,16 @@ func TestTabCoordinator_CloseLastTabReleasesWorkspaceBeforeWindowRemoval(t *test
 
 	bw := &browserWindow{id: "window-1", tabs: tabs}
 	app := &App{
-		deps:             &Dependencies{Config: config.DefaultConfig()},
-		tabsUC:           usecase.NewManageTabsUseCase(counterIDGen()),
-		contentCoord:     contentCoord,
-		browserWindows:   map[string]*browserWindow{bw.id: bw},
-		tabs:             entity.NewTabList(),
-		workspaceViews:   map[entity.TabID]*component.WorkspaceView{closedTab.ID: {}},
-		windowForTab:     map[entity.TabID]*browserWindow{closedTab.ID: bw},
-		floatingSessions: map[floatingSessionKey]*floatingWorkspaceSession{},
+		deps:                &Dependencies{},
+		runtimeConfig:       runtimeConfigSnapshotForTest(config.DefaultConfig()),
+		runtimeConfigLoaded: true,
+		tabsUC:              usecase.NewManageTabsUseCase(counterIDGen()),
+		contentCoord:        contentCoord,
+		browserWindows:      map[string]*browserWindow{bw.id: bw},
+		tabs:                entity.NewTabList(),
+		workspaceViews:      map[entity.TabID]*component.WorkspaceView{closedTab.ID: {}},
+		windowForTab:        map[entity.TabID]*browserWindow{closedTab.ID: bw},
+		floatingSessions:    map[floatingSessionKey]*floatingWorkspaceSession{},
 	}
 	app.tabs.Add(closedTab)
 	app.initTabCoordinator(ctx)

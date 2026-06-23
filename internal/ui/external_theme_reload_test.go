@@ -11,6 +11,7 @@ import (
 	"github.com/bnema/dumber/internal/application/port"
 	portmocks "github.com/bnema/dumber/internal/application/port/mocks"
 	"github.com/bnema/dumber/internal/application/usecase"
+	"github.com/bnema/dumber/internal/bootstrap"
 	"github.com/bnema/dumber/internal/domain/entity"
 	"github.com/bnema/dumber/internal/infrastructure/config"
 	"github.com/bnema/dumber/internal/shared/syncdispatch"
@@ -103,19 +104,15 @@ func TestApplyAppearanceConfigSendsCompleteEngineSettingsPayload(t *testing.T) {
 		Return(nil).
 		Once()
 	app := &App{
-		deps: &Dependencies{
-			Config: cfg,
-			EngineSettingsPayload: func() port.EngineSettingsPayload {
-				return expected
-			},
-		},
-		engine: engine,
+		deps:                &Dependencies{},
+		runtimeConfig:       bootstrap.RuntimeConfigSnapshotFromConfig(cfg),
+		runtimeConfigLoaded: true,
+		engine:              engine,
 	}
 
 	app.applyAppearanceConfig(ctx)
 
 	require.Equal(t, expected, captured.Settings)
-	require.Nil(t, captured.Raw)
 }
 
 func TestExternalThemeWatcherCallbackAppliesThemeThroughSharedPath(t *testing.T) {
@@ -147,12 +144,13 @@ func TestExternalThemeWatcherCallbackAppliesThemeThroughSharedPath(t *testing.T)
 	engine.EXPECT().ContentInjector().Return(nil).Once()
 	app := &App{
 		deps: &Dependencies{
-			Config:               cfg,
 			Theme:                manager,
 			ResolveThemeUC:       usecase.NewResolveThemeUseCase(source),
 			ExternalThemeSource:  source,
 			ExternalThemeWatcher: watcher,
 		},
+		runtimeConfig:        bootstrap.RuntimeConfigSnapshotFromConfig(cfg),
+		runtimeConfigLoaded:  true,
 		dispatchOnMainThread: immediateDispatchForExternalThemeTest,
 		engine:               engine,
 	}
@@ -182,11 +180,12 @@ func TestExternalThemeReloadKeepsLastGoodAndDisablingClearsIt(t *testing.T) {
 	manager := uitheme.NewManager(ctx, resolvedThemeForUITest(cfg.Appearance.LightPalette, cfg.Appearance.DarkPalette))
 	app := &App{
 		deps: &Dependencies{
-			Config:              cfg,
 			Theme:               manager,
 			ResolveThemeUC:      usecase.NewResolveThemeUseCase(source),
 			ExternalThemeSource: source,
 		},
+		runtimeConfig:        bootstrap.RuntimeConfigSnapshotFromConfig(cfg),
+		runtimeConfigLoaded:  true,
 		dispatchOnMainThread: immediateDispatchForExternalThemeTest,
 	}
 
@@ -203,6 +202,7 @@ func TestExternalThemeReloadKeepsLastGoodAndDisablingClearsIt(t *testing.T) {
 	require.Equal(t, "#000000", app.deps.Theme.GetCurrentPalette().Background)
 
 	cfg.Appearance.ExternalTheme.Enabled = false
+	app.updateRuntimeConfig(bootstrap.RuntimeConfigSnapshotFromConfig(cfg))
 	app.applyAppearanceConfig(ctx)
 	require.Equal(t, cfg.Appearance.DarkPalette.Background, app.deps.Theme.GetCurrentPalette().Background)
 }
@@ -221,11 +221,12 @@ func TestExternalThemeReloadKeepsLastGoodOnReadError(t *testing.T) {
 	manager := uitheme.NewManager(ctx, resolvedThemeForUITest(cfg.Appearance.LightPalette, cfg.Appearance.DarkPalette))
 	app := &App{
 		deps: &Dependencies{
-			Config:              cfg,
 			Theme:               manager,
 			ResolveThemeUC:      usecase.NewResolveThemeUseCase(source),
 			ExternalThemeSource: source,
 		},
+		runtimeConfig:        bootstrap.RuntimeConfigSnapshotFromConfig(cfg),
+		runtimeConfigLoaded:  true,
 		dispatchOnMainThread: immediateDispatchForExternalThemeTest,
 	}
 
@@ -252,11 +253,12 @@ func TestExternalThemeReloadRecoversAfterMalformedUpdate(t *testing.T) {
 	manager := uitheme.NewManager(ctx, resolvedThemeForUITest(cfg.Appearance.LightPalette, cfg.Appearance.DarkPalette))
 	app := &App{
 		deps: &Dependencies{
-			Config:              cfg,
 			Theme:               manager,
 			ResolveThemeUC:      usecase.NewResolveThemeUseCase(source),
 			ExternalThemeSource: source,
 		},
+		runtimeConfig:        bootstrap.RuntimeConfigSnapshotFromConfig(cfg),
+		runtimeConfigLoaded:  true,
 		dispatchOnMainThread: immediateDispatchForExternalThemeTest,
 	}
 

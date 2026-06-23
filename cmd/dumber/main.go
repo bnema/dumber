@@ -868,12 +868,8 @@ func buildUIDependencies(
 	runtimeConfig := bootstrap.NewRuntimeConfigProvider(cfg, config.GetManager())
 
 	uiDeps := &ui.Dependencies{
-		Ctx:           ctx,
-		Config:        cfg,
-		RuntimeConfig: runtimeConfig,
-		EngineSettingsPayload: func() port.EngineSettingsPayload {
-			return bootstrap.EngineSettingsPayloadFromConfig(cfg)
-		},
+		Ctx:                  ctx,
+		RuntimeConfig:        runtimeConfig,
 		InitialURL:           initialURL,
 		RestoreSessionID:     restoreSessionID,
 		StartupCrashReports:  startupCrashReports,
@@ -927,26 +923,12 @@ func buildUIDependencies(
 		NewGTKEntryTarget: func(entry *gtk.SearchEntry) port.TextInputTarget {
 			return textinput.NewGTKEntryTarget(entry)
 		},
-		OnConfigChange: func(callback func()) {
-			config.GetManager().OnConfigChange(func(newCfg *config.Config) {
-				// No synchronization needed: viper fires this callback on the
-				// GTK main thread (via glib.IdleAdd), and all callers of cfg run
-				// on the same GTK main thread, so there is no concurrent access.
-				if cfg != nil && newCfg != nil {
-					*cfg = *newCfg
-				}
-				callback()
-			})
-		},
-		WatchConfig: func() error {
-			return config.GetManager().Watch()
-		},
 		LaunchExternalURL: desktop.LaunchExternalURL,
 		LaunchBrowserURL: func(navCtx context.Context, uri string) error {
 			return launchStandaloneBrowserURL(navCtx, browserLauncher.LaunchURL, uri)
 		},
 		BrowserLaunchRelay: browserLaunchRelay,
-		ConfigMigrator:     config.NewMigrator(),
+		MigrationChecker:   config.NewMigrator(),
 		HandlerDeps:        *handlerDeps,
 	}
 
