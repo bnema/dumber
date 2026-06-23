@@ -1,35 +1,37 @@
 package bootstrap
 
 import (
-	"sync"
-
 	"github.com/bnema/dumber/internal/application/port"
 	"github.com/bnema/dumber/internal/domain/entity"
 	"github.com/bnema/dumber/internal/infrastructure/config"
 )
 
 type configChangeManager interface {
+	Get() *config.Config
 	Watch() error
 	OnConfigChange(func(*config.Config))
 }
 
 type runtimeConfigProvider struct {
-	mu      sync.RWMutex
-	current port.RuntimeConfigSnapshot
-	manager configChangeManager
+	fallback port.RuntimeConfigSnapshot
+	manager  configChangeManager
 }
 
 func NewRuntimeConfigProvider(cfg *config.Config, manager configChangeManager) port.RuntimeConfigProvider {
 	return &runtimeConfigProvider{
-		current: RuntimeConfigSnapshotFromConfig(cfg),
-		manager: manager,
+		fallback: RuntimeConfigSnapshotFromConfig(cfg),
+		manager:  manager,
 	}
 }
 
 func (p *runtimeConfigProvider) Current() port.RuntimeConfigSnapshot {
-	p.mu.RLock()
-	defer p.mu.RUnlock()
-	return cloneRuntimeConfigSnapshot(p.current)
+	if p == nil {
+		return port.RuntimeConfigSnapshot{}
+	}
+	if p.manager == nil {
+		return cloneRuntimeConfigSnapshot(p.fallback)
+	}
+	return cloneRuntimeConfigSnapshot(RuntimeConfigSnapshotFromConfig(p.manager.Get()))
 }
 
 func (p *runtimeConfigProvider) Watch() error {
@@ -45,9 +47,6 @@ func (p *runtimeConfigProvider) OnChange(callback func(port.RuntimeConfigSnapsho
 	}
 	p.manager.OnConfigChange(func(cfg *config.Config) {
 		snapshot := RuntimeConfigSnapshotFromConfig(cfg)
-		p.mu.Lock()
-		p.current = snapshot
-		p.mu.Unlock()
 		if callback != nil {
 			callback(cloneRuntimeConfigSnapshot(snapshot))
 		}
@@ -83,8 +82,8 @@ func RuntimeConfigSnapshotFromConfig(cfg *config.Config) port.RuntimeConfigSnaps
 			DefaultUIScale:      cfg.DefaultUIScale,
 			SidebarWidth:        cfg.SidebarWidth,
 			Appearance:          cfg.Appearance,
-			Workspace:           cfg.Workspace,
-			Session:             cfg.Session,
+			Workspace:           cloneWorkspaceConfig(cfg.Workspace),
+			Session:             cloneSessionConfig(cfg.Session),
 			Clipboard:           port.RuntimeClipboardConfig{AutoCopyOnSelection: cfg.Clipboard.AutoCopyOnSelection},
 			SearchShortcuts:     runtimeSearchShortcutsFromConfig(cfg.SearchShortcuts),
 			DefaultSearchEngine: cfg.DefaultSearchEngine,

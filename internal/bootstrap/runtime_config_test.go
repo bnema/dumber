@@ -10,6 +10,7 @@ import (
 )
 
 type fakeConfigManager struct {
+	current    *config.Config
 	watchCalls int
 	callbacks  []func(*config.Config)
 }
@@ -21,6 +22,17 @@ func (f *fakeConfigManager) Watch() error {
 
 func (f *fakeConfigManager) OnConfigChange(callback func(*config.Config)) {
 	f.callbacks = append(f.callbacks, callback)
+}
+
+func (f *fakeConfigManager) Get() *config.Config {
+	return f.current
+}
+
+func (f *fakeConfigManager) emit(next *config.Config) {
+	f.current = next
+	for _, callback := range f.callbacks {
+		callback(next)
+	}
 }
 
 func TestEngineSettingsPayloadFromConfigMapsRuntimeFields(t *testing.T) {
@@ -69,13 +81,53 @@ func TestRuntimeConfigProviderUpdatesSnapshotBeforeCallback(t *testing.T) {
 
 	next := config.DefaultConfig()
 	next.DefaultUIScale = 1.8
-	manager.callbacks[0](next)
+	manager.emit(next)
 
 	if got := provider.Current().UI.DefaultUIScale; got != 1.8 {
 		t.Fatalf("Current DefaultUIScale=%v, want 1.8", got)
 	}
 	if seen.UI.DefaultUIScale != 1.8 {
 		t.Fatalf("callback DefaultUIScale=%v, want 1.8", seen.UI.DefaultUIScale)
+	}
+}
+
+func TestRuntimeConfigProviderCurrentReflectsManagerGetWithoutSubscription(t *testing.T) {
+	initial := config.DefaultConfig()
+	initial.DefaultUIScale = 1
+	manager := &fakeConfigManager{current: initial}
+	provider := NewRuntimeConfigProvider(initial, manager)
+
+	next := config.DefaultConfig()
+	next.DefaultUIScale = 1.8
+	manager.current = next
+
+	if got := provider.Current().UI.DefaultUIScale; got != 1.8 {
+		t.Fatalf("Current DefaultUIScale=%v, want 1.8", got)
+	}
+}
+
+func TestRuntimeConfigProviderOnChangeCallbackCanCallCurrent(t *testing.T) {
+	initial := config.DefaultConfig()
+	initial.DefaultUIScale = 1
+	manager := &fakeConfigManager{current: initial}
+	provider := NewRuntimeConfigProvider(initial, manager)
+
+	completed := false
+	var seen port.RuntimeConfigSnapshot
+	provider.OnChange(func(port.RuntimeConfigSnapshot) {
+		seen = provider.Current()
+		completed = true
+	})
+
+	next := config.DefaultConfig()
+	next.DefaultUIScale = 1.8
+	manager.emit(next)
+
+	if !completed {
+		t.Fatal("callback did not complete")
+	}
+	if seen.UI.DefaultUIScale != 1.8 {
+		t.Fatalf("callback Current DefaultUIScale=%v, want 1.8", seen.UI.DefaultUIScale)
 	}
 }
 
@@ -96,7 +148,7 @@ func TestRuntimeConfigProviderCurrentReturnsMapClone(t *testing.T) {
 	cfg.SearchShortcuts = map[string]config.SearchShortcut{
 		"gh": {URL: "https://github.com/search?q=%s", Description: "GitHub"},
 	}
-	provider := NewRuntimeConfigProvider(cfg, &fakeConfigManager{})
+	provider := NewRuntimeConfigProvider(cfg, &fakeConfigManager{current: cfg})
 
 	first := provider.Current()
 	first.UI.SearchShortcuts["gh"] = port.RuntimeSearchShortcut{URL: "mutated"}
@@ -109,7 +161,7 @@ func TestRuntimeConfigProviderCurrentReturnsMapClone(t *testing.T) {
 
 func TestRuntimeConfigProviderCurrentReturnsNestedConfigClone(t *testing.T) {
 	cfg := runtimeConfigWithNestedMutableFields()
-	provider := NewRuntimeConfigProvider(cfg, &fakeConfigManager{})
+	provider := NewRuntimeConfigProvider(cfg, &fakeConfigManager{current: cfg})
 
 	first := provider.Current()
 	mutateNestedRuntimeConfigSnapshot(first)
@@ -126,7 +178,7 @@ func TestRuntimeConfigProviderOnChangePassesNestedConfigClone(t *testing.T) {
 		mutateNestedRuntimeConfigSnapshot(snapshot)
 	})
 
-	manager.callbacks[0](runtimeConfigWithNestedMutableFields())
+	manager.emit(runtimeConfigWithNestedMutableFields())
 
 	assertNestedRuntimeConfigSnapshotUnchanged(t, provider.Current())
 }
@@ -236,6 +288,33 @@ func assertMapEntryAbsent(t *testing.T, actions map[string]entity.ActionBinding,
 	}
 }
 
+func assertNestedSourceConfigUnchanged(t *testing.T, cfg *config.Config) {
+	t.Helper()
+
+	assertActionBinding(t, cfg.Workspace.PaneMode.Actions, "split-right", "r")
+	assertMapEntryAbsent(t, cfg.Workspace.PaneMode.Actions, "added-pane")
+
+	assertActionBinding(t, cfg.Workspace.TabMode.Actions, "next-tab", "l")
+	assertMapEntryAbsent(t, cfg.Workspace.TabMode.Actions, "added-tab")
+
+	assertActionBinding(t, cfg.Workspace.ResizeMode.Actions, "grow-right", "right")
+	assertMapEntryAbsent(t, cfg.Workspace.ResizeMode.Actions, "added-resize")
+
+	assertActionBinding(t, cfg.Workspace.Shortcuts.Actions, "toggle-history-systemview", "ctrl+h")
+	assertMapEntryAbsent(t, cfg.Workspace.Shortcuts.Actions, "added-shortcut")
+
+	profile := cfg.Workspace.FloatingPane.Profiles["docs"]
+	if got := profile.Keys[0]; got != "alt+d" {
+		t.Fatalf("floating profile key=%q, want %q", got, "alt+d")
+	}
+	if _, ok := cfg.Workspace.FloatingPane.Profiles["added-floating"]; ok {
+		t.Fatal("floating pane profiles must not include entries added through a returned snapshot")
+	}
+
+	assertActionBinding(t, cfg.Session.SessionMode.Actions, "session-manager", "s")
+	assertMapEntryAbsent(t, cfg.Session.SessionMode.Actions, "added-session")
+}
+
 func TestRuntimeConfigSnapshotFromConfigMapsUIRuntimeFields(t *testing.T) {
 	cfg := config.DefaultConfig()
 	cfg.DefaultUIScale = 1.4
@@ -274,6 +353,15 @@ func TestRuntimeConfigSnapshotFromConfigMapsUIRuntimeFields(t *testing.T) {
 	if cfg.SearchShortcuts["gh"].URL == "mutated" {
 		t.Fatal("snapshot must deep-copy search shortcut map")
 	}
+}
+
+func TestRuntimeConfigSnapshotFromConfigDetachesNestedMutableFields(t *testing.T) {
+	cfg := runtimeConfigWithNestedMutableFields()
+	snapshot := RuntimeConfigSnapshotFromConfig(cfg)
+
+	mutateNestedRuntimeConfigSnapshot(snapshot)
+
+	assertNestedSourceConfigUnchanged(t, cfg)
 }
 
 func TestRuntimeConfigSnapshotFromNilConfigReturnsZeroSnapshot(t *testing.T) {
