@@ -78,6 +78,10 @@ type App struct {
 	gtkApp     *gtk.Application
 	mainWindow *window.MainWindow
 
+	runtimeConfig         port.RuntimeConfigSnapshot
+	runtimeConfigLoaded   bool
+	popupBrowsingContexts entity.BrowsingContextConfig
+
 	browserWindows       map[string]*browserWindow
 	browserWindowOrder   []string // registration order of window IDs
 	lastFocusedWindowID  string
@@ -181,16 +185,20 @@ func New(deps *Dependencies) (*App, error) {
 		return nil, err
 	}
 	ctx, cancel := context.WithCancelCause(deps.Ctx)
+	initialRuntimeConfig := deps.RuntimeConfig.Current()
 
 	app := &App{
-		deps:             deps,
-		tabs:             entity.NewTabList(),
-		tabsUC:           deps.TabsUC,
-		panesUC:          deps.PanesUC,
-		workspaceViews:   make(map[entity.TabID]*component.WorkspaceView),
-		windowForTab:     make(map[entity.TabID]*browserWindow),
-		floatingSessions: make(map[floatingSessionKey]*floatingWorkspaceSession),
-		browserWindows:   make(map[string]*browserWindow),
+		deps:                  deps,
+		runtimeConfig:         initialRuntimeConfig,
+		runtimeConfigLoaded:   true,
+		popupBrowsingContexts: initialRuntimeConfig.UI.Workspace.BrowsingContexts,
+		tabs:                  entity.NewTabList(),
+		tabsUC:                deps.TabsUC,
+		panesUC:               deps.PanesUC,
+		workspaceViews:        make(map[entity.TabID]*component.WorkspaceView),
+		windowForTab:          make(map[entity.TabID]*browserWindow),
+		floatingSessions:      make(map[floatingSessionKey]*floatingWorkspaceSession),
+		browserWindows:        make(map[string]*browserWindow),
 		dispatchOnMainThread: func(label string, fn func()) syncdispatch.SyncDispatchResult {
 			if fn != nil {
 				fn()
@@ -253,6 +261,43 @@ func New(deps *Dependencies) (*App, error) {
 	}
 
 	return app, nil
+}
+
+func (a *App) runtimeConfigSnapshot() port.RuntimeConfigSnapshot {
+	if a == nil {
+		return port.RuntimeConfigSnapshot{}
+	}
+	if a.runtimeConfigLoaded {
+		return a.runtimeConfig
+	}
+	if a.deps != nil && a.deps.RuntimeConfig != nil {
+		return a.deps.RuntimeConfig.Current()
+	}
+	return port.RuntimeConfigSnapshot{}
+}
+
+func (a *App) updateRuntimeConfig(snapshot port.RuntimeConfigSnapshot) {
+	if a != nil {
+		a.runtimeConfig = snapshot
+		a.runtimeConfigLoaded = true
+		a.updatePopupRuntimeConfig(snapshot.UI.Workspace.BrowsingContexts)
+	}
+}
+
+func (a *App) updatePopupRuntimeConfig(cfg entity.BrowsingContextConfig) {
+	if a != nil {
+		a.popupBrowsingContexts = cfg
+	}
+}
+
+func (a *App) popupBrowsingContextConfig() *entity.BrowsingContextConfig {
+	if a == nil {
+		return nil
+	}
+	if !a.runtimeConfigLoaded {
+		a.updatePopupRuntimeConfig(a.runtimeConfigSnapshot().UI.Workspace.BrowsingContexts)
+	}
+	return &a.popupBrowsingContexts
 }
 
 // Run starts the GTK application and blocks until it exits.

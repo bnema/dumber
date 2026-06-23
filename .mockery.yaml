@@ -75,6 +75,9 @@ packages:
       NativeWidgetProvider: {}
       Notification: {}
       RenderingEnvManager: {}
+      RuntimeConfigProvider:
+        config:
+          filename: runtime_config_provider.go
       RuntimeVersionProbe: {}
       ScriptRefresher: {}
       SnapshotService: {}

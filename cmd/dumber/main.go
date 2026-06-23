@@ -865,10 +865,12 @@ func buildUIDependencies(
 
 	focusProvider := textinput.NewFocusProvider()
 	browserLauncher := desktop.NewBrowserLauncher(browserLaunchRelay)
+	runtimeConfig := bootstrap.NewRuntimeConfigProvider(cfg, config.GetManager())
 
 	uiDeps := &ui.Dependencies{
-		Ctx:    ctx,
-		Config: cfg,
+		Ctx:           ctx,
+		Config:        cfg,
+		RuntimeConfig: runtimeConfig,
 		EngineSettingsPayload: func() port.EngineSettingsPayload {
 			return bootstrap.EngineSettingsPayloadFromConfig(cfg)
 		},

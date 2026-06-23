@@ -23,11 +23,17 @@ func TestNew_DoesNotWireClipboardOrchestratorWhenClipboardMissing(t *testing.T) 
 		}).
 		Return(nil).
 		Once()
+	runtimeConfig := portmocks.NewMockRuntimeConfigProvider(t)
+	runtimeConfig.EXPECT().
+		Current().
+		Return(port.RuntimeConfigSnapshot{}).
+		Once()
 
 	deps := &Dependencies{
-		Ctx:    ctx,
-		Config: &config.Config{},
-		Engine: engine,
+		Ctx:           ctx,
+		Config:        &config.Config{},
+		RuntimeConfig: runtimeConfig,
+		Engine:        engine,
 		HandlerDeps: port.HandlerDeps{
 			SaveConfig:                 func(context.Context, dto.WebUIConfig) error { return nil },
 			SaveOmniboxInitialBehavior: func(context.Context, entity.OmniboxInitialBehavior) error { return nil },
@@ -52,11 +58,17 @@ func TestNew_WiresClipboardOrchestratorWhenClipboardPresent(t *testing.T) {
 		}).
 		Return(nil).
 		Once()
+	runtimeConfig := portmocks.NewMockRuntimeConfigProvider(t)
+	runtimeConfig.EXPECT().
+		Current().
+		Return(port.RuntimeConfigSnapshot{}).
+		Once()
 
 	deps := &Dependencies{
-		Ctx:    ctx,
-		Config: &config.Config{},
-		Engine: engine,
+		Ctx:           ctx,
+		Config:        &config.Config{},
+		RuntimeConfig: runtimeConfig,
+		Engine:        engine,
 		HandlerDeps: port.HandlerDeps{
 			SaveConfig:                 func(context.Context, dto.WebUIConfig) error { return nil },
 			SaveOmniboxInitialBehavior: func(context.Context, entity.OmniboxInitialBehavior) error { return nil },

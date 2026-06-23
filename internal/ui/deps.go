@@ -20,6 +20,7 @@ type Dependencies struct {
 	// Core context and configuration
 	Ctx                    context.Context
 	Config                 *config.Config // TODO: replace with port interface in a later milestone
+	RuntimeConfig          port.RuntimeConfigProvider
 	EngineSettingsPayload  func() port.EngineSettingsPayload
 	InitialURL             string // URL to open on startup (optional)
 	RestoreSessionID       string // Session ID to restore on startup (optional)
@@ -122,6 +123,9 @@ func (d *Dependencies) Validate() error {
 	}
 	if d.Config == nil {
 		return ErrMissingDependency("Config")
+	}
+	if d.RuntimeConfig == nil {
+		return ErrMissingDependency("RuntimeConfig")
 	}
 	if d.Engine == nil {
 		return ErrMissingDependency("Engine")
