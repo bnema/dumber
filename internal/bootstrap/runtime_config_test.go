@@ -5,6 +5,7 @@ import (
 	"testing"
 
 	"github.com/bnema/dumber/internal/application/port"
+	"github.com/bnema/dumber/internal/domain/entity"
 	"github.com/bnema/dumber/internal/infrastructure/config"
 )
 
@@ -106,10 +107,132 @@ func TestRuntimeConfigProviderCurrentReturnsMapClone(t *testing.T) {
 	}
 }
 
+func TestRuntimeConfigProviderCurrentReturnsNestedConfigClone(t *testing.T) {
+	cfg := runtimeConfigWithNestedMutableFields()
+	provider := NewRuntimeConfigProvider(cfg, &fakeConfigManager{})
+
+	first := provider.Current()
+	mutateNestedRuntimeConfigSnapshot(first)
+	second := provider.Current()
+
+	assertNestedRuntimeConfigSnapshotUnchanged(t, second)
+}
+
+func TestRuntimeConfigProviderOnChangePassesNestedConfigClone(t *testing.T) {
+	manager := &fakeConfigManager{}
+	provider := NewRuntimeConfigProvider(config.DefaultConfig(), manager)
+
+	provider.OnChange(func(snapshot port.RuntimeConfigSnapshot) {
+		mutateNestedRuntimeConfigSnapshot(snapshot)
+	})
+
+	manager.callbacks[0](runtimeConfigWithNestedMutableFields())
+
+	assertNestedRuntimeConfigSnapshotUnchanged(t, provider.Current())
+}
+
 func TestEngineSettingsPayloadFromNilConfigReturnsZeroPayload(t *testing.T) {
 	got := EngineSettingsPayloadFromConfig(nil)
 	if got != (port.EngineSettingsPayload{}) {
 		t.Fatalf("payload=%#v, want zero value", got)
+	}
+}
+
+func runtimeConfigWithNestedMutableFields() *config.Config {
+	cfg := config.DefaultConfig()
+	cfg.Workspace.PaneMode.Actions = map[string]entity.ActionBinding{
+		"split-right": {Keys: []string{"r"}, Desc: "Split right"},
+	}
+	cfg.Workspace.TabMode.Actions = map[string]entity.ActionBinding{
+		"next-tab": {Keys: []string{"l"}, Desc: "Next tab"},
+	}
+	cfg.Workspace.ResizeMode.Actions = map[string]entity.ActionBinding{
+		"grow-right": {Keys: []string{"right"}, Desc: "Grow right"},
+	}
+	cfg.Workspace.Shortcuts.Actions = map[string]entity.ActionBinding{
+		"toggle-history-systemview": {Keys: []string{"ctrl+h"}, Desc: "History"},
+	}
+	cfg.Workspace.FloatingPane.Profiles = map[string]entity.FloatingPaneProfile{
+		"docs": {Keys: []string{"alt+d"}, URL: "https://docs.example", Desc: "Docs"},
+	}
+	cfg.Session.SessionMode.Actions = map[string]entity.ActionBinding{
+		"session-manager": {Keys: []string{"s"}, Desc: "Session manager"},
+	}
+	return cfg
+}
+
+func mutateNestedRuntimeConfigSnapshot(snapshot port.RuntimeConfigSnapshot) {
+	mutateActionBinding(snapshot.UI.Workspace.PaneMode.Actions, "split-right", "mutated-pane")
+	snapshot.UI.Workspace.PaneMode.Actions["added-pane"] = entity.ActionBinding{Keys: []string{"added"}}
+
+	mutateActionBinding(snapshot.UI.Workspace.TabMode.Actions, "next-tab", "mutated-tab")
+	snapshot.UI.Workspace.TabMode.Actions["added-tab"] = entity.ActionBinding{Keys: []string{"added"}}
+
+	mutateActionBinding(snapshot.UI.Workspace.ResizeMode.Actions, "grow-right", "mutated-resize")
+	snapshot.UI.Workspace.ResizeMode.Actions["added-resize"] = entity.ActionBinding{Keys: []string{"added"}}
+
+	mutateActionBinding(snapshot.UI.Workspace.Shortcuts.Actions, "toggle-history-systemview", "mutated-shortcut")
+	snapshot.UI.Workspace.Shortcuts.Actions["added-shortcut"] = entity.ActionBinding{Keys: []string{"added"}}
+
+	profile := snapshot.UI.Workspace.FloatingPane.Profiles["docs"]
+	profile.Keys[0] = "mutated-floating"
+	snapshot.UI.Workspace.FloatingPane.Profiles["docs"] = profile
+	snapshot.UI.Workspace.FloatingPane.Profiles["added-floating"] = entity.FloatingPaneProfile{Keys: []string{"added"}}
+
+	mutateActionBinding(snapshot.UI.Session.SessionMode.Actions, "session-manager", "mutated-session")
+	snapshot.UI.Session.SessionMode.Actions["added-session"] = entity.ActionBinding{Keys: []string{"added"}}
+}
+
+func mutateActionBinding(actions map[string]entity.ActionBinding, action string, key string) {
+	binding := actions[action]
+	binding.Keys[0] = key
+	actions[action] = binding
+}
+
+func assertNestedRuntimeConfigSnapshotUnchanged(t *testing.T, snapshot port.RuntimeConfigSnapshot) {
+	t.Helper()
+
+	assertActionBinding(t, snapshot.UI.Workspace.PaneMode.Actions, "split-right", "r")
+	assertMapEntryAbsent(t, snapshot.UI.Workspace.PaneMode.Actions, "added-pane")
+
+	assertActionBinding(t, snapshot.UI.Workspace.TabMode.Actions, "next-tab", "l")
+	assertMapEntryAbsent(t, snapshot.UI.Workspace.TabMode.Actions, "added-tab")
+
+	assertActionBinding(t, snapshot.UI.Workspace.ResizeMode.Actions, "grow-right", "right")
+	assertMapEntryAbsent(t, snapshot.UI.Workspace.ResizeMode.Actions, "added-resize")
+
+	assertActionBinding(t, snapshot.UI.Workspace.Shortcuts.Actions, "toggle-history-systemview", "ctrl+h")
+	assertMapEntryAbsent(t, snapshot.UI.Workspace.Shortcuts.Actions, "added-shortcut")
+
+	profile := snapshot.UI.Workspace.FloatingPane.Profiles["docs"]
+	if got := profile.Keys[0]; got != "alt+d" {
+		t.Fatalf("floating profile key=%q, want %q", got, "alt+d")
+	}
+	if _, ok := snapshot.UI.Workspace.FloatingPane.Profiles["added-floating"]; ok {
+		t.Fatal("floating pane profiles must not include entries added through a returned snapshot")
+	}
+
+	assertActionBinding(t, snapshot.UI.Session.SessionMode.Actions, "session-manager", "s")
+	assertMapEntryAbsent(t, snapshot.UI.Session.SessionMode.Actions, "added-session")
+}
+
+func assertActionBinding(t *testing.T, actions map[string]entity.ActionBinding, action string, wantKey string) {
+	t.Helper()
+
+	binding, ok := actions[action]
+	if !ok {
+		t.Fatalf("action %q missing", action)
+	}
+	if got := binding.Keys[0]; got != wantKey {
+		t.Fatalf("%s key=%q, want %q", action, got, wantKey)
+	}
+}
+
+func assertMapEntryAbsent(t *testing.T, actions map[string]entity.ActionBinding, action string) {
+	t.Helper()
+
+	if _, ok := actions[action]; ok {
+		t.Fatalf("actions must not include entry %q added through a returned snapshot", action)
 	}
 }
 

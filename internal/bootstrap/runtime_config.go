@@ -4,6 +4,7 @@ import (
 	"sync"
 
 	"github.com/bnema/dumber/internal/application/port"
+	"github.com/bnema/dumber/internal/domain/entity"
 	"github.com/bnema/dumber/internal/infrastructure/config"
 )
 
@@ -115,6 +116,8 @@ func runtimeSearchShortcutsFromConfig(in map[string]config.SearchShortcut) map[s
 
 func cloneRuntimeConfigSnapshot(snapshot port.RuntimeConfigSnapshot) port.RuntimeConfigSnapshot {
 	snapshot.UI.SearchShortcuts = cloneRuntimeSearchShortcuts(snapshot.UI.SearchShortcuts)
+	snapshot.UI.Workspace = cloneWorkspaceConfig(snapshot.UI.Workspace)
+	snapshot.UI.Session = cloneSessionConfig(snapshot.UI.Session)
 	return snapshot
 }
 
@@ -126,6 +129,53 @@ func cloneRuntimeSearchShortcuts(in map[string]port.RuntimeSearchShortcut) map[s
 	for key, shortcut := range in {
 		out[key] = shortcut
 	}
+	return out
+}
+
+func cloneWorkspaceConfig(in entity.WorkspaceConfig) entity.WorkspaceConfig {
+	in.PaneMode.Actions = cloneActionBindings(in.PaneMode.Actions)
+	in.TabMode.Actions = cloneActionBindings(in.TabMode.Actions)
+	in.ResizeMode.Actions = cloneActionBindings(in.ResizeMode.Actions)
+	in.Shortcuts.Actions = cloneActionBindings(in.Shortcuts.Actions)
+	in.FloatingPane.Profiles = cloneFloatingPaneProfiles(in.FloatingPane.Profiles)
+	return in
+}
+
+func cloneSessionConfig(in entity.SessionConfig) entity.SessionConfig {
+	in.SessionMode.Actions = cloneActionBindings(in.SessionMode.Actions)
+	return in
+}
+
+func cloneActionBindings(in map[string]entity.ActionBinding) map[string]entity.ActionBinding {
+	if in == nil {
+		return nil
+	}
+	out := make(map[string]entity.ActionBinding, len(in))
+	for action, binding := range in {
+		binding.Keys = cloneStringSlice(binding.Keys)
+		out[action] = binding
+	}
+	return out
+}
+
+func cloneFloatingPaneProfiles(in map[string]entity.FloatingPaneProfile) map[string]entity.FloatingPaneProfile {
+	if in == nil {
+		return nil
+	}
+	out := make(map[string]entity.FloatingPaneProfile, len(in))
+	for name, profile := range in {
+		profile.Keys = cloneStringSlice(profile.Keys)
+		out[name] = profile
+	}
+	return out
+}
+
+func cloneStringSlice(in []string) []string {
+	if in == nil {
+		return nil
+	}
+	out := make([]string, len(in))
+	copy(out, in)
 	return out
 }
 
