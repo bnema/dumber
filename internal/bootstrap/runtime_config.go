@@ -31,7 +31,7 @@ func (p *runtimeConfigProvider) Current() port.RuntimeConfigSnapshot {
 	if p.manager == nil {
 		return cloneRuntimeConfigSnapshot(p.fallback)
 	}
-	return cloneRuntimeConfigSnapshot(RuntimeConfigSnapshotFromConfig(p.manager.Get()))
+	return RuntimeConfigSnapshotFromConfig(p.manager.Get())
 }
 
 func (p *runtimeConfigProvider) Watch() error {
@@ -42,14 +42,11 @@ func (p *runtimeConfigProvider) Watch() error {
 }
 
 func (p *runtimeConfigProvider) OnChange(callback func(port.RuntimeConfigSnapshot)) {
-	if p == nil || p.manager == nil {
+	if p == nil || p.manager == nil || callback == nil {
 		return
 	}
 	p.manager.OnConfigChange(func(cfg *config.Config) {
-		snapshot := RuntimeConfigSnapshotFromConfig(cfg)
-		if callback != nil {
-			callback(cloneRuntimeConfigSnapshot(snapshot))
-		}
+		callback(RuntimeConfigSnapshotFromConfig(cfg))
 	})
 }
 

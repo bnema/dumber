@@ -131,6 +131,17 @@ func TestRuntimeConfigProviderOnChangeCallbackCanCallCurrent(t *testing.T) {
 	}
 }
 
+func TestRuntimeConfigProviderOnChangeNilCallbackDoesNotRegister(t *testing.T) {
+	manager := &fakeConfigManager{current: config.DefaultConfig()}
+	provider := NewRuntimeConfigProvider(config.DefaultConfig(), manager)
+
+	provider.OnChange(nil)
+
+	if len(manager.callbacks) != 0 {
+		t.Fatalf("callbacks=%d, want 0", len(manager.callbacks))
+	}
+}
+
 func TestRuntimeConfigProviderWatchDelegatesToManager(t *testing.T) {
 	manager := &fakeConfigManager{}
 	provider := NewRuntimeConfigProvider(config.DefaultConfig(), manager)
