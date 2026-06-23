@@ -25,6 +25,7 @@ func NewEngine(
 	opts port.EngineOptions,
 	profile runtimeprofile.Profile,
 	wkCfg WebKitEngineConfig,
+	initialSettings port.EngineSettingsPayload,
 	currentConfigPayload func() ([]byte, error),
 	defaultConfigPayload func() ([]byte, error),
 	themeManager *theme.Manager,
@@ -63,7 +64,7 @@ func NewEngine(
 	schemeHandler.RegisterWithContext(wkCtx)
 
 	// --- Settings, injector, message router ---
-	settings := NewSettingsManager(ctx, cfg)
+	settings := NewSettingsManager(ctx, initialSettings)
 	injector := NewContentInjector(colorResolver)
 
 	injector.SetAutoCopyConfigGetter(func() bool {

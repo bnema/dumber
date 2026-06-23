@@ -4,34 +4,35 @@ import (
 	"context"
 	"sync"
 
-	"github.com/bnema/dumber/internal/infrastructure/config"
+	"github.com/bnema/dumber/internal/application/port"
 	"github.com/bnema/dumber/internal/logging"
 	"github.com/bnema/puregotk/v4/webkit"
 	"github.com/rs/zerolog"
 )
 
-// SettingsManager creates and manages WebKit Settings instances from config.
+// SettingsManager creates and manages WebKit Settings instances from payloads.
 type SettingsManager struct {
-	cfg *config.Config
-	mu  sync.RWMutex
+	settings port.EngineSettingsPayload
+	mu       sync.RWMutex
 }
 
-// NewSettingsManager creates a new SettingsManager with the given config.
-func NewSettingsManager(ctx context.Context, cfg *config.Config) *SettingsManager {
+// NewSettingsManager creates a new SettingsManager with the given payload.
+func NewSettingsManager(ctx context.Context, settings port.EngineSettingsPayload) *SettingsManager {
 	log := logging.FromContext(ctx)
 	log.Debug().Msg("creating settings manager")
-	return &SettingsManager{
-		cfg: cfg,
-	}
+	return &SettingsManager{settings: settings}
 }
 
-// CreateSettings creates a new webkit.Settings instance configured from the current config.
+func (sm *SettingsManager) current() port.EngineSettingsPayload {
+	sm.mu.RLock()
+	defer sm.mu.RUnlock()
+	return sm.settings
+}
+
+// CreateSettings creates a new webkit.Settings instance configured from the current payload.
 func (sm *SettingsManager) CreateSettings(ctx context.Context) *webkit.Settings {
 	log := logging.FromContext(ctx)
-
-	sm.mu.RLock()
-	cfg := sm.cfg
-	sm.mu.RUnlock()
+	payload := sm.current()
 
 	settings := webkit.NewSettings()
 	if settings == nil {
@@ -39,21 +40,21 @@ func (sm *SettingsManager) CreateSettings(ctx context.Context) *webkit.Settings 
 		return nil
 	}
 
-	sm.applySettings(ctx, settings, cfg)
+	sm.applySettings(ctx, settings, payload)
 	return settings
 }
 
-// applySettings applies configuration to a webkit.Settings instance.
-func (sm *SettingsManager) applySettings(ctx context.Context, settings *webkit.Settings, cfg *config.Config) {
+// applySettings applies settings payload to a webkit.Settings instance.
+func (sm *SettingsManager) applySettings(ctx context.Context, settings *webkit.Settings, payload port.EngineSettingsPayload) {
 	if sm == nil {
 		return
 	}
 	log := logging.FromContext(ctx)
 	applyJavaScriptSettings(settings)
-	applyFontSettings(settings, cfg)
-	applyDebugSettings(settings, cfg)
+	applyFontSettings(settings, payload.WebContent)
+	applyDebugSettings(settings, payload.WebContent)
 	applyBrowsingSettings(settings)
-	applyMediaSettings(settings, cfg, log)
+	applyMediaSettings(settings, payload.WebContent.HardwareDecoding, log)
 	applyStorageSettings(settings)
 	applyUISettings(settings)
 	applyCanvasSettings(settings)
@@ -63,8 +64,8 @@ func (sm *SettingsManager) applySettings(ctx context.Context, settings *webkit.S
 	mediaStreamEnabled := settings.GetPropertyEnableMediaStream()
 
 	log.Debug().
-		Str("sans_font", cfg.Appearance.SansFont).
-		Bool("developer_extras", cfg.Debug.EnableDevTools).
+		Str("sans_font", payload.WebContent.SansFont).
+		Bool("developer_extras", payload.WebContent.EnableDevTools).
 		Bool("webrtc_enabled", webrtcEnabled).
 		Bool("media_stream_enabled", mediaStreamEnabled).
 		Msg("settings applied")
@@ -75,26 +76,26 @@ func applyJavaScriptSettings(settings *webkit.Settings) {
 	settings.SetEnableJavascriptMarkup(true)
 }
 
-func applyFontSettings(settings *webkit.Settings, cfg *config.Config) {
-	if cfg.Appearance.SansFont != "" {
-		settings.SetDefaultFontFamily(cfg.Appearance.SansFont)
-		settings.SetSansSerifFontFamily(cfg.Appearance.SansFont)
+func applyFontSettings(settings *webkit.Settings, payload port.EngineWebContentSettingsPayload) {
+	if payload.SansFont != "" {
+		settings.SetDefaultFontFamily(payload.SansFont)
+		settings.SetSansSerifFontFamily(payload.SansFont)
 	}
-	if cfg.Appearance.SerifFont != "" {
-		settings.SetSerifFontFamily(cfg.Appearance.SerifFont)
+	if payload.SerifFont != "" {
+		settings.SetSerifFontFamily(payload.SerifFont)
 	}
-	if cfg.Appearance.MonospaceFont != "" {
-		settings.SetMonospaceFontFamily(cfg.Appearance.MonospaceFont)
+	if payload.MonospaceFont != "" {
+		settings.SetMonospaceFontFamily(payload.MonospaceFont)
 	}
-	if cfg.Appearance.DefaultFontSize > 0 {
-		settings.SetDefaultFontSize(uint32(cfg.Appearance.DefaultFontSize))
+	if payload.DefaultFontSize > 0 {
+		settings.SetDefaultFontSize(uint32(payload.DefaultFontSize))
 	}
 }
 
-func applyDebugSettings(settings *webkit.Settings, cfg *config.Config) {
-	settings.SetEnableDeveloperExtras(cfg.Debug.EnableDevTools)
-	settings.SetEnableWriteConsoleMessagesToStdout(cfg.Logging.CaptureConsole)
-	settings.SetDrawCompositingIndicators(cfg.Engine.WebKit.DrawCompositingIndicators)
+func applyDebugSettings(settings *webkit.Settings, payload port.EngineWebContentSettingsPayload) {
+	settings.SetEnableDeveloperExtras(payload.EnableDevTools)
+	settings.SetEnableWriteConsoleMessagesToStdout(payload.CaptureConsole)
+	settings.SetDrawCompositingIndicators(payload.DrawCompositingIndicators)
 }
 
 func applyBrowsingSettings(settings *webkit.Settings) {
@@ -103,7 +104,7 @@ func applyBrowsingSettings(settings *webkit.Settings) {
 	settings.SetEnableSiteSpecificQuirks(true)
 }
 
-func applyMediaSettings(settings *webkit.Settings, cfg *config.Config, log *zerolog.Logger) {
+func applyMediaSettings(settings *webkit.Settings, mode port.EngineHardwareDecodingMode, log *zerolog.Logger) {
 	settings.SetEnableWebaudio(true)
 	settings.SetEnableWebgl(true)
 	settings.SetEnableMedia(true)
@@ -113,12 +114,12 @@ func applyMediaSettings(settings *webkit.Settings, cfg *config.Config, log *zero
 	settings.SetMediaPlaybackRequiresUserGesture(true)
 	settings.SetMediaPlaybackAllowsInline(true)
 
-	switch cfg.Media.HardwareDecodingMode {
-	case config.HardwareDecodingForce:
+	switch mode {
+	case port.EngineHardwareDecodingForce:
 		hwTypes := "video/av01;video/mp4;video/webm;video/x-h264;video/x-h265"
 		settings.SetMediaContentTypesRequiringHardwareSupport(&hwTypes)
 		log.Debug().Msg("hardware decoding: forced (may fail without hw support)")
-	case config.HardwareDecodingDisable:
+	case port.EngineHardwareDecodingDisable:
 		settings.SetHardwareAccelerationPolicy(webkit.HardwareAccelerationPolicyNeverValue)
 		log.Debug().Msg("hardware decoding: disabled (software only)")
 	default:
@@ -151,15 +152,15 @@ func applyWebRTCSettings(settings *webkit.Settings) {
 	settings.SetEnableWebrtc(true)
 }
 
-// UpdateFromConfig updates the manager with a new config (for hot-reload).
+// UpdateFromPayload updates the manager with a new payload (for hot-reload).
 // Note: This doesn't update already-created Settings instances.
-// New WebViews will use the updated config.
-func (sm *SettingsManager) UpdateFromConfig(ctx context.Context, cfg *config.Config) {
+// New WebViews will use the updated payload.
+func (sm *SettingsManager) UpdateFromPayload(ctx context.Context, settings port.EngineSettingsPayload) {
 	log := logging.FromContext(ctx)
 	sm.mu.Lock()
 	defer sm.mu.Unlock()
-	sm.cfg = cfg
-	log.Debug().Msg("settings config updated")
+	sm.settings = settings
+	log.Debug().Msg("settings payload updated")
 }
 
 // ApplyToWebView applies current settings to an existing WebView.
@@ -175,9 +176,7 @@ func (sm *SettingsManager) ApplyToWebView(ctx context.Context, wv *webkit.WebVie
 	// Apply to the existing settings object attached to the WebView
 	existingSettings := wv.GetSettings()
 	if existingSettings != nil {
-		sm.mu.RLock()
-		cfg := sm.cfg
-		sm.mu.RUnlock()
-		sm.applySettings(ctx, existingSettings, cfg)
+		payload := sm.current()
+		sm.applySettings(ctx, existingSettings, payload)
 	}
 }
