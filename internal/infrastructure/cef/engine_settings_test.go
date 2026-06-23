@@ -21,10 +21,10 @@ func TestEngineUpdateSettingsUpdatesApplicationScaleFromBoundaryPayload(t *testi
 	}
 }
 
-func TestEngineUpdateSettingsIgnoresLegacyRawForApplicationScale(t *testing.T) {
-	e := &Engine{applicationScale: 1}
+func TestEngineUpdateSettingsUsesZeroScaleWhenPayloadIsEmpty(t *testing.T) {
+	e := &Engine{applicationScale: 1.25}
 
-	if err := e.UpdateSettings(context.Background(), port.EngineSettingsUpdate{Raw: "wrong"}); err != nil {
+	if err := e.UpdateSettings(context.Background(), port.EngineSettingsUpdate{}); err != nil {
 		t.Fatalf("UpdateSettings returned error: %v", err)
 	}
 	if got := e.currentApplicationScale(); got != 1 {

@@ -28,3 +28,10 @@ func TestEngineSettingsPayloadContainsRuntimeWebContentFields(t *testing.T) {
 		}
 	}
 }
+
+func TestEngineSettingsUpdateHasNoRawBridge(t *testing.T) {
+	updateType := reflect.TypeOf(EngineSettingsUpdate{})
+	if _, ok := updateType.FieldByName("Raw"); ok {
+		t.Fatal("EngineSettingsUpdate must not expose Raw legacy bridge")
+	}
+}

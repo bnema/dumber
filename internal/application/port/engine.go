@@ -174,9 +174,6 @@ type EngineSettingsPayload struct {
 // EngineSettingsUpdate carries a runtime config change to the engine.
 type EngineSettingsUpdate struct {
 	Settings EngineSettingsPayload
-	// Raw remains only until the UI runtime config provider migration removes
-	// the last concrete-config caller. Adapter implementations must ignore it.
-	Raw any //nolint:iface // temporary legacy bridge; removed in Phase 4
 }
 
 // WebUIMessageHandler handles a decoded message payload from the JS bridge.
