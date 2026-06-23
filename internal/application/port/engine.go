@@ -142,22 +142,41 @@ type Engine interface {
 	SetHandlerContext(ctx context.Context)
 }
 
+// EngineHardwareDecodingMode controls engine-facing video hardware acceleration.
+type EngineHardwareDecodingMode string
+
+const (
+	EngineHardwareDecodingAuto    EngineHardwareDecodingMode = "auto"
+	EngineHardwareDecodingForce   EngineHardwareDecodingMode = "force"
+	EngineHardwareDecodingDisable EngineHardwareDecodingMode = "disable"
+)
+
+// EngineWebContentSettingsPayload is the engine-facing runtime view of web
+// content settings that can be applied to newly-created or existing webviews.
+type EngineWebContentSettingsPayload struct {
+	SansFont                  string
+	SerifFont                 string
+	MonospaceFont             string
+	DefaultFontSize           int
+	EnableDevTools            bool
+	CaptureConsole            bool
+	DrawCompositingIndicators bool
+	HardwareDecoding          EngineHardwareDecodingMode
+}
+
 // EngineSettingsPayload is the engine-facing boundary view of runtime config.
 // Add fields here only when an engine needs to react to them at runtime.
 type EngineSettingsPayload struct {
 	DefaultUIScale float64
+	WebContent     EngineWebContentSettingsPayload
 }
 
 // EngineSettingsUpdate carries a runtime config change to the engine.
-//
-// Settings exposes the typed boundary payload that engine adapters should prefer.
-// Raw remains for legacy adapters that still consume implementation-specific
-// config until their settings managers are narrowed to boundary fields.
 type EngineSettingsUpdate struct {
 	Settings EngineSettingsPayload
-	// Raw holds the implementation-specific config for legacy adapters.
-	// WebKit engine currently expects *infrastructure/config.Config.
-	Raw any //nolint:iface // intentional legacy bridge; prefer Settings for new code
+	// Raw remains only until the UI runtime config provider migration removes
+	// the last concrete-config caller. Adapter implementations must ignore it.
+	Raw any //nolint:iface // temporary legacy bridge; removed in Phase 4
 }
 
 // WebUIMessageHandler handles a decoded message payload from the JS bridge.
