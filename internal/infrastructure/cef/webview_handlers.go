@@ -542,8 +542,49 @@ func (h *handlerSet) OnLoadEnd(_ purecef.Browser, frame purecef.Frame, httpStatu
 	// CEF's OnLoadingProgressChange also provides progress=1.0 at completion.
 }
 
-// OnLoadError is a no-op.
-func (h *handlerSet) OnLoadError(_ purecef.Browser, _ purecef.Frame, _ purecef.Errorcode, _, _ string) {
+const cefErrAborted purecef.Errorcode = -3
+
+// OnLoadError handles failed main-frame navigations that never reach
+// OnLoadStart. CEF still sends OnLoadingStateChange(false) after load errors,
+// so this callback only synthesizes the missing committed event needed to reveal
+// the pane; the normal browser-level loading-state callback remains responsible
+// for the terminal LoadFinished state.
+func (h *handlerSet) OnLoadError(_ purecef.Browser, frame purecef.Frame, errorCode purecef.Errorcode, errorText, failedURL string) {
+	if h == nil || h.wv == nil || frame == nil || !frame.IsMain() {
+		return
+	}
+	if errorCode == cefErrAborted {
+		return
+	}
+	if failedURL == "" {
+		failedURL = frame.GetURL()
+	}
+
+	h.wv.mu.RLock()
+	currentURI := h.wv.uri
+	cb := h.wv.callbacks
+	h.wv.mu.RUnlock()
+
+	if h.wv.ctx != nil {
+		logging.FromContext(h.wv.ctx).Debug().
+			Int32("error_code", errorCode).
+			Str("error_text", errorText).
+			Str("failed_url", logging.TruncateURL(failedURL, logging.PermissionLogURLMaxLen)).
+			Msg("cef: OnLoadError")
+	}
+
+	if failedURL != "" {
+		h.wv.updateURI(failedURL)
+	}
+
+	if cb == nil || cb.OnLoadChanged == nil {
+		return
+	}
+	if failedURL != "" && !pendingURIEquivalent(currentURI, failedURL) {
+		h.wv.runOnGTK(func() {
+			cb.OnLoadChanged(port.LoadCommitted)
+		})
+	}
 }
 
 func mapCEFWindowDisposition(disposition purecef.WindowOpenDisposition) dto.WindowDisposition {
