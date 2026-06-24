@@ -127,10 +127,10 @@ func historySidebarWidthConfig(widthPx int) window.SidebarWidthConfig {
 // applySidebarWidthConfig applies the config-backed sidebar width to the
 // main window's sidebar.
 func (bw *browserWindow) applySidebarWidthConfig(a *App) {
-	if bw == nil || bw.mainWindow == nil || a == nil || a.deps == nil || a.deps.Config == nil {
+	if bw == nil || bw.mainWindow == nil || a == nil {
 		return
 	}
-	bw.mainWindow.SetSidebarWidth(historySidebarWidthConfig(a.deps.Config.SidebarWidth))
+	bw.mainWindow.SetSidebarWidth(historySidebarWidthConfig(a.runtimeConfigSnapshot().UI.SidebarWidth))
 }
 
 // toggleHistorySidebarAction is the keyboard-action handler for toggling the

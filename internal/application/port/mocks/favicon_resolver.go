@@ -65,7 +65,7 @@ type MockFaviconResolver_EnsureSized_Call struct {
 //   - ctx context.Context
 //   - key favicon.Key
 //   - size int
-func (_e *MockFaviconResolver_Expecter) EnsureSized(ctx interface{}, key interface{}, size interface{}) *MockFaviconResolver_EnsureSized_Call {
+func (_e *MockFaviconResolver_Expecter) EnsureSized(ctx any, key any, size any) *MockFaviconResolver_EnsureSized_Call {
 	return &MockFaviconResolver_EnsureSized_Call{Call: _e.mock.On("EnsureSized", ctx, key, size)}
 }
 
@@ -127,7 +127,7 @@ type MockFaviconResolver_Invalidate_Call struct {
 // Invalidate is a helper method to define mock.On call
 //   - ctx context.Context
 //   - key favicon.Key
-func (_e *MockFaviconResolver_Expecter) Invalidate(ctx interface{}, key interface{}) *MockFaviconResolver_Invalidate_Call {
+func (_e *MockFaviconResolver_Expecter) Invalidate(ctx any, key any) *MockFaviconResolver_Invalidate_Call {
 	return &MockFaviconResolver_Invalidate_Call{Call: _e.mock.On("Invalidate", ctx, key)}
 }
 
@@ -199,7 +199,7 @@ type MockFaviconResolver_Observe_Call struct {
 //   - bytes []byte
 //   - source favicon.Source
 //   - contentType string
-func (_e *MockFaviconResolver_Expecter) Observe(ctx interface{}, pageURL interface{}, iconURL interface{}, bytes interface{}, source interface{}, contentType interface{}) *MockFaviconResolver_Observe_Call {
+func (_e *MockFaviconResolver_Expecter) Observe(ctx any, pageURL any, iconURL any, bytes any, source any, contentType any) *MockFaviconResolver_Observe_Call {
 	return &MockFaviconResolver_Observe_Call{Call: _e.mock.On("Observe", ctx, pageURL, iconURL, bytes, source, contentType)}
 }
 
@@ -277,7 +277,7 @@ type MockFaviconResolver_RefreshFromIconURLs_Call struct {
 //   - ctx context.Context
 //   - pageURL string
 //   - iconURLs []string
-func (_e *MockFaviconResolver_Expecter) RefreshFromIconURLs(ctx interface{}, pageURL interface{}, iconURLs interface{}) *MockFaviconResolver_RefreshFromIconURLs_Call {
+func (_e *MockFaviconResolver_Expecter) RefreshFromIconURLs(ctx any, pageURL any, iconURLs any) *MockFaviconResolver_RefreshFromIconURLs_Call {
 	return &MockFaviconResolver_RefreshFromIconURLs_Call{Call: _e.mock.On("RefreshFromIconURLs", ctx, pageURL, iconURLs)}
 }
 
@@ -352,7 +352,7 @@ type MockFaviconResolver_Resolve_Call struct {
 //   - rawURLOrDomain string
 //   - size int
 //   - options port.FaviconResolveOptions
-func (_e *MockFaviconResolver_Expecter) Resolve(ctx interface{}, rawURLOrDomain interface{}, size interface{}, options interface{}) *MockFaviconResolver_Resolve_Call {
+func (_e *MockFaviconResolver_Expecter) Resolve(ctx any, rawURLOrDomain any, size any, options any) *MockFaviconResolver_Resolve_Call {
 	return &MockFaviconResolver_Resolve_Call{Call: _e.mock.On("Resolve", ctx, rawURLOrDomain, size, options)}
 }
 
@@ -431,7 +431,7 @@ type MockFaviconResolver_ResolveSystemviewIcon_Call struct {
 //   - ctx context.Context
 //   - rawDomain string
 //   - size int
-func (_e *MockFaviconResolver_Expecter) ResolveSystemviewIcon(ctx interface{}, rawDomain interface{}, size interface{}) *MockFaviconResolver_ResolveSystemviewIcon_Call {
+func (_e *MockFaviconResolver_Expecter) ResolveSystemviewIcon(ctx any, rawDomain any, size any) *MockFaviconResolver_ResolveSystemviewIcon_Call {
 	return &MockFaviconResolver_ResolveSystemviewIcon_Call{Call: _e.mock.On("ResolveSystemviewIcon", ctx, rawDomain, size)}
 }
 

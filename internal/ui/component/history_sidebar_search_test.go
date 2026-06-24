@@ -3,16 +3,17 @@ package component
 import (
 	"context"
 	"errors"
-	"fmt"
 	"sync"
 	"testing"
 	"time"
 
 	"github.com/bnema/dumber/internal/application/dto"
+	portmocks "github.com/bnema/dumber/internal/application/port/mocks"
 	"github.com/bnema/dumber/internal/domain/entity"
 	"github.com/bnema/puregotk/v4/glib"
 	"github.com/rs/zerolog"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 )
 
@@ -155,49 +156,20 @@ func TestApplyDeletedEntryLocked_RecomputesBrowseState(t *testing.T) {
 	assert.Equal(t, historyDisplayRowEntry, hs.displayRows[2].Kind)
 }
 
-// =============================================================================
-// Async search seam: controllable history port fake
-// =============================================================================
-
-type fakeHistorySidebarHistory struct {
-	getRecentFn func(ctx context.Context, limit, offset int) ([]*entity.HistoryEntry, error)
-	searchFn    func(ctx context.Context, input dto.HistorySearchInput) (*dto.HistorySearchOutput, error)
-	deleteFn    func(ctx context.Context, id int64) error
-}
-
-func (f *fakeHistorySidebarHistory) GetRecent(ctx context.Context, limit, offset int) ([]*entity.HistoryEntry, error) {
-	if f.getRecentFn != nil {
-		return f.getRecentFn(ctx, limit, offset)
-	}
-	return nil, fmt.Errorf("unexpected GetRecent call in fakeHistorySidebarHistory")
-}
-
-func (f *fakeHistorySidebarHistory) Search(ctx context.Context, input dto.HistorySearchInput) (*dto.HistorySearchOutput, error) {
-	if f.searchFn != nil {
-		return f.searchFn(ctx, input)
-	}
-	return &dto.HistorySearchOutput{Matches: []entity.HistoryMatch{}}, nil
-}
-
-func (f *fakeHistorySidebarHistory) Delete(ctx context.Context, id int64) error {
-	if f.deleteFn != nil {
-		return f.deleteFn(ctx, id)
-	}
-	return nil
-}
-
 func TestApplySearchResults_StaleGenerationDropsResultsAfterSearch(t *testing.T) {
 	searchCalled := make(chan struct{}, 1)
 	idleCalled := make(chan glib.SourceFunc, 1)
 
-	history := &fakeHistorySidebarHistory{
-		searchFn: func(context.Context, dto.HistorySearchInput) (*dto.HistorySearchOutput, error) {
+	history := portmocks.NewMockHistorySidebarHistory(t)
+	history.EXPECT().
+		Search(mock.Anything, mock.Anything).
+		RunAndReturn(func(context.Context, dto.HistorySearchInput) (*dto.HistorySearchOutput, error) {
 			searchCalled <- struct{}{}
 			return &dto.HistorySearchOutput{Matches: []entity.HistoryMatch{
 				{Entry: &entity.HistoryEntry{ID: 1, URL: "https://result.com", Title: "Result", LastVisited: time.Now()}},
 			}}, nil
-		},
-	}
+		}).
+		Once()
 
 	hs := newTestSidebarSearchHarness()
 	hs.ctx = t.Context()
@@ -238,14 +210,16 @@ func TestApplySearchResults_CurrentGenerationAppliedAfterSearch(t *testing.T) {
 	searchCalled := make(chan struct{}, 1)
 	idleCalled := make(chan glib.SourceFunc, 1)
 
-	history := &fakeHistorySidebarHistory{
-		searchFn: func(context.Context, dto.HistorySearchInput) (*dto.HistorySearchOutput, error) {
+	history := portmocks.NewMockHistorySidebarHistory(t)
+	history.EXPECT().
+		Search(mock.Anything, mock.Anything).
+		RunAndReturn(func(context.Context, dto.HistorySearchInput) (*dto.HistorySearchOutput, error) {
 			searchCalled <- struct{}{}
 			return &dto.HistorySearchOutput{Matches: []entity.HistoryMatch{
 				{Entry: &entity.HistoryEntry{ID: 1, URL: "https://live.com", Title: "Live", LastVisited: time.Now()}},
 			}}, nil
-		},
-	}
+		}).
+		Once()
 
 	hs := newTestSidebarSearchHarness()
 	hs.ctx = t.Context()
@@ -286,12 +260,14 @@ func TestApplySearchResults_CurrentGenerationAppliedAfterSearch(t *testing.T) {
 // active query while resetting browse/search state before the refreshed load.
 func TestHistorySidebar_ReloadPreservesQuery(t *testing.T) {
 	searchCalled := make(chan struct{}, 1)
-	history := &fakeHistorySidebarHistory{
-		searchFn: func(context.Context, dto.HistorySearchInput) (*dto.HistorySearchOutput, error) {
+	history := portmocks.NewMockHistorySidebarHistory(t)
+	history.EXPECT().
+		Search(mock.Anything, mock.Anything).
+		RunAndReturn(func(context.Context, dto.HistorySearchInput) (*dto.HistorySearchOutput, error) {
 			searchCalled <- struct{}{}
 			return &dto.HistorySearchOutput{Matches: []entity.HistoryMatch{}}, nil
-		},
-	}
+		}).
+		Once()
 
 	hs := newTestSidebarSearchHarness()
 	hs.currentQuery = "preserved"
@@ -341,13 +317,15 @@ func TestFetchPage_StaleGenerationDoesNotMutateLoadingState(t *testing.T) {
 	getRecentCalled := make(chan struct{})
 	proceed := make(chan struct{})
 
-	history := &fakeHistorySidebarHistory{
-		getRecentFn: func(context.Context, int, int) ([]*entity.HistoryEntry, error) {
+	history := portmocks.NewMockHistorySidebarHistory(t)
+	history.EXPECT().
+		GetRecent(mock.Anything, sidebarPageSize, 0).
+		RunAndReturn(func(context.Context, int, int) ([]*entity.HistoryEntry, error) {
 			close(getRecentCalled)
 			<-proceed
 			return []*entity.HistoryEntry{}, nil
-		},
-	}
+		}).
+		Once()
 
 	hs := newTestSidebarSearchHarness()
 	hs.ctx = t.Context()

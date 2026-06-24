@@ -15,6 +15,7 @@ import (
 
 	"github.com/bnema/dumber/internal/application/dto"
 	"github.com/bnema/dumber/internal/application/port"
+	"github.com/bnema/dumber/internal/domain/entity"
 	"github.com/bnema/dumber/internal/logging"
 )
 
@@ -355,7 +356,7 @@ func (e *Engine) UpdateAppearance(_ context.Context, r, g, b, alpha float64) err
 // existing views continue using their construction-time scale until reload under
 // a new engine lifetime. Browser zoom remains independently adjustable at
 // runtime through SetZoomLevel.
-func (e *Engine) UpdateSettings(ctx context.Context, update port.EngineSettingsUpdate) error {
+func (e *Engine) UpdateSettings(ctx context.Context, update entity.EngineSettingsUpdate) error {
 	newScale := normalizedApplicationScale(update.Settings.DefaultUIScale)
 	e.applicationScaleMu.Lock()
 	oldScale := e.applicationScale

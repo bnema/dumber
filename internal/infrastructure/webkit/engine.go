@@ -5,7 +5,7 @@ import (
 	"fmt"
 
 	"github.com/bnema/dumber/internal/application/port"
-	"github.com/bnema/dumber/internal/infrastructure/config"
+	"github.com/bnema/dumber/internal/domain/entity"
 	"github.com/bnema/dumber/internal/infrastructure/filtering"
 	"github.com/bnema/dumber/internal/infrastructure/handlers"
 	"github.com/rs/zerolog"
@@ -156,13 +156,9 @@ func (e *Engine) UpdateAppearance(_ context.Context, r, g, b, alpha float64) err
 }
 
 // UpdateSettings applies runtime config changes to engine settings.
-func (e *Engine) UpdateSettings(ctx context.Context, update port.EngineSettingsUpdate) error {
-	cfg, ok := update.Raw.(*config.Config)
-	if !ok {
-		return fmt.Errorf("UpdateSettings: expected *config.Config, got %T", update.Raw)
-	}
+func (e *Engine) UpdateSettings(ctx context.Context, update entity.EngineSettingsUpdate) error {
 	if e.settings != nil {
-		e.settings.UpdateFromConfig(ctx, cfg)
+		e.settings.UpdateFromPayload(ctx, update.Settings)
 	}
 	return nil
 }

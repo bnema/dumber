@@ -5,23 +5,37 @@ import (
 	"testing"
 
 	"github.com/bnema/dumber/internal/application/port"
-	"github.com/bnema/dumber/internal/infrastructure/config"
+	"github.com/bnema/dumber/internal/domain/entity"
 	"github.com/stretchr/testify/require"
 )
 
-func TestEngine_UpdateSettings_WrongType(t *testing.T) {
-	e := &Engine{}
-	err := e.UpdateSettings(context.Background(), port.EngineSettingsUpdate{Raw: "wrong"})
-	require.Error(t, err)
-	require.Contains(t, err.Error(), "expected *config.Config")
+func TestEngine_UpdateSettings_AcceptsTypedSettingsPayload(t *testing.T) {
+	e := &Engine{settings: NewSettingsManager(context.Background(), entity.EngineSettingsPayload{})}
+
+	err := e.UpdateSettings(context.Background(), entity.EngineSettingsUpdate{
+		Settings: entity.EngineSettingsPayload{
+			DefaultUIScale: 1.25,
+			WebContent: entity.EngineWebContentSettingsPayload{
+				SansFont:                  "Inter",
+				EnableDevTools:            true,
+				CaptureConsole:            true,
+				DrawCompositingIndicators: true,
+				HardwareDecoding:          entity.EngineHardwareDecodingDisable,
+			},
+		},
+	})
+	require.NoError(t, err)
+	require.Equal(t, "Inter", e.settings.current().WebContent.SansFont)
+	require.True(t, e.settings.current().WebContent.EnableDevTools)
+	require.True(t, e.settings.current().WebContent.CaptureConsole)
+	require.True(t, e.settings.current().WebContent.DrawCompositingIndicators)
+	require.Equal(t, entity.EngineHardwareDecodingDisable, e.settings.current().WebContent.HardwareDecoding)
 }
 
 func TestEngine_UpdateSettings_NilSettings(t *testing.T) {
 	// settings is nil — should not panic, just be a no-op.
 	e := &Engine{}
-	// Use a nil *config.Config to pass the type assertion.
-	var cfg *config.Config
-	err := e.UpdateSettings(context.Background(), port.EngineSettingsUpdate{Raw: cfg})
+	err := e.UpdateSettings(context.Background(), entity.EngineSettingsUpdate{})
 	require.NoError(t, err)
 }
 
@@ -58,4 +72,22 @@ func TestEngine_Close_NilPool(t *testing.T) {
 	e := &Engine{}
 	err := e.Close()
 	require.NoError(t, err)
+}
+
+func TestEngineConfigureContentInjectorAutoCopyGetterReadsCurrentPayload(t *testing.T) {
+	settings := NewSettingsManager(context.Background(), entity.EngineSettingsPayload{})
+	injector := NewContentInjector(nil)
+
+	engineConfigureContentInjectorRuntimeSettings(injector, settings)
+
+	require.NotNil(t, injector.autoCopyConfigGetter)
+	require.False(t, injector.autoCopyConfigGetter())
+
+	settings.UpdateFromPayload(context.Background(), entity.EngineSettingsPayload{
+		WebContent: entity.EngineWebContentSettingsPayload{
+			AutoCopyOnSelection: true,
+		},
+	})
+
+	require.True(t, injector.autoCopyConfigGetter())
 }

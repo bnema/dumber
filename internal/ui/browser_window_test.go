@@ -130,14 +130,15 @@ func TestTabCoordinator_CloseReleasesClosedTabWorkspaceWebViews(t *testing.T) {
 
 	pool := &recordingWebViewPool{}
 	contentCoord := contentcoord.NewCoordinator(ctx, pool, nil, nil, nil, nil, nil, nil)
-	closedWV := &fakeRecordingWebView{id: 101}
-	survivingWV := &fakeRecordingWebView{id: 102}
+	closedWV := &recordingWebView{id: 101}
+	survivingWV := &recordingWebView{id: 102}
 	contentCoord.RegisterPopupWebView(closedTab.Workspace.ActivePaneID, closedWV)
 	contentCoord.RegisterPopupWebView(survivingTab.Workspace.ActivePaneID, survivingWV)
 
 	bw := &browserWindow{id: "window-1", tabs: tabs}
 	app := &App{
-		deps:             &Dependencies{Config: config.DefaultConfig()},
+		deps:             &Dependencies{},
+		runtimeConfig:    runtimeConfigStateForTest(config.DefaultConfig()),
 		tabsUC:           usecase.NewManageTabsUseCase(counterIDGen()),
 		contentCoord:     contentCoord,
 		browserWindows:   map[string]*browserWindow{bw.id: bw},
@@ -173,14 +174,15 @@ func TestTabCoordinator_SwitchDoesNotReleaseWorkspaceWebViews(t *testing.T) {
 
 	pool := &recordingWebViewPool{}
 	contentCoord := contentcoord.NewCoordinator(ctx, pool, nil, nil, nil, nil, nil, nil)
-	firstWV := &fakeRecordingWebView{id: 111}
-	secondWV := &fakeRecordingWebView{id: 112}
+	firstWV := &recordingWebView{id: 111}
+	secondWV := &recordingWebView{id: 112}
 	contentCoord.RegisterPopupWebView(firstTab.Workspace.ActivePaneID, firstWV)
 	contentCoord.RegisterPopupWebView(secondTab.Workspace.ActivePaneID, secondWV)
 
 	bw := &browserWindow{id: "window-1", tabs: tabs}
 	app := &App{
-		deps:             &Dependencies{Config: config.DefaultConfig()},
+		deps:             &Dependencies{},
+		runtimeConfig:    runtimeConfigStateForTest(config.DefaultConfig()),
 		tabsUC:           usecase.NewManageTabsUseCase(counterIDGen()),
 		contentCoord:     contentCoord,
 		browserWindows:   map[string]*browserWindow{bw.id: bw},
@@ -209,12 +211,13 @@ func TestTabCoordinator_CloseLastTabReleasesWorkspaceBeforeWindowRemoval(t *test
 
 	pool := &recordingWebViewPool{}
 	contentCoord := contentcoord.NewCoordinator(ctx, pool, nil, nil, nil, nil, nil, nil)
-	closedWV := &fakeRecordingWebView{id: 121}
+	closedWV := &recordingWebView{id: 121}
 	contentCoord.RegisterPopupWebView(closedTab.Workspace.ActivePaneID, closedWV)
 
 	bw := &browserWindow{id: "window-1", tabs: tabs}
 	app := &App{
-		deps:             &Dependencies{Config: config.DefaultConfig()},
+		deps:             &Dependencies{},
+		runtimeConfig:    runtimeConfigStateForTest(config.DefaultConfig()),
 		tabsUC:           usecase.NewManageTabsUseCase(counterIDGen()),
 		contentCoord:     contentCoord,
 		browserWindows:   map[string]*browserWindow{bw.id: bw},
@@ -247,8 +250,8 @@ func TestBrowserWindow_RemoveBrowserWindowReleasesOwnedTabWorkspaceWebViews(t *t
 
 	pool := &recordingWebViewPool{}
 	contentCoord := contentcoord.NewCoordinator(ctx, pool, nil, nil, nil, nil, nil, nil)
-	ownedWV := &fakeRecordingWebView{id: 201}
-	otherWV := &fakeRecordingWebView{id: 202}
+	ownedWV := &recordingWebView{id: 201}
+	otherWV := &recordingWebView{id: 202}
 	contentCoord.RegisterPopupWebView(ownedTab.Workspace.ActivePaneID, ownedWV)
 	contentCoord.RegisterPopupWebView(otherTab.Workspace.ActivePaneID, otherWV)
 

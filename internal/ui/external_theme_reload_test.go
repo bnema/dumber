@@ -10,6 +10,7 @@ import (
 
 	portmocks "github.com/bnema/dumber/internal/application/port/mocks"
 	"github.com/bnema/dumber/internal/application/usecase"
+	"github.com/bnema/dumber/internal/bootstrap"
 	"github.com/bnema/dumber/internal/domain/entity"
 	"github.com/bnema/dumber/internal/infrastructure/config"
 	"github.com/bnema/dumber/internal/shared/syncdispatch"
@@ -68,6 +69,52 @@ func immediateDispatchForExternalThemeTest(label string, fn func()) syncdispatch
 	return syncdispatch.SyncDispatchResult{Label: label, Status: syncdispatch.SyncDispatchCompleted}
 }
 
+func TestApplyAppearanceConfigSendsCompleteEngineSettingsPayload(t *testing.T) {
+	ctx := context.Background()
+	cfg := config.DefaultConfig()
+	cfg.DefaultUIScale = 1.25
+	cfg.Appearance.SansFont = "Inter"
+	cfg.Appearance.SerifFont = "Literata"
+	cfg.Appearance.MonospaceFont = "Fira Code"
+	cfg.Appearance.DefaultFontSize = 17
+	cfg.Debug.EnableDevTools = true
+	cfg.Logging.CaptureConsole = true
+	cfg.Engine.WebKit.DrawCompositingIndicators = true
+	cfg.Media.HardwareDecodingMode = config.HardwareDecodingForce
+	cfg.Clipboard.AutoCopyOnSelection = true
+	expected := entity.EngineSettingsPayload{
+		DefaultUIScale: cfg.DefaultUIScale,
+		WebContent: entity.EngineWebContentSettingsPayload{
+			SansFont:                  cfg.Appearance.SansFont,
+			SerifFont:                 cfg.Appearance.SerifFont,
+			MonospaceFont:             cfg.Appearance.MonospaceFont,
+			DefaultFontSize:           cfg.Appearance.DefaultFontSize,
+			EnableDevTools:            cfg.Debug.EnableDevTools,
+			CaptureConsole:            cfg.Logging.CaptureConsole,
+			DrawCompositingIndicators: cfg.Engine.WebKit.DrawCompositingIndicators,
+			HardwareDecoding:          entity.EngineHardwareDecodingForce,
+			AutoCopyOnSelection:       cfg.Clipboard.AutoCopyOnSelection,
+		},
+	}
+	engine := portmocks.NewMockEngine(t)
+	var captured entity.EngineSettingsUpdate
+	engine.EXPECT().UpdateSettings(mock.Anything, mock.Anything).
+		Run(func(_ context.Context, update entity.EngineSettingsUpdate) {
+			captured = update
+		}).
+		Return(nil).
+		Once()
+	app := &App{
+		deps:          &Dependencies{},
+		runtimeConfig: runtimeConfigStateFromSnapshotForTest(bootstrap.RuntimeConfigSnapshotFromConfig(cfg)),
+		engine:        engine,
+	}
+
+	app.applyAppearanceConfig(ctx)
+
+	require.Equal(t, expected, captured.Settings)
+}
+
 func TestExternalThemeWatcherCallbackAppliesThemeThroughSharedPath(t *testing.T) {
 	ctx := context.Background()
 	cfg := config.DefaultConfig()
@@ -97,12 +144,12 @@ func TestExternalThemeWatcherCallbackAppliesThemeThroughSharedPath(t *testing.T)
 	engine.EXPECT().ContentInjector().Return(nil).Once()
 	app := &App{
 		deps: &Dependencies{
-			Config:               cfg,
 			Theme:                manager,
 			ResolveThemeUC:       usecase.NewResolveThemeUseCase(source),
 			ExternalThemeSource:  source,
 			ExternalThemeWatcher: watcher,
 		},
+		runtimeConfig:        runtimeConfigStateFromSnapshotForTest(bootstrap.RuntimeConfigSnapshotFromConfig(cfg)),
 		dispatchOnMainThread: immediateDispatchForExternalThemeTest,
 		engine:               engine,
 	}
@@ -132,11 +179,11 @@ func TestExternalThemeReloadKeepsLastGoodAndDisablingClearsIt(t *testing.T) {
 	manager := uitheme.NewManager(ctx, resolvedThemeForUITest(cfg.Appearance.LightPalette, cfg.Appearance.DarkPalette))
 	app := &App{
 		deps: &Dependencies{
-			Config:              cfg,
 			Theme:               manager,
 			ResolveThemeUC:      usecase.NewResolveThemeUseCase(source),
 			ExternalThemeSource: source,
 		},
+		runtimeConfig:        runtimeConfigStateFromSnapshotForTest(bootstrap.RuntimeConfigSnapshotFromConfig(cfg)),
 		dispatchOnMainThread: immediateDispatchForExternalThemeTest,
 	}
 
@@ -153,6 +200,7 @@ func TestExternalThemeReloadKeepsLastGoodAndDisablingClearsIt(t *testing.T) {
 	require.Equal(t, "#000000", app.deps.Theme.GetCurrentPalette().Background)
 
 	cfg.Appearance.ExternalTheme.Enabled = false
+	setRuntimeConfigSnapshotForTest(app, bootstrap.RuntimeConfigSnapshotFromConfig(cfg))
 	app.applyAppearanceConfig(ctx)
 	require.Equal(t, cfg.Appearance.DarkPalette.Background, app.deps.Theme.GetCurrentPalette().Background)
 }
@@ -171,11 +219,11 @@ func TestExternalThemeReloadKeepsLastGoodOnReadError(t *testing.T) {
 	manager := uitheme.NewManager(ctx, resolvedThemeForUITest(cfg.Appearance.LightPalette, cfg.Appearance.DarkPalette))
 	app := &App{
 		deps: &Dependencies{
-			Config:              cfg,
 			Theme:               manager,
 			ResolveThemeUC:      usecase.NewResolveThemeUseCase(source),
 			ExternalThemeSource: source,
 		},
+		runtimeConfig:        runtimeConfigStateFromSnapshotForTest(bootstrap.RuntimeConfigSnapshotFromConfig(cfg)),
 		dispatchOnMainThread: immediateDispatchForExternalThemeTest,
 	}
 
@@ -202,11 +250,11 @@ func TestExternalThemeReloadRecoversAfterMalformedUpdate(t *testing.T) {
 	manager := uitheme.NewManager(ctx, resolvedThemeForUITest(cfg.Appearance.LightPalette, cfg.Appearance.DarkPalette))
 	app := &App{
 		deps: &Dependencies{
-			Config:              cfg,
 			Theme:               manager,
 			ResolveThemeUC:      usecase.NewResolveThemeUseCase(source),
 			ExternalThemeSource: source,
 		},
+		runtimeConfig:        runtimeConfigStateFromSnapshotForTest(bootstrap.RuntimeConfigSnapshotFromConfig(cfg)),
 		dispatchOnMainThread: immediateDispatchForExternalThemeTest,
 	}
 

@@ -7,6 +7,7 @@ import (
 	"github.com/bnema/dumber/assets"
 	"github.com/bnema/dumber/internal/application/port"
 	"github.com/bnema/dumber/internal/application/usecase"
+	"github.com/bnema/dumber/internal/domain/entity"
 	"github.com/bnema/dumber/internal/infrastructure/config"
 	"github.com/bnema/dumber/internal/infrastructure/env"
 	"github.com/bnema/dumber/internal/infrastructure/filtering"
@@ -25,6 +26,7 @@ func NewEngine(
 	opts port.EngineOptions,
 	profile runtimeprofile.Profile,
 	wkCfg WebKitEngineConfig,
+	initialSettings entity.EngineSettingsPayload,
 	currentConfigPayload func() ([]byte, error),
 	defaultConfigPayload func() ([]byte, error),
 	themeManager *theme.Manager,
@@ -63,12 +65,10 @@ func NewEngine(
 	schemeHandler.RegisterWithContext(wkCtx)
 
 	// --- Settings, injector, message router ---
-	settings := NewSettingsManager(ctx, cfg)
+	settings := NewSettingsManager(ctx, initialSettings)
 	injector := NewContentInjector(colorResolver)
 
-	injector.SetAutoCopyConfigGetter(func() bool {
-		return config.Get().Clipboard.AutoCopyOnSelection
-	})
+	engineConfigureContentInjectorRuntimeSettings(injector, settings)
 
 	prepareThemeUC := usecase.NewPrepareWebUIThemeUseCase(injector)
 	themeCSSText := themeManager.GetWebUIThemeCSS()
@@ -127,6 +127,18 @@ func NewEngine(
 	}
 
 	return engine, nil
+}
+
+func engineConfigureContentInjectorRuntimeSettings(injector *ContentInjector, settings *SettingsManager) {
+	if injector == nil {
+		return
+	}
+	injector.SetAutoCopyConfigGetter(func() bool {
+		if settings == nil {
+			return false
+		}
+		return settings.current().WebContent.AutoCopyOnSelection
+	})
 }
 
 // engineSurveyHardwareAndResolveProfile surveys hardware and resolves the performance profile.

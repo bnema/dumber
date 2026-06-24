@@ -9,6 +9,8 @@ import (
 
 	"github.com/bnema/dumber/internal/application/dto"
 	"github.com/bnema/dumber/internal/application/port"
+	systemviewsbridgemocks "github.com/bnema/dumber/internal/infrastructure/systemviewsbridge/mocks"
+	"github.com/stretchr/testify/mock"
 )
 
 func TestBuildMessageEnvelope(t *testing.T) {
@@ -41,8 +43,8 @@ func TestBuildMessageEnvelope(t *testing.T) {
 func TestClientSendPrefersNativeTransport(t *testing.T) {
 	t.Parallel()
 
-	native := &fakeTransport{available: true, response: []byte(`{"transport":"native"}`)}
-	fetch := &fakeTransport{available: true, response: []byte(`{"transport":"fetch"}`)}
+	native := newTransportRecorder(t, true, []byte(`{"transport":"native"}`))
+	fetch := newTransportRecorder(t, true, []byte(`{"transport":"fetch"}`))
 
 	client := NewClient(native, fetch)
 	got, err := client.Send(context.Background(), "favorite_list", struct {
@@ -75,8 +77,8 @@ func TestClientSendPrefersNativeTransport(t *testing.T) {
 func TestClientSendFallsBackToFetchTransport(t *testing.T) {
 	t.Parallel()
 
-	native := &fakeTransport{available: false, response: []byte(`{"transport":"native"}`)}
-	fetch := &fakeTransport{available: true, response: []byte(`{"transport":"fetch"}`)}
+	native := newTransportRecorder(t, false, []byte(`{"transport":"native"}`))
+	fetch := newTransportRecorder(t, true, []byte(`{"transport":"fetch"}`))
 
 	client := NewClient(native, fetch)
 	got, err := client.Send(context.Background(), "favorite_list", struct {
@@ -101,7 +103,7 @@ func TestClientSendFallsBackToFetchTransport(t *testing.T) {
 func TestClientTimelineDecodesEntries(t *testing.T) {
 	t.Parallel()
 
-	native := &fakeTransport{available: true, response: []byte(`{"requestId":"req-9","success":true,"data":[{"id":1,"url":"https://example.com","title":"Example"}]}`)}
+	native := newTransportRecorder(t, true, []byte(`{"requestId":"req-9","success":true,"data":[{"id":1,"url":"https://example.com","title":"Example"}]}`))
 	client := NewClient(native, nil)
 
 	entries, err := client.Timeline(context.Background(), 25, 0)
@@ -130,7 +132,7 @@ func TestClientTimelineDecodesEntries(t *testing.T) {
 func TestClientTimelineWindowOmitsZeroCursor(t *testing.T) {
 	t.Parallel()
 
-	native := &fakeTransport{available: true, response: []byte(`{"requestId":"req-window","success":true}`)}
+	native := newTransportRecorder(t, true, []byte(`{"requestId":"req-window","success":true}`))
 	client := NewClient(native, nil)
 
 	_, err := client.TimelineWindow(context.Background(), time.Time{}, "")
@@ -157,7 +159,7 @@ func TestClientTimelineWindowOmitsZeroCursor(t *testing.T) {
 func TestClientDeleteRangeRejectsEmptyRange(t *testing.T) {
 	t.Parallel()
 
-	transport := &fakeTransport{available: true, response: []byte(`{"requestId":"req-range-empty","success":true}`)}
+	transport := newTransportRecorder(t, true, []byte(`{"requestId":"req-range-empty","success":true}`))
 	client := NewClient(transport, nil)
 
 	err := client.DeleteRange(context.Background(), "  ")
@@ -172,7 +174,7 @@ func TestClientDeleteRangeRejectsEmptyRange(t *testing.T) {
 func TestClientDeleteRangeSendsRange(t *testing.T) {
 	t.Parallel()
 
-	native := &fakeTransport{available: true, response: []byte(`{"requestId":"req-10","success":true}`)}
+	native := newTransportRecorder(t, true, []byte(`{"requestId":"req-10","success":true}`))
 	client := NewClient(native, nil)
 
 	if err := client.DeleteRange(context.Background(), "week"); err != nil {
@@ -191,7 +193,7 @@ func TestClientDeleteRangeSendsRange(t *testing.T) {
 func TestClientListDecodesFavorites(t *testing.T) {
 	t.Parallel()
 
-	native := &fakeTransport{available: true, response: []byte(`{"requestId":"req-11","success":true,"data":[{"id":1,"url":"https://example.com","title":"Example"}]}`)}
+	native := newTransportRecorder(t, true, []byte(`{"requestId":"req-11","success":true,"data":[{"id":1,"url":"https://example.com","title":"Example"}]}`))
 	client := NewClient(native, nil)
 
 	favorites, err := client.List(context.Background())
@@ -217,7 +219,7 @@ func TestClientListDecodesFavorites(t *testing.T) {
 func TestClientListFoldersDecodesFolders(t *testing.T) {
 	t.Parallel()
 
-	native := &fakeTransport{available: true, response: []byte(`{"requestId":"req-12","success":true,"data":[{"id":9,"name":"Read Later"}]}`)}
+	native := newTransportRecorder(t, true, []byte(`{"requestId":"req-12","success":true,"data":[{"id":9,"name":"Read Later"}]}`))
 	client := NewClient(native, nil)
 
 	folders, err := client.ListFolders(context.Background())
@@ -243,7 +245,7 @@ func TestClientListFoldersDecodesFolders(t *testing.T) {
 func TestClientListTagsDecodesTags(t *testing.T) {
 	t.Parallel()
 
-	native := &fakeTransport{available: true, response: []byte(`{"requestId":"req-13","success":true,"data":[{"id":5,"name":"Go","color":"#00ff00"}]}`)}
+	native := newTransportRecorder(t, true, []byte(`{"requestId":"req-13","success":true,"data":[{"id":5,"name":"Go","color":"#00ff00"}]}`))
 	client := NewClient(native, nil)
 
 	tags, err := client.ListTags(context.Background())
@@ -271,7 +273,8 @@ func TestClientCurrentAndDefaultDecodeConfigPayload(t *testing.T) {
 
 	resp := []byte(`{"requestId":"req-14","success":true,"data":{"engine_type":"webkit","default_search_engine":"DuckDuckGo"}}`)
 
-	currentClient := NewClient(&fakeTransport{available: true, response: resp}, nil)
+	currentTransport := newTransportRecorder(t, true, resp)
+	currentClient := NewClient(currentTransport, nil)
 	current, err := currentClient.Current(context.Background())
 	if err != nil {
 		t.Fatalf("Current() error = %v", err)
@@ -281,14 +284,15 @@ func TestClientCurrentAndDefaultDecodeConfigPayload(t *testing.T) {
 	}
 
 	var msg port.WebUIMessage
-	if unmarshalErr := json.Unmarshal(currentClient.native.(*fakeTransport).last, &msg); unmarshalErr != nil {
+	if unmarshalErr := json.Unmarshal(currentTransport.last, &msg); unmarshalErr != nil {
 		t.Fatalf("unmarshal sent envelope: %v", unmarshalErr)
 	}
 	if msg.Type != "/api/config" {
 		t.Fatalf("sent type = %q, want %q", msg.Type, "/api/config")
 	}
 
-	defaultClient := NewClient(&fakeTransport{available: true, response: resp}, nil)
+	defaultTransport := newTransportRecorder(t, true, resp)
+	defaultClient := NewClient(defaultTransport, nil)
 	defaultCfg, err := defaultClient.Default(context.Background())
 	if err != nil {
 		t.Fatalf("Default() error = %v", err)
@@ -297,7 +301,7 @@ func TestClientCurrentAndDefaultDecodeConfigPayload(t *testing.T) {
 		t.Fatalf("Default() = %+v", defaultCfg)
 	}
 
-	if err := json.Unmarshal(defaultClient.native.(*fakeTransport).last, &msg); err != nil {
+	if err := json.Unmarshal(defaultTransport.last, &msg); err != nil {
 		t.Fatalf("unmarshal sent envelope: %v", err)
 	}
 	if msg.Type != "/api/config/default" {
@@ -372,7 +376,7 @@ func TestClientConfigActionsUseExpectedMessageTypes(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
 
-			transport := &fakeTransport{available: true, response: []byte(`{"requestId":"req-15","success":true,"data":{"status":"success","conflicts":[]}}`)}
+			transport := newTransportRecorder(t, true, []byte(`{"requestId":"req-15","success":true,"data":{"status":"success","conflicts":[]}}`))
 			if tt.name == "save config" || tt.name == "reset keybinding" || tt.name == "reset all keybindings" {
 				transport.response = []byte(`{"requestId":"req-15","success":true}`)
 			}
@@ -418,7 +422,7 @@ func TestClientCreateFolderIncludesParentID(t *testing.T) {
 	t.Parallel()
 
 	parentID := int64(42)
-	transport := &fakeTransport{available: true, response: []byte(`{"requestId":"req-16","success":true,"data":{"id":9,"name":"Nested","icon":"📁","parent_id":42}}`)}
+	transport := newTransportRecorder(t, true, []byte(`{"requestId":"req-16","success":true,"data":{"id":9,"name":"Nested","icon":"📁","parent_id":42}}`))
 	client := NewClient(transport, nil)
 
 	folder, err := client.CreateFolder(context.Background(), "Nested", " 📁 ", &parentID)
@@ -472,7 +476,7 @@ func TestClientCreateFolderIncludesParentID(t *testing.T) {
 func TestClientDomainStatsRejectsNegativeLimit(t *testing.T) {
 	t.Parallel()
 
-	transport := &fakeTransport{available: true, response: []byte(`{"requestId":"req-17","success":true,"data":[]}`)}
+	transport := newTransportRecorder(t, true, []byte(`{"requestId":"req-17","success":true,"data":[]}`))
 	client := NewClient(transport, nil)
 
 	_, err := client.DomainStats(context.Background(), -1)
@@ -487,7 +491,7 @@ func TestClientDomainStatsRejectsNegativeLimit(t *testing.T) {
 func TestClientDeleteDomainRejectsEmptyDomain(t *testing.T) {
 	t.Parallel()
 
-	transport := &fakeTransport{available: true, response: []byte(`{"requestId":"req-domain-empty","success":true}`)}
+	transport := newTransportRecorder(t, true, []byte(`{"requestId":"req-domain-empty","success":true}`))
 	client := NewClient(transport, nil)
 
 	err := client.DeleteDomain(context.Background(), "  ")
@@ -502,7 +506,7 @@ func TestClientDeleteDomainRejectsEmptyDomain(t *testing.T) {
 func TestClientUpdateFolderTrimsIcon(t *testing.T) {
 	t.Parallel()
 
-	transport := &fakeTransport{available: true, response: []byte(`{"requestId":"req-18","success":true}`)}
+	transport := newTransportRecorder(t, true, []byte(`{"requestId":"req-18","success":true}`))
 	client := NewClient(transport, nil)
 
 	if err := client.UpdateFolder(context.Background(), 9, "Read", " 📚 "); err != nil {
@@ -530,7 +534,7 @@ func TestClientUpdateFolderTrimsIcon(t *testing.T) {
 func TestClientUpdateFolderOmitsBlankIcon(t *testing.T) {
 	t.Parallel()
 
-	transport := &fakeTransport{available: true, response: []byte(`{"requestId":"req-19","success":true}`)}
+	transport := newTransportRecorder(t, true, []byte(`{"requestId":"req-19","success":true}`))
 	client := NewClient(transport, nil)
 
 	if err := client.UpdateFolder(context.Background(), 9, "Read", "   "); err != nil {
@@ -555,7 +559,7 @@ func TestClientUpdateFolderOmitsBlankIcon(t *testing.T) {
 func TestClientDeleteEntryRejectsInvalidID(t *testing.T) {
 	t.Parallel()
 
-	transport := &fakeTransport{available: true, response: []byte(`{"requestId":"req-20","success":true}`)}
+	transport := newTransportRecorder(t, true, []byte(`{"requestId":"req-20","success":true}`))
 	client := NewClient(transport, nil)
 
 	err := client.DeleteEntry(context.Background(), 0)
@@ -570,7 +574,7 @@ func TestClientDeleteEntryRejectsInvalidID(t *testing.T) {
 func TestClientTagActionsTrimFields(t *testing.T) {
 	t.Parallel()
 
-	createTransport := &fakeTransport{available: true, response: []byte(`{"requestId":"req-21","success":true,"data":{"id":5,"name":"Go","color":"#00add8"}}`)}
+	createTransport := newTransportRecorder(t, true, []byte(`{"requestId":"req-21","success":true,"data":{"id":5,"name":"Go","color":"#00add8"}}`))
 	client := NewClient(createTransport, nil)
 	if _, err := client.CreateTag(context.Background(), " Go ", " #00add8 "); err != nil {
 		t.Fatalf("CreateTag() error = %v", err)
@@ -590,7 +594,7 @@ func TestClientTagActionsTrimFields(t *testing.T) {
 		t.Fatalf("CreateTag payload = %#v", createPayload)
 	}
 
-	updateTransport := &fakeTransport{available: true, response: []byte(`{"requestId":"req-22","success":true}`)}
+	updateTransport := newTransportRecorder(t, true, []byte(`{"requestId":"req-22","success":true}`))
 	client = NewClient(updateTransport, nil)
 	if err := client.UpdateTag(context.Background(), 5, " Go ", "   "); err != nil {
 		t.Fatalf("UpdateTag() error = %v", err)
@@ -610,16 +614,29 @@ func TestClientTagActionsTrimFields(t *testing.T) {
 	}
 }
 
-type fakeTransport struct {
+type transportRecorder struct {
+	*systemviewsbridgemocks.MockTransport
+
 	available bool
 	called    bool
 	last      []byte
 	response  []byte
 }
 
-func (t *fakeTransport) Available() bool { return t.available }
+func newTransportRecorder(t *testing.T, available bool, response []byte) *transportRecorder {
+	t.Helper()
 
-func (t *fakeTransport) Send(_ context.Context, body []byte) ([]byte, error) {
+	recorder := &transportRecorder{
+		MockTransport: systemviewsbridgemocks.NewMockTransport(t),
+		available:     available,
+		response:      response,
+	}
+	recorder.EXPECT().Available().RunAndReturn(func() bool { return recorder.available }).Maybe()
+	recorder.EXPECT().Send(mock.Anything, mock.Anything).RunAndReturn(recorder.send).Maybe()
+	return recorder
+}
+
+func (t *transportRecorder) send(_ context.Context, body []byte) ([]byte, error) {
 	t.called = true
 	t.last = append(t.last[:0], body...)
 	return t.response, nil
@@ -641,7 +658,7 @@ func (t *blockingTransport) Send(ctx context.Context, _ []byte) ([]byte, error) 
 func TestClientRejectsInvalidFavoriteMutationIDs(t *testing.T) {
 	t.Parallel()
 
-	transport := &fakeTransport{available: true, response: []byte(`{"requestId":"req","success":true}`)}
+	transport := newTransportRecorder(t, true, []byte(`{"requestId":"req","success":true}`))
 	client := NewClient(transport, nil)
 
 	checks := []struct {
@@ -679,7 +696,7 @@ func TestClientRejectsInvalidFavoriteMutationIDs(t *testing.T) {
 func TestClientRejectsNegativeHistoryLimits(t *testing.T) {
 	t.Parallel()
 
-	client := NewClient(&fakeTransport{available: true}, nil)
+	client := NewClient(newTransportRecorder(t, true, nil), nil)
 
 	if _, err := client.Timeline(context.Background(), -1, 0); err == nil {
 		t.Fatal("Timeline() error = nil, want error")

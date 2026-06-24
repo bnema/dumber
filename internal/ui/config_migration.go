@@ -12,11 +12,11 @@ import (
 func (a *App) checkConfigMigration(ctx context.Context) {
 	log := logging.FromContext(ctx)
 
-	if a.deps.ConfigMigrator == nil {
+	if a.deps.MigrationChecker == nil {
 		return
 	}
 
-	result, err := a.deps.ConfigMigrator.CheckMigration()
+	result, err := a.deps.MigrationChecker.CheckMigration()
 	if err != nil {
 		log.Debug().Err(err).Msg("config migration check failed")
 		return
@@ -32,7 +32,7 @@ func (a *App) checkConfigMigration(ctx context.Context) {
 		Msg("config migration available")
 
 	// Show toast notification if enabled
-	if a.deps.Config != nil && a.deps.Config.Update.NotifyOnNewSettings {
+	if a.runtimeConfigSnapshot().UI.Update.NotifyOnNewSettings {
 		msg := fmt.Sprintf("Config has %d new settings. Run 'dumber config migrate'", len(result.MissingKeys))
 		a.showToastOnLastFocusedBrowserWindow(ctx, msg, component.ToastInfo)
 	}

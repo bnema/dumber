@@ -195,10 +195,11 @@ func (bw *browserWindow) initAccentPicker(ctx context.Context, a *App) {
 
 func (bw *browserWindow) initSessionManager(ctx context.Context, a *App) {
 	log := logging.FromContext(ctx)
-	if bw == nil || a == nil || a.deps == nil || a.deps.Config == nil || bw.mainWindow == nil {
+	if bw == nil || a == nil || a.deps == nil || bw.mainWindow == nil {
 		log.Debug().Msg("deps or main window not available, skipping session manager")
 		return
 	}
+	runtimeCfg := a.runtimeConfigSnapshot().UI
 
 	var listSessionsUC *usecase.ListSessionsUseCase
 	var deleteSessionUC *usecase.DeleteSessionUseCase
@@ -217,7 +218,7 @@ func (bw *browserWindow) initSessionManager(ctx context.Context, a *App) {
 		ListSessionsUC:  listSessionsUC,
 		DeleteSessionUC: deleteSessionUC,
 		CurrentSession:  a.deps.CurrentSessionID,
-		UIScale:         a.deps.Config.DefaultUIScale,
+		UIScale:         runtimeCfg.DefaultUIScale,
 		OnClose: func() {
 			log.Debug().Msg("session manager closed")
 		},
@@ -249,13 +250,14 @@ func (bw *browserWindow) initSessionManager(ctx context.Context, a *App) {
 
 func (bw *browserWindow) initTabPicker(ctx context.Context, a *App) {
 	log := logging.FromContext(ctx)
-	if bw == nil || a == nil || a.deps == nil || a.deps.Config == nil {
+	if bw == nil || a == nil || a.deps == nil {
 		log.Debug().Msg("deps/config not available, skipping tab picker")
 		return
 	}
+	runtimeCfg := a.runtimeConfigSnapshot().UI
 
 	bw.tabPicker = component.NewTabPicker(ctx, component.TabPickerConfig{
-		UIScale: a.deps.Config.DefaultUIScale,
+		UIScale: runtimeCfg.DefaultUIScale,
 		OnClose: func() {
 			log.Debug().Msg("tab picker closed")
 		},

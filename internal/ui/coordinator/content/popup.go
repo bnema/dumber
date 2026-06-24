@@ -151,6 +151,10 @@ func (c *Coordinator) SetPopupConfig(
 	c.ensurePopupManager().setConfig(factory, popupConfig, generateID)
 }
 
+func (c *Coordinator) UpdatePopupConfig(popupConfig entity.BrowsingContextConfig) {
+	c.ensurePopupManager().updatePopupConfig(popupConfig)
+}
+
 func (c *Coordinator) SetPopupWindowIDResolver(fn func(entity.PaneID) (string, bool)) {
 	c.ensurePopupManager().setWindowIDResolver(fn)
 }

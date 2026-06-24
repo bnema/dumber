@@ -8,7 +8,6 @@ import (
 	"github.com/bnema/dumber/internal/application/usecase"
 	"github.com/bnema/dumber/internal/domain/entity"
 	"github.com/bnema/dumber/internal/domain/repository"
-	"github.com/bnema/dumber/internal/infrastructure/config"
 	"github.com/bnema/dumber/internal/ui/adapter"
 	"github.com/bnema/dumber/internal/ui/theme"
 	"github.com/bnema/puregotk/v4/gtk"
@@ -19,9 +18,9 @@ import (
 type Dependencies struct {
 	// Core context and configuration
 	Ctx                    context.Context
-	Config                 *config.Config // TODO: replace with port interface in a later milestone
-	InitialURL             string         // URL to open on startup (optional)
-	RestoreSessionID       string         // Session ID to restore on startup (optional)
+	RuntimeConfig          port.RuntimeConfigProvider
+	InitialURL             string // URL to open on startup (optional)
+	RestoreSessionID       string // Session ID to restore on startup (optional)
 	StartupCrashReports    []string
 	OnFirstWebViewShown    func(context.Context)
 	OnSessionPersisted     func() // Called by main after session is persisted to DB
@@ -89,18 +88,13 @@ type Dependencies struct {
 	SessionSpawner port.SessionSpawner
 	// FileSystem provides file operations (e.g., for download deduplication).
 	FileSystem port.FileSystem
-	// OnConfigChange registers a callback for config hot-reload.
-	// The config pointer in deps.Config is updated in-place before the callback fires.
-	OnConfigChange func(callback func())
-	// WatchConfig starts watching the config file for changes.
-	WatchConfig func() error
 
 	// Update management
 	CheckUpdateUC *usecase.CheckUpdateUseCase
 	ApplyUpdateUC *usecase.ApplyUpdateUseCase
 
 	// Config migration checker (optional; nil disables migration notifications)
-	ConfigMigrator port.ConfigMigrator
+	MigrationChecker port.ConfigMigrator
 
 	// LaunchExternalURL opens a URI with the system's default handler (e.g. xdg-open).
 	// Used for external URL schemes (vscode://, spotify://, etc.).
@@ -119,8 +113,8 @@ func (d *Dependencies) Validate() error {
 	if d.Ctx == nil {
 		return ErrMissingDependency("Ctx")
 	}
-	if d.Config == nil {
-		return ErrMissingDependency("Config")
+	if d.RuntimeConfig == nil {
+		return ErrMissingDependency("RuntimeConfig")
 	}
 	if d.Engine == nil {
 		return ErrMissingDependency("Engine")

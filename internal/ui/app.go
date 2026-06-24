@@ -78,6 +78,8 @@ type App struct {
 	gtkApp     *gtk.Application
 	mainWindow *window.MainWindow
 
+	runtimeConfig *runtimeConfigState
+
 	browserWindows       map[string]*browserWindow
 	browserWindowOrder   []string // registration order of window IDs
 	lastFocusedWindowID  string
@@ -184,6 +186,7 @@ func New(deps *Dependencies) (*App, error) {
 
 	app := &App{
 		deps:             deps,
+		runtimeConfig:    newRuntimeConfigState(deps.RuntimeConfig),
 		tabs:             entity.NewTabList(),
 		tabsUC:           deps.TabsUC,
 		panesUC:          deps.PanesUC,
@@ -204,10 +207,7 @@ func New(deps *Dependencies) (*App, error) {
 	var clipboardOrchestrator port.ClipboardTextOrchestrator
 	if deps.Clipboard != nil {
 		autoCopyConfig = &autoCopyConfigFn{fn: func() bool {
-			if deps.Config == nil {
-				return false
-			}
-			return deps.Config.Clipboard.AutoCopyOnSelection
+			return app.runtimeConfigSnapshot().UI.Clipboard.AutoCopyOnSelection
 		}}
 		clipboardOrchestrator = usecase.NewClipboardTextOrchestrator(deps.Clipboard, autoCopyConfig, func(textLen int) {
 			cb := glib.SourceFunc(func(_ uintptr) bool {
@@ -253,6 +253,19 @@ func New(deps *Dependencies) (*App, error) {
 	}
 
 	return app, nil
+}
+
+func (a *App) runtimeConfigSnapshot() entity.RuntimeConfigSnapshot {
+	if a == nil {
+		return entity.RuntimeConfigSnapshot{}
+	}
+	if a.runtimeConfig != nil {
+		return a.runtimeConfig.Current()
+	}
+	if a.deps != nil && a.deps.RuntimeConfig != nil {
+		return a.deps.RuntimeConfig.Current()
+	}
+	return entity.RuntimeConfigSnapshot{}
 }
 
 // Run starts the GTK application and blocks until it exits.
@@ -347,8 +360,8 @@ func (a *App) applyGTKColorSchemePreference(ctx context.Context) {
 
 	// Get the config color scheme preference (default follows system theme)
 	scheme := "default"
-	if a.deps != nil && a.deps.Config != nil && a.deps.Config.Appearance.ColorScheme != "" {
-		scheme = a.deps.Config.Appearance.ColorScheme
+	if runtimeScheme := a.runtimeConfigSnapshot().UI.Appearance.ColorScheme; runtimeScheme != "" {
+		scheme = runtimeScheme
 	}
 
 	// Apply color scheme via libadwaita's StyleManager.
@@ -443,7 +456,8 @@ func (a *App) createBrowserWindow(ctx context.Context, initialURL string) (*brow
 		return created, nil
 	}
 
-	mainWindow, err := window.New(ctx, a.gtkApp, a.deps.Config.Workspace.TabBarPosition)
+	runtimeCfg := a.runtimeConfigSnapshot().UI
+	mainWindow, err := window.New(ctx, a.gtkApp, runtimeCfg.Workspace.TabBarPosition)
 	if err != nil {
 		log.Warn().Err(err).
 			Str("url_host", logging.SafeURLHost(initialURL)).
@@ -468,30 +482,7 @@ func (a *App) createBrowserWindow(ctx context.Context, initialURL string) (*brow
 	}
 	mainWindow.Window().ConnectCloseRequest(&closeRequestCb)
 
-	// Create permission popup and dialog presenter
-	if a.deps != nil && a.deps.PermissionUC != nil {
-		uiScale := 1.0
-		if a.deps.Config != nil {
-			uiScale = a.deps.Config.DefaultUIScale
-		}
-		permPopup := component.NewPermissionPopup(nil, uiScale)
-		if permPopup != nil {
-			// Add popup to the main window's content overlay
-			if w := permPopup.Widget(); w != nil {
-				mainWindow.AddOverlay(w)
-			}
-			browserWindow.permissionDialog = dialog.NewPermissionDialog(permPopup)
-		}
-	}
-
-	// Create top-right WebRTC permission activity indicator.
-	indicator := component.NewWebRTCPermissionIndicator()
-	if indicator != nil {
-		if w := indicator.Widget(); w != nil {
-			mainWindow.AddOverlay(w)
-		}
-		browserWindow.webrtcIndicator = indicator
-	}
+	a.initBrowserWindowOverlays(mainWindow, browserWindow, runtimeCfg)
 	a.wireBrowserWindowPermissionIndicator(browserWindow)
 	if a.kbDispatcher != nil {
 		a.initBrowserWindowInput(ctx, browserWindow)
@@ -513,6 +504,33 @@ func (a *App) createBrowserWindow(ctx context.Context, initialURL string) (*brow
 		Str("url_host", logging.SafeURLHost(initialURL)).
 		Msg("ui: create browser window completed")
 	return browserWindow, nil
+}
+
+func (a *App) initBrowserWindowOverlays(mainWindow *window.MainWindow, browserWindow *browserWindow, runtimeCfg entity.RuntimeUIConfig) {
+	// Create permission popup and dialog presenter
+	if a.deps != nil && a.deps.PermissionUC != nil {
+		uiScale := runtimeCfg.DefaultUIScale
+		if uiScale == 0 {
+			uiScale = 1.0
+		}
+		permPopup := component.NewPermissionPopup(nil, uiScale)
+		if permPopup != nil {
+			// Add popup to the main window's content overlay
+			if w := permPopup.Widget(); w != nil {
+				mainWindow.AddOverlay(w)
+			}
+			browserWindow.permissionDialog = dialog.NewPermissionDialog(permPopup)
+		}
+	}
+
+	// Create top-right WebRTC permission activity indicator.
+	indicator := component.NewWebRTCPermissionIndicator()
+	if indicator != nil {
+		if w := indicator.Widget(); w != nil {
+			mainWindow.AddOverlay(w)
+		}
+		browserWindow.webrtcIndicator = indicator
+	}
 }
 
 func (a *App) ensureWindowForTabMap() {
@@ -695,7 +713,7 @@ func (a *App) updateBrowserWindowTabBarVisibility(bw *browserWindow) {
 	if bw == nil || bw.mainWindow == nil || bw.mainWindow.TabBar() == nil {
 		return
 	}
-	if a.deps == nil || a.deps.Config == nil || !a.deps.Config.Workspace.HideTabBarWhenSingleTab {
+	if !a.runtimeConfigSnapshot().UI.Workspace.HideTabBarWhenSingleTab {
 		bw.mainWindow.TabBar().SetAutoHidden(false)
 		bw.mainWindow.SetTabBarContentInsetVisible(true)
 		return
@@ -1063,10 +1081,7 @@ func (a *App) initDownloadHandler(ctx context.Context) {
 	}
 
 	// Determine download path from config, fallback to XDG.
-	downloadPath := ""
-	if a.deps.Config != nil {
-		downloadPath = a.deps.Config.Downloads.Path
-	}
+	downloadPath := a.runtimeConfigSnapshot().UI.Downloads.Path
 	if downloadPath == "" && a.deps.XDG != nil {
 		var err error
 		downloadPath, err = a.deps.XDG.DownloadDir()
@@ -1259,14 +1274,17 @@ func (a *App) initKeyboardHandler(ctx context.Context) {
 func (a *App) initBrowserWindowInput(ctx context.Context, bw *browserWindow) {
 	log := logging.FromContext(ctx)
 
-	if bw == nil || bw.mainWindow == nil || a.deps == nil || a.deps.Config == nil || a.kbDispatcher == nil {
+	if bw == nil || bw.mainWindow == nil || a.deps == nil || a.kbDispatcher == nil {
 		return
 	}
 	if bw.keyboardHandler != nil || bw.globalShortcutHandler != nil {
 		return
 	}
 
-	bw.keyboardHandler = input.NewKeyboardHandler(ctx, &a.deps.Config.Workspace, &a.deps.Config.Session)
+	runtimeCfg := a.runtimeConfigSnapshot().UI
+	workspaceCfg := runtimeCfg.Workspace
+	sessionCfg := runtimeCfg.Session
+	bw.keyboardHandler = input.NewKeyboardHandler(ctx, &workspaceCfg, &sessionCfg)
 	bw.keyboardHandler.SetOnAction(func(actionCtx context.Context, action input.Action) error {
 		a.activateBrowserWindow(bw)
 		if action == input.ActionClosePane {
@@ -1316,8 +1334,8 @@ func (a *App) initBrowserWindowInput(ctx context.Context, bw *browserWindow) {
 	bw.globalShortcutHandler = input.NewGlobalShortcutHandler(
 		ctx,
 		bw.mainWindow.Window(),
-		&a.deps.Config.Workspace,
-		&a.deps.Config.Session,
+		&workspaceCfg,
+		&sessionCfg,
 		bw.keyboardHandler,
 		func(actionCtx context.Context, action input.Action) error {
 			a.activateBrowserWindow(bw)
@@ -1417,15 +1435,16 @@ type omniboxCallbacks struct {
 
 func buildOmniboxConfig(
 	deps *Dependencies,
+	runtimeCfg entity.RuntimeUIConfig,
 	faviconAdapter *adapter.FaviconAdapter,
 	callbacks omniboxCallbacks,
 ) component.OmniboxConfig {
-	if deps == nil || deps.Config == nil {
+	if deps == nil {
 		return component.OmniboxConfig{}
 	}
 
-	shortcuts := make(map[string]usecase.SearchShortcut, len(deps.Config.SearchShortcuts))
-	for key, shortcut := range deps.Config.SearchShortcuts {
+	shortcuts := make(map[string]usecase.SearchShortcut, len(runtimeCfg.SearchShortcuts))
+	for key, shortcut := range runtimeCfg.SearchShortcuts {
 		shortcuts[key] = usecase.SearchShortcut{
 			URL:         shortcut.URL,
 			Description: shortcut.Description,
@@ -1438,11 +1457,11 @@ func buildOmniboxConfig(
 		FaviconAdapter:      faviconAdapter,
 		CopyURLUC:           deps.CopyURLUC,
 		ShortcutsUC:         usecase.NewSearchShortcutsUseCase(shortcuts),
-		DefaultSearch:       deps.Config.DefaultSearchEngine,
-		InitialBehavior:     deps.Config.Omnibox.InitialBehavior,
-		MostVisitedDays:     deps.Config.Omnibox.MostVisitedDays,
+		DefaultSearch:       runtimeCfg.DefaultSearchEngine,
+		InitialBehavior:     runtimeCfg.Omnibox.InitialBehavior,
+		MostVisitedDays:     runtimeCfg.Omnibox.MostVisitedDays,
 		SaveInitialBehavior: deps.HandlerDeps.SaveOmniboxInitialBehavior,
-		UIScale:             deps.Config.DefaultUIScale,
+		UIScale:             runtimeCfg.DefaultUIScale,
 		OnNavigate:          callbacks.OnNavigate,
 		OnToast:             callbacks.OnToast,
 		OnFocusIn:           callbacks.OnFocusIn,
@@ -1471,7 +1490,11 @@ func NewStandaloneOmniboxRuntime(
 		registerFaviconInvalidator(deps.FaviconResolver, faviconAdapter)
 	}
 
-	omniboxCfg := buildOmniboxConfig(deps, faviconAdapter, omniboxCallbacks{
+	var runtimeCfg entity.RuntimeUIConfig
+	if deps != nil && deps.RuntimeConfig != nil {
+		runtimeCfg = deps.RuntimeConfig.Current().UI
+	}
+	omniboxCfg := buildOmniboxConfig(deps, runtimeCfg, faviconAdapter, omniboxCallbacks{
 		OnNavigate: func(navCtx context.Context, url string) error {
 			return handleStandaloneOmniboxNavigation(deps, navCtx, url)
 		},
@@ -1509,11 +1532,11 @@ func handleStandaloneOmniboxNavigation(deps *Dependencies, ctx context.Context, 
 }
 
 func (a *App) initOmniboxConfig(ctx context.Context) {
-	if a.deps == nil || a.deps.Config == nil {
+	if a.deps == nil {
 		return
 	}
 
-	a.omniboxCfg = buildOmniboxConfig(a.deps, a.faviconAdapter, omniboxCallbacks{
+	a.omniboxCfg = buildOmniboxConfig(a.deps, a.runtimeConfigSnapshot().UI, a.faviconAdapter, omniboxCallbacks{
 		OnNavigate: func(navCtx context.Context, url string) error {
 			return a.navigateFromOmnibox(navCtx, url)
 		},
@@ -1951,9 +1974,7 @@ func (a *App) switchToTargetTabIfConfigured(
 	}
 
 	switchToTarget := false
-	if a.deps != nil && a.deps.Config != nil {
-		switchToTarget = a.deps.Config.Workspace.SwitchToTabOnMove
-	}
+	switchToTarget = a.runtimeConfigSnapshot().UI.Workspace.SwitchToTabOnMove
 	if out.SourceTabClosed {
 		switchToTarget = true
 	}
@@ -1990,8 +2011,8 @@ func (a *App) initSnapshotService(ctx context.Context) {
 	}
 
 	intervalMs := 5000 // default
-	if a.deps.Config != nil && a.deps.Config.Session.SnapshotIntervalMs > 0 {
-		intervalMs = a.deps.Config.Session.SnapshotIntervalMs
+	if runtimeIntervalMs := a.runtimeConfigSnapshot().UI.Session.SnapshotIntervalMs; runtimeIntervalMs > 0 {
+		intervalMs = runtimeIntervalMs
 	}
 
 	a.snapshotService = a.deps.SnapshotServiceFactory(a, intervalMs)
@@ -2017,14 +2038,15 @@ func (a *App) initUpdateCoordinator(ctx context.Context) {
 		return
 	}
 
+	runtimeCfg := a.runtimeConfigSnapshot().UI
 	a.updateCoord = coordinator.NewUpdateCoordinator(
 		a.deps.CheckUpdateUC,
 		a.deps.ApplyUpdateUC,
 		func(ctx context.Context, msg string, level component.ToastLevel) {
 			a.showToastOnLastFocusedBrowserWindow(ctx, msg, level)
 		},
-		a.deps.Config.Update.EnableOnStartup,
-		a.deps.Config.Update.AutoDownload,
+		runtimeCfg.Update.EnableOnStartup,
+		runtimeCfg.Update.AutoDownload,
 	)
 
 	// Start async update check
@@ -2558,13 +2580,14 @@ func (a *App) switchBrowserWindowTabIndex(ctx context.Context, bw *browserWindow
 		a.activateBrowserWindow(bw)
 		return a.tabCoord.SwitchByIndex(ctx, target, index)
 	}
-	if a.deps == nil || a.deps.Config == nil || a.deps.Config.Workspace.NewPaneURL == "" {
+	newPaneURL := a.runtimeConfigSnapshot().UI.Workspace.NewPaneURL
+	if newPaneURL == "" {
 		logging.FromContext(ctx).Warn().Msg("switch tab index ignored: new pane URL is not configured")
 		return fmt.Errorf("newPaneURL is not configured")
 	}
 	a.activateBrowserWindow(bw)
 	ensureTarget := a.ensureTabTargetForBrowserWindow(bw)
-	_, err := a.tabCoord.Create(ctx, ensureTarget, urlutil.Normalize(a.deps.Config.Workspace.NewPaneURL))
+	_, err := a.tabCoord.Create(ctx, ensureTarget, urlutil.Normalize(newPaneURL))
 	return err
 }
 
@@ -3206,10 +3229,11 @@ func (a *App) initContentCoordinator(
 
 // initTabCoordinator creates the TabCoordinator and wires all its callbacks.
 func (a *App) initTabCoordinator(ctx context.Context) {
+	runtimeCfg := a.runtimeConfigSnapshot().UI
 	a.tabCoord = coordinator.NewTabCoordinator(ctx, coordinator.TabCoordinatorConfig{
 		TabsUC:                  a.tabsUC,
 		MainWindow:              a.mainWindow,
-		HideTabBarWhenSingleTab: a.deps.Config.Workspace.HideTabBarWhenSingleTab,
+		HideTabBarWhenSingleTab: runtimeCfg.Workspace.HideTabBarWhenSingleTab,
 	})
 	a.tabCoord.SetOnTabCreated(func(ctx context.Context, target coordinator.TabTarget, tab *entity.Tab) {
 		// Assign ownership from the callback target, not focus/global state.
@@ -3314,6 +3338,7 @@ func (a *App) initCoordinators(ctx context.Context) {
 	})
 
 	// 3. Workspace Coordinator
+	runtimeCfg := a.runtimeConfigSnapshot().UI
 	a.wsCoord = coordinator.NewWorkspaceCoordinator(ctx, coordinator.WorkspaceCoordinatorConfig{
 		PanesUC:              a.panesUC,
 		FocusMgr:             a.focusMgr,
@@ -3322,9 +3347,9 @@ func (a *App) initCoordinators(ctx context.Context) {
 		ContentCoord:         a.contentCoord,
 		GetActiveWS:          getActiveWS,
 		GenerateID:           a.generateID,
-		NewPaneURL:           a.deps.Config.Workspace.NewPaneURL,
-		ResizeStepPercent:    a.deps.Config.Workspace.ResizeMode.StepPercent,
-		ResizeMinPanePercent: a.deps.Config.Workspace.ResizeMode.MinPanePercent,
+		NewPaneURL:           runtimeCfg.Workspace.NewPaneURL,
+		ResizeStepPercent:    runtimeCfg.Workspace.ResizeMode.StepPercent,
+		ResizeMinPanePercent: runtimeCfg.Workspace.ResizeMode.MinPanePercent,
 	})
 	a.wsCoord.SetOnCloseLastPane(func(ctx context.Context) error {
 		bw := a.lastFocusedBrowserWindow()
@@ -3340,7 +3365,7 @@ func (a *App) initCoordinators(ctx context.Context) {
 	}
 	a.contentCoord.SetPopupConfig(
 		a.engine.Factory(),
-		&a.deps.Config.Workspace.BrowsingContexts,
+		&runtimeCfg.Workspace.BrowsingContexts,
 		a.generateID,
 	)
 	a.contentCoord.SetPopupWindowIDResolver(func(paneID entity.PaneID) (string, bool) {
@@ -3455,12 +3480,13 @@ func (a *App) initCoordinators(ctx context.Context) {
 func (a *App) keyboardActions() dispatcher.KeyboardActions {
 	return dispatcher.KeyboardActions{
 		NewTab: func(ctx context.Context) error {
-			if a.deps == nil || a.deps.Config == nil || a.deps.Config.Workspace.NewPaneURL == "" {
+			newPaneURL := a.runtimeConfigSnapshot().UI.Workspace.NewPaneURL
+			if newPaneURL == "" {
 				logging.FromContext(ctx).Warn().Msg("new tab ignored: new pane URL is not configured")
 				return fmt.Errorf("newPaneURL is not configured")
 			}
 			return a.withFocusedTabTarget(ctx, "new tab", true, func(target coordinator.TabTarget) error {
-				_, err := a.tabCoord.Create(ctx, target, urlutil.Normalize(a.deps.Config.Workspace.NewPaneURL))
+				_, err := a.tabCoord.Create(ctx, target, urlutil.Normalize(newPaneURL))
 				return err
 			})
 		},
@@ -3873,7 +3899,7 @@ func (a *App) updateModeIndicatorToaster(ctx context.Context, mode input.Mode) {
 	}
 
 	// Check if mode indicator toaster is enabled in config.
-	if a.deps == nil || a.deps.Config == nil || !a.deps.Config.Workspace.Styling.ModeIndicatorToasterEnabled {
+	if !a.runtimeConfigSnapshot().UI.Workspace.Styling.ModeIndicatorToasterEnabled {
 		bw.modeToaster.Hide()
 		return
 	}
@@ -4038,9 +4064,7 @@ func (a *App) createWorkspaceViewWithoutAttach(ctx context.Context, tab *entity.
 	// Set find bar config for this workspace view
 	wsView.SetFindBarConfig(a.findBarCfg)
 	// Set auto-open omnibox on new pane
-	if a.deps.Config != nil {
-		wsView.SetAutoOpenOnNewPane(a.deps.Config.Omnibox.AutoOpenOnNewPane)
-	}
+	wsView.SetAutoOpenOnNewPane(a.runtimeConfigSnapshot().UI.Omnibox.AutoOpenOnNewPane)
 
 	wsView.SetOnPaneFocused(func(paneID entity.PaneID) {
 		if a.keyboardHandler != nil && a.keyboardHandler.Mode() == input.ModeResize {
@@ -4397,18 +4421,12 @@ func (a *App) installFloatingOverlayPositioning(tabID entity.TabID, workspaceOve
 
 // currentFloatingWidthPct returns the configured floating pane width percentage.
 func (a *App) currentFloatingWidthPct() float64 {
-	if a.deps != nil && a.deps.Config != nil {
-		return a.deps.Config.Workspace.FloatingPane.WidthPct
-	}
-	return 0
+	return a.runtimeConfigSnapshot().UI.Workspace.FloatingPane.WidthPct
 }
 
 // currentFloatingHeightPct returns the configured floating pane height percentage.
 func (a *App) currentFloatingHeightPct() float64 {
-	if a.deps != nil && a.deps.Config != nil {
-		return a.deps.Config.Workspace.FloatingPane.HeightPct
-	}
-	return 0
+	return a.runtimeConfigSnapshot().UI.Workspace.FloatingPane.HeightPct
 }
 
 func (a *App) ensureFloatingSession(
@@ -5056,51 +5074,73 @@ func (a *App) initConfigWatcher(ctx context.Context) {
 
 	a.syncExternalThemeWatcher(ctx)
 
-	if a.deps.WatchConfig == nil || a.deps.OnConfigChange == nil {
+	if a.deps == nil || a.deps.RuntimeConfig == nil {
 		log.Debug().Msg("no config watcher available, skipping config file watcher")
 		return
 	}
 
-	// Start viper watcher.
-	if err := a.deps.WatchConfig(); err != nil {
+	if err := a.deps.RuntimeConfig.Watch(); err != nil {
 		log.Warn().Err(err).Msg("failed to start config watcher")
 		return
 	}
 
 	// Hot-reload appearance and keybindings on config change.
-	// deps.Config is updated in-place before this callback fires.
-	a.deps.OnConfigChange(func() {
-		cb := glib.SourceFunc(func(_ uintptr) bool {
-			a.syncExternalThemeWatcher(ctx)
-			a.applyAppearanceConfig(ctx)
-			for _, bw := range a.browserWindows {
-				if bw == nil {
-					continue
-				}
-				// Reapply sidebar width from live config (reloads after sidebar_width
-				// changes in the config file).
-				bw.applySidebarWidthConfig(a)
-				if bw.keyboardHandler != nil {
-					bw.keyboardHandler.ReloadShortcuts(ctx, &a.deps.Config.Workspace, &a.deps.Config.Session)
-				}
-				if bw.globalShortcutHandler != nil {
-					bw.globalShortcutHandler.ReloadShortcuts(ctx, &a.deps.Config.Workspace, &a.deps.Config.Session)
-				}
-			}
-			return false
-		})
-		glib.IdleAdd(&cb, 0)
+	a.deps.RuntimeConfig.OnChange(func(snapshot entity.RuntimeConfigSnapshot) {
+		a.dispatchRuntimeConfigChange(ctx, snapshot)
 	})
 
 	log.Debug().Msg("config watcher initialized")
 }
 
+func (a *App) dispatchRuntimeConfigChange(ctx context.Context, snapshot entity.RuntimeConfigSnapshot) {
+	run := func() {
+		a.applyRuntimeConfigChange(ctx, snapshot)
+	}
+	if a != nil && a.dispatchOnMainThread != nil {
+		a.dispatchOnMainThread("ui.runtime_config_reload", run)
+		return
+	}
+	run()
+}
+
+func (a *App) applyRuntimeConfigChange(ctx context.Context, snapshot entity.RuntimeConfigSnapshot) {
+	if a == nil {
+		return
+	}
+	if a.runtimeConfig == nil {
+		a.runtimeConfig = newRuntimeConfigState(nil)
+	}
+	a.runtimeConfig.Update(snapshot)
+	if a.contentCoord != nil {
+		a.contentCoord.UpdatePopupConfig(snapshot.UI.Workspace.BrowsingContexts)
+	}
+	runtimeCfg := snapshot.UI
+	workspaceCfg := runtimeCfg.Workspace
+	sessionCfg := runtimeCfg.Session
+	a.syncExternalThemeWatcher(ctx)
+	a.applyAppearanceConfig(ctx)
+	for _, bw := range a.browserWindows {
+		if bw == nil {
+			continue
+		}
+		// Reapply sidebar width from live config (reloads after sidebar_width
+		// changes in the config file).
+		bw.applySidebarWidthConfig(a)
+		if bw.keyboardHandler != nil {
+			bw.keyboardHandler.ReloadShortcuts(ctx, &workspaceCfg, &sessionCfg)
+		}
+		if bw.globalShortcutHandler != nil {
+			bw.globalShortcutHandler.ReloadShortcuts(ctx, &workspaceCfg, &sessionCfg)
+		}
+	}
+}
+
 func (a *App) syncExternalThemeWatcher(ctx context.Context) {
-	if a == nil || a.deps == nil || a.deps.Config == nil || a.deps.ExternalThemeWatcher == nil {
+	if a == nil || a.deps == nil || a.deps.ExternalThemeWatcher == nil {
 		return
 	}
 	log := logging.FromContext(ctx)
-	cfg := a.deps.Config.Appearance.ExternalTheme
+	cfg := a.runtimeConfigSnapshot().UI.Appearance.ExternalTheme
 	if err := a.deps.ExternalThemeWatcher.Start(ctx, cfg, func() {
 		a.dispatchOnMainThread("ui.external_theme_reload", func() {
 			a.applyAppearanceConfig(ctx)
@@ -5112,15 +5152,14 @@ func (a *App) syncExternalThemeWatcher(ctx context.Context) {
 
 func (a *App) applyAppearanceConfig(ctx context.Context) {
 	log := logging.FromContext(ctx)
-	if a.deps == nil || a.deps.Config == nil {
+	if a == nil {
 		return
 	}
-	cfg := a.deps.Config
+	snapshot := a.runtimeConfigSnapshot()
 
 	if a.engine != nil {
-		if err := a.engine.UpdateSettings(ctx, port.EngineSettingsUpdate{
-			Settings: port.EngineSettingsPayload{DefaultUIScale: cfg.DefaultUIScale},
-			Raw:      cfg,
+		if err := a.engine.UpdateSettings(ctx, entity.EngineSettingsUpdate{
+			Settings: snapshot.EngineSettings,
 		}); err != nil {
 			log.Warn().Err(err).Msg("failed to apply engine settings update")
 		}
@@ -5138,10 +5177,12 @@ func (a *App) applyAppearanceConfig(ctx context.Context) {
 
 func (a *App) applyThemeAppearance(ctx context.Context) {
 	log := logging.FromContext(ctx)
-	if a.deps == nil || a.deps.Config == nil || a.deps.Theme == nil {
+	if a.deps == nil || a.deps.Theme == nil {
 		return
 	}
-	cfg := a.deps.Config
+	runtimeCfg := a.runtimeConfigSnapshot().UI
+	appearanceCfg := runtimeCfg.Appearance
+	workspaceStyling := runtimeCfg.Workspace.Styling
 
 	var display *gdk.Display
 	if a.mainWindow != nil && a.mainWindow.Window() != nil {
@@ -5153,16 +5194,16 @@ func (a *App) applyThemeAppearance(ctx context.Context) {
 		preference = a.deps.ColorResolver.Refresh()
 	}
 	if a.deps.ExternalThemeSource != nil {
-		a.deps.ExternalThemeSource.Configure(cfg.Appearance.ExternalTheme)
+		a.deps.ExternalThemeSource.Configure(appearanceCfg.ExternalTheme)
 	}
 	resolveThemeUC := a.deps.ResolveThemeUC
 	if resolveThemeUC == nil {
 		resolveThemeUC = usecase.NewResolveThemeUseCase(a.deps.ExternalThemeSource)
 	}
 	resolved, err := resolveThemeUC.Refresh(ctx, usecase.ResolveThemeInputFromConfig(
-		&cfg.Appearance,
-		cfg.DefaultUIScale,
-		&cfg.Workspace.Styling,
+		&appearanceCfg,
+		runtimeCfg.DefaultUIScale,
+		&workspaceStyling,
 		preference,
 	))
 	if err != nil {

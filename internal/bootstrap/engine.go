@@ -71,6 +71,7 @@ func BuildEngine(input EngineInput) (port.Engine, error) {
 
 		return webkit.NewEngine(
 			input.Ctx, cfg, opts, profile, wkCfg,
+			EngineSettingsPayloadFromConfig(cfg),
 			currentConfigPayload, defaultConfigPayload,
 			input.ThemeManager, input.ColorResolver,
 			contextMenuBuilder, contextMenuExecutorFactory,

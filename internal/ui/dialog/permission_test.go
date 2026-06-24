@@ -6,43 +6,40 @@ import (
 
 	"github.com/bnema/dumber/internal/application/port"
 	"github.com/bnema/dumber/internal/domain/entity"
+	dialogmocks "github.com/bnema/dumber/internal/ui/dialog/mocks"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/mock"
 )
 
-type fakePermissionPopup struct {
-	showCalls []fakePopupShowCall
-	callback  func(allowed, persistent bool)
-}
-
-type fakePopupShowCall struct {
+type permissionPopupShowCall struct {
 	heading string
 	body    string
 }
 
-func (f *fakePermissionPopup) Show(
-	_ context.Context,
-	heading string,
-	body string,
-	callback func(allowed, persistent bool),
-) {
-	f.showCalls = append(f.showCalls, fakePopupShowCall{
-		heading: heading,
-		body:    body,
-	})
-	f.callback = callback
-}
-
-func (f *fakePermissionPopup) Respond(allowed, persistent bool) {
-	if f.callback == nil {
-		return
-	}
-	cb := f.callback
-	f.callback = nil
-	cb(allowed, persistent)
-}
-
 func TestPermissionDialog_QueuesRequestsWhilePopupVisible(t *testing.T) {
-	popup := &fakePermissionPopup{}
+	popup := dialogmocks.NewMockPermissionPopup(t)
+	var showCalls []permissionPopupShowCall
+	var callback func(allowed, persistent bool)
+	popup.EXPECT().
+		Show(mock.Anything, mock.Anything, mock.Anything, mock.Anything).
+		Run(func(_ context.Context, heading string, body string, cb func(allowed, persistent bool)) {
+			showCalls = append(showCalls, permissionPopupShowCall{
+				heading: heading,
+				body:    body,
+			})
+			callback = cb
+		}).
+		Twice()
+
+	respond := func(allowed, persistent bool) {
+		if callback == nil {
+			return
+		}
+		cb := callback
+		callback = nil
+		cb(allowed, persistent)
+	}
+
 	d := &PermissionDialog{popup: popup}
 
 	var firstResult port.PermissionDialogResult
@@ -71,22 +68,22 @@ func TestPermissionDialog_QueuesRequestsWhilePopupVisible(t *testing.T) {
 		},
 	)
 
-	if assert.Len(t, popup.showCalls, 1) {
-		assert.Equal(t, "Allow Microphone Access?", popup.showCalls[0].heading)
+	if assert.Len(t, showCalls, 1) {
+		assert.Equal(t, "Allow Microphone Access?", showCalls[0].heading)
 	}
 	assert.False(t, firstCalled)
 	assert.False(t, secondCalled)
 
-	popup.Respond(true, false)
+	respond(true, false)
 	assert.True(t, firstCalled)
 	assert.Equal(t, port.PermissionDialogResult{Allowed: true, Persistent: false}, firstResult)
 
-	if assert.Len(t, popup.showCalls, 2) {
-		assert.Equal(t, "Allow Camera Access?", popup.showCalls[1].heading)
+	if assert.Len(t, showCalls, 2) {
+		assert.Equal(t, "Allow Camera Access?", showCalls[1].heading)
 	}
 	assert.False(t, secondCalled)
 
-	popup.Respond(false, true)
+	respond(false, true)
 	assert.True(t, secondCalled)
 	assert.Equal(t, port.PermissionDialogResult{Allowed: false, Persistent: true}, secondResult)
 }

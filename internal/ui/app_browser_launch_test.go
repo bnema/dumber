@@ -21,7 +21,7 @@ import (
 	portmocks "github.com/bnema/dumber/internal/application/port/mocks"
 	"github.com/bnema/dumber/internal/application/usecase"
 	"github.com/bnema/dumber/internal/domain/entity"
-	"github.com/bnema/dumber/internal/domain/repository"
+	repomocks "github.com/bnema/dumber/internal/domain/repository/mocks"
 	"github.com/bnema/dumber/internal/infrastructure/config"
 	"github.com/bnema/dumber/internal/shared/syncdispatch"
 	"github.com/bnema/dumber/internal/ui/component"
@@ -35,6 +35,7 @@ import (
 	"github.com/bnema/puregotk/v4/gdk"
 	"github.com/bnema/puregotk/v4/gio"
 	"github.com/bnema/puregotk/v4/gtk"
+	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 )
 
@@ -62,29 +63,33 @@ func (c *testCloser) Close() error {
 	return nil
 }
 
-type fakeSessionStateRepo struct {
-	state *entity.SessionState
-}
-
-var _ repository.SessionStateRepository = (*fakeSessionStateRepo)(nil)
-
-func (r *fakeSessionStateRepo) SaveSnapshot(context.Context, *entity.SessionState) error { return nil }
-
-func (r *fakeSessionStateRepo) GetSnapshot(context.Context, entity.SessionID) (*entity.SessionState, error) {
-	return r.state, nil
-}
-
-func (r *fakeSessionStateRepo) DeleteSnapshot(context.Context, entity.SessionID) error { return nil }
-
-func (r *fakeSessionStateRepo) GetAllSnapshots(context.Context) ([]*entity.SessionState, error) {
-	return nil, nil
-}
-
-func (r *fakeSessionStateRepo) GetTotalSnapshotsSize(context.Context) (int64, error) { return 0, nil }
-
 func testPathIsSocket(path string) bool {
 	info, err := os.Stat(path)
 	return err == nil && info.Mode()&os.ModeSocket != 0
+}
+
+func mockSessionStateRepoWithSnapshot(t *testing.T, sessionID entity.SessionID, state *entity.SessionState) *repomocks.MockSessionStateRepository {
+	t.Helper()
+	repo := repomocks.NewMockSessionStateRepository(t)
+	repo.EXPECT().
+		GetSnapshot(mock.Anything, sessionID).
+		Return(state, nil).
+		Once()
+	return repo
+}
+
+func mockZoomRepo(t *testing.T) *repomocks.MockZoomRepository {
+	t.Helper()
+	repo := repomocks.NewMockZoomRepository(t)
+	repo.EXPECT().
+		Get(mock.Anything, mock.Anything).
+		Return((*entity.ZoomLevel)(nil), nil).
+		Maybe()
+	repo.EXPECT().
+		Set(mock.Anything, mock.Anything).
+		Return(nil).
+		Maybe()
+	return repo
 }
 
 func testGDKBackendAllows(backend string) bool {
@@ -1011,13 +1016,14 @@ func TestApp_CheckConfigMigrationUsesLastFocusedBrowserWindowToaster(t *testing.
 	migrator.EXPECT().CheckMigration().Return(&port.MigrationResult{MissingKeys: []string{"update.notify_on_new_settings"}}, nil).Once()
 
 	bw := &browserWindow{id: "window-1", appToaster: toaster}
+	cfg := &config.Config{
+		Update: config.UpdateConfig{NotifyOnNewSettings: true},
+	}
 	app := &App{
 		deps: &Dependencies{
-			Config: &config.Config{
-				Update: config.UpdateConfig{NotifyOnNewSettings: true},
-			},
-			ConfigMigrator: migrator,
+			MigrationChecker: migrator,
 		},
+		runtimeConfig:       runtimeConfigStateForTest(cfg),
 		browserWindows:      map[string]*browserWindow{bw.id: bw},
 		lastFocusedWindowID: bw.id,
 	}
@@ -1127,9 +1133,9 @@ func TestApp_RestoreSessionHandlesEmptyWindowSnapshotAsSuccess(t *testing.T) {
 
 	app := &App{
 		deps: &Dependencies{
-			Config:           &config.Config{},
-			SessionStateRepo: &fakeSessionStateRepo{state: state},
+			SessionStateRepo: mockSessionStateRepoWithSnapshot(t, sessionID, state),
 		},
+		runtimeConfig:       runtimeConfigStateForTest(&config.Config{}),
 		tabs:                entity.NewTabList(),
 		browserWindows:      map[string]*browserWindow{staleWindow.id: staleWindow},
 		lastFocusedWindowID: staleWindow.id,
@@ -1166,11 +1172,11 @@ func TestApp_CreateInitialTabNoFallbackAfterEmptyWindowRestore(t *testing.T) {
 	bw := &browserWindow{id: "window-1", tabs: windowTabs}
 	app := &App{
 		deps: &Dependencies{
-			Config:           &config.Config{},
 			RestoreSessionID: string(sessionID),
 			InitialURL:       "https://fallback.example",
-			SessionStateRepo: &fakeSessionStateRepo{state: state},
+			SessionStateRepo: mockSessionStateRepoWithSnapshot(t, sessionID, state),
 		},
+		runtimeConfig:       runtimeConfigStateForTest(&config.Config{}),
 		tabs:                entity.NewTabList(),
 		tabsUC:              tabsUC,
 		tabCoord:            coordinator.NewTabCoordinator(ctx, coordinator.TabCoordinatorConfig{TabsUC: tabsUC, Tabs: entity.NewTabList()}),
@@ -1208,9 +1214,9 @@ func TestApp_RestoreSessionClearsStaleUIStateBeforeApplyingRestoredTabs(t *testi
 
 	app := &App{
 		deps: &Dependencies{
-			Config:           &config.Config{},
-			SessionStateRepo: &fakeSessionStateRepo{state: entity.SnapshotFromTabList(restoredSessionID, restoredTabs)},
+			SessionStateRepo: mockSessionStateRepoWithSnapshot(t, restoredSessionID, entity.SnapshotFromTabList(restoredSessionID, restoredTabs)),
 		},
+		runtimeConfig:  runtimeConfigStateForTest(&config.Config{}),
 		mainWindow:     mainWindow,
 		widgetFactory:  layout.NewGtkWidgetFactory(),
 		tabs:           entity.NewTabList(),
@@ -1275,9 +1281,9 @@ func TestApp_RestoreSessionWiresStackedPaneTitleBarCallbacks(t *testing.T) {
 
 	app := &App{
 		deps: &Dependencies{
-			Config:           &config.Config{},
-			SessionStateRepo: &fakeSessionStateRepo{state: entity.SnapshotFromTabList(stackedSessionID, stackedTabs)},
+			SessionStateRepo: mockSessionStateRepoWithSnapshot(t, stackedSessionID, entity.SnapshotFromTabList(stackedSessionID, stackedTabs)),
 		},
+		runtimeConfig:  runtimeConfigStateForTest(&config.Config{}),
 		mainWindow:     mainWindow,
 		widgetFactory:  layout.NewGtkWidgetFactory(),
 		contentCoord:   &contentcoord.Coordinator{},
@@ -1762,7 +1768,8 @@ func TestApp_MoveActivePaneToTabFromBrowserWindowAnchorsOwningWindow(t *testing.
 	app := &App{
 		tabs:                tabs,
 		movePaneToTabUC:     usecase.NewMovePaneToTabUseCase(func() string { return "new-tab" }),
-		deps:                &Dependencies{Config: &config.Config{}},
+		deps:                &Dependencies{},
+		runtimeConfig:       runtimeConfigStateForTest(&config.Config{}),
 		browserWindows:      map[string]*browserWindow{first.id: first, second.id: second},
 		lastFocusedWindowID: second.id,
 	}
@@ -1799,7 +1806,8 @@ func TestApp_MoveActivePaneToTabFromBrowserWindowActivatesTargetOwnerForCrossWin
 	app := &App{
 		tabs:                tabs,
 		movePaneToTabUC:     usecase.NewMovePaneToTabUseCase(func() string { return "generated" }),
-		deps:                &Dependencies{Config: &config.Config{}},
+		deps:                &Dependencies{},
+		runtimeConfig:       runtimeConfigStateForTest(&config.Config{}),
 		browserWindows:      map[string]*browserWindow{first.id: first, second.id: second},
 		windowForTab:        map[entity.TabID]*browserWindow{tab1.ID: first, tab2.ID: second, tab3.ID: second},
 		lastFocusedWindowID: first.id,
@@ -1854,7 +1862,8 @@ func TestApp_MoveActivePaneToTabFromBrowserWindowCrossWindowDerivedMirror(t *tes
 	app := &App{
 		tabs:                tabs,
 		movePaneToTabUC:     usecase.NewMovePaneToTabUseCase(func() string { return "generated" }),
-		deps:                &Dependencies{Config: &config.Config{}},
+		deps:                &Dependencies{},
+		runtimeConfig:       runtimeConfigStateForTest(&config.Config{}),
 		browserWindows:      map[string]*browserWindow{first.id: first, second.id: second},
 		windowForTab:        map[entity.TabID]*browserWindow{tab1.ID: first, tab3.ID: second},
 		lastFocusedWindowID: first.id,
@@ -1904,7 +1913,8 @@ func TestApp_InitKeyboardHandlerDoesNotReattachExistingWindowInput(t *testing.T)
 		globalShortcutHandler: sentinelShortcutHandler,
 	}
 	app := &App{
-		deps:           &Dependencies{Config: &config.Config{}},
+		deps:           &Dependencies{},
+		runtimeConfig:  runtimeConfigStateForTest(&config.Config{}),
 		mainWindow:     mainWindow,
 		browserWindows: map[string]*browserWindow{bw.id: bw},
 		kbDispatcher:   dispatcher.NewKeyboardDispatcher(context.Background(), nil, nil, nil, nil, dispatcher.KeyboardActions{}, func(context.Context) entity.PaneID { return "" }),
@@ -1956,10 +1966,12 @@ func TestApp_UpdateBrowserWindowTabBarVisibilityAutoHidesSingleTabButPreservesAl
 	}
 	setWindowTabBar(t, mainWindow, tabBar)
 	bw := &browserWindow{id: "window-1", mainWindow: mainWindow}
+	cfg := &config.Config{}
+	cfg.Workspace.HideTabBarWhenSingleTab = true
 	app := &App{
-		deps: &Dependencies{Config: &config.Config{}},
+		deps:          &Dependencies{},
+		runtimeConfig: runtimeConfigStateForTest(cfg),
 	}
-	app.deps.Config.Workspace.HideTabBarWhenSingleTab = true
 
 	tab1 := entity.NewTab(entity.TabID("tab-1"), entity.WorkspaceID("workspace-1"), entity.NewPane(entity.PaneID("pane-1")))
 	tab2 := entity.NewTab(entity.TabID("tab-2"), entity.WorkspaceID("workspace-2"), entity.NewPane(entity.PaneID("pane-2")))
@@ -2026,10 +2038,12 @@ func TestApp_UpdateBrowserWindowTabBarVisibilityHonorsHideWhenSingleTabDisabled(
 	}
 	setWindowTabBar(t, mainWindow, tabBar)
 	bw := &browserWindow{id: "window-1", mainWindow: mainWindow}
+	cfg := &config.Config{}
+	cfg.Workspace.HideTabBarWhenSingleTab = false
 	app := &App{
-		deps: &Dependencies{Config: &config.Config{}},
+		deps:          &Dependencies{},
+		runtimeConfig: runtimeConfigStateForTest(cfg),
 	}
-	app.deps.Config.Workspace.HideTabBarWhenSingleTab = false
 
 	app.updateBrowserWindowTabBarVisibility(bw)
 
@@ -2059,8 +2073,9 @@ func TestApp_BuildRestoredWindowUIUpdatesEmptyWindowTabBarVisibility(t *testing.
 
 	mw.SetTabBarContentInsetVisible(true)
 	bw := &browserWindow{id: "window-1", mainWindow: mw, tabs: entity.NewTabList()}
-	app := &App{deps: &Dependencies{Config: &config.Config{}}}
-	app.deps.Config.Workspace.HideTabBarWhenSingleTab = true
+	cfg := &config.Config{}
+	cfg.Workspace.HideTabBarWhenSingleTab = true
+	app := appWithRuntimeConfigForTest(cfg)
 
 	app.buildRestoredWindowUI(context.Background(), []*browserWindow{bw})
 
@@ -2082,10 +2097,12 @@ func TestApp_UpdateBrowserWindowTabBarVisibility_BottomInset(t *testing.T) {
 	defer mainWindow.Destroy()
 
 	bw := &browserWindow{id: "window-1", mainWindow: mainWindow}
+	cfg := &config.Config{}
+	cfg.Workspace.HideTabBarWhenSingleTab = true
 	app := &App{
-		deps: &Dependencies{Config: &config.Config{}},
+		deps:          &Dependencies{},
+		runtimeConfig: runtimeConfigStateForTest(cfg),
 	}
-	app.deps.Config.Workspace.HideTabBarWhenSingleTab = true
 
 	tab1 := entity.NewTab(entity.TabID("tab-1"), entity.WorkspaceID("workspace-1"), entity.NewPane(entity.PaneID("pane-1")))
 	tab2 := entity.NewTab(entity.TabID("tab-2"), entity.WorkspaceID("workspace-2"), entity.NewPane(entity.PaneID("pane-2")))
@@ -2137,13 +2154,15 @@ func TestApp_HandlePaneFullscreenChanged_ClearsBottomInset(t *testing.T) {
 	tabs.SetActive(tab2.ID)
 
 	bw := &browserWindow{id: "window-1", mainWindow: mainWindow, tabs: tabs}
+	cfg := &config.Config{}
+	cfg.Workspace.HideTabBarWhenSingleTab = true
 	app := &App{
 		tabs:                tabs,
-		deps:                &Dependencies{Config: &config.Config{}},
+		deps:                &Dependencies{},
+		runtimeConfig:       runtimeConfigStateForTest(cfg),
 		browserWindows:      map[string]*browserWindow{bw.id: bw},
 		lastFocusedWindowID: bw.id,
 	}
-	app.deps.Config.Workspace.HideTabBarWhenSingleTab = true
 
 	// Start with two tabs: inset should be present
 	app.updateBrowserWindowTabBarVisibility(bw)
@@ -2258,7 +2277,8 @@ func TestApp_CreatePopupTabUsesParentPaneOwnerWhenFocusIsStale(t *testing.T) {
 	first := &browserWindow{id: "window-1", tabs: firstTabs, mainWindow: &window.MainWindow{}}
 	second := &browserWindow{id: "window-2", tabs: secondTabs, mainWindow: &window.MainWindow{}}
 	app := &App{
-		deps:                &Dependencies{Config: &config.Config{}},
+		deps:                &Dependencies{},
+		runtimeConfig:       runtimeConfigStateForTest(&config.Config{}),
 		tabs:                globalTabs,
 		tabsUC:              usecase.NewManageTabsUseCase(func() string { return "popup-tab" }),
 		browserWindows:      map[string]*browserWindow{first.id: first, second.id: second},
@@ -2318,7 +2338,8 @@ func TestApp_TabCoordinatorCallbacksUseTargetWindowWhenFocusIsStale(t *testing.T
 	first := &browserWindow{id: "window-1", tabs: firstTabs, mainWindow: &window.MainWindow{}}
 	second := &browserWindow{id: "window-2", tabs: secondTabs, mainWindow: &window.MainWindow{}}
 	app := &App{
-		deps:                &Dependencies{Config: &config.Config{}},
+		deps:                &Dependencies{},
+		runtimeConfig:       runtimeConfigStateForTest(&config.Config{}),
 		tabs:                entity.NewTabList(),
 		tabsUC:              usecase.NewManageTabsUseCase(func() string { return "created-tab" }),
 		browserWindows:      map[string]*browserWindow{first.id: first, second.id: second},
@@ -2436,9 +2457,9 @@ func TestApp_ActiveWorkspaceUsesLastFocusedWindowTabsNotGlobalActiveTab(t *testi
 	}
 }
 
-// fakeRecordingWebView is a complete port.WebView that records which navigation
+// recordingWebView is a complete port.WebView that records which navigation
 // methods were called and with what arguments. It does not use reflect or unsafe.
-type fakeRecordingWebView struct {
+type recordingWebView struct {
 	id port.WebViewID
 
 	loadURICalled          bool
@@ -2456,79 +2477,79 @@ type fakeRecordingWebView struct {
 	destroyCalls           int
 }
 
-func (f *fakeRecordingWebView) ID() port.WebViewID { return f.id }
+func (f *recordingWebView) ID() port.WebViewID { return f.id }
 
-func (f *fakeRecordingWebView) LoadURI(_ context.Context, uri string) error {
+func (f *recordingWebView) LoadURI(_ context.Context, uri string) error {
 	f.loadURICalled = true
 	f.loadURILastURI = uri
 	return nil
 }
 
-func (f *fakeRecordingWebView) LoadHTML(_ context.Context, _, _ string) error {
+func (f *recordingWebView) LoadHTML(_ context.Context, _, _ string) error {
 	f.loadHTMLCalls++
 	return nil
 }
 
-func (f *fakeRecordingWebView) Reload(_ context.Context) error {
+func (f *recordingWebView) Reload(_ context.Context) error {
 	f.reloadCalls++
 	return nil
 }
 
-func (f *fakeRecordingWebView) ReloadBypassCache(_ context.Context) error {
+func (f *recordingWebView) ReloadBypassCache(_ context.Context) error {
 	f.reloadBypassCacheCalls++
 	return nil
 }
 
-func (f *fakeRecordingWebView) Stop(_ context.Context) error {
+func (f *recordingWebView) Stop(_ context.Context) error {
 	f.stopCalls++
 	return nil
 }
 
-func (f *fakeRecordingWebView) GoBack(_ context.Context) error {
+func (f *recordingWebView) GoBack(_ context.Context) error {
 	f.goBackCalls++
 	return nil
 }
 
-func (f *fakeRecordingWebView) GoForward(_ context.Context) error {
+func (f *recordingWebView) GoForward(_ context.Context) error {
 	f.goForwardCalls++
 	return nil
 }
 
-func (f *fakeRecordingWebView) State() port.WebViewState { return port.WebViewState{} }
+func (f *recordingWebView) State() port.WebViewState { return port.WebViewState{} }
 
-func (f *fakeRecordingWebView) URI() string   { return f.loadURILastURI }
-func (f *fakeRecordingWebView) Title() string { return "" }
+func (f *recordingWebView) URI() string   { return f.loadURILastURI }
+func (f *recordingWebView) Title() string { return "" }
 
-func (f *fakeRecordingWebView) IsLoading() bool            { return false }
-func (f *fakeRecordingWebView) EstimatedProgress() float64 { return 0 }
-func (f *fakeRecordingWebView) CanGoBack() bool            { return false }
-func (f *fakeRecordingWebView) CanGoForward() bool         { return false }
+func (f *recordingWebView) IsLoading() bool            { return false }
+func (f *recordingWebView) EstimatedProgress() float64 { return 0 }
+func (f *recordingWebView) CanGoBack() bool            { return false }
+func (f *recordingWebView) CanGoForward() bool         { return false }
 
-func (f *fakeRecordingWebView) SetZoomLevel(_ context.Context, level float64) error {
+func (f *recordingWebView) SetZoomLevel(_ context.Context, level float64) error {
 	f.setZoomLevelCalls++
 	f.setZoomLevelLastLevel = level
 	return nil
 }
 
-func (f *fakeRecordingWebView) OpenDevTools() { f.openDevToolsCalls++ }
-func (f *fakeRecordingWebView) PrintPage()    { f.printPageCalls++ }
+func (f *recordingWebView) OpenDevTools() { f.openDevToolsCalls++ }
+func (f *recordingWebView) PrintPage()    { f.printPageCalls++ }
 
-func (f *fakeRecordingWebView) GetZoomLevel() float64                     { return 1.0 }
-func (f *fakeRecordingWebView) GetFindController() port.FindController    { return nil }
-func (f *fakeRecordingWebView) SetCallbacks(_ *port.WebViewCallbacks)     {}
-func (f *fakeRecordingWebView) RunJavaScript(_ context.Context, _ string) {}
-func (f *fakeRecordingWebView) SetBackgroundColor(_, _, _, _ float64)     {}
-func (f *fakeRecordingWebView) ResetBackgroundToDefault()                 {}
-func (f *fakeRecordingWebView) Favicon() port.Texture                     { return nil }
-func (f *fakeRecordingWebView) Generation() uint64                        { return 0 }
-func (f *fakeRecordingWebView) IsFullscreen() bool                        { return false }
-func (f *fakeRecordingWebView) IsPlayingAudio() bool                      { return false }
-func (f *fakeRecordingWebView) IsDestroyed() bool                         { return f.destroyCalls > 0 }
-func (f *fakeRecordingWebView) Destroy()                                  { f.destroyCalls++ }
+func (f *recordingWebView) GetZoomLevel() float64                     { return 1.0 }
+func (f *recordingWebView) GetFindController() port.FindController    { return nil }
+func (f *recordingWebView) SetCallbacks(_ *port.WebViewCallbacks)     {}
+func (f *recordingWebView) RunJavaScript(_ context.Context, _ string) {}
+func (f *recordingWebView) SetBackgroundColor(_, _, _, _ float64)     {}
+func (f *recordingWebView) ResetBackgroundToDefault()                 {}
+func (f *recordingWebView) Favicon() port.Texture                     { return nil }
+func (f *recordingWebView) Generation() uint64                        { return 0 }
+func (f *recordingWebView) IsFullscreen() bool                        { return false }
+func (f *recordingWebView) IsPlayingAudio() bool                      { return false }
+func (f *recordingWebView) IsDestroyed() bool                         { return f.destroyCalls > 0 }
+func (f *recordingWebView) Destroy()                                  { f.destroyCalls++ }
 
 func TestApp_AttachPopupToTabDestroysPopupWhenWorkspaceViewMissing(t *testing.T) {
 	ctx := context.Background()
-	popupWV := &fakeRecordingWebView{id: 1}
+	popupWV := &recordingWebView{id: 1}
 	app := &App{workspaceViews: map[entity.TabID]*component.WorkspaceView{}}
 
 	app.attachPopupToTab(ctx, entity.TabID("missing-tab"), entity.NewPane(entity.PaneID("popup-pane")), popupWV)
@@ -2540,7 +2561,7 @@ func TestApp_AttachPopupToTabDestroysPopupWhenWorkspaceViewMissing(t *testing.T)
 
 func TestApp_AttachPopupToTabDestroysPopupWhenPaneNil(t *testing.T) {
 	ctx := context.Background()
-	popupWV := &fakeRecordingWebView{id: 1}
+	popupWV := &recordingWebView{id: 1}
 	tabID := entity.TabID("tab-1")
 	app := &App{workspaceViews: map[entity.TabID]*component.WorkspaceView{tabID: &component.WorkspaceView{}}}
 
@@ -2563,7 +2584,7 @@ func TestApp_AttachPopupToTabSkipsRegistrationWhenPaneViewMissing(t *testing.T) 
 		},
 	}
 
-	popupWV := &fakeRecordingWebView{id: 1}
+	popupWV := &recordingWebView{id: 1}
 	app.attachPopupToTab(ctx, tabID, pane, popupWV)
 
 	if got := contentCoord.GetWebView(pane.ID); got != nil {
@@ -2603,7 +2624,7 @@ func TestApp_AttachPopupToTabReleasesRegistrationWhenWrapFails(t *testing.T) {
 			tabID: wsView,
 		},
 	}
-	popupWV := &fakeRecordingWebView{id: 1}
+	popupWV := &recordingWebView{id: 1}
 
 	app.attachPopupToTab(ctx, tabID, pane, popupWV)
 
@@ -2614,13 +2635,6 @@ func TestApp_AttachPopupToTabReleasesRegistrationWhenWrapFails(t *testing.T) {
 		t.Fatalf("popup webview destroy calls = %d, want 1", popupWV.destroyCalls)
 	}
 }
-
-type fakeZoomRepo struct{}
-
-func (f *fakeZoomRepo) Get(context.Context, string) (*entity.ZoomLevel, error) { return nil, nil }
-func (f *fakeZoomRepo) Set(context.Context, *entity.ZoomLevel) error           { return nil }
-func (f *fakeZoomRepo) Delete(context.Context, string) error                   { return nil }
-func (f *fakeZoomRepo) GetAll(context.Context) ([]*entity.ZoomLevel, error)    { return nil, nil }
 
 func TestApp_BrowserWindowWebViewActionsIgnoreStaleFocusedWindow(t *testing.T) {
 	ctx := context.Background()
@@ -2639,15 +2653,15 @@ func TestApp_BrowserWindowWebViewActionsIgnoreStaleFocusedWindow(t *testing.T) {
 	secondTabs.SetActive(tab2.ID)
 	second := &browserWindow{id: "window-2", tabs: secondTabs}
 
-	// Create fake recording webviews.
-	fakeWv1 := &fakeRecordingWebView{id: 1}
-	fakeWv2 := &fakeRecordingWebView{id: 2}
+	// Create recording webviews.
+	recordingWv1 := &recordingWebView{id: 1}
+	recordingWv2 := &recordingWebView{id: 2}
 
 	// Create content coordinator with initialized internal maps to avoid
 	// nil-map panics in SetNavigationOrigin during NavigateWebView calls.
 	contentCoord := contentcoord.NewCoordinator(ctx, nil, nil, nil, nil, nil, nil, nil)
-	contentCoord.RegisterPopupWebView(entity.PaneID("pane-1"), fakeWv1)
-	contentCoord.RegisterPopupWebView(entity.PaneID("pane-2"), fakeWv2)
+	contentCoord.RegisterPopupWebView(entity.PaneID("pane-1"), recordingWv1)
+	contentCoord.RegisterPopupWebView(entity.PaneID("pane-2"), recordingWv2)
 
 	// Create NavigationCoordinator (no navigateUC needed for direct webview calls).
 	navCoord := coordinator.NewNavigationCoordinator(ctx, nil, contentCoord)
@@ -2686,11 +2700,11 @@ func TestApp_BrowserWindowWebViewActionsIgnoreStaleFocusedWindow(t *testing.T) {
 		t.Fatalf("goForwardBrowserWindow returned error: %v", err)
 	}
 
-	assertRecordingWebViewIdle(t, "first", fakeWv1)
-	assertRecordingWebViewActions(t, "second", fakeWv2, "https://google.com")
+	assertRecordingWebViewIdle(t, "first", recordingWv1)
+	assertRecordingWebViewActions(t, "second", recordingWv2, "https://google.com")
 }
 
-func assertRecordingWebViewIdle(t *testing.T, name string, wv *fakeRecordingWebView) {
+func assertRecordingWebViewIdle(t *testing.T, name string, wv *recordingWebView) {
 	t.Helper()
 	if wv.loadURICalled || wv.loadURILastURI != "" {
 		t.Errorf("%s webview LoadURI was called, expected zero calls", name)
@@ -2712,7 +2726,7 @@ func assertRecordingWebViewIdle(t *testing.T, name string, wv *fakeRecordingWebV
 	}
 }
 
-func assertRecordingWebViewActions(t *testing.T, name string, wv *fakeRecordingWebView, wantURI string) {
+func assertRecordingWebViewActions(t *testing.T, name string, wv *recordingWebView, wantURI string) {
 	t.Helper()
 	if !wv.loadURICalled {
 		t.Errorf("%s webview LoadURI was not called", name)
@@ -2737,7 +2751,7 @@ func assertRecordingWebViewActions(t *testing.T, name string, wv *fakeRecordingW
 	}
 }
 
-func assertRecordingWebViewBrowserActionsIdle(t *testing.T, name string, wv *fakeRecordingWebView) {
+func assertRecordingWebViewBrowserActionsIdle(t *testing.T, name string, wv *recordingWebView) {
 	t.Helper()
 	if wv.reloadCalls > 0 {
 		t.Errorf("%s webview Reload calls = %d, want 0", name, wv.reloadCalls)
@@ -2765,7 +2779,7 @@ func assertRecordingWebViewBrowserActionsIdle(t *testing.T, name string, wv *fak
 	}
 }
 
-func assertRecordingWebViewBrowserActionsCalledOnce(t *testing.T, name string, wv *fakeRecordingWebView) {
+func assertRecordingWebViewBrowserActionsCalledOnce(t *testing.T, name string, wv *recordingWebView) {
 	t.Helper()
 	if wv.reloadCalls != 1 {
 		t.Errorf("%s webview Reload calls = %d, want 1", name, wv.reloadCalls)
@@ -2839,14 +2853,14 @@ func TestApp_DispatchBrowserWindowActionUsesSourceWindow(t *testing.T) {
 	secondTabs.SetActive(tab2.ID)
 	second := &browserWindow{id: "window-2", tabs: secondTabs}
 
-	// Create fake recording webviews.
-	fakeWv1 := &fakeRecordingWebView{id: 1, loadURILastURI: "https://first.example"}
-	fakeWv2 := &fakeRecordingWebView{id: 2, loadURILastURI: "https://second.example"}
+	// Create recording webviews.
+	recordingWv1 := &recordingWebView{id: 1, loadURILastURI: "https://first.example"}
+	recordingWv2 := &recordingWebView{id: 2, loadURILastURI: "https://second.example"}
 
-	// Register fake webviews in content coordinator.
+	// Register recording webviews in content coordinator.
 	contentCoord := contentcoord.NewCoordinator(ctx, nil, nil, nil, nil, nil, nil, nil)
-	contentCoord.RegisterPopupWebView(entity.PaneID("pane-1"), fakeWv1)
-	contentCoord.RegisterPopupWebView(entity.PaneID("pane-2"), fakeWv2)
+	contentCoord.RegisterPopupWebView(entity.PaneID("pane-1"), recordingWv1)
+	contentCoord.RegisterPopupWebView(entity.PaneID("pane-2"), recordingWv2)
 
 	// Create navCoord (no navigateUC needed for direct webview calls).
 	navCoord := coordinator.NewNavigationCoordinator(ctx, nil, contentCoord)
@@ -2857,7 +2871,7 @@ func TestApp_DispatchBrowserWindowActionUsesSourceWindow(t *testing.T) {
 		lastFocusedWindowID: first.id, // stale! should NOT be used
 		contentCoord:        contentCoord,
 		navCoord:            navCoord,
-		deps:                &Dependencies{ZoomUC: usecase.NewManageZoomUseCase(&fakeZoomRepo{}, 1.0, nil)},
+		deps:                &Dependencies{ZoomUC: usecase.NewManageZoomUseCase(mockZoomRepo(t), 1.0, nil)},
 		workspaceViews: map[entity.TabID]*component.WorkspaceView{
 			tab1.ID: &component.WorkspaceView{},
 			tab2.ID: &component.WorkspaceView{},
@@ -2882,11 +2896,11 @@ func TestApp_DispatchBrowserWindowActionUsesSourceWindow(t *testing.T) {
 		}
 	}
 
-	// Assert first fake webview receives zero calls (stale focus is ignored).
-	assertRecordingWebViewBrowserActionsIdle(t, "first", fakeWv1)
+	// Assert first recording webview receives zero calls (stale focus is ignored).
+	assertRecordingWebViewBrowserActionsIdle(t, "first", recordingWv1)
 
-	// Assert second fake webview receives exactly one call per action.
-	assertRecordingWebViewBrowserActionsCalledOnce(t, "second", fakeWv2)
+	// Assert second recording webview receives exactly one call per action.
+	assertRecordingWebViewBrowserActionsCalledOnce(t, "second", recordingWv2)
 }
 
 func TestApp_DispatchBrowserWindowActionZoomInSupportsFileURLs(t *testing.T) {
@@ -2898,16 +2912,16 @@ func TestApp_DispatchBrowserWindowActionZoomInSupportsFileURLs(t *testing.T) {
 	tabs.SetActive(tab.ID)
 	bw := &browserWindow{id: "window-1", tabs: tabs}
 
-	fakeWv := &fakeRecordingWebView{id: 1, loadURILastURI: "file:///tmp/demo.html"}
+	recordingWv := &recordingWebView{id: 1, loadURILastURI: "file:///tmp/demo.html"}
 	contentCoord := contentcoord.NewCoordinator(ctx, nil, nil, nil, nil, nil, nil, nil)
-	contentCoord.RegisterPopupWebView(entity.PaneID("pane-1"), fakeWv)
+	contentCoord.RegisterPopupWebView(entity.PaneID("pane-1"), recordingWv)
 
 	app := &App{
 		browserWindows: map[string]*browserWindow{bw.id: bw},
 		tabs:           entity.NewTabList(),
 		windowForTab:   map[entity.TabID]*browserWindow{tab.ID: bw},
 		contentCoord:   contentCoord,
-		deps:           &Dependencies{ZoomUC: usecase.NewManageZoomUseCase(&fakeZoomRepo{}, 1.0, nil)},
+		deps:           &Dependencies{ZoomUC: usecase.NewManageZoomUseCase(mockZoomRepo(t), 1.0, nil)},
 		workspaceViews: map[entity.TabID]*component.WorkspaceView{
 			tab.ID: &component.WorkspaceView{},
 		},
@@ -2918,11 +2932,11 @@ func TestApp_DispatchBrowserWindowActionZoomInSupportsFileURLs(t *testing.T) {
 	if err := app.dispatchBrowserWindowAction(ctx, bw, input.ActionZoomIn); err != nil {
 		t.Fatalf("dispatchBrowserWindowAction returned error: %v", err)
 	}
-	if fakeWv.setZoomLevelCalls != 1 {
-		t.Fatalf("webview SetZoomLevel calls = %d, want 1", fakeWv.setZoomLevelCalls)
+	if recordingWv.setZoomLevelCalls != 1 {
+		t.Fatalf("webview SetZoomLevel calls = %d, want 1", recordingWv.setZoomLevelCalls)
 	}
-	if diff := math.Abs(fakeWv.setZoomLevelLastLevel - 1.1); diff > 0.0001 {
-		t.Fatalf("webview SetZoomLevel level = %f, want 1.1", fakeWv.setZoomLevelLastLevel)
+	if diff := math.Abs(recordingWv.setZoomLevelLastLevel - 1.1); diff > 0.0001 {
+		t.Fatalf("webview SetZoomLevel level = %f, want 1.1", recordingWv.setZoomLevelLastLevel)
 	}
 }
 
@@ -2951,14 +2965,14 @@ func TestApp_DispatchBrowserWindowActionSwitchTabIndexUsesSourceWindow(t *testin
 	secondTabs.SetActive(secondTab1.ID)
 	second := &browserWindow{id: "window-2", tabs: secondTabs}
 
-	app := &App{
-		deps: &Dependencies{
-			Config: &config.Config{
-				Workspace: config.WorkspaceConfig{
-					NewPaneURL: "about:blank",
-				},
-			},
+	cfg := &config.Config{
+		Workspace: config.WorkspaceConfig{
+			NewPaneURL: "about:blank",
 		},
+	}
+	app := &App{
+		deps:                &Dependencies{},
+		runtimeConfig:       runtimeConfigStateForTest(cfg),
 		tabsUC:              usecase.NewManageTabsUseCase(counterIDGen()),
 		browserWindows:      map[string]*browserWindow{first.id: first, second.id: second},
 		windowForTab:        map[entity.TabID]*browserWindow{firstTab.ID: first, secondTab1.ID: second, secondTab2.ID: second},
@@ -2994,14 +3008,14 @@ func TestApp_DispatchBrowserWindowActionSwitchTabIndexCreatesOnlyOneMissingTab(t
 	secondTabs.SetActive(secondTab.ID)
 	second := &browserWindow{id: "window-2", tabs: secondTabs}
 
-	app := &App{
-		deps: &Dependencies{
-			Config: &config.Config{
-				Workspace: config.WorkspaceConfig{
-					NewPaneURL: "about:blank",
-				},
-			},
+	cfg := &config.Config{
+		Workspace: config.WorkspaceConfig{
+			NewPaneURL: "about:blank",
 		},
+	}
+	app := &App{
+		deps:                &Dependencies{},
+		runtimeConfig:       runtimeConfigStateForTest(cfg),
 		tabsUC:              usecase.NewManageTabsUseCase(counterIDGen()),
 		browserWindows:      map[string]*browserWindow{first.id: first, second.id: second},
 		windowForTab:        map[entity.TabID]*browserWindow{firstTab.ID: first, secondTab.ID: second},
@@ -3044,10 +3058,10 @@ func TestApp_SwitchBrowserWindowTabIndexNegativeIndexIsIgnored(t *testing.T) {
 	secondTabs.SetActive(secondTab.ID)
 	second := &browserWindow{id: "window-2", tabs: secondTabs}
 
+	cfg := &config.Config{Workspace: config.WorkspaceConfig{NewPaneURL: "about:blank"}}
 	app := &App{
-		deps: &Dependencies{
-			Config: &config.Config{Workspace: config.WorkspaceConfig{NewPaneURL: "about:blank"}},
-		},
+		deps:           &Dependencies{},
+		runtimeConfig:  runtimeConfigStateForTest(cfg),
 		tabsUC:         usecase.NewManageTabsUseCase(counterIDGen()),
 		browserWindows: map[string]*browserWindow{second.id: second},
 		windowForTab:   map[entity.TabID]*browserWindow{secondTab.ID: second},
@@ -3071,10 +3085,10 @@ func TestApp_DispatchBrowserWindowActionSwitchTabIndexNegativeDoesNotMutateWindo
 
 	second := &browserWindow{id: "window-2"}
 
+	cfg := &config.Config{Workspace: config.WorkspaceConfig{NewPaneURL: "about:blank"}}
 	app := &App{
-		deps: &Dependencies{
-			Config: &config.Config{Workspace: config.WorkspaceConfig{NewPaneURL: "about:blank"}},
-		},
+		deps:                &Dependencies{},
+		runtimeConfig:       runtimeConfigStateForTest(cfg),
 		tabsUC:              usecase.NewManageTabsUseCase(counterIDGen()),
 		browserWindows:      map[string]*browserWindow{second.id: second},
 		lastFocusedWindowID: "window-1",
@@ -3103,7 +3117,8 @@ func TestApp_DispatchBrowserWindowActionSwitchTabIndexMissingURLDoesNotCreateTab
 	second := &browserWindow{id: "window-2", tabs: secondTabs}
 
 	app := &App{
-		deps:           &Dependencies{Config: &config.Config{}},
+		deps:           &Dependencies{},
+		runtimeConfig:  runtimeConfigStateForTest(&config.Config{}),
 		tabsUC:         usecase.NewManageTabsUseCase(counterIDGen()),
 		browserWindows: map[string]*browserWindow{second.id: second},
 		windowForTab:   map[entity.TabID]*browserWindow{secondTab.ID: second},
@@ -3128,7 +3143,8 @@ func TestApp_SwitchBrowserWindowTabIndexMissingURLDoesNotMutateWindowState(t *te
 	second := &browserWindow{id: "window-2"}
 
 	app := &App{
-		deps:                &Dependencies{Config: &config.Config{}},
+		deps:                &Dependencies{},
+		runtimeConfig:       runtimeConfigStateForTest(&config.Config{}),
 		tabsUC:              usecase.NewManageTabsUseCase(counterIDGen()),
 		browserWindows:      map[string]*browserWindow{second.id: second},
 		lastFocusedWindowID: "window-1",
@@ -3163,14 +3179,15 @@ func TestApp_WorkspaceOmniboxNavigateUsesOwnerWindow(t *testing.T) {
 	first := &browserWindow{id: "window-1", tabs: firstTabs}
 	second := &browserWindow{id: "window-2", tabs: secondTabs}
 
-	fakeWv1 := &fakeRecordingWebView{id: 1}
-	fakeWv2 := &fakeRecordingWebView{id: 2}
+	recordingWv1 := &recordingWebView{id: 1}
+	recordingWv2 := &recordingWebView{id: 2}
 	contentCoord := contentcoord.NewCoordinator(ctx, nil, nil, nil, nil, nil, nil, nil)
-	contentCoord.RegisterPopupWebView(entity.PaneID("pane-1"), fakeWv1)
-	contentCoord.RegisterPopupWebView(entity.PaneID("pane-2"), fakeWv2)
+	contentCoord.RegisterPopupWebView(entity.PaneID("pane-1"), recordingWv1)
+	contentCoord.RegisterPopupWebView(entity.PaneID("pane-2"), recordingWv2)
 
 	app := &App{
-		deps:                &Dependencies{Config: &config.Config{}},
+		deps:                &Dependencies{},
+		runtimeConfig:       runtimeConfigStateForTest(&config.Config{}),
 		widgetFactory:       layout.NewGtkWidgetFactory(),
 		browserWindows:      map[string]*browserWindow{first.id: first, second.id: second},
 		windowForTab:        map[entity.TabID]*browserWindow{tab1.ID: first, tab2.ID: second},
@@ -3191,11 +3208,11 @@ func TestApp_WorkspaceOmniboxNavigateUsesOwnerWindow(t *testing.T) {
 		t.Fatalf("omnibox navigate callback returned error: %v", err)
 	}
 
-	if fakeWv1.loadURICalled {
-		t.Errorf("first window webview navigated to %q, want no navigation", fakeWv1.loadURILastURI)
+	if recordingWv1.loadURICalled {
+		t.Errorf("first window webview navigated to %q, want no navigation", recordingWv1.loadURILastURI)
 	}
-	if !fakeWv2.loadURICalled || fakeWv2.loadURILastURI != "https://example.com" {
-		t.Errorf("second window webview navigation = called %v uri %q, want https://example.com", fakeWv2.loadURICalled, fakeWv2.loadURILastURI)
+	if !recordingWv2.loadURICalled || recordingWv2.loadURILastURI != "https://example.com" {
+		t.Errorf("second window webview navigation = called %v uri %q, want https://example.com", recordingWv2.loadURICalled, recordingWv2.loadURILastURI)
 	}
 }
 
@@ -3265,10 +3282,10 @@ func TestApp_RestoreSessionDoesNotLeakStaleWindowsIntoTabMerge(t *testing.T) {
 
 	app := &App{
 		deps: &Dependencies{
-			Config:           &config.Config{},
-			SessionStateRepo: &fakeSessionStateRepo{state: state},
+			SessionStateRepo: mockSessionStateRepoWithSnapshot(t, sessionID, state),
 		},
-		mainWindow: mainWindow,
+		runtimeConfig: runtimeConfigStateForTest(&config.Config{}),
+		mainWindow:    mainWindow,
 		browserWindows: map[string]*browserWindow{
 			staleBW1.id:  staleBW1,
 			staleBW2.id:  staleBW2,
@@ -3345,9 +3362,9 @@ func TestApp_RestoreSessionHonorsActiveWindowIndex(t *testing.T) {
 	var runtimeW1 *browserWindow
 	app := &App{
 		deps: &Dependencies{
-			Config:           &config.Config{},
-			SessionStateRepo: &fakeSessionStateRepo{state: state},
+			SessionStateRepo: mockSessionStateRepoWithSnapshot(t, sessionID, state),
 		},
+		runtimeConfig:  runtimeConfigStateForTest(&config.Config{}),
 		mainWindow:     mainWindow,
 		widgetFactory:  layout.NewGtkWidgetFactory(),
 		browserWindows: map[string]*browserWindow{firstBW.id: firstBW},
@@ -3412,9 +3429,9 @@ func TestApp_RestoreSessionFailsOnAdditionalWindowCreationError(t *testing.T) {
 	factoryErr := errors.New("window creation failed")
 	app := &App{
 		deps: &Dependencies{
-			Config:           &config.Config{},
-			SessionStateRepo: &fakeSessionStateRepo{state: state},
+			SessionStateRepo: mockSessionStateRepoWithSnapshot(t, sessionID, state),
 		},
+		runtimeConfig:  runtimeConfigStateForTest(&config.Config{}),
 		mainWindow:     mainWindow,
 		browserWindows: map[string]*browserWindow{firstBW.id: firstBW},
 		tabs:           entity.NewTabList(),

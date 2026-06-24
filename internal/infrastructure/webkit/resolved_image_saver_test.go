@@ -7,38 +7,37 @@ import (
 	"testing"
 
 	"github.com/bnema/dumber/internal/application/port"
+	portmocks "github.com/bnema/dumber/internal/application/port/mocks"
 	"github.com/bnema/dumber/internal/domain/entity"
+	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 )
-
-type fakeDownloadPreparer struct {
-	calls  int
-	input  port.DownloadPrepareInput
-	output *port.DownloadPrepareOutput
-}
-
-func (f *fakeDownloadPreparer) Execute(_ context.Context, input port.DownloadPrepareInput) *port.DownloadPrepareOutput {
-	f.calls++
-	f.input = input
-	return f.output
-}
 
 func TestResolvedImageSaver_SaveResolvedImage(t *testing.T) {
 	downloadDir := t.TempDir()
 	destPath := filepath.Join(downloadDir, "image.png")
-	preparer := &fakeDownloadPreparer{output: &port.DownloadPrepareOutput{Filename: "image.png", DestinationPath: destPath}}
+	preparer := portmocks.NewMockDownloadPreparer(t)
+	preparer.EXPECT().
+		Execute(mock.Anything, mock.MatchedBy(func(input port.DownloadPrepareInput) bool {
+			return input.DownloadDir == downloadDir &&
+				input.Response.GetUri() == "https://example.com/assets/image" &&
+				input.Response.GetMimeType() == "image/jpeg"
+		})).
+		Return(&port.DownloadPrepareOutput{Filename: "image.png", DestinationPath: destPath}).
+		Once()
 	saver := NewResolvedImageSaver(preparer, downloadDir)
 
 	err := saver.SaveResolvedImage(context.Background(), entity.ImageData{Bytes: []byte{1, 2, 3, 4}, MimeType: "image/jpeg"}, port.MenuContext{ImageURI: "https://example.com/assets/image"})
 	require.NoError(t, err)
-	require.Equal(t, downloadDir, preparer.input.DownloadDir)
-	require.Equal(t, "https://example.com/assets/image", preparer.input.Response.GetUri())
-	require.Equal(t, "image/jpeg", preparer.input.Response.GetMimeType())
 	require.Equal(t, []byte{1, 2, 3, 4}, readFile(t, destPath))
 }
 
 func TestResolvedImageSaver_SaveResolvedImageRequiresDestination(t *testing.T) {
-	preparer := &fakeDownloadPreparer{output: &port.DownloadPrepareOutput{Filename: "image.png"}}
+	preparer := portmocks.NewMockDownloadPreparer(t)
+	preparer.EXPECT().
+		Execute(mock.Anything, mock.Anything).
+		Return(&port.DownloadPrepareOutput{Filename: "image.png"}).
+		Once()
 	saver := NewResolvedImageSaver(preparer, t.TempDir())
 
 	err := saver.SaveResolvedImage(context.Background(), entity.ImageData{Bytes: []byte{1}}, port.MenuContext{})
@@ -47,13 +46,12 @@ func TestResolvedImageSaver_SaveResolvedImageRequiresDestination(t *testing.T) {
 }
 
 func TestResolvedImageSaver_SaveResolvedImageRejectsEmptyBytes(t *testing.T) {
-	preparer := &fakeDownloadPreparer{output: &port.DownloadPrepareOutput{Filename: "image.png", DestinationPath: filepath.Join(t.TempDir(), "image.png")}}
+	preparer := portmocks.NewMockDownloadPreparer(t)
 	saver := NewResolvedImageSaver(preparer, t.TempDir())
 
 	err := saver.SaveResolvedImage(context.Background(), entity.ImageData{}, port.MenuContext{})
 	require.Error(t, err)
 	require.Contains(t, err.Error(), "empty image data")
-	require.Zero(t, preparer.calls)
 }
 
 func readFile(t *testing.T, path string) []byte {

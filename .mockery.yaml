@@ -2,10 +2,51 @@ template: testify
 template-data:
   unroll-variadic: true
 packages:
+  github.com/bnema/dumber/internal/bootstrap:
+    config:
+      dir: '{{.InterfaceDir}}/mocks'
+      filename: '{{ .InterfaceFile | base }}'
+      pkgname: mocks
+    interfaces:
+      configChangeManager:
+        config:
+          structname: MockConfigChangeManager
+  github.com/bnema/dumber/internal/cli/cmd:
+    config:
+      dir: '{{.InterfaceDir}}/mocks'
+      filename: '{{ .InterfaceFile | base }}'
+      pkgname: mocks
+    interfaces:
+      sessionManager:
+        config:
+          structname: MockSessionManager
+  github.com/bnema/dumber/internal/infrastructure/clipboard:
+    config:
+      dir: '{{.InterfaceDir}}/mocks'
+      filename: '{{ .InterfaceFile | base }}'
+      pkgname: mocks
+    interfaces:
+      toolkitClipboard:
+        config:
+          structname: MockToolkitClipboard
+  github.com/bnema/dumber/internal/infrastructure/systemviewsbridge:
+    config:
+      dir: '{{.InterfaceDir}}/mocks'
+      filename: '{{ .InterfaceFile | base }}'
+      pkgname: mocks
+    interfaces:
+      Transport: {}
+  github.com/bnema/purego-pipewire/pipewire:
+    config:
+      dir: internal/infrastructure/audio/pipewire/mocks
+      filename: '{{ .InterfaceFile | base }}'
+      pkgname: mocks
+    interfaces:
+      Player: {}
   github.com/bnema/dumber/internal/application/port:
     config:
       dir: '{{.InterfaceDir}}/mocks'
-      filename: mocks.go
+      filename: '{{ .InterfaceFile | base }}'
       pkgname: mocks
     interfaces:
       ConfigMigrator: {}
@@ -58,6 +99,12 @@ packages:
       DesktopIntegration: {}
       DownloadEventHandler: {}
       DownloadPreparer: {}
+      FaviconBlobStore: {}
+      FaviconFetcher: {}
+      FaviconImageConverter: {}
+      FaviconInvalidators: {}
+      FaviconRefreshScheduler: {}
+      FaviconRepository: {}
       FaviconService: {}
       FileSystem: {}
       FilterManager: {}
@@ -75,6 +122,8 @@ packages:
       NativeWidgetProvider: {}
       Notification: {}
       RenderingEnvManager: {}
+      FaviconResolver: {}
+      RuntimeConfigProvider: {}
       RuntimeVersionProbe: {}
       ScriptRefresher: {}
       SnapshotService: {}
@@ -95,7 +144,7 @@ packages:
   github.com/bnema/dumber/internal/domain/repository:
     config:
       dir: '{{.InterfaceDir}}/mocks'
-      filename: mocks.go
+      filename: '{{ .InterfaceFile | base }}'
       pkgname: mocks
     interfaces:
       ContentWhitelistRepository: {}
@@ -109,7 +158,7 @@ packages:
   github.com/bnema/dumber/internal/infrastructure/filtering:
     config:
       dir: '{{.InterfaceDir}}/mocks'
-      filename: mocks.go
+      filename: '{{ .InterfaceFile | base }}'
       pkgname: mocks
     interfaces:
       FilterDownloader: {}
@@ -117,7 +166,7 @@ packages:
   github.com/bnema/dumber/internal/ui/layout:
     config:
       dir: '{{.InterfaceDir}}/mocks'
-      filename: mocks.go
+      filename: '{{ .InterfaceFile | base }}'
       pkgname: mocks
     interfaces:
       BoxWidget: {}
@@ -132,3 +181,19 @@ packages:
       SpinnerWidget: {}
       Widget: {}
       WidgetFactory: {}
+  github.com/bnema/dumber/internal/ui/coordinator:
+    config:
+      dir: '{{.InterfaceDir}}/mocks'
+      filename: '{{ .InterfaceFile | base }}'
+      pkgname: mocks
+    interfaces:
+      OmniboxProvider: {}
+  github.com/bnema/dumber/internal/ui/dialog:
+    config:
+      dir: '{{.InterfaceDir}}/mocks'
+      filename: '{{ .InterfaceFile | base }}'
+      pkgname: mocks
+    interfaces:
+      permissionPopup:
+        config:
+          structname: MockPermissionPopup

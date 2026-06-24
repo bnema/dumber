@@ -6,6 +6,8 @@ package port
 import (
 	"context"
 	"encoding/json"
+
+	"github.com/bnema/dumber/internal/domain/entity"
 )
 
 // CookiePolicy controls cookie acceptance behavior for the engine's network session.
@@ -136,28 +138,10 @@ type Engine interface {
 	UpdateAppearance(ctx context.Context, r, g, b, alpha float64) error
 
 	// UpdateSettings applies runtime config changes to engine internals.
-	UpdateSettings(ctx context.Context, update EngineSettingsUpdate) error
+	UpdateSettings(ctx context.Context, update entity.EngineSettingsUpdate) error
 
 	// SetHandlerContext sets the base context for message handler dispatch.
 	SetHandlerContext(ctx context.Context)
-}
-
-// EngineSettingsPayload is the engine-facing boundary view of runtime config.
-// Add fields here only when an engine needs to react to them at runtime.
-type EngineSettingsPayload struct {
-	DefaultUIScale float64
-}
-
-// EngineSettingsUpdate carries a runtime config change to the engine.
-//
-// Settings exposes the typed boundary payload that engine adapters should prefer.
-// Raw remains for legacy adapters that still consume implementation-specific
-// config until their settings managers are narrowed to boundary fields.
-type EngineSettingsUpdate struct {
-	Settings EngineSettingsPayload
-	// Raw holds the implementation-specific config for legacy adapters.
-	// WebKit engine currently expects *infrastructure/config.Config.
-	Raw any //nolint:iface // intentional legacy bridge; prefer Settings for new code
 }
 
 // WebUIMessageHandler handles a decoded message payload from the JS bridge.

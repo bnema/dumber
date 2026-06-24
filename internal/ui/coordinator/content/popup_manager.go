@@ -18,7 +18,8 @@ import (
 // leak into the application/usecase or domain layers.
 type popupManager struct {
 	factory           port.WebViewFactory
-	popupConfig       *entity.BrowsingContextConfig
+	popupConfig       entity.BrowsingContextConfig
+	hasPopupConfig    bool
 	onInsertPopup     func(ctx context.Context, input InsertPopupInput) error
 	onOpenNativePopup func(ctx context.Context, input NativePopupInput) error
 	onClosePane       func(ctx context.Context, paneID entity.PaneID) error
@@ -103,8 +104,36 @@ func (pm *popupManager) setConfig(
 	}
 	pm.ensureInitialized()
 	pm.factory = factory
-	pm.popupConfig = popupConfig
+	pm.setPopupConfig(popupConfig)
 	pm.generatePaneID = generateID
+}
+
+func (pm *popupManager) setPopupConfig(popupConfig *entity.BrowsingContextConfig) {
+	if pm == nil {
+		return
+	}
+	if popupConfig == nil {
+		pm.popupConfig = entity.BrowsingContextConfig{}
+		pm.hasPopupConfig = false
+		return
+	}
+	pm.popupConfig = *popupConfig
+	pm.hasPopupConfig = true
+}
+
+func (pm *popupManager) updatePopupConfig(popupConfig entity.BrowsingContextConfig) {
+	if pm == nil {
+		return
+	}
+	pm.popupConfig = popupConfig
+	pm.hasPopupConfig = true
+}
+
+func (pm *popupManager) currentPopupConfig() *entity.BrowsingContextConfig {
+	if pm == nil || !pm.hasPopupConfig {
+		return nil
+	}
+	return &pm.popupConfig
 }
 
 func (pm *popupManager) setWindowIDResolver(fn func(entity.PaneID) (string, bool)) {
@@ -409,7 +438,8 @@ func (pm *popupManager) popupParentURIAtOpen(
 	hooks popupCoordinatorHooks,
 	targetURI string,
 ) string {
-	if pm.popupConfig == nil || !pm.popupConfig.OAuthAutoClose || !IsOAuthURL(targetURI) {
+	cfg := pm.currentPopupConfig()
+	if cfg == nil || !cfg.OAuthAutoClose || !IsOAuthURL(targetURI) {
 		return ""
 	}
 	parentURIAtOpen := parentWV.URI()
@@ -439,6 +469,7 @@ func (pm *popupManager) openNativePopup(
 		log.Error().Err(err).Msg("failed to create webview for native popup")
 		return nil
 	}
+	cfg := pm.currentPopupConfig()
 	pm.setBrowsingContextDecision(popupWV, decision)
 	if err := pm.onOpenNativePopup(ctx, NativePopupInput{
 		ParentPaneID:          parentPaneID,
@@ -447,7 +478,7 @@ func (pm *popupManager) openNativePopup(
 		PopupWebView:          popupWV,
 		TargetURI:             req.TargetURI,
 		Request:               req,
-		ObserveOAuthAutoClose: pm.popupConfig != nil && pm.popupConfig.OAuthAutoClose && IsOAuthURL(req.TargetURI),
+		ObserveOAuthAutoClose: cfg != nil && cfg.OAuthAutoClose && IsOAuthURL(req.TargetURI),
 	}); err != nil {
 		log.Error().Err(err).Msg("failed to open native popup host")
 		popupWV.Destroy()
@@ -476,7 +507,8 @@ func (pm *popupManager) handlePopupCreate(
 		Bool("no_javascript_access", req.NoJavaScriptAccess).
 		Msg("popup create request")
 
-	if pm.popupConfig != nil && !pm.popupConfig.OpenInNewPane {
+	cfg := pm.currentPopupConfig()
+	if cfg != nil && !cfg.OpenInNewPane {
 		log.Debug().Msg("popups disabled by config, blocking")
 		return nil
 	}
@@ -534,10 +566,10 @@ func (pm *popupManager) handlePopupCreate(
 
 	popupType := DetectPopupType(req.FrameName)
 	popupID := popupWV.ID()
-	behavior := GetBehavior(popupType, pm.popupConfig)
+	behavior := GetBehavior(popupType, cfg)
 	placement := "right"
-	if pm.popupConfig != nil {
-		placement = pm.popupConfig.Placement
+	if cfg != nil {
+		placement = cfg.Placement
 	}
 	paneID, popupPane := pm.createPopupPane(popupID, parentPaneID, req.TargetURI)
 
@@ -562,8 +594,9 @@ func (pm *popupManager) finishPopupCreate(
 	create popupCreateContext,
 ) port.WebView {
 	log := logging.FromContext(ctx)
-	hasConfig := pm.popupConfig != nil
-	oauthEnabled := hasConfig && pm.popupConfig.OAuthAutoClose
+	cfg := pm.currentPopupConfig()
+	hasConfig := cfg != nil
+	oauthEnabled := hasConfig && cfg.OAuthAutoClose
 	isOAuth := IsOAuthURL(create.Request.TargetURI)
 
 	log.Debug().
@@ -792,7 +825,8 @@ func (pm *popupManager) handleLinkMiddleClick(
 		Str("uri", logging.TruncateURL(uri, logURLMaxLen)).
 		Msg("middle-click/ctrl+click on link")
 
-	if pm.popupConfig != nil && !pm.popupConfig.OpenInNewPane {
+	cfg := pm.currentPopupConfig()
+	if cfg != nil && !cfg.OpenInNewPane {
 		log.Debug().Msg("popups disabled by config, ignoring middle-click")
 		return false
 	}
@@ -845,7 +879,7 @@ func (pm *popupManager) handleLinkMiddleClick(
 		hooks.setupWebViewCallbacks(ctx, paneID, newWV)
 	}
 
-	behavior, placement := popupTabInsertionConfig(pm.popupConfig)
+	behavior, placement := popupTabInsertionConfig(pm.currentPopupConfig())
 
 	if pm.onInsertPopup != nil {
 		popupInput := InsertPopupInput{
