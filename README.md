@@ -227,6 +227,7 @@ make build
 |--------|-------------|
 | `make build` | Build systemviews assets and binary |
 | `make build-quick` | Build binary only, skipping systemviews assets |
+| `make check` | Run local all-clear checks for tools, build, generated assets, tests, and constraints |
 | `make dev` | Run with `go run` |
 | `make test` | Run tests |
 | `make lint` | Run the pinned golangci-lint version |

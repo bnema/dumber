@@ -189,7 +189,7 @@ init: install-tools ## Initialize project dependencies and tools
 	@echo "Project initialized! Run 'make help' for available commands."
 
 # Check setup
-check: ## Check that all tools and dependencies are working
+check: ## Run local all-clear checks (tools, build, generated assets, tests, constraints)
 	@echo "Checking project setup..."
 	@echo "Go version:"
 	@go version
@@ -199,6 +199,8 @@ check: ## Check that all tools and dependencies are working
 	@golangci-lint version
 	@echo "\nBuilding project..."
 	@$(MAKE) build-quick
+	@echo "\nVerifying generated systemviews artifacts..."
+	@$(MAKE) verify-generated
 	@echo "\nRunning tests..."
 	@$(MAKE) test
 	@echo "\nVerifying purego-only constraints..."
