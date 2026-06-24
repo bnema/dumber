@@ -268,6 +268,34 @@ func TestConfigHandlersAllowOpaqueOriginWithTrustedReferer(t *testing.T) {
 	assert.Equal(t, []byte(`{"current":true}`), resp.Data)
 }
 
+func TestConfigHandlersExposeTrustedResponsesToWebKitFetch(t *testing.T) {
+	h := NewDumbSchemeHandler(context.Background())
+	h.SetConfigPayloadBuilders(
+		func() ([]byte, error) { return []byte(`{"current":true}`), nil },
+		func() ([]byte, error) { return []byte(`{"default":true}`), nil },
+	)
+
+	h.mu.RLock()
+	currentHandler := h.handlers["/api/config"]
+	h.mu.RUnlock()
+	require.NotNil(t, currentHandler)
+
+	resp := currentHandler.Handle(&SchemeRequest{
+		URI:     "dumb://config/api/config",
+		Path:    "/api/config",
+		Method:  http.MethodGet,
+		Scheme:  "dumb",
+		Origin:  "null",
+		Referer: "dumb://config",
+	})
+
+	require.NotNil(t, resp)
+	assert.Equal(t, http.StatusOK, resp.StatusCode)
+	assert.Equal(t, "*", resp.Headers["Access-Control-Allow-Origin"])
+	assert.Equal(t, "GET, OPTIONS", resp.Headers["Access-Control-Allow-Methods"])
+	assert.Equal(t, "Content-Type", resp.Headers["Access-Control-Allow-Headers"])
+}
+
 func TestShouldAddCORSHeaders(t *testing.T) {
 	t.Parallel()
 

@@ -309,15 +309,26 @@ func privateJSONErrorResponse(status int, message string) *SchemeResponse {
 	return resp
 }
 
+func trustedPrivateAPIHeaders() map[string]string {
+	return map[string]string{
+		"Access-Control-Allow-Origin":  "*",
+		"Access-Control-Allow-Methods": "GET, OPTIONS",
+		"Access-Control-Allow-Headers": "Content-Type",
+		"Cache-Control":                "no-store",
+	}
+}
+
 func buildConfigResponse(build func() ([]byte, error)) *SchemeResponse {
 	if build == nil {
 		resp := privateJSONErrorResponse(http.StatusInternalServerError, "config payload builder not configured")
+		resp.Headers = trustedPrivateAPIHeaders()
 		return resp
 	}
 
 	data, err := build()
 	if err != nil {
 		resp := privateJSONErrorResponse(http.StatusInternalServerError, err.Error())
+		resp.Headers = trustedPrivateAPIHeaders()
 		return resp
 	}
 
@@ -325,7 +336,7 @@ func buildConfigResponse(build func() ([]byte, error)) *SchemeResponse {
 		Data:                   data,
 		ContentType:            "application/json",
 		StatusCode:             http.StatusOK,
-		Headers:                map[string]string{"Cache-Control": "no-store"},
+		Headers:                trustedPrivateAPIHeaders(),
 		SuppressDefaultHeaders: true,
 	}
 }
