@@ -38,6 +38,7 @@ type App struct {
 	historyOffset        int
 	historyWindowBefore  time.Time
 	historyWindowAfter   time.Time
+	historyCursorID      int64
 	historyHasMore       bool
 	historyNotice        string
 	historyError         string
@@ -571,6 +572,7 @@ type historyRouteSnapshot struct {
 	offset       int
 	windowBefore time.Time
 	windowAfter  time.Time
+	cursorID     int64
 	notice       string
 	error        string
 }
@@ -581,6 +583,7 @@ type historyRouteResult struct {
 	domains      []*entity.DomainStat
 	windowBefore time.Time
 	windowAfter  time.Time
+	cursorID     int64
 	hasMore      bool
 	html         string
 }
@@ -595,6 +598,7 @@ func (a *App) currentHistoryRouteSnapshotLocked() historyRouteSnapshot {
 		offset:       a.historyOffset,
 		windowBefore: a.historyWindowBefore,
 		windowAfter:  a.historyWindowAfter,
+		cursorID:     a.historyCursorID,
 		notice:       a.historyNotice,
 		error:        a.historyError,
 	}
@@ -633,8 +637,7 @@ func (a *App) renderHistoryRouteSnapshot(ctx context.Context, snapshot historyRo
 	}
 	if window != nil {
 		result.windowBefore = window.Before
-		result.windowAfter = window.After
-		result.hasMore = window.HasMore
+		result.windowAfter, result.cursorID, result.hasMore = historyWindowCursor(window)
 	}
 	data := historyRenderData{
 		Entries:      entries,
@@ -662,6 +665,20 @@ func (a *App) renderHistoryRouteSnapshot(ctx context.Context, snapshot historyRo
 	return result, nil
 }
 
+func historyWindowCursor(window *entity.HistoryWindow) (time.Time, int64, bool) {
+	if window == nil || !window.HasMore {
+		return time.Time{}, 0, false
+	}
+	cursorTime := window.CursorLastVisited
+	if cursorTime.IsZero() {
+		cursorTime = window.After
+	}
+	if cursorTime.IsZero() || window.CursorID <= 0 {
+		return time.Time{}, 0, false
+	}
+	return cursorTime, window.CursorID, true
+}
+
 func loadHistoryWindowSnapshot(ctx context.Context, snapshot historyRouteSnapshot) (*entity.HistoryWindow, []*entity.HistoryEntry, error) {
 	query := strings.TrimSpace(snapshot.query)
 	domain := strings.TrimSpace(snapshot.domainFilter)
@@ -669,7 +686,7 @@ func loadHistoryWindowSnapshot(ctx context.Context, snapshot historyRouteSnapsho
 		entries, err := snapshot.history.Search(ctx, query, historySearchLimit)
 		return nil, entries, err
 	}
-	window, err := snapshot.history.TimelineWindow(ctx, snapshot.windowBefore, domain)
+	window, err := snapshot.history.TimelineWindow(ctx, snapshot.windowAfter, snapshot.cursorID, domain)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -689,6 +706,7 @@ func (a *App) commitHistoryRouteResultLocked(result historyRouteResult) {
 	a.historyDomainStats = result.domains
 	a.historyWindowBefore = result.windowBefore
 	a.historyWindowAfter = result.windowAfter
+	a.historyCursorID = result.cursorID
 	a.historyHasMore = result.hasMore
 	a.renderedHTML = result.html
 }
@@ -812,6 +830,7 @@ func (a *App) resetRouteState() {
 	a.historyOffset = 0
 	a.historyWindowBefore = time.Time{}
 	a.historyWindowAfter = time.Time{}
+	a.historyCursorID = 0
 	a.historyHasMore = false
 	a.historyNotice = ""
 	a.historyError = ""

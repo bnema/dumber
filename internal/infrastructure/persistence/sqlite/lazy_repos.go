@@ -156,37 +156,29 @@ func (r *LazyHistoryRepository) GetRecentByDomain(ctx context.Context, domain st
 	return r.repo.GetRecentByDomain(ctx, domain, limit, offset)
 }
 
-func (r *LazyHistoryRepository) GetRecentWindow(ctx context.Context, before, after time.Time) ([]*entity.HistoryEntry, error) {
+func (r *LazyHistoryRepository) GetRecentWindow(
+	ctx context.Context,
+	before time.Time,
+	beforeID int64,
+	limit int,
+) ([]*entity.HistoryEntry, error) {
 	if err := r.init(ctx); err != nil {
 		return nil, err
 	}
-	return r.repo.GetRecentWindow(ctx, before, after)
+	return r.repo.GetRecentWindow(ctx, before, beforeID, limit)
 }
 
 func (r *LazyHistoryRepository) GetRecentWindowByDomain(
 	ctx context.Context,
 	domain string,
 	before time.Time,
-	after time.Time,
+	beforeID int64,
+	limit int,
 ) ([]*entity.HistoryEntry, error) {
 	if err := r.init(ctx); err != nil {
 		return nil, err
 	}
-	return r.repo.GetRecentWindowByDomain(ctx, domain, before, after)
-}
-
-func (r *LazyHistoryRepository) HasEntriesBefore(ctx context.Context, before time.Time) (bool, error) {
-	if err := r.init(ctx); err != nil {
-		return false, err
-	}
-	return r.repo.HasEntriesBefore(ctx, before)
-}
-
-func (r *LazyHistoryRepository) HasEntriesByDomainBefore(ctx context.Context, domain string, before time.Time) (bool, error) {
-	if err := r.init(ctx); err != nil {
-		return false, err
-	}
-	return r.repo.HasEntriesByDomainBefore(ctx, domain, before)
+	return r.repo.GetRecentWindowByDomain(ctx, domain, before, beforeID, limit)
 }
 
 func (r *LazyHistoryRepository) GetRecentSince(ctx context.Context, days int) ([]*entity.HistoryEntry, error) {

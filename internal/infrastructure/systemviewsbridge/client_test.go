@@ -135,7 +135,7 @@ func TestClientTimelineWindowOmitsZeroCursor(t *testing.T) {
 	native := newTransportRecorder(t, true, []byte(`{"requestId":"req-window","success":true}`))
 	client := NewClient(native, nil)
 
-	_, err := client.TimelineWindow(context.Background(), time.Time{}, "")
+	_, err := client.TimelineWindow(context.Background(), time.Time{}, 0, "")
 	if err != nil {
 		t.Fatalf("TimelineWindow() error = %v", err)
 	}
@@ -152,7 +152,59 @@ func TestClientTimelineWindowOmitsZeroCursor(t *testing.T) {
 		t.Fatalf("unmarshal payload: %v", err)
 	}
 	if _, ok := payload["before"]; ok {
-		t.Fatalf("zero TimelineWindow cursor should be omitted, payload = %s", msg.Payload)
+		t.Fatalf("zero TimelineWindow cursor should be omit before, payload = %s", msg.Payload)
+	}
+	if _, ok := payload["beforeId"]; ok {
+		t.Fatalf("zero TimelineWindow cursor should omit beforeId, payload = %s", msg.Payload)
+	}
+}
+
+func TestClientTimelineWindowSendsCompleteCursor(t *testing.T) {
+	t.Parallel()
+
+	native := newTransportRecorder(t, true, []byte(`{"requestId":"req-window","success":true}`))
+	client := NewClient(native, nil)
+	before := time.Date(2026, 4, 25, 9, 0, 0, 0, time.UTC)
+
+	_, err := client.TimelineWindow(context.Background(), before, 42, "example.com")
+	if err != nil {
+		t.Fatalf("TimelineWindow() error = %v", err)
+	}
+
+	var msg port.WebUIMessage
+	if err := json.Unmarshal(native.last, &msg); err != nil {
+		t.Fatalf("unmarshal sent envelope: %v", err)
+	}
+	var payload map[string]any
+	if err := json.Unmarshal(msg.Payload, &payload); err != nil {
+		t.Fatalf("unmarshal payload: %v", err)
+	}
+	if payload["before"] != before.Format(time.RFC3339Nano) {
+		t.Fatalf("before = %v, want %s", payload["before"], before.Format(time.RFC3339Nano))
+	}
+	if payload["beforeId"] != float64(42) {
+		t.Fatalf("beforeId = %v, want 42", payload["beforeId"])
+	}
+}
+
+func TestClientTimelineWindowRejectsPartialCursor(t *testing.T) {
+	t.Parallel()
+
+	native := newTransportRecorder(t, true, []byte(`{"requestId":"req-window","success":true}`))
+	client := NewClient(native, nil)
+	before := time.Date(2026, 4, 25, 9, 0, 0, 0, time.UTC)
+
+	if _, err := client.TimelineWindow(context.Background(), before, 0, ""); err == nil {
+		t.Fatal("TimelineWindow(before without beforeID) error = nil")
+	}
+	if _, err := client.TimelineWindow(context.Background(), time.Time{}, 42, ""); err == nil {
+		t.Fatal("TimelineWindow(beforeID without before) error = nil")
+	}
+	if _, err := client.TimelineWindow(context.Background(), time.Time{}, -1, ""); err == nil {
+		t.Fatal("TimelineWindow(negative beforeID without before) error = nil")
+	}
+	if native.called {
+		t.Fatal("TimelineWindow sent request for invalid partial cursor")
 	}
 }
 

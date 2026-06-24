@@ -22,6 +22,7 @@ var _ port.HistorySidebarHistory = (*SearchHistoryUseCase)(nil)
 
 const (
 	historyWindowDuration = 24 * time.Hour
+	historyWindowRowLimit = 100
 
 	defaultHistoryPageLimit   = 50
 	maxHistoryPageLimit       = 500
@@ -115,17 +116,30 @@ func canonicalHistoryDomain(domain string) (string, error) {
 	return domain, nil
 }
 
-// GetRecentWindow retrieves the 24-hour history window ending before the given cursor.
-func (uc *SearchHistoryUseCase) GetRecentWindow(ctx context.Context, before time.Time, domain string) (*entity.HistoryWindow, error) {
-	if before.IsZero() {
+// GetRecentWindow retrieves a row-bounded history window ending before the given cursor.
+func (uc *SearchHistoryUseCase) GetRecentWindow(
+	ctx context.Context,
+	before time.Time,
+	beforeID int64,
+	domain string,
+) (*entity.HistoryWindow, error) {
+	if beforeID < 0 {
+		return nil, fmt.Errorf("beforeID must be non-negative")
+	}
+	hasBefore := !before.IsZero()
+	hasBeforeID := beforeID != 0
+	if hasBefore != hasBeforeID {
+		return nil, fmt.Errorf("before and beforeID must be provided together")
+	}
+	if !hasBefore {
 		before = time.Now()
 	}
 	before = before.UTC()
 	after := before.Add(-historyWindowDuration)
+	queryLimit := historyWindowRowLimit + 1
 
 	var (
 		entries []*entity.HistoryEntry
-		hasMore bool
 		err     error
 	)
 	originalDomain := domain
@@ -134,25 +148,35 @@ func (uc *SearchHistoryUseCase) GetRecentWindow(ctx context.Context, before time
 		return nil, fmt.Errorf("domain is required")
 	}
 	if domain != "" {
-		entries, err = uc.historyRepo.GetRecentWindowByDomain(ctx, domain, before, after)
-		if err == nil {
-			hasMore, err = uc.historyRepo.HasEntriesByDomainBefore(ctx, domain, after)
-		}
+		entries, err = uc.historyRepo.GetRecentWindowByDomain(ctx, domain, before, beforeID, queryLimit)
 	} else {
-		entries, err = uc.historyRepo.GetRecentWindow(ctx, before, after)
-		if err == nil {
-			hasMore, err = uc.historyRepo.HasEntriesBefore(ctx, after)
-		}
+		entries, err = uc.historyRepo.GetRecentWindow(ctx, before, beforeID, queryLimit)
 	}
 	if err != nil {
 		return nil, fmt.Errorf("failed to get recent history window: %w", err)
 	}
 
+	hasMore := len(entries) > historyWindowRowLimit
+	if hasMore {
+		entries = entries[:historyWindowRowLimit]
+	}
+	var cursorLastVisited time.Time
+	var cursorID int64
+	if len(entries) > 0 {
+		last := entries[len(entries)-1]
+		if last != nil {
+			cursorLastVisited = last.LastVisited.UTC()
+			cursorID = last.ID
+		}
+	}
+
 	return &entity.HistoryWindow{
-		Entries: entries,
-		Before:  before,
-		After:   after,
-		HasMore: hasMore,
+		Entries:           entries,
+		Before:            before,
+		After:             after,
+		CursorLastVisited: cursorLastVisited,
+		CursorID:          cursorID,
+		HasMore:           hasMore,
 	}, nil
 }
 
