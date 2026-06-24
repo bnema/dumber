@@ -1055,6 +1055,23 @@ func (wv *WebView) RunJavaScript(_ context.Context, script string) {
 	if wv.destroyed.Load() {
 		return
 	}
+	if wv.engine == nil {
+		wv.executeJavaScriptNow(script)
+		return
+	}
+	task := cefNewTask(cefTaskFunc(func() {
+		wv.executeJavaScriptNow(script)
+	}))
+	if task == nil {
+		return
+	}
+	cefPostTask(purecef.ThreadIDTidUi, task)
+}
+
+func (wv *WebView) executeJavaScriptNow(script string) {
+	if wv == nil || wv.destroyed.Load() {
+		return
+	}
 	wv.mu.RLock()
 	browser := wv.browser
 	wv.mu.RUnlock()
