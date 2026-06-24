@@ -265,7 +265,7 @@ func isTrustedSystemviewAPIRequest(req *SchemeRequest) bool {
 		return false
 	}
 	origin := strings.TrimSpace(req.Origin)
-	if origin != "" {
+	if origin != "" && !strings.EqualFold(origin, "null") {
 		return isTrustedSystemviewURL(origin)
 	}
 	return isTrustedSystemviewURL(req.Referer)

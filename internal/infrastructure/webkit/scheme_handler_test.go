@@ -242,6 +242,32 @@ func TestConfigHandlersRejectUntrustedRequests(t *testing.T) {
 	}
 }
 
+func TestConfigHandlersAllowOpaqueOriginWithTrustedReferer(t *testing.T) {
+	h := NewDumbSchemeHandler(context.Background())
+	h.SetConfigPayloadBuilders(
+		func() ([]byte, error) { return []byte(`{"current":true}`), nil },
+		func() ([]byte, error) { return []byte(`{"default":true}`), nil },
+	)
+
+	h.mu.RLock()
+	currentHandler := h.handlers["/api/config"]
+	h.mu.RUnlock()
+	require.NotNil(t, currentHandler)
+
+	resp := currentHandler.Handle(&SchemeRequest{
+		URI:     "dumb://config/api/config",
+		Path:    "/api/config",
+		Method:  http.MethodGet,
+		Scheme:  "dumb",
+		Origin:  "null",
+		Referer: "dumb://config",
+	})
+
+	require.NotNil(t, resp)
+	assert.Equal(t, http.StatusOK, resp.StatusCode)
+	assert.Equal(t, []byte(`{"current":true}`), resp.Data)
+}
+
 func TestShouldAddCORSHeaders(t *testing.T) {
 	t.Parallel()
 
