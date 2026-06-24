@@ -1,10 +1,13 @@
 package ui
 
-import "github.com/bnema/dumber/internal/application/port"
+import (
+	"github.com/bnema/dumber/internal/application/port"
+	"github.com/bnema/dumber/internal/domain/entity"
+)
 
 type runtimeConfigState struct {
 	provider port.RuntimeConfigProvider
-	snapshot port.RuntimeConfigSnapshot
+	snapshot entity.RuntimeConfigSnapshot
 	loaded   bool
 }
 
@@ -16,9 +19,9 @@ func newRuntimeConfigState(provider port.RuntimeConfigProvider) *runtimeConfigSt
 	return state
 }
 
-func (s *runtimeConfigState) Current() port.RuntimeConfigSnapshot {
+func (s *runtimeConfigState) Current() entity.RuntimeConfigSnapshot {
 	if s == nil {
-		return port.RuntimeConfigSnapshot{}
+		return entity.RuntimeConfigSnapshot{}
 	}
 	if s.loaded {
 		return s.snapshot
@@ -26,10 +29,10 @@ func (s *runtimeConfigState) Current() port.RuntimeConfigSnapshot {
 	if s.provider != nil {
 		return s.provider.Current()
 	}
-	return port.RuntimeConfigSnapshot{}
+	return entity.RuntimeConfigSnapshot{}
 }
 
-func (s *runtimeConfigState) Update(snapshot port.RuntimeConfigSnapshot) {
+func (s *runtimeConfigState) Update(snapshot entity.RuntimeConfigSnapshot) {
 	if s == nil {
 		return
 	}

@@ -40,8 +40,8 @@ func TestAppRuntimeConfigReturnsProviderSnapshot(t *testing.T) {
 	provider := portmocks.NewMockRuntimeConfigProvider(t)
 	provider.EXPECT().
 		Current().
-		Return(port.RuntimeConfigSnapshot{
-			UI: port.RuntimeUIConfig{DefaultUIScale: 1.6},
+		Return(entity.RuntimeConfigSnapshot{
+			UI: entity.RuntimeUIConfig{DefaultUIScale: 1.6},
 		}).
 		Once()
 	app := &App{deps: &Dependencies{RuntimeConfig: provider}}
@@ -55,8 +55,8 @@ func TestAppRuntimeConfigReturnsProviderSnapshot(t *testing.T) {
 
 func TestAppRuntimeConfigStateStoresLatestSnapshot(t *testing.T) {
 	app := &App{}
-	setRuntimeConfigSnapshotForTest(app, port.RuntimeConfigSnapshot{
-		UI: port.RuntimeUIConfig{SidebarWidth: 340},
+	setRuntimeConfigSnapshotForTest(app, entity.RuntimeConfigSnapshot{
+		UI: entity.RuntimeUIConfig{SidebarWidth: 340},
 	})
 
 	got := app.runtimeConfigSnapshot()
@@ -69,16 +69,16 @@ func TestConfigWatcherOnChangeUpdatesRuntimeConfigState(t *testing.T) {
 	ctx := context.Background()
 	provider := portmocks.NewMockRuntimeConfigProvider(t)
 	provider.EXPECT().Watch().Return(nil).Once()
-	var onChange func(port.RuntimeConfigSnapshot)
+	var onChange func(entity.RuntimeConfigSnapshot)
 	provider.EXPECT().
 		OnChange(mock.Anything).
-		Run(func(fn func(port.RuntimeConfigSnapshot)) {
+		Run(func(fn func(entity.RuntimeConfigSnapshot)) {
 			onChange = fn
 		}).
 		Once()
 
-	initial := port.RuntimeConfigSnapshot{
-		UI: port.RuntimeUIConfig{
+	initial := entity.RuntimeConfigSnapshot{
+		UI: entity.RuntimeUIConfig{
 			Workspace: entity.WorkspaceConfig{
 				BrowsingContexts: entity.BrowsingContextConfig{OpenInNewPane: true},
 			},
@@ -104,8 +104,8 @@ func TestConfigWatcherOnChangeUpdatesRuntimeConfigState(t *testing.T) {
 		t.Fatal("runtime config OnChange callback was not registered")
 	}
 
-	onChange(port.RuntimeConfigSnapshot{
-		UI: port.RuntimeUIConfig{
+	onChange(entity.RuntimeConfigSnapshot{
+		UI: entity.RuntimeUIConfig{
 			SidebarWidth: 360,
 			Workspace: entity.WorkspaceConfig{
 				BrowsingContexts: entity.BrowsingContextConfig{OpenInNewPane: false, OAuthAutoClose: true},

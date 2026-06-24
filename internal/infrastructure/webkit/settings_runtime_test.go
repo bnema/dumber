@@ -4,20 +4,20 @@ import (
 	"context"
 	"testing"
 
-	"github.com/bnema/dumber/internal/application/port"
+	"github.com/bnema/dumber/internal/domain/entity"
 	"github.com/bnema/puregotk/v4/webkit"
 	"github.com/rs/zerolog"
 )
 
 func TestSettingsManagerUpdateFromPayloadStoresTypedRuntimeSettings(t *testing.T) {
-	sm := NewSettingsManager(context.Background(), port.EngineSettingsPayload{})
-	payload := port.EngineSettingsPayload{
-		WebContent: port.EngineWebContentSettingsPayload{
+	sm := NewSettingsManager(context.Background(), entity.EngineSettingsPayload{})
+	payload := entity.EngineSettingsPayload{
+		WebContent: entity.EngineWebContentSettingsPayload{
 			SansFont:         "Inter",
 			SerifFont:        "Literata",
 			MonospaceFont:    "Fira Code",
 			DefaultFontSize:  16,
-			HardwareDecoding: port.EngineHardwareDecodingForce,
+			HardwareDecoding: entity.EngineHardwareDecodingForce,
 		},
 	}
 
@@ -28,7 +28,7 @@ func TestSettingsManagerUpdateFromPayloadStoresTypedRuntimeSettings(t *testing.T
 		got.WebContent.SerifFont != "Literata" ||
 		got.WebContent.MonospaceFont != "Fira Code" ||
 		got.WebContent.DefaultFontSize != 16 ||
-		got.WebContent.HardwareDecoding != port.EngineHardwareDecodingForce {
+		got.WebContent.HardwareDecoding != entity.EngineHardwareDecodingForce {
 		t.Fatalf("stored payload=%#v", got)
 	}
 }
@@ -36,30 +36,30 @@ func TestSettingsManagerUpdateFromPayloadStoresTypedRuntimeSettings(t *testing.T
 func TestApplyMediaSettingsUpdatesHardwareDecodingKnobsOnSameSettingsObject(t *testing.T) {
 	tests := []struct {
 		name         string
-		first        port.EngineHardwareDecodingMode
-		next         port.EngineHardwareDecodingMode
+		first        entity.EngineHardwareDecodingMode
+		next         entity.EngineHardwareDecodingMode
 		wantPolicy   webkit.HardwareAccelerationPolicy
 		wantHWTypes  string
 		wantEmptyHWT bool
 	}{
 		{
 			name:        "disable to force resets acceleration policy",
-			first:       port.EngineHardwareDecodingDisable,
-			next:        port.EngineHardwareDecodingForce,
+			first:       entity.EngineHardwareDecodingDisable,
+			next:        entity.EngineHardwareDecodingForce,
 			wantPolicy:  webkit.HardwareAccelerationPolicyAlwaysValue,
 			wantHWTypes: "video/av01;video/mp4;video/webm;video/x-h264;video/x-h265",
 		},
 		{
 			name:         "force to disable clears required content types",
-			first:        port.EngineHardwareDecodingForce,
-			next:         port.EngineHardwareDecodingDisable,
+			first:        entity.EngineHardwareDecodingForce,
+			next:         entity.EngineHardwareDecodingDisable,
 			wantPolicy:   webkit.HardwareAccelerationPolicyNeverValue,
 			wantEmptyHWT: true,
 		},
 		{
 			name:         "disable to auto resets acceleration policy",
-			first:        port.EngineHardwareDecodingDisable,
-			next:         port.EngineHardwareDecodingAuto,
+			first:        entity.EngineHardwareDecodingDisable,
+			next:         entity.EngineHardwareDecodingAuto,
 			wantPolicy:   webkit.HardwareAccelerationPolicyAlwaysValue,
 			wantEmptyHWT: true,
 		},

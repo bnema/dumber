@@ -4,7 +4,7 @@ import (
 	"context"
 	"sync"
 
-	"github.com/bnema/dumber/internal/application/port"
+	"github.com/bnema/dumber/internal/domain/entity"
 	"github.com/bnema/dumber/internal/logging"
 	"github.com/bnema/puregotk/v4/webkit"
 	"github.com/rs/zerolog"
@@ -27,18 +27,18 @@ type mediaSettings interface {
 
 // SettingsManager creates and manages WebKit Settings instances from payloads.
 type SettingsManager struct {
-	settings port.EngineSettingsPayload
+	settings entity.EngineSettingsPayload
 	mu       sync.RWMutex
 }
 
 // NewSettingsManager creates a new SettingsManager with the given payload.
-func NewSettingsManager(ctx context.Context, settings port.EngineSettingsPayload) *SettingsManager {
+func NewSettingsManager(ctx context.Context, settings entity.EngineSettingsPayload) *SettingsManager {
 	log := logging.FromContext(ctx)
 	log.Debug().Msg("creating settings manager")
 	return &SettingsManager{settings: settings}
 }
 
-func (sm *SettingsManager) current() port.EngineSettingsPayload {
+func (sm *SettingsManager) current() entity.EngineSettingsPayload {
 	sm.mu.RLock()
 	defer sm.mu.RUnlock()
 	return sm.settings
@@ -60,7 +60,7 @@ func (sm *SettingsManager) CreateSettings(ctx context.Context) *webkit.Settings 
 }
 
 // applySettings applies settings payload to a webkit.Settings instance.
-func (sm *SettingsManager) applySettings(ctx context.Context, settings *webkit.Settings, payload port.EngineSettingsPayload) {
+func (sm *SettingsManager) applySettings(ctx context.Context, settings *webkit.Settings, payload entity.EngineSettingsPayload) {
 	if sm == nil {
 		return
 	}
@@ -91,7 +91,7 @@ func applyJavaScriptSettings(settings *webkit.Settings) {
 	settings.SetEnableJavascriptMarkup(true)
 }
 
-func applyFontSettings(settings *webkit.Settings, payload port.EngineWebContentSettingsPayload) {
+func applyFontSettings(settings *webkit.Settings, payload entity.EngineWebContentSettingsPayload) {
 	if payload.SansFont != "" {
 		settings.SetDefaultFontFamily(payload.SansFont)
 		settings.SetSansSerifFontFamily(payload.SansFont)
@@ -107,7 +107,7 @@ func applyFontSettings(settings *webkit.Settings, payload port.EngineWebContentS
 	}
 }
 
-func applyDebugSettings(settings *webkit.Settings, payload port.EngineWebContentSettingsPayload) {
+func applyDebugSettings(settings *webkit.Settings, payload entity.EngineWebContentSettingsPayload) {
 	settings.SetEnableDeveloperExtras(payload.EnableDevTools)
 	settings.SetEnableWriteConsoleMessagesToStdout(payload.CaptureConsole)
 	settings.SetDrawCompositingIndicators(payload.DrawCompositingIndicators)
@@ -119,7 +119,7 @@ func applyBrowsingSettings(settings *webkit.Settings) {
 	settings.SetEnableSiteSpecificQuirks(true)
 }
 
-func applyMediaSettings(settings mediaSettings, mode port.EngineHardwareDecodingMode, log *zerolog.Logger) {
+func applyMediaSettings(settings mediaSettings, mode entity.EngineHardwareDecodingMode, log *zerolog.Logger) {
 	settings.SetEnableWebaudio(true)
 	settings.SetEnableWebgl(true)
 	settings.SetEnableMedia(true)
@@ -130,12 +130,12 @@ func applyMediaSettings(settings mediaSettings, mode port.EngineHardwareDecoding
 	settings.SetMediaPlaybackAllowsInline(true)
 
 	switch mode {
-	case port.EngineHardwareDecodingForce:
+	case entity.EngineHardwareDecodingForce:
 		hwTypes := hardwareRequiredContentTypes
 		settings.SetHardwareAccelerationPolicy(webkit.HardwareAccelerationPolicyAlwaysValue)
 		settings.SetMediaContentTypesRequiringHardwareSupport(&hwTypes)
 		log.Debug().Msg("hardware decoding: forced (may fail without hw support)")
-	case port.EngineHardwareDecodingDisable:
+	case entity.EngineHardwareDecodingDisable:
 		emptyTypes := ""
 		settings.SetHardwareAccelerationPolicy(webkit.HardwareAccelerationPolicyNeverValue)
 		settings.SetMediaContentTypesRequiringHardwareSupport(&emptyTypes)
@@ -174,7 +174,7 @@ func applyWebRTCSettings(settings *webkit.Settings) {
 // UpdateFromPayload updates the manager with a new payload (for hot-reload).
 // Note: This doesn't update already-created Settings instances.
 // New WebViews will use the updated payload.
-func (sm *SettingsManager) UpdateFromPayload(ctx context.Context, settings port.EngineSettingsPayload) {
+func (sm *SettingsManager) UpdateFromPayload(ctx context.Context, settings entity.EngineSettingsPayload) {
 	log := logging.FromContext(ctx)
 	sm.mu.Lock()
 	defer sm.mu.Unlock()

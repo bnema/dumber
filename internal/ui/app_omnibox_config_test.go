@@ -3,22 +3,21 @@ package ui
 import (
 	"testing"
 
-	"github.com/bnema/dumber/internal/application/port"
 	"github.com/bnema/dumber/internal/domain/entity"
 )
 
 func TestBuildOmniboxConfigUsesRuntimeUIConfig(t *testing.T) {
 	deps := &Dependencies{}
-	runtimeCfg := port.RuntimeUIConfig{
+	runtimeCfg := entity.RuntimeUIConfig{
 		DefaultUIScale:      1.35,
 		DefaultSearchEngine: "https://search.example/?q=%s",
-		SearchShortcuts: map[string]port.RuntimeSearchShortcut{
+		SearchShortcuts: map[string]entity.RuntimeSearchShortcut{
 			"gh": {
 				URL:         "https://github.com/search?q=%s",
 				Description: "GitHub",
 			},
 		},
-		Omnibox: port.RuntimeOmniboxConfig{
+		Omnibox: entity.RuntimeOmniboxConfig{
 			InitialBehavior: entity.OmniboxInitialBehaviorMostVisited,
 			MostVisitedDays: 7,
 		},

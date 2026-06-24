@@ -5,21 +5,22 @@ import (
 	"testing"
 
 	"github.com/bnema/dumber/internal/application/port"
+	"github.com/bnema/dumber/internal/domain/entity"
 	"github.com/stretchr/testify/require"
 )
 
 func TestEngine_UpdateSettings_AcceptsTypedSettingsPayload(t *testing.T) {
-	e := &Engine{settings: NewSettingsManager(context.Background(), port.EngineSettingsPayload{})}
+	e := &Engine{settings: NewSettingsManager(context.Background(), entity.EngineSettingsPayload{})}
 
-	err := e.UpdateSettings(context.Background(), port.EngineSettingsUpdate{
-		Settings: port.EngineSettingsPayload{
+	err := e.UpdateSettings(context.Background(), entity.EngineSettingsUpdate{
+		Settings: entity.EngineSettingsPayload{
 			DefaultUIScale: 1.25,
-			WebContent: port.EngineWebContentSettingsPayload{
+			WebContent: entity.EngineWebContentSettingsPayload{
 				SansFont:                  "Inter",
 				EnableDevTools:            true,
 				CaptureConsole:            true,
 				DrawCompositingIndicators: true,
-				HardwareDecoding:          port.EngineHardwareDecodingDisable,
+				HardwareDecoding:          entity.EngineHardwareDecodingDisable,
 			},
 		},
 	})
@@ -28,13 +29,13 @@ func TestEngine_UpdateSettings_AcceptsTypedSettingsPayload(t *testing.T) {
 	require.True(t, e.settings.current().WebContent.EnableDevTools)
 	require.True(t, e.settings.current().WebContent.CaptureConsole)
 	require.True(t, e.settings.current().WebContent.DrawCompositingIndicators)
-	require.Equal(t, port.EngineHardwareDecodingDisable, e.settings.current().WebContent.HardwareDecoding)
+	require.Equal(t, entity.EngineHardwareDecodingDisable, e.settings.current().WebContent.HardwareDecoding)
 }
 
 func TestEngine_UpdateSettings_NilSettings(t *testing.T) {
 	// settings is nil — should not panic, just be a no-op.
 	e := &Engine{}
-	err := e.UpdateSettings(context.Background(), port.EngineSettingsUpdate{})
+	err := e.UpdateSettings(context.Background(), entity.EngineSettingsUpdate{})
 	require.NoError(t, err)
 }
 
@@ -74,7 +75,7 @@ func TestEngine_Close_NilPool(t *testing.T) {
 }
 
 func TestEngineConfigureContentInjectorAutoCopyGetterReadsCurrentPayload(t *testing.T) {
-	settings := NewSettingsManager(context.Background(), port.EngineSettingsPayload{})
+	settings := NewSettingsManager(context.Background(), entity.EngineSettingsPayload{})
 	injector := NewContentInjector(nil)
 
 	engineConfigureContentInjectorRuntimeSettings(injector, settings)
@@ -82,8 +83,8 @@ func TestEngineConfigureContentInjectorAutoCopyGetterReadsCurrentPayload(t *test
 	require.NotNil(t, injector.autoCopyConfigGetter)
 	require.False(t, injector.autoCopyConfigGetter())
 
-	settings.UpdateFromPayload(context.Background(), port.EngineSettingsPayload{
-		WebContent: port.EngineWebContentSettingsPayload{
+	settings.UpdateFromPayload(context.Background(), entity.EngineSettingsPayload{
+		WebContent: entity.EngineWebContentSettingsPayload{
 			AutoCopyOnSelection: true,
 		},
 	})

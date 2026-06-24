@@ -7,6 +7,7 @@ import (
 	"github.com/bnema/dumber/assets"
 	"github.com/bnema/dumber/internal/application/port"
 	"github.com/bnema/dumber/internal/application/usecase"
+	"github.com/bnema/dumber/internal/domain/entity"
 	"github.com/bnema/dumber/internal/infrastructure/config"
 	"github.com/bnema/dumber/internal/infrastructure/env"
 	"github.com/bnema/dumber/internal/infrastructure/filtering"
@@ -25,7 +26,7 @@ func NewEngine(
 	opts port.EngineOptions,
 	profile runtimeprofile.Profile,
 	wkCfg WebKitEngineConfig,
-	initialSettings port.EngineSettingsPayload,
+	initialSettings entity.EngineSettingsPayload,
 	currentConfigPayload func() ([]byte, error),
 	defaultConfigPayload func() ([]byte, error),
 	themeManager *theme.Manager,

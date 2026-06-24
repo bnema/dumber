@@ -13,7 +13,7 @@ type configChangeManager interface {
 }
 
 type runtimeConfigProvider struct {
-	fallback port.RuntimeConfigSnapshot
+	fallback entity.RuntimeConfigSnapshot
 	manager  configChangeManager
 }
 
@@ -24,14 +24,18 @@ func NewRuntimeConfigProvider(cfg *config.Config, manager configChangeManager) p
 	}
 }
 
-func (p *runtimeConfigProvider) Current() port.RuntimeConfigSnapshot {
+func (p *runtimeConfigProvider) Current() entity.RuntimeConfigSnapshot {
 	if p == nil {
-		return port.RuntimeConfigSnapshot{}
+		return entity.RuntimeConfigSnapshot{}
 	}
 	if p.manager == nil {
 		return cloneRuntimeConfigSnapshot(p.fallback)
 	}
-	return RuntimeConfigSnapshotFromConfig(p.manager.Get())
+	cfg := p.manager.Get()
+	if cfg == nil {
+		return cloneRuntimeConfigSnapshot(p.fallback)
+	}
+	return RuntimeConfigSnapshotFromConfig(cfg)
 }
 
 func (p *runtimeConfigProvider) Watch() error {
@@ -41,22 +45,26 @@ func (p *runtimeConfigProvider) Watch() error {
 	return p.manager.Watch()
 }
 
-func (p *runtimeConfigProvider) OnChange(callback func(port.RuntimeConfigSnapshot)) {
+func (p *runtimeConfigProvider) OnChange(callback func(entity.RuntimeConfigSnapshot)) {
 	if p == nil || p.manager == nil || callback == nil {
 		return
 	}
 	p.manager.OnConfigChange(func(cfg *config.Config) {
+		if cfg == nil {
+			callback(cloneRuntimeConfigSnapshot(p.fallback))
+			return
+		}
 		callback(RuntimeConfigSnapshotFromConfig(cfg))
 	})
 }
 
-func EngineSettingsPayloadFromConfig(cfg *config.Config) port.EngineSettingsPayload {
+func EngineSettingsPayloadFromConfig(cfg *config.Config) entity.EngineSettingsPayload {
 	if cfg == nil {
-		return port.EngineSettingsPayload{}
+		return entity.EngineSettingsPayload{}
 	}
-	return port.EngineSettingsPayload{
+	return entity.EngineSettingsPayload{
 		DefaultUIScale: cfg.DefaultUIScale,
-		WebContent: port.EngineWebContentSettingsPayload{
+		WebContent: entity.EngineWebContentSettingsPayload{
 			SansFont:                  cfg.Appearance.SansFont,
 			SerifFont:                 cfg.Appearance.SerifFont,
 			MonospaceFont:             cfg.Appearance.MonospaceFont,
@@ -70,40 +78,40 @@ func EngineSettingsPayloadFromConfig(cfg *config.Config) port.EngineSettingsPayl
 	}
 }
 
-func RuntimeConfigSnapshotFromConfig(cfg *config.Config) port.RuntimeConfigSnapshot {
+func RuntimeConfigSnapshotFromConfig(cfg *config.Config) entity.RuntimeConfigSnapshot {
 	if cfg == nil {
-		return port.RuntimeConfigSnapshot{}
+		return entity.RuntimeConfigSnapshot{}
 	}
-	return port.RuntimeConfigSnapshot{
+	return entity.RuntimeConfigSnapshot{
 		EngineSettings: EngineSettingsPayloadFromConfig(cfg),
-		UI: port.RuntimeUIConfig{
+		UI: entity.RuntimeUIConfig{
 			DefaultUIScale:      cfg.DefaultUIScale,
 			SidebarWidth:        cfg.SidebarWidth,
 			Appearance:          cfg.Appearance,
 			Workspace:           cloneWorkspaceConfig(cfg.Workspace),
 			Session:             cloneSessionConfig(cfg.Session),
-			Clipboard:           port.RuntimeClipboardConfig{AutoCopyOnSelection: cfg.Clipboard.AutoCopyOnSelection},
+			Clipboard:           entity.RuntimeClipboardConfig{AutoCopyOnSelection: cfg.Clipboard.AutoCopyOnSelection},
 			SearchShortcuts:     runtimeSearchShortcutsFromConfig(cfg.SearchShortcuts),
 			DefaultSearchEngine: cfg.DefaultSearchEngine,
-			Omnibox: port.RuntimeOmniboxConfig{
+			Omnibox: entity.RuntimeOmniboxConfig{
 				InitialBehavior:   cfg.Omnibox.InitialBehavior,
 				MostVisitedDays:   cfg.Omnibox.MostVisitedDays,
 				AutoOpenOnNewPane: cfg.Omnibox.AutoOpenOnNewPane,
 			},
-			Update: port.RuntimeUpdateConfig{
+			Update: entity.RuntimeUpdateConfig{
 				EnableOnStartup:     cfg.Update.EnableOnStartup,
 				AutoDownload:        cfg.Update.AutoDownload,
 				NotifyOnNewSettings: cfg.Update.NotifyOnNewSettings,
 			},
-			Downloads: port.RuntimeDownloadsConfig{Path: cfg.Downloads.Path},
+			Downloads: entity.RuntimeDownloadsConfig{Path: cfg.Downloads.Path},
 		},
 	}
 }
 
-func runtimeSearchShortcutsFromConfig(in map[string]config.SearchShortcut) map[string]port.RuntimeSearchShortcut {
-	out := make(map[string]port.RuntimeSearchShortcut, len(in))
+func runtimeSearchShortcutsFromConfig(in map[string]config.SearchShortcut) map[string]entity.RuntimeSearchShortcut {
+	out := make(map[string]entity.RuntimeSearchShortcut, len(in))
 	for key, shortcut := range in {
-		out[key] = port.RuntimeSearchShortcut{
+		out[key] = entity.RuntimeSearchShortcut{
 			URL:         shortcut.URL,
 			Description: shortcut.Description,
 		}
@@ -111,18 +119,18 @@ func runtimeSearchShortcutsFromConfig(in map[string]config.SearchShortcut) map[s
 	return out
 }
 
-func cloneRuntimeConfigSnapshot(snapshot port.RuntimeConfigSnapshot) port.RuntimeConfigSnapshot {
+func cloneRuntimeConfigSnapshot(snapshot entity.RuntimeConfigSnapshot) entity.RuntimeConfigSnapshot {
 	snapshot.UI.SearchShortcuts = cloneRuntimeSearchShortcuts(snapshot.UI.SearchShortcuts)
 	snapshot.UI.Workspace = cloneWorkspaceConfig(snapshot.UI.Workspace)
 	snapshot.UI.Session = cloneSessionConfig(snapshot.UI.Session)
 	return snapshot
 }
 
-func cloneRuntimeSearchShortcuts(in map[string]port.RuntimeSearchShortcut) map[string]port.RuntimeSearchShortcut {
+func cloneRuntimeSearchShortcuts(in map[string]entity.RuntimeSearchShortcut) map[string]entity.RuntimeSearchShortcut {
 	if in == nil {
 		return nil
 	}
-	out := make(map[string]port.RuntimeSearchShortcut, len(in))
+	out := make(map[string]entity.RuntimeSearchShortcut, len(in))
 	for key, shortcut := range in {
 		out[key] = shortcut
 	}
@@ -176,13 +184,13 @@ func cloneStringSlice(in []string) []string {
 	return out
 }
 
-func engineHardwareDecodingModeFromConfig(mode config.HardwareDecodingMode) port.EngineHardwareDecodingMode {
+func engineHardwareDecodingModeFromConfig(mode config.HardwareDecodingMode) entity.EngineHardwareDecodingMode {
 	switch mode {
 	case config.HardwareDecodingForce:
-		return port.EngineHardwareDecodingForce
+		return entity.EngineHardwareDecodingForce
 	case config.HardwareDecodingDisable:
-		return port.EngineHardwareDecodingDisable
+		return entity.EngineHardwareDecodingDisable
 	default:
-		return port.EngineHardwareDecodingAuto
+		return entity.EngineHardwareDecodingAuto
 	}
 }

@@ -4,7 +4,6 @@ import (
 	"reflect"
 	"testing"
 
-	"github.com/bnema/dumber/internal/application/port"
 	bootstrapmocks "github.com/bnema/dumber/internal/bootstrap/mocks"
 	"github.com/bnema/dumber/internal/domain/entity"
 	"github.com/bnema/dumber/internal/infrastructure/config"
@@ -76,8 +75,8 @@ func TestEngineSettingsPayloadFromConfigMapsRuntimeFields(t *testing.T) {
 		!got.WebContent.DrawCompositingIndicators {
 		t.Fatalf("debug settings not mapped: %#v", got.WebContent)
 	}
-	if got.WebContent.HardwareDecoding != port.EngineHardwareDecodingForce {
-		t.Fatalf("HardwareDecoding=%q, want %q", got.WebContent.HardwareDecoding, port.EngineHardwareDecodingForce)
+	if got.WebContent.HardwareDecoding != entity.EngineHardwareDecodingForce {
+		t.Fatalf("HardwareDecoding=%q, want %q", got.WebContent.HardwareDecoding, entity.EngineHardwareDecodingForce)
 	}
 	autoCopyField := reflect.ValueOf(got.WebContent).FieldByName("AutoCopyOnSelection")
 	if !autoCopyField.IsValid() || !autoCopyField.Bool() {
@@ -91,8 +90,8 @@ func TestRuntimeConfigProviderUpdatesSnapshotBeforeCallback(t *testing.T) {
 	manager := &configManagerState{}
 	provider := NewRuntimeConfigProvider(initial, newMockConfigManager(t, manager))
 
-	var seen port.RuntimeConfigSnapshot
-	provider.OnChange(func(snapshot port.RuntimeConfigSnapshot) {
+	var seen entity.RuntimeConfigSnapshot
+	provider.OnChange(func(snapshot entity.RuntimeConfigSnapshot) {
 		seen = snapshot
 	})
 
@@ -123,6 +122,20 @@ func TestRuntimeConfigProviderCurrentReflectsManagerGetWithoutSubscription(t *te
 	}
 }
 
+func TestRuntimeConfigProviderCurrentFallsBackWhenManagerGetReturnsNil(t *testing.T) {
+	initial := config.DefaultConfig()
+	initial.DefaultUIScale = 1.35
+	manager := &configManagerState{}
+	provider := NewRuntimeConfigProvider(initial, newMockConfigManager(t, manager))
+
+	got := provider.Current()
+	want := RuntimeConfigSnapshotFromConfig(initial)
+
+	if !reflect.DeepEqual(got, want) {
+		t.Fatalf("Current()=%#v, want initial fallback %#v", got, want)
+	}
+}
+
 func TestRuntimeConfigProviderOnChangeCallbackCanCallCurrent(t *testing.T) {
 	initial := config.DefaultConfig()
 	initial.DefaultUIScale = 1
@@ -130,8 +143,8 @@ func TestRuntimeConfigProviderOnChangeCallbackCanCallCurrent(t *testing.T) {
 	provider := NewRuntimeConfigProvider(initial, newMockConfigManager(t, manager))
 
 	completed := false
-	var seen port.RuntimeConfigSnapshot
-	provider.OnChange(func(port.RuntimeConfigSnapshot) {
+	var seen entity.RuntimeConfigSnapshot
+	provider.OnChange(func(entity.RuntimeConfigSnapshot) {
 		seen = provider.Current()
 		completed = true
 	})
@@ -145,6 +158,25 @@ func TestRuntimeConfigProviderOnChangeCallbackCanCallCurrent(t *testing.T) {
 	}
 	if seen.UI.DefaultUIScale != 1.8 {
 		t.Fatalf("callback Current DefaultUIScale=%v, want 1.8", seen.UI.DefaultUIScale)
+	}
+}
+
+func TestRuntimeConfigProviderOnChangeFallsBackWhenPayloadIsNil(t *testing.T) {
+	initial := config.DefaultConfig()
+	initial.DefaultUIScale = 1.35
+	manager := &configManagerState{current: initial}
+	provider := NewRuntimeConfigProvider(initial, newMockConfigManager(t, manager))
+
+	var seen entity.RuntimeConfigSnapshot
+	provider.OnChange(func(snapshot entity.RuntimeConfigSnapshot) {
+		seen = snapshot
+	})
+
+	manager.emit(nil)
+	want := RuntimeConfigSnapshotFromConfig(initial)
+
+	if !reflect.DeepEqual(seen, want) {
+		t.Fatalf("callback snapshot=%#v, want initial fallback %#v", seen, want)
 	}
 }
 
@@ -179,7 +211,7 @@ func TestRuntimeConfigProviderCurrentReturnsMapClone(t *testing.T) {
 	provider := NewRuntimeConfigProvider(cfg, newMockConfigManager(t, &configManagerState{current: cfg}))
 
 	first := provider.Current()
-	first.UI.SearchShortcuts["gh"] = port.RuntimeSearchShortcut{URL: "mutated"}
+	first.UI.SearchShortcuts["gh"] = entity.RuntimeSearchShortcut{URL: "mutated"}
 	second := provider.Current()
 
 	if second.UI.SearchShortcuts["gh"].URL == "mutated" {
@@ -202,7 +234,7 @@ func TestRuntimeConfigProviderOnChangePassesNestedConfigClone(t *testing.T) {
 	manager := &configManagerState{}
 	provider := NewRuntimeConfigProvider(config.DefaultConfig(), newMockConfigManager(t, manager))
 
-	provider.OnChange(func(snapshot port.RuntimeConfigSnapshot) {
+	provider.OnChange(func(snapshot entity.RuntimeConfigSnapshot) {
 		mutateNestedRuntimeConfigSnapshot(snapshot)
 	})
 
@@ -213,7 +245,7 @@ func TestRuntimeConfigProviderOnChangePassesNestedConfigClone(t *testing.T) {
 
 func TestEngineSettingsPayloadFromNilConfigReturnsZeroPayload(t *testing.T) {
 	got := EngineSettingsPayloadFromConfig(nil)
-	if got != (port.EngineSettingsPayload{}) {
+	if got != (entity.EngineSettingsPayload{}) {
 		t.Fatalf("payload=%#v, want zero value", got)
 	}
 }
@@ -241,7 +273,7 @@ func runtimeConfigWithNestedMutableFields() *config.Config {
 	return cfg
 }
 
-func mutateNestedRuntimeConfigSnapshot(snapshot port.RuntimeConfigSnapshot) {
+func mutateNestedRuntimeConfigSnapshot(snapshot entity.RuntimeConfigSnapshot) {
 	mutateActionBinding(snapshot.UI.Workspace.PaneMode.Actions, "split-right", "mutated-pane")
 	snapshot.UI.Workspace.PaneMode.Actions["added-pane"] = entity.ActionBinding{Keys: []string{"added"}}
 
@@ -269,7 +301,7 @@ func mutateActionBinding(actions map[string]entity.ActionBinding, action, key st
 	actions[action] = binding
 }
 
-func assertNestedRuntimeConfigSnapshotUnchanged(t *testing.T, snapshot port.RuntimeConfigSnapshot) {
+func assertNestedRuntimeConfigSnapshotUnchanged(t *testing.T, snapshot entity.RuntimeConfigSnapshot) {
 	t.Helper()
 
 	assertActionBinding(t, snapshot.UI.Workspace.PaneMode.Actions, "split-right", "r")
@@ -377,7 +409,7 @@ func TestRuntimeConfigSnapshotFromConfigMapsUIRuntimeFields(t *testing.T) {
 	if got.UI.SearchShortcuts["gh"].URL != "https://github.com/search?q=%s" {
 		t.Fatalf("search shortcut not mapped: %#v", got.UI.SearchShortcuts)
 	}
-	got.UI.SearchShortcuts["gh"] = port.RuntimeSearchShortcut{URL: "mutated"}
+	got.UI.SearchShortcuts["gh"] = entity.RuntimeSearchShortcut{URL: "mutated"}
 	if cfg.SearchShortcuts["gh"].URL == "mutated" {
 		t.Fatal("snapshot must deep-copy search shortcut map")
 	}
@@ -394,7 +426,7 @@ func TestRuntimeConfigSnapshotFromConfigDetachesNestedMutableFields(t *testing.T
 
 func TestRuntimeConfigSnapshotFromNilConfigReturnsZeroSnapshot(t *testing.T) {
 	got := RuntimeConfigSnapshotFromConfig(nil)
-	if !reflect.DeepEqual(got, port.RuntimeConfigSnapshot{}) {
+	if !reflect.DeepEqual(got, entity.RuntimeConfigSnapshot{}) {
 		t.Fatalf("snapshot=%#v, want zero value", got)
 	}
 }
@@ -403,32 +435,32 @@ func TestEngineSettingsPayloadFromConfigMapsHardwareDecodingModes(t *testing.T) 
 	tests := []struct {
 		name string
 		mode config.HardwareDecodingMode
-		want port.EngineHardwareDecodingMode
+		want entity.EngineHardwareDecodingMode
 	}{
 		{
 			name: "auto",
 			mode: config.HardwareDecodingAuto,
-			want: port.EngineHardwareDecodingAuto,
+			want: entity.EngineHardwareDecodingAuto,
 		},
 		{
 			name: "force",
 			mode: config.HardwareDecodingForce,
-			want: port.EngineHardwareDecodingForce,
+			want: entity.EngineHardwareDecodingForce,
 		},
 		{
 			name: "disable",
 			mode: config.HardwareDecodingDisable,
-			want: port.EngineHardwareDecodingDisable,
+			want: entity.EngineHardwareDecodingDisable,
 		},
 		{
 			name: "unknown",
 			mode: config.HardwareDecodingMode("surprise"),
-			want: port.EngineHardwareDecodingAuto,
+			want: entity.EngineHardwareDecodingAuto,
 		},
 		{
 			name: "zero value",
 			mode: "",
-			want: port.EngineHardwareDecodingAuto,
+			want: entity.EngineHardwareDecodingAuto,
 		},
 	}
 

@@ -6,6 +6,8 @@ package port
 import (
 	"context"
 	"encoding/json"
+
+	"github.com/bnema/dumber/internal/domain/entity"
 )
 
 // CookiePolicy controls cookie acceptance behavior for the engine's network session.
@@ -136,45 +138,10 @@ type Engine interface {
 	UpdateAppearance(ctx context.Context, r, g, b, alpha float64) error
 
 	// UpdateSettings applies runtime config changes to engine internals.
-	UpdateSettings(ctx context.Context, update EngineSettingsUpdate) error
+	UpdateSettings(ctx context.Context, update entity.EngineSettingsUpdate) error
 
 	// SetHandlerContext sets the base context for message handler dispatch.
 	SetHandlerContext(ctx context.Context)
-}
-
-// EngineHardwareDecodingMode controls engine-facing video hardware acceleration.
-type EngineHardwareDecodingMode string
-
-const (
-	EngineHardwareDecodingAuto    EngineHardwareDecodingMode = "auto"
-	EngineHardwareDecodingForce   EngineHardwareDecodingMode = "force"
-	EngineHardwareDecodingDisable EngineHardwareDecodingMode = "disable"
-)
-
-// EngineWebContentSettingsPayload is the engine-facing runtime view of web
-// content settings that can be applied to newly-created or existing webviews.
-type EngineWebContentSettingsPayload struct {
-	SansFont                  string
-	SerifFont                 string
-	MonospaceFont             string
-	DefaultFontSize           int
-	EnableDevTools            bool
-	CaptureConsole            bool
-	DrawCompositingIndicators bool
-	HardwareDecoding          EngineHardwareDecodingMode
-	AutoCopyOnSelection       bool
-}
-
-// EngineSettingsPayload is the engine-facing boundary view of runtime config.
-// Add fields here only when an engine needs to react to them at runtime.
-type EngineSettingsPayload struct {
-	DefaultUIScale float64
-	WebContent     EngineWebContentSettingsPayload
-}
-
-// EngineSettingsUpdate carries a runtime config change to the engine.
-type EngineSettingsUpdate struct {
-	Settings EngineSettingsPayload
 }
 
 // WebUIMessageHandler handles a decoded message payload from the JS bridge.

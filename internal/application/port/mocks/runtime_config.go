@@ -5,7 +5,7 @@
 package mocks
 
 import (
-	"github.com/bnema/dumber/internal/application/port"
+	"github.com/bnema/dumber/internal/domain/entity"
 	mock "github.com/stretchr/testify/mock"
 )
 
@@ -37,18 +37,18 @@ func (_m *MockRuntimeConfigProvider) EXPECT() *MockRuntimeConfigProvider_Expecte
 }
 
 // Current provides a mock function for the type MockRuntimeConfigProvider
-func (_mock *MockRuntimeConfigProvider) Current() port.RuntimeConfigSnapshot {
+func (_mock *MockRuntimeConfigProvider) Current() entity.RuntimeConfigSnapshot {
 	ret := _mock.Called()
 
 	if len(ret) == 0 {
 		panic("no return value specified for Current")
 	}
 
-	var r0 port.RuntimeConfigSnapshot
-	if returnFunc, ok := ret.Get(0).(func() port.RuntimeConfigSnapshot); ok {
+	var r0 entity.RuntimeConfigSnapshot
+	if returnFunc, ok := ret.Get(0).(func() entity.RuntimeConfigSnapshot); ok {
 		r0 = returnFunc()
 	} else {
-		r0 = ret.Get(0).(port.RuntimeConfigSnapshot)
+		r0 = ret.Get(0).(entity.RuntimeConfigSnapshot)
 	}
 	return r0
 }
@@ -70,18 +70,18 @@ func (_c *MockRuntimeConfigProvider_Current_Call) Run(run func()) *MockRuntimeCo
 	return _c
 }
 
-func (_c *MockRuntimeConfigProvider_Current_Call) Return(runtimeConfigSnapshot port.RuntimeConfigSnapshot) *MockRuntimeConfigProvider_Current_Call {
+func (_c *MockRuntimeConfigProvider_Current_Call) Return(runtimeConfigSnapshot entity.RuntimeConfigSnapshot) *MockRuntimeConfigProvider_Current_Call {
 	_c.Call.Return(runtimeConfigSnapshot)
 	return _c
 }
 
-func (_c *MockRuntimeConfigProvider_Current_Call) RunAndReturn(run func() port.RuntimeConfigSnapshot) *MockRuntimeConfigProvider_Current_Call {
+func (_c *MockRuntimeConfigProvider_Current_Call) RunAndReturn(run func() entity.RuntimeConfigSnapshot) *MockRuntimeConfigProvider_Current_Call {
 	_c.Call.Return(run)
 	return _c
 }
 
 // OnChange provides a mock function for the type MockRuntimeConfigProvider
-func (_mock *MockRuntimeConfigProvider) OnChange(fn func(port.RuntimeConfigSnapshot)) {
+func (_mock *MockRuntimeConfigProvider) OnChange(fn func(entity.RuntimeConfigSnapshot)) {
 	_mock.Called(fn)
 	return
 }
@@ -92,16 +92,16 @@ type MockRuntimeConfigProvider_OnChange_Call struct {
 }
 
 // OnChange is a helper method to define mock.On call
-//   - fn func(port.RuntimeConfigSnapshot)
+//   - fn func(entity.RuntimeConfigSnapshot)
 func (_e *MockRuntimeConfigProvider_Expecter) OnChange(fn any) *MockRuntimeConfigProvider_OnChange_Call {
 	return &MockRuntimeConfigProvider_OnChange_Call{Call: _e.mock.On("OnChange", fn)}
 }
 
-func (_c *MockRuntimeConfigProvider_OnChange_Call) Run(run func(fn func(port.RuntimeConfigSnapshot))) *MockRuntimeConfigProvider_OnChange_Call {
+func (_c *MockRuntimeConfigProvider_OnChange_Call) Run(run func(fn func(entity.RuntimeConfigSnapshot))) *MockRuntimeConfigProvider_OnChange_Call {
 	_c.Call.Run(func(args mock.Arguments) {
-		var arg0 func(port.RuntimeConfigSnapshot)
+		var arg0 func(entity.RuntimeConfigSnapshot)
 		if args[0] != nil {
-			arg0 = args[0].(func(port.RuntimeConfigSnapshot))
+			arg0 = args[0].(func(entity.RuntimeConfigSnapshot))
 		}
 		run(
 			arg0,
@@ -115,7 +115,7 @@ func (_c *MockRuntimeConfigProvider_OnChange_Call) Return() *MockRuntimeConfigPr
 	return _c
 }
 
-func (_c *MockRuntimeConfigProvider_OnChange_Call) RunAndReturn(run func(fn func(port.RuntimeConfigSnapshot))) *MockRuntimeConfigProvider_OnChange_Call {
+func (_c *MockRuntimeConfigProvider_OnChange_Call) RunAndReturn(run func(fn func(entity.RuntimeConfigSnapshot))) *MockRuntimeConfigProvider_OnChange_Call {
 	_c.Run(run)
 	return _c
 }

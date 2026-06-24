@@ -25,7 +25,7 @@ func TestNew_DoesNotWireClipboardOrchestratorWhenClipboardMissing(t *testing.T) 
 	runtimeConfig := portmocks.NewMockRuntimeConfigProvider(t)
 	runtimeConfig.EXPECT().
 		Current().
-		Return(port.RuntimeConfigSnapshot{}).
+		Return(entity.RuntimeConfigSnapshot{}).
 		Once()
 
 	deps := &Dependencies{
@@ -59,7 +59,7 @@ func TestNew_WiresClipboardOrchestratorWhenClipboardPresent(t *testing.T) {
 	runtimeConfig := portmocks.NewMockRuntimeConfigProvider(t)
 	runtimeConfig.EXPECT().
 		Current().
-		Return(port.RuntimeConfigSnapshot{}).
+		Return(entity.RuntimeConfigSnapshot{}).
 		Once()
 
 	deps := &Dependencies{

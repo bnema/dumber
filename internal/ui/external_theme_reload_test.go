@@ -8,7 +8,6 @@ import (
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 
-	"github.com/bnema/dumber/internal/application/port"
 	portmocks "github.com/bnema/dumber/internal/application/port/mocks"
 	"github.com/bnema/dumber/internal/application/usecase"
 	"github.com/bnema/dumber/internal/bootstrap"
@@ -83,9 +82,9 @@ func TestApplyAppearanceConfigSendsCompleteEngineSettingsPayload(t *testing.T) {
 	cfg.Engine.WebKit.DrawCompositingIndicators = true
 	cfg.Media.HardwareDecodingMode = config.HardwareDecodingForce
 	cfg.Clipboard.AutoCopyOnSelection = true
-	expected := port.EngineSettingsPayload{
+	expected := entity.EngineSettingsPayload{
 		DefaultUIScale: cfg.DefaultUIScale,
-		WebContent: port.EngineWebContentSettingsPayload{
+		WebContent: entity.EngineWebContentSettingsPayload{
 			SansFont:                  cfg.Appearance.SansFont,
 			SerifFont:                 cfg.Appearance.SerifFont,
 			MonospaceFont:             cfg.Appearance.MonospaceFont,
@@ -93,14 +92,14 @@ func TestApplyAppearanceConfigSendsCompleteEngineSettingsPayload(t *testing.T) {
 			EnableDevTools:            cfg.Debug.EnableDevTools,
 			CaptureConsole:            cfg.Logging.CaptureConsole,
 			DrawCompositingIndicators: cfg.Engine.WebKit.DrawCompositingIndicators,
-			HardwareDecoding:          port.EngineHardwareDecodingForce,
+			HardwareDecoding:          entity.EngineHardwareDecodingForce,
 			AutoCopyOnSelection:       cfg.Clipboard.AutoCopyOnSelection,
 		},
 	}
 	engine := portmocks.NewMockEngine(t)
-	var captured port.EngineSettingsUpdate
+	var captured entity.EngineSettingsUpdate
 	engine.EXPECT().UpdateSettings(mock.Anything, mock.Anything).
-		Run(func(_ context.Context, update port.EngineSettingsUpdate) {
+		Run(func(_ context.Context, update entity.EngineSettingsUpdate) {
 			captured = update
 		}).
 		Return(nil).

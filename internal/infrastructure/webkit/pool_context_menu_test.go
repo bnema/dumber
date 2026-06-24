@@ -4,7 +4,7 @@ import (
 	"context"
 	"testing"
 
-	"github.com/bnema/dumber/internal/application/port"
+	"github.com/bnema/dumber/internal/domain/entity"
 	"github.com/bnema/puregotk/v4/webkit"
 )
 
@@ -32,7 +32,7 @@ func TestNeedsExplicitContextMenuSignalOnAcquire(t *testing.T) {
 }
 
 func TestShouldReapplySettingsOnAcquire(t *testing.T) {
-	settings := NewSettingsManager(context.Background(), port.EngineSettingsPayload{})
+	settings := NewSettingsManager(context.Background(), entity.EngineSettingsPayload{})
 
 	tests := []struct {
 		name     string

@@ -1,4 +1,4 @@
-package port
+package entity
 
 import (
 	"reflect"

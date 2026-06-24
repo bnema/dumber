@@ -5,14 +5,14 @@ import (
 	"sync"
 	"testing"
 
-	"github.com/bnema/dumber/internal/application/port"
+	"github.com/bnema/dumber/internal/domain/entity"
 )
 
 func TestEngineUpdateSettingsUpdatesApplicationScaleFromBoundaryPayload(t *testing.T) {
 	e := &Engine{applicationScale: 1}
 
-	if err := e.UpdateSettings(context.Background(), port.EngineSettingsUpdate{
-		Settings: port.EngineSettingsPayload{DefaultUIScale: 1.25},
+	if err := e.UpdateSettings(context.Background(), entity.EngineSettingsUpdate{
+		Settings: entity.EngineSettingsPayload{DefaultUIScale: 1.25},
 	}); err != nil {
 		t.Fatalf("UpdateSettings returned error: %v", err)
 	}
@@ -24,7 +24,7 @@ func TestEngineUpdateSettingsUpdatesApplicationScaleFromBoundaryPayload(t *testi
 func TestEngineUpdateSettingsUsesZeroScaleWhenPayloadIsEmpty(t *testing.T) {
 	e := &Engine{applicationScale: 1.25}
 
-	if err := e.UpdateSettings(context.Background(), port.EngineSettingsUpdate{}); err != nil {
+	if err := e.UpdateSettings(context.Background(), entity.EngineSettingsUpdate{}); err != nil {
 		t.Fatalf("UpdateSettings returned error: %v", err)
 	}
 	if got := e.currentApplicationScale(); got != 1 {
@@ -43,8 +43,8 @@ func TestEngineApplicationScaleConcurrentAccess(_ *testing.T) {
 		}()
 		go func(scale float64) {
 			defer wg.Done()
-			_ = e.UpdateSettings(context.Background(), port.EngineSettingsUpdate{
-				Settings: port.EngineSettingsPayload{DefaultUIScale: scale},
+			_ = e.UpdateSettings(context.Background(), entity.EngineSettingsUpdate{
+				Settings: entity.EngineSettingsPayload{DefaultUIScale: scale},
 			})
 		}(1 + float64(i)/10)
 	}

@@ -255,9 +255,9 @@ func New(deps *Dependencies) (*App, error) {
 	return app, nil
 }
 
-func (a *App) runtimeConfigSnapshot() port.RuntimeConfigSnapshot {
+func (a *App) runtimeConfigSnapshot() entity.RuntimeConfigSnapshot {
 	if a == nil {
-		return port.RuntimeConfigSnapshot{}
+		return entity.RuntimeConfigSnapshot{}
 	}
 	if a.runtimeConfig != nil {
 		return a.runtimeConfig.Current()
@@ -265,7 +265,7 @@ func (a *App) runtimeConfigSnapshot() port.RuntimeConfigSnapshot {
 	if a.deps != nil && a.deps.RuntimeConfig != nil {
 		return a.deps.RuntimeConfig.Current()
 	}
-	return port.RuntimeConfigSnapshot{}
+	return entity.RuntimeConfigSnapshot{}
 }
 
 // Run starts the GTK application and blocks until it exits.
@@ -506,7 +506,7 @@ func (a *App) createBrowserWindow(ctx context.Context, initialURL string) (*brow
 	return browserWindow, nil
 }
 
-func (a *App) initBrowserWindowOverlays(mainWindow *window.MainWindow, browserWindow *browserWindow, runtimeCfg port.RuntimeUIConfig) {
+func (a *App) initBrowserWindowOverlays(mainWindow *window.MainWindow, browserWindow *browserWindow, runtimeCfg entity.RuntimeUIConfig) {
 	// Create permission popup and dialog presenter
 	if a.deps != nil && a.deps.PermissionUC != nil {
 		uiScale := runtimeCfg.DefaultUIScale
@@ -1435,7 +1435,7 @@ type omniboxCallbacks struct {
 
 func buildOmniboxConfig(
 	deps *Dependencies,
-	runtimeCfg port.RuntimeUIConfig,
+	runtimeCfg entity.RuntimeUIConfig,
 	faviconAdapter *adapter.FaviconAdapter,
 	callbacks omniboxCallbacks,
 ) component.OmniboxConfig {
@@ -1490,7 +1490,7 @@ func NewStandaloneOmniboxRuntime(
 		registerFaviconInvalidator(deps.FaviconResolver, faviconAdapter)
 	}
 
-	var runtimeCfg port.RuntimeUIConfig
+	var runtimeCfg entity.RuntimeUIConfig
 	if deps != nil && deps.RuntimeConfig != nil {
 		runtimeCfg = deps.RuntimeConfig.Current().UI
 	}
@@ -5085,14 +5085,14 @@ func (a *App) initConfigWatcher(ctx context.Context) {
 	}
 
 	// Hot-reload appearance and keybindings on config change.
-	a.deps.RuntimeConfig.OnChange(func(snapshot port.RuntimeConfigSnapshot) {
+	a.deps.RuntimeConfig.OnChange(func(snapshot entity.RuntimeConfigSnapshot) {
 		a.dispatchRuntimeConfigChange(ctx, snapshot)
 	})
 
 	log.Debug().Msg("config watcher initialized")
 }
 
-func (a *App) dispatchRuntimeConfigChange(ctx context.Context, snapshot port.RuntimeConfigSnapshot) {
+func (a *App) dispatchRuntimeConfigChange(ctx context.Context, snapshot entity.RuntimeConfigSnapshot) {
 	run := func() {
 		a.applyRuntimeConfigChange(ctx, snapshot)
 	}
@@ -5103,7 +5103,7 @@ func (a *App) dispatchRuntimeConfigChange(ctx context.Context, snapshot port.Run
 	run()
 }
 
-func (a *App) applyRuntimeConfigChange(ctx context.Context, snapshot port.RuntimeConfigSnapshot) {
+func (a *App) applyRuntimeConfigChange(ctx context.Context, snapshot entity.RuntimeConfigSnapshot) {
 	if a == nil {
 		return
 	}
@@ -5158,7 +5158,7 @@ func (a *App) applyAppearanceConfig(ctx context.Context) {
 	snapshot := a.runtimeConfigSnapshot()
 
 	if a.engine != nil {
-		if err := a.engine.UpdateSettings(ctx, port.EngineSettingsUpdate{
+		if err := a.engine.UpdateSettings(ctx, entity.EngineSettingsUpdate{
 			Settings: snapshot.EngineSettings,
 		}); err != nil {
 			log.Warn().Err(err).Msg("failed to apply engine settings update")
