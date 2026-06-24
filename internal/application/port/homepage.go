@@ -12,7 +12,7 @@ import (
 type HomepageHistory interface {
 	GetRecent(ctx context.Context, limit, offset int) ([]*entity.HistoryEntry, error)
 	GetRecentByDomain(ctx context.Context, domain string, limit, offset int) ([]*entity.HistoryEntry, error)
-	GetRecentWindow(ctx context.Context, before time.Time, domain string) (*entity.HistoryWindow, error)
+	GetRecentWindow(ctx context.Context, before time.Time, beforeID int64, domain string) (*entity.HistoryWindow, error)
 	Search(ctx context.Context, input dto.HistorySearchInput) (*dto.HistorySearchOutput, error)
 	Delete(ctx context.Context, id int64) error
 	ClearRange(ctx context.Context, rangeID string) error

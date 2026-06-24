@@ -999,8 +999,8 @@ func (_c *MockHistoryRepository_GetRecentSince_Call) RunAndReturn(run func(ctx c
 }
 
 // GetRecentWindow provides a mock function for the type MockHistoryRepository
-func (_mock *MockHistoryRepository) GetRecentWindow(ctx context.Context, before time.Time, after time.Time) ([]*entity.HistoryEntry, error) {
-	ret := _mock.Called(ctx, before, after)
+func (_mock *MockHistoryRepository) GetRecentWindow(ctx context.Context, before time.Time, beforeID int64, limit int) ([]*entity.HistoryEntry, error) {
+	ret := _mock.Called(ctx, before, beforeID, limit)
 
 	if len(ret) == 0 {
 		panic("no return value specified for GetRecentWindow")
@@ -1008,18 +1008,18 @@ func (_mock *MockHistoryRepository) GetRecentWindow(ctx context.Context, before 
 
 	var r0 []*entity.HistoryEntry
 	var r1 error
-	if returnFunc, ok := ret.Get(0).(func(context.Context, time.Time, time.Time) ([]*entity.HistoryEntry, error)); ok {
-		return returnFunc(ctx, before, after)
+	if returnFunc, ok := ret.Get(0).(func(context.Context, time.Time, int64, int) ([]*entity.HistoryEntry, error)); ok {
+		return returnFunc(ctx, before, beforeID, limit)
 	}
-	if returnFunc, ok := ret.Get(0).(func(context.Context, time.Time, time.Time) []*entity.HistoryEntry); ok {
-		r0 = returnFunc(ctx, before, after)
+	if returnFunc, ok := ret.Get(0).(func(context.Context, time.Time, int64, int) []*entity.HistoryEntry); ok {
+		r0 = returnFunc(ctx, before, beforeID, limit)
 	} else {
 		if ret.Get(0) != nil {
 			r0 = ret.Get(0).([]*entity.HistoryEntry)
 		}
 	}
-	if returnFunc, ok := ret.Get(1).(func(context.Context, time.Time, time.Time) error); ok {
-		r1 = returnFunc(ctx, before, after)
+	if returnFunc, ok := ret.Get(1).(func(context.Context, time.Time, int64, int) error); ok {
+		r1 = returnFunc(ctx, before, beforeID, limit)
 	} else {
 		r1 = ret.Error(1)
 	}
@@ -1034,12 +1034,13 @@ type MockHistoryRepository_GetRecentWindow_Call struct {
 // GetRecentWindow is a helper method to define mock.On call
 //   - ctx context.Context
 //   - before time.Time
-//   - after time.Time
-func (_e *MockHistoryRepository_Expecter) GetRecentWindow(ctx any, before any, after any) *MockHistoryRepository_GetRecentWindow_Call {
-	return &MockHistoryRepository_GetRecentWindow_Call{Call: _e.mock.On("GetRecentWindow", ctx, before, after)}
+//   - beforeID int64
+//   - limit int
+func (_e *MockHistoryRepository_Expecter) GetRecentWindow(ctx any, before any, beforeID any, limit any) *MockHistoryRepository_GetRecentWindow_Call {
+	return &MockHistoryRepository_GetRecentWindow_Call{Call: _e.mock.On("GetRecentWindow", ctx, before, beforeID, limit)}
 }
 
-func (_c *MockHistoryRepository_GetRecentWindow_Call) Run(run func(ctx context.Context, before time.Time, after time.Time)) *MockHistoryRepository_GetRecentWindow_Call {
+func (_c *MockHistoryRepository_GetRecentWindow_Call) Run(run func(ctx context.Context, before time.Time, beforeID int64, limit int)) *MockHistoryRepository_GetRecentWindow_Call {
 	_c.Call.Run(func(args mock.Arguments) {
 		var arg0 context.Context
 		if args[0] != nil {
@@ -1049,14 +1050,19 @@ func (_c *MockHistoryRepository_GetRecentWindow_Call) Run(run func(ctx context.C
 		if args[1] != nil {
 			arg1 = args[1].(time.Time)
 		}
-		var arg2 time.Time
+		var arg2 int64
 		if args[2] != nil {
-			arg2 = args[2].(time.Time)
+			arg2 = args[2].(int64)
+		}
+		var arg3 int
+		if args[3] != nil {
+			arg3 = args[3].(int)
 		}
 		run(
 			arg0,
 			arg1,
 			arg2,
+			arg3,
 		)
 	})
 	return _c
@@ -1067,14 +1073,14 @@ func (_c *MockHistoryRepository_GetRecentWindow_Call) Return(historyEntrys []*en
 	return _c
 }
 
-func (_c *MockHistoryRepository_GetRecentWindow_Call) RunAndReturn(run func(ctx context.Context, before time.Time, after time.Time) ([]*entity.HistoryEntry, error)) *MockHistoryRepository_GetRecentWindow_Call {
+func (_c *MockHistoryRepository_GetRecentWindow_Call) RunAndReturn(run func(ctx context.Context, before time.Time, beforeID int64, limit int) ([]*entity.HistoryEntry, error)) *MockHistoryRepository_GetRecentWindow_Call {
 	_c.Call.Return(run)
 	return _c
 }
 
 // GetRecentWindowByDomain provides a mock function for the type MockHistoryRepository
-func (_mock *MockHistoryRepository) GetRecentWindowByDomain(ctx context.Context, domain string, before time.Time, after time.Time) ([]*entity.HistoryEntry, error) {
-	ret := _mock.Called(ctx, domain, before, after)
+func (_mock *MockHistoryRepository) GetRecentWindowByDomain(ctx context.Context, domain string, before time.Time, beforeID int64, limit int) ([]*entity.HistoryEntry, error) {
+	ret := _mock.Called(ctx, domain, before, beforeID, limit)
 
 	if len(ret) == 0 {
 		panic("no return value specified for GetRecentWindowByDomain")
@@ -1082,18 +1088,18 @@ func (_mock *MockHistoryRepository) GetRecentWindowByDomain(ctx context.Context,
 
 	var r0 []*entity.HistoryEntry
 	var r1 error
-	if returnFunc, ok := ret.Get(0).(func(context.Context, string, time.Time, time.Time) ([]*entity.HistoryEntry, error)); ok {
-		return returnFunc(ctx, domain, before, after)
+	if returnFunc, ok := ret.Get(0).(func(context.Context, string, time.Time, int64, int) ([]*entity.HistoryEntry, error)); ok {
+		return returnFunc(ctx, domain, before, beforeID, limit)
 	}
-	if returnFunc, ok := ret.Get(0).(func(context.Context, string, time.Time, time.Time) []*entity.HistoryEntry); ok {
-		r0 = returnFunc(ctx, domain, before, after)
+	if returnFunc, ok := ret.Get(0).(func(context.Context, string, time.Time, int64, int) []*entity.HistoryEntry); ok {
+		r0 = returnFunc(ctx, domain, before, beforeID, limit)
 	} else {
 		if ret.Get(0) != nil {
 			r0 = ret.Get(0).([]*entity.HistoryEntry)
 		}
 	}
-	if returnFunc, ok := ret.Get(1).(func(context.Context, string, time.Time, time.Time) error); ok {
-		r1 = returnFunc(ctx, domain, before, after)
+	if returnFunc, ok := ret.Get(1).(func(context.Context, string, time.Time, int64, int) error); ok {
+		r1 = returnFunc(ctx, domain, before, beforeID, limit)
 	} else {
 		r1 = ret.Error(1)
 	}
@@ -1109,12 +1115,13 @@ type MockHistoryRepository_GetRecentWindowByDomain_Call struct {
 //   - ctx context.Context
 //   - domain string
 //   - before time.Time
-//   - after time.Time
-func (_e *MockHistoryRepository_Expecter) GetRecentWindowByDomain(ctx any, domain any, before any, after any) *MockHistoryRepository_GetRecentWindowByDomain_Call {
-	return &MockHistoryRepository_GetRecentWindowByDomain_Call{Call: _e.mock.On("GetRecentWindowByDomain", ctx, domain, before, after)}
+//   - beforeID int64
+//   - limit int
+func (_e *MockHistoryRepository_Expecter) GetRecentWindowByDomain(ctx any, domain any, before any, beforeID any, limit any) *MockHistoryRepository_GetRecentWindowByDomain_Call {
+	return &MockHistoryRepository_GetRecentWindowByDomain_Call{Call: _e.mock.On("GetRecentWindowByDomain", ctx, domain, before, beforeID, limit)}
 }
 
-func (_c *MockHistoryRepository_GetRecentWindowByDomain_Call) Run(run func(ctx context.Context, domain string, before time.Time, after time.Time)) *MockHistoryRepository_GetRecentWindowByDomain_Call {
+func (_c *MockHistoryRepository_GetRecentWindowByDomain_Call) Run(run func(ctx context.Context, domain string, before time.Time, beforeID int64, limit int)) *MockHistoryRepository_GetRecentWindowByDomain_Call {
 	_c.Call.Run(func(args mock.Arguments) {
 		var arg0 context.Context
 		if args[0] != nil {
@@ -1128,15 +1135,20 @@ func (_c *MockHistoryRepository_GetRecentWindowByDomain_Call) Run(run func(ctx c
 		if args[2] != nil {
 			arg2 = args[2].(time.Time)
 		}
-		var arg3 time.Time
+		var arg3 int64
 		if args[3] != nil {
-			arg3 = args[3].(time.Time)
+			arg3 = args[3].(int64)
+		}
+		var arg4 int
+		if args[4] != nil {
+			arg4 = args[4].(int)
 		}
 		run(
 			arg0,
 			arg1,
 			arg2,
 			arg3,
+			arg4,
 		)
 	})
 	return _c
@@ -1147,7 +1159,7 @@ func (_c *MockHistoryRepository_GetRecentWindowByDomain_Call) Return(historyEntr
 	return _c
 }
 
-func (_c *MockHistoryRepository_GetRecentWindowByDomain_Call) RunAndReturn(run func(ctx context.Context, domain string, before time.Time, after time.Time) ([]*entity.HistoryEntry, error)) *MockHistoryRepository_GetRecentWindowByDomain_Call {
+func (_c *MockHistoryRepository_GetRecentWindowByDomain_Call) RunAndReturn(run func(ctx context.Context, domain string, before time.Time, beforeID int64, limit int) ([]*entity.HistoryEntry, error)) *MockHistoryRepository_GetRecentWindowByDomain_Call {
 	_c.Call.Return(run)
 	return _c
 }
@@ -1210,144 +1222,6 @@ func (_c *MockHistoryRepository_GetStats_Call) Return(historyStats *entity.Histo
 }
 
 func (_c *MockHistoryRepository_GetStats_Call) RunAndReturn(run func(ctx context.Context) (*entity.HistoryStats, error)) *MockHistoryRepository_GetStats_Call {
-	_c.Call.Return(run)
-	return _c
-}
-
-// HasEntriesBefore provides a mock function for the type MockHistoryRepository
-func (_mock *MockHistoryRepository) HasEntriesBefore(ctx context.Context, before time.Time) (bool, error) {
-	ret := _mock.Called(ctx, before)
-
-	if len(ret) == 0 {
-		panic("no return value specified for HasEntriesBefore")
-	}
-
-	var r0 bool
-	var r1 error
-	if returnFunc, ok := ret.Get(0).(func(context.Context, time.Time) (bool, error)); ok {
-		return returnFunc(ctx, before)
-	}
-	if returnFunc, ok := ret.Get(0).(func(context.Context, time.Time) bool); ok {
-		r0 = returnFunc(ctx, before)
-	} else {
-		r0 = ret.Get(0).(bool)
-	}
-	if returnFunc, ok := ret.Get(1).(func(context.Context, time.Time) error); ok {
-		r1 = returnFunc(ctx, before)
-	} else {
-		r1 = ret.Error(1)
-	}
-	return r0, r1
-}
-
-// MockHistoryRepository_HasEntriesBefore_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'HasEntriesBefore'
-type MockHistoryRepository_HasEntriesBefore_Call struct {
-	*mock.Call
-}
-
-// HasEntriesBefore is a helper method to define mock.On call
-//   - ctx context.Context
-//   - before time.Time
-func (_e *MockHistoryRepository_Expecter) HasEntriesBefore(ctx any, before any) *MockHistoryRepository_HasEntriesBefore_Call {
-	return &MockHistoryRepository_HasEntriesBefore_Call{Call: _e.mock.On("HasEntriesBefore", ctx, before)}
-}
-
-func (_c *MockHistoryRepository_HasEntriesBefore_Call) Run(run func(ctx context.Context, before time.Time)) *MockHistoryRepository_HasEntriesBefore_Call {
-	_c.Call.Run(func(args mock.Arguments) {
-		var arg0 context.Context
-		if args[0] != nil {
-			arg0 = args[0].(context.Context)
-		}
-		var arg1 time.Time
-		if args[1] != nil {
-			arg1 = args[1].(time.Time)
-		}
-		run(
-			arg0,
-			arg1,
-		)
-	})
-	return _c
-}
-
-func (_c *MockHistoryRepository_HasEntriesBefore_Call) Return(b bool, err error) *MockHistoryRepository_HasEntriesBefore_Call {
-	_c.Call.Return(b, err)
-	return _c
-}
-
-func (_c *MockHistoryRepository_HasEntriesBefore_Call) RunAndReturn(run func(ctx context.Context, before time.Time) (bool, error)) *MockHistoryRepository_HasEntriesBefore_Call {
-	_c.Call.Return(run)
-	return _c
-}
-
-// HasEntriesByDomainBefore provides a mock function for the type MockHistoryRepository
-func (_mock *MockHistoryRepository) HasEntriesByDomainBefore(ctx context.Context, domain string, before time.Time) (bool, error) {
-	ret := _mock.Called(ctx, domain, before)
-
-	if len(ret) == 0 {
-		panic("no return value specified for HasEntriesByDomainBefore")
-	}
-
-	var r0 bool
-	var r1 error
-	if returnFunc, ok := ret.Get(0).(func(context.Context, string, time.Time) (bool, error)); ok {
-		return returnFunc(ctx, domain, before)
-	}
-	if returnFunc, ok := ret.Get(0).(func(context.Context, string, time.Time) bool); ok {
-		r0 = returnFunc(ctx, domain, before)
-	} else {
-		r0 = ret.Get(0).(bool)
-	}
-	if returnFunc, ok := ret.Get(1).(func(context.Context, string, time.Time) error); ok {
-		r1 = returnFunc(ctx, domain, before)
-	} else {
-		r1 = ret.Error(1)
-	}
-	return r0, r1
-}
-
-// MockHistoryRepository_HasEntriesByDomainBefore_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'HasEntriesByDomainBefore'
-type MockHistoryRepository_HasEntriesByDomainBefore_Call struct {
-	*mock.Call
-}
-
-// HasEntriesByDomainBefore is a helper method to define mock.On call
-//   - ctx context.Context
-//   - domain string
-//   - before time.Time
-func (_e *MockHistoryRepository_Expecter) HasEntriesByDomainBefore(ctx any, domain any, before any) *MockHistoryRepository_HasEntriesByDomainBefore_Call {
-	return &MockHistoryRepository_HasEntriesByDomainBefore_Call{Call: _e.mock.On("HasEntriesByDomainBefore", ctx, domain, before)}
-}
-
-func (_c *MockHistoryRepository_HasEntriesByDomainBefore_Call) Run(run func(ctx context.Context, domain string, before time.Time)) *MockHistoryRepository_HasEntriesByDomainBefore_Call {
-	_c.Call.Run(func(args mock.Arguments) {
-		var arg0 context.Context
-		if args[0] != nil {
-			arg0 = args[0].(context.Context)
-		}
-		var arg1 string
-		if args[1] != nil {
-			arg1 = args[1].(string)
-		}
-		var arg2 time.Time
-		if args[2] != nil {
-			arg2 = args[2].(time.Time)
-		}
-		run(
-			arg0,
-			arg1,
-			arg2,
-		)
-	})
-	return _c
-}
-
-func (_c *MockHistoryRepository_HasEntriesByDomainBefore_Call) Return(b bool, err error) *MockHistoryRepository_HasEntriesByDomainBefore_Call {
-	_c.Call.Return(b, err)
-	return _c
-}
-
-func (_c *MockHistoryRepository_HasEntriesByDomainBefore_Call) RunAndReturn(run func(ctx context.Context, domain string, before time.Time) (bool, error)) *MockHistoryRepository_HasEntriesByDomainBefore_Call {
 	_c.Call.Return(run)
 	return _c
 }

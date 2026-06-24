@@ -604,8 +604,8 @@ func (_c *MockHomepageHistory_GetRecentByDomain_Call) RunAndReturn(run func(ctx 
 }
 
 // GetRecentWindow provides a mock function for the type MockHomepageHistory
-func (_mock *MockHomepageHistory) GetRecentWindow(ctx context.Context, before time.Time, domain string) (*entity.HistoryWindow, error) {
-	ret := _mock.Called(ctx, before, domain)
+func (_mock *MockHomepageHistory) GetRecentWindow(ctx context.Context, before time.Time, beforeID int64, domain string) (*entity.HistoryWindow, error) {
+	ret := _mock.Called(ctx, before, beforeID, domain)
 
 	if len(ret) == 0 {
 		panic("no return value specified for GetRecentWindow")
@@ -613,18 +613,18 @@ func (_mock *MockHomepageHistory) GetRecentWindow(ctx context.Context, before ti
 
 	var r0 *entity.HistoryWindow
 	var r1 error
-	if returnFunc, ok := ret.Get(0).(func(context.Context, time.Time, string) (*entity.HistoryWindow, error)); ok {
-		return returnFunc(ctx, before, domain)
+	if returnFunc, ok := ret.Get(0).(func(context.Context, time.Time, int64, string) (*entity.HistoryWindow, error)); ok {
+		return returnFunc(ctx, before, beforeID, domain)
 	}
-	if returnFunc, ok := ret.Get(0).(func(context.Context, time.Time, string) *entity.HistoryWindow); ok {
-		r0 = returnFunc(ctx, before, domain)
+	if returnFunc, ok := ret.Get(0).(func(context.Context, time.Time, int64, string) *entity.HistoryWindow); ok {
+		r0 = returnFunc(ctx, before, beforeID, domain)
 	} else {
 		if ret.Get(0) != nil {
 			r0 = ret.Get(0).(*entity.HistoryWindow)
 		}
 	}
-	if returnFunc, ok := ret.Get(1).(func(context.Context, time.Time, string) error); ok {
-		r1 = returnFunc(ctx, before, domain)
+	if returnFunc, ok := ret.Get(1).(func(context.Context, time.Time, int64, string) error); ok {
+		r1 = returnFunc(ctx, before, beforeID, domain)
 	} else {
 		r1 = ret.Error(1)
 	}
@@ -639,12 +639,13 @@ type MockHomepageHistory_GetRecentWindow_Call struct {
 // GetRecentWindow is a helper method to define mock.On call
 //   - ctx context.Context
 //   - before time.Time
+//   - beforeID int64
 //   - domain string
-func (_e *MockHomepageHistory_Expecter) GetRecentWindow(ctx any, before any, domain any) *MockHomepageHistory_GetRecentWindow_Call {
-	return &MockHomepageHistory_GetRecentWindow_Call{Call: _e.mock.On("GetRecentWindow", ctx, before, domain)}
+func (_e *MockHomepageHistory_Expecter) GetRecentWindow(ctx any, before any, beforeID any, domain any) *MockHomepageHistory_GetRecentWindow_Call {
+	return &MockHomepageHistory_GetRecentWindow_Call{Call: _e.mock.On("GetRecentWindow", ctx, before, beforeID, domain)}
 }
 
-func (_c *MockHomepageHistory_GetRecentWindow_Call) Run(run func(ctx context.Context, before time.Time, domain string)) *MockHomepageHistory_GetRecentWindow_Call {
+func (_c *MockHomepageHistory_GetRecentWindow_Call) Run(run func(ctx context.Context, before time.Time, beforeID int64, domain string)) *MockHomepageHistory_GetRecentWindow_Call {
 	_c.Call.Run(func(args mock.Arguments) {
 		var arg0 context.Context
 		if args[0] != nil {
@@ -654,14 +655,19 @@ func (_c *MockHomepageHistory_GetRecentWindow_Call) Run(run func(ctx context.Con
 		if args[1] != nil {
 			arg1 = args[1].(time.Time)
 		}
-		var arg2 string
+		var arg2 int64
 		if args[2] != nil {
-			arg2 = args[2].(string)
+			arg2 = args[2].(int64)
+		}
+		var arg3 string
+		if args[3] != nil {
+			arg3 = args[3].(string)
 		}
 		run(
 			arg0,
 			arg1,
 			arg2,
+			arg3,
 		)
 	})
 	return _c
@@ -672,7 +678,7 @@ func (_c *MockHomepageHistory_GetRecentWindow_Call) Return(historyWindow *entity
 	return _c
 }
 
-func (_c *MockHomepageHistory_GetRecentWindow_Call) RunAndReturn(run func(ctx context.Context, before time.Time, domain string) (*entity.HistoryWindow, error)) *MockHomepageHistory_GetRecentWindow_Call {
+func (_c *MockHomepageHistory_GetRecentWindow_Call) RunAndReturn(run func(ctx context.Context, before time.Time, beforeID int64, domain string) (*entity.HistoryWindow, error)) *MockHomepageHistory_GetRecentWindow_Call {
 	_c.Call.Return(run)
 	return _c
 }
