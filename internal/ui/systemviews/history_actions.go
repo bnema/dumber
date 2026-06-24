@@ -6,6 +6,9 @@ import (
 	"strconv"
 	"strings"
 	"time"
+
+	"github.com/bnema/dumber/internal/application/port"
+	"github.com/bnema/dumber/internal/domain/entity"
 )
 
 const (
@@ -167,38 +170,23 @@ func (a *App) handleHistoryAction(ctx context.Context, event DOMAction) error {
 	return nil
 }
 
+type historyLoadMoreRequest struct {
+	before   time.Time
+	beforeID int64
+	domain   string
+	history  port.SystemviewHistoryService
+	dom      DOM
+}
+
 func (a *App) handleHistoryLoadMore(ctx context.Context, event DOMAction) error {
 	a.lockState()
-	if a.deps.History == nil {
-		a.unlockState()
-		return fmt.Errorf("history service not configured")
-	}
-	if strings.TrimSpace(a.historyQuery) != "" || !a.historyHasMore {
-		a.unlockState()
-		return nil
-	}
-	before := a.historyWindowAfter
-	if requested := strings.TrimSpace(event.Data["before"]); requested != "" {
-		parsed, err := time.Parse(time.RFC3339Nano, requested)
-		if err != nil {
-			a.unlockState()
-			return fmt.Errorf("invalid history cursor")
-		}
-		if !before.IsZero() && !parsed.Equal(before) {
-			a.unlockState()
-			return nil
-		}
-		before = parsed
-	}
-	if before.IsZero() {
-		before = time.Now()
-	}
-	domain := a.historyDomainFilter
-	history := a.deps.History
-	dom := a.deps.DOM
+	req, ok, err := a.historyLoadMoreRequestLocked(event)
 	a.unlockState()
+	if err != nil || !ok {
+		return err
+	}
 
-	window, err := history.TimelineWindow(ctx, before, domain)
+	window, err := req.history.TimelineWindow(ctx, req.before, req.beforeID, req.domain)
 	if err != nil {
 		return err
 	}
@@ -210,11 +198,56 @@ func (a *App) handleHistoryLoadMore(ctx context.Context, event DOMAction) error 
 	}
 
 	a.lockState()
+	fragment, fallbackHTML := a.appendHistoryWindowLocked(window, req.dom)
+	a.unlockState()
+
+	if appender, ok := req.dom.(DOMHistoryTimelineAppender); ok {
+		return appender.AppendHistoryTimeline(fragment)
+	}
+	return a.mountHTML(fallbackHTML)
+}
+
+func (a *App) historyLoadMoreRequestLocked(event DOMAction) (historyLoadMoreRequest, bool, error) {
+	if a.deps.History == nil {
+		return historyLoadMoreRequest{}, false, fmt.Errorf("history service not configured")
+	}
+	if strings.TrimSpace(a.historyQuery) != "" || !a.historyHasMore {
+		return historyLoadMoreRequest{}, false, nil
+	}
+
+	before := a.historyWindowAfter
+	beforeID := a.historyCursorID
+	if requested := strings.TrimSpace(event.Data["before"]); requested != "" {
+		parsed, err := time.Parse(time.RFC3339Nano, requested)
+		if err != nil {
+			return historyLoadMoreRequest{}, false, fmt.Errorf("invalid history cursor")
+		}
+		if !before.IsZero() && !parsed.Equal(before) {
+			return historyLoadMoreRequest{}, false, nil
+		}
+		before = parsed
+	}
+	if before.IsZero() || beforeID <= 0 {
+		a.historyWindowAfter = time.Time{}
+		a.historyCursorID = 0
+		a.historyHasMore = false
+		return historyLoadMoreRequest{}, false, nil
+	}
+
+	return historyLoadMoreRequest{
+		before:   before,
+		beforeID: beforeID,
+		domain:   a.historyDomainFilter,
+		history:  a.deps.History,
+		dom:      a.deps.DOM,
+	}, true, nil
+}
+
+func (a *App) appendHistoryWindowLocked(window *entity.HistoryWindow, dom DOM) (string, string) {
 	appendSkipFirstDate := lastHistoryDateKey(a.historyEntries)
 	a.historyEntries = append(a.historyEntries, window.Entries...)
 	a.historyWindowBefore = window.Before
-	a.historyWindowAfter = window.After
-	a.historyHasMore = window.HasMore
+	a.historyWindowAfter, a.historyCursorID, a.historyHasMore = historyWindowCursor(window)
 	data := historyRenderData{
 		Entries:             window.Entries,
 		Stats:               a.historyStats,
@@ -231,32 +264,28 @@ func (a *App) handleHistoryLoadMore(ctx context.Context, event DOMAction) error 
 		Error:               a.historyError,
 	}
 	fragment := historyTimelineAppendHTML(data)
-	var fallbackHTML string
-	if _, ok := dom.(DOMHistoryTimelineAppender); !ok {
-		fullData := data
-		fullData.Entries = a.historyEntries
-		title := historyDocumentTitle(fullData)
-		a.renderedHTML = renderAppFrame(renderedPage{
-			route:          RouteHistory,
-			title:          title,
-			subtitle:       "History",
-			subtitleDetail: historyTitleDetail(fullData),
-			body:           historyHTML(fullData),
-		}, a.shellTheme)
-		fallbackHTML = a.renderedHTML
+	if _, ok := dom.(DOMHistoryTimelineAppender); ok {
+		return fragment, ""
 	}
-	a.unlockState()
 
-	if appender, ok := dom.(DOMHistoryTimelineAppender); ok {
-		return appender.AppendHistoryTimeline(fragment)
-	}
-	return a.mountHTML(fallbackHTML)
+	fullData := data
+	fullData.Entries = a.historyEntries
+	title := historyDocumentTitle(fullData)
+	a.renderedHTML = renderAppFrame(renderedPage{
+		route:          RouteHistory,
+		title:          title,
+		subtitle:       "History",
+		subtitleDetail: historyTitleDetail(fullData),
+		body:           historyHTML(fullData),
+	}, a.shellTheme)
+	return fragment, a.renderedHTML
 }
 
 func (a *App) resetHistoryWindowState() {
 	a.historyOffset = 0
 	a.historyWindowBefore = time.Time{}
 	a.historyWindowAfter = time.Time{}
+	a.historyCursorID = 0
 	a.historyHasMore = false
 }
 

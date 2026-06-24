@@ -2,6 +2,7 @@ package sqlite_test
 
 import (
 	"context"
+	"fmt"
 	"path/filepath"
 	"testing"
 	"time"
@@ -889,4 +890,50 @@ func TestHistoryRepository_DomainColumnPowersFilteringStatsAndDelete(t *testing.
 	require.NoError(t, err)
 	require.Len(t, remaining, 1)
 	assert.Equal(t, "https://other.test", remaining[0].URL)
+}
+func TestHistoryRepository_GetRecentWindow_StableCursorWithTimestampTies(t *testing.T) {
+	ctx := historyTestCtx()
+	dbPath := filepath.Join(t.TempDir(), "dumber.db")
+
+	db, err := sqlite.NewConnection(ctx, dbPath)
+	require.NoError(t, err)
+	t.Cleanup(func() { _ = db.Close() })
+
+	repo := sqlite.NewHistoryRepository(db)
+	tied := time.Date(2026, 6, 24, 10, 0, 0, 0, time.UTC)
+	older := tied.Add(-time.Hour)
+	for i := 1; i <= 5; i++ {
+		_, err = db.ExecContext(ctx, `INSERT INTO history (url, title, domain, last_visited, created_at) VALUES (?, ?, ?, ?, ?)`,
+			fmt.Sprintf("https://example.com/%d", i), fmt.Sprintf("Entry %d", i), "example.com", tied, tied)
+		require.NoError(t, err)
+	}
+	_, err = db.ExecContext(ctx, `INSERT INTO history (url, title, domain, last_visited, created_at) VALUES (?, ?, ?, ?, ?)`,
+		"https://example.com/older", "Older", "example.com", older, older)
+	require.NoError(t, err)
+
+	page1, err := repo.GetRecentWindow(ctx, tied.Add(time.Second), 0, 3)
+	require.NoError(t, err)
+	require.Len(t, page1, 3)
+	assert.Equal(t, []int64{5, 4, 3}, historyIDs(page1))
+
+	page2, err := repo.GetRecentWindow(ctx, page1[len(page1)-1].LastVisited, page1[len(page1)-1].ID, 3)
+	require.NoError(t, err)
+	require.Len(t, page2, 3)
+	assert.Equal(t, []int64{2, 1, 6}, historyIDs(page2))
+
+	seen := map[int64]bool{}
+	for _, entry := range append(page1, page2...) {
+		if seen[entry.ID] {
+			t.Fatalf("duplicate history id %d", entry.ID)
+		}
+		seen[entry.ID] = true
+	}
+}
+
+func historyIDs(entries []*entity.HistoryEntry) []int64 {
+	ids := make([]int64, len(entries))
+	for i, entry := range entries {
+		ids[i] = entry.ID
+	}
+	return ids
 }

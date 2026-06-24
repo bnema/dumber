@@ -68,11 +68,54 @@ func TestSearchHistoryUseCase_GetRecentWindow_InvalidDomainReturnsValidationErro
 	historyRepo := repomocks.NewMockHistoryRepository(t)
 	uc := usecase.NewSearchHistoryUseCase(historyRepo)
 
-	result, err := uc.GetRecentWindow(ctx, time.Now(), "///")
+	result, err := uc.GetRecentWindow(ctx, time.Time{}, 0, "///")
 
 	require.Error(t, err)
 	assert.Nil(t, result)
 	assert.Contains(t, err.Error(), "domain is required")
+}
+
+func TestSearchHistoryUseCase_GetRecentWindow_RejectsInvalidCursorPairs(t *testing.T) {
+	ctx := testContext()
+	historyRepo := repomocks.NewMockHistoryRepository(t)
+	uc := usecase.NewSearchHistoryUseCase(historyRepo)
+
+	result, err := uc.GetRecentWindow(ctx, time.Time{}, 42, "")
+	require.Error(t, err)
+	assert.Nil(t, result)
+	assert.Contains(t, err.Error(), "before and beforeID")
+
+	result, err = uc.GetRecentWindow(ctx, time.Now(), 0, "")
+	require.Error(t, err)
+	assert.Nil(t, result)
+	assert.Contains(t, err.Error(), "before and beforeID")
+
+	result, err = uc.GetRecentWindow(ctx, time.Now(), -1, "")
+	require.Error(t, err)
+	assert.Nil(t, result)
+	assert.Contains(t, err.Error(), "beforeID must be non-negative")
+}
+
+func TestSearchHistoryUseCase_GetRecentWindow_UsesLimitPlusOneForHasMoreAndCursor(t *testing.T) {
+	ctx := testContext()
+	before := time.Date(2026, 6, 24, 12, 0, 0, 0, time.UTC)
+	entries := make([]*entity.HistoryEntry, 101)
+	for i := range entries {
+		entries[i] = &entity.HistoryEntry{ID: int64(200 - i), URL: "https://example.com", LastVisited: before.Add(-time.Duration(i) * time.Minute)}
+	}
+	historyRepo := repomocks.NewMockHistoryRepository(t)
+	historyRepo.EXPECT().GetRecentWindow(mock.Anything, before, int64(999), 101).Return(entries, nil).Once()
+	uc := usecase.NewSearchHistoryUseCase(historyRepo)
+
+	result, err := uc.GetRecentWindow(ctx, before, 999, "")
+
+	require.NoError(t, err)
+	require.NotNil(t, result)
+	assert.Len(t, result.Entries, 100)
+	assert.True(t, result.HasMore)
+	assert.Equal(t, entries[99].LastVisited.UTC(), result.CursorLastVisited)
+	assert.Equal(t, entries[99].ID, result.CursorID)
+	assert.Equal(t, before.Add(-24*time.Hour), result.After)
 }
 
 func TestSearchHistoryUseCase_GetRecentSince_ReturnsEntries(t *testing.T) {
