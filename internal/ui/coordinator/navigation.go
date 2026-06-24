@@ -22,6 +22,7 @@ type OmniboxProvider interface {
 type NavigationCoordinator struct {
 	contextProvider func() context.Context
 	navigateUC      *usecase.NavigateUseCase
+	historyRecorder *usecase.HistoryRecorderUseCase
 	contentCoord    *content.Coordinator
 	omniboxProvider OmniboxProvider
 }
@@ -34,6 +35,16 @@ func NewNavigationCoordinator(
 	navigateUC *usecase.NavigateUseCase,
 	contentCoord *content.Coordinator,
 ) *NavigationCoordinator {
+	return NewNavigationCoordinatorWithHistoryRecorder(ctx, navigateUC, nil, contentCoord)
+}
+
+// NewNavigationCoordinatorWithHistoryRecorder creates a new NavigationCoordinator with history recording.
+func NewNavigationCoordinatorWithHistoryRecorder(
+	ctx context.Context,
+	navigateUC *usecase.NavigateUseCase,
+	historyRecorder *usecase.HistoryRecorderUseCase,
+	contentCoord *content.Coordinator,
+) *NavigationCoordinator {
 	log := logging.FromContext(ctx)
 	log.Debug().Msg("creating navigation coordinator")
 	callbackLogger := *log
@@ -42,8 +53,9 @@ func NewNavigationCoordinator(
 		contextProvider: func() context.Context {
 			return logging.WithContext(context.Background(), callbackLogger)
 		},
-		navigateUC:   navigateUC,
-		contentCoord: contentCoord,
+		navigateUC:      navigateUC,
+		historyRecorder: historyRecorder,
+		contentCoord:    contentCoord,
 	}
 }
 
@@ -239,28 +251,28 @@ func (c *NavigationCoordinator) PrintWebView(ctx context.Context, wv port.WebVie
 
 // UpdateHistoryTitle updates the title of a history entry after page load.
 func (c *NavigationCoordinator) UpdateHistoryTitle(ctx context.Context, paneID entity.PaneID, url, title string) {
-	if c.navigateUC == nil {
+	if c.historyRecorder == nil {
 		return
 	}
 
-	c.navigateUC.UpdateHistoryTitle(ctx, url, title)
+	c.historyRecorder.UpdateHistoryTitle(ctx, url, title)
 }
 
 // RecordHistory records a URL in history on page commit.
 func (c *NavigationCoordinator) RecordHistory(ctx context.Context, paneID entity.PaneID, url string) {
-	if c.navigateUC == nil {
+	if c.historyRecorder == nil {
 		return
 	}
 
-	c.navigateUC.RecordHistory(ctx, string(paneID), url)
+	c.historyRecorder.RecordHistory(ctx, string(paneID), url)
 }
 
 // ClearPaneHistory clears per-pane navigation history deduplication state.
 func (c *NavigationCoordinator) ClearPaneHistory(paneID entity.PaneID) {
-	if c.navigateUC == nil {
+	if c.historyRecorder == nil {
 		return
 	}
-	c.navigateUC.ClearPaneHistory(string(paneID))
+	c.historyRecorder.ClearPaneHistory(string(paneID))
 }
 
 // NotifyZoomChanged updates the omnibox zoom indicator.

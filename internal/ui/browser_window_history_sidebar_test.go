@@ -4,9 +4,11 @@ import (
 	"context"
 	"testing"
 
+	"github.com/bnema/dumber/internal/application/dto"
 	"github.com/bnema/dumber/internal/application/usecase"
 	"github.com/bnema/dumber/internal/domain/entity"
 	"github.com/bnema/dumber/internal/infrastructure/config"
+	"github.com/bnema/dumber/internal/shared/syncdispatch"
 	"github.com/bnema/dumber/internal/ui/component"
 	"github.com/bnema/dumber/internal/ui/coordinator"
 	contentcoord "github.com/bnema/dumber/internal/ui/coordinator/content"
@@ -888,4 +890,88 @@ func TestBrowserWindow_ApplySidebarWidthConfig_NilDepsIsSafe(t *testing.T) {
 	bw := &browserWindow{mainWindow: mw}
 	app := &App{deps: nil}
 	require.NotPanics(t, func() { bw.applySidebarWidthConfig(app) })
+}
+
+type recordingHistorySidebarReloader struct {
+	calls   int
+	reasons []string
+}
+
+func (r *recordingHistorySidebarReloader) RequestReloadIfVisible(reason string) {
+	r.calls++
+	r.reasons = append(r.reasons, reason)
+}
+
+func TestBrowserWindow_ClearShellStateClearsHistorySidebarReloader(t *testing.T) {
+	reloader := &recordingHistorySidebarReloader{}
+	bw := &browserWindow{
+		historySidebar:         &component.HistorySidebar{},
+		historySidebarReloader: reloader,
+	}
+
+	bw.clearShellState()
+
+	assert.Nil(t, bw.historySidebar)
+	assert.Nil(t, bw.historySidebarReloader)
+}
+
+func TestHistoryChangeAdapter_DispatchesBeforeRefreshingSidebars(t *testing.T) {
+	reloader := &recordingHistorySidebarReloader{}
+	bw := &browserWindow{id: "window-1", sidebarVisible: true, historySidebarReloader: reloader}
+	var dispatched bool
+	var directCalls int
+	app := &App{
+		browserWindows: map[string]*browserWindow{bw.id: bw},
+		dispatchOnMainThread: func(label string, fn func()) syncdispatch.SyncDispatchResult {
+			dispatched = true
+			assert.Equal(t, "ui.history_sidebar_refresh", label)
+			assert.Zero(t, reloader.calls, "sidebar must not be touched before main-thread dispatch runs")
+			directCalls = reloader.calls
+			fn()
+			return syncdispatch.SyncDispatchResult{Label: label, Status: syncdispatch.SyncDispatchCompleted}
+		},
+	}
+
+	newHistoryChangeAdapter(app).OnHistoryChanged(t.Context(), dto.HistoryChange{Reasons: []dto.HistoryChangeReason{dto.HistoryChangeReasonVisit}})
+
+	assert.True(t, dispatched)
+	assert.Zero(t, directCalls)
+	assert.Equal(t, 1, reloader.calls)
+	assert.Equal(t, []string{"visit"}, reloader.reasons)
+}
+
+func TestHistoryChangeAdapter_SkipsRefreshWithoutDispatcher(t *testing.T) {
+	reloader := &recordingHistorySidebarReloader{}
+	bw := &browserWindow{id: "window-1", sidebarVisible: true, historySidebarReloader: reloader}
+	app := &App{browserWindows: map[string]*browserWindow{bw.id: bw}}
+
+	newHistoryChangeAdapter(app).OnHistoryChanged(
+		t.Context(),
+		dto.HistoryChange{Reasons: []dto.HistoryChangeReason{dto.HistoryChangeReasonVisit}},
+	)
+
+	assert.Zero(t, reloader.calls)
+}
+
+func TestApp_RefreshVisibleHistorySidebars_OnlyVisibleInitializedWindows(t *testing.T) {
+	visibleOne := &recordingHistorySidebarReloader{}
+	visibleTwo := &recordingHistorySidebarReloader{}
+	hidden := &recordingHistorySidebarReloader{}
+	app := &App{browserWindows: map[string]*browserWindow{
+		"visible-1":       {id: "visible-1", sidebarVisible: true, historySidebarReloader: visibleOne},
+		"hidden":          {id: "hidden", sidebarVisible: false, historySidebarReloader: hidden},
+		"uninitialized":   {id: "uninitialized", sidebarVisible: true},
+		"visible-2":       {id: "visible-2", sidebarVisible: true, historySidebarReloader: visibleTwo},
+		"destroyed-no-op": nil,
+	}}
+
+	require.NotPanics(t, func() {
+		app.refreshVisibleHistorySidebars(dto.HistoryChange{Reasons: []dto.HistoryChangeReason{dto.HistoryChangeReasonClear}})
+	})
+
+	assert.Equal(t, 1, visibleOne.calls)
+	assert.Equal(t, 1, visibleTwo.calls)
+	assert.Zero(t, hidden.calls)
+	assert.Equal(t, []string{"clear"}, visibleOne.reasons)
+	assert.Equal(t, []string{"clear"}, visibleTwo.reasons)
 }

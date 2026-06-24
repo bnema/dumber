@@ -259,6 +259,7 @@ func runGUI(cfg *config.Config) int {
 	engine.SetHandlerContext(ctx)
 
 	useCases := createUseCases(repos, cfg)
+	defer useCases.Close()
 	if needsEagerDB {
 		handleAutoRestore(ctx, cfg, useCases, browserSession.Session.ID)
 	}
@@ -322,6 +323,7 @@ func runStandaloneOmnibox() int {
 	}
 
 	useCases := createUseCases(repos, cfg)
+	defer useCases.Close()
 	uiDeps, err := buildUIDependencies(
 		ctx,
 		cfg,
@@ -728,21 +730,29 @@ func createLazyRepositories(provider port.DatabaseProvider) *repositories {
 
 // useCases groups application layer use case implementations.
 type useCases struct {
-	tabs           *usecase.ManageTabsUseCase
-	panes          *usecase.ManagePanesUseCase
-	history        *usecase.SearchHistoryUseCase
-	favorites      *usecase.ManageFavoritesUseCase
-	zoom           *usecase.ManageZoomUseCase
-	permission     *usecase.HandlePermissionUseCase
-	navigate       *usecase.NavigateUseCase
-	copyURL        *usecase.CopyURLUseCase
-	snapshot       *usecase.SnapshotSessionUseCase
-	lastRestorable *usecase.GetLastRestorableSessionUseCase
-	checkUpdate    *usecase.CheckUpdateUseCase
-	applyUpdate    *usecase.ApplyUpdateUseCase
-	clipboard      port.Clipboard
-	favicon        *infrafavicon.Service
-	faviconUC      *usecase.FaviconUseCase
+	tabs            *usecase.ManageTabsUseCase
+	panes           *usecase.ManagePanesUseCase
+	history         *usecase.SearchHistoryUseCase
+	favorites       *usecase.ManageFavoritesUseCase
+	zoom            *usecase.ManageZoomUseCase
+	permission      *usecase.HandlePermissionUseCase
+	navigate        *usecase.NavigateUseCase
+	historyRecorder *usecase.HistoryRecorderUseCase
+	copyURL         *usecase.CopyURLUseCase
+	snapshot        *usecase.SnapshotSessionUseCase
+	lastRestorable  *usecase.GetLastRestorableSessionUseCase
+	checkUpdate     *usecase.CheckUpdateUseCase
+	applyUpdate     *usecase.ApplyUpdateUseCase
+	clipboard       port.Clipboard
+	favicon         *infrafavicon.Service
+	faviconUC       *usecase.FaviconUseCase
+}
+
+func (uc *useCases) Close() {
+	if uc == nil || uc.historyRecorder == nil {
+		return
+	}
+	uc.historyRecorder.Close()
 }
 
 func createUseCases(repos *repositories, cfg *config.Config) *useCases {
@@ -783,23 +793,29 @@ func createUseCases(repos *repositories, cfg *config.Config) *useCases {
 
 	// Permission use case will be initialized later with dialog presenter
 	permissionUC := usecase.NewHandlePermissionUseCase(repos.permission, nil, logging.FromContext)
+	historyUC := usecase.NewSearchHistoryUseCase(repos.history)
+	historyRecorderUC := usecase.NewHistoryRecorderUseCase(repos.history, nil)
+	// App setup passes HistoryRecorderUC into NavigationCoordinatorWithHistoryRecorder
+	// so LoadCommitted callbacks record history through NavigationCoordinator.RecordHistory.
+	historyUC.SetHistoryMutationCoordinator(historyRecorderUC)
 
 	return &useCases{
-		tabs:           usecase.NewManageTabsUseCase(idGenerator),
-		panes:          usecase.NewManagePanesUseCase(idGenerator),
-		history:        usecase.NewSearchHistoryUseCase(repos.history),
-		favorites:      usecase.NewManageFavoritesUseCase(repos.favorite, repos.folder, repos.tag),
-		zoom:           usecase.NewManageZoomUseCase(repos.zoom, defaultZoom, zoomCache),
-		permission:     permissionUC,
-		navigate:       usecase.NewNavigateUseCase(repos.history, repos.zoom, defaultZoom),
-		copyURL:        usecase.NewCopyURLUseCase(clipboardAdapter),
-		snapshot:       usecase.NewSnapshotSessionUseCase(repos.sessionState),
-		lastRestorable: usecase.NewGetLastRestorableSessionUseCase(repos.session, repos.sessionState),
-		checkUpdate:    usecase.NewCheckUpdateUseCase(updateChecker, updateApplier, buildInfo),
-		applyUpdate:    usecase.NewApplyUpdateUseCase(updateDownloader, updateApplier, xdgDirs.CacheHome),
-		clipboard:      clipboardAdapter,
-		favicon:        faviconService,
-		faviconUC:      faviconUC,
+		tabs:            usecase.NewManageTabsUseCase(idGenerator),
+		panes:           usecase.NewManagePanesUseCase(idGenerator),
+		history:         historyUC,
+		favorites:       usecase.NewManageFavoritesUseCase(repos.favorite, repos.folder, repos.tag),
+		zoom:            usecase.NewManageZoomUseCase(repos.zoom, defaultZoom, zoomCache),
+		permission:      permissionUC,
+		navigate:        usecase.NewNavigateUseCase(defaultZoom),
+		historyRecorder: historyRecorderUC,
+		copyURL:         usecase.NewCopyURLUseCase(clipboardAdapter),
+		snapshot:        usecase.NewSnapshotSessionUseCase(repos.sessionState),
+		lastRestorable:  usecase.NewGetLastRestorableSessionUseCase(repos.session, repos.sessionState),
+		checkUpdate:     usecase.NewCheckUpdateUseCase(updateChecker, updateApplier, buildInfo),
+		applyUpdate:     usecase.NewApplyUpdateUseCase(updateDownloader, updateApplier, xdgDirs.CacheHome),
+		clipboard:       clipboardAdapter,
+		favicon:         faviconService,
+		faviconUC:       faviconUC,
 	}
 }
 
@@ -896,6 +912,7 @@ func buildUIDependencies(
 		ZoomUC:                    uc.zoom,
 		PermissionUC:              uc.permission,
 		NavigateUC:                uc.navigate,
+		HistoryRecorderUC:         uc.historyRecorder,
 		CopyURLUC:                 uc.copyURL,
 		Clipboard:                 uc.clipboard,
 		FaviconService:            legacyFaviconService(uc),

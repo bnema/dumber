@@ -14,61 +14,60 @@ import (
 // rebuildList clears and repopulates the list box from current groups.
 // Must be called on the GTK main thread. Preserves scroll and selection.
 func (hs *HistorySidebar) rebuildList() {
-	hs.mu.RLock()
+	hs.mu.Lock()
 	if hs.destroyed || hs.listBox == nil {
-		hs.mu.RUnlock()
+		hs.mu.Unlock()
 		return
 	}
-	rows := hs.displayRows
+	listBox := hs.listBox
+	rows := append([]historyDisplayRow(nil), hs.displayRows...)
 	query := hs.currentQuery
 	hasSearchResults := hs.searchResults != nil
 	searchDone := hs.searchDone
 	totalLoaded := hs.totalLoaded
-	hs.mu.RUnlock()
+	isLoading := hs.isLoading
+	hs.clearRelativeTimeBindingsLocked()
+	hs.mu.Unlock()
 
 	// Remove all rows
-	hs.listBox.RemoveAll()
+	listBox.RemoveAll()
 
 	if len(rows) == 0 {
 		if !hasSearchResults && totalLoaded == 0 {
 			// Browse has not loaded yet AND no search has completed.
-			hs.showLoadingOrEmpty(query, searchDone)
+			hs.showLoadingOrEmpty(listBox, query, searchDone, isLoading)
 			return
 		}
 		// Search completed with 0 results, or browse loaded but empty (no history).
-		hs.showEmptyState(query)
-		hs.restoreScrollAndSelection()
+		hs.showEmptyState(listBox, query)
+		hs.restoreScrollAndSelectionInListBox(listBox)
 		return
 	}
 
 	for _, row := range rows {
 		switch row.Kind {
 		case historyDisplayRowHeader:
-			hs.appendGroupHeader(row.Label)
+			hs.appendGroupHeader(listBox, row.Label)
 		case historyDisplayRowEntry:
-			hs.appendEntryRow(row.Entry)
+			hs.appendEntryRow(listBox, row.Entry)
 		}
 	}
 
-	hs.listBox.Show()
+	listBox.Show()
 
 	// Restore previous scroll position and selection
-	hs.restoreScrollAndSelection()
+	hs.restoreScrollAndSelectionInListBox(listBox)
 
 	// If no selection was restored and this is the first load, select first entry
-	hs.ensureAtLeastOneSelection()
+	hs.ensureAtLeastOneSelectionInListBox(listBox)
 }
 
-func (hs *HistorySidebar) showLoadingOrEmpty(query string, searchDone bool) {
+func (hs *HistorySidebar) showLoadingOrEmpty(listBox *gtk.ListBox, query string, searchDone, isLoading bool) {
 	label := gtk.NewLabel(nil)
 	if label == nil {
 		return
 	}
 	label.AddCssClass("history-sidebar-loading")
-
-	hs.mu.RLock()
-	isLoading := hs.isLoading
-	hs.mu.RUnlock()
 
 	switch {
 	case isLoading && query == "":
@@ -92,14 +91,14 @@ func (hs *HistorySidebar) showLoadingOrEmpty(query string, searchDone bool) {
 	row.SetCanFocus(false)
 	row.SetActivatable(false)
 	row.SetChild(&label.Widget)
-	hs.listBox.Append(&row.Widget)
+	listBox.Append(&row.Widget)
 }
 
 func noResultsText(query string) string {
 	return "No results for \"" + query + "\""
 }
 
-func (hs *HistorySidebar) showEmptyState(query string) {
+func (hs *HistorySidebar) showEmptyState(listBox *gtk.ListBox, query string) {
 	label := gtk.NewLabel(nil)
 	if label == nil {
 		return
@@ -123,11 +122,11 @@ func (hs *HistorySidebar) showEmptyState(query string) {
 	row.SetCanFocus(false)
 	row.SetActivatable(false)
 	row.SetChild(&label.Widget)
-	hs.listBox.Append(&row.Widget)
+	listBox.Append(&row.Widget)
 }
 
 // appendGroupHeader adds a non-selectable group header label to the list.
-func (hs *HistorySidebar) appendGroupHeader(labelText string) {
+func (hs *HistorySidebar) appendGroupHeader(listBox *gtk.ListBox, labelText string) {
 	label := gtk.NewLabel(&labelText)
 	if label == nil {
 		return
@@ -144,11 +143,11 @@ func (hs *HistorySidebar) appendGroupHeader(labelText string) {
 	row.SetCanFocus(false)
 	row.SetActivatable(false)
 	row.SetChild(&label.Widget)
-	hs.listBox.Append(&row.Widget)
+	listBox.Append(&row.Widget)
 }
 
 // appendEntryRow adds a selectable two-line entry row to the list.
-func (hs *HistorySidebar) appendEntryRow(entry *entity.HistoryEntry) {
+func (hs *HistorySidebar) appendEntryRow(listBox *gtk.ListBox, entry *entity.HistoryEntry) {
 	if entry == nil {
 		return
 	}
@@ -192,7 +191,7 @@ func (hs *HistorySidebar) appendEntryRow(entry *entity.HistoryEntry) {
 		return
 	}
 	timeLabel.AddCssClass("history-sidebar-row-time")
-	timeLabel.SetText(relativeTime(entry.LastVisited))
+	timeLabel.SetText(relativeTimeAt(entry.LastVisited, hs.currentTime()))
 	timeLabel.SetXalign(1.0)
 
 	subBox.Append(&urlLabel.Widget)
@@ -213,21 +212,22 @@ func (hs *HistorySidebar) appendEntryRow(entry *entity.HistoryEntry) {
 	row.SetFocusOnClick(true)
 	row.SetChild(&rowBox.Widget)
 
-	hs.listBox.Append(&row.Widget)
+	listBox.Append(&row.Widget)
+	hs.bindRelativeTimeLabel(timeLabel, entry.LastVisited)
 }
 
 // ensureAtLeastOneSelection selects the first selectable row if nothing is selected.
-func (hs *HistorySidebar) ensureAtLeastOneSelection() {
-	if hs.listBox.GetSelectedRow() != nil {
+func (hs *HistorySidebar) ensureAtLeastOneSelectionInListBox(listBox *gtk.ListBox) {
+	if listBox == nil || listBox.GetSelectedRow() != nil {
 		return
 	}
 	for i := 0; ; i++ {
-		row := hs.listBox.GetRowAtIndex(i)
+		row := listBox.GetRowAtIndex(i)
 		if row == nil {
 			break
 		}
 		if row.GetSelectable() {
-			hs.listBox.SelectRow(row)
+			listBox.SelectRow(row)
 			return
 		}
 	}
