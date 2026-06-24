@@ -23,7 +23,7 @@ jobs:
     outputs:
       ci: ${{ steps.filter.outputs.ci }}
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
         with:
           fetch-depth: 0
       - uses: dorny/paths-filter@v4
@@ -51,7 +51,7 @@ jobs:
         run: |
           pacman -Syu --noconfirm
           pacman -S --noconfirm git go webkitgtk-6.0 gtk4 gobject-introspection base-devel brotli
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
       - name: Allow git commands in container checkout
         run: git config --global --add safe.directory "$GITHUB_WORKSPACE"
       - name: Set up pinned Go toolchain
@@ -60,14 +60,14 @@ jobs:
           go-version-file: go.mod
           cache: false
       - name: Cache Go modules
-        uses: actions/cache@v5
+        uses: actions/cache@v6
         with:
           path: ~/go/pkg/mod
           key: ${{ runner.os }}-go-mod-${{ hashFiles('**/go.sum') }}
           restore-keys: |
             ${{ runner.os }}-go-mod-
       - name: Cache Go build cache
-        uses: actions/cache@v5
+        uses: actions/cache@v6
         with:
           path: ~/.cache/go-build
           key: ${{ runner.os }}-go-build-${{ hashFiles('**/go.sum') }}
@@ -95,21 +95,21 @@ jobs:
         run: |
           pacman -Syu --noconfirm
           pacman -S --noconfirm git go webkitgtk-6.0 gtk4 libadwaita gobject-introspection base-devel brotli dbus
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
       - name: Set up pinned Go toolchain
         uses: actions/setup-go@4a3601121dd01d1626a1e23e37211e3254c1c06c
         with:
           go-version-file: go.mod
           cache: false
       - name: Cache Go modules
-        uses: actions/cache@v5
+        uses: actions/cache@v6
         with:
           path: ~/go/pkg/mod
           key: ${{ runner.os }}-go-mod-${{ hashFiles('**/go.sum') }}
           restore-keys: |
             ${{ runner.os }}-go-mod-
       - name: Cache Go build cache
-        uses: actions/cache@v5
+        uses: actions/cache@v6
         with:
           path: ~/.cache/go-build
           key: ${{ runner.os }}-go-build-${{ hashFiles('**/go.sum') }}
