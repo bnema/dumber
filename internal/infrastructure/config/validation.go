@@ -32,6 +32,7 @@ func validateConfig(config *Config) error {
 	validationErrors = append(validationErrors, validateLogging(config)...)
 	validationErrors = append(validationErrors, validateWorkspaceNewPaneURL(config)...)
 	validationErrors = append(validationErrors, validateOmnibox(config)...)
+	validationErrors = append(validationErrors, validateEngine(config)...)
 	validationErrors = append(validationErrors, validateRendering(config)...)
 	validationErrors = append(validationErrors, validatePrivacy(config)...)
 	validationErrors = append(validationErrors, validateColorScheme(config)...)
@@ -508,6 +509,18 @@ func validateOmnibox(config *Config) []string {
 	return validationErrors
 }
 
+func validateEngine(config *Config) []string {
+	switch config.Engine.Type {
+	case "", EngineTypeCEF, EngineTypeWebKit:
+		return nil
+	default:
+		return []string{fmt.Sprintf(
+			"engine.type must be one of: cef, webkit (got: %s)",
+			config.Engine.Type,
+		)}
+	}
+}
+
 func validateRendering(config *Config) []string {
 	var validationErrors []string
 
@@ -521,6 +534,25 @@ func validateRendering(config *Config) []string {
 				config.Engine.WebKit.GSKRenderer,
 			),
 		)
+	}
+
+	switch config.Engine.WebKit.GLRenderingMode {
+	case GLRenderingModeAuto, GLRenderingModeGLES2, GLRenderingModeGL3, GLRenderingModeNone, "":
+	default:
+		validationErrors = append(
+			validationErrors,
+			fmt.Sprintf(
+				"engine.webkit.gl_rendering_mode must be one of: auto, gles2, gl3, none (got: %s)",
+				config.Engine.WebKit.GLRenderingMode,
+			),
+		)
+	}
+
+	if config.Engine.WebKit.GStreamerDebugLevel < 0 || config.Engine.WebKit.GStreamerDebugLevel > 5 {
+		validationErrors = append(validationErrors, fmt.Sprintf(
+			"engine.webkit.gstreamer_debug_level must be between 0 and 5 (got: %d)",
+			config.Engine.WebKit.GStreamerDebugLevel,
+		))
 	}
 
 	if config.Engine.WebKit.ForceCompositingMode && config.Engine.WebKit.DisableCompositingMode {
