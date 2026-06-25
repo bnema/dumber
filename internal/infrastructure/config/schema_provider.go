@@ -18,6 +18,7 @@ const (
 	SectionContentFiltering = "Content Filtering"
 	SectionRendering        = "Rendering"
 	SectionMedia            = "Media"
+	SectionPrivacy          = "Privacy"
 	SectionUpdate           = "Update"
 	SectionDmenu            = "Dmenu"
 	SectionDebug            = "Debug"
@@ -77,6 +78,9 @@ func (p *SchemaProvider) GetSchema() []entity.ConfigKeyInfo {
 
 	// Media section
 	keys = append(keys, p.getMediaKeys(defaults)...)
+
+	// Privacy section
+	keys = append(keys, p.getPrivacyKeys(defaults)...)
 
 	// Update section
 	keys = append(keys, p.getUpdateKeys(defaults)...)
@@ -269,6 +273,13 @@ func (*SchemaProvider) getLoggingKeys(defaults *Config) []entity.ConfigKeyInfo {
 			Type:        "bool",
 			Default:     fmt.Sprintf("%t", defaults.Logging.CaptureConsole),
 			Description: "Capture browser console messages to log",
+			Section:     SectionLogging,
+		},
+		{
+			Key:         "logging.capture_gtk_logs",
+			Type:        "bool",
+			Default:     fmt.Sprintf("%t", defaults.Logging.CaptureGTKLogs),
+			Description: "Capture GTK and GLib log messages",
 			Section:     SectionLogging,
 		},
 	}
@@ -777,6 +788,14 @@ func (*SchemaProvider) getClipboardKeys(defaults *Config) []entity.ConfigKeyInfo
 func (*SchemaProvider) getRenderingKeys(defaults *Config) []entity.ConfigKeyInfo {
 	return []entity.ConfigKeyInfo{
 		{
+			Key:         "engine.type",
+			Type:        "string",
+			Default:     defaults.Engine.Type,
+			Description: "Browser engine selection; CEF is the default and WebKitGTK is the fallback",
+			Values:      []string{"cef", "webkit"},
+			Section:     SectionRendering,
+		},
+		{
 			Key:         "engine.webkit.gsk_renderer",
 			Type:        "string",
 			Default:     string(defaults.Engine.WebKit.GSKRenderer),
@@ -873,6 +892,49 @@ func (*SchemaProvider) getMediaKeys(defaults *Config) []entity.ConfigKeyInfo {
 			Default:     fmt.Sprintf("%t", defaults.Media.ShowDiagnosticsOnStartup),
 			Description: "Show media capability warnings at startup",
 			Section:     SectionMedia,
+		},
+		{
+			Key:         "engine.webkit.force_vsync",
+			Type:        "bool",
+			Default:     fmt.Sprintf("%t", defaults.Engine.WebKit.ForceVSync),
+			Description: "Force VSync for WebKit fallback video playback",
+			Section:     SectionMedia,
+		},
+		{
+			Key:         "engine.webkit.gl_rendering_mode",
+			Type:        "string",
+			Default:     string(defaults.Engine.WebKit.GLRenderingMode),
+			Description: "WebKit fallback GStreamer/OpenGL API selection",
+			Values:      []string{"auto", "gles2", "gl3", "none"},
+			Section:     SectionMedia,
+		},
+		{
+			Key:         "engine.webkit.gstreamer_debug_level",
+			Type:        "int",
+			Default:     fmt.Sprintf("%d", defaults.Engine.WebKit.GStreamerDebugLevel),
+			Description: "WebKit fallback GStreamer debug verbosity",
+			Range:       "0-5",
+			Section:     SectionMedia,
+		},
+	}
+}
+
+func (*SchemaProvider) getPrivacyKeys(defaults *Config) []entity.ConfigKeyInfo {
+	return []entity.ConfigKeyInfo{
+		{
+			Key:         "engine.cookie_policy",
+			Type:        "string",
+			Default:     string(defaults.Engine.CookiePolicy),
+			Description: "Cookie acceptance policy",
+			Values:      []string{"always", "no_third_party", "never"},
+			Section:     SectionPrivacy,
+		},
+		{
+			Key:         "engine.webkit.itp_enabled",
+			Type:        "bool",
+			Default:     fmt.Sprintf("%t", defaults.Engine.WebKit.ITPEnabled),
+			Description: "Enable WebKit fallback Intelligent Tracking Prevention",
+			Section:     SectionPrivacy,
 		},
 	}
 }
