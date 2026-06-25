@@ -184,10 +184,10 @@ func (hs *HistorySidebar) preserveScrollAndSelection() {
 
 // restoreScrollAndSelection restores the previously saved scroll position and
 // selection after a rebuild. Called on the GTK main thread.
-func (hs *HistorySidebar) restoreScrollAndSelection() {
+func (hs *HistorySidebar) restoreScrollAndSelectionInListBox(listBox *gtk.ListBox) {
 	// Restore selection first (changes scroll position)
 	if hs.prevSelectedURL != "" {
-		hs.selectRowByURL(hs.prevSelectedURL)
+		hs.selectRowByURLInListBox(listBox, hs.prevSelectedURL)
 	}
 
 	// Then restore scroll position if we have one
@@ -232,12 +232,12 @@ func (hs *HistorySidebar) entryURLAtIndex(index int) string {
 }
 
 // selectRowByURL finds and selects a row whose URL matches.
-func (hs *HistorySidebar) selectRowByURL(url string) {
-	if url == "" || hs.listBox == nil {
+func (hs *HistorySidebar) selectRowByURLInListBox(listBox *gtk.ListBox, url string) {
+	if url == "" || listBox == nil {
 		return
 	}
 	for i := 0; ; i++ {
-		row := hs.listBox.GetRowAtIndex(i)
+		row := listBox.GetRowAtIndex(i)
 		if row == nil {
 			break
 		}
@@ -245,7 +245,7 @@ func (hs *HistorySidebar) selectRowByURL(url string) {
 			continue
 		}
 		if hs.getRowURL(row) == url {
-			hs.listBox.SelectRow(row)
+			listBox.SelectRow(row)
 			return
 		}
 	}
@@ -280,20 +280,20 @@ func (hs *HistorySidebar) onSearchChanged() {
 	hs.mu.Unlock()
 
 	if oldTimer != 0 {
-		glib.SourceRemove(oldTimer)
+		hs.removeSource(oldTimer)
 	}
 
 	filterCb := glib.SourceFunc(func(uintptr) bool {
 		hs.applyFilter()
 		return false
 	})
-	timerID := glib.TimeoutAdd(uint(sidebarSearchDebounceMs), &filterCb, 0)
+	timerID := hs.addTimeout(sidebarSearchDebounceMs, filterCb)
 
 	hs.mu.Lock()
 	if hs.destroyed {
 		hs.mu.Unlock()
 		if timerID != 0 {
-			glib.SourceRemove(timerID)
+			hs.removeSource(timerID)
 		}
 		return
 	}
@@ -419,6 +419,9 @@ func (hs *HistorySidebar) scheduleClearList() {
 		if destroyed || listBox == nil {
 			return false
 		}
+		hs.mu.Lock()
+		hs.clearRelativeTimeBindingsLocked()
+		hs.mu.Unlock()
 		listBox.RemoveAll()
 		return false
 	})

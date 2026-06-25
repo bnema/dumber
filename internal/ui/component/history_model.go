@@ -36,11 +36,14 @@ const (
 // "January 2, 2006" (other years). Within each group entries remain in
 // the order they arrived (assumed most-recent-first).
 func groupHistoryByDay(entries []*entity.HistoryEntry) []historyGroup {
+	return groupHistoryByDayAt(entries, time.Now())
+}
+
+func groupHistoryByDayAt(entries []*entity.HistoryEntry, now time.Time) []historyGroup {
 	if len(entries) == 0 {
 		return nil
 	}
 
-	now := time.Now()
 	local := now.Location()
 	todayStart := time.Date(now.Year(), now.Month(), now.Day(), 0, 0, 0, 0, local)
 
@@ -108,7 +111,10 @@ func readableURL(rawURL string) string {
 // relativeTime returns a compact relative time label for a timestamp.
 // Examples: "2m ago", "1h ago", "3d ago", "Jan 2".
 func relativeTime(t time.Time) string {
-	now := time.Now()
+	return relativeTimeAt(t, time.Now())
+}
+
+func relativeTimeAt(t, now time.Time) string {
 	d := now.Sub(t)
 
 	switch {

@@ -46,12 +46,12 @@ func TestGroupHistoryByDay_TodayYesterdayOlder(t *testing.T) {
 }
 
 func TestGroupHistoryByDay_SameDayEntriesGrouped(t *testing.T) {
-	now := time.Now()
+	now := time.Date(2026, time.June, 24, 12, 0, 0, 0, time.Local)
 	entries := []*entity.HistoryEntry{
 		{ID: 1, URL: "https://a.com", Title: "A", LastVisited: now},
 		{ID: 2, URL: "https://b.com", Title: "B", LastVisited: now.Add(-time.Hour)},
 	}
-	groups := groupHistoryByDay(entries)
+	groups := groupHistoryByDayAt(entries, now)
 	require.Len(t, groups, 1)
 	assert.Equal(t, "Today", groups[0].Label)
 	assert.Len(t, groups[0].Entries, 2)
@@ -106,13 +106,13 @@ func TestGroupHistoryByDay_CrossYearDifferentLabels(t *testing.T) {
 }
 
 func TestGroupHistoryByDay_MaintainsInputOrderWithinDay(t *testing.T) {
-	now := time.Now()
+	now := time.Date(2026, time.June, 24, 12, 0, 0, 0, time.Local)
 	entries := []*entity.HistoryEntry{
 		{ID: 1, URL: "https://first.com", Title: "First", LastVisited: now},
 		{ID: 2, URL: "https://second.com", Title: "Second", LastVisited: now.Add(-30 * time.Minute)},
 		{ID: 3, URL: "https://third.com", Title: "Third", LastVisited: now.Add(-2 * time.Hour)},
 	}
-	groups := groupHistoryByDay(entries)
+	groups := groupHistoryByDayAt(entries, now)
 	require.Len(t, groups, 1)
 	require.Len(t, groups[0].Entries, 3)
 	// Entries within the same day maintain input order

@@ -113,6 +113,8 @@ packages:
       EntryInputTarget: {}
       HomepageFavorites: {}
       HomepageHistory: {}
+      HistoryChangeSink: {}
+      HistoryMutationCoordinator: {}
       HistorySidebarHistory: {}
       AllKeybindingsResetter: {}
       KeybindingResetter: {}
