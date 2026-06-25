@@ -108,16 +108,17 @@ type Omnibox struct {
 	isSettingGhost   bool   // Guard flag: skip onEntryChanged during programmatic SetText
 
 	// Dependencies
-	historyUC             *usecase.SearchHistoryUseCase
-	favoritesUC           *usecase.ManageFavoritesUseCase
-	faviconAdapter        *adapter.FaviconAdapter
-	copyURLUC             *usecase.CopyURLUseCase
-	shortcutsUC           *usecase.SearchShortcutsUseCase
-	defaultSearch         string
-	initialBehavior       entity.OmniboxInitialBehavior
-	mostVisitedDays       int
-	saveInitialBehaviorFn func(context.Context, entity.OmniboxInitialBehavior) error
-	ctx                   context.Context
+	historyUC              *usecase.SearchHistoryUseCase
+	favoritesUC            *usecase.ManageFavoritesUseCase
+	faviconAdapter         *adapter.FaviconAdapter
+	copyURLUC              *usecase.CopyURLUseCase
+	shortcutsUC            *usecase.SearchShortcutsUseCase
+	defaultSearch          string
+	normalizeNavigationURL func(ctx context.Context, input string) string
+	initialBehavior        entity.OmniboxInitialBehavior
+	mostVisitedDays        int
+	saveInitialBehaviorFn  func(context.Context, entity.OmniboxInitialBehavior) error
+	ctx                    context.Context
 
 	// Callbacks
 	onNavigate         func(ctx context.Context, url string) error
@@ -155,16 +156,19 @@ type Omnibox struct {
 
 // OmniboxConfig holds configuration for creating an Omnibox.
 type OmniboxConfig struct {
-	HistoryUC           *usecase.SearchHistoryUseCase
-	FavoritesUC         *usecase.ManageFavoritesUseCase
-	FaviconAdapter      *adapter.FaviconAdapter
-	CopyURLUC           *usecase.CopyURLUseCase
-	ShortcutsUC         *usecase.SearchShortcutsUseCase
-	DefaultSearch       string
-	InitialBehavior     entity.OmniboxInitialBehavior
-	MostVisitedDays     int
-	SaveInitialBehavior func(ctx context.Context, behavior entity.OmniboxInitialBehavior) error
-	UIScale             float64 // UI scale for favicon sizing
+	HistoryUC      *usecase.SearchHistoryUseCase
+	FavoritesUC    *usecase.ManageFavoritesUseCase
+	FaviconAdapter *adapter.FaviconAdapter
+	CopyURLUC      *usecase.CopyURLUseCase
+	ShortcutsUC    *usecase.SearchShortcutsUseCase
+	DefaultSearch  string
+	// NormalizeNavigationURL resolves navigation input before search fallback.
+	// It is injected so local filesystem probing stays outside the domain URL package.
+	NormalizeNavigationURL func(ctx context.Context, input string) string
+	InitialBehavior        entity.OmniboxInitialBehavior
+	MostVisitedDays        int
+	SaveInitialBehavior    func(ctx context.Context, behavior entity.OmniboxInitialBehavior) error
+	UIScale                float64 // UI scale for favicon sizing
 	// OnNavigate is called when the user submits a URL; returning nil closes the omnibox.
 	OnNavigate         func(ctx context.Context, url string) error
 	OnToast            func(ctx context.Context, message string, level ToastLevel) // Callback to show toast notification
@@ -188,23 +192,24 @@ func NewOmnibox(ctx context.Context, cfg OmniboxConfig) *Omnibox {
 	sizeCfg := ResolveModalSizeConfig(cfg.SizeConfig, OmniboxSizeDefaults)
 
 	o := &Omnibox{
-		viewMode:              ViewModeHistory,
-		selectedIndex:         -1,
-		historyUC:             cfg.HistoryUC,
-		favoritesUC:           cfg.FavoritesUC,
-		faviconAdapter:        cfg.FaviconAdapter,
-		copyURLUC:             cfg.CopyURLUC,
-		shortcutsUC:           cfg.ShortcutsUC,
-		defaultSearch:         cfg.DefaultSearch,
-		initialBehavior:       cfg.InitialBehavior,
-		mostVisitedDays:       cfg.MostVisitedDays,
-		saveInitialBehaviorFn: cfg.SaveInitialBehavior,
-		onToast:               cfg.OnToast,
-		onAccentKeyPress:      cfg.OnAccentKeyPress,
-		onAccentKeyRelease:    cfg.OnAccentKeyRelease,
-		ctx:                   ctx,
-		uiScale:               uiScale,
-		sizeCfg:               sizeCfg,
+		viewMode:               ViewModeHistory,
+		selectedIndex:          -1,
+		historyUC:              cfg.HistoryUC,
+		favoritesUC:            cfg.FavoritesUC,
+		faviconAdapter:         cfg.FaviconAdapter,
+		copyURLUC:              cfg.CopyURLUC,
+		shortcutsUC:            cfg.ShortcutsUC,
+		defaultSearch:          cfg.DefaultSearch,
+		normalizeNavigationURL: cfg.NormalizeNavigationURL,
+		initialBehavior:        cfg.InitialBehavior,
+		mostVisitedDays:        cfg.MostVisitedDays,
+		saveInitialBehaviorFn:  cfg.SaveInitialBehavior,
+		onToast:                cfg.OnToast,
+		onAccentKeyPress:       cfg.OnAccentKeyPress,
+		onAccentKeyRelease:     cfg.OnAccentKeyRelease,
+		ctx:                    ctx,
+		uiScale:                uiScale,
+		sizeCfg:                sizeCfg,
 	}
 	o.idleCoalescer = mainloop.NewCoalescer(func(fn func()) {
 		var cb glib.SourceFunc = func(uintptr) bool {
@@ -2616,6 +2621,12 @@ func (o *Omnibox) buildURL(text string) string {
 	var shortcutURLs map[string]string
 	if o.shortcutsUC != nil {
 		shortcutURLs = o.shortcutsUC.ShortcutURLs()
+	}
+	if _, _, found := url.ParseBangShortcut(text); !found && o.normalizeNavigationURL != nil {
+		normalized := o.normalizeNavigationURL(o.ctx, text)
+		if normalized != text {
+			return normalized
+		}
 	}
 	return url.BuildSearchURL(text, shortcutURLs, o.defaultSearch)
 }

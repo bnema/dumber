@@ -18,6 +18,7 @@ import (
 	"github.com/bnema/dumber/internal/infrastructure/config"
 	"github.com/bnema/dumber/internal/infrastructure/externaltheme/noctalia"
 	"github.com/bnema/dumber/internal/infrastructure/favicon"
+	"github.com/bnema/dumber/internal/infrastructure/filesystem"
 	infralogging "github.com/bnema/dumber/internal/infrastructure/logging"
 	"github.com/bnema/dumber/internal/infrastructure/persistence/sqlite"
 	"github.com/bnema/dumber/internal/logging"
@@ -39,8 +40,10 @@ type App struct {
 	DeleteSessionUC *usecase.DeleteSessionUseCase
 
 	// Services
-	FaviconService *favicon.Service
-	SessionSpawner port.SessionSpawner
+	FaviconService          *favicon.Service
+	SessionSpawner          port.SessionSpawner
+	LocalPaths              port.LocalPathResolver
+	NavigationURLNormalizer *usecase.NavigationURLNormalizer
 
 	// Context with logger
 	ctx        context.Context
@@ -128,21 +131,24 @@ func NewApp() (*App, error) {
 	// Create favicon service for CLI (path resolution for dmenu/fuzzel)
 	faviconCacheDir, _ := config.GetFaviconCacheDir()
 	faviconService := favicon.NewService(faviconCacheDir)
+	localPaths := filesystem.New()
 
 	return &App{
-		Config:          cfg,
-		Theme:           theme,
-		db:              db,
-		History:         historyRepo,
-		SearchHistoryUC: searchHistoryUC,
-		SessionUC:       sessionUC,
-		ListSessionsUC:  listSessionsUC,
-		RestoreUC:       restoreUC,
-		DeleteSessionUC: deleteSessionUC,
-		FaviconService:  faviconService,
-		SessionSpawner:  bootstrap.NewSessionSpawner(ctx, profile),
-		ctx:             ctx,
-		logCleanup:      logCleanup,
+		Config:                  cfg,
+		Theme:                   theme,
+		db:                      db,
+		History:                 historyRepo,
+		SearchHistoryUC:         searchHistoryUC,
+		SessionUC:               sessionUC,
+		ListSessionsUC:          listSessionsUC,
+		RestoreUC:               restoreUC,
+		DeleteSessionUC:         deleteSessionUC,
+		FaviconService:          faviconService,
+		SessionSpawner:          bootstrap.NewSessionSpawner(ctx, profile),
+		LocalPaths:              localPaths,
+		NavigationURLNormalizer: usecase.NewNavigationURLNormalizer(localPaths),
+		ctx:                     ctx,
+		logCleanup:              logCleanup,
 	}, nil
 }
 

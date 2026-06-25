@@ -1,8 +1,6 @@
 package url
 
 import (
-	"os"
-	"path/filepath"
 	"strings"
 	"testing"
 )
@@ -120,128 +118,21 @@ func TestNormalize(t *testing.T) {
 	}
 }
 
-func TestNormalize_LocalFiles(t *testing.T) {
-	// Create a temporary file for testing
-	tmpDir := t.TempDir()
-	tmpFile := filepath.Join(tmpDir, "test.html")
-	if err := os.WriteFile(tmpFile, []byte("<html></html>"), 0644); err != nil {
-		t.Fatalf("failed to create temp file: %v", err)
-	}
-
-	// Create a subdirectory with a file
-	subDir := filepath.Join(tmpDir, "subdir")
-	if err := os.Mkdir(subDir, 0755); err != nil {
-		t.Fatalf("failed to create subdir: %v", err)
-	}
-	subFile := filepath.Join(subDir, "page.html")
-	if err := os.WriteFile(subFile, []byte("<html></html>"), 0644); err != nil {
-		t.Fatalf("failed to create subdir file: %v", err)
-	}
-
+func TestNormalize_PathLikeInputsArePure(t *testing.T) {
 	tests := []struct {
 		name  string
 		input string
-		want  string
 	}{
-		{
-			name:  "absolute path to existing file",
-			input: tmpFile,
-			want:  "file://" + tmpFile,
-		},
-		{
-			name:  "absolute path to existing directory",
-			input: tmpDir,
-			want:  "file://" + tmpDir,
-		},
-		{
-			name:  "non-existent absolute path returned unchanged",
-			input: "/nonexistent/file.html",
-			want:  "/nonexistent/file.html",
-		},
-		{
-			name:  "non-existent relative path with dot prefix returned unchanged",
-			input: "./nonexistent/file.html",
-			want:  "./nonexistent/file.html",
-		},
-		{
-			name:  "non-existent home path returned unchanged",
-			input: "~/nonexistent/file.html",
-			want:  "~/nonexistent/file.html",
-		},
+		{name: "absolute path", input: "/tmp/example.html"},
+		{name: "relative path with dot", input: "./example.html"},
+		{name: "relative parent path", input: "../example.html"},
+		{name: "home path", input: "~/example.html"},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got := Normalize(tt.input)
-			if got != tt.want {
-				t.Errorf("Normalize(%q) = %q, want %q", tt.input, got, tt.want)
-			}
-		})
-	}
-}
-
-func TestNormalize_RelativePaths(t *testing.T) {
-	// Create a temp file in current directory
-	tmpFile, err := os.CreateTemp(".", "test-*.html")
-	if err != nil {
-		t.Fatalf("failed to create temp file: %v", err)
-	}
-	tmpFile.Close()
-	defer os.Remove(tmpFile.Name())
-
-	// Get absolute path for comparison
-	absPath, err := filepath.Abs(tmpFile.Name())
-	if err != nil {
-		t.Fatalf("failed to get abs path: %v", err)
-	}
-
-	t.Run("relative path to existing file", func(t *testing.T) {
-		got := Normalize(tmpFile.Name())
-		want := "file://" + absPath
-		if got != want {
-			t.Errorf("Normalize(%q) = %q, want %q", tmpFile.Name(), got, want)
-		}
-	})
-}
-
-func TestExpandHome(t *testing.T) {
-	home, err := os.UserHomeDir()
-	if err != nil {
-		t.Skip("cannot get home directory")
-	}
-
-	tests := []struct {
-		name  string
-		input string
-		want  string
-	}{
-		{
-			name:  "tilde expansion",
-			input: "~/Documents",
-			want:  filepath.Join(home, "Documents"),
-		},
-		{
-			name:  "no tilde unchanged",
-			input: "/absolute/path",
-			want:  "/absolute/path",
-		},
-		{
-			name:  "relative path unchanged",
-			input: "./relative/path",
-			want:  "./relative/path",
-		},
-		{
-			name:  "tilde in middle unchanged",
-			input: "/path/~/file",
-			want:  "/path/~/file",
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			got := expandHome(tt.input)
-			if got != tt.want {
-				t.Errorf("expandHome(%q) = %q, want %q", tt.input, got, tt.want)
+			if got := Normalize(tt.input); got != tt.input {
+				t.Errorf("Normalize(%q) = %q, want unchanged", tt.input, got)
 			}
 		})
 	}

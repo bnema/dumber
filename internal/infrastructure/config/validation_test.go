@@ -2,6 +2,7 @@ package config
 
 import (
 	"math"
+	"os"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -167,6 +168,41 @@ func TestValidateConfig_CEFConfig(t *testing.T) {
 			require.NoError(t, err)
 		})
 	}
+}
+
+func TestValidateConfig_WorkspaceNewPaneURLAllowsLocalPathLikeValues(t *testing.T) {
+	for _, value := range []string{"/tmp/page.html", "./page.html", "../page.html", "~/page.html"} {
+		t.Run(value, func(t *testing.T) {
+			cfg := DefaultConfig()
+			cfg.Workspace.NewPaneURL = value
+
+			err := validateConfig(cfg)
+			require.NoError(t, err)
+		})
+	}
+}
+
+func TestValidateConfig_WorkspaceNewPaneURLAllowsExistingBareRelativeFile(t *testing.T) {
+	tmpDir := t.TempDir()
+	oldWD, err := os.Getwd()
+	require.NoError(t, err)
+	require.NoError(t, os.Chdir(tmpDir))
+	t.Cleanup(func() { _ = os.Chdir(oldWD) })
+	require.NoError(t, os.WriteFile("README", []byte("ok"), 0644))
+
+	cfg := DefaultConfig()
+	cfg.Workspace.NewPaneURL = "README"
+
+	require.NoError(t, validateConfig(cfg))
+}
+
+func TestValidateConfig_WorkspaceNewPaneURLRejectsMissingBareRelativeValue(t *testing.T) {
+	cfg := DefaultConfig()
+	cfg.Workspace.NewPaneURL = "missing-local-file"
+
+	err := validateConfig(cfg)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "workspace.new_pane_url")
 }
 
 func TestValidateConfig_WebKitDefaultProfileIgnoresZeroGPUThreads(t *testing.T) {

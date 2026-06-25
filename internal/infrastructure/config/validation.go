@@ -4,6 +4,8 @@ import (
 	"fmt"
 	"math"
 	"net/url"
+	"os"
+	"path/filepath"
 	"sort"
 	"strings"
 
@@ -443,6 +445,9 @@ func validateWorkspaceNewPaneURL(config *Config) []string {
 
 func validateWorkspaceURLValue(fieldPath, value string) []string {
 	trimmed := strings.TrimSpace(value)
+	if isLocalPathLikeWorkspaceURL(trimmed) || isExistingRelativeWorkspacePath(trimmed) {
+		return nil
+	}
 	candidate := trimmed
 	parsed, err := url.Parse(candidate)
 	if err != nil || parsed.Scheme == "" {
@@ -463,6 +468,25 @@ func validateWorkspaceURLValue(fieldPath, value string) []string {
 			parsed.Scheme,
 		)}
 	}
+}
+
+func isLocalPathLikeWorkspaceURL(value string) bool {
+	return strings.HasPrefix(value, "/") ||
+		strings.HasPrefix(value, "./") ||
+		strings.HasPrefix(value, "../") ||
+		strings.HasPrefix(value, "~/")
+}
+
+func isExistingRelativeWorkspacePath(value string) bool {
+	if value == "" || strings.Contains(value, "://") || filepath.IsAbs(value) {
+		return false
+	}
+	absPath, err := filepath.Abs(value)
+	if err != nil {
+		return false
+	}
+	_, err = os.Stat(absPath)
+	return err == nil
 }
 
 func validateOmnibox(config *Config) []string {

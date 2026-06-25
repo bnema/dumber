@@ -1437,12 +1437,13 @@ func (a *App) Cancel(ctx context.Context) {
 }
 
 type omniboxCallbacks struct {
-	OnNavigate         func(ctx context.Context, url string) error
-	OnToast            func(ctx context.Context, message string, level component.ToastLevel)
-	OnFocusIn          func(entry *gtk.SearchEntry)
-	OnFocusOut         func()
-	OnAccentKeyPress   func(keyval uint, state gdk.ModifierType) bool
-	OnAccentKeyRelease func(keyval uint)
+	OnNavigate             func(ctx context.Context, url string) error
+	NormalizeNavigationURL func(ctx context.Context, input string) string
+	OnToast                func(ctx context.Context, message string, level component.ToastLevel)
+	OnFocusIn              func(entry *gtk.SearchEntry)
+	OnFocusOut             func()
+	OnAccentKeyPress       func(keyval uint, state gdk.ModifierType) bool
+	OnAccentKeyRelease     func(keyval uint)
 }
 
 func buildOmniboxConfig(
@@ -1464,22 +1465,23 @@ func buildOmniboxConfig(
 	}
 
 	return component.OmniboxConfig{
-		HistoryUC:           deps.HistoryUC,
-		FavoritesUC:         deps.FavoritesUC,
-		FaviconAdapter:      faviconAdapter,
-		CopyURLUC:           deps.CopyURLUC,
-		ShortcutsUC:         usecase.NewSearchShortcutsUseCase(shortcuts),
-		DefaultSearch:       runtimeCfg.DefaultSearchEngine,
-		InitialBehavior:     runtimeCfg.Omnibox.InitialBehavior,
-		MostVisitedDays:     runtimeCfg.Omnibox.MostVisitedDays,
-		SaveInitialBehavior: deps.HandlerDeps.SaveOmniboxInitialBehavior,
-		UIScale:             runtimeCfg.DefaultUIScale,
-		OnNavigate:          callbacks.OnNavigate,
-		OnToast:             callbacks.OnToast,
-		OnFocusIn:           callbacks.OnFocusIn,
-		OnFocusOut:          callbacks.OnFocusOut,
-		OnAccentKeyPress:    callbacks.OnAccentKeyPress,
-		OnAccentKeyRelease:  callbacks.OnAccentKeyRelease,
+		HistoryUC:              deps.HistoryUC,
+		FavoritesUC:            deps.FavoritesUC,
+		FaviconAdapter:         faviconAdapter,
+		CopyURLUC:              deps.CopyURLUC,
+		ShortcutsUC:            usecase.NewSearchShortcutsUseCase(shortcuts),
+		DefaultSearch:          runtimeCfg.DefaultSearchEngine,
+		NormalizeNavigationURL: callbacks.NormalizeNavigationURL,
+		InitialBehavior:        runtimeCfg.Omnibox.InitialBehavior,
+		MostVisitedDays:        runtimeCfg.Omnibox.MostVisitedDays,
+		SaveInitialBehavior:    deps.HandlerDeps.SaveOmniboxInitialBehavior,
+		UIScale:                runtimeCfg.DefaultUIScale,
+		OnNavigate:             callbacks.OnNavigate,
+		OnToast:                callbacks.OnToast,
+		OnFocusIn:              callbacks.OnFocusIn,
+		OnFocusOut:             callbacks.OnFocusOut,
+		OnAccentKeyPress:       callbacks.OnAccentKeyPress,
+		OnAccentKeyRelease:     callbacks.OnAccentKeyRelease,
 	}
 }
 
@@ -1506,10 +1508,19 @@ func NewStandaloneOmniboxRuntime(
 	if deps != nil && deps.RuntimeConfig != nil {
 		runtimeCfg = deps.RuntimeConfig.Current().UI
 	}
+	var localPathResolver port.LocalPathResolver
+	if deps != nil {
+		localPathResolver, _ = deps.FileSystem.(port.LocalPathResolver)
+	}
+	navigationURLNormalizer := usecase.NewNavigationURLNormalizer(localPathResolver)
+	normalizeNavigationURL := func(navCtx context.Context, input string) string {
+		return navigationURLNormalizer.Normalize(navCtx, input)
+	}
 	omniboxCfg := buildOmniboxConfig(deps, runtimeCfg, faviconAdapter, omniboxCallbacks{
 		OnNavigate: func(navCtx context.Context, url string) error {
 			return handleStandaloneOmniboxNavigation(deps, navCtx, url)
 		},
+		NormalizeNavigationURL: normalizeNavigationURL,
 		OnToast: func(toastCtx context.Context, message string, level component.ToastLevel) {
 			logging.FromContext(toastCtx).Debug().Str("message", message).Int("level", int(level)).Msg("standalone omnibox toast")
 		},
@@ -1548,9 +1559,16 @@ func (a *App) initOmniboxConfig(ctx context.Context) {
 		return
 	}
 
+	navigationURLNormalizer := usecase.NewNavigationURLNormalizer(nil)
 	a.omniboxCfg = buildOmniboxConfig(a.deps, a.runtimeConfigSnapshot().UI, a.faviconAdapter, omniboxCallbacks{
 		OnNavigate: func(navCtx context.Context, url string) error {
 			return a.navigateFromOmnibox(navCtx, url)
+		},
+		NormalizeNavigationURL: func(navCtx context.Context, input string) string {
+			if a.panesUC != nil {
+				return a.panesUC.NormalizeNavigationURL(navCtx, input)
+			}
+			return navigationURLNormalizer.Normalize(navCtx, input)
 		},
 		OnToast: func(toastCtx context.Context, message string, level component.ToastLevel) {
 			a.showToastOnLastFocusedBrowserWindow(toastCtx, message, level)
@@ -2599,7 +2617,7 @@ func (a *App) switchBrowserWindowTabIndex(ctx context.Context, bw *browserWindow
 	}
 	a.activateBrowserWindow(bw)
 	ensureTarget := a.ensureTabTargetForBrowserWindow(bw)
-	_, err := a.tabCoord.Create(ctx, ensureTarget, urlutil.Normalize(newPaneURL))
+	_, err := a.tabCoord.Create(ctx, ensureTarget, newPaneURL)
 	return err
 }
 
@@ -3507,7 +3525,7 @@ func (a *App) keyboardActions() dispatcher.KeyboardActions {
 				return fmt.Errorf("newPaneURL is not configured")
 			}
 			return a.withFocusedTabTarget(ctx, "new tab", true, func(target coordinator.TabTarget) error {
-				_, err := a.tabCoord.Create(ctx, target, urlutil.Normalize(newPaneURL))
+				_, err := a.tabCoord.Create(ctx, target, newPaneURL)
 				return err
 			})
 		},

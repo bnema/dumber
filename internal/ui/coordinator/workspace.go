@@ -173,12 +173,12 @@ func setupPaneViewHover(ctx context.Context, pv *component.PaneView, wsView *com
 
 // Split splits the active pane in the given direction.
 func (c *WorkspaceCoordinator) Split(ctx context.Context, direction usecase.SplitDirection) error {
-	return c.splitWithInitialURL(ctx, direction, domainurl.Normalize(c.newPaneURL))
+	return c.splitWithInitialURL(ctx, direction, c.newPaneURL)
 }
 
 // SplitWithURL splits the active pane in the given direction and loads initialURL.
 func (c *WorkspaceCoordinator) SplitWithURL(ctx context.Context, direction usecase.SplitDirection, initialURL string) error {
-	return c.splitWithInitialURL(ctx, direction, domainurl.Normalize(initialURL))
+	return c.splitWithInitialURL(ctx, direction, initialURL)
 }
 
 func (c *WorkspaceCoordinator) splitWithInitialURL(ctx context.Context, direction usecase.SplitDirection, initialURL string) error {
@@ -1547,7 +1547,7 @@ func (c *WorkspaceCoordinator) StackPane(ctx context.Context) error {
 	// Create new pane entity
 	newPaneID := entity.PaneID(c.generateID())
 	newPane := entity.NewPane(newPaneID)
-	newPane.URI = domainurl.Normalize(c.newPaneURL)
+	newPane.URI = c.panesUC.NormalizeNavigationURL(ctx, c.newPaneURL)
 	newPane.Title = defaultPaneTitle
 
 	// Determine if we need to create a new stack or add to existing

@@ -4,8 +4,8 @@ import (
 	"context"
 	"fmt"
 
+	"github.com/bnema/dumber/internal/application/port"
 	"github.com/bnema/dumber/internal/domain/entity"
-	"github.com/bnema/dumber/internal/domain/url"
 	"github.com/bnema/dumber/internal/logging"
 )
 
@@ -15,13 +15,29 @@ type IDGenerator func() string
 // ManageTabsUseCase handles tab lifecycle operations.
 type ManageTabsUseCase struct {
 	idGenerator IDGenerator
+	normalizer  *NavigationURLNormalizer
+}
+
+// ManageTabsOption configures ManageTabsUseCase.
+type ManageTabsOption func(*ManageTabsUseCase)
+
+// WithManageTabsLocalPathResolver configures local path resolution for initial navigation URLs.
+func WithManageTabsLocalPathResolver(resolver port.LocalPathResolver) ManageTabsOption {
+	return func(uc *ManageTabsUseCase) {
+		uc.normalizer = NewNavigationURLNormalizer(resolver)
+	}
 }
 
 // NewManageTabsUseCase creates a new tab management use case.
-func NewManageTabsUseCase(idGenerator IDGenerator) *ManageTabsUseCase {
-	return &ManageTabsUseCase{
+func NewManageTabsUseCase(idGenerator IDGenerator, opts ...ManageTabsOption) *ManageTabsUseCase {
+	uc := &ManageTabsUseCase{
 		idGenerator: idGenerator,
+		normalizer:  NewNavigationURLNormalizer(nil),
 	}
+	for _, opt := range opts {
+		opt(uc)
+	}
+	return uc
 }
 
 // CreateTabInput contains parameters for creating a new tab.
@@ -58,7 +74,7 @@ func (uc *ManageTabsUseCase) Create(ctx context.Context, input CreateTabInput) (
 	// Create initial pane with normalized URL
 	pane := entity.NewPane(paneID)
 	if input.InitialURL != "" {
-		pane.URI = url.Normalize(input.InitialURL)
+		pane.URI = uc.normalizer.normalize(ctx, input.InitialURL)
 	}
 
 	// Create tab with workspace
@@ -355,7 +371,7 @@ func (uc *ManageTabsUseCase) CreateWithPane(ctx context.Context, input CreateTab
 	// Use the provided pane
 	pane := input.Pane
 	if input.InitialURL != "" {
-		pane.URI = url.Normalize(input.InitialURL)
+		pane.URI = uc.normalizer.normalize(ctx, input.InitialURL)
 	}
 
 	// Create tab with workspace using the pre-created pane

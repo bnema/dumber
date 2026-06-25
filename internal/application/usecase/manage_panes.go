@@ -8,8 +8,8 @@ import (
 	"sort"
 	"strings"
 
+	"github.com/bnema/dumber/internal/application/port"
 	"github.com/bnema/dumber/internal/domain/entity"
-	domainurl "github.com/bnema/dumber/internal/domain/url"
 	"github.com/bnema/dumber/internal/logging"
 )
 
@@ -72,13 +72,37 @@ const consumeOrExpelExpelCycleMarker = "_expel_cycle"
 // ManagePanesUseCase handles pane tree operations.
 type ManagePanesUseCase struct {
 	idGenerator IDGenerator
+	normalizer  *NavigationURLNormalizer
+}
+
+// ManagePanesOption configures ManagePanesUseCase.
+type ManagePanesOption func(*ManagePanesUseCase)
+
+// WithManagePanesLocalPathResolver configures local path resolution for initial navigation URLs.
+func WithManagePanesLocalPathResolver(resolver port.LocalPathResolver) ManagePanesOption {
+	return func(uc *ManagePanesUseCase) {
+		uc.normalizer = NewNavigationURLNormalizer(resolver)
+	}
 }
 
 // NewManagePanesUseCase creates a new pane management use case.
-func NewManagePanesUseCase(idGenerator IDGenerator) *ManagePanesUseCase {
-	return &ManagePanesUseCase{
+func NewManagePanesUseCase(idGenerator IDGenerator, opts ...ManagePanesOption) *ManagePanesUseCase {
+	uc := &ManagePanesUseCase{
 		idGenerator: idGenerator,
+		normalizer:  NewNavigationURLNormalizer(nil),
 	}
+	for _, opt := range opts {
+		opt(uc)
+	}
+	return uc
+}
+
+// NormalizeNavigationURL normalizes user navigation input for pane creation.
+func (uc *ManagePanesUseCase) NormalizeNavigationURL(ctx context.Context, input string) string {
+	if uc == nil {
+		return NewNavigationURLNormalizer(nil).Normalize(ctx, input)
+	}
+	return uc.normalizer.normalize(ctx, input)
 }
 
 // SplitPaneInput contains parameters for splitting a pane.
@@ -138,7 +162,7 @@ func (uc *ManagePanesUseCase) Split(ctx context.Context, input SplitPaneInput) (
 		paneID := entity.PaneID(uc.idGenerator())
 		newPane = entity.NewPane(paneID)
 		if input.InitialURL != "" {
-			newPane.URI = domainurl.Normalize(input.InitialURL)
+			newPane.URI = uc.normalizer.normalize(ctx, input.InitialURL)
 		} else {
 			newPane.URI = "about:blank"
 		}
