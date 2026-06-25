@@ -1,0 +1,69 @@
+name: Release Paths
+
+permissions:
+  contents: read
+
+on:
+  push:
+    branches: [main, next]
+    paths:
+      - 'docs/**'
+      - '*.md'
+      - 'install.sh'
+      - 'scripts/**'
+      - 'flatpak/**'
+      - 'aur/**'
+      - '.goreleaser.yaml'
+      - '.github/workflows/aur.yml'
+      - '.github/workflows/release-paths.yml'
+  pull_request:
+    branches: [main, next]
+    paths:
+      - 'docs/**'
+      - '*.md'
+      - 'install.sh'
+      - 'scripts/**'
+      - 'flatpak/**'
+      - 'aur/**'
+      - '.goreleaser.yaml'
+      - '.github/workflows/aur.yml'
+      - '.github/workflows/release-paths.yml'
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    concurrency:
+      group: release-paths-${{ github.event.pull_request.number || github.ref }}
+      cancel-in-progress: true
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          persist-credentials: false
+      - name: Validate shell entrypoints
+        run: |
+          shopt -s nullglob globstar
+          files=(install.sh scripts/**/*.sh aur/*/PKGBUILD)
+          for f in "${files[@]}"; do
+            bash -n "$f"
+          done
+      - name: Validate release YAML
+        run: |
+          ruby -e 'require "psych"; Psych.safe_load_file(".goreleaser.yaml", permitted_classes: [], aliases: true); puts "validated .goreleaser.yaml"'
+          ruby -e 'require "psych"; Psych.safe_load_file(".github/workflows/aur.yml", permitted_classes: [], aliases: true); puts "validated .github/workflows/aur.yml"'
+          ruby -e 'require "psych"; Psych.safe_load_file(".github/workflows/release-paths.yml", permitted_classes: [], aliases: true); puts "validated .github/workflows/release-paths.yml"'
+      - name: Validate Flatpak metadata XML
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          import xml.etree.ElementTree as ET
+
+          for path in Path('flatpak').glob('*.xml'):
+              ET.parse(path)
+              print(f'validated {path}')
+          PY
+      - name: Check docs and packaging conflict markers
+        run: |
+          if grep -RInE '^(<<<<<<<|>>>>>>>)([[:space:]].*)?$' *.md .goreleaser.yaml docs install.sh scripts flatpak aur; then
+            echo 'Found conflict marker in docs or release-adjacent files' >&2
+            exit 1
+          fi

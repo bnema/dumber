@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/bnema/dumber/internal/application/dto"
@@ -22,6 +23,7 @@ var _ port.HistorySidebarHistory = (*SearchHistoryUseCase)(nil)
 
 const (
 	historyWindowDuration = 24 * time.Hour
+	historyWindowRowLimit = 100
 
 	defaultHistoryPageLimit   = 50
 	maxHistoryPageLimit       = 500
@@ -33,14 +35,48 @@ const (
 
 // SearchHistoryUseCase handles history search and retrieval operations.
 type SearchHistoryUseCase struct {
-	historyRepo repository.HistoryRepository
+	historyRepo           repository.HistoryRepository
+	changeSinkMu          sync.RWMutex
+	changeSink            port.HistoryChangeSink
+	mutationCoordinatorMu sync.RWMutex
+	mutationCoordinator   port.HistoryMutationCoordinator
 }
 
 // NewSearchHistoryUseCase creates a new history search use case.
-func NewSearchHistoryUseCase(historyRepo repository.HistoryRepository) *SearchHistoryUseCase {
+func NewSearchHistoryUseCase(historyRepo repository.HistoryRepository, changeSink ...port.HistoryChangeSink) *SearchHistoryUseCase {
+	sink := port.HistoryChangeSink(nil)
+	if len(changeSink) > 0 {
+		sink = changeSink[0]
+	}
+
 	return &SearchHistoryUseCase{
 		historyRepo: historyRepo,
+		changeSink:  normalizeHistoryChangeSink(sink),
 	}
+}
+
+// SetHistoryChangeSink sets the sink for persisted history change notifications.
+func (uc *SearchHistoryUseCase) SetHistoryChangeSink(changeSink port.HistoryChangeSink) {
+	if uc == nil {
+		return
+	}
+	changeSink = normalizeHistoryChangeSink(changeSink)
+	uc.changeSinkMu.Lock()
+	uc.changeSink = changeSink
+	uc.changeSinkMu.Unlock()
+}
+
+// SetHistoryMutationCoordinator sets the coordinator used before destructive history mutations.
+func (uc *SearchHistoryUseCase) SetHistoryMutationCoordinator(coordinator port.HistoryMutationCoordinator) {
+	if uc == nil {
+		return
+	}
+	if isNilInterface(coordinator) {
+		coordinator = nil
+	}
+	uc.mutationCoordinatorMu.Lock()
+	uc.mutationCoordinator = coordinator
+	uc.mutationCoordinatorMu.Unlock()
 }
 
 // SearchInput is an alias for dto.HistorySearchInput.
@@ -115,17 +151,30 @@ func canonicalHistoryDomain(domain string) (string, error) {
 	return domain, nil
 }
 
-// GetRecentWindow retrieves the 24-hour history window ending before the given cursor.
-func (uc *SearchHistoryUseCase) GetRecentWindow(ctx context.Context, before time.Time, domain string) (*entity.HistoryWindow, error) {
-	if before.IsZero() {
+// GetRecentWindow retrieves a row-bounded history window ending before the given cursor.
+func (uc *SearchHistoryUseCase) GetRecentWindow(
+	ctx context.Context,
+	before time.Time,
+	beforeID int64,
+	domain string,
+) (*entity.HistoryWindow, error) {
+	if beforeID < 0 {
+		return nil, fmt.Errorf("beforeID must be non-negative")
+	}
+	hasBefore := !before.IsZero()
+	hasBeforeID := beforeID != 0
+	if hasBefore != hasBeforeID {
+		return nil, fmt.Errorf("before and beforeID must be provided together")
+	}
+	if !hasBefore {
 		before = time.Now()
 	}
 	before = before.UTC()
 	after := before.Add(-historyWindowDuration)
+	queryLimit := historyWindowRowLimit + 1
 
 	var (
 		entries []*entity.HistoryEntry
-		hasMore bool
 		err     error
 	)
 	originalDomain := domain
@@ -134,25 +183,35 @@ func (uc *SearchHistoryUseCase) GetRecentWindow(ctx context.Context, before time
 		return nil, fmt.Errorf("domain is required")
 	}
 	if domain != "" {
-		entries, err = uc.historyRepo.GetRecentWindowByDomain(ctx, domain, before, after)
-		if err == nil {
-			hasMore, err = uc.historyRepo.HasEntriesByDomainBefore(ctx, domain, after)
-		}
+		entries, err = uc.historyRepo.GetRecentWindowByDomain(ctx, domain, before, beforeID, queryLimit)
 	} else {
-		entries, err = uc.historyRepo.GetRecentWindow(ctx, before, after)
-		if err == nil {
-			hasMore, err = uc.historyRepo.HasEntriesBefore(ctx, after)
-		}
+		entries, err = uc.historyRepo.GetRecentWindow(ctx, before, beforeID, queryLimit)
 	}
 	if err != nil {
 		return nil, fmt.Errorf("failed to get recent history window: %w", err)
 	}
 
+	hasMore := len(entries) > historyWindowRowLimit
+	if hasMore {
+		entries = entries[:historyWindowRowLimit]
+	}
+	var cursorLastVisited time.Time
+	var cursorID int64
+	if len(entries) > 0 {
+		last := entries[len(entries)-1]
+		if last != nil {
+			cursorLastVisited = last.LastVisited.UTC()
+			cursorID = last.ID
+		}
+	}
+
 	return &entity.HistoryWindow{
-		Entries: entries,
-		Before:  before,
-		After:   after,
-		HasMore: hasMore,
+		Entries:           entries,
+		Before:            before,
+		After:             after,
+		CursorLastVisited: cursorLastVisited,
+		CursorID:          cursorID,
+		HasMore:           hasMore,
 	}, nil
 }
 
@@ -228,10 +287,19 @@ func (uc *SearchHistoryUseCase) ClearOlderThan(ctx context.Context, before time.
 	log := logging.FromContext(ctx)
 	log.Debug().Time("before", before).Msg("clearing old history")
 
+	release, err := uc.beginHistoryMutation(ctx)
+	if err != nil {
+		return fmt.Errorf("failed to prepare history mutation: %w", err)
+	}
+	release = onceRelease(release)
+	defer release()
+
 	if err := uc.historyRepo.DeleteOlderThan(ctx, before); err != nil {
 		return fmt.Errorf("failed to clear history: %w", err)
 	}
+	release()
 
+	uc.publishHistoryChange(ctx, dto.HistoryChangeReasonClear, 0, false)
 	log.Info().Time("before", before).Msg("old history cleared")
 	return nil
 }
@@ -248,9 +316,18 @@ func (uc *SearchHistoryUseCase) ClearRange(ctx context.Context, rangeID string) 
 
 	log := logging.FromContext(ctx)
 	log.Debug().Time("since", cutoff).Str("range", rangeID).Msg("clearing recent history range")
+	release, err := uc.beginHistoryMutation(ctx)
+	if err != nil {
+		return fmt.Errorf("failed to prepare history mutation: %w", err)
+	}
+	release = onceRelease(release)
+	defer release()
+
 	if err := uc.historyRepo.DeleteSince(ctx, cutoff); err != nil {
 		return fmt.Errorf("failed to clear history range: %w", err)
 	}
+	release()
+	uc.publishHistoryChange(ctx, dto.HistoryChangeReasonClear, 0, false)
 	log.Info().Time("since", cutoff).Str("range", rangeID).Msg("recent history range cleared")
 	return nil
 }
@@ -260,10 +337,19 @@ func (uc *SearchHistoryUseCase) ClearAll(ctx context.Context) error {
 	log := logging.FromContext(ctx)
 	log.Debug().Msg("clearing all history")
 
+	release, err := uc.beginHistoryMutation(ctx)
+	if err != nil {
+		return fmt.Errorf("failed to prepare history mutation: %w", err)
+	}
+	release = onceRelease(release)
+	defer release()
+
 	if err := uc.historyRepo.DeleteAll(ctx); err != nil {
 		return fmt.Errorf("failed to clear all history: %w", err)
 	}
+	release()
 
+	uc.publishHistoryChange(ctx, dto.HistoryChangeReasonClear, 0, false)
 	log.Info().Msg("all history cleared")
 	return nil
 }
@@ -273,10 +359,19 @@ func (uc *SearchHistoryUseCase) Delete(ctx context.Context, id int64) error {
 	log := logging.FromContext(ctx)
 	log.Debug().Int64("id", id).Msg("deleting history entry")
 
+	release, err := uc.beginHistoryMutation(ctx)
+	if err != nil {
+		return fmt.Errorf("failed to prepare history mutation: %w", err)
+	}
+	release = onceRelease(release)
+	defer release()
+
 	if err := uc.historyRepo.Delete(ctx, id); err != nil {
 		return fmt.Errorf("failed to delete history entry: %w", err)
 	}
+	release()
 
+	uc.publishHistoryChange(ctx, dto.HistoryChangeReasonDelete, 1, true)
 	log.Debug().Int64("id", id).Msg("history entry deleted")
 	return nil
 }
@@ -291,12 +386,71 @@ func (uc *SearchHistoryUseCase) DeleteByDomain(ctx context.Context, domain strin
 	log := logging.FromContext(ctx)
 	log.Debug().Str("domain", domain).Msg("deleting history by domain")
 
+	release, err := uc.beginHistoryMutation(ctx)
+	if err != nil {
+		return fmt.Errorf("failed to prepare history mutation: %w", err)
+	}
+	release = onceRelease(release)
+	defer release()
+
 	if err := uc.historyRepo.DeleteByDomain(ctx, domain); err != nil {
 		return fmt.Errorf("failed to delete history by domain: %w", err)
 	}
+	release()
 
+	uc.publishHistoryChange(ctx, dto.HistoryChangeReasonDelete, 0, false)
 	log.Info().Str("domain", domain).Msg("history deleted for domain")
 	return nil
+}
+
+func onceRelease(release func()) func() {
+	var once sync.Once
+	return func() {
+		once.Do(release)
+	}
+}
+
+func (uc *SearchHistoryUseCase) beginHistoryMutation(ctx context.Context) (func(), error) {
+	uc.mutationCoordinatorMu.RLock()
+	coordinator := uc.mutationCoordinator
+	uc.mutationCoordinatorMu.RUnlock()
+	if coordinator == nil {
+		return func() {}, nil
+	}
+	release, err := coordinator.BeginHistoryMutation(ctx)
+	if err != nil {
+		if release != nil {
+			release()
+		}
+		return nil, err
+	}
+	if release == nil {
+		release = func() {}
+	}
+	return release, nil
+}
+
+func (uc *SearchHistoryUseCase) publishHistoryChange(
+	ctx context.Context,
+	reason dto.HistoryChangeReason,
+	deleteCount int,
+	deleteCountKnown bool,
+) {
+	change := dto.HistoryChange{
+		Reasons:          []dto.HistoryChangeReason{reason},
+		DeleteCount:      deleteCount,
+		DeleteCountKnown: deleteCountKnown,
+		ChangedAt:        time.Now(),
+	}
+	sink := uc.historyChangeSink()
+	sink.OnHistoryChanged(ctx, change)
+}
+
+func (uc *SearchHistoryUseCase) historyChangeSink() port.HistoryChangeSink {
+	uc.changeSinkMu.RLock()
+	sink := uc.changeSink
+	uc.changeSinkMu.RUnlock()
+	return normalizeHistoryChangeSink(sink)
 }
 
 // GetDomainStats retrieves per-domain visit statistics.

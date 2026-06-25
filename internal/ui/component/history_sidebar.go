@@ -3,6 +3,7 @@ package component
 import (
 	"context"
 	"sync"
+	"time"
 
 	"github.com/bnema/puregotk/v4/glib"
 	"github.com/bnema/puregotk/v4/gtk"
@@ -19,6 +20,8 @@ const (
 	sidebarMinWidth         = 280
 	sidebarDefaultWidth     = 320
 	sidebarSearchDebounceMs = 150
+	sidebarReloadDebounceMs = 200
+	sidebarRelativeTickMs   = 60 * 1000
 	sidebarPageSize         = 100 // entries fetched per page
 	sidebarSearchLimit      = 100 // max FTS search results
 )
@@ -86,8 +89,14 @@ type HistorySidebar struct {
 	prevScrollValue float64
 	prevSelectedURL string
 
-	// Search debounce timer
-	debounceTimer uint
+	// Search/reload/relative-time timers. GLib source IDs are owned and
+	// created/removed on the GTK main context.
+	debounceTimer          uint
+	reloadDebounceTimer    uint
+	relativeTimeTicker     uint
+	relativeTimeLabelBinds []relativeTimeLabelBinding
+	relativeTimeDayKey     dayKey
+	relativeTimeDayKeySet  bool
 
 	// Retained callbacks
 	retainedCallbacks []interface{}
@@ -95,6 +104,9 @@ type HistorySidebar struct {
 	// idleScheduler dispatches work onto the GTK main thread.
 	// Tests may override it to exercise scheduled callbacks deterministically.
 	idleScheduler func(glib.SourceFunc)
+	timeoutAdd    func(uint, glib.SourceFunc) uint
+	sourceRemove  func(uint)
+	now           func() time.Time
 
 	// Context
 	ctx    context.Context
@@ -202,6 +214,10 @@ func (hs *HistorySidebar) Destroy() {
 	hs.destroyed = true
 	timerID := hs.debounceTimer
 	hs.debounceTimer = 0
+	reloadTimerID := hs.cancelReloadDebounceLocked()
+	tickerID := hs.relativeTimeTicker
+	hs.relativeTimeTicker = 0
+	hs.clearRelativeTimeBindingsLocked()
 	hs.mu.Unlock()
 
 	if hs.cancel != nil {
@@ -209,7 +225,13 @@ func (hs *HistorySidebar) Destroy() {
 	}
 
 	if timerID != 0 {
-		glib.SourceRemove(timerID)
+		hs.removeSource(timerID)
+	}
+	if reloadTimerID != 0 {
+		hs.removeSource(reloadTimerID)
+	}
+	if tickerID != 0 {
+		hs.removeSource(tickerID)
 	}
 }
 
@@ -239,9 +261,16 @@ func (hs *HistorySidebar) Show() {
 		return
 	}
 
+	reloadTimerID := hs.reloadDebounceTimer
+	hs.reloadDebounceTimer = 0
 	hs.outerBox.SetVisible(true)
 	hs.visible = true
 	hs.mu.Unlock()
+
+	if reloadTimerID != 0 {
+		hs.removeSource(reloadTimerID)
+	}
+	hs.startRelativeTimeTicker()
 
 	// Schedule a background reload so the sidebar shows fresh data
 	// when it becomes visible, not stale data captured at init time.
@@ -275,14 +304,27 @@ func (hs *HistorySidebar) Show() {
 // Hide hides the sidebar.
 func (hs *HistorySidebar) Hide() {
 	hs.mu.Lock()
-	defer hs.mu.Unlock()
-
-	if hs.outerBox == nil || hs.destroyed {
+	if hs.destroyed {
+		hs.mu.Unlock()
 		return
 	}
 
-	hs.outerBox.SetVisible(false)
+	reloadTimerID := hs.cancelReloadDebounceLocked()
+	tickerID := hs.relativeTimeTicker
+	hs.relativeTimeTicker = 0
+	hs.clearRelativeTimeBindingsLocked()
+	if hs.outerBox != nil {
+		hs.outerBox.SetVisible(false)
+	}
 	hs.visible = false
+	hs.mu.Unlock()
+
+	if reloadTimerID != 0 {
+		hs.removeSource(reloadTimerID)
+	}
+	if tickerID != 0 {
+		hs.removeSource(tickerID)
+	}
 }
 
 // IsVisible returns whether the sidebar is visible.

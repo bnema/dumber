@@ -51,14 +51,15 @@ type Dependencies struct {
 	FilterRepo     repository.ContentWhitelistRepository
 
 	// Use Cases
-	TabsUC       *usecase.ManageTabsUseCase
-	PanesUC      *usecase.ManagePanesUseCase
-	NavigateUC   *usecase.NavigateUseCase
-	ZoomUC       *usecase.ManageZoomUseCase
-	PermissionUC *usecase.HandlePermissionUseCase
-	FavoritesUC  *usecase.ManageFavoritesUseCase
-	HistoryUC    *usecase.SearchHistoryUseCase
-	CopyURLUC    *usecase.CopyURLUseCase
+	TabsUC            *usecase.ManageTabsUseCase
+	PanesUC           *usecase.ManagePanesUseCase
+	NavigateUC        *usecase.NavigateUseCase
+	HistoryRecorderUC *usecase.HistoryRecorderUseCase
+	ZoomUC            *usecase.ManageZoomUseCase
+	PermissionUC      *usecase.HandlePermissionUseCase
+	FavoritesUC       *usecase.ManageFavoritesUseCase
+	HistoryUC         *usecase.SearchHistoryUseCase
+	CopyURLUC         *usecase.CopyURLUseCase
 
 	// Infrastructure Adapters
 	Clipboard                 port.Clipboard

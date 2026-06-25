@@ -109,7 +109,7 @@ func (q *Queries) GetAllMostVisited(ctx context.Context) ([]History, error) {
 
 const GetAllRecentHistory = `-- name: GetAllRecentHistory :many
 SELECT id, url, title, favicon_url, visit_count, last_visited, created_at, domain FROM history
-ORDER BY last_visited DESC
+ORDER BY last_visited DESC, id DESC
 `
 
 func (q *Queries) GetAllRecentHistory(ctx context.Context) ([]History, error) {
@@ -147,7 +147,7 @@ func (q *Queries) GetAllRecentHistory(ctx context.Context) ([]History, error) {
 const GetAllRecentHistoryByDomain = `-- name: GetAllRecentHistoryByDomain :many
 SELECT id, url, title, favicon_url, visit_count, last_visited, created_at, domain FROM history
 WHERE domain = ?1
-ORDER BY last_visited DESC
+ORDER BY last_visited DESC, id DESC
 `
 
 func (q *Queries) GetAllRecentHistoryByDomain(ctx context.Context, domain sql.NullString) ([]History, error) {
@@ -387,7 +387,9 @@ func (q *Queries) GetMostVisited(ctx context.Context, datetime interface{}) ([]H
 }
 
 const GetRecentHistory = `-- name: GetRecentHistory :many
-SELECT id, url, title, favicon_url, visit_count, last_visited, created_at, domain FROM history ORDER BY last_visited DESC LIMIT ? OFFSET ?
+SELECT id, url, title, favicon_url, visit_count, last_visited, created_at, domain FROM history
+ORDER BY last_visited DESC, id DESC
+LIMIT ? OFFSET ?
 `
 
 type GetRecentHistoryParams struct {
@@ -430,7 +432,7 @@ func (q *Queries) GetRecentHistory(ctx context.Context, arg GetRecentHistoryPara
 const GetRecentHistoryByDomain = `-- name: GetRecentHistoryByDomain :many
 SELECT id, url, title, favicon_url, visit_count, last_visited, created_at, domain FROM history
 WHERE domain = ?1
-ORDER BY last_visited DESC
+ORDER BY last_visited DESC, id DESC
 LIMIT ?3 OFFSET ?2
 `
 
@@ -512,17 +514,19 @@ func (q *Queries) GetRecentHistorySince(ctx context.Context, datetime interface{
 
 const GetRecentHistoryWindow = `-- name: GetRecentHistoryWindow :many
 SELECT id, url, title, favicon_url, visit_count, last_visited, created_at, domain FROM history
-WHERE last_visited < ?1 AND last_visited >= ?2
-ORDER BY last_visited DESC
+WHERE last_visited < ?1 OR (last_visited = ?1 AND id < ?2)
+ORDER BY last_visited DESC, id DESC
+LIMIT ?3
 `
 
 type GetRecentHistoryWindowParams struct {
-	Before sql.NullTime `json:"before"`
-	After  sql.NullTime `json:"after"`
+	Before   sql.NullTime `json:"before"`
+	BeforeID int64        `json:"before_id"`
+	Limit    int64        `json:"limit"`
 }
 
 func (q *Queries) GetRecentHistoryWindow(ctx context.Context, arg GetRecentHistoryWindowParams) ([]History, error) {
-	rows, err := q.db.QueryContext(ctx, GetRecentHistoryWindow, arg.Before, arg.After)
+	rows, err := q.db.QueryContext(ctx, GetRecentHistoryWindow, arg.Before, arg.BeforeID, arg.Limit)
 	if err != nil {
 		return nil, err
 	}
@@ -555,18 +559,25 @@ func (q *Queries) GetRecentHistoryWindow(ctx context.Context, arg GetRecentHisto
 
 const GetRecentHistoryWindowByDomain = `-- name: GetRecentHistoryWindowByDomain :many
 SELECT id, url, title, favicon_url, visit_count, last_visited, created_at, domain FROM history
-WHERE domain = ?1 AND last_visited < ?2 AND last_visited >= ?3
-ORDER BY last_visited DESC
+WHERE domain = ?1 AND (last_visited < ?2 OR (last_visited = ?2 AND id < ?3))
+ORDER BY last_visited DESC, id DESC
+LIMIT ?4
 `
 
 type GetRecentHistoryWindowByDomainParams struct {
-	Domain sql.NullString `json:"domain"`
-	Before sql.NullTime   `json:"before"`
-	After  sql.NullTime   `json:"after"`
+	Domain   sql.NullString `json:"domain"`
+	Before   sql.NullTime   `json:"before"`
+	BeforeID int64          `json:"before_id"`
+	Limit    int64          `json:"limit"`
 }
 
 func (q *Queries) GetRecentHistoryWindowByDomain(ctx context.Context, arg GetRecentHistoryWindowByDomainParams) ([]History, error) {
-	rows, err := q.db.QueryContext(ctx, GetRecentHistoryWindowByDomain, arg.Domain, arg.Before, arg.After)
+	rows, err := q.db.QueryContext(ctx, GetRecentHistoryWindowByDomain,
+		arg.Domain,
+		arg.Before,
+		arg.BeforeID,
+		arg.Limit,
+	)
 	if err != nil {
 		return nil, err
 	}
@@ -595,33 +606,6 @@ func (q *Queries) GetRecentHistoryWindowByDomain(ctx context.Context, arg GetRec
 		return nil, err
 	}
 	return items, nil
-}
-
-const HasHistoryBefore = `-- name: HasHistoryBefore :one
-SELECT EXISTS(SELECT 1 FROM history WHERE last_visited < ?1 LIMIT 1)
-`
-
-func (q *Queries) HasHistoryBefore(ctx context.Context, before sql.NullTime) (int64, error) {
-	row := q.db.QueryRowContext(ctx, HasHistoryBefore, before)
-	var column_1 int64
-	err := row.Scan(&column_1)
-	return column_1, err
-}
-
-const HasHistoryByDomainBefore = `-- name: HasHistoryByDomainBefore :one
-SELECT EXISTS(SELECT 1 FROM history WHERE domain = ?1 AND last_visited < ?2 LIMIT 1)
-`
-
-type HasHistoryByDomainBeforeParams struct {
-	Domain sql.NullString `json:"domain"`
-	Before sql.NullTime   `json:"before"`
-}
-
-func (q *Queries) HasHistoryByDomainBefore(ctx context.Context, arg HasHistoryByDomainBeforeParams) (int64, error) {
-	row := q.db.QueryRowContext(ctx, HasHistoryByDomainBefore, arg.Domain, arg.Before)
-	var column_1 int64
-	err := row.Scan(&column_1)
-	return column_1, err
 }
 
 const IncrementVisitCount = `-- name: IncrementVisitCount :exec

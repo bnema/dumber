@@ -157,7 +157,7 @@ func (f *bridgeServiceRecorder) TimelineByDomain(context.Context, string, int, i
 	return f.historyEntries, nil
 }
 
-func (f *bridgeServiceRecorder) TimelineWindow(_ context.Context, before time.Time, _ string) (*entity.HistoryWindow, error) {
+func (f *bridgeServiceRecorder) TimelineWindow(_ context.Context, before time.Time, _ int64, _ string) (*entity.HistoryWindow, error) {
 	f.calledHistory.Store(true)
 	return &entity.HistoryWindow{Entries: f.historyEntries, Before: before, After: before.Add(-24 * time.Hour)}, nil
 }

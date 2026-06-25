@@ -2,156 +2,105 @@ package usecase
 
 import (
 	"context"
-	"path/filepath"
-	"sync"
+	"errors"
+	"math"
 	"testing"
-	"time"
 
+	"github.com/bnema/dumber/internal/application/port"
 	"github.com/bnema/dumber/internal/domain/entity"
-	repomocks "github.com/bnema/dumber/internal/domain/repository/mocks"
-	"github.com/bnema/dumber/internal/infrastructure/persistence/sqlite"
-	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 )
 
-func TestCanonicalizeURLForHistory_StripsHashTrackingAndTrailingSlash(t *testing.T) {
-	got := canonicalizeURLForHistory(
-		"https://Example.com/path/?utm_source=newsletter&utm_campaign=launch&a=2&b=1#section-1",
-		historyCanonicalizationOptions{StripTrackingParams: true},
-	)
-
-	require.Equal(t, "https://example.com/path?a=2&b=1", got)
+type fakeWebView struct {
+	loaded  string
+	loadErr error
 }
 
-func TestCanonicalizeURLForHistory_OptionallyKeepsTrackingParams(t *testing.T) {
-	got := canonicalizeURLForHistory(
-		"https://example.com/path/?utm_source=newsletter&b=1#section-1",
-		historyCanonicalizationOptions{StripTrackingParams: false},
-	)
-
-	require.Equal(t, "https://example.com/path?b=1&utm_source=newsletter", got)
+func (f *fakeWebView) LoadURI(_ context.Context, uri string) error {
+	if f.loadErr != nil {
+		return f.loadErr
+	}
+	f.loaded = uri
+	return nil
 }
+func (*fakeWebView) LoadHTML(context.Context, string, string) error { return nil }
+func (*fakeWebView) Reload(context.Context) error                   { return nil }
+func (*fakeWebView) ReloadBypassCache(context.Context) error        { return nil }
+func (*fakeWebView) Stop(context.Context) error                     { return nil }
+func (*fakeWebView) GoBack(context.Context) error                   { return nil }
+func (*fakeWebView) GoForward(context.Context) error                { return nil }
+func (*fakeWebView) ID() port.WebViewID                             { return 1 }
+func (*fakeWebView) State() port.WebViewState                       { return port.WebViewState{} }
+func (f *fakeWebView) URI() string                                  { return f.loaded }
+func (*fakeWebView) Title() string                                  { return "" }
+func (*fakeWebView) IsLoading() bool                                { return false }
+func (*fakeWebView) EstimatedProgress() float64                     { return 1 }
+func (*fakeWebView) CanGoBack() bool                                { return false }
+func (*fakeWebView) CanGoForward() bool                             { return false }
+func (*fakeWebView) SetZoomLevel(context.Context, float64) error    { return nil }
+func (*fakeWebView) GetZoomLevel() float64                          { return 1 }
+func (*fakeWebView) GetFindController() port.FindController         { return nil }
+func (*fakeWebView) SetCallbacks(*port.WebViewCallbacks)            {}
+func (*fakeWebView) RunJavaScript(context.Context, string)          {}
+func (*fakeWebView) SetBackgroundColor(float64, float64, float64, float64) {
+}
+func (*fakeWebView) ResetBackgroundToDefault() {}
+func (*fakeWebView) Favicon() port.Texture     { return nil }
+func (*fakeWebView) Generation() uint64        { return 0 }
+func (*fakeWebView) IsFullscreen() bool        { return false }
+func (*fakeWebView) IsPlayingAudio() bool      { return false }
+func (*fakeWebView) IsDestroyed() bool         { return false }
+func (*fakeWebView) Destroy()                  {}
 
-func TestRecordHistory_IgnoresHashOnlyTransitions(t *testing.T) {
+func TestNavigateUseCase_ExecuteLoadsURLAndReturnsDefaultZoom(t *testing.T) {
 	ctx := context.Background()
-	repo := repomocks.NewMockHistoryRepository(t)
+	wv := &fakeWebView{}
+	uc := NewNavigateUseCase(entity.ZoomDefault)
 
-	repo.EXPECT().FindByURL(mock.Anything, "https://example.com/docs").Return(nil, nil).Once()
-	repo.EXPECT().Save(mock.Anything, mock.MatchedBy(func(entry *entity.HistoryEntry) bool {
-		return entry.URL == "https://example.com/docs" && entry.VisitCount == 1
-	})).Return(nil).Once()
+	out, err := uc.Execute(ctx, NavigateInput{URL: "https://example.com", PaneID: "pane-1", WebView: wv})
 
-	uc := NewNavigateUseCase(repo, nil, entity.ZoomDefault)
-	uc.RecordHistory(ctx, "pane-1", "https://example.com/docs#intro")
-	uc.RecordHistory(ctx, "pane-1", "https://example.com/docs#api")
-	uc.Close()
-}
-
-func TestRecordHistory_DedupIsPerPaneAndCoalescesVisits(t *testing.T) {
-	ctx := context.Background()
-	repo := repomocks.NewMockHistoryRepository(t)
-
-	repo.EXPECT().FindByURL(mock.Anything, "https://example.com/article").Return(nil, nil).Once()
-	repo.EXPECT().Save(mock.Anything, mock.MatchedBy(func(entry *entity.HistoryEntry) bool {
-		return entry.URL == "https://example.com/article" && entry.VisitCount == 2
-	})).Return(nil).Once()
-
-	uc := NewNavigateUseCase(repo, nil, entity.ZoomDefault)
-	uc.RecordHistory(ctx, "pane-1", "https://example.com/article?utm_source=feed")
-	uc.RecordHistory(ctx, "pane-1", "https://example.com/article?utm_source=feed")
-	uc.RecordHistory(ctx, "pane-2", "https://example.com/article")
-	uc.Close()
-}
-
-func TestUpdateHistoryTitle_UsesMetadataUpdateWithoutIncrementingVisits(t *testing.T) {
-	ctx := context.Background()
-	dbPath := filepath.Join(t.TempDir(), "dumber.db")
-	db, err := sqlite.NewConnection(ctx, dbPath)
 	require.NoError(t, err)
-	t.Cleanup(func() { _ = db.Close() })
-
-	repo := sqlite.NewHistoryRepository(db)
-	require.NoError(t, repo.Save(ctx, &entity.HistoryEntry{
-		URL:   "https://example.com/article",
-		Title: "Old",
-	}))
-
-	before, err := repo.FindByURL(ctx, "https://example.com/article")
-	require.NoError(t, err)
-	require.NotNil(t, before)
-
-	uc := NewNavigateUseCase(repo, nil, entity.ZoomDefault)
-	uc.UpdateHistoryTitle(ctx, "https://example.com/article", "New")
-	uc.Close()
-
-	after, err := repo.FindByURL(ctx, "https://example.com/article")
-	require.NoError(t, err)
-	require.NotNil(t, after)
-	require.Equal(t, "New", after.Title)
-	require.Equal(t, before.VisitCount, after.VisitCount)
+	require.Equal(t, "https://example.com", wv.loaded)
+	require.InDelta(t, entity.ZoomDefault, out.AppliedZoom, 0.0001)
 }
 
-func TestHistoryWorker_ReenqueueDuringFlushIsPersistedOnShutdown(t *testing.T) {
+func TestNavigateUseCase_ExecuteUsesConfiguredOrFallbackZoom(t *testing.T) {
+	tests := []struct {
+		name           string
+		configuredZoom float64
+		wantZoom       float64
+	}{
+		{name: "zero falls back", configuredZoom: 0, wantZoom: entity.ZoomDefault},
+		{name: "negative falls back", configuredZoom: -0.5, wantZoom: entity.ZoomDefault},
+		{name: "NaN falls back", configuredZoom: math.NaN(), wantZoom: entity.ZoomDefault},
+		{name: "positive infinity falls back", configuredZoom: math.Inf(1), wantZoom: entity.ZoomDefault},
+		{name: "positive is preserved", configuredZoom: 1.25, wantZoom: 1.25},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			ctx := context.Background()
+			wv := &fakeWebView{}
+			uc := NewNavigateUseCase(tt.configuredZoom)
+
+			out, err := uc.Execute(ctx, NavigateInput{URL: "https://example.com", PaneID: "pane-1", WebView: wv})
+
+			require.NoError(t, err)
+			require.Equal(t, "https://example.com", wv.loaded)
+			require.InDelta(t, tt.wantZoom, out.AppliedZoom, 0.0001)
+		})
+	}
+}
+
+func TestNavigateUseCase_ExecuteReturnsLoadError(t *testing.T) {
 	ctx := context.Background()
+	loadErr := errors.New("load failed")
+	wv := &fakeWebView{loadErr: loadErr}
+	uc := NewNavigateUseCase(entity.ZoomDefault)
 
-	// Stateful store — Save writes here, FindByURL reads from here.
-	var mu sync.Mutex
-	store := make(map[string]*entity.HistoryEntry)
+	out, err := uc.Execute(ctx, NavigateInput{URL: "https://example.com", PaneID: "pane-1", WebView: wv})
 
-	// Fires once during the first Save to re-enqueue a title update while
-	// the flush is in progress. This is the exact race that caused the
-	// concurrent map crash (fixed by swapping maps in flushPending).
-	var saveOnce sync.Once
-	var uc *NavigateUseCase
-
-	repo := repomocks.NewMockHistoryRepository(t)
-
-	repo.EXPECT().FindByURL(mock.Anything, mock.Anything).RunAndReturn(
-		func(_ context.Context, url string) (*entity.HistoryEntry, error) {
-			mu.Lock()
-			defer mu.Unlock()
-			e := store[url]
-			if e == nil {
-				return nil, nil
-			}
-			clone := *e
-			return &clone, nil
-		},
-	).Maybe()
-
-	repo.EXPECT().Save(mock.Anything, mock.Anything).RunAndReturn(
-		func(_ context.Context, entry *entity.HistoryEntry) error {
-			clone := *entry
-			mu.Lock()
-			store[entry.URL] = &clone
-			mu.Unlock()
-
-			// Re-enqueue a title update during the first Save.
-			saveOnce.Do(func() {
-				if entry.URL == "https://example.com/article" {
-					uc.UpdateHistoryTitle(ctx, entry.URL, "Queued title")
-				}
-			})
-			return nil
-		},
-	).Maybe()
-
-	uc = NewNavigateUseCase(repo, nil, entity.ZoomDefault)
-	uc.RecordHistory(ctx, "pane-1", "https://example.com/article")
-
-	// The history worker flushes on a timer; there is no exported sync
-	// mechanism, so we sleep before shutting down. Using 5× the flush
-	// interval for headroom — this is a known flaky pattern, but
-	// restructuring the worker for deterministic sync is out of scope.
-	// Close() performs a final flush, so items re-enqueued during the
-	// timed flush are still captured on shutdown.
-	time.Sleep(historyWorkerFlushInterval * 5)
-	uc.Close()
-
-	mu.Lock()
-	entry := store["https://example.com/article"]
-	mu.Unlock()
-	require.NotNil(t, entry)
-	require.Equal(t, int64(1), entry.VisitCount)
-	require.Equal(t, "Queued title", entry.Title)
+	require.Nil(t, out)
+	require.ErrorIs(t, err, loadErr)
+	require.Contains(t, err.Error(), "failed to load URL")
 }

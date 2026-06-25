@@ -213,16 +213,18 @@ func TestAppHandleHistoryLoadMoreAppendsOlderWindow(t *testing.T) {
 
 	cursor := time.Date(2026, 4, 25, 9, 0, 0, 0, time.UTC)
 	history := &recordingHistoryService{window: &entity.HistoryWindow{
-		Entries: []*entity.HistoryEntry{{ID: 2, URL: "https://older.example", Title: "Older entry", LastVisited: cursor.Add(-time.Hour)}},
-		Before:  cursor,
-		After:   cursor.Add(-24 * time.Hour),
-		HasMore: true,
+		Entries:           []*entity.HistoryEntry{{ID: 2, URL: "https://older.example", Title: "Older entry", LastVisited: cursor.Add(-time.Hour)}},
+		Before:            cursor,
+		CursorLastVisited: cursor.Add(-time.Hour),
+		CursorID:          2,
+		HasMore:           true,
 	}}
 	dom := &recordingActionDOM{}
 	app := NewApp(Dependencies{DOM: dom, History: history, LocationURI: "dumb://history"})
 	app.currentRoute = RouteHistory
 	app.historyEntries = []*entity.HistoryEntry{{ID: 1, URL: "https://newer.example", Title: "Newer entry", LastVisited: cursor}}
 	app.historyWindowAfter = cursor
+	app.historyCursorID = 1
 	app.historyHasMore = true
 
 	require.NoError(t, app.HandleDOMAction(context.Background(), DOMAction{
@@ -230,6 +232,9 @@ func TestAppHandleHistoryLoadMoreAppendsOlderWindow(t *testing.T) {
 		Data:   map[string]string{"before": cursor.Format(time.RFC3339Nano)},
 	}))
 	assert.Equal(t, cursor, history.windowBefore)
+	assert.Equal(t, int64(1), history.windowBeforeID)
+	assert.Equal(t, int64(2), app.historyCursorID)
+	assert.Equal(t, cursor.Add(-time.Hour), app.historyWindowAfter)
 	assert.Len(t, app.historyEntries, 2)
 	assert.Contains(t, dom.AppendedHTML(), "Older entry")
 	assert.Contains(t, dom.AppendedHTML(), `data-sv-action="history.loadMore"`)
@@ -241,16 +246,18 @@ func TestAppHandleHistoryLoadMoreRemountsWhenAppendUnavailable(t *testing.T) {
 
 	cursor := time.Date(2026, 4, 25, 9, 0, 0, 0, time.UTC)
 	history := &recordingHistoryService{window: &entity.HistoryWindow{
-		Entries: []*entity.HistoryEntry{{ID: 2, URL: "https://older.example", Title: "Older entry", LastVisited: cursor.Add(-time.Hour)}},
-		Before:  cursor,
-		After:   cursor.Add(-24 * time.Hour),
-		HasMore: true,
+		Entries:           []*entity.HistoryEntry{{ID: 2, URL: "https://older.example", Title: "Older entry", LastVisited: cursor.Add(-time.Hour)}},
+		Before:            cursor,
+		CursorLastVisited: cursor.Add(-time.Hour),
+		CursorID:          2,
+		HasMore:           true,
 	}}
 	dom := &recordingDOM{}
 	app := NewApp(Dependencies{DOM: dom, History: history, LocationURI: "dumb://history"})
 	app.currentRoute = RouteHistory
 	app.historyEntries = []*entity.HistoryEntry{{ID: 1, URL: "https://newer.example", Title: "Newer entry", LastVisited: cursor}}
 	app.historyWindowAfter = cursor
+	app.historyCursorID = 1
 	app.historyHasMore = true
 
 	require.NoError(t, app.HandleDOMAction(context.Background(), DOMAction{
@@ -258,9 +265,38 @@ func TestAppHandleHistoryLoadMoreRemountsWhenAppendUnavailable(t *testing.T) {
 		Data:   map[string]string{"before": cursor.Format(time.RFC3339Nano)},
 	}))
 	assert.Equal(t, cursor, history.windowBefore)
+	assert.Equal(t, int64(1), history.windowBeforeID)
 	assert.Len(t, app.historyEntries, 2)
 	assert.Contains(t, dom.HTML(), "Older entry")
 	assert.Contains(t, dom.HTML(), `data-sv-action="history.loadMore"`)
+}
+
+func TestAppHandleHistoryLoadMoreDisablesPartialNextCursor(t *testing.T) {
+	t.Parallel()
+
+	cursor := time.Date(2026, 4, 25, 9, 0, 0, 0, time.UTC)
+	history := &recordingHistoryService{window: &entity.HistoryWindow{
+		Entries: []*entity.HistoryEntry{{ID: 2, URL: "https://older.example", Title: "Older entry", LastVisited: cursor.Add(-time.Hour)}},
+		Before:  cursor,
+		After:   cursor.Add(-24 * time.Hour),
+		HasMore: true,
+	}}
+	dom := &recordingActionDOM{}
+	app := NewApp(Dependencies{DOM: dom, History: history, LocationURI: "dumb://history"})
+	app.currentRoute = RouteHistory
+	app.historyEntries = []*entity.HistoryEntry{{ID: 1, URL: "https://newer.example", Title: "Newer entry", LastVisited: cursor}}
+	app.historyWindowAfter = cursor
+	app.historyCursorID = 1
+	app.historyHasMore = true
+
+	require.NoError(t, app.HandleDOMAction(context.Background(), DOMAction{
+		Action: historyActionLoadMore,
+		Data:   map[string]string{"before": cursor.Format(time.RFC3339Nano)},
+	}))
+	assert.False(t, app.historyHasMore)
+	assert.Zero(t, app.historyCursorID)
+	assert.True(t, app.historyWindowAfter.IsZero())
+	assert.NotContains(t, dom.AppendedHTML(), `data-sv-action="history.loadMore"`)
 }
 
 func TestAppHandleHistoryLoadMoreIgnoresStaleCursor(t *testing.T) {
@@ -1072,6 +1108,7 @@ type recordingHistoryService struct {
 	statsCalled     bool
 	window          *entity.HistoryWindow
 	windowBefore    time.Time
+	windowBeforeID  int64
 	windowDomain    string
 	analyticsCalled bool
 
@@ -1101,9 +1138,10 @@ func (s *recordingHistoryService) TimelineByDomain(_ context.Context, domain str
 	return s.entries, s.err
 }
 
-func (s *recordingHistoryService) TimelineWindow(_ context.Context, before time.Time, domain string) (*entity.HistoryWindow, error) {
+func (s *recordingHistoryService) TimelineWindow(_ context.Context, before time.Time, beforeID int64, domain string) (*entity.HistoryWindow, error) {
 	s.called = true
 	s.windowBefore = before
+	s.windowBeforeID = beforeID
 	s.windowDomain = domain
 	if s.timelineStarted != nil {
 		s.startOnce.Do(func() { close(s.timelineStarted) })

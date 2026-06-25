@@ -220,6 +220,14 @@ func New(deps *Dependencies) (*App, error) {
 			glib.IdleAdd(&cb, 0)
 		})
 	}
+	historyChangeSink := newHistoryChangeAdapter(app)
+	if deps.HistoryRecorderUC != nil {
+		deps.HistoryRecorderUC.SetHistoryChangeSink(historyChangeSink)
+	}
+	if deps.HistoryUC != nil {
+		deps.HistoryUC.SetHistoryChangeSink(historyChangeSink)
+	}
+
 	if faviconSetter, ok := deps.Engine.(port.SystemviewFaviconResolverSetter); ok {
 		resolver := deps.SystemviewFaviconResolver
 		if resolver == nil {
@@ -249,6 +257,10 @@ func New(deps *Dependencies) (*App, error) {
 		},
 		HandlerDeps: deps.HandlerDeps,
 	}); err != nil {
+		cancel(err)
+		if deps.HistoryRecorderUC != nil {
+			deps.HistoryRecorderUC.Close()
+		}
 		return nil, err
 	}
 
@@ -3145,6 +3157,7 @@ func (a *App) onShutdown(ctx context.Context) {
 	a.cancel(errors.New("application shutdown"))
 
 	// Cleanup resources
+	a.closeHistoryRecorder()
 	if a.faviconAdapter != nil {
 		a.faviconAdapter.Close()
 	}
@@ -3181,6 +3194,13 @@ func (a *App) onShutdown(ctx context.Context) {
 	}
 
 	log.Info().Msg("application shutdown complete")
+}
+
+func (a *App) closeHistoryRecorder() {
+	if a.deps == nil || a.deps.HistoryRecorderUC == nil {
+		return
+	}
+	a.deps.HistoryRecorderUC.Close()
 }
 
 // initContentCoordinator creates the content coordinator and wires its optional dependencies.
@@ -3396,9 +3416,10 @@ func (a *App) initCoordinators(ctx context.Context) {
 	a.extractPaneToTabListUC = usecase.NewExtractPaneToTabListUseCase(a.generateID)
 
 	// 4. Navigation Coordinator
-	a.navCoord = coordinator.NewNavigationCoordinator(
+	a.navCoord = coordinator.NewNavigationCoordinatorWithHistoryRecorder(
 		ctx,
 		a.deps.NavigateUC,
+		a.deps.HistoryRecorderUC,
 		a.contentCoord,
 	)
 	a.wsCoord.SetOnPaneClosed(func(paneID entity.PaneID) {

@@ -20,26 +20,27 @@ import (
 )
 
 type browserWindow struct {
-	id                    string
-	initialURL            string
-	tabs                  *entity.TabList // per-window tab list (single source of truth for tab state)
-	mainWindow            *window.MainWindow
-	appToaster            *component.Toaster
-	modeToaster           *component.Toaster
-	touchpadNavIndicator  *component.TouchpadNavigationIndicator
-	borderMgr             *focus.BorderManager
-	sessionManager        *component.SessionManager
-	tabPicker             *component.TabPicker
-	tabPickerWidget       layout.Widget
-	tabPickerPaneID       entity.PaneID
-	insertAccentUC        *usecase.InsertAccentUseCase
-	accentPicker          *component.AccentPicker
-	keyboardHandler       *input.KeyboardHandler
-	globalShortcutHandler *input.GlobalShortcutHandler
-	permissionDialog      port.PermissionDialogPresenter
-	webrtcIndicator       *component.WebRTCPermissionIndicator
-	historySidebar        *component.HistorySidebar
-	sidebarVisible        bool
+	id                     string
+	initialURL             string
+	tabs                   *entity.TabList // per-window tab list (single source of truth for tab state)
+	mainWindow             *window.MainWindow
+	appToaster             *component.Toaster
+	modeToaster            *component.Toaster
+	touchpadNavIndicator   *component.TouchpadNavigationIndicator
+	borderMgr              *focus.BorderManager
+	sessionManager         *component.SessionManager
+	tabPicker              *component.TabPicker
+	tabPickerWidget        layout.Widget
+	tabPickerPaneID        entity.PaneID
+	insertAccentUC         *usecase.InsertAccentUseCase
+	accentPicker           *component.AccentPicker
+	keyboardHandler        *input.KeyboardHandler
+	globalShortcutHandler  *input.GlobalShortcutHandler
+	permissionDialog       port.PermissionDialogPresenter
+	webrtcIndicator        *component.WebRTCPermissionIndicator
+	historySidebar         *component.HistorySidebar
+	historySidebarReloader historySidebarReloader
+	sidebarVisible         bool
 }
 
 func (bw *browserWindow) detachInputForDestroy() {
@@ -90,6 +91,7 @@ func (bw *browserWindow) clearShellState() {
 	bw.permissionDialog = nil
 	bw.webrtcIndicator = nil
 	bw.historySidebar = nil
+	bw.historySidebarReloader = nil
 }
 
 func (bw *browserWindow) initChrome(ctx context.Context, a *App) {

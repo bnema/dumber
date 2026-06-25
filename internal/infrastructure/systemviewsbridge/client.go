@@ -108,7 +108,13 @@ func (c *Client) TimelineByDomain(ctx context.Context, domain string, limit, off
 	}{RequestID: nextRequestID(), Domain: domain, Limit: limit, Offset: offset})
 }
 
-func (c *Client) TimelineWindow(ctx context.Context, before time.Time, domain string) (*entity.HistoryWindow, error) {
+func (c *Client) TimelineWindow(ctx context.Context, before time.Time, beforeID int64, domain string) (*entity.HistoryWindow, error) {
+	if beforeID < 0 {
+		return nil, fmt.Errorf("history window cursor beforeID must be non-negative")
+	}
+	if before.IsZero() != (beforeID == 0) {
+		return nil, fmt.Errorf("history window cursor requires before and beforeID")
+	}
 	beforeCursor := ""
 	if !before.IsZero() {
 		beforeCursor = before.Format(time.RFC3339Nano)
@@ -116,8 +122,9 @@ func (c *Client) TimelineWindow(ctx context.Context, before time.Time, domain st
 	return request[*entity.HistoryWindow](c, ctx, "history_timeline_window", struct {
 		RequestID string `json:"requestId"`
 		Before    string `json:"before,omitempty"`
+		BeforeID  int64  `json:"beforeId,omitempty"`
 		Domain    string `json:"domain,omitempty"`
-	}{RequestID: nextRequestID(), Before: beforeCursor, Domain: strings.TrimSpace(domain)})
+	}{RequestID: nextRequestID(), Before: beforeCursor, BeforeID: beforeID, Domain: strings.TrimSpace(domain)})
 }
 
 func (c *Client) Search(ctx context.Context, query string, limit int) ([]*entity.HistoryEntry, error) {
