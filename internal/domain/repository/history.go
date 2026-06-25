@@ -24,17 +24,11 @@ type HistoryRepository interface {
 	// GetRecentByDomain retrieves recent history entries for a domain with pagination. A zero limit means all matching entries.
 	GetRecentByDomain(ctx context.Context, domain string, limit, offset int) ([]*entity.HistoryEntry, error)
 
-	// GetRecentWindow retrieves entries visited in [after, before), sorted by recency.
-	GetRecentWindow(ctx context.Context, before, after time.Time) ([]*entity.HistoryEntry, error)
+	// GetRecentWindow retrieves entries older than the stable (last_visited, id) cursor, sorted by recency.
+	GetRecentWindow(ctx context.Context, before time.Time, beforeID int64, limit int) ([]*entity.HistoryEntry, error)
 
-	// GetRecentWindowByDomain retrieves domain entries visited in [after, before), sorted by recency.
-	GetRecentWindowByDomain(ctx context.Context, domain string, before, after time.Time) ([]*entity.HistoryEntry, error)
-
-	// HasEntriesBefore reports whether any history entry was visited before the given time.
-	HasEntriesBefore(ctx context.Context, before time.Time) (bool, error)
-
-	// HasEntriesByDomainBefore reports whether any domain entry was visited before the given time.
-	HasEntriesByDomainBefore(ctx context.Context, domain string, before time.Time) (bool, error)
+	// GetRecentWindowByDomain retrieves domain entries older than the stable (last_visited, id) cursor, sorted by recency.
+	GetRecentWindowByDomain(ctx context.Context, domain string, before time.Time, beforeID int64, limit int) ([]*entity.HistoryEntry, error)
 
 	// GetRecentSince retrieves history entries visited within the last N days.
 	// days must be > 0.

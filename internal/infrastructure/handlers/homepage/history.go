@@ -40,6 +40,7 @@ type timelineByDomainRequest struct {
 type timelineWindowRequest struct {
 	RequestID string `json:"requestId"`
 	Before    string `json:"before"`
+	BeforeID  int64  `json:"beforeId"`
 	Domain    string `json:"domain"`
 }
 
@@ -124,7 +125,15 @@ func (h *HistoryHandlers) HandleTimelineWindow() port.WebUIMessageHandler {
 		domain := strings.TrimSpace(req.Domain)
 
 		var before time.Time
-		if strings.TrimSpace(req.Before) != "" {
+		hasBefore := strings.TrimSpace(req.Before) != ""
+		if req.BeforeID < 0 {
+			return NewErrorResponse(req.RequestID, fmt.Errorf("history window cursor id must be non-negative")), nil
+		}
+		hasBeforeID := req.BeforeID > 0
+		if hasBefore != hasBeforeID {
+			return NewErrorResponse(req.RequestID, fmt.Errorf("history window cursor requires before and beforeId")), nil
+		}
+		if hasBefore {
 			parsed, err := time.Parse(time.RFC3339Nano, strings.TrimSpace(req.Before))
 			if err != nil {
 				return NewErrorResponse(req.RequestID, fmt.Errorf("invalid history window cursor")), nil
@@ -138,7 +147,7 @@ func (h *HistoryHandlers) HandleTimelineWindow() port.WebUIMessageHandler {
 			Time("before", before).
 			Msg("handling history_timeline_window")
 
-		window, err := h.historyUC.GetRecentWindow(ctx, before, domain)
+		window, err := h.historyUC.GetRecentWindow(ctx, before, req.BeforeID, domain)
 		if err != nil {
 			return NewErrorResponse(req.RequestID, err), nil
 		}
