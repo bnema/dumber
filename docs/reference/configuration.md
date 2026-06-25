@@ -31,6 +31,7 @@
 | `appearance.sans_font` | string | `Fira Sans` | |
 | `appearance.serif_font` | string | `Fira Sans` | |
 | `appearance.monospace_font` | string | `Fira Code` | |
+| `appearance.gtk_font` | string | `Adwaita Sans` | |
 | `appearance.default_font_size` | int | `16` | |
 | `appearance.color_scheme` | string | `default` | `prefer-dark`, `prefer-light`, `default` |
 | `appearance.external_theme.enabled` | bool | `false` | |
@@ -52,7 +53,13 @@
 | `appearance.dark_palette.accent` | string | `#a8a8a8` | |
 | `appearance.dark_palette.border` | string | `#363636` | |
 | `debug.enable_devtools` | bool | `true` | |
+| `engine.cef.log_file` | string | `` | CEF runtime log path |
+| `engine.cef.log_severity` | int32 | `0` | `0`, `1`, `2`, `3`, `4`, `99` |
+| `engine.cef.trace_handlers` | bool | `false` | |
+| `engine.cef.enable_audio_handler` | bool | `true` | experimental |
 | `engine.type` | string | `cef` | `cef`, `webkit` (CEF default; WebKitGTK fallback) |
+| `engine.cookie_policy` | string | `always` | `always`, `no_third_party`, `never` |
+| `engine.webkit.itp_enabled` | bool | `true` | WebKit fallback only |
 | `engine.cef.render_stack` | string | `vulkan` | `vulkan`, `egl` |
 | `engine.cef.adaptive_windowless_frame_rate` | bool | `true` | |
 | `engine.cef.windowless_frame_rate` | int32 | `0` | >= 0 |
@@ -79,21 +86,24 @@
 | `engine.webkit.gl_rendering_mode` | string | `auto` | `auto`, `gles2`, `gl3`, `none` (WebKit fallback only) |
 | `engine.webkit.gstreamer_debug_level` | int | `0` | `0-5` (WebKit fallback only) |
 | `default_ui_scale` | float | `1.0` | > 0 |
-
-Touchpad vertical scroll speed is controlled by `engine.cef.input.scroll_precise_multiplier` and the additional axis-specific `engine.cef.input.scroll_vertical_multiplier`. `engine.cef.input.touchpad_navigation_max_vertical_ratio` only filters horizontal back/forward swipe recognition; it does not tune vertical scroll speed.
-
-`engine.cef.input.touchpad_navigation_min_delta` is measured in raw GTK touchpad surface units. The default `200.0` matches WebKit-style commit distance to reduce accidental back/forward navigation and can be overridden in `config.toml`.
 | `default_webpage_zoom` | float | `1.2` | > 0 |
+| `sidebar_width` | int | `320` | `0` or `280-380` |
 | `workspace.new_pane_url` | string | `about:blank` | |
 | `workspace.switch_to_tab_on_move` | bool | `true` | |
+| `workspace.tab_bar_position` | string | `bottom` | `top`, `bottom` |
+| `workspace.hide_tab_bar_when_single_tab` | bool | `true` | |
 | `workspace.pane_mode.activation_shortcut` | string | `ctrl+p` | |
 | `workspace.pane_mode.timeout_ms` | int | `3000` | |
+| `workspace.pane_mode.actions.<action>` | []string | see defaults | pane mode key mappings |
 | `workspace.tab_mode.activation_shortcut` | string | `ctrl+t` | |
 | `workspace.tab_mode.timeout_ms` | int | `3000` | |
+| `workspace.tab_mode.actions.<action>` | []string | see defaults | tab mode key mappings |
 | `workspace.resize_mode.activation_shortcut` | string | `ctrl+n` | |
 | `workspace.resize_mode.timeout_ms` | int | `3000` | |
+| `workspace.resize_mode.actions.<action>` | []string | see defaults | resize mode key mappings |
 | `workspace.resize_mode.step_percent` | float | `5.0` | |
 | `workspace.resize_mode.min_pane_percent` | float | `10.0` | |
+| `workspace.shortcuts.actions` | map | see defaults | global shortcut action mappings |
 | `workspace.shortcuts.actions.toggle_floating_pane.keys` | []string | `alt+f` | key strings |
 | `workspace.shortcuts.actions.toggle_floating_pane.desc` | string | `Toggle floating pane` | |
 | `workspace.floating_pane.width_pct` | float | `0.82` | `(0,1]` |
@@ -123,6 +133,7 @@ Touchpad vertical scroll speed is controlled by `engine.cef.input.scroll_precise
 | `session.max_exited_session_age_days` | int | `7` | |
 | `session.session_mode.activation_shortcut` | string | `ctrl+o` | |
 | `session.session_mode.timeout_ms` | int | `3000` | |
+| `session.session_mode.actions.<action>` | []string | see defaults | session mode key mappings |
 | `media.hardware_decoding` | string | `auto` | `auto`, `force`, `disable` |
 | `media.prefer_av1` | bool | `false` | |
 | `media.show_diagnostics` | bool | `false` | |
@@ -149,6 +160,10 @@ Touchpad vertical scroll speed is controlled by `engine.cef.input.scroll_precise
 | `engine.pool_prewarm_count` | int | `4` | >= 0 |
 | `engine.zoom_cache_size` | int | `256` | >= 0 |
 | `downloads.path` | string | `` | |
+
+Touchpad vertical scroll speed is controlled by `engine.cef.input.scroll_precise_multiplier` and the additional axis-specific `engine.cef.input.scroll_vertical_multiplier`. `engine.cef.input.touchpad_navigation_max_vertical_ratio` only filters horizontal back/forward swipe recognition; it does not tune vertical scroll speed.
+
+`engine.cef.input.touchpad_navigation_min_delta` is measured in raw GTK touchpad surface units. The default `200.0` matches WebKit-style commit distance to reduce accidental back/forward navigation and can be overridden in `config.toml`.
 
 CEF is the default engine. WebKitGTK is a fallback selected with `engine.type = "webkit"`; `engine.webkit.*` keys are WebKit-specific.
 

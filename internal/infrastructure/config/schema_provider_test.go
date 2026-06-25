@@ -1,12 +1,76 @@
 package config
 
 import (
+	"os"
+	"path/filepath"
+	"regexp"
+	"runtime"
 	"sort"
+	"strings"
 	"testing"
 
 	"github.com/spf13/viper"
 	"github.com/stretchr/testify/require"
 )
+
+func TestConfigurationReferenceCoversSchemaKeys(t *testing.T) {
+	docKeys := configurationReferenceKeys(t)
+
+	var missing []string
+	for _, key := range NewSchemaProvider().GetSchema() {
+		if configurationReferenceCoversKey(docKeys, key.Key) {
+			continue
+		}
+		missing = append(missing, key.Key)
+	}
+
+	sort.Strings(missing)
+	require.Empty(t, missing, "docs/reference/configuration.md should cover every SchemaProvider key")
+}
+
+func configurationReferenceKeys(t *testing.T) map[string]struct{} {
+	t.Helper()
+
+	_, filename, _, ok := runtime.Caller(0)
+	require.True(t, ok, "locate current test file")
+	docPath := filepath.Join(filepath.Dir(filename), "..", "..", "..", "docs", "reference", "configuration.md")
+	data, err := os.ReadFile(docPath)
+	require.NoError(t, err)
+
+	canonicalReference, _, _ := strings.Cut(string(data), "Legacy key migration:")
+	rowRE := regexp.MustCompile(`(?m)^\| ` + "`" + `([^` + "`" + `]+)` + "`" + ` \|`)
+	keys := make(map[string]struct{})
+	for _, match := range rowRE.FindAllStringSubmatch(canonicalReference, -1) {
+		keys[match[1]] = struct{}{}
+	}
+	return keys
+}
+
+func configurationReferenceCoversKey(docKeys map[string]struct{}, schemaKey string) bool {
+	if _, ok := docKeys[schemaKey]; ok {
+		return true
+	}
+
+	if strings.HasSuffix(schemaKey, ".*") {
+		prefix := strings.TrimSuffix(schemaKey, "*")
+		for docKey := range docKeys {
+			if strings.HasPrefix(docKey, prefix) {
+				return true
+			}
+		}
+	}
+
+	if idx := strings.Index(schemaKey, "<"); idx >= 0 {
+		prefix := schemaKey[:idx]
+		for docKey := range docKeys {
+			if strings.HasPrefix(docKey, prefix) {
+				return true
+			}
+		}
+	}
+
+	return false
+}
 
 func TestSchemaProviderCoversViperDefaults(t *testing.T) {
 	m := &Manager{viper: viper.New()}
