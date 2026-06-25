@@ -423,6 +423,91 @@ func TestOnLoadEndDoesNotDispatchBrowserLevelCompletion(t *testing.T) {
 	assert.Empty(t, gotProgress)
 }
 
+func TestOnLoadErrorMainFrameCommitsFailedNavigation(t *testing.T) {
+	wv := &WebView{ctx: context.Background()}
+	wv.updateLoadState(true, true, false)
+	var gotEvents []port.LoadEvent
+	wv.SetCallbacks(&port.WebViewCallbacks{
+		OnLoadChanged: func(event port.LoadEvent) {
+			gotEvents = append(gotEvents, event)
+		},
+	})
+
+	h := &handlerSet{wv: wv}
+	h.OnLoadError(nil, stubFrame{main: true, url: "http://localhost:9"}, -102, "CONNECTION_REFUSED", "http://localhost:9")
+
+	require.Equal(t, []port.LoadEvent{port.LoadCommitted}, gotEvents)
+	require.Equal(t, "http://localhost:9", wv.URI())
+	require.True(t, wv.IsLoading())
+	require.True(t, wv.CanGoBack())
+}
+
+func TestOnLoadErrorFollowedByLoadingStateFinishTerminatesNavigation(t *testing.T) {
+	wv := &WebView{ctx: context.Background()}
+	wv.updateLoadState(true, false, false)
+	var gotEvents []port.LoadEvent
+	wv.SetCallbacks(&port.WebViewCallbacks{
+		OnLoadChanged: func(event port.LoadEvent) {
+			gotEvents = append(gotEvents, event)
+		},
+	})
+
+	h := &handlerSet{wv: wv}
+	h.OnLoadError(nil, stubFrame{main: true, url: "http://localhost:9"}, -102, "CONNECTION_REFUSED", "http://localhost:9")
+	h.OnLoadingStateChange(nil, 0, 0, 0)
+
+	require.Equal(t, []port.LoadEvent{port.LoadCommitted, port.LoadFinished}, gotEvents)
+	require.False(t, wv.IsLoading())
+}
+
+func TestOnLoadErrorAfterLoadStartDoesNotDispatchDuplicateEvents(t *testing.T) {
+	wv := &WebView{ctx: context.Background()}
+	var gotEvents []port.LoadEvent
+	wv.SetCallbacks(&port.WebViewCallbacks{
+		OnLoadChanged: func(event port.LoadEvent) {
+			gotEvents = append(gotEvents, event)
+		},
+	})
+
+	h := &handlerSet{wv: wv}
+	h.OnLoadStart(nil, stubFrame{main: true, url: "http://localhost:9"}, 0)
+	gotEvents = nil
+	h.OnLoadError(nil, stubFrame{main: true, url: "http://localhost:9"}, -102, "CONNECTION_REFUSED", "http://localhost:9")
+
+	require.Empty(t, gotEvents)
+}
+
+func TestOnLoadErrorAbortedNavigationDoesNotCommit(t *testing.T) {
+	wv := &WebView{ctx: context.Background()}
+	var gotEvents []port.LoadEvent
+	wv.SetCallbacks(&port.WebViewCallbacks{
+		OnLoadChanged: func(event port.LoadEvent) {
+			gotEvents = append(gotEvents, event)
+		},
+	})
+
+	h := &handlerSet{wv: wv}
+	h.OnLoadError(nil, stubFrame{main: true, url: "https://example.com/file.zip"}, cefErrAborted, "ERR_ABORTED", "https://example.com/file.zip")
+
+	require.Empty(t, gotEvents)
+	require.Empty(t, wv.URI())
+}
+
+func TestOnLoadErrorSubFrameDoesNotTerminateNavigation(t *testing.T) {
+	wv := &WebView{ctx: context.Background()}
+	var gotEvents []port.LoadEvent
+	wv.SetCallbacks(&port.WebViewCallbacks{
+		OnLoadChanged: func(event port.LoadEvent) {
+			gotEvents = append(gotEvents, event)
+		},
+	})
+
+	h := &handlerSet{wv: wv}
+	h.OnLoadError(nil, stubFrame{main: false, url: "http://localhost:9/frame"}, -102, "CONNECTION_REFUSED", "http://localhost:9/frame")
+
+	assert.Empty(t, gotEvents)
+}
+
 func TestOnTextSelectionChanged_ForwardsSelectionToClipboardOrchestrator(t *testing.T) {
 	recorder := &clipboardOrchestratorRecorder{}
 	orchestrator := portmocks.NewMockClipboardTextOrchestrator(t)
