@@ -8,6 +8,19 @@ import (
 	"github.com/bnema/dumber/internal/domain/entity"
 )
 
+type fakeLocalPathResolver struct {
+	paths map[string]string
+	err   error
+}
+
+func (r fakeLocalPathResolver) ResolveExistingPath(_ context.Context, input string) (string, bool, error) {
+	if r.err != nil {
+		return "", false, r.err
+	}
+	abs, ok := r.paths[input]
+	return abs, ok, nil
+}
+
 func TestManageTabsCreateResolvesExistingLocalInitialURL(t *testing.T) {
 	ctx := context.Background()
 	tabs := entity.NewTabList()

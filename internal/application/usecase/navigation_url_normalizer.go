@@ -2,6 +2,7 @@ package usecase
 
 import (
 	"context"
+	stdurl "net/url"
 	"strings"
 
 	"github.com/bnema/dumber/internal/application/port"
@@ -27,7 +28,7 @@ func (n *NavigationURLNormalizer) Normalize(ctx context.Context, input string) s
 	}
 	if n != nil && n.localPaths != nil && shouldProbeLocalPath(input) {
 		if absPath, ok, err := n.localPaths.ResolveExistingPath(ctx, input); err == nil && ok {
-			return "file://" + absPath
+			return (&stdurl.URL{Scheme: "file", Path: absPath}).String()
 		}
 	}
 	return domainurl.Normalize(input)

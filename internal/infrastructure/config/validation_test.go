@@ -295,6 +295,7 @@ func TestValidateConfig_CEFConfig(t *testing.T) {
 }
 
 func TestValidateConfig_WorkspaceNewPaneURLAllowsExistingLocalPathLikeValues(t *testing.T) {
+	// This test mutates process CWD; do not add t.Parallel here.
 	tmpDir := t.TempDir()
 	oldWD, err := os.Getwd()
 	require.NoError(t, err)
@@ -330,6 +331,7 @@ func TestValidateConfig_WorkspaceNewPaneURLRejectsMissingLocalPathLikeValues(t *
 }
 
 func TestValidateConfig_WorkspaceNewPaneURLAllowsExistingBareRelativeFile(t *testing.T) {
+	// This test mutates process CWD; do not add t.Parallel here.
 	tmpDir := t.TempDir()
 	oldWD, err := os.Getwd()
 	require.NoError(t, err)

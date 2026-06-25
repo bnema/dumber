@@ -592,6 +592,7 @@ Dumber automatically detects your GPU vendor (AMD/Intel/NVIDIA) and sets optimal
 - **NVIDIA**: Uses `nvidia` driver with EGL platform
 
 **Example:**
+
 ```toml
 [media]
 hardware_decoding = "auto"    # HW preferred, SW fallback
@@ -600,6 +601,7 @@ show_diagnostics = false      # Keep off for daily use
 ```
 
 **WebKit fallback GStreamer diagnostics:**
+
 ```toml
 [engine.webkit]
 gstreamer_debug_level = 3
@@ -608,6 +610,7 @@ gstreamer_debug_level = 3
 Set `media.show_diagnostics = false` and `engine.webkit.gstreamer_debug_level = 0` to return to normal mode.
 
 **Diagnostics CLI:**
+
 ```bash
 # Check GStreamer plugins and VA-API status
 dumber doctor --media

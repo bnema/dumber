@@ -2,9 +2,11 @@ package config
 
 import (
 	"fmt"
-	"github.com/pelletier/go-toml/v2"
 	"io/fs"
 	"os"
+	"strings"
+
+	"github.com/pelletier/go-toml/v2"
 )
 
 // configFilePermissions is the file permission used when writing migrated config files.
@@ -119,6 +121,28 @@ func legacyEngineSectionsToRemove() []string {
 	return sections
 }
 
+func legacyEngineInputSections() []string {
+	sections := make([]string, 0)
+	seen := make(map[string]struct{})
+	for _, alias := range legacyEngineAliases {
+		if _, ok := seen[alias.legacySection]; ok {
+			continue
+		}
+		seen[alias.legacySection] = struct{}{}
+		sections = append(sections, alias.legacySection)
+	}
+	return sections
+}
+
+func legacyEngineInputSectionsMessage() string {
+	sections := legacyEngineInputSections()
+	formatted := make([]string, 0, len(sections))
+	for _, section := range sections {
+		formatted = append(formatted, "["+section+"]")
+	}
+	return strings.Join(formatted, ", ")
+}
+
 func hasLegacyEngineAlias(raw map[string]any, alias legacyEngineAlias) bool {
 	sectionAny, exists := raw[alias.legacySection]
 	if !exists {
@@ -222,9 +246,9 @@ func applyEngineMappings(raw map[string]any) {
 			continue
 		}
 		switch alias.targetSection {
-		case "engine":
+		case engineTargetSection:
 			engineMap[alias.targetField] = val
-		case "engine.webkit":
+		case engineWebKitTargetSection:
 			webkitMap[alias.targetField] = val
 		}
 	}

@@ -325,10 +325,10 @@ func (m *Manager) checkLegacyFormat() error {
 
 	if hasOldSections && !hasEngineSection {
 		return fmt.Errorf(
-			"config format outdated: legacy engine keys in [rendering], [performance], " +
-				"[privacy], [runtime], or migrated [media] fields have moved to " +
-				"[engine]/[engine.webkit] — run \"dumber config migrate\" " +
+			"config format outdated: legacy engine keys in %s have moved to "+
+				"[engine]/[engine.webkit] — run \"dumber config migrate\" "+
 				"to update your config file",
+			legacyEngineInputSectionsMessage(),
 		)
 	}
 	return nil

@@ -3,22 +3,10 @@ package usecase
 import (
 	"context"
 	"errors"
+	stdurl "net/url"
 	"path/filepath"
 	"testing"
 )
-
-type fakeLocalPathResolver struct {
-	paths map[string]string
-	err   error
-}
-
-func (r fakeLocalPathResolver) ResolveExistingPath(_ context.Context, input string) (string, bool, error) {
-	if r.err != nil {
-		return "", false, r.err
-	}
-	abs, ok := r.paths[input]
-	return abs, ok, nil
-}
 
 func TestNavigationURLNormalizerResolvesExistingLocalPaths(t *testing.T) {
 	ctx := context.Background()
@@ -32,7 +20,7 @@ func TestNavigationURLNormalizerResolvesExistingLocalPaths(t *testing.T) {
 	for _, input := range []string{absFile, "page.html", "~/page.html"} {
 		t.Run(input, func(t *testing.T) {
 			got := normalizer.Normalize(ctx, input)
-			want := "file://" + absFile
+			want := (&stdurl.URL{Scheme: "file", Path: absFile}).String()
 			if got != want {
 				t.Fatalf("Normalize(%q) = %q, want %q", input, got, want)
 			}

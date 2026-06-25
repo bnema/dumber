@@ -15,6 +15,10 @@ func TestResolveExistingPath(t *testing.T) {
 	if err := os.WriteFile(file, []byte("ok"), 0644); err != nil {
 		t.Fatal(err)
 	}
+	wantFile, err := filepath.EvalSymlinks(file)
+	if err != nil {
+		t.Fatal(err)
+	}
 
 	oldWD, err := os.Getwd()
 	if err != nil {
@@ -45,8 +49,12 @@ func TestResolveExistingPath(t *testing.T) {
 			if !ok {
 				t.Fatalf("ResolveExistingPath ok=false")
 			}
-			if got != file {
-				t.Fatalf("ResolveExistingPath(%q) = %q, want %q", tt.input, got, file)
+			gotFile, err := filepath.EvalSymlinks(got)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if gotFile != wantFile {
+				t.Fatalf("ResolveExistingPath(%q) = %q, want %q", tt.input, gotFile, wantFile)
 			}
 		})
 	}

@@ -14,14 +14,13 @@ dumber doctor --media   # GStreamer/VA-API only
 
 ### Browser won't start
 
-**Symptoms:** Error about missing GUI runtime libraries or GTK/WebKitGTK fallback version
+**Symptoms:** Error about the default CEF runtime, GTK libraries, or WebKitGTK fallback version.
 
 **Solution:**
-1. Run `dumber doctor --runtime`
-2. Install missing dependencies:
-   - Arch: `pacman -S cef webkitgtk-6.0 gtk4`
-   - Fedora: install GTK4 and WebKitGTK packages from your distribution and a CEF runtime/package if available
-   - Ubuntu: `apt install libwebkitgtk-6.0-4 libgtk-4-1` and provide a CEF runtime for the default backend
+1. Run `dumber doctor --runtime`.
+2. Match the fix to the backend in the error:
+   - **Default CEF backend:** install or provide a CEF runtime. On Arch, use `pacman -S cef`. On Fedora or Ubuntu, install an available CEF runtime/package or set `engine.cef.cef_dir` to a downloaded runtime.
+   - **GTK/WebKit fallback backend:** install GTK4 and WebKitGTK. On Arch, use `pacman -S webkitgtk-6.0 gtk4`. On Fedora, install GTK4 and WebKitGTK packages from your distribution. On Ubuntu, use `apt install libwebkitgtk-6.0-4 libgtk-4-1`.
 
 ### Video playback issues
 

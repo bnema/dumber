@@ -37,6 +37,8 @@ func configurationReferenceKeys(t *testing.T) map[string]struct{} {
 	data, err := os.ReadFile(docPath)
 	require.NoError(t, err)
 
+	// Keep this split point aligned with the markdown heading so legacy-key rows
+	// stay out of the canonical schema key coverage set.
 	canonicalReference, _, _ := strings.Cut(string(data), "Legacy key migration:")
 	rowRE := regexp.MustCompile(`(?m)^\| ` + "`" + `([^` + "`" + `]+)` + "`" + ` \|`)
 	keys := make(map[string]struct{})
