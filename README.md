@@ -109,7 +109,7 @@ The floating pane is a temporary browser pane that can be toggled without changi
 - `Alt+F` toggles the floating pane and preserves its state while hidden.
 - `Ctrl+W` closes the active pane; if the floating pane is active, it is fully released for a fresh next open.
 - Profile shortcuts such as `Alt+G` are optional and configured under `workspace.floating_pane.profiles`.
-- Some `Alt+<key>` bindings may conflict with WebKit shortcuts or desktop-level handlers.
+- Some `Alt+<key>` bindings may conflict with browser-engine shortcuts or desktop-level handlers.
 
 See the [floating pane reference](https://dumber.bnema.dev/docs/reference/floating-pane) for setup and behavior details.
 
@@ -200,7 +200,7 @@ Bug reports and reproducible Wayland/backend issues are welcome.
 
 ## Development
 
-Dumber uses pure-Go bindings and requires GTK4/WebKitGTK runtime libraries for the GUI.
+Dumber uses pure-Go bindings. The GUI uses GTK4, runs on CEF by default, and can use WebKitGTK as a fallback backend.
 
 Set `ENV=dev` to use `.dev/dumber/` for config and data instead of XDG paths.
 
@@ -209,7 +209,9 @@ Set `ENV=dev` to use `.dev/dumber/` for config and data instead of XDG paths.
 **Prerequisites:**
 
 - Go 1.26+
-- WebKitGTK 6.0 and GTK4 development packages
+- GTK4 development packages
+- CEF runtime (default backend)
+- WebKitGTK 6.0 development/runtime packages (fallback backend and runtime checks)
 - Brotli for compressed systemviews assets
 
 Systemviews assets are generated with `go tool templ` and Go's `js/wasm` toolchain; no root Node toolchain is required.

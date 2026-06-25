@@ -6,7 +6,7 @@ Run the doctor command to check your system:
 
 ```bash
 dumber doctor           # Full check
-dumber doctor --runtime # GTK4/WebKitGTK only
+dumber doctor --runtime # GTK and WebKit fallback runtime checks only
 dumber doctor --media   # GStreamer/VA-API only
 ```
 
@@ -14,14 +14,14 @@ dumber doctor --media   # GStreamer/VA-API only
 
 ### Browser won't start
 
-**Symptoms:** Error about missing libraries or GTK/WebKitGTK version
+**Symptoms:** Error about missing GUI runtime libraries or GTK/WebKitGTK fallback version
 
 **Solution:**
 1. Run `dumber doctor --runtime`
 2. Install missing dependencies:
-   - Arch: `pacman -S webkitgtk-6.0 gtk4`
-   - Fedora: `dnf install webkitgtk6.0 gtk4`
-   - Ubuntu: `apt install libwebkitgtk-6.0-4 libgtk-4-1`
+   - Arch: `pacman -S cef webkitgtk-6.0 gtk4`
+   - Fedora: install GTK4 and WebKitGTK packages from your distribution and a CEF runtime/package if available
+   - Ubuntu: `apt install libwebkitgtk-6.0-4 libgtk-4-1` and provide a CEF runtime for the default backend
 
 ### Video playback issues
 
@@ -58,9 +58,9 @@ dumber doctor --media   # GStreamer/VA-API only
    gstreamer_debug_level = 0
    ```
 
-### Screen flickering on Wayland
+### Screen flickering on Wayland with the WebKit fallback
 
-**Symptoms:** Flicker when scrolling or rendering
+**Symptoms:** Flicker when scrolling or rendering while using `engine.type = "webkit"`
 
 **Solution:**
 ```toml

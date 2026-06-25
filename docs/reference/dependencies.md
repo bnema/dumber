@@ -61,7 +61,7 @@ sudo pacman -S vulkan-radeon
 sudo pacman -S nvidia-utils  # includes Vulkan
 ```
 
-### GStreamer Plugins (for WebKit Media Playback)
+### GStreamer Plugins (for WebKit fallback media playback)
 
 ```bash
 sudo pacman -S gst-plugins-base gst-plugins-good gst-plugins-bad gst-plugins-ugly gst-libav
@@ -79,10 +79,11 @@ CEF is Dumber's default engine. It uses the GPU-first Wayland stack: GDK DMABUF 
 
 ## Debian/Ubuntu
 
-### Core GTK4 and WebKit
+### Core GTK4, CEF, and WebKit fallback
 
 ```bash
 sudo apt install libgtk-4-1 libwebkitgtk-6.0-4
+# Also provide a CEF runtime for the default backend (package name varies by distribution).
 ```
 
 ### VA-API

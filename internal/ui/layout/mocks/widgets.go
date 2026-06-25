@@ -13898,6 +13898,59 @@ func (_c *MockWidgetFactory_NewSpinner_Call) RunAndReturn(run func() layout.Spin
 	return _c
 }
 
+// WrapNativeWidget provides a mock function for the type MockWidgetFactory
+func (_mock *MockWidgetFactory) WrapNativeWidget(ptr uintptr) layout.Widget {
+	ret := _mock.Called(ptr)
+
+	if len(ret) == 0 {
+		panic("no return value specified for WrapNativeWidget")
+	}
+
+	var r0 layout.Widget
+	if returnFunc, ok := ret.Get(0).(func(uintptr) layout.Widget); ok {
+		r0 = returnFunc(ptr)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(layout.Widget)
+		}
+	}
+	return r0
+}
+
+// MockWidgetFactory_WrapNativeWidget_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'WrapNativeWidget'
+type MockWidgetFactory_WrapNativeWidget_Call struct {
+	*mock.Call
+}
+
+// WrapNativeWidget is a helper method to define mock.On call
+//   - ptr uintptr
+func (_e *MockWidgetFactory_Expecter) WrapNativeWidget(ptr any) *MockWidgetFactory_WrapNativeWidget_Call {
+	return &MockWidgetFactory_WrapNativeWidget_Call{Call: _e.mock.On("WrapNativeWidget", ptr)}
+}
+
+func (_c *MockWidgetFactory_WrapNativeWidget_Call) Run(run func(ptr uintptr)) *MockWidgetFactory_WrapNativeWidget_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		var arg0 uintptr
+		if args[0] != nil {
+			arg0 = args[0].(uintptr)
+		}
+		run(
+			arg0,
+		)
+	})
+	return _c
+}
+
+func (_c *MockWidgetFactory_WrapNativeWidget_Call) Return(widget layout.Widget) *MockWidgetFactory_WrapNativeWidget_Call {
+	_c.Call.Return(widget)
+	return _c
+}
+
+func (_c *MockWidgetFactory_WrapNativeWidget_Call) RunAndReturn(run func(ptr uintptr) layout.Widget) *MockWidgetFactory_WrapNativeWidget_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
 // WrapWidget provides a mock function for the type MockWidgetFactory
 func (_mock *MockWidgetFactory) WrapWidget(w *gtk.Widget) layout.Widget {
 	ret := _mock.Called(w)

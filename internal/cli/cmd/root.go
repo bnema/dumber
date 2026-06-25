@@ -22,7 +22,7 @@ var (
 		SilenceUsage:  true,
 		Long: `Dumber - a dumb browser that works like your favorite terminal multiplexer.
 
-A fully unfeatured unbloated browser for tiling WMs, built with GTK4 and WebKitGTK.
+A fully unfeatured unbloated browser for tiling WMs, built with GTK4. CEF is the default backend; WebKitGTK is available as a fallback.
 
 Features:
   - Wayland native (Sway, Hyprland, River, Niri, etc.)

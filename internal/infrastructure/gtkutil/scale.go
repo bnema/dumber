@@ -1,10 +1,6 @@
 package gtkutil
 
-import (
-	"math"
-
-	"github.com/bnema/puregotk/v4/gtk"
-)
+import "math"
 
 // NormalizeScale clamps invalid GTK/GDK scale values to 1.
 func NormalizeScale(scale float64) float64 {
@@ -12,14 +8,6 @@ func NormalizeScale(scale float64) float64 {
 		return 1
 	}
 	return scale
-}
-
-// WidgetFromNativePointer wraps a native GTK widget pointer.
-func WidgetFromNativePointer(ptr uintptr) *gtk.Widget {
-	if ptr == 0 {
-		return nil
-	}
-	return gtk.WidgetNewFromInternalPtr(ptr)
 }
 
 // DeviceToLogical converts a device-pixel coordinate into a logical coordinate.

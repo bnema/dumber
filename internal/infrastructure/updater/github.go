@@ -275,14 +275,8 @@ func isRetryableRequestError(err error) bool {
 	}
 
 	var netErr net.Error
-	if errors.As(err, &netErr) {
-		if netErr.Timeout() {
-			return true
-		}
-		//nolint:staticcheck // net.Error.Temporary is deprecated but still useful for transient detection
-		if netErr.Temporary() {
-			return true
-		}
+	if errors.As(err, &netErr) && netErr.Timeout() {
+		return true
 	}
 
 	var opErr *net.OpError

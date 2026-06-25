@@ -39,7 +39,7 @@ Press `Ctrl+L` to open the omnibox for:
 
 - Press `Alt+F` to toggle the floating pane.
 - Press `Ctrl+W` to close the active pane; if the floating pane is active, this fully releases it so the next open starts fresh.
-- Some `Alt+<key>` bindings can conflict with default WebKit shortcuts or desktop-level handlers.
+- Some `Alt+<key>` bindings can conflict with browser-engine shortcuts or desktop-level handlers.
 
 See [Floating Pane](./reference/floating-pane.md) for profile shortcuts and configuration.
 
@@ -70,7 +70,7 @@ Dumber includes a built-in permissions system for camera, microphone, and screen
 - **Privacy-focused** - All permissions stored locally
 - **Camera & Microphone** - Fully working on Wayland/PipeWire
 
-> ⚠️ **Note**: Screen sharing does not currently work on Wayland with WebKitGTK 6.0. This is a known WebKitGTK limitation.
+> ⚠️ **WebKit fallback note**: Screen sharing does not currently work on Wayland with WebKitGTK 6.0. This is a known WebKitGTK limitation and does not describe the default CEF backend.
 
 When a website requests camera or microphone access, you'll see a permission dialog with options to allow once, always allow, deny, or always deny.
 

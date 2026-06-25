@@ -6,11 +6,13 @@ import (
 	"encoding/hex"
 	"errors"
 	"io"
+	"net"
 	"net/http"
 	"os"
 	"path/filepath"
 	"strings"
 	"sync/atomic"
+	"syscall"
 	"testing"
 	"time"
 
@@ -390,6 +392,31 @@ func TestRetryDelayForAttemptAddsJitter(t *testing.T) {
 	want := retryBaseDelay + (50 * time.Millisecond)
 	if got != want {
 		t.Fatalf("retryDelayForAttempt with jitter = %v, want %v", got, want)
+	}
+}
+
+func TestIsRetryableRequestError(t *testing.T) {
+	tests := []struct {
+		name string
+		err  error
+		want bool
+	}{
+		{name: "nil", err: nil, want: false},
+		{name: "context canceled", err: context.Canceled, want: false},
+		{name: "context deadline exceeded", err: context.DeadlineExceeded, want: true},
+		{name: "timeout net error", err: &net.DNSError{IsTimeout: true}, want: true},
+		{name: "non-timeout net error", err: &net.DNSError{Err: "lookup failed"}, want: false},
+		{name: "transient errno through net op error", err: &net.OpError{Op: "read", Net: "tcp", Err: syscall.ECONNRESET}, want: true},
+		{name: "non-transient errno", err: syscall.EINVAL, want: false},
+		{name: "ordinary error", err: errors.New("ordinary"), want: false},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := isRetryableRequestError(tt.err); got != tt.want {
+				t.Fatalf("isRetryableRequestError(%v) = %v, want %v", tt.err, got, tt.want)
+			}
+		})
 	}
 }
 

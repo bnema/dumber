@@ -827,3 +827,10 @@ func (f *GtkWidgetFactory) WrapWidget(w *gtk.Widget) Widget {
 	}
 	return &gtkWidget{inner: w}
 }
+
+func (f *GtkWidgetFactory) WrapNativeWidget(ptr uintptr) Widget {
+	if ptr == 0 {
+		return nil
+	}
+	return f.WrapWidget(gtk.WidgetNewFromInternalPtr(ptr))
+}

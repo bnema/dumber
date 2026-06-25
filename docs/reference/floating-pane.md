@@ -53,5 +53,5 @@ desc = "Open Google in floating pane"
 - The default install only binds `Alt+F` for floating pane toggle.
 - Profile shortcuts are opt-in and empty by default.
 - Profile shortcuts support multi-modifier combos using `ctrl`, `shift`, and `alt` (for example `ctrl+shift+y` or `ctrl+alt+m`).
-- Some `Alt+<key>` shortcuts can conflict with default WebKit shortcuts, website handlers, or your desktop environment.
+- Some `Alt+<key>` shortcuts can conflict with browser-engine shortcuts, website handlers, or your desktop environment.
 - If a shortcut does not fire in Dumber, bind a different key.

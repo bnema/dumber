@@ -141,7 +141,7 @@ dumber doctor [flags]
 
 | Flag | Description |
 |------|-------------|
-| `--runtime` | Only run runtime checks (GTK4/WebKitGTK) |
+| `--runtime` | Only run runtime checks for GTK and WebKit fallback libraries |
 | `--media` | Only run media checks (GStreamer/VA-API) |
 
 ### setup

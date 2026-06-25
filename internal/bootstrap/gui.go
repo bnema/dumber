@@ -227,7 +227,7 @@ func RunDeferredInit(input DeferredInitInput) DeferredInitResult {
 	}
 }
 
-// CheckRuntimeRequirements verifies WebKitGTK and other runtime dependencies.
+// CheckRuntimeRequirements verifies GUI runtime dependencies currently covered by runtime checks.
 // Returns error if requirements are not met; caller should log details and exit.
 // Note: When running in a Flatpak sandbox, runtime checks are skipped because
 // the Flatpak runtime provides all required libraries.
