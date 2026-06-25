@@ -459,6 +459,34 @@ func TestOpenFreshWindow_DispatchesAndTracksBrowserWindow(t *testing.T) {
 	}
 }
 
+func TestOpenFreshWindow_FirstWindowRegistersShellWithoutCreatingTab(t *testing.T) {
+	app := &App{
+		tabs:           entity.NewTabList(),
+		tabsUC:         usecase.NewManageTabsUseCase(func() string { return "unexpected-tab" }),
+		browserWindows: make(map[string]*browserWindow),
+	}
+	app.dispatchOnMainThread = func(label string, fn func()) syncdispatch.SyncDispatchResult {
+		fn()
+		return syncdispatch.SyncDispatchResult{Label: label, Status: syncdispatch.SyncDispatchCompleted}
+	}
+	app.browserWindowFactory = func(context.Context, string) (*browserWindow, error) {
+		return &browserWindow{id: "window-1", tabs: entity.NewTabList()}, nil
+	}
+
+	if err := app.OpenFreshWindow(context.Background(), "https://example.com"); err != nil {
+		t.Fatalf("OpenFreshWindow returned error: %v", err)
+	}
+	if got := len(app.browserWindows); got != 1 {
+		t.Fatalf("browserWindows length = %d, want 1", got)
+	}
+	if app.lastFocusedWindowID != "window-1" {
+		t.Fatalf("lastFocusedWindowID = %q, want window-1", app.lastFocusedWindowID)
+	}
+	if got := app.tabs.Count(); got != 0 {
+		t.Fatalf("tabs count = %d, want 0; first shell should wait for createInitialTab", got)
+	}
+}
+
 func TestOpenFreshWindow_PropagatesFactoryError(t *testing.T) {
 	app := &App{browserWindows: make(map[string]*browserWindow)}
 	app.dispatchOnMainThread = func(label string, fn func()) syncdispatch.SyncDispatchResult {
