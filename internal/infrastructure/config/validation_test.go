@@ -20,7 +20,7 @@ func TestValidateConfig_EngineType(t *testing.T) {
 	}{
 		{name: "cef", engineType: EngineTypeCEF, wantErr: false},
 		{name: "webkit", engineType: EngineTypeWebKit, wantErr: false},
-		{name: "empty defaults to cef", engineType: "", wantErr: false},
+		{name: "empty is invalid", engineType: "", wantErr: true},
 		{name: "invalid", engineType: "netscape", wantErr: true},
 	}
 
@@ -294,7 +294,18 @@ func TestValidateConfig_CEFConfig(t *testing.T) {
 	}
 }
 
-func TestValidateConfig_WorkspaceNewPaneURLAllowsExistingLocalPathLikeValues(t *testing.T) {
+func TestValidateConfig_WorkspaceNewPaneURLAllowsExistingAbsoluteLocalPath(t *testing.T) {
+	tmpDir := t.TempDir()
+	path := filepath.Join(tmpDir, "page.html")
+	require.NoError(t, os.WriteFile(path, []byte("ok"), 0644))
+
+	cfg := DefaultConfig()
+	cfg.Workspace.NewPaneURL = path
+
+	require.NoError(t, validateConfig(cfg))
+}
+
+func TestValidateConfig_WorkspaceNewPaneURLRejectsRelativeLocalPathLikeValues(t *testing.T) {
 	// This test mutates process CWD; do not add t.Parallel here.
 	tmpDir := t.TempDir()
 	oldWD, err := os.Getwd()
@@ -306,19 +317,20 @@ func TestValidateConfig_WorkspaceNewPaneURLAllowsExistingLocalPathLikeValues(t *
 	require.NoError(t, os.Chdir(childDir))
 	t.Cleanup(func() { _ = os.Chdir(oldWD) })
 
-	for _, value := range []string{filepath.Join(tmpDir, "page.html"), "./page.html", "../page.html"} {
+	for _, value := range []string{"./page.html", "../page.html"} {
 		t.Run(value, func(t *testing.T) {
 			cfg := DefaultConfig()
 			cfg.Workspace.NewPaneURL = value
 
 			err := validateConfig(cfg)
-			require.NoError(t, err)
+			require.Error(t, err)
+			assert.Contains(t, err.Error(), "workspace.new_pane_url relative local path cannot be resolved")
 		})
 	}
 }
 
 func TestValidateConfig_WorkspaceNewPaneURLRejectsMissingLocalPathLikeValues(t *testing.T) {
-	for _, value := range []string{"/missing/dumber/page.html", "./missing.html", "../missing.html", "~/missing-dumber-page.html"} {
+	for _, value := range []string{"/missing/dumber/page.html", "~/missing-dumber-page.html"} {
 		t.Run(value, func(t *testing.T) {
 			cfg := DefaultConfig()
 			cfg.Workspace.NewPaneURL = value
@@ -330,7 +342,7 @@ func TestValidateConfig_WorkspaceNewPaneURLRejectsMissingLocalPathLikeValues(t *
 	}
 }
 
-func TestValidateConfig_WorkspaceNewPaneURLAllowsExistingBareRelativeFile(t *testing.T) {
+func TestValidateConfig_WorkspaceNewPaneURLRejectsExistingBareRelativeFile(t *testing.T) {
 	// This test mutates process CWD; do not add t.Parallel here.
 	tmpDir := t.TempDir()
 	oldWD, err := os.Getwd()
@@ -338,20 +350,38 @@ func TestValidateConfig_WorkspaceNewPaneURLAllowsExistingBareRelativeFile(t *tes
 	require.NoError(t, os.Chdir(tmpDir))
 	t.Cleanup(func() { _ = os.Chdir(oldWD) })
 	require.NoError(t, os.WriteFile("README", []byte("ok"), 0644))
+	require.NoError(t, os.WriteFile("index.html", []byte("ok"), 0644))
 
-	cfg := DefaultConfig()
-	cfg.Workspace.NewPaneURL = "README"
+	for _, value := range []string{"README", "index.html"} {
+		t.Run(value, func(t *testing.T) {
+			cfg := DefaultConfig()
+			cfg.Workspace.NewPaneURL = value
 
-	require.NoError(t, validateConfig(cfg))
+			validationErr := validateConfig(cfg)
+			require.Error(t, validationErr)
+			assert.Contains(
+				t,
+				validationErr.Error(),
+				"workspace.new_pane_url relative local path cannot be resolved",
+			)
+		})
+	}
 }
 
 func TestValidateConfig_WorkspaceNewPaneURLRejectsMissingBareRelativeValue(t *testing.T) {
+	// This test mutates process CWD; do not add t.Parallel here.
+	tmpDir := t.TempDir()
+	oldWD, err := os.Getwd()
+	require.NoError(t, err)
+	require.NoError(t, os.Chdir(tmpDir))
+	t.Cleanup(func() { _ = os.Chdir(oldWD) })
+
 	cfg := DefaultConfig()
 	cfg.Workspace.NewPaneURL = "missing-local-file"
 
-	err := validateConfig(cfg)
-	require.Error(t, err)
-	assert.Contains(t, err.Error(), "workspace.new_pane_url")
+	validationErr := validateConfig(cfg)
+	require.Error(t, validationErr)
+	assert.Contains(t, validationErr.Error(), "workspace.new_pane_url")
 }
 
 func TestValidateConfig_WebKitDefaultProfileIgnoresZeroGPUThreads(t *testing.T) {

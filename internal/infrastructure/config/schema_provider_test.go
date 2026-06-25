@@ -53,25 +53,80 @@ func configurationReferenceCoversKey(docKeys map[string]struct{}, schemaKey stri
 		return true
 	}
 
-	if strings.HasSuffix(schemaKey, ".*") {
-		prefix := strings.TrimSuffix(schemaKey, "*")
-		for docKey := range docKeys {
-			if strings.HasPrefix(docKey, prefix) {
-				return true
-			}
-		}
-	}
-
-	if idx := strings.Index(schemaKey, "<"); idx >= 0 {
-		prefix := schemaKey[:idx]
-		for docKey := range docKeys {
-			if strings.HasPrefix(docKey, prefix) {
-				return true
-			}
+	schemaSegments := strings.Split(schemaKey, ".")
+	for docKey := range docKeys {
+		if configurationReferencePatternCoversKey(strings.Split(docKey, "."), schemaSegments) {
+			return true
 		}
 	}
 
 	return false
+}
+
+func configurationReferencePatternCoversKey(docSegments, schemaSegments []string) bool {
+	for idx, schemaSegment := range schemaSegments {
+		if schemaSegment == "*" {
+			return idx == len(schemaSegments)-1 && len(docSegments) == idx+1
+		}
+		if idx >= len(docSegments) {
+			return false
+		}
+		if isPlaceholderSegment(schemaSegment) && isPlaceholderSegment(docSegments[idx]) {
+			continue
+		}
+		if docSegments[idx] != schemaSegment {
+			return false
+		}
+	}
+
+	if len(docSegments) == len(schemaSegments) {
+		return true
+	}
+	return configurationReferenceAllowsObjectFields(strings.Join(schemaSegments, ".")) &&
+		len(docSegments) > len(schemaSegments)
+}
+
+func isPlaceholderSegment(segment string) bool {
+	return strings.HasPrefix(segment, "<") && strings.HasSuffix(segment, ">")
+}
+
+func configurationReferenceAllowsObjectFields(schemaKey string) bool {
+	switch schemaKey {
+	case "search_shortcuts.<key>", "workspace.floating_pane.profiles.<name>":
+		return true
+	default:
+		return false
+	}
+}
+
+func TestConfigurationReferenceCoversKeyRequiresPlaceholderSegmentMatches(t *testing.T) {
+	docKeys := map[string]struct{}{
+		"workspace.floating_pane.profiles.<profile>.keys_extra": {},
+	}
+
+	require.False(t, configurationReferenceCoversKey(
+		docKeys,
+		"workspace.floating_pane.profiles.<name>.keys",
+	))
+}
+
+func TestConfigurationReferenceCoversKeyAllowsDocumentedPlaceholderSegments(t *testing.T) {
+	docKeys := map[string]struct{}{
+		"workspace.floating_pane.profiles.<profile>.keys": {},
+	}
+
+	require.True(t, configurationReferenceCoversKey(
+		docKeys,
+		"workspace.floating_pane.profiles.<name>.keys",
+	))
+}
+
+func TestConfigurationReferenceCoversKeyAllowsDocumentedObjectFields(t *testing.T) {
+	docKeys := map[string]struct{}{
+		"search_shortcuts.<name>.url": {},
+	}
+
+	require.True(t, configurationReferenceCoversKey(docKeys, "search_shortcuts.<key>"))
 }
 
 func TestSchemaProviderCoversViperDefaults(t *testing.T) {

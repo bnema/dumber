@@ -3,7 +3,6 @@ package usecase
 import (
 	"context"
 	stdurl "net/url"
-	"strings"
 
 	"github.com/bnema/dumber/internal/application/port"
 	domainurl "github.com/bnema/dumber/internal/domain/url"
@@ -45,8 +44,16 @@ func shouldProbeLocalPath(input string) bool {
 	if input == "" {
 		return false
 	}
-	if strings.Contains(input, "://") || strings.HasPrefix(input, "about:") || domainurl.IsExternalScheme(input) {
+	if hasPreservedNavigationScheme(input) {
 		return false
 	}
 	return true
+}
+
+func hasPreservedNavigationScheme(input string) bool {
+	parsed, err := stdurl.Parse(input)
+	if err != nil || parsed.Scheme == "" {
+		return false
+	}
+	return domainurl.Normalize(input) == input
 }

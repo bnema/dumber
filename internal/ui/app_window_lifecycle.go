@@ -110,8 +110,8 @@ func (a *App) openFreshWindow(ctx context.Context, url string) error {
 		Int("window_count_after_register", len(a.browserWindows)).
 		Msg("ui: open fresh window registered browser window")
 
-	if len(a.browserWindows) == 1 {
-		log.Debug().Str("window_id", created.id).Msg("ui: activating first browser window")
+	if len(a.browserWindows) == 1 && (url == "" || (a.deps != nil && a.deps.RestoreSessionID != "")) {
+		log.Debug().Str("window_id", created.id).Msg("ui: activating first browser window without initial tab")
 		a.activateBrowserWindow(created)
 		return nil
 	}
@@ -234,7 +234,7 @@ func (a *App) openFreshWindowWithTabsUC(ctx context.Context, url string, created
 	// This path uses the tabs usecase directly instead of tabCoord.Create,
 	// so the per-window TabList must be populated explicitly.
 	a.ensureTabListForBrowserWindow(created).Add(output.Tab)
-	if a.widgetFactory != nil {
+	if a.widgetFactory != nil || a.workspaceViewCreateOverride != nil {
 		a.createWorkspaceView(ctx, output.Tab)
 		a.switchWorkspaceView(ctx, output.Tab.ID)
 	}

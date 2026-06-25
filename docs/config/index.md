@@ -630,6 +630,7 @@ dumber doctor --media
 - `XDG_DATA_DIRS` (schemas/resources)
 
 **Example:**
+
 ```toml
 [engine.cef]
 cef_dir = "/opt/cef"
@@ -647,6 +648,7 @@ prefix = "/opt/webkitgtk"
 When enabled, selecting text in a web page immediately copies it to the clipboard with a brief toast notification. Does not apply to text selection in input fields or textareas.
 
 **Example:**
+
 ```toml
 [clipboard]
 auto_copy_on_selection = true  # Enabled by default
@@ -672,6 +674,7 @@ Notes:
 | `update.notify_on_new_settings` | bool | `true` | Show toast notification when new config settings are available |
 
 **Example:**
+
 ```toml
 [update]
 enable_on_startup = true       # Check for updates on startup
@@ -680,6 +683,7 @@ notify_on_new_settings = true  # Show toast when config migration available
 ```
 
 **CLI Commands:**
+
 ```bash
 # Check config status and available migrations
 dumber config status
@@ -714,6 +718,7 @@ Performance profiles tune engine resource behavior. CEF is the default engine; t
 | `custom` | Manual control over all settings | Advanced users who want fine-grained control |
 
 **Example:**
+
 ```toml
 [engine]
 profile = "default"
@@ -740,6 +745,7 @@ When `engine.profile = "custom"` and `engine.type = "webkit"`, you can configure
 | `engine.webkit.network_process_memory_strict_threshold` | float | `0` | Network strict threshold |
 
 **Custom WebKit fallback example:**
+
 ```toml
 [engine]
 type = "webkit"

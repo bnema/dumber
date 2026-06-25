@@ -446,14 +446,18 @@ func validateWorkspaceNewPaneURL(config *Config) []string {
 
 func validateWorkspaceURLValue(fieldPath, value string) []string {
 	trimmed := strings.TrimSpace(value)
+	if isRelativeWorkspacePath(trimmed) {
+		return []string{fmt.Sprintf(
+			"%s relative local path cannot be resolved without config file context (got: %s)",
+			fieldPath,
+			value,
+		)}
+	}
 	if isLocalPathLikeWorkspaceURL(trimmed) {
 		if isExistingWorkspacePath(trimmed) {
 			return nil
 		}
 		return []string{fmt.Sprintf("%s local path must exist (got: %s)", fieldPath, value)}
-	}
-	if isExistingRelativeWorkspacePath(trimmed) {
-		return nil
 	}
 	candidate := trimmed
 	parsed, err := url.Parse(candidate)
@@ -504,11 +508,33 @@ func isExistingWorkspacePath(value string) bool {
 	return err == nil
 }
 
-func isExistingRelativeWorkspacePath(value string) bool {
-	if value == "" || strings.Contains(value, "://") || filepath.IsAbs(value) {
+func isRelativeWorkspacePath(value string) bool {
+	if value == "" || filepath.IsAbs(value) || strings.HasPrefix(value, "~/") ||
+		strings.Contains(value, "://") {
 		return false
 	}
-	return isExistingWorkspacePath(value)
+	if strings.HasPrefix(value, "./") || strings.HasPrefix(value, "../") ||
+		looksLikeBareRelativeWorkspacePath(value) {
+		return true
+	}
+	return !domainurl.LooksLikeURL(value) && !strings.Contains(value, ":")
+}
+
+func looksLikeBareRelativeWorkspacePath(value string) bool {
+	if strings.ContainsAny(value, `/\`) {
+		firstSegment, _, _ := strings.Cut(strings.ReplaceAll(value, `\`, "/"), "/")
+		return firstSegment == "" || (!strings.Contains(firstSegment, ".") &&
+			firstSegment != "localhost" && !strings.HasPrefix(firstSegment, "localhost:"))
+	}
+
+	switch strings.ToLower(filepath.Ext(value)) {
+	case ".css", ".gif", ".htm", ".html", ".jpeg", ".jpg", ".js", ".json",
+		".md", ".pdf", ".png", ".svg", ".toml", ".txt", ".webp", ".xml",
+		".yaml", ".yml":
+		return true
+	default:
+		return false
+	}
 }
 
 func validateOmnibox(config *Config) []string {
@@ -532,7 +558,7 @@ func validateOmnibox(config *Config) []string {
 
 func validateEngine(config *Config) []string {
 	switch config.Engine.Type {
-	case "", EngineTypeCEF, EngineTypeWebKit:
+	case EngineTypeCEF, EngineTypeWebKit:
 		return nil
 	default:
 		return []string{fmt.Sprintf(

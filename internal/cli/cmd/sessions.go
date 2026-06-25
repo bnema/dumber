@@ -44,7 +44,7 @@ func runSessions(_ *cobra.Command, _ []string) error {
 		return fmt.Errorf("app not initialized")
 	}
 
-	if cliApp.ListSessionsUC == nil {
+	if cliApp.ListSessionsUC == nil || cliApp.SessionUC == nil {
 		return fmt.Errorf("session management not available")
 	}
 
@@ -95,7 +95,7 @@ func runSessionsList(_ *cobra.Command, _ []string) error {
 	}
 	renderer := styles.NewSessionsCLIRenderer(cliApp.Theme)
 
-	if cliApp.ListSessionsUC == nil {
+	if cliApp.ListSessionsUC == nil || cliApp.SessionUC == nil {
 		err := fmt.Errorf("session management not available")
 		fmt.Fprintln(os.Stderr, renderer.RenderError(err))
 		return wrapPrintedError(err)
@@ -157,7 +157,7 @@ func runSessionsRestore(_ *cobra.Command, args []string) error {
 	}
 	renderer := styles.NewSessionsCLIRenderer(cliApp.Theme)
 
-	if cliApp.RestoreUC == nil || cliApp.ListSessionsUC == nil {
+	if cliApp.RestoreUC == nil || cliApp.ListSessionsUC == nil || cliApp.SessionUC == nil {
 		err := fmt.Errorf("session restoration not available")
 		fmt.Fprintln(os.Stderr, renderer.RenderError(err))
 		return wrapPrintedError(err)
@@ -225,7 +225,7 @@ func runSessionsDelete(_ *cobra.Command, args []string) error {
 	}
 	renderer := styles.NewSessionsCLIRenderer(cliApp.Theme)
 
-	if cliApp.DeleteSessionUC == nil || cliApp.ListSessionsUC == nil {
+	if cliApp.DeleteSessionUC == nil || cliApp.ListSessionsUC == nil || cliApp.SessionUC == nil {
 		err := fmt.Errorf("session management not available")
 		fmt.Fprintln(os.Stderr, renderer.RenderError(err))
 		return wrapPrintedError(err)
@@ -262,8 +262,11 @@ func runSessionsDelete(_ *cobra.Command, args []string) error {
 // Users typically identify sessions by the last few characters (e.g., "dee5").
 func findSessionByIDOrSuffix(idOrSuffix string) (*entity.SessionInfo, error) {
 	cliApp := GetApp()
-	if cliApp == nil || cliApp.ListSessionsUC == nil {
+	if cliApp == nil {
 		return nil, fmt.Errorf("app not initialized")
+	}
+	if cliApp.ListSessionsUC == nil || cliApp.SessionUC == nil {
+		return nil, fmt.Errorf("session management not available")
 	}
 
 	// Get current session ID (empty if not running as browser)
