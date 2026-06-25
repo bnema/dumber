@@ -203,12 +203,12 @@ func (updateModel) checkForUpdates() tea.Cmd {
 			return checkResultMsg{err: fmt.Errorf("failed to create applier: %w", err)}
 		}
 
-		app := GetApp()
-		if app == nil {
+		cliApp := GetApp()
+		if cliApp == nil {
 			return checkResultMsg{err: fmt.Errorf("app not initialized")}
 		}
 
-		checkUC := usecase.NewCheckUpdateUseCase(checker, applier, app.BuildInfo)
+		checkUC := usecase.NewCheckUpdateUseCase(checker, applier, cliApp.BuildInfo)
 		result, err := checkUC.Execute(ctx, usecase.CheckUpdateInput{})
 
 		return checkResultMsg{output: result, err: err}
@@ -240,15 +240,15 @@ func (m updateModel) downloadUpdate() tea.Cmd {
 }
 
 func runUpdate(_ *cobra.Command, _ []string) error {
-	app := GetApp()
-	if app == nil {
+	cliApp := GetApp()
+	if cliApp == nil {
 		return fmt.Errorf("app not initialized")
 	}
 
-	renderer := styles.NewUpdateRenderer(app.Theme)
+	renderer := styles.NewUpdateRenderer(cliApp.Theme)
 
 	// Create and run the bubbletea program.
-	m := newUpdateModel(renderer, app.Theme.Accent, updateForce)
+	m := newUpdateModel(renderer, cliApp.Theme.Accent, updateForce)
 	p := tea.NewProgram(m)
 
 	finalModel, err := p.Run()
