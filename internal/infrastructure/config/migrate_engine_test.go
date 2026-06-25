@@ -253,6 +253,77 @@ disable_dmabuf_renderer = false
 	assert.Equal(t, int64(3), webkit["gstreamer_debug_level"])
 }
 
+func TestLegacyEngineAliasesMetadataCoverage(t *testing.T) {
+	require.NotEmpty(t, legacyEngineAliases)
+
+	aliases := make(map[string]legacyEngineAlias)
+	for _, alias := range legacyEngineAliases {
+		key := alias.legacyKey()
+		require.NotEmpty(t, alias.legacySection, "%s should have a legacy section", key)
+		require.NotEmpty(t, alias.legacyField, "%s should have a legacy field", key)
+		require.NotContains(t, aliases, key, "duplicate metadata for %s", key)
+		aliases[key] = alias
+
+		if alias.dropped {
+			assert.Empty(t, alias.targetSection, "%s is dropped and should not have a target section", key)
+			assert.Empty(t, alias.targetField, "%s is dropped and should not have a target field", key)
+			continue
+		}
+
+		require.Contains(t, []string{"engine", "engine.webkit"}, alias.targetSection, "%s should target a known engine section", key)
+		require.NotEmpty(t, alias.targetField, "%s should have a canonical target field", key)
+	}
+
+	for _, key := range []string{
+		"media.force_vsync",
+		"media.gl_rendering_mode",
+		"media.gstreamer_debug_level",
+		"runtime.prefix",
+		"performance.profile",
+		"privacy.cookie_policy",
+		"privacy.itp_enabled",
+		"rendering.disable_dmabuf_renderer",
+	} {
+		alias, ok := aliases[key]
+		require.True(t, ok, "missing metadata for %s", key)
+		require.False(t, alias.dropped, "%s should have a canonical target", key)
+	}
+
+	renderingMode, ok := aliases["rendering.mode"]
+	require.True(t, ok, "missing dropped metadata for rendering.mode")
+	assert.True(t, renderingMode.dropped)
+}
+
+func TestHasOldEngineSections_UsesMetadataForMigratedMediaKeys(t *testing.T) {
+	for _, field := range []string{"force_vsync", "gl_rendering_mode", "gstreamer_debug_level"} {
+		raw := map[string]any{"media": map[string]any{field: true}}
+		assert.True(t, hasOldEngineSections(raw), "media.%s should trigger engine migration", field)
+	}
+
+	raw := map[string]any{"media": map[string]any{"hardware_decoding": true}}
+	assert.False(t, hasOldEngineSections(raw), "non-migrated media keys should not trigger engine migration")
+}
+
+func TestMigrateToEngineConfig_MixedEngineAndMigratedMediaKey(t *testing.T) {
+	tmpDir := t.TempDir()
+	configFile := filepath.Join(tmpDir, "config.toml")
+
+	content := `
+[engine]
+type = "webkit"
+
+[media]
+gl_rendering_mode = "auto"
+`
+	err := os.WriteFile(configFile, []byte(content), 0o644)
+	require.NoError(t, err)
+
+	migrated, err := MigrateToEngineConfig(configFile)
+	require.Error(t, err)
+	assert.False(t, migrated)
+	assert.Contains(t, err.Error(), "media.gl_rendering_mode")
+}
+
 func TestMigrateToEngineConfig_EngineTypeDefault(t *testing.T) {
 	tmpDir := t.TempDir()
 	configFile := filepath.Join(tmpDir, "config.toml")

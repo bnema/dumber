@@ -78,6 +78,50 @@ func TestCheckLegacyFormat_RuntimePrefix_ReturnsError(t *testing.T) {
 	require.Contains(t, err.Error(), "dumber config migrate")
 }
 
+func TestCheckLegacyFormat_MetadataBackedAliasesReturnError(t *testing.T) {
+	for _, alias := range legacyEngineAliases {
+		key := alias.legacyKey()
+		t.Run(key, func(t *testing.T) {
+			m := &Manager{viper: viper.New()}
+			m.viper.Set(key, sampleLegacyAliasValue(alias))
+
+			err := m.checkLegacyFormat()
+
+			require.Error(t, err)
+			require.Contains(t, err.Error(), "dumber config migrate")
+		})
+	}
+}
+
+func sampleLegacyAliasValue(alias legacyEngineAlias) any {
+	switch alias.legacyKey() {
+	case "performance.profile":
+		return "balanced"
+	case "privacy.cookie_policy":
+		return "always"
+	case "rendering.mode":
+		return "gpu"
+	case "rendering.gsk_renderer", "media.gl_rendering_mode":
+		return "auto"
+	case "runtime.prefix":
+		return "/usr"
+	}
+
+	switch alias.legacyField {
+	case "zoom_cache_size", "webview_pool_prewarm_count",
+		"skia_cpu_painting_threads", "skia_gpu_painting_threads",
+		"web_process_memory_limit_mb", "network_process_memory_limit_mb",
+		"gstreamer_debug_level":
+		return 1
+	case "web_process_memory_poll_interval_sec", "network_process_memory_poll_interval_sec",
+		"web_process_memory_conservative_threshold", "web_process_memory_strict_threshold",
+		"network_process_memory_conservative_threshold", "network_process_memory_strict_threshold":
+		return 0.5
+	default:
+		return true
+	}
+}
+
 func TestTransformLegacyConfig_DefaultAdaptiveDoesNotBlockLegacyCEFMigration(t *testing.T) {
 	dir := t.TempDir()
 	configPath := filepath.Join(dir, "config.toml")

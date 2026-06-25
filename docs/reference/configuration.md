@@ -52,18 +52,7 @@
 | `appearance.dark_palette.accent` | string | `#a8a8a8` | |
 | `appearance.dark_palette.border` | string | `#363636` | |
 | `debug.enable_devtools` | bool | `true` | |
-| `rendering.mode` | string | `gpu` | `auto`, `gpu`, `cpu` |
-| `rendering.disable_dmabuf_renderer` | bool | `false` | |
-| `rendering.force_compositing_mode` | bool | `false` | |
-| `rendering.disable_compositing_mode` | bool | `false` | |
-| `rendering.gsk_renderer` | string | `auto` | `auto`, `opengl`, `vulkan`, `cairo` |
-| `rendering.disable_mipmaps` | bool | `false` | |
-| `rendering.prefer_gl` | bool | `false` | |
-| `rendering.draw_compositing_indicators` | bool | `false` | |
-| `rendering.show_fps` | bool | `false` | |
-| `rendering.sample_memory` | bool | `false` | |
-| `rendering.debug_frames` | bool | `false` | |
-| `engine.type` | string | `cef` | `cef`, `webkit` |
+| `engine.type` | string | `cef` | `cef`, `webkit` (CEF default; WebKitGTK fallback) |
 | `engine.cef.render_stack` | string | `vulkan` | `vulkan`, `egl` |
 | `engine.cef.adaptive_windowless_frame_rate` | bool | `true` | |
 | `engine.cef.windowless_frame_rate` | int32 | `0` | >= 0 |
@@ -76,6 +65,19 @@
 | `engine.cef.input.touchpad_navigation_enabled` | bool | `true` | |
 | `engine.cef.input.touchpad_navigation_min_delta` | float | `200.0` | > 0 |
 | `engine.cef.input.touchpad_navigation_max_vertical_ratio` | float | `0.5` | > 0 |
+| `engine.webkit.gsk_renderer` | string | `auto` | `auto`, `opengl`, `vulkan`, `cairo` (WebKit fallback only) |
+| `engine.webkit.disable_dmabuf_renderer` | bool | `false` | WebKit fallback only |
+| `engine.webkit.force_compositing_mode` | bool | `false` | WebKit fallback only |
+| `engine.webkit.disable_compositing_mode` | bool | `false` | WebKit fallback only |
+| `engine.webkit.disable_mipmaps` | bool | `false` | WebKit fallback only |
+| `engine.webkit.prefer_gl` | bool | `false` | WebKit fallback only |
+| `engine.webkit.draw_compositing_indicators` | bool | `false` | WebKit fallback only |
+| `engine.webkit.show_fps` | bool | `false` | WebKit fallback only |
+| `engine.webkit.sample_memory` | bool | `false` | WebKit fallback only |
+| `engine.webkit.debug_frames` | bool | `false` | WebKit fallback only |
+| `engine.webkit.force_vsync` | bool | `false` | WebKit fallback GStreamer only |
+| `engine.webkit.gl_rendering_mode` | string | `auto` | `auto`, `gles2`, `gl3`, `none` (WebKit fallback only) |
+| `engine.webkit.gstreamer_debug_level` | int | `0` | `0-5` (WebKit fallback only) |
 | `default_ui_scale` | float | `1.0` | > 0 |
 
 Touchpad vertical scroll speed is controlled by `engine.cef.input.scroll_precise_multiplier` and the additional axis-specific `engine.cef.input.scroll_vertical_multiplier`. `engine.cef.input.touchpad_navigation_max_vertical_ratio` only filters horizontal back/forward swipe recognition; it does not tune vertical scroll speed.
@@ -124,28 +126,51 @@ Touchpad vertical scroll speed is controlled by `engine.cef.input.scroll_precise
 | `media.hardware_decoding` | string | `auto` | `auto`, `force`, `disable` |
 | `media.prefer_av1` | bool | `false` | |
 | `media.show_diagnostics` | bool | `false` | |
-| `media.force_vsync` | bool | `false` | |
-| `media.gl_rendering_mode` | string | `auto` | `auto`, `gles2`, `gl3`, `none` |
-| `media.gstreamer_debug_level` | int | `0` | 0-5 |
-| `runtime.prefix` | string | `` | |
+| `engine.cef.cef_dir` | string | `` | CEF runtime directory |
+| `engine.webkit.prefix` | string | `` | WebKitGTK fallback runtime prefix |
 | `clipboard.auto_copy_on_selection` | bool | `true` | |
 | `content_filtering.enabled` | bool | `true` | |
 | `content_filtering.auto_update` | bool | `true` | |
 | `update.enable_on_startup` | bool | `true` | |
 | `update.auto_download` | bool | `false` | |
 | `update.notify_on_new_settings` | bool | `true` | |
-| `performance.profile` | string | `default` | `default`, `lite`, `max`, `custom` |
-| `performance.skia_cpu_painting_threads` | int | `0` | |
-| `performance.skia_gpu_painting_threads` | int | `-1` | |
-| `performance.skia_enable_cpu_rendering` | bool | `false` | |
-| `performance.web_process_memory_limit_mb` | int | `0` | |
-| `performance.web_process_memory_poll_interval_sec` | float | `0` | |
-| `performance.web_process_memory_conservative_threshold` | float | `0` | |
-| `performance.web_process_memory_strict_threshold` | float | `0` | |
-| `performance.network_process_memory_limit_mb` | int | `0` | |
-| `performance.network_process_memory_poll_interval_sec` | float | `0` | |
-| `performance.network_process_memory_conservative_threshold` | float | `0` | |
-| `performance.network_process_memory_strict_threshold` | float | `0` | |
-| `performance.webview_pool_prewarm_count` | int | `4` | |
-| `performance.zoom_cache_size` | int | `256` | |
+| `engine.profile` | string | `default` | `default`, `lite`, `balanced`, `max`, `custom` |
+| `engine.webkit.skia_cpu_painting_threads` | int | `0` | >= 0 (WebKit fallback custom profile only) |
+| `engine.webkit.skia_gpu_painting_threads` | int | `-1` | >= -1 (WebKit fallback custom profile only) |
+| `engine.webkit.skia_enable_cpu_rendering` | bool | `false` | WebKit fallback custom profile only |
+| `engine.webkit.web_process_memory_limit_mb` | int | `0` | >= 0 (WebKit fallback custom profile only) |
+| `engine.webkit.web_process_memory_poll_interval_sec` | float | `0` | >= 0 (WebKit fallback custom profile only) |
+| `engine.webkit.web_process_memory_conservative_threshold` | float | `0` | 0-1 (WebKit fallback custom profile only) |
+| `engine.webkit.web_process_memory_strict_threshold` | float | `0` | 0-1 (WebKit fallback custom profile only) |
+| `engine.webkit.network_process_memory_limit_mb` | int | `0` | >= 0 (WebKit fallback custom profile only) |
+| `engine.webkit.network_process_memory_poll_interval_sec` | float | `0` | >= 0 (WebKit fallback custom profile only) |
+| `engine.webkit.network_process_memory_conservative_threshold` | float | `0` | 0-1 (WebKit fallback custom profile only) |
+| `engine.webkit.network_process_memory_strict_threshold` | float | `0` | 0-1 (WebKit fallback custom profile only) |
+| `engine.pool_prewarm_count` | int | `4` | >= 0 |
+| `engine.zoom_cache_size` | int | `256` | >= 0 |
 | `downloads.path` | string | `` | |
+
+CEF is the default engine. WebKitGTK is a fallback selected with `engine.type = "webkit"`; `engine.webkit.*` keys are WebKit-specific.
+
+Legacy key migration:
+
+| Legacy key | Current key |
+|------------|-------------|
+| `privacy.cookie_policy` | `engine.cookie_policy` |
+| `privacy.itp_enabled` | `engine.webkit.itp_enabled` |
+| `rendering.disable_dmabuf_renderer` | `engine.webkit.disable_dmabuf_renderer` |
+| `rendering.force_compositing_mode` | `engine.webkit.force_compositing_mode` |
+| `rendering.disable_compositing_mode` | `engine.webkit.disable_compositing_mode` |
+| `rendering.gsk_renderer` | `engine.webkit.gsk_renderer` |
+| `rendering.disable_mipmaps` | `engine.webkit.disable_mipmaps` |
+| `rendering.prefer_gl` | `engine.webkit.prefer_gl` |
+| `rendering.draw_compositing_indicators` | `engine.webkit.draw_compositing_indicators` |
+| `rendering.show_fps` | `engine.webkit.show_fps` |
+| `rendering.sample_memory` | `engine.webkit.sample_memory` |
+| `rendering.debug_frames` | `engine.webkit.debug_frames` |
+| `media.force_vsync` | `engine.webkit.force_vsync` |
+| `media.gl_rendering_mode` | `engine.webkit.gl_rendering_mode` |
+| `media.gstreamer_debug_level` | `engine.webkit.gstreamer_debug_level` |
+| `runtime.prefix` | `engine.webkit.prefix` |
+| `performance.*` | `engine.profile`, `engine.pool_prewarm_count`, `engine.zoom_cache_size`, or matching `engine.webkit.*` custom tuning keys |
+| `rendering.mode` | Dropped; no current setting |
