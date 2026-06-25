@@ -8,7 +8,7 @@ import (
 )
 
 func TestManagePanesUseCase_CloseStackedPane_RemovesFromStackWithMoreThanTwo(t *testing.T) {
-	uc := NewManagePanesUseCase(func() string { return "id" })
+	uc := NewManagePanesUseCase(func() string { return "id" }, nil)
 	ctx := context.Background()
 
 	// Create a stack with 3 panes
@@ -44,7 +44,7 @@ func TestManagePanesUseCase_CloseStackedPane_RemovesFromStackWithMoreThanTwo(t *
 }
 
 func TestManagePanesUseCase_CloseStackedPane_DissolvesStackWithTwo(t *testing.T) {
-	uc := NewManagePanesUseCase(func() string { return "id" })
+	uc := NewManagePanesUseCase(func() string { return "id" }, nil)
 	ctx := context.Background()
 
 	// Create a stack with 2 panes
@@ -84,7 +84,7 @@ func TestManagePanesUseCase_CloseStackedPane_DissolvesStackWithTwo(t *testing.T)
 }
 
 func TestManagePanesUseCase_CloseStackedPane_UpdatesActivePaneWhenClosingActive(t *testing.T) {
-	uc := NewManagePanesUseCase(func() string { return "id" })
+	uc := NewManagePanesUseCase(func() string { return "id" }, nil)
 	ctx := context.Background()
 
 	// Create a stack with 3 panes, middle one is active
@@ -113,7 +113,7 @@ func TestManagePanesUseCase_CloseStackedPane_UpdatesActivePaneWhenClosingActive(
 }
 
 func TestManagePanesUseCase_CloseStackedPane_PreservesActivePaneWhenClosingNonActive(t *testing.T) {
-	uc := NewManagePanesUseCase(func() string { return "id" })
+	uc := NewManagePanesUseCase(func() string { return "id" }, nil)
 	ctx := context.Background()
 
 	// Create a stack with 3 panes, first one is active
@@ -138,7 +138,7 @@ func TestManagePanesUseCase_CloseStackedPane_PreservesActivePaneWhenClosingNonAc
 }
 
 func TestManagePanesUseCase_CloseStackedPane_DissolvesNestedStack(t *testing.T) {
-	uc := NewManagePanesUseCase(func() string { return "id" })
+	uc := NewManagePanesUseCase(func() string { return "id" }, nil)
 	ctx := context.Background()
 
 	// Create a split with a stack on the left
@@ -185,7 +185,7 @@ func TestManagePanesUseCase_CloseStackedPane_DissolvesNestedStack(t *testing.T) 
 }
 
 func TestManagePanesUseCase_CloseStackedPane_ClosingFirstPaneUpdatesIndex(t *testing.T) {
-	uc := NewManagePanesUseCase(func() string { return "id" })
+	uc := NewManagePanesUseCase(func() string { return "id" }, nil)
 	ctx := context.Background()
 
 	// Create a stack with 3 panes, first one is active
@@ -218,7 +218,7 @@ func TestManagePanesUseCase_CloseStackedPane_ClosingFirstPaneUpdatesIndex(t *tes
 }
 
 func TestManagePanesUseCase_CloseStackedPane_ClosingLastPaneUpdatesIndex(t *testing.T) {
-	uc := NewManagePanesUseCase(func() string { return "id" })
+	uc := NewManagePanesUseCase(func() string { return "id" }, nil)
 	ctx := context.Background()
 
 	// Create a stack with 3 panes, last one is active

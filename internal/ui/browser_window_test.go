@@ -139,7 +139,7 @@ func TestTabCoordinator_CloseReleasesClosedTabWorkspaceWebViews(t *testing.T) {
 	app := &App{
 		deps:             &Dependencies{},
 		runtimeConfig:    runtimeConfigStateForTest(config.DefaultConfig()),
-		tabsUC:           usecase.NewManageTabsUseCase(counterIDGen()),
+		tabsUC:           usecase.NewManageTabsUseCase(counterIDGen(), nil),
 		contentCoord:     contentCoord,
 		browserWindows:   map[string]*browserWindow{bw.id: bw},
 		tabs:             entity.NewTabList(),
@@ -183,7 +183,7 @@ func TestTabCoordinator_SwitchDoesNotReleaseWorkspaceWebViews(t *testing.T) {
 	app := &App{
 		deps:             &Dependencies{},
 		runtimeConfig:    runtimeConfigStateForTest(config.DefaultConfig()),
-		tabsUC:           usecase.NewManageTabsUseCase(counterIDGen()),
+		tabsUC:           usecase.NewManageTabsUseCase(counterIDGen(), nil),
 		contentCoord:     contentCoord,
 		browserWindows:   map[string]*browserWindow{bw.id: bw},
 		tabs:             entity.NewTabList(),
@@ -218,7 +218,7 @@ func TestTabCoordinator_CloseLastTabReleasesWorkspaceBeforeWindowRemoval(t *test
 	app := &App{
 		deps:             &Dependencies{},
 		runtimeConfig:    runtimeConfigStateForTest(config.DefaultConfig()),
-		tabsUC:           usecase.NewManageTabsUseCase(counterIDGen()),
+		tabsUC:           usecase.NewManageTabsUseCase(counterIDGen(), nil),
 		contentCoord:     contentCoord,
 		browserWindows:   map[string]*browserWindow{bw.id: bw},
 		tabs:             entity.NewTabList(),
@@ -462,7 +462,7 @@ func TestOpenFreshWindow_DispatchesAndTracksBrowserWindow(t *testing.T) {
 func TestOpenFreshWindow_FirstWindowRegistersShellWithoutCreatingTab(t *testing.T) {
 	app := &App{
 		tabs:           entity.NewTabList(),
-		tabsUC:         usecase.NewManageTabsUseCase(func() string { return "unexpected-tab" }),
+		tabsUC:         usecase.NewManageTabsUseCase(func() string { return "unexpected-tab" }, nil),
 		browserWindows: make(map[string]*browserWindow),
 	}
 	app.dispatchOnMainThread = func(label string, fn func()) syncdispatch.SyncDispatchResult {

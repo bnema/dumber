@@ -801,8 +801,8 @@ func createUseCases(repos *repositories, cfg *config.Config) *useCases {
 	historyUC.SetHistoryMutationCoordinator(historyRecorderUC)
 
 	return &useCases{
-		tabs:            usecase.NewManageTabsUseCase(idGenerator, usecase.WithManageTabsLocalPathResolver(localPaths)),
-		panes:           usecase.NewManagePanesUseCase(idGenerator, usecase.WithManagePanesLocalPathResolver(localPaths)),
+		tabs:            usecase.NewManageTabsUseCase(idGenerator, localPaths),
+		panes:           usecase.NewManagePanesUseCase(idGenerator, localPaths),
 		history:         historyUC,
 		favorites:       usecase.NewManageFavoritesUseCase(repos.favorite, repos.folder, repos.tag),
 		zoom:            usecase.NewManageZoomUseCase(repos.zoom, defaultZoom, zoomCache),

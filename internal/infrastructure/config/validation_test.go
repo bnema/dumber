@@ -3,6 +3,7 @@ package config
 import (
 	"math"
 	"os"
+	"path/filepath"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -293,14 +294,37 @@ func TestValidateConfig_CEFConfig(t *testing.T) {
 	}
 }
 
-func TestValidateConfig_WorkspaceNewPaneURLAllowsLocalPathLikeValues(t *testing.T) {
-	for _, value := range []string{"/tmp/page.html", "./page.html", "../page.html", "~/page.html"} {
+func TestValidateConfig_WorkspaceNewPaneURLAllowsExistingLocalPathLikeValues(t *testing.T) {
+	tmpDir := t.TempDir()
+	oldWD, err := os.Getwd()
+	require.NoError(t, err)
+	childDir := filepath.Join(tmpDir, "child")
+	require.NoError(t, os.Mkdir(childDir, 0755))
+	require.NoError(t, os.WriteFile(filepath.Join(tmpDir, "page.html"), []byte("ok"), 0644))
+	require.NoError(t, os.WriteFile(filepath.Join(childDir, "page.html"), []byte("ok"), 0644))
+	require.NoError(t, os.Chdir(childDir))
+	t.Cleanup(func() { _ = os.Chdir(oldWD) })
+
+	for _, value := range []string{filepath.Join(tmpDir, "page.html"), "./page.html", "../page.html"} {
 		t.Run(value, func(t *testing.T) {
 			cfg := DefaultConfig()
 			cfg.Workspace.NewPaneURL = value
 
 			err := validateConfig(cfg)
 			require.NoError(t, err)
+		})
+	}
+}
+
+func TestValidateConfig_WorkspaceNewPaneURLRejectsMissingLocalPathLikeValues(t *testing.T) {
+	for _, value := range []string{"/missing/dumber/page.html", "./missing.html", "../missing.html", "~/missing-dumber-page.html"} {
+		t.Run(value, func(t *testing.T) {
+			cfg := DefaultConfig()
+			cfg.Workspace.NewPaneURL = value
+
+			err := validateConfig(cfg)
+			require.Error(t, err)
+			assert.Contains(t, err.Error(), "workspace.new_pane_url local path must exist")
 		})
 	}
 }

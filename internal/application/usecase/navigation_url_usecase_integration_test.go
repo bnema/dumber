@@ -14,7 +14,7 @@ func TestManageTabsCreateResolvesExistingLocalInitialURL(t *testing.T) {
 	tabsFile := filepath.Join(string(filepath.Separator), "tmp", "tabs.html")
 	uc := NewManageTabsUseCase(
 		sequentialIDGenerator("tab", "workspace", "pane"),
-		WithManageTabsLocalPathResolver(fakeLocalPathResolver{paths: map[string]string{"tabs.html": tabsFile}}),
+		fakeLocalPathResolver{paths: map[string]string{"tabs.html": tabsFile}},
 	)
 
 	out, err := uc.Create(ctx, CreateTabInput{TabList: tabs, InitialURL: "tabs.html"})
@@ -32,7 +32,7 @@ func TestManageTabsCreateWithPaneResolvesExistingLocalInitialURL(t *testing.T) {
 	tabsFile := filepath.Join(string(filepath.Separator), "tmp", "provided.html")
 	uc := NewManageTabsUseCase(
 		sequentialIDGenerator("tab", "workspace"),
-		WithManageTabsLocalPathResolver(fakeLocalPathResolver{paths: map[string]string{"provided.html": tabsFile}}),
+		fakeLocalPathResolver{paths: map[string]string{"provided.html": tabsFile}},
 	)
 	pane := entity.NewPane("provided-pane")
 
@@ -50,7 +50,7 @@ func TestManagePanesSplitResolvesExistingLocalInitialURL(t *testing.T) {
 	paneFile := filepath.Join(string(filepath.Separator), "tmp", "split.html")
 	uc := NewManagePanesUseCase(
 		sequentialIDGenerator("new-pane", "parent"),
-		WithManagePanesLocalPathResolver(fakeLocalPathResolver{paths: map[string]string{"split.html": paneFile}}),
+		fakeLocalPathResolver{paths: map[string]string{"split.html": paneFile}},
 	)
 	active := entity.NewPane("active-pane")
 	activeNode := &entity.PaneNode{ID: "active-node", Pane: active}

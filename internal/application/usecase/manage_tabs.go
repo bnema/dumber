@@ -18,26 +18,12 @@ type ManageTabsUseCase struct {
 	normalizer  *NavigationURLNormalizer
 }
 
-// ManageTabsOption configures ManageTabsUseCase.
-type ManageTabsOption func(*ManageTabsUseCase)
-
-// WithManageTabsLocalPathResolver configures local path resolution for initial navigation URLs.
-func WithManageTabsLocalPathResolver(resolver port.LocalPathResolver) ManageTabsOption {
-	return func(uc *ManageTabsUseCase) {
-		uc.normalizer = NewNavigationURLNormalizer(resolver)
-	}
-}
-
 // NewManageTabsUseCase creates a new tab management use case.
-func NewManageTabsUseCase(idGenerator IDGenerator, opts ...ManageTabsOption) *ManageTabsUseCase {
-	uc := &ManageTabsUseCase{
+func NewManageTabsUseCase(idGenerator IDGenerator, localPaths port.LocalPathResolver) *ManageTabsUseCase {
+	return &ManageTabsUseCase{
 		idGenerator: idGenerator,
-		normalizer:  NewNavigationURLNormalizer(nil),
+		normalizer:  NewNavigationURLNormalizer(localPaths),
 	}
-	for _, opt := range opts {
-		opt(uc)
-	}
-	return uc
 }
 
 // CreateTabInput contains parameters for creating a new tab.

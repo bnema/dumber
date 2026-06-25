@@ -9,7 +9,7 @@ import (
 )
 
 func TestManagePanesUseCase_Resize_Errors(t *testing.T) {
-	uc := NewManagePanesUseCase(func() string { return "id" })
+	uc := NewManagePanesUseCase(func() string { return "id" }, nil)
 
 	ctx := context.Background()
 
@@ -33,7 +33,7 @@ func TestManagePanesUseCase_Resize_Errors(t *testing.T) {
 }
 
 func TestManagePanesUseCase_Resize_VerticalDividerMove(t *testing.T) {
-	uc := NewManagePanesUseCase(func() string { return "id" })
+	uc := NewManagePanesUseCase(func() string { return "id" }, nil)
 	ctx := context.Background()
 
 	top := &entity.PaneNode{ID: "top", Pane: &entity.Pane{ID: "top"}}
@@ -67,7 +67,7 @@ func TestManagePanesUseCase_Resize_VerticalDividerMove(t *testing.T) {
 }
 
 func TestManagePanesUseCase_Resize_SmartResizeGrowsAndShrinksActivePane(t *testing.T) {
-	uc := NewManagePanesUseCase(func() string { return "id" })
+	uc := NewManagePanesUseCase(func() string { return "id" }, nil)
 	ctx := context.Background()
 
 	top := &entity.PaneNode{ID: "top", Pane: &entity.Pane{ID: "top"}}
@@ -101,7 +101,7 @@ func TestManagePanesUseCase_Resize_SmartResizeGrowsAndShrinksActivePane(t *testi
 }
 
 func TestManagePanesUseCase_Resize_ClampsToMinPanePercent(t *testing.T) {
-	uc := NewManagePanesUseCase(func() string { return "id" })
+	uc := NewManagePanesUseCase(func() string { return "id" }, nil)
 	ctx := context.Background()
 
 	left := &entity.PaneNode{ID: "left", Pane: &entity.Pane{ID: "left"}}
@@ -127,7 +127,7 @@ func TestManagePanesUseCase_Resize_ClampsToMinPanePercent(t *testing.T) {
 }
 
 func TestManagePanesUseCase_Resize_TargetsStackContainer(t *testing.T) {
-	uc := NewManagePanesUseCase(func() string { return "id" })
+	uc := NewManagePanesUseCase(func() string { return "id" }, nil)
 	ctx := context.Background()
 
 	stackLeaf1 := &entity.PaneNode{ID: "s1", Pane: &entity.Pane{ID: "s1"}}

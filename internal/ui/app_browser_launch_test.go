@@ -1104,7 +1104,7 @@ func TestApp_OpenFreshWindowRecordsTabOwnership(t *testing.T) {
 	created := &browserWindow{id: "window-1", tabs: entity.NewTabList()}
 	app := &App{
 		tabs:           entity.NewTabList(),
-		tabsUC:         usecase.NewManageTabsUseCase(func() string { return "id-1" }),
+		tabsUC:         usecase.NewManageTabsUseCase(func() string { return "id-1" }, nil),
 		browserWindows: map[string]*browserWindow{existingWindow.id: existingWindow},
 		windowForTab:   map[entity.TabID]*browserWindow{existingTab.ID: existingWindow},
 		workspaceViews: map[entity.TabID]*component.WorkspaceView{entity.TabID("id-1"): &component.WorkspaceView{}},
@@ -1167,7 +1167,7 @@ func TestApp_CreateInitialTabNoFallbackAfterEmptyWindowRestore(t *testing.T) {
 	ctx := context.Background()
 	sessionID := entity.SessionID("session-empty-windows-fallback")
 	state := entity.SnapshotFromWindowTabLists(sessionID, []entity.WindowTabListState{}, 0, time.Unix(123, 0))
-	tabsUC := usecase.NewManageTabsUseCase(func() string { return "fallback-tab" })
+	tabsUC := usecase.NewManageTabsUseCase(func() string { return "fallback-tab" }, nil)
 	windowTabs := entity.NewTabList()
 	bw := &browserWindow{id: "window-1", tabs: windowTabs}
 	app := &App{
@@ -1361,7 +1361,7 @@ func TestApp_OpenFreshWindowRollsBackOnTabCreationFailure(t *testing.T) {
 
 	app := &App{
 		tabs:           entity.NewTabList(),
-		tabsUC:         usecase.NewManageTabsUseCase(func() string { return "id-1" }),
+		tabsUC:         usecase.NewManageTabsUseCase(func() string { return "id-1" }, nil),
 		browserWindows: map[string]*browserWindow{existingWindow.id: existingWindow},
 		windowForTab:   map[entity.TabID]*browserWindow{existingTab.ID: existingWindow},
 		browserWindowFactory: func(context.Context, string) (*browserWindow, error) {
@@ -1403,7 +1403,7 @@ func TestApp_OpenFreshWindowTargetsNewWindowTabBar(t *testing.T) {
 	setWindowTabBar(t, oldWindow, newTestTabBarShell(t))
 	setWindowTabBar(t, newWindow, newTestTabBarShell(t, createdTabID))
 	tabs := entity.NewTabList()
-	tabsUC := usecase.NewManageTabsUseCase(func() string { return string(createdTabID) })
+	tabsUC := usecase.NewManageTabsUseCase(func() string { return string(createdTabID) }, nil)
 
 	existingTab := entity.NewTab(existingTabID, entity.WorkspaceID("existing-workspace"), entity.NewPane(entity.PaneID("existing-pane")))
 	existingTabs := entity.NewTabList()
@@ -2280,7 +2280,7 @@ func TestApp_CreatePopupTabUsesParentPaneOwnerWhenFocusIsStale(t *testing.T) {
 		deps:                &Dependencies{},
 		runtimeConfig:       runtimeConfigStateForTest(&config.Config{}),
 		tabs:                globalTabs,
-		tabsUC:              usecase.NewManageTabsUseCase(func() string { return "popup-tab" }),
+		tabsUC:              usecase.NewManageTabsUseCase(func() string { return "popup-tab" }, nil),
 		browserWindows:      map[string]*browserWindow{first.id: first, second.id: second},
 		windowForTab:        map[entity.TabID]*browserWindow{firstTab.ID: first, secondTab.ID: second},
 		workspaceViews:      make(map[entity.TabID]*component.WorkspaceView),
@@ -2341,7 +2341,7 @@ func TestApp_TabCoordinatorCallbacksUseTargetWindowWhenFocusIsStale(t *testing.T
 		deps:                &Dependencies{},
 		runtimeConfig:       runtimeConfigStateForTest(&config.Config{}),
 		tabs:                entity.NewTabList(),
-		tabsUC:              usecase.NewManageTabsUseCase(func() string { return "created-tab" }),
+		tabsUC:              usecase.NewManageTabsUseCase(func() string { return "created-tab" }, nil),
 		browserWindows:      map[string]*browserWindow{first.id: first, second.id: second},
 		lastFocusedWindowID: first.id,
 		mainWindow:          first.mainWindow,
@@ -2973,7 +2973,7 @@ func TestApp_DispatchBrowserWindowActionSwitchTabIndexUsesSourceWindow(t *testin
 	app := &App{
 		deps:                &Dependencies{},
 		runtimeConfig:       runtimeConfigStateForTest(cfg),
-		tabsUC:              usecase.NewManageTabsUseCase(counterIDGen()),
+		tabsUC:              usecase.NewManageTabsUseCase(counterIDGen(), nil),
 		browserWindows:      map[string]*browserWindow{first.id: first, second.id: second},
 		windowForTab:        map[entity.TabID]*browserWindow{firstTab.ID: first, secondTab1.ID: second, secondTab2.ID: second},
 		lastFocusedWindowID: first.id, // stale — should NOT be used
@@ -3016,7 +3016,7 @@ func TestApp_DispatchBrowserWindowActionSwitchTabIndexCreatesOnlyOneMissingTab(t
 	app := &App{
 		deps:                &Dependencies{},
 		runtimeConfig:       runtimeConfigStateForTest(cfg),
-		tabsUC:              usecase.NewManageTabsUseCase(counterIDGen()),
+		tabsUC:              usecase.NewManageTabsUseCase(counterIDGen(), nil),
 		browserWindows:      map[string]*browserWindow{first.id: first, second.id: second},
 		windowForTab:        map[entity.TabID]*browserWindow{firstTab.ID: first, secondTab.ID: second},
 		lastFocusedWindowID: first.id, // stale — should NOT be used
@@ -3062,7 +3062,7 @@ func TestApp_SwitchBrowserWindowTabIndexNegativeIndexIsIgnored(t *testing.T) {
 	app := &App{
 		deps:           &Dependencies{},
 		runtimeConfig:  runtimeConfigStateForTest(cfg),
-		tabsUC:         usecase.NewManageTabsUseCase(counterIDGen()),
+		tabsUC:         usecase.NewManageTabsUseCase(counterIDGen(), nil),
 		browserWindows: map[string]*browserWindow{second.id: second},
 		windowForTab:   map[entity.TabID]*browserWindow{secondTab.ID: second},
 	}
@@ -3089,7 +3089,7 @@ func TestApp_DispatchBrowserWindowActionSwitchTabIndexNegativeDoesNotMutateWindo
 	app := &App{
 		deps:                &Dependencies{},
 		runtimeConfig:       runtimeConfigStateForTest(cfg),
-		tabsUC:              usecase.NewManageTabsUseCase(counterIDGen()),
+		tabsUC:              usecase.NewManageTabsUseCase(counterIDGen(), nil),
 		browserWindows:      map[string]*browserWindow{second.id: second},
 		lastFocusedWindowID: "window-1",
 	}
@@ -3119,7 +3119,7 @@ func TestApp_DispatchBrowserWindowActionSwitchTabIndexMissingURLDoesNotCreateTab
 	app := &App{
 		deps:           &Dependencies{},
 		runtimeConfig:  runtimeConfigStateForTest(&config.Config{}),
-		tabsUC:         usecase.NewManageTabsUseCase(counterIDGen()),
+		tabsUC:         usecase.NewManageTabsUseCase(counterIDGen(), nil),
 		browserWindows: map[string]*browserWindow{second.id: second},
 		windowForTab:   map[entity.TabID]*browserWindow{secondTab.ID: second},
 	}
@@ -3145,7 +3145,7 @@ func TestApp_SwitchBrowserWindowTabIndexMissingURLDoesNotMutateWindowState(t *te
 	app := &App{
 		deps:                &Dependencies{},
 		runtimeConfig:       runtimeConfigStateForTest(&config.Config{}),
-		tabsUC:              usecase.NewManageTabsUseCase(counterIDGen()),
+		tabsUC:              usecase.NewManageTabsUseCase(counterIDGen(), nil),
 		browserWindows:      map[string]*browserWindow{second.id: second},
 		lastFocusedWindowID: "window-1",
 	}

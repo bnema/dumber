@@ -446,7 +446,13 @@ func validateWorkspaceNewPaneURL(config *Config) []string {
 
 func validateWorkspaceURLValue(fieldPath, value string) []string {
 	trimmed := strings.TrimSpace(value)
-	if isLocalPathLikeWorkspaceURL(trimmed) || isExistingRelativeWorkspacePath(trimmed) {
+	if isLocalPathLikeWorkspaceURL(trimmed) {
+		if isExistingWorkspacePath(trimmed) {
+			return nil
+		}
+		return []string{fmt.Sprintf("%s local path must exist (got: %s)", fieldPath, value)}
+	}
+	if isExistingRelativeWorkspacePath(trimmed) {
 		return nil
 	}
 	candidate := trimmed
@@ -478,16 +484,31 @@ func isLocalPathLikeWorkspaceURL(value string) bool {
 		strings.HasPrefix(value, "~/")
 }
 
-func isExistingRelativeWorkspacePath(value string) bool {
-	if value == "" || strings.Contains(value, "://") || filepath.IsAbs(value) {
+func isExistingWorkspacePath(value string) bool {
+	if value == "" || strings.Contains(value, "://") {
 		return false
 	}
-	absPath, err := filepath.Abs(value)
+	candidate := value
+	if strings.HasPrefix(candidate, "~/") {
+		homeDir, err := os.UserHomeDir()
+		if err != nil || homeDir == "" {
+			return false
+		}
+		candidate = filepath.Join(homeDir, strings.TrimPrefix(candidate, "~/"))
+	}
+	absPath, err := filepath.Abs(candidate)
 	if err != nil {
 		return false
 	}
 	_, err = os.Stat(absPath)
 	return err == nil
+}
+
+func isExistingRelativeWorkspacePath(value string) bool {
+	if value == "" || strings.Contains(value, "://") || filepath.IsAbs(value) {
+		return false
+	}
+	return isExistingWorkspacePath(value)
 }
 
 func validateOmnibox(config *Config) []string {
