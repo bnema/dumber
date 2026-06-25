@@ -304,7 +304,7 @@ func (hs *HistorySidebar) Show() {
 // Hide hides the sidebar.
 func (hs *HistorySidebar) Hide() {
 	hs.mu.Lock()
-	if hs.outerBox == nil || hs.destroyed {
+	if hs.destroyed {
 		hs.mu.Unlock()
 		return
 	}
@@ -312,7 +312,10 @@ func (hs *HistorySidebar) Hide() {
 	reloadTimerID := hs.cancelReloadDebounceLocked()
 	tickerID := hs.relativeTimeTicker
 	hs.relativeTimeTicker = 0
-	hs.outerBox.SetVisible(false)
+	hs.clearRelativeTimeBindingsLocked()
+	if hs.outerBox != nil {
+		hs.outerBox.SetVisible(false)
+	}
 	hs.visible = false
 	hs.mu.Unlock()
 

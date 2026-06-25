@@ -24,6 +24,12 @@ const (
 
 	// historyWorkerFlushInterval coalesces bursts into fewer persistence writes.
 	historyWorkerFlushInterval = 100 * time.Millisecond
+
+	// historyWorkerShutdownFlushTimeout bounds final persistence attempts during shutdown.
+	historyWorkerShutdownFlushTimeout = 2 * time.Second
+
+	// historyWorkerShutdownWaitTimeout bounds Close even if a repository call ignores context cancellation.
+	historyWorkerShutdownWaitTimeout = historyWorkerShutdownFlushTimeout + 500*time.Millisecond
 )
 
 // historyDeduplicationWindow is the time window for deduplicating history visits.
@@ -108,12 +114,9 @@ func (p *pendingHistoryRecords) empty() bool {
 	return len(p.visits) == 0 && len(p.titles) == 0
 }
 
-func (p *pendingHistoryRecords) reset() (map[string]int, map[string]string) {
-	visits := p.visits
-	titles := p.titles
+func (p *pendingHistoryRecords) reset() {
 	p.visits = make(map[string]int)
 	p.titles = make(map[string]string)
-	return visits, titles
 }
 
 // HistoryRecorderUseCase records persisted history visits and title updates asynchronously.
@@ -133,11 +136,13 @@ type HistoryRecorderUseCase struct {
 	done         chan struct{}
 	wg           sync.WaitGroup
 	ctx          context.Context // Base context for background worker
+	cancel       context.CancelFunc
 }
 
 // NewHistoryRecorderUseCase creates a new history recorder use case.
 func NewHistoryRecorderUseCase(historyRepo repository.HistoryRepository, changeSink port.HistoryChangeSink) *HistoryRecorderUseCase {
 	changeSink = normalizeHistoryChangeSink(changeSink)
+	ctx, cancel := context.WithCancel(context.Background())
 
 	uc := &HistoryRecorderUseCase{
 		historyRepo:  historyRepo,
@@ -146,7 +151,8 @@ func NewHistoryRecorderUseCase(historyRepo repository.HistoryRepository, changeS
 		historyQueue: make(chan historyRecord, historyQueueSize),
 		controlQueue: make(chan historyControlRequest),
 		done:         make(chan struct{}),
-		ctx:          context.Background(),
+		ctx:          ctx,
+		cancel:       cancel,
 	}
 
 	uc.wg.Add(1)
@@ -168,13 +174,57 @@ func (uc *HistoryRecorderUseCase) SetHistoryChangeSink(changeSink port.HistoryCh
 
 // Close shuts down the background history worker and drains any pending records.
 func (uc *HistoryRecorderUseCase) Close() {
+	if uc == nil {
+		return
+	}
 	uc.closeOnce.Do(func() {
 		uc.enqueueMu.Lock()
 		uc.closing = true
 		uc.enqueueMu.Unlock()
-		close(uc.done)
+		uc.cancelWorkerContext()
+		if uc.done != nil {
+			close(uc.done)
+		}
 	})
-	uc.wg.Wait()
+	if uc.waitForHistoryWorker(historyWorkerShutdownWaitTimeout) {
+		return
+	}
+	logging.FromContext(uc.workerContext()).Warn().
+		Dur("timeout", historyWorkerShutdownWaitTimeout).
+		Msg("history worker shutdown timed out")
+}
+
+func (uc *HistoryRecorderUseCase) workerContext() context.Context {
+	if uc == nil || uc.ctx == nil {
+		return context.Background()
+	}
+	return uc.ctx
+}
+
+func (uc *HistoryRecorderUseCase) cancelWorkerContext() {
+	if uc != nil && uc.cancel != nil {
+		uc.cancel()
+	}
+}
+
+func (uc *HistoryRecorderUseCase) waitForHistoryWorker(timeout time.Duration) bool {
+	done := make(chan struct{})
+	go func() {
+		uc.wg.Wait()
+		close(done)
+	}()
+	if timeout <= 0 {
+		<-done
+		return true
+	}
+	timer := time.NewTimer(timeout)
+	defer timer.Stop()
+	select {
+	case <-done:
+		return true
+	case <-timer.C:
+		return false
+	}
 }
 
 // RecordHistory queues a history entry for async recording.
@@ -248,6 +298,8 @@ func (uc *HistoryRecorderUseCase) ClearPaneHistory(paneID string) {
 		return
 	}
 	paneID = normalizePaneID(paneID)
+	uc.mutationMu.Lock()
+	defer uc.mutationMu.Unlock()
 	uc.recentMu.Lock()
 	delete(uc.recentVisits, paneID)
 	uc.recentMu.Unlock()
@@ -275,7 +327,7 @@ func (uc *HistoryRecorderUseCase) UpdateHistoryTitle(_ context.Context, historyU
 	defer uc.mutationMu.Unlock()
 
 	if !uc.enqueueHistoryRecord(historyRecord{url: historyURL, title: title}) {
-		logging.FromContext(uc.ctx).Warn().
+		logging.FromContext(uc.workerContext()).Warn().
 			Str("url", logging.RedactURL(historyURL)).
 			Msg("history queue full or recorder closed, title update dropped")
 	}
@@ -302,6 +354,7 @@ func (uc *HistoryRecorderUseCase) historyWorker() {
 
 	ticker := time.NewTicker(historyWorkerFlushInterval)
 	defer ticker.Stop()
+	workerCtx := uc.workerContext()
 
 	pending := newPendingHistoryRecords()
 	for {
@@ -309,10 +362,13 @@ func (uc *HistoryRecorderUseCase) historyWorker() {
 		case record := <-uc.historyQueue:
 			pending.add(record)
 		case <-ticker.C:
-			_ = uc.flushPendingHistory(uc.ctx, pending)
+			_ = uc.flushPendingHistory(workerCtx, pending)
 		case req := <-uc.controlQueue:
 			uc.handleHistoryControl(pending, req)
 		case <-uc.done:
+			uc.shutdownHistoryWorker(pending)
+			return
+		case <-workerCtx.Done():
 			uc.shutdownHistoryWorker(pending)
 			return
 		}
@@ -321,7 +377,7 @@ func (uc *HistoryRecorderUseCase) historyWorker() {
 
 func (uc *HistoryRecorderUseCase) flushPendingHistory(ctx context.Context, pending *pendingHistoryRecords) error {
 	if ctx == nil {
-		ctx = uc.ctx
+		ctx = uc.workerContext()
 	}
 	if pending.empty() {
 		return nil
@@ -409,14 +465,23 @@ func (uc *HistoryRecorderUseCase) drainHistoryQueue(pending *pendingHistoryRecor
 }
 
 func (uc *HistoryRecorderUseCase) shutdownHistoryWorker(pending *pendingHistoryRecords) {
-	log := logging.FromContext(uc.ctx).With().
+	log := logging.FromContext(uc.workerContext()).With().
 		Str("component", "history-worker").
 		Logger()
+	shutdownCtx, cancel := context.WithTimeout(context.Background(), historyWorkerShutdownFlushTimeout)
+	defer cancel()
 
 	for {
+		if err := shutdownCtx.Err(); err != nil {
+			if !pending.empty() {
+				log.Warn().Err(err).Msg("dropping unflushed history during shutdown after timeout")
+				pending.reset()
+			}
+			return
+		}
 		log.Debug().Int("remaining", len(uc.historyQueue)).Msg("draining history queue")
 		uc.drainHistoryQueue(pending)
-		uc.flushPendingHistoryForShutdown(log, pending)
+		uc.flushPendingHistoryForShutdown(shutdownCtx, log, pending)
 
 		uc.enqueueMu.Lock()
 		uc.drainHistoryQueue(pending)
@@ -430,10 +495,10 @@ func (uc *HistoryRecorderUseCase) shutdownHistoryWorker(pending *pendingHistoryR
 	}
 }
 
-func (uc *HistoryRecorderUseCase) flushPendingHistoryForShutdown(log zerolog.Logger, pending *pendingHistoryRecords) {
+func (uc *HistoryRecorderUseCase) flushPendingHistoryForShutdown(ctx context.Context, log zerolog.Logger, pending *pendingHistoryRecords) {
 	const shutdownFlushAttempts = 3
 	for attempt := 1; attempt <= shutdownFlushAttempts; attempt++ {
-		err := uc.flushPendingHistory(uc.ctx, pending)
+		err := uc.flushPendingHistory(ctx, pending)
 		if err == nil || pending.empty() {
 			return
 		}
@@ -443,7 +508,13 @@ func (uc *HistoryRecorderUseCase) flushPendingHistoryForShutdown(log zerolog.Log
 			return
 		}
 		log.Warn().Err(err).Int("attempt", attempt).Msg("retrying unflushed history during shutdown")
-		time.Sleep(historyWorkerFlushInterval)
+		select {
+		case <-ctx.Done():
+			log.Warn().Err(ctx.Err()).Msg("dropping unflushed history during shutdown after timeout")
+			pending.reset()
+			return
+		case <-time.After(historyWorkerFlushInterval):
+		}
 	}
 }
 
@@ -527,7 +598,7 @@ func (uc *HistoryRecorderUseCase) publishHistoryChange(successfulVisits, success
 		reasons = append(reasons, dto.HistoryChangeReasonTitle)
 	}
 	sink := uc.historyChangeSink()
-	sink.OnHistoryChanged(uc.ctx, dto.HistoryChange{
+	sink.OnHistoryChanged(uc.workerContext(), dto.HistoryChange{
 		Reasons:    reasons,
 		VisitCount: successfulVisits,
 		TitleCount: successfulTitles,

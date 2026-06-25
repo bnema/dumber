@@ -204,6 +204,56 @@ func TestHistoryRecorder_CloseDrainsPendingAndPublishes(t *testing.T) {
 	require.Equal(t, 1, changes[0].VisitCount)
 }
 
+func TestHistoryRecorder_CloseCancelsInFlightWorkerFlushAndDrains(t *testing.T) {
+	ctx := context.Background()
+	sink := &recordingHistoryChangeSink{}
+	repo := repomocks.NewMockHistoryRepository(t)
+	const historyURL = "https://example.com/cancel-close"
+
+	findStarted := make(chan struct{})
+	var findOnce sync.Once
+	repo.EXPECT().FindByURL(mock.Anything, historyURL).RunAndReturn(
+		func(ctx context.Context, _ string) (*entity.HistoryEntry, error) {
+			first := false
+			findOnce.Do(func() { first = true })
+			if first {
+				close(findStarted)
+				<-ctx.Done()
+				return nil, ctx.Err()
+			}
+			return nil, nil
+		},
+	).Twice()
+	repo.EXPECT().Save(mock.Anything, mock.MatchedBy(func(entry *entity.HistoryEntry) bool {
+		return entry.URL == historyURL && entry.VisitCount == 1
+	})).Return(nil).Once()
+
+	uc := NewHistoryRecorderUseCase(repo, sink)
+	uc.RecordHistory(ctx, "pane-1", historyURL)
+
+	select {
+	case <-findStarted:
+	case <-time.After(time.Second):
+		t.Fatal("timed out waiting for periodic history flush to start")
+	}
+
+	closed := make(chan struct{})
+	go func() {
+		uc.Close()
+		close(closed)
+	}()
+
+	select {
+	case <-closed:
+	case <-time.After(time.Second):
+		t.Fatal("timed out waiting for history recorder shutdown")
+	}
+
+	changes := sink.snapshot()
+	require.Len(t, changes, 1)
+	require.Equal(t, 1, changes[0].VisitCount)
+}
+
 func TestHistoryRecorder_FailedPersistencePublishesNoChange(t *testing.T) {
 	ctx := context.Background()
 	sink := &recordingHistoryChangeSink{}
@@ -321,6 +371,28 @@ func TestHistoryRecorder_RecordHistory_DedupIsPerPane(t *testing.T) {
 	uc.RecordHistory(ctx, "pane-1", "https://example.com/dedupe")
 	uc.RecordHistory(ctx, "pane-1", "https://example.com/dedupe")
 	uc.RecordHistory(ctx, "pane-2", "https://example.com/dedupe")
+	uc.Close()
+
+	changes := sink.snapshot()
+	require.Len(t, changes, 1)
+	require.Equal(t, 2, changes[0].VisitCount)
+}
+
+func TestHistoryRecorder_ClearPaneHistorySerializesWithRecorderAndAllowsPaneReuse(t *testing.T) {
+	ctx := context.Background()
+	sink := &recordingHistoryChangeSink{}
+	repo := repomocks.NewMockHistoryRepository(t)
+	const historyURL = "https://example.com/reused-pane"
+
+	repo.EXPECT().FindByURL(mock.Anything, historyURL).Return(nil, nil).Once()
+	repo.EXPECT().Save(mock.Anything, mock.MatchedBy(func(entry *entity.HistoryEntry) bool {
+		return entry.URL == historyURL && entry.VisitCount == 2
+	})).Return(nil).Once()
+
+	uc := NewHistoryRecorderUseCase(repo, sink)
+	uc.RecordHistory(ctx, "pane-1", historyURL)
+	uc.ClearPaneHistory("pane-1")
+	uc.RecordHistory(ctx, "pane-1", historyURL)
 	uc.Close()
 
 	changes := sink.snapshot()

@@ -287,7 +287,7 @@ func (hs *HistorySidebar) onSearchChanged() {
 		hs.applyFilter()
 		return false
 	})
-	timerID := glib.TimeoutAdd(uint(sidebarSearchDebounceMs), &filterCb, 0)
+	timerID := hs.addTimeout(sidebarSearchDebounceMs, filterCb)
 
 	hs.mu.Lock()
 	if hs.destroyed {

@@ -2,7 +2,10 @@ package ui
 
 import (
 	"context"
+	"reflect"
+	"sync"
 	"testing"
+	"unsafe"
 
 	"github.com/bnema/dumber/internal/application/dto"
 	"github.com/bnema/dumber/internal/application/usecase"
@@ -15,6 +18,7 @@ import (
 	"github.com/bnema/dumber/internal/ui/dispatcher"
 	"github.com/bnema/dumber/internal/ui/input"
 	"github.com/bnema/dumber/internal/ui/window"
+	"github.com/bnema/puregotk/v4/glib"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -957,12 +961,29 @@ func TestApp_RefreshVisibleHistorySidebars_OnlyVisibleInitializedWindows(t *test
 	visibleOne := &recordingHistorySidebarReloader{}
 	visibleTwo := &recordingHistorySidebarReloader{}
 	hidden := &recordingHistorySidebarReloader{}
+	fallbackSidebar := &component.HistorySidebar{}
+	var fallbackMu sync.Mutex
+	var fallbackIdle []glib.SourceFunc
+	var fallbackTimers []glib.SourceFunc
+	setComponentHistorySidebarField(t, fallbackSidebar, "visible", true)
+	setComponentHistorySidebarField(t, fallbackSidebar, "idleScheduler", func(cb glib.SourceFunc) {
+		fallbackMu.Lock()
+		defer fallbackMu.Unlock()
+		fallbackIdle = append(fallbackIdle, cb)
+	})
+	setComponentHistorySidebarField(t, fallbackSidebar, "timeoutAdd", func(_ uint, cb glib.SourceFunc) uint {
+		fallbackMu.Lock()
+		defer fallbackMu.Unlock()
+		fallbackTimers = append(fallbackTimers, cb)
+		return uint(100 + len(fallbackTimers))
+	})
 	app := &App{browserWindows: map[string]*browserWindow{
-		"visible-1":       {id: "visible-1", sidebarVisible: true, historySidebarReloader: visibleOne},
-		"hidden":          {id: "hidden", sidebarVisible: false, historySidebarReloader: hidden},
-		"uninitialized":   {id: "uninitialized", sidebarVisible: true},
-		"visible-2":       {id: "visible-2", sidebarVisible: true, historySidebarReloader: visibleTwo},
-		"destroyed-no-op": nil,
+		"visible-1":        {id: "visible-1", sidebarVisible: true, historySidebarReloader: visibleOne},
+		"hidden":           {id: "hidden", sidebarVisible: false, historySidebarReloader: hidden},
+		"uninitialized":    {id: "uninitialized", sidebarVisible: true},
+		"visible-2":        {id: "visible-2", sidebarVisible: true, historySidebarReloader: visibleTwo},
+		"visible-fallback": {id: "visible-fallback", sidebarVisible: true, historySidebar: fallbackSidebar},
+		"destroyed-no-op":  nil,
 	}}
 
 	require.NotPanics(t, func() {
@@ -974,4 +995,33 @@ func TestApp_RefreshVisibleHistorySidebars_OnlyVisibleInitializedWindows(t *test
 	assert.Zero(t, hidden.calls)
 	assert.Equal(t, []string{"clear"}, visibleOne.reasons)
 	assert.Equal(t, []string{"clear"}, visibleTwo.reasons)
+
+	fallbackMu.Lock()
+	require.Len(t, fallbackIdle, 1)
+	idleCb := fallbackIdle[0]
+	fallbackMu.Unlock()
+	assert.False(t, idleCb(0))
+
+	fallbackMu.Lock()
+	require.Len(t, fallbackTimers, 1)
+	timerCb := fallbackTimers[0]
+	fallbackMu.Unlock()
+	assert.False(t, timerCb(0))
+	assert.True(t, getComponentHistorySidebarBoolField(t, fallbackSidebar, "loadStarted"))
+}
+
+func setComponentHistorySidebarField(t *testing.T, hs *component.HistorySidebar, name string, value any) {
+	t.Helper()
+	rv := reflect.ValueOf(hs).Elem()
+	field := rv.FieldByName(name)
+	require.Truef(t, field.IsValid(), "component.HistorySidebar.%s field missing", name)
+	reflect.NewAt(field.Type(), unsafe.Pointer(field.UnsafeAddr())).Elem().Set(reflect.ValueOf(value))
+}
+
+func getComponentHistorySidebarBoolField(t *testing.T, hs *component.HistorySidebar, name string) bool {
+	t.Helper()
+	rv := reflect.ValueOf(hs).Elem()
+	field := rv.FieldByName(name)
+	require.Truef(t, field.IsValid(), "component.HistorySidebar.%s field missing", name)
+	return reflect.NewAt(field.Type(), unsafe.Pointer(field.UnsafeAddr())).Elem().Bool()
 }

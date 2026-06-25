@@ -166,6 +166,31 @@ func TestHistorySidebar_DestroyCancelsReloadTickerAndClearsBindings(t *testing.T
 	assert.Contains(t, h.removed, uint(52))
 }
 
+func TestHistorySidebar_HideCancelsReloadTickerAndClearsBindingsWithoutDestroying(t *testing.T) {
+	h := newSidebarReactivityHarness()
+	h.hs.visible = true
+	h.hs.reloadDebounceTimer = 61
+	h.hs.relativeTimeTicker = 62
+	h.hs.relativeTimeLabelBinds = []relativeTimeLabelBinding{{lastVisited: h.hs.currentTime()}}
+
+	h.hs.Hide()
+
+	h.hs.mu.RLock()
+	destroyed := h.hs.destroyed
+	visible := h.hs.visible
+	reloadTimer := h.hs.reloadDebounceTimer
+	ticker := h.hs.relativeTimeTicker
+	bindings := h.hs.relativeTimeLabelBinds
+	h.hs.mu.RUnlock()
+	assert.False(t, destroyed)
+	assert.False(t, visible)
+	assert.Zero(t, reloadTimer)
+	assert.Zero(t, ticker)
+	assert.Empty(t, bindings)
+	assert.Contains(t, h.removed, uint(61))
+	assert.Contains(t, h.removed, uint(62))
+}
+
 func TestHistorySidebar_RelativeTimeBindingsLifecycleAndTicker(t *testing.T) {
 	h := newSidebarReactivityHarness()
 	h.hs.visible = true
