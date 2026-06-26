@@ -492,11 +492,11 @@ func cefZoomFromFactor(factor float64) float64 {
 }
 
 func cefZoomFromPageAndBackingFactor(pageZoom, backingScale float64) float64 {
-	return cefZoomFromFactor(pageZoom * normalizeScale(backingScale))
+	return cefZoomFromFactor(pageZoom / normalizeScale(backingScale))
 }
 
 func pageZoomFromCEFAndBackingLevel(level, backingScale float64) float64 {
-	return factorFromCEFZoom(level) / normalizeScale(backingScale)
+	return factorFromCEFZoom(level) * normalizeScale(backingScale)
 }
 
 func (wv *WebView) applyCEFZoomLevel(host purecef.BrowserHost, factor, cefLevel, backingScale float64) {
