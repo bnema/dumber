@@ -6,7 +6,6 @@ import (
 
 	"github.com/bnema/dumber/internal/application/port"
 	"github.com/bnema/dumber/internal/domain/entity"
-	"github.com/bnema/dumber/internal/infrastructure/gtkutil"
 	"github.com/bnema/dumber/internal/logging"
 	"github.com/bnema/dumber/internal/ui/component"
 	"github.com/bnema/dumber/internal/ui/input"
@@ -167,11 +166,7 @@ func (c *Coordinator) WrapWidget(ctx context.Context, wv port.WebView) layout.Wi
 		return nil
 	}
 
-	gtkWidget := gtkutil.WidgetFromNativePointer(ptr)
-	if gtkWidget == nil {
-		return nil
-	}
-	widget := c.widgetFactory.WrapWidget(gtkWidget)
+	widget := c.widgetFactory.WrapNativeWidget(ptr)
 
 	// Attach gesture handler for mouse button 8/9 navigation
 	if widget != nil {

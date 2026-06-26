@@ -22,7 +22,7 @@ var doctorCmd = &cobra.Command{
 	Long: `Doctor checks system prerequisites for running the GUI browser.
 
 By default it runs both:
-- Runtime checks (GTK4 + WebKitGTK 6.0)
+- Runtime checks for GTK and WebKit fallback libraries
 - Media checks (GStreamer/VA-API)
 
 Use flags to run only one category.
@@ -36,7 +36,7 @@ Examples:
 
 func init() {
 	rootCmd.AddCommand(doctorCmd)
-	doctorCmd.Flags().BoolVar(&doctorOnlyRuntime, "runtime", false, "Only run runtime checks (GTK4/WebKitGTK)")
+	doctorCmd.Flags().BoolVar(&doctorOnlyRuntime, "runtime", false, "Only run runtime checks for GTK and WebKit fallback libraries")
 	doctorCmd.Flags().BoolVar(&doctorOnlyMedia, "media", false, "Only run media checks (GStreamer/VA-API)")
 }
 func runDoctor(_ *cobra.Command, _ []string) error {

@@ -241,6 +241,7 @@ type WidgetFactory interface {
 
 	// Wrap existing GTK widget
 	WrapWidget(w *gtk.Widget) Widget
+	WrapNativeWidget(ptr uintptr) Widget
 }
 
 // PaneRenderer creates pane view widgets from domain entities.

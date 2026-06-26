@@ -9,7 +9,7 @@ import (
 )
 
 func TestManagePanesUseCase_Split_ValidDirections(t *testing.T) {
-	uc := NewManagePanesUseCase(func() string { return "id" })
+	uc := NewManagePanesUseCase(func() string { return "id" }, nil)
 	ctx := context.Background()
 
 	dirs := []SplitDirection{SplitLeft, SplitRight, SplitUp, SplitDown}
@@ -51,7 +51,7 @@ func TestManagePanesUseCase_Split_ValidDirections(t *testing.T) {
 }
 
 func TestManagePanesUseCase_Split_InvalidDirection_ReturnsError(t *testing.T) {
-	uc := NewManagePanesUseCase(func() string { return "id" })
+	uc := NewManagePanesUseCase(func() string { return "id" }, nil)
 	ctx := context.Background()
 
 	target := leaf("target")

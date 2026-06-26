@@ -8,7 +8,7 @@ import (
 )
 
 func TestManagePanesUseCase_ConsumeOrExpel_ConsumeLeft_CyclesHorizontalToVerticalThenStack(t *testing.T) {
-	uc := NewManagePanesUseCase(func() string { return "id" })
+	uc := NewManagePanesUseCase(func() string { return "id" }, nil)
 	ctx := context.Background()
 
 	left := leaf("left")
@@ -61,7 +61,7 @@ func TestManagePanesUseCase_ConsumeOrExpel_ConsumeLeft_CyclesHorizontalToVertica
 }
 
 func TestManagePanesUseCase_ConsumeOrExpel_ConsumeRight_CyclesHorizontalToVerticalThenStack(t *testing.T) {
-	uc := NewManagePanesUseCase(func() string { return "id" })
+	uc := NewManagePanesUseCase(func() string { return "id" }, nil)
 	ctx := context.Background()
 
 	left := leaf("left")
@@ -114,7 +114,7 @@ func TestManagePanesUseCase_ConsumeOrExpel_ConsumeRight_CyclesHorizontalToVertic
 }
 
 func TestManagePanesUseCase_ConsumeOrExpel_ConsumeIntoExistingStack_AppendsToEnd(t *testing.T) {
-	uc := NewManagePanesUseCase(func() string { return "id" })
+	uc := NewManagePanesUseCase(func() string { return "id" }, nil)
 	ctx := context.Background()
 
 	stackNode := stack(leaf("a"), leaf("b"))
@@ -141,7 +141,7 @@ func TestManagePanesUseCase_ConsumeOrExpel_ConsumeIntoExistingStack_AppendsToEnd
 }
 
 func TestManagePanesUseCase_ConsumeOrExpel_ConsumeLeft_InVerticalSplitWithStackedSibling_Noops(t *testing.T) {
-	uc := NewManagePanesUseCase(func() string { return "id" })
+	uc := NewManagePanesUseCase(func() string { return "id" }, nil)
 	ctx := context.Background()
 
 	top := leaf("top")
@@ -165,7 +165,7 @@ func TestManagePanesUseCase_ConsumeOrExpel_ConsumeLeft_InVerticalSplitWithStacke
 }
 
 func TestManagePanesUseCase_ConsumeOrExpel_Expel_DissolvesTwoPaneStack(t *testing.T) {
-	uc := NewManagePanesUseCase(func() string { return "id" })
+	uc := NewManagePanesUseCase(func() string { return "id" }, nil)
 	ctx := context.Background()
 
 	stackNode := stack(leaf("a"), leaf("b"))
@@ -200,7 +200,7 @@ func TestManagePanesUseCase_ConsumeOrExpel_Expel_DissolvesTwoPaneStack(t *testin
 }
 
 func TestManagePanesUseCase_ConsumeOrExpel_ExpelThenConsumeRight_CyclesVerticalToHorizontal(t *testing.T) {
-	uc := NewManagePanesUseCase(func() string { return "id" })
+	uc := NewManagePanesUseCase(func() string { return "id" }, nil)
 	ctx := context.Background()
 
 	stackNode := stack(leaf("a"), leaf("b"))
@@ -228,7 +228,7 @@ func TestManagePanesUseCase_ConsumeOrExpel_ExpelThenConsumeRight_CyclesVerticalT
 }
 
 func TestManagePanesUseCase_ConsumeOrExpel_ExpelThenConsumeLeft_ReturnsToStack(t *testing.T) {
-	uc := NewManagePanesUseCase(func() string { return "id" })
+	uc := NewManagePanesUseCase(func() string { return "id" }, nil)
 	ctx := context.Background()
 
 	stackNode := stack(leaf("a"), leaf("b"))
@@ -259,7 +259,7 @@ func TestManagePanesUseCase_ConsumeOrExpel_ExpelThenConsumeLeft_ReturnsToStack(t
 }
 
 func TestManagePanesUseCase_ConsumeOrExpel_Expel_StackRemainsWhenMoreThanTwo(t *testing.T) {
-	uc := NewManagePanesUseCase(func() string { return "id" })
+	uc := NewManagePanesUseCase(func() string { return "id" }, nil)
 	ctx := context.Background()
 
 	stackNode := stack(leaf("a"), leaf("b"), leaf("c"))
@@ -293,7 +293,7 @@ func TestManagePanesUseCase_ConsumeOrExpel_Expel_StackRemainsWhenMoreThanTwo(t *
 }
 
 func TestManagePanesUseCase_ConsumeOrExpel_NoSibling_ReturnsWarningAndNoop(t *testing.T) {
-	uc := NewManagePanesUseCase(func() string { return "id" })
+	uc := NewManagePanesUseCase(func() string { return "id" }, nil)
 	ctx := context.Background()
 
 	left := leaf("left")
@@ -317,7 +317,7 @@ func TestManagePanesUseCase_ConsumeOrExpel_NoSibling_ReturnsWarningAndNoop(t *te
 }
 
 func TestManagePanesUseCase_ConsumeOrExpel_NestedSplits_ConsumesImmediateSiblingOnly(t *testing.T) {
-	uc := NewManagePanesUseCase(func() string { return "id" })
+	uc := NewManagePanesUseCase(func() string { return "id" }, nil)
 	ctx := context.Background()
 
 	a := leaf("a")
@@ -346,7 +346,7 @@ func TestManagePanesUseCase_ConsumeOrExpel_NestedSplits_ConsumesImmediateSibling
 }
 
 func TestManagePanesUseCase_ConsumeOrExpel_OnlyOnePane(t *testing.T) {
-	uc := NewManagePanesUseCase(func() string { return "id" })
+	uc := NewManagePanesUseCase(func() string { return "id" }, nil)
 	ctx := context.Background()
 
 	only := leaf("only")

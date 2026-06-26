@@ -1,6 +1,6 @@
 # Dumber Documentation
 
-Dumber is a keyboard-driven browser for tiling window managers, built with GTK4 and WebKitGTK.
+Dumber is a keyboard-driven browser for tiling window managers, built with GTK4. It uses CEF by default, with WebKitGTK available as a fallback backend.
 
 ## What is Dumber?
 
@@ -41,5 +41,5 @@ A browser designed for Wayland compositors that works like your favorite termina
 ## Requirements
 
 - Linux with Wayland (Sway, Hyprland, River, Niri, etc.)
-- GTK4 and WebKitGTK 2.42+
-- GStreamer (for media playback)
+- GTK4, CEF for the default backend, and WebKitGTK for the fallback backend
+- GStreamer (for WebKit media playback and diagnostics)

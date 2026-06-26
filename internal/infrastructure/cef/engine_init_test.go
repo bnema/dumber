@@ -181,18 +181,35 @@ func TestCreateAudioOutputFactory_ReturnsFactory(t *testing.T) {
 func testCEFDevProfile(t *testing.T) runtimeprofile.Profile {
 	t.Helper()
 	cwd := t.TempDir()
+	runtimeDir := shortRuntimeDir(t)
+	t.Setenv("XDG_RUNTIME_DIR", runtimeDir)
 	profile, err := runtimeprofile.Resolve(runtimeprofile.ResolveInput{
 		Env: func(key string) string {
-			if key == "ENV" {
+			switch key {
+			case "ENV":
 				return "dev"
+			case "XDG_RUNTIME_DIR":
+				return runtimeDir
+			default:
+				return ""
 			}
-			return ""
 		},
 		Engine: "cef",
 		CWD:    func() (string, error) { return cwd, nil },
 	})
 	require.NoError(t, err)
 	return profile
+}
+
+func shortRuntimeDir(t *testing.T) string {
+	t.Helper()
+
+	dir, err := os.MkdirTemp("", "dbr-")
+	require.NoError(t, err)
+	t.Cleanup(func() {
+		_ = os.RemoveAll(dir)
+	})
+	return dir
 }
 
 func testCEFProdProfile(t *testing.T) runtimeprofile.Profile {

@@ -4,8 +4,8 @@ import (
 	"context"
 	"fmt"
 
+	"github.com/bnema/dumber/internal/application/port"
 	"github.com/bnema/dumber/internal/domain/entity"
-	"github.com/bnema/dumber/internal/domain/url"
 	"github.com/bnema/dumber/internal/logging"
 )
 
@@ -15,12 +15,14 @@ type IDGenerator func() string
 // ManageTabsUseCase handles tab lifecycle operations.
 type ManageTabsUseCase struct {
 	idGenerator IDGenerator
+	normalizer  *NavigationURLNormalizer
 }
 
 // NewManageTabsUseCase creates a new tab management use case.
-func NewManageTabsUseCase(idGenerator IDGenerator) *ManageTabsUseCase {
+func NewManageTabsUseCase(idGenerator IDGenerator, localPaths port.LocalPathResolver) *ManageTabsUseCase {
 	return &ManageTabsUseCase{
 		idGenerator: idGenerator,
+		normalizer:  NewNavigationURLNormalizer(localPaths),
 	}
 }
 
@@ -58,7 +60,7 @@ func (uc *ManageTabsUseCase) Create(ctx context.Context, input CreateTabInput) (
 	// Create initial pane with normalized URL
 	pane := entity.NewPane(paneID)
 	if input.InitialURL != "" {
-		pane.URI = url.Normalize(input.InitialURL)
+		pane.URI = uc.normalizer.normalize(ctx, input.InitialURL)
 	}
 
 	// Create tab with workspace
@@ -355,7 +357,7 @@ func (uc *ManageTabsUseCase) CreateWithPane(ctx context.Context, input CreateTab
 	// Use the provided pane
 	pane := input.Pane
 	if input.InitialURL != "" {
-		pane.URI = url.Normalize(input.InitialURL)
+		pane.URI = uc.normalizer.normalize(ctx, input.InitialURL)
 	}
 
 	// Create tab with workspace using the pre-created pane

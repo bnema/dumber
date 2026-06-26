@@ -709,7 +709,7 @@ func TestApp_HistorySidebarConfig_OpenInNewPaneCallback(t *testing.T) {
 
 	bw := &browserWindow{id: "window-1", tabs: bwTabs}
 
-	panesUC := usecase.NewManagePanesUseCase(func() string { return "pane-2" })
+	panesUC := usecase.NewManagePanesUseCase(func() string { return "pane-2" }, nil)
 	wsCoord := coordinator.NewWorkspaceCoordinator(ctx, coordinator.WorkspaceCoordinatorConfig{
 		PanesUC: panesUC,
 		GetActiveWS: func() (*entity.Workspace, *component.WorkspaceView) {

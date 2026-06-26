@@ -8,8 +8,8 @@ import (
 	"sort"
 	"strings"
 
+	"github.com/bnema/dumber/internal/application/port"
 	"github.com/bnema/dumber/internal/domain/entity"
-	domainurl "github.com/bnema/dumber/internal/domain/url"
 	"github.com/bnema/dumber/internal/logging"
 )
 
@@ -72,13 +72,33 @@ const consumeOrExpelExpelCycleMarker = "_expel_cycle"
 // ManagePanesUseCase handles pane tree operations.
 type ManagePanesUseCase struct {
 	idGenerator IDGenerator
+	normalizer  *NavigationURLNormalizer
 }
 
 // NewManagePanesUseCase creates a new pane management use case.
-func NewManagePanesUseCase(idGenerator IDGenerator) *ManagePanesUseCase {
+func NewManagePanesUseCase(idGenerator IDGenerator, localPaths port.LocalPathResolver) *ManagePanesUseCase {
 	return &ManagePanesUseCase{
 		idGenerator: idGenerator,
+		normalizer:  NewNavigationURLNormalizer(localPaths),
 	}
+}
+
+// NormalizeNavigationURL normalizes user navigation input for pane creation.
+func (uc *ManagePanesUseCase) NormalizeNavigationURL(ctx context.Context, input string) string {
+	if uc == nil {
+		return NewNavigationURLNormalizer(nil).Normalize(ctx, input)
+	}
+	return uc.normalizer.normalize(ctx, input)
+}
+
+func (uc *ManagePanesUseCase) newPane(ctx context.Context, paneID entity.PaneID, initialURL string) *entity.Pane {
+	pane := entity.NewPane(paneID)
+	if initialURL != "" {
+		pane.URI = uc.normalizer.normalize(ctx, initialURL)
+	} else {
+		pane.URI = "about:blank"
+	}
+	return pane
 }
 
 // SplitPaneInput contains parameters for splitting a pane.
@@ -136,12 +156,7 @@ func (uc *ManagePanesUseCase) Split(ctx context.Context, input SplitPaneInput) (
 		newPane = input.NewPane
 	} else {
 		paneID := entity.PaneID(uc.idGenerator())
-		newPane = entity.NewPane(paneID)
-		if input.InitialURL != "" {
-			newPane.URI = domainurl.Normalize(input.InitialURL)
-		} else {
-			newPane.URI = "about:blank"
-		}
+		newPane = uc.newPane(ctx, paneID, input.InitialURL)
 	}
 
 	// Create new pane node
@@ -982,6 +997,7 @@ func (uc *ManagePanesUseCase) CreateStack(
 	ctx context.Context,
 	ws *entity.Workspace,
 	paneNode *entity.PaneNode,
+	initialURL string,
 ) (*CreateStackOutput, error) {
 	log := logging.FromContext(ctx)
 	log.Debug().Str("pane_id", paneNode.ID).Msg("creating stack from pane")
@@ -1012,7 +1028,7 @@ func (uc *ManagePanesUseCase) CreateStack(
 
 	// Create new pane
 	newPaneID := entity.PaneID(uc.idGenerator())
-	newPane := entity.NewPane(newPaneID)
+	newPane := uc.newPane(ctx, newPaneID, initialURL)
 
 	// Create child node for the new pane
 	newChildNode := &entity.PaneNode{
@@ -1057,6 +1073,7 @@ func (uc *ManagePanesUseCase) AddToStack(
 	ws *entity.Workspace,
 	stackNode *entity.PaneNode,
 	pane *entity.Pane,
+	initialURL string,
 ) (*AddToStackOutput, error) {
 	log := logging.FromContext(ctx)
 
@@ -1073,7 +1090,7 @@ func (uc *ManagePanesUseCase) AddToStack(
 	// Create pane if not provided
 	if pane == nil {
 		paneID := entity.PaneID(uc.idGenerator())
-		pane = entity.NewPane(paneID)
+		pane = uc.newPane(ctx, paneID, initialURL)
 	}
 
 	log.Debug().

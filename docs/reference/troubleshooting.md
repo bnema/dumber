@@ -6,7 +6,7 @@ Run the doctor command to check your system:
 
 ```bash
 dumber doctor           # Full check
-dumber doctor --runtime # GTK4/WebKitGTK only
+dumber doctor --runtime # GTK and WebKit fallback runtime checks only
 dumber doctor --media   # GStreamer/VA-API only
 ```
 
@@ -14,14 +14,13 @@ dumber doctor --media   # GStreamer/VA-API only
 
 ### Browser won't start
 
-**Symptoms:** Error about missing libraries or GTK/WebKitGTK version
+**Symptoms:** Error about the default CEF runtime, GTK libraries, or WebKitGTK fallback version.
 
 **Solution:**
-1. Run `dumber doctor --runtime`
-2. Install missing dependencies:
-   - Arch: `pacman -S webkitgtk-6.0 gtk4`
-   - Fedora: `dnf install webkitgtk6.0 gtk4`
-   - Ubuntu: `apt install libwebkitgtk-6.0-4 libgtk-4-1`
+1. If the error mentions GTK or the WebKit fallback, run `dumber doctor --runtime`.
+2. Match the fix to the backend in the error:
+   - **Default CEF backend:** install or provide a CEF runtime. On Arch, use `pacman -S cef`. On Fedora or Ubuntu, install an available CEF runtime/package or set `engine.cef.cef_dir` to a downloaded runtime.
+   - **GTK/WebKit fallback backend:** install GTK4 and WebKitGTK. On Arch, use `pacman -S webkitgtk-6.0 gtk4`. On Fedora, install GTK4 and WebKitGTK packages from your distribution. On Ubuntu, use `apt install libwebkitgtk-6.0-4 libgtk-4-1`.
 
 ### Video playback issues
 
@@ -29,14 +28,18 @@ dumber doctor --media   # GStreamer/VA-API only
 
 **Solution:**
 1. Run `dumber doctor --media`
-2. Enable diagnostic mode for startup media warnings:
+2. If the issue occurs with `engine.type = "webkit"`, enable GStreamer startup diagnostics:
 
    ```toml
    # ~/.config/dumber/config.toml
    [media]
    show_diagnostics = true
+
+   [engine.webkit]
    gstreamer_debug_level = 3
    ```
+
+   For the default CEF backend, skip `engine.webkit.gstreamer_debug_level`; it only affects the WebKit fallback.
 
 3. Check hardware decoding:
 
@@ -50,21 +53,24 @@ dumber doctor --media   # GStreamer/VA-API only
    - AMD: `libva-mesa-driver`
    - Intel: `intel-media-driver`
    - NVIDIA: `libva-nvidia-driver`
-5. After diagnosing, disable diagnostic mode for quieter daily runs:
+5. After diagnosing the WebKit fallback, disable diagnostic mode for quieter daily runs:
 
    ```toml
    [media]
    show_diagnostics = false
+
+   [engine.webkit]
    gstreamer_debug_level = 0
    ```
 
-### Screen flickering on Wayland
+### Screen flickering on Wayland with the WebKit fallback
 
-**Symptoms:** Flicker when scrolling or rendering
+**Symptoms:** Flicker when scrolling or rendering while using `engine.type = "webkit"`
 
 **Solution:**
+
 ```toml
-[rendering]
+[engine.webkit]
 disable_dmabuf_renderer = true
 ```
 
@@ -73,6 +79,7 @@ disable_dmabuf_renderer = true
 **Symptoms:** Missing characters, wrong font rendering
 
 **Solution:**
+
 ```toml
 [appearance]
 sans_font = "Your Preferred Font"
@@ -85,8 +92,9 @@ default_font_size = 16
 **Symptoms:** Browser uses too much RAM
 
 **Solution:**
+
 ```toml
-[performance]
+[engine]
 profile = "lite"  # Reduces resource usage
 ```
 

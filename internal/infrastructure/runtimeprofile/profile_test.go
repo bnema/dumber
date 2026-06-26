@@ -2,6 +2,7 @@ package runtimeprofile
 
 import (
 	"errors"
+	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/require"
@@ -48,6 +49,75 @@ func TestResolve_DevCEF_SeparatesSharedEngineAndIPC(t *testing.T) {
 	require.Equal(t, "/repo/.dev/dumber/data", profile.Shared.DataDir)
 	require.Equal(t, "/repo/.dev/dumber/engines/cef/data", profile.CEFUserDataDir())
 	require.Equal(t, "/repo/.dev/dumber/runtime/cef/browser-launch.sock", profile.IPC.BrowserLaunchSocket)
+}
+
+func TestResolve_DevIPCPathStaysShortForLongWorktrees(t *testing.T) {
+	longWorktree := "/tmp/" + strings.Repeat("long-worktree-name-", 5) + "project"
+
+	profile, err := Resolve(ResolveInput{
+		Env: func(key string) string {
+			switch key {
+			case "ENV":
+				return "dev"
+			case "XDG_RUNTIME_DIR":
+				return "/run/user/1000"
+			default:
+				return ""
+			}
+		},
+		Engine: "cef",
+		CWD:    func() (string, error) { return longWorktree, nil },
+	})
+
+	require.NoError(t, err)
+	require.Less(t, len(profile.IPC.BrowserLaunchSocket), 108)
+	require.True(t, strings.HasPrefix(profile.IPC.BrowserLaunchSocket, "/run/user/1000/dumber/dev-"))
+	require.Contains(t, profile.IPC.BrowserLaunchSocket, "/cef/browser-launch.sock")
+}
+
+func TestResolve_DevIPCPathFallsBackToTMPDIRWhenRuntimeDirWouldExceedSocketLimit(t *testing.T) {
+	longRuntimeDir := "/tmp/" + strings.Repeat("long-runtime-dir-name-", 5) + "run"
+
+	profile, err := Resolve(ResolveInput{
+		Env: func(key string) string {
+			switch key {
+			case "ENV":
+				return "dev"
+			case "XDG_RUNTIME_DIR":
+				return longRuntimeDir
+			case "TMPDIR":
+				return "/run/user/1000"
+			default:
+				return ""
+			}
+		},
+		Engine: "cef",
+		CWD:    func() (string, error) { return "/repo", nil },
+	})
+
+	require.NoError(t, err)
+	require.Less(t, len(profile.IPC.BrowserLaunchSocket), 104)
+	require.NotContains(t, profile.IPC.BrowserLaunchSocket, longRuntimeDir)
+	require.True(t, strings.HasPrefix(profile.IPC.BrowserLaunchSocket, "/run/user/1000/dumber/dev-"))
+	require.Contains(t, profile.IPC.BrowserLaunchSocket, "/cef/browser-launch.sock")
+}
+
+func TestResolve_DevIPCPathErrorsWhenNoShortBaseExists(t *testing.T) {
+	longWorktree := "/tmp/" + strings.Repeat("long-worktree-name-", 8) + "project"
+
+	_, err := Resolve(ResolveInput{
+		Env: func(key string) string {
+			if key == "ENV" {
+				return "dev"
+			}
+			return ""
+		},
+		Engine: "cef",
+		CWD:    func() (string, error) { return longWorktree, nil },
+	})
+
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "browser launch socket path too long")
 }
 
 func TestResolve_DevWebKitAndCEF_HaveDifferentTechnicalNamespaces(t *testing.T) {

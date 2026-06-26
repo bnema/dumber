@@ -19,7 +19,7 @@ func TestWorkspaceCoordinator_ToggleSystemViewRightSplitsWithTargetURL(t *testin
 		id := ids[idx]
 		idx++
 		return id
-	})
+	}, nil)
 
 	initialPane := entity.NewPane("pane-1")
 	initialPane.URI = "https://example.com"
@@ -56,7 +56,7 @@ func TestWorkspaceCoordinator_ToggleSystemViewRightFocusesExistingPane(t *testin
 		PanesUC: usecase.NewManagePanesUseCase(func() string {
 			t.Fatal("PanesUC should not be invoked when focusing an existing systemview pane")
 			return "unused"
-		}),
+		}, nil),
 		GetActiveWS: func() (*entity.Workspace, *component.WorkspaceView) {
 			return ws, nil
 		},
@@ -71,7 +71,7 @@ func TestWorkspaceCoordinator_ToggleSystemViewRightFocusesExistingPane(t *testin
 
 func TestWorkspaceCoordinator_ToggleSystemViewRightClosesActivePane(t *testing.T) {
 	ctx := context.Background()
-	uc := usecase.NewManagePanesUseCase(func() string { return "unused" })
+	uc := usecase.NewManagePanesUseCase(func() string { return "unused" }, nil)
 	left := testLeafNode("pane-1")
 	left.Pane.URI = "https://example.com"
 	right := testLeafNode("pane-2")

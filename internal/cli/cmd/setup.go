@@ -57,12 +57,12 @@ func init() {
 }
 
 func runSetupInstall(_ *cobra.Command, _ []string) error {
-	app := GetApp()
-	if app == nil {
+	cliApp := GetApp()
+	if cliApp == nil {
 		return fmt.Errorf("app not initialized")
 	}
 
-	theme := app.Theme
+	theme := cliApp.Theme
 
 	// Check if installed via package manager
 	switch {
@@ -87,7 +87,7 @@ func runSetupInstall(_ *cobra.Command, _ []string) error {
 		IconData: assets.LogoSVG,
 	}
 
-	result, err := uc.Execute(app.Ctx(), input)
+	result, err := uc.Execute(cliApp.Ctx(), input)
 	if err != nil {
 		fmt.Printf("%s %s\n", theme.ErrorStyle.Render("\u2717"), err.Error())
 		return err
@@ -124,16 +124,16 @@ func runSetupInstall(_ *cobra.Command, _ []string) error {
 }
 
 func runSetupDefault(_ *cobra.Command, _ []string) error {
-	app := GetApp()
-	if app == nil {
+	cliApp := GetApp()
+	if cliApp == nil {
 		return fmt.Errorf("app not initialized")
 	}
 
-	theme := app.Theme
+	theme := cliApp.Theme
 	adapter := desktop.New()
 	uc := usecase.NewSetDefaultBrowserUseCase(adapter)
 
-	result, err := uc.Execute(app.Ctx())
+	result, err := uc.Execute(cliApp.Ctx())
 	if err != nil {
 		errMsg := err.Error()
 		fmt.Printf("%s %s\n", theme.ErrorStyle.Render("\u2717"), errMsg)

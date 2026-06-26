@@ -101,7 +101,7 @@ These work outside modal modes:
 - Any URL shortcut (for example `Alt+G`) must be defined explicitly in `workspace.floating_pane.profiles`.
 - Floating profile shortcuts support modifier combos with `ctrl`, `shift`, and `alt` (for example `ctrl+shift+y` or `ctrl+alt+m`).
 
-Warning: some `Alt+<key>` combinations may conflict with default WebKit shortcuts, website handlers, or your desktop environment.
+Warning: some `Alt+<key>` combinations may conflict with browser-engine shortcuts, website handlers, or your desktop environment.
 If a shortcut does not trigger in Dumber, choose a different keybinding.
 
 For details, see [Floating Pane](./floating-pane.md).

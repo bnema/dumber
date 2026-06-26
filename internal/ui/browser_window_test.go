@@ -139,7 +139,7 @@ func TestTabCoordinator_CloseReleasesClosedTabWorkspaceWebViews(t *testing.T) {
 	app := &App{
 		deps:             &Dependencies{},
 		runtimeConfig:    runtimeConfigStateForTest(config.DefaultConfig()),
-		tabsUC:           usecase.NewManageTabsUseCase(counterIDGen()),
+		tabsUC:           usecase.NewManageTabsUseCase(counterIDGen(), nil),
 		contentCoord:     contentCoord,
 		browserWindows:   map[string]*browserWindow{bw.id: bw},
 		tabs:             entity.NewTabList(),
@@ -183,7 +183,7 @@ func TestTabCoordinator_SwitchDoesNotReleaseWorkspaceWebViews(t *testing.T) {
 	app := &App{
 		deps:             &Dependencies{},
 		runtimeConfig:    runtimeConfigStateForTest(config.DefaultConfig()),
-		tabsUC:           usecase.NewManageTabsUseCase(counterIDGen()),
+		tabsUC:           usecase.NewManageTabsUseCase(counterIDGen(), nil),
 		contentCoord:     contentCoord,
 		browserWindows:   map[string]*browserWindow{bw.id: bw},
 		tabs:             entity.NewTabList(),
@@ -218,7 +218,7 @@ func TestTabCoordinator_CloseLastTabReleasesWorkspaceBeforeWindowRemoval(t *test
 	app := &App{
 		deps:             &Dependencies{},
 		runtimeConfig:    runtimeConfigStateForTest(config.DefaultConfig()),
-		tabsUC:           usecase.NewManageTabsUseCase(counterIDGen()),
+		tabsUC:           usecase.NewManageTabsUseCase(counterIDGen(), nil),
 		contentCoord:     contentCoord,
 		browserWindows:   map[string]*browserWindow{bw.id: bw},
 		tabs:             entity.NewTabList(),
@@ -457,6 +457,74 @@ func TestOpenFreshWindow_DispatchesAndTracksBrowserWindow(t *testing.T) {
 	if app.browserWindows["window-1"].initialURL != "https://example.com" {
 		t.Fatalf("browser window initialURL = %q, want %q", app.browserWindows["window-1"].initialURL, "https://example.com")
 	}
+}
+
+func TestOpenInitialBrowserWindowShellRegistersWithoutCreatingTab(t *testing.T) {
+	app := &App{
+		tabs:           entity.NewTabList(),
+		tabsUC:         usecase.NewManageTabsUseCase(func() string { return "unexpected-tab" }, nil),
+		browserWindows: make(map[string]*browserWindow),
+	}
+	app.browserWindowFactory = func(_ context.Context, initialURL string) (*browserWindow, error) {
+		return &browserWindow{id: "window-1", initialURL: initialURL, tabs: entity.NewTabList()}, nil
+	}
+
+	if err := app.openInitialBrowserWindowShell(context.Background(), "https://example.com"); err != nil {
+		t.Fatalf("openInitialBrowserWindowShell returned error: %v", err)
+	}
+	if got := len(app.browserWindows); got != 1 {
+		t.Fatalf("browserWindows length = %d, want 1", got)
+	}
+	if app.lastFocusedWindowID != "window-1" {
+		t.Fatalf("lastFocusedWindowID = %q, want window-1", app.lastFocusedWindowID)
+	}
+	if got := app.tabs.Count(); got != 0 {
+		t.Fatalf("tabs count = %d, want 0; initial shell should wait for createInitialTab", got)
+	}
+	windowTabs := app.browserWindows["window-1"].tabs
+	require.NotNil(t, windowTabs)
+	if got := windowTabs.Count(); got != 0 {
+		t.Fatalf("window tabs count = %d, want 0; initial shell should wait for createInitialTab", got)
+	}
+	require.Equal(t, "https://example.com", app.browserWindows["window-1"].initialURL)
+}
+
+func TestOpenFreshWindow_FirstWindowWithRequestedURLCreatesTabInAppAndWindow(t *testing.T) {
+	app := &App{
+		tabs:           entity.NewTabList(),
+		tabsUC:         usecase.NewManageTabsUseCase(counterIDGen(), nil),
+		browserWindows: make(map[string]*browserWindow),
+		workspaceViews: map[entity.TabID]*component.WorkspaceView{},
+		windowForTab:   map[entity.TabID]*browserWindow{},
+	}
+	app.dispatchOnMainThread = func(label string, fn func()) syncdispatch.SyncDispatchResult {
+		fn()
+		return syncdispatch.SyncDispatchResult{Label: label, Status: syncdispatch.SyncDispatchCompleted}
+	}
+	app.browserWindowFactory = func(context.Context, string) (*browserWindow, error) {
+		return &browserWindow{id: "window-1", tabs: entity.NewTabList()}, nil
+	}
+	app.workspaceViewCreateOverride = func(_ context.Context, tab *entity.Tab) bool {
+		app.workspaceViews[tab.ID] = &component.WorkspaceView{}
+		return true
+	}
+
+	if err := app.OpenFreshWindow(context.Background(), "https://example.com"); err != nil {
+		t.Fatalf("OpenFreshWindow returned error: %v", err)
+	}
+
+	windowTabs := app.browserWindows["window-1"].tabs
+	require.NotNil(t, windowTabs)
+	require.Equal(t, 1, app.tabs.Count())
+	require.Equal(t, 1, windowTabs.Count())
+	tab := windowTabs.ActiveTab()
+	require.NotNil(t, tab)
+	require.NotNil(t, tab.Workspace)
+	activePane := tab.Workspace.FindPane(tab.Workspace.ActivePaneID)
+	require.NotNil(t, activePane)
+	require.Equal(t, "https://example.com", activePane.Pane.URI)
+	require.NotNil(t, app.tabs.Find(tab.ID))
+	require.Same(t, app.browserWindows["window-1"], app.browserWindowForTab(tab.ID))
 }
 
 func TestOpenFreshWindow_PropagatesFactoryError(t *testing.T) {

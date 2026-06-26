@@ -245,41 +245,82 @@ When Noctalia rewrites the watched file, Dumber reapplies the same resolved them
 | Key | Type | Default | Description |
 |-----|------|---------|-------------|
 | `debug.enable_devtools` | bool | `true` | Enable browser developer tools (F12, Inspect Element) |
+| `engine.cef.log_file` | string | `""` | CEF runtime log path |
+| `engine.cef.log_severity` | int32 | `0` | CEF log severity (`0`, `1`, `2`, `3`, `4`, `99`) |
+| `engine.cef.trace_handlers` | bool | `false` | Log CEF handler dispatch details |
+| `engine.cef.enable_audio_handler` | bool | `true` | Enable the experimental CEF audio handler |
 
-## Rendering, UI Scale & Zoom
+## Privacy
 
 | Key | Type | Default | Valid Values | Description |
 |-----|------|---------|--------------|-------------|
-| `rendering.mode` | string | `"gpu"` | `auto`, `gpu`, `cpu` | WebKit hardware acceleration policy |
-| `rendering.disable_dmabuf_renderer` | bool | `false` | - | Disable WebKit DMA-BUF renderer (may fix flicker on Wayland; slower) |
-| `rendering.force_compositing_mode` | bool | `false` | - | Force WebKit compositing mode (`WEBKIT_FORCE_COMPOSITING_MODE`) |
-| `rendering.disable_compositing_mode` | bool | `false` | - | Disable WebKit compositing mode (`WEBKIT_DISABLE_COMPOSITING_MODE`) |
-| `rendering.gsk_renderer` | string | `"auto"` | `auto`, `opengl`, `vulkan`, `cairo` | GTK renderer selection (`GSK_RENDERER`) |
-| `rendering.disable_mipmaps` | bool | `false` | - | Disable GTK mipmaps (`GSK_GPU_DISABLE=mipmap`) |
-| `rendering.prefer_gl` | bool | `false` | - | Prefer OpenGL over GLES (`GDK_DEBUG=gl-prefer-gl`) |
-| `rendering.draw_compositing_indicators` | bool | `false` | - | Draw WebKit compositing indicators (debug) |
-| `rendering.show_fps` | bool | `false` | - | Show WebKit FPS counter (`WEBKIT_SHOW_FPS`) |
-| `rendering.sample_memory` | bool | `false` | - | Enable WebKit memory sampling (`WEBKIT_SAMPLE_MEMORY`) |
-| `rendering.debug_frames` | bool | `false` | - | Enable GTK frame timing debug (`GDK_DEBUG=frames`) |
-| `engine.type` | string | `"cef"` | `cef`, `webkit` | Browser engine. WebKit remains available as a fallback. |
+| `engine.cookie_policy` | string | `"always"` | `always`, `no_third_party`, `never` | Cookie acceptance policy |
+| `engine.webkit.itp_enabled` | bool | `true` | - | Enable WebKit fallback Intelligent Tracking Prevention |
+
+
+## Rendering, UI Scale & Zoom
+
+CEF is the default browser engine. WebKitGTK remains available as a fallback via `engine.type = "webkit"`; `engine.webkit.*` settings only affect that fallback engine.
+
+| Key | Type | Default | Valid Values | Description |
+|-----|------|---------|--------------|-------------|
+| `engine.type` | string | `"cef"` | `cef`, `webkit` | Browser engine selection; WebKitGTK is the fallback option |
 | `engine.cef.render_stack` | string | `"vulkan"` | `vulkan`, `egl` | CEF GPU render stack |
-| `engine.cef.adaptive_windowless_frame_rate` | bool | `true` | - | Enable adaptive CEF OSR FPS polling (only applies when `windowless_frame_rate = 0`) |
-| `engine.cef.windowless_frame_rate` | int32 | `0` | >= 0 | Explicit CEF OSR FPS cap; 0 uses adaptive mode if enabled, otherwise CEF default |
-| `engine.cef.windowless_frame_rate_max` | int32 | `240` | >= 0 | Hard cap for adaptive CEF OSR FPS; 0 falls back to the built-in default cap selected by Dumber/CEF |
-| `engine.cef.input.scroll_wheel_multiplier` | float | `1.0` | > 0 | Mouse wheel scroll sensitivity multiplier |
-| `engine.cef.input.scroll_precise_multiplier` | float | `2.5` | > 0 | Precise/surface scroll sensitivity multiplier for touchpads and high-resolution wheels |
-| `engine.cef.input.scroll_horizontal_multiplier` | float | `1.0` | > 0 | Horizontal scroll sensitivity multiplier |
-| `engine.cef.input.scroll_vertical_multiplier` | float | `1.0` | > 0 | Vertical scroll sensitivity multiplier; touchpad vertical speed uses this together with `scroll_precise_multiplier` |
-| `engine.cef.input.scroll_max_delta` | int32 | `0` | >= 0 | Maximum absolute scroll delta after scaling; 0 disables clamping |
+| `engine.cef.adaptive_windowless_frame_rate` | bool | `true` | - | Enable adaptive CEF OSR FPS polling when `windowless_frame_rate = 0` |
+| `engine.cef.windowless_frame_rate` | int32 | `0` | `>= 0` | Explicit CEF OSR FPS cap; 0 uses adaptive mode if enabled |
+| `engine.cef.windowless_frame_rate_max` | int32 | `240` | `>= 0` | Hard cap for adaptive CEF OSR FPS; 0 uses the built-in cap |
+| `engine.cef.input.scroll_wheel_multiplier` | float | `1.0` | `> 0` | Mouse wheel scroll sensitivity multiplier |
+| `engine.cef.input.scroll_precise_multiplier` | float | `2.5` | `> 0` | Precise/surface scroll sensitivity multiplier for touchpads and high-resolution wheels |
+| `engine.cef.input.scroll_horizontal_multiplier` | float | `1.0` | `> 0` | Horizontal scroll sensitivity multiplier |
+| `engine.cef.input.scroll_vertical_multiplier` | float | `1.0` | `> 0` | Vertical scroll sensitivity multiplier; combines with `scroll_precise_multiplier` for touchpads |
+| `engine.cef.input.scroll_max_delta` | int32 | `0` | `>= 0` | Maximum absolute scroll delta after scaling; 0 disables clamping |
 | `engine.cef.input.touchpad_navigation_enabled` | bool | `true` | - | Enable two-finger touchpad swipe back/forward navigation |
-| `engine.cef.input.touchpad_navigation_min_delta` | float | `200.0` | > 0 | Minimum accumulated horizontal swipe delta required for navigation |
-| `engine.cef.input.touchpad_navigation_max_vertical_ratio` | float | `0.5` | > 0 | Maximum vertical-to-horizontal delta ratio allowed for navigation swipes; does not affect vertical scroll speed |
-| `default_ui_scale` | float | `1.0` | > 0 | GTK widget UI scale (1.0=100%, 2.0=200%) |
+| `engine.cef.input.touchpad_navigation_min_delta` | float | `320.0` | `> 0` | Minimum accumulated horizontal swipe delta required for navigation |
+| `engine.cef.input.touchpad_navigation_max_vertical_ratio` | float | `0.5` | `> 0` | Maximum vertical-to-horizontal delta ratio allowed for navigation swipes |
+| `engine.webkit.gsk_renderer` | string | `"auto"` | `auto`, `opengl`, `vulkan`, `cairo` | WebKit fallback GTK renderer selection (`GSK_RENDERER`) |
+| `engine.webkit.disable_dmabuf_renderer` | bool | `false` | - | Disable WebKit fallback DMA-BUF renderer |
+| `engine.webkit.force_compositing_mode` | bool | `false` | - | Force WebKit fallback compositing mode (`WEBKIT_FORCE_COMPOSITING_MODE`) |
+| `engine.webkit.disable_compositing_mode` | bool | `false` | - | Disable WebKit fallback compositing mode (`WEBKIT_DISABLE_COMPOSITING_MODE`) |
+| `engine.webkit.disable_mipmaps` | bool | `false` | - | Disable GTK mipmaps for the WebKit fallback (`GSK_GPU_DISABLE=mipmap`) |
+| `engine.webkit.prefer_gl` | bool | `false` | - | Prefer OpenGL over GLES for the WebKit fallback (`GDK_DEBUG=gl-prefer-gl`) |
+| `engine.webkit.draw_compositing_indicators` | bool | `false` | - | Draw WebKit fallback compositing indicators (debug) |
+| `engine.webkit.show_fps` | bool | `false` | - | Show WebKit fallback FPS counter (`WEBKIT_SHOW_FPS`) |
+| `engine.webkit.sample_memory` | bool | `false` | - | Enable WebKit fallback memory sampling (`WEBKIT_SAMPLE_MEMORY`) |
+| `engine.webkit.debug_frames` | bool | `false` | - | Enable GTK frame timing debug for the WebKit fallback (`GDK_DEBUG=frames`) |
+| `engine.webkit.force_vsync` | bool | `false` | - | Force VSync for WebKit fallback video playback |
+| `engine.webkit.gl_rendering_mode` | string | `"auto"` | `auto`, `gles2`, `gl3`, `none` | WebKit fallback GStreamer/OpenGL API selection |
+| `engine.webkit.gstreamer_debug_level` | int | `0` | `0-5` | WebKit fallback GStreamer debug verbosity |
+| `default_ui_scale` | float | `1.0` | `> 0` | GTK widget UI scale (1.0=100%, 2.0=200%) |
+| `default_webpage_zoom` | float | `1.2` | `> 0` | Default page zoom (1.0=100%, 1.2=120%) |
 
 `engine.cef.input.scroll_precise_multiplier` controls touchpad/high-resolution wheel scroll speed, and `engine.cef.input.scroll_vertical_multiplier` applies an additional vertical-only scale. `engine.cef.input.touchpad_navigation_max_vertical_ratio` only filters horizontal back/forward swipe recognition; it does not tune vertical scroll speed.
 
-`engine.cef.input.touchpad_navigation_min_delta` uses raw GTK touchpad surface units for back/forward gestures. The default `200.0` matches WebKit-style commit distance to reduce accidental navigation; raise or lower it in `config.toml` to tune gesture sensitivity.
-| `default_webpage_zoom` | float | `1.2` | > 0 | Default page zoom (1.0=100%, 1.2=120%) |
+`engine.cef.input.touchpad_navigation_min_delta` uses raw GTK touchpad surface units for back/forward gestures. The default `320.0` matches WebKit-style commit distance to reduce accidental navigation; raise or lower it in `config.toml` to tune gesture sensitivity.
+
+### Legacy key migration
+
+Existing configs using older keys are migrated to the current engine shape. New configs should use the canonical keys above.
+
+| Legacy key | Current key |
+|------------|-------------|
+| `privacy.cookie_policy` | `engine.cookie_policy` |
+| `privacy.itp_enabled` | `engine.webkit.itp_enabled` |
+| `rendering.disable_dmabuf_renderer` | `engine.webkit.disable_dmabuf_renderer` |
+| `rendering.force_compositing_mode` | `engine.webkit.force_compositing_mode` |
+| `rendering.disable_compositing_mode` | `engine.webkit.disable_compositing_mode` |
+| `rendering.gsk_renderer` | `engine.webkit.gsk_renderer` |
+| `rendering.disable_mipmaps` | `engine.webkit.disable_mipmaps` |
+| `rendering.prefer_gl` | `engine.webkit.prefer_gl` |
+| `rendering.draw_compositing_indicators` | `engine.webkit.draw_compositing_indicators` |
+| `rendering.show_fps` | `engine.webkit.show_fps` |
+| `rendering.sample_memory` | `engine.webkit.sample_memory` |
+| `rendering.debug_frames` | `engine.webkit.debug_frames` |
+| `media.force_vsync` | `engine.webkit.force_vsync` |
+| `media.gl_rendering_mode` | `engine.webkit.gl_rendering_mode` |
+| `media.gstreamer_debug_level` | `engine.webkit.gstreamer_debug_level` |
+| `runtime.prefix` | `engine.webkit.prefix` |
+| `performance.*` | `engine.profile`, `engine.pool_prewarm_count`, `engine.zoom_cache_size`, or matching `engine.webkit.*` custom tuning keys |
+| `rendering.mode` | Dropped; no current setting |
 
 ## Workspace Configuration
 
@@ -548,20 +589,13 @@ max_exited_session_age_days = 7   # Delete sessions older than 7 days on startup
 | `media.hardware_decoding` | string | `"auto"` | `auto`, `force`, `disable` | Hardware video decoding mode |
 | `media.prefer_av1` | bool | `false` | - | Prefer AV1 codec when available |
 | `media.show_diagnostics` | bool | `false` | - | Show media diagnostics warnings at startup |
-| `media.force_vsync` | bool | `false` | - | Force VSync for video playback (may help with tearing) |
-| `media.gl_rendering_mode` | string | `"auto"` | `auto`, `gles2`, `gl3`, `none` | OpenGL API selection for video rendering |
-| `media.gstreamer_debug_level` | int | `0` | `0-5` | GStreamer debug verbosity (0=off) |
+
+WebKit fallback GStreamer tuning is configured under `engine.webkit.force_vsync`, `engine.webkit.gl_rendering_mode`, and `engine.webkit.gstreamer_debug_level`.
 
 **Hardware decoding modes:**
 - `auto` (recommended): Hardware preferred with software fallback - fixes Twitch Error #4000
 - `force`: Hardware only - fails if unavailable
 - `disable`: Software only - higher CPU usage
-
-**GL rendering modes:**
-- `auto` (default): Let GStreamer choose the best OpenGL API
-- `gles2`: Force GLES2 (better for some mobile/embedded GPUs)
-- `gl3`: Force OpenGL 3.x desktop
-- `none`: Disable GL-based rendering
 
 **GPU auto-detection:**
 Dumber automatically detects your GPU vendor (AMD/Intel/NVIDIA) and sets optimal VA-API driver settings:
@@ -570,28 +604,25 @@ Dumber automatically detects your GPU vendor (AMD/Intel/NVIDIA) and sets optimal
 - **NVIDIA**: Uses `nvidia` driver with EGL platform
 
 **Example:**
+
 ```toml
 [media]
 hardware_decoding = "auto"    # HW preferred, SW fallback
 prefer_av1 = false            # Let site choose codec
 show_diagnostics = false      # Keep off for daily use
-force_vsync = false           # Let compositor handle VSync
-gl_rendering_mode = "auto"    # GStreamer picks best GL API
-gstreamer_debug_level = 0     # Increase to 3-5 for debugging
 ```
 
-**Diagnostic mode toggle path:**
+**WebKit fallback GStreamer diagnostics:**
 
 ```toml
-# ~/.config/dumber/config.toml
-[media]
-show_diagnostics = true
+[engine.webkit]
 gstreamer_debug_level = 3
 ```
 
-Set `show_diagnostics = false` and `gstreamer_debug_level = 0` to return to normal mode.
+Set `media.show_diagnostics = false` and `engine.webkit.gstreamer_debug_level = 0` to return to normal mode.
 
 **Diagnostics CLI:**
+
 ```bash
 # Check GStreamer plugins and VA-API status
 dumber doctor --media
@@ -601,17 +632,22 @@ dumber doctor --media
 
 | Key | Type | Default | Description |
 |-----|------|---------|-------------|
-| `runtime.prefix` | string | `""` | Optional runtime prefix (e.g., `/opt/webkitgtk`) used to locate newer GTK/WebKitGTK installs |
+| `engine.cef.cef_dir` | string | `""` | Optional CEF runtime directory containing `libcef.so` and resources |
+| `engine.webkit.prefix` | string | `""` | Optional WebKitGTK fallback runtime prefix (e.g., `/opt/webkitgtk`) |
 
-If set, dumber prepends prefix-derived paths to:
+`engine.cef.cef_dir` overrides CEF runtime discovery. For the WebKitGTK fallback, `engine.webkit.prefix` prepends prefix-derived paths to:
 - `PKG_CONFIG_PATH` (for version checks)
 - `LD_LIBRARY_PATH` (for runtime library loading)
 - `GI_TYPELIB_PATH` (GObject introspection)
 - `XDG_DATA_DIRS` (schemas/resources)
 
 **Example:**
+
 ```toml
-[runtime]
+[engine.cef]
+cef_dir = "/opt/cef"
+
+[engine.webkit]
 prefix = "/opt/webkitgtk"
 ```
 
@@ -624,6 +660,7 @@ prefix = "/opt/webkitgtk"
 When enabled, selecting text in a web page immediately copies it to the clipboard with a brief toast notification. Does not apply to text selection in input fields or textareas.
 
 **Example:**
+
 ```toml
 [clipboard]
 auto_copy_on_selection = true  # Enabled by default
@@ -649,6 +686,7 @@ Notes:
 | `update.notify_on_new_settings` | bool | `true` | Show toast notification when new config settings are available |
 
 **Example:**
+
 ```toml
 [update]
 enable_on_startup = true       # Check for updates on startup
@@ -657,6 +695,7 @@ notify_on_new_settings = true  # Show toast when config migration available
 ```
 
 **CLI Commands:**
+
 ```bash
 # Check config status and available migrations
 dumber config status
@@ -670,89 +709,71 @@ dumber config migrate --yes
 
 ## Performance Profiles
 
-Performance profiles provide preset configurations for WebKitGTK tuning. These settings affect Skia rendering threads, memory pressure handling, and WebView pool behavior.
+Performance profiles tune engine resource behavior. CEF is the default engine; the `engine.webkit.*` custom fields below apply only when using the WebKitGTK fallback.
 
 > **Note:** Performance settings are applied at browser startup. Changes require a restart to take effect.
 
 | Key | Type | Default | Valid Values | Description |
 |-----|------|---------|--------------|-------------|
-| `performance.profile` | string | `"default"` | `default`, `lite`, `max`, `custom` | Performance profile selection |
+| `engine.profile` | string | `"default"` | `default`, `lite`, `balanced`, `max`, `custom` | Performance profile selection |
+| `engine.pool_prewarm_count` | int | `4` | `>= 0` | WebViews to pre-create at startup |
+| `engine.zoom_cache_size` | int | `256` | `>= 0` | Domain zoom levels to cache |
 
 ### Profiles
 
 | Profile | Description | Use Case |
 |---------|-------------|----------|
-| `default` | No tuning, uses WebKit defaults | Compatibility baseline, troubleshooting |
+| `default` | No tuning, uses engine defaults | Compatibility baseline, troubleshooting |
 | `lite` | Reduced resource usage | Low-RAM systems (< 4GB), battery saving |
+| `balanced` | Moderate tuning | General use |
 | `max` | Maximum responsiveness | Heavy pages (GitHub PRs, complex SPAs), high-end systems |
 | `custom` | Manual control over all settings | Advanced users who want fine-grained control |
 
-### Profile Settings Matrix
-
-| Setting | default | lite | max |
-|---------|---------|------|-----|
-| Skia CPU threads | unset | 2 | `NumCPU()/2` (min 4) |
-| Skia GPU threads | unset | unset | scales with VRAM |
-| Web process memory (MB) | unset | 768 | unset |
-| Network process memory (MB) | unset | 384 | unset |
-| Conservative threshold | unset | 0.25 | unset |
-| Strict threshold | unset | 0.4 | unset |
-| WebView pool prewarm | 4 | 2 | scales with RAM |
-
 **Example:**
+
 ```toml
-[performance]
-profile = "default"  # WebKit baseline default
-
-# For WebKit baseline behavior:
-# profile = "default"
-
-# For heavy pages (GitHub PRs, complex web apps):
-# profile = "max"
-
-# For manual control:
-# profile = "custom"
+[engine]
+profile = "default"
+pool_prewarm_count = 4
+zoom_cache_size = 256
 ```
 
-### Custom Profile Settings
+### WebKit fallback custom profile settings
 
-When `profile = "custom"`, you can configure individual tuning options:
+When `engine.profile = "custom"` and `engine.type = "webkit"`, you can configure individual WebKit tuning options:
 
 | Key | Type | Default | Description |
 |-----|------|---------|-------------|
-| `performance.skia_cpu_painting_threads` | int | `0` | Skia CPU rendering threads (0=unset) |
-| `performance.skia_gpu_painting_threads` | int | `-1` | Skia GPU rendering threads (-1=unset, 0=disable) |
-| `performance.skia_enable_cpu_rendering` | bool | `false` | Force CPU rendering |
-| `performance.web_process_memory_limit_mb` | int | `0` | Web process memory limit in MB (0=unset) |
-| `performance.web_process_memory_poll_interval_sec` | float | `0` | Memory check interval (0=WebKit default: 30s) |
-| `performance.web_process_memory_conservative_threshold` | float | `0` | Conservative cleanup threshold (0=unset) |
-| `performance.web_process_memory_strict_threshold` | float | `0` | Strict cleanup threshold (0=unset) |
-| `performance.network_process_memory_limit_mb` | int | `0` | Network process memory limit in MB |
-| `performance.network_process_memory_poll_interval_sec` | float | `0` | Network memory check interval |
-| `performance.network_process_memory_conservative_threshold` | float | `0` | Network conservative threshold |
-| `performance.network_process_memory_strict_threshold` | float | `0` | Network strict threshold |
-| `performance.webview_pool_prewarm_count` | int | `4` | WebViews to pre-create at startup |
-| `performance.zoom_cache_size` | int | `256` | Domain zoom levels to cache |
+| `engine.webkit.skia_cpu_painting_threads` | int | `0` | Skia CPU rendering threads (0=unset) |
+| `engine.webkit.skia_gpu_painting_threads` | int | `-1` | Skia GPU rendering threads (-1=unset, 0=disable) |
+| `engine.webkit.skia_enable_cpu_rendering` | bool | `false` | Force CPU rendering |
+| `engine.webkit.web_process_memory_limit_mb` | int | `0` | Web process memory limit in MB (0=unset) |
+| `engine.webkit.web_process_memory_poll_interval_sec` | float | `0` | Memory check interval (0=WebKit default: 30s) |
+| `engine.webkit.web_process_memory_conservative_threshold` | float | `0` | Conservative cleanup threshold (0=unset) |
+| `engine.webkit.web_process_memory_strict_threshold` | float | `0` | Strict cleanup threshold (0=unset) |
+| `engine.webkit.network_process_memory_limit_mb` | int | `0` | Network process memory limit in MB |
+| `engine.webkit.network_process_memory_poll_interval_sec` | float | `0` | Network memory check interval |
+| `engine.webkit.network_process_memory_conservative_threshold` | float | `0` | Network conservative threshold |
+| `engine.webkit.network_process_memory_strict_threshold` | float | `0` | Network strict threshold |
 
-**Custom profile example:**
+**Custom WebKit fallback example:**
+
 ```toml
-[performance]
+[engine]
+type = "webkit"
 profile = "custom"
+pool_prewarm_count = 6
+zoom_cache_size = 256
 
-# Skia threading - tune for your CPU
+[engine.webkit]
 skia_cpu_painting_threads = 4
 skia_gpu_painting_threads = 2
-
-# Web process memory pressure
 web_process_memory_limit_mb = 1024
 web_process_memory_conservative_threshold = 0.4
 web_process_memory_strict_threshold = 0.6
-
-# WebView pool
-webview_pool_prewarm_count = 6
 ```
 
-> **Important:** Individual tuning fields are ignored unless `profile = "custom"`. Setting individual fields with any other profile will produce a validation warning.
+> **Important:** Individual `engine.webkit.*` tuning fields are ignored unless `engine.profile = "custom"`.
 
 ## Downloads
 
@@ -779,14 +800,14 @@ All config values can be overridden via environment variables with the prefix `D
 # Database
 DUMBER_DATABASE_PATH=/custom/path/db.sqlite
 
-# Rendering (examples)
+# Engine/rendering (examples)
+DUMBER_ENGINE_TYPE=cef
 # CEF defaults to the GPU-first Vulkan DMABUF stack.
 # Use EGL/OpenGL for driver compatibility:
 # DUMBER_ENGINE_CEF_RENDER_STACK=egl
-DUMBER_RENDERING_MODE=cpu
-# WebKit-specific rendering overrides:
-# DUMBER_RENDERING_DISABLE_DMABUF_RENDERER=true
-# DUMBER_RENDERING_GSK_RENDERER=opengl
+# WebKit fallback rendering overrides:
+# DUMBER_ENGINE_WEBKIT_DISABLE_DMABUF_RENDERER=true
+# DUMBER_ENGINE_WEBKIT_GSK_RENDERER=opengl
 DUMBER_DEFAULT_WEBPAGE_ZOOM=1.5
 
 # Logging

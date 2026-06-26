@@ -59,6 +59,47 @@ func TestDeriveIncrementalCloseTreeContext_ValidSplit(t *testing.T) {
 	}
 }
 
+func TestDeriveIncrementalCloseTreeContext_InvalidPreconditions(t *testing.T) {
+	tests := []struct {
+		name        string
+		closingPane *entity.PaneNode
+		wantText    string
+	}{
+		{
+			name:        "nil closing pane",
+			closingPane: nil,
+			wantText:    "closing pane missing",
+		},
+		{
+			name:        "closing pane has no parent",
+			closingPane: testLeafNode("closing"),
+			wantText:    "closing pane has no parent",
+		},
+		{
+			name: "parent is not split",
+			closingPane: func() *entity.PaneNode {
+				closing := testLeafNode("closing")
+				parent := &entity.PaneNode{ID: "parent", Children: []*entity.PaneNode{closing}}
+				closing.Parent = parent
+				return closing
+			}(),
+			wantText: "parent node is not split",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			_, err := deriveIncrementalCloseTreeContext(tt.closingPane)
+			if err == nil {
+				t.Fatalf("expected error")
+			}
+			if !strings.Contains(err.Error(), tt.wantText) {
+				t.Fatalf("expected %q error, got: %v", tt.wantText, err)
+			}
+		})
+	}
+}
+
 func TestDeriveIncrementalCloseTreeContext_MissingSibling(t *testing.T) {
 	closing := testLeafNode("closing")
 	parent := testSplitNode("parent", closing, nil)
@@ -88,6 +129,22 @@ func TestDeriveIncrementalCloseTreeContext_ParentDoesNotContainClosingPane(t *te
 		t.Fatalf("expected invariant error")
 	}
 	if !strings.Contains(err.Error(), "not found under parent") {
+		t.Fatalf("unexpected error: %v", err)
+	}
+}
+
+func TestDeriveIncrementalCloseTreeContext_ParentMissingFromGrandparent(t *testing.T) {
+	closing := testLeafNode("closing")
+	sibling := testLeafNode("sibling")
+	parent := testSplitNode("parent", closing, sibling)
+	grand := testSplitNode("grand", testLeafNode("other-left"), testLeafNode("other-right"))
+	parent.Parent = grand
+
+	_, err := deriveIncrementalCloseTreeContext(closing)
+	if err == nil {
+		t.Fatalf("expected invariant error")
+	}
+	if !strings.Contains(err.Error(), "parent not found under grandparent") {
 		t.Fatalf("unexpected error: %v", err)
 	}
 }

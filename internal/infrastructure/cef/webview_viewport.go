@@ -500,7 +500,7 @@ func (wv *WebView) syncZoomForBackingScaleOnCEFUIThread(host purecef.BrowserHost
 	if host == nil || wv == nil {
 		return
 	}
-	if !wv.shouldReapplyZoomForBackingScale(wv.osrBackingScaleFactor()) {
+	if !wv.shouldReapplyZoomForScaleRatio(wv.viewBridgeScale(), wv.osrBackingScaleFactor()) {
 		return
 	}
 	task := cefNewTask(cefTaskFunc(func() {
@@ -513,8 +513,9 @@ func (wv *WebView) syncZoomForBackingScaleOnCEFUIThread(host purecef.BrowserHost
 		if currentHost != host {
 			return
 		}
+		surfaceScale := wv.viewBridgeScale()
 		backingScale := wv.osrBackingScaleFactor()
-		if !wv.shouldReapplyZoomForBackingScale(backingScale) {
+		if !wv.shouldReapplyZoomForScaleRatio(surfaceScale, backingScale) {
 			return
 		}
 		wv.reapplyCurrentZoomForBackingScale(reason)

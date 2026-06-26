@@ -12,6 +12,7 @@ import (
 	"github.com/spf13/cobra"
 
 	"github.com/bnema/dumber/assets"
+	"github.com/bnema/dumber/internal/application/usecase"
 	"github.com/bnema/dumber/internal/cli/model"
 	"github.com/bnema/dumber/internal/domain/entity"
 	domainurl "github.com/bnema/dumber/internal/domain/url"
@@ -217,10 +218,20 @@ func parseSelection(selection string) string {
 		return ""
 	}
 
-	// Use BuildSearchURL to handle bang shortcuts, URLs, and search queries
+	// Existing local paths are resolved before URL/search fallback so dmenu keeps
+	// the same file:// behavior as the in-app omnibox.
 	app := GetApp()
 	if app != nil {
-		return domainurl.BuildSearchURL(selection, app.Config.ShortcutURLs(), app.Config.DefaultSearchEngine)
+		normalizer := app.NavigationURLNormalizer
+		if normalizer == nil {
+			normalizer = usecase.NewNavigationURLNormalizer(app.LocalPaths)
+		}
+		return normalizer.BuildNavigationURL(
+			context.Background(),
+			selection,
+			app.Config.ShortcutURLs(),
+			app.Config.DefaultSearchEngine,
+		)
 	}
 
 	// Fallback: add https:// scheme if no app context

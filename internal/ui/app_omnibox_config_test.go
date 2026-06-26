@@ -1,6 +1,7 @@
 package ui
 
 import (
+	"context"
 	"testing"
 
 	"github.com/bnema/dumber/internal/domain/entity"
@@ -23,7 +24,11 @@ func TestBuildOmniboxConfigUsesRuntimeUIConfig(t *testing.T) {
 		},
 	}
 
-	got := buildOmniboxConfig(deps, runtimeCfg, nil, omniboxCallbacks{})
+	got := buildOmniboxConfig(deps, runtimeCfg, nil, omniboxCallbacks{
+		NormalizeNavigationURL: func(_ context.Context, input string) string {
+			return "normalized:" + input
+		},
+	})
 	if got.MostVisitedDays != 7 {
 		t.Fatalf("MostVisitedDays = %d, want 7", got.MostVisitedDays)
 	}
@@ -38,5 +43,11 @@ func TestBuildOmniboxConfigUsesRuntimeUIConfig(t *testing.T) {
 	}
 	if got.ShortcutsUC == nil {
 		t.Fatal("ShortcutsUC is nil")
+	}
+	if got.NormalizeNavigationURL == nil {
+		t.Fatal("NormalizeNavigationURL is nil")
+	}
+	if normalized := got.NormalizeNavigationURL(context.Background(), "page.html"); normalized != "normalized:page.html" {
+		t.Fatalf("NormalizeNavigationURL propagated callback = %q", normalized)
 	}
 }

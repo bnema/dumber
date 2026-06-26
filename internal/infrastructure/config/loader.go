@@ -311,25 +311,45 @@ func bindBrowsingContextEnvAliases(v *viper.Viper) error {
 
 // checkLegacyFormat detects old config format and returns an error directing user to migrate.
 func (m *Manager) checkLegacyFormat() error {
-	// Check if old sections exist by looking for known keys.
 	// IsSet works for legacy keys because they do not have defaults, while
 	// engine.type has a default and must be checked with InConfig.
-	hasOldSections := m.viper.IsSet("rendering.mode") ||
-		m.viper.IsSet("rendering.disable_dmabuf_renderer") ||
-		m.viper.IsSet("performance.profile") ||
-		m.viper.IsSet("privacy.cookie_policy") ||
-		m.viper.IsSet("runtime.prefix")
+	hasOldSections := false
+	for _, alias := range legacyEngineAliases {
+		if m.viper.IsSet(alias.legacyKey()) {
+			hasOldSections = true
+			break
+		}
+	}
 
-	hasEngineSection := m.viper.InConfig("engine.type")
+	hasEngineSection := m.hasEngineSectionInConfig()
 
-	if hasOldSections && !hasEngineSection {
+	if hasOldSections && hasEngineSection {
 		return fmt.Errorf(
-			"config format outdated: [rendering], [performance], [privacy] sections " +
-				"have moved to [engine]/[engine.webkit] — " +
-				"run \"dumber config migrate\" to update your config file",
+			"mixed old/new config: [engine] coexists with legacy engine keys in %s; "+
+				"remove legacy keys or migrate from a purely legacy config",
+			legacyEngineInputSectionsMessage(),
+		)
+	}
+	if hasOldSections {
+		return fmt.Errorf(
+			"config format outdated: legacy engine keys in %s have moved to "+
+				"[engine]/[engine.webkit] — run \"dumber config migrate\" "+
+				"to update your config file",
+			legacyEngineInputSectionsMessage(),
 		)
 	}
 	return nil
+}
+
+func (m *Manager) hasEngineSectionInConfig() bool {
+	if configFile := m.viper.ConfigFileUsed(); configFile != "" {
+		raw, err := readRawTOML(configFile)
+		if err == nil {
+			_, exists := raw["engine"]
+			return exists
+		}
+	}
+	return m.viper.InConfig("engine.type")
 }
 
 func (m *Manager) unmarshalConfig() (*Config, error) {

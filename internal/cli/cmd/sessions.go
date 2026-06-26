@@ -1,6 +1,7 @@
 package cmd
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"os"
@@ -39,29 +40,29 @@ func init() {
 }
 
 func runSessions(_ *cobra.Command, _ []string) error {
-	app := GetApp()
-	if app == nil {
+	cliApp := GetApp()
+	if cliApp == nil {
 		return fmt.Errorf("app not initialized")
 	}
 
-	if app.ListSessionsUC == nil {
+	if cliApp.ListSessionsUC == nil || cliApp.SessionUC == nil {
 		return fmt.Errorf("session management not available")
 	}
 
 	// Get current session ID (empty if not running as browser)
 	var currentSessionID entity.SessionID
-	if active, err := app.SessionUC.GetActiveSession(app.Ctx()); err == nil && active != nil {
+	if active, err := cliApp.SessionUC.GetActiveSession(cliApp.Ctx()); err == nil && active != nil {
 		currentSessionID = active.ID
 	}
 
 	// Run interactive TUI
-	m := model.NewSessionsModel(app.Ctx(), app.Theme, model.SessionsModelConfig{
-		ListSessionsUC:    app.ListSessionsUC,
-		RestoreUC:         app.RestoreUC,
-		DeleteSessionUC:   app.DeleteSessionUC,
-		SessionSpawner:    app.SessionSpawner,
+	m := model.NewSessionsModel(cliApp.Ctx(), cliApp.Theme, model.SessionsModelConfig{
+		ListSessionsUC:    cliApp.ListSessionsUC,
+		RestoreUC:         cliApp.RestoreUC,
+		DeleteSessionUC:   cliApp.DeleteSessionUC,
+		SessionSpawner:    cliApp.SessionSpawner,
 		CurrentSession:    currentSessionID,
-		MaxExitedSessions: app.Config.Session.MaxExitedSessions,
+		MaxExitedSessions: cliApp.Config.Session.MaxExitedSessions,
 	})
 
 	p := tea.NewProgram(m, tea.WithAltScreen())
@@ -89,13 +90,13 @@ func init() {
 }
 
 func runSessionsList(_ *cobra.Command, _ []string) error {
-	app := GetApp()
-	if app == nil {
+	cliApp := GetApp()
+	if cliApp == nil {
 		return fmt.Errorf("app not initialized")
 	}
-	renderer := styles.NewSessionsCLIRenderer(app.Theme)
+	renderer := styles.NewSessionsCLIRenderer(cliApp.Theme)
 
-	if app.ListSessionsUC == nil {
+	if cliApp.ListSessionsUC == nil || cliApp.SessionUC == nil {
 		err := fmt.Errorf("session management not available")
 		fmt.Fprintln(os.Stderr, renderer.RenderError(err))
 		return wrapPrintedError(err)
@@ -103,11 +104,11 @@ func runSessionsList(_ *cobra.Command, _ []string) error {
 
 	// Get current session ID (empty if not running as browser)
 	var currentSessionID entity.SessionID
-	if active, err := app.SessionUC.GetActiveSession(app.Ctx()); err == nil && active != nil {
+	if active, err := cliApp.SessionUC.GetActiveSession(cliApp.Ctx()); err == nil && active != nil {
 		currentSessionID = active.ID
 	}
 
-	output, err := app.ListSessionsUC.Execute(app.Ctx(), currentSessionID, sessionsLimit)
+	output, err := cliApp.ListSessionsUC.Execute(cliApp.Ctx(), currentSessionID, sessionsLimit)
 	if err != nil {
 		wrappedErr := fmt.Errorf("list sessions: %w", err)
 		fmt.Fprintln(os.Stderr, renderer.RenderError(wrappedErr))
@@ -151,13 +152,13 @@ func init() {
 }
 
 func runSessionsRestore(_ *cobra.Command, args []string) error {
-	app := GetApp()
-	if app == nil {
+	cliApp := GetApp()
+	if cliApp == nil {
 		return fmt.Errorf("app not initialized")
 	}
-	renderer := styles.NewSessionsCLIRenderer(app.Theme)
+	renderer := styles.NewSessionsCLIRenderer(cliApp.Theme)
 
-	if app.RestoreUC == nil || app.ListSessionsUC == nil {
+	if cliApp.RestoreUC == nil || cliApp.ListSessionsUC == nil || cliApp.SessionUC == nil {
 		err := fmt.Errorf("session restoration not available")
 		fmt.Fprintln(os.Stderr, renderer.RenderError(err))
 		return wrapPrintedError(err)
@@ -173,7 +174,7 @@ func runSessionsRestore(_ *cobra.Command, args []string) error {
 	sessionID := sessionInfo.Session.ID
 
 	// Validate the session has restorable state
-	_, err = app.RestoreUC.Execute(app.Ctx(), usecase.RestoreInput{SessionID: sessionID})
+	_, err = cliApp.RestoreUC.Execute(cliApp.Ctx(), usecase.RestoreInput{SessionID: sessionID})
 	if err != nil {
 		wrappedErr := fmt.Errorf("restore session: %w", err)
 		fmt.Fprintln(os.Stderr, renderer.RenderError(wrappedErr))
@@ -181,12 +182,12 @@ func runSessionsRestore(_ *cobra.Command, args []string) error {
 	}
 
 	// Spawn a new dumber instance with the session
-	if app.SessionSpawner == nil {
+	if cliApp.SessionSpawner == nil {
 		err := fmt.Errorf("session spawner not available")
 		fmt.Fprintln(os.Stderr, renderer.RenderError(err))
 		return wrapPrintedError(err)
 	}
-	if err := app.SessionSpawner.SpawnWithSession(sessionID); err != nil {
+	if err := cliApp.SessionSpawner.SpawnWithSession(sessionID); err != nil {
 		wrappedErr := fmt.Errorf("spawn browser: %w", err)
 		fmt.Fprintln(os.Stderr, renderer.RenderError(wrappedErr))
 		return wrapPrintedError(wrappedErr)
@@ -219,13 +220,13 @@ func init() {
 }
 
 func runSessionsDelete(_ *cobra.Command, args []string) error {
-	app := GetApp()
-	if app == nil {
+	cliApp := GetApp()
+	if cliApp == nil {
 		return fmt.Errorf("app not initialized")
 	}
-	renderer := styles.NewSessionsCLIRenderer(app.Theme)
+	renderer := styles.NewSessionsCLIRenderer(cliApp.Theme)
 
-	if app.DeleteSessionUC == nil || app.ListSessionsUC == nil {
+	if cliApp.DeleteSessionUC == nil || cliApp.ListSessionsUC == nil || cliApp.SessionUC == nil {
 		err := fmt.Errorf("session management not available")
 		fmt.Fprintln(os.Stderr, renderer.RenderError(err))
 		return wrapPrintedError(err)
@@ -240,12 +241,12 @@ func runSessionsDelete(_ *cobra.Command, args []string) error {
 
 	// Get current session ID
 	var currentSessionID entity.SessionID
-	if active, activeErr := app.SessionUC.GetActiveSession(app.Ctx()); activeErr == nil && active != nil {
+	if active, activeErr := cliApp.SessionUC.GetActiveSession(cliApp.Ctx()); activeErr == nil && active != nil {
 		currentSessionID = active.ID
 	}
 
 	// Delete using use case (handles validation internally)
-	if err := app.DeleteSessionUC.Execute(app.Ctx(), usecase.DeleteSessionInput{
+	if err := cliApp.DeleteSessionUC.Execute(cliApp.Ctx(), usecase.DeleteSessionInput{
 		SessionID:        sessionInfo.Session.ID,
 		CurrentSessionID: currentSessionID,
 	}); err != nil {
@@ -261,19 +262,27 @@ func runSessionsDelete(_ *cobra.Command, args []string) error {
 // findSessionByIDOrSuffix finds a session by exact ID or unique suffix.
 // Users typically identify sessions by the last few characters (e.g., "dee5").
 func findSessionByIDOrSuffix(idOrSuffix string) (*entity.SessionInfo, error) {
-	app := GetApp()
-	if app == nil || app.ListSessionsUC == nil {
+	cliApp := GetApp()
+	if cliApp == nil {
 		return nil, fmt.Errorf("app not initialized")
+	}
+	if cliApp.ListSessionsUC == nil || cliApp.SessionUC == nil {
+		return nil, fmt.Errorf("session management not available")
+	}
+
+	ctx := cliApp.Ctx()
+	if ctx == nil {
+		ctx = context.Background()
 	}
 
 	// Get current session ID (empty if not running as browser)
 	var currentSessionID entity.SessionID
-	if active, err := app.SessionUC.GetActiveSession(app.Ctx()); err == nil && active != nil {
+	if active, err := cliApp.SessionUC.GetActiveSession(ctx); err == nil && active != nil {
 		currentSessionID = active.ID
 	}
 
-	// List all sessions
-	output, err := app.ListSessionsUC.Execute(app.Ctx(), currentSessionID, defaultSessionsLimit*5)
+	// List all sessions so restore/delete suffix lookup can find older sessions.
+	output, err := cliApp.ListSessionsUC.Execute(ctx, currentSessionID, usecase.ListAllSessionsLimit)
 	if err != nil {
 		return nil, fmt.Errorf("list sessions: %w", err)
 	}

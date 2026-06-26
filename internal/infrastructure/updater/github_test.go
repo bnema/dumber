@@ -6,11 +6,13 @@ import (
 	"encoding/hex"
 	"errors"
 	"io"
+	"net"
 	"net/http"
 	"os"
 	"path/filepath"
 	"strings"
 	"sync/atomic"
+	"syscall"
 	"testing"
 	"time"
 
@@ -393,6 +395,31 @@ func TestRetryDelayForAttemptAddsJitter(t *testing.T) {
 	}
 }
 
+func TestIsRetryableRequestError(t *testing.T) {
+	tests := []struct {
+		name string
+		err  error
+		want bool
+	}{
+		{name: "nil", err: nil, want: false},
+		{name: "context canceled", err: context.Canceled, want: false},
+		{name: "context deadline exceeded", err: context.DeadlineExceeded, want: true},
+		{name: "timeout net error", err: &net.DNSError{IsTimeout: true}, want: true},
+		{name: "non-timeout net error", err: &net.DNSError{Err: "lookup failed"}, want: false},
+		{name: "transient errno through net op error", err: &net.OpError{Op: "read", Net: "tcp", Err: syscall.ECONNRESET}, want: true},
+		{name: "non-transient errno", err: syscall.EINVAL, want: false},
+		{name: "ordinary error", err: errors.New("ordinary"), want: false},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := isRetryableRequestError(tt.err); got != tt.want {
+				t.Fatalf("isRetryableRequestError(%v) = %v, want %v", tt.err, got, tt.want)
+			}
+		})
+	}
+}
+
 func TestGitHubCheckerDoRequestWithRetry_RetryableStatus(t *testing.T) {
 	var calls int32
 	tr := roundTripFunc(func(_ *http.Request) (*http.Response, error) {
@@ -424,6 +451,73 @@ func TestGitHubCheckerDoRequestWithRetry_RetryableStatus(t *testing.T) {
 	}
 	if atomic.LoadInt32(&calls) != maxRetryAttempts {
 		t.Fatalf("calls = %d, want %d", calls, maxRetryAttempts)
+	}
+}
+
+func TestGitHubCheckerDoRequestWithRetry_RetryableRequestError(t *testing.T) {
+	var calls int32
+	tr := roundTripFunc(func(_ *http.Request) (*http.Response, error) {
+		attempt := atomic.AddInt32(&calls, 1)
+		if attempt == 1 {
+			return nil, &net.OpError{Op: "read", Net: "tcp", Err: syscall.ECONNRESET}
+		}
+		return testResponse(http.StatusOK, `{"tag_name":"v1.2.3"}`), nil
+	})
+
+	checker := NewGitHubChecker()
+	checker.client = &http.Client{Transport: tr}
+	checker.randInt63 = func(_ int64) int64 { return 0 }
+	checker.sleep = func(context.Context, time.Duration) error { return nil }
+
+	req, err := http.NewRequestWithContext(context.Background(), http.MethodGet, githubAPIURL, http.NoBody)
+	if err != nil {
+		t.Fatalf("failed to create request: %v", err)
+	}
+
+	resp, err := checker.doRequestWithRetry(context.Background(), req)
+	if err != nil {
+		t.Fatalf("doRequestWithRetry() unexpected error: %v", err)
+	}
+	defer func() { _ = resp.Body.Close() }()
+
+	if resp.StatusCode != http.StatusOK {
+		t.Fatalf("status = %d, want %d", resp.StatusCode, http.StatusOK)
+	}
+	if atomic.LoadInt32(&calls) != 2 {
+		t.Fatalf("calls = %d, want 2", calls)
+	}
+}
+
+func TestGitHubCheckerDoRequestWithRetry_NoRetryOnNonRetryableRequestError(t *testing.T) {
+	var calls int32
+	wantErr := errors.New("ordinary request failure")
+	tr := roundTripFunc(func(_ *http.Request) (*http.Response, error) {
+		atomic.AddInt32(&calls, 1)
+		return nil, wantErr
+	})
+
+	checker := NewGitHubChecker()
+	checker.client = &http.Client{Transport: tr}
+	checker.randInt63 = func(_ int64) int64 { return 0 }
+	checker.sleep = func(context.Context, time.Duration) error { return nil }
+
+	req, err := http.NewRequestWithContext(context.Background(), http.MethodGet, githubAPIURL, http.NoBody)
+	if err != nil {
+		t.Fatalf("failed to create request: %v", err)
+	}
+
+	resp, err := checker.doRequestWithRetry(context.Background(), req)
+	if err == nil {
+		if resp != nil && resp.Body != nil {
+			_ = resp.Body.Close()
+		}
+		t.Fatal("doRequestWithRetry() returned nil error, want request failure")
+	}
+	if !errors.Is(err, wantErr) {
+		t.Fatalf("doRequestWithRetry() error = %v, want %v", err, wantErr)
+	}
+	if atomic.LoadInt32(&calls) != 1 {
+		t.Fatalf("calls = %d, want 1", calls)
 	}
 }
 

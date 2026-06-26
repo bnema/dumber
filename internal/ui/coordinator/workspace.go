@@ -75,16 +75,6 @@ type stackPaneContext struct {
 	originalTitle string
 }
 
-type incrementalCloseContext struct {
-	parentNode           *entity.PaneNode
-	siblingNode          *entity.PaneNode
-	grandparentNode      *entity.PaneNode
-	parentWidget         layout.Widget
-	siblingIsStartChild  bool
-	parentIsStartInGrand bool
-	precheckReason       string
-}
-
 const (
 	defaultResizeStepPercent    = 0.05
 	defaultResizeMinPanePercent = 0.1
@@ -173,12 +163,12 @@ func setupPaneViewHover(ctx context.Context, pv *component.PaneView, wsView *com
 
 // Split splits the active pane in the given direction.
 func (c *WorkspaceCoordinator) Split(ctx context.Context, direction usecase.SplitDirection) error {
-	return c.splitWithInitialURL(ctx, direction, domainurl.Normalize(c.newPaneURL))
+	return c.splitWithInitialURL(ctx, direction, c.newPaneURL)
 }
 
 // SplitWithURL splits the active pane in the given direction and loads initialURL.
 func (c *WorkspaceCoordinator) SplitWithURL(ctx context.Context, direction usecase.SplitDirection, initialURL string) error {
-	return c.splitWithInitialURL(ctx, direction, domainurl.Normalize(initialURL))
+	return c.splitWithInitialURL(ctx, direction, initialURL)
 }
 
 func (c *WorkspaceCoordinator) splitWithInitialURL(ctx context.Context, direction usecase.SplitDirection, initialURL string) error {
@@ -1261,80 +1251,6 @@ func (c *WorkspaceCoordinator) captureIncrementalCloseContext(
 	return closeCtx
 }
 
-func deriveIncrementalCloseTreeContext(closingPane *entity.PaneNode) (incrementalCloseContext, error) {
-	var closeCtx incrementalCloseContext
-	if closingPane == nil {
-		return closeCtx, errors.New("closing pane missing")
-	}
-
-	parentNode := closingPane.Parent
-	if parentNode == nil {
-		return closeCtx, errors.New("closing pane has no parent")
-	}
-
-	closeCtx.parentNode = parentNode
-	closeCtx.grandparentNode = parentNode.Parent
-
-	if parentNode.IsStacked {
-		return closeCtx, nil
-	}
-
-	if !parentNode.IsSplit() {
-		return closeCtx, fmt.Errorf("parent node is not split: %s", parentNode.ID)
-	}
-
-	if len(parentNode.Children) != 2 {
-		return closeCtx, fmt.Errorf("split parent has invalid child count: %d", len(parentNode.Children))
-	}
-
-	leftChild := parentNode.Left()
-	rightChild := parentNode.Right()
-	if leftChild == closingPane && rightChild == nil {
-		return closeCtx, errors.New("sibling missing")
-	}
-	if rightChild == closingPane && leftChild == nil {
-		return closeCtx, errors.New("sibling missing")
-	}
-	if leftChild == nil || rightChild == nil {
-		return closeCtx, errors.New("split parent has nil child")
-	}
-
-	switch {
-	case leftChild == closingPane:
-		closeCtx.siblingNode = rightChild
-		closeCtx.siblingIsStartChild = false
-	case rightChild == closingPane:
-		closeCtx.siblingNode = leftChild
-		closeCtx.siblingIsStartChild = true
-	default:
-		return closeCtx, fmt.Errorf("closing pane not found under parent: %s", parentNode.ID)
-	}
-
-	if closeCtx.siblingNode == nil {
-		return closeCtx, errors.New("sibling missing")
-	}
-
-	if closeCtx.grandparentNode != nil {
-		switch {
-		case closeCtx.grandparentNode.Left() == parentNode:
-			closeCtx.parentIsStartInGrand = true
-		case closeCtx.grandparentNode.Right() == parentNode:
-			closeCtx.parentIsStartInGrand = false
-		default:
-			return closeCtx, fmt.Errorf("parent not found under grandparent: %s", closeCtx.grandparentNode.ID)
-		}
-	}
-
-	return closeCtx, nil
-}
-
-func paneNodeID(node *entity.PaneNode) string {
-	if node == nil {
-		return nilString
-	}
-	return node.ID
-}
-
 // doIncrementalStackClose removes a pane from a stack without rebuilding the entire tree.
 func (c *WorkspaceCoordinator) doIncrementalStackClose(
 	ctx context.Context,
@@ -1544,24 +1460,23 @@ func (c *WorkspaceCoordinator) StackPane(ctx context.Context) error {
 		return nil
 	}
 
-	// Create new pane entity
-	newPaneID := entity.PaneID(c.generateID())
-	newPane := entity.NewPane(newPaneID)
-	newPane.URI = domainurl.Normalize(c.newPaneURL)
-	newPane.Title = defaultPaneTitle
-
-	// Determine if we need to create a new stack or add to existing
+	// Determine if we need to create a new stack or add to existing.
 	var stackNode *entity.PaneNode
+	var newPane *entity.Pane
+	var newPaneID entity.PaneID
 	var needsFirstPaneTitleUpdate bool
 
 	if stackCtx.activeNode.Parent != nil && stackCtx.activeNode.Parent.IsStacked {
 		// Already in a stack - use AddToStack use case
 		stackNode = stackCtx.activeNode.Parent
-		output, err := c.panesUC.AddToStack(ctx, stackCtx.ws, stackNode, newPane)
+		output, err := c.panesUC.AddToStack(ctx, stackCtx.ws, stackNode, nil, c.newPaneURL)
 		if err != nil {
 			log.Error().Err(err).Msg("failed to add pane to stack via use case")
 			return err
 		}
+		newPane = output.NewPaneNode.Pane
+		newPaneID = newPane.ID
+		newPane.Title = defaultPaneTitle
 		log.Debug().
 			Int("stack_size", len(stackNode.Children)).
 			Int("insert_index", output.StackIndex).
@@ -1569,28 +1484,29 @@ func (c *WorkspaceCoordinator) StackPane(ctx context.Context) error {
 	} else if stackCtx.activeNode.IsStacked {
 		// Active node is already a stack container - add to it
 		stackNode = stackCtx.activeNode
-		output, err := c.panesUC.AddToStack(ctx, stackCtx.ws, stackNode, newPane)
+		output, err := c.panesUC.AddToStack(ctx, stackCtx.ws, stackNode, nil, c.newPaneURL)
 		if err != nil {
 			log.Error().Err(err).Msg("failed to add pane to stack via use case")
 			return err
 		}
+		newPane = output.NewPaneNode.Pane
+		newPaneID = newPane.ID
+		newPane.Title = defaultPaneTitle
 		log.Debug().
 			Int("stack_size", len(stackNode.Children)).
 			Int("insert_index", output.StackIndex).
 			Msg("added to stack container via use case")
 	} else {
-		// Need to create a new stack - use CreateStack use case
-		// But CreateStack creates its own pane, so we need a different approach
-		// Convert to stack first, then the new pane is already created
-		output, err := c.panesUC.CreateStack(ctx, stackCtx.ws, stackCtx.activeNode)
+		// Need to create a new stack - use CreateStack use case.
+		output, err := c.panesUC.CreateStack(ctx, stackCtx.ws, stackCtx.activeNode, c.newPaneURL)
 		if err != nil {
 			log.Error().Err(err).Msg("failed to create stack via use case")
 			return err
 		}
 		stackNode = output.StackNode
-		// CreateStack creates its own new pane, use that instead
 		newPane = output.NewPane
 		newPaneID = newPane.ID
+		newPane.Title = defaultPaneTitle
 		needsFirstPaneTitleUpdate = true
 
 		// Update the original pane's title in the domain
@@ -2119,7 +2035,7 @@ func (c *WorkspaceCoordinator) insertPopupStacked(ctx context.Context, input con
 	stackNode, conversionInfo := c.resolveOrCreateStackNode(ctx, parentNode, input.ParentPaneID)
 
 	// Add popup pane to stack using use case
-	if _, err := c.panesUC.AddToStack(ctx, ws, stackNode, input.PopupPane); err != nil {
+	if _, err := c.panesUC.AddToStack(ctx, ws, stackNode, input.PopupPane, ""); err != nil {
 		// Rollback stack conversion if we created a new stack
 		conversionInfo.revert()
 		return fmt.Errorf("failed to add popup to stack: %w", err)

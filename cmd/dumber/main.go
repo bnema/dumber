@@ -790,6 +790,7 @@ func createUseCases(repos *repositories, cfg *config.Config) *useCases {
 	updateChecker := updater.NewGitHubChecker()
 	updateDownloader := updater.NewGitHubDownloader()
 	updateApplier := updater.NewApplier(stateDir)
+	localPaths := filesystem.New()
 
 	// Permission use case will be initialized later with dialog presenter
 	permissionUC := usecase.NewHandlePermissionUseCase(repos.permission, nil, logging.FromContext)
@@ -800,8 +801,8 @@ func createUseCases(repos *repositories, cfg *config.Config) *useCases {
 	historyUC.SetHistoryMutationCoordinator(historyRecorderUC)
 
 	return &useCases{
-		tabs:            usecase.NewManageTabsUseCase(idGenerator),
-		panes:           usecase.NewManagePanesUseCase(idGenerator),
+		tabs:            usecase.NewManageTabsUseCase(idGenerator, localPaths),
+		panes:           usecase.NewManagePanesUseCase(idGenerator, localPaths),
 		history:         historyUC,
 		favorites:       usecase.NewManageFavoritesUseCase(repos.favorite, repos.folder, repos.tag),
 		zoom:            usecase.NewManageZoomUseCase(repos.zoom, defaultZoom, zoomCache),
@@ -882,6 +883,7 @@ func buildUIDependencies(
 	focusProvider := textinput.NewFocusProvider()
 	browserLauncher := desktop.NewBrowserLauncher(browserLaunchRelay)
 	runtimeConfig := bootstrap.NewRuntimeConfigProvider(cfg, config.GetManager())
+	localPaths := filesystem.New()
 
 	uiDeps := &ui.Dependencies{
 		Ctx:                  ctx,
@@ -935,7 +937,8 @@ func buildUIDependencies(
 		CheckUpdateUC:       uc.checkUpdate,
 		ApplyUpdateUC:       uc.applyUpdate,
 		SessionSpawner:      bootstrap.NewSessionSpawner(ctx, runtimeProfile),
-		FileSystem:          filesystem.New(),
+		FileSystem:          localPaths,
+		LocalPathResolver:   localPaths,
 		AccentFocusProvider: focusProvider,
 		NewGTKEntryTarget: func(entry *gtk.SearchEntry) port.TextInputTarget {
 			return textinput.NewGTKEntryTarget(entry)

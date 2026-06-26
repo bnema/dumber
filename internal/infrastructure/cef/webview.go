@@ -214,12 +214,12 @@ type WebView struct {
 	loadDiagLastLoadStateAt time.Time
 
 	// Atomic state.
-	destroyed                      atomic.Bool
-	fullscreen                     atomic.Bool
-	generation                     atomic.Uint64
-	audioPlaying                   atomic.Bool
-	zoomFactor                     atomic.Value // float64, initialized to 1.0
-	lastAppliedOSRBackingScaleBits atomic.Uint64
+	destroyed                     atomic.Bool
+	fullscreen                    atomic.Bool
+	generation                    atomic.Uint64
+	audioPlaying                  atomic.Bool
+	zoomFactor                    atomic.Value // float64, initialized to 1.0
+	lastAppliedZoomScaleRatioBits atomic.Uint64
 
 	// Browser creation defaults copied from the factory so native popup shells
 	// can apply the same settings in OnBeforePopup.
@@ -491,15 +491,23 @@ func cefZoomFromFactor(factor float64) float64 {
 	return math.Log(factor) / math.Log(chromiumZoomBase)
 }
 
-func cefZoomFromPageAndBackingFactor(pageZoom, backingScale float64) float64 {
-	return cefZoomFromFactor(pageZoom * normalizeScale(backingScale))
+func zoomScaleRatio(surfaceScale, backingScale float64) float64 {
+	backingScale = normalizeScale(backingScale)
+	if backingScale <= 1 {
+		return 1
+	}
+	return normalizeScale(surfaceScale) / backingScale
 }
 
-func pageZoomFromCEFAndBackingLevel(level, backingScale float64) float64 {
-	return factorFromCEFZoom(level) / normalizeScale(backingScale)
+func cefZoomFromPageAndScaleFactors(pageZoom, surfaceScale, backingScale float64) float64 {
+	return cefZoomFromFactor(pageZoom * zoomScaleRatio(surfaceScale, backingScale))
 }
 
-func (wv *WebView) applyCEFZoomLevel(host purecef.BrowserHost, factor, cefLevel, backingScale float64) {
+func pageZoomFromCEFAndScaleLevel(level, surfaceScale, backingScale float64) float64 {
+	return factorFromCEFZoom(level) / zoomScaleRatio(surfaceScale, backingScale)
+}
+
+func (wv *WebView) applyCEFZoomLevel(host purecef.BrowserHost, factor, cefLevel, surfaceScale, backingScale float64) {
 	host.SetZoomLevel(cefLevel)
 	// Force CEF to produce a new frame at the new zoom level. In OSR mode,
 	// SetZoomLevel changes the Blink layout zoom but doesn't guarantee a
@@ -508,7 +516,7 @@ func (wv *WebView) applyCEFZoomLevel(host purecef.BrowserHost, factor, cefLevel,
 	// SynchronizeVisualProperties cycle, which makes the renderer produce
 	// a new compositor frame at the new zoom level.
 	host.NotifyScreenInfoChanged()
-	wv.recordAppliedOSRBackingScale(backingScale)
+	wv.recordAppliedZoomScaleRatio(surfaceScale, backingScale)
 	// Zoom is applied asynchronously in the renderer process. Request a couple
 	// of follow-up refreshes on the CEF UI thread so OSR captures the updated
 	// compositor frame after the zoom IPC has been processed.
@@ -541,14 +549,16 @@ func (wv *WebView) SetZoomLevel(_ context.Context, factor float64) error {
 	if host == nil {
 		return errNoBrowser
 	}
+	surfaceScale := wv.viewBridgeScale()
 	backingScale := wv.osrBackingScaleFactor()
-	cefLevel := cefZoomFromPageAndBackingFactor(factor, backingScale)
+	cefLevel := cefZoomFromPageAndScaleFactors(factor, surfaceScale, backingScale)
 	logging.FromContext(wv.ctx).Debug().
 		Float64("factor", factor).
 		Float64("cef_level", cefLevel).
 		Float64("osr_backing_scale", backingScale).
+		Float64("surface_scale", surfaceScale).
 		Msg("cef: SetZoomLevel")
-	wv.applyCEFZoomLevel(host, factor, cefLevel, backingScale)
+	wv.applyCEFZoomLevel(host, factor, cefLevel, surfaceScale, backingScale)
 	wv.zoomFactor.Store(factor)
 	return nil
 }
@@ -1665,23 +1675,23 @@ func (wv *WebView) osrBackingScaleFactor() float64 {
 	return normalizeScale(wv.viewBridge.OSRBackingScaleFactor())
 }
 
-func (wv *WebView) recordAppliedOSRBackingScale(scale float64) {
+func (wv *WebView) recordAppliedZoomScaleRatio(surfaceScale, backingScale float64) {
 	if wv == nil {
 		return
 	}
-	wv.lastAppliedOSRBackingScaleBits.Store(math.Float64bits(normalizeScale(scale)))
+	wv.lastAppliedZoomScaleRatioBits.Store(math.Float64bits(zoomScaleRatio(surfaceScale, backingScale)))
 }
 
-func (wv *WebView) shouldReapplyZoomForBackingScale(scale float64) bool {
+func (wv *WebView) shouldReapplyZoomForScaleRatio(surfaceScale, backingScale float64) bool {
 	if wv == nil {
 		return false
 	}
-	normalized := normalizeScale(scale)
-	bits := wv.lastAppliedOSRBackingScaleBits.Load()
+	ratio := zoomScaleRatio(surfaceScale, backingScale)
+	bits := wv.lastAppliedZoomScaleRatioBits.Load()
 	if bits == 0 {
 		return true
 	}
-	return math.Float64frombits(bits) != normalized
+	return math.Float64frombits(bits) != ratio
 }
 
 func (wv *WebView) handleMiddleClickFromBridge() bool {
@@ -1982,16 +1992,18 @@ func (wv *WebView) scheduleZoomReadback(expectedFactor, expectedLevel float64) {
 			if host == nil {
 				return
 			}
+			surfaceScale := wv.viewBridgeScale()
 			backingScale := wv.osrBackingScaleFactor()
 			actualLevel := host.GetZoomLevel()
 			logging.FromContext(wv.ctx).Debug().
 				Int64("delay_ms", delayMs).
 				Float64("expected_factor", expectedFactor).
 				Float64("expected_cef_level", expectedLevel).
-				Float64("actual_factor", pageZoomFromCEFAndBackingLevel(actualLevel, backingScale)).
+				Float64("actual_factor", pageZoomFromCEFAndScaleLevel(actualLevel, surfaceScale, backingScale)).
 				Float64("actual_cef_factor", factorFromCEFZoom(actualLevel)).
 				Float64("actual_cef_level", actualLevel).
 				Float64("osr_backing_scale", backingScale).
+				Float64("surface_scale", surfaceScale).
 				Msg("cef: zoom level readback")
 		}))
 		if task == nil {
@@ -2012,14 +2024,16 @@ func (wv *WebView) reapplyCurrentZoomForBackingScale(reason string) {
 		return
 	}
 	factor := wv.GetZoomLevel()
+	surfaceScale := wv.viewBridgeScale()
 	backingScale := wv.osrBackingScaleFactor()
-	cefLevel := cefZoomFromPageAndBackingFactor(factor, backingScale)
-	wv.applyCEFZoomLevel(host, factor, cefLevel, backingScale)
+	cefLevel := cefZoomFromPageAndScaleFactors(factor, surfaceScale, backingScale)
+	wv.applyCEFZoomLevel(host, factor, cefLevel, surfaceScale, backingScale)
 	logging.FromContext(wv.ctx).Debug().
 		Str("reason", reason).
 		Float64("factor", factor).
 		Float64("cef_level", cefLevel).
 		Float64("osr_backing_scale", backingScale).
+		Float64("surface_scale", surfaceScale).
 		Msg("cef: reapplied zoom after OSR backing scale change")
 }
 

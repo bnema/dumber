@@ -51,6 +51,44 @@ func shortTempDir(t *testing.T) string {
 	return dir
 }
 
+func TestValidateBrowserLaunchSocketDirOwnedAcceptsCurrentUser(t *testing.T) {
+	ipc := testIPC(shortTempDir(t))
+	require.NoError(t, os.MkdirAll(filepath.Dir(ipc.BrowserLaunchSocket), 0o700))
+
+	require.NoError(t, validateBrowserLaunchSocketDirOwned(ipc.BrowserLaunchSocket, uint32(os.Geteuid())))
+}
+
+func TestValidateBrowserLaunchSocketDirOwnedRejectsUnexpectedOwner(t *testing.T) {
+	ipc := testIPC(shortTempDir(t))
+	require.NoError(t, os.MkdirAll(filepath.Dir(ipc.BrowserLaunchSocket), 0o700))
+
+	unexpectedUID := uint32(os.Geteuid() + 1)
+	if unexpectedUID == uint32(os.Geteuid()) {
+		unexpectedUID++
+	}
+
+	err := validateBrowserLaunchSocketDirOwned(ipc.BrowserLaunchSocket, unexpectedUID)
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "browser launch dir owner")
+}
+
+func TestValidateBrowserLaunchSocketDirOwnedRejectsWritableUserParent(t *testing.T) {
+	root := shortTempDir(t)
+	ipc := runtimeprofile.IPCPaths{
+		RuntimeDir:          filepath.Join(root, "dumber", "dev-abc123", "cef"),
+		BrowserLaunchSocket: filepath.Join(root, "dumber", "dev-abc123", "cef", browserLaunchSocketName),
+	}
+	require.NoError(t, os.MkdirAll(filepath.Dir(ipc.BrowserLaunchSocket), 0o700))
+	require.NoError(t, os.Chmod(filepath.Join(root, "dumber"), 0o777))
+	t.Cleanup(func() {
+		_ = os.Chmod(filepath.Join(root, "dumber"), 0o700)
+	})
+
+	err := validateBrowserLaunchSocketDirOwned(ipc.BrowserLaunchSocket, uint32(os.Geteuid()))
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "browser launch dir permissions")
+}
+
 func testIPC(root string) runtimeprofile.IPCPaths {
 	runtimeDir := filepath.Join(root, "runtime")
 	return runtimeprofile.IPCPaths{

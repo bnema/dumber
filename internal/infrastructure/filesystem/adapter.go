@@ -67,4 +67,32 @@ func (a *Adapter) RemoveAll(_ context.Context, path string) error {
 	return os.RemoveAll(path)
 }
 
+// ResolveExistingPath expands supported user path syntax, absolutizes the path,
+// and reports whether it exists in the OS filesystem.
+func (a *Adapter) ResolveExistingPath(_ context.Context, input string) (string, bool, error) {
+	if input == "" {
+		return "", false, nil
+	}
+	path := input
+	if len(path) >= 2 && path[0:2] == "~/" {
+		home, err := os.UserHomeDir()
+		if err != nil {
+			return "", false, err
+		}
+		path = filepath.Join(home, path[2:])
+	}
+	absPath, err := filepath.Abs(path)
+	if err != nil {
+		return "", false, err
+	}
+	if _, err := os.Stat(absPath); err != nil {
+		if os.IsNotExist(err) {
+			return "", false, nil
+		}
+		return "", false, err
+	}
+	return absPath, true, nil
+}
+
 var _ port.FileSystem = (*Adapter)(nil)
+var _ port.LocalPathResolver = (*Adapter)(nil)

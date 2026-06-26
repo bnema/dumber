@@ -10,7 +10,7 @@ These permissions are automatically granted without user interaction:
 
 - **Display Capture** (screen sharing) - The XDG Desktop Portal handles the UI
   
-  > ⚠️ **Known Issue**: Screen sharing does **not work** on Wayland with WebKitGTK 2.50.x due to a GStreamer caps negotiation failure ([WebKit bug #306440](https://bugs.webkit.org/show_bug.cgi?id=306440)). This was fixed on January 29, 2026 and backported to the 2.52 stable branch. **Workaround**: Upgrade to WebKitGTK 2.52+ when available from your distribution. Camera and microphone permissions work correctly.
+  > ⚠️ **WebKit fallback known issue**: Screen sharing does **not work** on Wayland with WebKitGTK 2.50.x due to a GStreamer caps negotiation failure ([WebKit bug #306440](https://bugs.webkit.org/show_bug.cgi?id=306440)). This was fixed on January 29, 2026 and backported to the 2.52 stable branch. **Workaround for the WebKit backend**: Upgrade to WebKitGTK 2.52+ when available from your distribution. Camera and microphone permissions work correctly.
 
 - **Device Enumeration** (listing microphones/cameras) - Low security risk
 

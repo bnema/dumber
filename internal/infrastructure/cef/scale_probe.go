@@ -41,10 +41,10 @@ func cefScaleProbeSnapshot(wv *WebView) cefScaleProbeMetrics {
 	}
 	m.UserZoom = normalizeScale(wv.GetZoomLevel())
 	m.OSRBackingScale = normalizeScale(wv.osrBackingScaleFactor())
-	m.InternalCEFFactor = m.UserZoom * m.OSRBackingScale
+	m.SurfaceScale = normalizeScale(wv.viewBridgeScale())
+	m.InternalCEFFactor = m.UserZoom * zoomScaleRatio(m.SurfaceScale, m.OSRBackingScale)
 	if wv.viewBridge != nil {
 		m.SurfaceWidth, m.SurfaceHeight = wv.viewBridge.Size()
-		m.SurfaceScale = normalizeScale(float64(wv.viewBridge.DeviceScaleFactor()))
 	}
 	return m
 }

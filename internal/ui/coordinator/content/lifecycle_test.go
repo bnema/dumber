@@ -348,6 +348,76 @@ func TestLifecycle_RegisterPopupWebView_IgnoresNil(t *testing.T) {
 	assert.Nil(t, c.GetWebView("popup-1"))
 }
 
+type nativeWebViewStub struct {
+	port.WebView
+	ptr uintptr
+}
+
+func (s *nativeWebViewStub) NativeWidget() uintptr {
+	return s.ptr
+}
+
+func TestLifecycle_WrapWidget_ReturnsNilForNilWebView(t *testing.T) {
+	t.Parallel()
+
+	factory := layoutmocks.NewMockWidgetFactory(t)
+	c := newMinimalCoordinator()
+	c.widgetFactory = factory
+
+	assert.Nil(t, c.WrapWidget(context.Background(), nil))
+}
+
+func TestLifecycle_WrapWidget_ReturnsNilForMissingNativeProvider(t *testing.T) {
+	t.Parallel()
+
+	wv := mocks.NewMockWebView(t)
+	factory := layoutmocks.NewMockWidgetFactory(t)
+	c := newMinimalCoordinator()
+	c.widgetFactory = factory
+
+	assert.Nil(t, c.WrapWidget(context.Background(), wv))
+}
+
+func TestLifecycle_WrapWidget_ReturnsNilForZeroNativePointer(t *testing.T) {
+	t.Parallel()
+
+	base := mocks.NewMockWebView(t)
+	wv := &nativeWebViewStub{WebView: base}
+	factory := layoutmocks.NewMockWidgetFactory(t)
+	c := newMinimalCoordinator()
+	c.widgetFactory = factory
+
+	assert.Nil(t, c.WrapWidget(context.Background(), wv))
+}
+
+func TestLifecycle_WrapWidget_ReturnsNilForNilWrappedWidget(t *testing.T) {
+	t.Parallel()
+
+	base := mocks.NewMockWebView(t)
+	wv := &nativeWebViewStub{WebView: base, ptr: 123}
+	factory := layoutmocks.NewMockWidgetFactory(t)
+	factory.EXPECT().WrapNativeWidget(uintptr(123)).Return(nil).Once()
+	c := newMinimalCoordinator()
+	c.widgetFactory = factory
+
+	assert.Nil(t, c.WrapWidget(context.Background(), wv))
+}
+
+func TestLifecycle_WrapWidget_RequestsGtkWidgetForGestureSetup(t *testing.T) {
+	t.Parallel()
+
+	base := mocks.NewMockWebView(t)
+	wv := &nativeWebViewStub{WebView: base, ptr: 456}
+	factory := layoutmocks.NewMockWidgetFactory(t)
+	widget := layoutmocks.NewMockWidget(t)
+	factory.EXPECT().WrapNativeWidget(uintptr(456)).Return(widget).Once()
+	widget.EXPECT().GtkWidget().Return(nil).Once()
+	c := newMinimalCoordinator()
+	c.widgetFactory = factory
+
+	assert.Same(t, widget, c.WrapWidget(context.Background(), wv))
+}
+
 type syncViewportContextKey struct{}
 
 type syncViewportCapableStub struct {

@@ -51,8 +51,9 @@ make build
 
 - Go 1.26+
 - GTK4 development libraries
-- WebKitGTK 6.0 development libraries
-- GStreamer development libraries
+- CEF runtime for the default backend
+- WebKitGTK 6.0 development/runtime libraries for the fallback backend and runtime checks
+- GStreamer development libraries for WebKit media playback and diagnostics
 - Brotli for compressed systemviews assets
 
 Systemviews assets are generated with `go tool templ` and Go's `js/wasm` toolchain; no root Node toolchain is required.

@@ -39,6 +39,19 @@ type favoriteRowIndicatorUpdate struct {
 	ShowStarSlot bool
 }
 
+type favoriteToggleTarget struct {
+	url         string
+	title       string
+	favoriteID  int64
+	wasFavorite bool
+}
+
+type favoriteToggleResultUpdate struct {
+	Apply      bool
+	Index      int
+	IsFavorite bool
+}
+
 // ViewMode distinguishes history search from favorites display.
 type ViewMode string
 
@@ -108,16 +121,17 @@ type Omnibox struct {
 	isSettingGhost   bool   // Guard flag: skip onEntryChanged during programmatic SetText
 
 	// Dependencies
-	historyUC             *usecase.SearchHistoryUseCase
-	favoritesUC           *usecase.ManageFavoritesUseCase
-	faviconAdapter        *adapter.FaviconAdapter
-	copyURLUC             *usecase.CopyURLUseCase
-	shortcutsUC           *usecase.SearchShortcutsUseCase
-	defaultSearch         string
-	initialBehavior       entity.OmniboxInitialBehavior
-	mostVisitedDays       int
-	saveInitialBehaviorFn func(context.Context, entity.OmniboxInitialBehavior) error
-	ctx                   context.Context
+	historyUC              *usecase.SearchHistoryUseCase
+	favoritesUC            *usecase.ManageFavoritesUseCase
+	faviconAdapter         *adapter.FaviconAdapter
+	copyURLUC              *usecase.CopyURLUseCase
+	shortcutsUC            *usecase.SearchShortcutsUseCase
+	defaultSearch          string
+	normalizeNavigationURL func(ctx context.Context, input string) string
+	initialBehavior        entity.OmniboxInitialBehavior
+	mostVisitedDays        int
+	saveInitialBehaviorFn  func(context.Context, entity.OmniboxInitialBehavior) error
+	ctx                    context.Context
 
 	// Callbacks
 	onNavigate         func(ctx context.Context, url string) error
@@ -155,16 +169,19 @@ type Omnibox struct {
 
 // OmniboxConfig holds configuration for creating an Omnibox.
 type OmniboxConfig struct {
-	HistoryUC           *usecase.SearchHistoryUseCase
-	FavoritesUC         *usecase.ManageFavoritesUseCase
-	FaviconAdapter      *adapter.FaviconAdapter
-	CopyURLUC           *usecase.CopyURLUseCase
-	ShortcutsUC         *usecase.SearchShortcutsUseCase
-	DefaultSearch       string
-	InitialBehavior     entity.OmniboxInitialBehavior
-	MostVisitedDays     int
-	SaveInitialBehavior func(ctx context.Context, behavior entity.OmniboxInitialBehavior) error
-	UIScale             float64 // UI scale for favicon sizing
+	HistoryUC      *usecase.SearchHistoryUseCase
+	FavoritesUC    *usecase.ManageFavoritesUseCase
+	FaviconAdapter *adapter.FaviconAdapter
+	CopyURLUC      *usecase.CopyURLUseCase
+	ShortcutsUC    *usecase.SearchShortcutsUseCase
+	DefaultSearch  string
+	// NormalizeNavigationURL resolves navigation input before search fallback.
+	// It is injected so local filesystem probing stays outside the domain URL package.
+	NormalizeNavigationURL func(ctx context.Context, input string) string
+	InitialBehavior        entity.OmniboxInitialBehavior
+	MostVisitedDays        int
+	SaveInitialBehavior    func(ctx context.Context, behavior entity.OmniboxInitialBehavior) error
+	UIScale                float64 // UI scale for favicon sizing
 	// OnNavigate is called when the user submits a URL; returning nil closes the omnibox.
 	OnNavigate         func(ctx context.Context, url string) error
 	OnToast            func(ctx context.Context, message string, level ToastLevel) // Callback to show toast notification
@@ -188,23 +205,24 @@ func NewOmnibox(ctx context.Context, cfg OmniboxConfig) *Omnibox {
 	sizeCfg := ResolveModalSizeConfig(cfg.SizeConfig, OmniboxSizeDefaults)
 
 	o := &Omnibox{
-		viewMode:              ViewModeHistory,
-		selectedIndex:         -1,
-		historyUC:             cfg.HistoryUC,
-		favoritesUC:           cfg.FavoritesUC,
-		faviconAdapter:        cfg.FaviconAdapter,
-		copyURLUC:             cfg.CopyURLUC,
-		shortcutsUC:           cfg.ShortcutsUC,
-		defaultSearch:         cfg.DefaultSearch,
-		initialBehavior:       cfg.InitialBehavior,
-		mostVisitedDays:       cfg.MostVisitedDays,
-		saveInitialBehaviorFn: cfg.SaveInitialBehavior,
-		onToast:               cfg.OnToast,
-		onAccentKeyPress:      cfg.OnAccentKeyPress,
-		onAccentKeyRelease:    cfg.OnAccentKeyRelease,
-		ctx:                   ctx,
-		uiScale:               uiScale,
-		sizeCfg:               sizeCfg,
+		viewMode:               ViewModeHistory,
+		selectedIndex:          -1,
+		historyUC:              cfg.HistoryUC,
+		favoritesUC:            cfg.FavoritesUC,
+		faviconAdapter:         cfg.FaviconAdapter,
+		copyURLUC:              cfg.CopyURLUC,
+		shortcutsUC:            cfg.ShortcutsUC,
+		defaultSearch:          cfg.DefaultSearch,
+		normalizeNavigationURL: cfg.NormalizeNavigationURL,
+		initialBehavior:        cfg.InitialBehavior,
+		mostVisitedDays:        cfg.MostVisitedDays,
+		saveInitialBehaviorFn:  cfg.SaveInitialBehavior,
+		onToast:                cfg.OnToast,
+		onAccentKeyPress:       cfg.OnAccentKeyPress,
+		onAccentKeyRelease:     cfg.OnAccentKeyRelease,
+		ctx:                    ctx,
+		uiScale:                uiScale,
+		sizeCfg:                sizeCfg,
 	}
 	o.idleCoalescer = mainloop.NewCoalescer(func(fn func()) {
 		var cb glib.SourceFunc = func(uintptr) bool {
@@ -2380,6 +2398,63 @@ func shouldPreferTypedURLNavigation(entryText string) bool {
 	return url.LooksLikeURL(entryText)
 }
 
+func resolveFavoriteToggleTarget(
+	mode ViewMode,
+	idx int,
+	suggestions []Suggestion,
+	favorites []Favorite,
+) (favoriteToggleTarget, bool) {
+	if mode == ViewModeHistory {
+		if idx < 0 || idx >= len(suggestions) {
+			return favoriteToggleTarget{}, false
+		}
+		s := suggestions[idx]
+		if s.URL == "" {
+			return favoriteToggleTarget{}, false
+		}
+		return favoriteToggleTarget{
+			url:         s.URL,
+			title:       s.Title,
+			wasFavorite: s.IsFavorite,
+		}, true
+	}
+
+	if idx < 0 || idx >= len(favorites) {
+		return favoriteToggleTarget{}, false
+	}
+	f := favorites[idx]
+	if f.ID == 0 {
+		return favoriteToggleTarget{}, false
+	}
+	return favoriteToggleTarget{
+		url:        f.URL,
+		title:      f.Title,
+		favoriteID: f.ID,
+	}, true
+}
+
+func resolveFavoriteToggleResultUpdate(
+	suggestions []Suggestion,
+	index int,
+	expectedURL string,
+	isFavorite bool,
+) favoriteToggleResultUpdate {
+	if index < 0 || index >= len(suggestions) {
+		return favoriteToggleResultUpdate{}
+	}
+	if suggestions[index].URL != expectedURL {
+		return favoriteToggleResultUpdate{}
+	}
+	return favoriteToggleResultUpdate{Apply: true, Index: index, IsFavorite: isFavorite}
+}
+
+func favoriteToggleErrorMessage(wasFavorite bool) string {
+	if wasFavorite {
+		return "Failed to remove favorite"
+	}
+	return "Failed to add favorite"
+}
+
 // toggleFavorite adds or removes the selected item from favorites.
 // In History mode: adds the selected item to favorites
 // In Favorites mode: removes the selected item from favorites
@@ -2410,19 +2485,20 @@ func (o *Omnibox) toggleFavorite() {
 			log.Debug().Msg("toggle favorite: empty URL")
 			return
 		}
+		target, ok := resolveFavoriteToggleTarget(mode, idx, suggestions, favorites)
+		if !ok {
+			return
+		}
 
 		go func() {
 			ctx := o.ctx
 			goLog := logging.FromContext(ctx)
 
-			result, err := o.favoritesUC.Toggle(ctx, s.URL, s.Title)
+			result, err := o.favoritesUC.Toggle(ctx, target.url, target.title)
 			if err != nil {
-				goLog.Error().Err(err).Str("url", s.URL).Msg("failed to toggle favorite")
+				goLog.Error().Err(err).Str("url", target.url).Msg("failed to toggle favorite")
 				if o.onToast != nil {
-					msg := "Failed to add favorite"
-					if s.IsFavorite {
-						msg = "Failed to remove favorite"
-					}
+					msg := favoriteToggleErrorMessage(target.wasFavorite)
 					cb := glib.SourceFunc(func(_ uintptr) bool {
 						o.onToast(ctx, msg, ToastError)
 						return false
@@ -2434,14 +2510,15 @@ func (o *Omnibox) toggleFavorite() {
 
 			// Update suggestion state
 			o.mu.Lock()
-			if idx < len(o.suggestions) && o.suggestions[idx].URL == s.URL {
-				o.suggestions[idx].IsFavorite = result.Added
+			update := resolveFavoriteToggleResultUpdate(o.suggestions, idx, target.url, result.Added)
+			if update.Apply {
+				o.suggestions[update.Index].IsFavorite = update.IsFavorite
 			}
 			o.mu.Unlock()
 
 			// Update row CSS and show toast on GTK main thread
 			cb := glib.SourceFunc(func(_ uintptr) bool {
-				o.updateRowFavoriteIndicator(idx, s.URL, result.Added)
+				o.updateRowFavoriteIndicator(idx, target.url, result.Added)
 				if o.onToast != nil {
 					o.onToast(ctx, result.Message, ToastSuccess)
 				}
@@ -2461,17 +2538,21 @@ func (o *Omnibox) toggleFavorite() {
 			log.Debug().Msg("remove favorite: invalid ID")
 			return
 		}
+		target, ok := resolveFavoriteToggleTarget(mode, idx, suggestions, favorites)
+		if !ok {
+			return
+		}
 		entryText := o.entry.GetText()
 
 		go func() {
 			ctx := o.ctx
 			log := logging.FromContext(ctx)
 
-			log.Debug().Int64("id", f.ID).Str("url", f.URL).Msg("removing from favorites")
+			log.Debug().Int64("id", target.favoriteID).Str("url", target.url).Msg("removing from favorites")
 
-			err := o.favoritesUC.Remove(ctx, entity.FavoriteID(f.ID))
+			err := o.favoritesUC.Remove(ctx, entity.FavoriteID(target.favoriteID))
 			if err != nil {
-				log.Error().Err(err).Int64("id", f.ID).Msg("failed to remove favorite")
+				log.Error().Err(err).Int64("id", target.favoriteID).Msg("failed to remove favorite")
 				// Show error toast
 				if o.onToast != nil {
 					cb := glib.SourceFunc(func(_ uintptr) bool {
@@ -2483,7 +2564,7 @@ func (o *Omnibox) toggleFavorite() {
 				return
 			}
 
-			log.Info().Int64("id", f.ID).Str("url", f.URL).Msg("favorite removed from omnibox")
+			log.Info().Int64("id", target.favoriteID).Str("url", target.url).Msg("favorite removed from omnibox")
 
 			// Refresh favorites list and show toast
 			o.mu.RLock()
@@ -2617,7 +2698,7 @@ func (o *Omnibox) buildURL(text string) string {
 	if o.shortcutsUC != nil {
 		shortcutURLs = o.shortcutsUC.ShortcutURLs()
 	}
-	return url.BuildSearchURL(text, shortcutURLs, o.defaultSearch)
+	return usecase.BuildNavigationURL(o.ctx, text, o.normalizeNavigationURL, shortcutURLs, o.defaultSearch)
 }
 
 // toggleViewMode switches between history and favorites.

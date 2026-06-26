@@ -26,7 +26,7 @@ func TestTabCoordinator_CloseTargetEmptyDoesNotQuitGlobally(t *testing.T) {
 	secondTabs.Add(entity.NewTab(entity.TabID("second-tab"), entity.WorkspaceID("ws-second"), entity.NewPane(entity.PaneID("pane-second"))))
 
 	gen := counterIDGen()
-	tabsUC := usecase.NewManageTabsUseCase(gen)
+	tabsUC := usecase.NewManageTabsUseCase(gen, nil)
 
 	coord := NewTabCoordinator(ctx, TabCoordinatorConfig{
 		TabsUC: tabsUC,
@@ -124,7 +124,7 @@ func TestTabCoordinator_SwitchByIndexUsesTargetTabListOnly(t *testing.T) {
 	secondTabs.Add(entity.NewTab(entity.TabID("second-tab-2"), entity.WorkspaceID("ws-second-2"), entity.NewPane(entity.PaneID("pane-second-2"))))
 
 	gen := counterIDGen()
-	tabsUC := usecase.NewManageTabsUseCase(gen)
+	tabsUC := usecase.NewManageTabsUseCase(gen, nil)
 
 	// Create TabCoordinator without global tabs (target-driven).
 	coord := NewTabCoordinator(ctx, TabCoordinatorConfig{
@@ -175,7 +175,7 @@ func TestTabCoordinator_CreateAndSwitchCallbacksCarryTarget(t *testing.T) {
 	secondTabs.Add(entity.NewTab(entity.TabID("second-tab-1"), entity.WorkspaceID("ws-second-1"), entity.NewPane(entity.PaneID("pane-second-1"))))
 	secondTabs.Add(entity.NewTab(entity.TabID("second-tab-2"), entity.WorkspaceID("ws-second-2"), entity.NewPane(entity.PaneID("pane-second-2"))))
 
-	coord := NewTabCoordinator(ctx, TabCoordinatorConfig{TabsUC: usecase.NewManageTabsUseCase(counterIDGen())})
+	coord := NewTabCoordinator(ctx, TabCoordinatorConfig{TabsUC: usecase.NewManageTabsUseCase(counterIDGen(), nil)})
 	coord.SetCurrentTarget(TabTarget{Tabs: firstTabs})
 
 	secondTarget := TabTarget{Tabs: secondTabs}
@@ -222,7 +222,7 @@ func TestTabCoordinator_SwitchByIndexCreatingCreatesMissingTabs(t *testing.T) {
 	secondTabs := entity.NewTabList()
 	secondTabs.Add(entity.NewTab(entity.TabID("second-tab-1"), entity.WorkspaceID("ws-second-1"), entity.NewPane(entity.PaneID("pane-second-1"))))
 
-	coord := NewTabCoordinator(ctx, TabCoordinatorConfig{TabsUC: usecase.NewManageTabsUseCase(counterIDGen())})
+	coord := NewTabCoordinator(ctx, TabCoordinatorConfig{TabsUC: usecase.NewManageTabsUseCase(counterIDGen(), nil)})
 
 	secondTarget := TabTarget{Tabs: secondTabs}
 
@@ -260,7 +260,7 @@ func TestTabCoordinator_SwitchByIndexCreatingMissingURLError(t *testing.T) {
 	targetTabs := entity.NewTabList()
 	targetTabs.Add(entity.NewTab(entity.TabID("tab-1"), entity.WorkspaceID("ws-1"), entity.NewPane(entity.PaneID("pane-1"))))
 
-	coord := NewTabCoordinator(ctx, TabCoordinatorConfig{TabsUC: usecase.NewManageTabsUseCase(counterIDGen())})
+	coord := NewTabCoordinator(ctx, TabCoordinatorConfig{TabsUC: usecase.NewManageTabsUseCase(counterIDGen(), nil)})
 
 	target := TabTarget{Tabs: targetTabs}
 

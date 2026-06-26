@@ -2,87 +2,168 @@ package config
 
 import (
 	"fmt"
-	"github.com/pelletier/go-toml/v2"
 	"io/fs"
 	"os"
+	"strings"
+
+	"github.com/pelletier/go-toml/v2"
 )
 
 // configFilePermissions is the file permission used when writing migrated config files.
 const configFilePermissions fs.FileMode = 0o644
 
-// engineMigrationMapping defines old key -> new key mappings for the engine migration.
-// Keys with empty new key ("") are dropped (not migrated).
-// The source section is the first part of the old key.
-type engineFieldMapping struct {
-	oldSection string
-	oldField   string
-	newSection string // "engine" or "engine.webkit"
-	newField   string // empty means drop
+// legacyEngineAlias defines the single metadata source for old engine config keys.
+// Dropped aliases are detected as legacy input but are not written to a new target.
+type legacyEngineAlias struct {
+	legacySection string
+	legacyField   string
+	targetSection string // "engine" or "engine.webkit"; empty when dropped
+	targetField   string // empty when dropped
+	dropped       bool
 }
 
-// engineUniversalMappings are fields that go into [engine] (not [engine.webkit]).
-var engineUniversalMappings = []engineFieldMapping{
+func (a legacyEngineAlias) legacyKey() string {
+	return a.legacySection + "." + a.legacyField
+}
+
+const (
+	engineTargetSection       = "engine"
+	engineWebKitTargetSection = "engine.webkit"
+)
+
+func legacyEngineTarget(legacySection, legacyField, targetSection, targetField string) legacyEngineAlias {
+	return legacyEngineAlias{
+		legacySection: legacySection,
+		legacyField:   legacyField,
+		targetSection: targetSection,
+		targetField:   targetField,
+	}
+}
+
+func legacyEngineSameTarget(legacySection, legacyField, targetSection string) legacyEngineAlias {
+	return legacyEngineTarget(legacySection, legacyField, targetSection, legacyField)
+}
+
+func droppedLegacyEngineAlias(legacySection, legacyField string) legacyEngineAlias {
+	return legacyEngineAlias{legacySection: legacySection, legacyField: legacyField, dropped: true}
+}
+
+// legacyEngineAliases is the canonical list of old-to-new engine config aliases.
+var legacyEngineAliases = []legacyEngineAlias{
 	// [performance] -> [engine]
-	{oldSection: "performance", oldField: "profile", newSection: "engine", newField: "profile"},
-	{oldSection: "performance", oldField: "zoom_cache_size", newSection: "engine", newField: "zoom_cache_size"},
-	{oldSection: "performance", oldField: "webview_pool_prewarm_count", newSection: "engine", newField: "pool_prewarm_count"},
+	legacyEngineSameTarget("performance", "profile", engineTargetSection),
+	legacyEngineSameTarget("performance", "zoom_cache_size", engineTargetSection),
+	legacyEngineTarget("performance", "webview_pool_prewarm_count", engineTargetSection, "pool_prewarm_count"),
 	// [privacy] -> [engine]
-	{oldSection: "privacy", oldField: "cookie_policy", newSection: "engine", newField: "cookie_policy"},
-}
+	legacyEngineSameTarget("privacy", "cookie_policy", engineTargetSection),
 
-// engineWebkitMappings are fields that go into [engine.webkit].
-var engineWebkitMappings = []engineFieldMapping{
 	// [privacy] -> [engine.webkit]
-	{oldSection: "privacy", oldField: "itp_enabled", newSection: "engine.webkit", newField: "itp_enabled"},
+	legacyEngineSameTarget("privacy", "itp_enabled", engineWebKitTargetSection),
 
 	// [rendering] -> [engine.webkit] (rendering.mode is dropped)
-	{oldSection: "rendering", oldField: "disable_dmabuf_renderer", newSection: "engine.webkit", newField: "disable_dmabuf_renderer"},
-	{oldSection: "rendering", oldField: "force_compositing_mode", newSection: "engine.webkit", newField: "force_compositing_mode"},
-	{oldSection: "rendering", oldField: "disable_compositing_mode", newSection: "engine.webkit", newField: "disable_compositing_mode"},
-	{oldSection: "rendering", oldField: "gsk_renderer", newSection: "engine.webkit", newField: "gsk_renderer"},
-	{oldSection: "rendering", oldField: "disable_mipmaps", newSection: "engine.webkit", newField: "disable_mipmaps"},
-	{oldSection: "rendering", oldField: "prefer_gl", newSection: "engine.webkit", newField: "prefer_gl"},
-	{oldSection: "rendering", oldField: "draw_compositing_indicators", newSection: "engine.webkit", newField: "draw_compositing_indicators"},
-	{oldSection: "rendering", oldField: "show_fps", newSection: "engine.webkit", newField: "show_fps"},
-	{oldSection: "rendering", oldField: "sample_memory", newSection: "engine.webkit", newField: "sample_memory"},
-	{oldSection: "rendering", oldField: "debug_frames", newSection: "engine.webkit", newField: "debug_frames"},
+	droppedLegacyEngineAlias("rendering", "mode"),
+	legacyEngineSameTarget("rendering", "disable_dmabuf_renderer", engineWebKitTargetSection),
+	legacyEngineSameTarget("rendering", "force_compositing_mode", engineWebKitTargetSection),
+	legacyEngineSameTarget("rendering", "disable_compositing_mode", engineWebKitTargetSection),
+	legacyEngineSameTarget("rendering", "gsk_renderer", engineWebKitTargetSection),
+	legacyEngineSameTarget("rendering", "disable_mipmaps", engineWebKitTargetSection),
+	legacyEngineSameTarget("rendering", "prefer_gl", engineWebKitTargetSection),
+	legacyEngineSameTarget("rendering", "draw_compositing_indicators", engineWebKitTargetSection),
+	legacyEngineSameTarget("rendering", "show_fps", engineWebKitTargetSection),
+	legacyEngineSameTarget("rendering", "sample_memory", engineWebKitTargetSection),
+	legacyEngineSameTarget("rendering", "debug_frames", engineWebKitTargetSection),
 
 	// [performance] -> [engine.webkit] (webkit-specific) — field names are identical
-	{oldSection: "performance", oldField: "skia_cpu_painting_threads",
-		newSection: "engine.webkit", newField: "skia_cpu_painting_threads"},
-	{oldSection: "performance", oldField: "skia_gpu_painting_threads",
-		newSection: "engine.webkit", newField: "skia_gpu_painting_threads"},
-	{oldSection: "performance", oldField: "skia_enable_cpu_rendering",
-		newSection: "engine.webkit", newField: "skia_enable_cpu_rendering"},
-	{oldSection: "performance", oldField: "web_process_memory_limit_mb",
-		newSection: "engine.webkit", newField: "web_process_memory_limit_mb"},
-	{oldSection: "performance", oldField: "web_process_memory_poll_interval_sec",
-		newSection: "engine.webkit", newField: "web_process_memory_poll_interval_sec"},
-	{oldSection: "performance", oldField: "web_process_memory_conservative_threshold",
-		newSection: "engine.webkit", newField: "web_process_memory_conservative_threshold"},
-	{oldSection: "performance", oldField: "web_process_memory_strict_threshold",
-		newSection: "engine.webkit", newField: "web_process_memory_strict_threshold"},
-	{oldSection: "performance", oldField: "network_process_memory_limit_mb",
-		newSection: "engine.webkit", newField: "network_process_memory_limit_mb"},
-	{oldSection: "performance", oldField: "network_process_memory_poll_interval_sec",
-		newSection: "engine.webkit", newField: "network_process_memory_poll_interval_sec"},
-	{oldSection: "performance", oldField: "network_process_memory_conservative_threshold",
-		newSection: "engine.webkit", newField: "network_process_memory_conservative_threshold"},
-	{oldSection: "performance", oldField: "network_process_memory_strict_threshold",
-		newSection: "engine.webkit", newField: "network_process_memory_strict_threshold"},
+	legacyEngineSameTarget("performance", "skia_cpu_painting_threads", engineWebKitTargetSection),
+	legacyEngineSameTarget("performance", "skia_gpu_painting_threads", engineWebKitTargetSection),
+	legacyEngineSameTarget("performance", "skia_enable_cpu_rendering", engineWebKitTargetSection),
+	legacyEngineSameTarget("performance", "web_process_memory_limit_mb", engineWebKitTargetSection),
+	legacyEngineSameTarget("performance", "web_process_memory_poll_interval_sec", engineWebKitTargetSection),
+	legacyEngineSameTarget("performance", "web_process_memory_conservative_threshold", engineWebKitTargetSection),
+	legacyEngineSameTarget("performance", "web_process_memory_strict_threshold", engineWebKitTargetSection),
+	legacyEngineSameTarget("performance", "network_process_memory_limit_mb", engineWebKitTargetSection),
+	legacyEngineSameTarget("performance", "network_process_memory_poll_interval_sec", engineWebKitTargetSection),
+	legacyEngineSameTarget("performance", "network_process_memory_conservative_threshold", engineWebKitTargetSection),
+	legacyEngineSameTarget("performance", "network_process_memory_strict_threshold", engineWebKitTargetSection),
 
 	// [media] GStreamer fields -> [engine.webkit]
-	{oldSection: "media", oldField: "force_vsync", newSection: "engine.webkit", newField: "force_vsync"},
-	{oldSection: "media", oldField: "gl_rendering_mode", newSection: "engine.webkit", newField: "gl_rendering_mode"},
-	{oldSection: "media", oldField: "gstreamer_debug_level", newSection: "engine.webkit", newField: "gstreamer_debug_level"},
+	legacyEngineSameTarget("media", "force_vsync", engineWebKitTargetSection),
+	legacyEngineSameTarget("media", "gl_rendering_mode", engineWebKitTargetSection),
+	legacyEngineSameTarget("media", "gstreamer_debug_level", engineWebKitTargetSection),
 
 	// [runtime] -> [engine.webkit]
-	{oldSection: "runtime", oldField: "prefix", newSection: "engine.webkit", newField: "prefix"},
+	legacyEngineSameTarget("runtime", "prefix", engineWebKitTargetSection),
 }
 
-// oldSectionsToRemove are the sections that are fully removed after migration
-// (media is not here because it has fields that stay).
-var oldSectionsToRemove = []string{"rendering", "performance", "privacy", "runtime"}
+func legacyEngineAliasesForSection(section string) []legacyEngineAlias {
+	aliases := make([]legacyEngineAlias, 0)
+	for _, alias := range legacyEngineAliases {
+		if alias.legacySection == section {
+			aliases = append(aliases, alias)
+		}
+	}
+	return aliases
+}
+
+func legacyEngineSectionsToRemove() []string {
+	sections := make([]string, 0)
+	seen := make(map[string]struct{})
+	for _, alias := range legacyEngineAliases {
+		if alias.legacySection == "media" {
+			continue
+		}
+		if _, ok := seen[alias.legacySection]; ok {
+			continue
+		}
+		seen[alias.legacySection] = struct{}{}
+		sections = append(sections, alias.legacySection)
+	}
+	return sections
+}
+
+func legacyEngineInputSections() []string {
+	sections := make([]string, 0)
+	seen := make(map[string]struct{})
+	for _, alias := range legacyEngineAliases {
+		if _, ok := seen[alias.legacySection]; ok {
+			continue
+		}
+		seen[alias.legacySection] = struct{}{}
+		sections = append(sections, alias.legacySection)
+	}
+	return sections
+}
+
+func legacyEngineInputSectionsMessage() string {
+	sections := legacyEngineInputSections()
+	formatted := make([]string, 0, len(sections))
+	for _, section := range sections {
+		formatted = append(formatted, "["+section+"]")
+	}
+	return strings.Join(formatted, ", ")
+}
+
+func hasLegacyEngineAlias(raw map[string]any, alias legacyEngineAlias) bool {
+	sectionAny, exists := raw[alias.legacySection]
+	if !exists {
+		return false
+	}
+	sectionMap, ok := sectionAny.(map[string]any)
+	if !ok {
+		return false
+	}
+	_, exists = sectionMap[alias.legacyField]
+	return exists
+}
+
+func canonicalLegacyEngineValue(alias legacyEngineAlias, val any) any {
+	if alias.targetSection == engineTargetSection && alias.targetField == "cookie_policy" {
+		if cookiePolicy, ok := val.(string); ok && cookiePolicy == "accept_all" {
+			return string(CookiePolicyAlways)
+		}
+	}
+	return val
+}
 
 // MigrateToEngineConfig restructures old top-level config sections into [engine]/[engine.webkit].
 // Returns true if migration was performed, false if already migrated or no old sections found.
@@ -93,7 +174,7 @@ func MigrateToEngineConfig(configFile string) (bool, error) {
 	}
 
 	if _, exists := raw["engine"]; exists {
-		for _, section := range []string{"rendering", "performance", "privacy", "runtime"} {
+		for _, section := range legacyEngineSectionsToRemove() {
 			if _, hasLegacy := raw[section]; hasLegacy {
 				return false, fmt.Errorf(
 					"mixed old/new config: [engine] coexists with legacy [%s]; "+
@@ -102,16 +183,13 @@ func MigrateToEngineConfig(configFile string) (bool, error) {
 				)
 			}
 		}
-		// Check for deprecated media keys that moved to [engine.webkit].
-		if mediaRaw, ok := raw["media"].(map[string]any); ok {
-			for _, key := range []string{"force_vsync", "gl_rendering_mode", "gstreamer_debug_level"} {
-				if _, has := mediaRaw[key]; has {
-					return false, fmt.Errorf(
-						"mixed old/new config: [engine] coexists with deprecated "+
-							"media.%s; remove it from [media] (now in [engine.webkit])",
-						key,
-					)
-				}
+		for _, alias := range legacyEngineAliasesForSection("media") {
+			if hasLegacyEngineAlias(raw, alias) {
+				return false, fmt.Errorf(
+					"mixed old/new config: [engine] coexists with deprecated "+
+						"media.%s; remove it from [media] (now in [engine.webkit])",
+					alias.legacyField,
+				)
 			}
 		}
 		return false, nil // already migrated
@@ -150,18 +228,14 @@ func readRawTOML(path string) (map[string]any, error) {
 
 // hasOldEngineSections checks if the raw config has old sections that need migration.
 func hasOldEngineSections(raw map[string]any) bool {
-	for _, section := range []string{"rendering", "performance", "privacy", "runtime"} {
+	for _, section := range legacyEngineSectionsToRemove() {
 		if _, exists := raw[section]; exists {
 			return true
 		}
 	}
-	if mediaAny, exists := raw["media"]; exists {
-		if media, ok := mediaAny.(map[string]any); ok {
-			for _, f := range []string{"force_vsync", "gl_rendering_mode", "gstreamer_debug_level"} {
-				if _, has := media[f]; has {
-					return true
-				}
-			}
+	for _, alias := range legacyEngineAliasesForSection("media") {
+		if hasLegacyEngineAlias(raw, alias) {
+			return true
 		}
 	}
 	return false
@@ -172,14 +246,20 @@ func applyEngineMappings(raw map[string]any) {
 	engineMap := make(map[string]any)
 	webkitMap := make(map[string]any)
 
-	for _, m := range engineUniversalMappings {
-		if val := getSectionField(raw, m.oldSection, m.oldField); val != nil {
-			engineMap[m.newField] = val
+	for _, alias := range legacyEngineAliases {
+		if alias.dropped {
+			continue
 		}
-	}
-	for _, m := range engineWebkitMappings {
-		if val := getSectionField(raw, m.oldSection, m.oldField); val != nil {
-			webkitMap[m.newField] = val
+		val := getSectionField(raw, alias.legacySection, alias.legacyField)
+		if val == nil {
+			continue
+		}
+		val = canonicalLegacyEngineValue(alias, val)
+		switch alias.targetSection {
+		case engineTargetSection:
+			engineMap[alias.targetField] = val
+		case engineWebKitTargetSection:
+			webkitMap[alias.targetField] = val
 		}
 	}
 
@@ -189,14 +269,14 @@ func applyEngineMappings(raw map[string]any) {
 	}
 	raw["engine"] = engineMap
 
-	for _, section := range oldSectionsToRemove {
+	for _, section := range legacyEngineSectionsToRemove() {
 		delete(raw, section)
 	}
 
 	stripMigratedMediaFields(raw)
 }
 
-// stripMigratedMediaFields removes GStreamer fields from [media] while keeping the rest.
+// stripMigratedMediaFields removes migrated fields from [media] while keeping the rest.
 func stripMigratedMediaFields(raw map[string]any) {
 	mediaAny, exists := raw["media"]
 	if !exists {
@@ -206,9 +286,9 @@ func stripMigratedMediaFields(raw map[string]any) {
 	if !ok {
 		return
 	}
-	delete(media, "force_vsync")
-	delete(media, "gl_rendering_mode")
-	delete(media, "gstreamer_debug_level")
+	for _, alias := range legacyEngineAliasesForSection("media") {
+		delete(media, alias.legacyField)
+	}
 	if len(media) == 0 {
 		delete(raw, "media")
 	}
