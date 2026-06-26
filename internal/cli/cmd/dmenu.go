@@ -218,22 +218,20 @@ func parseSelection(selection string) string {
 		return ""
 	}
 
-	// Use BuildSearchURL to handle bang shortcuts, URLs, and search queries.
 	// Existing local paths are resolved before URL/search fallback so dmenu keeps
 	// the same file:// behavior as the in-app omnibox.
 	app := GetApp()
 	if app != nil {
-		if _, _, found := domainurl.ParseBangShortcut(selection); !found {
-			normalizer := app.NavigationURLNormalizer
-			if normalizer == nil {
-				normalizer = usecase.NewNavigationURLNormalizer(app.LocalPaths)
-			}
-			normalized := normalizer.Normalize(context.Background(), selection)
-			if normalized != selection {
-				return normalized
-			}
+		normalizer := app.NavigationURLNormalizer
+		if normalizer == nil {
+			normalizer = usecase.NewNavigationURLNormalizer(app.LocalPaths)
 		}
-		return domainurl.BuildSearchURL(selection, app.Config.ShortcutURLs(), app.Config.DefaultSearchEngine)
+		return normalizer.BuildNavigationURL(
+			context.Background(),
+			selection,
+			app.Config.ShortcutURLs(),
+			app.Config.DefaultSearchEngine,
+		)
 	}
 
 	// Fallback: add https:// scheme if no app context

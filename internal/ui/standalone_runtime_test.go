@@ -3,10 +3,34 @@ package ui
 import (
 	"context"
 	"errors"
+	stdurl "net/url"
+	"path/filepath"
 	"testing"
 
 	urlutil "github.com/bnema/dumber/internal/domain/url"
 )
+
+type standaloneTestLocalPathResolver struct {
+	paths map[string]string
+}
+
+func (r standaloneTestLocalPathResolver) ResolveExistingPath(_ context.Context, input string) (string, bool, error) {
+	absPath, ok := r.paths[input]
+	return absPath, ok, nil
+}
+
+func TestNewStandaloneOmniboxRuntimeUsesExplicitLocalPathResolver(t *testing.T) {
+	absFile := filepath.Join(string(filepath.Separator), "tmp", "page.html")
+	runtime := NewStandaloneOmniboxRuntime(context.Background(), &Dependencies{
+		LocalPathResolver: standaloneTestLocalPathResolver{paths: map[string]string{"page.html": absFile}},
+	}, nil)
+
+	got := runtime.OmniboxCfg.NormalizeNavigationURL(context.Background(), "page.html")
+	want := (&stdurl.URL{Scheme: "file", Path: absFile}).String()
+	if got != want {
+		t.Fatalf("NormalizeNavigationURL(page.html) = %q, want %q", got, want)
+	}
+}
 
 func TestHandleStandaloneOmniboxNavigation_UsesFreshBrowserWindowForHTTP(t *testing.T) {
 	browserURL := ""

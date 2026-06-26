@@ -89,8 +89,8 @@ func TestMigrateToEngineConfig_OldFormat(t *testing.T) {
 	assert.Equal(t, int64(50), engine["zoom_cache_size"])
 	assert.Equal(t, int64(2), engine["pool_prewarm_count"])
 
-	// [privacy] -> [engine] universal field
-	assert.Equal(t, "accept_all", engine["cookie_policy"])
+	// [privacy] -> [engine] universal field, translated to canonical schema value
+	assert.Equal(t, "always", engine["cookie_policy"])
 
 	// [engine.webkit] section
 	webkitAny, ok := engine["webkit"]

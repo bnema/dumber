@@ -321,9 +321,16 @@ func (m *Manager) checkLegacyFormat() error {
 		}
 	}
 
-	hasEngineSection := m.viper.InConfig("engine.type")
+	hasEngineSection := m.hasEngineSectionInConfig()
 
-	if hasOldSections && !hasEngineSection {
+	if hasOldSections && hasEngineSection {
+		return fmt.Errorf(
+			"mixed old/new config: [engine] coexists with legacy engine keys in %s; "+
+				"remove legacy keys or migrate from a purely legacy config",
+			legacyEngineInputSectionsMessage(),
+		)
+	}
+	if hasOldSections {
 		return fmt.Errorf(
 			"config format outdated: legacy engine keys in %s have moved to "+
 				"[engine]/[engine.webkit] — run \"dumber config migrate\" "+
@@ -332,6 +339,17 @@ func (m *Manager) checkLegacyFormat() error {
 		)
 	}
 	return nil
+}
+
+func (m *Manager) hasEngineSectionInConfig() bool {
+	if configFile := m.viper.ConfigFileUsed(); configFile != "" {
+		raw, err := readRawTOML(configFile)
+		if err == nil {
+			_, exists := raw["engine"]
+			return exists
+		}
+	}
+	return m.viper.InConfig("engine.type")
 }
 
 func (m *Manager) unmarshalConfig() (*Config, error) {

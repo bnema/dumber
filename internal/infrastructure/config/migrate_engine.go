@@ -156,6 +156,15 @@ func hasLegacyEngineAlias(raw map[string]any, alias legacyEngineAlias) bool {
 	return exists
 }
 
+func canonicalLegacyEngineValue(alias legacyEngineAlias, val any) any {
+	if alias.targetSection == engineTargetSection && alias.targetField == "cookie_policy" {
+		if cookiePolicy, ok := val.(string); ok && cookiePolicy == "accept_all" {
+			return string(CookiePolicyAlways)
+		}
+	}
+	return val
+}
+
 // MigrateToEngineConfig restructures old top-level config sections into [engine]/[engine.webkit].
 // Returns true if migration was performed, false if already migrated or no old sections found.
 func MigrateToEngineConfig(configFile string) (bool, error) {
@@ -245,6 +254,7 @@ func applyEngineMappings(raw map[string]any) {
 		if val == nil {
 			continue
 		}
+		val = canonicalLegacyEngineValue(alias, val)
 		switch alias.targetSection {
 		case engineTargetSection:
 			engineMap[alias.targetField] = val

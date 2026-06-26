@@ -89,6 +89,8 @@ type Dependencies struct {
 	SessionSpawner port.SessionSpawner
 	// FileSystem provides file operations (e.g., for download deduplication).
 	FileSystem port.FileSystem
+	// LocalPathResolver resolves user-entered local filesystem paths for navigation.
+	LocalPathResolver port.LocalPathResolver
 
 	// Update management
 	CheckUpdateUC *usecase.CheckUpdateUseCase

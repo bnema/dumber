@@ -29,6 +29,22 @@ func TestCheckLegacyFormat_OldSectionsWithEngine_ReturnsError(t *testing.T) {
 	require.Error(t, err)
 	require.Contains(t, err.Error(), "dumber config migrate")
 }
+func TestCheckLegacyFormat_MixedEngineSectionReturnsMixedConfigError(t *testing.T) {
+	dir := t.TempDir()
+	configPath := filepath.Join(dir, "config.toml")
+	require.NoError(t, os.WriteFile(configPath, []byte("[engine]\nprofile = \"balanced\"\n\n[rendering]\ngsk_renderer = \"auto\"\n"), 0o600))
+
+	m := &Manager{viper: viper.New()}
+	m.viper.SetConfigFile(configPath)
+	m.viper.SetConfigType("toml")
+	require.NoError(t, m.viper.ReadInConfig())
+
+	err := m.checkLegacyFormat()
+
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "mixed old/new config")
+	require.NotContains(t, err.Error(), "dumber config migrate")
+}
 
 func TestCheckLegacyFormat_FreshConfig_ReturnsNoError(t *testing.T) {
 	m := &Manager{viper: viper.New()}

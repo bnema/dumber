@@ -1252,7 +1252,7 @@ func NewStandaloneOmniboxRuntime(
 	}
 	var localPathResolver port.LocalPathResolver
 	if deps != nil {
-		localPathResolver, _ = deps.FileSystem.(port.LocalPathResolver)
+		localPathResolver = deps.LocalPathResolver
 	}
 	navigationURLNormalizer := usecase.NewNavigationURLNormalizer(localPathResolver)
 	normalizeNavigationURL := func(navCtx context.Context, input string) string {

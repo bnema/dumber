@@ -18,14 +18,58 @@ func TestZoomConversionsRoundTrip(t *testing.T) {
 	}
 }
 
-func TestZoomConversionsCompensateDeviceSizedOSRBackingInternally(t *testing.T) {
-	for _, backing := range []float64{1.0, 1.25, 1.44, 2.0} {
-		for _, pageZoom := range []float64{1.0, 1.75} {
-			t.Run(fmt.Sprintf("backing_%.2f_page_%.2f", backing, pageZoom), func(t *testing.T) {
-				level := cefZoomFromPageAndBackingFactor(pageZoom, backing)
-				assert.InDelta(t, pageZoom/backing, factorFromCEFZoom(level), 1e-9)
-				assert.InDelta(t, pageZoom, pageZoomFromCEFAndBackingLevel(level, backing), 1e-9)
-			})
-		}
+func TestZoomConversionsCompensateDeviceSizedOSRBackingAndSurfaceScale(t *testing.T) {
+	tests := []struct {
+		name         string
+		surfaceScale float64
+		backingScale float64
+		pageZoom     float64
+		wantInternal float64
+	}{
+		{
+			name:         "fractional_hidpi_keeps_100_percent_internal_zoom",
+			surfaceScale: 1.2,
+			backingScale: 1.2,
+			pageZoom:     1.0,
+			wantInternal: 1.0,
+		},
+		{
+			name:         "integer_hidpi_keeps_requested_user_zoom",
+			surfaceScale: 2.0,
+			backingScale: 2.0,
+			pageZoom:     1.2,
+			wantInternal: 1.2,
+		},
+		{
+			name:         "normal_osr_hidpi_keeps_requested_user_zoom",
+			surfaceScale: 1.2,
+			backingScale: 1.0,
+			pageZoom:     1.0,
+			wantInternal: 1.0,
+		},
+		{
+			name:         "device_sized_backing_remains_compensated",
+			surfaceScale: 1.25,
+			backingScale: 2.0,
+			pageZoom:     1.2,
+			wantInternal: 0.75,
+		},
 	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			level := cefZoomFromPageAndScaleFactors(tt.pageZoom, tt.surfaceScale, tt.backingScale)
+			assert.InDelta(t, tt.wantInternal, factorFromCEFZoom(level), 1e-9)
+			assert.InDelta(t, tt.pageZoom, pageZoomFromCEFAndScaleLevel(level, tt.surfaceScale, tt.backingScale), 1e-9)
+		})
+	}
+}
+
+func TestZoomReapplyGuardTracksEffectiveScaleRatio(t *testing.T) {
+	wv := &WebView{}
+
+	wv.recordAppliedZoomScaleRatio(1.2, 1.2)
+
+	assert.False(t, wv.shouldReapplyZoomForScaleRatio(2.0, 2.0), "same effective ratio should not reapply")
+	assert.True(t, wv.shouldReapplyZoomForScaleRatio(1.2, 2.0), "changed active-backing ratio should reapply")
 }

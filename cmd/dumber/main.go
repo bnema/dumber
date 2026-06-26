@@ -883,6 +883,7 @@ func buildUIDependencies(
 	focusProvider := textinput.NewFocusProvider()
 	browserLauncher := desktop.NewBrowserLauncher(browserLaunchRelay)
 	runtimeConfig := bootstrap.NewRuntimeConfigProvider(cfg, config.GetManager())
+	localPaths := filesystem.New()
 
 	uiDeps := &ui.Dependencies{
 		Ctx:                  ctx,
@@ -936,7 +937,8 @@ func buildUIDependencies(
 		CheckUpdateUC:       uc.checkUpdate,
 		ApplyUpdateUC:       uc.applyUpdate,
 		SessionSpawner:      bootstrap.NewSessionSpawner(ctx, runtimeProfile),
-		FileSystem:          filesystem.New(),
+		FileSystem:          localPaths,
+		LocalPathResolver:   localPaths,
 		AccentFocusProvider: focusProvider,
 		NewGTKEntryTarget: func(entry *gtk.SearchEntry) port.TextInputTarget {
 			return textinput.NewGTKEntryTarget(entry)

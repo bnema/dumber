@@ -245,6 +245,18 @@ When Noctalia rewrites the watched file, Dumber reapplies the same resolved them
 | Key | Type | Default | Description |
 |-----|------|---------|-------------|
 | `debug.enable_devtools` | bool | `true` | Enable browser developer tools (F12, Inspect Element) |
+| `engine.cef.log_file` | string | `""` | CEF runtime log path |
+| `engine.cef.log_severity` | int32 | `0` | CEF log severity (`0`, `1`, `2`, `3`, `4`, `99`) |
+| `engine.cef.trace_handlers` | bool | `false` | Log CEF handler dispatch details |
+| `engine.cef.enable_audio_handler` | bool | `true` | Enable the experimental CEF audio handler |
+
+## Privacy
+
+| Key | Type | Default | Valid Values | Description |
+|-----|------|---------|--------------|-------------|
+| `engine.cookie_policy` | string | `"always"` | `always`, `no_third_party`, `never` | Cookie acceptance policy |
+| `engine.webkit.itp_enabled` | bool | `true` | - | Enable WebKit fallback Intelligent Tracking Prevention |
+
 
 ## Rendering, UI Scale & Zoom
 
@@ -263,7 +275,7 @@ CEF is the default browser engine. WebKitGTK remains available as a fallback via
 | `engine.cef.input.scroll_vertical_multiplier` | float | `1.0` | `> 0` | Vertical scroll sensitivity multiplier; combines with `scroll_precise_multiplier` for touchpads |
 | `engine.cef.input.scroll_max_delta` | int32 | `0` | `>= 0` | Maximum absolute scroll delta after scaling; 0 disables clamping |
 | `engine.cef.input.touchpad_navigation_enabled` | bool | `true` | - | Enable two-finger touchpad swipe back/forward navigation |
-| `engine.cef.input.touchpad_navigation_min_delta` | float | `200.0` | `> 0` | Minimum accumulated horizontal swipe delta required for navigation |
+| `engine.cef.input.touchpad_navigation_min_delta` | float | `320.0` | `> 0` | Minimum accumulated horizontal swipe delta required for navigation |
 | `engine.cef.input.touchpad_navigation_max_vertical_ratio` | float | `0.5` | `> 0` | Maximum vertical-to-horizontal delta ratio allowed for navigation swipes |
 | `engine.webkit.gsk_renderer` | string | `"auto"` | `auto`, `opengl`, `vulkan`, `cairo` | WebKit fallback GTK renderer selection (`GSK_RENDERER`) |
 | `engine.webkit.disable_dmabuf_renderer` | bool | `false` | - | Disable WebKit fallback DMA-BUF renderer |
@@ -283,7 +295,7 @@ CEF is the default browser engine. WebKitGTK remains available as a fallback via
 
 `engine.cef.input.scroll_precise_multiplier` controls touchpad/high-resolution wheel scroll speed, and `engine.cef.input.scroll_vertical_multiplier` applies an additional vertical-only scale. `engine.cef.input.touchpad_navigation_max_vertical_ratio` only filters horizontal back/forward swipe recognition; it does not tune vertical scroll speed.
 
-`engine.cef.input.touchpad_navigation_min_delta` uses raw GTK touchpad surface units for back/forward gestures. The default `200.0` matches WebKit-style commit distance to reduce accidental navigation; raise or lower it in `config.toml` to tune gesture sensitivity.
+`engine.cef.input.touchpad_navigation_min_delta` uses raw GTK touchpad surface units for back/forward gestures. The default `320.0` matches WebKit-style commit distance to reduce accidental navigation; raise or lower it in `config.toml` to tune gesture sensitivity.
 
 ### Legacy key migration
 

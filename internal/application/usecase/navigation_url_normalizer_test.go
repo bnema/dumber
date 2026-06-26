@@ -51,6 +51,21 @@ func TestNavigationURLNormalizerFallsBackToDomainNormalize(t *testing.T) {
 		t.Fatalf("Normalize(./missing.html) = %q", got)
 	}
 }
+func TestNavigationURLNormalizerBuildNavigationURLCentralizesSearchFallback(t *testing.T) {
+	ctx := context.Background()
+	absFile := filepath.Join(string(filepath.Separator), "tmp", "page.html")
+	normalizer := NewNavigationURLNormalizer(fakeLocalPathResolver{paths: map[string]string{
+		"page.html": absFile,
+	}})
+	shortcuts := map[string]string{"g": "https://google.com/search?q=%s"}
+
+	if got := normalizer.BuildNavigationURL(ctx, "page.html", shortcuts, "https://search.example/?q=%s"); got != "file://"+absFile {
+		t.Fatalf("BuildNavigationURL(local file) = %q, want file URL", got)
+	}
+	if got := normalizer.BuildNavigationURL(ctx, "!g cats", shortcuts, "https://search.example/?q=%s"); got != "https://google.com/search?q=cats" {
+		t.Fatalf("BuildNavigationURL(shortcut) = %q, want shortcut search", got)
+	}
+}
 
 func TestNavigationURLNormalizerDoesNotProbeSchemeBearingInputs(t *testing.T) {
 	ctx := context.Background()

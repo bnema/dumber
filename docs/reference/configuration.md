@@ -70,7 +70,7 @@
 | `engine.cef.input.scroll_vertical_multiplier` | float | `1.0` | > 0 |
 | `engine.cef.input.scroll_max_delta` | int32 | `0` | >= 0 |
 | `engine.cef.input.touchpad_navigation_enabled` | bool | `true` | |
-| `engine.cef.input.touchpad_navigation_min_delta` | float | `200.0` | > 0 |
+| `engine.cef.input.touchpad_navigation_min_delta` | float | `320.0` | > 0 |
 | `engine.cef.input.touchpad_navigation_max_vertical_ratio` | float | `0.5` | > 0 |
 | `engine.webkit.gsk_renderer` | string | `auto` | `auto`, `opengl`, `vulkan`, `cairo` (WebKit fallback only) |
 | `engine.webkit.disable_dmabuf_renderer` | bool | `false` | WebKit fallback only |
@@ -163,7 +163,7 @@
 
 Touchpad vertical scroll speed is controlled by `engine.cef.input.scroll_precise_multiplier` and the additional axis-specific `engine.cef.input.scroll_vertical_multiplier`. `engine.cef.input.touchpad_navigation_max_vertical_ratio` only filters horizontal back/forward swipe recognition; it does not tune vertical scroll speed.
 
-`engine.cef.input.touchpad_navigation_min_delta` is measured in raw GTK touchpad surface units. The default `200.0` matches WebKit-style commit distance to reduce accidental back/forward navigation and can be overridden in `config.toml`.
+`engine.cef.input.touchpad_navigation_min_delta` is measured in raw GTK touchpad surface units. The default `320.0` matches WebKit-style commit distance to reduce accidental back/forward navigation and can be overridden in `config.toml`.
 
 CEF is the default engine. WebKitGTK is a fallback selected with `engine.type = "webkit"`; `engine.webkit.*` keys are WebKit-specific.
 

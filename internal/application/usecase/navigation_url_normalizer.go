@@ -34,6 +34,33 @@ func (n *NavigationURLNormalizer) Normalize(ctx context.Context, input string) s
 	return domainurl.Normalize(input)
 }
 
+// BuildNavigationURL resolves local paths before applying bang shortcuts and search fallback.
+func (n *NavigationURLNormalizer) BuildNavigationURL(
+	ctx context.Context,
+	input string,
+	shortcutURLs map[string]string,
+	defaultSearch string,
+) string {
+	return BuildNavigationURL(ctx, input, n.normalize, shortcutURLs, defaultSearch)
+}
+
+// BuildNavigationURL resolves a user navigation string using the shared CLI/UI policy.
+func BuildNavigationURL(
+	ctx context.Context,
+	input string,
+	normalize func(context.Context, string) string,
+	shortcutURLs map[string]string,
+	defaultSearch string,
+) string {
+	if _, _, found := domainurl.ParseBangShortcut(input); !found && normalize != nil {
+		normalized := normalize(ctx, input)
+		if normalized != input {
+			return normalized
+		}
+	}
+	return domainurl.BuildSearchURL(input, shortcutURLs, defaultSearch)
+}
+
 func (n *NavigationURLNormalizer) normalize(ctx context.Context, input string) string {
 	if n == nil {
 		return domainurl.Normalize(input)

@@ -2698,13 +2698,7 @@ func (o *Omnibox) buildURL(text string) string {
 	if o.shortcutsUC != nil {
 		shortcutURLs = o.shortcutsUC.ShortcutURLs()
 	}
-	if _, _, found := url.ParseBangShortcut(text); !found && o.normalizeNavigationURL != nil {
-		normalized := o.normalizeNavigationURL(o.ctx, text)
-		if normalized != text {
-			return normalized
-		}
-	}
-	return url.BuildSearchURL(text, shortcutURLs, o.defaultSearch)
+	return usecase.BuildNavigationURL(o.ctx, text, o.normalizeNavigationURL, shortcutURLs, o.defaultSearch)
 }
 
 // toggleViewMode switches between history and favorites.

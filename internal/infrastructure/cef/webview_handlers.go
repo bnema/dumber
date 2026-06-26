@@ -783,7 +783,7 @@ func (h *handlerSet) attachAfterCreatedBrowser(
 
 	h.wv.browser = browser
 	h.wv.host = host
-	h.wv.lastAppliedOSRBackingScaleBits.Store(0)
+	h.wv.lastAppliedZoomScaleRatioBits.Store(0)
 	h.wv.pendingCreate = nil
 	bridge := h.wv.viewBridge
 	h.wv.inputAttached = bridge == nil
@@ -901,7 +901,7 @@ func (h *handlerSet) OnBeforeClose(browser purecef.Browser) {
 	h.wv.mu.Lock()
 	h.wv.browser = nil
 	h.wv.host = nil
-	h.wv.lastAppliedOSRBackingScaleBits.Store(0)
+	h.wv.lastAppliedZoomScaleRatioBits.Store(0)
 	h.wv.inputAttached = false
 	if h.wv.findCtrl != nil {
 		h.wv.findCtrl.setHost(nil)
