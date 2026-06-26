@@ -3,6 +3,7 @@ package usecase
 import (
 	"context"
 	stdurl "net/url"
+	"strings"
 
 	"github.com/bnema/dumber/internal/application/port"
 	domainurl "github.com/bnema/dumber/internal/domain/url"
@@ -55,5 +56,19 @@ func hasPreservedNavigationScheme(input string) bool {
 	if err != nil || parsed.Scheme == "" {
 		return false
 	}
-	return domainurl.Normalize(input) == input
+
+	scheme := strings.ToLower(parsed.Scheme)
+	lowerInput := strings.ToLower(input)
+
+	switch scheme {
+	case "http", "https", "dumb", "file", "vscode", "vscode-insiders", "spotify", "steam":
+		return strings.HasPrefix(lowerInput, scheme+"://") && domainurl.Normalize(input) == input
+	case "blob":
+		return strings.HasPrefix(lowerInput, "blob:") && strings.Contains(lowerInput, "://") &&
+			domainurl.Normalize(input) == input
+	case "about", "data", "javascript", "mailto":
+		return strings.HasPrefix(lowerInput, scheme+":") && domainurl.Normalize(input) == input
+	default:
+		return false
+	}
 }

@@ -9,6 +9,9 @@ import (
 	"github.com/bnema/dumber/internal/logging"
 )
 
+// ListAllSessionsLimit asks Execute to return every known session.
+const ListAllSessionsLimit = -1
+
 // ListSessionsUseCase handles listing sessions with their state information.
 type ListSessionsUseCase struct {
 	sessionRepo repository.SessionRepository
@@ -36,7 +39,7 @@ type ListSessionsOutput struct {
 func (uc *ListSessionsUseCase) Execute(ctx context.Context, currentSessionID entity.SessionID, limit int) (*ListSessionsOutput, error) {
 	log := logging.FromContext(ctx)
 
-	if limit <= 0 {
+	if limit == 0 {
 		limit = 50
 	}
 

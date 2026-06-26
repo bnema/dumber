@@ -69,8 +69,11 @@ func (r *sessionRepo) GetActive(ctx context.Context) (*entity.Session, error) {
 }
 
 func (r *sessionRepo) GetRecent(ctx context.Context, limit int) ([]*entity.Session, error) {
-	if limit <= 0 {
+	if limit == 0 {
 		limit = 20
+	}
+	if limit < 0 {
+		limit = -1
 	}
 	rows, err := r.queries.GetRecentSessions(ctx, int64(limit))
 	if err != nil {

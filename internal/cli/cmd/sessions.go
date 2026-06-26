@@ -1,6 +1,7 @@
 package cmd
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"os"
@@ -269,14 +270,19 @@ func findSessionByIDOrSuffix(idOrSuffix string) (*entity.SessionInfo, error) {
 		return nil, fmt.Errorf("session management not available")
 	}
 
+	ctx := cliApp.Ctx()
+	if ctx == nil {
+		ctx = context.Background()
+	}
+
 	// Get current session ID (empty if not running as browser)
 	var currentSessionID entity.SessionID
-	if active, err := cliApp.SessionUC.GetActiveSession(cliApp.Ctx()); err == nil && active != nil {
+	if active, err := cliApp.SessionUC.GetActiveSession(ctx); err == nil && active != nil {
 		currentSessionID = active.ID
 	}
 
-	// List all sessions
-	output, err := cliApp.ListSessionsUC.Execute(cliApp.Ctx(), currentSessionID, defaultSessionsLimit*5)
+	// List all sessions so restore/delete suffix lookup can find older sessions.
+	output, err := cliApp.ListSessionsUC.Execute(ctx, currentSessionID, usecase.ListAllSessionsLimit)
 	if err != nil {
 		return nil, fmt.Errorf("list sessions: %w", err)
 	}

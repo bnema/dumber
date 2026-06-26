@@ -382,6 +382,7 @@ func TestValidateConfig_WorkspaceNewPaneURLRejectsMissingBareRelativeValue(t *te
 	validationErr := validateConfig(cfg)
 	require.Error(t, validationErr)
 	assert.Contains(t, validationErr.Error(), "workspace.new_pane_url")
+	assert.Contains(t, validationErr.Error(), "relative local path cannot be resolved without config file context")
 }
 
 func TestValidateConfig_WebKitDefaultProfileIgnoresZeroGPUThreads(t *testing.T) {

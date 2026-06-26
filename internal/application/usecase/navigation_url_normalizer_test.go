@@ -21,12 +21,15 @@ func TestNavigationURLNormalizerResolvesExistingLocalPaths(t *testing.T) {
 	ctx := context.Background()
 	absFile := filepath.Join(string(filepath.Separator), "tmp", "page.html")
 	normalizer := NewNavigationURLNormalizer(fakeLocalPathResolver{paths: map[string]string{
-		absFile:       absFile,
-		"page.html":   absFile,
-		"~/page.html": absFile,
+		absFile:          absFile,
+		"page.html":      absFile,
+		"~/page.html":    absFile,
+		"notes:2026.txt": absFile,
+		"http:notes.txt": absFile,
+		"http:notes":     absFile,
 	}})
 
-	for _, input := range []string{absFile, "page.html", "~/page.html"} {
+	for _, input := range []string{absFile, "page.html", "~/page.html", "notes:2026.txt", "http:notes.txt", "http:notes"} {
 		t.Run(input, func(t *testing.T) {
 			got := normalizer.Normalize(ctx, input)
 			want := (&stdurl.URL{Scheme: "file", Path: absFile}).String()
