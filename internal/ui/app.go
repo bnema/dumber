@@ -343,7 +343,7 @@ func (a *App) onActivate(ctx context.Context) {
 	a.setupPoolBackgroundColor(ctx)
 	a.initLayoutInfrastructure()
 
-	if err := a.OpenFreshWindow(ctx, a.initialWindowURL()); err != nil {
+	if err := a.openInitialBrowserWindowShell(ctx, a.initialWindowURL()); err != nil {
 		log.Error().Err(err).Msg("failed to create main window")
 		return
 	}
@@ -2456,13 +2456,6 @@ func (a *App) createInitialTab(ctx context.Context) {
 	}
 
 	focusedWindow := a.lastFocusedBrowserWindow()
-	if tabs := a.tabListForBrowserWindow(focusedWindow); tabs != nil && tabs.Count() > 0 {
-		log.Debug().
-			Str("window_id", focusedWindow.id).
-			Int("tab_count", tabs.Count()).
-			Msg("initial tab creation skipped; focused window already has tabs")
-		return
-	}
 
 	// Create an initial tab using coordinator.
 	target := a.ensureTabTargetForBrowserWindow(focusedWindow)

@@ -83,6 +83,25 @@ func (a *App) createBrowserWindow(ctx context.Context, initialURL string) (*brow
 	return browserWindow, nil
 }
 
+func (a *App) openInitialBrowserWindowShell(ctx context.Context, initialURL string) error {
+	log := logging.FromContext(ctx)
+	created, err := a.createBrowserWindow(ctx, initialURL)
+	if err != nil {
+		log.Warn().Err(err).
+			Str("url_host", logging.SafeURLHost(initialURL)).
+			Int("window_count_after", len(a.browserWindows)).
+			Msg("ui: initial browser window shell creation failed")
+		return err
+	}
+	a.registerBrowserWindow(created)
+	log.Debug().
+		Str("window_id", created.id).
+		Str("url_host", logging.SafeURLHost(initialURL)).
+		Msg("ui: initial browser window shell registered")
+	a.activateBrowserWindow(created)
+	return nil
+}
+
 func (a *App) openFreshWindow(ctx context.Context, url string) error {
 	log := logging.FromContext(ctx)
 	log.Debug().
@@ -109,12 +128,6 @@ func (a *App) openFreshWindow(ctx context.Context, url string) error {
 		Str("window_id", created.id).
 		Int("window_count_after_register", len(a.browserWindows)).
 		Msg("ui: open fresh window registered browser window")
-
-	if len(a.browserWindows) == 1 && (url == "" || (a.deps != nil && a.deps.RestoreSessionID != "")) {
-		log.Debug().Str("window_id", created.id).Msg("ui: activating first browser window without initial tab")
-		a.activateBrowserWindow(created)
-		return nil
-	}
 
 	var openErr error
 	path := "tabs_uc"
