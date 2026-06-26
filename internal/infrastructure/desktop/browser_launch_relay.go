@@ -187,7 +187,8 @@ func setBrowserLaunchConnDeadline(ctx context.Context, conn net.Conn) error {
 }
 
 func validateBrowserLaunchSocketDirOwned(socketPath string, expectedUID uint32) error {
-	for dir := filepath.Dir(socketPath); ; dir = filepath.Dir(dir) {
+	socketDir := filepath.Dir(socketPath)
+	for dir := socketDir; ; dir = filepath.Dir(dir) {
 		info, err := os.Stat(dir)
 		if err != nil {
 			return fmt.Errorf("stat browser launch dir: %w", err)
@@ -196,13 +197,14 @@ func validateBrowserLaunchSocketDirOwned(socketPath string, expectedUID uint32) 
 		if !ok {
 			return nil
 		}
+
+		isSocketDir := dir == socketDir
 		if stat.Uid != expectedUID {
-			if stat.Uid == 0 {
-				return nil
+			if isSocketDir || stat.Uid != 0 {
+				return fmt.Errorf("browser launch dir owner mismatch: %s owned by uid %d, want uid %d", dir, stat.Uid, expectedUID)
 			}
-			return fmt.Errorf("browser launch dir owner mismatch: %s owned by uid %d, want uid %d", dir, stat.Uid, expectedUID)
 		}
-		if info.Mode().Perm()&0o022 != 0 {
+		if info.Mode().Perm()&0o022 != 0 && (isSocketDir || info.Mode()&os.ModeSticky == 0) {
 			return fmt.Errorf("browser launch dir permissions too broad: %s has mode %04o", dir, info.Mode().Perm())
 		}
 		if parent := filepath.Dir(dir); parent == dir {

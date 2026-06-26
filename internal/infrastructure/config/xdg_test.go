@@ -1,6 +1,7 @@
 package config
 
 import (
+	"os"
 	"path/filepath"
 	"testing"
 
@@ -29,6 +30,12 @@ func TestGetXDGDirs_DevUsesSharedSandboxLayout(t *testing.T) {
 	t.Chdir(wd)
 
 	t.Setenv("ENV", "dev")
+	runtimeDir, err := os.MkdirTemp("", "dbr-")
+	require.NoError(t, err)
+	t.Cleanup(func() {
+		_ = os.RemoveAll(runtimeDir)
+	})
+	t.Setenv("XDG_RUNTIME_DIR", runtimeDir)
 	dirs, err := GetXDGDirs()
 	require.NoError(t, err)
 	require.Equal(t, filepath.Join(wd, ".dev", appName, "config"), dirs.ConfigHome)
