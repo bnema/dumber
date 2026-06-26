@@ -10,6 +10,7 @@ import (
 
 const (
 	browserLaunchSocketName = "browser-launch.sock"
+	devIPCSocketPathLimit   = 104
 	engineWebKit            = "webkit"
 	engineCEF               = "cef"
 )
@@ -84,7 +85,10 @@ func Resolve(input ResolveInput) (Profile, error) {
 		}
 		root := filepath.Join(cwd, ".dev", "dumber")
 		engineRoot := filepath.Join(root, "engines", engine)
-		ipcRoot := devIPCRoot(input.Env, root, engine)
+		ipcRoot, err := devIPCRoot(input.Env, root, engine)
+		if err != nil {
+			return Profile{}, err
+		}
 		return Profile{
 			Mode:   ModeDev,
 			Engine: engine,
@@ -135,16 +139,36 @@ func Resolve(input ResolveInput) (Profile, error) {
 	}, nil
 }
 
-func devIPCRoot(env func(string) string, root, engine string) string {
-	base := envValue(env, "XDG_RUNTIME_DIR")
-	if base == "" {
-		base = envValue(env, "TMPDIR")
+func devIPCRoot(env func(string) string, root, engine string) (string, error) {
+	rootHash := devIPCRootHash(root)
+	for _, base := range []string{envValue(env, "XDG_RUNTIME_DIR"), envValue(env, "TMPDIR")} {
+		if base == "" {
+			continue
+		}
+		ipcRoot := devIPCRootFromBase(base, rootHash, engine)
+		if len(filepath.Join(ipcRoot, browserLaunchSocketName)) < devIPCSocketPathLimit {
+			return ipcRoot, nil
+		}
 	}
-	if base == "" {
-		base = "/tmp"
+
+	ipcRoot := filepath.Join(root, "runtime", engine)
+	socketPath := filepath.Join(ipcRoot, browserLaunchSocketName)
+	if len(socketPath) < devIPCSocketPathLimit {
+		return ipcRoot, nil
 	}
+	return "", fmt.Errorf(
+		"browser launch socket path too long: %d bytes; set XDG_RUNTIME_DIR or TMPDIR to a shorter runtime directory",
+		len(socketPath),
+	)
+}
+
+func devIPCRootFromBase(base, rootHash, engine string) string {
+	return filepath.Join(base, "dumber", "dev-"+rootHash, engine)
+}
+
+func devIPCRootHash(root string) string {
 	sum := sha256.Sum256([]byte(root))
-	return filepath.Join(base, "dumber", "dev-"+hex.EncodeToString(sum[:])[:12], engine)
+	return hex.EncodeToString(sum[:])[:12]
 }
 
 // normalizeEngine trims and lowercases the runtime engine name.

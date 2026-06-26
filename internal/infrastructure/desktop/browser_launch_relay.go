@@ -186,6 +186,31 @@ func setBrowserLaunchConnDeadline(ctx context.Context, conn net.Conn) error {
 	return conn.SetDeadline(deadline)
 }
 
+func validateBrowserLaunchSocketDirOwned(socketPath string, expectedUID uint32) error {
+	for dir := filepath.Dir(socketPath); ; dir = filepath.Dir(dir) {
+		info, err := os.Stat(dir)
+		if err != nil {
+			return fmt.Errorf("stat browser launch dir: %w", err)
+		}
+		stat, ok := info.Sys().(*syscall.Stat_t)
+		if !ok {
+			return nil
+		}
+		if stat.Uid != expectedUID {
+			if stat.Uid == 0 {
+				return nil
+			}
+			return fmt.Errorf("browser launch dir owner mismatch: %s owned by uid %d, want uid %d", dir, stat.Uid, expectedUID)
+		}
+		if info.Mode().Perm()&0o022 != 0 {
+			return fmt.Errorf("browser launch dir permissions too broad: %s has mode %04o", dir, info.Mode().Perm())
+		}
+		if parent := filepath.Dir(dir); parent == dir {
+			return nil
+		}
+	}
+}
+
 func (r *browserLaunchRelay) Listen(ctx context.Context, opener port.BrowserWindowOpener) (io.Closer, error) {
 	socketPath, err := r.socketPath()
 	if err != nil {
@@ -194,6 +219,9 @@ func (r *browserLaunchRelay) Listen(ctx context.Context, opener port.BrowserWind
 
 	if mkdirErr := os.MkdirAll(filepath.Dir(socketPath), browserLaunchDirPerm); mkdirErr != nil {
 		return nil, fmt.Errorf("create browser launch dir: %w", mkdirErr)
+	}
+	if ownerErr := validateBrowserLaunchSocketDirOwned(socketPath, uint32(os.Geteuid())); ownerErr != nil {
+		return nil, ownerErr
 	}
 	listener, err := net.ListenUnix("unix", &net.UnixAddr{Name: socketPath, Net: "unix"})
 	if err != nil {
@@ -207,6 +235,10 @@ func (r *browserLaunchRelay) Listen(ctx context.Context, opener port.BrowserWind
 		}
 		if live {
 			return nil, errors.New("browser launch relay already running")
+		}
+
+		if ownerErr := validateBrowserLaunchSocketDirOwned(socketPath, uint32(os.Geteuid())); ownerErr != nil {
+			return nil, ownerErr
 		}
 
 		if removeErr := os.Remove(socketPath); removeErr != nil && !os.IsNotExist(removeErr) {

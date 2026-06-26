@@ -1,6 +1,7 @@
 package bootstrap
 
 import (
+	"os"
 	"path/filepath"
 	"strings"
 	"testing"
@@ -53,7 +54,11 @@ func TestResolveRuntimeProfile_DevUsesEngineSpecificNamespaces(t *testing.T) {
 	wd := t.TempDir()
 	t.Chdir(wd)
 
-	runtimeDir := t.TempDir()
+	runtimeDir, err := os.MkdirTemp("", "dbr-")
+	require.NoError(t, err)
+	t.Cleanup(func() {
+		_ = os.RemoveAll(runtimeDir)
+	})
 	t.Setenv("ENV", "dev")
 	t.Setenv("XDG_RUNTIME_DIR", runtimeDir)
 	profile, err := ResolveRuntimeProfile(cfg)
