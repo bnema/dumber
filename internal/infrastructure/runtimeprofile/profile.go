@@ -1,6 +1,8 @@
 package runtimeprofile
 
 import (
+	"crypto/sha256"
+	"encoding/hex"
 	"fmt"
 	"path/filepath"
 	"strings"
@@ -82,7 +84,7 @@ func Resolve(input ResolveInput) (Profile, error) {
 		}
 		root := filepath.Join(cwd, ".dev", "dumber")
 		engineRoot := filepath.Join(root, "engines", engine)
-		ipcRoot := filepath.Join(root, "runtime", engine)
+		ipcRoot := devIPCRoot(input.Env, root, engine)
 		return Profile{
 			Mode:   ModeDev,
 			Engine: engine,
@@ -131,6 +133,18 @@ func Resolve(input ResolveInput) (Profile, error) {
 			BrowserLaunchSocket: filepath.Join(ipcRoot, browserLaunchSocketName),
 		},
 	}, nil
+}
+
+func devIPCRoot(env func(string) string, root, engine string) string {
+	base := envValue(env, "XDG_RUNTIME_DIR")
+	if base == "" {
+		base = envValue(env, "TMPDIR")
+	}
+	if base == "" {
+		base = "/tmp"
+	}
+	sum := sha256.Sum256([]byte(root))
+	return filepath.Join(base, "dumber", "dev-"+hex.EncodeToString(sum[:])[:12], engine)
 }
 
 // normalizeEngine trims and lowercases the runtime engine name.

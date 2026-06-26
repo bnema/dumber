@@ -2,6 +2,7 @@ package bootstrap
 
 import (
 	"path/filepath"
+	"strings"
 	"testing"
 
 	"github.com/bnema/dumber/internal/infrastructure/config"
@@ -52,12 +53,15 @@ func TestResolveRuntimeProfile_DevUsesEngineSpecificNamespaces(t *testing.T) {
 	wd := t.TempDir()
 	t.Chdir(wd)
 
+	runtimeDir := t.TempDir()
 	t.Setenv("ENV", "dev")
+	t.Setenv("XDG_RUNTIME_DIR", runtimeDir)
 	profile, err := ResolveRuntimeProfile(cfg)
 	require.NoError(t, err)
 	require.Equal(t, filepath.Join(wd, ".dev", "dumber", "state"), profile.Shared.StateDir)
 	require.Equal(t, filepath.Join(wd, ".dev", "dumber", "engines", "cef", "data"), profile.CEFUserDataDir())
-	require.Equal(t, filepath.Join(wd, ".dev", "dumber", "runtime", "cef", "browser-launch.sock"), profile.IPC.BrowserLaunchSocket)
+	require.True(t, strings.HasPrefix(profile.IPC.BrowserLaunchSocket, filepath.Join(runtimeDir, "dumber", "dev-")))
+	require.Contains(t, profile.IPC.BrowserLaunchSocket, filepath.Join("cef", "browser-launch.sock"))
 }
 
 func TestResolveXDGRuntimeDir_UsesSharedRuntimeRootInDev(t *testing.T) {

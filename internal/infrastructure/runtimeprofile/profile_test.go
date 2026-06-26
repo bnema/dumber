@@ -2,6 +2,7 @@ package runtimeprofile
 
 import (
 	"errors"
+	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/require"
@@ -47,7 +48,32 @@ func TestResolve_DevCEF_SeparatesSharedEngineAndIPC(t *testing.T) {
 	require.Equal(t, "/repo/.dev/dumber/config", profile.Shared.ConfigDir)
 	require.Equal(t, "/repo/.dev/dumber/data", profile.Shared.DataDir)
 	require.Equal(t, "/repo/.dev/dumber/engines/cef/data", profile.CEFUserDataDir())
-	require.Equal(t, "/repo/.dev/dumber/runtime/cef/browser-launch.sock", profile.IPC.BrowserLaunchSocket)
+	require.True(t, strings.HasPrefix(profile.IPC.BrowserLaunchSocket, "/tmp/dumber/dev-"))
+	require.Contains(t, profile.IPC.BrowserLaunchSocket, "/cef/browser-launch.sock")
+}
+
+func TestResolve_DevIPCPathStaysShortForLongWorktrees(t *testing.T) {
+	longWorktree := "/tmp/" + strings.Repeat("long-worktree-name-", 5) + "project"
+
+	profile, err := Resolve(ResolveInput{
+		Env: func(key string) string {
+			switch key {
+			case "ENV":
+				return "dev"
+			case "XDG_RUNTIME_DIR":
+				return "/run/user/1000"
+			default:
+				return ""
+			}
+		},
+		Engine: "cef",
+		CWD:    func() (string, error) { return longWorktree, nil },
+	})
+
+	require.NoError(t, err)
+	require.Less(t, len(profile.IPC.BrowserLaunchSocket), 108)
+	require.True(t, strings.HasPrefix(profile.IPC.BrowserLaunchSocket, "/run/user/1000/dumber/dev-"))
+	require.Contains(t, profile.IPC.BrowserLaunchSocket, "/cef/browser-launch.sock")
 }
 
 func TestResolve_DevWebKitAndCEF_HaveDifferentTechnicalNamespaces(t *testing.T) {
