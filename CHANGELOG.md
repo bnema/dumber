@@ -4,6 +4,39 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+### Added
+
+- **CEF input tuning and touchpad navigation**: Added CEF scroll sensitivity settings plus deliberate two-finger back/forward swipe navigation with edge detection, threshold controls, and an on-screen progress indicator.
+- **Pane ejection to windows**: Pane Mode can move the active pane into a new browser window with the `eject-pane-to-window` action.
+- **Native history sidebar**: `Ctrl+H` now toggles a GTK history sidebar with grouped history, search/filtering, paging, keyboard navigation, configurable width, and live refresh when history changes.
+- **Favicon refresh and resolution pipeline**: Favicons are discovered, converted, cached, refreshed, and resolved through a path-aware cache with safer fallback behavior.
+- **Noctalia external theme integration**: Dumber can follow Noctalia `colors.json` palettes with live reload, last-good fallback, and an advanced Dumber-specific JSON theme format.
+
+### Changed
+
+- **Runtime configuration handling**: Engine, privacy, CEF/WebKit tuning, and clipboard settings now flow through typed runtime snapshots so active and newly acquired browser views use current settings consistently.
+- **History loading performance**: History timelines use stable cursor pagination bounded by row count, improving large-history loading and “load more” behavior.
+- **Navigation URL normalization**: Omnibox, dmenu, tab, and pane navigation now share consistent handling for existing local paths and `file://` URLs.
+- **Packaging and release checks**: AUR metadata now declares the CEF runtime dependency, `make check` verifies generated systemview assets, and GoReleaser validates the embedded compressed systemviews WASM before packaging.
+- **Tooling and dependencies**: Updated CEF bridge, Go dependencies, GitHub Actions, and pinned local lint/static analysis tooling.
+
+### Fixed
+
+- **CEF rendering stability**: CEF now respects effective HiDPI scale for zoom, keeps viewports synced during resize, and handles Vulkan/navigation handoff paths more reliably.
+- **Browser resource cleanup**: Closing tabs and windows now releases their WebViews through the normal lifecycle path, reducing leaked browser resources.
+- **Idle inhibition cleanup**: Fixed a portal signal cleanup race that could crash when idle-inhibitor connections were cleared.
+- **Session and filter maintenance**: Session cleanup now uses process liveness instead of ending unrelated active sessions, and content-filter updates better detect manifest changes while pruning obsolete cached parts.
+- **Pane operation safety**: Invalid split directions and failed pane moves are validated before mutating pane state.
+- **Loading/error states**: Failed main-frame navigations now leave loading skeletons and content state cleanly.
+- **Updater resilience**: Self-update checks retry transient request failures, including temporary DNS errors.
+- **WebKit fallback stability**: WebKit systemview message routing now snapshots base context safely under concurrent updates.
+
+### Security
+
+- **External scheme launch hardening**: External protocol redirects from page navigation no longer launch desktop handlers from untrusted paths or corrupt browser navigation state.
+- **Sensitive URL redaction**: Diagnostic logs redact URL paths, query strings, and fragments, and persistent log files/directories use user-private permissions.
+- **Local boundary hardening**: Filter downloads, manifest parsing, cache writes/lookups, systemview bridge access, and history query limits now enforce stricter path, size, trust, and validation boundaries.
+
 ## [0.29.0] - 2026-05-27
 
 ### Added
