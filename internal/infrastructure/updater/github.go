@@ -279,6 +279,11 @@ func isRetryableRequestError(err error) bool {
 		return true
 	}
 
+	var dnsErr *net.DNSError
+	if errors.As(err, &dnsErr) && dnsErr.IsTemporary {
+		return true
+	}
+
 	var opErr *net.OpError
 	if errors.As(err, &opErr) {
 		if isTransientSyscallError(opErr.Err) {

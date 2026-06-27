@@ -405,6 +405,7 @@ func TestIsRetryableRequestError(t *testing.T) {
 		{name: "context canceled", err: context.Canceled, want: false},
 		{name: "context deadline exceeded", err: context.DeadlineExceeded, want: true},
 		{name: "timeout net error", err: &net.DNSError{IsTimeout: true}, want: true},
+		{name: "temporary dns error", err: &net.DNSError{IsTemporary: true}, want: true},
 		{name: "non-timeout net error", err: &net.DNSError{Err: "lookup failed"}, want: false},
 		{name: "transient errno through net op error", err: &net.OpError{Op: "read", Net: "tcp", Err: syscall.ECONNRESET}, want: true},
 		{name: "non-transient errno", err: syscall.EINVAL, want: false},

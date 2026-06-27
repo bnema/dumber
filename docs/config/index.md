@@ -149,27 +149,29 @@ auto_open_on_new_pane = false
 ### Color Palettes
 
 **Light palette:**
+
 ```toml
 [appearance.light_palette]
-background = "#f8f8f8"
-surface = "#f2f2f2"
-surface_variant = "#ececec"
-text = "#1a1a1a"
-muted = "#6e6e6e"
-accent = "#404040"
-border = "#d2d2d2"
+background = "#fafafa"
+surface = "#f4f4f5"
+surface_variant = "#e4e4e7"
+text = "#18181b"
+muted = "#71717a"
+accent = "#22c55e"
+border = "#d4d4d8"
 ```
 
 **Dark palette:**
+
 ```toml
 [appearance.dark_palette]
-background = "#0e0e0e"
-surface = "#1a1a1a"
-surface_variant = "#141414"
-text = "#e4e4e4"
-muted = "#848484"
-accent = "#a8a8a8"
-border = "#363636"
+background = "#0a0a0b"
+surface = "#18181b"
+surface_variant = "#27272a"
+text = "#fafafa"
+muted = "#a1a1aa"
+accent = "#4ade80"
+border = "#3f3f46"
 ```
 
 ### External Theme: Noctalia

@@ -99,8 +99,8 @@ func (_c *MockLocalPathResolver_ResolveExistingPath_Call) Run(run func(ctx conte
 	return _c
 }
 
-func (_c *MockLocalPathResolver_ResolveExistingPath_Call) Return(s string, b bool, err error) *MockLocalPathResolver_ResolveExistingPath_Call {
-	_c.Call.Return(s, b, err)
+func (_c *MockLocalPathResolver_ResolveExistingPath_Call) Return(absPath string, ok bool, err error) *MockLocalPathResolver_ResolveExistingPath_Call {
+	_c.Call.Return(absPath, ok, err)
 	return _c
 }
 

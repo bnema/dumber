@@ -38,20 +38,20 @@
 | `appearance.external_theme.provider` | string | `noctalia` | `noctalia` |
 | `appearance.external_theme.format` | string | `colors-json` | `colors-json`, `dumber-json` |
 | `appearance.external_theme.path` | string | `$XDG_CONFIG_HOME/noctalia/colors.json` | path to Noctalia `colors.json` or a `dumber-json` theme file; when empty and `format = "dumber-json"`, dumber uses the built-in dumber-json template path |
-| `appearance.light_palette.background` | string | `#f8f8f8` | |
-| `appearance.light_palette.surface` | string | `#f2f2f2` | |
-| `appearance.light_palette.surface_variant` | string | `#ececec` | |
-| `appearance.light_palette.text` | string | `#1a1a1a` | |
-| `appearance.light_palette.muted` | string | `#6e6e6e` | |
-| `appearance.light_palette.accent` | string | `#404040` | |
-| `appearance.light_palette.border` | string | `#d2d2d2` | |
-| `appearance.dark_palette.background` | string | `#0e0e0e` | |
-| `appearance.dark_palette.surface` | string | `#1a1a1a` | |
-| `appearance.dark_palette.surface_variant` | string | `#141414` | |
-| `appearance.dark_palette.text` | string | `#e4e4e4` | |
-| `appearance.dark_palette.muted` | string | `#848484` | |
-| `appearance.dark_palette.accent` | string | `#a8a8a8` | |
-| `appearance.dark_palette.border` | string | `#363636` | |
+| `appearance.light_palette.background` | string | `#fafafa` | |
+| `appearance.light_palette.surface` | string | `#f4f4f5` | |
+| `appearance.light_palette.surface_variant` | string | `#e4e4e7` | |
+| `appearance.light_palette.text` | string | `#18181b` | |
+| `appearance.light_palette.muted` | string | `#71717a` | |
+| `appearance.light_palette.accent` | string | `#22c55e` | |
+| `appearance.light_palette.border` | string | `#d4d4d8` | |
+| `appearance.dark_palette.background` | string | `#0a0a0b` | |
+| `appearance.dark_palette.surface` | string | `#18181b` | |
+| `appearance.dark_palette.surface_variant` | string | `#27272a` | |
+| `appearance.dark_palette.text` | string | `#fafafa` | |
+| `appearance.dark_palette.muted` | string | `#a1a1aa` | |
+| `appearance.dark_palette.accent` | string | `#4ade80` | |
+| `appearance.dark_palette.border` | string | `#3f3f46` | |
 | `debug.enable_devtools` | bool | `true` | |
 | `engine.cef.log_file` | string | `` | CEF runtime log path |
 | `engine.cef.log_severity` | int32 | `0` | `0`, `1`, `2`, `3`, `4`, `99` |

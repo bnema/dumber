@@ -616,7 +616,7 @@ func safeSystemviewsAssetPath(assetDir, relPath string) (fullPath, cleanRelPath 
 	return fullPath, cleanRelPath, true
 }
 
-func readAssetWithEncoding(assets embed.FS, fullPath, relPath string) ([]byte, error) {
+func readAssetWithEncoding(assets fs.FS, fullPath, relPath string) ([]byte, error) {
 	if strings.HasSuffix(relPath, ".wasm") {
 		if compressed, err := fs.ReadFile(assets, fullPath+".br"); err == nil {
 			data, err := io.ReadAll(io.LimitReader(brotli.NewReader(bytes.NewReader(compressed)), maxSystemviewsWASMBytes+1))

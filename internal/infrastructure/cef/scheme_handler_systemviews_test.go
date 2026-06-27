@@ -1,10 +1,12 @@
 package cef
 
 import (
+	"bytes"
 	"net/url"
 	"testing"
+	"testing/fstest"
 
-	"github.com/bnema/dumber/assets"
+	"github.com/andybalholm/brotli"
 )
 
 func TestResolveAssetPath_SystemviewsRootsUseSystemviewsShell(t *testing.T) {
@@ -42,19 +44,34 @@ func TestResolveAssetPath_SystemviewsRootsUseSystemviewsShell(t *testing.T) {
 	}
 }
 
-func TestReadAssetWithEncoding_DecompressesEmbeddedBrotliWASM(t *testing.T) {
+func TestReadAssetWithEncoding_DecompressesBrotliWASM(t *testing.T) {
 	t.Parallel()
 
-	data, err := readAssetWithEncoding(assets.WebUIAssets, "systemviews/systemviews.wasm", "systemviews.wasm")
+	wasm := []byte("\x00asmfixture")
+	fsys := fstest.MapFS{
+		"systemviews/systemviews.wasm.br": {Data: brotliCompressForTest(t, wasm)},
+	}
+
+	data, err := readAssetWithEncoding(fsys, "systemviews/systemviews.wasm", "systemviews.wasm")
 	if err != nil {
 		t.Fatalf("readAssetWithEncoding() error = %v", err)
 	}
-	if len(data) < 4 {
-		t.Fatalf("decompressed wasm too short: got %d bytes", len(data))
+	if !bytes.Equal(data, wasm) {
+		t.Fatalf("decompressed wasm = %q, want %q", data, wasm)
 	}
-	if string(data[:4]) != "\x00asm" {
-		t.Fatalf("decompressed wasm magic = %q, want \\x00asm", data[:4])
+}
+
+func brotliCompressForTest(t *testing.T, data []byte) []byte {
+	t.Helper()
+	var buf bytes.Buffer
+	w := brotli.NewWriter(&buf)
+	if _, err := w.Write(data); err != nil {
+		t.Fatalf("brotli write: %v", err)
 	}
+	if err := w.Close(); err != nil {
+		t.Fatalf("brotli close: %v", err)
+	}
+	return buf.Bytes()
 }
 
 func mustParseURL(t *testing.T, raw string) *url.URL {
