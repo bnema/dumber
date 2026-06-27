@@ -4,6 +4,8 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+## [0.30.0] - 2026-06-27
+
 ### Added
 
 - **CEF input tuning and touchpad navigation**: Added CEF scroll sensitivity settings plus deliberate two-finger back/forward swipe navigation with edge detection, threshold controls, and an on-screen progress indicator.
