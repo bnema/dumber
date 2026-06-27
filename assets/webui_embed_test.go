@@ -31,4 +31,7 @@ func TestWebUIAssetsIncludesCompressedSystemviewsWASM(t *testing.T) {
 	if !bytes.Equal(header, wantHeader) {
 		t.Fatalf("embedded systemviews asset is not a WASM module: got header % x", header)
 	}
+	if _, err := io.ReadAll(reader); err != nil {
+		t.Fatalf("decompress embedded systemviews WASM body: %v", err)
+	}
 }
