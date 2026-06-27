@@ -1,12 +1,15 @@
 package webkit
 
 import (
+	"bytes"
 	"context"
 	"net/http"
 	"net/url"
 	"strings"
 	"testing"
+	"testing/fstest"
 
+	"github.com/andybalholm/brotli"
 	"github.com/bnema/dumber/assets"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -327,13 +330,27 @@ func TestResponseHeadersForPath_WASMIncludesContentTypeAndCORS(t *testing.T) {
 	assert.Equal(t, "GET, POST, OPTIONS", headers["Access-Control-Allow-Methods"])
 }
 
-func TestReadAssetWithEncodingDecompressesEmbeddedBrotliWASM(t *testing.T) {
+func TestReadAssetWithEncodingDecompressesBrotliWASM(t *testing.T) {
 	t.Parallel()
 
-	data, err := readAssetWithEncoding(assets.WebUIAssets, "systemviews/systemviews.wasm", "systemviews.wasm")
+	wasm := []byte("\x00asmfixture")
+	fsys := fstest.MapFS{
+		"systemviews/systemviews.wasm.br": {Data: brotliCompressForTest(t, wasm)},
+	}
+
+	data, err := readAssetWithEncoding(fsys, "systemviews/systemviews.wasm", "systemviews.wasm")
 	require.NoError(t, err)
-	require.GreaterOrEqual(t, len(data), 4)
-	assert.Equal(t, "\x00asm", string(data[:4]))
+	assert.Equal(t, wasm, data)
+}
+
+func brotliCompressForTest(t *testing.T, data []byte) []byte {
+	t.Helper()
+	var buf bytes.Buffer
+	w := brotli.NewWriter(&buf)
+	_, err := w.Write(data)
+	require.NoError(t, err)
+	require.NoError(t, w.Close())
+	return buf.Bytes()
 }
 
 func TestHandleAssetRejectsTraversalOutsideSystemviews(t *testing.T) {

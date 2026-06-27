@@ -1,10 +1,39 @@
 package webkit
 
 import (
+	"context"
+	"sync"
 	"testing"
 
 	"github.com/stretchr/testify/require"
 )
+
+type messageRouterContextKey struct{}
+
+func TestMessageRouterBaseContextConcurrentUpdate(t *testing.T) {
+	t.Parallel()
+
+	router := NewMessageRouter(context.Background())
+	var wg sync.WaitGroup
+	wg.Add(2)
+
+	go func() {
+		defer wg.Done()
+		for i := range 1000 {
+			router.SetBaseContext(context.WithValue(context.Background(), messageRouterContextKey{}, i))
+		}
+	}()
+	go func() {
+		defer wg.Done()
+		for range 1000 {
+			if router.baseContext() == nil {
+				t.Error("base context must never be nil")
+			}
+		}
+	}()
+
+	wg.Wait()
+}
 
 func TestIsTrustedBridgeURI(t *testing.T) {
 	t.Parallel()

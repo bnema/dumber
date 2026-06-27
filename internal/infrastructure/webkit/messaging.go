@@ -68,7 +68,22 @@ func (r *MessageRouter) SetBaseContext(ctx context.Context) {
 	if ctx == nil {
 		ctx = context.Background()
 	}
+	r.mu.Lock()
 	r.baseCtx = ctx
+	r.mu.Unlock()
+}
+
+func (r *MessageRouter) baseContext() context.Context {
+	if r == nil {
+		return context.Background()
+	}
+	r.mu.RLock()
+	ctx := r.baseCtx
+	r.mu.RUnlock()
+	if ctx == nil {
+		return context.Background()
+	}
+	return ctx
 }
 
 // RegisterHandler registers a handler for a message type.
@@ -116,7 +131,8 @@ func (r *MessageRouter) RegisterHandlerWithCallbacks(msgType, callback, errorCal
 // WebKit's messageHandlers is only available in main world.
 // The isolated world GUI scripts dispatch CustomEvents to main world, which forwards to this handler.
 func (r *MessageRouter) SetupMessageHandler(ucm *webkit.UserContentManager, _ string) (uint, error) {
-	log := logging.FromContext(r.baseCtx).With().Str("component", "message-router").Logger()
+	baseCtx := r.baseContext()
+	log := logging.FromContext(baseCtx).With().Str("component", "message-router").Logger()
 
 	log.Debug().Msg("SetupMessageHandler called")
 
@@ -166,7 +182,8 @@ func (r *MessageRouter) SetupMessageHandler(ucm *webkit.UserContentManager, _ st
 
 // handleScriptMessage decodes the JSC value and routes it to the correct handler.
 func (r *MessageRouter) handleScriptMessage(senderUCM webkit.UserContentManager, valuePtr uintptr) {
-	log := logging.FromContext(r.baseCtx).With().Str("component", "message-router").Logger()
+	baseCtx := r.baseContext()
+	log := logging.FromContext(baseCtx).With().Str("component", "message-router").Logger()
 
 	log.Debug().Uint64("value_ptr", uint64(valuePtr)).Msg("handleScriptMessage entry")
 
@@ -225,13 +242,11 @@ func (r *MessageRouter) handleScriptMessage(senderUCM webkit.UserContentManager,
 
 	entry, ok := r.getHandler(msg.Type)
 	if !ok || entry.handler == nil {
-		log.Warn().Str("type", msg.Type).Int("registered_handlers", len(r.handlers)).Msg("no handler registered for message type")
-		// Debug: list all registered handlers
-		r.mu.RLock()
-		for handlerType := range r.handlers {
+		handlerTypes := r.registeredHandlerTypes()
+		log.Warn().Str("type", msg.Type).Int("registered_handlers", len(handlerTypes)).Msg("no handler registered for message type")
+		for _, handlerType := range handlerTypes {
 			log.Debug().Str("registered_type", handlerType).Msg("available handler")
 		}
-		r.mu.RUnlock()
 		return
 	}
 
@@ -242,12 +257,12 @@ func (r *MessageRouter) handleScriptMessage(senderUCM webkit.UserContentManager,
 		Str("callback", entry.callback).
 		Msg("received script message, dispatching to handler")
 
-	resp, err := entry.handler.Handle(r.baseCtx, WebViewID(msg.WebViewID), msg.Payload)
+	resp, err := entry.handler.Handle(baseCtx, WebViewID(msg.WebViewID), msg.Payload)
 	log.Debug().Str("type", msg.Type).Err(err).Msg("handler execution completed")
 	if err != nil {
 		log.Error().Err(err).Str("type", msg.Type).Msg("message handler returned error")
 		if entry.errorCallback != "" {
-			if respErr := r.dispatchResponse(r.baseCtx, WebViewID(msg.WebViewID), entry.errorCallback, entry.world, err.Error()); respErr != nil {
+			if respErr := r.dispatchResponse(baseCtx, WebViewID(msg.WebViewID), entry.errorCallback, entry.world, err.Error()); respErr != nil {
 				log.Warn().Err(respErr).Msg("failed to dispatch error callback")
 			}
 		}
@@ -255,7 +270,7 @@ func (r *MessageRouter) handleScriptMessage(senderUCM webkit.UserContentManager,
 	}
 
 	if entry.callback != "" {
-		if err := r.dispatchResponse(r.baseCtx, WebViewID(msg.WebViewID), entry.callback, entry.world, resp); err != nil {
+		if err := r.dispatchResponse(baseCtx, WebViewID(msg.WebViewID), entry.callback, entry.world, resp); err != nil {
 			log.Warn().Err(err).
 				Str("callback", entry.callback).
 				Uint64("webview_id", msg.WebViewID).
@@ -291,7 +306,7 @@ func (r *MessageRouter) syncWebViewID(wv *WebView) {
 		return
 	}
 	script := fmt.Sprintf("window.__dumber_webview_id=%d;", uint64(wv.ID()))
-	wv.RunJavaScriptInWorld(r.baseCtx, script, "")
+	wv.RunJavaScriptInWorld(r.baseContext(), script, "")
 }
 
 func (r *MessageRouter) markWebViewIDSynced(id WebViewID) bool {
@@ -312,10 +327,20 @@ func (r *MessageRouter) getHandler(msgType string) (handlerEntry, bool) {
 	return entry, ok
 }
 
+func (r *MessageRouter) registeredHandlerTypes() []string {
+	r.mu.RLock()
+	defer r.mu.RUnlock()
+	types := make([]string, 0, len(r.handlers))
+	for handlerType := range r.handlers {
+		types = append(types, handlerType)
+	}
+	return types
+}
+
 // dispatchResponse serializes the payload and invokes a window callback in JS.
 func (r *MessageRouter) dispatchResponse(ctx context.Context, webviewID WebViewID, callback, world string, payload any) error {
 	if ctx == nil {
-		ctx = r.baseCtx
+		ctx = r.baseContext()
 	}
 
 	if callback == "" {

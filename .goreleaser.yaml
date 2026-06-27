@@ -4,8 +4,9 @@ version: 2
 
 before:
   hooks:
-    # Build systemviews assets before building binaries
+    # Build and verify systemviews assets before building binaries
     - make build-systemviews
+    - make verify-systemviews-assets
 
 builds:
   # Pure Go build (no CGO required)

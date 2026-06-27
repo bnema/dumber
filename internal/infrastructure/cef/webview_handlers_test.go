@@ -263,14 +263,14 @@ func TestHandleNativePopupAborted_PreservesPrimedNavigationForFallback(t *testin
 }
 
 func TestOnBeforePopup_TimesOutGTKDispatchAndBlocksPopup(t *testing.T) {
-	var delayed func()
+	delayed := make(chan func(), 1)
 	parentWV := &WebView{
 		ctx:            context.Background(),
 		id:             16,
 		gtkSyncTimeout: 5 * time.Millisecond,
 		gtkSyncIsOwner: func() bool { return false },
 		gtkSyncDispatch: func(fn func()) {
-			delayed = fn
+			delayed <- fn
 		},
 	}
 	var createCalls atomic.Int32
@@ -286,9 +286,13 @@ func TestOnBeforePopup_TimesOutGTKDispatchAndBlocksPopup(t *testing.T) {
 
 	require.True(t, blocked)
 	require.Zero(t, createCalls.Load())
-	require.NotNil(t, delayed)
 
-	delayed()
+	select {
+	case fn := <-delayed:
+		fn()
+	case <-time.After(time.Second):
+		t.Fatal("timed out waiting for delayed popup dispatch")
+	}
 	require.Zero(t, createCalls.Load())
 }
 

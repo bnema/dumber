@@ -1,6 +1,6 @@
 # Makefile for dumber (Clean Architecture - puregotk)
 
-.PHONY: build build-systemviews generate-systemviews build-quick install-local test lint staticcheck clean install-tools install-golangci-lint install-staticcheck dev generate help init man flatpak-deps flatpak-build flatpak-install flatpak-run flatpak-clean stress-omnibox-callbacks verify-purego verify-generated check
+.PHONY: build build-systemviews generate-systemviews build-quick install-local test lint staticcheck clean install-tools install-golangci-lint install-staticcheck dev generate help init man flatpak-deps flatpak-build flatpak-install flatpak-run flatpak-clean stress-omnibox-callbacks verify-purego verify-generated verify-systemviews-assets check
 
 # Load local overrides from .env.local if present (Makefile syntax)
 ifneq (,$(wildcard .env.local))
@@ -135,6 +135,10 @@ verify-generated: ## Verify generated systemviews artifacts are committed
 		echo "Generated systemviews artifacts are out of date. Run 'make build-systemviews' and commit the result."; \
 		exit 1; \
 	}
+
+verify-systemviews-assets: ## Verify release embeds a compressed systemviews WASM asset
+	@echo "Verifying embedded systemviews WASM asset..."
+	DUMBER_REQUIRE_SYSTEMVIEWS_WASM=1 GOFLAGS=$(GOFLAGS) go test -count=1 -run TestWebUIAssetsIncludesCompressedSystemviewsWASM ./assets
 
 # Linting
 lint: ## Run golangci-lint
