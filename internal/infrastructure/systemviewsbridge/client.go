@@ -272,14 +272,12 @@ func favoriteCreatePayload(input dto.FavoriteCreateInput) any {
 		URL        string  `json:"url"`
 		Title      string  `json:"title"`
 		FaviconURL string  `json:"favicon_url"`
-		FolderID   *int64  `json:"folder_id"`
 		Tags       []int64 `json:"tags"`
 	}{
 		RequestID:  nextRequestID(),
 		URL:        input.URL,
 		Title:      input.Title,
 		FaviconURL: input.FaviconURL,
-		FolderID:   folderIDPayload(input.FolderID),
 		Tags:       tagIDPayloads(input.Tags),
 	}
 }
@@ -290,24 +288,14 @@ func favoriteUpdatePayload(input dto.FavoriteUpdateInput) any {
 		ID          int64  `json:"id"`
 		Title       string `json:"title"`
 		FaviconURL  string `json:"favicon_url"`
-		FolderID    *int64 `json:"folder_id"`
 		ShortcutKey *int   `json:"shortcut_key"`
 	}{
 		RequestID:   nextRequestID(),
 		ID:          int64(input.ID),
 		Title:       input.Title,
 		FaviconURL:  input.FaviconURL,
-		FolderID:    folderIDPayload(input.FolderID),
 		ShortcutKey: input.ShortcutKey,
 	}
-}
-
-func folderIDPayload(id *entity.FolderID) *int64 {
-	if id == nil {
-		return nil
-	}
-	value := int64(*id)
-	return &value
 }
 
 func tagIDPayloads(ids []entity.TagID) []int64 {
@@ -316,12 +304,6 @@ func tagIDPayloads(ids []entity.TagID) []int64 {
 		out = append(out, int64(id))
 	}
 	return out
-}
-
-func (c *Client) ListFolders(ctx context.Context) ([]*entity.Folder, error) {
-	return request[[]*entity.Folder](c, ctx, "folder_list", struct {
-		RequestID string `json:"requestId"`
-	}{RequestID: nextRequestID()})
 }
 
 func (c *Client) ListTags(ctx context.Context) ([]*entity.Tag, error) {
@@ -339,67 +321,6 @@ func (c *Client) SetShortcut(ctx context.Context, favoriteID int64, shortcutKey 
 		FavoriteID  int64  `json:"favorite_id"`
 		ShortcutKey *int   `json:"shortcut_key"`
 	}{RequestID: nextRequestID(), FavoriteID: favoriteID, ShortcutKey: shortcutKey})
-	return err
-}
-
-func (c *Client) SetFolder(ctx context.Context, favoriteID int64, folderID *int64) error {
-	if favoriteID <= 0 {
-		return fmt.Errorf("set folder favorite id must be positive, got %d", favoriteID)
-	}
-	_, err := request[struct{}](c, ctx, "favorite_set_folder", struct {
-		RequestID  string `json:"requestId"`
-		FavoriteID int64  `json:"favorite_id"`
-		FolderID   *int64 `json:"folder_id"`
-	}{RequestID: nextRequestID(), FavoriteID: favoriteID, FolderID: folderID})
-	return err
-}
-
-func (c *Client) CreateFolder(ctx context.Context, name, icon string, parentID *int64) (*entity.Folder, error) {
-	name = strings.TrimSpace(name)
-	if name == "" {
-		return nil, fmt.Errorf("folder name is required")
-	}
-	var iconPtr *string
-	if trimmedIcon := strings.TrimSpace(icon); trimmedIcon != "" {
-		iconPtr = &trimmedIcon
-	}
-	return request[*entity.Folder](c, ctx, "folder_create", struct {
-		RequestID string  `json:"requestId"`
-		Name      string  `json:"name"`
-		Icon      *string `json:"icon"`
-		ParentID  *int64  `json:"parent_id,omitempty"`
-	}{RequestID: nextRequestID(), Name: name, Icon: iconPtr, ParentID: parentID})
-}
-
-func (c *Client) UpdateFolder(ctx context.Context, id int64, name, icon string) error {
-	if id <= 0 {
-		return fmt.Errorf("update folder id must be positive, got %d", id)
-	}
-	name = strings.TrimSpace(name)
-	if name == "" {
-		return fmt.Errorf("folder name is required")
-	}
-	var iconPtr *string
-	if trimmed := strings.TrimSpace(icon); trimmed != "" {
-		iconPtr = &trimmed
-	}
-	_, err := request[struct{}](c, ctx, "folder_update", struct {
-		RequestID string  `json:"requestId"`
-		ID        int64   `json:"id"`
-		Name      string  `json:"name"`
-		Icon      *string `json:"icon"`
-	}{RequestID: nextRequestID(), ID: id, Name: name, Icon: iconPtr})
-	return err
-}
-
-func (c *Client) DeleteFolder(ctx context.Context, id int64) error {
-	if id <= 0 {
-		return fmt.Errorf("delete folder id must be positive, got %d", id)
-	}
-	_, err := request[struct{}](c, ctx, "folder_delete", struct {
-		RequestID string `json:"requestId"`
-		ID        int64  `json:"id"`
-	}{RequestID: nextRequestID(), ID: id})
 	return err
 }
 

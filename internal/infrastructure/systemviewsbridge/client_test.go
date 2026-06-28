@@ -268,32 +268,6 @@ func TestClientListDecodesFavorites(t *testing.T) {
 	}
 }
 
-func TestClientListFoldersDecodesFolders(t *testing.T) {
-	t.Parallel()
-
-	native := newTransportRecorder(t, true, []byte(`{"requestId":"req-12","success":true,"data":[{"id":9,"name":"Read Later"}]}`))
-	client := NewClient(native, nil)
-
-	folders, err := client.ListFolders(context.Background())
-	if err != nil {
-		t.Fatalf("ListFolders() error = %v", err)
-	}
-	if len(folders) != 1 {
-		t.Fatalf("ListFolders() len = %d, want 1", len(folders))
-	}
-	if folders[0].Name != "Read Later" {
-		t.Fatalf("ListFolders() folder = %+v", folders[0])
-	}
-
-	var msg port.WebUIMessage
-	if err := json.Unmarshal(native.last, &msg); err != nil {
-		t.Fatalf("unmarshal sent envelope: %v", err)
-	}
-	if msg.Type != "folder_list" {
-		t.Fatalf("sent type = %q, want %q", msg.Type, "folder_list")
-	}
-}
-
 func TestClientListTagsDecodesTags(t *testing.T) {
 	t.Parallel()
 
@@ -470,61 +444,6 @@ func TestClientRequestUsesDefaultTimeoutWhenCallerHasNoDeadline(t *testing.T) {
 	}
 }
 
-func TestClientCreateFolderIncludesParentID(t *testing.T) {
-	t.Parallel()
-
-	parentID := int64(42)
-	transport := newTransportRecorder(t, true, []byte(`{"requestId":"req-16","success":true,"data":{"id":9,"name":"Nested","icon":"📁","parent_id":42}}`))
-	client := NewClient(transport, nil)
-
-	folder, err := client.CreateFolder(context.Background(), "Nested", " 📁 ", &parentID)
-	if err != nil {
-		t.Fatalf("CreateFolder() error = %v", err)
-	}
-	if folder == nil {
-		t.Fatal("CreateFolder() returned nil folder")
-	}
-	if folder.Name != "Nested" {
-		t.Fatalf("CreateFolder() folder name = %q, want %q", folder.Name, "Nested")
-	}
-	if folder.Icon != "📁" {
-		t.Fatalf("CreateFolder() folder icon = %q, want 📁", folder.Icon)
-	}
-	if folder.ParentID == nil || int64(*folder.ParentID) != parentID {
-		t.Fatalf("CreateFolder() folder parent_id = %#v, want %d", folder.ParentID, parentID)
-	}
-
-	var msg port.WebUIMessage
-	if err := json.Unmarshal(transport.last, &msg); err != nil {
-		t.Fatalf("unmarshal sent envelope: %v", err)
-	}
-	if msg.Type != "folder_create" {
-		t.Fatalf("sent type = %q, want %q", msg.Type, "folder_create")
-	}
-
-	var payload struct {
-		RequestID string  `json:"requestId"`
-		Name      string  `json:"name"`
-		Icon      *string `json:"icon"`
-		ParentID  *int64  `json:"parent_id"`
-	}
-	if err := json.Unmarshal(msg.Payload, &payload); err != nil {
-		t.Fatalf("unmarshal sent payload: %v", err)
-	}
-	if payload.ParentID == nil || *payload.ParentID != parentID {
-		t.Fatalf("sent parent_id = %#v, want %d", payload.ParentID, parentID)
-	}
-	if payload.Name != "Nested" {
-		t.Fatalf("sent name = %q, want %q", payload.Name, "Nested")
-	}
-	if payload.Icon == nil || *payload.Icon != "📁" {
-		t.Fatalf("sent icon = %#v, want 📁", payload.Icon)
-	}
-	if payload.RequestID == "" {
-		t.Fatal("sent requestId was empty")
-	}
-}
-
 func TestClientDomainStatsRejectsNegativeLimit(t *testing.T) {
 	t.Parallel()
 
@@ -552,59 +471,6 @@ func TestClientDeleteDomainRejectsEmptyDomain(t *testing.T) {
 	}
 	if transport.called {
 		t.Fatal("DeleteDomain() sent a request for an empty domain")
-	}
-}
-
-func TestClientUpdateFolderTrimsIcon(t *testing.T) {
-	t.Parallel()
-
-	transport := newTransportRecorder(t, true, []byte(`{"requestId":"req-18","success":true}`))
-	client := NewClient(transport, nil)
-
-	if err := client.UpdateFolder(context.Background(), 9, "Read", " 📚 "); err != nil {
-		t.Fatalf("UpdateFolder() error = %v", err)
-	}
-
-	var msg port.WebUIMessage
-	if err := json.Unmarshal(transport.last, &msg); err != nil {
-		t.Fatalf("unmarshal sent envelope: %v", err)
-	}
-	if msg.Type != "folder_update" {
-		t.Fatalf("sent type = %q, want folder_update", msg.Type)
-	}
-	var payload struct {
-		Icon *string `json:"icon"`
-	}
-	if err := json.Unmarshal(msg.Payload, &payload); err != nil {
-		t.Fatalf("unmarshal sent payload: %v", err)
-	}
-	if payload.Icon == nil || *payload.Icon != "📚" {
-		t.Fatalf("sent icon = %#v, want 📚", payload.Icon)
-	}
-}
-
-func TestClientUpdateFolderOmitsBlankIcon(t *testing.T) {
-	t.Parallel()
-
-	transport := newTransportRecorder(t, true, []byte(`{"requestId":"req-19","success":true}`))
-	client := NewClient(transport, nil)
-
-	if err := client.UpdateFolder(context.Background(), 9, "Read", "   "); err != nil {
-		t.Fatalf("UpdateFolder() error = %v", err)
-	}
-
-	var msg port.WebUIMessage
-	if err := json.Unmarshal(transport.last, &msg); err != nil {
-		t.Fatalf("unmarshal sent envelope: %v", err)
-	}
-	var payload struct {
-		Icon *string `json:"icon"`
-	}
-	if err := json.Unmarshal(msg.Payload, &payload); err != nil {
-		t.Fatalf("unmarshal sent payload: %v", err)
-	}
-	if payload.Icon != nil {
-		t.Fatalf("sent icon = %#v, want nil", payload.Icon)
 	}
 }
 
@@ -719,11 +585,6 @@ func TestClientRejectsInvalidFavoriteMutationIDs(t *testing.T) {
 	}{
 		{name: "delete favorite", call: func() error { return client.DeleteFavorite(context.Background(), 0) }},
 		{name: "set shortcut", call: func() error { return client.SetShortcut(context.Background(), 0, nil) }},
-		{name: "set folder", call: func() error { return client.SetFolder(context.Background(), 0, nil) }},
-		{name: "create folder", call: func() error { _, err := client.CreateFolder(context.Background(), " ", "", nil); return err }},
-		{name: "update folder id", call: func() error { return client.UpdateFolder(context.Background(), 0, "Folder", "") }},
-		{name: "update folder name", call: func() error { return client.UpdateFolder(context.Background(), 1, " ", "") }},
-		{name: "delete folder", call: func() error { return client.DeleteFolder(context.Background(), 0) }},
 		{name: "create tag", call: func() error { _, err := client.CreateTag(context.Background(), " ", ""); return err }},
 		{name: "update tag", call: func() error { return client.UpdateTag(context.Background(), 0, "Tag", "") }},
 		{name: "update tag name", call: func() error { return client.UpdateTag(context.Background(), 1, " ", "") }},
