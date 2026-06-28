@@ -45,6 +45,8 @@ func (bw *browserWindow) initHistorySidebar(ctx context.Context, a *App) {
 
 // buildHistorySidebarConfig constructs the HistorySidebarConfig for the given
 // browser window. Extracted from initHistorySidebar for testability.
+//
+//nolint:dupl // History and favorites sidebar configs intentionally mirror each other for separate component types.
 func (a *App) buildHistorySidebarConfig(bw *browserWindow) component.HistorySidebarConfig {
 	var historyUC port.HistorySidebarHistory
 	if a.deps != nil {

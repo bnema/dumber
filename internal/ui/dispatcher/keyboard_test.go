@@ -121,13 +121,13 @@ func TestKeyboardDispatcher_ToggleFavoritesSidebarCallsCallbackAndPropagatesErro
 
 	missingErr := d.Dispatch(ctx, input.ActionToggleFavoritesSystemView)
 	require.Error(t, missingErr)
-	assert.ErrorContains(t, missingErr, "favorites sidebar unavailable")
+	require.ErrorContains(t, missingErr, "favorites sidebar unavailable")
 
 	wantErr := fmt.Errorf("favorites failed")
 	d.SetOnToggleFavoritesSidebar(func(context.Context) error { return wantErr })
 	err := d.Dispatch(ctx, input.ActionToggleFavoritesSystemView)
 	require.Error(t, err)
-	assert.ErrorIs(t, err, wantErr)
+	require.ErrorIs(t, err, wantErr)
 
 	var called bool
 	d.SetOnToggleFavoritesSidebar(func(context.Context) error { called = true; return nil })
@@ -141,13 +141,13 @@ func TestKeyboardDispatcher_ToggleCurrentPageFavoriteCallsCallbackAndPropagatesE
 
 	missingErr := d.Dispatch(ctx, input.ActionToggleCurrentPageFavorite)
 	require.Error(t, missingErr)
-	assert.ErrorContains(t, missingErr, "toggle current page handler not wired")
+	require.ErrorContains(t, missingErr, "toggle current page handler not wired")
 
 	wantErr := fmt.Errorf("toggle failed")
 	d.SetOnToggleCurrentPageFavorite(func(context.Context) error { return wantErr })
 	err := d.Dispatch(ctx, input.ActionToggleCurrentPageFavorite)
 	require.Error(t, err)
-	assert.ErrorIs(t, err, wantErr)
+	require.ErrorIs(t, err, wantErr)
 
 	var called bool
 	d.SetOnToggleCurrentPageFavorite(func(context.Context) error { called = true; return nil })

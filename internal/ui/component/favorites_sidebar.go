@@ -13,6 +13,8 @@ import (
 	"github.com/bnema/dumber/internal/domain/entity"
 )
 
+const favoritesSidebarOuterSpacing = 6
+
 // FavoritesSidebarConfig holds configuration for creating a FavoritesSidebar.
 type FavoritesSidebarConfig struct {
 	FavoritesUC        port.FavoritesSidebarFavorites
@@ -152,7 +154,7 @@ func (fs *FavoritesSidebar) Destroy() {
 }
 
 func (fs *FavoritesSidebar) createWidgets() error {
-	fs.outerBox = gtk.NewBox(gtk.OrientationVerticalValue, 6)
+	fs.outerBox = gtk.NewBox(gtk.OrientationVerticalValue, favoritesSidebarOuterSpacing)
 	if fs.outerBox == nil {
 		return fmt.Errorf("favorites sidebar: outer box creation failed")
 	}

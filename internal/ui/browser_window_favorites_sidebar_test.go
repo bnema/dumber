@@ -112,10 +112,10 @@ func TestApp_ToggleCurrentPageFavoriteTogglesActiveWebViewURI(t *testing.T) {
 
 func TestApp_ToggleCurrentPageFavoriteErrorCases(t *testing.T) {
 	ctx := context.Background()
-	assert.ErrorContains(t, (&App{}).toggleCurrentPageFavoriteAction(ctx), "usecase not configured")
+	require.ErrorContains(t, (&App{}).toggleCurrentPageFavoriteAction(ctx), "usecase not configured")
 
 	app := &App{deps: &Dependencies{FavoritesUC: usecase.NewManageFavoritesUseCase(newMemoryFavoriteRepo(), &memoryTagRepo{})}}
-	assert.ErrorContains(t, app.toggleCurrentPageFavoriteAction(ctx), "no active webview")
+	require.ErrorContains(t, app.toggleCurrentPageFavoriteAction(ctx), "no active webview")
 
 	tab := entity.NewTab(entity.TabID("tab-1"), entity.WorkspaceID("ws-1"), entity.NewPane(entity.PaneID("pane-1")))
 	tabs := entity.NewTabList()

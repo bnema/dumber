@@ -31,6 +31,7 @@ func (bw *browserWindow) initFavoritesSidebar(ctx context.Context, a *App) {
 	log.Debug().Msg("favorites sidebar initialized")
 }
 
+//nolint:dupl // Favorites and history sidebar configs intentionally mirror each other for separate component types.
 func (a *App) buildFavoritesSidebarConfig(bw *browserWindow) component.FavoritesSidebarConfig {
 	var favoritesUC port.FavoritesSidebarFavorites
 	if a.deps != nil {

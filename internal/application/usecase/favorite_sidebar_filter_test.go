@@ -129,7 +129,7 @@ func TestFilterFavoritesForSidebarUsesPositionAndURLTieBreakers(t *testing.T) {
 	assertFavoriteSidebarIDs(t, got, []entity.FavoriteID{3, 2, 1})
 }
 
-func favoriteSidebarTestFavorite(id entity.FavoriteID, rawURL string, title string, position int, tags ...entity.Tag) *entity.Favorite {
+func favoriteSidebarTestFavorite(id entity.FavoriteID, rawURL, title string, position int, tags ...entity.Tag) *entity.Favorite {
 	return &entity.Favorite{
 		ID:       id,
 		URL:      rawURL,

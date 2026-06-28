@@ -8,6 +8,7 @@ import (
 	"github.com/bnema/dumber/internal/domain/entity"
 )
 
+//nolint:gocyclo,funlen // Centralized local key routing keeps sidebar keyboard behavior easy to audit.
 func (fs *FavoritesSidebar) setupKeyboardNavigation() {
 	if fs == nil || fs.outerBox == nil {
 		return
@@ -73,7 +74,7 @@ func (fs *FavoritesSidebar) setupKeyboardNavigation() {
 			if fs.inTextEditContext() {
 				return false
 			}
-			searchFocused := searchEntry != nil && searchEntry.Widget.HasFocus()
+			searchFocused := searchEntry != nil && searchEntry.HasFocus()
 			if !shouldFocusSearchForSlash(searchFocused) {
 				return false
 			}
@@ -263,11 +264,11 @@ func (fs *FavoritesSidebar) inTextEditContext() bool {
 	if fs == nil {
 		return false
 	}
-	if fs.searchEntry != nil && fs.searchEntry.Widget.HasFocus() {
+	if fs.searchEntry != nil && fs.searchEntry.HasFocus() {
 		return true
 	}
 	for _, entry := range []*gtk.SearchEntry{fs.formURLEntry, fs.formTitleEntry, fs.formTagsEntry, fs.formShortcutEntry} {
-		if entry != nil && entry.Widget.HasFocus() {
+		if entry != nil && entry.HasFocus() {
 			return true
 		}
 	}

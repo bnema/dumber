@@ -230,7 +230,7 @@ func TestFavoritesSidebarRenderingModelTagCallbackRetentionAndListRows(t *testin
 		{ID: 2, URL: "", Title: "Missing URL"},
 	})
 
-	assert.Equal(t, 2, len(fs.allTags))
+	assert.Len(t, fs.allTags, 2)
 	require.Len(t, fs.displayRows, 2)
 	assert.True(t, fs.displayRows[0].Selectable)
 	assert.False(t, fs.displayRows[1].Selectable)

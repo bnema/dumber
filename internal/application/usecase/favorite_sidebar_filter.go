@@ -9,6 +9,15 @@ import (
 	"github.com/bnema/dumber/internal/domain/entity"
 )
 
+const (
+	favoriteSidebarExactMatchScore    = 100
+	favoriteSidebarTitlePrefixScore   = 90
+	favoriteSidebarHostPrefixScore    = 80
+	favoriteSidebarTagNameScore       = 70
+	favoriteSidebarTitleContainsScore = 60
+	favoriteSidebarURLContainsScore   = 50
+)
+
 // FavoriteSidebarQuery describes the pure filtering inputs for the native favorites sidebar.
 type FavoriteSidebarQuery struct {
 	Text   string
@@ -118,17 +127,17 @@ func favoriteSidebarMatchScore(favorite *entity.Favorite, text string) (int, boo
 
 	switch {
 	case title == text || favoriteURL == text:
-		return 100, true
+		return favoriteSidebarExactMatchScore, true
 	case strings.HasPrefix(title, text):
-		return 90, true
+		return favoriteSidebarTitlePrefixScore, true
 	case favoriteSidebarHostOrDomainHasPrefix(host, text):
-		return 80, true
+		return favoriteSidebarHostPrefixScore, true
 	case favoriteSidebarTagNameContains(favorite, text):
-		return 70, true
+		return favoriteSidebarTagNameScore, true
 	case strings.Contains(title, text):
-		return 60, true
+		return favoriteSidebarTitleContainsScore, true
 	case strings.Contains(favoriteURL, text):
-		return 50, true
+		return favoriteSidebarURLContainsScore, true
 	default:
 		return 0, false
 	}
@@ -143,7 +152,7 @@ func favoriteSidebarTagNameContains(favorite *entity.Favorite, text string) bool
 	return false
 }
 
-func favoriteSidebarHostOrDomainHasPrefix(host string, text string) bool {
+func favoriteSidebarHostOrDomainHasPrefix(host, text string) bool {
 	host = strings.TrimPrefix(host, "www.")
 	for host != "" {
 		if strings.HasPrefix(host, text) {

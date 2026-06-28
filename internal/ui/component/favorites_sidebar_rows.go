@@ -234,57 +234,9 @@ func (fs *FavoritesSidebar) appendFavoriteRow(listBox *gtk.ListBox, fav *entity.
 		return
 	}
 	rowBox.SetHexpand(true)
-
-	title := gtk.NewLabel(nil)
-	if title == nil {
-		return
-	}
-	title.AddCssClass("favorites-sidebar-row-title")
-	title.SetText(safeSidebarString(fav.Title, fav.URL))
-	title.SetXalign(0.0)
-	title.SetHexpand(true)
-	title.SetEllipsize(pango.EllipsizeEndValue)
-	rowBox.Append(&title.Widget)
-
-	sub := gtk.NewBox(gtk.OrientationHorizontalValue, 4)
-	if sub == nil {
-		return
-	}
-	sub.SetHexpand(true)
-	url := gtk.NewLabel(nil)
-	if url == nil {
-		return
-	}
-	url.AddCssClass("favorites-sidebar-row-subtitle")
-	url.SetText(readableURL(fav.URL))
-	url.SetXalign(0.0)
-	url.SetHexpand(true)
-	url.SetEllipsize(pango.EllipsizeEndValue)
-	sub.Append(&url.Widget)
-	if fav.ShortcutKey != nil {
-		badge := fmt.Sprintf("Shortcut %d", *fav.ShortcutKey)
-		badgeLabel := gtk.NewLabel(&badge)
-		if badgeLabel != nil {
-			badgeLabel.AddCssClass("favorites-sidebar-shortcut-badge")
-			sub.Append(&badgeLabel.Widget)
-		}
-	}
-	rowBox.Append(&sub.Widget)
-
-	if len(fav.Tags) > 0 {
-		tags := gtk.NewBox(gtk.OrientationHorizontalValue, 3)
-		if tags != nil {
-			for _, tag := range fav.Tags {
-				name := tag.Name
-				label := gtk.NewLabel(&name)
-				if label != nil {
-					label.AddCssClass("favorites-sidebar-tag-chip")
-					tags.Append(&label.Widget)
-				}
-			}
-			rowBox.Append(&tags.Widget)
-		}
-	}
+	appendFavoriteRowTitle(rowBox, fav)
+	appendFavoriteRowSubtitle(rowBox, fav)
+	appendFavoriteRowTags(rowBox, fav.Tags)
 
 	row := gtk.NewListBoxRow()
 	if row == nil {
@@ -297,6 +249,64 @@ func (fs *FavoritesSidebar) appendFavoriteRow(listBox *gtk.ListBox, fav *entity.
 	row.SetFocusOnClick(true)
 	row.SetChild(&rowBox.Widget)
 	listBox.Append(&row.Widget)
+}
+
+func appendFavoriteRowTitle(rowBox *gtk.Box, fav *entity.Favorite) {
+	title := gtk.NewLabel(nil)
+	if title == nil {
+		return
+	}
+	title.AddCssClass("favorites-sidebar-row-title")
+	title.SetText(safeSidebarString(fav.Title, fav.URL))
+	title.SetXalign(0.0)
+	title.SetHexpand(true)
+	title.SetEllipsize(pango.EllipsizeEndValue)
+	rowBox.Append(&title.Widget)
+}
+
+func appendFavoriteRowSubtitle(rowBox *gtk.Box, fav *entity.Favorite) {
+	sub := gtk.NewBox(gtk.OrientationHorizontalValue, 4)
+	if sub == nil {
+		return
+	}
+	sub.SetHexpand(true)
+	url := gtk.NewLabel(nil)
+	if url != nil {
+		url.AddCssClass("favorites-sidebar-row-subtitle")
+		url.SetText(readableURL(fav.URL))
+		url.SetXalign(0.0)
+		url.SetHexpand(true)
+		url.SetEllipsize(pango.EllipsizeEndValue)
+		sub.Append(&url.Widget)
+	}
+	if fav.ShortcutKey != nil {
+		badge := fmt.Sprintf("Shortcut %d", *fav.ShortcutKey)
+		badgeLabel := gtk.NewLabel(&badge)
+		if badgeLabel != nil {
+			badgeLabel.AddCssClass("favorites-sidebar-shortcut-badge")
+			sub.Append(&badgeLabel.Widget)
+		}
+	}
+	rowBox.Append(&sub.Widget)
+}
+
+func appendFavoriteRowTags(rowBox *gtk.Box, favoriteTags []entity.Tag) {
+	if len(favoriteTags) == 0 {
+		return
+	}
+	tags := gtk.NewBox(gtk.OrientationHorizontalValue, 3)
+	if tags == nil {
+		return
+	}
+	for _, tag := range favoriteTags {
+		name := tag.Name
+		label := gtk.NewLabel(&name)
+		if label != nil {
+			label.AddCssClass("favorites-sidebar-tag-chip")
+			tags.Append(&label.Widget)
+		}
+	}
+	rowBox.Append(&tags.Widget)
 }
 
 func (fs *FavoritesSidebar) ensureAtLeastOneSelectionInListBox(listBox *gtk.ListBox) {
