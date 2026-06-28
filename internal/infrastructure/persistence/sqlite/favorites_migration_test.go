@@ -3,7 +3,6 @@ package sqlite
 import (
 	"context"
 	"database/sql"
-	"fmt"
 	"testing"
 
 	_ "github.com/bnema/purego-sqlite/driver"
@@ -21,15 +20,15 @@ func openMigrationTestDB(t *testing.T) *sql.DB {
 	return db
 }
 
-func runMigrationsUpTo(t *testing.T, db *sql.DB, version int64) {
+func runMigrationsThroughFavoritesSchema(t *testing.T, db *sql.DB) {
 	t.Helper()
 	goose.SetBaseFS(embedMigrations)
 	if err := goose.SetDialect("sqlite3"); err != nil {
 		t.Fatalf("set dialect: %v", err)
 	}
 	goose.SetLogger(goose.NopLogger())
-	if err := goose.UpTo(db, "migrations", version); err != nil {
-		t.Fatalf("migrate to %d: %v", version, err)
+	if err := goose.UpTo(db, "migrations", 10); err != nil {
+		t.Fatalf("migrate through favorites schema: %v", err)
 	}
 }
 
@@ -51,7 +50,7 @@ func countRows(t *testing.T, db *sql.DB, query string, args ...any) int {
 
 func TestFavoritesTagsFirstMigrationFolderPathToTag(t *testing.T) {
 	db := openMigrationTestDB(t)
-	runMigrationsUpTo(t, db, 10)
+	runMigrationsThroughFavoritesSchema(t, db)
 
 	mustExec(t, db, `INSERT INTO favorite_folders(id, name, parent_id) VALUES (1, 'Research', NULL), (2, 'Browser Engines', 1)`)
 	mustExec(t, db, `INSERT INTO favorites(id, url, title, folder_id) VALUES (1, 'https://webkit.org', 'WebKit', 2)`)
@@ -69,7 +68,7 @@ func TestFavoritesTagsFirstMigrationFolderPathToTag(t *testing.T) {
 
 func TestFavoritesTagsFirstMigrationFolderTagCollisionSuffix(t *testing.T) {
 	db := openMigrationTestDB(t)
-	runMigrationsUpTo(t, db, 10)
+	runMigrationsThroughFavoritesSchema(t, db)
 
 	mustExec(t, db, `INSERT INTO favorite_tags(id, name, color) VALUES (1, 'dev-go', '#111111')`)
 	mustExec(t, db, `INSERT INTO favorite_folders(id, name, parent_id) VALUES (7, 'Dev', NULL), (8, 'Go', 7)`)
@@ -88,7 +87,7 @@ func TestFavoritesTagsFirstMigrationFolderTagCollisionSuffix(t *testing.T) {
 
 func TestFavoritesTagsFirstMigrationGeneratedSuffixAvoidsExistingTag(t *testing.T) {
 	db := openMigrationTestDB(t)
-	runMigrationsUpTo(t, db, 10)
+	runMigrationsThroughFavoritesSchema(t, db)
 
 	mustExec(t, db, `INSERT INTO favorite_tags(id, name, color) VALUES (1, 'foo', '#111111'), (2, 'foo-folder-3', '#222222')`)
 	mustExec(t, db, `INSERT INTO favorite_folders(id, name, parent_id) VALUES (3, 'Foo', NULL)`)
@@ -107,7 +106,7 @@ func TestFavoritesTagsFirstMigrationGeneratedSuffixAvoidsExistingTag(t *testing.
 
 func TestFavoritesTagsFirstMigrationGeneratedSuffixAvoidsFolderNaturalSlug(t *testing.T) {
 	db := openMigrationTestDB(t)
-	runMigrationsUpTo(t, db, 10)
+	runMigrationsThroughFavoritesSchema(t, db)
 
 	mustExec(t, db, `INSERT INTO favorite_tags(id, name, color) VALUES (1, 'foo', '#111111')`)
 	mustExec(t, db, `INSERT INTO favorite_folders(id, name, parent_id) VALUES (3, 'Foo', NULL), (4, 'foo-folder-3', NULL)`)
@@ -134,7 +133,7 @@ func TestFavoritesTagsFirstMigrationGeneratedSuffixAvoidsFolderNaturalSlug(t *te
 
 func TestFavoritesTagsFirstMigrationMergesFoldedDuplicateTags(t *testing.T) {
 	db := openMigrationTestDB(t)
-	runMigrationsUpTo(t, db, 10)
+	runMigrationsThroughFavoritesSchema(t, db)
 
 	mustExec(t, db, `INSERT INTO favorite_tags(id, name, color) VALUES (1, ' Dev-Go ', '#111111'), (2, 'dev-go', '#222222')`)
 	mustExec(t, db, `INSERT INTO favorites(id, url, title) VALUES (1, 'https://one.example', 'One'), (2, 'https://two.example', 'Two')`)
@@ -154,9 +153,9 @@ func TestFavoritesTagsFirstMigrationMergesFoldedDuplicateTags(t *testing.T) {
 	}
 }
 
-func mustExec(t *testing.T, db *sql.DB, query string, args ...any) {
+func mustExec(t *testing.T, db *sql.DB, query string) {
 	t.Helper()
-	if _, err := db.Exec(query, args...); err != nil {
-		t.Fatalf("exec %s: %v", fmt.Sprintf(query, args...), err)
+	if _, err := db.Exec(query); err != nil {
+		t.Fatalf("exec %s: %v", query, err)
 	}
 }

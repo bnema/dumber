@@ -189,26 +189,41 @@ func favoriteFromRow(row favoriteRow, target *entity.Favorite) *entity.Favorite 
 }
 
 func favoriteRowFromCreate(row sqlc.CreateFavoriteRow) favoriteRow {
-	return favoriteRow{ID: row.ID, URL: row.Url, Title: row.Title, FaviconURL: row.FaviconUrl, ShortcutKey: row.ShortcutKey, Position: row.Position, CreatedAt: row.CreatedAt, UpdatedAt: row.UpdatedAt}
+	return favoriteRow{
+		ID: row.ID, URL: row.Url, Title: row.Title, FaviconURL: row.FaviconUrl,
+		ShortcutKey: row.ShortcutKey, Position: row.Position, CreatedAt: row.CreatedAt, UpdatedAt: row.UpdatedAt,
+	}
 }
 
 func favoriteRowFromGetByID(row sqlc.GetFavoriteByIDRow) favoriteRow {
-	return favoriteRow{ID: row.ID, URL: row.Url, Title: row.Title, FaviconURL: row.FaviconUrl, ShortcutKey: row.ShortcutKey, Position: row.Position, CreatedAt: row.CreatedAt, UpdatedAt: row.UpdatedAt}
+	return favoriteRow{
+		ID: row.ID, URL: row.Url, Title: row.Title, FaviconURL: row.FaviconUrl,
+		ShortcutKey: row.ShortcutKey, Position: row.Position, CreatedAt: row.CreatedAt, UpdatedAt: row.UpdatedAt,
+	}
 }
 
 func favoriteRowFromGetByURL(row sqlc.GetFavoriteByURLRow) favoriteRow {
-	return favoriteRow{ID: row.ID, URL: row.Url, Title: row.Title, FaviconURL: row.FaviconUrl, ShortcutKey: row.ShortcutKey, Position: row.Position, CreatedAt: row.CreatedAt, UpdatedAt: row.UpdatedAt}
+	return favoriteRow{
+		ID: row.ID, URL: row.Url, Title: row.Title, FaviconURL: row.FaviconUrl,
+		ShortcutKey: row.ShortcutKey, Position: row.Position, CreatedAt: row.CreatedAt, UpdatedAt: row.UpdatedAt,
+	}
 }
 
 func favoriteRowFromGetByShortcut(row sqlc.GetFavoriteByShortcutRow) favoriteRow {
-	return favoriteRow{ID: row.ID, URL: row.Url, Title: row.Title, FaviconURL: row.FaviconUrl, ShortcutKey: row.ShortcutKey, Position: row.Position, CreatedAt: row.CreatedAt, UpdatedAt: row.UpdatedAt}
+	return favoriteRow{
+		ID: row.ID, URL: row.Url, Title: row.Title, FaviconURL: row.FaviconUrl,
+		ShortcutKey: row.ShortcutKey, Position: row.Position, CreatedAt: row.CreatedAt, UpdatedAt: row.UpdatedAt,
+	}
 }
 
 func favoritesFromAllRows(rows []sqlc.GetAllFavoritesRow) []*entity.Favorite {
 	favorites := make([]*entity.Favorite, len(rows))
 	for i := range rows {
 		row := rows[i]
-		favorites[i] = favoriteFromRow(favoriteRow{ID: row.ID, URL: row.Url, Title: row.Title, FaviconURL: row.FaviconUrl, ShortcutKey: row.ShortcutKey, Position: row.Position, CreatedAt: row.CreatedAt, UpdatedAt: row.UpdatedAt}, nil)
+		favorites[i] = favoriteFromRow(favoriteRow{
+			ID: row.ID, URL: row.Url, Title: row.Title, FaviconURL: row.FaviconUrl,
+			ShortcutKey: row.ShortcutKey, Position: row.Position, CreatedAt: row.CreatedAt, UpdatedAt: row.UpdatedAt,
+		}, nil)
 	}
 	return favorites
 }
@@ -217,7 +232,10 @@ func favoritesFromTagRows(rows []sqlc.GetFavoritesByTagRow) []*entity.Favorite {
 	favorites := make([]*entity.Favorite, len(rows))
 	for i := range rows {
 		row := rows[i]
-		favorites[i] = favoriteFromRow(favoriteRow{ID: row.ID, URL: row.Url, Title: row.Title, FaviconURL: row.FaviconUrl, ShortcutKey: row.ShortcutKey, Position: row.Position, CreatedAt: row.CreatedAt, UpdatedAt: row.UpdatedAt}, nil)
+		favorites[i] = favoriteFromRow(favoriteRow{
+			ID: row.ID, URL: row.Url, Title: row.Title, FaviconURL: row.FaviconUrl,
+			ShortcutKey: row.ShortcutKey, Position: row.Position, CreatedAt: row.CreatedAt, UpdatedAt: row.UpdatedAt,
+		}, nil)
 	}
 	return favorites
 }

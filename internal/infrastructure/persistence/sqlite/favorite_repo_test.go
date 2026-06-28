@@ -23,12 +23,12 @@ func openFavoriteRepoTestDB(t *testing.T) *sql.DB {
 	return db
 }
 
-func seedFavoriteWithTags(t *testing.T, db *sql.DB) (entity.FavoriteID, entity.FavoriteID, entity.TagID) {
+func seedFavoriteWithTags(t *testing.T, db *sql.DB) (entity.FavoriteID, entity.TagID) {
 	t.Helper()
 	mustExec(t, db, `INSERT INTO favorites(id, url, title, shortcut_key, position) VALUES (1, 'https://one.example', 'One', 1, 1), (2, 'https://two.example', 'Two', NULL, 2)`)
 	mustExec(t, db, `INSERT INTO favorite_tags(id, name, color) VALUES (1, 'research', '#111111'), (2, 'engines', '#222222')`)
 	mustExec(t, db, `INSERT INTO favorite_tag_assignments(favorite_id, tag_id) VALUES (1, 1), (1, 2), (2, 1)`)
-	return 1, 2, 1
+	return 1, 1
 }
 
 func TestFavoriteRepositoryGetAllHydratesTags(t *testing.T) {
@@ -49,7 +49,7 @@ func TestFavoriteRepositoryGetAllHydratesTags(t *testing.T) {
 
 func TestFavoriteRepositoryFindByIDHydratesTags(t *testing.T) {
 	db := openFavoriteRepoTestDB(t)
-	favID, _, _ := seedFavoriteWithTags(t, db)
+	favID, _ := seedFavoriteWithTags(t, db)
 	repo := NewFavoriteRepository(db)
 
 	fav, err := repo.FindByID(context.Background(), favID)
@@ -73,7 +73,7 @@ func TestFavoriteRepositoryFindByURLHydratesTags(t *testing.T) {
 
 func TestFavoriteRepositoryGetByTagHydratesTags(t *testing.T) {
 	db := openFavoriteRepoTestDB(t)
-	_, _, tagID := seedFavoriteWithTags(t, db)
+	_, tagID := seedFavoriteWithTags(t, db)
 	repo := NewFavoriteRepository(db)
 
 	favorites, err := repo.GetByTag(context.Background(), tagID)
