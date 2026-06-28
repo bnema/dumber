@@ -127,9 +127,15 @@ func (a *App) toggleCurrentPageFavoriteAction(ctx context.Context) error {
 	if uri == "" {
 		return fmt.Errorf("favorites unavailable: active page has no URI")
 	}
-	_, err := a.deps.FavoritesUC.Toggle(ctx, uri, wv.Title())
+	result, err := a.deps.FavoritesUC.Toggle(ctx, uri, wv.Title())
 	if err != nil {
 		return err
+	}
+	if result != nil && strings.TrimSpace(result.Message) != "" {
+		a.showToastOnLastFocusedBrowserWindow(ctx, result.Message, component.ToastSuccess,
+			component.WithDuration(component.ToastBriefDurationMs),
+			component.WithPosition(component.ToastPositionBottomRight),
+		)
 	}
 	a.reloadVisibleFavoritesSidebars("current-page-favorite-toggle")
 	return nil

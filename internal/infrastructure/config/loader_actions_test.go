@@ -71,3 +71,36 @@ desc = "Custom stack pane"
 	stack := cfg.Workspace.PaneMode.Actions["stack-pane"]
 	assert.Equal(t, "Custom stack pane", stack.Desc)
 }
+
+func TestManagerLoad_UpgradesObsoleteFavoritesShortcutDefaultInMemory(t *testing.T) {
+	home := t.TempDir()
+	t.Setenv("HOME", home)
+	t.Setenv("XDG_CONFIG_HOME", filepath.Join(home, ".config"))
+	t.Setenv("XDG_DATA_HOME", filepath.Join(home, ".local", "share"))
+	t.Setenv("XDG_STATE_HOME", filepath.Join(home, ".local", "state"))
+	t.Setenv("XDG_CACHE_HOME", filepath.Join(home, ".cache"))
+
+	configFile, err := GetConfigFile()
+	require.NoError(t, err)
+	require.NoError(t, os.MkdirAll(filepath.Dir(configFile), 0o755))
+	require.NoError(t, os.WriteFile(configFile, []byte(`
+[workspace.shortcuts.actions.toggle-favorites-systemview]
+keys = []
+desc = "Toggle Favorites in right split"
+`), 0o644))
+
+	mgr, err := NewManager()
+	require.NoError(t, err)
+	require.NoError(t, mgr.Load())
+
+	cfg := mgr.Get()
+	require.NotNil(t, cfg)
+	favorites := cfg.Workspace.Shortcuts.Actions["toggle-favorites-systemview"]
+	assert.Equal(t, []string{"ctrl+b"}, favorites.Keys)
+	assert.Equal(t, "Toggle Favorites sidebar", favorites.Desc)
+	currentPage, ok := cfg.Workspace.Shortcuts.Actions["toggle-current-page-favorite"]
+	require.True(t, ok)
+	expectedCurrentPage := DefaultConfig().Workspace.Shortcuts.Actions["toggle-current-page-favorite"]
+	assert.Equal(t, expectedCurrentPage.Keys, currentPage.Keys)
+	assert.Equal(t, expectedCurrentPage.Desc, currentPage.Desc)
+}
