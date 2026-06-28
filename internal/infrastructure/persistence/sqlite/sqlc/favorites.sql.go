@@ -13,7 +13,7 @@ import (
 const CreateFavorite = `-- name: CreateFavorite :one
 INSERT INTO favorites (url, title, favicon_url, position, created_at, updated_at)
 VALUES (?, ?, ?, COALESCE((SELECT MAX(position) + 1 FROM favorites), 0), CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
-RETURNING id, url, title, favicon_url, folder_id, shortcut_key, position, created_at, updated_at
+RETURNING id, url, title, favicon_url, shortcut_key, position, created_at, updated_at
 `
 
 type CreateFavoriteParams struct {
@@ -22,15 +22,25 @@ type CreateFavoriteParams struct {
 	FaviconUrl sql.NullString `json:"favicon_url"`
 }
 
-func (q *Queries) CreateFavorite(ctx context.Context, arg CreateFavoriteParams) (Favorite, error) {
+type CreateFavoriteRow struct {
+	ID          int64          `json:"id"`
+	Url         string         `json:"url"`
+	Title       sql.NullString `json:"title"`
+	FaviconUrl  sql.NullString `json:"favicon_url"`
+	ShortcutKey sql.NullInt64  `json:"shortcut_key"`
+	Position    int64          `json:"position"`
+	CreatedAt   sql.NullTime   `json:"created_at"`
+	UpdatedAt   sql.NullTime   `json:"updated_at"`
+}
+
+func (q *Queries) CreateFavorite(ctx context.Context, arg CreateFavoriteParams) (CreateFavoriteRow, error) {
 	row := q.db.QueryRowContext(ctx, CreateFavorite, arg.Url, arg.Title, arg.FaviconUrl)
-	var i Favorite
+	var i CreateFavoriteRow
 	err := row.Scan(
 		&i.ID,
 		&i.Url,
 		&i.Title,
 		&i.FaviconUrl,
-		&i.FolderID,
 		&i.ShortcutKey,
 		&i.Position,
 		&i.CreatedAt,
@@ -49,24 +59,36 @@ func (q *Queries) DeleteFavorite(ctx context.Context, id int64) error {
 }
 
 const GetAllFavorites = `-- name: GetAllFavorites :many
-SELECT id, url, title, favicon_url, folder_id, shortcut_key, position, created_at, updated_at FROM favorites ORDER BY position ASC
+SELECT id, url, title, favicon_url, shortcut_key, position, created_at, updated_at
+FROM favorites
+ORDER BY position ASC
 `
 
-func (q *Queries) GetAllFavorites(ctx context.Context) ([]Favorite, error) {
+type GetAllFavoritesRow struct {
+	ID          int64          `json:"id"`
+	Url         string         `json:"url"`
+	Title       sql.NullString `json:"title"`
+	FaviconUrl  sql.NullString `json:"favicon_url"`
+	ShortcutKey sql.NullInt64  `json:"shortcut_key"`
+	Position    int64          `json:"position"`
+	CreatedAt   sql.NullTime   `json:"created_at"`
+	UpdatedAt   sql.NullTime   `json:"updated_at"`
+}
+
+func (q *Queries) GetAllFavorites(ctx context.Context) ([]GetAllFavoritesRow, error) {
 	rows, err := q.db.QueryContext(ctx, GetAllFavorites)
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
-	items := []Favorite{}
+	items := []GetAllFavoritesRow{}
 	for rows.Next() {
-		var i Favorite
+		var i GetAllFavoritesRow
 		if err := rows.Scan(
 			&i.ID,
 			&i.Url,
 			&i.Title,
 			&i.FaviconUrl,
-			&i.FolderID,
 			&i.ShortcutKey,
 			&i.Position,
 			&i.CreatedAt,
@@ -86,18 +108,30 @@ func (q *Queries) GetAllFavorites(ctx context.Context) ([]Favorite, error) {
 }
 
 const GetFavoriteByID = `-- name: GetFavoriteByID :one
-SELECT id, url, title, favicon_url, folder_id, shortcut_key, position, created_at, updated_at FROM favorites WHERE id = ? LIMIT 1
+SELECT id, url, title, favicon_url, shortcut_key, position, created_at, updated_at
+FROM favorites
+WHERE id = ? LIMIT 1
 `
 
-func (q *Queries) GetFavoriteByID(ctx context.Context, id int64) (Favorite, error) {
+type GetFavoriteByIDRow struct {
+	ID          int64          `json:"id"`
+	Url         string         `json:"url"`
+	Title       sql.NullString `json:"title"`
+	FaviconUrl  sql.NullString `json:"favicon_url"`
+	ShortcutKey sql.NullInt64  `json:"shortcut_key"`
+	Position    int64          `json:"position"`
+	CreatedAt   sql.NullTime   `json:"created_at"`
+	UpdatedAt   sql.NullTime   `json:"updated_at"`
+}
+
+func (q *Queries) GetFavoriteByID(ctx context.Context, id int64) (GetFavoriteByIDRow, error) {
 	row := q.db.QueryRowContext(ctx, GetFavoriteByID, id)
-	var i Favorite
+	var i GetFavoriteByIDRow
 	err := row.Scan(
 		&i.ID,
 		&i.Url,
 		&i.Title,
 		&i.FaviconUrl,
-		&i.FolderID,
 		&i.ShortcutKey,
 		&i.Position,
 		&i.CreatedAt,
@@ -107,18 +141,30 @@ func (q *Queries) GetFavoriteByID(ctx context.Context, id int64) (Favorite, erro
 }
 
 const GetFavoriteByShortcut = `-- name: GetFavoriteByShortcut :one
-SELECT id, url, title, favicon_url, folder_id, shortcut_key, position, created_at, updated_at FROM favorites WHERE shortcut_key = ? LIMIT 1
+SELECT id, url, title, favicon_url, shortcut_key, position, created_at, updated_at
+FROM favorites
+WHERE shortcut_key = ? LIMIT 1
 `
 
-func (q *Queries) GetFavoriteByShortcut(ctx context.Context, shortcutKey sql.NullInt64) (Favorite, error) {
+type GetFavoriteByShortcutRow struct {
+	ID          int64          `json:"id"`
+	Url         string         `json:"url"`
+	Title       sql.NullString `json:"title"`
+	FaviconUrl  sql.NullString `json:"favicon_url"`
+	ShortcutKey sql.NullInt64  `json:"shortcut_key"`
+	Position    int64          `json:"position"`
+	CreatedAt   sql.NullTime   `json:"created_at"`
+	UpdatedAt   sql.NullTime   `json:"updated_at"`
+}
+
+func (q *Queries) GetFavoriteByShortcut(ctx context.Context, shortcutKey sql.NullInt64) (GetFavoriteByShortcutRow, error) {
 	row := q.db.QueryRowContext(ctx, GetFavoriteByShortcut, shortcutKey)
-	var i Favorite
+	var i GetFavoriteByShortcutRow
 	err := row.Scan(
 		&i.ID,
 		&i.Url,
 		&i.Title,
 		&i.FaviconUrl,
-		&i.FolderID,
 		&i.ShortcutKey,
 		&i.Position,
 		&i.CreatedAt,
@@ -128,18 +174,30 @@ func (q *Queries) GetFavoriteByShortcut(ctx context.Context, shortcutKey sql.Nul
 }
 
 const GetFavoriteByURL = `-- name: GetFavoriteByURL :one
-SELECT id, url, title, favicon_url, folder_id, shortcut_key, position, created_at, updated_at FROM favorites WHERE url = ? LIMIT 1
+SELECT id, url, title, favicon_url, shortcut_key, position, created_at, updated_at
+FROM favorites
+WHERE url = ? LIMIT 1
 `
 
-func (q *Queries) GetFavoriteByURL(ctx context.Context, url string) (Favorite, error) {
+type GetFavoriteByURLRow struct {
+	ID          int64          `json:"id"`
+	Url         string         `json:"url"`
+	Title       sql.NullString `json:"title"`
+	FaviconUrl  sql.NullString `json:"favicon_url"`
+	ShortcutKey sql.NullInt64  `json:"shortcut_key"`
+	Position    int64          `json:"position"`
+	CreatedAt   sql.NullTime   `json:"created_at"`
+	UpdatedAt   sql.NullTime   `json:"updated_at"`
+}
+
+func (q *Queries) GetFavoriteByURL(ctx context.Context, url string) (GetFavoriteByURLRow, error) {
 	row := q.db.QueryRowContext(ctx, GetFavoriteByURL, url)
-	var i Favorite
+	var i GetFavoriteByURLRow
 	err := row.Scan(
 		&i.ID,
 		&i.Url,
 		&i.Title,
 		&i.FaviconUrl,
-		&i.FolderID,
 		&i.ShortcutKey,
 		&i.Position,
 		&i.CreatedAt,
@@ -149,27 +207,38 @@ func (q *Queries) GetFavoriteByURL(ctx context.Context, url string) (Favorite, e
 }
 
 const GetFavoritesByTag = `-- name: GetFavoritesByTag :many
-SELECT f.id, f.url, f.title, f.favicon_url, f.folder_id, f.shortcut_key, f.position, f.created_at, f.updated_at FROM favorites f
+SELECT f.id, f.url, f.title, f.favicon_url, f.shortcut_key, f.position, f.created_at, f.updated_at
+FROM favorites f
 INNER JOIN favorite_tag_assignments fta ON f.id = fta.favorite_id
 WHERE fta.tag_id = ?
 ORDER BY f.position ASC
 `
 
-func (q *Queries) GetFavoritesByTag(ctx context.Context, tagID int64) ([]Favorite, error) {
+type GetFavoritesByTagRow struct {
+	ID          int64          `json:"id"`
+	Url         string         `json:"url"`
+	Title       sql.NullString `json:"title"`
+	FaviconUrl  sql.NullString `json:"favicon_url"`
+	ShortcutKey sql.NullInt64  `json:"shortcut_key"`
+	Position    int64          `json:"position"`
+	CreatedAt   sql.NullTime   `json:"created_at"`
+	UpdatedAt   sql.NullTime   `json:"updated_at"`
+}
+
+func (q *Queries) GetFavoritesByTag(ctx context.Context, tagID int64) ([]GetFavoritesByTagRow, error) {
 	rows, err := q.db.QueryContext(ctx, GetFavoritesByTag, tagID)
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
-	items := []Favorite{}
+	items := []GetFavoritesByTagRow{}
 	for rows.Next() {
-		var i Favorite
+		var i GetFavoritesByTagRow
 		if err := rows.Scan(
 			&i.ID,
 			&i.Url,
 			&i.Title,
 			&i.FaviconUrl,
-			&i.FolderID,
 			&i.ShortcutKey,
 			&i.Position,
 			&i.CreatedAt,

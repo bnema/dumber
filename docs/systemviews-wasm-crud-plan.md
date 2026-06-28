@@ -47,18 +47,14 @@ Preferred direction for new work:
 | Delete domain | `keyboard.ts`, `HistoryFilters.svelte` | `history_delete_domain` | Bridge client supports it. | Add domain-action UI and confirmation. |
 | Open row | `navigateTo(entry.url)` | Browser navigation | Static links exist. | Add keyboard open and active-row focus management. |
 
-### Favorites, folders, tags (`webui/src/pages/homepage/favorites/*`)
+### Favorites and tags (`webui/src/pages/homepage/favorites/*`)
 
 | Operation | Old Svelte surface | Backend message/API | Current WASM status | Gap |
 | --- | --- | --- | --- | --- |
-| Read favorites | `FavoritesPanel.svelte`, `FavoriteGrid.svelte`, `FavoriteCard.svelte` | `favorite_list` | Present, but bare link list (`favorites_view.go`). | Add rich rows/cards, favicons, shortcut badges, folder/tag metadata. |
+| Read favorites | `FavoritesPanel.svelte`, `FavoriteGrid.svelte`, `FavoriteCard.svelte` | `favorite_list` | Present, but bare link list (`favorites_view.go`) with tags-first data. | Add rich rows/cards, favicons, shortcut badges, and tag metadata. |
 | Create favorite | Old homepage hints imply adding/pinning from history; native omnibox toggle exists outside this page. | `ManageFavoritesUseCase.Add` exists, but no homepage/systemview message. | Missing from `port.HomepageFavorites`/`SystemviewFavoritesService` and handlers. | Add `favorite_create` handler/bridge and UI. |
-| Update favorite | `FavoriteEditor.svelte` locally updates title and uses folder/shortcut/tag handlers. | `favorite_set_shortcut`, `favorite_set_folder`, `tag_assign`, `tag_remove`; no title update handler. | Partial bridge support. | Add `favorite_update` for title/favicon/url policy; keep folder/shortcut/tag specialized calls or fold into update after design. |
+| Update favorite | `FavoriteEditor.svelte` locally updates title, shortcut, and tags. | `favorite_set_shortcut`, `tag_assign`, `tag_remove`; no title update handler. | Partial bridge support. | Add `favorite_update` for title/favicon/url policy; keep shortcut/tag specialized calls or fold into update after design. |
 | Delete favorite | `FavoriteEditor.svelte` local-only delete placeholder. | `ManageFavoritesUseCase.Remove` exists, but no homepage/systemview message. | Missing. | Add `favorite_delete` handler/bridge/UI. |
-| Read folders | `FolderList.svelte` | `folder_list` | Present as static list. | Add counts, selected filter, empty state. |
-| Create folder | `FolderList.svelte` inline create | `folder_create` | Bridge and handler exist. | Add interactive UI. |
-| Update folder | Handler exists (`folder_update`). | `folder_update` | Bridge exists. | Add rename/icon UI. |
-| Delete folder | Handler exists (`folder_delete`). | `folder_delete` | Bridge exists. | Add UI, confirm, refresh favorite folder state. |
 | Read tags | `TagCloud.svelte` | `tag_list` | Present as static list. | Add color chips and selection. |
 | Create tag | `TagCloud.svelte` inline create | `tag_create` | Bridge and handler exist. | Add UI with color picker/palette. |
 | Update tag | Handler exists (`tag_update`). | `tag_update` | Bridge exists. | Add rename/color edit UI. |
@@ -101,7 +97,7 @@ Implementation path:
 - Rendering now uses typed `github.com/a-h/templ` components under `internal/ui/systemviews/*.templ`; generated `*_templ.go` files are committed alongside source templates.
 - `make build-systemviews` runs `go tool templ generate -path internal/ui/systemviews -include-version=false` before building the WASM runtime.
 - History supports search, domain filters, pagination, analytics/domain summaries, single/range/domain deletion, row open actions, alerts, and keyboard navigation.
-- Favorites supports create/update/delete for favorites, folders, and tags; folder/tag filters; shortcut editing; tag assignment/removal; alerts; and keyboard navigation.
+- Favorites supports create/update/delete for favorites and tags; tag filters; shortcut editing; tag assignment/removal; alerts; and keyboard navigation.
 - Config supports editable appearance, search defaults, search shortcut CRUD, performance profile/custom values, keybinding set/reset/reset-all, success/error states, and refreshes the config payload/theme after save.
 - Native global actions use `toggle_*_systemview` names and open/focus/close History/Favorites/Config system views through the coordinator/right-split path.
 - Trust-boundary hardening includes templ HTML escaping, URL scheme sanitization for rendered links, sanitized CSS color use for tag swatches, serialized DOM action handling, and route-level error states.

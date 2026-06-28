@@ -293,74 +293,6 @@ func (_c *MockFavoriteRepository_GetAll_Call) RunAndReturn(run func(ctx context.
 	return _c
 }
 
-// GetByTag provides a mock function for the type MockFavoriteRepository
-func (_mock *MockFavoriteRepository) GetByTag(ctx context.Context, tagID entity.TagID) ([]*entity.Favorite, error) {
-	ret := _mock.Called(ctx, tagID)
-
-	if len(ret) == 0 {
-		panic("no return value specified for GetByTag")
-	}
-
-	var r0 []*entity.Favorite
-	var r1 error
-	if returnFunc, ok := ret.Get(0).(func(context.Context, entity.TagID) ([]*entity.Favorite, error)); ok {
-		return returnFunc(ctx, tagID)
-	}
-	if returnFunc, ok := ret.Get(0).(func(context.Context, entity.TagID) []*entity.Favorite); ok {
-		r0 = returnFunc(ctx, tagID)
-	} else {
-		if ret.Get(0) != nil {
-			r0 = ret.Get(0).([]*entity.Favorite)
-		}
-	}
-	if returnFunc, ok := ret.Get(1).(func(context.Context, entity.TagID) error); ok {
-		r1 = returnFunc(ctx, tagID)
-	} else {
-		r1 = ret.Error(1)
-	}
-	return r0, r1
-}
-
-// MockFavoriteRepository_GetByTag_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'GetByTag'
-type MockFavoriteRepository_GetByTag_Call struct {
-	*mock.Call
-}
-
-// GetByTag is a helper method to define mock.On call
-//   - ctx context.Context
-//   - tagID entity.TagID
-func (_e *MockFavoriteRepository_Expecter) GetByTag(ctx any, tagID any) *MockFavoriteRepository_GetByTag_Call {
-	return &MockFavoriteRepository_GetByTag_Call{Call: _e.mock.On("GetByTag", ctx, tagID)}
-}
-
-func (_c *MockFavoriteRepository_GetByTag_Call) Run(run func(ctx context.Context, tagID entity.TagID)) *MockFavoriteRepository_GetByTag_Call {
-	_c.Call.Run(func(args mock.Arguments) {
-		var arg0 context.Context
-		if args[0] != nil {
-			arg0 = args[0].(context.Context)
-		}
-		var arg1 entity.TagID
-		if args[1] != nil {
-			arg1 = args[1].(entity.TagID)
-		}
-		run(
-			arg0,
-			arg1,
-		)
-	})
-	return _c
-}
-
-func (_c *MockFavoriteRepository_GetByTag_Call) Return(favorites []*entity.Favorite, err error) *MockFavoriteRepository_GetByTag_Call {
-	_c.Call.Return(favorites, err)
-	return _c
-}
-
-func (_c *MockFavoriteRepository_GetByTag_Call) RunAndReturn(run func(ctx context.Context, tagID entity.TagID) ([]*entity.Favorite, error)) *MockFavoriteRepository_GetByTag_Call {
-	_c.Call.Return(run)
-	return _c
-}
-
 // GetByShortcut provides a mock function for the type MockFavoriteRepository
 func (_mock *MockFavoriteRepository) GetByShortcut(ctx context.Context, key int) (*entity.Favorite, error) {
 	ret := _mock.Called(ctx, key)
@@ -425,6 +357,74 @@ func (_c *MockFavoriteRepository_GetByShortcut_Call) Return(favorite *entity.Fav
 }
 
 func (_c *MockFavoriteRepository_GetByShortcut_Call) RunAndReturn(run func(ctx context.Context, key int) (*entity.Favorite, error)) *MockFavoriteRepository_GetByShortcut_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
+// GetByTag provides a mock function for the type MockFavoriteRepository
+func (_mock *MockFavoriteRepository) GetByTag(ctx context.Context, tagID entity.TagID) ([]*entity.Favorite, error) {
+	ret := _mock.Called(ctx, tagID)
+
+	if len(ret) == 0 {
+		panic("no return value specified for GetByTag")
+	}
+
+	var r0 []*entity.Favorite
+	var r1 error
+	if returnFunc, ok := ret.Get(0).(func(context.Context, entity.TagID) ([]*entity.Favorite, error)); ok {
+		return returnFunc(ctx, tagID)
+	}
+	if returnFunc, ok := ret.Get(0).(func(context.Context, entity.TagID) []*entity.Favorite); ok {
+		r0 = returnFunc(ctx, tagID)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).([]*entity.Favorite)
+		}
+	}
+	if returnFunc, ok := ret.Get(1).(func(context.Context, entity.TagID) error); ok {
+		r1 = returnFunc(ctx, tagID)
+	} else {
+		r1 = ret.Error(1)
+	}
+	return r0, r1
+}
+
+// MockFavoriteRepository_GetByTag_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'GetByTag'
+type MockFavoriteRepository_GetByTag_Call struct {
+	*mock.Call
+}
+
+// GetByTag is a helper method to define mock.On call
+//   - ctx context.Context
+//   - tagID entity.TagID
+func (_e *MockFavoriteRepository_Expecter) GetByTag(ctx any, tagID any) *MockFavoriteRepository_GetByTag_Call {
+	return &MockFavoriteRepository_GetByTag_Call{Call: _e.mock.On("GetByTag", ctx, tagID)}
+}
+
+func (_c *MockFavoriteRepository_GetByTag_Call) Run(run func(ctx context.Context, tagID entity.TagID)) *MockFavoriteRepository_GetByTag_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		var arg0 context.Context
+		if args[0] != nil {
+			arg0 = args[0].(context.Context)
+		}
+		var arg1 entity.TagID
+		if args[1] != nil {
+			arg1 = args[1].(entity.TagID)
+		}
+		run(
+			arg0,
+			arg1,
+		)
+	})
+	return _c
+}
+
+func (_c *MockFavoriteRepository_GetByTag_Call) Return(favorites []*entity.Favorite, err error) *MockFavoriteRepository_GetByTag_Call {
+	_c.Call.Return(favorites, err)
+	return _c
+}
+
+func (_c *MockFavoriteRepository_GetByTag_Call) RunAndReturn(run func(ctx context.Context, tagID entity.TagID) ([]*entity.Favorite, error)) *MockFavoriteRepository_GetByTag_Call {
 	_c.Call.Return(run)
 	return _c
 }

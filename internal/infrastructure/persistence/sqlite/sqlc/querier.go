@@ -13,7 +13,7 @@ type Querier interface {
 	AddToWhitelist(ctx context.Context, domain string) error
 	AssignTagToFavorite(ctx context.Context, arg AssignTagToFavoriteParams) error
 	CapVisitCount(ctx context.Context, arg CapVisitCountParams) error
-	CreateFavorite(ctx context.Context, arg CreateFavoriteParams) (Favorite, error)
+	CreateFavorite(ctx context.Context, arg CreateFavoriteParams) (CreateFavoriteRow, error)
 	CreateTag(ctx context.Context, arg CreateTagParams) (FavoriteTag, error)
 	DeleteAllHistory(ctx context.Context) error
 	// Deletes exited browser sessions older than the given cutoff time.
@@ -32,7 +32,7 @@ type Querier interface {
 	DeleteTag(ctx context.Context, id int64) error
 	DeleteZoomLevel(ctx context.Context, domain string) error
 	GetActiveBrowserSession(ctx context.Context) (Session, error)
-	GetAllFavorites(ctx context.Context) ([]Favorite, error)
+	GetAllFavorites(ctx context.Context) ([]GetAllFavoritesRow, error)
 	GetAllMostVisited(ctx context.Context) ([]History, error)
 	GetAllRecentHistory(ctx context.Context) ([]History, error)
 	GetAllRecentHistoryByDomain(ctx context.Context, domain sql.NullString) ([]History, error)
@@ -42,10 +42,10 @@ type Querier interface {
 	GetDailyVisitCount(ctx context.Context, date interface{}) ([]GetDailyVisitCountRow, error)
 	GetDomainStats(ctx context.Context, limit int64) ([]GetDomainStatsRow, error)
 	GetFavicon(ctx context.Context, key string) (Favicon, error)
-	GetFavoriteByID(ctx context.Context, id int64) (Favorite, error)
-	GetFavoriteByShortcut(ctx context.Context, shortcutKey sql.NullInt64) (Favorite, error)
-	GetFavoriteByURL(ctx context.Context, url string) (Favorite, error)
-	GetFavoritesByTag(ctx context.Context, tagID int64) ([]Favorite, error)
+	GetFavoriteByID(ctx context.Context, id int64) (GetFavoriteByIDRow, error)
+	GetFavoriteByShortcut(ctx context.Context, shortcutKey sql.NullInt64) (GetFavoriteByShortcutRow, error)
+	GetFavoriteByURL(ctx context.Context, url string) (GetFavoriteByURLRow, error)
+	GetFavoritesByTag(ctx context.Context, tagID int64) ([]GetFavoritesByTagRow, error)
 	GetHistoryByURL(ctx context.Context, url string) (History, error)
 	GetHistoryStats(ctx context.Context) (GetHistoryStatsRow, error)
 	GetHourlyDistribution(ctx context.Context) ([]GetHourlyDistributionRow, error)

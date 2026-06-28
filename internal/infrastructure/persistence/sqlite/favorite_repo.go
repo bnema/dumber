@@ -42,7 +42,7 @@ func (r *favoriteRepo) Save(ctx context.Context, fav *entity.Favorite) error {
 	if err != nil {
 		return err
 	}
-	favoriteFromRow(row, fav)
+	favoriteFromRow(favoriteRowFromCreate(row), fav)
 	return nil
 }
 
@@ -54,7 +54,7 @@ func (r *favoriteRepo) FindByID(ctx context.Context, id entity.FavoriteID) (*ent
 		}
 		return nil, err
 	}
-	fav := favoriteFromRow(row, nil)
+	fav := favoriteFromRow(favoriteRowFromGetByID(row), nil)
 	return fav, r.hydrateTags(ctx, []*entity.Favorite{fav})
 }
 
@@ -66,7 +66,7 @@ func (r *favoriteRepo) FindByURL(ctx context.Context, url string) (*entity.Favor
 		}
 		return nil, err
 	}
-	fav := favoriteFromRow(row, nil)
+	fav := favoriteFromRow(favoriteRowFromGetByURL(row), nil)
 	return fav, r.hydrateTags(ctx, []*entity.Favorite{fav})
 }
 
@@ -75,7 +75,7 @@ func (r *favoriteRepo) GetAll(ctx context.Context) ([]*entity.Favorite, error) {
 	if err != nil {
 		return nil, err
 	}
-	favorites := favoritesFromRows(rows)
+	favorites := favoritesFromAllRows(rows)
 	return favorites, r.hydrateTags(ctx, favorites)
 }
 
@@ -84,7 +84,7 @@ func (r *favoriteRepo) GetByTag(ctx context.Context, tagID entity.TagID) ([]*ent
 	if err != nil {
 		return nil, err
 	}
-	favorites := favoritesFromRows(rows)
+	favorites := favoritesFromTagRows(rows)
 	return favorites, r.hydrateTags(ctx, favorites)
 }
 
@@ -96,7 +96,7 @@ func (r *favoriteRepo) GetByShortcut(ctx context.Context, key int) (*entity.Favo
 		}
 		return nil, err
 	}
-	fav := favoriteFromRow(row, nil)
+	fav := favoriteFromRow(favoriteRowFromGetByShortcut(row), nil)
 	return fav, r.hydrateTags(ctx, []*entity.Favorite{fav})
 }
 
@@ -155,15 +155,26 @@ func (r *favoriteRepo) hydrateTags(ctx context.Context, favorites []*entity.Favo
 	return nil
 }
 
-func favoriteFromRow(row sqlc.Favorite, target *entity.Favorite) *entity.Favorite {
+type favoriteRow struct {
+	ID          int64
+	URL         string
+	Title       sql.NullString
+	FaviconURL  sql.NullString
+	ShortcutKey sql.NullInt64
+	Position    int64
+	CreatedAt   sql.NullTime
+	UpdatedAt   sql.NullTime
+}
+
+func favoriteFromRow(row favoriteRow, target *entity.Favorite) *entity.Favorite {
 	fav := target
 	if fav == nil {
 		fav = &entity.Favorite{}
 	}
 	fav.ID = entity.FavoriteID(row.ID)
-	fav.URL = row.Url
+	fav.URL = row.URL
 	fav.Title = row.Title.String
-	fav.FaviconURL = row.FaviconUrl.String
+	fav.FaviconURL = row.FaviconURL.String
 	fav.Position = int(row.Position)
 	fav.CreatedAt = row.CreatedAt.Time
 	fav.UpdatedAt = row.UpdatedAt.Time
@@ -177,10 +188,36 @@ func favoriteFromRow(row sqlc.Favorite, target *entity.Favorite) *entity.Favorit
 	return fav
 }
 
-func favoritesFromRows(rows []sqlc.Favorite) []*entity.Favorite {
+func favoriteRowFromCreate(row sqlc.CreateFavoriteRow) favoriteRow {
+	return favoriteRow{ID: row.ID, URL: row.Url, Title: row.Title, FaviconURL: row.FaviconUrl, ShortcutKey: row.ShortcutKey, Position: row.Position, CreatedAt: row.CreatedAt, UpdatedAt: row.UpdatedAt}
+}
+
+func favoriteRowFromGetByID(row sqlc.GetFavoriteByIDRow) favoriteRow {
+	return favoriteRow{ID: row.ID, URL: row.Url, Title: row.Title, FaviconURL: row.FaviconUrl, ShortcutKey: row.ShortcutKey, Position: row.Position, CreatedAt: row.CreatedAt, UpdatedAt: row.UpdatedAt}
+}
+
+func favoriteRowFromGetByURL(row sqlc.GetFavoriteByURLRow) favoriteRow {
+	return favoriteRow{ID: row.ID, URL: row.Url, Title: row.Title, FaviconURL: row.FaviconUrl, ShortcutKey: row.ShortcutKey, Position: row.Position, CreatedAt: row.CreatedAt, UpdatedAt: row.UpdatedAt}
+}
+
+func favoriteRowFromGetByShortcut(row sqlc.GetFavoriteByShortcutRow) favoriteRow {
+	return favoriteRow{ID: row.ID, URL: row.Url, Title: row.Title, FaviconURL: row.FaviconUrl, ShortcutKey: row.ShortcutKey, Position: row.Position, CreatedAt: row.CreatedAt, UpdatedAt: row.UpdatedAt}
+}
+
+func favoritesFromAllRows(rows []sqlc.GetAllFavoritesRow) []*entity.Favorite {
 	favorites := make([]*entity.Favorite, len(rows))
 	for i := range rows {
-		favorites[i] = favoriteFromRow(rows[i], nil)
+		row := rows[i]
+		favorites[i] = favoriteFromRow(favoriteRow{ID: row.ID, URL: row.Url, Title: row.Title, FaviconURL: row.FaviconUrl, ShortcutKey: row.ShortcutKey, Position: row.Position, CreatedAt: row.CreatedAt, UpdatedAt: row.UpdatedAt}, nil)
+	}
+	return favorites
+}
+
+func favoritesFromTagRows(rows []sqlc.GetFavoritesByTagRow) []*entity.Favorite {
+	favorites := make([]*entity.Favorite, len(rows))
+	for i := range rows {
+		row := rows[i]
+		favorites[i] = favoriteFromRow(favoriteRow{ID: row.ID, URL: row.Url, Title: row.Title, FaviconURL: row.FaviconUrl, ShortcutKey: row.ShortcutKey, Position: row.Position, CreatedAt: row.CreatedAt, UpdatedAt: row.UpdatedAt}, nil)
 	}
 	return favorites
 }
