@@ -1,6 +1,7 @@
 package usecase_test
 
 import (
+	"context"
 	"errors"
 	"testing"
 
@@ -17,7 +18,6 @@ func TestManageFavoritesUseCase_GetAllURLs_ReturnsURLSet(t *testing.T) {
 	ctx := testContext()
 
 	favoriteRepo := repomocks.NewMockFavoriteRepository(t)
-	folderRepo := repomocks.NewMockFolderRepository(t)
 	tagRepo := repomocks.NewMockTagRepository(t)
 
 	favorites := []*entity.Favorite{
@@ -28,7 +28,7 @@ func TestManageFavoritesUseCase_GetAllURLs_ReturnsURLSet(t *testing.T) {
 
 	favoriteRepo.EXPECT().GetAll(mock.Anything).Return(favorites, nil)
 
-	uc := usecase.NewManageFavoritesUseCase(favoriteRepo, folderRepo, tagRepo)
+	uc := usecase.NewManageFavoritesUseCase(favoriteRepo, tagRepo)
 
 	urls, err := uc.GetAllURLs(ctx)
 	require.NoError(t, err)
@@ -47,12 +47,11 @@ func TestManageFavoritesUseCase_GetAllURLs_ReturnsEmptySetWhenNoFavorites(t *tes
 	ctx := testContext()
 
 	favoriteRepo := repomocks.NewMockFavoriteRepository(t)
-	folderRepo := repomocks.NewMockFolderRepository(t)
 	tagRepo := repomocks.NewMockTagRepository(t)
 
 	favoriteRepo.EXPECT().GetAll(mock.Anything).Return([]*entity.Favorite{}, nil)
 
-	uc := usecase.NewManageFavoritesUseCase(favoriteRepo, folderRepo, tagRepo)
+	uc := usecase.NewManageFavoritesUseCase(favoriteRepo, tagRepo)
 
 	urls, err := uc.GetAllURLs(ctx)
 	require.NoError(t, err)
@@ -64,12 +63,11 @@ func TestManageFavoritesUseCase_GetAllURLs_ReturnsErrorOnRepoFailure(t *testing.
 	ctx := testContext()
 
 	favoriteRepo := repomocks.NewMockFavoriteRepository(t)
-	folderRepo := repomocks.NewMockFolderRepository(t)
 	tagRepo := repomocks.NewMockTagRepository(t)
 
 	favoriteRepo.EXPECT().GetAll(mock.Anything).Return(nil, errors.New("db connection failed"))
 
-	uc := usecase.NewManageFavoritesUseCase(favoriteRepo, folderRepo, tagRepo)
+	uc := usecase.NewManageFavoritesUseCase(favoriteRepo, tagRepo)
 
 	urls, err := uc.GetAllURLs(ctx)
 	require.Error(t, err)
@@ -81,7 +79,6 @@ func TestManageFavoritesUseCase_Toggle_AddsWhenNotFavorite(t *testing.T) {
 	ctx := testContext()
 
 	favoriteRepo := repomocks.NewMockFavoriteRepository(t)
-	folderRepo := repomocks.NewMockFolderRepository(t)
 	tagRepo := repomocks.NewMockTagRepository(t)
 
 	// URL is not a favorite
@@ -90,7 +87,7 @@ func TestManageFavoritesUseCase_Toggle_AddsWhenNotFavorite(t *testing.T) {
 		return f.URL == "https://example.com" && f.Title == "Example"
 	})).Return(nil)
 
-	uc := usecase.NewManageFavoritesUseCase(favoriteRepo, folderRepo, tagRepo)
+	uc := usecase.NewManageFavoritesUseCase(favoriteRepo, tagRepo)
 
 	result, err := uc.Toggle(ctx, "https://example.com", "Example")
 	require.NoError(t, err)
@@ -106,7 +103,6 @@ func TestManageFavoritesUseCase_Toggle_RemovesWhenAlreadyFavorite(t *testing.T) 
 	ctx := testContext()
 
 	favoriteRepo := repomocks.NewMockFavoriteRepository(t)
-	folderRepo := repomocks.NewMockFolderRepository(t)
 	tagRepo := repomocks.NewMockTagRepository(t)
 
 	existingFav := &entity.Favorite{
@@ -119,7 +115,7 @@ func TestManageFavoritesUseCase_Toggle_RemovesWhenAlreadyFavorite(t *testing.T) 
 	favoriteRepo.EXPECT().FindByURL(mock.Anything, "https://example.com").Return(existingFav, nil)
 	favoriteRepo.EXPECT().Delete(mock.Anything, entity.FavoriteID(42)).Return(nil)
 
-	uc := usecase.NewManageFavoritesUseCase(favoriteRepo, folderRepo, tagRepo)
+	uc := usecase.NewManageFavoritesUseCase(favoriteRepo, tagRepo)
 
 	result, err := uc.Toggle(ctx, "https://example.com", "Example")
 	require.NoError(t, err)
@@ -135,10 +131,9 @@ func TestManageFavoritesUseCase_Toggle_EmptyURLReturnsError(t *testing.T) {
 	ctx := testContext()
 
 	favoriteRepo := repomocks.NewMockFavoriteRepository(t)
-	folderRepo := repomocks.NewMockFolderRepository(t)
 	tagRepo := repomocks.NewMockTagRepository(t)
 
-	uc := usecase.NewManageFavoritesUseCase(favoriteRepo, folderRepo, tagRepo)
+	uc := usecase.NewManageFavoritesUseCase(favoriteRepo, tagRepo)
 
 	result, err := uc.Toggle(ctx, "", "Title")
 	require.Error(t, err)
@@ -150,7 +145,6 @@ func TestManageFavoritesUseCase_ToggleNormalizesURLBeforeLookup(t *testing.T) {
 	ctx := testContext()
 
 	favoriteRepo := repomocks.NewMockFavoriteRepository(t)
-	folderRepo := repomocks.NewMockFolderRepository(t)
 	tagRepo := repomocks.NewMockTagRepository(t)
 
 	favoriteRepo.EXPECT().FindByURL(mock.Anything, "https://example.com").Return(nil, nil).Once()
@@ -159,7 +153,7 @@ func TestManageFavoritesUseCase_ToggleNormalizesURLBeforeLookup(t *testing.T) {
 		return fav != nil && fav.URL == "https://example.com" && fav.Title == "Example"
 	})).Return(nil).Once()
 
-	uc := usecase.NewManageFavoritesUseCase(favoriteRepo, folderRepo, tagRepo)
+	uc := usecase.NewManageFavoritesUseCase(favoriteRepo, tagRepo)
 
 	result, err := uc.Toggle(ctx, " example.com ", " Example ")
 	require.NoError(t, err)
@@ -173,12 +167,11 @@ func TestManageFavoritesUseCase_Toggle_FindByURLErrorReturnsError(t *testing.T) 
 	ctx := testContext()
 
 	favoriteRepo := repomocks.NewMockFavoriteRepository(t)
-	folderRepo := repomocks.NewMockFolderRepository(t)
 	tagRepo := repomocks.NewMockTagRepository(t)
 
 	favoriteRepo.EXPECT().FindByURL(mock.Anything, "https://example.com").Return(nil, errors.New("db error"))
 
-	uc := usecase.NewManageFavoritesUseCase(favoriteRepo, folderRepo, tagRepo)
+	uc := usecase.NewManageFavoritesUseCase(favoriteRepo, tagRepo)
 
 	result, err := uc.Toggle(ctx, "https://example.com", "Example")
 	require.Error(t, err)
@@ -190,13 +183,12 @@ func TestManageFavoritesUseCase_Toggle_SaveErrorReturnsError(t *testing.T) {
 	ctx := testContext()
 
 	favoriteRepo := repomocks.NewMockFavoriteRepository(t)
-	folderRepo := repomocks.NewMockFolderRepository(t)
 	tagRepo := repomocks.NewMockTagRepository(t)
 
 	favoriteRepo.EXPECT().FindByURL(mock.Anything, "https://example.com").Return(nil, nil)
 	favoriteRepo.EXPECT().Save(mock.Anything, mock.Anything).Return(errors.New("db error"))
 
-	uc := usecase.NewManageFavoritesUseCase(favoriteRepo, folderRepo, tagRepo)
+	uc := usecase.NewManageFavoritesUseCase(favoriteRepo, tagRepo)
 
 	result, err := uc.Toggle(ctx, "https://example.com", "Example")
 	require.Error(t, err)
@@ -208,14 +200,13 @@ func TestManageFavoritesUseCase_Toggle_DeleteErrorReturnsError(t *testing.T) {
 	ctx := testContext()
 
 	favoriteRepo := repomocks.NewMockFavoriteRepository(t)
-	folderRepo := repomocks.NewMockFolderRepository(t)
 	tagRepo := repomocks.NewMockTagRepository(t)
 
 	existingFav := &entity.Favorite{ID: 42, URL: "https://example.com", Title: "Example"}
 	favoriteRepo.EXPECT().FindByURL(mock.Anything, "https://example.com").Return(existingFav, nil)
 	favoriteRepo.EXPECT().Delete(mock.Anything, entity.FavoriteID(42)).Return(errors.New("db error"))
 
-	uc := usecase.NewManageFavoritesUseCase(favoriteRepo, folderRepo, tagRepo)
+	uc := usecase.NewManageFavoritesUseCase(favoriteRepo, tagRepo)
 
 	result, err := uc.Toggle(ctx, "https://example.com", "Example")
 	require.Error(t, err)
@@ -223,11 +214,64 @@ func TestManageFavoritesUseCase_Toggle_DeleteErrorReturnsError(t *testing.T) {
 	assert.Contains(t, err.Error(), "failed to remove favorite")
 }
 
+func TestManageFavoritesUseCase_UpdateFavoritePreservesShortcutWhenOmitted(t *testing.T) {
+	ctx := testContext()
+	shortcut := 3
+	existing := &entity.Favorite{
+		ID:          42,
+		URL:         "https://example.com",
+		Title:       "Example",
+		ShortcutKey: &shortcut,
+	}
+
+	favoriteRepo := repomocks.NewMockFavoriteRepository(t)
+	tagRepo := repomocks.NewMockTagRepository(t)
+	favoriteRepo.EXPECT().FindByID(mock.Anything, entity.FavoriteID(42)).Return(existing, nil)
+	favoriteRepo.EXPECT().Save(mock.Anything, mock.MatchedBy(func(fav *entity.Favorite) bool {
+		return fav.ID == 42 && fav.Title == "Updated" && fav.ShortcutKey != nil && *fav.ShortcutKey == 3
+	})).Return(nil)
+
+	uc := usecase.NewManageFavoritesUseCase(favoriteRepo, tagRepo)
+	updated, err := uc.UpdateFavorite(ctx, dto.FavoriteUpdateInput{
+		ID:    42,
+		Title: "Updated",
+	})
+	require.NoError(t, err)
+	require.NotNil(t, updated.ShortcutKey)
+	assert.Equal(t, 3, *updated.ShortcutKey)
+}
+
+func TestManageFavoritesUseCase_UpdateFavoriteClearsShortcutWhenExplicit(t *testing.T) {
+	ctx := testContext()
+	shortcut := 3
+	existing := &entity.Favorite{
+		ID:          42,
+		URL:         "https://example.com",
+		Title:       "Example",
+		ShortcutKey: &shortcut,
+	}
+
+	favoriteRepo := repomocks.NewMockFavoriteRepository(t)
+	tagRepo := repomocks.NewMockTagRepository(t)
+	favoriteRepo.EXPECT().FindByID(mock.Anything, entity.FavoriteID(42)).Return(existing, nil)
+	favoriteRepo.EXPECT().Save(mock.Anything, mock.MatchedBy(func(fav *entity.Favorite) bool {
+		return fav.ID == 42 && fav.Title == "Updated" && fav.ShortcutKey == nil
+	})).Return(nil)
+
+	uc := usecase.NewManageFavoritesUseCase(favoriteRepo, tagRepo)
+	updated, err := uc.UpdateFavorite(ctx, dto.FavoriteUpdateInput{
+		ID:             42,
+		Title:          "Updated",
+		ShortcutKeySet: true,
+	})
+	require.NoError(t, err)
+	assert.Nil(t, updated.ShortcutKey)
+}
+
 func TestManageFavoritesUseCase_FilterForOmnibox_RanksPrefixBeforeContains(t *testing.T) {
 	ctx := testContext()
 
 	favoriteRepo := repomocks.NewMockFavoriteRepository(t)
-	folderRepo := repomocks.NewMockFolderRepository(t)
 	tagRepo := repomocks.NewMockTagRepository(t)
 
 	favorites := []*entity.Favorite{
@@ -237,7 +281,7 @@ func TestManageFavoritesUseCase_FilterForOmnibox_RanksPrefixBeforeContains(t *te
 	}
 	favoriteRepo.EXPECT().GetAll(mock.Anything).Return(favorites, nil)
 
-	uc := usecase.NewManageFavoritesUseCase(favoriteRepo, folderRepo, tagRepo)
+	uc := usecase.NewManageFavoritesUseCase(favoriteRepo, tagRepo)
 
 	results, err := uc.FilterForOmnibox(ctx, "git")
 	require.NoError(t, err)
@@ -251,7 +295,6 @@ func TestManageFavoritesUseCase_FilterForOmnibox_EmptyQueryKeepsRepositoryOrder(
 	ctx := testContext()
 
 	favoriteRepo := repomocks.NewMockFavoriteRepository(t)
-	folderRepo := repomocks.NewMockFolderRepository(t)
 	tagRepo := repomocks.NewMockTagRepository(t)
 
 	favorites := []*entity.Favorite{
@@ -260,7 +303,7 @@ func TestManageFavoritesUseCase_FilterForOmnibox_EmptyQueryKeepsRepositoryOrder(
 	}
 	favoriteRepo.EXPECT().GetAll(mock.Anything).Return(favorites, nil)
 
-	uc := usecase.NewManageFavoritesUseCase(favoriteRepo, folderRepo, tagRepo)
+	uc := usecase.NewManageFavoritesUseCase(favoriteRepo, tagRepo)
 
 	results, err := uc.FilterForOmnibox(ctx, "")
 	require.NoError(t, err)
@@ -273,7 +316,6 @@ func TestManageFavoritesUseCase_GetAllURLs_UsesCache(t *testing.T) {
 	ctx := testContext()
 
 	favoriteRepo := repomocks.NewMockFavoriteRepository(t)
-	folderRepo := repomocks.NewMockFolderRepository(t)
 	tagRepo := repomocks.NewMockTagRepository(t)
 
 	favorites := []*entity.Favorite{
@@ -281,7 +323,7 @@ func TestManageFavoritesUseCase_GetAllURLs_UsesCache(t *testing.T) {
 	}
 	favoriteRepo.EXPECT().GetAll(mock.Anything).Return(favorites, nil).Once()
 
-	uc := usecase.NewManageFavoritesUseCase(favoriteRepo, folderRepo, tagRepo)
+	uc := usecase.NewManageFavoritesUseCase(favoriteRepo, tagRepo)
 
 	urls, err := uc.GetAllURLs(ctx)
 	require.NoError(t, err)
@@ -296,7 +338,6 @@ func TestManageFavoritesUseCase_Toggle_InvalidatesCache(t *testing.T) {
 	ctx := testContext()
 
 	favoriteRepo := repomocks.NewMockFavoriteRepository(t)
-	folderRepo := repomocks.NewMockFolderRepository(t)
 	tagRepo := repomocks.NewMockTagRepository(t)
 
 	initialFavorites := []*entity.Favorite{
@@ -313,7 +354,7 @@ func TestManageFavoritesUseCase_Toggle_InvalidatesCache(t *testing.T) {
 	}
 	favoriteRepo.EXPECT().GetAll(mock.Anything).Return(updatedFavorites, nil).Once()
 
-	uc := usecase.NewManageFavoritesUseCase(favoriteRepo, folderRepo, tagRepo)
+	uc := usecase.NewManageFavoritesUseCase(favoriteRepo, tagRepo)
 
 	urls, err := uc.GetAllURLs(ctx)
 	require.NoError(t, err)
@@ -327,51 +368,10 @@ func TestManageFavoritesUseCase_Toggle_InvalidatesCache(t *testing.T) {
 	require.Contains(t, urls, "https://new.example")
 }
 
-func TestManageFavoritesUseCase_DeleteFolder_InvalidatesFavoritesCache(t *testing.T) {
-	ctx := testContext()
-
-	favoriteRepo := repomocks.NewMockFavoriteRepository(t)
-	folderRepo := repomocks.NewMockFolderRepository(t)
-	tagRepo := repomocks.NewMockTagRepository(t)
-
-	folderID := entity.FolderID(9)
-	initialFolderID := folderID
-	cachedFavorites := []*entity.Favorite{
-		{ID: 1, URL: "https://example.com", FolderID: &initialFolderID},
-	}
-	updatedFavorites := []*entity.Favorite{
-		{ID: 1, URL: "https://example.com", FolderID: nil},
-	}
-
-	favoriteRepo.EXPECT().GetAll(mock.Anything).Return(cachedFavorites, nil).Once()
-	folderRepo.EXPECT().FindByID(mock.Anything, folderID).Return(&entity.Folder{ID: folderID}, nil).Once()
-	favoriteRepo.EXPECT().GetByFolder(mock.Anything, &folderID).Return(cachedFavorites, nil).Once()
-	favoriteRepo.EXPECT().SetFolder(mock.Anything, entity.FavoriteID(1), (*entity.FolderID)(nil)).Return(nil).Once()
-	folderRepo.EXPECT().GetChildren(mock.Anything, &folderID).Return([]*entity.Folder{}, nil).Once()
-	folderRepo.EXPECT().Delete(mock.Anything, folderID).Return(nil).Once()
-	favoriteRepo.EXPECT().GetAll(mock.Anything).Return(updatedFavorites, nil).Once()
-
-	uc := usecase.NewManageFavoritesUseCase(favoriteRepo, folderRepo, tagRepo)
-
-	favoritesBefore, err := uc.GetAll(ctx)
-	require.NoError(t, err)
-	require.Len(t, favoritesBefore, 1)
-	require.NotNil(t, favoritesBefore[0].FolderID)
-
-	err = uc.DeleteFolder(ctx, folderID)
-	require.NoError(t, err)
-
-	favoritesAfter, err := uc.GetAll(ctx)
-	require.NoError(t, err)
-	require.Len(t, favoritesAfter, 1)
-	assert.Nil(t, favoritesAfter[0].FolderID)
-}
-
 func TestManageFavoritesUseCase_AddFavoriteNormalizesURL(t *testing.T) {
 	ctx := testContext()
 
 	favoriteRepo := repomocks.NewMockFavoriteRepository(t)
-	folderRepo := repomocks.NewMockFolderRepository(t)
 	tagRepo := repomocks.NewMockTagRepository(t)
 
 	favoriteRepo.EXPECT().FindByURL(mock.Anything, "https://example.com").Return(nil, nil).Once()
@@ -380,7 +380,7 @@ func TestManageFavoritesUseCase_AddFavoriteNormalizesURL(t *testing.T) {
 		return fav != nil && fav.URL == "https://example.com" && fav.Title == "Example"
 	})).Return(nil).Once()
 
-	uc := usecase.NewManageFavoritesUseCase(favoriteRepo, folderRepo, tagRepo)
+	uc := usecase.NewManageFavoritesUseCase(favoriteRepo, tagRepo)
 
 	fav, err := uc.AddFavorite(ctx, dto.FavoriteCreateInput{URL: "example.com", Title: " Example "})
 	require.NoError(t, err)
@@ -393,13 +393,64 @@ func TestManageFavoritesUseCase_AddFavoriteRejectsInvalidTagIDs(t *testing.T) {
 	ctx := testContext()
 
 	favoriteRepo := repomocks.NewMockFavoriteRepository(t)
-	folderRepo := repomocks.NewMockFolderRepository(t)
 	tagRepo := repomocks.NewMockTagRepository(t)
-	uc := usecase.NewManageFavoritesUseCase(favoriteRepo, folderRepo, tagRepo)
+	uc := usecase.NewManageFavoritesUseCase(favoriteRepo, tagRepo)
 
 	_, err := uc.AddFavorite(ctx, dto.FavoriteCreateInput{URL: "https://example.com", Tags: []entity.TagID{1, 0}})
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "favorite tag id must be positive")
+}
+
+func TestManageFavoritesUseCase_AddFavoriteAssignsTagsWithoutFolder(t *testing.T) {
+	ctx := testContext()
+
+	favoriteRepo := repomocks.NewMockFavoriteRepository(t)
+	tagRepo := repomocks.NewMockTagRepository(t)
+
+	favoriteRepo.EXPECT().FindByURL(mock.Anything, "https://example.com").Return(nil, nil).Once()
+	favoriteRepo.EXPECT().Save(mock.Anything, mock.MatchedBy(func(fav *entity.Favorite) bool {
+		return fav != nil && fav.URL == "https://example.com" && fav.Title == "Example" && fav.FaviconURL == "https://example.com/favicon.ico"
+	})).Run(func(_ context.Context, fav *entity.Favorite) {
+		fav.ID = entity.FavoriteID(42)
+	}).Return(nil).Once()
+	tagRepo.EXPECT().AssignToFavorite(mock.Anything, entity.TagID(7), entity.FavoriteID(42)).Return(nil).Once()
+	tagRepo.EXPECT().AssignToFavorite(mock.Anything, entity.TagID(8), entity.FavoriteID(42)).Return(nil).Once()
+
+	uc := usecase.NewManageFavoritesUseCase(favoriteRepo, tagRepo)
+
+	fav, err := uc.AddFavorite(ctx, dto.FavoriteCreateInput{
+		URL:        "https://example.com",
+		Title:      "Example",
+		FaviconURL: " https://example.com/favicon.ico ",
+		Tags:       []entity.TagID{7, 8},
+	})
+	require.NoError(t, err)
+	require.NotNil(t, fav)
+	assert.Equal(t, entity.FavoriteID(42), fav.ID)
+}
+
+func TestManageFavoritesUseCase_AddFavoriteReturnsAssignTagError(t *testing.T) {
+	ctx := testContext()
+
+	favoriteRepo := repomocks.NewMockFavoriteRepository(t)
+	tagRepo := repomocks.NewMockTagRepository(t)
+
+	favoriteRepo.EXPECT().FindByURL(mock.Anything, "https://example.com").Return(nil, nil).Once()
+	favoriteRepo.EXPECT().Save(mock.Anything, mock.Anything).Run(func(_ context.Context, fav *entity.Favorite) {
+		fav.ID = entity.FavoriteID(42)
+	}).Return(nil).Once()
+	tagRepo.EXPECT().AssignToFavorite(mock.Anything, entity.TagID(7), entity.FavoriteID(42)).Return(errors.New("tag missing")).Once()
+
+	uc := usecase.NewManageFavoritesUseCase(favoriteRepo, tagRepo)
+
+	fav, err := uc.AddFavorite(ctx, dto.FavoriteCreateInput{
+		URL:   "https://example.com",
+		Title: "Example",
+		Tags:  []entity.TagID{7},
+	})
+	require.Error(t, err)
+	assert.Nil(t, fav)
+	assert.Contains(t, err.Error(), "failed to assign tag 7 to favorite 42")
 }
 
 func TestManageFavoritesUseCase_AddFavoriteRejectsUnsafeOrMalformedURL(t *testing.T) {
@@ -416,9 +467,8 @@ func TestManageFavoritesUseCase_AddFavoriteRejectsUnsafeOrMalformedURL(t *testin
 	for _, raw := range tests {
 		t.Run(raw, func(t *testing.T) {
 			favoriteRepo := repomocks.NewMockFavoriteRepository(t)
-			folderRepo := repomocks.NewMockFolderRepository(t)
 			tagRepo := repomocks.NewMockTagRepository(t)
-			uc := usecase.NewManageFavoritesUseCase(favoriteRepo, folderRepo, tagRepo)
+			uc := usecase.NewManageFavoritesUseCase(favoriteRepo, tagRepo)
 
 			_, err := uc.AddFavorite(ctx, dto.FavoriteCreateInput{URL: raw})
 			require.Error(t, err)
@@ -430,7 +480,6 @@ func TestManageFavoritesUseCase_AddFavoriteNormalizesOpaqueDumbRoute(t *testing.
 	ctx := testContext()
 
 	favoriteRepo := repomocks.NewMockFavoriteRepository(t)
-	folderRepo := repomocks.NewMockFolderRepository(t)
 	tagRepo := repomocks.NewMockTagRepository(t)
 
 	favoriteRepo.EXPECT().FindByURL(mock.Anything, "dumb://history").Return(nil, nil).Once()
@@ -439,7 +488,7 @@ func TestManageFavoritesUseCase_AddFavoriteNormalizesOpaqueDumbRoute(t *testing.
 		return fav != nil && fav.URL == "dumb://history" && fav.Title == "History"
 	})).Return(nil).Once()
 
-	uc := usecase.NewManageFavoritesUseCase(favoriteRepo, folderRepo, tagRepo)
+	uc := usecase.NewManageFavoritesUseCase(favoriteRepo, tagRepo)
 
 	fav, err := uc.AddFavorite(ctx, dto.FavoriteCreateInput{URL: "dumb:history", Title: "History"})
 	require.NoError(t, err)

@@ -12,17 +12,6 @@ import (
 	"github.com/bnema/dumber/internal/logging"
 )
 
-func folderIDFromInt64(id *int64) (*entity.FolderID, error) {
-	if id == nil {
-		return nil, nil
-	}
-	if *id <= 0 {
-		return nil, fmt.Errorf("folder id must be positive")
-	}
-	folderID := entity.FolderID(*id)
-	return &folderID, nil
-}
-
 func tagIDsFromInt64s(ids []int64) ([]entity.TagID, error) {
 	out := make([]entity.TagID, 0, len(ids))
 	for _, id := range ids {
@@ -69,7 +58,6 @@ type favoriteCreateRequest struct {
 	URL        string  `json:"url"`
 	Title      string  `json:"title"`
 	FaviconURL string  `json:"favicon_url"`
-	FolderID   *int64  `json:"folder_id"`
 	Tags       []int64 `json:"tags"`
 }
 
@@ -91,10 +79,6 @@ func (h *FavoritesHandlers) HandleCreate() port.WebUIMessageHandler {
 		if trimmedURL == "" {
 			return NewErrorResponse(req.RequestID, fmt.Errorf("URL is required")), nil
 		}
-		folderID, err := folderIDFromInt64(req.FolderID)
-		if err != nil {
-			return NewErrorResponse(req.RequestID, err), nil
-		}
 		tags, err := tagIDsFromInt64s(req.Tags)
 		if err != nil {
 			return NewErrorResponse(req.RequestID, err), nil
@@ -104,7 +88,6 @@ func (h *FavoritesHandlers) HandleCreate() port.WebUIMessageHandler {
 			URL:        trimmedURL,
 			Title:      req.Title,
 			FaviconURL: req.FaviconURL,
-			FolderID:   folderID,
 			Tags:       tags,
 		}
 		favorite, err := h.favoritesUC.AddFavorite(ctx, input)
@@ -121,7 +104,6 @@ type favoriteUpdateRequest struct {
 	ID          int64  `json:"id"`
 	Title       string `json:"title"`
 	FaviconURL  string `json:"favicon_url"`
-	FolderID    *int64 `json:"folder_id"`
 	ShortcutKey *int   `json:"shortcut_key"`
 }
 
@@ -134,6 +116,11 @@ func (h *FavoritesHandlers) HandleUpdate() port.WebUIMessageHandler {
 		if err := json.Unmarshal(payload, &req); err != nil {
 			return NewErrorResponse("", err), nil
 		}
+		var fields map[string]json.RawMessage
+		if err := json.Unmarshal(payload, &fields); err != nil {
+			return NewErrorResponse("", err), nil
+		}
+		_, shortcutKeySet := fields["shortcut_key"]
 
 		log.Debug().
 			Str("request_id", req.RequestID).
@@ -144,17 +131,12 @@ func (h *FavoritesHandlers) HandleUpdate() port.WebUIMessageHandler {
 			return NewErrorResponse(req.RequestID, fmt.Errorf("favorite id must be positive")), nil
 		}
 
-		folderID, err := folderIDFromInt64(req.FolderID)
-		if err != nil {
-			return NewErrorResponse(req.RequestID, err), nil
-		}
-
 		favorite, err := h.favoritesUC.UpdateFavorite(ctx, dto.FavoriteUpdateInput{
-			ID:          entity.FavoriteID(req.ID),
-			Title:       req.Title,
-			FaviconURL:  req.FaviconURL,
-			FolderID:    folderID,
-			ShortcutKey: req.ShortcutKey,
+			ID:             entity.FavoriteID(req.ID),
+			Title:          req.Title,
+			FaviconURL:     req.FaviconURL,
+			ShortcutKey:    req.ShortcutKey,
+			ShortcutKeySet: shortcutKeySet,
 		})
 		if err != nil {
 			return NewErrorResponse(req.RequestID, err), nil
@@ -257,44 +239,5 @@ func (h *FavoritesHandlers) HandleGetByShortcut() port.WebUIMessageHandler {
 		}
 
 		return NewSuccessResponse(req.RequestID, favorite), nil
-	})
-}
-
-// setFolderRequest is the payload for favorite_set_folder messages.
-type setFolderRequest struct {
-	RequestID  string `json:"requestId"`
-	FavoriteID int64  `json:"favorite_id"`
-	FolderID   *int64 `json:"folder_id"` // null to move to root
-}
-
-// HandleSetFolder handles favorite_set_folder messages.
-func (h *FavoritesHandlers) HandleSetFolder() port.WebUIMessageHandler {
-	return port.WebUIMessageHandlerFunc(func(ctx context.Context, _ port.WebViewID, payload json.RawMessage) (any, error) {
-		log := logging.FromContext(ctx)
-
-		var req setFolderRequest
-		if err := json.Unmarshal(payload, &req); err != nil {
-			return NewErrorResponse("", err), nil
-		}
-
-		log.Debug().
-			Str("request_id", req.RequestID).
-			Int64("favorite_id", req.FavoriteID).
-			Msg("handling favorite_set_folder")
-
-		if req.FavoriteID <= 0 {
-			return NewErrorResponse(req.RequestID, fmt.Errorf("invalid favorite_id")), nil
-		}
-
-		folderID, err := folderIDFromInt64(req.FolderID)
-		if err != nil {
-			return NewErrorResponse(req.RequestID, err), nil
-		}
-
-		if err := h.favoritesUC.Move(ctx, entity.FavoriteID(req.FavoriteID), folderID); err != nil {
-			return NewErrorResponse(req.RequestID, err), nil
-		}
-
-		return NewSuccessResponse(req.RequestID, nil), nil
 	})
 }

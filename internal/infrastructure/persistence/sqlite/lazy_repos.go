@@ -357,11 +357,11 @@ func (r *LazyFavoriteRepository) GetAll(ctx context.Context) ([]*entity.Favorite
 	return r.repo.GetAll(ctx)
 }
 
-func (r *LazyFavoriteRepository) GetByFolder(ctx context.Context, folderID *entity.FolderID) ([]*entity.Favorite, error) {
+func (r *LazyFavoriteRepository) GetByTag(ctx context.Context, tagID entity.TagID) ([]*entity.Favorite, error) {
 	if err := r.init(ctx); err != nil {
 		return nil, err
 	}
-	return r.repo.GetByFolder(ctx, folderID)
+	return r.repo.GetByTag(ctx, tagID)
 }
 
 func (r *LazyFavoriteRepository) GetByShortcut(ctx context.Context, key int) (*entity.Favorite, error) {
@@ -378,13 +378,6 @@ func (r *LazyFavoriteRepository) UpdatePosition(ctx context.Context, id entity.F
 	return r.repo.UpdatePosition(ctx, id, position)
 }
 
-func (r *LazyFavoriteRepository) SetFolder(ctx context.Context, id entity.FavoriteID, folderID *entity.FolderID) error {
-	if err := r.init(ctx); err != nil {
-		return err
-	}
-	return r.repo.SetFolder(ctx, id, folderID)
-}
-
 func (r *LazyFavoriteRepository) SetShortcut(ctx context.Context, id entity.FavoriteID, key *int) error {
 	if err := r.init(ctx); err != nil {
 		return err
@@ -393,73 +386,6 @@ func (r *LazyFavoriteRepository) SetShortcut(ctx context.Context, id entity.Favo
 }
 
 func (r *LazyFavoriteRepository) Delete(ctx context.Context, id entity.FavoriteID) error {
-	if err := r.init(ctx); err != nil {
-		return err
-	}
-	return r.repo.Delete(ctx, id)
-}
-
-// LazyFolderRepository wraps a folder repository with lazy database initialization.
-type LazyFolderRepository struct {
-	provider port.DatabaseProvider
-	repo     repository.FolderRepository
-	once     sync.Once
-	initErr  error
-}
-
-// NewLazyFolderRepository creates a lazy-loading folder repository.
-func NewLazyFolderRepository(provider port.DatabaseProvider) repository.FolderRepository {
-	return &LazyFolderRepository{provider: provider}
-}
-
-func (r *LazyFolderRepository) init(ctx context.Context) error {
-	r.once.Do(func() {
-		db, err := r.provider.DB(ctx)
-		if err != nil {
-			r.initErr = err
-			return
-		}
-		r.repo = NewFolderRepository(db)
-	})
-	return r.initErr
-}
-
-func (r *LazyFolderRepository) Save(ctx context.Context, folder *entity.Folder) error {
-	if err := r.init(ctx); err != nil {
-		return err
-	}
-	return r.repo.Save(ctx, folder)
-}
-
-func (r *LazyFolderRepository) FindByID(ctx context.Context, id entity.FolderID) (*entity.Folder, error) {
-	if err := r.init(ctx); err != nil {
-		return nil, err
-	}
-	return r.repo.FindByID(ctx, id)
-}
-
-func (r *LazyFolderRepository) GetAll(ctx context.Context) ([]*entity.Folder, error) {
-	if err := r.init(ctx); err != nil {
-		return nil, err
-	}
-	return r.repo.GetAll(ctx)
-}
-
-func (r *LazyFolderRepository) GetChildren(ctx context.Context, parentID *entity.FolderID) ([]*entity.Folder, error) {
-	if err := r.init(ctx); err != nil {
-		return nil, err
-	}
-	return r.repo.GetChildren(ctx, parentID)
-}
-
-func (r *LazyFolderRepository) UpdatePosition(ctx context.Context, id entity.FolderID, position int) error {
-	if err := r.init(ctx); err != nil {
-		return err
-	}
-	return r.repo.UpdatePosition(ctx, id, position)
-}
-
-func (r *LazyFolderRepository) Delete(ctx context.Context, id entity.FolderID) error {
 	if err := r.init(ctx); err != nil {
 		return err
 	}
@@ -798,7 +724,6 @@ func (r *LazyContentWhitelistRepository) GetAll(ctx context.Context) ([]string, 
 type LazyRepositories struct {
 	History      repository.HistoryRepository
 	Favorite     repository.FavoriteRepository
-	Folder       repository.FolderRepository
 	Tag          repository.TagRepository
 	Zoom         repository.ZoomRepository
 	Session      repository.SessionRepository
@@ -812,7 +737,6 @@ func NewLazyRepositories(provider port.DatabaseProvider) *LazyRepositories {
 	return &LazyRepositories{
 		History:      NewLazyHistoryRepository(provider),
 		Favorite:     NewLazyFavoriteRepository(provider),
-		Folder:       NewLazyFolderRepository(provider),
 		Tag:          NewLazyTagRepository(provider),
 		Zoom:         NewLazyZoomRepository(provider),
 		Session:      NewLazySessionRepository(provider),

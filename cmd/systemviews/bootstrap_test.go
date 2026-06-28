@@ -64,7 +64,6 @@ func TestNewBridgeApp_WiresFavoritesService(t *testing.T) {
 
 	bridge := &bridgeServiceRecorder{
 		favorites: []*entity.Favorite{{Title: "Example", URL: "https://example.com"}},
-		folders:   []*entity.Folder{{Name: "Read Later"}},
 		tags:      []*entity.Tag{{Name: "Go"}},
 	}
 	app := newBridgeApp(&recordingDOM{}, "dumb://favorites", bridge)
@@ -141,7 +140,6 @@ type bridgeServiceRecorder struct {
 
 	historyEntries []*entity.HistoryEntry
 	favorites      []*entity.Favorite
-	folders        []*entity.Folder
 	tags           []*entity.Tag
 	currentConfig  dto.SystemviewConfigPayload
 	keybindings    port.KeybindingsConfig
@@ -199,25 +197,11 @@ func (*bridgeServiceRecorder) UpdateFavorite(context.Context, dto.FavoriteUpdate
 
 func (*bridgeServiceRecorder) DeleteFavorite(context.Context, int64) error { return nil }
 
-func (f *bridgeServiceRecorder) ListFolders(context.Context) ([]*entity.Folder, error) {
-	return f.folders, nil
-}
-
 func (f *bridgeServiceRecorder) ListTags(context.Context) ([]*entity.Tag, error) {
 	return f.tags, nil
 }
 
 func (*bridgeServiceRecorder) SetShortcut(context.Context, int64, *int) error { return nil }
-
-func (*bridgeServiceRecorder) SetFolder(context.Context, int64, *int64) error { return nil }
-
-func (*bridgeServiceRecorder) CreateFolder(context.Context, string, string, *int64) (*entity.Folder, error) {
-	return nil, nil
-}
-
-func (*bridgeServiceRecorder) UpdateFolder(context.Context, int64, string, string) error { return nil }
-
-func (*bridgeServiceRecorder) DeleteFolder(context.Context, int64) error { return nil }
 
 func (*bridgeServiceRecorder) CreateTag(context.Context, string, string) (*entity.Tag, error) {
 	return nil, nil

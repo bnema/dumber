@@ -1,0 +1,203 @@
+package sqlite
+
+import (
+	"context"
+	"database/sql"
+	"fmt"
+	"testing"
+
+	"github.com/bnema/dumber/internal/domain/entity"
+	_ "github.com/bnema/purego-sqlite/driver"
+)
+
+func openFavoriteRepoTestDB(t *testing.T) *sql.DB {
+	t.Helper()
+	db, err := sql.Open("sqlite3", ":memory:")
+	if err != nil {
+		t.Fatalf("open sqlite: %v", err)
+	}
+	db.SetMaxOpenConns(1)
+	t.Cleanup(func() { _ = db.Close() })
+	if err := RunMigrations(context.Background(), db); err != nil {
+		t.Fatalf("run migrations: %v", err)
+	}
+	return db
+}
+
+func seedFavoriteWithTags(t *testing.T, db *sql.DB) (entity.FavoriteID, entity.TagID) {
+	t.Helper()
+	mustExec(t, db, `INSERT INTO favorites(id, url, title, shortcut_key, position) VALUES (1, 'https://one.example', 'One', 1, 1), (2, 'https://two.example', 'Two', NULL, 2)`)
+	mustExec(t, db, `INSERT INTO favorite_tags(id, name, color) VALUES (1, 'research', '#111111'), (2, 'engines', '#222222')`)
+	mustExec(t, db, `INSERT INTO favorite_tag_assignments(favorite_id, tag_id) VALUES (1, 1), (1, 2), (2, 1)`)
+	return 1, 1
+}
+
+func TestFavoriteRepositoryGetAllHydratesTags(t *testing.T) {
+	db := openFavoriteRepoTestDB(t)
+	seedFavoriteWithTags(t, db)
+	repo := NewFavoriteRepository(db)
+
+	favorites, err := repo.GetAll(context.Background())
+	if err != nil {
+		t.Fatalf("GetAll: %v", err)
+	}
+	if len(favorites) != 2 {
+		t.Fatalf("expected 2 favorites, got %d", len(favorites))
+	}
+	assertTagNames(t, favorites[0], "engines", "research")
+	assertTagNames(t, favorites[1], "research")
+}
+
+func TestFavoriteRepositoryFindByIDHydratesTags(t *testing.T) {
+	db := openFavoriteRepoTestDB(t)
+	favID, _ := seedFavoriteWithTags(t, db)
+	repo := NewFavoriteRepository(db)
+
+	fav, err := repo.FindByID(context.Background(), favID)
+	if err != nil {
+		t.Fatalf("FindByID: %v", err)
+	}
+	assertTagNames(t, fav, "engines", "research")
+}
+
+func TestFavoriteRepositoryFindByURLHydratesTags(t *testing.T) {
+	db := openFavoriteRepoTestDB(t)
+	seedFavoriteWithTags(t, db)
+	repo := NewFavoriteRepository(db)
+
+	fav, err := repo.FindByURL(context.Background(), "https://one.example")
+	if err != nil {
+		t.Fatalf("FindByURL: %v", err)
+	}
+	assertTagNames(t, fav, "engines", "research")
+}
+
+func TestFavoriteRepositoryGetByTagHydratesTags(t *testing.T) {
+	db := openFavoriteRepoTestDB(t)
+	_, tagID := seedFavoriteWithTags(t, db)
+	repo := NewFavoriteRepository(db)
+
+	favorites, err := repo.GetByTag(context.Background(), tagID)
+	if err != nil {
+		t.Fatalf("GetByTag: %v", err)
+	}
+	if len(favorites) != 2 {
+		t.Fatalf("expected 2 tagged favorites, got %d", len(favorites))
+	}
+	assertTagNames(t, favorites[0], "engines", "research")
+	assertTagNames(t, favorites[1], "research")
+}
+
+func TestFavoriteRepositoryGetByShortcutHydratesTags(t *testing.T) {
+	db := openFavoriteRepoTestDB(t)
+	seedFavoriteWithTags(t, db)
+	repo := NewFavoriteRepository(db)
+
+	fav, err := repo.GetByShortcut(context.Background(), 1)
+	if err != nil {
+		t.Fatalf("GetByShortcut: %v", err)
+	}
+	assertTagNames(t, fav, "engines", "research")
+}
+
+func TestFavoriteRepositoryNoTagsHydratesEmptyTags(t *testing.T) {
+	db := openFavoriteRepoTestDB(t)
+	mustExec(t, db, `INSERT INTO favorites(id, url, title, position) VALUES (1, 'https://none.example', 'None', 1)`)
+	repo := NewFavoriteRepository(db)
+
+	fav, err := repo.FindByID(context.Background(), 1)
+	if err != nil {
+		t.Fatalf("FindByID: %v", err)
+	}
+	if fav == nil {
+		t.Fatal("expected favorite")
+	}
+	if fav.Tags == nil || len(fav.Tags) != 0 {
+		t.Fatalf("expected non-nil empty Tags, got %#v", fav.Tags)
+	}
+}
+
+func TestFavoriteRepositorySaveUpdatesShortcutKey(t *testing.T) {
+	db := openFavoriteRepoTestDB(t)
+	mustExec(t, db, `INSERT INTO favorites(id, url, title, position) VALUES (1, 'https://shortcut.example', 'Shortcut', 1)`)
+	repo := NewFavoriteRepository(db)
+
+	fav, err := repo.FindByID(context.Background(), 1)
+	if err != nil {
+		t.Fatalf("FindByID: %v", err)
+	}
+	key := 5
+	fav.ShortcutKey = &key
+	err = repo.Save(context.Background(), fav)
+	if err != nil {
+		t.Fatalf("Save: %v", err)
+	}
+
+	updated, err := repo.GetByShortcut(context.Background(), 5)
+	if err != nil {
+		t.Fatalf("GetByShortcut: %v", err)
+	}
+	if updated == nil || updated.ID != fav.ID {
+		t.Fatalf("expected favorite %d by shortcut, got %#v", fav.ID, updated)
+	}
+
+	updated.ShortcutKey = nil
+	err = repo.Save(context.Background(), updated)
+	if err != nil {
+		t.Fatalf("Save clear shortcut: %v", err)
+	}
+	cleared, err := repo.FindByID(context.Background(), updated.ID)
+	if err != nil {
+		t.Fatalf("FindByID after clear: %v", err)
+	}
+	if cleared.ShortcutKey != nil {
+		t.Fatalf("expected shortcut cleared, got %d", *cleared.ShortcutKey)
+	}
+}
+
+func TestFavoriteRepositoryGetAllHydratesTagsInBatches(t *testing.T) {
+	db := openFavoriteRepoTestDB(t)
+	mustExec(t, db, `INSERT INTO favorite_tags(id, name, color) VALUES (1, 'batched', '#111111')`)
+	for i := int64(1); i <= favoriteTagHydrationBatchSize+5; i++ {
+		_, err := db.Exec(
+			`INSERT INTO favorites(id, url, title, position) VALUES (?, ?, ?, ?)`,
+			i,
+			fmt.Sprintf("https://batch.example/%d", i),
+			"Batch",
+			i,
+		)
+		if err != nil {
+			t.Fatalf("insert favorite %d: %v", i, err)
+		}
+		_, err = db.Exec(`INSERT INTO favorite_tag_assignments(favorite_id, tag_id) VALUES (?, 1)`, i)
+		if err != nil {
+			t.Fatalf("insert assignment %d: %v", i, err)
+		}
+	}
+	repo := NewFavoriteRepository(db)
+
+	favorites, err := repo.GetAll(context.Background())
+	if err != nil {
+		t.Fatalf("GetAll: %v", err)
+	}
+	if len(favorites) != favoriteTagHydrationBatchSize+5 {
+		t.Fatalf("expected %d favorites, got %d", favoriteTagHydrationBatchSize+5, len(favorites))
+	}
+	assertTagNames(t, favorites[0], "batched")
+	assertTagNames(t, favorites[len(favorites)-1], "batched")
+}
+
+func assertTagNames(t *testing.T, fav *entity.Favorite, names ...string) {
+	t.Helper()
+	if fav == nil {
+		t.Fatal("favorite is nil")
+	}
+	if len(fav.Tags) != len(names) {
+		t.Fatalf("expected %d tags, got %d (%#v)", len(names), len(fav.Tags), fav.Tags)
+	}
+	for i, name := range names {
+		if fav.Tags[i].Name != name {
+			t.Fatalf("tag %d: expected %q, got %q", i, name, fav.Tags[i].Name)
+		}
+	}
+}

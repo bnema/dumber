@@ -19,22 +19,7 @@ templ FavoritesView(data favoritesRenderData) {
 			<ul class="sv-list">
 				for _, favorite := range data.Favorites {
 					if favorite != nil {
-						@FavoriteItem(favorite, data.Folders, data.Tags)
-					}
-				}
-			</ul>
-		}
-	}
-	@Section("sv-folders-list", "Folders") {
-		@Meta(foldersSummary(data))
-		@FolderCreateForm()
-		if len(data.Folders) == 0 {
-			@EmptyState("No folders")
-		} else {
-			<ul class="sv-list">
-				for _, folder := range data.Folders {
-					if folder != nil {
-						@FolderItem(folder)
+						@FavoriteItem(favorite, data.Tags)
 					}
 				}
 			</ul>
@@ -61,23 +46,14 @@ templ FavoritesControls(data favoritesRenderData) {
 	<form class="sv-card-form" data-sv-action="favorite.create">
 		<label><span>URL</span><input name="url" type="url" placeholder="https://example.com" required/></label>
 		<label><span>Title</span><input name="title" type="text" placeholder="Optional title"/></label>
-		@FolderSelect("folder_id", data.Folders, nil, "Folder")
 		@FavoriteCreateTagPicker(data.Tags)
 		<button class="sv-button" type="submit">@ButtonIconLabel(iconPlus, "Add favorite")</button>
 	</form>
 	<div class="sv-filter-panel">
 		<div class="sv-button-row">
-			<span class="sv-meta">Folders</span>
-			<button type="button" class={ favoriteFilterClass(favoriteAllFilterActive(data)) } aria-pressed={ fmt.Sprintf("%t", favoriteAllFilterActive(data)) } data-sv-action="favorite.clearFilters">All</button>
-			<button type="button" class={ favoriteFilterClass(favoriteFolderFilterActive(data, entity.FolderID(0))) } aria-pressed={ fmt.Sprintf("%t", favoriteFolderFilterActive(data, entity.FolderID(0))) } data-sv-action="favorite.filterFolder" data-folder-id="root">Unfiled</button>
-			for _, folder := range data.Folders {
-				if folder != nil {
-					<button type="button" class={ favoriteFilterClass(favoriteFolderFilterActive(data, folder.ID)) } aria-pressed={ fmt.Sprintf("%t", favoriteFolderFilterActive(data, folder.ID)) } data-sv-action="favorite.filterFolder" data-folder-id={ fmt.Sprintf("%d", folder.ID) }>{ folderDisplayName(folder) }</button>
-				}
-			}
-		</div>
-		<div class="sv-button-row">
 			<span class="sv-meta">Tags</span>
+			<button type="button" class={ favoriteFilterClass(favoriteAllFilterActive(data)) } aria-pressed={ fmt.Sprintf("%t", favoriteAllFilterActive(data)) } data-sv-action="favorite.clearFilters">All</button>
+			<button type="button" class={ favoriteFilterClass(favoriteUntaggedFilterActive(data)) } aria-pressed={ fmt.Sprintf("%t", favoriteUntaggedFilterActive(data)) } data-sv-action="favorite.filterUntagged">Untagged</button>
 			for _, tag := range data.Tags {
 				if tag != nil {
 					<button type="button" class={ favoriteFilterClass(favoriteTagFilterActive(data, tag.ID)) } aria-pressed={ fmt.Sprintf("%t", favoriteTagFilterActive(data, tag.ID)) } data-sv-action="favorite.filterTag" data-tag-id={ fmt.Sprintf("%d", tag.ID) }>
@@ -108,15 +84,15 @@ templ FavoriteCreateTagPicker(tags []*entity.Tag) {
 	}
 }
 
-templ FavoriteItem(favorite *entity.Favorite, folders []*entity.Folder, tags []*entity.Tag) {
+templ FavoriteItem(favorite *entity.Favorite, tags []*entity.Tag) {
 	<li class="sv-list-row">
 		<article class="sv-favorite-item" data-sv-favorite-row data-favorite-id={ fmt.Sprintf("%d", favorite.ID) }>
 			<div class="sv-favorite-header">
 				<div>
 					<a class="sv-link sv-favorite-open" href={ templ.SafeURL(sanitizeHref(favorite.URL)) }>{ favoriteItemLabel(favorite) }</a>
 					<p class="sv-history-url">{ favorite.URL }</p>
-					if favoriteMetaText(favorite, folders) != "" {
-						<p class="sv-meta">{ favoriteMetaText(favorite, folders) }</p>
+					if favoriteMetaText(favorite) != "" {
+						<p class="sv-meta">{ favoriteMetaText(favorite) }</p>
 					}
 				</div>
 				<div class="sv-history-row-actions">
@@ -124,18 +100,17 @@ templ FavoriteItem(favorite *entity.Favorite, folders []*entity.Folder, tags []*
 					<button type="button" class="sv-button sv-button-secondary sv-button-danger sv-button-icon-only" data-sv-action="favorite.delete" data-id={ fmt.Sprintf("%d", favorite.ID) } data-sv-confirm="Delete this favorite?" aria-label="Delete this favorite">@IconOnly(iconTrash, "Delete this favorite")</button>
 				</div>
 			</div>
-			@FavoriteEditForm(favorite, folders)
+			@FavoriteEditForm(favorite)
 			@FavoriteTagControls(favorite, tags)
 		</article>
 	</li>
 }
 
-templ FavoriteEditForm(favorite *entity.Favorite, folders []*entity.Folder) {
+templ FavoriteEditForm(favorite *entity.Favorite) {
 	<form class="sv-inline-form" data-sv-action="favorite.update">
 		<input type="hidden" name="id" value={ fmt.Sprintf("%d", favorite.ID) }/>
 		<label><span>Title</span><input name="title" type="text" value={ favorite.Title }/></label>
 		<label><span>Favicon</span><input name="favicon_url" type="url" value={ favorite.FaviconURL }/></label>
-		@FolderSelect("folder_id", folders, favorite.FolderID, "Folder")
 		@ShortcutSelect(favorite.ShortcutKey)
 		<button class="sv-button sv-button-secondary" type="submit">@ButtonIconLabel(iconSave, "Save")</button>
 	</form>
@@ -154,26 +129,6 @@ templ FavoriteTagControls(favorite *entity.Favorite, tags []*entity.Tag) {
 			}
 		</div>
 	}
-}
-
-templ FolderCreateForm() {
-	<form class="sv-inline-form" data-sv-action="folder.create">
-		<label><span>Name</span><input name="name" type="text" required/></label>
-		<label><span>Icon</span><input name="icon" type="text" placeholder="Optional"/></label>
-		<button class="sv-button sv-button-secondary" type="submit">@ButtonIconLabel(iconFolder, "Create folder")</button>
-	</form>
-}
-
-templ FolderItem(folder *entity.Folder) {
-	<li class="sv-list-row">
-		<form class="sv-inline-form" data-sv-action="folder.update">
-			<input type="hidden" name="id" value={ fmt.Sprintf("%d", folder.ID) }/>
-			<label><span>Name</span><input name="name" type="text" value={ folder.Name } required/></label>
-			<label><span>Icon</span><input name="icon" type="text" value={ folder.Icon }/></label>
-			<button class="sv-button sv-button-secondary" type="submit">@ButtonIconLabel(iconSave, "Save")</button>
-			<button type="button" class="sv-button sv-button-secondary sv-button-danger sv-button-icon-only" data-sv-action="folder.delete" data-id={ fmt.Sprintf("%d", folder.ID) } data-sv-confirm="Delete this folder? Favorites will move out of it." aria-label="Delete this folder">@IconOnly(iconTrash, "Delete this folder")</button>
-		</form>
-	</li>
 }
 
 templ TagCreateForm() {
@@ -195,17 +150,6 @@ templ TagItem(tag *entity.Tag) {
 			<button type="button" class="sv-button sv-button-secondary sv-button-danger sv-button-icon-only" data-sv-action="tag.delete" data-id={ fmt.Sprintf("%d", tag.ID) } data-sv-confirm="Delete this tag?" aria-label="Delete this tag">@IconOnly(iconTrash, "Delete this tag")</button>
 		</form>
 	</li>
-}
-
-templ FolderSelect(name string, folders []*entity.Folder, selected *entity.FolderID, label string) {
-	<label><span>{ label }</span><select name={ name }>
-		<option value="">Unfiled</option>
-		for _, folder := range folders {
-			if folder != nil {
-				<option value={ fmt.Sprintf("%d", folder.ID) } selected?={ folderSelected(selected, folder.ID) }>{ folderDisplayName(folder) }</option>
-			}
-		}
-	</select></label>
 }
 
 templ ShortcutSelect(selected *int) {

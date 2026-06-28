@@ -12,20 +12,17 @@ import (
 )
 
 const (
-	favoriteActionCreate       = "favorite.create"
-	favoriteActionUpdate       = "favorite.update"
-	favoriteActionDelete       = "favorite.delete"
-	favoriteActionFilterFolder = "favorite.filterFolder"
-	favoriteActionFilterTag    = "favorite.filterTag"
-	favoriteActionClearFilters = "favorite.clearFilters"
-	folderActionCreate         = "folder.create"
-	folderActionUpdate         = "folder.update"
-	folderActionDelete         = "folder.delete"
-	tagActionCreate            = "tag.create"
-	tagActionUpdate            = "tag.update"
-	tagActionDelete            = "tag.delete"
-	tagActionAssign            = "tag.assign"
-	tagActionRemove            = "tag.remove"
+	favoriteActionCreate         = "favorite.create"
+	favoriteActionUpdate         = "favorite.update"
+	favoriteActionDelete         = "favorite.delete"
+	favoriteActionFilterTag      = "favorite.filterTag"
+	favoriteActionFilterUntagged = "favorite.filterUntagged"
+	favoriteActionClearFilters   = "favorite.clearFilters"
+	tagActionCreate              = "tag.create"
+	tagActionUpdate              = "tag.update"
+	tagActionDelete              = "tag.delete"
+	tagActionAssign              = "tag.assign"
+	tagActionRemove              = "tag.remove"
 )
 
 //nolint:gocyclo,funlen // Mechanical dispatcher keeps action routing in one place.
@@ -36,10 +33,6 @@ func (a *App) handleFavoriteAction(ctx context.Context, event DOMAction) error {
 	data := event.Data
 	switch event.Action {
 	case favoriteActionCreate:
-		folderID, err := optionalFolderID(data["folder_id"])
-		if err != nil {
-			return err
-		}
 		favoriteURL, err := validateFavoriteURL(data["url"])
 		if err != nil {
 			return err
@@ -49,10 +42,9 @@ func (a *App) handleFavoriteAction(ctx context.Context, event DOMAction) error {
 			return err
 		}
 		favorite, err := a.deps.Favorites.CreateFavorite(ctx, dto.FavoriteCreateInput{
-			URL:      favoriteURL,
-			Title:    strings.TrimSpace(data["title"]),
-			FolderID: folderID,
-			Tags:     tags,
+			URL:   favoriteURL,
+			Title: strings.TrimSpace(data["title"]),
+			Tags:  tags,
 		})
 		if err != nil {
 			return err
@@ -63,20 +55,16 @@ func (a *App) handleFavoriteAction(ctx context.Context, event DOMAction) error {
 		if err != nil {
 			return err
 		}
-		folderID, err := optionalFolderID(data["folder_id"])
-		if err != nil {
-			return err
-		}
 		shortcut, err := optionalShortcut(data["shortcut_key"])
 		if err != nil {
 			return err
 		}
 		favorite, err := a.deps.Favorites.UpdateFavorite(ctx, dto.FavoriteUpdateInput{
-			ID:          entity.FavoriteID(id),
-			Title:       strings.TrimSpace(data["title"]),
-			FaviconURL:  strings.TrimSpace(data["favicon_url"]),
-			FolderID:    folderID,
-			ShortcutKey: shortcut,
+			ID:             entity.FavoriteID(id),
+			Title:          strings.TrimSpace(data["title"]),
+			FaviconURL:     strings.TrimSpace(data["favicon_url"]),
+			ShortcutKey:    shortcut,
+			ShortcutKeySet: true,
 		})
 		if err != nil {
 			return err
@@ -91,14 +79,6 @@ func (a *App) handleFavoriteAction(ctx context.Context, event DOMAction) error {
 			return err
 		}
 		a.favoritesNotice = "Deleted favorite"
-	case favoriteActionFilterFolder:
-		folderID, err := filterFolderID(firstActionValue(data, "folderId", "folder_id"))
-		if err != nil {
-			return err
-		}
-		a.favoriteFolderFilter = folderID
-		a.favoriteTagFilter = nil
-		a.favoritesNotice = ""
 	case favoriteActionFilterTag:
 		tagID, err := parsePositiveInt64(firstActionValue(data, "tagId", "tag_id"), "tag id")
 		if err != nil {
@@ -106,45 +86,16 @@ func (a *App) handleFavoriteAction(ctx context.Context, event DOMAction) error {
 		}
 		id := entity.TagID(tagID)
 		a.favoriteTagFilter = &id
-		a.favoriteFolderFilter = nil
+		a.favoriteUntaggedFilter = false
+		a.favoritesNotice = ""
+	case favoriteActionFilterUntagged:
+		a.favoriteTagFilter = nil
+		a.favoriteUntaggedFilter = true
 		a.favoritesNotice = ""
 	case favoriteActionClearFilters:
-		a.favoriteFolderFilter = nil
 		a.favoriteTagFilter = nil
+		a.favoriteUntaggedFilter = false
 		a.favoritesNotice = ""
-	case folderActionCreate:
-		name := strings.TrimSpace(data["name"])
-		if name == "" {
-			return fmt.Errorf("folder name is required")
-		}
-		folder, err := a.deps.Favorites.CreateFolder(ctx, name, strings.TrimSpace(data["icon"]), nil)
-		if err != nil {
-			return err
-		}
-		a.favoritesNotice = "Created folder " + folderDisplayName(folder)
-	case folderActionUpdate:
-		id, err := parsePositiveInt64(data["id"], "folder id")
-		if err != nil {
-			return err
-		}
-		name := strings.TrimSpace(data["name"])
-		if name == "" {
-			return fmt.Errorf("folder name is required")
-		}
-		if err := a.deps.Favorites.UpdateFolder(ctx, id, name, strings.TrimSpace(data["icon"])); err != nil {
-			return err
-		}
-		a.favoritesNotice = "Saved folder " + name
-	case folderActionDelete:
-		id, err := parsePositiveInt64(data["id"], "folder id")
-		if err != nil {
-			return err
-		}
-		if err := a.deps.Favorites.DeleteFolder(ctx, id); err != nil {
-			return err
-		}
-		a.favoriteFolderFilter = nil
-		a.favoritesNotice = "Deleted folder"
 	case tagActionCreate:
 		name := strings.TrimSpace(data["name"])
 		if name == "" {
@@ -270,31 +221,6 @@ func optionalTagIDs(raw string) ([]entity.TagID, error) {
 		ids = append(ids, tagID)
 	}
 	return ids, nil
-}
-
-// optionalFolderID returns nil for empty or "root" input, meaning no folder constraint;
-// otherwise it parses a positive folder id into a non-nil *entity.FolderID.
-func optionalFolderID(raw string) (*entity.FolderID, error) {
-	raw = strings.TrimSpace(raw)
-	if raw == "" || raw == "root" {
-		return nil, nil
-	}
-	id, err := parsePositiveInt64(raw, "folder id")
-	if err != nil {
-		return nil, err
-	}
-	folderID := entity.FolderID(id)
-	return &folderID, nil
-}
-
-// filterFolderID returns *entity.FolderID(0) for "root" to explicitly filter
-// favorites in the root folder; other inputs delegate to optionalFolderID.
-func filterFolderID(raw string) (*entity.FolderID, error) {
-	if strings.TrimSpace(raw) == "root" {
-		root := entity.FolderID(0)
-		return &root, nil
-	}
-	return optionalFolderID(raw)
 }
 
 // optionalShortcut accepts favorite keyboard shortcuts 1–9; empty input clears the shortcut.

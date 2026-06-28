@@ -152,7 +152,6 @@ packages:
     interfaces:
       ContentWhitelistRepository: {}
       FavoriteRepository: {}
-      FolderRepository: {}
       HistoryRepository: {}
       SessionRepository: {}
       SessionStateRepository: {}

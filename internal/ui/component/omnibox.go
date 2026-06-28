@@ -1753,18 +1753,23 @@ func (o *Omnibox) loadFavorites(query string, token uint64) {
 			return
 		}
 
-		favorites := make([]Favorite, 0, len(results))
-		for i, r := range results {
-			favorites = append(favorites, Favorite{
-				ID:       int64(r.ID),
-				URL:      r.URL,
-				Title:    r.Title,
-				Position: i,
-			})
-		}
+		favorites := favoriteResultsForOmnibox(results)
 
 		o.idleAddUpdateFavorites(favorites, query, token)
 	}()
+}
+
+func favoriteResultsForOmnibox(results []*entity.Favorite) []Favorite {
+	favorites := make([]Favorite, 0, len(results))
+	for i, r := range results {
+		favorites = append(favorites, Favorite{
+			ID:       int64(r.ID),
+			URL:      r.URL,
+			Title:    r.Title,
+			Position: i,
+		})
+	}
+	return favorites
 }
 
 func (o *Omnibox) loadBangSuggestions(query string, token uint64) {

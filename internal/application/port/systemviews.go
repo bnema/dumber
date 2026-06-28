@@ -22,19 +22,14 @@ type SystemviewHistoryService interface {
 	DeleteDomain(ctx context.Context, domain string) error
 }
 
-// SystemviewFavoritesService exposes favorite, folder, and tag operations.
+// SystemviewFavoritesService exposes favorite and tag operations.
 type SystemviewFavoritesService interface {
 	List(ctx context.Context) ([]*entity.Favorite, error)
 	CreateFavorite(ctx context.Context, input dto.FavoriteCreateInput) (*entity.Favorite, error)
 	UpdateFavorite(ctx context.Context, input dto.FavoriteUpdateInput) (*entity.Favorite, error)
 	DeleteFavorite(ctx context.Context, id int64) error
-	ListFolders(ctx context.Context) ([]*entity.Folder, error)
 	ListTags(ctx context.Context) ([]*entity.Tag, error)
 	SetShortcut(ctx context.Context, favoriteID int64, shortcutKey *int) error
-	SetFolder(ctx context.Context, favoriteID int64, folderID *int64) error
-	CreateFolder(ctx context.Context, name, icon string, parentID *int64) (*entity.Folder, error)
-	UpdateFolder(ctx context.Context, id int64, name, icon string) error
-	DeleteFolder(ctx context.Context, id int64) error
 	CreateTag(ctx context.Context, name, color string) (*entity.Tag, error)
 	UpdateTag(ctx context.Context, id int64, name, color string) error
 	DeleteTag(ctx context.Context, id int64) error

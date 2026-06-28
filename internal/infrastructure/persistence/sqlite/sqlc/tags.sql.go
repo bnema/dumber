@@ -7,6 +7,7 @@ package sqlc
 
 import (
 	"context"
+	"strings"
 )
 
 const AssignTagToFavorite = `-- name: AssignTagToFavorite :exec
@@ -102,11 +103,11 @@ func (q *Queries) GetTagByID(ctx context.Context, id int64) (FavoriteTag, error)
 }
 
 const GetTagByName = `-- name: GetTagByName :one
-SELECT id, name, color, created_at FROM favorite_tags WHERE name = ? LIMIT 1
+SELECT id, name, color, created_at FROM favorite_tags WHERE lower(trim(name)) = lower(trim(?)) LIMIT 1
 `
 
-func (q *Queries) GetTagByName(ctx context.Context, name string) (FavoriteTag, error) {
-	row := q.db.QueryRowContext(ctx, GetTagByName, name)
+func (q *Queries) GetTagByName(ctx context.Context, trim string) (FavoriteTag, error) {
+	row := q.db.QueryRowContext(ctx, GetTagByName, trim)
 	var i FavoriteTag
 	err := row.Scan(
 		&i.ID,
@@ -138,6 +139,57 @@ func (q *Queries) GetTagsForFavorite(ctx context.Context, favoriteID int64) ([]F
 			&i.Name,
 			&i.Color,
 			&i.CreatedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const GetTagsForFavorites = `-- name: GetTagsForFavorites :many
+SELECT t.id, t.name, t.color, t.created_at, fta.favorite_id FROM favorite_tags t
+INNER JOIN favorite_tag_assignments fta ON t.id = fta.tag_id
+WHERE fta.favorite_id IN (/*SLICE:favorite_ids*/?)
+ORDER BY fta.favorite_id ASC, t.name ASC
+`
+
+type GetTagsForFavoritesRow struct {
+	FavoriteTag FavoriteTag `json:"favorite_tag"`
+	FavoriteID  int64       `json:"favorite_id"`
+}
+
+func (q *Queries) GetTagsForFavorites(ctx context.Context, favoriteIds []int64) ([]GetTagsForFavoritesRow, error) {
+	query := GetTagsForFavorites
+	var queryParams []interface{}
+	if len(favoriteIds) > 0 {
+		for _, v := range favoriteIds {
+			queryParams = append(queryParams, v)
+		}
+		query = strings.Replace(query, "/*SLICE:favorite_ids*/?", strings.Repeat(",?", len(favoriteIds))[1:], 1)
+	} else {
+		query = strings.Replace(query, "/*SLICE:favorite_ids*/?", "NULL", 1)
+	}
+	rows, err := q.db.QueryContext(ctx, query, queryParams...)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []GetTagsForFavoritesRow{}
+	for rows.Next() {
+		var i GetTagsForFavoritesRow
+		if err := rows.Scan(
+			&i.FavoriteTag.ID,
+			&i.FavoriteTag.Name,
+			&i.FavoriteTag.Color,
+			&i.FavoriteTag.CreatedAt,
+			&i.FavoriteID,
 		); err != nil {
 			return nil, err
 		}

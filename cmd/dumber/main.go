@@ -691,7 +691,6 @@ func setupSignalHandler(ctx context.Context, app *ui.App) {
 type repositories struct {
 	history      repository.HistoryRepository
 	favorite     repository.FavoriteRepository
-	folder       repository.FolderRepository
 	tag          repository.TagRepository
 	zoom         repository.ZoomRepository
 	permission   port.PermissionRepository
@@ -704,7 +703,6 @@ func createRepositories(db *sql.DB) *repositories {
 	return &repositories{
 		history:      sqlite.NewHistoryRepository(db),
 		favorite:     sqlite.NewFavoriteRepository(db),
-		folder:       sqlite.NewFolderRepository(db),
 		tag:          sqlite.NewTagRepository(db),
 		zoom:         sqlite.NewZoomRepository(db),
 		permission:   sqlite.NewPermissionRepository(db),
@@ -718,7 +716,6 @@ func createLazyRepositories(provider port.DatabaseProvider) *repositories {
 	return &repositories{
 		history:      sqlite.NewLazyHistoryRepository(provider),
 		favorite:     sqlite.NewLazyFavoriteRepository(provider),
-		folder:       sqlite.NewLazyFolderRepository(provider),
 		tag:          sqlite.NewLazyTagRepository(provider),
 		zoom:         sqlite.NewLazyZoomRepository(provider),
 		permission:   sqlite.NewLazyPermissionRepository(provider),
@@ -804,7 +801,7 @@ func createUseCases(repos *repositories, cfg *config.Config) *useCases {
 		tabs:            usecase.NewManageTabsUseCase(idGenerator, localPaths),
 		panes:           usecase.NewManagePanesUseCase(idGenerator, localPaths),
 		history:         historyUC,
-		favorites:       usecase.NewManageFavoritesUseCase(repos.favorite, repos.folder, repos.tag),
+		favorites:       usecase.NewManageFavoritesUseCase(repos.favorite, repos.tag),
 		zoom:            usecase.NewManageZoomUseCase(repos.zoom, defaultZoom, zoomCache),
 		permission:      permissionUC,
 		navigate:        usecase.NewNavigateUseCase(defaultZoom),

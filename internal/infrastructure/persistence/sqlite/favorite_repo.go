@@ -13,77 +13,44 @@ import (
 
 // ==================== Favorite Repository ====================
 
+const favoriteTagHydrationBatchSize = 900
+
 type favoriteRepo struct {
-	db      *sql.DB
 	queries *sqlc.Queries
 }
 
 // NewFavoriteRepository creates a new SQLite-backed favorite repository.
 func NewFavoriteRepository(db *sql.DB) repository.FavoriteRepository {
-	return &favoriteRepo{db: db, queries: sqlc.New(db)}
+	return &favoriteRepo{queries: sqlc.New(db)}
 }
 
 func (r *favoriteRepo) Save(ctx context.Context, fav *entity.Favorite) error {
 	log := logging.FromContext(ctx)
 	log.Debug().Str("url", fav.URL).Int64("id", int64(fav.ID)).Msg("saving favorite")
 
-	var folderID sql.NullInt64
-	if fav.FolderID != nil {
-		folderID = sql.NullInt64{Int64: int64(*fav.FolderID), Valid: true}
-	}
-
 	if fav.ID > 0 {
-		return r.updateExisting(ctx, fav, folderID)
+		shortcutKey := sql.NullInt64{}
+		if fav.ShortcutKey != nil {
+			shortcutKey = sql.NullInt64{Int64: int64(*fav.ShortcutKey), Valid: true}
+		}
+		return r.queries.UpdateFavorite(ctx, sqlc.UpdateFavoriteParams{
+			Title:       sql.NullString{String: fav.Title, Valid: fav.Title != ""},
+			FaviconUrl:  sql.NullString{String: fav.FaviconURL, Valid: fav.FaviconURL != ""},
+			ShortcutKey: shortcutKey,
+			ID:          int64(fav.ID),
+		})
 	}
 
 	row, err := r.queries.CreateFavorite(ctx, sqlc.CreateFavoriteParams{
 		Url:        fav.URL,
 		Title:      sql.NullString{String: fav.Title, Valid: fav.Title != ""},
 		FaviconUrl: sql.NullString{String: fav.FaviconURL, Valid: fav.FaviconURL != ""},
-		FolderID:   folderID,
 	})
 	if err != nil {
 		return err
 	}
-	fav.ID = entity.FavoriteID(row.ID)
+	favoriteFromRow(favoriteRowFromCreate(row), fav)
 	return nil
-}
-
-func (r *favoriteRepo) updateExisting(ctx context.Context, fav *entity.Favorite, folderID sql.NullInt64) error {
-	log := logging.FromContext(ctx)
-	tx, err := r.db.BeginTx(ctx, nil)
-	if err != nil {
-		return err
-	}
-	defer func() {
-		if rollbackErr := tx.Rollback(); rollbackErr != nil && !errors.Is(rollbackErr, sql.ErrTxDone) {
-			log.Debug().Err(rollbackErr).Msg("favorite update rollback reported non-terminal error")
-		}
-	}()
-
-	shortcutKey := sql.NullInt64{}
-	if fav.ShortcutKey != nil {
-		shortcutKey = sql.NullInt64{Int64: int64(*fav.ShortcutKey), Valid: true}
-	}
-
-	queries := r.queries.WithTx(tx)
-	if err := queries.UpdateFavorite(ctx, sqlc.UpdateFavoriteParams{
-		Title:      sql.NullString{String: fav.Title, Valid: fav.Title != ""},
-		FaviconUrl: sql.NullString{String: fav.FaviconURL, Valid: fav.FaviconURL != ""},
-		ID:         int64(fav.ID),
-	}); err != nil {
-		return err
-	}
-	if err := queries.SetFavoriteFolder(ctx, sqlc.SetFavoriteFolderParams{FolderID: folderID, ID: int64(fav.ID)}); err != nil {
-		return err
-	}
-	if err := queries.SetFavoriteShortcut(ctx, sqlc.SetFavoriteShortcutParams{
-		ShortcutKey: shortcutKey,
-		ID:          int64(fav.ID),
-	}); err != nil {
-		return err
-	}
-	return tx.Commit()
 }
 
 func (r *favoriteRepo) FindByID(ctx context.Context, id entity.FavoriteID) (*entity.Favorite, error) {
@@ -94,7 +61,8 @@ func (r *favoriteRepo) FindByID(ctx context.Context, id entity.FavoriteID) (*ent
 		}
 		return nil, err
 	}
-	return favoriteFromRow(row), nil
+	fav := favoriteFromRow(favoriteRowFromGetByID(row), nil)
+	return fav, r.hydrateTags(ctx, []*entity.Favorite{fav})
 }
 
 func (r *favoriteRepo) FindByURL(ctx context.Context, url string) (*entity.Favorite, error) {
@@ -105,7 +73,8 @@ func (r *favoriteRepo) FindByURL(ctx context.Context, url string) (*entity.Favor
 		}
 		return nil, err
 	}
-	return favoriteFromRow(row), nil
+	fav := favoriteFromRow(favoriteRowFromGetByURL(row), nil)
+	return fav, r.hydrateTags(ctx, []*entity.Favorite{fav})
 }
 
 func (r *favoriteRepo) GetAll(ctx context.Context) ([]*entity.Favorite, error) {
@@ -113,22 +82,17 @@ func (r *favoriteRepo) GetAll(ctx context.Context) ([]*entity.Favorite, error) {
 	if err != nil {
 		return nil, err
 	}
-	return favoritesFromRows(rows), nil
+	favorites := favoritesFromAllRows(rows)
+	return favorites, r.hydrateTags(ctx, favorites)
 }
 
-func (r *favoriteRepo) GetByFolder(ctx context.Context, folderID *entity.FolderID) ([]*entity.Favorite, error) {
-	var rows []sqlc.Favorite
-	var err error
-
-	if folderID == nil {
-		rows, err = r.queries.GetFavoritesWithoutFolder(ctx)
-	} else {
-		rows, err = r.queries.GetFavoritesByFolder(ctx, sql.NullInt64{Int64: int64(*folderID), Valid: true})
-	}
+func (r *favoriteRepo) GetByTag(ctx context.Context, tagID entity.TagID) ([]*entity.Favorite, error) {
+	rows, err := r.queries.GetFavoritesByTag(ctx, int64(tagID))
 	if err != nil {
 		return nil, err
 	}
-	return favoritesFromRows(rows), nil
+	favorites := favoritesFromTagRows(rows)
+	return favorites, r.hydrateTags(ctx, favorites)
 }
 
 func (r *favoriteRepo) GetByShortcut(ctx context.Context, key int) (*entity.Favorite, error) {
@@ -139,23 +103,13 @@ func (r *favoriteRepo) GetByShortcut(ctx context.Context, key int) (*entity.Favo
 		}
 		return nil, err
 	}
-	return favoriteFromRow(row), nil
+	fav := favoriteFromRow(favoriteRowFromGetByShortcut(row), nil)
+	return fav, r.hydrateTags(ctx, []*entity.Favorite{fav})
 }
 
 func (r *favoriteRepo) UpdatePosition(ctx context.Context, id entity.FavoriteID, position int) error {
 	return r.queries.UpdateFavoritePosition(ctx, sqlc.UpdateFavoritePositionParams{
 		Position: int64(position),
-		ID:       int64(id),
-	})
-}
-
-func (r *favoriteRepo) SetFolder(ctx context.Context, id entity.FavoriteID, folderID *entity.FolderID) error {
-	var fid sql.NullInt64
-	if folderID != nil {
-		fid = sql.NullInt64{Int64: int64(*folderID), Valid: true}
-	}
-	return r.queries.SetFavoriteFolder(ctx, sqlc.SetFavoriteFolderParams{
-		FolderID: fid,
 		ID:       int64(id),
 	})
 }
@@ -175,141 +129,128 @@ func (r *favoriteRepo) Delete(ctx context.Context, id entity.FavoriteID) error {
 	return r.queries.DeleteFavorite(ctx, int64(id))
 }
 
-func favoriteFromRow(row sqlc.Favorite) *entity.Favorite {
-	fav := &entity.Favorite{
-		ID:         entity.FavoriteID(row.ID),
-		URL:        row.Url,
-		Title:      row.Title.String,
-		FaviconURL: row.FaviconUrl.String,
-		Position:   int(row.Position),
-		CreatedAt:  row.CreatedAt.Time,
-		UpdatedAt:  row.UpdatedAt.Time,
+func (r *favoriteRepo) hydrateTags(ctx context.Context, favorites []*entity.Favorite) error {
+	if len(favorites) == 0 {
+		return nil
 	}
-	if row.FolderID.Valid {
-		fid := entity.FolderID(row.FolderID.Int64)
-		fav.FolderID = &fid
+
+	ids := make([]int64, 0, len(favorites))
+	byID := make(map[entity.FavoriteID]*entity.Favorite, len(favorites))
+	for _, fav := range favorites {
+		if fav == nil {
+			continue
+		}
+		fav.Tags = []entity.Tag{}
+		ids = append(ids, int64(fav.ID))
+		byID[fav.ID] = fav
 	}
+	if len(ids) == 0 {
+		return nil
+	}
+
+	for start := 0; start < len(ids); start += favoriteTagHydrationBatchSize {
+		end := start + favoriteTagHydrationBatchSize
+		if end > len(ids) {
+			end = len(ids)
+		}
+		rows, err := r.queries.GetTagsForFavorites(ctx, ids[start:end])
+		if err != nil {
+			return err
+		}
+		for _, row := range rows {
+			fav := byID[entity.FavoriteID(row.FavoriteID)]
+			if fav == nil {
+				continue
+			}
+			fav.Tags = append(fav.Tags, *tagFromRow(row.FavoriteTag))
+		}
+	}
+	return nil
+}
+
+type favoriteRow struct {
+	ID          int64
+	URL         string
+	Title       sql.NullString
+	FaviconURL  sql.NullString
+	ShortcutKey sql.NullInt64
+	Position    int64
+	CreatedAt   sql.NullTime
+	UpdatedAt   sql.NullTime
+}
+
+func favoriteFromRow(row favoriteRow, target *entity.Favorite) *entity.Favorite {
+	fav := target
+	if fav == nil {
+		fav = &entity.Favorite{}
+	}
+	fav.ID = entity.FavoriteID(row.ID)
+	fav.URL = row.URL
+	fav.Title = row.Title.String
+	fav.FaviconURL = row.FaviconURL.String
+	fav.Position = int(row.Position)
+	fav.CreatedAt = row.CreatedAt.Time
+	fav.UpdatedAt = row.UpdatedAt.Time
+	fav.Tags = nil
 	if row.ShortcutKey.Valid {
 		key := int(row.ShortcutKey.Int64)
 		fav.ShortcutKey = &key
+	} else {
+		fav.ShortcutKey = nil
 	}
 	return fav
 }
 
-func favoritesFromRows(rows []sqlc.Favorite) []*entity.Favorite {
+func favoriteRowFromCreate(row sqlc.CreateFavoriteRow) favoriteRow {
+	return favoriteRow{
+		ID: row.ID, URL: row.Url, Title: row.Title, FaviconURL: row.FaviconUrl,
+		ShortcutKey: row.ShortcutKey, Position: row.Position, CreatedAt: row.CreatedAt, UpdatedAt: row.UpdatedAt,
+	}
+}
+
+func favoriteRowFromGetByID(row sqlc.GetFavoriteByIDRow) favoriteRow {
+	return favoriteRow{
+		ID: row.ID, URL: row.Url, Title: row.Title, FaviconURL: row.FaviconUrl,
+		ShortcutKey: row.ShortcutKey, Position: row.Position, CreatedAt: row.CreatedAt, UpdatedAt: row.UpdatedAt,
+	}
+}
+
+func favoriteRowFromGetByURL(row sqlc.GetFavoriteByURLRow) favoriteRow {
+	return favoriteRow{
+		ID: row.ID, URL: row.Url, Title: row.Title, FaviconURL: row.FaviconUrl,
+		ShortcutKey: row.ShortcutKey, Position: row.Position, CreatedAt: row.CreatedAt, UpdatedAt: row.UpdatedAt,
+	}
+}
+
+func favoriteRowFromGetByShortcut(row sqlc.GetFavoriteByShortcutRow) favoriteRow {
+	return favoriteRow{
+		ID: row.ID, URL: row.Url, Title: row.Title, FaviconURL: row.FaviconUrl,
+		ShortcutKey: row.ShortcutKey, Position: row.Position, CreatedAt: row.CreatedAt, UpdatedAt: row.UpdatedAt,
+	}
+}
+
+func favoritesFromAllRows(rows []sqlc.GetAllFavoritesRow) []*entity.Favorite {
 	favorites := make([]*entity.Favorite, len(rows))
 	for i := range rows {
-		favorites[i] = favoriteFromRow(rows[i])
+		row := rows[i]
+		favorites[i] = favoriteFromRow(favoriteRow{
+			ID: row.ID, URL: row.Url, Title: row.Title, FaviconURL: row.FaviconUrl,
+			ShortcutKey: row.ShortcutKey, Position: row.Position, CreatedAt: row.CreatedAt, UpdatedAt: row.UpdatedAt,
+		}, nil)
 	}
 	return favorites
 }
 
-// ==================== Folder Repository ====================
-
-type folderRepo struct {
-	queries *sqlc.Queries
-}
-
-// NewFolderRepository creates a new SQLite-backed folder repository.
-func NewFolderRepository(db *sql.DB) repository.FolderRepository {
-	return &folderRepo{queries: sqlc.New(db)}
-}
-
-func (r *folderRepo) Save(ctx context.Context, folder *entity.Folder) error {
-	log := logging.FromContext(ctx)
-	log.Debug().Str("name", folder.Name).Int64("id", int64(folder.ID)).Msg("saving folder")
-
-	var parentID sql.NullInt64
-	if folder.ParentID != nil {
-		parentID = sql.NullInt64{Int64: int64(*folder.ParentID), Valid: true}
+func favoritesFromTagRows(rows []sqlc.GetFavoritesByTagRow) []*entity.Favorite {
+	favorites := make([]*entity.Favorite, len(rows))
+	for i := range rows {
+		row := rows[i]
+		favorites[i] = favoriteFromRow(favoriteRow{
+			ID: row.ID, URL: row.Url, Title: row.Title, FaviconURL: row.FaviconUrl,
+			ShortcutKey: row.ShortcutKey, Position: row.Position, CreatedAt: row.CreatedAt, UpdatedAt: row.UpdatedAt,
+		}, nil)
 	}
-
-	if folder.ID > 0 {
-		return r.queries.UpdateFolder(ctx, sqlc.UpdateFolderParams{
-			Name: folder.Name,
-			Icon: sql.NullString{String: folder.Icon, Valid: folder.Icon != ""},
-			ID:   int64(folder.ID),
-		})
-	}
-
-	row, err := r.queries.CreateFolder(ctx, sqlc.CreateFolderParams{
-		Name:     folder.Name,
-		Icon:     sql.NullString{String: folder.Icon, Valid: folder.Icon != ""},
-		ParentID: parentID,
-	})
-	if err != nil {
-		return err
-	}
-	folder.ID = entity.FolderID(row.ID)
-	return nil
-}
-
-func (r *folderRepo) FindByID(ctx context.Context, id entity.FolderID) (*entity.Folder, error) {
-	row, err := r.queries.GetFolderByID(ctx, int64(id))
-	if err != nil {
-		if errors.Is(err, sql.ErrNoRows) {
-			return nil, nil
-		}
-		return nil, err
-	}
-	return folderFromRow(row), nil
-}
-
-func (r *folderRepo) GetAll(ctx context.Context) ([]*entity.Folder, error) {
-	rows, err := r.queries.GetAllFolders(ctx)
-	if err != nil {
-		return nil, err
-	}
-	return foldersFromRows(rows), nil
-}
-
-func (r *folderRepo) GetChildren(ctx context.Context, parentID *entity.FolderID) ([]*entity.Folder, error) {
-	var rows []sqlc.FavoriteFolder
-	var err error
-
-	if parentID == nil {
-		rows, err = r.queries.GetRootFolders(ctx)
-	} else {
-		rows, err = r.queries.GetChildFolders(ctx, sql.NullInt64{Int64: int64(*parentID), Valid: true})
-	}
-	if err != nil {
-		return nil, err
-	}
-	return foldersFromRows(rows), nil
-}
-
-func (r *folderRepo) UpdatePosition(ctx context.Context, id entity.FolderID, position int) error {
-	return r.queries.UpdateFolderPosition(ctx, sqlc.UpdateFolderPositionParams{
-		Position: int64(position),
-		ID:       int64(id),
-	})
-}
-
-func (r *folderRepo) Delete(ctx context.Context, id entity.FolderID) error {
-	return r.queries.DeleteFolder(ctx, int64(id))
-}
-
-func folderFromRow(row sqlc.FavoriteFolder) *entity.Folder {
-	folder := &entity.Folder{
-		ID:        entity.FolderID(row.ID),
-		Name:      row.Name,
-		Icon:      row.Icon.String,
-		Position:  int(row.Position),
-		CreatedAt: row.CreatedAt.Time,
-	}
-	if row.ParentID.Valid {
-		pid := entity.FolderID(row.ParentID.Int64)
-		folder.ParentID = &pid
-	}
-	return folder
-}
-
-func foldersFromRows(rows []sqlc.FavoriteFolder) []*entity.Folder {
-	folders := make([]*entity.Folder, len(rows))
-	for i, row := range rows {
-		folders[i] = folderFromRow(row)
-	}
-	return folders
+	return favorites
 }
 
 // ==================== Tag Repository ====================

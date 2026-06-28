@@ -293,74 +293,6 @@ func (_c *MockFavoriteRepository_GetAll_Call) RunAndReturn(run func(ctx context.
 	return _c
 }
 
-// GetByFolder provides a mock function for the type MockFavoriteRepository
-func (_mock *MockFavoriteRepository) GetByFolder(ctx context.Context, folderID *entity.FolderID) ([]*entity.Favorite, error) {
-	ret := _mock.Called(ctx, folderID)
-
-	if len(ret) == 0 {
-		panic("no return value specified for GetByFolder")
-	}
-
-	var r0 []*entity.Favorite
-	var r1 error
-	if returnFunc, ok := ret.Get(0).(func(context.Context, *entity.FolderID) ([]*entity.Favorite, error)); ok {
-		return returnFunc(ctx, folderID)
-	}
-	if returnFunc, ok := ret.Get(0).(func(context.Context, *entity.FolderID) []*entity.Favorite); ok {
-		r0 = returnFunc(ctx, folderID)
-	} else {
-		if ret.Get(0) != nil {
-			r0 = ret.Get(0).([]*entity.Favorite)
-		}
-	}
-	if returnFunc, ok := ret.Get(1).(func(context.Context, *entity.FolderID) error); ok {
-		r1 = returnFunc(ctx, folderID)
-	} else {
-		r1 = ret.Error(1)
-	}
-	return r0, r1
-}
-
-// MockFavoriteRepository_GetByFolder_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'GetByFolder'
-type MockFavoriteRepository_GetByFolder_Call struct {
-	*mock.Call
-}
-
-// GetByFolder is a helper method to define mock.On call
-//   - ctx context.Context
-//   - folderID *entity.FolderID
-func (_e *MockFavoriteRepository_Expecter) GetByFolder(ctx any, folderID any) *MockFavoriteRepository_GetByFolder_Call {
-	return &MockFavoriteRepository_GetByFolder_Call{Call: _e.mock.On("GetByFolder", ctx, folderID)}
-}
-
-func (_c *MockFavoriteRepository_GetByFolder_Call) Run(run func(ctx context.Context, folderID *entity.FolderID)) *MockFavoriteRepository_GetByFolder_Call {
-	_c.Call.Run(func(args mock.Arguments) {
-		var arg0 context.Context
-		if args[0] != nil {
-			arg0 = args[0].(context.Context)
-		}
-		var arg1 *entity.FolderID
-		if args[1] != nil {
-			arg1 = args[1].(*entity.FolderID)
-		}
-		run(
-			arg0,
-			arg1,
-		)
-	})
-	return _c
-}
-
-func (_c *MockFavoriteRepository_GetByFolder_Call) Return(favorites []*entity.Favorite, err error) *MockFavoriteRepository_GetByFolder_Call {
-	_c.Call.Return(favorites, err)
-	return _c
-}
-
-func (_c *MockFavoriteRepository_GetByFolder_Call) RunAndReturn(run func(ctx context.Context, folderID *entity.FolderID) ([]*entity.Favorite, error)) *MockFavoriteRepository_GetByFolder_Call {
-	_c.Call.Return(run)
-	return _c
-}
-
 // GetByShortcut provides a mock function for the type MockFavoriteRepository
 func (_mock *MockFavoriteRepository) GetByShortcut(ctx context.Context, key int) (*entity.Favorite, error) {
 	ret := _mock.Called(ctx, key)
@@ -429,6 +361,74 @@ func (_c *MockFavoriteRepository_GetByShortcut_Call) RunAndReturn(run func(ctx c
 	return _c
 }
 
+// GetByTag provides a mock function for the type MockFavoriteRepository
+func (_mock *MockFavoriteRepository) GetByTag(ctx context.Context, tagID entity.TagID) ([]*entity.Favorite, error) {
+	ret := _mock.Called(ctx, tagID)
+
+	if len(ret) == 0 {
+		panic("no return value specified for GetByTag")
+	}
+
+	var r0 []*entity.Favorite
+	var r1 error
+	if returnFunc, ok := ret.Get(0).(func(context.Context, entity.TagID) ([]*entity.Favorite, error)); ok {
+		return returnFunc(ctx, tagID)
+	}
+	if returnFunc, ok := ret.Get(0).(func(context.Context, entity.TagID) []*entity.Favorite); ok {
+		r0 = returnFunc(ctx, tagID)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).([]*entity.Favorite)
+		}
+	}
+	if returnFunc, ok := ret.Get(1).(func(context.Context, entity.TagID) error); ok {
+		r1 = returnFunc(ctx, tagID)
+	} else {
+		r1 = ret.Error(1)
+	}
+	return r0, r1
+}
+
+// MockFavoriteRepository_GetByTag_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'GetByTag'
+type MockFavoriteRepository_GetByTag_Call struct {
+	*mock.Call
+}
+
+// GetByTag is a helper method to define mock.On call
+//   - ctx context.Context
+//   - tagID entity.TagID
+func (_e *MockFavoriteRepository_Expecter) GetByTag(ctx any, tagID any) *MockFavoriteRepository_GetByTag_Call {
+	return &MockFavoriteRepository_GetByTag_Call{Call: _e.mock.On("GetByTag", ctx, tagID)}
+}
+
+func (_c *MockFavoriteRepository_GetByTag_Call) Run(run func(ctx context.Context, tagID entity.TagID)) *MockFavoriteRepository_GetByTag_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		var arg0 context.Context
+		if args[0] != nil {
+			arg0 = args[0].(context.Context)
+		}
+		var arg1 entity.TagID
+		if args[1] != nil {
+			arg1 = args[1].(entity.TagID)
+		}
+		run(
+			arg0,
+			arg1,
+		)
+	})
+	return _c
+}
+
+func (_c *MockFavoriteRepository_GetByTag_Call) Return(favorites []*entity.Favorite, err error) *MockFavoriteRepository_GetByTag_Call {
+	_c.Call.Return(favorites, err)
+	return _c
+}
+
+func (_c *MockFavoriteRepository_GetByTag_Call) RunAndReturn(run func(ctx context.Context, tagID entity.TagID) ([]*entity.Favorite, error)) *MockFavoriteRepository_GetByTag_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
 // Save provides a mock function for the type MockFavoriteRepository
 func (_mock *MockFavoriteRepository) Save(ctx context.Context, fav *entity.Favorite) error {
 	ret := _mock.Called(ctx, fav)
@@ -482,69 +482,6 @@ func (_c *MockFavoriteRepository_Save_Call) Return(err error) *MockFavoriteRepos
 }
 
 func (_c *MockFavoriteRepository_Save_Call) RunAndReturn(run func(ctx context.Context, fav *entity.Favorite) error) *MockFavoriteRepository_Save_Call {
-	_c.Call.Return(run)
-	return _c
-}
-
-// SetFolder provides a mock function for the type MockFavoriteRepository
-func (_mock *MockFavoriteRepository) SetFolder(ctx context.Context, id entity.FavoriteID, folderID *entity.FolderID) error {
-	ret := _mock.Called(ctx, id, folderID)
-
-	if len(ret) == 0 {
-		panic("no return value specified for SetFolder")
-	}
-
-	var r0 error
-	if returnFunc, ok := ret.Get(0).(func(context.Context, entity.FavoriteID, *entity.FolderID) error); ok {
-		r0 = returnFunc(ctx, id, folderID)
-	} else {
-		r0 = ret.Error(0)
-	}
-	return r0
-}
-
-// MockFavoriteRepository_SetFolder_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'SetFolder'
-type MockFavoriteRepository_SetFolder_Call struct {
-	*mock.Call
-}
-
-// SetFolder is a helper method to define mock.On call
-//   - ctx context.Context
-//   - id entity.FavoriteID
-//   - folderID *entity.FolderID
-func (_e *MockFavoriteRepository_Expecter) SetFolder(ctx any, id any, folderID any) *MockFavoriteRepository_SetFolder_Call {
-	return &MockFavoriteRepository_SetFolder_Call{Call: _e.mock.On("SetFolder", ctx, id, folderID)}
-}
-
-func (_c *MockFavoriteRepository_SetFolder_Call) Run(run func(ctx context.Context, id entity.FavoriteID, folderID *entity.FolderID)) *MockFavoriteRepository_SetFolder_Call {
-	_c.Call.Run(func(args mock.Arguments) {
-		var arg0 context.Context
-		if args[0] != nil {
-			arg0 = args[0].(context.Context)
-		}
-		var arg1 entity.FavoriteID
-		if args[1] != nil {
-			arg1 = args[1].(entity.FavoriteID)
-		}
-		var arg2 *entity.FolderID
-		if args[2] != nil {
-			arg2 = args[2].(*entity.FolderID)
-		}
-		run(
-			arg0,
-			arg1,
-			arg2,
-		)
-	})
-	return _c
-}
-
-func (_c *MockFavoriteRepository_SetFolder_Call) Return(err error) *MockFavoriteRepository_SetFolder_Call {
-	_c.Call.Return(err)
-	return _c
-}
-
-func (_c *MockFavoriteRepository_SetFolder_Call) RunAndReturn(run func(ctx context.Context, id entity.FavoriteID, folderID *entity.FolderID) error) *MockFavoriteRepository_SetFolder_Call {
 	_c.Call.Return(run)
 	return _c
 }
@@ -671,408 +608,6 @@ func (_c *MockFavoriteRepository_UpdatePosition_Call) Return(err error) *MockFav
 }
 
 func (_c *MockFavoriteRepository_UpdatePosition_Call) RunAndReturn(run func(ctx context.Context, id entity.FavoriteID, position int) error) *MockFavoriteRepository_UpdatePosition_Call {
-	_c.Call.Return(run)
-	return _c
-}
-
-// NewMockFolderRepository creates a new instance of MockFolderRepository. It also registers a testing interface on the mock and a cleanup function to assert the mocks expectations.
-// The first argument is typically a *testing.T value.
-func NewMockFolderRepository(t interface {
-	mock.TestingT
-	Cleanup(func())
-}) *MockFolderRepository {
-	mock := &MockFolderRepository{}
-	mock.Mock.Test(t)
-
-	t.Cleanup(func() { mock.AssertExpectations(t) })
-
-	return mock
-}
-
-// MockFolderRepository is an autogenerated mock type for the FolderRepository type
-type MockFolderRepository struct {
-	mock.Mock
-}
-
-type MockFolderRepository_Expecter struct {
-	mock *mock.Mock
-}
-
-func (_m *MockFolderRepository) EXPECT() *MockFolderRepository_Expecter {
-	return &MockFolderRepository_Expecter{mock: &_m.Mock}
-}
-
-// Delete provides a mock function for the type MockFolderRepository
-func (_mock *MockFolderRepository) Delete(ctx context.Context, id entity.FolderID) error {
-	ret := _mock.Called(ctx, id)
-
-	if len(ret) == 0 {
-		panic("no return value specified for Delete")
-	}
-
-	var r0 error
-	if returnFunc, ok := ret.Get(0).(func(context.Context, entity.FolderID) error); ok {
-		r0 = returnFunc(ctx, id)
-	} else {
-		r0 = ret.Error(0)
-	}
-	return r0
-}
-
-// MockFolderRepository_Delete_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'Delete'
-type MockFolderRepository_Delete_Call struct {
-	*mock.Call
-}
-
-// Delete is a helper method to define mock.On call
-//   - ctx context.Context
-//   - id entity.FolderID
-func (_e *MockFolderRepository_Expecter) Delete(ctx any, id any) *MockFolderRepository_Delete_Call {
-	return &MockFolderRepository_Delete_Call{Call: _e.mock.On("Delete", ctx, id)}
-}
-
-func (_c *MockFolderRepository_Delete_Call) Run(run func(ctx context.Context, id entity.FolderID)) *MockFolderRepository_Delete_Call {
-	_c.Call.Run(func(args mock.Arguments) {
-		var arg0 context.Context
-		if args[0] != nil {
-			arg0 = args[0].(context.Context)
-		}
-		var arg1 entity.FolderID
-		if args[1] != nil {
-			arg1 = args[1].(entity.FolderID)
-		}
-		run(
-			arg0,
-			arg1,
-		)
-	})
-	return _c
-}
-
-func (_c *MockFolderRepository_Delete_Call) Return(err error) *MockFolderRepository_Delete_Call {
-	_c.Call.Return(err)
-	return _c
-}
-
-func (_c *MockFolderRepository_Delete_Call) RunAndReturn(run func(ctx context.Context, id entity.FolderID) error) *MockFolderRepository_Delete_Call {
-	_c.Call.Return(run)
-	return _c
-}
-
-// FindByID provides a mock function for the type MockFolderRepository
-func (_mock *MockFolderRepository) FindByID(ctx context.Context, id entity.FolderID) (*entity.Folder, error) {
-	ret := _mock.Called(ctx, id)
-
-	if len(ret) == 0 {
-		panic("no return value specified for FindByID")
-	}
-
-	var r0 *entity.Folder
-	var r1 error
-	if returnFunc, ok := ret.Get(0).(func(context.Context, entity.FolderID) (*entity.Folder, error)); ok {
-		return returnFunc(ctx, id)
-	}
-	if returnFunc, ok := ret.Get(0).(func(context.Context, entity.FolderID) *entity.Folder); ok {
-		r0 = returnFunc(ctx, id)
-	} else {
-		if ret.Get(0) != nil {
-			r0 = ret.Get(0).(*entity.Folder)
-		}
-	}
-	if returnFunc, ok := ret.Get(1).(func(context.Context, entity.FolderID) error); ok {
-		r1 = returnFunc(ctx, id)
-	} else {
-		r1 = ret.Error(1)
-	}
-	return r0, r1
-}
-
-// MockFolderRepository_FindByID_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'FindByID'
-type MockFolderRepository_FindByID_Call struct {
-	*mock.Call
-}
-
-// FindByID is a helper method to define mock.On call
-//   - ctx context.Context
-//   - id entity.FolderID
-func (_e *MockFolderRepository_Expecter) FindByID(ctx any, id any) *MockFolderRepository_FindByID_Call {
-	return &MockFolderRepository_FindByID_Call{Call: _e.mock.On("FindByID", ctx, id)}
-}
-
-func (_c *MockFolderRepository_FindByID_Call) Run(run func(ctx context.Context, id entity.FolderID)) *MockFolderRepository_FindByID_Call {
-	_c.Call.Run(func(args mock.Arguments) {
-		var arg0 context.Context
-		if args[0] != nil {
-			arg0 = args[0].(context.Context)
-		}
-		var arg1 entity.FolderID
-		if args[1] != nil {
-			arg1 = args[1].(entity.FolderID)
-		}
-		run(
-			arg0,
-			arg1,
-		)
-	})
-	return _c
-}
-
-func (_c *MockFolderRepository_FindByID_Call) Return(folder *entity.Folder, err error) *MockFolderRepository_FindByID_Call {
-	_c.Call.Return(folder, err)
-	return _c
-}
-
-func (_c *MockFolderRepository_FindByID_Call) RunAndReturn(run func(ctx context.Context, id entity.FolderID) (*entity.Folder, error)) *MockFolderRepository_FindByID_Call {
-	_c.Call.Return(run)
-	return _c
-}
-
-// GetAll provides a mock function for the type MockFolderRepository
-func (_mock *MockFolderRepository) GetAll(ctx context.Context) ([]*entity.Folder, error) {
-	ret := _mock.Called(ctx)
-
-	if len(ret) == 0 {
-		panic("no return value specified for GetAll")
-	}
-
-	var r0 []*entity.Folder
-	var r1 error
-	if returnFunc, ok := ret.Get(0).(func(context.Context) ([]*entity.Folder, error)); ok {
-		return returnFunc(ctx)
-	}
-	if returnFunc, ok := ret.Get(0).(func(context.Context) []*entity.Folder); ok {
-		r0 = returnFunc(ctx)
-	} else {
-		if ret.Get(0) != nil {
-			r0 = ret.Get(0).([]*entity.Folder)
-		}
-	}
-	if returnFunc, ok := ret.Get(1).(func(context.Context) error); ok {
-		r1 = returnFunc(ctx)
-	} else {
-		r1 = ret.Error(1)
-	}
-	return r0, r1
-}
-
-// MockFolderRepository_GetAll_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'GetAll'
-type MockFolderRepository_GetAll_Call struct {
-	*mock.Call
-}
-
-// GetAll is a helper method to define mock.On call
-//   - ctx context.Context
-func (_e *MockFolderRepository_Expecter) GetAll(ctx any) *MockFolderRepository_GetAll_Call {
-	return &MockFolderRepository_GetAll_Call{Call: _e.mock.On("GetAll", ctx)}
-}
-
-func (_c *MockFolderRepository_GetAll_Call) Run(run func(ctx context.Context)) *MockFolderRepository_GetAll_Call {
-	_c.Call.Run(func(args mock.Arguments) {
-		var arg0 context.Context
-		if args[0] != nil {
-			arg0 = args[0].(context.Context)
-		}
-		run(
-			arg0,
-		)
-	})
-	return _c
-}
-
-func (_c *MockFolderRepository_GetAll_Call) Return(folders []*entity.Folder, err error) *MockFolderRepository_GetAll_Call {
-	_c.Call.Return(folders, err)
-	return _c
-}
-
-func (_c *MockFolderRepository_GetAll_Call) RunAndReturn(run func(ctx context.Context) ([]*entity.Folder, error)) *MockFolderRepository_GetAll_Call {
-	_c.Call.Return(run)
-	return _c
-}
-
-// GetChildren provides a mock function for the type MockFolderRepository
-func (_mock *MockFolderRepository) GetChildren(ctx context.Context, parentID *entity.FolderID) ([]*entity.Folder, error) {
-	ret := _mock.Called(ctx, parentID)
-
-	if len(ret) == 0 {
-		panic("no return value specified for GetChildren")
-	}
-
-	var r0 []*entity.Folder
-	var r1 error
-	if returnFunc, ok := ret.Get(0).(func(context.Context, *entity.FolderID) ([]*entity.Folder, error)); ok {
-		return returnFunc(ctx, parentID)
-	}
-	if returnFunc, ok := ret.Get(0).(func(context.Context, *entity.FolderID) []*entity.Folder); ok {
-		r0 = returnFunc(ctx, parentID)
-	} else {
-		if ret.Get(0) != nil {
-			r0 = ret.Get(0).([]*entity.Folder)
-		}
-	}
-	if returnFunc, ok := ret.Get(1).(func(context.Context, *entity.FolderID) error); ok {
-		r1 = returnFunc(ctx, parentID)
-	} else {
-		r1 = ret.Error(1)
-	}
-	return r0, r1
-}
-
-// MockFolderRepository_GetChildren_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'GetChildren'
-type MockFolderRepository_GetChildren_Call struct {
-	*mock.Call
-}
-
-// GetChildren is a helper method to define mock.On call
-//   - ctx context.Context
-//   - parentID *entity.FolderID
-func (_e *MockFolderRepository_Expecter) GetChildren(ctx any, parentID any) *MockFolderRepository_GetChildren_Call {
-	return &MockFolderRepository_GetChildren_Call{Call: _e.mock.On("GetChildren", ctx, parentID)}
-}
-
-func (_c *MockFolderRepository_GetChildren_Call) Run(run func(ctx context.Context, parentID *entity.FolderID)) *MockFolderRepository_GetChildren_Call {
-	_c.Call.Run(func(args mock.Arguments) {
-		var arg0 context.Context
-		if args[0] != nil {
-			arg0 = args[0].(context.Context)
-		}
-		var arg1 *entity.FolderID
-		if args[1] != nil {
-			arg1 = args[1].(*entity.FolderID)
-		}
-		run(
-			arg0,
-			arg1,
-		)
-	})
-	return _c
-}
-
-func (_c *MockFolderRepository_GetChildren_Call) Return(folders []*entity.Folder, err error) *MockFolderRepository_GetChildren_Call {
-	_c.Call.Return(folders, err)
-	return _c
-}
-
-func (_c *MockFolderRepository_GetChildren_Call) RunAndReturn(run func(ctx context.Context, parentID *entity.FolderID) ([]*entity.Folder, error)) *MockFolderRepository_GetChildren_Call {
-	_c.Call.Return(run)
-	return _c
-}
-
-// Save provides a mock function for the type MockFolderRepository
-func (_mock *MockFolderRepository) Save(ctx context.Context, folder *entity.Folder) error {
-	ret := _mock.Called(ctx, folder)
-
-	if len(ret) == 0 {
-		panic("no return value specified for Save")
-	}
-
-	var r0 error
-	if returnFunc, ok := ret.Get(0).(func(context.Context, *entity.Folder) error); ok {
-		r0 = returnFunc(ctx, folder)
-	} else {
-		r0 = ret.Error(0)
-	}
-	return r0
-}
-
-// MockFolderRepository_Save_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'Save'
-type MockFolderRepository_Save_Call struct {
-	*mock.Call
-}
-
-// Save is a helper method to define mock.On call
-//   - ctx context.Context
-//   - folder *entity.Folder
-func (_e *MockFolderRepository_Expecter) Save(ctx any, folder any) *MockFolderRepository_Save_Call {
-	return &MockFolderRepository_Save_Call{Call: _e.mock.On("Save", ctx, folder)}
-}
-
-func (_c *MockFolderRepository_Save_Call) Run(run func(ctx context.Context, folder *entity.Folder)) *MockFolderRepository_Save_Call {
-	_c.Call.Run(func(args mock.Arguments) {
-		var arg0 context.Context
-		if args[0] != nil {
-			arg0 = args[0].(context.Context)
-		}
-		var arg1 *entity.Folder
-		if args[1] != nil {
-			arg1 = args[1].(*entity.Folder)
-		}
-		run(
-			arg0,
-			arg1,
-		)
-	})
-	return _c
-}
-
-func (_c *MockFolderRepository_Save_Call) Return(err error) *MockFolderRepository_Save_Call {
-	_c.Call.Return(err)
-	return _c
-}
-
-func (_c *MockFolderRepository_Save_Call) RunAndReturn(run func(ctx context.Context, folder *entity.Folder) error) *MockFolderRepository_Save_Call {
-	_c.Call.Return(run)
-	return _c
-}
-
-// UpdatePosition provides a mock function for the type MockFolderRepository
-func (_mock *MockFolderRepository) UpdatePosition(ctx context.Context, id entity.FolderID, position int) error {
-	ret := _mock.Called(ctx, id, position)
-
-	if len(ret) == 0 {
-		panic("no return value specified for UpdatePosition")
-	}
-
-	var r0 error
-	if returnFunc, ok := ret.Get(0).(func(context.Context, entity.FolderID, int) error); ok {
-		r0 = returnFunc(ctx, id, position)
-	} else {
-		r0 = ret.Error(0)
-	}
-	return r0
-}
-
-// MockFolderRepository_UpdatePosition_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'UpdatePosition'
-type MockFolderRepository_UpdatePosition_Call struct {
-	*mock.Call
-}
-
-// UpdatePosition is a helper method to define mock.On call
-//   - ctx context.Context
-//   - id entity.FolderID
-//   - position int
-func (_e *MockFolderRepository_Expecter) UpdatePosition(ctx any, id any, position any) *MockFolderRepository_UpdatePosition_Call {
-	return &MockFolderRepository_UpdatePosition_Call{Call: _e.mock.On("UpdatePosition", ctx, id, position)}
-}
-
-func (_c *MockFolderRepository_UpdatePosition_Call) Run(run func(ctx context.Context, id entity.FolderID, position int)) *MockFolderRepository_UpdatePosition_Call {
-	_c.Call.Run(func(args mock.Arguments) {
-		var arg0 context.Context
-		if args[0] != nil {
-			arg0 = args[0].(context.Context)
-		}
-		var arg1 entity.FolderID
-		if args[1] != nil {
-			arg1 = args[1].(entity.FolderID)
-		}
-		var arg2 int
-		if args[2] != nil {
-			arg2 = args[2].(int)
-		}
-		run(
-			arg0,
-			arg1,
-			arg2,
-		)
-	})
-	return _c
-}
-
-func (_c *MockFolderRepository_UpdatePosition_Call) Return(err error) *MockFolderRepository_UpdatePosition_Call {
-	_c.Call.Return(err)
-	return _c
-}
-
-func (_c *MockFolderRepository_UpdatePosition_Call) RunAndReturn(run func(ctx context.Context, id entity.FolderID, position int) error) *MockFolderRepository_UpdatePosition_Call {
 	_c.Call.Return(run)
 	return _c
 }
