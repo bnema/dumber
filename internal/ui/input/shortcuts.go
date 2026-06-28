@@ -190,6 +190,7 @@ const (
 	ActionToggleFloatingPane        Action = "toggle_floating_pane"
 	ActionToggleHistorySystemView   Action = "toggle_history_systemview"
 	ActionToggleFavoritesSystemView Action = "toggle_favorites_systemview"
+	ActionToggleCurrentPageFavorite Action = "toggle_current_page_favorite"
 	ActionToggleConfigSystemView    Action = "toggle_config_systemview"
 
 	// Clipboard
@@ -564,14 +565,16 @@ func (s *ShortcutSet) buildModeShortcuts(ctx context.Context, bindings map[strin
 }
 
 var configActionToAction = map[string]Action{
-	"toggle_floating_pane":        ActionToggleFloatingPane,
-	"toggle-floating-pane":        ActionToggleFloatingPane,
-	"toggle_history_systemview":   ActionToggleHistorySystemView,
-	"toggle-history-systemview":   ActionToggleHistorySystemView,
-	"toggle_favorites_systemview": ActionToggleFavoritesSystemView,
-	"toggle-favorites-systemview": ActionToggleFavoritesSystemView,
-	"toggle_config_systemview":    ActionToggleConfigSystemView,
-	"toggle-config-systemview":    ActionToggleConfigSystemView,
+	"toggle_floating_pane":         ActionToggleFloatingPane,
+	"toggle-floating-pane":         ActionToggleFloatingPane,
+	"toggle_history_systemview":    ActionToggleHistorySystemView,
+	"toggle-history-systemview":    ActionToggleHistorySystemView,
+	"toggle_favorites_systemview":  ActionToggleFavoritesSystemView,
+	"toggle-favorites-systemview":  ActionToggleFavoritesSystemView,
+	"toggle_current_page_favorite": ActionToggleCurrentPageFavorite,
+	"toggle-current-page-favorite": ActionToggleCurrentPageFavorite,
+	"toggle_config_systemview":     ActionToggleConfigSystemView,
+	"toggle-config-systemview":     ActionToggleConfigSystemView,
 
 	// Tab actions
 	"new_tab":      ActionNewTab,

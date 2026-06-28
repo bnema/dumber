@@ -34,6 +34,7 @@ func (bw *browserWindow) initHistorySidebar(ctx context.Context, a *App) {
 	bw.historySidebar.Hide()
 	bw.mainWindow.SetSidebarVisible(false)
 	bw.sidebarVisible = false
+	bw.activeSidebarKind = nativeSidebarNone
 
 	// Apply sidebar width from config, falling back to the default 320px.
 	// The width is clamped to [280, 380] by SetSidebarWidth internally.
@@ -84,7 +85,7 @@ func (bw *browserWindow) toggleHistorySidebar() {
 		return
 	}
 
-	if bw.sidebarVisible {
+	if bw.sidebarVisible && bw.activeSidebarKind == nativeSidebarHistory {
 		bw.hideHistorySidebar()
 	} else {
 		bw.showHistorySidebar()
@@ -97,9 +98,11 @@ func (bw *browserWindow) showHistorySidebar() {
 	if bw == nil || bw.historySidebar == nil || bw.mainWindow == nil {
 		return
 	}
+	bw.mountNativeSidebar(nativeSidebarHistory)
 	bw.historySidebar.Show()
 	bw.mainWindow.SetSidebarVisible(true)
 	bw.sidebarVisible = true
+	bw.activeSidebarKind = nativeSidebarHistory
 }
 
 // hideHistorySidebar hides the sidebar. Callers should also restore focus
@@ -111,6 +114,31 @@ func (bw *browserWindow) hideHistorySidebar() {
 	bw.historySidebar.Hide()
 	bw.mainWindow.SetSidebarVisible(false)
 	bw.sidebarVisible = false
+	if bw.activeSidebarKind == nativeSidebarHistory {
+		bw.activeSidebarKind = nativeSidebarNone
+	}
+}
+
+func (bw *browserWindow) mountNativeSidebar(kind nativeSidebarKind) {
+	if bw == nil || bw.mainWindow == nil || bw.activeSidebarKind == kind {
+		return
+	}
+	if bw.historySidebar != nil {
+		bw.historySidebar.Hide()
+	}
+	if bw.favoritesSidebar != nil {
+		bw.favoritesSidebar.Hide()
+	}
+	switch kind {
+	case nativeSidebarHistory:
+		if bw.historySidebar != nil {
+			bw.mainWindow.SetSidebarWidget(bw.historySidebar.Widget())
+		}
+	case nativeSidebarFavorites:
+		if bw.favoritesSidebar != nil {
+			bw.mainWindow.SetSidebarWidget(bw.favoritesSidebar.Widget())
+		}
+	}
 }
 
 // historySidebarWidthConfig extracts the config-backed sidebar width and
@@ -143,7 +171,7 @@ func (a *App) toggleHistorySidebarAction(ctx context.Context) error {
 	if bw.historySidebar == nil {
 		return fmt.Errorf("history sidebar unavailable: native sidebar not initialized")
 	}
-	if bw.sidebarVisible {
+	if bw.sidebarVisible && bw.activeSidebarKind == nativeSidebarHistory {
 		a.hideAndRestoreFocusForBrowserWindow(bw)
 		return nil
 	}

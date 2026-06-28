@@ -36,25 +36,27 @@ type KeyboardActions struct {
 
 // KeyboardDispatcher routes keyboard actions to appropriate coordinators.
 type KeyboardDispatcher struct {
-	actions                KeyboardActions
-	wsCoord                *coordinator.WorkspaceCoordinator
-	navCoord               *coordinator.NavigationCoordinator
-	zoomUC                 *usecase.ManageZoomUseCase
-	copyURLUC              *usecase.CopyURLUseCase
-	actionHandlers         map[input.Action]func(ctx context.Context) error
-	onQuit                 func()
-	onFindOpen             func(ctx context.Context) error
-	onFindNext             func(ctx context.Context) error
-	onFindPrev             func(ctx context.Context) error
-	onFindClose            func(ctx context.Context) error
-	activePaneID           func(ctx context.Context) entity.PaneID
-	onSessionOpen          func(ctx context.Context, paneID entity.PaneID) error
-	onMovePaneToTab        func(ctx context.Context, paneID entity.PaneID) error
-	onMovePaneToNext       func(ctx context.Context, paneID entity.PaneID) error
-	onEjectPaneToWindow    func(ctx context.Context, paneID entity.PaneID) error
-	onToggleHistorySidebar func(ctx context.Context) error
-	onToggleFloating       func(ctx context.Context) error
-	onOpenFloating         func(ctx context.Context, target input.FloatingProfileTarget) error
+	actions                  KeyboardActions
+	wsCoord                  *coordinator.WorkspaceCoordinator
+	navCoord                 *coordinator.NavigationCoordinator
+	zoomUC                   *usecase.ManageZoomUseCase
+	copyURLUC                *usecase.CopyURLUseCase
+	actionHandlers           map[input.Action]func(ctx context.Context) error
+	onQuit                   func()
+	onFindOpen               func(ctx context.Context) error
+	onFindNext               func(ctx context.Context) error
+	onFindPrev               func(ctx context.Context) error
+	onFindClose              func(ctx context.Context) error
+	activePaneID             func(ctx context.Context) entity.PaneID
+	onSessionOpen            func(ctx context.Context, paneID entity.PaneID) error
+	onMovePaneToTab          func(ctx context.Context, paneID entity.PaneID) error
+	onMovePaneToNext         func(ctx context.Context, paneID entity.PaneID) error
+	onEjectPaneToWindow      func(ctx context.Context, paneID entity.PaneID) error
+	onToggleHistorySidebar   func(ctx context.Context) error
+	onToggleFavoritesSidebar func(ctx context.Context) error
+	onToggleCurrentFavorite  func(ctx context.Context) error
+	onToggleFloating         func(ctx context.Context) error
+	onOpenFloating           func(ctx context.Context, target input.FloatingProfileTarget) error
 }
 
 // NewKeyboardDispatcher creates a new KeyboardDispatcher.
@@ -126,6 +128,14 @@ func (d *KeyboardDispatcher) SetOnEjectPaneToWindow(fn func(ctx context.Context,
 
 func (d *KeyboardDispatcher) SetOnToggleHistorySidebar(fn func(ctx context.Context) error) {
 	d.onToggleHistorySidebar = fn
+}
+
+func (d *KeyboardDispatcher) SetOnToggleFavoritesSidebar(fn func(ctx context.Context) error) {
+	d.onToggleFavoritesSidebar = fn
+}
+
+func (d *KeyboardDispatcher) SetOnToggleCurrentPageFavorite(fn func(ctx context.Context) error) {
+	d.onToggleCurrentFavorite = fn
 }
 
 func (d *KeyboardDispatcher) SetOnToggleFloatingPane(fn func(ctx context.Context) error) {
@@ -262,7 +272,16 @@ func (d *KeyboardDispatcher) initActionHandlers() {
 			return d.onToggleHistorySidebar(ctx)
 		},
 		input.ActionToggleFavoritesSystemView: func(ctx context.Context) error {
-			return d.wsCoord.ToggleSystemViewRight(ctx, favoritesSystemViewURL)
+			if d.onToggleFavoritesSidebar == nil {
+				return fmt.Errorf("favorites sidebar unavailable: toggle handler not wired")
+			}
+			return d.onToggleFavoritesSidebar(ctx)
+		},
+		input.ActionToggleCurrentPageFavorite: func(ctx context.Context) error {
+			if d.onToggleCurrentFavorite == nil {
+				return fmt.Errorf("favorites unavailable: toggle current page handler not wired")
+			}
+			return d.onToggleCurrentFavorite(ctx)
 		},
 		input.ActionToggleConfigSystemView: func(ctx context.Context) error {
 			return d.wsCoord.ToggleSystemViewRight(ctx, configSystemViewURL)

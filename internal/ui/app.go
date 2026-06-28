@@ -2040,7 +2040,12 @@ func (a *App) hideAndRestoreFocusForBrowserWindow(bw *browserWindow) {
 	if bw == nil {
 		return
 	}
-	bw.hideHistorySidebar()
+	switch bw.activeSidebarKind {
+	case nativeSidebarFavorites:
+		bw.hideFavoritesSidebar()
+	default:
+		bw.hideHistorySidebar()
+	}
 	if wsView := a.activeWorkspaceViewForBrowserWindow(bw); wsView != nil {
 		if ws := a.activeWorkspaceForBrowserWindow(bw); ws != nil {
 			wsView.FocusPane(ws.ActivePaneID)
@@ -3357,6 +3362,8 @@ func (a *App) wireKeyboardActions() {
 		return a.EjectActivePaneToWindow(ctx, paneID)
 	})
 	a.kbDispatcher.SetOnToggleHistorySidebar(a.toggleHistorySidebarAction)
+	a.kbDispatcher.SetOnToggleFavoritesSidebar(a.toggleFavoritesSidebarAction)
+	a.kbDispatcher.SetOnToggleCurrentPageFavorite(a.toggleCurrentPageFavoriteAction)
 	a.kbDispatcher.SetOnToggleFloatingPane(func(ctx context.Context) error {
 		return a.ToggleFloatingPane(ctx)
 	})

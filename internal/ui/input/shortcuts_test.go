@@ -402,6 +402,7 @@ func TestMapConfigAction_ToggleSystemViews(t *testing.T) {
 	}{
 		{name: "toggle_history_systemview", want: ActionToggleHistorySystemView},
 		{name: "toggle_favorites_systemview", want: ActionToggleFavoritesSystemView},
+		{name: "toggle_current_page_favorite", want: ActionToggleCurrentPageFavorite},
 		{name: "toggle_config_systemview", want: ActionToggleConfigSystemView},
 	}
 
@@ -421,6 +422,7 @@ func TestMapConfigAction_ToggleSystemViewsHyphenAlias(t *testing.T) {
 	}{
 		{name: "toggle-history-systemview", want: ActionToggleHistorySystemView},
 		{name: "toggle-favorites-systemview", want: ActionToggleFavoritesSystemView},
+		{name: "toggle-current-page-favorite", want: ActionToggleCurrentPageFavorite},
 		{name: "toggle-config-systemview", want: ActionToggleConfigSystemView},
 	}
 
