@@ -131,8 +131,18 @@ func (a *App) toggleCurrentPageFavoriteAction(ctx context.Context) error {
 	if err != nil {
 		return err
 	}
-	if bw := a.lastFocusedBrowserWindow(); bw != nil && bw.favoritesSidebar != nil {
-		bw.favoritesSidebar.RequestReloadIfVisible("current-page-favorite-toggle")
-	}
+	a.reloadVisibleFavoritesSidebars("current-page-favorite-toggle")
 	return nil
+}
+
+func (a *App) reloadVisibleFavoritesSidebars(reason string) {
+	if a == nil {
+		return
+	}
+	for _, bw := range a.browserWindows {
+		if bw == nil || bw.favoritesSidebar == nil {
+			continue
+		}
+		bw.favoritesSidebar.RequestReloadIfVisible(reason)
+	}
 }

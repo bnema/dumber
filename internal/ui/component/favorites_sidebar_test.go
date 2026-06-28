@@ -402,6 +402,7 @@ func TestFavoritesSidebarEnterConfirmsDelete(t *testing.T) {
 	uc := fs.favoritesUC.(*fakeFavoritesSidebarUC)
 	fs.displayRows = []favoriteSidebarDisplayRow{{FavoriteID: fav.ID, Favorite: fav, URL: fav.URL, Selectable: true}}
 	fs.confirmDelete = true
+	fs.confirmDeleteID = fav.ID
 
 	assert.True(t, fs.confirmDeleteActive())
 	assert.True(t, fs.confirmDeleteFavorite())
@@ -461,6 +462,24 @@ func TestFavoritesSidebarConfirmDeleteRequiresConfirmationState(t *testing.T) {
 	assert.True(t, fs.confirmDeleteFavorite())
 	assert.Empty(t, uc.deletedIDs)
 	assert.True(t, fs.confirmDelete)
+}
+
+func TestFavoritesSidebarConfirmDeleteRepromptsWhenSelectionChanges(t *testing.T) {
+	first := &entity.Favorite{ID: 5, URL: "https://first.test"}
+	second := &entity.Favorite{ID: 6, URL: "https://second.test"}
+	fs := newFavoritesSidebarHarness([]*entity.Favorite{first, second}, nil)
+	uc := fs.favoritesUC.(*fakeFavoritesSidebarUC)
+	fs.displayRows = []favoriteSidebarDisplayRow{
+		{FavoriteID: second.ID, Favorite: second, URL: second.URL, Selectable: true},
+		{FavoriteID: first.ID, Favorite: first, URL: first.URL, Selectable: true},
+	}
+	fs.confirmDelete = true
+	fs.confirmDeleteID = first.ID
+
+	assert.True(t, fs.confirmDeleteFavorite())
+	assert.Empty(t, uc.deletedIDs)
+	assert.True(t, fs.confirmDelete)
+	assert.Equal(t, second.ID, fs.confirmDeleteID)
 }
 
 func TestFavoritesSidebarAddShortcutFailureClosesFormAfterCreate(t *testing.T) {

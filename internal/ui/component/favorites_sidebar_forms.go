@@ -41,6 +41,7 @@ func (fs *FavoritesSidebar) beginAddForm() {
 	fs.mode = favoritesSidebarModeAdd
 	fs.editingID = 0
 	fs.confirmDelete = false
+	fs.confirmDeleteID = 0
 	fs.notice = "Add favorite: URL, title, comma-separated tag IDs, shortcut 1-9. Press Ctrl+Enter or Save."
 	fs.mu.Unlock()
 	fs.renderForm(nil)
@@ -61,6 +62,7 @@ func (fs *FavoritesSidebar) beginEditForm() {
 	fs.mode = favoritesSidebarModeEdit
 	fs.editingID = fav.ID
 	fs.confirmDelete = false
+	fs.confirmDeleteID = 0
 	fs.notice = "Edit favorite: URL is read-only; use tag mode for tags. Press Ctrl+Enter or Save."
 	fs.mu.Unlock()
 	fs.renderForm(fav)
@@ -166,6 +168,7 @@ func (fs *FavoritesSidebar) cancelManagement() bool {
 	fs.mode = favoritesSidebarModeNone
 	fs.editingID = 0
 	fs.confirmDelete = false
+	fs.confirmDeleteID = 0
 	if active {
 		fs.notice = ""
 	}
@@ -246,6 +249,7 @@ func (fs *FavoritesSidebar) setModeNotice(mode favoritesSidebarMode, notice stri
 	if !fs.destroyed {
 		fs.mode = mode
 		fs.confirmDelete = false
+		fs.confirmDeleteID = 0
 		fs.notice = notice
 	}
 	fs.mu.Unlock()
@@ -311,13 +315,15 @@ func (fs *FavoritesSidebar) setShortcutKey(key *int) bool {
 }
 
 func (fs *FavoritesSidebar) requestDeleteConfirmation() bool {
-	if fs.selectedFavorite() == nil {
+	fav := fs.selectedFavorite()
+	if fav == nil {
 		fs.setNotice("Select a favorite to delete")
 		return true
 	}
 	fs.mu.Lock()
 	if !fs.destroyed {
 		fs.confirmDelete = true
+		fs.confirmDeleteID = fav.ID
 		fs.notice = "Delete selected favorite? Press Delete again to confirm, Esc to cancel."
 	}
 	fs.mu.Unlock()
@@ -350,10 +356,11 @@ func (fs *FavoritesSidebar) confirmDeleteFavorite() bool {
 	}
 	fs.mu.RLock()
 	confirmed := fs.confirmDelete
+	confirmedID := fs.confirmDeleteID
 	uc := fs.favoritesUC
 	ctx := fs.ctx
 	fs.mu.RUnlock()
-	if !confirmed {
+	if !confirmed || confirmedID != fav.ID {
 		return fs.requestDeleteConfirmation()
 	}
 	if uc == nil {

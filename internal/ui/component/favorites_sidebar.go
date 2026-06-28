@@ -49,19 +49,20 @@ type FavoritesSidebar struct {
 	onOpenInNewPane    func(ctx context.Context, url string) error
 	onClose            func()
 
-	allFavorites   []*entity.Favorite
-	allTags        []*entity.Tag
-	selectedTagIDs map[entity.TagID]struct{}
-	displayRows    []favoriteSidebarDisplayRow
-	currentQuery   string
-	notice         string
-	loadGen        uint64
-	destroyed      bool
-	visible        bool
-	focusZone      favoritesSidebarFocusZone
-	mode           favoritesSidebarMode
-	editingID      entity.FavoriteID
-	confirmDelete  bool
+	allFavorites    []*entity.Favorite
+	allTags         []*entity.Tag
+	selectedTagIDs  map[entity.TagID]struct{}
+	displayRows     []favoriteSidebarDisplayRow
+	currentQuery    string
+	notice          string
+	loadGen         uint64
+	destroyed       bool
+	visible         bool
+	focusZone       favoritesSidebarFocusZone
+	mode            favoritesSidebarMode
+	editingID       entity.FavoriteID
+	confirmDelete   bool
+	confirmDeleteID entity.FavoriteID
 
 	retainedCallbacks []interface{}
 	tagCallbacks      []interface{}
