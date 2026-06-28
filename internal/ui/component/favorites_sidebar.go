@@ -116,6 +116,7 @@ func (fs *FavoritesSidebar) Show() {
 	fs.outerBox.SetVisible(true)
 	fs.visible = true
 	fs.mu.Unlock()
+	fs.startLoad()
 	fs.focusSearch()
 }
 
@@ -231,6 +232,19 @@ func (fs *FavoritesSidebar) focusSearch() {
 		}
 		return false
 	}))
+}
+
+// RequestReloadIfVisible refreshes sidebar data when the sidebar is currently visible.
+func (fs *FavoritesSidebar) RequestReloadIfVisible(_ string) {
+	if fs == nil {
+		return
+	}
+	fs.mu.RLock()
+	visible := fs.visible && !fs.destroyed
+	fs.mu.RUnlock()
+	if visible {
+		fs.startLoad()
+	}
 }
 
 func (fs *FavoritesSidebar) startLoad() {

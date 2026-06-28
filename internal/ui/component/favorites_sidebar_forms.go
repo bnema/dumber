@@ -207,7 +207,7 @@ func (fs *FavoritesSidebar) submitForm() bool {
 			fs.setNotice(err.Error())
 			return true
 		}
-		_, err = uc.UpdateFavorite(ctx, dto.FavoriteUpdateInput{ID: id, Title: title, ShortcutKey: key, ShortcutKeySet: shortcutText != ""})
+		_, err = uc.UpdateFavorite(ctx, dto.FavoriteUpdateInput{ID: id, Title: title, ShortcutKey: key, ShortcutKeySet: true})
 		if err != nil {
 			fs.setNotice(err.Error())
 			return true

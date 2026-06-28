@@ -5,6 +5,7 @@ import (
 	"errors"
 	"sync"
 	"testing"
+	"time"
 
 	"github.com/bnema/dumber/internal/application/dto"
 	"github.com/bnema/dumber/internal/domain/entity"
@@ -33,10 +34,17 @@ type fakeFavoritesSidebarUC struct {
 		favID entity.FavoriteID
 		tagID entity.TagID
 	}
-	err error
+	err          error
+	getAllCalled chan struct{}
 }
 
 func (f *fakeFavoritesSidebarUC) GetAll(context.Context) ([]*entity.Favorite, error) {
+	if f.getAllCalled != nil {
+		select {
+		case f.getAllCalled <- struct{}{}:
+		default:
+		}
+	}
 	return f.favorites, nil
 }
 func (f *fakeFavoritesSidebarUC) GetAllTags(context.Context) ([]*entity.Tag, error) {
@@ -183,6 +191,25 @@ func TestFavoritesSidebarActivationCallbacks(t *testing.T) {
 	assert.Equal(t, []string{"nav:https://a.test", "keep:https://b.test", "pane:https://c.test"}, called)
 }
 
+func TestFavoritesSidebarRequestReloadIfVisibleReloadsData(t *testing.T) {
+	called := make(chan struct{}, 1)
+	uc := &fakeFavoritesSidebarUC{getAllCalled: called}
+	fs := newFavoritesSidebarHarness(nil, nil)
+	fs.favoritesUC = uc
+	fs.visible = true
+
+	fs.RequestReloadIfVisible("test")
+
+	require.Eventually(t, func() bool {
+		select {
+		case <-called:
+			return true
+		default:
+			return false
+		}
+	}, time.Second, 10*time.Millisecond)
+}
+
 func TestFavoritesSidebarStaleLoadRejected(t *testing.T) {
 	fs := newFavoritesSidebarHarness(nil, nil)
 	fs.loadGen = 2
@@ -236,9 +263,6 @@ func TestFavoritesSidebarRenderingModelTagCallbackRetentionAndListRows(t *testin
 	assert.False(t, fs.displayRows[1].Selectable)
 	assert.Equal(t, []string{"saved"}, favoriteSidebarNoticeRows("saved", "", true))
 	assert.Equal(t, []string{"No favorites"}, favoriteSidebarNoticeRows("", "", false))
-	fs.tagCallbacks = []interface{}{func() {}, func() {}}
-	fs.tagCallbacks = nil
-	assert.Empty(t, fs.tagCallbacks)
 }
 
 func TestFavoritesSidebarSlashFocusBehavior(t *testing.T) {
@@ -284,7 +308,7 @@ func TestFavoritesSidebarFocusZoneCyclingSkipsAbsentZones(t *testing.T) {
 	assert.Equal(t, []favoritesSidebarFocusZone{favoritesSidebarFocusConfirm}, fs.availableFocusZones())
 }
 
-func TestFavoritesSidebarSingleKeyCommandsAreGatedInTextEditContext(t *testing.T) {
+func TestFavoritesSidebarSingleKeyCommandsStartManagementOutsideTextEditContext(t *testing.T) {
 	fs := newFavoritesSidebarHarness(nil, nil)
 	fs.searchEntry = nil
 	fs.displayRows = []favoriteSidebarDisplayRow{{FavoriteID: 1, Favorite: &entity.Favorite{ID: 1}, Selectable: true}}
@@ -324,6 +348,15 @@ func TestFavoritesSidebarAddAndEditDTOs(t *testing.T) {
 	assert.Equal(t, "Edited", uc.updateInputs[0].Title)
 	require.NotNil(t, uc.updateInputs[0].ShortcutKey)
 	assert.Equal(t, 4, *uc.updateInputs[0].ShortcutKey)
+
+	fs.mode = favoritesSidebarModeEdit
+	fs.editingID = 7
+	fs.formTitle = "Edited"
+	fs.formShortcut = ""
+	assert.True(t, fs.submitForm())
+	require.Len(t, uc.updateInputs, 2)
+	assert.True(t, uc.updateInputs[1].ShortcutKeySet)
+	assert.Nil(t, uc.updateInputs[1].ShortcutKey)
 }
 
 func TestFavoritesSidebarInvalidTagAndShortcutPreserveFormState(t *testing.T) {
