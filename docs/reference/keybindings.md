@@ -84,7 +84,8 @@ These work outside modal modes:
 |--------|------|
 | Toggle floating pane | `Alt+F` |
 | Toggle History sidebar (native GTK sidebar panel only). Ctrl+H may conflict with the browser's default History shortcut; behavior can vary by browser. | `Ctrl+H` |
-| Toggle Favorites system view in right split | unbound by default |
+| Toggle Favorites sidebar (native GTK bookmarks panel) | `Ctrl+B` |
+| Toggle current page favorite/bookmark | `Ctrl+D` |
 | Toggle Config system view in right split | unbound by default |
 | Close pane (or release floating pane) | `Ctrl+W` |
 | Next tab | `Ctrl+Tab` |
@@ -97,6 +98,8 @@ These work outside modal modes:
 - `Alt+F` is the only floating-pane shortcut enabled by default.
 - `Alt+F` toggles floating visibility and keeps floating pane state intact.
 - `Ctrl+H` toggles the native GTK history sidebar. The sidebar shows browsing history grouped by day with search/filter, keyboard navigation (arrows, Home/End, Ctrl+arrows for day jumps), and activation modes (Enter to navigate while keeping the sidebar open, Ctrl+Enter to navigate while keeping the sidebar open, Shift+Enter to open in a new split). If the native sidebar is unavailable, the shortcut returns an error instead of falling back to `dumb://history`.
+- `Ctrl+B` toggles the native GTK Favorites sidebar. Search matches favorite titles, URLs, and tag names. `Tab`/`Shift+Tab` cycle sidebar zones; `Enter` and `Ctrl+Enter` open the selected favorite in the current pane while keeping the sidebar open; `Shift+Enter` opens it in a new split. Inside the sidebar, `a` adds, `e` edits, `t` opens tag mode, `s` opens shortcut mode, `Delete` starts delete confirmation, `/` focuses search, `Esc` clears/cancels/closes, `r` reloads, and `c` clears search and filters.
+- `Ctrl+D` toggles the active page as a favorite/bookmark. Favorite shortcut metadata can be assigned in the sidebar, but global `Alt+1..9` remains tab switching.
 - `Ctrl+W` closes the active pane; when the floating pane is active, it fully releases that floating session.
 - Any URL shortcut (for example `Alt+G`) must be defined explicitly in `workspace.floating_pane.profiles`.
 - Floating profile shortcuts support modifier combos with `ctrl`, `shift`, and `alt` (for example `ctrl+shift+y` or `ctrl+alt+m`).
@@ -125,7 +128,10 @@ keys = ["alt+f"]
 keys = ["ctrl+h"]
 
 [workspace.shortcuts.actions.toggle-favorites-systemview]
-keys = []
+keys = ["ctrl+b"]
+
+[workspace.shortcuts.actions.toggle-current-page-favorite]
+keys = ["ctrl+d"]
 
 [workspace.shortcuts.actions.toggle-config-systemview]
 keys = []
