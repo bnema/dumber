@@ -27,10 +27,15 @@ func (r *favoriteRepo) Save(ctx context.Context, fav *entity.Favorite) error {
 	log.Debug().Str("url", fav.URL).Int64("id", int64(fav.ID)).Msg("saving favorite")
 
 	if fav.ID > 0 {
+		shortcutKey := sql.NullInt64{}
+		if fav.ShortcutKey != nil {
+			shortcutKey = sql.NullInt64{Int64: int64(*fav.ShortcutKey), Valid: true}
+		}
 		return r.queries.UpdateFavorite(ctx, sqlc.UpdateFavoriteParams{
-			Title:      sql.NullString{String: fav.Title, Valid: fav.Title != ""},
-			FaviconUrl: sql.NullString{String: fav.FaviconURL, Valid: fav.FaviconURL != ""},
-			ID:         int64(fav.ID),
+			Title:       sql.NullString{String: fav.Title, Valid: fav.Title != ""},
+			FaviconUrl:  sql.NullString{String: fav.FaviconURL, Valid: fav.FaviconURL != ""},
+			ShortcutKey: shortcutKey,
+			ID:          int64(fav.ID),
 		})
 	}
 

@@ -273,18 +273,24 @@ func (q *Queries) SetFavoriteShortcut(ctx context.Context, arg SetFavoriteShortc
 
 const UpdateFavorite = `-- name: UpdateFavorite :exec
 UPDATE favorites
-SET title = ?, favicon_url = ?, updated_at = CURRENT_TIMESTAMP
+SET title = ?, favicon_url = ?, shortcut_key = ?, updated_at = CURRENT_TIMESTAMP
 WHERE id = ?
 `
 
 type UpdateFavoriteParams struct {
-	Title      sql.NullString `json:"title"`
-	FaviconUrl sql.NullString `json:"favicon_url"`
-	ID         int64          `json:"id"`
+	Title       sql.NullString `json:"title"`
+	FaviconUrl  sql.NullString `json:"favicon_url"`
+	ShortcutKey sql.NullInt64  `json:"shortcut_key"`
+	ID          int64          `json:"id"`
 }
 
 func (q *Queries) UpdateFavorite(ctx context.Context, arg UpdateFavoriteParams) error {
-	_, err := q.db.ExecContext(ctx, UpdateFavorite, arg.Title, arg.FaviconUrl, arg.ID)
+	_, err := q.db.ExecContext(ctx, UpdateFavorite,
+		arg.Title,
+		arg.FaviconUrl,
+		arg.ShortcutKey,
+		arg.ID,
+	)
 	return err
 }
 

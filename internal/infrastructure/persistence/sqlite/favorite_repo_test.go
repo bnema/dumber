@@ -116,6 +116,44 @@ func TestFavoriteRepositoryNoTagsHydratesEmptyTags(t *testing.T) {
 	}
 }
 
+func TestFavoriteRepositorySaveUpdatesShortcutKey(t *testing.T) {
+	db := openFavoriteRepoTestDB(t)
+	mustExec(t, db, `INSERT INTO favorites(id, url, title, position) VALUES (1, 'https://shortcut.example', 'Shortcut', 1)`)
+	repo := NewFavoriteRepository(db)
+
+	fav, err := repo.FindByID(context.Background(), 1)
+	if err != nil {
+		t.Fatalf("FindByID: %v", err)
+	}
+	key := 5
+	fav.ShortcutKey = &key
+	err = repo.Save(context.Background(), fav)
+	if err != nil {
+		t.Fatalf("Save: %v", err)
+	}
+
+	updated, err := repo.GetByShortcut(context.Background(), 5)
+	if err != nil {
+		t.Fatalf("GetByShortcut: %v", err)
+	}
+	if updated == nil || updated.ID != fav.ID {
+		t.Fatalf("expected favorite %d by shortcut, got %#v", fav.ID, updated)
+	}
+
+	updated.ShortcutKey = nil
+	err = repo.Save(context.Background(), updated)
+	if err != nil {
+		t.Fatalf("Save clear shortcut: %v", err)
+	}
+	cleared, err := repo.FindByID(context.Background(), updated.ID)
+	if err != nil {
+		t.Fatalf("FindByID after clear: %v", err)
+	}
+	if cleared.ShortcutKey != nil {
+		t.Fatalf("expected shortcut cleared, got %d", *cleared.ShortcutKey)
+	}
+}
+
 func assertTagNames(t *testing.T, fav *entity.Favorite, names ...string) {
 	t.Helper()
 	if fav == nil {

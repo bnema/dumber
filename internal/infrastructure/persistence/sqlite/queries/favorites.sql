@@ -32,7 +32,7 @@ RETURNING id, url, title, favicon_url, shortcut_key, position, created_at, updat
 
 -- name: UpdateFavorite :exec
 UPDATE favorites
-SET title = ?, favicon_url = ?, updated_at = CURRENT_TIMESTAMP
+SET title = ?, favicon_url = ?, shortcut_key = ?, updated_at = CURRENT_TIMESTAMP
 WHERE id = ?;
 
 -- name: UpdateFavoritePosition :exec
