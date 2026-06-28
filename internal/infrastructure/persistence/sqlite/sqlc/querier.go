@@ -14,14 +14,12 @@ type Querier interface {
 	AssignTagToFavorite(ctx context.Context, arg AssignTagToFavoriteParams) error
 	CapVisitCount(ctx context.Context, arg CapVisitCountParams) error
 	CreateFavorite(ctx context.Context, arg CreateFavoriteParams) (Favorite, error)
-	CreateFolder(ctx context.Context, arg CreateFolderParams) (FavoriteFolder, error)
 	CreateTag(ctx context.Context, arg CreateTagParams) (FavoriteTag, error)
 	DeleteAllHistory(ctx context.Context) error
 	// Deletes exited browser sessions older than the given cutoff time.
 	DeleteExitedSessionsBefore(ctx context.Context, endedAt sql.NullTime) (int64, error)
 	DeleteFavicon(ctx context.Context, key string) error
 	DeleteFavorite(ctx context.Context, id int64) error
-	DeleteFolder(ctx context.Context, id int64) error
 	DeleteHistoryByDomain(ctx context.Context, domain sql.NullString) error
 	DeleteHistoryByID(ctx context.Context, id int64) error
 	DeleteHistoryOlderThan(ctx context.Context, lastVisited sql.NullTime) error
@@ -35,23 +33,19 @@ type Querier interface {
 	DeleteZoomLevel(ctx context.Context, domain string) error
 	GetActiveBrowserSession(ctx context.Context) (Session, error)
 	GetAllFavorites(ctx context.Context) ([]Favorite, error)
-	GetAllFolders(ctx context.Context) ([]FavoriteFolder, error)
 	GetAllMostVisited(ctx context.Context) ([]History, error)
 	GetAllRecentHistory(ctx context.Context) ([]History, error)
 	GetAllRecentHistoryByDomain(ctx context.Context, domain sql.NullString) ([]History, error)
 	GetAllSessionStates(ctx context.Context) ([]SessionState, error)
 	GetAllTags(ctx context.Context) ([]FavoriteTag, error)
 	GetAllWhitelistedDomains(ctx context.Context) ([]string, error)
-	GetChildFolders(ctx context.Context, parentID sql.NullInt64) ([]FavoriteFolder, error)
 	GetDailyVisitCount(ctx context.Context, date interface{}) ([]GetDailyVisitCountRow, error)
 	GetDomainStats(ctx context.Context, limit int64) ([]GetDomainStatsRow, error)
 	GetFavicon(ctx context.Context, key string) (Favicon, error)
 	GetFavoriteByID(ctx context.Context, id int64) (Favorite, error)
 	GetFavoriteByShortcut(ctx context.Context, shortcutKey sql.NullInt64) (Favorite, error)
 	GetFavoriteByURL(ctx context.Context, url string) (Favorite, error)
-	GetFavoritesByFolder(ctx context.Context, folderID sql.NullInt64) ([]Favorite, error)
-	GetFavoritesWithoutFolder(ctx context.Context) ([]Favorite, error)
-	GetFolderByID(ctx context.Context, id int64) (FavoriteFolder, error)
+	GetFavoritesByTag(ctx context.Context, tagID int64) ([]Favorite, error)
 	GetHistoryByURL(ctx context.Context, url string) (History, error)
 	GetHistoryStats(ctx context.Context) (GetHistoryStatsRow, error)
 	GetHourlyDistribution(ctx context.Context) ([]GetHourlyDistributionRow, error)
@@ -63,13 +57,13 @@ type Querier interface {
 	GetRecentHistoryWindow(ctx context.Context, arg GetRecentHistoryWindowParams) ([]History, error)
 	GetRecentHistoryWindowByDomain(ctx context.Context, arg GetRecentHistoryWindowByDomainParams) ([]History, error)
 	GetRecentSessions(ctx context.Context, limit int64) ([]Session, error)
-	GetRootFolders(ctx context.Context) ([]FavoriteFolder, error)
 	GetSessionByID(ctx context.Context, id string) (Session, error)
 	GetSessionState(ctx context.Context, sessionID string) (SessionState, error)
 	GetSessionsWithState(ctx context.Context, limit int64) ([]GetSessionsWithStateRow, error)
 	GetTagByID(ctx context.Context, id int64) (FavoriteTag, error)
-	GetTagByName(ctx context.Context, name string) (FavoriteTag, error)
+	GetTagByName(ctx context.Context, trim string) (FavoriteTag, error)
 	GetTagsForFavorite(ctx context.Context, favoriteID int64) ([]FavoriteTag, error)
+	GetTagsForFavorites(ctx context.Context, favoriteIds []int64) ([]GetTagsForFavoritesRow, error)
 	GetTotalSessionStatesSize(ctx context.Context) (interface{}, error)
 	GetZoomLevel(ctx context.Context, domain string) (ZoomLevel, error)
 	IncrementVisitCount(ctx context.Context, url string) error
@@ -86,15 +80,12 @@ type Querier interface {
 	SearchHistoryFTSTitle(ctx context.Context, arg SearchHistoryFTSTitleParams) ([]History, error)
 	SearchHistoryFTSUrl(ctx context.Context, arg SearchHistoryFTSUrlParams) ([]History, error)
 	SearchHistoryFTSUrlWithDomainBoost(ctx context.Context, arg SearchHistoryFTSUrlWithDomainBoostParams) ([]SearchHistoryFTSUrlWithDomainBoostRow, error)
-	SetFavoriteFolder(ctx context.Context, arg SetFavoriteFolderParams) error
 	SetFavoriteShortcut(ctx context.Context, arg SetFavoriteShortcutParams) error
 	SetPermission(ctx context.Context, arg SetPermissionParams) error
 	SetZoomLevel(ctx context.Context, arg SetZoomLevelParams) error
 	UpdateFaviconLastChecked(ctx context.Context, arg UpdateFaviconLastCheckedParams) error
 	UpdateFavorite(ctx context.Context, arg UpdateFavoriteParams) error
 	UpdateFavoritePosition(ctx context.Context, arg UpdateFavoritePositionParams) error
-	UpdateFolder(ctx context.Context, arg UpdateFolderParams) error
-	UpdateFolderPosition(ctx context.Context, arg UpdateFolderPositionParams) error
 	UpdateTag(ctx context.Context, arg UpdateTagParams) error
 	UpsertFavicon(ctx context.Context, arg UpsertFaviconParams) error
 	UpsertHistory(ctx context.Context, arg UpsertHistoryParams) error

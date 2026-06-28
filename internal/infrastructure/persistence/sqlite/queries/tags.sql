@@ -5,7 +5,7 @@ SELECT * FROM favorite_tags ORDER BY name ASC;
 SELECT * FROM favorite_tags WHERE id = ? LIMIT 1;
 
 -- name: GetTagByName :one
-SELECT * FROM favorite_tags WHERE name = ? LIMIT 1;
+SELECT * FROM favorite_tags WHERE lower(trim(name)) = lower(trim(?)) LIMIT 1;
 
 -- name: CreateTag :one
 INSERT INTO favorite_tags (name, color) VALUES (?, ?) RETURNING *;
@@ -27,3 +27,9 @@ SELECT t.* FROM favorite_tags t
 INNER JOIN favorite_tag_assignments fta ON t.id = fta.tag_id
 WHERE fta.favorite_id = ?
 ORDER BY t.name ASC;
+
+-- name: GetTagsForFavorites :many
+SELECT sqlc.embed(t), fta.favorite_id FROM favorite_tags t
+INNER JOIN favorite_tag_assignments fta ON t.id = fta.tag_id
+WHERE fta.favorite_id IN (sqlc.slice('favorite_ids'))
+ORDER BY fta.favorite_id ASC, t.name ASC;

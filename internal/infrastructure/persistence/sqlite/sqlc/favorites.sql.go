@@ -11,8 +11,8 @@ import (
 )
 
 const CreateFavorite = `-- name: CreateFavorite :one
-INSERT INTO favorites (url, title, favicon_url, folder_id, position, created_at, updated_at)
-VALUES (?, ?, ?, ?, COALESCE((SELECT MAX(position) + 1 FROM favorites), 0), CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
+INSERT INTO favorites (url, title, favicon_url, position, created_at, updated_at)
+VALUES (?, ?, ?, COALESCE((SELECT MAX(position) + 1 FROM favorites), 0), CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
 RETURNING id, url, title, favicon_url, folder_id, shortcut_key, position, created_at, updated_at
 `
 
@@ -20,16 +20,10 @@ type CreateFavoriteParams struct {
 	Url        string         `json:"url"`
 	Title      sql.NullString `json:"title"`
 	FaviconUrl sql.NullString `json:"favicon_url"`
-	FolderID   sql.NullInt64  `json:"folder_id"`
 }
 
 func (q *Queries) CreateFavorite(ctx context.Context, arg CreateFavoriteParams) (Favorite, error) {
-	row := q.db.QueryRowContext(ctx, CreateFavorite,
-		arg.Url,
-		arg.Title,
-		arg.FaviconUrl,
-		arg.FolderID,
-	)
+	row := q.db.QueryRowContext(ctx, CreateFavorite, arg.Url, arg.Title, arg.FaviconUrl)
 	var i Favorite
 	err := row.Scan(
 		&i.ID,
@@ -154,12 +148,15 @@ func (q *Queries) GetFavoriteByURL(ctx context.Context, url string) (Favorite, e
 	return i, err
 }
 
-const GetFavoritesByFolder = `-- name: GetFavoritesByFolder :many
-SELECT id, url, title, favicon_url, folder_id, shortcut_key, position, created_at, updated_at FROM favorites WHERE folder_id = ? ORDER BY position ASC
+const GetFavoritesByTag = `-- name: GetFavoritesByTag :many
+SELECT f.id, f.url, f.title, f.favicon_url, f.folder_id, f.shortcut_key, f.position, f.created_at, f.updated_at FROM favorites f
+INNER JOIN favorite_tag_assignments fta ON f.id = fta.favorite_id
+WHERE fta.tag_id = ?
+ORDER BY f.position ASC
 `
 
-func (q *Queries) GetFavoritesByFolder(ctx context.Context, folderID sql.NullInt64) ([]Favorite, error) {
-	rows, err := q.db.QueryContext(ctx, GetFavoritesByFolder, folderID)
+func (q *Queries) GetFavoritesByTag(ctx context.Context, tagID int64) ([]Favorite, error) {
+	rows, err := q.db.QueryContext(ctx, GetFavoritesByTag, tagID)
 	if err != nil {
 		return nil, err
 	}
@@ -189,57 +186,6 @@ func (q *Queries) GetFavoritesByFolder(ctx context.Context, folderID sql.NullInt
 		return nil, err
 	}
 	return items, nil
-}
-
-const GetFavoritesWithoutFolder = `-- name: GetFavoritesWithoutFolder :many
-SELECT id, url, title, favicon_url, folder_id, shortcut_key, position, created_at, updated_at FROM favorites WHERE folder_id IS NULL ORDER BY position ASC
-`
-
-func (q *Queries) GetFavoritesWithoutFolder(ctx context.Context) ([]Favorite, error) {
-	rows, err := q.db.QueryContext(ctx, GetFavoritesWithoutFolder)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-	items := []Favorite{}
-	for rows.Next() {
-		var i Favorite
-		if err := rows.Scan(
-			&i.ID,
-			&i.Url,
-			&i.Title,
-			&i.FaviconUrl,
-			&i.FolderID,
-			&i.ShortcutKey,
-			&i.Position,
-			&i.CreatedAt,
-			&i.UpdatedAt,
-		); err != nil {
-			return nil, err
-		}
-		items = append(items, i)
-	}
-	if err := rows.Close(); err != nil {
-		return nil, err
-	}
-	if err := rows.Err(); err != nil {
-		return nil, err
-	}
-	return items, nil
-}
-
-const SetFavoriteFolder = `-- name: SetFavoriteFolder :exec
-UPDATE favorites SET folder_id = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?
-`
-
-type SetFavoriteFolderParams struct {
-	FolderID sql.NullInt64 `json:"folder_id"`
-	ID       int64         `json:"id"`
-}
-
-func (q *Queries) SetFavoriteFolder(ctx context.Context, arg SetFavoriteFolderParams) error {
-	_, err := q.db.ExecContext(ctx, SetFavoriteFolder, arg.FolderID, arg.ID)
-	return err
 }
 
 const SetFavoriteShortcut = `-- name: SetFavoriteShortcut :exec
