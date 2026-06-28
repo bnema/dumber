@@ -86,6 +86,52 @@ func TestFavoritesTagsFirstMigrationFolderTagCollisionSuffix(t *testing.T) {
 	}
 }
 
+func TestFavoritesTagsFirstMigrationGeneratedSuffixAvoidsExistingTag(t *testing.T) {
+	db := openMigrationTestDB(t)
+	runMigrationsUpTo(t, db, 10)
+
+	mustExec(t, db, `INSERT INTO favorite_tags(id, name, color) VALUES (1, 'foo', '#111111'), (2, 'foo-folder-3', '#222222')`)
+	mustExec(t, db, `INSERT INTO favorite_folders(id, name, parent_id) VALUES (3, 'Foo', NULL)`)
+	mustExec(t, db, `INSERT INTO favorites(id, url, title, folder_id) VALUES (1, 'https://foo.example', 'Foo', 3)`)
+
+	runAllMigrations(t, db)
+
+	var tagID int64
+	if err := db.QueryRow(`SELECT id FROM favorite_tags WHERE name = 'foo-folder-3-2'`).Scan(&tagID); err != nil {
+		t.Fatalf("expected second-order suffixed collision tag: %v", err)
+	}
+	if got := countRows(t, db, `SELECT COUNT(*) FROM favorite_tag_assignments WHERE favorite_id = 1 AND tag_id = ?`, tagID); got != 1 {
+		t.Fatalf("expected assignment to second-order suffixed tag, got %d", got)
+	}
+}
+
+func TestFavoritesTagsFirstMigrationGeneratedSuffixAvoidsFolderNaturalSlug(t *testing.T) {
+	db := openMigrationTestDB(t)
+	runMigrationsUpTo(t, db, 10)
+
+	mustExec(t, db, `INSERT INTO favorite_tags(id, name, color) VALUES (1, 'foo', '#111111')`)
+	mustExec(t, db, `INSERT INTO favorite_folders(id, name, parent_id) VALUES (3, 'Foo', NULL), (4, 'foo-folder-3', NULL)`)
+	mustExec(t, db, `INSERT INTO favorites(id, url, title, folder_id) VALUES (1, 'https://foo.example', 'Foo', 3), (2, 'https://folder.example', 'Folder', 4)`)
+
+	runAllMigrations(t, db)
+
+	var folder3TagID int64
+	if err := db.QueryRow(`SELECT id FROM favorite_tags WHERE name = 'foo-folder-3-2'`).Scan(&folder3TagID); err != nil {
+		t.Fatalf("expected generated suffix to avoid folder natural slug: %v", err)
+	}
+	if got := countRows(t, db, `SELECT COUNT(*) FROM favorite_tag_assignments WHERE favorite_id = 1 AND tag_id = ?`, folder3TagID); got != 1 {
+		t.Fatalf("expected assignment to second-order suffixed tag, got %d", got)
+	}
+
+	var folder4TagID int64
+	if err := db.QueryRow(`SELECT id FROM favorite_tags WHERE name = 'foo-folder-3'`).Scan(&folder4TagID); err != nil {
+		t.Fatalf("expected natural folder slug tag: %v", err)
+	}
+	if got := countRows(t, db, `SELECT COUNT(*) FROM favorite_tag_assignments WHERE favorite_id = 2 AND tag_id = ?`, folder4TagID); got != 1 {
+		t.Fatalf("expected assignment to natural slug tag, got %d", got)
+	}
+}
+
 func TestFavoritesTagsFirstMigrationMergesFoldedDuplicateTags(t *testing.T) {
 	db := openMigrationTestDB(t)
 	runMigrationsUpTo(t, db, 10)

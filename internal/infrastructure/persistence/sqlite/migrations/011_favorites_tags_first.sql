@@ -49,22 +49,71 @@ WITH RECURSIVE folder_paths(id, parent_id, path) AS (
             )
         ) AS base_slug
     FROM folder_paths
-), resolved AS (
+), folder_names AS (
     SELECT
         id,
         CASE
             WHEN base_slug = '' THEN 'folder-' || id
-            WHEN EXISTS (
-                SELECT 1 FROM favorite_tags t
-                WHERE lower(trim(t.name)) = lower(trim(base_slug))
-            ) OR EXISTS (
-                SELECT 1 FROM folder_slugs earlier
-                WHERE earlier.id < folder_slugs.id
-                  AND lower(trim(earlier.base_slug)) = lower(trim(folder_slugs.base_slug))
-            ) THEN base_slug || '-folder-' || id
             ELSE base_slug
-        END AS tag_name
+        END AS natural_name
     FROM folder_slugs
+), base_assignments AS (
+    SELECT id, natural_name AS tag_name
+    FROM folder_names current_folder
+    WHERE NOT EXISTS (
+        SELECT 1 FROM favorite_tags t
+        WHERE lower(trim(t.name)) = lower(trim(current_folder.natural_name))
+    )
+      AND NOT EXISTS (
+        SELECT 1 FROM folder_names earlier
+        WHERE earlier.id < current_folder.id
+          AND lower(trim(earlier.natural_name)) = lower(trim(current_folder.natural_name))
+    )
+), unresolved_folders AS (
+    SELECT id, natural_name
+    FROM folder_names
+    WHERE id NOT IN (SELECT id FROM base_assignments)
+), candidate_limit(max_attempt) AS (
+    SELECT (SELECT COUNT(*) FROM favorite_tags) + (SELECT COUNT(*) FROM folder_names) + 3
+), candidate_numbers(attempt) AS (
+    SELECT 1
+    UNION ALL
+    SELECT attempt + 1
+    FROM candidate_numbers, candidate_limit
+    WHERE attempt < max_attempt
+), suffix_candidates AS (
+    SELECT
+        unresolved_folders.id,
+        candidate_numbers.attempt,
+        CASE
+            WHEN candidate_numbers.attempt = 1 THEN unresolved_folders.natural_name || '-folder-' || unresolved_folders.id
+            ELSE unresolved_folders.natural_name || '-folder-' || unresolved_folders.id || '-' || candidate_numbers.attempt
+        END AS tag_name
+    FROM unresolved_folders
+    CROSS JOIN candidate_numbers
+), available_suffix_candidates AS (
+    SELECT id, attempt, tag_name
+    FROM suffix_candidates candidate
+    WHERE NOT EXISTS (
+        SELECT 1 FROM favorite_tags t
+        WHERE lower(trim(t.name)) = lower(trim(candidate.tag_name))
+    )
+      AND NOT EXISTS (
+        SELECT 1 FROM base_assignments assigned
+        WHERE lower(trim(assigned.tag_name)) = lower(trim(candidate.tag_name))
+    )
+), suffix_assignments AS (
+    SELECT id, tag_name
+    FROM available_suffix_candidates candidate
+    WHERE attempt = (
+        SELECT MIN(attempt)
+        FROM available_suffix_candidates earlier
+        WHERE earlier.id = candidate.id
+    )
+), resolved AS (
+    SELECT id, tag_name FROM base_assignments
+    UNION ALL
+    SELECT id, tag_name FROM suffix_assignments
 )
 INSERT INTO _folder_tag_map(folder_id, tag_name)
 SELECT id, tag_name FROM resolved;
