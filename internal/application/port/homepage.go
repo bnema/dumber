@@ -24,8 +24,7 @@ type HomepageHistory interface {
 	DeleteByDomain(ctx context.Context, domain string) error
 }
 
-// HomepageFavorites provides favorites/folders/tags operations
-// needed by the WebUI homepage handlers.
+// HomepageFavorites provides favorite and tag operations needed by the WebUI homepage handlers.
 type HomepageFavorites interface {
 	GetAll(ctx context.Context) ([]*entity.Favorite, error)
 	AddFavorite(ctx context.Context, input dto.FavoriteCreateInput) (*entity.Favorite, error)
@@ -33,11 +32,6 @@ type HomepageFavorites interface {
 	DeleteFavorite(ctx context.Context, id entity.FavoriteID) error
 	SetShortcut(ctx context.Context, id entity.FavoriteID, key *int) error
 	GetByShortcut(ctx context.Context, key int) (*entity.Favorite, error)
-	Move(ctx context.Context, id entity.FavoriteID, folderID *entity.FolderID) error
-	GetAllFolders(ctx context.Context) ([]*entity.Folder, error)
-	CreateFolder(ctx context.Context, name, icon string, parentID *entity.FolderID) (*entity.Folder, error)
-	DeleteFolder(ctx context.Context, id entity.FolderID) error
-	UpdateFolder(ctx context.Context, id entity.FolderID, name, icon string) error
 	GetAllTags(ctx context.Context) ([]*entity.Tag, error)
 	AddTag(ctx context.Context, name, color string) (*entity.Tag, error)
 	DeleteTag(ctx context.Context, id entity.TagID) error
