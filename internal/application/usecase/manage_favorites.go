@@ -82,11 +82,7 @@ func (uc *ManageFavoritesUseCase) addNewFavorite(ctx context.Context, input AddF
 	// Assign tags
 	for _, tagID := range input.Tags {
 		if err := uc.tagRepo.AssignToFavorite(ctx, tagID, fav.ID); err != nil {
-			log.Warn().
-				Int64("tag_id", int64(tagID)).
-				Int64("favorite_id", int64(fav.ID)).
-				Err(err).
-				Msg("failed to assign tag")
+			return nil, fmt.Errorf("failed to assign tag %d to favorite %d: %w", tagID, fav.ID, err)
 		}
 	}
 

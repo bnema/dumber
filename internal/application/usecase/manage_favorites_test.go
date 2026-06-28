@@ -429,6 +429,30 @@ func TestManageFavoritesUseCase_AddFavoriteAssignsTagsWithoutFolder(t *testing.T
 	assert.Equal(t, entity.FavoriteID(42), fav.ID)
 }
 
+func TestManageFavoritesUseCase_AddFavoriteReturnsAssignTagError(t *testing.T) {
+	ctx := testContext()
+
+	favoriteRepo := repomocks.NewMockFavoriteRepository(t)
+	tagRepo := repomocks.NewMockTagRepository(t)
+
+	favoriteRepo.EXPECT().FindByURL(mock.Anything, "https://example.com").Return(nil, nil).Once()
+	favoriteRepo.EXPECT().Save(mock.Anything, mock.Anything).Run(func(_ context.Context, fav *entity.Favorite) {
+		fav.ID = entity.FavoriteID(42)
+	}).Return(nil).Once()
+	tagRepo.EXPECT().AssignToFavorite(mock.Anything, entity.TagID(7), entity.FavoriteID(42)).Return(errors.New("tag missing")).Once()
+
+	uc := usecase.NewManageFavoritesUseCase(favoriteRepo, tagRepo)
+
+	fav, err := uc.AddFavorite(ctx, dto.FavoriteCreateInput{
+		URL:   "https://example.com",
+		Title: "Example",
+		Tags:  []entity.TagID{7},
+	})
+	require.Error(t, err)
+	assert.Nil(t, fav)
+	assert.Contains(t, err.Error(), "failed to assign tag 7 to favorite 42")
+}
+
 func TestManageFavoritesUseCase_AddFavoriteRejectsUnsafeOrMalformedURL(t *testing.T) {
 	ctx := testContext()
 

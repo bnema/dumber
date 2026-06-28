@@ -93,3 +93,25 @@ func TestHandleFavoriteUpdatePreservesShortcutWhenOmitted(t *testing.T) {
 	require.True(t, ok)
 	require.True(t, resp.Success)
 }
+func TestHandleFavoriteUpdateClearsShortcutWhenExplicitNull(t *testing.T) {
+	t.Parallel()
+
+	favorites := portmocks.NewMockHomepageFavorites(t)
+	favorites.EXPECT().
+		UpdateFavorite(mock.Anything, dto.FavoriteUpdateInput{
+			ID:             entity.FavoriteID(42),
+			Title:          "Updated",
+			FaviconURL:     "https://example.com/favicon.ico",
+			ShortcutKeySet: true,
+		}).
+		Return(&entity.Favorite{ID: 42, URL: "https://example.com", Title: "Updated"}, nil).
+		Once()
+
+	handler := NewFavoritesHandlers(favorites).HandleUpdate()
+	got, err := handler.Handle(context.Background(), port.WebViewID(0), json.RawMessage(`{"requestId":"req-5","id":42,"title":"Updated","favicon_url":"https://example.com/favicon.ico","shortcut_key":null}`))
+	require.NoError(t, err)
+
+	resp, ok := got.(Response)
+	require.True(t, ok)
+	require.True(t, resp.Success)
+}

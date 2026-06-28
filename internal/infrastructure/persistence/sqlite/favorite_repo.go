@@ -13,6 +13,8 @@ import (
 
 // ==================== Favorite Repository ====================
 
+const favoriteTagHydrationBatchSize = 900
+
 type favoriteRepo struct {
 	queries *sqlc.Queries
 }
@@ -146,16 +148,22 @@ func (r *favoriteRepo) hydrateTags(ctx context.Context, favorites []*entity.Favo
 		return nil
 	}
 
-	rows, err := r.queries.GetTagsForFavorites(ctx, ids)
-	if err != nil {
-		return err
-	}
-	for _, row := range rows {
-		fav := byID[entity.FavoriteID(row.FavoriteID)]
-		if fav == nil {
-			continue
+	for start := 0; start < len(ids); start += favoriteTagHydrationBatchSize {
+		end := start + favoriteTagHydrationBatchSize
+		if end > len(ids) {
+			end = len(ids)
 		}
-		fav.Tags = append(fav.Tags, *tagFromRow(row.FavoriteTag))
+		rows, err := r.queries.GetTagsForFavorites(ctx, ids[start:end])
+		if err != nil {
+			return err
+		}
+		for _, row := range rows {
+			fav := byID[entity.FavoriteID(row.FavoriteID)]
+			if fav == nil {
+				continue
+			}
+			fav.Tags = append(fav.Tags, *tagFromRow(row.FavoriteTag))
+		}
 	}
 	return nil
 }

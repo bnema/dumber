@@ -3,6 +3,7 @@ package sqlite
 import (
 	"context"
 	"database/sql"
+	"fmt"
 	"testing"
 
 	"github.com/bnema/dumber/internal/domain/entity"
@@ -152,6 +153,38 @@ func TestFavoriteRepositorySaveUpdatesShortcutKey(t *testing.T) {
 	if cleared.ShortcutKey != nil {
 		t.Fatalf("expected shortcut cleared, got %d", *cleared.ShortcutKey)
 	}
+}
+
+func TestFavoriteRepositoryGetAllHydratesTagsInBatches(t *testing.T) {
+	db := openFavoriteRepoTestDB(t)
+	mustExec(t, db, `INSERT INTO favorite_tags(id, name, color) VALUES (1, 'batched', '#111111')`)
+	for i := int64(1); i <= favoriteTagHydrationBatchSize+5; i++ {
+		_, err := db.Exec(
+			`INSERT INTO favorites(id, url, title, position) VALUES (?, ?, ?, ?)`,
+			i,
+			fmt.Sprintf("https://batch.example/%d", i),
+			"Batch",
+			i,
+		)
+		if err != nil {
+			t.Fatalf("insert favorite %d: %v", i, err)
+		}
+		_, err = db.Exec(`INSERT INTO favorite_tag_assignments(favorite_id, tag_id) VALUES (?, 1)`, i)
+		if err != nil {
+			t.Fatalf("insert assignment %d: %v", i, err)
+		}
+	}
+	repo := NewFavoriteRepository(db)
+
+	favorites, err := repo.GetAll(context.Background())
+	if err != nil {
+		t.Fatalf("GetAll: %v", err)
+	}
+	if len(favorites) != favoriteTagHydrationBatchSize+5 {
+		t.Fatalf("expected %d favorites, got %d", favoriteTagHydrationBatchSize+5, len(favorites))
+	}
+	assertTagNames(t, favorites[0], "batched")
+	assertTagNames(t, favorites[len(favorites)-1], "batched")
 }
 
 func assertTagNames(t *testing.T, fav *entity.Favorite, names ...string) {
