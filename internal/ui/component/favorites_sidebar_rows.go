@@ -186,7 +186,7 @@ func (fs *FavoritesSidebar) rebuildList() {
 		return
 	}
 	for _, row := range rows {
-		fs.appendFavoriteRow(listBox, row.Favorite)
+		fs.appendFavoriteRow(listBox, row)
 	}
 	for _, text := range favoriteSidebarNoticeRows(notice, query, true) {
 		fs.appendNoticeRow(listBox, text)
@@ -225,7 +225,8 @@ func (fs *FavoritesSidebar) appendNoticeRow(listBox *gtk.ListBox, text string) {
 	listBox.Append(&row.Widget)
 }
 
-func (fs *FavoritesSidebar) appendFavoriteRow(listBox *gtk.ListBox, fav *entity.Favorite) {
+func (fs *FavoritesSidebar) appendFavoriteRow(listBox *gtk.ListBox, displayRow favoriteSidebarDisplayRow) {
+	fav := displayRow.Favorite
 	if fav == nil {
 		return
 	}
@@ -243,10 +244,10 @@ func (fs *FavoritesSidebar) appendFavoriteRow(listBox *gtk.ListBox, fav *entity.
 		return
 	}
 	row.AddCssClass("favorites-sidebar-row")
-	row.SetSelectable(true)
-	row.SetActivatable(true)
-	row.SetCanFocus(true)
-	row.SetFocusOnClick(true)
+	row.SetSelectable(displayRow.Selectable)
+	row.SetActivatable(displayRow.Selectable)
+	row.SetCanFocus(displayRow.Selectable)
+	row.SetFocusOnClick(displayRow.Selectable)
 	row.SetChild(&rowBox.Widget)
 	listBox.Append(&row.Widget)
 }

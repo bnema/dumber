@@ -28,6 +28,7 @@ func (fs *FavoritesSidebar) setupKeyboardNavigation() {
 		onClose := fs.onClose
 		fs.mu.RUnlock()
 
+		textEditing := fs.inTextEditContext()
 		switch keyval {
 		case uint(gdk.KEY_Escape):
 			if fs.cancelManagement() {
@@ -47,31 +48,49 @@ func (fs *FavoritesSidebar) setupKeyboardNavigation() {
 			fs.cycleFocusZone(state&gdk.ShiftMaskValue != 0)
 			return true
 		case uint(gdk.KEY_Page_Up):
+			if textEditing {
+				return false
+			}
 			fs.selectAdjacentRow(-5)
 			return true
 		case uint(gdk.KEY_Page_Down):
+			if textEditing {
+				return false
+			}
 			fs.selectAdjacentRow(5)
 			return true
 		case uint(gdk.KEY_Home):
+			if textEditing {
+				return false
+			}
 			fs.mu.RLock()
 			index := firstSelectableIndex(fs.displayRows)
 			fs.mu.RUnlock()
 			fs.selectIndex(index)
 			return true
 		case uint(gdk.KEY_End):
+			if textEditing {
+				return false
+			}
 			fs.mu.RLock()
 			index := lastSelectableIndex(fs.displayRows)
 			fs.mu.RUnlock()
 			fs.selectIndex(index)
 			return true
 		case uint(gdk.KEY_Up):
+			if textEditing {
+				return false
+			}
 			fs.selectAdjacentRow(-1)
 			return true
 		case uint(gdk.KEY_Down):
+			if textEditing {
+				return false
+			}
 			fs.selectAdjacentRow(1)
 			return true
 		case uint(gdk.KEY_slash):
-			if fs.inTextEditContext() {
+			if textEditing {
 				return false
 			}
 			searchFocused := searchEntry != nil && searchEntry.HasFocus()
@@ -81,7 +100,7 @@ func (fs *FavoritesSidebar) setupKeyboardNavigation() {
 			fs.focusSearch()
 			return true
 		}
-		return fs.handleSingleKeyCommand(keyval)
+		return fs.handleSingleKeyCommand(keyval, state)
 	}
 	fs.retainedCallbacks = append(fs.retainedCallbacks, keyPressedCb)
 	keyController.ConnectKeyPressed(&keyPressedCb)
@@ -275,8 +294,9 @@ func (fs *FavoritesSidebar) inTextEditContext() bool {
 	return false
 }
 
-func (fs *FavoritesSidebar) handleSingleKeyCommand(keyval uint) bool {
-	if fs == nil || fs.inTextEditContext() {
+func (fs *FavoritesSidebar) handleSingleKeyCommand(keyval uint, state gdk.ModifierType) bool {
+	shortcutModifiers := gdk.ControlMaskValue | gdk.ShiftMaskValue | gdk.AltMaskValue
+	if fs == nil || fs.inTextEditContext() || state&shortcutModifiers != 0 {
 		return false
 	}
 	fs.mu.RLock()

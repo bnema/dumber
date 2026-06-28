@@ -260,8 +260,20 @@ func (fs *FavoritesSidebar) startLoad() {
 	gen := fs.loadGen
 	uc := fs.favoritesUC
 	ctx := fs.ctx
+	visible := fs.visible
 	fs.notice = "Loading favorites..."
 	fs.mu.Unlock()
+	if visible {
+		fs.scheduleIdle(glib.SourceFunc(func(uintptr) bool {
+			fs.mu.RLock()
+			destroyed := fs.destroyed
+			fs.mu.RUnlock()
+			if !destroyed {
+				fs.rebuildList()
+			}
+			return false
+		}))
+	}
 
 	if uc == nil || ctx == nil {
 		fs.applyLoadedData(nil, nil, gen, nil)

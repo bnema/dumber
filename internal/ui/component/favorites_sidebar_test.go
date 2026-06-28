@@ -34,8 +34,9 @@ type fakeFavoritesSidebarUC struct {
 		favID entity.FavoriteID
 		tagID entity.TagID
 	}
-	err          error
-	getAllCalled chan struct{}
+	err              error
+	errOnSetShortcut error
+	getAllCalled     chan struct{}
 }
 
 func (f *fakeFavoritesSidebarUC) GetAll(context.Context) ([]*entity.Favorite, error) {
@@ -45,10 +46,10 @@ func (f *fakeFavoritesSidebarUC) GetAll(context.Context) ([]*entity.Favorite, er
 		default:
 		}
 	}
-	return f.favorites, nil
+	return f.favorites, f.err
 }
 func (f *fakeFavoritesSidebarUC) GetAllTags(context.Context) ([]*entity.Tag, error) {
-	return f.tags, nil
+	return f.tags, f.err
 }
 func (f *fakeFavoritesSidebarUC) AddFavorite(_ context.Context, input dto.FavoriteCreateInput) (*entity.Favorite, error) {
 	f.addInputs = append(f.addInputs, input)
@@ -73,6 +74,9 @@ func (f *fakeFavoritesSidebarUC) SetShortcut(_ context.Context, id entity.Favori
 		id  entity.FavoriteID
 		key *int
 	}{id: id, key: key})
+	if f.errOnSetShortcut != nil {
+		return f.errOnSetShortcut
+	}
 	return f.err
 }
 func (f *fakeFavoritesSidebarUC) TagFavorite(_ context.Context, favID entity.FavoriteID, tagID entity.TagID) error {
@@ -193,7 +197,11 @@ func TestFavoritesSidebarActivationCallbacks(t *testing.T) {
 
 func TestFavoritesSidebarRequestReloadIfVisibleReloadsData(t *testing.T) {
 	called := make(chan struct{}, 1)
-	uc := &fakeFavoritesSidebarUC{getAllCalled: called}
+	uc := &fakeFavoritesSidebarUC{
+		favorites:    []*entity.Favorite{{ID: 1, URL: "https://go.dev", Title: "Go"}},
+		tags:         []*entity.Tag{{ID: 10, Name: "dev"}},
+		getAllCalled: called,
+	}
 	fs := newFavoritesSidebarHarness(nil, nil)
 	fs.favoritesUC = uc
 	fs.visible = true
@@ -207,6 +215,11 @@ func TestFavoritesSidebarRequestReloadIfVisibleReloadsData(t *testing.T) {
 		default:
 			return false
 		}
+	}, time.Second, 10*time.Millisecond)
+	require.Eventually(t, func() bool {
+		fs.mu.RLock()
+		defer fs.mu.RUnlock()
+		return len(fs.allFavorites) == 1 && len(fs.allTags) == 1
 	}, time.Second, 10*time.Millisecond)
 }
 
@@ -313,11 +326,11 @@ func TestFavoritesSidebarSingleKeyCommandsStartManagementOutsideTextEditContext(
 	fs.searchEntry = nil
 	fs.displayRows = []favoriteSidebarDisplayRow{{FavoriteID: 1, Favorite: &entity.Favorite{ID: 1}, Selectable: true}}
 
-	assert.True(t, fs.handleSingleKeyCommand(uint(gdk.KEY_a)))
+	assert.True(t, fs.handleSingleKeyCommand(uint(gdk.KEY_a), 0))
 	assert.Equal(t, favoritesSidebarModeAdd, fs.mode)
 
 	fs.mode = favoritesSidebarModeNone
-	assert.True(t, fs.handleSingleKeyCommand(uint(gdk.KEY_e)))
+	assert.True(t, fs.handleSingleKeyCommand(uint(gdk.KEY_e), 0))
 	assert.Equal(t, favoritesSidebarModeEdit, fs.mode)
 }
 
@@ -431,6 +444,40 @@ func TestFavoritesSidebarEditSubmitIgnoresTagsByDesign(t *testing.T) {
 	assert.Empty(t, uc.untagged)
 }
 
+func TestFavoritesSidebarSingleKeyCommandsIgnoreModifiedKeys(t *testing.T) {
+	fs := newFavoritesSidebarHarness(nil, nil)
+	fs.searchEntry = nil
+
+	assert.False(t, fs.handleSingleKeyCommand(uint(gdk.KEY_a), gdk.ControlMaskValue))
+	assert.Equal(t, favoritesSidebarModeNone, fs.mode)
+}
+
+func TestFavoritesSidebarConfirmDeleteRequiresConfirmationState(t *testing.T) {
+	fav := &entity.Favorite{ID: 5, URL: "https://go.dev"}
+	fs := newFavoritesSidebarHarness([]*entity.Favorite{fav}, nil)
+	uc := fs.favoritesUC.(*fakeFavoritesSidebarUC)
+	fs.displayRows = []favoriteSidebarDisplayRow{{FavoriteID: fav.ID, Favorite: fav, URL: fav.URL, Selectable: true}}
+
+	assert.True(t, fs.confirmDeleteFavorite())
+	assert.Empty(t, uc.deletedIDs)
+	assert.True(t, fs.confirmDelete)
+}
+
+func TestFavoritesSidebarAddShortcutFailureClosesFormAfterCreate(t *testing.T) {
+	uc := &fakeFavoritesSidebarUC{errOnSetShortcut: errors.New("shortcut failed")}
+	fs := newFavoritesSidebarHarness(nil, nil)
+	fs.favoritesUC = uc
+	fs.formURL = "https://add.test"
+	fs.formTitle = "Added"
+	fs.formShortcut = "3"
+	fs.mode = favoritesSidebarModeAdd
+
+	assert.True(t, fs.submitForm())
+	require.Len(t, uc.addInputs, 1)
+	assert.Equal(t, favoritesSidebarModeNone, fs.mode)
+	assert.Contains(t, fs.notice, "failed to set shortcut")
+}
+
 func TestFavoritesSidebarTagShortcutAndDeleteFlows(t *testing.T) {
 	dev := entity.Tag{ID: 10, Name: "dev"}
 	news := entity.Tag{ID: 11, Name: "news"}
@@ -441,24 +488,24 @@ func TestFavoritesSidebarTagShortcutAndDeleteFlows(t *testing.T) {
 	fs.displayRows = []favoriteSidebarDisplayRow{{FavoriteID: fav.ID, Favorite: fav, URL: fav.URL, Selectable: true}}
 
 	fs.mode = favoritesSidebarModeTag
-	assert.True(t, fs.handleSingleKeyCommand(uint(gdk.KEY_1)))
+	assert.True(t, fs.handleSingleKeyCommand(uint(gdk.KEY_1), 0))
 	require.Len(t, uc.untagged, 1)
 	assert.Equal(t, entity.TagID(10), uc.untagged[0].tagID)
-	assert.True(t, fs.handleSingleKeyCommand(uint(gdk.KEY_2)))
+	assert.True(t, fs.handleSingleKeyCommand(uint(gdk.KEY_2), 0))
 	require.Len(t, uc.tagged, 1)
 	assert.Equal(t, entity.TagID(11), uc.tagged[0].tagID)
 
 	fs.mode = favoritesSidebarModeShortcut
-	assert.True(t, fs.handleSingleKeyCommand(uint(gdk.KEY_9)))
-	assert.True(t, fs.handleSingleKeyCommand(uint(gdk.KEY_BackSpace)))
+	assert.True(t, fs.handleSingleKeyCommand(uint(gdk.KEY_9), 0))
+	assert.True(t, fs.handleSingleKeyCommand(uint(gdk.KEY_BackSpace), 0))
 	require.GreaterOrEqual(t, len(uc.shortcuts), 2)
 	assert.Equal(t, 9, *uc.shortcuts[len(uc.shortcuts)-2].key)
 	assert.Nil(t, uc.shortcuts[len(uc.shortcuts)-1].key)
 
 	fs.mode = favoritesSidebarModeNone
-	assert.True(t, fs.handleSingleKeyCommand(uint(gdk.KEY_Delete)))
+	assert.True(t, fs.handleSingleKeyCommand(uint(gdk.KEY_Delete), 0))
 	assert.True(t, fs.confirmDelete)
-	assert.True(t, fs.handleSingleKeyCommand(uint(gdk.KEY_Delete)))
+	assert.True(t, fs.handleSingleKeyCommand(uint(gdk.KEY_Delete), 0))
 	assert.Equal(t, []entity.FavoriteID{5}, uc.deletedIDs)
 }
 

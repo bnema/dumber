@@ -135,7 +135,21 @@ func (fs *FavoritesSidebar) renderForm(fav *entity.Favorite) {
 
 func (fs *FavoritesSidebar) focusForm() {
 	fs.scheduleIdle(glib.SourceFunc(func(uintptr) bool {
-		if fs != nil && fs.formURLEntry != nil {
+		if fs == nil {
+			return false
+		}
+		fs.mu.RLock()
+		mode := fs.mode
+		destroyed := fs.destroyed
+		fs.mu.RUnlock()
+		if destroyed {
+			return false
+		}
+		if mode == favoritesSidebarModeEdit && fs.formTitleEntry != nil {
+			fs.formTitleEntry.GrabFocus()
+			return false
+		}
+		if fs.formURLEntry != nil {
 			fs.formURLEntry.GrabFocus()
 		}
 		return false
@@ -197,7 +211,9 @@ func (fs *FavoritesSidebar) submitForm() bool {
 		}
 		if key != nil && fav != nil {
 			if err := uc.SetShortcut(ctx, fav.ID, key); err != nil {
-				fs.setNotice(err.Error())
+				fs.cancelManagement()
+				fs.startLoad()
+				fs.setNotice("Added favorite, but failed to set shortcut: " + err.Error())
 				return true
 			}
 		}
@@ -333,9 +349,13 @@ func (fs *FavoritesSidebar) confirmDeleteFavorite() bool {
 		return fs.requestDeleteConfirmation()
 	}
 	fs.mu.RLock()
+	confirmed := fs.confirmDelete
 	uc := fs.favoritesUC
 	ctx := fs.ctx
 	fs.mu.RUnlock()
+	if !confirmed {
+		return fs.requestDeleteConfirmation()
+	}
 	if uc == nil {
 		return true
 	}
