@@ -17,8 +17,9 @@ import (
 	"github.com/bnema/dumber/internal/logging"
 )
 
-// Compile-time check: ManageFavoritesUseCase must satisfy port.HomepageFavorites.
+// Compile-time checks: ManageFavoritesUseCase must satisfy favorites application ports.
 var _ port.HomepageFavorites = (*ManageFavoritesUseCase)(nil)
+var _ port.FavoritesSidebarFavorites = (*ManageFavoritesUseCase)(nil)
 
 // ManageFavoritesUseCase handles favorite and tag operations.
 type ManageFavoritesUseCase struct {
