@@ -41,7 +41,8 @@ func TestDefaultConfig_CoreDefaults(t *testing.T) {
 
 	// System view shortcuts are first-class global actions.
 	requireActionBinding(t, cfg.Workspace.Shortcuts.Actions, "toggle-history-systemview", []string{"ctrl+h"})
-	requireActionBinding(t, cfg.Workspace.Shortcuts.Actions, "toggle-favorites-systemview", []string{})
+	requireActionBinding(t, cfg.Workspace.Shortcuts.Actions, "toggle-favorites-systemview", []string{"ctrl+b"})
+	requireActionBinding(t, cfg.Workspace.Shortcuts.Actions, "toggle-current-page-favorite", []string{"ctrl+d"})
 	requireActionBinding(t, cfg.Workspace.Shortcuts.Actions, "toggle-config-systemview", []string{})
 
 	// Old sections (Rendering, Privacy, Performance, Runtime) have been removed from Config.

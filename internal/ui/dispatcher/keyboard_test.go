@@ -115,6 +115,46 @@ func TestKeyboardDispatcher_ToggleHistorySidebarSetThenUnsetReturnsError(t *test
 	assert.ErrorContains(t, err, "history sidebar unavailable")
 }
 
+func TestKeyboardDispatcher_ToggleFavoritesSidebarCallsCallbackAndPropagatesErrors(t *testing.T) {
+	ctx := context.Background()
+	d := NewKeyboardDispatcher(ctx, &coordinator.WorkspaceCoordinator{}, &coordinator.NavigationCoordinator{}, nil, nil, KeyboardActions{}, func(context.Context) entity.PaneID { return "" })
+
+	missingErr := d.Dispatch(ctx, input.ActionToggleFavoritesSystemView)
+	require.Error(t, missingErr)
+	require.ErrorContains(t, missingErr, "favorites sidebar unavailable")
+
+	wantErr := fmt.Errorf("favorites failed")
+	d.SetOnToggleFavoritesSidebar(func(context.Context) error { return wantErr })
+	err := d.Dispatch(ctx, input.ActionToggleFavoritesSystemView)
+	require.Error(t, err)
+	require.ErrorIs(t, err, wantErr)
+
+	var called bool
+	d.SetOnToggleFavoritesSidebar(func(context.Context) error { called = true; return nil })
+	require.NoError(t, d.Dispatch(ctx, input.ActionToggleFavoritesSystemView))
+	assert.True(t, called)
+}
+
+func TestKeyboardDispatcher_ToggleCurrentPageFavoriteCallsCallbackAndPropagatesErrors(t *testing.T) {
+	ctx := context.Background()
+	d := NewKeyboardDispatcher(ctx, &coordinator.WorkspaceCoordinator{}, &coordinator.NavigationCoordinator{}, nil, nil, KeyboardActions{}, func(context.Context) entity.PaneID { return "" })
+
+	missingErr := d.Dispatch(ctx, input.ActionToggleCurrentPageFavorite)
+	require.Error(t, missingErr)
+	require.ErrorContains(t, missingErr, "toggle current page handler not wired")
+
+	wantErr := fmt.Errorf("toggle failed")
+	d.SetOnToggleCurrentPageFavorite(func(context.Context) error { return wantErr })
+	err := d.Dispatch(ctx, input.ActionToggleCurrentPageFavorite)
+	require.Error(t, err)
+	require.ErrorIs(t, err, wantErr)
+
+	var called bool
+	d.SetOnToggleCurrentPageFavorite(func(context.Context) error { called = true; return nil })
+	require.NoError(t, d.Dispatch(ctx, input.ActionToggleCurrentPageFavorite))
+	assert.True(t, called)
+}
+
 func TestKeyboardDispatcher_PassesActivePaneIDToShellCallbacks(t *testing.T) {
 	ctx := context.Background()
 	activePaneID := entity.PaneID("pane-1")

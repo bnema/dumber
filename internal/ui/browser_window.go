@@ -19,6 +19,14 @@ import (
 	"github.com/bnema/puregotk/v4/glib"
 )
 
+type nativeSidebarKind string
+
+const (
+	nativeSidebarNone      nativeSidebarKind = ""
+	nativeSidebarHistory   nativeSidebarKind = "history"
+	nativeSidebarFavorites nativeSidebarKind = "favorites"
+)
+
 type browserWindow struct {
 	id                     string
 	initialURL             string
@@ -39,8 +47,10 @@ type browserWindow struct {
 	permissionDialog       port.PermissionDialogPresenter
 	webrtcIndicator        *component.WebRTCPermissionIndicator
 	historySidebar         *component.HistorySidebar
+	favoritesSidebar       *component.FavoritesSidebar
 	historySidebarReloader historySidebarReloader
 	sidebarVisible         bool
+	activeSidebarKind      nativeSidebarKind
 }
 
 func (bw *browserWindow) detachInputForDestroy() {
@@ -73,6 +83,9 @@ func (bw *browserWindow) clearShellState() {
 	if bw.historySidebar != nil {
 		bw.historySidebar.Destroy()
 	}
+	if bw.favoritesSidebar != nil {
+		bw.favoritesSidebar.Destroy()
+	}
 	if bw.touchpadNavIndicator != nil {
 		bw.touchpadNavIndicator.Destroy()
 	}
@@ -91,7 +104,9 @@ func (bw *browserWindow) clearShellState() {
 	bw.permissionDialog = nil
 	bw.webrtcIndicator = nil
 	bw.historySidebar = nil
+	bw.favoritesSidebar = nil
 	bw.historySidebarReloader = nil
+	bw.activeSidebarKind = nativeSidebarNone
 }
 
 func (bw *browserWindow) initChrome(ctx context.Context, a *App) {
@@ -106,6 +121,7 @@ func (bw *browserWindow) initChrome(ctx context.Context, a *App) {
 	bw.initSessionManager(ctx, a)
 	bw.initTabPicker(ctx, a)
 	bw.initHistorySidebar(ctx, a)
+	bw.initFavoritesSidebar(ctx, a)
 }
 
 func (bw *browserWindow) initToasterOverlay(a *App) {
