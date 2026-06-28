@@ -24,44 +24,43 @@ type Dependencies struct {
 type App struct {
 	// mu protects rendered route state; actionMu protects worker channels.
 	// The two locks must not be held at the same time.
-	mu                   sync.Mutex
-	actionMu             sync.Mutex
-	deps                 Dependencies
-	currentRoute         Route
-	shellTheme           shellTheme
-	historyEntries       []*entity.HistoryEntry
-	historyStats         *entity.HistoryStats
-	historyAnalytics     *entity.HistoryAnalytics
-	historyDomainStats   []*entity.DomainStat
-	historyQuery         string
-	historyDomainFilter  string
-	historyOffset        int
-	historyWindowBefore  time.Time
-	historyWindowAfter   time.Time
-	historyCursorID      int64
-	historyHasMore       bool
-	historyNotice        string
-	historyError         string
-	favorites            []*entity.Favorite
-	folders              []*entity.Folder
-	tags                 []*entity.Tag
-	favoriteFolderFilter *entity.FolderID
-	favoriteTagFilter    *entity.TagID
-	favoritesNotice      string
-	favoritesError       string
-	config               *dto.SystemviewConfigPayload
-	keybindings          port.KeybindingsConfig
-	configNotice         string
-	configError          string
-	renderedHTML         string
-	renderGeneration     uint64
-	closed               bool
-	actionQueue          chan DOMAction
-	actionErrorQueue     chan error
-	actionCtx            context.Context
-	actionCancel         context.CancelFunc
-	actionClosed         bool
-	actionWG             sync.WaitGroup
+	mu                     sync.Mutex
+	actionMu               sync.Mutex
+	deps                   Dependencies
+	currentRoute           Route
+	shellTheme             shellTheme
+	historyEntries         []*entity.HistoryEntry
+	historyStats           *entity.HistoryStats
+	historyAnalytics       *entity.HistoryAnalytics
+	historyDomainStats     []*entity.DomainStat
+	historyQuery           string
+	historyDomainFilter    string
+	historyOffset          int
+	historyWindowBefore    time.Time
+	historyWindowAfter     time.Time
+	historyCursorID        int64
+	historyHasMore         bool
+	historyNotice          string
+	historyError           string
+	favorites              []*entity.Favorite
+	tags                   []*entity.Tag
+	favoriteTagFilter      *entity.TagID
+	favoriteUntaggedFilter bool
+	favoritesNotice        string
+	favoritesError         string
+	config                 *dto.SystemviewConfigPayload
+	keybindings            port.KeybindingsConfig
+	configNotice           string
+	configError            string
+	renderedHTML           string
+	renderGeneration       uint64
+	closed                 bool
+	actionQueue            chan DOMAction
+	actionErrorQueue       chan error
+	actionCtx              context.Context
+	actionCancel           context.CancelFunc
+	actionClosed           bool
+	actionWG               sync.WaitGroup
 }
 
 const (
@@ -513,7 +512,6 @@ func routeSubtitle(route Route) string {
 
 func (a *App) loadHistoryLoadingRoute() {
 	a.favorites = nil
-	a.folders = nil
 	a.tags = nil
 	a.historyEntries = nil
 	a.historyStats = nil
@@ -698,7 +696,6 @@ func loadHistoryWindowSnapshot(ctx context.Context, snapshot historyRouteSnapsho
 
 func (a *App) commitHistoryRouteResultLocked(result historyRouteResult) {
 	a.favorites = nil
-	a.folders = nil
 	a.tags = nil
 	a.historyEntries = result.entries
 	a.historyStats = result.stats
@@ -727,28 +724,22 @@ func (a *App) loadFavoritesRoute(ctx context.Context) error {
 	if err != nil {
 		return err
 	}
-	folders, err := a.deps.Favorites.ListFolders(ctx)
-	if err != nil {
-		return err
-	}
 	tags, err := a.deps.Favorites.ListTags(ctx)
 	if err != nil {
 		return err
 	}
 
 	a.historyEntries = nil
-	favorites = filterFavorites(favorites, a.favoriteFolderFilter, a.favoriteTagFilter)
+	favorites = filterFavorites(favorites, a.favoriteTagFilter, a.favoriteUntaggedFilter)
 	a.favorites = favorites
-	a.folders = folders
 	a.tags = tags
 	data := favoritesRenderData{
-		Favorites:    favorites,
-		Folders:      folders,
-		Tags:         tags,
-		FolderFilter: a.favoriteFolderFilter,
-		TagFilter:    a.favoriteTagFilter,
-		Notice:       a.favoritesNotice,
-		Error:        a.favoritesError,
+		Favorites:      favorites,
+		Tags:           tags,
+		TagFilter:      a.favoriteTagFilter,
+		UntaggedFilter: a.favoriteUntaggedFilter,
+		Notice:         a.favoritesNotice,
+		Error:          a.favoritesError,
 	}
 	a.renderedHTML = renderAppFrame(renderedPage{
 		route:    RouteFavorites,
@@ -782,7 +773,6 @@ func (a *App) loadConfigRoute(ctx context.Context) error {
 
 	a.historyEntries = nil
 	a.favorites = nil
-	a.folders = nil
 	a.tags = nil
 	a.config = &config
 	a.keybindings = keybindings
@@ -835,10 +825,9 @@ func (a *App) resetRouteState() {
 	a.historyNotice = ""
 	a.historyError = ""
 	a.favorites = nil
-	a.folders = nil
 	a.tags = nil
-	a.favoriteFolderFilter = nil
 	a.favoriteTagFilter = nil
+	a.favoriteUntaggedFilter = false
 	a.favoritesNotice = ""
 	a.favoritesError = ""
 	a.config = nil

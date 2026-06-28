@@ -48,15 +48,6 @@ func RegisterHandlers(ctx context.Context, router port.WebUIHandlerRouter, cfg C
 	handlers["favorite_delete"] = favoritesHandlers.HandleDelete()
 	handlers["favorite_set_shortcut"] = favoritesHandlers.HandleSetShortcut()
 	handlers["favorite_get_by_shortcut"] = favoritesHandlers.HandleGetByShortcut()
-	handlers["favorite_set_folder"] = favoritesHandlers.HandleSetFolder()
-
-	// Folder handlers
-	folderHandlers := NewFolderHandlers(cfg.FavoritesUC)
-	handlers["folder_list"] = folderHandlers.HandleList()
-	handlers["folder_create"] = folderHandlers.HandleCreate()
-	handlers["folder_delete"] = folderHandlers.HandleDelete()
-	handlers["folder_update"] = folderHandlers.HandleUpdate() // Requires UpdateFolder()
-
 	// Tag handlers
 	tagHandlers := NewTagHandlers(cfg.FavoritesUC)
 	handlers["tag_list"] = tagHandlers.HandleList()

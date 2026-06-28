@@ -10,13 +10,12 @@ import (
 const defaultTagColor = "#808080"
 
 type favoritesRenderData struct {
-	Favorites    []*entity.Favorite
-	Folders      []*entity.Folder
-	Tags         []*entity.Tag
-	FolderFilter *entity.FolderID
-	TagFilter    *entity.TagID
-	Notice       string
-	Error        string
+	Favorites      []*entity.Favorite
+	Tags           []*entity.Tag
+	TagFilter      *entity.TagID
+	UntaggedFilter bool
+	Notice         string
+	Error          string
 }
 
 func favoritesHTML(data favoritesRenderData) string {
@@ -25,7 +24,7 @@ func favoritesHTML(data favoritesRenderData) string {
 
 func favoritesDocumentTitle(data favoritesRenderData) string {
 	count := len(data.Favorites)
-	if data.FolderFilter != nil || data.TagFilter != nil {
+	if data.TagFilter != nil || data.UntaggedFilter {
 		if count == 1 {
 			return "Favorites — 1 filtered bookmark"
 		}
@@ -38,11 +37,7 @@ func favoritesDocumentTitle(data favoritesRenderData) string {
 }
 
 func favoritesSummary(data favoritesRenderData) string {
-	return fmt.Sprintf("%d favorites · %d folders · %d tags", len(data.Favorites), len(data.Folders), len(data.Tags))
-}
-
-func foldersSummary(data favoritesRenderData) string {
-	return fmt.Sprintf("%d folders", len(data.Folders))
+	return fmt.Sprintf("%d favorites · %d tags", len(data.Favorites), len(data.Tags))
 }
 
 func tagsSummary(data favoritesRenderData) string {
@@ -57,12 +52,12 @@ func favoriteFilterClass(active bool) string {
 	return classes
 }
 
-func favoriteFolderFilterActive(data favoritesRenderData, folderID entity.FolderID) bool {
-	return data.FolderFilter != nil && *data.FolderFilter == folderID
+func favoriteUntaggedFilterActive(data favoritesRenderData) bool {
+	return data.UntaggedFilter
 }
 
 func favoriteAllFilterActive(data favoritesRenderData) bool {
-	return data.FolderFilter == nil && data.TagFilter == nil
+	return data.TagFilter == nil && !data.UntaggedFilter
 }
 
 func favoriteTagFilterActive(data favoritesRenderData, tagID entity.TagID) bool {
@@ -80,18 +75,11 @@ func favoriteItemLabel(favorite *entity.Favorite) string {
 	return label
 }
 
-func favoriteMetaText(favorite *entity.Favorite, folders []*entity.Folder) string {
-	if favorite == nil {
+func favoriteMetaText(favorite *entity.Favorite) string {
+	if favorite == nil || favorite.ShortcutKey == nil {
 		return ""
 	}
-	parts := make([]string, 0, 2)
-	if favorite.ShortcutKey != nil {
-		parts = append(parts, fmt.Sprintf("Shortcut %d", *favorite.ShortcutKey))
-	}
-	if name := folderNameForID(folders, favorite.FolderID); name != "" {
-		parts = append(parts, "Folder "+name)
-	}
-	return strings.Join(parts, " · ")
+	return fmt.Sprintf("Shortcut %d", *favorite.ShortcutKey)
 }
 
 func favoriteTagButtonAction(favorite *entity.Favorite, tag *entity.Tag) string {
@@ -136,38 +124,12 @@ func safeTagColor(raw string) string {
 	return value
 }
 
-func folderDisplayName(folder *entity.Folder) string {
-	if folder == nil {
-		return ""
-	}
-	if strings.TrimSpace(folder.Icon) != "" {
-		return folder.Icon + " " + folder.Name
-	}
-	return folder.Name
-}
-
-func folderNameForID(folders []*entity.Folder, id *entity.FolderID) string {
-	if id == nil {
-		return "Unfiled"
-	}
-	for _, folder := range folders {
-		if folder != nil && folder.ID == *id {
-			return folderDisplayName(folder)
-		}
-	}
-	return "Unknown"
-}
-
-func folderSelected(selected *entity.FolderID, folderID entity.FolderID) bool {
-	return selected != nil && *selected == folderID
-}
-
 func shortcutSelected(selected *int, value int) bool {
 	return selected != nil && *selected == value
 }
 
-func filterFavorites(favorites []*entity.Favorite, folderID *entity.FolderID, tagID *entity.TagID) []*entity.Favorite {
-	if folderID == nil && tagID == nil {
+func filterFavorites(favorites []*entity.Favorite, tagID *entity.TagID, untagged bool) []*entity.Favorite {
+	if tagID == nil && !untagged {
 		return favorites
 	}
 	out := make([]*entity.Favorite, 0, len(favorites))
@@ -175,16 +137,11 @@ func filterFavorites(favorites []*entity.Favorite, folderID *entity.FolderID, ta
 		if favorite == nil {
 			continue
 		}
-		if folderID != nil {
-			if *folderID == 0 {
-				if favorite.FolderID != nil {
-					continue
-				}
-			} else if favorite.FolderID == nil || *favorite.FolderID != *folderID {
+		if untagged {
+			if len(favorite.Tags) != 0 {
 				continue
 			}
-		}
-		if tagID != nil && !favorite.HasTag(*tagID) {
+		} else if tagID != nil && !favorite.HasTag(*tagID) {
 			continue
 		}
 		out = append(out, favorite)
