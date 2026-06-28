@@ -597,6 +597,7 @@ func TestAppHandleFavoriteActionsRefreshesDOM(t *testing.T) {
 	}))
 	assert.Equal(t, entity.FavoriteID(42), favorites.updatedFavorite.ID)
 	assert.Equal(t, "Updated", favorites.updatedFavorite.Title)
+	assert.True(t, favorites.updatedFavorite.ShortcutKeySet)
 	require.NotNil(t, favorites.updatedFavorite.ShortcutKey)
 	assert.Equal(t, 4, *favorites.updatedFavorite.ShortcutKey)
 	assert.Contains(t, dom.HTML(), "Saved favorite Updated")

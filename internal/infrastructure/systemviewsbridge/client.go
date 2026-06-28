@@ -283,19 +283,16 @@ func favoriteCreatePayload(input dto.FavoriteCreateInput) any {
 }
 
 func favoriteUpdatePayload(input dto.FavoriteUpdateInput) any {
-	return struct {
-		RequestID   string `json:"requestId"`
-		ID          int64  `json:"id"`
-		Title       string `json:"title"`
-		FaviconURL  string `json:"favicon_url"`
-		ShortcutKey *int   `json:"shortcut_key"`
-	}{
-		RequestID:   nextRequestID(),
-		ID:          int64(input.ID),
-		Title:       input.Title,
-		FaviconURL:  input.FaviconURL,
-		ShortcutKey: input.ShortcutKey,
+	payload := map[string]any{
+		"requestId":   nextRequestID(),
+		"id":          int64(input.ID),
+		"title":       input.Title,
+		"favicon_url": input.FaviconURL,
 	}
+	if input.ShortcutKeySet {
+		payload["shortcut_key"] = input.ShortcutKey
+	}
+	return payload
 }
 
 func tagIDPayloads(ids []entity.TagID) []int64 {

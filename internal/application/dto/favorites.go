@@ -12,8 +12,9 @@ type FavoriteCreateInput struct {
 
 // FavoriteUpdateInput contains editable favorite metadata.
 type FavoriteUpdateInput struct {
-	ID          entity.FavoriteID `json:"id"`
-	Title       string            `json:"title"`
-	FaviconURL  string            `json:"favicon_url"`
-	ShortcutKey *int              `json:"shortcut_key"`
+	ID             entity.FavoriteID `json:"id"`
+	Title          string            `json:"title"`
+	FaviconURL     string            `json:"favicon_url"`
+	ShortcutKey    *int              `json:"shortcut_key"`
+	ShortcutKeySet bool              `json:"-"`
 }

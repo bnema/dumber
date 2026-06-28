@@ -180,7 +180,7 @@ func (uc *ManageFavoritesUseCase) UpdateFavorite(ctx context.Context, input dto.
 	if input.ID <= 0 {
 		return nil, fmt.Errorf("favorite ID is required")
 	}
-	if input.ShortcutKey != nil && (*input.ShortcutKey < 1 || *input.ShortcutKey > 9) {
+	if input.ShortcutKeySet && input.ShortcutKey != nil && (*input.ShortcutKey < 1 || *input.ShortcutKey > 9) {
 		return nil, fmt.Errorf("shortcut key must be 1-9, got %d", *input.ShortcutKey)
 	}
 
@@ -198,7 +198,9 @@ func (uc *ManageFavoritesUseCase) UpdateFavorite(ctx context.Context, input dto.
 	}
 	fav.Title = title
 	fav.FaviconURL = strings.TrimSpace(input.FaviconURL)
-	fav.ShortcutKey = input.ShortcutKey
+	if input.ShortcutKeySet {
+		fav.ShortcutKey = input.ShortcutKey
+	}
 
 	if err := uc.Update(ctx, fav); err != nil {
 		return nil, err

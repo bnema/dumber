@@ -60,10 +60,11 @@ func (a *App) handleFavoriteAction(ctx context.Context, event DOMAction) error {
 			return err
 		}
 		favorite, err := a.deps.Favorites.UpdateFavorite(ctx, dto.FavoriteUpdateInput{
-			ID:          entity.FavoriteID(id),
-			Title:       strings.TrimSpace(data["title"]),
-			FaviconURL:  strings.TrimSpace(data["favicon_url"]),
-			ShortcutKey: shortcut,
+			ID:             entity.FavoriteID(id),
+			Title:          strings.TrimSpace(data["title"]),
+			FaviconURL:     strings.TrimSpace(data["favicon_url"]),
+			ShortcutKey:    shortcut,
+			ShortcutKeySet: true,
 		})
 		if err != nil {
 			return err

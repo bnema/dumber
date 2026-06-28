@@ -116,6 +116,11 @@ func (h *FavoritesHandlers) HandleUpdate() port.WebUIMessageHandler {
 		if err := json.Unmarshal(payload, &req); err != nil {
 			return NewErrorResponse("", err), nil
 		}
+		var fields map[string]json.RawMessage
+		if err := json.Unmarshal(payload, &fields); err != nil {
+			return NewErrorResponse("", err), nil
+		}
+		_, shortcutKeySet := fields["shortcut_key"]
 
 		log.Debug().
 			Str("request_id", req.RequestID).
@@ -127,10 +132,11 @@ func (h *FavoritesHandlers) HandleUpdate() port.WebUIMessageHandler {
 		}
 
 		favorite, err := h.favoritesUC.UpdateFavorite(ctx, dto.FavoriteUpdateInput{
-			ID:          entity.FavoriteID(req.ID),
-			Title:       req.Title,
-			FaviconURL:  req.FaviconURL,
-			ShortcutKey: req.ShortcutKey,
+			ID:             entity.FavoriteID(req.ID),
+			Title:          req.Title,
+			FaviconURL:     req.FaviconURL,
+			ShortcutKey:    req.ShortcutKey,
+			ShortcutKeySet: shortcutKeySet,
 		})
 		if err != nil {
 			return NewErrorResponse(req.RequestID, err), nil

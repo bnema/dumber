@@ -214,6 +214,60 @@ func TestManageFavoritesUseCase_Toggle_DeleteErrorReturnsError(t *testing.T) {
 	assert.Contains(t, err.Error(), "failed to remove favorite")
 }
 
+func TestManageFavoritesUseCase_UpdateFavoritePreservesShortcutWhenOmitted(t *testing.T) {
+	ctx := testContext()
+	shortcut := 3
+	existing := &entity.Favorite{
+		ID:          42,
+		URL:         "https://example.com",
+		Title:       "Example",
+		ShortcutKey: &shortcut,
+	}
+
+	favoriteRepo := repomocks.NewMockFavoriteRepository(t)
+	tagRepo := repomocks.NewMockTagRepository(t)
+	favoriteRepo.EXPECT().FindByID(mock.Anything, entity.FavoriteID(42)).Return(existing, nil)
+	favoriteRepo.EXPECT().Save(mock.Anything, mock.MatchedBy(func(fav *entity.Favorite) bool {
+		return fav.ID == 42 && fav.Title == "Updated" && fav.ShortcutKey != nil && *fav.ShortcutKey == 3
+	})).Return(nil)
+
+	uc := usecase.NewManageFavoritesUseCase(favoriteRepo, tagRepo)
+	updated, err := uc.UpdateFavorite(ctx, dto.FavoriteUpdateInput{
+		ID:    42,
+		Title: "Updated",
+	})
+	require.NoError(t, err)
+	require.NotNil(t, updated.ShortcutKey)
+	assert.Equal(t, 3, *updated.ShortcutKey)
+}
+
+func TestManageFavoritesUseCase_UpdateFavoriteClearsShortcutWhenExplicit(t *testing.T) {
+	ctx := testContext()
+	shortcut := 3
+	existing := &entity.Favorite{
+		ID:          42,
+		URL:         "https://example.com",
+		Title:       "Example",
+		ShortcutKey: &shortcut,
+	}
+
+	favoriteRepo := repomocks.NewMockFavoriteRepository(t)
+	tagRepo := repomocks.NewMockTagRepository(t)
+	favoriteRepo.EXPECT().FindByID(mock.Anything, entity.FavoriteID(42)).Return(existing, nil)
+	favoriteRepo.EXPECT().Save(mock.Anything, mock.MatchedBy(func(fav *entity.Favorite) bool {
+		return fav.ID == 42 && fav.Title == "Updated" && fav.ShortcutKey == nil
+	})).Return(nil)
+
+	uc := usecase.NewManageFavoritesUseCase(favoriteRepo, tagRepo)
+	updated, err := uc.UpdateFavorite(ctx, dto.FavoriteUpdateInput{
+		ID:             42,
+		Title:          "Updated",
+		ShortcutKeySet: true,
+	})
+	require.NoError(t, err)
+	assert.Nil(t, updated.ShortcutKey)
+}
+
 func TestManageFavoritesUseCase_FilterForOmnibox_RanksPrefixBeforeContains(t *testing.T) {
 	ctx := testContext()
 

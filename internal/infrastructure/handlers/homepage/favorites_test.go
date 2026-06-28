@@ -55,16 +55,38 @@ func TestHandleFavoriteUpdatePassesTagsOnlyPayload(t *testing.T) {
 	favorites := portmocks.NewMockHomepageFavorites(t)
 	favorites.EXPECT().
 		UpdateFavorite(mock.Anything, dto.FavoriteUpdateInput{
-			ID:          entity.FavoriteID(42),
-			Title:       "Updated",
-			FaviconURL:  "https://example.com/favicon.ico",
-			ShortcutKey: &shortcut,
+			ID:             entity.FavoriteID(42),
+			Title:          "Updated",
+			FaviconURL:     "https://example.com/favicon.ico",
+			ShortcutKey:    &shortcut,
+			ShortcutKeySet: true,
 		}).
 		Return(&entity.Favorite{ID: 42, URL: "https://example.com", Title: "Updated", ShortcutKey: &shortcut}, nil).
 		Once()
 
 	handler := NewFavoritesHandlers(favorites).HandleUpdate()
 	got, err := handler.Handle(context.Background(), port.WebViewID(0), json.RawMessage(`{"requestId":"req-3","id":42,"title":"Updated","favicon_url":"https://example.com/favicon.ico","shortcut_key":4}`))
+	require.NoError(t, err)
+
+	resp, ok := got.(Response)
+	require.True(t, ok)
+	require.True(t, resp.Success)
+}
+func TestHandleFavoriteUpdatePreservesShortcutWhenOmitted(t *testing.T) {
+	t.Parallel()
+
+	favorites := portmocks.NewMockHomepageFavorites(t)
+	favorites.EXPECT().
+		UpdateFavorite(mock.Anything, dto.FavoriteUpdateInput{
+			ID:         entity.FavoriteID(42),
+			Title:      "Updated",
+			FaviconURL: "https://example.com/favicon.ico",
+		}).
+		Return(&entity.Favorite{ID: 42, URL: "https://example.com", Title: "Updated"}, nil).
+		Once()
+
+	handler := NewFavoritesHandlers(favorites).HandleUpdate()
+	got, err := handler.Handle(context.Background(), port.WebViewID(0), json.RawMessage(`{"requestId":"req-4","id":42,"title":"Updated","favicon_url":"https://example.com/favicon.ico"}`))
 	require.NoError(t, err)
 
 	resp, ok := got.(Response)
