@@ -20,10 +20,9 @@ import (
 // Compile-time check: ManageFavoritesUseCase must satisfy port.HomepageFavorites.
 var _ port.HomepageFavorites = (*ManageFavoritesUseCase)(nil)
 
-// ManageFavoritesUseCase handles favorite, folder, and tag operations.
+// ManageFavoritesUseCase handles favorite and tag operations.
 type ManageFavoritesUseCase struct {
 	favoriteRepo repository.FavoriteRepository
-	folderRepo   repository.FolderRepository
 	tagRepo      repository.TagRepository
 
 	cacheMu           sync.Mutex
@@ -37,12 +36,10 @@ const favoritesCacheTTL = 2 * time.Second
 // NewManageFavoritesUseCase creates a new favorites management use case.
 func NewManageFavoritesUseCase(
 	favoriteRepo repository.FavoriteRepository,
-	folderRepo repository.FolderRepository,
 	tagRepo repository.TagRepository,
 ) *ManageFavoritesUseCase {
 	return &ManageFavoritesUseCase{
 		favoriteRepo: favoriteRepo,
-		folderRepo:   folderRepo,
 		tagRepo:      tagRepo,
 	}
 }
@@ -52,7 +49,6 @@ type AddFavoriteInput struct {
 	URL        string
 	Title      string
 	FaviconURL string
-	FolderID   *entity.FolderID
 	Tags       []entity.TagID
 }
 
@@ -78,7 +74,6 @@ func (uc *ManageFavoritesUseCase) addNewFavorite(ctx context.Context, input AddF
 	log := logging.FromContext(ctx)
 	fav := entity.NewFavorite(input.URL, input.Title)
 	fav.FaviconURL = input.FaviconURL
-	fav.FolderID = input.FolderID
 
 	if err := uc.favoriteRepo.Save(ctx, fav); err != nil {
 		return nil, fmt.Errorf("failed to save favorite: %w", err)
@@ -125,7 +120,6 @@ func (uc *ManageFavoritesUseCase) AddFavorite(ctx context.Context, input dto.Fav
 		URL:        favoriteURL,
 		Title:      title,
 		FaviconURL: strings.TrimSpace(input.FaviconURL),
-		FolderID:   input.FolderID,
 		Tags:       tags,
 	})
 }
@@ -204,7 +198,6 @@ func (uc *ManageFavoritesUseCase) UpdateFavorite(ctx context.Context, input dto.
 	}
 	fav.Title = title
 	fav.FaviconURL = strings.TrimSpace(input.FaviconURL)
-	fav.FolderID = input.FolderID
 	fav.ShortcutKey = input.ShortcutKey
 
 	if err := uc.Update(ctx, fav); err != nil {
@@ -259,22 +252,6 @@ func (uc *ManageFavoritesUseCase) Update(ctx context.Context, fav *entity.Favori
 	}
 
 	log.Info().Int64("id", int64(fav.ID)).Msg("favorite updated")
-	uc.invalidateCache()
-	return nil
-}
-
-// Move changes a favorite's folder.
-func (uc *ManageFavoritesUseCase) Move(ctx context.Context, id entity.FavoriteID, folderID *entity.FolderID) error {
-	log := logging.FromContext(ctx)
-	log.Debug().
-		Int64("favorite_id", int64(id)).
-		Msg("moving favorite to folder")
-
-	if err := uc.favoriteRepo.SetFolder(ctx, id, folderID); err != nil {
-		return fmt.Errorf("failed to move favorite: %w", err)
-	}
-
-	log.Info().Int64("id", int64(id)).Msg("favorite moved")
 	uc.invalidateCache()
 	return nil
 }
@@ -536,141 +513,13 @@ func (uc *ManageFavoritesUseCase) invalidateCache() {
 	uc.cacheTime = time.Time{}
 }
 
-// GetTree builds a complete hierarchical view of folders and favorites.
-func (uc *ManageFavoritesUseCase) GetTree(ctx context.Context) (*entity.FavoriteTree, error) {
-	log := logging.FromContext(ctx)
-	log.Debug().Msg("building favorite tree")
-
-	tree := entity.NewFavoriteTree()
-
-	// Get all folders
-	folders, err := uc.folderRepo.GetAll(ctx)
-	if err != nil {
-		return nil, fmt.Errorf("failed to get folders: %w", err)
-	}
-
-	// Build folder map and organize by parent
-	for _, folder := range folders {
-		tree.FolderMap[folder.ID] = folder
-		if folder.ParentID == nil {
-			tree.RootFolders = append(tree.RootFolders, folder)
-		} else {
-			tree.ChildFolders[*folder.ParentID] = append(tree.ChildFolders[*folder.ParentID], folder)
-		}
-	}
-
-	// Get all favorites
-	favorites, err := uc.favoriteRepo.GetAll(ctx)
-	if err != nil {
-		return nil, fmt.Errorf("failed to get favorites: %w", err)
-	}
-
-	// Organize favorites by folder
-	for _, fav := range favorites {
-		if fav.FolderID == nil {
-			tree.RootFavorites = append(tree.RootFavorites, fav)
-		} else {
-			tree.ChildFavorites[*fav.FolderID] = append(tree.ChildFavorites[*fav.FolderID], fav)
-		}
-	}
-
-	log.Debug().
-		Int("folders", len(folders)).
-		Int("favorites", len(favorites)).
-		Msg("favorite tree built")
-
-	return tree, nil
-}
-
-// CreateFolder creates a new folder.
-func (uc *ManageFavoritesUseCase) CreateFolder(ctx context.Context, name, icon string, parentID *entity.FolderID) (*entity.Folder, error) {
-	name = strings.TrimSpace(name)
-	icon = strings.TrimSpace(icon)
-	if name == "" {
-		return nil, fmt.Errorf("folder name is required")
-	}
-	log := logging.FromContext(ctx)
-	log.Debug().Str("name", name).Msg("creating folder")
-
-	folder := entity.NewFolder(name)
-	folder.Icon = icon
-	folder.ParentID = parentID
-
-	if err := uc.folderRepo.Save(ctx, folder); err != nil {
-		return nil, fmt.Errorf("failed to create folder: %w", err)
-	}
-
-	log.Info().Str("name", name).Int64("id", int64(folder.ID)).Msg("folder created")
-	return folder, nil
-}
-
-// DeleteFolder removes a folder. Favorites in the folder are moved to root.
-func (uc *ManageFavoritesUseCase) DeleteFolder(ctx context.Context, id entity.FolderID) error {
-	log := logging.FromContext(ctx)
-	log.Debug().Int64("id", int64(id)).Msg("deleting folder")
-
-	// Move favorites from this folder to root (or parent)
-	folder, err := uc.folderRepo.FindByID(ctx, id)
-	if err != nil {
-		return fmt.Errorf("failed to find folder: %w", err)
-	}
-	if folder == nil {
-		log.Debug().Int64("id", int64(id)).Msg("folder not found")
-		return nil
-	}
-
-	// Get favorites in this folder
-	favorites, err := uc.favoriteRepo.GetByFolder(ctx, &id)
-	if err != nil {
-		return fmt.Errorf("failed to get folder favorites: %w", err)
-	}
-
-	// Move favorites to parent folder (or root)
-	for _, fav := range favorites {
-		if setErr := uc.favoriteRepo.SetFolder(ctx, fav.ID, folder.ParentID); setErr != nil {
-			log.Warn().
-				Int64("favorite_id", int64(fav.ID)).
-				Err(setErr).
-				Msg("failed to move favorite from deleted folder")
-		}
-	}
-	uc.invalidateCache()
-
-	// Get child folders
-	children, err := uc.folderRepo.GetChildren(ctx, &id)
-	if err != nil {
-		return fmt.Errorf("failed to get child folders: %w", err)
-	}
-
-	// Recursively delete child folders
-	for _, child := range children {
-		if err := uc.DeleteFolder(ctx, child.ID); err != nil {
-			log.Warn().
-				Int64("child_id", int64(child.ID)).
-				Err(err).
-				Msg("failed to delete child folder")
-		}
-	}
-
-	// Delete the folder itself
-	if err := uc.folderRepo.Delete(ctx, id); err != nil {
-		return fmt.Errorf("failed to delete folder: %w", err)
-	}
-
-	log.Info().Int64("id", int64(id)).Msg("folder deleted")
-	return nil
-}
-
-// GetAllFolders retrieves all folders.
-func (uc *ManageFavoritesUseCase) GetAllFolders(ctx context.Context) ([]*entity.Folder, error) {
-	log := logging.FromContext(ctx)
-	log.Debug().Msg("getting all folders")
-
-	return uc.folderRepo.GetAll(ctx)
-}
-
 // AddTag creates a new tag.
 func (uc *ManageFavoritesUseCase) AddTag(ctx context.Context, name, color string) (*entity.Tag, error) {
+	name = strings.TrimSpace(name)
+	color = strings.TrimSpace(color)
+	if name == "" {
+		return nil, fmt.Errorf("tag name is required")
+	}
 	log := logging.FromContext(ctx)
 	log.Debug().Str("name", name).Str("color", color).Msg("creating tag")
 
@@ -759,34 +608,13 @@ func (uc *ManageFavoritesUseCase) GetTagsForFavorite(ctx context.Context, favID 
 	return uc.tagRepo.GetForFavorite(ctx, favID)
 }
 
-// UpdateFolder updates a folder's name and icon.
-func (uc *ManageFavoritesUseCase) UpdateFolder(ctx context.Context, id entity.FolderID, name, icon string) error {
-	log := logging.FromContext(ctx)
-	log.Debug().Int64("id", int64(id)).Str("name", name).Msg("updating folder")
-
-	folder, err := uc.folderRepo.FindByID(ctx, id)
-	if err != nil {
-		return fmt.Errorf("failed to find folder: %w", err)
-	}
-	if folder == nil {
-		return fmt.Errorf("folder %d not found", id)
-	}
-
-	if name != "" {
-		folder.Name = name
-	}
-	folder.Icon = icon
-
-	if err := uc.folderRepo.Save(ctx, folder); err != nil {
-		return fmt.Errorf("failed to update folder: %w", err)
-	}
-
-	log.Info().Int64("id", int64(id)).Msg("folder updated")
-	return nil
-}
-
 // UpdateTag updates a tag's name and color.
 func (uc *ManageFavoritesUseCase) UpdateTag(ctx context.Context, id entity.TagID, name, color string) error {
+	name = strings.TrimSpace(name)
+	color = strings.TrimSpace(color)
+	if name == "" {
+		return fmt.Errorf("tag name is required")
+	}
 	log := logging.FromContext(ctx)
 	log.Debug().Int64("id", int64(id)).Str("name", name).Str("color", color).Msg("updating tag")
 
@@ -798,9 +626,7 @@ func (uc *ManageFavoritesUseCase) UpdateTag(ctx context.Context, id entity.TagID
 		return fmt.Errorf("tag %d not found", id)
 	}
 
-	if name != "" {
-		tag.Name = name
-	}
+	tag.Name = name
 	if color != "" {
 		tag.Color = color
 	}

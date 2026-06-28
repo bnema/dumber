@@ -17,7 +17,6 @@ func TestManageFavoritesUseCase_GetAllDoesNotOverwriteFreshCache(t *testing.T) {
 	ctx := logging.WithContext(context.Background(), logger)
 
 	favoriteRepo := repomocks.NewMockFavoriteRepository(t)
-	folderRepo := repomocks.NewMockFolderRepository(t)
 	tagRepo := repomocks.NewMockTagRepository(t)
 
 	fetchedFavorites := []*entity.Favorite{
@@ -27,7 +26,7 @@ func TestManageFavoritesUseCase_GetAllDoesNotOverwriteFreshCache(t *testing.T) {
 		{ID: 2, URL: "https://fresh.example"},
 	}
 
-	uc := NewManageFavoritesUseCase(favoriteRepo, folderRepo, tagRepo)
+	uc := NewManageFavoritesUseCase(favoriteRepo, tagRepo)
 	favoriteRepo.EXPECT().GetAll(ctx).Run(func(_ context.Context) {
 		uc.cacheMu.Lock()
 		uc.favoritesCache = refreshedFavorites
