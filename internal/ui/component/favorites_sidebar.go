@@ -29,6 +29,17 @@ type FavoritesSidebar struct {
 	tagBox      *gtk.Box
 	scrolledWin *gtk.ScrolledWindow
 	listBox     *gtk.ListBox
+	formBox     *gtk.Box
+
+	formURLEntry      *gtk.SearchEntry
+	formTitleEntry    *gtk.SearchEntry
+	formTagsEntry     *gtk.SearchEntry
+	formShortcutEntry *gtk.SearchEntry
+	formSaveButton    *gtk.Button
+	formURL           string
+	formTitle         string
+	formTags          string
+	formShortcut      string
 
 	favoritesUC        port.FavoritesSidebarFavorites
 	onNavigate         func(ctx context.Context, url string) error
@@ -45,6 +56,10 @@ type FavoritesSidebar struct {
 	loadGen        uint64
 	destroyed      bool
 	visible        bool
+	focusZone      favoritesSidebarFocusZone
+	mode           favoritesSidebarMode
+	editingID      entity.FavoriteID
+	confirmDelete  bool
 
 	retainedCallbacks []interface{}
 	tagCallbacks      []interface{}
@@ -189,6 +204,14 @@ func (fs *FavoritesSidebar) createWidgets() error {
 
 	fs.scrolledWin.SetChild(&fs.listBox.Widget)
 	fs.outerBox.Append(&fs.scrolledWin.Widget)
+
+	fs.formBox = gtk.NewBox(gtk.OrientationVerticalValue, 4)
+	if fs.formBox == nil {
+		return fmt.Errorf("favorites sidebar: form box creation failed")
+	}
+	fs.formBox.AddCssClass("favorites-sidebar-form")
+	fs.formBox.SetVisible(false)
+	fs.outerBox.Append(&fs.formBox.Widget)
 	return nil
 }
 

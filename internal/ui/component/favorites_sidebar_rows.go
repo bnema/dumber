@@ -180,19 +180,31 @@ func (fs *FavoritesSidebar) rebuildList() {
 
 	listBox.RemoveAll()
 	if len(rows) == 0 {
-		text := "No favorites"
-		if notice != "" {
-			text = notice
-		} else if query != "" {
-			text = noResultsText(query)
+		for _, text := range favoriteSidebarNoticeRows(notice, query, false) {
+			fs.appendNoticeRow(listBox, text)
 		}
-		fs.appendNoticeRow(listBox, text)
 		return
 	}
 	for _, row := range rows {
 		fs.appendFavoriteRow(listBox, row.Favorite)
 	}
+	for _, text := range favoriteSidebarNoticeRows(notice, query, true) {
+		fs.appendNoticeRow(listBox, text)
+	}
 	fs.ensureAtLeastOneSelectionInListBox(listBox)
+}
+
+func favoriteSidebarNoticeRows(notice, query string, hasRows bool) []string {
+	if notice != "" {
+		return []string{notice}
+	}
+	if hasRows {
+		return nil
+	}
+	if query != "" {
+		return []string{noResultsText(query)}
+	}
+	return []string{"No favorites"}
 }
 
 func (fs *FavoritesSidebar) appendNoticeRow(listBox *gtk.ListBox, text string) {
