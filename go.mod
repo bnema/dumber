@@ -4,7 +4,7 @@ go 1.26.3
 
 require (
 	github.com/a-h/templ v0.3.1020
-	github.com/andybalholm/brotli v1.2.1
+	github.com/andybalholm/brotli v1.2.2
 	github.com/bnema/purego v0.11.0-bnema.4
 	github.com/bnema/purego-cef v0.13.3
 	github.com/bnema/purego-cef2gtk v0.8.2
@@ -17,7 +17,7 @@ require (
 	github.com/fsnotify/fsnotify v1.10.1
 	github.com/godbus/dbus/v5 v5.2.2
 	github.com/pelletier/go-toml/v2 v2.4.2
-	github.com/pressly/goose/v3 v3.27.1
+	github.com/pressly/goose/v3 v3.27.2
 	github.com/rs/zerolog v1.35.1
 	github.com/spf13/cobra v1.10.2
 	github.com/spf13/viper v1.21.0
@@ -79,7 +79,6 @@ require (
 	golang.org/x/text v0.38.0 // indirect
 	golang.org/x/tools v0.45.0 // indirect
 	gopkg.in/check.v1 v1.0.0-20201130134442-10cb98267c6c // indirect
-	modernc.org/sqlite v1.50.1 // indirect
 )
 
 tool github.com/a-h/templ/cmd/templ
