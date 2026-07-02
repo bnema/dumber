@@ -748,7 +748,6 @@ func (o *Omnibox) initList() error {
 	o.listBox.SetSelectionMode(gtk.SelectionSingleValue)
 
 	rowSelectedCb := func(_ gtk.ListBox, rowPtr uintptr) {
-		o.restoreEntryToRealInput()
 		row := gtk.ListBoxRowNewFromInternalPtr(rowPtr)
 		if row == nil {
 			o.mu.Lock()
@@ -1295,41 +1294,51 @@ func (o *Omnibox) updateGhostFromURL(userInput, targetURL string) bool {
 
 // updateGhostFromSelection updates ghost text based on the currently selected row.
 func (o *Omnibox) updateGhostFromSelection() {
+	o.restoreEntryToRealInput()
+
 	o.mu.RLock()
-	realInput := o.realInput
-	hasGhost := o.ghostSuffix != ""
+	query := o.realInput
 	o.mu.RUnlock()
 
-	entryText := ""
-	if o.entry != nil {
-		entryText = o.entry.GetText()
-	}
-
-	query := effectiveSearchQuery(entryText, realInput, hasGhost)
-	o.restoreEntryToRealInput()
 	o.updateGhostFromSelectionWithInput(query)
 }
 
+// reconcileEntryState decides how to resync the entry buffer with the
+// realInput/ghostSuffix shadow state. The buffer is the source of truth:
+// search-changed is debounced, so realInput lags behind fresh keystrokes.
+// The buffer is only ever rewritten to strip a still-intact ghost suffix —
+// never to restore older text, which would delete characters the user just
+// typed.
+func reconcileEntryState(buffer, realInput, ghostSuffix string) (newRealInput string, rewrite bool) {
+	if ghostSuffix != "" && buffer == realInput+ghostSuffix {
+		return realInput, true
+	}
+	return buffer, false
+}
+
+// restoreEntryToRealInput strips any intact ghost suffix from the entry buffer
+// and resyncs realInput from the buffer. It never writes stale realInput over
+// the buffer (see reconcileEntryState).
 func (o *Omnibox) restoreEntryToRealInput() {
 	if o.entry == nil {
 		return
 	}
 
-	// Clear ghost text first (removes suffix from buffer with guard).
-	o.clearGhostText()
+	buffer := o.entry.GetText()
 
-	// If the buffer still doesn't match realInput, force-set it.
-	o.mu.RLock()
-	realInput := o.realInput
-	o.mu.RUnlock()
+	o.mu.Lock()
+	newRealInput, rewrite := reconcileEntryState(buffer, o.realInput, o.ghostSuffix)
+	o.realInput = newRealInput
+	o.ghostSuffix = ""
+	o.mu.Unlock()
 
-	if o.entry.GetText() != realInput {
+	if rewrite {
 		o.withGhostGuard(func() {
-			o.entry.SetText(realInput)
+			o.entry.SetText(newRealInput)
+			o.entry.SelectRegion(-1, -1)
+			o.entry.SetPosition(-1)
 		})
 	}
-	o.entry.SelectRegion(-1, -1)
-	o.entry.SetPosition(-1)
 }
 
 // updateGhostFromSelectionWithInput updates ghost text based on selected row and input.
