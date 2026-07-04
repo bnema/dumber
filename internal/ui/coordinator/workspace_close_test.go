@@ -171,7 +171,7 @@ func TestDeriveIncrementalCloseTreeContext_ConcurrentPaneAndTabCloseSnapshots(t 
 
 	run := func(node *entity.PaneNode, wg *sync.WaitGroup, errCh chan<- error) {
 		defer wg.Done()
-		for i := 0; i < 200; i++ {
+		for range 200 {
 			if _, err := deriveIncrementalCloseTreeContext(node); err != nil {
 				errCh <- err
 				return

@@ -39,7 +39,7 @@ type stackedPane struct {
 	closeButton        ButtonWidget // stored for signal disconnection
 
 	// Retained callback for GestureClick to prevent GC
-	titleClickCallback interface{}
+	titleClickCallback any
 }
 
 // StackedView manages a stack of panes where only one is visible at a time.
@@ -183,7 +183,7 @@ func (sv *StackedView) AddPane(ctx context.Context, paneID, title, faviconIconNa
 // Returns the retained callback (to prevent GC) and close signal ID for disconnection.
 func (sv *StackedView) connectTitleBarHandlers(
 	tb titleBarComponents, paneID string,
-) (titleClickCallback interface{}, closeSignalID uint) {
+) (titleClickCallback any, closeSignalID uint) {
 	// Connect title bar click handler using GestureClick
 	// This prevents event propagation issues with nested buttons
 	clickCtrl := gtk.NewGestureClick()

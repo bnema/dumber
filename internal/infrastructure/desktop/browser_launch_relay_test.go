@@ -127,8 +127,7 @@ func TestBrowserLaunchRelay_SameProfileAndEngine_UsesSameSocket(t *testing.T) {
 	clientRelay := NewBrowserLaunchRelay(ipc)
 
 	received := make(chan string, 1)
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
+	ctx := t.Context()
 
 	closer, err := listenerRelay.Listen(ctx, browserWindowOpenerFunc(func(_ context.Context, url string) error {
 		received <- url
@@ -229,8 +228,7 @@ func TestBrowserLaunchRelay_DeliverOpenFreshWindow_RoundTrip(t *testing.T) {
 	relay := NewBrowserLaunchRelay(ipc)
 
 	received := make(chan string, 1)
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
+	ctx := t.Context()
 
 	closer, err := relay.Listen(ctx, browserWindowOpenerFunc(func(_ context.Context, url string) error {
 		received <- url
@@ -267,8 +265,7 @@ func TestBrowserLaunchRelay_SecondListenWhileLiveFailsWithoutReplacingListener(t
 	relay := NewBrowserLaunchRelay(ipc)
 
 	firstReceived := make(chan string, 1)
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
+	ctx := t.Context()
 
 	closer, err := relay.Listen(ctx, browserWindowOpenerFunc(func(_ context.Context, url string) error {
 		firstReceived <- url
@@ -302,8 +299,7 @@ func TestBrowserLaunchRelay_RebindsStaleSocketPath(t *testing.T) {
 	require.NoError(t, os.WriteFile(ipc.BrowserLaunchSocket, []byte("stale"), 0o600))
 
 	received := make(chan string, 1)
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
+	ctx := t.Context()
 
 	closer, err := relay.Listen(ctx, browserWindowOpenerFunc(func(_ context.Context, url string) error {
 		received <- url
@@ -331,8 +327,7 @@ func TestBrowserLaunchRelay_RejectsMalformedPayloads(t *testing.T) {
 	relay := NewBrowserLaunchRelay(ipc)
 
 	received := make(chan string, 1)
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
+	ctx := t.Context()
 
 	closer, err := relay.Listen(ctx, browserWindowOpenerFunc(func(_ context.Context, url string) error {
 		received <- url
@@ -367,8 +362,7 @@ func TestBrowserLaunchRelay_CloseRemovesSocketPath(t *testing.T) {
 	ipc := testIPC(shortTempDir(t))
 	relay := NewBrowserLaunchRelay(ipc)
 
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
+	ctx := t.Context()
 
 	closer, err := relay.Listen(ctx, browserWindowOpenerFunc(func(context.Context, string) error { return nil }))
 	require.NoError(t, err)
@@ -486,8 +480,7 @@ func TestBrowserLaunchRelay_AcknowledgesBeforeOpenerReturns(t *testing.T) {
 
 	started := make(chan struct{})
 	release := make(chan struct{})
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
+	ctx := t.Context()
 
 	closer, err := relay.Listen(ctx, browserWindowOpenerFunc(func(_ context.Context, _ string) error {
 		close(started)
@@ -524,8 +517,7 @@ func TestBrowserLaunchRelay_AcknowledgesAcceptedEvenWhenOpenerReturnsLateError(t
 	relay := NewBrowserLaunchRelay(ipc)
 
 	started := make(chan struct{})
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
+	ctx := t.Context()
 
 	closer, err := relay.Listen(ctx, browserWindowOpenerFunc(func(_ context.Context, _ string) error {
 		close(started)
@@ -560,8 +552,7 @@ func TestBrowserLaunchRelay_SilentClientDoesNotStallListener(t *testing.T) {
 	relay := NewBrowserLaunchRelay(ipc)
 
 	received := make(chan string, 1)
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
+	ctx := t.Context()
 
 	closer, err := relay.Listen(ctx, browserWindowOpenerFunc(func(_ context.Context, url string) error {
 		received <- url

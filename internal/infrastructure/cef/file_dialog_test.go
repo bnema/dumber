@@ -162,7 +162,7 @@ func TestFolderUploadPathsTruncationCancels(t *testing.T) {
 	defer func() { maxExpandedFolderUploadFiles = prev }()
 
 	dir := t.TempDir()
-	for i := 0; i < 5; i++ {
+	for i := range 5 {
 		p := filepath.Join(dir, fmt.Sprintf("file_%d.txt", i))
 		require.NoError(t, os.WriteFile(p, []byte("data"), 0o644))
 	}

@@ -11,6 +11,7 @@ import (
 	"os"
 	"path/filepath"
 	"reflect"
+	"slices"
 	"strconv"
 	"strings"
 	"testing"
@@ -97,7 +98,7 @@ func testGDKBackendAllows(backend string) bool {
 	if configured == "" {
 		return true
 	}
-	for _, candidate := range strings.Split(configured, ",") {
+	for candidate := range strings.SplitSeq(configured, ",") {
 		if strings.TrimSpace(candidate) == backend {
 			return true
 		}
@@ -117,12 +118,7 @@ func testHasUsableWaylandDisplay() bool {
 	if runtimeDir := os.Getenv("XDG_RUNTIME_DIR"); runtimeDir != "" && !filepath.IsAbs(waylandDisplay) {
 		candidates = append([]string{filepath.Join(runtimeDir, waylandDisplay)}, candidates...)
 	}
-	for _, candidate := range candidates {
-		if testPathIsSocket(candidate) {
-			return true
-		}
-	}
-	return false
+	return slices.ContainsFunc(candidates, testPathIsSocket)
 }
 
 func testHasUsableX11Display() bool {
@@ -133,8 +129,8 @@ func testHasUsableX11Display() bool {
 	if display == "" {
 		return false
 	}
-	if strings.HasPrefix(display, ":") {
-		displayNum := strings.TrimPrefix(display, ":")
+	if after, ok := strings.CutPrefix(display, ":"); ok {
+		displayNum := after
 		displayNum = strings.SplitN(displayNum, ".", 2)[0]
 		if displayNum == "" {
 			return false
@@ -143,12 +139,7 @@ func testHasUsableX11Display() bool {
 		if fallback := "/tmp/.X11-unix/X" + displayNum; fallback != x11SocketCandidates[0] {
 			x11SocketCandidates = append(x11SocketCandidates, fallback)
 		}
-		for _, candidate := range x11SocketCandidates {
-			if testPathIsSocket(candidate) {
-				return true
-			}
-		}
-		return false
+		return slices.ContainsFunc(x11SocketCandidates, testPathIsSocket)
 	}
 	return true // TCP display
 }
@@ -2191,7 +2182,7 @@ func TestApp_HandlePaneFullscreenChanged_ClearsBottomInset(t *testing.T) {
 }
 
 func TestApp_RemoveBrowserWindowPromotesDeterministicFallbackWithMainWindow(t *testing.T) {
-	for i := 0; i < 20; i++ {
+	for range 20 {
 		removed := &browserWindow{id: "window-z", mainWindow: &window.MainWindow{}}
 		nilWindow := &browserWindow{id: "window-a"}
 		firstValid := &browserWindow{id: "window-b", mainWindow: &window.MainWindow{}}

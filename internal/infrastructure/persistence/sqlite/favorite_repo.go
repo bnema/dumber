@@ -149,10 +149,7 @@ func (r *favoriteRepo) hydrateTags(ctx context.Context, favorites []*entity.Favo
 	}
 
 	for start := 0; start < len(ids); start += favoriteTagHydrationBatchSize {
-		end := start + favoriteTagHydrationBatchSize
-		if end > len(ids) {
-			end = len(ids)
-		}
+		end := min(start+favoriteTagHydrationBatchSize, len(ids))
 		rows, err := r.queries.GetTagsForFavorites(ctx, ids[start:end])
 		if err != nil {
 			return err

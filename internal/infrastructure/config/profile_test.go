@@ -108,13 +108,7 @@ func TestResolvePerformanceProfile_Max_NoHardware(t *testing.T) {
 
 	// Max without hardware info should use fallback values
 	// CPU threads: NumCPU/2 (assuming hyperthreading), clamped to [4, 8]
-	expectedCPUThreads := runtime.NumCPU() / 2
-	if expectedCPUThreads < 4 {
-		expectedCPUThreads = 4
-	}
-	if expectedCPUThreads > 8 {
-		expectedCPUThreads = 8
-	}
+	expectedCPUThreads := min(max(runtime.NumCPU()/2, 4), 8)
 	if result.SkiaCPUPaintingThreads != expectedCPUThreads {
 		t.Errorf("expected SkiaCPUPaintingThreads=%d, got %d", expectedCPUThreads, result.SkiaCPUPaintingThreads)
 	}

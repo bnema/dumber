@@ -233,7 +233,7 @@ func (r *LazyHistoryRepository) IncrementVisitCountBy(ctx context.Context, url s
 	if delta > fallbackCap {
 		return fmt.Errorf("visit delta %d exceeds fallback cap %d and repo does not support IncrementVisitCountBy", delta, fallbackCap)
 	}
-	for i := 0; i < delta; i++ {
+	for range delta {
 		if err := r.repo.IncrementVisitCount(ctx, url); err != nil {
 			return err
 		}

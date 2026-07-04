@@ -67,7 +67,7 @@ func TestFindSessionByIDOrSuffixSearchesBeyondDefaultLimit(t *testing.T) {
 	targetID := entity.SessionID("20251224_000000_targetolder")
 	sessions := make([]*entity.Session, 0, defaultSessionsLimit*5+1)
 	startedAt := time.Date(2025, 12, 24, 12, 0, 0, 0, time.UTC)
-	for i := 0; i < defaultSessionsLimit*5; i++ {
+	for i := range defaultSessionsLimit * 5 {
 		sessions = append(sessions, &entity.Session{
 			ID:        entity.SessionID(fmt.Sprintf("20251224_1200%02d_recent", i)),
 			Type:      entity.SessionTypeBrowser,

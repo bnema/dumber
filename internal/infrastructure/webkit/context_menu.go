@@ -105,7 +105,7 @@ func resolveDataURIImageData(imageURI string) (entity.ImageData, error) {
 
 	isBase64 := false
 	mimeType := ""
-	for _, part := range strings.Split(meta, ";") {
+	for part := range strings.SplitSeq(meta, ";") {
 		part = strings.TrimSpace(part)
 		if part == "" {
 			continue

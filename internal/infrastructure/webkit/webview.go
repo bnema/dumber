@@ -180,7 +180,7 @@ type WebView struct {
 	navigationActive atomic.Bool
 
 	// asyncCallbacks keeps references to async JS callbacks to prevent GC
-	asyncCallbacks []interface{}
+	asyncCallbacks []any
 
 	// runJSErrorStats aggregates repeated non-fatal RunJavaScript errors by domain+signature.
 	runJSErrorStats map[string]runJSErrorStat

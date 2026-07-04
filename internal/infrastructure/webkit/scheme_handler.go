@@ -296,7 +296,7 @@ func isTrustedSystemviewURL(raw string) bool {
 
 func jsonErrorResponse(status int, message string) *SchemeResponse {
 	return &SchemeResponse{
-		Data:        []byte(fmt.Sprintf(`{"error":%q}`, message)),
+		Data:        fmt.Appendf(nil, `{"error":%q}`, message),
 		ContentType: "application/json",
 		StatusCode:  status,
 	}

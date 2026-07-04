@@ -468,7 +468,7 @@ func (hs *HistorySidebar) ensureRowVisible(index int) {
 
 	// Sum allocated heights of all preceding rows to estimate Y position.
 	var yPos int
-	for i := 0; i < index; i++ {
+	for i := range index {
 		r := hs.listBox.GetRowAtIndex(i)
 		if r == nil {
 			continue

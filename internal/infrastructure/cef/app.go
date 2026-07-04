@@ -193,7 +193,7 @@ func appendUniqueCommaSeparatedSwitchValues(commandLine purecef.CommandLine, nam
 
 	seen := make(map[string]struct{}, len(values))
 	combined := make([]string, 0, len(values))
-	for _, value := range strings.Split(commandLine.GetSwitchValue(name), ",") {
+	for value := range strings.SplitSeq(commandLine.GetSwitchValue(name), ",") {
 		value = strings.TrimSpace(value)
 		if value == "" {
 			continue

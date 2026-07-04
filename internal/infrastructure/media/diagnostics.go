@@ -93,8 +93,8 @@ func (a *Adapter) parseVADecoders(output string, r *port.MediaDiagnosticsResult)
 	if a == nil {
 		return
 	}
-	lines := strings.Split(output, "\n")
-	for _, line := range lines {
+	lines := strings.SplitSeq(output, "\n")
+	for line := range lines {
 		line = strings.TrimSpace(line)
 		// Format: "  vah264dec: VA-API H.264 Decoder"
 		if strings.HasPrefix(line, "vaav1dec") {
@@ -117,8 +117,8 @@ func (a *Adapter) parseVAAPIDecoders(output string, r *port.MediaDiagnosticsResu
 	if a == nil {
 		return
 	}
-	lines := strings.Split(output, "\n")
-	for _, line := range lines {
+	lines := strings.SplitSeq(output, "\n")
+	for line := range lines {
 		line = strings.TrimSpace(line)
 		// Format: "  vaapih264dec: VA-API H264 decoder"
 		if strings.HasPrefix(line, "vaapiav1dec") {
@@ -141,8 +141,8 @@ func (a *Adapter) parseNVCodecDecoders(output string, r *port.MediaDiagnosticsRe
 	if a == nil {
 		return
 	}
-	lines := strings.Split(output, "\n")
-	for _, line := range lines {
+	lines := strings.SplitSeq(output, "\n")
+	for line := range lines {
 		line = strings.TrimSpace(line)
 		// Format: "  nvav1dec: NVDEC AV1 Decoder"
 		if strings.HasPrefix(line, "nvav1dec") {
@@ -189,7 +189,7 @@ func (a *Adapter) checkVAAPI(ctx context.Context, r *port.MediaDiagnosticsResult
 	r.VAAPIAvailable = true
 
 	// Parse driver name and version from vainfo output
-	for _, line := range strings.Split(output, "\n") {
+	for line := range strings.SplitSeq(output, "\n") {
 		line = strings.TrimSpace(line)
 
 		// Extract driver from "vainfo: Driver version: ..."

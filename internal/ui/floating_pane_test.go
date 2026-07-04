@@ -277,7 +277,7 @@ func TestFloatingPane_ProfileRapidToggleNeverShowsAboutBlank(t *testing.T) {
 	baseURL := "https://mail.google.com"
 
 	// Rapid toggle 10 times: should never end up on about:blank
-	for i := 0; i < 10; i++ {
+	for i := range 10 {
 		require.NoError(t, app.OpenFloatingPaneProfileURL(context.Background(), "profile:gmail", baseURL))
 		assert.NotEqual(t, "about:blank", session.pane.CurrentURL(),
 			"iteration %d: profile session should never show about:blank", i)

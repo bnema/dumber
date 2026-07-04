@@ -634,7 +634,7 @@ func (uc *HistoryRecorderUseCase) persistHistory(ctx context.Context, record his
 			return delta
 		}
 		written := 0
-		for i := 0; i < delta; i++ {
+		for range delta {
 			if err := uc.historyRepo.IncrementVisitCount(ctx, record.url); err != nil {
 				log.Warn().Err(err).Str("url", logging.RedactURL(record.url)).Msg("failed to increment visit count")
 				return written
@@ -748,8 +748,8 @@ func normalizePathForHistory(path string) string {
 	if path == "/" {
 		return ""
 	}
-	if strings.HasSuffix(path, "/") {
-		return strings.TrimSuffix(path, "/")
+	if before, ok := strings.CutSuffix(path, "/"); ok {
+		return before
 	}
 	return path
 }

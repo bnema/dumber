@@ -42,7 +42,7 @@ type TabPicker struct {
 	onClose  func()
 	onSelect func(item TabPickerItem)
 
-	retainedCallbacks []interface{}
+	retainedCallbacks []any
 	ctx               context.Context
 }
 
@@ -293,13 +293,7 @@ func (tp *TabPicker) resizeAndCenter() {
 	if tp.scrolledWindow != nil {
 		rowH := ScaleValue(DefaultRowHeights.Standard, tp.uiScale)
 		maxH := TabPickerListDefaults.MaxVisibleRows * rowH
-		h := count * rowH
-		if h > maxH {
-			h = maxH
-		}
-		if h < rowH {
-			h = rowH
-		}
+		h := max(min(count*rowH, maxH), rowH)
 		cb := glib.SourceFunc(func(_ uintptr) bool {
 			SetScrolledWindowHeight(tp.scrolledWindow, h)
 			tp.outerBox.QueueResize()

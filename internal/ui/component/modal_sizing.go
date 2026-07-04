@@ -165,10 +165,7 @@ func CalculateModalDimensions(parent layout.OverlayWidget, cfg ModalSizeConfig) 
 	if cfg.FixedWidth > 0 {
 		width = cfg.FixedWidth
 	} else {
-		width = int(float64(parentWidth) * cfg.WidthPct)
-		if width > cfg.MaxWidth {
-			width = cfg.MaxWidth
-		}
+		width = min(int(float64(parentWidth)*cfg.WidthPct), cfg.MaxWidth)
 	}
 
 	if cfg.UseFixedTopMargin {

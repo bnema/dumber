@@ -404,11 +404,8 @@ func (r *sizedByteReader) Read(p []byte) (int, error) {
 	if r.remaining <= 0 {
 		return 0, io.EOF
 	}
-	n := len(p)
-	if n > r.remaining {
-		n = r.remaining
-	}
-	for i := 0; i < n; i++ {
+	n := min(len(p), r.remaining)
+	for i := range n {
 		p[i] = 'x'
 	}
 	r.remaining -= n

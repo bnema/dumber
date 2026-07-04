@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"slices"
 	"sync"
 	"time"
 
@@ -395,13 +396,7 @@ func (uc *FaviconUseCase) observeFetched(ctx context.Context, requestedPageURL s
 		return ErrFaviconMiss
 	}
 	if fetched.ResolvedKey != "" {
-		allowed := false
-		for _, candidate := range favicon.Candidates(requestedPageURL) {
-			if candidate == fetched.ResolvedKey {
-				allowed = true
-				break
-			}
-		}
+		allowed := slices.Contains(favicon.Candidates(requestedPageURL), fetched.ResolvedKey)
 		if !allowed {
 			return ErrFaviconMiss
 		}

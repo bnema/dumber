@@ -3,6 +3,7 @@ package ui
 import (
 	"context"
 	"fmt"
+	"maps"
 	"strings"
 
 	"github.com/bnema/dumber/internal/application/usecase"
@@ -85,17 +86,13 @@ func (a *App) rollbackEjectTargetUIFailure(targetWindow *browserWindow, snapshot
 
 func cloneWindowForTabMap(source map[entity.TabID]*browserWindow) map[entity.TabID]*browserWindow {
 	cloned := make(map[entity.TabID]*browserWindow, len(source))
-	for tabID, bw := range source {
-		cloned[tabID] = bw
-	}
+	maps.Copy(cloned, source)
 	return cloned
 }
 
 func cloneWorkspaceViewsMap(source map[entity.TabID]*component.WorkspaceView) map[entity.TabID]*component.WorkspaceView {
 	cloned := make(map[entity.TabID]*component.WorkspaceView, len(source))
-	for tabID, wsView := range source {
-		cloned[tabID] = wsView
-	}
+	maps.Copy(cloned, source)
 	return cloned
 }
 

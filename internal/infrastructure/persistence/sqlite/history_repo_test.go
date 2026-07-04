@@ -93,10 +93,10 @@ func TestHistoryRepository_GetMostVisited(t *testing.T) {
 
 	// Increment visit counts to create different popularities
 	// github: 5 visits, google: 3 visits, example: 1 visit
-	for i := 0; i < 4; i++ {
+	for range 4 {
 		require.NoError(t, repo.IncrementVisitCount(ctx, "https://github.com"))
 	}
-	for i := 0; i < 2; i++ {
+	for range 2 {
 		require.NoError(t, repo.IncrementVisitCount(ctx, "https://google.com"))
 	}
 
@@ -315,7 +315,7 @@ func TestHistoryRepository_GetAllMostVisited(t *testing.T) {
 	require.NoError(t, repo.Save(ctx, entry2))
 
 	// Increment github visits
-	for i := 0; i < 3; i++ {
+	for range 3 {
 		require.NoError(t, repo.IncrementVisitCount(ctx, "https://github.com"))
 	}
 
@@ -756,7 +756,7 @@ func TestHistoryRepository_AboutBlank_CappedVisitCount(t *testing.T) {
 	repo := sqlite.NewHistoryRepository(db)
 
 	// Save about:blank multiple times - visit count should stay at 1
-	for i := 0; i < 5; i++ {
+	for range 5 {
 		require.NoError(t, repo.Save(ctx, &entity.HistoryEntry{
 			URL:   "about:blank",
 			Title: "New Tab",
@@ -788,7 +788,7 @@ func TestHistoryRepository_AboutBlank_NotDominant(t *testing.T) {
 	repo := sqlite.NewHistoryRepository(db)
 
 	// Save about:blank many times
-	for i := 0; i < 10; i++ {
+	for range 10 {
 		require.NoError(t, repo.Save(ctx, &entity.HistoryEntry{
 			URL:   "about:blank",
 			Title: "New Tab",

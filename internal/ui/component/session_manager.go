@@ -58,7 +58,7 @@ type SessionManager struct {
 	onToast func(ctx context.Context, message string, level ToastLevel)
 
 	// GTK callback retention
-	retainedCallbacks []interface{}
+	retainedCallbacks []any
 
 	// Scaling
 	uiScale float64
@@ -712,9 +712,10 @@ func (sm *SessionManager) createTreeRow(text, nodeType string, hasSibling bool, 
 
 	// Build indent and branch prefix
 	var prefix string
-	indent := "  " // Base indent (minimal, tree branches provide visual alignment)
-	for i := 0; i < depth; i++ {
-		indent += "   " // 3 spaces per depth level
+	var indent strings.Builder
+	indent.WriteString("  ") // Base indent (minimal, tree branches provide visual alignment)
+	for range depth {
+		indent.WriteString("   ") // 3 spaces per depth level
 	}
 
 	// Branch character
@@ -738,7 +739,7 @@ func (sm *SessionManager) createTreeRow(text, nodeType string, hasSibling bool, 
 	}
 
 	// Create the label with all parts
-	labelText := indent + prefix + icon + text
+	labelText := indent.String() + prefix + icon + text
 	label := gtk.NewLabel(&labelText)
 	if label == nil {
 		return nil

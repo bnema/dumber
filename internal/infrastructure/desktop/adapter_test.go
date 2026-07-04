@@ -144,7 +144,7 @@ func readEnvFile(t *testing.T, path string) map[string]string {
 		data, err := os.ReadFile(path)
 		if err == nil {
 			env := make(map[string]string)
-			for _, line := range strings.Split(strings.TrimSpace(string(data)), "\n") {
+			for line := range strings.SplitSeq(strings.TrimSpace(string(data)), "\n") {
 				if line == "" {
 					continue
 				}

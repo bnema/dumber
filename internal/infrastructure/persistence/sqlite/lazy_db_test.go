@@ -58,7 +58,7 @@ func TestLazyDB_ConcurrentAccess(t *testing.T) {
 	wg.Add(goroutines)
 
 	results := make(chan *struct {
-		db  interface{}
+		db  any
 		err error
 	}, goroutines)
 
@@ -67,7 +67,7 @@ func TestLazyDB_ConcurrentAccess(t *testing.T) {
 			defer wg.Done()
 			db, err := lazy.DB(ctx)
 			results <- &struct {
-				db  interface{}
+				db  any
 				err error
 			}{db, err}
 		}()
@@ -76,7 +76,7 @@ func TestLazyDB_ConcurrentAccess(t *testing.T) {
 	wg.Wait()
 	close(results)
 
-	var firstDB interface{}
+	var firstDB any
 	for result := range results {
 		require.NoError(t, result.err)
 		require.NotNil(t, result.db)

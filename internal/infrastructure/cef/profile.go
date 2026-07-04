@@ -154,10 +154,7 @@ func (wv *WebView) latestCEF2GTKProfileSnapshot(now time.Time) (cef2gtk.ProfileS
 	if snapshotAt.IsZero() {
 		return cef2gtk.ProfileSnapshot{}, 0, false
 	}
-	age := now.Sub(snapshotAt)
-	if age < 0 {
-		age = 0
-	}
+	age := max(now.Sub(snapshotAt), 0)
 	return snapshot, age, true
 }
 

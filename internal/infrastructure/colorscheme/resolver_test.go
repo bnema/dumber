@@ -355,29 +355,25 @@ func TestResolver_ConcurrentAccess(_ *testing.T) {
 	const goroutines = 10
 
 	// Concurrent Resolve calls
-	for i := 0; i < goroutines; i++ {
-		wg.Add(1)
-		go func() {
-			defer wg.Done()
-			for j := 0; j < 100; j++ {
+	for range goroutines {
+		wg.Go(func() {
+			for range 100 {
 				resolver.Resolve()
 			}
-		}()
+		})
 	}
 
 	// Concurrent Refresh calls
-	for i := 0; i < goroutines; i++ {
-		wg.Add(1)
-		go func() {
-			defer wg.Done()
-			for j := 0; j < 100; j++ {
+	for range goroutines {
+		wg.Go(func() {
+			for range 100 {
 				resolver.Refresh()
 			}
-		}()
+		})
 	}
 
 	// Concurrent RegisterDetector calls
-	for i := 0; i < goroutines; i++ {
+	for i := range goroutines {
 		wg.Add(1)
 		go func(id int) {
 			defer wg.Done()

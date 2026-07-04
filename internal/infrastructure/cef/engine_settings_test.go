@@ -35,7 +35,7 @@ func TestEngineUpdateSettingsUsesZeroScaleWhenPayloadIsEmpty(t *testing.T) {
 func TestEngineApplicationScaleConcurrentAccess(_ *testing.T) {
 	e := &Engine{applicationScale: 1}
 	var wg sync.WaitGroup
-	for i := 0; i < 16; i++ {
+	for i := range 16 {
 		wg.Add(2)
 		go func() {
 			defer wg.Done()

@@ -64,7 +64,10 @@ type dmenuLoadedMsg struct {
 	err   error
 }
 
-const defaultDmenuHistoryLimit = 500
+const (
+	defaultDmenuHistoryLimit = 500
+	dmenuListChromeHeight    = 6
+)
 
 // Init implements tea.Model.
 func (m DmenuModel) Init() tea.Cmd {
@@ -172,10 +175,9 @@ func (m *DmenuModel) updateList() {
 	}
 
 	// Create list
-	listHeight := m.height - 6 // Account for search, help
-	if listHeight < 5 {
-		listHeight = 5
-	}
+	listHeight := max(
+		// Account for search, help
+		m.height-dmenuListChromeHeight, 5)
 
 	m.list = styles.NewHistoryList(m.theme, items, m.width, listHeight)
 }

@@ -20,6 +20,8 @@ import (
 	"github.com/bnema/dumber/internal/logging"
 )
 
+const historyListChromeHeight = 8
+
 // HistoryModel is the Bubble Tea model for interactive history browser.
 type HistoryModel struct {
 	// UI components
@@ -412,10 +414,9 @@ func (m *HistoryModel) updateList() {
 	}
 
 	// Create new list
-	listHeight := m.height - 8 // Account for tabs, search, help
-	if listHeight < 5 {
-		listHeight = 5
-	}
+	listHeight := max(
+		// Account for tabs, search, help
+		m.height-historyListChromeHeight, 5)
 
 	m.list = styles.NewHistoryList(m.theme, items, m.width, listHeight)
 }

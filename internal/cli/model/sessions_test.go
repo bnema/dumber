@@ -18,7 +18,7 @@ func TestRenderSessionsList_KeepsSelectedVisibleWhenExpandedRowAbove(t *testing.
 	m := NewSessionsModel(context.Background(), theme, SessionsModelConfig{})
 
 	m.sessions = make([]entity.SessionInfo, 0, 6)
-	for i := 0; i < 6; i++ {
+	for i := range 6 {
 		m.sessions = append(m.sessions, testSessionInfo(fmt.Sprintf("session-%02d", i), 1))
 	}
 
@@ -33,7 +33,7 @@ func TestRenderSessionsList_KeepsSelectedVisibleWhenExpandedRowAbove(t *testing.
 
 func testSessionInfo(id string, tabCount int) entity.SessionInfo {
 	tabs := make([]entity.TabSnapshot, 0, tabCount)
-	for i := 0; i < tabCount; i++ {
+	for i := range tabCount {
 		tabs = append(tabs, entity.TabSnapshot{Name: fmt.Sprintf("Tab %d", i+1)})
 	}
 

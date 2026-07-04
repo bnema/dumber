@@ -4,6 +4,7 @@ package usecase
 import (
 	"context"
 	"errors"
+	"slices"
 	"sync"
 	"time"
 
@@ -59,12 +60,7 @@ func (uc *HandlePermissionUseCase) logger(ctx context.Context) *zerolog.Logger {
 }
 
 func isWebsiteDataAccessPermission(permTypes []entity.PermissionType) bool {
-	for _, permType := range permTypes {
-		if permType == entity.PermissionTypeWebsiteDataAccess {
-			return true
-		}
-	}
-	return false
+	return slices.Contains(permTypes, entity.PermissionTypeWebsiteDataAccess)
 }
 
 func permissionLoggerWithMetadata(log *zerolog.Logger, metadata entity.PermissionMetadata) *zerolog.Logger {

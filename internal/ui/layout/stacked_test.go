@@ -167,12 +167,12 @@ func TestRemovePane_MiddlePane(t *testing.T) {
 	containers := make([]*mocks.MockWidget, 3)
 	titleBars := make([]*mocks.MockBoxWidget, 3)
 
-	for i := 0; i < 3; i++ {
+	for i := range 3 {
 		titleBars[i], _, _, containers[i] = setupPaneMocks(t, mockFactory, mockBox)
 	}
 
 	// Allow any visibility calls during setup and removal
-	for i := 0; i < 3; i++ {
+	for i := range 3 {
 		containers[i].EXPECT().SetVisible(mock.Anything).Maybe()
 		titleBars[i].EXPECT().SetVisible(mock.Anything).Maybe()
 		titleBars[i].EXPECT().AddCssClass("active").Maybe()
@@ -263,7 +263,7 @@ func TestSetActive_ValidIndex(t *testing.T) {
 	containers := make([]*mocks.MockWidget, 2)
 	titleBars := make([]*mocks.MockBoxWidget, 2)
 
-	for i := 0; i < 2; i++ {
+	for i := range 2 {
 		titleBar, mockFavicon, mockLabel, container := setupPaneMocks(t, mockFactory, mockBox)
 		_ = mockFavicon
 		_ = mockLabel
@@ -436,7 +436,7 @@ func TestNavigateNext_WrapsAround(t *testing.T) {
 	containers := make([]*mocks.MockWidget, 2)
 	titleBars := make([]*mocks.MockBoxWidget, 2)
 
-	for i := 0; i < 2; i++ {
+	for i := range 2 {
 		titleBar, mockFavicon, mockLabel, container := setupPaneMocks(t, mockFactory, mockBox)
 		_ = mockFavicon
 		_ = mockLabel
@@ -473,7 +473,7 @@ func TestNavigatePrevious_WrapsAround(t *testing.T) {
 	containers := make([]*mocks.MockWidget, 2)
 	titleBars := make([]*mocks.MockBoxWidget, 2)
 
-	for i := 0; i < 2; i++ {
+	for i := range 2 {
 		titleBar, mockFavicon, mockLabel, container := setupPaneMocks(t, mockFactory, mockBox)
 		_ = mockFavicon
 		_ = mockLabel
@@ -657,7 +657,7 @@ func TestInsertPaneAfter_InMiddle(t *testing.T) {
 	containers := make([]*mocks.MockWidget, 2)
 	titleBars := make([]*mocks.MockBoxWidget, 2)
 
-	for i := 0; i < 2; i++ {
+	for i := range 2 {
 		titleBars[i], _, _, containers[i] = setupPaneMocks(t, mockFactory, mockBox)
 		titleBars[i].EXPECT().SetVisible(mock.Anything).Maybe()
 		containers[i].EXPECT().SetVisible(mock.Anything).Maybe()
@@ -733,7 +733,7 @@ func TestInsertPaneAfter_MaintainsOrder(t *testing.T) {
 	containers := make([]*mocks.MockWidget, 3)
 	titleBars := make([]*mocks.MockBoxWidget, 3)
 
-	for i := 0; i < 3; i++ {
+	for i := range 3 {
 		titleBar, mockFavicon, mockLabel, container := setupPaneMocks(t, mockFactory, mockBox)
 		_ = mockFavicon
 		_ = mockLabel

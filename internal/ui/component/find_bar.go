@@ -45,7 +45,7 @@ type FindBar struct {
 	onClose            func()
 	onAccentKeyPress   func(keyval uint, state gdk.ModifierType) bool
 	onAccentKeyRelease func(keyval uint)
-	retainedCallbacks  []interface{} // Keep callbacks alive for GC
+	retainedCallbacks  []any // Keep callbacks alive for GC
 }
 
 // FindBarConfig holds configuration for creating a FindBar.

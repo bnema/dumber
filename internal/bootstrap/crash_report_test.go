@@ -61,7 +61,7 @@ func TestReadRedactedLogTail_RingBuffer(t *testing.T) {
 	path := filepath.Join(dir, "test.log")
 
 	var lines []string
-	for i := 0; i < 10; i++ {
+	for i := range 10 {
 		lines = append(lines, fmt.Sprintf("line %d", i))
 	}
 	require.NoError(t, os.WriteFile(path, []byte(strings.Join(lines, "\n")+"\n"), filePerm))

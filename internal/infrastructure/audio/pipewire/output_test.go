@@ -448,7 +448,7 @@ func TestPlayerStreamAdapter_Write_DropsWhenBufferFull(t *testing.T) {
 	}
 
 	// Fill the buffer to capacity
-	for i := 0; i < 4; i++ {
+	for i := range 4 {
 		require.NoError(t, adapter.Write([][]float32{{float32(i)}}))
 	}
 
@@ -474,7 +474,7 @@ func TestPlayerStreamAdapter_Write_DropsLogOnlyOnFirstAndPowerOfTwo(t *testing.T
 	require.NoError(t, adapter.Write([][]float32{{0.0}}))
 
 	// Drop 10 packets
-	for i := 0; i < 10; i++ {
+	for i := range 10 {
 		_ = adapter.Write([][]float32{{float32(i)}})
 	}
 
@@ -495,7 +495,7 @@ func TestPlayerStreamAdapter_ConcurrentWriteClose_NoRace(t *testing.T) {
 	done := make(chan struct{})
 	go func() {
 		defer close(done)
-		for i := 0; i < 100; i++ {
+		for i := range 100 {
 			err := adapter.Write([][]float32{{float32(i)}})
 			if err != nil {
 				assert.ErrorIs(t, err, ErrStreamClosed)

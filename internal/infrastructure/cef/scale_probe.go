@@ -49,8 +49,8 @@ func cefScaleProbeSnapshot(wv *WebView) cefScaleProbeMetrics {
 	return m
 }
 
-func (m cefScaleProbeMetrics) logFields() map[string]interface{} {
-	return map[string]interface{}{
+func (m cefScaleProbeMetrics) logFields() map[string]any {
+	return map[string]any{
 		"surface_width":       m.SurfaceWidth,
 		"surface_height":      m.SurfaceHeight,
 		"surface_scale":       roundedScale(m.SurfaceScale),

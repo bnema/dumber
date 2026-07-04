@@ -15,7 +15,7 @@ func TestGlobalShortcutHandlerCallbackBudgetIsIndependentOfShortcutCount(t *test
 		shortcutRefs: make(map[string]globalShortcutRegistration),
 	}
 
-	for i := 0; i < 57; i++ {
+	for i := range 57 {
 		binding := KeyBinding{Keyval: uint(gdk.KEY_1) + uint(i), Modifiers: Modifier(gdk.AltMaskValue)}
 		action := ActionSwitchTabIndex1
 		shortcutID := encodeGlobalShortcutID(action, binding, h.generation)

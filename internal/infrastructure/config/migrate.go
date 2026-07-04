@@ -384,10 +384,7 @@ func keysAreSimilar(oldKey, newKey string) bool {
 	}
 
 	// If most tokens match, consider similar
-	minTokens := len(oldTokens)
-	if len(newTokens) < minTokens {
-		minTokens = len(newTokens)
-	}
+	minTokens := min(len(newTokens), len(oldTokens))
 	return matches >= minTokens-1 && matches > 0
 }
 
@@ -652,8 +649,8 @@ func (m *Migrator) defaultValueForKey(key string) any {
 	}
 
 	for _, actionMap := range m.defaultActionMaps() {
-		if strings.HasPrefix(key, actionMap.key+".") {
-			actionName := strings.TrimPrefix(key, actionMap.key+".")
+		if after, ok := strings.CutPrefix(key, actionMap.key+"."); ok {
+			actionName := after
 			if action, ok := actionMap.actions[actionName]; ok {
 				return action
 			}

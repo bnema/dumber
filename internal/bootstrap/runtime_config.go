@@ -1,6 +1,8 @@
 package bootstrap
 
 import (
+	"maps"
+
 	"github.com/bnema/dumber/internal/application/port"
 	"github.com/bnema/dumber/internal/domain/entity"
 	"github.com/bnema/dumber/internal/infrastructure/config"
@@ -131,9 +133,7 @@ func cloneRuntimeSearchShortcuts(in map[string]entity.RuntimeSearchShortcut) map
 		return nil
 	}
 	out := make(map[string]entity.RuntimeSearchShortcut, len(in))
-	for key, shortcut := range in {
-		out[key] = shortcut
-	}
+	maps.Copy(out, in)
 	return out
 }
 

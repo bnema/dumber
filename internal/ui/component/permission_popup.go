@@ -35,7 +35,7 @@ type PermissionPopup struct {
 	visible  bool
 	callback func(allowed, persistent bool)
 
-	retainedCallbacks []interface{}
+	retainedCallbacks []any
 }
 
 // NewPermissionPopup creates a new permission popup component.

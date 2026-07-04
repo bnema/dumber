@@ -6,13 +6,13 @@ import (
 )
 
 func TestEngineSettingsPayloadContainsRuntimeWebContentFields(t *testing.T) {
-	payloadType := reflect.TypeOf(EngineSettingsPayload{})
+	payloadType := reflect.TypeFor[EngineSettingsPayload]()
 	for _, field := range []string{"DefaultUIScale", "WebContent"} {
 		if _, ok := payloadType.FieldByName(field); !ok {
 			t.Fatalf("EngineSettingsPayload missing %s", field)
 		}
 	}
-	webContentType := reflect.TypeOf(EngineWebContentSettingsPayload{})
+	webContentType := reflect.TypeFor[EngineWebContentSettingsPayload]()
 	for _, field := range []string{
 		"SansFont",
 		"SerifFont",
@@ -31,7 +31,7 @@ func TestEngineSettingsPayloadContainsRuntimeWebContentFields(t *testing.T) {
 }
 
 func TestEngineSettingsUpdateHasNoRawBridge(t *testing.T) {
-	updateType := reflect.TypeOf(EngineSettingsUpdate{})
+	updateType := reflect.TypeFor[EngineSettingsUpdate]()
 	if _, ok := updateType.FieldByName("Raw"); ok {
 		t.Fatal("EngineSettingsUpdate must not expose Raw legacy bridge")
 	}
