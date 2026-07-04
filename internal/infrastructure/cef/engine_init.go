@@ -7,6 +7,7 @@ import (
 	"math"
 	"os"
 	"path/filepath"
+	"slices"
 	"strconv"
 	"strings"
 	"syscall"
@@ -214,7 +215,7 @@ func loadedLibCEFPath() string {
 }
 
 func parseLoadedLibCEFPath(maps string) string {
-	for _, line := range strings.Split(maps, "\n") {
+	for line := range strings.SplitSeq(maps, "\n") {
 		if !strings.Contains(line, "libcef.so") {
 			continue
 		}
@@ -339,10 +340,8 @@ func registerEngineSchemeFactory(
 
 // appendIfMissing appends flag to args if it's not already present.
 func appendIfMissing(args []string, flag string) []string {
-	for _, a := range args {
-		if a == flag {
-			return args
-		}
+	if slices.Contains(args, flag) {
+		return args
 	}
 	return append(args, flag)
 }

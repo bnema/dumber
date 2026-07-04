@@ -1,5 +1,7 @@
 package bootstrap
 
+import "slices"
+
 import "testing"
 
 func TestShouldPreloadLayerShell_WaylandWithoutPreloadReturnsTrue(t *testing.T) {
@@ -116,10 +118,5 @@ func TestLayerShellPreloadEnv_PrependsLibraryToExistingLDPreload(t *testing.T) {
 }
 
 func containsString(items []string, want string) bool {
-	for _, item := range items {
-		if item == want {
-			return true
-		}
-	}
-	return false
+	return slices.Contains(items, want)
 }

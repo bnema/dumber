@@ -41,7 +41,7 @@ type WebRTCPermissionIndicator struct {
 
 	mu                sync.Mutex
 	expanded          bool
-	retainedCallbacks []interface{}
+	retainedCallbacks []any
 }
 
 // NewWebRTCPermissionIndicator creates a top-right WebRTC activity indicator.

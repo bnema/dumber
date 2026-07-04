@@ -77,8 +77,8 @@ func parseFaviconHrefs(htmlSource string) []string {
 }
 
 func faviconRel(rel string) bool {
-	fields := strings.Fields(strings.ToLower(rel))
-	for _, field := range fields {
+	fields := strings.FieldsSeq(strings.ToLower(rel))
+	for field := range fields {
 		if field == "icon" || field == "apple-touch-icon" || field == "apple-touch-icon-precomposed" {
 			return true
 		}

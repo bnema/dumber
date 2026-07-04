@@ -2,6 +2,7 @@ package usecase
 
 import (
 	"context"
+	"strings"
 	"testing"
 
 	"github.com/bnema/dumber/internal/domain/entity"
@@ -424,15 +425,15 @@ func panesInOrder(stackNode *entity.PaneNode) string {
 	if stackNode == nil || len(stackNode.Children) == 0 {
 		return ""
 	}
-	out := ""
+	var out strings.Builder
 	for i, child := range stackNode.Children {
 		if child == nil || child.Pane == nil {
 			continue
 		}
 		if i > 0 {
-			out += ","
+			out.WriteString(",")
 		}
-		out += string(child.Pane.ID)
+		out.WriteString(string(child.Pane.ID))
 	}
-	return out
+	return out.String()
 }

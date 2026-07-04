@@ -64,7 +64,7 @@ func TestStream_Write_AcceptsMultipleCalls(t *testing.T) {
 	}
 
 	// Act & Assert: multiple writes should succeed
-	for i := 0; i < 3; i++ {
+	for i := range 3 {
 		if err := stream.Write(samples); err != nil {
 			t.Errorf("Write #%d failed: %v", i+1, err)
 		}

@@ -3,6 +3,7 @@ package ui
 import (
 	"context"
 	"fmt"
+	"slices"
 	"sort"
 
 	"github.com/bnema/dumber/internal/application/port"
@@ -327,10 +328,8 @@ func (a *App) registerBrowserWindow(bw *browserWindow) {
 	a.browserWindows[bw.id] = bw
 
 	// Track registration order, guarding against duplicates.
-	for _, id := range a.browserWindowOrder {
-		if id == bw.id {
-			return
-		}
+	if slices.Contains(a.browserWindowOrder, bw.id) {
+		return
 	}
 	a.browserWindowOrder = append(a.browserWindowOrder, bw.id)
 }
@@ -436,7 +435,7 @@ func sortedTabIDs(tabs map[entity.TabID]*entity.Tab) []entity.TabID {
 	for tabID := range tabs {
 		ids = append(ids, tabID)
 	}
-	sort.Slice(ids, func(i, j int) bool { return ids[i] < ids[j] })
+	slices.Sort(ids)
 	return ids
 }
 

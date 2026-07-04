@@ -248,7 +248,7 @@ func makeGroups(dayCounts ...int) []historyGroup {
 	groups := make([]historyGroup, len(dayCounts))
 	for i, count := range dayCounts {
 		entries := make([]*entity.HistoryEntry, count)
-		for j := 0; j < count; j++ {
+		for j := range count {
 			entries[j] = &entity.HistoryEntry{
 				ID:          int64(i*100 + j),
 				URL:         fmt.Sprintf("https://entry-%d-%d.com", i, j),

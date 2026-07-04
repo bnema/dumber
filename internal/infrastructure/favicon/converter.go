@@ -118,7 +118,7 @@ func decodeICO(data []byte) (image.Image, error) {
 	var best []byte
 	bestBitCount := 0
 	bestArea := -1
-	for i := 0; i < count; i++ {
+	for i := range count {
 		entry := data[6+i*16 : 6+(i+1)*16]
 		w, h := int(entry[0]), int(entry[1])
 		if w == 0 {
@@ -192,10 +192,10 @@ func decodeICODIB(data []byte, bitCountHint int) (image.Image, error) {
 	}
 	img := image.NewNRGBA(image.Rect(0, 0, width, height))
 	const opaqueAlpha = 255
-	for y := 0; y < height; y++ {
+	for y := range height {
 		srcY := height - 1 - y
 		row := data[pixelOffset+srcY*stride:]
-		for x := 0; x < width; x++ {
+		for x := range width {
 			i := x * bytesPerPixel
 			b, g, r := row[i], row[i+1], row[i+2]
 			a := byte(opaqueAlpha)

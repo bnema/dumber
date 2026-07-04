@@ -412,10 +412,9 @@ func (m *HistoryModel) updateList() {
 	}
 
 	// Create new list
-	listHeight := m.height - 8 // Account for tabs, search, help
-	if listHeight < 5 {
-		listHeight = 5
-	}
+	listHeight := max(
+		// Account for tabs, search, help
+		m.height-8, 5)
 
 	m.list = styles.NewHistoryList(m.theme, items, m.width, listHeight)
 }

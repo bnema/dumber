@@ -806,7 +806,7 @@ func TestPendingPopups_ConcurrentAccess(t *testing.T) {
 	wg.Add(workers * 2)
 
 	// Writers
-	for i := 0; i < workers; i++ {
+	for i := range workers {
 		go func(id int) {
 			defer wg.Done()
 			popupID := port.WebViewID(id)
@@ -820,7 +820,7 @@ func TestPendingPopups_ConcurrentAccess(t *testing.T) {
 	}
 
 	// Readers
-	for i := 0; i < workers; i++ {
+	for i := range workers {
 		go func(id int) {
 			defer wg.Done()
 			popupID := port.WebViewID(id)
@@ -847,7 +847,7 @@ func TestPendingPopups_ConcurrentDeleteAndRead(t *testing.T) {
 	}
 
 	// Pre-populate
-	for i := 0; i < 10; i++ {
+	for i := range 10 {
 		c.popups.pendingPopups[port.WebViewID(i)] = &PendingPopup{PopupType: PopupTypePopup}
 	}
 
@@ -855,7 +855,7 @@ func TestPendingPopups_ConcurrentDeleteAndRead(t *testing.T) {
 	wg.Add(20)
 
 	// Deleters
-	for i := 0; i < 10; i++ {
+	for i := range 10 {
 		go func(id int) {
 			defer wg.Done()
 			c.popups.mu.Lock()
@@ -865,7 +865,7 @@ func TestPendingPopups_ConcurrentDeleteAndRead(t *testing.T) {
 	}
 
 	// Readers
-	for i := 0; i < 10; i++ {
+	for i := range 10 {
 		go func(id int) {
 			defer wg.Done()
 			c.popups.mu.RLock()

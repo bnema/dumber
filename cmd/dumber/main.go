@@ -825,8 +825,8 @@ func isCEFSubprocess(args []string) bool {
 		return false
 	}
 
-	if strings.HasPrefix(args[1], "--type=") {
-		value := strings.TrimPrefix(args[1], "--type=")
+	if after, ok := strings.CutPrefix(args[1], "--type="); ok {
+		value := after
 		return value != "" && !strings.HasPrefix(value, "-")
 	}
 

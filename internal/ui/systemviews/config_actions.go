@@ -3,6 +3,7 @@ package systemviews
 import (
 	"context"
 	"fmt"
+	"maps"
 	"math"
 	"net/url"
 	"strconv"
@@ -413,9 +414,7 @@ func webUIConfigFromPayload(payload dto.SystemviewConfigPayload) dto.WebUIConfig
 
 func cloneSearchShortcuts(shortcuts map[string]dto.SearchShortcut) map[string]dto.SearchShortcut {
 	clone := make(map[string]dto.SearchShortcut, len(shortcuts))
-	for key, shortcut := range shortcuts {
-		clone[key] = shortcut
-	}
+	maps.Copy(clone, shortcuts)
 	return clone
 }
 

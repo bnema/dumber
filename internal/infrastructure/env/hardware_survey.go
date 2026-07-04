@@ -276,9 +276,9 @@ func (*HardwareSurveyor) detectGPUName(ctx context.Context, cardPath string) str
 		scanner := bufio.NewScanner(file)
 		for scanner.Scan() {
 			line := scanner.Text()
-			if strings.HasPrefix(line, "PCI_SLOT_NAME=") {
+			if after, ok := strings.CutPrefix(line, "PCI_SLOT_NAME="); ok {
 				// This gives us the PCI address, useful for debugging
-				log.Debug().Str("pci_slot", strings.TrimPrefix(line, "PCI_SLOT_NAME=")).Msg("GPU PCI slot")
+				log.Debug().Str("pci_slot", after).Msg("GPU PCI slot")
 			}
 		}
 		_ = file.Close()

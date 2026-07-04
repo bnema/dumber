@@ -159,12 +159,9 @@ func compareVersion(a, b string) (cmp int, ok bool) {
 		return 0, false
 	}
 
-	maxLen := len(av)
-	if len(bv) > maxLen {
-		maxLen = len(bv)
-	}
+	maxLen := max(len(bv), len(av))
 
-	for i := 0; i < maxLen; i++ {
+	for i := range maxLen {
 		x := 0
 		if i < len(av) {
 			x = av[i]

@@ -340,8 +340,8 @@ func validateFilterFilename(filename string) (string, error) {
 		return "", fmt.Errorf("invalid filter filename %q: URL control characters are not allowed", filename)
 	}
 
-	parts := strings.Split(filename, "/")
-	for _, part := range parts {
+	parts := strings.SplitSeq(filename, "/")
+	for part := range parts {
 		if part == "" || part == "." || part == ".." {
 			return "", fmt.Errorf("invalid filter filename %q: path traversal components are not allowed", filename)
 		}

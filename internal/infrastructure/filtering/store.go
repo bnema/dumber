@@ -3,6 +3,7 @@ package filtering
 import (
 	"context"
 	"fmt"
+	"slices"
 	"sync"
 
 	"github.com/bnema/dumber/internal/logging"
@@ -248,10 +249,5 @@ func (s *Store) HasCompiledFilter(ctx context.Context, identifier string) bool {
 	if err != nil {
 		return false
 	}
-	for _, id := range identifiers {
-		if id == identifier {
-			return true
-		}
-	}
-	return false
+	return slices.Contains(identifiers, identifier)
 }

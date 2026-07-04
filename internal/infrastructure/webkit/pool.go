@@ -497,7 +497,7 @@ func (p *WebViewPool) RefreshScripts(ctx context.Context) {
 
 	refreshed := 0
 refreshLoop:
-	for i := 0; i < count; i++ {
+	for range count {
 		select {
 		case wv := <-p.pool:
 			if wv == nil || wv.IsDestroyed() {

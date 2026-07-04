@@ -4,6 +4,7 @@ package env
 import (
 	"context"
 	"fmt"
+	"maps"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -118,10 +119,7 @@ func (m *Manager) applyGStreamerEnv(settings RenderingSettings) {
 
 	// GStreamer debug level
 	if settings.GStreamerDebugLevel > 0 {
-		level := settings.GStreamerDebugLevel
-		if level > 5 {
-			level = 5
-		}
+		level := min(settings.GStreamerDebugLevel, 5)
 		m.setEnv("GST_DEBUG", fmt.Sprintf("%d", level))
 	}
 
@@ -221,9 +219,7 @@ func (m *Manager) setEnv(key, value string) {
 // GetAppliedVars returns a copy of applied environment variables.
 func (m *Manager) GetAppliedVars() map[string]string {
 	result := make(map[string]string, len(m.appliedVars))
-	for k, v := range m.appliedVars {
-		result[k] = v
-	}
+	maps.Copy(result, m.appliedVars)
 	return result
 }
 

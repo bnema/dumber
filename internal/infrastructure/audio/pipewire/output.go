@@ -213,13 +213,7 @@ func copyToPCM(pcm *pwpipewire.PCMBuffer, samples [][]float32) int {
 	}
 
 	frames := pcm.Frames
-	channels := len(samples)
-	if channels > pcm.Channels {
-		channels = pcm.Channels
-	}
-	if channels > len(pcm.Samples) {
-		channels = len(pcm.Samples)
-	}
+	channels := min(min(len(samples), pcm.Channels), len(pcm.Samples))
 	if channels == 0 {
 		return 0
 	}
@@ -234,13 +228,7 @@ func copyToPCM(pcm *pwpipewire.PCMBuffer, samples [][]float32) int {
 			continue
 		}
 		srcFrames := len(src)
-		n := frames
-		if srcFrames < n {
-			n = srcFrames
-		}
-		if len(dst) < n {
-			n = len(dst)
-		}
+		n := min(len(dst), min(srcFrames, frames))
 		if n < minFrames {
 			minFrames = n
 		}

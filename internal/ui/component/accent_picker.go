@@ -35,7 +35,7 @@ type AccentPicker struct {
 	cancelCb        func()
 	visible         bool
 	keyController   *gtk.EventControllerKey
-	retainedClicked []interface{} // Keep click callbacks alive
+	retainedClicked []any // Keep click callbacks alive
 
 	mu sync.Mutex
 }
@@ -100,7 +100,7 @@ func (ap *AccentPicker) Show(accents []rune, selectedCb func(rune), cancelCb fun
 
 	// Create new labels for each accent
 	ap.accentLabels = make([]layout.LabelWidget, len(accents))
-	ap.retainedClicked = make([]interface{}, len(accents))
+	ap.retainedClicked = make([]any, len(accents))
 
 	for i, accent := range accents {
 		label := ap.factory.NewLabel(string(accent))

@@ -91,11 +91,11 @@ func TestGenerateHistorySidebarCSS_NoEmptyCSSBlocks(t *testing.T) {
 		if i == 0 {
 			continue
 		}
-		closeIdx := strings.Index(section, "}")
-		if closeIdx < 0 {
+		before, _, ok := strings.Cut(section, "}")
+		if !ok {
 			continue
 		}
-		blockContent := strings.TrimSpace(section[:closeIdx])
+		blockContent := strings.TrimSpace(before)
 		assert.NotEmpty(t, blockContent, "CSS block must not be empty: section %d", i)
 	}
 }

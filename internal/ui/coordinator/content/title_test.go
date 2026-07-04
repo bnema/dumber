@@ -137,7 +137,7 @@ func TestPaneTitles_ConcurrentAccess(t *testing.T) {
 	paneIDs := []entity.PaneID{"pane-1", "pane-2", "pane-3"}
 
 	var wg sync.WaitGroup
-	for i := 0; i < 50; i++ {
+	for range 50 {
 		for _, paneID := range paneIDs {
 			wg.Add(2)
 
@@ -265,7 +265,7 @@ func TestNavOrigins_ConcurrentAccess(t *testing.T) {
 	paneIDs := []entity.PaneID{"pane-1", "pane-2", "pane-3"}
 
 	var wg sync.WaitGroup
-	for i := 0; i < 50; i++ {
+	for range 50 {
 		for _, paneID := range paneIDs {
 			wg.Add(2)
 

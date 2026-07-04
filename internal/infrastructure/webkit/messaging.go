@@ -40,7 +40,7 @@ type MessageRouter struct {
 	baseCtx  context.Context
 
 	mu        sync.RWMutex
-	callbacks []interface{}
+	callbacks []any
 	signals   []uint
 
 	idMu      sync.Mutex

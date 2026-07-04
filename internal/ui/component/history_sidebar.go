@@ -99,7 +99,7 @@ type HistorySidebar struct {
 	relativeTimeDayKeySet  bool
 
 	// Retained callbacks
-	retainedCallbacks []interface{}
+	retainedCallbacks []any
 
 	// idleScheduler dispatches work onto the GTK main thread.
 	// Tests may override it to exercise scheduled callbacks deterministically.

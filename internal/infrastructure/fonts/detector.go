@@ -180,8 +180,8 @@ func (*Detector) queryFonts(ctx context.Context) ([]string, error) {
 		}
 		// fc-list may return comma-separated families for fonts with aliases.
 		// e.g., "DejaVu Sans,DejaVu Sans Light"
-		families := strings.Split(line, ",")
-		for _, family := range families {
+		families := strings.SplitSeq(line, ",")
+		for family := range families {
 			family = strings.TrimSpace(family)
 			if family != "" {
 				fontSet[family] = struct{}{}

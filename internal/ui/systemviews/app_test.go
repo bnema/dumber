@@ -404,8 +404,7 @@ func TestAppCloseStopsActionWorkerAndReleasesDOM(t *testing.T) {
 	history := &recordingHistoryService{entries: []*entity.HistoryEntry{{ID: 1, URL: "https://example.com"}}}
 	app := NewApp(Dependencies{DOM: dom, History: history, LocationURI: "dumb://history"})
 
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
+	ctx := t.Context()
 	require.NoError(t, app.RunWithContext(ctx))
 	require.NotNil(t, dom.handler)
 

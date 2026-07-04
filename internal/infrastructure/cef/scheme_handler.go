@@ -10,6 +10,7 @@ import (
 	"html"
 	"io"
 	"io/fs"
+	"maps"
 	"net/http"
 	"net/url"
 	"path"
@@ -780,9 +781,7 @@ func apiResponseHeaders(extra map[string]string) map[string]string {
 		"Access-Control-Max-Age": "86400",
 		"Cache-Control":          "no-store",
 	}
-	for name, value := range extra {
-		headers[name] = value
-	}
+	maps.Copy(headers, extra)
 	return headers
 }
 
@@ -942,10 +941,7 @@ func (rh *faviconResourceHandler) Read(dataOut unsafe.Pointer, bytesToRead int32
 		return 0
 	}
 	remaining := len(rh.data) - rh.offset
-	toRead := int(bytesToRead)
-	if toRead > remaining {
-		toRead = remaining
-	}
+	toRead := min(int(bytesToRead), remaining)
 	dst := unsafe.Slice((*byte)(dataOut), toRead)
 	copy(dst, rh.data[rh.offset:rh.offset+toRead])
 	rh.offset += toRead
@@ -1017,10 +1013,7 @@ func (rh *staticResourceHandler) Read(
 	}
 
 	remaining := len(rh.data) - rh.offset
-	toRead := int(bytesToRead)
-	if toRead > remaining {
-		toRead = remaining
-	}
+	toRead := min(int(bytesToRead), remaining)
 
 	// Copy data to the output buffer.
 	dst := unsafe.Slice((*byte)(dataOut), toRead)

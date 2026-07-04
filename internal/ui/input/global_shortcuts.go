@@ -4,6 +4,7 @@ package input
 import (
 	"context"
 	"fmt"
+	"maps"
 	"strings"
 	"time"
 
@@ -99,9 +100,7 @@ func NewGlobalShortcutHandler(
 		}
 
 		occupied := make(map[KeyBinding]Action, len(h.registered))
-		for binding, action := range h.registered {
-			occupied[binding] = action
-		}
+		maps.Copy(occupied, h.registered)
 		for _, shortcut := range collectFloatingProfileShortcutsFromWorkspace(ctx, workspace, occupied) {
 			if !h.registerShortcut(shortcut.Binding.Keyval, gdk.ModifierType(shortcut.Binding.Modifiers), shortcut.Action) {
 				continue
@@ -553,9 +552,7 @@ func (h *GlobalShortcutHandler) ReloadShortcuts(ctx context.Context, workspace *
 		}
 
 		occupied := make(map[KeyBinding]Action, len(h.registered))
-		for binding, action := range h.registered {
-			occupied[binding] = action
-		}
+		maps.Copy(occupied, h.registered)
 		for _, shortcut := range collectFloatingProfileShortcutsFromWorkspace(ctx, workspace, occupied) {
 			if h.registerShortcut(shortcut.Binding.Keyval, gdk.ModifierType(shortcut.Binding.Modifiers), shortcut.Action) {
 				if url, ok := ParseFloatingProfileAction(shortcut.Action); ok {

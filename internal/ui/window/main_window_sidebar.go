@@ -45,13 +45,7 @@ func (mw *MainWindow) SetSidebarWidth(cfg SidebarWidthConfig) {
 		mw.logger.Warn().Int("min_px", cfg.MinPx).Int("max_px", cfg.MaxPx).Msg("invalid sidebar width bounds; swapping")
 		cfg.MinPx, cfg.MaxPx = cfg.MaxPx, cfg.MinPx
 	}
-	clamped := cfg.WidthPx
-	if clamped < cfg.MinPx {
-		clamped = cfg.MinPx
-	}
-	if clamped > cfg.MaxPx {
-		clamped = cfg.MaxPx
-	}
+	clamped := min(max(cfg.WidthPx, cfg.MinPx), cfg.MaxPx)
 	mw.sidebarBox.SetSizeRequest(clamped, -1)
 	mw.logger.Debug().Int("sidebar_width", clamped).Msg("sidebar width set")
 }

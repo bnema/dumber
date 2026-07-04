@@ -89,7 +89,7 @@ func (fs *FavoritesSidebar) renderTags() {
 	fs.mu.RUnlock()
 
 	clearBoxChildren(tagBox)
-	callbacks := make([]interface{}, 0, len(tags)+1)
+	callbacks := make([]any, 0, len(tags)+1)
 
 	allButton := gtk.NewButtonWithLabel("All")
 	if allButton != nil {

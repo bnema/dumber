@@ -307,7 +307,7 @@ func dialogFilterTokens(spec, extensions string) []string {
 	if spec = strings.TrimSpace(spec); spec != "" {
 		tokens = append(tokens, spec)
 	}
-	for _, part := range strings.Split(extensions, ";") {
+	for part := range strings.SplitSeq(extensions, ";") {
 		part = strings.TrimSpace(part)
 		if part != "" {
 			tokens = append(tokens, part)

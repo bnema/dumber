@@ -159,7 +159,7 @@ type Omnibox struct {
 	}
 
 	// Callback retention: keep GTK signal callbacks reachable by Go GC.
-	retainedCallbacks []interface{}
+	retainedCallbacks []any
 
 	// Click outside handler
 	clickOutsideController *gtk.GestureClick

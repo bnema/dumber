@@ -128,7 +128,7 @@ func TestFaviconResolveRepairOrphanWithoutConverterReturnsMiss(t *testing.T) {
 func TestFaviconResolveStaleSchedulesDedupedBackgroundRefresh(t *testing.T) {
 	fx := newFaviconFixture(t)
 	fx.seed("example.com", []byte("old"), true)
-	for i := 0; i < 2; i++ {
+	for i := range 2 {
 		got, err := fx.uc.Resolve(context.Background(), "https://example.com", 32, ResolveOptions{ScheduleBackgroundRefresh: true})
 		if err != nil {
 			t.Fatal(err)

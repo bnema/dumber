@@ -2,6 +2,7 @@ package fonts
 
 import (
 	"context"
+	"slices"
 	"testing"
 
 	"github.com/bnema/dumber/internal/application/port"
@@ -71,13 +72,7 @@ func TestDetector_SelectBestFont_SansSerif(t *testing.T) {
 	assert.NotEmpty(t, font)
 
 	// Should either be a font from the chain or the generic fallback
-	isFromChain := false
-	for _, f := range SansSerifFallbackChain() {
-		if font == f {
-			isFromChain = true
-			break
-		}
-	}
+	isFromChain := slices.Contains(SansSerifFallbackChain(), font)
 	if !isFromChain {
 		assert.Equal(t, "sans-serif", font, "should fall back to generic if no chain fonts available")
 	}
@@ -96,13 +91,7 @@ func TestDetector_SelectBestFont_Serif(t *testing.T) {
 	font := detector.SelectBestFont(ctx, port.FontCategorySerif, SerifFallbackChain())
 	assert.NotEmpty(t, font)
 
-	isFromChain := false
-	for _, f := range SerifFallbackChain() {
-		if font == f {
-			isFromChain = true
-			break
-		}
-	}
+	isFromChain := slices.Contains(SerifFallbackChain(), font)
 	if !isFromChain {
 		assert.Equal(t, "serif", font, "should fall back to generic if no chain fonts available")
 	}
@@ -121,13 +110,7 @@ func TestDetector_SelectBestFont_Monospace(t *testing.T) {
 	font := detector.SelectBestFont(ctx, port.FontCategoryMonospace, MonospaceFallbackChain())
 	assert.NotEmpty(t, font)
 
-	isFromChain := false
-	for _, f := range MonospaceFallbackChain() {
-		if font == f {
-			isFromChain = true
-			break
-		}
-	}
+	isFromChain := slices.Contains(MonospaceFallbackChain(), font)
 	if !isFromChain {
 		assert.Equal(t, "monospace", font, "should fall back to generic if no chain fonts available")
 	}

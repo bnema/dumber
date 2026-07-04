@@ -2,6 +2,7 @@ package styles
 
 import (
 	"fmt"
+	"strings"
 
 	"github.com/charmbracelet/lipgloss"
 )
@@ -56,16 +57,16 @@ func (m TabsModel) View() string {
 		Foreground(m.theme.Border).
 		Render(" │ ")
 
-	row := ""
+	var row strings.Builder
 	for i, tab := range tabs {
 		if i > 0 {
-			row += gap
+			row.WriteString(gap)
 		}
-		row += tab
+		row.WriteString(tab)
 	}
 
 	const tabBarWidth = 80
-	return m.theme.TabBar.Width(tabBarWidth).Render(row)
+	return m.theme.TabBar.Width(tabBarWidth).Render(row.String())
 }
 
 // ViewCompact renders a compact tab bar without separators.

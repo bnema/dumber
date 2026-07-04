@@ -107,7 +107,7 @@ func prependPathList(existing string, values ...string) string {
 	}
 
 	if existing != "" {
-		for _, v := range strings.Split(existing, ":") {
+		for v := range strings.SplitSeq(existing, ":") {
 			add(v)
 		}
 	}

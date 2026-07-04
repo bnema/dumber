@@ -130,7 +130,7 @@ func TestFloatingPane_ConcurrentResizeAndParentSwitch(t *testing.T) {
 	})
 
 	var wg sync.WaitGroup
-	for i := 0; i < 200; i++ {
+	for i := range 200 {
 		wg.Add(2)
 		go func() {
 			defer wg.Done()

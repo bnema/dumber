@@ -3,6 +3,7 @@ package model
 import (
 	"context"
 	"fmt"
+	"strings"
 
 	"github.com/charmbracelet/bubbles/table"
 	tea "github.com/charmbracelet/bubbletea"
@@ -104,13 +105,7 @@ func (m *StatsModel) updateTable() {
 		}
 	}
 
-	tableHeight := len(rows)
-	if tableHeight > m.height-10 {
-		tableHeight = m.height - 10
-	}
-	if tableHeight < 3 {
-		tableHeight = 3
-	}
+	tableHeight := max(min(len(rows), m.height-10), 3)
 
 	m.table = styles.NewStyledTable(m.theme, columns, rows, m.width-4, tableHeight)
 }
@@ -213,7 +208,7 @@ func (m StatsModel) renderDailyActivity() string {
 		sparklineMaxDays  = 30
 		sparklineMaxIndex = 7
 	)
-	var result string
+	var result strings.Builder
 
 	// Show last 30 days or available data
 	days := m.analytics.DailyVisits
@@ -223,14 +218,11 @@ func (m StatsModel) renderDailyActivity() string {
 
 	for _, d := range days {
 		// Scale to block index (0-7)
-		idx := int(float64(d.Visits) / float64(maxVisits) * sparklineMaxIndex)
-		if idx > sparklineMaxIndex {
-			idx = sparklineMaxIndex
-		}
-		result += string(blocks[idx])
+		idx := min(int(float64(d.Visits)/float64(maxVisits)*sparklineMaxIndex), sparklineMaxIndex)
+		result.WriteString(string(blocks[idx]))
 	}
 
-	return lipgloss.NewStyle().Foreground(m.theme.Accent).Render(result)
+	return lipgloss.NewStyle().Foreground(m.theme.Accent).Render(result.String())
 }
 
 // formatNumber formats a number for display.

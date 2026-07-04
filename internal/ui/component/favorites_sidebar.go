@@ -64,8 +64,8 @@ type FavoritesSidebar struct {
 	confirmDelete   bool
 	confirmDeleteID entity.FavoriteID
 
-	retainedCallbacks []interface{}
-	tagCallbacks      []interface{}
+	retainedCallbacks []any
+	tagCallbacks      []any
 	ctx               context.Context
 	cancel            context.CancelFunc
 	mu                sync.RWMutex

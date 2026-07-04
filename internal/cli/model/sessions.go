@@ -386,10 +386,9 @@ func (m SessionsModel) View() string {
 	// are many sessions.
 	prefixH := lipgloss.Height(prefix.String())
 	helpH := lipgloss.Height(helpView)
-	listH := m.height - prefixH - 1 - helpH // one spacer line between list and help
-	if listH < 1 {
-		listH = 1
-	}
+	listH := max(
+		// one spacer line between list and help
+		m.height-prefixH-1-helpH, 1)
 
 	listView := m.renderSessionsList(listH)
 
@@ -436,10 +435,7 @@ func (m SessionsModel) renderSessionsList(maxHeight int) string {
 
 	// Determine starting index so the selected row stays visible even when
 	// rows above it are expanded and consume multiple lines.
-	start := m.selectedIdx
-	if start < 0 {
-		start = 0
-	}
+	start := max(m.selectedIdx, 0)
 	if start >= len(m.sessions) {
 		start = len(m.sessions) - 1
 	}

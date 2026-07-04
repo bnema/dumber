@@ -168,7 +168,7 @@ func procPPID(pid int) int {
 	if err != nil {
 		return 0
 	}
-	for _, line := range strings.Split(string(b), "\n") {
+	for line := range strings.SplitSeq(string(b), "\n") {
 		if !strings.HasPrefix(line, "PPid:") {
 			continue
 		}
@@ -190,9 +190,9 @@ func procCmdline(pid int) string {
 }
 
 func chromiumProcessType(cmdline string) string {
-	for _, field := range strings.Fields(cmdline) {
-		if strings.HasPrefix(field, "--type=") {
-			return strings.TrimPrefix(field, "--type=")
+	for field := range strings.FieldsSeq(cmdline) {
+		if after, ok := strings.CutPrefix(field, "--type="); ok {
+			return after
 		}
 	}
 	return "browser"
@@ -366,7 +366,7 @@ func gpuFDInfoSummaries(pid int) []string {
 		if err != nil {
 			continue
 		}
-		for _, line := range strings.Split(string(b), "\n") {
+		for line := range strings.SplitSeq(string(b), "\n") {
 			if strings.Contains(line, "drm-engine-") || strings.HasPrefix(line, "drm-client-id") || strings.HasPrefix(line, "drm-pdev") {
 				out = append(out, "fd="+entry.Name()+" "+strings.TrimSpace(line))
 			}

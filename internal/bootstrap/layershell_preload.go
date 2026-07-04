@@ -1,6 +1,7 @@
 package bootstrap
 
 import (
+	"maps"
 	"os"
 	"path/filepath"
 	"strings"
@@ -83,9 +84,7 @@ func layerShellLibrarySearchPaths(env map[string]string) []string {
 
 func LayerShellPreloadEnv(env map[string]string, libraryPath string) map[string]string {
 	cloned := make(map[string]string, len(env)+1)
-	for key, value := range env {
-		cloned[key] = value
-	}
+	maps.Copy(cloned, env)
 
 	if libraryPath == "" {
 		return cloned

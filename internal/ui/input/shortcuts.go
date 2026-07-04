@@ -3,6 +3,7 @@ package input
 
 import (
 	"context"
+	"maps"
 	"sort"
 	"strings"
 
@@ -380,9 +381,7 @@ func (s *ShortcutSet) registerConfiguredShortcuts(cfg *entity.WorkspaceConfig) {
 
 func (s *ShortcutSet) registerFloatingProfileShortcutsFromWorkspace(ctx context.Context, workspace *entity.WorkspaceConfig) {
 	occupied := make(map[KeyBinding]Action, len(s.Global))
-	for binding, action := range s.Global {
-		occupied[binding] = action
-	}
+	maps.Copy(occupied, s.Global)
 
 	for _, shortcut := range collectFloatingProfileShortcutsFromWorkspace(ctx, workspace, occupied) {
 		s.Global[shortcut.Binding] = shortcut.Action

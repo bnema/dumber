@@ -152,7 +152,7 @@ func TestPendingReveal_ConcurrentAccess(t *testing.T) {
 	paneIDs := []entity.PaneID{"pane-1", "pane-2", "pane-3", "pane-4", "pane-5"}
 
 	// Concurrently mark and clear panes
-	for i := 0; i < 100; i++ {
+	for range 100 {
 		for _, paneID := range paneIDs {
 			wg.Add(3)
 

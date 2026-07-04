@@ -237,11 +237,9 @@ func TestModalState_ConcurrentAccess(t *testing.T) {
 	iterations := 100
 
 	// Multiple goroutines entering/exiting modes
-	for i := 0; i < 10; i++ {
-		wg.Add(1)
-		go func() {
-			defer wg.Done()
-			for j := 0; j < iterations; j++ {
+	for range 10 {
+		wg.Go(func() {
+			for range iterations {
 				ms.EnterTabMode(ctx, 0)
 				_ = ms.Mode()
 				ms.ExitMode(ctx)
@@ -249,7 +247,7 @@ func TestModalState_ConcurrentAccess(t *testing.T) {
 				_ = ms.Mode()
 				ms.ExitMode(ctx)
 			}
-		}()
+		})
 	}
 
 	wg.Wait()
