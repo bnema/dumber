@@ -5,6 +5,7 @@ import (
 	"structs"
 	"unsafe"
 
+	"github.com/bnema/purego"
 	"github.com/bnema/puregotk/pkg/core"
 	"github.com/bnema/puregotk/v4/gobject"
 	"github.com/bnema/puregotk/v4/gobject/types"
@@ -41,7 +42,6 @@ type Context struct {
 var xContextGLibType func() types.GType
 
 func ContextGLibType() types.GType {
-	core.LazyRegister(&xContextGLibType, "PANGO", "pango_context_get_type", false)
 	return xContextGLibType()
 }
 
@@ -65,7 +65,6 @@ var xNewContext func() uintptr
 // For instance, the GTK toolkit has, among others,
 // `gtk_widget_get_pango_context()`. Use those instead.
 func NewContext() *Context {
-	core.LazyRegister(&xNewContext, "PANGO", "pango_context_new", false)
 	var cls *Context
 
 	cret := xNewContext()
@@ -88,8 +87,6 @@ var xContextChanged func(uintptr)
 // call this function if they have attached extra data to the context
 // and such data is changed.
 func (x *Context) Changed() {
-	core.LazyRegister(&xContextChanged, "PANGO", "pango_context_changed", false)
-
 	xContextChanged(x.GoPointer())
 }
 
@@ -99,8 +96,6 @@ var xContextGetBaseDir func(uintptr) Direction
 //
 // See [method@Pango.Context.set_base_dir].
 func (x *Context) GetBaseDir() Direction {
-	core.LazyRegister(&xContextGetBaseDir, "PANGO", "pango_context_get_base_dir", false)
-
 	cret := xContextGetBaseDir(x.GoPointer())
 	return cret
 }
@@ -111,8 +106,6 @@ var xContextGetBaseGravity func(uintptr) Gravity
 //
 // See [method@Pango.Context.set_base_gravity].
 func (x *Context) GetBaseGravity() Gravity {
-	core.LazyRegister(&xContextGetBaseGravity, "PANGO", "pango_context_get_base_gravity", false)
-
 	cret := xContextGetBaseGravity(x.GoPointer())
 	return cret
 }
@@ -121,8 +114,6 @@ var xContextGetFontDescription func(uintptr) uintptr
 
 // Retrieve the default font description for the context.
 func (x *Context) GetFontDescription() *FontDescription {
-	core.LazyRegister(&xContextGetFontDescription, "PANGO", "pango_context_get_font_description", false)
-
 	cret := xContextGetFontDescription(x.GoPointer())
 	if cret == 0 {
 		return nil
@@ -134,7 +125,6 @@ var xContextGetFontMap func(uintptr) uintptr
 
 // Gets the `PangoFontMap` used to look up fonts for this context.
 func (x *Context) GetFontMap() *FontMap {
-	core.LazyRegister(&xContextGetFontMap, "PANGO", "pango_context_get_font_map", false)
 	var cls *FontMap
 
 	cret := xContextGetFontMap(x.GoPointer())
@@ -157,8 +147,6 @@ var xContextGetGravity func(uintptr) Gravity
 // which [func@Pango.Gravity.get_for_matrix] is used to return the
 // gravity from the current context matrix.
 func (x *Context) GetGravity() Gravity {
-	core.LazyRegister(&xContextGetGravity, "PANGO", "pango_context_get_gravity", false)
-
 	cret := xContextGetGravity(x.GoPointer())
 	return cret
 }
@@ -169,8 +157,6 @@ var xContextGetGravityHint func(uintptr) GravityHint
 //
 // See [method@Pango.Context.set_gravity_hint] for details.
 func (x *Context) GetGravityHint() GravityHint {
-	core.LazyRegister(&xContextGetGravityHint, "PANGO", "pango_context_get_gravity_hint", false)
-
 	cret := xContextGetGravityHint(x.GoPointer())
 	return cret
 }
@@ -179,8 +165,6 @@ var xContextGetLanguage func(uintptr) uintptr
 
 // Retrieves the global language tag for the context.
 func (x *Context) GetLanguage() *Language {
-	core.LazyRegister(&xContextGetLanguage, "PANGO", "pango_context_get_language", false)
-
 	cret := xContextGetLanguage(x.GoPointer())
 	if cret == 0 {
 		return nil
@@ -195,8 +179,6 @@ var xContextGetMatrix func(uintptr) uintptr
 //
 // See [method@Pango.Context.set_matrix].
 func (x *Context) GetMatrix() *Matrix {
-	core.LazyRegister(&xContextGetMatrix, "PANGO", "pango_context_get_matrix", false)
-
 	cret := xContextGetMatrix(x.GoPointer())
 	if cret == 0 {
 		return nil
@@ -218,8 +200,6 @@ var xContextGetMetrics func(uintptr, *FontDescription, *Language) uintptr
 // the returned fonts would be a composite of the metrics for the fonts loaded
 // for the individual families.
 func (x *Context) GetMetrics(DescVar *FontDescription, LanguageVar *Language) *FontMetrics {
-	core.LazyRegister(&xContextGetMetrics, "PANGO", "pango_context_get_metrics", false)
-
 	cret := xContextGetMetrics(x.GoPointer(), DescVar, LanguageVar)
 	if cret == 0 {
 		return nil
@@ -232,8 +212,6 @@ var xContextGetRoundGlyphPositions func(uintptr) bool
 // Returns whether font rendering with this context should
 // round glyph positions and widths.
 func (x *Context) GetRoundGlyphPositions() bool {
-	core.LazyRegister(&xContextGetRoundGlyphPositions, "PANGO", "pango_context_get_round_glyph_positions", false)
-
 	cret := xContextGetRoundGlyphPositions(x.GoPointer())
 	return cret
 }
@@ -253,8 +231,6 @@ var xContextGetSerial func(uintptr) uint
 // and is only useful when implementing objects that need update when their
 // `PangoContext` changes, like `PangoLayout`.
 func (x *Context) GetSerial() uint {
-	core.LazyRegister(&xContextGetSerial, "PANGO", "pango_context_get_serial", false)
-
 	cret := xContextGetSerial(x.GoPointer())
 	return cret
 }
@@ -263,8 +239,6 @@ var xContextListFamilies func(uintptr, *uintptr, *int)
 
 // List all families for a context.
 func (x *Context) ListFamilies(FamiliesVar *uintptr, NFamiliesVar *int) {
-	core.LazyRegister(&xContextListFamilies, "PANGO", "pango_context_list_families", false)
-
 	xContextListFamilies(x.GoPointer(), FamiliesVar, NFamiliesVar)
 }
 
@@ -273,7 +247,6 @@ var xContextLoadFont func(uintptr, *FontDescription) uintptr
 // Loads the font in one of the fontmaps in the context
 // that is the closest match for @desc.
 func (x *Context) LoadFont(DescVar *FontDescription) *Font {
-	core.LazyRegister(&xContextLoadFont, "PANGO", "pango_context_load_font", false)
 	var cls *Font
 
 	cret := xContextLoadFont(x.GoPointer(), DescVar)
@@ -291,7 +264,6 @@ var xContextLoadFontset func(uintptr, *FontDescription, *Language) uintptr
 // Load a set of fonts in the context that can be used to render
 // a font matching @desc.
 func (x *Context) LoadFontset(DescVar *FontDescription, LanguageVar *Language) *Fontset {
-	core.LazyRegister(&xContextLoadFontset, "PANGO", "pango_context_load_fontset", false)
 	var cls *Fontset
 
 	cret := xContextLoadFontset(x.GoPointer(), DescVar, LanguageVar)
@@ -315,8 +287,6 @@ var xContextSetBaseDir func(uintptr, Direction)
 // %PANGO_DIRECTION_WEAK_LTR or %PANGO_DIRECTION_WEAK_RTL is used only
 // for paragraphs that do not contain any strong characters themselves.
 func (x *Context) SetBaseDir(DirectionVar Direction) {
-	core.LazyRegister(&xContextSetBaseDir, "PANGO", "pango_context_set_base_dir", false)
-
 	xContextSetBaseDir(x.GoPointer(), DirectionVar)
 }
 
@@ -326,8 +296,6 @@ var xContextSetBaseGravity func(uintptr, Gravity)
 //
 // The base gravity is used in laying vertical text out.
 func (x *Context) SetBaseGravity(GravityVar Gravity) {
-	core.LazyRegister(&xContextSetBaseGravity, "PANGO", "pango_context_set_base_gravity", false)
-
 	xContextSetBaseGravity(x.GoPointer(), GravityVar)
 }
 
@@ -335,8 +303,6 @@ var xContextSetFontDescription func(uintptr, *FontDescription)
 
 // Set the default font description for the context
 func (x *Context) SetFontDescription(DescVar *FontDescription) {
-	core.LazyRegister(&xContextSetFontDescription, "PANGO", "pango_context_set_font_description", false)
-
 	xContextSetFontDescription(x.GoPointer(), DescVar)
 }
 
@@ -349,8 +315,6 @@ var xContextSetFontMap func(uintptr, uintptr)
 // obtained via one of the recommended methods should already have a
 // suitable font map.
 func (x *Context) SetFontMap(FontMapVar *FontMap) {
-	core.LazyRegister(&xContextSetFontMap, "PANGO", "pango_context_set_font_map", false)
-
 	xContextSetFontMap(x.GoPointer(), FontMapVar.GoPointer())
 }
 
@@ -363,8 +327,6 @@ var xContextSetGravityHint func(uintptr, GravityHint)
 // [method@Pango.Context.get_gravity] is set to %PANGO_GRAVITY_EAST
 // or %PANGO_GRAVITY_WEST.
 func (x *Context) SetGravityHint(HintVar GravityHint) {
-	core.LazyRegister(&xContextSetGravityHint, "PANGO", "pango_context_set_gravity_hint", false)
-
 	xContextSetGravityHint(x.GoPointer(), HintVar)
 }
 
@@ -375,8 +337,6 @@ var xContextSetLanguage func(uintptr, *Language)
 // The default language for the locale of the running process
 // can be found using [func@Pango.Language.get_default].
 func (x *Context) SetLanguage(LanguageVar *Language) {
-	core.LazyRegister(&xContextSetLanguage, "PANGO", "pango_context_set_language", false)
-
 	xContextSetLanguage(x.GoPointer(), LanguageVar)
 }
 
@@ -391,8 +351,6 @@ var xContextSetMatrix func(uintptr, *Matrix)
 // they may change slightly for different matrices, depending on how the
 // text is fit to the pixel grid.
 func (x *Context) SetMatrix(MatrixVar *Matrix) {
-	core.LazyRegister(&xContextSetMatrix, "PANGO", "pango_context_set_matrix", false)
-
 	xContextSetMatrix(x.GoPointer(), MatrixVar)
 }
 
@@ -408,8 +366,6 @@ var xContextSetRoundGlyphPositions func(uintptr, bool)
 // The default value is to round glyph positions, to remain
 // compatible with previous Pango behavior.
 func (x *Context) SetRoundGlyphPositions(RoundPositionsVar bool) {
-	core.LazyRegister(&xContextSetRoundGlyphPositions, "PANGO", "pango_context_set_round_glyph_positions", false)
-
 	xContextSetRoundGlyphPositions(x.GoPointer(), RoundPositionsVar)
 }
 
@@ -427,4 +383,40 @@ func (c *Context) SetGoPointer(ptr uintptr) {
 func init() {
 	core.SetPackageName("PANGO", "pango")
 	core.SetSharedLibraries("PANGO", []string{"libpango-1.0.so.0", "libpango-1.0.0.dylib"})
+	var libs []uintptr
+	for _, libPath := range core.GetPaths("PANGO") {
+		lib, err := purego.Dlopen(libPath, purego.RTLD_NOW|purego.RTLD_GLOBAL)
+		if err != nil {
+			panic(err)
+		}
+		libs = append(libs, lib)
+	}
+
+	core.PuregoSafeRegister(&xContextGLibType, libs, "pango_context_get_type")
+
+	core.PuregoSafeRegister(&xNewContext, libs, "pango_context_new")
+
+	core.PuregoSafeRegister(&xContextChanged, libs, "pango_context_changed")
+	core.PuregoSafeRegister(&xContextGetBaseDir, libs, "pango_context_get_base_dir")
+	core.PuregoSafeRegister(&xContextGetBaseGravity, libs, "pango_context_get_base_gravity")
+	core.PuregoSafeRegister(&xContextGetFontDescription, libs, "pango_context_get_font_description")
+	core.PuregoSafeRegister(&xContextGetFontMap, libs, "pango_context_get_font_map")
+	core.PuregoSafeRegister(&xContextGetGravity, libs, "pango_context_get_gravity")
+	core.PuregoSafeRegister(&xContextGetGravityHint, libs, "pango_context_get_gravity_hint")
+	core.PuregoSafeRegister(&xContextGetLanguage, libs, "pango_context_get_language")
+	core.PuregoSafeRegister(&xContextGetMatrix, libs, "pango_context_get_matrix")
+	core.PuregoSafeRegister(&xContextGetMetrics, libs, "pango_context_get_metrics")
+	core.PuregoSafeRegister(&xContextGetRoundGlyphPositions, libs, "pango_context_get_round_glyph_positions")
+	core.PuregoSafeRegister(&xContextGetSerial, libs, "pango_context_get_serial")
+	core.PuregoSafeRegister(&xContextListFamilies, libs, "pango_context_list_families")
+	core.PuregoSafeRegister(&xContextLoadFont, libs, "pango_context_load_font")
+	core.PuregoSafeRegister(&xContextLoadFontset, libs, "pango_context_load_fontset")
+	core.PuregoSafeRegister(&xContextSetBaseDir, libs, "pango_context_set_base_dir")
+	core.PuregoSafeRegister(&xContextSetBaseGravity, libs, "pango_context_set_base_gravity")
+	core.PuregoSafeRegister(&xContextSetFontDescription, libs, "pango_context_set_font_description")
+	core.PuregoSafeRegister(&xContextSetFontMap, libs, "pango_context_set_font_map")
+	core.PuregoSafeRegister(&xContextSetGravityHint, libs, "pango_context_set_gravity_hint")
+	core.PuregoSafeRegister(&xContextSetLanguage, libs, "pango_context_set_language")
+	core.PuregoSafeRegister(&xContextSetMatrix, libs, "pango_context_set_matrix")
+	core.PuregoSafeRegister(&xContextSetRoundGlyphPositions, libs, "pango_context_set_round_glyph_positions")
 }

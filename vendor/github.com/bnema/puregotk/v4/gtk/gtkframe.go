@@ -111,7 +111,6 @@ type Frame struct {
 var xFrameGLibType func() types.GType
 
 func FrameGLibType() types.GType {
-	core.LazyRegister(&xFrameGLibType, "GTK", "gtk_frame_get_type", false)
 	return xFrameGLibType()
 }
 
@@ -127,7 +126,6 @@ var xNewFrame func(uintptr) uintptr
 //
 // If @label is %NULL, the label is omitted.
 func NewFrame(LabelVar *string) *Frame {
-	core.LazyRegister(&xNewFrame, "GTK", "gtk_frame_new", false)
 	var cls *Frame
 
 	LabelVarPtr := core.GStrdupNullable(LabelVar)
@@ -148,7 +146,6 @@ var xFrameGetChild func(uintptr) uintptr
 
 // Gets the child widget of @frame.
 func (x *Frame) GetChild() *Widget {
-	core.LazyRegister(&xFrameGetChild, "GTK", "gtk_frame_get_child", false)
 	var cls *Widget
 
 	cret := xFrameGetChild(x.GoPointer())
@@ -169,8 +166,6 @@ var xFrameGetLabel func(uintptr) string
 // If the frame's label widget is not a `GtkLabel`, %NULL
 // is returned.
 func (x *Frame) GetLabel() string {
-	core.LazyRegister(&xFrameGetLabel, "GTK", "gtk_frame_get_label", false)
-
 	cret := xFrameGetLabel(x.GoPointer())
 	return cret
 }
@@ -179,8 +174,6 @@ var xFrameGetLabelAlign func(uintptr) float32
 
 // Retrieves the X alignment of the frame’s label.
 func (x *Frame) GetLabelAlign() float32 {
-	core.LazyRegister(&xFrameGetLabelAlign, "GTK", "gtk_frame_get_label_align", false)
-
 	cret := xFrameGetLabelAlign(x.GoPointer())
 	return cret
 }
@@ -189,7 +182,6 @@ var xFrameGetLabelWidget func(uintptr) uintptr
 
 // Retrieves the label widget for the frame.
 func (x *Frame) GetLabelWidget() *Widget {
-	core.LazyRegister(&xFrameGetLabelWidget, "GTK", "gtk_frame_get_label_widget", false)
 	var cls *Widget
 
 	cret := xFrameGetLabelWidget(x.GoPointer())
@@ -207,8 +199,6 @@ var xFrameSetChild func(uintptr, uintptr)
 
 // Sets the child widget of @frame.
 func (x *Frame) SetChild(ChildVar *Widget) {
-	core.LazyRegister(&xFrameSetChild, "GTK", "gtk_frame_set_child", false)
-
 	xFrameSetChild(x.GoPointer(), ChildVar.GoPointer())
 }
 
@@ -217,8 +207,6 @@ var xFrameSetLabel func(uintptr, uintptr)
 // Creates a new `GtkLabel` with the @label and sets it as the frame's
 // label widget.
 func (x *Frame) SetLabel(LabelVar *string) {
-	core.LazyRegister(&xFrameSetLabel, "GTK", "gtk_frame_set_label", false)
-
 	LabelVarPtr := core.GStrdupNullable(LabelVar)
 	defer core.GFreeNullable(LabelVarPtr)
 
@@ -231,8 +219,6 @@ var xFrameSetLabelAlign func(uintptr, float32)
 //
 // The default value for a newly created frame is 0.0.
 func (x *Frame) SetLabelAlign(XalignVar float32) {
-	core.LazyRegister(&xFrameSetLabelAlign, "GTK", "gtk_frame_set_label_align", false)
-
 	xFrameSetLabelAlign(x.GoPointer(), XalignVar)
 }
 
@@ -243,8 +229,6 @@ var xFrameSetLabelWidget func(uintptr, uintptr)
 // This is the widget that will appear embedded in the top edge
 // of the frame as a title.
 func (x *Frame) SetLabelWidget(LabelWidgetVar *Widget) {
-	core.LazyRegister(&xFrameSetLabelWidget, "GTK", "gtk_frame_set_label_widget", false)
-
 	xFrameSetLabelWidget(x.GoPointer(), LabelWidgetVar.GoPointer())
 }
 
@@ -556,4 +540,25 @@ func (x *Frame) GetBuildableId() string {
 func init() {
 	core.SetPackageName("GTK", "gtk4")
 	core.SetSharedLibraries("GTK", []string{"libgtk-4.so.1", "libgtk-4.1.dylib"})
+	var libs []uintptr
+	for _, libPath := range core.GetPaths("GTK") {
+		lib, err := purego.Dlopen(libPath, purego.RTLD_NOW|purego.RTLD_GLOBAL)
+		if err != nil {
+			panic(err)
+		}
+		libs = append(libs, lib)
+	}
+
+	core.PuregoSafeRegister(&xFrameGLibType, libs, "gtk_frame_get_type")
+
+	core.PuregoSafeRegister(&xNewFrame, libs, "gtk_frame_new")
+
+	core.PuregoSafeRegister(&xFrameGetChild, libs, "gtk_frame_get_child")
+	core.PuregoSafeRegister(&xFrameGetLabel, libs, "gtk_frame_get_label")
+	core.PuregoSafeRegister(&xFrameGetLabelAlign, libs, "gtk_frame_get_label_align")
+	core.PuregoSafeRegister(&xFrameGetLabelWidget, libs, "gtk_frame_get_label_widget")
+	core.PuregoSafeRegister(&xFrameSetChild, libs, "gtk_frame_set_child")
+	core.PuregoSafeRegister(&xFrameSetLabel, libs, "gtk_frame_set_label")
+	core.PuregoSafeRegister(&xFrameSetLabelAlign, libs, "gtk_frame_set_label_align")
+	core.PuregoSafeRegister(&xFrameSetLabelWidget, libs, "gtk_frame_set_label_widget")
 }

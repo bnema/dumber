@@ -122,7 +122,6 @@ type UnixCredentialsMessage struct {
 var xUnixCredentialsMessageGLibType func() types.GType
 
 func UnixCredentialsMessageGLibType() types.GType {
-	core.LazyRegister(&xUnixCredentialsMessageGLibType, "GIO", "g_unix_credentials_message_get_type", false)
 	return xUnixCredentialsMessageGLibType()
 }
 
@@ -136,7 +135,6 @@ var xNewUnixCredentialsMessage func() uintptr
 
 // Creates a new #GUnixCredentialsMessage with credentials matching the current processes.
 func NewUnixCredentialsMessage() *UnixCredentialsMessage {
-	core.LazyRegister(&xNewUnixCredentialsMessage, "GIO", "g_unix_credentials_message_new", false)
 	var cls *UnixCredentialsMessage
 
 	cret := xNewUnixCredentialsMessage()
@@ -153,7 +151,6 @@ var xNewUnixCredentialsMessageWithCredentials func(uintptr) uintptr
 
 // Creates a new #GUnixCredentialsMessage holding @credentials.
 func NewUnixCredentialsMessageWithCredentials(CredentialsVar *Credentials) *UnixCredentialsMessage {
-	core.LazyRegister(&xNewUnixCredentialsMessageWithCredentials, "GIO", "g_unix_credentials_message_new_with_credentials", false)
 	var cls *UnixCredentialsMessage
 
 	cret := xNewUnixCredentialsMessageWithCredentials(CredentialsVar.GoPointer())
@@ -170,7 +167,6 @@ var xUnixCredentialsMessageGetCredentials func(uintptr) uintptr
 
 // Gets the credentials stored in @message.
 func (x *UnixCredentialsMessage) GetCredentials() *Credentials {
-	core.LazyRegister(&xUnixCredentialsMessageGetCredentials, "GIO", "g_unix_credentials_message_get_credentials", false)
 	var cls *Credentials
 
 	cret := xUnixCredentialsMessageGetCredentials(x.GoPointer())
@@ -199,8 +195,6 @@ var xUnixCredentialsMessageIsSupported func() bool
 
 // Checks if passing #GCredentials on a #GSocket is supported on this platform.
 func UnixCredentialsMessageIsSupported() bool {
-	core.LazyRegister(&xUnixCredentialsMessageIsSupported, "GIO", "g_unix_credentials_message_is_supported", false)
-
 	cret := xUnixCredentialsMessageIsSupported()
 	return cret
 }
@@ -208,4 +202,21 @@ func UnixCredentialsMessageIsSupported() bool {
 func init() {
 	core.SetPackageName("GIO", "gio-2.0")
 	core.SetSharedLibraries("GIO", []string{"libgio-2.0.so.0", "libgio-2.0.0.dylib"})
+	var libs []uintptr
+	for _, libPath := range core.GetPaths("GIO") {
+		lib, err := purego.Dlopen(libPath, purego.RTLD_NOW|purego.RTLD_GLOBAL)
+		if err != nil {
+			panic(err)
+		}
+		libs = append(libs, lib)
+	}
+
+	core.PuregoSafeRegister(&xUnixCredentialsMessageGLibType, libs, "g_unix_credentials_message_get_type")
+
+	core.PuregoSafeRegister(&xNewUnixCredentialsMessage, libs, "g_unix_credentials_message_new")
+	core.PuregoSafeRegister(&xNewUnixCredentialsMessageWithCredentials, libs, "g_unix_credentials_message_new_with_credentials")
+
+	core.PuregoSafeRegister(&xUnixCredentialsMessageGetCredentials, libs, "g_unix_credentials_message_get_credentials")
+
+	core.PuregoSafeRegister(&xUnixCredentialsMessageIsSupported, libs, "g_unix_credentials_message_is_supported")
 }

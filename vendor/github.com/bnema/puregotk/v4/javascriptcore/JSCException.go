@@ -5,6 +5,7 @@ import (
 	"structs"
 	"unsafe"
 
+	"github.com/bnema/purego"
 	"github.com/bnema/puregotk/pkg/core"
 	"github.com/bnema/puregotk/v4/gobject"
 	"github.com/bnema/puregotk/v4/gobject/types"
@@ -36,7 +37,6 @@ type Exception struct {
 var xExceptionGLibType func() types.GType
 
 func ExceptionGLibType() types.GType {
-	core.LazyRegister(&xExceptionGLibType, "JAVASCRIPTCORE", "jsc_exception_get_type", false)
 	return xExceptionGLibType()
 }
 
@@ -50,7 +50,6 @@ var xNewException func(uintptr, string) uintptr
 
 // Create a new #JSCException in @context with @message.
 func NewException(ContextVar *Context, MessageVar string) *Exception {
-	core.LazyRegister(&xNewException, "JAVASCRIPTCORE", "jsc_exception_new", false)
 	var cls *Exception
 
 	cret := xNewException(ContextVar.GoPointer(), MessageVar)
@@ -68,7 +67,6 @@ var xNewExceptionPrintf func(uintptr, string, ...interface{}) uintptr
 // Create a new #JSCException in @context using a formatted string
 // for the message.
 func NewExceptionPrintf(ContextVar *Context, FormatVar string, varArgs ...interface{}) *Exception {
-	core.LazyRegister(&xNewExceptionPrintf, "JAVASCRIPTCORE", "jsc_exception_new_printf", false)
 	var cls *Exception
 
 	cret := xNewExceptionPrintf(ContextVar.GoPointer(), FormatVar, varArgs...)
@@ -87,7 +85,6 @@ var xNewExceptionVprintf func(uintptr, string, []interface{}) uintptr
 // for the message. This is similar to jsc_exception_new_printf()
 // except that the arguments to the format string are passed as a va_list.
 func NewExceptionVprintf(ContextVar *Context, FormatVar string, ArgsVar []interface{}) *Exception {
-	core.LazyRegister(&xNewExceptionVprintf, "JAVASCRIPTCORE", "jsc_exception_new_vprintf", false)
 	var cls *Exception
 
 	cret := xNewExceptionVprintf(ContextVar.GoPointer(), FormatVar, ArgsVar)
@@ -104,7 +101,6 @@ var xNewExceptionWithName func(uintptr, string, string) uintptr
 
 // Create a new #JSCException in @context with @name and @message.
 func NewExceptionWithName(ContextVar *Context, NameVar string, MessageVar string) *Exception {
-	core.LazyRegister(&xNewExceptionWithName, "JAVASCRIPTCORE", "jsc_exception_new_with_name", false)
 	var cls *Exception
 
 	cret := xNewExceptionWithName(ContextVar.GoPointer(), NameVar, MessageVar)
@@ -122,7 +118,6 @@ var xNewExceptionWithNamePrintf func(uintptr, string, string, ...interface{}) ui
 // Create a new #JSCException in @context with @name and using a formatted string
 // for the message.
 func NewExceptionWithNamePrintf(ContextVar *Context, NameVar string, FormatVar string, varArgs ...interface{}) *Exception {
-	core.LazyRegister(&xNewExceptionWithNamePrintf, "JAVASCRIPTCORE", "jsc_exception_new_with_name_printf", false)
 	var cls *Exception
 
 	cret := xNewExceptionWithNamePrintf(ContextVar.GoPointer(), NameVar, FormatVar, varArgs...)
@@ -141,7 +136,6 @@ var xNewExceptionWithNameVprintf func(uintptr, string, string, []interface{}) ui
 // for the message. This is similar to jsc_exception_new_with_name_printf()
 // except that the arguments to the format string are passed as a va_list.
 func NewExceptionWithNameVprintf(ContextVar *Context, NameVar string, FormatVar string, ArgsVar []interface{}) *Exception {
-	core.LazyRegister(&xNewExceptionWithNameVprintf, "JAVASCRIPTCORE", "jsc_exception_new_with_name_vprintf", false)
 	var cls *Exception
 
 	cret := xNewExceptionWithNameVprintf(ContextVar.GoPointer(), NameVar, FormatVar, ArgsVar)
@@ -158,8 +152,6 @@ var xExceptionGetBacktraceString func(uintptr) string
 
 // Get a string with the exception backtrace.
 func (x *Exception) GetBacktraceString() string {
-	core.LazyRegister(&xExceptionGetBacktraceString, "JAVASCRIPTCORE", "jsc_exception_get_backtrace_string", false)
-
 	cret := xExceptionGetBacktraceString(x.GoPointer())
 	return cret
 }
@@ -168,8 +160,6 @@ var xExceptionGetColumnNumber func(uintptr) uint
 
 // Get the column number at which @exception happened.
 func (x *Exception) GetColumnNumber() uint {
-	core.LazyRegister(&xExceptionGetColumnNumber, "JAVASCRIPTCORE", "jsc_exception_get_column_number", false)
-
 	cret := xExceptionGetColumnNumber(x.GoPointer())
 	return cret
 }
@@ -178,8 +168,6 @@ var xExceptionGetLineNumber func(uintptr) uint
 
 // Get the line number at which @exception happened.
 func (x *Exception) GetLineNumber() uint {
-	core.LazyRegister(&xExceptionGetLineNumber, "JAVASCRIPTCORE", "jsc_exception_get_line_number", false)
-
 	cret := xExceptionGetLineNumber(x.GoPointer())
 	return cret
 }
@@ -188,8 +176,6 @@ var xExceptionGetMessage func(uintptr) string
 
 // Get the error message of @exception.
 func (x *Exception) GetMessage() string {
-	core.LazyRegister(&xExceptionGetMessage, "JAVASCRIPTCORE", "jsc_exception_get_message", false)
-
 	cret := xExceptionGetMessage(x.GoPointer())
 	return cret
 }
@@ -198,8 +184,6 @@ var xExceptionGetName func(uintptr) string
 
 // Get the error name of @exception
 func (x *Exception) GetName() string {
-	core.LazyRegister(&xExceptionGetName, "JAVASCRIPTCORE", "jsc_exception_get_name", false)
-
 	cret := xExceptionGetName(x.GoPointer())
 	return cret
 }
@@ -208,8 +192,6 @@ var xExceptionGetSourceUri func(uintptr) string
 
 // Get the source URI of @exception.
 func (x *Exception) GetSourceUri() string {
-	core.LazyRegister(&xExceptionGetSourceUri, "JAVASCRIPTCORE", "jsc_exception_get_source_uri", false)
-
 	cret := xExceptionGetSourceUri(x.GoPointer())
 	return cret
 }
@@ -219,8 +201,6 @@ var xExceptionReport func(uintptr) string
 // Return a report message of @exception, containing all the possible details such us
 // source URI, line, column and backtrace, and formatted to be printed.
 func (x *Exception) Report() string {
-	core.LazyRegister(&xExceptionReport, "JAVASCRIPTCORE", "jsc_exception_report", false)
-
 	cret := xExceptionReport(x.GoPointer())
 	return cret
 }
@@ -229,8 +209,6 @@ var xExceptionToString func(uintptr) string
 
 // Get the string representation of @exception error.
 func (x *Exception) ToString() string {
-	core.LazyRegister(&xExceptionToString, "JAVASCRIPTCORE", "jsc_exception_to_string", false)
-
 	cret := xExceptionToString(x.GoPointer())
 	return cret
 }
@@ -249,4 +227,30 @@ func (c *Exception) SetGoPointer(ptr uintptr) {
 func init() {
 	core.SetPackageName("JAVASCRIPTCORE", "javascriptcoregtk-6.0")
 	core.SetSharedLibraries("JAVASCRIPTCORE", []string{"libjavascriptcoregtk-6.0.so.1", "libjavascriptcoregtk-6.0.1.dylib"})
+	var libs []uintptr
+	for _, libPath := range core.GetPaths("JAVASCRIPTCORE") {
+		lib, err := purego.Dlopen(libPath, purego.RTLD_NOW|purego.RTLD_GLOBAL)
+		if err != nil {
+			panic(err)
+		}
+		libs = append(libs, lib)
+	}
+
+	core.PuregoSafeRegister(&xExceptionGLibType, libs, "jsc_exception_get_type")
+
+	core.PuregoSafeRegister(&xNewException, libs, "jsc_exception_new")
+	core.PuregoSafeRegister(&xNewExceptionPrintf, libs, "jsc_exception_new_printf")
+	core.PuregoSafeRegister(&xNewExceptionVprintf, libs, "jsc_exception_new_vprintf")
+	core.PuregoSafeRegister(&xNewExceptionWithName, libs, "jsc_exception_new_with_name")
+	core.PuregoSafeRegister(&xNewExceptionWithNamePrintf, libs, "jsc_exception_new_with_name_printf")
+	core.PuregoSafeRegister(&xNewExceptionWithNameVprintf, libs, "jsc_exception_new_with_name_vprintf")
+
+	core.PuregoSafeRegister(&xExceptionGetBacktraceString, libs, "jsc_exception_get_backtrace_string")
+	core.PuregoSafeRegister(&xExceptionGetColumnNumber, libs, "jsc_exception_get_column_number")
+	core.PuregoSafeRegister(&xExceptionGetLineNumber, libs, "jsc_exception_get_line_number")
+	core.PuregoSafeRegister(&xExceptionGetMessage, libs, "jsc_exception_get_message")
+	core.PuregoSafeRegister(&xExceptionGetName, libs, "jsc_exception_get_name")
+	core.PuregoSafeRegister(&xExceptionGetSourceUri, libs, "jsc_exception_get_source_uri")
+	core.PuregoSafeRegister(&xExceptionReport, libs, "jsc_exception_report")
+	core.PuregoSafeRegister(&xExceptionToString, libs, "jsc_exception_to_string")
 }

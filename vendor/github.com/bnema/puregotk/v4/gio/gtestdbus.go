@@ -2,6 +2,7 @@
 package gio
 
 import (
+	"github.com/bnema/purego"
 	"github.com/bnema/puregotk/pkg/core"
 	"github.com/bnema/puregotk/v4/gobject"
 	"github.com/bnema/puregotk/v4/gobject/types"
@@ -95,7 +96,6 @@ type TestDBus struct {
 var xTestDBusGLibType func() types.GType
 
 func TestDBusGLibType() types.GType {
-	core.LazyRegister(&xTestDBusGLibType, "GIO", "g_test_dbus_get_type", false)
 	return xTestDBusGLibType()
 }
 
@@ -109,7 +109,6 @@ var xNewTestDBus func(TestDBusFlags) uintptr
 
 // Create a new #GTestDBus object.
 func NewTestDBus(FlagsVar TestDBusFlags) *TestDBus {
-	core.LazyRegister(&xNewTestDBus, "GIO", "g_test_dbus_new", false)
 	var cls *TestDBus
 
 	cret := xNewTestDBus(FlagsVar)
@@ -127,8 +126,6 @@ var xTestDBusAddServiceDir func(uintptr, string)
 // Add a path where dbus-daemon will look up .service files. This can't be
 // called after g_test_dbus_up().
 func (x *TestDBus) AddServiceDir(PathVar string) {
-	core.LazyRegister(&xTestDBusAddServiceDir, "GIO", "g_test_dbus_add_service_dir", false)
-
 	xTestDBusAddServiceDir(x.GoPointer(), PathVar)
 }
 
@@ -140,8 +137,6 @@ var xTestDBusDown func(uintptr)
 // to be destroyed. This is done to ensure that the next unit test won't get a
 // leaked singleton from this test.
 func (x *TestDBus) Down() {
-	core.LazyRegister(&xTestDBusDown, "GIO", "g_test_dbus_down", false)
-
 	xTestDBusDown(x.GoPointer())
 }
 
@@ -151,8 +146,6 @@ var xTestDBusGetBusAddress func(uintptr) string
 // been called yet, %NULL is returned. This can be used with
 // g_dbus_connection_new_for_address().
 func (x *TestDBus) GetBusAddress() string {
-	core.LazyRegister(&xTestDBusGetBusAddress, "GIO", "g_test_dbus_get_bus_address", false)
-
 	cret := xTestDBusGetBusAddress(x.GoPointer())
 	return cret
 }
@@ -161,8 +154,6 @@ var xTestDBusGetFlags func(uintptr) TestDBusFlags
 
 // Get the flags of the #GTestDBus object.
 func (x *TestDBus) GetFlags() TestDBusFlags {
-	core.LazyRegister(&xTestDBusGetFlags, "GIO", "g_test_dbus_get_flags", false)
-
 	cret := xTestDBusGetFlags(x.GoPointer())
 	return cret
 }
@@ -176,8 +167,6 @@ var xTestDBusStop func(uintptr)
 // tests wanting to verify behaviour after the session bus has been stopped
 // can use this function but should still call g_test_dbus_down() when done.
 func (x *TestDBus) Stop() {
-	core.LazyRegister(&xTestDBusStop, "GIO", "g_test_dbus_stop", false)
-
 	xTestDBusStop(x.GoPointer())
 }
 
@@ -192,8 +181,6 @@ var xTestDBusUp func(uintptr)
 // If this function is called from unit test's main(), then g_test_dbus_down()
 // must be called after g_test_run().
 func (x *TestDBus) Up() {
-	core.LazyRegister(&xTestDBusUp, "GIO", "g_test_dbus_up", false)
-
 	xTestDBusUp(x.GoPointer())
 }
 
@@ -217,12 +204,31 @@ var xTestDBusUnset func()
 // bus is running. It is not necessary to call this if unit test already calls
 // g_test_dbus_up() before acquiring the session bus.
 func TestDBusUnset() {
-	core.LazyRegister(&xTestDBusUnset, "GIO", "g_test_dbus_unset", false)
-
 	xTestDBusUnset()
 }
 
 func init() {
 	core.SetPackageName("GIO", "gio-2.0")
 	core.SetSharedLibraries("GIO", []string{"libgio-2.0.so.0", "libgio-2.0.0.dylib"})
+	var libs []uintptr
+	for _, libPath := range core.GetPaths("GIO") {
+		lib, err := purego.Dlopen(libPath, purego.RTLD_NOW|purego.RTLD_GLOBAL)
+		if err != nil {
+			panic(err)
+		}
+		libs = append(libs, lib)
+	}
+
+	core.PuregoSafeRegister(&xTestDBusGLibType, libs, "g_test_dbus_get_type")
+
+	core.PuregoSafeRegister(&xNewTestDBus, libs, "g_test_dbus_new")
+
+	core.PuregoSafeRegister(&xTestDBusAddServiceDir, libs, "g_test_dbus_add_service_dir")
+	core.PuregoSafeRegister(&xTestDBusDown, libs, "g_test_dbus_down")
+	core.PuregoSafeRegister(&xTestDBusGetBusAddress, libs, "g_test_dbus_get_bus_address")
+	core.PuregoSafeRegister(&xTestDBusGetFlags, libs, "g_test_dbus_get_flags")
+	core.PuregoSafeRegister(&xTestDBusStop, libs, "g_test_dbus_stop")
+	core.PuregoSafeRegister(&xTestDBusUp, libs, "g_test_dbus_up")
+
+	core.PuregoSafeRegister(&xTestDBusUnset, libs, "g_test_dbus_unset")
 }

@@ -5,6 +5,7 @@ import (
 	"structs"
 	"unsafe"
 
+	"github.com/bnema/purego"
 	"github.com/bnema/puregotk/pkg/core"
 	"github.com/bnema/puregotk/v4/gdk"
 	"github.com/bnema/puregotk/v4/gobject"
@@ -71,7 +72,6 @@ type SidebarItem struct {
 var xSidebarItemGLibType func() types.GType
 
 func SidebarItemGLibType() types.GType {
-	core.LazyRegister(&xSidebarItemGLibType, "ADW", "adw_sidebar_item_get_type", false)
 	return xSidebarItemGLibType()
 }
 
@@ -85,7 +85,6 @@ var xNewSidebarItem func(string) uintptr
 
 // Creates a new `AdwSidebarItem` with @title as its title.
 func NewSidebarItem(TitleVar string) *SidebarItem {
-	core.LazyRegister(&xNewSidebarItem, "ADW", "adw_sidebar_item_new", false)
 	var cls *SidebarItem
 
 	cret := xNewSidebarItem(TitleVar)
@@ -102,8 +101,6 @@ var xSidebarItemGetDragMotionActivate func(uintptr) bool
 
 // Gets whether @self will be activated on pointer motion during Drag-and-Drop.
 func (x *SidebarItem) GetDragMotionActivate() bool {
-	core.LazyRegister(&xSidebarItemGetDragMotionActivate, "ADW", "adw_sidebar_item_get_drag_motion_activate", false)
-
 	cret := xSidebarItemGetDragMotionActivate(x.GoPointer())
 	return cret
 }
@@ -112,8 +109,6 @@ var xSidebarItemGetEnabled func(uintptr) bool
 
 // Gets whether @self is enabled.
 func (x *SidebarItem) GetEnabled() bool {
-	core.LazyRegister(&xSidebarItemGetEnabled, "ADW", "adw_sidebar_item_get_enabled", false)
-
 	cret := xSidebarItemGetEnabled(x.GoPointer())
 	return cret
 }
@@ -122,8 +117,6 @@ var xSidebarItemGetIconName func(uintptr) string
 
 // Gets the icon name for @item.
 func (x *SidebarItem) GetIconName() string {
-	core.LazyRegister(&xSidebarItemGetIconName, "ADW", "adw_sidebar_item_get_icon_name", false)
-
 	cret := xSidebarItemGetIconName(x.GoPointer())
 	return cret
 }
@@ -132,7 +125,6 @@ var xSidebarItemGetIconPaintable func(uintptr) uintptr
 
 // Gets the paintable used as the icon for @item.
 func (x *SidebarItem) GetIconPaintable() *gdk.PaintableBase {
-	core.LazyRegister(&xSidebarItemGetIconPaintable, "ADW", "adw_sidebar_item_get_icon_paintable", false)
 	var cls *gdk.PaintableBase
 
 	cret := xSidebarItemGetIconPaintable(x.GoPointer())
@@ -158,8 +150,6 @@ var xSidebarItemGetIndex func(uintptr) uint
 // The item can later be retrieved by passing this index into
 // [method@Sidebar.get_item].
 func (x *SidebarItem) GetIndex() uint {
-	core.LazyRegister(&xSidebarItemGetIndex, "ADW", "adw_sidebar_item_get_index", false)
-
 	cret := xSidebarItemGetIndex(x.GoPointer())
 	return cret
 }
@@ -168,7 +158,6 @@ var xSidebarItemGetSection func(uintptr) uintptr
 
 // Gets the section @self is in.
 func (x *SidebarItem) GetSection() *SidebarSection {
-	core.LazyRegister(&xSidebarItemGetSection, "ADW", "adw_sidebar_item_get_section", false)
 	var cls *SidebarSection
 
 	cret := xSidebarItemGetSection(x.GoPointer())
@@ -191,8 +180,6 @@ var xSidebarItemGetSectionIndex func(uintptr) uint
 // The item can later be retrieved by passing this index into
 // [method@SidebarSection.get_item].
 func (x *SidebarItem) GetSectionIndex() uint {
-	core.LazyRegister(&xSidebarItemGetSectionIndex, "ADW", "adw_sidebar_item_get_section_index", false)
-
 	cret := xSidebarItemGetSectionIndex(x.GoPointer())
 	return cret
 }
@@ -201,8 +188,6 @@ var xSidebarItemGetSubtitle func(uintptr) string
 
 // Gets the subtitle of @self.
 func (x *SidebarItem) GetSubtitle() string {
-	core.LazyRegister(&xSidebarItemGetSubtitle, "ADW", "adw_sidebar_item_get_subtitle", false)
-
 	cret := xSidebarItemGetSubtitle(x.GoPointer())
 	return cret
 }
@@ -211,7 +196,6 @@ var xSidebarItemGetSuffix func(uintptr) uintptr
 
 // Gets the suffix widget for @self.
 func (x *SidebarItem) GetSuffix() *gtk.Widget {
-	core.LazyRegister(&xSidebarItemGetSuffix, "ADW", "adw_sidebar_item_get_suffix", false)
 	var cls *gtk.Widget
 
 	cret := xSidebarItemGetSuffix(x.GoPointer())
@@ -229,8 +213,6 @@ var xSidebarItemGetTitle func(uintptr) string
 
 // Gets the title of @self.
 func (x *SidebarItem) GetTitle() string {
-	core.LazyRegister(&xSidebarItemGetTitle, "ADW", "adw_sidebar_item_get_title", false)
-
 	cret := xSidebarItemGetTitle(x.GoPointer())
 	return cret
 }
@@ -239,8 +221,6 @@ var xSidebarItemGetTooltip func(uintptr) string
 
 // Gets the tooltip of @self.
 func (x *SidebarItem) GetTooltip() string {
-	core.LazyRegister(&xSidebarItemGetTooltip, "ADW", "adw_sidebar_item_get_tooltip", false)
-
 	cret := xSidebarItemGetTooltip(x.GoPointer())
 	return cret
 }
@@ -249,8 +229,6 @@ var xSidebarItemGetUseUnderline func(uintptr) bool
 
 // Gets whether an underline in the title indicates a mnemonic.
 func (x *SidebarItem) GetUseUnderline() bool {
-	core.LazyRegister(&xSidebarItemGetUseUnderline, "ADW", "adw_sidebar_item_get_use_underline", false)
-
 	cret := xSidebarItemGetUseUnderline(x.GoPointer())
 	return cret
 }
@@ -259,8 +237,6 @@ var xSidebarItemGetVisible func(uintptr) bool
 
 // Gets whether @self is visible.
 func (x *SidebarItem) GetVisible() bool {
-	core.LazyRegister(&xSidebarItemGetVisible, "ADW", "adw_sidebar_item_get_visible", false)
-
 	cret := xSidebarItemGetVisible(x.GoPointer())
 	return cret
 }
@@ -273,8 +249,6 @@ var xSidebarItemSetDragMotionActivate func(uintptr, bool)
 // represents, when the sidebar is used as a page switcher. However, it may be
 // unwanted when dropping content onto the item itself, so it can be disabled.
 func (x *SidebarItem) SetDragMotionActivate(DragMotionActivateVar bool) {
-	core.LazyRegister(&xSidebarItemSetDragMotionActivate, "ADW", "adw_sidebar_item_set_drag_motion_activate", false)
-
 	xSidebarItemSetDragMotionActivate(x.GoPointer(), DragMotionActivateVar)
 }
 
@@ -284,8 +258,6 @@ var xSidebarItemSetEnabled func(uintptr, bool)
 //
 // See [property@Gtk.Widget:sensitive].
 func (x *SidebarItem) SetEnabled(EnabledVar bool) {
-	core.LazyRegister(&xSidebarItemSetEnabled, "ADW", "adw_sidebar_item_set_enabled", false)
-
 	xSidebarItemSetEnabled(x.GoPointer(), EnabledVar)
 }
 
@@ -295,8 +267,6 @@ var xSidebarItemSetIconName func(uintptr, uintptr)
 //
 // Mutually exclusive with [property@SidebarItem:icon-paintable].
 func (x *SidebarItem) SetIconName(IconNameVar *string) {
-	core.LazyRegister(&xSidebarItemSetIconName, "ADW", "adw_sidebar_item_set_icon_name", false)
-
 	IconNameVarPtr := core.GStrdupNullable(IconNameVar)
 	defer core.GFreeNullable(IconNameVarPtr)
 
@@ -309,8 +279,6 @@ var xSidebarItemSetIconPaintable func(uintptr, uintptr)
 //
 // Mutually exclusive with [property@SidebarItem:icon-name].
 func (x *SidebarItem) SetIconPaintable(PaintableVar gdk.Paintable) {
-	core.LazyRegister(&xSidebarItemSetIconPaintable, "ADW", "adw_sidebar_item_set_icon_paintable", false)
-
 	xSidebarItemSetIconPaintable(x.GoPointer(), PaintableVar.GoPointer())
 }
 
@@ -318,8 +286,6 @@ var xSidebarItemSetSubtitle func(uintptr, uintptr)
 
 // Sets the subtitle of @self.
 func (x *SidebarItem) SetSubtitle(SubtitleVar *string) {
-	core.LazyRegister(&xSidebarItemSetSubtitle, "ADW", "adw_sidebar_item_set_subtitle", false)
-
 	SubtitleVarPtr := core.GStrdupNullable(SubtitleVar)
 	defer core.GFreeNullable(SubtitleVarPtr)
 
@@ -333,8 +299,6 @@ var xSidebarItemSetSuffix func(uintptr, uintptr)
 // Suffix will be shown at the end of the item's row, or before the arrow in
 // the [enum@Adw.SidebarMode.page] mode.
 func (x *SidebarItem) SetSuffix(SuffixVar *gtk.Widget) {
-	core.LazyRegister(&xSidebarItemSetSuffix, "ADW", "adw_sidebar_item_set_suffix", false)
-
 	xSidebarItemSetSuffix(x.GoPointer(), SuffixVar.GoPointer())
 }
 
@@ -342,8 +306,6 @@ var xSidebarItemSetTitle func(uintptr, uintptr)
 
 // Sets the title of @self.
 func (x *SidebarItem) SetTitle(TitleVar *string) {
-	core.LazyRegister(&xSidebarItemSetTitle, "ADW", "adw_sidebar_item_set_title", false)
-
 	TitleVarPtr := core.GStrdupNullable(TitleVar)
 	defer core.GFreeNullable(TitleVarPtr)
 
@@ -356,8 +318,6 @@ var xSidebarItemSetTooltip func(uintptr, uintptr)
 //
 // The tooltip can be marked up with the Pango text markup language.
 func (x *SidebarItem) SetTooltip(TooltipVar *string) {
-	core.LazyRegister(&xSidebarItemSetTooltip, "ADW", "adw_sidebar_item_set_tooltip", false)
-
 	TooltipVarPtr := core.GStrdupNullable(TooltipVar)
 	defer core.GFreeNullable(TooltipVarPtr)
 
@@ -370,8 +330,6 @@ var xSidebarItemSetUseUnderline func(uintptr, bool)
 //
 // The mnemonic can be used to activate the item.
 func (x *SidebarItem) SetUseUnderline(UseUnderlineVar bool) {
-	core.LazyRegister(&xSidebarItemSetUseUnderline, "ADW", "adw_sidebar_item_set_use_underline", false)
-
 	xSidebarItemSetUseUnderline(x.GoPointer(), UseUnderlineVar)
 }
 
@@ -379,8 +337,6 @@ var xSidebarItemSetVisible func(uintptr, bool)
 
 // Sets whether @self is visible.
 func (x *SidebarItem) SetVisible(VisibleVar bool) {
-	core.LazyRegister(&xSidebarItemSetVisible, "ADW", "adw_sidebar_item_set_visible", false)
-
 	xSidebarItemSetVisible(x.GoPointer(), VisibleVar)
 }
 
@@ -558,4 +514,40 @@ func (x *SidebarItem) GetPropertyVisible() bool {
 func init() {
 	core.SetPackageName("ADW", "libadwaita-1")
 	core.SetSharedLibraries("ADW", []string{"libadwaita-1.so.0", "libadwaita-1.0.dylib"})
+	var libs []uintptr
+	for _, libPath := range core.GetPaths("ADW") {
+		lib, err := purego.Dlopen(libPath, purego.RTLD_NOW|purego.RTLD_GLOBAL)
+		if err != nil {
+			panic(err)
+		}
+		libs = append(libs, lib)
+	}
+
+	core.PuregoSafeRegister(&xSidebarItemGLibType, libs, "adw_sidebar_item_get_type")
+
+	core.PuregoSafeRegister(&xNewSidebarItem, libs, "adw_sidebar_item_new")
+
+	core.PuregoSafeRegister(&xSidebarItemGetDragMotionActivate, libs, "adw_sidebar_item_get_drag_motion_activate")
+	core.PuregoSafeRegister(&xSidebarItemGetEnabled, libs, "adw_sidebar_item_get_enabled")
+	core.PuregoSafeRegister(&xSidebarItemGetIconName, libs, "adw_sidebar_item_get_icon_name")
+	core.PuregoSafeRegister(&xSidebarItemGetIconPaintable, libs, "adw_sidebar_item_get_icon_paintable")
+	core.PuregoSafeRegister(&xSidebarItemGetIndex, libs, "adw_sidebar_item_get_index")
+	core.PuregoSafeRegister(&xSidebarItemGetSection, libs, "adw_sidebar_item_get_section")
+	core.PuregoSafeRegister(&xSidebarItemGetSectionIndex, libs, "adw_sidebar_item_get_section_index")
+	core.PuregoSafeRegister(&xSidebarItemGetSubtitle, libs, "adw_sidebar_item_get_subtitle")
+	core.PuregoSafeRegister(&xSidebarItemGetSuffix, libs, "adw_sidebar_item_get_suffix")
+	core.PuregoSafeRegister(&xSidebarItemGetTitle, libs, "adw_sidebar_item_get_title")
+	core.PuregoSafeRegister(&xSidebarItemGetTooltip, libs, "adw_sidebar_item_get_tooltip")
+	core.PuregoSafeRegister(&xSidebarItemGetUseUnderline, libs, "adw_sidebar_item_get_use_underline")
+	core.PuregoSafeRegister(&xSidebarItemGetVisible, libs, "adw_sidebar_item_get_visible")
+	core.PuregoSafeRegister(&xSidebarItemSetDragMotionActivate, libs, "adw_sidebar_item_set_drag_motion_activate")
+	core.PuregoSafeRegister(&xSidebarItemSetEnabled, libs, "adw_sidebar_item_set_enabled")
+	core.PuregoSafeRegister(&xSidebarItemSetIconName, libs, "adw_sidebar_item_set_icon_name")
+	core.PuregoSafeRegister(&xSidebarItemSetIconPaintable, libs, "adw_sidebar_item_set_icon_paintable")
+	core.PuregoSafeRegister(&xSidebarItemSetSubtitle, libs, "adw_sidebar_item_set_subtitle")
+	core.PuregoSafeRegister(&xSidebarItemSetSuffix, libs, "adw_sidebar_item_set_suffix")
+	core.PuregoSafeRegister(&xSidebarItemSetTitle, libs, "adw_sidebar_item_set_title")
+	core.PuregoSafeRegister(&xSidebarItemSetTooltip, libs, "adw_sidebar_item_set_tooltip")
+	core.PuregoSafeRegister(&xSidebarItemSetUseUnderline, libs, "adw_sidebar_item_set_use_underline")
+	core.PuregoSafeRegister(&xSidebarItemSetVisible, libs, "adw_sidebar_item_set_visible")
 }

@@ -5,6 +5,7 @@ import (
 	"structs"
 	"unsafe"
 
+	"github.com/bnema/purego"
 	"github.com/bnema/puregotk/pkg/core"
 	"github.com/bnema/puregotk/v4/gio"
 	"github.com/bnema/puregotk/v4/glib"
@@ -74,7 +75,6 @@ type PasswordEntry struct {
 var xPasswordEntryGLibType func() types.GType
 
 func PasswordEntryGLibType() types.GType {
-	core.LazyRegister(&xPasswordEntryGLibType, "GTK", "gtk_password_entry_get_type", false)
 	return xPasswordEntryGLibType()
 }
 
@@ -88,7 +88,6 @@ var xNewPasswordEntry func() uintptr
 
 // Creates a `GtkPasswordEntry`.
 func NewPasswordEntry() *PasswordEntry {
-	core.LazyRegister(&xNewPasswordEntry, "GTK", "gtk_password_entry_new", false)
 	var cls *PasswordEntry
 
 	cret := xNewPasswordEntry()
@@ -106,7 +105,6 @@ var xPasswordEntryGetExtraMenu func(uintptr) uintptr
 
 // Gets the menu model set with gtk_password_entry_set_extra_menu().
 func (x *PasswordEntry) GetExtraMenu() *gio.MenuModel {
-	core.LazyRegister(&xPasswordEntryGetExtraMenu, "GTK", "gtk_password_entry_get_extra_menu", false)
 	var cls *gio.MenuModel
 
 	cret := xPasswordEntryGetExtraMenu(x.GoPointer())
@@ -125,8 +123,6 @@ var xPasswordEntryGetShowPeekIcon func(uintptr) bool
 // Returns whether the entry is showing an icon to
 // reveal the contents.
 func (x *PasswordEntry) GetShowPeekIcon() bool {
-	core.LazyRegister(&xPasswordEntryGetShowPeekIcon, "GTK", "gtk_password_entry_get_show_peek_icon", false)
-
 	cret := xPasswordEntryGetShowPeekIcon(x.GoPointer())
 	return cret
 }
@@ -136,8 +132,6 @@ var xPasswordEntrySetExtraMenu func(uintptr, uintptr)
 // Sets a menu model to add when constructing
 // the context menu for @entry.
 func (x *PasswordEntry) SetExtraMenu(ModelVar *gio.MenuModel) {
-	core.LazyRegister(&xPasswordEntrySetExtraMenu, "GTK", "gtk_password_entry_set_extra_menu", false)
-
 	xPasswordEntrySetExtraMenu(x.GoPointer(), ModelVar.GoPointer())
 }
 
@@ -148,8 +142,6 @@ var xPasswordEntrySetShowPeekIcon func(uintptr, bool)
 //
 // Setting this to %FALSE also hides the text again.
 func (x *PasswordEntry) SetShowPeekIcon(ShowPeekIconVar bool) {
-	core.LazyRegister(&xPasswordEntrySetShowPeekIcon, "GTK", "gtk_password_entry_set_show_peek_icon", false)
-
 	xPasswordEntrySetShowPeekIcon(x.GoPointer(), ShowPeekIconVar)
 }
 
@@ -753,4 +745,21 @@ func (x *PasswordEntry) SetWidthChars(NCharsVar int) {
 func init() {
 	core.SetPackageName("GTK", "gtk4")
 	core.SetSharedLibraries("GTK", []string{"libgtk-4.so.1", "libgtk-4.1.dylib"})
+	var libs []uintptr
+	for _, libPath := range core.GetPaths("GTK") {
+		lib, err := purego.Dlopen(libPath, purego.RTLD_NOW|purego.RTLD_GLOBAL)
+		if err != nil {
+			panic(err)
+		}
+		libs = append(libs, lib)
+	}
+
+	core.PuregoSafeRegister(&xPasswordEntryGLibType, libs, "gtk_password_entry_get_type")
+
+	core.PuregoSafeRegister(&xNewPasswordEntry, libs, "gtk_password_entry_new")
+
+	core.PuregoSafeRegister(&xPasswordEntryGetExtraMenu, libs, "gtk_password_entry_get_extra_menu")
+	core.PuregoSafeRegister(&xPasswordEntryGetShowPeekIcon, libs, "gtk_password_entry_get_show_peek_icon")
+	core.PuregoSafeRegister(&xPasswordEntrySetExtraMenu, libs, "gtk_password_entry_set_extra_menu")
+	core.PuregoSafeRegister(&xPasswordEntrySetShowPeekIcon, libs, "gtk_password_entry_set_show_peek_icon")
 }

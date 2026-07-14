@@ -5,6 +5,7 @@ import (
 	"structs"
 	"unsafe"
 
+	"github.com/bnema/purego"
 	"github.com/bnema/puregotk/pkg/core"
 	"github.com/bnema/puregotk/v4/gobject"
 	"github.com/bnema/puregotk/v4/gobject/types"
@@ -35,7 +36,6 @@ type ViewSwitcherPolicy int
 var xViewSwitcherPolicyGLibType func() types.GType
 
 func ViewSwitcherPolicyGLibType() types.GType {
-	core.LazyRegister(&xViewSwitcherPolicyGLibType, "ADW", "adw_view_switcher_policy_get_type", false)
 	return xViewSwitcherPolicyGLibType()
 }
 
@@ -129,7 +129,6 @@ type ViewSwitcher struct {
 var xViewSwitcherGLibType func() types.GType
 
 func ViewSwitcherGLibType() types.GType {
-	core.LazyRegister(&xViewSwitcherGLibType, "ADW", "adw_view_switcher_get_type", false)
 	return xViewSwitcherGLibType()
 }
 
@@ -143,7 +142,6 @@ var xNewViewSwitcher func() uintptr
 
 // Creates a new `AdwViewSwitcher`.
 func NewViewSwitcher() *ViewSwitcher {
-	core.LazyRegister(&xNewViewSwitcher, "ADW", "adw_view_switcher_new", false)
 	var cls *ViewSwitcher
 
 	cret := xNewViewSwitcher()
@@ -161,8 +159,6 @@ var xViewSwitcherGetPolicy func(uintptr) ViewSwitcherPolicy
 
 // Gets the policy of @self.
 func (x *ViewSwitcher) GetPolicy() ViewSwitcherPolicy {
-	core.LazyRegister(&xViewSwitcherGetPolicy, "ADW", "adw_view_switcher_get_policy", false)
-
 	cret := xViewSwitcherGetPolicy(x.GoPointer())
 	return cret
 }
@@ -171,7 +167,6 @@ var xViewSwitcherGetStack func(uintptr) uintptr
 
 // Gets the stack controlled by @self.
 func (x *ViewSwitcher) GetStack() *ViewStack {
-	core.LazyRegister(&xViewSwitcherGetStack, "ADW", "adw_view_switcher_get_stack", false)
 	var cls *ViewStack
 
 	cret := xViewSwitcherGetStack(x.GoPointer())
@@ -189,8 +184,6 @@ var xViewSwitcherSetPolicy func(uintptr, ViewSwitcherPolicy)
 
 // Sets the policy of @self.
 func (x *ViewSwitcher) SetPolicy(PolicyVar ViewSwitcherPolicy) {
-	core.LazyRegister(&xViewSwitcherSetPolicy, "ADW", "adw_view_switcher_set_policy", false)
-
 	xViewSwitcherSetPolicy(x.GoPointer(), PolicyVar)
 }
 
@@ -198,8 +191,6 @@ var xViewSwitcherSetStack func(uintptr, uintptr)
 
 // Sets the stack controlled by @self.
 func (x *ViewSwitcher) SetStack(StackVar *ViewStack) {
-	core.LazyRegister(&xViewSwitcherSetStack, "ADW", "adw_view_switcher_set_stack", false)
-
 	xViewSwitcherSetStack(x.GoPointer(), StackVar.GoPointer())
 }
 
@@ -477,4 +468,23 @@ func (x *ViewSwitcher) GetBuildableId() string {
 func init() {
 	core.SetPackageName("ADW", "libadwaita-1")
 	core.SetSharedLibraries("ADW", []string{"libadwaita-1.so.0", "libadwaita-1.0.dylib"})
+	var libs []uintptr
+	for _, libPath := range core.GetPaths("ADW") {
+		lib, err := purego.Dlopen(libPath, purego.RTLD_NOW|purego.RTLD_GLOBAL)
+		if err != nil {
+			panic(err)
+		}
+		libs = append(libs, lib)
+	}
+
+	core.PuregoSafeRegister(&xViewSwitcherPolicyGLibType, libs, "adw_view_switcher_policy_get_type")
+
+	core.PuregoSafeRegister(&xViewSwitcherGLibType, libs, "adw_view_switcher_get_type")
+
+	core.PuregoSafeRegister(&xNewViewSwitcher, libs, "adw_view_switcher_new")
+
+	core.PuregoSafeRegister(&xViewSwitcherGetPolicy, libs, "adw_view_switcher_get_policy")
+	core.PuregoSafeRegister(&xViewSwitcherGetStack, libs, "adw_view_switcher_get_stack")
+	core.PuregoSafeRegister(&xViewSwitcherSetPolicy, libs, "adw_view_switcher_set_policy")
+	core.PuregoSafeRegister(&xViewSwitcherSetStack, libs, "adw_view_switcher_set_stack")
 }

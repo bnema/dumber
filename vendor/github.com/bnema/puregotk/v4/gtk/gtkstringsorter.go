@@ -5,6 +5,7 @@ import (
 	"structs"
 	"unsafe"
 
+	"github.com/bnema/purego"
 	"github.com/bnema/puregotk/pkg/core"
 	"github.com/bnema/puregotk/v4/gobject"
 	"github.com/bnema/puregotk/v4/gobject/types"
@@ -38,7 +39,6 @@ type Collation int
 var xCollationGLibType func() types.GType
 
 func CollationGLibType() types.GType {
-	core.LazyRegister(&xCollationGLibType, "GTK", "gtk_collation_get_type", false)
 	return xCollationGLibType()
 }
 
@@ -67,7 +67,6 @@ type StringSorter struct {
 var xStringSorterGLibType func() types.GType
 
 func StringSorterGLibType() types.GType {
-	core.LazyRegister(&xStringSorterGLibType, "GTK", "gtk_string_sorter_get_type", false)
 	return xStringSorterGLibType()
 }
 
@@ -85,7 +84,6 @@ var xNewStringSorter func(uintptr) uintptr
 // Unless an expression is set on it, this sorter will always
 // compare items as invalid.
 func NewStringSorter(ExpressionVar *Expression) *StringSorter {
-	core.LazyRegister(&xNewStringSorter, "GTK", "gtk_string_sorter_new", false)
 	var cls *StringSorter
 
 	cret := xNewStringSorter(ExpressionVar.GoPointer())
@@ -102,8 +100,6 @@ var xStringSorterGetCollation func(uintptr) Collation
 
 // Gets which collation method the sorter uses.
 func (x *StringSorter) GetCollation() Collation {
-	core.LazyRegister(&xStringSorterGetCollation, "GTK", "gtk_string_sorter_get_collation", false)
-
 	cret := xStringSorterGetCollation(x.GoPointer())
 	return cret
 }
@@ -112,7 +108,6 @@ var xStringSorterGetExpression func(uintptr) uintptr
 
 // Gets the expression that is evaluated to obtain strings from items.
 func (x *StringSorter) GetExpression() *Expression {
-	core.LazyRegister(&xStringSorterGetExpression, "GTK", "gtk_string_sorter_get_expression", false)
 	var cls *Expression
 
 	cret := xStringSorterGetExpression(x.GoPointer())
@@ -130,8 +125,6 @@ var xStringSorterGetIgnoreCase func(uintptr) bool
 
 // Gets whether the sorter ignores case differences.
 func (x *StringSorter) GetIgnoreCase() bool {
-	core.LazyRegister(&xStringSorterGetIgnoreCase, "GTK", "gtk_string_sorter_get_ignore_case", false)
-
 	cret := xStringSorterGetIgnoreCase(x.GoPointer())
 	return cret
 }
@@ -140,8 +133,6 @@ var xStringSorterSetCollation func(uintptr, Collation)
 
 // Sets the collation method to use for sorting.
 func (x *StringSorter) SetCollation(CollationVar Collation) {
-	core.LazyRegister(&xStringSorterSetCollation, "GTK", "gtk_string_sorter_set_collation", false)
-
 	xStringSorterSetCollation(x.GoPointer(), CollationVar)
 }
 
@@ -151,8 +142,6 @@ var xStringSorterSetExpression func(uintptr, uintptr)
 //
 // The expression must have the type %G_TYPE_STRING.
 func (x *StringSorter) SetExpression(ExpressionVar *Expression) {
-	core.LazyRegister(&xStringSorterSetExpression, "GTK", "gtk_string_sorter_set_expression", false)
-
 	xStringSorterSetExpression(x.GoPointer(), ExpressionVar.GoPointer())
 }
 
@@ -160,8 +149,6 @@ var xStringSorterSetIgnoreCase func(uintptr, bool)
 
 // Sets whether the sorter will ignore case differences.
 func (x *StringSorter) SetIgnoreCase(IgnoreCaseVar bool) {
-	core.LazyRegister(&xStringSorterSetIgnoreCase, "GTK", "gtk_string_sorter_set_ignore_case", false)
-
 	xStringSorterSetIgnoreCase(x.GoPointer(), IgnoreCaseVar)
 }
 
@@ -196,4 +183,25 @@ func (x *StringSorter) GetPropertyIgnoreCase() bool {
 func init() {
 	core.SetPackageName("GTK", "gtk4")
 	core.SetSharedLibraries("GTK", []string{"libgtk-4.so.1", "libgtk-4.1.dylib"})
+	var libs []uintptr
+	for _, libPath := range core.GetPaths("GTK") {
+		lib, err := purego.Dlopen(libPath, purego.RTLD_NOW|purego.RTLD_GLOBAL)
+		if err != nil {
+			panic(err)
+		}
+		libs = append(libs, lib)
+	}
+
+	core.PuregoSafeRegister(&xCollationGLibType, libs, "gtk_collation_get_type")
+
+	core.PuregoSafeRegister(&xStringSorterGLibType, libs, "gtk_string_sorter_get_type")
+
+	core.PuregoSafeRegister(&xNewStringSorter, libs, "gtk_string_sorter_new")
+
+	core.PuregoSafeRegister(&xStringSorterGetCollation, libs, "gtk_string_sorter_get_collation")
+	core.PuregoSafeRegister(&xStringSorterGetExpression, libs, "gtk_string_sorter_get_expression")
+	core.PuregoSafeRegister(&xStringSorterGetIgnoreCase, libs, "gtk_string_sorter_get_ignore_case")
+	core.PuregoSafeRegister(&xStringSorterSetCollation, libs, "gtk_string_sorter_set_collation")
+	core.PuregoSafeRegister(&xStringSorterSetExpression, libs, "gtk_string_sorter_set_expression")
+	core.PuregoSafeRegister(&xStringSorterSetIgnoreCase, libs, "gtk_string_sorter_set_ignore_case")
 }

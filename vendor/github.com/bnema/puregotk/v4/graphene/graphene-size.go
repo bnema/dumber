@@ -5,6 +5,7 @@ import (
 	"structs"
 	"unsafe"
 
+	"github.com/bnema/purego"
 	"github.com/bnema/puregotk/pkg/core"
 	"github.com/bnema/puregotk/v4/gobject/types"
 )
@@ -21,7 +22,6 @@ type Size struct {
 var xSizeGLibType func() types.GType
 
 func SizeGLibType() types.GType {
-	core.LazyRegister(&xSizeGLibType, "GRAPHENE", "graphene_size_get_type", false)
 	return xSizeGLibType()
 }
 
@@ -43,8 +43,6 @@ var xSizeAlloc func() uintptr
 //
 // The contents of the returned value are undefined.
 func SizeAlloc() *Size {
-	core.LazyRegister(&xSizeAlloc, "GRAPHENE", "graphene_size_alloc", false)
-
 	cret := xSizeAlloc()
 	if cret == 0 {
 		return nil
@@ -56,8 +54,6 @@ var xSizeEqual func(uintptr, *Size) bool
 
 // Checks whether the two give #graphene_size_t are equal.
 func (x *Size) Equal(BVar *Size) bool {
-	core.LazyRegister(&xSizeEqual, "GRAPHENE", "graphene_size_equal", false)
-
 	cret := xSizeEqual(x.GoPointer(), BVar)
 	return cret
 }
@@ -66,8 +62,6 @@ var xSizeFree func(uintptr)
 
 // Frees the resources allocated by graphene_size_alloc().
 func (x *Size) Free() {
-	core.LazyRegister(&xSizeFree, "GRAPHENE", "graphene_size_free", false)
-
 	xSizeFree(x.GoPointer())
 }
 
@@ -75,8 +69,6 @@ var xSizeInit func(uintptr, float32, float32) uintptr
 
 // Initializes a #graphene_size_t using the given @width and @height.
 func (x *Size) Init(WidthVar float32, HeightVar float32) *Size {
-	core.LazyRegister(&xSizeInit, "GRAPHENE", "graphene_size_init", false)
-
 	cret := xSizeInit(x.GoPointer(), WidthVar, HeightVar)
 	if cret == 0 {
 		return nil
@@ -89,8 +81,6 @@ var xSizeInitFromSize func(uintptr, *Size) uintptr
 // Initializes a #graphene_size_t using the width and height of
 // the given @src.
 func (x *Size) InitFromSize(SrcVar *Size) *Size {
-	core.LazyRegister(&xSizeInitFromSize, "GRAPHENE", "graphene_size_init_from_size", false)
-
 	cret := xSizeInitFromSize(x.GoPointer(), SrcVar)
 	if cret == 0 {
 		return nil
@@ -103,8 +93,6 @@ var xSizeInterpolate func(uintptr, *Size, float64, *Size)
 // Linearly interpolates the two given #graphene_size_t using the given
 // interpolation @factor.
 func (x *Size) Interpolate(BVar *Size, FactorVar float64, ResVar *Size) {
-	core.LazyRegister(&xSizeInterpolate, "GRAPHENE", "graphene_size_interpolate", false)
-
 	xSizeInterpolate(x.GoPointer(), BVar, FactorVar, ResVar)
 }
 
@@ -112,8 +100,6 @@ var xSizeScale func(uintptr, float32, *Size)
 
 // Scales the components of a #graphene_size_t using the given @factor.
 func (x *Size) Scale(FactorVar float32, ResVar *Size) {
-	core.LazyRegister(&xSizeScale, "GRAPHENE", "graphene_size_scale", false)
-
 	xSizeScale(x.GoPointer(), FactorVar, ResVar)
 }
 
@@ -122,8 +108,6 @@ var xSizeZero func() uintptr
 // A constant pointer to a zero #graphene_size_t, useful for
 // equality checks and interpolations.
 func SizeZero() *Size {
-	core.LazyRegister(&xSizeZero, "GRAPHENE", "graphene_size_zero", false)
-
 	cret := xSizeZero()
 	if cret == 0 {
 		return nil
@@ -134,4 +118,25 @@ func SizeZero() *Size {
 func init() {
 	core.SetPackageName("GRAPHENE", "graphene-gobject-1.0")
 	core.SetSharedLibraries("GRAPHENE", []string{"libgraphene-1.0.so.0", "libgraphene-1.0.0.dylib"})
+	var libs []uintptr
+	for _, libPath := range core.GetPaths("GRAPHENE") {
+		lib, err := purego.Dlopen(libPath, purego.RTLD_NOW|purego.RTLD_GLOBAL)
+		if err != nil {
+			panic(err)
+		}
+		libs = append(libs, lib)
+	}
+
+	core.PuregoSafeRegister(&xSizeZero, libs, "graphene_size_zero")
+
+	core.PuregoSafeRegister(&xSizeGLibType, libs, "graphene_size_get_type")
+
+	core.PuregoSafeRegister(&xSizeAlloc, libs, "graphene_size_alloc")
+
+	core.PuregoSafeRegister(&xSizeEqual, libs, "graphene_size_equal")
+	core.PuregoSafeRegister(&xSizeFree, libs, "graphene_size_free")
+	core.PuregoSafeRegister(&xSizeInit, libs, "graphene_size_init")
+	core.PuregoSafeRegister(&xSizeInitFromSize, libs, "graphene_size_init_from_size")
+	core.PuregoSafeRegister(&xSizeInterpolate, libs, "graphene_size_interpolate")
+	core.PuregoSafeRegister(&xSizeScale, libs, "graphene_size_scale")
 }

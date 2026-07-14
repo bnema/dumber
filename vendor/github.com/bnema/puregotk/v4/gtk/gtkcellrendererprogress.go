@@ -2,6 +2,7 @@
 package gtk
 
 import (
+	"github.com/bnema/purego"
 	"github.com/bnema/puregotk/pkg/core"
 	"github.com/bnema/puregotk/v4/gobject"
 	"github.com/bnema/puregotk/v4/gobject/types"
@@ -18,7 +19,6 @@ type CellRendererProgress struct {
 var xCellRendererProgressGLibType func() types.GType
 
 func CellRendererProgressGLibType() types.GType {
-	core.LazyRegister(&xCellRendererProgressGLibType, "GTK", "gtk_cell_renderer_progress_get_type", false)
 	return xCellRendererProgressGLibType()
 }
 
@@ -32,7 +32,6 @@ var xNewCellRendererProgress func() uintptr
 
 // Creates a new `GtkCellRendererProgress`.
 func NewCellRendererProgress() *CellRendererProgress {
-	core.LazyRegister(&xNewCellRendererProgress, "GTK", "gtk_cell_renderer_progress_new", false)
 	var cls *CellRendererProgress
 
 	cret := xNewCellRendererProgress()
@@ -207,4 +206,16 @@ func (x *CellRendererProgress) SetOrientation(OrientationVar Orientation) {
 func init() {
 	core.SetPackageName("GTK", "gtk4")
 	core.SetSharedLibraries("GTK", []string{"libgtk-4.so.1", "libgtk-4.1.dylib"})
+	var libs []uintptr
+	for _, libPath := range core.GetPaths("GTK") {
+		lib, err := purego.Dlopen(libPath, purego.RTLD_NOW|purego.RTLD_GLOBAL)
+		if err != nil {
+			panic(err)
+		}
+		libs = append(libs, lib)
+	}
+
+	core.PuregoSafeRegister(&xCellRendererProgressGLibType, libs, "gtk_cell_renderer_progress_get_type")
+
+	core.PuregoSafeRegister(&xNewCellRendererProgress, libs, "gtk_cell_renderer_progress_new")
 }

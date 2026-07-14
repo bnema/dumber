@@ -5,6 +5,7 @@ import (
 	"structs"
 	"unsafe"
 
+	"github.com/bnema/purego"
 	"github.com/bnema/puregotk/pkg/core"
 	"github.com/bnema/puregotk/v4/glib"
 	"github.com/bnema/puregotk/v4/gobject/types"
@@ -28,7 +29,6 @@ type PaperSize struct {
 var xPaperSizeGLibType func() types.GType
 
 func PaperSizeGLibType() types.GType {
-	core.LazyRegister(&xPaperSizeGLibType, "GTK", "gtk_paper_size_get_type", false)
 	return xPaperSizeGLibType()
 }
 
@@ -53,8 +53,6 @@ var xNewPaperSize func(uintptr) uintptr
 // If @name is %NULL, the default paper size is returned,
 // see [func@Gtk.PaperSize.get_default].
 func NewPaperSize(NameVar *string) *PaperSize {
-	core.LazyRegister(&xNewPaperSize, "GTK", "gtk_paper_size_new", false)
-
 	NameVarPtr := core.GStrdupNullable(NameVar)
 	defer core.GFreeNullable(NameVarPtr)
 
@@ -70,8 +68,6 @@ var xNewPaperSizeCustom func(string, string, float64, float64, Unit) uintptr
 // Creates a new `GtkPaperSize` object with the
 // given parameters.
 func NewPaperSizeCustom(NameVar string, DisplayNameVar string, WidthVar float64, HeightVar float64, UnitVar Unit) *PaperSize {
-	core.LazyRegister(&xNewPaperSizeCustom, "GTK", "gtk_paper_size_new_custom", false)
-
 	cret := xNewPaperSizeCustom(NameVar, DisplayNameVar, WidthVar, HeightVar, UnitVar)
 	if cret == 0 {
 		return nil
@@ -86,8 +82,6 @@ var xNewPaperSizeFromGvariant func(*glib.Variant) uintptr
 // The `GVariant must be in the format produced by
 // [method@Gtk.PaperSize.to_gvariant].
 func NewPaperSizeFromGvariant(VariantVar *glib.Variant) *PaperSize {
-	core.LazyRegister(&xNewPaperSizeFromGvariant, "GTK", "gtk_paper_size_new_from_gvariant", false)
-
 	cret := xNewPaperSizeFromGvariant(VariantVar)
 	if cret == 0 {
 		return nil
@@ -104,8 +98,6 @@ var xNewPaperSizeFromIpp func(string, float64, float64) uintptr
 // @width and @height are used to
 // construct a custom `GtkPaperSize` object.
 func NewPaperSizeFromIpp(IppNameVar string, WidthVar float64, HeightVar float64) *PaperSize {
-	core.LazyRegister(&xNewPaperSizeFromIpp, "GTK", "gtk_paper_size_new_from_ipp", false)
-
 	cret := xNewPaperSizeFromIpp(IppNameVar, WidthVar, HeightVar)
 	if cret == 0 {
 		return nil
@@ -118,7 +110,6 @@ var xNewPaperSizeFromKeyFile func(*glib.KeyFile, uintptr, **glib.Error) uintptr
 // Reads a paper size from the group @group_name in the key file
 // @key_file.
 func NewPaperSizeFromKeyFile(KeyFileVar *glib.KeyFile, GroupNameVar *string) (*PaperSize, error) {
-	core.LazyRegister(&xNewPaperSizeFromKeyFile, "GTK", "gtk_paper_size_new_from_key_file", false)
 	var cerr *glib.Error
 
 	GroupNameVarPtr := core.GStrdupNullable(GroupNameVar)
@@ -143,8 +134,6 @@ var xNewPaperSizeFromPpd func(string, string, float64, float64) uintptr
 // @ppd_display_name, @width and @height are used to
 // construct a custom `GtkPaperSize` object.
 func NewPaperSizeFromPpd(PpdNameVar string, PpdDisplayNameVar string, WidthVar float64, HeightVar float64) *PaperSize {
-	core.LazyRegister(&xNewPaperSizeFromPpd, "GTK", "gtk_paper_size_new_from_ppd", false)
-
 	cret := xNewPaperSizeFromPpd(PpdNameVar, PpdDisplayNameVar, WidthVar, HeightVar)
 	if cret == 0 {
 		return nil
@@ -156,8 +145,6 @@ var xPaperSizeCopy func(uintptr) uintptr
 
 // Copies an existing `GtkPaperSize`.
 func (x *PaperSize) Copy() *PaperSize {
-	core.LazyRegister(&xPaperSizeCopy, "GTK", "gtk_paper_size_copy", false)
-
 	cret := xPaperSizeCopy(x.GoPointer())
 	if cret == 0 {
 		return nil
@@ -169,8 +156,6 @@ var xPaperSizeFree func(uintptr)
 
 // Free the given `GtkPaperSize` object.
 func (x *PaperSize) Free() {
-	core.LazyRegister(&xPaperSizeFree, "GTK", "gtk_paper_size_free", false)
-
 	xPaperSizeFree(x.GoPointer())
 }
 
@@ -178,8 +163,6 @@ var xPaperSizeGetDefaultBottomMargin func(uintptr, Unit) float64
 
 // Gets the default bottom margin for the `GtkPaperSize`.
 func (x *PaperSize) GetDefaultBottomMargin(UnitVar Unit) float64 {
-	core.LazyRegister(&xPaperSizeGetDefaultBottomMargin, "GTK", "gtk_paper_size_get_default_bottom_margin", false)
-
 	cret := xPaperSizeGetDefaultBottomMargin(x.GoPointer(), UnitVar)
 	return cret
 }
@@ -188,8 +171,6 @@ var xPaperSizeGetDefaultLeftMargin func(uintptr, Unit) float64
 
 // Gets the default left margin for the `GtkPaperSize`.
 func (x *PaperSize) GetDefaultLeftMargin(UnitVar Unit) float64 {
-	core.LazyRegister(&xPaperSizeGetDefaultLeftMargin, "GTK", "gtk_paper_size_get_default_left_margin", false)
-
 	cret := xPaperSizeGetDefaultLeftMargin(x.GoPointer(), UnitVar)
 	return cret
 }
@@ -198,8 +179,6 @@ var xPaperSizeGetDefaultRightMargin func(uintptr, Unit) float64
 
 // Gets the default right margin for the `GtkPaperSize`.
 func (x *PaperSize) GetDefaultRightMargin(UnitVar Unit) float64 {
-	core.LazyRegister(&xPaperSizeGetDefaultRightMargin, "GTK", "gtk_paper_size_get_default_right_margin", false)
-
 	cret := xPaperSizeGetDefaultRightMargin(x.GoPointer(), UnitVar)
 	return cret
 }
@@ -208,8 +187,6 @@ var xPaperSizeGetDefaultTopMargin func(uintptr, Unit) float64
 
 // Gets the default top margin for the `GtkPaperSize`.
 func (x *PaperSize) GetDefaultTopMargin(UnitVar Unit) float64 {
-	core.LazyRegister(&xPaperSizeGetDefaultTopMargin, "GTK", "gtk_paper_size_get_default_top_margin", false)
-
 	cret := xPaperSizeGetDefaultTopMargin(x.GoPointer(), UnitVar)
 	return cret
 }
@@ -218,8 +195,6 @@ var xPaperSizeGetDisplayName func(uintptr) string
 
 // Gets the human-readable name of the `GtkPaperSize`.
 func (x *PaperSize) GetDisplayName() string {
-	core.LazyRegister(&xPaperSizeGetDisplayName, "GTK", "gtk_paper_size_get_display_name", false)
-
 	cret := xPaperSizeGetDisplayName(x.GoPointer())
 	return cret
 }
@@ -229,8 +204,6 @@ var xPaperSizeGetHeight func(uintptr, Unit) float64
 // Gets the paper height of the `GtkPaperSize`, in
 // units of @unit.
 func (x *PaperSize) GetHeight(UnitVar Unit) float64 {
-	core.LazyRegister(&xPaperSizeGetHeight, "GTK", "gtk_paper_size_get_height", false)
-
 	cret := xPaperSizeGetHeight(x.GoPointer(), UnitVar)
 	return cret
 }
@@ -239,8 +212,6 @@ var xPaperSizeGetName func(uintptr) string
 
 // Gets the name of the `GtkPaperSize`.
 func (x *PaperSize) GetName() string {
-	core.LazyRegister(&xPaperSizeGetName, "GTK", "gtk_paper_size_get_name", false)
-
 	cret := xPaperSizeGetName(x.GoPointer())
 	return cret
 }
@@ -250,8 +221,6 @@ var xPaperSizeGetPpdName func(uintptr) string
 // Gets the PPD name of the `GtkPaperSize`, which
 // may be %NULL.
 func (x *PaperSize) GetPpdName() string {
-	core.LazyRegister(&xPaperSizeGetPpdName, "GTK", "gtk_paper_size_get_ppd_name", false)
-
 	cret := xPaperSizeGetPpdName(x.GoPointer())
 	return cret
 }
@@ -261,8 +230,6 @@ var xPaperSizeGetWidth func(uintptr, Unit) float64
 // Gets the paper width of the `GtkPaperSize`, in
 // units of @unit.
 func (x *PaperSize) GetWidth(UnitVar Unit) float64 {
-	core.LazyRegister(&xPaperSizeGetWidth, "GTK", "gtk_paper_size_get_width", false)
-
 	cret := xPaperSizeGetWidth(x.GoPointer(), UnitVar)
 	return cret
 }
@@ -271,8 +238,6 @@ var xPaperSizeIsCustom func(uintptr) bool
 
 // Returns %TRUE if @size is not a standard paper size.
 func (x *PaperSize) IsCustom() bool {
-	core.LazyRegister(&xPaperSizeIsCustom, "GTK", "gtk_paper_size_is_custom", false)
-
 	cret := xPaperSizeIsCustom(x.GoPointer())
 	return cret
 }
@@ -281,8 +246,6 @@ var xPaperSizeIsEqual func(uintptr, *PaperSize) bool
 
 // Compares two `GtkPaperSize` objects.
 func (x *PaperSize) IsEqual(Size2Var *PaperSize) bool {
-	core.LazyRegister(&xPaperSizeIsEqual, "GTK", "gtk_paper_size_is_equal", false)
-
 	cret := xPaperSizeIsEqual(x.GoPointer(), Size2Var)
 	return cret
 }
@@ -291,8 +254,6 @@ var xPaperSizeIsIpp func(uintptr) bool
 
 // Returns %TRUE if @size is an IPP standard paper size.
 func (x *PaperSize) IsIpp() bool {
-	core.LazyRegister(&xPaperSizeIsIpp, "GTK", "gtk_paper_size_is_ipp", false)
-
 	cret := xPaperSizeIsIpp(x.GoPointer())
 	return cret
 }
@@ -301,8 +262,6 @@ var xPaperSizeSetSize func(uintptr, float64, float64, Unit)
 
 // Changes the dimensions of a @size to @width x @height.
 func (x *PaperSize) SetSize(WidthVar float64, HeightVar float64, UnitVar Unit) {
-	core.LazyRegister(&xPaperSizeSetSize, "GTK", "gtk_paper_size_set_size", false)
-
 	xPaperSizeSetSize(x.GoPointer(), WidthVar, HeightVar, UnitVar)
 }
 
@@ -310,8 +269,6 @@ var xPaperSizeToGvariant func(uintptr) uintptr
 
 // Serialize a paper size to an `a{sv}` variant.
 func (x *PaperSize) ToGvariant() *glib.Variant {
-	core.LazyRegister(&xPaperSizeToGvariant, "GTK", "gtk_paper_size_to_gvariant", false)
-
 	cret := xPaperSizeToGvariant(x.GoPointer())
 	if cret == 0 {
 		return nil
@@ -323,8 +280,6 @@ var xPaperSizeToKeyFile func(uintptr, *glib.KeyFile, string)
 
 // This function adds the paper size from @size to @key_file.
 func (x *PaperSize) ToKeyFile(KeyFileVar *glib.KeyFile, GroupNameVar string) {
-	core.LazyRegister(&xPaperSizeToKeyFile, "GTK", "gtk_paper_size_to_key_file", false)
-
 	xPaperSizeToKeyFile(x.GoPointer(), KeyFileVar, GroupNameVar)
 }
 
@@ -350,8 +305,6 @@ var xPaperSizeGetDefault func() string
 // Returns the name of the default paper size, which
 // depends on the current locale.
 func PaperSizeGetDefault() string {
-	core.LazyRegister(&xPaperSizeGetDefault, "GTK", "gtk_paper_size_get_default", false)
-
 	cret := xPaperSizeGetDefault()
 	return cret
 }
@@ -360,8 +313,6 @@ var xPaperSizeGetPaperSizes func(bool) uintptr
 
 // Creates a list of known paper sizes.
 func PaperSizeGetPaperSizes(IncludeCustomVar bool) *glib.List {
-	core.LazyRegister(&xPaperSizeGetPaperSizes, "GTK", "gtk_paper_size_get_paper_sizes", false)
-
 	cret := xPaperSizeGetPaperSizes(IncludeCustomVar)
 	if cret == 0 {
 		return nil
@@ -372,4 +323,42 @@ func PaperSizeGetPaperSizes(IncludeCustomVar bool) *glib.List {
 func init() {
 	core.SetPackageName("GTK", "gtk4")
 	core.SetSharedLibraries("GTK", []string{"libgtk-4.so.1", "libgtk-4.1.dylib"})
+	var libs []uintptr
+	for _, libPath := range core.GetPaths("GTK") {
+		lib, err := purego.Dlopen(libPath, purego.RTLD_NOW|purego.RTLD_GLOBAL)
+		if err != nil {
+			panic(err)
+		}
+		libs = append(libs, lib)
+	}
+
+	core.PuregoSafeRegister(&xPaperSizeGetDefault, libs, "gtk_paper_size_get_default")
+	core.PuregoSafeRegister(&xPaperSizeGetPaperSizes, libs, "gtk_paper_size_get_paper_sizes")
+
+	core.PuregoSafeRegister(&xPaperSizeGLibType, libs, "gtk_paper_size_get_type")
+
+	core.PuregoSafeRegister(&xNewPaperSize, libs, "gtk_paper_size_new")
+	core.PuregoSafeRegister(&xNewPaperSizeCustom, libs, "gtk_paper_size_new_custom")
+	core.PuregoSafeRegister(&xNewPaperSizeFromGvariant, libs, "gtk_paper_size_new_from_gvariant")
+	core.PuregoSafeRegister(&xNewPaperSizeFromIpp, libs, "gtk_paper_size_new_from_ipp")
+	core.PuregoSafeRegister(&xNewPaperSizeFromKeyFile, libs, "gtk_paper_size_new_from_key_file")
+	core.PuregoSafeRegister(&xNewPaperSizeFromPpd, libs, "gtk_paper_size_new_from_ppd")
+
+	core.PuregoSafeRegister(&xPaperSizeCopy, libs, "gtk_paper_size_copy")
+	core.PuregoSafeRegister(&xPaperSizeFree, libs, "gtk_paper_size_free")
+	core.PuregoSafeRegister(&xPaperSizeGetDefaultBottomMargin, libs, "gtk_paper_size_get_default_bottom_margin")
+	core.PuregoSafeRegister(&xPaperSizeGetDefaultLeftMargin, libs, "gtk_paper_size_get_default_left_margin")
+	core.PuregoSafeRegister(&xPaperSizeGetDefaultRightMargin, libs, "gtk_paper_size_get_default_right_margin")
+	core.PuregoSafeRegister(&xPaperSizeGetDefaultTopMargin, libs, "gtk_paper_size_get_default_top_margin")
+	core.PuregoSafeRegister(&xPaperSizeGetDisplayName, libs, "gtk_paper_size_get_display_name")
+	core.PuregoSafeRegister(&xPaperSizeGetHeight, libs, "gtk_paper_size_get_height")
+	core.PuregoSafeRegister(&xPaperSizeGetName, libs, "gtk_paper_size_get_name")
+	core.PuregoSafeRegister(&xPaperSizeGetPpdName, libs, "gtk_paper_size_get_ppd_name")
+	core.PuregoSafeRegister(&xPaperSizeGetWidth, libs, "gtk_paper_size_get_width")
+	core.PuregoSafeRegister(&xPaperSizeIsCustom, libs, "gtk_paper_size_is_custom")
+	core.PuregoSafeRegister(&xPaperSizeIsEqual, libs, "gtk_paper_size_is_equal")
+	core.PuregoSafeRegister(&xPaperSizeIsIpp, libs, "gtk_paper_size_is_ipp")
+	core.PuregoSafeRegister(&xPaperSizeSetSize, libs, "gtk_paper_size_set_size")
+	core.PuregoSafeRegister(&xPaperSizeToGvariant, libs, "gtk_paper_size_to_gvariant")
+	core.PuregoSafeRegister(&xPaperSizeToKeyFile, libs, "gtk_paper_size_to_key_file")
 }

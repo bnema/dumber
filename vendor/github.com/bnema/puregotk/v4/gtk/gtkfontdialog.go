@@ -5,6 +5,7 @@ import (
 	"structs"
 	"unsafe"
 
+	"github.com/bnema/purego"
 	"github.com/bnema/puregotk/pkg/core"
 	"github.com/bnema/puregotk/v4/gio"
 	"github.com/bnema/puregotk/v4/glib"
@@ -49,7 +50,6 @@ type FontDialog struct {
 var xFontDialogGLibType func() types.GType
 
 func FontDialogGLibType() types.GType {
-	core.LazyRegister(&xFontDialogGLibType, "GTK", "gtk_font_dialog_get_type", false)
 	return xFontDialogGLibType()
 }
 
@@ -63,7 +63,6 @@ var xNewFontDialog func() uintptr
 
 // Creates a new `GtkFontDialog` object.
 func NewFontDialog() *FontDialog {
-	core.LazyRegister(&xNewFontDialog, "GTK", "gtk_font_dialog_new", false)
 	var cls *FontDialog
 
 	cret := xNewFontDialog()
@@ -84,8 +83,6 @@ var xFontDialogChooseFace func(uintptr, uintptr, uintptr, uintptr, uintptr, uint
 //
 // A font face represents a font family and style, but no specific font size.
 func (x *FontDialog) ChooseFace(ParentVar *Window, InitialValueVar *pango.FontFace, CancellableVar *gio.Cancellable, CallbackVar *gio.AsyncReadyCallback, UserDataVar uintptr) {
-	core.LazyRegister(&xFontDialogChooseFace, "GTK", "gtk_font_dialog_choose_face", false)
-
 	xFontDialogChooseFace(x.GoPointer(), ParentVar.GoPointer(), InitialValueVar.GoPointer(), CancellableVar.GoPointer(), glib.NewCallbackNullable(CallbackVar), UserDataVar)
 }
 
@@ -96,7 +93,6 @@ var xFontDialogChooseFaceFinish func(uintptr, uintptr, **glib.Error) uintptr
 // Note that this function returns a [error@Gtk.DialogError.DISMISSED]
 // error if the user cancels the dialog.
 func (x *FontDialog) ChooseFaceFinish(ResultVar gio.AsyncResult) (*pango.FontFace, error) {
-	core.LazyRegister(&xFontDialogChooseFaceFinish, "GTK", "gtk_font_dialog_choose_face_finish", false)
 	var cls *pango.FontFace
 	var cerr *glib.Error
 
@@ -119,8 +115,6 @@ var xFontDialogChooseFamily func(uintptr, uintptr, uintptr, uintptr, uintptr, ui
 //
 // The font chooser dialog will be set up for selecting a font family.
 func (x *FontDialog) ChooseFamily(ParentVar *Window, InitialValueVar *pango.FontFamily, CancellableVar *gio.Cancellable, CallbackVar *gio.AsyncReadyCallback, UserDataVar uintptr) {
-	core.LazyRegister(&xFontDialogChooseFamily, "GTK", "gtk_font_dialog_choose_family", false)
-
 	xFontDialogChooseFamily(x.GoPointer(), ParentVar.GoPointer(), InitialValueVar.GoPointer(), CancellableVar.GoPointer(), glib.NewCallbackNullable(CallbackVar), UserDataVar)
 }
 
@@ -131,7 +125,6 @@ var xFontDialogChooseFamilyFinish func(uintptr, uintptr, **glib.Error) uintptr
 // Note that this function returns a [error@Gtk.DialogError.DISMISSED]
 // error if the user cancels the dialog.
 func (x *FontDialog) ChooseFamilyFinish(ResultVar gio.AsyncResult) (*pango.FontFamily, error) {
-	core.LazyRegister(&xFontDialogChooseFamilyFinish, "GTK", "gtk_font_dialog_choose_family_finish", false)
 	var cls *pango.FontFamily
 	var cerr *glib.Error
 
@@ -157,8 +150,6 @@ var xFontDialogChooseFont func(uintptr, uintptr, *pango.FontDescription, uintptr
 // If you want to let the user select font features as well,
 // use [method@Gtk.FontDialog.choose_font_and_features] instead.
 func (x *FontDialog) ChooseFont(ParentVar *Window, InitialValueVar *pango.FontDescription, CancellableVar *gio.Cancellable, CallbackVar *gio.AsyncReadyCallback, UserDataVar uintptr) {
-	core.LazyRegister(&xFontDialogChooseFont, "GTK", "gtk_font_dialog_choose_font", false)
-
 	xFontDialogChooseFont(x.GoPointer(), ParentVar.GoPointer(), InitialValueVar, CancellableVar.GoPointer(), glib.NewCallbackNullable(CallbackVar), UserDataVar)
 }
 
@@ -172,8 +163,6 @@ var xFontDialogChooseFontAndFeatures func(uintptr, uintptr, *pango.FontDescripti
 // Font features affect how the font is rendered, for example
 // enabling glyph variants or ligatures.
 func (x *FontDialog) ChooseFontAndFeatures(ParentVar *Window, InitialValueVar *pango.FontDescription, CancellableVar *gio.Cancellable, CallbackVar *gio.AsyncReadyCallback, UserDataVar uintptr) {
-	core.LazyRegister(&xFontDialogChooseFontAndFeatures, "GTK", "gtk_font_dialog_choose_font_and_features", false)
-
 	xFontDialogChooseFontAndFeatures(x.GoPointer(), ParentVar.GoPointer(), InitialValueVar, CancellableVar.GoPointer(), glib.NewCallbackNullable(CallbackVar), UserDataVar)
 }
 
@@ -187,7 +176,6 @@ var xFontDialogChooseFontAndFeaturesFinish func(uintptr, uintptr, **pango.FontDe
 // Note that this function returns a [error@Gtk.DialogError.DISMISSED]
 // error if the user cancels the dialog.
 func (x *FontDialog) ChooseFontAndFeaturesFinish(ResultVar gio.AsyncResult, FontDescVar **pango.FontDescription, FontFeaturesVar *string, LanguageVar **pango.Language) (bool, error) {
-	core.LazyRegister(&xFontDialogChooseFontAndFeaturesFinish, "GTK", "gtk_font_dialog_choose_font_and_features_finish", false)
 	var cerr *glib.Error
 
 	cret := xFontDialogChooseFontAndFeaturesFinish(x.GoPointer(), ResultVar.GoPointer(), FontDescVar, FontFeaturesVar, LanguageVar, &cerr)
@@ -204,7 +192,6 @@ var xFontDialogChooseFontFinish func(uintptr, uintptr, **glib.Error) uintptr
 // Note that this function returns a [error@Gtk.DialogError.DISMISSED]
 // error if the user cancels the dialog.
 func (x *FontDialog) ChooseFontFinish(ResultVar gio.AsyncResult) (*pango.FontDescription, error) {
-	core.LazyRegister(&xFontDialogChooseFontFinish, "GTK", "gtk_font_dialog_choose_font_finish", false)
 	var cerr *glib.Error
 
 	cret := xFontDialogChooseFontFinish(x.GoPointer(), ResultVar.GoPointer(), &cerr)
@@ -222,7 +209,6 @@ var xFontDialogGetFilter func(uintptr) uintptr
 // Returns the filter that decides which fonts to display
 // in the font chooser dialog.
 func (x *FontDialog) GetFilter() *Filter {
-	core.LazyRegister(&xFontDialogGetFilter, "GTK", "gtk_font_dialog_get_filter", false)
 	var cls *Filter
 
 	cret := xFontDialogGetFilter(x.GoPointer())
@@ -241,7 +227,6 @@ var xFontDialogGetFontMap func(uintptr) uintptr
 // Returns the fontmap from which fonts are selected,
 // or `NULL` for the default fontmap.
 func (x *FontDialog) GetFontMap() *pango.FontMap {
-	core.LazyRegister(&xFontDialogGetFontMap, "GTK", "gtk_font_dialog_get_font_map", false)
 	var cls *pango.FontMap
 
 	cret := xFontDialogGetFontMap(x.GoPointer())
@@ -259,8 +244,6 @@ var xFontDialogGetLanguage func(uintptr) uintptr
 
 // Returns the language for which font features are applied.
 func (x *FontDialog) GetLanguage() *pango.Language {
-	core.LazyRegister(&xFontDialogGetLanguage, "GTK", "gtk_font_dialog_get_language", false)
-
 	cret := xFontDialogGetLanguage(x.GoPointer())
 	if cret == 0 {
 		return nil
@@ -273,8 +256,6 @@ var xFontDialogGetModal func(uintptr) bool
 // Returns whether the font chooser dialog blocks interaction
 // with the parent window while it is presented.
 func (x *FontDialog) GetModal() bool {
-	core.LazyRegister(&xFontDialogGetModal, "GTK", "gtk_font_dialog_get_modal", false)
-
 	cret := xFontDialogGetModal(x.GoPointer())
 	return cret
 }
@@ -283,8 +264,6 @@ var xFontDialogGetTitle func(uintptr) string
 
 // Returns the title that will be shown on the font chooser dialog.
 func (x *FontDialog) GetTitle() string {
-	core.LazyRegister(&xFontDialogGetTitle, "GTK", "gtk_font_dialog_get_title", false)
-
 	cret := xFontDialogGetTitle(x.GoPointer())
 	return cret
 }
@@ -297,8 +276,6 @@ var xFontDialogSetFilter func(uintptr, uintptr)
 // The filter must be able to handle both `PangoFontFamily`
 // and `PangoFontFace` objects.
 func (x *FontDialog) SetFilter(FilterVar *Filter) {
-	core.LazyRegister(&xFontDialogSetFilter, "GTK", "gtk_font_dialog_set_filter", false)
-
 	xFontDialogSetFilter(x.GoPointer(), FilterVar.GoPointer())
 }
 
@@ -308,8 +285,6 @@ var xFontDialogSetFontMap func(uintptr, uintptr)
 //
 // If @fontmap is `NULL`, the default fontmap is used.
 func (x *FontDialog) SetFontMap(FontmapVar *pango.FontMap) {
-	core.LazyRegister(&xFontDialogSetFontMap, "GTK", "gtk_font_dialog_set_font_map", false)
-
 	xFontDialogSetFontMap(x.GoPointer(), FontmapVar.GoPointer())
 }
 
@@ -317,8 +292,6 @@ var xFontDialogSetLanguage func(uintptr, *pango.Language)
 
 // Sets the language for which font features are applied.
 func (x *FontDialog) SetLanguage(LanguageVar *pango.Language) {
-	core.LazyRegister(&xFontDialogSetLanguage, "GTK", "gtk_font_dialog_set_language", false)
-
 	xFontDialogSetLanguage(x.GoPointer(), LanguageVar)
 }
 
@@ -327,8 +300,6 @@ var xFontDialogSetModal func(uintptr, bool)
 // Sets whether the font chooser dialog blocks interaction
 // with the parent window while it is presented.
 func (x *FontDialog) SetModal(ModalVar bool) {
-	core.LazyRegister(&xFontDialogSetModal, "GTK", "gtk_font_dialog_set_modal", false)
-
 	xFontDialogSetModal(x.GoPointer(), ModalVar)
 }
 
@@ -336,8 +307,6 @@ var xFontDialogSetTitle func(uintptr, string)
 
 // Sets the title that will be shown on the font chooser dialog.
 func (x *FontDialog) SetTitle(TitleVar string) {
-	core.LazyRegister(&xFontDialogSetTitle, "GTK", "gtk_font_dialog_set_title", false)
-
 	xFontDialogSetTitle(x.GoPointer(), TitleVar)
 }
 
@@ -408,4 +377,35 @@ func (x *FontDialog) GetPropertyTitle() string {
 func init() {
 	core.SetPackageName("GTK", "gtk4")
 	core.SetSharedLibraries("GTK", []string{"libgtk-4.so.1", "libgtk-4.1.dylib"})
+	var libs []uintptr
+	for _, libPath := range core.GetPaths("GTK") {
+		lib, err := purego.Dlopen(libPath, purego.RTLD_NOW|purego.RTLD_GLOBAL)
+		if err != nil {
+			panic(err)
+		}
+		libs = append(libs, lib)
+	}
+
+	core.PuregoSafeRegister(&xFontDialogGLibType, libs, "gtk_font_dialog_get_type")
+
+	core.PuregoSafeRegister(&xNewFontDialog, libs, "gtk_font_dialog_new")
+
+	core.PuregoSafeRegister(&xFontDialogChooseFace, libs, "gtk_font_dialog_choose_face")
+	core.PuregoSafeRegister(&xFontDialogChooseFaceFinish, libs, "gtk_font_dialog_choose_face_finish")
+	core.PuregoSafeRegister(&xFontDialogChooseFamily, libs, "gtk_font_dialog_choose_family")
+	core.PuregoSafeRegister(&xFontDialogChooseFamilyFinish, libs, "gtk_font_dialog_choose_family_finish")
+	core.PuregoSafeRegister(&xFontDialogChooseFont, libs, "gtk_font_dialog_choose_font")
+	core.PuregoSafeRegister(&xFontDialogChooseFontAndFeatures, libs, "gtk_font_dialog_choose_font_and_features")
+	core.PuregoSafeRegister(&xFontDialogChooseFontAndFeaturesFinish, libs, "gtk_font_dialog_choose_font_and_features_finish")
+	core.PuregoSafeRegister(&xFontDialogChooseFontFinish, libs, "gtk_font_dialog_choose_font_finish")
+	core.PuregoSafeRegister(&xFontDialogGetFilter, libs, "gtk_font_dialog_get_filter")
+	core.PuregoSafeRegister(&xFontDialogGetFontMap, libs, "gtk_font_dialog_get_font_map")
+	core.PuregoSafeRegister(&xFontDialogGetLanguage, libs, "gtk_font_dialog_get_language")
+	core.PuregoSafeRegister(&xFontDialogGetModal, libs, "gtk_font_dialog_get_modal")
+	core.PuregoSafeRegister(&xFontDialogGetTitle, libs, "gtk_font_dialog_get_title")
+	core.PuregoSafeRegister(&xFontDialogSetFilter, libs, "gtk_font_dialog_set_filter")
+	core.PuregoSafeRegister(&xFontDialogSetFontMap, libs, "gtk_font_dialog_set_font_map")
+	core.PuregoSafeRegister(&xFontDialogSetLanguage, libs, "gtk_font_dialog_set_language")
+	core.PuregoSafeRegister(&xFontDialogSetModal, libs, "gtk_font_dialog_set_modal")
+	core.PuregoSafeRegister(&xFontDialogSetTitle, libs, "gtk_font_dialog_set_title")
 }

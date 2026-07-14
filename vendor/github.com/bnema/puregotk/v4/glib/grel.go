@@ -5,6 +5,7 @@ import (
 	"structs"
 	"unsafe"
 
+	"github.com/bnema/purego"
 	"github.com/bnema/puregotk/pkg/core"
 )
 
@@ -68,8 +69,6 @@ var xRelationCount func(uintptr, uintptr, int) int
 // Returns the number of tuples in a #GRelation that have the given
 // value in the given field.
 func (x *Relation) Count(KeyVar uintptr, FieldVar int) int {
-	core.LazyRegister(&xRelationCount, "GLIB", "g_relation_count", false)
-
 	cret := xRelationCount(x.GoPointer(), KeyVar, FieldVar)
 	return cret
 }
@@ -79,8 +78,6 @@ var xRelationDelete func(uintptr, uintptr, int) int
 // Deletes any records from a #GRelation that have the given key value
 // in the given field.
 func (x *Relation) Delete(KeyVar uintptr, FieldVar int) int {
-	core.LazyRegister(&xRelationDelete, "GLIB", "g_relation_delete", false)
-
 	cret := xRelationDelete(x.GoPointer(), KeyVar, FieldVar)
 	return cret
 }
@@ -91,8 +88,6 @@ var xRelationDestroy func(uintptr)
 // does not free memory allocated for the tuple data, so you should
 // free that first if appropriate.
 func (x *Relation) Destroy() {
-	core.LazyRegister(&xRelationDestroy, "GLIB", "g_relation_destroy", false)
-
 	xRelationDestroy(x.GoPointer())
 }
 
@@ -102,8 +97,6 @@ var xRelationExists func(uintptr, ...interface{}) bool
 // #GRelation. Note that the values are compared directly, so that, for
 // example, two copies of the same string will not match.
 func (x *Relation) Exists(varArgs ...interface{}) bool {
-	core.LazyRegister(&xRelationExists, "GLIB", "g_relation_exists", false)
-
 	cret := xRelationExists(x.GoPointer(), varArgs...)
 	return cret
 }
@@ -113,8 +106,6 @@ var xRelationIndex func(uintptr, int, uintptr, uintptr)
 // Creates an index on the given field. Note that this must be called
 // before any records are added to the #GRelation.
 func (x *Relation) Index(FieldVar int, HashFuncVar *HashFunc, KeyEqualFuncVar *EqualFunc) {
-	core.LazyRegister(&xRelationIndex, "GLIB", "g_relation_index", false)
-
 	xRelationIndex(x.GoPointer(), FieldVar, NewCallback(HashFuncVar), NewCallback(KeyEqualFuncVar))
 }
 
@@ -122,8 +113,6 @@ var xRelationInsert func(uintptr, ...interface{})
 
 // Inserts a record into a #GRelation.
 func (x *Relation) Insert(varArgs ...interface{}) {
-	core.LazyRegister(&xRelationInsert, "GLIB", "g_relation_insert", false)
-
 	xRelationInsert(x.GoPointer(), varArgs...)
 }
 
@@ -132,8 +121,6 @@ var xRelationPrint func(uintptr)
 // Outputs information about all records in a #GRelation, as well as
 // the indexes. It is for debugging.
 func (x *Relation) Print() {
-	core.LazyRegister(&xRelationPrint, "GLIB", "g_relation_print", false)
-
 	xRelationPrint(x.GoPointer())
 }
 
@@ -143,8 +130,6 @@ var xRelationSelect func(uintptr, uintptr, int) uintptr
 // field. Use g_tuples_index() to access the returned records. The
 // returned records should be freed with g_tuples_destroy().
 func (x *Relation) Select(KeyVar uintptr, FieldVar int) *Tuples {
-	core.LazyRegister(&xRelationSelect, "GLIB", "g_relation_select", false)
-
 	cret := xRelationSelect(x.GoPointer(), KeyVar, FieldVar)
 	if cret == 0 {
 		return nil
@@ -181,8 +166,6 @@ var xTuplesDestroy func(uintptr)
 // finished with the records. The records are not removed from the
 // #GRelation.
 func (x *Tuples) Destroy() {
-	core.LazyRegister(&xTuplesDestroy, "GLIB", "g_tuples_destroy", false)
-
 	xTuplesDestroy(x.GoPointer())
 }
 
@@ -192,8 +175,6 @@ var xTuplesIndex func(uintptr, int, int) uintptr
 // returns the given field of the record at the given index. The
 // returned value should not be changed.
 func (x *Tuples) Index(IndexVar int, FieldVar int) uintptr {
-	core.LazyRegister(&xTuplesIndex, "GLIB", "g_tuples_index", false)
-
 	cret := xTuplesIndex(x.GoPointer(), IndexVar, FieldVar)
 	return cret
 }
@@ -201,4 +182,24 @@ func (x *Tuples) Index(IndexVar int, FieldVar int) uintptr {
 func init() {
 	core.SetPackageName("GLIB", "glib-2.0")
 	core.SetSharedLibraries("GLIB", []string{"libgobject-2.0.so.0", "libglib-2.0.so.0", "libgobject-2.0.0.dylib", "libglib-2.0.0.dylib"})
+	var libs []uintptr
+	for _, libPath := range core.GetPaths("GLIB") {
+		lib, err := purego.Dlopen(libPath, purego.RTLD_NOW|purego.RTLD_GLOBAL)
+		if err != nil {
+			panic(err)
+		}
+		libs = append(libs, lib)
+	}
+
+	core.PuregoSafeRegister(&xRelationCount, libs, "g_relation_count")
+	core.PuregoSafeRegister(&xRelationDelete, libs, "g_relation_delete")
+	core.PuregoSafeRegister(&xRelationDestroy, libs, "g_relation_destroy")
+	core.PuregoSafeRegister(&xRelationExists, libs, "g_relation_exists")
+	core.PuregoSafeRegister(&xRelationIndex, libs, "g_relation_index")
+	core.PuregoSafeRegister(&xRelationInsert, libs, "g_relation_insert")
+	core.PuregoSafeRegister(&xRelationPrint, libs, "g_relation_print")
+	core.PuregoSafeRegister(&xRelationSelect, libs, "g_relation_select")
+
+	core.PuregoSafeRegister(&xTuplesDestroy, libs, "g_tuples_destroy")
+	core.PuregoSafeRegister(&xTuplesIndex, libs, "g_tuples_index")
 }

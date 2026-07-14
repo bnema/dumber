@@ -280,7 +280,6 @@ type FontMap struct {
 var xFontMapGLibType func() types.GType
 
 func FontMapGLibType() types.GType {
-	core.LazyRegister(&xFontMapGLibType, "PANGO", "pango_font_map_get_type", false)
 	return xFontMapGLibType()
 }
 
@@ -297,7 +296,6 @@ var xFontMapAddFontFile func(uintptr, string, **glib.Error) bool
 // The added fonts will take precedence over preexisting
 // fonts with the same name.
 func (x *FontMap) AddFontFile(FilenameVar string) (bool, error) {
-	core.LazyRegister(&xFontMapAddFontFile, "PANGO", "pango_font_map_add_font_file", false)
 	var cerr *glib.Error
 
 	cret := xFontMapAddFontFile(x.GoPointer(), FilenameVar, &cerr)
@@ -317,8 +315,6 @@ var xFontMapChanged func(uintptr)
 // call this function if they have attached extra data to the
 // fontmap and such data is changed.
 func (x *FontMap) Changed() {
-	core.LazyRegister(&xFontMapChanged, "PANGO", "pango_font_map_changed", false)
-
 	xFontMapChanged(x.GoPointer())
 }
 
@@ -334,7 +330,6 @@ var xFontMapCreateContext func(uintptr) uintptr
 // For instance, the GTK toolkit has, among others,
 // gtk_widget_get_pango_context(). Use those instead.
 func (x *FontMap) CreateContext() *Context {
-	core.LazyRegister(&xFontMapCreateContext, "PANGO", "pango_font_map_create_context", false)
 	var cls *Context
 
 	cret := xFontMapCreateContext(x.GoPointer())
@@ -351,7 +346,6 @@ var xFontMapGetFamily func(uintptr, string) uintptr
 
 // Gets a font family by name.
 func (x *FontMap) GetFamily(NameVar string) *FontFamily {
-	core.LazyRegister(&xFontMapGetFamily, "PANGO", "pango_font_map_get_family", false)
 	var cls *FontFamily
 
 	cret := xFontMapGetFamily(x.GoPointer(), NameVar)
@@ -380,8 +374,6 @@ var xFontMapGetSerial func(uintptr) uint
 // This can be used to automatically detect changes to a `PangoFontMap`,
 // like in `PangoContext`.
 func (x *FontMap) GetSerial() uint {
-	core.LazyRegister(&xFontMapGetSerial, "PANGO", "pango_font_map_get_serial", false)
-
 	cret := xFontMapGetSerial(x.GoPointer())
 	return cret
 }
@@ -395,8 +387,6 @@ var xFontMapListFamilies func(uintptr, *uintptr, *int)
 // `PangoFontMap` also implemented the [iface@Gio.ListModel] interface
 // for enumerating families.
 func (x *FontMap) ListFamilies(FamiliesVar *uintptr, NFamiliesVar *int) {
-	core.LazyRegister(&xFontMapListFamilies, "PANGO", "pango_font_map_list_families", false)
-
 	xFontMapListFamilies(x.GoPointer(), FamiliesVar, NFamiliesVar)
 }
 
@@ -404,7 +394,6 @@ var xFontMapLoadFont func(uintptr, uintptr, *FontDescription) uintptr
 
 // Load the font in the fontmap that is the closest match for @desc.
 func (x *FontMap) LoadFont(ContextVar *Context, DescVar *FontDescription) *Font {
-	core.LazyRegister(&xFontMapLoadFont, "PANGO", "pango_font_map_load_font", false)
 	var cls *Font
 
 	cret := xFontMapLoadFont(x.GoPointer(), ContextVar.GoPointer(), DescVar)
@@ -422,7 +411,6 @@ var xFontMapLoadFontset func(uintptr, uintptr, *FontDescription, *Language) uint
 // Load a set of fonts in the fontmap that can be used to render
 // a font matching @desc.
 func (x *FontMap) LoadFontset(ContextVar *Context, DescVar *FontDescription, LanguageVar *Language) *Fontset {
-	core.LazyRegister(&xFontMapLoadFontset, "PANGO", "pango_font_map_load_fontset", false)
 	var cls *Fontset
 
 	cret := xFontMapLoadFontset(x.GoPointer(), ContextVar.GoPointer(), DescVar, LanguageVar)
@@ -446,7 +434,6 @@ var xFontMapReloadFont func(uintptr, uintptr, float64, uintptr, uintptr) uintptr
 // scaling can be used to render a font on a hi-dpi display
 // without changing its optical size.
 func (x *FontMap) ReloadFont(FontVar *Font, ScaleVar float64, ContextVar *Context, VariationsVar *string) *Font {
-	core.LazyRegister(&xFontMapReloadFont, "PANGO", "pango_font_map_reload_font", false)
 	var cls *Font
 
 	VariationsVarPtr := core.GStrdupNullable(VariationsVar)
@@ -570,4 +557,24 @@ func (x *FontMap) ItemsChanged(PositionVar uint, RemovedVar uint, AddedVar uint)
 func init() {
 	core.SetPackageName("PANGO", "pango")
 	core.SetSharedLibraries("PANGO", []string{"libpango-1.0.so.0", "libpango-1.0.0.dylib"})
+	var libs []uintptr
+	for _, libPath := range core.GetPaths("PANGO") {
+		lib, err := purego.Dlopen(libPath, purego.RTLD_NOW|purego.RTLD_GLOBAL)
+		if err != nil {
+			panic(err)
+		}
+		libs = append(libs, lib)
+	}
+
+	core.PuregoSafeRegister(&xFontMapGLibType, libs, "pango_font_map_get_type")
+
+	core.PuregoSafeRegister(&xFontMapAddFontFile, libs, "pango_font_map_add_font_file")
+	core.PuregoSafeRegister(&xFontMapChanged, libs, "pango_font_map_changed")
+	core.PuregoSafeRegister(&xFontMapCreateContext, libs, "pango_font_map_create_context")
+	core.PuregoSafeRegister(&xFontMapGetFamily, libs, "pango_font_map_get_family")
+	core.PuregoSafeRegister(&xFontMapGetSerial, libs, "pango_font_map_get_serial")
+	core.PuregoSafeRegister(&xFontMapListFamilies, libs, "pango_font_map_list_families")
+	core.PuregoSafeRegister(&xFontMapLoadFont, libs, "pango_font_map_load_font")
+	core.PuregoSafeRegister(&xFontMapLoadFontset, libs, "pango_font_map_load_fontset")
+	core.PuregoSafeRegister(&xFontMapReloadFont, libs, "pango_font_map_reload_font")
 }

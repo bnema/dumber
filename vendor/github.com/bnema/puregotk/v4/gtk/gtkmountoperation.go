@@ -167,7 +167,6 @@ type MountOperation struct {
 var xMountOperationGLibType func() types.GType
 
 func MountOperationGLibType() types.GType {
-	core.LazyRegister(&xMountOperationGLibType, "GTK", "gtk_mount_operation_get_type", false)
 	return xMountOperationGLibType()
 }
 
@@ -181,7 +180,6 @@ var xNewMountOperation func(uintptr) uintptr
 
 // Creates a new `GtkMountOperation`.
 func NewMountOperation(ParentVar *Window) *MountOperation {
-	core.LazyRegister(&xNewMountOperation, "GTK", "gtk_mount_operation_new", false)
 	var cls *MountOperation
 
 	cret := xNewMountOperation(ParentVar.GoPointer())
@@ -199,7 +197,6 @@ var xMountOperationGetDisplay func(uintptr) uintptr
 // Gets the display on which windows of the `GtkMountOperation`
 // will be shown.
 func (x *MountOperation) GetDisplay() *gdk.Display {
-	core.LazyRegister(&xMountOperationGetDisplay, "GTK", "gtk_mount_operation_get_display", false)
 	var cls *gdk.Display
 
 	cret := xMountOperationGetDisplay(x.GoPointer())
@@ -217,7 +214,6 @@ var xMountOperationGetParent func(uintptr) uintptr
 
 // Gets the transient parent used by the `GtkMountOperation`.
 func (x *MountOperation) GetParent() *Window {
-	core.LazyRegister(&xMountOperationGetParent, "GTK", "gtk_mount_operation_get_parent", false)
 	var cls *Window
 
 	cret := xMountOperationGetParent(x.GoPointer())
@@ -236,8 +232,6 @@ var xMountOperationIsShowing func(uintptr) bool
 // Returns whether the `GtkMountOperation` is currently displaying
 // a window.
 func (x *MountOperation) IsShowing() bool {
-	core.LazyRegister(&xMountOperationIsShowing, "GTK", "gtk_mount_operation_is_showing", false)
-
 	cret := xMountOperationIsShowing(x.GoPointer())
 	return cret
 }
@@ -246,8 +240,6 @@ var xMountOperationSetDisplay func(uintptr, uintptr)
 
 // Sets the display to show windows of the `GtkMountOperation` on.
 func (x *MountOperation) SetDisplay(DisplayVar *gdk.Display) {
-	core.LazyRegister(&xMountOperationSetDisplay, "GTK", "gtk_mount_operation_set_display", false)
-
 	xMountOperationSetDisplay(x.GoPointer(), DisplayVar.GoPointer())
 }
 
@@ -256,8 +248,6 @@ var xMountOperationSetParent func(uintptr, uintptr)
 // Sets the transient parent for windows shown by the
 // `GtkMountOperation`.
 func (x *MountOperation) SetParent(ParentVar *Window) {
-	core.LazyRegister(&xMountOperationSetParent, "GTK", "gtk_mount_operation_set_parent", false)
-
 	xMountOperationSetParent(x.GoPointer(), ParentVar.GoPointer())
 }
 
@@ -283,4 +273,22 @@ func (x *MountOperation) GetPropertyIsShowing() bool {
 func init() {
 	core.SetPackageName("GTK", "gtk4")
 	core.SetSharedLibraries("GTK", []string{"libgtk-4.so.1", "libgtk-4.1.dylib"})
+	var libs []uintptr
+	for _, libPath := range core.GetPaths("GTK") {
+		lib, err := purego.Dlopen(libPath, purego.RTLD_NOW|purego.RTLD_GLOBAL)
+		if err != nil {
+			panic(err)
+		}
+		libs = append(libs, lib)
+	}
+
+	core.PuregoSafeRegister(&xMountOperationGLibType, libs, "gtk_mount_operation_get_type")
+
+	core.PuregoSafeRegister(&xNewMountOperation, libs, "gtk_mount_operation_new")
+
+	core.PuregoSafeRegister(&xMountOperationGetDisplay, libs, "gtk_mount_operation_get_display")
+	core.PuregoSafeRegister(&xMountOperationGetParent, libs, "gtk_mount_operation_get_parent")
+	core.PuregoSafeRegister(&xMountOperationIsShowing, libs, "gtk_mount_operation_is_showing")
+	core.PuregoSafeRegister(&xMountOperationSetDisplay, libs, "gtk_mount_operation_set_display")
+	core.PuregoSafeRegister(&xMountOperationSetParent, libs, "gtk_mount_operation_set_parent")
 }

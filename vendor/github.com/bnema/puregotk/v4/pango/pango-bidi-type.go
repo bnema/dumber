@@ -2,6 +2,7 @@
 package pango
 
 import (
+	"github.com/bnema/purego"
 	"github.com/bnema/puregotk/pkg/core"
 	"github.com/bnema/puregotk/v4/gobject/types"
 )
@@ -16,7 +17,6 @@ type BidiType int
 var xBidiTypeGLibType func() types.GType
 
 func BidiTypeGLibType() types.GType {
-	core.LazyRegister(&xBidiTypeGLibType, "PANGO", "pango_bidi_type_get_type", false)
 	return xBidiTypeGLibType()
 }
 
@@ -78,8 +78,6 @@ var xBidiTypeForUnichar func(uint32) BidiType
 //
 // A simplified version of this function is available as [func@unichar_direction].
 func BidiTypeForUnichar(ChVar uint32) BidiType {
-	core.LazyRegister(&xBidiTypeForUnichar, "PANGO", "pango_bidi_type_for_unichar", false)
-
 	cret := xBidiTypeForUnichar(ChVar)
 	return cret
 }
@@ -89,8 +87,6 @@ var xFindBaseDir func(string, int) Direction
 // Searches a string the first character that has a strong
 // direction, according to the Unicode bidirectional algorithm.
 func FindBaseDir(TextVar string, LengthVar int) Direction {
-	core.LazyRegister(&xFindBaseDir, "PANGO", "pango_find_base_dir", false)
-
 	cret := xFindBaseDir(TextVar, LengthVar)
 	return cret
 }
@@ -101,8 +97,6 @@ var xGetMirrorChar func(uint32, *uint32) bool
 //
 // Mirror characters are determined by the Unicode mirrored property.
 func GetMirrorChar(ChVar uint32, MirroredChVar *uint32) bool {
-	core.LazyRegister(&xGetMirrorChar, "PANGO", "pango_get_mirror_char", false)
-
 	cret := xGetMirrorChar(ChVar, MirroredChVar)
 	return cret
 }
@@ -119,8 +113,6 @@ var xUnicharDirection func(uint32) Direction
 // bidirectional type of a character is needed, [func@Pango.BidiType.for_unichar]
 // can be used instead.
 func UnicharDirection(ChVar uint32) Direction {
-	core.LazyRegister(&xUnicharDirection, "PANGO", "pango_unichar_direction", false)
-
 	cret := xUnicharDirection(ChVar)
 	return cret
 }
@@ -128,4 +120,19 @@ func UnicharDirection(ChVar uint32) Direction {
 func init() {
 	core.SetPackageName("PANGO", "pango")
 	core.SetSharedLibraries("PANGO", []string{"libpango-1.0.so.0", "libpango-1.0.0.dylib"})
+	var libs []uintptr
+	for _, libPath := range core.GetPaths("PANGO") {
+		lib, err := purego.Dlopen(libPath, purego.RTLD_NOW|purego.RTLD_GLOBAL)
+		if err != nil {
+			panic(err)
+		}
+		libs = append(libs, lib)
+	}
+
+	core.PuregoSafeRegister(&xBidiTypeGLibType, libs, "pango_bidi_type_get_type")
+
+	core.PuregoSafeRegister(&xBidiTypeForUnichar, libs, "pango_bidi_type_for_unichar")
+	core.PuregoSafeRegister(&xFindBaseDir, libs, "pango_find_base_dir")
+	core.PuregoSafeRegister(&xGetMirrorChar, libs, "pango_get_mirror_char")
+	core.PuregoSafeRegister(&xUnicharDirection, libs, "pango_unichar_direction")
 }

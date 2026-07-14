@@ -5,6 +5,7 @@ import (
 	"structs"
 	"unsafe"
 
+	"github.com/bnema/purego"
 	"github.com/bnema/puregotk/pkg/core"
 	"github.com/bnema/puregotk/v4/gdk"
 	"github.com/bnema/puregotk/v4/glib"
@@ -124,7 +125,6 @@ type Gesture struct {
 var xGestureGLibType func() types.GType
 
 func GestureGLibType() types.GType {
-	core.LazyRegister(&xGestureGLibType, "GTK", "gtk_gesture_get_type", false)
 	return xGestureGLibType()
 }
 
@@ -148,8 +148,6 @@ var xGestureGetBoundingBox func(uintptr, *gdk.Rectangle) bool
 // infinitely small area, @rect width and height will thus be 0
 // regardless of the number of touchpoints.
 func (x *Gesture) GetBoundingBox(RectVar *gdk.Rectangle) bool {
-	core.LazyRegister(&xGestureGetBoundingBox, "GTK", "gtk_gesture_get_bounding_box", false)
-
 	cret := xGestureGetBoundingBox(x.GoPointer(), RectVar)
 	return cret
 }
@@ -162,8 +160,6 @@ var xGestureGetBoundingBoxCenter func(uintptr, *float64, *float64) bool
 //
 // Otherwise, %FALSE will be returned.
 func (x *Gesture) GetBoundingBoxCenter(XVar *float64, YVar *float64) bool {
-	core.LazyRegister(&xGestureGetBoundingBoxCenter, "GTK", "gtk_gesture_get_bounding_box_center", false)
-
 	cret := xGestureGetBoundingBoxCenter(x.GoPointer(), XVar, YVar)
 	return cret
 }
@@ -175,7 +171,6 @@ var xGestureGetDevice func(uintptr) uintptr
 //
 // This returns %NULL if the gesture is not being interacted.
 func (x *Gesture) GetDevice() *gdk.Device {
-	core.LazyRegister(&xGestureGetDevice, "GTK", "gtk_gesture_get_device", false)
 	var cls *gdk.Device
 
 	cret := xGestureGetDevice(x.GoPointer())
@@ -193,8 +188,6 @@ var xGestureGetGroup func(uintptr) uintptr
 
 // Returns all gestures in the group of @gesture
 func (x *Gesture) GetGroup() *glib.List {
-	core.LazyRegister(&xGestureGetGroup, "GTK", "gtk_gesture_get_group", false)
-
 	cret := xGestureGetGroup(x.GoPointer())
 	if cret == 0 {
 		return nil
@@ -210,7 +203,6 @@ var xGestureGetLastEvent func(uintptr, *gdk.EventSequence) uintptr
 // @sequence is still interpreted by the @gesture. If in doubt,
 // you should make a copy of the event.
 func (x *Gesture) GetLastEvent(SequenceVar *gdk.EventSequence) *gdk.Event {
-	core.LazyRegister(&xGestureGetLastEvent, "GTK", "gtk_gesture_get_last_event", false)
 	var cls *gdk.Event
 
 	cret := xGestureGetLastEvent(x.GoPointer(), SequenceVar)
@@ -228,8 +220,6 @@ var xGestureGetLastUpdatedSequence func(uintptr) uintptr
 
 // Returns the `GdkEventSequence` that was last updated on @gesture.
 func (x *Gesture) GetLastUpdatedSequence() *gdk.EventSequence {
-	core.LazyRegister(&xGestureGetLastUpdatedSequence, "GTK", "gtk_gesture_get_last_updated_sequence", false)
-
 	cret := xGestureGetLastUpdatedSequence(x.GoPointer())
 	if cret == 0 {
 		return nil
@@ -245,8 +235,6 @@ var xGestureGetPoint func(uintptr, *gdk.EventSequence, *float64, *float64) bool
 //
 // The coordinates are always relative to the widget allocation.
 func (x *Gesture) GetPoint(SequenceVar *gdk.EventSequence, XVar *float64, YVar *float64) bool {
-	core.LazyRegister(&xGestureGetPoint, "GTK", "gtk_gesture_get_point", false)
-
 	cret := xGestureGetPoint(x.GoPointer(), SequenceVar, XVar, YVar)
 	return cret
 }
@@ -255,8 +243,6 @@ var xGestureGetSequenceState func(uintptr, *gdk.EventSequence) EventSequenceStat
 
 // Returns the @sequence state, as seen by @gesture.
 func (x *Gesture) GetSequenceState(SequenceVar *gdk.EventSequence) EventSequenceState {
-	core.LazyRegister(&xGestureGetSequenceState, "GTK", "gtk_gesture_get_sequence_state", false)
-
 	cret := xGestureGetSequenceState(x.GoPointer(), SequenceVar)
 	return cret
 }
@@ -266,8 +252,6 @@ var xGestureGetSequences func(uintptr) uintptr
 // Returns the list of `GdkEventSequences` currently being interpreted
 // by @gesture.
 func (x *Gesture) GetSequences() *glib.List {
-	core.LazyRegister(&xGestureGetSequences, "GTK", "gtk_gesture_get_sequences", false)
-
 	cret := xGestureGetSequences(x.GoPointer())
 	if cret == 0 {
 		return nil
@@ -295,8 +279,6 @@ var xGestureGroup func(uintptr, uintptr)
 // `GtkWidget` will switch the state for that sequence to
 // %GTK_EVENT_SEQUENCE_DENIED.
 func (x *Gesture) Group(GestureVar *Gesture) {
-	core.LazyRegister(&xGestureGroup, "GTK", "gtk_gesture_group", false)
-
 	xGestureGroup(x.GoPointer(), GestureVar.GoPointer())
 }
 
@@ -305,8 +287,6 @@ var xGestureHandlesSequence func(uintptr, *gdk.EventSequence) bool
 // Returns %TRUE if @gesture is currently handling events
 // corresponding to @sequence.
 func (x *Gesture) HandlesSequence(SequenceVar *gdk.EventSequence) bool {
-	core.LazyRegister(&xGestureHandlesSequence, "GTK", "gtk_gesture_handles_sequence", false)
-
 	cret := xGestureHandlesSequence(x.GoPointer(), SequenceVar)
 	return cret
 }
@@ -318,8 +298,6 @@ var xGestureIsActive func(uintptr) bool
 // A gesture is active while there are touch sequences
 // interacting with it.
 func (x *Gesture) IsActive() bool {
-	core.LazyRegister(&xGestureIsActive, "GTK", "gtk_gesture_is_active", false)
-
 	cret := xGestureIsActive(x.GoPointer())
 	return cret
 }
@@ -328,8 +306,6 @@ var xGestureIsGroupedWith func(uintptr, uintptr) bool
 
 // Returns %TRUE if both gestures pertain to the same group.
 func (x *Gesture) IsGroupedWith(OtherVar *Gesture) bool {
-	core.LazyRegister(&xGestureIsGroupedWith, "GTK", "gtk_gesture_is_grouped_with", false)
-
 	cret := xGestureIsGroupedWith(x.GoPointer(), OtherVar.GoPointer())
 	return cret
 }
@@ -341,8 +317,6 @@ var xGestureIsRecognized func(uintptr) bool
 // A gesture is recognized if there are as many interacting
 // touch sequences as required by @gesture.
 func (x *Gesture) IsRecognized() bool {
-	core.LazyRegister(&xGestureIsRecognized, "GTK", "gtk_gesture_is_recognized", false)
-
 	cret := xGestureIsRecognized(x.GoPointer())
 	return cret
 }
@@ -397,8 +371,6 @@ var xGestureSetSequenceState func(uintptr, *gdk.EventSequence, EventSequenceStat
 // be initialized to the group's global state when the second
 // gesture processes the event.
 func (x *Gesture) SetSequenceState(SequenceVar *gdk.EventSequence, StateVar EventSequenceState) bool {
-	core.LazyRegister(&xGestureSetSequenceState, "GTK", "gtk_gesture_set_sequence_state", false)
-
 	cret := xGestureSetSequenceState(x.GoPointer(), SequenceVar, StateVar)
 	return cret
 }
@@ -454,8 +426,6 @@ var xGestureSetState func(uintptr, EventSequenceState) bool
 // be initialized to the group's global state when the second
 // gesture processes the event.
 func (x *Gesture) SetState(StateVar EventSequenceState) bool {
-	core.LazyRegister(&xGestureSetState, "GTK", "gtk_gesture_set_state", false)
-
 	cret := xGestureSetState(x.GoPointer(), StateVar)
 	return cret
 }
@@ -464,8 +434,6 @@ var xGestureUngroup func(uintptr)
 
 // Separates @gesture into an isolated group.
 func (x *Gesture) Ungroup() {
-	core.LazyRegister(&xGestureUngroup, "GTK", "gtk_gesture_ungroup", false)
-
 	xGestureUngroup(x.GoPointer())
 }
 
@@ -647,4 +615,32 @@ func (x *Gesture) ConnectUpdate(cb *func(Gesture, uintptr)) uint {
 func init() {
 	core.SetPackageName("GTK", "gtk4")
 	core.SetSharedLibraries("GTK", []string{"libgtk-4.so.1", "libgtk-4.1.dylib"})
+	var libs []uintptr
+	for _, libPath := range core.GetPaths("GTK") {
+		lib, err := purego.Dlopen(libPath, purego.RTLD_NOW|purego.RTLD_GLOBAL)
+		if err != nil {
+			panic(err)
+		}
+		libs = append(libs, lib)
+	}
+
+	core.PuregoSafeRegister(&xGestureGLibType, libs, "gtk_gesture_get_type")
+
+	core.PuregoSafeRegister(&xGestureGetBoundingBox, libs, "gtk_gesture_get_bounding_box")
+	core.PuregoSafeRegister(&xGestureGetBoundingBoxCenter, libs, "gtk_gesture_get_bounding_box_center")
+	core.PuregoSafeRegister(&xGestureGetDevice, libs, "gtk_gesture_get_device")
+	core.PuregoSafeRegister(&xGestureGetGroup, libs, "gtk_gesture_get_group")
+	core.PuregoSafeRegister(&xGestureGetLastEvent, libs, "gtk_gesture_get_last_event")
+	core.PuregoSafeRegister(&xGestureGetLastUpdatedSequence, libs, "gtk_gesture_get_last_updated_sequence")
+	core.PuregoSafeRegister(&xGestureGetPoint, libs, "gtk_gesture_get_point")
+	core.PuregoSafeRegister(&xGestureGetSequenceState, libs, "gtk_gesture_get_sequence_state")
+	core.PuregoSafeRegister(&xGestureGetSequences, libs, "gtk_gesture_get_sequences")
+	core.PuregoSafeRegister(&xGestureGroup, libs, "gtk_gesture_group")
+	core.PuregoSafeRegister(&xGestureHandlesSequence, libs, "gtk_gesture_handles_sequence")
+	core.PuregoSafeRegister(&xGestureIsActive, libs, "gtk_gesture_is_active")
+	core.PuregoSafeRegister(&xGestureIsGroupedWith, libs, "gtk_gesture_is_grouped_with")
+	core.PuregoSafeRegister(&xGestureIsRecognized, libs, "gtk_gesture_is_recognized")
+	core.PuregoSafeRegister(&xGestureSetSequenceState, libs, "gtk_gesture_set_sequence_state")
+	core.PuregoSafeRegister(&xGestureSetState, libs, "gtk_gesture_set_state")
+	core.PuregoSafeRegister(&xGestureUngroup, libs, "gtk_gesture_ungroup")
 }

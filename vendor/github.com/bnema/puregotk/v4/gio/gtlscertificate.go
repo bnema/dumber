@@ -85,7 +85,6 @@ type TlsCertificate struct {
 var xTlsCertificateGLibType func() types.GType
 
 func TlsCertificateGLibType() types.GType {
-	core.LazyRegister(&xTlsCertificateGLibType, "GIO", "g_tls_certificate_get_type", false)
 	return xTlsCertificateGLibType()
 }
 
@@ -107,7 +106,6 @@ var xNewTlsCertificateFromFile func(string, **glib.Error) uintptr
 // If @file cannot be read or parsed, the function will return %NULL and
 // set @error.
 func NewTlsCertificateFromFile(FileVar string) (*TlsCertificate, error) {
-	core.LazyRegister(&xNewTlsCertificateFromFile, "GIO", "g_tls_certificate_new_from_file", false)
 	var cls *TlsCertificate
 	var cerr *glib.Error
 
@@ -135,7 +133,6 @@ var xNewTlsCertificateFromFileWithPassword func(string, string, **glib.Error) ui
 // Currently only `.p12` and `.pfx` files are supported.
 // See g_tls_certificate_new_from_pkcs12() for more details.
 func NewTlsCertificateFromFileWithPassword(FileVar string, PasswordVar string) (*TlsCertificate, error) {
-	core.LazyRegister(&xNewTlsCertificateFromFileWithPassword, "GIO", "g_tls_certificate_new_from_file_with_password", false)
 	var cls *TlsCertificate
 	var cerr *glib.Error
 
@@ -169,7 +166,6 @@ var xNewTlsCertificateFromFiles func(string, string, **glib.Error) uintptr
 // %NULL and set @error. Otherwise, this behaves like
 // g_tls_certificate_new_from_pem().
 func NewTlsCertificateFromFiles(CertFileVar string, KeyFileVar string) (*TlsCertificate, error) {
-	core.LazyRegister(&xNewTlsCertificateFromFiles, "GIO", "g_tls_certificate_new_from_files", false)
 	var cls *TlsCertificate
 	var cerr *glib.Error
 
@@ -203,7 +199,6 @@ var xNewTlsCertificateFromPem func(string, int, **glib.Error) uintptr
 // certificate in the chain cannot be verified, the first certificate in
 // the file will still be returned.
 func NewTlsCertificateFromPem(DataVar string, LengthVar int) (*TlsCertificate, error) {
-	core.LazyRegister(&xNewTlsCertificateFromPem, "GIO", "g_tls_certificate_new_from_pem", false)
 	var cls *TlsCertificate
 	var cerr *glib.Error
 
@@ -250,7 +245,6 @@ var xNewTlsCertificateFromPkcs11Uris func(string, uintptr, **glib.Error) uintptr
 //
 // Note that the private key is not accessed until usage and may fail or require a PIN later.
 func NewTlsCertificateFromPkcs11Uris(Pkcs11UriVar string, PrivateKeyPkcs11UriVar *string) (*TlsCertificate, error) {
-	core.LazyRegister(&xNewTlsCertificateFromPkcs11Uris, "GIO", "g_tls_certificate_new_from_pkcs11_uris", false)
 	var cls *TlsCertificate
 	var cerr *glib.Error
 
@@ -290,7 +284,6 @@ var xNewTlsCertificateFromPkcs12 func([]byte, uint, uintptr, **glib.Error) uintp
 //
 // Other parsing failures will error with %G_TLS_ERROR_BAD_CERTIFICATE.
 func NewTlsCertificateFromPkcs12(DataVar []byte, LengthVar uint, PasswordVar *string) (*TlsCertificate, error) {
-	core.LazyRegister(&xNewTlsCertificateFromPkcs12, "GIO", "g_tls_certificate_new_from_pkcs12", false)
 	var cls *TlsCertificate
 	var cerr *glib.Error
 
@@ -314,8 +307,6 @@ var xTlsCertificateGetDnsNames func(uintptr) uintptr
 
 // Gets the value of #GTlsCertificate:dns-names.
 func (x *TlsCertificate) GetDnsNames() uintptr {
-	core.LazyRegister(&xTlsCertificateGetDnsNames, "GIO", "g_tls_certificate_get_dns_names", false)
-
 	cret := xTlsCertificateGetDnsNames(x.GoPointer())
 	return cret
 }
@@ -324,8 +315,6 @@ var xTlsCertificateGetIpAddresses func(uintptr) uintptr
 
 // Gets the value of #GTlsCertificate:ip-addresses.
 func (x *TlsCertificate) GetIpAddresses() uintptr {
-	core.LazyRegister(&xTlsCertificateGetIpAddresses, "GIO", "g_tls_certificate_get_ip_addresses", false)
-
 	cret := xTlsCertificateGetIpAddresses(x.GoPointer())
 	return cret
 }
@@ -334,7 +323,6 @@ var xTlsCertificateGetIssuer func(uintptr) uintptr
 
 // Gets the #GTlsCertificate representing @cert's issuer, if known
 func (x *TlsCertificate) GetIssuer() *TlsCertificate {
-	core.LazyRegister(&xTlsCertificateGetIssuer, "GIO", "g_tls_certificate_get_issuer", false)
 	var cls *TlsCertificate
 
 	cret := xTlsCertificateGetIssuer(x.GoPointer())
@@ -352,8 +340,6 @@ var xTlsCertificateGetIssuerName func(uintptr) string
 
 // Returns the issuer name from the certificate.
 func (x *TlsCertificate) GetIssuerName() string {
-	core.LazyRegister(&xTlsCertificateGetIssuerName, "GIO", "g_tls_certificate_get_issuer_name", false)
-
 	cret := xTlsCertificateGetIssuerName(x.GoPointer())
 	return cret
 }
@@ -362,8 +348,6 @@ var xTlsCertificateGetNotValidAfter func(uintptr) uintptr
 
 // Returns the time at which the certificate became or will become invalid.
 func (x *TlsCertificate) GetNotValidAfter() *glib.DateTime {
-	core.LazyRegister(&xTlsCertificateGetNotValidAfter, "GIO", "g_tls_certificate_get_not_valid_after", false)
-
 	cret := xTlsCertificateGetNotValidAfter(x.GoPointer())
 	if cret == 0 {
 		return nil
@@ -375,8 +359,6 @@ var xTlsCertificateGetNotValidBefore func(uintptr) uintptr
 
 // Returns the time at which the certificate became or will become valid.
 func (x *TlsCertificate) GetNotValidBefore() *glib.DateTime {
-	core.LazyRegister(&xTlsCertificateGetNotValidBefore, "GIO", "g_tls_certificate_get_not_valid_before", false)
-
 	cret := xTlsCertificateGetNotValidBefore(x.GoPointer())
 	if cret == 0 {
 		return nil
@@ -388,8 +370,6 @@ var xTlsCertificateGetSubjectName func(uintptr) string
 
 // Returns the subject name from the certificate.
 func (x *TlsCertificate) GetSubjectName() string {
-	core.LazyRegister(&xTlsCertificateGetSubjectName, "GIO", "g_tls_certificate_get_subject_name", false)
-
 	cret := xTlsCertificateGetSubjectName(x.GoPointer())
 	return cret
 }
@@ -402,8 +382,6 @@ var xTlsCertificateIsSame func(uintptr, uintptr) bool
 // their #GTlsCertificate:issuer, #GTlsCertificate:private-key, or
 // #GTlsCertificate:private-key-pem properties differ.
 func (x *TlsCertificate) IsSame(CertTwoVar *TlsCertificate) bool {
-	core.LazyRegister(&xTlsCertificateIsSame, "GIO", "g_tls_certificate_is_same", false)
-
 	cret := xTlsCertificateIsSame(x.GoPointer(), CertTwoVar.GoPointer())
 	return cret
 }
@@ -444,8 +422,6 @@ var xTlsCertificateVerify func(uintptr, uintptr, uintptr) TlsCertificateFlags
 // certificates used by a TLS connection is to let #GTlsConnection
 // handle the verification.
 func (x *TlsCertificate) Verify(IdentityVar SocketConnectable, TrustedCaVar *TlsCertificate) TlsCertificateFlags {
-	core.LazyRegister(&xTlsCertificateVerify, "GIO", "g_tls_certificate_verify", false)
-
 	cret := xTlsCertificateVerify(x.GoPointer(), IdentityVar.GoPointer(), TrustedCaVar.GoPointer())
 	return cret
 }
@@ -745,7 +721,6 @@ var xTlsCertificateListNewFromFile func(string, **glib.Error) uintptr
 // PEM-encoded certificates, this will return an empty list and not
 // set @error.
 func TlsCertificateListNewFromFile(FileVar string) (*glib.List, error) {
-	core.LazyRegister(&xTlsCertificateListNewFromFile, "GIO", "g_tls_certificate_list_new_from_file", false)
 	var cerr *glib.Error
 
 	cret := xTlsCertificateListNewFromFile(FileVar, &cerr)
@@ -761,4 +736,33 @@ func TlsCertificateListNewFromFile(FileVar string) (*glib.List, error) {
 func init() {
 	core.SetPackageName("GIO", "gio-2.0")
 	core.SetSharedLibraries("GIO", []string{"libgio-2.0.so.0", "libgio-2.0.0.dylib"})
+	var libs []uintptr
+	for _, libPath := range core.GetPaths("GIO") {
+		lib, err := purego.Dlopen(libPath, purego.RTLD_NOW|purego.RTLD_GLOBAL)
+		if err != nil {
+			panic(err)
+		}
+		libs = append(libs, lib)
+	}
+
+	core.PuregoSafeRegister(&xTlsCertificateGLibType, libs, "g_tls_certificate_get_type")
+
+	core.PuregoSafeRegister(&xNewTlsCertificateFromFile, libs, "g_tls_certificate_new_from_file")
+	core.PuregoSafeRegister(&xNewTlsCertificateFromFileWithPassword, libs, "g_tls_certificate_new_from_file_with_password")
+	core.PuregoSafeRegister(&xNewTlsCertificateFromFiles, libs, "g_tls_certificate_new_from_files")
+	core.PuregoSafeRegister(&xNewTlsCertificateFromPem, libs, "g_tls_certificate_new_from_pem")
+	core.PuregoSafeRegister(&xNewTlsCertificateFromPkcs11Uris, libs, "g_tls_certificate_new_from_pkcs11_uris")
+	core.PuregoSafeRegister(&xNewTlsCertificateFromPkcs12, libs, "g_tls_certificate_new_from_pkcs12")
+
+	core.PuregoSafeRegister(&xTlsCertificateGetDnsNames, libs, "g_tls_certificate_get_dns_names")
+	core.PuregoSafeRegister(&xTlsCertificateGetIpAddresses, libs, "g_tls_certificate_get_ip_addresses")
+	core.PuregoSafeRegister(&xTlsCertificateGetIssuer, libs, "g_tls_certificate_get_issuer")
+	core.PuregoSafeRegister(&xTlsCertificateGetIssuerName, libs, "g_tls_certificate_get_issuer_name")
+	core.PuregoSafeRegister(&xTlsCertificateGetNotValidAfter, libs, "g_tls_certificate_get_not_valid_after")
+	core.PuregoSafeRegister(&xTlsCertificateGetNotValidBefore, libs, "g_tls_certificate_get_not_valid_before")
+	core.PuregoSafeRegister(&xTlsCertificateGetSubjectName, libs, "g_tls_certificate_get_subject_name")
+	core.PuregoSafeRegister(&xTlsCertificateIsSame, libs, "g_tls_certificate_is_same")
+	core.PuregoSafeRegister(&xTlsCertificateVerify, libs, "g_tls_certificate_verify")
+
+	core.PuregoSafeRegister(&xTlsCertificateListNewFromFile, libs, "g_tls_certificate_list_new_from_file")
 }

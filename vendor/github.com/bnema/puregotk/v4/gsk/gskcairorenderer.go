@@ -5,6 +5,7 @@ import (
 	"structs"
 	"unsafe"
 
+	"github.com/bnema/purego"
 	"github.com/bnema/puregotk/pkg/core"
 	"github.com/bnema/puregotk/v4/gobject/types"
 )
@@ -36,7 +37,6 @@ type CairoRenderer struct {
 var xCairoRendererGLibType func() types.GType
 
 func CairoRendererGLibType() types.GType {
-	core.LazyRegister(&xCairoRendererGLibType, "GSK", "gsk_cairo_renderer_get_type", false)
 	return xCairoRendererGLibType()
 }
 
@@ -57,7 +57,6 @@ var xNewCairoRenderer func() uintptr
 // content and will instead render an error marker. Its usage should be
 // avoided.
 func NewCairoRenderer() *CairoRenderer {
-	core.LazyRegister(&xNewCairoRenderer, "GSK", "gsk_cairo_renderer_new", false)
 	var cls *CairoRenderer
 
 	cret := xNewCairoRenderer()
@@ -84,4 +83,16 @@ func (c *CairoRenderer) SetGoPointer(ptr uintptr) {
 func init() {
 	core.SetPackageName("GSK", "gtk4")
 	core.SetSharedLibraries("GSK", []string{"libgtk-4.so.1", "libgtk-4.1.dylib"})
+	var libs []uintptr
+	for _, libPath := range core.GetPaths("GSK") {
+		lib, err := purego.Dlopen(libPath, purego.RTLD_NOW|purego.RTLD_GLOBAL)
+		if err != nil {
+			panic(err)
+		}
+		libs = append(libs, lib)
+	}
+
+	core.PuregoSafeRegister(&xCairoRendererGLibType, libs, "gsk_cairo_renderer_get_type")
+
+	core.PuregoSafeRegister(&xNewCairoRenderer, libs, "gsk_cairo_renderer_new")
 }

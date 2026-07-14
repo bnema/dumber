@@ -4,6 +4,7 @@ package gtk
 import (
 	"unsafe"
 
+	"github.com/bnema/purego"
 	"github.com/bnema/puregotk/pkg/core"
 	"github.com/bnema/puregotk/v4/gdk"
 	"github.com/bnema/puregotk/v4/glib"
@@ -44,7 +45,6 @@ type FontChooserDialog struct {
 var xFontChooserDialogGLibType func() types.GType
 
 func FontChooserDialogGLibType() types.GType {
-	core.LazyRegister(&xFontChooserDialogGLibType, "GTK", "gtk_font_chooser_dialog_get_type", false)
 	return xFontChooserDialogGLibType()
 }
 
@@ -58,7 +58,6 @@ var xNewFontChooserDialog func(uintptr, uintptr) uintptr
 
 // Creates a new `GtkFontChooserDialog`.
 func NewFontChooserDialog(TitleVar *string, ParentVar *Window) *FontChooserDialog {
-	core.LazyRegister(&xNewFontChooserDialog, "GTK", "gtk_font_chooser_dialog_new", false)
 	var cls *FontChooserDialog
 
 	TitleVarPtr := core.GStrdupNullable(TitleVar)
@@ -640,4 +639,16 @@ func (x *FontChooserDialog) SetFocus(FocusVar *Widget) {
 func init() {
 	core.SetPackageName("GTK", "gtk4")
 	core.SetSharedLibraries("GTK", []string{"libgtk-4.so.1", "libgtk-4.1.dylib"})
+	var libs []uintptr
+	for _, libPath := range core.GetPaths("GTK") {
+		lib, err := purego.Dlopen(libPath, purego.RTLD_NOW|purego.RTLD_GLOBAL)
+		if err != nil {
+			panic(err)
+		}
+		libs = append(libs, lib)
+	}
+
+	core.PuregoSafeRegister(&xFontChooserDialogGLibType, libs, "gtk_font_chooser_dialog_get_type")
+
+	core.PuregoSafeRegister(&xNewFontChooserDialog, libs, "gtk_font_chooser_dialog_new")
 }

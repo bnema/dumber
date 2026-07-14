@@ -74,7 +74,7 @@ func (x *NetworkMonitorInterface) OverrideCanReach(cb func(NetworkMonitor, Socke
 	if cb == nil {
 		x.xCanReach = 0
 	} else {
-		x.xCanReach = purego.NewCallback(func(MonitorVarp uintptr, ConnectableVarp uintptr, CancellableVarp uintptr, cerrp **glib.Error) bool {
+		x.xCanReach = purego.NewCallback(func(MonitorVarp uintptr, ConnectableVarp uintptr, CancellableVarp uintptr) bool {
 			return cb(&NetworkMonitorBase{Ptr: MonitorVarp}, &SocketConnectableBase{Ptr: ConnectableVarp}, CancellableNewFromInternalPtr(CancellableVarp))
 		})
 	}
@@ -86,11 +86,10 @@ func (x *NetworkMonitorInterface) GetCanReach() func(NetworkMonitor, SocketConne
 	if x.xCanReach == 0 {
 		return nil
 	}
-	var rawCallback func(MonitorVarp uintptr, ConnectableVarp uintptr, CancellableVarp uintptr, cerrp **glib.Error) bool
+	var rawCallback func(MonitorVarp uintptr, ConnectableVarp uintptr, CancellableVarp uintptr) bool
 	purego.RegisterFunc(&rawCallback, x.xCanReach)
 	return func(MonitorVar NetworkMonitor, ConnectableVar SocketConnectable, CancellableVar *Cancellable) bool {
-		var cerr *glib.Error
-		return rawCallback(MonitorVar.GoPointer(), ConnectableVar.GoPointer(), CancellableVar.GoPointer(), &cerr)
+		return rawCallback(MonitorVar.GoPointer(), ConnectableVar.GoPointer(), CancellableVar.GoPointer())
 	}
 }
 
@@ -131,7 +130,7 @@ func (x *NetworkMonitorInterface) OverrideCanReachFinish(cb func(NetworkMonitor,
 	if cb == nil {
 		x.xCanReachFinish = 0
 	} else {
-		x.xCanReachFinish = purego.NewCallback(func(MonitorVarp uintptr, ResultVarp uintptr, cerrp **glib.Error) bool {
+		x.xCanReachFinish = purego.NewCallback(func(MonitorVarp uintptr, ResultVarp uintptr) bool {
 			return cb(&NetworkMonitorBase{Ptr: MonitorVarp}, &AsyncResultBase{Ptr: ResultVarp})
 		})
 	}
@@ -145,11 +144,10 @@ func (x *NetworkMonitorInterface) GetCanReachFinish() func(NetworkMonitor, Async
 	if x.xCanReachFinish == 0 {
 		return nil
 	}
-	var rawCallback func(MonitorVarp uintptr, ResultVarp uintptr, cerrp **glib.Error) bool
+	var rawCallback func(MonitorVarp uintptr, ResultVarp uintptr) bool
 	purego.RegisterFunc(&rawCallback, x.xCanReachFinish)
 	return func(MonitorVar NetworkMonitor, ResultVar AsyncResult) bool {
-		var cerr *glib.Error
-		return rawCallback(MonitorVar.GoPointer(), ResultVar.GoPointer(), &cerr)
+		return rawCallback(MonitorVar.GoPointer(), ResultVar.GoPointer())
 	}
 }
 
@@ -173,7 +171,6 @@ type NetworkMonitor interface {
 var xNetworkMonitorGLibType func() types.GType
 
 func NetworkMonitorGLibType() types.GType {
-	core.LazyRegister(&xNetworkMonitorGLibType, "GIO", "g_network_monitor_get_type", false)
 	return xNetworkMonitorGLibType()
 }
 
@@ -340,47 +337,14 @@ func (x *NetworkMonitorBase) GetPropertyNetworkMetered() bool {
 	return v.GetBoolean()
 }
 
-var XGNetworkMonitorCanReach func(uintptr, uintptr, uintptr, **glib.Error) bool = func(instance uintptr, ConnectableVarp uintptr, CancellableVarp uintptr, cerrp **glib.Error) bool {
-	core.LazyRegister(&xXGNetworkMonitorCanReach, "GIO", "g_network_monitor_can_reach", false)
-	return xXGNetworkMonitorCanReach(instance, ConnectableVarp, CancellableVarp, cerrp)
-}
-
 var (
-	xXGNetworkMonitorCanReach     func(uintptr, uintptr, uintptr, **glib.Error) bool
-	XGNetworkMonitorCanReachAsync func(uintptr, uintptr, uintptr, uintptr, uintptr) = func(instance uintptr, ConnectableVarp uintptr, CancellableVarp uintptr, CallbackVarp uintptr, UserDataVarp uintptr) {
-		core.LazyRegister(&xXGNetworkMonitorCanReachAsync, "GIO", "g_network_monitor_can_reach_async", false)
-		xXGNetworkMonitorCanReachAsync(instance, ConnectableVarp, CancellableVarp, CallbackVarp, UserDataVarp)
-	}
+	XGNetworkMonitorCanReach            func(uintptr, uintptr, uintptr, **glib.Error) bool
+	XGNetworkMonitorCanReachAsync       func(uintptr, uintptr, uintptr, uintptr, uintptr)
+	XGNetworkMonitorCanReachFinish      func(uintptr, uintptr, **glib.Error) bool
+	XGNetworkMonitorGetConnectivity     func(uintptr) NetworkConnectivity
+	XGNetworkMonitorGetNetworkAvailable func(uintptr) bool
+	XGNetworkMonitorGetNetworkMetered   func(uintptr) bool
 )
-var (
-	xXGNetworkMonitorCanReachAsync func(uintptr, uintptr, uintptr, uintptr, uintptr)
-	XGNetworkMonitorCanReachFinish func(uintptr, uintptr, **glib.Error) bool = func(instance uintptr, ResultVarp uintptr, cerrp **glib.Error) bool {
-		core.LazyRegister(&xXGNetworkMonitorCanReachFinish, "GIO", "g_network_monitor_can_reach_finish", false)
-		return xXGNetworkMonitorCanReachFinish(instance, ResultVarp, cerrp)
-	}
-)
-var (
-	xXGNetworkMonitorCanReachFinish func(uintptr, uintptr, **glib.Error) bool
-	XGNetworkMonitorGetConnectivity func(uintptr) NetworkConnectivity = func(instance uintptr) NetworkConnectivity {
-		core.LazyRegister(&xXGNetworkMonitorGetConnectivity, "GIO", "g_network_monitor_get_connectivity", false)
-		return xXGNetworkMonitorGetConnectivity(instance)
-	}
-)
-var (
-	xXGNetworkMonitorGetConnectivity    func(uintptr) NetworkConnectivity
-	XGNetworkMonitorGetNetworkAvailable func(uintptr) bool = func(instance uintptr) bool {
-		core.LazyRegister(&xXGNetworkMonitorGetNetworkAvailable, "GIO", "g_network_monitor_get_network_available", false)
-		return xXGNetworkMonitorGetNetworkAvailable(instance)
-	}
-)
-var (
-	xXGNetworkMonitorGetNetworkAvailable func(uintptr) bool
-	XGNetworkMonitorGetNetworkMetered    func(uintptr) bool = func(instance uintptr) bool {
-		core.LazyRegister(&xXGNetworkMonitorGetNetworkMetered, "GIO", "g_network_monitor_get_network_metered", false)
-		return xXGNetworkMonitorGetNetworkMetered(instance)
-	}
-)
-var xXGNetworkMonitorGetNetworkMetered func(uintptr) bool
 
 const (
 	// Extension point for network status monitoring functionality.
@@ -392,7 +356,6 @@ var xNetworkMonitorGetDefault func() uintptr
 
 // Gets the default #GNetworkMonitor for the system.
 func NetworkMonitorGetDefault() *NetworkMonitorBase {
-	core.LazyRegister(&xNetworkMonitorGetDefault, "GIO", "g_network_monitor_get_default", false)
 	var cls *NetworkMonitorBase
 
 	cret := xNetworkMonitorGetDefault()
@@ -409,4 +372,23 @@ func NetworkMonitorGetDefault() *NetworkMonitorBase {
 func init() {
 	core.SetPackageName("GIO", "gio-2.0")
 	core.SetSharedLibraries("GIO", []string{"libgio-2.0.so.0", "libgio-2.0.0.dylib"})
+	var libs []uintptr
+	for _, libPath := range core.GetPaths("GIO") {
+		lib, err := purego.Dlopen(libPath, purego.RTLD_NOW|purego.RTLD_GLOBAL)
+		if err != nil {
+			panic(err)
+		}
+		libs = append(libs, lib)
+	}
+
+	core.PuregoSafeRegister(&xNetworkMonitorGetDefault, libs, "g_network_monitor_get_default")
+
+	core.PuregoSafeRegister(&xNetworkMonitorGLibType, libs, "g_network_monitor_get_type")
+
+	core.PuregoSafeRegister(&XGNetworkMonitorCanReach, libs, "g_network_monitor_can_reach")
+	core.PuregoSafeRegister(&XGNetworkMonitorCanReachAsync, libs, "g_network_monitor_can_reach_async")
+	core.PuregoSafeRegister(&XGNetworkMonitorCanReachFinish, libs, "g_network_monitor_can_reach_finish")
+	core.PuregoSafeRegister(&XGNetworkMonitorGetConnectivity, libs, "g_network_monitor_get_connectivity")
+	core.PuregoSafeRegister(&XGNetworkMonitorGetNetworkAvailable, libs, "g_network_monitor_get_network_available")
+	core.PuregoSafeRegister(&XGNetworkMonitorGetNetworkMetered, libs, "g_network_monitor_get_network_metered")
 }

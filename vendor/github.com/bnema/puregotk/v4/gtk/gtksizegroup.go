@@ -4,6 +4,7 @@ package gtk
 import (
 	"unsafe"
 
+	"github.com/bnema/purego"
 	"github.com/bnema/puregotk/pkg/core"
 	"github.com/bnema/puregotk/v4/glib"
 	"github.com/bnema/puregotk/v4/gobject"
@@ -124,7 +125,6 @@ type SizeGroup struct {
 var xSizeGroupGLibType func() types.GType
 
 func SizeGroupGLibType() types.GType {
-	core.LazyRegister(&xSizeGroupGLibType, "GTK", "gtk_size_group_get_type", false)
 	return xSizeGroupGLibType()
 }
 
@@ -138,7 +138,6 @@ var xNewSizeGroup func(SizeGroupMode) uintptr
 
 // Create a new `GtkSizeGroup`.
 func NewSizeGroup(ModeVar SizeGroupMode) *SizeGroup {
-	core.LazyRegister(&xNewSizeGroup, "GTK", "gtk_size_group_new", false)
 	var cls *SizeGroup
 
 	cret := xNewSizeGroup(ModeVar)
@@ -165,8 +164,6 @@ var xSizeGroupAddWidget func(uintptr, uintptr)
 // When the widget is destroyed or no longer referenced elsewhere, it
 // will be removed from the size group.
 func (x *SizeGroup) AddWidget(WidgetVar *Widget) {
-	core.LazyRegister(&xSizeGroupAddWidget, "GTK", "gtk_size_group_add_widget", false)
-
 	xSizeGroupAddWidget(x.GoPointer(), WidgetVar.GoPointer())
 }
 
@@ -174,8 +171,6 @@ var xSizeGroupGetMode func(uintptr) SizeGroupMode
 
 // Gets the current mode of the size group.
 func (x *SizeGroup) GetMode() SizeGroupMode {
-	core.LazyRegister(&xSizeGroupGetMode, "GTK", "gtk_size_group_get_mode", false)
-
 	cret := xSizeGroupGetMode(x.GoPointer())
 	return cret
 }
@@ -184,8 +179,6 @@ var xSizeGroupGetWidgets func(uintptr) uintptr
 
 // Returns the list of widgets associated with @size_group.
 func (x *SizeGroup) GetWidgets() *glib.SList {
-	core.LazyRegister(&xSizeGroupGetWidgets, "GTK", "gtk_size_group_get_widgets", false)
-
 	cret := xSizeGroupGetWidgets(x.GoPointer())
 	if cret == 0 {
 		return nil
@@ -197,8 +190,6 @@ var xSizeGroupRemoveWidget func(uintptr, uintptr)
 
 // Removes a widget from a `GtkSizeGroup`.
 func (x *SizeGroup) RemoveWidget(WidgetVar *Widget) {
-	core.LazyRegister(&xSizeGroupRemoveWidget, "GTK", "gtk_size_group_remove_widget", false)
-
 	xSizeGroupRemoveWidget(x.GoPointer(), WidgetVar.GoPointer())
 }
 
@@ -212,8 +203,6 @@ var xSizeGroupSetMode func(uintptr, SizeGroupMode)
 // (%GTK_SIZE_GROUP_VERTICAL), or should all have the same requisition
 // in both directions (%GTK_SIZE_GROUP_BOTH).
 func (x *SizeGroup) SetMode(ModeVar SizeGroupMode) {
-	core.LazyRegister(&xSizeGroupSetMode, "GTK", "gtk_size_group_set_mode", false)
-
 	xSizeGroupSetMode(x.GoPointer(), ModeVar)
 }
 
@@ -240,4 +229,22 @@ func (x *SizeGroup) GetBuildableId() string {
 func init() {
 	core.SetPackageName("GTK", "gtk4")
 	core.SetSharedLibraries("GTK", []string{"libgtk-4.so.1", "libgtk-4.1.dylib"})
+	var libs []uintptr
+	for _, libPath := range core.GetPaths("GTK") {
+		lib, err := purego.Dlopen(libPath, purego.RTLD_NOW|purego.RTLD_GLOBAL)
+		if err != nil {
+			panic(err)
+		}
+		libs = append(libs, lib)
+	}
+
+	core.PuregoSafeRegister(&xSizeGroupGLibType, libs, "gtk_size_group_get_type")
+
+	core.PuregoSafeRegister(&xNewSizeGroup, libs, "gtk_size_group_new")
+
+	core.PuregoSafeRegister(&xSizeGroupAddWidget, libs, "gtk_size_group_add_widget")
+	core.PuregoSafeRegister(&xSizeGroupGetMode, libs, "gtk_size_group_get_mode")
+	core.PuregoSafeRegister(&xSizeGroupGetWidgets, libs, "gtk_size_group_get_widgets")
+	core.PuregoSafeRegister(&xSizeGroupRemoveWidget, libs, "gtk_size_group_remove_widget")
+	core.PuregoSafeRegister(&xSizeGroupSetMode, libs, "gtk_size_group_set_mode")
 }

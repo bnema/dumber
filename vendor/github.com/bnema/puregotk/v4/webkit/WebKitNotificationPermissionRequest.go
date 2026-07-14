@@ -5,7 +5,6 @@ import (
 	"structs"
 	"unsafe"
 
-	"github.com/bnema/puregotk/pkg/core"
 	"github.com/bnema/puregotk/v4/gobject"
 	"github.com/bnema/puregotk/v4/gobject/types"
 )
@@ -43,7 +42,6 @@ type NotificationPermissionRequest struct {
 var xNotificationPermissionRequestGLibType func() types.GType
 
 func NotificationPermissionRequestGLibType() types.GType {
-	core.LazyRegister(&xNotificationPermissionRequestGLibType, "WEBKIT", "webkit_notification_permission_request_get_type", false)
 	return xNotificationPermissionRequestGLibType()
 }
 
@@ -72,13 +70,4 @@ func (x *NotificationPermissionRequest) Allow() {
 // Deny the action which triggered this request.
 func (x *NotificationPermissionRequest) Deny() {
 	XWebkitPermissionRequestDeny(x.GoPointer())
-}
-
-func init() {
-	core.SetPackageName("WEBKIT", "webkitgtk-6.0")
-	core.SetSharedLibraries("WEBKIT", []string{"libwebkitgtk-6.0.so.4", "libjavascriptcoregtk-6.0.so.1", "libwebkitgtk-6.0.4.dylib", "libjavascriptcoregtk-6.0.1.dylib"})
-
-	// Manually register types since they aren't automatically registered when
-	// WebKit is loaded. See https://bugs.webkit.org/show_bug.cgi?id=175937.
-	NotificationPermissionRequestGLibType()
 }

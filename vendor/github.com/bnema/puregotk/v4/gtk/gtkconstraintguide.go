@@ -5,6 +5,7 @@ import (
 	"structs"
 	"unsafe"
 
+	"github.com/bnema/purego"
 	"github.com/bnema/puregotk/pkg/core"
 	"github.com/bnema/puregotk/v4/gobject"
 	"github.com/bnema/puregotk/v4/gobject/types"
@@ -46,7 +47,6 @@ type ConstraintGuide struct {
 var xConstraintGuideGLibType func() types.GType
 
 func ConstraintGuideGLibType() types.GType {
-	core.LazyRegister(&xConstraintGuideGLibType, "GTK", "gtk_constraint_guide_get_type", false)
 	return xConstraintGuideGLibType()
 }
 
@@ -60,7 +60,6 @@ var xNewConstraintGuide func() uintptr
 
 // Creates a new `GtkConstraintGuide` object.
 func NewConstraintGuide() *ConstraintGuide {
-	core.LazyRegister(&xNewConstraintGuide, "GTK", "gtk_constraint_guide_new", false)
 	var cls *ConstraintGuide
 
 	cret := xNewConstraintGuide()
@@ -77,8 +76,6 @@ var xConstraintGuideGetMaxSize func(uintptr, *int, *int)
 
 // Gets the maximum size of @guide.
 func (x *ConstraintGuide) GetMaxSize(WidthVar *int, HeightVar *int) {
-	core.LazyRegister(&xConstraintGuideGetMaxSize, "GTK", "gtk_constraint_guide_get_max_size", false)
-
 	xConstraintGuideGetMaxSize(x.GoPointer(), WidthVar, HeightVar)
 }
 
@@ -86,8 +83,6 @@ var xConstraintGuideGetMinSize func(uintptr, *int, *int)
 
 // Gets the minimum size of @guide.
 func (x *ConstraintGuide) GetMinSize(WidthVar *int, HeightVar *int) {
-	core.LazyRegister(&xConstraintGuideGetMinSize, "GTK", "gtk_constraint_guide_get_min_size", false)
-
 	xConstraintGuideGetMinSize(x.GoPointer(), WidthVar, HeightVar)
 }
 
@@ -95,8 +90,6 @@ var xConstraintGuideGetName func(uintptr) string
 
 // Retrieves the name set using gtk_constraint_guide_set_name().
 func (x *ConstraintGuide) GetName() string {
-	core.LazyRegister(&xConstraintGuideGetName, "GTK", "gtk_constraint_guide_get_name", false)
-
 	cret := xConstraintGuideGetName(x.GoPointer())
 	return cret
 }
@@ -105,8 +98,6 @@ var xConstraintGuideGetNatSize func(uintptr, *int, *int)
 
 // Gets the natural size of @guide.
 func (x *ConstraintGuide) GetNatSize(WidthVar *int, HeightVar *int) {
-	core.LazyRegister(&xConstraintGuideGetNatSize, "GTK", "gtk_constraint_guide_get_nat_size", false)
-
 	xConstraintGuideGetNatSize(x.GoPointer(), WidthVar, HeightVar)
 }
 
@@ -114,8 +105,6 @@ var xConstraintGuideGetStrength func(uintptr) ConstraintStrength
 
 // Retrieves the strength set using gtk_constraint_guide_set_strength().
 func (x *ConstraintGuide) GetStrength() ConstraintStrength {
-	core.LazyRegister(&xConstraintGuideGetStrength, "GTK", "gtk_constraint_guide_get_strength", false)
-
 	cret := xConstraintGuideGetStrength(x.GoPointer())
 	return cret
 }
@@ -127,8 +116,6 @@ var xConstraintGuideSetMaxSize func(uintptr, int, int)
 // If @guide is attached to a `GtkConstraintLayout`,
 // the constraints will be updated to reflect the new size.
 func (x *ConstraintGuide) SetMaxSize(WidthVar int, HeightVar int) {
-	core.LazyRegister(&xConstraintGuideSetMaxSize, "GTK", "gtk_constraint_guide_set_max_size", false)
-
 	xConstraintGuideSetMaxSize(x.GoPointer(), WidthVar, HeightVar)
 }
 
@@ -139,8 +126,6 @@ var xConstraintGuideSetMinSize func(uintptr, int, int)
 // If @guide is attached to a `GtkConstraintLayout`,
 // the constraints will be updated to reflect the new size.
 func (x *ConstraintGuide) SetMinSize(WidthVar int, HeightVar int) {
-	core.LazyRegister(&xConstraintGuideSetMinSize, "GTK", "gtk_constraint_guide_set_min_size", false)
-
 	xConstraintGuideSetMinSize(x.GoPointer(), WidthVar, HeightVar)
 }
 
@@ -150,8 +135,6 @@ var xConstraintGuideSetName func(uintptr, uintptr)
 //
 // The name is useful for debugging purposes.
 func (x *ConstraintGuide) SetName(NameVar *string) {
-	core.LazyRegister(&xConstraintGuideSetName, "GTK", "gtk_constraint_guide_set_name", false)
-
 	NameVarPtr := core.GStrdupNullable(NameVar)
 	defer core.GFreeNullable(NameVarPtr)
 
@@ -165,8 +148,6 @@ var xConstraintGuideSetNatSize func(uintptr, int, int)
 // If @guide is attached to a `GtkConstraintLayout`,
 // the constraints will be updated to reflect the new size.
 func (x *ConstraintGuide) SetNatSize(WidthVar int, HeightVar int) {
-	core.LazyRegister(&xConstraintGuideSetNatSize, "GTK", "gtk_constraint_guide_set_nat_size", false)
-
 	xConstraintGuideSetNatSize(x.GoPointer(), WidthVar, HeightVar)
 }
 
@@ -175,8 +156,6 @@ var xConstraintGuideSetStrength func(uintptr, ConstraintStrength)
 // Sets the strength of the constraint on the natural size of the
 // given `GtkConstraintGuide`.
 func (x *ConstraintGuide) SetStrength(StrengthVar ConstraintStrength) {
-	core.LazyRegister(&xConstraintGuideSetStrength, "GTK", "gtk_constraint_guide_set_strength", false)
-
 	xConstraintGuideSetStrength(x.GoPointer(), StrengthVar)
 }
 
@@ -313,4 +292,27 @@ func (x *ConstraintGuide) GetPropertyNatWidth() int {
 func init() {
 	core.SetPackageName("GTK", "gtk4")
 	core.SetSharedLibraries("GTK", []string{"libgtk-4.so.1", "libgtk-4.1.dylib"})
+	var libs []uintptr
+	for _, libPath := range core.GetPaths("GTK") {
+		lib, err := purego.Dlopen(libPath, purego.RTLD_NOW|purego.RTLD_GLOBAL)
+		if err != nil {
+			panic(err)
+		}
+		libs = append(libs, lib)
+	}
+
+	core.PuregoSafeRegister(&xConstraintGuideGLibType, libs, "gtk_constraint_guide_get_type")
+
+	core.PuregoSafeRegister(&xNewConstraintGuide, libs, "gtk_constraint_guide_new")
+
+	core.PuregoSafeRegister(&xConstraintGuideGetMaxSize, libs, "gtk_constraint_guide_get_max_size")
+	core.PuregoSafeRegister(&xConstraintGuideGetMinSize, libs, "gtk_constraint_guide_get_min_size")
+	core.PuregoSafeRegister(&xConstraintGuideGetName, libs, "gtk_constraint_guide_get_name")
+	core.PuregoSafeRegister(&xConstraintGuideGetNatSize, libs, "gtk_constraint_guide_get_nat_size")
+	core.PuregoSafeRegister(&xConstraintGuideGetStrength, libs, "gtk_constraint_guide_get_strength")
+	core.PuregoSafeRegister(&xConstraintGuideSetMaxSize, libs, "gtk_constraint_guide_set_max_size")
+	core.PuregoSafeRegister(&xConstraintGuideSetMinSize, libs, "gtk_constraint_guide_set_min_size")
+	core.PuregoSafeRegister(&xConstraintGuideSetName, libs, "gtk_constraint_guide_set_name")
+	core.PuregoSafeRegister(&xConstraintGuideSetNatSize, libs, "gtk_constraint_guide_set_nat_size")
+	core.PuregoSafeRegister(&xConstraintGuideSetStrength, libs, "gtk_constraint_guide_set_strength")
 }

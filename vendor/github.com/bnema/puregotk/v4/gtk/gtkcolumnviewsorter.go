@@ -5,6 +5,7 @@ import (
 	"structs"
 	"unsafe"
 
+	"github.com/bnema/purego"
 	"github.com/bnema/puregotk/pkg/core"
 	"github.com/bnema/puregotk/v4/gobject"
 	"github.com/bnema/puregotk/v4/gobject/types"
@@ -68,7 +69,6 @@ type ColumnViewSorter struct {
 var xColumnViewSorterGLibType func() types.GType
 
 func ColumnViewSorterGLibType() types.GType {
-	core.LazyRegister(&xColumnViewSorterGLibType, "GTK", "gtk_column_view_sorter_get_type", false)
 	return xColumnViewSorterGLibType()
 }
 
@@ -89,8 +89,6 @@ var xColumnViewSorterGetNSortColumns func(uintptr) uint
 // Use the [signal@Gtk.Sorter::changed] signal to get notified
 // when the number of sort columns changes.
 func (x *ColumnViewSorter) GetNSortColumns() uint {
-	core.LazyRegister(&xColumnViewSorterGetNSortColumns, "GTK", "gtk_column_view_sorter_get_n_sort_columns", false)
-
 	cret := xColumnViewSorterGetNSortColumns(x.GoPointer())
 	return cret
 }
@@ -102,7 +100,6 @@ var xColumnViewSorterGetNthSortColumn func(uintptr, uint, *SortType) uintptr
 // Use the [signal@Gtk.Sorter::changed] signal to get notified
 // when sort columns change.
 func (x *ColumnViewSorter) GetNthSortColumn(PositionVar uint, SortOrderVar *SortType) *ColumnViewColumn {
-	core.LazyRegister(&xColumnViewSorterGetNthSortColumn, "GTK", "gtk_column_view_sorter_get_nth_sort_column", false)
 	var cls *ColumnViewColumn
 
 	cret := xColumnViewSorterGetNthSortColumn(x.GoPointer(), PositionVar, SortOrderVar)
@@ -123,7 +120,6 @@ var xColumnViewSorterGetPrimarySortColumn func(uintptr) uintptr
 // The primary sort column is the one that displays the triangle
 // in a column view header.
 func (x *ColumnViewSorter) GetPrimarySortColumn() *ColumnViewColumn {
-	core.LazyRegister(&xColumnViewSorterGetPrimarySortColumn, "GTK", "gtk_column_view_sorter_get_primary_sort_column", false)
 	var cls *ColumnViewColumn
 
 	cret := xColumnViewSorterGetPrimarySortColumn(x.GoPointer())
@@ -148,8 +144,6 @@ var xColumnViewSorterGetPrimarySortOrder func(uintptr) SortType
 // If there is no primary sort column, then this function returns
 // `GTK_SORT_ASCENDING`.
 func (x *ColumnViewSorter) GetPrimarySortOrder() SortType {
-	core.LazyRegister(&xColumnViewSorterGetPrimarySortOrder, "GTK", "gtk_column_view_sorter_get_primary_sort_order", false)
-
 	cret := xColumnViewSorterGetPrimarySortOrder(x.GoPointer())
 	return cret
 }
@@ -168,4 +162,19 @@ func (c *ColumnViewSorter) SetGoPointer(ptr uintptr) {
 func init() {
 	core.SetPackageName("GTK", "gtk4")
 	core.SetSharedLibraries("GTK", []string{"libgtk-4.so.1", "libgtk-4.1.dylib"})
+	var libs []uintptr
+	for _, libPath := range core.GetPaths("GTK") {
+		lib, err := purego.Dlopen(libPath, purego.RTLD_NOW|purego.RTLD_GLOBAL)
+		if err != nil {
+			panic(err)
+		}
+		libs = append(libs, lib)
+	}
+
+	core.PuregoSafeRegister(&xColumnViewSorterGLibType, libs, "gtk_column_view_sorter_get_type")
+
+	core.PuregoSafeRegister(&xColumnViewSorterGetNSortColumns, libs, "gtk_column_view_sorter_get_n_sort_columns")
+	core.PuregoSafeRegister(&xColumnViewSorterGetNthSortColumn, libs, "gtk_column_view_sorter_get_nth_sort_column")
+	core.PuregoSafeRegister(&xColumnViewSorterGetPrimarySortColumn, libs, "gtk_column_view_sorter_get_primary_sort_column")
+	core.PuregoSafeRegister(&xColumnViewSorterGetPrimarySortOrder, libs, "gtk_column_view_sorter_get_primary_sort_order")
 }

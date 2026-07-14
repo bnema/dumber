@@ -5,6 +5,7 @@ import (
 	"structs"
 	"unsafe"
 
+	"github.com/bnema/purego"
 	"github.com/bnema/puregotk/pkg/core"
 	"github.com/bnema/puregotk/v4/gobject/types"
 )
@@ -47,7 +48,6 @@ type Orientable interface {
 var xOrientableGLibType func() types.GType
 
 func OrientableGLibType() types.GType {
-	core.LazyRegister(&xOrientableGLibType, "GTK", "gtk_orientable_get_type", false)
 	return xOrientableGLibType()
 }
 
@@ -77,21 +77,25 @@ func (x *OrientableBase) SetOrientation(OrientationVar Orientation) {
 	XGtkOrientableSetOrientation(x.GoPointer(), OrientationVar)
 }
 
-var XGtkOrientableGetOrientation func(uintptr) Orientation = func(instance uintptr) Orientation {
-	core.LazyRegister(&xXGtkOrientableGetOrientation, "GTK", "gtk_orientable_get_orientation", false)
-	return xXGtkOrientableGetOrientation(instance)
-}
-
 var (
-	xXGtkOrientableGetOrientation func(uintptr) Orientation
-	XGtkOrientableSetOrientation  func(uintptr, Orientation) = func(instance uintptr, OrientationVarp Orientation) {
-		core.LazyRegister(&xXGtkOrientableSetOrientation, "GTK", "gtk_orientable_set_orientation", false)
-		xXGtkOrientableSetOrientation(instance, OrientationVarp)
-	}
+	XGtkOrientableGetOrientation func(uintptr) Orientation
+	XGtkOrientableSetOrientation func(uintptr, Orientation)
 )
-var xXGtkOrientableSetOrientation func(uintptr, Orientation)
 
 func init() {
 	core.SetPackageName("GTK", "gtk4")
 	core.SetSharedLibraries("GTK", []string{"libgtk-4.so.1", "libgtk-4.1.dylib"})
+	var libs []uintptr
+	for _, libPath := range core.GetPaths("GTK") {
+		lib, err := purego.Dlopen(libPath, purego.RTLD_NOW|purego.RTLD_GLOBAL)
+		if err != nil {
+			panic(err)
+		}
+		libs = append(libs, lib)
+	}
+
+	core.PuregoSafeRegister(&xOrientableGLibType, libs, "gtk_orientable_get_type")
+
+	core.PuregoSafeRegister(&XGtkOrientableGetOrientation, libs, "gtk_orientable_get_orientation")
+	core.PuregoSafeRegister(&XGtkOrientableSetOrientation, libs, "gtk_orientable_set_orientation")
 }

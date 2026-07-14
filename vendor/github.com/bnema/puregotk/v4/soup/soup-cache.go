@@ -62,7 +62,6 @@ type Cacheability int
 var xCacheabilityGLibType func() types.GType
 
 func CacheabilityGLibType() types.GType {
-	core.LazyRegister(&xCacheabilityGLibType, "SOUP", "soup_cacheability_get_type", false)
 	return xCacheabilityGLibType()
 }
 
@@ -85,7 +84,6 @@ type CacheType int
 var xCacheTypeGLibType func() types.GType
 
 func CacheTypeGLibType() types.GType {
-	core.LazyRegister(&xCacheTypeGLibType, "SOUP", "soup_cache_type_get_type", false)
 	return xCacheTypeGLibType()
 }
 
@@ -105,7 +103,6 @@ type Cache struct {
 var xCacheGLibType func() types.GType
 
 func CacheGLibType() types.GType {
-	core.LazyRegister(&xCacheGLibType, "SOUP", "soup_cache_get_type", false)
 	return xCacheGLibType()
 }
 
@@ -119,7 +116,6 @@ var xNewCache func(uintptr, CacheType) uintptr
 
 // Creates a new #SoupCache.
 func NewCache(CacheDirVar *string, CacheTypeVar CacheType) *Cache {
-	core.LazyRegister(&xNewCache, "SOUP", "soup_cache_new", false)
 	var cls *Cache
 
 	CacheDirVarPtr := core.GStrdupNullable(CacheDirVar)
@@ -141,8 +137,6 @@ var xCacheClear func(uintptr)
 //
 // This is not thread safe and must be called only from the thread that created the [class@Cache]
 func (x *Cache) Clear() {
-	core.LazyRegister(&xCacheClear, "SOUP", "soup_cache_clear", false)
-
 	xCacheClear(x.GoPointer())
 }
 
@@ -158,8 +152,6 @@ var xCacheDump func(uintptr)
 //
 // This is not thread safe and must be called only from the thread that created the [class@Cache]
 func (x *Cache) Dump() {
-	core.LazyRegister(&xCacheDump, "SOUP", "soup_cache_dump", false)
-
 	xCacheDump(x.GoPointer())
 }
 
@@ -173,8 +165,6 @@ var xCacheFlush func(uintptr)
 //
 // Contrast with [method@Cache.dump], which writes out the cache index file.
 func (x *Cache) Flush() {
-	core.LazyRegister(&xCacheFlush, "SOUP", "soup_cache_flush", false)
-
 	xCacheFlush(x.GoPointer())
 }
 
@@ -182,8 +172,6 @@ var xCacheGetMaxSize func(uintptr) uint
 
 // Gets the maximum size of the cache.
 func (x *Cache) GetMaxSize() uint {
-	core.LazyRegister(&xCacheGetMaxSize, "SOUP", "soup_cache_get_max_size", false)
-
 	cret := xCacheGetMaxSize(x.GoPointer())
 	return cret
 }
@@ -194,8 +182,6 @@ var xCacheLoad func(uintptr)
 //
 // This is not thread safe and must be called only from the thread that created the [class@Cache]
 func (x *Cache) Load() {
-	core.LazyRegister(&xCacheLoad, "SOUP", "soup_cache_load", false)
-
 	xCacheLoad(x.GoPointer())
 }
 
@@ -203,8 +189,6 @@ var xCacheSetMaxSize func(uintptr, uint)
 
 // Sets the maximum size of the cache.
 func (x *Cache) SetMaxSize(MaxSizeVar uint) {
-	core.LazyRegister(&xCacheSetMaxSize, "SOUP", "soup_cache_set_max_size", false)
-
 	xCacheSetMaxSize(x.GoPointer(), MaxSizeVar)
 }
 
@@ -239,4 +223,27 @@ func (x *Cache) GetPropertyCacheDir() string {
 func init() {
 	core.SetPackageName("SOUP", "libsoup-3.0")
 	core.SetSharedLibraries("SOUP", []string{"libsoup-3.0.so.0", "libsoup-3.0.0.dylib"})
+	var libs []uintptr
+	for _, libPath := range core.GetPaths("SOUP") {
+		lib, err := purego.Dlopen(libPath, purego.RTLD_NOW|purego.RTLD_GLOBAL)
+		if err != nil {
+			panic(err)
+		}
+		libs = append(libs, lib)
+	}
+
+	core.PuregoSafeRegister(&xCacheabilityGLibType, libs, "soup_cacheability_get_type")
+
+	core.PuregoSafeRegister(&xCacheTypeGLibType, libs, "soup_cache_type_get_type")
+
+	core.PuregoSafeRegister(&xCacheGLibType, libs, "soup_cache_get_type")
+
+	core.PuregoSafeRegister(&xNewCache, libs, "soup_cache_new")
+
+	core.PuregoSafeRegister(&xCacheClear, libs, "soup_cache_clear")
+	core.PuregoSafeRegister(&xCacheDump, libs, "soup_cache_dump")
+	core.PuregoSafeRegister(&xCacheFlush, libs, "soup_cache_flush")
+	core.PuregoSafeRegister(&xCacheGetMaxSize, libs, "soup_cache_get_max_size")
+	core.PuregoSafeRegister(&xCacheLoad, libs, "soup_cache_load")
+	core.PuregoSafeRegister(&xCacheSetMaxSize, libs, "soup_cache_set_max_size")
 }

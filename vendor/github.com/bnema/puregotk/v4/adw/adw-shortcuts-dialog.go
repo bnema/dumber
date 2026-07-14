@@ -5,6 +5,7 @@ import (
 	"structs"
 	"unsafe"
 
+	"github.com/bnema/purego"
 	"github.com/bnema/puregotk/pkg/core"
 	"github.com/bnema/puregotk/v4/gobject"
 	"github.com/bnema/puregotk/v4/gobject/types"
@@ -127,7 +128,6 @@ type ShortcutsDialog struct {
 var xShortcutsDialogGLibType func() types.GType
 
 func ShortcutsDialogGLibType() types.GType {
-	core.LazyRegister(&xShortcutsDialogGLibType, "ADW", "adw_shortcuts_dialog_get_type", false)
 	return xShortcutsDialogGLibType()
 }
 
@@ -141,7 +141,6 @@ var xNewShortcutsDialog func() uintptr
 
 // Creates a new `AdwShortcutsDialog`.
 func NewShortcutsDialog() *ShortcutsDialog {
-	core.LazyRegister(&xNewShortcutsDialog, "ADW", "adw_shortcuts_dialog_new", false)
 	var cls *ShortcutsDialog
 
 	cret := xNewShortcutsDialog()
@@ -159,8 +158,6 @@ var xShortcutsDialogAdd func(uintptr, uintptr)
 
 // Adds @section to @self.
 func (x *ShortcutsDialog) Add(SectionVar *ShortcutsSection) {
-	core.LazyRegister(&xShortcutsDialogAdd, "ADW", "adw_shortcuts_dialog_add", false)
-
 	xShortcutsDialogAdd(x.GoPointer(), SectionVar.GoPointer())
 }
 
@@ -438,4 +435,18 @@ func (x *ShortcutsDialog) GetBuildableId() string {
 func init() {
 	core.SetPackageName("ADW", "libadwaita-1")
 	core.SetSharedLibraries("ADW", []string{"libadwaita-1.so.0", "libadwaita-1.0.dylib"})
+	var libs []uintptr
+	for _, libPath := range core.GetPaths("ADW") {
+		lib, err := purego.Dlopen(libPath, purego.RTLD_NOW|purego.RTLD_GLOBAL)
+		if err != nil {
+			panic(err)
+		}
+		libs = append(libs, lib)
+	}
+
+	core.PuregoSafeRegister(&xShortcutsDialogGLibType, libs, "adw_shortcuts_dialog_get_type")
+
+	core.PuregoSafeRegister(&xNewShortcutsDialog, libs, "adw_shortcuts_dialog_new")
+
+	core.PuregoSafeRegister(&xShortcutsDialogAdd, libs, "adw_shortcuts_dialog_add")
 }

@@ -5,6 +5,7 @@ import (
 	"structs"
 	"unsafe"
 
+	"github.com/bnema/purego"
 	"github.com/bnema/puregotk/pkg/core"
 	"github.com/bnema/puregotk/v4/gio"
 	"github.com/bnema/puregotk/v4/gobject"
@@ -49,7 +50,6 @@ type URISchemeResponse struct {
 var xURISchemeResponseGLibType func() types.GType
 
 func URISchemeResponseGLibType() types.GType {
-	core.LazyRegister(&xURISchemeResponseGLibType, "WEBKIT", "webkit_uri_scheme_response_get_type", false)
 	return xURISchemeResponseGLibType()
 }
 
@@ -63,7 +63,6 @@ var xNewURISchemeResponse func(uintptr, int64) uintptr
 
 // Create a new #WebKitURISchemeResponse
 func NewURISchemeResponse(InputStreamVar *gio.InputStream, StreamLengthVar int64) *URISchemeResponse {
-	core.LazyRegister(&xNewURISchemeResponse, "WEBKIT", "webkit_uri_scheme_response_new", false)
 	var cls *URISchemeResponse
 
 	cret := xNewURISchemeResponse(InputStreamVar.GoPointer(), StreamLengthVar)
@@ -80,8 +79,6 @@ var xURISchemeResponseSetContentType func(uintptr, string)
 
 // Sets the content type for the @response
 func (x *URISchemeResponse) SetContentType(ContentTypeVar string) {
-	core.LazyRegister(&xURISchemeResponseSetContentType, "WEBKIT", "webkit_uri_scheme_response_set_content_type", false)
-
 	xURISchemeResponseSetContentType(x.GoPointer(), ContentTypeVar)
 }
 
@@ -92,8 +89,6 @@ var xURISchemeResponseSetHttpHeaders func(uintptr, *soup.MessageHeaders)
 // @headers need to be of the type %SOUP_MESSAGE_HEADERS_RESPONSE.
 // Any existing headers will be overwritten.
 func (x *URISchemeResponse) SetHttpHeaders(HeadersVar *soup.MessageHeaders) {
-	core.LazyRegister(&xURISchemeResponseSetHttpHeaders, "WEBKIT", "webkit_uri_scheme_response_set_http_headers", false)
-
 	xURISchemeResponseSetHttpHeaders(x.GoPointer(), HeadersVar)
 }
 
@@ -103,8 +98,6 @@ var xURISchemeResponseSetStatus func(uintptr, uint, uintptr)
 //
 // If @status_code is a known value and @reason_phrase is %NULL, the @reason_phrase will be set automatically.
 func (x *URISchemeResponse) SetStatus(StatusCodeVar uint, ReasonPhraseVar *string) {
-	core.LazyRegister(&xURISchemeResponseSetStatus, "WEBKIT", "webkit_uri_scheme_response_set_status", false)
-
 	ReasonPhraseVarPtr := core.GStrdupNullable(ReasonPhraseVar)
 	defer core.GFreeNullable(ReasonPhraseVarPtr)
 
@@ -134,8 +127,25 @@ func (x *URISchemeResponse) SetPropertyStreamLength(value int64) {
 func init() {
 	core.SetPackageName("WEBKIT", "webkitgtk-6.0")
 	core.SetSharedLibraries("WEBKIT", []string{"libwebkitgtk-6.0.so.4", "libjavascriptcoregtk-6.0.so.1", "libwebkitgtk-6.0.4.dylib", "libjavascriptcoregtk-6.0.1.dylib"})
+	var libs []uintptr
+	for _, libPath := range core.GetPaths("WEBKIT") {
+		lib, err := purego.Dlopen(libPath, purego.RTLD_NOW|purego.RTLD_GLOBAL)
+		if err != nil {
+			panic(err)
+		}
+		libs = append(libs, lib)
+	}
 
-	// Manually register types since they aren't automatically registered when
-	// WebKit is loaded. See https://bugs.webkit.org/show_bug.cgi?id=175937.
+	core.PuregoSafeRegister(&xURISchemeResponseGLibType, libs, "webkit_uri_scheme_response_get_type")
+
+	core.PuregoSafeRegister(&xNewURISchemeResponse, libs, "webkit_uri_scheme_response_new")
+
+	core.PuregoSafeRegister(&xURISchemeResponseSetContentType, libs, "webkit_uri_scheme_response_set_content_type")
+	core.PuregoSafeRegister(&xURISchemeResponseSetHttpHeaders, libs, "webkit_uri_scheme_response_set_http_headers")
+	core.PuregoSafeRegister(&xURISchemeResponseSetStatus, libs, "webkit_uri_scheme_response_set_status")
+
+	// Manually register types since they aren't being automatically registered when
+	// the library is loaded
+	// See https://bugs.webkit.org/show_bug.cgi?id=175937
 	URISchemeResponseGLibType()
 }

@@ -4,6 +4,7 @@ package gsk
 import (
 	"unsafe"
 
+	"github.com/bnema/purego"
 	"github.com/bnema/puregotk/pkg/core"
 	"github.com/bnema/puregotk/v4/gdk"
 	"github.com/bnema/puregotk/v4/gobject/types"
@@ -17,7 +18,6 @@ type OutsetShadowNode struct {
 var xOutsetShadowNodeGLibType func() types.GType
 
 func OutsetShadowNodeGLibType() types.GType {
-	core.LazyRegister(&xOutsetShadowNodeGLibType, "GSK", "gsk_outset_shadow_node_get_type", false)
 	return xOutsetShadowNodeGLibType()
 }
 
@@ -32,7 +32,6 @@ var xNewOutsetShadowNode func(*RoundedRect, *gdk.RGBA, float32, float32, float32
 // Creates a `GskRenderNode` that will render an outset shadow
 // around the box given by @outline.
 func NewOutsetShadowNode(OutlineVar *RoundedRect, ColorVar *gdk.RGBA, DxVar float32, DyVar float32, SpreadVar float32, BlurRadiusVar float32) *OutsetShadowNode {
-	core.LazyRegister(&xNewOutsetShadowNode, "GSK", "gsk_outset_shadow_node_new", false)
 	var cls *OutsetShadowNode
 
 	cret := xNewOutsetShadowNode(OutlineVar, ColorVar, DxVar, DyVar, SpreadVar, BlurRadiusVar)
@@ -49,8 +48,6 @@ var xOutsetShadowNodeGetBlurRadius func(uintptr) float32
 
 // Retrieves the blur radius of the shadow.
 func (x *OutsetShadowNode) GetBlurRadius() float32 {
-	core.LazyRegister(&xOutsetShadowNodeGetBlurRadius, "GSK", "gsk_outset_shadow_node_get_blur_radius", false)
-
 	cret := xOutsetShadowNodeGetBlurRadius(x.GoPointer())
 	return cret
 }
@@ -62,8 +59,6 @@ var xOutsetShadowNodeGetColor func(uintptr) uintptr
 // The value returned by this function will not be correct
 // if the render node was created for a non-sRGB color.
 func (x *OutsetShadowNode) GetColor() *gdk.RGBA {
-	core.LazyRegister(&xOutsetShadowNodeGetColor, "GSK", "gsk_outset_shadow_node_get_color", false)
-
 	cret := xOutsetShadowNodeGetColor(x.GoPointer())
 	if cret == 0 {
 		return nil
@@ -75,8 +70,6 @@ var xOutsetShadowNodeGetDx func(uintptr) float32
 
 // Retrieves the horizontal offset of the outset shadow.
 func (x *OutsetShadowNode) GetDx() float32 {
-	core.LazyRegister(&xOutsetShadowNodeGetDx, "GSK", "gsk_outset_shadow_node_get_dx", false)
-
 	cret := xOutsetShadowNodeGetDx(x.GoPointer())
 	return cret
 }
@@ -85,8 +78,6 @@ var xOutsetShadowNodeGetDy func(uintptr) float32
 
 // Retrieves the vertical offset of the outset shadow.
 func (x *OutsetShadowNode) GetDy() float32 {
-	core.LazyRegister(&xOutsetShadowNodeGetDy, "GSK", "gsk_outset_shadow_node_get_dy", false)
-
 	cret := xOutsetShadowNodeGetDy(x.GoPointer())
 	return cret
 }
@@ -95,8 +86,6 @@ var xOutsetShadowNodeGetOutline func(uintptr) uintptr
 
 // Retrieves the outline rectangle of the outset shadow.
 func (x *OutsetShadowNode) GetOutline() *RoundedRect {
-	core.LazyRegister(&xOutsetShadowNodeGetOutline, "GSK", "gsk_outset_shadow_node_get_outline", false)
-
 	cret := xOutsetShadowNodeGetOutline(x.GoPointer())
 	if cret == 0 {
 		return nil
@@ -108,8 +97,6 @@ var xOutsetShadowNodeGetSpread func(uintptr) float32
 
 // Retrieves how much the shadow spreads outwards.
 func (x *OutsetShadowNode) GetSpread() float32 {
-	core.LazyRegister(&xOutsetShadowNodeGetSpread, "GSK", "gsk_outset_shadow_node_get_spread", false)
-
 	cret := xOutsetShadowNodeGetSpread(x.GoPointer())
 	return cret
 }
@@ -128,4 +115,23 @@ func (c *OutsetShadowNode) SetGoPointer(ptr uintptr) {
 func init() {
 	core.SetPackageName("GSK", "gtk4")
 	core.SetSharedLibraries("GSK", []string{"libgtk-4.so.1", "libgtk-4.1.dylib"})
+	var libs []uintptr
+	for _, libPath := range core.GetPaths("GSK") {
+		lib, err := purego.Dlopen(libPath, purego.RTLD_NOW|purego.RTLD_GLOBAL)
+		if err != nil {
+			panic(err)
+		}
+		libs = append(libs, lib)
+	}
+
+	core.PuregoSafeRegister(&xOutsetShadowNodeGLibType, libs, "gsk_outset_shadow_node_get_type")
+
+	core.PuregoSafeRegister(&xNewOutsetShadowNode, libs, "gsk_outset_shadow_node_new")
+
+	core.PuregoSafeRegister(&xOutsetShadowNodeGetBlurRadius, libs, "gsk_outset_shadow_node_get_blur_radius")
+	core.PuregoSafeRegister(&xOutsetShadowNodeGetColor, libs, "gsk_outset_shadow_node_get_color")
+	core.PuregoSafeRegister(&xOutsetShadowNodeGetDx, libs, "gsk_outset_shadow_node_get_dx")
+	core.PuregoSafeRegister(&xOutsetShadowNodeGetDy, libs, "gsk_outset_shadow_node_get_dy")
+	core.PuregoSafeRegister(&xOutsetShadowNodeGetOutline, libs, "gsk_outset_shadow_node_get_outline")
+	core.PuregoSafeRegister(&xOutsetShadowNodeGetSpread, libs, "gsk_outset_shadow_node_get_spread")
 }

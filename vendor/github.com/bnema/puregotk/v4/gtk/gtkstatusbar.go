@@ -2,6 +2,7 @@
 package gtk
 
 import (
+	"github.com/bnema/purego"
 	"github.com/bnema/puregotk/pkg/core"
 	"github.com/bnema/puregotk/v4/glib"
 	"github.com/bnema/puregotk/v4/gobject"
@@ -56,7 +57,6 @@ type Statusbar struct {
 var xStatusbarGLibType func() types.GType
 
 func StatusbarGLibType() types.GType {
-	core.LazyRegister(&xStatusbarGLibType, "GTK", "gtk_statusbar_get_type", false)
 	return xStatusbarGLibType()
 }
 
@@ -70,7 +70,6 @@ var xNewStatusbar func() uintptr
 
 // Creates a new `GtkStatusbar` ready for messages.
 func NewStatusbar() *Statusbar {
-	core.LazyRegister(&xNewStatusbar, "GTK", "gtk_statusbar_new", false)
 	var cls *Statusbar
 
 	cret := xNewStatusbar()
@@ -91,8 +90,6 @@ var xStatusbarGetContextId func(uintptr, string) uint
 //
 // Note that the description is not shown in the UI.
 func (x *Statusbar) GetContextId(ContextDescriptionVar string) uint {
-	core.LazyRegister(&xStatusbarGetContextId, "GTK", "gtk_statusbar_get_context_id", false)
-
 	cret := xStatusbarGetContextId(x.GoPointer(), ContextDescriptionVar)
 	return cret
 }
@@ -106,8 +103,6 @@ var xStatusbarPop func(uintptr, uint)
 // if the message at the top of the stack has a different
 // context id.
 func (x *Statusbar) Pop(ContextIdVar uint) {
-	core.LazyRegister(&xStatusbarPop, "GTK", "gtk_statusbar_pop", false)
-
 	xStatusbarPop(x.GoPointer(), ContextIdVar)
 }
 
@@ -115,8 +110,6 @@ var xStatusbarPush func(uintptr, uint, string) uint
 
 // Pushes a new message onto a statusbar’s stack.
 func (x *Statusbar) Push(ContextIdVar uint, TextVar string) uint {
-	core.LazyRegister(&xStatusbarPush, "GTK", "gtk_statusbar_push", false)
-
 	cret := xStatusbarPush(x.GoPointer(), ContextIdVar, TextVar)
 	return cret
 }
@@ -126,8 +119,6 @@ var xStatusbarRemove func(uintptr, uint, uint)
 // Forces the removal of a message from a statusbar’s stack.
 // The exact @context_id and @message_id must be specified.
 func (x *Statusbar) Remove(ContextIdVar uint, MessageIdVar uint) {
-	core.LazyRegister(&xStatusbarRemove, "GTK", "gtk_statusbar_remove", false)
-
 	xStatusbarRemove(x.GoPointer(), ContextIdVar, MessageIdVar)
 }
 
@@ -136,8 +127,6 @@ var xStatusbarRemoveAll func(uintptr, uint)
 // Forces the removal of all messages from a statusbar's
 // stack with the exact @context_id.
 func (x *Statusbar) RemoveAll(ContextIdVar uint) {
-	core.LazyRegister(&xStatusbarRemoveAll, "GTK", "gtk_statusbar_remove_all", false)
-
 	xStatusbarRemoveAll(x.GoPointer(), ContextIdVar)
 }
 
@@ -461,4 +450,22 @@ func (x *Statusbar) GetBuildableId() string {
 func init() {
 	core.SetPackageName("GTK", "gtk4")
 	core.SetSharedLibraries("GTK", []string{"libgtk-4.so.1", "libgtk-4.1.dylib"})
+	var libs []uintptr
+	for _, libPath := range core.GetPaths("GTK") {
+		lib, err := purego.Dlopen(libPath, purego.RTLD_NOW|purego.RTLD_GLOBAL)
+		if err != nil {
+			panic(err)
+		}
+		libs = append(libs, lib)
+	}
+
+	core.PuregoSafeRegister(&xStatusbarGLibType, libs, "gtk_statusbar_get_type")
+
+	core.PuregoSafeRegister(&xNewStatusbar, libs, "gtk_statusbar_new")
+
+	core.PuregoSafeRegister(&xStatusbarGetContextId, libs, "gtk_statusbar_get_context_id")
+	core.PuregoSafeRegister(&xStatusbarPop, libs, "gtk_statusbar_pop")
+	core.PuregoSafeRegister(&xStatusbarPush, libs, "gtk_statusbar_push")
+	core.PuregoSafeRegister(&xStatusbarRemove, libs, "gtk_statusbar_remove")
+	core.PuregoSafeRegister(&xStatusbarRemoveAll, libs, "gtk_statusbar_remove_all")
 }

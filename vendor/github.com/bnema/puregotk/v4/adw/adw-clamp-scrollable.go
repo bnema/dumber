@@ -5,6 +5,7 @@ import (
 	"structs"
 	"unsafe"
 
+	"github.com/bnema/purego"
 	"github.com/bnema/puregotk/pkg/core"
 	"github.com/bnema/puregotk/v4/gobject"
 	"github.com/bnema/puregotk/v4/gobject/types"
@@ -45,7 +46,6 @@ type ClampScrollable struct {
 var xClampScrollableGLibType func() types.GType
 
 func ClampScrollableGLibType() types.GType {
-	core.LazyRegister(&xClampScrollableGLibType, "ADW", "adw_clamp_scrollable_get_type", false)
 	return xClampScrollableGLibType()
 }
 
@@ -59,7 +59,6 @@ var xNewClampScrollable func() uintptr
 
 // Creates a new `AdwClampScrollable`.
 func NewClampScrollable() *ClampScrollable {
-	core.LazyRegister(&xNewClampScrollable, "ADW", "adw_clamp_scrollable_new", false)
 	var cls *ClampScrollable
 
 	cret := xNewClampScrollable()
@@ -77,7 +76,6 @@ var xClampScrollableGetChild func(uintptr) uintptr
 
 // Gets the child widget of @self.
 func (x *ClampScrollable) GetChild() *gtk.Widget {
-	core.LazyRegister(&xClampScrollableGetChild, "ADW", "adw_clamp_scrollable_get_child", false)
 	var cls *gtk.Widget
 
 	cret := xClampScrollableGetChild(x.GoPointer())
@@ -95,8 +93,6 @@ var xClampScrollableGetMaximumSize func(uintptr) int
 
 // Gets the maximum size allocated to the child.
 func (x *ClampScrollable) GetMaximumSize() int {
-	core.LazyRegister(&xClampScrollableGetMaximumSize, "ADW", "adw_clamp_scrollable_get_maximum_size", false)
-
 	cret := xClampScrollableGetMaximumSize(x.GoPointer())
 	return cret
 }
@@ -105,8 +101,6 @@ var xClampScrollableGetTighteningThreshold func(uintptr) int
 
 // Gets the size above which the child is clamped.
 func (x *ClampScrollable) GetTighteningThreshold() int {
-	core.LazyRegister(&xClampScrollableGetTighteningThreshold, "ADW", "adw_clamp_scrollable_get_tightening_threshold", false)
-
 	cret := xClampScrollableGetTighteningThreshold(x.GoPointer())
 	return cret
 }
@@ -115,8 +109,6 @@ var xClampScrollableGetUnit func(uintptr) LengthUnit
 
 // Gets the length unit for maximum size and tightening threshold.
 func (x *ClampScrollable) GetUnit() LengthUnit {
-	core.LazyRegister(&xClampScrollableGetUnit, "ADW", "adw_clamp_scrollable_get_unit", false)
-
 	cret := xClampScrollableGetUnit(x.GoPointer())
 	return cret
 }
@@ -125,8 +117,6 @@ var xClampScrollableSetChild func(uintptr, uintptr)
 
 // Sets the child widget of @self.
 func (x *ClampScrollable) SetChild(ChildVar *gtk.Widget) {
-	core.LazyRegister(&xClampScrollableSetChild, "ADW", "adw_clamp_scrollable_set_child", false)
-
 	xClampScrollableSetChild(x.GoPointer(), ChildVar.GoPointer())
 }
 
@@ -136,8 +126,6 @@ var xClampScrollableSetMaximumSize func(uintptr, int)
 //
 // It is the width if the clamp is horizontal, or the height if it is vertical.
 func (x *ClampScrollable) SetMaximumSize(MaximumSizeVar int) {
-	core.LazyRegister(&xClampScrollableSetMaximumSize, "ADW", "adw_clamp_scrollable_set_maximum_size", false)
-
 	xClampScrollableSetMaximumSize(x.GoPointer(), MaximumSizeVar)
 }
 
@@ -158,8 +146,6 @@ var xClampScrollableSetTighteningThreshold func(uintptr, int)
 // Effectively, tightening the grip on the child before it reaches its maximum
 // size makes transitions to and from the maximum size smoother when resizing.
 func (x *ClampScrollable) SetTighteningThreshold(TighteningThresholdVar int) {
-	core.LazyRegister(&xClampScrollableSetTighteningThreshold, "ADW", "adw_clamp_scrollable_set_tightening_threshold", false)
-
 	xClampScrollableSetTighteningThreshold(x.GoPointer(), TighteningThresholdVar)
 }
 
@@ -169,8 +155,6 @@ var xClampScrollableSetUnit func(uintptr, LengthUnit)
 //
 // Allows the sizes to vary depending on the text scale factor.
 func (x *ClampScrollable) SetUnit(UnitVar LengthUnit) {
-	core.LazyRegister(&xClampScrollableSetUnit, "ADW", "adw_clamp_scrollable_set_unit", false)
-
 	xClampScrollableSetUnit(x.GoPointer(), UnitVar)
 }
 
@@ -602,4 +586,25 @@ func (x *ClampScrollable) SetVscrollPolicy(PolicyVar gtk.ScrollablePolicy) {
 func init() {
 	core.SetPackageName("ADW", "libadwaita-1")
 	core.SetSharedLibraries("ADW", []string{"libadwaita-1.so.0", "libadwaita-1.0.dylib"})
+	var libs []uintptr
+	for _, libPath := range core.GetPaths("ADW") {
+		lib, err := purego.Dlopen(libPath, purego.RTLD_NOW|purego.RTLD_GLOBAL)
+		if err != nil {
+			panic(err)
+		}
+		libs = append(libs, lib)
+	}
+
+	core.PuregoSafeRegister(&xClampScrollableGLibType, libs, "adw_clamp_scrollable_get_type")
+
+	core.PuregoSafeRegister(&xNewClampScrollable, libs, "adw_clamp_scrollable_new")
+
+	core.PuregoSafeRegister(&xClampScrollableGetChild, libs, "adw_clamp_scrollable_get_child")
+	core.PuregoSafeRegister(&xClampScrollableGetMaximumSize, libs, "adw_clamp_scrollable_get_maximum_size")
+	core.PuregoSafeRegister(&xClampScrollableGetTighteningThreshold, libs, "adw_clamp_scrollable_get_tightening_threshold")
+	core.PuregoSafeRegister(&xClampScrollableGetUnit, libs, "adw_clamp_scrollable_get_unit")
+	core.PuregoSafeRegister(&xClampScrollableSetChild, libs, "adw_clamp_scrollable_set_child")
+	core.PuregoSafeRegister(&xClampScrollableSetMaximumSize, libs, "adw_clamp_scrollable_set_maximum_size")
+	core.PuregoSafeRegister(&xClampScrollableSetTighteningThreshold, libs, "adw_clamp_scrollable_set_tightening_threshold")
+	core.PuregoSafeRegister(&xClampScrollableSetUnit, libs, "adw_clamp_scrollable_set_unit")
 }

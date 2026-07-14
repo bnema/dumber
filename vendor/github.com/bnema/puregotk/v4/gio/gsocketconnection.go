@@ -219,7 +219,6 @@ type SocketConnection struct {
 var xSocketConnectionGLibType func() types.GType
 
 func SocketConnectionGLibType() types.GType {
-	core.LazyRegister(&xSocketConnectionGLibType, "GIO", "g_socket_connection_get_type", false)
 	return xSocketConnectionGLibType()
 }
 
@@ -233,7 +232,6 @@ var xSocketConnectionConnect func(uintptr, uintptr, uintptr, **glib.Error) bool
 
 // Connect @connection to the specified remote address.
 func (x *SocketConnection) Connect(AddressVar *SocketAddress, CancellableVar *Cancellable) (bool, error) {
-	core.LazyRegister(&xSocketConnectionConnect, "GIO", "g_socket_connection_connect", false)
 	var cerr *glib.Error
 
 	cret := xSocketConnectionConnect(x.GoPointer(), AddressVar.GoPointer(), CancellableVar.GoPointer(), &cerr)
@@ -256,8 +254,6 @@ var xSocketConnectionConnectAsync func(uintptr, uintptr, uintptr, uintptr, uintp
 //
 // Use g_socket_connection_connect_finish() to retrieve the result.
 func (x *SocketConnection) ConnectAsync(AddressVar *SocketAddress, CancellableVar *Cancellable, CallbackVar *AsyncReadyCallback, UserDataVar uintptr) {
-	core.LazyRegister(&xSocketConnectionConnectAsync, "GIO", "g_socket_connection_connect_async", false)
-
 	xSocketConnectionConnectAsync(x.GoPointer(), AddressVar.GoPointer(), CancellableVar.GoPointer(), glib.NewCallbackNullable(CallbackVar), UserDataVar)
 }
 
@@ -265,7 +261,6 @@ var xSocketConnectionConnectFinish func(uintptr, uintptr, **glib.Error) bool
 
 // Gets the result of a g_socket_connection_connect_async() call.
 func (x *SocketConnection) ConnectFinish(ResultVar AsyncResult) (bool, error) {
-	core.LazyRegister(&xSocketConnectionConnectFinish, "GIO", "g_socket_connection_connect_finish", false)
 	var cerr *glib.Error
 
 	cret := xSocketConnectionConnectFinish(x.GoPointer(), ResultVar.GoPointer(), &cerr)
@@ -279,7 +274,6 @@ var xSocketConnectionGetLocalAddress func(uintptr, **glib.Error) uintptr
 
 // Try to get the local address of a socket connection.
 func (x *SocketConnection) GetLocalAddress() (*SocketAddress, error) {
-	core.LazyRegister(&xSocketConnectionGetLocalAddress, "GIO", "g_socket_connection_get_local_address", false)
 	var cls *SocketAddress
 	var cerr *glib.Error
 
@@ -307,7 +301,6 @@ var xSocketConnectionGetRemoteAddress func(uintptr, **glib.Error) uintptr
 // applications to print e.g. "Connecting to example.com
 // (10.42.77.3)...".
 func (x *SocketConnection) GetRemoteAddress() (*SocketAddress, error) {
-	core.LazyRegister(&xSocketConnectionGetRemoteAddress, "GIO", "g_socket_connection_get_remote_address", false)
 	var cls *SocketAddress
 	var cerr *glib.Error
 
@@ -330,7 +323,6 @@ var xSocketConnectionGetSocket func(uintptr) uintptr
 // This can be useful if you want to do something unusual on it
 // not supported by the #GSocketConnection APIs.
 func (x *SocketConnection) GetSocket() *Socket {
-	core.LazyRegister(&xSocketConnectionGetSocket, "GIO", "g_socket_connection_get_socket", false)
 	var cls *Socket
 
 	cret := xSocketConnectionGetSocket(x.GoPointer())
@@ -349,8 +341,6 @@ var xSocketConnectionIsConnected func(uintptr) bool
 // Checks if @connection is connected. This is equivalent to calling
 // g_socket_is_connected() on @connection's underlying #GSocket.
 func (x *SocketConnection) IsConnected() bool {
-	core.LazyRegister(&xSocketConnectionIsConnected, "GIO", "g_socket_connection_is_connected", false)
-
 	cret := xSocketConnectionIsConnected(x.GoPointer())
 	return cret
 }
@@ -373,8 +363,6 @@ var xSocketConnectionFactoryLookupType func(SocketFamily, SocketType, int) types
 //
 // If no type is registered, the #GSocketConnection base type is returned.
 func SocketConnectionFactoryLookupType(FamilyVar SocketFamily, TypeVar SocketType, ProtocolIdVar int) types.GType {
-	core.LazyRegister(&xSocketConnectionFactoryLookupType, "GIO", "g_socket_connection_factory_lookup_type", false)
-
 	cret := xSocketConnectionFactoryLookupType(FamilyVar, TypeVar, ProtocolIdVar)
 	return cret
 }
@@ -386,12 +374,31 @@ var xSocketConnectionFactoryRegisterType func(types.GType, SocketFamily, SocketT
 //
 // If no type is registered, the #GSocketConnection base type is returned.
 func SocketConnectionFactoryRegisterType(GTypeVar types.GType, FamilyVar SocketFamily, TypeVar SocketType, ProtocolVar int) {
-	core.LazyRegister(&xSocketConnectionFactoryRegisterType, "GIO", "g_socket_connection_factory_register_type", false)
-
 	xSocketConnectionFactoryRegisterType(GTypeVar, FamilyVar, TypeVar, ProtocolVar)
 }
 
 func init() {
 	core.SetPackageName("GIO", "gio-2.0")
 	core.SetSharedLibraries("GIO", []string{"libgio-2.0.so.0", "libgio-2.0.0.dylib"})
+	var libs []uintptr
+	for _, libPath := range core.GetPaths("GIO") {
+		lib, err := purego.Dlopen(libPath, purego.RTLD_NOW|purego.RTLD_GLOBAL)
+		if err != nil {
+			panic(err)
+		}
+		libs = append(libs, lib)
+	}
+
+	core.PuregoSafeRegister(&xSocketConnectionGLibType, libs, "g_socket_connection_get_type")
+
+	core.PuregoSafeRegister(&xSocketConnectionConnect, libs, "g_socket_connection_connect")
+	core.PuregoSafeRegister(&xSocketConnectionConnectAsync, libs, "g_socket_connection_connect_async")
+	core.PuregoSafeRegister(&xSocketConnectionConnectFinish, libs, "g_socket_connection_connect_finish")
+	core.PuregoSafeRegister(&xSocketConnectionGetLocalAddress, libs, "g_socket_connection_get_local_address")
+	core.PuregoSafeRegister(&xSocketConnectionGetRemoteAddress, libs, "g_socket_connection_get_remote_address")
+	core.PuregoSafeRegister(&xSocketConnectionGetSocket, libs, "g_socket_connection_get_socket")
+	core.PuregoSafeRegister(&xSocketConnectionIsConnected, libs, "g_socket_connection_is_connected")
+
+	core.PuregoSafeRegister(&xSocketConnectionFactoryLookupType, libs, "g_socket_connection_factory_lookup_type")
+	core.PuregoSafeRegister(&xSocketConnectionFactoryRegisterType, libs, "g_socket_connection_factory_register_type")
 }

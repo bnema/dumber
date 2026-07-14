@@ -5,6 +5,7 @@ import (
 	"structs"
 	"unsafe"
 
+	"github.com/bnema/purego"
 	"github.com/bnema/puregotk/pkg/core"
 	"github.com/bnema/puregotk/v4/gio"
 	"github.com/bnema/puregotk/v4/gobject"
@@ -64,7 +65,6 @@ type SortListModel struct {
 var xSortListModelGLibType func() types.GType
 
 func SortListModelGLibType() types.GType {
-	core.LazyRegister(&xSortListModelGLibType, "GTK", "gtk_sort_list_model_get_type", false)
 	return xSortListModelGLibType()
 }
 
@@ -78,7 +78,6 @@ var xNewSortListModel func(uintptr, uintptr) uintptr
 
 // Creates a new sort list model that uses the @sorter to sort @model.
 func NewSortListModel(ModelVar gio.ListModel, SorterVar *Sorter) *SortListModel {
-	core.LazyRegister(&xNewSortListModel, "GTK", "gtk_sort_list_model_new", false)
 	var cls *SortListModel
 
 	cret := xNewSortListModel(ModelVar.GoPointer(), SorterVar.GoPointer())
@@ -97,8 +96,6 @@ var xSortListModelGetIncremental func(uintptr) bool
 //
 // See [method@Gtk.SortListModel.set_incremental].
 func (x *SortListModel) GetIncremental() bool {
-	core.LazyRegister(&xSortListModelGetIncremental, "GTK", "gtk_sort_list_model_get_incremental", false)
-
 	cret := xSortListModelGetIncremental(x.GoPointer())
 	return cret
 }
@@ -107,7 +104,6 @@ var xSortListModelGetModel func(uintptr) uintptr
 
 // Gets the model currently sorted or %NULL if none.
 func (x *SortListModel) GetModel() *gio.ListModelBase {
-	core.LazyRegister(&xSortListModelGetModel, "GTK", "gtk_sort_list_model_get_model", false)
 	var cls *gio.ListModelBase
 
 	cret := xSortListModelGetModel(x.GoPointer())
@@ -141,8 +137,6 @@ var xSortListModelGetPending func(uintptr) uint
 // [property@Gtk.SortListModel:incremental] is %FALSE - this
 // function returns 0.
 func (x *SortListModel) GetPending() uint {
-	core.LazyRegister(&xSortListModelGetPending, "GTK", "gtk_sort_list_model_get_pending", false)
-
 	cret := xSortListModelGetPending(x.GoPointer())
 	return cret
 }
@@ -152,7 +146,6 @@ var xSortListModelGetSectionSorter func(uintptr) uintptr
 // Gets the section sorter that is used to sort items of @self into
 // sections.
 func (x *SortListModel) GetSectionSorter() *Sorter {
-	core.LazyRegister(&xSortListModelGetSectionSorter, "GTK", "gtk_sort_list_model_get_section_sorter", false)
 	var cls *Sorter
 
 	cret := xSortListModelGetSectionSorter(x.GoPointer())
@@ -170,7 +163,6 @@ var xSortListModelGetSorter func(uintptr) uintptr
 
 // Gets the sorter that is used to sort @self.
 func (x *SortListModel) GetSorter() *Sorter {
-	core.LazyRegister(&xSortListModelGetSorter, "GTK", "gtk_sort_list_model_get_sorter", false)
 	var cls *Sorter
 
 	cret := xSortListModelGetSorter(x.GoPointer())
@@ -203,8 +195,6 @@ var xSortListModelSetIncremental func(uintptr, bool)
 // See [method@Gtk.SortListModel.get_pending] for progress information
 // about an ongoing incremental sorting operation.
 func (x *SortListModel) SetIncremental(IncrementalVar bool) {
-	core.LazyRegister(&xSortListModelSetIncremental, "GTK", "gtk_sort_list_model_set_incremental", false)
-
 	xSortListModelSetIncremental(x.GoPointer(), IncrementalVar)
 }
 
@@ -214,8 +204,6 @@ var xSortListModelSetModel func(uintptr, uintptr)
 //
 // The @model's item type must conform to the item type of @self.
 func (x *SortListModel) SetModel(ModelVar gio.ListModel) {
-	core.LazyRegister(&xSortListModelSetModel, "GTK", "gtk_sort_list_model_set_model", false)
-
 	xSortListModelSetModel(x.GoPointer(), ModelVar.GoPointer())
 }
 
@@ -223,8 +211,6 @@ var xSortListModelSetSectionSorter func(uintptr, uintptr)
 
 // Sets a new section sorter on @self.
 func (x *SortListModel) SetSectionSorter(SorterVar *Sorter) {
-	core.LazyRegister(&xSortListModelSetSectionSorter, "GTK", "gtk_sort_list_model_set_section_sorter", false)
-
 	xSortListModelSetSectionSorter(x.GoPointer(), SorterVar.GoPointer())
 }
 
@@ -232,8 +218,6 @@ var xSortListModelSetSorter func(uintptr, uintptr)
 
 // Sets a new sorter on @self.
 func (x *SortListModel) SetSorter(SorterVar *Sorter) {
-	core.LazyRegister(&xSortListModelSetSorter, "GTK", "gtk_sort_list_model_set_sorter", false)
-
 	xSortListModelSetSorter(x.GoPointer(), SorterVar.GoPointer())
 }
 
@@ -398,4 +382,26 @@ func (x *SortListModel) SectionsChanged(PositionVar uint, NItemsVar uint) {
 func init() {
 	core.SetPackageName("GTK", "gtk4")
 	core.SetSharedLibraries("GTK", []string{"libgtk-4.so.1", "libgtk-4.1.dylib"})
+	var libs []uintptr
+	for _, libPath := range core.GetPaths("GTK") {
+		lib, err := purego.Dlopen(libPath, purego.RTLD_NOW|purego.RTLD_GLOBAL)
+		if err != nil {
+			panic(err)
+		}
+		libs = append(libs, lib)
+	}
+
+	core.PuregoSafeRegister(&xSortListModelGLibType, libs, "gtk_sort_list_model_get_type")
+
+	core.PuregoSafeRegister(&xNewSortListModel, libs, "gtk_sort_list_model_new")
+
+	core.PuregoSafeRegister(&xSortListModelGetIncremental, libs, "gtk_sort_list_model_get_incremental")
+	core.PuregoSafeRegister(&xSortListModelGetModel, libs, "gtk_sort_list_model_get_model")
+	core.PuregoSafeRegister(&xSortListModelGetPending, libs, "gtk_sort_list_model_get_pending")
+	core.PuregoSafeRegister(&xSortListModelGetSectionSorter, libs, "gtk_sort_list_model_get_section_sorter")
+	core.PuregoSafeRegister(&xSortListModelGetSorter, libs, "gtk_sort_list_model_get_sorter")
+	core.PuregoSafeRegister(&xSortListModelSetIncremental, libs, "gtk_sort_list_model_set_incremental")
+	core.PuregoSafeRegister(&xSortListModelSetModel, libs, "gtk_sort_list_model_set_model")
+	core.PuregoSafeRegister(&xSortListModelSetSectionSorter, libs, "gtk_sort_list_model_set_section_sorter")
+	core.PuregoSafeRegister(&xSortListModelSetSorter, libs, "gtk_sort_list_model_set_sorter")
 }

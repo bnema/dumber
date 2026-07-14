@@ -5,6 +5,7 @@ import (
 	"structs"
 	"unsafe"
 
+	"github.com/bnema/purego"
 	"github.com/bnema/puregotk/pkg/core"
 	"github.com/bnema/puregotk/v4/gobject"
 	"github.com/bnema/puregotk/v4/gobject/types"
@@ -83,7 +84,6 @@ type EditableLabel struct {
 var xEditableLabelGLibType func() types.GType
 
 func EditableLabelGLibType() types.GType {
-	core.LazyRegister(&xEditableLabelGLibType, "GTK", "gtk_editable_label_get_type", false)
 	return xEditableLabelGLibType()
 }
 
@@ -97,7 +97,6 @@ var xNewEditableLabel func(string) uintptr
 
 // Creates a new `GtkEditableLabel` widget.
 func NewEditableLabel(StrVar string) *EditableLabel {
-	core.LazyRegister(&xNewEditableLabel, "GTK", "gtk_editable_label_new", false)
 	var cls *EditableLabel
 
 	cret := xNewEditableLabel(StrVar)
@@ -115,8 +114,6 @@ var xEditableLabelGetEditing func(uintptr) bool
 
 // Returns whether the label is currently in “editing mode”.
 func (x *EditableLabel) GetEditing() bool {
-	core.LazyRegister(&xEditableLabelGetEditing, "GTK", "gtk_editable_label_get_editing", false)
-
 	cret := xEditableLabelGetEditing(x.GoPointer())
 	return cret
 }
@@ -125,8 +122,6 @@ var xEditableLabelStartEditing func(uintptr)
 
 // Switches the label into “editing mode”.
 func (x *EditableLabel) StartEditing() {
-	core.LazyRegister(&xEditableLabelStartEditing, "GTK", "gtk_editable_label_start_editing", false)
-
 	xEditableLabelStartEditing(x.GoPointer())
 }
 
@@ -139,8 +134,6 @@ var xEditableLabelStopEditing func(uintptr, bool)
 // resulting text is discarded and the label will keep its
 // previous [property@Gtk.Editable:text] property value.
 func (x *EditableLabel) StopEditing(CommitVar bool) {
-	core.LazyRegister(&xEditableLabelStopEditing, "GTK", "gtk_editable_label_stop_editing", false)
-
 	xEditableLabelStopEditing(x.GoPointer(), CommitVar)
 }
 
@@ -683,4 +676,20 @@ func (x *EditableLabel) SetWidthChars(NCharsVar int) {
 func init() {
 	core.SetPackageName("GTK", "gtk4")
 	core.SetSharedLibraries("GTK", []string{"libgtk-4.so.1", "libgtk-4.1.dylib"})
+	var libs []uintptr
+	for _, libPath := range core.GetPaths("GTK") {
+		lib, err := purego.Dlopen(libPath, purego.RTLD_NOW|purego.RTLD_GLOBAL)
+		if err != nil {
+			panic(err)
+		}
+		libs = append(libs, lib)
+	}
+
+	core.PuregoSafeRegister(&xEditableLabelGLibType, libs, "gtk_editable_label_get_type")
+
+	core.PuregoSafeRegister(&xNewEditableLabel, libs, "gtk_editable_label_new")
+
+	core.PuregoSafeRegister(&xEditableLabelGetEditing, libs, "gtk_editable_label_get_editing")
+	core.PuregoSafeRegister(&xEditableLabelStartEditing, libs, "gtk_editable_label_start_editing")
+	core.PuregoSafeRegister(&xEditableLabelStopEditing, libs, "gtk_editable_label_stop_editing")
 }

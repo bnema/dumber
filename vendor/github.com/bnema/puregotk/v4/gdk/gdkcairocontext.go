@@ -4,6 +4,7 @@ package gdk
 import (
 	"unsafe"
 
+	"github.com/bnema/purego"
 	"github.com/bnema/puregotk/pkg/core"
 	"github.com/bnema/puregotk/v4/cairo"
 	"github.com/bnema/puregotk/v4/gobject/types"
@@ -21,7 +22,6 @@ type CairoContext struct {
 var xCairoContextGLibType func() types.GType
 
 func CairoContextGLibType() types.GType {
-	core.LazyRegister(&xCairoContextGLibType, "GDK", "gdk_cairo_context_get_type", false)
 	return xCairoContextGLibType()
 }
 
@@ -42,8 +42,6 @@ var xCairoContextCairoCreate func(uintptr) uintptr
 // The returned context is guaranteed to be valid until
 // [method@Gdk.DrawContext.end_frame] is called.
 func (x *CairoContext) CairoCreate() *cairo.Context {
-	core.LazyRegister(&xCairoContextCairoCreate, "GDK", "gdk_cairo_context_cairo_create", false)
-
 	cret := xCairoContextCairoCreate(x.GoPointer())
 	if cret == 0 {
 		return nil
@@ -65,4 +63,16 @@ func (c *CairoContext) SetGoPointer(ptr uintptr) {
 func init() {
 	core.SetPackageName("GDK", "gtk4")
 	core.SetSharedLibraries("GDK", []string{"libgtk-4.so.1", "libgtk-4.1.dylib"})
+	var libs []uintptr
+	for _, libPath := range core.GetPaths("GDK") {
+		lib, err := purego.Dlopen(libPath, purego.RTLD_NOW|purego.RTLD_GLOBAL)
+		if err != nil {
+			panic(err)
+		}
+		libs = append(libs, lib)
+	}
+
+	core.PuregoSafeRegister(&xCairoContextGLibType, libs, "gdk_cairo_context_get_type")
+
+	core.PuregoSafeRegister(&xCairoContextCairoCreate, libs, "gdk_cairo_context_cairo_create")
 }

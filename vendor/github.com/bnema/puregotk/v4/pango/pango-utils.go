@@ -2,6 +2,7 @@
 package pango
 
 import (
+	"github.com/bnema/purego"
 	"github.com/bnema/puregotk/pkg/core"
 	"github.com/bnema/puregotk/v4/glib"
 	"github.com/bnema/puregotk/v4/gobject/types"
@@ -24,8 +25,6 @@ var xFindParagraphBoundary func(string, int, *int, *int)
 // and @next_paragraph_start are filled with the length of @text
 // (an index one off the end).
 func FindParagraphBoundary(TextVar string, LengthVar int, ParagraphDelimiterIndexVar *int, NextParagraphStartVar *int) {
-	core.LazyRegister(&xFindParagraphBoundary, "PANGO", "pango_find_paragraph_boundary", false)
-
 	xFindParagraphBoundary(TextVar, LengthVar, ParagraphDelimiterIndexVar, NextParagraphStartVar)
 }
 
@@ -38,8 +37,6 @@ var xIsZeroWidth func(uint32) bool
 //
 // This is totally different from [func@GLib.unichar_iszerowidth] and is at best misnamed.
 func IsZeroWidth(ChVar uint32) bool {
-	core.LazyRegister(&xIsZeroWidth, "PANGO", "pango_is_zero_width", false)
-
 	cret := xIsZeroWidth(ChVar)
 	return cret
 }
@@ -54,8 +51,6 @@ var xLog2visGetEmbeddingLevels func(string, int, *Direction) uintptr
 // If the input base direction is a weak direction, the direction of the
 // characters in the text will determine the final resolved direction.
 func Log2visGetEmbeddingLevels(TextVar string, LengthVar int, PbaseDirVar *Direction) uintptr {
-	core.LazyRegister(&xLog2visGetEmbeddingLevels, "PANGO", "pango_log2vis_get_embedding_levels", false)
-
 	cret := xLog2visGetEmbeddingLevels(TextVar, LengthVar, PbaseDirVar)
 	return cret
 }
@@ -73,8 +68,6 @@ var xParseEnum func(types.GType, uintptr, *int, bool, *string) bool
 // If failed and @possible_values is not %NULL, returned string should
 // be freed using g_free().
 func ParseEnum(TypeVar types.GType, StrVar *string, ValueVar *int, WarnVar bool, PossibleValuesVar *string) bool {
-	core.LazyRegister(&xParseEnum, "PANGO", "pango_parse_enum", false)
-
 	StrVarPtr := core.GStrdupNullable(StrVar)
 	defer core.GFreeNullable(StrVarPtr)
 
@@ -92,8 +85,6 @@ var xParseStretch func(string, *Stretch, bool) bool
 // "extra_expanded" and "ultra_expanded". Case variations are
 // ignored and the '_' characters may be omitted.
 func ParseStretch(StrVar string, StretchVar *Stretch, WarnVar bool) bool {
-	core.LazyRegister(&xParseStretch, "PANGO", "pango_parse_stretch", false)
-
 	cret := xParseStretch(StrVar, StretchVar, WarnVar)
 	return cret
 }
@@ -106,8 +97,6 @@ var xParseStyle func(string, *Style, bool) bool
 // variations being
 // ignored.
 func ParseStyle(StrVar string, StyleVar *Style, WarnVar bool) bool {
-	core.LazyRegister(&xParseStyle, "PANGO", "pango_parse_style", false)
-
 	cret := xParseStyle(StrVar, StyleVar, WarnVar)
 	return cret
 }
@@ -120,8 +109,6 @@ var xParseVariant func(string, *Variant, bool) bool
 // "petite-caps", "all-petite-caps", "unicase" and "title-caps",
 // case variations being ignored.
 func ParseVariant(StrVar string, VariantVar *Variant, WarnVar bool) bool {
-	core.LazyRegister(&xParseVariant, "PANGO", "pango_parse_variant", false)
-
 	cret := xParseVariant(StrVar, VariantVar, WarnVar)
 	return cret
 }
@@ -134,8 +121,6 @@ var xParseWeight func(string, *Weight, bool) bool
 // "ultrabold", "bold", "normal", "light", "ultraleight"
 // and integers. Case variations are ignored.
 func ParseWeight(StrVar string, WeightVar *Weight, WarnVar bool) bool {
-	core.LazyRegister(&xParseWeight, "PANGO", "pango_parse_weight", false)
-
 	cret := xParseWeight(StrVar, WeightVar, WarnVar)
 	return cret
 }
@@ -151,8 +136,6 @@ var xQuantizeLineGeometry func(*int, *int)
 // function returns, but returned @position may become zero as a result
 // of rounding.
 func QuantizeLineGeometry(ThicknessVar *int, PositionVar *int) {
-	core.LazyRegister(&xQuantizeLineGeometry, "PANGO", "pango_quantize_line_geometry", false)
-
 	xQuantizeLineGeometry(ThicknessVar, PositionVar)
 }
 
@@ -167,8 +150,6 @@ var xReadLine func(uintptr, *glib.String) int
 // any other character is ignored and written into the output buffer
 // unmodified.
 func ReadLine(StreamVar uintptr, StrVar *glib.String) int {
-	core.LazyRegister(&xReadLine, "PANGO", "pango_read_line", false)
-
 	cret := xReadLine(StreamVar, StrVar)
 	return cret
 }
@@ -179,8 +160,6 @@ var xScanInt func(*string, *int) bool
 //
 // Leading white space is skipped.
 func ScanInt(PosVar *string, OutVar *int) bool {
-	core.LazyRegister(&xScanInt, "PANGO", "pango_scan_int", false)
-
 	cret := xScanInt(PosVar, OutVar)
 	return cret
 }
@@ -193,8 +172,6 @@ var xScanString func(*string, *glib.String) bool
 // or a quoted string with '"'. Instead a quoted string, '\"' represents
 // a literal quote. Leading white space outside of quotes is skipped.
 func ScanString(PosVar *string, OutVar *glib.String) bool {
-	core.LazyRegister(&xScanString, "PANGO", "pango_scan_string", false)
-
 	cret := xScanString(PosVar, OutVar)
 	return cret
 }
@@ -206,8 +183,6 @@ var xScanWord func(*string, *glib.String) bool
 // A word consists of [A-Za-z_] followed by zero or more
 // [A-Za-z_0-9]. Leading white space is skipped.
 func ScanWord(PosVar *string, OutVar *glib.String) bool {
-	core.LazyRegister(&xScanWord, "PANGO", "pango_scan_word", false)
-
 	cret := xScanWord(PosVar, OutVar)
 	return cret
 }
@@ -216,8 +191,6 @@ var xSkipSpace func(*string) bool
 
 // Skips 0 or more characters of white space.
 func SkipSpace(PosVar *string) bool {
-	core.LazyRegister(&xSkipSpace, "PANGO", "pango_skip_space", false)
-
 	cret := xSkipSpace(PosVar)
 	return cret
 }
@@ -227,8 +200,6 @@ var xSplitFileList func(string) []string
 // Splits a %G_SEARCHPATH_SEPARATOR-separated list of files, stripping
 // white space and substituting ~/ with $HOME/.
 func SplitFileList(StrVar string) []string {
-	core.LazyRegister(&xSplitFileList, "PANGO", "pango_split_file_list", false)
-
 	cret := xSplitFileList(StrVar)
 	return cret
 }
@@ -237,8 +208,6 @@ var xTrimString func(string) string
 
 // Trims leading and trailing whitespace from a string.
 func TrimString(StrVar string) string {
-	core.LazyRegister(&xTrimString, "PANGO", "pango_trim_string", false)
-
 	cret := xTrimString(StrVar)
 	return cret
 }
@@ -251,8 +220,6 @@ var xVersion func() int
 // returns the encoded version available at compile-time. A version
 // number can be encoded into an integer using PANGO_VERSION_ENCODE().
 func Version() int {
-	core.LazyRegister(&xVersion, "PANGO", "pango_version", false)
-
 	cret := xVersion()
 	return cret
 }
@@ -277,8 +244,6 @@ var xVersionCheck func(int, int, int) string
 //
 // For compile-time version checking use PANGO_VERSION_CHECK().
 func VersionCheck(RequiredMajorVar int, RequiredMinorVar int, RequiredMicroVar int) string {
-	core.LazyRegister(&xVersionCheck, "PANGO", "pango_version_check", false)
-
 	cret := xVersionCheck(RequiredMajorVar, RequiredMinorVar, RequiredMicroVar)
 	return cret
 }
@@ -290,8 +255,6 @@ var xVersionString func() string
 // This is similar to the macro %PANGO_VERSION_STRING except that the
 // macro returns the version available at compile-time.
 func VersionString() string {
-	core.LazyRegister(&xVersionString, "PANGO", "pango_version_string", false)
-
 	cret := xVersionString()
 	return cret
 }
@@ -299,4 +262,32 @@ func VersionString() string {
 func init() {
 	core.SetPackageName("PANGO", "pango")
 	core.SetSharedLibraries("PANGO", []string{"libpango-1.0.so.0", "libpango-1.0.0.dylib"})
+	var libs []uintptr
+	for _, libPath := range core.GetPaths("PANGO") {
+		lib, err := purego.Dlopen(libPath, purego.RTLD_NOW|purego.RTLD_GLOBAL)
+		if err != nil {
+			panic(err)
+		}
+		libs = append(libs, lib)
+	}
+
+	core.PuregoSafeRegister(&xFindParagraphBoundary, libs, "pango_find_paragraph_boundary")
+	core.PuregoSafeRegister(&xIsZeroWidth, libs, "pango_is_zero_width")
+	core.PuregoSafeRegister(&xLog2visGetEmbeddingLevels, libs, "pango_log2vis_get_embedding_levels")
+	core.PuregoSafeRegister(&xParseEnum, libs, "pango_parse_enum")
+	core.PuregoSafeRegister(&xParseStretch, libs, "pango_parse_stretch")
+	core.PuregoSafeRegister(&xParseStyle, libs, "pango_parse_style")
+	core.PuregoSafeRegister(&xParseVariant, libs, "pango_parse_variant")
+	core.PuregoSafeRegister(&xParseWeight, libs, "pango_parse_weight")
+	core.PuregoSafeRegister(&xQuantizeLineGeometry, libs, "pango_quantize_line_geometry")
+	core.PuregoSafeRegister(&xReadLine, libs, "pango_read_line")
+	core.PuregoSafeRegister(&xScanInt, libs, "pango_scan_int")
+	core.PuregoSafeRegister(&xScanString, libs, "pango_scan_string")
+	core.PuregoSafeRegister(&xScanWord, libs, "pango_scan_word")
+	core.PuregoSafeRegister(&xSkipSpace, libs, "pango_skip_space")
+	core.PuregoSafeRegister(&xSplitFileList, libs, "pango_split_file_list")
+	core.PuregoSafeRegister(&xTrimString, libs, "pango_trim_string")
+	core.PuregoSafeRegister(&xVersion, libs, "pango_version")
+	core.PuregoSafeRegister(&xVersionCheck, libs, "pango_version_check")
+	core.PuregoSafeRegister(&xVersionString, libs, "pango_version_string")
 }

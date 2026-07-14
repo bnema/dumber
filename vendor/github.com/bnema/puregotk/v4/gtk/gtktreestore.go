@@ -5,6 +5,7 @@ import (
 	"structs"
 	"unsafe"
 
+	"github.com/bnema/purego"
 	"github.com/bnema/puregotk/pkg/core"
 	"github.com/bnema/puregotk/v4/gdk"
 	"github.com/bnema/puregotk/v4/glib"
@@ -88,7 +89,6 @@ type TreeStore struct {
 var xTreeStoreGLibType func() types.GType
 
 func TreeStoreGLibType() types.GType {
-	core.LazyRegister(&xTreeStoreGLibType, "GTK", "gtk_tree_store_get_type", false)
 	return xTreeStoreGLibType()
 }
 
@@ -117,7 +117,6 @@ var xNewTreeStore func(int, ...interface{}) uintptr
 // will create a new `GtkTreeStore` with three columns of type
 // `int`, `gchararray`, and `GdkTexture` respectively.
 func NewTreeStore(NColumnsVar int, varArgs ...interface{}) *TreeStore {
-	core.LazyRegister(&xNewTreeStore, "GTK", "gtk_tree_store_new", false)
 	var cls *TreeStore
 
 	cret := xNewTreeStore(NColumnsVar, varArgs...)
@@ -136,7 +135,6 @@ var xNewTreeStorev func(int, []types.GType) uintptr
 //
 // This constructor is meant for language bindings.
 func NewTreeStorev(NColumnsVar int, TypesVar []types.GType) *TreeStore {
-	core.LazyRegister(&xNewTreeStorev, "GTK", "gtk_tree_store_newv", false)
 	var cls *TreeStore
 
 	cret := xNewTreeStorev(NColumnsVar, TypesVar)
@@ -160,8 +158,6 @@ var xTreeStoreAppend func(uintptr, *TreeIter, *TreeIter)
 // be empty after this function is called. To fill in values, you need to call
 // gtk_tree_store_set() or gtk_tree_store_set_value().
 func (x *TreeStore) Append(IterVar *TreeIter, ParentVar *TreeIter) {
-	core.LazyRegister(&xTreeStoreAppend, "GTK", "gtk_tree_store_append", false)
-
 	xTreeStoreAppend(x.GoPointer(), IterVar, ParentVar)
 }
 
@@ -169,8 +165,6 @@ var xTreeStoreClear func(uintptr)
 
 // Removes all rows from @tree_store
 func (x *TreeStore) Clear() {
-	core.LazyRegister(&xTreeStoreClear, "GTK", "gtk_tree_store_clear", false)
-
 	xTreeStoreClear(x.GoPointer())
 }
 
@@ -188,8 +182,6 @@ var xTreeStoreInsert func(uintptr, *TreeIter, *TreeIter, int)
 // will be empty after this function is called. To fill in values, you
 // need to call gtk_tree_store_set() or gtk_tree_store_set_value().
 func (x *TreeStore) Insert(IterVar *TreeIter, ParentVar *TreeIter, PositionVar int) {
-	core.LazyRegister(&xTreeStoreInsert, "GTK", "gtk_tree_store_insert", false)
-
 	xTreeStoreInsert(x.GoPointer(), IterVar, ParentVar, PositionVar)
 }
 
@@ -209,8 +201,6 @@ var xTreeStoreInsertAfter func(uintptr, *TreeIter, *TreeIter, *TreeIter)
 // be empty after this function is called. To fill in values, you need to call
 // gtk_tree_store_set() or gtk_tree_store_set_value().
 func (x *TreeStore) InsertAfter(IterVar *TreeIter, ParentVar *TreeIter, SiblingVar *TreeIter) {
-	core.LazyRegister(&xTreeStoreInsertAfter, "GTK", "gtk_tree_store_insert_after", false)
-
 	xTreeStoreInsertAfter(x.GoPointer(), IterVar, ParentVar, SiblingVar)
 }
 
@@ -230,8 +220,6 @@ var xTreeStoreInsertBefore func(uintptr, *TreeIter, *TreeIter, *TreeIter)
 // be empty after this function is called. To fill in values, you need to call
 // gtk_tree_store_set() or gtk_tree_store_set_value().
 func (x *TreeStore) InsertBefore(IterVar *TreeIter, ParentVar *TreeIter, SiblingVar *TreeIter) {
-	core.LazyRegister(&xTreeStoreInsertBefore, "GTK", "gtk_tree_store_insert_before", false)
-
 	xTreeStoreInsertBefore(x.GoPointer(), IterVar, ParentVar, SiblingVar)
 }
 
@@ -264,8 +252,6 @@ var xTreeStoreInsertWithValues func(uintptr, *TreeIter, *TreeIter, int, ...inter
 // performance of the program, gtk_tree_store_insert_with_values() should
 // generally be preferred when inserting rows in a sorted tree store.
 func (x *TreeStore) InsertWithValues(IterVar *TreeIter, ParentVar *TreeIter, PositionVar int, varArgs ...interface{}) {
-	core.LazyRegister(&xTreeStoreInsertWithValues, "GTK", "gtk_tree_store_insert_with_values", false)
-
 	xTreeStoreInsertWithValues(x.GoPointer(), IterVar, ParentVar, PositionVar, varArgs...)
 }
 
@@ -276,8 +262,6 @@ var xTreeStoreInsertWithValuesv func(uintptr, *TreeIter, *TreeIter, int, []int, 
 //
 // This function is mainly intended for language bindings.
 func (x *TreeStore) InsertWithValuesv(IterVar *TreeIter, ParentVar *TreeIter, PositionVar int, ColumnsVar []int, ValuesVar []gobject.Value, NValuesVar int) {
-	core.LazyRegister(&xTreeStoreInsertWithValuesv, "GTK", "gtk_tree_store_insert_with_valuesv", false)
-
 	xTreeStoreInsertWithValuesv(x.GoPointer(), IterVar, ParentVar, PositionVar, ColumnsVar, ValuesVar, NValuesVar)
 }
 
@@ -285,8 +269,6 @@ var xTreeStoreIsAncestor func(uintptr, *TreeIter, *TreeIter) bool
 
 // Checks if @iter is an ancestor of @descendant.
 func (x *TreeStore) IsAncestor(IterVar *TreeIter, DescendantVar *TreeIter) bool {
-	core.LazyRegister(&xTreeStoreIsAncestor, "GTK", "gtk_tree_store_is_ancestor", false)
-
 	cret := xTreeStoreIsAncestor(x.GoPointer(), IterVar, DescendantVar)
 	return cret
 }
@@ -298,8 +280,6 @@ var xTreeStoreIterDepth func(uintptr, *TreeIter) int
 // The depth will be 0 for anything on the root level, 1 for anything down
 // a level, etc.
 func (x *TreeStore) IterDepth(IterVar *TreeIter) int {
-	core.LazyRegister(&xTreeStoreIterDepth, "GTK", "gtk_tree_store_iter_depth", false)
-
 	cret := xTreeStoreIterDepth(x.GoPointer(), IterVar)
 	return cret
 }
@@ -311,8 +291,6 @@ var xTreeStoreIterIsValid func(uintptr, *TreeIter) bool
 // This function is slow. Only use it for debugging and/or testing
 // purposes.
 func (x *TreeStore) IterIsValid(IterVar *TreeIter) bool {
-	core.LazyRegister(&xTreeStoreIterIsValid, "GTK", "gtk_tree_store_iter_is_valid", false)
-
 	cret := xTreeStoreIterIsValid(x.GoPointer(), IterVar)
 	return cret
 }
@@ -327,8 +305,6 @@ var xTreeStoreMoveAfter func(uintptr, *TreeIter, *TreeIter)
 //
 // If @position is %NULL, @iter will be moved to the start of the level.
 func (x *TreeStore) MoveAfter(IterVar *TreeIter, PositionVar *TreeIter) {
-	core.LazyRegister(&xTreeStoreMoveAfter, "GTK", "gtk_tree_store_move_after", false)
-
 	xTreeStoreMoveAfter(x.GoPointer(), IterVar, PositionVar)
 }
 
@@ -342,8 +318,6 @@ var xTreeStoreMoveBefore func(uintptr, *TreeIter, *TreeIter)
 //
 // If @position is %NULL, @iter will be moved to the end of the level.
 func (x *TreeStore) MoveBefore(IterVar *TreeIter, PositionVar *TreeIter) {
-	core.LazyRegister(&xTreeStoreMoveBefore, "GTK", "gtk_tree_store_move_before", false)
-
 	xTreeStoreMoveBefore(x.GoPointer(), IterVar, PositionVar)
 }
 
@@ -357,8 +331,6 @@ var xTreeStorePrepend func(uintptr, *TreeIter, *TreeIter)
 // be empty after this function is called. To fill in values, you need to
 // call gtk_tree_store_set() or gtk_tree_store_set_value().
 func (x *TreeStore) Prepend(IterVar *TreeIter, ParentVar *TreeIter) {
-	core.LazyRegister(&xTreeStorePrepend, "GTK", "gtk_tree_store_prepend", false)
-
 	xTreeStorePrepend(x.GoPointer(), IterVar, ParentVar)
 }
 
@@ -369,8 +341,6 @@ var xTreeStoreRemove func(uintptr, *TreeIter) bool
 // After being removed, @iter is set to the next valid row at that level, or
 // invalidated if it previously pointed to the last one.
 func (x *TreeStore) Remove(IterVar *TreeIter) bool {
-	core.LazyRegister(&xTreeStoreRemove, "GTK", "gtk_tree_store_remove", false)
-
 	cret := xTreeStoreRemove(x.GoPointer(), IterVar)
 	return cret
 }
@@ -382,8 +352,6 @@ var xTreeStoreReorder func(uintptr, *TreeIter, []int)
 //
 // Note that this function only works with unsorted stores.
 func (x *TreeStore) Reorder(ParentVar *TreeIter, NewOrderVar []int) {
-	core.LazyRegister(&xTreeStoreReorder, "GTK", "gtk_tree_store_reorder", false)
-
 	xTreeStoreReorder(x.GoPointer(), ParentVar, NewOrderVar)
 }
 
@@ -406,8 +374,6 @@ var xTreeStoreSet func(uintptr, *TreeIter, ...interface{})
 // The value will be referenced by the store if it is a `G_TYPE_OBJECT`, and it
 // will be copied if it is a `G_TYPE_STRING` or `G_TYPE_BOXED`.
 func (x *TreeStore) Set(IterVar *TreeIter, varArgs ...interface{}) {
-	core.LazyRegister(&xTreeStoreSet, "GTK", "gtk_tree_store_set", false)
-
 	xTreeStoreSet(x.GoPointer(), IterVar, varArgs...)
 }
 
@@ -423,8 +389,6 @@ var xTreeStoreSetColumnTypes func(uintptr, int, []types.GType)
 // or a method on the `GtkTreeModel` interface is called on the
 // tree store.
 func (x *TreeStore) SetColumnTypes(NColumnsVar int, TypesVar []types.GType) {
-	core.LazyRegister(&xTreeStoreSetColumnTypes, "GTK", "gtk_tree_store_set_column_types", false)
-
 	xTreeStoreSetColumnTypes(x.GoPointer(), NColumnsVar, TypesVar)
 }
 
@@ -432,8 +396,6 @@ var xTreeStoreSetValist func(uintptr, *TreeIter, []interface{})
 
 // A version of gtk_tree_store_set() using `va_list`.
 func (x *TreeStore) SetValist(IterVar *TreeIter, VarArgsVar []interface{}) {
-	core.LazyRegister(&xTreeStoreSetValist, "GTK", "gtk_tree_store_set_valist", false)
-
 	xTreeStoreSetValist(x.GoPointer(), IterVar, VarArgsVar)
 }
 
@@ -444,8 +406,6 @@ var xTreeStoreSetValue func(uintptr, *TreeIter, int, *gobject.Value)
 // The type of @value must be convertible to the type of the
 // column.
 func (x *TreeStore) SetValue(IterVar *TreeIter, ColumnVar int, ValueVar *gobject.Value) {
-	core.LazyRegister(&xTreeStoreSetValue, "GTK", "gtk_tree_store_set_value", false)
-
 	xTreeStoreSetValue(x.GoPointer(), IterVar, ColumnVar, ValueVar)
 }
 
@@ -458,8 +418,6 @@ var xTreeStoreSetValuesv func(uintptr, *TreeIter, []int, []gobject.Value, int)
 // This function is mainly intended for language bindings or in case
 // the number of columns to change is not known until run-time.
 func (x *TreeStore) SetValuesv(IterVar *TreeIter, ColumnsVar []int, ValuesVar []gobject.Value, NValuesVar int) {
-	core.LazyRegister(&xTreeStoreSetValuesv, "GTK", "gtk_tree_store_set_valuesv", false)
-
 	xTreeStoreSetValuesv(x.GoPointer(), IterVar, ColumnsVar, ValuesVar, NValuesVar)
 }
 
@@ -469,8 +427,6 @@ var xTreeStoreSwap func(uintptr, *TreeIter, *TreeIter)
 //
 // Note that this function only works with unsorted stores.
 func (x *TreeStore) Swap(AVar *TreeIter, BVar *TreeIter) {
-	core.LazyRegister(&xTreeStoreSwap, "GTK", "gtk_tree_store_swap", false)
-
 	xTreeStoreSwap(x.GoPointer(), AVar, BVar)
 }
 
@@ -896,4 +852,39 @@ func (x *TreeStore) SortColumnChanged() {
 func init() {
 	core.SetPackageName("GTK", "gtk4")
 	core.SetSharedLibraries("GTK", []string{"libgtk-4.so.1", "libgtk-4.1.dylib"})
+	var libs []uintptr
+	for _, libPath := range core.GetPaths("GTK") {
+		lib, err := purego.Dlopen(libPath, purego.RTLD_NOW|purego.RTLD_GLOBAL)
+		if err != nil {
+			panic(err)
+		}
+		libs = append(libs, lib)
+	}
+
+	core.PuregoSafeRegister(&xTreeStoreGLibType, libs, "gtk_tree_store_get_type")
+
+	core.PuregoSafeRegister(&xNewTreeStore, libs, "gtk_tree_store_new")
+	core.PuregoSafeRegister(&xNewTreeStorev, libs, "gtk_tree_store_newv")
+
+	core.PuregoSafeRegister(&xTreeStoreAppend, libs, "gtk_tree_store_append")
+	core.PuregoSafeRegister(&xTreeStoreClear, libs, "gtk_tree_store_clear")
+	core.PuregoSafeRegister(&xTreeStoreInsert, libs, "gtk_tree_store_insert")
+	core.PuregoSafeRegister(&xTreeStoreInsertAfter, libs, "gtk_tree_store_insert_after")
+	core.PuregoSafeRegister(&xTreeStoreInsertBefore, libs, "gtk_tree_store_insert_before")
+	core.PuregoSafeRegister(&xTreeStoreInsertWithValues, libs, "gtk_tree_store_insert_with_values")
+	core.PuregoSafeRegister(&xTreeStoreInsertWithValuesv, libs, "gtk_tree_store_insert_with_valuesv")
+	core.PuregoSafeRegister(&xTreeStoreIsAncestor, libs, "gtk_tree_store_is_ancestor")
+	core.PuregoSafeRegister(&xTreeStoreIterDepth, libs, "gtk_tree_store_iter_depth")
+	core.PuregoSafeRegister(&xTreeStoreIterIsValid, libs, "gtk_tree_store_iter_is_valid")
+	core.PuregoSafeRegister(&xTreeStoreMoveAfter, libs, "gtk_tree_store_move_after")
+	core.PuregoSafeRegister(&xTreeStoreMoveBefore, libs, "gtk_tree_store_move_before")
+	core.PuregoSafeRegister(&xTreeStorePrepend, libs, "gtk_tree_store_prepend")
+	core.PuregoSafeRegister(&xTreeStoreRemove, libs, "gtk_tree_store_remove")
+	core.PuregoSafeRegister(&xTreeStoreReorder, libs, "gtk_tree_store_reorder")
+	core.PuregoSafeRegister(&xTreeStoreSet, libs, "gtk_tree_store_set")
+	core.PuregoSafeRegister(&xTreeStoreSetColumnTypes, libs, "gtk_tree_store_set_column_types")
+	core.PuregoSafeRegister(&xTreeStoreSetValist, libs, "gtk_tree_store_set_valist")
+	core.PuregoSafeRegister(&xTreeStoreSetValue, libs, "gtk_tree_store_set_value")
+	core.PuregoSafeRegister(&xTreeStoreSetValuesv, libs, "gtk_tree_store_set_valuesv")
+	core.PuregoSafeRegister(&xTreeStoreSwap, libs, "gtk_tree_store_swap")
 }

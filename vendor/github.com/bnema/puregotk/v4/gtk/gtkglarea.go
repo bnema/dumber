@@ -255,7 +255,6 @@ type GLArea struct {
 var xGLAreaGLibType func() types.GType
 
 func GLAreaGLibType() types.GType {
-	core.LazyRegister(&xGLAreaGLibType, "GTK", "gtk_gl_area_get_type", false)
 	return xGLAreaGLibType()
 }
 
@@ -269,7 +268,6 @@ var xNewGLArea func() uintptr
 
 // Creates a new `GtkGLArea` widget.
 func NewGLArea() *GLArea {
-	core.LazyRegister(&xNewGLArea, "GTK", "gtk_gl_area_new", false)
 	var cls *GLArea
 
 	cret := xNewGLArea()
@@ -295,8 +293,6 @@ var xGLAreaAttachBuffers func(uintptr)
 // [signal@Gtk.GLArea::render] signal, and doesn't normally need to be
 // called by application code.
 func (x *GLArea) AttachBuffers() {
-	core.LazyRegister(&xGLAreaAttachBuffers, "GTK", "gtk_gl_area_attach_buffers", false)
-
 	xGLAreaAttachBuffers(x.GoPointer())
 }
 
@@ -306,8 +302,6 @@ var xGLAreaGetAllowedApis func(uintptr) gdk.GLAPI
 //
 // See [method@Gtk.GLArea.set_allowed_apis].
 func (x *GLArea) GetAllowedApis() gdk.GLAPI {
-	core.LazyRegister(&xGLAreaGetAllowedApis, "GTK", "gtk_gl_area_get_allowed_apis", false)
-
 	cret := xGLAreaGetAllowedApis(x.GoPointer())
 	return cret
 }
@@ -318,8 +312,6 @@ var xGLAreaGetApi func(uintptr) gdk.GLAPI
 //
 // If the GL area has not been realized yet, 0 is returned.
 func (x *GLArea) GetApi() gdk.GLAPI {
-	core.LazyRegister(&xGLAreaGetApi, "GTK", "gtk_gl_area_get_api", false)
-
 	cret := xGLAreaGetApi(x.GoPointer())
 	return cret
 }
@@ -328,8 +320,6 @@ var xGLAreaGetAutoRender func(uintptr) bool
 
 // Returns whether the area is in auto render mode or not.
 func (x *GLArea) GetAutoRender() bool {
-	core.LazyRegister(&xGLAreaGetAutoRender, "GTK", "gtk_gl_area_get_auto_render", false)
-
 	cret := xGLAreaGetAutoRender(x.GoPointer())
 	return cret
 }
@@ -338,7 +328,6 @@ var xGLAreaGetContext func(uintptr) uintptr
 
 // Retrieves the `GdkGLContext` used by @area.
 func (x *GLArea) GetContext() *gdk.GLContext {
-	core.LazyRegister(&xGLAreaGetContext, "GTK", "gtk_gl_area_get_context", false)
 	var cls *gdk.GLContext
 
 	cret := xGLAreaGetContext(x.GoPointer())
@@ -356,8 +345,6 @@ var xGLAreaGetError func(uintptr) uintptr
 
 // Gets the current error set on the @area.
 func (x *GLArea) GetError() *glib.Error {
-	core.LazyRegister(&xGLAreaGetError, "GTK", "gtk_gl_area_get_error", false)
-
 	cret := xGLAreaGetError(x.GoPointer())
 	if cret == 0 {
 		return nil
@@ -369,8 +356,6 @@ var xGLAreaGetHasDepthBuffer func(uintptr) bool
 
 // Returns whether the area has a depth buffer.
 func (x *GLArea) GetHasDepthBuffer() bool {
-	core.LazyRegister(&xGLAreaGetHasDepthBuffer, "GTK", "gtk_gl_area_get_has_depth_buffer", false)
-
 	cret := xGLAreaGetHasDepthBuffer(x.GoPointer())
 	return cret
 }
@@ -379,8 +364,6 @@ var xGLAreaGetHasStencilBuffer func(uintptr) bool
 
 // Returns whether the area has a stencil buffer.
 func (x *GLArea) GetHasStencilBuffer() bool {
-	core.LazyRegister(&xGLAreaGetHasStencilBuffer, "GTK", "gtk_gl_area_get_has_stencil_buffer", false)
-
 	cret := xGLAreaGetHasStencilBuffer(x.GoPointer())
 	return cret
 }
@@ -391,8 +374,6 @@ var xGLAreaGetRequiredVersion func(uintptr, *int, *int)
 //
 // See [method@Gtk.GLArea.set_required_version].
 func (x *GLArea) GetRequiredVersion(MajorVar *int, MinorVar *int) {
-	core.LazyRegister(&xGLAreaGetRequiredVersion, "GTK", "gtk_gl_area_get_required_version", false)
-
 	xGLAreaGetRequiredVersion(x.GoPointer(), MajorVar, MinorVar)
 }
 
@@ -402,8 +383,6 @@ var xGLAreaGetUseEs func(uintptr) bool
 //
 // See [method@Gtk.GLArea.set_use_es].
 func (x *GLArea) GetUseEs() bool {
-	core.LazyRegister(&xGLAreaGetUseEs, "GTK", "gtk_gl_area_get_use_es", false)
-
 	cret := xGLAreaGetUseEs(x.GoPointer())
 	return cret
 }
@@ -417,8 +396,6 @@ var xGLAreaMakeCurrent func(uintptr)
 // [signal@Gtk.GLArea::render] signal, and doesn't normally need
 // to be called by application code.
 func (x *GLArea) MakeCurrent() {
-	core.LazyRegister(&xGLAreaMakeCurrent, "GTK", "gtk_gl_area_make_current", false)
-
 	xGLAreaMakeCurrent(x.GoPointer())
 }
 
@@ -434,8 +411,6 @@ var xGLAreaQueueRender func(uintptr)
 // been called with a %FALSE value. The default behaviour is to
 // emit [signal@Gtk.GLArea::render] on each draw.
 func (x *GLArea) QueueRender() {
-	core.LazyRegister(&xGLAreaQueueRender, "GTK", "gtk_gl_area_queue_render", false)
-
 	xGLAreaQueueRender(x.GoPointer())
 }
 
@@ -448,8 +423,6 @@ var xGLAreaSetAllowedApis func(uintptr, gdk.GLAPI)
 //
 // By default, all APIs are allowed.
 func (x *GLArea) SetAllowedApis(ApisVar gdk.GLAPI) {
-	core.LazyRegister(&xGLAreaSetAllowedApis, "GTK", "gtk_gl_area_set_allowed_apis", false)
-
 	xGLAreaSetAllowedApis(x.GoPointer(), ApisVar)
 }
 
@@ -467,8 +440,6 @@ var xGLAreaSetAutoRender func(uintptr, bool)
 // [method@Gtk.GLArea.queue_render] must be called. This mode is
 // useful when the scene changes seldom, but takes a long time to redraw.
 func (x *GLArea) SetAutoRender(AutoRenderVar bool) {
-	core.LazyRegister(&xGLAreaSetAutoRender, "GTK", "gtk_gl_area_set_auto_render", false)
-
 	xGLAreaSetAutoRender(x.GoPointer(), AutoRenderVar)
 }
 
@@ -480,8 +451,6 @@ var xGLAreaSetError func(uintptr, *glib.Error)
 // This is useful in the [signal@Gtk.GLArea::create-context]
 // signal if GL context creation fails.
 func (x *GLArea) SetError(ErrorVar *glib.Error) {
-	core.LazyRegister(&xGLAreaSetError, "GTK", "gtk_gl_area_set_error", false)
-
 	xGLAreaSetError(x.GoPointer(), ErrorVar)
 }
 
@@ -493,8 +462,6 @@ var xGLAreaSetHasDepthBuffer func(uintptr, bool)
 // enable a depth buffer for the target framebuffer. Otherwise
 // there will be none.
 func (x *GLArea) SetHasDepthBuffer(HasDepthBufferVar bool) {
-	core.LazyRegister(&xGLAreaSetHasDepthBuffer, "GTK", "gtk_gl_area_set_has_depth_buffer", false)
-
 	xGLAreaSetHasDepthBuffer(x.GoPointer(), HasDepthBufferVar)
 }
 
@@ -506,8 +473,6 @@ var xGLAreaSetHasStencilBuffer func(uintptr, bool)
 // enable a stencil buffer for the target framebuffer. Otherwise
 // there will be none.
 func (x *GLArea) SetHasStencilBuffer(HasStencilBufferVar bool) {
-	core.LazyRegister(&xGLAreaSetHasStencilBuffer, "GTK", "gtk_gl_area_set_has_stencil_buffer", false)
-
 	xGLAreaSetHasStencilBuffer(x.GoPointer(), HasStencilBufferVar)
 }
 
@@ -518,8 +483,6 @@ var xGLAreaSetRequiredVersion func(uintptr, int, int)
 //
 // This function must be called before the area has been realized.
 func (x *GLArea) SetRequiredVersion(MajorVar int, MinorVar int) {
-	core.LazyRegister(&xGLAreaSetRequiredVersion, "GTK", "gtk_gl_area_set_required_version", false)
-
 	xGLAreaSetRequiredVersion(x.GoPointer(), MajorVar, MinorVar)
 }
 
@@ -530,8 +493,6 @@ var xGLAreaSetUseEs func(uintptr, bool)
 // You should check the capabilities of the `GdkGLContext` before drawing
 // with either API.
 func (x *GLArea) SetUseEs(UseEsVar bool) {
-	core.LazyRegister(&xGLAreaSetUseEs, "GTK", "gtk_gl_area_set_use_es", false)
-
 	xGLAreaSetUseEs(x.GoPointer(), UseEsVar)
 }
 
@@ -1004,4 +965,36 @@ func (x *GLArea) GetBuildableId() string {
 func init() {
 	core.SetPackageName("GTK", "gtk4")
 	core.SetSharedLibraries("GTK", []string{"libgtk-4.so.1", "libgtk-4.1.dylib"})
+	var libs []uintptr
+	for _, libPath := range core.GetPaths("GTK") {
+		lib, err := purego.Dlopen(libPath, purego.RTLD_NOW|purego.RTLD_GLOBAL)
+		if err != nil {
+			panic(err)
+		}
+		libs = append(libs, lib)
+	}
+
+	core.PuregoSafeRegister(&xGLAreaGLibType, libs, "gtk_gl_area_get_type")
+
+	core.PuregoSafeRegister(&xNewGLArea, libs, "gtk_gl_area_new")
+
+	core.PuregoSafeRegister(&xGLAreaAttachBuffers, libs, "gtk_gl_area_attach_buffers")
+	core.PuregoSafeRegister(&xGLAreaGetAllowedApis, libs, "gtk_gl_area_get_allowed_apis")
+	core.PuregoSafeRegister(&xGLAreaGetApi, libs, "gtk_gl_area_get_api")
+	core.PuregoSafeRegister(&xGLAreaGetAutoRender, libs, "gtk_gl_area_get_auto_render")
+	core.PuregoSafeRegister(&xGLAreaGetContext, libs, "gtk_gl_area_get_context")
+	core.PuregoSafeRegister(&xGLAreaGetError, libs, "gtk_gl_area_get_error")
+	core.PuregoSafeRegister(&xGLAreaGetHasDepthBuffer, libs, "gtk_gl_area_get_has_depth_buffer")
+	core.PuregoSafeRegister(&xGLAreaGetHasStencilBuffer, libs, "gtk_gl_area_get_has_stencil_buffer")
+	core.PuregoSafeRegister(&xGLAreaGetRequiredVersion, libs, "gtk_gl_area_get_required_version")
+	core.PuregoSafeRegister(&xGLAreaGetUseEs, libs, "gtk_gl_area_get_use_es")
+	core.PuregoSafeRegister(&xGLAreaMakeCurrent, libs, "gtk_gl_area_make_current")
+	core.PuregoSafeRegister(&xGLAreaQueueRender, libs, "gtk_gl_area_queue_render")
+	core.PuregoSafeRegister(&xGLAreaSetAllowedApis, libs, "gtk_gl_area_set_allowed_apis")
+	core.PuregoSafeRegister(&xGLAreaSetAutoRender, libs, "gtk_gl_area_set_auto_render")
+	core.PuregoSafeRegister(&xGLAreaSetError, libs, "gtk_gl_area_set_error")
+	core.PuregoSafeRegister(&xGLAreaSetHasDepthBuffer, libs, "gtk_gl_area_set_has_depth_buffer")
+	core.PuregoSafeRegister(&xGLAreaSetHasStencilBuffer, libs, "gtk_gl_area_set_has_stencil_buffer")
+	core.PuregoSafeRegister(&xGLAreaSetRequiredVersion, libs, "gtk_gl_area_set_required_version")
+	core.PuregoSafeRegister(&xGLAreaSetUseEs, libs, "gtk_gl_area_set_use_es")
 }

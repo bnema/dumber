@@ -4,6 +4,7 @@ package soup
 import (
 	"unsafe"
 
+	"github.com/bnema/purego"
 	"github.com/bnema/puregotk/pkg/core"
 	"github.com/bnema/puregotk/v4/glib"
 	"github.com/bnema/puregotk/v4/gobject/types"
@@ -21,7 +22,6 @@ type URIComponent int
 var xURIComponentGLibType func() types.GType
 
 func URIComponentGLibType() types.GType {
-	core.LazyRegister(&xURIComponentGLibType, "SOUP", "soup_uri_component_get_type", false)
 	return xURIComponentGLibType()
 }
 
@@ -58,8 +58,6 @@ var xUriCopy func(*glib.Uri, URIComponent, ...interface{}) uintptr
 //
 // Return a copy of @uri with the given components updated.
 func UriCopy(UriVar *glib.Uri, FirstComponentVar URIComponent, varArgs ...interface{}) *glib.Uri {
-	core.LazyRegister(&xUriCopy, "SOUP", "soup_uri_copy", false)
-
 	cret := xUriCopy(UriVar, FirstComponentVar, varArgs...)
 	if cret == 0 {
 		return nil
@@ -71,8 +69,6 @@ var xUriDecodeDataUri func(string, *string) uintptr
 
 // Decodes the given data URI and returns its contents and @content_type.
 func UriDecodeDataUri(UriVar string, ContentTypeVar *string) *glib.Bytes {
-	core.LazyRegister(&xUriDecodeDataUri, "SOUP", "soup_uri_decode_data_uri", false)
-
 	cret := xUriDecodeDataUri(UriVar, ContentTypeVar)
 	if cret == 0 {
 		return nil
@@ -84,8 +80,6 @@ var xUriEqual func(*glib.Uri, *glib.Uri) bool
 
 // Tests whether or not @uri1 and @uri2 are equal in all parts.
 func UriEqual(Uri1Var *glib.Uri, Uri2Var *glib.Uri) bool {
-	core.LazyRegister(&xUriEqual, "SOUP", "soup_uri_equal", false)
-
 	cret := xUriEqual(Uri1Var, Uri2Var)
 	return cret
 }
@@ -93,4 +87,18 @@ func UriEqual(Uri1Var *glib.Uri, Uri2Var *glib.Uri) bool {
 func init() {
 	core.SetPackageName("SOUP", "libsoup-3.0")
 	core.SetSharedLibraries("SOUP", []string{"libsoup-3.0.so.0", "libsoup-3.0.0.dylib"})
+	var libs []uintptr
+	for _, libPath := range core.GetPaths("SOUP") {
+		lib, err := purego.Dlopen(libPath, purego.RTLD_NOW|purego.RTLD_GLOBAL)
+		if err != nil {
+			panic(err)
+		}
+		libs = append(libs, lib)
+	}
+
+	core.PuregoSafeRegister(&xURIComponentGLibType, libs, "soup_uri_component_get_type")
+
+	core.PuregoSafeRegister(&xUriCopy, libs, "soup_uri_copy")
+	core.PuregoSafeRegister(&xUriDecodeDataUri, libs, "soup_uri_decode_data_uri")
+	core.PuregoSafeRegister(&xUriEqual, libs, "soup_uri_equal")
 }

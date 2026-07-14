@@ -4,6 +4,7 @@ package gsk
 import (
 	"unsafe"
 
+	"github.com/bnema/purego"
 	"github.com/bnema/puregotk/pkg/core"
 	"github.com/bnema/puregotk/v4/cairo"
 	"github.com/bnema/puregotk/v4/gobject/types"
@@ -18,7 +19,6 @@ type CairoNode struct {
 var xCairoNodeGLibType func() types.GType
 
 func CairoNodeGLibType() types.GType {
-	core.LazyRegister(&xCairoNodeGLibType, "GSK", "gsk_cairo_node_get_type", false)
 	return xCairoNodeGLibType()
 }
 
@@ -35,7 +35,6 @@ var xNewCairoNode func(*graphene.Rect) uintptr
 //
 // You can draw to the cairo surface using [method@Gsk.CairoNode.get_draw_context].
 func NewCairoNode(BoundsVar *graphene.Rect) *CairoNode {
-	core.LazyRegister(&xNewCairoNode, "GSK", "gsk_cairo_node_new", false)
 	var cls *CairoNode
 
 	cret := xNewCairoNode(BoundsVar)
@@ -56,8 +55,6 @@ var xCairoNodeGetDrawContext func(uintptr) uintptr
 // If no surface exists yet, a surface will be created optimized for
 // rendering to @renderer.
 func (x *CairoNode) GetDrawContext() *cairo.Context {
-	core.LazyRegister(&xCairoNodeGetDrawContext, "GSK", "gsk_cairo_node_get_draw_context", false)
-
 	cret := xCairoNodeGetDrawContext(x.GoPointer())
 	if cret == 0 {
 		return nil
@@ -69,8 +66,6 @@ var xCairoNodeGetSurface func(uintptr) uintptr
 
 // Retrieves the Cairo surface used by the render node.
 func (x *CairoNode) GetSurface() *cairo.Surface {
-	core.LazyRegister(&xCairoNodeGetSurface, "GSK", "gsk_cairo_node_get_surface", false)
-
 	cret := xCairoNodeGetSurface(x.GoPointer())
 	if cret == 0 {
 		return nil
@@ -92,4 +87,19 @@ func (c *CairoNode) SetGoPointer(ptr uintptr) {
 func init() {
 	core.SetPackageName("GSK", "gtk4")
 	core.SetSharedLibraries("GSK", []string{"libgtk-4.so.1", "libgtk-4.1.dylib"})
+	var libs []uintptr
+	for _, libPath := range core.GetPaths("GSK") {
+		lib, err := purego.Dlopen(libPath, purego.RTLD_NOW|purego.RTLD_GLOBAL)
+		if err != nil {
+			panic(err)
+		}
+		libs = append(libs, lib)
+	}
+
+	core.PuregoSafeRegister(&xCairoNodeGLibType, libs, "gsk_cairo_node_get_type")
+
+	core.PuregoSafeRegister(&xNewCairoNode, libs, "gsk_cairo_node_new")
+
+	core.PuregoSafeRegister(&xCairoNodeGetDrawContext, libs, "gsk_cairo_node_get_draw_context")
+	core.PuregoSafeRegister(&xCairoNodeGetSurface, libs, "gsk_cairo_node_get_surface")
 }

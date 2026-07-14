@@ -2,6 +2,7 @@
 package gdk
 
 import (
+	"github.com/bnema/purego"
 	"github.com/bnema/puregotk/pkg/core"
 	"github.com/bnema/puregotk/v4/glib"
 	"github.com/bnema/puregotk/v4/gobject"
@@ -12,8 +13,6 @@ var xVulkanErrorQuark func() glib.Quark
 
 // Registers an error quark for [class@Gdk.VulkanContext] errors.
 func VulkanErrorQuark() glib.Quark {
-	core.LazyRegister(&xVulkanErrorQuark, "GDK", "gdk_vulkan_error_quark", false)
-
 	cret := xVulkanErrorQuark()
 	return cret
 }
@@ -33,7 +32,6 @@ type VulkanContext struct {
 var xVulkanContextGLibType func() types.GType
 
 func VulkanContextGLibType() types.GType {
-	core.LazyRegister(&xVulkanContextGLibType, "GDK", "gdk_vulkan_context_get_type", false)
 	return xVulkanContextGLibType()
 }
 
@@ -83,4 +81,16 @@ func (x *VulkanContext) ConnectImagesUpdated(cb *func(VulkanContext)) uint {
 func init() {
 	core.SetPackageName("GDK", "gtk4")
 	core.SetSharedLibraries("GDK", []string{"libgtk-4.so.1", "libgtk-4.1.dylib"})
+	var libs []uintptr
+	for _, libPath := range core.GetPaths("GDK") {
+		lib, err := purego.Dlopen(libPath, purego.RTLD_NOW|purego.RTLD_GLOBAL)
+		if err != nil {
+			panic(err)
+		}
+		libs = append(libs, lib)
+	}
+
+	core.PuregoSafeRegister(&xVulkanErrorQuark, libs, "gdk_vulkan_error_quark")
+
+	core.PuregoSafeRegister(&xVulkanContextGLibType, libs, "gdk_vulkan_context_get_type")
 }

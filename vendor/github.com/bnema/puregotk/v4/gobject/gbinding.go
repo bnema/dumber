@@ -2,6 +2,7 @@
 package gobject
 
 import (
+	"github.com/bnema/purego"
 	"github.com/bnema/puregotk/pkg/core"
 	"github.com/bnema/puregotk/v4/gobject/types"
 )
@@ -24,7 +25,6 @@ type BindingFlags int
 var xBindingFlagsGLibType func() types.GType
 
 func BindingFlagsGLibType() types.GType {
-	core.LazyRegister(&xBindingFlagsGLibType, "GOBJECT", "g_binding_flags_get_type", false)
 	return xBindingFlagsGLibType()
 }
 
@@ -139,7 +139,6 @@ type Binding struct {
 var xBindingGLibType func() types.GType
 
 func BindingGLibType() types.GType {
-	core.LazyRegister(&xBindingGLibType, "GOBJECT", "g_binding_get_type", false)
 	return xBindingGLibType()
 }
 
@@ -157,7 +156,6 @@ var xBindingDupSource func(uintptr) uintptr
 // strong reference to the source. If the source is destroyed before the
 // binding then this function will return %NULL.
 func (x *Binding) DupSource() *Object {
-	core.LazyRegister(&xBindingDupSource, "GOBJECT", "g_binding_dup_source", false)
 	var cls *Object
 
 	cret := xBindingDupSource(x.GoPointer())
@@ -178,7 +176,6 @@ var xBindingDupTarget func(uintptr) uintptr
 // strong reference to the target. If the target is destroyed before the
 // binding then this function will return %NULL.
 func (x *Binding) DupTarget() *Object {
-	core.LazyRegister(&xBindingDupTarget, "GOBJECT", "g_binding_dup_target", false)
 	var cls *Object
 
 	cret := xBindingDupTarget(x.GoPointer())
@@ -195,8 +192,6 @@ var xBindingGetFlags func(uintptr) BindingFlags
 
 // Retrieves the flags passed when constructing the #GBinding.
 func (x *Binding) GetFlags() BindingFlags {
-	core.LazyRegister(&xBindingGetFlags, "GOBJECT", "g_binding_get_flags", false)
-
 	cret := xBindingGetFlags(x.GoPointer())
 	return cret
 }
@@ -213,7 +208,6 @@ var xBindingGetSource func(uintptr) uintptr
 // threads as otherwise the pointer returned from this function might become
 // invalid if the source is finalized from another thread in the meantime.
 func (x *Binding) GetSource() *Object {
-	core.LazyRegister(&xBindingGetSource, "GOBJECT", "g_binding_get_source", false)
 	var cls *Object
 
 	cret := xBindingGetSource(x.GoPointer())
@@ -232,8 +226,6 @@ var xBindingGetSourceProperty func(uintptr) string
 // Retrieves the name of the property of #GBinding:source used as the source
 // of the binding.
 func (x *Binding) GetSourceProperty() string {
-	core.LazyRegister(&xBindingGetSourceProperty, "GOBJECT", "g_binding_get_source_property", false)
-
 	cret := xBindingGetSourceProperty(x.GoPointer())
 	return cret
 }
@@ -250,7 +242,6 @@ var xBindingGetTarget func(uintptr) uintptr
 // threads as otherwise the pointer returned from this function might become
 // invalid if the target is finalized from another thread in the meantime.
 func (x *Binding) GetTarget() *Object {
-	core.LazyRegister(&xBindingGetTarget, "GOBJECT", "g_binding_get_target", false)
 	var cls *Object
 
 	cret := xBindingGetTarget(x.GoPointer())
@@ -269,8 +260,6 @@ var xBindingGetTargetProperty func(uintptr) string
 // Retrieves the name of the property of #GBinding:target used as the target
 // of the binding.
 func (x *Binding) GetTargetProperty() string {
-	core.LazyRegister(&xBindingGetTargetProperty, "GOBJECT", "g_binding_get_target_property", false)
-
 	cret := xBindingGetTargetProperty(x.GoPointer())
 	return cret
 }
@@ -289,8 +278,6 @@ var xBindingUnbind func(uintptr)
 // only unrefs the reference that was initially created by
 // g_object_bind_property() and is owned by the binding.
 func (x *Binding) Unbind() {
-	core.LazyRegister(&xBindingUnbind, "GOBJECT", "g_binding_unbind", false)
-
 	xBindingUnbind(x.GoPointer())
 }
 
@@ -358,4 +345,25 @@ func (x *Binding) GetPropertyTargetProperty() string {
 func init() {
 	core.SetPackageName("GOBJECT", "gobject-2.0")
 	core.SetSharedLibraries("GOBJECT", []string{"libgobject-2.0.so.0", "libgobject-2.0.0.dylib"})
+	var libs []uintptr
+	for _, libPath := range core.GetPaths("GOBJECT") {
+		lib, err := purego.Dlopen(libPath, purego.RTLD_NOW|purego.RTLD_GLOBAL)
+		if err != nil {
+			panic(err)
+		}
+		libs = append(libs, lib)
+	}
+
+	core.PuregoSafeRegister(&xBindingFlagsGLibType, libs, "g_binding_flags_get_type")
+
+	core.PuregoSafeRegister(&xBindingGLibType, libs, "g_binding_get_type")
+
+	core.PuregoSafeRegister(&xBindingDupSource, libs, "g_binding_dup_source")
+	core.PuregoSafeRegister(&xBindingDupTarget, libs, "g_binding_dup_target")
+	core.PuregoSafeRegister(&xBindingGetFlags, libs, "g_binding_get_flags")
+	core.PuregoSafeRegister(&xBindingGetSource, libs, "g_binding_get_source")
+	core.PuregoSafeRegister(&xBindingGetSourceProperty, libs, "g_binding_get_source_property")
+	core.PuregoSafeRegister(&xBindingGetTarget, libs, "g_binding_get_target")
+	core.PuregoSafeRegister(&xBindingGetTargetProperty, libs, "g_binding_get_target_property")
+	core.PuregoSafeRegister(&xBindingUnbind, libs, "g_binding_unbind")
 }

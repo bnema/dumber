@@ -5,6 +5,7 @@ import (
 	"structs"
 	"unsafe"
 
+	"github.com/bnema/purego"
 	"github.com/bnema/puregotk/pkg/core"
 	"github.com/bnema/puregotk/v4/gio"
 	"github.com/bnema/puregotk/v4/glib"
@@ -99,7 +100,6 @@ type DropDown struct {
 var xDropDownGLibType func() types.GType
 
 func DropDownGLibType() types.GType {
-	core.LazyRegister(&xDropDownGLibType, "GTK", "gtk_drop_down_get_type", false)
 	return xDropDownGLibType()
 }
 
@@ -116,7 +116,6 @@ var xNewDropDown func(uintptr, uintptr) uintptr
 // You may want to call [method@Gtk.DropDown.set_factory]
 // to set up a way to map its items to widgets.
 func NewDropDown(ModelVar gio.ListModel, ExpressionVar *Expression) *DropDown {
-	core.LazyRegister(&xNewDropDown, "GTK", "gtk_drop_down_new", false)
 	var cls *DropDown
 
 	cret := xNewDropDown(ModelVar.GoPointer(), ExpressionVar.GoPointer())
@@ -135,7 +134,6 @@ var xNewDropDownFromStrings func([]string) uintptr
 // Creates a new `GtkDropDown` that is populated with
 // the strings.
 func NewDropDownFromStrings(StringsVar []string) *DropDown {
-	core.LazyRegister(&xNewDropDownFromStrings, "GTK", "gtk_drop_down_new_from_strings", false)
 	var cls *DropDown
 
 	cret := xNewDropDownFromStrings(StringsVar)
@@ -153,8 +151,6 @@ var xDropDownGetEnableSearch func(uintptr) bool
 
 // Returns whether search is enabled.
 func (x *DropDown) GetEnableSearch() bool {
-	core.LazyRegister(&xDropDownGetEnableSearch, "GTK", "gtk_drop_down_get_enable_search", false)
-
 	cret := xDropDownGetEnableSearch(x.GoPointer())
 	return cret
 }
@@ -165,7 +161,6 @@ var xDropDownGetExpression func(uintptr) uintptr
 //
 // See [method@Gtk.DropDown.set_expression].
 func (x *DropDown) GetExpression() *Expression {
-	core.LazyRegister(&xDropDownGetExpression, "GTK", "gtk_drop_down_get_expression", false)
 	var cls *Expression
 
 	cret := xDropDownGetExpression(x.GoPointer())
@@ -187,7 +182,6 @@ var xDropDownGetFactory func(uintptr) uintptr
 // item in the button. It is also used for items in the popup
 // if [property@Gtk.DropDown:list-factory] is not set.
 func (x *DropDown) GetFactory() *ListItemFactory {
-	core.LazyRegister(&xDropDownGetFactory, "GTK", "gtk_drop_down_get_factory", false)
 	var cls *ListItemFactory
 
 	cret := xDropDownGetFactory(x.GoPointer())
@@ -205,7 +199,6 @@ var xDropDownGetHeaderFactory func(uintptr) uintptr
 
 // Gets the factory that's currently used to create header widgets for the popup.
 func (x *DropDown) GetHeaderFactory() *ListItemFactory {
-	core.LazyRegister(&xDropDownGetHeaderFactory, "GTK", "gtk_drop_down_get_header_factory", false)
 	var cls *ListItemFactory
 
 	cret := xDropDownGetHeaderFactory(x.GoPointer())
@@ -223,7 +216,6 @@ var xDropDownGetListFactory func(uintptr) uintptr
 
 // Gets the factory that's currently used to populate list items in the popup.
 func (x *DropDown) GetListFactory() *ListItemFactory {
-	core.LazyRegister(&xDropDownGetListFactory, "GTK", "gtk_drop_down_get_list_factory", false)
 	var cls *ListItemFactory
 
 	cret := xDropDownGetListFactory(x.GoPointer())
@@ -241,7 +233,6 @@ var xDropDownGetModel func(uintptr) uintptr
 
 // Gets the model that provides the displayed items.
 func (x *DropDown) GetModel() *gio.ListModelBase {
-	core.LazyRegister(&xDropDownGetModel, "GTK", "gtk_drop_down_get_model", false)
 	var cls *gio.ListModelBase
 
 	cret := xDropDownGetModel(x.GoPointer())
@@ -259,8 +250,6 @@ var xDropDownGetSearchMatchMode func(uintptr) StringFilterMatchMode
 
 // Returns the match mode that the search filter is using.
 func (x *DropDown) GetSearchMatchMode() StringFilterMatchMode {
-	core.LazyRegister(&xDropDownGetSearchMatchMode, "GTK", "gtk_drop_down_get_search_match_mode", false)
-
 	cret := xDropDownGetSearchMatchMode(x.GoPointer())
 	return cret
 }
@@ -269,8 +258,6 @@ var xDropDownGetSelected func(uintptr) uint
 
 // Gets the position of the selected item.
 func (x *DropDown) GetSelected() uint {
-	core.LazyRegister(&xDropDownGetSelected, "GTK", "gtk_drop_down_get_selected", false)
-
 	cret := xDropDownGetSelected(x.GoPointer())
 	return cret
 }
@@ -279,7 +266,6 @@ var xDropDownGetSelectedItem func(uintptr) uintptr
 
 // Gets the selected item. If no item is selected, %NULL is returned.
 func (x *DropDown) GetSelectedItem() *gobject.Object {
-	core.LazyRegister(&xDropDownGetSelectedItem, "GTK", "gtk_drop_down_get_selected_item", false)
 	var cls *gobject.Object
 
 	cret := xDropDownGetSelectedItem(x.GoPointer())
@@ -297,8 +283,6 @@ var xDropDownGetShowArrow func(uintptr) bool
 
 // Returns whether to show an arrow within the widget.
 func (x *DropDown) GetShowArrow() bool {
-	core.LazyRegister(&xDropDownGetShowArrow, "GTK", "gtk_drop_down_get_show_arrow", false)
-
 	cret := xDropDownGetShowArrow(x.GoPointer())
 	return cret
 }
@@ -311,8 +295,6 @@ var xDropDownSetEnableSearch func(uintptr, bool)
 // Note that [property@Gtk.DropDown:expression] must be set for
 // search to work.
 func (x *DropDown) SetEnableSearch(EnableSearchVar bool) {
-	core.LazyRegister(&xDropDownSetEnableSearch, "GTK", "gtk_drop_down_set_enable_search", false)
-
 	xDropDownSetEnableSearch(x.GoPointer(), EnableSearchVar)
 }
 
@@ -323,8 +305,6 @@ var xDropDownSetExpression func(uintptr, uintptr)
 // This is used for search in the popup. The expression must have
 // a value type of %G_TYPE_STRING.
 func (x *DropDown) SetExpression(ExpressionVar *Expression) {
-	core.LazyRegister(&xDropDownSetExpression, "GTK", "gtk_drop_down_set_expression", false)
-
 	xDropDownSetExpression(x.GoPointer(), ExpressionVar.GoPointer())
 }
 
@@ -332,8 +312,6 @@ var xDropDownSetFactory func(uintptr, uintptr)
 
 // Sets the `GtkListItemFactory` to use for populating list items.
 func (x *DropDown) SetFactory(FactoryVar *ListItemFactory) {
-	core.LazyRegister(&xDropDownSetFactory, "GTK", "gtk_drop_down_set_factory", false)
-
 	xDropDownSetFactory(x.GoPointer(), FactoryVar.GoPointer())
 }
 
@@ -341,8 +319,6 @@ var xDropDownSetHeaderFactory func(uintptr, uintptr)
 
 // Sets the `GtkListItemFactory` to use for creating header widgets for the popup.
 func (x *DropDown) SetHeaderFactory(FactoryVar *ListItemFactory) {
-	core.LazyRegister(&xDropDownSetHeaderFactory, "GTK", "gtk_drop_down_set_header_factory", false)
-
 	xDropDownSetHeaderFactory(x.GoPointer(), FactoryVar.GoPointer())
 }
 
@@ -350,8 +326,6 @@ var xDropDownSetListFactory func(uintptr, uintptr)
 
 // Sets the `GtkListItemFactory` to use for populating list items in the popup.
 func (x *DropDown) SetListFactory(FactoryVar *ListItemFactory) {
-	core.LazyRegister(&xDropDownSetListFactory, "GTK", "gtk_drop_down_set_list_factory", false)
-
 	xDropDownSetListFactory(x.GoPointer(), FactoryVar.GoPointer())
 }
 
@@ -359,8 +333,6 @@ var xDropDownSetModel func(uintptr, uintptr)
 
 // Sets the `GListModel` to use.
 func (x *DropDown) SetModel(ModelVar gio.ListModel) {
-	core.LazyRegister(&xDropDownSetModel, "GTK", "gtk_drop_down_set_model", false)
-
 	xDropDownSetModel(x.GoPointer(), ModelVar.GoPointer())
 }
 
@@ -368,8 +340,6 @@ var xDropDownSetSearchMatchMode func(uintptr, StringFilterMatchMode)
 
 // Sets the match mode for the search filter.
 func (x *DropDown) SetSearchMatchMode(SearchMatchModeVar StringFilterMatchMode) {
-	core.LazyRegister(&xDropDownSetSearchMatchMode, "GTK", "gtk_drop_down_set_search_match_mode", false)
-
 	xDropDownSetSearchMatchMode(x.GoPointer(), SearchMatchModeVar)
 }
 
@@ -377,8 +347,6 @@ var xDropDownSetSelected func(uintptr, uint)
 
 // Selects the item at the given position.
 func (x *DropDown) SetSelected(PositionVar uint) {
-	core.LazyRegister(&xDropDownSetSelected, "GTK", "gtk_drop_down_set_selected", false)
-
 	xDropDownSetSelected(x.GoPointer(), PositionVar)
 }
 
@@ -386,8 +354,6 @@ var xDropDownSetShowArrow func(uintptr, bool)
 
 // Sets whether an arrow will be displayed within the widget.
 func (x *DropDown) SetShowArrow(ShowArrowVar bool) {
-	core.LazyRegister(&xDropDownSetShowArrow, "GTK", "gtk_drop_down_set_show_arrow", false)
-
 	xDropDownSetShowArrow(x.GoPointer(), ShowArrowVar)
 }
 
@@ -754,4 +720,37 @@ func (x *DropDown) GetBuildableId() string {
 func init() {
 	core.SetPackageName("GTK", "gtk4")
 	core.SetSharedLibraries("GTK", []string{"libgtk-4.so.1", "libgtk-4.1.dylib"})
+	var libs []uintptr
+	for _, libPath := range core.GetPaths("GTK") {
+		lib, err := purego.Dlopen(libPath, purego.RTLD_NOW|purego.RTLD_GLOBAL)
+		if err != nil {
+			panic(err)
+		}
+		libs = append(libs, lib)
+	}
+
+	core.PuregoSafeRegister(&xDropDownGLibType, libs, "gtk_drop_down_get_type")
+
+	core.PuregoSafeRegister(&xNewDropDown, libs, "gtk_drop_down_new")
+	core.PuregoSafeRegister(&xNewDropDownFromStrings, libs, "gtk_drop_down_new_from_strings")
+
+	core.PuregoSafeRegister(&xDropDownGetEnableSearch, libs, "gtk_drop_down_get_enable_search")
+	core.PuregoSafeRegister(&xDropDownGetExpression, libs, "gtk_drop_down_get_expression")
+	core.PuregoSafeRegister(&xDropDownGetFactory, libs, "gtk_drop_down_get_factory")
+	core.PuregoSafeRegister(&xDropDownGetHeaderFactory, libs, "gtk_drop_down_get_header_factory")
+	core.PuregoSafeRegister(&xDropDownGetListFactory, libs, "gtk_drop_down_get_list_factory")
+	core.PuregoSafeRegister(&xDropDownGetModel, libs, "gtk_drop_down_get_model")
+	core.PuregoSafeRegister(&xDropDownGetSearchMatchMode, libs, "gtk_drop_down_get_search_match_mode")
+	core.PuregoSafeRegister(&xDropDownGetSelected, libs, "gtk_drop_down_get_selected")
+	core.PuregoSafeRegister(&xDropDownGetSelectedItem, libs, "gtk_drop_down_get_selected_item")
+	core.PuregoSafeRegister(&xDropDownGetShowArrow, libs, "gtk_drop_down_get_show_arrow")
+	core.PuregoSafeRegister(&xDropDownSetEnableSearch, libs, "gtk_drop_down_set_enable_search")
+	core.PuregoSafeRegister(&xDropDownSetExpression, libs, "gtk_drop_down_set_expression")
+	core.PuregoSafeRegister(&xDropDownSetFactory, libs, "gtk_drop_down_set_factory")
+	core.PuregoSafeRegister(&xDropDownSetHeaderFactory, libs, "gtk_drop_down_set_header_factory")
+	core.PuregoSafeRegister(&xDropDownSetListFactory, libs, "gtk_drop_down_set_list_factory")
+	core.PuregoSafeRegister(&xDropDownSetModel, libs, "gtk_drop_down_set_model")
+	core.PuregoSafeRegister(&xDropDownSetSearchMatchMode, libs, "gtk_drop_down_set_search_match_mode")
+	core.PuregoSafeRegister(&xDropDownSetSelected, libs, "gtk_drop_down_set_selected")
+	core.PuregoSafeRegister(&xDropDownSetShowArrow, libs, "gtk_drop_down_set_show_arrow")
 }

@@ -5,6 +5,7 @@ import (
 	"structs"
 	"unsafe"
 
+	"github.com/bnema/purego"
 	"github.com/bnema/puregotk/pkg/core"
 	"github.com/bnema/puregotk/v4/gdk"
 	"github.com/bnema/puregotk/v4/gio"
@@ -49,7 +50,6 @@ type ColorDialog struct {
 var xColorDialogGLibType func() types.GType
 
 func ColorDialogGLibType() types.GType {
-	core.LazyRegister(&xColorDialogGLibType, "GTK", "gtk_color_dialog_get_type", false)
 	return xColorDialogGLibType()
 }
 
@@ -63,7 +63,6 @@ var xNewColorDialog func() uintptr
 
 // Creates a new `GtkColorDialog` object.
 func NewColorDialog() *ColorDialog {
-	core.LazyRegister(&xNewColorDialog, "GTK", "gtk_color_dialog_new", false)
 	var cls *ColorDialog
 
 	cret := xNewColorDialog()
@@ -80,8 +79,6 @@ var xColorDialogChooseRgba func(uintptr, uintptr, *gdk.RGBA, uintptr, uintptr, u
 
 // Presents a color chooser dialog to the user.
 func (x *ColorDialog) ChooseRgba(ParentVar *Window, InitialColorVar *gdk.RGBA, CancellableVar *gio.Cancellable, CallbackVar *gio.AsyncReadyCallback, UserDataVar uintptr) {
-	core.LazyRegister(&xColorDialogChooseRgba, "GTK", "gtk_color_dialog_choose_rgba", false)
-
 	xColorDialogChooseRgba(x.GoPointer(), ParentVar.GoPointer(), InitialColorVar, CancellableVar.GoPointer(), glib.NewCallbackNullable(CallbackVar), UserDataVar)
 }
 
@@ -92,7 +89,6 @@ var xColorDialogChooseRgbaFinish func(uintptr, uintptr, **glib.Error) uintptr
 // Note that this function returns a [error@Gtk.DialogError.DISMISSED]
 // error if the user cancels the dialog.
 func (x *ColorDialog) ChooseRgbaFinish(ResultVar gio.AsyncResult) (*gdk.RGBA, error) {
-	core.LazyRegister(&xColorDialogChooseRgbaFinish, "GTK", "gtk_color_dialog_choose_rgba_finish", false)
 	var cerr *glib.Error
 
 	cret := xColorDialogChooseRgbaFinish(x.GoPointer(), ResultVar.GoPointer(), &cerr)
@@ -111,8 +107,6 @@ var xColorDialogGetModal func(uintptr) bool
 // blocks interaction with the parent window
 // while it is presented.
 func (x *ColorDialog) GetModal() bool {
-	core.LazyRegister(&xColorDialogGetModal, "GTK", "gtk_color_dialog_get_modal", false)
-
 	cret := xColorDialogGetModal(x.GoPointer())
 	return cret
 }
@@ -122,8 +116,6 @@ var xColorDialogGetTitle func(uintptr) string
 // Returns the title that will be shown on the
 // color chooser dialog.
 func (x *ColorDialog) GetTitle() string {
-	core.LazyRegister(&xColorDialogGetTitle, "GTK", "gtk_color_dialog_get_title", false)
-
 	cret := xColorDialogGetTitle(x.GoPointer())
 	return cret
 }
@@ -132,8 +124,6 @@ var xColorDialogGetWithAlpha func(uintptr) bool
 
 // Returns whether colors may have alpha.
 func (x *ColorDialog) GetWithAlpha() bool {
-	core.LazyRegister(&xColorDialogGetWithAlpha, "GTK", "gtk_color_dialog_get_with_alpha", false)
-
 	cret := xColorDialogGetWithAlpha(x.GoPointer())
 	return cret
 }
@@ -144,8 +134,6 @@ var xColorDialogSetModal func(uintptr, bool)
 // blocks interaction with the parent window
 // while it is presented.
 func (x *ColorDialog) SetModal(ModalVar bool) {
-	core.LazyRegister(&xColorDialogSetModal, "GTK", "gtk_color_dialog_set_modal", false)
-
 	xColorDialogSetModal(x.GoPointer(), ModalVar)
 }
 
@@ -154,8 +142,6 @@ var xColorDialogSetTitle func(uintptr, string)
 // Sets the title that will be shown on the
 // color chooser dialog.
 func (x *ColorDialog) SetTitle(TitleVar string) {
-	core.LazyRegister(&xColorDialogSetTitle, "GTK", "gtk_color_dialog_set_title", false)
-
 	xColorDialogSetTitle(x.GoPointer(), TitleVar)
 }
 
@@ -163,8 +149,6 @@ var xColorDialogSetWithAlpha func(uintptr, bool)
 
 // Sets whether colors may have alpha.
 func (x *ColorDialog) SetWithAlpha(WithAlphaVar bool) {
-	core.LazyRegister(&xColorDialogSetWithAlpha, "GTK", "gtk_color_dialog_set_with_alpha", false)
-
 	xColorDialogSetWithAlpha(x.GoPointer(), WithAlphaVar)
 }
 
@@ -239,4 +223,25 @@ func (x *ColorDialog) GetPropertyWithAlpha() bool {
 func init() {
 	core.SetPackageName("GTK", "gtk4")
 	core.SetSharedLibraries("GTK", []string{"libgtk-4.so.1", "libgtk-4.1.dylib"})
+	var libs []uintptr
+	for _, libPath := range core.GetPaths("GTK") {
+		lib, err := purego.Dlopen(libPath, purego.RTLD_NOW|purego.RTLD_GLOBAL)
+		if err != nil {
+			panic(err)
+		}
+		libs = append(libs, lib)
+	}
+
+	core.PuregoSafeRegister(&xColorDialogGLibType, libs, "gtk_color_dialog_get_type")
+
+	core.PuregoSafeRegister(&xNewColorDialog, libs, "gtk_color_dialog_new")
+
+	core.PuregoSafeRegister(&xColorDialogChooseRgba, libs, "gtk_color_dialog_choose_rgba")
+	core.PuregoSafeRegister(&xColorDialogChooseRgbaFinish, libs, "gtk_color_dialog_choose_rgba_finish")
+	core.PuregoSafeRegister(&xColorDialogGetModal, libs, "gtk_color_dialog_get_modal")
+	core.PuregoSafeRegister(&xColorDialogGetTitle, libs, "gtk_color_dialog_get_title")
+	core.PuregoSafeRegister(&xColorDialogGetWithAlpha, libs, "gtk_color_dialog_get_with_alpha")
+	core.PuregoSafeRegister(&xColorDialogSetModal, libs, "gtk_color_dialog_set_modal")
+	core.PuregoSafeRegister(&xColorDialogSetTitle, libs, "gtk_color_dialog_set_title")
+	core.PuregoSafeRegister(&xColorDialogSetWithAlpha, libs, "gtk_color_dialog_set_with_alpha")
 }

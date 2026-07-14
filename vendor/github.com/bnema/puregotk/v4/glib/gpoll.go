@@ -5,6 +5,7 @@ import (
 	"structs"
 	"unsafe"
 
+	"github.com/bnema/purego"
 	"github.com/bnema/puregotk/pkg/core"
 	"github.com/bnema/puregotk/v4/gobject/types"
 )
@@ -28,7 +29,6 @@ type PollFD struct {
 var xPollFDGLibType func() types.GType
 
 func PollFDGLibType() types.GType {
-	core.LazyRegister(&xPollFDGLibType, "GLIB", "g_pollfd_get_type", false)
 	return xPollFDGLibType()
 }
 
@@ -64,8 +64,6 @@ var xPoll func(*PollFD, uint, int) int
 // Windows, the easiest solution is to construct all of your
 // #GPollFDs with g_io_channel_win32_make_pollfd().
 func Poll(FdsVar *PollFD, NfdsVar uint, TimeoutVar int) int {
-	core.LazyRegister(&xPoll, "GLIB", "g_poll", false)
-
 	cret := xPoll(FdsVar, NfdsVar, TimeoutVar)
 	return cret
 }
@@ -73,4 +71,16 @@ func Poll(FdsVar *PollFD, NfdsVar uint, TimeoutVar int) int {
 func init() {
 	core.SetPackageName("GLIB", "glib-2.0")
 	core.SetSharedLibraries("GLIB", []string{"libgobject-2.0.so.0", "libglib-2.0.so.0", "libgobject-2.0.0.dylib", "libglib-2.0.0.dylib"})
+	var libs []uintptr
+	for _, libPath := range core.GetPaths("GLIB") {
+		lib, err := purego.Dlopen(libPath, purego.RTLD_NOW|purego.RTLD_GLOBAL)
+		if err != nil {
+			panic(err)
+		}
+		libs = append(libs, lib)
+	}
+
+	core.PuregoSafeRegister(&xPoll, libs, "g_poll")
+
+	core.PuregoSafeRegister(&xPollFDGLibType, libs, "g_pollfd_get_type")
 }

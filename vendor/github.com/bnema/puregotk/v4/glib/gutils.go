@@ -5,6 +5,7 @@ import (
 	"structs"
 	"unsafe"
 
+	"github.com/bnema/purego"
 	"github.com/bnema/puregotk/pkg/core"
 )
 
@@ -127,8 +128,6 @@ var xAtexit func(uintptr)
 // calling g_atexit() (or atexit()) except in the main executable of a
 // program.
 func Atexit(FuncVar *VoidFunc) {
-	core.LazyRegister(&xAtexit, "GLIB", "g_atexit", false)
-
 	xAtexit(NewCallback(FuncVar))
 }
 
@@ -139,8 +138,6 @@ var xBitNthLsf func(uint, int) int
 // from 0 (least significant) to sizeof(#gulong) * 8 - 1 (31 or 63,
 // usually). To start searching from the 0th bit, set @nth_bit to -1.
 func BitNthLsf(MaskVar uint, NthBitVar int) int {
-	core.LazyRegister(&xBitNthLsf, "GLIB", "g_bit_nth_lsf", false)
-
 	cret := xBitNthLsf(MaskVar, NthBitVar)
 	return cret
 }
@@ -153,8 +150,6 @@ var xBitNthMsf func(uint, int) int
 // usually). To start searching from the last bit, set @nth_bit to
 // -1 or GLIB_SIZEOF_LONG * 8.
 func BitNthMsf(MaskVar uint, NthBitVar int) int {
-	core.LazyRegister(&xBitNthMsf, "GLIB", "g_bit_nth_msf", false)
-
 	cret := xBitNthMsf(MaskVar, NthBitVar)
 	return cret
 }
@@ -164,8 +159,6 @@ var xBitStorage func(uint) uint
 // Gets the number of bits used to hold @number,
 // e.g. if @number is 4, 3 bits are needed.
 func BitStorage(NumberVar uint) uint {
-	core.LazyRegister(&xBitStorage, "GLIB", "g_bit_storage", false)
-
 	cret := xBitStorage(NumberVar)
 	return cret
 }
@@ -190,8 +183,6 @@ var xFindProgramInPath func(string) string
 // the program is found, the return value contains the full name
 // including the type suffix.
 func FindProgramInPath(ProgramVar string) string {
-	core.LazyRegister(&xFindProgramInPath, "GLIB", "g_find_program_in_path", false)
-
 	cret := xFindProgramInPath(ProgramVar)
 	return cret
 }
@@ -212,8 +203,6 @@ var xFormatSize func(uint64) string
 // See g_format_size_full() for more options about how the size might be
 // formatted.
 func FormatSize(SizeVar uint64) string {
-	core.LazyRegister(&xFormatSize, "GLIB", "g_format_size", false)
-
 	cret := xFormatSize(SizeVar)
 	return cret
 }
@@ -230,8 +219,6 @@ var xFormatSizeForDisplay func(int64) string
 //
 // This string should be freed with g_free() when not needed any longer.
 func FormatSizeForDisplay(SizeVar int64) string {
-	core.LazyRegister(&xFormatSizeForDisplay, "GLIB", "g_format_size_for_display", false)
-
 	cret := xFormatSizeForDisplay(SizeVar)
 	return cret
 }
@@ -243,8 +230,6 @@ var xFormatSizeFull func(uint64, FormatSizeFlags) string
 // This function is similar to g_format_size() but allows for flags
 // that modify the output. See #GFormatSizeFlags.
 func FormatSizeFull(SizeVar uint64, FlagsVar FormatSizeFlags) string {
-	core.LazyRegister(&xFormatSizeFull, "GLIB", "g_format_size_full", false)
-
 	cret := xFormatSizeFull(SizeVar, FlagsVar)
 	return cret
 }
@@ -259,8 +244,6 @@ var xGetApplicationName func() string
 // g_get_prgname() (which may be %NULL if g_set_prgname() has also not
 // been called).
 func GetApplicationName() string {
-	core.LazyRegister(&xGetApplicationName, "GLIB", "g_get_application_name", false)
-
 	cret := xGetApplicationName()
 	return cret
 }
@@ -288,8 +271,6 @@ var xGetHomeDir func() string
 // should either directly check the `HOME` environment variable yourself
 // or unset it before calling any functions in GLib.
 func GetHomeDir() string {
-	core.LazyRegister(&xGetHomeDir, "GLIB", "g_get_home_dir", false)
-
 	cret := xGetHomeDir()
 	return cret
 }
@@ -311,8 +292,6 @@ var xGetHostName func() string
 //
 // The encoding of the returned string is UTF-8.
 func GetHostName() string {
-	core.LazyRegister(&xGetHostName, "GLIB", "g_get_host_name", false)
-
 	cret := xGetHostName()
 	return cret
 }
@@ -328,8 +307,6 @@ var xGetOsInfo func(string) string
 // be useful. No key is guaranteed to be provided, so the caller should always
 // check if the result is %NULL.
 func GetOsInfo(KeyNameVar string) string {
-	core.LazyRegister(&xGetOsInfo, "GLIB", "g_get_os_info", false)
-
 	cret := xGetOsInfo(KeyNameVar)
 	return cret
 }
@@ -345,8 +322,6 @@ var xGetPrgname func() string
 // #GtkApplication::startup handler. The program name is found by
 // taking the last component of @argv[0].
 func GetPrgname() string {
-	core.LazyRegister(&xGetPrgname, "GLIB", "g_get_prgname", false)
-
 	cret := xGetPrgname()
 	return cret
 }
@@ -359,8 +334,6 @@ var xGetRealName func() string
 // real user name cannot be determined, the string "Unknown" is
 // returned.
 func GetRealName() string {
-	core.LazyRegister(&xGetRealName, "GLIB", "g_get_real_name", false)
-
 	cret := xGetRealName()
 	return cret
 }
@@ -388,8 +361,6 @@ var xGetSystemConfigDirs func() []string
 // The return value is cached and modifying it at runtime is not supported, as
 // it’s not thread-safe to modify environment variables at runtime.
 func GetSystemConfigDirs() []string {
-	core.LazyRegister(&xGetSystemConfigDirs, "GLIB", "g_get_system_config_dirs", false)
-
 	cret := xGetSystemConfigDirs()
 	return cret
 }
@@ -431,8 +402,6 @@ var xGetSystemDataDirs func() []string
 // The return value is cached and modifying it at runtime is not supported, as
 // it’s not thread-safe to modify environment variables at runtime.
 func GetSystemDataDirs() []string {
-	core.LazyRegister(&xGetSystemDataDirs, "GLIB", "g_get_system_data_dirs", false)
-
 	cret := xGetSystemDataDirs()
 	return cret
 }
@@ -454,8 +423,6 @@ var xGetTmpDir func() string
 // it is always UTF-8. The return value is never %NULL or the empty
 // string.
 func GetTmpDir() string {
-	core.LazyRegister(&xGetTmpDir, "GLIB", "g_get_tmp_dir", false)
-
 	cret := xGetTmpDir()
 	return cret
 }
@@ -479,8 +446,6 @@ var xGetUserCacheDir func() string
 // The return value is cached and modifying it at runtime is not supported, as
 // it’s not thread-safe to modify environment variables at runtime.
 func GetUserCacheDir() string {
-	core.LazyRegister(&xGetUserCacheDir, "GLIB", "g_get_user_cache_dir", false)
-
 	cret := xGetUserCacheDir()
 	return cret
 }
@@ -505,8 +470,6 @@ var xGetUserConfigDir func() string
 // The return value is cached and modifying it at runtime is not supported, as
 // it’s not thread-safe to modify environment variables at runtime.
 func GetUserConfigDir() string {
-	core.LazyRegister(&xGetUserConfigDir, "GLIB", "g_get_user_config_dir", false)
-
 	cret := xGetUserConfigDir()
 	return cret
 }
@@ -531,8 +494,6 @@ var xGetUserDataDir func() string
 // The return value is cached and modifying it at runtime is not supported, as
 // it’s not thread-safe to modify environment variables at runtime.
 func GetUserDataDir() string {
-	core.LazyRegister(&xGetUserDataDir, "GLIB", "g_get_user_data_dir", false)
-
 	cret := xGetUserDataDir()
 	return cret
 }
@@ -544,8 +505,6 @@ var xGetUserName func() string
 // encoding, or something else, and there is no guarantee that it is even
 // consistent on a machine. On Windows, it is always UTF-8.
 func GetUserName() string {
-	core.LazyRegister(&xGetUserName, "GLIB", "g_get_user_name", false)
-
 	cret := xGetUserName()
 	return cret
 }
@@ -566,8 +525,6 @@ var xGetUserRuntimeDir func() string
 // The return value is cached and modifying it at runtime is not supported, as
 // it’s not thread-safe to modify environment variables at runtime.
 func GetUserRuntimeDir() string {
-	core.LazyRegister(&xGetUserRuntimeDir, "GLIB", "g_get_user_runtime_dir", false)
-
 	cret := xGetUserRuntimeDir()
 	return cret
 }
@@ -585,8 +542,6 @@ var xGetUserSpecialDir func(UserDirectory) string
 // of the special directory without requiring the session to restart; GLib
 // will not reflect any change once the special directories are loaded.
 func GetUserSpecialDir(DirectoryVar UserDirectory) string {
-	core.LazyRegister(&xGetUserSpecialDir, "GLIB", "g_get_user_special_dir", false)
-
 	cret := xGetUserSpecialDir(DirectoryVar)
 	return cret
 }
@@ -611,8 +566,6 @@ var xGetUserStateDir func() string
 // The return value is cached and modifying it at runtime is not supported, as
 // it’s not thread-safe to modify environment variables at runtime.
 func GetUserStateDir() string {
-	core.LazyRegister(&xGetUserStateDir, "GLIB", "g_get_user_state_dir", false)
-
 	cret := xGetUserStateDir()
 	return cret
 }
@@ -621,8 +574,6 @@ var xNullifyPointer func(uintptr)
 
 // Set the pointer at the specified location to %NULL.
 func NullifyPointer(NullifyLocationVar uintptr) {
-	core.LazyRegister(&xNullifyPointer, "GLIB", "g_nullify_pointer", false)
-
 	xNullifyPointer(NullifyLocationVar)
 }
 
@@ -641,8 +592,6 @@ var xParseDebugString func(uintptr, []DebugKey, uint) uint
 // If @string is equal to "help", all the available keys in @keys
 // are printed out to standard error.
 func ParseDebugString(StringVar *string, KeysVar []DebugKey, NkeysVar uint) uint {
-	core.LazyRegister(&xParseDebugString, "GLIB", "g_parse_debug_string", false)
-
 	StringVarPtr := core.GStrdupNullable(StringVar)
 	defer core.GFreeNullable(StringVarPtr)
 
@@ -661,8 +610,6 @@ var xReloadUserSpecialDirsCache func()
 // that can't be freed. We ensure to only leak the data for
 // the directories that actually changed value though.
 func ReloadUserSpecialDirsCache() {
-	core.LazyRegister(&xReloadUserSpecialDirsCache, "GLIB", "g_reload_user_special_dirs_cache", false)
-
 	xReloadUserSpecialDirsCache()
 }
 
@@ -680,8 +627,6 @@ var xSetApplicationName func(string)
 // The application name will be used in contexts such as error messages,
 // or when displaying an application's name in the task list.
 func SetApplicationName(ApplicationNameVar string) {
-	core.LazyRegister(&xSetApplicationName, "GLIB", "g_set_application_name", false)
-
 	xSetApplicationName(ApplicationNameVar)
 }
 
@@ -703,8 +648,6 @@ var xSetPrgname func(string)
 // See the [GTK documentation](https://docs.gtk.org/gtk4/migrating-3to4.html#set-a-proper-application-id)
 // for requirements on integrating g_set_prgname() with GTK applications.
 func SetPrgname(PrgnameVar string) {
-	core.LazyRegister(&xSetPrgname, "GLIB", "g_set_prgname", false)
-
 	xSetPrgname(PrgnameVar)
 }
 
@@ -728,8 +671,6 @@ var xSnprintf func(string, uint, string, ...interface{}) int
 // The format string may contain positional parameters, as specified in
 // the Single Unix Specification.
 func Snprintf(StringVar string, NVar uint, FormatVar string, varArgs ...interface{}) int {
-	core.LazyRegister(&xSnprintf, "GLIB", "g_snprintf", false)
-
 	cret := xSnprintf(StringVar, NVar, FormatVar, varArgs...)
 	return cret
 }
@@ -754,8 +695,6 @@ var xVsnprintf func(string, uint, string, []interface{}) int
 // The format string may contain positional parameters, as specified in
 // the Single Unix Specification.
 func Vsnprintf(StringVar string, NVar uint, FormatVar string, ArgsVar []interface{}) int {
-	core.LazyRegister(&xVsnprintf, "GLIB", "g_vsnprintf", false)
-
 	cret := xVsnprintf(StringVar, NVar, FormatVar, ArgsVar)
 	return cret
 }
@@ -763,4 +702,44 @@ func Vsnprintf(StringVar string, NVar uint, FormatVar string, ArgsVar []interfac
 func init() {
 	core.SetPackageName("GLIB", "glib-2.0")
 	core.SetSharedLibraries("GLIB", []string{"libgobject-2.0.so.0", "libglib-2.0.so.0", "libgobject-2.0.0.dylib", "libglib-2.0.0.dylib"})
+	var libs []uintptr
+	for _, libPath := range core.GetPaths("GLIB") {
+		lib, err := purego.Dlopen(libPath, purego.RTLD_NOW|purego.RTLD_GLOBAL)
+		if err != nil {
+			panic(err)
+		}
+		libs = append(libs, lib)
+	}
+
+	core.PuregoSafeRegister(&xAtexit, libs, "g_atexit")
+	core.PuregoSafeRegister(&xBitNthLsf, libs, "g_bit_nth_lsf")
+	core.PuregoSafeRegister(&xBitNthMsf, libs, "g_bit_nth_msf")
+	core.PuregoSafeRegister(&xBitStorage, libs, "g_bit_storage")
+	core.PuregoSafeRegister(&xFindProgramInPath, libs, "g_find_program_in_path")
+	core.PuregoSafeRegister(&xFormatSize, libs, "g_format_size")
+	core.PuregoSafeRegister(&xFormatSizeForDisplay, libs, "g_format_size_for_display")
+	core.PuregoSafeRegister(&xFormatSizeFull, libs, "g_format_size_full")
+	core.PuregoSafeRegister(&xGetApplicationName, libs, "g_get_application_name")
+	core.PuregoSafeRegister(&xGetHomeDir, libs, "g_get_home_dir")
+	core.PuregoSafeRegister(&xGetHostName, libs, "g_get_host_name")
+	core.PuregoSafeRegister(&xGetOsInfo, libs, "g_get_os_info")
+	core.PuregoSafeRegister(&xGetPrgname, libs, "g_get_prgname")
+	core.PuregoSafeRegister(&xGetRealName, libs, "g_get_real_name")
+	core.PuregoSafeRegister(&xGetSystemConfigDirs, libs, "g_get_system_config_dirs")
+	core.PuregoSafeRegister(&xGetSystemDataDirs, libs, "g_get_system_data_dirs")
+	core.PuregoSafeRegister(&xGetTmpDir, libs, "g_get_tmp_dir")
+	core.PuregoSafeRegister(&xGetUserCacheDir, libs, "g_get_user_cache_dir")
+	core.PuregoSafeRegister(&xGetUserConfigDir, libs, "g_get_user_config_dir")
+	core.PuregoSafeRegister(&xGetUserDataDir, libs, "g_get_user_data_dir")
+	core.PuregoSafeRegister(&xGetUserName, libs, "g_get_user_name")
+	core.PuregoSafeRegister(&xGetUserRuntimeDir, libs, "g_get_user_runtime_dir")
+	core.PuregoSafeRegister(&xGetUserSpecialDir, libs, "g_get_user_special_dir")
+	core.PuregoSafeRegister(&xGetUserStateDir, libs, "g_get_user_state_dir")
+	core.PuregoSafeRegister(&xNullifyPointer, libs, "g_nullify_pointer")
+	core.PuregoSafeRegister(&xParseDebugString, libs, "g_parse_debug_string")
+	core.PuregoSafeRegister(&xReloadUserSpecialDirsCache, libs, "g_reload_user_special_dirs_cache")
+	core.PuregoSafeRegister(&xSetApplicationName, libs, "g_set_application_name")
+	core.PuregoSafeRegister(&xSetPrgname, libs, "g_set_prgname")
+	core.PuregoSafeRegister(&xSnprintf, libs, "g_snprintf")
+	core.PuregoSafeRegister(&xVsnprintf, libs, "g_vsnprintf")
 }

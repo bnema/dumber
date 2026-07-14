@@ -346,7 +346,6 @@ type ApplicationCommandLine struct {
 var xApplicationCommandLineGLibType func() types.GType
 
 func ApplicationCommandLineGLibType() types.GType {
-	core.LazyRegister(&xApplicationCommandLineGLibType, "GIO", "g_application_command_line_get_type", false)
 	return xApplicationCommandLineGLibType()
 }
 
@@ -365,7 +364,6 @@ var xApplicationCommandLineCreateFileForArg func(uintptr, string) uintptr
 // resolves relative pathnames using the current working directory of
 // the invoking process rather than the local process.
 func (x *ApplicationCommandLine) CreateFileForArg(ArgVar string) *FileBase {
-	core.LazyRegister(&xApplicationCommandLineCreateFileForArg, "GIO", "g_application_command_line_create_file_for_arg", false)
 	var cls *FileBase
 
 	cret := xApplicationCommandLineCreateFileForArg(x.GoPointer(), ArgVar)
@@ -396,8 +394,6 @@ var xApplicationCommandLineDone func(uintptr)
 // object is disposed — so you can omit the call in non-garbage collected
 // languages.
 func (x *ApplicationCommandLine) Done() {
-	core.LazyRegister(&xApplicationCommandLineDone, "GIO", "g_application_command_line_done", false)
-
 	xApplicationCommandLineDone(x.GoPointer())
 }
 
@@ -415,8 +411,6 @@ var xApplicationCommandLineGetArguments func(uintptr, *int) []string
 // The return value is %NULL-terminated and should be freed using
 // g_strfreev().
 func (x *ApplicationCommandLine) GetArguments(ArgcVar *int) []string {
-	core.LazyRegister(&xApplicationCommandLineGetArguments, "GIO", "g_application_command_line_get_arguments", false)
-
 	cret := xApplicationCommandLineGetArguments(x.GoPointer(), ArgcVar)
 	return cret
 }
@@ -432,8 +426,6 @@ var xApplicationCommandLineGetCwd func(uintptr) string
 // The return value should not be modified or freed and is valid for as
 // long as @cmdline exists.
 func (x *ApplicationCommandLine) GetCwd() string {
-	core.LazyRegister(&xApplicationCommandLineGetCwd, "GIO", "g_application_command_line_get_cwd", false)
-
 	cret := xApplicationCommandLineGetCwd(x.GoPointer())
 	return cret
 }
@@ -456,8 +448,6 @@ var xApplicationCommandLineGetEnviron func(uintptr) []string
 // See g_application_command_line_getenv() if you are only interested
 // in the value of a single environment variable.
 func (x *ApplicationCommandLine) GetEnviron() []string {
-	core.LazyRegister(&xApplicationCommandLineGetEnviron, "GIO", "g_application_command_line_get_environ", false)
-
 	cret := xApplicationCommandLineGetEnviron(x.GoPointer())
 	return cret
 }
@@ -467,8 +457,6 @@ var xApplicationCommandLineGetExitStatus func(uintptr) int
 // Gets the exit status of @cmdline.  See
 // g_application_command_line_set_exit_status() for more information.
 func (x *ApplicationCommandLine) GetExitStatus() int {
-	core.LazyRegister(&xApplicationCommandLineGetExitStatus, "GIO", "g_application_command_line_get_exit_status", false)
-
 	cret := xApplicationCommandLineGetExitStatus(x.GoPointer())
 	return cret
 }
@@ -477,8 +465,6 @@ var xApplicationCommandLineGetIsRemote func(uintptr) bool
 
 // Determines if @cmdline represents a remote invocation.
 func (x *ApplicationCommandLine) GetIsRemote() bool {
-	core.LazyRegister(&xApplicationCommandLineGetIsRemote, "GIO", "g_application_command_line_get_is_remote", false)
-
 	cret := xApplicationCommandLineGetIsRemote(x.GoPointer())
 	return cret
 }
@@ -498,8 +484,6 @@ var xApplicationCommandLineGetOptionsDict func(uintptr) uintptr
 // The data has been passed via an untrusted external process, so the types of
 // all values must be checked before being used.
 func (x *ApplicationCommandLine) GetOptionsDict() *glib.VariantDict {
-	core.LazyRegister(&xApplicationCommandLineGetOptionsDict, "GIO", "g_application_command_line_get_options_dict", false)
-
 	cret := xApplicationCommandLineGetOptionsDict(x.GoPointer())
 	if cret == 0 {
 		return nil
@@ -521,8 +505,6 @@ var xApplicationCommandLineGetPlatformData func(uintptr) uintptr
 //
 // For local invocation, it will be %NULL.
 func (x *ApplicationCommandLine) GetPlatformData() *glib.Variant {
-	core.LazyRegister(&xApplicationCommandLineGetPlatformData, "GIO", "g_application_command_line_get_platform_data", false)
-
 	cret := xApplicationCommandLineGetPlatformData(x.GoPointer())
 	if cret == 0 {
 		return nil
@@ -543,7 +525,6 @@ var xApplicationCommandLineGetStdin func(uintptr) uintptr
 //
 // You must only call this function once per commandline invocation.
 func (x *ApplicationCommandLine) GetStdin() *InputStream {
-	core.LazyRegister(&xApplicationCommandLineGetStdin, "GIO", "g_application_command_line_get_stdin", false)
 	var cls *InputStream
 
 	cret := xApplicationCommandLineGetStdin(x.GoPointer())
@@ -570,8 +551,6 @@ var xApplicationCommandLineGetenv func(uintptr, string) string
 // The return value should not be modified or freed and is valid for as
 // long as @cmdline exists.
 func (x *ApplicationCommandLine) Getenv(NameVar string) string {
-	core.LazyRegister(&xApplicationCommandLineGetenv, "GIO", "g_application_command_line_getenv", false)
-
 	cret := xApplicationCommandLineGetenv(x.GoPointer(), NameVar)
 	return cret
 }
@@ -585,8 +564,6 @@ var xApplicationCommandLinePrint func(uintptr, string, ...interface{})
 // g_print().  If @cmdline is remote then this is equivalent to calling
 // g_print() in the invoking process.
 func (x *ApplicationCommandLine) Print(FormatVar string, varArgs ...interface{}) {
-	core.LazyRegister(&xApplicationCommandLinePrint, "GIO", "g_application_command_line_print", false)
-
 	xApplicationCommandLinePrint(x.GoPointer(), FormatVar, varArgs...)
 }
 
@@ -598,8 +575,6 @@ var xApplicationCommandLinePrintLiteral func(uintptr, string)
 // format string. Use this function if @message contains text you don't have
 // control over, that could include `printf()` escape sequences.
 func (x *ApplicationCommandLine) PrintLiteral(MessageVar string) {
-	core.LazyRegister(&xApplicationCommandLinePrintLiteral, "GIO", "g_application_command_line_print_literal", false)
-
 	xApplicationCommandLinePrintLiteral(x.GoPointer(), MessageVar)
 }
 
@@ -612,8 +587,6 @@ var xApplicationCommandLinePrinterr func(uintptr, string, ...interface{})
 // g_printerr().  If @cmdline is remote then this is equivalent to
 // calling g_printerr() in the invoking process.
 func (x *ApplicationCommandLine) Printerr(FormatVar string, varArgs ...interface{}) {
-	core.LazyRegister(&xApplicationCommandLinePrinterr, "GIO", "g_application_command_line_printerr", false)
-
 	xApplicationCommandLinePrinterr(x.GoPointer(), FormatVar, varArgs...)
 }
 
@@ -625,8 +598,6 @@ var xApplicationCommandLinePrinterrLiteral func(uintptr, string)
 // a `printf()`-style format string. Use this function if @message contains text
 // you don't have control over, that could include `printf()` escape sequences.
 func (x *ApplicationCommandLine) PrinterrLiteral(MessageVar string) {
-	core.LazyRegister(&xApplicationCommandLinePrinterrLiteral, "GIO", "g_application_command_line_printerr_literal", false)
-
 	xApplicationCommandLinePrinterrLiteral(x.GoPointer(), MessageVar)
 }
 
@@ -657,8 +628,6 @@ var xApplicationCommandLineSetExitStatus func(uintptr, int)
 // This method is a no-op if g_application_command_line_done() has
 // been called.
 func (x *ApplicationCommandLine) SetExitStatus(ExitStatusVar int) {
-	core.LazyRegister(&xApplicationCommandLineSetExitStatus, "GIO", "g_application_command_line_set_exit_status", false)
-
 	xApplicationCommandLineSetExitStatus(x.GoPointer(), ExitStatusVar)
 }
 
@@ -712,4 +681,31 @@ func (x *ApplicationCommandLine) SetPropertyPlatformData(value uintptr) {
 func init() {
 	core.SetPackageName("GIO", "gio-2.0")
 	core.SetSharedLibraries("GIO", []string{"libgio-2.0.so.0", "libgio-2.0.0.dylib"})
+	var libs []uintptr
+	for _, libPath := range core.GetPaths("GIO") {
+		lib, err := purego.Dlopen(libPath, purego.RTLD_NOW|purego.RTLD_GLOBAL)
+		if err != nil {
+			panic(err)
+		}
+		libs = append(libs, lib)
+	}
+
+	core.PuregoSafeRegister(&xApplicationCommandLineGLibType, libs, "g_application_command_line_get_type")
+
+	core.PuregoSafeRegister(&xApplicationCommandLineCreateFileForArg, libs, "g_application_command_line_create_file_for_arg")
+	core.PuregoSafeRegister(&xApplicationCommandLineDone, libs, "g_application_command_line_done")
+	core.PuregoSafeRegister(&xApplicationCommandLineGetArguments, libs, "g_application_command_line_get_arguments")
+	core.PuregoSafeRegister(&xApplicationCommandLineGetCwd, libs, "g_application_command_line_get_cwd")
+	core.PuregoSafeRegister(&xApplicationCommandLineGetEnviron, libs, "g_application_command_line_get_environ")
+	core.PuregoSafeRegister(&xApplicationCommandLineGetExitStatus, libs, "g_application_command_line_get_exit_status")
+	core.PuregoSafeRegister(&xApplicationCommandLineGetIsRemote, libs, "g_application_command_line_get_is_remote")
+	core.PuregoSafeRegister(&xApplicationCommandLineGetOptionsDict, libs, "g_application_command_line_get_options_dict")
+	core.PuregoSafeRegister(&xApplicationCommandLineGetPlatformData, libs, "g_application_command_line_get_platform_data")
+	core.PuregoSafeRegister(&xApplicationCommandLineGetStdin, libs, "g_application_command_line_get_stdin")
+	core.PuregoSafeRegister(&xApplicationCommandLineGetenv, libs, "g_application_command_line_getenv")
+	core.PuregoSafeRegister(&xApplicationCommandLinePrint, libs, "g_application_command_line_print")
+	core.PuregoSafeRegister(&xApplicationCommandLinePrintLiteral, libs, "g_application_command_line_print_literal")
+	core.PuregoSafeRegister(&xApplicationCommandLinePrinterr, libs, "g_application_command_line_printerr")
+	core.PuregoSafeRegister(&xApplicationCommandLinePrinterrLiteral, libs, "g_application_command_line_printerr_literal")
+	core.PuregoSafeRegister(&xApplicationCommandLineSetExitStatus, libs, "g_application_command_line_set_exit_status")
 }

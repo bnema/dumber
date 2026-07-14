@@ -4,6 +4,7 @@ package gio
 import (
 	"unsafe"
 
+	"github.com/bnema/purego"
 	"github.com/bnema/puregotk/pkg/core"
 	"github.com/bnema/puregotk/v4/glib"
 	"github.com/bnema/puregotk/v4/gobject"
@@ -22,7 +23,6 @@ type DBusActionGroup struct {
 var xDBusActionGroupGLibType func() types.GType
 
 func DBusActionGroupGLibType() types.GType {
-	core.LazyRegister(&xDBusActionGroupGLibType, "GIO", "g_dbus_action_group_get_type", false)
 	return xDBusActionGroupGLibType()
 }
 
@@ -308,7 +308,6 @@ var xDBusActionGroupGet func(uintptr, uintptr, string) uintptr
 // for the action group to monitor for changes and then to call
 // g_action_group_list_actions() to get the initial list.
 func DBusActionGroupGet(ConnectionVar *DBusConnection, BusNameVar *string, ObjectPathVar string) *DBusActionGroup {
-	core.LazyRegister(&xDBusActionGroupGet, "GIO", "g_dbus_action_group_get", false)
 	var cls *DBusActionGroup
 
 	BusNameVarPtr := core.GStrdupNullable(BusNameVar)
@@ -327,4 +326,16 @@ func DBusActionGroupGet(ConnectionVar *DBusConnection, BusNameVar *string, Objec
 func init() {
 	core.SetPackageName("GIO", "gio-2.0")
 	core.SetSharedLibraries("GIO", []string{"libgio-2.0.so.0", "libgio-2.0.0.dylib"})
+	var libs []uintptr
+	for _, libPath := range core.GetPaths("GIO") {
+		lib, err := purego.Dlopen(libPath, purego.RTLD_NOW|purego.RTLD_GLOBAL)
+		if err != nil {
+			panic(err)
+		}
+		libs = append(libs, lib)
+	}
+
+	core.PuregoSafeRegister(&xDBusActionGroupGLibType, libs, "g_dbus_action_group_get_type")
+
+	core.PuregoSafeRegister(&xDBusActionGroupGet, libs, "g_dbus_action_group_get")
 }

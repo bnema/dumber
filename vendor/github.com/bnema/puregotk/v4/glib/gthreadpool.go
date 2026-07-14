@@ -5,6 +5,7 @@ import (
 	"structs"
 	"unsafe"
 
+	"github.com/bnema/purego"
 	"github.com/bnema/puregotk/pkg/core"
 )
 
@@ -73,8 +74,6 @@ var xThreadPoolFree func(uintptr, bool, bool)
 //
 // After calling this function @pool must not be used anymore.
 func (x *ThreadPool) Free(ImmediateVar bool, WaitVar bool) {
-	core.LazyRegister(&xThreadPoolFree, "GLIB", "g_thread_pool_free", false)
-
 	xThreadPoolFree(x.GoPointer(), ImmediateVar, WaitVar)
 }
 
@@ -82,8 +81,6 @@ var xThreadPoolGetMaxThreads func(uintptr) int
 
 // Returns the maximal number of threads for @pool.
 func (x *ThreadPool) GetMaxThreads() int {
-	core.LazyRegister(&xThreadPoolGetMaxThreads, "GLIB", "g_thread_pool_get_max_threads", false)
-
 	cret := xThreadPoolGetMaxThreads(x.GoPointer())
 	return cret
 }
@@ -92,8 +89,6 @@ var xThreadPoolGetNumThreads func(uintptr) uint
 
 // Returns the number of threads currently running in @pool.
 func (x *ThreadPool) GetNumThreads() uint {
-	core.LazyRegister(&xThreadPoolGetNumThreads, "GLIB", "g_thread_pool_get_num_threads", false)
-
 	cret := xThreadPoolGetNumThreads(x.GoPointer())
 	return cret
 }
@@ -103,8 +98,6 @@ var xThreadPoolMoveToFront func(uintptr, uintptr) bool
 // Moves the item to the front of the queue of unprocessed
 // items, so that it will be processed next.
 func (x *ThreadPool) MoveToFront(DataVar uintptr) bool {
-	core.LazyRegister(&xThreadPoolMoveToFront, "GLIB", "g_thread_pool_move_to_front", false)
-
 	cret := xThreadPoolMoveToFront(x.GoPointer(), DataVar)
 	return cret
 }
@@ -126,7 +119,6 @@ var xThreadPoolPush func(uintptr, uintptr, **Error) bool
 //
 // Before version 2.32, this function did not return a success status.
 func (x *ThreadPool) Push(DataVar uintptr) (bool, error) {
-	core.LazyRegister(&xThreadPoolPush, "GLIB", "g_thread_pool_push", false)
 	var cerr *Error
 
 	cret := xThreadPoolPush(x.GoPointer(), DataVar, &cerr)
@@ -159,7 +151,6 @@ var xThreadPoolSetMaxThreads func(uintptr, int, **Error) bool
 //
 // Before version 2.32, this function did not return a success status.
 func (x *ThreadPool) SetMaxThreads(MaxThreadsVar int) (bool, error) {
-	core.LazyRegister(&xThreadPoolSetMaxThreads, "GLIB", "g_thread_pool_set_max_threads", false)
 	var cerr *Error
 
 	cret := xThreadPoolSetMaxThreads(x.GoPointer(), MaxThreadsVar, &cerr)
@@ -181,8 +172,6 @@ var xThreadPoolSetSortFunction func(uintptr, uintptr, uintptr)
 // cannot be assumed that threads are executed in the order they are
 // created.
 func (x *ThreadPool) SetSortFunction(FuncVar *CompareDataFunc, UserDataVar uintptr) {
-	core.LazyRegister(&xThreadPoolSetSortFunction, "GLIB", "g_thread_pool_set_sort_function", false)
-
 	xThreadPoolSetSortFunction(x.GoPointer(), NewCallback(FuncVar), UserDataVar)
 }
 
@@ -190,8 +179,6 @@ var xThreadPoolUnprocessed func(uintptr) uint
 
 // Returns the number of tasks still unprocessed in @pool.
 func (x *ThreadPool) Unprocessed() uint {
-	core.LazyRegister(&xThreadPoolUnprocessed, "GLIB", "g_thread_pool_unprocessed", false)
-
 	cret := xThreadPoolUnprocessed(x.GoPointer())
 	return cret
 }
@@ -205,8 +192,6 @@ var xThreadPoolGetMaxIdleTime func() uint
 // If this function returns 0, threads waiting in the thread
 // pool for new work are not stopped.
 func ThreadPoolGetMaxIdleTime() uint {
-	core.LazyRegister(&xThreadPoolGetMaxIdleTime, "GLIB", "g_thread_pool_get_max_idle_time", false)
-
 	cret := xThreadPoolGetMaxIdleTime()
 	return cret
 }
@@ -215,8 +200,6 @@ var xThreadPoolGetMaxUnusedThreads func() int
 
 // Returns the maximal allowed number of unused threads.
 func ThreadPoolGetMaxUnusedThreads() int {
-	core.LazyRegister(&xThreadPoolGetMaxUnusedThreads, "GLIB", "g_thread_pool_get_max_unused_threads", false)
-
 	cret := xThreadPoolGetMaxUnusedThreads()
 	return cret
 }
@@ -225,8 +208,6 @@ var xThreadPoolGetNumUnusedThreads func() uint
 
 // Returns the number of currently unused threads.
 func ThreadPoolGetNumUnusedThreads() uint {
-	core.LazyRegister(&xThreadPoolGetNumUnusedThreads, "GLIB", "g_thread_pool_get_num_unused_threads", false)
-
 	cret := xThreadPoolGetNumUnusedThreads()
 	return cret
 }
@@ -243,8 +224,6 @@ var xThreadPoolSetMaxIdleTime func(uint)
 //
 // The default value is 15000 (15 seconds).
 func ThreadPoolSetMaxIdleTime(IntervalVar uint) {
-	core.LazyRegister(&xThreadPoolSetMaxIdleTime, "GLIB", "g_thread_pool_set_max_idle_time", false)
-
 	xThreadPoolSetMaxIdleTime(IntervalVar)
 }
 
@@ -256,8 +235,6 @@ var xThreadPoolSetMaxUnusedThreads func(int)
 //
 // The default value is 8 since GLib 2.84. Previously the default value was 2.
 func ThreadPoolSetMaxUnusedThreads(MaxThreadsVar int) {
-	core.LazyRegister(&xThreadPoolSetMaxUnusedThreads, "GLIB", "g_thread_pool_set_max_unused_threads", false)
-
 	xThreadPoolSetMaxUnusedThreads(MaxThreadsVar)
 }
 
@@ -267,12 +244,34 @@ var xThreadPoolStopUnusedThreads func()
 // maximal number of unused threads. This function can be used to
 // regularly stop all unused threads e.g. from g_timeout_add().
 func ThreadPoolStopUnusedThreads() {
-	core.LazyRegister(&xThreadPoolStopUnusedThreads, "GLIB", "g_thread_pool_stop_unused_threads", false)
-
 	xThreadPoolStopUnusedThreads()
 }
 
 func init() {
 	core.SetPackageName("GLIB", "glib-2.0")
 	core.SetSharedLibraries("GLIB", []string{"libgobject-2.0.so.0", "libglib-2.0.so.0", "libgobject-2.0.0.dylib", "libglib-2.0.0.dylib"})
+	var libs []uintptr
+	for _, libPath := range core.GetPaths("GLIB") {
+		lib, err := purego.Dlopen(libPath, purego.RTLD_NOW|purego.RTLD_GLOBAL)
+		if err != nil {
+			panic(err)
+		}
+		libs = append(libs, lib)
+	}
+
+	core.PuregoSafeRegister(&xThreadPoolGetMaxIdleTime, libs, "g_thread_pool_get_max_idle_time")
+	core.PuregoSafeRegister(&xThreadPoolGetMaxUnusedThreads, libs, "g_thread_pool_get_max_unused_threads")
+	core.PuregoSafeRegister(&xThreadPoolGetNumUnusedThreads, libs, "g_thread_pool_get_num_unused_threads")
+	core.PuregoSafeRegister(&xThreadPoolSetMaxIdleTime, libs, "g_thread_pool_set_max_idle_time")
+	core.PuregoSafeRegister(&xThreadPoolSetMaxUnusedThreads, libs, "g_thread_pool_set_max_unused_threads")
+	core.PuregoSafeRegister(&xThreadPoolStopUnusedThreads, libs, "g_thread_pool_stop_unused_threads")
+
+	core.PuregoSafeRegister(&xThreadPoolFree, libs, "g_thread_pool_free")
+	core.PuregoSafeRegister(&xThreadPoolGetMaxThreads, libs, "g_thread_pool_get_max_threads")
+	core.PuregoSafeRegister(&xThreadPoolGetNumThreads, libs, "g_thread_pool_get_num_threads")
+	core.PuregoSafeRegister(&xThreadPoolMoveToFront, libs, "g_thread_pool_move_to_front")
+	core.PuregoSafeRegister(&xThreadPoolPush, libs, "g_thread_pool_push")
+	core.PuregoSafeRegister(&xThreadPoolSetMaxThreads, libs, "g_thread_pool_set_max_threads")
+	core.PuregoSafeRegister(&xThreadPoolSetSortFunction, libs, "g_thread_pool_set_sort_function")
+	core.PuregoSafeRegister(&xThreadPoolUnprocessed, libs, "g_thread_pool_unprocessed")
 }

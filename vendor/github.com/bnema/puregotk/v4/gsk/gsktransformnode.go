@@ -4,6 +4,7 @@ package gsk
 import (
 	"unsafe"
 
+	"github.com/bnema/purego"
 	"github.com/bnema/puregotk/pkg/core"
 	"github.com/bnema/puregotk/v4/gobject"
 	"github.com/bnema/puregotk/v4/gobject/types"
@@ -17,7 +18,6 @@ type TransformNode struct {
 var xTransformNodeGLibType func() types.GType
 
 func TransformNodeGLibType() types.GType {
-	core.LazyRegister(&xTransformNodeGLibType, "GSK", "gsk_transform_node_get_type", false)
 	return xTransformNodeGLibType()
 }
 
@@ -32,7 +32,6 @@ var xNewTransformNode func(uintptr, *Transform) uintptr
 // Creates a `GskRenderNode` that will transform the given @child
 // with the given @transform.
 func NewTransformNode(ChildVar *RenderNode, TransformVar *Transform) *TransformNode {
-	core.LazyRegister(&xNewTransformNode, "GSK", "gsk_transform_node_new", false)
 	var cls *TransformNode
 
 	cret := xNewTransformNode(ChildVar.GoPointer(), TransformVar)
@@ -49,7 +48,6 @@ var xTransformNodeGetChild func(uintptr) uintptr
 
 // Gets the child node that is getting transformed by the given @node.
 func (x *TransformNode) GetChild() *RenderNode {
-	core.LazyRegister(&xTransformNodeGetChild, "GSK", "gsk_transform_node_get_child", false)
 	var cls *RenderNode
 
 	cret := xTransformNodeGetChild(x.GoPointer())
@@ -67,8 +65,6 @@ var xTransformNodeGetTransform func(uintptr) uintptr
 
 // Retrieves the `GskTransform` used by the @node.
 func (x *TransformNode) GetTransform() *Transform {
-	core.LazyRegister(&xTransformNodeGetTransform, "GSK", "gsk_transform_node_get_transform", false)
-
 	cret := xTransformNodeGetTransform(x.GoPointer())
 	if cret == 0 {
 		return nil
@@ -90,4 +86,19 @@ func (c *TransformNode) SetGoPointer(ptr uintptr) {
 func init() {
 	core.SetPackageName("GSK", "gtk4")
 	core.SetSharedLibraries("GSK", []string{"libgtk-4.so.1", "libgtk-4.1.dylib"})
+	var libs []uintptr
+	for _, libPath := range core.GetPaths("GSK") {
+		lib, err := purego.Dlopen(libPath, purego.RTLD_NOW|purego.RTLD_GLOBAL)
+		if err != nil {
+			panic(err)
+		}
+		libs = append(libs, lib)
+	}
+
+	core.PuregoSafeRegister(&xTransformNodeGLibType, libs, "gsk_transform_node_get_type")
+
+	core.PuregoSafeRegister(&xNewTransformNode, libs, "gsk_transform_node_new")
+
+	core.PuregoSafeRegister(&xTransformNodeGetChild, libs, "gsk_transform_node_get_child")
+	core.PuregoSafeRegister(&xTransformNodeGetTransform, libs, "gsk_transform_node_get_transform")
 }

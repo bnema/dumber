@@ -2,6 +2,7 @@
 package gtk
 
 import (
+	"github.com/bnema/purego"
 	"github.com/bnema/puregotk/pkg/core"
 	"github.com/bnema/puregotk/v4/glib"
 )
@@ -9,8 +10,6 @@ import (
 var xSvgErrorQuark func() glib.Quark
 
 func SvgErrorQuark() glib.Quark {
-	core.LazyRegister(&xSvgErrorQuark, "GTK", "gtk_svg_error_quark", false)
-
 	cret := xSvgErrorQuark()
 	return cret
 }
@@ -18,4 +17,14 @@ func SvgErrorQuark() glib.Quark {
 func init() {
 	core.SetPackageName("GTK", "gtk4")
 	core.SetSharedLibraries("GTK", []string{"libgtk-4.so.1", "libgtk-4.1.dylib"})
+	var libs []uintptr
+	for _, libPath := range core.GetPaths("GTK") {
+		lib, err := purego.Dlopen(libPath, purego.RTLD_NOW|purego.RTLD_GLOBAL)
+		if err != nil {
+			panic(err)
+		}
+		libs = append(libs, lib)
+	}
+
+	core.PuregoSafeRegister(&xSvgErrorQuark, libs, "gtk_svg_error_quark")
 }

@@ -402,7 +402,6 @@ var xKeyfileSettingsBackendNew func(string, string, uintptr) uintptr
 // property, and a list of locked keys from a text file with the name `locks` in
 // the same location.
 func KeyfileSettingsBackendNew(FilenameVar string, RootPathVar string, RootGroupVar *string) *SettingsBackend {
-	core.LazyRegister(&xKeyfileSettingsBackendNew, "GIO", "g_keyfile_settings_backend_new", false)
 	var cls *SettingsBackend
 
 	RootGroupVarPtr := core.GStrdupNullable(RootGroupVar)
@@ -426,7 +425,6 @@ var xMemorySettingsBackendNew func() uintptr
 // to any backing storage, so the next time you run your application,
 // the memory backend will start out with the default values again.
 func MemorySettingsBackendNew() *SettingsBackend {
-	core.LazyRegister(&xMemorySettingsBackendNew, "GIO", "g_memory_settings_backend_new", false)
 	var cls *SettingsBackend
 
 	cret := xMemorySettingsBackendNew()
@@ -446,7 +444,6 @@ var xNullSettingsBackendNew func() uintptr
 // This backend does not allow changes to settings, so all settings
 // will always have their default values.
 func NullSettingsBackendNew() *SettingsBackend {
-	core.LazyRegister(&xNullSettingsBackendNew, "GIO", "g_null_settings_backend_new", false)
 	var cls *SettingsBackend
 
 	cret := xNullSettingsBackendNew()
@@ -489,7 +486,6 @@ type SettingsBackend struct {
 var xSettingsBackendGLibType func() types.GType
 
 func SettingsBackendGLibType() types.GType {
-	core.LazyRegister(&xSettingsBackendGLibType, "GIO", "g_settings_backend_get_type", false)
 	return xSettingsBackendGLibType()
 }
 
@@ -524,8 +520,6 @@ var xSettingsBackendChanged func(uintptr, string, uintptr)
 // g_settings_backend_write() then @origin_tag must be set to the same
 // value that was passed to that call.
 func (x *SettingsBackend) Changed(KeyVar string, OriginTagVar uintptr) {
-	core.LazyRegister(&xSettingsBackendChanged, "GIO", "g_settings_backend_changed", false)
-
 	xSettingsBackendChanged(x.GoPointer(), KeyVar, OriginTagVar)
 }
 
@@ -535,8 +529,6 @@ var xSettingsBackendChangedTree func(uintptr, *glib.Tree, uintptr)
 // @tree, computes the longest common prefix and calls
 // g_settings_backend_changed().
 func (x *SettingsBackend) ChangedTree(TreeVar *glib.Tree, OriginTagVar uintptr) {
-	core.LazyRegister(&xSettingsBackendChangedTree, "GIO", "g_settings_backend_changed_tree", false)
-
 	xSettingsBackendChangedTree(x.GoPointer(), TreeVar, OriginTagVar)
 }
 
@@ -564,8 +556,6 @@ var xSettingsBackendKeysChanged func(uintptr, string, []string, uintptr)
 // be as long as possible (ie: the longest common prefix of all of the
 // keys that were changed) but this is not strictly required.
 func (x *SettingsBackend) KeysChanged(PathVar string, ItemsVar []string, OriginTagVar uintptr) {
-	core.LazyRegister(&xSettingsBackendKeysChanged, "GIO", "g_settings_backend_keys_changed", false)
-
 	xSettingsBackendKeysChanged(x.GoPointer(), PathVar, ItemsVar, OriginTagVar)
 }
 
@@ -593,8 +583,6 @@ var xSettingsBackendPathChanged func(uintptr, string, uintptr)
 // example, if this function is called with the path of "/" then every
 // single key in the application will be notified of a possible change.
 func (x *SettingsBackend) PathChanged(PathVar string, OriginTagVar uintptr) {
-	core.LazyRegister(&xSettingsBackendPathChanged, "GIO", "g_settings_backend_path_changed", false)
-
 	xSettingsBackendPathChanged(x.GoPointer(), PathVar, OriginTagVar)
 }
 
@@ -606,8 +594,6 @@ var xSettingsBackendPathWritableChanged func(uintptr, string)
 // Since GSettings performs no locking operations for itself, this call
 // will always be made in response to external events.
 func (x *SettingsBackend) PathWritableChanged(PathVar string) {
-	core.LazyRegister(&xSettingsBackendPathWritableChanged, "GIO", "g_settings_backend_path_writable_changed", false)
-
 	xSettingsBackendPathWritableChanged(x.GoPointer(), PathVar)
 }
 
@@ -618,8 +604,6 @@ var xSettingsBackendWritableChanged func(uintptr, string)
 // Since GSettings performs no locking operations for itself, this call
 // will always be made in response to external events.
 func (x *SettingsBackend) WritableChanged(KeyVar string) {
-	core.LazyRegister(&xSettingsBackendWritableChanged, "GIO", "g_settings_backend_writable_changed", false)
-
 	xSettingsBackendWritableChanged(x.GoPointer(), KeyVar)
 }
 
@@ -644,8 +628,6 @@ var xSettingsBackendFlattenTree func(*glib.Tree, *string, *[]string, *uintptr)
 // g_free().  You should not attempt to free or unref the contents of
 // @keys or @values.
 func SettingsBackendFlattenTree(TreeVar *glib.Tree, PathVar *string, KeysVar *[]string, ValuesVar *uintptr) {
-	core.LazyRegister(&xSettingsBackendFlattenTree, "GIO", "g_settings_backend_flatten_tree", false)
-
 	xSettingsBackendFlattenTree(TreeVar, PathVar, KeysVar, ValuesVar)
 }
 
@@ -657,7 +639,6 @@ var xSettingsBackendGetDefault func() uintptr
 //
 // The user gets a reference to the backend.
 func SettingsBackendGetDefault() *SettingsBackend {
-	core.LazyRegister(&xSettingsBackendGetDefault, "GIO", "g_settings_backend_get_default", false)
 	var cls *SettingsBackend
 
 	cret := xSettingsBackendGetDefault()
@@ -673,4 +654,28 @@ func SettingsBackendGetDefault() *SettingsBackend {
 func init() {
 	core.SetPackageName("GIO", "gio-2.0")
 	core.SetSharedLibraries("GIO", []string{"libgio-2.0.so.0", "libgio-2.0.0.dylib"})
+	var libs []uintptr
+	for _, libPath := range core.GetPaths("GIO") {
+		lib, err := purego.Dlopen(libPath, purego.RTLD_NOW|purego.RTLD_GLOBAL)
+		if err != nil {
+			panic(err)
+		}
+		libs = append(libs, lib)
+	}
+
+	core.PuregoSafeRegister(&xKeyfileSettingsBackendNew, libs, "g_keyfile_settings_backend_new")
+	core.PuregoSafeRegister(&xMemorySettingsBackendNew, libs, "g_memory_settings_backend_new")
+	core.PuregoSafeRegister(&xNullSettingsBackendNew, libs, "g_null_settings_backend_new")
+
+	core.PuregoSafeRegister(&xSettingsBackendGLibType, libs, "g_settings_backend_get_type")
+
+	core.PuregoSafeRegister(&xSettingsBackendChanged, libs, "g_settings_backend_changed")
+	core.PuregoSafeRegister(&xSettingsBackendChangedTree, libs, "g_settings_backend_changed_tree")
+	core.PuregoSafeRegister(&xSettingsBackendKeysChanged, libs, "g_settings_backend_keys_changed")
+	core.PuregoSafeRegister(&xSettingsBackendPathChanged, libs, "g_settings_backend_path_changed")
+	core.PuregoSafeRegister(&xSettingsBackendPathWritableChanged, libs, "g_settings_backend_path_writable_changed")
+	core.PuregoSafeRegister(&xSettingsBackendWritableChanged, libs, "g_settings_backend_writable_changed")
+
+	core.PuregoSafeRegister(&xSettingsBackendFlattenTree, libs, "g_settings_backend_flatten_tree")
+	core.PuregoSafeRegister(&xSettingsBackendGetDefault, libs, "g_settings_backend_get_default")
 }

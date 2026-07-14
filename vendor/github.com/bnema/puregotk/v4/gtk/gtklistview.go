@@ -5,6 +5,7 @@ import (
 	"structs"
 	"unsafe"
 
+	"github.com/bnema/purego"
 	"github.com/bnema/puregotk/pkg/core"
 	"github.com/bnema/puregotk/v4/glib"
 	"github.com/bnema/puregotk/v4/gobject"
@@ -145,7 +146,6 @@ type ListView struct {
 var xListViewGLibType func() types.GType
 
 func ListViewGLibType() types.GType {
-	core.LazyRegister(&xListViewGLibType, "GTK", "gtk_list_view_get_type", false)
 	return xListViewGLibType()
 }
 
@@ -169,7 +169,6 @@ var xNewListView func(uintptr, uintptr) uintptr
 //
 // ```
 func NewListView(ModelVar SelectionModel, FactoryVar *ListItemFactory) *ListView {
-	core.LazyRegister(&xNewListView, "GTK", "gtk_list_view_new", false)
 	var cls *ListView
 
 	cret := xNewListView(ModelVar.GoPointer(), FactoryVar.GoPointer())
@@ -187,8 +186,6 @@ var xListViewGetEnableRubberband func(uintptr) bool
 
 // Returns whether rows can be selected by dragging with the mouse.
 func (x *ListView) GetEnableRubberband() bool {
-	core.LazyRegister(&xListViewGetEnableRubberband, "GTK", "gtk_list_view_get_enable_rubberband", false)
-
 	cret := xListViewGetEnableRubberband(x.GoPointer())
 	return cret
 }
@@ -197,7 +194,6 @@ var xListViewGetFactory func(uintptr) uintptr
 
 // Gets the factory that's currently used to populate list items.
 func (x *ListView) GetFactory() *ListItemFactory {
-	core.LazyRegister(&xListViewGetFactory, "GTK", "gtk_list_view_get_factory", false)
 	var cls *ListItemFactory
 
 	cret := xListViewGetFactory(x.GoPointer())
@@ -215,7 +211,6 @@ var xListViewGetHeaderFactory func(uintptr) uintptr
 
 // Gets the factory that's currently used to populate section headers.
 func (x *ListView) GetHeaderFactory() *ListItemFactory {
-	core.LazyRegister(&xListViewGetHeaderFactory, "GTK", "gtk_list_view_get_header_factory", false)
 	var cls *ListItemFactory
 
 	cret := xListViewGetHeaderFactory(x.GoPointer())
@@ -233,7 +228,6 @@ var xListViewGetModel func(uintptr) uintptr
 
 // Gets the model that's currently used to read the items displayed.
 func (x *ListView) GetModel() *SelectionModelBase {
-	core.LazyRegister(&xListViewGetModel, "GTK", "gtk_list_view_get_model", false)
 	var cls *SelectionModelBase
 
 	cret := xListViewGetModel(x.GoPointer())
@@ -252,8 +246,6 @@ var xListViewGetShowSeparators func(uintptr) bool
 // Returns whether the listview should show separators
 // between rows.
 func (x *ListView) GetShowSeparators() bool {
-	core.LazyRegister(&xListViewGetShowSeparators, "GTK", "gtk_list_view_get_show_separators", false)
-
 	cret := xListViewGetShowSeparators(x.GoPointer())
 	return cret
 }
@@ -263,8 +255,6 @@ var xListViewGetSingleClickActivate func(uintptr) bool
 // Returns whether rows will be activated on single click and
 // selected on hover.
 func (x *ListView) GetSingleClickActivate() bool {
-	core.LazyRegister(&xListViewGetSingleClickActivate, "GTK", "gtk_list_view_get_single_click_activate", false)
-
 	cret := xListViewGetSingleClickActivate(x.GoPointer())
 	return cret
 }
@@ -273,8 +263,6 @@ var xListViewGetTabBehavior func(uintptr) ListTabBehavior
 
 // Gets the behavior set for the &lt;kbd&gt;Tab&lt;/kbd&gt; key.
 func (x *ListView) GetTabBehavior() ListTabBehavior {
-	core.LazyRegister(&xListViewGetTabBehavior, "GTK", "gtk_list_view_get_tab_behavior", false)
-
 	cret := xListViewGetTabBehavior(x.GoPointer())
 	return cret
 }
@@ -287,8 +275,6 @@ var xListViewScrollTo func(uintptr, uint, ListScrollFlags, *ScrollInfo)
 // This function works no matter if the listview is shown or focused.
 // If it isn't, then the changes will take effect once that happens.
 func (x *ListView) ScrollTo(PosVar uint, FlagsVar ListScrollFlags, ScrollVar *ScrollInfo) {
-	core.LazyRegister(&xListViewScrollTo, "GTK", "gtk_list_view_scroll_to", false)
-
 	xListViewScrollTo(x.GoPointer(), PosVar, FlagsVar, ScrollVar)
 }
 
@@ -296,8 +282,6 @@ var xListViewSetEnableRubberband func(uintptr, bool)
 
 // Sets whether selections can be changed by dragging with the mouse.
 func (x *ListView) SetEnableRubberband(EnableRubberbandVar bool) {
-	core.LazyRegister(&xListViewSetEnableRubberband, "GTK", "gtk_list_view_set_enable_rubberband", false)
-
 	xListViewSetEnableRubberband(x.GoPointer(), EnableRubberbandVar)
 }
 
@@ -305,8 +289,6 @@ var xListViewSetFactory func(uintptr, uintptr)
 
 // Sets the `GtkListItemFactory` to use for populating list items.
 func (x *ListView) SetFactory(FactoryVar *ListItemFactory) {
-	core.LazyRegister(&xListViewSetFactory, "GTK", "gtk_list_view_set_factory", false)
-
 	xListViewSetFactory(x.GoPointer(), FactoryVar.GoPointer())
 }
 
@@ -318,8 +300,6 @@ var xListViewSetHeaderFactory func(uintptr, uintptr)
 // If this factory is set to `NULL`, the list will not show
 // section headers.
 func (x *ListView) SetHeaderFactory(FactoryVar *ListItemFactory) {
-	core.LazyRegister(&xListViewSetHeaderFactory, "GTK", "gtk_list_view_set_header_factory", false)
-
 	xListViewSetHeaderFactory(x.GoPointer(), FactoryVar.GoPointer())
 }
 
@@ -329,8 +309,6 @@ var xListViewSetModel func(uintptr, uintptr)
 //
 // This must be a [iface@Gtk.SelectionModel] to use.
 func (x *ListView) SetModel(ModelVar SelectionModel) {
-	core.LazyRegister(&xListViewSetModel, "GTK", "gtk_list_view_set_model", false)
-
 	xListViewSetModel(x.GoPointer(), ModelVar.GoPointer())
 }
 
@@ -339,8 +317,6 @@ var xListViewSetShowSeparators func(uintptr, bool)
 // Sets whether the listview should show separators
 // between rows.
 func (x *ListView) SetShowSeparators(ShowSeparatorsVar bool) {
-	core.LazyRegister(&xListViewSetShowSeparators, "GTK", "gtk_list_view_set_show_separators", false)
-
 	xListViewSetShowSeparators(x.GoPointer(), ShowSeparatorsVar)
 }
 
@@ -349,8 +325,6 @@ var xListViewSetSingleClickActivate func(uintptr, bool)
 // Sets whether rows should be activated on single click and
 // selected on hover.
 func (x *ListView) SetSingleClickActivate(SingleClickActivateVar bool) {
-	core.LazyRegister(&xListViewSetSingleClickActivate, "GTK", "gtk_list_view_set_single_click_activate", false)
-
 	xListViewSetSingleClickActivate(x.GoPointer(), SingleClickActivateVar)
 }
 
@@ -362,8 +336,6 @@ var xListViewSetTabBehavior func(uintptr, ListTabBehavior)
 // &lt;kbd&gt;Shift&lt;/kbd&gt;+&lt;kbd&gt;Tab&lt;/kbd&gt; keys move the
 // focus in the listview.
 func (x *ListView) SetTabBehavior(TabBehaviorVar ListTabBehavior) {
-	core.LazyRegister(&xListViewSetTabBehavior, "GTK", "gtk_list_view_set_tab_behavior", false)
-
 	xListViewSetTabBehavior(x.GoPointer(), TabBehaviorVar)
 }
 
@@ -812,4 +784,32 @@ func (x *ListView) SetVscrollPolicy(PolicyVar ScrollablePolicy) {
 func init() {
 	core.SetPackageName("GTK", "gtk4")
 	core.SetSharedLibraries("GTK", []string{"libgtk-4.so.1", "libgtk-4.1.dylib"})
+	var libs []uintptr
+	for _, libPath := range core.GetPaths("GTK") {
+		lib, err := purego.Dlopen(libPath, purego.RTLD_NOW|purego.RTLD_GLOBAL)
+		if err != nil {
+			panic(err)
+		}
+		libs = append(libs, lib)
+	}
+
+	core.PuregoSafeRegister(&xListViewGLibType, libs, "gtk_list_view_get_type")
+
+	core.PuregoSafeRegister(&xNewListView, libs, "gtk_list_view_new")
+
+	core.PuregoSafeRegister(&xListViewGetEnableRubberband, libs, "gtk_list_view_get_enable_rubberband")
+	core.PuregoSafeRegister(&xListViewGetFactory, libs, "gtk_list_view_get_factory")
+	core.PuregoSafeRegister(&xListViewGetHeaderFactory, libs, "gtk_list_view_get_header_factory")
+	core.PuregoSafeRegister(&xListViewGetModel, libs, "gtk_list_view_get_model")
+	core.PuregoSafeRegister(&xListViewGetShowSeparators, libs, "gtk_list_view_get_show_separators")
+	core.PuregoSafeRegister(&xListViewGetSingleClickActivate, libs, "gtk_list_view_get_single_click_activate")
+	core.PuregoSafeRegister(&xListViewGetTabBehavior, libs, "gtk_list_view_get_tab_behavior")
+	core.PuregoSafeRegister(&xListViewScrollTo, libs, "gtk_list_view_scroll_to")
+	core.PuregoSafeRegister(&xListViewSetEnableRubberband, libs, "gtk_list_view_set_enable_rubberband")
+	core.PuregoSafeRegister(&xListViewSetFactory, libs, "gtk_list_view_set_factory")
+	core.PuregoSafeRegister(&xListViewSetHeaderFactory, libs, "gtk_list_view_set_header_factory")
+	core.PuregoSafeRegister(&xListViewSetModel, libs, "gtk_list_view_set_model")
+	core.PuregoSafeRegister(&xListViewSetShowSeparators, libs, "gtk_list_view_set_show_separators")
+	core.PuregoSafeRegister(&xListViewSetSingleClickActivate, libs, "gtk_list_view_set_single_click_activate")
+	core.PuregoSafeRegister(&xListViewSetTabBehavior, libs, "gtk_list_view_set_tab_behavior")
 }

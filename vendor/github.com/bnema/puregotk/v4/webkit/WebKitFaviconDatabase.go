@@ -5,6 +5,7 @@ import (
 	"structs"
 	"unsafe"
 
+	"github.com/bnema/purego"
 	"github.com/bnema/puregotk/pkg/core"
 	"github.com/bnema/puregotk/v4/gdk"
 	"github.com/bnema/puregotk/v4/gio"
@@ -37,7 +38,6 @@ type FaviconDatabaseError int
 var xFaviconDatabaseErrorGLibType func() types.GType
 
 func FaviconDatabaseErrorGLibType() types.GType {
-	core.LazyRegister(&xFaviconDatabaseErrorGLibType, "WEBKIT", "webkit_favicon_database_error_get_type", false)
 	return xFaviconDatabaseErrorGLibType()
 }
 
@@ -55,8 +55,6 @@ var xFaviconDatabaseErrorQuark func() glib.Quark
 
 // Gets the quark for the domain of favicon database errors.
 func FaviconDatabaseErrorQuark() glib.Quark {
-	core.LazyRegister(&xFaviconDatabaseErrorQuark, "WEBKIT", "webkit_favicon_database_error_quark", false)
-
 	cret := xFaviconDatabaseErrorQuark()
 	return cret
 }
@@ -79,7 +77,6 @@ type FaviconDatabase struct {
 var xFaviconDatabaseGLibType func() types.GType
 
 func FaviconDatabaseGLibType() types.GType {
-	core.LazyRegister(&xFaviconDatabaseGLibType, "WEBKIT", "webkit_favicon_database_get_type", false)
 	return xFaviconDatabaseGLibType()
 }
 
@@ -93,8 +90,6 @@ var xFaviconDatabaseClear func(uintptr)
 
 // Clears all icons from the database.
 func (x *FaviconDatabase) Clear() {
-	core.LazyRegister(&xFaviconDatabaseClear, "WEBKIT", "webkit_favicon_database_clear", false)
-
 	xFaviconDatabaseClear(x.GoPointer())
 }
 
@@ -110,8 +105,6 @@ var xFaviconDatabaseGetFavicon func(uintptr, string, uintptr, uintptr, uintptr)
 // be invoked. You can then call webkit_favicon_database_get_favicon_finish()
 // to get the result of the operation.
 func (x *FaviconDatabase) GetFavicon(PageUriVar string, CancellableVar *gio.Cancellable, CallbackVar *gio.AsyncReadyCallback, UserDataVar uintptr) {
-	core.LazyRegister(&xFaviconDatabaseGetFavicon, "WEBKIT", "webkit_favicon_database_get_favicon", false)
-
 	xFaviconDatabaseGetFavicon(x.GoPointer(), PageUriVar, CancellableVar.GoPointer(), glib.NewCallbackNullable(CallbackVar), UserDataVar)
 }
 
@@ -119,7 +112,6 @@ var xFaviconDatabaseGetFaviconFinish func(uintptr, uintptr, **glib.Error) uintpt
 
 // Finishes an operation started with webkit_favicon_database_get_favicon().
 func (x *FaviconDatabase) GetFaviconFinish(ResultVar gio.AsyncResult) (*gdk.Texture, error) {
-	core.LazyRegister(&xFaviconDatabaseGetFaviconFinish, "WEBKIT", "webkit_favicon_database_get_favicon_finish", false)
 	var cls *gdk.Texture
 	var cerr *glib.Error
 
@@ -140,8 +132,6 @@ var xFaviconDatabaseGetFaviconUri func(uintptr, string) string
 
 // Obtains the URI of the favicon for the given @page_uri.
 func (x *FaviconDatabase) GetFaviconUri(PageUriVar string) string {
-	core.LazyRegister(&xFaviconDatabaseGetFaviconUri, "WEBKIT", "webkit_favicon_database_get_favicon_uri", false)
-
 	cret := xFaviconDatabaseGetFaviconUri(x.GoPointer(), PageUriVar)
 	return cret
 }
@@ -188,8 +178,28 @@ func (x *FaviconDatabase) ConnectFaviconChanged(cb *func(FaviconDatabase, string
 func init() {
 	core.SetPackageName("WEBKIT", "webkitgtk-6.0")
 	core.SetSharedLibraries("WEBKIT", []string{"libwebkitgtk-6.0.so.4", "libjavascriptcoregtk-6.0.so.1", "libwebkitgtk-6.0.4.dylib", "libjavascriptcoregtk-6.0.1.dylib"})
+	var libs []uintptr
+	for _, libPath := range core.GetPaths("WEBKIT") {
+		lib, err := purego.Dlopen(libPath, purego.RTLD_NOW|purego.RTLD_GLOBAL)
+		if err != nil {
+			panic(err)
+		}
+		libs = append(libs, lib)
+	}
 
-	// Manually register types since they aren't automatically registered when
-	// WebKit is loaded. See https://bugs.webkit.org/show_bug.cgi?id=175937.
+	core.PuregoSafeRegister(&xFaviconDatabaseErrorGLibType, libs, "webkit_favicon_database_error_get_type")
+
+	core.PuregoSafeRegister(&xFaviconDatabaseErrorQuark, libs, "webkit_favicon_database_error_quark")
+
+	core.PuregoSafeRegister(&xFaviconDatabaseGLibType, libs, "webkit_favicon_database_get_type")
+
+	core.PuregoSafeRegister(&xFaviconDatabaseClear, libs, "webkit_favicon_database_clear")
+	core.PuregoSafeRegister(&xFaviconDatabaseGetFavicon, libs, "webkit_favicon_database_get_favicon")
+	core.PuregoSafeRegister(&xFaviconDatabaseGetFaviconFinish, libs, "webkit_favicon_database_get_favicon_finish")
+	core.PuregoSafeRegister(&xFaviconDatabaseGetFaviconUri, libs, "webkit_favicon_database_get_favicon_uri")
+
+	// Manually register types since they aren't being automatically registered when
+	// the library is loaded
+	// See https://bugs.webkit.org/show_bug.cgi?id=175937
 	FaviconDatabaseGLibType()
 }

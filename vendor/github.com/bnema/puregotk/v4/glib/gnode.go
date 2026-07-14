@@ -5,6 +5,7 @@ import (
 	"structs"
 	"unsafe"
 
+	"github.com/bnema/purego"
 	"github.com/bnema/puregotk/pkg/core"
 )
 
@@ -51,8 +52,6 @@ var xNodeChildIndex func(uintptr, uintptr) int
 // Gets the position of the first child of a #GNode
 // which contains the given data.
 func (x *Node) ChildIndex(DataVar uintptr) int {
-	core.LazyRegister(&xNodeChildIndex, "GLIB", "g_node_child_index", false)
-
 	cret := xNodeChildIndex(x.GoPointer(), DataVar)
 	return cret
 }
@@ -63,8 +62,6 @@ var xNodeChildPosition func(uintptr, *Node) int
 // @child must be a child of @node. The first child is numbered 0,
 // the second 1, and so on.
 func (x *Node) ChildPosition(ChildVar *Node) int {
-	core.LazyRegister(&xNodeChildPosition, "GLIB", "g_node_child_position", false)
-
 	cret := xNodeChildPosition(x.GoPointer(), ChildVar)
 	return cret
 }
@@ -75,8 +72,6 @@ var xNodeChildrenForeach func(uintptr, TraverseFlags, uintptr, uintptr)
 // doesn't descend beneath the child nodes. @func must not do anything
 // that would modify the structure of the tree.
 func (x *Node) ChildrenForeach(FlagsVar TraverseFlags, FuncVar *NodeForeachFunc, DataVar uintptr) {
-	core.LazyRegister(&xNodeChildrenForeach, "GLIB", "g_node_children_foreach", false)
-
 	xNodeChildrenForeach(x.GoPointer(), FlagsVar, NewCallback(FuncVar), DataVar)
 }
 
@@ -85,8 +80,6 @@ var xNodeCopy func(uintptr) uintptr
 // Recursively copies a #GNode (but does not deep-copy the data inside the
 // nodes, see g_node_copy_deep() if you need that).
 func (x *Node) Copy() *Node {
-	core.LazyRegister(&xNodeCopy, "GLIB", "g_node_copy", false)
-
 	cret := xNodeCopy(x.GoPointer())
 	if cret == 0 {
 		return nil
@@ -98,8 +91,6 @@ var xNodeCopyDeep func(uintptr, uintptr, uintptr) uintptr
 
 // Recursively copies a #GNode and its data.
 func (x *Node) CopyDeep(CopyFuncVar *CopyFunc, DataVar uintptr) *Node {
-	core.LazyRegister(&xNodeCopyDeep, "GLIB", "g_node_copy_deep", false)
-
 	cret := xNodeCopyDeep(x.GoPointer(), NewCallback(CopyFuncVar), DataVar)
 	if cret == 0 {
 		return nil
@@ -114,8 +105,6 @@ var xNodeDepth func(uintptr) uint
 // If @node is %NULL the depth is 0. The root node has a depth of 1.
 // For the children of the root node the depth is 2. And so on.
 func (x *Node) Depth() uint {
-	core.LazyRegister(&xNodeDepth, "GLIB", "g_node_depth", false)
-
 	cret := xNodeDepth(x.GoPointer())
 	return cret
 }
@@ -125,8 +114,6 @@ var xNodeDestroy func(uintptr)
 // Removes @root and its children from the tree, freeing any memory
 // allocated.
 func (x *Node) Destroy() {
-	core.LazyRegister(&xNodeDestroy, "GLIB", "g_node_destroy", false)
-
 	xNodeDestroy(x.GoPointer())
 }
 
@@ -134,8 +121,6 @@ var xNodeFind func(uintptr, TraverseType, TraverseFlags, uintptr) uintptr
 
 // Finds a #GNode in a tree.
 func (x *Node) Find(OrderVar TraverseType, FlagsVar TraverseFlags, DataVar uintptr) *Node {
-	core.LazyRegister(&xNodeFind, "GLIB", "g_node_find", false)
-
 	cret := xNodeFind(x.GoPointer(), OrderVar, FlagsVar, DataVar)
 	if cret == 0 {
 		return nil
@@ -147,8 +132,6 @@ var xNodeFindChild func(uintptr, TraverseFlags, uintptr) uintptr
 
 // Finds the first child of a #GNode with the given data.
 func (x *Node) FindChild(FlagsVar TraverseFlags, DataVar uintptr) *Node {
-	core.LazyRegister(&xNodeFindChild, "GLIB", "g_node_find_child", false)
-
 	cret := xNodeFindChild(x.GoPointer(), FlagsVar, DataVar)
 	if cret == 0 {
 		return nil
@@ -161,8 +144,6 @@ var xNodeFirstSibling func(uintptr) uintptr
 // Gets the first sibling of a #GNode.
 // This could possibly be the node itself.
 func (x *Node) FirstSibling() *Node {
-	core.LazyRegister(&xNodeFirstSibling, "GLIB", "g_node_first_sibling", false)
-
 	cret := xNodeFirstSibling(x.GoPointer())
 	if cret == 0 {
 		return nil
@@ -174,8 +155,6 @@ var xNodeGetRoot func(uintptr) uintptr
 
 // Gets the root of a tree.
 func (x *Node) GetRoot() *Node {
-	core.LazyRegister(&xNodeGetRoot, "GLIB", "g_node_get_root", false)
-
 	cret := xNodeGetRoot(x.GoPointer())
 	if cret == 0 {
 		return nil
@@ -187,8 +166,6 @@ var xNodeInsert func(uintptr, int, *Node) uintptr
 
 // Inserts a #GNode beneath the parent at the given position.
 func (x *Node) Insert(PositionVar int, NodeVar *Node) *Node {
-	core.LazyRegister(&xNodeInsert, "GLIB", "g_node_insert", false)
-
 	cret := xNodeInsert(x.GoPointer(), PositionVar, NodeVar)
 	if cret == 0 {
 		return nil
@@ -200,8 +177,6 @@ var xNodeInsertAfter func(uintptr, *Node, *Node) uintptr
 
 // Inserts a #GNode beneath the parent after the given sibling.
 func (x *Node) InsertAfter(SiblingVar *Node, NodeVar *Node) *Node {
-	core.LazyRegister(&xNodeInsertAfter, "GLIB", "g_node_insert_after", false)
-
 	cret := xNodeInsertAfter(x.GoPointer(), SiblingVar, NodeVar)
 	if cret == 0 {
 		return nil
@@ -213,8 +188,6 @@ var xNodeInsertBefore func(uintptr, *Node, *Node) uintptr
 
 // Inserts a #GNode beneath the parent before the given sibling.
 func (x *Node) InsertBefore(SiblingVar *Node, NodeVar *Node) *Node {
-	core.LazyRegister(&xNodeInsertBefore, "GLIB", "g_node_insert_before", false)
-
 	cret := xNodeInsertBefore(x.GoPointer(), SiblingVar, NodeVar)
 	if cret == 0 {
 		return nil
@@ -228,8 +201,6 @@ var xNodeIsAncestor func(uintptr, *Node) bool
 // This is true if node is the parent of @descendant,
 // or if node is the grandparent of @descendant etc.
 func (x *Node) IsAncestor(DescendantVar *Node) bool {
-	core.LazyRegister(&xNodeIsAncestor, "GLIB", "g_node_is_ancestor", false)
-
 	cret := xNodeIsAncestor(x.GoPointer(), DescendantVar)
 	return cret
 }
@@ -238,8 +209,6 @@ var xNodeLastChild func(uintptr) uintptr
 
 // Gets the last child of a #GNode.
 func (x *Node) LastChild() *Node {
-	core.LazyRegister(&xNodeLastChild, "GLIB", "g_node_last_child", false)
-
 	cret := xNodeLastChild(x.GoPointer())
 	if cret == 0 {
 		return nil
@@ -252,8 +221,6 @@ var xNodeLastSibling func(uintptr) uintptr
 // Gets the last sibling of a #GNode.
 // This could possibly be the node itself.
 func (x *Node) LastSibling() *Node {
-	core.LazyRegister(&xNodeLastSibling, "GLIB", "g_node_last_sibling", false)
-
 	cret := xNodeLastSibling(x.GoPointer())
 	if cret == 0 {
 		return nil
@@ -269,8 +236,6 @@ var xNodeMaxHeight func(uintptr) uint
 // If @root is %NULL, 0 is returned. If @root has no children,
 // 1 is returned. If @root has children, 2 is returned. And so on.
 func (x *Node) MaxHeight() uint {
-	core.LazyRegister(&xNodeMaxHeight, "GLIB", "g_node_max_height", false)
-
 	cret := xNodeMaxHeight(x.GoPointer())
 	return cret
 }
@@ -279,8 +244,6 @@ var xNodeNChildren func(uintptr) uint
 
 // Gets the number of children of a #GNode.
 func (x *Node) NChildren() uint {
-	core.LazyRegister(&xNodeNChildren, "GLIB", "g_node_n_children", false)
-
 	cret := xNodeNChildren(x.GoPointer())
 	return cret
 }
@@ -289,8 +252,6 @@ var xNodeNNodes func(uintptr, TraverseFlags) uint
 
 // Gets the number of nodes in a tree.
 func (x *Node) NNodes(FlagsVar TraverseFlags) uint {
-	core.LazyRegister(&xNodeNNodes, "GLIB", "g_node_n_nodes", false)
-
 	cret := xNodeNNodes(x.GoPointer(), FlagsVar)
 	return cret
 }
@@ -301,8 +262,6 @@ var xNodeNthChild func(uintptr, uint) uintptr
 // The first child is at index 0. If the index is
 // too big, %NULL is returned.
 func (x *Node) NthChild(NVar uint) *Node {
-	core.LazyRegister(&xNodeNthChild, "GLIB", "g_node_nth_child", false)
-
 	cret := xNodeNthChild(x.GoPointer(), NVar)
 	if cret == 0 {
 		return nil
@@ -314,8 +273,6 @@ var xNodePrepend func(uintptr, *Node) uintptr
 
 // Inserts a #GNode as the first child of the given parent.
 func (x *Node) Prepend(NodeVar *Node) *Node {
-	core.LazyRegister(&xNodePrepend, "GLIB", "g_node_prepend", false)
-
 	cret := xNodePrepend(x.GoPointer(), NodeVar)
 	if cret == 0 {
 		return nil
@@ -328,8 +285,6 @@ var xNodeReverseChildren func(uintptr)
 // Reverses the order of the children of a #GNode.
 // (It doesn't change the order of the grandchildren.)
 func (x *Node) ReverseChildren() {
-	core.LazyRegister(&xNodeReverseChildren, "GLIB", "g_node_reverse_children", false)
-
 	xNodeReverseChildren(x.GoPointer())
 }
 
@@ -340,8 +295,6 @@ var xNodeTraverse func(uintptr, TraverseType, TraverseFlags, int, uintptr, uintp
 // The traversal can be halted at any point by returning %TRUE from @func.
 // @func must not do anything that would modify the structure of the tree.
 func (x *Node) Traverse(OrderVar TraverseType, FlagsVar TraverseFlags, MaxDepthVar int, FuncVar *NodeTraverseFunc, DataVar uintptr) {
-	core.LazyRegister(&xNodeTraverse, "GLIB", "g_node_traverse", false)
-
 	xNodeTraverse(x.GoPointer(), OrderVar, FlagsVar, MaxDepthVar, NewCallback(FuncVar), DataVar)
 }
 
@@ -349,8 +302,6 @@ var xNodeUnlink func(uintptr)
 
 // Unlinks a #GNode from a tree, resulting in two separate trees.
 func (x *Node) Unlink() {
-	core.LazyRegister(&xNodeUnlink, "GLIB", "g_node_unlink", false)
-
 	xNodeUnlink(x.GoPointer())
 }
 
@@ -436,4 +387,38 @@ const (
 func init() {
 	core.SetPackageName("GLIB", "glib-2.0")
 	core.SetSharedLibraries("GLIB", []string{"libgobject-2.0.so.0", "libglib-2.0.so.0", "libgobject-2.0.0.dylib", "libglib-2.0.0.dylib"})
+	var libs []uintptr
+	for _, libPath := range core.GetPaths("GLIB") {
+		lib, err := purego.Dlopen(libPath, purego.RTLD_NOW|purego.RTLD_GLOBAL)
+		if err != nil {
+			panic(err)
+		}
+		libs = append(libs, lib)
+	}
+
+	core.PuregoSafeRegister(&xNodeChildIndex, libs, "g_node_child_index")
+	core.PuregoSafeRegister(&xNodeChildPosition, libs, "g_node_child_position")
+	core.PuregoSafeRegister(&xNodeChildrenForeach, libs, "g_node_children_foreach")
+	core.PuregoSafeRegister(&xNodeCopy, libs, "g_node_copy")
+	core.PuregoSafeRegister(&xNodeCopyDeep, libs, "g_node_copy_deep")
+	core.PuregoSafeRegister(&xNodeDepth, libs, "g_node_depth")
+	core.PuregoSafeRegister(&xNodeDestroy, libs, "g_node_destroy")
+	core.PuregoSafeRegister(&xNodeFind, libs, "g_node_find")
+	core.PuregoSafeRegister(&xNodeFindChild, libs, "g_node_find_child")
+	core.PuregoSafeRegister(&xNodeFirstSibling, libs, "g_node_first_sibling")
+	core.PuregoSafeRegister(&xNodeGetRoot, libs, "g_node_get_root")
+	core.PuregoSafeRegister(&xNodeInsert, libs, "g_node_insert")
+	core.PuregoSafeRegister(&xNodeInsertAfter, libs, "g_node_insert_after")
+	core.PuregoSafeRegister(&xNodeInsertBefore, libs, "g_node_insert_before")
+	core.PuregoSafeRegister(&xNodeIsAncestor, libs, "g_node_is_ancestor")
+	core.PuregoSafeRegister(&xNodeLastChild, libs, "g_node_last_child")
+	core.PuregoSafeRegister(&xNodeLastSibling, libs, "g_node_last_sibling")
+	core.PuregoSafeRegister(&xNodeMaxHeight, libs, "g_node_max_height")
+	core.PuregoSafeRegister(&xNodeNChildren, libs, "g_node_n_children")
+	core.PuregoSafeRegister(&xNodeNNodes, libs, "g_node_n_nodes")
+	core.PuregoSafeRegister(&xNodeNthChild, libs, "g_node_nth_child")
+	core.PuregoSafeRegister(&xNodePrepend, libs, "g_node_prepend")
+	core.PuregoSafeRegister(&xNodeReverseChildren, libs, "g_node_reverse_children")
+	core.PuregoSafeRegister(&xNodeTraverse, libs, "g_node_traverse")
+	core.PuregoSafeRegister(&xNodeUnlink, libs, "g_node_unlink")
 }

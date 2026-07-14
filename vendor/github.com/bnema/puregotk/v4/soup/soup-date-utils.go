@@ -4,6 +4,7 @@ package soup
 import (
 	"unsafe"
 
+	"github.com/bnema/purego"
 	"github.com/bnema/puregotk/pkg/core"
 	"github.com/bnema/puregotk/v4/glib"
 	"github.com/bnema/puregotk/v4/gobject/types"
@@ -20,7 +21,6 @@ type DateFormat int
 var xDateFormatGLibType func() types.GType
 
 func DateFormatGLibType() types.GType {
-	core.LazyRegister(&xDateFormatGLibType, "SOUP", "soup_date_format_get_type", false)
 	return xDateFormatGLibType()
 }
 
@@ -42,8 +42,6 @@ var xDateTimeNewFromHttpString func(string) uintptr
 // and reasonable approximations thereof. (Eg, it is lenient about whitespace,
 // leading "0"s, etc.)
 func DateTimeNewFromHttpString(DateStringVar string) *glib.DateTime {
-	core.LazyRegister(&xDateTimeNewFromHttpString, "SOUP", "soup_date_time_new_from_http_string", false)
-
 	cret := xDateTimeNewFromHttpString(DateStringVar)
 	if cret == 0 {
 		return nil
@@ -55,8 +53,6 @@ var xDateTimeToString func(*glib.DateTime, DateFormat) string
 
 // Converts @date to a string in the format described by @format.
 func DateTimeToString(DateVar *glib.DateTime, FormatVar DateFormat) string {
-	core.LazyRegister(&xDateTimeToString, "SOUP", "soup_date_time_to_string", false)
-
 	cret := xDateTimeToString(DateVar, FormatVar)
 	return cret
 }
@@ -64,4 +60,17 @@ func DateTimeToString(DateVar *glib.DateTime, FormatVar DateFormat) string {
 func init() {
 	core.SetPackageName("SOUP", "libsoup-3.0")
 	core.SetSharedLibraries("SOUP", []string{"libsoup-3.0.so.0", "libsoup-3.0.0.dylib"})
+	var libs []uintptr
+	for _, libPath := range core.GetPaths("SOUP") {
+		lib, err := purego.Dlopen(libPath, purego.RTLD_NOW|purego.RTLD_GLOBAL)
+		if err != nil {
+			panic(err)
+		}
+		libs = append(libs, lib)
+	}
+
+	core.PuregoSafeRegister(&xDateFormatGLibType, libs, "soup_date_format_get_type")
+
+	core.PuregoSafeRegister(&xDateTimeNewFromHttpString, libs, "soup_date_time_new_from_http_string")
+	core.PuregoSafeRegister(&xDateTimeToString, libs, "soup_date_time_to_string")
 }

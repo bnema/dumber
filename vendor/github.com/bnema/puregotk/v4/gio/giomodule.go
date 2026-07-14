@@ -5,6 +5,7 @@ import (
 	"structs"
 	"unsafe"
 
+	"github.com/bnema/purego"
 	"github.com/bnema/puregotk/pkg/core"
 	"github.com/bnema/puregotk/v4/glib"
 	"github.com/bnema/puregotk/v4/gobject"
@@ -54,8 +55,6 @@ var xIOModuleScopeBlock func(uintptr, string)
 // this scope is used with g_io_modules_scan_all_in_directory_with_scope()
 // or g_io_modules_load_all_in_directory_with_scope().
 func (x *IOModuleScope) Block(BasenameVar string) {
-	core.LazyRegister(&xIOModuleScopeBlock, "GIO", "g_io_module_scope_block", false)
-
 	xIOModuleScopeBlock(x.GoPointer(), BasenameVar)
 }
 
@@ -63,8 +62,6 @@ var xIOModuleScopeFree func(uintptr)
 
 // Free a module scope.
 func (x *IOModuleScope) Free() {
-	core.LazyRegister(&xIOModuleScopeFree, "GIO", "g_io_module_scope_free", false)
-
 	xIOModuleScopeFree(x.GoPointer())
 }
 
@@ -76,8 +73,6 @@ var xIoExtensionPointImplement func(string, types.GType, string, int) uintptr
 // If @type has already been registered as an extension for this
 // extension point, the existing #GIOExtension object is returned.
 func IoExtensionPointImplement(ExtensionPointNameVar string, TypeVar types.GType, ExtensionNameVar string, PriorityVar int) *IOExtension {
-	core.LazyRegister(&xIoExtensionPointImplement, "GIO", "g_io_extension_point_implement", false)
-
 	cret := xIoExtensionPointImplement(ExtensionPointNameVar, TypeVar, ExtensionNameVar, PriorityVar)
 	if cret == 0 {
 		return nil
@@ -89,8 +84,6 @@ var xIoExtensionPointLookup func(string) uintptr
 
 // Looks up an existing extension point.
 func IoExtensionPointLookup(NameVar string) *IOExtensionPoint {
-	core.LazyRegister(&xIoExtensionPointLookup, "GIO", "g_io_extension_point_lookup", false)
-
 	cret := xIoExtensionPointLookup(NameVar)
 	if cret == 0 {
 		return nil
@@ -102,8 +95,6 @@ var xIoExtensionPointRegister func(string) uintptr
 
 // Registers an extension point.
 func IoExtensionPointRegister(NameVar string) *IOExtensionPoint {
-	core.LazyRegister(&xIoExtensionPointRegister, "GIO", "g_io_extension_point_register", false)
-
 	cret := xIoExtensionPointRegister(NameVar)
 	if cret == 0 {
 		return nil
@@ -119,8 +110,6 @@ var xIoModulesLoadAllInDirectory func(string) uintptr
 // all gtypes) then you can use g_io_modules_scan_all_in_directory()
 // which allows delayed/lazy loading of modules.
 func IoModulesLoadAllInDirectory(DirnameVar string) *glib.List {
-	core.LazyRegister(&xIoModulesLoadAllInDirectory, "GIO", "g_io_modules_load_all_in_directory", false)
-
 	cret := xIoModulesLoadAllInDirectory(DirnameVar)
 	if cret == 0 {
 		return nil
@@ -136,8 +125,6 @@ var xIoModulesLoadAllInDirectoryWithScope func(string, *IOModuleScope) uintptr
 // all gtypes) then you can use g_io_modules_scan_all_in_directory()
 // which allows delayed/lazy loading of modules.
 func IoModulesLoadAllInDirectoryWithScope(DirnameVar string, ScopeVar *IOModuleScope) *glib.List {
-	core.LazyRegister(&xIoModulesLoadAllInDirectoryWithScope, "GIO", "g_io_modules_load_all_in_directory_with_scope", false)
-
 	cret := xIoModulesLoadAllInDirectoryWithScope(DirnameVar, ScopeVar)
 	if cret == 0 {
 		return nil
@@ -159,8 +146,6 @@ var xIoModulesScanAllInDirectory func(string)
 // If you need to guarantee that all types are loaded in all the modules,
 // use g_io_modules_load_all_in_directory().
 func IoModulesScanAllInDirectory(DirnameVar string) {
-	core.LazyRegister(&xIoModulesScanAllInDirectory, "GIO", "g_io_modules_scan_all_in_directory", false)
-
 	xIoModulesScanAllInDirectory(DirnameVar)
 }
 
@@ -178,8 +163,6 @@ var xIoModulesScanAllInDirectoryWithScope func(string, *IOModuleScope)
 // If you need to guarantee that all types are loaded in all the modules,
 // use g_io_modules_load_all_in_directory().
 func IoModulesScanAllInDirectoryWithScope(DirnameVar string, ScopeVar *IOModuleScope) {
-	core.LazyRegister(&xIoModulesScanAllInDirectoryWithScope, "GIO", "g_io_modules_scan_all_in_directory_with_scope", false)
-
 	xIoModulesScanAllInDirectoryWithScope(DirnameVar, ScopeVar)
 }
 
@@ -193,7 +176,6 @@ type IOModule struct {
 var xIOModuleGLibType func() types.GType
 
 func IOModuleGLibType() types.GType {
-	core.LazyRegister(&xIOModuleGLibType, "GIO", "g_io_module_get_type", false)
 	return xIOModuleGLibType()
 }
 
@@ -208,7 +190,6 @@ var xNewIOModule func(string) uintptr
 // Creates a new GIOModule that will load the specific
 // shared library when in use.
 func NewIOModule(FilenameVar string) *IOModule {
-	core.LazyRegister(&xNewIOModule, "GIO", "g_io_module_new", false)
 	var cls *IOModule
 
 	cret := xNewIOModule(FilenameVar)
@@ -237,8 +218,6 @@ var xIOModuleLoad func(uintptr)
 // statically. The old symbol names continue to be supported, but cannot be used
 // for static builds.
 func (x *IOModule) Load() {
-	core.LazyRegister(&xIOModuleLoad, "GIO", "g_io_module_load", false)
-
 	xIOModuleLoad(x.GoPointer())
 }
 
@@ -257,8 +236,6 @@ var xIOModuleUnload func(uintptr)
 // statically. The old symbol names continue to be supported, but cannot be used
 // for static builds.
 func (x *IOModule) Unload() {
-	core.LazyRegister(&xIOModuleUnload, "GIO", "g_io_module_unload", false)
-
 	xIOModuleUnload(x.GoPointer())
 }
 
@@ -335,8 +312,6 @@ var xIOModuleQuery func() []string
 // statically. The old symbol names continue to be supported, but cannot be used
 // for static builds.
 func IOModuleQuery() []string {
-	core.LazyRegister(&xIOModuleQuery, "GIO", "g_io_module_query", false)
-
 	cret := xIOModuleQuery()
 	return cret
 }
@@ -344,4 +319,32 @@ func IOModuleQuery() []string {
 func init() {
 	core.SetPackageName("GIO", "gio-2.0")
 	core.SetSharedLibraries("GIO", []string{"libgio-2.0.so.0", "libgio-2.0.0.dylib"})
+	var libs []uintptr
+	for _, libPath := range core.GetPaths("GIO") {
+		lib, err := purego.Dlopen(libPath, purego.RTLD_NOW|purego.RTLD_GLOBAL)
+		if err != nil {
+			panic(err)
+		}
+		libs = append(libs, lib)
+	}
+
+	core.PuregoSafeRegister(&xIoExtensionPointImplement, libs, "g_io_extension_point_implement")
+	core.PuregoSafeRegister(&xIoExtensionPointLookup, libs, "g_io_extension_point_lookup")
+	core.PuregoSafeRegister(&xIoExtensionPointRegister, libs, "g_io_extension_point_register")
+	core.PuregoSafeRegister(&xIoModulesLoadAllInDirectory, libs, "g_io_modules_load_all_in_directory")
+	core.PuregoSafeRegister(&xIoModulesLoadAllInDirectoryWithScope, libs, "g_io_modules_load_all_in_directory_with_scope")
+	core.PuregoSafeRegister(&xIoModulesScanAllInDirectory, libs, "g_io_modules_scan_all_in_directory")
+	core.PuregoSafeRegister(&xIoModulesScanAllInDirectoryWithScope, libs, "g_io_modules_scan_all_in_directory_with_scope")
+
+	core.PuregoSafeRegister(&xIOModuleScopeBlock, libs, "g_io_module_scope_block")
+	core.PuregoSafeRegister(&xIOModuleScopeFree, libs, "g_io_module_scope_free")
+
+	core.PuregoSafeRegister(&xIOModuleGLibType, libs, "g_io_module_get_type")
+
+	core.PuregoSafeRegister(&xNewIOModule, libs, "g_io_module_new")
+
+	core.PuregoSafeRegister(&xIOModuleLoad, libs, "g_io_module_load")
+	core.PuregoSafeRegister(&xIOModuleUnload, libs, "g_io_module_unload")
+
+	core.PuregoSafeRegister(&xIOModuleQuery, libs, "g_io_module_query")
 }

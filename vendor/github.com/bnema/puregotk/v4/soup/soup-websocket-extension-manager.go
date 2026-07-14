@@ -5,7 +5,6 @@ import (
 	"structs"
 	"unsafe"
 
-	"github.com/bnema/puregotk/pkg/core"
 	"github.com/bnema/puregotk/v4/gobject"
 	"github.com/bnema/puregotk/v4/gobject/types"
 )
@@ -43,7 +42,6 @@ type WebsocketExtensionManager struct {
 var xWebsocketExtensionManagerGLibType func() types.GType
 
 func WebsocketExtensionManagerGLibType() types.GType {
-	core.LazyRegister(&xWebsocketExtensionManagerGLibType, "SOUP", "soup_websocket_extension_manager_get_type", false)
 	return xWebsocketExtensionManagerGLibType()
 }
 
@@ -62,9 +60,4 @@ func (c *WebsocketExtensionManager) GoPointer() uintptr {
 
 func (c *WebsocketExtensionManager) SetGoPointer(ptr uintptr) {
 	c.Ptr = ptr
-}
-
-func init() {
-	core.SetPackageName("SOUP", "libsoup-3.0")
-	core.SetSharedLibraries("SOUP", []string{"libsoup-3.0.so.0", "libsoup-3.0.0.dylib"})
 }

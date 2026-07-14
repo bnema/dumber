@@ -2,6 +2,7 @@
 package gio
 
 import (
+	"github.com/bnema/purego"
 	"github.com/bnema/puregotk/pkg/core"
 	"github.com/bnema/puregotk/v4/glib"
 )
@@ -13,8 +14,6 @@ var xIoSchedulerCancelAllJobs func()
 // A job is cancellable if a #GCancellable was passed into
 // g_io_scheduler_push_job().
 func IoSchedulerCancelAllJobs() {
-	core.LazyRegister(&xIoSchedulerCancelAllJobs, "GIO", "g_io_scheduler_cancel_all_jobs", false)
-
 	xIoSchedulerCancelAllJobs()
 }
 
@@ -29,12 +28,21 @@ var xIoSchedulerPushJob func(uintptr, uintptr, uintptr, int, uintptr)
 // by calling g_cancellable_cancel() or by calling
 // g_io_scheduler_cancel_all_jobs().
 func IoSchedulerPushJob(JobFuncVar *IOSchedulerJobFunc, UserDataVar uintptr, NotifyVar *glib.DestroyNotify, IoPriorityVar int, CancellableVar *Cancellable) {
-	core.LazyRegister(&xIoSchedulerPushJob, "GIO", "g_io_scheduler_push_job", false)
-
 	xIoSchedulerPushJob(glib.NewCallback(JobFuncVar), UserDataVar, glib.NewCallbackNullable(NotifyVar), IoPriorityVar, CancellableVar.GoPointer())
 }
 
 func init() {
 	core.SetPackageName("GIO", "gio-2.0")
 	core.SetSharedLibraries("GIO", []string{"libgio-2.0.so.0", "libgio-2.0.0.dylib"})
+	var libs []uintptr
+	for _, libPath := range core.GetPaths("GIO") {
+		lib, err := purego.Dlopen(libPath, purego.RTLD_NOW|purego.RTLD_GLOBAL)
+		if err != nil {
+			panic(err)
+		}
+		libs = append(libs, lib)
+	}
+
+	core.PuregoSafeRegister(&xIoSchedulerCancelAllJobs, libs, "g_io_scheduler_cancel_all_jobs")
+	core.PuregoSafeRegister(&xIoSchedulerPushJob, libs, "g_io_scheduler_push_job")
 }

@@ -5,6 +5,7 @@ import (
 	"structs"
 	"unsafe"
 
+	"github.com/bnema/purego"
 	"github.com/bnema/puregotk/pkg/core"
 	"github.com/bnema/puregotk/v4/glib"
 	"github.com/bnema/puregotk/v4/gobject"
@@ -37,7 +38,6 @@ type PrintOperationResponse int
 var xPrintOperationResponseGLibType func() types.GType
 
 func PrintOperationResponseGLibType() types.GType {
-	core.LazyRegister(&xPrintOperationResponseGLibType, "WEBKIT", "webkit_print_operation_response_get_type", false)
 	return xPrintOperationResponseGLibType()
 }
 
@@ -62,7 +62,6 @@ type PrintOperation struct {
 var xPrintOperationGLibType func() types.GType
 
 func PrintOperationGLibType() types.GType {
-	core.LazyRegister(&xPrintOperationGLibType, "WEBKIT", "webkit_print_operation_get_type", false)
 	return xPrintOperationGLibType()
 }
 
@@ -76,7 +75,6 @@ var xNewPrintOperation func(uintptr) uintptr
 
 // Create a new #WebKitPrintOperation to print @web_view contents.
 func NewPrintOperation(WebViewVar *WebView) *PrintOperation {
-	core.LazyRegister(&xNewPrintOperation, "WEBKIT", "webkit_print_operation_new", false)
 	var cls *PrintOperation
 
 	cret := xNewPrintOperation(WebViewVar.GoPointer())
@@ -97,7 +95,6 @@ var xPrintOperationGetPageSetup func(uintptr) uintptr
 // either webkit_print_operation_set_page_setup() or webkit_print_operation_run_dialog()
 // have been called.
 func (x *PrintOperation) GetPageSetup() *gtk.PageSetup {
-	core.LazyRegister(&xPrintOperationGetPageSetup, "WEBKIT", "webkit_print_operation_get_page_setup", false)
 	var cls *gtk.PageSetup
 
 	cret := xPrintOperationGetPageSetup(x.GoPointer())
@@ -119,7 +116,6 @@ var xPrintOperationGetPrintSettings func(uintptr) uintptr
 // either webkit_print_operation_set_print_settings() or webkit_print_operation_run_dialog()
 // have been called.
 func (x *PrintOperation) GetPrintSettings() *gtk.PrintSettings {
-	core.LazyRegister(&xPrintOperationGetPrintSettings, "WEBKIT", "webkit_print_operation_get_print_settings", false)
 	var cls *gtk.PrintSettings
 
 	cret := xPrintOperationGetPrintSettings(x.GoPointer())
@@ -151,8 +147,6 @@ var xPrintOperationPrint func(uintptr)
 // through the File Chooser portal. This function will not work for physical
 // printers when running in a sandbox.
 func (x *PrintOperation) Print() {
-	core.LazyRegister(&xPrintOperationPrint, "WEBKIT", "webkit_print_operation_print", false)
-
 	xPrintOperationPrint(x.GoPointer())
 }
 
@@ -173,8 +167,6 @@ var xPrintOperationRunDialog func(uintptr, uintptr) PrintOperationResponse
 // webkit_print_operation_get_print_settings() and webkit_print_operation_get_page_setup()
 // after this method.
 func (x *PrintOperation) RunDialog(ParentVar *gtk.Window) PrintOperationResponse {
-	core.LazyRegister(&xPrintOperationRunDialog, "WEBKIT", "webkit_print_operation_run_dialog", false)
-
 	cret := xPrintOperationRunDialog(x.GoPointer(), ParentVar.GoPointer())
 	return cret
 }
@@ -186,8 +178,6 @@ var xPrintOperationSetPageSetup func(uintptr, uintptr)
 // Current page setup is used for the
 // initial values of the print dialog when webkit_print_operation_run_dialog() is called.
 func (x *PrintOperation) SetPageSetup(PageSetupVar *gtk.PageSetup) {
-	core.LazyRegister(&xPrintOperationSetPageSetup, "WEBKIT", "webkit_print_operation_set_page_setup", false)
-
 	xPrintOperationSetPageSetup(x.GoPointer(), PageSetupVar.GoPointer())
 }
 
@@ -198,8 +188,6 @@ var xPrintOperationSetPrintSettings func(uintptr, uintptr)
 // Set the current print settings of @print_operation. Current print settings are used for
 // the initial values of the print dialog when webkit_print_operation_run_dialog() is called.
 func (x *PrintOperation) SetPrintSettings(PrintSettingsVar *gtk.PrintSettings) {
-	core.LazyRegister(&xPrintOperationSetPrintSettings, "WEBKIT", "webkit_print_operation_set_print_settings", false)
-
 	xPrintOperationSetPrintSettings(x.GoPointer(), PrintSettingsVar.GoPointer())
 }
 
@@ -266,8 +254,30 @@ func (x *PrintOperation) ConnectFinished(cb *func(PrintOperation)) uint {
 func init() {
 	core.SetPackageName("WEBKIT", "webkitgtk-6.0")
 	core.SetSharedLibraries("WEBKIT", []string{"libwebkitgtk-6.0.so.4", "libjavascriptcoregtk-6.0.so.1", "libwebkitgtk-6.0.4.dylib", "libjavascriptcoregtk-6.0.1.dylib"})
+	var libs []uintptr
+	for _, libPath := range core.GetPaths("WEBKIT") {
+		lib, err := purego.Dlopen(libPath, purego.RTLD_NOW|purego.RTLD_GLOBAL)
+		if err != nil {
+			panic(err)
+		}
+		libs = append(libs, lib)
+	}
 
-	// Manually register types since they aren't automatically registered when
-	// WebKit is loaded. See https://bugs.webkit.org/show_bug.cgi?id=175937.
+	core.PuregoSafeRegister(&xPrintOperationResponseGLibType, libs, "webkit_print_operation_response_get_type")
+
+	core.PuregoSafeRegister(&xPrintOperationGLibType, libs, "webkit_print_operation_get_type")
+
+	core.PuregoSafeRegister(&xNewPrintOperation, libs, "webkit_print_operation_new")
+
+	core.PuregoSafeRegister(&xPrintOperationGetPageSetup, libs, "webkit_print_operation_get_page_setup")
+	core.PuregoSafeRegister(&xPrintOperationGetPrintSettings, libs, "webkit_print_operation_get_print_settings")
+	core.PuregoSafeRegister(&xPrintOperationPrint, libs, "webkit_print_operation_print")
+	core.PuregoSafeRegister(&xPrintOperationRunDialog, libs, "webkit_print_operation_run_dialog")
+	core.PuregoSafeRegister(&xPrintOperationSetPageSetup, libs, "webkit_print_operation_set_page_setup")
+	core.PuregoSafeRegister(&xPrintOperationSetPrintSettings, libs, "webkit_print_operation_set_print_settings")
+
+	// Manually register types since they aren't being automatically registered when
+	// the library is loaded
+	// See https://bugs.webkit.org/show_bug.cgi?id=175937
 	PrintOperationGLibType()
 }

@@ -5,6 +5,7 @@ import (
 	"structs"
 	"unsafe"
 
+	"github.com/bnema/purego"
 	"github.com/bnema/puregotk/pkg/core"
 	"github.com/bnema/puregotk/v4/gdk"
 	"github.com/bnema/puregotk/v4/glib"
@@ -39,7 +40,6 @@ type GestureStylus struct {
 var xGestureStylusGLibType func() types.GType
 
 func GestureStylusGLibType() types.GType {
-	core.LazyRegister(&xGestureStylusGLibType, "GTK", "gtk_gesture_stylus_get_type", false)
 	return xGestureStylusGLibType()
 }
 
@@ -53,7 +53,6 @@ var xNewGestureStylus func() uintptr
 
 // Creates a new `GtkGestureStylus`.
 func NewGestureStylus() *GestureStylus {
-	core.LazyRegister(&xNewGestureStylus, "GTK", "gtk_gesture_stylus_new", false)
 	var cls *GestureStylus
 
 	cret := xNewGestureStylus()
@@ -75,8 +74,6 @@ var xGestureStylusGetAxes func(uintptr, []gdk.AxisUse, *[]float64) bool
 // [signal@Gtk.GestureStylus::up] or [signal@Gtk.GestureStylus::proximity]
 // signals.
 func (x *GestureStylus) GetAxes(AxesVar []gdk.AxisUse, ValuesVar *[]float64) bool {
-	core.LazyRegister(&xGestureStylusGetAxes, "GTK", "gtk_gesture_stylus_get_axes", false)
-
 	cret := xGestureStylusGetAxes(x.GoPointer(), AxesVar, ValuesVar)
 	return cret
 }
@@ -90,8 +87,6 @@ var xGestureStylusGetAxis func(uintptr, gdk.AxisUse, *float64) bool
 // [signal@Gtk.GestureStylus::up] or [signal@Gtk.GestureStylus::proximity]
 // signals.
 func (x *GestureStylus) GetAxis(AxisVar gdk.AxisUse, ValueVar *float64) bool {
-	core.LazyRegister(&xGestureStylusGetAxis, "GTK", "gtk_gesture_stylus_get_axis", false)
-
 	cret := xGestureStylusGetAxis(x.GoPointer(), AxisVar, ValueVar)
 	return cret
 }
@@ -112,8 +107,6 @@ var xGestureStylusGetBacklog func(uintptr, *uintptr, *uint) bool
 //
 // The @backlog is provided in chronological order.
 func (x *GestureStylus) GetBacklog(BacklogVar *uintptr, NElemsVar *uint) bool {
-	core.LazyRegister(&xGestureStylusGetBacklog, "GTK", "gtk_gesture_stylus_get_backlog", false)
-
 	cret := xGestureStylusGetBacklog(x.GoPointer(), BacklogVar, NElemsVar)
 	return cret
 }
@@ -127,7 +120,6 @@ var xGestureStylusGetDeviceTool func(uintptr) uintptr
 // [signal@Gtk.GestureStylus::up] or [signal@Gtk.GestureStylus::proximity]
 // signals.
 func (x *GestureStylus) GetDeviceTool() *gdk.DeviceTool {
-	core.LazyRegister(&xGestureStylusGetDeviceTool, "GTK", "gtk_gesture_stylus_get_device_tool", false)
 	var cls *gdk.DeviceTool
 
 	cret := xGestureStylusGetDeviceTool(x.GoPointer())
@@ -148,8 +140,6 @@ var xGestureStylusGetStylusOnly func(uintptr) bool
 // Stylus-only gestures will signal events exclusively from stylus
 // input devices.
 func (x *GestureStylus) GetStylusOnly() bool {
-	core.LazyRegister(&xGestureStylusGetStylusOnly, "GTK", "gtk_gesture_stylus_get_stylus_only", false)
-
 	cret := xGestureStylusGetStylusOnly(x.GoPointer())
 	return cret
 }
@@ -161,8 +151,6 @@ var xGestureStylusSetStylusOnly func(uintptr, bool)
 // If true, the gesture will exclusively handle events from stylus input devices,
 // otherwise it'll handle events from any pointing device.
 func (x *GestureStylus) SetStylusOnly(StylusOnlyVar bool) {
-	core.LazyRegister(&xGestureStylusSetStylusOnly, "GTK", "gtk_gesture_stylus_set_stylus_only", false)
-
 	xGestureStylusSetStylusOnly(x.GoPointer(), StylusOnlyVar)
 }
 
@@ -289,4 +277,23 @@ func (x *GestureStylus) ConnectUp(cb *func(GestureStylus, float64, float64)) uin
 func init() {
 	core.SetPackageName("GTK", "gtk4")
 	core.SetSharedLibraries("GTK", []string{"libgtk-4.so.1", "libgtk-4.1.dylib"})
+	var libs []uintptr
+	for _, libPath := range core.GetPaths("GTK") {
+		lib, err := purego.Dlopen(libPath, purego.RTLD_NOW|purego.RTLD_GLOBAL)
+		if err != nil {
+			panic(err)
+		}
+		libs = append(libs, lib)
+	}
+
+	core.PuregoSafeRegister(&xGestureStylusGLibType, libs, "gtk_gesture_stylus_get_type")
+
+	core.PuregoSafeRegister(&xNewGestureStylus, libs, "gtk_gesture_stylus_new")
+
+	core.PuregoSafeRegister(&xGestureStylusGetAxes, libs, "gtk_gesture_stylus_get_axes")
+	core.PuregoSafeRegister(&xGestureStylusGetAxis, libs, "gtk_gesture_stylus_get_axis")
+	core.PuregoSafeRegister(&xGestureStylusGetBacklog, libs, "gtk_gesture_stylus_get_backlog")
+	core.PuregoSafeRegister(&xGestureStylusGetDeviceTool, libs, "gtk_gesture_stylus_get_device_tool")
+	core.PuregoSafeRegister(&xGestureStylusGetStylusOnly, libs, "gtk_gesture_stylus_get_stylus_only")
+	core.PuregoSafeRegister(&xGestureStylusSetStylusOnly, libs, "gtk_gesture_stylus_set_stylus_only")
 }

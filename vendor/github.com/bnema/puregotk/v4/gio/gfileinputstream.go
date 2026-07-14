@@ -102,7 +102,7 @@ func (x *FileInputStreamClass) OverrideSeek(cb func(*FileInputStream, int64, gli
 	if cb == nil {
 		x.xSeek = 0
 	} else {
-		x.xSeek = purego.NewCallback(func(StreamVarp uintptr, OffsetVarp int64, TypeVarp glib.SeekType, CancellableVarp uintptr, cerrp **glib.Error) bool {
+		x.xSeek = purego.NewCallback(func(StreamVarp uintptr, OffsetVarp int64, TypeVarp glib.SeekType, CancellableVarp uintptr) bool {
 			return cb(FileInputStreamNewFromInternalPtr(StreamVarp), OffsetVarp, TypeVarp, CancellableNewFromInternalPtr(CancellableVarp))
 		})
 	}
@@ -113,11 +113,10 @@ func (x *FileInputStreamClass) GetSeek() func(*FileInputStream, int64, glib.Seek
 	if x.xSeek == 0 {
 		return nil
 	}
-	var rawCallback func(StreamVarp uintptr, OffsetVarp int64, TypeVarp glib.SeekType, CancellableVarp uintptr, cerrp **glib.Error) bool
+	var rawCallback func(StreamVarp uintptr, OffsetVarp int64, TypeVarp glib.SeekType, CancellableVarp uintptr) bool
 	purego.RegisterFunc(&rawCallback, x.xSeek)
 	return func(StreamVar *FileInputStream, OffsetVar int64, TypeVar glib.SeekType, CancellableVar *Cancellable) bool {
-		var cerr *glib.Error
-		return rawCallback(StreamVar.GoPointer(), OffsetVar, TypeVar, CancellableVar.GoPointer(), &cerr)
+		return rawCallback(StreamVar.GoPointer(), OffsetVar, TypeVar, CancellableVar.GoPointer())
 	}
 }
 
@@ -126,7 +125,7 @@ func (x *FileInputStreamClass) OverrideQueryInfo(cb func(*FileInputStream, strin
 	if cb == nil {
 		x.xQueryInfo = 0
 	} else {
-		x.xQueryInfo = purego.NewCallback(func(StreamVarp uintptr, AttributesVarp string, CancellableVarp uintptr, cerrp **glib.Error) uintptr {
+		x.xQueryInfo = purego.NewCallback(func(StreamVarp uintptr, AttributesVarp string, CancellableVarp uintptr) uintptr {
 			ret := cb(FileInputStreamNewFromInternalPtr(StreamVarp), AttributesVarp, CancellableNewFromInternalPtr(CancellableVarp))
 			if ret == nil {
 				return 0
@@ -141,11 +140,10 @@ func (x *FileInputStreamClass) GetQueryInfo() func(*FileInputStream, string, *Ca
 	if x.xQueryInfo == 0 {
 		return nil
 	}
-	var rawCallback func(StreamVarp uintptr, AttributesVarp string, CancellableVarp uintptr, cerrp **glib.Error) uintptr
+	var rawCallback func(StreamVarp uintptr, AttributesVarp string, CancellableVarp uintptr) uintptr
 	purego.RegisterFunc(&rawCallback, x.xQueryInfo)
 	return func(StreamVar *FileInputStream, AttributesVar string, CancellableVar *Cancellable) *FileInfo {
-		var cerr *glib.Error
-		rawRet := rawCallback(StreamVar.GoPointer(), AttributesVar, CancellableVar.GoPointer(), &cerr)
+		rawRet := rawCallback(StreamVar.GoPointer(), AttributesVar, CancellableVar.GoPointer())
 		if rawRet == 0 {
 			return nil
 		}
@@ -183,7 +181,7 @@ func (x *FileInputStreamClass) OverrideQueryInfoFinish(cb func(*FileInputStream,
 	if cb == nil {
 		x.xQueryInfoFinish = 0
 	} else {
-		x.xQueryInfoFinish = purego.NewCallback(func(StreamVarp uintptr, ResultVarp uintptr, cerrp **glib.Error) uintptr {
+		x.xQueryInfoFinish = purego.NewCallback(func(StreamVarp uintptr, ResultVarp uintptr) uintptr {
 			ret := cb(FileInputStreamNewFromInternalPtr(StreamVarp), &AsyncResultBase{Ptr: ResultVarp})
 			if ret == nil {
 				return 0
@@ -198,11 +196,10 @@ func (x *FileInputStreamClass) GetQueryInfoFinish() func(*FileInputStream, Async
 	if x.xQueryInfoFinish == 0 {
 		return nil
 	}
-	var rawCallback func(StreamVarp uintptr, ResultVarp uintptr, cerrp **glib.Error) uintptr
+	var rawCallback func(StreamVarp uintptr, ResultVarp uintptr) uintptr
 	purego.RegisterFunc(&rawCallback, x.xQueryInfoFinish)
 	return func(StreamVar *FileInputStream, ResultVar AsyncResult) *FileInfo {
-		var cerr *glib.Error
-		rawRet := rawCallback(StreamVar.GoPointer(), ResultVar.GoPointer(), &cerr)
+		rawRet := rawCallback(StreamVar.GoPointer(), ResultVar.GoPointer())
 		if rawRet == 0 {
 			return nil
 		}
@@ -359,7 +356,6 @@ type FileInputStream struct {
 var xFileInputStreamGLibType func() types.GType
 
 func FileInputStreamGLibType() types.GType {
-	core.LazyRegister(&xFileInputStreamGLibType, "GIO", "g_file_input_stream_get_type", false)
 	return xFileInputStreamGLibType()
 }
 
@@ -377,7 +373,6 @@ var xFileInputStreamQueryInfo func(uintptr, string, uintptr, **glib.Error) uintp
 // stream is blocked, the stream will set the pending flag internally, and
 // any other operations on the stream will fail with %G_IO_ERROR_PENDING.
 func (x *FileInputStream) QueryInfo(AttributesVar string, CancellableVar *Cancellable) (*FileInfo, error) {
-	core.LazyRegister(&xFileInputStreamQueryInfo, "GIO", "g_file_input_stream_query_info", false)
 	var cls *FileInfo
 	var cerr *glib.Error
 
@@ -408,8 +403,6 @@ var xFileInputStreamQueryInfoAsync func(uintptr, string, int, uintptr, uintptr, 
 // triggering the cancellable object from another thread. If the operation
 // was cancelled, the error %G_IO_ERROR_CANCELLED will be set
 func (x *FileInputStream) QueryInfoAsync(AttributesVar string, IoPriorityVar int, CancellableVar *Cancellable, CallbackVar *AsyncReadyCallback, UserDataVar uintptr) {
-	core.LazyRegister(&xFileInputStreamQueryInfoAsync, "GIO", "g_file_input_stream_query_info_async", false)
-
 	xFileInputStreamQueryInfoAsync(x.GoPointer(), AttributesVar, IoPriorityVar, CancellableVar.GoPointer(), glib.NewCallbackNullable(CallbackVar), UserDataVar)
 }
 
@@ -417,7 +410,6 @@ var xFileInputStreamQueryInfoFinish func(uintptr, uintptr, **glib.Error) uintptr
 
 // Finishes an asynchronous info query operation.
 func (x *FileInputStream) QueryInfoFinish(ResultVar AsyncResult) (*FileInfo, error) {
-	core.LazyRegister(&xFileInputStreamQueryInfoFinish, "GIO", "g_file_input_stream_query_info_finish", false)
 	var cls *FileInfo
 	var cerr *glib.Error
 
@@ -510,4 +502,18 @@ func (x *FileInputStream) Truncate(OffsetVar int64, CancellableVar *Cancellable)
 func init() {
 	core.SetPackageName("GIO", "gio-2.0")
 	core.SetSharedLibraries("GIO", []string{"libgio-2.0.so.0", "libgio-2.0.0.dylib"})
+	var libs []uintptr
+	for _, libPath := range core.GetPaths("GIO") {
+		lib, err := purego.Dlopen(libPath, purego.RTLD_NOW|purego.RTLD_GLOBAL)
+		if err != nil {
+			panic(err)
+		}
+		libs = append(libs, lib)
+	}
+
+	core.PuregoSafeRegister(&xFileInputStreamGLibType, libs, "g_file_input_stream_get_type")
+
+	core.PuregoSafeRegister(&xFileInputStreamQueryInfo, libs, "g_file_input_stream_query_info")
+	core.PuregoSafeRegister(&xFileInputStreamQueryInfoAsync, libs, "g_file_input_stream_query_info_async")
+	core.PuregoSafeRegister(&xFileInputStreamQueryInfoFinish, libs, "g_file_input_stream_query_info_finish")
 }

@@ -5,6 +5,7 @@ import (
 	"structs"
 	"unsafe"
 
+	"github.com/bnema/purego"
 	"github.com/bnema/puregotk/pkg/core"
 	"github.com/bnema/puregotk/v4/gdk"
 	"github.com/bnema/puregotk/v4/gio"
@@ -111,7 +112,6 @@ type ApplicationWindow struct {
 var xApplicationWindowGLibType func() types.GType
 
 func ApplicationWindowGLibType() types.GType {
-	core.LazyRegister(&xApplicationWindowGLibType, "GTK", "gtk_application_window_get_type", false)
 	return xApplicationWindowGLibType()
 }
 
@@ -125,7 +125,6 @@ var xNewApplicationWindow func(uintptr) uintptr
 
 // Creates a new `GtkApplicationWindow`.
 func NewApplicationWindow(ApplicationVar *Application) *ApplicationWindow {
-	core.LazyRegister(&xNewApplicationWindow, "GTK", "gtk_application_window_new", false)
 	var cls *ApplicationWindow
 
 	cret := xNewApplicationWindow(ApplicationVar.GoPointer())
@@ -145,7 +144,6 @@ var xApplicationWindowGetHelpOverlay func(uintptr) uintptr
 //
 // See [method@Gtk.ApplicationWindow.set_help_overlay].
 func (x *ApplicationWindow) GetHelpOverlay() *ShortcutsWindow {
-	core.LazyRegister(&xApplicationWindowGetHelpOverlay, "GTK", "gtk_application_window_get_help_overlay", false)
 	var cls *ShortcutsWindow
 
 	cret := xApplicationWindowGetHelpOverlay(x.GoPointer())
@@ -165,8 +163,6 @@ var xApplicationWindowGetId func(uintptr) uint
 //
 //	If the window has not yet been added to a `GtkApplication`, returns `0`.
 func (x *ApplicationWindow) GetId() uint {
-	core.LazyRegister(&xApplicationWindowGetId, "GTK", "gtk_application_window_get_id", false)
-
 	cret := xApplicationWindowGetId(x.GoPointer())
 	return cret
 }
@@ -176,8 +172,6 @@ var xApplicationWindowGetShowMenubar func(uintptr) bool
 // Returns whether the window will display a menubar for the app menu
 // and menubar as needed.
 func (x *ApplicationWindow) GetShowMenubar() bool {
-	core.LazyRegister(&xApplicationWindowGetShowMenubar, "GTK", "gtk_application_window_get_show_menubar", false)
-
 	cret := xApplicationWindowGetShowMenubar(x.GoPointer())
 	return cret
 }
@@ -191,8 +185,6 @@ var xApplicationWindowSetHelpOverlay func(uintptr, uintptr)
 //
 // The window takes responsibility for destroying the help overlay.
 func (x *ApplicationWindow) SetHelpOverlay(HelpOverlayVar *ShortcutsWindow) {
-	core.LazyRegister(&xApplicationWindowSetHelpOverlay, "GTK", "gtk_application_window_set_help_overlay", false)
-
 	xApplicationWindowSetHelpOverlay(x.GoPointer(), HelpOverlayVar.GoPointer())
 }
 
@@ -201,8 +193,6 @@ var xApplicationWindowSetShowMenubar func(uintptr, bool)
 // Sets whether the window will display a menubar for the app menu
 // and menubar as needed.
 func (x *ApplicationWindow) SetShowMenubar(ShowMenubarVar bool) {
-	core.LazyRegister(&xApplicationWindowSetShowMenubar, "GTK", "gtk_application_window_set_show_menubar", false)
-
 	xApplicationWindowSetShowMenubar(x.GoPointer(), ShowMenubarVar)
 }
 
@@ -941,4 +931,22 @@ func (x *ApplicationWindow) SetFocus(FocusVar *Widget) {
 func init() {
 	core.SetPackageName("GTK", "gtk4")
 	core.SetSharedLibraries("GTK", []string{"libgtk-4.so.1", "libgtk-4.1.dylib"})
+	var libs []uintptr
+	for _, libPath := range core.GetPaths("GTK") {
+		lib, err := purego.Dlopen(libPath, purego.RTLD_NOW|purego.RTLD_GLOBAL)
+		if err != nil {
+			panic(err)
+		}
+		libs = append(libs, lib)
+	}
+
+	core.PuregoSafeRegister(&xApplicationWindowGLibType, libs, "gtk_application_window_get_type")
+
+	core.PuregoSafeRegister(&xNewApplicationWindow, libs, "gtk_application_window_new")
+
+	core.PuregoSafeRegister(&xApplicationWindowGetHelpOverlay, libs, "gtk_application_window_get_help_overlay")
+	core.PuregoSafeRegister(&xApplicationWindowGetId, libs, "gtk_application_window_get_id")
+	core.PuregoSafeRegister(&xApplicationWindowGetShowMenubar, libs, "gtk_application_window_get_show_menubar")
+	core.PuregoSafeRegister(&xApplicationWindowSetHelpOverlay, libs, "gtk_application_window_set_help_overlay")
+	core.PuregoSafeRegister(&xApplicationWindowSetShowMenubar, libs, "gtk_application_window_set_show_menubar")
 }

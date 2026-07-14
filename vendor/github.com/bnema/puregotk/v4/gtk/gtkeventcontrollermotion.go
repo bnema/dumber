@@ -5,6 +5,7 @@ import (
 	"structs"
 	"unsafe"
 
+	"github.com/bnema/purego"
 	"github.com/bnema/puregotk/pkg/core"
 	"github.com/bnema/puregotk/v4/glib"
 	"github.com/bnema/puregotk/v4/gobject"
@@ -42,7 +43,6 @@ type EventControllerMotion struct {
 var xEventControllerMotionGLibType func() types.GType
 
 func EventControllerMotionGLibType() types.GType {
-	core.LazyRegister(&xEventControllerMotionGLibType, "GTK", "gtk_event_controller_motion_get_type", false)
 	return xEventControllerMotionGLibType()
 }
 
@@ -56,7 +56,6 @@ var xNewEventControllerMotion func() uintptr
 
 // Creates a new event controller that will handle motion events.
 func NewEventControllerMotion() *EventControllerMotion {
-	core.LazyRegister(&xNewEventControllerMotion, "GTK", "gtk_event_controller_motion_new", false)
 	var cls *EventControllerMotion
 
 	cret := xNewEventControllerMotion()
@@ -73,8 +72,6 @@ var xEventControllerMotionContainsPointer func(uintptr) bool
 
 // Returns if a pointer is within @self or one of its children.
 func (x *EventControllerMotion) ContainsPointer() bool {
-	core.LazyRegister(&xEventControllerMotionContainsPointer, "GTK", "gtk_event_controller_motion_contains_pointer", false)
-
 	cret := xEventControllerMotionContainsPointer(x.GoPointer())
 	return cret
 }
@@ -83,8 +80,6 @@ var xEventControllerMotionIsPointer func(uintptr) bool
 
 // Returns if a pointer is within @self, but not one of its children.
 func (x *EventControllerMotion) IsPointer() bool {
-	core.LazyRegister(&xEventControllerMotionIsPointer, "GTK", "gtk_event_controller_motion_is_pointer", false)
-
 	cret := xEventControllerMotionIsPointer(x.GoPointer())
 	return cret
 }
@@ -201,4 +196,19 @@ func (x *EventControllerMotion) ConnectMotion(cb *func(EventControllerMotion, fl
 func init() {
 	core.SetPackageName("GTK", "gtk4")
 	core.SetSharedLibraries("GTK", []string{"libgtk-4.so.1", "libgtk-4.1.dylib"})
+	var libs []uintptr
+	for _, libPath := range core.GetPaths("GTK") {
+		lib, err := purego.Dlopen(libPath, purego.RTLD_NOW|purego.RTLD_GLOBAL)
+		if err != nil {
+			panic(err)
+		}
+		libs = append(libs, lib)
+	}
+
+	core.PuregoSafeRegister(&xEventControllerMotionGLibType, libs, "gtk_event_controller_motion_get_type")
+
+	core.PuregoSafeRegister(&xNewEventControllerMotion, libs, "gtk_event_controller_motion_new")
+
+	core.PuregoSafeRegister(&xEventControllerMotionContainsPointer, libs, "gtk_event_controller_motion_contains_pointer")
+	core.PuregoSafeRegister(&xEventControllerMotionIsPointer, libs, "gtk_event_controller_motion_is_pointer")
 }

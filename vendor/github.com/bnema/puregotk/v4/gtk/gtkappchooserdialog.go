@@ -2,6 +2,7 @@
 package gtk
 
 import (
+	"github.com/bnema/purego"
 	"github.com/bnema/puregotk/pkg/core"
 	"github.com/bnema/puregotk/v4/gdk"
 	"github.com/bnema/puregotk/v4/gio"
@@ -39,7 +40,6 @@ type AppChooserDialog struct {
 var xAppChooserDialogGLibType func() types.GType
 
 func AppChooserDialogGLibType() types.GType {
-	core.LazyRegister(&xAppChooserDialogGLibType, "GTK", "gtk_app_chooser_dialog_get_type", false)
 	return xAppChooserDialogGLibType()
 }
 
@@ -55,7 +55,6 @@ var xNewAppChooserDialog func(uintptr, DialogFlags, uintptr) uintptr
 //
 // The dialog will show applications that can open the file.
 func NewAppChooserDialog(ParentVar *Window, FlagsVar DialogFlags, FileVar gio.File) *AppChooserDialog {
-	core.LazyRegister(&xNewAppChooserDialog, "GTK", "gtk_app_chooser_dialog_new", false)
 	var cls *AppChooserDialog
 
 	cret := xNewAppChooserDialog(ParentVar.GoPointer(), FlagsVar, FileVar.GoPointer())
@@ -75,7 +74,6 @@ var xNewAppChooserDialogForContentType func(uintptr, DialogFlags, string) uintpt
 //
 // The dialog will show applications that can open the content type.
 func NewAppChooserDialogForContentType(ParentVar *Window, FlagsVar DialogFlags, ContentTypeVar string) *AppChooserDialog {
-	core.LazyRegister(&xNewAppChooserDialogForContentType, "GTK", "gtk_app_chooser_dialog_new_for_content_type", false)
 	var cls *AppChooserDialog
 
 	cret := xNewAppChooserDialogForContentType(ParentVar.GoPointer(), FlagsVar, ContentTypeVar)
@@ -93,8 +91,6 @@ var xAppChooserDialogGetHeading func(uintptr) string
 
 // Returns the text to display at the top of the dialog.
 func (x *AppChooserDialog) GetHeading() string {
-	core.LazyRegister(&xAppChooserDialogGetHeading, "GTK", "gtk_app_chooser_dialog_get_heading", false)
-
 	cret := xAppChooserDialogGetHeading(x.GoPointer())
 	return cret
 }
@@ -103,7 +99,6 @@ var xAppChooserDialogGetWidget func(uintptr) uintptr
 
 // Returns the `GtkAppChooserWidget` of this dialog.
 func (x *AppChooserDialog) GetWidget() *Widget {
-	core.LazyRegister(&xAppChooserDialogGetWidget, "GTK", "gtk_app_chooser_dialog_get_widget", false)
 	var cls *Widget
 
 	cret := xAppChooserDialogGetWidget(x.GoPointer())
@@ -123,8 +118,6 @@ var xAppChooserDialogSetHeading func(uintptr, string)
 //
 // If the heading is not set, the dialog displays a default text.
 func (x *AppChooserDialog) SetHeading(HeadingVar string) {
-	core.LazyRegister(&xAppChooserDialogSetHeading, "GTK", "gtk_app_chooser_dialog_set_heading", false)
-
 	xAppChooserDialogSetHeading(x.GoPointer(), HeadingVar)
 }
 
@@ -548,4 +541,21 @@ func (x *AppChooserDialog) SetFocus(FocusVar *Widget) {
 func init() {
 	core.SetPackageName("GTK", "gtk4")
 	core.SetSharedLibraries("GTK", []string{"libgtk-4.so.1", "libgtk-4.1.dylib"})
+	var libs []uintptr
+	for _, libPath := range core.GetPaths("GTK") {
+		lib, err := purego.Dlopen(libPath, purego.RTLD_NOW|purego.RTLD_GLOBAL)
+		if err != nil {
+			panic(err)
+		}
+		libs = append(libs, lib)
+	}
+
+	core.PuregoSafeRegister(&xAppChooserDialogGLibType, libs, "gtk_app_chooser_dialog_get_type")
+
+	core.PuregoSafeRegister(&xNewAppChooserDialog, libs, "gtk_app_chooser_dialog_new")
+	core.PuregoSafeRegister(&xNewAppChooserDialogForContentType, libs, "gtk_app_chooser_dialog_new_for_content_type")
+
+	core.PuregoSafeRegister(&xAppChooserDialogGetHeading, libs, "gtk_app_chooser_dialog_get_heading")
+	core.PuregoSafeRegister(&xAppChooserDialogGetWidget, libs, "gtk_app_chooser_dialog_get_widget")
+	core.PuregoSafeRegister(&xAppChooserDialogSetHeading, libs, "gtk_app_chooser_dialog_set_heading")
 }

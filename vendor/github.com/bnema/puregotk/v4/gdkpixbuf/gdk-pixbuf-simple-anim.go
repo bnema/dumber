@@ -5,6 +5,7 @@ import (
 	"structs"
 	"unsafe"
 
+	"github.com/bnema/purego"
 	"github.com/bnema/puregotk/pkg/core"
 	"github.com/bnema/puregotk/v4/gobject"
 	"github.com/bnema/puregotk/v4/gobject/types"
@@ -34,7 +35,6 @@ type PixbufSimpleAnim struct {
 var xPixbufSimpleAnimGLibType func() types.GType
 
 func PixbufSimpleAnimGLibType() types.GType {
-	core.LazyRegister(&xPixbufSimpleAnimGLibType, "GDKPIXBUF", "gdk_pixbuf_simple_anim_get_type", false)
 	return xPixbufSimpleAnimGLibType()
 }
 
@@ -48,7 +48,6 @@ var xNewPixbufSimpleAnim func(int, int, float32) uintptr
 
 // Creates a new, empty animation.
 func NewPixbufSimpleAnim(WidthVar int, HeightVar int, RateVar float32) *PixbufSimpleAnim {
-	core.LazyRegister(&xNewPixbufSimpleAnim, "GDKPIXBUF", "gdk_pixbuf_simple_anim_new", false)
 	var cls *PixbufSimpleAnim
 
 	cret := xNewPixbufSimpleAnim(WidthVar, HeightVar, RateVar)
@@ -67,8 +66,6 @@ var xPixbufSimpleAnimAddFrame func(uintptr, uintptr)
 // have the dimensions specified when the animation
 // was constructed.
 func (x *PixbufSimpleAnim) AddFrame(PixbufVar *Pixbuf) {
-	core.LazyRegister(&xPixbufSimpleAnimAddFrame, "GDKPIXBUF", "gdk_pixbuf_simple_anim_add_frame", false)
-
 	xPixbufSimpleAnimAddFrame(x.GoPointer(), PixbufVar.GoPointer())
 }
 
@@ -76,8 +73,6 @@ var xPixbufSimpleAnimGetLoop func(uintptr) bool
 
 // Gets whether @animation should loop indefinitely when it reaches the end.
 func (x *PixbufSimpleAnim) GetLoop() bool {
-	core.LazyRegister(&xPixbufSimpleAnimGetLoop, "GDKPIXBUF", "gdk_pixbuf_simple_anim_get_loop", false)
-
 	cret := xPixbufSimpleAnimGetLoop(x.GoPointer())
 	return cret
 }
@@ -86,8 +81,6 @@ var xPixbufSimpleAnimSetLoop func(uintptr, bool)
 
 // Sets whether @animation should loop indefinitely when it reaches the end.
 func (x *PixbufSimpleAnim) SetLoop(LoopVar bool) {
-	core.LazyRegister(&xPixbufSimpleAnimSetLoop, "GDKPIXBUF", "gdk_pixbuf_simple_anim_set_loop", false)
-
 	xPixbufSimpleAnimSetLoop(x.GoPointer(), LoopVar)
 }
 
@@ -122,4 +115,20 @@ func (x *PixbufSimpleAnim) GetPropertyLoop() bool {
 func init() {
 	core.SetPackageName("GDKPIXBUF", "gdk-pixbuf-2.0")
 	core.SetSharedLibraries("GDKPIXBUF", []string{"libgdk_pixbuf-2.0.so.0", "libgdk_pixbuf-2.0.0.dylib"})
+	var libs []uintptr
+	for _, libPath := range core.GetPaths("GDKPIXBUF") {
+		lib, err := purego.Dlopen(libPath, purego.RTLD_NOW|purego.RTLD_GLOBAL)
+		if err != nil {
+			panic(err)
+		}
+		libs = append(libs, lib)
+	}
+
+	core.PuregoSafeRegister(&xPixbufSimpleAnimGLibType, libs, "gdk_pixbuf_simple_anim_get_type")
+
+	core.PuregoSafeRegister(&xNewPixbufSimpleAnim, libs, "gdk_pixbuf_simple_anim_new")
+
+	core.PuregoSafeRegister(&xPixbufSimpleAnimAddFrame, libs, "gdk_pixbuf_simple_anim_add_frame")
+	core.PuregoSafeRegister(&xPixbufSimpleAnimGetLoop, libs, "gdk_pixbuf_simple_anim_get_loop")
+	core.PuregoSafeRegister(&xPixbufSimpleAnimSetLoop, libs, "gdk_pixbuf_simple_anim_set_loop")
 }

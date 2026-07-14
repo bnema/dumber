@@ -155,7 +155,6 @@ type Button struct {
 var xButtonGLibType func() types.GType
 
 func ButtonGLibType() types.GType {
-	core.LazyRegister(&xButtonGLibType, "GTK", "gtk_button_get_type", false)
 	return xButtonGLibType()
 }
 
@@ -171,7 +170,6 @@ var xNewButton func() uintptr
 //
 // To add a child widget to the button, use [method@Gtk.Button.set_child].
 func NewButton() *Button {
-	core.LazyRegister(&xNewButton, "GTK", "gtk_button_new", false)
 	var cls *Button
 
 	cret := xNewButton()
@@ -193,7 +191,6 @@ var xNewButtonFromIconName func(string) uintptr
 // displayed instead. If the current icon theme is changed, the icon
 // will be updated appropriately.
 func NewButtonFromIconName(IconNameVar string) *Button {
-	core.LazyRegister(&xNewButtonFromIconName, "GTK", "gtk_button_new_from_icon_name", false)
 	var cls *Button
 
 	cret := xNewButtonFromIconName(IconNameVar)
@@ -211,7 +208,6 @@ var xNewButtonWithLabel func(string) uintptr
 
 // Creates a `GtkButton` widget with a `GtkLabel` child.
 func NewButtonWithLabel(LabelVar string) *Button {
-	core.LazyRegister(&xNewButtonWithLabel, "GTK", "gtk_button_new_with_label", false)
 	var cls *Button
 
 	cret := xNewButtonWithLabel(LabelVar)
@@ -235,7 +231,6 @@ var xNewButtonWithMnemonic func(string) uintptr
 // accelerator called a mnemonic. Pressing &lt;kbd&gt;Alt&lt;/kbd&gt; and that key
 // activates the button.
 func NewButtonWithMnemonic(LabelVar string) *Button {
-	core.LazyRegister(&xNewButtonWithMnemonic, "GTK", "gtk_button_new_with_mnemonic", false)
 	var cls *Button
 
 	cret := xNewButtonWithMnemonic(LabelVar)
@@ -254,8 +249,6 @@ var xButtonGetCanShrink func(uintptr) bool
 // Retrieves whether the button can be smaller than the natural
 // size of its contents.
 func (x *Button) GetCanShrink() bool {
-	core.LazyRegister(&xButtonGetCanShrink, "GTK", "gtk_button_get_can_shrink", false)
-
 	cret := xButtonGetCanShrink(x.GoPointer())
 	return cret
 }
@@ -264,7 +257,6 @@ var xButtonGetChild func(uintptr) uintptr
 
 // Gets the child widget of @button.
 func (x *Button) GetChild() *Widget {
-	core.LazyRegister(&xButtonGetChild, "GTK", "gtk_button_get_child", false)
 	var cls *Widget
 
 	cret := xButtonGetChild(x.GoPointer())
@@ -282,8 +274,6 @@ var xButtonGetHasFrame func(uintptr) bool
 
 // Returns whether the button has a frame.
 func (x *Button) GetHasFrame() bool {
-	core.LazyRegister(&xButtonGetHasFrame, "GTK", "gtk_button_get_has_frame", false)
-
 	cret := xButtonGetHasFrame(x.GoPointer())
 	return cret
 }
@@ -296,8 +286,6 @@ var xButtonGetIconName func(uintptr) string
 // the return value will be %NULL. This will be the case if you create
 // an empty button with [ctor@Gtk.Button.new] to use as a container.
 func (x *Button) GetIconName() string {
-	core.LazyRegister(&xButtonGetIconName, "GTK", "gtk_button_get_icon_name", false)
-
 	cret := xButtonGetIconName(x.GoPointer())
 	return cret
 }
@@ -310,8 +298,6 @@ var xButtonGetLabel func(uintptr) string
 // the return value will be %NULL. This will be the case if you create
 // an empty button with [ctor@Gtk.Button.new] to use as a container.
 func (x *Button) GetLabel() string {
-	core.LazyRegister(&xButtonGetLabel, "GTK", "gtk_button_get_label", false)
-
 	cret := xButtonGetLabel(x.GoPointer())
 	return cret
 }
@@ -322,8 +308,6 @@ var xButtonGetUseUnderline func(uintptr) bool
 //
 // See [method@Gtk.Button.set_use_underline].
 func (x *Button) GetUseUnderline() bool {
-	core.LazyRegister(&xButtonGetUseUnderline, "GTK", "gtk_button_get_use_underline", false)
-
 	cret := xButtonGetUseUnderline(x.GoPointer())
 	return cret
 }
@@ -337,8 +321,6 @@ var xButtonSetCanShrink func(uintptr, bool)
 //
 // For icons and custom children, this function has no effect.
 func (x *Button) SetCanShrink(CanShrinkVar bool) {
-	core.LazyRegister(&xButtonSetCanShrink, "GTK", "gtk_button_set_can_shrink", false)
-
 	xButtonSetCanShrink(x.GoPointer(), CanShrinkVar)
 }
 
@@ -352,8 +334,6 @@ var xButtonSetChild func(uintptr, uintptr)
 // for @button explicitly, or you'll set a labelled-by or described-by
 // relations from @child to @button.
 func (x *Button) SetChild(ChildVar *Widget) {
-	core.LazyRegister(&xButtonSetChild, "GTK", "gtk_button_set_child", false)
-
 	xButtonSetChild(x.GoPointer(), ChildVar.GoPointer())
 }
 
@@ -363,8 +343,6 @@ var xButtonSetHasFrame func(uintptr, bool)
 //
 // Buttons can have a flat appearance or have a frame drawn around them.
 func (x *Button) SetHasFrame(HasFrameVar bool) {
-	core.LazyRegister(&xButtonSetHasFrame, "GTK", "gtk_button_set_has_frame", false)
-
 	xButtonSetHasFrame(x.GoPointer(), HasFrameVar)
 }
 
@@ -375,8 +353,6 @@ var xButtonSetIconName func(uintptr, string)
 // If @button already contains a child widget, that child widget will
 // be removed and replaced with the image.
 func (x *Button) SetIconName(IconNameVar string) {
-	core.LazyRegister(&xButtonSetIconName, "GTK", "gtk_button_set_icon_name", false)
-
 	xButtonSetIconName(x.GoPointer(), IconNameVar)
 }
 
@@ -386,8 +362,6 @@ var xButtonSetLabel func(uintptr, string)
 //
 // This will also clear any previously set labels.
 func (x *Button) SetLabel(LabelVar string) {
-	core.LazyRegister(&xButtonSetLabel, "GTK", "gtk_button_set_label", false)
-
 	xButtonSetLabel(x.GoPointer(), LabelVar)
 }
 
@@ -398,8 +372,6 @@ var xButtonSetUseUnderline func(uintptr, bool)
 // If true, an underline in the text of the button label indicates
 // the next character should be used for the mnemonic accelerator key.
 func (x *Button) SetUseUnderline(UseUnderlineVar bool) {
-	core.LazyRegister(&xButtonSetUseUnderline, "GTK", "gtk_button_set_use_underline", false)
-
 	xButtonSetUseUnderline(x.GoPointer(), UseUnderlineVar)
 }
 
@@ -907,4 +879,32 @@ func (x *Button) GetBuildableId() string {
 func init() {
 	core.SetPackageName("GTK", "gtk4")
 	core.SetSharedLibraries("GTK", []string{"libgtk-4.so.1", "libgtk-4.1.dylib"})
+	var libs []uintptr
+	for _, libPath := range core.GetPaths("GTK") {
+		lib, err := purego.Dlopen(libPath, purego.RTLD_NOW|purego.RTLD_GLOBAL)
+		if err != nil {
+			panic(err)
+		}
+		libs = append(libs, lib)
+	}
+
+	core.PuregoSafeRegister(&xButtonGLibType, libs, "gtk_button_get_type")
+
+	core.PuregoSafeRegister(&xNewButton, libs, "gtk_button_new")
+	core.PuregoSafeRegister(&xNewButtonFromIconName, libs, "gtk_button_new_from_icon_name")
+	core.PuregoSafeRegister(&xNewButtonWithLabel, libs, "gtk_button_new_with_label")
+	core.PuregoSafeRegister(&xNewButtonWithMnemonic, libs, "gtk_button_new_with_mnemonic")
+
+	core.PuregoSafeRegister(&xButtonGetCanShrink, libs, "gtk_button_get_can_shrink")
+	core.PuregoSafeRegister(&xButtonGetChild, libs, "gtk_button_get_child")
+	core.PuregoSafeRegister(&xButtonGetHasFrame, libs, "gtk_button_get_has_frame")
+	core.PuregoSafeRegister(&xButtonGetIconName, libs, "gtk_button_get_icon_name")
+	core.PuregoSafeRegister(&xButtonGetLabel, libs, "gtk_button_get_label")
+	core.PuregoSafeRegister(&xButtonGetUseUnderline, libs, "gtk_button_get_use_underline")
+	core.PuregoSafeRegister(&xButtonSetCanShrink, libs, "gtk_button_set_can_shrink")
+	core.PuregoSafeRegister(&xButtonSetChild, libs, "gtk_button_set_child")
+	core.PuregoSafeRegister(&xButtonSetHasFrame, libs, "gtk_button_set_has_frame")
+	core.PuregoSafeRegister(&xButtonSetIconName, libs, "gtk_button_set_icon_name")
+	core.PuregoSafeRegister(&xButtonSetLabel, libs, "gtk_button_set_label")
+	core.PuregoSafeRegister(&xButtonSetUseUnderline, libs, "gtk_button_set_use_underline")
 }

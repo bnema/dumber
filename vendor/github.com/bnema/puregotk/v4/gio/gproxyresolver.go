@@ -70,7 +70,7 @@ func (x *ProxyResolverInterface) OverrideLookup(cb func(ProxyResolver, string, *
 	if cb == nil {
 		x.xLookup = 0
 	} else {
-		x.xLookup = purego.NewCallback(func(ResolverVarp uintptr, UriVarp string, CancellableVarp uintptr, cerrp **glib.Error) []string {
+		x.xLookup = purego.NewCallback(func(ResolverVarp uintptr, UriVarp string, CancellableVarp uintptr) []string {
 			return cb(&ProxyResolverBase{Ptr: ResolverVarp}, UriVarp, CancellableNewFromInternalPtr(CancellableVarp))
 		})
 	}
@@ -82,11 +82,10 @@ func (x *ProxyResolverInterface) GetLookup() func(ProxyResolver, string, *Cancel
 	if x.xLookup == 0 {
 		return nil
 	}
-	var rawCallback func(ResolverVarp uintptr, UriVarp string, CancellableVarp uintptr, cerrp **glib.Error) []string
+	var rawCallback func(ResolverVarp uintptr, UriVarp string, CancellableVarp uintptr) []string
 	purego.RegisterFunc(&rawCallback, x.xLookup)
 	return func(ResolverVar ProxyResolver, UriVar string, CancellableVar *Cancellable) []string {
-		var cerr *glib.Error
-		return rawCallback(ResolverVar.GoPointer(), UriVar, CancellableVar.GoPointer(), &cerr)
+		return rawCallback(ResolverVar.GoPointer(), UriVar, CancellableVar.GoPointer())
 	}
 }
 
@@ -127,7 +126,7 @@ func (x *ProxyResolverInterface) OverrideLookupFinish(cb func(ProxyResolver, Asy
 	if cb == nil {
 		x.xLookupFinish = 0
 	} else {
-		x.xLookupFinish = purego.NewCallback(func(ResolverVarp uintptr, ResultVarp uintptr, cerrp **glib.Error) []string {
+		x.xLookupFinish = purego.NewCallback(func(ResolverVarp uintptr, ResultVarp uintptr) []string {
 			return cb(&ProxyResolverBase{Ptr: ResolverVarp}, &AsyncResultBase{Ptr: ResultVarp})
 		})
 	}
@@ -141,11 +140,10 @@ func (x *ProxyResolverInterface) GetLookupFinish() func(ProxyResolver, AsyncResu
 	if x.xLookupFinish == 0 {
 		return nil
 	}
-	var rawCallback func(ResolverVarp uintptr, ResultVarp uintptr, cerrp **glib.Error) []string
+	var rawCallback func(ResolverVarp uintptr, ResultVarp uintptr) []string
 	purego.RegisterFunc(&rawCallback, x.xLookupFinish)
 	return func(ResolverVar ProxyResolver, ResultVar AsyncResult) []string {
-		var cerr *glib.Error
-		return rawCallback(ResolverVar.GoPointer(), ResultVar.GoPointer(), &cerr)
+		return rawCallback(ResolverVar.GoPointer(), ResultVar.GoPointer())
 	}
 }
 
@@ -169,7 +167,6 @@ type ProxyResolver interface {
 var xProxyResolverGLibType func() types.GType
 
 func ProxyResolverGLibType() types.GType {
-	core.LazyRegister(&xProxyResolverGLibType, "GIO", "g_proxy_resolver_get_type", false)
 	return xProxyResolverGLibType()
 }
 
@@ -240,33 +237,12 @@ func (x *ProxyResolverBase) LookupFinish(ResultVar AsyncResult) ([]string, error
 	return cret, cerr
 }
 
-var XGProxyResolverIsSupported func(uintptr) bool = func(instance uintptr) bool {
-	core.LazyRegister(&xXGProxyResolverIsSupported, "GIO", "g_proxy_resolver_is_supported", false)
-	return xXGProxyResolverIsSupported(instance)
-}
-
 var (
-	xXGProxyResolverIsSupported func(uintptr) bool
-	XGProxyResolverLookup       func(uintptr, string, uintptr, **glib.Error) []string = func(instance uintptr, UriVarp string, CancellableVarp uintptr, cerrp **glib.Error) []string {
-		core.LazyRegister(&xXGProxyResolverLookup, "GIO", "g_proxy_resolver_lookup", false)
-		return xXGProxyResolverLookup(instance, UriVarp, CancellableVarp, cerrp)
-	}
+	XGProxyResolverIsSupported  func(uintptr) bool
+	XGProxyResolverLookup       func(uintptr, string, uintptr, **glib.Error) []string
+	XGProxyResolverLookupAsync  func(uintptr, string, uintptr, uintptr, uintptr)
+	XGProxyResolverLookupFinish func(uintptr, uintptr, **glib.Error) []string
 )
-var (
-	xXGProxyResolverLookup     func(uintptr, string, uintptr, **glib.Error) []string
-	XGProxyResolverLookupAsync func(uintptr, string, uintptr, uintptr, uintptr) = func(instance uintptr, UriVarp string, CancellableVarp uintptr, CallbackVarp uintptr, UserDataVarp uintptr) {
-		core.LazyRegister(&xXGProxyResolverLookupAsync, "GIO", "g_proxy_resolver_lookup_async", false)
-		xXGProxyResolverLookupAsync(instance, UriVarp, CancellableVarp, CallbackVarp, UserDataVarp)
-	}
-)
-var (
-	xXGProxyResolverLookupAsync func(uintptr, string, uintptr, uintptr, uintptr)
-	XGProxyResolverLookupFinish func(uintptr, uintptr, **glib.Error) []string = func(instance uintptr, ResultVarp uintptr, cerrp **glib.Error) []string {
-		core.LazyRegister(&xXGProxyResolverLookupFinish, "GIO", "g_proxy_resolver_lookup_finish", false)
-		return xXGProxyResolverLookupFinish(instance, ResultVarp, cerrp)
-	}
-)
-var xXGProxyResolverLookupFinish func(uintptr, uintptr, **glib.Error) []string
 
 const (
 	// Extension point for proxy resolving functionality.
@@ -278,7 +254,6 @@ var xProxyResolverGetDefault func() uintptr
 
 // Gets the default #GProxyResolver for the system.
 func ProxyResolverGetDefault() *ProxyResolverBase {
-	core.LazyRegister(&xProxyResolverGetDefault, "GIO", "g_proxy_resolver_get_default", false)
 	var cls *ProxyResolverBase
 
 	cret := xProxyResolverGetDefault()
@@ -295,4 +270,21 @@ func ProxyResolverGetDefault() *ProxyResolverBase {
 func init() {
 	core.SetPackageName("GIO", "gio-2.0")
 	core.SetSharedLibraries("GIO", []string{"libgio-2.0.so.0", "libgio-2.0.0.dylib"})
+	var libs []uintptr
+	for _, libPath := range core.GetPaths("GIO") {
+		lib, err := purego.Dlopen(libPath, purego.RTLD_NOW|purego.RTLD_GLOBAL)
+		if err != nil {
+			panic(err)
+		}
+		libs = append(libs, lib)
+	}
+
+	core.PuregoSafeRegister(&xProxyResolverGetDefault, libs, "g_proxy_resolver_get_default")
+
+	core.PuregoSafeRegister(&xProxyResolverGLibType, libs, "g_proxy_resolver_get_type")
+
+	core.PuregoSafeRegister(&XGProxyResolverIsSupported, libs, "g_proxy_resolver_is_supported")
+	core.PuregoSafeRegister(&XGProxyResolverLookup, libs, "g_proxy_resolver_lookup")
+	core.PuregoSafeRegister(&XGProxyResolverLookupAsync, libs, "g_proxy_resolver_lookup_async")
+	core.PuregoSafeRegister(&XGProxyResolverLookupFinish, libs, "g_proxy_resolver_lookup_finish")
 }

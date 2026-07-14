@@ -5,6 +5,7 @@ import (
 	"structs"
 	"unsafe"
 
+	"github.com/bnema/purego"
 	"github.com/bnema/puregotk/pkg/core"
 	"github.com/bnema/puregotk/v4/gobject/types"
 )
@@ -17,7 +18,6 @@ type ToplevelSize struct {
 var xToplevelSizeGLibType func() types.GType
 
 func ToplevelSizeGLibType() types.GType {
-	core.LazyRegister(&xToplevelSizeGLibType, "GDK", "gdk_toplevel_size_get_type", false)
 	return xToplevelSizeGLibType()
 }
 
@@ -43,8 +43,6 @@ var xToplevelSizeGetBounds func(uintptr, *int, *int)
 // window is being presented on, or something else that limits the way a
 // toplevel can be presented.
 func (x *ToplevelSize) GetBounds(BoundsWidthVar *int, BoundsHeightVar *int) {
-	core.LazyRegister(&xToplevelSizeGetBounds, "GDK", "gdk_toplevel_size_get_bounds", false)
-
 	xToplevelSizeGetBounds(x.GoPointer(), BoundsWidthVar, BoundsHeightVar)
 }
 
@@ -60,8 +58,6 @@ var xToplevelSizeSetMinSize func(uintptr, int, int)
 // The minimum size should be within the bounds (see
 // [method@Gdk.ToplevelSize.get_bounds]).
 func (x *ToplevelSize) SetMinSize(MinWidthVar int, MinHeightVar int) {
-	core.LazyRegister(&xToplevelSizeSetMinSize, "GDK", "gdk_toplevel_size_set_min_size", false)
-
 	xToplevelSizeSetMinSize(x.GoPointer(), MinWidthVar, MinHeightVar)
 }
 
@@ -76,8 +72,6 @@ var xToplevelSizeSetShadowWidth func(uintptr, int, int, int, int)
 // Shadow width should only be set if
 // [method@Gtk.Display.supports_shadow_width] is %TRUE.
 func (x *ToplevelSize) SetShadowWidth(LeftVar int, RightVar int, TopVar int, BottomVar int) {
-	core.LazyRegister(&xToplevelSizeSetShadowWidth, "GDK", "gdk_toplevel_size_set_shadow_width", false)
-
 	xToplevelSizeSetShadowWidth(x.GoPointer(), LeftVar, RightVar, TopVar, BottomVar)
 }
 
@@ -90,12 +84,25 @@ var xToplevelSizeSetSize func(uintptr, int, int)
 // be considered as a hint, and should not be assumed to be
 // respected by the windowing system, or backend.
 func (x *ToplevelSize) SetSize(WidthVar int, HeightVar int) {
-	core.LazyRegister(&xToplevelSizeSetSize, "GDK", "gdk_toplevel_size_set_size", false)
-
 	xToplevelSizeSetSize(x.GoPointer(), WidthVar, HeightVar)
 }
 
 func init() {
 	core.SetPackageName("GDK", "gtk4")
 	core.SetSharedLibraries("GDK", []string{"libgtk-4.so.1", "libgtk-4.1.dylib"})
+	var libs []uintptr
+	for _, libPath := range core.GetPaths("GDK") {
+		lib, err := purego.Dlopen(libPath, purego.RTLD_NOW|purego.RTLD_GLOBAL)
+		if err != nil {
+			panic(err)
+		}
+		libs = append(libs, lib)
+	}
+
+	core.PuregoSafeRegister(&xToplevelSizeGLibType, libs, "gdk_toplevel_size_get_type")
+
+	core.PuregoSafeRegister(&xToplevelSizeGetBounds, libs, "gdk_toplevel_size_get_bounds")
+	core.PuregoSafeRegister(&xToplevelSizeSetMinSize, libs, "gdk_toplevel_size_set_min_size")
+	core.PuregoSafeRegister(&xToplevelSizeSetShadowWidth, libs, "gdk_toplevel_size_set_shadow_width")
+	core.PuregoSafeRegister(&xToplevelSizeSetSize, libs, "gdk_toplevel_size_set_size")
 }

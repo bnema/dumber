@@ -2,6 +2,7 @@
 package gsk
 
 import (
+	"github.com/bnema/purego"
 	"github.com/bnema/puregotk/pkg/core"
 	"github.com/bnema/puregotk/v4/gobject"
 	"github.com/bnema/puregotk/v4/gobject/types"
@@ -15,7 +16,6 @@ type IsolationNode struct {
 var xIsolationNodeGLibType func() types.GType
 
 func IsolationNodeGLibType() types.GType {
-	core.LazyRegister(&xIsolationNodeGLibType, "GSK", "gsk_isolation_node_get_type", false)
 	return xIsolationNodeGLibType()
 }
 
@@ -37,7 +37,6 @@ var xNewIsolationNode func(uintptr, Isolation) uintptr
 //
 // For the available isolations, see [flags@Gsk.Isolation].
 func NewIsolationNode(ChildVar *RenderNode, IsolationsVar Isolation) *IsolationNode {
-	core.LazyRegister(&xNewIsolationNode, "GSK", "gsk_isolation_node_new", false)
 	var cls *IsolationNode
 
 	cret := xNewIsolationNode(ChildVar.GoPointer(), IsolationsVar)
@@ -54,7 +53,6 @@ var xIsolationNodeGetChild func(uintptr) uintptr
 
 // Gets the child node that is getting drawn by the given @node.
 func (x *IsolationNode) GetChild() *RenderNode {
-	core.LazyRegister(&xIsolationNodeGetChild, "GSK", "gsk_isolation_node_get_child", false)
 	var cls *RenderNode
 
 	cret := xIsolationNodeGetChild(x.GoPointer())
@@ -72,8 +70,6 @@ var xIsolationNodeGetIsolations func(uintptr) Isolation
 
 // Gets the isolation features that are enforced by this node.
 func (x *IsolationNode) GetIsolations() Isolation {
-	core.LazyRegister(&xIsolationNodeGetIsolations, "GSK", "gsk_isolation_node_get_isolations", false)
-
 	cret := xIsolationNodeGetIsolations(x.GoPointer())
 	return cret
 }
@@ -92,4 +88,19 @@ func (c *IsolationNode) SetGoPointer(ptr uintptr) {
 func init() {
 	core.SetPackageName("GSK", "gtk4")
 	core.SetSharedLibraries("GSK", []string{"libgtk-4.so.1", "libgtk-4.1.dylib"})
+	var libs []uintptr
+	for _, libPath := range core.GetPaths("GSK") {
+		lib, err := purego.Dlopen(libPath, purego.RTLD_NOW|purego.RTLD_GLOBAL)
+		if err != nil {
+			panic(err)
+		}
+		libs = append(libs, lib)
+	}
+
+	core.PuregoSafeRegister(&xIsolationNodeGLibType, libs, "gsk_isolation_node_get_type")
+
+	core.PuregoSafeRegister(&xNewIsolationNode, libs, "gsk_isolation_node_new")
+
+	core.PuregoSafeRegister(&xIsolationNodeGetChild, libs, "gsk_isolation_node_get_child")
+	core.PuregoSafeRegister(&xIsolationNodeGetIsolations, libs, "gsk_isolation_node_get_isolations")
 }

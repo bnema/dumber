@@ -5,6 +5,7 @@ import (
 	"structs"
 	"unsafe"
 
+	"github.com/bnema/purego"
 	"github.com/bnema/puregotk/pkg/core"
 	"github.com/bnema/puregotk/v4/gobject/types"
 )
@@ -22,7 +23,6 @@ type Vec3 struct {
 var xVec3GLibType func() types.GType
 
 func Vec3GLibType() types.GType {
-	core.LazyRegister(&xVec3GLibType, "GRAPHENE", "graphene_vec3_get_type", false)
 	return xVec3GLibType()
 }
 
@@ -46,8 +46,6 @@ var xVec3Alloc func() uintptr
 //
 // Use graphene_vec3_init() to initialize the vector.
 func Vec3Alloc() *Vec3 {
-	core.LazyRegister(&xVec3Alloc, "GRAPHENE", "graphene_vec3_alloc", false)
-
 	cret := xVec3Alloc()
 	if cret == 0 {
 		return nil
@@ -59,8 +57,6 @@ var xVec3Add func(uintptr, *Vec3, *Vec3)
 
 // Adds each component of the two given vectors.
 func (x *Vec3) Add(BVar *Vec3, ResVar *Vec3) {
-	core.LazyRegister(&xVec3Add, "GRAPHENE", "graphene_vec3_add", false)
-
 	xVec3Add(x.GoPointer(), BVar, ResVar)
 }
 
@@ -68,8 +64,6 @@ var xVec3Cross func(uintptr, *Vec3, *Vec3)
 
 // Computes the cross product of the two given vectors.
 func (x *Vec3) Cross(BVar *Vec3, ResVar *Vec3) {
-	core.LazyRegister(&xVec3Cross, "GRAPHENE", "graphene_vec3_cross", false)
-
 	xVec3Cross(x.GoPointer(), BVar, ResVar)
 }
 
@@ -79,8 +73,6 @@ var xVec3Divide func(uintptr, *Vec3, *Vec3)
 // component of the second operand @b, and places the results into the
 // vector @res.
 func (x *Vec3) Divide(BVar *Vec3, ResVar *Vec3) {
-	core.LazyRegister(&xVec3Divide, "GRAPHENE", "graphene_vec3_divide", false)
-
 	xVec3Divide(x.GoPointer(), BVar, ResVar)
 }
 
@@ -88,8 +80,6 @@ var xVec3Dot func(uintptr, *Vec3) float32
 
 // Computes the dot product of the two given vectors.
 func (x *Vec3) Dot(BVar *Vec3) float32 {
-	core.LazyRegister(&xVec3Dot, "GRAPHENE", "graphene_vec3_dot", false)
-
 	cret := xVec3Dot(x.GoPointer(), BVar)
 	return cret
 }
@@ -98,8 +88,6 @@ var xVec3Equal func(uintptr, *Vec3) bool
 
 // Checks whether the two given #graphene_vec3_t are equal.
 func (x *Vec3) Equal(V2Var *Vec3) bool {
-	core.LazyRegister(&xVec3Equal, "GRAPHENE", "graphene_vec3_equal", false)
-
 	cret := xVec3Equal(x.GoPointer(), V2Var)
 	return cret
 }
@@ -108,8 +96,6 @@ var xVec3Free func(uintptr)
 
 // Frees the resources allocated by @v
 func (x *Vec3) Free() {
-	core.LazyRegister(&xVec3Free, "GRAPHENE", "graphene_vec3_free", false)
-
 	xVec3Free(x.GoPointer())
 }
 
@@ -117,8 +103,6 @@ var xVec3GetX func(uintptr) float32
 
 // Retrieves the first component of the given vector @v.
 func (x *Vec3) GetX() float32 {
-	core.LazyRegister(&xVec3GetX, "GRAPHENE", "graphene_vec3_get_x", false)
-
 	cret := xVec3GetX(x.GoPointer())
 	return cret
 }
@@ -128,8 +112,6 @@ var xVec3GetXy func(uintptr, *Vec2)
 // Creates a #graphene_vec2_t that contains the first and second
 // components of the given #graphene_vec3_t.
 func (x *Vec3) GetXy(ResVar *Vec2) {
-	core.LazyRegister(&xVec3GetXy, "GRAPHENE", "graphene_vec3_get_xy", false)
-
 	xVec3GetXy(x.GoPointer(), ResVar)
 }
 
@@ -138,8 +120,6 @@ var xVec3GetXy0 func(uintptr, *Vec3)
 // Creates a #graphene_vec3_t that contains the first two components of
 // the given #graphene_vec3_t, and the third component set to 0.
 func (x *Vec3) GetXy0(ResVar *Vec3) {
-	core.LazyRegister(&xVec3GetXy0, "GRAPHENE", "graphene_vec3_get_xy0", false)
-
 	xVec3GetXy0(x.GoPointer(), ResVar)
 }
 
@@ -148,8 +128,6 @@ var xVec3GetXyz0 func(uintptr, *Vec4)
 // Converts a #graphene_vec3_t in a #graphene_vec4_t using 0.0
 // as the value for the fourth component of the resulting vector.
 func (x *Vec3) GetXyz0(ResVar *Vec4) {
-	core.LazyRegister(&xVec3GetXyz0, "GRAPHENE", "graphene_vec3_get_xyz0", false)
-
 	xVec3GetXyz0(x.GoPointer(), ResVar)
 }
 
@@ -158,8 +136,6 @@ var xVec3GetXyz1 func(uintptr, *Vec4)
 // Converts a #graphene_vec3_t in a #graphene_vec4_t using 1.0
 // as the value for the fourth component of the resulting vector.
 func (x *Vec3) GetXyz1(ResVar *Vec4) {
-	core.LazyRegister(&xVec3GetXyz1, "GRAPHENE", "graphene_vec3_get_xyz1", false)
-
 	xVec3GetXyz1(x.GoPointer(), ResVar)
 }
 
@@ -168,8 +144,6 @@ var xVec3GetXyzw func(uintptr, float32, *Vec4)
 // Converts a #graphene_vec3_t in a #graphene_vec4_t using @w as
 // the value of the fourth component of the resulting vector.
 func (x *Vec3) GetXyzw(WVar float32, ResVar *Vec4) {
-	core.LazyRegister(&xVec3GetXyzw, "GRAPHENE", "graphene_vec3_get_xyzw", false)
-
 	xVec3GetXyzw(x.GoPointer(), WVar, ResVar)
 }
 
@@ -177,8 +151,6 @@ var xVec3GetY func(uintptr) float32
 
 // Retrieves the second component of the given vector @v.
 func (x *Vec3) GetY() float32 {
-	core.LazyRegister(&xVec3GetY, "GRAPHENE", "graphene_vec3_get_y", false)
-
 	cret := xVec3GetY(x.GoPointer())
 	return cret
 }
@@ -187,8 +159,6 @@ var xVec3GetZ func(uintptr) float32
 
 // Retrieves the third component of the given vector @v.
 func (x *Vec3) GetZ() float32 {
-	core.LazyRegister(&xVec3GetZ, "GRAPHENE", "graphene_vec3_get_z", false)
-
 	cret := xVec3GetZ(x.GoPointer())
 	return cret
 }
@@ -199,8 +169,6 @@ var xVec3Init func(uintptr, float32, float32, float32) uintptr
 //
 // This function can be called multiple times.
 func (x *Vec3) Init(XVar float32, YVar float32, ZVar float32) *Vec3 {
-	core.LazyRegister(&xVec3Init, "GRAPHENE", "graphene_vec3_init", false)
-
 	cret := xVec3Init(x.GoPointer(), XVar, YVar, ZVar)
 	if cret == 0 {
 		return nil
@@ -212,8 +180,6 @@ var xVec3InitFromFloat func(uintptr, [3]float32) uintptr
 
 // Initializes a #graphene_vec3_t with the values from an array.
 func (x *Vec3) InitFromFloat(SrcVar [3]float32) *Vec3 {
-	core.LazyRegister(&xVec3InitFromFloat, "GRAPHENE", "graphene_vec3_init_from_float", false)
-
 	cret := xVec3InitFromFloat(x.GoPointer(), SrcVar)
 	if cret == 0 {
 		return nil
@@ -226,8 +192,6 @@ var xVec3InitFromVec3 func(uintptr, *Vec3) uintptr
 // Initializes a #graphene_vec3_t with the values of another
 // #graphene_vec3_t.
 func (x *Vec3) InitFromVec3(SrcVar *Vec3) *Vec3 {
-	core.LazyRegister(&xVec3InitFromVec3, "GRAPHENE", "graphene_vec3_init_from_vec3", false)
-
 	cret := xVec3InitFromVec3(x.GoPointer(), SrcVar)
 	if cret == 0 {
 		return nil
@@ -239,8 +203,6 @@ var xVec3Interpolate func(uintptr, *Vec3, float64, *Vec3)
 
 // Linearly interpolates @v1 and @v2 using the given @factor.
 func (x *Vec3) Interpolate(V2Var *Vec3, FactorVar float64, ResVar *Vec3) {
-	core.LazyRegister(&xVec3Interpolate, "GRAPHENE", "graphene_vec3_interpolate", false)
-
 	xVec3Interpolate(x.GoPointer(), V2Var, FactorVar, ResVar)
 }
 
@@ -248,8 +210,6 @@ var xVec3Length func(uintptr) float32
 
 // Retrieves the length of the given vector @v.
 func (x *Vec3) Length() float32 {
-	core.LazyRegister(&xVec3Length, "GRAPHENE", "graphene_vec3_length", false)
-
 	cret := xVec3Length(x.GoPointer())
 	return cret
 }
@@ -259,8 +219,6 @@ var xVec3Max func(uintptr, *Vec3, *Vec3)
 // Compares each component of the two given vectors and creates a
 // vector that contains the maximum values.
 func (x *Vec3) Max(BVar *Vec3, ResVar *Vec3) {
-	core.LazyRegister(&xVec3Max, "GRAPHENE", "graphene_vec3_max", false)
-
 	xVec3Max(x.GoPointer(), BVar, ResVar)
 }
 
@@ -269,8 +227,6 @@ var xVec3Min func(uintptr, *Vec3, *Vec3)
 // Compares each component of the two given vectors and creates a
 // vector that contains the minimum values.
 func (x *Vec3) Min(BVar *Vec3, ResVar *Vec3) {
-	core.LazyRegister(&xVec3Min, "GRAPHENE", "graphene_vec3_min", false)
-
 	xVec3Min(x.GoPointer(), BVar, ResVar)
 }
 
@@ -278,8 +234,6 @@ var xVec3Multiply func(uintptr, *Vec3, *Vec3)
 
 // Multiplies each component of the two given vectors.
 func (x *Vec3) Multiply(BVar *Vec3, ResVar *Vec3) {
-	core.LazyRegister(&xVec3Multiply, "GRAPHENE", "graphene_vec3_multiply", false)
-
 	xVec3Multiply(x.GoPointer(), BVar, ResVar)
 }
 
@@ -288,8 +242,6 @@ var xVec3Near func(uintptr, *Vec3, float32) bool
 // Compares the two given #graphene_vec3_t vectors and checks
 // whether their values are within the given @epsilon.
 func (x *Vec3) Near(V2Var *Vec3, EpsilonVar float32) bool {
-	core.LazyRegister(&xVec3Near, "GRAPHENE", "graphene_vec3_near", false)
-
 	cret := xVec3Near(x.GoPointer(), V2Var, EpsilonVar)
 	return cret
 }
@@ -298,8 +250,6 @@ var xVec3Negate func(uintptr, *Vec3)
 
 // Negates the given #graphene_vec3_t.
 func (x *Vec3) Negate(ResVar *Vec3) {
-	core.LazyRegister(&xVec3Negate, "GRAPHENE", "graphene_vec3_negate", false)
-
 	xVec3Negate(x.GoPointer(), ResVar)
 }
 
@@ -307,8 +257,6 @@ var xVec3Normalize func(uintptr, *Vec3)
 
 // Normalizes the given #graphene_vec3_t.
 func (x *Vec3) Normalize(ResVar *Vec3) {
-	core.LazyRegister(&xVec3Normalize, "GRAPHENE", "graphene_vec3_normalize", false)
-
 	xVec3Normalize(x.GoPointer(), ResVar)
 }
 
@@ -316,8 +264,6 @@ var xVec3Scale func(uintptr, float32, *Vec3)
 
 // Multiplies all components of the given vector with the given scalar @factor.
 func (x *Vec3) Scale(FactorVar float32, ResVar *Vec3) {
-	core.LazyRegister(&xVec3Scale, "GRAPHENE", "graphene_vec3_scale", false)
-
 	xVec3Scale(x.GoPointer(), FactorVar, ResVar)
 }
 
@@ -327,8 +273,6 @@ var xVec3Subtract func(uintptr, *Vec3, *Vec3)
 // corresponding component of the second operand @b and places
 // each result into the components of @res.
 func (x *Vec3) Subtract(BVar *Vec3, ResVar *Vec3) {
-	core.LazyRegister(&xVec3Subtract, "GRAPHENE", "graphene_vec3_subtract", false)
-
 	xVec3Subtract(x.GoPointer(), BVar, ResVar)
 }
 
@@ -336,8 +280,6 @@ var xVec3ToFloat func(uintptr, *[3]float32)
 
 // Copies the components of a #graphene_vec3_t into the given array.
 func (x *Vec3) ToFloat(DestVar *[3]float32) {
-	core.LazyRegister(&xVec3ToFloat, "GRAPHENE", "graphene_vec3_to_float", false)
-
 	xVec3ToFloat(x.GoPointer(), DestVar)
 }
 
@@ -346,8 +288,6 @@ var xVec3One func() uintptr
 // Provides a constant pointer to a vector with three components,
 // all sets to 1.
 func Vec3One() *Vec3 {
-	core.LazyRegister(&xVec3One, "GRAPHENE", "graphene_vec3_one", false)
-
 	cret := xVec3One()
 	if cret == 0 {
 		return nil
@@ -360,8 +300,6 @@ var xVec3XAxis func() uintptr
 // Provides a constant pointer to a vector with three components
 // with values set to (1, 0, 0).
 func Vec3XAxis() *Vec3 {
-	core.LazyRegister(&xVec3XAxis, "GRAPHENE", "graphene_vec3_x_axis", false)
-
 	cret := xVec3XAxis()
 	if cret == 0 {
 		return nil
@@ -374,8 +312,6 @@ var xVec3YAxis func() uintptr
 // Provides a constant pointer to a vector with three components
 // with values set to (0, 1, 0).
 func Vec3YAxis() *Vec3 {
-	core.LazyRegister(&xVec3YAxis, "GRAPHENE", "graphene_vec3_y_axis", false)
-
 	cret := xVec3YAxis()
 	if cret == 0 {
 		return nil
@@ -388,8 +324,6 @@ var xVec3ZAxis func() uintptr
 // Provides a constant pointer to a vector with three components
 // with values set to (0, 0, 1).
 func Vec3ZAxis() *Vec3 {
-	core.LazyRegister(&xVec3ZAxis, "GRAPHENE", "graphene_vec3_z_axis", false)
-
 	cret := xVec3ZAxis()
 	if cret == 0 {
 		return nil
@@ -402,8 +336,6 @@ var xVec3Zero func() uintptr
 // Provides a constant pointer to a vector with three components,
 // all sets to 0.
 func Vec3Zero() *Vec3 {
-	core.LazyRegister(&xVec3Zero, "GRAPHENE", "graphene_vec3_zero", false)
-
 	cret := xVec3Zero()
 	if cret == 0 {
 		return nil
@@ -414,4 +346,51 @@ func Vec3Zero() *Vec3 {
 func init() {
 	core.SetPackageName("GRAPHENE", "graphene-gobject-1.0")
 	core.SetSharedLibraries("GRAPHENE", []string{"libgraphene-1.0.so.0", "libgraphene-1.0.0.dylib"})
+	var libs []uintptr
+	for _, libPath := range core.GetPaths("GRAPHENE") {
+		lib, err := purego.Dlopen(libPath, purego.RTLD_NOW|purego.RTLD_GLOBAL)
+		if err != nil {
+			panic(err)
+		}
+		libs = append(libs, lib)
+	}
+
+	core.PuregoSafeRegister(&xVec3One, libs, "graphene_vec3_one")
+	core.PuregoSafeRegister(&xVec3XAxis, libs, "graphene_vec3_x_axis")
+	core.PuregoSafeRegister(&xVec3YAxis, libs, "graphene_vec3_y_axis")
+	core.PuregoSafeRegister(&xVec3ZAxis, libs, "graphene_vec3_z_axis")
+	core.PuregoSafeRegister(&xVec3Zero, libs, "graphene_vec3_zero")
+
+	core.PuregoSafeRegister(&xVec3GLibType, libs, "graphene_vec3_get_type")
+
+	core.PuregoSafeRegister(&xVec3Alloc, libs, "graphene_vec3_alloc")
+
+	core.PuregoSafeRegister(&xVec3Add, libs, "graphene_vec3_add")
+	core.PuregoSafeRegister(&xVec3Cross, libs, "graphene_vec3_cross")
+	core.PuregoSafeRegister(&xVec3Divide, libs, "graphene_vec3_divide")
+	core.PuregoSafeRegister(&xVec3Dot, libs, "graphene_vec3_dot")
+	core.PuregoSafeRegister(&xVec3Equal, libs, "graphene_vec3_equal")
+	core.PuregoSafeRegister(&xVec3Free, libs, "graphene_vec3_free")
+	core.PuregoSafeRegister(&xVec3GetX, libs, "graphene_vec3_get_x")
+	core.PuregoSafeRegister(&xVec3GetXy, libs, "graphene_vec3_get_xy")
+	core.PuregoSafeRegister(&xVec3GetXy0, libs, "graphene_vec3_get_xy0")
+	core.PuregoSafeRegister(&xVec3GetXyz0, libs, "graphene_vec3_get_xyz0")
+	core.PuregoSafeRegister(&xVec3GetXyz1, libs, "graphene_vec3_get_xyz1")
+	core.PuregoSafeRegister(&xVec3GetXyzw, libs, "graphene_vec3_get_xyzw")
+	core.PuregoSafeRegister(&xVec3GetY, libs, "graphene_vec3_get_y")
+	core.PuregoSafeRegister(&xVec3GetZ, libs, "graphene_vec3_get_z")
+	core.PuregoSafeRegister(&xVec3Init, libs, "graphene_vec3_init")
+	core.PuregoSafeRegister(&xVec3InitFromFloat, libs, "graphene_vec3_init_from_float")
+	core.PuregoSafeRegister(&xVec3InitFromVec3, libs, "graphene_vec3_init_from_vec3")
+	core.PuregoSafeRegister(&xVec3Interpolate, libs, "graphene_vec3_interpolate")
+	core.PuregoSafeRegister(&xVec3Length, libs, "graphene_vec3_length")
+	core.PuregoSafeRegister(&xVec3Max, libs, "graphene_vec3_max")
+	core.PuregoSafeRegister(&xVec3Min, libs, "graphene_vec3_min")
+	core.PuregoSafeRegister(&xVec3Multiply, libs, "graphene_vec3_multiply")
+	core.PuregoSafeRegister(&xVec3Near, libs, "graphene_vec3_near")
+	core.PuregoSafeRegister(&xVec3Negate, libs, "graphene_vec3_negate")
+	core.PuregoSafeRegister(&xVec3Normalize, libs, "graphene_vec3_normalize")
+	core.PuregoSafeRegister(&xVec3Scale, libs, "graphene_vec3_scale")
+	core.PuregoSafeRegister(&xVec3Subtract, libs, "graphene_vec3_subtract")
+	core.PuregoSafeRegister(&xVec3ToFloat, libs, "graphene_vec3_to_float")
 }

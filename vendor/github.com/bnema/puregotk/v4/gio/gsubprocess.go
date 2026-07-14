@@ -4,6 +4,7 @@ package gio
 import (
 	"unsafe"
 
+	"github.com/bnema/purego"
 	"github.com/bnema/puregotk/pkg/core"
 	"github.com/bnema/puregotk/v4/glib"
 	"github.com/bnema/puregotk/v4/gobject"
@@ -80,7 +81,6 @@ type Subprocess struct {
 var xSubprocessGLibType func() types.GType
 
 func SubprocessGLibType() types.GType {
-	core.LazyRegister(&xSubprocessGLibType, "GIO", "g_subprocess_get_type", false)
 	return xSubprocessGLibType()
 }
 
@@ -100,7 +100,6 @@ var xNewSubprocess func(SubprocessFlags, **glib.Error, string, ...interface{}) u
 //
 // The argument list must be terminated with %NULL.
 func NewSubprocess(FlagsVar SubprocessFlags, ErrorVar **glib.Error, Argv0Var string, varArgs ...interface{}) *Subprocess {
-	core.LazyRegister(&xNewSubprocess, "GIO", "g_subprocess_new", false)
 	var cls *Subprocess
 
 	cret := xNewSubprocess(FlagsVar, ErrorVar, Argv0Var, varArgs...)
@@ -119,7 +118,6 @@ var xNewSubprocessv func([]string, SubprocessFlags, **glib.Error) uintptr
 //
 // The argument list is expected to be %NULL-terminated.
 func NewSubprocessv(ArgvVar []string, FlagsVar SubprocessFlags) (*Subprocess, error) {
-	core.LazyRegister(&xNewSubprocessv, "GIO", "g_subprocess_newv", false)
 	var cls *Subprocess
 	var cerr *glib.Error
 
@@ -180,7 +178,6 @@ var xSubprocessCommunicate func(uintptr, *glib.Bytes, uintptr, **glib.Bytes, **g
 // attempt to interact with the pipes while the operation is in progress
 // (either from another thread or if using the asynchronous version).
 func (x *Subprocess) Communicate(StdinBufVar *glib.Bytes, CancellableVar *Cancellable, StdoutBufVar **glib.Bytes, StderrBufVar **glib.Bytes) (bool, error) {
-	core.LazyRegister(&xSubprocessCommunicate, "GIO", "g_subprocess_communicate", false)
 	var cerr *glib.Error
 
 	cret := xSubprocessCommunicate(x.GoPointer(), StdinBufVar, CancellableVar.GoPointer(), StdoutBufVar, StderrBufVar, &cerr)
@@ -195,8 +192,6 @@ var xSubprocessCommunicateAsync func(uintptr, *glib.Bytes, uintptr, uintptr, uin
 // Asynchronous version of g_subprocess_communicate().  Complete
 // invocation with g_subprocess_communicate_finish().
 func (x *Subprocess) CommunicateAsync(StdinBufVar *glib.Bytes, CancellableVar *Cancellable, CallbackVar *AsyncReadyCallback, UserDataVar uintptr) {
-	core.LazyRegister(&xSubprocessCommunicateAsync, "GIO", "g_subprocess_communicate_async", false)
-
 	xSubprocessCommunicateAsync(x.GoPointer(), StdinBufVar, CancellableVar.GoPointer(), glib.NewCallbackNullable(CallbackVar), UserDataVar)
 }
 
@@ -204,7 +199,6 @@ var xSubprocessCommunicateFinish func(uintptr, uintptr, **glib.Bytes, **glib.Byt
 
 // Complete an invocation of g_subprocess_communicate_async().
 func (x *Subprocess) CommunicateFinish(ResultVar AsyncResult, StdoutBufVar **glib.Bytes, StderrBufVar **glib.Bytes) (bool, error) {
-	core.LazyRegister(&xSubprocessCommunicateFinish, "GIO", "g_subprocess_communicate_finish", false)
 	var cerr *glib.Error
 
 	cret := xSubprocessCommunicateFinish(x.GoPointer(), ResultVar.GoPointer(), StdoutBufVar, StderrBufVar, &cerr)
@@ -222,7 +216,6 @@ var xSubprocessCommunicateUtf8 func(uintptr, uintptr, uintptr, *string, *string,
 // On error, @stdout_buf and @stderr_buf will be set to undefined values and
 // should not be used.
 func (x *Subprocess) CommunicateUtf8(StdinBufVar *string, CancellableVar *Cancellable, StdoutBufVar *string, StderrBufVar *string) (bool, error) {
-	core.LazyRegister(&xSubprocessCommunicateUtf8, "GIO", "g_subprocess_communicate_utf8", false)
 	var cerr *glib.Error
 
 	StdinBufVarPtr := core.GStrdupNullable(StdinBufVar)
@@ -240,8 +233,6 @@ var xSubprocessCommunicateUtf8Async func(uintptr, uintptr, uintptr, uintptr, uin
 // Asynchronous version of g_subprocess_communicate_utf8().  Complete
 // invocation with g_subprocess_communicate_utf8_finish().
 func (x *Subprocess) CommunicateUtf8Async(StdinBufVar *string, CancellableVar *Cancellable, CallbackVar *AsyncReadyCallback, UserDataVar uintptr) {
-	core.LazyRegister(&xSubprocessCommunicateUtf8Async, "GIO", "g_subprocess_communicate_utf8_async", false)
-
 	StdinBufVarPtr := core.GStrdupNullable(StdinBufVar)
 	defer core.GFreeNullable(StdinBufVarPtr)
 
@@ -252,7 +243,6 @@ var xSubprocessCommunicateUtf8Finish func(uintptr, uintptr, *string, *string, **
 
 // Complete an invocation of g_subprocess_communicate_utf8_async().
 func (x *Subprocess) CommunicateUtf8Finish(ResultVar AsyncResult, StdoutBufVar *string, StderrBufVar *string) (bool, error) {
-	core.LazyRegister(&xSubprocessCommunicateUtf8Finish, "GIO", "g_subprocess_communicate_utf8_finish", false)
 	var cerr *glib.Error
 
 	cret := xSubprocessCommunicateUtf8Finish(x.GoPointer(), ResultVar.GoPointer(), StdoutBufVar, StderrBufVar, &cerr)
@@ -272,8 +262,6 @@ var xSubprocessForceExit func(uintptr)
 //
 // On Unix, this function sends %SIGKILL.
 func (x *Subprocess) ForceExit() {
-	core.LazyRegister(&xSubprocessForceExit, "GIO", "g_subprocess_force_exit", false)
-
 	xSubprocessForceExit(x.GoPointer())
 }
 
@@ -288,8 +276,6 @@ var xSubprocessGetExitStatus func(uintptr) int
 // It is an error to call this function before g_subprocess_wait() and
 // unless g_subprocess_get_if_exited() returned %TRUE.
 func (x *Subprocess) GetExitStatus() int {
-	core.LazyRegister(&xSubprocessGetExitStatus, "GIO", "g_subprocess_get_exit_status", false)
-
 	cret := xSubprocessGetExitStatus(x.GoPointer())
 	return cret
 }
@@ -300,8 +286,6 @@ var xSubprocessGetIdentifier func(uintptr) string
 // On Windows, returns the result of GetProcessId() also as a string.
 // If the subprocess has terminated, this will return %NULL.
 func (x *Subprocess) GetIdentifier() string {
-	core.LazyRegister(&xSubprocessGetIdentifier, "GIO", "g_subprocess_get_identifier", false)
-
 	cret := xSubprocessGetIdentifier(x.GoPointer())
 	return cret
 }
@@ -316,8 +300,6 @@ var xSubprocessGetIfExited func(uintptr) bool
 // It is an error to call this function before g_subprocess_wait() has
 // returned.
 func (x *Subprocess) GetIfExited() bool {
-	core.LazyRegister(&xSubprocessGetIfExited, "GIO", "g_subprocess_get_if_exited", false)
-
 	cret := xSubprocessGetIfExited(x.GoPointer())
 	return cret
 }
@@ -331,8 +313,6 @@ var xSubprocessGetIfSignaled func(uintptr) bool
 // It is an error to call this function before g_subprocess_wait() has
 // returned.
 func (x *Subprocess) GetIfSignaled() bool {
-	core.LazyRegister(&xSubprocessGetIfSignaled, "GIO", "g_subprocess_get_if_signaled", false)
-
 	cret := xSubprocessGetIfSignaled(x.GoPointer())
 	return cret
 }
@@ -351,8 +331,6 @@ var xSubprocessGetStatus func(uintptr) int
 // It is an error to call this function before g_subprocess_wait() has
 // returned.
 func (x *Subprocess) GetStatus() int {
-	core.LazyRegister(&xSubprocessGetStatus, "GIO", "g_subprocess_get_status", false)
-
 	cret := xSubprocessGetStatus(x.GoPointer())
 	return cret
 }
@@ -365,7 +343,6 @@ var xSubprocessGetStderrPipe func(uintptr) uintptr
 // The process must have been created with %G_SUBPROCESS_FLAGS_STDERR_PIPE,
 // otherwise %NULL will be returned.
 func (x *Subprocess) GetStderrPipe() *InputStream {
-	core.LazyRegister(&xSubprocessGetStderrPipe, "GIO", "g_subprocess_get_stderr_pipe", false)
 	var cls *InputStream
 
 	cret := xSubprocessGetStderrPipe(x.GoPointer())
@@ -387,7 +364,6 @@ var xSubprocessGetStdinPipe func(uintptr) uintptr
 // The process must have been created with %G_SUBPROCESS_FLAGS_STDIN_PIPE and
 // not %G_SUBPROCESS_FLAGS_STDIN_INHERIT, otherwise %NULL will be returned.
 func (x *Subprocess) GetStdinPipe() *OutputStream {
-	core.LazyRegister(&xSubprocessGetStdinPipe, "GIO", "g_subprocess_get_stdin_pipe", false)
 	var cls *OutputStream
 
 	cret := xSubprocessGetStdinPipe(x.GoPointer())
@@ -409,7 +385,6 @@ var xSubprocessGetStdoutPipe func(uintptr) uintptr
 // The process must have been created with %G_SUBPROCESS_FLAGS_STDOUT_PIPE,
 // otherwise %NULL will be returned.
 func (x *Subprocess) GetStdoutPipe() *InputStream {
-	core.LazyRegister(&xSubprocessGetStdoutPipe, "GIO", "g_subprocess_get_stdout_pipe", false)
 	var cls *InputStream
 
 	cret := xSubprocessGetStdoutPipe(x.GoPointer())
@@ -432,8 +407,6 @@ var xSubprocessGetSuccessful func(uintptr) bool
 // It is an error to call this function before g_subprocess_wait() has
 // returned.
 func (x *Subprocess) GetSuccessful() bool {
-	core.LazyRegister(&xSubprocessGetSuccessful, "GIO", "g_subprocess_get_successful", false)
-
 	cret := xSubprocessGetSuccessful(x.GoPointer())
 	return cret
 }
@@ -448,8 +421,6 @@ var xSubprocessGetTermSig func(uintptr) int
 // It is an error to call this function before g_subprocess_wait() and
 // unless g_subprocess_get_if_signaled() returned %TRUE.
 func (x *Subprocess) GetTermSig() int {
-	core.LazyRegister(&xSubprocessGetTermSig, "GIO", "g_subprocess_get_term_sig", false)
-
 	cret := xSubprocessGetTermSig(x.GoPointer())
 	return cret
 }
@@ -464,8 +435,6 @@ var xSubprocessSendSignal func(uintptr, int)
 //
 // This API is not available on Windows.
 func (x *Subprocess) SendSignal(SignalNumVar int) {
-	core.LazyRegister(&xSubprocessSendSignal, "GIO", "g_subprocess_send_signal", false)
-
 	xSubprocessSendSignal(x.GoPointer(), SignalNumVar)
 }
 
@@ -483,7 +452,6 @@ var xSubprocessWait func(uintptr, uintptr, **glib.Error) bool
 // Cancelling @cancellable doesn't kill the subprocess.  Call
 // g_subprocess_force_exit() if it is desirable.
 func (x *Subprocess) Wait(CancellableVar *Cancellable) (bool, error) {
-	core.LazyRegister(&xSubprocessWait, "GIO", "g_subprocess_wait", false)
 	var cerr *glib.Error
 
 	cret := xSubprocessWait(x.GoPointer(), CancellableVar.GoPointer(), &cerr)
@@ -499,8 +467,6 @@ var xSubprocessWaitAsync func(uintptr, uintptr, uintptr, uintptr)
 //
 // This is the asynchronous version of g_subprocess_wait().
 func (x *Subprocess) WaitAsync(CancellableVar *Cancellable, CallbackVar *AsyncReadyCallback, UserDataVar uintptr) {
-	core.LazyRegister(&xSubprocessWaitAsync, "GIO", "g_subprocess_wait_async", false)
-
 	xSubprocessWaitAsync(x.GoPointer(), CancellableVar.GoPointer(), glib.NewCallbackNullable(CallbackVar), UserDataVar)
 }
 
@@ -508,7 +474,6 @@ var xSubprocessWaitCheck func(uintptr, uintptr, **glib.Error) bool
 
 // Combines g_subprocess_wait() with g_spawn_check_wait_status().
 func (x *Subprocess) WaitCheck(CancellableVar *Cancellable) (bool, error) {
-	core.LazyRegister(&xSubprocessWaitCheck, "GIO", "g_subprocess_wait_check", false)
 	var cerr *glib.Error
 
 	cret := xSubprocessWaitCheck(x.GoPointer(), CancellableVar.GoPointer(), &cerr)
@@ -524,8 +489,6 @@ var xSubprocessWaitCheckAsync func(uintptr, uintptr, uintptr, uintptr)
 //
 // This is the asynchronous version of g_subprocess_wait_check().
 func (x *Subprocess) WaitCheckAsync(CancellableVar *Cancellable, CallbackVar *AsyncReadyCallback, UserDataVar uintptr) {
-	core.LazyRegister(&xSubprocessWaitCheckAsync, "GIO", "g_subprocess_wait_check_async", false)
-
 	xSubprocessWaitCheckAsync(x.GoPointer(), CancellableVar.GoPointer(), glib.NewCallbackNullable(CallbackVar), UserDataVar)
 }
 
@@ -534,7 +497,6 @@ var xSubprocessWaitCheckFinish func(uintptr, uintptr, **glib.Error) bool
 // Collects the result of a previous call to
 // g_subprocess_wait_check_async().
 func (x *Subprocess) WaitCheckFinish(ResultVar AsyncResult) (bool, error) {
-	core.LazyRegister(&xSubprocessWaitCheckFinish, "GIO", "g_subprocess_wait_check_finish", false)
 	var cerr *glib.Error
 
 	cret := xSubprocessWaitCheckFinish(x.GoPointer(), ResultVar.GoPointer(), &cerr)
@@ -549,7 +511,6 @@ var xSubprocessWaitFinish func(uintptr, uintptr, **glib.Error) bool
 // Collects the result of a previous call to
 // g_subprocess_wait_async().
 func (x *Subprocess) WaitFinish(ResultVar AsyncResult) (bool, error) {
-	core.LazyRegister(&xSubprocessWaitFinish, "GIO", "g_subprocess_wait_finish", false)
 	var cerr *glib.Error
 
 	cret := xSubprocessWaitFinish(x.GoPointer(), ResultVar.GoPointer(), &cerr)
@@ -630,4 +591,42 @@ func (x *Subprocess) Init(CancellableVar *Cancellable) (bool, error) {
 func init() {
 	core.SetPackageName("GIO", "gio-2.0")
 	core.SetSharedLibraries("GIO", []string{"libgio-2.0.so.0", "libgio-2.0.0.dylib"})
+	var libs []uintptr
+	for _, libPath := range core.GetPaths("GIO") {
+		lib, err := purego.Dlopen(libPath, purego.RTLD_NOW|purego.RTLD_GLOBAL)
+		if err != nil {
+			panic(err)
+		}
+		libs = append(libs, lib)
+	}
+
+	core.PuregoSafeRegister(&xSubprocessGLibType, libs, "g_subprocess_get_type")
+
+	core.PuregoSafeRegister(&xNewSubprocess, libs, "g_subprocess_new")
+	core.PuregoSafeRegister(&xNewSubprocessv, libs, "g_subprocess_newv")
+
+	core.PuregoSafeRegister(&xSubprocessCommunicate, libs, "g_subprocess_communicate")
+	core.PuregoSafeRegister(&xSubprocessCommunicateAsync, libs, "g_subprocess_communicate_async")
+	core.PuregoSafeRegister(&xSubprocessCommunicateFinish, libs, "g_subprocess_communicate_finish")
+	core.PuregoSafeRegister(&xSubprocessCommunicateUtf8, libs, "g_subprocess_communicate_utf8")
+	core.PuregoSafeRegister(&xSubprocessCommunicateUtf8Async, libs, "g_subprocess_communicate_utf8_async")
+	core.PuregoSafeRegister(&xSubprocessCommunicateUtf8Finish, libs, "g_subprocess_communicate_utf8_finish")
+	core.PuregoSafeRegister(&xSubprocessForceExit, libs, "g_subprocess_force_exit")
+	core.PuregoSafeRegister(&xSubprocessGetExitStatus, libs, "g_subprocess_get_exit_status")
+	core.PuregoSafeRegister(&xSubprocessGetIdentifier, libs, "g_subprocess_get_identifier")
+	core.PuregoSafeRegister(&xSubprocessGetIfExited, libs, "g_subprocess_get_if_exited")
+	core.PuregoSafeRegister(&xSubprocessGetIfSignaled, libs, "g_subprocess_get_if_signaled")
+	core.PuregoSafeRegister(&xSubprocessGetStatus, libs, "g_subprocess_get_status")
+	core.PuregoSafeRegister(&xSubprocessGetStderrPipe, libs, "g_subprocess_get_stderr_pipe")
+	core.PuregoSafeRegister(&xSubprocessGetStdinPipe, libs, "g_subprocess_get_stdin_pipe")
+	core.PuregoSafeRegister(&xSubprocessGetStdoutPipe, libs, "g_subprocess_get_stdout_pipe")
+	core.PuregoSafeRegister(&xSubprocessGetSuccessful, libs, "g_subprocess_get_successful")
+	core.PuregoSafeRegister(&xSubprocessGetTermSig, libs, "g_subprocess_get_term_sig")
+	core.PuregoSafeRegister(&xSubprocessSendSignal, libs, "g_subprocess_send_signal")
+	core.PuregoSafeRegister(&xSubprocessWait, libs, "g_subprocess_wait")
+	core.PuregoSafeRegister(&xSubprocessWaitAsync, libs, "g_subprocess_wait_async")
+	core.PuregoSafeRegister(&xSubprocessWaitCheck, libs, "g_subprocess_wait_check")
+	core.PuregoSafeRegister(&xSubprocessWaitCheckAsync, libs, "g_subprocess_wait_check_async")
+	core.PuregoSafeRegister(&xSubprocessWaitCheckFinish, libs, "g_subprocess_wait_check_finish")
+	core.PuregoSafeRegister(&xSubprocessWaitFinish, libs, "g_subprocess_wait_finish")
 }

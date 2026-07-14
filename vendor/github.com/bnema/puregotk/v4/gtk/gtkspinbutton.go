@@ -2,6 +2,7 @@
 package gtk
 
 import (
+	"github.com/bnema/purego"
 	"github.com/bnema/puregotk/pkg/core"
 	"github.com/bnema/puregotk/v4/gdk"
 	"github.com/bnema/puregotk/v4/glib"
@@ -26,7 +27,6 @@ type SpinButtonUpdatePolicy int
 var xSpinButtonUpdatePolicyGLibType func() types.GType
 
 func SpinButtonUpdatePolicyGLibType() types.GType {
-	core.LazyRegister(&xSpinButtonUpdatePolicyGLibType, "GTK", "gtk_spin_button_update_policy_get_type", false)
 	return xSpinButtonUpdatePolicyGLibType()
 }
 
@@ -48,7 +48,6 @@ type SpinType int
 var xSpinTypeGLibType func() types.GType
 
 func SpinTypeGLibType() types.GType {
-	core.LazyRegister(&xSpinTypeGLibType, "GTK", "gtk_spin_type_get_type", false)
 	return xSpinTypeGLibType()
 }
 
@@ -206,7 +205,6 @@ type SpinButton struct {
 var xSpinButtonGLibType func() types.GType
 
 func SpinButtonGLibType() types.GType {
-	core.LazyRegister(&xSpinButtonGLibType, "GTK", "gtk_spin_button_get_type", false)
 	return xSpinButtonGLibType()
 }
 
@@ -220,7 +218,6 @@ var xNewSpinButton func(uintptr, float64, uint) uintptr
 
 // Creates a new `GtkSpinButton`.
 func NewSpinButton(AdjustmentVar *Adjustment, ClimbRateVar float64, DigitsVar uint) *SpinButton {
-	core.LazyRegister(&xNewSpinButton, "GTK", "gtk_spin_button_new", false)
 	var cls *SpinButton
 
 	cret := xNewSpinButton(AdjustmentVar.GoPointer(), ClimbRateVar, DigitsVar)
@@ -250,7 +247,6 @@ var xNewSpinButtonWithRange func(float64, float64, float64) uintptr
 // is not suitable for your needs, use
 // [method@Gtk.SpinButton.set_digits] to correct it.
 func NewSpinButtonWithRange(MinVar float64, MaxVar float64, StepVar float64) *SpinButton {
-	core.LazyRegister(&xNewSpinButtonWithRange, "GTK", "gtk_spin_button_new_with_range", false)
 	var cls *SpinButton
 
 	cret := xNewSpinButtonWithRange(MinVar, MaxVar, StepVar)
@@ -271,8 +267,6 @@ var xSpinButtonConfigure func(uintptr, uintptr, float64, uint)
 // The adjustment, climb rate, and number of decimal places
 // are updated accordingly.
 func (x *SpinButton) Configure(AdjustmentVar *Adjustment, ClimbRateVar float64, DigitsVar uint) {
-	core.LazyRegister(&xSpinButtonConfigure, "GTK", "gtk_spin_button_configure", false)
-
 	xSpinButtonConfigure(x.GoPointer(), AdjustmentVar.GoPointer(), ClimbRateVar, DigitsVar)
 }
 
@@ -280,8 +274,6 @@ var xSpinButtonGetActivatesDefault func(uintptr) bool
 
 // Retrieves the value set by [method@Gtk.SpinButton.set_activates_default].
 func (x *SpinButton) GetActivatesDefault() bool {
-	core.LazyRegister(&xSpinButtonGetActivatesDefault, "GTK", "gtk_spin_button_get_activates_default", false)
-
 	cret := xSpinButtonGetActivatesDefault(x.GoPointer())
 	return cret
 }
@@ -290,7 +282,6 @@ var xSpinButtonGetAdjustment func(uintptr) uintptr
 
 // Get the adjustment associated with a `GtkSpinButton`.
 func (x *SpinButton) GetAdjustment() *Adjustment {
-	core.LazyRegister(&xSpinButtonGetAdjustment, "GTK", "gtk_spin_button_get_adjustment", false)
 	var cls *Adjustment
 
 	cret := xSpinButtonGetAdjustment(x.GoPointer())
@@ -308,8 +299,6 @@ var xSpinButtonGetClimbRate func(uintptr) float64
 
 // Returns the acceleration rate for repeated changes.
 func (x *SpinButton) GetClimbRate() float64 {
-	core.LazyRegister(&xSpinButtonGetClimbRate, "GTK", "gtk_spin_button_get_climb_rate", false)
-
 	cret := xSpinButtonGetClimbRate(x.GoPointer())
 	return cret
 }
@@ -318,8 +307,6 @@ var xSpinButtonGetDigits func(uintptr) uint
 
 // Fetches the precision of @spin_button.
 func (x *SpinButton) GetDigits() uint {
-	core.LazyRegister(&xSpinButtonGetDigits, "GTK", "gtk_spin_button_get_digits", false)
-
 	cret := xSpinButtonGetDigits(x.GoPointer())
 	return cret
 }
@@ -331,8 +318,6 @@ var xSpinButtonGetIncrements func(uintptr, *float64, *float64)
 //
 // See [method@Gtk.SpinButton.set_increments].
 func (x *SpinButton) GetIncrements(StepVar *float64, PageVar *float64) {
-	core.LazyRegister(&xSpinButtonGetIncrements, "GTK", "gtk_spin_button_get_increments", false)
-
 	xSpinButtonGetIncrements(x.GoPointer(), StepVar, PageVar)
 }
 
@@ -340,8 +325,6 @@ var xSpinButtonGetNumeric func(uintptr) bool
 
 // Returns whether non-numeric text can be typed into the spin button.
 func (x *SpinButton) GetNumeric() bool {
-	core.LazyRegister(&xSpinButtonGetNumeric, "GTK", "gtk_spin_button_get_numeric", false)
-
 	cret := xSpinButtonGetNumeric(x.GoPointer())
 	return cret
 }
@@ -352,8 +335,6 @@ var xSpinButtonGetRange func(uintptr, *float64, *float64)
 //
 // See [method@Gtk.SpinButton.set_range].
 func (x *SpinButton) GetRange(MinVar *float64, MaxVar *float64) {
-	core.LazyRegister(&xSpinButtonGetRange, "GTK", "gtk_spin_button_get_range", false)
-
 	xSpinButtonGetRange(x.GoPointer(), MinVar, MaxVar)
 }
 
@@ -361,8 +342,6 @@ var xSpinButtonGetSnapToTicks func(uintptr) bool
 
 // Returns whether the values are corrected to the nearest step.
 func (x *SpinButton) GetSnapToTicks() bool {
-	core.LazyRegister(&xSpinButtonGetSnapToTicks, "GTK", "gtk_spin_button_get_snap_to_ticks", false)
-
 	cret := xSpinButtonGetSnapToTicks(x.GoPointer())
 	return cret
 }
@@ -373,8 +352,6 @@ var xSpinButtonGetUpdatePolicy func(uintptr) SpinButtonUpdatePolicy
 //
 // See [method@Gtk.SpinButton.set_update_policy].
 func (x *SpinButton) GetUpdatePolicy() SpinButtonUpdatePolicy {
-	core.LazyRegister(&xSpinButtonGetUpdatePolicy, "GTK", "gtk_spin_button_get_update_policy", false)
-
 	cret := xSpinButtonGetUpdatePolicy(x.GoPointer())
 	return cret
 }
@@ -383,8 +360,6 @@ var xSpinButtonGetValue func(uintptr) float64
 
 // Get the value in the @spin_button.
 func (x *SpinButton) GetValue() float64 {
-	core.LazyRegister(&xSpinButtonGetValue, "GTK", "gtk_spin_button_get_value", false)
-
 	cret := xSpinButtonGetValue(x.GoPointer())
 	return cret
 }
@@ -393,8 +368,6 @@ var xSpinButtonGetValueAsInt func(uintptr) int
 
 // Get the value @spin_button represented as an integer.
 func (x *SpinButton) GetValueAsInt() int {
-	core.LazyRegister(&xSpinButtonGetValueAsInt, "GTK", "gtk_spin_button_get_value_as_int", false)
-
 	cret := xSpinButtonGetValueAsInt(x.GoPointer())
 	return cret
 }
@@ -405,8 +378,6 @@ var xSpinButtonGetWrap func(uintptr) bool
 // opposite limit when the upper or lower limit of the range is
 // exceeded.
 func (x *SpinButton) GetWrap() bool {
-	core.LazyRegister(&xSpinButtonGetWrap, "GTK", "gtk_spin_button_get_wrap", false)
-
 	cret := xSpinButtonGetWrap(x.GoPointer())
 	return cret
 }
@@ -418,8 +389,6 @@ var xSpinButtonSetActivatesDefault func(uintptr, bool)
 //
 // See [signal@Gtk.SpinButton::activate] for what counts as activation.
 func (x *SpinButton) SetActivatesDefault(ActivatesDefaultVar bool) {
-	core.LazyRegister(&xSpinButtonSetActivatesDefault, "GTK", "gtk_spin_button_set_activates_default", false)
-
 	xSpinButtonSetActivatesDefault(x.GoPointer(), ActivatesDefaultVar)
 }
 
@@ -427,8 +396,6 @@ var xSpinButtonSetAdjustment func(uintptr, uintptr)
 
 // Replaces the `GtkAdjustment` associated with @spin_button.
 func (x *SpinButton) SetAdjustment(AdjustmentVar *Adjustment) {
-	core.LazyRegister(&xSpinButtonSetAdjustment, "GTK", "gtk_spin_button_set_adjustment", false)
-
 	xSpinButtonSetAdjustment(x.GoPointer(), AdjustmentVar.GoPointer())
 }
 
@@ -437,8 +404,6 @@ var xSpinButtonSetClimbRate func(uintptr, float64)
 // Sets the acceleration rate for repeated changes when you
 // hold down a button or key.
 func (x *SpinButton) SetClimbRate(ClimbRateVar float64) {
-	core.LazyRegister(&xSpinButtonSetClimbRate, "GTK", "gtk_spin_button_set_climb_rate", false)
-
 	xSpinButtonSetClimbRate(x.GoPointer(), ClimbRateVar)
 }
 
@@ -448,8 +413,6 @@ var xSpinButtonSetDigits func(uintptr, uint)
 //
 // Up to 20 digit precision is allowed.
 func (x *SpinButton) SetDigits(DigitsVar uint) {
-	core.LazyRegister(&xSpinButtonSetDigits, "GTK", "gtk_spin_button_set_digits", false)
-
 	xSpinButtonSetDigits(x.GoPointer(), DigitsVar)
 }
 
@@ -460,8 +423,6 @@ var xSpinButtonSetIncrements func(uintptr, float64, float64)
 // This affects how quickly the value changes when
 // the spin button’s arrows are activated.
 func (x *SpinButton) SetIncrements(StepVar float64, PageVar float64) {
-	core.LazyRegister(&xSpinButtonSetIncrements, "GTK", "gtk_spin_button_set_increments", false)
-
 	xSpinButtonSetIncrements(x.GoPointer(), StepVar, PageVar)
 }
 
@@ -470,8 +431,6 @@ var xSpinButtonSetNumeric func(uintptr, bool)
 // Sets the flag that determines if non-numeric text can be typed
 // into the spin button.
 func (x *SpinButton) SetNumeric(NumericVar bool) {
-	core.LazyRegister(&xSpinButtonSetNumeric, "GTK", "gtk_spin_button_set_numeric", false)
-
 	xSpinButtonSetNumeric(x.GoPointer(), NumericVar)
 }
 
@@ -482,8 +441,6 @@ var xSpinButtonSetRange func(uintptr, float64, float64)
 // If the current value is outside this range, it will be adjusted
 // to fit within the range, otherwise it will remain unchanged.
 func (x *SpinButton) SetRange(MinVar float64, MaxVar float64) {
-	core.LazyRegister(&xSpinButtonSetRange, "GTK", "gtk_spin_button_set_range", false)
-
 	xSpinButtonSetRange(x.GoPointer(), MinVar, MaxVar)
 }
 
@@ -493,8 +450,6 @@ var xSpinButtonSetSnapToTicks func(uintptr, bool)
 // nearest step increment when a spin button is activated after
 // providing an invalid value.
 func (x *SpinButton) SetSnapToTicks(SnapToTicksVar bool) {
-	core.LazyRegister(&xSpinButtonSetSnapToTicks, "GTK", "gtk_spin_button_set_snap_to_ticks", false)
-
 	xSpinButtonSetSnapToTicks(x.GoPointer(), SnapToTicksVar)
 }
 
@@ -505,8 +460,6 @@ var xSpinButtonSetUpdatePolicy func(uintptr, SpinButtonUpdatePolicy)
 // This determines whether the spin button is always
 // updated or only when a valid value is set.
 func (x *SpinButton) SetUpdatePolicy(PolicyVar SpinButtonUpdatePolicy) {
-	core.LazyRegister(&xSpinButtonSetUpdatePolicy, "GTK", "gtk_spin_button_set_update_policy", false)
-
 	xSpinButtonSetUpdatePolicy(x.GoPointer(), PolicyVar)
 }
 
@@ -514,8 +467,6 @@ var xSpinButtonSetValue func(uintptr, float64)
 
 // Sets the value of @spin_button.
 func (x *SpinButton) SetValue(ValueVar float64) {
-	core.LazyRegister(&xSpinButtonSetValue, "GTK", "gtk_spin_button_set_value", false)
-
 	xSpinButtonSetValue(x.GoPointer(), ValueVar)
 }
 
@@ -525,8 +476,6 @@ var xSpinButtonSetWrap func(uintptr, bool)
 // around to the opposite limit when the upper or lower limit
 // of the range is exceeded.
 func (x *SpinButton) SetWrap(WrapVar bool) {
-	core.LazyRegister(&xSpinButtonSetWrap, "GTK", "gtk_spin_button_set_wrap", false)
-
 	xSpinButtonSetWrap(x.GoPointer(), WrapVar)
 }
 
@@ -535,8 +484,6 @@ var xSpinButtonSpin func(uintptr, SpinType, float64)
 // Increment or decrement a spin button’s value in a specified
 // direction by a specified amount.
 func (x *SpinButton) Spin(DirectionVar SpinType, IncrementVar float64) {
-	core.LazyRegister(&xSpinButtonSpin, "GTK", "gtk_spin_button_spin", false)
-
 	xSpinButtonSpin(x.GoPointer(), DirectionVar, IncrementVar)
 }
 
@@ -544,8 +491,6 @@ var xSpinButtonUpdate func(uintptr)
 
 // Manually force an update of the spin button.
 func (x *SpinButton) Update() {
-	core.LazyRegister(&xSpinButtonUpdate, "GTK", "gtk_spin_button_update", false)
-
 	xSpinButtonUpdate(x.GoPointer())
 }
 
@@ -1417,4 +1362,48 @@ func (x *SpinButton) SetOrientation(OrientationVar Orientation) {
 func init() {
 	core.SetPackageName("GTK", "gtk4")
 	core.SetSharedLibraries("GTK", []string{"libgtk-4.so.1", "libgtk-4.1.dylib"})
+	var libs []uintptr
+	for _, libPath := range core.GetPaths("GTK") {
+		lib, err := purego.Dlopen(libPath, purego.RTLD_NOW|purego.RTLD_GLOBAL)
+		if err != nil {
+			panic(err)
+		}
+		libs = append(libs, lib)
+	}
+
+	core.PuregoSafeRegister(&xSpinButtonUpdatePolicyGLibType, libs, "gtk_spin_button_update_policy_get_type")
+
+	core.PuregoSafeRegister(&xSpinTypeGLibType, libs, "gtk_spin_type_get_type")
+
+	core.PuregoSafeRegister(&xSpinButtonGLibType, libs, "gtk_spin_button_get_type")
+
+	core.PuregoSafeRegister(&xNewSpinButton, libs, "gtk_spin_button_new")
+	core.PuregoSafeRegister(&xNewSpinButtonWithRange, libs, "gtk_spin_button_new_with_range")
+
+	core.PuregoSafeRegister(&xSpinButtonConfigure, libs, "gtk_spin_button_configure")
+	core.PuregoSafeRegister(&xSpinButtonGetActivatesDefault, libs, "gtk_spin_button_get_activates_default")
+	core.PuregoSafeRegister(&xSpinButtonGetAdjustment, libs, "gtk_spin_button_get_adjustment")
+	core.PuregoSafeRegister(&xSpinButtonGetClimbRate, libs, "gtk_spin_button_get_climb_rate")
+	core.PuregoSafeRegister(&xSpinButtonGetDigits, libs, "gtk_spin_button_get_digits")
+	core.PuregoSafeRegister(&xSpinButtonGetIncrements, libs, "gtk_spin_button_get_increments")
+	core.PuregoSafeRegister(&xSpinButtonGetNumeric, libs, "gtk_spin_button_get_numeric")
+	core.PuregoSafeRegister(&xSpinButtonGetRange, libs, "gtk_spin_button_get_range")
+	core.PuregoSafeRegister(&xSpinButtonGetSnapToTicks, libs, "gtk_spin_button_get_snap_to_ticks")
+	core.PuregoSafeRegister(&xSpinButtonGetUpdatePolicy, libs, "gtk_spin_button_get_update_policy")
+	core.PuregoSafeRegister(&xSpinButtonGetValue, libs, "gtk_spin_button_get_value")
+	core.PuregoSafeRegister(&xSpinButtonGetValueAsInt, libs, "gtk_spin_button_get_value_as_int")
+	core.PuregoSafeRegister(&xSpinButtonGetWrap, libs, "gtk_spin_button_get_wrap")
+	core.PuregoSafeRegister(&xSpinButtonSetActivatesDefault, libs, "gtk_spin_button_set_activates_default")
+	core.PuregoSafeRegister(&xSpinButtonSetAdjustment, libs, "gtk_spin_button_set_adjustment")
+	core.PuregoSafeRegister(&xSpinButtonSetClimbRate, libs, "gtk_spin_button_set_climb_rate")
+	core.PuregoSafeRegister(&xSpinButtonSetDigits, libs, "gtk_spin_button_set_digits")
+	core.PuregoSafeRegister(&xSpinButtonSetIncrements, libs, "gtk_spin_button_set_increments")
+	core.PuregoSafeRegister(&xSpinButtonSetNumeric, libs, "gtk_spin_button_set_numeric")
+	core.PuregoSafeRegister(&xSpinButtonSetRange, libs, "gtk_spin_button_set_range")
+	core.PuregoSafeRegister(&xSpinButtonSetSnapToTicks, libs, "gtk_spin_button_set_snap_to_ticks")
+	core.PuregoSafeRegister(&xSpinButtonSetUpdatePolicy, libs, "gtk_spin_button_set_update_policy")
+	core.PuregoSafeRegister(&xSpinButtonSetValue, libs, "gtk_spin_button_set_value")
+	core.PuregoSafeRegister(&xSpinButtonSetWrap, libs, "gtk_spin_button_set_wrap")
+	core.PuregoSafeRegister(&xSpinButtonSpin, libs, "gtk_spin_button_spin")
+	core.PuregoSafeRegister(&xSpinButtonUpdate, libs, "gtk_spin_button_update")
 }

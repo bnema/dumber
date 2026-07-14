@@ -5,6 +5,7 @@ import (
 	"structs"
 	"unsafe"
 
+	"github.com/bnema/purego"
 	"github.com/bnema/puregotk/pkg/core"
 )
 
@@ -69,8 +70,6 @@ var xCompletionAddItems func(uintptr, *List)
 
 // Adds items to the #GCompletion.
 func (x *Completion) AddItems(ItemsVar *List) {
-	core.LazyRegister(&xCompletionAddItems, "GLIB", "g_completion_add_items", false)
-
 	xCompletionAddItems(x.GoPointer(), ItemsVar)
 }
 
@@ -80,8 +79,6 @@ var xCompletionClearItems func(uintptr)
 // memory was dynamically allocated, it should be freed after calling this
 // function.
 func (x *Completion) ClearItems() {
-	core.LazyRegister(&xCompletionClearItems, "GLIB", "g_completion_clear_items", false)
-
 	xCompletionClearItems(x.GoPointer())
 }
 
@@ -90,8 +87,6 @@ var xCompletionComplete func(uintptr, string, string) uintptr
 // Attempts to complete the string @prefix using the #GCompletion
 // target items.
 func (x *Completion) Complete(PrefixVar string, NewPrefixVar string) *List {
-	core.LazyRegister(&xCompletionComplete, "GLIB", "g_completion_complete", false)
-
 	cret := xCompletionComplete(x.GoPointer(), PrefixVar, NewPrefixVar)
 	if cret == 0 {
 		return nil
@@ -109,8 +104,6 @@ var xCompletionCompleteUtf8 func(uintptr, string, string) uintptr
 // You should use this function instead of g_completion_complete() if your
 // items are UTF-8 strings.
 func (x *Completion) CompleteUtf8(PrefixVar string, NewPrefixVar string) *List {
-	core.LazyRegister(&xCompletionCompleteUtf8, "GLIB", "g_completion_complete_utf8", false)
-
 	cret := xCompletionCompleteUtf8(x.GoPointer(), PrefixVar, NewPrefixVar)
 	if cret == 0 {
 		return nil
@@ -124,8 +117,6 @@ var xCompletionFree func(uintptr)
 // the memory was dynamically allocated, it should be freed after calling this
 // function.
 func (x *Completion) Free() {
-	core.LazyRegister(&xCompletionFree, "GLIB", "g_completion_free", false)
-
 	xCompletionFree(x.GoPointer())
 }
 
@@ -135,8 +126,6 @@ var xCompletionRemoveItems func(uintptr, *List)
 // was dynamically allocated, free @items with g_list_free_full() after calling
 // this function.
 func (x *Completion) RemoveItems(ItemsVar *List) {
-	core.LazyRegister(&xCompletionRemoveItems, "GLIB", "g_completion_remove_items", false)
-
 	xCompletionRemoveItems(x.GoPointer(), ItemsVar)
 }
 
@@ -145,12 +134,26 @@ var xCompletionSetCompare func(uintptr, uintptr)
 // Sets the function to use for string comparisons. The default string
 // comparison function is strncmp().
 func (x *Completion) SetCompare(StrncmpFuncVar *CompletionStrncmpFunc) {
-	core.LazyRegister(&xCompletionSetCompare, "GLIB", "g_completion_set_compare", false)
-
 	xCompletionSetCompare(x.GoPointer(), NewCallback(StrncmpFuncVar))
 }
 
 func init() {
 	core.SetPackageName("GLIB", "glib-2.0")
 	core.SetSharedLibraries("GLIB", []string{"libgobject-2.0.so.0", "libglib-2.0.so.0", "libgobject-2.0.0.dylib", "libglib-2.0.0.dylib"})
+	var libs []uintptr
+	for _, libPath := range core.GetPaths("GLIB") {
+		lib, err := purego.Dlopen(libPath, purego.RTLD_NOW|purego.RTLD_GLOBAL)
+		if err != nil {
+			panic(err)
+		}
+		libs = append(libs, lib)
+	}
+
+	core.PuregoSafeRegister(&xCompletionAddItems, libs, "g_completion_add_items")
+	core.PuregoSafeRegister(&xCompletionClearItems, libs, "g_completion_clear_items")
+	core.PuregoSafeRegister(&xCompletionComplete, libs, "g_completion_complete")
+	core.PuregoSafeRegister(&xCompletionCompleteUtf8, libs, "g_completion_complete_utf8")
+	core.PuregoSafeRegister(&xCompletionFree, libs, "g_completion_free")
+	core.PuregoSafeRegister(&xCompletionRemoveItems, libs, "g_completion_remove_items")
+	core.PuregoSafeRegister(&xCompletionSetCompare, libs, "g_completion_set_compare")
 }

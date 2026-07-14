@@ -5,6 +5,7 @@ import (
 	"structs"
 	"unsafe"
 
+	"github.com/bnema/purego"
 	"github.com/bnema/puregotk/pkg/core"
 	"github.com/bnema/puregotk/v4/gio"
 	"github.com/bnema/puregotk/v4/glib"
@@ -44,7 +45,6 @@ type ContextMenuItem struct {
 var xContextMenuItemGLibType func() types.GType
 
 func ContextMenuItemGLibType() types.GType {
-	core.LazyRegister(&xContextMenuItemGLibType, "WEBKIT", "webkit_context_menu_item_get_type", false)
 	return xContextMenuItemGLibType()
 }
 
@@ -61,7 +61,6 @@ var xNewContextMenuItemFromGaction func(uintptr, string, *glib.Variant) uintptr
 // On activation
 // @target will be passed as parameter to the callback.
 func NewContextMenuItemFromGaction(ActionVar gio.Action, LabelVar string, TargetVar *glib.Variant) *ContextMenuItem {
-	core.LazyRegister(&xNewContextMenuItemFromGaction, "WEBKIT", "webkit_context_menu_item_new_from_gaction", false)
 	var cls *ContextMenuItem
 
 	cret := xNewContextMenuItemFromGaction(ActionVar.GoPointer(), LabelVar, TargetVar)
@@ -88,7 +87,6 @@ var xNewContextMenuItemFromStockAction func(ContextMenuAction) uintptr
 // to be notified when the item is activated, but you can't prevent the associated
 // action from being performed.
 func NewContextMenuItemFromStockAction(ActionVar ContextMenuAction) *ContextMenuItem {
-	core.LazyRegister(&xNewContextMenuItemFromStockAction, "WEBKIT", "webkit_context_menu_item_new_from_stock_action", false)
 	var cls *ContextMenuItem
 
 	cret := xNewContextMenuItemFromStockAction(ActionVar)
@@ -109,7 +107,6 @@ var xNewContextMenuItemFromStockActionWithLabel func(ContextMenuAction, string) 
 // Stock actions have a predefined label, this method can be used to create a
 // #WebKitContextMenuItem for a #WebKitContextMenuAction but using a custom label.
 func NewContextMenuItemFromStockActionWithLabel(ActionVar ContextMenuAction, LabelVar string) *ContextMenuItem {
-	core.LazyRegister(&xNewContextMenuItemFromStockActionWithLabel, "WEBKIT", "webkit_context_menu_item_new_from_stock_action_with_label", false)
 	var cls *ContextMenuItem
 
 	cret := xNewContextMenuItemFromStockActionWithLabel(ActionVar, LabelVar)
@@ -127,7 +124,6 @@ var xNewContextMenuItemSeparator func() uintptr
 
 // Creates a new #WebKitContextMenuItem representing a separator.
 func NewContextMenuItemSeparator() *ContextMenuItem {
-	core.LazyRegister(&xNewContextMenuItemSeparator, "WEBKIT", "webkit_context_menu_item_new_separator", false)
 	var cls *ContextMenuItem
 
 	cret := xNewContextMenuItemSeparator()
@@ -145,7 +141,6 @@ var xNewContextMenuItemWithSubmenu func(string, uintptr) uintptr
 
 // Creates a new #WebKitContextMenuItem using the given @label with a submenu.
 func NewContextMenuItemWithSubmenu(LabelVar string, SubmenuVar *ContextMenu) *ContextMenuItem {
-	core.LazyRegister(&xNewContextMenuItemWithSubmenu, "WEBKIT", "webkit_context_menu_item_new_with_submenu", false)
 	var cls *ContextMenuItem
 
 	cret := xNewContextMenuItemWithSubmenu(LabelVar, SubmenuVar.GoPointer())
@@ -163,7 +158,6 @@ var xContextMenuItemGetGaction func(uintptr) uintptr
 
 // Gets the action associated to @item as a #GAction.
 func (x *ContextMenuItem) GetGaction() *gio.ActionBase {
-	core.LazyRegister(&xContextMenuItemGetGaction, "WEBKIT", "webkit_context_menu_item_get_gaction", false)
 	var cls *gio.ActionBase
 
 	cret := xContextMenuItemGetGaction(x.GoPointer())
@@ -181,8 +175,6 @@ var xContextMenuItemGetGactionTarget func(uintptr) uintptr
 
 // Gets the target #GVariant associated with @item.
 func (x *ContextMenuItem) GetGactionTarget() *glib.Variant {
-	core.LazyRegister(&xContextMenuItemGetGactionTarget, "WEBKIT", "webkit_context_menu_item_get_gaction_target", false)
-
 	cret := xContextMenuItemGetGactionTarget(x.GoPointer())
 	if cret == 0 {
 		return nil
@@ -199,8 +191,6 @@ var xContextMenuItemGetStockAction func(uintptr) ContextMenuAction
 // returned. If the #WebKitContextMenuItem is a separator %WEBKIT_CONTEXT_MENU_ACTION_NO_ACTION
 // will be returned.
 func (x *ContextMenuItem) GetStockAction() ContextMenuAction {
-	core.LazyRegister(&xContextMenuItemGetStockAction, "WEBKIT", "webkit_context_menu_item_get_stock_action", false)
-
 	cret := xContextMenuItemGetStockAction(x.GoPointer())
 	return cret
 }
@@ -209,7 +199,6 @@ var xContextMenuItemGetSubmenu func(uintptr) uintptr
 
 // Gets the submenu of @item.
 func (x *ContextMenuItem) GetSubmenu() *ContextMenu {
-	core.LazyRegister(&xContextMenuItemGetSubmenu, "WEBKIT", "webkit_context_menu_item_get_submenu", false)
 	var cls *ContextMenu
 
 	cret := xContextMenuItemGetSubmenu(x.GoPointer())
@@ -227,8 +216,6 @@ var xContextMenuItemGetTitle func(uintptr) string
 
 // Gets the title of @item.
 func (x *ContextMenuItem) GetTitle() string {
-	core.LazyRegister(&xContextMenuItemGetTitle, "WEBKIT", "webkit_context_menu_item_get_title", false)
-
 	cret := xContextMenuItemGetTitle(x.GoPointer())
 	return cret
 }
@@ -237,8 +224,6 @@ var xContextMenuItemIsSeparator func(uintptr) bool
 
 // Checks whether @item is a separator.
 func (x *ContextMenuItem) IsSeparator() bool {
-	core.LazyRegister(&xContextMenuItemIsSeparator, "WEBKIT", "webkit_context_menu_item_is_separator", false)
-
 	cret := xContextMenuItemIsSeparator(x.GoPointer())
 	return cret
 }
@@ -250,8 +235,6 @@ var xContextMenuItemSetSubmenu func(uintptr, uintptr)
 // If @submenu is %NULL the current
 // submenu of @item is removed.
 func (x *ContextMenuItem) SetSubmenu(SubmenuVar *ContextMenu) {
-	core.LazyRegister(&xContextMenuItemSetSubmenu, "WEBKIT", "webkit_context_menu_item_set_submenu", false)
-
 	xContextMenuItemSetSubmenu(x.GoPointer(), SubmenuVar.GoPointer())
 }
 
@@ -269,8 +252,33 @@ func (c *ContextMenuItem) SetGoPointer(ptr uintptr) {
 func init() {
 	core.SetPackageName("WEBKIT", "webkitgtk-6.0")
 	core.SetSharedLibraries("WEBKIT", []string{"libwebkitgtk-6.0.so.4", "libjavascriptcoregtk-6.0.so.1", "libwebkitgtk-6.0.4.dylib", "libjavascriptcoregtk-6.0.1.dylib"})
+	var libs []uintptr
+	for _, libPath := range core.GetPaths("WEBKIT") {
+		lib, err := purego.Dlopen(libPath, purego.RTLD_NOW|purego.RTLD_GLOBAL)
+		if err != nil {
+			panic(err)
+		}
+		libs = append(libs, lib)
+	}
 
-	// Manually register types since they aren't automatically registered when
-	// WebKit is loaded. See https://bugs.webkit.org/show_bug.cgi?id=175937.
+	core.PuregoSafeRegister(&xContextMenuItemGLibType, libs, "webkit_context_menu_item_get_type")
+
+	core.PuregoSafeRegister(&xNewContextMenuItemFromGaction, libs, "webkit_context_menu_item_new_from_gaction")
+	core.PuregoSafeRegister(&xNewContextMenuItemFromStockAction, libs, "webkit_context_menu_item_new_from_stock_action")
+	core.PuregoSafeRegister(&xNewContextMenuItemFromStockActionWithLabel, libs, "webkit_context_menu_item_new_from_stock_action_with_label")
+	core.PuregoSafeRegister(&xNewContextMenuItemSeparator, libs, "webkit_context_menu_item_new_separator")
+	core.PuregoSafeRegister(&xNewContextMenuItemWithSubmenu, libs, "webkit_context_menu_item_new_with_submenu")
+
+	core.PuregoSafeRegister(&xContextMenuItemGetGaction, libs, "webkit_context_menu_item_get_gaction")
+	core.PuregoSafeRegister(&xContextMenuItemGetGactionTarget, libs, "webkit_context_menu_item_get_gaction_target")
+	core.PuregoSafeRegister(&xContextMenuItemGetStockAction, libs, "webkit_context_menu_item_get_stock_action")
+	core.PuregoSafeRegister(&xContextMenuItemGetSubmenu, libs, "webkit_context_menu_item_get_submenu")
+	core.PuregoSafeRegister(&xContextMenuItemGetTitle, libs, "webkit_context_menu_item_get_title")
+	core.PuregoSafeRegister(&xContextMenuItemIsSeparator, libs, "webkit_context_menu_item_is_separator")
+	core.PuregoSafeRegister(&xContextMenuItemSetSubmenu, libs, "webkit_context_menu_item_set_submenu")
+
+	// Manually register types since they aren't being automatically registered when
+	// the library is loaded
+	// See https://bugs.webkit.org/show_bug.cgi?id=175937
 	ContextMenuItemGLibType()
 }

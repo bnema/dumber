@@ -185,7 +185,6 @@ type Swipeable interface {
 var xSwipeableGLibType func() types.GType
 
 func SwipeableGLibType() types.GType {
-	core.LazyRegister(&xSwipeableGLibType, "ADW", "adw_swipeable_get_type", false)
 	return xSwipeableGLibType()
 }
 
@@ -246,42 +245,31 @@ func (x *SwipeableBase) GetSwipeArea(NavigationDirectionVar NavigationDirection,
 	XAdwSwipeableGetSwipeArea(x.GoPointer(), NavigationDirectionVar, IsDragVar, RectVar)
 }
 
-var XAdwSwipeableGetCancelProgress func(uintptr) float64 = func(instance uintptr) float64 {
-	core.LazyRegister(&xXAdwSwipeableGetCancelProgress, "ADW", "adw_swipeable_get_cancel_progress", false)
-	return xXAdwSwipeableGetCancelProgress(instance)
-}
-
 var (
-	xXAdwSwipeableGetCancelProgress func(uintptr) float64
-	XAdwSwipeableGetDistance        func(uintptr) float64 = func(instance uintptr) float64 {
-		core.LazyRegister(&xXAdwSwipeableGetDistance, "ADW", "adw_swipeable_get_distance", false)
-		return xXAdwSwipeableGetDistance(instance)
-	}
+	XAdwSwipeableGetCancelProgress func(uintptr) float64
+	XAdwSwipeableGetDistance       func(uintptr) float64
+	XAdwSwipeableGetProgress       func(uintptr) float64
+	XAdwSwipeableGetSnapPoints     func(uintptr, *int) uintptr
+	XAdwSwipeableGetSwipeArea      func(uintptr, NavigationDirection, bool, *gdk.Rectangle)
 )
-var (
-	xXAdwSwipeableGetDistance func(uintptr) float64
-	XAdwSwipeableGetProgress  func(uintptr) float64 = func(instance uintptr) float64 {
-		core.LazyRegister(&xXAdwSwipeableGetProgress, "ADW", "adw_swipeable_get_progress", false)
-		return xXAdwSwipeableGetProgress(instance)
-	}
-)
-var (
-	xXAdwSwipeableGetProgress  func(uintptr) float64
-	XAdwSwipeableGetSnapPoints func(uintptr, *int) uintptr = func(instance uintptr, NSnapPointsVarp *int) uintptr {
-		core.LazyRegister(&xXAdwSwipeableGetSnapPoints, "ADW", "adw_swipeable_get_snap_points", false)
-		return xXAdwSwipeableGetSnapPoints(instance, NSnapPointsVarp)
-	}
-)
-var (
-	xXAdwSwipeableGetSnapPoints func(uintptr, *int) uintptr
-	XAdwSwipeableGetSwipeArea   func(uintptr, NavigationDirection, bool, *gdk.Rectangle) = func(instance uintptr, NavigationDirectionVarp NavigationDirection, IsDragVarp bool, RectVarp *gdk.Rectangle) {
-		core.LazyRegister(&xXAdwSwipeableGetSwipeArea, "ADW", "adw_swipeable_get_swipe_area", false)
-		xXAdwSwipeableGetSwipeArea(instance, NavigationDirectionVarp, IsDragVarp, RectVarp)
-	}
-)
-var xXAdwSwipeableGetSwipeArea func(uintptr, NavigationDirection, bool, *gdk.Rectangle)
 
 func init() {
 	core.SetPackageName("ADW", "libadwaita-1")
 	core.SetSharedLibraries("ADW", []string{"libadwaita-1.so.0", "libadwaita-1.0.dylib"})
+	var libs []uintptr
+	for _, libPath := range core.GetPaths("ADW") {
+		lib, err := purego.Dlopen(libPath, purego.RTLD_NOW|purego.RTLD_GLOBAL)
+		if err != nil {
+			panic(err)
+		}
+		libs = append(libs, lib)
+	}
+
+	core.PuregoSafeRegister(&xSwipeableGLibType, libs, "adw_swipeable_get_type")
+
+	core.PuregoSafeRegister(&XAdwSwipeableGetCancelProgress, libs, "adw_swipeable_get_cancel_progress")
+	core.PuregoSafeRegister(&XAdwSwipeableGetDistance, libs, "adw_swipeable_get_distance")
+	core.PuregoSafeRegister(&XAdwSwipeableGetProgress, libs, "adw_swipeable_get_progress")
+	core.PuregoSafeRegister(&XAdwSwipeableGetSnapPoints, libs, "adw_swipeable_get_snap_points")
+	core.PuregoSafeRegister(&XAdwSwipeableGetSwipeArea, libs, "adw_swipeable_get_swipe_area")
 }

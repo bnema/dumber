@@ -5,6 +5,7 @@ import (
 	"structs"
 	"unsafe"
 
+	"github.com/bnema/purego"
 	"github.com/bnema/puregotk/pkg/core"
 	"github.com/bnema/puregotk/v4/gobject/types"
 )
@@ -17,7 +18,6 @@ type Dir struct {
 var xDirGLibType func() types.GType
 
 func DirGLibType() types.GType {
-	core.LazyRegister(&xDirGLibType, "GLIB", "g_dir_get_type", false)
 	return xDirGLibType()
 }
 
@@ -39,7 +39,6 @@ var xDirOpen func(string, uint, **Error) uintptr
 // directory can then be retrieved using g_dir_read_name().  Note
 // that the ordering is not defined.
 func DirOpen(PathVar string, FlagsVar uint) (*Dir, error) {
-	core.LazyRegister(&xDirOpen, "GLIB", "g_dir_open", false)
 	var cerr *Error
 
 	cret := xDirOpen(PathVar, FlagsVar, &cerr)
@@ -63,8 +62,6 @@ var xDirClose func(uintptr)
 // [method@GLib.Dir.ref] and [method@GLib.Dir.unref] on a `GDir` after calling
 // [method@GLib.Dir.close] on it.
 func (x *Dir) Close() {
-	core.LazyRegister(&xDirClose, "GLIB", "g_dir_close", false)
-
 	xDirClose(x.GoPointer())
 }
 
@@ -84,8 +81,6 @@ var xDirReadName func(uintptr) string
 // On Windows, as is true of all GLib functions which operate on
 // filenames, the returned name is in UTF-8.
 func (x *Dir) ReadName() string {
-	core.LazyRegister(&xDirReadName, "GLIB", "g_dir_read_name", false)
-
 	cret := xDirReadName(x.GoPointer())
 	return cret
 }
@@ -94,8 +89,6 @@ var xDirRef func(uintptr) uintptr
 
 // Increment the reference count of `dir`.
 func (x *Dir) Ref() *Dir {
-	core.LazyRegister(&xDirRef, "GLIB", "g_dir_ref", false)
-
 	cret := xDirRef(x.GoPointer())
 	if cret == 0 {
 		return nil
@@ -108,8 +101,6 @@ var xDirRewind func(uintptr)
 // Resets the given directory. The next call to g_dir_read_name()
 // will return the first entry again.
 func (x *Dir) Rewind() {
-	core.LazyRegister(&xDirRewind, "GLIB", "g_dir_rewind", false)
-
 	xDirRewind(x.GoPointer())
 }
 
@@ -127,12 +118,28 @@ var xDirUnref func(uintptr)
 // [method@GLib.Dir.ref] and [method@GLib.Dir.unref] on a `GDir` after calling
 // [method@GLib.Dir.close] on it.
 func (x *Dir) Unref() {
-	core.LazyRegister(&xDirUnref, "GLIB", "g_dir_unref", false)
-
 	xDirUnref(x.GoPointer())
 }
 
 func init() {
 	core.SetPackageName("GLIB", "glib-2.0")
 	core.SetSharedLibraries("GLIB", []string{"libgobject-2.0.so.0", "libglib-2.0.so.0", "libgobject-2.0.0.dylib", "libglib-2.0.0.dylib"})
+	var libs []uintptr
+	for _, libPath := range core.GetPaths("GLIB") {
+		lib, err := purego.Dlopen(libPath, purego.RTLD_NOW|purego.RTLD_GLOBAL)
+		if err != nil {
+			panic(err)
+		}
+		libs = append(libs, lib)
+	}
+
+	core.PuregoSafeRegister(&xDirGLibType, libs, "g_dir_get_type")
+
+	core.PuregoSafeRegister(&xDirOpen, libs, "g_dir_open")
+
+	core.PuregoSafeRegister(&xDirClose, libs, "g_dir_close")
+	core.PuregoSafeRegister(&xDirReadName, libs, "g_dir_read_name")
+	core.PuregoSafeRegister(&xDirRef, libs, "g_dir_ref")
+	core.PuregoSafeRegister(&xDirRewind, libs, "g_dir_rewind")
+	core.PuregoSafeRegister(&xDirUnref, libs, "g_dir_unref")
 }

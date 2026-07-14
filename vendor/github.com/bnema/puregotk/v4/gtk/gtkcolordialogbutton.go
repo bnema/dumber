@@ -5,6 +5,7 @@ import (
 	"structs"
 	"unsafe"
 
+	"github.com/bnema/purego"
 	"github.com/bnema/puregotk/pkg/core"
 	"github.com/bnema/puregotk/v4/gdk"
 	"github.com/bnema/puregotk/v4/glib"
@@ -61,7 +62,6 @@ type ColorDialogButton struct {
 var xColorDialogButtonGLibType func() types.GType
 
 func ColorDialogButtonGLibType() types.GType {
-	core.LazyRegister(&xColorDialogButtonGLibType, "GTK", "gtk_color_dialog_button_get_type", false)
 	return xColorDialogButtonGLibType()
 }
 
@@ -79,7 +79,6 @@ var xNewColorDialogButton func(uintptr) uintptr
 // You can pass `NULL` to this function and set a `GtkColorDialog`
 // later. The button will be insensitive until that happens.
 func NewColorDialogButton(DialogVar *ColorDialog) *ColorDialogButton {
-	core.LazyRegister(&xNewColorDialogButton, "GTK", "gtk_color_dialog_button_new", false)
 	var cls *ColorDialogButton
 
 	cret := xNewColorDialogButton(DialogVar.GoPointer())
@@ -97,7 +96,6 @@ var xColorDialogButtonGetDialog func(uintptr) uintptr
 
 // Returns the `GtkColorDialog` of @self.
 func (x *ColorDialogButton) GetDialog() *ColorDialog {
-	core.LazyRegister(&xColorDialogButtonGetDialog, "GTK", "gtk_color_dialog_button_get_dialog", false)
 	var cls *ColorDialog
 
 	cret := xColorDialogButtonGetDialog(x.GoPointer())
@@ -119,8 +117,6 @@ var xColorDialogButtonGetRgba func(uintptr) uintptr
 // the color that was chosen by the user. To get
 // informed about changes, listen to "notify::rgba".
 func (x *ColorDialogButton) GetRgba() *gdk.RGBA {
-	core.LazyRegister(&xColorDialogButtonGetRgba, "GTK", "gtk_color_dialog_button_get_rgba", false)
-
 	cret := xColorDialogButtonGetRgba(x.GoPointer())
 	if cret == 0 {
 		return nil
@@ -134,8 +130,6 @@ var xColorDialogButtonSetDialog func(uintptr, uintptr)
 // creating the color chooser dialog that is
 // presented when the user clicks the button.
 func (x *ColorDialogButton) SetDialog(DialogVar *ColorDialog) {
-	core.LazyRegister(&xColorDialogButtonSetDialog, "GTK", "gtk_color_dialog_button_set_dialog", false)
-
 	xColorDialogButtonSetDialog(x.GoPointer(), DialogVar.GoPointer())
 }
 
@@ -143,8 +137,6 @@ var xColorDialogButtonSetRgba func(uintptr, *gdk.RGBA)
 
 // Sets the color of the button.
 func (x *ColorDialogButton) SetRgba(ColorVar *gdk.RGBA) {
-	core.LazyRegister(&xColorDialogButtonSetRgba, "GTK", "gtk_color_dialog_button_set_rgba", false)
-
 	xColorDialogButtonSetRgba(x.GoPointer(), ColorVar)
 }
 
@@ -479,4 +471,21 @@ func (x *ColorDialogButton) GetBuildableId() string {
 func init() {
 	core.SetPackageName("GTK", "gtk4")
 	core.SetSharedLibraries("GTK", []string{"libgtk-4.so.1", "libgtk-4.1.dylib"})
+	var libs []uintptr
+	for _, libPath := range core.GetPaths("GTK") {
+		lib, err := purego.Dlopen(libPath, purego.RTLD_NOW|purego.RTLD_GLOBAL)
+		if err != nil {
+			panic(err)
+		}
+		libs = append(libs, lib)
+	}
+
+	core.PuregoSafeRegister(&xColorDialogButtonGLibType, libs, "gtk_color_dialog_button_get_type")
+
+	core.PuregoSafeRegister(&xNewColorDialogButton, libs, "gtk_color_dialog_button_new")
+
+	core.PuregoSafeRegister(&xColorDialogButtonGetDialog, libs, "gtk_color_dialog_button_get_dialog")
+	core.PuregoSafeRegister(&xColorDialogButtonGetRgba, libs, "gtk_color_dialog_button_get_rgba")
+	core.PuregoSafeRegister(&xColorDialogButtonSetDialog, libs, "gtk_color_dialog_button_set_dialog")
+	core.PuregoSafeRegister(&xColorDialogButtonSetRgba, libs, "gtk_color_dialog_button_set_rgba")
 }

@@ -5,6 +5,7 @@ import (
 	"structs"
 	"unsafe"
 
+	"github.com/bnema/purego"
 	"github.com/bnema/puregotk/pkg/core"
 	"github.com/bnema/puregotk/v4/gobject/types"
 )
@@ -21,7 +22,6 @@ type Array struct {
 var xArrayGLibType func() types.GType
 
 func ArrayGLibType() types.GType {
-	core.LazyRegister(&xArrayGLibType, "GLIB", "g_array_get_type", false)
 	return xArrayGLibType()
 }
 
@@ -49,7 +49,6 @@ type ByteArray struct {
 var xByteArrayGLibType func() types.GType
 
 func ByteArrayGLibType() types.GType {
-	core.LazyRegister(&xByteArrayGLibType, "GLIB", "g_byte_array_get_type", false)
 	return xByteArrayGLibType()
 }
 
@@ -99,7 +98,6 @@ type Bytes struct {
 var xBytesGLibType func() types.GType
 
 func BytesGLibType() types.GType {
-	core.LazyRegister(&xBytesGLibType, "GLIB", "g_bytes_get_type", false)
 	return xBytesGLibType()
 }
 
@@ -125,8 +123,6 @@ var xNewBytes func([]byte, uint) uintptr
 // copying the data within the resulting bytes structure if sufficiently small
 // (since GLib 2.84).
 func NewBytes(DataVar []byte, SizeVar uint) *Bytes {
-	core.LazyRegister(&xNewBytes, "GLIB", "g_bytes_new", false)
-
 	cret := xNewBytes(DataVar, SizeVar)
 	if cret == 0 {
 		return nil
@@ -149,8 +145,6 @@ var xNewBytesFromBytes func(*Bytes, uint, uint) uintptr
 // the same `GBytes` instead of @bytes. This allows consumers to simplify the
 // usage of `GBytes` when asynchronously writing to streams.
 func NewBytesFromBytes(BytesVar *Bytes, OffsetVar uint, LengthVar uint) *Bytes {
-	core.LazyRegister(&xNewBytesFromBytes, "GLIB", "g_bytes_new_from_bytes", false)
-
 	cret := xNewBytesFromBytes(BytesVar, OffsetVar, LengthVar)
 	if cret == 0 {
 		return nil
@@ -165,8 +159,6 @@ var xNewBytesStatic func([]byte, uint) uintptr
 // @data must be static (ie: never modified or freed). It may be `NULL` if @size
 // is 0.
 func NewBytesStatic(DataVar []byte, SizeVar uint) *Bytes {
-	core.LazyRegister(&xNewBytesStatic, "GLIB", "g_bytes_new_static", false)
-
 	cret := xNewBytesStatic(DataVar, SizeVar)
 	if cret == 0 {
 		return nil
@@ -187,8 +179,6 @@ var xNewBytesTake func(uintptr, uint) uintptr
 //
 // @data may be `NULL` if @size is 0.
 func NewBytesTake(DataVar uintptr, SizeVar uint) *Bytes {
-	core.LazyRegister(&xNewBytesTake, "GLIB", "g_bytes_new_take", false)
-
 	cret := xNewBytesTake(DataVar, SizeVar)
 	if cret == 0 {
 		return nil
@@ -208,8 +198,6 @@ var xNewBytesWithFreeFunc func([]byte, uint, uintptr, uintptr) uintptr
 //
 // @data may be `NULL` if @size is 0.
 func NewBytesWithFreeFunc(DataVar []byte, SizeVar uint, FreeFuncVar *DestroyNotify, UserDataVar uintptr) *Bytes {
-	core.LazyRegister(&xNewBytesWithFreeFunc, "GLIB", "g_bytes_new_with_free_func", false)
-
 	cret := xNewBytesWithFreeFunc(DataVar, SizeVar, NewCallback(FreeFuncVar), UserDataVar)
 	if cret == 0 {
 		return nil
@@ -230,8 +218,6 @@ var xBytesCompare func(uintptr, uintptr) int
 // comparison. If @bytes1 has a smaller value at that position it is
 // considered less, otherwise greater than @bytes2.
 func (x *Bytes) Compare(Bytes2Var uintptr) int {
-	core.LazyRegister(&xBytesCompare, "GLIB", "g_bytes_compare", false)
-
 	cret := xBytesCompare(x.GoPointer(), Bytes2Var)
 	return cret
 }
@@ -245,8 +231,6 @@ var xBytesEqual func(uintptr, uintptr) bool
 // @key_equal_func parameter, when using non-`NULL` `GBytes` pointers as keys in
 // a [struct@GLib.HashTable].
 func (x *Bytes) Equal(Bytes2Var uintptr) bool {
-	core.LazyRegister(&xBytesEqual, "GLIB", "g_bytes_equal", false)
-
 	cret := xBytesEqual(x.GoPointer(), Bytes2Var)
 	return cret
 }
@@ -263,8 +247,6 @@ var xBytesGetData func(uintptr, *uint) uintptr
 // may represent an empty string with @data non-`NULL` and @size as 0. `NULL`
 // will not be returned if @size is non-zero.
 func (x *Bytes) GetData(SizeVar *uint) uintptr {
-	core.LazyRegister(&xBytesGetData, "GLIB", "g_bytes_get_data", false)
-
 	cret := xBytesGetData(x.GoPointer(), SizeVar)
 	return cret
 }
@@ -292,8 +274,6 @@ var xBytesGetRegion func(uintptr, uint, uint, uint) uintptr
 // that you will be using this function to check for a zero-sized region
 // in a zero-sized @bytes, `NULL` effectively always means ‘error’.
 func (x *Bytes) GetRegion(ElementSizeVar uint, OffsetVar uint, NElementsVar uint) uintptr {
-	core.LazyRegister(&xBytesGetRegion, "GLIB", "g_bytes_get_region", false)
-
 	cret := xBytesGetRegion(x.GoPointer(), ElementSizeVar, OffsetVar, NElementsVar)
 	return cret
 }
@@ -304,8 +284,6 @@ var xBytesGetSize func(uintptr) uint
 //
 // This function will always return the same value for a given `GBytes`.
 func (x *Bytes) GetSize() uint {
-	core.LazyRegister(&xBytesGetSize, "GLIB", "g_bytes_get_size", false)
-
 	cret := xBytesGetSize(x.GoPointer())
 	return cret
 }
@@ -318,8 +296,6 @@ var xBytesHash func(uintptr) uint
 // @key_hash_func parameter, when using non-`NULL` `GBytes` pointers as keys in
 // a [struct@GLib.HashTable].
 func (x *Bytes) Hash() uint {
-	core.LazyRegister(&xBytesHash, "GLIB", "g_bytes_hash", false)
-
 	cret := xBytesHash(x.GoPointer())
 	return cret
 }
@@ -328,8 +304,6 @@ var xBytesRef func(uintptr) uintptr
 
 // Increase the reference count on @bytes.
 func (x *Bytes) Ref() *Bytes {
-	core.LazyRegister(&xBytesRef, "GLIB", "g_bytes_ref", false)
-
 	cret := xBytesRef(x.GoPointer())
 	if cret == 0 {
 		return nil
@@ -344,8 +318,6 @@ var xBytesUnref func(uintptr)
 // This may result in the bytes being freed. If @bytes is `NULL`, it will
 // return immediately.
 func (x *Bytes) Unref() {
-	core.LazyRegister(&xBytesUnref, "GLIB", "g_bytes_unref", false)
-
 	xBytesUnref(x.GoPointer())
 }
 
@@ -365,8 +337,6 @@ var xBytesUnrefToArray func(uintptr) uintptr
 // bytes. [struct@GLib.ByteArray] stores the length of its data in `guint`,
 // which may be shorter than `gsize`, that @bytes is using.
 func (x *Bytes) UnrefToArray() uintptr {
-	core.LazyRegister(&xBytesUnrefToArray, "GLIB", "g_bytes_unref_to_array", false)
-
 	cret := xBytesUnrefToArray(x.GoPointer())
 	return cret
 }
@@ -383,8 +353,6 @@ var xBytesUnrefToData func(uintptr, *uint) uintptr
 // [struct@GLib.Bytes] may internalize within its allocation. In all other cases
 // the data is copied.
 func (x *Bytes) UnrefToData(SizeVar *uint) uintptr {
-	core.LazyRegister(&xBytesUnrefToData, "GLIB", "g_bytes_unref_to_data", false)
-
 	cret := xBytesUnrefToData(x.GoPointer(), SizeVar)
 	return cret
 }
@@ -401,7 +369,6 @@ type PtrArray struct {
 var xPtrArrayGLibType func() types.GType
 
 func PtrArrayGLibType() types.GType {
-	core.LazyRegister(&xPtrArrayGLibType, "GLIB", "g_ptr_array_get_type", false)
 	return xPtrArrayGLibType()
 }
 
@@ -437,8 +404,6 @@ var xArrayNewTake func(uintptr, uint, bool, uint) uintptr
 //	[`G_MAXUINT`](types.html#guint). `GArray` stores the length of its data in
 //	`guint`, which may be shorter than `gsize`.
 func ArrayNewTake(DataVar uintptr, LenVar uint, ClearVar bool, ElementSizeVar uint) uintptr {
-	core.LazyRegister(&xArrayNewTake, "GLIB", "g_array_new_take", false)
-
 	cret := xArrayNewTake(DataVar, LenVar, ClearVar, ElementSizeVar)
 	return cret
 }
@@ -465,8 +430,6 @@ var xArrayNewTakeZeroTerminated func(uintptr, bool, uint) uintptr
 // [`G_MAXUINT`](types.html#guint). `GArray` stores the length of its data in
 // `guint`, which may be shorter than `gsize`.
 func ArrayNewTakeZeroTerminated(DataVar uintptr, ClearVar bool, ElementSizeVar uint) uintptr {
-	core.LazyRegister(&xArrayNewTakeZeroTerminated, "GLIB", "g_array_new_take_zero_terminated", false)
-
 	cret := xArrayNewTakeZeroTerminated(DataVar, ClearVar, ElementSizeVar)
 	return cret
 }
@@ -476,8 +439,6 @@ var xByteArrayAppend func([]byte, []byte, uint) uintptr
 // Adds the given bytes to the end of the `GByteArray`.
 // The array will grow in size automatically if necessary.
 func ByteArrayAppend(ArrayVar []byte, DataVar []byte, LenVar uint) uintptr {
-	core.LazyRegister(&xByteArrayAppend, "GLIB", "g_byte_array_append", false)
-
 	cret := xByteArrayAppend(ArrayVar, DataVar, LenVar)
 	return cret
 }
@@ -489,8 +450,6 @@ var xByteArrayFree func([]byte, bool) uintptr
 // @array is greater than one, the `GByteArray` wrapper is preserved but
 // the size of @array will be set to zero.
 func ByteArrayFree(ArrayVar []byte, FreeSegmentVar bool) uintptr {
-	core.LazyRegister(&xByteArrayFree, "GLIB", "g_byte_array_free", false)
-
 	cret := xByteArrayFree(ArrayVar, FreeSegmentVar)
 	return cret
 }
@@ -507,8 +466,6 @@ var xByteArrayFreeToBytes func([]byte) uintptr
 // This is identical to using [ctor@GLib.Bytes.new_take] and
 // [func@GLib.ByteArray.free] together.
 func ByteArrayFreeToBytes(ArrayVar []byte) *Bytes {
-	core.LazyRegister(&xByteArrayFreeToBytes, "GLIB", "g_byte_array_free_to_bytes", false)
-
 	cret := xByteArrayFreeToBytes(ArrayVar)
 	if cret == 0 {
 		return nil
@@ -520,8 +477,6 @@ var xByteArrayNew func() uintptr
 
 // Creates a new `GByteArray` with a reference count of 1.
 func ByteArrayNew() uintptr {
-	core.LazyRegister(&xByteArrayNew, "GLIB", "g_byte_array_new", false)
-
 	cret := xByteArrayNew()
 	return cret
 }
@@ -537,8 +492,6 @@ var xByteArrayNewTake func([]byte, uint) uintptr
 // `GByteArray` stores the length of its data in `guint`, which may be shorter
 // than `gsize`.
 func ByteArrayNewTake(DataVar []byte, LenVar uint) uintptr {
-	core.LazyRegister(&xByteArrayNewTake, "GLIB", "g_byte_array_new_take", false)
-
 	cret := xByteArrayNewTake(DataVar, LenVar)
 	return cret
 }
@@ -548,8 +501,6 @@ var xByteArrayPrepend func([]byte, []byte, uint) uintptr
 // Adds the given data to the start of the `GByteArray`.
 // The array will grow in size automatically if necessary.
 func ByteArrayPrepend(ArrayVar []byte, DataVar []byte, LenVar uint) uintptr {
-	core.LazyRegister(&xByteArrayPrepend, "GLIB", "g_byte_array_prepend", false)
-
 	cret := xByteArrayPrepend(ArrayVar, DataVar, LenVar)
 	return cret
 }
@@ -559,8 +510,6 @@ var xByteArrayRef func([]byte) uintptr
 // Atomically increments the reference count of @array by one.
 // This function is thread-safe and may be called from any thread.
 func ByteArrayRef(ArrayVar []byte) uintptr {
-	core.LazyRegister(&xByteArrayRef, "GLIB", "g_byte_array_ref", false)
-
 	cret := xByteArrayRef(ArrayVar)
 	return cret
 }
@@ -570,8 +519,6 @@ var xByteArrayRemoveIndex func([]byte, uint) uintptr
 // Removes the byte at the given index from a `GByteArray`.
 // The following bytes are moved down one place.
 func ByteArrayRemoveIndex(ArrayVar []byte, IndexVar uint) uintptr {
-	core.LazyRegister(&xByteArrayRemoveIndex, "GLIB", "g_byte_array_remove_index", false)
-
 	cret := xByteArrayRemoveIndex(ArrayVar, IndexVar)
 	return cret
 }
@@ -583,8 +530,6 @@ var xByteArrayRemoveIndexFast func([]byte, uint) uintptr
 // does not preserve the order of the `GByteArray`. But it is faster
 // than [func@GLib.ByteArray.remove_index].
 func ByteArrayRemoveIndexFast(ArrayVar []byte, IndexVar uint) uintptr {
-	core.LazyRegister(&xByteArrayRemoveIndexFast, "GLIB", "g_byte_array_remove_index_fast", false)
-
 	cret := xByteArrayRemoveIndexFast(ArrayVar, IndexVar)
 	return cret
 }
@@ -594,8 +539,6 @@ var xByteArrayRemoveRange func([]byte, uint, uint) uintptr
 // Removes the given number of bytes starting at the given index from a
 // `GByteArray`. The following elements are moved to close the gap.
 func ByteArrayRemoveRange(ArrayVar []byte, IndexVar uint, LengthVar uint) uintptr {
-	core.LazyRegister(&xByteArrayRemoveRange, "GLIB", "g_byte_array_remove_range", false)
-
 	cret := xByteArrayRemoveRange(ArrayVar, IndexVar, LengthVar)
 	return cret
 }
@@ -604,8 +547,6 @@ var xByteArraySetSize func([]byte, uint) uintptr
 
 // Sets the size of the `GByteArray`, expanding it if necessary.
 func ByteArraySetSize(ArrayVar []byte, LengthVar uint) uintptr {
-	core.LazyRegister(&xByteArraySetSize, "GLIB", "g_byte_array_set_size", false)
-
 	cret := xByteArraySetSize(ArrayVar, LengthVar)
 	return cret
 }
@@ -617,8 +558,6 @@ var xByteArraySizedNew func(uint) uintptr
 // bytes to the array. Note however that the size of the array is still
 // 0.
 func ByteArraySizedNew(ReservedSizeVar uint) uintptr {
-	core.LazyRegister(&xByteArraySizedNew, "GLIB", "g_byte_array_sized_new", false)
-
 	cret := xByteArraySizedNew(ReservedSizeVar)
 	return cret
 }
@@ -636,8 +575,6 @@ var xByteArraySort func([]byte, uintptr)
 // if two elements would otherwise compare equal, compares them by
 // their addresses.
 func ByteArraySort(ArrayVar []byte, CompareFuncVar *CompareFunc) {
-	core.LazyRegister(&xByteArraySort, "GLIB", "g_byte_array_sort", false)
-
 	xByteArraySort(ArrayVar, NewCallback(CompareFuncVar))
 }
 
@@ -646,8 +583,6 @@ var xByteArraySortWithData func([]byte, uintptr, uintptr)
 // Like [func@GLib.ByteArray.sort], but the comparison function takes an extra
 // user data argument.
 func ByteArraySortWithData(ArrayVar []byte, CompareFuncVar *CompareDataFunc, UserDataVar uintptr) {
-	core.LazyRegister(&xByteArraySortWithData, "GLIB", "g_byte_array_sort_with_data", false)
-
 	xByteArraySortWithData(ArrayVar, NewCallback(CompareFuncVar), UserDataVar)
 }
 
@@ -657,8 +592,6 @@ var xByteArraySteal func([]byte, *uint) uintptr
 // the underlying array is preserved for use elsewhere and returned
 // to the caller.
 func ByteArraySteal(ArrayVar []byte, LenVar *uint) uintptr {
-	core.LazyRegister(&xByteArraySteal, "GLIB", "g_byte_array_steal", false)
-
 	cret := xByteArraySteal(ArrayVar, LenVar)
 	return cret
 }
@@ -670,8 +603,6 @@ var xByteArrayUnref func([]byte)
 // released. This function is thread-safe and may be called from any
 // thread.
 func ByteArrayUnref(ArrayVar []byte) {
-	core.LazyRegister(&xByteArrayUnref, "GLIB", "g_byte_array_unref", false)
-
 	xByteArrayUnref(ArrayVar)
 }
 
@@ -686,8 +617,6 @@ var xPtrArrayFind func([]uintptr, uintptr, *uint) bool
 // checks, such as string comparisons, use
 // [func@GLib.PtrArray.find_with_equal_func].
 func PtrArrayFind(HaystackVar []uintptr, NeedleVar uintptr, IndexVar *uint) bool {
-	core.LazyRegister(&xPtrArrayFind, "GLIB", "g_ptr_array_find", false)
-
 	cret := xPtrArrayFind(HaystackVar, NeedleVar, IndexVar)
 	return cret
 }
@@ -704,8 +633,6 @@ var xPtrArrayFindWithEqualFunc func([]uintptr, uintptr, uintptr, *uint) bool
 // and @needle as its second parameter. If @equal_func is `NULL`, pointer
 // equality is used.
 func PtrArrayFindWithEqualFunc(HaystackVar []uintptr, NeedleVar uintptr, EqualFuncVar *EqualFunc, IndexVar *uint) bool {
-	core.LazyRegister(&xPtrArrayFindWithEqualFunc, "GLIB", "g_ptr_array_find_with_equal_func", false)
-
 	cret := xPtrArrayFindWithEqualFunc(HaystackVar, NeedleVar, NewCallbackNullable(EqualFuncVar), IndexVar)
 	return cret
 }
@@ -730,8 +657,6 @@ var xPtrArrayNewFromArray func([]uintptr, uint, uintptr, uintptr, uintptr) uintp
 // `GPtrArray` stores the length of its data in `guint`, which may be shorter
 // than `gsize`.
 func PtrArrayNewFromArray(DataVar []uintptr, LenVar uint, CopyFuncVar *CopyFunc, CopyFuncUserDataVar uintptr, ElementFreeFuncVar *DestroyNotify) uintptr {
-	core.LazyRegister(&xPtrArrayNewFromArray, "GLIB", "g_ptr_array_new_from_array", false)
-
 	cret := xPtrArrayNewFromArray(DataVar, LenVar, NewCallbackNullable(CopyFuncVar), CopyFuncUserDataVar, NewCallbackNullable(ElementFreeFuncVar))
 	return cret
 }
@@ -752,8 +677,6 @@ var xPtrArrayNewFromNullTerminatedArray func([]uintptr, uintptr, uintptr, uintpt
 // elements. `GPtrArray` stores the length of its data in `guint`, which may be
 // shorter than `gsize`.
 func PtrArrayNewFromNullTerminatedArray(DataVar []uintptr, CopyFuncVar *CopyFunc, CopyFuncUserDataVar uintptr, ElementFreeFuncVar *DestroyNotify) uintptr {
-	core.LazyRegister(&xPtrArrayNewFromNullTerminatedArray, "GLIB", "g_ptr_array_new_from_null_terminated_array", false)
-
 	cret := xPtrArrayNewFromNullTerminatedArray(DataVar, NewCallbackNullable(CopyFuncVar), CopyFuncUserDataVar, NewCallbackNullable(ElementFreeFuncVar))
 	return cret
 }
@@ -777,8 +700,6 @@ var xPtrArrayNewTake func([]uintptr, uint, uintptr) uintptr
 // `GPtrArray` stores the length of its data in `guint`, which may be shorter
 // than `gsize`.
 func PtrArrayNewTake(DataVar []uintptr, LenVar uint, ElementFreeFuncVar *DestroyNotify) uintptr {
-	core.LazyRegister(&xPtrArrayNewTake, "GLIB", "g_ptr_array_new_take", false)
-
 	cret := xPtrArrayNewTake(DataVar, LenVar, NewCallbackNullable(ElementFreeFuncVar))
 	return cret
 }
@@ -805,8 +726,6 @@ var xPtrArrayNewTakeNullTerminated func([]uintptr, uintptr) uintptr
 // [`G_MAXUINT`](types.html#guint). `GPtrArray` stores the length of its data
 // in `guint`, which may be shorter than `gsize`.
 func PtrArrayNewTakeNullTerminated(DataVar []uintptr, ElementFreeFuncVar *DestroyNotify) uintptr {
-	core.LazyRegister(&xPtrArrayNewTakeNullTerminated, "GLIB", "g_ptr_array_new_take_null_terminated", false)
-
 	cret := xPtrArrayNewTakeNullTerminated(DataVar, NewCallbackNullable(ElementFreeFuncVar))
 	return cret
 }
@@ -814,4 +733,62 @@ func PtrArrayNewTakeNullTerminated(DataVar []uintptr, ElementFreeFuncVar *Destro
 func init() {
 	core.SetPackageName("GLIB", "glib-2.0")
 	core.SetSharedLibraries("GLIB", []string{"libgobject-2.0.so.0", "libglib-2.0.so.0", "libgobject-2.0.0.dylib", "libglib-2.0.0.dylib"})
+	var libs []uintptr
+	for _, libPath := range core.GetPaths("GLIB") {
+		lib, err := purego.Dlopen(libPath, purego.RTLD_NOW|purego.RTLD_GLOBAL)
+		if err != nil {
+			panic(err)
+		}
+		libs = append(libs, lib)
+	}
+
+	core.PuregoSafeRegister(&xArrayNewTake, libs, "g_array_new_take")
+	core.PuregoSafeRegister(&xArrayNewTakeZeroTerminated, libs, "g_array_new_take_zero_terminated")
+	core.PuregoSafeRegister(&xByteArrayAppend, libs, "g_byte_array_append")
+	core.PuregoSafeRegister(&xByteArrayFree, libs, "g_byte_array_free")
+	core.PuregoSafeRegister(&xByteArrayFreeToBytes, libs, "g_byte_array_free_to_bytes")
+	core.PuregoSafeRegister(&xByteArrayNew, libs, "g_byte_array_new")
+	core.PuregoSafeRegister(&xByteArrayNewTake, libs, "g_byte_array_new_take")
+	core.PuregoSafeRegister(&xByteArrayPrepend, libs, "g_byte_array_prepend")
+	core.PuregoSafeRegister(&xByteArrayRef, libs, "g_byte_array_ref")
+	core.PuregoSafeRegister(&xByteArrayRemoveIndex, libs, "g_byte_array_remove_index")
+	core.PuregoSafeRegister(&xByteArrayRemoveIndexFast, libs, "g_byte_array_remove_index_fast")
+	core.PuregoSafeRegister(&xByteArrayRemoveRange, libs, "g_byte_array_remove_range")
+	core.PuregoSafeRegister(&xByteArraySetSize, libs, "g_byte_array_set_size")
+	core.PuregoSafeRegister(&xByteArraySizedNew, libs, "g_byte_array_sized_new")
+	core.PuregoSafeRegister(&xByteArraySort, libs, "g_byte_array_sort")
+	core.PuregoSafeRegister(&xByteArraySortWithData, libs, "g_byte_array_sort_with_data")
+	core.PuregoSafeRegister(&xByteArraySteal, libs, "g_byte_array_steal")
+	core.PuregoSafeRegister(&xByteArrayUnref, libs, "g_byte_array_unref")
+	core.PuregoSafeRegister(&xPtrArrayFind, libs, "g_ptr_array_find")
+	core.PuregoSafeRegister(&xPtrArrayFindWithEqualFunc, libs, "g_ptr_array_find_with_equal_func")
+	core.PuregoSafeRegister(&xPtrArrayNewFromArray, libs, "g_ptr_array_new_from_array")
+	core.PuregoSafeRegister(&xPtrArrayNewFromNullTerminatedArray, libs, "g_ptr_array_new_from_null_terminated_array")
+	core.PuregoSafeRegister(&xPtrArrayNewTake, libs, "g_ptr_array_new_take")
+	core.PuregoSafeRegister(&xPtrArrayNewTakeNullTerminated, libs, "g_ptr_array_new_take_null_terminated")
+
+	core.PuregoSafeRegister(&xArrayGLibType, libs, "g_array_get_type")
+
+	core.PuregoSafeRegister(&xByteArrayGLibType, libs, "g_byte_array_get_type")
+
+	core.PuregoSafeRegister(&xBytesGLibType, libs, "g_bytes_get_type")
+
+	core.PuregoSafeRegister(&xNewBytes, libs, "g_bytes_new")
+	core.PuregoSafeRegister(&xNewBytesFromBytes, libs, "g_bytes_new_from_bytes")
+	core.PuregoSafeRegister(&xNewBytesStatic, libs, "g_bytes_new_static")
+	core.PuregoSafeRegister(&xNewBytesTake, libs, "g_bytes_new_take")
+	core.PuregoSafeRegister(&xNewBytesWithFreeFunc, libs, "g_bytes_new_with_free_func")
+
+	core.PuregoSafeRegister(&xBytesCompare, libs, "g_bytes_compare")
+	core.PuregoSafeRegister(&xBytesEqual, libs, "g_bytes_equal")
+	core.PuregoSafeRegister(&xBytesGetData, libs, "g_bytes_get_data")
+	core.PuregoSafeRegister(&xBytesGetRegion, libs, "g_bytes_get_region")
+	core.PuregoSafeRegister(&xBytesGetSize, libs, "g_bytes_get_size")
+	core.PuregoSafeRegister(&xBytesHash, libs, "g_bytes_hash")
+	core.PuregoSafeRegister(&xBytesRef, libs, "g_bytes_ref")
+	core.PuregoSafeRegister(&xBytesUnref, libs, "g_bytes_unref")
+	core.PuregoSafeRegister(&xBytesUnrefToArray, libs, "g_bytes_unref_to_array")
+	core.PuregoSafeRegister(&xBytesUnrefToData, libs, "g_bytes_unref_to_data")
+
+	core.PuregoSafeRegister(&xPtrArrayGLibType, libs, "g_ptr_array_get_type")
 }

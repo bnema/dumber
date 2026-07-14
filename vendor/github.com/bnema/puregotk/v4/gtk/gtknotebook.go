@@ -2,6 +2,7 @@
 package gtk
 
 import (
+	"github.com/bnema/purego"
 	"github.com/bnema/puregotk/pkg/core"
 	"github.com/bnema/puregotk/v4/gio"
 	"github.com/bnema/puregotk/v4/glib"
@@ -15,7 +16,6 @@ type NotebookTab int
 var xNotebookTabGLibType func() types.GType
 
 func NotebookTabGLibType() types.GType {
-	core.LazyRegister(&xNotebookTabGLibType, "GTK", "gtk_notebook_tab_get_type", false)
 	return xNotebookTabGLibType()
 }
 
@@ -159,7 +159,6 @@ type Notebook struct {
 var xNotebookGLibType func() types.GType
 
 func NotebookGLibType() types.GType {
-	core.LazyRegister(&xNotebookGLibType, "GTK", "gtk_notebook_get_type", false)
 	return xNotebookGLibType()
 }
 
@@ -173,7 +172,6 @@ var xNewNotebook func() uintptr
 
 // Creates a new `GtkNotebook` widget with no pages.
 func NewNotebook() *Notebook {
-	core.LazyRegister(&xNewNotebook, "GTK", "gtk_notebook_new", false)
 	var cls *Notebook
 
 	cret := xNewNotebook()
@@ -191,8 +189,6 @@ var xNotebookAppendPage func(uintptr, uintptr, uintptr) int
 
 // Appends a page to @notebook.
 func (x *Notebook) AppendPage(ChildVar *Widget, TabLabelVar *Widget) int {
-	core.LazyRegister(&xNotebookAppendPage, "GTK", "gtk_notebook_append_page", false)
-
 	cret := xNotebookAppendPage(x.GoPointer(), ChildVar.GoPointer(), TabLabelVar.GoPointer())
 	return cret
 }
@@ -202,8 +198,6 @@ var xNotebookAppendPageMenu func(uintptr, uintptr, uintptr, uintptr) int
 // Appends a page to @notebook, specifying the widget to use as the
 // label in the popup menu.
 func (x *Notebook) AppendPageMenu(ChildVar *Widget, TabLabelVar *Widget, MenuLabelVar *Widget) int {
-	core.LazyRegister(&xNotebookAppendPageMenu, "GTK", "gtk_notebook_append_page_menu", false)
-
 	cret := xNotebookAppendPageMenu(x.GoPointer(), ChildVar.GoPointer(), TabLabelVar.GoPointer(), MenuLabelVar.GoPointer())
 	return cret
 }
@@ -217,8 +211,6 @@ var xNotebookDetachTab func(uintptr, uintptr)
 // is happening as part of a tab DND operation, which should
 // not be cancelled.
 func (x *Notebook) DetachTab(ChildVar *Widget) {
-	core.LazyRegister(&xNotebookDetachTab, "GTK", "gtk_notebook_detach_tab", false)
-
 	xNotebookDetachTab(x.GoPointer(), ChildVar.GoPointer())
 }
 
@@ -228,7 +220,6 @@ var xNotebookGetActionWidget func(uintptr, PackType) uintptr
 //
 // See [method@Gtk.Notebook.set_action_widget].
 func (x *Notebook) GetActionWidget(PackTypeVar PackType) *Widget {
-	core.LazyRegister(&xNotebookGetActionWidget, "GTK", "gtk_notebook_get_action_widget", false)
 	var cls *Widget
 
 	cret := xNotebookGetActionWidget(x.GoPointer(), PackTypeVar)
@@ -246,8 +237,6 @@ var xNotebookGetCurrentPage func(uintptr) int
 
 // Returns the page number of the current page.
 func (x *Notebook) GetCurrentPage() int {
-	core.LazyRegister(&xNotebookGetCurrentPage, "GTK", "gtk_notebook_get_current_page", false)
-
 	cret := xNotebookGetCurrentPage(x.GoPointer())
 	return cret
 }
@@ -256,8 +245,6 @@ var xNotebookGetGroupName func(uintptr) string
 
 // Gets the current group name for @notebook.
 func (x *Notebook) GetGroupName() string {
-	core.LazyRegister(&xNotebookGetGroupName, "GTK", "gtk_notebook_get_group_name", false)
-
 	cret := xNotebookGetGroupName(x.GoPointer())
 	return cret
 }
@@ -266,7 +253,6 @@ var xNotebookGetMenuLabel func(uintptr, uintptr) uintptr
 
 // Retrieves the menu label widget of the page containing @child.
 func (x *Notebook) GetMenuLabel(ChildVar *Widget) *Widget {
-	core.LazyRegister(&xNotebookGetMenuLabel, "GTK", "gtk_notebook_get_menu_label", false)
 	var cls *Widget
 
 	cret := xNotebookGetMenuLabel(x.GoPointer(), ChildVar.GoPointer())
@@ -285,8 +271,6 @@ var xNotebookGetMenuLabelText func(uintptr, uintptr) string
 // Retrieves the text of the menu label for the page containing
 // @child.
 func (x *Notebook) GetMenuLabelText(ChildVar *Widget) string {
-	core.LazyRegister(&xNotebookGetMenuLabelText, "GTK", "gtk_notebook_get_menu_label_text", false)
-
 	cret := xNotebookGetMenuLabelText(x.GoPointer(), ChildVar.GoPointer())
 	return cret
 }
@@ -295,8 +279,6 @@ var xNotebookGetNPages func(uintptr) int
 
 // Gets the number of pages in a notebook.
 func (x *Notebook) GetNPages() int {
-	core.LazyRegister(&xNotebookGetNPages, "GTK", "gtk_notebook_get_n_pages", false)
-
 	cret := xNotebookGetNPages(x.GoPointer())
 	return cret
 }
@@ -305,7 +287,6 @@ var xNotebookGetNthPage func(uintptr, int) uintptr
 
 // Returns the child widget contained in page number @page_num.
 func (x *Notebook) GetNthPage(PageNumVar int) *Widget {
-	core.LazyRegister(&xNotebookGetNthPage, "GTK", "gtk_notebook_get_nth_page", false)
 	var cls *Widget
 
 	cret := xNotebookGetNthPage(x.GoPointer(), PageNumVar)
@@ -323,7 +304,6 @@ var xNotebookGetPage func(uintptr, uintptr) uintptr
 
 // Returns the `GtkNotebookPage` for @child.
 func (x *Notebook) GetPage(ChildVar *Widget) *NotebookPage {
-	core.LazyRegister(&xNotebookGetPage, "GTK", "gtk_notebook_get_page", false)
 	var cls *NotebookPage
 
 	cret := xNotebookGetPage(x.GoPointer(), ChildVar.GoPointer())
@@ -345,7 +325,6 @@ var xNotebookGetPages func(uintptr) uintptr
 // implements [iface@Gtk.SelectionModel] and can be used to track
 // and modify the visible page.
 func (x *Notebook) GetPages() *gio.ListModelBase {
-	core.LazyRegister(&xNotebookGetPages, "GTK", "gtk_notebook_get_pages", false)
 	var cls *gio.ListModelBase
 
 	cret := xNotebookGetPages(x.GoPointer())
@@ -362,8 +341,6 @@ var xNotebookGetScrollable func(uintptr) bool
 
 // Returns whether the tab label area has arrows for scrolling.
 func (x *Notebook) GetScrollable() bool {
-	core.LazyRegister(&xNotebookGetScrollable, "GTK", "gtk_notebook_get_scrollable", false)
-
 	cret := xNotebookGetScrollable(x.GoPointer())
 	return cret
 }
@@ -372,8 +349,6 @@ var xNotebookGetShowBorder func(uintptr) bool
 
 // Returns whether a bevel will be drawn around the notebook pages.
 func (x *Notebook) GetShowBorder() bool {
-	core.LazyRegister(&xNotebookGetShowBorder, "GTK", "gtk_notebook_get_show_border", false)
-
 	cret := xNotebookGetShowBorder(x.GoPointer())
 	return cret
 }
@@ -382,8 +357,6 @@ var xNotebookGetShowTabs func(uintptr) bool
 
 // Returns whether the tabs of the notebook are shown.
 func (x *Notebook) GetShowTabs() bool {
-	core.LazyRegister(&xNotebookGetShowTabs, "GTK", "gtk_notebook_get_show_tabs", false)
-
 	cret := xNotebookGetShowTabs(x.GoPointer())
 	return cret
 }
@@ -392,8 +365,6 @@ var xNotebookGetTabDetachable func(uintptr, uintptr) bool
 
 // Returns whether the tab contents can be detached from @notebook.
 func (x *Notebook) GetTabDetachable(ChildVar *Widget) bool {
-	core.LazyRegister(&xNotebookGetTabDetachable, "GTK", "gtk_notebook_get_tab_detachable", false)
-
 	cret := xNotebookGetTabDetachable(x.GoPointer(), ChildVar.GoPointer())
 	return cret
 }
@@ -405,7 +376,6 @@ var xNotebookGetTabLabel func(uintptr, uintptr) uintptr
 // %NULL is returned if @child is not in @notebook or
 // if no tab label has specifically been set for @child.
 func (x *Notebook) GetTabLabel(ChildVar *Widget) *Widget {
-	core.LazyRegister(&xNotebookGetTabLabel, "GTK", "gtk_notebook_get_tab_label", false)
 	var cls *Widget
 
 	cret := xNotebookGetTabLabel(x.GoPointer(), ChildVar.GoPointer())
@@ -424,8 +394,6 @@ var xNotebookGetTabLabelText func(uintptr, uintptr) string
 // Retrieves the text of the tab label for the page containing
 // @child.
 func (x *Notebook) GetTabLabelText(ChildVar *Widget) string {
-	core.LazyRegister(&xNotebookGetTabLabelText, "GTK", "gtk_notebook_get_tab_label_text", false)
-
 	cret := xNotebookGetTabLabelText(x.GoPointer(), ChildVar.GoPointer())
 	return cret
 }
@@ -434,8 +402,6 @@ var xNotebookGetTabPos func(uintptr) PositionType
 
 // Gets the edge at which the tabs are drawn.
 func (x *Notebook) GetTabPos() PositionType {
-	core.LazyRegister(&xNotebookGetTabPos, "GTK", "gtk_notebook_get_tab_pos", false)
-
 	cret := xNotebookGetTabPos(x.GoPointer())
 	return cret
 }
@@ -444,8 +410,6 @@ var xNotebookGetTabReorderable func(uintptr, uintptr) bool
 
 // Gets whether the tab can be reordered via drag and drop or not.
 func (x *Notebook) GetTabReorderable(ChildVar *Widget) bool {
-	core.LazyRegister(&xNotebookGetTabReorderable, "GTK", "gtk_notebook_get_tab_reorderable", false)
-
 	cret := xNotebookGetTabReorderable(x.GoPointer(), ChildVar.GoPointer())
 	return cret
 }
@@ -454,8 +418,6 @@ var xNotebookInsertPage func(uintptr, uintptr, uintptr, int) int
 
 // Insert a page into @notebook at the given position.
 func (x *Notebook) InsertPage(ChildVar *Widget, TabLabelVar *Widget, PositionVar int) int {
-	core.LazyRegister(&xNotebookInsertPage, "GTK", "gtk_notebook_insert_page", false)
-
 	cret := xNotebookInsertPage(x.GoPointer(), ChildVar.GoPointer(), TabLabelVar.GoPointer(), PositionVar)
 	return cret
 }
@@ -465,8 +427,6 @@ var xNotebookInsertPageMenu func(uintptr, uintptr, uintptr, uintptr, int) int
 // Insert a page into @notebook at the given position, specifying
 // the widget to use as the label in the popup menu.
 func (x *Notebook) InsertPageMenu(ChildVar *Widget, TabLabelVar *Widget, MenuLabelVar *Widget, PositionVar int) int {
-	core.LazyRegister(&xNotebookInsertPageMenu, "GTK", "gtk_notebook_insert_page_menu", false)
-
 	cret := xNotebookInsertPageMenu(x.GoPointer(), ChildVar.GoPointer(), TabLabelVar.GoPointer(), MenuLabelVar.GoPointer(), PositionVar)
 	return cret
 }
@@ -477,8 +437,6 @@ var xNotebookNextPage func(uintptr)
 //
 // Nothing happens if the current page is the last page.
 func (x *Notebook) NextPage() {
-	core.LazyRegister(&xNotebookNextPage, "GTK", "gtk_notebook_next_page", false)
-
 	xNotebookNextPage(x.GoPointer())
 }
 
@@ -487,8 +445,6 @@ var xNotebookPageNum func(uintptr, uintptr) int
 // Finds the index of the page which contains the given child
 // widget.
 func (x *Notebook) PageNum(ChildVar *Widget) int {
-	core.LazyRegister(&xNotebookPageNum, "GTK", "gtk_notebook_page_num", false)
-
 	cret := xNotebookPageNum(x.GoPointer(), ChildVar.GoPointer())
 	return cret
 }
@@ -497,8 +453,6 @@ var xNotebookPopupDisable func(uintptr)
 
 // Disables the popup menu.
 func (x *Notebook) PopupDisable() {
-	core.LazyRegister(&xNotebookPopupDisable, "GTK", "gtk_notebook_popup_disable", false)
-
 	xNotebookPopupDisable(x.GoPointer())
 }
 
@@ -509,8 +463,6 @@ var xNotebookPopupEnable func(uintptr)
 // If the user clicks with the right mouse button on the tab labels,
 // a menu with all the pages will be popped up.
 func (x *Notebook) PopupEnable() {
-	core.LazyRegister(&xNotebookPopupEnable, "GTK", "gtk_notebook_popup_enable", false)
-
 	xNotebookPopupEnable(x.GoPointer())
 }
 
@@ -518,8 +470,6 @@ var xNotebookPrependPage func(uintptr, uintptr, uintptr) int
 
 // Prepends a page to @notebook.
 func (x *Notebook) PrependPage(ChildVar *Widget, TabLabelVar *Widget) int {
-	core.LazyRegister(&xNotebookPrependPage, "GTK", "gtk_notebook_prepend_page", false)
-
 	cret := xNotebookPrependPage(x.GoPointer(), ChildVar.GoPointer(), TabLabelVar.GoPointer())
 	return cret
 }
@@ -529,8 +479,6 @@ var xNotebookPrependPageMenu func(uintptr, uintptr, uintptr, uintptr) int
 // Prepends a page to @notebook, specifying the widget to use as the
 // label in the popup menu.
 func (x *Notebook) PrependPageMenu(ChildVar *Widget, TabLabelVar *Widget, MenuLabelVar *Widget) int {
-	core.LazyRegister(&xNotebookPrependPageMenu, "GTK", "gtk_notebook_prepend_page_menu", false)
-
 	cret := xNotebookPrependPageMenu(x.GoPointer(), ChildVar.GoPointer(), TabLabelVar.GoPointer(), MenuLabelVar.GoPointer())
 	return cret
 }
@@ -541,8 +489,6 @@ var xNotebookPrevPage func(uintptr)
 //
 // Nothing happens if the current page is the first page.
 func (x *Notebook) PrevPage() {
-	core.LazyRegister(&xNotebookPrevPage, "GTK", "gtk_notebook_prev_page", false)
-
 	xNotebookPrevPage(x.GoPointer())
 }
 
@@ -551,8 +497,6 @@ var xNotebookRemovePage func(uintptr, int)
 // Removes a page from the notebook given its index
 // in the notebook.
 func (x *Notebook) RemovePage(PageNumVar int) {
-	core.LazyRegister(&xNotebookRemovePage, "GTK", "gtk_notebook_remove_page", false)
-
 	xNotebookRemovePage(x.GoPointer(), PageNumVar)
 }
 
@@ -564,8 +508,6 @@ var xNotebookReorderChild func(uintptr, uintptr, int)
 // If @position is greater than or equal to the number of children in
 // the list or negative, @child will be moved to the end of the list.
 func (x *Notebook) ReorderChild(ChildVar *Widget, PositionVar int) {
-	core.LazyRegister(&xNotebookReorderChild, "GTK", "gtk_notebook_reorder_child", false)
-
 	xNotebookReorderChild(x.GoPointer(), ChildVar.GoPointer(), PositionVar)
 }
 
@@ -577,8 +519,6 @@ var xNotebookSetActionWidget func(uintptr, uintptr, PackType)
 // or after the tabs. You can use a `GtkBox` if you need to pack
 // more than one widget on the same side.
 func (x *Notebook) SetActionWidget(WidgetVar *Widget, PackTypeVar PackType) {
-	core.LazyRegister(&xNotebookSetActionWidget, "GTK", "gtk_notebook_set_action_widget", false)
-
 	xNotebookSetActionWidget(x.GoPointer(), WidgetVar.GoPointer(), PackTypeVar)
 }
 
@@ -591,8 +531,6 @@ var xNotebookSetCurrentPage func(uintptr, int)
 // Therefore, it is recommended to show child widgets before
 // adding them to a notebook.
 func (x *Notebook) SetCurrentPage(PageNumVar int) {
-	core.LazyRegister(&xNotebookSetCurrentPage, "GTK", "gtk_notebook_set_current_page", false)
-
 	xNotebookSetCurrentPage(x.GoPointer(), PageNumVar)
 }
 
@@ -604,8 +542,6 @@ var xNotebookSetGroupName func(uintptr, uintptr)
 // via drag and drop. A notebook with a %NULL group name will
 // not be able to exchange tabs with any other notebook.
 func (x *Notebook) SetGroupName(GroupNameVar *string) {
-	core.LazyRegister(&xNotebookSetGroupName, "GTK", "gtk_notebook_set_group_name", false)
-
 	GroupNameVarPtr := core.GStrdupNullable(GroupNameVar)
 	defer core.GFreeNullable(GroupNameVarPtr)
 
@@ -616,8 +552,6 @@ var xNotebookSetMenuLabel func(uintptr, uintptr, uintptr)
 
 // Changes the menu label for the page containing @child.
 func (x *Notebook) SetMenuLabel(ChildVar *Widget, MenuLabelVar *Widget) {
-	core.LazyRegister(&xNotebookSetMenuLabel, "GTK", "gtk_notebook_set_menu_label", false)
-
 	xNotebookSetMenuLabel(x.GoPointer(), ChildVar.GoPointer(), MenuLabelVar.GoPointer())
 }
 
@@ -625,8 +559,6 @@ var xNotebookSetMenuLabelText func(uintptr, uintptr, string)
 
 // Creates a new label and sets it as the menu label of @child.
 func (x *Notebook) SetMenuLabelText(ChildVar *Widget, MenuTextVar string) {
-	core.LazyRegister(&xNotebookSetMenuLabelText, "GTK", "gtk_notebook_set_menu_label_text", false)
-
 	xNotebookSetMenuLabelText(x.GoPointer(), ChildVar.GoPointer(), MenuTextVar)
 }
 
@@ -635,8 +567,6 @@ var xNotebookSetScrollable func(uintptr, bool)
 // Sets whether the tab label area will have arrows for
 // scrolling if there are too many tabs to fit in the area.
 func (x *Notebook) SetScrollable(ScrollableVar bool) {
-	core.LazyRegister(&xNotebookSetScrollable, "GTK", "gtk_notebook_set_scrollable", false)
-
 	xNotebookSetScrollable(x.GoPointer(), ScrollableVar)
 }
 
@@ -646,8 +576,6 @@ var xNotebookSetShowBorder func(uintptr, bool)
 //
 // This only has a visual effect when the tabs are not shown.
 func (x *Notebook) SetShowBorder(ShowBorderVar bool) {
-	core.LazyRegister(&xNotebookSetShowBorder, "GTK", "gtk_notebook_set_show_border", false)
-
 	xNotebookSetShowBorder(x.GoPointer(), ShowBorderVar)
 }
 
@@ -655,8 +583,6 @@ var xNotebookSetShowTabs func(uintptr, bool)
 
 // Sets whether to show the tabs for the notebook or not.
 func (x *Notebook) SetShowTabs(ShowTabsVar bool) {
-	core.LazyRegister(&xNotebookSetShowTabs, "GTK", "gtk_notebook_set_show_tabs", false)
-
 	xNotebookSetShowTabs(x.GoPointer(), ShowTabsVar)
 }
 
@@ -711,8 +637,6 @@ var xNotebookSetTabDetachable func(uintptr, uintptr, bool)
 // If you want a notebook to accept drags from other widgets,
 // you will have to set your own DnD code to do it.
 func (x *Notebook) SetTabDetachable(ChildVar *Widget, DetachableVar bool) {
-	core.LazyRegister(&xNotebookSetTabDetachable, "GTK", "gtk_notebook_set_tab_detachable", false)
-
 	xNotebookSetTabDetachable(x.GoPointer(), ChildVar.GoPointer(), DetachableVar)
 }
 
@@ -723,8 +647,6 @@ var xNotebookSetTabLabel func(uintptr, uintptr, uintptr)
 // If %NULL is specified for @tab_label, then the page will
 // have the label “page N”.
 func (x *Notebook) SetTabLabel(ChildVar *Widget, TabLabelVar *Widget) {
-	core.LazyRegister(&xNotebookSetTabLabel, "GTK", "gtk_notebook_set_tab_label", false)
-
 	xNotebookSetTabLabel(x.GoPointer(), ChildVar.GoPointer(), TabLabelVar.GoPointer())
 }
 
@@ -733,8 +655,6 @@ var xNotebookSetTabLabelText func(uintptr, uintptr, string)
 // Creates a new label and sets it as the tab label for the page
 // containing @child.
 func (x *Notebook) SetTabLabelText(ChildVar *Widget, TabTextVar string) {
-	core.LazyRegister(&xNotebookSetTabLabelText, "GTK", "gtk_notebook_set_tab_label_text", false)
-
 	xNotebookSetTabLabelText(x.GoPointer(), ChildVar.GoPointer(), TabTextVar)
 }
 
@@ -742,8 +662,6 @@ var xNotebookSetTabPos func(uintptr, PositionType)
 
 // Sets the edge at which the tabs are drawn.
 func (x *Notebook) SetTabPos(PosVar PositionType) {
-	core.LazyRegister(&xNotebookSetTabPos, "GTK", "gtk_notebook_set_tab_pos", false)
-
 	xNotebookSetTabPos(x.GoPointer(), PosVar)
 }
 
@@ -752,8 +670,6 @@ var xNotebookSetTabReorderable func(uintptr, uintptr, bool)
 // Sets whether the notebook tab can be reordered
 // via drag and drop or not.
 func (x *Notebook) SetTabReorderable(ChildVar *Widget, ReorderableVar bool) {
-	core.LazyRegister(&xNotebookSetTabReorderable, "GTK", "gtk_notebook_set_tab_reorderable", false)
-
 	xNotebookSetTabReorderable(x.GoPointer(), ChildVar.GoPointer(), ReorderableVar)
 }
 
@@ -1408,7 +1324,6 @@ type NotebookPage struct {
 var xNotebookPageGLibType func() types.GType
 
 func NotebookPageGLibType() types.GType {
-	core.LazyRegister(&xNotebookPageGLibType, "GTK", "gtk_notebook_page_get_type", false)
 	return xNotebookPageGLibType()
 }
 
@@ -1422,7 +1337,6 @@ var xNotebookPageGetChild func(uintptr) uintptr
 
 // Returns the notebook child to which @page belongs.
 func (x *NotebookPage) GetChild() *Widget {
-	core.LazyRegister(&xNotebookPageGetChild, "GTK", "gtk_notebook_page_get_child", false)
 	var cls *Widget
 
 	cret := xNotebookPageGetChild(x.GoPointer())
@@ -1569,4 +1483,67 @@ func (x *NotebookPage) GetPropertyTabLabel() string {
 func init() {
 	core.SetPackageName("GTK", "gtk4")
 	core.SetSharedLibraries("GTK", []string{"libgtk-4.so.1", "libgtk-4.1.dylib"})
+	var libs []uintptr
+	for _, libPath := range core.GetPaths("GTK") {
+		lib, err := purego.Dlopen(libPath, purego.RTLD_NOW|purego.RTLD_GLOBAL)
+		if err != nil {
+			panic(err)
+		}
+		libs = append(libs, lib)
+	}
+
+	core.PuregoSafeRegister(&xNotebookTabGLibType, libs, "gtk_notebook_tab_get_type")
+
+	core.PuregoSafeRegister(&xNotebookGLibType, libs, "gtk_notebook_get_type")
+
+	core.PuregoSafeRegister(&xNewNotebook, libs, "gtk_notebook_new")
+
+	core.PuregoSafeRegister(&xNotebookAppendPage, libs, "gtk_notebook_append_page")
+	core.PuregoSafeRegister(&xNotebookAppendPageMenu, libs, "gtk_notebook_append_page_menu")
+	core.PuregoSafeRegister(&xNotebookDetachTab, libs, "gtk_notebook_detach_tab")
+	core.PuregoSafeRegister(&xNotebookGetActionWidget, libs, "gtk_notebook_get_action_widget")
+	core.PuregoSafeRegister(&xNotebookGetCurrentPage, libs, "gtk_notebook_get_current_page")
+	core.PuregoSafeRegister(&xNotebookGetGroupName, libs, "gtk_notebook_get_group_name")
+	core.PuregoSafeRegister(&xNotebookGetMenuLabel, libs, "gtk_notebook_get_menu_label")
+	core.PuregoSafeRegister(&xNotebookGetMenuLabelText, libs, "gtk_notebook_get_menu_label_text")
+	core.PuregoSafeRegister(&xNotebookGetNPages, libs, "gtk_notebook_get_n_pages")
+	core.PuregoSafeRegister(&xNotebookGetNthPage, libs, "gtk_notebook_get_nth_page")
+	core.PuregoSafeRegister(&xNotebookGetPage, libs, "gtk_notebook_get_page")
+	core.PuregoSafeRegister(&xNotebookGetPages, libs, "gtk_notebook_get_pages")
+	core.PuregoSafeRegister(&xNotebookGetScrollable, libs, "gtk_notebook_get_scrollable")
+	core.PuregoSafeRegister(&xNotebookGetShowBorder, libs, "gtk_notebook_get_show_border")
+	core.PuregoSafeRegister(&xNotebookGetShowTabs, libs, "gtk_notebook_get_show_tabs")
+	core.PuregoSafeRegister(&xNotebookGetTabDetachable, libs, "gtk_notebook_get_tab_detachable")
+	core.PuregoSafeRegister(&xNotebookGetTabLabel, libs, "gtk_notebook_get_tab_label")
+	core.PuregoSafeRegister(&xNotebookGetTabLabelText, libs, "gtk_notebook_get_tab_label_text")
+	core.PuregoSafeRegister(&xNotebookGetTabPos, libs, "gtk_notebook_get_tab_pos")
+	core.PuregoSafeRegister(&xNotebookGetTabReorderable, libs, "gtk_notebook_get_tab_reorderable")
+	core.PuregoSafeRegister(&xNotebookInsertPage, libs, "gtk_notebook_insert_page")
+	core.PuregoSafeRegister(&xNotebookInsertPageMenu, libs, "gtk_notebook_insert_page_menu")
+	core.PuregoSafeRegister(&xNotebookNextPage, libs, "gtk_notebook_next_page")
+	core.PuregoSafeRegister(&xNotebookPageNum, libs, "gtk_notebook_page_num")
+	core.PuregoSafeRegister(&xNotebookPopupDisable, libs, "gtk_notebook_popup_disable")
+	core.PuregoSafeRegister(&xNotebookPopupEnable, libs, "gtk_notebook_popup_enable")
+	core.PuregoSafeRegister(&xNotebookPrependPage, libs, "gtk_notebook_prepend_page")
+	core.PuregoSafeRegister(&xNotebookPrependPageMenu, libs, "gtk_notebook_prepend_page_menu")
+	core.PuregoSafeRegister(&xNotebookPrevPage, libs, "gtk_notebook_prev_page")
+	core.PuregoSafeRegister(&xNotebookRemovePage, libs, "gtk_notebook_remove_page")
+	core.PuregoSafeRegister(&xNotebookReorderChild, libs, "gtk_notebook_reorder_child")
+	core.PuregoSafeRegister(&xNotebookSetActionWidget, libs, "gtk_notebook_set_action_widget")
+	core.PuregoSafeRegister(&xNotebookSetCurrentPage, libs, "gtk_notebook_set_current_page")
+	core.PuregoSafeRegister(&xNotebookSetGroupName, libs, "gtk_notebook_set_group_name")
+	core.PuregoSafeRegister(&xNotebookSetMenuLabel, libs, "gtk_notebook_set_menu_label")
+	core.PuregoSafeRegister(&xNotebookSetMenuLabelText, libs, "gtk_notebook_set_menu_label_text")
+	core.PuregoSafeRegister(&xNotebookSetScrollable, libs, "gtk_notebook_set_scrollable")
+	core.PuregoSafeRegister(&xNotebookSetShowBorder, libs, "gtk_notebook_set_show_border")
+	core.PuregoSafeRegister(&xNotebookSetShowTabs, libs, "gtk_notebook_set_show_tabs")
+	core.PuregoSafeRegister(&xNotebookSetTabDetachable, libs, "gtk_notebook_set_tab_detachable")
+	core.PuregoSafeRegister(&xNotebookSetTabLabel, libs, "gtk_notebook_set_tab_label")
+	core.PuregoSafeRegister(&xNotebookSetTabLabelText, libs, "gtk_notebook_set_tab_label_text")
+	core.PuregoSafeRegister(&xNotebookSetTabPos, libs, "gtk_notebook_set_tab_pos")
+	core.PuregoSafeRegister(&xNotebookSetTabReorderable, libs, "gtk_notebook_set_tab_reorderable")
+
+	core.PuregoSafeRegister(&xNotebookPageGLibType, libs, "gtk_notebook_page_get_type")
+
+	core.PuregoSafeRegister(&xNotebookPageGetChild, libs, "gtk_notebook_page_get_child")
 }

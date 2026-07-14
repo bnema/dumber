@@ -5,6 +5,7 @@ import (
 	"structs"
 	"unsafe"
 
+	"github.com/bnema/purego"
 	"github.com/bnema/puregotk/pkg/core"
 	"github.com/bnema/puregotk/v4/gobject/types"
 )
@@ -26,7 +27,6 @@ type PermissionStateQuery struct {
 var xPermissionStateQueryGLibType func() types.GType
 
 func PermissionStateQueryGLibType() types.GType {
-	core.LazyRegister(&xPermissionStateQueryGLibType, "WEBKIT", "webkit_permission_state_query_get_type", false)
 	return xPermissionStateQueryGLibType()
 }
 
@@ -47,8 +47,6 @@ var xPermissionStateQueryFinish func(uintptr, PermissionState)
 // Notify the web-engine of the selected permission state for the given query. This function should
 // only be called as a response to the `WebKitWebView::query-permission-state` signal.
 func (x *PermissionStateQuery) Finish(StateVar PermissionState) {
-	core.LazyRegister(&xPermissionStateQueryFinish, "WEBKIT", "webkit_permission_state_query_finish", false)
-
 	xPermissionStateQueryFinish(x.GoPointer(), StateVar)
 }
 
@@ -56,8 +54,6 @@ var xPermissionStateQueryGetName func(uintptr) string
 
 // Get the permission name for which access is being queried.
 func (x *PermissionStateQuery) GetName() string {
-	core.LazyRegister(&xPermissionStateQueryGetName, "WEBKIT", "webkit_permission_state_query_get_name", false)
-
 	cret := xPermissionStateQueryGetName(x.GoPointer())
 	return cret
 }
@@ -66,8 +62,6 @@ var xPermissionStateQueryGetSecurityOrigin func(uintptr) uintptr
 
 // Get the permission origin for which access is being queried.
 func (x *PermissionStateQuery) GetSecurityOrigin() *SecurityOrigin {
-	core.LazyRegister(&xPermissionStateQueryGetSecurityOrigin, "WEBKIT", "webkit_permission_state_query_get_security_origin", false)
-
 	cret := xPermissionStateQueryGetSecurityOrigin(x.GoPointer())
 	if cret == 0 {
 		return nil
@@ -81,8 +75,6 @@ var xPermissionStateQueryRef func(uintptr) uintptr
 //
 // This function is MT-safe and may be called from any thread.
 func (x *PermissionStateQuery) Ref() *PermissionStateQuery {
-	core.LazyRegister(&xPermissionStateQueryRef, "WEBKIT", "webkit_permission_state_query_ref", false)
-
 	cret := xPermissionStateQueryRef(x.GoPointer())
 	if cret == 0 {
 		return nil
@@ -97,8 +89,6 @@ var xPermissionStateQueryUnref func(uintptr)
 // If the reference count drops to 0, all memory allocated by #WebKitPermissionStateQuery is
 // released. This function is MT-safe and may be called from any thread.
 func (x *PermissionStateQuery) Unref() {
-	core.LazyRegister(&xPermissionStateQueryUnref, "WEBKIT", "webkit_permission_state_query_unref", false)
-
 	xPermissionStateQueryUnref(x.GoPointer())
 }
 
@@ -108,7 +98,6 @@ type PermissionState int
 var xPermissionStateGLibType func() types.GType
 
 func PermissionStateGLibType() types.GType {
-	core.LazyRegister(&xPermissionStateGLibType, "WEBKIT", "webkit_permission_state_get_type", false)
 	return xPermissionStateGLibType()
 }
 
@@ -125,7 +114,22 @@ const (
 func init() {
 	core.SetPackageName("WEBKIT", "webkitgtk-6.0")
 	core.SetSharedLibraries("WEBKIT", []string{"libwebkitgtk-6.0.so.4", "libjavascriptcoregtk-6.0.so.1", "libwebkitgtk-6.0.4.dylib", "libjavascriptcoregtk-6.0.1.dylib"})
+	var libs []uintptr
+	for _, libPath := range core.GetPaths("WEBKIT") {
+		lib, err := purego.Dlopen(libPath, purego.RTLD_NOW|purego.RTLD_GLOBAL)
+		if err != nil {
+			panic(err)
+		}
+		libs = append(libs, lib)
+	}
 
-	// Manually register types since they aren't automatically registered when
-	// WebKit is loaded. See https://bugs.webkit.org/show_bug.cgi?id=175937.
+	core.PuregoSafeRegister(&xPermissionStateGLibType, libs, "webkit_permission_state_get_type")
+
+	core.PuregoSafeRegister(&xPermissionStateQueryGLibType, libs, "webkit_permission_state_query_get_type")
+
+	core.PuregoSafeRegister(&xPermissionStateQueryFinish, libs, "webkit_permission_state_query_finish")
+	core.PuregoSafeRegister(&xPermissionStateQueryGetName, libs, "webkit_permission_state_query_get_name")
+	core.PuregoSafeRegister(&xPermissionStateQueryGetSecurityOrigin, libs, "webkit_permission_state_query_get_security_origin")
+	core.PuregoSafeRegister(&xPermissionStateQueryRef, libs, "webkit_permission_state_query_ref")
+	core.PuregoSafeRegister(&xPermissionStateQueryUnref, libs, "webkit_permission_state_query_unref")
 }

@@ -5,6 +5,7 @@ import (
 	"structs"
 	"unsafe"
 
+	"github.com/bnema/purego"
 	"github.com/bnema/puregotk/pkg/core"
 	"github.com/bnema/puregotk/v4/gdk"
 	"github.com/bnema/puregotk/v4/glib"
@@ -56,7 +57,6 @@ type Carousel struct {
 var xCarouselGLibType func() types.GType
 
 func CarouselGLibType() types.GType {
-	core.LazyRegister(&xCarouselGLibType, "ADW", "adw_carousel_get_type", false)
 	return xCarouselGLibType()
 }
 
@@ -70,7 +70,6 @@ var xNewCarousel func() uintptr
 
 // Creates a new `AdwCarousel`.
 func NewCarousel() *Carousel {
-	core.LazyRegister(&xNewCarousel, "ADW", "adw_carousel_new", false)
 	var cls *Carousel
 
 	cret := xNewCarousel()
@@ -88,8 +87,6 @@ var xCarouselAppend func(uintptr, uintptr)
 
 // Appends @child to @self.
 func (x *Carousel) Append(ChildVar *gtk.Widget) {
-	core.LazyRegister(&xCarouselAppend, "ADW", "adw_carousel_append", false)
-
 	xCarouselAppend(x.GoPointer(), ChildVar.GoPointer())
 }
 
@@ -97,8 +94,6 @@ var xCarouselGetAllowLongSwipes func(uintptr) bool
 
 // Gets whether to allow swiping for more than one page at a time.
 func (x *Carousel) GetAllowLongSwipes() bool {
-	core.LazyRegister(&xCarouselGetAllowLongSwipes, "ADW", "adw_carousel_get_allow_long_swipes", false)
-
 	cret := xCarouselGetAllowLongSwipes(x.GoPointer())
 	return cret
 }
@@ -107,8 +102,6 @@ var xCarouselGetAllowMouseDrag func(uintptr) bool
 
 // Sets whether @self can be dragged with mouse pointer.
 func (x *Carousel) GetAllowMouseDrag() bool {
-	core.LazyRegister(&xCarouselGetAllowMouseDrag, "ADW", "adw_carousel_get_allow_mouse_drag", false)
-
 	cret := xCarouselGetAllowMouseDrag(x.GoPointer())
 	return cret
 }
@@ -117,8 +110,6 @@ var xCarouselGetAllowScrollWheel func(uintptr) bool
 
 // Gets whether @self will respond to scroll wheel events.
 func (x *Carousel) GetAllowScrollWheel() bool {
-	core.LazyRegister(&xCarouselGetAllowScrollWheel, "ADW", "adw_carousel_get_allow_scroll_wheel", false)
-
 	cret := xCarouselGetAllowScrollWheel(x.GoPointer())
 	return cret
 }
@@ -127,8 +118,6 @@ var xCarouselGetInteractive func(uintptr) bool
 
 // Gets whether @self can be navigated.
 func (x *Carousel) GetInteractive() bool {
-	core.LazyRegister(&xCarouselGetInteractive, "ADW", "adw_carousel_get_interactive", false)
-
 	cret := xCarouselGetInteractive(x.GoPointer())
 	return cret
 }
@@ -137,8 +126,6 @@ var xCarouselGetNPages func(uintptr) uint
 
 // Gets the number of pages in @self.
 func (x *Carousel) GetNPages() uint {
-	core.LazyRegister(&xCarouselGetNPages, "ADW", "adw_carousel_get_n_pages", false)
-
 	cret := xCarouselGetNPages(x.GoPointer())
 	return cret
 }
@@ -147,7 +134,6 @@ var xCarouselGetNthPage func(uintptr, uint) uintptr
 
 // Gets the page at position @n.
 func (x *Carousel) GetNthPage(NVar uint) *gtk.Widget {
-	core.LazyRegister(&xCarouselGetNthPage, "ADW", "adw_carousel_get_nth_page", false)
 	var cls *gtk.Widget
 
 	cret := xCarouselGetNthPage(x.GoPointer(), NVar)
@@ -167,8 +153,6 @@ var xCarouselGetPosition func(uintptr) float64
 //
 // 1 matches 1 page. Use [method@Carousel.scroll_to] for changing it.
 func (x *Carousel) GetPosition() float64 {
-	core.LazyRegister(&xCarouselGetPosition, "ADW", "adw_carousel_get_position", false)
-
 	cret := xCarouselGetPosition(x.GoPointer())
 	return cret
 }
@@ -177,8 +161,6 @@ var xCarouselGetRevealDuration func(uintptr) uint
 
 // Gets the page reveal duration, in milliseconds.
 func (x *Carousel) GetRevealDuration() uint {
-	core.LazyRegister(&xCarouselGetRevealDuration, "ADW", "adw_carousel_get_reveal_duration", false)
-
 	cret := xCarouselGetRevealDuration(x.GoPointer())
 	return cret
 }
@@ -187,8 +169,6 @@ var xCarouselGetScrollParams func(uintptr) uintptr
 
 // Gets the scroll animation spring parameters for @self.
 func (x *Carousel) GetScrollParams() *SpringParams {
-	core.LazyRegister(&xCarouselGetScrollParams, "ADW", "adw_carousel_get_scroll_params", false)
-
 	cret := xCarouselGetScrollParams(x.GoPointer())
 	if cret == 0 {
 		return nil
@@ -200,8 +180,6 @@ var xCarouselGetSpacing func(uintptr) uint
 
 // Gets spacing between pages in pixels.
 func (x *Carousel) GetSpacing() uint {
-	core.LazyRegister(&xCarouselGetSpacing, "ADW", "adw_carousel_get_spacing", false)
-
 	cret := xCarouselGetSpacing(x.GoPointer())
 	return cret
 }
@@ -213,8 +191,6 @@ var xCarouselInsert func(uintptr, uintptr, int)
 // If position is -1, or larger than the number of pages,
 // @child will be appended to the end.
 func (x *Carousel) Insert(ChildVar *gtk.Widget, PositionVar int) {
-	core.LazyRegister(&xCarouselInsert, "ADW", "adw_carousel_insert", false)
-
 	xCarouselInsert(x.GoPointer(), ChildVar.GoPointer(), PositionVar)
 }
 
@@ -222,8 +198,6 @@ var xCarouselPrepend func(uintptr, uintptr)
 
 // Prepends @child to @self.
 func (x *Carousel) Prepend(ChildVar *gtk.Widget) {
-	core.LazyRegister(&xCarouselPrepend, "ADW", "adw_carousel_prepend", false)
-
 	xCarouselPrepend(x.GoPointer(), ChildVar.GoPointer())
 }
 
@@ -231,8 +205,6 @@ var xCarouselRemove func(uintptr, uintptr)
 
 // Removes @child from @self.
 func (x *Carousel) Remove(ChildVar *gtk.Widget) {
-	core.LazyRegister(&xCarouselRemove, "ADW", "adw_carousel_remove", false)
-
 	xCarouselRemove(x.GoPointer(), ChildVar.GoPointer())
 }
 
@@ -243,8 +215,6 @@ var xCarouselReorder func(uintptr, uintptr, int)
 // If position is -1, or larger than the number of pages, @child will be moved
 // at the end.
 func (x *Carousel) Reorder(ChildVar *gtk.Widget, PositionVar int) {
-	core.LazyRegister(&xCarouselReorder, "ADW", "adw_carousel_reorder", false)
-
 	xCarouselReorder(x.GoPointer(), ChildVar.GoPointer(), PositionVar)
 }
 
@@ -254,8 +224,6 @@ var xCarouselScrollTo func(uintptr, uintptr, bool)
 //
 // If @animate is `TRUE`, the transition will be animated.
 func (x *Carousel) ScrollTo(WidgetVar *gtk.Widget, AnimateVar bool) {
-	core.LazyRegister(&xCarouselScrollTo, "ADW", "adw_carousel_scroll_to", false)
-
 	xCarouselScrollTo(x.GoPointer(), WidgetVar.GoPointer(), AnimateVar)
 }
 
@@ -266,8 +234,6 @@ var xCarouselSetAllowLongSwipes func(uintptr, bool)
 // If @allow_long_swipes is `FALSE`, each swipe can only move to the adjacent
 // pages.
 func (x *Carousel) SetAllowLongSwipes(AllowLongSwipesVar bool) {
-	core.LazyRegister(&xCarouselSetAllowLongSwipes, "ADW", "adw_carousel_set_allow_long_swipes", false)
-
 	xCarouselSetAllowLongSwipes(x.GoPointer(), AllowLongSwipesVar)
 }
 
@@ -277,8 +243,6 @@ var xCarouselSetAllowMouseDrag func(uintptr, bool)
 //
 // If @allow_mouse_drag is `FALSE`, dragging is only available on touch.
 func (x *Carousel) SetAllowMouseDrag(AllowMouseDragVar bool) {
-	core.LazyRegister(&xCarouselSetAllowMouseDrag, "ADW", "adw_carousel_set_allow_mouse_drag", false)
-
 	xCarouselSetAllowMouseDrag(x.GoPointer(), AllowMouseDragVar)
 }
 
@@ -288,8 +252,6 @@ var xCarouselSetAllowScrollWheel func(uintptr, bool)
 //
 // If @allow_scroll_wheel is `FALSE`, wheel events will be ignored.
 func (x *Carousel) SetAllowScrollWheel(AllowScrollWheelVar bool) {
-	core.LazyRegister(&xCarouselSetAllowScrollWheel, "ADW", "adw_carousel_set_allow_scroll_wheel", false)
-
 	xCarouselSetAllowScrollWheel(x.GoPointer(), AllowScrollWheelVar)
 }
 
@@ -300,8 +262,6 @@ var xCarouselSetInteractive func(uintptr, bool)
 // This can be used to temporarily disable the carousel to only allow navigating
 // it in a certain state.
 func (x *Carousel) SetInteractive(InteractiveVar bool) {
-	core.LazyRegister(&xCarouselSetInteractive, "ADW", "adw_carousel_set_interactive", false)
-
 	xCarouselSetInteractive(x.GoPointer(), InteractiveVar)
 }
 
@@ -311,8 +271,6 @@ var xCarouselSetRevealDuration func(uintptr, uint)
 //
 // Reveal duration is used when animating adding or removing pages.
 func (x *Carousel) SetRevealDuration(RevealDurationVar uint) {
-	core.LazyRegister(&xCarouselSetRevealDuration, "ADW", "adw_carousel_set_reveal_duration", false)
-
 	xCarouselSetRevealDuration(x.GoPointer(), RevealDurationVar)
 }
 
@@ -326,8 +284,6 @@ var xCarouselSetScrollParams func(uintptr, *SpringParams)
 // adw_spring_params_new (1, 0.5, 500)
 // ```
 func (x *Carousel) SetScrollParams(ParamsVar *SpringParams) {
-	core.LazyRegister(&xCarouselSetScrollParams, "ADW", "adw_carousel_set_scroll_params", false)
-
 	xCarouselSetScrollParams(x.GoPointer(), ParamsVar)
 }
 
@@ -335,8 +291,6 @@ var xCarouselSetSpacing func(uintptr, uint)
 
 // Sets spacing between pages in pixels.
 func (x *Carousel) SetSpacing(SpacingVar uint) {
-	core.LazyRegister(&xCarouselSetSpacing, "ADW", "adw_carousel_set_spacing", false)
-
 	xCarouselSetSpacing(x.GoPointer(), SpacingVar)
 }
 
@@ -868,4 +822,40 @@ func (x *Carousel) SetOrientation(OrientationVar gtk.Orientation) {
 func init() {
 	core.SetPackageName("ADW", "libadwaita-1")
 	core.SetSharedLibraries("ADW", []string{"libadwaita-1.so.0", "libadwaita-1.0.dylib"})
+	var libs []uintptr
+	for _, libPath := range core.GetPaths("ADW") {
+		lib, err := purego.Dlopen(libPath, purego.RTLD_NOW|purego.RTLD_GLOBAL)
+		if err != nil {
+			panic(err)
+		}
+		libs = append(libs, lib)
+	}
+
+	core.PuregoSafeRegister(&xCarouselGLibType, libs, "adw_carousel_get_type")
+
+	core.PuregoSafeRegister(&xNewCarousel, libs, "adw_carousel_new")
+
+	core.PuregoSafeRegister(&xCarouselAppend, libs, "adw_carousel_append")
+	core.PuregoSafeRegister(&xCarouselGetAllowLongSwipes, libs, "adw_carousel_get_allow_long_swipes")
+	core.PuregoSafeRegister(&xCarouselGetAllowMouseDrag, libs, "adw_carousel_get_allow_mouse_drag")
+	core.PuregoSafeRegister(&xCarouselGetAllowScrollWheel, libs, "adw_carousel_get_allow_scroll_wheel")
+	core.PuregoSafeRegister(&xCarouselGetInteractive, libs, "adw_carousel_get_interactive")
+	core.PuregoSafeRegister(&xCarouselGetNPages, libs, "adw_carousel_get_n_pages")
+	core.PuregoSafeRegister(&xCarouselGetNthPage, libs, "adw_carousel_get_nth_page")
+	core.PuregoSafeRegister(&xCarouselGetPosition, libs, "adw_carousel_get_position")
+	core.PuregoSafeRegister(&xCarouselGetRevealDuration, libs, "adw_carousel_get_reveal_duration")
+	core.PuregoSafeRegister(&xCarouselGetScrollParams, libs, "adw_carousel_get_scroll_params")
+	core.PuregoSafeRegister(&xCarouselGetSpacing, libs, "adw_carousel_get_spacing")
+	core.PuregoSafeRegister(&xCarouselInsert, libs, "adw_carousel_insert")
+	core.PuregoSafeRegister(&xCarouselPrepend, libs, "adw_carousel_prepend")
+	core.PuregoSafeRegister(&xCarouselRemove, libs, "adw_carousel_remove")
+	core.PuregoSafeRegister(&xCarouselReorder, libs, "adw_carousel_reorder")
+	core.PuregoSafeRegister(&xCarouselScrollTo, libs, "adw_carousel_scroll_to")
+	core.PuregoSafeRegister(&xCarouselSetAllowLongSwipes, libs, "adw_carousel_set_allow_long_swipes")
+	core.PuregoSafeRegister(&xCarouselSetAllowMouseDrag, libs, "adw_carousel_set_allow_mouse_drag")
+	core.PuregoSafeRegister(&xCarouselSetAllowScrollWheel, libs, "adw_carousel_set_allow_scroll_wheel")
+	core.PuregoSafeRegister(&xCarouselSetInteractive, libs, "adw_carousel_set_interactive")
+	core.PuregoSafeRegister(&xCarouselSetRevealDuration, libs, "adw_carousel_set_reveal_duration")
+	core.PuregoSafeRegister(&xCarouselSetScrollParams, libs, "adw_carousel_set_scroll_params")
+	core.PuregoSafeRegister(&xCarouselSetSpacing, libs, "adw_carousel_set_spacing")
 }

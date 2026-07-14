@@ -4,6 +4,7 @@ package gtk
 import (
 	"unsafe"
 
+	"github.com/bnema/purego"
 	"github.com/bnema/puregotk/pkg/core"
 	"github.com/bnema/puregotk/v4/gdk"
 	"github.com/bnema/puregotk/v4/glib"
@@ -23,7 +24,6 @@ type IconViewDropPosition int
 var xIconViewDropPositionGLibType func() types.GType
 
 func IconViewDropPositionGLibType() types.GType {
-	core.LazyRegister(&xIconViewDropPositionGLibType, "GTK", "gtk_icon_view_drop_position_get_type", false)
 	return xIconViewDropPositionGLibType()
 }
 
@@ -80,7 +80,6 @@ type IconView struct {
 var xIconViewGLibType func() types.GType
 
 func IconViewGLibType() types.GType {
-	core.LazyRegister(&xIconViewGLibType, "GTK", "gtk_icon_view_get_type", false)
 	return xIconViewGLibType()
 }
 
@@ -94,7 +93,6 @@ var xNewIconView func() uintptr
 
 // Creates a new `GtkIconView` widget
 func NewIconView() *IconView {
-	core.LazyRegister(&xNewIconView, "GTK", "gtk_icon_view_new", false)
 	var cls *IconView
 
 	cret := xNewIconView()
@@ -113,7 +111,6 @@ var xNewIconViewWithArea func(uintptr) uintptr
 // Creates a new `GtkIconView` widget using the
 // specified @area to layout cells inside the icons.
 func NewIconViewWithArea(AreaVar *CellArea) *IconView {
-	core.LazyRegister(&xNewIconViewWithArea, "GTK", "gtk_icon_view_new_with_area", false)
 	var cls *IconView
 
 	cret := xNewIconViewWithArea(AreaVar.GoPointer())
@@ -131,7 +128,6 @@ var xNewIconViewWithModel func(uintptr) uintptr
 
 // Creates a new `GtkIconView` widget with the model @model.
 func NewIconViewWithModel(ModelVar TreeModel) *IconView {
-	core.LazyRegister(&xNewIconViewWithModel, "GTK", "gtk_icon_view_new_with_model", false)
 	var cls *IconView
 
 	cret := xNewIconViewWithModel(ModelVar.GoPointer())
@@ -150,7 +146,6 @@ var xIconViewCreateDragIcon func(uintptr, *TreePath) uintptr
 // Creates a `GdkPaintable` representation of the item at @path.
 // This image is used for a drag icon.
 func (x *IconView) CreateDragIcon(PathVar *TreePath) *gdk.PaintableBase {
-	core.LazyRegister(&xIconViewCreateDragIcon, "GTK", "gtk_icon_view_create_drag_icon", false)
 	var cls *gdk.PaintableBase
 
 	cret := xIconViewCreateDragIcon(x.GoPointer(), PathVar)
@@ -168,8 +163,6 @@ var xIconViewEnableModelDragDest func(uintptr, *gdk.ContentFormats, gdk.DragActi
 // Turns @icon_view into a drop destination for automatic DND. Calling this
 // method sets `GtkIconView`:reorderable to %FALSE.
 func (x *IconView) EnableModelDragDest(FormatsVar *gdk.ContentFormats, ActionsVar gdk.DragAction) {
-	core.LazyRegister(&xIconViewEnableModelDragDest, "GTK", "gtk_icon_view_enable_model_drag_dest", false)
-
 	xIconViewEnableModelDragDest(x.GoPointer(), FormatsVar, ActionsVar)
 }
 
@@ -178,8 +171,6 @@ var xIconViewEnableModelDragSource func(uintptr, gdk.ModifierType, *gdk.ContentF
 // Turns @icon_view into a drag source for automatic DND. Calling this
 // method sets `GtkIconView`:reorderable to %FALSE.
 func (x *IconView) EnableModelDragSource(StartButtonMaskVar gdk.ModifierType, FormatsVar *gdk.ContentFormats, ActionsVar gdk.DragAction) {
-	core.LazyRegister(&xIconViewEnableModelDragSource, "GTK", "gtk_icon_view_enable_model_drag_source", false)
-
 	xIconViewEnableModelDragSource(x.GoPointer(), StartButtonMaskVar, FormatsVar, ActionsVar)
 }
 
@@ -187,8 +178,6 @@ var xIconViewGetActivateOnSingleClick func(uintptr) bool
 
 // Gets the setting set by gtk_icon_view_set_activate_on_single_click().
 func (x *IconView) GetActivateOnSingleClick() bool {
-	core.LazyRegister(&xIconViewGetActivateOnSingleClick, "GTK", "gtk_icon_view_get_activate_on_single_click", false)
-
 	cret := xIconViewGetActivateOnSingleClick(x.GoPointer())
 	return cret
 }
@@ -200,8 +189,6 @@ var xIconViewGetCellRect func(uintptr, *TreePath, uintptr, *gdk.Rectangle) bool
 //
 // This function is only valid if @icon_view is realized.
 func (x *IconView) GetCellRect(PathVar *TreePath, CellVar *CellRenderer, RectVar *gdk.Rectangle) bool {
-	core.LazyRegister(&xIconViewGetCellRect, "GTK", "gtk_icon_view_get_cell_rect", false)
-
 	cret := xIconViewGetCellRect(x.GoPointer(), PathVar, CellVar.GoPointer(), RectVar)
 	return cret
 }
@@ -210,8 +197,6 @@ var xIconViewGetColumnSpacing func(uintptr) int
 
 // Returns the value of the ::column-spacing property.
 func (x *IconView) GetColumnSpacing() int {
-	core.LazyRegister(&xIconViewGetColumnSpacing, "GTK", "gtk_icon_view_get_column_spacing", false)
-
 	cret := xIconViewGetColumnSpacing(x.GoPointer())
 	return cret
 }
@@ -220,8 +205,6 @@ var xIconViewGetColumns func(uintptr) int
 
 // Returns the value of the ::columns property.
 func (x *IconView) GetColumns() int {
-	core.LazyRegister(&xIconViewGetColumns, "GTK", "gtk_icon_view_get_columns", false)
-
 	cret := xIconViewGetColumns(x.GoPointer())
 	return cret
 }
@@ -234,8 +217,6 @@ var xIconViewGetCursor func(uintptr, **TreePath, **CellRenderer) bool
 //
 // The returned `GtkTreePath` must be freed with gtk_tree_path_free().
 func (x *IconView) GetCursor(PathVar **TreePath, CellVar **CellRenderer) bool {
-	core.LazyRegister(&xIconViewGetCursor, "GTK", "gtk_icon_view_get_cursor", false)
-
 	cret := xIconViewGetCursor(x.GoPointer(), PathVar, CellVar)
 	return cret
 }
@@ -244,8 +225,6 @@ var xIconViewGetDestItemAtPos func(uintptr, int, int, **TreePath, *IconViewDropP
 
 // Determines the destination item for a given position.
 func (x *IconView) GetDestItemAtPos(DragXVar int, DragYVar int, PathVar **TreePath, PosVar *IconViewDropPosition) bool {
-	core.LazyRegister(&xIconViewGetDestItemAtPos, "GTK", "gtk_icon_view_get_dest_item_at_pos", false)
-
 	cret := xIconViewGetDestItemAtPos(x.GoPointer(), DragXVar, DragYVar, PathVar, PosVar)
 	return cret
 }
@@ -254,8 +233,6 @@ var xIconViewGetDragDestItem func(uintptr, **TreePath, *IconViewDropPosition)
 
 // Gets information about the item that is highlighted for feedback.
 func (x *IconView) GetDragDestItem(PathVar **TreePath, PosVar *IconViewDropPosition) {
-	core.LazyRegister(&xIconViewGetDragDestItem, "GTK", "gtk_icon_view_get_drag_dest_item", false)
-
 	xIconViewGetDragDestItem(x.GoPointer(), PathVar, PosVar)
 }
 
@@ -263,8 +240,6 @@ var xIconViewGetItemAtPos func(uintptr, int, int, **TreePath, **CellRenderer) bo
 
 // Gets the path and cell for the icon at the given position.
 func (x *IconView) GetItemAtPos(XVar int, YVar int, PathVar **TreePath, CellVar **CellRenderer) bool {
-	core.LazyRegister(&xIconViewGetItemAtPos, "GTK", "gtk_icon_view_get_item_at_pos", false)
-
 	cret := xIconViewGetItemAtPos(x.GoPointer(), XVar, YVar, PathVar, CellVar)
 	return cret
 }
@@ -274,8 +249,6 @@ var xIconViewGetItemColumn func(uintptr, *TreePath) int
 // Gets the column in which the item @path is currently
 // displayed. Column numbers start at 0.
 func (x *IconView) GetItemColumn(PathVar *TreePath) int {
-	core.LazyRegister(&xIconViewGetItemColumn, "GTK", "gtk_icon_view_get_item_column", false)
-
 	cret := xIconViewGetItemColumn(x.GoPointer(), PathVar)
 	return cret
 }
@@ -285,8 +258,6 @@ var xIconViewGetItemOrientation func(uintptr) Orientation
 // Returns the value of the ::item-orientation property which determines
 // whether the labels are drawn beside the icons instead of below.
 func (x *IconView) GetItemOrientation() Orientation {
-	core.LazyRegister(&xIconViewGetItemOrientation, "GTK", "gtk_icon_view_get_item_orientation", false)
-
 	cret := xIconViewGetItemOrientation(x.GoPointer())
 	return cret
 }
@@ -295,8 +266,6 @@ var xIconViewGetItemPadding func(uintptr) int
 
 // Returns the value of the ::item-padding property.
 func (x *IconView) GetItemPadding() int {
-	core.LazyRegister(&xIconViewGetItemPadding, "GTK", "gtk_icon_view_get_item_padding", false)
-
 	cret := xIconViewGetItemPadding(x.GoPointer())
 	return cret
 }
@@ -306,8 +275,6 @@ var xIconViewGetItemRow func(uintptr, *TreePath) int
 // Gets the row in which the item @path is currently
 // displayed. Row numbers start at 0.
 func (x *IconView) GetItemRow(PathVar *TreePath) int {
-	core.LazyRegister(&xIconViewGetItemRow, "GTK", "gtk_icon_view_get_item_row", false)
-
 	cret := xIconViewGetItemRow(x.GoPointer(), PathVar)
 	return cret
 }
@@ -316,8 +283,6 @@ var xIconViewGetItemWidth func(uintptr) int
 
 // Returns the value of the ::item-width property.
 func (x *IconView) GetItemWidth() int {
-	core.LazyRegister(&xIconViewGetItemWidth, "GTK", "gtk_icon_view_get_item_width", false)
-
 	cret := xIconViewGetItemWidth(x.GoPointer())
 	return cret
 }
@@ -326,8 +291,6 @@ var xIconViewGetMargin func(uintptr) int
 
 // Returns the value of the ::margin property.
 func (x *IconView) GetMargin() int {
-	core.LazyRegister(&xIconViewGetMargin, "GTK", "gtk_icon_view_get_margin", false)
-
 	cret := xIconViewGetMargin(x.GoPointer())
 	return cret
 }
@@ -336,8 +299,6 @@ var xIconViewGetMarkupColumn func(uintptr) int
 
 // Returns the column with markup text for @icon_view.
 func (x *IconView) GetMarkupColumn() int {
-	core.LazyRegister(&xIconViewGetMarkupColumn, "GTK", "gtk_icon_view_get_markup_column", false)
-
 	cret := xIconViewGetMarkupColumn(x.GoPointer())
 	return cret
 }
@@ -347,7 +308,6 @@ var xIconViewGetModel func(uintptr) uintptr
 // Returns the model the `GtkIconView` is based on.  Returns %NULL if the
 // model is unset.
 func (x *IconView) GetModel() *TreeModelBase {
-	core.LazyRegister(&xIconViewGetModel, "GTK", "gtk_icon_view_get_model", false)
 	var cls *TreeModelBase
 
 	cret := xIconViewGetModel(x.GoPointer())
@@ -365,8 +325,6 @@ var xIconViewGetPathAtPos func(uintptr, int, int) uintptr
 
 // Gets the path for the icon at the given position.
 func (x *IconView) GetPathAtPos(XVar int, YVar int) *TreePath {
-	core.LazyRegister(&xIconViewGetPathAtPos, "GTK", "gtk_icon_view_get_path_at_pos", false)
-
 	cret := xIconViewGetPathAtPos(x.GoPointer(), XVar, YVar)
 	if cret == 0 {
 		return nil
@@ -378,8 +336,6 @@ var xIconViewGetPixbufColumn func(uintptr) int
 
 // Returns the column with pixbufs for @icon_view.
 func (x *IconView) GetPixbufColumn() int {
-	core.LazyRegister(&xIconViewGetPixbufColumn, "GTK", "gtk_icon_view_get_pixbuf_column", false)
-
 	cret := xIconViewGetPixbufColumn(x.GoPointer())
 	return cret
 }
@@ -389,8 +345,6 @@ var xIconViewGetReorderable func(uintptr) bool
 // Retrieves whether the user can reorder the list via drag-and-drop.
 // See gtk_icon_view_set_reorderable().
 func (x *IconView) GetReorderable() bool {
-	core.LazyRegister(&xIconViewGetReorderable, "GTK", "gtk_icon_view_get_reorderable", false)
-
 	cret := xIconViewGetReorderable(x.GoPointer())
 	return cret
 }
@@ -399,8 +353,6 @@ var xIconViewGetRowSpacing func(uintptr) int
 
 // Returns the value of the ::row-spacing property.
 func (x *IconView) GetRowSpacing() int {
-	core.LazyRegister(&xIconViewGetRowSpacing, "GTK", "gtk_icon_view_get_row_spacing", false)
-
 	cret := xIconViewGetRowSpacing(x.GoPointer())
 	return cret
 }
@@ -425,8 +377,6 @@ var xIconViewGetSelectedItems func(uintptr) uintptr
 // g_list_free_full (list, (GDestroyNotify) gtk_tree_path_free);
 // ```
 func (x *IconView) GetSelectedItems() *glib.List {
-	core.LazyRegister(&xIconViewGetSelectedItems, "GTK", "gtk_icon_view_get_selected_items", false)
-
 	cret := xIconViewGetSelectedItems(x.GoPointer())
 	if cret == 0 {
 		return nil
@@ -438,8 +388,6 @@ var xIconViewGetSelectionMode func(uintptr) SelectionMode
 
 // Gets the selection mode of the @icon_view.
 func (x *IconView) GetSelectionMode() SelectionMode {
-	core.LazyRegister(&xIconViewGetSelectionMode, "GTK", "gtk_icon_view_get_selection_mode", false)
-
 	cret := xIconViewGetSelectionMode(x.GoPointer())
 	return cret
 }
@@ -448,8 +396,6 @@ var xIconViewGetSpacing func(uintptr) int
 
 // Returns the value of the ::spacing property.
 func (x *IconView) GetSpacing() int {
-	core.LazyRegister(&xIconViewGetSpacing, "GTK", "gtk_icon_view_get_spacing", false)
-
 	cret := xIconViewGetSpacing(x.GoPointer())
 	return cret
 }
@@ -458,8 +404,6 @@ var xIconViewGetTextColumn func(uintptr) int
 
 // Returns the column with text for @icon_view.
 func (x *IconView) GetTextColumn() int {
-	core.LazyRegister(&xIconViewGetTextColumn, "GTK", "gtk_icon_view_get_text_column", false)
-
 	cret := xIconViewGetTextColumn(x.GoPointer())
 	return cret
 }
@@ -469,8 +413,6 @@ var xIconViewGetTooltipColumn func(uintptr) int
 // Returns the column of @icon_view’s model which is being used for
 // displaying tooltips on @icon_view’s rows.
 func (x *IconView) GetTooltipColumn() int {
-	core.LazyRegister(&xIconViewGetTooltipColumn, "GTK", "gtk_icon_view_get_tooltip_column", false)
-
 	cret := xIconViewGetTooltipColumn(x.GoPointer())
 	return cret
 }
@@ -488,8 +430,6 @@ var xIconViewGetTooltipContext func(uintptr, int, int, bool, **TreeModel, **Tree
 // @model, @path and @iter which have been provided will be set to point to
 // that row and the corresponding model.
 func (x *IconView) GetTooltipContext(XVar int, YVar int, KeyboardTipVar bool, ModelVar **TreeModel, PathVar **TreePath, IterVar *TreeIter) bool {
-	core.LazyRegister(&xIconViewGetTooltipContext, "GTK", "gtk_icon_view_get_tooltip_context", false)
-
 	cret := xIconViewGetTooltipContext(x.GoPointer(), XVar, YVar, KeyboardTipVar, ModelVar, PathVar, IterVar)
 	return cret
 }
@@ -501,8 +441,6 @@ var xIconViewGetVisibleRange func(uintptr, **TreePath, **TreePath) bool
 //
 // Both paths should be freed with gtk_tree_path_free() after use.
 func (x *IconView) GetVisibleRange(StartPathVar **TreePath, EndPathVar **TreePath) bool {
-	core.LazyRegister(&xIconViewGetVisibleRange, "GTK", "gtk_icon_view_get_visible_range", false)
-
 	cret := xIconViewGetVisibleRange(x.GoPointer(), StartPathVar, EndPathVar)
 	return cret
 }
@@ -511,8 +449,6 @@ var xIconViewItemActivated func(uintptr, *TreePath)
 
 // Activates the item determined by @path.
 func (x *IconView) ItemActivated(PathVar *TreePath) {
-	core.LazyRegister(&xIconViewItemActivated, "GTK", "gtk_icon_view_item_activated", false)
-
 	xIconViewItemActivated(x.GoPointer(), PathVar)
 }
 
@@ -521,8 +457,6 @@ var xIconViewPathIsSelected func(uintptr, *TreePath) bool
 // Returns %TRUE if the icon pointed to by @path is currently
 // selected. If @path does not point to a valid location, %FALSE is returned.
 func (x *IconView) PathIsSelected(PathVar *TreePath) bool {
-	core.LazyRegister(&xIconViewPathIsSelected, "GTK", "gtk_icon_view_path_is_selected", false)
-
 	cret := xIconViewPathIsSelected(x.GoPointer(), PathVar)
 	return cret
 }
@@ -544,8 +478,6 @@ var xIconViewScrollToPath func(uintptr, *TreePath, bool, float32, float32)
 // the model. If the model changes before the @icon_view is realized, the
 // centered path will be modified to reflect this change.
 func (x *IconView) ScrollToPath(PathVar *TreePath, UseAlignVar bool, RowAlignVar float32, ColAlignVar float32) {
-	core.LazyRegister(&xIconViewScrollToPath, "GTK", "gtk_icon_view_scroll_to_path", false)
-
 	xIconViewScrollToPath(x.GoPointer(), PathVar, UseAlignVar, RowAlignVar, ColAlignVar)
 }
 
@@ -554,8 +486,6 @@ var xIconViewSelectAll func(uintptr)
 // Selects all the icons. @icon_view must has its selection mode set
 // to %GTK_SELECTION_MULTIPLE.
 func (x *IconView) SelectAll() {
-	core.LazyRegister(&xIconViewSelectAll, "GTK", "gtk_icon_view_select_all", false)
-
 	xIconViewSelectAll(x.GoPointer())
 }
 
@@ -563,8 +493,6 @@ var xIconViewSelectPath func(uintptr, *TreePath)
 
 // Selects the row at @path.
 func (x *IconView) SelectPath(PathVar *TreePath) {
-	core.LazyRegister(&xIconViewSelectPath, "GTK", "gtk_icon_view_select_path", false)
-
 	xIconViewSelectPath(x.GoPointer(), PathVar)
 }
 
@@ -573,8 +501,6 @@ var xIconViewSelectedForeach func(uintptr, uintptr, uintptr)
 // Calls a function for each selected icon. Note that the model or
 // selection cannot be modified from within this function.
 func (x *IconView) SelectedForeach(FuncVar *IconViewForeachFunc, DataVar uintptr) {
-	core.LazyRegister(&xIconViewSelectedForeach, "GTK", "gtk_icon_view_selected_foreach", false)
-
 	xIconViewSelectedForeach(x.GoPointer(), glib.NewCallback(FuncVar), DataVar)
 }
 
@@ -583,8 +509,6 @@ var xIconViewSetActivateOnSingleClick func(uintptr, bool)
 // Causes the `GtkIconView`::item-activated signal to be emitted on
 // a single click instead of a double click.
 func (x *IconView) SetActivateOnSingleClick(SingleVar bool) {
-	core.LazyRegister(&xIconViewSetActivateOnSingleClick, "GTK", "gtk_icon_view_set_activate_on_single_click", false)
-
 	xIconViewSetActivateOnSingleClick(x.GoPointer(), SingleVar)
 }
 
@@ -593,8 +517,6 @@ var xIconViewSetColumnSpacing func(uintptr, int)
 // Sets the ::column-spacing property which specifies the space
 // which is inserted between the columns of the icon view.
 func (x *IconView) SetColumnSpacing(ColumnSpacingVar int) {
-	core.LazyRegister(&xIconViewSetColumnSpacing, "GTK", "gtk_icon_view_set_column_spacing", false)
-
 	xIconViewSetColumnSpacing(x.GoPointer(), ColumnSpacingVar)
 }
 
@@ -605,8 +527,6 @@ var xIconViewSetColumns func(uintptr, int)
 // -1, the number of columns will be chosen automatically
 // to fill the available area.
 func (x *IconView) SetColumns(ColumnsVar int) {
-	core.LazyRegister(&xIconViewSetColumns, "GTK", "gtk_icon_view_set_columns", false)
-
 	xIconViewSetColumns(x.GoPointer(), ColumnsVar)
 }
 
@@ -622,8 +542,6 @@ var xIconViewSetCursor func(uintptr, *TreePath, uintptr, bool)
 // (icon_view)` in order to give keyboard focus to the widget.
 // Please note that editing can only happen when the widget is realized.
 func (x *IconView) SetCursor(PathVar *TreePath, CellVar *CellRenderer, StartEditingVar bool) {
-	core.LazyRegister(&xIconViewSetCursor, "GTK", "gtk_icon_view_set_cursor", false)
-
 	xIconViewSetCursor(x.GoPointer(), PathVar, CellVar.GoPointer(), StartEditingVar)
 }
 
@@ -631,8 +549,6 @@ var xIconViewSetDragDestItem func(uintptr, *TreePath, IconViewDropPosition)
 
 // Sets the item that is highlighted for feedback.
 func (x *IconView) SetDragDestItem(PathVar *TreePath, PosVar IconViewDropPosition) {
-	core.LazyRegister(&xIconViewSetDragDestItem, "GTK", "gtk_icon_view_set_drag_dest_item", false)
-
 	xIconViewSetDragDestItem(x.GoPointer(), PathVar, PosVar)
 }
 
@@ -641,8 +557,6 @@ var xIconViewSetItemOrientation func(uintptr, Orientation)
 // Sets the ::item-orientation property which determines whether the labels
 // are drawn beside the icons instead of below.
 func (x *IconView) SetItemOrientation(OrientationVar Orientation) {
-	core.LazyRegister(&xIconViewSetItemOrientation, "GTK", "gtk_icon_view_set_item_orientation", false)
-
 	xIconViewSetItemOrientation(x.GoPointer(), OrientationVar)
 }
 
@@ -651,8 +565,6 @@ var xIconViewSetItemPadding func(uintptr, int)
 // Sets the `GtkIconView`:item-padding property which specifies the padding
 // around each of the icon view’s items.
 func (x *IconView) SetItemPadding(ItemPaddingVar int) {
-	core.LazyRegister(&xIconViewSetItemPadding, "GTK", "gtk_icon_view_set_item_padding", false)
-
 	xIconViewSetItemPadding(x.GoPointer(), ItemPaddingVar)
 }
 
@@ -662,8 +574,6 @@ var xIconViewSetItemWidth func(uintptr, int)
 // to use for each item. If it is set to -1, the icon view will
 // automatically determine a suitable item size.
 func (x *IconView) SetItemWidth(ItemWidthVar int) {
-	core.LazyRegister(&xIconViewSetItemWidth, "GTK", "gtk_icon_view_set_item_width", false)
-
 	xIconViewSetItemWidth(x.GoPointer(), ItemWidthVar)
 }
 
@@ -673,8 +583,6 @@ var xIconViewSetMargin func(uintptr, int)
 // which is inserted at the top, bottom, left and right
 // of the icon view.
 func (x *IconView) SetMargin(MarginVar int) {
-	core.LazyRegister(&xIconViewSetMargin, "GTK", "gtk_icon_view_set_margin", false)
-
 	xIconViewSetMargin(x.GoPointer(), MarginVar)
 }
 
@@ -685,8 +593,6 @@ var xIconViewSetMarkupColumn func(uintptr, int)
 // If the markup column is set to something, it overrides
 // the text column set by gtk_icon_view_set_text_column().
 func (x *IconView) SetMarkupColumn(ColumnVar int) {
-	core.LazyRegister(&xIconViewSetMarkupColumn, "GTK", "gtk_icon_view_set_markup_column", false)
-
 	xIconViewSetMarkupColumn(x.GoPointer(), ColumnVar)
 }
 
@@ -697,8 +603,6 @@ var xIconViewSetModel func(uintptr, uintptr)
 // it before setting the new model.  If @model is %NULL, then
 // it will unset the old model.
 func (x *IconView) SetModel(ModelVar TreeModel) {
-	core.LazyRegister(&xIconViewSetModel, "GTK", "gtk_icon_view_set_model", false)
-
 	xIconViewSetModel(x.GoPointer(), ModelVar.GoPointer())
 }
 
@@ -707,8 +611,6 @@ var xIconViewSetPixbufColumn func(uintptr, int)
 // Sets the column with pixbufs for @icon_view to be @column. The pixbuf
 // column must be of type `GDK_TYPE_PIXBUF`
 func (x *IconView) SetPixbufColumn(ColumnVar int) {
-	core.LazyRegister(&xIconViewSetPixbufColumn, "GTK", "gtk_icon_view_set_pixbuf_column", false)
-
 	xIconViewSetPixbufColumn(x.GoPointer(), ColumnVar)
 }
 
@@ -727,8 +629,6 @@ var xIconViewSetReorderable func(uintptr, bool)
 // reordering is allowed.  If more control is needed, you should probably
 // handle drag and drop manually.
 func (x *IconView) SetReorderable(ReorderableVar bool) {
-	core.LazyRegister(&xIconViewSetReorderable, "GTK", "gtk_icon_view_set_reorderable", false)
-
 	xIconViewSetReorderable(x.GoPointer(), ReorderableVar)
 }
 
@@ -737,8 +637,6 @@ var xIconViewSetRowSpacing func(uintptr, int)
 // Sets the ::row-spacing property which specifies the space
 // which is inserted between the rows of the icon view.
 func (x *IconView) SetRowSpacing(RowSpacingVar int) {
-	core.LazyRegister(&xIconViewSetRowSpacing, "GTK", "gtk_icon_view_set_row_spacing", false)
-
 	xIconViewSetRowSpacing(x.GoPointer(), RowSpacingVar)
 }
 
@@ -746,8 +644,6 @@ var xIconViewSetSelectionMode func(uintptr, SelectionMode)
 
 // Sets the selection mode of the @icon_view.
 func (x *IconView) SetSelectionMode(ModeVar SelectionMode) {
-	core.LazyRegister(&xIconViewSetSelectionMode, "GTK", "gtk_icon_view_set_selection_mode", false)
-
 	xIconViewSetSelectionMode(x.GoPointer(), ModeVar)
 }
 
@@ -757,8 +653,6 @@ var xIconViewSetSpacing func(uintptr, int)
 // which is inserted between the cells (i.e. the icon and
 // the text) of an item.
 func (x *IconView) SetSpacing(SpacingVar int) {
-	core.LazyRegister(&xIconViewSetSpacing, "GTK", "gtk_icon_view_set_spacing", false)
-
 	xIconViewSetSpacing(x.GoPointer(), SpacingVar)
 }
 
@@ -767,8 +661,6 @@ var xIconViewSetTextColumn func(uintptr, int)
 // Sets the column with text for @icon_view to be @column. The text
 // column must be of type `G_TYPE_STRING`.
 func (x *IconView) SetTextColumn(ColumnVar int) {
-	core.LazyRegister(&xIconViewSetTextColumn, "GTK", "gtk_icon_view_set_text_column", false)
-
 	xIconViewSetTextColumn(x.GoPointer(), ColumnVar)
 }
 
@@ -779,8 +671,6 @@ var xIconViewSetTooltipCell func(uintptr, uintptr, *TreePath, uintptr)
 //
 // See also gtk_icon_view_set_tooltip_column() for a simpler alternative.
 func (x *IconView) SetTooltipCell(TooltipVar *Tooltip, PathVar *TreePath, CellVar *CellRenderer) {
-	core.LazyRegister(&xIconViewSetTooltipCell, "GTK", "gtk_icon_view_set_tooltip_cell", false)
-
 	xIconViewSetTooltipCell(x.GoPointer(), TooltipVar.GoPointer(), PathVar, CellVar.GoPointer())
 }
 
@@ -797,8 +687,6 @@ var xIconViewSetTooltipColumn func(uintptr, int)
 // Note that the signal handler sets the text with gtk_tooltip_set_markup(),
 // so &amp;, &lt;, etc have to be escaped in the text.
 func (x *IconView) SetTooltipColumn(ColumnVar int) {
-	core.LazyRegister(&xIconViewSetTooltipColumn, "GTK", "gtk_icon_view_set_tooltip_column", false)
-
 	xIconViewSetTooltipColumn(x.GoPointer(), ColumnVar)
 }
 
@@ -808,8 +696,6 @@ var xIconViewSetTooltipItem func(uintptr, uintptr, *TreePath)
 // See also gtk_icon_view_set_tooltip_column() for a simpler alternative.
 // See also gtk_tooltip_set_tip_area().
 func (x *IconView) SetTooltipItem(TooltipVar *Tooltip, PathVar *TreePath) {
-	core.LazyRegister(&xIconViewSetTooltipItem, "GTK", "gtk_icon_view_set_tooltip_item", false)
-
 	xIconViewSetTooltipItem(x.GoPointer(), TooltipVar.GoPointer(), PathVar)
 }
 
@@ -817,8 +703,6 @@ var xIconViewUnselectAll func(uintptr)
 
 // Unselects all the icons.
 func (x *IconView) UnselectAll() {
-	core.LazyRegister(&xIconViewUnselectAll, "GTK", "gtk_icon_view_unselect_all", false)
-
 	xIconViewUnselectAll(x.GoPointer())
 }
 
@@ -826,8 +710,6 @@ var xIconViewUnselectPath func(uintptr, *TreePath)
 
 // Unselects the row at @path.
 func (x *IconView) UnselectPath(PathVar *TreePath) {
-	core.LazyRegister(&xIconViewUnselectPath, "GTK", "gtk_icon_view_unselect_path", false)
-
 	xIconViewUnselectPath(x.GoPointer(), PathVar)
 }
 
@@ -836,8 +718,6 @@ var xIconViewUnsetModelDragDest func(uintptr)
 // Undoes the effect of gtk_icon_view_enable_model_drag_dest(). Calling this
 // method sets `GtkIconView`:reorderable to %FALSE.
 func (x *IconView) UnsetModelDragDest() {
-	core.LazyRegister(&xIconViewUnsetModelDragDest, "GTK", "gtk_icon_view_unset_model_drag_dest", false)
-
 	xIconViewUnsetModelDragDest(x.GoPointer())
 }
 
@@ -846,8 +726,6 @@ var xIconViewUnsetModelDragSource func(uintptr)
 // Undoes the effect of gtk_icon_view_enable_model_drag_source(). Calling this
 // method sets `GtkIconView`:reorderable to %FALSE.
 func (x *IconView) UnsetModelDragSource() {
-	core.LazyRegister(&xIconViewUnsetModelDragSource, "GTK", "gtk_icon_view_unset_model_drag_source", false)
-
 	xIconViewUnsetModelDragSource(x.GoPointer())
 }
 
@@ -1814,4 +1692,81 @@ func (x *IconView) SetVscrollPolicy(PolicyVar ScrollablePolicy) {
 func init() {
 	core.SetPackageName("GTK", "gtk4")
 	core.SetSharedLibraries("GTK", []string{"libgtk-4.so.1", "libgtk-4.1.dylib"})
+	var libs []uintptr
+	for _, libPath := range core.GetPaths("GTK") {
+		lib, err := purego.Dlopen(libPath, purego.RTLD_NOW|purego.RTLD_GLOBAL)
+		if err != nil {
+			panic(err)
+		}
+		libs = append(libs, lib)
+	}
+
+	core.PuregoSafeRegister(&xIconViewDropPositionGLibType, libs, "gtk_icon_view_drop_position_get_type")
+
+	core.PuregoSafeRegister(&xIconViewGLibType, libs, "gtk_icon_view_get_type")
+
+	core.PuregoSafeRegister(&xNewIconView, libs, "gtk_icon_view_new")
+	core.PuregoSafeRegister(&xNewIconViewWithArea, libs, "gtk_icon_view_new_with_area")
+	core.PuregoSafeRegister(&xNewIconViewWithModel, libs, "gtk_icon_view_new_with_model")
+
+	core.PuregoSafeRegister(&xIconViewCreateDragIcon, libs, "gtk_icon_view_create_drag_icon")
+	core.PuregoSafeRegister(&xIconViewEnableModelDragDest, libs, "gtk_icon_view_enable_model_drag_dest")
+	core.PuregoSafeRegister(&xIconViewEnableModelDragSource, libs, "gtk_icon_view_enable_model_drag_source")
+	core.PuregoSafeRegister(&xIconViewGetActivateOnSingleClick, libs, "gtk_icon_view_get_activate_on_single_click")
+	core.PuregoSafeRegister(&xIconViewGetCellRect, libs, "gtk_icon_view_get_cell_rect")
+	core.PuregoSafeRegister(&xIconViewGetColumnSpacing, libs, "gtk_icon_view_get_column_spacing")
+	core.PuregoSafeRegister(&xIconViewGetColumns, libs, "gtk_icon_view_get_columns")
+	core.PuregoSafeRegister(&xIconViewGetCursor, libs, "gtk_icon_view_get_cursor")
+	core.PuregoSafeRegister(&xIconViewGetDestItemAtPos, libs, "gtk_icon_view_get_dest_item_at_pos")
+	core.PuregoSafeRegister(&xIconViewGetDragDestItem, libs, "gtk_icon_view_get_drag_dest_item")
+	core.PuregoSafeRegister(&xIconViewGetItemAtPos, libs, "gtk_icon_view_get_item_at_pos")
+	core.PuregoSafeRegister(&xIconViewGetItemColumn, libs, "gtk_icon_view_get_item_column")
+	core.PuregoSafeRegister(&xIconViewGetItemOrientation, libs, "gtk_icon_view_get_item_orientation")
+	core.PuregoSafeRegister(&xIconViewGetItemPadding, libs, "gtk_icon_view_get_item_padding")
+	core.PuregoSafeRegister(&xIconViewGetItemRow, libs, "gtk_icon_view_get_item_row")
+	core.PuregoSafeRegister(&xIconViewGetItemWidth, libs, "gtk_icon_view_get_item_width")
+	core.PuregoSafeRegister(&xIconViewGetMargin, libs, "gtk_icon_view_get_margin")
+	core.PuregoSafeRegister(&xIconViewGetMarkupColumn, libs, "gtk_icon_view_get_markup_column")
+	core.PuregoSafeRegister(&xIconViewGetModel, libs, "gtk_icon_view_get_model")
+	core.PuregoSafeRegister(&xIconViewGetPathAtPos, libs, "gtk_icon_view_get_path_at_pos")
+	core.PuregoSafeRegister(&xIconViewGetPixbufColumn, libs, "gtk_icon_view_get_pixbuf_column")
+	core.PuregoSafeRegister(&xIconViewGetReorderable, libs, "gtk_icon_view_get_reorderable")
+	core.PuregoSafeRegister(&xIconViewGetRowSpacing, libs, "gtk_icon_view_get_row_spacing")
+	core.PuregoSafeRegister(&xIconViewGetSelectedItems, libs, "gtk_icon_view_get_selected_items")
+	core.PuregoSafeRegister(&xIconViewGetSelectionMode, libs, "gtk_icon_view_get_selection_mode")
+	core.PuregoSafeRegister(&xIconViewGetSpacing, libs, "gtk_icon_view_get_spacing")
+	core.PuregoSafeRegister(&xIconViewGetTextColumn, libs, "gtk_icon_view_get_text_column")
+	core.PuregoSafeRegister(&xIconViewGetTooltipColumn, libs, "gtk_icon_view_get_tooltip_column")
+	core.PuregoSafeRegister(&xIconViewGetTooltipContext, libs, "gtk_icon_view_get_tooltip_context")
+	core.PuregoSafeRegister(&xIconViewGetVisibleRange, libs, "gtk_icon_view_get_visible_range")
+	core.PuregoSafeRegister(&xIconViewItemActivated, libs, "gtk_icon_view_item_activated")
+	core.PuregoSafeRegister(&xIconViewPathIsSelected, libs, "gtk_icon_view_path_is_selected")
+	core.PuregoSafeRegister(&xIconViewScrollToPath, libs, "gtk_icon_view_scroll_to_path")
+	core.PuregoSafeRegister(&xIconViewSelectAll, libs, "gtk_icon_view_select_all")
+	core.PuregoSafeRegister(&xIconViewSelectPath, libs, "gtk_icon_view_select_path")
+	core.PuregoSafeRegister(&xIconViewSelectedForeach, libs, "gtk_icon_view_selected_foreach")
+	core.PuregoSafeRegister(&xIconViewSetActivateOnSingleClick, libs, "gtk_icon_view_set_activate_on_single_click")
+	core.PuregoSafeRegister(&xIconViewSetColumnSpacing, libs, "gtk_icon_view_set_column_spacing")
+	core.PuregoSafeRegister(&xIconViewSetColumns, libs, "gtk_icon_view_set_columns")
+	core.PuregoSafeRegister(&xIconViewSetCursor, libs, "gtk_icon_view_set_cursor")
+	core.PuregoSafeRegister(&xIconViewSetDragDestItem, libs, "gtk_icon_view_set_drag_dest_item")
+	core.PuregoSafeRegister(&xIconViewSetItemOrientation, libs, "gtk_icon_view_set_item_orientation")
+	core.PuregoSafeRegister(&xIconViewSetItemPadding, libs, "gtk_icon_view_set_item_padding")
+	core.PuregoSafeRegister(&xIconViewSetItemWidth, libs, "gtk_icon_view_set_item_width")
+	core.PuregoSafeRegister(&xIconViewSetMargin, libs, "gtk_icon_view_set_margin")
+	core.PuregoSafeRegister(&xIconViewSetMarkupColumn, libs, "gtk_icon_view_set_markup_column")
+	core.PuregoSafeRegister(&xIconViewSetModel, libs, "gtk_icon_view_set_model")
+	core.PuregoSafeRegister(&xIconViewSetPixbufColumn, libs, "gtk_icon_view_set_pixbuf_column")
+	core.PuregoSafeRegister(&xIconViewSetReorderable, libs, "gtk_icon_view_set_reorderable")
+	core.PuregoSafeRegister(&xIconViewSetRowSpacing, libs, "gtk_icon_view_set_row_spacing")
+	core.PuregoSafeRegister(&xIconViewSetSelectionMode, libs, "gtk_icon_view_set_selection_mode")
+	core.PuregoSafeRegister(&xIconViewSetSpacing, libs, "gtk_icon_view_set_spacing")
+	core.PuregoSafeRegister(&xIconViewSetTextColumn, libs, "gtk_icon_view_set_text_column")
+	core.PuregoSafeRegister(&xIconViewSetTooltipCell, libs, "gtk_icon_view_set_tooltip_cell")
+	core.PuregoSafeRegister(&xIconViewSetTooltipColumn, libs, "gtk_icon_view_set_tooltip_column")
+	core.PuregoSafeRegister(&xIconViewSetTooltipItem, libs, "gtk_icon_view_set_tooltip_item")
+	core.PuregoSafeRegister(&xIconViewUnselectAll, libs, "gtk_icon_view_unselect_all")
+	core.PuregoSafeRegister(&xIconViewUnselectPath, libs, "gtk_icon_view_unselect_path")
+	core.PuregoSafeRegister(&xIconViewUnsetModelDragDest, libs, "gtk_icon_view_unset_model_drag_dest")
+	core.PuregoSafeRegister(&xIconViewUnsetModelDragSource, libs, "gtk_icon_view_unset_model_drag_source")
 }

@@ -5,6 +5,7 @@ import (
 	"structs"
 	"unsafe"
 
+	"github.com/bnema/purego"
 	"github.com/bnema/puregotk/pkg/core"
 )
 
@@ -37,8 +38,6 @@ var xQueueClear func(uintptr)
 // Removes all the elements in @queue. If queue elements contain
 // dynamically-allocated memory, they should be freed first.
 func (x *Queue) Clear() {
-	core.LazyRegister(&xQueueClear, "GLIB", "g_queue_clear", false)
-
 	xQueueClear(x.GoPointer())
 }
 
@@ -47,8 +46,6 @@ var xQueueClearFull func(uintptr, uintptr)
 // Convenience method, which frees all the memory used by a #GQueue,
 // and calls the provided @free_func on each item in the #GQueue.
 func (x *Queue) ClearFull(FreeFuncVar *DestroyNotify) {
-	core.LazyRegister(&xQueueClearFull, "GLIB", "g_queue_clear_full", false)
-
 	xQueueClearFull(x.GoPointer(), NewCallbackNullable(FreeFuncVar))
 }
 
@@ -58,8 +55,6 @@ var xQueueCopy func(uintptr) uintptr
 // queue consist of pointers to data, the pointers are copied, but the
 // actual data is not.
 func (x *Queue) Copy() *Queue {
-	core.LazyRegister(&xQueueCopy, "GLIB", "g_queue_copy", false)
-
 	cret := xQueueCopy(x.GoPointer())
 	if cret == 0 {
 		return nil
@@ -73,8 +68,6 @@ var xQueueDeleteLink func(uintptr, *List)
 //
 // @link_ must be part of @queue.
 func (x *Queue) DeleteLink(LinkVar *List) {
-	core.LazyRegister(&xQueueDeleteLink, "GLIB", "g_queue_delete_link", false)
-
 	xQueueDeleteLink(x.GoPointer(), LinkVar)
 }
 
@@ -82,8 +75,6 @@ var xQueueFind func(uintptr, uintptr) uintptr
 
 // Finds the first link in @queue which contains @data.
 func (x *Queue) Find(DataVar uintptr) *List {
-	core.LazyRegister(&xQueueFind, "GLIB", "g_queue_find", false)
-
 	cret := xQueueFind(x.GoPointer(), DataVar)
 	if cret == 0 {
 		return nil
@@ -99,8 +90,6 @@ var xQueueFindCustom func(uintptr, uintptr, uintptr) uintptr
 // takes two gconstpointer arguments, the #GQueue element's data as the
 // first argument and the given user data as the second argument.
 func (x *Queue) FindCustom(DataVar uintptr, FuncVar *CompareFunc) *List {
-	core.LazyRegister(&xQueueFindCustom, "GLIB", "g_queue_find_custom", false)
-
 	cret := xQueueFindCustom(x.GoPointer(), DataVar, NewCallback(FuncVar))
 	if cret == 0 {
 		return nil
@@ -116,8 +105,6 @@ var xQueueForeach func(uintptr, uintptr, uintptr)
 // It is safe for @func to remove the element from @queue, but it must
 // not modify any part of the queue after that element.
 func (x *Queue) Foreach(FuncVar *Func, UserDataVar uintptr) {
-	core.LazyRegister(&xQueueForeach, "GLIB", "g_queue_foreach", false)
-
 	xQueueForeach(x.GoPointer(), NewCallback(FuncVar), UserDataVar)
 }
 
@@ -130,8 +117,6 @@ var xQueueFree func(uintptr)
 // If queue elements contain dynamically-allocated memory, you should
 // either use g_queue_free_full() or free them manually first.
 func (x *Queue) Free() {
-	core.LazyRegister(&xQueueFree, "GLIB", "g_queue_free", false)
-
 	xQueueFree(x.GoPointer())
 }
 
@@ -143,8 +128,6 @@ var xQueueFreeFull func(uintptr, uintptr)
 // @free_func should not modify the queue (eg, by removing the freed
 // element from it).
 func (x *Queue) FreeFull(FreeFuncVar *DestroyNotify) {
-	core.LazyRegister(&xQueueFreeFull, "GLIB", "g_queue_free_full", false)
-
 	xQueueFreeFull(x.GoPointer(), NewCallback(FreeFuncVar))
 }
 
@@ -152,8 +135,6 @@ var xQueueGetLength func(uintptr) uint
 
 // Returns the number of items in @queue.
 func (x *Queue) GetLength() uint {
-	core.LazyRegister(&xQueueGetLength, "GLIB", "g_queue_get_length", false)
-
 	cret := xQueueGetLength(x.GoPointer())
 	return cret
 }
@@ -162,8 +143,6 @@ var xQueueIndex func(uintptr, uintptr) int
 
 // Returns the position of the first element in @queue which contains @data.
 func (x *Queue) Index(DataVar uintptr) int {
-	core.LazyRegister(&xQueueIndex, "GLIB", "g_queue_index", false)
-
 	cret := xQueueIndex(x.GoPointer(), DataVar)
 	return cret
 }
@@ -175,8 +154,6 @@ var xQueueInit func(uintptr)
 // %G_QUEUE_INIT. It is not necessary to initialize queues created with
 // g_queue_new().
 func (x *Queue) Init() {
-	core.LazyRegister(&xQueueInit, "GLIB", "g_queue_init", false)
-
 	xQueueInit(x.GoPointer())
 }
 
@@ -187,8 +164,6 @@ var xQueueInsertAfter func(uintptr, *List, uintptr)
 // @sibling must be part of @queue. Since GLib 2.44 a %NULL sibling pushes the
 // data at the head of the queue.
 func (x *Queue) InsertAfter(SiblingVar *List, DataVar uintptr) {
-	core.LazyRegister(&xQueueInsertAfter, "GLIB", "g_queue_insert_after", false)
-
 	xQueueInsertAfter(x.GoPointer(), SiblingVar, DataVar)
 }
 
@@ -198,8 +173,6 @@ var xQueueInsertAfterLink func(uintptr, *List, *List)
 //
 // @sibling must be part of @queue.
 func (x *Queue) InsertAfterLink(SiblingVar *List, LinkVar *List) {
-	core.LazyRegister(&xQueueInsertAfterLink, "GLIB", "g_queue_insert_after_link", false)
-
 	xQueueInsertAfterLink(x.GoPointer(), SiblingVar, LinkVar)
 }
 
@@ -210,8 +183,6 @@ var xQueueInsertBefore func(uintptr, *List, uintptr)
 // @sibling must be part of @queue. Since GLib 2.44 a %NULL sibling pushes the
 // data at the tail of the queue.
 func (x *Queue) InsertBefore(SiblingVar *List, DataVar uintptr) {
-	core.LazyRegister(&xQueueInsertBefore, "GLIB", "g_queue_insert_before", false)
-
 	xQueueInsertBefore(x.GoPointer(), SiblingVar, DataVar)
 }
 
@@ -221,8 +192,6 @@ var xQueueInsertBeforeLink func(uintptr, *List, *List)
 //
 // @sibling must be part of @queue.
 func (x *Queue) InsertBeforeLink(SiblingVar *List, LinkVar *List) {
-	core.LazyRegister(&xQueueInsertBeforeLink, "GLIB", "g_queue_insert_before_link", false)
-
 	xQueueInsertBeforeLink(x.GoPointer(), SiblingVar, LinkVar)
 }
 
@@ -230,8 +199,6 @@ var xQueueInsertSorted func(uintptr, uintptr, uintptr, uintptr)
 
 // Inserts @data into @queue using @func to determine the new position.
 func (x *Queue) InsertSorted(DataVar uintptr, FuncVar *CompareDataFunc, UserDataVar uintptr) {
-	core.LazyRegister(&xQueueInsertSorted, "GLIB", "g_queue_insert_sorted", false)
-
 	xQueueInsertSorted(x.GoPointer(), DataVar, NewCallback(FuncVar), UserDataVar)
 }
 
@@ -239,8 +206,6 @@ var xQueueIsEmpty func(uintptr) bool
 
 // Returns %TRUE if the queue is empty.
 func (x *Queue) IsEmpty() bool {
-	core.LazyRegister(&xQueueIsEmpty, "GLIB", "g_queue_is_empty", false)
-
 	cret := xQueueIsEmpty(x.GoPointer())
 	return cret
 }
@@ -249,8 +214,6 @@ var xQueueLinkIndex func(uintptr, *List) int
 
 // Returns the position of @link_ in @queue.
 func (x *Queue) LinkIndex(LinkVar *List) int {
-	core.LazyRegister(&xQueueLinkIndex, "GLIB", "g_queue_link_index", false)
-
 	cret := xQueueLinkIndex(x.GoPointer(), LinkVar)
 	return cret
 }
@@ -259,8 +222,6 @@ var xQueuePeekHead func(uintptr) uintptr
 
 // Returns the first element of the queue.
 func (x *Queue) PeekHead() uintptr {
-	core.LazyRegister(&xQueuePeekHead, "GLIB", "g_queue_peek_head", false)
-
 	cret := xQueuePeekHead(x.GoPointer())
 	return cret
 }
@@ -269,8 +230,6 @@ var xQueuePeekHeadLink func(uintptr) uintptr
 
 // Returns the first link in @queue.
 func (x *Queue) PeekHeadLink() *List {
-	core.LazyRegister(&xQueuePeekHeadLink, "GLIB", "g_queue_peek_head_link", false)
-
 	cret := xQueuePeekHeadLink(x.GoPointer())
 	if cret == 0 {
 		return nil
@@ -282,8 +241,6 @@ var xQueuePeekNth func(uintptr, uint) uintptr
 
 // Returns the @n'th element of @queue.
 func (x *Queue) PeekNth(NVar uint) uintptr {
-	core.LazyRegister(&xQueuePeekNth, "GLIB", "g_queue_peek_nth", false)
-
 	cret := xQueuePeekNth(x.GoPointer(), NVar)
 	return cret
 }
@@ -292,8 +249,6 @@ var xQueuePeekNthLink func(uintptr, uint) uintptr
 
 // Returns the link at the given position
 func (x *Queue) PeekNthLink(NVar uint) *List {
-	core.LazyRegister(&xQueuePeekNthLink, "GLIB", "g_queue_peek_nth_link", false)
-
 	cret := xQueuePeekNthLink(x.GoPointer(), NVar)
 	if cret == 0 {
 		return nil
@@ -305,8 +260,6 @@ var xQueuePeekTail func(uintptr) uintptr
 
 // Returns the last element of the queue.
 func (x *Queue) PeekTail() uintptr {
-	core.LazyRegister(&xQueuePeekTail, "GLIB", "g_queue_peek_tail", false)
-
 	cret := xQueuePeekTail(x.GoPointer())
 	return cret
 }
@@ -315,8 +268,6 @@ var xQueuePeekTailLink func(uintptr) uintptr
 
 // Returns the last link in @queue.
 func (x *Queue) PeekTailLink() *List {
-	core.LazyRegister(&xQueuePeekTailLink, "GLIB", "g_queue_peek_tail_link", false)
-
 	cret := xQueuePeekTailLink(x.GoPointer())
 	if cret == 0 {
 		return nil
@@ -328,8 +279,6 @@ var xQueuePopHead func(uintptr) uintptr
 
 // Removes the first element of the queue and returns its data.
 func (x *Queue) PopHead() uintptr {
-	core.LazyRegister(&xQueuePopHead, "GLIB", "g_queue_pop_head", false)
-
 	cret := xQueuePopHead(x.GoPointer())
 	return cret
 }
@@ -338,8 +287,6 @@ var xQueuePopHeadLink func(uintptr) uintptr
 
 // Removes and returns the first element of the queue.
 func (x *Queue) PopHeadLink() *List {
-	core.LazyRegister(&xQueuePopHeadLink, "GLIB", "g_queue_pop_head_link", false)
-
 	cret := xQueuePopHeadLink(x.GoPointer())
 	if cret == 0 {
 		return nil
@@ -351,8 +298,6 @@ var xQueuePopNth func(uintptr, uint) uintptr
 
 // Removes the @n'th element of @queue and returns its data.
 func (x *Queue) PopNth(NVar uint) uintptr {
-	core.LazyRegister(&xQueuePopNth, "GLIB", "g_queue_pop_nth", false)
-
 	cret := xQueuePopNth(x.GoPointer(), NVar)
 	return cret
 }
@@ -361,8 +306,6 @@ var xQueuePopNthLink func(uintptr, uint) uintptr
 
 // Removes and returns the link at the given position.
 func (x *Queue) PopNthLink(NVar uint) *List {
-	core.LazyRegister(&xQueuePopNthLink, "GLIB", "g_queue_pop_nth_link", false)
-
 	cret := xQueuePopNthLink(x.GoPointer(), NVar)
 	if cret == 0 {
 		return nil
@@ -374,8 +317,6 @@ var xQueuePopTail func(uintptr) uintptr
 
 // Removes the last element of the queue and returns its data.
 func (x *Queue) PopTail() uintptr {
-	core.LazyRegister(&xQueuePopTail, "GLIB", "g_queue_pop_tail", false)
-
 	cret := xQueuePopTail(x.GoPointer())
 	return cret
 }
@@ -384,8 +325,6 @@ var xQueuePopTailLink func(uintptr) uintptr
 
 // Removes and returns the last element of the queue.
 func (x *Queue) PopTailLink() *List {
-	core.LazyRegister(&xQueuePopTailLink, "GLIB", "g_queue_pop_tail_link", false)
-
 	cret := xQueuePopTailLink(x.GoPointer())
 	if cret == 0 {
 		return nil
@@ -397,8 +336,6 @@ var xQueuePushHead func(uintptr, uintptr)
 
 // Adds a new element at the head of the queue.
 func (x *Queue) PushHead(DataVar uintptr) {
-	core.LazyRegister(&xQueuePushHead, "GLIB", "g_queue_push_head", false)
-
 	xQueuePushHead(x.GoPointer(), DataVar)
 }
 
@@ -406,8 +343,6 @@ var xQueuePushHeadLink func(uintptr, *List)
 
 // Adds a new element at the head of the queue.
 func (x *Queue) PushHeadLink(LinkVar *List) {
-	core.LazyRegister(&xQueuePushHeadLink, "GLIB", "g_queue_push_head_link", false)
-
 	xQueuePushHeadLink(x.GoPointer(), LinkVar)
 }
 
@@ -415,8 +350,6 @@ var xQueuePushNth func(uintptr, uintptr, int)
 
 // Inserts a new element into @queue at the given position.
 func (x *Queue) PushNth(DataVar uintptr, NVar int) {
-	core.LazyRegister(&xQueuePushNth, "GLIB", "g_queue_push_nth", false)
-
 	xQueuePushNth(x.GoPointer(), DataVar, NVar)
 }
 
@@ -424,8 +357,6 @@ var xQueuePushNthLink func(uintptr, int, *List)
 
 // Inserts @link into @queue at the given position.
 func (x *Queue) PushNthLink(NVar int, LinkVar *List) {
-	core.LazyRegister(&xQueuePushNthLink, "GLIB", "g_queue_push_nth_link", false)
-
 	xQueuePushNthLink(x.GoPointer(), NVar, LinkVar)
 }
 
@@ -433,8 +364,6 @@ var xQueuePushTail func(uintptr, uintptr)
 
 // Adds a new element at the tail of the queue.
 func (x *Queue) PushTail(DataVar uintptr) {
-	core.LazyRegister(&xQueuePushTail, "GLIB", "g_queue_push_tail", false)
-
 	xQueuePushTail(x.GoPointer(), DataVar)
 }
 
@@ -442,8 +371,6 @@ var xQueuePushTailLink func(uintptr, *List)
 
 // Adds a new element at the tail of the queue.
 func (x *Queue) PushTailLink(LinkVar *List) {
-	core.LazyRegister(&xQueuePushTailLink, "GLIB", "g_queue_push_tail_link", false)
-
 	xQueuePushTailLink(x.GoPointer(), LinkVar)
 }
 
@@ -451,8 +378,6 @@ var xQueueRemove func(uintptr, uintptr) bool
 
 // Removes the first element in @queue that contains @data.
 func (x *Queue) Remove(DataVar uintptr) bool {
-	core.LazyRegister(&xQueueRemove, "GLIB", "g_queue_remove", false)
-
 	cret := xQueueRemove(x.GoPointer(), DataVar)
 	return cret
 }
@@ -461,8 +386,6 @@ var xQueueRemoveAll func(uintptr, uintptr) uint
 
 // Remove all elements whose data equals @data from @queue.
 func (x *Queue) RemoveAll(DataVar uintptr) uint {
-	core.LazyRegister(&xQueueRemoveAll, "GLIB", "g_queue_remove_all", false)
-
 	cret := xQueueRemoveAll(x.GoPointer(), DataVar)
 	return cret
 }
@@ -471,8 +394,6 @@ var xQueueReverse func(uintptr)
 
 // Reverses the order of the items in @queue.
 func (x *Queue) Reverse() {
-	core.LazyRegister(&xQueueReverse, "GLIB", "g_queue_reverse", false)
-
 	xQueueReverse(x.GoPointer())
 }
 
@@ -480,8 +401,6 @@ var xQueueSort func(uintptr, uintptr, uintptr)
 
 // Sorts @queue using @compare_func.
 func (x *Queue) Sort(CompareFuncVar *CompareDataFunc, UserDataVar uintptr) {
-	core.LazyRegister(&xQueueSort, "GLIB", "g_queue_sort", false)
-
 	xQueueSort(x.GoPointer(), NewCallback(CompareFuncVar), UserDataVar)
 }
 
@@ -492,12 +411,61 @@ var xQueueUnlink func(uintptr, *List)
 //
 // @link_ must be part of @queue.
 func (x *Queue) Unlink(LinkVar *List) {
-	core.LazyRegister(&xQueueUnlink, "GLIB", "g_queue_unlink", false)
-
 	xQueueUnlink(x.GoPointer(), LinkVar)
 }
 
 func init() {
 	core.SetPackageName("GLIB", "glib-2.0")
 	core.SetSharedLibraries("GLIB", []string{"libgobject-2.0.so.0", "libglib-2.0.so.0", "libgobject-2.0.0.dylib", "libglib-2.0.0.dylib"})
+	var libs []uintptr
+	for _, libPath := range core.GetPaths("GLIB") {
+		lib, err := purego.Dlopen(libPath, purego.RTLD_NOW|purego.RTLD_GLOBAL)
+		if err != nil {
+			panic(err)
+		}
+		libs = append(libs, lib)
+	}
+
+	core.PuregoSafeRegister(&xQueueClear, libs, "g_queue_clear")
+	core.PuregoSafeRegister(&xQueueClearFull, libs, "g_queue_clear_full")
+	core.PuregoSafeRegister(&xQueueCopy, libs, "g_queue_copy")
+	core.PuregoSafeRegister(&xQueueDeleteLink, libs, "g_queue_delete_link")
+	core.PuregoSafeRegister(&xQueueFind, libs, "g_queue_find")
+	core.PuregoSafeRegister(&xQueueFindCustom, libs, "g_queue_find_custom")
+	core.PuregoSafeRegister(&xQueueForeach, libs, "g_queue_foreach")
+	core.PuregoSafeRegister(&xQueueFree, libs, "g_queue_free")
+	core.PuregoSafeRegister(&xQueueFreeFull, libs, "g_queue_free_full")
+	core.PuregoSafeRegister(&xQueueGetLength, libs, "g_queue_get_length")
+	core.PuregoSafeRegister(&xQueueIndex, libs, "g_queue_index")
+	core.PuregoSafeRegister(&xQueueInit, libs, "g_queue_init")
+	core.PuregoSafeRegister(&xQueueInsertAfter, libs, "g_queue_insert_after")
+	core.PuregoSafeRegister(&xQueueInsertAfterLink, libs, "g_queue_insert_after_link")
+	core.PuregoSafeRegister(&xQueueInsertBefore, libs, "g_queue_insert_before")
+	core.PuregoSafeRegister(&xQueueInsertBeforeLink, libs, "g_queue_insert_before_link")
+	core.PuregoSafeRegister(&xQueueInsertSorted, libs, "g_queue_insert_sorted")
+	core.PuregoSafeRegister(&xQueueIsEmpty, libs, "g_queue_is_empty")
+	core.PuregoSafeRegister(&xQueueLinkIndex, libs, "g_queue_link_index")
+	core.PuregoSafeRegister(&xQueuePeekHead, libs, "g_queue_peek_head")
+	core.PuregoSafeRegister(&xQueuePeekHeadLink, libs, "g_queue_peek_head_link")
+	core.PuregoSafeRegister(&xQueuePeekNth, libs, "g_queue_peek_nth")
+	core.PuregoSafeRegister(&xQueuePeekNthLink, libs, "g_queue_peek_nth_link")
+	core.PuregoSafeRegister(&xQueuePeekTail, libs, "g_queue_peek_tail")
+	core.PuregoSafeRegister(&xQueuePeekTailLink, libs, "g_queue_peek_tail_link")
+	core.PuregoSafeRegister(&xQueuePopHead, libs, "g_queue_pop_head")
+	core.PuregoSafeRegister(&xQueuePopHeadLink, libs, "g_queue_pop_head_link")
+	core.PuregoSafeRegister(&xQueuePopNth, libs, "g_queue_pop_nth")
+	core.PuregoSafeRegister(&xQueuePopNthLink, libs, "g_queue_pop_nth_link")
+	core.PuregoSafeRegister(&xQueuePopTail, libs, "g_queue_pop_tail")
+	core.PuregoSafeRegister(&xQueuePopTailLink, libs, "g_queue_pop_tail_link")
+	core.PuregoSafeRegister(&xQueuePushHead, libs, "g_queue_push_head")
+	core.PuregoSafeRegister(&xQueuePushHeadLink, libs, "g_queue_push_head_link")
+	core.PuregoSafeRegister(&xQueuePushNth, libs, "g_queue_push_nth")
+	core.PuregoSafeRegister(&xQueuePushNthLink, libs, "g_queue_push_nth_link")
+	core.PuregoSafeRegister(&xQueuePushTail, libs, "g_queue_push_tail")
+	core.PuregoSafeRegister(&xQueuePushTailLink, libs, "g_queue_push_tail_link")
+	core.PuregoSafeRegister(&xQueueRemove, libs, "g_queue_remove")
+	core.PuregoSafeRegister(&xQueueRemoveAll, libs, "g_queue_remove_all")
+	core.PuregoSafeRegister(&xQueueReverse, libs, "g_queue_reverse")
+	core.PuregoSafeRegister(&xQueueSort, libs, "g_queue_sort")
+	core.PuregoSafeRegister(&xQueueUnlink, libs, "g_queue_unlink")
 }

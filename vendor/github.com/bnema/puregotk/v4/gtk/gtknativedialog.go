@@ -232,7 +232,6 @@ type NativeDialog struct {
 var xNativeDialogGLibType func() types.GType
 
 func NativeDialogGLibType() types.GType {
-	core.LazyRegister(&xNativeDialogGLibType, "GTK", "gtk_native_dialog_get_type", false)
 	return xNativeDialogGLibType()
 }
 
@@ -256,8 +255,6 @@ var xNativeDialogDestroy func(uintptr)
 // to destroying a `GtkWindow`) because there is no reference from the
 // windowing system to the `GtkNativeDialog`.
 func (x *NativeDialog) Destroy() {
-	core.LazyRegister(&xNativeDialogDestroy, "GTK", "gtk_native_dialog_destroy", false)
-
 	xNativeDialogDestroy(x.GoPointer())
 }
 
@@ -265,8 +262,6 @@ var xNativeDialogGetModal func(uintptr) bool
 
 // Returns whether the dialog is modal.
 func (x *NativeDialog) GetModal() bool {
-	core.LazyRegister(&xNativeDialogGetModal, "GTK", "gtk_native_dialog_get_modal", false)
-
 	cret := xNativeDialogGetModal(x.GoPointer())
 	return cret
 }
@@ -275,8 +270,6 @@ var xNativeDialogGetTitle func(uintptr) string
 
 // Gets the title of the `GtkNativeDialog`.
 func (x *NativeDialog) GetTitle() string {
-	core.LazyRegister(&xNativeDialogGetTitle, "GTK", "gtk_native_dialog_get_title", false)
-
 	cret := xNativeDialogGetTitle(x.GoPointer())
 	return cret
 }
@@ -285,7 +278,6 @@ var xNativeDialogGetTransientFor func(uintptr) uintptr
 
 // Fetches the transient parent for this window.
 func (x *NativeDialog) GetTransientFor() *Window {
-	core.LazyRegister(&xNativeDialogGetTransientFor, "GTK", "gtk_native_dialog_get_transient_for", false)
 	var cls *Window
 
 	cret := xNativeDialogGetTransientFor(x.GoPointer())
@@ -303,8 +295,6 @@ var xNativeDialogGetVisible func(uintptr) bool
 
 // Determines whether the dialog is visible.
 func (x *NativeDialog) GetVisible() bool {
-	core.LazyRegister(&xNativeDialogGetVisible, "GTK", "gtk_native_dialog_get_visible", false)
-
 	cret := xNativeDialogGetVisible(x.GoPointer())
 	return cret
 }
@@ -319,8 +309,6 @@ var xNativeDialogHide func(uintptr)
 //
 // If the dialog is not visible this does nothing.
 func (x *NativeDialog) Hide() {
-	core.LazyRegister(&xNativeDialogHide, "GTK", "gtk_native_dialog_hide", false)
-
 	xNativeDialogHide(x.GoPointer())
 }
 
@@ -334,8 +322,6 @@ var xNativeDialogSetModal func(uintptr, bool)
 // the dialog transient for the parent; most window managers will
 // then disallow lowering the dialog below the parent.
 func (x *NativeDialog) SetModal(ModalVar bool) {
-	core.LazyRegister(&xNativeDialogSetModal, "GTK", "gtk_native_dialog_set_modal", false)
-
 	xNativeDialogSetModal(x.GoPointer(), ModalVar)
 }
 
@@ -343,8 +329,6 @@ var xNativeDialogSetTitle func(uintptr, string)
 
 // Sets the title of the `GtkNativeDialog.`
 func (x *NativeDialog) SetTitle(TitleVar string) {
-	core.LazyRegister(&xNativeDialogSetTitle, "GTK", "gtk_native_dialog_set_title", false)
-
 	xNativeDialogSetTitle(x.GoPointer(), TitleVar)
 }
 
@@ -358,8 +342,6 @@ var xNativeDialogSetTransientFor func(uintptr, uintptr)
 //
 // Passing %NULL for @parent unsets the current transient window.
 func (x *NativeDialog) SetTransientFor(ParentVar *Window) {
-	core.LazyRegister(&xNativeDialogSetTransientFor, "GTK", "gtk_native_dialog_set_transient_for", false)
-
 	xNativeDialogSetTransientFor(x.GoPointer(), ParentVar.GoPointer())
 }
 
@@ -373,8 +355,6 @@ var xNativeDialogShow func(uintptr)
 //
 // Multiple calls while the dialog is visible will be ignored.
 func (x *NativeDialog) Show() {
-	core.LazyRegister(&xNativeDialogShow, "GTK", "gtk_native_dialog_show", false)
-
 	xNativeDialogShow(x.GoPointer())
 }
 
@@ -471,4 +451,25 @@ func (x *NativeDialog) ConnectResponse(cb *func(NativeDialog, int)) uint {
 func init() {
 	core.SetPackageName("GTK", "gtk4")
 	core.SetSharedLibraries("GTK", []string{"libgtk-4.so.1", "libgtk-4.1.dylib"})
+	var libs []uintptr
+	for _, libPath := range core.GetPaths("GTK") {
+		lib, err := purego.Dlopen(libPath, purego.RTLD_NOW|purego.RTLD_GLOBAL)
+		if err != nil {
+			panic(err)
+		}
+		libs = append(libs, lib)
+	}
+
+	core.PuregoSafeRegister(&xNativeDialogGLibType, libs, "gtk_native_dialog_get_type")
+
+	core.PuregoSafeRegister(&xNativeDialogDestroy, libs, "gtk_native_dialog_destroy")
+	core.PuregoSafeRegister(&xNativeDialogGetModal, libs, "gtk_native_dialog_get_modal")
+	core.PuregoSafeRegister(&xNativeDialogGetTitle, libs, "gtk_native_dialog_get_title")
+	core.PuregoSafeRegister(&xNativeDialogGetTransientFor, libs, "gtk_native_dialog_get_transient_for")
+	core.PuregoSafeRegister(&xNativeDialogGetVisible, libs, "gtk_native_dialog_get_visible")
+	core.PuregoSafeRegister(&xNativeDialogHide, libs, "gtk_native_dialog_hide")
+	core.PuregoSafeRegister(&xNativeDialogSetModal, libs, "gtk_native_dialog_set_modal")
+	core.PuregoSafeRegister(&xNativeDialogSetTitle, libs, "gtk_native_dialog_set_title")
+	core.PuregoSafeRegister(&xNativeDialogSetTransientFor, libs, "gtk_native_dialog_set_transient_for")
+	core.PuregoSafeRegister(&xNativeDialogShow, libs, "gtk_native_dialog_show")
 }

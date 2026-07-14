@@ -2,6 +2,7 @@
 package gio
 
 import (
+	"github.com/bnema/purego"
 	"github.com/bnema/puregotk/pkg/core"
 	"github.com/bnema/puregotk/v4/glib"
 	"github.com/bnema/puregotk/v4/gobject"
@@ -35,7 +36,6 @@ type DBusServer struct {
 var xDBusServerGLibType func() types.GType
 
 func DBusServerGLibType() types.GType {
-	core.LazyRegister(&xDBusServerGLibType, "GIO", "g_dbus_server_get_type", false)
 	return xDBusServerGLibType()
 }
 
@@ -68,7 +68,6 @@ var xNewDBusServerSync func(string, DBusServerFlags, string, uintptr, uintptr, *
 // This is a synchronous failable constructor. There is currently no
 // asynchronous version.
 func NewDBusServerSync(AddressVar string, FlagsVar DBusServerFlags, GuidVar string, ObserverVar *DBusAuthObserver, CancellableVar *Cancellable) (*DBusServer, error) {
-	core.LazyRegister(&xNewDBusServerSync, "GIO", "g_dbus_server_new_sync", false)
 	var cls *DBusServer
 	var cerr *glib.Error
 
@@ -93,8 +92,6 @@ var xDBusServerGetClientAddress func(uintptr) string
 //
 // This is valid and non-empty if initializing the #GDBusServer succeeded.
 func (x *DBusServer) GetClientAddress() string {
-	core.LazyRegister(&xDBusServerGetClientAddress, "GIO", "g_dbus_server_get_client_address", false)
-
 	cret := xDBusServerGetClientAddress(x.GoPointer())
 	return cret
 }
@@ -103,8 +100,6 @@ var xDBusServerGetFlags func(uintptr) DBusServerFlags
 
 // Gets the flags for @server.
 func (x *DBusServer) GetFlags() DBusServerFlags {
-	core.LazyRegister(&xDBusServerGetFlags, "GIO", "g_dbus_server_get_flags", false)
-
 	cret := xDBusServerGetFlags(x.GoPointer())
 	return cret
 }
@@ -113,8 +108,6 @@ var xDBusServerGetGuid func(uintptr) string
 
 // Gets the GUID for @server, as provided to g_dbus_server_new_sync().
 func (x *DBusServer) GetGuid() string {
-	core.LazyRegister(&xDBusServerGetGuid, "GIO", "g_dbus_server_get_guid", false)
-
 	cret := xDBusServerGetGuid(x.GoPointer())
 	return cret
 }
@@ -123,8 +116,6 @@ var xDBusServerIsActive func(uintptr) bool
 
 // Gets whether @server is active.
 func (x *DBusServer) IsActive() bool {
-	core.LazyRegister(&xDBusServerIsActive, "GIO", "g_dbus_server_is_active", false)
-
 	cret := xDBusServerIsActive(x.GoPointer())
 	return cret
 }
@@ -133,8 +124,6 @@ var xDBusServerStart func(uintptr)
 
 // Starts @server.
 func (x *DBusServer) Start() {
-	core.LazyRegister(&xDBusServerStart, "GIO", "g_dbus_server_start", false)
-
 	xDBusServerStart(x.GoPointer())
 }
 
@@ -142,8 +131,6 @@ var xDBusServerStop func(uintptr)
 
 // Stops @server.
 func (x *DBusServer) Stop() {
-	core.LazyRegister(&xDBusServerStop, "GIO", "g_dbus_server_stop", false)
-
 	xDBusServerStop(x.GoPointer())
 }
 
@@ -308,4 +295,23 @@ func (x *DBusServer) Init(CancellableVar *Cancellable) (bool, error) {
 func init() {
 	core.SetPackageName("GIO", "gio-2.0")
 	core.SetSharedLibraries("GIO", []string{"libgio-2.0.so.0", "libgio-2.0.0.dylib"})
+	var libs []uintptr
+	for _, libPath := range core.GetPaths("GIO") {
+		lib, err := purego.Dlopen(libPath, purego.RTLD_NOW|purego.RTLD_GLOBAL)
+		if err != nil {
+			panic(err)
+		}
+		libs = append(libs, lib)
+	}
+
+	core.PuregoSafeRegister(&xDBusServerGLibType, libs, "g_dbus_server_get_type")
+
+	core.PuregoSafeRegister(&xNewDBusServerSync, libs, "g_dbus_server_new_sync")
+
+	core.PuregoSafeRegister(&xDBusServerGetClientAddress, libs, "g_dbus_server_get_client_address")
+	core.PuregoSafeRegister(&xDBusServerGetFlags, libs, "g_dbus_server_get_flags")
+	core.PuregoSafeRegister(&xDBusServerGetGuid, libs, "g_dbus_server_get_guid")
+	core.PuregoSafeRegister(&xDBusServerIsActive, libs, "g_dbus_server_is_active")
+	core.PuregoSafeRegister(&xDBusServerStart, libs, "g_dbus_server_start")
+	core.PuregoSafeRegister(&xDBusServerStop, libs, "g_dbus_server_stop")
 }

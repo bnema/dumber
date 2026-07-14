@@ -506,7 +506,6 @@ type ActionGroup interface {
 var xActionGroupGLibType func() types.GType
 
 func ActionGroupGLibType() types.GType {
-	core.LazyRegister(&xActionGroupGLibType, "GIO", "g_action_group_get_type", false)
 	return xActionGroupGLibType()
 }
 
@@ -748,105 +747,49 @@ func (x *ActionGroupBase) QueryAction(ActionNameVar string, EnabledVar *bool, Pa
 	return cret
 }
 
-var XGActionGroupActionAdded func(uintptr, string) = func(instance uintptr, ActionNameVarp string) {
-	core.LazyRegister(&xXGActionGroupActionAdded, "GIO", "g_action_group_action_added", false)
-	xXGActionGroupActionAdded(instance, ActionNameVarp)
-}
-
 var (
-	xXGActionGroupActionAdded         func(uintptr, string)
-	XGActionGroupActionEnabledChanged func(uintptr, string, bool) = func(instance uintptr, ActionNameVarp string, EnabledVarp bool) {
-		core.LazyRegister(&xXGActionGroupActionEnabledChanged, "GIO", "g_action_group_action_enabled_changed", false)
-		xXGActionGroupActionEnabledChanged(instance, ActionNameVarp, EnabledVarp)
-	}
+	XGActionGroupActionAdded            func(uintptr, string)
+	XGActionGroupActionEnabledChanged   func(uintptr, string, bool)
+	XGActionGroupActionRemoved          func(uintptr, string)
+	XGActionGroupActionStateChanged     func(uintptr, string, *glib.Variant)
+	XGActionGroupActivateAction         func(uintptr, string, *glib.Variant)
+	XGActionGroupChangeActionState      func(uintptr, string, *glib.Variant)
+	XGActionGroupGetActionEnabled       func(uintptr, string) bool
+	XGActionGroupGetActionParameterType func(uintptr, string) uintptr
+	XGActionGroupGetActionState         func(uintptr, string) uintptr
+	XGActionGroupGetActionStateHint     func(uintptr, string) uintptr
+	XGActionGroupGetActionStateType     func(uintptr, string) uintptr
+	XGActionGroupHasAction              func(uintptr, string) bool
+	XGActionGroupListActions            func(uintptr) []string
+	XGActionGroupQueryAction            func(uintptr, string, *bool, **glib.VariantType, **glib.VariantType, **glib.Variant, **glib.Variant) bool
 )
-var (
-	xXGActionGroupActionEnabledChanged func(uintptr, string, bool)
-	XGActionGroupActionRemoved         func(uintptr, string) = func(instance uintptr, ActionNameVarp string) {
-		core.LazyRegister(&xXGActionGroupActionRemoved, "GIO", "g_action_group_action_removed", false)
-		xXGActionGroupActionRemoved(instance, ActionNameVarp)
-	}
-)
-var (
-	xXGActionGroupActionRemoved     func(uintptr, string)
-	XGActionGroupActionStateChanged func(uintptr, string, *glib.Variant) = func(instance uintptr, ActionNameVarp string, StateVarp *glib.Variant) {
-		core.LazyRegister(&xXGActionGroupActionStateChanged, "GIO", "g_action_group_action_state_changed", false)
-		xXGActionGroupActionStateChanged(instance, ActionNameVarp, StateVarp)
-	}
-)
-var (
-	xXGActionGroupActionStateChanged func(uintptr, string, *glib.Variant)
-	XGActionGroupActivateAction      func(uintptr, string, *glib.Variant) = func(instance uintptr, ActionNameVarp string, ParameterVarp *glib.Variant) {
-		core.LazyRegister(&xXGActionGroupActivateAction, "GIO", "g_action_group_activate_action", false)
-		xXGActionGroupActivateAction(instance, ActionNameVarp, ParameterVarp)
-	}
-)
-var (
-	xXGActionGroupActivateAction   func(uintptr, string, *glib.Variant)
-	XGActionGroupChangeActionState func(uintptr, string, *glib.Variant) = func(instance uintptr, ActionNameVarp string, ValueVarp *glib.Variant) {
-		core.LazyRegister(&xXGActionGroupChangeActionState, "GIO", "g_action_group_change_action_state", false)
-		xXGActionGroupChangeActionState(instance, ActionNameVarp, ValueVarp)
-	}
-)
-var (
-	xXGActionGroupChangeActionState func(uintptr, string, *glib.Variant)
-	XGActionGroupGetActionEnabled   func(uintptr, string) bool = func(instance uintptr, ActionNameVarp string) bool {
-		core.LazyRegister(&xXGActionGroupGetActionEnabled, "GIO", "g_action_group_get_action_enabled", false)
-		return xXGActionGroupGetActionEnabled(instance, ActionNameVarp)
-	}
-)
-var (
-	xXGActionGroupGetActionEnabled      func(uintptr, string) bool
-	XGActionGroupGetActionParameterType func(uintptr, string) uintptr = func(instance uintptr, ActionNameVarp string) uintptr {
-		core.LazyRegister(&xXGActionGroupGetActionParameterType, "GIO", "g_action_group_get_action_parameter_type", false)
-		return xXGActionGroupGetActionParameterType(instance, ActionNameVarp)
-	}
-)
-var (
-	xXGActionGroupGetActionParameterType func(uintptr, string) uintptr
-	XGActionGroupGetActionState          func(uintptr, string) uintptr = func(instance uintptr, ActionNameVarp string) uintptr {
-		core.LazyRegister(&xXGActionGroupGetActionState, "GIO", "g_action_group_get_action_state", false)
-		return xXGActionGroupGetActionState(instance, ActionNameVarp)
-	}
-)
-var (
-	xXGActionGroupGetActionState    func(uintptr, string) uintptr
-	XGActionGroupGetActionStateHint func(uintptr, string) uintptr = func(instance uintptr, ActionNameVarp string) uintptr {
-		core.LazyRegister(&xXGActionGroupGetActionStateHint, "GIO", "g_action_group_get_action_state_hint", false)
-		return xXGActionGroupGetActionStateHint(instance, ActionNameVarp)
-	}
-)
-var (
-	xXGActionGroupGetActionStateHint func(uintptr, string) uintptr
-	XGActionGroupGetActionStateType  func(uintptr, string) uintptr = func(instance uintptr, ActionNameVarp string) uintptr {
-		core.LazyRegister(&xXGActionGroupGetActionStateType, "GIO", "g_action_group_get_action_state_type", false)
-		return xXGActionGroupGetActionStateType(instance, ActionNameVarp)
-	}
-)
-var (
-	xXGActionGroupGetActionStateType func(uintptr, string) uintptr
-	XGActionGroupHasAction           func(uintptr, string) bool = func(instance uintptr, ActionNameVarp string) bool {
-		core.LazyRegister(&xXGActionGroupHasAction, "GIO", "g_action_group_has_action", false)
-		return xXGActionGroupHasAction(instance, ActionNameVarp)
-	}
-)
-var (
-	xXGActionGroupHasAction  func(uintptr, string) bool
-	XGActionGroupListActions func(uintptr) []string = func(instance uintptr) []string {
-		core.LazyRegister(&xXGActionGroupListActions, "GIO", "g_action_group_list_actions", false)
-		return xXGActionGroupListActions(instance)
-	}
-)
-var (
-	xXGActionGroupListActions func(uintptr) []string
-	XGActionGroupQueryAction  func(uintptr, string, *bool, **glib.VariantType, **glib.VariantType, **glib.Variant, **glib.Variant) bool = func(instance uintptr, ActionNameVarp string, EnabledVarp *bool, ParameterTypeVarp **glib.VariantType, StateTypeVarp **glib.VariantType, StateHintVarp **glib.Variant, StateVarp **glib.Variant) bool {
-		core.LazyRegister(&xXGActionGroupQueryAction, "GIO", "g_action_group_query_action", false)
-		return xXGActionGroupQueryAction(instance, ActionNameVarp, EnabledVarp, ParameterTypeVarp, StateTypeVarp, StateHintVarp, StateVarp)
-	}
-)
-var xXGActionGroupQueryAction func(uintptr, string, *bool, **glib.VariantType, **glib.VariantType, **glib.Variant, **glib.Variant) bool
 
 func init() {
 	core.SetPackageName("GIO", "gio-2.0")
 	core.SetSharedLibraries("GIO", []string{"libgio-2.0.so.0", "libgio-2.0.0.dylib"})
+	var libs []uintptr
+	for _, libPath := range core.GetPaths("GIO") {
+		lib, err := purego.Dlopen(libPath, purego.RTLD_NOW|purego.RTLD_GLOBAL)
+		if err != nil {
+			panic(err)
+		}
+		libs = append(libs, lib)
+	}
+
+	core.PuregoSafeRegister(&xActionGroupGLibType, libs, "g_action_group_get_type")
+
+	core.PuregoSafeRegister(&XGActionGroupActionAdded, libs, "g_action_group_action_added")
+	core.PuregoSafeRegister(&XGActionGroupActionEnabledChanged, libs, "g_action_group_action_enabled_changed")
+	core.PuregoSafeRegister(&XGActionGroupActionRemoved, libs, "g_action_group_action_removed")
+	core.PuregoSafeRegister(&XGActionGroupActionStateChanged, libs, "g_action_group_action_state_changed")
+	core.PuregoSafeRegister(&XGActionGroupActivateAction, libs, "g_action_group_activate_action")
+	core.PuregoSafeRegister(&XGActionGroupChangeActionState, libs, "g_action_group_change_action_state")
+	core.PuregoSafeRegister(&XGActionGroupGetActionEnabled, libs, "g_action_group_get_action_enabled")
+	core.PuregoSafeRegister(&XGActionGroupGetActionParameterType, libs, "g_action_group_get_action_parameter_type")
+	core.PuregoSafeRegister(&XGActionGroupGetActionState, libs, "g_action_group_get_action_state")
+	core.PuregoSafeRegister(&XGActionGroupGetActionStateHint, libs, "g_action_group_get_action_state_hint")
+	core.PuregoSafeRegister(&XGActionGroupGetActionStateType, libs, "g_action_group_get_action_state_type")
+	core.PuregoSafeRegister(&XGActionGroupHasAction, libs, "g_action_group_has_action")
+	core.PuregoSafeRegister(&XGActionGroupListActions, libs, "g_action_group_list_actions")
+	core.PuregoSafeRegister(&XGActionGroupQueryAction, libs, "g_action_group_query_action")
 }

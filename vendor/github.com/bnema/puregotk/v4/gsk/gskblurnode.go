@@ -2,6 +2,7 @@
 package gsk
 
 import (
+	"github.com/bnema/purego"
 	"github.com/bnema/puregotk/pkg/core"
 	"github.com/bnema/puregotk/v4/gobject"
 	"github.com/bnema/puregotk/v4/gobject/types"
@@ -15,7 +16,6 @@ type BlurNode struct {
 var xBlurNodeGLibType func() types.GType
 
 func BlurNodeGLibType() types.GType {
-	core.LazyRegister(&xBlurNodeGLibType, "GSK", "gsk_blur_node_get_type", false)
 	return xBlurNodeGLibType()
 }
 
@@ -29,7 +29,6 @@ var xNewBlurNode func(uintptr, float32) uintptr
 
 // Creates a render node that blurs the child.
 func NewBlurNode(ChildVar *RenderNode, RadiusVar float32) *BlurNode {
-	core.LazyRegister(&xNewBlurNode, "GSK", "gsk_blur_node_new", false)
 	var cls *BlurNode
 
 	cret := xNewBlurNode(ChildVar.GoPointer(), RadiusVar)
@@ -46,7 +45,6 @@ var xBlurNodeGetChild func(uintptr) uintptr
 
 // Retrieves the child `GskRenderNode` of the blur @node.
 func (x *BlurNode) GetChild() *RenderNode {
-	core.LazyRegister(&xBlurNodeGetChild, "GSK", "gsk_blur_node_get_child", false)
 	var cls *RenderNode
 
 	cret := xBlurNodeGetChild(x.GoPointer())
@@ -64,8 +62,6 @@ var xBlurNodeGetRadius func(uintptr) float32
 
 // Retrieves the blur radius of the @node.
 func (x *BlurNode) GetRadius() float32 {
-	core.LazyRegister(&xBlurNodeGetRadius, "GSK", "gsk_blur_node_get_radius", false)
-
 	cret := xBlurNodeGetRadius(x.GoPointer())
 	return cret
 }
@@ -84,4 +80,19 @@ func (c *BlurNode) SetGoPointer(ptr uintptr) {
 func init() {
 	core.SetPackageName("GSK", "gtk4")
 	core.SetSharedLibraries("GSK", []string{"libgtk-4.so.1", "libgtk-4.1.dylib"})
+	var libs []uintptr
+	for _, libPath := range core.GetPaths("GSK") {
+		lib, err := purego.Dlopen(libPath, purego.RTLD_NOW|purego.RTLD_GLOBAL)
+		if err != nil {
+			panic(err)
+		}
+		libs = append(libs, lib)
+	}
+
+	core.PuregoSafeRegister(&xBlurNodeGLibType, libs, "gsk_blur_node_get_type")
+
+	core.PuregoSafeRegister(&xNewBlurNode, libs, "gsk_blur_node_new")
+
+	core.PuregoSafeRegister(&xBlurNodeGetChild, libs, "gsk_blur_node_get_child")
+	core.PuregoSafeRegister(&xBlurNodeGetRadius, libs, "gsk_blur_node_get_radius")
 }

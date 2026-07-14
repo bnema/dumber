@@ -5,6 +5,7 @@ import (
 	"structs"
 	"unsafe"
 
+	"github.com/bnema/purego"
 	"github.com/bnema/puregotk/pkg/core"
 	"github.com/bnema/puregotk/v4/gobject/types"
 )
@@ -31,7 +32,6 @@ type StrvBuilder struct {
 var xStrvBuilderGLibType func() types.GType
 
 func StrvBuilderGLibType() types.GType {
-	core.LazyRegister(&xStrvBuilderGLibType, "GLIB", "g_strv_builder_get_type", false)
 	return xStrvBuilderGLibType()
 }
 
@@ -52,8 +52,6 @@ var xNewStrvBuilder func() uintptr
 // Creates a new #GStrvBuilder with a reference count of 1.
 // Use g_strv_builder_unref() on the returned value when no longer needed.
 func NewStrvBuilder() *StrvBuilder {
-	core.LazyRegister(&xNewStrvBuilder, "GLIB", "g_strv_builder_new", false)
-
 	cret := xNewStrvBuilder()
 	if cret == 0 {
 		return nil
@@ -67,8 +65,6 @@ var xStrvBuilderAdd func(uintptr, string)
 //
 // Since 2.68
 func (x *StrvBuilder) Add(ValueVar string) {
-	core.LazyRegister(&xStrvBuilderAdd, "GLIB", "g_strv_builder_add", false)
-
 	xStrvBuilderAdd(x.GoPointer(), ValueVar)
 }
 
@@ -78,8 +74,6 @@ var xStrvBuilderAddMany func(uintptr, ...interface{})
 //
 // Since 2.70
 func (x *StrvBuilder) AddMany(varArgs ...interface{}) {
-	core.LazyRegister(&xStrvBuilderAddMany, "GLIB", "g_strv_builder_add_many", false)
-
 	xStrvBuilderAddMany(x.GoPointer(), varArgs...)
 }
 
@@ -89,8 +83,6 @@ var xStrvBuilderAddv func(uintptr, []string)
 //
 // Since 2.70
 func (x *StrvBuilder) Addv(ValueVar []string) {
-	core.LazyRegister(&xStrvBuilderAddv, "GLIB", "g_strv_builder_addv", false)
-
 	xStrvBuilderAddv(x.GoPointer(), ValueVar)
 }
 
@@ -100,8 +92,6 @@ var xStrvBuilderEnd func(uintptr) []string
 // array. The returned value should be freed with g_strfreev() when no longer
 // needed.
 func (x *StrvBuilder) End() []string {
-	core.LazyRegister(&xStrvBuilderEnd, "GLIB", "g_strv_builder_end", false)
-
 	cret := xStrvBuilderEnd(x.GoPointer())
 	return cret
 }
@@ -111,8 +101,6 @@ var xStrvBuilderRef func(uintptr) uintptr
 // Atomically increments the reference count of @builder by one.
 // This function is thread-safe and may be called from any thread.
 func (x *StrvBuilder) Ref() *StrvBuilder {
-	core.LazyRegister(&xStrvBuilderRef, "GLIB", "g_strv_builder_ref", false)
-
 	cret := xStrvBuilderRef(x.GoPointer())
 	if cret == 0 {
 		return nil
@@ -127,8 +115,6 @@ var xStrvBuilderTake func(uintptr, string)
 //
 // Since 2.80
 func (x *StrvBuilder) Take(ValueVar string) {
-	core.LazyRegister(&xStrvBuilderTake, "GLIB", "g_strv_builder_take", false)
-
 	xStrvBuilderTake(x.GoPointer(), ValueVar)
 }
 
@@ -139,8 +125,6 @@ var xStrvBuilderUnref func(uintptr)
 // In the event that there are no more references, releases all memory
 // associated with the #GStrvBuilder.
 func (x *StrvBuilder) Unref() {
-	core.LazyRegister(&xStrvBuilderUnref, "GLIB", "g_strv_builder_unref", false)
-
 	xStrvBuilderUnref(x.GoPointer())
 }
 
@@ -164,8 +148,6 @@ var xStrvBuilderUnrefToStrv func(uintptr) []string
 // g_strfreev (array);
 // ```
 func (x *StrvBuilder) UnrefToStrv() []string {
-	core.LazyRegister(&xStrvBuilderUnrefToStrv, "GLIB", "g_strv_builder_unref_to_strv", false)
-
 	cret := xStrvBuilderUnrefToStrv(x.GoPointer())
 	return cret
 }
@@ -173,4 +155,25 @@ func (x *StrvBuilder) UnrefToStrv() []string {
 func init() {
 	core.SetPackageName("GLIB", "glib-2.0")
 	core.SetSharedLibraries("GLIB", []string{"libgobject-2.0.so.0", "libglib-2.0.so.0", "libgobject-2.0.0.dylib", "libglib-2.0.0.dylib"})
+	var libs []uintptr
+	for _, libPath := range core.GetPaths("GLIB") {
+		lib, err := purego.Dlopen(libPath, purego.RTLD_NOW|purego.RTLD_GLOBAL)
+		if err != nil {
+			panic(err)
+		}
+		libs = append(libs, lib)
+	}
+
+	core.PuregoSafeRegister(&xStrvBuilderGLibType, libs, "g_strv_builder_get_type")
+
+	core.PuregoSafeRegister(&xNewStrvBuilder, libs, "g_strv_builder_new")
+
+	core.PuregoSafeRegister(&xStrvBuilderAdd, libs, "g_strv_builder_add")
+	core.PuregoSafeRegister(&xStrvBuilderAddMany, libs, "g_strv_builder_add_many")
+	core.PuregoSafeRegister(&xStrvBuilderAddv, libs, "g_strv_builder_addv")
+	core.PuregoSafeRegister(&xStrvBuilderEnd, libs, "g_strv_builder_end")
+	core.PuregoSafeRegister(&xStrvBuilderRef, libs, "g_strv_builder_ref")
+	core.PuregoSafeRegister(&xStrvBuilderTake, libs, "g_strv_builder_take")
+	core.PuregoSafeRegister(&xStrvBuilderUnref, libs, "g_strv_builder_unref")
+	core.PuregoSafeRegister(&xStrvBuilderUnrefToStrv, libs, "g_strv_builder_unref_to_strv")
 }

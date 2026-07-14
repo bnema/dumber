@@ -82,7 +82,7 @@ func (x *DtlsConnectionInterface) OverrideHandshake(cb func(DtlsConnection, *Can
 	if cb == nil {
 		x.xHandshake = 0
 	} else {
-		x.xHandshake = purego.NewCallback(func(ConnVarp uintptr, CancellableVarp uintptr, cerrp **glib.Error) bool {
+		x.xHandshake = purego.NewCallback(func(ConnVarp uintptr, CancellableVarp uintptr) bool {
 			return cb(&DtlsConnectionBase{Ptr: ConnVarp}, CancellableNewFromInternalPtr(CancellableVarp))
 		})
 	}
@@ -94,11 +94,10 @@ func (x *DtlsConnectionInterface) GetHandshake() func(DtlsConnection, *Cancellab
 	if x.xHandshake == 0 {
 		return nil
 	}
-	var rawCallback func(ConnVarp uintptr, CancellableVarp uintptr, cerrp **glib.Error) bool
+	var rawCallback func(ConnVarp uintptr, CancellableVarp uintptr) bool
 	purego.RegisterFunc(&rawCallback, x.xHandshake)
 	return func(ConnVar DtlsConnection, CancellableVar *Cancellable) bool {
-		var cerr *glib.Error
-		return rawCallback(ConnVar.GoPointer(), CancellableVar.GoPointer(), &cerr)
+		return rawCallback(ConnVar.GoPointer(), CancellableVar.GoPointer())
 	}
 }
 
@@ -133,7 +132,7 @@ func (x *DtlsConnectionInterface) OverrideHandshakeFinish(cb func(DtlsConnection
 	if cb == nil {
 		x.xHandshakeFinish = 0
 	} else {
-		x.xHandshakeFinish = purego.NewCallback(func(ConnVarp uintptr, ResultVarp uintptr, cerrp **glib.Error) bool {
+		x.xHandshakeFinish = purego.NewCallback(func(ConnVarp uintptr, ResultVarp uintptr) bool {
 			return cb(&DtlsConnectionBase{Ptr: ConnVarp}, &AsyncResultBase{Ptr: ResultVarp})
 		})
 	}
@@ -145,11 +144,10 @@ func (x *DtlsConnectionInterface) GetHandshakeFinish() func(DtlsConnection, Asyn
 	if x.xHandshakeFinish == 0 {
 		return nil
 	}
-	var rawCallback func(ConnVarp uintptr, ResultVarp uintptr, cerrp **glib.Error) bool
+	var rawCallback func(ConnVarp uintptr, ResultVarp uintptr) bool
 	purego.RegisterFunc(&rawCallback, x.xHandshakeFinish)
 	return func(ConnVar DtlsConnection, ResultVar AsyncResult) bool {
-		var cerr *glib.Error
-		return rawCallback(ConnVar.GoPointer(), ResultVar.GoPointer(), &cerr)
+		return rawCallback(ConnVar.GoPointer(), ResultVar.GoPointer())
 	}
 }
 
@@ -159,7 +157,7 @@ func (x *DtlsConnectionInterface) OverrideShutdown(cb func(DtlsConnection, bool,
 	if cb == nil {
 		x.xShutdown = 0
 	} else {
-		x.xShutdown = purego.NewCallback(func(ConnVarp uintptr, ShutdownReadVarp bool, ShutdownWriteVarp bool, CancellableVarp uintptr, cerrp **glib.Error) bool {
+		x.xShutdown = purego.NewCallback(func(ConnVarp uintptr, ShutdownReadVarp bool, ShutdownWriteVarp bool, CancellableVarp uintptr) bool {
 			return cb(&DtlsConnectionBase{Ptr: ConnVarp}, ShutdownReadVarp, ShutdownWriteVarp, CancellableNewFromInternalPtr(CancellableVarp))
 		})
 	}
@@ -171,11 +169,10 @@ func (x *DtlsConnectionInterface) GetShutdown() func(DtlsConnection, bool, bool,
 	if x.xShutdown == 0 {
 		return nil
 	}
-	var rawCallback func(ConnVarp uintptr, ShutdownReadVarp bool, ShutdownWriteVarp bool, CancellableVarp uintptr, cerrp **glib.Error) bool
+	var rawCallback func(ConnVarp uintptr, ShutdownReadVarp bool, ShutdownWriteVarp bool, CancellableVarp uintptr) bool
 	purego.RegisterFunc(&rawCallback, x.xShutdown)
 	return func(ConnVar DtlsConnection, ShutdownReadVar bool, ShutdownWriteVar bool, CancellableVar *Cancellable) bool {
-		var cerr *glib.Error
-		return rawCallback(ConnVar.GoPointer(), ShutdownReadVar, ShutdownWriteVar, CancellableVar.GoPointer(), &cerr)
+		return rawCallback(ConnVar.GoPointer(), ShutdownReadVar, ShutdownWriteVar, CancellableVar.GoPointer())
 	}
 }
 
@@ -210,7 +207,7 @@ func (x *DtlsConnectionInterface) OverrideShutdownFinish(cb func(DtlsConnection,
 	if cb == nil {
 		x.xShutdownFinish = 0
 	} else {
-		x.xShutdownFinish = purego.NewCallback(func(ConnVarp uintptr, ResultVarp uintptr, cerrp **glib.Error) bool {
+		x.xShutdownFinish = purego.NewCallback(func(ConnVarp uintptr, ResultVarp uintptr) bool {
 			return cb(&DtlsConnectionBase{Ptr: ConnVarp}, &AsyncResultBase{Ptr: ResultVarp})
 		})
 	}
@@ -222,11 +219,10 @@ func (x *DtlsConnectionInterface) GetShutdownFinish() func(DtlsConnection, Async
 	if x.xShutdownFinish == 0 {
 		return nil
 	}
-	var rawCallback func(ConnVarp uintptr, ResultVarp uintptr, cerrp **glib.Error) bool
+	var rawCallback func(ConnVarp uintptr, ResultVarp uintptr) bool
 	purego.RegisterFunc(&rawCallback, x.xShutdownFinish)
 	return func(ConnVar DtlsConnection, ResultVar AsyncResult) bool {
-		var cerr *glib.Error
-		return rawCallback(ConnVar.GoPointer(), ResultVar.GoPointer(), &cerr)
+		return rawCallback(ConnVar.GoPointer(), ResultVar.GoPointer())
 	}
 }
 
@@ -286,7 +282,7 @@ func (x *DtlsConnectionInterface) OverrideGetBindingData(cb func(DtlsConnection,
 	if cb == nil {
 		x.xGetBindingData = 0
 	} else {
-		x.xGetBindingData = purego.NewCallback(func(ConnVarp uintptr, TypeVarp TlsChannelBindingType, DataVarp []byte, cerrp **glib.Error) bool {
+		x.xGetBindingData = purego.NewCallback(func(ConnVarp uintptr, TypeVarp TlsChannelBindingType, DataVarp []byte) bool {
 			return cb(&DtlsConnectionBase{Ptr: ConnVarp}, TypeVarp, DataVarp)
 		})
 	}
@@ -298,11 +294,10 @@ func (x *DtlsConnectionInterface) GetGetBindingData() func(DtlsConnection, TlsCh
 	if x.xGetBindingData == 0 {
 		return nil
 	}
-	var rawCallback func(ConnVarp uintptr, TypeVarp TlsChannelBindingType, DataVarp []byte, cerrp **glib.Error) bool
+	var rawCallback func(ConnVarp uintptr, TypeVarp TlsChannelBindingType, DataVarp []byte) bool
 	purego.RegisterFunc(&rawCallback, x.xGetBindingData)
 	return func(ConnVar DtlsConnection, TypeVar TlsChannelBindingType, DataVar []byte) bool {
-		var cerr *glib.Error
-		return rawCallback(ConnVar.GoPointer(), TypeVar, DataVar, &cerr)
+		return rawCallback(ConnVar.GoPointer(), TypeVar, DataVar)
 	}
 }
 
@@ -362,7 +357,6 @@ type DtlsConnection interface {
 var xDtlsConnectionGLibType func() types.GType
 
 func DtlsConnectionGLibType() types.GType {
-	core.LazyRegister(&xDtlsConnectionGLibType, "GIO", "g_dtls_connection_get_type", false)
 	return xDtlsConnectionGLibType()
 }
 
@@ -846,196 +840,75 @@ func (x *DtlsConnectionBase) GetPropertyRequireCloseNotify() bool {
 	return v.GetBoolean()
 }
 
-var XGDtlsConnectionClose func(uintptr, uintptr, **glib.Error) bool = func(instance uintptr, CancellableVarp uintptr, cerrp **glib.Error) bool {
-	core.LazyRegister(&xXGDtlsConnectionClose, "GIO", "g_dtls_connection_close", false)
-	return xXGDtlsConnectionClose(instance, CancellableVarp, cerrp)
-}
-
 var (
-	xXGDtlsConnectionClose     func(uintptr, uintptr, **glib.Error) bool
-	XGDtlsConnectionCloseAsync func(uintptr, int, uintptr, uintptr, uintptr) = func(instance uintptr, IoPriorityVarp int, CancellableVarp uintptr, CallbackVarp uintptr, UserDataVarp uintptr) {
-		core.LazyRegister(&xXGDtlsConnectionCloseAsync, "GIO", "g_dtls_connection_close_async", false)
-		xXGDtlsConnectionCloseAsync(instance, IoPriorityVarp, CancellableVarp, CallbackVarp, UserDataVarp)
-	}
+	XGDtlsConnectionClose                    func(uintptr, uintptr, **glib.Error) bool
+	XGDtlsConnectionCloseAsync               func(uintptr, int, uintptr, uintptr, uintptr)
+	XGDtlsConnectionCloseFinish              func(uintptr, uintptr, **glib.Error) bool
+	XGDtlsConnectionEmitAcceptCertificate    func(uintptr, uintptr, TlsCertificateFlags) bool
+	XGDtlsConnectionGetCertificate           func(uintptr) uintptr
+	XGDtlsConnectionGetChannelBindingData    func(uintptr, TlsChannelBindingType, *[]byte, **glib.Error) bool
+	XGDtlsConnectionGetCiphersuiteName       func(uintptr) string
+	XGDtlsConnectionGetDatabase              func(uintptr) uintptr
+	XGDtlsConnectionGetInteraction           func(uintptr) uintptr
+	XGDtlsConnectionGetNegotiatedProtocol    func(uintptr) string
+	XGDtlsConnectionGetPeerCertificate       func(uintptr) uintptr
+	XGDtlsConnectionGetPeerCertificateErrors func(uintptr) TlsCertificateFlags
+	XGDtlsConnectionGetProtocolVersion       func(uintptr) TlsProtocolVersion
+	XGDtlsConnectionGetRehandshakeMode       func(uintptr) TlsRehandshakeMode
+	XGDtlsConnectionGetRequireCloseNotify    func(uintptr) bool
+	XGDtlsConnectionHandshake                func(uintptr, uintptr, **glib.Error) bool
+	XGDtlsConnectionHandshakeAsync           func(uintptr, int, uintptr, uintptr, uintptr)
+	XGDtlsConnectionHandshakeFinish          func(uintptr, uintptr, **glib.Error) bool
+	XGDtlsConnectionSetAdvertisedProtocols   func(uintptr, []string)
+	XGDtlsConnectionSetCertificate           func(uintptr, uintptr)
+	XGDtlsConnectionSetDatabase              func(uintptr, uintptr)
+	XGDtlsConnectionSetInteraction           func(uintptr, uintptr)
+	XGDtlsConnectionSetRehandshakeMode       func(uintptr, TlsRehandshakeMode)
+	XGDtlsConnectionSetRequireCloseNotify    func(uintptr, bool)
+	XGDtlsConnectionShutdown                 func(uintptr, bool, bool, uintptr, **glib.Error) bool
+	XGDtlsConnectionShutdownAsync            func(uintptr, bool, bool, int, uintptr, uintptr, uintptr)
+	XGDtlsConnectionShutdownFinish           func(uintptr, uintptr, **glib.Error) bool
 )
-var (
-	xXGDtlsConnectionCloseAsync func(uintptr, int, uintptr, uintptr, uintptr)
-	XGDtlsConnectionCloseFinish func(uintptr, uintptr, **glib.Error) bool = func(instance uintptr, ResultVarp uintptr, cerrp **glib.Error) bool {
-		core.LazyRegister(&xXGDtlsConnectionCloseFinish, "GIO", "g_dtls_connection_close_finish", false)
-		return xXGDtlsConnectionCloseFinish(instance, ResultVarp, cerrp)
-	}
-)
-var (
-	xXGDtlsConnectionCloseFinish          func(uintptr, uintptr, **glib.Error) bool
-	XGDtlsConnectionEmitAcceptCertificate func(uintptr, uintptr, TlsCertificateFlags) bool = func(instance uintptr, PeerCertVarp uintptr, ErrorsVarp TlsCertificateFlags) bool {
-		core.LazyRegister(&xXGDtlsConnectionEmitAcceptCertificate, "GIO", "g_dtls_connection_emit_accept_certificate", false)
-		return xXGDtlsConnectionEmitAcceptCertificate(instance, PeerCertVarp, ErrorsVarp)
-	}
-)
-var (
-	xXGDtlsConnectionEmitAcceptCertificate func(uintptr, uintptr, TlsCertificateFlags) bool
-	XGDtlsConnectionGetCertificate         func(uintptr) uintptr = func(instance uintptr) uintptr {
-		core.LazyRegister(&xXGDtlsConnectionGetCertificate, "GIO", "g_dtls_connection_get_certificate", false)
-		return xXGDtlsConnectionGetCertificate(instance)
-	}
-)
-var (
-	xXGDtlsConnectionGetCertificate       func(uintptr) uintptr
-	XGDtlsConnectionGetChannelBindingData func(uintptr, TlsChannelBindingType, *[]byte, **glib.Error) bool = func(instance uintptr, TypeVarp TlsChannelBindingType, DataVarp *[]byte, cerrp **glib.Error) bool {
-		core.LazyRegister(&xXGDtlsConnectionGetChannelBindingData, "GIO", "g_dtls_connection_get_channel_binding_data", false)
-		return xXGDtlsConnectionGetChannelBindingData(instance, TypeVarp, DataVarp, cerrp)
-	}
-)
-var (
-	xXGDtlsConnectionGetChannelBindingData func(uintptr, TlsChannelBindingType, *[]byte, **glib.Error) bool
-	XGDtlsConnectionGetCiphersuiteName     func(uintptr) string = func(instance uintptr) string {
-		core.LazyRegister(&xXGDtlsConnectionGetCiphersuiteName, "GIO", "g_dtls_connection_get_ciphersuite_name", false)
-		return xXGDtlsConnectionGetCiphersuiteName(instance)
-	}
-)
-var (
-	xXGDtlsConnectionGetCiphersuiteName func(uintptr) string
-	XGDtlsConnectionGetDatabase         func(uintptr) uintptr = func(instance uintptr) uintptr {
-		core.LazyRegister(&xXGDtlsConnectionGetDatabase, "GIO", "g_dtls_connection_get_database", false)
-		return xXGDtlsConnectionGetDatabase(instance)
-	}
-)
-var (
-	xXGDtlsConnectionGetDatabase   func(uintptr) uintptr
-	XGDtlsConnectionGetInteraction func(uintptr) uintptr = func(instance uintptr) uintptr {
-		core.LazyRegister(&xXGDtlsConnectionGetInteraction, "GIO", "g_dtls_connection_get_interaction", false)
-		return xXGDtlsConnectionGetInteraction(instance)
-	}
-)
-var (
-	xXGDtlsConnectionGetInteraction       func(uintptr) uintptr
-	XGDtlsConnectionGetNegotiatedProtocol func(uintptr) string = func(instance uintptr) string {
-		core.LazyRegister(&xXGDtlsConnectionGetNegotiatedProtocol, "GIO", "g_dtls_connection_get_negotiated_protocol", false)
-		return xXGDtlsConnectionGetNegotiatedProtocol(instance)
-	}
-)
-var (
-	xXGDtlsConnectionGetNegotiatedProtocol func(uintptr) string
-	XGDtlsConnectionGetPeerCertificate     func(uintptr) uintptr = func(instance uintptr) uintptr {
-		core.LazyRegister(&xXGDtlsConnectionGetPeerCertificate, "GIO", "g_dtls_connection_get_peer_certificate", false)
-		return xXGDtlsConnectionGetPeerCertificate(instance)
-	}
-)
-var (
-	xXGDtlsConnectionGetPeerCertificate      func(uintptr) uintptr
-	XGDtlsConnectionGetPeerCertificateErrors func(uintptr) TlsCertificateFlags = func(instance uintptr) TlsCertificateFlags {
-		core.LazyRegister(&xXGDtlsConnectionGetPeerCertificateErrors, "GIO", "g_dtls_connection_get_peer_certificate_errors", false)
-		return xXGDtlsConnectionGetPeerCertificateErrors(instance)
-	}
-)
-var (
-	xXGDtlsConnectionGetPeerCertificateErrors func(uintptr) TlsCertificateFlags
-	XGDtlsConnectionGetProtocolVersion        func(uintptr) TlsProtocolVersion = func(instance uintptr) TlsProtocolVersion {
-		core.LazyRegister(&xXGDtlsConnectionGetProtocolVersion, "GIO", "g_dtls_connection_get_protocol_version", false)
-		return xXGDtlsConnectionGetProtocolVersion(instance)
-	}
-)
-var (
-	xXGDtlsConnectionGetProtocolVersion func(uintptr) TlsProtocolVersion
-	XGDtlsConnectionGetRehandshakeMode  func(uintptr) TlsRehandshakeMode = func(instance uintptr) TlsRehandshakeMode {
-		core.LazyRegister(&xXGDtlsConnectionGetRehandshakeMode, "GIO", "g_dtls_connection_get_rehandshake_mode", false)
-		return xXGDtlsConnectionGetRehandshakeMode(instance)
-	}
-)
-var (
-	xXGDtlsConnectionGetRehandshakeMode   func(uintptr) TlsRehandshakeMode
-	XGDtlsConnectionGetRequireCloseNotify func(uintptr) bool = func(instance uintptr) bool {
-		core.LazyRegister(&xXGDtlsConnectionGetRequireCloseNotify, "GIO", "g_dtls_connection_get_require_close_notify", false)
-		return xXGDtlsConnectionGetRequireCloseNotify(instance)
-	}
-)
-var (
-	xXGDtlsConnectionGetRequireCloseNotify func(uintptr) bool
-	XGDtlsConnectionHandshake              func(uintptr, uintptr, **glib.Error) bool = func(instance uintptr, CancellableVarp uintptr, cerrp **glib.Error) bool {
-		core.LazyRegister(&xXGDtlsConnectionHandshake, "GIO", "g_dtls_connection_handshake", false)
-		return xXGDtlsConnectionHandshake(instance, CancellableVarp, cerrp)
-	}
-)
-var (
-	xXGDtlsConnectionHandshake     func(uintptr, uintptr, **glib.Error) bool
-	XGDtlsConnectionHandshakeAsync func(uintptr, int, uintptr, uintptr, uintptr) = func(instance uintptr, IoPriorityVarp int, CancellableVarp uintptr, CallbackVarp uintptr, UserDataVarp uintptr) {
-		core.LazyRegister(&xXGDtlsConnectionHandshakeAsync, "GIO", "g_dtls_connection_handshake_async", false)
-		xXGDtlsConnectionHandshakeAsync(instance, IoPriorityVarp, CancellableVarp, CallbackVarp, UserDataVarp)
-	}
-)
-var (
-	xXGDtlsConnectionHandshakeAsync func(uintptr, int, uintptr, uintptr, uintptr)
-	XGDtlsConnectionHandshakeFinish func(uintptr, uintptr, **glib.Error) bool = func(instance uintptr, ResultVarp uintptr, cerrp **glib.Error) bool {
-		core.LazyRegister(&xXGDtlsConnectionHandshakeFinish, "GIO", "g_dtls_connection_handshake_finish", false)
-		return xXGDtlsConnectionHandshakeFinish(instance, ResultVarp, cerrp)
-	}
-)
-var (
-	xXGDtlsConnectionHandshakeFinish       func(uintptr, uintptr, **glib.Error) bool
-	XGDtlsConnectionSetAdvertisedProtocols func(uintptr, []string) = func(instance uintptr, ProtocolsVarp []string) {
-		core.LazyRegister(&xXGDtlsConnectionSetAdvertisedProtocols, "GIO", "g_dtls_connection_set_advertised_protocols", false)
-		xXGDtlsConnectionSetAdvertisedProtocols(instance, ProtocolsVarp)
-	}
-)
-var (
-	xXGDtlsConnectionSetAdvertisedProtocols func(uintptr, []string)
-	XGDtlsConnectionSetCertificate          func(uintptr, uintptr) = func(instance uintptr, CertificateVarp uintptr) {
-		core.LazyRegister(&xXGDtlsConnectionSetCertificate, "GIO", "g_dtls_connection_set_certificate", false)
-		xXGDtlsConnectionSetCertificate(instance, CertificateVarp)
-	}
-)
-var (
-	xXGDtlsConnectionSetCertificate func(uintptr, uintptr)
-	XGDtlsConnectionSetDatabase     func(uintptr, uintptr) = func(instance uintptr, DatabaseVarp uintptr) {
-		core.LazyRegister(&xXGDtlsConnectionSetDatabase, "GIO", "g_dtls_connection_set_database", false)
-		xXGDtlsConnectionSetDatabase(instance, DatabaseVarp)
-	}
-)
-var (
-	xXGDtlsConnectionSetDatabase   func(uintptr, uintptr)
-	XGDtlsConnectionSetInteraction func(uintptr, uintptr) = func(instance uintptr, InteractionVarp uintptr) {
-		core.LazyRegister(&xXGDtlsConnectionSetInteraction, "GIO", "g_dtls_connection_set_interaction", false)
-		xXGDtlsConnectionSetInteraction(instance, InteractionVarp)
-	}
-)
-var (
-	xXGDtlsConnectionSetInteraction    func(uintptr, uintptr)
-	XGDtlsConnectionSetRehandshakeMode func(uintptr, TlsRehandshakeMode) = func(instance uintptr, ModeVarp TlsRehandshakeMode) {
-		core.LazyRegister(&xXGDtlsConnectionSetRehandshakeMode, "GIO", "g_dtls_connection_set_rehandshake_mode", false)
-		xXGDtlsConnectionSetRehandshakeMode(instance, ModeVarp)
-	}
-)
-var (
-	xXGDtlsConnectionSetRehandshakeMode   func(uintptr, TlsRehandshakeMode)
-	XGDtlsConnectionSetRequireCloseNotify func(uintptr, bool) = func(instance uintptr, RequireCloseNotifyVarp bool) {
-		core.LazyRegister(&xXGDtlsConnectionSetRequireCloseNotify, "GIO", "g_dtls_connection_set_require_close_notify", false)
-		xXGDtlsConnectionSetRequireCloseNotify(instance, RequireCloseNotifyVarp)
-	}
-)
-var (
-	xXGDtlsConnectionSetRequireCloseNotify func(uintptr, bool)
-	XGDtlsConnectionShutdown               func(uintptr, bool, bool, uintptr, **glib.Error) bool = func(instance uintptr, ShutdownReadVarp bool, ShutdownWriteVarp bool, CancellableVarp uintptr, cerrp **glib.Error) bool {
-		core.LazyRegister(&xXGDtlsConnectionShutdown, "GIO", "g_dtls_connection_shutdown", false)
-		return xXGDtlsConnectionShutdown(instance, ShutdownReadVarp, ShutdownWriteVarp, CancellableVarp, cerrp)
-	}
-)
-var (
-	xXGDtlsConnectionShutdown     func(uintptr, bool, bool, uintptr, **glib.Error) bool
-	XGDtlsConnectionShutdownAsync func(uintptr, bool, bool, int, uintptr, uintptr, uintptr) = func(instance uintptr, ShutdownReadVarp bool, ShutdownWriteVarp bool, IoPriorityVarp int, CancellableVarp uintptr, CallbackVarp uintptr, UserDataVarp uintptr) {
-		core.LazyRegister(&xXGDtlsConnectionShutdownAsync, "GIO", "g_dtls_connection_shutdown_async", false)
-		xXGDtlsConnectionShutdownAsync(instance, ShutdownReadVarp, ShutdownWriteVarp, IoPriorityVarp, CancellableVarp, CallbackVarp, UserDataVarp)
-	}
-)
-var (
-	xXGDtlsConnectionShutdownAsync func(uintptr, bool, bool, int, uintptr, uintptr, uintptr)
-	XGDtlsConnectionShutdownFinish func(uintptr, uintptr, **glib.Error) bool = func(instance uintptr, ResultVarp uintptr, cerrp **glib.Error) bool {
-		core.LazyRegister(&xXGDtlsConnectionShutdownFinish, "GIO", "g_dtls_connection_shutdown_finish", false)
-		return xXGDtlsConnectionShutdownFinish(instance, ResultVarp, cerrp)
-	}
-)
-var xXGDtlsConnectionShutdownFinish func(uintptr, uintptr, **glib.Error) bool
 
 func init() {
 	core.SetPackageName("GIO", "gio-2.0")
 	core.SetSharedLibraries("GIO", []string{"libgio-2.0.so.0", "libgio-2.0.0.dylib"})
+	var libs []uintptr
+	for _, libPath := range core.GetPaths("GIO") {
+		lib, err := purego.Dlopen(libPath, purego.RTLD_NOW|purego.RTLD_GLOBAL)
+		if err != nil {
+			panic(err)
+		}
+		libs = append(libs, lib)
+	}
+
+	core.PuregoSafeRegister(&xDtlsConnectionGLibType, libs, "g_dtls_connection_get_type")
+
+	core.PuregoSafeRegister(&XGDtlsConnectionClose, libs, "g_dtls_connection_close")
+	core.PuregoSafeRegister(&XGDtlsConnectionCloseAsync, libs, "g_dtls_connection_close_async")
+	core.PuregoSafeRegister(&XGDtlsConnectionCloseFinish, libs, "g_dtls_connection_close_finish")
+	core.PuregoSafeRegister(&XGDtlsConnectionEmitAcceptCertificate, libs, "g_dtls_connection_emit_accept_certificate")
+	core.PuregoSafeRegister(&XGDtlsConnectionGetCertificate, libs, "g_dtls_connection_get_certificate")
+	core.PuregoSafeRegister(&XGDtlsConnectionGetChannelBindingData, libs, "g_dtls_connection_get_channel_binding_data")
+	core.PuregoSafeRegister(&XGDtlsConnectionGetCiphersuiteName, libs, "g_dtls_connection_get_ciphersuite_name")
+	core.PuregoSafeRegister(&XGDtlsConnectionGetDatabase, libs, "g_dtls_connection_get_database")
+	core.PuregoSafeRegister(&XGDtlsConnectionGetInteraction, libs, "g_dtls_connection_get_interaction")
+	core.PuregoSafeRegister(&XGDtlsConnectionGetNegotiatedProtocol, libs, "g_dtls_connection_get_negotiated_protocol")
+	core.PuregoSafeRegister(&XGDtlsConnectionGetPeerCertificate, libs, "g_dtls_connection_get_peer_certificate")
+	core.PuregoSafeRegister(&XGDtlsConnectionGetPeerCertificateErrors, libs, "g_dtls_connection_get_peer_certificate_errors")
+	core.PuregoSafeRegister(&XGDtlsConnectionGetProtocolVersion, libs, "g_dtls_connection_get_protocol_version")
+	core.PuregoSafeRegister(&XGDtlsConnectionGetRehandshakeMode, libs, "g_dtls_connection_get_rehandshake_mode")
+	core.PuregoSafeRegister(&XGDtlsConnectionGetRequireCloseNotify, libs, "g_dtls_connection_get_require_close_notify")
+	core.PuregoSafeRegister(&XGDtlsConnectionHandshake, libs, "g_dtls_connection_handshake")
+	core.PuregoSafeRegister(&XGDtlsConnectionHandshakeAsync, libs, "g_dtls_connection_handshake_async")
+	core.PuregoSafeRegister(&XGDtlsConnectionHandshakeFinish, libs, "g_dtls_connection_handshake_finish")
+	core.PuregoSafeRegister(&XGDtlsConnectionSetAdvertisedProtocols, libs, "g_dtls_connection_set_advertised_protocols")
+	core.PuregoSafeRegister(&XGDtlsConnectionSetCertificate, libs, "g_dtls_connection_set_certificate")
+	core.PuregoSafeRegister(&XGDtlsConnectionSetDatabase, libs, "g_dtls_connection_set_database")
+	core.PuregoSafeRegister(&XGDtlsConnectionSetInteraction, libs, "g_dtls_connection_set_interaction")
+	core.PuregoSafeRegister(&XGDtlsConnectionSetRehandshakeMode, libs, "g_dtls_connection_set_rehandshake_mode")
+	core.PuregoSafeRegister(&XGDtlsConnectionSetRequireCloseNotify, libs, "g_dtls_connection_set_require_close_notify")
+	core.PuregoSafeRegister(&XGDtlsConnectionShutdown, libs, "g_dtls_connection_shutdown")
+	core.PuregoSafeRegister(&XGDtlsConnectionShutdownAsync, libs, "g_dtls_connection_shutdown_async")
+	core.PuregoSafeRegister(&XGDtlsConnectionShutdownFinish, libs, "g_dtls_connection_shutdown_finish")
 }

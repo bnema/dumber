@@ -33,14 +33,8 @@ func IncreaseRef(a uintptr) {
 	xObjectRefSink(a)
 }
 
-// lazyRegisterSignalConnectData is a focused seam for the manually-written
-// raw signal helpers. Generated bindings register this target before every call.
-var lazyRegisterSignalConnectData = func() {
-	core.LazyRegister(&xSignalConnectData, "GOBJECT", "g_signal_connect_data", false)
-}
-
 func SignalConnect(a uintptr, b string, c uintptr) uint {
-	return SignalConnectDataRaw(a, b, c, 0, 0, 0)
+	return xSignalConnectData(a, b, c, 0, 0, 0)
 }
 
 // SignalConnectDataRaw connects a raw C callback pointer with user data and an
@@ -48,7 +42,6 @@ func SignalConnect(a uintptr, b string, c uintptr) uint {
 // shared process-lifetime trampolines to avoid one purego callback allocation per
 // signal connection.
 func SignalConnectDataRaw(instance uintptr, detailedSignal string, handler uintptr, data uintptr, destroyData uintptr, flags ConnectFlags) uint {
-	lazyRegisterSignalConnectData()
 	return xSignalConnectData(instance, detailedSignal, handler, data, destroyData, flags)
 }
 

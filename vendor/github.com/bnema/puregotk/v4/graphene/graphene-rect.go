@@ -5,6 +5,7 @@ import (
 	"structs"
 	"unsafe"
 
+	"github.com/bnema/purego"
 	"github.com/bnema/puregotk/pkg/core"
 	"github.com/bnema/puregotk/v4/gobject/types"
 )
@@ -32,7 +33,6 @@ type Rect struct {
 var xRectGLibType func() types.GType
 
 func RectGLibType() types.GType {
-	core.LazyRegister(&xRectGLibType, "GRAPHENE", "graphene_rect_get_type", false)
 	return xRectGLibType()
 }
 
@@ -52,8 +52,6 @@ var xRectContainsPoint func(uintptr, *Point) bool
 
 // Checks whether a #graphene_rect_t contains the given coordinates.
 func (x *Rect) ContainsPoint(PVar *Point) bool {
-	core.LazyRegister(&xRectContainsPoint, "GRAPHENE", "graphene_rect_contains_point", false)
-
 	cret := xRectContainsPoint(x.GoPointer(), PVar)
 	return cret
 }
@@ -63,8 +61,6 @@ var xRectContainsRect func(uintptr, *Rect) bool
 // Checks whether a #graphene_rect_t fully contains the given
 // rectangle.
 func (x *Rect) ContainsRect(BVar *Rect) bool {
-	core.LazyRegister(&xRectContainsRect, "GRAPHENE", "graphene_rect_contains_rect", false)
-
 	cret := xRectContainsRect(x.GoPointer(), BVar)
 	return cret
 }
@@ -73,8 +69,6 @@ var xRectEqual func(uintptr, *Rect) bool
 
 // Checks whether the two given rectangle are equal.
 func (x *Rect) Equal(BVar *Rect) bool {
-	core.LazyRegister(&xRectEqual, "GRAPHENE", "graphene_rect_equal", false)
-
 	cret := xRectEqual(x.GoPointer(), BVar)
 	return cret
 }
@@ -83,8 +77,6 @@ var xRectExpand func(uintptr, *Point, *Rect)
 
 // Expands a #graphene_rect_t to contain the given #graphene_point_t.
 func (x *Rect) Expand(PVar *Point, ResVar *Rect) {
-	core.LazyRegister(&xRectExpand, "GRAPHENE", "graphene_rect_expand", false)
-
 	xRectExpand(x.GoPointer(), PVar, ResVar)
 }
 
@@ -92,8 +84,6 @@ var xRectFree func(uintptr)
 
 // Frees the resources allocated by graphene_rect_alloc().
 func (x *Rect) Free() {
-	core.LazyRegister(&xRectFree, "GRAPHENE", "graphene_rect_free", false)
-
 	xRectFree(x.GoPointer())
 }
 
@@ -101,8 +91,6 @@ var xRectGetArea func(uintptr) float32
 
 // Compute the area of given normalized rectangle.
 func (x *Rect) GetArea() float32 {
-	core.LazyRegister(&xRectGetArea, "GRAPHENE", "graphene_rect_get_area", false)
-
 	cret := xRectGetArea(x.GoPointer())
 	return cret
 }
@@ -111,8 +99,6 @@ var xRectGetBottomLeft func(uintptr, *Point)
 
 // Retrieves the coordinates of the bottom-left corner of the given rectangle.
 func (x *Rect) GetBottomLeft(PVar *Point) {
-	core.LazyRegister(&xRectGetBottomLeft, "GRAPHENE", "graphene_rect_get_bottom_left", false)
-
 	xRectGetBottomLeft(x.GoPointer(), PVar)
 }
 
@@ -120,8 +106,6 @@ var xRectGetBottomRight func(uintptr, *Point)
 
 // Retrieves the coordinates of the bottom-right corner of the given rectangle.
 func (x *Rect) GetBottomRight(PVar *Point) {
-	core.LazyRegister(&xRectGetBottomRight, "GRAPHENE", "graphene_rect_get_bottom_right", false)
-
 	xRectGetBottomRight(x.GoPointer(), PVar)
 }
 
@@ -129,8 +113,6 @@ var xRectGetCenter func(uintptr, *Point)
 
 // Retrieves the coordinates of the center of the given rectangle.
 func (x *Rect) GetCenter(PVar *Point) {
-	core.LazyRegister(&xRectGetCenter, "GRAPHENE", "graphene_rect_get_center", false)
-
 	xRectGetCenter(x.GoPointer(), PVar)
 }
 
@@ -138,8 +120,6 @@ var xRectGetHeight func(uintptr) float32
 
 // Retrieves the normalized height of the given rectangle.
 func (x *Rect) GetHeight() float32 {
-	core.LazyRegister(&xRectGetHeight, "GRAPHENE", "graphene_rect_get_height", false)
-
 	cret := xRectGetHeight(x.GoPointer())
 	return cret
 }
@@ -148,8 +128,6 @@ var xRectGetTopLeft func(uintptr, *Point)
 
 // Retrieves the coordinates of the top-left corner of the given rectangle.
 func (x *Rect) GetTopLeft(PVar *Point) {
-	core.LazyRegister(&xRectGetTopLeft, "GRAPHENE", "graphene_rect_get_top_left", false)
-
 	xRectGetTopLeft(x.GoPointer(), PVar)
 }
 
@@ -157,8 +135,6 @@ var xRectGetTopRight func(uintptr, *Point)
 
 // Retrieves the coordinates of the top-right corner of the given rectangle.
 func (x *Rect) GetTopRight(PVar *Point) {
-	core.LazyRegister(&xRectGetTopRight, "GRAPHENE", "graphene_rect_get_top_right", false)
-
 	xRectGetTopRight(x.GoPointer(), PVar)
 }
 
@@ -166,8 +142,6 @@ var xRectGetVertices func(uintptr, *[4]Vec2)
 
 // Computes the four vertices of a #graphene_rect_t.
 func (x *Rect) GetVertices(VerticesVar *[4]Vec2) {
-	core.LazyRegister(&xRectGetVertices, "GRAPHENE", "graphene_rect_get_vertices", false)
-
 	xRectGetVertices(x.GoPointer(), VerticesVar)
 }
 
@@ -175,8 +149,6 @@ var xRectGetWidth func(uintptr) float32
 
 // Retrieves the normalized width of the given rectangle.
 func (x *Rect) GetWidth() float32 {
-	core.LazyRegister(&xRectGetWidth, "GRAPHENE", "graphene_rect_get_width", false)
-
 	cret := xRectGetWidth(x.GoPointer())
 	return cret
 }
@@ -186,8 +158,6 @@ var xRectGetX func(uintptr) float32
 // Retrieves the normalized X coordinate of the origin of the given
 // rectangle.
 func (x *Rect) GetX() float32 {
-	core.LazyRegister(&xRectGetX, "GRAPHENE", "graphene_rect_get_x", false)
-
 	cret := xRectGetX(x.GoPointer())
 	return cret
 }
@@ -197,8 +167,6 @@ var xRectGetY func(uintptr) float32
 // Retrieves the normalized Y coordinate of the origin of the given
 // rectangle.
 func (x *Rect) GetY() float32 {
-	core.LazyRegister(&xRectGetY, "GRAPHENE", "graphene_rect_get_y", false)
-
 	cret := xRectGetY(x.GoPointer())
 	return cret
 }
@@ -210,8 +178,6 @@ var xRectInit func(uintptr, float32, float32, float32, float32) uintptr
 // This function will implicitly normalize the #graphene_rect_t
 // before returning.
 func (x *Rect) Init(XVar float32, YVar float32, WidthVar float32, HeightVar float32) *Rect {
-	core.LazyRegister(&xRectInit, "GRAPHENE", "graphene_rect_init", false)
-
 	cret := xRectInit(x.GoPointer(), XVar, YVar, WidthVar, HeightVar)
 	if cret == 0 {
 		return nil
@@ -226,8 +192,6 @@ var xRectInitFromRect func(uintptr, *Rect) uintptr
 // This function will implicitly normalize the #graphene_rect_t
 // before returning.
 func (x *Rect) InitFromRect(SrcVar *Rect) *Rect {
-	core.LazyRegister(&xRectInitFromRect, "GRAPHENE", "graphene_rect_init_from_rect", false)
-
 	cret := xRectInitFromRect(x.GoPointer(), SrcVar)
 	if cret == 0 {
 		return nil
@@ -252,8 +216,6 @@ var xRectInset func(uintptr, float32, float32) uintptr
 // If the size of the resulting inset rectangle has a negative width or
 // height then the size will be set to zero.
 func (x *Rect) Inset(DXVar float32, DYVar float32) *Rect {
-	core.LazyRegister(&xRectInset, "GRAPHENE", "graphene_rect_inset", false)
-
 	cret := xRectInset(x.GoPointer(), DXVar, DYVar)
 	if cret == 0 {
 		return nil
@@ -278,8 +240,6 @@ var xRectInsetR func(uintptr, float32, float32, *Rect)
 // If the size of the resulting inset rectangle has a negative width or
 // height then the size will be set to zero.
 func (x *Rect) InsetR(DXVar float32, DYVar float32, ResVar *Rect) {
-	core.LazyRegister(&xRectInsetR, "GRAPHENE", "graphene_rect_inset_r", false)
-
 	xRectInsetR(x.GoPointer(), DXVar, DYVar, ResVar)
 }
 
@@ -288,8 +248,6 @@ var xRectInterpolate func(uintptr, *Rect, float64, *Rect)
 // Linearly interpolates the origin and size of the two given
 // rectangles.
 func (x *Rect) Interpolate(BVar *Rect, FactorVar float64, ResVar *Rect) {
-	core.LazyRegister(&xRectInterpolate, "GRAPHENE", "graphene_rect_interpolate", false)
-
 	xRectInterpolate(x.GoPointer(), BVar, FactorVar, ResVar)
 }
 
@@ -304,8 +262,6 @@ var xRectIntersection func(uintptr, *Rect, *Rect) bool
 // If the two rectangles do not intersect, @res will contain
 // a degenerate rectangle with origin in (0, 0) and a size of 0.
 func (x *Rect) Intersection(BVar *Rect, ResVar *Rect) bool {
-	core.LazyRegister(&xRectIntersection, "GRAPHENE", "graphene_rect_intersection", false)
-
 	cret := xRectIntersection(x.GoPointer(), BVar, ResVar)
 	return cret
 }
@@ -318,8 +274,6 @@ var xRectNormalize func(uintptr) uintptr
 // positive values, and that the origin is the top-left corner of
 // the rectangle.
 func (x *Rect) Normalize() *Rect {
-	core.LazyRegister(&xRectNormalize, "GRAPHENE", "graphene_rect_normalize", false)
-
 	cret := xRectNormalize(x.GoPointer())
 	if cret == 0 {
 		return nil
@@ -335,8 +289,6 @@ var xRectNormalizeR func(uintptr, *Rect)
 // positive values, and that the origin is in the top-left corner
 // of the rectangle.
 func (x *Rect) NormalizeR(ResVar *Rect) {
-	core.LazyRegister(&xRectNormalizeR, "GRAPHENE", "graphene_rect_normalize_r", false)
-
 	xRectNormalizeR(x.GoPointer(), ResVar)
 }
 
@@ -346,8 +298,6 @@ var xRectOffset func(uintptr, float32, float32) uintptr
 //
 // The size of the rectangle is unchanged.
 func (x *Rect) Offset(DXVar float32, DYVar float32) *Rect {
-	core.LazyRegister(&xRectOffset, "GRAPHENE", "graphene_rect_offset", false)
-
 	cret := xRectOffset(x.GoPointer(), DXVar, DYVar)
 	if cret == 0 {
 		return nil
@@ -361,8 +311,6 @@ var xRectOffsetR func(uintptr, float32, float32, *Rect)
 //
 // The size of the rectangle is left unchanged.
 func (x *Rect) OffsetR(DXVar float32, DYVar float32, ResVar *Rect) {
-	core.LazyRegister(&xRectOffsetR, "GRAPHENE", "graphene_rect_offset_r", false)
-
 	xRectOffsetR(x.GoPointer(), DXVar, DYVar, ResVar)
 }
 
@@ -378,8 +326,6 @@ var xRectRound func(uintptr, *Rect)
 // This function is the equivalent of calling `floor` on
 // the coordinates of the origin, and `ceil` on the size.
 func (x *Rect) Round(ResVar *Rect) {
-	core.LazyRegister(&xRectRound, "GRAPHENE", "graphene_rect_round", false)
-
 	xRectRound(x.GoPointer(), ResVar)
 }
 
@@ -407,8 +353,6 @@ var xRectRoundExtents func(uintptr, *Rect)
 // by a move in the anti-origin, leaving the corners of the
 // original rectangle outside the rounded one.
 func (x *Rect) RoundExtents(ResVar *Rect) {
-	core.LazyRegister(&xRectRoundExtents, "GRAPHENE", "graphene_rect_round_extents", false)
-
 	xRectRoundExtents(x.GoPointer(), ResVar)
 }
 
@@ -418,8 +362,6 @@ var xRectRoundToPixel func(uintptr) uintptr
 // their nearest integer values; the rounding is guaranteed
 // to be large enough to contain the original rectangle.
 func (x *Rect) RoundToPixel() *Rect {
-	core.LazyRegister(&xRectRoundToPixel, "GRAPHENE", "graphene_rect_round_to_pixel", false)
-
 	cret := xRectRoundToPixel(x.GoPointer())
 	if cret == 0 {
 		return nil
@@ -432,8 +374,6 @@ var xRectScale func(uintptr, float32, float32, *Rect)
 // Scales the size and origin of a rectangle horizontaly by @s_h,
 // and vertically by @s_v. The result @res is normalized.
 func (x *Rect) Scale(SHVar float32, SVVar float32, ResVar *Rect) {
-	core.LazyRegister(&xRectScale, "GRAPHENE", "graphene_rect_scale", false)
-
 	xRectScale(x.GoPointer(), SHVar, SVVar, ResVar)
 }
 
@@ -445,8 +385,6 @@ var xRectUnion func(uintptr, *Rect, *Rect)
 //
 // The union in the image above is the blue outline.
 func (x *Rect) Union(BVar *Rect, ResVar *Rect) {
-	core.LazyRegister(&xRectUnion, "GRAPHENE", "graphene_rect_union", false)
-
 	xRectUnion(x.GoPointer(), BVar, ResVar)
 }
 
@@ -456,8 +394,6 @@ var xRectAlloc func() uintptr
 //
 // The contents of the returned rectangle are undefined.
 func RectAlloc() *Rect {
-	core.LazyRegister(&xRectAlloc, "GRAPHENE", "graphene_rect_alloc", false)
-
 	cret := xRectAlloc()
 	if cret == 0 {
 		return nil
@@ -470,8 +406,6 @@ var xRectZero func() uintptr
 // Returns a degenerate rectangle with origin fixed at (0, 0) and
 // a size of 0, 0.
 func RectZero() *Rect {
-	core.LazyRegister(&xRectZero, "GRAPHENE", "graphene_rect_zero", false)
-
 	cret := xRectZero()
 	if cret == 0 {
 		return nil
@@ -482,4 +416,49 @@ func RectZero() *Rect {
 func init() {
 	core.SetPackageName("GRAPHENE", "graphene-gobject-1.0")
 	core.SetSharedLibraries("GRAPHENE", []string{"libgraphene-1.0.so.0", "libgraphene-1.0.0.dylib"})
+	var libs []uintptr
+	for _, libPath := range core.GetPaths("GRAPHENE") {
+		lib, err := purego.Dlopen(libPath, purego.RTLD_NOW|purego.RTLD_GLOBAL)
+		if err != nil {
+			panic(err)
+		}
+		libs = append(libs, lib)
+	}
+
+	core.PuregoSafeRegister(&xRectAlloc, libs, "graphene_rect_alloc")
+	core.PuregoSafeRegister(&xRectZero, libs, "graphene_rect_zero")
+
+	core.PuregoSafeRegister(&xRectGLibType, libs, "graphene_rect_get_type")
+
+	core.PuregoSafeRegister(&xRectContainsPoint, libs, "graphene_rect_contains_point")
+	core.PuregoSafeRegister(&xRectContainsRect, libs, "graphene_rect_contains_rect")
+	core.PuregoSafeRegister(&xRectEqual, libs, "graphene_rect_equal")
+	core.PuregoSafeRegister(&xRectExpand, libs, "graphene_rect_expand")
+	core.PuregoSafeRegister(&xRectFree, libs, "graphene_rect_free")
+	core.PuregoSafeRegister(&xRectGetArea, libs, "graphene_rect_get_area")
+	core.PuregoSafeRegister(&xRectGetBottomLeft, libs, "graphene_rect_get_bottom_left")
+	core.PuregoSafeRegister(&xRectGetBottomRight, libs, "graphene_rect_get_bottom_right")
+	core.PuregoSafeRegister(&xRectGetCenter, libs, "graphene_rect_get_center")
+	core.PuregoSafeRegister(&xRectGetHeight, libs, "graphene_rect_get_height")
+	core.PuregoSafeRegister(&xRectGetTopLeft, libs, "graphene_rect_get_top_left")
+	core.PuregoSafeRegister(&xRectGetTopRight, libs, "graphene_rect_get_top_right")
+	core.PuregoSafeRegister(&xRectGetVertices, libs, "graphene_rect_get_vertices")
+	core.PuregoSafeRegister(&xRectGetWidth, libs, "graphene_rect_get_width")
+	core.PuregoSafeRegister(&xRectGetX, libs, "graphene_rect_get_x")
+	core.PuregoSafeRegister(&xRectGetY, libs, "graphene_rect_get_y")
+	core.PuregoSafeRegister(&xRectInit, libs, "graphene_rect_init")
+	core.PuregoSafeRegister(&xRectInitFromRect, libs, "graphene_rect_init_from_rect")
+	core.PuregoSafeRegister(&xRectInset, libs, "graphene_rect_inset")
+	core.PuregoSafeRegister(&xRectInsetR, libs, "graphene_rect_inset_r")
+	core.PuregoSafeRegister(&xRectInterpolate, libs, "graphene_rect_interpolate")
+	core.PuregoSafeRegister(&xRectIntersection, libs, "graphene_rect_intersection")
+	core.PuregoSafeRegister(&xRectNormalize, libs, "graphene_rect_normalize")
+	core.PuregoSafeRegister(&xRectNormalizeR, libs, "graphene_rect_normalize_r")
+	core.PuregoSafeRegister(&xRectOffset, libs, "graphene_rect_offset")
+	core.PuregoSafeRegister(&xRectOffsetR, libs, "graphene_rect_offset_r")
+	core.PuregoSafeRegister(&xRectRound, libs, "graphene_rect_round")
+	core.PuregoSafeRegister(&xRectRoundExtents, libs, "graphene_rect_round_extents")
+	core.PuregoSafeRegister(&xRectRoundToPixel, libs, "graphene_rect_round_to_pixel")
+	core.PuregoSafeRegister(&xRectScale, libs, "graphene_rect_scale")
+	core.PuregoSafeRegister(&xRectUnion, libs, "graphene_rect_union")
 }

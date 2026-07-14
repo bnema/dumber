@@ -5,6 +5,7 @@ import (
 	"structs"
 	"unsafe"
 
+	"github.com/bnema/purego"
 	"github.com/bnema/puregotk/pkg/core"
 	"github.com/bnema/puregotk/v4/glib"
 	"github.com/bnema/puregotk/v4/gobject"
@@ -44,7 +45,6 @@ type ContentSniffer struct {
 var xContentSnifferGLibType func() types.GType
 
 func ContentSnifferGLibType() types.GType {
-	core.LazyRegister(&xContentSnifferGLibType, "SOUP", "soup_content_sniffer_get_type", false)
 	return xContentSnifferGLibType()
 }
 
@@ -58,7 +58,6 @@ var xNewContentSniffer func() uintptr
 
 // Creates a new [class@ContentSniffer].
 func NewContentSniffer() *ContentSniffer {
-	core.LazyRegister(&xNewContentSniffer, "SOUP", "soup_content_sniffer_new", false)
 	var cls *ContentSniffer
 
 	cret := xNewContentSniffer()
@@ -78,8 +77,6 @@ var xContentSnifferSniff func(uintptr, uintptr, *glib.Bytes, **glib.HashTable) s
 // The result may also be influenced by the Content-Type declared in @msg's
 // response headers.
 func (x *ContentSniffer) Sniff(MsgVar *Message, BufferVar *glib.Bytes, ParamsVar **glib.HashTable) string {
-	core.LazyRegister(&xContentSnifferSniff, "SOUP", "soup_content_sniffer_sniff", false)
-
 	cret := xContentSnifferSniff(x.GoPointer(), MsgVar.GoPointer(), BufferVar, ParamsVar)
 	return cret
 }
@@ -98,4 +95,18 @@ func (c *ContentSniffer) SetGoPointer(ptr uintptr) {
 func init() {
 	core.SetPackageName("SOUP", "libsoup-3.0")
 	core.SetSharedLibraries("SOUP", []string{"libsoup-3.0.so.0", "libsoup-3.0.0.dylib"})
+	var libs []uintptr
+	for _, libPath := range core.GetPaths("SOUP") {
+		lib, err := purego.Dlopen(libPath, purego.RTLD_NOW|purego.RTLD_GLOBAL)
+		if err != nil {
+			panic(err)
+		}
+		libs = append(libs, lib)
+	}
+
+	core.PuregoSafeRegister(&xContentSnifferGLibType, libs, "soup_content_sniffer_get_type")
+
+	core.PuregoSafeRegister(&xNewContentSniffer, libs, "soup_content_sniffer_new")
+
+	core.PuregoSafeRegister(&xContentSnifferSniff, libs, "soup_content_sniffer_sniff")
 }

@@ -246,7 +246,6 @@ type TreeSortable interface {
 var xTreeSortableGLibType func() types.GType
 
 func TreeSortableGLibType() types.GType {
-	core.LazyRegister(&xTreeSortableGLibType, "GTK", "gtk_tree_sortable_get_type", false)
 	return xTreeSortableGLibType()
 }
 
@@ -320,47 +319,14 @@ func (x *TreeSortableBase) SortColumnChanged() {
 	XGtkTreeSortableSortColumnChanged(x.GoPointer())
 }
 
-var XGtkTreeSortableGetSortColumnId func(uintptr, *int, *SortType) bool = func(instance uintptr, SortColumnIdVarp *int, OrderVarp *SortType) bool {
-	core.LazyRegister(&xXGtkTreeSortableGetSortColumnId, "GTK", "gtk_tree_sortable_get_sort_column_id", false)
-	return xXGtkTreeSortableGetSortColumnId(instance, SortColumnIdVarp, OrderVarp)
-}
-
 var (
-	xXGtkTreeSortableGetSortColumnId   func(uintptr, *int, *SortType) bool
-	XGtkTreeSortableHasDefaultSortFunc func(uintptr) bool = func(instance uintptr) bool {
-		core.LazyRegister(&xXGtkTreeSortableHasDefaultSortFunc, "GTK", "gtk_tree_sortable_has_default_sort_func", false)
-		return xXGtkTreeSortableHasDefaultSortFunc(instance)
-	}
+	XGtkTreeSortableGetSortColumnId    func(uintptr, *int, *SortType) bool
+	XGtkTreeSortableHasDefaultSortFunc func(uintptr) bool
+	XGtkTreeSortableSetDefaultSortFunc func(uintptr, uintptr, uintptr, uintptr)
+	XGtkTreeSortableSetSortColumnId    func(uintptr, int, SortType)
+	XGtkTreeSortableSetSortFunc        func(uintptr, int, uintptr, uintptr, uintptr)
+	XGtkTreeSortableSortColumnChanged  func(uintptr)
 )
-var (
-	xXGtkTreeSortableHasDefaultSortFunc func(uintptr) bool
-	XGtkTreeSortableSetDefaultSortFunc  func(uintptr, uintptr, uintptr, uintptr) = func(instance uintptr, SortFuncVarp uintptr, UserDataVarp uintptr, DestroyVarp uintptr) {
-		core.LazyRegister(&xXGtkTreeSortableSetDefaultSortFunc, "GTK", "gtk_tree_sortable_set_default_sort_func", false)
-		xXGtkTreeSortableSetDefaultSortFunc(instance, SortFuncVarp, UserDataVarp, DestroyVarp)
-	}
-)
-var (
-	xXGtkTreeSortableSetDefaultSortFunc func(uintptr, uintptr, uintptr, uintptr)
-	XGtkTreeSortableSetSortColumnId     func(uintptr, int, SortType) = func(instance uintptr, SortColumnIdVarp int, OrderVarp SortType) {
-		core.LazyRegister(&xXGtkTreeSortableSetSortColumnId, "GTK", "gtk_tree_sortable_set_sort_column_id", false)
-		xXGtkTreeSortableSetSortColumnId(instance, SortColumnIdVarp, OrderVarp)
-	}
-)
-var (
-	xXGtkTreeSortableSetSortColumnId func(uintptr, int, SortType)
-	XGtkTreeSortableSetSortFunc      func(uintptr, int, uintptr, uintptr, uintptr) = func(instance uintptr, SortColumnIdVarp int, SortFuncVarp uintptr, UserDataVarp uintptr, DestroyVarp uintptr) {
-		core.LazyRegister(&xXGtkTreeSortableSetSortFunc, "GTK", "gtk_tree_sortable_set_sort_func", false)
-		xXGtkTreeSortableSetSortFunc(instance, SortColumnIdVarp, SortFuncVarp, UserDataVarp, DestroyVarp)
-	}
-)
-var (
-	xXGtkTreeSortableSetSortFunc      func(uintptr, int, uintptr, uintptr, uintptr)
-	XGtkTreeSortableSortColumnChanged func(uintptr) = func(instance uintptr) {
-		core.LazyRegister(&xXGtkTreeSortableSortColumnChanged, "GTK", "gtk_tree_sortable_sort_column_changed", false)
-		xXGtkTreeSortableSortColumnChanged(instance)
-	}
-)
-var xXGtkTreeSortableSortColumnChanged func(uintptr)
 
 const (
 	// Uses the default sort function in a [iface@Gtk.TreeSortable].
@@ -376,4 +342,21 @@ const (
 func init() {
 	core.SetPackageName("GTK", "gtk4")
 	core.SetSharedLibraries("GTK", []string{"libgtk-4.so.1", "libgtk-4.1.dylib"})
+	var libs []uintptr
+	for _, libPath := range core.GetPaths("GTK") {
+		lib, err := purego.Dlopen(libPath, purego.RTLD_NOW|purego.RTLD_GLOBAL)
+		if err != nil {
+			panic(err)
+		}
+		libs = append(libs, lib)
+	}
+
+	core.PuregoSafeRegister(&xTreeSortableGLibType, libs, "gtk_tree_sortable_get_type")
+
+	core.PuregoSafeRegister(&XGtkTreeSortableGetSortColumnId, libs, "gtk_tree_sortable_get_sort_column_id")
+	core.PuregoSafeRegister(&XGtkTreeSortableHasDefaultSortFunc, libs, "gtk_tree_sortable_has_default_sort_func")
+	core.PuregoSafeRegister(&XGtkTreeSortableSetDefaultSortFunc, libs, "gtk_tree_sortable_set_default_sort_func")
+	core.PuregoSafeRegister(&XGtkTreeSortableSetSortColumnId, libs, "gtk_tree_sortable_set_sort_column_id")
+	core.PuregoSafeRegister(&XGtkTreeSortableSetSortFunc, libs, "gtk_tree_sortable_set_sort_func")
+	core.PuregoSafeRegister(&XGtkTreeSortableSortColumnChanged, libs, "gtk_tree_sortable_sort_column_changed")
 }

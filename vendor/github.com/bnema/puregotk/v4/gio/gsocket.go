@@ -375,7 +375,6 @@ type Socket struct {
 var xSocketGLibType func() types.GType
 
 func SocketGLibType() types.GType {
-	core.LazyRegister(&xSocketGLibType, "GIO", "g_socket_get_type", false)
 	return xSocketGLibType()
 }
 
@@ -401,7 +400,6 @@ var xNewSocket func(SocketFamily, SocketType, SocketProtocol, **glib.Error) uint
 // system, so you can use protocols not listed in #GSocketProtocol if you
 // know the protocol number used for it.
 func NewSocket(FamilyVar SocketFamily, TypeVar SocketType, ProtocolVar SocketProtocol) (*Socket, error) {
-	core.LazyRegister(&xNewSocket, "GIO", "g_socket_new", false)
 	var cls *Socket
 	var cerr *glib.Error
 
@@ -434,7 +432,6 @@ var xNewSocketFromFd func(int, **glib.Error) uintptr
 // Since GLib 2.46, it is no longer a fatal error to call this on a non-socket
 // descriptor.  Instead, a GError will be set with code %G_IO_ERROR_FAILED
 func NewSocketFromFd(FdVar int) (*Socket, error) {
-	core.LazyRegister(&xNewSocketFromFd, "GIO", "g_socket_new_from_fd", false)
 	var cls *Socket
 	var cerr *glib.Error
 
@@ -464,7 +461,6 @@ var xSocketAccept func(uintptr, uintptr, **glib.Error) uintptr
 // or return %G_IO_ERROR_WOULD_BLOCK if non-blocking I/O is enabled.
 // To be notified of an incoming connection, wait for the %G_IO_IN condition.
 func (x *Socket) Accept(CancellableVar *Cancellable) (*Socket, error) {
-	core.LazyRegister(&xSocketAccept, "GIO", "g_socket_accept", false)
 	var cls *Socket
 	var cerr *glib.Error
 
@@ -507,7 +503,6 @@ var xSocketBind func(uintptr, uintptr, bool, **glib.Error) bool
 // broadcast packets sent to that address. (The behavior of unicast
 // UDP packets to an address with multiple listeners is not defined.)
 func (x *Socket) Bind(AddressVar *SocketAddress, AllowReuseVar bool) (bool, error) {
-	core.LazyRegister(&xSocketBind, "GIO", "g_socket_bind", false)
 	var cerr *glib.Error
 
 	cret := xSocketBind(x.GoPointer(), AddressVar.GoPointer(), AllowReuseVar, &cerr)
@@ -523,7 +518,6 @@ var xSocketCheckConnectResult func(uintptr, **glib.Error) bool
 // This is used to check for errors when g_socket_connect() is
 // used in non-blocking mode.
 func (x *Socket) CheckConnectResult() (bool, error) {
-	core.LazyRegister(&xSocketCheckConnectResult, "GIO", "g_socket_check_connect_result", false)
 	var cerr *glib.Error
 
 	cret := xSocketCheckConnectResult(x.GoPointer(), &cerr)
@@ -565,7 +559,6 @@ var xSocketClose func(uintptr, **glib.Error) bool
 // only works if the client will close its connection after the server
 // does.)
 func (x *Socket) Close() (bool, error) {
-	core.LazyRegister(&xSocketClose, "GIO", "g_socket_close", false)
 	var cerr *glib.Error
 
 	cret := xSocketClose(x.GoPointer(), &cerr)
@@ -595,8 +588,6 @@ var xSocketConditionCheck func(uintptr, glib.IOCondition) glib.IOCondition
 //
 // This call never blocks.
 func (x *Socket) ConditionCheck(ConditionVar glib.IOCondition) glib.IOCondition {
-	core.LazyRegister(&xSocketConditionCheck, "GIO", "g_socket_condition_check", false)
-
 	cret := xSocketConditionCheck(x.GoPointer(), ConditionVar)
 	return cret
 }
@@ -620,7 +611,6 @@ var xSocketConditionTimedWait func(uintptr, glib.IOCondition, int64, uintptr, **
 // resolution, and the behavior is undefined if @timeout_us is not an
 // exact number of milliseconds.
 func (x *Socket) ConditionTimedWait(ConditionVar glib.IOCondition, TimeoutUsVar int64, CancellableVar *Cancellable) (bool, error) {
-	core.LazyRegister(&xSocketConditionTimedWait, "GIO", "g_socket_condition_timed_wait", false)
 	var cerr *glib.Error
 
 	cret := xSocketConditionTimedWait(x.GoPointer(), ConditionVar, TimeoutUsVar, CancellableVar.GoPointer(), &cerr)
@@ -643,7 +633,6 @@ var xSocketConditionWait func(uintptr, glib.IOCondition, uintptr, **glib.Error) 
 //
 // See also g_socket_condition_timed_wait().
 func (x *Socket) ConditionWait(ConditionVar glib.IOCondition, CancellableVar *Cancellable) (bool, error) {
-	core.LazyRegister(&xSocketConditionWait, "GIO", "g_socket_condition_wait", false)
 	var cerr *glib.Error
 
 	cret := xSocketConditionWait(x.GoPointer(), ConditionVar, CancellableVar.GoPointer(), &cerr)
@@ -672,7 +661,6 @@ var xSocketConnect func(uintptr, uintptr, uintptr, **glib.Error) bool
 // for the G_IO_OUT condition. The result of the connection must then be
 // checked with g_socket_check_connect_result().
 func (x *Socket) Connect(AddressVar *SocketAddress, CancellableVar *Cancellable) (bool, error) {
-	core.LazyRegister(&xSocketConnect, "GIO", "g_socket_connect", false)
 	var cerr *glib.Error
 
 	cret := xSocketConnect(x.GoPointer(), AddressVar.GoPointer(), CancellableVar.GoPointer(), &cerr)
@@ -687,7 +675,6 @@ var xSocketConnectionFactoryCreateConnection func(uintptr) uintptr
 // Creates a #GSocketConnection subclass of the right type for
 // @socket.
 func (x *Socket) ConnectionFactoryCreateConnection() *SocketConnection {
-	core.LazyRegister(&xSocketConnectionFactoryCreateConnection, "GIO", "g_socket_connection_factory_create_connection", false)
 	var cls *SocketConnection
 
 	cret := xSocketConnectionFactoryCreateConnection(x.GoPointer())
@@ -723,8 +710,6 @@ var xSocketCreateSource func(uintptr, glib.IOCondition, uintptr) uintptr
 // marked as having had a timeout, and so the next #GSocket I/O method
 // you call will then fail with a %G_IO_ERROR_TIMED_OUT.
 func (x *Socket) CreateSource(ConditionVar glib.IOCondition, CancellableVar *Cancellable) *glib.Source {
-	core.LazyRegister(&xSocketCreateSource, "GIO", "g_socket_create_source", false)
-
 	cret := xSocketCreateSource(x.GoPointer(), ConditionVar, CancellableVar.GoPointer())
 	if cret == 0 {
 		return nil
@@ -747,8 +732,6 @@ var xSocketGetAvailableBytes func(uintptr) int
 // g_socket_get_available_bytes() first and then doing a receive of
 // exactly the right size.
 func (x *Socket) GetAvailableBytes() int {
-	core.LazyRegister(&xSocketGetAvailableBytes, "GIO", "g_socket_get_available_bytes", false)
-
 	cret := xSocketGetAvailableBytes(x.GoPointer())
 	return cret
 }
@@ -758,8 +741,6 @@ var xSocketGetBlocking func(uintptr) bool
 // Gets the blocking mode of the socket. For details on blocking I/O,
 // see g_socket_set_blocking().
 func (x *Socket) GetBlocking() bool {
-	core.LazyRegister(&xSocketGetBlocking, "GIO", "g_socket_get_blocking", false)
-
 	cret := xSocketGetBlocking(x.GoPointer())
 	return cret
 }
@@ -770,8 +751,6 @@ var xSocketGetBroadcast func(uintptr) bool
 // it is possible to send packets to broadcast
 // addresses.
 func (x *Socket) GetBroadcast() bool {
-	core.LazyRegister(&xSocketGetBroadcast, "GIO", "g_socket_get_broadcast", false)
-
 	cret := xSocketGetBroadcast(x.GoPointer())
 	return cret
 }
@@ -799,7 +778,6 @@ var xSocketGetCredentials func(uintptr, **glib.Error) uintptr
 // g_unix_connection_send_credentials() /
 // g_unix_connection_receive_credentials() functions.
 func (x *Socket) GetCredentials() (*Credentials, error) {
-	core.LazyRegister(&xSocketGetCredentials, "GIO", "g_socket_get_credentials", false)
 	var cls *Credentials
 	var cerr *glib.Error
 
@@ -820,8 +798,6 @@ var xSocketGetFamily func(uintptr) SocketFamily
 
 // Gets the socket family of the socket.
 func (x *Socket) GetFamily() SocketFamily {
-	core.LazyRegister(&xSocketGetFamily, "GIO", "g_socket_get_family", false)
-
 	cret := xSocketGetFamily(x.GoPointer())
 	return cret
 }
@@ -834,8 +810,6 @@ var xSocketGetFd func(uintptr) int
 // doing platform specific or otherwise unusual operations
 // on the socket.
 func (x *Socket) GetFd() int {
-	core.LazyRegister(&xSocketGetFd, "GIO", "g_socket_get_fd", false)
-
 	cret := xSocketGetFd(x.GoPointer())
 	return cret
 }
@@ -845,8 +819,6 @@ var xSocketGetKeepalive func(uintptr) bool
 // Gets the keepalive mode of the socket. For details on this,
 // see g_socket_set_keepalive().
 func (x *Socket) GetKeepalive() bool {
-	core.LazyRegister(&xSocketGetKeepalive, "GIO", "g_socket_get_keepalive", false)
-
 	cret := xSocketGetKeepalive(x.GoPointer())
 	return cret
 }
@@ -856,8 +828,6 @@ var xSocketGetListenBacklog func(uintptr) int
 // Gets the listen backlog setting of the socket. For details on this,
 // see g_socket_set_listen_backlog().
 func (x *Socket) GetListenBacklog() int {
-	core.LazyRegister(&xSocketGetListenBacklog, "GIO", "g_socket_get_listen_backlog", false)
-
 	cret := xSocketGetListenBacklog(x.GoPointer())
 	return cret
 }
@@ -868,7 +838,6 @@ var xSocketGetLocalAddress func(uintptr, **glib.Error) uintptr
 // useful if the socket has been bound to a local address,
 // either explicitly or implicitly when connecting.
 func (x *Socket) GetLocalAddress() (*SocketAddress, error) {
-	core.LazyRegister(&xSocketGetLocalAddress, "GIO", "g_socket_get_local_address", false)
 	var cls *SocketAddress
 	var cerr *glib.Error
 
@@ -891,8 +860,6 @@ var xSocketGetMulticastLoopback func(uintptr) bool
 // default), outgoing multicast packets will be looped back to
 // multicast listeners on the same host.
 func (x *Socket) GetMulticastLoopback() bool {
-	core.LazyRegister(&xSocketGetMulticastLoopback, "GIO", "g_socket_get_multicast_loopback", false)
-
 	cret := xSocketGetMulticastLoopback(x.GoPointer())
 	return cret
 }
@@ -902,8 +869,6 @@ var xSocketGetMulticastTtl func(uintptr) uint
 // Gets the multicast time-to-live setting on @socket; see
 // g_socket_set_multicast_ttl() for more details.
 func (x *Socket) GetMulticastTtl() uint {
-	core.LazyRegister(&xSocketGetMulticastTtl, "GIO", "g_socket_get_multicast_ttl", false)
-
 	cret := xSocketGetMulticastTtl(x.GoPointer())
 	return cret
 }
@@ -924,7 +889,6 @@ var xSocketGetOption func(uintptr, int, int, *int, **glib.Error) bool
 // @value is still a pointer to a #gint variable, not a #guchar;
 // g_socket_get_option() will handle the conversion internally.
 func (x *Socket) GetOption(LevelVar int, OptnameVar int, ValueVar *int) (bool, error) {
-	core.LazyRegister(&xSocketGetOption, "GIO", "g_socket_get_option", false)
 	var cerr *glib.Error
 
 	cret := xSocketGetOption(x.GoPointer(), LevelVar, OptnameVar, ValueVar, &cerr)
@@ -939,8 +903,6 @@ var xSocketGetProtocol func(uintptr) SocketProtocol
 // Gets the socket protocol id the socket was created with.
 // In case the protocol is unknown, -1 is returned.
 func (x *Socket) GetProtocol() SocketProtocol {
-	core.LazyRegister(&xSocketGetProtocol, "GIO", "g_socket_get_protocol", false)
-
 	cret := xSocketGetProtocol(x.GoPointer())
 	return cret
 }
@@ -950,7 +912,6 @@ var xSocketGetRemoteAddress func(uintptr, **glib.Error) uintptr
 // Try to get the remote address of a connected socket. This is only
 // useful for connection oriented sockets that have been connected.
 func (x *Socket) GetRemoteAddress() (*SocketAddress, error) {
-	core.LazyRegister(&xSocketGetRemoteAddress, "GIO", "g_socket_get_remote_address", false)
 	var cls *SocketAddress
 	var cerr *glib.Error
 
@@ -971,8 +932,6 @@ var xSocketGetSocketType func(uintptr) SocketType
 
 // Gets the socket type of the socket.
 func (x *Socket) GetSocketType() SocketType {
-	core.LazyRegister(&xSocketGetSocketType, "GIO", "g_socket_get_socket_type", false)
-
 	cret := xSocketGetSocketType(x.GoPointer())
 	return cret
 }
@@ -982,8 +941,6 @@ var xSocketGetTimeout func(uintptr) uint
 // Gets the timeout setting of the socket. For details on this, see
 // g_socket_set_timeout().
 func (x *Socket) GetTimeout() uint {
-	core.LazyRegister(&xSocketGetTimeout, "GIO", "g_socket_get_timeout", false)
-
 	cret := xSocketGetTimeout(x.GoPointer())
 	return cret
 }
@@ -993,8 +950,6 @@ var xSocketGetTtl func(uintptr) uint
 // Gets the unicast time-to-live setting on @socket; see
 // g_socket_set_ttl() for more details.
 func (x *Socket) GetTtl() uint {
-	core.LazyRegister(&xSocketGetTtl, "GIO", "g_socket_get_ttl", false)
-
 	cret := xSocketGetTtl(x.GoPointer())
 	return cret
 }
@@ -1003,8 +958,6 @@ var xSocketIsClosed func(uintptr) bool
 
 // Checks whether a socket is closed.
 func (x *Socket) IsClosed() bool {
-	core.LazyRegister(&xSocketIsClosed, "GIO", "g_socket_is_closed", false)
-
 	cret := xSocketIsClosed(x.GoPointer())
 	return cret
 }
@@ -1019,8 +972,6 @@ var xSocketIsConnected func(uintptr) bool
 // connect, this function will not return %TRUE until after you call
 // g_socket_check_connect_result().
 func (x *Socket) IsConnected() bool {
-	core.LazyRegister(&xSocketIsConnected, "GIO", "g_socket_is_connected", false)
-
 	cret := xSocketIsConnected(x.GoPointer())
 	return cret
 }
@@ -1042,7 +993,6 @@ var xSocketJoinMulticastGroup func(uintptr, uintptr, bool, uintptr, **glib.Error
 // To bind to a given source-specific multicast address, use
 // g_socket_join_multicast_group_ssm() instead.
 func (x *Socket) JoinMulticastGroup(GroupVar *InetAddress, SourceSpecificVar bool, IfaceVar *string) (bool, error) {
-	core.LazyRegister(&xSocketJoinMulticastGroup, "GIO", "g_socket_join_multicast_group", false)
 	var cerr *glib.Error
 
 	IfaceVarPtr := core.GStrdupNullable(IfaceVar)
@@ -1073,7 +1023,6 @@ var xSocketJoinMulticastGroupSsm func(uintptr, uintptr, uintptr, uintptr, **glib
 // @group with different @source_specific in order to receive multicast
 // packets from more than one source.
 func (x *Socket) JoinMulticastGroupSsm(GroupVar *InetAddress, SourceSpecificVar *InetAddress, IfaceVar *string) (bool, error) {
-	core.LazyRegister(&xSocketJoinMulticastGroupSsm, "GIO", "g_socket_join_multicast_group_ssm", false)
 	var cerr *glib.Error
 
 	IfaceVarPtr := core.GStrdupNullable(IfaceVar)
@@ -1098,7 +1047,6 @@ var xSocketLeaveMulticastGroup func(uintptr, uintptr, bool, uintptr, **glib.Erro
 // To unbind to a given source-specific multicast address, use
 // g_socket_leave_multicast_group_ssm() instead.
 func (x *Socket) LeaveMulticastGroup(GroupVar *InetAddress, SourceSpecificVar bool, IfaceVar *string) (bool, error) {
-	core.LazyRegister(&xSocketLeaveMulticastGroup, "GIO", "g_socket_leave_multicast_group", false)
 	var cerr *glib.Error
 
 	IfaceVarPtr := core.GStrdupNullable(IfaceVar)
@@ -1120,7 +1068,6 @@ var xSocketLeaveMulticastGroupSsm func(uintptr, uintptr, uintptr, uintptr, **gli
 // @socket remains bound to its address and port, and can still receive
 // unicast messages after calling this.
 func (x *Socket) LeaveMulticastGroupSsm(GroupVar *InetAddress, SourceSpecificVar *InetAddress, IfaceVar *string) (bool, error) {
-	core.LazyRegister(&xSocketLeaveMulticastGroupSsm, "GIO", "g_socket_leave_multicast_group_ssm", false)
 	var cerr *glib.Error
 
 	IfaceVarPtr := core.GStrdupNullable(IfaceVar)
@@ -1144,7 +1091,6 @@ var xSocketListen func(uintptr, **glib.Error) bool
 // To set the maximum amount of outstanding clients, use
 // g_socket_set_listen_backlog().
 func (x *Socket) Listen() (bool, error) {
-	core.LazyRegister(&xSocketListen, "GIO", "g_socket_listen", false)
 	var cerr *glib.Error
 
 	cret := xSocketListen(x.GoPointer(), &cerr)
@@ -1180,7 +1126,6 @@ var xSocketReceive func(uintptr, *[]byte, uint, uintptr, **glib.Error) int
 //
 // On error -1 is returned and @error is set accordingly.
 func (x *Socket) Receive(BufferVar *[]byte, SizeVar uint, CancellableVar *Cancellable) (int, error) {
-	core.LazyRegister(&xSocketReceive, "GIO", "g_socket_receive", false)
 	var cerr *glib.Error
 
 	cret := xSocketReceive(x.GoPointer(), BufferVar, SizeVar, CancellableVar.GoPointer(), &cerr)
@@ -1202,7 +1147,6 @@ var xSocketReceiveBytes func(uintptr, uint, int64, uintptr, **glib.Error) uintpt
 // timeout from [property@Gio.Socket:timeout], or pass a positive number to wait
 // for that many microseconds for data before returning `G_IO_ERROR_TIMED_OUT`.
 func (x *Socket) ReceiveBytes(SizeVar uint, TimeoutUsVar int64, CancellableVar *Cancellable) (*glib.Bytes, error) {
-	core.LazyRegister(&xSocketReceiveBytes, "GIO", "g_socket_receive_bytes", false)
 	var cerr *glib.Error
 
 	cret := xSocketReceiveBytes(x.GoPointer(), SizeVar, TimeoutUsVar, CancellableVar.GoPointer(), &cerr)
@@ -1232,7 +1176,6 @@ var xSocketReceiveBytesFrom func(uintptr, **SocketAddress, uint, int64, uintptr,
 // timeout from [property@Gio.Socket:timeout], or pass a positive number to wait
 // for that many microseconds for data before returning `G_IO_ERROR_TIMED_OUT`.
 func (x *Socket) ReceiveBytesFrom(AddressVar **SocketAddress, SizeVar uint, TimeoutUsVar int64, CancellableVar *Cancellable) (*glib.Bytes, error) {
-	core.LazyRegister(&xSocketReceiveBytesFrom, "GIO", "g_socket_receive_bytes_from", false)
 	var cerr *glib.Error
 
 	cret := xSocketReceiveBytesFrom(x.GoPointer(), AddressVar, SizeVar, TimeoutUsVar, CancellableVar.GoPointer(), &cerr)
@@ -1255,7 +1198,6 @@ var xSocketReceiveFrom func(uintptr, **SocketAddress, *[]byte, uint, uintptr, **
 //
 // See g_socket_receive() for additional information.
 func (x *Socket) ReceiveFrom(AddressVar **SocketAddress, BufferVar *[]byte, SizeVar uint, CancellableVar *Cancellable) (int, error) {
-	core.LazyRegister(&xSocketReceiveFrom, "GIO", "g_socket_receive_from", false)
 	var cerr *glib.Error
 
 	cret := xSocketReceiveFrom(x.GoPointer(), AddressVar, BufferVar, SizeVar, CancellableVar.GoPointer(), &cerr)
@@ -1327,7 +1269,6 @@ var xSocketReceiveMessage func(uintptr, **SocketAddress, []InputVector, int, *ui
 //
 // On error -1 is returned and @error is set accordingly.
 func (x *Socket) ReceiveMessage(AddressVar **SocketAddress, VectorsVar []InputVector, NumVectorsVar int, MessagesVar *uintptr, NumMessagesVar *int, FlagsVar *int, CancellableVar *Cancellable) (int, error) {
-	core.LazyRegister(&xSocketReceiveMessage, "GIO", "g_socket_receive_message", false)
 	var cerr *glib.Error
 
 	cret := xSocketReceiveMessage(x.GoPointer(), AddressVar, VectorsVar, NumVectorsVar, MessagesVar, NumMessagesVar, FlagsVar, CancellableVar.GoPointer(), &cerr)
@@ -1388,7 +1329,6 @@ var xSocketReceiveMessages func(uintptr, []InputMessage, uint, int, uintptr, **g
 // be returned if zero messages could be received; otherwise the number of
 // messages successfully received before the error will be returned.
 func (x *Socket) ReceiveMessages(MessagesVar []InputMessage, NumMessagesVar uint, FlagsVar int, CancellableVar *Cancellable) (int, error) {
-	core.LazyRegister(&xSocketReceiveMessages, "GIO", "g_socket_receive_messages", false)
 	var cerr *glib.Error
 
 	cret := xSocketReceiveMessages(x.GoPointer(), MessagesVar, NumMessagesVar, FlagsVar, CancellableVar.GoPointer(), &cerr)
@@ -1404,7 +1344,6 @@ var xSocketReceiveWithBlocking func(uintptr, *[]byte, uint, bool, uintptr, **gli
 // the choice of blocking or non-blocking behavior is determined by
 // the @blocking argument rather than by @socket's properties.
 func (x *Socket) ReceiveWithBlocking(BufferVar *[]byte, SizeVar uint, BlockingVar bool, CancellableVar *Cancellable) (int, error) {
-	core.LazyRegister(&xSocketReceiveWithBlocking, "GIO", "g_socket_receive_with_blocking", false)
 	var cerr *glib.Error
 
 	cret := xSocketReceiveWithBlocking(x.GoPointer(), BufferVar, SizeVar, BlockingVar, CancellableVar.GoPointer(), &cerr)
@@ -1431,7 +1370,6 @@ var xSocketSend func(uintptr, []byte, uint, uintptr, **glib.Error) int
 //
 // On error -1 is returned and @error is set accordingly.
 func (x *Socket) Send(BufferVar []byte, SizeVar uint, CancellableVar *Cancellable) (int, error) {
-	core.LazyRegister(&xSocketSend, "GIO", "g_socket_send", false)
 	var cerr *glib.Error
 
 	cret := xSocketSend(x.GoPointer(), BufferVar, SizeVar, CancellableVar.GoPointer(), &cerr)
@@ -1486,7 +1424,6 @@ var xSocketSendMessage func(uintptr, uintptr, []OutputVector, int, uintptr, int,
 //
 // On error -1 is returned and @error is set accordingly.
 func (x *Socket) SendMessage(AddressVar *SocketAddress, VectorsVar []OutputVector, NumVectorsVar int, MessagesVar uintptr, NumMessagesVar int, FlagsVar int, CancellableVar *Cancellable) (int, error) {
-	core.LazyRegister(&xSocketSendMessage, "GIO", "g_socket_send_message", false)
 	var cerr *glib.Error
 
 	cret := xSocketSendMessage(x.GoPointer(), AddressVar.GoPointer(), VectorsVar, NumVectorsVar, MessagesVar, NumMessagesVar, FlagsVar, CancellableVar.GoPointer(), &cerr)
@@ -1506,7 +1443,6 @@ var xSocketSendMessageWithTimeout func(uintptr, uintptr, []OutputVector, int, ui
 // if the socket is currently not writable %G_POLLABLE_RETURN_WOULD_BLOCK is
 // returned. @bytes_written will contain 0 in both cases.
 func (x *Socket) SendMessageWithTimeout(AddressVar *SocketAddress, VectorsVar []OutputVector, NumVectorsVar int, MessagesVar uintptr, NumMessagesVar int, FlagsVar int, TimeoutUsVar int64, BytesWrittenVar *uint, CancellableVar *Cancellable) (PollableReturn, error) {
-	core.LazyRegister(&xSocketSendMessageWithTimeout, "GIO", "g_socket_send_message_with_timeout", false)
 	var cerr *glib.Error
 
 	cret := xSocketSendMessageWithTimeout(x.GoPointer(), AddressVar.GoPointer(), VectorsVar, NumVectorsVar, MessagesVar, NumMessagesVar, FlagsVar, TimeoutUsVar, BytesWrittenVar, CancellableVar.GoPointer(), &cerr)
@@ -1553,7 +1489,6 @@ var xSocketSendMessages func(uintptr, []OutputMessage, uint, int, uintptr, **gli
 // be returned if zero messages could be sent; otherwise the number of messages
 // successfully sent before the error will be returned.
 func (x *Socket) SendMessages(MessagesVar []OutputMessage, NumMessagesVar uint, FlagsVar int, CancellableVar *Cancellable) (int, error) {
-	core.LazyRegister(&xSocketSendMessages, "GIO", "g_socket_send_messages", false)
 	var cerr *glib.Error
 
 	cret := xSocketSendMessages(x.GoPointer(), MessagesVar, NumMessagesVar, FlagsVar, CancellableVar.GoPointer(), &cerr)
@@ -1571,7 +1506,6 @@ var xSocketSendTo func(uintptr, uintptr, []byte, uint, uintptr, **glib.Error) in
 //
 // See g_socket_send() for additional information.
 func (x *Socket) SendTo(AddressVar *SocketAddress, BufferVar []byte, SizeVar uint, CancellableVar *Cancellable) (int, error) {
-	core.LazyRegister(&xSocketSendTo, "GIO", "g_socket_send_to", false)
 	var cerr *glib.Error
 
 	cret := xSocketSendTo(x.GoPointer(), AddressVar.GoPointer(), BufferVar, SizeVar, CancellableVar.GoPointer(), &cerr)
@@ -1587,7 +1521,6 @@ var xSocketSendWithBlocking func(uintptr, []byte, uint, bool, uintptr, **glib.Er
 // the choice of blocking or non-blocking behavior is determined by
 // the @blocking argument rather than by @socket's properties.
 func (x *Socket) SendWithBlocking(BufferVar []byte, SizeVar uint, BlockingVar bool, CancellableVar *Cancellable) (int, error) {
-	core.LazyRegister(&xSocketSendWithBlocking, "GIO", "g_socket_send_with_blocking", false)
 	var cerr *glib.Error
 
 	cret := xSocketSendWithBlocking(x.GoPointer(), BufferVar, SizeVar, BlockingVar, CancellableVar.GoPointer(), &cerr)
@@ -1609,8 +1542,6 @@ var xSocketSetBlocking func(uintptr, bool)
 // platform level socket is always non-blocking, and blocking mode
 // is a GSocket level feature.
 func (x *Socket) SetBlocking(BlockingVar bool) {
-	core.LazyRegister(&xSocketSetBlocking, "GIO", "g_socket_set_blocking", false)
-
 	xSocketSetBlocking(x.GoPointer(), BlockingVar)
 }
 
@@ -1619,8 +1550,6 @@ var xSocketSetBroadcast func(uintptr, bool)
 // Sets whether @socket should allow sending to broadcast addresses.
 // This is %FALSE by default.
 func (x *Socket) SetBroadcast(BroadcastVar bool) {
-	core.LazyRegister(&xSocketSetBroadcast, "GIO", "g_socket_set_broadcast", false)
-
 	xSocketSetBroadcast(x.GoPointer(), BroadcastVar)
 }
 
@@ -1642,8 +1571,6 @@ var xSocketSetKeepalive func(uintptr, bool)
 // periods of time, but also want to ensure that connections are eventually
 // garbage-collected if clients crash or become unreachable.
 func (x *Socket) SetKeepalive(KeepaliveVar bool) {
-	core.LazyRegister(&xSocketSetKeepalive, "GIO", "g_socket_set_keepalive", false)
-
 	xSocketSetKeepalive(x.GoPointer(), KeepaliveVar)
 }
 
@@ -1657,8 +1584,6 @@ var xSocketSetListenBacklog func(uintptr, int)
 // Note that this must be called before g_socket_listen() and has no
 // effect if called after that.
 func (x *Socket) SetListenBacklog(BacklogVar int) {
-	core.LazyRegister(&xSocketSetListenBacklog, "GIO", "g_socket_set_listen_backlog", false)
-
 	xSocketSetListenBacklog(x.GoPointer(), BacklogVar)
 }
 
@@ -1668,8 +1593,6 @@ var xSocketSetMulticastLoopback func(uintptr, bool)
 // listening on that multicast address on the same host. This is %TRUE
 // by default.
 func (x *Socket) SetMulticastLoopback(LoopbackVar bool) {
-	core.LazyRegister(&xSocketSetMulticastLoopback, "GIO", "g_socket_set_multicast_loopback", false)
-
 	xSocketSetMulticastLoopback(x.GoPointer(), LoopbackVar)
 }
 
@@ -1679,8 +1602,6 @@ var xSocketSetMulticastTtl func(uintptr, uint)
 // By default, this is 1, meaning that multicast packets will not leave
 // the local network.
 func (x *Socket) SetMulticastTtl(TtlVar uint) {
-	core.LazyRegister(&xSocketSetMulticastTtl, "GIO", "g_socket_set_multicast_ttl", false)
-
 	xSocketSetMulticastTtl(x.GoPointer(), TtlVar)
 }
 
@@ -1696,7 +1617,6 @@ var xSocketSetOption func(uintptr, int, int, int, **glib.Error) bool
 // platform-dependent options, you may need to include additional
 // headers.
 func (x *Socket) SetOption(LevelVar int, OptnameVar int, ValueVar int) (bool, error) {
-	core.LazyRegister(&xSocketSetOption, "GIO", "g_socket_set_option", false)
 	var cerr *glib.Error
 
 	cret := xSocketSetOption(x.GoPointer(), LevelVar, OptnameVar, ValueVar, &cerr)
@@ -1729,8 +1649,6 @@ var xSocketSetTimeout func(uintptr, uint)
 // Note that if an I/O operation is interrupted by a signal, this may
 // cause the timeout to be reset.
 func (x *Socket) SetTimeout(TimeoutVar uint) {
-	core.LazyRegister(&xSocketSetTimeout, "GIO", "g_socket_set_timeout", false)
-
 	xSocketSetTimeout(x.GoPointer(), TimeoutVar)
 }
 
@@ -1739,8 +1657,6 @@ var xSocketSetTtl func(uintptr, uint)
 // Sets the time-to-live for outgoing unicast packets on @socket.
 // By default the platform-specific default value is used.
 func (x *Socket) SetTtl(TtlVar uint) {
-	core.LazyRegister(&xSocketSetTtl, "GIO", "g_socket_set_ttl", false)
-
 	xSocketSetTtl(x.GoPointer(), TtlVar)
 }
 
@@ -1761,7 +1677,6 @@ var xSocketShutdown func(uintptr, bool, bool, **glib.Error) bool
 // then wait for the other side to close the connection, thus ensuring that the
 // other side saw all sent data.
 func (x *Socket) Shutdown(ShutdownReadVar bool, ShutdownWriteVar bool) (bool, error) {
-	core.LazyRegister(&xSocketShutdown, "GIO", "g_socket_shutdown", false)
 	var cerr *glib.Error
 
 	cret := xSocketShutdown(x.GoPointer(), ShutdownReadVar, ShutdownWriteVar, &cerr)
@@ -1783,8 +1698,6 @@ var xSocketSpeaksIpv4 func(uintptr) bool
 // No other types of sockets are currently considered as being capable
 // of speaking IPv4.
 func (x *Socket) SpeaksIpv4() bool {
-	core.LazyRegister(&xSocketSpeaksIpv4, "GIO", "g_socket_speaks_ipv4", false)
-
 	cret := xSocketSpeaksIpv4(x.GoPointer())
 	return cret
 }
@@ -2004,4 +1917,76 @@ func (x *Socket) Init(CancellableVar *Cancellable) (bool, error) {
 func init() {
 	core.SetPackageName("GIO", "gio-2.0")
 	core.SetSharedLibraries("GIO", []string{"libgio-2.0.so.0", "libgio-2.0.0.dylib"})
+	var libs []uintptr
+	for _, libPath := range core.GetPaths("GIO") {
+		lib, err := purego.Dlopen(libPath, purego.RTLD_NOW|purego.RTLD_GLOBAL)
+		if err != nil {
+			panic(err)
+		}
+		libs = append(libs, lib)
+	}
+
+	core.PuregoSafeRegister(&xSocketGLibType, libs, "g_socket_get_type")
+
+	core.PuregoSafeRegister(&xNewSocket, libs, "g_socket_new")
+	core.PuregoSafeRegister(&xNewSocketFromFd, libs, "g_socket_new_from_fd")
+
+	core.PuregoSafeRegister(&xSocketAccept, libs, "g_socket_accept")
+	core.PuregoSafeRegister(&xSocketBind, libs, "g_socket_bind")
+	core.PuregoSafeRegister(&xSocketCheckConnectResult, libs, "g_socket_check_connect_result")
+	core.PuregoSafeRegister(&xSocketClose, libs, "g_socket_close")
+	core.PuregoSafeRegister(&xSocketConditionCheck, libs, "g_socket_condition_check")
+	core.PuregoSafeRegister(&xSocketConditionTimedWait, libs, "g_socket_condition_timed_wait")
+	core.PuregoSafeRegister(&xSocketConditionWait, libs, "g_socket_condition_wait")
+	core.PuregoSafeRegister(&xSocketConnect, libs, "g_socket_connect")
+	core.PuregoSafeRegister(&xSocketConnectionFactoryCreateConnection, libs, "g_socket_connection_factory_create_connection")
+	core.PuregoSafeRegister(&xSocketCreateSource, libs, "g_socket_create_source")
+	core.PuregoSafeRegister(&xSocketGetAvailableBytes, libs, "g_socket_get_available_bytes")
+	core.PuregoSafeRegister(&xSocketGetBlocking, libs, "g_socket_get_blocking")
+	core.PuregoSafeRegister(&xSocketGetBroadcast, libs, "g_socket_get_broadcast")
+	core.PuregoSafeRegister(&xSocketGetCredentials, libs, "g_socket_get_credentials")
+	core.PuregoSafeRegister(&xSocketGetFamily, libs, "g_socket_get_family")
+	core.PuregoSafeRegister(&xSocketGetFd, libs, "g_socket_get_fd")
+	core.PuregoSafeRegister(&xSocketGetKeepalive, libs, "g_socket_get_keepalive")
+	core.PuregoSafeRegister(&xSocketGetListenBacklog, libs, "g_socket_get_listen_backlog")
+	core.PuregoSafeRegister(&xSocketGetLocalAddress, libs, "g_socket_get_local_address")
+	core.PuregoSafeRegister(&xSocketGetMulticastLoopback, libs, "g_socket_get_multicast_loopback")
+	core.PuregoSafeRegister(&xSocketGetMulticastTtl, libs, "g_socket_get_multicast_ttl")
+	core.PuregoSafeRegister(&xSocketGetOption, libs, "g_socket_get_option")
+	core.PuregoSafeRegister(&xSocketGetProtocol, libs, "g_socket_get_protocol")
+	core.PuregoSafeRegister(&xSocketGetRemoteAddress, libs, "g_socket_get_remote_address")
+	core.PuregoSafeRegister(&xSocketGetSocketType, libs, "g_socket_get_socket_type")
+	core.PuregoSafeRegister(&xSocketGetTimeout, libs, "g_socket_get_timeout")
+	core.PuregoSafeRegister(&xSocketGetTtl, libs, "g_socket_get_ttl")
+	core.PuregoSafeRegister(&xSocketIsClosed, libs, "g_socket_is_closed")
+	core.PuregoSafeRegister(&xSocketIsConnected, libs, "g_socket_is_connected")
+	core.PuregoSafeRegister(&xSocketJoinMulticastGroup, libs, "g_socket_join_multicast_group")
+	core.PuregoSafeRegister(&xSocketJoinMulticastGroupSsm, libs, "g_socket_join_multicast_group_ssm")
+	core.PuregoSafeRegister(&xSocketLeaveMulticastGroup, libs, "g_socket_leave_multicast_group")
+	core.PuregoSafeRegister(&xSocketLeaveMulticastGroupSsm, libs, "g_socket_leave_multicast_group_ssm")
+	core.PuregoSafeRegister(&xSocketListen, libs, "g_socket_listen")
+	core.PuregoSafeRegister(&xSocketReceive, libs, "g_socket_receive")
+	core.PuregoSafeRegister(&xSocketReceiveBytes, libs, "g_socket_receive_bytes")
+	core.PuregoSafeRegister(&xSocketReceiveBytesFrom, libs, "g_socket_receive_bytes_from")
+	core.PuregoSafeRegister(&xSocketReceiveFrom, libs, "g_socket_receive_from")
+	core.PuregoSafeRegister(&xSocketReceiveMessage, libs, "g_socket_receive_message")
+	core.PuregoSafeRegister(&xSocketReceiveMessages, libs, "g_socket_receive_messages")
+	core.PuregoSafeRegister(&xSocketReceiveWithBlocking, libs, "g_socket_receive_with_blocking")
+	core.PuregoSafeRegister(&xSocketSend, libs, "g_socket_send")
+	core.PuregoSafeRegister(&xSocketSendMessage, libs, "g_socket_send_message")
+	core.PuregoSafeRegister(&xSocketSendMessageWithTimeout, libs, "g_socket_send_message_with_timeout")
+	core.PuregoSafeRegister(&xSocketSendMessages, libs, "g_socket_send_messages")
+	core.PuregoSafeRegister(&xSocketSendTo, libs, "g_socket_send_to")
+	core.PuregoSafeRegister(&xSocketSendWithBlocking, libs, "g_socket_send_with_blocking")
+	core.PuregoSafeRegister(&xSocketSetBlocking, libs, "g_socket_set_blocking")
+	core.PuregoSafeRegister(&xSocketSetBroadcast, libs, "g_socket_set_broadcast")
+	core.PuregoSafeRegister(&xSocketSetKeepalive, libs, "g_socket_set_keepalive")
+	core.PuregoSafeRegister(&xSocketSetListenBacklog, libs, "g_socket_set_listen_backlog")
+	core.PuregoSafeRegister(&xSocketSetMulticastLoopback, libs, "g_socket_set_multicast_loopback")
+	core.PuregoSafeRegister(&xSocketSetMulticastTtl, libs, "g_socket_set_multicast_ttl")
+	core.PuregoSafeRegister(&xSocketSetOption, libs, "g_socket_set_option")
+	core.PuregoSafeRegister(&xSocketSetTimeout, libs, "g_socket_set_timeout")
+	core.PuregoSafeRegister(&xSocketSetTtl, libs, "g_socket_set_ttl")
+	core.PuregoSafeRegister(&xSocketShutdown, libs, "g_socket_shutdown")
+	core.PuregoSafeRegister(&xSocketSpeaksIpv4, libs, "g_socket_speaks_ipv4")
 }

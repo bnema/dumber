@@ -625,7 +625,7 @@ func (x *FileIface) OverrideGetChildForDisplayName(cb func(File, string) *FileBa
 	if cb == nil {
 		x.xGetChildForDisplayName = 0
 	} else {
-		x.xGetChildForDisplayName = purego.NewCallback(func(FileVarp uintptr, DisplayNameVarp string, cerrp **glib.Error) uintptr {
+		x.xGetChildForDisplayName = purego.NewCallback(func(FileVarp uintptr, DisplayNameVarp string) uintptr {
 			ret := cb(&FileBase{Ptr: FileVarp}, DisplayNameVarp)
 			if ret == nil {
 				return 0
@@ -641,11 +641,10 @@ func (x *FileIface) GetGetChildForDisplayName() func(File, string) *FileBase {
 	if x.xGetChildForDisplayName == 0 {
 		return nil
 	}
-	var rawCallback func(FileVarp uintptr, DisplayNameVarp string, cerrp **glib.Error) uintptr
+	var rawCallback func(FileVarp uintptr, DisplayNameVarp string) uintptr
 	purego.RegisterFunc(&rawCallback, x.xGetChildForDisplayName)
 	return func(FileVar File, DisplayNameVar string) *FileBase {
-		var cerr *glib.Error
-		rawRet := rawCallback(FileVar.GoPointer(), DisplayNameVar, &cerr)
+		rawRet := rawCallback(FileVar.GoPointer(), DisplayNameVar)
 		if rawRet == 0 {
 			return nil
 		}
@@ -661,7 +660,7 @@ func (x *FileIface) OverrideEnumerateChildren(cb func(File, string, FileQueryInf
 	if cb == nil {
 		x.xEnumerateChildren = 0
 	} else {
-		x.xEnumerateChildren = purego.NewCallback(func(FileVarp uintptr, AttributesVarp string, FlagsVarp FileQueryInfoFlags, CancellableVarp uintptr, cerrp **glib.Error) uintptr {
+		x.xEnumerateChildren = purego.NewCallback(func(FileVarp uintptr, AttributesVarp string, FlagsVarp FileQueryInfoFlags, CancellableVarp uintptr) uintptr {
 			ret := cb(&FileBase{Ptr: FileVarp}, AttributesVarp, FlagsVarp, CancellableNewFromInternalPtr(CancellableVarp))
 			if ret == nil {
 				return 0
@@ -677,11 +676,10 @@ func (x *FileIface) GetEnumerateChildren() func(File, string, FileQueryInfoFlags
 	if x.xEnumerateChildren == 0 {
 		return nil
 	}
-	var rawCallback func(FileVarp uintptr, AttributesVarp string, FlagsVarp FileQueryInfoFlags, CancellableVarp uintptr, cerrp **glib.Error) uintptr
+	var rawCallback func(FileVarp uintptr, AttributesVarp string, FlagsVarp FileQueryInfoFlags, CancellableVarp uintptr) uintptr
 	purego.RegisterFunc(&rawCallback, x.xEnumerateChildren)
 	return func(FileVar File, AttributesVar string, FlagsVar FileQueryInfoFlags, CancellableVar *Cancellable) *FileEnumerator {
-		var cerr *glib.Error
-		rawRet := rawCallback(FileVar.GoPointer(), AttributesVar, FlagsVar, CancellableVar.GoPointer(), &cerr)
+		rawRet := rawCallback(FileVar.GoPointer(), AttributesVar, FlagsVar, CancellableVar.GoPointer())
 		if rawRet == 0 {
 			return nil
 		}
@@ -722,7 +720,7 @@ func (x *FileIface) OverrideEnumerateChildrenFinish(cb func(File, AsyncResult) *
 	if cb == nil {
 		x.xEnumerateChildrenFinish = 0
 	} else {
-		x.xEnumerateChildrenFinish = purego.NewCallback(func(FileVarp uintptr, ResVarp uintptr, cerrp **glib.Error) uintptr {
+		x.xEnumerateChildrenFinish = purego.NewCallback(func(FileVarp uintptr, ResVarp uintptr) uintptr {
 			ret := cb(&FileBase{Ptr: FileVarp}, &AsyncResultBase{Ptr: ResVarp})
 			if ret == nil {
 				return 0
@@ -738,11 +736,10 @@ func (x *FileIface) GetEnumerateChildrenFinish() func(File, AsyncResult) *FileEn
 	if x.xEnumerateChildrenFinish == 0 {
 		return nil
 	}
-	var rawCallback func(FileVarp uintptr, ResVarp uintptr, cerrp **glib.Error) uintptr
+	var rawCallback func(FileVarp uintptr, ResVarp uintptr) uintptr
 	purego.RegisterFunc(&rawCallback, x.xEnumerateChildrenFinish)
 	return func(FileVar File, ResVar AsyncResult) *FileEnumerator {
-		var cerr *glib.Error
-		rawRet := rawCallback(FileVar.GoPointer(), ResVar.GoPointer(), &cerr)
+		rawRet := rawCallback(FileVar.GoPointer(), ResVar.GoPointer())
 		if rawRet == 0 {
 			return nil
 		}
@@ -758,7 +755,7 @@ func (x *FileIface) OverrideQueryInfo(cb func(File, string, FileQueryInfoFlags, 
 	if cb == nil {
 		x.xQueryInfo = 0
 	} else {
-		x.xQueryInfo = purego.NewCallback(func(FileVarp uintptr, AttributesVarp string, FlagsVarp FileQueryInfoFlags, CancellableVarp uintptr, cerrp **glib.Error) uintptr {
+		x.xQueryInfo = purego.NewCallback(func(FileVarp uintptr, AttributesVarp string, FlagsVarp FileQueryInfoFlags, CancellableVarp uintptr) uintptr {
 			ret := cb(&FileBase{Ptr: FileVarp}, AttributesVarp, FlagsVarp, CancellableNewFromInternalPtr(CancellableVarp))
 			if ret == nil {
 				return 0
@@ -774,11 +771,10 @@ func (x *FileIface) GetQueryInfo() func(File, string, FileQueryInfoFlags, *Cance
 	if x.xQueryInfo == 0 {
 		return nil
 	}
-	var rawCallback func(FileVarp uintptr, AttributesVarp string, FlagsVarp FileQueryInfoFlags, CancellableVarp uintptr, cerrp **glib.Error) uintptr
+	var rawCallback func(FileVarp uintptr, AttributesVarp string, FlagsVarp FileQueryInfoFlags, CancellableVarp uintptr) uintptr
 	purego.RegisterFunc(&rawCallback, x.xQueryInfo)
 	return func(FileVar File, AttributesVar string, FlagsVar FileQueryInfoFlags, CancellableVar *Cancellable) *FileInfo {
-		var cerr *glib.Error
-		rawRet := rawCallback(FileVar.GoPointer(), AttributesVar, FlagsVar, CancellableVar.GoPointer(), &cerr)
+		rawRet := rawCallback(FileVar.GoPointer(), AttributesVar, FlagsVar, CancellableVar.GoPointer())
 		if rawRet == 0 {
 			return nil
 		}
@@ -819,7 +815,7 @@ func (x *FileIface) OverrideQueryInfoFinish(cb func(File, AsyncResult) *FileInfo
 	if cb == nil {
 		x.xQueryInfoFinish = 0
 	} else {
-		x.xQueryInfoFinish = purego.NewCallback(func(FileVarp uintptr, ResVarp uintptr, cerrp **glib.Error) uintptr {
+		x.xQueryInfoFinish = purego.NewCallback(func(FileVarp uintptr, ResVarp uintptr) uintptr {
 			ret := cb(&FileBase{Ptr: FileVarp}, &AsyncResultBase{Ptr: ResVarp})
 			if ret == nil {
 				return 0
@@ -835,11 +831,10 @@ func (x *FileIface) GetQueryInfoFinish() func(File, AsyncResult) *FileInfo {
 	if x.xQueryInfoFinish == 0 {
 		return nil
 	}
-	var rawCallback func(FileVarp uintptr, ResVarp uintptr, cerrp **glib.Error) uintptr
+	var rawCallback func(FileVarp uintptr, ResVarp uintptr) uintptr
 	purego.RegisterFunc(&rawCallback, x.xQueryInfoFinish)
 	return func(FileVar File, ResVar AsyncResult) *FileInfo {
-		var cerr *glib.Error
-		rawRet := rawCallback(FileVar.GoPointer(), ResVar.GoPointer(), &cerr)
+		rawRet := rawCallback(FileVar.GoPointer(), ResVar.GoPointer())
 		if rawRet == 0 {
 			return nil
 		}
@@ -855,7 +850,7 @@ func (x *FileIface) OverrideQueryFilesystemInfo(cb func(File, string, *Cancellab
 	if cb == nil {
 		x.xQueryFilesystemInfo = 0
 	} else {
-		x.xQueryFilesystemInfo = purego.NewCallback(func(FileVarp uintptr, AttributesVarp string, CancellableVarp uintptr, cerrp **glib.Error) uintptr {
+		x.xQueryFilesystemInfo = purego.NewCallback(func(FileVarp uintptr, AttributesVarp string, CancellableVarp uintptr) uintptr {
 			ret := cb(&FileBase{Ptr: FileVarp}, AttributesVarp, CancellableNewFromInternalPtr(CancellableVarp))
 			if ret == nil {
 				return 0
@@ -871,11 +866,10 @@ func (x *FileIface) GetQueryFilesystemInfo() func(File, string, *Cancellable) *F
 	if x.xQueryFilesystemInfo == 0 {
 		return nil
 	}
-	var rawCallback func(FileVarp uintptr, AttributesVarp string, CancellableVarp uintptr, cerrp **glib.Error) uintptr
+	var rawCallback func(FileVarp uintptr, AttributesVarp string, CancellableVarp uintptr) uintptr
 	purego.RegisterFunc(&rawCallback, x.xQueryFilesystemInfo)
 	return func(FileVar File, AttributesVar string, CancellableVar *Cancellable) *FileInfo {
-		var cerr *glib.Error
-		rawRet := rawCallback(FileVar.GoPointer(), AttributesVar, CancellableVar.GoPointer(), &cerr)
+		rawRet := rawCallback(FileVar.GoPointer(), AttributesVar, CancellableVar.GoPointer())
 		if rawRet == 0 {
 			return nil
 		}
@@ -916,7 +910,7 @@ func (x *FileIface) OverrideQueryFilesystemInfoFinish(cb func(File, AsyncResult)
 	if cb == nil {
 		x.xQueryFilesystemInfoFinish = 0
 	} else {
-		x.xQueryFilesystemInfoFinish = purego.NewCallback(func(FileVarp uintptr, ResVarp uintptr, cerrp **glib.Error) uintptr {
+		x.xQueryFilesystemInfoFinish = purego.NewCallback(func(FileVarp uintptr, ResVarp uintptr) uintptr {
 			ret := cb(&FileBase{Ptr: FileVarp}, &AsyncResultBase{Ptr: ResVarp})
 			if ret == nil {
 				return 0
@@ -932,11 +926,10 @@ func (x *FileIface) GetQueryFilesystemInfoFinish() func(File, AsyncResult) *File
 	if x.xQueryFilesystemInfoFinish == 0 {
 		return nil
 	}
-	var rawCallback func(FileVarp uintptr, ResVarp uintptr, cerrp **glib.Error) uintptr
+	var rawCallback func(FileVarp uintptr, ResVarp uintptr) uintptr
 	purego.RegisterFunc(&rawCallback, x.xQueryFilesystemInfoFinish)
 	return func(FileVar File, ResVar AsyncResult) *FileInfo {
-		var cerr *glib.Error
-		rawRet := rawCallback(FileVar.GoPointer(), ResVar.GoPointer(), &cerr)
+		rawRet := rawCallback(FileVar.GoPointer(), ResVar.GoPointer())
 		if rawRet == 0 {
 			return nil
 		}
@@ -952,7 +945,7 @@ func (x *FileIface) OverrideFindEnclosingMount(cb func(File, *Cancellable) *Moun
 	if cb == nil {
 		x.xFindEnclosingMount = 0
 	} else {
-		x.xFindEnclosingMount = purego.NewCallback(func(FileVarp uintptr, CancellableVarp uintptr, cerrp **glib.Error) uintptr {
+		x.xFindEnclosingMount = purego.NewCallback(func(FileVarp uintptr, CancellableVarp uintptr) uintptr {
 			ret := cb(&FileBase{Ptr: FileVarp}, CancellableNewFromInternalPtr(CancellableVarp))
 			if ret == nil {
 				return 0
@@ -968,11 +961,10 @@ func (x *FileIface) GetFindEnclosingMount() func(File, *Cancellable) *MountBase 
 	if x.xFindEnclosingMount == 0 {
 		return nil
 	}
-	var rawCallback func(FileVarp uintptr, CancellableVarp uintptr, cerrp **glib.Error) uintptr
+	var rawCallback func(FileVarp uintptr, CancellableVarp uintptr) uintptr
 	purego.RegisterFunc(&rawCallback, x.xFindEnclosingMount)
 	return func(FileVar File, CancellableVar *Cancellable) *MountBase {
-		var cerr *glib.Error
-		rawRet := rawCallback(FileVar.GoPointer(), CancellableVar.GoPointer(), &cerr)
+		rawRet := rawCallback(FileVar.GoPointer(), CancellableVar.GoPointer())
 		if rawRet == 0 {
 			return nil
 		}
@@ -1013,7 +1005,7 @@ func (x *FileIface) OverrideFindEnclosingMountFinish(cb func(File, AsyncResult) 
 	if cb == nil {
 		x.xFindEnclosingMountFinish = 0
 	} else {
-		x.xFindEnclosingMountFinish = purego.NewCallback(func(FileVarp uintptr, ResVarp uintptr, cerrp **glib.Error) uintptr {
+		x.xFindEnclosingMountFinish = purego.NewCallback(func(FileVarp uintptr, ResVarp uintptr) uintptr {
 			ret := cb(&FileBase{Ptr: FileVarp}, &AsyncResultBase{Ptr: ResVarp})
 			if ret == nil {
 				return 0
@@ -1029,11 +1021,10 @@ func (x *FileIface) GetFindEnclosingMountFinish() func(File, AsyncResult) *Mount
 	if x.xFindEnclosingMountFinish == 0 {
 		return nil
 	}
-	var rawCallback func(FileVarp uintptr, ResVarp uintptr, cerrp **glib.Error) uintptr
+	var rawCallback func(FileVarp uintptr, ResVarp uintptr) uintptr
 	purego.RegisterFunc(&rawCallback, x.xFindEnclosingMountFinish)
 	return func(FileVar File, ResVar AsyncResult) *MountBase {
-		var cerr *glib.Error
-		rawRet := rawCallback(FileVar.GoPointer(), ResVar.GoPointer(), &cerr)
+		rawRet := rawCallback(FileVar.GoPointer(), ResVar.GoPointer())
 		if rawRet == 0 {
 			return nil
 		}
@@ -1049,7 +1040,7 @@ func (x *FileIface) OverrideSetDisplayName(cb func(File, string, *Cancellable) *
 	if cb == nil {
 		x.xSetDisplayName = 0
 	} else {
-		x.xSetDisplayName = purego.NewCallback(func(FileVarp uintptr, DisplayNameVarp string, CancellableVarp uintptr, cerrp **glib.Error) uintptr {
+		x.xSetDisplayName = purego.NewCallback(func(FileVarp uintptr, DisplayNameVarp string, CancellableVarp uintptr) uintptr {
 			ret := cb(&FileBase{Ptr: FileVarp}, DisplayNameVarp, CancellableNewFromInternalPtr(CancellableVarp))
 			if ret == nil {
 				return 0
@@ -1065,11 +1056,10 @@ func (x *FileIface) GetSetDisplayName() func(File, string, *Cancellable) *FileBa
 	if x.xSetDisplayName == 0 {
 		return nil
 	}
-	var rawCallback func(FileVarp uintptr, DisplayNameVarp string, CancellableVarp uintptr, cerrp **glib.Error) uintptr
+	var rawCallback func(FileVarp uintptr, DisplayNameVarp string, CancellableVarp uintptr) uintptr
 	purego.RegisterFunc(&rawCallback, x.xSetDisplayName)
 	return func(FileVar File, DisplayNameVar string, CancellableVar *Cancellable) *FileBase {
-		var cerr *glib.Error
-		rawRet := rawCallback(FileVar.GoPointer(), DisplayNameVar, CancellableVar.GoPointer(), &cerr)
+		rawRet := rawCallback(FileVar.GoPointer(), DisplayNameVar, CancellableVar.GoPointer())
 		if rawRet == 0 {
 			return nil
 		}
@@ -1110,7 +1100,7 @@ func (x *FileIface) OverrideSetDisplayNameFinish(cb func(File, AsyncResult) *Fil
 	if cb == nil {
 		x.xSetDisplayNameFinish = 0
 	} else {
-		x.xSetDisplayNameFinish = purego.NewCallback(func(FileVarp uintptr, ResVarp uintptr, cerrp **glib.Error) uintptr {
+		x.xSetDisplayNameFinish = purego.NewCallback(func(FileVarp uintptr, ResVarp uintptr) uintptr {
 			ret := cb(&FileBase{Ptr: FileVarp}, &AsyncResultBase{Ptr: ResVarp})
 			if ret == nil {
 				return 0
@@ -1126,11 +1116,10 @@ func (x *FileIface) GetSetDisplayNameFinish() func(File, AsyncResult) *FileBase 
 	if x.xSetDisplayNameFinish == 0 {
 		return nil
 	}
-	var rawCallback func(FileVarp uintptr, ResVarp uintptr, cerrp **glib.Error) uintptr
+	var rawCallback func(FileVarp uintptr, ResVarp uintptr) uintptr
 	purego.RegisterFunc(&rawCallback, x.xSetDisplayNameFinish)
 	return func(FileVar File, ResVar AsyncResult) *FileBase {
-		var cerr *glib.Error
-		rawRet := rawCallback(FileVar.GoPointer(), ResVar.GoPointer(), &cerr)
+		rawRet := rawCallback(FileVar.GoPointer(), ResVar.GoPointer())
 		if rawRet == 0 {
 			return nil
 		}
@@ -1146,7 +1135,7 @@ func (x *FileIface) OverrideQuerySettableAttributes(cb func(File, *Cancellable) 
 	if cb == nil {
 		x.xQuerySettableAttributes = 0
 	} else {
-		x.xQuerySettableAttributes = purego.NewCallback(func(FileVarp uintptr, CancellableVarp uintptr, cerrp **glib.Error) uintptr {
+		x.xQuerySettableAttributes = purego.NewCallback(func(FileVarp uintptr, CancellableVarp uintptr) uintptr {
 			ret := cb(&FileBase{Ptr: FileVarp}, CancellableNewFromInternalPtr(CancellableVarp))
 			if ret == nil {
 				return 0
@@ -1162,11 +1151,10 @@ func (x *FileIface) GetQuerySettableAttributes() func(File, *Cancellable) *FileA
 	if x.xQuerySettableAttributes == 0 {
 		return nil
 	}
-	var rawCallback func(FileVarp uintptr, CancellableVarp uintptr, cerrp **glib.Error) uintptr
+	var rawCallback func(FileVarp uintptr, CancellableVarp uintptr) uintptr
 	purego.RegisterFunc(&rawCallback, x.xQuerySettableAttributes)
 	return func(FileVar File, CancellableVar *Cancellable) *FileAttributeInfoList {
-		var cerr *glib.Error
-		rawRet := rawCallback(FileVar.GoPointer(), CancellableVar.GoPointer(), &cerr)
+		rawRet := rawCallback(FileVar.GoPointer(), CancellableVar.GoPointer())
 		if rawRet == 0 {
 			return nil
 		}
@@ -1230,7 +1218,7 @@ func (x *FileIface) OverrideQueryWritableNamespaces(cb func(File, *Cancellable) 
 	if cb == nil {
 		x.xQueryWritableNamespaces = 0
 	} else {
-		x.xQueryWritableNamespaces = purego.NewCallback(func(FileVarp uintptr, CancellableVarp uintptr, cerrp **glib.Error) uintptr {
+		x.xQueryWritableNamespaces = purego.NewCallback(func(FileVarp uintptr, CancellableVarp uintptr) uintptr {
 			ret := cb(&FileBase{Ptr: FileVarp}, CancellableNewFromInternalPtr(CancellableVarp))
 			if ret == nil {
 				return 0
@@ -1246,11 +1234,10 @@ func (x *FileIface) GetQueryWritableNamespaces() func(File, *Cancellable) *FileA
 	if x.xQueryWritableNamespaces == 0 {
 		return nil
 	}
-	var rawCallback func(FileVarp uintptr, CancellableVarp uintptr, cerrp **glib.Error) uintptr
+	var rawCallback func(FileVarp uintptr, CancellableVarp uintptr) uintptr
 	purego.RegisterFunc(&rawCallback, x.xQueryWritableNamespaces)
 	return func(FileVar File, CancellableVar *Cancellable) *FileAttributeInfoList {
-		var cerr *glib.Error
-		rawRet := rawCallback(FileVar.GoPointer(), CancellableVar.GoPointer(), &cerr)
+		rawRet := rawCallback(FileVar.GoPointer(), CancellableVar.GoPointer())
 		if rawRet == 0 {
 			return nil
 		}
@@ -1314,7 +1301,7 @@ func (x *FileIface) OverrideSetAttribute(cb func(File, string, FileAttributeType
 	if cb == nil {
 		x.xSetAttribute = 0
 	} else {
-		x.xSetAttribute = purego.NewCallback(func(FileVarp uintptr, AttributeVarp string, TypeVarp FileAttributeType, ValuePVarp uintptr, FlagsVarp FileQueryInfoFlags, CancellableVarp uintptr, cerrp **glib.Error) bool {
+		x.xSetAttribute = purego.NewCallback(func(FileVarp uintptr, AttributeVarp string, TypeVarp FileAttributeType, ValuePVarp uintptr, FlagsVarp FileQueryInfoFlags, CancellableVarp uintptr) bool {
 			return cb(&FileBase{Ptr: FileVarp}, AttributeVarp, TypeVarp, ValuePVarp, FlagsVarp, CancellableNewFromInternalPtr(CancellableVarp))
 		})
 	}
@@ -1326,11 +1313,10 @@ func (x *FileIface) GetSetAttribute() func(File, string, FileAttributeType, uint
 	if x.xSetAttribute == 0 {
 		return nil
 	}
-	var rawCallback func(FileVarp uintptr, AttributeVarp string, TypeVarp FileAttributeType, ValuePVarp uintptr, FlagsVarp FileQueryInfoFlags, CancellableVarp uintptr, cerrp **glib.Error) bool
+	var rawCallback func(FileVarp uintptr, AttributeVarp string, TypeVarp FileAttributeType, ValuePVarp uintptr, FlagsVarp FileQueryInfoFlags, CancellableVarp uintptr) bool
 	purego.RegisterFunc(&rawCallback, x.xSetAttribute)
 	return func(FileVar File, AttributeVar string, TypeVar FileAttributeType, ValuePVar uintptr, FlagsVar FileQueryInfoFlags, CancellableVar *Cancellable) bool {
-		var cerr *glib.Error
-		return rawCallback(FileVar.GoPointer(), AttributeVar, TypeVar, ValuePVar, FlagsVar, CancellableVar.GoPointer(), &cerr)
+		return rawCallback(FileVar.GoPointer(), AttributeVar, TypeVar, ValuePVar, FlagsVar, CancellableVar.GoPointer())
 	}
 }
 
@@ -1340,7 +1326,7 @@ func (x *FileIface) OverrideSetAttributesFromInfo(cb func(File, *FileInfo, FileQ
 	if cb == nil {
 		x.xSetAttributesFromInfo = 0
 	} else {
-		x.xSetAttributesFromInfo = purego.NewCallback(func(FileVarp uintptr, InfoVarp uintptr, FlagsVarp FileQueryInfoFlags, CancellableVarp uintptr, cerrp **glib.Error) bool {
+		x.xSetAttributesFromInfo = purego.NewCallback(func(FileVarp uintptr, InfoVarp uintptr, FlagsVarp FileQueryInfoFlags, CancellableVarp uintptr) bool {
 			return cb(&FileBase{Ptr: FileVarp}, FileInfoNewFromInternalPtr(InfoVarp), FlagsVarp, CancellableNewFromInternalPtr(CancellableVarp))
 		})
 	}
@@ -1352,11 +1338,10 @@ func (x *FileIface) GetSetAttributesFromInfo() func(File, *FileInfo, FileQueryIn
 	if x.xSetAttributesFromInfo == 0 {
 		return nil
 	}
-	var rawCallback func(FileVarp uintptr, InfoVarp uintptr, FlagsVarp FileQueryInfoFlags, CancellableVarp uintptr, cerrp **glib.Error) bool
+	var rawCallback func(FileVarp uintptr, InfoVarp uintptr, FlagsVarp FileQueryInfoFlags, CancellableVarp uintptr) bool
 	purego.RegisterFunc(&rawCallback, x.xSetAttributesFromInfo)
 	return func(FileVar File, InfoVar *FileInfo, FlagsVar FileQueryInfoFlags, CancellableVar *Cancellable) bool {
-		var cerr *glib.Error
-		return rawCallback(FileVar.GoPointer(), InfoVar.GoPointer(), FlagsVar, CancellableVar.GoPointer(), &cerr)
+		return rawCallback(FileVar.GoPointer(), InfoVar.GoPointer(), FlagsVar, CancellableVar.GoPointer())
 	}
 }
 
@@ -1391,7 +1376,7 @@ func (x *FileIface) OverrideSetAttributesFinish(cb func(File, AsyncResult, **Fil
 	if cb == nil {
 		x.xSetAttributesFinish = 0
 	} else {
-		x.xSetAttributesFinish = purego.NewCallback(func(FileVarp uintptr, ResultVarp uintptr, InfoVarp **FileInfo, cerrp **glib.Error) bool {
+		x.xSetAttributesFinish = purego.NewCallback(func(FileVarp uintptr, ResultVarp uintptr, InfoVarp **FileInfo) bool {
 			return cb(&FileBase{Ptr: FileVarp}, &AsyncResultBase{Ptr: ResultVarp}, InfoVarp)
 		})
 	}
@@ -1403,11 +1388,10 @@ func (x *FileIface) GetSetAttributesFinish() func(File, AsyncResult, **FileInfo)
 	if x.xSetAttributesFinish == 0 {
 		return nil
 	}
-	var rawCallback func(FileVarp uintptr, ResultVarp uintptr, InfoVarp **FileInfo, cerrp **glib.Error) bool
+	var rawCallback func(FileVarp uintptr, ResultVarp uintptr, InfoVarp **FileInfo) bool
 	purego.RegisterFunc(&rawCallback, x.xSetAttributesFinish)
 	return func(FileVar File, ResultVar AsyncResult, InfoVar **FileInfo) bool {
-		var cerr *glib.Error
-		return rawCallback(FileVar.GoPointer(), ResultVar.GoPointer(), InfoVar, &cerr)
+		return rawCallback(FileVar.GoPointer(), ResultVar.GoPointer(), InfoVar)
 	}
 }
 
@@ -1417,7 +1401,7 @@ func (x *FileIface) OverrideReadFn(cb func(File, *Cancellable) *FileInputStream)
 	if cb == nil {
 		x.xReadFn = 0
 	} else {
-		x.xReadFn = purego.NewCallback(func(FileVarp uintptr, CancellableVarp uintptr, cerrp **glib.Error) uintptr {
+		x.xReadFn = purego.NewCallback(func(FileVarp uintptr, CancellableVarp uintptr) uintptr {
 			ret := cb(&FileBase{Ptr: FileVarp}, CancellableNewFromInternalPtr(CancellableVarp))
 			if ret == nil {
 				return 0
@@ -1433,11 +1417,10 @@ func (x *FileIface) GetReadFn() func(File, *Cancellable) *FileInputStream {
 	if x.xReadFn == 0 {
 		return nil
 	}
-	var rawCallback func(FileVarp uintptr, CancellableVarp uintptr, cerrp **glib.Error) uintptr
+	var rawCallback func(FileVarp uintptr, CancellableVarp uintptr) uintptr
 	purego.RegisterFunc(&rawCallback, x.xReadFn)
 	return func(FileVar File, CancellableVar *Cancellable) *FileInputStream {
-		var cerr *glib.Error
-		rawRet := rawCallback(FileVar.GoPointer(), CancellableVar.GoPointer(), &cerr)
+		rawRet := rawCallback(FileVar.GoPointer(), CancellableVar.GoPointer())
 		if rawRet == 0 {
 			return nil
 		}
@@ -1478,7 +1461,7 @@ func (x *FileIface) OverrideReadFinish(cb func(File, AsyncResult) *FileInputStre
 	if cb == nil {
 		x.xReadFinish = 0
 	} else {
-		x.xReadFinish = purego.NewCallback(func(FileVarp uintptr, ResVarp uintptr, cerrp **glib.Error) uintptr {
+		x.xReadFinish = purego.NewCallback(func(FileVarp uintptr, ResVarp uintptr) uintptr {
 			ret := cb(&FileBase{Ptr: FileVarp}, &AsyncResultBase{Ptr: ResVarp})
 			if ret == nil {
 				return 0
@@ -1494,11 +1477,10 @@ func (x *FileIface) GetReadFinish() func(File, AsyncResult) *FileInputStream {
 	if x.xReadFinish == 0 {
 		return nil
 	}
-	var rawCallback func(FileVarp uintptr, ResVarp uintptr, cerrp **glib.Error) uintptr
+	var rawCallback func(FileVarp uintptr, ResVarp uintptr) uintptr
 	purego.RegisterFunc(&rawCallback, x.xReadFinish)
 	return func(FileVar File, ResVar AsyncResult) *FileInputStream {
-		var cerr *glib.Error
-		rawRet := rawCallback(FileVar.GoPointer(), ResVar.GoPointer(), &cerr)
+		rawRet := rawCallback(FileVar.GoPointer(), ResVar.GoPointer())
 		if rawRet == 0 {
 			return nil
 		}
@@ -1514,7 +1496,7 @@ func (x *FileIface) OverrideAppendTo(cb func(File, FileCreateFlags, *Cancellable
 	if cb == nil {
 		x.xAppendTo = 0
 	} else {
-		x.xAppendTo = purego.NewCallback(func(FileVarp uintptr, FlagsVarp FileCreateFlags, CancellableVarp uintptr, cerrp **glib.Error) uintptr {
+		x.xAppendTo = purego.NewCallback(func(FileVarp uintptr, FlagsVarp FileCreateFlags, CancellableVarp uintptr) uintptr {
 			ret := cb(&FileBase{Ptr: FileVarp}, FlagsVarp, CancellableNewFromInternalPtr(CancellableVarp))
 			if ret == nil {
 				return 0
@@ -1530,11 +1512,10 @@ func (x *FileIface) GetAppendTo() func(File, FileCreateFlags, *Cancellable) *Fil
 	if x.xAppendTo == 0 {
 		return nil
 	}
-	var rawCallback func(FileVarp uintptr, FlagsVarp FileCreateFlags, CancellableVarp uintptr, cerrp **glib.Error) uintptr
+	var rawCallback func(FileVarp uintptr, FlagsVarp FileCreateFlags, CancellableVarp uintptr) uintptr
 	purego.RegisterFunc(&rawCallback, x.xAppendTo)
 	return func(FileVar File, FlagsVar FileCreateFlags, CancellableVar *Cancellable) *FileOutputStream {
-		var cerr *glib.Error
-		rawRet := rawCallback(FileVar.GoPointer(), FlagsVar, CancellableVar.GoPointer(), &cerr)
+		rawRet := rawCallback(FileVar.GoPointer(), FlagsVar, CancellableVar.GoPointer())
 		if rawRet == 0 {
 			return nil
 		}
@@ -1575,7 +1556,7 @@ func (x *FileIface) OverrideAppendToFinish(cb func(File, AsyncResult) *FileOutpu
 	if cb == nil {
 		x.xAppendToFinish = 0
 	} else {
-		x.xAppendToFinish = purego.NewCallback(func(FileVarp uintptr, ResVarp uintptr, cerrp **glib.Error) uintptr {
+		x.xAppendToFinish = purego.NewCallback(func(FileVarp uintptr, ResVarp uintptr) uintptr {
 			ret := cb(&FileBase{Ptr: FileVarp}, &AsyncResultBase{Ptr: ResVarp})
 			if ret == nil {
 				return 0
@@ -1591,11 +1572,10 @@ func (x *FileIface) GetAppendToFinish() func(File, AsyncResult) *FileOutputStrea
 	if x.xAppendToFinish == 0 {
 		return nil
 	}
-	var rawCallback func(FileVarp uintptr, ResVarp uintptr, cerrp **glib.Error) uintptr
+	var rawCallback func(FileVarp uintptr, ResVarp uintptr) uintptr
 	purego.RegisterFunc(&rawCallback, x.xAppendToFinish)
 	return func(FileVar File, ResVar AsyncResult) *FileOutputStream {
-		var cerr *glib.Error
-		rawRet := rawCallback(FileVar.GoPointer(), ResVar.GoPointer(), &cerr)
+		rawRet := rawCallback(FileVar.GoPointer(), ResVar.GoPointer())
 		if rawRet == 0 {
 			return nil
 		}
@@ -1611,7 +1591,7 @@ func (x *FileIface) OverrideCreate(cb func(File, FileCreateFlags, *Cancellable) 
 	if cb == nil {
 		x.xCreate = 0
 	} else {
-		x.xCreate = purego.NewCallback(func(FileVarp uintptr, FlagsVarp FileCreateFlags, CancellableVarp uintptr, cerrp **glib.Error) uintptr {
+		x.xCreate = purego.NewCallback(func(FileVarp uintptr, FlagsVarp FileCreateFlags, CancellableVarp uintptr) uintptr {
 			ret := cb(&FileBase{Ptr: FileVarp}, FlagsVarp, CancellableNewFromInternalPtr(CancellableVarp))
 			if ret == nil {
 				return 0
@@ -1627,11 +1607,10 @@ func (x *FileIface) GetCreate() func(File, FileCreateFlags, *Cancellable) *FileO
 	if x.xCreate == 0 {
 		return nil
 	}
-	var rawCallback func(FileVarp uintptr, FlagsVarp FileCreateFlags, CancellableVarp uintptr, cerrp **glib.Error) uintptr
+	var rawCallback func(FileVarp uintptr, FlagsVarp FileCreateFlags, CancellableVarp uintptr) uintptr
 	purego.RegisterFunc(&rawCallback, x.xCreate)
 	return func(FileVar File, FlagsVar FileCreateFlags, CancellableVar *Cancellable) *FileOutputStream {
-		var cerr *glib.Error
-		rawRet := rawCallback(FileVar.GoPointer(), FlagsVar, CancellableVar.GoPointer(), &cerr)
+		rawRet := rawCallback(FileVar.GoPointer(), FlagsVar, CancellableVar.GoPointer())
 		if rawRet == 0 {
 			return nil
 		}
@@ -1672,7 +1651,7 @@ func (x *FileIface) OverrideCreateFinish(cb func(File, AsyncResult) *FileOutputS
 	if cb == nil {
 		x.xCreateFinish = 0
 	} else {
-		x.xCreateFinish = purego.NewCallback(func(FileVarp uintptr, ResVarp uintptr, cerrp **glib.Error) uintptr {
+		x.xCreateFinish = purego.NewCallback(func(FileVarp uintptr, ResVarp uintptr) uintptr {
 			ret := cb(&FileBase{Ptr: FileVarp}, &AsyncResultBase{Ptr: ResVarp})
 			if ret == nil {
 				return 0
@@ -1688,11 +1667,10 @@ func (x *FileIface) GetCreateFinish() func(File, AsyncResult) *FileOutputStream 
 	if x.xCreateFinish == 0 {
 		return nil
 	}
-	var rawCallback func(FileVarp uintptr, ResVarp uintptr, cerrp **glib.Error) uintptr
+	var rawCallback func(FileVarp uintptr, ResVarp uintptr) uintptr
 	purego.RegisterFunc(&rawCallback, x.xCreateFinish)
 	return func(FileVar File, ResVar AsyncResult) *FileOutputStream {
-		var cerr *glib.Error
-		rawRet := rawCallback(FileVar.GoPointer(), ResVar.GoPointer(), &cerr)
+		rawRet := rawCallback(FileVar.GoPointer(), ResVar.GoPointer())
 		if rawRet == 0 {
 			return nil
 		}
@@ -1708,7 +1686,7 @@ func (x *FileIface) OverrideReplace(cb func(File, string, bool, FileCreateFlags,
 	if cb == nil {
 		x.xReplace = 0
 	} else {
-		x.xReplace = purego.NewCallback(func(FileVarp uintptr, EtagVarp string, MakeBackupVarp bool, FlagsVarp FileCreateFlags, CancellableVarp uintptr, cerrp **glib.Error) uintptr {
+		x.xReplace = purego.NewCallback(func(FileVarp uintptr, EtagVarp string, MakeBackupVarp bool, FlagsVarp FileCreateFlags, CancellableVarp uintptr) uintptr {
 			ret := cb(&FileBase{Ptr: FileVarp}, EtagVarp, MakeBackupVarp, FlagsVarp, CancellableNewFromInternalPtr(CancellableVarp))
 			if ret == nil {
 				return 0
@@ -1724,11 +1702,10 @@ func (x *FileIface) GetReplace() func(File, string, bool, FileCreateFlags, *Canc
 	if x.xReplace == 0 {
 		return nil
 	}
-	var rawCallback func(FileVarp uintptr, EtagVarp string, MakeBackupVarp bool, FlagsVarp FileCreateFlags, CancellableVarp uintptr, cerrp **glib.Error) uintptr
+	var rawCallback func(FileVarp uintptr, EtagVarp string, MakeBackupVarp bool, FlagsVarp FileCreateFlags, CancellableVarp uintptr) uintptr
 	purego.RegisterFunc(&rawCallback, x.xReplace)
 	return func(FileVar File, EtagVar string, MakeBackupVar bool, FlagsVar FileCreateFlags, CancellableVar *Cancellable) *FileOutputStream {
-		var cerr *glib.Error
-		rawRet := rawCallback(FileVar.GoPointer(), EtagVar, MakeBackupVar, FlagsVar, CancellableVar.GoPointer(), &cerr)
+		rawRet := rawCallback(FileVar.GoPointer(), EtagVar, MakeBackupVar, FlagsVar, CancellableVar.GoPointer())
 		if rawRet == 0 {
 			return nil
 		}
@@ -1769,7 +1746,7 @@ func (x *FileIface) OverrideReplaceFinish(cb func(File, AsyncResult) *FileOutput
 	if cb == nil {
 		x.xReplaceFinish = 0
 	} else {
-		x.xReplaceFinish = purego.NewCallback(func(FileVarp uintptr, ResVarp uintptr, cerrp **glib.Error) uintptr {
+		x.xReplaceFinish = purego.NewCallback(func(FileVarp uintptr, ResVarp uintptr) uintptr {
 			ret := cb(&FileBase{Ptr: FileVarp}, &AsyncResultBase{Ptr: ResVarp})
 			if ret == nil {
 				return 0
@@ -1785,11 +1762,10 @@ func (x *FileIface) GetReplaceFinish() func(File, AsyncResult) *FileOutputStream
 	if x.xReplaceFinish == 0 {
 		return nil
 	}
-	var rawCallback func(FileVarp uintptr, ResVarp uintptr, cerrp **glib.Error) uintptr
+	var rawCallback func(FileVarp uintptr, ResVarp uintptr) uintptr
 	purego.RegisterFunc(&rawCallback, x.xReplaceFinish)
 	return func(FileVar File, ResVar AsyncResult) *FileOutputStream {
-		var cerr *glib.Error
-		rawRet := rawCallback(FileVar.GoPointer(), ResVar.GoPointer(), &cerr)
+		rawRet := rawCallback(FileVar.GoPointer(), ResVar.GoPointer())
 		if rawRet == 0 {
 			return nil
 		}
@@ -1805,7 +1781,7 @@ func (x *FileIface) OverrideDeleteFile(cb func(File, *Cancellable) bool) {
 	if cb == nil {
 		x.xDeleteFile = 0
 	} else {
-		x.xDeleteFile = purego.NewCallback(func(FileVarp uintptr, CancellableVarp uintptr, cerrp **glib.Error) bool {
+		x.xDeleteFile = purego.NewCallback(func(FileVarp uintptr, CancellableVarp uintptr) bool {
 			return cb(&FileBase{Ptr: FileVarp}, CancellableNewFromInternalPtr(CancellableVarp))
 		})
 	}
@@ -1817,11 +1793,10 @@ func (x *FileIface) GetDeleteFile() func(File, *Cancellable) bool {
 	if x.xDeleteFile == 0 {
 		return nil
 	}
-	var rawCallback func(FileVarp uintptr, CancellableVarp uintptr, cerrp **glib.Error) bool
+	var rawCallback func(FileVarp uintptr, CancellableVarp uintptr) bool
 	purego.RegisterFunc(&rawCallback, x.xDeleteFile)
 	return func(FileVar File, CancellableVar *Cancellable) bool {
-		var cerr *glib.Error
-		return rawCallback(FileVar.GoPointer(), CancellableVar.GoPointer(), &cerr)
+		return rawCallback(FileVar.GoPointer(), CancellableVar.GoPointer())
 	}
 }
 
@@ -1856,7 +1831,7 @@ func (x *FileIface) OverrideDeleteFileFinish(cb func(File, AsyncResult) bool) {
 	if cb == nil {
 		x.xDeleteFileFinish = 0
 	} else {
-		x.xDeleteFileFinish = purego.NewCallback(func(FileVarp uintptr, ResultVarp uintptr, cerrp **glib.Error) bool {
+		x.xDeleteFileFinish = purego.NewCallback(func(FileVarp uintptr, ResultVarp uintptr) bool {
 			return cb(&FileBase{Ptr: FileVarp}, &AsyncResultBase{Ptr: ResultVarp})
 		})
 	}
@@ -1868,11 +1843,10 @@ func (x *FileIface) GetDeleteFileFinish() func(File, AsyncResult) bool {
 	if x.xDeleteFileFinish == 0 {
 		return nil
 	}
-	var rawCallback func(FileVarp uintptr, ResultVarp uintptr, cerrp **glib.Error) bool
+	var rawCallback func(FileVarp uintptr, ResultVarp uintptr) bool
 	purego.RegisterFunc(&rawCallback, x.xDeleteFileFinish)
 	return func(FileVar File, ResultVar AsyncResult) bool {
-		var cerr *glib.Error
-		return rawCallback(FileVar.GoPointer(), ResultVar.GoPointer(), &cerr)
+		return rawCallback(FileVar.GoPointer(), ResultVar.GoPointer())
 	}
 }
 
@@ -1882,7 +1856,7 @@ func (x *FileIface) OverrideTrash(cb func(File, *Cancellable) bool) {
 	if cb == nil {
 		x.xTrash = 0
 	} else {
-		x.xTrash = purego.NewCallback(func(FileVarp uintptr, CancellableVarp uintptr, cerrp **glib.Error) bool {
+		x.xTrash = purego.NewCallback(func(FileVarp uintptr, CancellableVarp uintptr) bool {
 			return cb(&FileBase{Ptr: FileVarp}, CancellableNewFromInternalPtr(CancellableVarp))
 		})
 	}
@@ -1894,11 +1868,10 @@ func (x *FileIface) GetTrash() func(File, *Cancellable) bool {
 	if x.xTrash == 0 {
 		return nil
 	}
-	var rawCallback func(FileVarp uintptr, CancellableVarp uintptr, cerrp **glib.Error) bool
+	var rawCallback func(FileVarp uintptr, CancellableVarp uintptr) bool
 	purego.RegisterFunc(&rawCallback, x.xTrash)
 	return func(FileVar File, CancellableVar *Cancellable) bool {
-		var cerr *glib.Error
-		return rawCallback(FileVar.GoPointer(), CancellableVar.GoPointer(), &cerr)
+		return rawCallback(FileVar.GoPointer(), CancellableVar.GoPointer())
 	}
 }
 
@@ -1933,7 +1906,7 @@ func (x *FileIface) OverrideTrashFinish(cb func(File, AsyncResult) bool) {
 	if cb == nil {
 		x.xTrashFinish = 0
 	} else {
-		x.xTrashFinish = purego.NewCallback(func(FileVarp uintptr, ResultVarp uintptr, cerrp **glib.Error) bool {
+		x.xTrashFinish = purego.NewCallback(func(FileVarp uintptr, ResultVarp uintptr) bool {
 			return cb(&FileBase{Ptr: FileVarp}, &AsyncResultBase{Ptr: ResultVarp})
 		})
 	}
@@ -1945,11 +1918,10 @@ func (x *FileIface) GetTrashFinish() func(File, AsyncResult) bool {
 	if x.xTrashFinish == 0 {
 		return nil
 	}
-	var rawCallback func(FileVarp uintptr, ResultVarp uintptr, cerrp **glib.Error) bool
+	var rawCallback func(FileVarp uintptr, ResultVarp uintptr) bool
 	purego.RegisterFunc(&rawCallback, x.xTrashFinish)
 	return func(FileVar File, ResultVar AsyncResult) bool {
-		var cerr *glib.Error
-		return rawCallback(FileVar.GoPointer(), ResultVar.GoPointer(), &cerr)
+		return rawCallback(FileVar.GoPointer(), ResultVar.GoPointer())
 	}
 }
 
@@ -1959,7 +1931,7 @@ func (x *FileIface) OverrideMakeDirectory(cb func(File, *Cancellable) bool) {
 	if cb == nil {
 		x.xMakeDirectory = 0
 	} else {
-		x.xMakeDirectory = purego.NewCallback(func(FileVarp uintptr, CancellableVarp uintptr, cerrp **glib.Error) bool {
+		x.xMakeDirectory = purego.NewCallback(func(FileVarp uintptr, CancellableVarp uintptr) bool {
 			return cb(&FileBase{Ptr: FileVarp}, CancellableNewFromInternalPtr(CancellableVarp))
 		})
 	}
@@ -1971,11 +1943,10 @@ func (x *FileIface) GetMakeDirectory() func(File, *Cancellable) bool {
 	if x.xMakeDirectory == 0 {
 		return nil
 	}
-	var rawCallback func(FileVarp uintptr, CancellableVarp uintptr, cerrp **glib.Error) bool
+	var rawCallback func(FileVarp uintptr, CancellableVarp uintptr) bool
 	purego.RegisterFunc(&rawCallback, x.xMakeDirectory)
 	return func(FileVar File, CancellableVar *Cancellable) bool {
-		var cerr *glib.Error
-		return rawCallback(FileVar.GoPointer(), CancellableVar.GoPointer(), &cerr)
+		return rawCallback(FileVar.GoPointer(), CancellableVar.GoPointer())
 	}
 }
 
@@ -2010,7 +1981,7 @@ func (x *FileIface) OverrideMakeDirectoryFinish(cb func(File, AsyncResult) bool)
 	if cb == nil {
 		x.xMakeDirectoryFinish = 0
 	} else {
-		x.xMakeDirectoryFinish = purego.NewCallback(func(FileVarp uintptr, ResultVarp uintptr, cerrp **glib.Error) bool {
+		x.xMakeDirectoryFinish = purego.NewCallback(func(FileVarp uintptr, ResultVarp uintptr) bool {
 			return cb(&FileBase{Ptr: FileVarp}, &AsyncResultBase{Ptr: ResultVarp})
 		})
 	}
@@ -2022,11 +1993,10 @@ func (x *FileIface) GetMakeDirectoryFinish() func(File, AsyncResult) bool {
 	if x.xMakeDirectoryFinish == 0 {
 		return nil
 	}
-	var rawCallback func(FileVarp uintptr, ResultVarp uintptr, cerrp **glib.Error) bool
+	var rawCallback func(FileVarp uintptr, ResultVarp uintptr) bool
 	purego.RegisterFunc(&rawCallback, x.xMakeDirectoryFinish)
 	return func(FileVar File, ResultVar AsyncResult) bool {
-		var cerr *glib.Error
-		return rawCallback(FileVar.GoPointer(), ResultVar.GoPointer(), &cerr)
+		return rawCallback(FileVar.GoPointer(), ResultVar.GoPointer())
 	}
 }
 
@@ -2038,7 +2008,7 @@ func (x *FileIface) OverrideMakeSymbolicLink(cb func(File, string, *Cancellable)
 	if cb == nil {
 		x.xMakeSymbolicLink = 0
 	} else {
-		x.xMakeSymbolicLink = purego.NewCallback(func(FileVarp uintptr, SymlinkValueVarp string, CancellableVarp uintptr, cerrp **glib.Error) bool {
+		x.xMakeSymbolicLink = purego.NewCallback(func(FileVarp uintptr, SymlinkValueVarp string, CancellableVarp uintptr) bool {
 			return cb(&FileBase{Ptr: FileVarp}, SymlinkValueVarp, CancellableNewFromInternalPtr(CancellableVarp))
 		})
 	}
@@ -2052,11 +2022,10 @@ func (x *FileIface) GetMakeSymbolicLink() func(File, string, *Cancellable) bool 
 	if x.xMakeSymbolicLink == 0 {
 		return nil
 	}
-	var rawCallback func(FileVarp uintptr, SymlinkValueVarp string, CancellableVarp uintptr, cerrp **glib.Error) bool
+	var rawCallback func(FileVarp uintptr, SymlinkValueVarp string, CancellableVarp uintptr) bool
 	purego.RegisterFunc(&rawCallback, x.xMakeSymbolicLink)
 	return func(FileVar File, SymlinkValueVar string, CancellableVar *Cancellable) bool {
-		var cerr *glib.Error
-		return rawCallback(FileVar.GoPointer(), SymlinkValueVar, CancellableVar.GoPointer(), &cerr)
+		return rawCallback(FileVar.GoPointer(), SymlinkValueVar, CancellableVar.GoPointer())
 	}
 }
 
@@ -2091,7 +2060,7 @@ func (x *FileIface) OverrideMakeSymbolicLinkFinish(cb func(File, AsyncResult) bo
 	if cb == nil {
 		x.xMakeSymbolicLinkFinish = 0
 	} else {
-		x.xMakeSymbolicLinkFinish = purego.NewCallback(func(FileVarp uintptr, ResultVarp uintptr, cerrp **glib.Error) bool {
+		x.xMakeSymbolicLinkFinish = purego.NewCallback(func(FileVarp uintptr, ResultVarp uintptr) bool {
 			return cb(&FileBase{Ptr: FileVarp}, &AsyncResultBase{Ptr: ResultVarp})
 		})
 	}
@@ -2103,11 +2072,10 @@ func (x *FileIface) GetMakeSymbolicLinkFinish() func(File, AsyncResult) bool {
 	if x.xMakeSymbolicLinkFinish == 0 {
 		return nil
 	}
-	var rawCallback func(FileVarp uintptr, ResultVarp uintptr, cerrp **glib.Error) bool
+	var rawCallback func(FileVarp uintptr, ResultVarp uintptr) bool
 	purego.RegisterFunc(&rawCallback, x.xMakeSymbolicLinkFinish)
 	return func(FileVar File, ResultVar AsyncResult) bool {
-		var cerr *glib.Error
-		return rawCallback(FileVar.GoPointer(), ResultVar.GoPointer(), &cerr)
+		return rawCallback(FileVar.GoPointer(), ResultVar.GoPointer())
 	}
 }
 
@@ -2120,7 +2088,7 @@ func (x *FileIface) OverrideCopy(cb func(File, File, FileCopyFlags, *Cancellable
 	if cb == nil {
 		x.xCopy = 0
 	} else {
-		x.xCopy = purego.NewCallback(func(SourceVarp uintptr, DestinationVarp uintptr, FlagsVarp FileCopyFlags, CancellableVarp uintptr, ProgressCallbackVarp uintptr, ProgressCallbackDataVarp uintptr, cerrp **glib.Error) bool {
+		x.xCopy = purego.NewCallback(func(SourceVarp uintptr, DestinationVarp uintptr, FlagsVarp FileCopyFlags, CancellableVarp uintptr, ProgressCallbackVarp uintptr, ProgressCallbackDataVarp uintptr) bool {
 			return cb(&FileBase{Ptr: SourceVarp}, &FileBase{Ptr: DestinationVarp}, FlagsVarp, CancellableNewFromInternalPtr(CancellableVarp), (*FileProgressCallback)(unsafe.Pointer(ProgressCallbackVarp)), ProgressCallbackDataVarp)
 		})
 	}
@@ -2135,11 +2103,10 @@ func (x *FileIface) GetCopy() func(File, File, FileCopyFlags, *Cancellable, *Fil
 	if x.xCopy == 0 {
 		return nil
 	}
-	var rawCallback func(SourceVarp uintptr, DestinationVarp uintptr, FlagsVarp FileCopyFlags, CancellableVarp uintptr, ProgressCallbackVarp uintptr, ProgressCallbackDataVarp uintptr, cerrp **glib.Error) bool
+	var rawCallback func(SourceVarp uintptr, DestinationVarp uintptr, FlagsVarp FileCopyFlags, CancellableVarp uintptr, ProgressCallbackVarp uintptr, ProgressCallbackDataVarp uintptr) bool
 	purego.RegisterFunc(&rawCallback, x.xCopy)
 	return func(SourceVar File, DestinationVar File, FlagsVar FileCopyFlags, CancellableVar *Cancellable, ProgressCallbackVar *FileProgressCallback, ProgressCallbackDataVar uintptr) bool {
-		var cerr *glib.Error
-		return rawCallback(SourceVar.GoPointer(), DestinationVar.GoPointer(), FlagsVar, CancellableVar.GoPointer(), glib.NewCallbackNullable(ProgressCallbackVar), ProgressCallbackDataVar, &cerr)
+		return rawCallback(SourceVar.GoPointer(), DestinationVar.GoPointer(), FlagsVar, CancellableVar.GoPointer(), glib.NewCallbackNullable(ProgressCallbackVar), ProgressCallbackDataVar)
 	}
 }
 
@@ -2174,7 +2141,7 @@ func (x *FileIface) OverrideCopyFinish(cb func(File, AsyncResult) bool) {
 	if cb == nil {
 		x.xCopyFinish = 0
 	} else {
-		x.xCopyFinish = purego.NewCallback(func(FileVarp uintptr, ResVarp uintptr, cerrp **glib.Error) bool {
+		x.xCopyFinish = purego.NewCallback(func(FileVarp uintptr, ResVarp uintptr) bool {
 			return cb(&FileBase{Ptr: FileVarp}, &AsyncResultBase{Ptr: ResVarp})
 		})
 	}
@@ -2186,11 +2153,10 @@ func (x *FileIface) GetCopyFinish() func(File, AsyncResult) bool {
 	if x.xCopyFinish == 0 {
 		return nil
 	}
-	var rawCallback func(FileVarp uintptr, ResVarp uintptr, cerrp **glib.Error) bool
+	var rawCallback func(FileVarp uintptr, ResVarp uintptr) bool
 	purego.RegisterFunc(&rawCallback, x.xCopyFinish)
 	return func(FileVar File, ResVar AsyncResult) bool {
-		var cerr *glib.Error
-		return rawCallback(FileVar.GoPointer(), ResVar.GoPointer(), &cerr)
+		return rawCallback(FileVar.GoPointer(), ResVar.GoPointer())
 	}
 }
 
@@ -2200,7 +2166,7 @@ func (x *FileIface) OverrideMove(cb func(File, File, FileCopyFlags, *Cancellable
 	if cb == nil {
 		x.xMove = 0
 	} else {
-		x.xMove = purego.NewCallback(func(SourceVarp uintptr, DestinationVarp uintptr, FlagsVarp FileCopyFlags, CancellableVarp uintptr, ProgressCallbackVarp uintptr, ProgressCallbackDataVarp uintptr, cerrp **glib.Error) bool {
+		x.xMove = purego.NewCallback(func(SourceVarp uintptr, DestinationVarp uintptr, FlagsVarp FileCopyFlags, CancellableVarp uintptr, ProgressCallbackVarp uintptr, ProgressCallbackDataVarp uintptr) bool {
 			return cb(&FileBase{Ptr: SourceVarp}, &FileBase{Ptr: DestinationVarp}, FlagsVarp, CancellableNewFromInternalPtr(CancellableVarp), (*FileProgressCallback)(unsafe.Pointer(ProgressCallbackVarp)), ProgressCallbackDataVarp)
 		})
 	}
@@ -2212,11 +2178,10 @@ func (x *FileIface) GetMove() func(File, File, FileCopyFlags, *Cancellable, *Fil
 	if x.xMove == 0 {
 		return nil
 	}
-	var rawCallback func(SourceVarp uintptr, DestinationVarp uintptr, FlagsVarp FileCopyFlags, CancellableVarp uintptr, ProgressCallbackVarp uintptr, ProgressCallbackDataVarp uintptr, cerrp **glib.Error) bool
+	var rawCallback func(SourceVarp uintptr, DestinationVarp uintptr, FlagsVarp FileCopyFlags, CancellableVarp uintptr, ProgressCallbackVarp uintptr, ProgressCallbackDataVarp uintptr) bool
 	purego.RegisterFunc(&rawCallback, x.xMove)
 	return func(SourceVar File, DestinationVar File, FlagsVar FileCopyFlags, CancellableVar *Cancellable, ProgressCallbackVar *FileProgressCallback, ProgressCallbackDataVar uintptr) bool {
-		var cerr *glib.Error
-		return rawCallback(SourceVar.GoPointer(), DestinationVar.GoPointer(), FlagsVar, CancellableVar.GoPointer(), glib.NewCallbackNullable(ProgressCallbackVar), ProgressCallbackDataVar, &cerr)
+		return rawCallback(SourceVar.GoPointer(), DestinationVar.GoPointer(), FlagsVar, CancellableVar.GoPointer(), glib.NewCallbackNullable(ProgressCallbackVar), ProgressCallbackDataVar)
 	}
 }
 
@@ -2251,7 +2216,7 @@ func (x *FileIface) OverrideMoveFinish(cb func(File, AsyncResult) bool) {
 	if cb == nil {
 		x.xMoveFinish = 0
 	} else {
-		x.xMoveFinish = purego.NewCallback(func(FileVarp uintptr, ResultVarp uintptr, cerrp **glib.Error) bool {
+		x.xMoveFinish = purego.NewCallback(func(FileVarp uintptr, ResultVarp uintptr) bool {
 			return cb(&FileBase{Ptr: FileVarp}, &AsyncResultBase{Ptr: ResultVarp})
 		})
 	}
@@ -2263,11 +2228,10 @@ func (x *FileIface) GetMoveFinish() func(File, AsyncResult) bool {
 	if x.xMoveFinish == 0 {
 		return nil
 	}
-	var rawCallback func(FileVarp uintptr, ResultVarp uintptr, cerrp **glib.Error) bool
+	var rawCallback func(FileVarp uintptr, ResultVarp uintptr) bool
 	purego.RegisterFunc(&rawCallback, x.xMoveFinish)
 	return func(FileVar File, ResultVar AsyncResult) bool {
-		var cerr *glib.Error
-		return rawCallback(FileVar.GoPointer(), ResultVar.GoPointer(), &cerr)
+		return rawCallback(FileVar.GoPointer(), ResultVar.GoPointer())
 	}
 }
 
@@ -2302,7 +2266,7 @@ func (x *FileIface) OverrideMountMountableFinish(cb func(File, AsyncResult) *Fil
 	if cb == nil {
 		x.xMountMountableFinish = 0
 	} else {
-		x.xMountMountableFinish = purego.NewCallback(func(FileVarp uintptr, ResultVarp uintptr, cerrp **glib.Error) uintptr {
+		x.xMountMountableFinish = purego.NewCallback(func(FileVarp uintptr, ResultVarp uintptr) uintptr {
 			ret := cb(&FileBase{Ptr: FileVarp}, &AsyncResultBase{Ptr: ResultVarp})
 			if ret == nil {
 				return 0
@@ -2318,11 +2282,10 @@ func (x *FileIface) GetMountMountableFinish() func(File, AsyncResult) *FileBase 
 	if x.xMountMountableFinish == 0 {
 		return nil
 	}
-	var rawCallback func(FileVarp uintptr, ResultVarp uintptr, cerrp **glib.Error) uintptr
+	var rawCallback func(FileVarp uintptr, ResultVarp uintptr) uintptr
 	purego.RegisterFunc(&rawCallback, x.xMountMountableFinish)
 	return func(FileVar File, ResultVar AsyncResult) *FileBase {
-		var cerr *glib.Error
-		rawRet := rawCallback(FileVar.GoPointer(), ResultVar.GoPointer(), &cerr)
+		rawRet := rawCallback(FileVar.GoPointer(), ResultVar.GoPointer())
 		if rawRet == 0 {
 			return nil
 		}
@@ -2363,7 +2326,7 @@ func (x *FileIface) OverrideUnmountMountableFinish(cb func(File, AsyncResult) bo
 	if cb == nil {
 		x.xUnmountMountableFinish = 0
 	} else {
-		x.xUnmountMountableFinish = purego.NewCallback(func(FileVarp uintptr, ResultVarp uintptr, cerrp **glib.Error) bool {
+		x.xUnmountMountableFinish = purego.NewCallback(func(FileVarp uintptr, ResultVarp uintptr) bool {
 			return cb(&FileBase{Ptr: FileVarp}, &AsyncResultBase{Ptr: ResultVarp})
 		})
 	}
@@ -2375,11 +2338,10 @@ func (x *FileIface) GetUnmountMountableFinish() func(File, AsyncResult) bool {
 	if x.xUnmountMountableFinish == 0 {
 		return nil
 	}
-	var rawCallback func(FileVarp uintptr, ResultVarp uintptr, cerrp **glib.Error) bool
+	var rawCallback func(FileVarp uintptr, ResultVarp uintptr) bool
 	purego.RegisterFunc(&rawCallback, x.xUnmountMountableFinish)
 	return func(FileVar File, ResultVar AsyncResult) bool {
-		var cerr *glib.Error
-		return rawCallback(FileVar.GoPointer(), ResultVar.GoPointer(), &cerr)
+		return rawCallback(FileVar.GoPointer(), ResultVar.GoPointer())
 	}
 }
 
@@ -2414,7 +2376,7 @@ func (x *FileIface) OverrideEjectMountableFinish(cb func(File, AsyncResult) bool
 	if cb == nil {
 		x.xEjectMountableFinish = 0
 	} else {
-		x.xEjectMountableFinish = purego.NewCallback(func(FileVarp uintptr, ResultVarp uintptr, cerrp **glib.Error) bool {
+		x.xEjectMountableFinish = purego.NewCallback(func(FileVarp uintptr, ResultVarp uintptr) bool {
 			return cb(&FileBase{Ptr: FileVarp}, &AsyncResultBase{Ptr: ResultVarp})
 		})
 	}
@@ -2426,11 +2388,10 @@ func (x *FileIface) GetEjectMountableFinish() func(File, AsyncResult) bool {
 	if x.xEjectMountableFinish == 0 {
 		return nil
 	}
-	var rawCallback func(FileVarp uintptr, ResultVarp uintptr, cerrp **glib.Error) bool
+	var rawCallback func(FileVarp uintptr, ResultVarp uintptr) bool
 	purego.RegisterFunc(&rawCallback, x.xEjectMountableFinish)
 	return func(FileVar File, ResultVar AsyncResult) bool {
-		var cerr *glib.Error
-		return rawCallback(FileVar.GoPointer(), ResultVar.GoPointer(), &cerr)
+		return rawCallback(FileVar.GoPointer(), ResultVar.GoPointer())
 	}
 }
 
@@ -2465,7 +2426,7 @@ func (x *FileIface) OverrideMountEnclosingVolumeFinish(cb func(File, AsyncResult
 	if cb == nil {
 		x.xMountEnclosingVolumeFinish = 0
 	} else {
-		x.xMountEnclosingVolumeFinish = purego.NewCallback(func(LocationVarp uintptr, ResultVarp uintptr, cerrp **glib.Error) bool {
+		x.xMountEnclosingVolumeFinish = purego.NewCallback(func(LocationVarp uintptr, ResultVarp uintptr) bool {
 			return cb(&FileBase{Ptr: LocationVarp}, &AsyncResultBase{Ptr: ResultVarp})
 		})
 	}
@@ -2477,11 +2438,10 @@ func (x *FileIface) GetMountEnclosingVolumeFinish() func(File, AsyncResult) bool
 	if x.xMountEnclosingVolumeFinish == 0 {
 		return nil
 	}
-	var rawCallback func(LocationVarp uintptr, ResultVarp uintptr, cerrp **glib.Error) bool
+	var rawCallback func(LocationVarp uintptr, ResultVarp uintptr) bool
 	purego.RegisterFunc(&rawCallback, x.xMountEnclosingVolumeFinish)
 	return func(LocationVar File, ResultVar AsyncResult) bool {
-		var cerr *glib.Error
-		return rawCallback(LocationVar.GoPointer(), ResultVar.GoPointer(), &cerr)
+		return rawCallback(LocationVar.GoPointer(), ResultVar.GoPointer())
 	}
 }
 
@@ -2491,7 +2451,7 @@ func (x *FileIface) OverrideMonitorDir(cb func(File, FileMonitorFlags, *Cancella
 	if cb == nil {
 		x.xMonitorDir = 0
 	} else {
-		x.xMonitorDir = purego.NewCallback(func(FileVarp uintptr, FlagsVarp FileMonitorFlags, CancellableVarp uintptr, cerrp **glib.Error) uintptr {
+		x.xMonitorDir = purego.NewCallback(func(FileVarp uintptr, FlagsVarp FileMonitorFlags, CancellableVarp uintptr) uintptr {
 			ret := cb(&FileBase{Ptr: FileVarp}, FlagsVarp, CancellableNewFromInternalPtr(CancellableVarp))
 			if ret == nil {
 				return 0
@@ -2507,11 +2467,10 @@ func (x *FileIface) GetMonitorDir() func(File, FileMonitorFlags, *Cancellable) *
 	if x.xMonitorDir == 0 {
 		return nil
 	}
-	var rawCallback func(FileVarp uintptr, FlagsVarp FileMonitorFlags, CancellableVarp uintptr, cerrp **glib.Error) uintptr
+	var rawCallback func(FileVarp uintptr, FlagsVarp FileMonitorFlags, CancellableVarp uintptr) uintptr
 	purego.RegisterFunc(&rawCallback, x.xMonitorDir)
 	return func(FileVar File, FlagsVar FileMonitorFlags, CancellableVar *Cancellable) *FileMonitor {
-		var cerr *glib.Error
-		rawRet := rawCallback(FileVar.GoPointer(), FlagsVar, CancellableVar.GoPointer(), &cerr)
+		rawRet := rawCallback(FileVar.GoPointer(), FlagsVar, CancellableVar.GoPointer())
 		if rawRet == 0 {
 			return nil
 		}
@@ -2527,7 +2486,7 @@ func (x *FileIface) OverrideMonitorFile(cb func(File, FileMonitorFlags, *Cancell
 	if cb == nil {
 		x.xMonitorFile = 0
 	} else {
-		x.xMonitorFile = purego.NewCallback(func(FileVarp uintptr, FlagsVarp FileMonitorFlags, CancellableVarp uintptr, cerrp **glib.Error) uintptr {
+		x.xMonitorFile = purego.NewCallback(func(FileVarp uintptr, FlagsVarp FileMonitorFlags, CancellableVarp uintptr) uintptr {
 			ret := cb(&FileBase{Ptr: FileVarp}, FlagsVarp, CancellableNewFromInternalPtr(CancellableVarp))
 			if ret == nil {
 				return 0
@@ -2543,11 +2502,10 @@ func (x *FileIface) GetMonitorFile() func(File, FileMonitorFlags, *Cancellable) 
 	if x.xMonitorFile == 0 {
 		return nil
 	}
-	var rawCallback func(FileVarp uintptr, FlagsVarp FileMonitorFlags, CancellableVarp uintptr, cerrp **glib.Error) uintptr
+	var rawCallback func(FileVarp uintptr, FlagsVarp FileMonitorFlags, CancellableVarp uintptr) uintptr
 	purego.RegisterFunc(&rawCallback, x.xMonitorFile)
 	return func(FileVar File, FlagsVar FileMonitorFlags, CancellableVar *Cancellable) *FileMonitor {
-		var cerr *glib.Error
-		rawRet := rawCallback(FileVar.GoPointer(), FlagsVar, CancellableVar.GoPointer(), &cerr)
+		rawRet := rawCallback(FileVar.GoPointer(), FlagsVar, CancellableVar.GoPointer())
 		if rawRet == 0 {
 			return nil
 		}
@@ -2563,7 +2521,7 @@ func (x *FileIface) OverrideOpenReadwrite(cb func(File, *Cancellable) *FileIOStr
 	if cb == nil {
 		x.xOpenReadwrite = 0
 	} else {
-		x.xOpenReadwrite = purego.NewCallback(func(FileVarp uintptr, CancellableVarp uintptr, cerrp **glib.Error) uintptr {
+		x.xOpenReadwrite = purego.NewCallback(func(FileVarp uintptr, CancellableVarp uintptr) uintptr {
 			ret := cb(&FileBase{Ptr: FileVarp}, CancellableNewFromInternalPtr(CancellableVarp))
 			if ret == nil {
 				return 0
@@ -2579,11 +2537,10 @@ func (x *FileIface) GetOpenReadwrite() func(File, *Cancellable) *FileIOStream {
 	if x.xOpenReadwrite == 0 {
 		return nil
 	}
-	var rawCallback func(FileVarp uintptr, CancellableVarp uintptr, cerrp **glib.Error) uintptr
+	var rawCallback func(FileVarp uintptr, CancellableVarp uintptr) uintptr
 	purego.RegisterFunc(&rawCallback, x.xOpenReadwrite)
 	return func(FileVar File, CancellableVar *Cancellable) *FileIOStream {
-		var cerr *glib.Error
-		rawRet := rawCallback(FileVar.GoPointer(), CancellableVar.GoPointer(), &cerr)
+		rawRet := rawCallback(FileVar.GoPointer(), CancellableVar.GoPointer())
 		if rawRet == 0 {
 			return nil
 		}
@@ -2624,7 +2581,7 @@ func (x *FileIface) OverrideOpenReadwriteFinish(cb func(File, AsyncResult) *File
 	if cb == nil {
 		x.xOpenReadwriteFinish = 0
 	} else {
-		x.xOpenReadwriteFinish = purego.NewCallback(func(FileVarp uintptr, ResVarp uintptr, cerrp **glib.Error) uintptr {
+		x.xOpenReadwriteFinish = purego.NewCallback(func(FileVarp uintptr, ResVarp uintptr) uintptr {
 			ret := cb(&FileBase{Ptr: FileVarp}, &AsyncResultBase{Ptr: ResVarp})
 			if ret == nil {
 				return 0
@@ -2640,11 +2597,10 @@ func (x *FileIface) GetOpenReadwriteFinish() func(File, AsyncResult) *FileIOStre
 	if x.xOpenReadwriteFinish == 0 {
 		return nil
 	}
-	var rawCallback func(FileVarp uintptr, ResVarp uintptr, cerrp **glib.Error) uintptr
+	var rawCallback func(FileVarp uintptr, ResVarp uintptr) uintptr
 	purego.RegisterFunc(&rawCallback, x.xOpenReadwriteFinish)
 	return func(FileVar File, ResVar AsyncResult) *FileIOStream {
-		var cerr *glib.Error
-		rawRet := rawCallback(FileVar.GoPointer(), ResVar.GoPointer(), &cerr)
+		rawRet := rawCallback(FileVar.GoPointer(), ResVar.GoPointer())
 		if rawRet == 0 {
 			return nil
 		}
@@ -2660,7 +2616,7 @@ func (x *FileIface) OverrideCreateReadwrite(cb func(File, FileCreateFlags, *Canc
 	if cb == nil {
 		x.xCreateReadwrite = 0
 	} else {
-		x.xCreateReadwrite = purego.NewCallback(func(FileVarp uintptr, FlagsVarp FileCreateFlags, CancellableVarp uintptr, cerrp **glib.Error) uintptr {
+		x.xCreateReadwrite = purego.NewCallback(func(FileVarp uintptr, FlagsVarp FileCreateFlags, CancellableVarp uintptr) uintptr {
 			ret := cb(&FileBase{Ptr: FileVarp}, FlagsVarp, CancellableNewFromInternalPtr(CancellableVarp))
 			if ret == nil {
 				return 0
@@ -2676,11 +2632,10 @@ func (x *FileIface) GetCreateReadwrite() func(File, FileCreateFlags, *Cancellabl
 	if x.xCreateReadwrite == 0 {
 		return nil
 	}
-	var rawCallback func(FileVarp uintptr, FlagsVarp FileCreateFlags, CancellableVarp uintptr, cerrp **glib.Error) uintptr
+	var rawCallback func(FileVarp uintptr, FlagsVarp FileCreateFlags, CancellableVarp uintptr) uintptr
 	purego.RegisterFunc(&rawCallback, x.xCreateReadwrite)
 	return func(FileVar File, FlagsVar FileCreateFlags, CancellableVar *Cancellable) *FileIOStream {
-		var cerr *glib.Error
-		rawRet := rawCallback(FileVar.GoPointer(), FlagsVar, CancellableVar.GoPointer(), &cerr)
+		rawRet := rawCallback(FileVar.GoPointer(), FlagsVar, CancellableVar.GoPointer())
 		if rawRet == 0 {
 			return nil
 		}
@@ -2721,7 +2676,7 @@ func (x *FileIface) OverrideCreateReadwriteFinish(cb func(File, AsyncResult) *Fi
 	if cb == nil {
 		x.xCreateReadwriteFinish = 0
 	} else {
-		x.xCreateReadwriteFinish = purego.NewCallback(func(FileVarp uintptr, ResVarp uintptr, cerrp **glib.Error) uintptr {
+		x.xCreateReadwriteFinish = purego.NewCallback(func(FileVarp uintptr, ResVarp uintptr) uintptr {
 			ret := cb(&FileBase{Ptr: FileVarp}, &AsyncResultBase{Ptr: ResVarp})
 			if ret == nil {
 				return 0
@@ -2737,11 +2692,10 @@ func (x *FileIface) GetCreateReadwriteFinish() func(File, AsyncResult) *FileIOSt
 	if x.xCreateReadwriteFinish == 0 {
 		return nil
 	}
-	var rawCallback func(FileVarp uintptr, ResVarp uintptr, cerrp **glib.Error) uintptr
+	var rawCallback func(FileVarp uintptr, ResVarp uintptr) uintptr
 	purego.RegisterFunc(&rawCallback, x.xCreateReadwriteFinish)
 	return func(FileVar File, ResVar AsyncResult) *FileIOStream {
-		var cerr *glib.Error
-		rawRet := rawCallback(FileVar.GoPointer(), ResVar.GoPointer(), &cerr)
+		rawRet := rawCallback(FileVar.GoPointer(), ResVar.GoPointer())
 		if rawRet == 0 {
 			return nil
 		}
@@ -2757,7 +2711,7 @@ func (x *FileIface) OverrideReplaceReadwrite(cb func(File, string, bool, FileCre
 	if cb == nil {
 		x.xReplaceReadwrite = 0
 	} else {
-		x.xReplaceReadwrite = purego.NewCallback(func(FileVarp uintptr, EtagVarp string, MakeBackupVarp bool, FlagsVarp FileCreateFlags, CancellableVarp uintptr, cerrp **glib.Error) uintptr {
+		x.xReplaceReadwrite = purego.NewCallback(func(FileVarp uintptr, EtagVarp string, MakeBackupVarp bool, FlagsVarp FileCreateFlags, CancellableVarp uintptr) uintptr {
 			ret := cb(&FileBase{Ptr: FileVarp}, EtagVarp, MakeBackupVarp, FlagsVarp, CancellableNewFromInternalPtr(CancellableVarp))
 			if ret == nil {
 				return 0
@@ -2773,11 +2727,10 @@ func (x *FileIface) GetReplaceReadwrite() func(File, string, bool, FileCreateFla
 	if x.xReplaceReadwrite == 0 {
 		return nil
 	}
-	var rawCallback func(FileVarp uintptr, EtagVarp string, MakeBackupVarp bool, FlagsVarp FileCreateFlags, CancellableVarp uintptr, cerrp **glib.Error) uintptr
+	var rawCallback func(FileVarp uintptr, EtagVarp string, MakeBackupVarp bool, FlagsVarp FileCreateFlags, CancellableVarp uintptr) uintptr
 	purego.RegisterFunc(&rawCallback, x.xReplaceReadwrite)
 	return func(FileVar File, EtagVar string, MakeBackupVar bool, FlagsVar FileCreateFlags, CancellableVar *Cancellable) *FileIOStream {
-		var cerr *glib.Error
-		rawRet := rawCallback(FileVar.GoPointer(), EtagVar, MakeBackupVar, FlagsVar, CancellableVar.GoPointer(), &cerr)
+		rawRet := rawCallback(FileVar.GoPointer(), EtagVar, MakeBackupVar, FlagsVar, CancellableVar.GoPointer())
 		if rawRet == 0 {
 			return nil
 		}
@@ -2818,7 +2771,7 @@ func (x *FileIface) OverrideReplaceReadwriteFinish(cb func(File, AsyncResult) *F
 	if cb == nil {
 		x.xReplaceReadwriteFinish = 0
 	} else {
-		x.xReplaceReadwriteFinish = purego.NewCallback(func(FileVarp uintptr, ResVarp uintptr, cerrp **glib.Error) uintptr {
+		x.xReplaceReadwriteFinish = purego.NewCallback(func(FileVarp uintptr, ResVarp uintptr) uintptr {
 			ret := cb(&FileBase{Ptr: FileVarp}, &AsyncResultBase{Ptr: ResVarp})
 			if ret == nil {
 				return 0
@@ -2834,11 +2787,10 @@ func (x *FileIface) GetReplaceReadwriteFinish() func(File, AsyncResult) *FileIOS
 	if x.xReplaceReadwriteFinish == 0 {
 		return nil
 	}
-	var rawCallback func(FileVarp uintptr, ResVarp uintptr, cerrp **glib.Error) uintptr
+	var rawCallback func(FileVarp uintptr, ResVarp uintptr) uintptr
 	purego.RegisterFunc(&rawCallback, x.xReplaceReadwriteFinish)
 	return func(FileVar File, ResVar AsyncResult) *FileIOStream {
-		var cerr *glib.Error
-		rawRet := rawCallback(FileVar.GoPointer(), ResVar.GoPointer(), &cerr)
+		rawRet := rawCallback(FileVar.GoPointer(), ResVar.GoPointer())
 		if rawRet == 0 {
 			return nil
 		}
@@ -2879,7 +2831,7 @@ func (x *FileIface) OverrideStartMountableFinish(cb func(File, AsyncResult) bool
 	if cb == nil {
 		x.xStartMountableFinish = 0
 	} else {
-		x.xStartMountableFinish = purego.NewCallback(func(FileVarp uintptr, ResultVarp uintptr, cerrp **glib.Error) bool {
+		x.xStartMountableFinish = purego.NewCallback(func(FileVarp uintptr, ResultVarp uintptr) bool {
 			return cb(&FileBase{Ptr: FileVarp}, &AsyncResultBase{Ptr: ResultVarp})
 		})
 	}
@@ -2891,11 +2843,10 @@ func (x *FileIface) GetStartMountableFinish() func(File, AsyncResult) bool {
 	if x.xStartMountableFinish == 0 {
 		return nil
 	}
-	var rawCallback func(FileVarp uintptr, ResultVarp uintptr, cerrp **glib.Error) bool
+	var rawCallback func(FileVarp uintptr, ResultVarp uintptr) bool
 	purego.RegisterFunc(&rawCallback, x.xStartMountableFinish)
 	return func(FileVar File, ResultVar AsyncResult) bool {
-		var cerr *glib.Error
-		return rawCallback(FileVar.GoPointer(), ResultVar.GoPointer(), &cerr)
+		return rawCallback(FileVar.GoPointer(), ResultVar.GoPointer())
 	}
 }
 
@@ -2930,7 +2881,7 @@ func (x *FileIface) OverrideStopMountableFinish(cb func(File, AsyncResult) bool)
 	if cb == nil {
 		x.xStopMountableFinish = 0
 	} else {
-		x.xStopMountableFinish = purego.NewCallback(func(FileVarp uintptr, ResultVarp uintptr, cerrp **glib.Error) bool {
+		x.xStopMountableFinish = purego.NewCallback(func(FileVarp uintptr, ResultVarp uintptr) bool {
 			return cb(&FileBase{Ptr: FileVarp}, &AsyncResultBase{Ptr: ResultVarp})
 		})
 	}
@@ -2942,11 +2893,10 @@ func (x *FileIface) GetStopMountableFinish() func(File, AsyncResult) bool {
 	if x.xStopMountableFinish == 0 {
 		return nil
 	}
-	var rawCallback func(FileVarp uintptr, ResultVarp uintptr, cerrp **glib.Error) bool
+	var rawCallback func(FileVarp uintptr, ResultVarp uintptr) bool
 	purego.RegisterFunc(&rawCallback, x.xStopMountableFinish)
 	return func(FileVar File, ResultVar AsyncResult) bool {
-		var cerr *glib.Error
-		return rawCallback(FileVar.GoPointer(), ResultVar.GoPointer(), &cerr)
+		return rawCallback(FileVar.GoPointer(), ResultVar.GoPointer())
 	}
 }
 
@@ -2981,7 +2931,7 @@ func (x *FileIface) OverrideUnmountMountableWithOperationFinish(cb func(File, As
 	if cb == nil {
 		x.xUnmountMountableWithOperationFinish = 0
 	} else {
-		x.xUnmountMountableWithOperationFinish = purego.NewCallback(func(FileVarp uintptr, ResultVarp uintptr, cerrp **glib.Error) bool {
+		x.xUnmountMountableWithOperationFinish = purego.NewCallback(func(FileVarp uintptr, ResultVarp uintptr) bool {
 			return cb(&FileBase{Ptr: FileVarp}, &AsyncResultBase{Ptr: ResultVarp})
 		})
 	}
@@ -2993,11 +2943,10 @@ func (x *FileIface) GetUnmountMountableWithOperationFinish() func(File, AsyncRes
 	if x.xUnmountMountableWithOperationFinish == 0 {
 		return nil
 	}
-	var rawCallback func(FileVarp uintptr, ResultVarp uintptr, cerrp **glib.Error) bool
+	var rawCallback func(FileVarp uintptr, ResultVarp uintptr) bool
 	purego.RegisterFunc(&rawCallback, x.xUnmountMountableWithOperationFinish)
 	return func(FileVar File, ResultVar AsyncResult) bool {
-		var cerr *glib.Error
-		return rawCallback(FileVar.GoPointer(), ResultVar.GoPointer(), &cerr)
+		return rawCallback(FileVar.GoPointer(), ResultVar.GoPointer())
 	}
 }
 
@@ -3032,7 +2981,7 @@ func (x *FileIface) OverrideEjectMountableWithOperationFinish(cb func(File, Asyn
 	if cb == nil {
 		x.xEjectMountableWithOperationFinish = 0
 	} else {
-		x.xEjectMountableWithOperationFinish = purego.NewCallback(func(FileVarp uintptr, ResultVarp uintptr, cerrp **glib.Error) bool {
+		x.xEjectMountableWithOperationFinish = purego.NewCallback(func(FileVarp uintptr, ResultVarp uintptr) bool {
 			return cb(&FileBase{Ptr: FileVarp}, &AsyncResultBase{Ptr: ResultVarp})
 		})
 	}
@@ -3044,11 +2993,10 @@ func (x *FileIface) GetEjectMountableWithOperationFinish() func(File, AsyncResul
 	if x.xEjectMountableWithOperationFinish == 0 {
 		return nil
 	}
-	var rawCallback func(FileVarp uintptr, ResultVarp uintptr, cerrp **glib.Error) bool
+	var rawCallback func(FileVarp uintptr, ResultVarp uintptr) bool
 	purego.RegisterFunc(&rawCallback, x.xEjectMountableWithOperationFinish)
 	return func(FileVar File, ResultVar AsyncResult) bool {
-		var cerr *glib.Error
-		return rawCallback(FileVar.GoPointer(), ResultVar.GoPointer(), &cerr)
+		return rawCallback(FileVar.GoPointer(), ResultVar.GoPointer())
 	}
 }
 
@@ -3083,7 +3031,7 @@ func (x *FileIface) OverridePollMountableFinish(cb func(File, AsyncResult) bool)
 	if cb == nil {
 		x.xPollMountableFinish = 0
 	} else {
-		x.xPollMountableFinish = purego.NewCallback(func(FileVarp uintptr, ResultVarp uintptr, cerrp **glib.Error) bool {
+		x.xPollMountableFinish = purego.NewCallback(func(FileVarp uintptr, ResultVarp uintptr) bool {
 			return cb(&FileBase{Ptr: FileVarp}, &AsyncResultBase{Ptr: ResultVarp})
 		})
 	}
@@ -3095,11 +3043,10 @@ func (x *FileIface) GetPollMountableFinish() func(File, AsyncResult) bool {
 	if x.xPollMountableFinish == 0 {
 		return nil
 	}
-	var rawCallback func(FileVarp uintptr, ResultVarp uintptr, cerrp **glib.Error) bool
+	var rawCallback func(FileVarp uintptr, ResultVarp uintptr) bool
 	purego.RegisterFunc(&rawCallback, x.xPollMountableFinish)
 	return func(FileVar File, ResultVar AsyncResult) bool {
-		var cerr *glib.Error
-		return rawCallback(FileVar.GoPointer(), ResultVar.GoPointer(), &cerr)
+		return rawCallback(FileVar.GoPointer(), ResultVar.GoPointer())
 	}
 }
 
@@ -3109,7 +3056,7 @@ func (x *FileIface) OverrideMeasureDiskUsage(cb func(File, FileMeasureFlags, *Ca
 	if cb == nil {
 		x.xMeasureDiskUsage = 0
 	} else {
-		x.xMeasureDiskUsage = purego.NewCallback(func(FileVarp uintptr, FlagsVarp FileMeasureFlags, CancellableVarp uintptr, ProgressCallbackVarp uintptr, ProgressDataVarp uintptr, DiskUsageVarp *uint64, NumDirsVarp *uint64, NumFilesVarp *uint64, cerrp **glib.Error) bool {
+		x.xMeasureDiskUsage = purego.NewCallback(func(FileVarp uintptr, FlagsVarp FileMeasureFlags, CancellableVarp uintptr, ProgressCallbackVarp uintptr, ProgressDataVarp uintptr, DiskUsageVarp *uint64, NumDirsVarp *uint64, NumFilesVarp *uint64) bool {
 			return cb(&FileBase{Ptr: FileVarp}, FlagsVarp, CancellableNewFromInternalPtr(CancellableVarp), (*FileMeasureProgressCallback)(unsafe.Pointer(ProgressCallbackVarp)), ProgressDataVarp, DiskUsageVarp, NumDirsVarp, NumFilesVarp)
 		})
 	}
@@ -3121,11 +3068,10 @@ func (x *FileIface) GetMeasureDiskUsage() func(File, FileMeasureFlags, *Cancella
 	if x.xMeasureDiskUsage == 0 {
 		return nil
 	}
-	var rawCallback func(FileVarp uintptr, FlagsVarp FileMeasureFlags, CancellableVarp uintptr, ProgressCallbackVarp uintptr, ProgressDataVarp uintptr, DiskUsageVarp *uint64, NumDirsVarp *uint64, NumFilesVarp *uint64, cerrp **glib.Error) bool
+	var rawCallback func(FileVarp uintptr, FlagsVarp FileMeasureFlags, CancellableVarp uintptr, ProgressCallbackVarp uintptr, ProgressDataVarp uintptr, DiskUsageVarp *uint64, NumDirsVarp *uint64, NumFilesVarp *uint64) bool
 	purego.RegisterFunc(&rawCallback, x.xMeasureDiskUsage)
 	return func(FileVar File, FlagsVar FileMeasureFlags, CancellableVar *Cancellable, ProgressCallbackVar *FileMeasureProgressCallback, ProgressDataVar uintptr, DiskUsageVar *uint64, NumDirsVar *uint64, NumFilesVar *uint64) bool {
-		var cerr *glib.Error
-		return rawCallback(FileVar.GoPointer(), FlagsVar, CancellableVar.GoPointer(), glib.NewCallbackNullable(ProgressCallbackVar), ProgressDataVar, DiskUsageVar, NumDirsVar, NumFilesVar, &cerr)
+		return rawCallback(FileVar.GoPointer(), FlagsVar, CancellableVar.GoPointer(), glib.NewCallbackNullable(ProgressCallbackVar), ProgressDataVar, DiskUsageVar, NumDirsVar, NumFilesVar)
 	}
 }
 
@@ -3160,7 +3106,7 @@ func (x *FileIface) OverrideMeasureDiskUsageFinish(cb func(File, AsyncResult, *u
 	if cb == nil {
 		x.xMeasureDiskUsageFinish = 0
 	} else {
-		x.xMeasureDiskUsageFinish = purego.NewCallback(func(FileVarp uintptr, ResultVarp uintptr, DiskUsageVarp *uint64, NumDirsVarp *uint64, NumFilesVarp *uint64, cerrp **glib.Error) bool {
+		x.xMeasureDiskUsageFinish = purego.NewCallback(func(FileVarp uintptr, ResultVarp uintptr, DiskUsageVarp *uint64, NumDirsVarp *uint64, NumFilesVarp *uint64) bool {
 			return cb(&FileBase{Ptr: FileVarp}, &AsyncResultBase{Ptr: ResultVarp}, DiskUsageVarp, NumDirsVarp, NumFilesVarp)
 		})
 	}
@@ -3172,11 +3118,10 @@ func (x *FileIface) GetMeasureDiskUsageFinish() func(File, AsyncResult, *uint64,
 	if x.xMeasureDiskUsageFinish == 0 {
 		return nil
 	}
-	var rawCallback func(FileVarp uintptr, ResultVarp uintptr, DiskUsageVarp *uint64, NumDirsVarp *uint64, NumFilesVarp *uint64, cerrp **glib.Error) bool
+	var rawCallback func(FileVarp uintptr, ResultVarp uintptr, DiskUsageVarp *uint64, NumDirsVarp *uint64, NumFilesVarp *uint64) bool
 	purego.RegisterFunc(&rawCallback, x.xMeasureDiskUsageFinish)
 	return func(FileVar File, ResultVar AsyncResult, DiskUsageVar *uint64, NumDirsVar *uint64, NumFilesVar *uint64) bool {
-		var cerr *glib.Error
-		return rawCallback(FileVar.GoPointer(), ResultVar.GoPointer(), DiskUsageVar, NumDirsVar, NumFilesVar, &cerr)
+		return rawCallback(FileVar.GoPointer(), ResultVar.GoPointer(), DiskUsageVar, NumDirsVar, NumFilesVar)
 	}
 }
 
@@ -3435,7 +3380,6 @@ type File interface {
 var xFileGLibType func() types.GType
 
 func FileGLibType() types.GType {
-	core.LazyRegister(&xFileGLibType, "GIO", "g_file_get_type", false)
 	return xFileGLibType()
 }
 
@@ -5868,922 +5812,139 @@ func (x *FileBase) UnmountMountableWithOperationFinish(ResultVar AsyncResult) (b
 	return cret, cerr
 }
 
-var XGFileAppendTo func(uintptr, FileCreateFlags, uintptr, **glib.Error) uintptr = func(instance uintptr, FlagsVarp FileCreateFlags, CancellableVarp uintptr, cerrp **glib.Error) uintptr {
-	core.LazyRegister(&xXGFileAppendTo, "GIO", "g_file_append_to", false)
-	return xXGFileAppendTo(instance, FlagsVarp, CancellableVarp, cerrp)
-}
-
 var (
-	xXGFileAppendTo     func(uintptr, FileCreateFlags, uintptr, **glib.Error) uintptr
-	XGFileAppendToAsync func(uintptr, FileCreateFlags, int, uintptr, uintptr, uintptr) = func(instance uintptr, FlagsVarp FileCreateFlags, IoPriorityVarp int, CancellableVarp uintptr, CallbackVarp uintptr, UserDataVarp uintptr) {
-		core.LazyRegister(&xXGFileAppendToAsync, "GIO", "g_file_append_to_async", false)
-		xXGFileAppendToAsync(instance, FlagsVarp, IoPriorityVarp, CancellableVarp, CallbackVarp, UserDataVarp)
-	}
+	XGFileAppendTo                            func(uintptr, FileCreateFlags, uintptr, **glib.Error) uintptr
+	XGFileAppendToAsync                       func(uintptr, FileCreateFlags, int, uintptr, uintptr, uintptr)
+	XGFileAppendToFinish                      func(uintptr, uintptr, **glib.Error) uintptr
+	XGFileBuildAttributeListForCopy           func(uintptr, FileCopyFlags, uintptr, **glib.Error) string
+	XGFileCopy                                func(uintptr, uintptr, FileCopyFlags, uintptr, uintptr, uintptr, **glib.Error) bool
+	XGFileCopyAsync                           func(uintptr, uintptr, FileCopyFlags, int, uintptr, uintptr, uintptr, uintptr, uintptr)
+	XGFileCopyAsyncWithClosures               func(uintptr, uintptr, FileCopyFlags, int, uintptr, *gobject.Closure, *gobject.Closure)
+	XGFileCopyAttributes                      func(uintptr, uintptr, FileCopyFlags, uintptr, **glib.Error) bool
+	XGFileCopyFinish                          func(uintptr, uintptr, **glib.Error) bool
+	XGFileCreate                              func(uintptr, FileCreateFlags, uintptr, **glib.Error) uintptr
+	XGFileCreateAsync                         func(uintptr, FileCreateFlags, int, uintptr, uintptr, uintptr)
+	XGFileCreateFinish                        func(uintptr, uintptr, **glib.Error) uintptr
+	XGFileCreateReadwrite                     func(uintptr, FileCreateFlags, uintptr, **glib.Error) uintptr
+	XGFileCreateReadwriteAsync                func(uintptr, FileCreateFlags, int, uintptr, uintptr, uintptr)
+	XGFileCreateReadwriteFinish               func(uintptr, uintptr, **glib.Error) uintptr
+	XGFileDelete                              func(uintptr, uintptr, **glib.Error) bool
+	XGFileDeleteAsync                         func(uintptr, int, uintptr, uintptr, uintptr)
+	XGFileDeleteFinish                        func(uintptr, uintptr, **glib.Error) bool
+	XGFileDup                                 func(uintptr) uintptr
+	XGFileEjectMountable                      func(uintptr, MountUnmountFlags, uintptr, uintptr, uintptr)
+	XGFileEjectMountableFinish                func(uintptr, uintptr, **glib.Error) bool
+	XGFileEjectMountableWithOperation         func(uintptr, MountUnmountFlags, uintptr, uintptr, uintptr, uintptr)
+	XGFileEjectMountableWithOperationFinish   func(uintptr, uintptr, **glib.Error) bool
+	XGFileEnumerateChildren                   func(uintptr, string, FileQueryInfoFlags, uintptr, **glib.Error) uintptr
+	XGFileEnumerateChildrenAsync              func(uintptr, string, FileQueryInfoFlags, int, uintptr, uintptr, uintptr)
+	XGFileEnumerateChildrenFinish             func(uintptr, uintptr, **glib.Error) uintptr
+	XGFileEqual                               func(uintptr, uintptr) bool
+	XGFileFindEnclosingMount                  func(uintptr, uintptr, **glib.Error) uintptr
+	XGFileFindEnclosingMountAsync             func(uintptr, int, uintptr, uintptr, uintptr)
+	XGFileFindEnclosingMountFinish            func(uintptr, uintptr, **glib.Error) uintptr
+	XGFileGetBasename                         func(uintptr) string
+	XGFileGetChild                            func(uintptr, string) uintptr
+	XGFileGetChildForDisplayName              func(uintptr, string, **glib.Error) uintptr
+	XGFileGetParent                           func(uintptr) uintptr
+	XGFileGetParseName                        func(uintptr) string
+	XGFileGetPath                             func(uintptr) string
+	XGFileGetRelativePath                     func(uintptr, uintptr) string
+	XGFileGetUri                              func(uintptr) string
+	XGFileGetUriScheme                        func(uintptr) string
+	XGFileHasParent                           func(uintptr, uintptr) bool
+	XGFileHasPrefix                           func(uintptr, uintptr) bool
+	XGFileHasUriScheme                        func(uintptr, string) bool
+	XGFileHash                                func(uintptr) uint
+	XGFileIsNative                            func(uintptr) bool
+	XGFileLoadBytes                           func(uintptr, uintptr, *string, **glib.Error) uintptr
+	XGFileLoadBytesAsync                      func(uintptr, uintptr, uintptr, uintptr)
+	XGFileLoadBytesFinish                     func(uintptr, uintptr, *string, **glib.Error) uintptr
+	XGFileLoadContents                        func(uintptr, uintptr, *[]string, *uint, *string, **glib.Error) bool
+	XGFileLoadContentsAsync                   func(uintptr, uintptr, uintptr, uintptr)
+	XGFileLoadContentsFinish                  func(uintptr, uintptr, *[]string, *uint, *string, **glib.Error) bool
+	XGFileLoadPartialContentsAsync            func(uintptr, uintptr, uintptr, uintptr, uintptr)
+	XGFileLoadPartialContentsFinish           func(uintptr, uintptr, *[]string, *uint, *string, **glib.Error) bool
+	XGFileMakeDirectory                       func(uintptr, uintptr, **glib.Error) bool
+	XGFileMakeDirectoryAsync                  func(uintptr, int, uintptr, uintptr, uintptr)
+	XGFileMakeDirectoryFinish                 func(uintptr, uintptr, **glib.Error) bool
+	XGFileMakeDirectoryWithParents            func(uintptr, uintptr, **glib.Error) bool
+	XGFileMakeSymbolicLink                    func(uintptr, string, uintptr, **glib.Error) bool
+	XGFileMakeSymbolicLinkAsync               func(uintptr, string, int, uintptr, uintptr, uintptr)
+	XGFileMakeSymbolicLinkFinish              func(uintptr, uintptr, **glib.Error) bool
+	XGFileMeasureDiskUsage                    func(uintptr, FileMeasureFlags, uintptr, uintptr, uintptr, *uint64, *uint64, *uint64, **glib.Error) bool
+	XGFileMeasureDiskUsageAsync               func(uintptr, FileMeasureFlags, int, uintptr, uintptr, uintptr, uintptr, uintptr)
+	XGFileMeasureDiskUsageFinish              func(uintptr, uintptr, *uint64, *uint64, *uint64, **glib.Error) bool
+	XGFileMonitor                             func(uintptr, FileMonitorFlags, uintptr, **glib.Error) uintptr
+	XGFileMonitorDirectory                    func(uintptr, FileMonitorFlags, uintptr, **glib.Error) uintptr
+	XGFileMonitorFile                         func(uintptr, FileMonitorFlags, uintptr, **glib.Error) uintptr
+	XGFileMountEnclosingVolume                func(uintptr, MountMountFlags, uintptr, uintptr, uintptr, uintptr)
+	XGFileMountEnclosingVolumeFinish          func(uintptr, uintptr, **glib.Error) bool
+	XGFileMountMountable                      func(uintptr, MountMountFlags, uintptr, uintptr, uintptr, uintptr)
+	XGFileMountMountableFinish                func(uintptr, uintptr, **glib.Error) uintptr
+	XGFileMove                                func(uintptr, uintptr, FileCopyFlags, uintptr, uintptr, uintptr, **glib.Error) bool
+	XGFileMoveAsync                           func(uintptr, uintptr, FileCopyFlags, int, uintptr, uintptr, uintptr, uintptr, uintptr)
+	XGFileMoveAsyncWithClosures               func(uintptr, uintptr, FileCopyFlags, int, uintptr, *gobject.Closure, *gobject.Closure)
+	XGFileMoveFinish                          func(uintptr, uintptr, **glib.Error) bool
+	XGFileOpenReadwrite                       func(uintptr, uintptr, **glib.Error) uintptr
+	XGFileOpenReadwriteAsync                  func(uintptr, int, uintptr, uintptr, uintptr)
+	XGFileOpenReadwriteFinish                 func(uintptr, uintptr, **glib.Error) uintptr
+	XGFilePeekPath                            func(uintptr) string
+	XGFilePollMountable                       func(uintptr, uintptr, uintptr, uintptr)
+	XGFilePollMountableFinish                 func(uintptr, uintptr, **glib.Error) bool
+	XGFileQueryDefaultHandler                 func(uintptr, uintptr, **glib.Error) uintptr
+	XGFileQueryDefaultHandlerAsync            func(uintptr, int, uintptr, uintptr, uintptr)
+	XGFileQueryDefaultHandlerFinish           func(uintptr, uintptr, **glib.Error) uintptr
+	XGFileQueryExists                         func(uintptr, uintptr) bool
+	XGFileQueryFileType                       func(uintptr, FileQueryInfoFlags, uintptr) FileType
+	XGFileQueryFilesystemInfo                 func(uintptr, string, uintptr, **glib.Error) uintptr
+	XGFileQueryFilesystemInfoAsync            func(uintptr, string, int, uintptr, uintptr, uintptr)
+	XGFileQueryFilesystemInfoFinish           func(uintptr, uintptr, **glib.Error) uintptr
+	XGFileQueryInfo                           func(uintptr, string, FileQueryInfoFlags, uintptr, **glib.Error) uintptr
+	XGFileQueryInfoAsync                      func(uintptr, string, FileQueryInfoFlags, int, uintptr, uintptr, uintptr)
+	XGFileQueryInfoFinish                     func(uintptr, uintptr, **glib.Error) uintptr
+	XGFileQuerySettableAttributes             func(uintptr, uintptr, **glib.Error) uintptr
+	XGFileQueryWritableNamespaces             func(uintptr, uintptr, **glib.Error) uintptr
+	XGFileRead                                func(uintptr, uintptr, **glib.Error) uintptr
+	XGFileReadAsync                           func(uintptr, int, uintptr, uintptr, uintptr)
+	XGFileReadFinish                          func(uintptr, uintptr, **glib.Error) uintptr
+	XGFileReplace                             func(uintptr, uintptr, bool, FileCreateFlags, uintptr, **glib.Error) uintptr
+	XGFileReplaceAsync                        func(uintptr, uintptr, bool, FileCreateFlags, int, uintptr, uintptr, uintptr)
+	XGFileReplaceContents                     func(uintptr, string, uint, uintptr, bool, FileCreateFlags, *string, uintptr, **glib.Error) bool
+	XGFileReplaceContentsAsync                func(uintptr, string, uint, uintptr, bool, FileCreateFlags, uintptr, uintptr, uintptr)
+	XGFileReplaceContentsBytesAsync           func(uintptr, *glib.Bytes, uintptr, bool, FileCreateFlags, uintptr, uintptr, uintptr)
+	XGFileReplaceContentsFinish               func(uintptr, uintptr, *string, **glib.Error) bool
+	XGFileReplaceFinish                       func(uintptr, uintptr, **glib.Error) uintptr
+	XGFileReplaceReadwrite                    func(uintptr, uintptr, bool, FileCreateFlags, uintptr, **glib.Error) uintptr
+	XGFileReplaceReadwriteAsync               func(uintptr, uintptr, bool, FileCreateFlags, int, uintptr, uintptr, uintptr)
+	XGFileReplaceReadwriteFinish              func(uintptr, uintptr, **glib.Error) uintptr
+	XGFileResolveRelativePath                 func(uintptr, string) uintptr
+	XGFileSetAttribute                        func(uintptr, string, FileAttributeType, uintptr, FileQueryInfoFlags, uintptr, **glib.Error) bool
+	XGFileSetAttributeByteString              func(uintptr, string, string, FileQueryInfoFlags, uintptr, **glib.Error) bool
+	XGFileSetAttributeInt32                   func(uintptr, string, int32, FileQueryInfoFlags, uintptr, **glib.Error) bool
+	XGFileSetAttributeInt64                   func(uintptr, string, int64, FileQueryInfoFlags, uintptr, **glib.Error) bool
+	XGFileSetAttributeString                  func(uintptr, string, string, FileQueryInfoFlags, uintptr, **glib.Error) bool
+	XGFileSetAttributeUint32                  func(uintptr, string, uint32, FileQueryInfoFlags, uintptr, **glib.Error) bool
+	XGFileSetAttributeUint64                  func(uintptr, string, uint64, FileQueryInfoFlags, uintptr, **glib.Error) bool
+	XGFileSetAttributesAsync                  func(uintptr, uintptr, FileQueryInfoFlags, int, uintptr, uintptr, uintptr)
+	XGFileSetAttributesFinish                 func(uintptr, uintptr, **FileInfo, **glib.Error) bool
+	XGFileSetAttributesFromInfo               func(uintptr, uintptr, FileQueryInfoFlags, uintptr, **glib.Error) bool
+	XGFileSetDisplayName                      func(uintptr, string, uintptr, **glib.Error) uintptr
+	XGFileSetDisplayNameAsync                 func(uintptr, string, int, uintptr, uintptr, uintptr)
+	XGFileSetDisplayNameFinish                func(uintptr, uintptr, **glib.Error) uintptr
+	XGFileStartMountable                      func(uintptr, DriveStartFlags, uintptr, uintptr, uintptr, uintptr)
+	XGFileStartMountableFinish                func(uintptr, uintptr, **glib.Error) bool
+	XGFileStopMountable                       func(uintptr, MountUnmountFlags, uintptr, uintptr, uintptr, uintptr)
+	XGFileStopMountableFinish                 func(uintptr, uintptr, **glib.Error) bool
+	XGFileSupportsThreadContexts              func(uintptr) bool
+	XGFileTrash                               func(uintptr, uintptr, **glib.Error) bool
+	XGFileTrashAsync                          func(uintptr, int, uintptr, uintptr, uintptr)
+	XGFileTrashFinish                         func(uintptr, uintptr, **glib.Error) bool
+	XGFileUnmountMountable                    func(uintptr, MountUnmountFlags, uintptr, uintptr, uintptr)
+	XGFileUnmountMountableFinish              func(uintptr, uintptr, **glib.Error) bool
+	XGFileUnmountMountableWithOperation       func(uintptr, MountUnmountFlags, uintptr, uintptr, uintptr, uintptr)
+	XGFileUnmountMountableWithOperationFinish func(uintptr, uintptr, **glib.Error) bool
 )
-var (
-	xXGFileAppendToAsync func(uintptr, FileCreateFlags, int, uintptr, uintptr, uintptr)
-	XGFileAppendToFinish func(uintptr, uintptr, **glib.Error) uintptr = func(instance uintptr, ResVarp uintptr, cerrp **glib.Error) uintptr {
-		core.LazyRegister(&xXGFileAppendToFinish, "GIO", "g_file_append_to_finish", false)
-		return xXGFileAppendToFinish(instance, ResVarp, cerrp)
-	}
-)
-var (
-	xXGFileAppendToFinish           func(uintptr, uintptr, **glib.Error) uintptr
-	XGFileBuildAttributeListForCopy func(uintptr, FileCopyFlags, uintptr, **glib.Error) string = func(instance uintptr, FlagsVarp FileCopyFlags, CancellableVarp uintptr, cerrp **glib.Error) string {
-		core.LazyRegister(&xXGFileBuildAttributeListForCopy, "GIO", "g_file_build_attribute_list_for_copy", false)
-		return xXGFileBuildAttributeListForCopy(instance, FlagsVarp, CancellableVarp, cerrp)
-	}
-)
-var (
-	xXGFileBuildAttributeListForCopy func(uintptr, FileCopyFlags, uintptr, **glib.Error) string
-	XGFileCopy                       func(uintptr, uintptr, FileCopyFlags, uintptr, uintptr, uintptr, **glib.Error) bool = func(instance uintptr, DestinationVarp uintptr, FlagsVarp FileCopyFlags, CancellableVarp uintptr, ProgressCallbackVarp uintptr, ProgressCallbackDataVarp uintptr, cerrp **glib.Error) bool {
-		core.LazyRegister(&xXGFileCopy, "GIO", "g_file_copy", false)
-		return xXGFileCopy(instance, DestinationVarp, FlagsVarp, CancellableVarp, ProgressCallbackVarp, ProgressCallbackDataVarp, cerrp)
-	}
-)
-var (
-	xXGFileCopy     func(uintptr, uintptr, FileCopyFlags, uintptr, uintptr, uintptr, **glib.Error) bool
-	XGFileCopyAsync func(uintptr, uintptr, FileCopyFlags, int, uintptr, uintptr, uintptr, uintptr, uintptr) = func(instance uintptr, DestinationVarp uintptr, FlagsVarp FileCopyFlags, IoPriorityVarp int, CancellableVarp uintptr, ProgressCallbackVarp uintptr, ProgressCallbackDataVarp uintptr, CallbackVarp uintptr, UserDataVarp uintptr) {
-		core.LazyRegister(&xXGFileCopyAsync, "GIO", "g_file_copy_async", false)
-		xXGFileCopyAsync(instance, DestinationVarp, FlagsVarp, IoPriorityVarp, CancellableVarp, ProgressCallbackVarp, ProgressCallbackDataVarp, CallbackVarp, UserDataVarp)
-	}
-)
-var (
-	xXGFileCopyAsync            func(uintptr, uintptr, FileCopyFlags, int, uintptr, uintptr, uintptr, uintptr, uintptr)
-	XGFileCopyAsyncWithClosures func(uintptr, uintptr, FileCopyFlags, int, uintptr, *gobject.Closure, *gobject.Closure) = func(instance uintptr, DestinationVarp uintptr, FlagsVarp FileCopyFlags, IoPriorityVarp int, CancellableVarp uintptr, ProgressCallbackClosureVarp *gobject.Closure, ReadyCallbackClosureVarp *gobject.Closure) {
-		core.LazyRegister(&xXGFileCopyAsyncWithClosures, "GIO", "g_file_copy_async_with_closures", false)
-		xXGFileCopyAsyncWithClosures(instance, DestinationVarp, FlagsVarp, IoPriorityVarp, CancellableVarp, ProgressCallbackClosureVarp, ReadyCallbackClosureVarp)
-	}
-)
-var (
-	xXGFileCopyAsyncWithClosures func(uintptr, uintptr, FileCopyFlags, int, uintptr, *gobject.Closure, *gobject.Closure)
-	XGFileCopyAttributes         func(uintptr, uintptr, FileCopyFlags, uintptr, **glib.Error) bool = func(instance uintptr, DestinationVarp uintptr, FlagsVarp FileCopyFlags, CancellableVarp uintptr, cerrp **glib.Error) bool {
-		core.LazyRegister(&xXGFileCopyAttributes, "GIO", "g_file_copy_attributes", false)
-		return xXGFileCopyAttributes(instance, DestinationVarp, FlagsVarp, CancellableVarp, cerrp)
-	}
-)
-var (
-	xXGFileCopyAttributes func(uintptr, uintptr, FileCopyFlags, uintptr, **glib.Error) bool
-	XGFileCopyFinish      func(uintptr, uintptr, **glib.Error) bool = func(instance uintptr, ResVarp uintptr, cerrp **glib.Error) bool {
-		core.LazyRegister(&xXGFileCopyFinish, "GIO", "g_file_copy_finish", false)
-		return xXGFileCopyFinish(instance, ResVarp, cerrp)
-	}
-)
-var (
-	xXGFileCopyFinish func(uintptr, uintptr, **glib.Error) bool
-	XGFileCreate      func(uintptr, FileCreateFlags, uintptr, **glib.Error) uintptr = func(instance uintptr, FlagsVarp FileCreateFlags, CancellableVarp uintptr, cerrp **glib.Error) uintptr {
-		core.LazyRegister(&xXGFileCreate, "GIO", "g_file_create", false)
-		return xXGFileCreate(instance, FlagsVarp, CancellableVarp, cerrp)
-	}
-)
-var (
-	xXGFileCreate     func(uintptr, FileCreateFlags, uintptr, **glib.Error) uintptr
-	XGFileCreateAsync func(uintptr, FileCreateFlags, int, uintptr, uintptr, uintptr) = func(instance uintptr, FlagsVarp FileCreateFlags, IoPriorityVarp int, CancellableVarp uintptr, CallbackVarp uintptr, UserDataVarp uintptr) {
-		core.LazyRegister(&xXGFileCreateAsync, "GIO", "g_file_create_async", false)
-		xXGFileCreateAsync(instance, FlagsVarp, IoPriorityVarp, CancellableVarp, CallbackVarp, UserDataVarp)
-	}
-)
-var (
-	xXGFileCreateAsync func(uintptr, FileCreateFlags, int, uintptr, uintptr, uintptr)
-	XGFileCreateFinish func(uintptr, uintptr, **glib.Error) uintptr = func(instance uintptr, ResVarp uintptr, cerrp **glib.Error) uintptr {
-		core.LazyRegister(&xXGFileCreateFinish, "GIO", "g_file_create_finish", false)
-		return xXGFileCreateFinish(instance, ResVarp, cerrp)
-	}
-)
-var (
-	xXGFileCreateFinish   func(uintptr, uintptr, **glib.Error) uintptr
-	XGFileCreateReadwrite func(uintptr, FileCreateFlags, uintptr, **glib.Error) uintptr = func(instance uintptr, FlagsVarp FileCreateFlags, CancellableVarp uintptr, cerrp **glib.Error) uintptr {
-		core.LazyRegister(&xXGFileCreateReadwrite, "GIO", "g_file_create_readwrite", false)
-		return xXGFileCreateReadwrite(instance, FlagsVarp, CancellableVarp, cerrp)
-	}
-)
-var (
-	xXGFileCreateReadwrite     func(uintptr, FileCreateFlags, uintptr, **glib.Error) uintptr
-	XGFileCreateReadwriteAsync func(uintptr, FileCreateFlags, int, uintptr, uintptr, uintptr) = func(instance uintptr, FlagsVarp FileCreateFlags, IoPriorityVarp int, CancellableVarp uintptr, CallbackVarp uintptr, UserDataVarp uintptr) {
-		core.LazyRegister(&xXGFileCreateReadwriteAsync, "GIO", "g_file_create_readwrite_async", false)
-		xXGFileCreateReadwriteAsync(instance, FlagsVarp, IoPriorityVarp, CancellableVarp, CallbackVarp, UserDataVarp)
-	}
-)
-var (
-	xXGFileCreateReadwriteAsync func(uintptr, FileCreateFlags, int, uintptr, uintptr, uintptr)
-	XGFileCreateReadwriteFinish func(uintptr, uintptr, **glib.Error) uintptr = func(instance uintptr, ResVarp uintptr, cerrp **glib.Error) uintptr {
-		core.LazyRegister(&xXGFileCreateReadwriteFinish, "GIO", "g_file_create_readwrite_finish", false)
-		return xXGFileCreateReadwriteFinish(instance, ResVarp, cerrp)
-	}
-)
-var (
-	xXGFileCreateReadwriteFinish func(uintptr, uintptr, **glib.Error) uintptr
-	XGFileDelete                 func(uintptr, uintptr, **glib.Error) bool = func(instance uintptr, CancellableVarp uintptr, cerrp **glib.Error) bool {
-		core.LazyRegister(&xXGFileDelete, "GIO", "g_file_delete", false)
-		return xXGFileDelete(instance, CancellableVarp, cerrp)
-	}
-)
-var (
-	xXGFileDelete     func(uintptr, uintptr, **glib.Error) bool
-	XGFileDeleteAsync func(uintptr, int, uintptr, uintptr, uintptr) = func(instance uintptr, IoPriorityVarp int, CancellableVarp uintptr, CallbackVarp uintptr, UserDataVarp uintptr) {
-		core.LazyRegister(&xXGFileDeleteAsync, "GIO", "g_file_delete_async", false)
-		xXGFileDeleteAsync(instance, IoPriorityVarp, CancellableVarp, CallbackVarp, UserDataVarp)
-	}
-)
-var (
-	xXGFileDeleteAsync func(uintptr, int, uintptr, uintptr, uintptr)
-	XGFileDeleteFinish func(uintptr, uintptr, **glib.Error) bool = func(instance uintptr, ResultVarp uintptr, cerrp **glib.Error) bool {
-		core.LazyRegister(&xXGFileDeleteFinish, "GIO", "g_file_delete_finish", false)
-		return xXGFileDeleteFinish(instance, ResultVarp, cerrp)
-	}
-)
-var (
-	xXGFileDeleteFinish func(uintptr, uintptr, **glib.Error) bool
-	XGFileDup           func(uintptr) uintptr = func(instance uintptr) uintptr {
-		core.LazyRegister(&xXGFileDup, "GIO", "g_file_dup", false)
-		return xXGFileDup(instance)
-	}
-)
-var (
-	xXGFileDup           func(uintptr) uintptr
-	XGFileEjectMountable func(uintptr, MountUnmountFlags, uintptr, uintptr, uintptr) = func(instance uintptr, FlagsVarp MountUnmountFlags, CancellableVarp uintptr, CallbackVarp uintptr, UserDataVarp uintptr) {
-		core.LazyRegister(&xXGFileEjectMountable, "GIO", "g_file_eject_mountable", false)
-		xXGFileEjectMountable(instance, FlagsVarp, CancellableVarp, CallbackVarp, UserDataVarp)
-	}
-)
-var (
-	xXGFileEjectMountable      func(uintptr, MountUnmountFlags, uintptr, uintptr, uintptr)
-	XGFileEjectMountableFinish func(uintptr, uintptr, **glib.Error) bool = func(instance uintptr, ResultVarp uintptr, cerrp **glib.Error) bool {
-		core.LazyRegister(&xXGFileEjectMountableFinish, "GIO", "g_file_eject_mountable_finish", false)
-		return xXGFileEjectMountableFinish(instance, ResultVarp, cerrp)
-	}
-)
-var (
-	xXGFileEjectMountableFinish       func(uintptr, uintptr, **glib.Error) bool
-	XGFileEjectMountableWithOperation func(uintptr, MountUnmountFlags, uintptr, uintptr, uintptr, uintptr) = func(instance uintptr, FlagsVarp MountUnmountFlags, MountOperationVarp uintptr, CancellableVarp uintptr, CallbackVarp uintptr, UserDataVarp uintptr) {
-		core.LazyRegister(&xXGFileEjectMountableWithOperation, "GIO", "g_file_eject_mountable_with_operation", false)
-		xXGFileEjectMountableWithOperation(instance, FlagsVarp, MountOperationVarp, CancellableVarp, CallbackVarp, UserDataVarp)
-	}
-)
-var (
-	xXGFileEjectMountableWithOperation      func(uintptr, MountUnmountFlags, uintptr, uintptr, uintptr, uintptr)
-	XGFileEjectMountableWithOperationFinish func(uintptr, uintptr, **glib.Error) bool = func(instance uintptr, ResultVarp uintptr, cerrp **glib.Error) bool {
-		core.LazyRegister(&xXGFileEjectMountableWithOperationFinish, "GIO", "g_file_eject_mountable_with_operation_finish", false)
-		return xXGFileEjectMountableWithOperationFinish(instance, ResultVarp, cerrp)
-	}
-)
-var (
-	xXGFileEjectMountableWithOperationFinish func(uintptr, uintptr, **glib.Error) bool
-	XGFileEnumerateChildren                  func(uintptr, string, FileQueryInfoFlags, uintptr, **glib.Error) uintptr = func(instance uintptr, AttributesVarp string, FlagsVarp FileQueryInfoFlags, CancellableVarp uintptr, cerrp **glib.Error) uintptr {
-		core.LazyRegister(&xXGFileEnumerateChildren, "GIO", "g_file_enumerate_children", false)
-		return xXGFileEnumerateChildren(instance, AttributesVarp, FlagsVarp, CancellableVarp, cerrp)
-	}
-)
-var (
-	xXGFileEnumerateChildren     func(uintptr, string, FileQueryInfoFlags, uintptr, **glib.Error) uintptr
-	XGFileEnumerateChildrenAsync func(uintptr, string, FileQueryInfoFlags, int, uintptr, uintptr, uintptr) = func(instance uintptr, AttributesVarp string, FlagsVarp FileQueryInfoFlags, IoPriorityVarp int, CancellableVarp uintptr, CallbackVarp uintptr, UserDataVarp uintptr) {
-		core.LazyRegister(&xXGFileEnumerateChildrenAsync, "GIO", "g_file_enumerate_children_async", false)
-		xXGFileEnumerateChildrenAsync(instance, AttributesVarp, FlagsVarp, IoPriorityVarp, CancellableVarp, CallbackVarp, UserDataVarp)
-	}
-)
-var (
-	xXGFileEnumerateChildrenAsync func(uintptr, string, FileQueryInfoFlags, int, uintptr, uintptr, uintptr)
-	XGFileEnumerateChildrenFinish func(uintptr, uintptr, **glib.Error) uintptr = func(instance uintptr, ResVarp uintptr, cerrp **glib.Error) uintptr {
-		core.LazyRegister(&xXGFileEnumerateChildrenFinish, "GIO", "g_file_enumerate_children_finish", false)
-		return xXGFileEnumerateChildrenFinish(instance, ResVarp, cerrp)
-	}
-)
-var (
-	xXGFileEnumerateChildrenFinish func(uintptr, uintptr, **glib.Error) uintptr
-	XGFileEqual                    func(uintptr, uintptr) bool = func(instance uintptr, File2Varp uintptr) bool {
-		core.LazyRegister(&xXGFileEqual, "GIO", "g_file_equal", false)
-		return xXGFileEqual(instance, File2Varp)
-	}
-)
-var (
-	xXGFileEqual             func(uintptr, uintptr) bool
-	XGFileFindEnclosingMount func(uintptr, uintptr, **glib.Error) uintptr = func(instance uintptr, CancellableVarp uintptr, cerrp **glib.Error) uintptr {
-		core.LazyRegister(&xXGFileFindEnclosingMount, "GIO", "g_file_find_enclosing_mount", false)
-		return xXGFileFindEnclosingMount(instance, CancellableVarp, cerrp)
-	}
-)
-var (
-	xXGFileFindEnclosingMount     func(uintptr, uintptr, **glib.Error) uintptr
-	XGFileFindEnclosingMountAsync func(uintptr, int, uintptr, uintptr, uintptr) = func(instance uintptr, IoPriorityVarp int, CancellableVarp uintptr, CallbackVarp uintptr, UserDataVarp uintptr) {
-		core.LazyRegister(&xXGFileFindEnclosingMountAsync, "GIO", "g_file_find_enclosing_mount_async", false)
-		xXGFileFindEnclosingMountAsync(instance, IoPriorityVarp, CancellableVarp, CallbackVarp, UserDataVarp)
-	}
-)
-var (
-	xXGFileFindEnclosingMountAsync func(uintptr, int, uintptr, uintptr, uintptr)
-	XGFileFindEnclosingMountFinish func(uintptr, uintptr, **glib.Error) uintptr = func(instance uintptr, ResVarp uintptr, cerrp **glib.Error) uintptr {
-		core.LazyRegister(&xXGFileFindEnclosingMountFinish, "GIO", "g_file_find_enclosing_mount_finish", false)
-		return xXGFileFindEnclosingMountFinish(instance, ResVarp, cerrp)
-	}
-)
-var (
-	xXGFileFindEnclosingMountFinish func(uintptr, uintptr, **glib.Error) uintptr
-	XGFileGetBasename               func(uintptr) string = func(instance uintptr) string {
-		core.LazyRegister(&xXGFileGetBasename, "GIO", "g_file_get_basename", false)
-		return xXGFileGetBasename(instance)
-	}
-)
-var (
-	xXGFileGetBasename func(uintptr) string
-	XGFileGetChild     func(uintptr, string) uintptr = func(instance uintptr, NameVarp string) uintptr {
-		core.LazyRegister(&xXGFileGetChild, "GIO", "g_file_get_child", false)
-		return xXGFileGetChild(instance, NameVarp)
-	}
-)
-var (
-	xXGFileGetChild              func(uintptr, string) uintptr
-	XGFileGetChildForDisplayName func(uintptr, string, **glib.Error) uintptr = func(instance uintptr, DisplayNameVarp string, cerrp **glib.Error) uintptr {
-		core.LazyRegister(&xXGFileGetChildForDisplayName, "GIO", "g_file_get_child_for_display_name", false)
-		return xXGFileGetChildForDisplayName(instance, DisplayNameVarp, cerrp)
-	}
-)
-var (
-	xXGFileGetChildForDisplayName func(uintptr, string, **glib.Error) uintptr
-	XGFileGetParent               func(uintptr) uintptr = func(instance uintptr) uintptr {
-		core.LazyRegister(&xXGFileGetParent, "GIO", "g_file_get_parent", false)
-		return xXGFileGetParent(instance)
-	}
-)
-var (
-	xXGFileGetParent   func(uintptr) uintptr
-	XGFileGetParseName func(uintptr) string = func(instance uintptr) string {
-		core.LazyRegister(&xXGFileGetParseName, "GIO", "g_file_get_parse_name", false)
-		return xXGFileGetParseName(instance)
-	}
-)
-var (
-	xXGFileGetParseName func(uintptr) string
-	XGFileGetPath       func(uintptr) string = func(instance uintptr) string {
-		core.LazyRegister(&xXGFileGetPath, "GIO", "g_file_get_path", false)
-		return xXGFileGetPath(instance)
-	}
-)
-var (
-	xXGFileGetPath        func(uintptr) string
-	XGFileGetRelativePath func(uintptr, uintptr) string = func(instance uintptr, DescendantVarp uintptr) string {
-		core.LazyRegister(&xXGFileGetRelativePath, "GIO", "g_file_get_relative_path", false)
-		return xXGFileGetRelativePath(instance, DescendantVarp)
-	}
-)
-var (
-	xXGFileGetRelativePath func(uintptr, uintptr) string
-	XGFileGetUri           func(uintptr) string = func(instance uintptr) string {
-		core.LazyRegister(&xXGFileGetUri, "GIO", "g_file_get_uri", false)
-		return xXGFileGetUri(instance)
-	}
-)
-var (
-	xXGFileGetUri      func(uintptr) string
-	XGFileGetUriScheme func(uintptr) string = func(instance uintptr) string {
-		core.LazyRegister(&xXGFileGetUriScheme, "GIO", "g_file_get_uri_scheme", false)
-		return xXGFileGetUriScheme(instance)
-	}
-)
-var (
-	xXGFileGetUriScheme func(uintptr) string
-	XGFileHasParent     func(uintptr, uintptr) bool = func(instance uintptr, ParentVarp uintptr) bool {
-		core.LazyRegister(&xXGFileHasParent, "GIO", "g_file_has_parent", false)
-		return xXGFileHasParent(instance, ParentVarp)
-	}
-)
-var (
-	xXGFileHasParent func(uintptr, uintptr) bool
-	XGFileHasPrefix  func(uintptr, uintptr) bool = func(instance uintptr, PrefixVarp uintptr) bool {
-		core.LazyRegister(&xXGFileHasPrefix, "GIO", "g_file_has_prefix", false)
-		return xXGFileHasPrefix(instance, PrefixVarp)
-	}
-)
-var (
-	xXGFileHasPrefix   func(uintptr, uintptr) bool
-	XGFileHasUriScheme func(uintptr, string) bool = func(instance uintptr, UriSchemeVarp string) bool {
-		core.LazyRegister(&xXGFileHasUriScheme, "GIO", "g_file_has_uri_scheme", false)
-		return xXGFileHasUriScheme(instance, UriSchemeVarp)
-	}
-)
-var (
-	xXGFileHasUriScheme func(uintptr, string) bool
-	XGFileHash          func(uintptr) uint = func(instance uintptr) uint {
-		core.LazyRegister(&xXGFileHash, "GIO", "g_file_hash", false)
-		return xXGFileHash(instance)
-	}
-)
-var (
-	xXGFileHash    func(uintptr) uint
-	XGFileIsNative func(uintptr) bool = func(instance uintptr) bool {
-		core.LazyRegister(&xXGFileIsNative, "GIO", "g_file_is_native", false)
-		return xXGFileIsNative(instance)
-	}
-)
-var (
-	xXGFileIsNative func(uintptr) bool
-	XGFileLoadBytes func(uintptr, uintptr, *string, **glib.Error) uintptr = func(instance uintptr, CancellableVarp uintptr, EtagOutVarp *string, cerrp **glib.Error) uintptr {
-		core.LazyRegister(&xXGFileLoadBytes, "GIO", "g_file_load_bytes", false)
-		return xXGFileLoadBytes(instance, CancellableVarp, EtagOutVarp, cerrp)
-	}
-)
-var (
-	xXGFileLoadBytes     func(uintptr, uintptr, *string, **glib.Error) uintptr
-	XGFileLoadBytesAsync func(uintptr, uintptr, uintptr, uintptr) = func(instance uintptr, CancellableVarp uintptr, CallbackVarp uintptr, UserDataVarp uintptr) {
-		core.LazyRegister(&xXGFileLoadBytesAsync, "GIO", "g_file_load_bytes_async", false)
-		xXGFileLoadBytesAsync(instance, CancellableVarp, CallbackVarp, UserDataVarp)
-	}
-)
-var (
-	xXGFileLoadBytesAsync func(uintptr, uintptr, uintptr, uintptr)
-	XGFileLoadBytesFinish func(uintptr, uintptr, *string, **glib.Error) uintptr = func(instance uintptr, ResultVarp uintptr, EtagOutVarp *string, cerrp **glib.Error) uintptr {
-		core.LazyRegister(&xXGFileLoadBytesFinish, "GIO", "g_file_load_bytes_finish", false)
-		return xXGFileLoadBytesFinish(instance, ResultVarp, EtagOutVarp, cerrp)
-	}
-)
-var (
-	xXGFileLoadBytesFinish func(uintptr, uintptr, *string, **glib.Error) uintptr
-	XGFileLoadContents     func(uintptr, uintptr, *[]string, *uint, *string, **glib.Error) bool = func(instance uintptr, CancellableVarp uintptr, ContentsVarp *[]string, LengthVarp *uint, EtagOutVarp *string, cerrp **glib.Error) bool {
-		core.LazyRegister(&xXGFileLoadContents, "GIO", "g_file_load_contents", false)
-		return xXGFileLoadContents(instance, CancellableVarp, ContentsVarp, LengthVarp, EtagOutVarp, cerrp)
-	}
-)
-var (
-	xXGFileLoadContents     func(uintptr, uintptr, *[]string, *uint, *string, **glib.Error) bool
-	XGFileLoadContentsAsync func(uintptr, uintptr, uintptr, uintptr) = func(instance uintptr, CancellableVarp uintptr, CallbackVarp uintptr, UserDataVarp uintptr) {
-		core.LazyRegister(&xXGFileLoadContentsAsync, "GIO", "g_file_load_contents_async", false)
-		xXGFileLoadContentsAsync(instance, CancellableVarp, CallbackVarp, UserDataVarp)
-	}
-)
-var (
-	xXGFileLoadContentsAsync func(uintptr, uintptr, uintptr, uintptr)
-	XGFileLoadContentsFinish func(uintptr, uintptr, *[]string, *uint, *string, **glib.Error) bool = func(instance uintptr, ResVarp uintptr, ContentsVarp *[]string, LengthVarp *uint, EtagOutVarp *string, cerrp **glib.Error) bool {
-		core.LazyRegister(&xXGFileLoadContentsFinish, "GIO", "g_file_load_contents_finish", false)
-		return xXGFileLoadContentsFinish(instance, ResVarp, ContentsVarp, LengthVarp, EtagOutVarp, cerrp)
-	}
-)
-var (
-	xXGFileLoadContentsFinish      func(uintptr, uintptr, *[]string, *uint, *string, **glib.Error) bool
-	XGFileLoadPartialContentsAsync func(uintptr, uintptr, uintptr, uintptr, uintptr) = func(instance uintptr, CancellableVarp uintptr, ReadMoreCallbackVarp uintptr, CallbackVarp uintptr, UserDataVarp uintptr) {
-		core.LazyRegister(&xXGFileLoadPartialContentsAsync, "GIO", "g_file_load_partial_contents_async", false)
-		xXGFileLoadPartialContentsAsync(instance, CancellableVarp, ReadMoreCallbackVarp, CallbackVarp, UserDataVarp)
-	}
-)
-var (
-	xXGFileLoadPartialContentsAsync func(uintptr, uintptr, uintptr, uintptr, uintptr)
-	XGFileLoadPartialContentsFinish func(uintptr, uintptr, *[]string, *uint, *string, **glib.Error) bool = func(instance uintptr, ResVarp uintptr, ContentsVarp *[]string, LengthVarp *uint, EtagOutVarp *string, cerrp **glib.Error) bool {
-		core.LazyRegister(&xXGFileLoadPartialContentsFinish, "GIO", "g_file_load_partial_contents_finish", false)
-		return xXGFileLoadPartialContentsFinish(instance, ResVarp, ContentsVarp, LengthVarp, EtagOutVarp, cerrp)
-	}
-)
-var (
-	xXGFileLoadPartialContentsFinish func(uintptr, uintptr, *[]string, *uint, *string, **glib.Error) bool
-	XGFileMakeDirectory              func(uintptr, uintptr, **glib.Error) bool = func(instance uintptr, CancellableVarp uintptr, cerrp **glib.Error) bool {
-		core.LazyRegister(&xXGFileMakeDirectory, "GIO", "g_file_make_directory", false)
-		return xXGFileMakeDirectory(instance, CancellableVarp, cerrp)
-	}
-)
-var (
-	xXGFileMakeDirectory     func(uintptr, uintptr, **glib.Error) bool
-	XGFileMakeDirectoryAsync func(uintptr, int, uintptr, uintptr, uintptr) = func(instance uintptr, IoPriorityVarp int, CancellableVarp uintptr, CallbackVarp uintptr, UserDataVarp uintptr) {
-		core.LazyRegister(&xXGFileMakeDirectoryAsync, "GIO", "g_file_make_directory_async", false)
-		xXGFileMakeDirectoryAsync(instance, IoPriorityVarp, CancellableVarp, CallbackVarp, UserDataVarp)
-	}
-)
-var (
-	xXGFileMakeDirectoryAsync func(uintptr, int, uintptr, uintptr, uintptr)
-	XGFileMakeDirectoryFinish func(uintptr, uintptr, **glib.Error) bool = func(instance uintptr, ResultVarp uintptr, cerrp **glib.Error) bool {
-		core.LazyRegister(&xXGFileMakeDirectoryFinish, "GIO", "g_file_make_directory_finish", false)
-		return xXGFileMakeDirectoryFinish(instance, ResultVarp, cerrp)
-	}
-)
-var (
-	xXGFileMakeDirectoryFinish     func(uintptr, uintptr, **glib.Error) bool
-	XGFileMakeDirectoryWithParents func(uintptr, uintptr, **glib.Error) bool = func(instance uintptr, CancellableVarp uintptr, cerrp **glib.Error) bool {
-		core.LazyRegister(&xXGFileMakeDirectoryWithParents, "GIO", "g_file_make_directory_with_parents", false)
-		return xXGFileMakeDirectoryWithParents(instance, CancellableVarp, cerrp)
-	}
-)
-var (
-	xXGFileMakeDirectoryWithParents func(uintptr, uintptr, **glib.Error) bool
-	XGFileMakeSymbolicLink          func(uintptr, string, uintptr, **glib.Error) bool = func(instance uintptr, SymlinkValueVarp string, CancellableVarp uintptr, cerrp **glib.Error) bool {
-		core.LazyRegister(&xXGFileMakeSymbolicLink, "GIO", "g_file_make_symbolic_link", false)
-		return xXGFileMakeSymbolicLink(instance, SymlinkValueVarp, CancellableVarp, cerrp)
-	}
-)
-var (
-	xXGFileMakeSymbolicLink     func(uintptr, string, uintptr, **glib.Error) bool
-	XGFileMakeSymbolicLinkAsync func(uintptr, string, int, uintptr, uintptr, uintptr) = func(instance uintptr, SymlinkValueVarp string, IoPriorityVarp int, CancellableVarp uintptr, CallbackVarp uintptr, UserDataVarp uintptr) {
-		core.LazyRegister(&xXGFileMakeSymbolicLinkAsync, "GIO", "g_file_make_symbolic_link_async", false)
-		xXGFileMakeSymbolicLinkAsync(instance, SymlinkValueVarp, IoPriorityVarp, CancellableVarp, CallbackVarp, UserDataVarp)
-	}
-)
-var (
-	xXGFileMakeSymbolicLinkAsync func(uintptr, string, int, uintptr, uintptr, uintptr)
-	XGFileMakeSymbolicLinkFinish func(uintptr, uintptr, **glib.Error) bool = func(instance uintptr, ResultVarp uintptr, cerrp **glib.Error) bool {
-		core.LazyRegister(&xXGFileMakeSymbolicLinkFinish, "GIO", "g_file_make_symbolic_link_finish", false)
-		return xXGFileMakeSymbolicLinkFinish(instance, ResultVarp, cerrp)
-	}
-)
-var (
-	xXGFileMakeSymbolicLinkFinish func(uintptr, uintptr, **glib.Error) bool
-	XGFileMeasureDiskUsage        func(uintptr, FileMeasureFlags, uintptr, uintptr, uintptr, *uint64, *uint64, *uint64, **glib.Error) bool = func(instance uintptr, FlagsVarp FileMeasureFlags, CancellableVarp uintptr, ProgressCallbackVarp uintptr, ProgressDataVarp uintptr, DiskUsageVarp *uint64, NumDirsVarp *uint64, NumFilesVarp *uint64, cerrp **glib.Error) bool {
-		core.LazyRegister(&xXGFileMeasureDiskUsage, "GIO", "g_file_measure_disk_usage", false)
-		return xXGFileMeasureDiskUsage(instance, FlagsVarp, CancellableVarp, ProgressCallbackVarp, ProgressDataVarp, DiskUsageVarp, NumDirsVarp, NumFilesVarp, cerrp)
-	}
-)
-var (
-	xXGFileMeasureDiskUsage     func(uintptr, FileMeasureFlags, uintptr, uintptr, uintptr, *uint64, *uint64, *uint64, **glib.Error) bool
-	XGFileMeasureDiskUsageAsync func(uintptr, FileMeasureFlags, int, uintptr, uintptr, uintptr, uintptr, uintptr) = func(instance uintptr, FlagsVarp FileMeasureFlags, IoPriorityVarp int, CancellableVarp uintptr, ProgressCallbackVarp uintptr, ProgressDataVarp uintptr, CallbackVarp uintptr, UserDataVarp uintptr) {
-		core.LazyRegister(&xXGFileMeasureDiskUsageAsync, "GIO", "g_file_measure_disk_usage_async", false)
-		xXGFileMeasureDiskUsageAsync(instance, FlagsVarp, IoPriorityVarp, CancellableVarp, ProgressCallbackVarp, ProgressDataVarp, CallbackVarp, UserDataVarp)
-	}
-)
-var (
-	xXGFileMeasureDiskUsageAsync func(uintptr, FileMeasureFlags, int, uintptr, uintptr, uintptr, uintptr, uintptr)
-	XGFileMeasureDiskUsageFinish func(uintptr, uintptr, *uint64, *uint64, *uint64, **glib.Error) bool = func(instance uintptr, ResultVarp uintptr, DiskUsageVarp *uint64, NumDirsVarp *uint64, NumFilesVarp *uint64, cerrp **glib.Error) bool {
-		core.LazyRegister(&xXGFileMeasureDiskUsageFinish, "GIO", "g_file_measure_disk_usage_finish", false)
-		return xXGFileMeasureDiskUsageFinish(instance, ResultVarp, DiskUsageVarp, NumDirsVarp, NumFilesVarp, cerrp)
-	}
-)
-var (
-	xXGFileMeasureDiskUsageFinish func(uintptr, uintptr, *uint64, *uint64, *uint64, **glib.Error) bool
-	XGFileMonitor                 func(uintptr, FileMonitorFlags, uintptr, **glib.Error) uintptr = func(instance uintptr, FlagsVarp FileMonitorFlags, CancellableVarp uintptr, cerrp **glib.Error) uintptr {
-		core.LazyRegister(&xXGFileMonitor, "GIO", "g_file_monitor", false)
-		return xXGFileMonitor(instance, FlagsVarp, CancellableVarp, cerrp)
-	}
-)
-var (
-	xXGFileMonitor         func(uintptr, FileMonitorFlags, uintptr, **glib.Error) uintptr
-	XGFileMonitorDirectory func(uintptr, FileMonitorFlags, uintptr, **glib.Error) uintptr = func(instance uintptr, FlagsVarp FileMonitorFlags, CancellableVarp uintptr, cerrp **glib.Error) uintptr {
-		core.LazyRegister(&xXGFileMonitorDirectory, "GIO", "g_file_monitor_directory", false)
-		return xXGFileMonitorDirectory(instance, FlagsVarp, CancellableVarp, cerrp)
-	}
-)
-var (
-	xXGFileMonitorDirectory func(uintptr, FileMonitorFlags, uintptr, **glib.Error) uintptr
-	XGFileMonitorFile       func(uintptr, FileMonitorFlags, uintptr, **glib.Error) uintptr = func(instance uintptr, FlagsVarp FileMonitorFlags, CancellableVarp uintptr, cerrp **glib.Error) uintptr {
-		core.LazyRegister(&xXGFileMonitorFile, "GIO", "g_file_monitor_file", false)
-		return xXGFileMonitorFile(instance, FlagsVarp, CancellableVarp, cerrp)
-	}
-)
-var (
-	xXGFileMonitorFile         func(uintptr, FileMonitorFlags, uintptr, **glib.Error) uintptr
-	XGFileMountEnclosingVolume func(uintptr, MountMountFlags, uintptr, uintptr, uintptr, uintptr) = func(instance uintptr, FlagsVarp MountMountFlags, MountOperationVarp uintptr, CancellableVarp uintptr, CallbackVarp uintptr, UserDataVarp uintptr) {
-		core.LazyRegister(&xXGFileMountEnclosingVolume, "GIO", "g_file_mount_enclosing_volume", false)
-		xXGFileMountEnclosingVolume(instance, FlagsVarp, MountOperationVarp, CancellableVarp, CallbackVarp, UserDataVarp)
-	}
-)
-var (
-	xXGFileMountEnclosingVolume      func(uintptr, MountMountFlags, uintptr, uintptr, uintptr, uintptr)
-	XGFileMountEnclosingVolumeFinish func(uintptr, uintptr, **glib.Error) bool = func(instance uintptr, ResultVarp uintptr, cerrp **glib.Error) bool {
-		core.LazyRegister(&xXGFileMountEnclosingVolumeFinish, "GIO", "g_file_mount_enclosing_volume_finish", false)
-		return xXGFileMountEnclosingVolumeFinish(instance, ResultVarp, cerrp)
-	}
-)
-var (
-	xXGFileMountEnclosingVolumeFinish func(uintptr, uintptr, **glib.Error) bool
-	XGFileMountMountable              func(uintptr, MountMountFlags, uintptr, uintptr, uintptr, uintptr) = func(instance uintptr, FlagsVarp MountMountFlags, MountOperationVarp uintptr, CancellableVarp uintptr, CallbackVarp uintptr, UserDataVarp uintptr) {
-		core.LazyRegister(&xXGFileMountMountable, "GIO", "g_file_mount_mountable", false)
-		xXGFileMountMountable(instance, FlagsVarp, MountOperationVarp, CancellableVarp, CallbackVarp, UserDataVarp)
-	}
-)
-var (
-	xXGFileMountMountable      func(uintptr, MountMountFlags, uintptr, uintptr, uintptr, uintptr)
-	XGFileMountMountableFinish func(uintptr, uintptr, **glib.Error) uintptr = func(instance uintptr, ResultVarp uintptr, cerrp **glib.Error) uintptr {
-		core.LazyRegister(&xXGFileMountMountableFinish, "GIO", "g_file_mount_mountable_finish", false)
-		return xXGFileMountMountableFinish(instance, ResultVarp, cerrp)
-	}
-)
-var (
-	xXGFileMountMountableFinish func(uintptr, uintptr, **glib.Error) uintptr
-	XGFileMove                  func(uintptr, uintptr, FileCopyFlags, uintptr, uintptr, uintptr, **glib.Error) bool = func(instance uintptr, DestinationVarp uintptr, FlagsVarp FileCopyFlags, CancellableVarp uintptr, ProgressCallbackVarp uintptr, ProgressCallbackDataVarp uintptr, cerrp **glib.Error) bool {
-		core.LazyRegister(&xXGFileMove, "GIO", "g_file_move", false)
-		return xXGFileMove(instance, DestinationVarp, FlagsVarp, CancellableVarp, ProgressCallbackVarp, ProgressCallbackDataVarp, cerrp)
-	}
-)
-var (
-	xXGFileMove     func(uintptr, uintptr, FileCopyFlags, uintptr, uintptr, uintptr, **glib.Error) bool
-	XGFileMoveAsync func(uintptr, uintptr, FileCopyFlags, int, uintptr, uintptr, uintptr, uintptr, uintptr) = func(instance uintptr, DestinationVarp uintptr, FlagsVarp FileCopyFlags, IoPriorityVarp int, CancellableVarp uintptr, ProgressCallbackVarp uintptr, ProgressCallbackDataVarp uintptr, CallbackVarp uintptr, UserDataVarp uintptr) {
-		core.LazyRegister(&xXGFileMoveAsync, "GIO", "g_file_move_async", false)
-		xXGFileMoveAsync(instance, DestinationVarp, FlagsVarp, IoPriorityVarp, CancellableVarp, ProgressCallbackVarp, ProgressCallbackDataVarp, CallbackVarp, UserDataVarp)
-	}
-)
-var (
-	xXGFileMoveAsync            func(uintptr, uintptr, FileCopyFlags, int, uintptr, uintptr, uintptr, uintptr, uintptr)
-	XGFileMoveAsyncWithClosures func(uintptr, uintptr, FileCopyFlags, int, uintptr, *gobject.Closure, *gobject.Closure) = func(instance uintptr, DestinationVarp uintptr, FlagsVarp FileCopyFlags, IoPriorityVarp int, CancellableVarp uintptr, ProgressCallbackClosureVarp *gobject.Closure, ReadyCallbackClosureVarp *gobject.Closure) {
-		core.LazyRegister(&xXGFileMoveAsyncWithClosures, "GIO", "g_file_move_async_with_closures", false)
-		xXGFileMoveAsyncWithClosures(instance, DestinationVarp, FlagsVarp, IoPriorityVarp, CancellableVarp, ProgressCallbackClosureVarp, ReadyCallbackClosureVarp)
-	}
-)
-var (
-	xXGFileMoveAsyncWithClosures func(uintptr, uintptr, FileCopyFlags, int, uintptr, *gobject.Closure, *gobject.Closure)
-	XGFileMoveFinish             func(uintptr, uintptr, **glib.Error) bool = func(instance uintptr, ResultVarp uintptr, cerrp **glib.Error) bool {
-		core.LazyRegister(&xXGFileMoveFinish, "GIO", "g_file_move_finish", false)
-		return xXGFileMoveFinish(instance, ResultVarp, cerrp)
-	}
-)
-var (
-	xXGFileMoveFinish   func(uintptr, uintptr, **glib.Error) bool
-	XGFileOpenReadwrite func(uintptr, uintptr, **glib.Error) uintptr = func(instance uintptr, CancellableVarp uintptr, cerrp **glib.Error) uintptr {
-		core.LazyRegister(&xXGFileOpenReadwrite, "GIO", "g_file_open_readwrite", false)
-		return xXGFileOpenReadwrite(instance, CancellableVarp, cerrp)
-	}
-)
-var (
-	xXGFileOpenReadwrite     func(uintptr, uintptr, **glib.Error) uintptr
-	XGFileOpenReadwriteAsync func(uintptr, int, uintptr, uintptr, uintptr) = func(instance uintptr, IoPriorityVarp int, CancellableVarp uintptr, CallbackVarp uintptr, UserDataVarp uintptr) {
-		core.LazyRegister(&xXGFileOpenReadwriteAsync, "GIO", "g_file_open_readwrite_async", false)
-		xXGFileOpenReadwriteAsync(instance, IoPriorityVarp, CancellableVarp, CallbackVarp, UserDataVarp)
-	}
-)
-var (
-	xXGFileOpenReadwriteAsync func(uintptr, int, uintptr, uintptr, uintptr)
-	XGFileOpenReadwriteFinish func(uintptr, uintptr, **glib.Error) uintptr = func(instance uintptr, ResVarp uintptr, cerrp **glib.Error) uintptr {
-		core.LazyRegister(&xXGFileOpenReadwriteFinish, "GIO", "g_file_open_readwrite_finish", false)
-		return xXGFileOpenReadwriteFinish(instance, ResVarp, cerrp)
-	}
-)
-var (
-	xXGFileOpenReadwriteFinish func(uintptr, uintptr, **glib.Error) uintptr
-	XGFilePeekPath             func(uintptr) string = func(instance uintptr) string {
-		core.LazyRegister(&xXGFilePeekPath, "GIO", "g_file_peek_path", false)
-		return xXGFilePeekPath(instance)
-	}
-)
-var (
-	xXGFilePeekPath     func(uintptr) string
-	XGFilePollMountable func(uintptr, uintptr, uintptr, uintptr) = func(instance uintptr, CancellableVarp uintptr, CallbackVarp uintptr, UserDataVarp uintptr) {
-		core.LazyRegister(&xXGFilePollMountable, "GIO", "g_file_poll_mountable", false)
-		xXGFilePollMountable(instance, CancellableVarp, CallbackVarp, UserDataVarp)
-	}
-)
-var (
-	xXGFilePollMountable      func(uintptr, uintptr, uintptr, uintptr)
-	XGFilePollMountableFinish func(uintptr, uintptr, **glib.Error) bool = func(instance uintptr, ResultVarp uintptr, cerrp **glib.Error) bool {
-		core.LazyRegister(&xXGFilePollMountableFinish, "GIO", "g_file_poll_mountable_finish", false)
-		return xXGFilePollMountableFinish(instance, ResultVarp, cerrp)
-	}
-)
-var (
-	xXGFilePollMountableFinish func(uintptr, uintptr, **glib.Error) bool
-	XGFileQueryDefaultHandler  func(uintptr, uintptr, **glib.Error) uintptr = func(instance uintptr, CancellableVarp uintptr, cerrp **glib.Error) uintptr {
-		core.LazyRegister(&xXGFileQueryDefaultHandler, "GIO", "g_file_query_default_handler", false)
-		return xXGFileQueryDefaultHandler(instance, CancellableVarp, cerrp)
-	}
-)
-var (
-	xXGFileQueryDefaultHandler     func(uintptr, uintptr, **glib.Error) uintptr
-	XGFileQueryDefaultHandlerAsync func(uintptr, int, uintptr, uintptr, uintptr) = func(instance uintptr, IoPriorityVarp int, CancellableVarp uintptr, CallbackVarp uintptr, UserDataVarp uintptr) {
-		core.LazyRegister(&xXGFileQueryDefaultHandlerAsync, "GIO", "g_file_query_default_handler_async", false)
-		xXGFileQueryDefaultHandlerAsync(instance, IoPriorityVarp, CancellableVarp, CallbackVarp, UserDataVarp)
-	}
-)
-var (
-	xXGFileQueryDefaultHandlerAsync func(uintptr, int, uintptr, uintptr, uintptr)
-	XGFileQueryDefaultHandlerFinish func(uintptr, uintptr, **glib.Error) uintptr = func(instance uintptr, ResultVarp uintptr, cerrp **glib.Error) uintptr {
-		core.LazyRegister(&xXGFileQueryDefaultHandlerFinish, "GIO", "g_file_query_default_handler_finish", false)
-		return xXGFileQueryDefaultHandlerFinish(instance, ResultVarp, cerrp)
-	}
-)
-var (
-	xXGFileQueryDefaultHandlerFinish func(uintptr, uintptr, **glib.Error) uintptr
-	XGFileQueryExists                func(uintptr, uintptr) bool = func(instance uintptr, CancellableVarp uintptr) bool {
-		core.LazyRegister(&xXGFileQueryExists, "GIO", "g_file_query_exists", false)
-		return xXGFileQueryExists(instance, CancellableVarp)
-	}
-)
-var (
-	xXGFileQueryExists  func(uintptr, uintptr) bool
-	XGFileQueryFileType func(uintptr, FileQueryInfoFlags, uintptr) FileType = func(instance uintptr, FlagsVarp FileQueryInfoFlags, CancellableVarp uintptr) FileType {
-		core.LazyRegister(&xXGFileQueryFileType, "GIO", "g_file_query_file_type", false)
-		return xXGFileQueryFileType(instance, FlagsVarp, CancellableVarp)
-	}
-)
-var (
-	xXGFileQueryFileType      func(uintptr, FileQueryInfoFlags, uintptr) FileType
-	XGFileQueryFilesystemInfo func(uintptr, string, uintptr, **glib.Error) uintptr = func(instance uintptr, AttributesVarp string, CancellableVarp uintptr, cerrp **glib.Error) uintptr {
-		core.LazyRegister(&xXGFileQueryFilesystemInfo, "GIO", "g_file_query_filesystem_info", false)
-		return xXGFileQueryFilesystemInfo(instance, AttributesVarp, CancellableVarp, cerrp)
-	}
-)
-var (
-	xXGFileQueryFilesystemInfo     func(uintptr, string, uintptr, **glib.Error) uintptr
-	XGFileQueryFilesystemInfoAsync func(uintptr, string, int, uintptr, uintptr, uintptr) = func(instance uintptr, AttributesVarp string, IoPriorityVarp int, CancellableVarp uintptr, CallbackVarp uintptr, UserDataVarp uintptr) {
-		core.LazyRegister(&xXGFileQueryFilesystemInfoAsync, "GIO", "g_file_query_filesystem_info_async", false)
-		xXGFileQueryFilesystemInfoAsync(instance, AttributesVarp, IoPriorityVarp, CancellableVarp, CallbackVarp, UserDataVarp)
-	}
-)
-var (
-	xXGFileQueryFilesystemInfoAsync func(uintptr, string, int, uintptr, uintptr, uintptr)
-	XGFileQueryFilesystemInfoFinish func(uintptr, uintptr, **glib.Error) uintptr = func(instance uintptr, ResVarp uintptr, cerrp **glib.Error) uintptr {
-		core.LazyRegister(&xXGFileQueryFilesystemInfoFinish, "GIO", "g_file_query_filesystem_info_finish", false)
-		return xXGFileQueryFilesystemInfoFinish(instance, ResVarp, cerrp)
-	}
-)
-var (
-	xXGFileQueryFilesystemInfoFinish func(uintptr, uintptr, **glib.Error) uintptr
-	XGFileQueryInfo                  func(uintptr, string, FileQueryInfoFlags, uintptr, **glib.Error) uintptr = func(instance uintptr, AttributesVarp string, FlagsVarp FileQueryInfoFlags, CancellableVarp uintptr, cerrp **glib.Error) uintptr {
-		core.LazyRegister(&xXGFileQueryInfo, "GIO", "g_file_query_info", false)
-		return xXGFileQueryInfo(instance, AttributesVarp, FlagsVarp, CancellableVarp, cerrp)
-	}
-)
-var (
-	xXGFileQueryInfo     func(uintptr, string, FileQueryInfoFlags, uintptr, **glib.Error) uintptr
-	XGFileQueryInfoAsync func(uintptr, string, FileQueryInfoFlags, int, uintptr, uintptr, uintptr) = func(instance uintptr, AttributesVarp string, FlagsVarp FileQueryInfoFlags, IoPriorityVarp int, CancellableVarp uintptr, CallbackVarp uintptr, UserDataVarp uintptr) {
-		core.LazyRegister(&xXGFileQueryInfoAsync, "GIO", "g_file_query_info_async", false)
-		xXGFileQueryInfoAsync(instance, AttributesVarp, FlagsVarp, IoPriorityVarp, CancellableVarp, CallbackVarp, UserDataVarp)
-	}
-)
-var (
-	xXGFileQueryInfoAsync func(uintptr, string, FileQueryInfoFlags, int, uintptr, uintptr, uintptr)
-	XGFileQueryInfoFinish func(uintptr, uintptr, **glib.Error) uintptr = func(instance uintptr, ResVarp uintptr, cerrp **glib.Error) uintptr {
-		core.LazyRegister(&xXGFileQueryInfoFinish, "GIO", "g_file_query_info_finish", false)
-		return xXGFileQueryInfoFinish(instance, ResVarp, cerrp)
-	}
-)
-var (
-	xXGFileQueryInfoFinish        func(uintptr, uintptr, **glib.Error) uintptr
-	XGFileQuerySettableAttributes func(uintptr, uintptr, **glib.Error) uintptr = func(instance uintptr, CancellableVarp uintptr, cerrp **glib.Error) uintptr {
-		core.LazyRegister(&xXGFileQuerySettableAttributes, "GIO", "g_file_query_settable_attributes", false)
-		return xXGFileQuerySettableAttributes(instance, CancellableVarp, cerrp)
-	}
-)
-var (
-	xXGFileQuerySettableAttributes func(uintptr, uintptr, **glib.Error) uintptr
-	XGFileQueryWritableNamespaces  func(uintptr, uintptr, **glib.Error) uintptr = func(instance uintptr, CancellableVarp uintptr, cerrp **glib.Error) uintptr {
-		core.LazyRegister(&xXGFileQueryWritableNamespaces, "GIO", "g_file_query_writable_namespaces", false)
-		return xXGFileQueryWritableNamespaces(instance, CancellableVarp, cerrp)
-	}
-)
-var (
-	xXGFileQueryWritableNamespaces func(uintptr, uintptr, **glib.Error) uintptr
-	XGFileRead                     func(uintptr, uintptr, **glib.Error) uintptr = func(instance uintptr, CancellableVarp uintptr, cerrp **glib.Error) uintptr {
-		core.LazyRegister(&xXGFileRead, "GIO", "g_file_read", false)
-		return xXGFileRead(instance, CancellableVarp, cerrp)
-	}
-)
-var (
-	xXGFileRead     func(uintptr, uintptr, **glib.Error) uintptr
-	XGFileReadAsync func(uintptr, int, uintptr, uintptr, uintptr) = func(instance uintptr, IoPriorityVarp int, CancellableVarp uintptr, CallbackVarp uintptr, UserDataVarp uintptr) {
-		core.LazyRegister(&xXGFileReadAsync, "GIO", "g_file_read_async", false)
-		xXGFileReadAsync(instance, IoPriorityVarp, CancellableVarp, CallbackVarp, UserDataVarp)
-	}
-)
-var (
-	xXGFileReadAsync func(uintptr, int, uintptr, uintptr, uintptr)
-	XGFileReadFinish func(uintptr, uintptr, **glib.Error) uintptr = func(instance uintptr, ResVarp uintptr, cerrp **glib.Error) uintptr {
-		core.LazyRegister(&xXGFileReadFinish, "GIO", "g_file_read_finish", false)
-		return xXGFileReadFinish(instance, ResVarp, cerrp)
-	}
-)
-var (
-	xXGFileReadFinish func(uintptr, uintptr, **glib.Error) uintptr
-	XGFileReplace     func(uintptr, uintptr, bool, FileCreateFlags, uintptr, **glib.Error) uintptr = func(instance uintptr, EtagVarp uintptr, MakeBackupVarp bool, FlagsVarp FileCreateFlags, CancellableVarp uintptr, cerrp **glib.Error) uintptr {
-		core.LazyRegister(&xXGFileReplace, "GIO", "g_file_replace", false)
-		return xXGFileReplace(instance, EtagVarp, MakeBackupVarp, FlagsVarp, CancellableVarp, cerrp)
-	}
-)
-var (
-	xXGFileReplace     func(uintptr, uintptr, bool, FileCreateFlags, uintptr, **glib.Error) uintptr
-	XGFileReplaceAsync func(uintptr, uintptr, bool, FileCreateFlags, int, uintptr, uintptr, uintptr) = func(instance uintptr, EtagVarp uintptr, MakeBackupVarp bool, FlagsVarp FileCreateFlags, IoPriorityVarp int, CancellableVarp uintptr, CallbackVarp uintptr, UserDataVarp uintptr) {
-		core.LazyRegister(&xXGFileReplaceAsync, "GIO", "g_file_replace_async", false)
-		xXGFileReplaceAsync(instance, EtagVarp, MakeBackupVarp, FlagsVarp, IoPriorityVarp, CancellableVarp, CallbackVarp, UserDataVarp)
-	}
-)
-var (
-	xXGFileReplaceAsync   func(uintptr, uintptr, bool, FileCreateFlags, int, uintptr, uintptr, uintptr)
-	XGFileReplaceContents func(uintptr, string, uint, uintptr, bool, FileCreateFlags, *string, uintptr, **glib.Error) bool = func(instance uintptr, ContentsVarp string, LengthVarp uint, EtagVarp uintptr, MakeBackupVarp bool, FlagsVarp FileCreateFlags, NewEtagVarp *string, CancellableVarp uintptr, cerrp **glib.Error) bool {
-		core.LazyRegister(&xXGFileReplaceContents, "GIO", "g_file_replace_contents", false)
-		return xXGFileReplaceContents(instance, ContentsVarp, LengthVarp, EtagVarp, MakeBackupVarp, FlagsVarp, NewEtagVarp, CancellableVarp, cerrp)
-	}
-)
-var (
-	xXGFileReplaceContents     func(uintptr, string, uint, uintptr, bool, FileCreateFlags, *string, uintptr, **glib.Error) bool
-	XGFileReplaceContentsAsync func(uintptr, string, uint, uintptr, bool, FileCreateFlags, uintptr, uintptr, uintptr) = func(instance uintptr, ContentsVarp string, LengthVarp uint, EtagVarp uintptr, MakeBackupVarp bool, FlagsVarp FileCreateFlags, CancellableVarp uintptr, CallbackVarp uintptr, UserDataVarp uintptr) {
-		core.LazyRegister(&xXGFileReplaceContentsAsync, "GIO", "g_file_replace_contents_async", false)
-		xXGFileReplaceContentsAsync(instance, ContentsVarp, LengthVarp, EtagVarp, MakeBackupVarp, FlagsVarp, CancellableVarp, CallbackVarp, UserDataVarp)
-	}
-)
-var (
-	xXGFileReplaceContentsAsync     func(uintptr, string, uint, uintptr, bool, FileCreateFlags, uintptr, uintptr, uintptr)
-	XGFileReplaceContentsBytesAsync func(uintptr, *glib.Bytes, uintptr, bool, FileCreateFlags, uintptr, uintptr, uintptr) = func(instance uintptr, ContentsVarp *glib.Bytes, EtagVarp uintptr, MakeBackupVarp bool, FlagsVarp FileCreateFlags, CancellableVarp uintptr, CallbackVarp uintptr, UserDataVarp uintptr) {
-		core.LazyRegister(&xXGFileReplaceContentsBytesAsync, "GIO", "g_file_replace_contents_bytes_async", false)
-		xXGFileReplaceContentsBytesAsync(instance, ContentsVarp, EtagVarp, MakeBackupVarp, FlagsVarp, CancellableVarp, CallbackVarp, UserDataVarp)
-	}
-)
-var (
-	xXGFileReplaceContentsBytesAsync func(uintptr, *glib.Bytes, uintptr, bool, FileCreateFlags, uintptr, uintptr, uintptr)
-	XGFileReplaceContentsFinish      func(uintptr, uintptr, *string, **glib.Error) bool = func(instance uintptr, ResVarp uintptr, NewEtagVarp *string, cerrp **glib.Error) bool {
-		core.LazyRegister(&xXGFileReplaceContentsFinish, "GIO", "g_file_replace_contents_finish", false)
-		return xXGFileReplaceContentsFinish(instance, ResVarp, NewEtagVarp, cerrp)
-	}
-)
-var (
-	xXGFileReplaceContentsFinish func(uintptr, uintptr, *string, **glib.Error) bool
-	XGFileReplaceFinish          func(uintptr, uintptr, **glib.Error) uintptr = func(instance uintptr, ResVarp uintptr, cerrp **glib.Error) uintptr {
-		core.LazyRegister(&xXGFileReplaceFinish, "GIO", "g_file_replace_finish", false)
-		return xXGFileReplaceFinish(instance, ResVarp, cerrp)
-	}
-)
-var (
-	xXGFileReplaceFinish   func(uintptr, uintptr, **glib.Error) uintptr
-	XGFileReplaceReadwrite func(uintptr, uintptr, bool, FileCreateFlags, uintptr, **glib.Error) uintptr = func(instance uintptr, EtagVarp uintptr, MakeBackupVarp bool, FlagsVarp FileCreateFlags, CancellableVarp uintptr, cerrp **glib.Error) uintptr {
-		core.LazyRegister(&xXGFileReplaceReadwrite, "GIO", "g_file_replace_readwrite", false)
-		return xXGFileReplaceReadwrite(instance, EtagVarp, MakeBackupVarp, FlagsVarp, CancellableVarp, cerrp)
-	}
-)
-var (
-	xXGFileReplaceReadwrite     func(uintptr, uintptr, bool, FileCreateFlags, uintptr, **glib.Error) uintptr
-	XGFileReplaceReadwriteAsync func(uintptr, uintptr, bool, FileCreateFlags, int, uintptr, uintptr, uintptr) = func(instance uintptr, EtagVarp uintptr, MakeBackupVarp bool, FlagsVarp FileCreateFlags, IoPriorityVarp int, CancellableVarp uintptr, CallbackVarp uintptr, UserDataVarp uintptr) {
-		core.LazyRegister(&xXGFileReplaceReadwriteAsync, "GIO", "g_file_replace_readwrite_async", false)
-		xXGFileReplaceReadwriteAsync(instance, EtagVarp, MakeBackupVarp, FlagsVarp, IoPriorityVarp, CancellableVarp, CallbackVarp, UserDataVarp)
-	}
-)
-var (
-	xXGFileReplaceReadwriteAsync func(uintptr, uintptr, bool, FileCreateFlags, int, uintptr, uintptr, uintptr)
-	XGFileReplaceReadwriteFinish func(uintptr, uintptr, **glib.Error) uintptr = func(instance uintptr, ResVarp uintptr, cerrp **glib.Error) uintptr {
-		core.LazyRegister(&xXGFileReplaceReadwriteFinish, "GIO", "g_file_replace_readwrite_finish", false)
-		return xXGFileReplaceReadwriteFinish(instance, ResVarp, cerrp)
-	}
-)
-var (
-	xXGFileReplaceReadwriteFinish func(uintptr, uintptr, **glib.Error) uintptr
-	XGFileResolveRelativePath     func(uintptr, string) uintptr = func(instance uintptr, RelativePathVarp string) uintptr {
-		core.LazyRegister(&xXGFileResolveRelativePath, "GIO", "g_file_resolve_relative_path", false)
-		return xXGFileResolveRelativePath(instance, RelativePathVarp)
-	}
-)
-var (
-	xXGFileResolveRelativePath func(uintptr, string) uintptr
-	XGFileSetAttribute         func(uintptr, string, FileAttributeType, uintptr, FileQueryInfoFlags, uintptr, **glib.Error) bool = func(instance uintptr, AttributeVarp string, TypeVarp FileAttributeType, ValuePVarp uintptr, FlagsVarp FileQueryInfoFlags, CancellableVarp uintptr, cerrp **glib.Error) bool {
-		core.LazyRegister(&xXGFileSetAttribute, "GIO", "g_file_set_attribute", false)
-		return xXGFileSetAttribute(instance, AttributeVarp, TypeVarp, ValuePVarp, FlagsVarp, CancellableVarp, cerrp)
-	}
-)
-var (
-	xXGFileSetAttribute          func(uintptr, string, FileAttributeType, uintptr, FileQueryInfoFlags, uintptr, **glib.Error) bool
-	XGFileSetAttributeByteString func(uintptr, string, string, FileQueryInfoFlags, uintptr, **glib.Error) bool = func(instance uintptr, AttributeVarp string, ValueVarp string, FlagsVarp FileQueryInfoFlags, CancellableVarp uintptr, cerrp **glib.Error) bool {
-		core.LazyRegister(&xXGFileSetAttributeByteString, "GIO", "g_file_set_attribute_byte_string", false)
-		return xXGFileSetAttributeByteString(instance, AttributeVarp, ValueVarp, FlagsVarp, CancellableVarp, cerrp)
-	}
-)
-var (
-	xXGFileSetAttributeByteString func(uintptr, string, string, FileQueryInfoFlags, uintptr, **glib.Error) bool
-	XGFileSetAttributeInt32       func(uintptr, string, int32, FileQueryInfoFlags, uintptr, **glib.Error) bool = func(instance uintptr, AttributeVarp string, ValueVarp int32, FlagsVarp FileQueryInfoFlags, CancellableVarp uintptr, cerrp **glib.Error) bool {
-		core.LazyRegister(&xXGFileSetAttributeInt32, "GIO", "g_file_set_attribute_int32", false)
-		return xXGFileSetAttributeInt32(instance, AttributeVarp, ValueVarp, FlagsVarp, CancellableVarp, cerrp)
-	}
-)
-var (
-	xXGFileSetAttributeInt32 func(uintptr, string, int32, FileQueryInfoFlags, uintptr, **glib.Error) bool
-	XGFileSetAttributeInt64  func(uintptr, string, int64, FileQueryInfoFlags, uintptr, **glib.Error) bool = func(instance uintptr, AttributeVarp string, ValueVarp int64, FlagsVarp FileQueryInfoFlags, CancellableVarp uintptr, cerrp **glib.Error) bool {
-		core.LazyRegister(&xXGFileSetAttributeInt64, "GIO", "g_file_set_attribute_int64", false)
-		return xXGFileSetAttributeInt64(instance, AttributeVarp, ValueVarp, FlagsVarp, CancellableVarp, cerrp)
-	}
-)
-var (
-	xXGFileSetAttributeInt64 func(uintptr, string, int64, FileQueryInfoFlags, uintptr, **glib.Error) bool
-	XGFileSetAttributeString func(uintptr, string, string, FileQueryInfoFlags, uintptr, **glib.Error) bool = func(instance uintptr, AttributeVarp string, ValueVarp string, FlagsVarp FileQueryInfoFlags, CancellableVarp uintptr, cerrp **glib.Error) bool {
-		core.LazyRegister(&xXGFileSetAttributeString, "GIO", "g_file_set_attribute_string", false)
-		return xXGFileSetAttributeString(instance, AttributeVarp, ValueVarp, FlagsVarp, CancellableVarp, cerrp)
-	}
-)
-var (
-	xXGFileSetAttributeString func(uintptr, string, string, FileQueryInfoFlags, uintptr, **glib.Error) bool
-	XGFileSetAttributeUint32  func(uintptr, string, uint32, FileQueryInfoFlags, uintptr, **glib.Error) bool = func(instance uintptr, AttributeVarp string, ValueVarp uint32, FlagsVarp FileQueryInfoFlags, CancellableVarp uintptr, cerrp **glib.Error) bool {
-		core.LazyRegister(&xXGFileSetAttributeUint32, "GIO", "g_file_set_attribute_uint32", false)
-		return xXGFileSetAttributeUint32(instance, AttributeVarp, ValueVarp, FlagsVarp, CancellableVarp, cerrp)
-	}
-)
-var (
-	xXGFileSetAttributeUint32 func(uintptr, string, uint32, FileQueryInfoFlags, uintptr, **glib.Error) bool
-	XGFileSetAttributeUint64  func(uintptr, string, uint64, FileQueryInfoFlags, uintptr, **glib.Error) bool = func(instance uintptr, AttributeVarp string, ValueVarp uint64, FlagsVarp FileQueryInfoFlags, CancellableVarp uintptr, cerrp **glib.Error) bool {
-		core.LazyRegister(&xXGFileSetAttributeUint64, "GIO", "g_file_set_attribute_uint64", false)
-		return xXGFileSetAttributeUint64(instance, AttributeVarp, ValueVarp, FlagsVarp, CancellableVarp, cerrp)
-	}
-)
-var (
-	xXGFileSetAttributeUint64 func(uintptr, string, uint64, FileQueryInfoFlags, uintptr, **glib.Error) bool
-	XGFileSetAttributesAsync  func(uintptr, uintptr, FileQueryInfoFlags, int, uintptr, uintptr, uintptr) = func(instance uintptr, InfoVarp uintptr, FlagsVarp FileQueryInfoFlags, IoPriorityVarp int, CancellableVarp uintptr, CallbackVarp uintptr, UserDataVarp uintptr) {
-		core.LazyRegister(&xXGFileSetAttributesAsync, "GIO", "g_file_set_attributes_async", false)
-		xXGFileSetAttributesAsync(instance, InfoVarp, FlagsVarp, IoPriorityVarp, CancellableVarp, CallbackVarp, UserDataVarp)
-	}
-)
-var (
-	xXGFileSetAttributesAsync func(uintptr, uintptr, FileQueryInfoFlags, int, uintptr, uintptr, uintptr)
-	XGFileSetAttributesFinish func(uintptr, uintptr, **FileInfo, **glib.Error) bool = func(instance uintptr, ResultVarp uintptr, InfoVarp **FileInfo, cerrp **glib.Error) bool {
-		core.LazyRegister(&xXGFileSetAttributesFinish, "GIO", "g_file_set_attributes_finish", false)
-		return xXGFileSetAttributesFinish(instance, ResultVarp, InfoVarp, cerrp)
-	}
-)
-var (
-	xXGFileSetAttributesFinish  func(uintptr, uintptr, **FileInfo, **glib.Error) bool
-	XGFileSetAttributesFromInfo func(uintptr, uintptr, FileQueryInfoFlags, uintptr, **glib.Error) bool = func(instance uintptr, InfoVarp uintptr, FlagsVarp FileQueryInfoFlags, CancellableVarp uintptr, cerrp **glib.Error) bool {
-		core.LazyRegister(&xXGFileSetAttributesFromInfo, "GIO", "g_file_set_attributes_from_info", false)
-		return xXGFileSetAttributesFromInfo(instance, InfoVarp, FlagsVarp, CancellableVarp, cerrp)
-	}
-)
-var (
-	xXGFileSetAttributesFromInfo func(uintptr, uintptr, FileQueryInfoFlags, uintptr, **glib.Error) bool
-	XGFileSetDisplayName         func(uintptr, string, uintptr, **glib.Error) uintptr = func(instance uintptr, DisplayNameVarp string, CancellableVarp uintptr, cerrp **glib.Error) uintptr {
-		core.LazyRegister(&xXGFileSetDisplayName, "GIO", "g_file_set_display_name", false)
-		return xXGFileSetDisplayName(instance, DisplayNameVarp, CancellableVarp, cerrp)
-	}
-)
-var (
-	xXGFileSetDisplayName     func(uintptr, string, uintptr, **glib.Error) uintptr
-	XGFileSetDisplayNameAsync func(uintptr, string, int, uintptr, uintptr, uintptr) = func(instance uintptr, DisplayNameVarp string, IoPriorityVarp int, CancellableVarp uintptr, CallbackVarp uintptr, UserDataVarp uintptr) {
-		core.LazyRegister(&xXGFileSetDisplayNameAsync, "GIO", "g_file_set_display_name_async", false)
-		xXGFileSetDisplayNameAsync(instance, DisplayNameVarp, IoPriorityVarp, CancellableVarp, CallbackVarp, UserDataVarp)
-	}
-)
-var (
-	xXGFileSetDisplayNameAsync func(uintptr, string, int, uintptr, uintptr, uintptr)
-	XGFileSetDisplayNameFinish func(uintptr, uintptr, **glib.Error) uintptr = func(instance uintptr, ResVarp uintptr, cerrp **glib.Error) uintptr {
-		core.LazyRegister(&xXGFileSetDisplayNameFinish, "GIO", "g_file_set_display_name_finish", false)
-		return xXGFileSetDisplayNameFinish(instance, ResVarp, cerrp)
-	}
-)
-var (
-	xXGFileSetDisplayNameFinish func(uintptr, uintptr, **glib.Error) uintptr
-	XGFileStartMountable        func(uintptr, DriveStartFlags, uintptr, uintptr, uintptr, uintptr) = func(instance uintptr, FlagsVarp DriveStartFlags, StartOperationVarp uintptr, CancellableVarp uintptr, CallbackVarp uintptr, UserDataVarp uintptr) {
-		core.LazyRegister(&xXGFileStartMountable, "GIO", "g_file_start_mountable", false)
-		xXGFileStartMountable(instance, FlagsVarp, StartOperationVarp, CancellableVarp, CallbackVarp, UserDataVarp)
-	}
-)
-var (
-	xXGFileStartMountable      func(uintptr, DriveStartFlags, uintptr, uintptr, uintptr, uintptr)
-	XGFileStartMountableFinish func(uintptr, uintptr, **glib.Error) bool = func(instance uintptr, ResultVarp uintptr, cerrp **glib.Error) bool {
-		core.LazyRegister(&xXGFileStartMountableFinish, "GIO", "g_file_start_mountable_finish", false)
-		return xXGFileStartMountableFinish(instance, ResultVarp, cerrp)
-	}
-)
-var (
-	xXGFileStartMountableFinish func(uintptr, uintptr, **glib.Error) bool
-	XGFileStopMountable         func(uintptr, MountUnmountFlags, uintptr, uintptr, uintptr, uintptr) = func(instance uintptr, FlagsVarp MountUnmountFlags, MountOperationVarp uintptr, CancellableVarp uintptr, CallbackVarp uintptr, UserDataVarp uintptr) {
-		core.LazyRegister(&xXGFileStopMountable, "GIO", "g_file_stop_mountable", false)
-		xXGFileStopMountable(instance, FlagsVarp, MountOperationVarp, CancellableVarp, CallbackVarp, UserDataVarp)
-	}
-)
-var (
-	xXGFileStopMountable      func(uintptr, MountUnmountFlags, uintptr, uintptr, uintptr, uintptr)
-	XGFileStopMountableFinish func(uintptr, uintptr, **glib.Error) bool = func(instance uintptr, ResultVarp uintptr, cerrp **glib.Error) bool {
-		core.LazyRegister(&xXGFileStopMountableFinish, "GIO", "g_file_stop_mountable_finish", false)
-		return xXGFileStopMountableFinish(instance, ResultVarp, cerrp)
-	}
-)
-var (
-	xXGFileStopMountableFinish   func(uintptr, uintptr, **glib.Error) bool
-	XGFileSupportsThreadContexts func(uintptr) bool = func(instance uintptr) bool {
-		core.LazyRegister(&xXGFileSupportsThreadContexts, "GIO", "g_file_supports_thread_contexts", false)
-		return xXGFileSupportsThreadContexts(instance)
-	}
-)
-var (
-	xXGFileSupportsThreadContexts func(uintptr) bool
-	XGFileTrash                   func(uintptr, uintptr, **glib.Error) bool = func(instance uintptr, CancellableVarp uintptr, cerrp **glib.Error) bool {
-		core.LazyRegister(&xXGFileTrash, "GIO", "g_file_trash", false)
-		return xXGFileTrash(instance, CancellableVarp, cerrp)
-	}
-)
-var (
-	xXGFileTrash     func(uintptr, uintptr, **glib.Error) bool
-	XGFileTrashAsync func(uintptr, int, uintptr, uintptr, uintptr) = func(instance uintptr, IoPriorityVarp int, CancellableVarp uintptr, CallbackVarp uintptr, UserDataVarp uintptr) {
-		core.LazyRegister(&xXGFileTrashAsync, "GIO", "g_file_trash_async", false)
-		xXGFileTrashAsync(instance, IoPriorityVarp, CancellableVarp, CallbackVarp, UserDataVarp)
-	}
-)
-var (
-	xXGFileTrashAsync func(uintptr, int, uintptr, uintptr, uintptr)
-	XGFileTrashFinish func(uintptr, uintptr, **glib.Error) bool = func(instance uintptr, ResultVarp uintptr, cerrp **glib.Error) bool {
-		core.LazyRegister(&xXGFileTrashFinish, "GIO", "g_file_trash_finish", false)
-		return xXGFileTrashFinish(instance, ResultVarp, cerrp)
-	}
-)
-var (
-	xXGFileTrashFinish     func(uintptr, uintptr, **glib.Error) bool
-	XGFileUnmountMountable func(uintptr, MountUnmountFlags, uintptr, uintptr, uintptr) = func(instance uintptr, FlagsVarp MountUnmountFlags, CancellableVarp uintptr, CallbackVarp uintptr, UserDataVarp uintptr) {
-		core.LazyRegister(&xXGFileUnmountMountable, "GIO", "g_file_unmount_mountable", false)
-		xXGFileUnmountMountable(instance, FlagsVarp, CancellableVarp, CallbackVarp, UserDataVarp)
-	}
-)
-var (
-	xXGFileUnmountMountable      func(uintptr, MountUnmountFlags, uintptr, uintptr, uintptr)
-	XGFileUnmountMountableFinish func(uintptr, uintptr, **glib.Error) bool = func(instance uintptr, ResultVarp uintptr, cerrp **glib.Error) bool {
-		core.LazyRegister(&xXGFileUnmountMountableFinish, "GIO", "g_file_unmount_mountable_finish", false)
-		return xXGFileUnmountMountableFinish(instance, ResultVarp, cerrp)
-	}
-)
-var (
-	xXGFileUnmountMountableFinish       func(uintptr, uintptr, **glib.Error) bool
-	XGFileUnmountMountableWithOperation func(uintptr, MountUnmountFlags, uintptr, uintptr, uintptr, uintptr) = func(instance uintptr, FlagsVarp MountUnmountFlags, MountOperationVarp uintptr, CancellableVarp uintptr, CallbackVarp uintptr, UserDataVarp uintptr) {
-		core.LazyRegister(&xXGFileUnmountMountableWithOperation, "GIO", "g_file_unmount_mountable_with_operation", false)
-		xXGFileUnmountMountableWithOperation(instance, FlagsVarp, MountOperationVarp, CancellableVarp, CallbackVarp, UserDataVarp)
-	}
-)
-var (
-	xXGFileUnmountMountableWithOperation      func(uintptr, MountUnmountFlags, uintptr, uintptr, uintptr, uintptr)
-	XGFileUnmountMountableWithOperationFinish func(uintptr, uintptr, **glib.Error) bool = func(instance uintptr, ResultVarp uintptr, cerrp **glib.Error) bool {
-		core.LazyRegister(&xXGFileUnmountMountableWithOperationFinish, "GIO", "g_file_unmount_mountable_with_operation_finish", false)
-		return xXGFileUnmountMountableWithOperationFinish(instance, ResultVarp, cerrp)
-	}
-)
-var xXGFileUnmountMountableWithOperationFinish func(uintptr, uintptr, **glib.Error) bool
 
 var xFileNewBuildFilenamev func([]string) uintptr
 
@@ -6793,7 +5954,6 @@ var xFileNewBuildFilenamev func([]string) uintptr
 // Using this function is equivalent to calling g_build_filenamev(),
 // followed by g_file_new_for_path() on the result.
 func FileNewBuildFilenamev(ArgsVar []string) *FileBase {
-	core.LazyRegister(&xFileNewBuildFilenamev, "GIO", "g_file_new_build_filenamev", false)
 	var cls *FileBase
 
 	cret := xFileNewBuildFilenamev(ArgsVar)
@@ -6823,7 +5983,6 @@ var xFileNewForCommandlineArg func(string) uintptr
 // for you there.  It is also always possible to use this function with
 // #GOptionContext arguments of type %G_OPTION_ARG_FILENAME.
 func FileNewForCommandlineArg(ArgVar string) *FileBase {
-	core.LazyRegister(&xFileNewForCommandlineArg, "GIO", "g_file_new_for_commandline_arg", false)
 	var cls *FileBase
 
 	cret := xFileNewForCommandlineArg(ArgVar)
@@ -6850,7 +6009,6 @@ var xFileNewForCommandlineArgAndCwd func(string, string) uintptr
 //
 // See also g_application_command_line_create_file_for_arg().
 func FileNewForCommandlineArgAndCwd(ArgVar string, CwdVar string) *FileBase {
-	core.LazyRegister(&xFileNewForCommandlineArgAndCwd, "GIO", "g_file_new_for_commandline_arg_and_cwd", false)
 	var cls *FileBase
 
 	cret := xFileNewForCommandlineArgAndCwd(ArgVar, CwdVar)
@@ -6869,7 +6027,6 @@ var xFileNewForPath func(string) uintptr
 // fails, but the returned object might not support any I/O
 // operation if @path is malformed.
 func FileNewForPath(PathVar string) *FileBase {
-	core.LazyRegister(&xFileNewForPath, "GIO", "g_file_new_for_path", false)
 	var cls *FileBase
 
 	cret := xFileNewForPath(PathVar)
@@ -6889,7 +6046,6 @@ var xFileNewForUri func(string) uintptr
 // operation if @uri is malformed or if the uri type is
 // not supported.
 func FileNewForUri(UriVar string) *FileBase {
-	core.LazyRegister(&xFileNewForUri, "GIO", "g_file_new_for_uri", false)
 	var cls *FileBase
 
 	cret := xFileNewForUri(UriVar)
@@ -6915,7 +6071,6 @@ var xFileNewTmp func(uintptr, **FileIOStream, **glib.Error) uintptr
 // Unlike the other #GFile constructors, this will return %NULL if
 // a temporary file could not be created.
 func FileNewTmp(TmplVar *string, IostreamVar **FileIOStream) (*FileBase, error) {
-	core.LazyRegister(&xFileNewTmp, "GIO", "g_file_new_tmp", false)
 	var cls *FileBase
 	var cerr *glib.Error
 
@@ -6945,8 +6100,6 @@ var xFileNewTmpAsync func(uintptr, int, uintptr, uintptr, uintptr)
 // containing a sequence of six 'X' characters, and containing no
 // directory components. If it is %NULL, a default template is used.
 func FileNewTmpAsync(TmplVar *string, IoPriorityVar int, CancellableVar *Cancellable, CallbackVar *AsyncReadyCallback, UserDataVar uintptr) {
-	core.LazyRegister(&xFileNewTmpAsync, "GIO", "g_file_new_tmp_async", false)
-
 	TmplVarPtr := core.GStrdupNullable(TmplVar)
 	defer core.GFreeNullable(TmplVarPtr)
 
@@ -6962,8 +6115,6 @@ var xFileNewTmpDirAsync func(uintptr, int, uintptr, uintptr, uintptr)
 // containing a sequence of six 'X' characters, and containing no
 // directory components. If it is %NULL, a default template is used.
 func FileNewTmpDirAsync(TmplVar *string, IoPriorityVar int, CancellableVar *Cancellable, CallbackVar *AsyncReadyCallback, UserDataVar uintptr) {
-	core.LazyRegister(&xFileNewTmpDirAsync, "GIO", "g_file_new_tmp_dir_async", false)
-
 	TmplVarPtr := core.GStrdupNullable(TmplVar)
 	defer core.GFreeNullable(TmplVarPtr)
 
@@ -6975,7 +6126,6 @@ var xFileNewTmpDirFinish func(uintptr, **glib.Error) uintptr
 // Finishes a temporary directory creation started by
 // g_file_new_tmp_dir_async().
 func FileNewTmpDirFinish(ResultVar AsyncResult) (*FileBase, error) {
-	core.LazyRegister(&xFileNewTmpDirFinish, "GIO", "g_file_new_tmp_dir_finish", false)
 	var cls *FileBase
 	var cerr *glib.Error
 
@@ -6996,7 +6146,6 @@ var xFileNewTmpFinish func(uintptr, **FileIOStream, **glib.Error) uintptr
 
 // Finishes a temporary file creation started by g_file_new_tmp_async().
 func FileNewTmpFinish(ResultVar AsyncResult, IostreamVar **FileIOStream) (*FileBase, error) {
-	core.LazyRegister(&xFileNewTmpFinish, "GIO", "g_file_new_tmp_finish", false)
 	var cls *FileBase
 	var cerr *glib.Error
 
@@ -7020,7 +6169,6 @@ var xFileParseName func(string) uintptr
 // but the returned object might not support any I/O operation if
 // the @parse_name cannot be parsed.
 func FileParseName(ParseNameVar string) *FileBase {
-	core.LazyRegister(&xFileParseName, "GIO", "g_file_parse_name", false)
 	var cls *FileBase
 
 	cret := xFileParseName(ParseNameVar)
@@ -7036,4 +6184,158 @@ func FileParseName(ParseNameVar string) *FileBase {
 func init() {
 	core.SetPackageName("GIO", "gio-2.0")
 	core.SetSharedLibraries("GIO", []string{"libgio-2.0.so.0", "libgio-2.0.0.dylib"})
+	var libs []uintptr
+	for _, libPath := range core.GetPaths("GIO") {
+		lib, err := purego.Dlopen(libPath, purego.RTLD_NOW|purego.RTLD_GLOBAL)
+		if err != nil {
+			panic(err)
+		}
+		libs = append(libs, lib)
+	}
+
+	core.PuregoSafeRegister(&xFileNewBuildFilenamev, libs, "g_file_new_build_filenamev")
+	core.PuregoSafeRegister(&xFileNewForCommandlineArg, libs, "g_file_new_for_commandline_arg")
+	core.PuregoSafeRegister(&xFileNewForCommandlineArgAndCwd, libs, "g_file_new_for_commandline_arg_and_cwd")
+	core.PuregoSafeRegister(&xFileNewForPath, libs, "g_file_new_for_path")
+	core.PuregoSafeRegister(&xFileNewForUri, libs, "g_file_new_for_uri")
+	core.PuregoSafeRegister(&xFileNewTmp, libs, "g_file_new_tmp")
+	core.PuregoSafeRegister(&xFileNewTmpAsync, libs, "g_file_new_tmp_async")
+	core.PuregoSafeRegister(&xFileNewTmpDirAsync, libs, "g_file_new_tmp_dir_async")
+	core.PuregoSafeRegister(&xFileNewTmpDirFinish, libs, "g_file_new_tmp_dir_finish")
+	core.PuregoSafeRegister(&xFileNewTmpFinish, libs, "g_file_new_tmp_finish")
+	core.PuregoSafeRegister(&xFileParseName, libs, "g_file_parse_name")
+
+	core.PuregoSafeRegister(&xFileGLibType, libs, "g_file_get_type")
+
+	core.PuregoSafeRegister(&XGFileAppendTo, libs, "g_file_append_to")
+	core.PuregoSafeRegister(&XGFileAppendToAsync, libs, "g_file_append_to_async")
+	core.PuregoSafeRegister(&XGFileAppendToFinish, libs, "g_file_append_to_finish")
+	core.PuregoSafeRegister(&XGFileBuildAttributeListForCopy, libs, "g_file_build_attribute_list_for_copy")
+	core.PuregoSafeRegister(&XGFileCopy, libs, "g_file_copy")
+	core.PuregoSafeRegister(&XGFileCopyAsync, libs, "g_file_copy_async")
+	core.PuregoSafeRegister(&XGFileCopyAsyncWithClosures, libs, "g_file_copy_async_with_closures")
+	core.PuregoSafeRegister(&XGFileCopyAttributes, libs, "g_file_copy_attributes")
+	core.PuregoSafeRegister(&XGFileCopyFinish, libs, "g_file_copy_finish")
+	core.PuregoSafeRegister(&XGFileCreate, libs, "g_file_create")
+	core.PuregoSafeRegister(&XGFileCreateAsync, libs, "g_file_create_async")
+	core.PuregoSafeRegister(&XGFileCreateFinish, libs, "g_file_create_finish")
+	core.PuregoSafeRegister(&XGFileCreateReadwrite, libs, "g_file_create_readwrite")
+	core.PuregoSafeRegister(&XGFileCreateReadwriteAsync, libs, "g_file_create_readwrite_async")
+	core.PuregoSafeRegister(&XGFileCreateReadwriteFinish, libs, "g_file_create_readwrite_finish")
+	core.PuregoSafeRegister(&XGFileDelete, libs, "g_file_delete")
+	core.PuregoSafeRegister(&XGFileDeleteAsync, libs, "g_file_delete_async")
+	core.PuregoSafeRegister(&XGFileDeleteFinish, libs, "g_file_delete_finish")
+	core.PuregoSafeRegister(&XGFileDup, libs, "g_file_dup")
+	core.PuregoSafeRegister(&XGFileEjectMountable, libs, "g_file_eject_mountable")
+	core.PuregoSafeRegister(&XGFileEjectMountableFinish, libs, "g_file_eject_mountable_finish")
+	core.PuregoSafeRegister(&XGFileEjectMountableWithOperation, libs, "g_file_eject_mountable_with_operation")
+	core.PuregoSafeRegister(&XGFileEjectMountableWithOperationFinish, libs, "g_file_eject_mountable_with_operation_finish")
+	core.PuregoSafeRegister(&XGFileEnumerateChildren, libs, "g_file_enumerate_children")
+	core.PuregoSafeRegister(&XGFileEnumerateChildrenAsync, libs, "g_file_enumerate_children_async")
+	core.PuregoSafeRegister(&XGFileEnumerateChildrenFinish, libs, "g_file_enumerate_children_finish")
+	core.PuregoSafeRegister(&XGFileEqual, libs, "g_file_equal")
+	core.PuregoSafeRegister(&XGFileFindEnclosingMount, libs, "g_file_find_enclosing_mount")
+	core.PuregoSafeRegister(&XGFileFindEnclosingMountAsync, libs, "g_file_find_enclosing_mount_async")
+	core.PuregoSafeRegister(&XGFileFindEnclosingMountFinish, libs, "g_file_find_enclosing_mount_finish")
+	core.PuregoSafeRegister(&XGFileGetBasename, libs, "g_file_get_basename")
+	core.PuregoSafeRegister(&XGFileGetChild, libs, "g_file_get_child")
+	core.PuregoSafeRegister(&XGFileGetChildForDisplayName, libs, "g_file_get_child_for_display_name")
+	core.PuregoSafeRegister(&XGFileGetParent, libs, "g_file_get_parent")
+	core.PuregoSafeRegister(&XGFileGetParseName, libs, "g_file_get_parse_name")
+	core.PuregoSafeRegister(&XGFileGetPath, libs, "g_file_get_path")
+	core.PuregoSafeRegister(&XGFileGetRelativePath, libs, "g_file_get_relative_path")
+	core.PuregoSafeRegister(&XGFileGetUri, libs, "g_file_get_uri")
+	core.PuregoSafeRegister(&XGFileGetUriScheme, libs, "g_file_get_uri_scheme")
+	core.PuregoSafeRegister(&XGFileHasParent, libs, "g_file_has_parent")
+	core.PuregoSafeRegister(&XGFileHasPrefix, libs, "g_file_has_prefix")
+	core.PuregoSafeRegister(&XGFileHasUriScheme, libs, "g_file_has_uri_scheme")
+	core.PuregoSafeRegister(&XGFileHash, libs, "g_file_hash")
+	core.PuregoSafeRegister(&XGFileIsNative, libs, "g_file_is_native")
+	core.PuregoSafeRegister(&XGFileLoadBytes, libs, "g_file_load_bytes")
+	core.PuregoSafeRegister(&XGFileLoadBytesAsync, libs, "g_file_load_bytes_async")
+	core.PuregoSafeRegister(&XGFileLoadBytesFinish, libs, "g_file_load_bytes_finish")
+	core.PuregoSafeRegister(&XGFileLoadContents, libs, "g_file_load_contents")
+	core.PuregoSafeRegister(&XGFileLoadContentsAsync, libs, "g_file_load_contents_async")
+	core.PuregoSafeRegister(&XGFileLoadContentsFinish, libs, "g_file_load_contents_finish")
+	core.PuregoSafeRegister(&XGFileLoadPartialContentsAsync, libs, "g_file_load_partial_contents_async")
+	core.PuregoSafeRegister(&XGFileLoadPartialContentsFinish, libs, "g_file_load_partial_contents_finish")
+	core.PuregoSafeRegister(&XGFileMakeDirectory, libs, "g_file_make_directory")
+	core.PuregoSafeRegister(&XGFileMakeDirectoryAsync, libs, "g_file_make_directory_async")
+	core.PuregoSafeRegister(&XGFileMakeDirectoryFinish, libs, "g_file_make_directory_finish")
+	core.PuregoSafeRegister(&XGFileMakeDirectoryWithParents, libs, "g_file_make_directory_with_parents")
+	core.PuregoSafeRegister(&XGFileMakeSymbolicLink, libs, "g_file_make_symbolic_link")
+	core.PuregoSafeRegister(&XGFileMakeSymbolicLinkAsync, libs, "g_file_make_symbolic_link_async")
+	core.PuregoSafeRegister(&XGFileMakeSymbolicLinkFinish, libs, "g_file_make_symbolic_link_finish")
+	core.PuregoSafeRegister(&XGFileMeasureDiskUsage, libs, "g_file_measure_disk_usage")
+	core.PuregoSafeRegister(&XGFileMeasureDiskUsageAsync, libs, "g_file_measure_disk_usage_async")
+	core.PuregoSafeRegister(&XGFileMeasureDiskUsageFinish, libs, "g_file_measure_disk_usage_finish")
+	core.PuregoSafeRegister(&XGFileMonitor, libs, "g_file_monitor")
+	core.PuregoSafeRegister(&XGFileMonitorDirectory, libs, "g_file_monitor_directory")
+	core.PuregoSafeRegister(&XGFileMonitorFile, libs, "g_file_monitor_file")
+	core.PuregoSafeRegister(&XGFileMountEnclosingVolume, libs, "g_file_mount_enclosing_volume")
+	core.PuregoSafeRegister(&XGFileMountEnclosingVolumeFinish, libs, "g_file_mount_enclosing_volume_finish")
+	core.PuregoSafeRegister(&XGFileMountMountable, libs, "g_file_mount_mountable")
+	core.PuregoSafeRegister(&XGFileMountMountableFinish, libs, "g_file_mount_mountable_finish")
+	core.PuregoSafeRegister(&XGFileMove, libs, "g_file_move")
+	core.PuregoSafeRegister(&XGFileMoveAsync, libs, "g_file_move_async")
+	core.PuregoSafeRegister(&XGFileMoveAsyncWithClosures, libs, "g_file_move_async_with_closures")
+	core.PuregoSafeRegister(&XGFileMoveFinish, libs, "g_file_move_finish")
+	core.PuregoSafeRegister(&XGFileOpenReadwrite, libs, "g_file_open_readwrite")
+	core.PuregoSafeRegister(&XGFileOpenReadwriteAsync, libs, "g_file_open_readwrite_async")
+	core.PuregoSafeRegister(&XGFileOpenReadwriteFinish, libs, "g_file_open_readwrite_finish")
+	core.PuregoSafeRegister(&XGFilePeekPath, libs, "g_file_peek_path")
+	core.PuregoSafeRegister(&XGFilePollMountable, libs, "g_file_poll_mountable")
+	core.PuregoSafeRegister(&XGFilePollMountableFinish, libs, "g_file_poll_mountable_finish")
+	core.PuregoSafeRegister(&XGFileQueryDefaultHandler, libs, "g_file_query_default_handler")
+	core.PuregoSafeRegister(&XGFileQueryDefaultHandlerAsync, libs, "g_file_query_default_handler_async")
+	core.PuregoSafeRegister(&XGFileQueryDefaultHandlerFinish, libs, "g_file_query_default_handler_finish")
+	core.PuregoSafeRegister(&XGFileQueryExists, libs, "g_file_query_exists")
+	core.PuregoSafeRegister(&XGFileQueryFileType, libs, "g_file_query_file_type")
+	core.PuregoSafeRegister(&XGFileQueryFilesystemInfo, libs, "g_file_query_filesystem_info")
+	core.PuregoSafeRegister(&XGFileQueryFilesystemInfoAsync, libs, "g_file_query_filesystem_info_async")
+	core.PuregoSafeRegister(&XGFileQueryFilesystemInfoFinish, libs, "g_file_query_filesystem_info_finish")
+	core.PuregoSafeRegister(&XGFileQueryInfo, libs, "g_file_query_info")
+	core.PuregoSafeRegister(&XGFileQueryInfoAsync, libs, "g_file_query_info_async")
+	core.PuregoSafeRegister(&XGFileQueryInfoFinish, libs, "g_file_query_info_finish")
+	core.PuregoSafeRegister(&XGFileQuerySettableAttributes, libs, "g_file_query_settable_attributes")
+	core.PuregoSafeRegister(&XGFileQueryWritableNamespaces, libs, "g_file_query_writable_namespaces")
+	core.PuregoSafeRegister(&XGFileRead, libs, "g_file_read")
+	core.PuregoSafeRegister(&XGFileReadAsync, libs, "g_file_read_async")
+	core.PuregoSafeRegister(&XGFileReadFinish, libs, "g_file_read_finish")
+	core.PuregoSafeRegister(&XGFileReplace, libs, "g_file_replace")
+	core.PuregoSafeRegister(&XGFileReplaceAsync, libs, "g_file_replace_async")
+	core.PuregoSafeRegister(&XGFileReplaceContents, libs, "g_file_replace_contents")
+	core.PuregoSafeRegister(&XGFileReplaceContentsAsync, libs, "g_file_replace_contents_async")
+	core.PuregoSafeRegister(&XGFileReplaceContentsBytesAsync, libs, "g_file_replace_contents_bytes_async")
+	core.PuregoSafeRegister(&XGFileReplaceContentsFinish, libs, "g_file_replace_contents_finish")
+	core.PuregoSafeRegister(&XGFileReplaceFinish, libs, "g_file_replace_finish")
+	core.PuregoSafeRegister(&XGFileReplaceReadwrite, libs, "g_file_replace_readwrite")
+	core.PuregoSafeRegister(&XGFileReplaceReadwriteAsync, libs, "g_file_replace_readwrite_async")
+	core.PuregoSafeRegister(&XGFileReplaceReadwriteFinish, libs, "g_file_replace_readwrite_finish")
+	core.PuregoSafeRegister(&XGFileResolveRelativePath, libs, "g_file_resolve_relative_path")
+	core.PuregoSafeRegister(&XGFileSetAttribute, libs, "g_file_set_attribute")
+	core.PuregoSafeRegister(&XGFileSetAttributeByteString, libs, "g_file_set_attribute_byte_string")
+	core.PuregoSafeRegister(&XGFileSetAttributeInt32, libs, "g_file_set_attribute_int32")
+	core.PuregoSafeRegister(&XGFileSetAttributeInt64, libs, "g_file_set_attribute_int64")
+	core.PuregoSafeRegister(&XGFileSetAttributeString, libs, "g_file_set_attribute_string")
+	core.PuregoSafeRegister(&XGFileSetAttributeUint32, libs, "g_file_set_attribute_uint32")
+	core.PuregoSafeRegister(&XGFileSetAttributeUint64, libs, "g_file_set_attribute_uint64")
+	core.PuregoSafeRegister(&XGFileSetAttributesAsync, libs, "g_file_set_attributes_async")
+	core.PuregoSafeRegister(&XGFileSetAttributesFinish, libs, "g_file_set_attributes_finish")
+	core.PuregoSafeRegister(&XGFileSetAttributesFromInfo, libs, "g_file_set_attributes_from_info")
+	core.PuregoSafeRegister(&XGFileSetDisplayName, libs, "g_file_set_display_name")
+	core.PuregoSafeRegister(&XGFileSetDisplayNameAsync, libs, "g_file_set_display_name_async")
+	core.PuregoSafeRegister(&XGFileSetDisplayNameFinish, libs, "g_file_set_display_name_finish")
+	core.PuregoSafeRegister(&XGFileStartMountable, libs, "g_file_start_mountable")
+	core.PuregoSafeRegister(&XGFileStartMountableFinish, libs, "g_file_start_mountable_finish")
+	core.PuregoSafeRegister(&XGFileStopMountable, libs, "g_file_stop_mountable")
+	core.PuregoSafeRegister(&XGFileStopMountableFinish, libs, "g_file_stop_mountable_finish")
+	core.PuregoSafeRegister(&XGFileSupportsThreadContexts, libs, "g_file_supports_thread_contexts")
+	core.PuregoSafeRegister(&XGFileTrash, libs, "g_file_trash")
+	core.PuregoSafeRegister(&XGFileTrashAsync, libs, "g_file_trash_async")
+	core.PuregoSafeRegister(&XGFileTrashFinish, libs, "g_file_trash_finish")
+	core.PuregoSafeRegister(&XGFileUnmountMountable, libs, "g_file_unmount_mountable")
+	core.PuregoSafeRegister(&XGFileUnmountMountableFinish, libs, "g_file_unmount_mountable_finish")
+	core.PuregoSafeRegister(&XGFileUnmountMountableWithOperation, libs, "g_file_unmount_mountable_with_operation")
+	core.PuregoSafeRegister(&XGFileUnmountMountableWithOperationFinish, libs, "g_file_unmount_mountable_with_operation_finish")
 }

@@ -2,6 +2,7 @@
 package gtk
 
 import (
+	"github.com/bnema/purego"
 	"github.com/bnema/puregotk/pkg/core"
 	"github.com/bnema/puregotk/v4/gdk"
 	"github.com/bnema/puregotk/v4/gio"
@@ -34,7 +35,6 @@ type AssistantPageType int
 var xAssistantPageTypeGLibType func() types.GType
 
 func AssistantPageTypeGLibType() types.GType {
-	core.LazyRegister(&xAssistantPageTypeGLibType, "GTK", "gtk_assistant_page_type_get_type", false)
 	return xAssistantPageTypeGLibType()
 }
 
@@ -111,7 +111,6 @@ type Assistant struct {
 var xAssistantGLibType func() types.GType
 
 func AssistantGLibType() types.GType {
-	core.LazyRegister(&xAssistantGLibType, "GTK", "gtk_assistant_get_type", false)
 	return xAssistantGLibType()
 }
 
@@ -125,7 +124,6 @@ var xNewAssistant func() uintptr
 
 // Creates a new `GtkAssistant`.
 func NewAssistant() *Assistant {
-	core.LazyRegister(&xNewAssistant, "GTK", "gtk_assistant_new", false)
 	var cls *Assistant
 
 	cret := xNewAssistant()
@@ -143,8 +141,6 @@ var xAssistantAddActionWidget func(uintptr, uintptr)
 
 // Adds a widget to the action area of a `GtkAssistant`.
 func (x *Assistant) AddActionWidget(ChildVar *Widget) {
-	core.LazyRegister(&xAssistantAddActionWidget, "GTK", "gtk_assistant_add_action_widget", false)
-
 	xAssistantAddActionWidget(x.GoPointer(), ChildVar.GoPointer())
 }
 
@@ -152,8 +148,6 @@ var xAssistantAppendPage func(uintptr, uintptr) int
 
 // Appends a page to the @assistant.
 func (x *Assistant) AppendPage(PageVar *Widget) int {
-	core.LazyRegister(&xAssistantAppendPage, "GTK", "gtk_assistant_append_page", false)
-
 	cret := xAssistantAppendPage(x.GoPointer(), PageVar.GoPointer())
 	return cret
 }
@@ -171,8 +165,6 @@ var xAssistantCommit func(uintptr)
 // a long-running, unreversible operation after the user has
 // clicked apply on a confirmation page.
 func (x *Assistant) Commit() {
-	core.LazyRegister(&xAssistantCommit, "GTK", "gtk_assistant_commit", false)
-
 	xAssistantCommit(x.GoPointer())
 }
 
@@ -180,8 +172,6 @@ var xAssistantGetCurrentPage func(uintptr) int
 
 // Returns the page number of the current page.
 func (x *Assistant) GetCurrentPage() int {
-	core.LazyRegister(&xAssistantGetCurrentPage, "GTK", "gtk_assistant_get_current_page", false)
-
 	cret := xAssistantGetCurrentPage(x.GoPointer())
 	return cret
 }
@@ -190,8 +180,6 @@ var xAssistantGetNPages func(uintptr) int
 
 // Returns the number of pages in the @assistant
 func (x *Assistant) GetNPages() int {
-	core.LazyRegister(&xAssistantGetNPages, "GTK", "gtk_assistant_get_n_pages", false)
-
 	cret := xAssistantGetNPages(x.GoPointer())
 	return cret
 }
@@ -200,7 +188,6 @@ var xAssistantGetNthPage func(uintptr, int) uintptr
 
 // Returns the child widget contained in page number @page_num.
 func (x *Assistant) GetNthPage(PageNumVar int) *Widget {
-	core.LazyRegister(&xAssistantGetNthPage, "GTK", "gtk_assistant_get_nth_page", false)
 	var cls *Widget
 
 	cret := xAssistantGetNthPage(x.GoPointer(), PageNumVar)
@@ -218,7 +205,6 @@ var xAssistantGetPage func(uintptr, uintptr) uintptr
 
 // Returns the `GtkAssistantPage` object for @child.
 func (x *Assistant) GetPage(ChildVar *Widget) *AssistantPage {
-	core.LazyRegister(&xAssistantGetPage, "GTK", "gtk_assistant_get_page", false)
 	var cls *AssistantPage
 
 	cret := xAssistantGetPage(x.GoPointer(), ChildVar.GoPointer())
@@ -236,8 +222,6 @@ var xAssistantGetPageComplete func(uintptr, uintptr) bool
 
 // Gets whether @page is complete.
 func (x *Assistant) GetPageComplete(PageVar *Widget) bool {
-	core.LazyRegister(&xAssistantGetPageComplete, "GTK", "gtk_assistant_get_page_complete", false)
-
 	cret := xAssistantGetPageComplete(x.GoPointer(), PageVar.GoPointer())
 	return cret
 }
@@ -246,8 +230,6 @@ var xAssistantGetPageTitle func(uintptr, uintptr) string
 
 // Gets the title for @page.
 func (x *Assistant) GetPageTitle(PageVar *Widget) string {
-	core.LazyRegister(&xAssistantGetPageTitle, "GTK", "gtk_assistant_get_page_title", false)
-
 	cret := xAssistantGetPageTitle(x.GoPointer(), PageVar.GoPointer())
 	return cret
 }
@@ -256,8 +238,6 @@ var xAssistantGetPageType func(uintptr, uintptr) AssistantPageType
 
 // Gets the page type of @page.
 func (x *Assistant) GetPageType(PageVar *Widget) AssistantPageType {
-	core.LazyRegister(&xAssistantGetPageType, "GTK", "gtk_assistant_get_page_type", false)
-
 	cret := xAssistantGetPageType(x.GoPointer(), PageVar.GoPointer())
 	return cret
 }
@@ -266,7 +246,6 @@ var xAssistantGetPages func(uintptr) uintptr
 
 // Gets a list model of the assistant pages.
 func (x *Assistant) GetPages() *gio.ListModelBase {
-	core.LazyRegister(&xAssistantGetPages, "GTK", "gtk_assistant_get_pages", false)
 	var cls *gio.ListModelBase
 
 	cret := xAssistantGetPages(x.GoPointer())
@@ -283,8 +262,6 @@ var xAssistantInsertPage func(uintptr, uintptr, int) int
 
 // Inserts a page in the @assistant at a given position.
 func (x *Assistant) InsertPage(PageVar *Widget, PositionVar int) int {
-	core.LazyRegister(&xAssistantInsertPage, "GTK", "gtk_assistant_insert_page", false)
-
 	cret := xAssistantInsertPage(x.GoPointer(), PageVar.GoPointer(), PositionVar)
 	return cret
 }
@@ -299,8 +276,6 @@ var xAssistantNextPage func(uintptr)
 // This function is for use when creating pages of the
 // %GTK_ASSISTANT_PAGE_CUSTOM type.
 func (x *Assistant) NextPage() {
-	core.LazyRegister(&xAssistantNextPage, "GTK", "gtk_assistant_next_page", false)
-
 	xAssistantNextPage(x.GoPointer())
 }
 
@@ -308,8 +283,6 @@ var xAssistantPrependPage func(uintptr, uintptr) int
 
 // Prepends a page to the @assistant.
 func (x *Assistant) PrependPage(PageVar *Widget) int {
-	core.LazyRegister(&xAssistantPrependPage, "GTK", "gtk_assistant_prepend_page", false)
-
 	cret := xAssistantPrependPage(x.GoPointer(), PageVar.GoPointer())
 	return cret
 }
@@ -324,8 +297,6 @@ var xAssistantPreviousPage func(uintptr)
 // This function is for use when creating pages of the
 // %GTK_ASSISTANT_PAGE_CUSTOM type.
 func (x *Assistant) PreviousPage() {
-	core.LazyRegister(&xAssistantPreviousPage, "GTK", "gtk_assistant_previous_page", false)
-
 	xAssistantPreviousPage(x.GoPointer())
 }
 
@@ -333,8 +304,6 @@ var xAssistantRemoveActionWidget func(uintptr, uintptr)
 
 // Removes a widget from the action area of a `GtkAssistant`.
 func (x *Assistant) RemoveActionWidget(ChildVar *Widget) {
-	core.LazyRegister(&xAssistantRemoveActionWidget, "GTK", "gtk_assistant_remove_action_widget", false)
-
 	xAssistantRemoveActionWidget(x.GoPointer(), ChildVar.GoPointer())
 }
 
@@ -342,8 +311,6 @@ var xAssistantRemovePage func(uintptr, int)
 
 // Removes the @page_num’s page from @assistant.
 func (x *Assistant) RemovePage(PageNumVar int) {
-	core.LazyRegister(&xAssistantRemovePage, "GTK", "gtk_assistant_remove_page", false)
-
 	xAssistantRemovePage(x.GoPointer(), PageNumVar)
 }
 
@@ -355,8 +322,6 @@ var xAssistantSetCurrentPage func(uintptr, int)
 // as the @assistant flow can be set with
 // gtk_assistant_set_forward_page_func().
 func (x *Assistant) SetCurrentPage(PageNumVar int) {
-	core.LazyRegister(&xAssistantSetCurrentPage, "GTK", "gtk_assistant_set_current_page", false)
-
 	xAssistantSetCurrentPage(x.GoPointer(), PageNumVar)
 }
 
@@ -370,8 +335,6 @@ var xAssistantSetForwardPageFunc func(uintptr, uintptr, uintptr, uintptr)
 // use the default forward function, which just goes to the
 // next visible page.
 func (x *Assistant) SetForwardPageFunc(PageFuncVar *AssistantPageFunc, DataVar uintptr, DestroyVar *glib.DestroyNotify) {
-	core.LazyRegister(&xAssistantSetForwardPageFunc, "GTK", "gtk_assistant_set_forward_page_func", false)
-
 	xAssistantSetForwardPageFunc(x.GoPointer(), glib.NewCallbackNullable(PageFuncVar), DataVar, glib.NewCallbackNullable(DestroyVar))
 }
 
@@ -382,8 +345,6 @@ var xAssistantSetPageComplete func(uintptr, uintptr, bool)
 // This will make @assistant update the buttons state
 // to be able to continue the task.
 func (x *Assistant) SetPageComplete(PageVar *Widget, CompleteVar bool) {
-	core.LazyRegister(&xAssistantSetPageComplete, "GTK", "gtk_assistant_set_page_complete", false)
-
 	xAssistantSetPageComplete(x.GoPointer(), PageVar.GoPointer(), CompleteVar)
 }
 
@@ -394,8 +355,6 @@ var xAssistantSetPageTitle func(uintptr, uintptr, string)
 // The title is displayed in the header area of the assistant
 // when @page is the current page.
 func (x *Assistant) SetPageTitle(PageVar *Widget, TitleVar string) {
-	core.LazyRegister(&xAssistantSetPageTitle, "GTK", "gtk_assistant_set_page_title", false)
-
 	xAssistantSetPageTitle(x.GoPointer(), PageVar.GoPointer(), TitleVar)
 }
 
@@ -405,8 +364,6 @@ var xAssistantSetPageType func(uintptr, uintptr, AssistantPageType)
 //
 // The page type determines the page behavior in the @assistant.
 func (x *Assistant) SetPageType(PageVar *Widget, TypeVar AssistantPageType) {
-	core.LazyRegister(&xAssistantSetPageType, "GTK", "gtk_assistant_set_page_type", false)
-
 	xAssistantSetPageType(x.GoPointer(), PageVar.GoPointer(), TypeVar)
 }
 
@@ -422,8 +379,6 @@ var xAssistantUpdateButtonsState func(uintptr)
 // function is when changing a value on the current page
 // affects the future page flow of the assistant.
 func (x *Assistant) UpdateButtonsState() {
-	core.LazyRegister(&xAssistantUpdateButtonsState, "GTK", "gtk_assistant_update_buttons_state", false)
-
 	xAssistantUpdateButtonsState(x.GoPointer())
 }
 
@@ -961,7 +916,6 @@ type AssistantPage struct {
 var xAssistantPageGLibType func() types.GType
 
 func AssistantPageGLibType() types.GType {
-	core.LazyRegister(&xAssistantPageGLibType, "GTK", "gtk_assistant_page_get_type", false)
 	return xAssistantPageGLibType()
 }
 
@@ -975,7 +929,6 @@ var xAssistantPageGetChild func(uintptr) uintptr
 
 // Returns the child to which @page belongs.
 func (x *AssistantPage) GetChild() *Widget {
-	core.LazyRegister(&xAssistantPageGetChild, "GTK", "gtk_assistant_page_get_child", false)
 	var cls *Widget
 
 	cret := xAssistantPageGetChild(x.GoPointer())
@@ -1043,4 +996,46 @@ func (x *AssistantPage) GetPropertyTitle() string {
 func init() {
 	core.SetPackageName("GTK", "gtk4")
 	core.SetSharedLibraries("GTK", []string{"libgtk-4.so.1", "libgtk-4.1.dylib"})
+	var libs []uintptr
+	for _, libPath := range core.GetPaths("GTK") {
+		lib, err := purego.Dlopen(libPath, purego.RTLD_NOW|purego.RTLD_GLOBAL)
+		if err != nil {
+			panic(err)
+		}
+		libs = append(libs, lib)
+	}
+
+	core.PuregoSafeRegister(&xAssistantPageTypeGLibType, libs, "gtk_assistant_page_type_get_type")
+
+	core.PuregoSafeRegister(&xAssistantGLibType, libs, "gtk_assistant_get_type")
+
+	core.PuregoSafeRegister(&xNewAssistant, libs, "gtk_assistant_new")
+
+	core.PuregoSafeRegister(&xAssistantAddActionWidget, libs, "gtk_assistant_add_action_widget")
+	core.PuregoSafeRegister(&xAssistantAppendPage, libs, "gtk_assistant_append_page")
+	core.PuregoSafeRegister(&xAssistantCommit, libs, "gtk_assistant_commit")
+	core.PuregoSafeRegister(&xAssistantGetCurrentPage, libs, "gtk_assistant_get_current_page")
+	core.PuregoSafeRegister(&xAssistantGetNPages, libs, "gtk_assistant_get_n_pages")
+	core.PuregoSafeRegister(&xAssistantGetNthPage, libs, "gtk_assistant_get_nth_page")
+	core.PuregoSafeRegister(&xAssistantGetPage, libs, "gtk_assistant_get_page")
+	core.PuregoSafeRegister(&xAssistantGetPageComplete, libs, "gtk_assistant_get_page_complete")
+	core.PuregoSafeRegister(&xAssistantGetPageTitle, libs, "gtk_assistant_get_page_title")
+	core.PuregoSafeRegister(&xAssistantGetPageType, libs, "gtk_assistant_get_page_type")
+	core.PuregoSafeRegister(&xAssistantGetPages, libs, "gtk_assistant_get_pages")
+	core.PuregoSafeRegister(&xAssistantInsertPage, libs, "gtk_assistant_insert_page")
+	core.PuregoSafeRegister(&xAssistantNextPage, libs, "gtk_assistant_next_page")
+	core.PuregoSafeRegister(&xAssistantPrependPage, libs, "gtk_assistant_prepend_page")
+	core.PuregoSafeRegister(&xAssistantPreviousPage, libs, "gtk_assistant_previous_page")
+	core.PuregoSafeRegister(&xAssistantRemoveActionWidget, libs, "gtk_assistant_remove_action_widget")
+	core.PuregoSafeRegister(&xAssistantRemovePage, libs, "gtk_assistant_remove_page")
+	core.PuregoSafeRegister(&xAssistantSetCurrentPage, libs, "gtk_assistant_set_current_page")
+	core.PuregoSafeRegister(&xAssistantSetForwardPageFunc, libs, "gtk_assistant_set_forward_page_func")
+	core.PuregoSafeRegister(&xAssistantSetPageComplete, libs, "gtk_assistant_set_page_complete")
+	core.PuregoSafeRegister(&xAssistantSetPageTitle, libs, "gtk_assistant_set_page_title")
+	core.PuregoSafeRegister(&xAssistantSetPageType, libs, "gtk_assistant_set_page_type")
+	core.PuregoSafeRegister(&xAssistantUpdateButtonsState, libs, "gtk_assistant_update_buttons_state")
+
+	core.PuregoSafeRegister(&xAssistantPageGLibType, libs, "gtk_assistant_page_get_type")
+
+	core.PuregoSafeRegister(&xAssistantPageGetChild, libs, "gtk_assistant_page_get_child")
 }

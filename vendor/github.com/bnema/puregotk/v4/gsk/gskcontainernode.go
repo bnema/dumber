@@ -2,6 +2,7 @@
 package gsk
 
 import (
+	"github.com/bnema/purego"
 	"github.com/bnema/puregotk/pkg/core"
 	"github.com/bnema/puregotk/v4/gobject"
 	"github.com/bnema/puregotk/v4/gobject/types"
@@ -15,7 +16,6 @@ type ContainerNode struct {
 var xContainerNodeGLibType func() types.GType
 
 func ContainerNodeGLibType() types.GType {
-	core.LazyRegister(&xContainerNodeGLibType, "GSK", "gsk_container_node_get_type", false)
 	return xContainerNodeGLibType()
 }
 
@@ -31,7 +31,6 @@ var xNewContainerNode func(uintptr, uint) uintptr
 //
 // The new node will acquire a reference to each of the children.
 func NewContainerNode(ChildrenVar uintptr, NChildrenVar uint) *ContainerNode {
-	core.LazyRegister(&xNewContainerNode, "GSK", "gsk_container_node_new", false)
 	var cls *ContainerNode
 
 	cret := xNewContainerNode(ChildrenVar, NChildrenVar)
@@ -48,7 +47,6 @@ var xContainerNodeGetChild func(uintptr, uint) uintptr
 
 // Gets one of the children of @container.
 func (x *ContainerNode) GetChild(IdxVar uint) *RenderNode {
-	core.LazyRegister(&xContainerNodeGetChild, "GSK", "gsk_container_node_get_child", false)
 	var cls *RenderNode
 
 	cret := xContainerNodeGetChild(x.GoPointer(), IdxVar)
@@ -66,8 +64,6 @@ var xContainerNodeGetNChildren func(uintptr) uint
 
 // Retrieves the number of direct children of @node.
 func (x *ContainerNode) GetNChildren() uint {
-	core.LazyRegister(&xContainerNodeGetNChildren, "GSK", "gsk_container_node_get_n_children", false)
-
 	cret := xContainerNodeGetNChildren(x.GoPointer())
 	return cret
 }
@@ -86,4 +82,19 @@ func (c *ContainerNode) SetGoPointer(ptr uintptr) {
 func init() {
 	core.SetPackageName("GSK", "gtk4")
 	core.SetSharedLibraries("GSK", []string{"libgtk-4.so.1", "libgtk-4.1.dylib"})
+	var libs []uintptr
+	for _, libPath := range core.GetPaths("GSK") {
+		lib, err := purego.Dlopen(libPath, purego.RTLD_NOW|purego.RTLD_GLOBAL)
+		if err != nil {
+			panic(err)
+		}
+		libs = append(libs, lib)
+	}
+
+	core.PuregoSafeRegister(&xContainerNodeGLibType, libs, "gsk_container_node_get_type")
+
+	core.PuregoSafeRegister(&xNewContainerNode, libs, "gsk_container_node_new")
+
+	core.PuregoSafeRegister(&xContainerNodeGetChild, libs, "gsk_container_node_get_child")
+	core.PuregoSafeRegister(&xContainerNodeGetNChildren, libs, "gsk_container_node_get_n_children")
 }

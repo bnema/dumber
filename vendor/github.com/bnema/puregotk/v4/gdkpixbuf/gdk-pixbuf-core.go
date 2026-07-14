@@ -2,7 +2,6 @@
 package gdkpixbuf
 
 import (
-	"github.com/bnema/puregotk/pkg/core"
 	"github.com/bnema/puregotk/v4/glib"
 	"github.com/bnema/puregotk/v4/gobject/types"
 )
@@ -35,7 +34,6 @@ type Colorspace int
 var xColorspaceGLibType func() types.GType
 
 func ColorspaceGLibType() types.GType {
-	core.LazyRegister(&xColorspaceGLibType, "GDKPIXBUF", "gdk_colorspace_get_type", false)
 	return xColorspaceGLibType()
 }
 
@@ -62,7 +60,6 @@ type PixbufAlphaMode int
 var xPixbufAlphaModeGLibType func() types.GType
 
 func PixbufAlphaModeGLibType() types.GType {
-	core.LazyRegister(&xPixbufAlphaModeGLibType, "GDKPIXBUF", "gdk_pixbuf_alpha_mode_get_type", false)
 	return xPixbufAlphaModeGLibType()
 }
 
@@ -87,7 +84,6 @@ type PixbufError int
 var xPixbufErrorGLibType func() types.GType
 
 func PixbufErrorGLibType() types.GType {
-	core.LazyRegister(&xPixbufErrorGLibType, "GDKPIXBUF", "gdk_pixbuf_error_get_type", false)
 	return xPixbufErrorGLibType()
 }
 
@@ -109,8 +105,3 @@ const (
 	// Only part of the animation was loaded.
 	GdkPixbufErrorIncompleteAnimationValue PixbufError = 6
 )
-
-func init() {
-	core.SetPackageName("GDKPIXBUF", "gdk-pixbuf-2.0")
-	core.SetSharedLibraries("GDKPIXBUF", []string{"libgdk_pixbuf-2.0.so.0", "libgdk_pixbuf-2.0.0.dylib"})
-}

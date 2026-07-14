@@ -5,6 +5,7 @@ import (
 	"structs"
 	"unsafe"
 
+	"github.com/bnema/purego"
 	"github.com/bnema/puregotk/pkg/core"
 	"github.com/bnema/puregotk/v4/gio"
 	"github.com/bnema/puregotk/v4/glib"
@@ -61,7 +62,6 @@ type TabViewShortcuts int
 var xTabViewShortcutsGLibType func() types.GType
 
 func TabViewShortcutsGLibType() types.GType {
-	core.LazyRegister(&xTabViewShortcutsGLibType, "ADW", "adw_tab_view_shortcuts_get_type", false)
 	return xTabViewShortcutsGLibType()
 }
 
@@ -110,7 +110,6 @@ type TabPage struct {
 var xTabPageGLibType func() types.GType
 
 func TabPageGLibType() types.GType {
-	core.LazyRegister(&xTabPageGLibType, "ADW", "adw_tab_page_get_type", false)
 	return xTabPageGLibType()
 }
 
@@ -124,7 +123,6 @@ var xTabPageGetChild func(uintptr) uintptr
 
 // Gets the child of @self.
 func (x *TabPage) GetChild() *gtk.Widget {
-	core.LazyRegister(&xTabPageGetChild, "ADW", "adw_tab_page_get_child", false)
 	var cls *gtk.Widget
 
 	cret := xTabPageGetChild(x.GoPointer())
@@ -142,7 +140,6 @@ var xTabPageGetIcon func(uintptr) uintptr
 
 // Gets the icon of @self.
 func (x *TabPage) GetIcon() *gio.IconBase {
-	core.LazyRegister(&xTabPageGetIcon, "ADW", "adw_tab_page_get_icon", false)
 	var cls *gio.IconBase
 
 	cret := xTabPageGetIcon(x.GoPointer())
@@ -160,8 +157,6 @@ var xTabPageGetIndicatorActivatable func(uintptr) bool
 
 // Gets whether the indicator of @self is activatable.
 func (x *TabPage) GetIndicatorActivatable() bool {
-	core.LazyRegister(&xTabPageGetIndicatorActivatable, "ADW", "adw_tab_page_get_indicator_activatable", false)
-
 	cret := xTabPageGetIndicatorActivatable(x.GoPointer())
 	return cret
 }
@@ -170,7 +165,6 @@ var xTabPageGetIndicatorIcon func(uintptr) uintptr
 
 // Gets the indicator icon of @self.
 func (x *TabPage) GetIndicatorIcon() *gio.IconBase {
-	core.LazyRegister(&xTabPageGetIndicatorIcon, "ADW", "adw_tab_page_get_indicator_icon", false)
 	var cls *gio.IconBase
 
 	cret := xTabPageGetIndicatorIcon(x.GoPointer())
@@ -188,8 +182,6 @@ var xTabPageGetIndicatorTooltip func(uintptr) string
 
 // Gets the tooltip of the indicator icon of @self.
 func (x *TabPage) GetIndicatorTooltip() string {
-	core.LazyRegister(&xTabPageGetIndicatorTooltip, "ADW", "adw_tab_page_get_indicator_tooltip", false)
-
 	cret := xTabPageGetIndicatorTooltip(x.GoPointer())
 	return cret
 }
@@ -198,8 +190,6 @@ var xTabPageGetKeyword func(uintptr) string
 
 // Gets the search keyword of @self.
 func (x *TabPage) GetKeyword() string {
-	core.LazyRegister(&xTabPageGetKeyword, "ADW", "adw_tab_page_get_keyword", false)
-
 	cret := xTabPageGetKeyword(x.GoPointer())
 	return cret
 }
@@ -208,8 +198,6 @@ var xTabPageGetLiveThumbnail func(uintptr) bool
 
 // Gets whether to live thumbnail is enabled @self.
 func (x *TabPage) GetLiveThumbnail() bool {
-	core.LazyRegister(&xTabPageGetLiveThumbnail, "ADW", "adw_tab_page_get_live_thumbnail", false)
-
 	cret := xTabPageGetLiveThumbnail(x.GoPointer())
 	return cret
 }
@@ -218,8 +206,6 @@ var xTabPageGetLoading func(uintptr) bool
 
 // Gets whether @self is loading.
 func (x *TabPage) GetLoading() bool {
-	core.LazyRegister(&xTabPageGetLoading, "ADW", "adw_tab_page_get_loading", false)
-
 	cret := xTabPageGetLoading(x.GoPointer())
 	return cret
 }
@@ -228,8 +214,6 @@ var xTabPageGetNeedsAttention func(uintptr) bool
 
 // Gets whether @self needs attention.
 func (x *TabPage) GetNeedsAttention() bool {
-	core.LazyRegister(&xTabPageGetNeedsAttention, "ADW", "adw_tab_page_get_needs_attention", false)
-
 	cret := xTabPageGetNeedsAttention(x.GoPointer())
 	return cret
 }
@@ -240,7 +224,6 @@ var xTabPageGetParent func(uintptr) uintptr
 //
 // See [method@TabView.add_page] and [method@TabView.close_page].
 func (x *TabPage) GetParent() *TabPage {
-	core.LazyRegister(&xTabPageGetParent, "ADW", "adw_tab_page_get_parent", false)
 	var cls *TabPage
 
 	cret := xTabPageGetParent(x.GoPointer())
@@ -260,8 +243,6 @@ var xTabPageGetPinned func(uintptr) bool
 //
 // See [method@TabView.set_page_pinned].
 func (x *TabPage) GetPinned() bool {
-	core.LazyRegister(&xTabPageGetPinned, "ADW", "adw_tab_page_get_pinned", false)
-
 	cret := xTabPageGetPinned(x.GoPointer())
 	return cret
 }
@@ -270,8 +251,6 @@ var xTabPageGetSelected func(uintptr) bool
 
 // Gets whether @self is selected.
 func (x *TabPage) GetSelected() bool {
-	core.LazyRegister(&xTabPageGetSelected, "ADW", "adw_tab_page_get_selected", false)
-
 	cret := xTabPageGetSelected(x.GoPointer())
 	return cret
 }
@@ -280,8 +259,6 @@ var xTabPageGetThumbnailXalign func(uintptr) float32
 
 // Gets the horizontal alignment of the thumbnail for @self.
 func (x *TabPage) GetThumbnailXalign() float32 {
-	core.LazyRegister(&xTabPageGetThumbnailXalign, "ADW", "adw_tab_page_get_thumbnail_xalign", false)
-
 	cret := xTabPageGetThumbnailXalign(x.GoPointer())
 	return cret
 }
@@ -290,8 +267,6 @@ var xTabPageGetThumbnailYalign func(uintptr) float32
 
 // Gets the vertical alignment of the thumbnail for @self.
 func (x *TabPage) GetThumbnailYalign() float32 {
-	core.LazyRegister(&xTabPageGetThumbnailYalign, "ADW", "adw_tab_page_get_thumbnail_yalign", false)
-
 	cret := xTabPageGetThumbnailYalign(x.GoPointer())
 	return cret
 }
@@ -300,8 +275,6 @@ var xTabPageGetTitle func(uintptr) string
 
 // Gets the title of @self.
 func (x *TabPage) GetTitle() string {
-	core.LazyRegister(&xTabPageGetTitle, "ADW", "adw_tab_page_get_title", false)
-
 	cret := xTabPageGetTitle(x.GoPointer())
 	return cret
 }
@@ -310,8 +283,6 @@ var xTabPageGetTooltip func(uintptr) string
 
 // Gets the tooltip of @self.
 func (x *TabPage) GetTooltip() string {
-	core.LazyRegister(&xTabPageGetTooltip, "ADW", "adw_tab_page_get_tooltip", false)
-
 	cret := xTabPageGetTooltip(x.GoPointer())
 	return cret
 }
@@ -327,8 +298,6 @@ var xTabPageInvalidateThumbnail func(uintptr)
 //
 // See also [method@TabView.invalidate_thumbnails].
 func (x *TabPage) InvalidateThumbnail() {
-	core.LazyRegister(&xTabPageInvalidateThumbnail, "ADW", "adw_tab_page_invalidate_thumbnail", false)
-
 	xTabPageInvalidateThumbnail(x.GoPointer())
 }
 
@@ -342,8 +311,6 @@ var xTabPageSetIcon func(uintptr, uintptr)
 // `AdwTabBar` also won't show the icon if the page is pinned and
 // [propertyTabPage:indicator-icon] is set.
 func (x *TabPage) SetIcon(IconVar gio.Icon) {
-	core.LazyRegister(&xTabPageSetIcon, "ADW", "adw_tab_page_set_icon", false)
-
 	xTabPageSetIcon(x.GoPointer(), IconVar.GoPointer())
 }
 
@@ -356,8 +323,6 @@ var xTabPageSetIndicatorActivatable func(uintptr, bool)
 //
 // If [property@TabPage:indicator-icon] is not set, does nothing.
 func (x *TabPage) SetIndicatorActivatable(ActivatableVar bool) {
-	core.LazyRegister(&xTabPageSetIndicatorActivatable, "ADW", "adw_tab_page_set_indicator_activatable", false)
-
 	xTabPageSetIndicatorActivatable(x.GoPointer(), ActivatableVar)
 }
 
@@ -381,8 +346,6 @@ var xTabPageSetIndicatorIcon func(uintptr, uintptr)
 // If [property@TabPage:indicator-activatable] is set to `TRUE`, the
 // indicator icon can act as a button.
 func (x *TabPage) SetIndicatorIcon(IndicatorIconVar gio.Icon) {
-	core.LazyRegister(&xTabPageSetIndicatorIcon, "ADW", "adw_tab_page_set_indicator_icon", false)
-
 	xTabPageSetIndicatorIcon(x.GoPointer(), IndicatorIconVar.GoPointer())
 }
 
@@ -394,8 +357,6 @@ var xTabPageSetIndicatorTooltip func(uintptr, string)
 //
 // See [property@TabPage:indicator-icon].
 func (x *TabPage) SetIndicatorTooltip(TooltipVar string) {
-	core.LazyRegister(&xTabPageSetIndicatorTooltip, "ADW", "adw_tab_page_set_indicator_tooltip", false)
-
 	xTabPageSetIndicatorTooltip(x.GoPointer(), TooltipVar)
 }
 
@@ -408,8 +369,6 @@ var xTabPageSetKeyword func(uintptr, string)
 //
 // Keywords allow to include e.g. page URLs into tab search in a web browser.
 func (x *TabPage) SetKeyword(KeywordVar string) {
-	core.LazyRegister(&xTabPageSetKeyword, "ADW", "adw_tab_page_set_keyword", false)
-
 	xTabPageSetKeyword(x.GoPointer(), KeywordVar)
 }
 
@@ -425,8 +384,6 @@ var xTabPageSetLiveThumbnail func(uintptr, bool)
 // [method@TabPage.invalidate_thumbnail] or
 // [method@TabView.invalidate_thumbnails] is called.
 func (x *TabPage) SetLiveThumbnail(LiveThumbnailVar bool) {
-	core.LazyRegister(&xTabPageSetLiveThumbnail, "ADW", "adw_tab_page_set_live_thumbnail", false)
-
 	xTabPageSetLiveThumbnail(x.GoPointer(), LiveThumbnailVar)
 }
 
@@ -440,8 +397,6 @@ var xTabPageSetLoading func(uintptr, bool)
 // If the page is pinned and [property@TabPage:indicator-icon] is set, loading
 // status will not be visible with `AdwTabBar`.
 func (x *TabPage) SetLoading(LoadingVar bool) {
-	core.LazyRegister(&xTabPageSetLoading, "ADW", "adw_tab_page_set_loading", false)
-
 	xTabPageSetLoading(x.GoPointer(), LoadingVar)
 }
 
@@ -459,8 +414,6 @@ var xTabPageSetNeedsAttention func(uintptr, bool)
 // [class@TabButton] will display a dot if any of the pages that aren't
 // selected have [property@TabPage:needs-attention] set to `TRUE`.
 func (x *TabPage) SetNeedsAttention(NeedsAttentionVar bool) {
-	core.LazyRegister(&xTabPageSetNeedsAttention, "ADW", "adw_tab_page_set_needs_attention", false)
-
 	xTabPageSetNeedsAttention(x.GoPointer(), NeedsAttentionVar)
 }
 
@@ -477,8 +430,6 @@ var xTabPageSetThumbnailXalign func(uintptr, float32)
 //
 // The default horizontal alignment is 0.
 func (x *TabPage) SetThumbnailXalign(XalignVar float32) {
-	core.LazyRegister(&xTabPageSetThumbnailXalign, "ADW", "adw_tab_page_set_thumbnail_xalign", false)
-
 	xTabPageSetThumbnailXalign(x.GoPointer(), XalignVar)
 }
 
@@ -495,8 +446,6 @@ var xTabPageSetThumbnailYalign func(uintptr, float32)
 //
 // The default vertical alignment is 0.
 func (x *TabPage) SetThumbnailYalign(YalignVar float32) {
-	core.LazyRegister(&xTabPageSetThumbnailYalign, "ADW", "adw_tab_page_set_thumbnail_yalign", false)
-
 	xTabPageSetThumbnailYalign(x.GoPointer(), YalignVar)
 }
 
@@ -511,8 +460,6 @@ var xTabPageSetTitle func(uintptr, string)
 //
 // Sets the title of @self.
 func (x *TabPage) SetTitle(TitleVar string) {
-	core.LazyRegister(&xTabPageSetTitle, "ADW", "adw_tab_page_set_title", false)
-
 	xTabPageSetTitle(x.GoPointer(), TitleVar)
 }
 
@@ -525,8 +472,6 @@ var xTabPageSetTooltip func(uintptr, string)
 // If not set, [class@TabBar] and [class@TabOverview] will use
 // [property@TabPage:title] as a tooltip instead.
 func (x *TabPage) SetTooltip(TooltipVar string) {
-	core.LazyRegister(&xTabPageSetTooltip, "ADW", "adw_tab_page_set_tooltip", false)
-
 	xTabPageSetTooltip(x.GoPointer(), TooltipVar)
 }
 
@@ -1166,7 +1111,6 @@ type TabView struct {
 var xTabViewGLibType func() types.GType
 
 func TabViewGLibType() types.GType {
-	core.LazyRegister(&xTabViewGLibType, "ADW", "adw_tab_view_get_type", false)
 	return xTabViewGLibType()
 }
 
@@ -1180,7 +1124,6 @@ var xNewTabView func() uintptr
 
 // Creates a new `AdwTabView`.
 func NewTabView() *TabView {
-	core.LazyRegister(&xNewTabView, "ADW", "adw_tab_view_new", false)
 	var cls *TabView
 
 	cret := xNewTabView()
@@ -1204,7 +1147,6 @@ var xTabViewAddPage func(uintptr, uintptr, uintptr) uintptr
 //
 // If @parent is `NULL`, this function is equivalent to [method@TabView.append].
 func (x *TabView) AddPage(ChildVar *gtk.Widget, ParentVar *TabPage) *TabPage {
-	core.LazyRegister(&xTabViewAddPage, "ADW", "adw_tab_view_add_page", false)
 	var cls *TabPage
 
 	cret := xTabViewAddPage(x.GoPointer(), ChildVar.GoPointer(), ParentVar.GoPointer())
@@ -1224,8 +1166,6 @@ var xTabViewAddShortcuts func(uintptr, TabViewShortcuts)
 //
 // See [property@TabView:shortcuts] for details.
 func (x *TabView) AddShortcuts(ShortcutsVar TabViewShortcuts) {
-	core.LazyRegister(&xTabViewAddShortcuts, "ADW", "adw_tab_view_add_shortcuts", false)
-
 	xTabViewAddShortcuts(x.GoPointer(), ShortcutsVar)
 }
 
@@ -1233,7 +1173,6 @@ var xTabViewAppend func(uintptr, uintptr) uintptr
 
 // Inserts @child as the last non-pinned page.
 func (x *TabView) Append(ChildVar *gtk.Widget) *TabPage {
-	core.LazyRegister(&xTabViewAppend, "ADW", "adw_tab_view_append", false)
 	var cls *TabPage
 
 	cret := xTabViewAppend(x.GoPointer(), ChildVar.GoPointer())
@@ -1251,7 +1190,6 @@ var xTabViewAppendPinned func(uintptr, uintptr) uintptr
 
 // Inserts @child as the last pinned page.
 func (x *TabView) AppendPinned(ChildVar *gtk.Widget) *TabPage {
-	core.LazyRegister(&xTabViewAppendPinned, "ADW", "adw_tab_view_append_pinned", false)
 	var cls *TabPage
 
 	cret := xTabViewAppendPinned(x.GoPointer(), ChildVar.GoPointer())
@@ -1269,8 +1207,6 @@ var xTabViewCloseOtherPages func(uintptr, uintptr)
 
 // Requests to close all pages other than @page.
 func (x *TabView) CloseOtherPages(PageVar *TabPage) {
-	core.LazyRegister(&xTabViewCloseOtherPages, "ADW", "adw_tab_view_close_other_pages", false)
-
 	xTabViewCloseOtherPages(x.GoPointer(), PageVar.GoPointer())
 }
 
@@ -1299,8 +1235,6 @@ var xTabViewClosePage func(uintptr, uintptr)
 // (possibly indirect) of the parent. If both the previous page and the parent
 // are pinned, the parent will be selected instead.
 func (x *TabView) ClosePage(PageVar *TabPage) {
-	core.LazyRegister(&xTabViewClosePage, "ADW", "adw_tab_view_close_page", false)
-
 	xTabViewClosePage(x.GoPointer(), PageVar.GoPointer())
 }
 
@@ -1315,8 +1249,6 @@ var xTabViewClosePageFinish func(uintptr, uintptr, bool)
 // This function should not be called unless a custom handler for
 // [signal@TabView::close-page] is used.
 func (x *TabView) ClosePageFinish(PageVar *TabPage, ConfirmVar bool) {
-	core.LazyRegister(&xTabViewClosePageFinish, "ADW", "adw_tab_view_close_page_finish", false)
-
 	xTabViewClosePageFinish(x.GoPointer(), PageVar.GoPointer(), ConfirmVar)
 }
 
@@ -1324,8 +1256,6 @@ var xTabViewClosePagesAfter func(uintptr, uintptr)
 
 // Requests to close all pages after @page.
 func (x *TabView) ClosePagesAfter(PageVar *TabPage) {
-	core.LazyRegister(&xTabViewClosePagesAfter, "ADW", "adw_tab_view_close_pages_after", false)
-
 	xTabViewClosePagesAfter(x.GoPointer(), PageVar.GoPointer())
 }
 
@@ -1333,8 +1263,6 @@ var xTabViewClosePagesBefore func(uintptr, uintptr)
 
 // Requests to close all pages before @page.
 func (x *TabView) ClosePagesBefore(PageVar *TabPage) {
-	core.LazyRegister(&xTabViewClosePagesBefore, "ADW", "adw_tab_view_close_pages_before", false)
-
 	xTabViewClosePagesBefore(x.GoPointer(), PageVar.GoPointer())
 }
 
@@ -1342,7 +1270,6 @@ var xTabViewGetDefaultIcon func(uintptr) uintptr
 
 // Gets the default icon of @self.
 func (x *TabView) GetDefaultIcon() *gio.IconBase {
-	core.LazyRegister(&xTabViewGetDefaultIcon, "ADW", "adw_tab_view_get_default_icon", false)
 	var cls *gio.IconBase
 
 	cret := xTabViewGetDefaultIcon(x.GoPointer())
@@ -1366,8 +1293,6 @@ var xTabViewGetIsTransferringPage func(uintptr) bool
 // During the transfer, children cannot receive pointer input and a tab can
 // be safely dropped on the tab view.
 func (x *TabView) GetIsTransferringPage() bool {
-	core.LazyRegister(&xTabViewGetIsTransferringPage, "ADW", "adw_tab_view_get_is_transferring_page", false)
-
 	cret := xTabViewGetIsTransferringPage(x.GoPointer())
 	return cret
 }
@@ -1376,7 +1301,6 @@ var xTabViewGetMenuModel func(uintptr) uintptr
 
 // Gets the tab context menu model for @self.
 func (x *TabView) GetMenuModel() *gio.MenuModel {
-	core.LazyRegister(&xTabViewGetMenuModel, "ADW", "adw_tab_view_get_menu_model", false)
 	var cls *gio.MenuModel
 
 	cret := xTabViewGetMenuModel(x.GoPointer())
@@ -1394,8 +1318,6 @@ var xTabViewGetNPages func(uintptr) int
 
 // Gets the number of pages in @self.
 func (x *TabView) GetNPages() int {
-	core.LazyRegister(&xTabViewGetNPages, "ADW", "adw_tab_view_get_n_pages", false)
-
 	cret := xTabViewGetNPages(x.GoPointer())
 	return cret
 }
@@ -1406,8 +1328,6 @@ var xTabViewGetNPinnedPages func(uintptr) int
 //
 // See [method@TabView.set_page_pinned].
 func (x *TabView) GetNPinnedPages() int {
-	core.LazyRegister(&xTabViewGetNPinnedPages, "ADW", "adw_tab_view_get_n_pinned_pages", false)
-
 	cret := xTabViewGetNPinnedPages(x.GoPointer())
 	return cret
 }
@@ -1416,7 +1336,6 @@ var xTabViewGetNthPage func(uintptr, int) uintptr
 
 // Gets the [class@TabPage] representing the child at @position.
 func (x *TabView) GetNthPage(PositionVar int) *TabPage {
-	core.LazyRegister(&xTabViewGetNthPage, "ADW", "adw_tab_view_get_nth_page", false)
 	var cls *TabPage
 
 	cret := xTabViewGetNthPage(x.GoPointer(), PositionVar)
@@ -1434,7 +1353,6 @@ var xTabViewGetPage func(uintptr, uintptr) uintptr
 
 // Gets the [class@TabPage] object representing @child.
 func (x *TabView) GetPage(ChildVar *gtk.Widget) *TabPage {
-	core.LazyRegister(&xTabViewGetPage, "ADW", "adw_tab_view_get_page", false)
 	var cls *TabPage
 
 	cret := xTabViewGetPage(x.GoPointer(), ChildVar.GoPointer())
@@ -1452,8 +1370,6 @@ var xTabViewGetPagePosition func(uintptr, uintptr) int
 
 // Finds the position of @page in @self, starting from 0.
 func (x *TabView) GetPagePosition(PageVar *TabPage) int {
-	core.LazyRegister(&xTabViewGetPagePosition, "ADW", "adw_tab_view_get_page_position", false)
-
 	cret := xTabViewGetPagePosition(x.GoPointer(), PageVar.GoPointer())
 	return cret
 }
@@ -1470,7 +1386,6 @@ var xTabViewGetPages func(uintptr) uintptr
 // It also implements [iface@Gtk.SelectionModel] and can be used to track and
 // change the selected page.
 func (x *TabView) GetPages() *gtk.SelectionModelBase {
-	core.LazyRegister(&xTabViewGetPages, "ADW", "adw_tab_view_get_pages", false)
 	var cls *gtk.SelectionModelBase
 
 	cret := xTabViewGetPages(x.GoPointer())
@@ -1487,7 +1402,6 @@ var xTabViewGetSelectedPage func(uintptr) uintptr
 
 // Gets the currently selected page in @self.
 func (x *TabView) GetSelectedPage() *TabPage {
-	core.LazyRegister(&xTabViewGetSelectedPage, "ADW", "adw_tab_view_get_selected_page", false)
 	var cls *TabPage
 
 	cret := xTabViewGetSelectedPage(x.GoPointer())
@@ -1505,8 +1419,6 @@ var xTabViewGetShortcuts func(uintptr) TabViewShortcuts
 
 // Gets the enabled shortcuts for @self.
 func (x *TabView) GetShortcuts() TabViewShortcuts {
-	core.LazyRegister(&xTabViewGetShortcuts, "ADW", "adw_tab_view_get_shortcuts", false)
-
 	cret := xTabViewGetShortcuts(x.GoPointer())
 	return cret
 }
@@ -1518,7 +1430,6 @@ var xTabViewInsert func(uintptr, uintptr, int) uintptr
 // It's an error to try to insert a page before a pinned page, in that case
 // [method@TabView.insert_pinned] should be used instead.
 func (x *TabView) Insert(ChildVar *gtk.Widget, PositionVar int) *TabPage {
-	core.LazyRegister(&xTabViewInsert, "ADW", "adw_tab_view_insert", false)
 	var cls *TabPage
 
 	cret := xTabViewInsert(x.GoPointer(), ChildVar.GoPointer(), PositionVar)
@@ -1539,7 +1450,6 @@ var xTabViewInsertPinned func(uintptr, uintptr, int) uintptr
 // It's an error to try to insert a pinned page after a non-pinned page, in
 // that case [method@TabView.insert] should be used instead.
 func (x *TabView) InsertPinned(ChildVar *gtk.Widget, PositionVar int) *TabPage {
-	core.LazyRegister(&xTabViewInsertPinned, "ADW", "adw_tab_view_insert_pinned", false)
 	var cls *TabPage
 
 	cret := xTabViewInsertPinned(x.GoPointer(), ChildVar.GoPointer(), PositionVar)
@@ -1560,8 +1470,6 @@ var xTabViewInvalidateThumbnails func(uintptr)
 // This is a convenience method, equivalent to calling
 // [method@TabPage.invalidate_thumbnail] on each page.
 func (x *TabView) InvalidateThumbnails() {
-	core.LazyRegister(&xTabViewInvalidateThumbnails, "ADW", "adw_tab_view_invalidate_thumbnails", false)
-
 	xTabViewInvalidateThumbnails(x.GoPointer())
 }
 
@@ -1569,7 +1477,6 @@ var xTabViewPrepend func(uintptr, uintptr) uintptr
 
 // Inserts @child as the first non-pinned page.
 func (x *TabView) Prepend(ChildVar *gtk.Widget) *TabPage {
-	core.LazyRegister(&xTabViewPrepend, "ADW", "adw_tab_view_prepend", false)
 	var cls *TabPage
 
 	cret := xTabViewPrepend(x.GoPointer(), ChildVar.GoPointer())
@@ -1587,7 +1494,6 @@ var xTabViewPrependPinned func(uintptr, uintptr) uintptr
 
 // Inserts @child as the first pinned page.
 func (x *TabView) PrependPinned(ChildVar *gtk.Widget) *TabPage {
-	core.LazyRegister(&xTabViewPrependPinned, "ADW", "adw_tab_view_prepend_pinned", false)
 	var cls *TabPage
 
 	cret := xTabViewPrependPinned(x.GoPointer(), ChildVar.GoPointer())
@@ -1607,8 +1513,6 @@ var xTabViewRemoveShortcuts func(uintptr, TabViewShortcuts)
 //
 // See [property@TabView:shortcuts] for details.
 func (x *TabView) RemoveShortcuts(ShortcutsVar TabViewShortcuts) {
-	core.LazyRegister(&xTabViewRemoveShortcuts, "ADW", "adw_tab_view_remove_shortcuts", false)
-
 	xTabViewRemoveShortcuts(x.GoPointer(), ShortcutsVar)
 }
 
@@ -1616,8 +1520,6 @@ var xTabViewReorderBackward func(uintptr, uintptr) bool
 
 // Reorders @page to before its previous page if possible.
 func (x *TabView) ReorderBackward(PageVar *TabPage) bool {
-	core.LazyRegister(&xTabViewReorderBackward, "ADW", "adw_tab_view_reorder_backward", false)
-
 	cret := xTabViewReorderBackward(x.GoPointer(), PageVar.GoPointer())
 	return cret
 }
@@ -1626,8 +1528,6 @@ var xTabViewReorderFirst func(uintptr, uintptr) bool
 
 // Reorders @page to the first possible position.
 func (x *TabView) ReorderFirst(PageVar *TabPage) bool {
-	core.LazyRegister(&xTabViewReorderFirst, "ADW", "adw_tab_view_reorder_first", false)
-
 	cret := xTabViewReorderFirst(x.GoPointer(), PageVar.GoPointer())
 	return cret
 }
@@ -1636,8 +1536,6 @@ var xTabViewReorderForward func(uintptr, uintptr) bool
 
 // Reorders @page to after its next page if possible.
 func (x *TabView) ReorderForward(PageVar *TabPage) bool {
-	core.LazyRegister(&xTabViewReorderForward, "ADW", "adw_tab_view_reorder_forward", false)
-
 	cret := xTabViewReorderForward(x.GoPointer(), PageVar.GoPointer())
 	return cret
 }
@@ -1646,8 +1544,6 @@ var xTabViewReorderLast func(uintptr, uintptr) bool
 
 // Reorders @page to the last possible position.
 func (x *TabView) ReorderLast(PageVar *TabPage) bool {
-	core.LazyRegister(&xTabViewReorderLast, "ADW", "adw_tab_view_reorder_last", false)
-
 	cret := xTabViewReorderLast(x.GoPointer(), PageVar.GoPointer())
 	return cret
 }
@@ -1659,8 +1555,6 @@ var xTabViewReorderPage func(uintptr, uintptr, int) bool
 // It's a programmer error to try to reorder a pinned page after a non-pinned
 // one, or a non-pinned page before a pinned one.
 func (x *TabView) ReorderPage(PageVar *TabPage, PositionVar int) bool {
-	core.LazyRegister(&xTabViewReorderPage, "ADW", "adw_tab_view_reorder_page", false)
-
 	cret := xTabViewReorderPage(x.GoPointer(), PageVar.GoPointer(), PositionVar)
 	return cret
 }
@@ -1671,8 +1565,6 @@ var xTabViewSelectNextPage func(uintptr) bool
 //
 // If the last page was already selected, this function does nothing.
 func (x *TabView) SelectNextPage() bool {
-	core.LazyRegister(&xTabViewSelectNextPage, "ADW", "adw_tab_view_select_next_page", false)
-
 	cret := xTabViewSelectNextPage(x.GoPointer())
 	return cret
 }
@@ -1683,8 +1575,6 @@ var xTabViewSelectPreviousPage func(uintptr) bool
 //
 // If the first page was already selected, this function does nothing.
 func (x *TabView) SelectPreviousPage() bool {
-	core.LazyRegister(&xTabViewSelectPreviousPage, "ADW", "adw_tab_view_select_previous_page", false)
-
 	cret := xTabViewSelectPreviousPage(x.GoPointer())
 	return cret
 }
@@ -1704,8 +1594,6 @@ var xTabViewSetDefaultIcon func(uintptr, uintptr)
 //
 // By default, the `adw-tab-icon-missing-symbolic` icon is used.
 func (x *TabView) SetDefaultIcon(DefaultIconVar gio.Icon) {
-	core.LazyRegister(&xTabViewSetDefaultIcon, "ADW", "adw_tab_view_set_default_icon", false)
-
 	xTabViewSetDefaultIcon(x.GoPointer(), DefaultIconVar.GoPointer())
 }
 
@@ -1717,8 +1605,6 @@ var xTabViewSetMenuModel func(uintptr, uintptr)
 // provided menu model. Use the [signal@TabView::setup-menu] signal to set up
 // the menu actions for the particular tab.
 func (x *TabView) SetMenuModel(MenuModelVar *gio.MenuModel) {
-	core.LazyRegister(&xTabViewSetMenuModel, "ADW", "adw_tab_view_set_menu_model", false)
-
 	xTabViewSetMenuModel(x.GoPointer(), MenuModelVar.GoPointer())
 }
 
@@ -1754,8 +1640,6 @@ var xTabViewSetPagePinned func(uintptr, uintptr, bool)
 //
 // Changes the value of the [property@TabPage:pinned] property.
 func (x *TabView) SetPagePinned(PageVar *TabPage, PinnedVar bool) {
-	core.LazyRegister(&xTabViewSetPagePinned, "ADW", "adw_tab_view_set_page_pinned", false)
-
 	xTabViewSetPagePinned(x.GoPointer(), PageVar.GoPointer(), PinnedVar)
 }
 
@@ -1763,8 +1647,6 @@ var xTabViewSetSelectedPage func(uintptr, uintptr)
 
 // Sets the currently selected page in @self.
 func (x *TabView) SetSelectedPage(SelectedPageVar *TabPage) {
-	core.LazyRegister(&xTabViewSetSelectedPage, "ADW", "adw_tab_view_set_selected_page", false)
-
 	xTabViewSetSelectedPage(x.GoPointer(), SelectedPageVar.GoPointer())
 }
 
@@ -1778,8 +1660,6 @@ var xTabViewSetShortcuts func(uintptr, TabViewShortcuts)
 // [method@TabView.add_shortcuts] and [method@TabView.remove_shortcuts] provide
 // a convenient way to manage individual shortcuts.
 func (x *TabView) SetShortcuts(ShortcutsVar TabViewShortcuts) {
-	core.LazyRegister(&xTabViewSetShortcuts, "ADW", "adw_tab_view_set_shortcuts", false)
-
 	xTabViewSetShortcuts(x.GoPointer(), ShortcutsVar)
 }
 
@@ -1792,8 +1672,6 @@ var xTabViewTransferPage func(uintptr, uintptr, uintptr, int)
 // It's a programmer error to try to insert a pinned page after a non-pinned
 // one, or a non-pinned page before a pinned one.
 func (x *TabView) TransferPage(PageVar *TabPage, OtherViewVar *TabView, PositionVar int) {
-	core.LazyRegister(&xTabViewTransferPage, "ADW", "adw_tab_view_transfer_page", false)
-
 	xTabViewTransferPage(x.GoPointer(), PageVar.GoPointer(), OtherViewVar.GoPointer(), PositionVar)
 }
 
@@ -2324,4 +2202,90 @@ func (x *TabView) GetBuildableId() string {
 func init() {
 	core.SetPackageName("ADW", "libadwaita-1")
 	core.SetSharedLibraries("ADW", []string{"libadwaita-1.so.0", "libadwaita-1.0.dylib"})
+	var libs []uintptr
+	for _, libPath := range core.GetPaths("ADW") {
+		lib, err := purego.Dlopen(libPath, purego.RTLD_NOW|purego.RTLD_GLOBAL)
+		if err != nil {
+			panic(err)
+		}
+		libs = append(libs, lib)
+	}
+
+	core.PuregoSafeRegister(&xTabViewShortcutsGLibType, libs, "adw_tab_view_shortcuts_get_type")
+
+	core.PuregoSafeRegister(&xTabPageGLibType, libs, "adw_tab_page_get_type")
+
+	core.PuregoSafeRegister(&xTabPageGetChild, libs, "adw_tab_page_get_child")
+	core.PuregoSafeRegister(&xTabPageGetIcon, libs, "adw_tab_page_get_icon")
+	core.PuregoSafeRegister(&xTabPageGetIndicatorActivatable, libs, "adw_tab_page_get_indicator_activatable")
+	core.PuregoSafeRegister(&xTabPageGetIndicatorIcon, libs, "adw_tab_page_get_indicator_icon")
+	core.PuregoSafeRegister(&xTabPageGetIndicatorTooltip, libs, "adw_tab_page_get_indicator_tooltip")
+	core.PuregoSafeRegister(&xTabPageGetKeyword, libs, "adw_tab_page_get_keyword")
+	core.PuregoSafeRegister(&xTabPageGetLiveThumbnail, libs, "adw_tab_page_get_live_thumbnail")
+	core.PuregoSafeRegister(&xTabPageGetLoading, libs, "adw_tab_page_get_loading")
+	core.PuregoSafeRegister(&xTabPageGetNeedsAttention, libs, "adw_tab_page_get_needs_attention")
+	core.PuregoSafeRegister(&xTabPageGetParent, libs, "adw_tab_page_get_parent")
+	core.PuregoSafeRegister(&xTabPageGetPinned, libs, "adw_tab_page_get_pinned")
+	core.PuregoSafeRegister(&xTabPageGetSelected, libs, "adw_tab_page_get_selected")
+	core.PuregoSafeRegister(&xTabPageGetThumbnailXalign, libs, "adw_tab_page_get_thumbnail_xalign")
+	core.PuregoSafeRegister(&xTabPageGetThumbnailYalign, libs, "adw_tab_page_get_thumbnail_yalign")
+	core.PuregoSafeRegister(&xTabPageGetTitle, libs, "adw_tab_page_get_title")
+	core.PuregoSafeRegister(&xTabPageGetTooltip, libs, "adw_tab_page_get_tooltip")
+	core.PuregoSafeRegister(&xTabPageInvalidateThumbnail, libs, "adw_tab_page_invalidate_thumbnail")
+	core.PuregoSafeRegister(&xTabPageSetIcon, libs, "adw_tab_page_set_icon")
+	core.PuregoSafeRegister(&xTabPageSetIndicatorActivatable, libs, "adw_tab_page_set_indicator_activatable")
+	core.PuregoSafeRegister(&xTabPageSetIndicatorIcon, libs, "adw_tab_page_set_indicator_icon")
+	core.PuregoSafeRegister(&xTabPageSetIndicatorTooltip, libs, "adw_tab_page_set_indicator_tooltip")
+	core.PuregoSafeRegister(&xTabPageSetKeyword, libs, "adw_tab_page_set_keyword")
+	core.PuregoSafeRegister(&xTabPageSetLiveThumbnail, libs, "adw_tab_page_set_live_thumbnail")
+	core.PuregoSafeRegister(&xTabPageSetLoading, libs, "adw_tab_page_set_loading")
+	core.PuregoSafeRegister(&xTabPageSetNeedsAttention, libs, "adw_tab_page_set_needs_attention")
+	core.PuregoSafeRegister(&xTabPageSetThumbnailXalign, libs, "adw_tab_page_set_thumbnail_xalign")
+	core.PuregoSafeRegister(&xTabPageSetThumbnailYalign, libs, "adw_tab_page_set_thumbnail_yalign")
+	core.PuregoSafeRegister(&xTabPageSetTitle, libs, "adw_tab_page_set_title")
+	core.PuregoSafeRegister(&xTabPageSetTooltip, libs, "adw_tab_page_set_tooltip")
+
+	core.PuregoSafeRegister(&xTabViewGLibType, libs, "adw_tab_view_get_type")
+
+	core.PuregoSafeRegister(&xNewTabView, libs, "adw_tab_view_new")
+
+	core.PuregoSafeRegister(&xTabViewAddPage, libs, "adw_tab_view_add_page")
+	core.PuregoSafeRegister(&xTabViewAddShortcuts, libs, "adw_tab_view_add_shortcuts")
+	core.PuregoSafeRegister(&xTabViewAppend, libs, "adw_tab_view_append")
+	core.PuregoSafeRegister(&xTabViewAppendPinned, libs, "adw_tab_view_append_pinned")
+	core.PuregoSafeRegister(&xTabViewCloseOtherPages, libs, "adw_tab_view_close_other_pages")
+	core.PuregoSafeRegister(&xTabViewClosePage, libs, "adw_tab_view_close_page")
+	core.PuregoSafeRegister(&xTabViewClosePageFinish, libs, "adw_tab_view_close_page_finish")
+	core.PuregoSafeRegister(&xTabViewClosePagesAfter, libs, "adw_tab_view_close_pages_after")
+	core.PuregoSafeRegister(&xTabViewClosePagesBefore, libs, "adw_tab_view_close_pages_before")
+	core.PuregoSafeRegister(&xTabViewGetDefaultIcon, libs, "adw_tab_view_get_default_icon")
+	core.PuregoSafeRegister(&xTabViewGetIsTransferringPage, libs, "adw_tab_view_get_is_transferring_page")
+	core.PuregoSafeRegister(&xTabViewGetMenuModel, libs, "adw_tab_view_get_menu_model")
+	core.PuregoSafeRegister(&xTabViewGetNPages, libs, "adw_tab_view_get_n_pages")
+	core.PuregoSafeRegister(&xTabViewGetNPinnedPages, libs, "adw_tab_view_get_n_pinned_pages")
+	core.PuregoSafeRegister(&xTabViewGetNthPage, libs, "adw_tab_view_get_nth_page")
+	core.PuregoSafeRegister(&xTabViewGetPage, libs, "adw_tab_view_get_page")
+	core.PuregoSafeRegister(&xTabViewGetPagePosition, libs, "adw_tab_view_get_page_position")
+	core.PuregoSafeRegister(&xTabViewGetPages, libs, "adw_tab_view_get_pages")
+	core.PuregoSafeRegister(&xTabViewGetSelectedPage, libs, "adw_tab_view_get_selected_page")
+	core.PuregoSafeRegister(&xTabViewGetShortcuts, libs, "adw_tab_view_get_shortcuts")
+	core.PuregoSafeRegister(&xTabViewInsert, libs, "adw_tab_view_insert")
+	core.PuregoSafeRegister(&xTabViewInsertPinned, libs, "adw_tab_view_insert_pinned")
+	core.PuregoSafeRegister(&xTabViewInvalidateThumbnails, libs, "adw_tab_view_invalidate_thumbnails")
+	core.PuregoSafeRegister(&xTabViewPrepend, libs, "adw_tab_view_prepend")
+	core.PuregoSafeRegister(&xTabViewPrependPinned, libs, "adw_tab_view_prepend_pinned")
+	core.PuregoSafeRegister(&xTabViewRemoveShortcuts, libs, "adw_tab_view_remove_shortcuts")
+	core.PuregoSafeRegister(&xTabViewReorderBackward, libs, "adw_tab_view_reorder_backward")
+	core.PuregoSafeRegister(&xTabViewReorderFirst, libs, "adw_tab_view_reorder_first")
+	core.PuregoSafeRegister(&xTabViewReorderForward, libs, "adw_tab_view_reorder_forward")
+	core.PuregoSafeRegister(&xTabViewReorderLast, libs, "adw_tab_view_reorder_last")
+	core.PuregoSafeRegister(&xTabViewReorderPage, libs, "adw_tab_view_reorder_page")
+	core.PuregoSafeRegister(&xTabViewSelectNextPage, libs, "adw_tab_view_select_next_page")
+	core.PuregoSafeRegister(&xTabViewSelectPreviousPage, libs, "adw_tab_view_select_previous_page")
+	core.PuregoSafeRegister(&xTabViewSetDefaultIcon, libs, "adw_tab_view_set_default_icon")
+	core.PuregoSafeRegister(&xTabViewSetMenuModel, libs, "adw_tab_view_set_menu_model")
+	core.PuregoSafeRegister(&xTabViewSetPagePinned, libs, "adw_tab_view_set_page_pinned")
+	core.PuregoSafeRegister(&xTabViewSetSelectedPage, libs, "adw_tab_view_set_selected_page")
+	core.PuregoSafeRegister(&xTabViewSetShortcuts, libs, "adw_tab_view_set_shortcuts")
+	core.PuregoSafeRegister(&xTabViewTransferPage, libs, "adw_tab_view_transfer_page")
 }

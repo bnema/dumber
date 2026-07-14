@@ -5,6 +5,7 @@ import (
 	"structs"
 	"unsafe"
 
+	"github.com/bnema/purego"
 	"github.com/bnema/puregotk/pkg/core"
 	"github.com/bnema/puregotk/v4/gio"
 	"github.com/bnema/puregotk/v4/gobject"
@@ -49,7 +50,6 @@ type PopoverBin struct {
 var xPopoverBinGLibType func() types.GType
 
 func PopoverBinGLibType() types.GType {
-	core.LazyRegister(&xPopoverBinGLibType, "GTK", "gtk_popover_bin_get_type", false)
 	return xPopoverBinGLibType()
 }
 
@@ -63,7 +63,6 @@ var xNewPopoverBin func() uintptr
 
 // Creates a new popover bin widget.
 func NewPopoverBin() *PopoverBin {
-	core.LazyRegister(&xNewPopoverBin, "GTK", "gtk_popover_bin_new", false)
 	var cls *PopoverBin
 
 	cret := xNewPopoverBin()
@@ -81,7 +80,6 @@ var xPopoverBinGetChild func(uintptr) uintptr
 
 // Retrieves the child widget of the popover bin.
 func (x *PopoverBin) GetChild() *Widget {
-	core.LazyRegister(&xPopoverBinGetChild, "GTK", "gtk_popover_bin_get_child", false)
 	var cls *Widget
 
 	cret := xPopoverBinGetChild(x.GoPointer())
@@ -98,8 +96,6 @@ func (x *PopoverBin) GetChild() *Widget {
 var xPopoverBinGetHandleInput func(uintptr) bool
 
 func (x *PopoverBin) GetHandleInput() bool {
-	core.LazyRegister(&xPopoverBinGetHandleInput, "GTK", "gtk_popover_bin_get_handle_input", false)
-
 	cret := xPopoverBinGetHandleInput(x.GoPointer())
 	return cret
 }
@@ -108,7 +104,6 @@ var xPopoverBinGetMenuModel func(uintptr) uintptr
 
 // Retrieves the menu model set using [method@Gtk.PopoverBin.set_menu_model].
 func (x *PopoverBin) GetMenuModel() *gio.MenuModel {
-	core.LazyRegister(&xPopoverBinGetMenuModel, "GTK", "gtk_popover_bin_get_menu_model", false)
 	var cls *gio.MenuModel
 
 	cret := xPopoverBinGetMenuModel(x.GoPointer())
@@ -126,7 +121,6 @@ var xPopoverBinGetPopover func(uintptr) uintptr
 
 // Retrieves the `GtkPopover` set using [method@Gtk.PopoverBin.set_popover].
 func (x *PopoverBin) GetPopover() *Popover {
-	core.LazyRegister(&xPopoverBinGetPopover, "GTK", "gtk_popover_bin_get_popover", false)
 	var cls *Popover
 
 	cret := xPopoverBinGetPopover(x.GoPointer())
@@ -146,8 +140,6 @@ var xPopoverBinPopdown func(uintptr)
 //
 // See: [method@Gtk.PopoverBin.popup]
 func (x *PopoverBin) Popdown() {
-	core.LazyRegister(&xPopoverBinPopdown, "GTK", "gtk_popover_bin_popdown", false)
-
 	xPopoverBinPopdown(x.GoPointer())
 }
 
@@ -160,8 +152,6 @@ var xPopoverBinPopup func(uintptr)
 //
 // See: [method@Gtk.PopoverBin.popdown]
 func (x *PopoverBin) Popup() {
-	core.LazyRegister(&xPopoverBinPopup, "GTK", "gtk_popover_bin_popup", false)
-
 	xPopoverBinPopup(x.GoPointer())
 }
 
@@ -169,8 +159,6 @@ var xPopoverBinSetChild func(uintptr, uintptr)
 
 // Sets the child of the popover bin.
 func (x *PopoverBin) SetChild(ChildVar *Widget) {
-	core.LazyRegister(&xPopoverBinSetChild, "GTK", "gtk_popover_bin_set_child", false)
-
 	xPopoverBinSetChild(x.GoPointer(), ChildVar.GoPointer())
 }
 
@@ -182,8 +170,6 @@ var xPopoverBinSetHandleInput func(uintptr, bool)
 // popover on right-click or long press, as expected
 // for a context menu.
 func (x *PopoverBin) SetHandleInput(HandleInputVar bool) {
-	core.LazyRegister(&xPopoverBinSetHandleInput, "GTK", "gtk_popover_bin_set_handle_input", false)
-
 	xPopoverBinSetHandleInput(x.GoPointer(), HandleInputVar)
 }
 
@@ -203,8 +189,6 @@ var xPopoverBinSetMenuModel func(uintptr, uintptr)
 //
 // See: [method@Gtk.PopoverBin.set_popover]
 func (x *PopoverBin) SetMenuModel(ModelVar *gio.MenuModel) {
-	core.LazyRegister(&xPopoverBinSetMenuModel, "GTK", "gtk_popover_bin_set_menu_model", false)
-
 	xPopoverBinSetMenuModel(x.GoPointer(), ModelVar.GoPointer())
 }
 
@@ -220,8 +204,6 @@ var xPopoverBinSetPopover func(uintptr, uintptr)
 //
 // See: [method@Gtk.PopoverBin.set_menu_model]
 func (x *PopoverBin) SetPopover(PopoverVar *Popover) {
-	core.LazyRegister(&xPopoverBinSetPopover, "GTK", "gtk_popover_bin_set_popover", false)
-
 	xPopoverBinSetPopover(x.GoPointer(), PopoverVar.GoPointer())
 }
 
@@ -518,4 +500,27 @@ func (x *PopoverBin) GetBuildableId() string {
 func init() {
 	core.SetPackageName("GTK", "gtk4")
 	core.SetSharedLibraries("GTK", []string{"libgtk-4.so.1", "libgtk-4.1.dylib"})
+	var libs []uintptr
+	for _, libPath := range core.GetPaths("GTK") {
+		lib, err := purego.Dlopen(libPath, purego.RTLD_NOW|purego.RTLD_GLOBAL)
+		if err != nil {
+			panic(err)
+		}
+		libs = append(libs, lib)
+	}
+
+	core.PuregoSafeRegister(&xPopoverBinGLibType, libs, "gtk_popover_bin_get_type")
+
+	core.PuregoSafeRegister(&xNewPopoverBin, libs, "gtk_popover_bin_new")
+
+	core.PuregoSafeRegister(&xPopoverBinGetChild, libs, "gtk_popover_bin_get_child")
+	core.PuregoSafeRegister(&xPopoverBinGetHandleInput, libs, "gtk_popover_bin_get_handle_input")
+	core.PuregoSafeRegister(&xPopoverBinGetMenuModel, libs, "gtk_popover_bin_get_menu_model")
+	core.PuregoSafeRegister(&xPopoverBinGetPopover, libs, "gtk_popover_bin_get_popover")
+	core.PuregoSafeRegister(&xPopoverBinPopdown, libs, "gtk_popover_bin_popdown")
+	core.PuregoSafeRegister(&xPopoverBinPopup, libs, "gtk_popover_bin_popup")
+	core.PuregoSafeRegister(&xPopoverBinSetChild, libs, "gtk_popover_bin_set_child")
+	core.PuregoSafeRegister(&xPopoverBinSetHandleInput, libs, "gtk_popover_bin_set_handle_input")
+	core.PuregoSafeRegister(&xPopoverBinSetMenuModel, libs, "gtk_popover_bin_set_menu_model")
+	core.PuregoSafeRegister(&xPopoverBinSetPopover, libs, "gtk_popover_bin_set_popover")
 }

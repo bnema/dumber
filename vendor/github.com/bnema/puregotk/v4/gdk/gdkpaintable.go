@@ -308,7 +308,6 @@ type Paintable interface {
 var xPaintableGLibType func() types.GType
 
 func PaintableGLibType() types.GType {
-	core.LazyRegister(&xPaintableGLibType, "GDK", "gdk_paintable_get_type", false)
 	return xPaintableGLibType()
 }
 
@@ -459,68 +458,17 @@ func (x *PaintableBase) Snapshot(SnapshotVar *Snapshot, WidthVar float64, Height
 	XGdkPaintableSnapshot(x.GoPointer(), SnapshotVar.GoPointer(), WidthVar, HeightVar)
 }
 
-var XGdkPaintableComputeConcreteSize func(uintptr, float64, float64, float64, float64, *float64, *float64) = func(instance uintptr, SpecifiedWidthVarp float64, SpecifiedHeightVarp float64, DefaultWidthVarp float64, DefaultHeightVarp float64, ConcreteWidthVarp *float64, ConcreteHeightVarp *float64) {
-	core.LazyRegister(&xXGdkPaintableComputeConcreteSize, "GDK", "gdk_paintable_compute_concrete_size", false)
-	xXGdkPaintableComputeConcreteSize(instance, SpecifiedWidthVarp, SpecifiedHeightVarp, DefaultWidthVarp, DefaultHeightVarp, ConcreteWidthVarp, ConcreteHeightVarp)
-}
-
 var (
-	xXGdkPaintableComputeConcreteSize func(uintptr, float64, float64, float64, float64, *float64, *float64)
-	XGdkPaintableGetCurrentImage      func(uintptr) uintptr = func(instance uintptr) uintptr {
-		core.LazyRegister(&xXGdkPaintableGetCurrentImage, "GDK", "gdk_paintable_get_current_image", false)
-		return xXGdkPaintableGetCurrentImage(instance)
-	}
+	XGdkPaintableComputeConcreteSize     func(uintptr, float64, float64, float64, float64, *float64, *float64)
+	XGdkPaintableGetCurrentImage         func(uintptr) uintptr
+	XGdkPaintableGetFlags                func(uintptr) PaintableFlags
+	XGdkPaintableGetIntrinsicAspectRatio func(uintptr) float64
+	XGdkPaintableGetIntrinsicHeight      func(uintptr) int
+	XGdkPaintableGetIntrinsicWidth       func(uintptr) int
+	XGdkPaintableInvalidateContents      func(uintptr)
+	XGdkPaintableInvalidateSize          func(uintptr)
+	XGdkPaintableSnapshot                func(uintptr, uintptr, float64, float64)
 )
-var (
-	xXGdkPaintableGetCurrentImage func(uintptr) uintptr
-	XGdkPaintableGetFlags         func(uintptr) PaintableFlags = func(instance uintptr) PaintableFlags {
-		core.LazyRegister(&xXGdkPaintableGetFlags, "GDK", "gdk_paintable_get_flags", false)
-		return xXGdkPaintableGetFlags(instance)
-	}
-)
-var (
-	xXGdkPaintableGetFlags               func(uintptr) PaintableFlags
-	XGdkPaintableGetIntrinsicAspectRatio func(uintptr) float64 = func(instance uintptr) float64 {
-		core.LazyRegister(&xXGdkPaintableGetIntrinsicAspectRatio, "GDK", "gdk_paintable_get_intrinsic_aspect_ratio", false)
-		return xXGdkPaintableGetIntrinsicAspectRatio(instance)
-	}
-)
-var (
-	xXGdkPaintableGetIntrinsicAspectRatio func(uintptr) float64
-	XGdkPaintableGetIntrinsicHeight       func(uintptr) int = func(instance uintptr) int {
-		core.LazyRegister(&xXGdkPaintableGetIntrinsicHeight, "GDK", "gdk_paintable_get_intrinsic_height", false)
-		return xXGdkPaintableGetIntrinsicHeight(instance)
-	}
-)
-var (
-	xXGdkPaintableGetIntrinsicHeight func(uintptr) int
-	XGdkPaintableGetIntrinsicWidth   func(uintptr) int = func(instance uintptr) int {
-		core.LazyRegister(&xXGdkPaintableGetIntrinsicWidth, "GDK", "gdk_paintable_get_intrinsic_width", false)
-		return xXGdkPaintableGetIntrinsicWidth(instance)
-	}
-)
-var (
-	xXGdkPaintableGetIntrinsicWidth func(uintptr) int
-	XGdkPaintableInvalidateContents func(uintptr) = func(instance uintptr) {
-		core.LazyRegister(&xXGdkPaintableInvalidateContents, "GDK", "gdk_paintable_invalidate_contents", false)
-		xXGdkPaintableInvalidateContents(instance)
-	}
-)
-var (
-	xXGdkPaintableInvalidateContents func(uintptr)
-	XGdkPaintableInvalidateSize      func(uintptr) = func(instance uintptr) {
-		core.LazyRegister(&xXGdkPaintableInvalidateSize, "GDK", "gdk_paintable_invalidate_size", false)
-		xXGdkPaintableInvalidateSize(instance)
-	}
-)
-var (
-	xXGdkPaintableInvalidateSize func(uintptr)
-	XGdkPaintableSnapshot        func(uintptr, uintptr, float64, float64) = func(instance uintptr, SnapshotVarp uintptr, WidthVarp float64, HeightVarp float64) {
-		core.LazyRegister(&xXGdkPaintableSnapshot, "GDK", "gdk_paintable_snapshot", false)
-		xXGdkPaintableSnapshot(instance, SnapshotVarp, WidthVarp, HeightVarp)
-	}
-)
-var xXGdkPaintableSnapshot func(uintptr, uintptr, float64, float64)
 
 // Flags about a paintable object.
 //
@@ -530,7 +478,6 @@ type PaintableFlags int
 var xPaintableFlagsGLibType func() types.GType
 
 func PaintableFlagsGLibType() types.GType {
-	core.LazyRegister(&xPaintableFlagsGLibType, "GDK", "gdk_paintable_flags_get_type", false)
 	return xPaintableFlagsGLibType()
 }
 
@@ -556,7 +503,6 @@ var xPaintableNewEmpty func(int, int) uintptr
 // [GtkMediaStream](../gtk4/class.MediaStream.html) before receiving
 // the first frame).
 func PaintableNewEmpty(IntrinsicWidthVar int, IntrinsicHeightVar int) *PaintableBase {
-	core.LazyRegister(&xPaintableNewEmpty, "GDK", "gdk_paintable_new_empty", false)
 	var cls *PaintableBase
 
 	cret := xPaintableNewEmpty(IntrinsicWidthVar, IntrinsicHeightVar)
@@ -572,4 +518,28 @@ func PaintableNewEmpty(IntrinsicWidthVar int, IntrinsicHeightVar int) *Paintable
 func init() {
 	core.SetPackageName("GDK", "gtk4")
 	core.SetSharedLibraries("GDK", []string{"libgtk-4.so.1", "libgtk-4.1.dylib"})
+	var libs []uintptr
+	for _, libPath := range core.GetPaths("GDK") {
+		lib, err := purego.Dlopen(libPath, purego.RTLD_NOW|purego.RTLD_GLOBAL)
+		if err != nil {
+			panic(err)
+		}
+		libs = append(libs, lib)
+	}
+
+	core.PuregoSafeRegister(&xPaintableFlagsGLibType, libs, "gdk_paintable_flags_get_type")
+
+	core.PuregoSafeRegister(&xPaintableNewEmpty, libs, "gdk_paintable_new_empty")
+
+	core.PuregoSafeRegister(&xPaintableGLibType, libs, "gdk_paintable_get_type")
+
+	core.PuregoSafeRegister(&XGdkPaintableComputeConcreteSize, libs, "gdk_paintable_compute_concrete_size")
+	core.PuregoSafeRegister(&XGdkPaintableGetCurrentImage, libs, "gdk_paintable_get_current_image")
+	core.PuregoSafeRegister(&XGdkPaintableGetFlags, libs, "gdk_paintable_get_flags")
+	core.PuregoSafeRegister(&XGdkPaintableGetIntrinsicAspectRatio, libs, "gdk_paintable_get_intrinsic_aspect_ratio")
+	core.PuregoSafeRegister(&XGdkPaintableGetIntrinsicHeight, libs, "gdk_paintable_get_intrinsic_height")
+	core.PuregoSafeRegister(&XGdkPaintableGetIntrinsicWidth, libs, "gdk_paintable_get_intrinsic_width")
+	core.PuregoSafeRegister(&XGdkPaintableInvalidateContents, libs, "gdk_paintable_invalidate_contents")
+	core.PuregoSafeRegister(&XGdkPaintableInvalidateSize, libs, "gdk_paintable_invalidate_size")
+	core.PuregoSafeRegister(&XGdkPaintableSnapshot, libs, "gdk_paintable_snapshot")
 }

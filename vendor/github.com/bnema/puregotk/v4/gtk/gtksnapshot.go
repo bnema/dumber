@@ -5,6 +5,7 @@ import (
 	"structs"
 	"unsafe"
 
+	"github.com/bnema/purego"
 	"github.com/bnema/puregotk/pkg/core"
 	"github.com/bnema/puregotk/v4/cairo"
 	"github.com/bnema/puregotk/v4/gdk"
@@ -55,7 +56,6 @@ type Snapshot struct {
 var xSnapshotGLibType func() types.GType
 
 func SnapshotGLibType() types.GType {
-	core.LazyRegister(&xSnapshotGLibType, "GTK", "gtk_snapshot_get_type", false)
 	return xSnapshotGLibType()
 }
 
@@ -69,7 +69,6 @@ var xNewSnapshot func() uintptr
 
 // Creates a new `GtkSnapshot`.
 func NewSnapshot() *Snapshot {
-	core.LazyRegister(&xNewSnapshot, "GTK", "gtk_snapshot_new", false)
 	var cls *Snapshot
 
 	cret := xNewSnapshot()
@@ -88,8 +87,6 @@ var xSnapshotAppendBorder func(uintptr, *gsk.RoundedRect, [4]float32, [4]gdk.RGB
 //
 // The four sides of the border can have different widths and colors.
 func (x *Snapshot) AppendBorder(OutlineVar *gsk.RoundedRect, BorderWidthVar [4]float32, BorderColorVar [4]gdk.RGBA) {
-	core.LazyRegister(&xSnapshotAppendBorder, "GTK", "gtk_snapshot_append_border", false)
-
 	xSnapshotAppendBorder(x.GoPointer(), OutlineVar, BorderWidthVar, BorderColorVar)
 }
 
@@ -98,8 +95,6 @@ var xSnapshotAppendCairo func(uintptr, *graphene.Rect) uintptr
 // Creates a new [class@Gsk.CairoNode] and appends it to the current
 // render node of @snapshot, without changing the current node.
 func (x *Snapshot) AppendCairo(BoundsVar *graphene.Rect) *cairo.Context {
-	core.LazyRegister(&xSnapshotAppendCairo, "GTK", "gtk_snapshot_append_cairo", false)
-
 	cret := xSnapshotAppendCairo(x.GoPointer(), BoundsVar)
 	if cret == 0 {
 		return nil
@@ -116,8 +111,6 @@ var xSnapshotAppendColor func(uintptr, *gdk.RGBA, *graphene.Rect)
 // You should try to avoid calling this function if
 // @color is transparent.
 func (x *Snapshot) AppendColor(ColorVar *gdk.RGBA, BoundsVar *graphene.Rect) {
-	core.LazyRegister(&xSnapshotAppendColor, "GTK", "gtk_snapshot_append_color", false)
-
 	xSnapshotAppendColor(x.GoPointer(), ColorVar, BoundsVar)
 }
 
@@ -125,8 +118,6 @@ var xSnapshotAppendConicGradient func(uintptr, *graphene.Rect, *graphene.Point, 
 
 // Appends a conic gradient node with the given stops to @snapshot.
 func (x *Snapshot) AppendConicGradient(BoundsVar *graphene.Rect, CenterVar *graphene.Point, RotationVar float32, StopsVar []gsk.ColorStop, NStopsVar uint) {
-	core.LazyRegister(&xSnapshotAppendConicGradient, "GTK", "gtk_snapshot_append_conic_gradient", false)
-
 	xSnapshotAppendConicGradient(x.GoPointer(), BoundsVar, CenterVar, RotationVar, StopsVar, NStopsVar)
 }
 
@@ -138,8 +129,6 @@ var xSnapshotAppendFill func(uintptr, *gsk.Path, gsk.FillRule, *gdk.RGBA)
 // to fill a path with more complex content than
 // a color.
 func (x *Snapshot) AppendFill(PathVar *gsk.Path, FillRuleVar gsk.FillRule, ColorVar *gdk.RGBA) {
-	core.LazyRegister(&xSnapshotAppendFill, "GTK", "gtk_snapshot_append_fill", false)
-
 	xSnapshotAppendFill(x.GoPointer(), PathVar, FillRuleVar, ColorVar)
 }
 
@@ -147,8 +136,6 @@ var xSnapshotAppendInsetShadow func(uintptr, *gsk.RoundedRect, *gdk.RGBA, float3
 
 // Appends an inset shadow into the box given by @outline.
 func (x *Snapshot) AppendInsetShadow(OutlineVar *gsk.RoundedRect, ColorVar *gdk.RGBA, DxVar float32, DyVar float32, SpreadVar float32, BlurRadiusVar float32) {
-	core.LazyRegister(&xSnapshotAppendInsetShadow, "GTK", "gtk_snapshot_append_inset_shadow", false)
-
 	xSnapshotAppendInsetShadow(x.GoPointer(), OutlineVar, ColorVar, DxVar, DyVar, SpreadVar, BlurRadiusVar)
 }
 
@@ -162,8 +149,6 @@ var xSnapshotAppendLayout func(uintptr, uintptr, *gdk.RGBA)
 // Note that if the layout does not produce any visible output, then nodes
 // may not be added to the @snapshot.
 func (x *Snapshot) AppendLayout(LayoutVar *pango.Layout, ColorVar *gdk.RGBA) {
-	core.LazyRegister(&xSnapshotAppendLayout, "GTK", "gtk_snapshot_append_layout", false)
-
 	xSnapshotAppendLayout(x.GoPointer(), LayoutVar.GoPointer(), ColorVar)
 }
 
@@ -171,8 +156,6 @@ var xSnapshotAppendLinearGradient func(uintptr, *graphene.Rect, *graphene.Point,
 
 // Appends a linear gradient node with the given stops to @snapshot.
 func (x *Snapshot) AppendLinearGradient(BoundsVar *graphene.Rect, StartPointVar *graphene.Point, EndPointVar *graphene.Point, StopsVar []gsk.ColorStop, NStopsVar uint) {
-	core.LazyRegister(&xSnapshotAppendLinearGradient, "GTK", "gtk_snapshot_append_linear_gradient", false)
-
 	xSnapshotAppendLinearGradient(x.GoPointer(), BoundsVar, StartPointVar, EndPointVar, StopsVar, NStopsVar)
 }
 
@@ -184,8 +167,6 @@ var xSnapshotAppendNode func(uintptr, uintptr)
 // If @snapshot does not have a current node yet, @node
 // will become the initial node.
 func (x *Snapshot) AppendNode(NodeVar *gsk.RenderNode) {
-	core.LazyRegister(&xSnapshotAppendNode, "GTK", "gtk_snapshot_append_node", false)
-
 	xSnapshotAppendNode(x.GoPointer(), NodeVar.GoPointer())
 }
 
@@ -193,8 +174,6 @@ var xSnapshotAppendOutsetShadow func(uintptr, *gsk.RoundedRect, *gdk.RGBA, float
 
 // Appends an outset shadow node around the box given by @outline.
 func (x *Snapshot) AppendOutsetShadow(OutlineVar *gsk.RoundedRect, ColorVar *gdk.RGBA, DxVar float32, DyVar float32, SpreadVar float32, BlurRadiusVar float32) {
-	core.LazyRegister(&xSnapshotAppendOutsetShadow, "GTK", "gtk_snapshot_append_outset_shadow", false)
-
 	xSnapshotAppendOutsetShadow(x.GoPointer(), OutlineVar, ColorVar, DxVar, DyVar, SpreadVar, BlurRadiusVar)
 }
 
@@ -203,8 +182,6 @@ var xSnapshotAppendPaste func(uintptr, *graphene.Rect, uint)
 // Creates a new render node that pastes the contents
 // copied by a previous call to [method@Gtk.Snapshot.push_copy]
 func (x *Snapshot) AppendPaste(BoundsVar *graphene.Rect, NthVar uint) {
-	core.LazyRegister(&xSnapshotAppendPaste, "GTK", "gtk_snapshot_append_paste", false)
-
 	xSnapshotAppendPaste(x.GoPointer(), BoundsVar, NthVar)
 }
 
@@ -212,8 +189,6 @@ var xSnapshotAppendRadialGradient func(uintptr, *graphene.Rect, *graphene.Point,
 
 // Appends a radial gradient node with the given stops to @snapshot.
 func (x *Snapshot) AppendRadialGradient(BoundsVar *graphene.Rect, CenterVar *graphene.Point, HradiusVar float32, VradiusVar float32, StartVar float32, EndVar float32, StopsVar []gsk.ColorStop, NStopsVar uint) {
-	core.LazyRegister(&xSnapshotAppendRadialGradient, "GTK", "gtk_snapshot_append_radial_gradient", false)
-
 	xSnapshotAppendRadialGradient(x.GoPointer(), BoundsVar, CenterVar, HradiusVar, VradiusVar, StartVar, EndVar, StopsVar, NStopsVar)
 }
 
@@ -221,8 +196,6 @@ var xSnapshotAppendRepeatingLinearGradient func(uintptr, *graphene.Rect, *graphe
 
 // Appends a repeating linear gradient node with the given stops to @snapshot.
 func (x *Snapshot) AppendRepeatingLinearGradient(BoundsVar *graphene.Rect, StartPointVar *graphene.Point, EndPointVar *graphene.Point, StopsVar []gsk.ColorStop, NStopsVar uint) {
-	core.LazyRegister(&xSnapshotAppendRepeatingLinearGradient, "GTK", "gtk_snapshot_append_repeating_linear_gradient", false)
-
 	xSnapshotAppendRepeatingLinearGradient(x.GoPointer(), BoundsVar, StartPointVar, EndPointVar, StopsVar, NStopsVar)
 }
 
@@ -230,8 +203,6 @@ var xSnapshotAppendRepeatingRadialGradient func(uintptr, *graphene.Rect, *graphe
 
 // Appends a repeating radial gradient node with the given stops to @snapshot.
 func (x *Snapshot) AppendRepeatingRadialGradient(BoundsVar *graphene.Rect, CenterVar *graphene.Point, HradiusVar float32, VradiusVar float32, StartVar float32, EndVar float32, StopsVar []gsk.ColorStop, NStopsVar uint) {
-	core.LazyRegister(&xSnapshotAppendRepeatingRadialGradient, "GTK", "gtk_snapshot_append_repeating_radial_gradient", false)
-
 	xSnapshotAppendRepeatingRadialGradient(x.GoPointer(), BoundsVar, CenterVar, HradiusVar, VradiusVar, StartVar, EndVar, StopsVar, NStopsVar)
 }
 
@@ -245,8 +216,6 @@ var xSnapshotAppendScaledTexture func(uintptr, uintptr, gsk.ScalingFilter, *grap
 // this function provides control about how the filter
 // that is used when scaling.
 func (x *Snapshot) AppendScaledTexture(TextureVar *gdk.Texture, FilterVar gsk.ScalingFilter, BoundsVar *graphene.Rect) {
-	core.LazyRegister(&xSnapshotAppendScaledTexture, "GTK", "gtk_snapshot_append_scaled_texture", false)
-
 	xSnapshotAppendScaledTexture(x.GoPointer(), TextureVar.GoPointer(), FilterVar, BoundsVar)
 }
 
@@ -258,8 +227,6 @@ var xSnapshotAppendStroke func(uintptr, *gsk.Path, *gsk.Stroke, *gdk.RGBA)
 // to stroke a path with more complex content than
 // a color.
 func (x *Snapshot) AppendStroke(PathVar *gsk.Path, StrokeVar *gsk.Stroke, ColorVar *gdk.RGBA) {
-	core.LazyRegister(&xSnapshotAppendStroke, "GTK", "gtk_snapshot_append_stroke", false)
-
 	xSnapshotAppendStroke(x.GoPointer(), PathVar, StrokeVar, ColorVar)
 }
 
@@ -273,8 +240,6 @@ var xSnapshotAppendTexture func(uintptr, uintptr, *graphene.Rect)
 // linear filtering is used. See [method@Gtk.Snapshot.append_scaled_texture]
 // if you need other filtering, such as nearest-neighbour.
 func (x *Snapshot) AppendTexture(TextureVar *gdk.Texture, BoundsVar *graphene.Rect) {
-	core.LazyRegister(&xSnapshotAppendTexture, "GTK", "gtk_snapshot_append_texture", false)
-
 	xSnapshotAppendTexture(x.GoPointer(), TextureVar.GoPointer(), BoundsVar)
 }
 
@@ -285,7 +250,6 @@ var xSnapshotFreeToNode func(uintptr) uintptr
 //
 // See also [method@Gtk.Snapshot.to_node].
 func (x *Snapshot) FreeToNode() *gsk.RenderNode {
-	core.LazyRegister(&xSnapshotFreeToNode, "GTK", "gtk_snapshot_free_to_node", false)
 	var cls *gsk.RenderNode
 
 	cret := xSnapshotFreeToNode(x.GoPointer())
@@ -303,7 +267,6 @@ var xSnapshotFreeToPaintable func(uintptr, *graphene.Size) uintptr
 // Returns a paintable for the node that was
 // constructed by @snapshot and frees @snapshot.
 func (x *Snapshot) FreeToPaintable(SizeVar *graphene.Size) *gdk.PaintableBase {
-	core.LazyRegister(&xSnapshotFreeToPaintable, "GTK", "gtk_snapshot_free_to_paintable", false)
 	var cls *gdk.PaintableBase
 
 	cret := xSnapshotFreeToPaintable(x.GoPointer(), SizeVar)
@@ -325,8 +288,6 @@ var xSnapshotGlShaderPopTexture func(uintptr)
 // of textures is needed for the shader in
 // [method@Gtk.Snapshot.push_gl_shader].
 func (x *Snapshot) GlShaderPopTexture() {
-	core.LazyRegister(&xSnapshotGlShaderPopTexture, "GTK", "gtk_snapshot_gl_shader_pop_texture", false)
-
 	xSnapshotGlShaderPopTexture(x.GoPointer())
 }
 
@@ -336,8 +297,6 @@ var xSnapshotPerspective func(uintptr, float32)
 //
 // See [method@Gsk.Transform.perspective] for a discussion on the details.
 func (x *Snapshot) Perspective(DepthVar float32) {
-	core.LazyRegister(&xSnapshotPerspective, "GTK", "gtk_snapshot_perspective", false)
-
 	xSnapshotPerspective(x.GoPointer(), DepthVar)
 }
 
@@ -346,8 +305,6 @@ var xSnapshotPop func(uintptr)
 // Removes the top element from the stack of render nodes,
 // and appends it to the node underneath it.
 func (x *Snapshot) Pop() {
-	core.LazyRegister(&xSnapshotPop, "GTK", "gtk_snapshot_pop", false)
-
 	xSnapshotPop(x.GoPointer())
 }
 
@@ -363,8 +320,6 @@ var xSnapshotPushBlend func(uintptr, gsk.BlendMode)
 // Calling this function requires two subsequent calls
 // to [method@Gtk.Snapshot.pop].
 func (x *Snapshot) PushBlend(BlendModeVar gsk.BlendMode) {
-	core.LazyRegister(&xSnapshotPushBlend, "GTK", "gtk_snapshot_push_blend", false)
-
 	xSnapshotPushBlend(x.GoPointer(), BlendModeVar)
 }
 
@@ -374,8 +329,6 @@ var xSnapshotPushBlur func(uintptr, float64)
 //
 // The image is recorded until the next call to [method@Gtk.Snapshot.pop].
 func (x *Snapshot) PushBlur(RadiusVar float64) {
-	core.LazyRegister(&xSnapshotPushBlur, "GTK", "gtk_snapshot_push_blur", false)
-
 	xSnapshotPushBlur(x.GoPointer(), RadiusVar)
 }
 
@@ -385,8 +338,6 @@ var xSnapshotPushClip func(uintptr, *graphene.Rect)
 //
 // The image is recorded until the next call to [method@Gtk.Snapshot.pop].
 func (x *Snapshot) PushClip(BoundsVar *graphene.Rect) {
-	core.LazyRegister(&xSnapshotPushClip, "GTK", "gtk_snapshot_push_clip", false)
-
 	xSnapshotPushClip(x.GoPointer(), BoundsVar)
 }
 
@@ -404,8 +355,6 @@ var xSnapshotPushColorMatrix func(uintptr, *graphene.Matrix, *graphene.Vec4)
 //
 // The image is recorded until the next call to [method@Gtk.Snapshot.pop].
 func (x *Snapshot) PushColorMatrix(ColorMatrixVar *graphene.Matrix, ColorOffsetVar *graphene.Vec4) {
-	core.LazyRegister(&xSnapshotPushColorMatrix, "GTK", "gtk_snapshot_push_color_matrix", false)
-
 	xSnapshotPushColorMatrix(x.GoPointer(), ColorMatrixVar, ColorOffsetVar)
 }
 
@@ -418,8 +367,6 @@ var xSnapshotPushComponentTransfer func(uintptr, *gsk.ComponentTransfer, *gsk.Co
 //
 // The image is recorded until the next call to [method@Gtk.Snapshot.pop].
 func (x *Snapshot) PushComponentTransfer(RedVar *gsk.ComponentTransfer, GreenVar *gsk.ComponentTransfer, BlueVar *gsk.ComponentTransfer, AlphaVar *gsk.ComponentTransfer) {
-	core.LazyRegister(&xSnapshotPushComponentTransfer, "GTK", "gtk_snapshot_push_component_transfer", false)
-
 	xSnapshotPushComponentTransfer(x.GoPointer(), RedVar, GreenVar, BlueVar, AlphaVar)
 }
 
@@ -433,8 +380,6 @@ var xSnapshotPushComposite func(uintptr, gsk.PorterDuff)
 //
 // Calling this function requires 2 subsequent calls to gtk_snapshot_pop().
 func (x *Snapshot) PushComposite(OpVar gsk.PorterDuff) {
-	core.LazyRegister(&xSnapshotPushComposite, "GTK", "gtk_snapshot_push_composite", false)
-
 	xSnapshotPushComposite(x.GoPointer(), OpVar)
 }
 
@@ -445,8 +390,6 @@ var xSnapshotPushCopy func(uintptr)
 //
 // Pasting is possible until the matching call to [method@Gtk.Snapshot.pop].
 func (x *Snapshot) PushCopy() {
-	core.LazyRegister(&xSnapshotPushCopy, "GTK", "gtk_snapshot_push_copy", false)
-
 	xSnapshotPushCopy(x.GoPointer())
 }
 
@@ -462,8 +405,6 @@ var xSnapshotPushCrossFade func(uintptr, float64)
 // Calling this function requires two subsequent calls
 // to [method@Gtk.Snapshot.pop].
 func (x *Snapshot) PushCrossFade(ProgressVar float64) {
-	core.LazyRegister(&xSnapshotPushCrossFade, "GTK", "gtk_snapshot_push_cross_fade", false)
-
 	xSnapshotPushCrossFade(x.GoPointer(), ProgressVar)
 }
 
@@ -475,8 +416,6 @@ var xSnapshotPushDebug func(uintptr, string, ...interface{})
 // helpful in identifying parts of a render node tree dump,
 // for example in the GTK inspector.
 func (x *Snapshot) PushDebug(MessageVar string, varArgs ...interface{}) {
-	core.LazyRegister(&xSnapshotPushDebug, "GTK", "gtk_snapshot_push_debug", false)
-
 	xSnapshotPushDebug(x.GoPointer(), MessageVar, varArgs...)
 }
 
@@ -491,8 +430,6 @@ var xSnapshotPushFill func(uintptr, *gsk.Path, gsk.FillRule)
 // than rendering new ones, use [method@Gtk.Snapshot.append_fill]
 // may be more convenient.
 func (x *Snapshot) PushFill(PathVar *gsk.Path, FillRuleVar gsk.FillRule) {
-	core.LazyRegister(&xSnapshotPushFill, "GTK", "gtk_snapshot_push_fill", false)
-
 	xSnapshotPushFill(x.GoPointer(), PathVar, FillRuleVar)
 }
 
@@ -533,8 +470,6 @@ var xSnapshotPushGlShader func(uintptr, uintptr, *graphene.Rect, *glib.Bytes)
 //
 // For details on how to write shaders, see [class@Gsk.GLShader].
 func (x *Snapshot) PushGlShader(ShaderVar *gsk.GLShader, BoundsVar *graphene.Rect, TakeArgsVar *glib.Bytes) {
-	core.LazyRegister(&xSnapshotPushGlShader, "GTK", "gtk_snapshot_push_gl_shader", false)
-
 	xSnapshotPushGlShader(x.GoPointer(), ShaderVar.GoPointer(), BoundsVar, TakeArgsVar)
 }
 
@@ -551,8 +486,6 @@ var xSnapshotPushIsolation func(uintptr, gsk.Isolation)
 //
 // Content is isolated until the next call to [method@Gtk.Snapshot.pop].
 func (x *Snapshot) PushIsolation(FeaturesVar gsk.Isolation) {
-	core.LazyRegister(&xSnapshotPushIsolation, "GTK", "gtk_snapshot_push_isolation", false)
-
 	xSnapshotPushIsolation(x.GoPointer(), FeaturesVar)
 }
 
@@ -566,8 +499,6 @@ var xSnapshotPushMask func(uintptr, gsk.MaskMode)
 //
 // Calling this function requires 2 subsequent calls to gtk_snapshot_pop().
 func (x *Snapshot) PushMask(MaskModeVar gsk.MaskMode) {
-	core.LazyRegister(&xSnapshotPushMask, "GTK", "gtk_snapshot_push_mask", false)
-
 	xSnapshotPushMask(x.GoPointer(), MaskModeVar)
 }
 
@@ -577,8 +508,6 @@ var xSnapshotPushOpacity func(uintptr, float64)
 //
 // The image is recorded until the next call to [method@Gtk.Snapshot.pop].
 func (x *Snapshot) PushOpacity(OpacityVar float64) {
-	core.LazyRegister(&xSnapshotPushOpacity, "GTK", "gtk_snapshot_push_opacity", false)
-
 	xSnapshotPushOpacity(x.GoPointer(), OpacityVar)
 }
 
@@ -588,8 +517,6 @@ var xSnapshotPushRepeat func(uintptr, *graphene.Rect, *graphene.Rect)
 //
 // The child is recorded until the next call to [method@Gtk.Snapshot.pop].
 func (x *Snapshot) PushRepeat(BoundsVar *graphene.Rect, ChildBoundsVar *graphene.Rect) {
-	core.LazyRegister(&xSnapshotPushRepeat, "GTK", "gtk_snapshot_push_repeat", false)
-
 	xSnapshotPushRepeat(x.GoPointer(), BoundsVar, ChildBoundsVar)
 }
 
@@ -599,8 +526,6 @@ var xSnapshotPushRoundedClip func(uintptr, *gsk.RoundedRect)
 //
 // The image is recorded until the next call to [method@Gtk.Snapshot.pop].
 func (x *Snapshot) PushRoundedClip(BoundsVar *gsk.RoundedRect) {
-	core.LazyRegister(&xSnapshotPushRoundedClip, "GTK", "gtk_snapshot_push_rounded_clip", false)
-
 	xSnapshotPushRoundedClip(x.GoPointer(), BoundsVar)
 }
 
@@ -610,8 +535,6 @@ var xSnapshotPushShadow func(uintptr, []gsk.Shadow, uint)
 //
 // The image is recorded until the next call to [method@Gtk.Snapshot.pop].
 func (x *Snapshot) PushShadow(ShadowVar []gsk.Shadow, NShadowsVar uint) {
-	core.LazyRegister(&xSnapshotPushShadow, "GTK", "gtk_snapshot_push_shadow", false)
-
 	xSnapshotPushShadow(x.GoPointer(), ShadowVar, NShadowsVar)
 }
 
@@ -629,8 +552,6 @@ var xSnapshotPushStroke func(uintptr, *gsk.Path, *gsk.Stroke)
 // If you want to stroke the path with a color, [method@Gtk.Snapshot.append_stroke]
 // may be more convenient.
 func (x *Snapshot) PushStroke(PathVar *gsk.Path, StrokeVar *gsk.Stroke) {
-	core.LazyRegister(&xSnapshotPushStroke, "GTK", "gtk_snapshot_push_stroke", false)
-
 	xSnapshotPushStroke(x.GoPointer(), PathVar, StrokeVar)
 }
 
@@ -640,8 +561,6 @@ var xSnapshotRenderBackground func(uintptr, uintptr, float64, float64, float64, 
 // and appends it to the current node of @snapshot, without changing
 // the current node.
 func (x *Snapshot) RenderBackground(ContextVar *StyleContext, XVar float64, YVar float64, WidthVar float64, HeightVar float64) {
-	core.LazyRegister(&xSnapshotRenderBackground, "GTK", "gtk_snapshot_render_background", false)
-
 	xSnapshotRenderBackground(x.GoPointer(), ContextVar.GoPointer(), XVar, YVar, WidthVar, HeightVar)
 }
 
@@ -651,8 +570,6 @@ var xSnapshotRenderFocus func(uintptr, uintptr, float64, float64, float64, float
 // and appends it to the current node of @snapshot, without changing
 // the current node.
 func (x *Snapshot) RenderFocus(ContextVar *StyleContext, XVar float64, YVar float64, WidthVar float64, HeightVar float64) {
-	core.LazyRegister(&xSnapshotRenderFocus, "GTK", "gtk_snapshot_render_focus", false)
-
 	xSnapshotRenderFocus(x.GoPointer(), ContextVar.GoPointer(), XVar, YVar, WidthVar, HeightVar)
 }
 
@@ -662,8 +579,6 @@ var xSnapshotRenderFrame func(uintptr, uintptr, float64, float64, float64, float
 // and appends it to the current node of @snapshot, without changing
 // the current node.
 func (x *Snapshot) RenderFrame(ContextVar *StyleContext, XVar float64, YVar float64, WidthVar float64, HeightVar float64) {
-	core.LazyRegister(&xSnapshotRenderFrame, "GTK", "gtk_snapshot_render_frame", false)
-
 	xSnapshotRenderFrame(x.GoPointer(), ContextVar.GoPointer(), XVar, YVar, WidthVar, HeightVar)
 }
 
@@ -671,8 +586,6 @@ var xSnapshotRenderInsertionCursor func(uintptr, uintptr, float64, float64, uint
 
 // Draws a text caret using @snapshot at the specified index of @layout.
 func (x *Snapshot) RenderInsertionCursor(ContextVar *StyleContext, XVar float64, YVar float64, LayoutVar *pango.Layout, IndexVar int, DirectionVar pango.Direction) {
-	core.LazyRegister(&xSnapshotRenderInsertionCursor, "GTK", "gtk_snapshot_render_insertion_cursor", false)
-
 	xSnapshotRenderInsertionCursor(x.GoPointer(), ContextVar.GoPointer(), XVar, YVar, LayoutVar.GoPointer(), IndexVar, DirectionVar)
 }
 
@@ -682,8 +595,6 @@ var xSnapshotRenderLayout func(uintptr, uintptr, float64, float64, uintptr)
 // information in @context, and appends it to the current node of @snapshot,
 // without changing the current node.
 func (x *Snapshot) RenderLayout(ContextVar *StyleContext, XVar float64, YVar float64, LayoutVar *pango.Layout) {
-	core.LazyRegister(&xSnapshotRenderLayout, "GTK", "gtk_snapshot_render_layout", false)
-
 	xSnapshotRenderLayout(x.GoPointer(), ContextVar.GoPointer(), XVar, YVar, LayoutVar.GoPointer())
 }
 
@@ -693,8 +604,6 @@ var xSnapshotRestore func(uintptr)
 // [method@Snapshot.save] and removes that state from the stack of
 // saved states.
 func (x *Snapshot) Restore() {
-	core.LazyRegister(&xSnapshotRestore, "GTK", "gtk_snapshot_restore", false)
-
 	xSnapshotRestore(x.GoPointer())
 }
 
@@ -706,8 +615,6 @@ var xSnapshotRotate func(uintptr, float32)
 //
 // To rotate around axes other than the Z axis, use [method@Gsk.Transform.rotate_3d].
 func (x *Snapshot) Rotate(AngleVar float32) {
-	core.LazyRegister(&xSnapshotRotate, "GTK", "gtk_snapshot_rotate", false)
-
 	xSnapshotRotate(x.GoPointer(), AngleVar)
 }
 
@@ -717,8 +624,6 @@ var xSnapshotRotate3d func(uintptr, float32, *graphene.Vec3)
 //
 // For a rotation in 2D space, use [method@Gsk.Transform.rotate].
 func (x *Snapshot) Rotate3d(AngleVar float32, AxisVar *graphene.Vec3) {
-	core.LazyRegister(&xSnapshotRotate3d, "GTK", "gtk_snapshot_rotate_3d", false)
-
 	xSnapshotRotate3d(x.GoPointer(), AngleVar, AxisVar)
 }
 
@@ -737,8 +642,6 @@ var xSnapshotSave func(uintptr)
 // It is necessary to clear all saved states with corresponding
 // calls to `gtk_snapshot_restore()`.
 func (x *Snapshot) Save() {
-	core.LazyRegister(&xSnapshotSave, "GTK", "gtk_snapshot_save", false)
-
 	xSnapshotSave(x.GoPointer())
 }
 
@@ -749,8 +652,6 @@ var xSnapshotScale func(uintptr, float32, float32)
 //
 // Use [method@Gtk.Snapshot.scale_3d] to scale in all 3 dimensions.
 func (x *Snapshot) Scale(FactorXVar float32, FactorYVar float32) {
-	core.LazyRegister(&xSnapshotScale, "GTK", "gtk_snapshot_scale", false)
-
 	xSnapshotScale(x.GoPointer(), FactorXVar, FactorYVar)
 }
 
@@ -758,8 +659,6 @@ var xSnapshotScale3d func(uintptr, float32, float32, float32)
 
 // Scales @snapshot's coordinate system by the given factors.
 func (x *Snapshot) Scale3d(FactorXVar float32, FactorYVar float32, FactorZVar float32) {
-	core.LazyRegister(&xSnapshotScale3d, "GTK", "gtk_snapshot_scale_3d", false)
-
 	xSnapshotScale3d(x.GoPointer(), FactorXVar, FactorYVar, FactorZVar)
 }
 
@@ -776,7 +675,6 @@ var xSnapshotToNode func(uintptr) uintptr
 // add more nodes to @snapshot. The only function that should
 // be called after this is [method@GObject.Object.unref].
 func (x *Snapshot) ToNode() *gsk.RenderNode {
-	core.LazyRegister(&xSnapshotToNode, "GTK", "gtk_snapshot_to_node", false)
 	var cls *gsk.RenderNode
 
 	cret := xSnapshotToNode(x.GoPointer())
@@ -798,7 +696,6 @@ var xSnapshotToPaintable func(uintptr, *graphene.Size) uintptr
 // add more nodes to @snapshot. The only function that should
 // be called after this is [method@GObject.Object.unref].
 func (x *Snapshot) ToPaintable(SizeVar *graphene.Size) *gdk.PaintableBase {
-	core.LazyRegister(&xSnapshotToPaintable, "GTK", "gtk_snapshot_to_paintable", false)
 	var cls *gdk.PaintableBase
 
 	cret := xSnapshotToPaintable(x.GoPointer(), SizeVar)
@@ -815,8 +712,6 @@ var xSnapshotTransform func(uintptr, *gsk.Transform)
 
 // Transforms @snapshot's coordinate system with the given @transform.
 func (x *Snapshot) Transform(TransformVar *gsk.Transform) {
-	core.LazyRegister(&xSnapshotTransform, "GTK", "gtk_snapshot_transform", false)
-
 	xSnapshotTransform(x.GoPointer(), TransformVar)
 }
 
@@ -824,8 +719,6 @@ var xSnapshotTransformMatrix func(uintptr, *graphene.Matrix)
 
 // Transforms @snapshot's coordinate system with the given @matrix.
 func (x *Snapshot) TransformMatrix(MatrixVar *graphene.Matrix) {
-	core.LazyRegister(&xSnapshotTransformMatrix, "GTK", "gtk_snapshot_transform_matrix", false)
-
 	xSnapshotTransformMatrix(x.GoPointer(), MatrixVar)
 }
 
@@ -833,8 +726,6 @@ var xSnapshotTranslate func(uintptr, *graphene.Point)
 
 // Translates @snapshot's coordinate system by @point in 2-dimensional space.
 func (x *Snapshot) Translate(PointVar *graphene.Point) {
-	core.LazyRegister(&xSnapshotTranslate, "GTK", "gtk_snapshot_translate", false)
-
 	xSnapshotTranslate(x.GoPointer(), PointVar)
 }
 
@@ -842,8 +733,6 @@ var xSnapshotTranslate3d func(uintptr, *graphene.Point3D)
 
 // Translates @snapshot's coordinate system by @point.
 func (x *Snapshot) Translate3d(PointVar *graphene.Point3D) {
-	core.LazyRegister(&xSnapshotTranslate3d, "GTK", "gtk_snapshot_translate_3d", false)
-
 	xSnapshotTranslate3d(x.GoPointer(), PointVar)
 }
 
@@ -861,4 +750,74 @@ func (c *Snapshot) SetGoPointer(ptr uintptr) {
 func init() {
 	core.SetPackageName("GTK", "gtk4")
 	core.SetSharedLibraries("GTK", []string{"libgtk-4.so.1", "libgtk-4.1.dylib"})
+	var libs []uintptr
+	for _, libPath := range core.GetPaths("GTK") {
+		lib, err := purego.Dlopen(libPath, purego.RTLD_NOW|purego.RTLD_GLOBAL)
+		if err != nil {
+			panic(err)
+		}
+		libs = append(libs, lib)
+	}
+
+	core.PuregoSafeRegister(&xSnapshotGLibType, libs, "gtk_snapshot_get_type")
+
+	core.PuregoSafeRegister(&xNewSnapshot, libs, "gtk_snapshot_new")
+
+	core.PuregoSafeRegister(&xSnapshotAppendBorder, libs, "gtk_snapshot_append_border")
+	core.PuregoSafeRegister(&xSnapshotAppendCairo, libs, "gtk_snapshot_append_cairo")
+	core.PuregoSafeRegister(&xSnapshotAppendColor, libs, "gtk_snapshot_append_color")
+	core.PuregoSafeRegister(&xSnapshotAppendConicGradient, libs, "gtk_snapshot_append_conic_gradient")
+	core.PuregoSafeRegister(&xSnapshotAppendFill, libs, "gtk_snapshot_append_fill")
+	core.PuregoSafeRegister(&xSnapshotAppendInsetShadow, libs, "gtk_snapshot_append_inset_shadow")
+	core.PuregoSafeRegister(&xSnapshotAppendLayout, libs, "gtk_snapshot_append_layout")
+	core.PuregoSafeRegister(&xSnapshotAppendLinearGradient, libs, "gtk_snapshot_append_linear_gradient")
+	core.PuregoSafeRegister(&xSnapshotAppendNode, libs, "gtk_snapshot_append_node")
+	core.PuregoSafeRegister(&xSnapshotAppendOutsetShadow, libs, "gtk_snapshot_append_outset_shadow")
+	core.PuregoSafeRegister(&xSnapshotAppendPaste, libs, "gtk_snapshot_append_paste")
+	core.PuregoSafeRegister(&xSnapshotAppendRadialGradient, libs, "gtk_snapshot_append_radial_gradient")
+	core.PuregoSafeRegister(&xSnapshotAppendRepeatingLinearGradient, libs, "gtk_snapshot_append_repeating_linear_gradient")
+	core.PuregoSafeRegister(&xSnapshotAppendRepeatingRadialGradient, libs, "gtk_snapshot_append_repeating_radial_gradient")
+	core.PuregoSafeRegister(&xSnapshotAppendScaledTexture, libs, "gtk_snapshot_append_scaled_texture")
+	core.PuregoSafeRegister(&xSnapshotAppendStroke, libs, "gtk_snapshot_append_stroke")
+	core.PuregoSafeRegister(&xSnapshotAppendTexture, libs, "gtk_snapshot_append_texture")
+	core.PuregoSafeRegister(&xSnapshotFreeToNode, libs, "gtk_snapshot_free_to_node")
+	core.PuregoSafeRegister(&xSnapshotFreeToPaintable, libs, "gtk_snapshot_free_to_paintable")
+	core.PuregoSafeRegister(&xSnapshotGlShaderPopTexture, libs, "gtk_snapshot_gl_shader_pop_texture")
+	core.PuregoSafeRegister(&xSnapshotPerspective, libs, "gtk_snapshot_perspective")
+	core.PuregoSafeRegister(&xSnapshotPop, libs, "gtk_snapshot_pop")
+	core.PuregoSafeRegister(&xSnapshotPushBlend, libs, "gtk_snapshot_push_blend")
+	core.PuregoSafeRegister(&xSnapshotPushBlur, libs, "gtk_snapshot_push_blur")
+	core.PuregoSafeRegister(&xSnapshotPushClip, libs, "gtk_snapshot_push_clip")
+	core.PuregoSafeRegister(&xSnapshotPushColorMatrix, libs, "gtk_snapshot_push_color_matrix")
+	core.PuregoSafeRegister(&xSnapshotPushComponentTransfer, libs, "gtk_snapshot_push_component_transfer")
+	core.PuregoSafeRegister(&xSnapshotPushComposite, libs, "gtk_snapshot_push_composite")
+	core.PuregoSafeRegister(&xSnapshotPushCopy, libs, "gtk_snapshot_push_copy")
+	core.PuregoSafeRegister(&xSnapshotPushCrossFade, libs, "gtk_snapshot_push_cross_fade")
+	core.PuregoSafeRegister(&xSnapshotPushDebug, libs, "gtk_snapshot_push_debug")
+	core.PuregoSafeRegister(&xSnapshotPushFill, libs, "gtk_snapshot_push_fill")
+	core.PuregoSafeRegister(&xSnapshotPushGlShader, libs, "gtk_snapshot_push_gl_shader")
+	core.PuregoSafeRegister(&xSnapshotPushIsolation, libs, "gtk_snapshot_push_isolation")
+	core.PuregoSafeRegister(&xSnapshotPushMask, libs, "gtk_snapshot_push_mask")
+	core.PuregoSafeRegister(&xSnapshotPushOpacity, libs, "gtk_snapshot_push_opacity")
+	core.PuregoSafeRegister(&xSnapshotPushRepeat, libs, "gtk_snapshot_push_repeat")
+	core.PuregoSafeRegister(&xSnapshotPushRoundedClip, libs, "gtk_snapshot_push_rounded_clip")
+	core.PuregoSafeRegister(&xSnapshotPushShadow, libs, "gtk_snapshot_push_shadow")
+	core.PuregoSafeRegister(&xSnapshotPushStroke, libs, "gtk_snapshot_push_stroke")
+	core.PuregoSafeRegister(&xSnapshotRenderBackground, libs, "gtk_snapshot_render_background")
+	core.PuregoSafeRegister(&xSnapshotRenderFocus, libs, "gtk_snapshot_render_focus")
+	core.PuregoSafeRegister(&xSnapshotRenderFrame, libs, "gtk_snapshot_render_frame")
+	core.PuregoSafeRegister(&xSnapshotRenderInsertionCursor, libs, "gtk_snapshot_render_insertion_cursor")
+	core.PuregoSafeRegister(&xSnapshotRenderLayout, libs, "gtk_snapshot_render_layout")
+	core.PuregoSafeRegister(&xSnapshotRestore, libs, "gtk_snapshot_restore")
+	core.PuregoSafeRegister(&xSnapshotRotate, libs, "gtk_snapshot_rotate")
+	core.PuregoSafeRegister(&xSnapshotRotate3d, libs, "gtk_snapshot_rotate_3d")
+	core.PuregoSafeRegister(&xSnapshotSave, libs, "gtk_snapshot_save")
+	core.PuregoSafeRegister(&xSnapshotScale, libs, "gtk_snapshot_scale")
+	core.PuregoSafeRegister(&xSnapshotScale3d, libs, "gtk_snapshot_scale_3d")
+	core.PuregoSafeRegister(&xSnapshotToNode, libs, "gtk_snapshot_to_node")
+	core.PuregoSafeRegister(&xSnapshotToPaintable, libs, "gtk_snapshot_to_paintable")
+	core.PuregoSafeRegister(&xSnapshotTransform, libs, "gtk_snapshot_transform")
+	core.PuregoSafeRegister(&xSnapshotTransformMatrix, libs, "gtk_snapshot_transform_matrix")
+	core.PuregoSafeRegister(&xSnapshotTranslate, libs, "gtk_snapshot_translate")
+	core.PuregoSafeRegister(&xSnapshotTranslate3d, libs, "gtk_snapshot_translate_3d")
 }

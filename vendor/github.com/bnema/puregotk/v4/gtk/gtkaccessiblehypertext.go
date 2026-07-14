@@ -146,7 +146,6 @@ type AccessibleHypertext interface {
 var xAccessibleHypertextGLibType func() types.GType
 
 func AccessibleHypertextGLibType() types.GType {
-	core.LazyRegister(&xAccessibleHypertextGLibType, "GTK", "gtk_accessible_hypertext_get_type", false)
 	return xAccessibleHypertextGLibType()
 }
 
@@ -177,7 +176,6 @@ type AccessibleHyperlink struct {
 var xAccessibleHyperlinkGLibType func() types.GType
 
 func AccessibleHyperlinkGLibType() types.GType {
-	core.LazyRegister(&xAccessibleHyperlinkGLibType, "GTK", "gtk_accessible_hyperlink_get_type", false)
 	return xAccessibleHyperlinkGLibType()
 }
 
@@ -194,7 +192,6 @@ var xNewAccessibleHyperlink func(uintptr, uint, string, *AccessibleTextRange) ui
 // This is meant to be used with an implementation of the
 // [iface@Gtk.AccessibleHypertext] interface.
 func NewAccessibleHyperlink(ParentVar AccessibleHypertext, IndexVar uint, UriVar string, BoundsVar *AccessibleTextRange) *AccessibleHyperlink {
-	core.LazyRegister(&xNewAccessibleHyperlink, "GTK", "gtk_accessible_hyperlink_new", false)
 	var cls *AccessibleHyperlink
 
 	cret := xNewAccessibleHyperlink(ParentVar.GoPointer(), IndexVar, UriVar, BoundsVar)
@@ -211,8 +208,6 @@ var xAccessibleHyperlinkSetPlatformState func(uintptr, AccessiblePlatformState, 
 
 // Sets a platform state on the accessible.
 func (x *AccessibleHyperlink) SetPlatformState(StateVar AccessiblePlatformState, EnabledVar bool) {
-	core.LazyRegister(&xAccessibleHyperlinkSetPlatformState, "GTK", "gtk_accessible_hyperlink_set_platform_state", false)
-
 	xAccessibleHyperlinkSetPlatformState(x.GoPointer(), StateVar, EnabledVar)
 }
 
@@ -481,4 +476,20 @@ func (x *AccessibleHyperlink) UpdateStateValue(NStatesVar int, StatesVar []Acces
 func init() {
 	core.SetPackageName("GTK", "gtk4")
 	core.SetSharedLibraries("GTK", []string{"libgtk-4.so.1", "libgtk-4.1.dylib"})
+	var libs []uintptr
+	for _, libPath := range core.GetPaths("GTK") {
+		lib, err := purego.Dlopen(libPath, purego.RTLD_NOW|purego.RTLD_GLOBAL)
+		if err != nil {
+			panic(err)
+		}
+		libs = append(libs, lib)
+	}
+
+	core.PuregoSafeRegister(&xAccessibleHyperlinkGLibType, libs, "gtk_accessible_hyperlink_get_type")
+
+	core.PuregoSafeRegister(&xNewAccessibleHyperlink, libs, "gtk_accessible_hyperlink_new")
+
+	core.PuregoSafeRegister(&xAccessibleHyperlinkSetPlatformState, libs, "gtk_accessible_hyperlink_set_platform_state")
+
+	core.PuregoSafeRegister(&xAccessibleHypertextGLibType, libs, "gtk_accessible_hypertext_get_type")
 }

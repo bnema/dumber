@@ -96,7 +96,7 @@ func (x *SeekableIface) OverrideSeek(cb func(Seekable, int64, glib.SeekType, *Ca
 	if cb == nil {
 		x.xSeek = 0
 	} else {
-		x.xSeek = purego.NewCallback(func(SeekableVarp uintptr, OffsetVarp int64, TypeVarp glib.SeekType, CancellableVarp uintptr, cerrp **glib.Error) bool {
+		x.xSeek = purego.NewCallback(func(SeekableVarp uintptr, OffsetVarp int64, TypeVarp glib.SeekType, CancellableVarp uintptr) bool {
 			return cb(&SeekableBase{Ptr: SeekableVarp}, OffsetVarp, TypeVarp, CancellableNewFromInternalPtr(CancellableVarp))
 		})
 	}
@@ -108,11 +108,10 @@ func (x *SeekableIface) GetSeek() func(Seekable, int64, glib.SeekType, *Cancella
 	if x.xSeek == 0 {
 		return nil
 	}
-	var rawCallback func(SeekableVarp uintptr, OffsetVarp int64, TypeVarp glib.SeekType, CancellableVarp uintptr, cerrp **glib.Error) bool
+	var rawCallback func(SeekableVarp uintptr, OffsetVarp int64, TypeVarp glib.SeekType, CancellableVarp uintptr) bool
 	purego.RegisterFunc(&rawCallback, x.xSeek)
 	return func(SeekableVar Seekable, OffsetVar int64, TypeVar glib.SeekType, CancellableVar *Cancellable) bool {
-		var cerr *glib.Error
-		return rawCallback(SeekableVar.GoPointer(), OffsetVar, TypeVar, CancellableVar.GoPointer(), &cerr)
+		return rawCallback(SeekableVar.GoPointer(), OffsetVar, TypeVar, CancellableVar.GoPointer())
 	}
 }
 
@@ -147,7 +146,7 @@ func (x *SeekableIface) OverrideTruncateFn(cb func(Seekable, int64, *Cancellable
 	if cb == nil {
 		x.xTruncateFn = 0
 	} else {
-		x.xTruncateFn = purego.NewCallback(func(SeekableVarp uintptr, OffsetVarp int64, CancellableVarp uintptr, cerrp **glib.Error) bool {
+		x.xTruncateFn = purego.NewCallback(func(SeekableVarp uintptr, OffsetVarp int64, CancellableVarp uintptr) bool {
 			return cb(&SeekableBase{Ptr: SeekableVarp}, OffsetVarp, CancellableNewFromInternalPtr(CancellableVarp))
 		})
 	}
@@ -159,11 +158,10 @@ func (x *SeekableIface) GetTruncateFn() func(Seekable, int64, *Cancellable) bool
 	if x.xTruncateFn == 0 {
 		return nil
 	}
-	var rawCallback func(SeekableVarp uintptr, OffsetVarp int64, CancellableVarp uintptr, cerrp **glib.Error) bool
+	var rawCallback func(SeekableVarp uintptr, OffsetVarp int64, CancellableVarp uintptr) bool
 	purego.RegisterFunc(&rawCallback, x.xTruncateFn)
 	return func(SeekableVar Seekable, OffsetVar int64, CancellableVar *Cancellable) bool {
-		var cerr *glib.Error
-		return rawCallback(SeekableVar.GoPointer(), OffsetVar, CancellableVar.GoPointer(), &cerr)
+		return rawCallback(SeekableVar.GoPointer(), OffsetVar, CancellableVar.GoPointer())
 	}
 }
 
@@ -194,7 +192,6 @@ type Seekable interface {
 var xSeekableGLibType func() types.GType
 
 func SeekableGLibType() types.GType {
-	core.LazyRegister(&xSeekableGLibType, "GIO", "g_seekable_get_type", false)
 	return xSeekableGLibType()
 }
 
@@ -275,42 +272,31 @@ func (x *SeekableBase) Truncate(OffsetVar int64, CancellableVar *Cancellable) (b
 	return cret, cerr
 }
 
-var XGSeekableCanSeek func(uintptr) bool = func(instance uintptr) bool {
-	core.LazyRegister(&xXGSeekableCanSeek, "GIO", "g_seekable_can_seek", false)
-	return xXGSeekableCanSeek(instance)
-}
-
 var (
-	xXGSeekableCanSeek    func(uintptr) bool
-	XGSeekableCanTruncate func(uintptr) bool = func(instance uintptr) bool {
-		core.LazyRegister(&xXGSeekableCanTruncate, "GIO", "g_seekable_can_truncate", false)
-		return xXGSeekableCanTruncate(instance)
-	}
+	XGSeekableCanSeek     func(uintptr) bool
+	XGSeekableCanTruncate func(uintptr) bool
+	XGSeekableSeek        func(uintptr, int64, glib.SeekType, uintptr, **glib.Error) bool
+	XGSeekableTell        func(uintptr) int64
+	XGSeekableTruncate    func(uintptr, int64, uintptr, **glib.Error) bool
 )
-var (
-	xXGSeekableCanTruncate func(uintptr) bool
-	XGSeekableSeek         func(uintptr, int64, glib.SeekType, uintptr, **glib.Error) bool = func(instance uintptr, OffsetVarp int64, TypeVarp glib.SeekType, CancellableVarp uintptr, cerrp **glib.Error) bool {
-		core.LazyRegister(&xXGSeekableSeek, "GIO", "g_seekable_seek", false)
-		return xXGSeekableSeek(instance, OffsetVarp, TypeVarp, CancellableVarp, cerrp)
-	}
-)
-var (
-	xXGSeekableSeek func(uintptr, int64, glib.SeekType, uintptr, **glib.Error) bool
-	XGSeekableTell  func(uintptr) int64 = func(instance uintptr) int64 {
-		core.LazyRegister(&xXGSeekableTell, "GIO", "g_seekable_tell", false)
-		return xXGSeekableTell(instance)
-	}
-)
-var (
-	xXGSeekableTell    func(uintptr) int64
-	XGSeekableTruncate func(uintptr, int64, uintptr, **glib.Error) bool = func(instance uintptr, OffsetVarp int64, CancellableVarp uintptr, cerrp **glib.Error) bool {
-		core.LazyRegister(&xXGSeekableTruncate, "GIO", "g_seekable_truncate", false)
-		return xXGSeekableTruncate(instance, OffsetVarp, CancellableVarp, cerrp)
-	}
-)
-var xXGSeekableTruncate func(uintptr, int64, uintptr, **glib.Error) bool
 
 func init() {
 	core.SetPackageName("GIO", "gio-2.0")
 	core.SetSharedLibraries("GIO", []string{"libgio-2.0.so.0", "libgio-2.0.0.dylib"})
+	var libs []uintptr
+	for _, libPath := range core.GetPaths("GIO") {
+		lib, err := purego.Dlopen(libPath, purego.RTLD_NOW|purego.RTLD_GLOBAL)
+		if err != nil {
+			panic(err)
+		}
+		libs = append(libs, lib)
+	}
+
+	core.PuregoSafeRegister(&xSeekableGLibType, libs, "g_seekable_get_type")
+
+	core.PuregoSafeRegister(&XGSeekableCanSeek, libs, "g_seekable_can_seek")
+	core.PuregoSafeRegister(&XGSeekableCanTruncate, libs, "g_seekable_can_truncate")
+	core.PuregoSafeRegister(&XGSeekableSeek, libs, "g_seekable_seek")
+	core.PuregoSafeRegister(&XGSeekableTell, libs, "g_seekable_tell")
+	core.PuregoSafeRegister(&XGSeekableTruncate, libs, "g_seekable_truncate")
 }

@@ -5,6 +5,7 @@ import (
 	"structs"
 	"unsafe"
 
+	"github.com/bnema/purego"
 	"github.com/bnema/puregotk/pkg/core"
 	"github.com/bnema/puregotk/v4/glib"
 	"github.com/bnema/puregotk/v4/gobject"
@@ -58,7 +59,6 @@ type EmblemedIcon struct {
 var xEmblemedIconGLibType func() types.GType
 
 func EmblemedIconGLibType() types.GType {
-	core.LazyRegister(&xEmblemedIconGLibType, "GIO", "g_emblemed_icon_get_type", false)
 	return xEmblemedIconGLibType()
 }
 
@@ -72,7 +72,6 @@ var xNewEmblemedIcon func(uintptr, uintptr) uintptr
 
 // Creates a new emblemed icon for @icon with the emblem @emblem.
 func NewEmblemedIcon(IconVar Icon, EmblemVar *Emblem) *EmblemedIcon {
-	core.LazyRegister(&xNewEmblemedIcon, "GIO", "g_emblemed_icon_new", false)
 	var cls *EmblemedIcon
 
 	cret := xNewEmblemedIcon(IconVar.GoPointer(), EmblemVar.GoPointer())
@@ -89,8 +88,6 @@ var xEmblemedIconAddEmblem func(uintptr, uintptr)
 
 // Adds @emblem to the #GList of #GEmblems.
 func (x *EmblemedIcon) AddEmblem(EmblemVar *Emblem) {
-	core.LazyRegister(&xEmblemedIconAddEmblem, "GIO", "g_emblemed_icon_add_emblem", false)
-
 	xEmblemedIconAddEmblem(x.GoPointer(), EmblemVar.GoPointer())
 }
 
@@ -98,8 +95,6 @@ var xEmblemedIconClearEmblems func(uintptr)
 
 // Removes all the emblems from @icon.
 func (x *EmblemedIcon) ClearEmblems() {
-	core.LazyRegister(&xEmblemedIconClearEmblems, "GIO", "g_emblemed_icon_clear_emblems", false)
-
 	xEmblemedIconClearEmblems(x.GoPointer())
 }
 
@@ -107,8 +102,6 @@ var xEmblemedIconGetEmblems func(uintptr) uintptr
 
 // Gets the list of emblems for the @icon.
 func (x *EmblemedIcon) GetEmblems() *glib.List {
-	core.LazyRegister(&xEmblemedIconGetEmblems, "GIO", "g_emblemed_icon_get_emblems", false)
-
 	cret := xEmblemedIconGetEmblems(x.GoPointer())
 	if cret == 0 {
 		return nil
@@ -120,7 +113,6 @@ var xEmblemedIconGetIcon func(uintptr) uintptr
 
 // Gets the main icon for @emblemed.
 func (x *EmblemedIcon) GetIcon() *IconBase {
-	core.LazyRegister(&xEmblemedIconGetIcon, "GIO", "g_emblemed_icon_get_icon", false)
 	var cls *IconBase
 
 	cret := xEmblemedIconGetIcon(x.GoPointer())
@@ -194,4 +186,21 @@ func (x *EmblemedIcon) ToString() string {
 func init() {
 	core.SetPackageName("GIO", "gio-2.0")
 	core.SetSharedLibraries("GIO", []string{"libgio-2.0.so.0", "libgio-2.0.0.dylib"})
+	var libs []uintptr
+	for _, libPath := range core.GetPaths("GIO") {
+		lib, err := purego.Dlopen(libPath, purego.RTLD_NOW|purego.RTLD_GLOBAL)
+		if err != nil {
+			panic(err)
+		}
+		libs = append(libs, lib)
+	}
+
+	core.PuregoSafeRegister(&xEmblemedIconGLibType, libs, "g_emblemed_icon_get_type")
+
+	core.PuregoSafeRegister(&xNewEmblemedIcon, libs, "g_emblemed_icon_new")
+
+	core.PuregoSafeRegister(&xEmblemedIconAddEmblem, libs, "g_emblemed_icon_add_emblem")
+	core.PuregoSafeRegister(&xEmblemedIconClearEmblems, libs, "g_emblemed_icon_clear_emblems")
+	core.PuregoSafeRegister(&xEmblemedIconGetEmblems, libs, "g_emblemed_icon_get_emblems")
+	core.PuregoSafeRegister(&xEmblemedIconGetIcon, libs, "g_emblemed_icon_get_icon")
 }

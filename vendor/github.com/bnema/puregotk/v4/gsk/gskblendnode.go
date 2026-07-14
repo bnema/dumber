@@ -2,6 +2,7 @@
 package gsk
 
 import (
+	"github.com/bnema/purego"
 	"github.com/bnema/puregotk/pkg/core"
 	"github.com/bnema/puregotk/v4/gobject"
 	"github.com/bnema/puregotk/v4/gobject/types"
@@ -15,7 +16,6 @@ type BlendNode struct {
 var xBlendNodeGLibType func() types.GType
 
 func BlendNodeGLibType() types.GType {
-	core.LazyRegister(&xBlendNodeGLibType, "GSK", "gsk_blend_node_get_type", false)
 	return xBlendNodeGLibType()
 }
 
@@ -30,7 +30,6 @@ var xNewBlendNode func(uintptr, uintptr, BlendMode) uintptr
 // Creates a `GskRenderNode` that will use @blend_mode to blend the @top
 // node onto the @bottom node.
 func NewBlendNode(BottomVar *RenderNode, TopVar *RenderNode, BlendModeVar BlendMode) *BlendNode {
-	core.LazyRegister(&xNewBlendNode, "GSK", "gsk_blend_node_new", false)
 	var cls *BlendNode
 
 	cret := xNewBlendNode(BottomVar.GoPointer(), TopVar.GoPointer(), BlendModeVar)
@@ -47,8 +46,6 @@ var xBlendNodeGetBlendMode func(uintptr) BlendMode
 
 // Retrieves the blend mode used by @node.
 func (x *BlendNode) GetBlendMode() BlendMode {
-	core.LazyRegister(&xBlendNodeGetBlendMode, "GSK", "gsk_blend_node_get_blend_mode", false)
-
 	cret := xBlendNodeGetBlendMode(x.GoPointer())
 	return cret
 }
@@ -57,7 +54,6 @@ var xBlendNodeGetBottomChild func(uintptr) uintptr
 
 // Retrieves the bottom `GskRenderNode` child of the @node.
 func (x *BlendNode) GetBottomChild() *RenderNode {
-	core.LazyRegister(&xBlendNodeGetBottomChild, "GSK", "gsk_blend_node_get_bottom_child", false)
 	var cls *RenderNode
 
 	cret := xBlendNodeGetBottomChild(x.GoPointer())
@@ -75,7 +71,6 @@ var xBlendNodeGetTopChild func(uintptr) uintptr
 
 // Retrieves the top `GskRenderNode` child of the @node.
 func (x *BlendNode) GetTopChild() *RenderNode {
-	core.LazyRegister(&xBlendNodeGetTopChild, "GSK", "gsk_blend_node_get_top_child", false)
 	var cls *RenderNode
 
 	cret := xBlendNodeGetTopChild(x.GoPointer())
@@ -103,4 +98,20 @@ func (c *BlendNode) SetGoPointer(ptr uintptr) {
 func init() {
 	core.SetPackageName("GSK", "gtk4")
 	core.SetSharedLibraries("GSK", []string{"libgtk-4.so.1", "libgtk-4.1.dylib"})
+	var libs []uintptr
+	for _, libPath := range core.GetPaths("GSK") {
+		lib, err := purego.Dlopen(libPath, purego.RTLD_NOW|purego.RTLD_GLOBAL)
+		if err != nil {
+			panic(err)
+		}
+		libs = append(libs, lib)
+	}
+
+	core.PuregoSafeRegister(&xBlendNodeGLibType, libs, "gsk_blend_node_get_type")
+
+	core.PuregoSafeRegister(&xNewBlendNode, libs, "gsk_blend_node_new")
+
+	core.PuregoSafeRegister(&xBlendNodeGetBlendMode, libs, "gsk_blend_node_get_blend_mode")
+	core.PuregoSafeRegister(&xBlendNodeGetBottomChild, libs, "gsk_blend_node_get_bottom_child")
+	core.PuregoSafeRegister(&xBlendNodeGetTopChild, libs, "gsk_blend_node_get_top_child")
 }

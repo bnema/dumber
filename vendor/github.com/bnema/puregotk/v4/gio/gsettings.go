@@ -179,7 +179,6 @@ type SettingsBindFlags int
 var xSettingsBindFlagsGLibType func() types.GType
 
 func SettingsBindFlagsGLibType() types.GType {
-	core.LazyRegister(&xSettingsBindFlagsGLibType, "GIO", "g_settings_bind_flags_get_type", false)
 	return xSettingsBindFlagsGLibType()
 }
 
@@ -609,7 +608,6 @@ type Settings struct {
 var xSettingsGLibType func() types.GType
 
 func SettingsGLibType() types.GType {
-	core.LazyRegister(&xSettingsGLibType, "GIO", "g_settings_get_type", false)
 	return xSettingsGLibType()
 }
 
@@ -635,7 +633,6 @@ var xNewSettings func(string) uintptr
 // call to [ctor@Gio.Settings.new].  The new [class@Gio.Settings] will hold a reference
 // on the context.  See [method@GLib.MainContext.push_thread_default].
 func NewSettings(SchemaIdVar string) *Settings {
-	core.LazyRegister(&xNewSettings, "GIO", "g_settings_new", false)
 	var cls *Settings
 
 	cret := xNewSettings(SchemaIdVar)
@@ -674,7 +671,6 @@ var xNewSettingsFull func(*SettingsSchema, uintptr, uintptr) uintptr
 // @path is non-`NULL` and not equal to the path that the schema does
 // have.
 func NewSettingsFull(SchemaVar *SettingsSchema, BackendVar *SettingsBackend, PathVar *string) *Settings {
-	core.LazyRegister(&xNewSettingsFull, "GIO", "g_settings_new_full", false)
 	var cls *Settings
 
 	PathVarPtr := core.GStrdupNullable(PathVar)
@@ -701,7 +697,6 @@ var xNewSettingsWithBackend func(string, uintptr) uintptr
 // the system to get a settings object that modifies the system default
 // settings instead of the settings for this user.
 func NewSettingsWithBackend(SchemaIdVar string, BackendVar *SettingsBackend) *Settings {
-	core.LazyRegister(&xNewSettingsWithBackend, "GIO", "g_settings_new_with_backend", false)
 	var cls *Settings
 
 	cret := xNewSettingsWithBackend(SchemaIdVar, BackendVar.GoPointer())
@@ -722,7 +717,6 @@ var xNewSettingsWithBackendAndPath func(string, uintptr, string) uintptr
 // This is a mix of [ctor@Gio.Settings.new_with_backend] and
 // [ctor@Gio.Settings.new_with_path].
 func NewSettingsWithBackendAndPath(SchemaIdVar string, BackendVar *SettingsBackend, PathVar string) *Settings {
-	core.LazyRegister(&xNewSettingsWithBackendAndPath, "GIO", "g_settings_new_with_backend_and_path", false)
 	var cls *Settings
 
 	cret := xNewSettingsWithBackendAndPath(SchemaIdVar, BackendVar.GoPointer(), PathVar)
@@ -751,7 +745,6 @@ var xNewSettingsWithPath func(string, string) uintptr
 // begins and ends with `/` and does not contain two consecutive `/`
 // characters.
 func NewSettingsWithPath(SchemaIdVar string, PathVar string) *Settings {
-	core.LazyRegister(&xNewSettingsWithPath, "GIO", "g_settings_new_with_path", false)
 	var cls *Settings
 
 	cret := xNewSettingsWithPath(SchemaIdVar, PathVar)
@@ -772,8 +765,6 @@ var xSettingsApply func(uintptr)
 // [‘delay-apply’ mode](class.Settings.html#delay-apply-mode).  In the normal
 // case settings are always applied immediately.
 func (x *Settings) Apply() {
-	core.LazyRegister(&xSettingsApply, "GIO", "g_settings_apply", false)
-
 	xSettingsApply(x.GoPointer())
 }
 
@@ -800,8 +791,6 @@ var xSettingsBind func(uintptr, string, uintptr, string, SettingsBindFlags)
 // If you bind the same property twice on the same object, the second
 // binding overrides the first one.
 func (x *Settings) Bind(KeyVar string, ObjectVar *gobject.Object, PropertyVar string, FlagsVar SettingsBindFlags) {
-	core.LazyRegister(&xSettingsBind, "GIO", "g_settings_bind", false)
-
 	xSettingsBind(x.GoPointer(), KeyVar, ObjectVar.GoPointer(), PropertyVar, FlagsVar)
 }
 
@@ -818,8 +807,6 @@ var xSettingsBindWithMapping func(uintptr, string, uintptr, string, SettingsBind
 // If you bind the same property twice on the same object, the second
 // binding overrides the first one.
 func (x *Settings) BindWithMapping(KeyVar string, ObjectVar *gobject.Object, PropertyVar string, FlagsVar SettingsBindFlags, GetMappingVar *SettingsBindGetMapping, SetMappingVar *SettingsBindSetMapping, UserDataVar uintptr, DestroyVar *glib.DestroyNotify) {
-	core.LazyRegister(&xSettingsBindWithMapping, "GIO", "g_settings_bind_with_mapping", false)
-
 	xSettingsBindWithMapping(x.GoPointer(), KeyVar, ObjectVar.GoPointer(), PropertyVar, FlagsVar, glib.NewCallbackNullable(GetMappingVar), glib.NewCallbackNullable(SetMappingVar), UserDataVar, glib.NewCallbackNullable(DestroyVar))
 }
 
@@ -828,8 +815,6 @@ var xSettingsBindWithMappingClosures func(uintptr, string, uintptr, string, Sett
 // Version of [method@Gio.Settings.bind_with_mapping] using closures instead of
 // callbacks for easier binding in other languages.
 func (x *Settings) BindWithMappingClosures(KeyVar string, ObjectVar *gobject.Object, PropertyVar string, FlagsVar SettingsBindFlags, GetMappingVar *gobject.Closure, SetMappingVar *gobject.Closure) {
-	core.LazyRegister(&xSettingsBindWithMappingClosures, "GIO", "g_settings_bind_with_mapping_closures", false)
-
 	xSettingsBindWithMappingClosures(x.GoPointer(), KeyVar, ObjectVar.GoPointer(), PropertyVar, FlagsVar, GetMappingVar, SetMappingVar)
 }
 
@@ -854,8 +839,6 @@ var xSettingsBindWritable func(uintptr, string, uintptr, string, bool)
 // If you bind the same property twice on the same object, the second
 // binding overrides the first one.
 func (x *Settings) BindWritable(KeyVar string, ObjectVar *gobject.Object, PropertyVar string, InvertedVar bool) {
-	core.LazyRegister(&xSettingsBindWritable, "GIO", "g_settings_bind_writable", false)
-
 	xSettingsBindWritable(x.GoPointer(), KeyVar, ObjectVar.GoPointer(), PropertyVar, InvertedVar)
 }
 
@@ -876,7 +859,6 @@ var xSettingsCreateAction func(uintptr, string) uintptr
 // activations take the new value for the key (which must have the
 // correct type).
 func (x *Settings) CreateAction(KeyVar string) *ActionBase {
-	core.LazyRegister(&xSettingsCreateAction, "GIO", "g_settings_create_action", false)
 	var cls *ActionBase
 
 	cret := xSettingsCreateAction(x.GoPointer(), KeyVar)
@@ -898,8 +880,6 @@ var xSettingsDelay func(uintptr)
 // mode, changes to @settings are not immediately propagated to the
 // backend, but kept locally until [method@Gio.Settings.apply] is called.
 func (x *Settings) Delay() {
-	core.LazyRegister(&xSettingsDelay, "GIO", "g_settings_delay", false)
-
 	xSettingsDelay(x.GoPointer())
 }
 
@@ -914,8 +894,6 @@ var xSettingsGet func(uintptr, string, string, ...interface{})
 // schema for @settings or for the [struct@GLib.VariantType] of @format to mismatch
 // the type given in the schema.
 func (x *Settings) Get(KeyVar string, FormatVar string, varArgs ...interface{}) {
-	core.LazyRegister(&xSettingsGet, "GIO", "g_settings_get", false)
-
 	xSettingsGet(x.GoPointer(), KeyVar, FormatVar, varArgs...)
 }
 
@@ -928,8 +906,6 @@ var xSettingsGetBoolean func(uintptr, string) bool
 // It is a programmer error to give a @key that isn’t specified as
 // having a `b` type in the schema for @settings (see [struct@GLib.VariantType]).
 func (x *Settings) GetBoolean(KeyVar string) bool {
-	core.LazyRegister(&xSettingsGetBoolean, "GIO", "g_settings_get_boolean", false)
-
 	cret := xSettingsGetBoolean(x.GoPointer(), KeyVar)
 	return cret
 }
@@ -946,7 +922,6 @@ var xSettingsGetChild func(uintptr, string) uintptr
 // The created child settings object will inherit the
 // [property@Gio.Settings:delay-apply] mode from @settings.
 func (x *Settings) GetChild(NameVar string) *Settings {
-	core.LazyRegister(&xSettingsGetChild, "GIO", "g_settings_get_child", false)
 	var cls *Settings
 
 	cret := xSettingsGetChild(x.GoPointer(), NameVar)
@@ -983,8 +958,6 @@ var xSettingsGetDefaultValue func(uintptr, string) uintptr
 // It is a programmer error to give a @key that isn’t contained in the
 // schema for @settings.
 func (x *Settings) GetDefaultValue(KeyVar string) *glib.Variant {
-	core.LazyRegister(&xSettingsGetDefaultValue, "GIO", "g_settings_get_default_value", false)
-
 	cret := xSettingsGetDefaultValue(x.GoPointer(), KeyVar)
 	if cret == 0 {
 		return nil
@@ -1001,8 +974,6 @@ var xSettingsGetDouble func(uintptr, string) float64
 // It is a programmer error to give a @key that isn’t specified as
 // having a `d` type in the schema for @settings (see [struct@GLib.VariantType]).
 func (x *Settings) GetDouble(KeyVar string) float64 {
-	core.LazyRegister(&xSettingsGetDouble, "GIO", "g_settings_get_double", false)
-
 	cret := xSettingsGetDouble(x.GoPointer(), KeyVar)
 	return cret
 }
@@ -1022,8 +993,6 @@ var xSettingsGetEnum func(uintptr, string) int
 // value for the enumerated type then this function will return the
 // default value.
 func (x *Settings) GetEnum(KeyVar string) int {
-	core.LazyRegister(&xSettingsGetEnum, "GIO", "g_settings_get_enum", false)
-
 	cret := xSettingsGetEnum(x.GoPointer(), KeyVar)
 	return cret
 }
@@ -1043,8 +1012,6 @@ var xSettingsGetFlags func(uintptr, string) uint
 // value for the flags type then this function will return the default
 // value.
 func (x *Settings) GetFlags(KeyVar string) uint {
-	core.LazyRegister(&xSettingsGetFlags, "GIO", "g_settings_get_flags", false)
-
 	cret := xSettingsGetFlags(x.GoPointer(), KeyVar)
 	return cret
 }
@@ -1057,8 +1024,6 @@ var xSettingsGetHasUnapplied func(uintptr) bool
 // This can only be the case if it is in
 // [‘delay-apply’ mode](class.Settings.html#delay-apply-mode).
 func (x *Settings) GetHasUnapplied() bool {
-	core.LazyRegister(&xSettingsGetHasUnapplied, "GIO", "g_settings_get_has_unapplied", false)
-
 	cret := xSettingsGetHasUnapplied(x.GoPointer())
 	return cret
 }
@@ -1072,8 +1037,6 @@ var xSettingsGetInt func(uintptr, string) int
 // It is a programmer error to give a @key that isn’t specified as
 // having an `i` type in the schema for @settings (see [struct@GLib.VariantType]).
 func (x *Settings) GetInt(KeyVar string) int {
-	core.LazyRegister(&xSettingsGetInt, "GIO", "g_settings_get_int", false)
-
 	cret := xSettingsGetInt(x.GoPointer(), KeyVar)
 	return cret
 }
@@ -1087,8 +1050,6 @@ var xSettingsGetInt64 func(uintptr, string) int64
 // It is a programmer error to give a @key that isn’t specified as
 // having an `x` type in the schema for @settings (see [struct@GLib.VariantType]).
 func (x *Settings) GetInt64(KeyVar string) int64 {
-	core.LazyRegister(&xSettingsGetInt64, "GIO", "g_settings_get_int64", false)
-
 	cret := xSettingsGetInt64(x.GoPointer(), KeyVar)
 	return cret
 }
@@ -1123,8 +1084,6 @@ var xSettingsGetMapped func(uintptr, string, uintptr, uintptr) uintptr
 // what is returned by this function.  `NULL` is valid; it is returned
 // just as any other value would be.
 func (x *Settings) GetMapped(KeyVar string, MappingVar *SettingsGetMapping, UserDataVar uintptr) uintptr {
-	core.LazyRegister(&xSettingsGetMapped, "GIO", "g_settings_get_mapped", false)
-
 	cret := xSettingsGetMapped(x.GoPointer(), KeyVar, glib.NewCallback(MappingVar), UserDataVar)
 	return cret
 }
@@ -1133,8 +1092,6 @@ var xSettingsGetRange func(uintptr, string) uintptr
 
 // Queries the range of a key.
 func (x *Settings) GetRange(KeyVar string) *glib.Variant {
-	core.LazyRegister(&xSettingsGetRange, "GIO", "g_settings_get_range", false)
-
 	cret := xSettingsGetRange(x.GoPointer(), KeyVar)
 	if cret == 0 {
 		return nil
@@ -1151,8 +1108,6 @@ var xSettingsGetString func(uintptr, string) string
 // It is a programmer error to give a @key that isn’t specified as
 // having an `s` type in the schema for @settings (see [struct@GLib.VariantType]).
 func (x *Settings) GetString(KeyVar string) string {
-	core.LazyRegister(&xSettingsGetString, "GIO", "g_settings_get_string", false)
-
 	cret := xSettingsGetString(x.GoPointer(), KeyVar)
 	return cret
 }
@@ -1164,8 +1119,6 @@ var xSettingsGetStrv func(uintptr, string) []string
 // It is a programmer error to give a @key that isn’t specified as
 // having an `as` type in the schema for @settings (see [struct@GLib.VariantType]).
 func (x *Settings) GetStrv(KeyVar string) []string {
-	core.LazyRegister(&xSettingsGetStrv, "GIO", "g_settings_get_strv", false)
-
 	cret := xSettingsGetStrv(x.GoPointer(), KeyVar)
 	return cret
 }
@@ -1180,8 +1133,6 @@ var xSettingsGetUint func(uintptr, string) uint
 // It is a programmer error to give a @key that isn’t specified as
 // having a `u` type in the schema for @settings (see [struct@GLib.VariantType]).
 func (x *Settings) GetUint(KeyVar string) uint {
-	core.LazyRegister(&xSettingsGetUint, "GIO", "g_settings_get_uint", false)
-
 	cret := xSettingsGetUint(x.GoPointer(), KeyVar)
 	return cret
 }
@@ -1196,8 +1147,6 @@ var xSettingsGetUint64 func(uintptr, string) uint64
 // It is a programmer error to give a @key that isn’t specified as
 // having a `t` type in the schema for @settings (see [struct@GLib.VariantType]).
 func (x *Settings) GetUint64(KeyVar string) uint64 {
-	core.LazyRegister(&xSettingsGetUint64, "GIO", "g_settings_get_uint64", false)
-
 	cret := xSettingsGetUint64(x.GoPointer(), KeyVar)
 	return cret
 }
@@ -1223,8 +1172,6 @@ var xSettingsGetUserValue func(uintptr, string) uintptr
 // It is a programmer error to give a @key that isn’t contained in the
 // schema for @settings.
 func (x *Settings) GetUserValue(KeyVar string) *glib.Variant {
-	core.LazyRegister(&xSettingsGetUserValue, "GIO", "g_settings_get_user_value", false)
-
 	cret := xSettingsGetUserValue(x.GoPointer(), KeyVar)
 	if cret == 0 {
 		return nil
@@ -1239,8 +1186,6 @@ var xSettingsGetValue func(uintptr, string) uintptr
 // It is a programmer error to give a @key that isn’t contained in the
 // schema for @settings.
 func (x *Settings) GetValue(KeyVar string) *glib.Variant {
-	core.LazyRegister(&xSettingsGetValue, "GIO", "g_settings_get_value", false)
-
 	cret := xSettingsGetValue(x.GoPointer(), KeyVar)
 	if cret == 0 {
 		return nil
@@ -1252,8 +1197,6 @@ var xSettingsIsWritable func(uintptr, string) bool
 
 // Finds out if a key can be written.
 func (x *Settings) IsWritable(NameVar string) bool {
-	core.LazyRegister(&xSettingsIsWritable, "GIO", "g_settings_is_writable", false)
-
 	cret := xSettingsIsWritable(x.GoPointer(), NameVar)
 	return cret
 }
@@ -1272,8 +1215,6 @@ var xSettingsListChildren func(uintptr) []string
 // You should free the return value with [func@GLib.strfreev] when you are done
 // with it.
 func (x *Settings) ListChildren() []string {
-	core.LazyRegister(&xSettingsListChildren, "GIO", "g_settings_list_children", false)
-
 	cret := xSettingsListChildren(x.GoPointer())
 	return cret
 }
@@ -1289,8 +1230,6 @@ var xSettingsListKeys func(uintptr) []string
 // You should free the return value with [func@GLib.strfreev] when you are done
 // with it.
 func (x *Settings) ListKeys() []string {
-	core.LazyRegister(&xSettingsListKeys, "GIO", "g_settings_list_keys", false)
-
 	cret := xSettingsListKeys(x.GoPointer())
 	return cret
 }
@@ -1300,8 +1239,6 @@ var xSettingsRangeCheck func(uintptr, string, *glib.Variant) bool
 // Checks if the given @value is of the correct type and within the
 // permitted range for @key.
 func (x *Settings) RangeCheck(KeyVar string, ValueVar *glib.Variant) bool {
-	core.LazyRegister(&xSettingsRangeCheck, "GIO", "g_settings_range_check", false)
-
 	cret := xSettingsRangeCheck(x.GoPointer(), KeyVar, ValueVar)
 	return cret
 }
@@ -1314,8 +1251,6 @@ var xSettingsReset func(uintptr, string)
 // That might be the value specified in the schema or the one set by the
 // administrator.
 func (x *Settings) Reset(KeyVar string) {
-	core.LazyRegister(&xSettingsReset, "GIO", "g_settings_reset", false)
-
 	xSettingsReset(x.GoPointer(), KeyVar)
 }
 
@@ -1329,8 +1264,6 @@ var xSettingsRevert func(uintptr)
 //
 // Change notifications will be emitted for affected keys.
 func (x *Settings) Revert() {
-	core.LazyRegister(&xSettingsRevert, "GIO", "g_settings_revert", false)
-
 	xSettingsRevert(x.GoPointer())
 }
 
@@ -1345,8 +1278,6 @@ var xSettingsSet func(uintptr, string, string, ...interface{}) bool
 // schema for @settings or for the [struct@GLib.VariantType] of @format to mismatch
 // the type given in the schema.
 func (x *Settings) Set(KeyVar string, FormatVar string, varArgs ...interface{}) bool {
-	core.LazyRegister(&xSettingsSet, "GIO", "g_settings_set", false)
-
 	cret := xSettingsSet(x.GoPointer(), KeyVar, FormatVar, varArgs...)
 	return cret
 }
@@ -1360,8 +1291,6 @@ var xSettingsSetBoolean func(uintptr, string, bool) bool
 // It is a programmer error to give a @key that isn’t specified as
 // having a `b` type in the schema for @settings (see [struct@GLib.VariantType]).
 func (x *Settings) SetBoolean(KeyVar string, ValueVar bool) bool {
-	core.LazyRegister(&xSettingsSetBoolean, "GIO", "g_settings_set_boolean", false)
-
 	cret := xSettingsSetBoolean(x.GoPointer(), KeyVar, ValueVar)
 	return cret
 }
@@ -1375,8 +1304,6 @@ var xSettingsSetDouble func(uintptr, string, float64) bool
 // It is a programmer error to give a @key that isn’t specified as
 // having a `d` type in the schema for @settings (see [struct@GLib.VariantType]).
 func (x *Settings) SetDouble(KeyVar string, ValueVar float64) bool {
-	core.LazyRegister(&xSettingsSetDouble, "GIO", "g_settings_set_double", false)
-
 	cret := xSettingsSetDouble(x.GoPointer(), KeyVar, ValueVar)
 	return cret
 }
@@ -1394,8 +1321,6 @@ var xSettingsSetEnum func(uintptr, string, int) bool
 // [method@Gio.Settings.get_string] will return the ‘nick’ associated with
 // @value.
 func (x *Settings) SetEnum(KeyVar string, ValueVar int) bool {
-	core.LazyRegister(&xSettingsSetEnum, "GIO", "g_settings_set_enum", false)
-
 	cret := xSettingsSetEnum(x.GoPointer(), KeyVar, ValueVar)
 	return cret
 }
@@ -1414,8 +1339,6 @@ var xSettingsSetFlags func(uintptr, string, uint) bool
 // [method@Gio.Settings.get_strv] will return an array of ‘nicks’; one for each
 // bit in @value.
 func (x *Settings) SetFlags(KeyVar string, ValueVar uint) bool {
-	core.LazyRegister(&xSettingsSetFlags, "GIO", "g_settings_set_flags", false)
-
 	cret := xSettingsSetFlags(x.GoPointer(), KeyVar, ValueVar)
 	return cret
 }
@@ -1429,8 +1352,6 @@ var xSettingsSetInt func(uintptr, string, int) bool
 // It is a programmer error to give a @key that isn’t specified as
 // having an `i` type in the schema for @settings (see [struct@GLib.VariantType]).
 func (x *Settings) SetInt(KeyVar string, ValueVar int) bool {
-	core.LazyRegister(&xSettingsSetInt, "GIO", "g_settings_set_int", false)
-
 	cret := xSettingsSetInt(x.GoPointer(), KeyVar, ValueVar)
 	return cret
 }
@@ -1444,8 +1365,6 @@ var xSettingsSetInt64 func(uintptr, string, int64) bool
 // It is a programmer error to give a @key that isn’t specified as
 // having an `x` type in the schema for @settings (see [struct@GLib.VariantType]).
 func (x *Settings) SetInt64(KeyVar string, ValueVar int64) bool {
-	core.LazyRegister(&xSettingsSetInt64, "GIO", "g_settings_set_int64", false)
-
 	cret := xSettingsSetInt64(x.GoPointer(), KeyVar, ValueVar)
 	return cret
 }
@@ -1459,8 +1378,6 @@ var xSettingsSetString func(uintptr, string, string) bool
 // It is a programmer error to give a @key that isn’t specified as
 // having an `s` type in the schema for @settings (see [struct@GLib.VariantType]).
 func (x *Settings) SetString(KeyVar string, ValueVar string) bool {
-	core.LazyRegister(&xSettingsSetString, "GIO", "g_settings_set_string", false)
-
 	cret := xSettingsSetString(x.GoPointer(), KeyVar, ValueVar)
 	return cret
 }
@@ -1475,8 +1392,6 @@ var xSettingsSetStrv func(uintptr, string, []string) bool
 // It is a programmer error to give a @key that isn’t specified as
 // having an `as` type in the schema for @settings (see [struct@GLib.VariantType]).
 func (x *Settings) SetStrv(KeyVar string, ValueVar []string) bool {
-	core.LazyRegister(&xSettingsSetStrv, "GIO", "g_settings_set_strv", false)
-
 	cret := xSettingsSetStrv(x.GoPointer(), KeyVar, ValueVar)
 	return cret
 }
@@ -1491,8 +1406,6 @@ var xSettingsSetUint func(uintptr, string, uint) bool
 // It is a programmer error to give a @key that isn’t specified as
 // having a `u` type in the schema for @settings (see [struct@GLib.VariantType]).
 func (x *Settings) SetUint(KeyVar string, ValueVar uint) bool {
-	core.LazyRegister(&xSettingsSetUint, "GIO", "g_settings_set_uint", false)
-
 	cret := xSettingsSetUint(x.GoPointer(), KeyVar, ValueVar)
 	return cret
 }
@@ -1507,8 +1420,6 @@ var xSettingsSetUint64 func(uintptr, string, uint64) bool
 // It is a programmer error to give a @key that isn’t specified as
 // having a `t` type in the schema for @settings (see [struct@GLib.VariantType]).
 func (x *Settings) SetUint64(KeyVar string, ValueVar uint64) bool {
-	core.LazyRegister(&xSettingsSetUint64, "GIO", "g_settings_set_uint64", false)
-
 	cret := xSettingsSetUint64(x.GoPointer(), KeyVar, ValueVar)
 	return cret
 }
@@ -1523,8 +1434,6 @@ var xSettingsSetValue func(uintptr, string, *glib.Variant) bool
 //
 // If @value is floating then this function consumes the reference.
 func (x *Settings) SetValue(KeyVar string, ValueVar *glib.Variant) bool {
-	core.LazyRegister(&xSettingsSetValue, "GIO", "g_settings_set_value", false)
-
 	cret := xSettingsSetValue(x.GoPointer(), KeyVar, ValueVar)
 	return cret
 }
@@ -1809,8 +1718,6 @@ var xSettingsListRelocatableSchemas func() []string
 
 // Deprecated.
 func SettingsListRelocatableSchemas() []string {
-	core.LazyRegister(&xSettingsListRelocatableSchemas, "GIO", "g_settings_list_relocatable_schemas", false)
-
 	cret := xSettingsListRelocatableSchemas()
 	return cret
 }
@@ -1819,8 +1726,6 @@ var xSettingsListSchemas func() []string
 
 // Deprecated.
 func SettingsListSchemas() []string {
-	core.LazyRegister(&xSettingsListSchemas, "GIO", "g_settings_list_schemas", false)
-
 	cret := xSettingsListSchemas()
 	return cret
 }
@@ -1838,8 +1743,6 @@ var xSettingsSync func()
 // will be dispatched during this call (but some may be queued by the
 // time the call is done).
 func SettingsSync() {
-	core.LazyRegister(&xSettingsSync, "GIO", "g_settings_sync", false)
-
 	xSettingsSync()
 }
 
@@ -1851,12 +1754,77 @@ var xSettingsUnbind func(uintptr, string)
 // object is finalized, so it is rarely necessary to call this
 // function.
 func SettingsUnbind(ObjectVar *gobject.Object, PropertyVar string) {
-	core.LazyRegister(&xSettingsUnbind, "GIO", "g_settings_unbind", false)
-
 	xSettingsUnbind(ObjectVar.GoPointer(), PropertyVar)
 }
 
 func init() {
 	core.SetPackageName("GIO", "gio-2.0")
 	core.SetSharedLibraries("GIO", []string{"libgio-2.0.so.0", "libgio-2.0.0.dylib"})
+	var libs []uintptr
+	for _, libPath := range core.GetPaths("GIO") {
+		lib, err := purego.Dlopen(libPath, purego.RTLD_NOW|purego.RTLD_GLOBAL)
+		if err != nil {
+			panic(err)
+		}
+		libs = append(libs, lib)
+	}
+
+	core.PuregoSafeRegister(&xSettingsBindFlagsGLibType, libs, "g_settings_bind_flags_get_type")
+
+	core.PuregoSafeRegister(&xSettingsGLibType, libs, "g_settings_get_type")
+
+	core.PuregoSafeRegister(&xNewSettings, libs, "g_settings_new")
+	core.PuregoSafeRegister(&xNewSettingsFull, libs, "g_settings_new_full")
+	core.PuregoSafeRegister(&xNewSettingsWithBackend, libs, "g_settings_new_with_backend")
+	core.PuregoSafeRegister(&xNewSettingsWithBackendAndPath, libs, "g_settings_new_with_backend_and_path")
+	core.PuregoSafeRegister(&xNewSettingsWithPath, libs, "g_settings_new_with_path")
+
+	core.PuregoSafeRegister(&xSettingsApply, libs, "g_settings_apply")
+	core.PuregoSafeRegister(&xSettingsBind, libs, "g_settings_bind")
+	core.PuregoSafeRegister(&xSettingsBindWithMapping, libs, "g_settings_bind_with_mapping")
+	core.PuregoSafeRegister(&xSettingsBindWithMappingClosures, libs, "g_settings_bind_with_mapping_closures")
+	core.PuregoSafeRegister(&xSettingsBindWritable, libs, "g_settings_bind_writable")
+	core.PuregoSafeRegister(&xSettingsCreateAction, libs, "g_settings_create_action")
+	core.PuregoSafeRegister(&xSettingsDelay, libs, "g_settings_delay")
+	core.PuregoSafeRegister(&xSettingsGet, libs, "g_settings_get")
+	core.PuregoSafeRegister(&xSettingsGetBoolean, libs, "g_settings_get_boolean")
+	core.PuregoSafeRegister(&xSettingsGetChild, libs, "g_settings_get_child")
+	core.PuregoSafeRegister(&xSettingsGetDefaultValue, libs, "g_settings_get_default_value")
+	core.PuregoSafeRegister(&xSettingsGetDouble, libs, "g_settings_get_double")
+	core.PuregoSafeRegister(&xSettingsGetEnum, libs, "g_settings_get_enum")
+	core.PuregoSafeRegister(&xSettingsGetFlags, libs, "g_settings_get_flags")
+	core.PuregoSafeRegister(&xSettingsGetHasUnapplied, libs, "g_settings_get_has_unapplied")
+	core.PuregoSafeRegister(&xSettingsGetInt, libs, "g_settings_get_int")
+	core.PuregoSafeRegister(&xSettingsGetInt64, libs, "g_settings_get_int64")
+	core.PuregoSafeRegister(&xSettingsGetMapped, libs, "g_settings_get_mapped")
+	core.PuregoSafeRegister(&xSettingsGetRange, libs, "g_settings_get_range")
+	core.PuregoSafeRegister(&xSettingsGetString, libs, "g_settings_get_string")
+	core.PuregoSafeRegister(&xSettingsGetStrv, libs, "g_settings_get_strv")
+	core.PuregoSafeRegister(&xSettingsGetUint, libs, "g_settings_get_uint")
+	core.PuregoSafeRegister(&xSettingsGetUint64, libs, "g_settings_get_uint64")
+	core.PuregoSafeRegister(&xSettingsGetUserValue, libs, "g_settings_get_user_value")
+	core.PuregoSafeRegister(&xSettingsGetValue, libs, "g_settings_get_value")
+	core.PuregoSafeRegister(&xSettingsIsWritable, libs, "g_settings_is_writable")
+	core.PuregoSafeRegister(&xSettingsListChildren, libs, "g_settings_list_children")
+	core.PuregoSafeRegister(&xSettingsListKeys, libs, "g_settings_list_keys")
+	core.PuregoSafeRegister(&xSettingsRangeCheck, libs, "g_settings_range_check")
+	core.PuregoSafeRegister(&xSettingsReset, libs, "g_settings_reset")
+	core.PuregoSafeRegister(&xSettingsRevert, libs, "g_settings_revert")
+	core.PuregoSafeRegister(&xSettingsSet, libs, "g_settings_set")
+	core.PuregoSafeRegister(&xSettingsSetBoolean, libs, "g_settings_set_boolean")
+	core.PuregoSafeRegister(&xSettingsSetDouble, libs, "g_settings_set_double")
+	core.PuregoSafeRegister(&xSettingsSetEnum, libs, "g_settings_set_enum")
+	core.PuregoSafeRegister(&xSettingsSetFlags, libs, "g_settings_set_flags")
+	core.PuregoSafeRegister(&xSettingsSetInt, libs, "g_settings_set_int")
+	core.PuregoSafeRegister(&xSettingsSetInt64, libs, "g_settings_set_int64")
+	core.PuregoSafeRegister(&xSettingsSetString, libs, "g_settings_set_string")
+	core.PuregoSafeRegister(&xSettingsSetStrv, libs, "g_settings_set_strv")
+	core.PuregoSafeRegister(&xSettingsSetUint, libs, "g_settings_set_uint")
+	core.PuregoSafeRegister(&xSettingsSetUint64, libs, "g_settings_set_uint64")
+	core.PuregoSafeRegister(&xSettingsSetValue, libs, "g_settings_set_value")
+
+	core.PuregoSafeRegister(&xSettingsListRelocatableSchemas, libs, "g_settings_list_relocatable_schemas")
+	core.PuregoSafeRegister(&xSettingsListSchemas, libs, "g_settings_list_schemas")
+	core.PuregoSafeRegister(&xSettingsSync, libs, "g_settings_sync")
+	core.PuregoSafeRegister(&xSettingsUnbind, libs, "g_settings_unbind")
 }

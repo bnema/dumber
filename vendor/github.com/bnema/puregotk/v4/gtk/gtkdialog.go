@@ -94,7 +94,6 @@ type DialogFlags int
 var xDialogFlagsGLibType func() types.GType
 
 func DialogFlagsGLibType() types.GType {
-	core.LazyRegister(&xDialogFlagsGLibType, "GTK", "gtk_dialog_flags_get_type", false)
 	return xDialogFlagsGLibType()
 }
 
@@ -118,7 +117,6 @@ type ResponseType int
 var xResponseTypeGLibType func() types.GType
 
 func ResponseTypeGLibType() types.GType {
-	core.LazyRegister(&xResponseTypeGLibType, "GTK", "gtk_response_type_get_type", false)
 	return xResponseTypeGLibType()
 }
 
@@ -286,7 +284,6 @@ type Dialog struct {
 var xDialogGLibType func() types.GType
 
 func DialogGLibType() types.GType {
-	core.LazyRegister(&xDialogGLibType, "GTK", "gtk_dialog_get_type", false)
 	return xDialogGLibType()
 }
 
@@ -304,7 +301,6 @@ var xNewDialog func() uintptr
 // directly, but into the @content_area and @action_area,
 // as described above.
 func NewDialog() *Dialog {
-	core.LazyRegister(&xNewDialog, "GTK", "gtk_dialog_new", false)
 	var cls *Dialog
 
 	cret := xNewDialog()
@@ -356,7 +352,6 @@ var xNewDialogWithButtons func(uintptr, uintptr, DialogFlags, uintptr, ...interf
 //
 // ```
 func NewDialogWithButtons(TitleVar *string, ParentVar *Window, FlagsVar DialogFlags, FirstButtonTextVar *string, varArgs ...interface{}) *Dialog {
-	core.LazyRegister(&xNewDialogWithButtons, "GTK", "gtk_dialog_new_with_buttons", false)
 	var cls *Dialog
 
 	TitleVarPtr := core.GStrdupNullable(TitleVar)
@@ -388,8 +383,6 @@ var xDialogAddActionWidget func(uintptr, uintptr, int)
 // If you want to add a non-activatable widget, simply pack it into
 // the @action_area field of the `GtkDialog` struct.
 func (x *Dialog) AddActionWidget(ChildVar *Widget, ResponseIdVar int) {
-	core.LazyRegister(&xDialogAddActionWidget, "GTK", "gtk_dialog_add_action_widget", false)
-
 	xDialogAddActionWidget(x.GoPointer(), ChildVar.GoPointer(), ResponseIdVar)
 }
 
@@ -402,7 +395,6 @@ var xDialogAddButton func(uintptr, string, int) uintptr
 // The button is appended to the end of the dialog’s action area.
 // The button widget is returned, but usually you don’t need it.
 func (x *Dialog) AddButton(ButtonTextVar string, ResponseIdVar int) *Widget {
-	core.LazyRegister(&xDialogAddButton, "GTK", "gtk_dialog_add_button", false)
 	var cls *Widget
 
 	cret := xDialogAddButton(x.GoPointer(), ButtonTextVar, ResponseIdVar)
@@ -425,8 +417,6 @@ var xDialogAddButtons func(uintptr, string, ...interface{})
 // as with [ctor@Gtk.Dialog.new_with_buttons]. Each button must have both
 // text and response ID.
 func (x *Dialog) AddButtons(FirstButtonTextVar string, varArgs ...interface{}) {
-	core.LazyRegister(&xDialogAddButtons, "GTK", "gtk_dialog_add_buttons", false)
-
 	xDialogAddButtons(x.GoPointer(), FirstButtonTextVar, varArgs...)
 }
 
@@ -434,7 +424,6 @@ var xDialogGetContentArea func(uintptr) uintptr
 
 // Returns the content area of @dialog.
 func (x *Dialog) GetContentArea() *Box {
-	core.LazyRegister(&xDialogGetContentArea, "GTK", "gtk_dialog_get_content_area", false)
 	var cls *Box
 
 	cret := xDialogGetContentArea(x.GoPointer())
@@ -455,7 +444,6 @@ var xDialogGetHeaderBar func(uintptr) uintptr
 // Note that the headerbar is only used by the dialog if the
 // [property@Gtk.Dialog:use-header-bar] property is %TRUE.
 func (x *Dialog) GetHeaderBar() *HeaderBar {
-	core.LazyRegister(&xDialogGetHeaderBar, "GTK", "gtk_dialog_get_header_bar", false)
 	var cls *HeaderBar
 
 	cret := xDialogGetHeaderBar(x.GoPointer())
@@ -474,8 +462,6 @@ var xDialogGetResponseForWidget func(uintptr, uintptr) int
 // Gets the response id of a widget in the action area
 // of a dialog.
 func (x *Dialog) GetResponseForWidget(WidgetVar *Widget) int {
-	core.LazyRegister(&xDialogGetResponseForWidget, "GTK", "gtk_dialog_get_response_for_widget", false)
-
 	cret := xDialogGetResponseForWidget(x.GoPointer(), WidgetVar.GoPointer())
 	return cret
 }
@@ -485,7 +471,6 @@ var xDialogGetWidgetForResponse func(uintptr, int) uintptr
 // Gets the widget button that uses the given response ID in the action area
 // of a dialog.
 func (x *Dialog) GetWidgetForResponse(ResponseIdVar int) *Widget {
-	core.LazyRegister(&xDialogGetWidgetForResponse, "GTK", "gtk_dialog_get_widget_for_response", false)
 	var cls *Widget
 
 	cret := xDialogGetWidgetForResponse(x.GoPointer(), ResponseIdVar)
@@ -505,8 +490,6 @@ var xDialogResponse func(uintptr, int)
 //
 // Used to indicate that the user has responded to the dialog in some way.
 func (x *Dialog) Response(ResponseIdVar int) {
-	core.LazyRegister(&xDialogResponse, "GTK", "gtk_dialog_response", false)
-
 	xDialogResponse(x.GoPointer(), ResponseIdVar)
 }
 
@@ -516,8 +499,6 @@ var xDialogSetDefaultResponse func(uintptr, int)
 //
 // Pressing “Enter” normally activates the default widget.
 func (x *Dialog) SetDefaultResponse(ResponseIdVar int) {
-	core.LazyRegister(&xDialogSetDefaultResponse, "GTK", "gtk_dialog_set_default_response", false)
-
 	xDialogSetDefaultResponse(x.GoPointer(), ResponseIdVar)
 }
 
@@ -528,8 +509,6 @@ var xDialogSetResponseSensitive func(uintptr, int, bool)
 // Calls `gtk_widget_set_sensitive (widget, @setting)`
 // for each widget in the dialog’s action area with the given @response_id.
 func (x *Dialog) SetResponseSensitive(ResponseIdVar int, SettingVar bool) {
-	core.LazyRegister(&xDialogSetResponseSensitive, "GTK", "gtk_dialog_set_response_sensitive", false)
-
 	xDialogSetResponseSensitive(x.GoPointer(), ResponseIdVar, SettingVar)
 }
 
@@ -1012,4 +991,32 @@ func (x *Dialog) SetFocus(FocusVar *Widget) {
 func init() {
 	core.SetPackageName("GTK", "gtk4")
 	core.SetSharedLibraries("GTK", []string{"libgtk-4.so.1", "libgtk-4.1.dylib"})
+	var libs []uintptr
+	for _, libPath := range core.GetPaths("GTK") {
+		lib, err := purego.Dlopen(libPath, purego.RTLD_NOW|purego.RTLD_GLOBAL)
+		if err != nil {
+			panic(err)
+		}
+		libs = append(libs, lib)
+	}
+
+	core.PuregoSafeRegister(&xDialogFlagsGLibType, libs, "gtk_dialog_flags_get_type")
+
+	core.PuregoSafeRegister(&xResponseTypeGLibType, libs, "gtk_response_type_get_type")
+
+	core.PuregoSafeRegister(&xDialogGLibType, libs, "gtk_dialog_get_type")
+
+	core.PuregoSafeRegister(&xNewDialog, libs, "gtk_dialog_new")
+	core.PuregoSafeRegister(&xNewDialogWithButtons, libs, "gtk_dialog_new_with_buttons")
+
+	core.PuregoSafeRegister(&xDialogAddActionWidget, libs, "gtk_dialog_add_action_widget")
+	core.PuregoSafeRegister(&xDialogAddButton, libs, "gtk_dialog_add_button")
+	core.PuregoSafeRegister(&xDialogAddButtons, libs, "gtk_dialog_add_buttons")
+	core.PuregoSafeRegister(&xDialogGetContentArea, libs, "gtk_dialog_get_content_area")
+	core.PuregoSafeRegister(&xDialogGetHeaderBar, libs, "gtk_dialog_get_header_bar")
+	core.PuregoSafeRegister(&xDialogGetResponseForWidget, libs, "gtk_dialog_get_response_for_widget")
+	core.PuregoSafeRegister(&xDialogGetWidgetForResponse, libs, "gtk_dialog_get_widget_for_response")
+	core.PuregoSafeRegister(&xDialogResponse, libs, "gtk_dialog_response")
+	core.PuregoSafeRegister(&xDialogSetDefaultResponse, libs, "gtk_dialog_set_default_response")
+	core.PuregoSafeRegister(&xDialogSetResponseSensitive, libs, "gtk_dialog_set_response_sensitive")
 }

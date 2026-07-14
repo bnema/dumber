@@ -2,6 +2,7 @@
 package gtk
 
 import (
+	"github.com/bnema/purego"
 	"github.com/bnema/puregotk/pkg/core"
 	"github.com/bnema/puregotk/v4/glib"
 	"github.com/bnema/puregotk/v4/gobject"
@@ -98,7 +99,6 @@ type InfoBar struct {
 var xInfoBarGLibType func() types.GType
 
 func InfoBarGLibType() types.GType {
-	core.LazyRegister(&xInfoBarGLibType, "GTK", "gtk_info_bar_get_type", false)
 	return xInfoBarGLibType()
 }
 
@@ -112,7 +112,6 @@ var xNewInfoBar func() uintptr
 
 // Creates a new `GtkInfoBar` object.
 func NewInfoBar() *InfoBar {
-	core.LazyRegister(&xNewInfoBar, "GTK", "gtk_info_bar_new", false)
 	var cls *InfoBar
 
 	cret := xNewInfoBar()
@@ -137,7 +136,6 @@ var xNewInfoBarWithButtons func(uintptr, ...interface{}) uintptr
 // the [signal@Gtk.InfoBar::response] signal with the corresponding
 // response ID.
 func NewInfoBarWithButtons(FirstButtonTextVar *string, varArgs ...interface{}) *InfoBar {
-	core.LazyRegister(&xNewInfoBarWithButtons, "GTK", "gtk_info_bar_new_with_buttons", false)
 	var cls *InfoBar
 
 	FirstButtonTextVarPtr := core.GStrdupNullable(FirstButtonTextVar)
@@ -163,8 +161,6 @@ var xInfoBarAddActionWidget func(uintptr, uintptr, int)
 // when the widget is activated. The widget is appended to the
 // end of the message areas action area.
 func (x *InfoBar) AddActionWidget(ChildVar *Widget, ResponseIdVar int) {
-	core.LazyRegister(&xInfoBarAddActionWidget, "GTK", "gtk_info_bar_add_action_widget", false)
-
 	xInfoBarAddActionWidget(x.GoPointer(), ChildVar.GoPointer(), ResponseIdVar)
 }
 
@@ -177,7 +173,6 @@ var xInfoBarAddButton func(uintptr, string, int) uintptr
 // end of the info bar's action area. The button widget is returned,
 // but usually you don't need it.
 func (x *InfoBar) AddButton(ButtonTextVar string, ResponseIdVar int) *Button {
-	core.LazyRegister(&xInfoBarAddButton, "GTK", "gtk_info_bar_add_button", false)
 	var cls *Button
 
 	cret := xInfoBarAddButton(x.GoPointer(), ButtonTextVar, ResponseIdVar)
@@ -200,8 +195,6 @@ var xInfoBarAddButtons func(uintptr, string, ...interface{})
 // as with [ctor@Gtk.InfoBar.new_with_buttons]. Each button must have both
 // text and response ID.
 func (x *InfoBar) AddButtons(FirstButtonTextVar string, varArgs ...interface{}) {
-	core.LazyRegister(&xInfoBarAddButtons, "GTK", "gtk_info_bar_add_buttons", false)
-
 	xInfoBarAddButtons(x.GoPointer(), FirstButtonTextVar, varArgs...)
 }
 
@@ -209,8 +202,6 @@ var xInfoBarAddChild func(uintptr, uintptr)
 
 // Adds a widget to the content area of the info bar.
 func (x *InfoBar) AddChild(WidgetVar *Widget) {
-	core.LazyRegister(&xInfoBarAddChild, "GTK", "gtk_info_bar_add_child", false)
-
 	xInfoBarAddChild(x.GoPointer(), WidgetVar.GoPointer())
 }
 
@@ -218,8 +209,6 @@ var xInfoBarGetMessageType func(uintptr) MessageType
 
 // Returns the message type of the message area.
 func (x *InfoBar) GetMessageType() MessageType {
-	core.LazyRegister(&xInfoBarGetMessageType, "GTK", "gtk_info_bar_get_message_type", false)
-
 	cret := xInfoBarGetMessageType(x.GoPointer())
 	return cret
 }
@@ -228,8 +217,6 @@ var xInfoBarGetRevealed func(uintptr) bool
 
 // Returns whether the info bar is currently revealed.
 func (x *InfoBar) GetRevealed() bool {
-	core.LazyRegister(&xInfoBarGetRevealed, "GTK", "gtk_info_bar_get_revealed", false)
-
 	cret := xInfoBarGetRevealed(x.GoPointer())
 	return cret
 }
@@ -238,8 +225,6 @@ var xInfoBarGetShowCloseButton func(uintptr) bool
 
 // Returns whether the widget will display a standard close button.
 func (x *InfoBar) GetShowCloseButton() bool {
-	core.LazyRegister(&xInfoBarGetShowCloseButton, "GTK", "gtk_info_bar_get_show_close_button", false)
-
 	cret := xInfoBarGetShowCloseButton(x.GoPointer())
 	return cret
 }
@@ -251,8 +236,6 @@ var xInfoBarRemoveActionWidget func(uintptr, uintptr)
 // The widget must have been put there by a call to
 // [method@Gtk.InfoBar.add_action_widget] or [method@Gtk.InfoBar.add_button].
 func (x *InfoBar) RemoveActionWidget(WidgetVar *Widget) {
-	core.LazyRegister(&xInfoBarRemoveActionWidget, "GTK", "gtk_info_bar_remove_action_widget", false)
-
 	xInfoBarRemoveActionWidget(x.GoPointer(), WidgetVar.GoPointer())
 }
 
@@ -260,8 +243,6 @@ var xInfoBarRemoveChild func(uintptr, uintptr)
 
 // Removes a widget from the content area of the info bar.
 func (x *InfoBar) RemoveChild(WidgetVar *Widget) {
-	core.LazyRegister(&xInfoBarRemoveChild, "GTK", "gtk_info_bar_remove_child", false)
-
 	xInfoBarRemoveChild(x.GoPointer(), WidgetVar.GoPointer())
 }
 
@@ -269,8 +250,6 @@ var xInfoBarResponse func(uintptr, int)
 
 // Emits the “response” signal with the given @response_id.
 func (x *InfoBar) Response(ResponseIdVar int) {
-	core.LazyRegister(&xInfoBarResponse, "GTK", "gtk_info_bar_response", false)
-
 	xInfoBarResponse(x.GoPointer(), ResponseIdVar)
 }
 
@@ -284,8 +263,6 @@ var xInfoBarSetDefaultResponse func(uintptr, int)
 // Note that this function currently requires @info_bar to
 // be added to a widget hierarchy.
 func (x *InfoBar) SetDefaultResponse(ResponseIdVar int) {
-	core.LazyRegister(&xInfoBarSetDefaultResponse, "GTK", "gtk_info_bar_set_default_response", false)
-
 	xInfoBarSetDefaultResponse(x.GoPointer(), ResponseIdVar)
 }
 
@@ -295,8 +272,6 @@ var xInfoBarSetMessageType func(uintptr, MessageType)
 //
 // GTK uses this type to determine how the message is displayed.
 func (x *InfoBar) SetMessageType(MessageTypeVar MessageType) {
-	core.LazyRegister(&xInfoBarSetMessageType, "GTK", "gtk_info_bar_set_message_type", false)
-
 	xInfoBarSetMessageType(x.GoPointer(), MessageTypeVar)
 }
 
@@ -308,8 +283,6 @@ var xInfoBarSetResponseSensitive func(uintptr, int, bool)
 // widget in the info bars’s action area with the given @response_id.
 // A convenient way to sensitize/desensitize buttons.
 func (x *InfoBar) SetResponseSensitive(ResponseIdVar int, SettingVar bool) {
-	core.LazyRegister(&xInfoBarSetResponseSensitive, "GTK", "gtk_info_bar_set_response_sensitive", false)
-
 	xInfoBarSetResponseSensitive(x.GoPointer(), ResponseIdVar, SettingVar)
 }
 
@@ -324,8 +297,6 @@ var xInfoBarSetRevealed func(uintptr, bool)
 // [property@Gtk.Widget:visible] sense, so revealing has no effect
 // if [property@Gtk.Widget:visible] is %FALSE.
 func (x *InfoBar) SetRevealed(RevealedVar bool) {
-	core.LazyRegister(&xInfoBarSetRevealed, "GTK", "gtk_info_bar_set_revealed", false)
-
 	xInfoBarSetRevealed(x.GoPointer(), RevealedVar)
 }
 
@@ -335,8 +306,6 @@ var xInfoBarSetShowCloseButton func(uintptr, bool)
 //
 // When clicked it emits the response %GTK_RESPONSE_CLOSE.
 func (x *InfoBar) SetShowCloseButton(SettingVar bool) {
-	core.LazyRegister(&xInfoBarSetShowCloseButton, "GTK", "gtk_info_bar_set_show_close_button", false)
-
 	xInfoBarSetShowCloseButton(x.GoPointer(), SettingVar)
 }
 
@@ -702,4 +671,33 @@ func (x *InfoBar) GetBuildableId() string {
 func init() {
 	core.SetPackageName("GTK", "gtk4")
 	core.SetSharedLibraries("GTK", []string{"libgtk-4.so.1", "libgtk-4.1.dylib"})
+	var libs []uintptr
+	for _, libPath := range core.GetPaths("GTK") {
+		lib, err := purego.Dlopen(libPath, purego.RTLD_NOW|purego.RTLD_GLOBAL)
+		if err != nil {
+			panic(err)
+		}
+		libs = append(libs, lib)
+	}
+
+	core.PuregoSafeRegister(&xInfoBarGLibType, libs, "gtk_info_bar_get_type")
+
+	core.PuregoSafeRegister(&xNewInfoBar, libs, "gtk_info_bar_new")
+	core.PuregoSafeRegister(&xNewInfoBarWithButtons, libs, "gtk_info_bar_new_with_buttons")
+
+	core.PuregoSafeRegister(&xInfoBarAddActionWidget, libs, "gtk_info_bar_add_action_widget")
+	core.PuregoSafeRegister(&xInfoBarAddButton, libs, "gtk_info_bar_add_button")
+	core.PuregoSafeRegister(&xInfoBarAddButtons, libs, "gtk_info_bar_add_buttons")
+	core.PuregoSafeRegister(&xInfoBarAddChild, libs, "gtk_info_bar_add_child")
+	core.PuregoSafeRegister(&xInfoBarGetMessageType, libs, "gtk_info_bar_get_message_type")
+	core.PuregoSafeRegister(&xInfoBarGetRevealed, libs, "gtk_info_bar_get_revealed")
+	core.PuregoSafeRegister(&xInfoBarGetShowCloseButton, libs, "gtk_info_bar_get_show_close_button")
+	core.PuregoSafeRegister(&xInfoBarRemoveActionWidget, libs, "gtk_info_bar_remove_action_widget")
+	core.PuregoSafeRegister(&xInfoBarRemoveChild, libs, "gtk_info_bar_remove_child")
+	core.PuregoSafeRegister(&xInfoBarResponse, libs, "gtk_info_bar_response")
+	core.PuregoSafeRegister(&xInfoBarSetDefaultResponse, libs, "gtk_info_bar_set_default_response")
+	core.PuregoSafeRegister(&xInfoBarSetMessageType, libs, "gtk_info_bar_set_message_type")
+	core.PuregoSafeRegister(&xInfoBarSetResponseSensitive, libs, "gtk_info_bar_set_response_sensitive")
+	core.PuregoSafeRegister(&xInfoBarSetRevealed, libs, "gtk_info_bar_set_revealed")
+	core.PuregoSafeRegister(&xInfoBarSetShowCloseButton, libs, "gtk_info_bar_set_show_close_button")
 }

@@ -188,7 +188,6 @@ type ComboBox struct {
 var xComboBoxGLibType func() types.GType
 
 func ComboBoxGLibType() types.GType {
-	core.LazyRegister(&xComboBoxGLibType, "GTK", "gtk_combo_box_get_type", false)
 	return xComboBoxGLibType()
 }
 
@@ -202,7 +201,6 @@ var xNewComboBox func() uintptr
 
 // Creates a new empty `GtkComboBox`.
 func NewComboBox() *ComboBox {
-	core.LazyRegister(&xNewComboBox, "GTK", "gtk_combo_box_new", false)
 	var cls *ComboBox
 
 	cret := xNewComboBox()
@@ -224,7 +222,6 @@ var xNewComboBoxWithEntry func() uintptr
 // which column of the model contains the text for the entry
 // by calling [method@Gtk.ComboBox.set_entry_text_column].
 func NewComboBoxWithEntry() *ComboBox {
-	core.LazyRegister(&xNewComboBoxWithEntry, "GTK", "gtk_combo_box_new_with_entry", false)
 	var cls *ComboBox
 
 	cret := xNewComboBoxWithEntry()
@@ -242,7 +239,6 @@ var xNewComboBoxWithModel func(uintptr) uintptr
 
 // Creates a new `GtkComboBox` with a model.
 func NewComboBoxWithModel(ModelVar TreeModel) *ComboBox {
-	core.LazyRegister(&xNewComboBoxWithModel, "GTK", "gtk_combo_box_new_with_model", false)
 	var cls *ComboBox
 
 	cret := xNewComboBoxWithModel(ModelVar.GoPointer())
@@ -262,7 +258,6 @@ var xNewComboBoxWithModelAndEntry func(uintptr) uintptr
 //
 // See also [ctor@Gtk.ComboBox.new_with_entry].
 func NewComboBoxWithModelAndEntry(ModelVar TreeModel) *ComboBox {
-	core.LazyRegister(&xNewComboBoxWithModelAndEntry, "GTK", "gtk_combo_box_new_with_model_and_entry", false)
 	var cls *ComboBox
 
 	cret := xNewComboBoxWithModelAndEntry(ModelVar.GoPointer())
@@ -285,8 +280,6 @@ var xComboBoxGetActive func(uintptr) int
 // `gtk_tree_path_get_indices (path)[0]`, where `path` is the
 // [struct@Gtk.TreePath] of the active item.
 func (x *ComboBox) GetActive() int {
-	core.LazyRegister(&xComboBoxGetActive, "GTK", "gtk_combo_box_get_active", false)
-
 	cret := xComboBoxGetActive(x.GoPointer())
 	return cret
 }
@@ -307,8 +300,6 @@ var xComboBoxGetActiveId func(uintptr) string
 // not set, or if no row is active, or if the active row has a %NULL
 // ID value, then %NULL is returned.
 func (x *ComboBox) GetActiveId() string {
-	core.LazyRegister(&xComboBoxGetActiveId, "GTK", "gtk_combo_box_get_active_id", false)
-
 	cret := xComboBoxGetActiveId(x.GoPointer())
 	return cret
 }
@@ -319,8 +310,6 @@ var xComboBoxGetActiveIter func(uintptr, *TreeIter) bool
 //
 // If no item is active, @iter is left unchanged.
 func (x *ComboBox) GetActiveIter(IterVar *TreeIter) bool {
-	core.LazyRegister(&xComboBoxGetActiveIter, "GTK", "gtk_combo_box_get_active_iter", false)
-
 	cret := xComboBoxGetActiveIter(x.GoPointer(), IterVar)
 	return cret
 }
@@ -330,8 +319,6 @@ var xComboBoxGetButtonSensitivity func(uintptr) SensitivityType
 // Returns whether the combo box sets the dropdown button
 // sensitive or not when there are no items in the model.
 func (x *ComboBox) GetButtonSensitivity() SensitivityType {
-	core.LazyRegister(&xComboBoxGetButtonSensitivity, "GTK", "gtk_combo_box_get_button_sensitivity", false)
-
 	cret := xComboBoxGetButtonSensitivity(x.GoPointer())
 	return cret
 }
@@ -340,7 +327,6 @@ var xComboBoxGetChild func(uintptr) uintptr
 
 // Gets the child widget of @combo_box.
 func (x *ComboBox) GetChild() *Widget {
-	core.LazyRegister(&xComboBoxGetChild, "GTK", "gtk_combo_box_get_child", false)
 	var cls *Widget
 
 	cret := xComboBoxGetChild(x.GoPointer())
@@ -359,8 +345,6 @@ var xComboBoxGetEntryTextColumn func(uintptr) int
 // Returns the column which @combo_box is using to get the strings
 // from to display in the internal entry.
 func (x *ComboBox) GetEntryTextColumn() int {
-	core.LazyRegister(&xComboBoxGetEntryTextColumn, "GTK", "gtk_combo_box_get_entry_text_column", false)
-
 	cret := xComboBoxGetEntryTextColumn(x.GoPointer())
 	return cret
 }
@@ -369,8 +353,6 @@ var xComboBoxGetHasEntry func(uintptr) bool
 
 // Returns whether the combo box has an entry.
 func (x *ComboBox) GetHasEntry() bool {
-	core.LazyRegister(&xComboBoxGetHasEntry, "GTK", "gtk_combo_box_get_has_entry", false)
-
 	cret := xComboBoxGetHasEntry(x.GoPointer())
 	return cret
 }
@@ -380,8 +362,6 @@ var xComboBoxGetIdColumn func(uintptr) int
 // Returns the column which @combo_box is using to get string IDs
 // for values from.
 func (x *ComboBox) GetIdColumn() int {
-	core.LazyRegister(&xComboBoxGetIdColumn, "GTK", "gtk_combo_box_get_id_column", false)
-
 	cret := xComboBoxGetIdColumn(x.GoPointer())
 	return cret
 }
@@ -390,7 +370,6 @@ var xComboBoxGetModel func(uintptr) uintptr
 
 // Returns the `GtkTreeModel` of @combo_box.
 func (x *ComboBox) GetModel() *TreeModelBase {
-	core.LazyRegister(&xComboBoxGetModel, "GTK", "gtk_combo_box_get_model", false)
 	var cls *TreeModelBase
 
 	cret := xComboBoxGetModel(x.GoPointer())
@@ -408,8 +387,6 @@ var xComboBoxGetPopupFixedWidth func(uintptr) bool
 
 // Gets whether the popup uses a fixed width.
 func (x *ComboBox) GetPopupFixedWidth() bool {
-	core.LazyRegister(&xComboBoxGetPopupFixedWidth, "GTK", "gtk_combo_box_get_popup_fixed_width", false)
-
 	cret := xComboBoxGetPopupFixedWidth(x.GoPointer())
 	return cret
 }
@@ -418,8 +395,6 @@ var xComboBoxGetRowSeparatorFunc func(uintptr) uintptr
 
 // Returns the current row separator function.
 func (x *ComboBox) GetRowSeparatorFunc() uintptr {
-	core.LazyRegister(&xComboBoxGetRowSeparatorFunc, "GTK", "gtk_combo_box_get_row_separator_func", false)
-
 	cret := xComboBoxGetRowSeparatorFunc(x.GoPointer())
 	return cret
 }
@@ -431,8 +406,6 @@ var xComboBoxPopdown func(uintptr)
 // This function is mostly intended for use by accessibility technologies;
 // applications should have little use for it.
 func (x *ComboBox) Popdown() {
-	core.LazyRegister(&xComboBoxPopdown, "GTK", "gtk_combo_box_popdown", false)
-
 	xComboBoxPopdown(x.GoPointer())
 }
 
@@ -445,8 +418,6 @@ var xComboBoxPopup func(uintptr)
 //
 // Before calling this, @combo_box must be mapped, or nothing will happen.
 func (x *ComboBox) Popup() {
-	core.LazyRegister(&xComboBoxPopup, "GTK", "gtk_combo_box_popup", false)
-
 	xComboBoxPopup(x.GoPointer())
 }
 
@@ -459,8 +430,6 @@ var xComboBoxPopupForDevice func(uintptr, uintptr)
 // in GTK 4. However, it is retained in case similar functionality is added
 // back later.
 func (x *ComboBox) PopupForDevice(DeviceVar *gdk.Device) {
-	core.LazyRegister(&xComboBoxPopupForDevice, "GTK", "gtk_combo_box_popup_for_device", false)
-
 	xComboBoxPopupForDevice(x.GoPointer(), DeviceVar.GoPointer())
 }
 
@@ -468,8 +437,6 @@ var xComboBoxSetActive func(uintptr, int)
 
 // Sets the active item of @combo_box to be the item at @index.
 func (x *ComboBox) SetActive(IndexVar int) {
-	core.LazyRegister(&xComboBoxSetActive, "GTK", "gtk_combo_box_set_active", false)
-
 	xComboBoxSetActive(x.GoPointer(), IndexVar)
 }
 
@@ -485,8 +452,6 @@ var xComboBoxSetActiveId func(uintptr, uintptr) bool
 // unset or if no row has the given ID then the function does nothing
 // and returns %FALSE.
 func (x *ComboBox) SetActiveId(ActiveIdVar *string) bool {
-	core.LazyRegister(&xComboBoxSetActiveId, "GTK", "gtk_combo_box_set_active_id", false)
-
 	ActiveIdVarPtr := core.GStrdupNullable(ActiveIdVar)
 	defer core.GFreeNullable(ActiveIdVarPtr)
 
@@ -500,8 +465,6 @@ var xComboBoxSetActiveIter func(uintptr, *TreeIter)
 //
 // If @iter is %NULL, the active item is unset.
 func (x *ComboBox) SetActiveIter(IterVar *TreeIter) {
-	core.LazyRegister(&xComboBoxSetActiveIter, "GTK", "gtk_combo_box_set_active_iter", false)
-
 	xComboBoxSetActiveIter(x.GoPointer(), IterVar)
 }
 
@@ -510,8 +473,6 @@ var xComboBoxSetButtonSensitivity func(uintptr, SensitivityType)
 // Sets whether the dropdown button of the combo box should update
 // its sensitivity depending on the model contents.
 func (x *ComboBox) SetButtonSensitivity(SensitivityVar SensitivityType) {
-	core.LazyRegister(&xComboBoxSetButtonSensitivity, "GTK", "gtk_combo_box_set_button_sensitivity", false)
-
 	xComboBoxSetButtonSensitivity(x.GoPointer(), SensitivityVar)
 }
 
@@ -519,8 +480,6 @@ var xComboBoxSetChild func(uintptr, uintptr)
 
 // Sets the child widget of @combo_box.
 func (x *ComboBox) SetChild(ChildVar *Widget) {
-	core.LazyRegister(&xComboBoxSetChild, "GTK", "gtk_combo_box_set_child", false)
-
 	xComboBoxSetChild(x.GoPointer(), ChildVar.GoPointer())
 }
 
@@ -538,8 +497,6 @@ var xComboBoxSetEntryTextColumn func(uintptr, int)
 // This is only relevant if @combo_box has been created with
 // [property@Gtk.ComboBox:has-entry] as %TRUE.
 func (x *ComboBox) SetEntryTextColumn(TextColumnVar int) {
-	core.LazyRegister(&xComboBoxSetEntryTextColumn, "GTK", "gtk_combo_box_set_entry_text_column", false)
-
 	xComboBoxSetEntryTextColumn(x.GoPointer(), TextColumnVar)
 }
 
@@ -551,8 +508,6 @@ var xComboBoxSetIdColumn func(uintptr, int)
 // The column @id_column in the model of @combo_box must be of type
 // %G_TYPE_STRING.
 func (x *ComboBox) SetIdColumn(IdColumnVar int) {
-	core.LazyRegister(&xComboBoxSetIdColumn, "GTK", "gtk_combo_box_set_id_column", false)
-
 	xComboBoxSetIdColumn(x.GoPointer(), IdColumnVar)
 }
 
@@ -567,8 +522,6 @@ var xComboBoxSetModel func(uintptr, uintptr)
 // call [method@Gtk.CellLayout.clear] yourself if you need to set up different
 // cell renderers for the new model.
 func (x *ComboBox) SetModel(ModelVar TreeModel) {
-	core.LazyRegister(&xComboBoxSetModel, "GTK", "gtk_combo_box_set_model", false)
-
 	xComboBoxSetModel(x.GoPointer(), ModelVar.GoPointer())
 }
 
@@ -579,8 +532,6 @@ var xComboBoxSetPopupFixedWidth func(uintptr, bool)
 // If @fixed is %TRUE, the popup's width is set to match the
 // allocated width of the combo box.
 func (x *ComboBox) SetPopupFixedWidth(FixedVar bool) {
-	core.LazyRegister(&xComboBoxSetPopupFixedWidth, "GTK", "gtk_combo_box_set_popup_fixed_width", false)
-
 	xComboBoxSetPopupFixedWidth(x.GoPointer(), FixedVar)
 }
 
@@ -592,8 +543,6 @@ var xComboBoxSetRowSeparatorFunc func(uintptr, uintptr, uintptr, uintptr)
 // If the row separator function is %NULL, no separators are drawn.
 // This is the default value.
 func (x *ComboBox) SetRowSeparatorFunc(FuncVar *TreeViewRowSeparatorFunc, DataVar uintptr, DestroyVar *glib.DestroyNotify) {
-	core.LazyRegister(&xComboBoxSetRowSeparatorFunc, "GTK", "gtk_combo_box_set_row_separator_func", false)
-
 	xComboBoxSetRowSeparatorFunc(x.GoPointer(), glib.NewCallbackNullable(FuncVar), DataVar, glib.NewCallbackNullable(DestroyVar))
 }
 
@@ -1335,4 +1284,44 @@ func (x *ComboBox) SetCellDataFunc(CellVar *CellRenderer, FuncVar *CellLayoutDat
 func init() {
 	core.SetPackageName("GTK", "gtk4")
 	core.SetSharedLibraries("GTK", []string{"libgtk-4.so.1", "libgtk-4.1.dylib"})
+	var libs []uintptr
+	for _, libPath := range core.GetPaths("GTK") {
+		lib, err := purego.Dlopen(libPath, purego.RTLD_NOW|purego.RTLD_GLOBAL)
+		if err != nil {
+			panic(err)
+		}
+		libs = append(libs, lib)
+	}
+
+	core.PuregoSafeRegister(&xComboBoxGLibType, libs, "gtk_combo_box_get_type")
+
+	core.PuregoSafeRegister(&xNewComboBox, libs, "gtk_combo_box_new")
+	core.PuregoSafeRegister(&xNewComboBoxWithEntry, libs, "gtk_combo_box_new_with_entry")
+	core.PuregoSafeRegister(&xNewComboBoxWithModel, libs, "gtk_combo_box_new_with_model")
+	core.PuregoSafeRegister(&xNewComboBoxWithModelAndEntry, libs, "gtk_combo_box_new_with_model_and_entry")
+
+	core.PuregoSafeRegister(&xComboBoxGetActive, libs, "gtk_combo_box_get_active")
+	core.PuregoSafeRegister(&xComboBoxGetActiveId, libs, "gtk_combo_box_get_active_id")
+	core.PuregoSafeRegister(&xComboBoxGetActiveIter, libs, "gtk_combo_box_get_active_iter")
+	core.PuregoSafeRegister(&xComboBoxGetButtonSensitivity, libs, "gtk_combo_box_get_button_sensitivity")
+	core.PuregoSafeRegister(&xComboBoxGetChild, libs, "gtk_combo_box_get_child")
+	core.PuregoSafeRegister(&xComboBoxGetEntryTextColumn, libs, "gtk_combo_box_get_entry_text_column")
+	core.PuregoSafeRegister(&xComboBoxGetHasEntry, libs, "gtk_combo_box_get_has_entry")
+	core.PuregoSafeRegister(&xComboBoxGetIdColumn, libs, "gtk_combo_box_get_id_column")
+	core.PuregoSafeRegister(&xComboBoxGetModel, libs, "gtk_combo_box_get_model")
+	core.PuregoSafeRegister(&xComboBoxGetPopupFixedWidth, libs, "gtk_combo_box_get_popup_fixed_width")
+	core.PuregoSafeRegister(&xComboBoxGetRowSeparatorFunc, libs, "gtk_combo_box_get_row_separator_func")
+	core.PuregoSafeRegister(&xComboBoxPopdown, libs, "gtk_combo_box_popdown")
+	core.PuregoSafeRegister(&xComboBoxPopup, libs, "gtk_combo_box_popup")
+	core.PuregoSafeRegister(&xComboBoxPopupForDevice, libs, "gtk_combo_box_popup_for_device")
+	core.PuregoSafeRegister(&xComboBoxSetActive, libs, "gtk_combo_box_set_active")
+	core.PuregoSafeRegister(&xComboBoxSetActiveId, libs, "gtk_combo_box_set_active_id")
+	core.PuregoSafeRegister(&xComboBoxSetActiveIter, libs, "gtk_combo_box_set_active_iter")
+	core.PuregoSafeRegister(&xComboBoxSetButtonSensitivity, libs, "gtk_combo_box_set_button_sensitivity")
+	core.PuregoSafeRegister(&xComboBoxSetChild, libs, "gtk_combo_box_set_child")
+	core.PuregoSafeRegister(&xComboBoxSetEntryTextColumn, libs, "gtk_combo_box_set_entry_text_column")
+	core.PuregoSafeRegister(&xComboBoxSetIdColumn, libs, "gtk_combo_box_set_id_column")
+	core.PuregoSafeRegister(&xComboBoxSetModel, libs, "gtk_combo_box_set_model")
+	core.PuregoSafeRegister(&xComboBoxSetPopupFixedWidth, libs, "gtk_combo_box_set_popup_fixed_width")
+	core.PuregoSafeRegister(&xComboBoxSetRowSeparatorFunc, libs, "gtk_combo_box_set_row_separator_func")
 }

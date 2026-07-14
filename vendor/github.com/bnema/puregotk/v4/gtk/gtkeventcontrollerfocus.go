@@ -5,6 +5,7 @@ import (
 	"structs"
 	"unsafe"
 
+	"github.com/bnema/purego"
 	"github.com/bnema/puregotk/pkg/core"
 	"github.com/bnema/puregotk/v4/glib"
 	"github.com/bnema/puregotk/v4/gobject"
@@ -42,7 +43,6 @@ type EventControllerFocus struct {
 var xEventControllerFocusGLibType func() types.GType
 
 func EventControllerFocusGLibType() types.GType {
-	core.LazyRegister(&xEventControllerFocusGLibType, "GTK", "gtk_event_controller_focus_get_type", false)
 	return xEventControllerFocusGLibType()
 }
 
@@ -56,7 +56,6 @@ var xNewEventControllerFocus func() uintptr
 
 // Creates a new event controller that will handle focus events.
 func NewEventControllerFocus() *EventControllerFocus {
-	core.LazyRegister(&xNewEventControllerFocus, "GTK", "gtk_event_controller_focus_new", false)
 	var cls *EventControllerFocus
 
 	cret := xNewEventControllerFocus()
@@ -73,8 +72,6 @@ var xEventControllerFocusContainsFocus func(uintptr) bool
 
 // Returns %TRUE if focus is within @self or one of its children.
 func (x *EventControllerFocus) ContainsFocus() bool {
-	core.LazyRegister(&xEventControllerFocusContainsFocus, "GTK", "gtk_event_controller_focus_contains_focus", false)
-
 	cret := xEventControllerFocusContainsFocus(x.GoPointer())
 	return cret
 }
@@ -83,8 +80,6 @@ var xEventControllerFocusIsFocus func(uintptr) bool
 
 // Returns %TRUE if focus is within @self, but not one of its children.
 func (x *EventControllerFocus) IsFocus() bool {
-	core.LazyRegister(&xEventControllerFocusIsFocus, "GTK", "gtk_event_controller_focus_is_focus", false)
-
 	cret := xEventControllerFocusIsFocus(x.GoPointer())
 	return cret
 }
@@ -196,4 +191,19 @@ func (x *EventControllerFocus) ConnectLeave(cb *func(EventControllerFocus)) uint
 func init() {
 	core.SetPackageName("GTK", "gtk4")
 	core.SetSharedLibraries("GTK", []string{"libgtk-4.so.1", "libgtk-4.1.dylib"})
+	var libs []uintptr
+	for _, libPath := range core.GetPaths("GTK") {
+		lib, err := purego.Dlopen(libPath, purego.RTLD_NOW|purego.RTLD_GLOBAL)
+		if err != nil {
+			panic(err)
+		}
+		libs = append(libs, lib)
+	}
+
+	core.PuregoSafeRegister(&xEventControllerFocusGLibType, libs, "gtk_event_controller_focus_get_type")
+
+	core.PuregoSafeRegister(&xNewEventControllerFocus, libs, "gtk_event_controller_focus_new")
+
+	core.PuregoSafeRegister(&xEventControllerFocusContainsFocus, libs, "gtk_event_controller_focus_contains_focus")
+	core.PuregoSafeRegister(&xEventControllerFocusIsFocus, libs, "gtk_event_controller_focus_is_focus")
 }

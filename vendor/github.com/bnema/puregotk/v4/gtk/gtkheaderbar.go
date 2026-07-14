@@ -2,6 +2,7 @@
 package gtk
 
 import (
+	"github.com/bnema/purego"
 	"github.com/bnema/puregotk/pkg/core"
 	"github.com/bnema/puregotk/v4/gobject"
 	"github.com/bnema/puregotk/v4/gobject/types"
@@ -94,7 +95,6 @@ type HeaderBar struct {
 var xHeaderBarGLibType func() types.GType
 
 func HeaderBarGLibType() types.GType {
-	core.LazyRegister(&xHeaderBarGLibType, "GTK", "gtk_header_bar_get_type", false)
 	return xHeaderBarGLibType()
 }
 
@@ -108,7 +108,6 @@ var xNewHeaderBar func() uintptr
 
 // Creates a new `GtkHeaderBar` widget.
 func NewHeaderBar() *HeaderBar {
-	core.LazyRegister(&xNewHeaderBar, "GTK", "gtk_header_bar_new", false)
 	var cls *HeaderBar
 
 	cret := xNewHeaderBar()
@@ -126,8 +125,6 @@ var xHeaderBarGetDecorationLayout func(uintptr) string
 
 // Gets the decoration layout of the header bar.
 func (x *HeaderBar) GetDecorationLayout() string {
-	core.LazyRegister(&xHeaderBarGetDecorationLayout, "GTK", "gtk_header_bar_get_decoration_layout", false)
-
 	cret := xHeaderBarGetDecorationLayout(x.GoPointer())
 	return cret
 }
@@ -137,8 +134,6 @@ var xHeaderBarGetShowTitleButtons func(uintptr) bool
 // Returns whether this header bar shows the standard window
 // title buttons.
 func (x *HeaderBar) GetShowTitleButtons() bool {
-	core.LazyRegister(&xHeaderBarGetShowTitleButtons, "GTK", "gtk_header_bar_get_show_title_buttons", false)
-
 	cret := xHeaderBarGetShowTitleButtons(x.GoPointer())
 	return cret
 }
@@ -149,7 +144,6 @@ var xHeaderBarGetTitleWidget func(uintptr) uintptr
 //
 // See [method@Gtk.HeaderBar.set_title_widget].
 func (x *HeaderBar) GetTitleWidget() *Widget {
-	core.LazyRegister(&xHeaderBarGetTitleWidget, "GTK", "gtk_header_bar_get_title_widget", false)
 	var cls *Widget
 
 	cret := xHeaderBarGetTitleWidget(x.GoPointer())
@@ -168,8 +162,6 @@ var xHeaderBarGetUseNativeControls func(uintptr) bool
 // Returns whether this header bar shows platform
 // native window controls.
 func (x *HeaderBar) GetUseNativeControls() bool {
-	core.LazyRegister(&xHeaderBarGetUseNativeControls, "GTK", "gtk_header_bar_get_use_native_controls", false)
-
 	cret := xHeaderBarGetUseNativeControls(x.GoPointer())
 	return cret
 }
@@ -178,8 +170,6 @@ var xHeaderBarPackEnd func(uintptr, uintptr)
 
 // Adds a child to the header bar, packed with reference to the end.
 func (x *HeaderBar) PackEnd(ChildVar *Widget) {
-	core.LazyRegister(&xHeaderBarPackEnd, "GTK", "gtk_header_bar_pack_end", false)
-
 	xHeaderBarPackEnd(x.GoPointer(), ChildVar.GoPointer())
 }
 
@@ -187,8 +177,6 @@ var xHeaderBarPackStart func(uintptr, uintptr)
 
 // Adds a child to the header bar, packed with reference to the start.
 func (x *HeaderBar) PackStart(ChildVar *Widget) {
-	core.LazyRegister(&xHeaderBarPackStart, "GTK", "gtk_header_bar_pack_start", false)
-
 	xHeaderBarPackStart(x.GoPointer(), ChildVar.GoPointer())
 }
 
@@ -201,8 +189,6 @@ var xHeaderBarRemove func(uintptr, uintptr)
 // [method@Gtk.HeaderBar.pack_end] or
 // [method@Gtk.HeaderBar.set_title_widget].
 func (x *HeaderBar) Remove(ChildVar *Widget) {
-	core.LazyRegister(&xHeaderBarRemove, "GTK", "gtk_header_bar_remove", false)
-
 	xHeaderBarRemove(x.GoPointer(), ChildVar.GoPointer())
 }
 
@@ -226,8 +212,6 @@ var xHeaderBarSetDecorationLayout func(uintptr, uintptr)
 // For example, “icon:minimize,maximize,close” specifies an icon
 // on the left, and minimize, maximize and close buttons on the right.
 func (x *HeaderBar) SetDecorationLayout(LayoutVar *string) {
-	core.LazyRegister(&xHeaderBarSetDecorationLayout, "GTK", "gtk_header_bar_set_decoration_layout", false)
-
 	LayoutVarPtr := core.GStrdupNullable(LayoutVar)
 	defer core.GFreeNullable(LayoutVarPtr)
 
@@ -239,8 +223,6 @@ var xHeaderBarSetShowTitleButtons func(uintptr, bool)
 // Sets whether this header bar shows the standard window
 // title buttons.
 func (x *HeaderBar) SetShowTitleButtons(SettingVar bool) {
-	core.LazyRegister(&xHeaderBarSetShowTitleButtons, "GTK", "gtk_header_bar_set_show_title_buttons", false)
-
 	xHeaderBarSetShowTitleButtons(x.GoPointer(), SettingVar)
 }
 
@@ -258,8 +240,6 @@ var xHeaderBarSetTitleWidget func(uintptr, uintptr)
 // You should set the title widget to `NULL`, for the window
 // title label to be visible again.
 func (x *HeaderBar) SetTitleWidget(TitleWidgetVar *Widget) {
-	core.LazyRegister(&xHeaderBarSetTitleWidget, "GTK", "gtk_header_bar_set_title_widget", false)
-
 	xHeaderBarSetTitleWidget(x.GoPointer(), TitleWidgetVar.GoPointer())
 }
 
@@ -272,8 +252,6 @@ var xHeaderBarSetUseNativeControls func(uintptr, bool)
 //
 // See also [Using GTK on Apple macOS](osx.html?native-window-controls).
 func (x *HeaderBar) SetUseNativeControls(SettingVar bool) {
-	core.LazyRegister(&xHeaderBarSetUseNativeControls, "GTK", "gtk_header_bar_set_use_native_controls", false)
-
 	xHeaderBarSetUseNativeControls(x.GoPointer(), SettingVar)
 }
 
@@ -632,4 +610,28 @@ func (x *HeaderBar) GetBuildableId() string {
 func init() {
 	core.SetPackageName("GTK", "gtk4")
 	core.SetSharedLibraries("GTK", []string{"libgtk-4.so.1", "libgtk-4.1.dylib"})
+	var libs []uintptr
+	for _, libPath := range core.GetPaths("GTK") {
+		lib, err := purego.Dlopen(libPath, purego.RTLD_NOW|purego.RTLD_GLOBAL)
+		if err != nil {
+			panic(err)
+		}
+		libs = append(libs, lib)
+	}
+
+	core.PuregoSafeRegister(&xHeaderBarGLibType, libs, "gtk_header_bar_get_type")
+
+	core.PuregoSafeRegister(&xNewHeaderBar, libs, "gtk_header_bar_new")
+
+	core.PuregoSafeRegister(&xHeaderBarGetDecorationLayout, libs, "gtk_header_bar_get_decoration_layout")
+	core.PuregoSafeRegister(&xHeaderBarGetShowTitleButtons, libs, "gtk_header_bar_get_show_title_buttons")
+	core.PuregoSafeRegister(&xHeaderBarGetTitleWidget, libs, "gtk_header_bar_get_title_widget")
+	core.PuregoSafeRegister(&xHeaderBarGetUseNativeControls, libs, "gtk_header_bar_get_use_native_controls")
+	core.PuregoSafeRegister(&xHeaderBarPackEnd, libs, "gtk_header_bar_pack_end")
+	core.PuregoSafeRegister(&xHeaderBarPackStart, libs, "gtk_header_bar_pack_start")
+	core.PuregoSafeRegister(&xHeaderBarRemove, libs, "gtk_header_bar_remove")
+	core.PuregoSafeRegister(&xHeaderBarSetDecorationLayout, libs, "gtk_header_bar_set_decoration_layout")
+	core.PuregoSafeRegister(&xHeaderBarSetShowTitleButtons, libs, "gtk_header_bar_set_show_title_buttons")
+	core.PuregoSafeRegister(&xHeaderBarSetTitleWidget, libs, "gtk_header_bar_set_title_widget")
+	core.PuregoSafeRegister(&xHeaderBarSetUseNativeControls, libs, "gtk_header_bar_set_use_native_controls")
 }

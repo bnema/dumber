@@ -2,6 +2,7 @@
 package gsk
 
 import (
+	"github.com/bnema/purego"
 	"github.com/bnema/puregotk/pkg/core"
 	"github.com/bnema/puregotk/v4/gdk"
 	"github.com/bnema/puregotk/v4/gobject"
@@ -17,7 +18,6 @@ type TextureScaleNode struct {
 var xTextureScaleNodeGLibType func() types.GType
 
 func TextureScaleNodeGLibType() types.GType {
-	core.LazyRegister(&xTextureScaleNodeGLibType, "GSK", "gsk_texture_scale_node_get_type", false)
 	return xTextureScaleNodeGLibType()
 }
 
@@ -42,7 +42,6 @@ var xNewTextureScaleNode func(uintptr, *graphene.Rect, ScalingFilter) uintptr
 // transforms may be applied that conflict with the desired effect
 // of this node.
 func NewTextureScaleNode(TextureVar *gdk.Texture, BoundsVar *graphene.Rect, FilterVar ScalingFilter) *TextureScaleNode {
-	core.LazyRegister(&xNewTextureScaleNode, "GSK", "gsk_texture_scale_node_new", false)
 	var cls *TextureScaleNode
 
 	cret := xNewTextureScaleNode(TextureVar.GoPointer(), BoundsVar, FilterVar)
@@ -59,8 +58,6 @@ var xTextureScaleNodeGetFilter func(uintptr) ScalingFilter
 
 // Retrieves the `GskScalingFilter` used when creating this `GskRenderNode`.
 func (x *TextureScaleNode) GetFilter() ScalingFilter {
-	core.LazyRegister(&xTextureScaleNodeGetFilter, "GSK", "gsk_texture_scale_node_get_filter", false)
-
 	cret := xTextureScaleNodeGetFilter(x.GoPointer())
 	return cret
 }
@@ -69,7 +66,6 @@ var xTextureScaleNodeGetTexture func(uintptr) uintptr
 
 // Retrieves the `GdkTexture` used when creating this `GskRenderNode`.
 func (x *TextureScaleNode) GetTexture() *gdk.Texture {
-	core.LazyRegister(&xTextureScaleNodeGetTexture, "GSK", "gsk_texture_scale_node_get_texture", false)
 	var cls *gdk.Texture
 
 	cret := xTextureScaleNodeGetTexture(x.GoPointer())
@@ -97,4 +93,19 @@ func (c *TextureScaleNode) SetGoPointer(ptr uintptr) {
 func init() {
 	core.SetPackageName("GSK", "gtk4")
 	core.SetSharedLibraries("GSK", []string{"libgtk-4.so.1", "libgtk-4.1.dylib"})
+	var libs []uintptr
+	for _, libPath := range core.GetPaths("GSK") {
+		lib, err := purego.Dlopen(libPath, purego.RTLD_NOW|purego.RTLD_GLOBAL)
+		if err != nil {
+			panic(err)
+		}
+		libs = append(libs, lib)
+	}
+
+	core.PuregoSafeRegister(&xTextureScaleNodeGLibType, libs, "gsk_texture_scale_node_get_type")
+
+	core.PuregoSafeRegister(&xNewTextureScaleNode, libs, "gsk_texture_scale_node_new")
+
+	core.PuregoSafeRegister(&xTextureScaleNodeGetFilter, libs, "gsk_texture_scale_node_get_filter")
+	core.PuregoSafeRegister(&xTextureScaleNodeGetTexture, libs, "gsk_texture_scale_node_get_texture")
 }

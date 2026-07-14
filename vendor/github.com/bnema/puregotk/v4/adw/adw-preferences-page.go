@@ -5,6 +5,7 @@ import (
 	"structs"
 	"unsafe"
 
+	"github.com/bnema/purego"
 	"github.com/bnema/puregotk/pkg/core"
 	"github.com/bnema/puregotk/v4/gobject"
 	"github.com/bnema/puregotk/v4/gobject/types"
@@ -57,7 +58,6 @@ type PreferencesPage struct {
 var xPreferencesPageGLibType func() types.GType
 
 func PreferencesPageGLibType() types.GType {
-	core.LazyRegister(&xPreferencesPageGLibType, "ADW", "adw_preferences_page_get_type", false)
 	return xPreferencesPageGLibType()
 }
 
@@ -71,7 +71,6 @@ var xNewPreferencesPage func() uintptr
 
 // Creates a new `AdwPreferencesPage`.
 func NewPreferencesPage() *PreferencesPage {
-	core.LazyRegister(&xNewPreferencesPage, "ADW", "adw_preferences_page_new", false)
 	var cls *PreferencesPage
 
 	cret := xNewPreferencesPage()
@@ -89,8 +88,6 @@ var xPreferencesPageAdd func(uintptr, uintptr)
 
 // Adds a preferences group to @self.
 func (x *PreferencesPage) Add(GroupVar *PreferencesGroup) {
-	core.LazyRegister(&xPreferencesPageAdd, "ADW", "adw_preferences_page_add", false)
-
 	xPreferencesPageAdd(x.GoPointer(), GroupVar.GoPointer())
 }
 
@@ -98,7 +95,6 @@ var xPreferencesPageGetBanner func(uintptr) uintptr
 
 // Gets the banner displayed at the top of the page.
 func (x *PreferencesPage) GetBanner() *Banner {
-	core.LazyRegister(&xPreferencesPageGetBanner, "ADW", "adw_preferences_page_get_banner", false)
 	var cls *Banner
 
 	cret := xPreferencesPageGetBanner(x.GoPointer())
@@ -116,8 +112,6 @@ var xPreferencesPageGetDescription func(uintptr) string
 
 // Gets the description of @self.
 func (x *PreferencesPage) GetDescription() string {
-	core.LazyRegister(&xPreferencesPageGetDescription, "ADW", "adw_preferences_page_get_description", false)
-
 	cret := xPreferencesPageGetDescription(x.GoPointer())
 	return cret
 }
@@ -126,8 +120,6 @@ var xPreferencesPageGetDescriptionCentered func(uintptr) bool
 
 // Gets whether the description is centered.
 func (x *PreferencesPage) GetDescriptionCentered() bool {
-	core.LazyRegister(&xPreferencesPageGetDescriptionCentered, "ADW", "adw_preferences_page_get_description_centered", false)
-
 	cret := xPreferencesPageGetDescriptionCentered(x.GoPointer())
 	return cret
 }
@@ -138,7 +130,6 @@ var xPreferencesPageGetGroup func(uintptr, uint) uintptr
 //
 // Can return `NULL` if @index is larger than the number of groups in the page.
 func (x *PreferencesPage) GetGroup(IndexVar uint) *PreferencesGroup {
-	core.LazyRegister(&xPreferencesPageGetGroup, "ADW", "adw_preferences_page_get_group", false)
 	var cls *PreferencesGroup
 
 	cret := xPreferencesPageGetGroup(x.GoPointer(), IndexVar)
@@ -156,8 +147,6 @@ var xPreferencesPageGetIconName func(uintptr) string
 
 // Gets the icon name for @self.
 func (x *PreferencesPage) GetIconName() string {
-	core.LazyRegister(&xPreferencesPageGetIconName, "ADW", "adw_preferences_page_get_icon_name", false)
-
 	cret := xPreferencesPageGetIconName(x.GoPointer())
 	return cret
 }
@@ -166,8 +155,6 @@ var xPreferencesPageGetName func(uintptr) string
 
 // Gets the name of @self.
 func (x *PreferencesPage) GetName() string {
-	core.LazyRegister(&xPreferencesPageGetName, "ADW", "adw_preferences_page_get_name", false)
-
 	cret := xPreferencesPageGetName(x.GoPointer())
 	return cret
 }
@@ -176,8 +163,6 @@ var xPreferencesPageGetTitle func(uintptr) string
 
 // Gets the title of @self.
 func (x *PreferencesPage) GetTitle() string {
-	core.LazyRegister(&xPreferencesPageGetTitle, "ADW", "adw_preferences_page_get_title", false)
-
 	cret := xPreferencesPageGetTitle(x.GoPointer())
 	return cret
 }
@@ -186,8 +171,6 @@ var xPreferencesPageGetUseUnderline func(uintptr) bool
 
 // Gets whether an embedded underline in the title indicates a mnemonic.
 func (x *PreferencesPage) GetUseUnderline() bool {
-	core.LazyRegister(&xPreferencesPageGetUseUnderline, "ADW", "adw_preferences_page_get_use_underline", false)
-
 	cret := xPreferencesPageGetUseUnderline(x.GoPointer())
 	return cret
 }
@@ -199,8 +182,6 @@ var xPreferencesPageInsert func(uintptr, uintptr, int)
 // If @index is negative or larger than the number of groups, appends the group,
 // same as [method@PreferencesPage.add].
 func (x *PreferencesPage) Insert(GroupVar *PreferencesGroup, IndexVar int) {
-	core.LazyRegister(&xPreferencesPageInsert, "ADW", "adw_preferences_page_insert", false)
-
 	xPreferencesPageInsert(x.GoPointer(), GroupVar.GoPointer(), IndexVar)
 }
 
@@ -208,8 +189,6 @@ var xPreferencesPageRemove func(uintptr, uintptr)
 
 // Removes a group from @self.
 func (x *PreferencesPage) Remove(GroupVar *PreferencesGroup) {
-	core.LazyRegister(&xPreferencesPageRemove, "ADW", "adw_preferences_page_remove", false)
-
 	xPreferencesPageRemove(x.GoPointer(), GroupVar.GoPointer())
 }
 
@@ -217,8 +196,6 @@ var xPreferencesPageScrollToTop func(uintptr)
 
 // Scrolls the scrolled window of @self to the top.
 func (x *PreferencesPage) ScrollToTop() {
-	core.LazyRegister(&xPreferencesPageScrollToTop, "ADW", "adw_preferences_page_scroll_to_top", false)
-
 	xPreferencesPageScrollToTop(x.GoPointer())
 }
 
@@ -226,8 +203,6 @@ var xPreferencesPageSetBanner func(uintptr, uintptr)
 
 // Sets the banner displayed at the top of the page.
 func (x *PreferencesPage) SetBanner(BannerVar *Banner) {
-	core.LazyRegister(&xPreferencesPageSetBanner, "ADW", "adw_preferences_page_set_banner", false)
-
 	xPreferencesPageSetBanner(x.GoPointer(), BannerVar.GoPointer())
 }
 
@@ -237,8 +212,6 @@ var xPreferencesPageSetDescription func(uintptr, string)
 //
 // The description is displayed at the top of the page.
 func (x *PreferencesPage) SetDescription(DescriptionVar string) {
-	core.LazyRegister(&xPreferencesPageSetDescription, "ADW", "adw_preferences_page_set_description", false)
-
 	xPreferencesPageSetDescription(x.GoPointer(), DescriptionVar)
 }
 
@@ -246,8 +219,6 @@ var xPreferencesPageSetDescriptionCentered func(uintptr, bool)
 
 // Sets whether the description should be centered.
 func (x *PreferencesPage) SetDescriptionCentered(CenteredVar bool) {
-	core.LazyRegister(&xPreferencesPageSetDescriptionCentered, "ADW", "adw_preferences_page_set_description_centered", false)
-
 	xPreferencesPageSetDescriptionCentered(x.GoPointer(), CenteredVar)
 }
 
@@ -255,8 +226,6 @@ var xPreferencesPageSetIconName func(uintptr, uintptr)
 
 // Sets the icon name for @self.
 func (x *PreferencesPage) SetIconName(IconNameVar *string) {
-	core.LazyRegister(&xPreferencesPageSetIconName, "ADW", "adw_preferences_page_set_icon_name", false)
-
 	IconNameVarPtr := core.GStrdupNullable(IconNameVar)
 	defer core.GFreeNullable(IconNameVarPtr)
 
@@ -267,8 +236,6 @@ var xPreferencesPageSetName func(uintptr, uintptr)
 
 // Sets the name of @self.
 func (x *PreferencesPage) SetName(NameVar *string) {
-	core.LazyRegister(&xPreferencesPageSetName, "ADW", "adw_preferences_page_set_name", false)
-
 	NameVarPtr := core.GStrdupNullable(NameVar)
 	defer core.GFreeNullable(NameVarPtr)
 
@@ -279,8 +246,6 @@ var xPreferencesPageSetTitle func(uintptr, string)
 
 // Sets the title of @self.
 func (x *PreferencesPage) SetTitle(TitleVar string) {
-	core.LazyRegister(&xPreferencesPageSetTitle, "ADW", "adw_preferences_page_set_title", false)
-
 	xPreferencesPageSetTitle(x.GoPointer(), TitleVar)
 }
 
@@ -288,8 +253,6 @@ var xPreferencesPageSetUseUnderline func(uintptr, bool)
 
 // Sets whether an embedded underline in the title indicates a mnemonic.
 func (x *PreferencesPage) SetUseUnderline(UseUnderlineVar bool) {
-	core.LazyRegister(&xPreferencesPageSetUseUnderline, "ADW", "adw_preferences_page_set_use_underline", false)
-
 	xPreferencesPageSetUseUnderline(x.GoPointer(), UseUnderlineVar)
 }
 
@@ -669,4 +632,36 @@ func (x *PreferencesPage) GetBuildableId() string {
 func init() {
 	core.SetPackageName("ADW", "libadwaita-1")
 	core.SetSharedLibraries("ADW", []string{"libadwaita-1.so.0", "libadwaita-1.0.dylib"})
+	var libs []uintptr
+	for _, libPath := range core.GetPaths("ADW") {
+		lib, err := purego.Dlopen(libPath, purego.RTLD_NOW|purego.RTLD_GLOBAL)
+		if err != nil {
+			panic(err)
+		}
+		libs = append(libs, lib)
+	}
+
+	core.PuregoSafeRegister(&xPreferencesPageGLibType, libs, "adw_preferences_page_get_type")
+
+	core.PuregoSafeRegister(&xNewPreferencesPage, libs, "adw_preferences_page_new")
+
+	core.PuregoSafeRegister(&xPreferencesPageAdd, libs, "adw_preferences_page_add")
+	core.PuregoSafeRegister(&xPreferencesPageGetBanner, libs, "adw_preferences_page_get_banner")
+	core.PuregoSafeRegister(&xPreferencesPageGetDescription, libs, "adw_preferences_page_get_description")
+	core.PuregoSafeRegister(&xPreferencesPageGetDescriptionCentered, libs, "adw_preferences_page_get_description_centered")
+	core.PuregoSafeRegister(&xPreferencesPageGetGroup, libs, "adw_preferences_page_get_group")
+	core.PuregoSafeRegister(&xPreferencesPageGetIconName, libs, "adw_preferences_page_get_icon_name")
+	core.PuregoSafeRegister(&xPreferencesPageGetName, libs, "adw_preferences_page_get_name")
+	core.PuregoSafeRegister(&xPreferencesPageGetTitle, libs, "adw_preferences_page_get_title")
+	core.PuregoSafeRegister(&xPreferencesPageGetUseUnderline, libs, "adw_preferences_page_get_use_underline")
+	core.PuregoSafeRegister(&xPreferencesPageInsert, libs, "adw_preferences_page_insert")
+	core.PuregoSafeRegister(&xPreferencesPageRemove, libs, "adw_preferences_page_remove")
+	core.PuregoSafeRegister(&xPreferencesPageScrollToTop, libs, "adw_preferences_page_scroll_to_top")
+	core.PuregoSafeRegister(&xPreferencesPageSetBanner, libs, "adw_preferences_page_set_banner")
+	core.PuregoSafeRegister(&xPreferencesPageSetDescription, libs, "adw_preferences_page_set_description")
+	core.PuregoSafeRegister(&xPreferencesPageSetDescriptionCentered, libs, "adw_preferences_page_set_description_centered")
+	core.PuregoSafeRegister(&xPreferencesPageSetIconName, libs, "adw_preferences_page_set_icon_name")
+	core.PuregoSafeRegister(&xPreferencesPageSetName, libs, "adw_preferences_page_set_name")
+	core.PuregoSafeRegister(&xPreferencesPageSetTitle, libs, "adw_preferences_page_set_title")
+	core.PuregoSafeRegister(&xPreferencesPageSetUseUnderline, libs, "adw_preferences_page_set_use_underline")
 }

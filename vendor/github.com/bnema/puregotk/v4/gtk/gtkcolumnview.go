@@ -5,6 +5,7 @@ import (
 	"structs"
 	"unsafe"
 
+	"github.com/bnema/purego"
 	"github.com/bnema/puregotk/pkg/core"
 	"github.com/bnema/puregotk/v4/gio"
 	"github.com/bnema/puregotk/v4/glib"
@@ -99,7 +100,6 @@ type ColumnView struct {
 var xColumnViewGLibType func() types.GType
 
 func ColumnViewGLibType() types.GType {
-	core.LazyRegister(&xColumnViewGLibType, "GTK", "gtk_column_view_get_type", false)
 	return xColumnViewGLibType()
 }
 
@@ -116,7 +116,6 @@ var xNewColumnView func(uintptr) uintptr
 // You most likely want to call [method@Gtk.ColumnView.append_column]
 // to add columns next.
 func NewColumnView(ModelVar SelectionModel) *ColumnView {
-	core.LazyRegister(&xNewColumnView, "GTK", "gtk_column_view_new", false)
 	var cls *ColumnView
 
 	cret := xNewColumnView(ModelVar.GoPointer())
@@ -134,8 +133,6 @@ var xColumnViewAppendColumn func(uintptr, uintptr)
 
 // Appends the @column to the end of the columns in @self.
 func (x *ColumnView) AppendColumn(ColumnVar *ColumnViewColumn) {
-	core.LazyRegister(&xColumnViewAppendColumn, "GTK", "gtk_column_view_append_column", false)
-
 	xColumnViewAppendColumn(x.GoPointer(), ColumnVar.GoPointer())
 }
 
@@ -147,7 +144,6 @@ var xColumnViewGetColumns func(uintptr) uintptr
 // monitor changes to the columns of @self by connecting to the
 // [signal@Gio.ListModel::items-changed] signal.
 func (x *ColumnView) GetColumns() *gio.ListModelBase {
-	core.LazyRegister(&xColumnViewGetColumns, "GTK", "gtk_column_view_get_columns", false)
 	var cls *gio.ListModelBase
 
 	cret := xColumnViewGetColumns(x.GoPointer())
@@ -165,8 +161,6 @@ var xColumnViewGetEnableRubberband func(uintptr) bool
 
 // Returns whether rows can be selected by dragging with the mouse.
 func (x *ColumnView) GetEnableRubberband() bool {
-	core.LazyRegister(&xColumnViewGetEnableRubberband, "GTK", "gtk_column_view_get_enable_rubberband", false)
-
 	cret := xColumnViewGetEnableRubberband(x.GoPointer())
 	return cret
 }
@@ -175,7 +169,6 @@ var xColumnViewGetHeaderFactory func(uintptr) uintptr
 
 // Gets the factory that's currently used to populate section headers.
 func (x *ColumnView) GetHeaderFactory() *ListItemFactory {
-	core.LazyRegister(&xColumnViewGetHeaderFactory, "GTK", "gtk_column_view_get_header_factory", false)
 	var cls *ListItemFactory
 
 	cret := xColumnViewGetHeaderFactory(x.GoPointer())
@@ -193,7 +186,6 @@ var xColumnViewGetModel func(uintptr) uintptr
 
 // Gets the model that's currently used to read the items displayed.
 func (x *ColumnView) GetModel() *SelectionModelBase {
-	core.LazyRegister(&xColumnViewGetModel, "GTK", "gtk_column_view_get_model", false)
 	var cls *SelectionModelBase
 
 	cret := xColumnViewGetModel(x.GoPointer())
@@ -211,8 +203,6 @@ var xColumnViewGetReorderable func(uintptr) bool
 
 // Returns whether columns are reorderable.
 func (x *ColumnView) GetReorderable() bool {
-	core.LazyRegister(&xColumnViewGetReorderable, "GTK", "gtk_column_view_get_reorderable", false)
-
 	cret := xColumnViewGetReorderable(x.GoPointer())
 	return cret
 }
@@ -221,7 +211,6 @@ var xColumnViewGetRowFactory func(uintptr) uintptr
 
 // Gets the factory set via [method@Gtk.ColumnView.set_row_factory].
 func (x *ColumnView) GetRowFactory() *ListItemFactory {
-	core.LazyRegister(&xColumnViewGetRowFactory, "GTK", "gtk_column_view_get_row_factory", false)
 	var cls *ListItemFactory
 
 	cret := xColumnViewGetRowFactory(x.GoPointer())
@@ -239,8 +228,6 @@ var xColumnViewGetShowColumnSeparators func(uintptr) bool
 
 // Returns whether the list should show separators between columns.
 func (x *ColumnView) GetShowColumnSeparators() bool {
-	core.LazyRegister(&xColumnViewGetShowColumnSeparators, "GTK", "gtk_column_view_get_show_column_separators", false)
-
 	cret := xColumnViewGetShowColumnSeparators(x.GoPointer())
 	return cret
 }
@@ -249,8 +236,6 @@ var xColumnViewGetShowRowSeparators func(uintptr) bool
 
 // Returns whether the list should show separators between rows.
 func (x *ColumnView) GetShowRowSeparators() bool {
-	core.LazyRegister(&xColumnViewGetShowRowSeparators, "GTK", "gtk_column_view_get_show_row_separators", false)
-
 	cret := xColumnViewGetShowRowSeparators(x.GoPointer())
 	return cret
 }
@@ -260,8 +245,6 @@ var xColumnViewGetSingleClickActivate func(uintptr) bool
 // Returns whether rows will be activated on single click and
 // selected on hover.
 func (x *ColumnView) GetSingleClickActivate() bool {
-	core.LazyRegister(&xColumnViewGetSingleClickActivate, "GTK", "gtk_column_view_get_single_click_activate", false)
-
 	cret := xColumnViewGetSingleClickActivate(x.GoPointer())
 	return cret
 }
@@ -288,7 +271,6 @@ var xColumnViewGetSorter func(uintptr) uintptr
 // gtk_column_view_set_model (view, selection);
 // ```
 func (x *ColumnView) GetSorter() *Sorter {
-	core.LazyRegister(&xColumnViewGetSorter, "GTK", "gtk_column_view_get_sorter", false)
 	var cls *Sorter
 
 	cret := xColumnViewGetSorter(x.GoPointer())
@@ -306,8 +288,6 @@ var xColumnViewGetTabBehavior func(uintptr) ListTabBehavior
 
 // Gets the behavior set for the &lt;kbd&gt;Tab&lt;/kbd&gt; key.
 func (x *ColumnView) GetTabBehavior() ListTabBehavior {
-	core.LazyRegister(&xColumnViewGetTabBehavior, "GTK", "gtk_column_view_get_tab_behavior", false)
-
 	cret := xColumnViewGetTabBehavior(x.GoPointer())
 	return cret
 }
@@ -318,8 +298,6 @@ var xColumnViewInsertColumn func(uintptr, uint, uintptr)
 //
 // If @column is already a column of @self, it will be repositioned.
 func (x *ColumnView) InsertColumn(PositionVar uint, ColumnVar *ColumnViewColumn) {
-	core.LazyRegister(&xColumnViewInsertColumn, "GTK", "gtk_column_view_insert_column", false)
-
 	xColumnViewInsertColumn(x.GoPointer(), PositionVar, ColumnVar.GoPointer())
 }
 
@@ -327,8 +305,6 @@ var xColumnViewRemoveColumn func(uintptr, uintptr)
 
 // Removes the @column from the list of columns of @self.
 func (x *ColumnView) RemoveColumn(ColumnVar *ColumnViewColumn) {
-	core.LazyRegister(&xColumnViewRemoveColumn, "GTK", "gtk_column_view_remove_column", false)
-
 	xColumnViewRemoveColumn(x.GoPointer(), ColumnVar.GoPointer())
 }
 
@@ -340,8 +316,6 @@ var xColumnViewScrollTo func(uintptr, uint, uintptr, ListScrollFlags, *ScrollInf
 // This function works no matter if the columnview is shown or focused.
 // If it isn't, then the changes will take effect once that happens.
 func (x *ColumnView) ScrollTo(PosVar uint, ColumnVar *ColumnViewColumn, FlagsVar ListScrollFlags, ScrollVar *ScrollInfo) {
-	core.LazyRegister(&xColumnViewScrollTo, "GTK", "gtk_column_view_scroll_to", false)
-
 	xColumnViewScrollTo(x.GoPointer(), PosVar, ColumnVar.GoPointer(), FlagsVar, ScrollVar)
 }
 
@@ -349,8 +323,6 @@ var xColumnViewSetEnableRubberband func(uintptr, bool)
 
 // Sets whether selections can be changed by dragging with the mouse.
 func (x *ColumnView) SetEnableRubberband(EnableRubberbandVar bool) {
-	core.LazyRegister(&xColumnViewSetEnableRubberband, "GTK", "gtk_column_view_set_enable_rubberband", false)
-
 	xColumnViewSetEnableRubberband(x.GoPointer(), EnableRubberbandVar)
 }
 
@@ -362,8 +334,6 @@ var xColumnViewSetHeaderFactory func(uintptr, uintptr)
 // If this factory is set to `NULL`, the list will not show
 // section headers.
 func (x *ColumnView) SetHeaderFactory(FactoryVar *ListItemFactory) {
-	core.LazyRegister(&xColumnViewSetHeaderFactory, "GTK", "gtk_column_view_set_header_factory", false)
-
 	xColumnViewSetHeaderFactory(x.GoPointer(), FactoryVar.GoPointer())
 }
 
@@ -373,8 +343,6 @@ var xColumnViewSetModel func(uintptr, uintptr)
 //
 // This must be a [iface@Gtk.SelectionModel].
 func (x *ColumnView) SetModel(ModelVar SelectionModel) {
-	core.LazyRegister(&xColumnViewSetModel, "GTK", "gtk_column_view_set_model", false)
-
 	xColumnViewSetModel(x.GoPointer(), ModelVar.GoPointer())
 }
 
@@ -382,8 +350,6 @@ var xColumnViewSetReorderable func(uintptr, bool)
 
 // Sets whether columns should be reorderable by dragging.
 func (x *ColumnView) SetReorderable(ReorderableVar bool) {
-	core.LazyRegister(&xColumnViewSetReorderable, "GTK", "gtk_column_view_set_reorderable", false)
-
 	xColumnViewSetReorderable(x.GoPointer(), ReorderableVar)
 }
 
@@ -400,8 +366,6 @@ var xColumnViewSetRowFactory func(uintptr, uintptr)
 // cells. For that see [method@GtkColumnViewColumn.set_factory] and
 // [class@GtkColumnViewCell].
 func (x *ColumnView) SetRowFactory(FactoryVar *ListItemFactory) {
-	core.LazyRegister(&xColumnViewSetRowFactory, "GTK", "gtk_column_view_set_row_factory", false)
-
 	xColumnViewSetRowFactory(x.GoPointer(), FactoryVar.GoPointer())
 }
 
@@ -409,8 +373,6 @@ var xColumnViewSetShowColumnSeparators func(uintptr, bool)
 
 // Sets whether the list should show separators between columns.
 func (x *ColumnView) SetShowColumnSeparators(ShowColumnSeparatorsVar bool) {
-	core.LazyRegister(&xColumnViewSetShowColumnSeparators, "GTK", "gtk_column_view_set_show_column_separators", false)
-
 	xColumnViewSetShowColumnSeparators(x.GoPointer(), ShowColumnSeparatorsVar)
 }
 
@@ -418,8 +380,6 @@ var xColumnViewSetShowRowSeparators func(uintptr, bool)
 
 // Sets whether the list should show separators between rows.
 func (x *ColumnView) SetShowRowSeparators(ShowRowSeparatorsVar bool) {
-	core.LazyRegister(&xColumnViewSetShowRowSeparators, "GTK", "gtk_column_view_set_show_row_separators", false)
-
 	xColumnViewSetShowRowSeparators(x.GoPointer(), ShowRowSeparatorsVar)
 }
 
@@ -428,8 +388,6 @@ var xColumnViewSetSingleClickActivate func(uintptr, bool)
 // Sets whether rows should be activated on single click and
 // selected on hover.
 func (x *ColumnView) SetSingleClickActivate(SingleClickActivateVar bool) {
-	core.LazyRegister(&xColumnViewSetSingleClickActivate, "GTK", "gtk_column_view_set_single_click_activate", false)
-
 	xColumnViewSetSingleClickActivate(x.GoPointer(), SingleClickActivateVar)
 }
 
@@ -441,8 +399,6 @@ var xColumnViewSetTabBehavior func(uintptr, ListTabBehavior)
 // &lt;kbd&gt;Shift&lt;/kbd&gt;+&lt;kbd&gt;Tab&lt;/kbd&gt; keys move the
 // focus in the columnview.
 func (x *ColumnView) SetTabBehavior(TabBehaviorVar ListTabBehavior) {
-	core.LazyRegister(&xColumnViewSetTabBehavior, "GTK", "gtk_column_view_set_tab_behavior", false)
-
 	xColumnViewSetTabBehavior(x.GoPointer(), TabBehaviorVar)
 }
 
@@ -461,8 +417,6 @@ var xColumnViewSortByColumn func(uintptr, uintptr, SortType)
 //
 // If @column is unset, the view will be unsorted.
 func (x *ColumnView) SortByColumn(ColumnVar *ColumnViewColumn, DirectionVar SortType) {
-	core.LazyRegister(&xColumnViewSortByColumn, "GTK", "gtk_column_view_sort_by_column", false)
-
 	xColumnViewSortByColumn(x.GoPointer(), ColumnVar.GoPointer(), DirectionVar)
 }
 
@@ -932,4 +886,42 @@ func (x *ColumnView) SetVscrollPolicy(PolicyVar ScrollablePolicy) {
 func init() {
 	core.SetPackageName("GTK", "gtk4")
 	core.SetSharedLibraries("GTK", []string{"libgtk-4.so.1", "libgtk-4.1.dylib"})
+	var libs []uintptr
+	for _, libPath := range core.GetPaths("GTK") {
+		lib, err := purego.Dlopen(libPath, purego.RTLD_NOW|purego.RTLD_GLOBAL)
+		if err != nil {
+			panic(err)
+		}
+		libs = append(libs, lib)
+	}
+
+	core.PuregoSafeRegister(&xColumnViewGLibType, libs, "gtk_column_view_get_type")
+
+	core.PuregoSafeRegister(&xNewColumnView, libs, "gtk_column_view_new")
+
+	core.PuregoSafeRegister(&xColumnViewAppendColumn, libs, "gtk_column_view_append_column")
+	core.PuregoSafeRegister(&xColumnViewGetColumns, libs, "gtk_column_view_get_columns")
+	core.PuregoSafeRegister(&xColumnViewGetEnableRubberband, libs, "gtk_column_view_get_enable_rubberband")
+	core.PuregoSafeRegister(&xColumnViewGetHeaderFactory, libs, "gtk_column_view_get_header_factory")
+	core.PuregoSafeRegister(&xColumnViewGetModel, libs, "gtk_column_view_get_model")
+	core.PuregoSafeRegister(&xColumnViewGetReorderable, libs, "gtk_column_view_get_reorderable")
+	core.PuregoSafeRegister(&xColumnViewGetRowFactory, libs, "gtk_column_view_get_row_factory")
+	core.PuregoSafeRegister(&xColumnViewGetShowColumnSeparators, libs, "gtk_column_view_get_show_column_separators")
+	core.PuregoSafeRegister(&xColumnViewGetShowRowSeparators, libs, "gtk_column_view_get_show_row_separators")
+	core.PuregoSafeRegister(&xColumnViewGetSingleClickActivate, libs, "gtk_column_view_get_single_click_activate")
+	core.PuregoSafeRegister(&xColumnViewGetSorter, libs, "gtk_column_view_get_sorter")
+	core.PuregoSafeRegister(&xColumnViewGetTabBehavior, libs, "gtk_column_view_get_tab_behavior")
+	core.PuregoSafeRegister(&xColumnViewInsertColumn, libs, "gtk_column_view_insert_column")
+	core.PuregoSafeRegister(&xColumnViewRemoveColumn, libs, "gtk_column_view_remove_column")
+	core.PuregoSafeRegister(&xColumnViewScrollTo, libs, "gtk_column_view_scroll_to")
+	core.PuregoSafeRegister(&xColumnViewSetEnableRubberband, libs, "gtk_column_view_set_enable_rubberband")
+	core.PuregoSafeRegister(&xColumnViewSetHeaderFactory, libs, "gtk_column_view_set_header_factory")
+	core.PuregoSafeRegister(&xColumnViewSetModel, libs, "gtk_column_view_set_model")
+	core.PuregoSafeRegister(&xColumnViewSetReorderable, libs, "gtk_column_view_set_reorderable")
+	core.PuregoSafeRegister(&xColumnViewSetRowFactory, libs, "gtk_column_view_set_row_factory")
+	core.PuregoSafeRegister(&xColumnViewSetShowColumnSeparators, libs, "gtk_column_view_set_show_column_separators")
+	core.PuregoSafeRegister(&xColumnViewSetShowRowSeparators, libs, "gtk_column_view_set_show_row_separators")
+	core.PuregoSafeRegister(&xColumnViewSetSingleClickActivate, libs, "gtk_column_view_set_single_click_activate")
+	core.PuregoSafeRegister(&xColumnViewSetTabBehavior, libs, "gtk_column_view_set_tab_behavior")
+	core.PuregoSafeRegister(&xColumnViewSortByColumn, libs, "gtk_column_view_sort_by_column")
 }

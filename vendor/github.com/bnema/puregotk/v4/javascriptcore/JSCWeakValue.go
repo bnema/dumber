@@ -5,6 +5,7 @@ import (
 	"structs"
 	"unsafe"
 
+	"github.com/bnema/purego"
 	"github.com/bnema/puregotk/pkg/core"
 	"github.com/bnema/puregotk/v4/glib"
 	"github.com/bnema/puregotk/v4/gobject"
@@ -39,7 +40,6 @@ type WeakValue struct {
 var xWeakValueGLibType func() types.GType
 
 func WeakValueGLibType() types.GType {
-	core.LazyRegister(&xWeakValueGLibType, "JAVASCRIPTCORE", "jsc_weak_value_get_type", false)
 	return xWeakValueGLibType()
 }
 
@@ -53,7 +53,6 @@ var xNewWeakValue func(uintptr) uintptr
 
 // Create a new #JSCWeakValue for the JavaScript value referenced by @value.
 func NewWeakValue(ValueVar *Value) *WeakValue {
-	core.LazyRegister(&xNewWeakValue, "JAVASCRIPTCORE", "jsc_weak_value_new", false)
 	var cls *WeakValue
 
 	cret := xNewWeakValue(ValueVar.GoPointer())
@@ -70,7 +69,6 @@ var xWeakValueGetValue func(uintptr) uintptr
 
 // Get a #JSCValue referencing the JavaScript value of @weak_value.
 func (x *WeakValue) GetValue() *Value {
-	core.LazyRegister(&xWeakValueGetValue, "JAVASCRIPTCORE", "jsc_weak_value_get_value", false)
 	var cls *Value
 
 	cret := xWeakValueGetValue(x.GoPointer())
@@ -120,4 +118,18 @@ func (x *WeakValue) ConnectCleared(cb *func(WeakValue)) uint {
 func init() {
 	core.SetPackageName("JAVASCRIPTCORE", "javascriptcoregtk-6.0")
 	core.SetSharedLibraries("JAVASCRIPTCORE", []string{"libjavascriptcoregtk-6.0.so.1", "libjavascriptcoregtk-6.0.1.dylib"})
+	var libs []uintptr
+	for _, libPath := range core.GetPaths("JAVASCRIPTCORE") {
+		lib, err := purego.Dlopen(libPath, purego.RTLD_NOW|purego.RTLD_GLOBAL)
+		if err != nil {
+			panic(err)
+		}
+		libs = append(libs, lib)
+	}
+
+	core.PuregoSafeRegister(&xWeakValueGLibType, libs, "jsc_weak_value_get_type")
+
+	core.PuregoSafeRegister(&xNewWeakValue, libs, "jsc_weak_value_new")
+
+	core.PuregoSafeRegister(&xWeakValueGetValue, libs, "jsc_weak_value_get_value")
 }

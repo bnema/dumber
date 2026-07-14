@@ -2,6 +2,7 @@
 package soup
 
 import (
+	"github.com/bnema/purego"
 	"github.com/bnema/puregotk/pkg/core"
 	"github.com/bnema/puregotk/v4/glib"
 	"github.com/bnema/puregotk/v4/gobject"
@@ -18,7 +19,6 @@ type WebsocketCloseCode int
 var xWebsocketCloseCodeGLibType func() types.GType
 
 func WebsocketCloseCodeGLibType() types.GType {
-	core.LazyRegister(&xWebsocketCloseCodeGLibType, "SOUP", "soup_websocket_close_code_get_type", false)
 	return xWebsocketCloseCodeGLibType()
 }
 
@@ -66,7 +66,6 @@ type WebsocketConnectionType int
 var xWebsocketConnectionTypeGLibType func() types.GType
 
 func WebsocketConnectionTypeGLibType() types.GType {
-	core.LazyRegister(&xWebsocketConnectionTypeGLibType, "SOUP", "soup_websocket_connection_type_get_type", false)
 	return xWebsocketConnectionTypeGLibType()
 }
 
@@ -86,7 +85,6 @@ type WebsocketDataType int
 var xWebsocketDataTypeGLibType func() types.GType
 
 func WebsocketDataTypeGLibType() types.GType {
-	core.LazyRegister(&xWebsocketDataTypeGLibType, "SOUP", "soup_websocket_data_type_get_type", false)
 	return xWebsocketDataTypeGLibType()
 }
 
@@ -104,7 +102,6 @@ type WebsocketError int
 var xWebsocketErrorGLibType func() types.GType
 
 func WebsocketErrorGLibType() types.GType {
-	core.LazyRegister(&xWebsocketErrorGLibType, "SOUP", "soup_websocket_error_get_type", false)
 	return xWebsocketErrorGLibType()
 }
 
@@ -129,7 +126,6 @@ type WebsocketState int
 var xWebsocketStateGLibType func() types.GType
 
 func WebsocketStateGLibType() types.GType {
-	core.LazyRegister(&xWebsocketStateGLibType, "SOUP", "soup_websocket_state_get_type", false)
 	return xWebsocketStateGLibType()
 }
 
@@ -156,8 +152,6 @@ var xWebsocketClientPrepareHandshake func(uintptr, uintptr, []string, []gobject.
 // [method@Session.websocket_connect_async] to create a WebSocket connection, it
 // will call this for you.
 func WebsocketClientPrepareHandshake(MsgVar *Message, OriginVar *string, ProtocolsVar []string, SupportedExtensionsVar []gobject.TypeClass) {
-	core.LazyRegister(&xWebsocketClientPrepareHandshake, "SOUP", "soup_websocket_client_prepare_handshake", false)
-
 	OriginVarPtr := core.GStrdupNullable(OriginVar)
 	defer core.GFreeNullable(OriginVarPtr)
 
@@ -178,7 +172,6 @@ var xWebsocketClientVerifyHandshake func(uintptr, []gobject.TypeClass, **glib.Li
 // [method@Session.websocket_connect_async] to create a WebSocket
 // connection, it will call this for you.
 func WebsocketClientVerifyHandshake(MsgVar *Message, SupportedExtensionsVar []gobject.TypeClass, AcceptedExtensionsVar **glib.List) (bool, error) {
-	core.LazyRegister(&xWebsocketClientVerifyHandshake, "SOUP", "soup_websocket_client_verify_handshake", false)
 	var cerr *glib.Error
 
 	cret := xWebsocketClientVerifyHandshake(MsgVar.GoPointer(), SupportedExtensionsVar, AcceptedExtensionsVar, &cerr)
@@ -192,8 +185,6 @@ var xWebsocketErrorQuark func() glib.Quark
 
 // Registers error quark for SoupWebsocket if needed.
 func WebsocketErrorQuark() glib.Quark {
-	core.LazyRegister(&xWebsocketErrorQuark, "SOUP", "soup_websocket_error_quark", false)
-
 	cret := xWebsocketErrorQuark()
 	return cret
 }
@@ -218,7 +209,6 @@ var xWebsocketServerCheckHandshake func(uintptr, uintptr, []string, []gobject.Ty
 // accepting multiple different Origins, or handling different protocols
 // depending on the path.
 func WebsocketServerCheckHandshake(MsgVar *ServerMessage, OriginVar *string, ProtocolsVar []string, SupportedExtensionsVar []gobject.TypeClass) (bool, error) {
-	core.LazyRegister(&xWebsocketServerCheckHandshake, "SOUP", "soup_websocket_server_check_handshake", false)
 	var cerr *glib.Error
 
 	OriginVarPtr := core.GStrdupNullable(OriginVar)
@@ -249,8 +239,6 @@ var xWebsocketServerProcessHandshake func(uintptr, uintptr, []string, []gobject.
 // [method@Server.add_websocket_handler] to handle accepting WebSocket
 // connections, it will call this for you.
 func WebsocketServerProcessHandshake(MsgVar *ServerMessage, ExpectedOriginVar *string, ProtocolsVar []string, SupportedExtensionsVar []gobject.TypeClass, AcceptedExtensionsVar **glib.List) bool {
-	core.LazyRegister(&xWebsocketServerProcessHandshake, "SOUP", "soup_websocket_server_process_handshake", false)
-
 	ExpectedOriginVarPtr := core.GStrdupNullable(ExpectedOriginVar)
 	defer core.GFreeNullable(ExpectedOriginVarPtr)
 
@@ -261,4 +249,28 @@ func WebsocketServerProcessHandshake(MsgVar *ServerMessage, ExpectedOriginVar *s
 func init() {
 	core.SetPackageName("SOUP", "libsoup-3.0")
 	core.SetSharedLibraries("SOUP", []string{"libsoup-3.0.so.0", "libsoup-3.0.0.dylib"})
+	var libs []uintptr
+	for _, libPath := range core.GetPaths("SOUP") {
+		lib, err := purego.Dlopen(libPath, purego.RTLD_NOW|purego.RTLD_GLOBAL)
+		if err != nil {
+			panic(err)
+		}
+		libs = append(libs, lib)
+	}
+
+	core.PuregoSafeRegister(&xWebsocketCloseCodeGLibType, libs, "soup_websocket_close_code_get_type")
+
+	core.PuregoSafeRegister(&xWebsocketConnectionTypeGLibType, libs, "soup_websocket_connection_type_get_type")
+
+	core.PuregoSafeRegister(&xWebsocketDataTypeGLibType, libs, "soup_websocket_data_type_get_type")
+
+	core.PuregoSafeRegister(&xWebsocketErrorGLibType, libs, "soup_websocket_error_get_type")
+
+	core.PuregoSafeRegister(&xWebsocketStateGLibType, libs, "soup_websocket_state_get_type")
+
+	core.PuregoSafeRegister(&xWebsocketClientPrepareHandshake, libs, "soup_websocket_client_prepare_handshake")
+	core.PuregoSafeRegister(&xWebsocketClientVerifyHandshake, libs, "soup_websocket_client_verify_handshake")
+	core.PuregoSafeRegister(&xWebsocketErrorQuark, libs, "soup_websocket_error_quark")
+	core.PuregoSafeRegister(&xWebsocketServerCheckHandshake, libs, "soup_websocket_server_check_handshake")
+	core.PuregoSafeRegister(&xWebsocketServerProcessHandshake, libs, "soup_websocket_server_process_handshake")
 }

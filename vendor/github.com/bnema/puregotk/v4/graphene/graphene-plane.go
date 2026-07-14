@@ -5,6 +5,7 @@ import (
 	"structs"
 	"unsafe"
 
+	"github.com/bnema/purego"
 	"github.com/bnema/puregotk/pkg/core"
 	"github.com/bnema/puregotk/v4/gobject/types"
 )
@@ -24,7 +25,6 @@ type Plane struct {
 var xPlaneGLibType func() types.GType
 
 func PlaneGLibType() types.GType {
-	core.LazyRegister(&xPlaneGLibType, "GRAPHENE", "graphene_plane_get_type", false)
 	return xPlaneGLibType()
 }
 
@@ -46,8 +46,6 @@ var xPlaneAlloc func() uintptr
 //
 // The contents of the returned structure are undefined.
 func PlaneAlloc() *Plane {
-	core.LazyRegister(&xPlaneAlloc, "GRAPHENE", "graphene_plane_alloc", false)
-
 	cret := xPlaneAlloc()
 	if cret == 0 {
 		return nil
@@ -59,8 +57,6 @@ var xPlaneDistance func(uintptr, *Point3D) float32
 
 // Computes the distance of @point from a #graphene_plane_t.
 func (x *Plane) Distance(PointVar *Point3D) float32 {
-	core.LazyRegister(&xPlaneDistance, "GRAPHENE", "graphene_plane_distance", false)
-
 	cret := xPlaneDistance(x.GoPointer(), PointVar)
 	return cret
 }
@@ -69,8 +65,6 @@ var xPlaneEqual func(uintptr, *Plane) bool
 
 // Checks whether the two given #graphene_plane_t are equal.
 func (x *Plane) Equal(BVar *Plane) bool {
-	core.LazyRegister(&xPlaneEqual, "GRAPHENE", "graphene_plane_equal", false)
-
 	cret := xPlaneEqual(x.GoPointer(), BVar)
 	return cret
 }
@@ -79,8 +73,6 @@ var xPlaneFree func(uintptr)
 
 // Frees the resources allocated by graphene_plane_alloc().
 func (x *Plane) Free() {
-	core.LazyRegister(&xPlaneFree, "GRAPHENE", "graphene_plane_free", false)
-
 	xPlaneFree(x.GoPointer())
 }
 
@@ -89,8 +81,6 @@ var xPlaneGetConstant func(uintptr) float32
 // Retrieves the distance along the normal vector of the
 // given #graphene_plane_t from the origin.
 func (x *Plane) GetConstant() float32 {
-	core.LazyRegister(&xPlaneGetConstant, "GRAPHENE", "graphene_plane_get_constant", false)
-
 	cret := xPlaneGetConstant(x.GoPointer())
 	return cret
 }
@@ -100,8 +90,6 @@ var xPlaneGetNormal func(uintptr, *Vec3)
 // Retrieves the normal vector pointing towards the origin of the
 // given #graphene_plane_t.
 func (x *Plane) GetNormal(NormalVar *Vec3) {
-	core.LazyRegister(&xPlaneGetNormal, "GRAPHENE", "graphene_plane_get_normal", false)
-
 	xPlaneGetNormal(x.GoPointer(), NormalVar)
 }
 
@@ -110,8 +98,6 @@ var xPlaneInit func(uintptr, *Vec3, float32) uintptr
 // Initializes the given #graphene_plane_t using the given @normal vector
 // and @constant values.
 func (x *Plane) Init(NormalVar *Vec3, ConstantVar float32) *Plane {
-	core.LazyRegister(&xPlaneInit, "GRAPHENE", "graphene_plane_init", false)
-
 	cret := xPlaneInit(x.GoPointer(), NormalVar, ConstantVar)
 	if cret == 0 {
 		return nil
@@ -124,8 +110,6 @@ var xPlaneInitFromPlane func(uintptr, *Plane) uintptr
 // Initializes the given #graphene_plane_t using the normal
 // vector and constant of another #graphene_plane_t.
 func (x *Plane) InitFromPlane(SrcVar *Plane) *Plane {
-	core.LazyRegister(&xPlaneInitFromPlane, "GRAPHENE", "graphene_plane_init_from_plane", false)
-
 	cret := xPlaneInitFromPlane(x.GoPointer(), SrcVar)
 	if cret == 0 {
 		return nil
@@ -138,8 +122,6 @@ var xPlaneInitFromPoint func(uintptr, *Vec3, *Point3D) uintptr
 // Initializes the given #graphene_plane_t using the given normal vector
 // and an arbitrary co-planar point.
 func (x *Plane) InitFromPoint(NormalVar *Vec3, PointVar *Point3D) *Plane {
-	core.LazyRegister(&xPlaneInitFromPoint, "GRAPHENE", "graphene_plane_init_from_point", false)
-
 	cret := xPlaneInitFromPoint(x.GoPointer(), NormalVar, PointVar)
 	if cret == 0 {
 		return nil
@@ -155,8 +137,6 @@ var xPlaneInitFromPoints func(uintptr, *Point3D, *Point3D, *Point3D) uintptr
 // The winding order is counter-clockwise, and determines which direction
 // the normal vector will point.
 func (x *Plane) InitFromPoints(AVar *Point3D, BVar *Point3D, CVar *Point3D) *Plane {
-	core.LazyRegister(&xPlaneInitFromPoints, "GRAPHENE", "graphene_plane_init_from_points", false)
-
 	cret := xPlaneInitFromPoints(x.GoPointer(), AVar, BVar, CVar)
 	if cret == 0 {
 		return nil
@@ -169,8 +149,6 @@ var xPlaneInitFromVec4 func(uintptr, *Vec4) uintptr
 // Initializes the given #graphene_plane_t using the components of
 // the given #graphene_vec4_t vector.
 func (x *Plane) InitFromVec4(SrcVar *Vec4) *Plane {
-	core.LazyRegister(&xPlaneInitFromVec4, "GRAPHENE", "graphene_plane_init_from_vec4", false)
-
 	cret := xPlaneInitFromVec4(x.GoPointer(), SrcVar)
 	if cret == 0 {
 		return nil
@@ -183,8 +161,6 @@ var xPlaneNegate func(uintptr, *Plane)
 // Negates the normal vector and constant of a #graphene_plane_t, effectively
 // mirroring the plane across the origin.
 func (x *Plane) Negate(ResVar *Plane) {
-	core.LazyRegister(&xPlaneNegate, "GRAPHENE", "graphene_plane_negate", false)
-
 	xPlaneNegate(x.GoPointer(), ResVar)
 }
 
@@ -193,8 +169,6 @@ var xPlaneNormalize func(uintptr, *Plane)
 // Normalizes the vector of the given #graphene_plane_t,
 // and adjusts the constant accordingly.
 func (x *Plane) Normalize(ResVar *Plane) {
-	core.LazyRegister(&xPlaneNormalize, "GRAPHENE", "graphene_plane_normalize", false)
-
 	xPlaneNormalize(x.GoPointer(), ResVar)
 }
 
@@ -209,12 +183,36 @@ var xPlaneTransform func(uintptr, *Matrix, *Matrix, *Plane)
 // the normal matrix beforehand to avoid incurring in the cost of
 // recomputing it every time.
 func (x *Plane) Transform(MatrixVar *Matrix, NormalMatrixVar *Matrix, ResVar *Plane) {
-	core.LazyRegister(&xPlaneTransform, "GRAPHENE", "graphene_plane_transform", false)
-
 	xPlaneTransform(x.GoPointer(), MatrixVar, NormalMatrixVar, ResVar)
 }
 
 func init() {
 	core.SetPackageName("GRAPHENE", "graphene-gobject-1.0")
 	core.SetSharedLibraries("GRAPHENE", []string{"libgraphene-1.0.so.0", "libgraphene-1.0.0.dylib"})
+	var libs []uintptr
+	for _, libPath := range core.GetPaths("GRAPHENE") {
+		lib, err := purego.Dlopen(libPath, purego.RTLD_NOW|purego.RTLD_GLOBAL)
+		if err != nil {
+			panic(err)
+		}
+		libs = append(libs, lib)
+	}
+
+	core.PuregoSafeRegister(&xPlaneGLibType, libs, "graphene_plane_get_type")
+
+	core.PuregoSafeRegister(&xPlaneAlloc, libs, "graphene_plane_alloc")
+
+	core.PuregoSafeRegister(&xPlaneDistance, libs, "graphene_plane_distance")
+	core.PuregoSafeRegister(&xPlaneEqual, libs, "graphene_plane_equal")
+	core.PuregoSafeRegister(&xPlaneFree, libs, "graphene_plane_free")
+	core.PuregoSafeRegister(&xPlaneGetConstant, libs, "graphene_plane_get_constant")
+	core.PuregoSafeRegister(&xPlaneGetNormal, libs, "graphene_plane_get_normal")
+	core.PuregoSafeRegister(&xPlaneInit, libs, "graphene_plane_init")
+	core.PuregoSafeRegister(&xPlaneInitFromPlane, libs, "graphene_plane_init_from_plane")
+	core.PuregoSafeRegister(&xPlaneInitFromPoint, libs, "graphene_plane_init_from_point")
+	core.PuregoSafeRegister(&xPlaneInitFromPoints, libs, "graphene_plane_init_from_points")
+	core.PuregoSafeRegister(&xPlaneInitFromVec4, libs, "graphene_plane_init_from_vec4")
+	core.PuregoSafeRegister(&xPlaneNegate, libs, "graphene_plane_negate")
+	core.PuregoSafeRegister(&xPlaneNormalize, libs, "graphene_plane_normalize")
+	core.PuregoSafeRegister(&xPlaneTransform, libs, "graphene_plane_transform")
 }

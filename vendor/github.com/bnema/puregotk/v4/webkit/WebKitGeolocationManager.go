@@ -5,6 +5,7 @@ import (
 	"structs"
 	"unsafe"
 
+	"github.com/bnema/purego"
 	"github.com/bnema/puregotk/pkg/core"
 	"github.com/bnema/puregotk/v4/glib"
 	"github.com/bnema/puregotk/v4/gobject"
@@ -40,7 +41,6 @@ type GeolocationPosition struct {
 var xGeolocationPositionGLibType func() types.GType
 
 func GeolocationPositionGLibType() types.GType {
-	core.LazyRegister(&xGeolocationPositionGLibType, "WEBKIT", "webkit_geolocation_position_get_type", false)
 	return xGeolocationPositionGLibType()
 }
 
@@ -60,8 +60,6 @@ var xNewGeolocationPosition func(float64, float64, float64) uintptr
 
 // Create a new #WebKitGeolocationPosition.
 func NewGeolocationPosition(LatitudeVar float64, LongitudeVar float64, AccuracyVar float64) *GeolocationPosition {
-	core.LazyRegister(&xNewGeolocationPosition, "WEBKIT", "webkit_geolocation_position_new", false)
-
 	cret := xNewGeolocationPosition(LatitudeVar, LongitudeVar, AccuracyVar)
 	if cret == 0 {
 		return nil
@@ -73,8 +71,6 @@ var xGeolocationPositionCopy func(uintptr) uintptr
 
 // Make a copy of the #WebKitGeolocationPosition.
 func (x *GeolocationPosition) Copy() *GeolocationPosition {
-	core.LazyRegister(&xGeolocationPositionCopy, "WEBKIT", "webkit_geolocation_position_copy", false)
-
 	cret := xGeolocationPositionCopy(x.GoPointer())
 	if cret == 0 {
 		return nil
@@ -86,8 +82,6 @@ var xGeolocationPositionFree func(uintptr)
 
 // Free the #WebKitGeolocationPosition
 func (x *GeolocationPosition) Free() {
-	core.LazyRegister(&xGeolocationPositionFree, "WEBKIT", "webkit_geolocation_position_free", false)
-
 	xGeolocationPositionFree(x.GoPointer())
 }
 
@@ -95,8 +89,6 @@ var xGeolocationPositionSetAltitude func(uintptr, float64)
 
 // Set the @position altitude.
 func (x *GeolocationPosition) SetAltitude(AltitudeVar float64) {
-	core.LazyRegister(&xGeolocationPositionSetAltitude, "WEBKIT", "webkit_geolocation_position_set_altitude", false)
-
 	xGeolocationPositionSetAltitude(x.GoPointer(), AltitudeVar)
 }
 
@@ -104,8 +96,6 @@ var xGeolocationPositionSetAltitudeAccuracy func(uintptr, float64)
 
 // Set the accuracy of @position altitude.
 func (x *GeolocationPosition) SetAltitudeAccuracy(AltitudeAccuracyVar float64) {
-	core.LazyRegister(&xGeolocationPositionSetAltitudeAccuracy, "WEBKIT", "webkit_geolocation_position_set_altitude_accuracy", false)
-
 	xGeolocationPositionSetAltitudeAccuracy(x.GoPointer(), AltitudeAccuracyVar)
 }
 
@@ -116,8 +106,6 @@ var xGeolocationPositionSetHeading func(uintptr, float64)
 // Set the @position heading, as a positive angle between the direction of movement and the North
 // direction, in clockwise direction.
 func (x *GeolocationPosition) SetHeading(HeadingVar float64) {
-	core.LazyRegister(&xGeolocationPositionSetHeading, "WEBKIT", "webkit_geolocation_position_set_heading", false)
-
 	xGeolocationPositionSetHeading(x.GoPointer(), HeadingVar)
 }
 
@@ -125,8 +113,6 @@ var xGeolocationPositionSetSpeed func(uintptr, float64)
 
 // Set the @position speed.
 func (x *GeolocationPosition) SetSpeed(SpeedVar float64) {
-	core.LazyRegister(&xGeolocationPositionSetSpeed, "WEBKIT", "webkit_geolocation_position_set_speed", false)
-
 	xGeolocationPositionSetSpeed(x.GoPointer(), SpeedVar)
 }
 
@@ -136,8 +122,6 @@ var xGeolocationPositionSetTimestamp func(uintptr, uint64)
 //
 // By default it's the time when the @position was created.
 func (x *GeolocationPosition) SetTimestamp(TimestampVar uint64) {
-	core.LazyRegister(&xGeolocationPositionSetTimestamp, "WEBKIT", "webkit_geolocation_position_set_timestamp", false)
-
 	xGeolocationPositionSetTimestamp(x.GoPointer(), TimestampVar)
 }
 
@@ -156,7 +140,6 @@ type GeolocationManager struct {
 var xGeolocationManagerGLibType func() types.GType
 
 func GeolocationManagerGLibType() types.GType {
-	core.LazyRegister(&xGeolocationManagerGLibType, "WEBKIT", "webkit_geolocation_manager_get_type", false)
 	return xGeolocationManagerGLibType()
 }
 
@@ -170,8 +153,6 @@ var xGeolocationManagerFailed func(uintptr, string)
 
 // Notify @manager that determining the position failed.
 func (x *GeolocationManager) Failed(ErrorMessageVar string) {
-	core.LazyRegister(&xGeolocationManagerFailed, "WEBKIT", "webkit_geolocation_manager_failed", false)
-
 	xGeolocationManagerFailed(x.GoPointer(), ErrorMessageVar)
 }
 
@@ -179,8 +160,6 @@ var xGeolocationManagerGetEnableHighAccuracy func(uintptr) bool
 
 // Get whether high accuracy is enabled.
 func (x *GeolocationManager) GetEnableHighAccuracy() bool {
-	core.LazyRegister(&xGeolocationManagerGetEnableHighAccuracy, "WEBKIT", "webkit_geolocation_manager_get_enable_high_accuracy", false)
-
 	cret := xGeolocationManagerGetEnableHighAccuracy(x.GoPointer())
 	return cret
 }
@@ -189,8 +168,6 @@ var xGeolocationManagerUpdatePosition func(uintptr, *GeolocationPosition)
 
 // Notify @manager that position has been updated to @position.
 func (x *GeolocationManager) UpdatePosition(PositionVar *GeolocationPosition) {
-	core.LazyRegister(&xGeolocationManagerUpdatePosition, "WEBKIT", "webkit_geolocation_manager_update_position", false)
-
 	xGeolocationManagerUpdatePosition(x.GoPointer(), PositionVar)
 }
 
@@ -274,8 +251,35 @@ func (x *GeolocationManager) ConnectStop(cb *func(GeolocationManager)) uint {
 func init() {
 	core.SetPackageName("WEBKIT", "webkitgtk-6.0")
 	core.SetSharedLibraries("WEBKIT", []string{"libwebkitgtk-6.0.so.4", "libjavascriptcoregtk-6.0.so.1", "libwebkitgtk-6.0.4.dylib", "libjavascriptcoregtk-6.0.1.dylib"})
+	var libs []uintptr
+	for _, libPath := range core.GetPaths("WEBKIT") {
+		lib, err := purego.Dlopen(libPath, purego.RTLD_NOW|purego.RTLD_GLOBAL)
+		if err != nil {
+			panic(err)
+		}
+		libs = append(libs, lib)
+	}
 
-	// Manually register types since they aren't automatically registered when
-	// WebKit is loaded. See https://bugs.webkit.org/show_bug.cgi?id=175937.
+	core.PuregoSafeRegister(&xGeolocationPositionGLibType, libs, "webkit_geolocation_position_get_type")
+
+	core.PuregoSafeRegister(&xNewGeolocationPosition, libs, "webkit_geolocation_position_new")
+
+	core.PuregoSafeRegister(&xGeolocationPositionCopy, libs, "webkit_geolocation_position_copy")
+	core.PuregoSafeRegister(&xGeolocationPositionFree, libs, "webkit_geolocation_position_free")
+	core.PuregoSafeRegister(&xGeolocationPositionSetAltitude, libs, "webkit_geolocation_position_set_altitude")
+	core.PuregoSafeRegister(&xGeolocationPositionSetAltitudeAccuracy, libs, "webkit_geolocation_position_set_altitude_accuracy")
+	core.PuregoSafeRegister(&xGeolocationPositionSetHeading, libs, "webkit_geolocation_position_set_heading")
+	core.PuregoSafeRegister(&xGeolocationPositionSetSpeed, libs, "webkit_geolocation_position_set_speed")
+	core.PuregoSafeRegister(&xGeolocationPositionSetTimestamp, libs, "webkit_geolocation_position_set_timestamp")
+
+	core.PuregoSafeRegister(&xGeolocationManagerGLibType, libs, "webkit_geolocation_manager_get_type")
+
+	core.PuregoSafeRegister(&xGeolocationManagerFailed, libs, "webkit_geolocation_manager_failed")
+	core.PuregoSafeRegister(&xGeolocationManagerGetEnableHighAccuracy, libs, "webkit_geolocation_manager_get_enable_high_accuracy")
+	core.PuregoSafeRegister(&xGeolocationManagerUpdatePosition, libs, "webkit_geolocation_manager_update_position")
+
+	// Manually register types since they aren't being automatically registered when
+	// the library is loaded
+	// See https://bugs.webkit.org/show_bug.cgi?id=175937
 	GeolocationManagerGLibType()
 }

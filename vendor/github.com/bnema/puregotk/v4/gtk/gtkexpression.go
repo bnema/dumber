@@ -5,6 +5,7 @@ import (
 	"structs"
 	"unsafe"
 
+	"github.com/bnema/purego"
 	"github.com/bnema/puregotk/pkg/core"
 	"github.com/bnema/puregotk/v4/glib"
 	"github.com/bnema/puregotk/v4/gobject"
@@ -26,7 +27,6 @@ type ExpressionWatch struct {
 var xExpressionWatchGLibType func() types.GType
 
 func ExpressionWatchGLibType() types.GType {
-	core.LazyRegister(&xExpressionWatchGLibType, "GTK", "gtk_expression_watch_get_type", false)
 	return xExpressionWatchGLibType()
 }
 
@@ -50,8 +50,6 @@ var xExpressionWatchEvaluate func(uintptr, *gobject.Value) bool
 // This is equivalent to calling [method@Gtk.Expression.evaluate] with the
 // expression and this pointer originally used to create `watch`.
 func (x *ExpressionWatch) Evaluate(ValueVar *gobject.Value) bool {
-	core.LazyRegister(&xExpressionWatchEvaluate, "GTK", "gtk_expression_watch_evaluate", false)
-
 	cret := xExpressionWatchEvaluate(x.GoPointer(), ValueVar)
 	return cret
 }
@@ -60,8 +58,6 @@ var xExpressionWatchRef func(uintptr) uintptr
 
 // Acquires a reference on the given `GtkExpressionWatch`.
 func (x *ExpressionWatch) Ref() *ExpressionWatch {
-	core.LazyRegister(&xExpressionWatchRef, "GTK", "gtk_expression_watch_ref", false)
-
 	cret := xExpressionWatchRef(x.GoPointer())
 	if cret == 0 {
 		return nil
@@ -76,8 +72,6 @@ var xExpressionWatchUnref func(uintptr)
 // If the reference was the last, the resources associated to `self` are
 // freed.
 func (x *ExpressionWatch) Unref() {
-	core.LazyRegister(&xExpressionWatchUnref, "GTK", "gtk_expression_watch_unref", false)
-
 	xExpressionWatchUnref(x.GoPointer())
 }
 
@@ -88,8 +82,6 @@ var xExpressionWatchUnwatch func(uintptr)
 // See [method@Gtk.Expression.watch] for how the watch
 // was established.
 func (x *ExpressionWatch) Unwatch() {
-	core.LazyRegister(&xExpressionWatchUnwatch, "GTK", "gtk_expression_watch_unwatch", false)
-
 	xExpressionWatchUnwatch(x.GoPointer())
 }
 
@@ -99,7 +91,6 @@ var xNewParamSpecExpression func(string, string, string, gobject.ParamFlags) uin
 //
 // See `g_param_spec_internal()` for details on the property strings.
 func NewParamSpecExpression(NameVar string, NickVar string, BlurbVar string, FlagsVar gobject.ParamFlags) *gobject.ParamSpec {
-	core.LazyRegister(&xNewParamSpecExpression, "GTK", "gtk_param_spec_expression", false)
 	var cls *gobject.ParamSpec
 
 	cret := xNewParamSpecExpression(NameVar, NickVar, BlurbVar, FlagsVar)
@@ -117,7 +108,6 @@ var xValueDupExpression func(*gobject.Value) uintptr
 // Retrieves the `GtkExpression` stored inside the given `value`, and acquires
 // a reference to it.
 func ValueDupExpression(ValueVar *gobject.Value) *Expression {
-	core.LazyRegister(&xValueDupExpression, "GTK", "gtk_value_dup_expression", false)
 	var cls *Expression
 
 	cret := xValueDupExpression(ValueVar)
@@ -134,7 +124,6 @@ var xValueGetExpression func(*gobject.Value) uintptr
 
 // Retrieves the `GtkExpression` stored inside the given `value`.
 func ValueGetExpression(ValueVar *gobject.Value) *Expression {
-	core.LazyRegister(&xValueGetExpression, "GTK", "gtk_value_get_expression", false)
 	var cls *Expression
 
 	cret := xValueGetExpression(ValueVar)
@@ -154,8 +143,6 @@ var xValueSetExpression func(*gobject.Value, uintptr)
 //
 // The `GValue` will acquire a reference to the `expression`.
 func ValueSetExpression(ValueVar *gobject.Value, ExpressionVar *Expression) {
-	core.LazyRegister(&xValueSetExpression, "GTK", "gtk_value_set_expression", false)
-
 	xValueSetExpression(ValueVar, ExpressionVar.GoPointer())
 }
 
@@ -165,8 +152,6 @@ var xValueTakeExpression func(*gobject.Value, uintptr)
 //
 // This function transfers the ownership of the `expression` to the `GValue`.
 func ValueTakeExpression(ValueVar *gobject.Value, ExpressionVar *Expression) {
-	core.LazyRegister(&xValueTakeExpression, "GTK", "gtk_value_take_expression", false)
-
 	xValueTakeExpression(ValueVar, ExpressionVar.GoPointer())
 }
 
@@ -178,7 +163,6 @@ type CClosureExpression struct {
 var xCClosureExpressionGLibType func() types.GType
 
 func CClosureExpressionGLibType() types.GType {
-	core.LazyRegister(&xCClosureExpressionGLibType, "GTK", "gtk_cclosure_expression_get_type", false)
 	return xCClosureExpressionGLibType()
 }
 
@@ -196,7 +180,6 @@ var xNewCClosureExpression func(types.GType, uintptr, uint, uintptr, uintptr, ui
 // creates a `GClosure` by calling g_cclosure_new() with the given
 // `callback_func`, `user_data` and `user_destroy`.
 func NewCClosureExpression(ValueTypeVar types.GType, MarshalVar *gobject.ClosureMarshal, NParamsVar uint, ParamsVar uintptr, CallbackFuncVar *gobject.Callback, UserDataVar uintptr, UserDestroyVar *gobject.ClosureNotify) *CClosureExpression {
-	core.LazyRegister(&xNewCClosureExpression, "GTK", "gtk_cclosure_expression_new", false)
 	var cls *CClosureExpression
 
 	cret := xNewCClosureExpression(ValueTypeVar, glib.NewCallbackNullable(MarshalVar), NParamsVar, ParamsVar, glib.NewCallback(CallbackFuncVar), UserDataVar, glib.NewCallbackNullable(UserDestroyVar))
@@ -229,7 +212,6 @@ type ClosureExpression struct {
 var xClosureExpressionGLibType func() types.GType
 
 func ClosureExpressionGLibType() types.GType {
-	core.LazyRegister(&xClosureExpressionGLibType, "GTK", "gtk_closure_expression_get_type", false)
 	return xClosureExpressionGLibType()
 }
 
@@ -246,7 +228,6 @@ var xNewClosureExpression func(types.GType, *gobject.Closure, uint, uintptr) uin
 // `closure` is called with the `this` object and the results of evaluating
 // the `params` expressions.
 func NewClosureExpression(ValueTypeVar types.GType, ClosureVar *gobject.Closure, NParamsVar uint, ParamsVar uintptr) *ClosureExpression {
-	core.LazyRegister(&xNewClosureExpression, "GTK", "gtk_closure_expression_new", false)
 	var cls *ClosureExpression
 
 	cret := xNewClosureExpression(ValueTypeVar, ClosureVar, NParamsVar, ParamsVar)
@@ -278,7 +259,6 @@ type ConstantExpression struct {
 var xConstantExpressionGLibType func() types.GType
 
 func ConstantExpressionGLibType() types.GType {
-	core.LazyRegister(&xConstantExpressionGLibType, "GTK", "gtk_constant_expression_get_type", false)
 	return xConstantExpressionGLibType()
 }
 
@@ -293,7 +273,6 @@ var xNewConstantExpression func(types.GType, ...interface{}) uintptr
 // Creates a `GtkExpression` that evaluates to the
 // object given by the arguments.
 func NewConstantExpression(ValueTypeVar types.GType, varArgs ...interface{}) *ConstantExpression {
-	core.LazyRegister(&xNewConstantExpression, "GTK", "gtk_constant_expression_new", false)
 	var cls *ConstantExpression
 
 	cret := xNewConstantExpression(ValueTypeVar, varArgs...)
@@ -310,7 +289,6 @@ var xNewConstantExpressionForValue func(*gobject.Value) uintptr
 
 // Creates an expression that always evaluates to the given `value`.
 func NewConstantExpressionForValue(ValueVar *gobject.Value) *ConstantExpression {
-	core.LazyRegister(&xNewConstantExpressionForValue, "GTK", "gtk_constant_expression_new_for_value", false)
 	var cls *ConstantExpression
 
 	cret := xNewConstantExpressionForValue(ValueVar)
@@ -327,8 +305,6 @@ var xConstantExpressionGetValue func(uintptr) uintptr
 
 // Gets the value that a constant expression evaluates to.
 func (x *ConstantExpression) GetValue() *gobject.Value {
-	core.LazyRegister(&xConstantExpressionGetValue, "GTK", "gtk_constant_expression_get_value", false)
-
 	cret := xConstantExpressionGetValue(x.GoPointer())
 	if cret == 0 {
 		return nil
@@ -559,7 +535,6 @@ type Expression struct {
 var xExpressionGLibType func() types.GType
 
 func ExpressionGLibType() types.GType {
-	core.LazyRegister(&xExpressionGLibType, "GTK", "gtk_expression_get_type", false)
 	return xExpressionGLibType()
 }
 
@@ -583,8 +558,6 @@ var xExpressionBind func(uintptr, uintptr, string, uintptr) uintptr
 // Note that this function takes ownership of `self`. If you want
 // to keep it around, you should [method@Gtk.Expression.ref] it beforehand.
 func (x *Expression) Bind(TargetVar *gobject.Object, PropertyVar string, ThisVar *gobject.Object) *ExpressionWatch {
-	core.LazyRegister(&xExpressionBind, "GTK", "gtk_expression_bind", false)
-
 	cret := xExpressionBind(x.GoPointer(), TargetVar.GoPointer(), PropertyVar, ThisVar.GoPointer())
 	if cret == 0 {
 		return nil
@@ -605,8 +578,6 @@ var xExpressionEvaluate func(uintptr, uintptr, *gobject.Value) bool
 // set to `NULL`. In that case `value` will remain empty and `FALSE`
 // will be returned.
 func (x *Expression) Evaluate(ThisVar *gobject.Object, ValueVar *gobject.Value) bool {
-	core.LazyRegister(&xExpressionEvaluate, "GTK", "gtk_expression_evaluate", false)
-
 	cret := xExpressionEvaluate(x.GoPointer(), ThisVar.GoPointer(), ValueVar)
 	return cret
 }
@@ -618,8 +589,6 @@ var xExpressionGetValueType func(uintptr) types.GType
 // This type is constant and will not change over the lifetime
 // of this expression.
 func (x *Expression) GetValueType() types.GType {
-	core.LazyRegister(&xExpressionGetValueType, "GTK", "gtk_expression_get_value_type", false)
-
 	cret := xExpressionGetValueType(x.GoPointer())
 	return cret
 }
@@ -634,8 +603,6 @@ var xExpressionIsStatic func(uintptr) bool
 // That means a call to [method@Gtk.Expression.watch] is not necessary because
 // it will never trigger a notify.
 func (x *Expression) IsStatic() bool {
-	core.LazyRegister(&xExpressionIsStatic, "GTK", "gtk_expression_is_static", false)
-
 	cret := xExpressionIsStatic(x.GoPointer())
 	return cret
 }
@@ -644,7 +611,6 @@ var xExpressionRef func(uintptr) uintptr
 
 // Acquires a reference on the given `GtkExpression`.
 func (x *Expression) Ref() *Expression {
-	core.LazyRegister(&xExpressionRef, "GTK", "gtk_expression_ref", false)
 	var cls *Expression
 
 	cret := xExpressionRef(x.GoPointer())
@@ -664,8 +630,6 @@ var xExpressionUnref func(uintptr)
 // If the reference was the last, the resources associated to the `self` are
 // freed.
 func (x *Expression) Unref() {
-	core.LazyRegister(&xExpressionUnref, "GTK", "gtk_expression_unref", false)
-
 	xExpressionUnref(x.GoPointer())
 }
 
@@ -680,8 +644,6 @@ var xExpressionWatch func(uintptr, uintptr, uintptr, uintptr, uintptr) uintptr
 // gets invoked, but it guarantees the opposite: When it did in fact change,
 // the @notify will be invoked.
 func (x *Expression) Watch(ThisVar *gobject.Object, NotifyVar *ExpressionNotify, UserDataVar uintptr, UserDestroyVar *glib.DestroyNotify) *ExpressionWatch {
-	core.LazyRegister(&xExpressionWatch, "GTK", "gtk_expression_watch", false)
-
 	cret := xExpressionWatch(x.GoPointer(), ThisVar.GoPointer(), glib.NewCallbackNullable(NotifyVar), UserDataVar, glib.NewCallbackNullable(UserDestroyVar))
 	if cret == 0 {
 		return nil
@@ -708,7 +670,6 @@ type ObjectExpression struct {
 var xObjectExpressionGLibType func() types.GType
 
 func ObjectExpressionGLibType() types.GType {
-	core.LazyRegister(&xObjectExpressionGLibType, "GTK", "gtk_object_expression_get_type", false)
 	return xObjectExpressionGLibType()
 }
 
@@ -728,7 +689,6 @@ var xNewObjectExpression func(uintptr) uintptr
 //
 // If you want to keep a reference to `object`, use [ctor@Gtk.ConstantExpression.new].
 func NewObjectExpression(ObjectVar *gobject.Object) *ObjectExpression {
-	core.LazyRegister(&xNewObjectExpression, "GTK", "gtk_object_expression_new", false)
 	var cls *ObjectExpression
 
 	cret := xNewObjectExpression(ObjectVar.GoPointer())
@@ -745,7 +705,6 @@ var xObjectExpressionGetObject func(uintptr) uintptr
 
 // Gets the object that the expression evaluates to.
 func (x *ObjectExpression) GetObject() *gobject.Object {
-	core.LazyRegister(&xObjectExpressionGetObject, "GTK", "gtk_object_expression_get_object", false)
 	var cls *gobject.Object
 
 	cret := xObjectExpressionGetObject(x.GoPointer())
@@ -778,7 +737,6 @@ type ParamSpecExpression struct {
 var xParamSpecExpressionGLibType func() types.GType
 
 func ParamSpecExpressionGLibType() types.GType {
-	core.LazyRegister(&xParamSpecExpressionGLibType, "GTK", "gtk_param_expression_get_type", false)
 	return xParamSpecExpressionGLibType()
 }
 
@@ -807,7 +765,6 @@ type PropertyExpression struct {
 var xPropertyExpressionGLibType func() types.GType
 
 func PropertyExpressionGLibType() types.GType {
-	core.LazyRegister(&xPropertyExpressionGLibType, "GTK", "gtk_property_expression_get_type", false)
 	return xPropertyExpressionGLibType()
 }
 
@@ -830,7 +787,6 @@ var xNewPropertyExpression func(types.GType, uintptr, string) uintptr
 //
 // The given `this_type` must have a property with `property_name`.
 func NewPropertyExpression(ThisTypeVar types.GType, ExpressionVar *Expression, PropertyNameVar string) *PropertyExpression {
-	core.LazyRegister(&xNewPropertyExpression, "GTK", "gtk_property_expression_new", false)
 	var cls *PropertyExpression
 
 	cret := xNewPropertyExpression(ThisTypeVar, ExpressionVar.GoPointer(), PropertyNameVar)
@@ -854,7 +810,6 @@ var xNewPropertyExpressionForPspec func(uintptr, uintptr) uintptr
 // property specified by `pspec` will be queried.
 // Otherwise, this expression's evaluation will fail.
 func NewPropertyExpressionForPspec(ExpressionVar *Expression, PspecVar *gobject.ParamSpec) *PropertyExpression {
-	core.LazyRegister(&xNewPropertyExpressionForPspec, "GTK", "gtk_property_expression_new_for_pspec", false)
 	var cls *PropertyExpression
 
 	cret := xNewPropertyExpressionForPspec(ExpressionVar.GoPointer(), PspecVar.GoPointer())
@@ -872,7 +827,6 @@ var xPropertyExpressionGetExpression func(uintptr) uintptr
 // Gets the expression specifying the object of
 // a property expression.
 func (x *PropertyExpression) GetExpression() *Expression {
-	core.LazyRegister(&xPropertyExpressionGetExpression, "GTK", "gtk_property_expression_get_expression", false)
 	var cls *Expression
 
 	cret := xPropertyExpressionGetExpression(x.GoPointer())
@@ -891,7 +845,6 @@ var xPropertyExpressionGetPspec func(uintptr) uintptr
 // Gets the `GParamSpec` specifying the property of
 // a property expression.
 func (x *PropertyExpression) GetPspec() *gobject.ParamSpec {
-	core.LazyRegister(&xPropertyExpressionGetPspec, "GTK", "gtk_property_expression_get_pspec", false)
 	var cls *gobject.ParamSpec
 
 	cret := xPropertyExpressionGetPspec(x.GoPointer())
@@ -926,7 +879,6 @@ type TryExpression struct {
 var xTryExpressionGLibType func() types.GType
 
 func TryExpressionGLibType() types.GType {
-	core.LazyRegister(&xTryExpressionGLibType, "GTK", "gtk_try_expression_get_type", false)
 	return xTryExpressionGLibType()
 }
 
@@ -945,7 +897,6 @@ var xNewTryExpression func(uint, uintptr) uintptr
 //
 // The value type of the expressions in the array must match.
 func NewTryExpression(NExpressionsVar uint, ExpressionsVar uintptr) *TryExpression {
-	core.LazyRegister(&xNewTryExpression, "GTK", "gtk_try_expression_new", false)
 	var cls *TryExpression
 
 	cret := xNewTryExpression(NExpressionsVar, ExpressionsVar)
@@ -972,4 +923,70 @@ func (c *TryExpression) SetGoPointer(ptr uintptr) {
 func init() {
 	core.SetPackageName("GTK", "gtk4")
 	core.SetSharedLibraries("GTK", []string{"libgtk-4.so.1", "libgtk-4.1.dylib"})
+	var libs []uintptr
+	for _, libPath := range core.GetPaths("GTK") {
+		lib, err := purego.Dlopen(libPath, purego.RTLD_NOW|purego.RTLD_GLOBAL)
+		if err != nil {
+			panic(err)
+		}
+		libs = append(libs, lib)
+	}
+
+	core.PuregoSafeRegister(&xNewParamSpecExpression, libs, "gtk_param_spec_expression")
+	core.PuregoSafeRegister(&xValueDupExpression, libs, "gtk_value_dup_expression")
+	core.PuregoSafeRegister(&xValueGetExpression, libs, "gtk_value_get_expression")
+	core.PuregoSafeRegister(&xValueSetExpression, libs, "gtk_value_set_expression")
+	core.PuregoSafeRegister(&xValueTakeExpression, libs, "gtk_value_take_expression")
+
+	core.PuregoSafeRegister(&xExpressionWatchGLibType, libs, "gtk_expression_watch_get_type")
+
+	core.PuregoSafeRegister(&xExpressionWatchEvaluate, libs, "gtk_expression_watch_evaluate")
+	core.PuregoSafeRegister(&xExpressionWatchRef, libs, "gtk_expression_watch_ref")
+	core.PuregoSafeRegister(&xExpressionWatchUnref, libs, "gtk_expression_watch_unref")
+	core.PuregoSafeRegister(&xExpressionWatchUnwatch, libs, "gtk_expression_watch_unwatch")
+
+	core.PuregoSafeRegister(&xCClosureExpressionGLibType, libs, "gtk_cclosure_expression_get_type")
+
+	core.PuregoSafeRegister(&xNewCClosureExpression, libs, "gtk_cclosure_expression_new")
+
+	core.PuregoSafeRegister(&xClosureExpressionGLibType, libs, "gtk_closure_expression_get_type")
+
+	core.PuregoSafeRegister(&xNewClosureExpression, libs, "gtk_closure_expression_new")
+
+	core.PuregoSafeRegister(&xConstantExpressionGLibType, libs, "gtk_constant_expression_get_type")
+
+	core.PuregoSafeRegister(&xNewConstantExpression, libs, "gtk_constant_expression_new")
+	core.PuregoSafeRegister(&xNewConstantExpressionForValue, libs, "gtk_constant_expression_new_for_value")
+
+	core.PuregoSafeRegister(&xConstantExpressionGetValue, libs, "gtk_constant_expression_get_value")
+
+	core.PuregoSafeRegister(&xExpressionGLibType, libs, "gtk_expression_get_type")
+
+	core.PuregoSafeRegister(&xExpressionBind, libs, "gtk_expression_bind")
+	core.PuregoSafeRegister(&xExpressionEvaluate, libs, "gtk_expression_evaluate")
+	core.PuregoSafeRegister(&xExpressionGetValueType, libs, "gtk_expression_get_value_type")
+	core.PuregoSafeRegister(&xExpressionIsStatic, libs, "gtk_expression_is_static")
+	core.PuregoSafeRegister(&xExpressionRef, libs, "gtk_expression_ref")
+	core.PuregoSafeRegister(&xExpressionUnref, libs, "gtk_expression_unref")
+	core.PuregoSafeRegister(&xExpressionWatch, libs, "gtk_expression_watch")
+
+	core.PuregoSafeRegister(&xObjectExpressionGLibType, libs, "gtk_object_expression_get_type")
+
+	core.PuregoSafeRegister(&xNewObjectExpression, libs, "gtk_object_expression_new")
+
+	core.PuregoSafeRegister(&xObjectExpressionGetObject, libs, "gtk_object_expression_get_object")
+
+	core.PuregoSafeRegister(&xParamSpecExpressionGLibType, libs, "gtk_param_expression_get_type")
+
+	core.PuregoSafeRegister(&xPropertyExpressionGLibType, libs, "gtk_property_expression_get_type")
+
+	core.PuregoSafeRegister(&xNewPropertyExpression, libs, "gtk_property_expression_new")
+	core.PuregoSafeRegister(&xNewPropertyExpressionForPspec, libs, "gtk_property_expression_new_for_pspec")
+
+	core.PuregoSafeRegister(&xPropertyExpressionGetExpression, libs, "gtk_property_expression_get_expression")
+	core.PuregoSafeRegister(&xPropertyExpressionGetPspec, libs, "gtk_property_expression_get_pspec")
+
+	core.PuregoSafeRegister(&xTryExpressionGLibType, libs, "gtk_try_expression_get_type")
+
+	core.PuregoSafeRegister(&xNewTryExpression, libs, "gtk_try_expression_new")
 }

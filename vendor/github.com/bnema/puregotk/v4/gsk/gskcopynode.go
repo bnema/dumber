@@ -2,6 +2,7 @@
 package gsk
 
 import (
+	"github.com/bnema/purego"
 	"github.com/bnema/puregotk/pkg/core"
 	"github.com/bnema/puregotk/v4/gobject"
 	"github.com/bnema/puregotk/v4/gobject/types"
@@ -16,7 +17,6 @@ type CopyNode struct {
 var xCopyNodeGLibType func() types.GType
 
 func CopyNodeGLibType() types.GType {
-	core.LazyRegister(&xCopyNodeGLibType, "GSK", "gsk_copy_node_get_type", false)
 	return xCopyNodeGLibType()
 }
 
@@ -31,7 +31,6 @@ var xNewCopyNode func(uintptr) uintptr
 // Creates a `GskRenderNode` that copies the current rendering
 // canvas for playback by paste nodes that are part of the child.
 func NewCopyNode(ChildVar *RenderNode) *CopyNode {
-	core.LazyRegister(&xNewCopyNode, "GSK", "gsk_copy_node_new", false)
 	var cls *CopyNode
 
 	cret := xNewCopyNode(ChildVar.GoPointer())
@@ -48,7 +47,6 @@ var xCopyNodeGetChild func(uintptr) uintptr
 
 // Gets the child node that is getting drawn by the given @node.
 func (x *CopyNode) GetChild() *RenderNode {
-	core.LazyRegister(&xCopyNodeGetChild, "GSK", "gsk_copy_node_get_child", false)
 	var cls *RenderNode
 
 	cret := xCopyNodeGetChild(x.GoPointer())
@@ -76,4 +74,18 @@ func (c *CopyNode) SetGoPointer(ptr uintptr) {
 func init() {
 	core.SetPackageName("GSK", "gtk4")
 	core.SetSharedLibraries("GSK", []string{"libgtk-4.so.1", "libgtk-4.1.dylib"})
+	var libs []uintptr
+	for _, libPath := range core.GetPaths("GSK") {
+		lib, err := purego.Dlopen(libPath, purego.RTLD_NOW|purego.RTLD_GLOBAL)
+		if err != nil {
+			panic(err)
+		}
+		libs = append(libs, lib)
+	}
+
+	core.PuregoSafeRegister(&xCopyNodeGLibType, libs, "gsk_copy_node_get_type")
+
+	core.PuregoSafeRegister(&xNewCopyNode, libs, "gsk_copy_node_new")
+
+	core.PuregoSafeRegister(&xCopyNodeGetChild, libs, "gsk_copy_node_get_child")
 }

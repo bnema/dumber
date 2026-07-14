@@ -5,6 +5,7 @@ import (
 	"structs"
 	"unsafe"
 
+	"github.com/bnema/purego"
 	"github.com/bnema/puregotk/pkg/core"
 )
 
@@ -161,8 +162,6 @@ const (
 var xAssertWarning func(string, string, int, string, string)
 
 func AssertWarning(LogDomainVar string, FileVar string, LineVar int, PrettyFunctionVar string, ExpressionVar string) {
-	core.LazyRegister(&xAssertWarning, "GLIB", "g_assert_warning", false)
-
 	xAssertWarning(LogDomainVar, FileVar, LineVar, PrettyFunctionVar, ExpressionVar)
 }
 
@@ -181,8 +180,6 @@ var xLog func(uintptr, LogLevelFlags, string, ...interface{})
 // If [structured logging is enabled](logging.html#using-structured-logging) this will
 // output via the structured log writer function (see [func@GLib.log_set_writer_func]).
 func Log(LogDomainVar *string, LogLevelVar LogLevelFlags, FormatVar string, varArgs ...interface{}) {
-	core.LazyRegister(&xLog, "GLIB", "g_log", false)
-
 	LogDomainVarPtr := core.GStrdupNullable(LogDomainVar)
 	defer core.GFreeNullable(LogDomainVarPtr)
 
@@ -223,8 +220,6 @@ var xLogDefaultHandler func(uintptr, LogLevelFlags, uintptr, uintptr)
 // This has no effect if structured logging is enabled; see
 // [Using Structured Logging](logging.html#using-structured-logging).
 func LogDefaultHandler(LogDomainVar *string, LogLevelVar LogLevelFlags, MessageVar *string, UnusedDataVar uintptr) {
-	core.LazyRegister(&xLogDefaultHandler, "GLIB", "g_log_default_handler", false)
-
 	LogDomainVarPtr := core.GStrdupNullable(LogDomainVar)
 	defer core.GFreeNullable(LogDomainVarPtr)
 
@@ -268,8 +263,6 @@ var xLogGetAlwaysFatal func() LogLevelFlags
 //
 // ```
 func LogGetAlwaysFatal() LogLevelFlags {
-	core.LazyRegister(&xLogGetAlwaysFatal, "GLIB", "g_log_get_always_fatal", false)
-
 	cret := xLogGetAlwaysFatal()
 	return cret
 }
@@ -286,8 +279,6 @@ var xLogGetDebugEnabled func() bool
 // `DEBUG_INVOCATION`, nor [func@GLib.log_writer_default_set_debug_domains]; see
 // the docs for [func@GLib.log_set_debug_enabled].
 func LogGetDebugEnabled() bool {
-	core.LazyRegister(&xLogGetDebugEnabled, "GLIB", "g_log_get_debug_enabled", false)
-
 	cret := xLogGetDebugEnabled()
 	return cret
 }
@@ -299,8 +290,6 @@ var xLogRemoveHandler func(string, uint)
 // This has no effect if structured logging is enabled; see
 // [Using Structured Logging](logging.html#using-structured-logging).
 func LogRemoveHandler(LogDomainVar string, HandlerIdVar uint) {
-	core.LazyRegister(&xLogRemoveHandler, "GLIB", "g_log_remove_handler", false)
-
 	xLogRemoveHandler(LogDomainVar, HandlerIdVar)
 }
 
@@ -324,8 +313,6 @@ var xLogSetAlwaysFatal func(LogLevelFlags) LogLevelFlags
 // otherwise it is up to the writer function to determine which log messages
 // are fatal. See [Using Structured Logging](logging.html#using-structured-logging).
 func LogSetAlwaysFatal(FatalMaskVar LogLevelFlags) LogLevelFlags {
-	core.LazyRegister(&xLogSetAlwaysFatal, "GLIB", "g_log_set_always_fatal", false)
-
 	cret := xLogSetAlwaysFatal(FatalMaskVar)
 	return cret
 }
@@ -341,8 +328,6 @@ var xLogSetDebugEnabled func(bool)
 // Note that this should not be used from within library code to enable debug
 // output — it is intended for external use.
 func LogSetDebugEnabled(EnabledVar bool) {
-	core.LazyRegister(&xLogSetDebugEnabled, "GLIB", "g_log_set_debug_enabled", false)
-
 	xLogSetDebugEnabled(EnabledVar)
 }
 
@@ -357,8 +342,6 @@ var xLogSetDefaultHandler func(uintptr, uintptr) uintptr
 // This has no effect if structured logging is enabled; see
 // [Using Structured Logging](logging.html#using-structured-logging).
 func LogSetDefaultHandler(LogFuncVar *LogFunc, UserDataVar uintptr) uintptr {
-	core.LazyRegister(&xLogSetDefaultHandler, "GLIB", "g_log_set_default_handler", false)
-
 	cret := xLogSetDefaultHandler(NewCallback(LogFuncVar), UserDataVar)
 	return cret
 }
@@ -380,8 +363,6 @@ var xLogSetFatalMask func(string, LogLevelFlags) LogLevelFlags
 // [flags@GLib.LogLevelFlags.LEVEL_WARNING], [flags@GLib.LogLevelFlags.LEVEL_MESSAGE], [flags@GLib.LogLevelFlags.LEVEL_INFO] or
 // [flags@GLib.LogLevelFlags.LEVEL_DEBUG] as fatal except inside of test programs.
 func LogSetFatalMask(LogDomainVar string, FatalMaskVar LogLevelFlags) LogLevelFlags {
-	core.LazyRegister(&xLogSetFatalMask, "GLIB", "g_log_set_fatal_mask", false)
-
 	cret := xLogSetFatalMask(LogDomainVar, FatalMaskVar)
 	return cret
 }
@@ -432,8 +413,6 @@ var xLogSetHandler func(uintptr, LogLevelFlags, uintptr, uintptr) uint
 //
 // ```
 func LogSetHandler(LogDomainVar *string, LogLevelsVar LogLevelFlags, LogFuncVar *LogFunc, UserDataVar uintptr) uint {
-	core.LazyRegister(&xLogSetHandler, "GLIB", "g_log_set_handler", false)
-
 	LogDomainVarPtr := core.GStrdupNullable(LogDomainVar)
 	defer core.GFreeNullable(LogDomainVarPtr)
 
@@ -451,8 +430,6 @@ var xLogSetHandlerFull func(uintptr, LogLevelFlags, uintptr, uintptr, uintptr) u
 // The `log_domain` parameter can be set to `NULL` or an empty string to use the default
 // application domain.
 func LogSetHandlerFull(LogDomainVar *string, LogLevelsVar LogLevelFlags, LogFuncVar *LogFunc, UserDataVar uintptr, DestroyVar *DestroyNotify) uint {
-	core.LazyRegister(&xLogSetHandlerFull, "GLIB", "g_log_set_handler_full", false)
-
 	LogDomainVarPtr := core.GStrdupNullable(LogDomainVar)
 	defer core.GFreeNullable(LogDomainVarPtr)
 
@@ -474,8 +451,6 @@ var xLogSetWriterFunc func(uintptr, uintptr, uintptr)
 //
 // There can only be one writer function. It is an error to set more than one.
 func LogSetWriterFunc(FuncVar *LogWriterFunc, UserDataVar uintptr, UserDataFreeVar *DestroyNotify) {
-	core.LazyRegister(&xLogSetWriterFunc, "GLIB", "g_log_set_writer_func", false)
-
 	xLogSetWriterFunc(NewCallback(FuncVar), UserDataVar, NewCallback(UserDataFreeVar))
 }
 
@@ -575,8 +550,6 @@ var xLogStructured func(string, LogLevelFlags, ...interface{})
 // append a new-line character after the message, so you should not add one
 // manually to the format string.
 func LogStructured(LogDomainVar string, LogLevelVar LogLevelFlags, varArgs ...interface{}) {
-	core.LazyRegister(&xLogStructured, "GLIB", "g_log_structured", false)
-
 	xLogStructured(LogDomainVar, LogLevelVar, varArgs...)
 }
 
@@ -594,16 +567,12 @@ var xLogStructuredArray func(LogLevelFlags, []LogField, uint)
 // This assumes that @log_level is already present in @fields (typically as the
 // `PRIORITY` field).
 func LogStructuredArray(LogLevelVar LogLevelFlags, FieldsVar []LogField, NFieldsVar uint) {
-	core.LazyRegister(&xLogStructuredArray, "GLIB", "g_log_structured_array", false)
-
 	xLogStructuredArray(LogLevelVar, FieldsVar, NFieldsVar)
 }
 
 var xLogStructuredStandard func(string, LogLevelFlags, string, string, string, string, ...interface{})
 
 func LogStructuredStandard(LogDomainVar string, LogLevelVar LogLevelFlags, FileVar string, LineVar string, FuncVar string, MessageFormatVar string, varArgs ...interface{}) {
-	core.LazyRegister(&xLogStructuredStandard, "GLIB", "g_log_structured_standard", false)
-
 	xLogStructuredStandard(LogDomainVar, LogLevelVar, FileVar, LineVar, FuncVar, MessageFormatVar, varArgs...)
 }
 
@@ -625,8 +594,6 @@ var xLogVariant func(uintptr, LogLevelFlags, *Variant)
 //
 // For more details on its usage and about the parameters, see [func@GLib.log_structured].
 func LogVariant(LogDomainVar *string, LogLevelVar LogLevelFlags, FieldsVar *Variant) {
-	core.LazyRegister(&xLogVariant, "GLIB", "g_log_variant", false)
-
 	LogDomainVarPtr := core.GStrdupNullable(LogDomainVar)
 	defer core.GFreeNullable(LogDomainVarPtr)
 
@@ -658,8 +625,6 @@ var xLogWriterDefault func(LogLevelFlags, []LogField, uint, uintptr) LogWriterOu
 // determine which messages are fatal. When using a custom writer function instead it is
 // up to the writer function to determine which log messages are fatal.
 func LogWriterDefault(LogLevelVar LogLevelFlags, FieldsVar []LogField, NFieldsVar uint, UserDataVar uintptr) LogWriterOutput {
-	core.LazyRegister(&xLogWriterDefault, "GLIB", "g_log_writer_default", false)
-
 	cret := xLogWriterDefault(LogLevelVar, FieldsVar, NFieldsVar, UserDataVar)
 	return cret
 }
@@ -671,8 +636,6 @@ var xLogWriterDefaultSetDebugDomains func(uintptr)
 //
 // This function is thread-safe.
 func LogWriterDefaultSetDebugDomains(DomainsVar *string) {
-	core.LazyRegister(&xLogWriterDefaultSetDebugDomains, "GLIB", "g_log_writer_default_set_debug_domains", false)
-
 	DomainsVarPtr := core.GStrdupNullable(DomainsVar)
 	defer core.GFreeNullable(DomainsVarPtr)
 
@@ -697,8 +660,6 @@ var xLogWriterDefaultSetUseStderr func(bool)
 // called at the very start of a program, before creating any other threads
 // or creating objects that could create worker threads of their own.
 func LogWriterDefaultSetUseStderr(UseStderrVar bool) {
-	core.LazyRegister(&xLogWriterDefaultSetUseStderr, "GLIB", "g_log_writer_default_set_use_stderr", false)
-
 	xLogWriterDefaultSetUseStderr(UseStderrVar)
 }
 
@@ -736,8 +697,6 @@ var xLogWriterDefaultWouldDrop func(LogLevelFlags, uintptr) bool
 //
 // ```
 func LogWriterDefaultWouldDrop(LogLevelVar LogLevelFlags, LogDomainVar *string) bool {
-	core.LazyRegister(&xLogWriterDefaultWouldDrop, "GLIB", "g_log_writer_default_would_drop", false)
-
 	LogDomainVarPtr := core.GStrdupNullable(LogDomainVar)
 	defer core.GFreeNullable(LogDomainVarPtr)
 
@@ -759,8 +718,6 @@ var xLogWriterFormatFields func(LogLevelFlags, []LogField, uint, bool) string
 // encoded in the character set of the current locale, which is not necessarily
 // UTF-8.
 func LogWriterFormatFields(LogLevelVar LogLevelFlags, FieldsVar []LogField, NFieldsVar uint, UseColorVar bool) string {
-	core.LazyRegister(&xLogWriterFormatFields, "GLIB", "g_log_writer_format_fields", false)
-
 	cret := xLogWriterFormatFields(LogLevelVar, FieldsVar, NFieldsVar, UseColorVar)
 	return cret
 }
@@ -777,8 +734,6 @@ var xLogWriterIsJournald func(int) bool
 // is_journald = g_log_writer_is_journald (fileno (stderr));
 // ```
 func LogWriterIsJournald(OutputFdVar int) bool {
-	core.LazyRegister(&xLogWriterIsJournald, "GLIB", "g_log_writer_is_journald", false)
-
 	cret := xLogWriterIsJournald(OutputFdVar)
 	return cret
 }
@@ -797,8 +752,6 @@ var xLogWriterJournald func(LogLevelFlags, []LogField, uint, uintptr) LogWriterO
 // If GLib has been compiled without systemd support, this function is still
 // defined, but will always return [enum@GLib.LogWriterOutput.UNHANDLED].
 func LogWriterJournald(LogLevelVar LogLevelFlags, FieldsVar []LogField, NFieldsVar uint, UserDataVar uintptr) LogWriterOutput {
-	core.LazyRegister(&xLogWriterJournald, "GLIB", "g_log_writer_journald", false)
-
 	cret := xLogWriterJournald(LogLevelVar, FieldsVar, NFieldsVar, UserDataVar)
 	return cret
 }
@@ -823,8 +776,6 @@ var xLogWriterStandardStreams func(LogLevelFlags, []LogField, uint, uintptr) Log
 //
 // This is suitable for use as a [type@GLib.LogWriterFunc].
 func LogWriterStandardStreams(LogLevelVar LogLevelFlags, FieldsVar []LogField, NFieldsVar uint, UserDataVar uintptr) LogWriterOutput {
-	core.LazyRegister(&xLogWriterStandardStreams, "GLIB", "g_log_writer_standard_streams", false)
-
 	cret := xLogWriterStandardStreams(LogLevelVar, FieldsVar, NFieldsVar, UserDataVar)
 	return cret
 }
@@ -836,8 +787,6 @@ var xLogWriterSupportsColor func(int) bool
 //
 // If so, they can safely be used when formatting log messages.
 func LogWriterSupportsColor(OutputFdVar int) bool {
-	core.LazyRegister(&xLogWriterSupportsColor, "GLIB", "g_log_writer_supports_color", false)
-
 	cret := xLogWriterSupportsColor(OutputFdVar)
 	return cret
 }
@@ -857,8 +806,6 @@ var xLogWriterSyslog func(LogLevelFlags, []LogField, uint, uintptr) LogWriterOut
 // If syslog is not supported, this function is still defined, but will always
 // return [enum@GLib.LogWriterOutput.UNHANDLED].
 func LogWriterSyslog(LogLevelVar LogLevelFlags, FieldsVar []LogField, NFieldsVar uint, UserDataVar uintptr) LogWriterOutput {
-	core.LazyRegister(&xLogWriterSyslog, "GLIB", "g_log_writer_syslog", false)
-
 	cret := xLogWriterSyslog(LogLevelVar, FieldsVar, NFieldsVar, UserDataVar)
 	return cret
 }
@@ -881,8 +828,6 @@ var xLogv func(uintptr, LogLevelFlags, string, []interface{})
 // The `log_domain` parameter can be set to `NULL` or an empty string to use the default
 // application domain.
 func Logv(LogDomainVar *string, LogLevelVar LogLevelFlags, FormatVar string, ArgsVar []interface{}) {
-	core.LazyRegister(&xLogv, "GLIB", "g_logv", false)
-
 	LogDomainVarPtr := core.GStrdupNullable(LogDomainVar)
 	defer core.GFreeNullable(LogDomainVarPtr)
 
@@ -903,8 +848,6 @@ var xPrint func(string, ...interface{})
 // use [func@GLib.log], [func@GLib.log_structured], or the convenience macros
 // [func@GLib.message], [func@GLib.warning] and [func@GLib.error].
 func Print(FormatVar string, varArgs ...interface{}) {
-	core.LazyRegister(&xPrint, "GLIB", "g_print", false)
-
 	xPrint(FormatVar, varArgs...)
 }
 
@@ -920,8 +863,6 @@ var xPrinterr func(string, ...interface{})
 // Instead [func@GLib.log] or [func@GLib.log_structured] should be used, or the convenience
 // macros [func@GLib.message], [func@GLib.warning] and [func@GLib.error].
 func Printerr(FormatVar string, varArgs ...interface{}) {
-	core.LazyRegister(&xPrinterr, "GLIB", "g_printerr", false)
-
 	xPrinterr(FormatVar, varArgs...)
 }
 
@@ -938,8 +879,6 @@ var xPrintfStringUpperBound func(string, []interface{}) uint
 // return cases if necessary. It is recommended to not use `%lc` or `%ls`
 // placeholders in any case, as their behaviour is locale-dependent.
 func PrintfStringUpperBound(FormatVar string, ArgsVar []interface{}) uint {
-	core.LazyRegister(&xPrintfStringUpperBound, "GLIB", "g_printf_string_upper_bound", false)
-
 	cret := xPrintfStringUpperBound(FormatVar, ArgsVar)
 	return cret
 }
@@ -949,8 +888,6 @@ var xReturnIfFailWarning func(uintptr, string, uintptr)
 // Internal function used to print messages from the public [func@GLib.return_if_fail]
 // and [func@GLib.return_val_if_fail] macros.
 func ReturnIfFailWarning(LogDomainVar *string, PrettyFunctionVar string, ExpressionVar *string) {
-	core.LazyRegister(&xReturnIfFailWarning, "GLIB", "g_return_if_fail_warning", false)
-
 	LogDomainVarPtr := core.GStrdupNullable(LogDomainVar)
 	defer core.GFreeNullable(LogDomainVarPtr)
 
@@ -978,8 +915,6 @@ var xSetPrintHandler func(uintptr) uintptr
 // decorate its output and/or to write to `stderr`
 // in all platforms. Before GLib 2.76, this was `NULL`.
 func SetPrintHandler(FuncVar *PrintFunc) uintptr {
-	core.LazyRegister(&xSetPrintHandler, "GLIB", "g_set_print_handler", false)
-
 	cret := xSetPrintHandler(NewCallbackNullable(FuncVar))
 	return cret
 }
@@ -1002,8 +937,6 @@ var xSetPrinterrHandler func(uintptr) uintptr
 // its output and/or to write to `stderr` in all platforms.
 // Before GLib 2.76, this was `NULL`.
 func SetPrinterrHandler(FuncVar *PrintFunc) uintptr {
-	core.LazyRegister(&xSetPrinterrHandler, "GLIB", "g_set_printerr_handler", false)
-
 	cret := xSetPrinterrHandler(NewCallbackNullable(FuncVar))
 	return cret
 }
@@ -1013,8 +946,6 @@ var xWarnMessage func(uintptr, string, int, string, uintptr)
 // Internal function used to print messages from the public [func@GLib.warn_if_reached]
 // and [func@GLib.warn_if_fail] macros.
 func WarnMessage(DomainVar *string, FileVar string, LineVar int, FuncVar string, WarnexprVar *string) {
-	core.LazyRegister(&xWarnMessage, "GLIB", "g_warn_message", false)
-
 	DomainVarPtr := core.GStrdupNullable(DomainVar)
 	defer core.GFreeNullable(DomainVarPtr)
 
@@ -1027,4 +958,48 @@ func WarnMessage(DomainVar *string, FileVar string, LineVar int, FuncVar string,
 func init() {
 	core.SetPackageName("GLIB", "glib-2.0")
 	core.SetSharedLibraries("GLIB", []string{"libgobject-2.0.so.0", "libglib-2.0.so.0", "libgobject-2.0.0.dylib", "libglib-2.0.0.dylib"})
+	var libs []uintptr
+	for _, libPath := range core.GetPaths("GLIB") {
+		lib, err := purego.Dlopen(libPath, purego.RTLD_NOW|purego.RTLD_GLOBAL)
+		if err != nil {
+			panic(err)
+		}
+		libs = append(libs, lib)
+	}
+
+	core.PuregoSafeRegister(&xAssertWarning, libs, "g_assert_warning")
+	core.PuregoSafeRegister(&xLog, libs, "g_log")
+	core.PuregoSafeRegister(&xLogDefaultHandler, libs, "g_log_default_handler")
+	core.PuregoSafeRegister(&xLogGetAlwaysFatal, libs, "g_log_get_always_fatal")
+	core.PuregoSafeRegister(&xLogGetDebugEnabled, libs, "g_log_get_debug_enabled")
+	core.PuregoSafeRegister(&xLogRemoveHandler, libs, "g_log_remove_handler")
+	core.PuregoSafeRegister(&xLogSetAlwaysFatal, libs, "g_log_set_always_fatal")
+	core.PuregoSafeRegister(&xLogSetDebugEnabled, libs, "g_log_set_debug_enabled")
+	core.PuregoSafeRegister(&xLogSetDefaultHandler, libs, "g_log_set_default_handler")
+	core.PuregoSafeRegister(&xLogSetFatalMask, libs, "g_log_set_fatal_mask")
+	core.PuregoSafeRegister(&xLogSetHandler, libs, "g_log_set_handler")
+	core.PuregoSafeRegister(&xLogSetHandlerFull, libs, "g_log_set_handler_full")
+	core.PuregoSafeRegister(&xLogSetWriterFunc, libs, "g_log_set_writer_func")
+	core.PuregoSafeRegister(&xLogStructured, libs, "g_log_structured")
+	core.PuregoSafeRegister(&xLogStructuredArray, libs, "g_log_structured_array")
+	core.PuregoSafeRegister(&xLogStructuredStandard, libs, "g_log_structured_standard")
+	core.PuregoSafeRegister(&xLogVariant, libs, "g_log_variant")
+	core.PuregoSafeRegister(&xLogWriterDefault, libs, "g_log_writer_default")
+	core.PuregoSafeRegister(&xLogWriterDefaultSetDebugDomains, libs, "g_log_writer_default_set_debug_domains")
+	core.PuregoSafeRegister(&xLogWriterDefaultSetUseStderr, libs, "g_log_writer_default_set_use_stderr")
+	core.PuregoSafeRegister(&xLogWriterDefaultWouldDrop, libs, "g_log_writer_default_would_drop")
+	core.PuregoSafeRegister(&xLogWriterFormatFields, libs, "g_log_writer_format_fields")
+	core.PuregoSafeRegister(&xLogWriterIsJournald, libs, "g_log_writer_is_journald")
+	core.PuregoSafeRegister(&xLogWriterJournald, libs, "g_log_writer_journald")
+	core.PuregoSafeRegister(&xLogWriterStandardStreams, libs, "g_log_writer_standard_streams")
+	core.PuregoSafeRegister(&xLogWriterSupportsColor, libs, "g_log_writer_supports_color")
+	core.PuregoSafeRegister(&xLogWriterSyslog, libs, "g_log_writer_syslog")
+	core.PuregoSafeRegister(&xLogv, libs, "g_logv")
+	core.PuregoSafeRegister(&xPrint, libs, "g_print")
+	core.PuregoSafeRegister(&xPrinterr, libs, "g_printerr")
+	core.PuregoSafeRegister(&xPrintfStringUpperBound, libs, "g_printf_string_upper_bound")
+	core.PuregoSafeRegister(&xReturnIfFailWarning, libs, "g_return_if_fail_warning")
+	core.PuregoSafeRegister(&xSetPrintHandler, libs, "g_set_print_handler")
+	core.PuregoSafeRegister(&xSetPrinterrHandler, libs, "g_set_printerr_handler")
+	core.PuregoSafeRegister(&xWarnMessage, libs, "g_warn_message")
 }

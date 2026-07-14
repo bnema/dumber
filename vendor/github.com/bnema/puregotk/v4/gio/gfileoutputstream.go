@@ -108,7 +108,7 @@ func (x *FileOutputStreamClass) OverrideSeek(cb func(*FileOutputStream, int64, g
 	if cb == nil {
 		x.xSeek = 0
 	} else {
-		x.xSeek = purego.NewCallback(func(StreamVarp uintptr, OffsetVarp int64, TypeVarp glib.SeekType, CancellableVarp uintptr, cerrp **glib.Error) bool {
+		x.xSeek = purego.NewCallback(func(StreamVarp uintptr, OffsetVarp int64, TypeVarp glib.SeekType, CancellableVarp uintptr) bool {
 			return cb(FileOutputStreamNewFromInternalPtr(StreamVarp), OffsetVarp, TypeVarp, CancellableNewFromInternalPtr(CancellableVarp))
 		})
 	}
@@ -119,11 +119,10 @@ func (x *FileOutputStreamClass) GetSeek() func(*FileOutputStream, int64, glib.Se
 	if x.xSeek == 0 {
 		return nil
 	}
-	var rawCallback func(StreamVarp uintptr, OffsetVarp int64, TypeVarp glib.SeekType, CancellableVarp uintptr, cerrp **glib.Error) bool
+	var rawCallback func(StreamVarp uintptr, OffsetVarp int64, TypeVarp glib.SeekType, CancellableVarp uintptr) bool
 	purego.RegisterFunc(&rawCallback, x.xSeek)
 	return func(StreamVar *FileOutputStream, OffsetVar int64, TypeVar glib.SeekType, CancellableVar *Cancellable) bool {
-		var cerr *glib.Error
-		return rawCallback(StreamVar.GoPointer(), OffsetVar, TypeVar, CancellableVar.GoPointer(), &cerr)
+		return rawCallback(StreamVar.GoPointer(), OffsetVar, TypeVar, CancellableVar.GoPointer())
 	}
 }
 
@@ -155,7 +154,7 @@ func (x *FileOutputStreamClass) OverrideTruncateFn(cb func(*FileOutputStream, in
 	if cb == nil {
 		x.xTruncateFn = 0
 	} else {
-		x.xTruncateFn = purego.NewCallback(func(StreamVarp uintptr, SizeVarp int64, CancellableVarp uintptr, cerrp **glib.Error) bool {
+		x.xTruncateFn = purego.NewCallback(func(StreamVarp uintptr, SizeVarp int64, CancellableVarp uintptr) bool {
 			return cb(FileOutputStreamNewFromInternalPtr(StreamVarp), SizeVarp, CancellableNewFromInternalPtr(CancellableVarp))
 		})
 	}
@@ -166,11 +165,10 @@ func (x *FileOutputStreamClass) GetTruncateFn() func(*FileOutputStream, int64, *
 	if x.xTruncateFn == 0 {
 		return nil
 	}
-	var rawCallback func(StreamVarp uintptr, SizeVarp int64, CancellableVarp uintptr, cerrp **glib.Error) bool
+	var rawCallback func(StreamVarp uintptr, SizeVarp int64, CancellableVarp uintptr) bool
 	purego.RegisterFunc(&rawCallback, x.xTruncateFn)
 	return func(StreamVar *FileOutputStream, SizeVar int64, CancellableVar *Cancellable) bool {
-		var cerr *glib.Error
-		return rawCallback(StreamVar.GoPointer(), SizeVar, CancellableVar.GoPointer(), &cerr)
+		return rawCallback(StreamVar.GoPointer(), SizeVar, CancellableVar.GoPointer())
 	}
 }
 
@@ -179,7 +177,7 @@ func (x *FileOutputStreamClass) OverrideQueryInfo(cb func(*FileOutputStream, str
 	if cb == nil {
 		x.xQueryInfo = 0
 	} else {
-		x.xQueryInfo = purego.NewCallback(func(StreamVarp uintptr, AttributesVarp string, CancellableVarp uintptr, cerrp **glib.Error) uintptr {
+		x.xQueryInfo = purego.NewCallback(func(StreamVarp uintptr, AttributesVarp string, CancellableVarp uintptr) uintptr {
 			ret := cb(FileOutputStreamNewFromInternalPtr(StreamVarp), AttributesVarp, CancellableNewFromInternalPtr(CancellableVarp))
 			if ret == nil {
 				return 0
@@ -194,11 +192,10 @@ func (x *FileOutputStreamClass) GetQueryInfo() func(*FileOutputStream, string, *
 	if x.xQueryInfo == 0 {
 		return nil
 	}
-	var rawCallback func(StreamVarp uintptr, AttributesVarp string, CancellableVarp uintptr, cerrp **glib.Error) uintptr
+	var rawCallback func(StreamVarp uintptr, AttributesVarp string, CancellableVarp uintptr) uintptr
 	purego.RegisterFunc(&rawCallback, x.xQueryInfo)
 	return func(StreamVar *FileOutputStream, AttributesVar string, CancellableVar *Cancellable) *FileInfo {
-		var cerr *glib.Error
-		rawRet := rawCallback(StreamVar.GoPointer(), AttributesVar, CancellableVar.GoPointer(), &cerr)
+		rawRet := rawCallback(StreamVar.GoPointer(), AttributesVar, CancellableVar.GoPointer())
 		if rawRet == 0 {
 			return nil
 		}
@@ -236,7 +233,7 @@ func (x *FileOutputStreamClass) OverrideQueryInfoFinish(cb func(*FileOutputStrea
 	if cb == nil {
 		x.xQueryInfoFinish = 0
 	} else {
-		x.xQueryInfoFinish = purego.NewCallback(func(StreamVarp uintptr, ResultVarp uintptr, cerrp **glib.Error) uintptr {
+		x.xQueryInfoFinish = purego.NewCallback(func(StreamVarp uintptr, ResultVarp uintptr) uintptr {
 			ret := cb(FileOutputStreamNewFromInternalPtr(StreamVarp), &AsyncResultBase{Ptr: ResultVarp})
 			if ret == nil {
 				return 0
@@ -251,11 +248,10 @@ func (x *FileOutputStreamClass) GetQueryInfoFinish() func(*FileOutputStream, Asy
 	if x.xQueryInfoFinish == 0 {
 		return nil
 	}
-	var rawCallback func(StreamVarp uintptr, ResultVarp uintptr, cerrp **glib.Error) uintptr
+	var rawCallback func(StreamVarp uintptr, ResultVarp uintptr) uintptr
 	purego.RegisterFunc(&rawCallback, x.xQueryInfoFinish)
 	return func(StreamVar *FileOutputStream, ResultVar AsyncResult) *FileInfo {
-		var cerr *glib.Error
-		rawRet := rawCallback(StreamVar.GoPointer(), ResultVar.GoPointer(), &cerr)
+		rawRet := rawCallback(StreamVar.GoPointer(), ResultVar.GoPointer())
 		if rawRet == 0 {
 			return nil
 		}
@@ -440,7 +436,6 @@ type FileOutputStream struct {
 var xFileOutputStreamGLibType func() types.GType
 
 func FileOutputStreamGLibType() types.GType {
-	core.LazyRegister(&xFileOutputStreamGLibType, "GIO", "g_file_output_stream_get_type", false)
 	return xFileOutputStreamGLibType()
 }
 
@@ -456,8 +451,6 @@ var xFileOutputStreamGetEtag func(uintptr) string
 // This must be called after the stream has been written
 // and closed, as the etag can change while writing.
 func (x *FileOutputStream) GetEtag() string {
-	core.LazyRegister(&xFileOutputStreamGetEtag, "GIO", "g_file_output_stream_get_etag", false)
-
 	cret := xFileOutputStreamGetEtag(x.GoPointer())
 	return cret
 }
@@ -482,7 +475,6 @@ var xFileOutputStreamQueryInfo func(uintptr, string, uintptr, **glib.Error) uint
 // was cancelled, the error %G_IO_ERROR_CANCELLED will be set, and %NULL will
 // be returned.
 func (x *FileOutputStream) QueryInfo(AttributesVar string, CancellableVar *Cancellable) (*FileInfo, error) {
-	core.LazyRegister(&xFileOutputStreamQueryInfo, "GIO", "g_file_output_stream_query_info", false)
 	var cls *FileInfo
 	var cerr *glib.Error
 
@@ -508,8 +500,6 @@ var xFileOutputStreamQueryInfoAsync func(uintptr, string, int, uintptr, uintptr,
 // For the synchronous version of this function, see
 // g_file_output_stream_query_info().
 func (x *FileOutputStream) QueryInfoAsync(AttributesVar string, IoPriorityVar int, CancellableVar *Cancellable, CallbackVar *AsyncReadyCallback, UserDataVar uintptr) {
-	core.LazyRegister(&xFileOutputStreamQueryInfoAsync, "GIO", "g_file_output_stream_query_info_async", false)
-
 	xFileOutputStreamQueryInfoAsync(x.GoPointer(), AttributesVar, IoPriorityVar, CancellableVar.GoPointer(), glib.NewCallbackNullable(CallbackVar), UserDataVar)
 }
 
@@ -518,7 +508,6 @@ var xFileOutputStreamQueryInfoFinish func(uintptr, uintptr, **glib.Error) uintpt
 // Finalizes the asynchronous query started
 // by g_file_output_stream_query_info_async().
 func (x *FileOutputStream) QueryInfoFinish(ResultVar AsyncResult) (*FileInfo, error) {
-	core.LazyRegister(&xFileOutputStreamQueryInfoFinish, "GIO", "g_file_output_stream_query_info_finish", false)
 	var cls *FileInfo
 	var cerr *glib.Error
 
@@ -611,4 +600,19 @@ func (x *FileOutputStream) Truncate(OffsetVar int64, CancellableVar *Cancellable
 func init() {
 	core.SetPackageName("GIO", "gio-2.0")
 	core.SetSharedLibraries("GIO", []string{"libgio-2.0.so.0", "libgio-2.0.0.dylib"})
+	var libs []uintptr
+	for _, libPath := range core.GetPaths("GIO") {
+		lib, err := purego.Dlopen(libPath, purego.RTLD_NOW|purego.RTLD_GLOBAL)
+		if err != nil {
+			panic(err)
+		}
+		libs = append(libs, lib)
+	}
+
+	core.PuregoSafeRegister(&xFileOutputStreamGLibType, libs, "g_file_output_stream_get_type")
+
+	core.PuregoSafeRegister(&xFileOutputStreamGetEtag, libs, "g_file_output_stream_get_etag")
+	core.PuregoSafeRegister(&xFileOutputStreamQueryInfo, libs, "g_file_output_stream_query_info")
+	core.PuregoSafeRegister(&xFileOutputStreamQueryInfoAsync, libs, "g_file_output_stream_query_info_async")
+	core.PuregoSafeRegister(&xFileOutputStreamQueryInfoFinish, libs, "g_file_output_stream_query_info_finish")
 }

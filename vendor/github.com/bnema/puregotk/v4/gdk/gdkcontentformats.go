@@ -5,6 +5,7 @@ import (
 	"structs"
 	"unsafe"
 
+	"github.com/bnema/purego"
 	"github.com/bnema/puregotk/pkg/core"
 	"github.com/bnema/puregotk/v4/glib"
 	"github.com/bnema/puregotk/v4/gobject/types"
@@ -18,7 +19,6 @@ type ContentFormatsBuilder struct {
 var xContentFormatsBuilderGLibType func() types.GType
 
 func ContentFormatsBuilderGLibType() types.GType {
-	core.LazyRegister(&xContentFormatsBuilderGLibType, "GDK", "gdk_content_formats_builder_get_type", false)
 	return xContentFormatsBuilderGLibType()
 }
 
@@ -41,8 +41,6 @@ var xNewContentFormatsBuilder func() uintptr
 // The resulting builder would create an empty `GdkContentFormats`.
 // Use addition functions to add types to it.
 func NewContentFormatsBuilder() *ContentFormatsBuilder {
-	core.LazyRegister(&xNewContentFormatsBuilder, "GDK", "gdk_content_formats_builder_new", false)
-
 	cret := xNewContentFormatsBuilder()
 	if cret == 0 {
 		return nil
@@ -55,8 +53,6 @@ var xContentFormatsBuilderAddFormats func(uintptr, *ContentFormats)
 // Appends all formats from @formats to @builder, skipping those that
 // already exist.
 func (x *ContentFormatsBuilder) AddFormats(FormatsVar *ContentFormats) {
-	core.LazyRegister(&xContentFormatsBuilderAddFormats, "GDK", "gdk_content_formats_builder_add_formats", false)
-
 	xContentFormatsBuilderAddFormats(x.GoPointer(), FormatsVar)
 }
 
@@ -64,8 +60,6 @@ var xContentFormatsBuilderAddGtype func(uintptr, types.GType)
 
 // Appends @type to @builder if it has not already been added.
 func (x *ContentFormatsBuilder) AddGtype(TypeVar types.GType) {
-	core.LazyRegister(&xContentFormatsBuilderAddGtype, "GDK", "gdk_content_formats_builder_add_gtype", false)
-
 	xContentFormatsBuilderAddGtype(x.GoPointer(), TypeVar)
 }
 
@@ -73,8 +67,6 @@ var xContentFormatsBuilderAddMimeType func(uintptr, string)
 
 // Appends @mime_type to @builder if it has not already been added.
 func (x *ContentFormatsBuilder) AddMimeType(MimeTypeVar string) {
-	core.LazyRegister(&xContentFormatsBuilderAddMimeType, "GDK", "gdk_content_formats_builder_add_mime_type", false)
-
 	xContentFormatsBuilderAddMimeType(x.GoPointer(), MimeTypeVar)
 }
 
@@ -83,8 +75,6 @@ var xContentFormatsBuilderFreeToFormats func(uintptr) uintptr
 // Creates a new `GdkContentFormats` from the current state of the
 // given @builder, and frees the @builder instance.
 func (x *ContentFormatsBuilder) FreeToFormats() *ContentFormats {
-	core.LazyRegister(&xContentFormatsBuilderFreeToFormats, "GDK", "gdk_content_formats_builder_free_to_formats", false)
-
 	cret := xContentFormatsBuilderFreeToFormats(x.GoPointer())
 	if cret == 0 {
 		return nil
@@ -99,8 +89,6 @@ var xContentFormatsBuilderRef func(uintptr) uintptr
 // This function is intended primarily for bindings.
 // `GdkContentFormatsBuilder` objects should not be kept around.
 func (x *ContentFormatsBuilder) Ref() *ContentFormatsBuilder {
-	core.LazyRegister(&xContentFormatsBuilderRef, "GDK", "gdk_content_formats_builder_ref", false)
-
 	cret := xContentFormatsBuilderRef(x.GoPointer())
 	if cret == 0 {
 		return nil
@@ -118,8 +106,6 @@ var xContentFormatsBuilderToFormats func(uintptr) uintptr
 // This function is intended primarily for bindings. C code should use
 // [method@Gdk.ContentFormatsBuilder.free_to_formats].
 func (x *ContentFormatsBuilder) ToFormats() *ContentFormats {
-	core.LazyRegister(&xContentFormatsBuilderToFormats, "GDK", "gdk_content_formats_builder_to_formats", false)
-
 	cret := xContentFormatsBuilderToFormats(x.GoPointer())
 	if cret == 0 {
 		return nil
@@ -131,8 +117,6 @@ var xContentFormatsBuilderUnref func(uintptr)
 
 // Releases a reference on the given @builder.
 func (x *ContentFormatsBuilder) Unref() {
-	core.LazyRegister(&xContentFormatsBuilderUnref, "GDK", "gdk_content_formats_builder_unref", false)
-
 	xContentFormatsBuilderUnref(x.GoPointer())
 }
 
@@ -144,7 +128,6 @@ type FileList struct {
 var xFileListGLibType func() types.GType
 
 func FileListGLibType() types.GType {
-	core.LazyRegister(&xFileListGLibType, "GDK", "gdk_file_list_get_type", false)
 	return xFileListGLibType()
 }
 
@@ -166,8 +149,6 @@ var xNewFileListFromArray func(uintptr, uint) uintptr
 //
 // This function is meant to be used by language bindings.
 func NewFileListFromArray(FilesVar uintptr, NFilesVar uint) *FileList {
-	core.LazyRegister(&xNewFileListFromArray, "GDK", "gdk_file_list_new_from_array", false)
-
 	cret := xNewFileListFromArray(FilesVar, NFilesVar)
 	if cret == 0 {
 		return nil
@@ -182,8 +163,6 @@ var xNewFileListFromList func(*glib.SList) uintptr
 //
 // This function is meant to be used by language bindings
 func NewFileListFromList(FilesVar *glib.SList) *FileList {
-	core.LazyRegister(&xNewFileListFromList, "GDK", "gdk_file_list_new_from_list", false)
-
 	cret := xNewFileListFromList(FilesVar)
 	if cret == 0 {
 		return nil
@@ -197,8 +176,6 @@ var xFileListGetFiles func(uintptr) uintptr
 //
 // This function is meant for language bindings.
 func (x *FileList) GetFiles() *glib.SList {
-	core.LazyRegister(&xFileListGetFiles, "GDK", "gdk_file_list_get_files", false)
-
 	cret := xFileListGetFiles(x.GoPointer())
 	if cret == 0 {
 		return nil
@@ -217,8 +194,6 @@ var xContentFormatsParse func(string) uintptr
 // If @string does not describe valid content formats, %NULL
 // is returned.
 func ContentFormatsParse(StringVar string) *ContentFormats {
-	core.LazyRegister(&xContentFormatsParse, "GDK", "gdk_content_formats_parse", false)
-
 	cret := xContentFormatsParse(StringVar)
 	if cret == 0 {
 		return nil
@@ -233,8 +208,6 @@ var xInternMimeType func(string) string
 // If @string is not a valid mime type, %NULL is returned instead.
 // See RFC 2048 for the syntax if mime types.
 func InternMimeType(StringVar string) string {
-	core.LazyRegister(&xInternMimeType, "GDK", "gdk_intern_mime_type", false)
-
 	cret := xInternMimeType(StringVar)
 	return cret
 }
@@ -242,4 +215,34 @@ func InternMimeType(StringVar string) string {
 func init() {
 	core.SetPackageName("GDK", "gtk4")
 	core.SetSharedLibraries("GDK", []string{"libgtk-4.so.1", "libgtk-4.1.dylib"})
+	var libs []uintptr
+	for _, libPath := range core.GetPaths("GDK") {
+		lib, err := purego.Dlopen(libPath, purego.RTLD_NOW|purego.RTLD_GLOBAL)
+		if err != nil {
+			panic(err)
+		}
+		libs = append(libs, lib)
+	}
+
+	core.PuregoSafeRegister(&xContentFormatsParse, libs, "gdk_content_formats_parse")
+	core.PuregoSafeRegister(&xInternMimeType, libs, "gdk_intern_mime_type")
+
+	core.PuregoSafeRegister(&xContentFormatsBuilderGLibType, libs, "gdk_content_formats_builder_get_type")
+
+	core.PuregoSafeRegister(&xNewContentFormatsBuilder, libs, "gdk_content_formats_builder_new")
+
+	core.PuregoSafeRegister(&xContentFormatsBuilderAddFormats, libs, "gdk_content_formats_builder_add_formats")
+	core.PuregoSafeRegister(&xContentFormatsBuilderAddGtype, libs, "gdk_content_formats_builder_add_gtype")
+	core.PuregoSafeRegister(&xContentFormatsBuilderAddMimeType, libs, "gdk_content_formats_builder_add_mime_type")
+	core.PuregoSafeRegister(&xContentFormatsBuilderFreeToFormats, libs, "gdk_content_formats_builder_free_to_formats")
+	core.PuregoSafeRegister(&xContentFormatsBuilderRef, libs, "gdk_content_formats_builder_ref")
+	core.PuregoSafeRegister(&xContentFormatsBuilderToFormats, libs, "gdk_content_formats_builder_to_formats")
+	core.PuregoSafeRegister(&xContentFormatsBuilderUnref, libs, "gdk_content_formats_builder_unref")
+
+	core.PuregoSafeRegister(&xFileListGLibType, libs, "gdk_file_list_get_type")
+
+	core.PuregoSafeRegister(&xNewFileListFromArray, libs, "gdk_file_list_new_from_array")
+	core.PuregoSafeRegister(&xNewFileListFromList, libs, "gdk_file_list_new_from_list")
+
+	core.PuregoSafeRegister(&xFileListGetFiles, libs, "gdk_file_list_get_files")
 }

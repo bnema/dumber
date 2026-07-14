@@ -5,6 +5,7 @@ import (
 	"structs"
 	"unsafe"
 
+	"github.com/bnema/purego"
 	"github.com/bnema/puregotk/pkg/core"
 	"github.com/bnema/puregotk/v4/gobject/types"
 )
@@ -21,7 +22,6 @@ type Language struct {
 var xLanguageGLibType func() types.GType
 
 func LanguageGLibType() types.GType {
-	core.LazyRegister(&xLanguageGLibType, "PANGO", "pango_language_get_type", false)
 	return xLanguageGLibType()
 }
 
@@ -59,8 +59,6 @@ var xLanguageGetSampleString func(uintptr) string
 // pango_language_get_sample_string (pango_language_from_string ("xx"))
 // ```
 func (x *Language) GetSampleString() string {
-	core.LazyRegister(&xLanguageGetSampleString, "PANGO", "pango_language_get_sample_string", false)
-
 	cret := xLanguageGetSampleString(x.GoPointer())
 	return cret
 }
@@ -91,8 +89,6 @@ var xLanguageGetScripts func(uintptr, *int) uintptr
 // returned values are from the `GUnicodeScript` enumeration, which
 // may have more values. Callers need to handle unknown values.
 func (x *Language) GetScripts(NumScriptsVar *int) uintptr {
-	core.LazyRegister(&xLanguageGetScripts, "PANGO", "pango_language_get_scripts", false)
-
 	cret := xLanguageGetScripts(x.GoPointer(), NumScriptsVar)
 	return cret
 }
@@ -113,8 +109,6 @@ var xLanguageIncludesScript func(uintptr, Script) bool
 //
 // This function uses [method@Pango.Language.get_scripts] internally.
 func (x *Language) IncludesScript(ScriptVar Script) bool {
-	core.LazyRegister(&xLanguageIncludesScript, "PANGO", "pango_language_includes_script", false)
-
 	cret := xLanguageIncludesScript(x.GoPointer(), ScriptVar)
 	return cret
 }
@@ -128,8 +122,6 @@ var xLanguageMatches func(uintptr, string) bool
 // range is '*', the range is exactly the tag, or the range is a prefix
 // of the tag, and the character after it in the tag is '-'.
 func (x *Language) Matches(RangeListVar string) bool {
-	core.LazyRegister(&xLanguageMatches, "PANGO", "pango_language_matches", false)
-
 	cret := xLanguageMatches(x.GoPointer(), RangeListVar)
 	return cret
 }
@@ -140,8 +132,6 @@ var xLanguageToString func(uintptr) string
 //
 // Returns (transfer none): a string representing the language tag
 func (x *Language) ToString() string {
-	core.LazyRegister(&xLanguageToString, "PANGO", "pango_language_to_string", false)
-
 	cret := xLanguageToString(x.GoPointer())
 	return cret
 }
@@ -210,8 +200,6 @@ var xExtentsToPixels func(*Rectangle, *Rectangle)
 // touching-but-not-overlapping after rounding to device units, pass them in
 // as @nearest.
 func ExtentsToPixels(InclusiveVar *Rectangle, NearestVar *Rectangle) {
-	core.LazyRegister(&xExtentsToPixels, "PANGO", "pango_extents_to_pixels", false)
-
 	xExtentsToPixels(InclusiveVar, NearestVar)
 }
 
@@ -222,8 +210,6 @@ var xUnitsFromDouble func(float64) int
 // The conversion is done by multiplying @d by %PANGO_SCALE and
 // rounding the result to nearest integer.
 func UnitsFromDouble(DVar float64) int {
-	core.LazyRegister(&xUnitsFromDouble, "PANGO", "pango_units_from_double", false)
-
 	cret := xUnitsFromDouble(DVar)
 	return cret
 }
@@ -234,8 +220,6 @@ var xUnitsToDouble func(int) float64
 //
 // The conversion is done by dividing @i by %PANGO_SCALE.
 func UnitsToDouble(IVar int) float64 {
-	core.LazyRegister(&xUnitsToDouble, "PANGO", "pango_units_to_double", false)
-
 	cret := xUnitsToDouble(IVar)
 	return cret
 }
@@ -243,4 +227,24 @@ func UnitsToDouble(IVar int) float64 {
 func init() {
 	core.SetPackageName("PANGO", "pango")
 	core.SetSharedLibraries("PANGO", []string{"libpango-1.0.so.0", "libpango-1.0.0.dylib"})
+	var libs []uintptr
+	for _, libPath := range core.GetPaths("PANGO") {
+		lib, err := purego.Dlopen(libPath, purego.RTLD_NOW|purego.RTLD_GLOBAL)
+		if err != nil {
+			panic(err)
+		}
+		libs = append(libs, lib)
+	}
+
+	core.PuregoSafeRegister(&xExtentsToPixels, libs, "pango_extents_to_pixels")
+	core.PuregoSafeRegister(&xUnitsFromDouble, libs, "pango_units_from_double")
+	core.PuregoSafeRegister(&xUnitsToDouble, libs, "pango_units_to_double")
+
+	core.PuregoSafeRegister(&xLanguageGLibType, libs, "pango_language_get_type")
+
+	core.PuregoSafeRegister(&xLanguageGetSampleString, libs, "pango_language_get_sample_string")
+	core.PuregoSafeRegister(&xLanguageGetScripts, libs, "pango_language_get_scripts")
+	core.PuregoSafeRegister(&xLanguageIncludesScript, libs, "pango_language_includes_script")
+	core.PuregoSafeRegister(&xLanguageMatches, libs, "pango_language_matches")
+	core.PuregoSafeRegister(&xLanguageToString, libs, "pango_language_to_string")
 }

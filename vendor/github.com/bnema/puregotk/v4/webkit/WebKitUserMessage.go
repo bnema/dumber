@@ -5,6 +5,7 @@ import (
 	"structs"
 	"unsafe"
 
+	"github.com/bnema/purego"
 	"github.com/bnema/puregotk/pkg/core"
 	"github.com/bnema/puregotk/v4/gio"
 	"github.com/bnema/puregotk/v4/glib"
@@ -36,7 +37,6 @@ type UserMessageError int
 var xUserMessageErrorGLibType func() types.GType
 
 func UserMessageErrorGLibType() types.GType {
-	core.LazyRegister(&xUserMessageErrorGLibType, "WEBKIT", "webkit_user_message_error_get_type", false)
 	return xUserMessageErrorGLibType()
 }
 
@@ -50,8 +50,6 @@ var xUserMessageErrorQuark func() glib.Quark
 
 // Gets the quark for the domain of user message errors.
 func UserMessageErrorQuark() glib.Quark {
-	core.LazyRegister(&xUserMessageErrorQuark, "WEBKIT", "webkit_user_message_error_quark", false)
-
 	cret := xUserMessageErrorQuark()
 	return cret
 }
@@ -71,7 +69,6 @@ type UserMessage struct {
 var xUserMessageGLibType func() types.GType
 
 func UserMessageGLibType() types.GType {
-	core.LazyRegister(&xUserMessageGLibType, "WEBKIT", "webkit_user_message_get_type", false)
 	return xUserMessageGLibType()
 }
 
@@ -85,7 +82,6 @@ var xNewUserMessage func(string, *glib.Variant) uintptr
 
 // Create a new #WebKitUserMessage with @name.
 func NewUserMessage(NameVar string, ParametersVar *glib.Variant) *UserMessage {
-	core.LazyRegister(&xNewUserMessage, "WEBKIT", "webkit_user_message_new", false)
 	var cls *UserMessage
 
 	cret := xNewUserMessage(NameVar, ParametersVar)
@@ -103,7 +99,6 @@ var xNewUserMessageWithFdList func(string, *glib.Variant, uintptr) uintptr
 
 // Create a new #WebKitUserMessage including also a list of UNIX file descriptors to be sent.
 func NewUserMessageWithFdList(NameVar string, ParametersVar *glib.Variant, FdListVar *gio.UnixFDList) *UserMessage {
-	core.LazyRegister(&xNewUserMessageWithFdList, "WEBKIT", "webkit_user_message_new_with_fd_list", false)
 	var cls *UserMessage
 
 	cret := xNewUserMessageWithFdList(NameVar, ParametersVar, FdListVar.GoPointer())
@@ -121,7 +116,6 @@ var xUserMessageGetFdList func(uintptr) uintptr
 
 // Get the @message list of file descritpor.
 func (x *UserMessage) GetFdList() *gio.UnixFDList {
-	core.LazyRegister(&xUserMessageGetFdList, "WEBKIT", "webkit_user_message_get_fd_list", false)
 	var cls *gio.UnixFDList
 
 	cret := xUserMessageGetFdList(x.GoPointer())
@@ -139,8 +133,6 @@ var xUserMessageGetName func(uintptr) string
 
 // Get the @message name.
 func (x *UserMessage) GetName() string {
-	core.LazyRegister(&xUserMessageGetName, "WEBKIT", "webkit_user_message_get_name", false)
-
 	cret := xUserMessageGetName(x.GoPointer())
 	return cret
 }
@@ -149,8 +141,6 @@ var xUserMessageGetParameters func(uintptr) uintptr
 
 // Get the @message parameters.
 func (x *UserMessage) GetParameters() *glib.Variant {
-	core.LazyRegister(&xUserMessageGetParameters, "WEBKIT", "webkit_user_message_get_parameters", false)
-
 	cret := xUserMessageGetParameters(x.GoPointer())
 	if cret == 0 {
 		return nil
@@ -166,8 +156,6 @@ var xUserMessageSendReply func(uintptr, uintptr)
 // You can only send a reply to a #WebKitUserMessage that has been
 // received.
 func (x *UserMessage) SendReply(ReplyVar *UserMessage) {
-	core.LazyRegister(&xUserMessageSendReply, "WEBKIT", "webkit_user_message_send_reply", false)
-
 	xUserMessageSendReply(x.GoPointer(), ReplyVar.GoPointer())
 }
 
@@ -223,8 +211,31 @@ func (x *UserMessage) GetPropertyParameters() uintptr {
 func init() {
 	core.SetPackageName("WEBKIT", "webkitgtk-6.0")
 	core.SetSharedLibraries("WEBKIT", []string{"libwebkitgtk-6.0.so.4", "libjavascriptcoregtk-6.0.so.1", "libwebkitgtk-6.0.4.dylib", "libjavascriptcoregtk-6.0.1.dylib"})
+	var libs []uintptr
+	for _, libPath := range core.GetPaths("WEBKIT") {
+		lib, err := purego.Dlopen(libPath, purego.RTLD_NOW|purego.RTLD_GLOBAL)
+		if err != nil {
+			panic(err)
+		}
+		libs = append(libs, lib)
+	}
 
-	// Manually register types since they aren't automatically registered when
-	// WebKit is loaded. See https://bugs.webkit.org/show_bug.cgi?id=175937.
+	core.PuregoSafeRegister(&xUserMessageErrorGLibType, libs, "webkit_user_message_error_get_type")
+
+	core.PuregoSafeRegister(&xUserMessageErrorQuark, libs, "webkit_user_message_error_quark")
+
+	core.PuregoSafeRegister(&xUserMessageGLibType, libs, "webkit_user_message_get_type")
+
+	core.PuregoSafeRegister(&xNewUserMessage, libs, "webkit_user_message_new")
+	core.PuregoSafeRegister(&xNewUserMessageWithFdList, libs, "webkit_user_message_new_with_fd_list")
+
+	core.PuregoSafeRegister(&xUserMessageGetFdList, libs, "webkit_user_message_get_fd_list")
+	core.PuregoSafeRegister(&xUserMessageGetName, libs, "webkit_user_message_get_name")
+	core.PuregoSafeRegister(&xUserMessageGetParameters, libs, "webkit_user_message_get_parameters")
+	core.PuregoSafeRegister(&xUserMessageSendReply, libs, "webkit_user_message_send_reply")
+
+	// Manually register types since they aren't being automatically registered when
+	// the library is loaded
+	// See https://bugs.webkit.org/show_bug.cgi?id=175937
 	UserMessageGLibType()
 }

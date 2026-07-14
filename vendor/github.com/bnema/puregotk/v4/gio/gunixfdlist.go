@@ -192,7 +192,6 @@ type UnixFDList struct {
 var xUnixFDListGLibType func() types.GType
 
 func UnixFDListGLibType() types.GType {
-	core.LazyRegister(&xUnixFDListGLibType, "GIO", "g_unix_fd_list_get_type", false)
 	return xUnixFDListGLibType()
 }
 
@@ -206,7 +205,6 @@ var xNewUnixFDList func() uintptr
 
 // Creates a new #GUnixFDList containing no file descriptors.
 func NewUnixFDList() *UnixFDList {
-	core.LazyRegister(&xNewUnixFDList, "GIO", "g_unix_fd_list_new", false)
 	var cls *UnixFDList
 
 	cret := xNewUnixFDList()
@@ -230,7 +228,6 @@ var xNewUnixFDListFromArray func([]int, int) uintptr
 //
 // If @n_fds is -1 then @fds must be terminated with -1.
 func NewUnixFDListFromArray(FdsVar []int, NFdsVar int) *UnixFDList {
-	core.LazyRegister(&xNewUnixFDListFromArray, "GIO", "g_unix_fd_list_new_from_array", false)
 	var cls *UnixFDList
 
 	cret := xNewUnixFDListFromArray(FdsVar, NFdsVar)
@@ -258,7 +255,6 @@ var xUnixFDListAppend func(uintptr, int, **glib.Error) int
 // this index with g_unix_fd_list_get() then you will receive back a
 // duplicated copy of the same file descriptor.
 func (x *UnixFDList) Append(FdVar int) (int, error) {
-	core.LazyRegister(&xUnixFDListAppend, "GIO", "g_unix_fd_list_append", false)
 	var cerr *glib.Error
 
 	cret := xUnixFDListAppend(x.GoPointer(), FdVar, &cerr)
@@ -283,7 +279,6 @@ var xUnixFDListGet func(uintptr, int, **glib.Error) int
 // A possible cause of failure is exceeding the per-process or
 // system-wide file descriptor limit.
 func (x *UnixFDList) Get(IndexVar int) (int, error) {
-	core.LazyRegister(&xUnixFDListGet, "GIO", "g_unix_fd_list_get", false)
 	var cerr *glib.Error
 
 	cret := xUnixFDListGet(x.GoPointer(), IndexVar, &cerr)
@@ -298,8 +293,6 @@ var xUnixFDListGetLength func(uintptr) int
 // Gets the length of @list (ie: the number of file descriptors
 // contained within).
 func (x *UnixFDList) GetLength() int {
-	core.LazyRegister(&xUnixFDListGetLength, "GIO", "g_unix_fd_list_get_length", false)
-
 	cret := xUnixFDListGetLength(x.GoPointer())
 	return cret
 }
@@ -320,8 +313,6 @@ var xUnixFDListPeekFds func(uintptr, *int) uintptr
 // This function never returns %NULL. In case there are no file
 // descriptors contained in @list, an empty array is returned.
 func (x *UnixFDList) PeekFds(LengthVar *int) uintptr {
-	core.LazyRegister(&xUnixFDListPeekFds, "GIO", "g_unix_fd_list_peek_fds", false)
-
 	cret := xUnixFDListPeekFds(x.GoPointer(), LengthVar)
 	return cret
 }
@@ -347,8 +338,6 @@ var xUnixFDListStealFds func(uintptr, *int) uintptr
 // This function never returns %NULL. In case there are no file
 // descriptors contained in @list, an empty array is returned.
 func (x *UnixFDList) StealFds(LengthVar *int) uintptr {
-	core.LazyRegister(&xUnixFDListStealFds, "GIO", "g_unix_fd_list_steal_fds", false)
-
 	cret := xUnixFDListStealFds(x.GoPointer(), LengthVar)
 	return cret
 }
@@ -367,4 +356,23 @@ func (c *UnixFDList) SetGoPointer(ptr uintptr) {
 func init() {
 	core.SetPackageName("GIO", "gio-2.0")
 	core.SetSharedLibraries("GIO", []string{"libgio-2.0.so.0", "libgio-2.0.0.dylib"})
+	var libs []uintptr
+	for _, libPath := range core.GetPaths("GIO") {
+		lib, err := purego.Dlopen(libPath, purego.RTLD_NOW|purego.RTLD_GLOBAL)
+		if err != nil {
+			panic(err)
+		}
+		libs = append(libs, lib)
+	}
+
+	core.PuregoSafeRegister(&xUnixFDListGLibType, libs, "g_unix_fd_list_get_type")
+
+	core.PuregoSafeRegister(&xNewUnixFDList, libs, "g_unix_fd_list_new")
+	core.PuregoSafeRegister(&xNewUnixFDListFromArray, libs, "g_unix_fd_list_new_from_array")
+
+	core.PuregoSafeRegister(&xUnixFDListAppend, libs, "g_unix_fd_list_append")
+	core.PuregoSafeRegister(&xUnixFDListGet, libs, "g_unix_fd_list_get")
+	core.PuregoSafeRegister(&xUnixFDListGetLength, libs, "g_unix_fd_list_get_length")
+	core.PuregoSafeRegister(&xUnixFDListPeekFds, libs, "g_unix_fd_list_peek_fds")
+	core.PuregoSafeRegister(&xUnixFDListStealFds, libs, "g_unix_fd_list_steal_fds")
 }

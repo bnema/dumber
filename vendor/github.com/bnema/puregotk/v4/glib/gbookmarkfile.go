@@ -5,6 +5,7 @@ import (
 	"structs"
 	"unsafe"
 
+	"github.com/bnema/purego"
 	"github.com/bnema/puregotk/pkg/core"
 	"github.com/bnema/puregotk/v4/gobject/types"
 )
@@ -53,7 +54,6 @@ type BookmarkFile struct {
 var xBookmarkFileGLibType func() types.GType
 
 func BookmarkFileGLibType() types.GType {
-	core.LazyRegister(&xBookmarkFileGLibType, "GLIB", "g_bookmark_file_get_type", false)
 	return xBookmarkFileGLibType()
 }
 
@@ -77,8 +77,6 @@ var xNewBookmarkFile func() uintptr
 // or g_bookmark_file_load_from_data_dirs() to read an existing bookmark
 // file.
 func NewBookmarkFile() *BookmarkFile {
-	core.LazyRegister(&xNewBookmarkFile, "GLIB", "g_bookmark_file_new", false)
-
 	cret := xNewBookmarkFile()
 	if cret == 0 {
 		return nil
@@ -111,8 +109,6 @@ var xBookmarkFileAddApplication func(uintptr, string, uintptr, uintptr)
 //
 // If no bookmark for @uri is found, one is created.
 func (x *BookmarkFile) AddApplication(UriVar string, NameVar *string, ExecVar *string) {
-	core.LazyRegister(&xBookmarkFileAddApplication, "GLIB", "g_bookmark_file_add_application", false)
-
 	NameVarPtr := core.GStrdupNullable(NameVar)
 	defer core.GFreeNullable(NameVarPtr)
 
@@ -129,8 +125,6 @@ var xBookmarkFileAddGroup func(uintptr, string, string)
 //
 // If no bookmark for @uri is found then it is created.
 func (x *BookmarkFile) AddGroup(UriVar string, GroupVar string) {
-	core.LazyRegister(&xBookmarkFileAddGroup, "GLIB", "g_bookmark_file_add_group", false)
-
 	xBookmarkFileAddGroup(x.GoPointer(), UriVar, GroupVar)
 }
 
@@ -138,8 +132,6 @@ var xBookmarkFileCopy func(uintptr) uintptr
 
 // Deeply copies a @bookmark #GBookmarkFile object to a new one.
 func (x *BookmarkFile) Copy() *BookmarkFile {
-	core.LazyRegister(&xBookmarkFileCopy, "GLIB", "g_bookmark_file_copy", false)
-
 	cret := xBookmarkFileCopy(x.GoPointer())
 	if cret == 0 {
 		return nil
@@ -151,8 +143,6 @@ var xBookmarkFileFree func(uintptr)
 
 // Frees a #GBookmarkFile.
 func (x *BookmarkFile) Free() {
-	core.LazyRegister(&xBookmarkFileFree, "GLIB", "g_bookmark_file_free", false)
-
 	xBookmarkFileFree(x.GoPointer())
 }
 
@@ -163,7 +153,6 @@ var xBookmarkFileGetAdded func(uintptr, string, **Error) int
 // In the event the URI cannot be found, -1 is returned and
 // @error is set to %G_BOOKMARK_FILE_ERROR_URI_NOT_FOUND.
 func (x *BookmarkFile) GetAdded(UriVar string) (int, error) {
-	core.LazyRegister(&xBookmarkFileGetAdded, "GLIB", "g_bookmark_file_get_added", false)
 	var cerr *Error
 
 	cret := xBookmarkFileGetAdded(x.GoPointer(), UriVar, &cerr)
@@ -180,7 +169,6 @@ var xBookmarkFileGetAddedDateTime func(uintptr, string, **Error) uintptr
 // In the event the URI cannot be found, %NULL is returned and
 // @error is set to %G_BOOKMARK_FILE_ERROR_URI_NOT_FOUND.
 func (x *BookmarkFile) GetAddedDateTime(UriVar string) (*DateTime, error) {
-	core.LazyRegister(&xBookmarkFileGetAddedDateTime, "GLIB", "g_bookmark_file_get_added_date_time", false)
 	var cerr *Error
 
 	cret := xBookmarkFileGetAddedDateTime(x.GoPointer(), UriVar, &cerr)
@@ -209,7 +197,6 @@ var xBookmarkFileGetAppInfo func(uintptr, string, string, *string, *uint, *int, 
 // the command line fails, an error of the %G_SHELL_ERROR domain is
 // set and %FALSE is returned.
 func (x *BookmarkFile) GetAppInfo(UriVar string, NameVar string, ExecVar *string, CountVar *uint, StampVar *int) (bool, error) {
-	core.LazyRegister(&xBookmarkFileGetAppInfo, "GLIB", "g_bookmark_file_get_app_info", false)
 	var cerr *Error
 
 	cret := xBookmarkFileGetAppInfo(x.GoPointer(), UriVar, NameVar, ExecVar, CountVar, StampVar, &cerr)
@@ -235,7 +222,6 @@ var xBookmarkFileGetApplicationInfo func(uintptr, string, string, *string, *uint
 // the command line fails, an error of the %G_SHELL_ERROR domain is
 // set and %FALSE is returned.
 func (x *BookmarkFile) GetApplicationInfo(UriVar string, NameVar string, ExecVar *string, CountVar *uint, StampVar **DateTime) (bool, error) {
-	core.LazyRegister(&xBookmarkFileGetApplicationInfo, "GLIB", "g_bookmark_file_get_application_info", false)
 	var cerr *Error
 
 	cret := xBookmarkFileGetApplicationInfo(x.GoPointer(), UriVar, NameVar, ExecVar, CountVar, StampVar, &cerr)
@@ -253,7 +239,6 @@ var xBookmarkFileGetApplications func(uintptr, string, *uint, **Error) []string
 // In the event the URI cannot be found, %NULL is returned and
 // @error is set to %G_BOOKMARK_FILE_ERROR_URI_NOT_FOUND.
 func (x *BookmarkFile) GetApplications(UriVar string, LengthVar *uint) ([]string, error) {
-	core.LazyRegister(&xBookmarkFileGetApplications, "GLIB", "g_bookmark_file_get_applications", false)
 	var cerr *Error
 
 	cret := xBookmarkFileGetApplications(x.GoPointer(), UriVar, LengthVar, &cerr)
@@ -270,7 +255,6 @@ var xBookmarkFileGetDescription func(uintptr, string, **Error) string
 // In the event the URI cannot be found, %NULL is returned and
 // @error is set to %G_BOOKMARK_FILE_ERROR_URI_NOT_FOUND.
 func (x *BookmarkFile) GetDescription(UriVar string) (string, error) {
-	core.LazyRegister(&xBookmarkFileGetDescription, "GLIB", "g_bookmark_file_get_description", false)
 	var cerr *Error
 
 	cret := xBookmarkFileGetDescription(x.GoPointer(), UriVar, &cerr)
@@ -290,7 +274,6 @@ var xBookmarkFileGetGroups func(uintptr, string, *uint, **Error) []string
 // The returned array is %NULL terminated, so @length may optionally
 // be %NULL.
 func (x *BookmarkFile) GetGroups(UriVar string, LengthVar *uint) ([]string, error) {
-	core.LazyRegister(&xBookmarkFileGetGroups, "GLIB", "g_bookmark_file_get_groups", false)
 	var cerr *Error
 
 	cret := xBookmarkFileGetGroups(x.GoPointer(), UriVar, LengthVar, &cerr)
@@ -307,7 +290,6 @@ var xBookmarkFileGetIcon func(uintptr, string, *string, *string, **Error) bool
 // In the event the URI cannot be found, %FALSE is returned and
 // @error is set to %G_BOOKMARK_FILE_ERROR_URI_NOT_FOUND.
 func (x *BookmarkFile) GetIcon(UriVar string, HrefVar *string, MimeTypeVar *string) (bool, error) {
-	core.LazyRegister(&xBookmarkFileGetIcon, "GLIB", "g_bookmark_file_get_icon", false)
 	var cerr *Error
 
 	cret := xBookmarkFileGetIcon(x.GoPointer(), UriVar, HrefVar, MimeTypeVar, &cerr)
@@ -326,7 +308,6 @@ var xBookmarkFileGetIsPrivate func(uintptr, string, **Error) bool
 // event that the private flag cannot be found, %FALSE is returned and
 // @error is set to %G_BOOKMARK_FILE_ERROR_INVALID_VALUE.
 func (x *BookmarkFile) GetIsPrivate(UriVar string) (bool, error) {
-	core.LazyRegister(&xBookmarkFileGetIsPrivate, "GLIB", "g_bookmark_file_get_is_private", false)
 	var cerr *Error
 
 	cret := xBookmarkFileGetIsPrivate(x.GoPointer(), UriVar, &cerr)
@@ -345,7 +326,6 @@ var xBookmarkFileGetMimeType func(uintptr, string, **Error) string
 // event that the MIME type cannot be found, %NULL is returned and
 // @error is set to %G_BOOKMARK_FILE_ERROR_INVALID_VALUE.
 func (x *BookmarkFile) GetMimeType(UriVar string) (string, error) {
-	core.LazyRegister(&xBookmarkFileGetMimeType, "GLIB", "g_bookmark_file_get_mime_type", false)
 	var cerr *Error
 
 	cret := xBookmarkFileGetMimeType(x.GoPointer(), UriVar, &cerr)
@@ -362,7 +342,6 @@ var xBookmarkFileGetModified func(uintptr, string, **Error) int
 // In the event the URI cannot be found, -1 is returned and
 // @error is set to %G_BOOKMARK_FILE_ERROR_URI_NOT_FOUND.
 func (x *BookmarkFile) GetModified(UriVar string) (int, error) {
-	core.LazyRegister(&xBookmarkFileGetModified, "GLIB", "g_bookmark_file_get_modified", false)
 	var cerr *Error
 
 	cret := xBookmarkFileGetModified(x.GoPointer(), UriVar, &cerr)
@@ -379,7 +358,6 @@ var xBookmarkFileGetModifiedDateTime func(uintptr, string, **Error) uintptr
 // In the event the URI cannot be found, %NULL is returned and
 // @error is set to %G_BOOKMARK_FILE_ERROR_URI_NOT_FOUND.
 func (x *BookmarkFile) GetModifiedDateTime(UriVar string) (*DateTime, error) {
-	core.LazyRegister(&xBookmarkFileGetModifiedDateTime, "GLIB", "g_bookmark_file_get_modified_date_time", false)
 	var cerr *Error
 
 	cret := xBookmarkFileGetModifiedDateTime(x.GoPointer(), UriVar, &cerr)
@@ -396,8 +374,6 @@ var xBookmarkFileGetSize func(uintptr) int
 
 // Gets the number of bookmarks inside @bookmark.
 func (x *BookmarkFile) GetSize() int {
-	core.LazyRegister(&xBookmarkFileGetSize, "GLIB", "g_bookmark_file_get_size", false)
-
 	cret := xBookmarkFileGetSize(x.GoPointer())
 	return cret
 }
@@ -411,7 +387,6 @@ var xBookmarkFileGetTitle func(uintptr, uintptr, **Error) string
 // In the event the URI cannot be found, %NULL is returned and
 // @error is set to %G_BOOKMARK_FILE_ERROR_URI_NOT_FOUND.
 func (x *BookmarkFile) GetTitle(UriVar *string) (string, error) {
-	core.LazyRegister(&xBookmarkFileGetTitle, "GLIB", "g_bookmark_file_get_title", false)
 	var cerr *Error
 
 	UriVarPtr := core.GStrdupNullable(UriVar)
@@ -430,8 +405,6 @@ var xBookmarkFileGetUris func(uintptr, *uint) []string
 // The array of returned URIs will be %NULL-terminated, so @length may
 // optionally be %NULL.
 func (x *BookmarkFile) GetUris(LengthVar *uint) []string {
-	core.LazyRegister(&xBookmarkFileGetUris, "GLIB", "g_bookmark_file_get_uris", false)
-
 	cret := xBookmarkFileGetUris(x.GoPointer(), LengthVar)
 	return cret
 }
@@ -443,7 +416,6 @@ var xBookmarkFileGetVisited func(uintptr, string, **Error) int
 // In the event the URI cannot be found, -1 is returned and
 // @error is set to %G_BOOKMARK_FILE_ERROR_URI_NOT_FOUND.
 func (x *BookmarkFile) GetVisited(UriVar string) (int, error) {
-	core.LazyRegister(&xBookmarkFileGetVisited, "GLIB", "g_bookmark_file_get_visited", false)
 	var cerr *Error
 
 	cret := xBookmarkFileGetVisited(x.GoPointer(), UriVar, &cerr)
@@ -460,7 +432,6 @@ var xBookmarkFileGetVisitedDateTime func(uintptr, string, **Error) uintptr
 // In the event the URI cannot be found, %NULL is returned and
 // @error is set to %G_BOOKMARK_FILE_ERROR_URI_NOT_FOUND.
 func (x *BookmarkFile) GetVisitedDateTime(UriVar string) (*DateTime, error) {
-	core.LazyRegister(&xBookmarkFileGetVisitedDateTime, "GLIB", "g_bookmark_file_get_visited_date_time", false)
 	var cerr *Error
 
 	cret := xBookmarkFileGetVisitedDateTime(x.GoPointer(), UriVar, &cerr)
@@ -481,7 +452,6 @@ var xBookmarkFileHasApplication func(uintptr, string, string, **Error) bool
 // In the event the URI cannot be found, %FALSE is returned and
 // @error is set to %G_BOOKMARK_FILE_ERROR_URI_NOT_FOUND.
 func (x *BookmarkFile) HasApplication(UriVar string, NameVar string) (bool, error) {
-	core.LazyRegister(&xBookmarkFileHasApplication, "GLIB", "g_bookmark_file_has_application", false)
 	var cerr *Error
 
 	cret := xBookmarkFileHasApplication(x.GoPointer(), UriVar, NameVar, &cerr)
@@ -499,7 +469,6 @@ var xBookmarkFileHasGroup func(uintptr, string, string, **Error) bool
 // In the event the URI cannot be found, %FALSE is returned and
 // @error is set to %G_BOOKMARK_FILE_ERROR_URI_NOT_FOUND.
 func (x *BookmarkFile) HasGroup(UriVar string, GroupVar string) (bool, error) {
-	core.LazyRegister(&xBookmarkFileHasGroup, "GLIB", "g_bookmark_file_has_group", false)
 	var cerr *Error
 
 	cret := xBookmarkFileHasGroup(x.GoPointer(), UriVar, GroupVar, &cerr)
@@ -513,8 +482,6 @@ var xBookmarkFileHasItem func(uintptr, string) bool
 
 // Looks whether the desktop bookmark has an item with its URI set to @uri.
 func (x *BookmarkFile) HasItem(UriVar string) bool {
-	core.LazyRegister(&xBookmarkFileHasItem, "GLIB", "g_bookmark_file_has_item", false)
-
 	cret := xBookmarkFileHasItem(x.GoPointer(), UriVar)
 	return cret
 }
@@ -525,7 +492,6 @@ var xBookmarkFileLoadFromData func(uintptr, []byte, uint, **Error) bool
 // structure.  If the object cannot be created then @error is set to a
 // #GBookmarkFileError.
 func (x *BookmarkFile) LoadFromData(DataVar []byte, LengthVar uint) (bool, error) {
-	core.LazyRegister(&xBookmarkFileLoadFromData, "GLIB", "g_bookmark_file_load_from_data", false)
 	var cerr *Error
 
 	cret := xBookmarkFileLoadFromData(x.GoPointer(), DataVar, LengthVar, &cerr)
@@ -543,7 +509,6 @@ var xBookmarkFileLoadFromDataDirs func(uintptr, string, *string, **Error) bool
 // @full_path.  If the file could not be loaded then @error is
 // set to either a #GFileError or #GBookmarkFileError.
 func (x *BookmarkFile) LoadFromDataDirs(FileVar string, FullPathVar *string) (bool, error) {
-	core.LazyRegister(&xBookmarkFileLoadFromDataDirs, "GLIB", "g_bookmark_file_load_from_data_dirs", false)
 	var cerr *Error
 
 	cret := xBookmarkFileLoadFromDataDirs(x.GoPointer(), FileVar, FullPathVar, &cerr)
@@ -559,7 +524,6 @@ var xBookmarkFileLoadFromFile func(uintptr, string, **Error) bool
 // If the file could not be loaded then @error is set to either a #GFileError
 // or #GBookmarkFileError.
 func (x *BookmarkFile) LoadFromFile(FilenameVar string) (bool, error) {
-	core.LazyRegister(&xBookmarkFileLoadFromFile, "GLIB", "g_bookmark_file_load_from_file", false)
 	var cerr *Error
 
 	cret := xBookmarkFileLoadFromFile(x.GoPointer(), FilenameVar, &cerr)
@@ -578,7 +542,6 @@ var xBookmarkFileMoveItem func(uintptr, string, uintptr, **Error) bool
 // In the event the URI cannot be found, %FALSE is returned and
 // @error is set to %G_BOOKMARK_FILE_ERROR_URI_NOT_FOUND.
 func (x *BookmarkFile) MoveItem(OldUriVar string, NewUriVar *string) (bool, error) {
-	core.LazyRegister(&xBookmarkFileMoveItem, "GLIB", "g_bookmark_file_move_item", false)
 	var cerr *Error
 
 	NewUriVarPtr := core.GStrdupNullable(NewUriVar)
@@ -602,7 +565,6 @@ var xBookmarkFileRemoveApplication func(uintptr, string, string, **Error) bool
 // a bookmark for @uri,  %FALSE is returned and error is set to
 // %G_BOOKMARK_FILE_ERROR_APP_NOT_REGISTERED.
 func (x *BookmarkFile) RemoveApplication(UriVar string, NameVar string) (bool, error) {
-	core.LazyRegister(&xBookmarkFileRemoveApplication, "GLIB", "g_bookmark_file_remove_application", false)
 	var cerr *Error
 
 	cret := xBookmarkFileRemoveApplication(x.GoPointer(), UriVar, NameVar, &cerr)
@@ -622,7 +584,6 @@ var xBookmarkFileRemoveGroup func(uintptr, string, string, **Error) bool
 // In the event no group was defined, %FALSE is returned and
 // @error is set to %G_BOOKMARK_FILE_ERROR_INVALID_VALUE.
 func (x *BookmarkFile) RemoveGroup(UriVar string, GroupVar string) (bool, error) {
-	core.LazyRegister(&xBookmarkFileRemoveGroup, "GLIB", "g_bookmark_file_remove_group", false)
 	var cerr *Error
 
 	cret := xBookmarkFileRemoveGroup(x.GoPointer(), UriVar, GroupVar, &cerr)
@@ -636,7 +597,6 @@ var xBookmarkFileRemoveItem func(uintptr, string, **Error) bool
 
 // Removes the bookmark for @uri from the bookmark file @bookmark.
 func (x *BookmarkFile) RemoveItem(UriVar string) (bool, error) {
-	core.LazyRegister(&xBookmarkFileRemoveItem, "GLIB", "g_bookmark_file_remove_item", false)
 	var cerr *Error
 
 	cret := xBookmarkFileRemoveItem(x.GoPointer(), UriVar, &cerr)
@@ -652,8 +612,6 @@ var xBookmarkFileSetAdded func(uintptr, string, int)
 //
 // If no bookmark for @uri is found then it is created.
 func (x *BookmarkFile) SetAdded(UriVar string, AddedVar int) {
-	core.LazyRegister(&xBookmarkFileSetAdded, "GLIB", "g_bookmark_file_set_added", false)
-
 	xBookmarkFileSetAdded(x.GoPointer(), UriVar, AddedVar)
 }
 
@@ -663,8 +621,6 @@ var xBookmarkFileSetAddedDateTime func(uintptr, string, *DateTime)
 //
 // If no bookmark for @uri is found then it is created.
 func (x *BookmarkFile) SetAddedDateTime(UriVar string, AddedVar *DateTime) {
-	core.LazyRegister(&xBookmarkFileSetAddedDateTime, "GLIB", "g_bookmark_file_set_added_date_time", false)
-
 	xBookmarkFileSetAddedDateTime(x.GoPointer(), UriVar, AddedVar)
 }
 
@@ -699,7 +655,6 @@ var xBookmarkFileSetAppInfo func(uintptr, string, string, string, int, int, **Er
 // %G_BOOKMARK_FILE_ERROR_APP_NOT_REGISTERED.  Otherwise, if no bookmark
 // for @uri is found, one is created.
 func (x *BookmarkFile) SetAppInfo(UriVar string, NameVar string, ExecVar string, CountVar int, StampVar int) (bool, error) {
-	core.LazyRegister(&xBookmarkFileSetAppInfo, "GLIB", "g_bookmark_file_set_app_info", false)
 	var cerr *Error
 
 	cret := xBookmarkFileSetAppInfo(x.GoPointer(), UriVar, NameVar, ExecVar, CountVar, StampVar, &cerr)
@@ -739,7 +694,6 @@ var xBookmarkFileSetApplicationInfo func(uintptr, string, string, string, int, *
 // %G_BOOKMARK_FILE_ERROR_APP_NOT_REGISTERED.  Otherwise, if no bookmark
 // for @uri is found, one is created.
 func (x *BookmarkFile) SetApplicationInfo(UriVar string, NameVar string, ExecVar string, CountVar int, StampVar *DateTime) (bool, error) {
-	core.LazyRegister(&xBookmarkFileSetApplicationInfo, "GLIB", "g_bookmark_file_set_application_info", false)
 	var cerr *Error
 
 	cret := xBookmarkFileSetApplicationInfo(x.GoPointer(), UriVar, NameVar, ExecVar, CountVar, StampVar, &cerr)
@@ -757,8 +711,6 @@ var xBookmarkFileSetDescription func(uintptr, uintptr, string)
 //
 // If a bookmark for @uri cannot be found then it is created.
 func (x *BookmarkFile) SetDescription(UriVar *string, DescriptionVar string) {
-	core.LazyRegister(&xBookmarkFileSetDescription, "GLIB", "g_bookmark_file_set_description", false)
-
 	UriVarPtr := core.GStrdupNullable(UriVar)
 	defer core.GFreeNullable(UriVarPtr)
 
@@ -772,8 +724,6 @@ var xBookmarkFileSetGroups func(uintptr, string, []string, uint)
 //
 // If @uri cannot be found then an item for it is created.
 func (x *BookmarkFile) SetGroups(UriVar string, GroupsVar []string, LengthVar uint) {
-	core.LazyRegister(&xBookmarkFileSetGroups, "GLIB", "g_bookmark_file_set_groups", false)
-
 	xBookmarkFileSetGroups(x.GoPointer(), UriVar, GroupsVar, LengthVar)
 }
 
@@ -785,8 +735,6 @@ var xBookmarkFileSetIcon func(uintptr, string, uintptr, string)
 //
 // If no bookmark for @uri is found one is created.
 func (x *BookmarkFile) SetIcon(UriVar string, HrefVar *string, MimeTypeVar string) {
-	core.LazyRegister(&xBookmarkFileSetIcon, "GLIB", "g_bookmark_file_set_icon", false)
-
 	HrefVarPtr := core.GStrdupNullable(HrefVar)
 	defer core.GFreeNullable(HrefVarPtr)
 
@@ -799,8 +747,6 @@ var xBookmarkFileSetIsPrivate func(uintptr, string, bool)
 //
 // If a bookmark for @uri cannot be found then it is created.
 func (x *BookmarkFile) SetIsPrivate(UriVar string, IsPrivateVar bool) {
-	core.LazyRegister(&xBookmarkFileSetIsPrivate, "GLIB", "g_bookmark_file_set_is_private", false)
-
 	xBookmarkFileSetIsPrivate(x.GoPointer(), UriVar, IsPrivateVar)
 }
 
@@ -810,8 +756,6 @@ var xBookmarkFileSetMimeType func(uintptr, string, string)
 //
 // If a bookmark for @uri cannot be found then it is created.
 func (x *BookmarkFile) SetMimeType(UriVar string, MimeTypeVar string) {
-	core.LazyRegister(&xBookmarkFileSetMimeType, "GLIB", "g_bookmark_file_set_mime_type", false)
-
 	xBookmarkFileSetMimeType(x.GoPointer(), UriVar, MimeTypeVar)
 }
 
@@ -826,8 +770,6 @@ var xBookmarkFileSetModified func(uintptr, string, int)
 // modifies a bookmark also changes the modification time, except for
 // g_bookmark_file_set_visited_date_time().
 func (x *BookmarkFile) SetModified(UriVar string, ModifiedVar int) {
-	core.LazyRegister(&xBookmarkFileSetModified, "GLIB", "g_bookmark_file_set_modified", false)
-
 	xBookmarkFileSetModified(x.GoPointer(), UriVar, ModifiedVar)
 }
 
@@ -842,8 +784,6 @@ var xBookmarkFileSetModifiedDateTime func(uintptr, string, *DateTime)
 // modifies a bookmark also changes the modification time, except for
 // g_bookmark_file_set_visited_date_time().
 func (x *BookmarkFile) SetModifiedDateTime(UriVar string, ModifiedVar *DateTime) {
-	core.LazyRegister(&xBookmarkFileSetModifiedDateTime, "GLIB", "g_bookmark_file_set_modified_date_time", false)
-
 	xBookmarkFileSetModifiedDateTime(x.GoPointer(), UriVar, ModifiedVar)
 }
 
@@ -856,8 +796,6 @@ var xBookmarkFileSetTitle func(uintptr, uintptr, string)
 //
 // If a bookmark for @uri cannot be found then it is created.
 func (x *BookmarkFile) SetTitle(UriVar *string, TitleVar string) {
-	core.LazyRegister(&xBookmarkFileSetTitle, "GLIB", "g_bookmark_file_set_title", false)
-
 	UriVarPtr := core.GStrdupNullable(UriVar)
 	defer core.GFreeNullable(UriVarPtr)
 
@@ -876,8 +814,6 @@ var xBookmarkFileSetVisited func(uintptr, string, int)
 // using g_bookmark_file_get_mime_type().  Changing the "visited" time
 // does not affect the "modified" time.
 func (x *BookmarkFile) SetVisited(UriVar string, VisitedVar int) {
-	core.LazyRegister(&xBookmarkFileSetVisited, "GLIB", "g_bookmark_file_set_visited", false)
-
 	xBookmarkFileSetVisited(x.GoPointer(), UriVar, VisitedVar)
 }
 
@@ -893,8 +829,6 @@ var xBookmarkFileSetVisitedDateTime func(uintptr, string, *DateTime)
 // using g_bookmark_file_get_mime_type().  Changing the "visited" time
 // does not affect the "modified" time.
 func (x *BookmarkFile) SetVisitedDateTime(UriVar string, VisitedVar *DateTime) {
-	core.LazyRegister(&xBookmarkFileSetVisitedDateTime, "GLIB", "g_bookmark_file_set_visited_date_time", false)
-
 	xBookmarkFileSetVisitedDateTime(x.GoPointer(), UriVar, VisitedVar)
 }
 
@@ -902,7 +836,6 @@ var xBookmarkFileToData func(uintptr, *uint, **Error) uintptr
 
 // This function outputs @bookmark as a string.
 func (x *BookmarkFile) ToData(LengthVar *uint) (uintptr, error) {
-	core.LazyRegister(&xBookmarkFileToData, "GLIB", "g_bookmark_file_to_data", false)
 	var cerr *Error
 
 	cret := xBookmarkFileToData(x.GoPointer(), LengthVar, &cerr)
@@ -917,7 +850,6 @@ var xBookmarkFileToFile func(uintptr, string, **Error) bool
 // This function outputs @bookmark into a file.  The write process is
 // guaranteed to be atomic by using g_file_set_contents() internally.
 func (x *BookmarkFile) ToFile(FilenameVar string) (bool, error) {
-	core.LazyRegister(&xBookmarkFileToFile, "GLIB", "g_bookmark_file_to_file", false)
 	var cerr *Error
 
 	cret := xBookmarkFileToFile(x.GoPointer(), FilenameVar, &cerr)
@@ -955,4 +887,64 @@ const (
 func init() {
 	core.SetPackageName("GLIB", "glib-2.0")
 	core.SetSharedLibraries("GLIB", []string{"libgobject-2.0.so.0", "libglib-2.0.so.0", "libgobject-2.0.0.dylib", "libglib-2.0.0.dylib"})
+	var libs []uintptr
+	for _, libPath := range core.GetPaths("GLIB") {
+		lib, err := purego.Dlopen(libPath, purego.RTLD_NOW|purego.RTLD_GLOBAL)
+		if err != nil {
+			panic(err)
+		}
+		libs = append(libs, lib)
+	}
+
+	core.PuregoSafeRegister(&xBookmarkFileGLibType, libs, "g_bookmark_file_get_type")
+
+	core.PuregoSafeRegister(&xNewBookmarkFile, libs, "g_bookmark_file_new")
+
+	core.PuregoSafeRegister(&xBookmarkFileAddApplication, libs, "g_bookmark_file_add_application")
+	core.PuregoSafeRegister(&xBookmarkFileAddGroup, libs, "g_bookmark_file_add_group")
+	core.PuregoSafeRegister(&xBookmarkFileCopy, libs, "g_bookmark_file_copy")
+	core.PuregoSafeRegister(&xBookmarkFileFree, libs, "g_bookmark_file_free")
+	core.PuregoSafeRegister(&xBookmarkFileGetAdded, libs, "g_bookmark_file_get_added")
+	core.PuregoSafeRegister(&xBookmarkFileGetAddedDateTime, libs, "g_bookmark_file_get_added_date_time")
+	core.PuregoSafeRegister(&xBookmarkFileGetAppInfo, libs, "g_bookmark_file_get_app_info")
+	core.PuregoSafeRegister(&xBookmarkFileGetApplicationInfo, libs, "g_bookmark_file_get_application_info")
+	core.PuregoSafeRegister(&xBookmarkFileGetApplications, libs, "g_bookmark_file_get_applications")
+	core.PuregoSafeRegister(&xBookmarkFileGetDescription, libs, "g_bookmark_file_get_description")
+	core.PuregoSafeRegister(&xBookmarkFileGetGroups, libs, "g_bookmark_file_get_groups")
+	core.PuregoSafeRegister(&xBookmarkFileGetIcon, libs, "g_bookmark_file_get_icon")
+	core.PuregoSafeRegister(&xBookmarkFileGetIsPrivate, libs, "g_bookmark_file_get_is_private")
+	core.PuregoSafeRegister(&xBookmarkFileGetMimeType, libs, "g_bookmark_file_get_mime_type")
+	core.PuregoSafeRegister(&xBookmarkFileGetModified, libs, "g_bookmark_file_get_modified")
+	core.PuregoSafeRegister(&xBookmarkFileGetModifiedDateTime, libs, "g_bookmark_file_get_modified_date_time")
+	core.PuregoSafeRegister(&xBookmarkFileGetSize, libs, "g_bookmark_file_get_size")
+	core.PuregoSafeRegister(&xBookmarkFileGetTitle, libs, "g_bookmark_file_get_title")
+	core.PuregoSafeRegister(&xBookmarkFileGetUris, libs, "g_bookmark_file_get_uris")
+	core.PuregoSafeRegister(&xBookmarkFileGetVisited, libs, "g_bookmark_file_get_visited")
+	core.PuregoSafeRegister(&xBookmarkFileGetVisitedDateTime, libs, "g_bookmark_file_get_visited_date_time")
+	core.PuregoSafeRegister(&xBookmarkFileHasApplication, libs, "g_bookmark_file_has_application")
+	core.PuregoSafeRegister(&xBookmarkFileHasGroup, libs, "g_bookmark_file_has_group")
+	core.PuregoSafeRegister(&xBookmarkFileHasItem, libs, "g_bookmark_file_has_item")
+	core.PuregoSafeRegister(&xBookmarkFileLoadFromData, libs, "g_bookmark_file_load_from_data")
+	core.PuregoSafeRegister(&xBookmarkFileLoadFromDataDirs, libs, "g_bookmark_file_load_from_data_dirs")
+	core.PuregoSafeRegister(&xBookmarkFileLoadFromFile, libs, "g_bookmark_file_load_from_file")
+	core.PuregoSafeRegister(&xBookmarkFileMoveItem, libs, "g_bookmark_file_move_item")
+	core.PuregoSafeRegister(&xBookmarkFileRemoveApplication, libs, "g_bookmark_file_remove_application")
+	core.PuregoSafeRegister(&xBookmarkFileRemoveGroup, libs, "g_bookmark_file_remove_group")
+	core.PuregoSafeRegister(&xBookmarkFileRemoveItem, libs, "g_bookmark_file_remove_item")
+	core.PuregoSafeRegister(&xBookmarkFileSetAdded, libs, "g_bookmark_file_set_added")
+	core.PuregoSafeRegister(&xBookmarkFileSetAddedDateTime, libs, "g_bookmark_file_set_added_date_time")
+	core.PuregoSafeRegister(&xBookmarkFileSetAppInfo, libs, "g_bookmark_file_set_app_info")
+	core.PuregoSafeRegister(&xBookmarkFileSetApplicationInfo, libs, "g_bookmark_file_set_application_info")
+	core.PuregoSafeRegister(&xBookmarkFileSetDescription, libs, "g_bookmark_file_set_description")
+	core.PuregoSafeRegister(&xBookmarkFileSetGroups, libs, "g_bookmark_file_set_groups")
+	core.PuregoSafeRegister(&xBookmarkFileSetIcon, libs, "g_bookmark_file_set_icon")
+	core.PuregoSafeRegister(&xBookmarkFileSetIsPrivate, libs, "g_bookmark_file_set_is_private")
+	core.PuregoSafeRegister(&xBookmarkFileSetMimeType, libs, "g_bookmark_file_set_mime_type")
+	core.PuregoSafeRegister(&xBookmarkFileSetModified, libs, "g_bookmark_file_set_modified")
+	core.PuregoSafeRegister(&xBookmarkFileSetModifiedDateTime, libs, "g_bookmark_file_set_modified_date_time")
+	core.PuregoSafeRegister(&xBookmarkFileSetTitle, libs, "g_bookmark_file_set_title")
+	core.PuregoSafeRegister(&xBookmarkFileSetVisited, libs, "g_bookmark_file_set_visited")
+	core.PuregoSafeRegister(&xBookmarkFileSetVisitedDateTime, libs, "g_bookmark_file_set_visited_date_time")
+	core.PuregoSafeRegister(&xBookmarkFileToData, libs, "g_bookmark_file_to_data")
+	core.PuregoSafeRegister(&xBookmarkFileToFile, libs, "g_bookmark_file_to_file")
 }

@@ -5,6 +5,7 @@ import (
 	"structs"
 	"unsafe"
 
+	"github.com/bnema/purego"
 	"github.com/bnema/puregotk/pkg/core"
 	"github.com/bnema/puregotk/v4/gobject/types"
 	"github.com/bnema/puregotk/v4/graphene"
@@ -30,7 +31,6 @@ type PathPoint struct {
 var xPathPointGLibType func() types.GType
 
 func PathPointGLibType() types.GType {
-	core.LazyRegister(&xPathPointGLibType, "GSK", "gsk_path_point_get_type", false)
 	return xPathPointGLibType()
 }
 
@@ -50,8 +50,6 @@ var xPathPointCompare func(uintptr, *PathPoint) int
 
 // Returns whether @point1 is before or after @point2.
 func (x *PathPoint) Compare(Point2Var *PathPoint) int {
-	core.LazyRegister(&xPathPointCompare, "GSK", "gsk_path_point_compare", false)
-
 	cret := xPathPointCompare(x.GoPointer(), Point2Var)
 	return cret
 }
@@ -60,8 +58,6 @@ var xPathPointCopy func(uintptr) uintptr
 
 // Copies a path point.
 func (x *PathPoint) Copy() *PathPoint {
-	core.LazyRegister(&xPathPointCopy, "GSK", "gsk_path_point_copy", false)
-
 	cret := xPathPointCopy(x.GoPointer())
 	if cret == 0 {
 		return nil
@@ -80,8 +76,6 @@ var xPathPointEqual func(uintptr, *PathPoint) bool
 // start- and endpoint of a concrete path refer to the
 // same location.
 func (x *PathPoint) Equal(Point2Var *PathPoint) bool {
-	core.LazyRegister(&xPathPointEqual, "GSK", "gsk_path_point_equal", false)
-
 	cret := xPathPointEqual(x.GoPointer(), Point2Var)
 	return cret
 }
@@ -90,8 +84,6 @@ var xPathPointFree func(uintptr)
 
 // Frees a path point copied by [method@Gsk.PathPoint.copy].
 func (x *PathPoint) Free() {
-	core.LazyRegister(&xPathPointFree, "GSK", "gsk_path_point_free", false)
-
 	xPathPointFree(x.GoPointer())
 }
 
@@ -120,8 +112,6 @@ var xPathPointGetCurvature func(uintptr, *Path, PathDirection, *graphene.Point) 
 //
 // &lt;/picture&gt;
 func (x *PathPoint) GetCurvature(PathVar *Path, DirectionVar PathDirection, CenterVar *graphene.Point) float32 {
-	core.LazyRegister(&xPathPointGetCurvature, "GSK", "gsk_path_point_get_curvature", false)
-
 	cret := xPathPointGetCurvature(x.GoPointer(), PathVar, DirectionVar, CenterVar)
 	return cret
 }
@@ -131,8 +121,6 @@ var xPathPointGetDistance func(uintptr, *PathMeasure) float32
 // Returns the distance from the beginning of the path
 // to the point.
 func (x *PathPoint) GetDistance(MeasureVar *PathMeasure) float32 {
-	core.LazyRegister(&xPathPointGetDistance, "GSK", "gsk_path_point_get_distance", false)
-
 	cret := xPathPointGetDistance(x.GoPointer(), MeasureVar)
 	return cret
 }
@@ -141,8 +129,6 @@ var xPathPointGetPosition func(uintptr, *Path, *graphene.Point)
 
 // Gets the position of the point.
 func (x *PathPoint) GetPosition(PathVar *Path, PositionVar *graphene.Point) {
-	core.LazyRegister(&xPathPointGetPosition, "GSK", "gsk_path_point_get_position", false)
-
 	xPathPointGetPosition(x.GoPointer(), PathVar, PositionVar)
 }
 
@@ -155,8 +141,6 @@ var xPathPointGetRotation func(uintptr, *Path, PathDirection) float32
 // can e.g. be used in
 // [gtk_snapshot_rotate()](../gtk4/method.Snapshot.rotate.html).
 func (x *PathPoint) GetRotation(PathVar *Path, DirectionVar PathDirection) float32 {
-	core.LazyRegister(&xPathPointGetRotation, "GSK", "gsk_path_point_get_rotation", false)
-
 	cret := xPathPointGetRotation(x.GoPointer(), PathVar, DirectionVar)
 	return cret
 }
@@ -178,12 +162,30 @@ var xPathPointGetTangent func(uintptr, *Path, PathDirection, *graphene.Vec2)
 // path, [method@Gsk.PathPoint.get_rotation] may be more
 // convenient to use.
 func (x *PathPoint) GetTangent(PathVar *Path, DirectionVar PathDirection, TangentVar *graphene.Vec2) {
-	core.LazyRegister(&xPathPointGetTangent, "GSK", "gsk_path_point_get_tangent", false)
-
 	xPathPointGetTangent(x.GoPointer(), PathVar, DirectionVar, TangentVar)
 }
 
 func init() {
 	core.SetPackageName("GSK", "gtk4")
 	core.SetSharedLibraries("GSK", []string{"libgtk-4.so.1", "libgtk-4.1.dylib"})
+	var libs []uintptr
+	for _, libPath := range core.GetPaths("GSK") {
+		lib, err := purego.Dlopen(libPath, purego.RTLD_NOW|purego.RTLD_GLOBAL)
+		if err != nil {
+			panic(err)
+		}
+		libs = append(libs, lib)
+	}
+
+	core.PuregoSafeRegister(&xPathPointGLibType, libs, "gsk_path_point_get_type")
+
+	core.PuregoSafeRegister(&xPathPointCompare, libs, "gsk_path_point_compare")
+	core.PuregoSafeRegister(&xPathPointCopy, libs, "gsk_path_point_copy")
+	core.PuregoSafeRegister(&xPathPointEqual, libs, "gsk_path_point_equal")
+	core.PuregoSafeRegister(&xPathPointFree, libs, "gsk_path_point_free")
+	core.PuregoSafeRegister(&xPathPointGetCurvature, libs, "gsk_path_point_get_curvature")
+	core.PuregoSafeRegister(&xPathPointGetDistance, libs, "gsk_path_point_get_distance")
+	core.PuregoSafeRegister(&xPathPointGetPosition, libs, "gsk_path_point_get_position")
+	core.PuregoSafeRegister(&xPathPointGetRotation, libs, "gsk_path_point_get_rotation")
+	core.PuregoSafeRegister(&xPathPointGetTangent, libs, "gsk_path_point_get_tangent")
 }

@@ -5,6 +5,7 @@ import (
 	"structs"
 	"unsafe"
 
+	"github.com/bnema/purego"
 	"github.com/bnema/puregotk/pkg/core"
 	"github.com/bnema/puregotk/v4/gio"
 	"github.com/bnema/puregotk/v4/glib"
@@ -42,7 +43,6 @@ type Image struct {
 var xImageGLibType func() types.GType
 
 func ImageGLibType() types.GType {
-	core.LazyRegister(&xImageGLibType, "WEBKIT", "webkit_image_get_type", false)
 	return xImageGLibType()
 }
 
@@ -60,8 +60,6 @@ var xImageAsBytes func(uintptr) uintptr
 // with 8-bit premultiplied alpha, in the preferred byte order for
 // the architecture.
 func (x *Image) AsBytes() *glib.Bytes {
-	core.LazyRegister(&xImageAsBytes, "WEBKIT", "webkit_image_as_bytes", false)
-
 	cret := xImageAsBytes(x.GoPointer())
 	if cret == 0 {
 		return nil
@@ -73,8 +71,6 @@ var xImageGetHeight func(uintptr) int
 
 // Get the @image height in pixels.
 func (x *Image) GetHeight() int {
-	core.LazyRegister(&xImageGetHeight, "WEBKIT", "webkit_image_get_height", false)
-
 	cret := xImageGetHeight(x.GoPointer())
 	return cret
 }
@@ -83,8 +79,6 @@ var xImageGetStride func(uintptr) uint
 
 // Get the @image stride.
 func (x *Image) GetStride() uint {
-	core.LazyRegister(&xImageGetStride, "WEBKIT", "webkit_image_get_stride", false)
-
 	cret := xImageGetStride(x.GoPointer())
 	return cret
 }
@@ -93,8 +87,6 @@ var xImageGetWidth func(uintptr) int
 
 // Get the @image width in pixels.
 func (x *Image) GetWidth() int {
-	core.LazyRegister(&xImageGetWidth, "WEBKIT", "webkit_image_get_width", false)
-
 	cret := xImageGetWidth(x.GoPointer())
 	return cret
 }
@@ -260,8 +252,24 @@ func (x *Image) LoadFinish(ResVar gio.AsyncResult, TypeVar *string) (*gio.InputS
 func init() {
 	core.SetPackageName("WEBKIT", "webkitgtk-6.0")
 	core.SetSharedLibraries("WEBKIT", []string{"libwebkitgtk-6.0.so.4", "libjavascriptcoregtk-6.0.so.1", "libwebkitgtk-6.0.4.dylib", "libjavascriptcoregtk-6.0.1.dylib"})
+	var libs []uintptr
+	for _, libPath := range core.GetPaths("WEBKIT") {
+		lib, err := purego.Dlopen(libPath, purego.RTLD_NOW|purego.RTLD_GLOBAL)
+		if err != nil {
+			panic(err)
+		}
+		libs = append(libs, lib)
+	}
 
-	// Manually register types since they aren't automatically registered when
-	// WebKit is loaded. See https://bugs.webkit.org/show_bug.cgi?id=175937.
+	core.PuregoSafeRegister(&xImageGLibType, libs, "webkit_image_get_type")
+
+	core.PuregoSafeRegister(&xImageAsBytes, libs, "webkit_image_as_bytes")
+	core.PuregoSafeRegister(&xImageGetHeight, libs, "webkit_image_get_height")
+	core.PuregoSafeRegister(&xImageGetStride, libs, "webkit_image_get_stride")
+	core.PuregoSafeRegister(&xImageGetWidth, libs, "webkit_image_get_width")
+
+	// Manually register types since they aren't being automatically registered when
+	// the library is loaded
+	// See https://bugs.webkit.org/show_bug.cgi?id=175937
 	ImageGLibType()
 }

@@ -5,6 +5,7 @@ import (
 	"structs"
 	"unsafe"
 
+	"github.com/bnema/purego"
 	"github.com/bnema/puregotk/pkg/core"
 	"github.com/bnema/puregotk/v4/glib"
 	"github.com/bnema/puregotk/v4/gobject/types"
@@ -33,7 +34,6 @@ type RGBA struct {
 var xRGBAGLibType func() types.GType
 
 func RGBAGLibType() types.GType {
-	core.LazyRegister(&xRGBAGLibType, "GDK", "gdk_rgba_get_type", false)
 	return xRGBAGLibType()
 }
 
@@ -55,8 +55,6 @@ var xRGBACopy func(uintptr) uintptr
 //
 // The result must be freed through [method@Gdk.RGBA.free].
 func (x *RGBA) Copy() *RGBA {
-	core.LazyRegister(&xRGBACopy, "GDK", "gdk_rgba_copy", false)
-
 	cret := xRGBACopy(x.GoPointer())
 	if cret == 0 {
 		return nil
@@ -68,8 +66,6 @@ var xRGBAEqual func(uintptr, uintptr) bool
 
 // Compares two `GdkRGBA` colors.
 func (x *RGBA) Equal(P2Var uintptr) bool {
-	core.LazyRegister(&xRGBAEqual, "GDK", "gdk_rgba_equal", false)
-
 	cret := xRGBAEqual(x.GoPointer(), P2Var)
 	return cret
 }
@@ -78,8 +74,6 @@ var xRGBAFree func(uintptr)
 
 // Frees a `GdkRGBA`.
 func (x *RGBA) Free() {
-	core.LazyRegister(&xRGBAFree, "GDK", "gdk_rgba_free", false)
-
 	xRGBAFree(x.GoPointer())
 }
 
@@ -88,8 +82,6 @@ var xRGBAHash func(uintptr) uint
 // A hash function suitable for using for a hash
 // table that stores `GdkRGBA`s.
 func (x *RGBA) Hash() uint {
-	core.LazyRegister(&xRGBAHash, "GDK", "gdk_rgba_hash", false)
-
 	cret := xRGBAHash(x.GoPointer())
 	return cret
 }
@@ -100,8 +92,6 @@ var xRGBAIsClear func(uintptr) bool
 //
 // That is, drawing with the value would not produce any change.
 func (x *RGBA) IsClear() bool {
-	core.LazyRegister(&xRGBAIsClear, "GDK", "gdk_rgba_is_clear", false)
-
 	cret := xRGBAIsClear(x.GoPointer())
 	return cret
 }
@@ -113,8 +103,6 @@ var xRGBAIsOpaque func(uintptr) bool
 // That is, drawing with the value will not retain any results
 // from previous contents.
 func (x *RGBA) IsOpaque() bool {
-	core.LazyRegister(&xRGBAIsOpaque, "GDK", "gdk_rgba_is_opaque", false)
-
 	cret := xRGBAIsOpaque(x.GoPointer())
 	return cret
 }
@@ -144,8 +132,6 @@ var xRGBAParse func(uintptr, string) bool
 // “s”, “l” can be either numbers in the range 0 to 100 or
 // percentages.
 func (x *RGBA) Parse(SpecVar string) bool {
-	core.LazyRegister(&xRGBAParse, "GDK", "gdk_rgba_parse", false)
-
 	cret := xRGBAParse(x.GoPointer(), SpecVar)
 	return cret
 }
@@ -153,8 +139,6 @@ func (x *RGBA) Parse(SpecVar string) bool {
 var xRGBAPrint func(uintptr, *glib.String) uintptr
 
 func (x *RGBA) Print(StringVar *glib.String) *glib.String {
-	core.LazyRegister(&xRGBAPrint, "GDK", "gdk_rgba_print", false)
-
 	cret := xRGBAPrint(x.GoPointer(), StringVar)
 	if cret == 0 {
 		return nil
@@ -178,8 +162,6 @@ var xRGBAToString func(uintptr) string
 // since “r”, “g” and “b” are represented as 8-bit integers. If
 // this is a concern, you should use a different representation.
 func (x *RGBA) ToString() string {
-	core.LazyRegister(&xRGBAToString, "GDK", "gdk_rgba_to_string", false)
-
 	cret := xRGBAToString(x.GoPointer())
 	return cret
 }
@@ -187,4 +169,24 @@ func (x *RGBA) ToString() string {
 func init() {
 	core.SetPackageName("GDK", "gtk4")
 	core.SetSharedLibraries("GDK", []string{"libgtk-4.so.1", "libgtk-4.1.dylib"})
+	var libs []uintptr
+	for _, libPath := range core.GetPaths("GDK") {
+		lib, err := purego.Dlopen(libPath, purego.RTLD_NOW|purego.RTLD_GLOBAL)
+		if err != nil {
+			panic(err)
+		}
+		libs = append(libs, lib)
+	}
+
+	core.PuregoSafeRegister(&xRGBAGLibType, libs, "gdk_rgba_get_type")
+
+	core.PuregoSafeRegister(&xRGBACopy, libs, "gdk_rgba_copy")
+	core.PuregoSafeRegister(&xRGBAEqual, libs, "gdk_rgba_equal")
+	core.PuregoSafeRegister(&xRGBAFree, libs, "gdk_rgba_free")
+	core.PuregoSafeRegister(&xRGBAHash, libs, "gdk_rgba_hash")
+	core.PuregoSafeRegister(&xRGBAIsClear, libs, "gdk_rgba_is_clear")
+	core.PuregoSafeRegister(&xRGBAIsOpaque, libs, "gdk_rgba_is_opaque")
+	core.PuregoSafeRegister(&xRGBAParse, libs, "gdk_rgba_parse")
+	core.PuregoSafeRegister(&xRGBAPrint, libs, "gdk_rgba_print")
+	core.PuregoSafeRegister(&xRGBAToString, libs, "gdk_rgba_to_string")
 }

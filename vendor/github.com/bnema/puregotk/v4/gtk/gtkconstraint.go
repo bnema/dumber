@@ -5,6 +5,7 @@ import (
 	"structs"
 	"unsafe"
 
+	"github.com/bnema/purego"
 	"github.com/bnema/puregotk/pkg/core"
 	"github.com/bnema/puregotk/v4/gobject"
 	"github.com/bnema/puregotk/v4/gobject/types"
@@ -56,7 +57,6 @@ type ConstraintTarget interface {
 var xConstraintTargetGLibType func() types.GType
 
 func ConstraintTargetGLibType() types.GType {
-	core.LazyRegister(&xConstraintTargetGLibType, "GTK", "gtk_constraint_target_get_type", false)
 	return xConstraintTargetGLibType()
 }
 
@@ -100,7 +100,6 @@ type Constraint struct {
 var xConstraintGLibType func() types.GType
 
 func ConstraintGLibType() types.GType {
-	core.LazyRegister(&xConstraintGLibType, "GTK", "gtk_constraint_get_type", false)
 	return xConstraintGLibType()
 }
 
@@ -115,7 +114,6 @@ var xNewConstraint func(uintptr, ConstraintAttribute, ConstraintRelation, uintpt
 // Creates a new constraint representing a relation between a layout
 // attribute on a source and a layout attribute on a target.
 func NewConstraint(TargetVar ConstraintTarget, TargetAttributeVar ConstraintAttribute, RelationVar ConstraintRelation, SourceVar ConstraintTarget, SourceAttributeVar ConstraintAttribute, MultiplierVar float64, ConstantVar float64, StrengthVar int) *Constraint {
-	core.LazyRegister(&xNewConstraint, "GTK", "gtk_constraint_new", false)
 	var cls *Constraint
 
 	cret := xNewConstraint(TargetVar.GoPointer(), TargetAttributeVar, RelationVar, SourceVar.GoPointer(), SourceAttributeVar, MultiplierVar, ConstantVar, StrengthVar)
@@ -133,7 +131,6 @@ var xNewConstraintConstant func(uintptr, ConstraintAttribute, ConstraintRelation
 // Creates a new constraint representing a relation between a layout
 // attribute on a target and a constant value.
 func NewConstraintConstant(TargetVar ConstraintTarget, TargetAttributeVar ConstraintAttribute, RelationVar ConstraintRelation, ConstantVar float64, StrengthVar int) *Constraint {
-	core.LazyRegister(&xNewConstraintConstant, "GTK", "gtk_constraint_new_constant", false)
 	var cls *Constraint
 
 	cret := xNewConstraintConstant(TargetVar.GoPointer(), TargetAttributeVar, RelationVar, ConstantVar, StrengthVar)
@@ -150,8 +147,6 @@ var xConstraintGetConstant func(uintptr) float64
 
 // Retrieves the constant factor added to the source attributes' value.
 func (x *Constraint) GetConstant() float64 {
-	core.LazyRegister(&xConstraintGetConstant, "GTK", "gtk_constraint_get_constant", false)
-
 	cret := xConstraintGetConstant(x.GoPointer())
 	return cret
 }
@@ -161,8 +156,6 @@ var xConstraintGetMultiplier func(uintptr) float64
 // Retrieves the multiplication factor applied to the source
 // attribute's value.
 func (x *Constraint) GetMultiplier() float64 {
-	core.LazyRegister(&xConstraintGetMultiplier, "GTK", "gtk_constraint_get_multiplier", false)
-
 	cret := xConstraintGetMultiplier(x.GoPointer())
 	return cret
 }
@@ -171,8 +164,6 @@ var xConstraintGetRelation func(uintptr) ConstraintRelation
 
 // The order relation between the terms of the constraint.
 func (x *Constraint) GetRelation() ConstraintRelation {
-	core.LazyRegister(&xConstraintGetRelation, "GTK", "gtk_constraint_get_relation", false)
-
 	cret := xConstraintGetRelation(x.GoPointer())
 	return cret
 }
@@ -185,7 +176,6 @@ var xConstraintGetSource func(uintptr) uintptr
 // If the source is set to `NULL` at creation, the constraint will use
 // the widget using the [class@Gtk.ConstraintLayout] as the source.
 func (x *Constraint) GetSource() *ConstraintTargetBase {
-	core.LazyRegister(&xConstraintGetSource, "GTK", "gtk_constraint_get_source", false)
 	var cls *ConstraintTargetBase
 
 	cret := xConstraintGetSource(x.GoPointer())
@@ -203,8 +193,6 @@ var xConstraintGetSourceAttribute func(uintptr) ConstraintAttribute
 
 // Retrieves the attribute of the source to be read by the constraint.
 func (x *Constraint) GetSourceAttribute() ConstraintAttribute {
-	core.LazyRegister(&xConstraintGetSourceAttribute, "GTK", "gtk_constraint_get_source_attribute", false)
-
 	cret := xConstraintGetSourceAttribute(x.GoPointer())
 	return cret
 }
@@ -213,8 +201,6 @@ var xConstraintGetStrength func(uintptr) int
 
 // Retrieves the strength of the constraint.
 func (x *Constraint) GetStrength() int {
-	core.LazyRegister(&xConstraintGetStrength, "GTK", "gtk_constraint_get_strength", false)
-
 	cret := xConstraintGetStrength(x.GoPointer())
 	return cret
 }
@@ -227,7 +213,6 @@ var xConstraintGetTarget func(uintptr) uintptr
 // If the targe is set to `NULL` at creation, the constraint will use
 // the widget using the [class@Gtk.ConstraintLayout] as the target.
 func (x *Constraint) GetTarget() *ConstraintTargetBase {
-	core.LazyRegister(&xConstraintGetTarget, "GTK", "gtk_constraint_get_target", false)
 	var cls *ConstraintTargetBase
 
 	cret := xConstraintGetTarget(x.GoPointer())
@@ -245,8 +230,6 @@ var xConstraintGetTargetAttribute func(uintptr) ConstraintAttribute
 
 // Retrieves the attribute of the target to be set by the constraint.
 func (x *Constraint) GetTargetAttribute() ConstraintAttribute {
-	core.LazyRegister(&xConstraintGetTargetAttribute, "GTK", "gtk_constraint_get_target_attribute", false)
-
 	cret := xConstraintGetTargetAttribute(x.GoPointer())
 	return cret
 }
@@ -256,8 +239,6 @@ var xConstraintIsAttached func(uintptr) bool
 // Checks whether the constraint is attached to a [class@Gtk.ConstraintLayout],
 // and it is contributing to the layout.
 func (x *Constraint) IsAttached() bool {
-	core.LazyRegister(&xConstraintIsAttached, "GTK", "gtk_constraint_is_attached", false)
-
 	cret := xConstraintIsAttached(x.GoPointer())
 	return cret
 }
@@ -267,8 +248,6 @@ var xConstraintIsConstant func(uintptr) bool
 // Checks whether the constraint describes a relation between an attribute
 // on the [property@Gtk.Constraint:target] and a constant value.
 func (x *Constraint) IsConstant() bool {
-	core.LazyRegister(&xConstraintIsConstant, "GTK", "gtk_constraint_is_constant", false)
-
 	cret := xConstraintIsConstant(x.GoPointer())
 	return cret
 }
@@ -278,8 +257,6 @@ var xConstraintIsRequired func(uintptr) bool
 // Checks whether the constraint is a required relation for solving the
 // constraint layout.
 func (x *Constraint) IsRequired() bool {
-	core.LazyRegister(&xConstraintIsRequired, "GTK", "gtk_constraint_is_required", false)
-
 	cret := xConstraintIsRequired(x.GoPointer())
 	return cret
 }
@@ -359,4 +336,31 @@ func (x *Constraint) GetPropertyStrength() int {
 func init() {
 	core.SetPackageName("GTK", "gtk4")
 	core.SetSharedLibraries("GTK", []string{"libgtk-4.so.1", "libgtk-4.1.dylib"})
+	var libs []uintptr
+	for _, libPath := range core.GetPaths("GTK") {
+		lib, err := purego.Dlopen(libPath, purego.RTLD_NOW|purego.RTLD_GLOBAL)
+		if err != nil {
+			panic(err)
+		}
+		libs = append(libs, lib)
+	}
+
+	core.PuregoSafeRegister(&xConstraintGLibType, libs, "gtk_constraint_get_type")
+
+	core.PuregoSafeRegister(&xNewConstraint, libs, "gtk_constraint_new")
+	core.PuregoSafeRegister(&xNewConstraintConstant, libs, "gtk_constraint_new_constant")
+
+	core.PuregoSafeRegister(&xConstraintGetConstant, libs, "gtk_constraint_get_constant")
+	core.PuregoSafeRegister(&xConstraintGetMultiplier, libs, "gtk_constraint_get_multiplier")
+	core.PuregoSafeRegister(&xConstraintGetRelation, libs, "gtk_constraint_get_relation")
+	core.PuregoSafeRegister(&xConstraintGetSource, libs, "gtk_constraint_get_source")
+	core.PuregoSafeRegister(&xConstraintGetSourceAttribute, libs, "gtk_constraint_get_source_attribute")
+	core.PuregoSafeRegister(&xConstraintGetStrength, libs, "gtk_constraint_get_strength")
+	core.PuregoSafeRegister(&xConstraintGetTarget, libs, "gtk_constraint_get_target")
+	core.PuregoSafeRegister(&xConstraintGetTargetAttribute, libs, "gtk_constraint_get_target_attribute")
+	core.PuregoSafeRegister(&xConstraintIsAttached, libs, "gtk_constraint_is_attached")
+	core.PuregoSafeRegister(&xConstraintIsConstant, libs, "gtk_constraint_is_constant")
+	core.PuregoSafeRegister(&xConstraintIsRequired, libs, "gtk_constraint_is_required")
+
+	core.PuregoSafeRegister(&xConstraintTargetGLibType, libs, "gtk_constraint_target_get_type")
 }

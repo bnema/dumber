@@ -5,6 +5,7 @@ import (
 	"structs"
 	"unsafe"
 
+	"github.com/bnema/purego"
 	"github.com/bnema/puregotk/pkg/core"
 	"github.com/bnema/puregotk/v4/glib"
 	"github.com/bnema/puregotk/v4/gobject"
@@ -34,7 +35,6 @@ type BuilderError int
 var xBuilderErrorGLibType func() types.GType
 
 func BuilderErrorGLibType() types.GType {
-	core.LazyRegister(&xBuilderErrorGLibType, "GTK", "gtk_builder_error_get_type", false)
 	return xBuilderErrorGLibType()
 }
 
@@ -87,8 +87,6 @@ var xBuilderErrorQuark func() glib.Quark
 
 // Registers an error quark for [class@Gtk.Builder] errors.
 func BuilderErrorQuark() glib.Quark {
-	core.LazyRegister(&xBuilderErrorQuark, "GTK", "gtk_builder_error_quark", false)
-
 	cret := xBuilderErrorQuark()
 	return cret
 }
@@ -478,7 +476,6 @@ type Builder struct {
 var xBuilderGLibType func() types.GType
 
 func BuilderGLibType() types.GType {
-	core.LazyRegister(&xBuilderGLibType, "GTK", "gtk_builder_get_type", false)
 	return xBuilderGLibType()
 }
 
@@ -497,7 +494,6 @@ var xNewBuilder func() uintptr
 // or [method@Gtk.Builder.add_from_string] in order to merge multiple UI
 // descriptions into a single builder.
 func NewBuilder() *Builder {
-	core.LazyRegister(&xNewBuilder, "GTK", "gtk_builder_new", false)
 	var cls *Builder
 
 	cret := xNewBuilder()
@@ -518,7 +514,6 @@ var xNewBuilderFromFile func(string) uintptr
 // the program will be aborted. You should only ever attempt to parse
 // user interface descriptions that are shipped as part of your program.
 func NewBuilderFromFile(FilenameVar string) *Builder {
-	core.LazyRegister(&xNewBuilderFromFile, "GTK", "gtk_builder_new_from_file", false)
 	var cls *Builder
 
 	cret := xNewBuilderFromFile(FilenameVar)
@@ -538,7 +533,6 @@ var xNewBuilderFromResource func(string) uintptr
 // If there is an error locating the resource or parsing the
 // description, then the program will be aborted.
 func NewBuilderFromResource(ResourcePathVar string) *Builder {
-	core.LazyRegister(&xNewBuilderFromResource, "GTK", "gtk_builder_new_from_resource", false)
 	var cls *Builder
 
 	cret := xNewBuilderFromResource(ResourcePathVar)
@@ -562,7 +556,6 @@ var xNewBuilderFromString func(string, int) uintptr
 // aborted. You should not attempt to parse user interface description
 // from untrusted sources.
 func NewBuilderFromString(StringVar string, LengthVar int) *Builder {
-	core.LazyRegister(&xNewBuilderFromString, "GTK", "gtk_builder_new_from_string", false)
 	var cls *Builder
 
 	cret := xNewBuilderFromString(StringVar, LengthVar)
@@ -596,7 +589,6 @@ var xBuilderAddFromFile func(uintptr, string, **glib.Error) bool
 // was leaked leading up to the reported failure. The only reasonable
 // thing to do when an error is detected is to call `g_error()`.
 func (x *Builder) AddFromFile(FilenameVar string) (bool, error) {
-	core.LazyRegister(&xBuilderAddFromFile, "GTK", "gtk_builder_add_from_file", false)
 	var cerr *glib.Error
 
 	cret := xBuilderAddFromFile(x.GoPointer(), FilenameVar, &cerr)
@@ -624,7 +616,6 @@ var xBuilderAddFromResource func(uintptr, string, **glib.Error) bool
 // call.  The only reasonable thing to do when an error is detected is
 // to call g_error().
 func (x *Builder) AddFromResource(ResourcePathVar string) (bool, error) {
-	core.LazyRegister(&xBuilderAddFromResource, "GTK", "gtk_builder_add_from_resource", false)
 	var cerr *glib.Error
 
 	cret := xBuilderAddFromResource(x.GoPointer(), ResourcePathVar, &cerr)
@@ -652,7 +643,6 @@ var xBuilderAddFromString func(uintptr, string, int, **glib.Error) bool
 // call.  The only reasonable thing to do when an error is detected is
 // to call g_error().
 func (x *Builder) AddFromString(BufferVar string, LengthVar int) (bool, error) {
-	core.LazyRegister(&xBuilderAddFromString, "GTK", "gtk_builder_add_from_string", false)
 	var cerr *glib.Error
 
 	cret := xBuilderAddFromString(x.GoPointer(), BufferVar, LengthVar, &cerr)
@@ -676,7 +666,6 @@ var xBuilderAddObjectsFromFile func(uintptr, string, []string, **glib.Error) boo
 // its child (for instance a `GtkTreeView` that depends on its
 // `GtkTreeModel`), you have to explicitly list all of them in @object_ids.
 func (x *Builder) AddObjectsFromFile(FilenameVar string, ObjectIdsVar []string) (bool, error) {
-	core.LazyRegister(&xBuilderAddObjectsFromFile, "GTK", "gtk_builder_add_objects_from_file", false)
 	var cerr *glib.Error
 
 	cret := xBuilderAddObjectsFromFile(x.GoPointer(), FilenameVar, ObjectIdsVar, &cerr)
@@ -700,7 +689,6 @@ var xBuilderAddObjectsFromResource func(uintptr, string, []string, **glib.Error)
 // its child (for instance a `GtkTreeView` that depends on its
 // `GtkTreeModel`), you have to explicitly list all of them in @object_ids.
 func (x *Builder) AddObjectsFromResource(ResourcePathVar string, ObjectIdsVar []string) (bool, error) {
-	core.LazyRegister(&xBuilderAddObjectsFromResource, "GTK", "gtk_builder_add_objects_from_resource", false)
 	var cerr *glib.Error
 
 	cret := xBuilderAddObjectsFromResource(x.GoPointer(), ResourcePathVar, ObjectIdsVar, &cerr)
@@ -723,7 +711,6 @@ var xBuilderAddObjectsFromString func(uintptr, string, int, []string, **glib.Err
 // its child (for instance a `GtkTreeView` that depends on its
 // `GtkTreeModel`), you have to explicitly list all of them in @object_ids.
 func (x *Builder) AddObjectsFromString(BufferVar string, LengthVar int, ObjectIdsVar []string) (bool, error) {
-	core.LazyRegister(&xBuilderAddObjectsFromString, "GTK", "gtk_builder_add_objects_from_string", false)
 	var cerr *glib.Error
 
 	cret := xBuilderAddObjectsFromString(x.GoPointer(), BufferVar, LengthVar, ObjectIdsVar, &cerr)
@@ -743,7 +730,6 @@ var xBuilderCreateClosure func(uintptr, string, BuilderClosureFlags, uintptr, **
 // If no closure could be created, %NULL will be returned and @error
 // will be set.
 func (x *Builder) CreateClosure(FunctionNameVar string, FlagsVar BuilderClosureFlags, ObjectVar *gobject.Object) (*gobject.Closure, error) {
-	core.LazyRegister(&xBuilderCreateClosure, "GTK", "gtk_builder_create_closure", false)
 	var cerr *glib.Error
 
 	cret := xBuilderCreateClosure(x.GoPointer(), FunctionNameVar, FlagsVar, ObjectVar.GoPointer(), &cerr)
@@ -766,8 +752,6 @@ var xBuilderExposeObject func(uintptr, string, uintptr)
 // names. `gtk_builder_get_object()` may be used to determine
 // if an object has already been added with @name.
 func (x *Builder) ExposeObject(NameVar string, ObjectVar *gobject.Object) {
-	core.LazyRegister(&xBuilderExposeObject, "GTK", "gtk_builder_expose_object", false)
-
 	xBuilderExposeObject(x.GoPointer(), NameVar, ObjectVar.GoPointer())
 }
 
@@ -779,7 +763,6 @@ var xBuilderExtendWithTemplate func(uintptr, uintptr, types.GType, string, int, 
 // Most likely you do not need to call this function in applications as
 // templates are handled by `GtkWidget`.
 func (x *Builder) ExtendWithTemplate(ObjectVar *gobject.Object, TemplateTypeVar types.GType, BufferVar string, LengthVar int) (bool, error) {
-	core.LazyRegister(&xBuilderExtendWithTemplate, "GTK", "gtk_builder_extend_with_template", false)
 	var cerr *glib.Error
 
 	cret := xBuilderExtendWithTemplate(x.GoPointer(), ObjectVar.GoPointer(), TemplateTypeVar, BufferVar, LengthVar, &cerr)
@@ -793,7 +776,6 @@ var xBuilderGetCurrentObject func(uintptr) uintptr
 
 // Gets the current object set via gtk_builder_set_current_object().
 func (x *Builder) GetCurrentObject() *gobject.Object {
-	core.LazyRegister(&xBuilderGetCurrentObject, "GTK", "gtk_builder_get_current_object", false)
 	var cls *gobject.Object
 
 	cret := xBuilderGetCurrentObject(x.GoPointer())
@@ -814,7 +796,6 @@ var xBuilderGetObject func(uintptr, string) uintptr
 // Note that this function does not increment the reference count
 // of the returned object.
 func (x *Builder) GetObject(NameVar string) *gobject.Object {
-	core.LazyRegister(&xBuilderGetObject, "GTK", "gtk_builder_get_object", false)
 	var cls *gobject.Object
 
 	cret := xBuilderGetObject(x.GoPointer(), NameVar)
@@ -835,8 +816,6 @@ var xBuilderGetObjects func(uintptr) uintptr
 // Note that this function does not increment the reference
 // counts of the returned objects.
 func (x *Builder) GetObjects() *glib.SList {
-	core.LazyRegister(&xBuilderGetObjects, "GTK", "gtk_builder_get_objects", false)
-
 	cret := xBuilderGetObjects(x.GoPointer())
 	if cret == 0 {
 		return nil
@@ -848,7 +827,6 @@ var xBuilderGetScope func(uintptr) uintptr
 
 // Gets the scope in use that was set via gtk_builder_set_scope().
 func (x *Builder) GetScope() *BuilderScopeBase {
-	core.LazyRegister(&xBuilderGetScope, "GTK", "gtk_builder_get_scope", false)
 	var cls *BuilderScopeBase
 
 	cret := xBuilderGetScope(x.GoPointer())
@@ -866,8 +844,6 @@ var xBuilderGetTranslationDomain func(uintptr) string
 
 // Gets the translation domain of @builder.
 func (x *Builder) GetTranslationDomain() string {
-	core.LazyRegister(&xBuilderGetTranslationDomain, "GTK", "gtk_builder_get_translation_domain", false)
-
 	cret := xBuilderGetTranslationDomain(x.GoPointer())
 	return cret
 }
@@ -880,8 +856,6 @@ var xBuilderGetTypeFromName func(uintptr, string) types.GType
 // for that purpose. This is mainly used when implementing
 // the `GtkBuildable` interface on a type.
 func (x *Builder) GetTypeFromName(TypeNameVar string) types.GType {
-	core.LazyRegister(&xBuilderGetTypeFromName, "GTK", "gtk_builder_get_type_from_name", false)
-
 	cret := xBuilderGetTypeFromName(x.GoPointer(), TypeNameVar)
 	return cret
 }
@@ -898,8 +872,6 @@ var xBuilderSetCurrentObject func(uintptr, uintptr)
 // object to the widget the template is inited for. For functions like
 // [ctor@Gtk.Builder.new_from_resource], the current object will be %NULL.
 func (x *Builder) SetCurrentObject(CurrentObjectVar *gobject.Object) {
-	core.LazyRegister(&xBuilderSetCurrentObject, "GTK", "gtk_builder_set_current_object", false)
-
 	xBuilderSetCurrentObject(x.GoPointer(), CurrentObjectVar.GoPointer())
 }
 
@@ -909,8 +881,6 @@ var xBuilderSetScope func(uintptr, uintptr)
 //
 // If @scope is %NULL, a new [class@Gtk.BuilderCScope] will be created.
 func (x *Builder) SetScope(ScopeVar BuilderScope) {
-	core.LazyRegister(&xBuilderSetScope, "GTK", "gtk_builder_set_scope", false)
-
 	xBuilderSetScope(x.GoPointer(), ScopeVar.GoPointer())
 }
 
@@ -918,8 +888,6 @@ var xBuilderSetTranslationDomain func(uintptr, uintptr)
 
 // Sets the translation domain of @builder.
 func (x *Builder) SetTranslationDomain(DomainVar *string) {
-	core.LazyRegister(&xBuilderSetTranslationDomain, "GTK", "gtk_builder_set_translation_domain", false)
-
 	DomainVarPtr := core.GStrdupNullable(DomainVar)
 	defer core.GFreeNullable(DomainVarPtr)
 
@@ -940,7 +908,6 @@ var xBuilderValueFromString func(uintptr, uintptr, string, *gobject.Value, **gli
 // Upon errors %FALSE will be returned and @error will be
 // assigned a `GError` from the %GTK_BUILDER_ERROR domain.
 func (x *Builder) ValueFromString(PspecVar *gobject.ParamSpec, StringVar string, ValueVar *gobject.Value) (bool, error) {
-	core.LazyRegister(&xBuilderValueFromString, "GTK", "gtk_builder_value_from_string", false)
 	var cerr *glib.Error
 
 	cret := xBuilderValueFromString(x.GoPointer(), PspecVar.GoPointer(), StringVar, ValueVar, &cerr)
@@ -963,7 +930,6 @@ var xBuilderValueFromStringType func(uintptr, types.GType, string, *gobject.Valu
 // Upon errors %FALSE will be returned and @error will be
 // assigned a `GError` from the %GTK_BUILDER_ERROR domain.
 func (x *Builder) ValueFromStringType(TypeVar types.GType, StringVar string, ValueVar *gobject.Value) (bool, error) {
-	core.LazyRegister(&xBuilderValueFromStringType, "GTK", "gtk_builder_value_from_string_type", false)
 	var cerr *glib.Error
 
 	cret := xBuilderValueFromStringType(x.GoPointer(), TypeVar, StringVar, ValueVar, &cerr)
@@ -1012,4 +978,44 @@ func (x *Builder) GetPropertyTranslationDomain() string {
 func init() {
 	core.SetPackageName("GTK", "gtk4")
 	core.SetSharedLibraries("GTK", []string{"libgtk-4.so.1", "libgtk-4.1.dylib"})
+	var libs []uintptr
+	for _, libPath := range core.GetPaths("GTK") {
+		lib, err := purego.Dlopen(libPath, purego.RTLD_NOW|purego.RTLD_GLOBAL)
+		if err != nil {
+			panic(err)
+		}
+		libs = append(libs, lib)
+	}
+
+	core.PuregoSafeRegister(&xBuilderErrorGLibType, libs, "gtk_builder_error_get_type")
+
+	core.PuregoSafeRegister(&xBuilderErrorQuark, libs, "gtk_builder_error_quark")
+
+	core.PuregoSafeRegister(&xBuilderGLibType, libs, "gtk_builder_get_type")
+
+	core.PuregoSafeRegister(&xNewBuilder, libs, "gtk_builder_new")
+	core.PuregoSafeRegister(&xNewBuilderFromFile, libs, "gtk_builder_new_from_file")
+	core.PuregoSafeRegister(&xNewBuilderFromResource, libs, "gtk_builder_new_from_resource")
+	core.PuregoSafeRegister(&xNewBuilderFromString, libs, "gtk_builder_new_from_string")
+
+	core.PuregoSafeRegister(&xBuilderAddFromFile, libs, "gtk_builder_add_from_file")
+	core.PuregoSafeRegister(&xBuilderAddFromResource, libs, "gtk_builder_add_from_resource")
+	core.PuregoSafeRegister(&xBuilderAddFromString, libs, "gtk_builder_add_from_string")
+	core.PuregoSafeRegister(&xBuilderAddObjectsFromFile, libs, "gtk_builder_add_objects_from_file")
+	core.PuregoSafeRegister(&xBuilderAddObjectsFromResource, libs, "gtk_builder_add_objects_from_resource")
+	core.PuregoSafeRegister(&xBuilderAddObjectsFromString, libs, "gtk_builder_add_objects_from_string")
+	core.PuregoSafeRegister(&xBuilderCreateClosure, libs, "gtk_builder_create_closure")
+	core.PuregoSafeRegister(&xBuilderExposeObject, libs, "gtk_builder_expose_object")
+	core.PuregoSafeRegister(&xBuilderExtendWithTemplate, libs, "gtk_builder_extend_with_template")
+	core.PuregoSafeRegister(&xBuilderGetCurrentObject, libs, "gtk_builder_get_current_object")
+	core.PuregoSafeRegister(&xBuilderGetObject, libs, "gtk_builder_get_object")
+	core.PuregoSafeRegister(&xBuilderGetObjects, libs, "gtk_builder_get_objects")
+	core.PuregoSafeRegister(&xBuilderGetScope, libs, "gtk_builder_get_scope")
+	core.PuregoSafeRegister(&xBuilderGetTranslationDomain, libs, "gtk_builder_get_translation_domain")
+	core.PuregoSafeRegister(&xBuilderGetTypeFromName, libs, "gtk_builder_get_type_from_name")
+	core.PuregoSafeRegister(&xBuilderSetCurrentObject, libs, "gtk_builder_set_current_object")
+	core.PuregoSafeRegister(&xBuilderSetScope, libs, "gtk_builder_set_scope")
+	core.PuregoSafeRegister(&xBuilderSetTranslationDomain, libs, "gtk_builder_set_translation_domain")
+	core.PuregoSafeRegister(&xBuilderValueFromString, libs, "gtk_builder_value_from_string")
+	core.PuregoSafeRegister(&xBuilderValueFromStringType, libs, "gtk_builder_value_from_string_type")
 }

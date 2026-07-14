@@ -5,6 +5,7 @@ import (
 	"structs"
 	"unsafe"
 
+	"github.com/bnema/purego"
 	"github.com/bnema/puregotk/pkg/core"
 	"github.com/bnema/puregotk/v4/gobject/types"
 )
@@ -17,7 +18,6 @@ type UserContentFilter struct {
 var xUserContentFilterGLibType func() types.GType
 
 func UserContentFilterGLibType() types.GType {
-	core.LazyRegister(&xUserContentFilterGLibType, "WEBKIT", "webkit_user_content_filter_get_type", false)
 	return xUserContentFilterGLibType()
 }
 
@@ -40,8 +40,6 @@ var xUserContentFilterGetIdentifier func(uintptr) string
 // Obtain the identifier previously used to save the @user_content_filter in the
 // #WebKitUserContentFilterStore.
 func (x *UserContentFilter) GetIdentifier() string {
-	core.LazyRegister(&xUserContentFilterGetIdentifier, "WEBKIT", "webkit_user_content_filter_get_identifier", false)
-
 	cret := xUserContentFilterGetIdentifier(x.GoPointer())
 	return cret
 }
@@ -52,8 +50,6 @@ var xUserContentFilterRef func(uintptr) uintptr
 //
 // This function is MT-safe and may be called from any thread.
 func (x *UserContentFilter) Ref() *UserContentFilter {
-	core.LazyRegister(&xUserContentFilterRef, "WEBKIT", "webkit_user_content_filter_ref", false)
-
 	cret := xUserContentFilterRef(x.GoPointer())
 	if cret == 0 {
 		return nil
@@ -69,8 +65,6 @@ var xUserContentFilterUnref func(uintptr)
 // #WebKitUserContentFilter is released. This function is MT-safe and may
 // be called from any thread.
 func (x *UserContentFilter) Unref() {
-	core.LazyRegister(&xUserContentFilterUnref, "WEBKIT", "webkit_user_content_filter_unref", false)
-
 	xUserContentFilterUnref(x.GoPointer())
 }
 
@@ -82,7 +76,6 @@ type UserScript struct {
 var xUserScriptGLibType func() types.GType
 
 func UserScriptGLibType() types.GType {
-	core.LazyRegister(&xUserScriptGLibType, "WEBKIT", "webkit_user_script_get_type", false)
 	return xUserScriptGLibType()
 }
 
@@ -110,8 +103,6 @@ var xNewUserScript func(string, UserContentInjectedFrames, UserScriptInjectionTi
 // *host* and *path* components can contain the wildcard character (`*`) to
 // represent zero or more other characters.
 func NewUserScript(SourceVar string, InjectedFramesVar UserContentInjectedFrames, InjectionTimeVar UserScriptInjectionTime, AllowListVar []string, BlockListVar []string) *UserScript {
-	core.LazyRegister(&xNewUserScript, "WEBKIT", "webkit_user_script_new", false)
-
 	cret := xNewUserScript(SourceVar, InjectedFramesVar, InjectionTimeVar, AllowListVar, BlockListVar)
 	if cret == 0 {
 		return nil
@@ -125,8 +116,6 @@ var xNewUserScriptForWorld func(string, UserContentInjectedFrames, UserScriptInj
 //
 // See webkit_user_script_new() for a full description.
 func NewUserScriptForWorld(SourceVar string, InjectedFramesVar UserContentInjectedFrames, InjectionTimeVar UserScriptInjectionTime, WorldNameVar string, AllowListVar []string, BlockListVar []string) *UserScript {
-	core.LazyRegister(&xNewUserScriptForWorld, "WEBKIT", "webkit_user_script_new_for_world", false)
-
 	cret := xNewUserScriptForWorld(SourceVar, InjectedFramesVar, InjectionTimeVar, WorldNameVar, AllowListVar, BlockListVar)
 	if cret == 0 {
 		return nil
@@ -140,8 +129,6 @@ var xUserScriptRef func(uintptr) uintptr
 //
 // This function is MT-safe and may be called from any thread.
 func (x *UserScript) Ref() *UserScript {
-	core.LazyRegister(&xUserScriptRef, "WEBKIT", "webkit_user_script_ref", false)
-
 	cret := xUserScriptRef(x.GoPointer())
 	if cret == 0 {
 		return nil
@@ -157,8 +144,6 @@ var xUserScriptUnref func(uintptr)
 // #WebKitUserScript is released. This function is MT-safe and may be called
 // from any thread.
 func (x *UserScript) Unref() {
-	core.LazyRegister(&xUserScriptUnref, "WEBKIT", "webkit_user_script_unref", false)
-
 	xUserScriptUnref(x.GoPointer())
 }
 
@@ -170,7 +155,6 @@ type UserStyleSheet struct {
 var xUserStyleSheetGLibType func() types.GType
 
 func UserStyleSheetGLibType() types.GType {
-	core.LazyRegister(&xUserStyleSheetGLibType, "WEBKIT", "webkit_user_style_sheet_get_type", false)
 	return xUserStyleSheetGLibType()
 }
 
@@ -198,8 +182,6 @@ var xNewUserStyleSheet func(string, UserContentInjectedFrames, UserStyleLevel, [
 // *host* and *path* components can contain the wildcard character (`*`) to
 // represent zero or more other characters.
 func NewUserStyleSheet(SourceVar string, InjectedFramesVar UserContentInjectedFrames, LevelVar UserStyleLevel, AllowListVar []string, BlockListVar []string) *UserStyleSheet {
-	core.LazyRegister(&xNewUserStyleSheet, "WEBKIT", "webkit_user_style_sheet_new", false)
-
 	cret := xNewUserStyleSheet(SourceVar, InjectedFramesVar, LevelVar, AllowListVar, BlockListVar)
 	if cret == 0 {
 		return nil
@@ -214,8 +196,6 @@ var xNewUserStyleSheetForWorld func(string, UserContentInjectedFrames, UserStyle
 // Creates a new user style sheet for script world with name @world_name.
 // See webkit_user_style_sheet_new() for a full description.
 func NewUserStyleSheetForWorld(SourceVar string, InjectedFramesVar UserContentInjectedFrames, LevelVar UserStyleLevel, WorldNameVar string, AllowListVar []string, BlockListVar []string) *UserStyleSheet {
-	core.LazyRegister(&xNewUserStyleSheetForWorld, "WEBKIT", "webkit_user_style_sheet_new_for_world", false)
-
 	cret := xNewUserStyleSheetForWorld(SourceVar, InjectedFramesVar, LevelVar, WorldNameVar, AllowListVar, BlockListVar)
 	if cret == 0 {
 		return nil
@@ -229,8 +209,6 @@ var xUserStyleSheetRef func(uintptr) uintptr
 //
 // This function is MT-safe and may be called from any thread.
 func (x *UserStyleSheet) Ref() *UserStyleSheet {
-	core.LazyRegister(&xUserStyleSheetRef, "WEBKIT", "webkit_user_style_sheet_ref", false)
-
 	cret := xUserStyleSheetRef(x.GoPointer())
 	if cret == 0 {
 		return nil
@@ -246,8 +224,6 @@ var xUserStyleSheetUnref func(uintptr)
 // #WebKitUserStyleSheet is released. This function is MT-safe and may be
 // called from any thread.
 func (x *UserStyleSheet) Unref() {
-	core.LazyRegister(&xUserStyleSheetUnref, "WEBKIT", "webkit_user_style_sheet_unref", false)
-
 	xUserStyleSheetUnref(x.GoPointer())
 }
 
@@ -257,7 +233,6 @@ type UserContentInjectedFrames int
 var xUserContentInjectedFramesGLibType func() types.GType
 
 func UserContentInjectedFramesGLibType() types.GType {
-	core.LazyRegister(&xUserContentInjectedFramesGLibType, "WEBKIT", "webkit_user_content_injected_frames_get_type", false)
 	return xUserContentInjectedFramesGLibType()
 }
 
@@ -279,7 +254,6 @@ type UserScriptInjectionTime int
 var xUserScriptInjectionTimeGLibType func() types.GType
 
 func UserScriptInjectionTimeGLibType() types.GType {
-	core.LazyRegister(&xUserScriptInjectionTimeGLibType, "WEBKIT", "webkit_user_script_injection_time_get_type", false)
 	return xUserScriptInjectionTimeGLibType()
 }
 
@@ -299,7 +273,6 @@ type UserStyleLevel int
 var xUserStyleLevelGLibType func() types.GType
 
 func UserStyleLevelGLibType() types.GType {
-	core.LazyRegister(&xUserStyleLevelGLibType, "WEBKIT", "webkit_user_style_level_get_type", false)
 	return xUserStyleLevelGLibType()
 }
 
@@ -317,7 +290,40 @@ const (
 func init() {
 	core.SetPackageName("WEBKIT", "webkitgtk-6.0")
 	core.SetSharedLibraries("WEBKIT", []string{"libwebkitgtk-6.0.so.4", "libjavascriptcoregtk-6.0.so.1", "libwebkitgtk-6.0.4.dylib", "libjavascriptcoregtk-6.0.1.dylib"})
+	var libs []uintptr
+	for _, libPath := range core.GetPaths("WEBKIT") {
+		lib, err := purego.Dlopen(libPath, purego.RTLD_NOW|purego.RTLD_GLOBAL)
+		if err != nil {
+			panic(err)
+		}
+		libs = append(libs, lib)
+	}
 
-	// Manually register types since they aren't automatically registered when
-	// WebKit is loaded. See https://bugs.webkit.org/show_bug.cgi?id=175937.
+	core.PuregoSafeRegister(&xUserContentInjectedFramesGLibType, libs, "webkit_user_content_injected_frames_get_type")
+
+	core.PuregoSafeRegister(&xUserScriptInjectionTimeGLibType, libs, "webkit_user_script_injection_time_get_type")
+
+	core.PuregoSafeRegister(&xUserStyleLevelGLibType, libs, "webkit_user_style_level_get_type")
+
+	core.PuregoSafeRegister(&xUserContentFilterGLibType, libs, "webkit_user_content_filter_get_type")
+
+	core.PuregoSafeRegister(&xUserContentFilterGetIdentifier, libs, "webkit_user_content_filter_get_identifier")
+	core.PuregoSafeRegister(&xUserContentFilterRef, libs, "webkit_user_content_filter_ref")
+	core.PuregoSafeRegister(&xUserContentFilterUnref, libs, "webkit_user_content_filter_unref")
+
+	core.PuregoSafeRegister(&xUserScriptGLibType, libs, "webkit_user_script_get_type")
+
+	core.PuregoSafeRegister(&xNewUserScript, libs, "webkit_user_script_new")
+	core.PuregoSafeRegister(&xNewUserScriptForWorld, libs, "webkit_user_script_new_for_world")
+
+	core.PuregoSafeRegister(&xUserScriptRef, libs, "webkit_user_script_ref")
+	core.PuregoSafeRegister(&xUserScriptUnref, libs, "webkit_user_script_unref")
+
+	core.PuregoSafeRegister(&xUserStyleSheetGLibType, libs, "webkit_user_style_sheet_get_type")
+
+	core.PuregoSafeRegister(&xNewUserStyleSheet, libs, "webkit_user_style_sheet_new")
+	core.PuregoSafeRegister(&xNewUserStyleSheetForWorld, libs, "webkit_user_style_sheet_new_for_world")
+
+	core.PuregoSafeRegister(&xUserStyleSheetRef, libs, "webkit_user_style_sheet_ref")
+	core.PuregoSafeRegister(&xUserStyleSheetUnref, libs, "webkit_user_style_sheet_unref")
 }

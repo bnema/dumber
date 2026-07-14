@@ -131,7 +131,7 @@ func (x *IOStreamClass) OverrideCloseFn(cb func(*IOStream, *Cancellable) bool) {
 	if cb == nil {
 		x.xCloseFn = 0
 	} else {
-		x.xCloseFn = purego.NewCallback(func(StreamVarp uintptr, CancellableVarp uintptr, cerrp **glib.Error) bool {
+		x.xCloseFn = purego.NewCallback(func(StreamVarp uintptr, CancellableVarp uintptr) bool {
 			return cb(IOStreamNewFromInternalPtr(StreamVarp), CancellableNewFromInternalPtr(CancellableVarp))
 		})
 	}
@@ -142,11 +142,10 @@ func (x *IOStreamClass) GetCloseFn() func(*IOStream, *Cancellable) bool {
 	if x.xCloseFn == 0 {
 		return nil
 	}
-	var rawCallback func(StreamVarp uintptr, CancellableVarp uintptr, cerrp **glib.Error) bool
+	var rawCallback func(StreamVarp uintptr, CancellableVarp uintptr) bool
 	purego.RegisterFunc(&rawCallback, x.xCloseFn)
 	return func(StreamVar *IOStream, CancellableVar *Cancellable) bool {
-		var cerr *glib.Error
-		return rawCallback(StreamVar.GoPointer(), CancellableVar.GoPointer(), &cerr)
+		return rawCallback(StreamVar.GoPointer(), CancellableVar.GoPointer())
 	}
 }
 
@@ -178,7 +177,7 @@ func (x *IOStreamClass) OverrideCloseFinish(cb func(*IOStream, AsyncResult) bool
 	if cb == nil {
 		x.xCloseFinish = 0
 	} else {
-		x.xCloseFinish = purego.NewCallback(func(StreamVarp uintptr, ResultVarp uintptr, cerrp **glib.Error) bool {
+		x.xCloseFinish = purego.NewCallback(func(StreamVarp uintptr, ResultVarp uintptr) bool {
 			return cb(IOStreamNewFromInternalPtr(StreamVarp), &AsyncResultBase{Ptr: ResultVarp})
 		})
 	}
@@ -189,11 +188,10 @@ func (x *IOStreamClass) GetCloseFinish() func(*IOStream, AsyncResult) bool {
 	if x.xCloseFinish == 0 {
 		return nil
 	}
-	var rawCallback func(StreamVarp uintptr, ResultVarp uintptr, cerrp **glib.Error) bool
+	var rawCallback func(StreamVarp uintptr, ResultVarp uintptr) bool
 	purego.RegisterFunc(&rawCallback, x.xCloseFinish)
 	return func(StreamVar *IOStream, ResultVar AsyncResult) bool {
-		var cerr *glib.Error
-		return rawCallback(StreamVar.GoPointer(), ResultVar.GoPointer(), &cerr)
+		return rawCallback(StreamVar.GoPointer(), ResultVar.GoPointer())
 	}
 }
 
@@ -498,7 +496,6 @@ type IOStream struct {
 var xIOStreamGLibType func() types.GType
 
 func IOStreamGLibType() types.GType {
-	core.LazyRegister(&xIOStreamGLibType, "GIO", "g_io_stream_get_type", false)
 	return xIOStreamGLibType()
 }
 
@@ -512,8 +509,6 @@ var xIOStreamClearPending func(uintptr)
 
 // Clears the pending flag on @stream.
 func (x *IOStream) ClearPending() {
-	core.LazyRegister(&xIOStreamClearPending, "GIO", "g_io_stream_clear_pending", false)
-
 	xIOStreamClearPending(x.GoPointer())
 }
 
@@ -553,7 +548,6 @@ var xIOStreamClose func(uintptr, uintptr, **glib.Error) bool
 // The default implementation of this method just calls close on the
 // individual input/output streams.
 func (x *IOStream) Close(CancellableVar *Cancellable) (bool, error) {
-	core.LazyRegister(&xIOStreamClose, "GIO", "g_io_stream_close", false)
 	var cerr *glib.Error
 
 	cret := xIOStreamClose(x.GoPointer(), CancellableVar.GoPointer(), &cerr)
@@ -576,8 +570,6 @@ var xIOStreamCloseAsync func(uintptr, int, uintptr, uintptr, uintptr)
 // to implement asynchronicity, so they are optional for inheriting
 // classes. However, if you override one you must override all.
 func (x *IOStream) CloseAsync(IoPriorityVar int, CancellableVar *Cancellable, CallbackVar *AsyncReadyCallback, UserDataVar uintptr) {
-	core.LazyRegister(&xIOStreamCloseAsync, "GIO", "g_io_stream_close_async", false)
-
 	xIOStreamCloseAsync(x.GoPointer(), IoPriorityVar, CancellableVar.GoPointer(), glib.NewCallbackNullable(CallbackVar), UserDataVar)
 }
 
@@ -585,7 +577,6 @@ var xIOStreamCloseFinish func(uintptr, uintptr, **glib.Error) bool
 
 // Closes a stream.
 func (x *IOStream) CloseFinish(ResultVar AsyncResult) (bool, error) {
-	core.LazyRegister(&xIOStreamCloseFinish, "GIO", "g_io_stream_close_finish", false)
 	var cerr *glib.Error
 
 	cret := xIOStreamCloseFinish(x.GoPointer(), ResultVar.GoPointer(), &cerr)
@@ -600,7 +591,6 @@ var xIOStreamGetInputStream func(uintptr) uintptr
 // Gets the input stream for this object. This is used
 // for reading.
 func (x *IOStream) GetInputStream() *InputStream {
-	core.LazyRegister(&xIOStreamGetInputStream, "GIO", "g_io_stream_get_input_stream", false)
 	var cls *InputStream
 
 	cret := xIOStreamGetInputStream(x.GoPointer())
@@ -619,7 +609,6 @@ var xIOStreamGetOutputStream func(uintptr) uintptr
 // Gets the output stream for this object. This is used for
 // writing.
 func (x *IOStream) GetOutputStream() *OutputStream {
-	core.LazyRegister(&xIOStreamGetOutputStream, "GIO", "g_io_stream_get_output_stream", false)
 	var cls *OutputStream
 
 	cret := xIOStreamGetOutputStream(x.GoPointer())
@@ -637,8 +626,6 @@ var xIOStreamHasPending func(uintptr) bool
 
 // Checks if a stream has pending actions.
 func (x *IOStream) HasPending() bool {
-	core.LazyRegister(&xIOStreamHasPending, "GIO", "g_io_stream_has_pending", false)
-
 	cret := xIOStreamHasPending(x.GoPointer())
 	return cret
 }
@@ -647,8 +634,6 @@ var xIOStreamIsClosed func(uintptr) bool
 
 // Checks if a stream is closed.
 func (x *IOStream) IsClosed() bool {
-	core.LazyRegister(&xIOStreamIsClosed, "GIO", "g_io_stream_is_closed", false)
-
 	cret := xIOStreamIsClosed(x.GoPointer())
 	return cret
 }
@@ -659,7 +644,6 @@ var xIOStreamSetPending func(uintptr, **glib.Error) bool
 // already set or @stream is closed, it will return %FALSE and set
 // @error.
 func (x *IOStream) SetPending() (bool, error) {
-	core.LazyRegister(&xIOStreamSetPending, "GIO", "g_io_stream_set_pending", false)
 	var cerr *glib.Error
 
 	cret := xIOStreamSetPending(x.GoPointer(), &cerr)
@@ -679,8 +663,6 @@ var xIOStreamSpliceAsync func(uintptr, uintptr, IOStreamSpliceFlags, int, uintpt
 // You can then call g_io_stream_splice_finish() to get the
 // result of the operation.
 func (x *IOStream) SpliceAsync(Stream2Var *IOStream, FlagsVar IOStreamSpliceFlags, IoPriorityVar int, CancellableVar *Cancellable, CallbackVar *AsyncReadyCallback, UserDataVar uintptr) {
-	core.LazyRegister(&xIOStreamSpliceAsync, "GIO", "g_io_stream_splice_async", false)
-
 	xIOStreamSpliceAsync(x.GoPointer(), Stream2Var.GoPointer(), FlagsVar, IoPriorityVar, CancellableVar.GoPointer(), glib.NewCallbackNullable(CallbackVar), UserDataVar)
 }
 
@@ -707,7 +689,6 @@ var xIOStreamSpliceFinish func(uintptr, **glib.Error) bool
 
 // Finishes an asynchronous io stream splice operation.
 func IOStreamSpliceFinish(ResultVar AsyncResult) (bool, error) {
-	core.LazyRegister(&xIOStreamSpliceFinish, "GIO", "g_io_stream_splice_finish", false)
 	var cerr *glib.Error
 
 	cret := xIOStreamSpliceFinish(ResultVar.GoPointer(), &cerr)
@@ -720,4 +701,27 @@ func IOStreamSpliceFinish(ResultVar AsyncResult) (bool, error) {
 func init() {
 	core.SetPackageName("GIO", "gio-2.0")
 	core.SetSharedLibraries("GIO", []string{"libgio-2.0.so.0", "libgio-2.0.0.dylib"})
+	var libs []uintptr
+	for _, libPath := range core.GetPaths("GIO") {
+		lib, err := purego.Dlopen(libPath, purego.RTLD_NOW|purego.RTLD_GLOBAL)
+		if err != nil {
+			panic(err)
+		}
+		libs = append(libs, lib)
+	}
+
+	core.PuregoSafeRegister(&xIOStreamGLibType, libs, "g_io_stream_get_type")
+
+	core.PuregoSafeRegister(&xIOStreamClearPending, libs, "g_io_stream_clear_pending")
+	core.PuregoSafeRegister(&xIOStreamClose, libs, "g_io_stream_close")
+	core.PuregoSafeRegister(&xIOStreamCloseAsync, libs, "g_io_stream_close_async")
+	core.PuregoSafeRegister(&xIOStreamCloseFinish, libs, "g_io_stream_close_finish")
+	core.PuregoSafeRegister(&xIOStreamGetInputStream, libs, "g_io_stream_get_input_stream")
+	core.PuregoSafeRegister(&xIOStreamGetOutputStream, libs, "g_io_stream_get_output_stream")
+	core.PuregoSafeRegister(&xIOStreamHasPending, libs, "g_io_stream_has_pending")
+	core.PuregoSafeRegister(&xIOStreamIsClosed, libs, "g_io_stream_is_closed")
+	core.PuregoSafeRegister(&xIOStreamSetPending, libs, "g_io_stream_set_pending")
+	core.PuregoSafeRegister(&xIOStreamSpliceAsync, libs, "g_io_stream_splice_async")
+
+	core.PuregoSafeRegister(&xIOStreamSpliceFinish, libs, "g_io_stream_splice_finish")
 }

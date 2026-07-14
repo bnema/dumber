@@ -5,6 +5,7 @@ import (
 	"structs"
 	"unsafe"
 
+	"github.com/bnema/purego"
 	"github.com/bnema/puregotk/pkg/core"
 	"github.com/bnema/puregotk/v4/gobject"
 	"github.com/bnema/puregotk/v4/gobject/types"
@@ -57,7 +58,6 @@ type TcpWrapperConnection struct {
 var xTcpWrapperConnectionGLibType func() types.GType
 
 func TcpWrapperConnectionGLibType() types.GType {
-	core.LazyRegister(&xTcpWrapperConnectionGLibType, "GIO", "g_tcp_wrapper_connection_get_type", false)
 	return xTcpWrapperConnectionGLibType()
 }
 
@@ -71,7 +71,6 @@ var xNewTcpWrapperConnection func(uintptr, uintptr) uintptr
 
 // Wraps @base_io_stream and @socket together as a #GSocketConnection.
 func NewTcpWrapperConnection(BaseIoStreamVar *IOStream, SocketVar *Socket) *TcpWrapperConnection {
-	core.LazyRegister(&xNewTcpWrapperConnection, "GIO", "g_tcp_wrapper_connection_new", false)
 	var cls *TcpWrapperConnection
 
 	cret := xNewTcpWrapperConnection(BaseIoStreamVar.GoPointer(), SocketVar.GoPointer())
@@ -88,7 +87,6 @@ var xTcpWrapperConnectionGetBaseIoStream func(uintptr) uintptr
 
 // Gets @conn's base #GIOStream
 func (x *TcpWrapperConnection) GetBaseIoStream() *IOStream {
-	core.LazyRegister(&xTcpWrapperConnectionGetBaseIoStream, "GIO", "g_tcp_wrapper_connection_get_base_io_stream", false)
 	var cls *IOStream
 
 	cret := xTcpWrapperConnectionGetBaseIoStream(x.GoPointer())
@@ -116,4 +114,18 @@ func (c *TcpWrapperConnection) SetGoPointer(ptr uintptr) {
 func init() {
 	core.SetPackageName("GIO", "gio-2.0")
 	core.SetSharedLibraries("GIO", []string{"libgio-2.0.so.0", "libgio-2.0.0.dylib"})
+	var libs []uintptr
+	for _, libPath := range core.GetPaths("GIO") {
+		lib, err := purego.Dlopen(libPath, purego.RTLD_NOW|purego.RTLD_GLOBAL)
+		if err != nil {
+			panic(err)
+		}
+		libs = append(libs, lib)
+	}
+
+	core.PuregoSafeRegister(&xTcpWrapperConnectionGLibType, libs, "g_tcp_wrapper_connection_get_type")
+
+	core.PuregoSafeRegister(&xNewTcpWrapperConnection, libs, "g_tcp_wrapper_connection_new")
+
+	core.PuregoSafeRegister(&xTcpWrapperConnectionGetBaseIoStream, libs, "g_tcp_wrapper_connection_get_base_io_stream")
 }

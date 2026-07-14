@@ -5,6 +5,7 @@ import (
 	"structs"
 	"unsafe"
 
+	"github.com/bnema/purego"
 	"github.com/bnema/puregotk/pkg/core"
 	"github.com/bnema/puregotk/v4/gobject/types"
 )
@@ -16,7 +17,6 @@ type Context struct {
 var xContextGLibType func() types.GType
 
 func ContextGLibType() types.GType {
-	core.LazyRegister(&xContextGLibType, "CAIRO", "cairo_gobject_context_get_type", false)
 	return xContextGLibType()
 }
 
@@ -39,7 +39,6 @@ type Device struct {
 var xDeviceGLibType func() types.GType
 
 func DeviceGLibType() types.GType {
-	core.LazyRegister(&xDeviceGLibType, "CAIRO", "cairo_gobject_device_get_type", false)
 	return xDeviceGLibType()
 }
 
@@ -62,7 +61,6 @@ type Surface struct {
 var xSurfaceGLibType func() types.GType
 
 func SurfaceGLibType() types.GType {
-	core.LazyRegister(&xSurfaceGLibType, "CAIRO", "cairo_gobject_surface_get_type", false)
 	return xSurfaceGLibType()
 }
 
@@ -101,7 +99,6 @@ type Pattern struct {
 var xPatternGLibType func() types.GType
 
 func PatternGLibType() types.GType {
-	core.LazyRegister(&xPatternGLibType, "CAIRO", "cairo_gobject_pattern_get_type", false)
 	return xPatternGLibType()
 }
 
@@ -124,7 +121,6 @@ type Region struct {
 var xRegionGLibType func() types.GType
 
 func RegionGLibType() types.GType {
-	core.LazyRegister(&xRegionGLibType, "CAIRO", "cairo_gobject_region_get_type", false)
 	return xRegionGLibType()
 }
 
@@ -147,7 +143,6 @@ type FontOptions struct {
 var xFontOptionsGLibType func() types.GType
 
 func FontOptionsGLibType() types.GType {
-	core.LazyRegister(&xFontOptionsGLibType, "CAIRO", "cairo_gobject_font_options_get_type", false)
 	return xFontOptionsGLibType()
 }
 
@@ -170,7 +165,6 @@ type FontFace struct {
 var xFontFaceGLibType func() types.GType
 
 func FontFaceGLibType() types.GType {
-	core.LazyRegister(&xFontFaceGLibType, "CAIRO", "cairo_gobject_font_face_get_type", false)
 	return xFontFaceGLibType()
 }
 
@@ -193,7 +187,6 @@ type ScaledFont struct {
 var xScaledFontGLibType func() types.GType
 
 func ScaledFontGLibType() types.GType {
-	core.LazyRegister(&xScaledFontGLibType, "CAIRO", "cairo_gobject_scaled_font_get_type", false)
 	return xScaledFontGLibType()
 }
 
@@ -240,7 +233,6 @@ type Rectangle struct {
 var xRectangleGLibType func() types.GType
 
 func RectangleGLibType() types.GType {
-	core.LazyRegister(&xRectangleGLibType, "CAIRO", "cairo_gobject_rectangle_get_type", false)
 	return xRectangleGLibType()
 }
 
@@ -271,7 +263,6 @@ type RectangleInt struct {
 var xRectangleIntGLibType func() types.GType
 
 func RectangleIntGLibType() types.GType {
-	core.LazyRegister(&xRectangleIntGLibType, "CAIRO", "cairo_gobject_rectangle_int_get_type", false)
 	return xRectangleIntGLibType()
 }
 
@@ -300,7 +291,6 @@ type Glyph struct {
 var xGlyphGLibType func() types.GType
 
 func GlyphGLibType() types.GType {
-	core.LazyRegister(&xGlyphGLibType, "CAIRO", "cairo_gobject_glyph_get_type", false)
 	return xGlyphGLibType()
 }
 
@@ -327,7 +317,6 @@ type TextCluster struct {
 var xTextClusterGLibType func() types.GType
 
 func TextClusterGLibType() types.GType {
-	core.LazyRegister(&xTextClusterGLibType, "CAIRO", "cairo_gobject_text_cluster_get_type", false)
 	return xTextClusterGLibType()
 }
 
@@ -348,7 +337,6 @@ type Status int
 var xStatusGLibType func() types.GType
 
 func StatusGLibType() types.GType {
-	core.LazyRegister(&xStatusGLibType, "CAIRO", "cairo_gobject_status_get_type", false)
 	return xStatusGLibType()
 }
 
@@ -437,7 +425,6 @@ type Content int
 var xContentGLibType func() types.GType
 
 func ContentGLibType() types.GType {
-	core.LazyRegister(&xContentGLibType, "CAIRO", "cairo_gobject_content_get_type", false)
 	return xContentGLibType()
 }
 
@@ -454,7 +441,6 @@ type Operator int
 var xOperatorGLibType func() types.GType
 
 func OperatorGLibType() types.GType {
-	core.LazyRegister(&xOperatorGLibType, "CAIRO", "cairo_gobject_operator_get_type", false)
 	return xOperatorGLibType()
 }
 
@@ -523,7 +509,6 @@ type Antialias int
 var xAntialiasGLibType func() types.GType
 
 func AntialiasGLibType() types.GType {
-	core.LazyRegister(&xAntialiasGLibType, "CAIRO", "cairo_gobject_antialias_get_type", false)
 	return xAntialiasGLibType()
 }
 
@@ -548,7 +533,6 @@ type FillRule int
 var xFillRuleGLibType func() types.GType
 
 func FillRuleGLibType() types.GType {
-	core.LazyRegister(&xFillRuleGLibType, "CAIRO", "cairo_gobject_fill_rule_get_type", false)
 	return xFillRuleGLibType()
 }
 
@@ -563,7 +547,6 @@ type LineCap int
 var xLineCapGLibType func() types.GType
 
 func LineCapGLibType() types.GType {
-	core.LazyRegister(&xLineCapGLibType, "CAIRO", "cairo_gobject_line_cap_get_type", false)
 	return xLineCapGLibType()
 }
 
@@ -580,7 +563,6 @@ type LineJoin int
 var xLineJoinGLibType func() types.GType
 
 func LineJoinGLibType() types.GType {
-	core.LazyRegister(&xLineJoinGLibType, "CAIRO", "cairo_gobject_line_join_get_type", false)
 	return xLineJoinGLibType()
 }
 
@@ -597,7 +579,6 @@ type TextClusterFlags int
 var xTextClusterFlagsGLibType func() types.GType
 
 func TextClusterFlagsGLibType() types.GType {
-	core.LazyRegister(&xTextClusterFlagsGLibType, "CAIRO", "cairo_gobject_text_cluster_flags_get_type", false)
 	return xTextClusterFlagsGLibType()
 }
 
@@ -610,7 +591,6 @@ type FontSlant int
 var xFontSlantGLibType func() types.GType
 
 func FontSlantGLibType() types.GType {
-	core.LazyRegister(&xFontSlantGLibType, "CAIRO", "cairo_gobject_font_slant_get_type", false)
 	return xFontSlantGLibType()
 }
 
@@ -627,7 +607,6 @@ type FontWeight int
 var xFontWeightGLibType func() types.GType
 
 func FontWeightGLibType() types.GType {
-	core.LazyRegister(&xFontWeightGLibType, "CAIRO", "cairo_gobject_font_weight_get_type", false)
 	return xFontWeightGLibType()
 }
 
@@ -642,7 +621,6 @@ type SubpixelOrder int
 var xSubpixelOrderGLibType func() types.GType
 
 func SubpixelOrderGLibType() types.GType {
-	core.LazyRegister(&xSubpixelOrderGLibType, "CAIRO", "cairo_gobject_subpixel_order_get_type", false)
 	return xSubpixelOrderGLibType()
 }
 
@@ -663,7 +641,6 @@ type HintStyle int
 var xHintStyleGLibType func() types.GType
 
 func HintStyleGLibType() types.GType {
-	core.LazyRegister(&xHintStyleGLibType, "CAIRO", "cairo_gobject_hint_style_get_type", false)
 	return xHintStyleGLibType()
 }
 
@@ -684,7 +661,6 @@ type HintMetrics int
 var xHintMetricsGLibType func() types.GType
 
 func HintMetricsGLibType() types.GType {
-	core.LazyRegister(&xHintMetricsGLibType, "CAIRO", "cairo_gobject_hint_metrics_get_type", false)
 	return xHintMetricsGLibType()
 }
 
@@ -701,7 +677,6 @@ type FontType int
 var xFontTypeGLibType func() types.GType
 
 func FontTypeGLibType() types.GType {
-	core.LazyRegister(&xFontTypeGLibType, "CAIRO", "cairo_gobject_font_type_get_type", false)
 	return xFontTypeGLibType()
 }
 
@@ -722,7 +697,6 @@ type PathDataType int
 var xPathDataTypeGLibType func() types.GType
 
 func PathDataTypeGLibType() types.GType {
-	core.LazyRegister(&xPathDataTypeGLibType, "CAIRO", "cairo_gobject_path_data_type_get_type", false)
 	return xPathDataTypeGLibType()
 }
 
@@ -741,7 +715,6 @@ type DeviceType int
 var xDeviceTypeGLibType func() types.GType
 
 func DeviceTypeGLibType() types.GType {
-	core.LazyRegister(&xDeviceTypeGLibType, "CAIRO", "cairo_gobject_device_type_get_type", false)
 	return xDeviceTypeGLibType()
 }
 
@@ -770,7 +743,6 @@ type SurfaceType int
 var xSurfaceTypeGLibType func() types.GType
 
 func SurfaceTypeGLibType() types.GType {
-	core.LazyRegister(&xSurfaceTypeGLibType, "CAIRO", "cairo_gobject_surface_type_get_type", false)
 	return xSurfaceTypeGLibType()
 }
 
@@ -831,7 +803,6 @@ type Format int
 var xFormatGLibType func() types.GType
 
 func FormatGLibType() types.GType {
-	core.LazyRegister(&xFormatGLibType, "CAIRO", "cairo_gobject_format_get_type", false)
 	return xFormatGLibType()
 }
 
@@ -856,7 +827,6 @@ type PatternType int
 var xPatternTypeGLibType func() types.GType
 
 func PatternTypeGLibType() types.GType {
-	core.LazyRegister(&xPatternTypeGLibType, "CAIRO", "cairo_gobject_pattern_type_get_type", false)
 	return xPatternTypeGLibType()
 }
 
@@ -879,7 +849,6 @@ type Extend int
 var xExtendGLibType func() types.GType
 
 func ExtendGLibType() types.GType {
-	core.LazyRegister(&xExtendGLibType, "CAIRO", "cairo_gobject_extend_get_type", false)
 	return xExtendGLibType()
 }
 
@@ -898,7 +867,6 @@ type Filter int
 var xFilterGLibType func() types.GType
 
 func FilterGLibType() types.GType {
-	core.LazyRegister(&xFilterGLibType, "CAIRO", "cairo_gobject_filter_get_type", false)
 	return xFilterGLibType()
 }
 
@@ -921,7 +889,6 @@ type RegionOverlap int
 var xRegionOverlapGLibType func() types.GType
 
 func RegionOverlapGLibType() types.GType {
-	core.LazyRegister(&xRegionOverlapGLibType, "CAIRO", "cairo_gobject_region_overlap_get_type", false)
 	return xRegionOverlapGLibType()
 }
 
@@ -936,12 +903,88 @@ const (
 var xImageSurfaceCreate func()
 
 func ImageSurfaceCreate() {
-	core.LazyRegister(&xImageSurfaceCreate, "CAIRO", "cairo_image_surface_create", false)
-
 	xImageSurfaceCreate()
 }
 
 func init() {
 	core.SetPackageName("CAIRO", "cairo-gobject")
 	core.SetSharedLibraries("CAIRO", []string{"libcairo-gobject.so.2", "libcairo-gobject.2.dylib"})
+	var libs []uintptr
+	for _, libPath := range core.GetPaths("CAIRO") {
+		lib, err := purego.Dlopen(libPath, purego.RTLD_NOW|purego.RTLD_GLOBAL)
+		if err != nil {
+			panic(err)
+		}
+		libs = append(libs, lib)
+	}
+
+	core.PuregoSafeRegister(&xStatusGLibType, libs, "cairo_gobject_status_get_type")
+
+	core.PuregoSafeRegister(&xContentGLibType, libs, "cairo_gobject_content_get_type")
+
+	core.PuregoSafeRegister(&xOperatorGLibType, libs, "cairo_gobject_operator_get_type")
+
+	core.PuregoSafeRegister(&xAntialiasGLibType, libs, "cairo_gobject_antialias_get_type")
+
+	core.PuregoSafeRegister(&xFillRuleGLibType, libs, "cairo_gobject_fill_rule_get_type")
+
+	core.PuregoSafeRegister(&xLineCapGLibType, libs, "cairo_gobject_line_cap_get_type")
+
+	core.PuregoSafeRegister(&xLineJoinGLibType, libs, "cairo_gobject_line_join_get_type")
+
+	core.PuregoSafeRegister(&xTextClusterFlagsGLibType, libs, "cairo_gobject_text_cluster_flags_get_type")
+
+	core.PuregoSafeRegister(&xFontSlantGLibType, libs, "cairo_gobject_font_slant_get_type")
+
+	core.PuregoSafeRegister(&xFontWeightGLibType, libs, "cairo_gobject_font_weight_get_type")
+
+	core.PuregoSafeRegister(&xSubpixelOrderGLibType, libs, "cairo_gobject_subpixel_order_get_type")
+
+	core.PuregoSafeRegister(&xHintStyleGLibType, libs, "cairo_gobject_hint_style_get_type")
+
+	core.PuregoSafeRegister(&xHintMetricsGLibType, libs, "cairo_gobject_hint_metrics_get_type")
+
+	core.PuregoSafeRegister(&xFontTypeGLibType, libs, "cairo_gobject_font_type_get_type")
+
+	core.PuregoSafeRegister(&xPathDataTypeGLibType, libs, "cairo_gobject_path_data_type_get_type")
+
+	core.PuregoSafeRegister(&xDeviceTypeGLibType, libs, "cairo_gobject_device_type_get_type")
+
+	core.PuregoSafeRegister(&xSurfaceTypeGLibType, libs, "cairo_gobject_surface_type_get_type")
+
+	core.PuregoSafeRegister(&xFormatGLibType, libs, "cairo_gobject_format_get_type")
+
+	core.PuregoSafeRegister(&xPatternTypeGLibType, libs, "cairo_gobject_pattern_type_get_type")
+
+	core.PuregoSafeRegister(&xExtendGLibType, libs, "cairo_gobject_extend_get_type")
+
+	core.PuregoSafeRegister(&xFilterGLibType, libs, "cairo_gobject_filter_get_type")
+
+	core.PuregoSafeRegister(&xRegionOverlapGLibType, libs, "cairo_gobject_region_overlap_get_type")
+
+	core.PuregoSafeRegister(&xImageSurfaceCreate, libs, "cairo_image_surface_create")
+
+	core.PuregoSafeRegister(&xContextGLibType, libs, "cairo_gobject_context_get_type")
+
+	core.PuregoSafeRegister(&xDeviceGLibType, libs, "cairo_gobject_device_get_type")
+
+	core.PuregoSafeRegister(&xSurfaceGLibType, libs, "cairo_gobject_surface_get_type")
+
+	core.PuregoSafeRegister(&xPatternGLibType, libs, "cairo_gobject_pattern_get_type")
+
+	core.PuregoSafeRegister(&xRegionGLibType, libs, "cairo_gobject_region_get_type")
+
+	core.PuregoSafeRegister(&xFontOptionsGLibType, libs, "cairo_gobject_font_options_get_type")
+
+	core.PuregoSafeRegister(&xFontFaceGLibType, libs, "cairo_gobject_font_face_get_type")
+
+	core.PuregoSafeRegister(&xScaledFontGLibType, libs, "cairo_gobject_scaled_font_get_type")
+
+	core.PuregoSafeRegister(&xRectangleGLibType, libs, "cairo_gobject_rectangle_get_type")
+
+	core.PuregoSafeRegister(&xRectangleIntGLibType, libs, "cairo_gobject_rectangle_int_get_type")
+
+	core.PuregoSafeRegister(&xGlyphGLibType, libs, "cairo_gobject_glyph_get_type")
+
+	core.PuregoSafeRegister(&xTextClusterGLibType, libs, "cairo_gobject_text_cluster_get_type")
 }

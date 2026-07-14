@@ -5,6 +5,7 @@ import (
 	"structs"
 	"unsafe"
 
+	"github.com/bnema/purego"
 	"github.com/bnema/puregotk/pkg/core"
 )
 
@@ -35,8 +36,6 @@ var xTimerContinue func(uintptr)
 // g_timer_stop(). g_timer_stop() must be called before using this
 // function.
 func (x *Timer) Continue() {
-	core.LazyRegister(&xTimerContinue, "GLIB", "g_timer_continue", false)
-
 	xTimerContinue(x.GoPointer())
 }
 
@@ -44,8 +43,6 @@ var xTimerDestroy func(uintptr)
 
 // Destroys a timer, freeing associated resources.
 func (x *Timer) Destroy() {
-	core.LazyRegister(&xTimerDestroy, "GLIB", "g_timer_destroy", false)
-
 	xTimerDestroy(x.GoPointer())
 }
 
@@ -58,8 +55,6 @@ var xTimerElapsed func(uintptr, uint) float64
 // including any fractional part. The @microseconds out parameter is
 // essentially useless.
 func (x *Timer) Elapsed(MicrosecondsVar uint) float64 {
-	core.LazyRegister(&xTimerElapsed, "GLIB", "g_timer_elapsed", false)
-
 	cret := xTimerElapsed(x.GoPointer(), MicrosecondsVar)
 	return cret
 }
@@ -68,8 +63,6 @@ var xTimerIsActive func(uintptr) bool
 
 // Exposes whether the timer is currently active.
 func (x *Timer) IsActive() bool {
-	core.LazyRegister(&xTimerIsActive, "GLIB", "g_timer_is_active", false)
-
 	cret := xTimerIsActive(x.GoPointer())
 	return cret
 }
@@ -80,8 +73,6 @@ var xTimerReset func(uintptr)
 // already-started timer to reset the start time, so g_timer_reset()
 // serves no purpose.
 func (x *Timer) Reset() {
-	core.LazyRegister(&xTimerReset, "GLIB", "g_timer_reset", false)
-
 	xTimerReset(x.GoPointer())
 }
 
@@ -92,8 +83,6 @@ var xTimerStart func(uintptr)
 // automatically marks the start time, so no need to call
 // g_timer_start() immediately after creating the timer.
 func (x *Timer) Start() {
-	core.LazyRegister(&xTimerStart, "GLIB", "g_timer_start", false)
-
 	xTimerStart(x.GoPointer())
 }
 
@@ -102,8 +91,6 @@ var xTimerStop func(uintptr)
 // Marks an end time, so calls to g_timer_elapsed() will return the
 // difference between this end time and the start time.
 func (x *Timer) Stop() {
-	core.LazyRegister(&xTimerStop, "GLIB", "g_timer_stop", false)
-
 	xTimerStop(x.GoPointer())
 }
 
@@ -136,8 +123,6 @@ var xTimeValFromIso8601 func(string, *TimeVal) bool
 // g_date_time_unref (dt);
 // ]|
 func TimeValFromIso8601(IsoDateVar string, TimeVar *TimeVal) bool {
-	core.LazyRegister(&xTimeValFromIso8601, "GLIB", "g_time_val_from_iso8601", false)
-
 	cret := xTimeValFromIso8601(IsoDateVar, TimeVar)
 	return cret
 }
@@ -151,12 +136,29 @@ var xUsleep func(uint)
 // depending on hardware and operating system; don't rely on the exact
 // length of the sleep.
 func Usleep(MicrosecondsVar uint) {
-	core.LazyRegister(&xUsleep, "GLIB", "g_usleep", false)
-
 	xUsleep(MicrosecondsVar)
 }
 
 func init() {
 	core.SetPackageName("GLIB", "glib-2.0")
 	core.SetSharedLibraries("GLIB", []string{"libgobject-2.0.so.0", "libglib-2.0.so.0", "libgobject-2.0.0.dylib", "libglib-2.0.0.dylib"})
+	var libs []uintptr
+	for _, libPath := range core.GetPaths("GLIB") {
+		lib, err := purego.Dlopen(libPath, purego.RTLD_NOW|purego.RTLD_GLOBAL)
+		if err != nil {
+			panic(err)
+		}
+		libs = append(libs, lib)
+	}
+
+	core.PuregoSafeRegister(&xTimeValFromIso8601, libs, "g_time_val_from_iso8601")
+	core.PuregoSafeRegister(&xUsleep, libs, "g_usleep")
+
+	core.PuregoSafeRegister(&xTimerContinue, libs, "g_timer_continue")
+	core.PuregoSafeRegister(&xTimerDestroy, libs, "g_timer_destroy")
+	core.PuregoSafeRegister(&xTimerElapsed, libs, "g_timer_elapsed")
+	core.PuregoSafeRegister(&xTimerIsActive, libs, "g_timer_is_active")
+	core.PuregoSafeRegister(&xTimerReset, libs, "g_timer_reset")
+	core.PuregoSafeRegister(&xTimerStart, libs, "g_timer_start")
+	core.PuregoSafeRegister(&xTimerStop, libs, "g_timer_stop")
 }

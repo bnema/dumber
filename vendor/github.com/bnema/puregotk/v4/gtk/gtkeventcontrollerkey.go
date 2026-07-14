@@ -5,6 +5,7 @@ import (
 	"structs"
 	"unsafe"
 
+	"github.com/bnema/purego"
 	"github.com/bnema/puregotk/pkg/core"
 	"github.com/bnema/puregotk/v4/gdk"
 	"github.com/bnema/puregotk/v4/glib"
@@ -36,7 +37,6 @@ type EventControllerKey struct {
 var xEventControllerKeyGLibType func() types.GType
 
 func EventControllerKeyGLibType() types.GType {
-	core.LazyRegister(&xEventControllerKeyGLibType, "GTK", "gtk_event_controller_key_get_type", false)
 	return xEventControllerKeyGLibType()
 }
 
@@ -50,7 +50,6 @@ var xNewEventControllerKey func() uintptr
 
 // Creates a new event controller that will handle key events.
 func NewEventControllerKey() *EventControllerKey {
-	core.LazyRegister(&xNewEventControllerKey, "GTK", "gtk_event_controller_key_new", false)
 	var cls *EventControllerKey
 
 	cret := xNewEventControllerKey()
@@ -72,8 +71,6 @@ var xEventControllerKeyForward func(uintptr, uintptr) bool
 // [signal@Gtk.EventControllerKey::key-released]
 // or [signal@Gtk.EventControllerKey::modifiers] signals.
 func (x *EventControllerKey) Forward(WidgetVar *Widget) bool {
-	core.LazyRegister(&xEventControllerKeyForward, "GTK", "gtk_event_controller_key_forward", false)
-
 	cret := xEventControllerKeyForward(x.GoPointer(), WidgetVar.GoPointer())
 	return cret
 }
@@ -84,8 +81,6 @@ var xEventControllerKeyGetGroup func(uintptr) uint
 //
 // See [method@Gdk.KeyEvent.get_layout].
 func (x *EventControllerKey) GetGroup() uint {
-	core.LazyRegister(&xEventControllerKeyGetGroup, "GTK", "gtk_event_controller_key_get_group", false)
-
 	cret := xEventControllerKeyGetGroup(x.GoPointer())
 	return cret
 }
@@ -94,7 +89,6 @@ var xEventControllerKeyGetImContext func(uintptr) uintptr
 
 // Gets the input method context of the key @controller.
 func (x *EventControllerKey) GetImContext() *IMContext {
-	core.LazyRegister(&xEventControllerKeyGetImContext, "GTK", "gtk_event_controller_key_get_im_context", false)
 	var cls *IMContext
 
 	cret := xEventControllerKeyGetImContext(x.GoPointer())
@@ -112,8 +106,6 @@ var xEventControllerKeySetImContext func(uintptr, uintptr)
 
 // Sets the input method context of the key @controller.
 func (x *EventControllerKey) SetImContext(ImContextVar *IMContext) {
-	core.LazyRegister(&xEventControllerKeySetImContext, "GTK", "gtk_event_controller_key_set_im_context", false)
-
 	xEventControllerKeySetImContext(x.GoPointer(), ImContextVar.GoPointer())
 }
 
@@ -231,4 +223,21 @@ func (x *EventControllerKey) ConnectModifiers(cb *func(EventControllerKey, gdk.M
 func init() {
 	core.SetPackageName("GTK", "gtk4")
 	core.SetSharedLibraries("GTK", []string{"libgtk-4.so.1", "libgtk-4.1.dylib"})
+	var libs []uintptr
+	for _, libPath := range core.GetPaths("GTK") {
+		lib, err := purego.Dlopen(libPath, purego.RTLD_NOW|purego.RTLD_GLOBAL)
+		if err != nil {
+			panic(err)
+		}
+		libs = append(libs, lib)
+	}
+
+	core.PuregoSafeRegister(&xEventControllerKeyGLibType, libs, "gtk_event_controller_key_get_type")
+
+	core.PuregoSafeRegister(&xNewEventControllerKey, libs, "gtk_event_controller_key_new")
+
+	core.PuregoSafeRegister(&xEventControllerKeyForward, libs, "gtk_event_controller_key_forward")
+	core.PuregoSafeRegister(&xEventControllerKeyGetGroup, libs, "gtk_event_controller_key_get_group")
+	core.PuregoSafeRegister(&xEventControllerKeyGetImContext, libs, "gtk_event_controller_key_get_im_context")
+	core.PuregoSafeRegister(&xEventControllerKeySetImContext, libs, "gtk_event_controller_key_set_im_context")
 }

@@ -5,6 +5,7 @@ import (
 	"structs"
 	"unsafe"
 
+	"github.com/bnema/purego"
 	"github.com/bnema/puregotk/pkg/core"
 	"github.com/bnema/puregotk/v4/glib"
 	"github.com/bnema/puregotk/v4/gobject"
@@ -51,7 +52,6 @@ type Shortcut struct {
 var xShortcutGLibType func() types.GType
 
 func ShortcutGLibType() types.GType {
-	core.LazyRegister(&xShortcutGLibType, "GTK", "gtk_shortcut_get_type", false)
 	return xShortcutGLibType()
 }
 
@@ -66,7 +66,6 @@ var xNewShortcut func(uintptr, uintptr) uintptr
 // Creates a new `GtkShortcut` that is triggered by
 // @trigger and then activates @action.
 func NewShortcut(TriggerVar *ShortcutTrigger, ActionVar *ShortcutAction) *Shortcut {
-	core.LazyRegister(&xNewShortcut, "GTK", "gtk_shortcut_new", false)
 	var cls *Shortcut
 
 	cret := xNewShortcut(TriggerVar.GoPointer(), ActionVar.GoPointer())
@@ -84,7 +83,6 @@ var xNewShortcutWithArguments func(uintptr, uintptr, uintptr, ...interface{}) ui
 // Creates a new `GtkShortcut` that is triggered by @trigger and then activates
 // @action with arguments given by @format_string.
 func NewShortcutWithArguments(TriggerVar *ShortcutTrigger, ActionVar *ShortcutAction, FormatStringVar *string, varArgs ...interface{}) *Shortcut {
-	core.LazyRegister(&xNewShortcutWithArguments, "GTK", "gtk_shortcut_new_with_arguments", false)
 	var cls *Shortcut
 
 	FormatStringVarPtr := core.GStrdupNullable(FormatStringVar)
@@ -104,7 +102,6 @@ var xShortcutGetAction func(uintptr) uintptr
 
 // Gets the action that is activated by this shortcut.
 func (x *Shortcut) GetAction() *ShortcutAction {
-	core.LazyRegister(&xShortcutGetAction, "GTK", "gtk_shortcut_get_action", false)
 	var cls *ShortcutAction
 
 	cret := xShortcutGetAction(x.GoPointer())
@@ -122,8 +119,6 @@ var xShortcutGetArguments func(uintptr) uintptr
 
 // Gets the arguments that are passed when activating the shortcut.
 func (x *Shortcut) GetArguments() *glib.Variant {
-	core.LazyRegister(&xShortcutGetArguments, "GTK", "gtk_shortcut_get_arguments", false)
-
 	cret := xShortcutGetArguments(x.GoPointer())
 	if cret == 0 {
 		return nil
@@ -135,7 +130,6 @@ var xShortcutGetTrigger func(uintptr) uintptr
 
 // Gets the trigger used to trigger @self.
 func (x *Shortcut) GetTrigger() *ShortcutTrigger {
-	core.LazyRegister(&xShortcutGetTrigger, "GTK", "gtk_shortcut_get_trigger", false)
 	var cls *ShortcutTrigger
 
 	cret := xShortcutGetTrigger(x.GoPointer())
@@ -153,8 +147,6 @@ var xShortcutSetAction func(uintptr, uintptr)
 
 // Sets the new action for @self to be @action.
 func (x *Shortcut) SetAction(ActionVar *ShortcutAction) {
-	core.LazyRegister(&xShortcutSetAction, "GTK", "gtk_shortcut_set_action", false)
-
 	xShortcutSetAction(x.GoPointer(), ActionVar.GoPointer())
 }
 
@@ -162,8 +154,6 @@ var xShortcutSetArguments func(uintptr, *glib.Variant)
 
 // Sets the arguments to pass when activating the shortcut.
 func (x *Shortcut) SetArguments(ArgsVar *glib.Variant) {
-	core.LazyRegister(&xShortcutSetArguments, "GTK", "gtk_shortcut_set_arguments", false)
-
 	xShortcutSetArguments(x.GoPointer(), ArgsVar)
 }
 
@@ -171,8 +161,6 @@ var xShortcutSetTrigger func(uintptr, uintptr)
 
 // Sets the new trigger for @self to be @trigger.
 func (x *Shortcut) SetTrigger(TriggerVar *ShortcutTrigger) {
-	core.LazyRegister(&xShortcutSetTrigger, "GTK", "gtk_shortcut_set_trigger", false)
-
 	xShortcutSetTrigger(x.GoPointer(), TriggerVar.GoPointer())
 }
 
@@ -207,4 +195,24 @@ func (x *Shortcut) GetPropertyArguments() uintptr {
 func init() {
 	core.SetPackageName("GTK", "gtk4")
 	core.SetSharedLibraries("GTK", []string{"libgtk-4.so.1", "libgtk-4.1.dylib"})
+	var libs []uintptr
+	for _, libPath := range core.GetPaths("GTK") {
+		lib, err := purego.Dlopen(libPath, purego.RTLD_NOW|purego.RTLD_GLOBAL)
+		if err != nil {
+			panic(err)
+		}
+		libs = append(libs, lib)
+	}
+
+	core.PuregoSafeRegister(&xShortcutGLibType, libs, "gtk_shortcut_get_type")
+
+	core.PuregoSafeRegister(&xNewShortcut, libs, "gtk_shortcut_new")
+	core.PuregoSafeRegister(&xNewShortcutWithArguments, libs, "gtk_shortcut_new_with_arguments")
+
+	core.PuregoSafeRegister(&xShortcutGetAction, libs, "gtk_shortcut_get_action")
+	core.PuregoSafeRegister(&xShortcutGetArguments, libs, "gtk_shortcut_get_arguments")
+	core.PuregoSafeRegister(&xShortcutGetTrigger, libs, "gtk_shortcut_get_trigger")
+	core.PuregoSafeRegister(&xShortcutSetAction, libs, "gtk_shortcut_set_action")
+	core.PuregoSafeRegister(&xShortcutSetArguments, libs, "gtk_shortcut_set_arguments")
+	core.PuregoSafeRegister(&xShortcutSetTrigger, libs, "gtk_shortcut_set_trigger")
 }

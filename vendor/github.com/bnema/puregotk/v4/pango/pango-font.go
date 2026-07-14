@@ -288,7 +288,6 @@ type FontDescription struct {
 var xFontDescriptionGLibType func() types.GType
 
 func FontDescriptionGLibType() types.GType {
-	core.LazyRegister(&xFontDescriptionGLibType, "PANGO", "pango_font_description_get_type", false)
 	return xFontDescriptionGLibType()
 }
 
@@ -308,8 +307,6 @@ var xNewFontDescription func() uintptr
 
 // Creates a new font description structure with all fields unset.
 func NewFontDescription() *FontDescription {
-	core.LazyRegister(&xNewFontDescription, "PANGO", "pango_font_description_new", false)
-
 	cret := xNewFontDescription()
 	if cret == 0 {
 		return nil
@@ -331,8 +328,6 @@ var xFontDescriptionBetterMatch func(uintptr, *FontDescription, *FontDescription
 //
 // Note that @old_match must match @desc.
 func (x *FontDescription) BetterMatch(OldMatchVar *FontDescription, NewMatchVar *FontDescription) bool {
-	core.LazyRegister(&xFontDescriptionBetterMatch, "PANGO", "pango_font_description_better_match", false)
-
 	cret := xFontDescriptionBetterMatch(x.GoPointer(), OldMatchVar, NewMatchVar)
 	return cret
 }
@@ -341,8 +336,6 @@ var xFontDescriptionCopy func(uintptr) uintptr
 
 // Make a copy of a `PangoFontDescription`.
 func (x *FontDescription) Copy() *FontDescription {
-	core.LazyRegister(&xFontDescriptionCopy, "PANGO", "pango_font_description_copy", false)
-
 	cret := xFontDescriptionCopy(x.GoPointer())
 	if cret == 0 {
 		return nil
@@ -360,8 +353,6 @@ var xFontDescriptionCopyStatic func(uintptr) uintptr
 // can only be used until @desc is modified or freed. This is meant
 // to be used when the copy is only needed temporarily.
 func (x *FontDescription) CopyStatic() *FontDescription {
-	core.LazyRegister(&xFontDescriptionCopyStatic, "PANGO", "pango_font_description_copy_static", false)
-
 	cret := xFontDescriptionCopyStatic(x.GoPointer())
 	if cret == 0 {
 		return nil
@@ -378,8 +369,6 @@ var xFontDescriptionEqual func(uintptr, *FontDescription) bool
 // as long as other fields are all the same. (Two font descriptions may
 // result in identical fonts being loaded, but still compare %FALSE.)
 func (x *FontDescription) Equal(Desc2Var *FontDescription) bool {
-	core.LazyRegister(&xFontDescriptionEqual, "PANGO", "pango_font_description_equal", false)
-
 	cret := xFontDescriptionEqual(x.GoPointer(), Desc2Var)
 	return cret
 }
@@ -388,8 +377,6 @@ var xFontDescriptionFree func(uintptr)
 
 // Frees a font description.
 func (x *FontDescription) Free() {
-	core.LazyRegister(&xFontDescriptionFree, "PANGO", "pango_font_description_free", false)
-
 	xFontDescriptionFree(x.GoPointer())
 }
 
@@ -400,8 +387,6 @@ var xFontDescriptionGetColor func(uintptr) FontColor
 // This field determines whether the font description should
 // match fonts that have color glyphs, or fonts that don't.
 func (x *FontDescription) GetColor() FontColor {
-	core.LazyRegister(&xFontDescriptionGetColor, "PANGO", "pango_font_description_get_color", false)
-
 	cret := xFontDescriptionGetColor(x.GoPointer())
 	return cret
 }
@@ -412,8 +397,6 @@ var xFontDescriptionGetFamily func(uintptr) string
 //
 // See [method@Pango.FontDescription.set_family].
 func (x *FontDescription) GetFamily() string {
-	core.LazyRegister(&xFontDescriptionGetFamily, "PANGO", "pango_font_description_get_family", false)
-
 	cret := xFontDescriptionGetFamily(x.GoPointer())
 	return cret
 }
@@ -424,8 +407,6 @@ var xFontDescriptionGetFeatures func(uintptr) string
 //
 // See [method@Pango.FontDescription.set_features].
 func (x *FontDescription) GetFeatures() string {
-	core.LazyRegister(&xFontDescriptionGetFeatures, "PANGO", "pango_font_description_get_features", false)
-
 	cret := xFontDescriptionGetFeatures(x.GoPointer())
 	return cret
 }
@@ -436,8 +417,6 @@ var xFontDescriptionGetGravity func(uintptr) Gravity
 //
 // See [method@Pango.FontDescription.set_gravity].
 func (x *FontDescription) GetGravity() Gravity {
-	core.LazyRegister(&xFontDescriptionGetGravity, "PANGO", "pango_font_description_get_gravity", false)
-
 	cret := xFontDescriptionGetGravity(x.GoPointer())
 	return cret
 }
@@ -446,8 +425,6 @@ var xFontDescriptionGetSetFields func(uintptr) FontMask
 
 // Determines which fields in a font description have been set.
 func (x *FontDescription) GetSetFields() FontMask {
-	core.LazyRegister(&xFontDescriptionGetSetFields, "PANGO", "pango_font_description_get_set_fields", false)
-
 	cret := xFontDescriptionGetSetFields(x.GoPointer())
 	return cret
 }
@@ -458,8 +435,6 @@ var xFontDescriptionGetSize func(uintptr) int
 //
 // See [method@Pango.FontDescription.set_size].
 func (x *FontDescription) GetSize() int {
-	core.LazyRegister(&xFontDescriptionGetSize, "PANGO", "pango_font_description_get_size", false)
-
 	cret := xFontDescriptionGetSize(x.GoPointer())
 	return cret
 }
@@ -472,8 +447,6 @@ var xFontDescriptionGetSizeIsAbsolute func(uintptr) bool
 // See [method@Pango.FontDescription.set_size]
 // and [method@Pango.FontDescription.set_absolute_size].
 func (x *FontDescription) GetSizeIsAbsolute() bool {
-	core.LazyRegister(&xFontDescriptionGetSizeIsAbsolute, "PANGO", "pango_font_description_get_size_is_absolute", false)
-
 	cret := xFontDescriptionGetSizeIsAbsolute(x.GoPointer())
 	return cret
 }
@@ -484,8 +457,6 @@ var xFontDescriptionGetStretch func(uintptr) Stretch
 //
 // See [method@Pango.FontDescription.set_stretch].
 func (x *FontDescription) GetStretch() Stretch {
-	core.LazyRegister(&xFontDescriptionGetStretch, "PANGO", "pango_font_description_get_stretch", false)
-
 	cret := xFontDescriptionGetStretch(x.GoPointer())
 	return cret
 }
@@ -496,8 +467,6 @@ var xFontDescriptionGetStyle func(uintptr) Style
 //
 // See [method@Pango.FontDescription.set_style].
 func (x *FontDescription) GetStyle() Style {
-	core.LazyRegister(&xFontDescriptionGetStyle, "PANGO", "pango_font_description_get_style", false)
-
 	cret := xFontDescriptionGetStyle(x.GoPointer())
 	return cret
 }
@@ -508,8 +477,6 @@ var xFontDescriptionGetVariant func(uintptr) Variant
 //
 // See [method@Pango.FontDescription.set_variant].
 func (x *FontDescription) GetVariant() Variant {
-	core.LazyRegister(&xFontDescriptionGetVariant, "PANGO", "pango_font_description_get_variant", false)
-
 	cret := xFontDescriptionGetVariant(x.GoPointer())
 	return cret
 }
@@ -520,8 +487,6 @@ var xFontDescriptionGetVariations func(uintptr) string
 //
 // See [method@Pango.FontDescription.set_variations].
 func (x *FontDescription) GetVariations() string {
-	core.LazyRegister(&xFontDescriptionGetVariations, "PANGO", "pango_font_description_get_variations", false)
-
 	cret := xFontDescriptionGetVariations(x.GoPointer())
 	return cret
 }
@@ -532,8 +497,6 @@ var xFontDescriptionGetWeight func(uintptr) Weight
 //
 // See [method@Pango.FontDescription.set_weight].
 func (x *FontDescription) GetWeight() Weight {
-	core.LazyRegister(&xFontDescriptionGetWeight, "PANGO", "pango_font_description_get_weight", false)
-
 	cret := xFontDescriptionGetWeight(x.GoPointer())
 	return cret
 }
@@ -545,8 +508,6 @@ var xFontDescriptionHash func(uintptr) uint
 // This is suitable to be used, for example, as an argument
 // to g_hash_table_new(). The hash value is independent of @desc-&gt;mask.
 func (x *FontDescription) Hash() uint {
-	core.LazyRegister(&xFontDescriptionHash, "PANGO", "pango_font_description_hash", false)
-
 	cret := xFontDescriptionHash(x.GoPointer())
 	return cret
 }
@@ -562,8 +523,6 @@ var xFontDescriptionMerge func(uintptr, *FontDescription, bool)
 //
 // If @desc_to_merge is %NULL, this function performs nothing.
 func (x *FontDescription) Merge(DescToMergeVar *FontDescription, ReplaceExistingVar bool) {
-	core.LazyRegister(&xFontDescriptionMerge, "PANGO", "pango_font_description_merge", false)
-
 	xFontDescriptionMerge(x.GoPointer(), DescToMergeVar, ReplaceExistingVar)
 }
 
@@ -577,8 +536,6 @@ var xFontDescriptionMergeStatic func(uintptr, *FontDescription, bool)
 // be used until @desc_to_merge is modified or freed. This is meant to
 // be used when the merged font description is only needed temporarily.
 func (x *FontDescription) MergeStatic(DescToMergeVar *FontDescription, ReplaceExistingVar bool) {
-	core.LazyRegister(&xFontDescriptionMergeStatic, "PANGO", "pango_font_description_merge_static", false)
-
 	xFontDescriptionMergeStatic(x.GoPointer(), DescToMergeVar, ReplaceExistingVar)
 }
 
@@ -589,8 +546,6 @@ var xFontDescriptionSetAbsoluteSize func(uintptr, float64)
 // This is mutually exclusive with [method@Pango.FontDescription.set_size]
 // which sets the font size in points.
 func (x *FontDescription) SetAbsoluteSize(SizeVar float64) {
-	core.LazyRegister(&xFontDescriptionSetAbsoluteSize, "PANGO", "pango_font_description_set_absolute_size", false)
-
 	xFontDescriptionSetAbsoluteSize(x.GoPointer(), SizeVar)
 }
 
@@ -601,8 +556,6 @@ var xFontDescriptionSetColor func(uintptr, FontColor)
 // This field determines whether the font description should
 // match fonts that have color glyphs, or fonts that don't.
 func (x *FontDescription) SetColor(ColorVar FontColor) {
-	core.LazyRegister(&xFontDescriptionSetColor, "PANGO", "pango_font_description_set_color", false)
-
 	xFontDescriptionSetColor(x.GoPointer(), ColorVar)
 }
 
@@ -616,8 +569,6 @@ var xFontDescriptionSetFamily func(uintptr, string)
 // `PangoFontDescription`, it is also possible to use a comma
 // separated list of family names for this field.
 func (x *FontDescription) SetFamily(FamilyVar string) {
-	core.LazyRegister(&xFontDescriptionSetFamily, "PANGO", "pango_font_description_set_family", false)
-
 	xFontDescriptionSetFamily(x.GoPointer(), FamilyVar)
 }
 
@@ -631,8 +582,6 @@ var xFontDescriptionSetFamilyStatic func(uintptr, string)
 // name is set again. This function can be used if @family is a static
 // string such as a C string literal, or if @desc is only needed temporarily.
 func (x *FontDescription) SetFamilyStatic(FamilyVar string) {
-	core.LazyRegister(&xFontDescriptionSetFamilyStatic, "PANGO", "pango_font_description_set_family_static", false)
-
 	xFontDescriptionSetFamilyStatic(x.GoPointer(), FamilyVar)
 }
 
@@ -663,8 +612,6 @@ var xFontDescriptionSetFeatures func(uintptr, uintptr)
 //
 // Features that are not supported by the font are silently ignored.
 func (x *FontDescription) SetFeatures(FeaturesVar *string) {
-	core.LazyRegister(&xFontDescriptionSetFeatures, "PANGO", "pango_font_description_set_features", false)
-
 	FeaturesVarPtr := core.GStrdupNullable(FeaturesVar)
 	defer core.GFreeNullable(FeaturesVarPtr)
 
@@ -682,8 +629,6 @@ var xFontDescriptionSetFeaturesStatic func(uintptr, string)
 // @features is a static string such as a C string literal,
 // or if @desc is only needed temporarily.
 func (x *FontDescription) SetFeaturesStatic(FeaturesVar string) {
-	core.LazyRegister(&xFontDescriptionSetFeaturesStatic, "PANGO", "pango_font_description_set_features_static", false)
-
 	xFontDescriptionSetFeaturesStatic(x.GoPointer(), FeaturesVar)
 }
 
@@ -699,8 +644,6 @@ var xFontDescriptionSetGravity func(uintptr, Gravity)
 // This function is seldom useful to the user. Gravity should normally
 // be set on a `PangoContext`.
 func (x *FontDescription) SetGravity(GravityVar Gravity) {
-	core.LazyRegister(&xFontDescriptionSetGravity, "PANGO", "pango_font_description_set_gravity", false)
-
 	xFontDescriptionSetGravity(x.GoPointer(), GravityVar)
 }
 
@@ -711,8 +654,6 @@ var xFontDescriptionSetSize func(uintptr, int)
 // This is mutually exclusive with
 // [method@Pango.FontDescription.set_absolute_size].
 func (x *FontDescription) SetSize(SizeVar int) {
-	core.LazyRegister(&xFontDescriptionSetSize, "PANGO", "pango_font_description_set_size", false)
-
 	xFontDescriptionSetSize(x.GoPointer(), SizeVar)
 }
 
@@ -723,8 +664,6 @@ var xFontDescriptionSetStretch func(uintptr, Stretch)
 // The [enum@Pango.Stretch] field specifies how narrow or
 // wide the font should be.
 func (x *FontDescription) SetStretch(StretchVar Stretch) {
-	core.LazyRegister(&xFontDescriptionSetStretch, "PANGO", "pango_font_description_set_stretch", false)
-
 	xFontDescriptionSetStretch(x.GoPointer(), StretchVar)
 }
 
@@ -741,8 +680,6 @@ var xFontDescriptionSetStyle func(uintptr, Style)
 // specifications with oblique fonts and vice-versa if an exact
 // match is not found.
 func (x *FontDescription) SetStyle(StyleVar Style) {
-	core.LazyRegister(&xFontDescriptionSetStyle, "PANGO", "pango_font_description_set_style", false)
-
 	xFontDescriptionSetStyle(x.GoPointer(), StyleVar)
 }
 
@@ -753,8 +690,6 @@ var xFontDescriptionSetVariant func(uintptr, Variant)
 // The [enum@Pango.Variant] can either be %PANGO_VARIANT_NORMAL
 // or %PANGO_VARIANT_SMALL_CAPS.
 func (x *FontDescription) SetVariant(VariantVar Variant) {
-	core.LazyRegister(&xFontDescriptionSetVariant, "PANGO", "pango_font_description_set_variant", false)
-
 	xFontDescriptionSetVariant(x.GoPointer(), VariantVar)
 }
 
@@ -777,8 +712,6 @@ var xFontDescriptionSetVariations func(uintptr, uintptr)
 // a font. Both harfbuzz and freetype have API for this. See
 // for example [hb_ot_var_get_axis_infos](https://harfbuzz.github.io/harfbuzz-hb-ot-var.html#hb-ot-var-get-axis-infos).
 func (x *FontDescription) SetVariations(VariationsVar *string) {
-	core.LazyRegister(&xFontDescriptionSetVariations, "PANGO", "pango_font_description_set_variations", false)
-
 	VariationsVarPtr := core.GStrdupNullable(VariationsVar)
 	defer core.GFreeNullable(VariationsVarPtr)
 
@@ -796,8 +729,6 @@ var xFontDescriptionSetVariationsStatic func(uintptr, string)
 // @variations is a static string such as a C string literal,
 // or if @desc is only needed temporarily.
 func (x *FontDescription) SetVariationsStatic(VariationsVar string) {
-	core.LazyRegister(&xFontDescriptionSetVariationsStatic, "PANGO", "pango_font_description_set_variations_static", false)
-
 	xFontDescriptionSetVariationsStatic(x.GoPointer(), VariationsVar)
 }
 
@@ -810,8 +741,6 @@ var xFontDescriptionSetWeight func(uintptr, Weight)
 // to the values of the [enum@Pango.Weight] enumeration, other
 // intermediate numeric values are possible.
 func (x *FontDescription) SetWeight(WeightVar Weight) {
-	core.LazyRegister(&xFontDescriptionSetWeight, "PANGO", "pango_font_description_set_weight", false)
-
 	xFontDescriptionSetWeight(x.GoPointer(), WeightVar)
 }
 
@@ -824,8 +753,6 @@ var xFontDescriptionToFilename func(uintptr) string
 // instead of characters that are untypical in filenames, and in
 // lower case only.
 func (x *FontDescription) ToFilename() string {
-	core.LazyRegister(&xFontDescriptionToFilename, "PANGO", "pango_font_description_to_filename", false)
-
 	cret := xFontDescriptionToFilename(x.GoPointer())
 	return cret
 }
@@ -839,8 +766,6 @@ var xFontDescriptionToString func(uintptr) string
 // the string description will only have a terminating comma if
 // the last word of the list is a valid style option.
 func (x *FontDescription) ToString() string {
-	core.LazyRegister(&xFontDescriptionToString, "PANGO", "pango_font_description_to_string", false)
-
 	cret := xFontDescriptionToString(x.GoPointer())
 	return cret
 }
@@ -851,8 +776,6 @@ var xFontDescriptionUnsetFields func(uintptr, FontMask)
 //
 // The unset fields will get back to their default values.
 func (x *FontDescription) UnsetFields(ToUnsetVar FontMask) {
-	core.LazyRegister(&xFontDescriptionUnsetFields, "PANGO", "pango_font_description_unset_fields", false)
-
 	xFontDescriptionUnsetFields(x.GoPointer(), ToUnsetVar)
 }
 
@@ -1288,7 +1211,6 @@ type FontMetrics struct {
 var xFontMetricsGLibType func() types.GType
 
 func FontMetricsGLibType() types.GType {
-	core.LazyRegister(&xFontMetricsGLibType, "PANGO", "pango_font_metrics_get_type", false)
 	return xFontMetricsGLibType()
 }
 
@@ -1312,8 +1234,6 @@ var xFontMetricsGetApproximateCharWidth func(uintptr) int
 // determining the initial size for a window. Actual characters in
 // text will be wider and narrower than this.
 func (x *FontMetrics) GetApproximateCharWidth() int {
-	core.LazyRegister(&xFontMetricsGetApproximateCharWidth, "PANGO", "pango_font_metrics_get_approximate_char_width", false)
-
 	cret := xFontMetricsGetApproximateCharWidth(x.GoPointer())
 	return cret
 }
@@ -1328,8 +1248,6 @@ var xFontMetricsGetApproximateDigitWidth func(uintptr) int
 // is generally somewhat more accurate than the result of
 // pango_font_metrics_get_approximate_char_width() for digits.
 func (x *FontMetrics) GetApproximateDigitWidth() int {
-	core.LazyRegister(&xFontMetricsGetApproximateDigitWidth, "PANGO", "pango_font_metrics_get_approximate_digit_width", false)
-
 	cret := xFontMetricsGetApproximateDigitWidth(x.GoPointer())
 	return cret
 }
@@ -1343,8 +1261,6 @@ var xFontMetricsGetAscent func(uintptr) int
 // of the actual drawn ink. It is necessary to lay out the text to
 // figure where the ink will be.)
 func (x *FontMetrics) GetAscent() int {
-	core.LazyRegister(&xFontMetricsGetAscent, "PANGO", "pango_font_metrics_get_ascent", false)
-
 	cret := xFontMetricsGetAscent(x.GoPointer())
 	return cret
 }
@@ -1358,8 +1274,6 @@ var xFontMetricsGetDescent func(uintptr) int
 // bottom of the actual drawn ink. It is necessary to lay out the text
 // to figure where the ink will be.)
 func (x *FontMetrics) GetDescent() int {
-	core.LazyRegister(&xFontMetricsGetDescent, "PANGO", "pango_font_metrics_get_descent", false)
-
 	cret := xFontMetricsGetDescent(x.GoPointer())
 	return cret
 }
@@ -1373,8 +1287,6 @@ var xFontMetricsGetHeight func(uintptr) int
 //
 // If the line height is not available, 0 is returned.
 func (x *FontMetrics) GetHeight() int {
-	core.LazyRegister(&xFontMetricsGetHeight, "PANGO", "pango_font_metrics_get_height", false)
-
 	cret := xFontMetricsGetHeight(x.GoPointer())
 	return cret
 }
@@ -1386,8 +1298,6 @@ var xFontMetricsGetStrikethroughPosition func(uintptr) int
 // The value returned is the distance *above* the
 // baseline of the top of the strikethrough.
 func (x *FontMetrics) GetStrikethroughPosition() int {
-	core.LazyRegister(&xFontMetricsGetStrikethroughPosition, "PANGO", "pango_font_metrics_get_strikethrough_position", false)
-
 	cret := xFontMetricsGetStrikethroughPosition(x.GoPointer())
 	return cret
 }
@@ -1396,8 +1306,6 @@ var xFontMetricsGetStrikethroughThickness func(uintptr) int
 
 // Gets the suggested thickness to draw for the strikethrough.
 func (x *FontMetrics) GetStrikethroughThickness() int {
-	core.LazyRegister(&xFontMetricsGetStrikethroughThickness, "PANGO", "pango_font_metrics_get_strikethrough_thickness", false)
-
 	cret := xFontMetricsGetStrikethroughThickness(x.GoPointer())
 	return cret
 }
@@ -1410,8 +1318,6 @@ var xFontMetricsGetUnderlinePosition func(uintptr) int
 // of the underline. Since most fonts have underline positions beneath
 // the baseline, this value is typically negative.
 func (x *FontMetrics) GetUnderlinePosition() int {
-	core.LazyRegister(&xFontMetricsGetUnderlinePosition, "PANGO", "pango_font_metrics_get_underline_position", false)
-
 	cret := xFontMetricsGetUnderlinePosition(x.GoPointer())
 	return cret
 }
@@ -1420,8 +1326,6 @@ var xFontMetricsGetUnderlineThickness func(uintptr) int
 
 // Gets the suggested thickness to draw for the underline.
 func (x *FontMetrics) GetUnderlineThickness() int {
-	core.LazyRegister(&xFontMetricsGetUnderlineThickness, "PANGO", "pango_font_metrics_get_underline_thickness", false)
-
 	cret := xFontMetricsGetUnderlineThickness(x.GoPointer())
 	return cret
 }
@@ -1430,8 +1334,6 @@ var xFontMetricsRef func(uintptr) uintptr
 
 // Increase the reference count of a font metrics structure by one.
 func (x *FontMetrics) Ref() *FontMetrics {
-	core.LazyRegister(&xFontMetricsRef, "PANGO", "pango_font_metrics_ref", false)
-
 	cret := xFontMetricsRef(x.GoPointer())
 	if cret == 0 {
 		return nil
@@ -1445,8 +1347,6 @@ var xFontMetricsUnref func(uintptr)
 //
 // If the result is zero, frees the structure and any associated memory.
 func (x *FontMetrics) Unref() {
-	core.LazyRegister(&xFontMetricsUnref, "PANGO", "pango_font_metrics_unref", false)
-
 	xFontMetricsUnref(x.GoPointer())
 }
 
@@ -1478,7 +1378,6 @@ type FontMask int
 var xFontMaskGLibType func() types.GType
 
 func FontMaskGLibType() types.GType {
-	core.LazyRegister(&xFontMaskGLibType, "PANGO", "pango_font_mask_get_type", false)
 	return xFontMaskGLibType()
 }
 
@@ -1512,7 +1411,6 @@ type FontColor int
 var xFontColorGLibType func() types.GType
 
 func FontColorGLibType() types.GType {
-	core.LazyRegister(&xFontColorGLibType, "PANGO", "pango_font_color_get_type", false)
 	return xFontColorGLibType()
 }
 
@@ -1533,7 +1431,6 @@ type Stretch int
 var xStretchGLibType func() types.GType
 
 func StretchGLibType() types.GType {
-	core.LazyRegister(&xStretchGLibType, "PANGO", "pango_stretch_get_type", false)
 	return xStretchGLibType()
 }
 
@@ -1565,7 +1462,6 @@ type Style int
 var xStyleGLibType func() types.GType
 
 func StyleGLibType() types.GType {
-	core.LazyRegister(&xStyleGLibType, "PANGO", "pango_style_get_type", false)
 	return xStyleGLibType()
 }
 
@@ -1585,7 +1481,6 @@ type Variant int
 var xVariantGLibType func() types.GType
 
 func VariantGLibType() types.GType {
-	core.LazyRegister(&xVariantGLibType, "PANGO", "pango_variant_get_type", false)
 	return xVariantGLibType()
 }
 
@@ -1624,7 +1519,6 @@ type Weight int
 var xWeightGLibType func() types.GType
 
 func WeightGLibType() types.GType {
-	core.LazyRegister(&xWeightGLibType, "PANGO", "pango_weight_get_type", false)
 	return xWeightGLibType()
 }
 
@@ -1711,8 +1605,6 @@ var xFontDescriptionFromString func(string) uintptr
 //
 //	Cantarell Italic Light 15 @‍wght=200 #‍tnum=1
 func FontDescriptionFromString(StrVar string) *FontDescription {
-	core.LazyRegister(&xFontDescriptionFromString, "PANGO", "pango_font_description_from_string", false)
-
 	cret := xFontDescriptionFromString(StrVar)
 	if cret == 0 {
 		return nil
@@ -1729,7 +1621,6 @@ type Font struct {
 var xFontGLibType func() types.GType
 
 func FontGLibType() types.GType {
-	core.LazyRegister(&xFontGLibType, "PANGO", "pango_font_get_type", false)
 	return xFontGLibType()
 }
 
@@ -1746,8 +1637,6 @@ var xFontDescribe func(uintptr) uintptr
 // Use [method@Pango.Font.describe_with_absolute_size] if you want
 // the font size in device units.
 func (x *Font) Describe() *FontDescription {
-	core.LazyRegister(&xFontDescribe, "PANGO", "pango_font_describe", false)
-
 	cret := xFontDescribe(x.GoPointer())
 	if cret == 0 {
 		return nil
@@ -1762,8 +1651,6 @@ var xFontDescribeWithAbsoluteSize func(uintptr) uintptr
 //
 // Use [method@Pango.Font.describe] if you want the font size in points.
 func (x *Font) DescribeWithAbsoluteSize() *FontDescription {
-	core.LazyRegister(&xFontDescribeWithAbsoluteSize, "PANGO", "pango_font_describe_with_absolute_size", false)
-
 	cret := xFontDescribeWithAbsoluteSize(x.GoPointer())
 	if cret == 0 {
 		return nil
@@ -1775,7 +1662,6 @@ var xFontGetCoverage func(uintptr, *Language) uintptr
 
 // Computes the coverage map for a given font and language tag.
 func (x *Font) GetCoverage(LanguageVar *Language) *Coverage {
-	core.LazyRegister(&xFontGetCoverage, "PANGO", "pango_font_get_coverage", false)
 	var cls *Coverage
 
 	cret := xFontGetCoverage(x.GoPointer(), LanguageVar)
@@ -1795,7 +1681,6 @@ var xFontGetFace func(uintptr) uintptr
 // Note that this function can return `NULL` in cases
 // where the font outlives its font map.
 func (x *Font) GetFace() *FontFace {
-	core.LazyRegister(&xFontGetFace, "PANGO", "pango_font_get_face", false)
 	var cls *FontFace
 
 	cret := xFontGetFace(x.GoPointer())
@@ -1819,8 +1704,6 @@ var xFontGetFeatures func(uintptr, *[]uintptr, uint, *uint)
 // Note that this does not include OpenType features which the
 // rendering system enables by default.
 func (x *Font) GetFeatures(FeaturesVar *[]uintptr, LenVar uint, NumFeaturesVar *uint) {
-	core.LazyRegister(&xFontGetFeatures, "PANGO", "pango_font_get_features", false)
-
 	xFontGetFeatures(x.GoPointer(), FeaturesVar, LenVar, NumFeaturesVar)
 }
 
@@ -1838,7 +1721,6 @@ var xFontGetFontMap func(uintptr) uintptr
 // font map is kept alive. In most uses this is not an issue
 // as a `PangoContext` holds a reference to the font map.
 func (x *Font) GetFontMap() *FontMap {
-	core.LazyRegister(&xFontGetFontMap, "PANGO", "pango_font_get_font_map", false)
 	var cls *FontMap
 
 	cret := xFontGetFontMap(x.GoPointer())
@@ -1866,8 +1748,6 @@ var xFontGetGlyphExtents func(uintptr, Glyph, *Rectangle, *Rectangle)
 // If @font is %NULL, this function gracefully sets some sane values in the
 // output variables and returns.
 func (x *Font) GetGlyphExtents(GlyphVar Glyph, InkRectVar *Rectangle, LogicalRectVar *Rectangle) {
-	core.LazyRegister(&xFontGetGlyphExtents, "PANGO", "pango_font_get_glyph_extents", false)
-
 	xFontGetGlyphExtents(x.GoPointer(), GlyphVar, InkRectVar, LogicalRectVar)
 }
 
@@ -1879,8 +1759,6 @@ var xFontGetHbFont func(uintptr) uintptr
 // and immutable. If you need to make changes to the `hb_font_t`,
 // use [hb_font_create_sub_font()](https://harfbuzz.github.io/harfbuzz-hb-font.html#hb-font-create-sub-font).
 func (x *Font) GetHbFont() uintptr {
-	core.LazyRegister(&xFontGetHbFont, "PANGO", "pango_font_get_hb_font", false)
-
 	cret := xFontGetHbFont(x.GoPointer())
 	return cret
 }
@@ -1896,8 +1774,6 @@ var xFontGetLanguages func(uintptr) uintptr
 // The returned array is only valid as long as the font
 // and its fontmap are valid.
 func (x *Font) GetLanguages() uintptr {
-	core.LazyRegister(&xFontGetLanguages, "PANGO", "pango_font_get_languages", false)
-
 	cret := xFontGetLanguages(x.GoPointer())
 	return cret
 }
@@ -1913,8 +1789,6 @@ var xFontGetMetrics func(uintptr, *Language) uintptr
 // If @font is %NULL, this function gracefully sets some sane values in the
 // output variables and returns.
 func (x *Font) GetMetrics(LanguageVar *Language) *FontMetrics {
-	core.LazyRegister(&xFontGetMetrics, "PANGO", "pango_font_get_metrics", false)
-
 	cret := xFontGetMetrics(x.GoPointer(), LanguageVar)
 	if cret == 0 {
 		return nil
@@ -1926,8 +1800,6 @@ var xFontHasChar func(uintptr, uint32) bool
 
 // Returns whether the font provides a glyph for this character.
 func (x *Font) HasChar(WcVar uint32) bool {
-	core.LazyRegister(&xFontHasChar, "PANGO", "pango_font_has_char", false)
-
 	cret := xFontHasChar(x.GoPointer(), WcVar)
 	return cret
 }
@@ -1944,8 +1816,6 @@ var xFontSerialize func(uintptr) uintptr
 //
 // To recreate a font from its serialized form, use [func@Pango.Font.deserialize].
 func (x *Font) Serialize() *glib.Bytes {
-	core.LazyRegister(&xFontSerialize, "PANGO", "pango_font_serialize", false)
-
 	cret := xFontSerialize(x.GoPointer())
 	if cret == 0 {
 		return nil
@@ -1968,8 +1838,6 @@ var xFontDescriptionsFree func(uintptr, int)
 
 // Frees an array of font descriptions.
 func FontDescriptionsFree(DescsVar uintptr, NDescsVar int) {
-	core.LazyRegister(&xFontDescriptionsFree, "PANGO", "pango_font_descriptions_free", false)
-
 	xFontDescriptionsFree(DescsVar, NDescsVar)
 }
 
@@ -1983,7 +1851,6 @@ var xFontDeserialize func(uintptr, *glib.Bytes, **glib.Error) uintptr
 // the one that was serialized, you can compare @bytes to the
 // result of serializing the font again.
 func FontDeserialize(ContextVar *Context, BytesVar *glib.Bytes) (*Font, error) {
-	core.LazyRegister(&xFontDeserialize, "PANGO", "pango_font_deserialize", false)
 	var cls *Font
 	var cerr *glib.Error
 
@@ -2009,7 +1876,6 @@ type FontFace struct {
 var xFontFaceGLibType func() types.GType
 
 func FontFaceGLibType() types.GType {
-	core.LazyRegister(&xFontFaceGLibType, "PANGO", "pango_font_face_get_type", false)
 	return xFontFaceGLibType()
 }
 
@@ -2027,8 +1893,6 @@ var xFontFaceDescribe func(uintptr) uintptr
 // variant, weight and stretch of the face, but its size field
 // will be unset.
 func (x *FontFace) Describe() *FontDescription {
-	core.LazyRegister(&xFontFaceDescribe, "PANGO", "pango_font_face_describe", false)
-
 	cret := xFontFaceDescribe(x.GoPointer())
 	if cret == 0 {
 		return nil
@@ -2044,8 +1908,6 @@ var xFontFaceGetFaceName func(uintptr) string
 // with the same name (e.g. a variable and a non-variable
 // face for the same style).
 func (x *FontFace) GetFaceName() string {
-	core.LazyRegister(&xFontFaceGetFaceName, "PANGO", "pango_font_face_get_face_name", false)
-
 	cret := xFontFaceGetFaceName(x.GoPointer())
 	return cret
 }
@@ -2054,7 +1916,6 @@ var xFontFaceGetFamily func(uintptr) uintptr
 
 // Gets the `PangoFontFamily` that @face belongs to.
 func (x *FontFace) GetFamily() *FontFamily {
-	core.LazyRegister(&xFontFaceGetFamily, "PANGO", "pango_font_face_get_family", false)
 	var cls *FontFamily
 
 	cret := xFontFaceGetFamily(x.GoPointer())
@@ -2076,8 +1937,6 @@ var xFontFaceIsSynthesized func(uintptr) bool
 // creates this face from another face, by shearing, emboldening,
 // lightening or modifying it in some other way.
 func (x *FontFace) IsSynthesized() bool {
-	core.LazyRegister(&xFontFaceIsSynthesized, "PANGO", "pango_font_face_is_synthesized", false)
-
 	cret := xFontFaceIsSynthesized(x.GoPointer())
 	return cret
 }
@@ -2091,8 +1950,6 @@ var xFontFaceListSizes func(uintptr, *[]int, *int)
 // to by @n_sizes. The sizes returned are in Pango units and are sorted
 // in ascending order.
 func (x *FontFace) ListSizes(SizesVar *[]int, NSizesVar *int) {
-	core.LazyRegister(&xFontFaceListSizes, "PANGO", "pango_font_face_list_sizes", false)
-
 	xFontFaceListSizes(x.GoPointer(), SizesVar, NSizesVar)
 }
 
@@ -2119,7 +1976,6 @@ type FontFamily struct {
 var xFontFamilyGLibType func() types.GType
 
 func FontFamilyGLibType() types.GType {
-	core.LazyRegister(&xFontFamilyGLibType, "PANGO", "pango_font_family_get_type", false)
 	return xFontFamilyGLibType()
 }
 
@@ -2133,7 +1989,6 @@ var xFontFamilyGetFace func(uintptr, uintptr) uintptr
 
 // Gets the `PangoFontFace` of @family with the given name.
 func (x *FontFamily) GetFace(NameVar *string) *FontFace {
-	core.LazyRegister(&xFontFamilyGetFace, "PANGO", "pango_font_family_get_face", false)
 	var cls *FontFace
 
 	NameVarPtr := core.GStrdupNullable(NameVar)
@@ -2158,8 +2013,6 @@ var xFontFamilyGetName func(uintptr) string
 // be used in a `PangoFontDescription` to specify that a face from
 // this family is desired.
 func (x *FontFamily) GetName() string {
-	core.LazyRegister(&xFontFamilyGetName, "PANGO", "pango_font_family_get_name", false)
-
 	cret := xFontFamilyGetName(x.GoPointer())
 	return cret
 }
@@ -2181,8 +2034,6 @@ var xFontFamilyIsMonospace func(uintptr) bool
 // results of [method@Pango.FontMetrics.get_approximate_char_width] may
 // be affected by double-width characters.
 func (x *FontFamily) IsMonospace() bool {
-	core.LazyRegister(&xFontFamilyIsMonospace, "PANGO", "pango_font_family_is_monospace", false)
-
 	cret := xFontFamilyIsMonospace(x.GoPointer())
 	return cret
 }
@@ -2195,8 +2046,6 @@ var xFontFamilyIsVariable func(uintptr) bool
 // Such axes are also known as _variations_; see
 // [method@Pango.FontDescription.set_variations] for more information.
 func (x *FontFamily) IsVariable() bool {
-	core.LazyRegister(&xFontFamilyIsVariable, "PANGO", "pango_font_family_is_variable", false)
-
 	cret := xFontFamilyIsVariable(x.GoPointer())
 	return cret
 }
@@ -2214,8 +2063,6 @@ var xFontFamilyListFaces func(uintptr, *uintptr, *int)
 // `PangoFontFamily` also implemented the [iface@Gio.ListModel] interface
 // for enumerating faces.
 func (x *FontFamily) ListFaces(FacesVar *uintptr, NFacesVar *int) {
-	core.LazyRegister(&xFontFamilyListFaces, "PANGO", "pango_font_family_list_faces", false)
-
 	xFontFamilyListFaces(x.GoPointer(), FacesVar, NFacesVar)
 }
 
@@ -2351,4 +2198,116 @@ func (x *FontFamily) ItemsChanged(PositionVar uint, RemovedVar uint, AddedVar ui
 func init() {
 	core.SetPackageName("PANGO", "pango")
 	core.SetSharedLibraries("PANGO", []string{"libpango-1.0.so.0", "libpango-1.0.0.dylib"})
+	var libs []uintptr
+	for _, libPath := range core.GetPaths("PANGO") {
+		lib, err := purego.Dlopen(libPath, purego.RTLD_NOW|purego.RTLD_GLOBAL)
+		if err != nil {
+			panic(err)
+		}
+		libs = append(libs, lib)
+	}
+
+	core.PuregoSafeRegister(&xFontMaskGLibType, libs, "pango_font_mask_get_type")
+
+	core.PuregoSafeRegister(&xFontColorGLibType, libs, "pango_font_color_get_type")
+
+	core.PuregoSafeRegister(&xStretchGLibType, libs, "pango_stretch_get_type")
+
+	core.PuregoSafeRegister(&xStyleGLibType, libs, "pango_style_get_type")
+
+	core.PuregoSafeRegister(&xVariantGLibType, libs, "pango_variant_get_type")
+
+	core.PuregoSafeRegister(&xWeightGLibType, libs, "pango_weight_get_type")
+
+	core.PuregoSafeRegister(&xFontDescriptionFromString, libs, "pango_font_description_from_string")
+
+	core.PuregoSafeRegister(&xFontDescriptionGLibType, libs, "pango_font_description_get_type")
+
+	core.PuregoSafeRegister(&xNewFontDescription, libs, "pango_font_description_new")
+
+	core.PuregoSafeRegister(&xFontDescriptionBetterMatch, libs, "pango_font_description_better_match")
+	core.PuregoSafeRegister(&xFontDescriptionCopy, libs, "pango_font_description_copy")
+	core.PuregoSafeRegister(&xFontDescriptionCopyStatic, libs, "pango_font_description_copy_static")
+	core.PuregoSafeRegister(&xFontDescriptionEqual, libs, "pango_font_description_equal")
+	core.PuregoSafeRegister(&xFontDescriptionFree, libs, "pango_font_description_free")
+	core.PuregoSafeRegister(&xFontDescriptionGetColor, libs, "pango_font_description_get_color")
+	core.PuregoSafeRegister(&xFontDescriptionGetFamily, libs, "pango_font_description_get_family")
+	core.PuregoSafeRegister(&xFontDescriptionGetFeatures, libs, "pango_font_description_get_features")
+	core.PuregoSafeRegister(&xFontDescriptionGetGravity, libs, "pango_font_description_get_gravity")
+	core.PuregoSafeRegister(&xFontDescriptionGetSetFields, libs, "pango_font_description_get_set_fields")
+	core.PuregoSafeRegister(&xFontDescriptionGetSize, libs, "pango_font_description_get_size")
+	core.PuregoSafeRegister(&xFontDescriptionGetSizeIsAbsolute, libs, "pango_font_description_get_size_is_absolute")
+	core.PuregoSafeRegister(&xFontDescriptionGetStretch, libs, "pango_font_description_get_stretch")
+	core.PuregoSafeRegister(&xFontDescriptionGetStyle, libs, "pango_font_description_get_style")
+	core.PuregoSafeRegister(&xFontDescriptionGetVariant, libs, "pango_font_description_get_variant")
+	core.PuregoSafeRegister(&xFontDescriptionGetVariations, libs, "pango_font_description_get_variations")
+	core.PuregoSafeRegister(&xFontDescriptionGetWeight, libs, "pango_font_description_get_weight")
+	core.PuregoSafeRegister(&xFontDescriptionHash, libs, "pango_font_description_hash")
+	core.PuregoSafeRegister(&xFontDescriptionMerge, libs, "pango_font_description_merge")
+	core.PuregoSafeRegister(&xFontDescriptionMergeStatic, libs, "pango_font_description_merge_static")
+	core.PuregoSafeRegister(&xFontDescriptionSetAbsoluteSize, libs, "pango_font_description_set_absolute_size")
+	core.PuregoSafeRegister(&xFontDescriptionSetColor, libs, "pango_font_description_set_color")
+	core.PuregoSafeRegister(&xFontDescriptionSetFamily, libs, "pango_font_description_set_family")
+	core.PuregoSafeRegister(&xFontDescriptionSetFamilyStatic, libs, "pango_font_description_set_family_static")
+	core.PuregoSafeRegister(&xFontDescriptionSetFeatures, libs, "pango_font_description_set_features")
+	core.PuregoSafeRegister(&xFontDescriptionSetFeaturesStatic, libs, "pango_font_description_set_features_static")
+	core.PuregoSafeRegister(&xFontDescriptionSetGravity, libs, "pango_font_description_set_gravity")
+	core.PuregoSafeRegister(&xFontDescriptionSetSize, libs, "pango_font_description_set_size")
+	core.PuregoSafeRegister(&xFontDescriptionSetStretch, libs, "pango_font_description_set_stretch")
+	core.PuregoSafeRegister(&xFontDescriptionSetStyle, libs, "pango_font_description_set_style")
+	core.PuregoSafeRegister(&xFontDescriptionSetVariant, libs, "pango_font_description_set_variant")
+	core.PuregoSafeRegister(&xFontDescriptionSetVariations, libs, "pango_font_description_set_variations")
+	core.PuregoSafeRegister(&xFontDescriptionSetVariationsStatic, libs, "pango_font_description_set_variations_static")
+	core.PuregoSafeRegister(&xFontDescriptionSetWeight, libs, "pango_font_description_set_weight")
+	core.PuregoSafeRegister(&xFontDescriptionToFilename, libs, "pango_font_description_to_filename")
+	core.PuregoSafeRegister(&xFontDescriptionToString, libs, "pango_font_description_to_string")
+	core.PuregoSafeRegister(&xFontDescriptionUnsetFields, libs, "pango_font_description_unset_fields")
+
+	core.PuregoSafeRegister(&xFontMetricsGLibType, libs, "pango_font_metrics_get_type")
+
+	core.PuregoSafeRegister(&xFontMetricsGetApproximateCharWidth, libs, "pango_font_metrics_get_approximate_char_width")
+	core.PuregoSafeRegister(&xFontMetricsGetApproximateDigitWidth, libs, "pango_font_metrics_get_approximate_digit_width")
+	core.PuregoSafeRegister(&xFontMetricsGetAscent, libs, "pango_font_metrics_get_ascent")
+	core.PuregoSafeRegister(&xFontMetricsGetDescent, libs, "pango_font_metrics_get_descent")
+	core.PuregoSafeRegister(&xFontMetricsGetHeight, libs, "pango_font_metrics_get_height")
+	core.PuregoSafeRegister(&xFontMetricsGetStrikethroughPosition, libs, "pango_font_metrics_get_strikethrough_position")
+	core.PuregoSafeRegister(&xFontMetricsGetStrikethroughThickness, libs, "pango_font_metrics_get_strikethrough_thickness")
+	core.PuregoSafeRegister(&xFontMetricsGetUnderlinePosition, libs, "pango_font_metrics_get_underline_position")
+	core.PuregoSafeRegister(&xFontMetricsGetUnderlineThickness, libs, "pango_font_metrics_get_underline_thickness")
+	core.PuregoSafeRegister(&xFontMetricsRef, libs, "pango_font_metrics_ref")
+	core.PuregoSafeRegister(&xFontMetricsUnref, libs, "pango_font_metrics_unref")
+
+	core.PuregoSafeRegister(&xFontGLibType, libs, "pango_font_get_type")
+
+	core.PuregoSafeRegister(&xFontDescribe, libs, "pango_font_describe")
+	core.PuregoSafeRegister(&xFontDescribeWithAbsoluteSize, libs, "pango_font_describe_with_absolute_size")
+	core.PuregoSafeRegister(&xFontGetCoverage, libs, "pango_font_get_coverage")
+	core.PuregoSafeRegister(&xFontGetFace, libs, "pango_font_get_face")
+	core.PuregoSafeRegister(&xFontGetFeatures, libs, "pango_font_get_features")
+	core.PuregoSafeRegister(&xFontGetFontMap, libs, "pango_font_get_font_map")
+	core.PuregoSafeRegister(&xFontGetGlyphExtents, libs, "pango_font_get_glyph_extents")
+	core.PuregoSafeRegister(&xFontGetHbFont, libs, "pango_font_get_hb_font")
+	core.PuregoSafeRegister(&xFontGetLanguages, libs, "pango_font_get_languages")
+	core.PuregoSafeRegister(&xFontGetMetrics, libs, "pango_font_get_metrics")
+	core.PuregoSafeRegister(&xFontHasChar, libs, "pango_font_has_char")
+	core.PuregoSafeRegister(&xFontSerialize, libs, "pango_font_serialize")
+
+	core.PuregoSafeRegister(&xFontDescriptionsFree, libs, "pango_font_descriptions_free")
+	core.PuregoSafeRegister(&xFontDeserialize, libs, "pango_font_deserialize")
+
+	core.PuregoSafeRegister(&xFontFaceGLibType, libs, "pango_font_face_get_type")
+
+	core.PuregoSafeRegister(&xFontFaceDescribe, libs, "pango_font_face_describe")
+	core.PuregoSafeRegister(&xFontFaceGetFaceName, libs, "pango_font_face_get_face_name")
+	core.PuregoSafeRegister(&xFontFaceGetFamily, libs, "pango_font_face_get_family")
+	core.PuregoSafeRegister(&xFontFaceIsSynthesized, libs, "pango_font_face_is_synthesized")
+	core.PuregoSafeRegister(&xFontFaceListSizes, libs, "pango_font_face_list_sizes")
+
+	core.PuregoSafeRegister(&xFontFamilyGLibType, libs, "pango_font_family_get_type")
+
+	core.PuregoSafeRegister(&xFontFamilyGetFace, libs, "pango_font_family_get_face")
+	core.PuregoSafeRegister(&xFontFamilyGetName, libs, "pango_font_family_get_name")
+	core.PuregoSafeRegister(&xFontFamilyIsMonospace, libs, "pango_font_family_is_monospace")
+	core.PuregoSafeRegister(&xFontFamilyIsVariable, libs, "pango_font_family_is_variable")
+	core.PuregoSafeRegister(&xFontFamilyListFaces, libs, "pango_font_family_list_faces")
 }

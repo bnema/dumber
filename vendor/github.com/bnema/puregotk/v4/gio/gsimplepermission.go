@@ -2,6 +2,7 @@
 package gio
 
 import (
+	"github.com/bnema/purego"
 	"github.com/bnema/puregotk/pkg/core"
 	"github.com/bnema/puregotk/v4/gobject/types"
 )
@@ -19,7 +20,6 @@ type SimplePermission struct {
 var xSimplePermissionGLibType func() types.GType
 
 func SimplePermissionGLibType() types.GType {
-	core.LazyRegister(&xSimplePermissionGLibType, "GIO", "g_simple_permission_get_type", false)
 	return xSimplePermissionGLibType()
 }
 
@@ -34,7 +34,6 @@ var xNewSimplePermission func(bool) uintptr
 // Creates a new #GPermission instance that represents an action that is
 // either always or never allowed.
 func NewSimplePermission(AllowedVar bool) *SimplePermission {
-	core.LazyRegister(&xNewSimplePermission, "GIO", "g_simple_permission_new", false)
 	var cls *SimplePermission
 
 	cret := xNewSimplePermission(AllowedVar)
@@ -61,4 +60,16 @@ func (c *SimplePermission) SetGoPointer(ptr uintptr) {
 func init() {
 	core.SetPackageName("GIO", "gio-2.0")
 	core.SetSharedLibraries("GIO", []string{"libgio-2.0.so.0", "libgio-2.0.0.dylib"})
+	var libs []uintptr
+	for _, libPath := range core.GetPaths("GIO") {
+		lib, err := purego.Dlopen(libPath, purego.RTLD_NOW|purego.RTLD_GLOBAL)
+		if err != nil {
+			panic(err)
+		}
+		libs = append(libs, lib)
+	}
+
+	core.PuregoSafeRegister(&xSimplePermissionGLibType, libs, "g_simple_permission_get_type")
+
+	core.PuregoSafeRegister(&xNewSimplePermission, libs, "g_simple_permission_new")
 }

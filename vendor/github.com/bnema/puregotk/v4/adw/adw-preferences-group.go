@@ -5,6 +5,7 @@ import (
 	"structs"
 	"unsafe"
 
+	"github.com/bnema/purego"
 	"github.com/bnema/puregotk/pkg/core"
 	"github.com/bnema/puregotk/v4/gio"
 	"github.com/bnema/puregotk/v4/glib"
@@ -78,7 +79,6 @@ type PreferencesGroup struct {
 var xPreferencesGroupGLibType func() types.GType
 
 func PreferencesGroupGLibType() types.GType {
-	core.LazyRegister(&xPreferencesGroupGLibType, "ADW", "adw_preferences_group_get_type", false)
 	return xPreferencesGroupGLibType()
 }
 
@@ -92,7 +92,6 @@ var xNewPreferencesGroup func() uintptr
 
 // Creates a new `AdwPreferencesGroup`.
 func NewPreferencesGroup() *PreferencesGroup {
-	core.LazyRegister(&xNewPreferencesGroup, "ADW", "adw_preferences_group_new", false)
 	var cls *PreferencesGroup
 
 	cret := xNewPreferencesGroup()
@@ -110,8 +109,6 @@ var xPreferencesGroupAdd func(uintptr, uintptr)
 
 // Adds a child to @self.
 func (x *PreferencesGroup) Add(ChildVar *gtk.Widget) {
-	core.LazyRegister(&xPreferencesGroupAdd, "ADW", "adw_preferences_group_add", false)
-
 	xPreferencesGroupAdd(x.GoPointer(), ChildVar.GoPointer())
 }
 
@@ -121,8 +118,6 @@ var xPreferencesGroupBindModel func(uintptr, uintptr, uintptr, uintptr, uintptr)
 //
 // See [method@Gtk.ListBox.bind_model].
 func (x *PreferencesGroup) BindModel(ModelVar gio.ListModel, CreateRowFuncVar *gtk.ListBoxCreateWidgetFunc, UserDataVar uintptr, UserDataFreeFuncVar *glib.DestroyNotify) {
-	core.LazyRegister(&xPreferencesGroupBindModel, "ADW", "adw_preferences_group_bind_model", false)
-
 	xPreferencesGroupBindModel(x.GoPointer(), ModelVar.GoPointer(), glib.NewCallbackNullable(CreateRowFuncVar), UserDataVar, glib.NewCallback(UserDataFreeFuncVar))
 }
 
@@ -130,8 +125,6 @@ var xPreferencesGroupGetDescription func(uintptr) string
 
 // Gets the description of @self.
 func (x *PreferencesGroup) GetDescription() string {
-	core.LazyRegister(&xPreferencesGroupGetDescription, "ADW", "adw_preferences_group_get_description", false)
-
 	cret := xPreferencesGroupGetDescription(x.GoPointer())
 	return cret
 }
@@ -140,7 +133,6 @@ var xPreferencesGroupGetHeaderSuffix func(uintptr) uintptr
 
 // Gets the suffix for @self's header.
 func (x *PreferencesGroup) GetHeaderSuffix() *gtk.Widget {
-	core.LazyRegister(&xPreferencesGroupGetHeaderSuffix, "ADW", "adw_preferences_group_get_header_suffix", false)
 	var cls *gtk.Widget
 
 	cret := xPreferencesGroupGetHeaderSuffix(x.GoPointer())
@@ -160,7 +152,6 @@ var xPreferencesGroupGetRow func(uintptr, uint) uintptr
 //
 // Can return `NULL` if @index is larger than the number of rows in the group.
 func (x *PreferencesGroup) GetRow(IndexVar uint) *gtk.Widget {
-	core.LazyRegister(&xPreferencesGroupGetRow, "ADW", "adw_preferences_group_get_row", false)
 	var cls *gtk.Widget
 
 	cret := xPreferencesGroupGetRow(x.GoPointer(), IndexVar)
@@ -178,8 +169,6 @@ var xPreferencesGroupGetSeparateRows func(uintptr) bool
 
 // Gets whether @self's rows are separated.
 func (x *PreferencesGroup) GetSeparateRows() bool {
-	core.LazyRegister(&xPreferencesGroupGetSeparateRows, "ADW", "adw_preferences_group_get_separate_rows", false)
-
 	cret := xPreferencesGroupGetSeparateRows(x.GoPointer())
 	return cret
 }
@@ -188,8 +177,6 @@ var xPreferencesGroupGetTitle func(uintptr) string
 
 // Gets the title of @self.
 func (x *PreferencesGroup) GetTitle() string {
-	core.LazyRegister(&xPreferencesGroupGetTitle, "ADW", "adw_preferences_group_get_title", false)
-
 	cret := xPreferencesGroupGetTitle(x.GoPointer())
 	return cret
 }
@@ -198,8 +185,6 @@ var xPreferencesGroupRemove func(uintptr, uintptr)
 
 // Removes a child from @self.
 func (x *PreferencesGroup) Remove(ChildVar *gtk.Widget) {
-	core.LazyRegister(&xPreferencesGroupRemove, "ADW", "adw_preferences_group_remove", false)
-
 	xPreferencesGroupRemove(x.GoPointer(), ChildVar.GoPointer())
 }
 
@@ -207,8 +192,6 @@ var xPreferencesGroupSetDescription func(uintptr, uintptr)
 
 // Sets the description for @self.
 func (x *PreferencesGroup) SetDescription(DescriptionVar *string) {
-	core.LazyRegister(&xPreferencesGroupSetDescription, "ADW", "adw_preferences_group_set_description", false)
-
 	DescriptionVarPtr := core.GStrdupNullable(DescriptionVar)
 	defer core.GFreeNullable(DescriptionVarPtr)
 
@@ -223,8 +206,6 @@ var xPreferencesGroupSetHeaderSuffix func(uintptr, uintptr)
 //
 // Suffixes are commonly used to show a button or a spinner for the whole group.
 func (x *PreferencesGroup) SetHeaderSuffix(SuffixVar *gtk.Widget) {
-	core.LazyRegister(&xPreferencesGroupSetHeaderSuffix, "ADW", "adw_preferences_group_set_header_suffix", false)
-
 	xPreferencesGroupSetHeaderSuffix(x.GoPointer(), SuffixVar.GoPointer())
 }
 
@@ -236,8 +217,6 @@ var xPreferencesGroupSetSeparateRows func(uintptr, bool)
 // [`.boxed-list-separate`](style-classes.html#boxed-lists-cards) style class
 // on a [class@Gtk.ListBox] instead of `.boxed-list`.
 func (x *PreferencesGroup) SetSeparateRows(SeparateRowsVar bool) {
-	core.LazyRegister(&xPreferencesGroupSetSeparateRows, "ADW", "adw_preferences_group_set_separate_rows", false)
-
 	xPreferencesGroupSetSeparateRows(x.GoPointer(), SeparateRowsVar)
 }
 
@@ -245,8 +224,6 @@ var xPreferencesGroupSetTitle func(uintptr, string)
 
 // Sets the title for @self.
 func (x *PreferencesGroup) SetTitle(TitleVar string) {
-	core.LazyRegister(&xPreferencesGroupSetTitle, "ADW", "adw_preferences_group_set_title", false)
-
 	xPreferencesGroupSetTitle(x.GoPointer(), TitleVar)
 }
 
@@ -583,4 +560,29 @@ func (x *PreferencesGroup) GetBuildableId() string {
 func init() {
 	core.SetPackageName("ADW", "libadwaita-1")
 	core.SetSharedLibraries("ADW", []string{"libadwaita-1.so.0", "libadwaita-1.0.dylib"})
+	var libs []uintptr
+	for _, libPath := range core.GetPaths("ADW") {
+		lib, err := purego.Dlopen(libPath, purego.RTLD_NOW|purego.RTLD_GLOBAL)
+		if err != nil {
+			panic(err)
+		}
+		libs = append(libs, lib)
+	}
+
+	core.PuregoSafeRegister(&xPreferencesGroupGLibType, libs, "adw_preferences_group_get_type")
+
+	core.PuregoSafeRegister(&xNewPreferencesGroup, libs, "adw_preferences_group_new")
+
+	core.PuregoSafeRegister(&xPreferencesGroupAdd, libs, "adw_preferences_group_add")
+	core.PuregoSafeRegister(&xPreferencesGroupBindModel, libs, "adw_preferences_group_bind_model")
+	core.PuregoSafeRegister(&xPreferencesGroupGetDescription, libs, "adw_preferences_group_get_description")
+	core.PuregoSafeRegister(&xPreferencesGroupGetHeaderSuffix, libs, "adw_preferences_group_get_header_suffix")
+	core.PuregoSafeRegister(&xPreferencesGroupGetRow, libs, "adw_preferences_group_get_row")
+	core.PuregoSafeRegister(&xPreferencesGroupGetSeparateRows, libs, "adw_preferences_group_get_separate_rows")
+	core.PuregoSafeRegister(&xPreferencesGroupGetTitle, libs, "adw_preferences_group_get_title")
+	core.PuregoSafeRegister(&xPreferencesGroupRemove, libs, "adw_preferences_group_remove")
+	core.PuregoSafeRegister(&xPreferencesGroupSetDescription, libs, "adw_preferences_group_set_description")
+	core.PuregoSafeRegister(&xPreferencesGroupSetHeaderSuffix, libs, "adw_preferences_group_set_header_suffix")
+	core.PuregoSafeRegister(&xPreferencesGroupSetSeparateRows, libs, "adw_preferences_group_set_separate_rows")
+	core.PuregoSafeRegister(&xPreferencesGroupSetTitle, libs, "adw_preferences_group_set_title")
 }

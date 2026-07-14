@@ -199,7 +199,6 @@ type WindowGravity int
 var xWindowGravityGLibType func() types.GType
 
 func WindowGravityGLibType() types.GType {
-	core.LazyRegister(&xWindowGravityGLibType, "GTK", "gtk_window_gravity_get_type", false)
 	return xWindowGravityGLibType()
 }
 
@@ -326,7 +325,6 @@ type Window struct {
 var xWindowGLibType func() types.GType
 
 func WindowGLibType() types.GType {
-	core.LazyRegister(&xWindowGLibType, "GTK", "gtk_window_get_type", false)
 	return xWindowGLibType()
 }
 
@@ -351,7 +349,6 @@ var xNewWindow func() uintptr
 //
 // To delete a `GtkWindow`, call [method@Gtk.Window.destroy].
 func NewWindow() *Window {
-	core.LazyRegister(&xNewWindow, "GTK", "gtk_window_new", false)
 	var cls *Window
 
 	cret := xNewWindow()
@@ -375,8 +372,6 @@ var xWindowClose func(uintptr)
 // This function can be used with close buttons in custom
 // titlebars.
 func (x *Window) Close() {
-	core.LazyRegister(&xWindowClose, "GTK", "gtk_window_close", false)
-
 	xWindowClose(x.GoPointer())
 }
 
@@ -384,8 +379,6 @@ var xWindowDestroy func(uintptr)
 
 // Drops the internal reference GTK holds on toplevel windows.
 func (x *Window) Destroy() {
-	core.LazyRegister(&xWindowDestroy, "GTK", "gtk_window_destroy", false)
-
 	xWindowDestroy(x.GoPointer())
 }
 
@@ -405,8 +398,6 @@ var xWindowFullscreen func(uintptr)
 // [property@Gdk.Toplevel:state] property, or by listening to
 // notifications of the [property@Gtk.Window:fullscreened] property.
 func (x *Window) Fullscreen() {
-	core.LazyRegister(&xWindowFullscreen, "GTK", "gtk_window_fullscreen", false)
-
 	xWindowFullscreen(x.GoPointer())
 }
 
@@ -422,8 +413,6 @@ var xWindowFullscreenOnMonitor func(uintptr, uintptr)
 // [property@Gdk.Toplevel:state] property, or by listening to
 // notifications of the [property@Gtk.Window:fullscreened] property.
 func (x *Window) FullscreenOnMonitor(MonitorVar *gdk.Monitor) {
-	core.LazyRegister(&xWindowFullscreenOnMonitor, "GTK", "gtk_window_fullscreen_on_monitor", false)
-
 	xWindowFullscreenOnMonitor(x.GoPointer(), MonitorVar.GoPointer())
 }
 
@@ -431,7 +420,6 @@ var xWindowGetApplication func(uintptr) uintptr
 
 // Gets the application object associated with the window.
 func (x *Window) GetApplication() *Application {
-	core.LazyRegister(&xWindowGetApplication, "GTK", "gtk_window_get_application", false)
 	var cls *Application
 
 	cret := xWindowGetApplication(x.GoPointer())
@@ -449,7 +437,6 @@ var xWindowGetChild func(uintptr) uintptr
 
 // Gets the child widget of the window.
 func (x *Window) GetChild() *Widget {
-	core.LazyRegister(&xWindowGetChild, "GTK", "gtk_window_get_child", false)
 	var cls *Widget
 
 	cret := xWindowGetChild(x.GoPointer())
@@ -467,8 +454,6 @@ var xWindowGetDecorated func(uintptr) bool
 
 // Returns whether the window has been set to have decorations.
 func (x *Window) GetDecorated() bool {
-	core.LazyRegister(&xWindowGetDecorated, "GTK", "gtk_window_get_decorated", false)
-
 	cret := xWindowGetDecorated(x.GoPointer())
 	return cret
 }
@@ -484,8 +469,6 @@ var xWindowGetDefaultSize func(uintptr, *int, *int)
 // This function is the recommended way for [saving window state
 // across restarts of applications](https://developer.gnome.org/documentation/tutorials/save-state.html).
 func (x *Window) GetDefaultSize(WidthVar *int, HeightVar *int) {
-	core.LazyRegister(&xWindowGetDefaultSize, "GTK", "gtk_window_get_default_size", false)
-
 	xWindowGetDefaultSize(x.GoPointer(), WidthVar, HeightVar)
 }
 
@@ -493,7 +476,6 @@ var xWindowGetDefaultWidget func(uintptr) uintptr
 
 // Returns the default widget for @window.
 func (x *Window) GetDefaultWidget() *Widget {
-	core.LazyRegister(&xWindowGetDefaultWidget, "GTK", "gtk_window_get_default_widget", false)
 	var cls *Widget
 
 	cret := xWindowGetDefaultWidget(x.GoPointer())
@@ -511,8 +493,6 @@ var xWindowGetDeletable func(uintptr) bool
 
 // Returns whether the window has been set to have a close button.
 func (x *Window) GetDeletable() bool {
-	core.LazyRegister(&xWindowGetDeletable, "GTK", "gtk_window_get_deletable", false)
-
 	cret := xWindowGetDeletable(x.GoPointer())
 	return cret
 }
@@ -521,8 +501,6 @@ var xWindowGetDestroyWithParent func(uintptr) bool
 
 // Returns whether the window will be destroyed with its transient parent.
 func (x *Window) GetDestroyWithParent() bool {
-	core.LazyRegister(&xWindowGetDestroyWithParent, "GTK", "gtk_window_get_destroy_with_parent", false)
-
 	cret := xWindowGetDestroyWithParent(x.GoPointer())
 	return cret
 }
@@ -536,7 +514,6 @@ var xWindowGetFocus func(uintptr) uintptr
 // is not focused then `gtk_widget_has_focus (widget)` will
 // not be false for the widget.
 func (x *Window) GetFocus() *Widget {
-	core.LazyRegister(&xWindowGetFocus, "GTK", "gtk_window_get_focus", false)
 	var cls *Widget
 
 	cret := xWindowGetFocus(x.GoPointer())
@@ -554,8 +531,6 @@ var xWindowGetFocusVisible func(uintptr) bool
 
 // Gets whether “focus rectangles” are supposed to be visible.
 func (x *Window) GetFocusVisible() bool {
-	core.LazyRegister(&xWindowGetFocusVisible, "GTK", "gtk_window_get_focus_visible", false)
-
 	cret := xWindowGetFocusVisible(x.GoPointer())
 	return cret
 }
@@ -564,8 +539,6 @@ var xWindowGetGravity func(uintptr) WindowGravity
 
 // Returns the gravity that is used when changing the window size programmatically.
 func (x *Window) GetGravity() WindowGravity {
-	core.LazyRegister(&xWindowGetGravity, "GTK", "gtk_window_get_gravity", false)
-
 	cret := xWindowGetGravity(x.GoPointer())
 	return cret
 }
@@ -576,7 +549,6 @@ var xWindowGetGroup func(uintptr) uintptr
 //
 // If the window has no group, then the default group is returned.
 func (x *Window) GetGroup() *WindowGroup {
-	core.LazyRegister(&xWindowGetGroup, "GTK", "gtk_window_get_group", false)
 	var cls *WindowGroup
 
 	cret := xWindowGetGroup(x.GoPointer())
@@ -595,8 +567,6 @@ var xWindowGetHandleMenubarAccel func(uintptr) bool
 // Returns whether this window reacts to &lt;kbd&gt;F10&lt;/kbd&gt;
 // presses by activating a menubar it contains.
 func (x *Window) GetHandleMenubarAccel() bool {
-	core.LazyRegister(&xWindowGetHandleMenubarAccel, "GTK", "gtk_window_get_handle_menubar_accel", false)
-
 	cret := xWindowGetHandleMenubarAccel(x.GoPointer())
 	return cret
 }
@@ -606,8 +576,6 @@ var xWindowGetHideOnClose func(uintptr) bool
 // Returns whether the window will be hidden instead of destroyed when the close
 // button is clicked.
 func (x *Window) GetHideOnClose() bool {
-	core.LazyRegister(&xWindowGetHideOnClose, "GTK", "gtk_window_get_hide_on_close", false)
-
 	cret := xWindowGetHideOnClose(x.GoPointer())
 	return cret
 }
@@ -616,8 +584,6 @@ var xWindowGetIconName func(uintptr) string
 
 // Returns the name of the themed icon for the window.
 func (x *Window) GetIconName() string {
-	core.LazyRegister(&xWindowGetIconName, "GTK", "gtk_window_get_icon_name", false)
-
 	cret := xWindowGetIconName(x.GoPointer())
 	return cret
 }
@@ -626,8 +592,6 @@ var xWindowGetMnemonicsVisible func(uintptr) bool
 
 // Gets whether mnemonics are supposed to be visible.
 func (x *Window) GetMnemonicsVisible() bool {
-	core.LazyRegister(&xWindowGetMnemonicsVisible, "GTK", "gtk_window_get_mnemonics_visible", false)
-
 	cret := xWindowGetMnemonicsVisible(x.GoPointer())
 	return cret
 }
@@ -636,8 +600,6 @@ var xWindowGetModal func(uintptr) bool
 
 // Returns whether the window is modal.
 func (x *Window) GetModal() bool {
-	core.LazyRegister(&xWindowGetModal, "GTK", "gtk_window_get_modal", false)
-
 	cret := xWindowGetModal(x.GoPointer())
 	return cret
 }
@@ -646,8 +608,6 @@ var xWindowGetResizable func(uintptr) bool
 
 // Gets whether the user can resize the window.
 func (x *Window) GetResizable() bool {
-	core.LazyRegister(&xWindowGetResizable, "GTK", "gtk_window_get_resizable", false)
-
 	cret := xWindowGetResizable(x.GoPointer())
 	return cret
 }
@@ -656,8 +616,6 @@ var xWindowGetTitle func(uintptr) string
 
 // Retrieves the title of the window.
 func (x *Window) GetTitle() string {
-	core.LazyRegister(&xWindowGetTitle, "GTK", "gtk_window_get_title", false)
-
 	cret := xWindowGetTitle(x.GoPointer())
 	return cret
 }
@@ -667,7 +625,6 @@ var xWindowGetTitlebar func(uintptr) uintptr
 // Returns the titlebar that has been set with
 // [method@Gtk.Window.set_titlebar].
 func (x *Window) GetTitlebar() *Widget {
-	core.LazyRegister(&xWindowGetTitlebar, "GTK", "gtk_window_get_titlebar", false)
 	var cls *Widget
 
 	cret := xWindowGetTitlebar(x.GoPointer())
@@ -685,7 +642,6 @@ var xWindowGetTransientFor func(uintptr) uintptr
 
 // Fetches the transient parent for this window.
 func (x *Window) GetTransientFor() *Window {
-	core.LazyRegister(&xWindowGetTransientFor, "GTK", "gtk_window_get_transient_for", false)
 	var cls *Window
 
 	cret := xWindowGetTransientFor(x.GoPointer())
@@ -703,8 +659,6 @@ var xWindowHasGroup func(uintptr) bool
 
 // Returns whether the window has an explicit window group.
 func (x *Window) HasGroup() bool {
-	core.LazyRegister(&xWindowHasGroup, "GTK", "gtk_window_has_group", false)
-
 	cret := xWindowHasGroup(x.GoPointer())
 	return cret
 }
@@ -719,8 +673,6 @@ var xWindowIsActive func(uintptr) bool
 // You might use this function if you wanted to draw a widget
 // differently in an active window from a widget in an inactive window.
 func (x *Window) IsActive() bool {
-	core.LazyRegister(&xWindowIsActive, "GTK", "gtk_window_is_active", false)
-
 	cret := xWindowIsActive(x.GoPointer())
 	return cret
 }
@@ -738,8 +690,6 @@ var xWindowIsFullscreen func(uintptr) bool
 // If the window isn't yet mapped, the value returned will whether the
 // initial requested state is fullscreen.
 func (x *Window) IsFullscreen() bool {
-	core.LazyRegister(&xWindowIsFullscreen, "GTK", "gtk_window_is_fullscreen", false)
-
 	cret := xWindowIsFullscreen(x.GoPointer())
 	return cret
 }
@@ -757,8 +707,6 @@ var xWindowIsMaximized func(uintptr) bool
 // If the window isn't yet mapped, the value returned will whether the
 // initial requested state is maximized.
 func (x *Window) IsMaximized() bool {
-	core.LazyRegister(&xWindowIsMaximized, "GTK", "gtk_window_is_maximized", false)
-
 	cret := xWindowIsMaximized(x.GoPointer())
 	return cret
 }
@@ -771,8 +719,6 @@ var xWindowIsSuspended func(uintptr) bool
 // to the user, for example by being on a inactive workspace,
 // minimized, obstructed.
 func (x *Window) IsSuspended() bool {
-	core.LazyRegister(&xWindowIsSuspended, "GTK", "gtk_window_is_suspended", false)
-
 	cret := xWindowIsSuspended(x.GoPointer())
 	return cret
 }
@@ -800,8 +746,6 @@ var xWindowMaximize func(uintptr)
 // notifications on the [property@Gtk.Window:maximized]
 // property.
 func (x *Window) Maximize() {
-	core.LazyRegister(&xWindowMaximize, "GTK", "gtk_window_maximize", false)
-
 	xWindowMaximize(x.GoPointer())
 }
 
@@ -822,8 +766,6 @@ var xWindowMinimize func(uintptr)
 // You can track result of this operation via the
 // [property@Gdk.Toplevel:state] property.
 func (x *Window) Minimize() {
-	core.LazyRegister(&xWindowMinimize, "GTK", "gtk_window_minimize", false)
-
 	xWindowMinimize(x.GoPointer())
 }
 
@@ -838,8 +780,6 @@ var xWindowPresent func(uintptr)
 //
 // If @window is hidden, this function also makes it visible.
 func (x *Window) Present() {
-	core.LazyRegister(&xWindowPresent, "GTK", "gtk_window_present", false)
-
 	xWindowPresent(x.GoPointer())
 }
 
@@ -853,8 +793,6 @@ var xWindowPresentWithTime func(uintptr, uint32)
 // to be shown (when clicking a link for example), rather than once
 // the window is ready to be shown.
 func (x *Window) PresentWithTime(TimestampVar uint32) {
-	core.LazyRegister(&xWindowPresentWithTime, "GTK", "gtk_window_present_with_time", false)
-
 	xWindowPresentWithTime(x.GoPointer(), TimestampVar)
 }
 
@@ -874,8 +812,6 @@ var xWindowSetApplication func(uintptr, uintptr)
 // and/or [method@Gtk.Application.add_window] on the old/new applications
 // as relevant.
 func (x *Window) SetApplication(ApplicationVar *Application) {
-	core.LazyRegister(&xWindowSetApplication, "GTK", "gtk_window_set_application", false)
-
 	xWindowSetApplication(x.GoPointer(), ApplicationVar.GoPointer())
 }
 
@@ -883,8 +819,6 @@ var xWindowSetChild func(uintptr, uintptr)
 
 // Sets the child widget of the window.
 func (x *Window) SetChild(ChildVar *Widget) {
-	core.LazyRegister(&xWindowSetChild, "GTK", "gtk_window_set_child", false)
-
 	xWindowSetChild(x.GoPointer(), ChildVar.GoPointer())
 }
 
@@ -904,8 +838,6 @@ var xWindowSetDecorated func(uintptr, bool)
 // On Windows, this function always works, since there’s no window manager
 // policy involved.
 func (x *Window) SetDecorated(SettingVar bool) {
-	core.LazyRegister(&xWindowSetDecorated, "GTK", "gtk_window_set_decorated", false)
-
 	xWindowSetDecorated(x.GoPointer(), SettingVar)
 }
 
@@ -942,8 +874,6 @@ var xWindowSetDefaultSize func(uintptr, int, int)
 // directly will not work in all circumstances and can lead to growing
 // or shrinking windows.
 func (x *Window) SetDefaultSize(WidthVar int, HeightVar int) {
-	core.LazyRegister(&xWindowSetDefaultSize, "GTK", "gtk_window_set_default_size", false)
-
 	xWindowSetDefaultSize(x.GoPointer(), WidthVar, HeightVar)
 }
 
@@ -955,8 +885,6 @@ var xWindowSetDefaultWidget func(uintptr, uintptr)
 // when the user presses &lt;kbd&gt;Enter&lt;/kbd&gt; in a dialog
 // (for example).
 func (x *Window) SetDefaultWidget(DefaultWidgetVar *Widget) {
-	core.LazyRegister(&xWindowSetDefaultWidget, "GTK", "gtk_window_set_default_widget", false)
-
 	xWindowSetDefaultWidget(x.GoPointer(), DefaultWidgetVar.GoPointer())
 }
 
@@ -975,8 +903,6 @@ var xWindowSetDeletable func(uintptr, bool)
 // On Windows, this function always works, since there’s no window
 // manager policy involved.
 func (x *Window) SetDeletable(SettingVar bool) {
-	core.LazyRegister(&xWindowSetDeletable, "GTK", "gtk_window_set_deletable", false)
-
 	xWindowSetDeletable(x.GoPointer(), SettingVar)
 }
 
@@ -987,8 +913,6 @@ var xWindowSetDestroyWithParent func(uintptr, bool)
 // This is useful for dialogs that shouldn’t persist beyond the lifetime
 // of the main window they are associated with, for example.
 func (x *Window) SetDestroyWithParent(SettingVar bool) {
-	core.LazyRegister(&xWindowSetDestroyWithParent, "GTK", "gtk_window_set_destroy_with_parent", false)
-
 	xWindowSetDestroyWithParent(x.GoPointer(), SettingVar)
 }
 
@@ -999,8 +923,6 @@ var xWindowSetDisplay func(uintptr, uintptr)
 // If the window is already mapped, it will be unmapped,
 // and then remapped on the new display.
 func (x *Window) SetDisplay(DisplayVar *gdk.Display) {
-	core.LazyRegister(&xWindowSetDisplay, "GTK", "gtk_window_set_display", false)
-
 	xWindowSetDisplay(x.GoPointer(), DisplayVar.GoPointer())
 }
 
@@ -1014,8 +936,6 @@ var xWindowSetFocus func(uintptr, uintptr)
 // particular widget in the toplevel, it is usually more convenient
 // to use [method@Gtk.Widget.grab_focus] instead of this function.
 func (x *Window) SetFocus(FocusVar *Widget) {
-	core.LazyRegister(&xWindowSetFocus, "GTK", "gtk_window_set_focus", false)
-
 	xWindowSetFocus(x.GoPointer(), FocusVar.GoPointer())
 }
 
@@ -1026,8 +946,6 @@ var xWindowSetFocusVisible func(uintptr, bool)
 // This property is maintained by GTK based on user input,
 // and should not be set by applications.
 func (x *Window) SetFocusVisible(SettingVar bool) {
-	core.LazyRegister(&xWindowSetFocusVisible, "GTK", "gtk_window_set_focus_visible", false)
-
 	xWindowSetFocusVisible(x.GoPointer(), SettingVar)
 }
 
@@ -1035,8 +953,6 @@ var xWindowSetGravity func(uintptr, WindowGravity)
 
 // Sets the gravity that is used when changing the window size programmatically.
 func (x *Window) SetGravity(GravityVar WindowGravity) {
-	core.LazyRegister(&xWindowSetGravity, "GTK", "gtk_window_set_gravity", false)
-
 	xWindowSetGravity(x.GoPointer(), GravityVar)
 }
 
@@ -1045,8 +961,6 @@ var xWindowSetHandleMenubarAccel func(uintptr, bool)
 // Sets whether this window should react to &lt;kbd&gt;F10&lt;/kbd&gt;
 // presses by activating a menubar it contains.
 func (x *Window) SetHandleMenubarAccel(HandleMenubarAccelVar bool) {
-	core.LazyRegister(&xWindowSetHandleMenubarAccel, "GTK", "gtk_window_set_handle_menubar_accel", false)
-
 	xWindowSetHandleMenubarAccel(x.GoPointer(), HandleMenubarAccelVar)
 }
 
@@ -1055,8 +969,6 @@ var xWindowSetHideOnClose func(uintptr, bool)
 // Sets whether clicking the close button will hide the window instead
 // of destroying it.
 func (x *Window) SetHideOnClose(SettingVar bool) {
-	core.LazyRegister(&xWindowSetHideOnClose, "GTK", "gtk_window_set_hide_on_close", false)
-
 	xWindowSetHideOnClose(x.GoPointer(), SettingVar)
 }
 
@@ -1070,8 +982,6 @@ var xWindowSetIconName func(uintptr, uintptr)
 // Note that this has nothing to do with the WM_ICON_NAME
 // property which is mentioned in the ICCCM.
 func (x *Window) SetIconName(NameVar *string) {
-	core.LazyRegister(&xWindowSetIconName, "GTK", "gtk_window_set_icon_name", false)
-
 	NameVarPtr := core.GStrdupNullable(NameVar)
 	defer core.GFreeNullable(NameVarPtr)
 
@@ -1085,8 +995,6 @@ var xWindowSetMnemonicsVisible func(uintptr, bool)
 // This property is maintained by GTK based on user input,
 // and should not be set by applications.
 func (x *Window) SetMnemonicsVisible(SettingVar bool) {
-	core.LazyRegister(&xWindowSetMnemonicsVisible, "GTK", "gtk_window_set_mnemonics_visible", false)
-
 	xWindowSetMnemonicsVisible(x.GoPointer(), SettingVar)
 }
 
@@ -1100,8 +1008,6 @@ var xWindowSetModal func(uintptr, bool)
 // for the parent; most window managers will then disallow lowering the
 // dialog below the parent.
 func (x *Window) SetModal(ModalVar bool) {
-	core.LazyRegister(&xWindowSetModal, "GTK", "gtk_window_set_modal", false)
-
 	xWindowSetModal(x.GoPointer(), ModalVar)
 }
 
@@ -1111,8 +1017,6 @@ var xWindowSetResizable func(uintptr, bool)
 //
 // Windows are user resizable by default.
 func (x *Window) SetResizable(ResizableVar bool) {
-	core.LazyRegister(&xWindowSetResizable, "GTK", "gtk_window_set_resizable", false)
-
 	xWindowSetResizable(x.GoPointer(), ResizableVar)
 }
 
@@ -1134,8 +1038,6 @@ var xWindowSetStartupId func(uintptr, string)
 // This function is only useful on Wayland or X11, not with other GDK
 // backends.
 func (x *Window) SetStartupId(StartupIdVar string) {
-	core.LazyRegister(&xWindowSetStartupId, "GTK", "gtk_window_set_startup_id", false)
-
 	xWindowSetStartupId(x.GoPointer(), StartupIdVar)
 }
 
@@ -1152,8 +1054,6 @@ var xWindowSetTitle func(uintptr, uintptr)
 //
 // Passing `NULL` does the same as setting the title to an empty string.
 func (x *Window) SetTitle(TitleVar *string) {
-	core.LazyRegister(&xWindowSetTitle, "GTK", "gtk_window_set_title", false)
-
 	TitleVarPtr := core.GStrdupNullable(TitleVar)
 	defer core.GFreeNullable(TitleVarPtr)
 
@@ -1174,8 +1074,6 @@ var xWindowSetTitlebar func(uintptr, uintptr)
 // that is already visible, so you set the titlebar before calling
 // [method@Gtk.Widget.show].
 func (x *Window) SetTitlebar(TitlebarVar *Widget) {
-	core.LazyRegister(&xWindowSetTitlebar, "GTK", "gtk_window_set_titlebar", false)
-
 	xWindowSetTitlebar(x.GoPointer(), TitlebarVar.GoPointer())
 }
 
@@ -1195,8 +1093,6 @@ var xWindowSetTransientFor func(uintptr, uintptr)
 // On Windows, this function puts the child window on top of the parent,
 // much as the window manager would have done on X.
 func (x *Window) SetTransientFor(ParentVar *Window) {
-	core.LazyRegister(&xWindowSetTransientFor, "GTK", "gtk_window_set_transient_for", false)
-
 	xWindowSetTransientFor(x.GoPointer(), ParentVar.GoPointer())
 }
 
@@ -1219,8 +1115,6 @@ var xWindowUnfullscreen func(uintptr)
 // [property@Gdk.Toplevel:state] property, or by listening to
 // notifications of the [property@Gtk.Window:fullscreened] property.
 func (x *Window) Unfullscreen() {
-	core.LazyRegister(&xWindowUnfullscreen, "GTK", "gtk_window_unfullscreen", false)
-
 	xWindowUnfullscreen(x.GoPointer())
 }
 
@@ -1242,8 +1136,6 @@ var xWindowUnmaximize func(uintptr)
 // [property@Gdk.Toplevel:state] property, or by listening to
 // notifications on the [property@Gtk.Window:maximized] property.
 func (x *Window) Unmaximize() {
-	core.LazyRegister(&xWindowUnmaximize, "GTK", "gtk_window_unmaximize", false)
-
 	xWindowUnmaximize(x.GoPointer())
 }
 
@@ -1260,8 +1152,6 @@ var xWindowUnminimize func(uintptr)
 // You can track result of this operation via the
 // [property@Gdk.Toplevel:state] property.
 func (x *Window) Unminimize() {
-	core.LazyRegister(&xWindowUnminimize, "GTK", "gtk_window_unminimize", false)
-
 	xWindowUnminimize(x.GoPointer())
 }
 
@@ -2076,8 +1966,6 @@ var xWindowGetDefaultIconName func() string
 // be modified. It is only valid until the next call to
 // [func@Gtk.Window.set_default_icon_name].
 func WindowGetDefaultIconName() string {
-	core.LazyRegister(&xWindowGetDefaultIconName, "GTK", "gtk_window_get_default_icon_name", false)
-
 	cret := xWindowGetDefaultIconName()
 	return cret
 }
@@ -2090,7 +1978,6 @@ var xWindowGetToplevels func() uintptr
 // callbacks that might destroy the widgets or add new ones, be aware that
 // the list of toplevels will change and emit the "items-changed" signal.
 func WindowGetToplevels() *gio.ListModelBase {
-	core.LazyRegister(&xWindowGetToplevels, "GTK", "gtk_window_get_toplevels", false)
 	var cls *gio.ListModelBase
 
 	cret := xWindowGetToplevels()
@@ -2114,8 +2001,6 @@ var xWindowListToplevels func() uintptr
 // call `g_list_foreach (result, (GFunc)g_object_ref, NULL)` first,
 // and then unref all the widgets afterwards.
 func WindowListToplevels() *glib.List {
-	core.LazyRegister(&xWindowListToplevels, "GTK", "gtk_window_list_toplevels", false)
-
 	cret := xWindowListToplevels()
 	if cret == 0 {
 		return nil
@@ -2138,8 +2023,6 @@ var xWindowSetAutoStartupNotification func(bool)
 // temporarily, show your splash screen, then re-enable it so that
 // showing the main window would automatically result in notification.
 func WindowSetAutoStartupNotification(SettingVar bool) {
-	core.LazyRegister(&xWindowSetAutoStartupNotification, "GTK", "gtk_window_set_auto_startup_notification", false)
-
 	xWindowSetAutoStartupNotification(SettingVar)
 }
 
@@ -2151,8 +2034,6 @@ var xWindowSetDefaultIconName func(string)
 // haven't had [method@Gtk.Window.set_icon_name]
 // called on them.
 func WindowSetDefaultIconName(NameVar string) {
-	core.LazyRegister(&xWindowSetDefaultIconName, "GTK", "gtk_window_set_default_icon_name", false)
-
 	xWindowSetDefaultIconName(NameVar)
 }
 
@@ -2171,12 +2052,89 @@ var xWindowSetInteractiveDebugging func(bool)
 // If you are not overriding the default key shortcuts for the Inspector,
 // you should not use this function.
 func WindowSetInteractiveDebugging(EnableVar bool) {
-	core.LazyRegister(&xWindowSetInteractiveDebugging, "GTK", "gtk_window_set_interactive_debugging", false)
-
 	xWindowSetInteractiveDebugging(EnableVar)
 }
 
 func init() {
 	core.SetPackageName("GTK", "gtk4")
 	core.SetSharedLibraries("GTK", []string{"libgtk-4.so.1", "libgtk-4.1.dylib"})
+	var libs []uintptr
+	for _, libPath := range core.GetPaths("GTK") {
+		lib, err := purego.Dlopen(libPath, purego.RTLD_NOW|purego.RTLD_GLOBAL)
+		if err != nil {
+			panic(err)
+		}
+		libs = append(libs, lib)
+	}
+
+	core.PuregoSafeRegister(&xWindowGravityGLibType, libs, "gtk_window_gravity_get_type")
+
+	core.PuregoSafeRegister(&xWindowGLibType, libs, "gtk_window_get_type")
+
+	core.PuregoSafeRegister(&xNewWindow, libs, "gtk_window_new")
+
+	core.PuregoSafeRegister(&xWindowClose, libs, "gtk_window_close")
+	core.PuregoSafeRegister(&xWindowDestroy, libs, "gtk_window_destroy")
+	core.PuregoSafeRegister(&xWindowFullscreen, libs, "gtk_window_fullscreen")
+	core.PuregoSafeRegister(&xWindowFullscreenOnMonitor, libs, "gtk_window_fullscreen_on_monitor")
+	core.PuregoSafeRegister(&xWindowGetApplication, libs, "gtk_window_get_application")
+	core.PuregoSafeRegister(&xWindowGetChild, libs, "gtk_window_get_child")
+	core.PuregoSafeRegister(&xWindowGetDecorated, libs, "gtk_window_get_decorated")
+	core.PuregoSafeRegister(&xWindowGetDefaultSize, libs, "gtk_window_get_default_size")
+	core.PuregoSafeRegister(&xWindowGetDefaultWidget, libs, "gtk_window_get_default_widget")
+	core.PuregoSafeRegister(&xWindowGetDeletable, libs, "gtk_window_get_deletable")
+	core.PuregoSafeRegister(&xWindowGetDestroyWithParent, libs, "gtk_window_get_destroy_with_parent")
+	core.PuregoSafeRegister(&xWindowGetFocus, libs, "gtk_window_get_focus")
+	core.PuregoSafeRegister(&xWindowGetFocusVisible, libs, "gtk_window_get_focus_visible")
+	core.PuregoSafeRegister(&xWindowGetGravity, libs, "gtk_window_get_gravity")
+	core.PuregoSafeRegister(&xWindowGetGroup, libs, "gtk_window_get_group")
+	core.PuregoSafeRegister(&xWindowGetHandleMenubarAccel, libs, "gtk_window_get_handle_menubar_accel")
+	core.PuregoSafeRegister(&xWindowGetHideOnClose, libs, "gtk_window_get_hide_on_close")
+	core.PuregoSafeRegister(&xWindowGetIconName, libs, "gtk_window_get_icon_name")
+	core.PuregoSafeRegister(&xWindowGetMnemonicsVisible, libs, "gtk_window_get_mnemonics_visible")
+	core.PuregoSafeRegister(&xWindowGetModal, libs, "gtk_window_get_modal")
+	core.PuregoSafeRegister(&xWindowGetResizable, libs, "gtk_window_get_resizable")
+	core.PuregoSafeRegister(&xWindowGetTitle, libs, "gtk_window_get_title")
+	core.PuregoSafeRegister(&xWindowGetTitlebar, libs, "gtk_window_get_titlebar")
+	core.PuregoSafeRegister(&xWindowGetTransientFor, libs, "gtk_window_get_transient_for")
+	core.PuregoSafeRegister(&xWindowHasGroup, libs, "gtk_window_has_group")
+	core.PuregoSafeRegister(&xWindowIsActive, libs, "gtk_window_is_active")
+	core.PuregoSafeRegister(&xWindowIsFullscreen, libs, "gtk_window_is_fullscreen")
+	core.PuregoSafeRegister(&xWindowIsMaximized, libs, "gtk_window_is_maximized")
+	core.PuregoSafeRegister(&xWindowIsSuspended, libs, "gtk_window_is_suspended")
+	core.PuregoSafeRegister(&xWindowMaximize, libs, "gtk_window_maximize")
+	core.PuregoSafeRegister(&xWindowMinimize, libs, "gtk_window_minimize")
+	core.PuregoSafeRegister(&xWindowPresent, libs, "gtk_window_present")
+	core.PuregoSafeRegister(&xWindowPresentWithTime, libs, "gtk_window_present_with_time")
+	core.PuregoSafeRegister(&xWindowSetApplication, libs, "gtk_window_set_application")
+	core.PuregoSafeRegister(&xWindowSetChild, libs, "gtk_window_set_child")
+	core.PuregoSafeRegister(&xWindowSetDecorated, libs, "gtk_window_set_decorated")
+	core.PuregoSafeRegister(&xWindowSetDefaultSize, libs, "gtk_window_set_default_size")
+	core.PuregoSafeRegister(&xWindowSetDefaultWidget, libs, "gtk_window_set_default_widget")
+	core.PuregoSafeRegister(&xWindowSetDeletable, libs, "gtk_window_set_deletable")
+	core.PuregoSafeRegister(&xWindowSetDestroyWithParent, libs, "gtk_window_set_destroy_with_parent")
+	core.PuregoSafeRegister(&xWindowSetDisplay, libs, "gtk_window_set_display")
+	core.PuregoSafeRegister(&xWindowSetFocus, libs, "gtk_window_set_focus")
+	core.PuregoSafeRegister(&xWindowSetFocusVisible, libs, "gtk_window_set_focus_visible")
+	core.PuregoSafeRegister(&xWindowSetGravity, libs, "gtk_window_set_gravity")
+	core.PuregoSafeRegister(&xWindowSetHandleMenubarAccel, libs, "gtk_window_set_handle_menubar_accel")
+	core.PuregoSafeRegister(&xWindowSetHideOnClose, libs, "gtk_window_set_hide_on_close")
+	core.PuregoSafeRegister(&xWindowSetIconName, libs, "gtk_window_set_icon_name")
+	core.PuregoSafeRegister(&xWindowSetMnemonicsVisible, libs, "gtk_window_set_mnemonics_visible")
+	core.PuregoSafeRegister(&xWindowSetModal, libs, "gtk_window_set_modal")
+	core.PuregoSafeRegister(&xWindowSetResizable, libs, "gtk_window_set_resizable")
+	core.PuregoSafeRegister(&xWindowSetStartupId, libs, "gtk_window_set_startup_id")
+	core.PuregoSafeRegister(&xWindowSetTitle, libs, "gtk_window_set_title")
+	core.PuregoSafeRegister(&xWindowSetTitlebar, libs, "gtk_window_set_titlebar")
+	core.PuregoSafeRegister(&xWindowSetTransientFor, libs, "gtk_window_set_transient_for")
+	core.PuregoSafeRegister(&xWindowUnfullscreen, libs, "gtk_window_unfullscreen")
+	core.PuregoSafeRegister(&xWindowUnmaximize, libs, "gtk_window_unmaximize")
+	core.PuregoSafeRegister(&xWindowUnminimize, libs, "gtk_window_unminimize")
+
+	core.PuregoSafeRegister(&xWindowGetDefaultIconName, libs, "gtk_window_get_default_icon_name")
+	core.PuregoSafeRegister(&xWindowGetToplevels, libs, "gtk_window_get_toplevels")
+	core.PuregoSafeRegister(&xWindowListToplevels, libs, "gtk_window_list_toplevels")
+	core.PuregoSafeRegister(&xWindowSetAutoStartupNotification, libs, "gtk_window_set_auto_startup_notification")
+	core.PuregoSafeRegister(&xWindowSetDefaultIconName, libs, "gtk_window_set_default_icon_name")
+	core.PuregoSafeRegister(&xWindowSetInteractiveDebugging, libs, "gtk_window_set_interactive_debugging")
 }

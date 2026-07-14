@@ -5,6 +5,7 @@ import (
 	"structs"
 	"unsafe"
 
+	"github.com/bnema/purego"
 	"github.com/bnema/puregotk/pkg/core"
 	"github.com/bnema/puregotk/v4/gobject"
 	"github.com/bnema/puregotk/v4/gobject/types"
@@ -42,7 +43,6 @@ type ResponsePolicyDecision struct {
 var xResponsePolicyDecisionGLibType func() types.GType
 
 func ResponsePolicyDecisionGLibType() types.GType {
-	core.LazyRegister(&xResponsePolicyDecisionGLibType, "WEBKIT", "webkit_response_policy_decision_get_type", false)
 	return xResponsePolicyDecisionGLibType()
 }
 
@@ -62,7 +62,6 @@ var xResponsePolicyDecisionGetRequest func(uintptr) uintptr
 // not. To modify requests before they are sent over the network the
 // #WebKitPage::send-request signal can be used instead.
 func (x *ResponsePolicyDecision) GetRequest() *URIRequest {
-	core.LazyRegister(&xResponsePolicyDecisionGetRequest, "WEBKIT", "webkit_response_policy_decision_get_request", false)
 	var cls *URIRequest
 
 	cret := xResponsePolicyDecisionGetRequest(x.GoPointer())
@@ -80,7 +79,6 @@ var xResponsePolicyDecisionGetResponse func(uintptr) uintptr
 
 // Gets the value of the #WebKitResponsePolicyDecision:response property.
 func (x *ResponsePolicyDecision) GetResponse() *URIResponse {
-	core.LazyRegister(&xResponsePolicyDecisionGetResponse, "WEBKIT", "webkit_response_policy_decision_get_response", false)
 	var cls *URIResponse
 
 	cret := xResponsePolicyDecisionGetResponse(x.GoPointer())
@@ -98,8 +96,6 @@ var xResponsePolicyDecisionIsMainFrameMainResource func(uintptr) bool
 
 // Gets whether the request is the main frame main resource
 func (x *ResponsePolicyDecision) IsMainFrameMainResource() bool {
-	core.LazyRegister(&xResponsePolicyDecisionIsMainFrameMainResource, "WEBKIT", "webkit_response_policy_decision_is_main_frame_main_resource", false)
-
 	cret := xResponsePolicyDecisionIsMainFrameMainResource(x.GoPointer())
 	return cret
 }
@@ -111,8 +107,6 @@ var xResponsePolicyDecisionIsMimeTypeSupported func(uintptr) bool
 // Gets whether the MIME type of the response can be displayed in the #WebKitWebView
 // that triggered this policy decision request. See also webkit_web_view_can_show_mime_type().
 func (x *ResponsePolicyDecision) IsMimeTypeSupported() bool {
-	core.LazyRegister(&xResponsePolicyDecisionIsMimeTypeSupported, "WEBKIT", "webkit_response_policy_decision_is_mime_type_supported", false)
-
 	cret := xResponsePolicyDecisionIsMimeTypeSupported(x.GoPointer())
 	return cret
 }
@@ -131,8 +125,24 @@ func (c *ResponsePolicyDecision) SetGoPointer(ptr uintptr) {
 func init() {
 	core.SetPackageName("WEBKIT", "webkitgtk-6.0")
 	core.SetSharedLibraries("WEBKIT", []string{"libwebkitgtk-6.0.so.4", "libjavascriptcoregtk-6.0.so.1", "libwebkitgtk-6.0.4.dylib", "libjavascriptcoregtk-6.0.1.dylib"})
+	var libs []uintptr
+	for _, libPath := range core.GetPaths("WEBKIT") {
+		lib, err := purego.Dlopen(libPath, purego.RTLD_NOW|purego.RTLD_GLOBAL)
+		if err != nil {
+			panic(err)
+		}
+		libs = append(libs, lib)
+	}
 
-	// Manually register types since they aren't automatically registered when
-	// WebKit is loaded. See https://bugs.webkit.org/show_bug.cgi?id=175937.
+	core.PuregoSafeRegister(&xResponsePolicyDecisionGLibType, libs, "webkit_response_policy_decision_get_type")
+
+	core.PuregoSafeRegister(&xResponsePolicyDecisionGetRequest, libs, "webkit_response_policy_decision_get_request")
+	core.PuregoSafeRegister(&xResponsePolicyDecisionGetResponse, libs, "webkit_response_policy_decision_get_response")
+	core.PuregoSafeRegister(&xResponsePolicyDecisionIsMainFrameMainResource, libs, "webkit_response_policy_decision_is_main_frame_main_resource")
+	core.PuregoSafeRegister(&xResponsePolicyDecisionIsMimeTypeSupported, libs, "webkit_response_policy_decision_is_mime_type_supported")
+
+	// Manually register types since they aren't being automatically registered when
+	// the library is loaded
+	// See https://bugs.webkit.org/show_bug.cgi?id=175937
 	ResponsePolicyDecisionGLibType()
 }

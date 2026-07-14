@@ -226,7 +226,6 @@ type TypeModule struct {
 var xTypeModuleGLibType func() types.GType
 
 func TypeModuleGLibType() types.GType {
-	core.LazyRegister(&xTypeModuleGLibType, "GOBJECT", "g_type_module_get_type", false)
 	return xTypeModuleGLibType()
 }
 
@@ -248,8 +247,6 @@ var xTypeModuleAddInterface func(uintptr, types.GType, types.GType, *InterfaceIn
 // Since 2.56 if @module is %NULL this will call g_type_add_interface_static()
 // instead. This can be used when making a static build of the module.
 func (x *TypeModule) AddInterface(InstanceTypeVar types.GType, InterfaceTypeVar types.GType, InterfaceInfoVar *InterfaceInfo) {
-	core.LazyRegister(&xTypeModuleAddInterface, "GOBJECT", "g_type_module_add_interface", false)
-
 	xTypeModuleAddInterface(x.GoPointer(), InstanceTypeVar, InterfaceTypeVar, InterfaceInfoVar)
 }
 
@@ -266,8 +263,6 @@ var xTypeModuleRegisterEnum func(uintptr, string, []EnumValue) types.GType
 // Since 2.56 if @module is %NULL this will call g_type_register_static()
 // instead. This can be used when making a static build of the module.
 func (x *TypeModule) RegisterEnum(NameVar string, ConstStaticValuesVar []EnumValue) types.GType {
-	core.LazyRegister(&xTypeModuleRegisterEnum, "GOBJECT", "g_type_module_register_enum", false)
-
 	cret := xTypeModuleRegisterEnum(x.GoPointer(), NameVar, ConstStaticValuesVar)
 	return cret
 }
@@ -285,8 +280,6 @@ var xTypeModuleRegisterFlags func(uintptr, string, []FlagsValue) types.GType
 // Since 2.56 if @module is %NULL this will call g_type_register_static()
 // instead. This can be used when making a static build of the module.
 func (x *TypeModule) RegisterFlags(NameVar string, ConstStaticValuesVar []FlagsValue) types.GType {
-	core.LazyRegister(&xTypeModuleRegisterFlags, "GOBJECT", "g_type_module_register_flags", false)
-
 	cret := xTypeModuleRegisterFlags(x.GoPointer(), NameVar, ConstStaticValuesVar)
 	return cret
 }
@@ -308,8 +301,6 @@ var xTypeModuleRegisterType func(uintptr, types.GType, string, *TypeInfo, TypeFl
 // Since 2.56 if @module is %NULL this will call g_type_register_static()
 // instead. This can be used when making a static build of the module.
 func (x *TypeModule) RegisterType(ParentTypeVar types.GType, TypeNameVar string, TypeInfoVar *TypeInfo, FlagsVar TypeFlags) types.GType {
-	core.LazyRegister(&xTypeModuleRegisterType, "GOBJECT", "g_type_module_register_type", false)
-
 	cret := xTypeModuleRegisterType(x.GoPointer(), ParentTypeVar, TypeNameVar, TypeInfoVar, FlagsVar)
 	return cret
 }
@@ -318,8 +309,6 @@ var xTypeModuleSetName func(uintptr, string)
 
 // Sets the name for a #GTypeModule
 func (x *TypeModule) SetName(NameVar string) {
-	core.LazyRegister(&xTypeModuleSetName, "GOBJECT", "g_type_module_set_name", false)
-
 	xTypeModuleSetName(x.GoPointer(), NameVar)
 }
 
@@ -331,8 +320,6 @@ var xTypeModuleUnuse func(uintptr)
 // #GTypeModule are not unregistered. Once a #GTypeModule is
 // initialized, it must exist forever.)
 func (x *TypeModule) Unuse() {
-	core.LazyRegister(&xTypeModuleUnuse, "GOBJECT", "g_type_module_unuse", false)
-
 	xTypeModuleUnuse(x.GoPointer())
 }
 
@@ -343,8 +330,6 @@ var xTypeModuleUse func(uintptr) bool
 // If loading the plugin fails, the use count is reset to
 // its prior value.
 func (x *TypeModule) Use() bool {
-	core.LazyRegister(&xTypeModuleUse, "GOBJECT", "g_type_module_use", false)
-
 	cret := xTypeModuleUse(x.GoPointer())
 	return cret
 }
@@ -377,4 +362,22 @@ func (x *TypeModule) CompleteTypeInfo(GTypeVar types.GType, InfoVar *TypeInfo, V
 func init() {
 	core.SetPackageName("GOBJECT", "gobject-2.0")
 	core.SetSharedLibraries("GOBJECT", []string{"libgobject-2.0.so.0", "libgobject-2.0.0.dylib"})
+	var libs []uintptr
+	for _, libPath := range core.GetPaths("GOBJECT") {
+		lib, err := purego.Dlopen(libPath, purego.RTLD_NOW|purego.RTLD_GLOBAL)
+		if err != nil {
+			panic(err)
+		}
+		libs = append(libs, lib)
+	}
+
+	core.PuregoSafeRegister(&xTypeModuleGLibType, libs, "g_type_module_get_type")
+
+	core.PuregoSafeRegister(&xTypeModuleAddInterface, libs, "g_type_module_add_interface")
+	core.PuregoSafeRegister(&xTypeModuleRegisterEnum, libs, "g_type_module_register_enum")
+	core.PuregoSafeRegister(&xTypeModuleRegisterFlags, libs, "g_type_module_register_flags")
+	core.PuregoSafeRegister(&xTypeModuleRegisterType, libs, "g_type_module_register_type")
+	core.PuregoSafeRegister(&xTypeModuleSetName, libs, "g_type_module_set_name")
+	core.PuregoSafeRegister(&xTypeModuleUnuse, libs, "g_type_module_unuse")
+	core.PuregoSafeRegister(&xTypeModuleUse, libs, "g_type_module_use")
 }

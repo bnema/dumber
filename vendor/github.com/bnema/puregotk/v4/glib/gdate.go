@@ -5,6 +5,7 @@ import (
 	"structs"
 	"unsafe"
 
+	"github.com/bnema/purego"
 	"github.com/bnema/puregotk/pkg/core"
 	"github.com/bnema/puregotk/v4/gobject/types"
 )
@@ -67,7 +68,6 @@ type Date struct {
 var xDateGLibType func() types.GType
 
 func DateGLibType() types.GType {
-	core.LazyRegister(&xDateGLibType, "GLIB", "g_date_get_type", false)
 	return xDateGLibType()
 }
 
@@ -90,8 +90,6 @@ var xNewDate func() uintptr
 // be cleared (as if you'd called g_date_clear()) but invalid (it won't
 // represent an existing day). Free the return value with g_date_free().
 func NewDate() *Date {
-	core.LazyRegister(&xNewDate, "GLIB", "g_date_new", false)
-
 	cret := xNewDate()
 	if cret == 0 {
 		return nil
@@ -107,8 +105,6 @@ var xNewDateDmy func(DateDay, DateMonth, DateYear) uintptr
 // if needed to validate it. The returned #GDate is guaranteed to be non-%NULL
 // and valid.
 func NewDateDmy(DayVar DateDay, MonthVar DateMonth, YearVar DateYear) *Date {
-	core.LazyRegister(&xNewDateDmy, "GLIB", "g_date_new_dmy", false)
-
 	cret := xNewDateDmy(DayVar, MonthVar, YearVar)
 	if cret == 0 {
 		return nil
@@ -124,8 +120,6 @@ var xNewDateJulian func(uint32) uintptr
 // needed to validate it. The returned #GDate is guaranteed to be non-%NULL and
 // valid.
 func NewDateJulian(JulianDayVar uint32) *Date {
-	core.LazyRegister(&xNewDateJulian, "GLIB", "g_date_new_julian", false)
-
 	cret := xNewDateJulian(JulianDayVar)
 	if cret == 0 {
 		return nil
@@ -139,8 +133,6 @@ var xDateAddDays func(uintptr, uint)
 // To move forward by weeks, add weeks*7 days.
 // The date must be valid.
 func (x *Date) AddDays(NDaysVar uint) {
-	core.LazyRegister(&xDateAddDays, "GLIB", "g_date_add_days", false)
-
 	xDateAddDays(x.GoPointer(), NDaysVar)
 }
 
@@ -152,8 +144,6 @@ var xDateAddMonths func(uintptr, uint)
 // (because the destination month may not have
 // the current day in it). The date must be valid.
 func (x *Date) AddMonths(NMonthsVar uint) {
-	core.LazyRegister(&xDateAddMonths, "GLIB", "g_date_add_months", false)
-
 	xDateAddMonths(x.GoPointer(), NMonthsVar)
 }
 
@@ -164,8 +154,6 @@ var xDateAddYears func(uintptr, uint)
 // year is not a leap year, the date will be changed
 // to February 28. The date must be valid.
 func (x *Date) AddYears(NYearsVar uint) {
-	core.LazyRegister(&xDateAddYears, "GLIB", "g_date_add_years", false)
-
 	xDateAddYears(x.GoPointer(), NYearsVar)
 }
 
@@ -177,8 +165,6 @@ var xDateClamp func(uintptr, *Date, *Date)
 // Either of @min_date and @max_date may be %NULL.
 // All non-%NULL dates must be valid.
 func (x *Date) Clamp(MinDateVar *Date, MaxDateVar *Date) {
-	core.LazyRegister(&xDateClamp, "GLIB", "g_date_clamp", false)
-
 	xDateClamp(x.GoPointer(), MinDateVar, MaxDateVar)
 }
 
@@ -189,8 +175,6 @@ var xDateClear func(uintptr, uint)
 // not contain garbage. Useful to init a date declared on the stack.
 // Validity can be tested with g_date_valid().
 func (x *Date) Clear(NDatesVar uint) {
-	core.LazyRegister(&xDateClear, "GLIB", "g_date_clear", false)
-
 	xDateClear(x.GoPointer(), NDatesVar)
 }
 
@@ -199,8 +183,6 @@ var xDateCompare func(uintptr, *Date) int
 // qsort()-style comparison function for dates.
 // Both dates must be valid.
 func (x *Date) Compare(RhsVar *Date) int {
-	core.LazyRegister(&xDateCompare, "GLIB", "g_date_compare", false)
-
 	cret := xDateCompare(x.GoPointer(), RhsVar)
 	return cret
 }
@@ -211,8 +193,6 @@ var xDateCopy func(uintptr) uintptr
 // (as determined by g_date_valid()), the invalid state will be copied
 // as is into the new object.
 func (x *Date) Copy() *Date {
-	core.LazyRegister(&xDateCopy, "GLIB", "g_date_copy", false)
-
 	cret := xDateCopy(x.GoPointer())
 	if cret == 0 {
 		return nil
@@ -226,8 +206,6 @@ var xDateDaysBetween func(uintptr, *Date) int
 // If @date2 is prior to @date1, the returned value is negative.
 // Both dates must be valid.
 func (x *Date) DaysBetween(Date2Var *Date) int {
-	core.LazyRegister(&xDateDaysBetween, "GLIB", "g_date_days_between", false)
-
 	cret := xDateDaysBetween(x.GoPointer(), Date2Var)
 	return cret
 }
@@ -236,8 +214,6 @@ var xDateFree func(uintptr)
 
 // Frees a #GDate returned from g_date_new().
 func (x *Date) Free() {
-	core.LazyRegister(&xDateFree, "GLIB", "g_date_free", false)
-
 	xDateFree(x.GoPointer())
 }
 
@@ -245,8 +221,6 @@ var xDateGetDay func(uintptr) DateDay
 
 // Returns the day of the month. The date must be valid.
 func (x *Date) GetDay() DateDay {
-	core.LazyRegister(&xDateGetDay, "GLIB", "g_date_get_day", false)
-
 	cret := xDateGetDay(x.GoPointer())
 	return cret
 }
@@ -256,8 +230,6 @@ var xDateGetDayOfYear func(uintptr) uint
 // Returns the day of the year, where Jan 1 is the first day of the
 // year. The date must be valid.
 func (x *Date) GetDayOfYear() uint {
-	core.LazyRegister(&xDateGetDayOfYear, "GLIB", "g_date_get_day_of_year", false)
-
 	cret := xDateGetDayOfYear(x.GoPointer())
 	return cret
 }
@@ -267,8 +239,6 @@ var xDateGetIso8601WeekOfYear func(uintptr) uint
 // Returns the week of the year, where weeks are interpreted according
 // to ISO 8601.
 func (x *Date) GetIso8601WeekOfYear() uint {
-	core.LazyRegister(&xDateGetIso8601WeekOfYear, "GLIB", "g_date_get_iso8601_week_of_year", false)
-
 	cret := xDateGetIso8601WeekOfYear(x.GoPointer())
 	return cret
 }
@@ -280,8 +250,6 @@ var xDateGetJulian func(uintptr) uint32
 // January 1, Year 1 is Julian day 1; January 2, Year 1 is Julian day 2,
 // etc. The date must be valid.
 func (x *Date) GetJulian() uint32 {
-	core.LazyRegister(&xDateGetJulian, "GLIB", "g_date_get_julian", false)
-
 	cret := xDateGetJulian(x.GoPointer())
 	return cret
 }
@@ -292,8 +260,6 @@ var xDateGetMondayWeekOfYear func(uintptr) uint
 // Monday. If the date is before the first Monday of the year, return 0.
 // The date must be valid.
 func (x *Date) GetMondayWeekOfYear() uint {
-	core.LazyRegister(&xDateGetMondayWeekOfYear, "GLIB", "g_date_get_monday_week_of_year", false)
-
 	cret := xDateGetMondayWeekOfYear(x.GoPointer())
 	return cret
 }
@@ -302,8 +268,6 @@ var xDateGetMonth func(uintptr) DateMonth
 
 // Returns the month of the year. The date must be valid.
 func (x *Date) GetMonth() DateMonth {
-	core.LazyRegister(&xDateGetMonth, "GLIB", "g_date_get_month", false)
-
 	cret := xDateGetMonth(x.GoPointer())
 	return cret
 }
@@ -314,8 +278,6 @@ var xDateGetSundayWeekOfYear func(uintptr) uint
 // weeks are understood to begin on Sunday. The date must be valid.
 // Can return 0 if the day is before the first Sunday of the year.
 func (x *Date) GetSundayWeekOfYear() uint {
-	core.LazyRegister(&xDateGetSundayWeekOfYear, "GLIB", "g_date_get_sunday_week_of_year", false)
-
 	cret := xDateGetSundayWeekOfYear(x.GoPointer())
 	return cret
 }
@@ -331,8 +293,6 @@ var xDateGetWeekOfYear func(uintptr, DateWeekday) uint
 // before the first Monday in January if @first_day_of_week is
 // [enum@GLib.DateWeekday.MONDAY]) then zero will be returned.
 func (x *Date) GetWeekOfYear(FirstDayOfWeekVar DateWeekday) uint {
-	core.LazyRegister(&xDateGetWeekOfYear, "GLIB", "g_date_get_week_of_year", false)
-
 	cret := xDateGetWeekOfYear(x.GoPointer(), FirstDayOfWeekVar)
 	return cret
 }
@@ -341,8 +301,6 @@ var xDateGetWeekday func(uintptr) DateWeekday
 
 // Returns the day of the week for a #GDate. The date must be valid.
 func (x *Date) GetWeekday() DateWeekday {
-	core.LazyRegister(&xDateGetWeekday, "GLIB", "g_date_get_weekday", false)
-
 	cret := xDateGetWeekday(x.GoPointer())
 	return cret
 }
@@ -351,8 +309,6 @@ var xDateGetYear func(uintptr) DateYear
 
 // Returns the year of a #GDate. The date must be valid.
 func (x *Date) GetYear() DateYear {
-	core.LazyRegister(&xDateGetYear, "GLIB", "g_date_get_year", false)
-
 	cret := xDateGetYear(x.GoPointer())
 	return cret
 }
@@ -362,8 +318,6 @@ var xDateIsFirstOfMonth func(uintptr) bool
 // Returns %TRUE if the date is on the first of a month.
 // The date must be valid.
 func (x *Date) IsFirstOfMonth() bool {
-	core.LazyRegister(&xDateIsFirstOfMonth, "GLIB", "g_date_is_first_of_month", false)
-
 	cret := xDateIsFirstOfMonth(x.GoPointer())
 	return cret
 }
@@ -373,8 +327,6 @@ var xDateIsLastOfMonth func(uintptr) bool
 // Returns %TRUE if the date is the last day of the month.
 // The date must be valid.
 func (x *Date) IsLastOfMonth() bool {
-	core.LazyRegister(&xDateIsLastOfMonth, "GLIB", "g_date_is_last_of_month", false)
-
 	cret := xDateIsLastOfMonth(x.GoPointer())
 	return cret
 }
@@ -384,8 +336,6 @@ var xDateOrder func(uintptr, *Date)
 // Checks if @date1 is less than or equal to @date2,
 // and swap the values if this is not the case.
 func (x *Date) Order(Date2Var *Date) {
-	core.LazyRegister(&xDateOrder, "GLIB", "g_date_order", false)
-
 	xDateOrder(x.GoPointer(), Date2Var)
 }
 
@@ -394,8 +344,6 @@ var xDateSetDay func(uintptr, DateDay)
 // Sets the day of the month for a #GDate. If the resulting
 // day-month-year triplet is invalid, the date will be invalid.
 func (x *Date) SetDay(DayVar DateDay) {
-	core.LazyRegister(&xDateSetDay, "GLIB", "g_date_set_day", false)
-
 	xDateSetDay(x.GoPointer(), DayVar)
 }
 
@@ -406,8 +354,6 @@ var xDateSetDmy func(uintptr, DateDay, DateMonth, DateYear)
 // sure it is, call g_date_valid_dmy() to check before you
 // set it.
 func (x *Date) SetDmy(DayVar DateDay, MonthVar DateMonth, YVar DateYear) {
-	core.LazyRegister(&xDateSetDmy, "GLIB", "g_date_set_dmy", false)
-
 	xDateSetDmy(x.GoPointer(), DayVar, MonthVar, YVar)
 }
 
@@ -415,8 +361,6 @@ var xDateSetJulian func(uintptr, uint32)
 
 // Sets the value of a #GDate from a Julian day number.
 func (x *Date) SetJulian(JulianDateVar uint32) {
-	core.LazyRegister(&xDateSetJulian, "GLIB", "g_date_set_julian", false)
-
 	xDateSetJulian(x.GoPointer(), JulianDateVar)
 }
 
@@ -425,8 +369,6 @@ var xDateSetMonth func(uintptr, DateMonth)
 // Sets the month of the year for a #GDate.  If the resulting
 // day-month-year triplet is invalid, the date will be invalid.
 func (x *Date) SetMonth(MonthVar DateMonth) {
-	core.LazyRegister(&xDateSetMonth, "GLIB", "g_date_set_month", false)
-
 	xDateSetMonth(x.GoPointer(), MonthVar)
 }
 
@@ -444,8 +386,6 @@ var xDateSetParse func(uintptr, string)
 // means by a given string (and it does work pretty well in that
 // capacity).
 func (x *Date) SetParse(StrVar string) {
-	core.LazyRegister(&xDateSetParse, "GLIB", "g_date_set_parse", false)
-
 	xDateSetParse(x.GoPointer(), StrVar)
 }
 
@@ -454,8 +394,6 @@ var xDateSetTime func(uintptr, Time)
 // Sets the value of a date from a #GTime value.
 // The time to date conversion is done using the user's current timezone.
 func (x *Date) SetTime(TimeVar Time) {
-	core.LazyRegister(&xDateSetTime, "GLIB", "g_date_set_time", false)
-
 	xDateSetTime(x.GoPointer(), TimeVar)
 }
 
@@ -475,8 +413,6 @@ var xDateSetTimeT func(uintptr, int)
 //
 // ]|
 func (x *Date) SetTimeT(TimetVar int) {
-	core.LazyRegister(&xDateSetTimeT, "GLIB", "g_date_set_time_t", false)
-
 	xDateSetTimeT(x.GoPointer(), TimetVar)
 }
 
@@ -488,8 +424,6 @@ var xDateSetTimeVal func(uintptr, *TimeVal)
 //
 // The time to date conversion is done using the user's current timezone.
 func (x *Date) SetTimeVal(TimevalVar *TimeVal) {
-	core.LazyRegister(&xDateSetTimeVal, "GLIB", "g_date_set_time_val", false)
-
 	xDateSetTimeVal(x.GoPointer(), TimevalVar)
 }
 
@@ -498,8 +432,6 @@ var xDateSetYear func(uintptr, DateYear)
 // Sets the year for a #GDate. If the resulting day-month-year
 // triplet is invalid, the date will be invalid.
 func (x *Date) SetYear(YearVar DateYear) {
-	core.LazyRegister(&xDateSetYear, "GLIB", "g_date_set_year", false)
-
 	xDateSetYear(x.GoPointer(), YearVar)
 }
 
@@ -509,8 +441,6 @@ var xDateSubtractDays func(uintptr, uint)
 // To move by weeks, just move by weeks*7 days.
 // The date must be valid.
 func (x *Date) SubtractDays(NDaysVar uint) {
-	core.LazyRegister(&xDateSubtractDays, "GLIB", "g_date_subtract_days", false)
-
 	xDateSubtractDays(x.GoPointer(), NDaysVar)
 }
 
@@ -521,8 +451,6 @@ var xDateSubtractMonths func(uintptr, uint)
 // the destination month, the day of the month
 // may change. The date must be valid.
 func (x *Date) SubtractMonths(NMonthsVar uint) {
-	core.LazyRegister(&xDateSubtractMonths, "GLIB", "g_date_subtract_months", false)
-
 	xDateSubtractMonths(x.GoPointer(), NMonthsVar)
 }
 
@@ -534,8 +462,6 @@ var xDateSubtractYears func(uintptr, uint)
 // then the day is changed to February 29. The date
 // must be valid.
 func (x *Date) SubtractYears(NYearsVar uint) {
-	core.LazyRegister(&xDateSubtractYears, "GLIB", "g_date_subtract_years", false)
-
 	xDateSubtractYears(x.GoPointer(), NYearsVar)
 }
 
@@ -544,8 +470,6 @@ var xDateToStructTm func(uintptr, uintptr)
 // Fills in the date-related bits of a struct tm using the @date value.
 // Initializes the non-date parts with something safe but meaningless.
 func (x *Date) ToStructTm(TmVar uintptr) {
-	core.LazyRegister(&xDateToStructTm, "GLIB", "g_date_to_struct_tm", false)
-
 	xDateToStructTm(x.GoPointer(), TmVar)
 }
 
@@ -555,8 +479,6 @@ var xDateValid func(uintptr) bool
 // contain garbage; it should have been initialized with g_date_clear()
 // if it wasn't allocated by one of the g_date_new() variants.
 func (x *Date) Valid() bool {
-	core.LazyRegister(&xDateValid, "GLIB", "g_date_valid", false)
-
 	cret := xDateValid(x.GoPointer())
 	return cret
 }
@@ -684,8 +606,6 @@ var xDateGetDaysInMonth func(DateMonth, DateYear) byte
 // Returns the number of days in a month, taking leap
 // years into account.
 func DateGetDaysInMonth(MonthVar DateMonth, YearVar DateYear) byte {
-	core.LazyRegister(&xDateGetDaysInMonth, "GLIB", "g_date_get_days_in_month", false)
-
 	cret := xDateGetDaysInMonth(MonthVar, YearVar)
 	return cret
 }
@@ -700,8 +620,6 @@ var xDateGetMondayWeeksInYear func(DateYear) byte
 // Mondays are in the year, i.e. there are 53 Mondays if
 // one of the extra days happens to be a Monday.)
 func DateGetMondayWeeksInYear(YearVar DateYear) byte {
-	core.LazyRegister(&xDateGetMondayWeeksInYear, "GLIB", "g_date_get_monday_weeks_in_year", false)
-
 	cret := xDateGetMondayWeeksInYear(YearVar)
 	return cret
 }
@@ -716,8 +634,6 @@ var xDateGetSundayWeeksInYear func(DateYear) byte
 // Sundays are in the year, i.e. there are 53 Sundays if
 // one of the extra days happens to be a Sunday.)
 func DateGetSundayWeeksInYear(YearVar DateYear) byte {
-	core.LazyRegister(&xDateGetSundayWeeksInYear, "GLIB", "g_date_get_sunday_weeks_in_year", false)
-
 	cret := xDateGetSundayWeeksInYear(YearVar)
 	return cret
 }
@@ -734,8 +650,6 @@ var xDateGetWeeksInYear func(DateYear, DateWeekday) byte
 // function effectively calculates how many @first_day_of_week days there are in
 // the year.
 func DateGetWeeksInYear(YearVar DateYear, FirstDayOfWeekVar DateWeekday) byte {
-	core.LazyRegister(&xDateGetWeeksInYear, "GLIB", "g_date_get_weeks_in_year", false)
-
 	cret := xDateGetWeeksInYear(YearVar, FirstDayOfWeekVar)
 	return cret
 }
@@ -749,8 +663,6 @@ var xDateIsLeapYear func(DateYear) bool
 // is divisible by 100 it would be a leap year only if that year
 // is also divisible by 400.
 func DateIsLeapYear(YearVar DateYear) bool {
-	core.LazyRegister(&xDateIsLeapYear, "GLIB", "g_date_is_leap_year", false)
-
 	cret := xDateIsLeapYear(YearVar)
 	return cret
 }
@@ -771,8 +683,6 @@ var xDateStrftime func(string, uint, string, *Date) uint
 // make the \%F provided by the C99 strftime() work on Windows
 // where the C library only complies to C89.
 func DateStrftime(SVar string, SlenVar uint, FormatVar string, DateVar *Date) uint {
-	core.LazyRegister(&xDateStrftime, "GLIB", "g_date_strftime", false)
-
 	cret := xDateStrftime(SVar, SlenVar, FormatVar, DateVar)
 	return cret
 }
@@ -782,8 +692,6 @@ var xDateValidDay func(DateDay) bool
 // Returns %TRUE if the day of the month is valid (a day is valid if it's
 // between 1 and 31 inclusive).
 func DateValidDay(DayVar DateDay) bool {
-	core.LazyRegister(&xDateValidDay, "GLIB", "g_date_valid_day", false)
-
 	cret := xDateValidDay(DayVar)
 	return cret
 }
@@ -794,8 +702,6 @@ var xDateValidDmy func(DateDay, DateMonth, DateYear) bool
 // in the range of days #GDate understands (Year 1 or later, no more than
 // a few thousand years in the future).
 func DateValidDmy(DayVar DateDay, MonthVar DateMonth, YearVar DateYear) bool {
-	core.LazyRegister(&xDateValidDmy, "GLIB", "g_date_valid_dmy", false)
-
 	cret := xDateValidDmy(DayVar, MonthVar, YearVar)
 	return cret
 }
@@ -805,8 +711,6 @@ var xDateValidJulian func(uint32) bool
 // Returns %TRUE if the Julian day is valid. Anything greater than zero
 // is basically a valid Julian, though there is a 32-bit limit.
 func DateValidJulian(JulianDateVar uint32) bool {
-	core.LazyRegister(&xDateValidJulian, "GLIB", "g_date_valid_julian", false)
-
 	cret := xDateValidJulian(JulianDateVar)
 	return cret
 }
@@ -816,8 +720,6 @@ var xDateValidMonth func(DateMonth) bool
 // Returns %TRUE if the month value is valid. The 12 #GDateMonth
 // enumeration values are the only valid months.
 func DateValidMonth(MonthVar DateMonth) bool {
-	core.LazyRegister(&xDateValidMonth, "GLIB", "g_date_valid_month", false)
-
 	cret := xDateValidMonth(MonthVar)
 	return cret
 }
@@ -827,8 +729,6 @@ var xDateValidWeekday func(DateWeekday) bool
 // Returns %TRUE if the weekday is valid. The seven #GDateWeekday enumeration
 // values are the only valid weekdays.
 func DateValidWeekday(WeekdayVar DateWeekday) bool {
-	core.LazyRegister(&xDateValidWeekday, "GLIB", "g_date_valid_weekday", false)
-
 	cret := xDateValidWeekday(WeekdayVar)
 	return cret
 }
@@ -838,8 +738,6 @@ var xDateValidYear func(DateYear) bool
 // Returns %TRUE if the year is valid. Any year greater than 0 is valid,
 // though there is a 16-bit limit to what #GDate will understand.
 func DateValidYear(YearVar DateYear) bool {
-	core.LazyRegister(&xDateValidYear, "GLIB", "g_date_valid_year", false)
-
 	cret := xDateValidYear(YearVar)
 	return cret
 }
@@ -847,4 +745,68 @@ func DateValidYear(YearVar DateYear) bool {
 func init() {
 	core.SetPackageName("GLIB", "glib-2.0")
 	core.SetSharedLibraries("GLIB", []string{"libgobject-2.0.so.0", "libglib-2.0.so.0", "libgobject-2.0.0.dylib", "libglib-2.0.0.dylib"})
+	var libs []uintptr
+	for _, libPath := range core.GetPaths("GLIB") {
+		lib, err := purego.Dlopen(libPath, purego.RTLD_NOW|purego.RTLD_GLOBAL)
+		if err != nil {
+			panic(err)
+		}
+		libs = append(libs, lib)
+	}
+
+	core.PuregoSafeRegister(&xDateGetDaysInMonth, libs, "g_date_get_days_in_month")
+	core.PuregoSafeRegister(&xDateGetMondayWeeksInYear, libs, "g_date_get_monday_weeks_in_year")
+	core.PuregoSafeRegister(&xDateGetSundayWeeksInYear, libs, "g_date_get_sunday_weeks_in_year")
+	core.PuregoSafeRegister(&xDateGetWeeksInYear, libs, "g_date_get_weeks_in_year")
+	core.PuregoSafeRegister(&xDateIsLeapYear, libs, "g_date_is_leap_year")
+	core.PuregoSafeRegister(&xDateStrftime, libs, "g_date_strftime")
+	core.PuregoSafeRegister(&xDateValidDay, libs, "g_date_valid_day")
+	core.PuregoSafeRegister(&xDateValidDmy, libs, "g_date_valid_dmy")
+	core.PuregoSafeRegister(&xDateValidJulian, libs, "g_date_valid_julian")
+	core.PuregoSafeRegister(&xDateValidMonth, libs, "g_date_valid_month")
+	core.PuregoSafeRegister(&xDateValidWeekday, libs, "g_date_valid_weekday")
+	core.PuregoSafeRegister(&xDateValidYear, libs, "g_date_valid_year")
+
+	core.PuregoSafeRegister(&xDateGLibType, libs, "g_date_get_type")
+
+	core.PuregoSafeRegister(&xNewDate, libs, "g_date_new")
+	core.PuregoSafeRegister(&xNewDateDmy, libs, "g_date_new_dmy")
+	core.PuregoSafeRegister(&xNewDateJulian, libs, "g_date_new_julian")
+
+	core.PuregoSafeRegister(&xDateAddDays, libs, "g_date_add_days")
+	core.PuregoSafeRegister(&xDateAddMonths, libs, "g_date_add_months")
+	core.PuregoSafeRegister(&xDateAddYears, libs, "g_date_add_years")
+	core.PuregoSafeRegister(&xDateClamp, libs, "g_date_clamp")
+	core.PuregoSafeRegister(&xDateClear, libs, "g_date_clear")
+	core.PuregoSafeRegister(&xDateCompare, libs, "g_date_compare")
+	core.PuregoSafeRegister(&xDateCopy, libs, "g_date_copy")
+	core.PuregoSafeRegister(&xDateDaysBetween, libs, "g_date_days_between")
+	core.PuregoSafeRegister(&xDateFree, libs, "g_date_free")
+	core.PuregoSafeRegister(&xDateGetDay, libs, "g_date_get_day")
+	core.PuregoSafeRegister(&xDateGetDayOfYear, libs, "g_date_get_day_of_year")
+	core.PuregoSafeRegister(&xDateGetIso8601WeekOfYear, libs, "g_date_get_iso8601_week_of_year")
+	core.PuregoSafeRegister(&xDateGetJulian, libs, "g_date_get_julian")
+	core.PuregoSafeRegister(&xDateGetMondayWeekOfYear, libs, "g_date_get_monday_week_of_year")
+	core.PuregoSafeRegister(&xDateGetMonth, libs, "g_date_get_month")
+	core.PuregoSafeRegister(&xDateGetSundayWeekOfYear, libs, "g_date_get_sunday_week_of_year")
+	core.PuregoSafeRegister(&xDateGetWeekOfYear, libs, "g_date_get_week_of_year")
+	core.PuregoSafeRegister(&xDateGetWeekday, libs, "g_date_get_weekday")
+	core.PuregoSafeRegister(&xDateGetYear, libs, "g_date_get_year")
+	core.PuregoSafeRegister(&xDateIsFirstOfMonth, libs, "g_date_is_first_of_month")
+	core.PuregoSafeRegister(&xDateIsLastOfMonth, libs, "g_date_is_last_of_month")
+	core.PuregoSafeRegister(&xDateOrder, libs, "g_date_order")
+	core.PuregoSafeRegister(&xDateSetDay, libs, "g_date_set_day")
+	core.PuregoSafeRegister(&xDateSetDmy, libs, "g_date_set_dmy")
+	core.PuregoSafeRegister(&xDateSetJulian, libs, "g_date_set_julian")
+	core.PuregoSafeRegister(&xDateSetMonth, libs, "g_date_set_month")
+	core.PuregoSafeRegister(&xDateSetParse, libs, "g_date_set_parse")
+	core.PuregoSafeRegister(&xDateSetTime, libs, "g_date_set_time")
+	core.PuregoSafeRegister(&xDateSetTimeT, libs, "g_date_set_time_t")
+	core.PuregoSafeRegister(&xDateSetTimeVal, libs, "g_date_set_time_val")
+	core.PuregoSafeRegister(&xDateSetYear, libs, "g_date_set_year")
+	core.PuregoSafeRegister(&xDateSubtractDays, libs, "g_date_subtract_days")
+	core.PuregoSafeRegister(&xDateSubtractMonths, libs, "g_date_subtract_months")
+	core.PuregoSafeRegister(&xDateSubtractYears, libs, "g_date_subtract_years")
+	core.PuregoSafeRegister(&xDateToStructTm, libs, "g_date_to_struct_tm")
+	core.PuregoSafeRegister(&xDateValid, libs, "g_date_valid")
 }

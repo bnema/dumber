@@ -2,6 +2,7 @@
 package webkit
 
 import (
+	"github.com/bnema/purego"
 	"github.com/bnema/puregotk/pkg/core"
 	"github.com/bnema/puregotk/v4/glib"
 	"github.com/bnema/puregotk/v4/gobject/types"
@@ -13,7 +14,6 @@ type DownloadError int
 var xDownloadErrorGLibType func() types.GType
 
 func DownloadErrorGLibType() types.GType {
-	core.LazyRegister(&xDownloadErrorGLibType, "WEBKIT", "webkit_download_error_get_type", false)
 	return xDownloadErrorGLibType()
 }
 
@@ -33,7 +33,6 @@ type JavascriptError int
 var xJavascriptErrorGLibType func() types.GType
 
 func JavascriptErrorGLibType() types.GType {
-	core.LazyRegister(&xJavascriptErrorGLibType, "WEBKIT", "webkit_javascript_error_get_type", false)
 	return xJavascriptErrorGLibType()
 }
 
@@ -53,7 +52,6 @@ type MediaError int
 var xMediaErrorGLibType func() types.GType
 
 func MediaErrorGLibType() types.GType {
-	core.LazyRegister(&xMediaErrorGLibType, "WEBKIT", "webkit_media_error_get_type", false)
 	return xMediaErrorGLibType()
 }
 
@@ -69,7 +67,6 @@ type NetworkError int
 var xNetworkErrorGLibType func() types.GType
 
 func NetworkErrorGLibType() types.GType {
-	core.LazyRegister(&xNetworkErrorGLibType, "WEBKIT", "webkit_network_error_get_type", false)
 	return xNetworkErrorGLibType()
 }
 
@@ -93,7 +90,6 @@ type PolicyError int
 var xPolicyErrorGLibType func() types.GType
 
 func PolicyErrorGLibType() types.GType {
-	core.LazyRegister(&xPolicyErrorGLibType, "WEBKIT", "webkit_policy_error_get_type", false)
 	return xPolicyErrorGLibType()
 }
 
@@ -117,7 +113,6 @@ type PrintError int
 var xPrintErrorGLibType func() types.GType
 
 func PrintErrorGLibType() types.GType {
-	core.LazyRegister(&xPrintErrorGLibType, "WEBKIT", "webkit_print_error_get_type", false)
 	return xPrintErrorGLibType()
 }
 
@@ -137,7 +132,6 @@ type SnapshotError int
 var xSnapshotErrorGLibType func() types.GType
 
 func SnapshotErrorGLibType() types.GType {
-	core.LazyRegister(&xSnapshotErrorGLibType, "WEBKIT", "webkit_snapshot_error_get_type", false)
 	return xSnapshotErrorGLibType()
 }
 
@@ -153,7 +147,6 @@ type UserContentFilterError int
 var xUserContentFilterErrorGLibType func() types.GType
 
 func UserContentFilterErrorGLibType() types.GType {
-	core.LazyRegister(&xUserContentFilterErrorGLibType, "WEBKIT", "webkit_user_content_filter_error_get_type", false)
 	return xUserContentFilterErrorGLibType()
 }
 
@@ -171,7 +164,6 @@ type WebExtensionError int
 var xWebExtensionErrorGLibType func() types.GType
 
 func WebExtensionErrorGLibType() types.GType {
-	core.LazyRegister(&xWebExtensionErrorGLibType, "WEBKIT", "webkit_web_extension_error_get_type", false)
 	return xWebExtensionErrorGLibType()
 }
 
@@ -203,7 +195,6 @@ type WebExtensionMatchPatternError int
 var xWebExtensionMatchPatternErrorGLibType func() types.GType
 
 func WebExtensionMatchPatternErrorGLibType() types.GType {
-	core.LazyRegister(&xWebExtensionMatchPatternErrorGLibType, "WEBKIT", "webkit_web_extension_match_pattern_error_get_type", false)
 	return xWebExtensionMatchPatternErrorGLibType()
 }
 
@@ -223,8 +214,6 @@ var xDownloadErrorQuark func() glib.Quark
 
 // Gets the quark for the domain of download errors.
 func DownloadErrorQuark() glib.Quark {
-	core.LazyRegister(&xDownloadErrorQuark, "WEBKIT", "webkit_download_error_quark", false)
-
 	cret := xDownloadErrorQuark()
 	return cret
 }
@@ -233,8 +222,6 @@ var xJavascriptErrorQuark func() glib.Quark
 
 // Gets the quark for the domain of JavaScript errors.
 func JavascriptErrorQuark() glib.Quark {
-	core.LazyRegister(&xJavascriptErrorQuark, "WEBKIT", "webkit_javascript_error_quark", false)
-
 	cret := xJavascriptErrorQuark()
 	return cret
 }
@@ -243,8 +230,6 @@ var xMediaErrorQuark func() glib.Quark
 
 // Gets the quark for the domain of media errors.
 func MediaErrorQuark() glib.Quark {
-	core.LazyRegister(&xMediaErrorQuark, "WEBKIT", "webkit_media_error_quark", false)
-
 	cret := xMediaErrorQuark()
 	return cret
 }
@@ -253,8 +238,6 @@ var xNetworkErrorQuark func() glib.Quark
 
 // Gets the quark for the domain of networking errors.
 func NetworkErrorQuark() glib.Quark {
-	core.LazyRegister(&xNetworkErrorQuark, "WEBKIT", "webkit_network_error_quark", false)
-
 	cret := xNetworkErrorQuark()
 	return cret
 }
@@ -263,8 +246,6 @@ var xPolicyErrorQuark func() glib.Quark
 
 // Gets the quark for the domain of policy errors.
 func PolicyErrorQuark() glib.Quark {
-	core.LazyRegister(&xPolicyErrorQuark, "WEBKIT", "webkit_policy_error_quark", false)
-
 	cret := xPolicyErrorQuark()
 	return cret
 }
@@ -273,8 +254,6 @@ var xPrintErrorQuark func() glib.Quark
 
 // Gets the quark for the domain of printing errors.
 func PrintErrorQuark() glib.Quark {
-	core.LazyRegister(&xPrintErrorQuark, "WEBKIT", "webkit_print_error_quark", false)
-
 	cret := xPrintErrorQuark()
 	return cret
 }
@@ -283,8 +262,6 @@ var xSnapshotErrorQuark func() glib.Quark
 
 // Gets the quark for the domain of page snapshot errors.
 func SnapshotErrorQuark() glib.Quark {
-	core.LazyRegister(&xSnapshotErrorQuark, "WEBKIT", "webkit_snapshot_error_quark", false)
-
 	cret := xSnapshotErrorQuark()
 	return cret
 }
@@ -293,8 +270,6 @@ var xUserContentFilterErrorQuark func() glib.Quark
 
 // Gets the quark for the domain of user content filter errors.
 func UserContentFilterErrorQuark() glib.Quark {
-	core.LazyRegister(&xUserContentFilterErrorQuark, "WEBKIT", "webkit_user_content_filter_error_quark", false)
-
 	cret := xUserContentFilterErrorQuark()
 	return cret
 }
@@ -303,8 +278,6 @@ var xWebExtensionErrorQuark func() glib.Quark
 
 // Gets the quark for the domain of Web Extension errors.
 func WebExtensionErrorQuark() glib.Quark {
-	core.LazyRegister(&xWebExtensionErrorQuark, "WEBKIT", "webkit_web_extension_error_quark", false)
-
 	cret := xWebExtensionErrorQuark()
 	return cret
 }
@@ -313,8 +286,6 @@ var xWebExtensionMatchPatternErrorQuark func() glib.Quark
 
 // Gets the quark for the domain of Web Extension Match Pattern errors.
 func WebExtensionMatchPatternErrorQuark() glib.Quark {
-	core.LazyRegister(&xWebExtensionMatchPatternErrorQuark, "WEBKIT", "webkit_web_extension_match_pattern_error_quark", false)
-
 	cret := xWebExtensionMatchPatternErrorQuark()
 	return cret
 }
@@ -322,7 +293,43 @@ func WebExtensionMatchPatternErrorQuark() glib.Quark {
 func init() {
 	core.SetPackageName("WEBKIT", "webkitgtk-6.0")
 	core.SetSharedLibraries("WEBKIT", []string{"libwebkitgtk-6.0.so.4", "libjavascriptcoregtk-6.0.so.1", "libwebkitgtk-6.0.4.dylib", "libjavascriptcoregtk-6.0.1.dylib"})
+	var libs []uintptr
+	for _, libPath := range core.GetPaths("WEBKIT") {
+		lib, err := purego.Dlopen(libPath, purego.RTLD_NOW|purego.RTLD_GLOBAL)
+		if err != nil {
+			panic(err)
+		}
+		libs = append(libs, lib)
+	}
 
-	// Manually register types since they aren't automatically registered when
-	// WebKit is loaded. See https://bugs.webkit.org/show_bug.cgi?id=175937.
+	core.PuregoSafeRegister(&xDownloadErrorGLibType, libs, "webkit_download_error_get_type")
+
+	core.PuregoSafeRegister(&xJavascriptErrorGLibType, libs, "webkit_javascript_error_get_type")
+
+	core.PuregoSafeRegister(&xMediaErrorGLibType, libs, "webkit_media_error_get_type")
+
+	core.PuregoSafeRegister(&xNetworkErrorGLibType, libs, "webkit_network_error_get_type")
+
+	core.PuregoSafeRegister(&xPolicyErrorGLibType, libs, "webkit_policy_error_get_type")
+
+	core.PuregoSafeRegister(&xPrintErrorGLibType, libs, "webkit_print_error_get_type")
+
+	core.PuregoSafeRegister(&xSnapshotErrorGLibType, libs, "webkit_snapshot_error_get_type")
+
+	core.PuregoSafeRegister(&xUserContentFilterErrorGLibType, libs, "webkit_user_content_filter_error_get_type")
+
+	core.PuregoSafeRegister(&xWebExtensionErrorGLibType, libs, "webkit_web_extension_error_get_type")
+
+	core.PuregoSafeRegister(&xWebExtensionMatchPatternErrorGLibType, libs, "webkit_web_extension_match_pattern_error_get_type")
+
+	core.PuregoSafeRegister(&xDownloadErrorQuark, libs, "webkit_download_error_quark")
+	core.PuregoSafeRegister(&xJavascriptErrorQuark, libs, "webkit_javascript_error_quark")
+	core.PuregoSafeRegister(&xMediaErrorQuark, libs, "webkit_media_error_quark")
+	core.PuregoSafeRegister(&xNetworkErrorQuark, libs, "webkit_network_error_quark")
+	core.PuregoSafeRegister(&xPolicyErrorQuark, libs, "webkit_policy_error_quark")
+	core.PuregoSafeRegister(&xPrintErrorQuark, libs, "webkit_print_error_quark")
+	core.PuregoSafeRegister(&xSnapshotErrorQuark, libs, "webkit_snapshot_error_quark")
+	core.PuregoSafeRegister(&xUserContentFilterErrorQuark, libs, "webkit_user_content_filter_error_quark")
+	core.PuregoSafeRegister(&xWebExtensionErrorQuark, libs, "webkit_web_extension_error_quark")
+	core.PuregoSafeRegister(&xWebExtensionMatchPatternErrorQuark, libs, "webkit_web_extension_match_pattern_error_quark")
 }

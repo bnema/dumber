@@ -2,6 +2,7 @@
 package gsk
 
 import (
+	"github.com/bnema/purego"
 	"github.com/bnema/puregotk/pkg/core"
 	"github.com/bnema/puregotk/v4/gobject"
 	"github.com/bnema/puregotk/v4/gobject/types"
@@ -16,7 +17,6 @@ type CompositeNode struct {
 var xCompositeNodeGLibType func() types.GType
 
 func CompositeNodeGLibType() types.GType {
-	core.LazyRegister(&xCompositeNodeGLibType, "GSK", "gsk_composite_node_get_type", false)
 	return xCompositeNodeGLibType()
 }
 
@@ -35,7 +35,6 @@ var xNewCompositeNode func(uintptr, uintptr, PorterDuff) uintptr
 // the child's bounds, so the mask may cause visual changes outside
 // of the child.
 func NewCompositeNode(ChildVar *RenderNode, MaskVar *RenderNode, OpVar PorterDuff) *CompositeNode {
-	core.LazyRegister(&xNewCompositeNode, "GSK", "gsk_composite_node_new", false)
 	var cls *CompositeNode
 
 	cret := xNewCompositeNode(ChildVar.GoPointer(), MaskVar.GoPointer(), OpVar)
@@ -52,7 +51,6 @@ var xCompositeNodeGetChild func(uintptr) uintptr
 
 // Gets the child node that is getting composited by the given @node.
 func (x *CompositeNode) GetChild() *RenderNode {
-	core.LazyRegister(&xCompositeNodeGetChild, "GSK", "gsk_composite_node_get_child", false)
 	var cls *RenderNode
 
 	cret := xCompositeNodeGetChild(x.GoPointer())
@@ -71,7 +69,6 @@ var xCompositeNodeGetMask func(uintptr) uintptr
 // Gets the mask node that describes the region where the compositing
 // applies.
 func (x *CompositeNode) GetMask() *RenderNode {
-	core.LazyRegister(&xCompositeNodeGetMask, "GSK", "gsk_composite_node_get_mask", false)
 	var cls *RenderNode
 
 	cret := xCompositeNodeGetMask(x.GoPointer())
@@ -89,8 +86,6 @@ var xCompositeNodeGetOperator func(uintptr) PorterDuff
 
 // Gets the compositing operator used by this node.
 func (x *CompositeNode) GetOperator() PorterDuff {
-	core.LazyRegister(&xCompositeNodeGetOperator, "GSK", "gsk_composite_node_get_operator", false)
-
 	cret := xCompositeNodeGetOperator(x.GoPointer())
 	return cret
 }
@@ -109,4 +104,20 @@ func (c *CompositeNode) SetGoPointer(ptr uintptr) {
 func init() {
 	core.SetPackageName("GSK", "gtk4")
 	core.SetSharedLibraries("GSK", []string{"libgtk-4.so.1", "libgtk-4.1.dylib"})
+	var libs []uintptr
+	for _, libPath := range core.GetPaths("GSK") {
+		lib, err := purego.Dlopen(libPath, purego.RTLD_NOW|purego.RTLD_GLOBAL)
+		if err != nil {
+			panic(err)
+		}
+		libs = append(libs, lib)
+	}
+
+	core.PuregoSafeRegister(&xCompositeNodeGLibType, libs, "gsk_composite_node_get_type")
+
+	core.PuregoSafeRegister(&xNewCompositeNode, libs, "gsk_composite_node_new")
+
+	core.PuregoSafeRegister(&xCompositeNodeGetChild, libs, "gsk_composite_node_get_child")
+	core.PuregoSafeRegister(&xCompositeNodeGetMask, libs, "gsk_composite_node_get_mask")
+	core.PuregoSafeRegister(&xCompositeNodeGetOperator, libs, "gsk_composite_node_get_operator")
 }

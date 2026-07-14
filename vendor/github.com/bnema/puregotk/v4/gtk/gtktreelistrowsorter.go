@@ -5,6 +5,7 @@ import (
 	"structs"
 	"unsafe"
 
+	"github.com/bnema/purego"
 	"github.com/bnema/puregotk/pkg/core"
 	"github.com/bnema/puregotk/v4/gobject"
 	"github.com/bnema/puregotk/v4/gobject/types"
@@ -47,7 +48,6 @@ type TreeListRowSorter struct {
 var xTreeListRowSorterGLibType func() types.GType
 
 func TreeListRowSorterGLibType() types.GType {
-	core.LazyRegister(&xTreeListRowSorterGLibType, "GTK", "gtk_tree_list_row_sorter_get_type", false)
 	return xTreeListRowSorterGLibType()
 }
 
@@ -65,7 +65,6 @@ var xNewTreeListRowSorter func(uintptr) uintptr
 // Note that this sorter relies on [property@Gtk.TreeListModel:passthrough]
 // being %FALSE as it can only sort [class@Gtk.TreeListRow]s.
 func NewTreeListRowSorter(SorterVar *Sorter) *TreeListRowSorter {
-	core.LazyRegister(&xNewTreeListRowSorter, "GTK", "gtk_tree_list_row_sorter_new", false)
 	var cls *TreeListRowSorter
 
 	cret := xNewTreeListRowSorter(SorterVar.GoPointer())
@@ -82,7 +81,6 @@ var xTreeListRowSorterGetSorter func(uintptr) uintptr
 
 // Returns the sorter used by @self.
 func (x *TreeListRowSorter) GetSorter() *Sorter {
-	core.LazyRegister(&xTreeListRowSorterGetSorter, "GTK", "gtk_tree_list_row_sorter_get_sorter", false)
 	var cls *Sorter
 
 	cret := xTreeListRowSorterGetSorter(x.GoPointer())
@@ -103,8 +101,6 @@ var xTreeListRowSorterSetSorter func(uintptr, uintptr)
 // This sorter will be passed the [property@Gtk.TreeListRow:item] of
 // the tree list rows passed to @self.
 func (x *TreeListRowSorter) SetSorter(SorterVar *Sorter) {
-	core.LazyRegister(&xTreeListRowSorterSetSorter, "GTK", "gtk_tree_list_row_sorter_set_sorter", false)
-
 	xTreeListRowSorterSetSorter(x.GoPointer(), SorterVar.GoPointer())
 }
 
@@ -122,4 +118,19 @@ func (c *TreeListRowSorter) SetGoPointer(ptr uintptr) {
 func init() {
 	core.SetPackageName("GTK", "gtk4")
 	core.SetSharedLibraries("GTK", []string{"libgtk-4.so.1", "libgtk-4.1.dylib"})
+	var libs []uintptr
+	for _, libPath := range core.GetPaths("GTK") {
+		lib, err := purego.Dlopen(libPath, purego.RTLD_NOW|purego.RTLD_GLOBAL)
+		if err != nil {
+			panic(err)
+		}
+		libs = append(libs, lib)
+	}
+
+	core.PuregoSafeRegister(&xTreeListRowSorterGLibType, libs, "gtk_tree_list_row_sorter_get_type")
+
+	core.PuregoSafeRegister(&xNewTreeListRowSorter, libs, "gtk_tree_list_row_sorter_new")
+
+	core.PuregoSafeRegister(&xTreeListRowSorterGetSorter, libs, "gtk_tree_list_row_sorter_get_sorter")
+	core.PuregoSafeRegister(&xTreeListRowSorterSetSorter, libs, "gtk_tree_list_row_sorter_set_sorter")
 }

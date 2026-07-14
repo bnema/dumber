@@ -5,6 +5,7 @@ import (
 	"structs"
 	"unsafe"
 
+	"github.com/bnema/purego"
 	"github.com/bnema/puregotk/pkg/core"
 	"github.com/bnema/puregotk/v4/glib"
 	"github.com/bnema/puregotk/v4/gobject"
@@ -38,7 +39,6 @@ type GestureRotate struct {
 var xGestureRotateGLibType func() types.GType
 
 func GestureRotateGLibType() types.GType {
-	core.LazyRegister(&xGestureRotateGLibType, "GTK", "gtk_gesture_rotate_get_type", false)
 	return xGestureRotateGLibType()
 }
 
@@ -53,7 +53,6 @@ var xNewGestureRotate func() uintptr
 // Returns a newly created `GtkGesture` that recognizes 2-touch
 // rotation gestures.
 func NewGestureRotate() *GestureRotate {
-	core.LazyRegister(&xNewGestureRotate, "GTK", "gtk_gesture_rotate_new", false)
 	var cls *GestureRotate
 
 	cret := xNewGestureRotate()
@@ -74,8 +73,6 @@ var xGestureRotateGetAngleDelta func(uintptr) float64
 // in radians since the gesture was first recognized. If @gesture is
 // not active, 0 is returned.
 func (x *GestureRotate) GetAngleDelta() float64 {
-	core.LazyRegister(&xGestureRotateGetAngleDelta, "GTK", "gtk_gesture_rotate_get_angle_delta", false)
-
 	cret := xGestureRotateGetAngleDelta(x.GoPointer())
 	return cret
 }
@@ -117,4 +114,18 @@ func (x *GestureRotate) ConnectAngleChanged(cb *func(GestureRotate, float64, flo
 func init() {
 	core.SetPackageName("GTK", "gtk4")
 	core.SetSharedLibraries("GTK", []string{"libgtk-4.so.1", "libgtk-4.1.dylib"})
+	var libs []uintptr
+	for _, libPath := range core.GetPaths("GTK") {
+		lib, err := purego.Dlopen(libPath, purego.RTLD_NOW|purego.RTLD_GLOBAL)
+		if err != nil {
+			panic(err)
+		}
+		libs = append(libs, lib)
+	}
+
+	core.PuregoSafeRegister(&xGestureRotateGLibType, libs, "gtk_gesture_rotate_get_type")
+
+	core.PuregoSafeRegister(&xNewGestureRotate, libs, "gtk_gesture_rotate_new")
+
+	core.PuregoSafeRegister(&xGestureRotateGetAngleDelta, libs, "gtk_gesture_rotate_get_angle_delta")
 }

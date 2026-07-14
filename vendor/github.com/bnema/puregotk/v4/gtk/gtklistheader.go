@@ -5,6 +5,7 @@ import (
 	"structs"
 	"unsafe"
 
+	"github.com/bnema/purego"
 	"github.com/bnema/puregotk/pkg/core"
 	"github.com/bnema/puregotk/v4/gobject"
 	"github.com/bnema/puregotk/v4/gobject/types"
@@ -38,7 +39,6 @@ type ListHeader struct {
 var xListHeaderGLibType func() types.GType
 
 func ListHeaderGLibType() types.GType {
-	core.LazyRegister(&xListHeaderGLibType, "GTK", "gtk_list_header_get_type", false)
 	return xListHeaderGLibType()
 }
 
@@ -53,7 +53,6 @@ var xListHeaderGetChild func(uintptr) uintptr
 // Gets the child previously set via gtk_list_header_set_child() or
 // %NULL if none was set.
 func (x *ListHeader) GetChild() *Widget {
-	core.LazyRegister(&xListHeaderGetChild, "GTK", "gtk_list_header_get_child", false)
 	var cls *Widget
 
 	cret := xListHeaderGetChild(x.GoPointer())
@@ -74,8 +73,6 @@ var xListHeaderGetEnd func(uintptr) uint
 //
 // If @self is unbound, %GTK_INVALID_LIST_POSITION is returned.
 func (x *ListHeader) GetEnd() uint {
-	core.LazyRegister(&xListHeaderGetEnd, "GTK", "gtk_list_header_get_end", false)
-
 	cret := xListHeaderGetEnd(x.GoPointer())
 	return cret
 }
@@ -88,7 +85,6 @@ var xListHeaderGetItem func(uintptr) uintptr
 //
 // If @self is unbound, this function returns %NULL.
 func (x *ListHeader) GetItem() *gobject.Object {
-	core.LazyRegister(&xListHeaderGetItem, "GTK", "gtk_list_header_get_item", false)
 	var cls *gobject.Object
 
 	cret := xListHeaderGetItem(x.GoPointer())
@@ -108,8 +104,6 @@ var xListHeaderGetNItems func(uintptr) uint
 //
 // If @self is unbound, 0 is returned.
 func (x *ListHeader) GetNItems() uint {
-	core.LazyRegister(&xListHeaderGetNItems, "GTK", "gtk_list_header_get_n_items", false)
-
 	cret := xListHeaderGetNItems(x.GoPointer())
 	return cret
 }
@@ -121,8 +115,6 @@ var xListHeaderGetStart func(uintptr) uint
 //
 // If @self is unbound, %GTK_INVALID_LIST_POSITION is returned.
 func (x *ListHeader) GetStart() uint {
-	core.LazyRegister(&xListHeaderGetStart, "GTK", "gtk_list_header_get_start", false)
-
 	cret := xListHeaderGetStart(x.GoPointer())
 	return cret
 }
@@ -135,8 +127,6 @@ var xListHeaderSetChild func(uintptr, uintptr)
 // setting up a header so that the widget can be reused when
 // binding it multiple times.
 func (x *ListHeader) SetChild(ChildVar *Widget) {
-	core.LazyRegister(&xListHeaderSetChild, "GTK", "gtk_list_header_set_child", false)
-
 	xListHeaderSetChild(x.GoPointer(), ChildVar.GoPointer())
 }
 
@@ -178,4 +168,21 @@ func (x *ListHeader) GetPropertyStart() uint {
 func init() {
 	core.SetPackageName("GTK", "gtk4")
 	core.SetSharedLibraries("GTK", []string{"libgtk-4.so.1", "libgtk-4.1.dylib"})
+	var libs []uintptr
+	for _, libPath := range core.GetPaths("GTK") {
+		lib, err := purego.Dlopen(libPath, purego.RTLD_NOW|purego.RTLD_GLOBAL)
+		if err != nil {
+			panic(err)
+		}
+		libs = append(libs, lib)
+	}
+
+	core.PuregoSafeRegister(&xListHeaderGLibType, libs, "gtk_list_header_get_type")
+
+	core.PuregoSafeRegister(&xListHeaderGetChild, libs, "gtk_list_header_get_child")
+	core.PuregoSafeRegister(&xListHeaderGetEnd, libs, "gtk_list_header_get_end")
+	core.PuregoSafeRegister(&xListHeaderGetItem, libs, "gtk_list_header_get_item")
+	core.PuregoSafeRegister(&xListHeaderGetNItems, libs, "gtk_list_header_get_n_items")
+	core.PuregoSafeRegister(&xListHeaderGetStart, libs, "gtk_list_header_get_start")
+	core.PuregoSafeRegister(&xListHeaderSetChild, libs, "gtk_list_header_set_child")
 }

@@ -5,6 +5,7 @@ import (
 	"structs"
 	"unsafe"
 
+	"github.com/bnema/purego"
 	"github.com/bnema/puregotk/pkg/core"
 	"github.com/bnema/puregotk/v4/gobject"
 	"github.com/bnema/puregotk/v4/gobject/types"
@@ -75,7 +76,6 @@ type Fixed struct {
 var xFixedGLibType func() types.GType
 
 func FixedGLibType() types.GType {
-	core.LazyRegister(&xFixedGLibType, "GTK", "gtk_fixed_get_type", false)
 	return xFixedGLibType()
 }
 
@@ -89,7 +89,6 @@ var xNewFixed func() uintptr
 
 // Creates a new `GtkFixed`.
 func NewFixed() *Fixed {
-	core.LazyRegister(&xNewFixed, "GTK", "gtk_fixed_new", false)
 	var cls *Fixed
 
 	cret := xNewFixed()
@@ -110,8 +109,6 @@ var xFixedGetChildPosition func(uintptr, uintptr, *float64, *float64)
 //
 // See also: [method@Gtk.Fixed.get_child_transform].
 func (x *Fixed) GetChildPosition(WidgetVar *Widget, XVar *float64, YVar *float64) {
-	core.LazyRegister(&xFixedGetChildPosition, "GTK", "gtk_fixed_get_child_position", false)
-
 	xFixedGetChildPosition(x.GoPointer(), WidgetVar.GoPointer(), XVar, YVar)
 }
 
@@ -120,8 +117,6 @@ var xFixedGetChildTransform func(uintptr, uintptr) uintptr
 // Retrieves the transformation for @widget set using
 // gtk_fixed_set_child_transform().
 func (x *Fixed) GetChildTransform(WidgetVar *Widget) *gsk.Transform {
-	core.LazyRegister(&xFixedGetChildTransform, "GTK", "gtk_fixed_get_child_transform", false)
-
 	cret := xFixedGetChildTransform(x.GoPointer(), WidgetVar.GoPointer())
 	if cret == 0 {
 		return nil
@@ -134,8 +129,6 @@ var xFixedMove func(uintptr, uintptr, float64, float64)
 // Sets a translation transformation to the given @x and @y
 // coordinates to the child @widget of the `GtkFixed`.
 func (x *Fixed) Move(WidgetVar *Widget, XVar float64, YVar float64) {
-	core.LazyRegister(&xFixedMove, "GTK", "gtk_fixed_move", false)
-
 	xFixedMove(x.GoPointer(), WidgetVar.GoPointer(), XVar, YVar)
 }
 
@@ -143,8 +136,6 @@ var xFixedPut func(uintptr, uintptr, float64, float64)
 
 // Adds a widget to a `GtkFixed` at the given position.
 func (x *Fixed) Put(WidgetVar *Widget, XVar float64, YVar float64) {
-	core.LazyRegister(&xFixedPut, "GTK", "gtk_fixed_put", false)
-
 	xFixedPut(x.GoPointer(), WidgetVar.GoPointer(), XVar, YVar)
 }
 
@@ -152,8 +143,6 @@ var xFixedRemove func(uintptr, uintptr)
 
 // Removes a child from @fixed.
 func (x *Fixed) Remove(WidgetVar *Widget) {
-	core.LazyRegister(&xFixedRemove, "GTK", "gtk_fixed_remove", false)
-
 	xFixedRemove(x.GoPointer(), WidgetVar.GoPointer())
 }
 
@@ -165,8 +154,6 @@ var xFixedSetChildTransform func(uintptr, uintptr, *gsk.Transform)
 // [class@Gtk.FixedLayoutChild] instance associated to
 // @widget and calls [method@Gtk.FixedLayoutChild.set_transform].
 func (x *Fixed) SetChildTransform(WidgetVar *Widget, TransformVar *gsk.Transform) {
-	core.LazyRegister(&xFixedSetChildTransform, "GTK", "gtk_fixed_set_child_transform", false)
-
 	xFixedSetChildTransform(x.GoPointer(), WidgetVar.GoPointer(), TransformVar)
 }
 
@@ -444,4 +431,23 @@ func (x *Fixed) GetBuildableId() string {
 func init() {
 	core.SetPackageName("GTK", "gtk4")
 	core.SetSharedLibraries("GTK", []string{"libgtk-4.so.1", "libgtk-4.1.dylib"})
+	var libs []uintptr
+	for _, libPath := range core.GetPaths("GTK") {
+		lib, err := purego.Dlopen(libPath, purego.RTLD_NOW|purego.RTLD_GLOBAL)
+		if err != nil {
+			panic(err)
+		}
+		libs = append(libs, lib)
+	}
+
+	core.PuregoSafeRegister(&xFixedGLibType, libs, "gtk_fixed_get_type")
+
+	core.PuregoSafeRegister(&xNewFixed, libs, "gtk_fixed_new")
+
+	core.PuregoSafeRegister(&xFixedGetChildPosition, libs, "gtk_fixed_get_child_position")
+	core.PuregoSafeRegister(&xFixedGetChildTransform, libs, "gtk_fixed_get_child_transform")
+	core.PuregoSafeRegister(&xFixedMove, libs, "gtk_fixed_move")
+	core.PuregoSafeRegister(&xFixedPut, libs, "gtk_fixed_put")
+	core.PuregoSafeRegister(&xFixedRemove, libs, "gtk_fixed_remove")
+	core.PuregoSafeRegister(&xFixedSetChildTransform, libs, "gtk_fixed_set_child_transform")
 }

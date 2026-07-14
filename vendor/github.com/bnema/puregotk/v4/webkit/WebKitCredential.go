@@ -5,6 +5,7 @@ import (
 	"structs"
 	"unsafe"
 
+	"github.com/bnema/purego"
 	"github.com/bnema/puregotk/pkg/core"
 	"github.com/bnema/puregotk/v4/gio"
 	"github.com/bnema/puregotk/v4/gobject"
@@ -19,7 +20,6 @@ type Credential struct {
 var xCredentialGLibType func() types.GType
 
 func CredentialGLibType() types.GType {
-	core.LazyRegister(&xCredentialGLibType, "WEBKIT", "webkit_credential_get_type", false)
 	return xCredentialGLibType()
 }
 
@@ -39,8 +39,6 @@ var xNewCredential func(string, string, CredentialPersistence) uintptr
 
 // Create a new credential from the provided username, password and persistence mode.
 func NewCredential(UsernameVar string, PasswordVar string, PersistenceVar CredentialPersistence) *Credential {
-	core.LazyRegister(&xNewCredential, "WEBKIT", "webkit_credential_new", false)
-
 	cret := xNewCredential(UsernameVar, PasswordVar, PersistenceVar)
 	if cret == 0 {
 		return nil
@@ -54,8 +52,6 @@ var xNewCredentialForCertificate func(uintptr, CredentialPersistence) uintptr
 //
 // Note that %WEBKIT_CREDENTIAL_PERSISTENCE_PERMANENT is not supported for certificate credentials.
 func NewCredentialForCertificate(CertificateVar *gio.TlsCertificate, PersistenceVar CredentialPersistence) *Credential {
-	core.LazyRegister(&xNewCredentialForCertificate, "WEBKIT", "webkit_credential_new_for_certificate", false)
-
 	cret := xNewCredentialForCertificate(CertificateVar.GoPointer(), PersistenceVar)
 	if cret == 0 {
 		return nil
@@ -69,8 +65,6 @@ var xNewCredentialForCertificatePin func(string, CredentialPersistence) uintptr
 //
 // Note that %WEBKIT_CREDENTIAL_PERSISTENCE_PERMANENT is not supported for certificate pin credentials.
 func NewCredentialForCertificatePin(PinVar string, PersistenceVar CredentialPersistence) *Credential {
-	core.LazyRegister(&xNewCredentialForCertificatePin, "WEBKIT", "webkit_credential_new_for_certificate_pin", false)
-
 	cret := xNewCredentialForCertificatePin(PinVar, PersistenceVar)
 	if cret == 0 {
 		return nil
@@ -82,8 +76,6 @@ var xCredentialCopy func(uintptr) uintptr
 
 // Make a copy of the #WebKitCredential.
 func (x *Credential) Copy() *Credential {
-	core.LazyRegister(&xCredentialCopy, "WEBKIT", "webkit_credential_copy", false)
-
 	cret := xCredentialCopy(x.GoPointer())
 	if cret == 0 {
 		return nil
@@ -95,8 +87,6 @@ var xCredentialFree func(uintptr)
 
 // Free the #WebKitCredential.
 func (x *Credential) Free() {
-	core.LazyRegister(&xCredentialFree, "WEBKIT", "webkit_credential_free", false)
-
 	xCredentialFree(x.GoPointer())
 }
 
@@ -104,7 +94,6 @@ var xCredentialGetCertificate func(uintptr) uintptr
 
 // Get the certificate currently held by this #WebKitCredential.
 func (x *Credential) GetCertificate() *gio.TlsCertificate {
-	core.LazyRegister(&xCredentialGetCertificate, "WEBKIT", "webkit_credential_get_certificate", false)
 	var cls *gio.TlsCertificate
 
 	cret := xCredentialGetCertificate(x.GoPointer())
@@ -122,8 +111,6 @@ var xCredentialGetPassword func(uintptr) string
 
 // Get the password currently held by this #WebKitCredential.
 func (x *Credential) GetPassword() string {
-	core.LazyRegister(&xCredentialGetPassword, "WEBKIT", "webkit_credential_get_password", false)
-
 	cret := xCredentialGetPassword(x.GoPointer())
 	return cret
 }
@@ -132,8 +119,6 @@ var xCredentialGetPersistence func(uintptr) CredentialPersistence
 
 // Get the persistence mode currently held by this #WebKitCredential.
 func (x *Credential) GetPersistence() CredentialPersistence {
-	core.LazyRegister(&xCredentialGetPersistence, "WEBKIT", "webkit_credential_get_persistence", false)
-
 	cret := xCredentialGetPersistence(x.GoPointer())
 	return cret
 }
@@ -142,8 +127,6 @@ var xCredentialGetUsername func(uintptr) string
 
 // Get the username currently held by this #WebKitCredential.
 func (x *Credential) GetUsername() string {
-	core.LazyRegister(&xCredentialGetUsername, "WEBKIT", "webkit_credential_get_username", false)
-
 	cret := xCredentialGetUsername(x.GoPointer())
 	return cret
 }
@@ -152,8 +135,6 @@ var xCredentialHasPassword func(uintptr) bool
 
 // Determine whether this credential has a password stored.
 func (x *Credential) HasPassword() bool {
-	core.LazyRegister(&xCredentialHasPassword, "WEBKIT", "webkit_credential_has_password", false)
-
 	cret := xCredentialHasPassword(x.GoPointer())
 	return cret
 }
@@ -164,7 +145,6 @@ type CredentialPersistence int
 var xCredentialPersistenceGLibType func() types.GType
 
 func CredentialPersistenceGLibType() types.GType {
-	core.LazyRegister(&xCredentialPersistenceGLibType, "WEBKIT", "webkit_credential_persistence_get_type", false)
 	return xCredentialPersistenceGLibType()
 }
 
@@ -181,7 +161,28 @@ const (
 func init() {
 	core.SetPackageName("WEBKIT", "webkitgtk-6.0")
 	core.SetSharedLibraries("WEBKIT", []string{"libwebkitgtk-6.0.so.4", "libjavascriptcoregtk-6.0.so.1", "libwebkitgtk-6.0.4.dylib", "libjavascriptcoregtk-6.0.1.dylib"})
+	var libs []uintptr
+	for _, libPath := range core.GetPaths("WEBKIT") {
+		lib, err := purego.Dlopen(libPath, purego.RTLD_NOW|purego.RTLD_GLOBAL)
+		if err != nil {
+			panic(err)
+		}
+		libs = append(libs, lib)
+	}
 
-	// Manually register types since they aren't automatically registered when
-	// WebKit is loaded. See https://bugs.webkit.org/show_bug.cgi?id=175937.
+	core.PuregoSafeRegister(&xCredentialPersistenceGLibType, libs, "webkit_credential_persistence_get_type")
+
+	core.PuregoSafeRegister(&xCredentialGLibType, libs, "webkit_credential_get_type")
+
+	core.PuregoSafeRegister(&xNewCredential, libs, "webkit_credential_new")
+	core.PuregoSafeRegister(&xNewCredentialForCertificate, libs, "webkit_credential_new_for_certificate")
+	core.PuregoSafeRegister(&xNewCredentialForCertificatePin, libs, "webkit_credential_new_for_certificate_pin")
+
+	core.PuregoSafeRegister(&xCredentialCopy, libs, "webkit_credential_copy")
+	core.PuregoSafeRegister(&xCredentialFree, libs, "webkit_credential_free")
+	core.PuregoSafeRegister(&xCredentialGetCertificate, libs, "webkit_credential_get_certificate")
+	core.PuregoSafeRegister(&xCredentialGetPassword, libs, "webkit_credential_get_password")
+	core.PuregoSafeRegister(&xCredentialGetPersistence, libs, "webkit_credential_get_persistence")
+	core.PuregoSafeRegister(&xCredentialGetUsername, libs, "webkit_credential_get_username")
+	core.PuregoSafeRegister(&xCredentialHasPassword, libs, "webkit_credential_has_password")
 }

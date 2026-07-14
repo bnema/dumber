@@ -2,6 +2,7 @@
 package gio
 
 import (
+	"github.com/bnema/purego"
 	"github.com/bnema/puregotk/pkg/core"
 	"github.com/bnema/puregotk/v4/glib"
 )
@@ -16,8 +17,6 @@ var xDbusAddressEscapeValue func(string) string
 // which could be used in a D-Bus address like
 // `unix:nonce-tcp:host=127.0.0.1,port=42,noncefile=/run/bus-for-%3A0`.
 func DbusAddressEscapeValue(StringVar string) string {
-	core.LazyRegister(&xDbusAddressEscapeValue, "GIO", "g_dbus_address_escape_value", false)
-
 	cret := xDbusAddressEscapeValue(StringVar)
 	return cret
 }
@@ -31,7 +30,6 @@ var xDbusAddressGetForBusSync func(BusType, uintptr, **glib.Error) string
 // The returned address will be in the
 // [D-Bus address format](https://dbus.freedesktop.org/doc/dbus-specification.html#addresses).
 func DbusAddressGetForBusSync(BusTypeVar BusType, CancellableVar *Cancellable) (string, error) {
-	core.LazyRegister(&xDbusAddressGetForBusSync, "GIO", "g_dbus_address_get_for_bus_sync", false)
 	var cerr *glib.Error
 
 	cret := xDbusAddressGetForBusSync(BusTypeVar, CancellableVar.GoPointer(), &cerr)
@@ -55,8 +53,6 @@ var xDbusAddressGetStream func(string, uintptr, uintptr, uintptr)
 // This is an asynchronous failable function. See
 // g_dbus_address_get_stream_sync() for the synchronous version.
 func DbusAddressGetStream(AddressVar string, CancellableVar *Cancellable, CallbackVar *AsyncReadyCallback, UserDataVar uintptr) {
-	core.LazyRegister(&xDbusAddressGetStream, "GIO", "g_dbus_address_get_stream", false)
-
 	xDbusAddressGetStream(AddressVar, CancellableVar.GoPointer(), glib.NewCallbackNullable(CallbackVar), UserDataVar)
 }
 
@@ -67,7 +63,6 @@ var xDbusAddressGetStreamFinish func(uintptr, *string, **glib.Error) uintptr
 // A server is not required to set a GUID, so @out_guid may be set to %NULL
 // even on success.
 func DbusAddressGetStreamFinish(ResVar AsyncResult, OutGuidVar *string) (*IOStream, error) {
-	core.LazyRegister(&xDbusAddressGetStreamFinish, "GIO", "g_dbus_address_get_stream_finish", false)
 	var cls *IOStream
 	var cerr *glib.Error
 
@@ -97,7 +92,6 @@ var xDbusAddressGetStreamSync func(string, *string, uintptr, **glib.Error) uintp
 // This is a synchronous failable function. See
 // g_dbus_address_get_stream() for the asynchronous version.
 func DbusAddressGetStreamSync(AddressVar string, OutGuidVar *string, CancellableVar *Cancellable) (*IOStream, error) {
-	core.LazyRegister(&xDbusAddressGetStreamSync, "GIO", "g_dbus_address_get_stream_sync", false)
 	var cls *IOStream
 	var cerr *glib.Error
 
@@ -123,8 +117,6 @@ var xDbusIsAddress func(string) bool
 // or #GDBusConnection - use g_dbus_is_supported_address() to do more
 // checks.
 func DbusIsAddress(StringVar string) bool {
-	core.LazyRegister(&xDbusIsAddress, "GIO", "g_dbus_is_address", false)
-
 	cret := xDbusIsAddress(StringVar)
 	return cret
 }
@@ -136,7 +128,6 @@ var xDbusIsSupportedAddress func(string, **glib.Error) bool
 // are valid. See the specification of the
 // [D-Bus address format](https://dbus.freedesktop.org/doc/dbus-specification.html#addresses).
 func DbusIsSupportedAddress(StringVar string) (bool, error) {
-	core.LazyRegister(&xDbusIsSupportedAddress, "GIO", "g_dbus_is_supported_address", false)
 	var cerr *glib.Error
 
 	cret := xDbusIsSupportedAddress(StringVar, &cerr)
@@ -149,4 +140,20 @@ func DbusIsSupportedAddress(StringVar string) (bool, error) {
 func init() {
 	core.SetPackageName("GIO", "gio-2.0")
 	core.SetSharedLibraries("GIO", []string{"libgio-2.0.so.0", "libgio-2.0.0.dylib"})
+	var libs []uintptr
+	for _, libPath := range core.GetPaths("GIO") {
+		lib, err := purego.Dlopen(libPath, purego.RTLD_NOW|purego.RTLD_GLOBAL)
+		if err != nil {
+			panic(err)
+		}
+		libs = append(libs, lib)
+	}
+
+	core.PuregoSafeRegister(&xDbusAddressEscapeValue, libs, "g_dbus_address_escape_value")
+	core.PuregoSafeRegister(&xDbusAddressGetForBusSync, libs, "g_dbus_address_get_for_bus_sync")
+	core.PuregoSafeRegister(&xDbusAddressGetStream, libs, "g_dbus_address_get_stream")
+	core.PuregoSafeRegister(&xDbusAddressGetStreamFinish, libs, "g_dbus_address_get_stream_finish")
+	core.PuregoSafeRegister(&xDbusAddressGetStreamSync, libs, "g_dbus_address_get_stream_sync")
+	core.PuregoSafeRegister(&xDbusIsAddress, libs, "g_dbus_is_address")
+	core.PuregoSafeRegister(&xDbusIsSupportedAddress, libs, "g_dbus_is_supported_address")
 }

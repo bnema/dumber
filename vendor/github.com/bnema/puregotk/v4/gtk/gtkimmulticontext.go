@@ -156,7 +156,6 @@ type IMMulticontext struct {
 var xIMMulticontextGLibType func() types.GType
 
 func IMMulticontextGLibType() types.GType {
-	core.LazyRegister(&xIMMulticontextGLibType, "GTK", "gtk_im_multicontext_get_type", false)
 	return xIMMulticontextGLibType()
 }
 
@@ -170,7 +169,6 @@ var xNewIMMulticontext func() uintptr
 
 // Creates a new `GtkIMMulticontext`.
 func NewIMMulticontext() *IMMulticontext {
-	core.LazyRegister(&xNewIMMulticontext, "GTK", "gtk_im_multicontext_new", false)
 	var cls *IMMulticontext
 
 	cret := xNewIMMulticontext()
@@ -187,8 +185,6 @@ var xIMMulticontextGetContextId func(uintptr) string
 
 // Gets the id of the currently active delegate of the @context.
 func (x *IMMulticontext) GetContextId() string {
-	core.LazyRegister(&xIMMulticontextGetContextId, "GTK", "gtk_im_multicontext_get_context_id", false)
-
 	cret := xIMMulticontextGetContextId(x.GoPointer())
 	return cret
 }
@@ -204,8 +200,6 @@ var xIMMulticontextSetContextId func(uintptr, uintptr)
 // IM module setting. See the [property@Gtk.Settings:gtk-im-module]
 // property.
 func (x *IMMulticontext) SetContextId(ContextIdVar *string) {
-	core.LazyRegister(&xIMMulticontextSetContextId, "GTK", "gtk_im_multicontext_set_context_id", false)
-
 	ContextIdVarPtr := core.GStrdupNullable(ContextIdVar)
 	defer core.GFreeNullable(ContextIdVarPtr)
 
@@ -226,4 +220,19 @@ func (c *IMMulticontext) SetGoPointer(ptr uintptr) {
 func init() {
 	core.SetPackageName("GTK", "gtk4")
 	core.SetSharedLibraries("GTK", []string{"libgtk-4.so.1", "libgtk-4.1.dylib"})
+	var libs []uintptr
+	for _, libPath := range core.GetPaths("GTK") {
+		lib, err := purego.Dlopen(libPath, purego.RTLD_NOW|purego.RTLD_GLOBAL)
+		if err != nil {
+			panic(err)
+		}
+		libs = append(libs, lib)
+	}
+
+	core.PuregoSafeRegister(&xIMMulticontextGLibType, libs, "gtk_im_multicontext_get_type")
+
+	core.PuregoSafeRegister(&xNewIMMulticontext, libs, "gtk_im_multicontext_new")
+
+	core.PuregoSafeRegister(&xIMMulticontextGetContextId, libs, "gtk_im_multicontext_get_context_id")
+	core.PuregoSafeRegister(&xIMMulticontextSetContextId, libs, "gtk_im_multicontext_set_context_id")
 }

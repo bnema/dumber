@@ -5,6 +5,7 @@ import (
 	"structs"
 	"unsafe"
 
+	"github.com/bnema/purego"
 	"github.com/bnema/puregotk/pkg/core"
 	"github.com/bnema/puregotk/v4/glib"
 	"github.com/bnema/puregotk/v4/gobject"
@@ -38,7 +39,6 @@ type FileIcon struct {
 var xFileIconGLibType func() types.GType
 
 func FileIconGLibType() types.GType {
-	core.LazyRegister(&xFileIconGLibType, "GIO", "g_file_icon_get_type", false)
 	return xFileIconGLibType()
 }
 
@@ -52,7 +52,6 @@ var xNewFileIcon func(uintptr) uintptr
 
 // Creates a new icon for a file.
 func NewFileIcon(FileVar File) *FileIcon {
-	core.LazyRegister(&xNewFileIcon, "GIO", "g_file_icon_new", false)
 	var cls *FileIcon
 
 	cret := xNewFileIcon(FileVar.GoPointer())
@@ -69,7 +68,6 @@ var xFileIconGetFile func(uintptr) uintptr
 
 // Gets the #GFile associated with the given @icon.
 func (x *FileIcon) GetFile() *FileBase {
-	core.LazyRegister(&xFileIconGetFile, "GIO", "g_file_icon_get_file", false)
 	var cls *FileBase
 
 	cret := xFileIconGetFile(x.GoPointer())
@@ -187,4 +185,18 @@ func (x *FileIcon) LoadFinish(ResVar AsyncResult, TypeVar *string) (*InputStream
 func init() {
 	core.SetPackageName("GIO", "gio-2.0")
 	core.SetSharedLibraries("GIO", []string{"libgio-2.0.so.0", "libgio-2.0.0.dylib"})
+	var libs []uintptr
+	for _, libPath := range core.GetPaths("GIO") {
+		lib, err := purego.Dlopen(libPath, purego.RTLD_NOW|purego.RTLD_GLOBAL)
+		if err != nil {
+			panic(err)
+		}
+		libs = append(libs, lib)
+	}
+
+	core.PuregoSafeRegister(&xFileIconGLibType, libs, "g_file_icon_get_type")
+
+	core.PuregoSafeRegister(&xNewFileIcon, libs, "g_file_icon_new")
+
+	core.PuregoSafeRegister(&xFileIconGetFile, libs, "g_file_icon_get_file")
 }

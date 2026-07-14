@@ -157,7 +157,6 @@ type DBusProxy struct {
 var xDBusProxyGLibType func() types.GType
 
 func DBusProxyGLibType() types.GType {
-	core.LazyRegister(&xDBusProxyGLibType, "GIO", "g_dbus_proxy_get_type", false)
 	return xDBusProxyGLibType()
 }
 
@@ -171,7 +170,6 @@ var xNewDBusProxyFinish func(uintptr, **glib.Error) uintptr
 
 // Finishes creating a #GDBusProxy.
 func NewDBusProxyFinish(ResVar AsyncResult) (*DBusProxy, error) {
-	core.LazyRegister(&xNewDBusProxyFinish, "GIO", "g_dbus_proxy_new_finish", false)
 	var cls *DBusProxy
 	var cerr *glib.Error
 
@@ -192,7 +190,6 @@ var xNewDBusProxyForBusFinish func(uintptr, **glib.Error) uintptr
 
 // Finishes creating a #GDBusProxy.
 func NewDBusProxyForBusFinish(ResVar AsyncResult) (*DBusProxy, error) {
-	core.LazyRegister(&xNewDBusProxyForBusFinish, "GIO", "g_dbus_proxy_new_for_bus_finish", false)
 	var cls *DBusProxy
 	var cerr *glib.Error
 
@@ -215,7 +212,6 @@ var xNewDBusProxyForBusSync func(BusType, DBusProxyFlags, *DBusInterfaceInfo, st
 //
 // #GDBusProxy is used in this [example][class@Gio.DBusProxy#a-watch-proxy-example].
 func NewDBusProxyForBusSync(BusTypeVar BusType, FlagsVar DBusProxyFlags, InfoVar *DBusInterfaceInfo, NameVar string, ObjectPathVar string, InterfaceNameVar string, CancellableVar *Cancellable) (*DBusProxy, error) {
-	core.LazyRegister(&xNewDBusProxyForBusSync, "GIO", "g_dbus_proxy_new_for_bus_sync", false)
 	var cls *DBusProxy
 	var cerr *glib.Error
 
@@ -257,7 +253,6 @@ var xNewDBusProxySync func(uintptr, DBusProxyFlags, *DBusInterfaceInfo, uintptr,
 //
 // #GDBusProxy is used in this [example][class@Gio.DBusProxy#a-watch-proxy-example].
 func NewDBusProxySync(ConnectionVar *DBusConnection, FlagsVar DBusProxyFlags, InfoVar *DBusInterfaceInfo, NameVar *string, ObjectPathVar string, InterfaceNameVar string, CancellableVar *Cancellable) (*DBusProxy, error) {
-	core.LazyRegister(&xNewDBusProxySync, "GIO", "g_dbus_proxy_new_sync", false)
 	var cls *DBusProxy
 	var cerr *glib.Error
 
@@ -324,8 +319,6 @@ var xDBusProxyCall func(uintptr, string, *glib.Variant, DBusCallFlags, int, uint
 // If @callback is %NULL then the D-Bus method call message will be sent with
 // the %G_DBUS_MESSAGE_FLAGS_NO_REPLY_EXPECTED flag set.
 func (x *DBusProxy) Call(MethodNameVar string, ParametersVar *glib.Variant, FlagsVar DBusCallFlags, TimeoutMsecVar int, CancellableVar *Cancellable, CallbackVar *AsyncReadyCallback, UserDataVar uintptr) {
-	core.LazyRegister(&xDBusProxyCall, "GIO", "g_dbus_proxy_call", false)
-
 	xDBusProxyCall(x.GoPointer(), MethodNameVar, ParametersVar, FlagsVar, TimeoutMsecVar, CancellableVar.GoPointer(), glib.NewCallbackNullable(CallbackVar), UserDataVar)
 }
 
@@ -333,7 +326,6 @@ var xDBusProxyCallFinish func(uintptr, uintptr, **glib.Error) uintptr
 
 // Finishes an operation started with g_dbus_proxy_call().
 func (x *DBusProxy) CallFinish(ResVar AsyncResult) (*glib.Variant, error) {
-	core.LazyRegister(&xDBusProxyCallFinish, "GIO", "g_dbus_proxy_call_finish", false)
 	var cerr *glib.Error
 
 	cret := xDBusProxyCallFinish(x.GoPointer(), ResVar.GoPointer(), &cerr)
@@ -385,7 +377,6 @@ var xDBusProxyCallSync func(uintptr, string, *glib.Variant, DBusCallFlags, int, 
 // #GDBusProxy:g-interface-info) and @method_name is referenced by it,
 // then the return value is checked against the return type.
 func (x *DBusProxy) CallSync(MethodNameVar string, ParametersVar *glib.Variant, FlagsVar DBusCallFlags, TimeoutMsecVar int, CancellableVar *Cancellable) (*glib.Variant, error) {
-	core.LazyRegister(&xDBusProxyCallSync, "GIO", "g_dbus_proxy_call_sync", false)
 	var cerr *glib.Error
 
 	cret := xDBusProxyCallSync(x.GoPointer(), MethodNameVar, ParametersVar, FlagsVar, TimeoutMsecVar, CancellableVar.GoPointer(), &cerr)
@@ -404,8 +395,6 @@ var xDBusProxyCallWithUnixFdList func(uintptr, string, *glib.Variant, DBusCallFl
 //
 // This method is only available on UNIX.
 func (x *DBusProxy) CallWithUnixFdList(MethodNameVar string, ParametersVar *glib.Variant, FlagsVar DBusCallFlags, TimeoutMsecVar int, FdListVar *UnixFDList, CancellableVar *Cancellable, CallbackVar *AsyncReadyCallback, UserDataVar uintptr) {
-	core.LazyRegister(&xDBusProxyCallWithUnixFdList, "GIO", "g_dbus_proxy_call_with_unix_fd_list", false)
-
 	xDBusProxyCallWithUnixFdList(x.GoPointer(), MethodNameVar, ParametersVar, FlagsVar, TimeoutMsecVar, FdListVar.GoPointer(), CancellableVar.GoPointer(), glib.NewCallbackNullable(CallbackVar), UserDataVar)
 }
 
@@ -413,7 +402,6 @@ var xDBusProxyCallWithUnixFdListFinish func(uintptr, **UnixFDList, uintptr, **gl
 
 // Finishes an operation started with g_dbus_proxy_call_with_unix_fd_list().
 func (x *DBusProxy) CallWithUnixFdListFinish(OutFdListVar **UnixFDList, ResVar AsyncResult) (*glib.Variant, error) {
-	core.LazyRegister(&xDBusProxyCallWithUnixFdListFinish, "GIO", "g_dbus_proxy_call_with_unix_fd_list_finish", false)
 	var cerr *glib.Error
 
 	cret := xDBusProxyCallWithUnixFdListFinish(x.GoPointer(), OutFdListVar, ResVar.GoPointer(), &cerr)
@@ -432,7 +420,6 @@ var xDBusProxyCallWithUnixFdListSync func(uintptr, string, *glib.Variant, DBusCa
 //
 // This method is only available on UNIX.
 func (x *DBusProxy) CallWithUnixFdListSync(MethodNameVar string, ParametersVar *glib.Variant, FlagsVar DBusCallFlags, TimeoutMsecVar int, FdListVar *UnixFDList, OutFdListVar **UnixFDList, CancellableVar *Cancellable) (*glib.Variant, error) {
-	core.LazyRegister(&xDBusProxyCallWithUnixFdListSync, "GIO", "g_dbus_proxy_call_with_unix_fd_list_sync", false)
 	var cerr *glib.Error
 
 	cret := xDBusProxyCallWithUnixFdListSync(x.GoPointer(), MethodNameVar, ParametersVar, FlagsVar, TimeoutMsecVar, FdListVar.GoPointer(), OutFdListVar, CancellableVar.GoPointer(), &cerr)
@@ -454,8 +441,6 @@ var xDBusProxyGetCachedProperty func(uintptr, string) uintptr
 // #GDBusProxy:g-interface-info) and @property_name is referenced by
 // it, then @value is checked against the type of the property.
 func (x *DBusProxy) GetCachedProperty(PropertyNameVar string) *glib.Variant {
-	core.LazyRegister(&xDBusProxyGetCachedProperty, "GIO", "g_dbus_proxy_get_cached_property", false)
-
 	cret := xDBusProxyGetCachedProperty(x.GoPointer(), PropertyNameVar)
 	if cret == 0 {
 		return nil
@@ -467,8 +452,6 @@ var xDBusProxyGetCachedPropertyNames func(uintptr) []string
 
 // Gets the names of all cached properties on @proxy.
 func (x *DBusProxy) GetCachedPropertyNames() []string {
-	core.LazyRegister(&xDBusProxyGetCachedPropertyNames, "GIO", "g_dbus_proxy_get_cached_property_names", false)
-
 	cret := xDBusProxyGetCachedPropertyNames(x.GoPointer())
 	return cret
 }
@@ -477,7 +460,6 @@ var xDBusProxyGetConnection func(uintptr) uintptr
 
 // Gets the connection @proxy is for.
 func (x *DBusProxy) GetConnection() *DBusConnection {
-	core.LazyRegister(&xDBusProxyGetConnection, "GIO", "g_dbus_proxy_get_connection", false)
 	var cls *DBusConnection
 
 	cret := xDBusProxyGetConnection(x.GoPointer())
@@ -499,8 +481,6 @@ var xDBusProxyGetDefaultTimeout func(uintptr) int
 //
 // See the #GDBusProxy:g-default-timeout property for more details.
 func (x *DBusProxy) GetDefaultTimeout() int {
-	core.LazyRegister(&xDBusProxyGetDefaultTimeout, "GIO", "g_dbus_proxy_get_default_timeout", false)
-
 	cret := xDBusProxyGetDefaultTimeout(x.GoPointer())
 	return cret
 }
@@ -509,8 +489,6 @@ var xDBusProxyGetFlags func(uintptr) DBusProxyFlags
 
 // Gets the flags that @proxy was constructed with.
 func (x *DBusProxy) GetFlags() DBusProxyFlags {
-	core.LazyRegister(&xDBusProxyGetFlags, "GIO", "g_dbus_proxy_get_flags", false)
-
 	cret := xDBusProxyGetFlags(x.GoPointer())
 	return cret
 }
@@ -521,8 +499,6 @@ var xDBusProxyGetInterfaceInfo func(uintptr) uintptr
 // that @proxy conforms to. See the #GDBusProxy:g-interface-info
 // property for more details.
 func (x *DBusProxy) GetInterfaceInfo() *DBusInterfaceInfo {
-	core.LazyRegister(&xDBusProxyGetInterfaceInfo, "GIO", "g_dbus_proxy_get_interface_info", false)
-
 	cret := xDBusProxyGetInterfaceInfo(x.GoPointer())
 	if cret == 0 {
 		return nil
@@ -534,8 +510,6 @@ var xDBusProxyGetInterfaceName func(uintptr) string
 
 // Gets the D-Bus interface name @proxy is for.
 func (x *DBusProxy) GetInterfaceName() string {
-	core.LazyRegister(&xDBusProxyGetInterfaceName, "GIO", "g_dbus_proxy_get_interface_name", false)
-
 	cret := xDBusProxyGetInterfaceName(x.GoPointer())
 	return cret
 }
@@ -548,8 +522,6 @@ var xDBusProxyGetName func(uintptr) string
 // However, it may be %NULL for a proxy that communicates using a peer-to-peer
 // pattern.
 func (x *DBusProxy) GetName() string {
-	core.LazyRegister(&xDBusProxyGetName, "GIO", "g_dbus_proxy_get_name", false)
-
 	cret := xDBusProxyGetName(x.GoPointer())
 	return cret
 }
@@ -561,8 +533,6 @@ var xDBusProxyGetNameOwner func(uintptr) string
 // #GObject::notify signal to track changes to the
 // #GDBusProxy:g-name-owner property.
 func (x *DBusProxy) GetNameOwner() string {
-	core.LazyRegister(&xDBusProxyGetNameOwner, "GIO", "g_dbus_proxy_get_name_owner", false)
-
 	cret := xDBusProxyGetNameOwner(x.GoPointer())
 	return cret
 }
@@ -571,8 +541,6 @@ var xDBusProxyGetObjectPath func(uintptr) string
 
 // Gets the object path @proxy is for.
 func (x *DBusProxy) GetObjectPath() string {
-	core.LazyRegister(&xDBusProxyGetObjectPath, "GIO", "g_dbus_proxy_get_object_path", false)
-
 	cret := xDBusProxyGetObjectPath(x.GoPointer())
 	return cret
 }
@@ -615,8 +583,6 @@ var xDBusProxySetCachedProperty func(uintptr, string, *glib.Variant)
 // `ChatroomParticipantJoined(String name)` and
 // `ChatroomParticipantParted(String name)`.
 func (x *DBusProxy) SetCachedProperty(PropertyNameVar string, ValueVar *glib.Variant) {
-	core.LazyRegister(&xDBusProxySetCachedProperty, "GIO", "g_dbus_proxy_set_cached_property", false)
-
 	xDBusProxySetCachedProperty(x.GoPointer(), PropertyNameVar, ValueVar)
 }
 
@@ -628,8 +594,6 @@ var xDBusProxySetDefaultTimeout func(uintptr, int)
 //
 // See the #GDBusProxy:g-default-timeout property for more details.
 func (x *DBusProxy) SetDefaultTimeout(TimeoutMsecVar int) {
-	core.LazyRegister(&xDBusProxySetDefaultTimeout, "GIO", "g_dbus_proxy_set_default_timeout", false)
-
 	xDBusProxySetDefaultTimeout(x.GoPointer(), TimeoutMsecVar)
 }
 
@@ -639,8 +603,6 @@ var xDBusProxySetInterfaceInfo func(uintptr, *DBusInterfaceInfo)
 // interface. See the #GDBusProxy:g-interface-info property for more
 // details.
 func (x *DBusProxy) SetInterfaceInfo(InfoVar *DBusInterfaceInfo) {
-	core.LazyRegister(&xDBusProxySetInterfaceInfo, "GIO", "g_dbus_proxy_set_interface_info", false)
-
 	xDBusProxySetInterfaceInfo(x.GoPointer(), InfoVar)
 }
 
@@ -1077,8 +1039,6 @@ var xDBusProxyNew func(uintptr, DBusProxyFlags, *DBusInterfaceInfo, uintptr, str
 //
 // #GDBusProxy is used in this [example][class@Gio.DBusProxy#a-watch-proxy-example].
 func DBusProxyNew(ConnectionVar *DBusConnection, FlagsVar DBusProxyFlags, InfoVar *DBusInterfaceInfo, NameVar *string, ObjectPathVar string, InterfaceNameVar string, CancellableVar *Cancellable, CallbackVar *AsyncReadyCallback, UserDataVar uintptr) {
-	core.LazyRegister(&xDBusProxyNew, "GIO", "g_dbus_proxy_new", false)
-
 	NameVarPtr := core.GStrdupNullable(NameVar)
 	defer core.GFreeNullable(NameVarPtr)
 
@@ -1091,12 +1051,48 @@ var xDBusProxyNewForBus func(BusType, DBusProxyFlags, *DBusInterfaceInfo, string
 //
 // #GDBusProxy is used in this [example][class@Gio.DBusProxy#a-watch-proxy-example].
 func DBusProxyNewForBus(BusTypeVar BusType, FlagsVar DBusProxyFlags, InfoVar *DBusInterfaceInfo, NameVar string, ObjectPathVar string, InterfaceNameVar string, CancellableVar *Cancellable, CallbackVar *AsyncReadyCallback, UserDataVar uintptr) {
-	core.LazyRegister(&xDBusProxyNewForBus, "GIO", "g_dbus_proxy_new_for_bus", false)
-
 	xDBusProxyNewForBus(BusTypeVar, FlagsVar, InfoVar, NameVar, ObjectPathVar, InterfaceNameVar, CancellableVar.GoPointer(), glib.NewCallbackNullable(CallbackVar), UserDataVar)
 }
 
 func init() {
 	core.SetPackageName("GIO", "gio-2.0")
 	core.SetSharedLibraries("GIO", []string{"libgio-2.0.so.0", "libgio-2.0.0.dylib"})
+	var libs []uintptr
+	for _, libPath := range core.GetPaths("GIO") {
+		lib, err := purego.Dlopen(libPath, purego.RTLD_NOW|purego.RTLD_GLOBAL)
+		if err != nil {
+			panic(err)
+		}
+		libs = append(libs, lib)
+	}
+
+	core.PuregoSafeRegister(&xDBusProxyGLibType, libs, "g_dbus_proxy_get_type")
+
+	core.PuregoSafeRegister(&xNewDBusProxyFinish, libs, "g_dbus_proxy_new_finish")
+	core.PuregoSafeRegister(&xNewDBusProxyForBusFinish, libs, "g_dbus_proxy_new_for_bus_finish")
+	core.PuregoSafeRegister(&xNewDBusProxyForBusSync, libs, "g_dbus_proxy_new_for_bus_sync")
+	core.PuregoSafeRegister(&xNewDBusProxySync, libs, "g_dbus_proxy_new_sync")
+
+	core.PuregoSafeRegister(&xDBusProxyCall, libs, "g_dbus_proxy_call")
+	core.PuregoSafeRegister(&xDBusProxyCallFinish, libs, "g_dbus_proxy_call_finish")
+	core.PuregoSafeRegister(&xDBusProxyCallSync, libs, "g_dbus_proxy_call_sync")
+	core.PuregoSafeRegister(&xDBusProxyCallWithUnixFdList, libs, "g_dbus_proxy_call_with_unix_fd_list")
+	core.PuregoSafeRegister(&xDBusProxyCallWithUnixFdListFinish, libs, "g_dbus_proxy_call_with_unix_fd_list_finish")
+	core.PuregoSafeRegister(&xDBusProxyCallWithUnixFdListSync, libs, "g_dbus_proxy_call_with_unix_fd_list_sync")
+	core.PuregoSafeRegister(&xDBusProxyGetCachedProperty, libs, "g_dbus_proxy_get_cached_property")
+	core.PuregoSafeRegister(&xDBusProxyGetCachedPropertyNames, libs, "g_dbus_proxy_get_cached_property_names")
+	core.PuregoSafeRegister(&xDBusProxyGetConnection, libs, "g_dbus_proxy_get_connection")
+	core.PuregoSafeRegister(&xDBusProxyGetDefaultTimeout, libs, "g_dbus_proxy_get_default_timeout")
+	core.PuregoSafeRegister(&xDBusProxyGetFlags, libs, "g_dbus_proxy_get_flags")
+	core.PuregoSafeRegister(&xDBusProxyGetInterfaceInfo, libs, "g_dbus_proxy_get_interface_info")
+	core.PuregoSafeRegister(&xDBusProxyGetInterfaceName, libs, "g_dbus_proxy_get_interface_name")
+	core.PuregoSafeRegister(&xDBusProxyGetName, libs, "g_dbus_proxy_get_name")
+	core.PuregoSafeRegister(&xDBusProxyGetNameOwner, libs, "g_dbus_proxy_get_name_owner")
+	core.PuregoSafeRegister(&xDBusProxyGetObjectPath, libs, "g_dbus_proxy_get_object_path")
+	core.PuregoSafeRegister(&xDBusProxySetCachedProperty, libs, "g_dbus_proxy_set_cached_property")
+	core.PuregoSafeRegister(&xDBusProxySetDefaultTimeout, libs, "g_dbus_proxy_set_default_timeout")
+	core.PuregoSafeRegister(&xDBusProxySetInterfaceInfo, libs, "g_dbus_proxy_set_interface_info")
+
+	core.PuregoSafeRegister(&xDBusProxyNew, libs, "g_dbus_proxy_new")
+	core.PuregoSafeRegister(&xDBusProxyNewForBus, libs, "g_dbus_proxy_new_for_bus")
 }

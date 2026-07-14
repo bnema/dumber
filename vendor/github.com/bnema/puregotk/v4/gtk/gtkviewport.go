@@ -2,6 +2,7 @@
 package gtk
 
 import (
+	"github.com/bnema/purego"
 	"github.com/bnema/puregotk/pkg/core"
 	"github.com/bnema/puregotk/v4/gobject"
 	"github.com/bnema/puregotk/v4/gobject/types"
@@ -32,7 +33,6 @@ type Viewport struct {
 var xViewportGLibType func() types.GType
 
 func ViewportGLibType() types.GType {
-	core.LazyRegister(&xViewportGLibType, "GTK", "gtk_viewport_get_type", false)
 	return xViewportGLibType()
 }
 
@@ -49,7 +49,6 @@ var xNewViewport func(uintptr, uintptr) uintptr
 // The new viewport uses the given adjustments, or default
 // adjustments if none are given.
 func NewViewport(HadjustmentVar *Adjustment, VadjustmentVar *Adjustment) *Viewport {
-	core.LazyRegister(&xNewViewport, "GTK", "gtk_viewport_new", false)
 	var cls *Viewport
 
 	cret := xNewViewport(HadjustmentVar.GoPointer(), VadjustmentVar.GoPointer())
@@ -67,7 +66,6 @@ var xViewportGetChild func(uintptr) uintptr
 
 // Gets the child widget of @viewport.
 func (x *Viewport) GetChild() *Widget {
-	core.LazyRegister(&xViewportGetChild, "GTK", "gtk_viewport_get_child", false)
 	var cls *Widget
 
 	cret := xViewportGetChild(x.GoPointer())
@@ -86,8 +84,6 @@ var xViewportGetScrollToFocus func(uintptr) bool
 // Gets whether the viewport is scrolling to keep the focused
 // child in view.
 func (x *Viewport) GetScrollToFocus() bool {
-	core.LazyRegister(&xViewportGetScrollToFocus, "GTK", "gtk_viewport_get_scroll_to_focus", false)
-
 	cret := xViewportGetScrollToFocus(x.GoPointer())
 	return cret
 }
@@ -99,8 +95,6 @@ var xViewportScrollTo func(uintptr, uintptr, *ScrollInfo)
 // The viewport and the descendant must be visible and mapped for
 // this function to work, otherwise no scrolling will be performed.
 func (x *Viewport) ScrollTo(DescendantVar *Widget, ScrollVar *ScrollInfo) {
-	core.LazyRegister(&xViewportScrollTo, "GTK", "gtk_viewport_scroll_to", false)
-
 	xViewportScrollTo(x.GoPointer(), DescendantVar.GoPointer(), ScrollVar)
 }
 
@@ -108,8 +102,6 @@ var xViewportSetChild func(uintptr, uintptr)
 
 // Sets the child widget of @viewport.
 func (x *Viewport) SetChild(ChildVar *Widget) {
-	core.LazyRegister(&xViewportSetChild, "GTK", "gtk_viewport_set_child", false)
-
 	xViewportSetChild(x.GoPointer(), ChildVar.GoPointer())
 }
 
@@ -118,8 +110,6 @@ var xViewportSetScrollToFocus func(uintptr, bool)
 // Sets whether the viewport should automatically scroll
 // to keep the focused child in view.
 func (x *Viewport) SetScrollToFocus(ScrollToFocusVar bool) {
-	core.LazyRegister(&xViewportSetScrollToFocus, "GTK", "gtk_viewport_set_scroll_to_focus", false)
-
 	xViewportSetScrollToFocus(x.GoPointer(), ScrollToFocusVar)
 }
 
@@ -501,4 +491,22 @@ func (x *Viewport) SetVscrollPolicy(PolicyVar ScrollablePolicy) {
 func init() {
 	core.SetPackageName("GTK", "gtk4")
 	core.SetSharedLibraries("GTK", []string{"libgtk-4.so.1", "libgtk-4.1.dylib"})
+	var libs []uintptr
+	for _, libPath := range core.GetPaths("GTK") {
+		lib, err := purego.Dlopen(libPath, purego.RTLD_NOW|purego.RTLD_GLOBAL)
+		if err != nil {
+			panic(err)
+		}
+		libs = append(libs, lib)
+	}
+
+	core.PuregoSafeRegister(&xViewportGLibType, libs, "gtk_viewport_get_type")
+
+	core.PuregoSafeRegister(&xNewViewport, libs, "gtk_viewport_new")
+
+	core.PuregoSafeRegister(&xViewportGetChild, libs, "gtk_viewport_get_child")
+	core.PuregoSafeRegister(&xViewportGetScrollToFocus, libs, "gtk_viewport_get_scroll_to_focus")
+	core.PuregoSafeRegister(&xViewportScrollTo, libs, "gtk_viewport_scroll_to")
+	core.PuregoSafeRegister(&xViewportSetChild, libs, "gtk_viewport_set_child")
+	core.PuregoSafeRegister(&xViewportSetScrollToFocus, libs, "gtk_viewport_set_scroll_to_focus")
 }

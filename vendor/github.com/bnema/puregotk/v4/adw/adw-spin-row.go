@@ -5,6 +5,7 @@ import (
 	"structs"
 	"unsafe"
 
+	"github.com/bnema/purego"
 	"github.com/bnema/puregotk/pkg/core"
 	"github.com/bnema/puregotk/v4/glib"
 	"github.com/bnema/puregotk/v4/gobject"
@@ -76,7 +77,6 @@ type SpinRow struct {
 var xSpinRowGLibType func() types.GType
 
 func SpinRowGLibType() types.GType {
-	core.LazyRegister(&xSpinRowGLibType, "ADW", "adw_spin_row_get_type", false)
 	return xSpinRowGLibType()
 }
 
@@ -90,7 +90,6 @@ var xNewSpinRow func(uintptr, float64, uint) uintptr
 
 // Creates a new `AdwSpinRow`.
 func NewSpinRow(AdjustmentVar *gtk.Adjustment, ClimbRateVar float64, DigitsVar uint) *SpinRow {
-	core.LazyRegister(&xNewSpinRow, "ADW", "adw_spin_row_new", false)
 	var cls *SpinRow
 
 	cret := xNewSpinRow(AdjustmentVar.GoPointer(), ClimbRateVar, DigitsVar)
@@ -119,7 +118,6 @@ var xNewSpinRowWithRange func(float64, float64, float64) uintptr
 //	of ten. If the resulting precision is not suitable for your needs, use
 //	[method@SpinRow.set_digits] to correct it.
 func NewSpinRowWithRange(MinVar float64, MaxVar float64, StepVar float64) *SpinRow {
-	core.LazyRegister(&xNewSpinRowWithRange, "ADW", "adw_spin_row_new_with_range", false)
 	var cls *SpinRow
 
 	cret := xNewSpinRowWithRange(MinVar, MaxVar, StepVar)
@@ -140,8 +138,6 @@ var xSpinRowConfigure func(uintptr, uintptr, float64, uint)
 // The adjustment, climb rate, and number of decimal places are updated
 // accordingly.
 func (x *SpinRow) Configure(AdjustmentVar *gtk.Adjustment, ClimbRateVar float64, DigitsVar uint) {
-	core.LazyRegister(&xSpinRowConfigure, "ADW", "adw_spin_row_configure", false)
-
 	xSpinRowConfigure(x.GoPointer(), AdjustmentVar.GoPointer(), ClimbRateVar, DigitsVar)
 }
 
@@ -149,7 +145,6 @@ var xSpinRowGetAdjustment func(uintptr) uintptr
 
 // Gets the adjustment that holds the value for the spin row.
 func (x *SpinRow) GetAdjustment() *gtk.Adjustment {
-	core.LazyRegister(&xSpinRowGetAdjustment, "ADW", "adw_spin_row_get_adjustment", false)
 	var cls *gtk.Adjustment
 
 	cret := xSpinRowGetAdjustment(x.GoPointer())
@@ -167,8 +162,6 @@ var xSpinRowGetClimbRate func(uintptr) float64
 
 // Gets the acceleration rate when you hold down a button or key.
 func (x *SpinRow) GetClimbRate() float64 {
-	core.LazyRegister(&xSpinRowGetClimbRate, "ADW", "adw_spin_row_get_climb_rate", false)
-
 	cret := xSpinRowGetClimbRate(x.GoPointer())
 	return cret
 }
@@ -177,8 +170,6 @@ var xSpinRowGetDigits func(uintptr) uint
 
 // Gets the number of decimal places to display.
 func (x *SpinRow) GetDigits() uint {
-	core.LazyRegister(&xSpinRowGetDigits, "ADW", "adw_spin_row_get_digits", false)
-
 	cret := xSpinRowGetDigits(x.GoPointer())
 	return cret
 }
@@ -187,8 +178,6 @@ var xSpinRowGetNumeric func(uintptr) bool
 
 // Gets whether non-numeric characters should be ignored.
 func (x *SpinRow) GetNumeric() bool {
-	core.LazyRegister(&xSpinRowGetNumeric, "ADW", "adw_spin_row_get_numeric", false)
-
 	cret := xSpinRowGetNumeric(x.GoPointer())
 	return cret
 }
@@ -197,8 +186,6 @@ var xSpinRowGetSnapToTicks func(uintptr) bool
 
 // Gets whether invalid values are snapped to nearest step increment.
 func (x *SpinRow) GetSnapToTicks() bool {
-	core.LazyRegister(&xSpinRowGetSnapToTicks, "ADW", "adw_spin_row_get_snap_to_ticks", false)
-
 	cret := xSpinRowGetSnapToTicks(x.GoPointer())
 	return cret
 }
@@ -207,8 +194,6 @@ var xSpinRowGetUpdatePolicy func(uintptr) gtk.SpinButtonUpdatePolicy
 
 // Gets the policy for updating the spin row.
 func (x *SpinRow) GetUpdatePolicy() gtk.SpinButtonUpdatePolicy {
-	core.LazyRegister(&xSpinRowGetUpdatePolicy, "ADW", "adw_spin_row_get_update_policy", false)
-
 	cret := xSpinRowGetUpdatePolicy(x.GoPointer())
 	return cret
 }
@@ -217,8 +202,6 @@ var xSpinRowGetValue func(uintptr) float64
 
 // Gets the current value.
 func (x *SpinRow) GetValue() float64 {
-	core.LazyRegister(&xSpinRowGetValue, "ADW", "adw_spin_row_get_value", false)
-
 	cret := xSpinRowGetValue(x.GoPointer())
 	return cret
 }
@@ -227,8 +210,6 @@ var xSpinRowGetWrap func(uintptr) bool
 
 // Gets whether the spin row should wrap upon reaching its limits.
 func (x *SpinRow) GetWrap() bool {
-	core.LazyRegister(&xSpinRowGetWrap, "ADW", "adw_spin_row_get_wrap", false)
-
 	cret := xSpinRowGetWrap(x.GoPointer())
 	return cret
 }
@@ -237,8 +218,6 @@ var xSpinRowSetAdjustment func(uintptr, uintptr)
 
 // Sets the adjustment that holds the value for the spin row.
 func (x *SpinRow) SetAdjustment(AdjustmentVar *gtk.Adjustment) {
-	core.LazyRegister(&xSpinRowSetAdjustment, "ADW", "adw_spin_row_set_adjustment", false)
-
 	xSpinRowSetAdjustment(x.GoPointer(), AdjustmentVar.GoPointer())
 }
 
@@ -246,8 +225,6 @@ var xSpinRowSetClimbRate func(uintptr, float64)
 
 // Sets the acceleration rate when you hold down a button or key.
 func (x *SpinRow) SetClimbRate(ClimbRateVar float64) {
-	core.LazyRegister(&xSpinRowSetClimbRate, "ADW", "adw_spin_row_set_climb_rate", false)
-
 	xSpinRowSetClimbRate(x.GoPointer(), ClimbRateVar)
 }
 
@@ -255,8 +232,6 @@ var xSpinRowSetDigits func(uintptr, uint)
 
 // Sets the number of decimal places to display.
 func (x *SpinRow) SetDigits(DigitsVar uint) {
-	core.LazyRegister(&xSpinRowSetDigits, "ADW", "adw_spin_row_set_digits", false)
-
 	xSpinRowSetDigits(x.GoPointer(), DigitsVar)
 }
 
@@ -264,8 +239,6 @@ var xSpinRowSetNumeric func(uintptr, bool)
 
 // Sets whether non-numeric characters should be ignored.
 func (x *SpinRow) SetNumeric(NumericVar bool) {
-	core.LazyRegister(&xSpinRowSetNumeric, "ADW", "adw_spin_row_set_numeric", false)
-
 	xSpinRowSetNumeric(x.GoPointer(), NumericVar)
 }
 
@@ -276,8 +249,6 @@ var xSpinRowSetRange func(uintptr, float64, float64)
 // If the current value is outside this range, it will be adjusted
 // to fit within the range, otherwise it will remain unchanged.
 func (x *SpinRow) SetRange(MinVar float64, MaxVar float64) {
-	core.LazyRegister(&xSpinRowSetRange, "ADW", "adw_spin_row_set_range", false)
-
 	xSpinRowSetRange(x.GoPointer(), MinVar, MaxVar)
 }
 
@@ -285,8 +256,6 @@ var xSpinRowSetSnapToTicks func(uintptr, bool)
 
 // Sets whether invalid values are snapped to the nearest step increment.
 func (x *SpinRow) SetSnapToTicks(SnapToTicksVar bool) {
-	core.LazyRegister(&xSpinRowSetSnapToTicks, "ADW", "adw_spin_row_set_snap_to_ticks", false)
-
 	xSpinRowSetSnapToTicks(x.GoPointer(), SnapToTicksVar)
 }
 
@@ -296,8 +265,6 @@ var xSpinRowSetUpdatePolicy func(uintptr, gtk.SpinButtonUpdatePolicy)
 //
 // The options are always, or only when the value is invalid.
 func (x *SpinRow) SetUpdatePolicy(PolicyVar gtk.SpinButtonUpdatePolicy) {
-	core.LazyRegister(&xSpinRowSetUpdatePolicy, "ADW", "adw_spin_row_set_update_policy", false)
-
 	xSpinRowSetUpdatePolicy(x.GoPointer(), PolicyVar)
 }
 
@@ -305,8 +272,6 @@ var xSpinRowSetValue func(uintptr, float64)
 
 // Sets the current value.
 func (x *SpinRow) SetValue(ValueVar float64) {
-	core.LazyRegister(&xSpinRowSetValue, "ADW", "adw_spin_row_set_value", false)
-
 	xSpinRowSetValue(x.GoPointer(), ValueVar)
 }
 
@@ -314,8 +279,6 @@ var xSpinRowSetWrap func(uintptr, bool)
 
 // Sets whether the spin row should wrap upon reaching its limits.
 func (x *SpinRow) SetWrap(WrapVar bool) {
-	core.LazyRegister(&xSpinRowSetWrap, "ADW", "adw_spin_row_set_wrap", false)
-
 	xSpinRowSetWrap(x.GoPointer(), WrapVar)
 }
 
@@ -323,8 +286,6 @@ var xSpinRowUpdate func(uintptr)
 
 // Manually force an update of the spin row.
 func (x *SpinRow) Update() {
-	core.LazyRegister(&xSpinRowUpdate, "ADW", "adw_spin_row_update", false)
-
 	xSpinRowUpdate(x.GoPointer())
 }
 
@@ -1115,4 +1076,37 @@ func (x *SpinRow) SetWidthChars(NCharsVar int) {
 func init() {
 	core.SetPackageName("ADW", "libadwaita-1")
 	core.SetSharedLibraries("ADW", []string{"libadwaita-1.so.0", "libadwaita-1.0.dylib"})
+	var libs []uintptr
+	for _, libPath := range core.GetPaths("ADW") {
+		lib, err := purego.Dlopen(libPath, purego.RTLD_NOW|purego.RTLD_GLOBAL)
+		if err != nil {
+			panic(err)
+		}
+		libs = append(libs, lib)
+	}
+
+	core.PuregoSafeRegister(&xSpinRowGLibType, libs, "adw_spin_row_get_type")
+
+	core.PuregoSafeRegister(&xNewSpinRow, libs, "adw_spin_row_new")
+	core.PuregoSafeRegister(&xNewSpinRowWithRange, libs, "adw_spin_row_new_with_range")
+
+	core.PuregoSafeRegister(&xSpinRowConfigure, libs, "adw_spin_row_configure")
+	core.PuregoSafeRegister(&xSpinRowGetAdjustment, libs, "adw_spin_row_get_adjustment")
+	core.PuregoSafeRegister(&xSpinRowGetClimbRate, libs, "adw_spin_row_get_climb_rate")
+	core.PuregoSafeRegister(&xSpinRowGetDigits, libs, "adw_spin_row_get_digits")
+	core.PuregoSafeRegister(&xSpinRowGetNumeric, libs, "adw_spin_row_get_numeric")
+	core.PuregoSafeRegister(&xSpinRowGetSnapToTicks, libs, "adw_spin_row_get_snap_to_ticks")
+	core.PuregoSafeRegister(&xSpinRowGetUpdatePolicy, libs, "adw_spin_row_get_update_policy")
+	core.PuregoSafeRegister(&xSpinRowGetValue, libs, "adw_spin_row_get_value")
+	core.PuregoSafeRegister(&xSpinRowGetWrap, libs, "adw_spin_row_get_wrap")
+	core.PuregoSafeRegister(&xSpinRowSetAdjustment, libs, "adw_spin_row_set_adjustment")
+	core.PuregoSafeRegister(&xSpinRowSetClimbRate, libs, "adw_spin_row_set_climb_rate")
+	core.PuregoSafeRegister(&xSpinRowSetDigits, libs, "adw_spin_row_set_digits")
+	core.PuregoSafeRegister(&xSpinRowSetNumeric, libs, "adw_spin_row_set_numeric")
+	core.PuregoSafeRegister(&xSpinRowSetRange, libs, "adw_spin_row_set_range")
+	core.PuregoSafeRegister(&xSpinRowSetSnapToTicks, libs, "adw_spin_row_set_snap_to_ticks")
+	core.PuregoSafeRegister(&xSpinRowSetUpdatePolicy, libs, "adw_spin_row_set_update_policy")
+	core.PuregoSafeRegister(&xSpinRowSetValue, libs, "adw_spin_row_set_value")
+	core.PuregoSafeRegister(&xSpinRowSetWrap, libs, "adw_spin_row_set_wrap")
+	core.PuregoSafeRegister(&xSpinRowUpdate, libs, "adw_spin_row_update")
 }

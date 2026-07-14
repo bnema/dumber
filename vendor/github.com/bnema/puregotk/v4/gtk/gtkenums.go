@@ -2,6 +2,7 @@
 package gtk
 
 import (
+	"github.com/bnema/purego"
 	"github.com/bnema/puregotk/pkg/core"
 	"github.com/bnema/puregotk/v4/gobject/types"
 )
@@ -28,7 +29,6 @@ type InputHints int
 var xInputHintsGLibType func() types.GType
 
 func InputHintsGLibType() types.GType {
-	core.LazyRegister(&xInputHintsGLibType, "GTK", "gtk_input_hints_get_type", false)
 	return xInputHintsGLibType()
 }
 
@@ -73,7 +73,6 @@ type ListScrollFlags int
 var xListScrollFlagsGLibType func() types.GType
 
 func ListScrollFlagsGLibType() types.GType {
-	core.LazyRegister(&xListScrollFlagsGLibType, "GTK", "gtk_list_scroll_flags_get_type", false)
 	return xListScrollFlagsGLibType()
 }
 
@@ -94,7 +93,6 @@ type PickFlags int
 var xPickFlagsGLibType func() types.GType
 
 func PickFlagsGLibType() types.GType {
-	core.LazyRegister(&xPickFlagsGLibType, "GTK", "gtk_pick_flags_get_type", false)
 	return xPickFlagsGLibType()
 }
 
@@ -115,7 +113,6 @@ type PopoverMenuFlags int
 var xPopoverMenuFlagsGLibType func() types.GType
 
 func PopoverMenuFlagsGLibType() types.GType {
-	core.LazyRegister(&xPopoverMenuFlagsGLibType, "GTK", "gtk_popover_menu_flags_get_type", false)
 	return xPopoverMenuFlagsGLibType()
 }
 
@@ -138,7 +135,6 @@ type StateFlags int
 var xStateFlagsGLibType func() types.GType
 
 func StateFlagsGLibType() types.GType {
-	core.LazyRegister(&xStateFlagsGLibType, "GTK", "gtk_state_flags_get_type", false)
 	return xStateFlagsGLibType()
 }
 
@@ -185,7 +181,6 @@ type TextBufferNotifyFlags int
 var xTextBufferNotifyFlagsGLibType func() types.GType
 
 func TextBufferNotifyFlagsGLibType() types.GType {
-	core.LazyRegister(&xTextBufferNotifyFlagsGLibType, "GTK", "gtk_text_buffer_notify_flags_get_type", false)
 	return xTextBufferNotifyFlagsGLibType()
 }
 
@@ -211,7 +206,6 @@ type AccessibleAnnouncementPriority int
 var xAccessibleAnnouncementPriorityGLibType func() types.GType
 
 func AccessibleAnnouncementPriorityGLibType() types.GType {
-	core.LazyRegister(&xAccessibleAnnouncementPriorityGLibType, "GTK", "gtk_accessible_announcement_priority_get_type", false)
 	return xAccessibleAnnouncementPriorityGLibType()
 }
 
@@ -240,7 +234,6 @@ type AccessibleAutocomplete int
 var xAccessibleAutocompleteGLibType func() types.GType
 
 func AccessibleAutocompleteGLibType() types.GType {
-	core.LazyRegister(&xAccessibleAutocompleteGLibType, "GTK", "gtk_accessible_autocomplete_get_type", false)
 	return xAccessibleAutocompleteGLibType()
 }
 
@@ -275,7 +268,6 @@ type AccessibleInvalidState int
 var xAccessibleInvalidStateGLibType func() types.GType
 
 func AccessibleInvalidStateGLibType() types.GType {
-	core.LazyRegister(&xAccessibleInvalidStateGLibType, "GTK", "gtk_accessible_invalid_state_get_type", false)
 	return xAccessibleInvalidStateGLibType()
 }
 
@@ -297,7 +289,6 @@ type AccessibleProperty int
 var xAccessiblePropertyGLibType func() types.GType
 
 func AccessiblePropertyGLibType() types.GType {
-	core.LazyRegister(&xAccessiblePropertyGLibType, "GTK", "gtk_accessible_property_get_type", false)
 	return xAccessiblePropertyGLibType()
 }
 
@@ -393,7 +384,6 @@ type AccessibleRelation int
 var xAccessibleRelationGLibType func() types.GType
 
 func AccessibleRelationGLibType() types.GType {
-	core.LazyRegister(&xAccessibleRelationGLibType, "GTK", "gtk_accessible_relation_get_type", false)
 	return xAccessibleRelationGLibType()
 }
 
@@ -503,7 +493,6 @@ type AccessibleRole int
 var xAccessibleRoleGLibType func() types.GType
 
 func AccessibleRoleGLibType() types.GType {
-	core.LazyRegister(&xAccessibleRoleGLibType, "GTK", "gtk_accessible_role_get_type", false)
 	return xAccessibleRoleGLibType()
 }
 
@@ -716,7 +705,6 @@ type AccessibleSort int
 var xAccessibleSortGLibType func() types.GType
 
 func AccessibleSortGLibType() types.GType {
-	core.LazyRegister(&xAccessibleSortGLibType, "GTK", "gtk_accessible_sort_get_type", false)
 	return xAccessibleSortGLibType()
 }
 
@@ -739,7 +727,6 @@ type AccessibleState int
 var xAccessibleStateGLibType func() types.GType
 
 func AccessibleStateGLibType() types.GType {
-	core.LazyRegister(&xAccessibleStateGLibType, "GTK", "gtk_accessible_state_get_type", false)
 	return xAccessibleStateGLibType()
 }
 
@@ -790,7 +777,6 @@ type AccessibleTristate int
 var xAccessibleTristateGLibType func() types.GType
 
 func AccessibleTristateGLibType() types.GType {
-	core.LazyRegister(&xAccessibleTristateGLibType, "GTK", "gtk_accessible_tristate_get_type", false)
 	return xAccessibleTristateGLibType()
 }
 
@@ -825,7 +811,6 @@ type Align int
 var xAlignGLibType func() types.GType
 
 func AlignGLibType() types.GType {
-	core.LazyRegister(&xAlignGLibType, "GTK", "gtk_align_get_type", false)
 	return xAlignGLibType()
 }
 
@@ -854,7 +839,6 @@ type ArrowType int
 var xArrowTypeGLibType func() types.GType
 
 func ArrowTypeGLibType() types.GType {
-	core.LazyRegister(&xArrowTypeGLibType, "GTK", "gtk_arrow_type_get_type", false)
 	return xArrowTypeGLibType()
 }
 
@@ -885,7 +869,6 @@ type BaselinePosition int
 var xBaselinePositionGLibType func() types.GType
 
 func BaselinePositionGLibType() types.GType {
-	core.LazyRegister(&xBaselinePositionGLibType, "GTK", "gtk_baseline_position_get_type", false)
 	return xBaselinePositionGLibType()
 }
 
@@ -905,7 +888,6 @@ type BorderStyle int
 var xBorderStyleGLibType func() types.GType
 
 func BorderStyleGLibType() types.GType {
-	core.LazyRegister(&xBorderStyleGLibType, "GTK", "gtk_border_style_get_type", false)
 	return xBorderStyleGLibType()
 }
 
@@ -939,7 +921,6 @@ type ConstraintAttribute int
 var xConstraintAttributeGLibType func() types.GType
 
 func ConstraintAttributeGLibType() types.GType {
-	core.LazyRegister(&xConstraintAttributeGLibType, "GTK", "gtk_constraint_attribute_get_type", false)
 	return xConstraintAttributeGLibType()
 }
 
@@ -986,7 +967,6 @@ type ConstraintRelation int
 var xConstraintRelationGLibType func() types.GType
 
 func ConstraintRelationGLibType() types.GType {
-	core.LazyRegister(&xConstraintRelationGLibType, "GTK", "gtk_constraint_relation_get_type", false)
 	return xConstraintRelationGLibType()
 }
 
@@ -1009,7 +989,6 @@ type ConstraintStrength int
 var xConstraintStrengthGLibType func() types.GType
 
 func ConstraintStrengthGLibType() types.GType {
-	core.LazyRegister(&xConstraintStrengthGLibType, "GTK", "gtk_constraint_strength_get_type", false)
 	return xConstraintStrengthGLibType()
 }
 
@@ -1031,7 +1010,6 @@ type ConstraintVflParserError int
 var xConstraintVflParserErrorGLibType func() types.GType
 
 func ConstraintVflParserErrorGLibType() types.GType {
-	core.LazyRegister(&xConstraintVflParserErrorGLibType, "GTK", "gtk_constraint_vfl_parser_error_get_type", false)
 	return xConstraintVflParserErrorGLibType()
 }
 
@@ -1057,7 +1035,6 @@ type ContentFit int
 var xContentFitGLibType func() types.GType
 
 func ContentFitGLibType() types.GType {
-	core.LazyRegister(&xContentFitGLibType, "GTK", "gtk_content_fit_get_type", false)
 	return xContentFitGLibType()
 }
 
@@ -1089,7 +1066,6 @@ type DeleteType int
 var xDeleteTypeGLibType func() types.GType
 
 func DeleteTypeGLibType() types.GType {
-	core.LazyRegister(&xDeleteTypeGLibType, "GTK", "gtk_delete_type_get_type", false)
 	return xDeleteTypeGLibType()
 }
 
@@ -1125,7 +1101,6 @@ type DirectionType int
 var xDirectionTypeGLibType func() types.GType
 
 func DirectionTypeGLibType() types.GType {
-	core.LazyRegister(&xDirectionTypeGLibType, "GTK", "gtk_direction_type_get_type", false)
 	return xDirectionTypeGLibType()
 }
 
@@ -1151,7 +1126,6 @@ type EventSequenceState int
 var xEventSequenceStateGLibType func() types.GType
 
 func EventSequenceStateGLibType() types.GType {
-	core.LazyRegister(&xEventSequenceStateGLibType, "GTK", "gtk_event_sequence_state_get_type", false)
 	return xEventSequenceStateGLibType()
 }
 
@@ -1172,7 +1146,6 @@ type FontRendering int
 var xFontRenderingGLibType func() types.GType
 
 func FontRenderingGLibType() types.GType {
-	core.LazyRegister(&xFontRenderingGLibType, "GTK", "gtk_font_rendering_get_type", false)
 	return xFontRenderingGLibType()
 }
 
@@ -1200,7 +1173,6 @@ type IconSize int
 var xIconSizeGLibType func() types.GType
 
 func IconSizeGLibType() types.GType {
-	core.LazyRegister(&xIconSizeGLibType, "GTK", "gtk_icon_size_get_type", false)
 	return xIconSizeGLibType()
 }
 
@@ -1238,7 +1210,6 @@ type InputPurpose int
 var xInputPurposeGLibType func() types.GType
 
 func InputPurposeGLibType() types.GType {
-	core.LazyRegister(&xInputPurposeGLibType, "GTK", "gtk_input_purpose_get_type", false)
 	return xInputPurposeGLibType()
 }
 
@@ -1281,7 +1252,6 @@ type InterfaceColorScheme int
 var xInterfaceColorSchemeGLibType func() types.GType
 
 func InterfaceColorSchemeGLibType() types.GType {
-	core.LazyRegister(&xInterfaceColorSchemeGLibType, "GTK", "gtk_interface_color_scheme_get_type", false)
 	return xInterfaceColorSchemeGLibType()
 }
 
@@ -1310,7 +1280,6 @@ type InterfaceContrast int
 var xInterfaceContrastGLibType func() types.GType
 
 func InterfaceContrastGLibType() types.GType {
-	core.LazyRegister(&xInterfaceContrastGLibType, "GTK", "gtk_interface_contrast_get_type", false)
 	return xInterfaceContrastGLibType()
 }
 
@@ -1332,7 +1301,6 @@ type Justification int
 var xJustificationGLibType func() types.GType
 
 func JustificationGLibType() types.GType {
-	core.LazyRegister(&xJustificationGLibType, "GTK", "gtk_justification_get_type", false)
 	return xJustificationGLibType()
 }
 
@@ -1357,7 +1325,6 @@ type LevelBarMode int
 var xLevelBarModeGLibType func() types.GType
 
 func LevelBarModeGLibType() types.GType {
-	core.LazyRegister(&xLevelBarModeGLibType, "GTK", "gtk_level_bar_mode_get_type", false)
 	return xLevelBarModeGLibType()
 }
 
@@ -1377,7 +1344,6 @@ type ListTabBehavior int
 var xListTabBehaviorGLibType func() types.GType
 
 func ListTabBehaviorGLibType() types.GType {
-	core.LazyRegister(&xListTabBehaviorGLibType, "GTK", "gtk_list_tab_behavior_get_type", false)
 	return xListTabBehaviorGLibType()
 }
 
@@ -1403,7 +1369,6 @@ type MessageType int
 var xMessageTypeGLibType func() types.GType
 
 func MessageTypeGLibType() types.GType {
-	core.LazyRegister(&xMessageTypeGLibType, "GTK", "gtk_message_type_get_type", false)
 	return xMessageTypeGLibType()
 }
 
@@ -1428,7 +1393,6 @@ type MovementStep int
 var xMovementStepGLibType func() types.GType
 
 func MovementStepGLibType() types.GType {
-	core.LazyRegister(&xMovementStepGLibType, "GTK", "gtk_movement_step_get_type", false)
 	return xMovementStepGLibType()
 }
 
@@ -1465,7 +1429,6 @@ type NaturalWrapMode int
 var xNaturalWrapModeGLibType func() types.GType
 
 func NaturalWrapModeGLibType() types.GType {
-	core.LazyRegister(&xNaturalWrapModeGLibType, "GTK", "gtk_natural_wrap_mode_get_type", false)
 	return xNaturalWrapModeGLibType()
 }
 
@@ -1491,7 +1454,6 @@ type NumberUpLayout int
 var xNumberUpLayoutGLibType func() types.GType
 
 func NumberUpLayoutGLibType() types.GType {
-	core.LazyRegister(&xNumberUpLayoutGLibType, "GTK", "gtk_number_up_layout_get_type", false)
 	return xNumberUpLayoutGLibType()
 }
 
@@ -1526,7 +1488,6 @@ type Ordering int
 var xOrderingGLibType func() types.GType
 
 func OrderingGLibType() types.GType {
-	core.LazyRegister(&xOrderingGLibType, "GTK", "gtk_ordering_get_type", false)
 	return xOrderingGLibType()
 }
 
@@ -1548,7 +1509,6 @@ type Orientation int
 var xOrientationGLibType func() types.GType
 
 func OrientationGLibType() types.GType {
-	core.LazyRegister(&xOrientationGLibType, "GTK", "gtk_orientation_get_type", false)
 	return xOrientationGLibType()
 }
 
@@ -1570,7 +1530,6 @@ type Overflow int
 var xOverflowGLibType func() types.GType
 
 func OverflowGLibType() types.GType {
-	core.LazyRegister(&xOverflowGLibType, "GTK", "gtk_overflow_get_type", false)
 	return xOverflowGLibType()
 }
 
@@ -1592,7 +1551,6 @@ type PackType int
 var xPackTypeGLibType func() types.GType
 
 func PackTypeGLibType() types.GType {
-	core.LazyRegister(&xPackTypeGLibType, "GTK", "gtk_pack_type_get_type", false)
 	return xPackTypeGLibType()
 }
 
@@ -1610,7 +1568,6 @@ type PageOrientation int
 var xPageOrientationGLibType func() types.GType
 
 func PageOrientationGLibType() types.GType {
-	core.LazyRegister(&xPageOrientationGLibType, "GTK", "gtk_page_orientation_get_type", false)
 	return xPageOrientationGLibType()
 }
 
@@ -1632,7 +1589,6 @@ type PageSet int
 var xPageSetGLibType func() types.GType
 
 func PageSetGLibType() types.GType {
-	core.LazyRegister(&xPageSetGLibType, "GTK", "gtk_page_set_get_type", false)
 	return xPageSetGLibType()
 }
 
@@ -1652,7 +1608,6 @@ type PanDirection int
 var xPanDirectionGLibType func() types.GType
 
 func PanDirectionGLibType() types.GType {
-	core.LazyRegister(&xPanDirectionGLibType, "GTK", "gtk_pan_direction_get_type", false)
 	return xPanDirectionGLibType()
 }
 
@@ -1677,7 +1632,6 @@ type PositionType int
 var xPositionTypeGLibType func() types.GType
 
 func PositionTypeGLibType() types.GType {
-	core.LazyRegister(&xPositionTypeGLibType, "GTK", "gtk_position_type_get_type", false)
 	return xPositionTypeGLibType()
 }
 
@@ -1699,7 +1653,6 @@ type PrintDuplex int
 var xPrintDuplexGLibType func() types.GType
 
 func PrintDuplexGLibType() types.GType {
-	core.LazyRegister(&xPrintDuplexGLibType, "GTK", "gtk_print_duplex_get_type", false)
 	return xPrintDuplexGLibType()
 }
 
@@ -1719,7 +1672,6 @@ type PrintPages int
 var xPrintPagesGLibType func() types.GType
 
 func PrintPagesGLibType() types.GType {
-	core.LazyRegister(&xPrintPagesGLibType, "GTK", "gtk_print_pages_get_type", false)
 	return xPrintPagesGLibType()
 }
 
@@ -1741,7 +1693,6 @@ type PrintQuality int
 var xPrintQualityGLibType func() types.GType
 
 func PrintQualityGLibType() types.GType {
-	core.LazyRegister(&xPrintQualityGLibType, "GTK", "gtk_print_quality_get_type", false)
 	return xPrintQualityGLibType()
 }
 
@@ -1764,7 +1715,6 @@ type PropagationLimit int
 var xPropagationLimitGLibType func() types.GType
 
 func PropagationLimitGLibType() types.GType {
-	core.LazyRegister(&xPropagationLimitGLibType, "GTK", "gtk_propagation_limit_get_type", false)
 	return xPropagationLimitGLibType()
 }
 
@@ -1786,7 +1736,6 @@ type PropagationPhase int
 var xPropagationPhaseGLibType func() types.GType
 
 func PropagationPhaseGLibType() types.GType {
-	core.LazyRegister(&xPropagationPhaseGLibType, "GTK", "gtk_propagation_phase_get_type", false)
 	return xPropagationPhaseGLibType()
 }
 
@@ -1819,7 +1768,6 @@ type ReducedMotion int
 var xReducedMotionGLibType func() types.GType
 
 func ReducedMotionGLibType() types.GType {
-	core.LazyRegister(&xReducedMotionGLibType, "GTK", "gtk_reduced_motion_get_type", false)
 	return xReducedMotionGLibType()
 }
 
@@ -1840,7 +1788,6 @@ type ScrollStep int
 var xScrollStepGLibType func() types.GType
 
 func ScrollStepGLibType() types.GType {
-	core.LazyRegister(&xScrollStepGLibType, "GTK", "gtk_scroll_step_get_type", false)
 	return xScrollStepGLibType()
 }
 
@@ -1866,7 +1813,6 @@ type ScrollType int
 var xScrollTypeGLibType func() types.GType
 
 func ScrollTypeGLibType() types.GType {
-	core.LazyRegister(&xScrollTypeGLibType, "GTK", "gtk_scroll_type_get_type", false)
 	return xScrollTypeGLibType()
 }
 
@@ -1913,7 +1859,6 @@ type ScrollablePolicy int
 var xScrollablePolicyGLibType func() types.GType
 
 func ScrollablePolicyGLibType() types.GType {
-	core.LazyRegister(&xScrollablePolicyGLibType, "GTK", "gtk_scrollable_policy_get_type", false)
 	return xScrollablePolicyGLibType()
 }
 
@@ -1931,7 +1876,6 @@ type SelectionMode int
 var xSelectionModeGLibType func() types.GType
 
 func SelectionModeGLibType() types.GType {
-	core.LazyRegister(&xSelectionModeGLibType, "GTK", "gtk_selection_mode_get_type", false)
 	return xSelectionModeGLibType()
 }
 
@@ -1962,7 +1906,6 @@ type SensitivityType int
 var xSensitivityTypeGLibType func() types.GType
 
 func SensitivityTypeGLibType() types.GType {
-	core.LazyRegister(&xSensitivityTypeGLibType, "GTK", "gtk_sensitivity_type_get_type", false)
 	return xSensitivityTypeGLibType()
 }
 
@@ -1984,7 +1927,6 @@ type ShortcutScope int
 var xShortcutScopeGLibType func() types.GType
 
 func ShortcutScopeGLibType() types.GType {
-	core.LazyRegister(&xShortcutScopeGLibType, "GTK", "gtk_shortcut_scope_get_type", false)
 	return xShortcutScopeGLibType()
 }
 
@@ -2008,7 +1950,6 @@ type SizeGroupMode int
 var xSizeGroupModeGLibType func() types.GType
 
 func SizeGroupModeGLibType() types.GType {
-	core.LazyRegister(&xSizeGroupModeGLibType, "GTK", "gtk_size_group_mode_get_type", false)
 	return xSizeGroupModeGLibType()
 }
 
@@ -2031,7 +1972,6 @@ type SizeRequestMode int
 var xSizeRequestModeGLibType func() types.GType
 
 func SizeRequestModeGLibType() types.GType {
-	core.LazyRegister(&xSizeRequestModeGLibType, "GTK", "gtk_size_request_mode_get_type", false)
 	return xSizeRequestModeGLibType()
 }
 
@@ -2051,7 +1991,6 @@ type SortType int
 var xSortTypeGLibType func() types.GType
 
 func SortTypeGLibType() types.GType {
-	core.LazyRegister(&xSortTypeGLibType, "GTK", "gtk_sort_type_get_type", false)
 	return xSortTypeGLibType()
 }
 
@@ -2072,7 +2011,6 @@ type SymbolicColor int
 var xSymbolicColorGLibType func() types.GType
 
 func SymbolicColorGLibType() types.GType {
-	core.LazyRegister(&xSymbolicColorGLibType, "GTK", "gtk_symbolic_color_get_type", false)
 	return xSymbolicColorGLibType()
 }
 
@@ -2104,7 +2042,6 @@ type SystemSetting int
 var xSystemSettingGLibType func() types.GType
 
 func SystemSettingGLibType() types.GType {
-	core.LazyRegister(&xSystemSettingGLibType, "GTK", "gtk_system_setting_get_type", false)
 	return xSystemSettingGLibType()
 }
 
@@ -2135,7 +2072,6 @@ type TextDirection int
 var xTextDirectionGLibType func() types.GType
 
 func TextDirectionGLibType() types.GType {
-	core.LazyRegister(&xTextDirectionGLibType, "GTK", "gtk_text_direction_get_type", false)
 	return xTextDirectionGLibType()
 }
 
@@ -2155,7 +2091,6 @@ type TreeViewGridLines int
 var xTreeViewGridLinesGLibType func() types.GType
 
 func TreeViewGridLinesGLibType() types.GType {
-	core.LazyRegister(&xTreeViewGridLinesGLibType, "GTK", "gtk_tree_view_grid_lines_get_type", false)
 	return xTreeViewGridLinesGLibType()
 }
 
@@ -2177,7 +2112,6 @@ type Unit int
 var xUnitGLibType func() types.GType
 
 func UnitGLibType() types.GType {
-	core.LazyRegister(&xUnitGLibType, "GTK", "gtk_unit_get_type", false)
 	return xUnitGLibType()
 }
 
@@ -2199,7 +2133,6 @@ type WrapMode int
 var xWrapModeGLibType func() types.GType
 
 func WrapModeGLibType() types.GType {
-	core.LazyRegister(&xWrapModeGLibType, "GTK", "gtk_wrap_mode_get_type", false)
 	return xWrapModeGLibType()
 }
 
@@ -2223,8 +2156,6 @@ var xOrderingFromCmpfunc func(int) Ordering
 // Converts the result of a `GCompareFunc` like strcmp() to a
 // `GtkOrdering` value.
 func OrderingFromCmpfunc(CmpfuncResultVar int) Ordering {
-	core.LazyRegister(&xOrderingFromCmpfunc, "GTK", "gtk_ordering_from_cmpfunc", false)
-
 	cret := xOrderingFromCmpfunc(CmpfuncResultVar)
 	return cret
 }
@@ -2232,4 +2163,150 @@ func OrderingFromCmpfunc(CmpfuncResultVar int) Ordering {
 func init() {
 	core.SetPackageName("GTK", "gtk4")
 	core.SetSharedLibraries("GTK", []string{"libgtk-4.so.1", "libgtk-4.1.dylib"})
+	var libs []uintptr
+	for _, libPath := range core.GetPaths("GTK") {
+		lib, err := purego.Dlopen(libPath, purego.RTLD_NOW|purego.RTLD_GLOBAL)
+		if err != nil {
+			panic(err)
+		}
+		libs = append(libs, lib)
+	}
+
+	core.PuregoSafeRegister(&xInputHintsGLibType, libs, "gtk_input_hints_get_type")
+
+	core.PuregoSafeRegister(&xListScrollFlagsGLibType, libs, "gtk_list_scroll_flags_get_type")
+
+	core.PuregoSafeRegister(&xPickFlagsGLibType, libs, "gtk_pick_flags_get_type")
+
+	core.PuregoSafeRegister(&xPopoverMenuFlagsGLibType, libs, "gtk_popover_menu_flags_get_type")
+
+	core.PuregoSafeRegister(&xStateFlagsGLibType, libs, "gtk_state_flags_get_type")
+
+	core.PuregoSafeRegister(&xTextBufferNotifyFlagsGLibType, libs, "gtk_text_buffer_notify_flags_get_type")
+
+	core.PuregoSafeRegister(&xAccessibleAnnouncementPriorityGLibType, libs, "gtk_accessible_announcement_priority_get_type")
+
+	core.PuregoSafeRegister(&xAccessibleAutocompleteGLibType, libs, "gtk_accessible_autocomplete_get_type")
+
+	core.PuregoSafeRegister(&xAccessibleInvalidStateGLibType, libs, "gtk_accessible_invalid_state_get_type")
+
+	core.PuregoSafeRegister(&xAccessiblePropertyGLibType, libs, "gtk_accessible_property_get_type")
+
+	core.PuregoSafeRegister(&xAccessibleRelationGLibType, libs, "gtk_accessible_relation_get_type")
+
+	core.PuregoSafeRegister(&xAccessibleRoleGLibType, libs, "gtk_accessible_role_get_type")
+
+	core.PuregoSafeRegister(&xAccessibleSortGLibType, libs, "gtk_accessible_sort_get_type")
+
+	core.PuregoSafeRegister(&xAccessibleStateGLibType, libs, "gtk_accessible_state_get_type")
+
+	core.PuregoSafeRegister(&xAccessibleTristateGLibType, libs, "gtk_accessible_tristate_get_type")
+
+	core.PuregoSafeRegister(&xAlignGLibType, libs, "gtk_align_get_type")
+
+	core.PuregoSafeRegister(&xArrowTypeGLibType, libs, "gtk_arrow_type_get_type")
+
+	core.PuregoSafeRegister(&xBaselinePositionGLibType, libs, "gtk_baseline_position_get_type")
+
+	core.PuregoSafeRegister(&xBorderStyleGLibType, libs, "gtk_border_style_get_type")
+
+	core.PuregoSafeRegister(&xConstraintAttributeGLibType, libs, "gtk_constraint_attribute_get_type")
+
+	core.PuregoSafeRegister(&xConstraintRelationGLibType, libs, "gtk_constraint_relation_get_type")
+
+	core.PuregoSafeRegister(&xConstraintStrengthGLibType, libs, "gtk_constraint_strength_get_type")
+
+	core.PuregoSafeRegister(&xConstraintVflParserErrorGLibType, libs, "gtk_constraint_vfl_parser_error_get_type")
+
+	core.PuregoSafeRegister(&xContentFitGLibType, libs, "gtk_content_fit_get_type")
+
+	core.PuregoSafeRegister(&xDeleteTypeGLibType, libs, "gtk_delete_type_get_type")
+
+	core.PuregoSafeRegister(&xDirectionTypeGLibType, libs, "gtk_direction_type_get_type")
+
+	core.PuregoSafeRegister(&xEventSequenceStateGLibType, libs, "gtk_event_sequence_state_get_type")
+
+	core.PuregoSafeRegister(&xFontRenderingGLibType, libs, "gtk_font_rendering_get_type")
+
+	core.PuregoSafeRegister(&xIconSizeGLibType, libs, "gtk_icon_size_get_type")
+
+	core.PuregoSafeRegister(&xInputPurposeGLibType, libs, "gtk_input_purpose_get_type")
+
+	core.PuregoSafeRegister(&xInterfaceColorSchemeGLibType, libs, "gtk_interface_color_scheme_get_type")
+
+	core.PuregoSafeRegister(&xInterfaceContrastGLibType, libs, "gtk_interface_contrast_get_type")
+
+	core.PuregoSafeRegister(&xJustificationGLibType, libs, "gtk_justification_get_type")
+
+	core.PuregoSafeRegister(&xLevelBarModeGLibType, libs, "gtk_level_bar_mode_get_type")
+
+	core.PuregoSafeRegister(&xListTabBehaviorGLibType, libs, "gtk_list_tab_behavior_get_type")
+
+	core.PuregoSafeRegister(&xMessageTypeGLibType, libs, "gtk_message_type_get_type")
+
+	core.PuregoSafeRegister(&xMovementStepGLibType, libs, "gtk_movement_step_get_type")
+
+	core.PuregoSafeRegister(&xNaturalWrapModeGLibType, libs, "gtk_natural_wrap_mode_get_type")
+
+	core.PuregoSafeRegister(&xNumberUpLayoutGLibType, libs, "gtk_number_up_layout_get_type")
+
+	core.PuregoSafeRegister(&xOrderingGLibType, libs, "gtk_ordering_get_type")
+
+	core.PuregoSafeRegister(&xOrientationGLibType, libs, "gtk_orientation_get_type")
+
+	core.PuregoSafeRegister(&xOverflowGLibType, libs, "gtk_overflow_get_type")
+
+	core.PuregoSafeRegister(&xPackTypeGLibType, libs, "gtk_pack_type_get_type")
+
+	core.PuregoSafeRegister(&xPageOrientationGLibType, libs, "gtk_page_orientation_get_type")
+
+	core.PuregoSafeRegister(&xPageSetGLibType, libs, "gtk_page_set_get_type")
+
+	core.PuregoSafeRegister(&xPanDirectionGLibType, libs, "gtk_pan_direction_get_type")
+
+	core.PuregoSafeRegister(&xPositionTypeGLibType, libs, "gtk_position_type_get_type")
+
+	core.PuregoSafeRegister(&xPrintDuplexGLibType, libs, "gtk_print_duplex_get_type")
+
+	core.PuregoSafeRegister(&xPrintPagesGLibType, libs, "gtk_print_pages_get_type")
+
+	core.PuregoSafeRegister(&xPrintQualityGLibType, libs, "gtk_print_quality_get_type")
+
+	core.PuregoSafeRegister(&xPropagationLimitGLibType, libs, "gtk_propagation_limit_get_type")
+
+	core.PuregoSafeRegister(&xPropagationPhaseGLibType, libs, "gtk_propagation_phase_get_type")
+
+	core.PuregoSafeRegister(&xReducedMotionGLibType, libs, "gtk_reduced_motion_get_type")
+
+	core.PuregoSafeRegister(&xScrollStepGLibType, libs, "gtk_scroll_step_get_type")
+
+	core.PuregoSafeRegister(&xScrollTypeGLibType, libs, "gtk_scroll_type_get_type")
+
+	core.PuregoSafeRegister(&xScrollablePolicyGLibType, libs, "gtk_scrollable_policy_get_type")
+
+	core.PuregoSafeRegister(&xSelectionModeGLibType, libs, "gtk_selection_mode_get_type")
+
+	core.PuregoSafeRegister(&xSensitivityTypeGLibType, libs, "gtk_sensitivity_type_get_type")
+
+	core.PuregoSafeRegister(&xShortcutScopeGLibType, libs, "gtk_shortcut_scope_get_type")
+
+	core.PuregoSafeRegister(&xSizeGroupModeGLibType, libs, "gtk_size_group_mode_get_type")
+
+	core.PuregoSafeRegister(&xSizeRequestModeGLibType, libs, "gtk_size_request_mode_get_type")
+
+	core.PuregoSafeRegister(&xSortTypeGLibType, libs, "gtk_sort_type_get_type")
+
+	core.PuregoSafeRegister(&xSymbolicColorGLibType, libs, "gtk_symbolic_color_get_type")
+
+	core.PuregoSafeRegister(&xSystemSettingGLibType, libs, "gtk_system_setting_get_type")
+
+	core.PuregoSafeRegister(&xTextDirectionGLibType, libs, "gtk_text_direction_get_type")
+
+	core.PuregoSafeRegister(&xTreeViewGridLinesGLibType, libs, "gtk_tree_view_grid_lines_get_type")
+
+	core.PuregoSafeRegister(&xUnitGLibType, libs, "gtk_unit_get_type")
+
+	core.PuregoSafeRegister(&xWrapModeGLibType, libs, "gtk_wrap_mode_get_type")
+
+	core.PuregoSafeRegister(&xOrderingFromCmpfunc, libs, "gtk_ordering_from_cmpfunc")
 }

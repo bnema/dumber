@@ -5,6 +5,7 @@ import (
 	"structs"
 	"unsafe"
 
+	"github.com/bnema/purego"
 	"github.com/bnema/puregotk/pkg/core"
 	"github.com/bnema/puregotk/v4/gobject/types"
 )
@@ -24,7 +25,6 @@ type Ray struct {
 var xRayGLibType func() types.GType
 
 func RayGLibType() types.GType {
-	core.LazyRegister(&xRayGLibType, "GRAPHENE", "graphene_ray_get_type", false)
 	return xRayGLibType()
 }
 
@@ -46,8 +46,6 @@ var xRayAlloc func() uintptr
 //
 // The contents of the returned structure are undefined.
 func RayAlloc() *Ray {
-	core.LazyRegister(&xRayAlloc, "GRAPHENE", "graphene_ray_alloc", false)
-
 	cret := xRayAlloc()
 	if cret == 0 {
 		return nil
@@ -59,8 +57,6 @@ var xRayEqual func(uintptr, *Ray) bool
 
 // Checks whether the two given #graphene_ray_t are equal.
 func (x *Ray) Equal(BVar *Ray) bool {
-	core.LazyRegister(&xRayEqual, "GRAPHENE", "graphene_ray_equal", false)
-
 	cret := xRayEqual(x.GoPointer(), BVar)
 	return cret
 }
@@ -69,8 +65,6 @@ var xRayFree func(uintptr)
 
 // Frees the resources allocated by graphene_ray_alloc().
 func (x *Ray) Free() {
-	core.LazyRegister(&xRayFree, "GRAPHENE", "graphene_ray_free", false)
-
 	xRayFree(x.GoPointer())
 }
 
@@ -79,8 +73,6 @@ var xRayGetClosestPointToPoint func(uintptr, *Point3D, *Point3D)
 // Computes the point on the given #graphene_ray_t that is closest to the
 // given point @p.
 func (x *Ray) GetClosestPointToPoint(PVar *Point3D, ResVar *Point3D) {
-	core.LazyRegister(&xRayGetClosestPointToPoint, "GRAPHENE", "graphene_ray_get_closest_point_to_point", false)
-
 	xRayGetClosestPointToPoint(x.GoPointer(), PVar, ResVar)
 }
 
@@ -88,8 +80,6 @@ var xRayGetDirection func(uintptr, *Vec3)
 
 // Retrieves the direction of the given #graphene_ray_t.
 func (x *Ray) GetDirection(DirectionVar *Vec3) {
-	core.LazyRegister(&xRayGetDirection, "GRAPHENE", "graphene_ray_get_direction", false)
-
 	xRayGetDirection(x.GoPointer(), DirectionVar)
 }
 
@@ -100,8 +90,6 @@ var xRayGetDistanceToPlane func(uintptr, *Plane) float32
 //
 // If the ray does not intersect the plane, this function returns `INFINITY`.
 func (x *Ray) GetDistanceToPlane(PVar *Plane) float32 {
-	core.LazyRegister(&xRayGetDistanceToPlane, "GRAPHENE", "graphene_ray_get_distance_to_plane", false)
-
 	cret := xRayGetDistanceToPlane(x.GoPointer(), PVar)
 	return cret
 }
@@ -115,8 +103,6 @@ var xRayGetDistanceToPoint func(uintptr, *Point3D) float32
 // between the point and the projection of the point on the
 // ray itself.
 func (x *Ray) GetDistanceToPoint(PVar *Point3D) float32 {
-	core.LazyRegister(&xRayGetDistanceToPoint, "GRAPHENE", "graphene_ray_get_distance_to_point", false)
-
 	cret := xRayGetDistanceToPoint(x.GoPointer(), PVar)
 	return cret
 }
@@ -125,8 +111,6 @@ var xRayGetOrigin func(uintptr, *Point3D)
 
 // Retrieves the origin of the given #graphene_ray_t.
 func (x *Ray) GetOrigin(OriginVar *Point3D) {
-	core.LazyRegister(&xRayGetOrigin, "GRAPHENE", "graphene_ray_get_origin", false)
-
 	xRayGetOrigin(x.GoPointer(), OriginVar)
 }
 
@@ -135,8 +119,6 @@ var xRayGetPositionAt func(uintptr, float32, *Point3D)
 // Retrieves the coordinates of a point at the distance @t along the
 // given #graphene_ray_t.
 func (x *Ray) GetPositionAt(TVar float32, PositionVar *Point3D) {
-	core.LazyRegister(&xRayGetPositionAt, "GRAPHENE", "graphene_ray_get_position_at", false)
-
 	xRayGetPositionAt(x.GoPointer(), TVar, PositionVar)
 }
 
@@ -145,8 +127,6 @@ var xRayInit func(uintptr, *Point3D, *Vec3) uintptr
 // Initializes the given #graphene_ray_t using the given @origin
 // and @direction values.
 func (x *Ray) Init(OriginVar *Point3D, DirectionVar *Vec3) *Ray {
-	core.LazyRegister(&xRayInit, "GRAPHENE", "graphene_ray_init", false)
-
 	cret := xRayInit(x.GoPointer(), OriginVar, DirectionVar)
 	if cret == 0 {
 		return nil
@@ -159,8 +139,6 @@ var xRayInitFromRay func(uintptr, *Ray) uintptr
 // Initializes the given #graphene_ray_t using the origin and direction
 // values of another #graphene_ray_t.
 func (x *Ray) InitFromRay(SrcVar *Ray) *Ray {
-	core.LazyRegister(&xRayInitFromRay, "GRAPHENE", "graphene_ray_init_from_ray", false)
-
 	cret := xRayInitFromRay(x.GoPointer(), SrcVar)
 	if cret == 0 {
 		return nil
@@ -172,8 +150,6 @@ var xRayInitFromVec3 func(uintptr, *Vec3, *Vec3) uintptr
 
 // Initializes the given #graphene_ray_t using the given vectors.
 func (x *Ray) InitFromVec3(OriginVar *Vec3, DirectionVar *Vec3) *Ray {
-	core.LazyRegister(&xRayInitFromVec3, "GRAPHENE", "graphene_ray_init_from_vec3", false)
-
 	cret := xRayInitFromVec3(x.GoPointer(), OriginVar, DirectionVar)
 	if cret == 0 {
 		return nil
@@ -186,8 +162,6 @@ var xRayIntersectBox func(uintptr, *Box, *float32) RayIntersectionKind
 // Intersects the given #graphene_ray_t @r with the given
 // #graphene_box_t @b.
 func (x *Ray) IntersectBox(BVar *Box, TOutVar *float32) RayIntersectionKind {
-	core.LazyRegister(&xRayIntersectBox, "GRAPHENE", "graphene_ray_intersect_box", false)
-
 	cret := xRayIntersectBox(x.GoPointer(), BVar, TOutVar)
 	return cret
 }
@@ -197,8 +171,6 @@ var xRayIntersectSphere func(uintptr, *Sphere, *float32) RayIntersectionKind
 // Intersects the given #graphene_ray_t @r with the given
 // #graphene_sphere_t @s.
 func (x *Ray) IntersectSphere(SVar *Sphere, TOutVar *float32) RayIntersectionKind {
-	core.LazyRegister(&xRayIntersectSphere, "GRAPHENE", "graphene_ray_intersect_sphere", false)
-
 	cret := xRayIntersectSphere(x.GoPointer(), SVar, TOutVar)
 	return cret
 }
@@ -208,8 +180,6 @@ var xRayIntersectTriangle func(uintptr, *Triangle, *float32) RayIntersectionKind
 // Intersects the given #graphene_ray_t @r with the given
 // #graphene_triangle_t @t.
 func (x *Ray) IntersectTriangle(TVar *Triangle, TOutVar *float32) RayIntersectionKind {
-	core.LazyRegister(&xRayIntersectTriangle, "GRAPHENE", "graphene_ray_intersect_triangle", false)
-
 	cret := xRayIntersectTriangle(x.GoPointer(), TVar, TOutVar)
 	return cret
 }
@@ -221,8 +191,6 @@ var xRayIntersectsBox func(uintptr, *Box) bool
 //
 // See also: graphene_ray_intersect_box()
 func (x *Ray) IntersectsBox(BVar *Box) bool {
-	core.LazyRegister(&xRayIntersectsBox, "GRAPHENE", "graphene_ray_intersects_box", false)
-
 	cret := xRayIntersectsBox(x.GoPointer(), BVar)
 	return cret
 }
@@ -234,8 +202,6 @@ var xRayIntersectsSphere func(uintptr, *Sphere) bool
 //
 // See also: graphene_ray_intersect_sphere()
 func (x *Ray) IntersectsSphere(SVar *Sphere) bool {
-	core.LazyRegister(&xRayIntersectsSphere, "GRAPHENE", "graphene_ray_intersects_sphere", false)
-
 	cret := xRayIntersectsSphere(x.GoPointer(), SVar)
 	return cret
 }
@@ -247,8 +213,6 @@ var xRayIntersectsTriangle func(uintptr, *Triangle) bool
 //
 // See also: graphene_ray_intersect_triangle()
 func (x *Ray) IntersectsTriangle(TVar *Triangle) bool {
-	core.LazyRegister(&xRayIntersectsTriangle, "GRAPHENE", "graphene_ray_intersects_triangle", false)
-
 	cret := xRayIntersectsTriangle(x.GoPointer(), TVar)
 	return cret
 }
@@ -271,4 +235,34 @@ const (
 func init() {
 	core.SetPackageName("GRAPHENE", "graphene-gobject-1.0")
 	core.SetSharedLibraries("GRAPHENE", []string{"libgraphene-1.0.so.0", "libgraphene-1.0.0.dylib"})
+	var libs []uintptr
+	for _, libPath := range core.GetPaths("GRAPHENE") {
+		lib, err := purego.Dlopen(libPath, purego.RTLD_NOW|purego.RTLD_GLOBAL)
+		if err != nil {
+			panic(err)
+		}
+		libs = append(libs, lib)
+	}
+
+	core.PuregoSafeRegister(&xRayGLibType, libs, "graphene_ray_get_type")
+
+	core.PuregoSafeRegister(&xRayAlloc, libs, "graphene_ray_alloc")
+
+	core.PuregoSafeRegister(&xRayEqual, libs, "graphene_ray_equal")
+	core.PuregoSafeRegister(&xRayFree, libs, "graphene_ray_free")
+	core.PuregoSafeRegister(&xRayGetClosestPointToPoint, libs, "graphene_ray_get_closest_point_to_point")
+	core.PuregoSafeRegister(&xRayGetDirection, libs, "graphene_ray_get_direction")
+	core.PuregoSafeRegister(&xRayGetDistanceToPlane, libs, "graphene_ray_get_distance_to_plane")
+	core.PuregoSafeRegister(&xRayGetDistanceToPoint, libs, "graphene_ray_get_distance_to_point")
+	core.PuregoSafeRegister(&xRayGetOrigin, libs, "graphene_ray_get_origin")
+	core.PuregoSafeRegister(&xRayGetPositionAt, libs, "graphene_ray_get_position_at")
+	core.PuregoSafeRegister(&xRayInit, libs, "graphene_ray_init")
+	core.PuregoSafeRegister(&xRayInitFromRay, libs, "graphene_ray_init_from_ray")
+	core.PuregoSafeRegister(&xRayInitFromVec3, libs, "graphene_ray_init_from_vec3")
+	core.PuregoSafeRegister(&xRayIntersectBox, libs, "graphene_ray_intersect_box")
+	core.PuregoSafeRegister(&xRayIntersectSphere, libs, "graphene_ray_intersect_sphere")
+	core.PuregoSafeRegister(&xRayIntersectTriangle, libs, "graphene_ray_intersect_triangle")
+	core.PuregoSafeRegister(&xRayIntersectsBox, libs, "graphene_ray_intersects_box")
+	core.PuregoSafeRegister(&xRayIntersectsSphere, libs, "graphene_ray_intersects_sphere")
+	core.PuregoSafeRegister(&xRayIntersectsTriangle, libs, "graphene_ray_intersects_triangle")
 }

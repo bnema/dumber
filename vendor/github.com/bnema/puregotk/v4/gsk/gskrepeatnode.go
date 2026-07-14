@@ -4,6 +4,7 @@ package gsk
 import (
 	"unsafe"
 
+	"github.com/bnema/purego"
 	"github.com/bnema/puregotk/pkg/core"
 	"github.com/bnema/puregotk/v4/gobject"
 	"github.com/bnema/puregotk/v4/gobject/types"
@@ -18,7 +19,6 @@ type RepeatNode struct {
 var xRepeatNodeGLibType func() types.GType
 
 func RepeatNodeGLibType() types.GType {
-	core.LazyRegister(&xRepeatNodeGLibType, "GSK", "gsk_repeat_node_get_type", false)
 	return xRepeatNodeGLibType()
 }
 
@@ -33,7 +33,6 @@ var xNewRepeatNode func(*graphene.Rect, uintptr, *graphene.Rect) uintptr
 // Creates a `GskRenderNode` that will repeat the drawing of @child across
 // the given @bounds.
 func NewRepeatNode(BoundsVar *graphene.Rect, ChildVar *RenderNode, ChildBoundsVar *graphene.Rect) *RepeatNode {
-	core.LazyRegister(&xNewRepeatNode, "GSK", "gsk_repeat_node_new", false)
 	var cls *RepeatNode
 
 	cret := xNewRepeatNode(BoundsVar, ChildVar.GoPointer(), ChildBoundsVar)
@@ -50,7 +49,6 @@ var xRepeatNodeGetChild func(uintptr) uintptr
 
 // Retrieves the child of @node.
 func (x *RepeatNode) GetChild() *RenderNode {
-	core.LazyRegister(&xRepeatNodeGetChild, "GSK", "gsk_repeat_node_get_child", false)
 	var cls *RenderNode
 
 	cret := xRepeatNodeGetChild(x.GoPointer())
@@ -68,8 +66,6 @@ var xRepeatNodeGetChildBounds func(uintptr) uintptr
 
 // Retrieves the bounding rectangle of the child of @node.
 func (x *RepeatNode) GetChildBounds() *graphene.Rect {
-	core.LazyRegister(&xRepeatNodeGetChildBounds, "GSK", "gsk_repeat_node_get_child_bounds", false)
-
 	cret := xRepeatNodeGetChildBounds(x.GoPointer())
 	if cret == 0 {
 		return nil
@@ -91,4 +87,19 @@ func (c *RepeatNode) SetGoPointer(ptr uintptr) {
 func init() {
 	core.SetPackageName("GSK", "gtk4")
 	core.SetSharedLibraries("GSK", []string{"libgtk-4.so.1", "libgtk-4.1.dylib"})
+	var libs []uintptr
+	for _, libPath := range core.GetPaths("GSK") {
+		lib, err := purego.Dlopen(libPath, purego.RTLD_NOW|purego.RTLD_GLOBAL)
+		if err != nil {
+			panic(err)
+		}
+		libs = append(libs, lib)
+	}
+
+	core.PuregoSafeRegister(&xRepeatNodeGLibType, libs, "gsk_repeat_node_get_type")
+
+	core.PuregoSafeRegister(&xNewRepeatNode, libs, "gsk_repeat_node_new")
+
+	core.PuregoSafeRegister(&xRepeatNodeGetChild, libs, "gsk_repeat_node_get_child")
+	core.PuregoSafeRegister(&xRepeatNodeGetChildBounds, libs, "gsk_repeat_node_get_child_bounds")
 }

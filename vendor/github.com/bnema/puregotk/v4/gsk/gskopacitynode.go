@@ -2,6 +2,7 @@
 package gsk
 
 import (
+	"github.com/bnema/purego"
 	"github.com/bnema/puregotk/pkg/core"
 	"github.com/bnema/puregotk/v4/gobject"
 	"github.com/bnema/puregotk/v4/gobject/types"
@@ -15,7 +16,6 @@ type OpacityNode struct {
 var xOpacityNodeGLibType func() types.GType
 
 func OpacityNodeGLibType() types.GType {
-	core.LazyRegister(&xOpacityNodeGLibType, "GSK", "gsk_opacity_node_get_type", false)
 	return xOpacityNodeGLibType()
 }
 
@@ -30,7 +30,6 @@ var xNewOpacityNode func(uintptr, float32) uintptr
 // Creates a `GskRenderNode` that will drawn the @child with reduced
 // @opacity.
 func NewOpacityNode(ChildVar *RenderNode, OpacityVar float32) *OpacityNode {
-	core.LazyRegister(&xNewOpacityNode, "GSK", "gsk_opacity_node_new", false)
 	var cls *OpacityNode
 
 	cret := xNewOpacityNode(ChildVar.GoPointer(), OpacityVar)
@@ -47,7 +46,6 @@ var xOpacityNodeGetChild func(uintptr) uintptr
 
 // Gets the child node that is getting opacityed by the given @node.
 func (x *OpacityNode) GetChild() *RenderNode {
-	core.LazyRegister(&xOpacityNodeGetChild, "GSK", "gsk_opacity_node_get_child", false)
 	var cls *RenderNode
 
 	cret := xOpacityNodeGetChild(x.GoPointer())
@@ -65,8 +63,6 @@ var xOpacityNodeGetOpacity func(uintptr) float32
 
 // Gets the transparency factor for an opacity node.
 func (x *OpacityNode) GetOpacity() float32 {
-	core.LazyRegister(&xOpacityNodeGetOpacity, "GSK", "gsk_opacity_node_get_opacity", false)
-
 	cret := xOpacityNodeGetOpacity(x.GoPointer())
 	return cret
 }
@@ -85,4 +81,19 @@ func (c *OpacityNode) SetGoPointer(ptr uintptr) {
 func init() {
 	core.SetPackageName("GSK", "gtk4")
 	core.SetSharedLibraries("GSK", []string{"libgtk-4.so.1", "libgtk-4.1.dylib"})
+	var libs []uintptr
+	for _, libPath := range core.GetPaths("GSK") {
+		lib, err := purego.Dlopen(libPath, purego.RTLD_NOW|purego.RTLD_GLOBAL)
+		if err != nil {
+			panic(err)
+		}
+		libs = append(libs, lib)
+	}
+
+	core.PuregoSafeRegister(&xOpacityNodeGLibType, libs, "gsk_opacity_node_get_type")
+
+	core.PuregoSafeRegister(&xNewOpacityNode, libs, "gsk_opacity_node_new")
+
+	core.PuregoSafeRegister(&xOpacityNodeGetChild, libs, "gsk_opacity_node_get_child")
+	core.PuregoSafeRegister(&xOpacityNodeGetOpacity, libs, "gsk_opacity_node_get_opacity")
 }

@@ -4,6 +4,7 @@ package gsk
 import (
 	"unsafe"
 
+	"github.com/bnema/purego"
 	"github.com/bnema/puregotk/pkg/core"
 	"github.com/bnema/puregotk/v4/gobject"
 	"github.com/bnema/puregotk/v4/gobject/types"
@@ -18,7 +19,6 @@ type ColorMatrixNode struct {
 var xColorMatrixNodeGLibType func() types.GType
 
 func ColorMatrixNodeGLibType() types.GType {
-	core.LazyRegister(&xColorMatrixNodeGLibType, "GSK", "gsk_color_matrix_node_get_type", false)
 	return xColorMatrixNodeGLibType()
 }
 
@@ -40,7 +40,6 @@ var xNewColorMatrixNode func(uintptr, *graphene.Matrix, *graphene.Vec4) uintptr
 // for every pixel. The transformation operates on unpremultiplied
 // colors, with color components ordered R, G, B, A.
 func NewColorMatrixNode(ChildVar *RenderNode, ColorMatrixVar *graphene.Matrix, ColorOffsetVar *graphene.Vec4) *ColorMatrixNode {
-	core.LazyRegister(&xNewColorMatrixNode, "GSK", "gsk_color_matrix_node_new", false)
 	var cls *ColorMatrixNode
 
 	cret := xNewColorMatrixNode(ChildVar.GoPointer(), ColorMatrixVar, ColorOffsetVar)
@@ -57,7 +56,6 @@ var xColorMatrixNodeGetChild func(uintptr) uintptr
 
 // Gets the child node that is getting its colors modified by the given @node.
 func (x *ColorMatrixNode) GetChild() *RenderNode {
-	core.LazyRegister(&xColorMatrixNodeGetChild, "GSK", "gsk_color_matrix_node_get_child", false)
 	var cls *RenderNode
 
 	cret := xColorMatrixNodeGetChild(x.GoPointer())
@@ -75,8 +73,6 @@ var xColorMatrixNodeGetColorMatrix func(uintptr) uintptr
 
 // Retrieves the color matrix used by the @node.
 func (x *ColorMatrixNode) GetColorMatrix() *graphene.Matrix {
-	core.LazyRegister(&xColorMatrixNodeGetColorMatrix, "GSK", "gsk_color_matrix_node_get_color_matrix", false)
-
 	cret := xColorMatrixNodeGetColorMatrix(x.GoPointer())
 	if cret == 0 {
 		return nil
@@ -88,8 +84,6 @@ var xColorMatrixNodeGetColorOffset func(uintptr) uintptr
 
 // Retrieves the color offset used by the @node.
 func (x *ColorMatrixNode) GetColorOffset() *graphene.Vec4 {
-	core.LazyRegister(&xColorMatrixNodeGetColorOffset, "GSK", "gsk_color_matrix_node_get_color_offset", false)
-
 	cret := xColorMatrixNodeGetColorOffset(x.GoPointer())
 	if cret == 0 {
 		return nil
@@ -111,4 +105,20 @@ func (c *ColorMatrixNode) SetGoPointer(ptr uintptr) {
 func init() {
 	core.SetPackageName("GSK", "gtk4")
 	core.SetSharedLibraries("GSK", []string{"libgtk-4.so.1", "libgtk-4.1.dylib"})
+	var libs []uintptr
+	for _, libPath := range core.GetPaths("GSK") {
+		lib, err := purego.Dlopen(libPath, purego.RTLD_NOW|purego.RTLD_GLOBAL)
+		if err != nil {
+			panic(err)
+		}
+		libs = append(libs, lib)
+	}
+
+	core.PuregoSafeRegister(&xColorMatrixNodeGLibType, libs, "gsk_color_matrix_node_get_type")
+
+	core.PuregoSafeRegister(&xNewColorMatrixNode, libs, "gsk_color_matrix_node_new")
+
+	core.PuregoSafeRegister(&xColorMatrixNodeGetChild, libs, "gsk_color_matrix_node_get_child")
+	core.PuregoSafeRegister(&xColorMatrixNodeGetColorMatrix, libs, "gsk_color_matrix_node_get_color_matrix")
+	core.PuregoSafeRegister(&xColorMatrixNodeGetColorOffset, libs, "gsk_color_matrix_node_get_color_offset")
 }

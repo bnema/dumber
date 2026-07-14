@@ -5,6 +5,7 @@ import (
 	"structs"
 	"unsafe"
 
+	"github.com/bnema/purego"
 	"github.com/bnema/puregotk/pkg/core"
 	"github.com/bnema/puregotk/v4/glib"
 	"github.com/bnema/puregotk/v4/gobject"
@@ -76,7 +77,6 @@ type DBusObjectManagerServer struct {
 var xDBusObjectManagerServerGLibType func() types.GType
 
 func DBusObjectManagerServerGLibType() types.GType {
-	core.LazyRegister(&xDBusObjectManagerServerGLibType, "GIO", "g_dbus_object_manager_server_get_type", false)
 	return xDBusObjectManagerServerGLibType()
 }
 
@@ -96,7 +96,6 @@ var xNewDBusObjectManagerServer func(string) uintptr
 // [InterfacesAdded](http://dbus.freedesktop.org/doc/dbus-specification.html#standard-interfaces-objectmanager)
 // signals being emitted.
 func NewDBusObjectManagerServer(ObjectPathVar string) *DBusObjectManagerServer {
-	core.LazyRegister(&xNewDBusObjectManagerServer, "GIO", "g_dbus_object_manager_server_new", false)
 	var cls *DBusObjectManagerServer
 
 	cret := xNewDBusObjectManagerServer(ObjectPathVar)
@@ -122,8 +121,6 @@ var xDBusObjectManagerServerExport func(uintptr, uintptr)
 // Note that @manager will take a reference on @object for as long as
 // it is exported.
 func (x *DBusObjectManagerServer) Export(ObjectVar *DBusObjectSkeleton) {
-	core.LazyRegister(&xDBusObjectManagerServerExport, "GIO", "g_dbus_object_manager_server_export", false)
-
 	xDBusObjectManagerServerExport(x.GoPointer(), ObjectVar.GoPointer())
 }
 
@@ -134,8 +131,6 @@ var xDBusObjectManagerServerExportUniquely func(uintptr, uintptr)
 // if an object with the given path already exists. As such, the
 // #GDBusObjectProxy:g-object-path property of @object may be modified.
 func (x *DBusObjectManagerServer) ExportUniquely(ObjectVar *DBusObjectSkeleton) {
-	core.LazyRegister(&xDBusObjectManagerServerExportUniquely, "GIO", "g_dbus_object_manager_server_export_uniquely", false)
-
 	xDBusObjectManagerServerExportUniquely(x.GoPointer(), ObjectVar.GoPointer())
 }
 
@@ -143,7 +138,6 @@ var xDBusObjectManagerServerGetConnection func(uintptr) uintptr
 
 // Gets the #GDBusConnection used by @manager.
 func (x *DBusObjectManagerServer) GetConnection() *DBusConnection {
-	core.LazyRegister(&xDBusObjectManagerServerGetConnection, "GIO", "g_dbus_object_manager_server_get_connection", false)
 	var cls *DBusConnection
 
 	cret := xDBusObjectManagerServerGetConnection(x.GoPointer())
@@ -160,8 +154,6 @@ var xDBusObjectManagerServerIsExported func(uintptr, uintptr) bool
 
 // Returns whether @object is currently exported on @manager.
 func (x *DBusObjectManagerServer) IsExported(ObjectVar *DBusObjectSkeleton) bool {
-	core.LazyRegister(&xDBusObjectManagerServerIsExported, "GIO", "g_dbus_object_manager_server_is_exported", false)
-
 	cret := xDBusObjectManagerServerIsExported(x.GoPointer(), ObjectVar.GoPointer())
 	return cret
 }
@@ -171,8 +163,6 @@ var xDBusObjectManagerServerSetConnection func(uintptr, uintptr)
 // Exports all objects managed by @manager on @connection. If
 // @connection is %NULL, stops exporting objects.
 func (x *DBusObjectManagerServer) SetConnection(ConnectionVar *DBusConnection) {
-	core.LazyRegister(&xDBusObjectManagerServerSetConnection, "GIO", "g_dbus_object_manager_server_set_connection", false)
-
 	xDBusObjectManagerServerSetConnection(x.GoPointer(), ConnectionVar.GoPointer())
 }
 
@@ -184,8 +174,6 @@ var xDBusObjectManagerServerUnexport func(uintptr, string) bool
 // Note that @object_path must be in the hierarchy rooted by the
 // object path for @manager.
 func (x *DBusObjectManagerServer) Unexport(ObjectPathVar string) bool {
-	core.LazyRegister(&xDBusObjectManagerServerUnexport, "GIO", "g_dbus_object_manager_server_unexport", false)
-
 	cret := xDBusObjectManagerServerUnexport(x.GoPointer(), ObjectPathVar)
 	return cret
 }
@@ -265,4 +253,23 @@ func (x *DBusObjectManagerServer) GetObjects() *glib.List {
 func init() {
 	core.SetPackageName("GIO", "gio-2.0")
 	core.SetSharedLibraries("GIO", []string{"libgio-2.0.so.0", "libgio-2.0.0.dylib"})
+	var libs []uintptr
+	for _, libPath := range core.GetPaths("GIO") {
+		lib, err := purego.Dlopen(libPath, purego.RTLD_NOW|purego.RTLD_GLOBAL)
+		if err != nil {
+			panic(err)
+		}
+		libs = append(libs, lib)
+	}
+
+	core.PuregoSafeRegister(&xDBusObjectManagerServerGLibType, libs, "g_dbus_object_manager_server_get_type")
+
+	core.PuregoSafeRegister(&xNewDBusObjectManagerServer, libs, "g_dbus_object_manager_server_new")
+
+	core.PuregoSafeRegister(&xDBusObjectManagerServerExport, libs, "g_dbus_object_manager_server_export")
+	core.PuregoSafeRegister(&xDBusObjectManagerServerExportUniquely, libs, "g_dbus_object_manager_server_export_uniquely")
+	core.PuregoSafeRegister(&xDBusObjectManagerServerGetConnection, libs, "g_dbus_object_manager_server_get_connection")
+	core.PuregoSafeRegister(&xDBusObjectManagerServerIsExported, libs, "g_dbus_object_manager_server_is_exported")
+	core.PuregoSafeRegister(&xDBusObjectManagerServerSetConnection, libs, "g_dbus_object_manager_server_set_connection")
+	core.PuregoSafeRegister(&xDBusObjectManagerServerUnexport, libs, "g_dbus_object_manager_server_unexport")
 }

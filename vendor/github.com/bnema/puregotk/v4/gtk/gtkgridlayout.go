@@ -5,6 +5,7 @@ import (
 	"structs"
 	"unsafe"
 
+	"github.com/bnema/purego"
 	"github.com/bnema/puregotk/pkg/core"
 	"github.com/bnema/puregotk/v4/gobject"
 	"github.com/bnema/puregotk/v4/gobject/types"
@@ -66,7 +67,6 @@ type GridLayout struct {
 var xGridLayoutGLibType func() types.GType
 
 func GridLayoutGLibType() types.GType {
-	core.LazyRegister(&xGridLayoutGLibType, "GTK", "gtk_grid_layout_get_type", false)
 	return xGridLayoutGLibType()
 }
 
@@ -80,7 +80,6 @@ var xNewGridLayout func() uintptr
 
 // Creates a new `GtkGridLayout`.
 func NewGridLayout() *GridLayout {
-	core.LazyRegister(&xNewGridLayout, "GTK", "gtk_grid_layout_new", false)
 	var cls *GridLayout
 
 	cret := xNewGridLayout()
@@ -97,8 +96,6 @@ var xGridLayoutGetBaselineRow func(uintptr) int
 
 // Retrieves the row set with gtk_grid_layout_set_baseline_row().
 func (x *GridLayout) GetBaselineRow() int {
-	core.LazyRegister(&xGridLayoutGetBaselineRow, "GTK", "gtk_grid_layout_get_baseline_row", false)
-
 	cret := xGridLayoutGetBaselineRow(x.GoPointer())
 	return cret
 }
@@ -107,8 +104,6 @@ var xGridLayoutGetColumnHomogeneous func(uintptr) bool
 
 // Checks whether all columns of @grid should have the same width.
 func (x *GridLayout) GetColumnHomogeneous() bool {
-	core.LazyRegister(&xGridLayoutGetColumnHomogeneous, "GTK", "gtk_grid_layout_get_column_homogeneous", false)
-
 	cret := xGridLayoutGetColumnHomogeneous(x.GoPointer())
 	return cret
 }
@@ -117,8 +112,6 @@ var xGridLayoutGetColumnSpacing func(uintptr) uint
 
 // Retrieves the spacing set with gtk_grid_layout_set_column_spacing().
 func (x *GridLayout) GetColumnSpacing() uint {
-	core.LazyRegister(&xGridLayoutGetColumnSpacing, "GTK", "gtk_grid_layout_get_column_spacing", false)
-
 	cret := xGridLayoutGetColumnSpacing(x.GoPointer())
 	return cret
 }
@@ -132,8 +125,6 @@ var xGridLayoutGetRowBaselinePosition func(uintptr, int) BaselinePosition
 // the default value of %GTK_BASELINE_POSITION_CENTER
 // is returned.
 func (x *GridLayout) GetRowBaselinePosition(RowVar int) BaselinePosition {
-	core.LazyRegister(&xGridLayoutGetRowBaselinePosition, "GTK", "gtk_grid_layout_get_row_baseline_position", false)
-
 	cret := xGridLayoutGetRowBaselinePosition(x.GoPointer(), RowVar)
 	return cret
 }
@@ -142,8 +133,6 @@ var xGridLayoutGetRowHomogeneous func(uintptr) bool
 
 // Checks whether all rows of @grid should have the same height.
 func (x *GridLayout) GetRowHomogeneous() bool {
-	core.LazyRegister(&xGridLayoutGetRowHomogeneous, "GTK", "gtk_grid_layout_get_row_homogeneous", false)
-
 	cret := xGridLayoutGetRowHomogeneous(x.GoPointer())
 	return cret
 }
@@ -152,8 +141,6 @@ var xGridLayoutGetRowSpacing func(uintptr) uint
 
 // Retrieves the spacing set with gtk_grid_layout_set_row_spacing().
 func (x *GridLayout) GetRowSpacing() uint {
-	core.LazyRegister(&xGridLayoutGetRowSpacing, "GTK", "gtk_grid_layout_get_row_spacing", false)
-
 	cret := xGridLayoutGetRowSpacing(x.GoPointer())
 	return cret
 }
@@ -166,8 +153,6 @@ var xGridLayoutSetBaselineRow func(uintptr, int)
 // one of those is global, meaning it will be the baseline in the
 // parent of the @grid.
 func (x *GridLayout) SetBaselineRow(RowVar int) {
-	core.LazyRegister(&xGridLayoutSetBaselineRow, "GTK", "gtk_grid_layout_set_baseline_row", false)
-
 	xGridLayoutSetBaselineRow(x.GoPointer(), RowVar)
 }
 
@@ -175,8 +160,6 @@ var xGridLayoutSetColumnHomogeneous func(uintptr, bool)
 
 // Sets whether all columns of @grid should have the same width.
 func (x *GridLayout) SetColumnHomogeneous(HomogeneousVar bool) {
-	core.LazyRegister(&xGridLayoutSetColumnHomogeneous, "GTK", "gtk_grid_layout_set_column_homogeneous", false)
-
 	xGridLayoutSetColumnHomogeneous(x.GoPointer(), HomogeneousVar)
 }
 
@@ -184,8 +167,6 @@ var xGridLayoutSetColumnSpacing func(uintptr, uint)
 
 // Sets the amount of space to insert between consecutive columns.
 func (x *GridLayout) SetColumnSpacing(SpacingVar uint) {
-	core.LazyRegister(&xGridLayoutSetColumnSpacing, "GTK", "gtk_grid_layout_set_column_spacing", false)
-
 	xGridLayoutSetColumnSpacing(x.GoPointer(), SpacingVar)
 }
 
@@ -194,8 +175,6 @@ var xGridLayoutSetRowBaselinePosition func(uintptr, int, BaselinePosition)
 // Sets how the baseline should be positioned on @row of the
 // grid, in case that row is assigned more space than is requested.
 func (x *GridLayout) SetRowBaselinePosition(RowVar int, PosVar BaselinePosition) {
-	core.LazyRegister(&xGridLayoutSetRowBaselinePosition, "GTK", "gtk_grid_layout_set_row_baseline_position", false)
-
 	xGridLayoutSetRowBaselinePosition(x.GoPointer(), RowVar, PosVar)
 }
 
@@ -203,8 +182,6 @@ var xGridLayoutSetRowHomogeneous func(uintptr, bool)
 
 // Sets whether all rows of @grid should have the same height.
 func (x *GridLayout) SetRowHomogeneous(HomogeneousVar bool) {
-	core.LazyRegister(&xGridLayoutSetRowHomogeneous, "GTK", "gtk_grid_layout_set_row_homogeneous", false)
-
 	xGridLayoutSetRowHomogeneous(x.GoPointer(), HomogeneousVar)
 }
 
@@ -212,8 +189,6 @@ var xGridLayoutSetRowSpacing func(uintptr, uint)
 
 // Sets the amount of space to insert between consecutive rows.
 func (x *GridLayout) SetRowSpacing(SpacingVar uint) {
-	core.LazyRegister(&xGridLayoutSetRowSpacing, "GTK", "gtk_grid_layout_set_row_spacing", false)
-
 	xGridLayoutSetRowSpacing(x.GoPointer(), SpacingVar)
 }
 
@@ -323,7 +298,6 @@ type GridLayoutChild struct {
 var xGridLayoutChildGLibType func() types.GType
 
 func GridLayoutChildGLibType() types.GType {
-	core.LazyRegister(&xGridLayoutChildGLibType, "GTK", "gtk_grid_layout_child_get_type", false)
 	return xGridLayoutChildGLibType()
 }
 
@@ -337,8 +311,6 @@ var xGridLayoutChildGetColumn func(uintptr) int
 
 // Retrieves the column number to which @child attaches its left side.
 func (x *GridLayoutChild) GetColumn() int {
-	core.LazyRegister(&xGridLayoutChildGetColumn, "GTK", "gtk_grid_layout_child_get_column", false)
-
 	cret := xGridLayoutChildGetColumn(x.GoPointer())
 	return cret
 }
@@ -347,8 +319,6 @@ var xGridLayoutChildGetColumnSpan func(uintptr) int
 
 // Retrieves the number of columns that @child spans to.
 func (x *GridLayoutChild) GetColumnSpan() int {
-	core.LazyRegister(&xGridLayoutChildGetColumnSpan, "GTK", "gtk_grid_layout_child_get_column_span", false)
-
 	cret := xGridLayoutChildGetColumnSpan(x.GoPointer())
 	return cret
 }
@@ -357,8 +327,6 @@ var xGridLayoutChildGetRow func(uintptr) int
 
 // Retrieves the row number to which @child attaches its top side.
 func (x *GridLayoutChild) GetRow() int {
-	core.LazyRegister(&xGridLayoutChildGetRow, "GTK", "gtk_grid_layout_child_get_row", false)
-
 	cret := xGridLayoutChildGetRow(x.GoPointer())
 	return cret
 }
@@ -367,8 +335,6 @@ var xGridLayoutChildGetRowSpan func(uintptr) int
 
 // Retrieves the number of rows that @child spans to.
 func (x *GridLayoutChild) GetRowSpan() int {
-	core.LazyRegister(&xGridLayoutChildGetRowSpan, "GTK", "gtk_grid_layout_child_get_row_span", false)
-
 	cret := xGridLayoutChildGetRowSpan(x.GoPointer())
 	return cret
 }
@@ -377,8 +343,6 @@ var xGridLayoutChildSetColumn func(uintptr, int)
 
 // Sets the column number to attach the left side of @child.
 func (x *GridLayoutChild) SetColumn(ColumnVar int) {
-	core.LazyRegister(&xGridLayoutChildSetColumn, "GTK", "gtk_grid_layout_child_set_column", false)
-
 	xGridLayoutChildSetColumn(x.GoPointer(), ColumnVar)
 }
 
@@ -386,8 +350,6 @@ var xGridLayoutChildSetColumnSpan func(uintptr, int)
 
 // Sets the number of columns @child spans to.
 func (x *GridLayoutChild) SetColumnSpan(SpanVar int) {
-	core.LazyRegister(&xGridLayoutChildSetColumnSpan, "GTK", "gtk_grid_layout_child_set_column_span", false)
-
 	xGridLayoutChildSetColumnSpan(x.GoPointer(), SpanVar)
 }
 
@@ -395,8 +357,6 @@ var xGridLayoutChildSetRow func(uintptr, int)
 
 // Sets the row to place @child in.
 func (x *GridLayoutChild) SetRow(RowVar int) {
-	core.LazyRegister(&xGridLayoutChildSetRow, "GTK", "gtk_grid_layout_child_set_row", false)
-
 	xGridLayoutChildSetRow(x.GoPointer(), RowVar)
 }
 
@@ -404,8 +364,6 @@ var xGridLayoutChildSetRowSpan func(uintptr, int)
 
 // Sets the number of rows @child spans to.
 func (x *GridLayoutChild) SetRowSpan(SpanVar int) {
-	core.LazyRegister(&xGridLayoutChildSetRowSpan, "GTK", "gtk_grid_layout_child_set_row_span", false)
-
 	xGridLayoutChildSetRowSpan(x.GoPointer(), SpanVar)
 }
 
@@ -491,4 +449,40 @@ func (x *GridLayoutChild) GetPropertyRowSpan() int {
 func init() {
 	core.SetPackageName("GTK", "gtk4")
 	core.SetSharedLibraries("GTK", []string{"libgtk-4.so.1", "libgtk-4.1.dylib"})
+	var libs []uintptr
+	for _, libPath := range core.GetPaths("GTK") {
+		lib, err := purego.Dlopen(libPath, purego.RTLD_NOW|purego.RTLD_GLOBAL)
+		if err != nil {
+			panic(err)
+		}
+		libs = append(libs, lib)
+	}
+
+	core.PuregoSafeRegister(&xGridLayoutGLibType, libs, "gtk_grid_layout_get_type")
+
+	core.PuregoSafeRegister(&xNewGridLayout, libs, "gtk_grid_layout_new")
+
+	core.PuregoSafeRegister(&xGridLayoutGetBaselineRow, libs, "gtk_grid_layout_get_baseline_row")
+	core.PuregoSafeRegister(&xGridLayoutGetColumnHomogeneous, libs, "gtk_grid_layout_get_column_homogeneous")
+	core.PuregoSafeRegister(&xGridLayoutGetColumnSpacing, libs, "gtk_grid_layout_get_column_spacing")
+	core.PuregoSafeRegister(&xGridLayoutGetRowBaselinePosition, libs, "gtk_grid_layout_get_row_baseline_position")
+	core.PuregoSafeRegister(&xGridLayoutGetRowHomogeneous, libs, "gtk_grid_layout_get_row_homogeneous")
+	core.PuregoSafeRegister(&xGridLayoutGetRowSpacing, libs, "gtk_grid_layout_get_row_spacing")
+	core.PuregoSafeRegister(&xGridLayoutSetBaselineRow, libs, "gtk_grid_layout_set_baseline_row")
+	core.PuregoSafeRegister(&xGridLayoutSetColumnHomogeneous, libs, "gtk_grid_layout_set_column_homogeneous")
+	core.PuregoSafeRegister(&xGridLayoutSetColumnSpacing, libs, "gtk_grid_layout_set_column_spacing")
+	core.PuregoSafeRegister(&xGridLayoutSetRowBaselinePosition, libs, "gtk_grid_layout_set_row_baseline_position")
+	core.PuregoSafeRegister(&xGridLayoutSetRowHomogeneous, libs, "gtk_grid_layout_set_row_homogeneous")
+	core.PuregoSafeRegister(&xGridLayoutSetRowSpacing, libs, "gtk_grid_layout_set_row_spacing")
+
+	core.PuregoSafeRegister(&xGridLayoutChildGLibType, libs, "gtk_grid_layout_child_get_type")
+
+	core.PuregoSafeRegister(&xGridLayoutChildGetColumn, libs, "gtk_grid_layout_child_get_column")
+	core.PuregoSafeRegister(&xGridLayoutChildGetColumnSpan, libs, "gtk_grid_layout_child_get_column_span")
+	core.PuregoSafeRegister(&xGridLayoutChildGetRow, libs, "gtk_grid_layout_child_get_row")
+	core.PuregoSafeRegister(&xGridLayoutChildGetRowSpan, libs, "gtk_grid_layout_child_get_row_span")
+	core.PuregoSafeRegister(&xGridLayoutChildSetColumn, libs, "gtk_grid_layout_child_set_column")
+	core.PuregoSafeRegister(&xGridLayoutChildSetColumnSpan, libs, "gtk_grid_layout_child_set_column_span")
+	core.PuregoSafeRegister(&xGridLayoutChildSetRow, libs, "gtk_grid_layout_child_set_row")
+	core.PuregoSafeRegister(&xGridLayoutChildSetRowSpan, libs, "gtk_grid_layout_child_set_row_span")
 }

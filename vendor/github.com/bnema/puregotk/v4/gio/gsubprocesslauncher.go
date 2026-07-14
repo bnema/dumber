@@ -2,6 +2,7 @@
 package gio
 
 import (
+	"github.com/bnema/purego"
 	"github.com/bnema/puregotk/pkg/core"
 	"github.com/bnema/puregotk/v4/glib"
 	"github.com/bnema/puregotk/v4/gobject"
@@ -23,7 +24,6 @@ type SubprocessLauncher struct {
 var xSubprocessLauncherGLibType func() types.GType
 
 func SubprocessLauncherGLibType() types.GType {
-	core.LazyRegister(&xSubprocessLauncherGLibType, "GIO", "g_subprocess_launcher_get_type", false)
 	return xSubprocessLauncherGLibType()
 }
 
@@ -41,7 +41,6 @@ var xNewSubprocessLauncher func(SubprocessFlags) uintptr
 // environment of the calling process is made at the time of this call
 // and will be used as the environment that the process is launched in.
 func NewSubprocessLauncher(FlagsVar SubprocessFlags) *SubprocessLauncher {
-	core.LazyRegister(&xNewSubprocessLauncher, "GIO", "g_subprocess_launcher_new", false)
 	var cls *SubprocessLauncher
 
 	cret := xNewSubprocessLauncher(FlagsVar)
@@ -67,8 +66,6 @@ var xSubprocessLauncherClose func(uintptr)
 // is disposed, but is provided separately so that garbage collected
 // language bindings can call it earlier to guarantee when FDs are closed.
 func (x *SubprocessLauncher) Close() {
-	core.LazyRegister(&xSubprocessLauncherClose, "GIO", "g_subprocess_launcher_close", false)
-
 	xSubprocessLauncherClose(x.GoPointer())
 }
 
@@ -80,8 +77,6 @@ var xSubprocessLauncherGetenv func(uintptr, string) string
 // On UNIX, the returned string can be an arbitrary byte string.
 // On Windows, it will be UTF-8.
 func (x *SubprocessLauncher) Getenv(VariableVar string) string {
-	core.LazyRegister(&xSubprocessLauncherGetenv, "GIO", "g_subprocess_launcher_getenv", false)
-
 	cret := xSubprocessLauncherGetenv(x.GoPointer(), VariableVar)
 	return cret
 }
@@ -102,8 +97,6 @@ var xSubprocessLauncherSetChildSetup func(uintptr, uintptr, uintptr, uintptr)
 //
 // Child setup functions are only available on UNIX.
 func (x *SubprocessLauncher) SetChildSetup(ChildSetupVar *glib.SpawnChildSetupFunc, UserDataVar uintptr, DestroyNotifyVar *glib.DestroyNotify) {
-	core.LazyRegister(&xSubprocessLauncherSetChildSetup, "GIO", "g_subprocess_launcher_set_child_setup", false)
-
 	xSubprocessLauncherSetChildSetup(x.GoPointer(), glib.NewCallback(ChildSetupVar), UserDataVar, glib.NewCallbackNullable(DestroyNotifyVar))
 }
 
@@ -115,8 +108,6 @@ var xSubprocessLauncherSetCwd func(uintptr, string)
 // By default processes are launched with the current working directory
 // of the launching process at the time of launch.
 func (x *SubprocessLauncher) SetCwd(CwdVar string) {
-	core.LazyRegister(&xSubprocessLauncherSetCwd, "GIO", "g_subprocess_launcher_set_cwd", false)
-
 	xSubprocessLauncherSetCwd(x.GoPointer(), CwdVar)
 }
 
@@ -142,8 +133,6 @@ var xSubprocessLauncherSetEnviron func(uintptr, []string)
 // On UNIX, all strings in this array can be arbitrary byte strings.
 // On Windows, they should be in UTF-8.
 func (x *SubprocessLauncher) SetEnviron(EnvVar []string) {
-	core.LazyRegister(&xSubprocessLauncherSetEnviron, "GIO", "g_subprocess_launcher_set_environ", false)
-
 	xSubprocessLauncherSetEnviron(x.GoPointer(), EnvVar)
 }
 
@@ -162,8 +151,6 @@ var xSubprocessLauncherSetFlags func(uintptr, SubprocessFlags)
 // function like g_subprocess_launcher_set_stdin_file_path() or
 // g_subprocess_launcher_take_stdout_fd().
 func (x *SubprocessLauncher) SetFlags(FlagsVar SubprocessFlags) {
-	core.LazyRegister(&xSubprocessLauncherSetFlags, "GIO", "g_subprocess_launcher_set_flags", false)
-
 	xSubprocessLauncherSetFlags(x.GoPointer(), FlagsVar)
 }
 
@@ -184,8 +171,6 @@ var xSubprocessLauncherSetStderrFilePath func(uintptr, uintptr)
 //
 // This feature is only available on UNIX.
 func (x *SubprocessLauncher) SetStderrFilePath(PathVar *string) {
-	core.LazyRegister(&xSubprocessLauncherSetStderrFilePath, "GIO", "g_subprocess_launcher_set_stderr_file_path", false)
-
 	PathVarPtr := core.GStrdupNullable(PathVar)
 	defer core.GFreeNullable(PathVarPtr)
 
@@ -205,8 +190,6 @@ var xSubprocessLauncherSetStdinFilePath func(uintptr, uintptr)
 //
 // This feature is only available on UNIX.
 func (x *SubprocessLauncher) SetStdinFilePath(PathVar *string) {
-	core.LazyRegister(&xSubprocessLauncherSetStdinFilePath, "GIO", "g_subprocess_launcher_set_stdin_file_path", false)
-
 	PathVarPtr := core.GStrdupNullable(PathVar)
 	defer core.GFreeNullable(PathVarPtr)
 
@@ -227,8 +210,6 @@ var xSubprocessLauncherSetStdoutFilePath func(uintptr, uintptr)
 //
 // This feature is only available on UNIX.
 func (x *SubprocessLauncher) SetStdoutFilePath(PathVar *string) {
-	core.LazyRegister(&xSubprocessLauncherSetStdoutFilePath, "GIO", "g_subprocess_launcher_set_stdout_file_path", false)
-
 	PathVarPtr := core.GStrdupNullable(PathVar)
 	defer core.GFreeNullable(PathVarPtr)
 
@@ -244,8 +225,6 @@ var xSubprocessLauncherSetenv func(uintptr, string, string, bool)
 // strings, except that the variable's name cannot contain '='.
 // On Windows, they should be in UTF-8.
 func (x *SubprocessLauncher) Setenv(VariableVar string, ValueVar string, OverwriteVar bool) {
-	core.LazyRegister(&xSubprocessLauncherSetenv, "GIO", "g_subprocess_launcher_setenv", false)
-
 	xSubprocessLauncherSetenv(x.GoPointer(), VariableVar, ValueVar, OverwriteVar)
 }
 
@@ -253,7 +232,6 @@ var xSubprocessLauncherSpawn func(uintptr, **glib.Error, string, ...interface{})
 
 // Creates a #GSubprocess given a provided varargs list of arguments.
 func (x *SubprocessLauncher) Spawn(ErrorVar **glib.Error, Argv0Var string, varArgs ...interface{}) *Subprocess {
-	core.LazyRegister(&xSubprocessLauncherSpawn, "GIO", "g_subprocess_launcher_spawn", false)
 	var cls *Subprocess
 
 	cret := xSubprocessLauncherSpawn(x.GoPointer(), ErrorVar, Argv0Var, varArgs...)
@@ -270,7 +248,6 @@ var xSubprocessLauncherSpawnv func(uintptr, []string, **glib.Error) uintptr
 
 // Creates a #GSubprocess given a provided array of arguments.
 func (x *SubprocessLauncher) Spawnv(ArgvVar []string) (*Subprocess, error) {
-	core.LazyRegister(&xSubprocessLauncherSpawnv, "GIO", "g_subprocess_launcher_spawnv", false)
 	var cls *Subprocess
 	var cerr *glib.Error
 
@@ -302,8 +279,6 @@ var xSubprocessLauncherTakeFd func(uintptr, int, int)
 // `--passphrase-fd` providing a file descriptor number where it expects
 // the passphrase to be written.
 func (x *SubprocessLauncher) TakeFd(SourceFdVar int, TargetFdVar int) {
-	core.LazyRegister(&xSubprocessLauncherTakeFd, "GIO", "g_subprocess_launcher_take_fd", false)
-
 	xSubprocessLauncherTakeFd(x.GoPointer(), SourceFdVar, TargetFdVar)
 }
 
@@ -326,8 +301,6 @@ var xSubprocessLauncherTakeStderrFd func(uintptr, int)
 //
 // This feature is only available on UNIX.
 func (x *SubprocessLauncher) TakeStderrFd(FdVar int) {
-	core.LazyRegister(&xSubprocessLauncherTakeStderrFd, "GIO", "g_subprocess_launcher_take_stderr_fd", false)
-
 	xSubprocessLauncherTakeStderrFd(x.GoPointer(), FdVar)
 }
 
@@ -352,8 +325,6 @@ var xSubprocessLauncherTakeStdinFd func(uintptr, int)
 //
 // This feature is only available on UNIX.
 func (x *SubprocessLauncher) TakeStdinFd(FdVar int) {
-	core.LazyRegister(&xSubprocessLauncherTakeStdinFd, "GIO", "g_subprocess_launcher_take_stdin_fd", false)
-
 	xSubprocessLauncherTakeStdinFd(x.GoPointer(), FdVar)
 }
 
@@ -377,8 +348,6 @@ var xSubprocessLauncherTakeStdoutFd func(uintptr, int)
 //
 // This feature is only available on UNIX.
 func (x *SubprocessLauncher) TakeStdoutFd(FdVar int) {
-	core.LazyRegister(&xSubprocessLauncherTakeStdoutFd, "GIO", "g_subprocess_launcher_take_stdout_fd", false)
-
 	xSubprocessLauncherTakeStdoutFd(x.GoPointer(), FdVar)
 }
 
@@ -390,8 +359,6 @@ var xSubprocessLauncherUnsetenv func(uintptr, string)
 // On UNIX, the variable's name can be an arbitrary byte string not
 // containing '='. On Windows, it should be in UTF-8.
 func (x *SubprocessLauncher) Unsetenv(VariableVar string) {
-	core.LazyRegister(&xSubprocessLauncherUnsetenv, "GIO", "g_subprocess_launcher_unsetenv", false)
-
 	xSubprocessLauncherUnsetenv(x.GoPointer(), VariableVar)
 }
 
@@ -409,4 +376,34 @@ func (c *SubprocessLauncher) SetGoPointer(ptr uintptr) {
 func init() {
 	core.SetPackageName("GIO", "gio-2.0")
 	core.SetSharedLibraries("GIO", []string{"libgio-2.0.so.0", "libgio-2.0.0.dylib"})
+	var libs []uintptr
+	for _, libPath := range core.GetPaths("GIO") {
+		lib, err := purego.Dlopen(libPath, purego.RTLD_NOW|purego.RTLD_GLOBAL)
+		if err != nil {
+			panic(err)
+		}
+		libs = append(libs, lib)
+	}
+
+	core.PuregoSafeRegister(&xSubprocessLauncherGLibType, libs, "g_subprocess_launcher_get_type")
+
+	core.PuregoSafeRegister(&xNewSubprocessLauncher, libs, "g_subprocess_launcher_new")
+
+	core.PuregoSafeRegister(&xSubprocessLauncherClose, libs, "g_subprocess_launcher_close")
+	core.PuregoSafeRegister(&xSubprocessLauncherGetenv, libs, "g_subprocess_launcher_getenv")
+	core.PuregoSafeRegister(&xSubprocessLauncherSetChildSetup, libs, "g_subprocess_launcher_set_child_setup")
+	core.PuregoSafeRegister(&xSubprocessLauncherSetCwd, libs, "g_subprocess_launcher_set_cwd")
+	core.PuregoSafeRegister(&xSubprocessLauncherSetEnviron, libs, "g_subprocess_launcher_set_environ")
+	core.PuregoSafeRegister(&xSubprocessLauncherSetFlags, libs, "g_subprocess_launcher_set_flags")
+	core.PuregoSafeRegister(&xSubprocessLauncherSetStderrFilePath, libs, "g_subprocess_launcher_set_stderr_file_path")
+	core.PuregoSafeRegister(&xSubprocessLauncherSetStdinFilePath, libs, "g_subprocess_launcher_set_stdin_file_path")
+	core.PuregoSafeRegister(&xSubprocessLauncherSetStdoutFilePath, libs, "g_subprocess_launcher_set_stdout_file_path")
+	core.PuregoSafeRegister(&xSubprocessLauncherSetenv, libs, "g_subprocess_launcher_setenv")
+	core.PuregoSafeRegister(&xSubprocessLauncherSpawn, libs, "g_subprocess_launcher_spawn")
+	core.PuregoSafeRegister(&xSubprocessLauncherSpawnv, libs, "g_subprocess_launcher_spawnv")
+	core.PuregoSafeRegister(&xSubprocessLauncherTakeFd, libs, "g_subprocess_launcher_take_fd")
+	core.PuregoSafeRegister(&xSubprocessLauncherTakeStderrFd, libs, "g_subprocess_launcher_take_stderr_fd")
+	core.PuregoSafeRegister(&xSubprocessLauncherTakeStdinFd, libs, "g_subprocess_launcher_take_stdin_fd")
+	core.PuregoSafeRegister(&xSubprocessLauncherTakeStdoutFd, libs, "g_subprocess_launcher_take_stdout_fd")
+	core.PuregoSafeRegister(&xSubprocessLauncherUnsetenv, libs, "g_subprocess_launcher_unsetenv")
 }

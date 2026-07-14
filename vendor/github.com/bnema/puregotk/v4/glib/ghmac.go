@@ -5,6 +5,7 @@ import (
 	"structs"
 	"unsafe"
 
+	"github.com/bnema/purego"
 	"github.com/bnema/puregotk/pkg/core"
 	"github.com/bnema/puregotk/v4/gobject/types"
 )
@@ -31,7 +32,6 @@ type Hmac struct {
 var xHmacGLibType func() types.GType
 
 func HmacGLibType() types.GType {
-	core.LazyRegister(&xHmacGLibType, "GLIB", "g_hmac_get_type", false)
 	return xHmacGLibType()
 }
 
@@ -66,8 +66,6 @@ var xNewHmac func(ChecksumType, []byte, uint) uintptr
 // Support for digests of type %G_CHECKSUM_SHA512 has been added in GLib 2.42.
 // Support for %G_CHECKSUM_SHA384 was added in GLib 2.52.
 func NewHmac(DigestTypeVar ChecksumType, KeyVar []byte, KeyLenVar uint) *Hmac {
-	core.LazyRegister(&xNewHmac, "GLIB", "g_hmac_new", false)
-
 	cret := xNewHmac(DigestTypeVar, KeyVar, KeyLenVar)
 	if cret == 0 {
 		return nil
@@ -81,8 +79,6 @@ var xHmacCopy func(uintptr) uintptr
 // g_hmac_get_string() or g_hmac_get_digest(), the copied
 // HMAC will be closed as well.
 func (x *Hmac) Copy() *Hmac {
-	core.LazyRegister(&xHmacCopy, "GLIB", "g_hmac_copy", false)
-
 	cret := xHmacCopy(x.GoPointer())
 	if cret == 0 {
 		return nil
@@ -98,8 +94,6 @@ var xHmacGetDigest func(uintptr, []byte, *uint)
 // Once this function has been called, the #GHmac is closed and can
 // no longer be updated with g_checksum_update().
 func (x *Hmac) GetDigest(BufferVar []byte, DigestLenVar *uint) {
-	core.LazyRegister(&xHmacGetDigest, "GLIB", "g_hmac_get_digest", false)
-
 	xHmacGetDigest(x.GoPointer(), BufferVar, DigestLenVar)
 }
 
@@ -112,8 +106,6 @@ var xHmacGetString func(uintptr) string
 //
 // The hexadecimal characters will be lower case.
 func (x *Hmac) GetString() string {
-	core.LazyRegister(&xHmacGetString, "GLIB", "g_hmac_get_string", false)
-
 	cret := xHmacGetString(x.GoPointer())
 	return cret
 }
@@ -124,8 +116,6 @@ var xHmacRef func(uintptr) uintptr
 //
 // This function is MT-safe and may be called from any thread.
 func (x *Hmac) Ref() *Hmac {
-	core.LazyRegister(&xHmacRef, "GLIB", "g_hmac_ref", false)
-
 	cret := xHmacRef(x.GoPointer())
 	if cret == 0 {
 		return nil
@@ -142,8 +132,6 @@ var xHmacUnref func(uintptr)
 // This function is MT-safe and may be called from any thread.
 // Frees the memory allocated for @hmac.
 func (x *Hmac) Unref() {
-	core.LazyRegister(&xHmacUnref, "GLIB", "g_hmac_unref", false)
-
 	xHmacUnref(x.GoPointer())
 }
 
@@ -154,8 +142,6 @@ var xHmacUpdate func(uintptr, []byte, int)
 // The HMAC must still be open, that is g_hmac_get_string() or
 // g_hmac_get_digest() must not have been called on @hmac.
 func (x *Hmac) Update(DataVar []byte, LengthVar int) {
-	core.LazyRegister(&xHmacUpdate, "GLIB", "g_hmac_update", false)
-
 	xHmacUpdate(x.GoPointer(), DataVar, LengthVar)
 }
 
@@ -167,8 +153,6 @@ var xComputeHmacForBytes func(ChecksumType, *Bytes, *Bytes) string
 //
 // The hexadecimal string returned will be in lower case.
 func ComputeHmacForBytes(DigestTypeVar ChecksumType, KeyVar *Bytes, DataVar *Bytes) string {
-	core.LazyRegister(&xComputeHmacForBytes, "GLIB", "g_compute_hmac_for_bytes", false)
-
 	cret := xComputeHmacForBytes(DigestTypeVar, KeyVar, DataVar)
 	return cret
 }
@@ -181,8 +165,6 @@ var xComputeHmacForData func(ChecksumType, []byte, uint, []byte, uint) string
 //
 // The hexadecimal string returned will be in lower case.
 func ComputeHmacForData(DigestTypeVar ChecksumType, KeyVar []byte, KeyLenVar uint, DataVar []byte, LengthVar uint) string {
-	core.LazyRegister(&xComputeHmacForData, "GLIB", "g_compute_hmac_for_data", false)
-
 	cret := xComputeHmacForData(DigestTypeVar, KeyVar, KeyLenVar, DataVar, LengthVar)
 	return cret
 }
@@ -193,8 +175,6 @@ var xComputeHmacForString func(ChecksumType, []byte, uint, string, int) string
 //
 // The hexadecimal string returned will be in lower case.
 func ComputeHmacForString(DigestTypeVar ChecksumType, KeyVar []byte, KeyLenVar uint, StrVar string, LengthVar int) string {
-	core.LazyRegister(&xComputeHmacForString, "GLIB", "g_compute_hmac_for_string", false)
-
 	cret := xComputeHmacForString(DigestTypeVar, KeyVar, KeyLenVar, StrVar, LengthVar)
 	return cret
 }
@@ -202,4 +182,27 @@ func ComputeHmacForString(DigestTypeVar ChecksumType, KeyVar []byte, KeyLenVar u
 func init() {
 	core.SetPackageName("GLIB", "glib-2.0")
 	core.SetSharedLibraries("GLIB", []string{"libgobject-2.0.so.0", "libglib-2.0.so.0", "libgobject-2.0.0.dylib", "libglib-2.0.0.dylib"})
+	var libs []uintptr
+	for _, libPath := range core.GetPaths("GLIB") {
+		lib, err := purego.Dlopen(libPath, purego.RTLD_NOW|purego.RTLD_GLOBAL)
+		if err != nil {
+			panic(err)
+		}
+		libs = append(libs, lib)
+	}
+
+	core.PuregoSafeRegister(&xComputeHmacForBytes, libs, "g_compute_hmac_for_bytes")
+	core.PuregoSafeRegister(&xComputeHmacForData, libs, "g_compute_hmac_for_data")
+	core.PuregoSafeRegister(&xComputeHmacForString, libs, "g_compute_hmac_for_string")
+
+	core.PuregoSafeRegister(&xHmacGLibType, libs, "g_hmac_get_type")
+
+	core.PuregoSafeRegister(&xNewHmac, libs, "g_hmac_new")
+
+	core.PuregoSafeRegister(&xHmacCopy, libs, "g_hmac_copy")
+	core.PuregoSafeRegister(&xHmacGetDigest, libs, "g_hmac_get_digest")
+	core.PuregoSafeRegister(&xHmacGetString, libs, "g_hmac_get_string")
+	core.PuregoSafeRegister(&xHmacRef, libs, "g_hmac_ref")
+	core.PuregoSafeRegister(&xHmacUnref, libs, "g_hmac_unref")
+	core.PuregoSafeRegister(&xHmacUpdate, libs, "g_hmac_update")
 }

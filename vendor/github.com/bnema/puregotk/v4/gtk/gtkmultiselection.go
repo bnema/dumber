@@ -5,6 +5,7 @@ import (
 	"structs"
 	"unsafe"
 
+	"github.com/bnema/purego"
 	"github.com/bnema/puregotk/pkg/core"
 	"github.com/bnema/puregotk/v4/gio"
 	"github.com/bnema/puregotk/v4/gobject"
@@ -37,7 +38,6 @@ type MultiSelection struct {
 var xMultiSelectionGLibType func() types.GType
 
 func MultiSelectionGLibType() types.GType {
-	core.LazyRegister(&xMultiSelectionGLibType, "GTK", "gtk_multi_selection_get_type", false)
 	return xMultiSelectionGLibType()
 }
 
@@ -51,7 +51,6 @@ var xNewMultiSelection func(uintptr) uintptr
 
 // Creates a new selection to handle @model.
 func NewMultiSelection(ModelVar gio.ListModel) *MultiSelection {
-	core.LazyRegister(&xNewMultiSelection, "GTK", "gtk_multi_selection_new", false)
 	var cls *MultiSelection
 
 	cret := xNewMultiSelection(ModelVar.GoPointer())
@@ -68,7 +67,6 @@ var xMultiSelectionGetModel func(uintptr) uintptr
 
 // Returns the underlying model of @self.
 func (x *MultiSelection) GetModel() *gio.ListModelBase {
-	core.LazyRegister(&xMultiSelectionGetModel, "GTK", "gtk_multi_selection_get_model", false)
 	var cls *gio.ListModelBase
 
 	cret := xMultiSelectionGetModel(x.GoPointer())
@@ -88,8 +86,6 @@ var xMultiSelectionSetModel func(uintptr, uintptr)
 //
 // If @model is %NULL, @self will be empty.
 func (x *MultiSelection) SetModel(ModelVar gio.ListModel) {
-	core.LazyRegister(&xMultiSelectionSetModel, "GTK", "gtk_multi_selection_set_model", false)
-
 	xMultiSelectionSetModel(x.GoPointer(), ModelVar.GoPointer())
 }
 
@@ -348,4 +344,19 @@ func (x *MultiSelection) UnselectRange(PositionVar uint, NItemsVar uint) bool {
 func init() {
 	core.SetPackageName("GTK", "gtk4")
 	core.SetSharedLibraries("GTK", []string{"libgtk-4.so.1", "libgtk-4.1.dylib"})
+	var libs []uintptr
+	for _, libPath := range core.GetPaths("GTK") {
+		lib, err := purego.Dlopen(libPath, purego.RTLD_NOW|purego.RTLD_GLOBAL)
+		if err != nil {
+			panic(err)
+		}
+		libs = append(libs, lib)
+	}
+
+	core.PuregoSafeRegister(&xMultiSelectionGLibType, libs, "gtk_multi_selection_get_type")
+
+	core.PuregoSafeRegister(&xNewMultiSelection, libs, "gtk_multi_selection_new")
+
+	core.PuregoSafeRegister(&xMultiSelectionGetModel, libs, "gtk_multi_selection_get_model")
+	core.PuregoSafeRegister(&xMultiSelectionSetModel, libs, "gtk_multi_selection_set_model")
 }

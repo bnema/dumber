@@ -4,6 +4,7 @@ package gsk
 import (
 	"unsafe"
 
+	"github.com/bnema/purego"
 	"github.com/bnema/puregotk/pkg/core"
 	"github.com/bnema/puregotk/v4/gobject/types"
 	"github.com/bnema/puregotk/v4/graphene"
@@ -36,7 +37,6 @@ type PathForeachFlags int
 var xPathForeachFlagsGLibType func() types.GType
 
 func PathForeachFlagsGLibType() types.GType {
-	core.LazyRegister(&xPathForeachFlagsGLibType, "GSK", "gsk_path_foreach_flags_get_type", false)
 	return xPathForeachFlagsGLibType()
 }
 
@@ -59,7 +59,6 @@ type PathIntersection int
 var xPathIntersectionGLibType func() types.GType
 
 func PathIntersectionGLibType() types.GType {
-	core.LazyRegister(&xPathIntersectionGLibType, "GSK", "gsk_path_intersection_get_type", false)
 	return xPathIntersectionGLibType()
 }
 
@@ -103,8 +102,6 @@ var xPathParse func(string) uintptr
 //
 // The `O` command is an extension that is not supported in SVG.
 func PathParse(StringVar string) *Path {
-	core.LazyRegister(&xPathParse, "GSK", "gsk_path_parse", false)
-
 	cret := xPathParse(StringVar)
 	if cret == 0 {
 		return nil
@@ -115,4 +112,18 @@ func PathParse(StringVar string) *Path {
 func init() {
 	core.SetPackageName("GSK", "gtk4")
 	core.SetSharedLibraries("GSK", []string{"libgtk-4.so.1", "libgtk-4.1.dylib"})
+	var libs []uintptr
+	for _, libPath := range core.GetPaths("GSK") {
+		lib, err := purego.Dlopen(libPath, purego.RTLD_NOW|purego.RTLD_GLOBAL)
+		if err != nil {
+			panic(err)
+		}
+		libs = append(libs, lib)
+	}
+
+	core.PuregoSafeRegister(&xPathForeachFlagsGLibType, libs, "gsk_path_foreach_flags_get_type")
+
+	core.PuregoSafeRegister(&xPathIntersectionGLibType, libs, "gsk_path_intersection_get_type")
+
+	core.PuregoSafeRegister(&xPathParse, libs, "gsk_path_parse")
 }
