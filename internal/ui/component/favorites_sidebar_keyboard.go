@@ -463,7 +463,7 @@ func (fs *FavoritesSidebar) handleNavigationError(err error) {
 		fs.mu.Unlock()
 		return
 	}
-	fs.notice = err.Error()
+	fs.setNoticeLocked(err.Error())
 	fs.mu.Unlock()
 	fs.rebuildList()
 }

@@ -42,7 +42,7 @@ func (fs *FavoritesSidebar) beginAddForm() {
 	fs.editingID = 0
 	fs.confirmDelete = false
 	fs.confirmDeleteID = 0
-	fs.notice = "Add favorite: URL, title, comma-separated tag IDs, shortcut 1-9. Press Ctrl+Enter or Save."
+	fs.setNoticeLocked("Add favorite: URL, title, comma-separated tag IDs, shortcut 1-9. Press Ctrl+Enter or Save.")
 	fs.mu.Unlock()
 	fs.renderForm(nil)
 	fs.rebuildList()
@@ -63,7 +63,7 @@ func (fs *FavoritesSidebar) beginEditForm() {
 	fs.editingID = fav.ID
 	fs.confirmDelete = false
 	fs.confirmDeleteID = 0
-	fs.notice = "Edit favorite: URL is read-only; use tag mode for tags. Press Ctrl+Enter or Save."
+	fs.setNoticeLocked("Edit favorite: URL is read-only; use tag mode for tags. Press Ctrl+Enter or Save.")
 	fs.mu.Unlock()
 	fs.renderForm(fav)
 	fs.rebuildList()
@@ -170,7 +170,7 @@ func (fs *FavoritesSidebar) cancelManagement() bool {
 	fs.confirmDelete = false
 	fs.confirmDeleteID = 0
 	if active {
-		fs.notice = ""
+		fs.setNoticeLocked("")
 	}
 	fs.mu.Unlock()
 	if fs.formBox != nil {
@@ -250,7 +250,7 @@ func (fs *FavoritesSidebar) setModeNotice(mode favoritesSidebarMode, notice stri
 		fs.mode = mode
 		fs.confirmDelete = false
 		fs.confirmDeleteID = 0
-		fs.notice = notice
+		fs.setNoticeLocked(notice)
 	}
 	fs.mu.Unlock()
 	fs.rebuildList()
@@ -324,7 +324,7 @@ func (fs *FavoritesSidebar) requestDeleteConfirmation() bool {
 	if !fs.destroyed {
 		fs.confirmDelete = true
 		fs.confirmDeleteID = fav.ID
-		fs.notice = "Delete selected favorite? Press Delete again to confirm, Esc to cancel."
+		fs.setNoticeLocked("Delete selected favorite? Press Delete again to confirm, Esc to cancel.")
 	}
 	fs.mu.Unlock()
 	fs.rebuildList()
@@ -396,7 +396,7 @@ func (fs *FavoritesSidebar) selectedFavorite() *entity.Favorite {
 func (fs *FavoritesSidebar) setNotice(notice string) {
 	fs.mu.Lock()
 	if !fs.destroyed {
-		fs.notice = notice
+		fs.setNoticeLocked(notice)
 	}
 	fs.mu.Unlock()
 	fs.rebuildList()
