@@ -48,3 +48,40 @@ do not use a device model or other identifier. Publish only the seven reviewed
 JSON files to an external Gist. Raw logs and temporary XDG homes are removed and
 must not be published. A missing or incomplete timeline, non-DMABUF backend, or
 invalid run fails collection.
+
+## Strict Wayland/Vulkan gate
+
+The dispatch-only `wayland-vulkan-gate` workflow is the authoritative hardware
+gate. It requires a labelled self-hosted `intel-integrated` or `amd` runner;
+queueing for unavailable hardware is not a pass and the workflow makes no
+vendor-hardware success claim. It checks out the requested `baseline_ref` and
+`candidate_ref`, starts an isolated headless Weston instance, and runs exactly
+five fresh baseline launches followed by five fresh candidate launches with the
+same CEF runtime, Wayland compositor, and non-identifying GPU profile.
+
+Reproduce the same gate locally from the candidate checkout after building both
+refs. `baseline` and `candidate` below are separate checkouts and must use the
+same CEF runtime and live Wayland session:
+
+```bash
+(cd baseline && GOFLAGS=-mod=vendor make build-quick)
+(cd candidate && GOFLAGS=-mod=vendor make build-quick)
+cd candidate
+DUMBER_MACHINE_GPU_PROFILE=intel-integrated \
+DUMBER_CEF_DIR="$HOME/.local/share/cef-147-runtime" \
+DUMBER_WAYLAND_VULKAN_BASELINE_BIN="../baseline/dist/dumber" \
+DUMBER_WAYLAND_VULKAN_CANDIDATE_BIN="$PWD/dist/dumber" \
+DUMBER_WAYLAND_VULKAN_BASELINE_SOURCE="../baseline" \
+DUMBER_WAYLAND_VULKAN_CANDIDATE_SOURCE="$PWD" \
+  scripts/wayland_vulkan_gate.sh
+```
+
+The gate creates a fresh external XDG-state directory locally (or a fresh
+`RUNNER_TEMP` directory in Actions) containing only sanitized JSON. It requires
+ordered startup milestones, Vulkan and `gdk-dmabuf` import confirmation, resize,
+`OnBeforeClose`, and `Engine.Close` lifecycle confirmation. It rejects a timeout,
+unsafe/reused output directory, unpaired provenance, CEF GPU error **1002**, or
+candidate median or nearest-rank p95 regression over 10%. There is no software
+fallback, skip, or green result for those conditions. The current headless
+Weston result is blocked by CEF GPU error 1002; retain its failed evidence rather
+than interpreting it as hardware validation.

@@ -65,7 +65,7 @@ github.com/bnema/purego-cef/internal/core
 github.com/bnema/purego-cef/internal/loader
 github.com/bnema/purego-cef/internal/ports/in
 github.com/bnema/purego-cef/internal/ports/out
-# github.com/bnema/purego-cef2gtk v0.8.4
+# github.com/bnema/purego-cef2gtk v0.8.4-0.20260714143951-2a5b796c8bef
 ## explicit; go 1.26
 github.com/bnema/purego-cef2gtk
 github.com/bnema/purego-cef2gtk/internal/cefadapter

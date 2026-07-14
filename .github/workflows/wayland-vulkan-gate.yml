@@ -1,0 +1,101 @@
+name: Wayland Vulkan gate
+
+on:
+  workflow_dispatch:
+    inputs:
+      gpu_profile:
+        description: Exact self-hosted hardware pool; this is a scheduling label, not a success claim.
+        required: true
+        type: choice
+        options: [intel-integrated, amd]
+      baseline_ref:
+        description: Git ref to measure as the baseline
+        required: true
+        default: chore/upstream-foundations
+        type: string
+      candidate_ref:
+        description: Git ref to measure as the candidate
+        required: true
+        default: test/wayland-vulkan-gate
+        type: string
+
+permissions:
+  contents: read
+
+jobs:
+  gate:
+    # Explicit pool mapping prevents an arbitrary runner from being described as
+    # Intel or AMD hardware. A missing labelled runner leaves this workflow
+    # queued; it does not skip, fall back, or report a hardware result.
+    runs-on: ${{ inputs.gpu_profile == 'intel-integrated' && fromJSON('["self-hosted","linux","intel-integrated"]') || fromJSON('["self-hosted","linux","amd"]') }}
+    timeout-minutes: 30
+    env:
+      DUMBER_MACHINE_GPU_PROFILE: ${{ inputs.gpu_profile }}
+      DUMBER_WAYLAND_VULKAN_OUTPUT: ${{ runner.temp }}/wayland-vulkan-evidence
+      DUMBER_WAYLAND_VULKAN_TIMEOUT_SECONDS: "45"
+    steps:
+      - name: Checkout candidate
+        uses: actions/checkout@v7.0.0
+        with:
+          ref: ${{ inputs.candidate_ref }}
+          path: candidate
+          fetch-depth: 1
+      - name: Checkout baseline
+        uses: actions/checkout@v7.0.0
+        with:
+          ref: ${{ inputs.baseline_ref }}
+          path: baseline
+          fetch-depth: 1
+      - name: Set up pinned Go
+        uses: actions/setup-go@4a3601121dd01d1626a1e23e37211e3254c1c06c
+        with:
+          go-version-file: candidate/go.mod
+          cache: false
+      - name: Require self-hosted Wayland Vulkan prerequisites
+        shell: bash
+        run: |
+          set -euo pipefail
+          command -v weston
+          command -v vulkaninfo
+          test -d "${DUMBER_CEF_DIR:-$HOME/.local/share/cef-147-runtime}"
+      - name: Build baseline and candidate with vendored modules
+        shell: bash
+        run: |
+          set -euo pipefail
+          (cd baseline && GOFLAGS=-mod=vendor make build-quick)
+          (cd candidate && GOFLAGS=-mod=vendor make build-quick)
+      - name: Start isolated Weston headless compositor
+        shell: bash
+        run: |
+          set -euo pipefail
+          export XDG_RUNTIME_DIR="$RUNNER_TEMP/wayland-runtime"
+          install -d -m 700 "$XDG_RUNTIME_DIR"
+          weston --backend=headless-backend.so --socket=wayland-vulkan-gate --idle-time=0 >"$RUNNER_TEMP/weston.log" 2>&1 &
+          echo "WESTON_PID=$!" >> "$GITHUB_ENV"
+          echo "XDG_RUNTIME_DIR=$XDG_RUNTIME_DIR" >> "$GITHUB_ENV"
+          echo "WAYLAND_DISPLAY=wayland-vulkan-gate" >> "$GITHUB_ENV"
+          for _ in $(seq 1 30); do test -S "$XDG_RUNTIME_DIR/wayland-vulkan-gate" && exit 0; sleep 1; done
+          cat "$RUNNER_TEMP/weston.log" >&2
+          exit 1
+      - name: Run strict five-by-five Wayland Vulkan gate
+        working-directory: candidate
+        shell: bash
+        run: |
+          set -euo pipefail
+          export DUMBER_WAYLAND_VULKAN_BASELINE_BIN="$GITHUB_WORKSPACE/baseline/dist/dumber"
+          export DUMBER_WAYLAND_VULKAN_CANDIDATE_BIN="$GITHUB_WORKSPACE/candidate/dist/dumber"
+          export DUMBER_WAYLAND_VULKAN_BASELINE_SOURCE="$GITHUB_WORKSPACE/baseline"
+          export DUMBER_WAYLAND_VULKAN_CANDIDATE_SOURCE="$GITHUB_WORKSPACE/candidate"
+          ./scripts/wayland_vulkan_gate.sh
+      - name: Stop Weston
+        if: always()
+        shell: bash
+        run: test -z "${WESTON_PID:-}" || kill "$WESTON_PID"
+      - name: Upload sanitized gate evidence
+        if: always()
+        uses: actions/upload-artifact@v6
+        with:
+          name: wayland-vulkan-${{ inputs.gpu_profile }}
+          path: ${{ runner.temp }}/wayland-vulkan-evidence
+          if-no-files-found: error
+          retention-days: 14

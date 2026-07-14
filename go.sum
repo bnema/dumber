@@ -24,6 +24,8 @@ github.com/bnema/purego-cef2gtk v0.8.3 h1:7alzzanbJzpqWXdbo+GfnCSGF/GmwYz9KhcQeg
 github.com/bnema/purego-cef2gtk v0.8.3/go.mod h1:w/5Bjkm+ZaZbDIDS+ysC5qTBcpb8/WOeGDva8i39ocM=
 github.com/bnema/purego-cef2gtk v0.8.4-0.20260714083412-f217ece342de h1:fs1e2dUPrPcoIOBCc8hLvCsiWRmySjJUpRgVwKChBoQ=
 github.com/bnema/purego-cef2gtk v0.8.4-0.20260714083412-f217ece342de/go.mod h1:w/5Bjkm+ZaZbDIDS+ysC5qTBcpb8/WOeGDva8i39ocM=
+github.com/bnema/purego-cef2gtk v0.8.4-0.20260714143951-2a5b796c8bef h1:wAf/iB+LahfgeOaljTCSufaoZOgNSJdKe93UeLjNdHs=
+github.com/bnema/purego-cef2gtk v0.8.4-0.20260714143951-2a5b796c8bef/go.mod h1:w/5Bjkm+ZaZbDIDS+ysC5qTBcpb8/WOeGDva8i39ocM=
 github.com/bnema/purego-cef2gtk v0.8.4 h1:WIBU2F3rrT30WfhZV9b7xFBz8ktg8uHRzbKMuaffnMg=
 github.com/bnema/purego-cef2gtk v0.8.4/go.mod h1:w/5Bjkm+ZaZbDIDS+ysC5qTBcpb8/WOeGDva8i39ocM=
 github.com/bnema/purego-pipewire v0.1.4 h1:ThuPiZo9BeYn1w06hg/g0INgQUIBi8n9Gq1o5VRtjxk=

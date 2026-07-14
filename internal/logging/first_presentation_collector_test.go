@@ -143,8 +143,8 @@ func TestFirstPresentationCollectorSanitizesMachineLocalValues(t *testing.T) {
 	}
 	for _, required := range []string{
 		`"measured_source_revision"`,
-		`"tag": "v0.8.4"`,
-		`"revision": "f217ece342dea3ef2a3f98671fcd16a39ad0037d"`,
+		`"tag": "v0.8.4-0.20260714143951-2a5b796c8bef"`,
+		`"revision": "2a5b796c8befa686b663ecfba4fb00dcd870d539"`,
 	} {
 		require.Contains(t, artifacts.String(), required)
 	}

@@ -31,8 +31,8 @@ else
 fi
 readonly output
 readonly upstream_module="github.com/bnema/purego-cef2gtk"
-readonly upstream_tag="v0.8.4"
-readonly upstream_revision="f217ece342dea3ef2a3f98671fcd16a39ad0037d"
+readonly upstream_tag="v0.8.4-0.20260714143951-2a5b796c8bef"
+readonly upstream_revision="2a5b796c8befa686b663ecfba4fb00dcd870d539"
 
 # The artifact destination is caller-controlled. Never empty or recursively
 # clear it: collection only writes to a newly-created directory whose parent is
