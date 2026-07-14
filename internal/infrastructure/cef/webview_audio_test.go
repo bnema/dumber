@@ -258,9 +258,9 @@ func TestHandlerSet_OnAudioStreamStarted_FactoryError_HandlesGracefully(t *testi
 // Task 7: PCM Packet Forwarding Tests
 // ============================================================================
 
-// TestHandlerSet_OnAudioStreamPacket_CopiesAndWrites verifies that
-// OnAudioStreamPacket copies samples before writing to avoid data races.
-func TestHandlerSet_OnAudioStreamPacket_CopiesAndWrites(t *testing.T) {
+// TestHandlerSet_OnAudioStreamPacket_ForwardsCallbackData verifies that CEF
+// does not allocate a staging copy; the audio output port owns that handoff.
+func TestHandlerSet_OnAudioStreamPacket_ForwardsCallbackData(t *testing.T) {
 	ctx := context.Background()
 	mockStream := &mockAudioStream{}
 
@@ -287,12 +287,9 @@ func TestHandlerSet_OnAudioStreamPacket_CopiesAndWrites(t *testing.T) {
 	require.Len(t, mockStream.writeSamples, 2)
 	require.Len(t, mockStream.writeSamples[0], 512)
 
-	// Verify data was copied (values match)
 	assert.InDelta(t, 0.5, mockStream.writeSamples[0][0], 0.000001)
 	assert.InDelta(t, -0.5, mockStream.writeSamples[1][0], 0.000001)
-
-	// Verify it's a copy (different underlying array)
-	assert.NotSame(t, &originalData[0][0], &mockStream.writeSamples[0][0])
+	assert.Same(t, &originalData[0][0], &mockStream.writeSamples[0][0])
 }
 
 // TestHandlerSet_OnAudioStreamPacket_NoActiveStream_DoesNothing verifies
@@ -331,6 +328,17 @@ func TestHandlerSet_OnAudioStreamPacket_NilData_DoesNotPanic(t *testing.T) {
 	assert.NotPanics(t, func() {
 		handlers.OnAudioStreamPacket(nil, nil, 0, 0)
 	})
+}
+
+func BenchmarkHandlerSet_OnAudioStreamPacketStereo(b *testing.B) {
+	stream := &mockAudioStream{}
+	handlers := &handlerSet{wv: &WebView{ctx: context.Background(), activeAudioStream: stream}}
+	data := [][]float32{make([]float32, 512), make([]float32, 512)}
+	b.ReportAllocs()
+	b.SetBytes(2 * 512 * 4)
+	for i := 0; i < b.N; i++ {
+		handlers.OnAudioStreamPacket(nil, data, 512, 0)
+	}
 }
 
 // ============================================================================
@@ -562,15 +570,13 @@ func TestOnAudioStreamStarted_CorrectParameterMapping(t *testing.T) {
 // Race-window tests (write/close interleave)
 // ============================================================================
 
-// TestOnAudioStreamPacket_WriteHoldsLock verifies that closeAudioStream cannot
-// interleave between the stream snapshot and Write. If the lock is NOT held
-// across Write, the goroutine calling closeAudioStream will Close the stream
-// while Write is in-flight, producing a write-after-close.
-func TestOnAudioStreamPacket_WriteHoldsLock(t *testing.T) {
+// TestOnAudioStreamPacket_CloseDoesNotWaitForWrite verifies that lifecycle
+// shutdown is not serialized behind a potentially slow callback write. The
+// port contract makes Close/Write concurrency safe.
+func TestOnAudioStreamPacket_CloseDoesNotWaitForWrite(t *testing.T) {
 	ctx := context.Background()
 
-	// racyStream blocks inside Write until we signal, giving closeAudioStream
-	// a window to race if the mutex isn't held.
+	// racyStream blocks inside Write until we signal.
 	stream := &racyMockAudioStream{
 		writeCh: make(chan struct{}),
 		doneCh:  make(chan struct{}),
@@ -590,29 +596,21 @@ func TestOnAudioStreamPacket_WriteHoldsLock(t *testing.T) {
 	// Wait for Write to be entered.
 	<-stream.writeCh
 
-	// Now try to close. If the implementation holds the lock across Write,
-	// this will block until Write returns. If not, Close races with Write.
 	closeDone := make(chan struct{})
 	go func() {
 		wv.closeAudioStream()
 		close(closeDone)
 	}()
 
-	// Close should NOT have completed yet because Write holds the lock.
-	// Give the goroutine time to acquire the lock if it can.
-	time.Sleep(50 * time.Millisecond)
 	select {
 	case <-closeDone:
-		t.Fatal("closeAudioStream completed while Write was in-flight — lock not held across Write")
-	default:
-		// expected: closeAudioStream is blocked
+		// expected: only the short stream snapshot takes the mutex
+	case <-time.After(time.Second):
+		t.Fatal("closeAudioStream waited for an in-flight Write")
 	}
 
-	// Unblock Write.
+	// The write can finish after shutdown without holding the lifecycle mutex.
 	close(stream.doneCh)
-
-	// Now closeAudioStream should complete.
-	<-closeDone
 
 	assert.True(t, stream.closeCalled)
 	assert.Nil(t, wv.activeAudioStream)

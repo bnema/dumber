@@ -18,9 +18,10 @@ type AudioStreamFormat struct {
 // AudioOutputStream represents an active audio output stream.
 // Implementations handle the low-level audio playback.
 type AudioOutputStream interface {
-	// Write sends audio samples to the output device.
-	// Samples are provided as a 2D slice: [channel][frame]float32.
-	// This matches CEF's planar float32 audio format.
+	// Write sends callback-owned audio samples to the output device.
+	// Samples are provided as [channel][frame]float32 matching CEF's planar
+	// format. Implementations must not retain the slices and must be safe to
+	// call concurrently with Close; audio callbacks must not block.
 	Write(samples [][]float32) error
 	// Close releases the audio stream and associated resources.
 	Close() error
