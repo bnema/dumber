@@ -288,10 +288,6 @@ func (c *Coordinator) revealIfPending(ctx context.Context, paneID entity.PaneID,
 		}
 	}
 
-	// Mark first_paint and finish startup trace
-	logging.Trace().Mark("first_paint")
-	logging.Trace().Finish()
-
 	if c.onWebViewShown != nil {
 		c.onWebViewShown(paneID)
 	}

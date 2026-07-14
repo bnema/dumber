@@ -35,7 +35,7 @@ func startupPresentationHooks() cef2gtk.Hooks {
 			logging.Trace().Mark("first_dmabuf_texture_swap")
 		},
 		OnFirstPresentation: func() {
-			logging.Trace().Mark("first_gtk_presentation")
+			logging.Trace().MarkGTKAfterPaint()
 		},
 		OnDMABUFUnsupported: func() {
 			logging.Trace().SetIncompleteReason("dmabuf_texture_swap_unavailable")

@@ -121,9 +121,25 @@ func (st *StartupTrace) SetIncompleteReason(reason string) {
 	}
 }
 
-// Mark accepts exactly the next startup milestone and returns whether it was
-// recorded. It is safe for callbacks from CEF and GTK threads.
+// Mark accepts exactly the next non-presentation startup milestone and returns
+// whether it was recorded. first_gtk_presentation is reserved for the GTK
+// frame-clock after-paint hook through MarkGTKAfterPaint.
 func (st *StartupTrace) Mark(name string) bool {
+	if name == "first_gtk_presentation" {
+		return false
+	}
+	return st.mark(name)
+}
+
+// MarkGTKAfterPaint records the final milestone. It is called only from the
+// upstream CEF-to-GTK bridge's first frame-clock after-paint callback.
+func (st *StartupTrace) MarkGTKAfterPaint() bool {
+	return st.mark("first_gtk_presentation")
+}
+
+// mark accepts the next milestone and is safe for callbacks from CEF and GTK
+// threads.
+func (st *StartupTrace) mark(name string) bool {
 	if st == nil || st.now == nil {
 		return false
 	}
@@ -172,9 +188,9 @@ func (st *StartupTrace) emitSummaryLocked() {
 		Msg("startup_trace: first presentation")
 }
 
-// Finish is retained for old callers. A startup trace only finishes at the
-// actual first GTK presentation milestone.
-func (st *StartupTrace) Finish() { _ = st.Mark("first_gtk_presentation") }
+// Finish is retained as a harmless compatibility no-op. The only valid source
+// for first_gtk_presentation is the upstream GTK frame-clock after-paint hook.
+func (*StartupTrace) Finish() {}
 
 func (st *StartupTrace) Enabled() bool { return st != nil && st.now != nil }
 
