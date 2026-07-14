@@ -92,6 +92,10 @@ github.com/bnema/purego-sqlite/internal/loader
 github.com/bnema/purego-sqlite/internal/ports/in
 github.com/bnema/purego-sqlite/internal/ports/out
 github.com/bnema/purego-sqlite/sqlite
+# github.com/bnema/purego-webp v0.2.1-0.20260714152238-7bc9c402fdf6
+## explicit; go 1.26
+github.com/bnema/purego-webp/internal/libwebp
+github.com/bnema/purego-webp/libwebp
 # github.com/bnema/puregotk v0.7.1-0.20260714170452-0b6b9b901234
 ## explicit; go 1.24.0
 github.com/bnema/puregotk/internal/core

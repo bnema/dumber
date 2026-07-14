@@ -1,6 +1,7 @@
 id: dev.bnema.Dumber
 runtime: org.gnome.Platform
 runtime-version: '49'
+# org.gnome.Platform provides libwebp at runtime for purego WebP favicon decoding.
 sdk: org.gnome.Sdk
 command: dumber
 

@@ -7,7 +7,7 @@ arch=('x86_64')
 url="https://github.com/bnema/dumber"
 license=('MIT')
 makedepends=('go>=1.26' 'git' 'brotli')
-depends=('gtk4' 'cef' 'webkitgtk-6.0')
+depends=('gtk4' 'cef' 'webkitgtk-6.0' 'libwebp')
 optdepends=(
     'gst-plugins-base: Base media codecs'
     'gst-plugins-good: Additional media codecs'

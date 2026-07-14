@@ -404,6 +404,25 @@ func TestFaviconObserveConversionErrorDoesNotMutateExistingAssets(t *testing.T) 
 	}
 }
 
+func TestFaviconObserveUnavailableWebPPreservesCachedAssets(t *testing.T) {
+	fx := newFaviconFixture(t)
+	fx.seedOriginal([]byte("old"))
+	fx.blobs.png["example.com"] = []byte("old-png")
+	fx.blobs.sized["example.com"] = map[int][]byte{32: []byte("old-32")}
+	fx.converter.errByContentType = map[string]error{"image/webp": ErrFaviconMiss}
+
+	_, err := fx.uc.Observe(context.Background(), "https://example.com", "https://example.com/favicon.webp", []byte("webp"), favicon.SourceEngine, "image/webp")
+	if !errors.Is(err, ErrFaviconMiss) {
+		t.Fatalf("Observe err=%v, want favicon miss", err)
+	}
+	if string(fx.blobs.original["example.com"]) != "old" || string(fx.blobs.png["example.com"]) != "old-png" || string(fx.blobs.sized["example.com"][32]) != "old-32" {
+		t.Fatalf("cached assets changed after unavailable WebP decoder")
+	}
+	if fx.blobs.writeOriginals != 0 || fx.blobs.removeDerived != 0 || fx.invalidators.calls != 0 {
+		t.Fatalf("unavailable decoder mutated cache: writes=%d removes=%d invalidations=%d", fx.blobs.writeOriginals, fx.blobs.removeDerived, fx.invalidators.calls)
+	}
+}
+
 func TestFaviconEnsureSizedPropagatesReadSizedErrors(t *testing.T) {
 	fx := newFaviconFixture(t)
 	fx.seedOriginal([]byte("old"))
