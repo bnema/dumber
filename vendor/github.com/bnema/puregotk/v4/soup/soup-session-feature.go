@@ -5,6 +5,7 @@ import (
 	"structs"
 	"unsafe"
 
+	"github.com/bnema/puregotk/pkg/core"
 	"github.com/bnema/puregotk/v4/gobject/types"
 )
 
@@ -42,6 +43,7 @@ type SessionFeature interface {
 var xSessionFeatureGLibType func() types.GType
 
 func SessionFeatureGLibType() types.GType {
+	core.LazyRegister(&xSessionFeatureGLibType, "SOUP", "soup_session_feature_get_type", false)
 	return xSessionFeatureGLibType()
 }
 
@@ -58,4 +60,9 @@ func (x *SessionFeatureBase) GoPointer() uintptr {
 
 func (x *SessionFeatureBase) SetGoPointer(ptr uintptr) {
 	x.Ptr = ptr
+}
+
+func init() {
+	core.SetPackageName("SOUP", "libsoup-3.0")
+	core.SetSharedLibraries("SOUP", []string{"libsoup-3.0.so.0", "libsoup-3.0.0.dylib"})
 }

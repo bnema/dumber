@@ -5,7 +5,6 @@ import (
 	"structs"
 	"unsafe"
 
-	"github.com/bnema/purego"
 	"github.com/bnema/puregotk/pkg/core"
 	"github.com/bnema/puregotk/v4/gdk"
 	"github.com/bnema/puregotk/v4/gobject"
@@ -36,6 +35,7 @@ type ColorScheme int
 var xColorSchemeGLibType func() types.GType
 
 func ColorSchemeGLibType() types.GType {
+	core.LazyRegister(&xColorSchemeGLibType, "ADW", "adw_color_scheme_get_type", false)
 	return xColorSchemeGLibType()
 }
 
@@ -74,6 +74,7 @@ type StyleManager struct {
 var xStyleManagerGLibType func() types.GType
 
 func StyleManagerGLibType() types.GType {
+	core.LazyRegister(&xStyleManagerGLibType, "ADW", "adw_style_manager_get_type", false)
 	return xStyleManagerGLibType()
 }
 
@@ -89,6 +90,8 @@ var xStyleManagerGetAccentColor func(uintptr) AccentColor
 //
 // See also [property@StyleManager:accent-color-rgba].
 func (x *StyleManager) GetAccentColor() AccentColor {
+	core.LazyRegister(&xStyleManagerGetAccentColor, "ADW", "adw_style_manager_get_accent_color", false)
+
 	cret := xStyleManagerGetAccentColor(x.GoPointer())
 	return cret
 }
@@ -102,6 +105,8 @@ var xStyleManagerGetAccentColorRgba func(uintptr) uintptr
 //
 // This is a background color. The matching foreground color is white.
 func (x *StyleManager) GetAccentColorRgba() *gdk.RGBA {
+	core.LazyRegister(&xStyleManagerGetAccentColorRgba, "ADW", "adw_style_manager_get_accent_color_rgba", false)
+
 	cret := xStyleManagerGetAccentColorRgba(x.GoPointer())
 	if cret == 0 {
 		return nil
@@ -113,6 +118,8 @@ var xStyleManagerGetColorScheme func(uintptr) ColorScheme
 
 // Gets the requested application color scheme.
 func (x *StyleManager) GetColorScheme() ColorScheme {
+	core.LazyRegister(&xStyleManagerGetColorScheme, "ADW", "adw_style_manager_get_color_scheme", false)
+
 	cret := xStyleManagerGetColorScheme(x.GoPointer())
 	return cret
 }
@@ -124,6 +131,8 @@ var xStyleManagerGetDark func(uintptr) bool
 // This can be used to query the current appearance, as requested via
 // [property@StyleManager:color-scheme].
 func (x *StyleManager) GetDark() bool {
+	core.LazyRegister(&xStyleManagerGetDark, "ADW", "adw_style_manager_get_dark", false)
+
 	cret := xStyleManagerGetDark(x.GoPointer())
 	return cret
 }
@@ -135,6 +144,7 @@ var xStyleManagerGetDisplay func(uintptr) uintptr
 // The display will be `NULL` for the style manager returned by
 // [func@StyleManager.get_default].
 func (x *StyleManager) GetDisplay() *gdk.Display {
+	core.LazyRegister(&xStyleManagerGetDisplay, "ADW", "adw_style_manager_get_display", false)
 	var cls *gdk.Display
 
 	cret := xStyleManagerGetDisplay(x.GoPointer())
@@ -157,6 +167,8 @@ var xStyleManagerGetDocumentFontName func(uintptr) string
 //
 // Use [func@Pango.FontDescription.from_string] to parse it.
 func (x *StyleManager) GetDocumentFontName() string {
+	core.LazyRegister(&xStyleManagerGetDocumentFontName, "ADW", "adw_style_manager_get_document_font_name", false)
+
 	cret := xStyleManagerGetDocumentFontName(x.GoPointer())
 	return cret
 }
@@ -167,6 +179,8 @@ var xStyleManagerGetHighContrast func(uintptr) bool
 //
 // This cannot be overridden by applications.
 func (x *StyleManager) GetHighContrast() bool {
+	core.LazyRegister(&xStyleManagerGetHighContrast, "ADW", "adw_style_manager_get_high_contrast", false)
+
 	cret := xStyleManagerGetHighContrast(x.GoPointer())
 	return cret
 }
@@ -180,6 +194,8 @@ var xStyleManagerGetMonospaceFontName func(uintptr) string
 //
 // Use [func@Pango.FontDescription.from_string] to parse it.
 func (x *StyleManager) GetMonospaceFontName() string {
+	core.LazyRegister(&xStyleManagerGetMonospaceFontName, "ADW", "adw_style_manager_get_monospace_font_name", false)
+
 	cret := xStyleManagerGetMonospaceFontName(x.GoPointer())
 	return cret
 }
@@ -194,6 +210,8 @@ var xStyleManagerGetSystemSupportsAccentColors func(uintptr) bool
 //
 // See [property@StyleManager:accent-color].
 func (x *StyleManager) GetSystemSupportsAccentColors() bool {
+	core.LazyRegister(&xStyleManagerGetSystemSupportsAccentColors, "ADW", "adw_style_manager_get_system_supports_accent_colors", false)
+
 	cret := xStyleManagerGetSystemSupportsAccentColors(x.GoPointer())
 	return cret
 }
@@ -206,6 +224,8 @@ var xStyleManagerGetSystemSupportsColorSchemes func(uintptr) bool
 // preference. For example, applications might want to show a separate
 // appearance switcher if it's set to `FALSE`.
 func (x *StyleManager) GetSystemSupportsColorSchemes() bool {
+	core.LazyRegister(&xStyleManagerGetSystemSupportsColorSchemes, "ADW", "adw_style_manager_get_system_supports_color_schemes", false)
+
 	cret := xStyleManagerGetSystemSupportsColorSchemes(x.GoPointer())
 	return cret
 }
@@ -244,6 +264,8 @@ var xStyleManagerSetColorScheme func(uintptr, ColorScheme)
 // used to check if the current environment provides a color scheme
 // preference.
 func (x *StyleManager) SetColorScheme(ColorSchemeVar ColorScheme) {
+	core.LazyRegister(&xStyleManagerSetColorScheme, "ADW", "adw_style_manager_set_color_scheme", false)
+
 	xStyleManagerSetColorScheme(x.GoPointer(), ColorSchemeVar)
 }
 
@@ -355,6 +377,7 @@ var xStyleManagerGetDefault func() uintptr
 //
 // See [func@StyleManager.get_for_display].
 func StyleManagerGetDefault() *StyleManager {
+	core.LazyRegister(&xStyleManagerGetDefault, "ADW", "adw_style_manager_get_default", false)
 	var cls *StyleManager
 
 	cret := xStyleManagerGetDefault()
@@ -377,6 +400,7 @@ var xStyleManagerGetForDisplay func(uintptr) uintptr
 //
 // Most applications should use [func@StyleManager.get_default] instead.
 func StyleManagerGetForDisplay(DisplayVar *gdk.Display) *StyleManager {
+	core.LazyRegister(&xStyleManagerGetForDisplay, "ADW", "adw_style_manager_get_for_display", false)
 	var cls *StyleManager
 
 	cret := xStyleManagerGetForDisplay(DisplayVar.GoPointer())
@@ -393,31 +417,4 @@ func StyleManagerGetForDisplay(DisplayVar *gdk.Display) *StyleManager {
 func init() {
 	core.SetPackageName("ADW", "libadwaita-1")
 	core.SetSharedLibraries("ADW", []string{"libadwaita-1.so.0", "libadwaita-1.0.dylib"})
-	var libs []uintptr
-	for _, libPath := range core.GetPaths("ADW") {
-		lib, err := purego.Dlopen(libPath, purego.RTLD_NOW|purego.RTLD_GLOBAL)
-		if err != nil {
-			panic(err)
-		}
-		libs = append(libs, lib)
-	}
-
-	core.PuregoSafeRegister(&xColorSchemeGLibType, libs, "adw_color_scheme_get_type")
-
-	core.PuregoSafeRegister(&xStyleManagerGLibType, libs, "adw_style_manager_get_type")
-
-	core.PuregoSafeRegister(&xStyleManagerGetAccentColor, libs, "adw_style_manager_get_accent_color")
-	core.PuregoSafeRegister(&xStyleManagerGetAccentColorRgba, libs, "adw_style_manager_get_accent_color_rgba")
-	core.PuregoSafeRegister(&xStyleManagerGetColorScheme, libs, "adw_style_manager_get_color_scheme")
-	core.PuregoSafeRegister(&xStyleManagerGetDark, libs, "adw_style_manager_get_dark")
-	core.PuregoSafeRegister(&xStyleManagerGetDisplay, libs, "adw_style_manager_get_display")
-	core.PuregoSafeRegister(&xStyleManagerGetDocumentFontName, libs, "adw_style_manager_get_document_font_name")
-	core.PuregoSafeRegister(&xStyleManagerGetHighContrast, libs, "adw_style_manager_get_high_contrast")
-	core.PuregoSafeRegister(&xStyleManagerGetMonospaceFontName, libs, "adw_style_manager_get_monospace_font_name")
-	core.PuregoSafeRegister(&xStyleManagerGetSystemSupportsAccentColors, libs, "adw_style_manager_get_system_supports_accent_colors")
-	core.PuregoSafeRegister(&xStyleManagerGetSystemSupportsColorSchemes, libs, "adw_style_manager_get_system_supports_color_schemes")
-	core.PuregoSafeRegister(&xStyleManagerSetColorScheme, libs, "adw_style_manager_set_color_scheme")
-
-	core.PuregoSafeRegister(&xStyleManagerGetDefault, libs, "adw_style_manager_get_default")
-	core.PuregoSafeRegister(&xStyleManagerGetForDisplay, libs, "adw_style_manager_get_for_display")
 }

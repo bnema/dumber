@@ -5,7 +5,6 @@ import (
 	"structs"
 	"unsafe"
 
-	"github.com/bnema/purego"
 	"github.com/bnema/puregotk/pkg/core"
 	"github.com/bnema/puregotk/v4/gio"
 	"github.com/bnema/puregotk/v4/glib"
@@ -50,6 +49,7 @@ type ServerMessage struct {
 var xServerMessageGLibType func() types.GType
 
 func ServerMessageGLibType() types.GType {
+	core.LazyRegister(&xServerMessageGLibType, "SOUP", "soup_server_message_get_type", false)
 	return xServerMessageGLibType()
 }
 
@@ -63,6 +63,8 @@ var xServerMessageGetHttpVersion func(uintptr) HTTPVersion
 
 // Get the HTTP version of @msg.
 func (x *ServerMessage) GetHttpVersion() HTTPVersion {
+	core.LazyRegister(&xServerMessageGetHttpVersion, "SOUP", "soup_server_message_get_http_version", false)
+
 	cret := xServerMessageGetHttpVersion(x.GoPointer())
 	return cret
 }
@@ -72,6 +74,7 @@ var xServerMessageGetLocalAddress func(uintptr) uintptr
 // Retrieves the [class@Gio.SocketAddress] associated with the local end
 // of a connection.
 func (x *ServerMessage) GetLocalAddress() *gio.SocketAddress {
+	core.LazyRegister(&xServerMessageGetLocalAddress, "SOUP", "soup_server_message_get_local_address", false)
 	var cls *gio.SocketAddress
 
 	cret := xServerMessageGetLocalAddress(x.GoPointer())
@@ -89,6 +92,8 @@ var xServerMessageGetMethod func(uintptr) string
 
 // Get the HTTP method of @msg.
 func (x *ServerMessage) GetMethod() string {
+	core.LazyRegister(&xServerMessageGetMethod, "SOUP", "soup_server_message_get_method", false)
+
 	cret := xServerMessageGetMethod(x.GoPointer())
 	return cret
 }
@@ -97,6 +102,8 @@ var xServerMessageGetReasonPhrase func(uintptr) string
 
 // Get the HTTP reason phrase of @msg.
 func (x *ServerMessage) GetReasonPhrase() string {
+	core.LazyRegister(&xServerMessageGetReasonPhrase, "SOUP", "soup_server_message_get_reason_phrase", false)
+
 	cret := xServerMessageGetReasonPhrase(x.GoPointer())
 	return cret
 }
@@ -106,6 +113,7 @@ var xServerMessageGetRemoteAddress func(uintptr) uintptr
 // Retrieves the [class@Gio.SocketAddress] associated with the remote end
 // of a connection.
 func (x *ServerMessage) GetRemoteAddress() *gio.SocketAddress {
+	core.LazyRegister(&xServerMessageGetRemoteAddress, "SOUP", "soup_server_message_get_remote_address", false)
 	var cls *gio.SocketAddress
 
 	cret := xServerMessageGetRemoteAddress(x.GoPointer())
@@ -124,6 +132,8 @@ var xServerMessageGetRemoteHost func(uintptr) string
 // Retrieves the IP address associated with the remote end of a
 // connection.
 func (x *ServerMessage) GetRemoteHost() string {
+	core.LazyRegister(&xServerMessageGetRemoteHost, "SOUP", "soup_server_message_get_remote_host", false)
+
 	cret := xServerMessageGetRemoteHost(x.GoPointer())
 	return cret
 }
@@ -132,6 +142,8 @@ var xServerMessageGetRequestBody func(uintptr) uintptr
 
 // Get the request body of @msg.
 func (x *ServerMessage) GetRequestBody() *MessageBody {
+	core.LazyRegister(&xServerMessageGetRequestBody, "SOUP", "soup_server_message_get_request_body", false)
+
 	cret := xServerMessageGetRequestBody(x.GoPointer())
 	if cret == 0 {
 		return nil
@@ -143,6 +155,8 @@ var xServerMessageGetRequestHeaders func(uintptr) uintptr
 
 // Get the request headers of @msg.
 func (x *ServerMessage) GetRequestHeaders() *MessageHeaders {
+	core.LazyRegister(&xServerMessageGetRequestHeaders, "SOUP", "soup_server_message_get_request_headers", false)
+
 	cret := xServerMessageGetRequestHeaders(x.GoPointer())
 	if cret == 0 {
 		return nil
@@ -154,6 +168,8 @@ var xServerMessageGetResponseBody func(uintptr) uintptr
 
 // Get the response body of @msg.
 func (x *ServerMessage) GetResponseBody() *MessageBody {
+	core.LazyRegister(&xServerMessageGetResponseBody, "SOUP", "soup_server_message_get_response_body", false)
+
 	cret := xServerMessageGetResponseBody(x.GoPointer())
 	if cret == 0 {
 		return nil
@@ -165,6 +181,8 @@ var xServerMessageGetResponseHeaders func(uintptr) uintptr
 
 // Get the response headers of @msg.
 func (x *ServerMessage) GetResponseHeaders() *MessageHeaders {
+	core.LazyRegister(&xServerMessageGetResponseHeaders, "SOUP", "soup_server_message_get_response_headers", false)
+
 	cret := xServerMessageGetResponseHeaders(x.GoPointer())
 	if cret == 0 {
 		return nil
@@ -183,6 +201,7 @@ var xServerMessageGetSocket func(uintptr) uintptr
 // not get fooled when the allocator reuses the memory address of a
 // previously-destroyed socket to represent a new socket.
 func (x *ServerMessage) GetSocket() *gio.Socket {
+	core.LazyRegister(&xServerMessageGetSocket, "SOUP", "soup_server_message_get_socket", false)
 	var cls *gio.Socket
 
 	cret := xServerMessageGetSocket(x.GoPointer())
@@ -200,6 +219,8 @@ var xServerMessageGetStatus func(uintptr) uint
 
 // Get the HTTP status code of @msg.
 func (x *ServerMessage) GetStatus() uint {
+	core.LazyRegister(&xServerMessageGetStatus, "SOUP", "soup_server_message_get_status", false)
+
 	cret := xServerMessageGetStatus(x.GoPointer())
 	return cret
 }
@@ -210,6 +231,7 @@ var xServerMessageGetTlsPeerCertificate func(uintptr) uintptr
 // Note that this is not set yet during the emission of
 // SoupServerMessage::accept-certificate signal.
 func (x *ServerMessage) GetTlsPeerCertificate() *gio.TlsCertificate {
+	core.LazyRegister(&xServerMessageGetTlsPeerCertificate, "SOUP", "soup_server_message_get_tls_peer_certificate", false)
 	var cls *gio.TlsCertificate
 
 	cret := xServerMessageGetTlsPeerCertificate(x.GoPointer())
@@ -229,6 +251,8 @@ var xServerMessageGetTlsPeerCertificateErrors func(uintptr) gio.TlsCertificateFl
 // Note that this is not set yet during the emission of
 // SoupServerMessage::accept-certificate signal.
 func (x *ServerMessage) GetTlsPeerCertificateErrors() gio.TlsCertificateFlags {
+	core.LazyRegister(&xServerMessageGetTlsPeerCertificateErrors, "SOUP", "soup_server_message_get_tls_peer_certificate_errors", false)
+
 	cret := xServerMessageGetTlsPeerCertificateErrors(x.GoPointer())
 	return cret
 }
@@ -237,6 +261,8 @@ var xServerMessageGetUri func(uintptr) uintptr
 
 // Get @msg's URI.
 func (x *ServerMessage) GetUri() *glib.Uri {
+	core.LazyRegister(&xServerMessageGetUri, "SOUP", "soup_server_message_get_uri", false)
+
 	cret := xServerMessageGetUri(x.GoPointer())
 	if cret == 0 {
 		return nil
@@ -248,6 +274,8 @@ var xServerMessageIsOptionsPing func(uintptr) bool
 
 // Gets if @msg represents an OPTIONS message with the path `*`.
 func (x *ServerMessage) IsOptionsPing() bool {
+	core.LazyRegister(&xServerMessageIsOptionsPing, "SOUP", "soup_server_message_is_options_ping", false)
+
 	cret := xServerMessageIsOptionsPing(x.GoPointer())
 	return cret
 }
@@ -260,6 +288,8 @@ var xServerMessagePause func(uintptr)
 // having the full response ready yet. Use [method@ServerMessage.unpause] to
 // resume I/O.
 func (x *ServerMessage) Pause() {
+	core.LazyRegister(&xServerMessagePause, "SOUP", "soup_server_message_pause", false)
+
 	xServerMessagePause(x.GoPointer())
 }
 
@@ -267,6 +297,8 @@ var xServerMessageSetHttpVersion func(uintptr, HTTPVersion)
 
 // Set the HTTP version of @msg.
 func (x *ServerMessage) SetHttpVersion(VersionVar HTTPVersion) {
+	core.LazyRegister(&xServerMessageSetHttpVersion, "SOUP", "soup_server_message_set_http_version", false)
+
 	xServerMessageSetHttpVersion(x.GoPointer(), VersionVar)
 }
 
@@ -281,6 +313,8 @@ var xServerMessageSetRedirect func(uintptr, uint, string)
 // @redirect_uri is just a path, it will replace the path
 // *and query* of @msg's URI.
 func (x *ServerMessage) SetRedirect(StatusCodeVar uint, RedirectUriVar string) {
+	core.LazyRegister(&xServerMessageSetRedirect, "SOUP", "soup_server_message_set_redirect", false)
+
 	xServerMessageSetRedirect(x.GoPointer(), StatusCodeVar, RedirectUriVar)
 }
 
@@ -289,6 +323,8 @@ var xServerMessageSetResponse func(uintptr, uintptr, MemoryUse, uintptr, uint)
 // Convenience function to set the response body of a [class@ServerMessage]. If
 // @content_type is %NULL, the response body must be empty as well.
 func (x *ServerMessage) SetResponse(ContentTypeVar *string, RespUseVar MemoryUse, RespBodyVar *string, RespLengthVar uint) {
+	core.LazyRegister(&xServerMessageSetResponse, "SOUP", "soup_server_message_set_response", false)
+
 	ContentTypeVarPtr := core.GStrdupNullable(ContentTypeVar)
 	defer core.GFreeNullable(ContentTypeVarPtr)
 
@@ -305,6 +341,8 @@ var xServerMessageSetStatus func(uintptr, uint, uintptr)
 // If @status_code is a known value and @reason_phrase is %NULL, the
 // reason_phrase will be set automatically.
 func (x *ServerMessage) SetStatus(StatusCodeVar uint, ReasonPhraseVar *string) {
+	core.LazyRegister(&xServerMessageSetStatus, "SOUP", "soup_server_message_set_status", false)
+
 	ReasonPhraseVarPtr := core.GStrdupNullable(ReasonPhraseVar)
 	defer core.GFreeNullable(ReasonPhraseVarPtr)
 
@@ -324,6 +362,7 @@ var xServerMessageStealConnection func(uintptr) uintptr
 // Note that when calling this function from C, @msg will most
 // likely be freed as a side effect.
 func (x *ServerMessage) StealConnection() *gio.IOStream {
+	core.LazyRegister(&xServerMessageStealConnection, "SOUP", "soup_server_message_steal_connection", false)
 	var cls *gio.IOStream
 
 	cret := xServerMessageStealConnection(x.GoPointer())
@@ -344,6 +383,8 @@ var xServerMessageUnpause func(uintptr)
 // adding a new chunk to a chunked response. I/O won't actually resume until you
 // return to the main loop.
 func (x *ServerMessage) Unpause() {
+	core.LazyRegister(&xServerMessageUnpause, "SOUP", "soup_server_message_unpause", false)
+
 	xServerMessageUnpause(x.GoPointer())
 }
 
@@ -656,38 +697,4 @@ func (x *ServerMessage) ConnectWroteInformational(cb *func(ServerMessage)) uint 
 func init() {
 	core.SetPackageName("SOUP", "libsoup-3.0")
 	core.SetSharedLibraries("SOUP", []string{"libsoup-3.0.so.0", "libsoup-3.0.0.dylib"})
-	var libs []uintptr
-	for _, libPath := range core.GetPaths("SOUP") {
-		lib, err := purego.Dlopen(libPath, purego.RTLD_NOW|purego.RTLD_GLOBAL)
-		if err != nil {
-			panic(err)
-		}
-		libs = append(libs, lib)
-	}
-
-	core.PuregoSafeRegister(&xServerMessageGLibType, libs, "soup_server_message_get_type")
-
-	core.PuregoSafeRegister(&xServerMessageGetHttpVersion, libs, "soup_server_message_get_http_version")
-	core.PuregoSafeRegister(&xServerMessageGetLocalAddress, libs, "soup_server_message_get_local_address")
-	core.PuregoSafeRegister(&xServerMessageGetMethod, libs, "soup_server_message_get_method")
-	core.PuregoSafeRegister(&xServerMessageGetReasonPhrase, libs, "soup_server_message_get_reason_phrase")
-	core.PuregoSafeRegister(&xServerMessageGetRemoteAddress, libs, "soup_server_message_get_remote_address")
-	core.PuregoSafeRegister(&xServerMessageGetRemoteHost, libs, "soup_server_message_get_remote_host")
-	core.PuregoSafeRegister(&xServerMessageGetRequestBody, libs, "soup_server_message_get_request_body")
-	core.PuregoSafeRegister(&xServerMessageGetRequestHeaders, libs, "soup_server_message_get_request_headers")
-	core.PuregoSafeRegister(&xServerMessageGetResponseBody, libs, "soup_server_message_get_response_body")
-	core.PuregoSafeRegister(&xServerMessageGetResponseHeaders, libs, "soup_server_message_get_response_headers")
-	core.PuregoSafeRegister(&xServerMessageGetSocket, libs, "soup_server_message_get_socket")
-	core.PuregoSafeRegister(&xServerMessageGetStatus, libs, "soup_server_message_get_status")
-	core.PuregoSafeRegister(&xServerMessageGetTlsPeerCertificate, libs, "soup_server_message_get_tls_peer_certificate")
-	core.PuregoSafeRegister(&xServerMessageGetTlsPeerCertificateErrors, libs, "soup_server_message_get_tls_peer_certificate_errors")
-	core.PuregoSafeRegister(&xServerMessageGetUri, libs, "soup_server_message_get_uri")
-	core.PuregoSafeRegister(&xServerMessageIsOptionsPing, libs, "soup_server_message_is_options_ping")
-	core.PuregoSafeRegister(&xServerMessagePause, libs, "soup_server_message_pause")
-	core.PuregoSafeRegister(&xServerMessageSetHttpVersion, libs, "soup_server_message_set_http_version")
-	core.PuregoSafeRegister(&xServerMessageSetRedirect, libs, "soup_server_message_set_redirect")
-	core.PuregoSafeRegister(&xServerMessageSetResponse, libs, "soup_server_message_set_response")
-	core.PuregoSafeRegister(&xServerMessageSetStatus, libs, "soup_server_message_set_status")
-	core.PuregoSafeRegister(&xServerMessageStealConnection, libs, "soup_server_message_steal_connection")
-	core.PuregoSafeRegister(&xServerMessageUnpause, libs, "soup_server_message_unpause")
 }

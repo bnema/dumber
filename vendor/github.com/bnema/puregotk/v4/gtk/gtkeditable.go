@@ -438,6 +438,7 @@ type Editable interface {
 var xEditableGLibType func() types.GType
 
 func EditableGLibType() types.GType {
+	core.LazyRegister(&xEditableGLibType, "GTK", "gtk_editable_get_type", false)
 	return xEditableGLibType()
 }
 
@@ -854,32 +855,173 @@ func (x *EditableBase) GetPropertyXalign() float32 {
 	return v.GetFloat()
 }
 
+var XGtkEditableDelegateGetAccessiblePlatformState func(uintptr, AccessiblePlatformState) bool = func(instance uintptr, StateVarp AccessiblePlatformState) bool {
+	core.LazyRegister(&xXGtkEditableDelegateGetAccessiblePlatformState, "GTK", "gtk_editable_delegate_get_accessible_platform_state", false)
+	return xXGtkEditableDelegateGetAccessiblePlatformState(instance, StateVarp)
+}
+
 var (
-	XGtkEditableDelegateGetAccessiblePlatformState func(uintptr, AccessiblePlatformState) bool
-	XGtkEditableDeleteSelection                    func(uintptr)
-	XGtkEditableDeleteText                         func(uintptr, int, int)
-	XGtkEditableFinishDelegate                     func(uintptr)
-	XGtkEditableGetAlignment                       func(uintptr) float32
-	XGtkEditableGetChars                           func(uintptr, int, int) string
-	XGtkEditableGetDelegate                        func(uintptr) uintptr
-	XGtkEditableGetEditable                        func(uintptr) bool
-	XGtkEditableGetEnableUndo                      func(uintptr) bool
-	XGtkEditableGetMaxWidthChars                   func(uintptr) int
-	XGtkEditableGetPosition                        func(uintptr) int
-	XGtkEditableGetSelectionBounds                 func(uintptr, *int, *int) bool
-	XGtkEditableGetText                            func(uintptr) string
-	XGtkEditableGetWidthChars                      func(uintptr) int
-	XGtkEditableInitDelegate                       func(uintptr)
-	XGtkEditableInsertText                         func(uintptr, string, int, *int)
-	XGtkEditableSelectRegion                       func(uintptr, int, int)
-	XGtkEditableSetAlignment                       func(uintptr, float32)
-	XGtkEditableSetEditable                        func(uintptr, bool)
-	XGtkEditableSetEnableUndo                      func(uintptr, bool)
-	XGtkEditableSetMaxWidthChars                   func(uintptr, int)
-	XGtkEditableSetPosition                        func(uintptr, int)
-	XGtkEditableSetText                            func(uintptr, string)
-	XGtkEditableSetWidthChars                      func(uintptr, int)
+	xXGtkEditableDelegateGetAccessiblePlatformState func(uintptr, AccessiblePlatformState) bool
+	XGtkEditableDeleteSelection                     func(uintptr) = func(instance uintptr) {
+		core.LazyRegister(&xXGtkEditableDeleteSelection, "GTK", "gtk_editable_delete_selection", false)
+		xXGtkEditableDeleteSelection(instance)
+	}
 )
+var (
+	xXGtkEditableDeleteSelection func(uintptr)
+	XGtkEditableDeleteText       func(uintptr, int, int) = func(instance uintptr, StartPosVarp int, EndPosVarp int) {
+		core.LazyRegister(&xXGtkEditableDeleteText, "GTK", "gtk_editable_delete_text", false)
+		xXGtkEditableDeleteText(instance, StartPosVarp, EndPosVarp)
+	}
+)
+var (
+	xXGtkEditableDeleteText    func(uintptr, int, int)
+	XGtkEditableFinishDelegate func(uintptr) = func(instance uintptr) {
+		core.LazyRegister(&xXGtkEditableFinishDelegate, "GTK", "gtk_editable_finish_delegate", false)
+		xXGtkEditableFinishDelegate(instance)
+	}
+)
+var (
+	xXGtkEditableFinishDelegate func(uintptr)
+	XGtkEditableGetAlignment    func(uintptr) float32 = func(instance uintptr) float32 {
+		core.LazyRegister(&xXGtkEditableGetAlignment, "GTK", "gtk_editable_get_alignment", false)
+		return xXGtkEditableGetAlignment(instance)
+	}
+)
+var (
+	xXGtkEditableGetAlignment func(uintptr) float32
+	XGtkEditableGetChars      func(uintptr, int, int) string = func(instance uintptr, StartPosVarp int, EndPosVarp int) string {
+		core.LazyRegister(&xXGtkEditableGetChars, "GTK", "gtk_editable_get_chars", false)
+		return xXGtkEditableGetChars(instance, StartPosVarp, EndPosVarp)
+	}
+)
+var (
+	xXGtkEditableGetChars   func(uintptr, int, int) string
+	XGtkEditableGetDelegate func(uintptr) uintptr = func(instance uintptr) uintptr {
+		core.LazyRegister(&xXGtkEditableGetDelegate, "GTK", "gtk_editable_get_delegate", false)
+		return xXGtkEditableGetDelegate(instance)
+	}
+)
+var (
+	xXGtkEditableGetDelegate func(uintptr) uintptr
+	XGtkEditableGetEditable  func(uintptr) bool = func(instance uintptr) bool {
+		core.LazyRegister(&xXGtkEditableGetEditable, "GTK", "gtk_editable_get_editable", false)
+		return xXGtkEditableGetEditable(instance)
+	}
+)
+var (
+	xXGtkEditableGetEditable  func(uintptr) bool
+	XGtkEditableGetEnableUndo func(uintptr) bool = func(instance uintptr) bool {
+		core.LazyRegister(&xXGtkEditableGetEnableUndo, "GTK", "gtk_editable_get_enable_undo", false)
+		return xXGtkEditableGetEnableUndo(instance)
+	}
+)
+var (
+	xXGtkEditableGetEnableUndo   func(uintptr) bool
+	XGtkEditableGetMaxWidthChars func(uintptr) int = func(instance uintptr) int {
+		core.LazyRegister(&xXGtkEditableGetMaxWidthChars, "GTK", "gtk_editable_get_max_width_chars", false)
+		return xXGtkEditableGetMaxWidthChars(instance)
+	}
+)
+var (
+	xXGtkEditableGetMaxWidthChars func(uintptr) int
+	XGtkEditableGetPosition       func(uintptr) int = func(instance uintptr) int {
+		core.LazyRegister(&xXGtkEditableGetPosition, "GTK", "gtk_editable_get_position", false)
+		return xXGtkEditableGetPosition(instance)
+	}
+)
+var (
+	xXGtkEditableGetPosition       func(uintptr) int
+	XGtkEditableGetSelectionBounds func(uintptr, *int, *int) bool = func(instance uintptr, StartPosVarp *int, EndPosVarp *int) bool {
+		core.LazyRegister(&xXGtkEditableGetSelectionBounds, "GTK", "gtk_editable_get_selection_bounds", false)
+		return xXGtkEditableGetSelectionBounds(instance, StartPosVarp, EndPosVarp)
+	}
+)
+var (
+	xXGtkEditableGetSelectionBounds func(uintptr, *int, *int) bool
+	XGtkEditableGetText             func(uintptr) string = func(instance uintptr) string {
+		core.LazyRegister(&xXGtkEditableGetText, "GTK", "gtk_editable_get_text", false)
+		return xXGtkEditableGetText(instance)
+	}
+)
+var (
+	xXGtkEditableGetText      func(uintptr) string
+	XGtkEditableGetWidthChars func(uintptr) int = func(instance uintptr) int {
+		core.LazyRegister(&xXGtkEditableGetWidthChars, "GTK", "gtk_editable_get_width_chars", false)
+		return xXGtkEditableGetWidthChars(instance)
+	}
+)
+var (
+	xXGtkEditableGetWidthChars func(uintptr) int
+	XGtkEditableInitDelegate   func(uintptr) = func(instance uintptr) {
+		core.LazyRegister(&xXGtkEditableInitDelegate, "GTK", "gtk_editable_init_delegate", false)
+		xXGtkEditableInitDelegate(instance)
+	}
+)
+var (
+	xXGtkEditableInitDelegate func(uintptr)
+	XGtkEditableInsertText    func(uintptr, string, int, *int) = func(instance uintptr, TextVarp string, LengthVarp int, PositionVarp *int) {
+		core.LazyRegister(&xXGtkEditableInsertText, "GTK", "gtk_editable_insert_text", false)
+		xXGtkEditableInsertText(instance, TextVarp, LengthVarp, PositionVarp)
+	}
+)
+var (
+	xXGtkEditableInsertText  func(uintptr, string, int, *int)
+	XGtkEditableSelectRegion func(uintptr, int, int) = func(instance uintptr, StartPosVarp int, EndPosVarp int) {
+		core.LazyRegister(&xXGtkEditableSelectRegion, "GTK", "gtk_editable_select_region", false)
+		xXGtkEditableSelectRegion(instance, StartPosVarp, EndPosVarp)
+	}
+)
+var (
+	xXGtkEditableSelectRegion func(uintptr, int, int)
+	XGtkEditableSetAlignment  func(uintptr, float32) = func(instance uintptr, XalignVarp float32) {
+		core.LazyRegister(&xXGtkEditableSetAlignment, "GTK", "gtk_editable_set_alignment", false)
+		xXGtkEditableSetAlignment(instance, XalignVarp)
+	}
+)
+var (
+	xXGtkEditableSetAlignment func(uintptr, float32)
+	XGtkEditableSetEditable   func(uintptr, bool) = func(instance uintptr, IsEditableVarp bool) {
+		core.LazyRegister(&xXGtkEditableSetEditable, "GTK", "gtk_editable_set_editable", false)
+		xXGtkEditableSetEditable(instance, IsEditableVarp)
+	}
+)
+var (
+	xXGtkEditableSetEditable  func(uintptr, bool)
+	XGtkEditableSetEnableUndo func(uintptr, bool) = func(instance uintptr, EnableUndoVarp bool) {
+		core.LazyRegister(&xXGtkEditableSetEnableUndo, "GTK", "gtk_editable_set_enable_undo", false)
+		xXGtkEditableSetEnableUndo(instance, EnableUndoVarp)
+	}
+)
+var (
+	xXGtkEditableSetEnableUndo   func(uintptr, bool)
+	XGtkEditableSetMaxWidthChars func(uintptr, int) = func(instance uintptr, NCharsVarp int) {
+		core.LazyRegister(&xXGtkEditableSetMaxWidthChars, "GTK", "gtk_editable_set_max_width_chars", false)
+		xXGtkEditableSetMaxWidthChars(instance, NCharsVarp)
+	}
+)
+var (
+	xXGtkEditableSetMaxWidthChars func(uintptr, int)
+	XGtkEditableSetPosition       func(uintptr, int) = func(instance uintptr, PositionVarp int) {
+		core.LazyRegister(&xXGtkEditableSetPosition, "GTK", "gtk_editable_set_position", false)
+		xXGtkEditableSetPosition(instance, PositionVarp)
+	}
+)
+var (
+	xXGtkEditableSetPosition func(uintptr, int)
+	XGtkEditableSetText      func(uintptr, string) = func(instance uintptr, TextVarp string) {
+		core.LazyRegister(&xXGtkEditableSetText, "GTK", "gtk_editable_set_text", false)
+		xXGtkEditableSetText(instance, TextVarp)
+	}
+)
+var (
+	xXGtkEditableSetText      func(uintptr, string)
+	XGtkEditableSetWidthChars func(uintptr, int) = func(instance uintptr, NCharsVarp int) {
+		core.LazyRegister(&xXGtkEditableSetWidthChars, "GTK", "gtk_editable_set_width_chars", false)
+		xXGtkEditableSetWidthChars(instance, NCharsVarp)
+	}
+)
+var xXGtkEditableSetWidthChars func(uintptr, int)
 
 // The identifiers for [iface@Gtk.Editable] properties.
 //
@@ -890,6 +1032,7 @@ type EditableProperties int
 var xEditablePropertiesGLibType func() types.GType
 
 func EditablePropertiesGLibType() types.GType {
+	core.LazyRegister(&xEditablePropertiesGLibType, "GTK", "gtk_editable_properties_get_type", false)
 	return xEditablePropertiesGLibType()
 }
 
@@ -923,6 +1066,8 @@ var xEditableDelegateGetProperty func(uintptr, uint, *gobject.Value, uintptr) bo
 // function of your `GtkEditable` implementation, before handling your
 // own properties.
 func EditableDelegateGetProperty(ObjectVar *gobject.Object, PropIdVar uint, ValueVar *gobject.Value, PspecVar *gobject.ParamSpec) bool {
+	core.LazyRegister(&xEditableDelegateGetProperty, "GTK", "gtk_editable_delegate_get_property", false)
+
 	cret := xEditableDelegateGetProperty(ObjectVar.GoPointer(), PropIdVar, ValueVar, PspecVar.GoPointer())
 	return cret
 }
@@ -935,6 +1080,8 @@ var xEditableDelegateSetProperty func(uintptr, uint, *gobject.Value, uintptr) bo
 // function of your `GtkEditable` implementation, before handling your
 // own properties.
 func EditableDelegateSetProperty(ObjectVar *gobject.Object, PropIdVar uint, ValueVar *gobject.Value, PspecVar *gobject.ParamSpec) bool {
+	core.LazyRegister(&xEditableDelegateSetProperty, "GTK", "gtk_editable_delegate_set_property", false)
+
 	cret := xEditableDelegateSetProperty(ObjectVar.GoPointer(), PropIdVar, ValueVar, PspecVar.GoPointer())
 	return cret
 }
@@ -957,6 +1104,8 @@ var xEditableInstallProperties func(*gobject.ObjectClass, uint) uint
 // values in the [enum@Gtk.EditableProperties] enumeration to get the
 // property IDs for these properties.
 func EditableInstallProperties(ObjectClassVar *gobject.ObjectClass, FirstPropVar uint) uint {
+	core.LazyRegister(&xEditableInstallProperties, "GTK", "gtk_editable_install_properties", false)
+
 	cret := xEditableInstallProperties(ObjectClassVar, FirstPropVar)
 	return cret
 }
@@ -964,45 +1113,4 @@ func EditableInstallProperties(ObjectClassVar *gobject.ObjectClass, FirstPropVar
 func init() {
 	core.SetPackageName("GTK", "gtk4")
 	core.SetSharedLibraries("GTK", []string{"libgtk-4.so.1", "libgtk-4.1.dylib"})
-	var libs []uintptr
-	for _, libPath := range core.GetPaths("GTK") {
-		lib, err := purego.Dlopen(libPath, purego.RTLD_NOW|purego.RTLD_GLOBAL)
-		if err != nil {
-			panic(err)
-		}
-		libs = append(libs, lib)
-	}
-
-	core.PuregoSafeRegister(&xEditablePropertiesGLibType, libs, "gtk_editable_properties_get_type")
-
-	core.PuregoSafeRegister(&xEditableDelegateGetProperty, libs, "gtk_editable_delegate_get_property")
-	core.PuregoSafeRegister(&xEditableDelegateSetProperty, libs, "gtk_editable_delegate_set_property")
-	core.PuregoSafeRegister(&xEditableInstallProperties, libs, "gtk_editable_install_properties")
-
-	core.PuregoSafeRegister(&xEditableGLibType, libs, "gtk_editable_get_type")
-
-	core.PuregoSafeRegister(&XGtkEditableDelegateGetAccessiblePlatformState, libs, "gtk_editable_delegate_get_accessible_platform_state")
-	core.PuregoSafeRegister(&XGtkEditableDeleteSelection, libs, "gtk_editable_delete_selection")
-	core.PuregoSafeRegister(&XGtkEditableDeleteText, libs, "gtk_editable_delete_text")
-	core.PuregoSafeRegister(&XGtkEditableFinishDelegate, libs, "gtk_editable_finish_delegate")
-	core.PuregoSafeRegister(&XGtkEditableGetAlignment, libs, "gtk_editable_get_alignment")
-	core.PuregoSafeRegister(&XGtkEditableGetChars, libs, "gtk_editable_get_chars")
-	core.PuregoSafeRegister(&XGtkEditableGetDelegate, libs, "gtk_editable_get_delegate")
-	core.PuregoSafeRegister(&XGtkEditableGetEditable, libs, "gtk_editable_get_editable")
-	core.PuregoSafeRegister(&XGtkEditableGetEnableUndo, libs, "gtk_editable_get_enable_undo")
-	core.PuregoSafeRegister(&XGtkEditableGetMaxWidthChars, libs, "gtk_editable_get_max_width_chars")
-	core.PuregoSafeRegister(&XGtkEditableGetPosition, libs, "gtk_editable_get_position")
-	core.PuregoSafeRegister(&XGtkEditableGetSelectionBounds, libs, "gtk_editable_get_selection_bounds")
-	core.PuregoSafeRegister(&XGtkEditableGetText, libs, "gtk_editable_get_text")
-	core.PuregoSafeRegister(&XGtkEditableGetWidthChars, libs, "gtk_editable_get_width_chars")
-	core.PuregoSafeRegister(&XGtkEditableInitDelegate, libs, "gtk_editable_init_delegate")
-	core.PuregoSafeRegister(&XGtkEditableInsertText, libs, "gtk_editable_insert_text")
-	core.PuregoSafeRegister(&XGtkEditableSelectRegion, libs, "gtk_editable_select_region")
-	core.PuregoSafeRegister(&XGtkEditableSetAlignment, libs, "gtk_editable_set_alignment")
-	core.PuregoSafeRegister(&XGtkEditableSetEditable, libs, "gtk_editable_set_editable")
-	core.PuregoSafeRegister(&XGtkEditableSetEnableUndo, libs, "gtk_editable_set_enable_undo")
-	core.PuregoSafeRegister(&XGtkEditableSetMaxWidthChars, libs, "gtk_editable_set_max_width_chars")
-	core.PuregoSafeRegister(&XGtkEditableSetPosition, libs, "gtk_editable_set_position")
-	core.PuregoSafeRegister(&XGtkEditableSetText, libs, "gtk_editable_set_text")
-	core.PuregoSafeRegister(&XGtkEditableSetWidthChars, libs, "gtk_editable_set_width_chars")
 }

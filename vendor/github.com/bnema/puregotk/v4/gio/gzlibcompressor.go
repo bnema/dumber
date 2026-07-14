@@ -5,7 +5,6 @@ import (
 	"structs"
 	"unsafe"
 
-	"github.com/bnema/purego"
 	"github.com/bnema/puregotk/pkg/core"
 	"github.com/bnema/puregotk/v4/glib"
 	"github.com/bnema/puregotk/v4/gobject"
@@ -39,6 +38,7 @@ type ZlibCompressor struct {
 var xZlibCompressorGLibType func() types.GType
 
 func ZlibCompressorGLibType() types.GType {
+	core.LazyRegister(&xZlibCompressorGLibType, "GIO", "g_zlib_compressor_get_type", false)
 	return xZlibCompressorGLibType()
 }
 
@@ -52,6 +52,7 @@ var xNewZlibCompressor func(ZlibCompressorFormat, int) uintptr
 
 // Creates a compressor.
 func NewZlibCompressor(FormatVar ZlibCompressorFormat, LevelVar int) *ZlibCompressor {
+	core.LazyRegister(&xNewZlibCompressor, "GIO", "g_zlib_compressor_new", false)
 	var cls *ZlibCompressor
 
 	cret := xNewZlibCompressor(FormatVar, LevelVar)
@@ -68,6 +69,7 @@ var xZlibCompressorGetFileInfo func(uintptr) uintptr
 
 // Gets the [property@Gio.ZlibCompressor:file-info] property.
 func (x *ZlibCompressor) GetFileInfo() *FileInfo {
+	core.LazyRegister(&xZlibCompressorGetFileInfo, "GIO", "g_zlib_compressor_get_file_info", false)
 	var cls *FileInfo
 
 	cret := xZlibCompressorGetFileInfo(x.GoPointer())
@@ -85,6 +87,8 @@ var xZlibCompressorGetOs func(uintptr) int
 
 // Gets the [property@Gio.ZlibCompressor:os] property.
 func (x *ZlibCompressor) GetOs() int {
+	core.LazyRegister(&xZlibCompressorGetOs, "GIO", "g_zlib_compressor_get_os", false)
+
 	cret := xZlibCompressorGetOs(x.GoPointer())
 	return cret
 }
@@ -97,6 +101,8 @@ var xZlibCompressorSetFileInfo func(uintptr, uintptr)
 // progress; it may only be called immediately after creation of @compressor,
 // or after resetting it with [method@Gio.Converter.reset].
 func (x *ZlibCompressor) SetFileInfo(FileInfoVar *FileInfo) {
+	core.LazyRegister(&xZlibCompressorSetFileInfo, "GIO", "g_zlib_compressor_set_file_info", false)
+
 	xZlibCompressorSetFileInfo(x.GoPointer(), FileInfoVar.GoPointer())
 }
 
@@ -108,6 +114,8 @@ var xZlibCompressorSetOs func(uintptr, int)
 // progress; it may only be called immediately after creation of @compressor,
 // or after resetting it with [method@Gio.Converter.reset].
 func (x *ZlibCompressor) SetOs(OsVar int) {
+	core.LazyRegister(&xZlibCompressorSetOs, "GIO", "g_zlib_compressor_set_os", false)
+
 	xZlibCompressorSetOs(x.GoPointer(), OsVar)
 }
 
@@ -296,21 +304,4 @@ func (x *ZlibCompressor) Reset() {
 func init() {
 	core.SetPackageName("GIO", "gio-2.0")
 	core.SetSharedLibraries("GIO", []string{"libgio-2.0.so.0", "libgio-2.0.0.dylib"})
-	var libs []uintptr
-	for _, libPath := range core.GetPaths("GIO") {
-		lib, err := purego.Dlopen(libPath, purego.RTLD_NOW|purego.RTLD_GLOBAL)
-		if err != nil {
-			panic(err)
-		}
-		libs = append(libs, lib)
-	}
-
-	core.PuregoSafeRegister(&xZlibCompressorGLibType, libs, "g_zlib_compressor_get_type")
-
-	core.PuregoSafeRegister(&xNewZlibCompressor, libs, "g_zlib_compressor_new")
-
-	core.PuregoSafeRegister(&xZlibCompressorGetFileInfo, libs, "g_zlib_compressor_get_file_info")
-	core.PuregoSafeRegister(&xZlibCompressorGetOs, libs, "g_zlib_compressor_get_os")
-	core.PuregoSafeRegister(&xZlibCompressorSetFileInfo, libs, "g_zlib_compressor_set_file_info")
-	core.PuregoSafeRegister(&xZlibCompressorSetOs, libs, "g_zlib_compressor_set_os")
 }

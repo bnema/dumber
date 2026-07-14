@@ -5,7 +5,6 @@ import (
 	"structs"
 	"unsafe"
 
-	"github.com/bnema/purego"
 	"github.com/bnema/puregotk/pkg/core"
 	"github.com/bnema/puregotk/v4/gio"
 	"github.com/bnema/puregotk/v4/gobject"
@@ -45,6 +44,7 @@ type BookmarkList struct {
 var xBookmarkListGLibType func() types.GType
 
 func BookmarkListGLibType() types.GType {
+	core.LazyRegister(&xBookmarkListGLibType, "GTK", "gtk_bookmark_list_get_type", false)
 	return xBookmarkListGLibType()
 }
 
@@ -58,6 +58,7 @@ var xNewBookmarkList func(uintptr, uintptr) uintptr
 
 // Creates a new `GtkBookmarkList` with the given @attributes.
 func NewBookmarkList(FilenameVar *string, AttributesVar *string) *BookmarkList {
+	core.LazyRegister(&xNewBookmarkList, "GTK", "gtk_bookmark_list_new", false)
 	var cls *BookmarkList
 
 	FilenameVarPtr := core.GStrdupNullable(FilenameVar)
@@ -80,6 +81,8 @@ var xBookmarkListGetAttributes func(uintptr) string
 
 // Gets the attributes queried on the children.
 func (x *BookmarkList) GetAttributes() string {
+	core.LazyRegister(&xBookmarkListGetAttributes, "GTK", "gtk_bookmark_list_get_attributes", false)
+
 	cret := xBookmarkListGetAttributes(x.GoPointer())
 	return cret
 }
@@ -89,6 +92,8 @@ var xBookmarkListGetFilename func(uintptr) string
 // Returns the filename of the bookmark file that
 // this list is loading.
 func (x *BookmarkList) GetFilename() string {
+	core.LazyRegister(&xBookmarkListGetFilename, "GTK", "gtk_bookmark_list_get_filename", false)
+
 	cret := xBookmarkListGetFilename(x.GoPointer())
 	return cret
 }
@@ -97,6 +102,8 @@ var xBookmarkListGetIoPriority func(uintptr) int
 
 // Gets the IO priority to use while loading file.
 func (x *BookmarkList) GetIoPriority() int {
+	core.LazyRegister(&xBookmarkListGetIoPriority, "GTK", "gtk_bookmark_list_get_io_priority", false)
+
 	cret := xBookmarkListGetIoPriority(x.GoPointer())
 	return cret
 }
@@ -109,6 +116,8 @@ var xBookmarkListIsLoading func(uintptr) bool
 // going on. The order in which are added is undefined and may change
 // in between runs.
 func (x *BookmarkList) IsLoading() bool {
+	core.LazyRegister(&xBookmarkListIsLoading, "GTK", "gtk_bookmark_list_is_loading", false)
+
 	cret := xBookmarkListIsLoading(x.GoPointer())
 	return cret
 }
@@ -120,6 +129,8 @@ var xBookmarkListSetAttributes func(uintptr, uintptr)
 // If @attributes is %NULL, no attributes will be queried, but a list
 // of `GFileInfo`s will still be created.
 func (x *BookmarkList) SetAttributes(AttributesVar *string) {
+	core.LazyRegister(&xBookmarkListSetAttributes, "GTK", "gtk_bookmark_list_set_attributes", false)
+
 	AttributesVarPtr := core.GStrdupNullable(AttributesVar)
 	defer core.GFreeNullable(AttributesVarPtr)
 
@@ -132,6 +143,8 @@ var xBookmarkListSetIoPriority func(uintptr, int)
 //
 // The default IO priority is %G_PRIORITY_DEFAULT.
 func (x *BookmarkList) SetIoPriority(IoPriorityVar int) {
+	core.LazyRegister(&xBookmarkListSetIoPriority, "GTK", "gtk_bookmark_list_set_io_priority", false)
+
 	xBookmarkListSetIoPriority(x.GoPointer(), IoPriorityVar)
 }
 
@@ -302,23 +315,4 @@ func (x *BookmarkList) ItemsChanged(PositionVar uint, RemovedVar uint, AddedVar 
 func init() {
 	core.SetPackageName("GTK", "gtk4")
 	core.SetSharedLibraries("GTK", []string{"libgtk-4.so.1", "libgtk-4.1.dylib"})
-	var libs []uintptr
-	for _, libPath := range core.GetPaths("GTK") {
-		lib, err := purego.Dlopen(libPath, purego.RTLD_NOW|purego.RTLD_GLOBAL)
-		if err != nil {
-			panic(err)
-		}
-		libs = append(libs, lib)
-	}
-
-	core.PuregoSafeRegister(&xBookmarkListGLibType, libs, "gtk_bookmark_list_get_type")
-
-	core.PuregoSafeRegister(&xNewBookmarkList, libs, "gtk_bookmark_list_new")
-
-	core.PuregoSafeRegister(&xBookmarkListGetAttributes, libs, "gtk_bookmark_list_get_attributes")
-	core.PuregoSafeRegister(&xBookmarkListGetFilename, libs, "gtk_bookmark_list_get_filename")
-	core.PuregoSafeRegister(&xBookmarkListGetIoPriority, libs, "gtk_bookmark_list_get_io_priority")
-	core.PuregoSafeRegister(&xBookmarkListIsLoading, libs, "gtk_bookmark_list_is_loading")
-	core.PuregoSafeRegister(&xBookmarkListSetAttributes, libs, "gtk_bookmark_list_set_attributes")
-	core.PuregoSafeRegister(&xBookmarkListSetIoPriority, libs, "gtk_bookmark_list_set_io_priority")
 }

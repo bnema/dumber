@@ -5,7 +5,6 @@ import (
 	"structs"
 	"unsafe"
 
-	"github.com/bnema/purego"
 	"github.com/bnema/puregotk/pkg/core"
 	"github.com/bnema/puregotk/v4/glib"
 	"github.com/bnema/puregotk/v4/gobject"
@@ -38,6 +37,7 @@ type Notification struct {
 var xNotificationGLibType func() types.GType
 
 func NotificationGLibType() types.GType {
+	core.LazyRegister(&xNotificationGLibType, "WEBKIT", "webkit_notification_get_type", false)
 	return xNotificationGLibType()
 }
 
@@ -54,6 +54,8 @@ var xNotificationClicked func(uintptr)
 // This will emit the
 // #WebKitNotification::clicked signal.
 func (x *Notification) Clicked() {
+	core.LazyRegister(&xNotificationClicked, "WEBKIT", "webkit_notification_clicked", false)
+
 	xNotificationClicked(x.GoPointer())
 }
 
@@ -61,6 +63,8 @@ var xNotificationClose func(uintptr)
 
 // Closes the notification.
 func (x *Notification) Close() {
+	core.LazyRegister(&xNotificationClose, "WEBKIT", "webkit_notification_close", false)
+
 	xNotificationClose(x.GoPointer())
 }
 
@@ -68,6 +72,8 @@ var xNotificationGetBody func(uintptr) string
 
 // Obtains the body for the notification.
 func (x *Notification) GetBody() string {
+	core.LazyRegister(&xNotificationGetBody, "WEBKIT", "webkit_notification_get_body", false)
+
 	cret := xNotificationGetBody(x.GoPointer())
 	return cret
 }
@@ -76,6 +82,8 @@ var xNotificationGetId func(uintptr) uint64
 
 // Obtains the unique id for the notification.
 func (x *Notification) GetId() uint64 {
+	core.LazyRegister(&xNotificationGetId, "WEBKIT", "webkit_notification_get_id", false)
+
 	cret := xNotificationGetId(x.GoPointer())
 	return cret
 }
@@ -84,6 +92,8 @@ var xNotificationGetTag func(uintptr) string
 
 // Obtains the tag identifier for the notification.
 func (x *Notification) GetTag() string {
+	core.LazyRegister(&xNotificationGetTag, "WEBKIT", "webkit_notification_get_tag", false)
+
 	cret := xNotificationGetTag(x.GoPointer())
 	return cret
 }
@@ -92,6 +102,8 @@ var xNotificationGetTitle func(uintptr) string
 
 // Obtains the title for the notification.
 func (x *Notification) GetTitle() string {
+	core.LazyRegister(&xNotificationGetTitle, "WEBKIT", "webkit_notification_get_title", false)
+
 	cret := xNotificationGetTitle(x.GoPointer())
 	return cret
 }
@@ -191,26 +203,8 @@ func (x *Notification) ConnectClosed(cb *func(Notification)) uint {
 func init() {
 	core.SetPackageName("WEBKIT", "webkitgtk-6.0")
 	core.SetSharedLibraries("WEBKIT", []string{"libwebkitgtk-6.0.so.4", "libjavascriptcoregtk-6.0.so.1", "libwebkitgtk-6.0.4.dylib", "libjavascriptcoregtk-6.0.1.dylib"})
-	var libs []uintptr
-	for _, libPath := range core.GetPaths("WEBKIT") {
-		lib, err := purego.Dlopen(libPath, purego.RTLD_NOW|purego.RTLD_GLOBAL)
-		if err != nil {
-			panic(err)
-		}
-		libs = append(libs, lib)
-	}
 
-	core.PuregoSafeRegister(&xNotificationGLibType, libs, "webkit_notification_get_type")
-
-	core.PuregoSafeRegister(&xNotificationClicked, libs, "webkit_notification_clicked")
-	core.PuregoSafeRegister(&xNotificationClose, libs, "webkit_notification_close")
-	core.PuregoSafeRegister(&xNotificationGetBody, libs, "webkit_notification_get_body")
-	core.PuregoSafeRegister(&xNotificationGetId, libs, "webkit_notification_get_id")
-	core.PuregoSafeRegister(&xNotificationGetTag, libs, "webkit_notification_get_tag")
-	core.PuregoSafeRegister(&xNotificationGetTitle, libs, "webkit_notification_get_title")
-
-	// Manually register types since they aren't being automatically registered when
-	// the library is loaded
-	// See https://bugs.webkit.org/show_bug.cgi?id=175937
+	// Manually register types since they aren't automatically registered when
+	// WebKit is loaded. See https://bugs.webkit.org/show_bug.cgi?id=175937.
 	NotificationGLibType()
 }

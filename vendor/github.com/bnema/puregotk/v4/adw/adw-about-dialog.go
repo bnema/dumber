@@ -5,7 +5,6 @@ import (
 	"structs"
 	"unsafe"
 
-	"github.com/bnema/purego"
 	"github.com/bnema/puregotk/pkg/core"
 	"github.com/bnema/puregotk/v4/glib"
 	"github.com/bnema/puregotk/v4/gobject"
@@ -35,6 +34,8 @@ var xShowAboutDialog func(uintptr, string, ...interface{})
 
 // A convenience function for showing an application’s about dialog.
 func ShowAboutDialog(ParentVar *gtk.Widget, FirstPropertyNameVar string, varArgs ...interface{}) {
+	core.LazyRegister(&xShowAboutDialog, "ADW", "adw_show_about_dialog", false)
+
 	xShowAboutDialog(ParentVar.GoPointer(), FirstPropertyNameVar, varArgs...)
 }
 
@@ -45,6 +46,8 @@ var xShowAboutDialogFromAppdata func(uintptr, string, uintptr, string, ...interf
 //
 // See [ctor@AboutDialog.new_from_appdata] for details.
 func ShowAboutDialogFromAppdata(ParentVar *gtk.Widget, ResourcePathVar string, ReleaseNotesVersionVar *string, FirstPropertyNameVar string, varArgs ...interface{}) {
+	core.LazyRegister(&xShowAboutDialogFromAppdata, "ADW", "adw_show_about_dialog_from_appdata", false)
+
 	ReleaseNotesVersionVarPtr := core.GStrdupNullable(ReleaseNotesVersionVar)
 	defer core.GFreeNullable(ReleaseNotesVersionVarPtr)
 
@@ -234,6 +237,7 @@ type AboutDialog struct {
 var xAboutDialogGLibType func() types.GType
 
 func AboutDialogGLibType() types.GType {
+	core.LazyRegister(&xAboutDialogGLibType, "ADW", "adw_about_dialog_get_type", false)
 	return xAboutDialogGLibType()
 }
 
@@ -247,6 +251,7 @@ var xNewAboutDialog func() uintptr
 
 // Creates a new `AdwAboutDialog`.
 func NewAboutDialog() *AboutDialog {
+	core.LazyRegister(&xNewAboutDialog, "ADW", "adw_about_dialog_new", false)
 	var cls *AboutDialog
 
 	cret := xNewAboutDialog()
@@ -284,6 +289,7 @@ var xNewAboutDialogFromAppdata func(string, uintptr) uintptr
 // [property@AboutDialog:release-notes] is set from the AppStream release
 // description for that version.
 func NewAboutDialogFromAppdata(ResourcePathVar string, ReleaseNotesVersionVar *string) *AboutDialog {
+	core.LazyRegister(&xNewAboutDialogFromAppdata, "ADW", "adw_about_dialog_new_from_appdata", false)
 	var cls *AboutDialog
 
 	ReleaseNotesVersionVarPtr := core.GStrdupNullable(ReleaseNotesVersionVar)
@@ -320,6 +326,8 @@ var xAboutDialogAddAcknowledgementSection func(uintptr, uintptr, []string)
 // * [property@AboutDialog:translator-credits]
 // * [method@AboutDialog.add_credit_section]
 func (x *AboutDialog) AddAcknowledgementSection(NameVar *string, PeopleVar []string) {
+	core.LazyRegister(&xAboutDialogAddAcknowledgementSection, "ADW", "adw_about_dialog_add_acknowledgement_section", false)
+
 	NameVarPtr := core.GStrdupNullable(NameVar)
 	defer core.GFreeNullable(NameVarPtr)
 
@@ -344,6 +352,8 @@ var xAboutDialogAddCreditSection func(uintptr, uintptr, []string)
 // * [property@AboutDialog:translator-credits]
 // * [method@AboutDialog.add_acknowledgement_section]
 func (x *AboutDialog) AddCreditSection(NameVar *string, PeopleVar []string) {
+	core.LazyRegister(&xAboutDialogAddCreditSection, "ADW", "adw_about_dialog_add_credit_section", false)
+
 	NameVarPtr := core.GStrdupNullable(NameVar)
 	defer core.GFreeNullable(NameVarPtr)
 
@@ -398,6 +408,8 @@ var xAboutDialogAddLegalSection func(uintptr, string, uintptr, gtk.License, uint
 //
 // ```
 func (x *AboutDialog) AddLegalSection(TitleVar string, CopyrightVar *string, LicenseTypeVar gtk.License, LicenseVar *string) {
+	core.LazyRegister(&xAboutDialogAddLegalSection, "ADW", "adw_about_dialog_add_legal_section", false)
+
 	CopyrightVarPtr := core.GStrdupNullable(CopyrightVar)
 	defer core.GFreeNullable(CopyrightVarPtr)
 
@@ -417,6 +429,8 @@ var xAboutDialogAddLink func(uintptr, string, string)
 //
 // See [property@AboutDialog:website].
 func (x *AboutDialog) AddLink(TitleVar string, UrlVar string) {
+	core.LazyRegister(&xAboutDialogAddLink, "ADW", "adw_about_dialog_add_link", false)
+
 	xAboutDialogAddLink(x.GoPointer(), TitleVar, UrlVar)
 }
 
@@ -442,6 +456,8 @@ var xAboutDialogAddOtherApp func(uintptr, string, string, string)
 //
 // ```
 func (x *AboutDialog) AddOtherApp(AppidVar string, NameVar string, SummaryVar string) {
+	core.LazyRegister(&xAboutDialogAddOtherApp, "ADW", "adw_about_dialog_add_other_app", false)
+
 	xAboutDialogAddOtherApp(x.GoPointer(), AppidVar, NameVar, SummaryVar)
 }
 
@@ -449,6 +465,8 @@ var xAboutDialogGetAppdataResourcePath func(uintptr) string
 
 // Gets the AppStream metadata resource path for @self.
 func (x *AboutDialog) GetAppdataResourcePath() string {
+	core.LazyRegister(&xAboutDialogGetAppdataResourcePath, "ADW", "adw_about_dialog_get_appdata_resource_path", false)
+
 	cret := xAboutDialogGetAppdataResourcePath(x.GoPointer())
 	return cret
 }
@@ -457,6 +475,8 @@ var xAboutDialogGetApplicationIcon func(uintptr) string
 
 // Gets the name of the application icon for @self.
 func (x *AboutDialog) GetApplicationIcon() string {
+	core.LazyRegister(&xAboutDialogGetApplicationIcon, "ADW", "adw_about_dialog_get_application_icon", false)
+
 	cret := xAboutDialogGetApplicationIcon(x.GoPointer())
 	return cret
 }
@@ -465,6 +485,8 @@ var xAboutDialogGetApplicationName func(uintptr) string
 
 // Gets the application name for @self.
 func (x *AboutDialog) GetApplicationName() string {
+	core.LazyRegister(&xAboutDialogGetApplicationName, "ADW", "adw_about_dialog_get_application_name", false)
+
 	cret := xAboutDialogGetApplicationName(x.GoPointer())
 	return cret
 }
@@ -473,6 +495,8 @@ var xAboutDialogGetArtists func(uintptr) []string
 
 // Gets the list of artists of the application.
 func (x *AboutDialog) GetArtists() []string {
+	core.LazyRegister(&xAboutDialogGetArtists, "ADW", "adw_about_dialog_get_artists", false)
+
 	cret := xAboutDialogGetArtists(x.GoPointer())
 	return cret
 }
@@ -481,6 +505,8 @@ var xAboutDialogGetComments func(uintptr) string
 
 // Gets the comments about the application.
 func (x *AboutDialog) GetComments() string {
+	core.LazyRegister(&xAboutDialogGetComments, "ADW", "adw_about_dialog_get_comments", false)
+
 	cret := xAboutDialogGetComments(x.GoPointer())
 	return cret
 }
@@ -489,6 +515,8 @@ var xAboutDialogGetCopyright func(uintptr) string
 
 // Gets the copyright information for @self.
 func (x *AboutDialog) GetCopyright() string {
+	core.LazyRegister(&xAboutDialogGetCopyright, "ADW", "adw_about_dialog_get_copyright", false)
+
 	cret := xAboutDialogGetCopyright(x.GoPointer())
 	return cret
 }
@@ -497,6 +525,8 @@ var xAboutDialogGetDebugInfo func(uintptr) string
 
 // Gets the debug information for @self.
 func (x *AboutDialog) GetDebugInfo() string {
+	core.LazyRegister(&xAboutDialogGetDebugInfo, "ADW", "adw_about_dialog_get_debug_info", false)
+
 	cret := xAboutDialogGetDebugInfo(x.GoPointer())
 	return cret
 }
@@ -505,6 +535,8 @@ var xAboutDialogGetDebugInfoFilename func(uintptr) string
 
 // Gets the debug information filename for @self.
 func (x *AboutDialog) GetDebugInfoFilename() string {
+	core.LazyRegister(&xAboutDialogGetDebugInfoFilename, "ADW", "adw_about_dialog_get_debug_info_filename", false)
+
 	cret := xAboutDialogGetDebugInfoFilename(x.GoPointer())
 	return cret
 }
@@ -513,6 +545,8 @@ var xAboutDialogGetDesigners func(uintptr) []string
 
 // Gets the list of designers of the application.
 func (x *AboutDialog) GetDesigners() []string {
+	core.LazyRegister(&xAboutDialogGetDesigners, "ADW", "adw_about_dialog_get_designers", false)
+
 	cret := xAboutDialogGetDesigners(x.GoPointer())
 	return cret
 }
@@ -521,6 +555,8 @@ var xAboutDialogGetDeveloperName func(uintptr) string
 
 // Gets the developer name for @self.
 func (x *AboutDialog) GetDeveloperName() string {
+	core.LazyRegister(&xAboutDialogGetDeveloperName, "ADW", "adw_about_dialog_get_developer_name", false)
+
 	cret := xAboutDialogGetDeveloperName(x.GoPointer())
 	return cret
 }
@@ -529,6 +565,8 @@ var xAboutDialogGetDevelopers func(uintptr) []string
 
 // Gets the list of developers of the application.
 func (x *AboutDialog) GetDevelopers() []string {
+	core.LazyRegister(&xAboutDialogGetDevelopers, "ADW", "adw_about_dialog_get_developers", false)
+
 	cret := xAboutDialogGetDevelopers(x.GoPointer())
 	return cret
 }
@@ -537,6 +575,8 @@ var xAboutDialogGetDocumenters func(uintptr) []string
 
 // Gets the list of documenters of the application.
 func (x *AboutDialog) GetDocumenters() []string {
+	core.LazyRegister(&xAboutDialogGetDocumenters, "ADW", "adw_about_dialog_get_documenters", false)
+
 	cret := xAboutDialogGetDocumenters(x.GoPointer())
 	return cret
 }
@@ -545,6 +585,8 @@ var xAboutDialogGetIssueUrl func(uintptr) string
 
 // Gets the issue tracker URL for @self.
 func (x *AboutDialog) GetIssueUrl() string {
+	core.LazyRegister(&xAboutDialogGetIssueUrl, "ADW", "adw_about_dialog_get_issue_url", false)
+
 	cret := xAboutDialogGetIssueUrl(x.GoPointer())
 	return cret
 }
@@ -553,6 +595,8 @@ var xAboutDialogGetLicense func(uintptr) string
 
 // Gets the license for @self.
 func (x *AboutDialog) GetLicense() string {
+	core.LazyRegister(&xAboutDialogGetLicense, "ADW", "adw_about_dialog_get_license", false)
+
 	cret := xAboutDialogGetLicense(x.GoPointer())
 	return cret
 }
@@ -561,6 +605,8 @@ var xAboutDialogGetLicenseType func(uintptr) gtk.License
 
 // Gets the license type for @self.
 func (x *AboutDialog) GetLicenseType() gtk.License {
+	core.LazyRegister(&xAboutDialogGetLicenseType, "ADW", "adw_about_dialog_get_license_type", false)
+
 	cret := xAboutDialogGetLicenseType(x.GoPointer())
 	return cret
 }
@@ -569,6 +615,8 @@ var xAboutDialogGetReleaseNotes func(uintptr) string
 
 // Gets the release notes for @self.
 func (x *AboutDialog) GetReleaseNotes() string {
+	core.LazyRegister(&xAboutDialogGetReleaseNotes, "ADW", "adw_about_dialog_get_release_notes", false)
+
 	cret := xAboutDialogGetReleaseNotes(x.GoPointer())
 	return cret
 }
@@ -577,6 +625,8 @@ var xAboutDialogGetReleaseNotesVersion func(uintptr) string
 
 // Gets the version described by the application's release notes.
 func (x *AboutDialog) GetReleaseNotesVersion() string {
+	core.LazyRegister(&xAboutDialogGetReleaseNotesVersion, "ADW", "adw_about_dialog_get_release_notes_version", false)
+
 	cret := xAboutDialogGetReleaseNotesVersion(x.GoPointer())
 	return cret
 }
@@ -585,6 +635,8 @@ var xAboutDialogGetSupportUrl func(uintptr) string
 
 // Gets the URL of the support page for @self.
 func (x *AboutDialog) GetSupportUrl() string {
+	core.LazyRegister(&xAboutDialogGetSupportUrl, "ADW", "adw_about_dialog_get_support_url", false)
+
 	cret := xAboutDialogGetSupportUrl(x.GoPointer())
 	return cret
 }
@@ -593,6 +645,8 @@ var xAboutDialogGetTranslatorCredits func(uintptr) string
 
 // Gets the translator credits string.
 func (x *AboutDialog) GetTranslatorCredits() string {
+	core.LazyRegister(&xAboutDialogGetTranslatorCredits, "ADW", "adw_about_dialog_get_translator_credits", false)
+
 	cret := xAboutDialogGetTranslatorCredits(x.GoPointer())
 	return cret
 }
@@ -601,6 +655,8 @@ var xAboutDialogGetVersion func(uintptr) string
 
 // Gets the version for @self.
 func (x *AboutDialog) GetVersion() string {
+	core.LazyRegister(&xAboutDialogGetVersion, "ADW", "adw_about_dialog_get_version", false)
+
 	cret := xAboutDialogGetVersion(x.GoPointer())
 	return cret
 }
@@ -609,6 +665,8 @@ var xAboutDialogGetWebsite func(uintptr) string
 
 // Gets the application website URL for @self.
 func (x *AboutDialog) GetWebsite() string {
+	core.LazyRegister(&xAboutDialogGetWebsite, "ADW", "adw_about_dialog_get_website", false)
+
 	cret := xAboutDialogGetWebsite(x.GoPointer())
 	return cret
 }
@@ -619,6 +677,8 @@ var xAboutDialogSetApplicationIcon func(uintptr, string)
 //
 // The icon is displayed at the top of the main page.
 func (x *AboutDialog) SetApplicationIcon(ApplicationIconVar string) {
+	core.LazyRegister(&xAboutDialogSetApplicationIcon, "ADW", "adw_about_dialog_set_application_icon", false)
+
 	xAboutDialogSetApplicationIcon(x.GoPointer(), ApplicationIconVar)
 }
 
@@ -628,6 +688,8 @@ var xAboutDialogSetApplicationName func(uintptr, string)
 //
 // The name is displayed at the top of the main page.
 func (x *AboutDialog) SetApplicationName(ApplicationNameVar string) {
+	core.LazyRegister(&xAboutDialogSetApplicationName, "ADW", "adw_about_dialog_set_application_name", false)
+
 	xAboutDialogSetApplicationName(x.GoPointer(), ApplicationNameVar)
 }
 
@@ -649,6 +711,8 @@ var xAboutDialogSetArtists func(uintptr, []string)
 // * [method@AboutDialog.add_credit_section]
 // * [method@AboutDialog.add_acknowledgement_section]
 func (x *AboutDialog) SetArtists(ArtistsVar []string) {
+	core.LazyRegister(&xAboutDialogSetArtists, "ADW", "adw_about_dialog_set_artists", false)
+
 	xAboutDialogSetArtists(x.GoPointer(), ArtistsVar)
 }
 
@@ -661,6 +725,8 @@ var xAboutDialogSetComments func(uintptr, string)
 // Unlike [property@Gtk.AboutDialog:comments], this string can be long and
 // detailed. It can also contain links and Pango markup.
 func (x *AboutDialog) SetComments(CommentsVar string) {
+	core.LazyRegister(&xAboutDialogSetComments, "ADW", "adw_about_dialog_set_comments", false)
+
 	xAboutDialogSetComments(x.GoPointer(), CommentsVar)
 }
 
@@ -677,6 +743,8 @@ var xAboutDialogSetCopyright func(uintptr, string)
 // [method@AboutDialog.add_legal_section] can be used to add copyright
 // information for the application dependencies or other components.
 func (x *AboutDialog) SetCopyright(CopyrightVar string) {
+	core.LazyRegister(&xAboutDialogSetCopyright, "ADW", "adw_about_dialog_set_copyright", false)
+
 	xAboutDialogSetCopyright(x.GoPointer(), CopyrightVar)
 }
 
@@ -694,6 +762,8 @@ var xAboutDialogSetDebugInfo func(uintptr, string)
 //
 // Debug information cannot contain markup or links.
 func (x *AboutDialog) SetDebugInfo(DebugInfoVar string) {
+	core.LazyRegister(&xAboutDialogSetDebugInfo, "ADW", "adw_about_dialog_set_debug_info", false)
+
 	xAboutDialogSetDebugInfo(x.GoPointer(), DebugInfoVar)
 }
 
@@ -706,6 +776,8 @@ var xAboutDialogSetDebugInfoFilename func(uintptr, string)
 //
 // See [property@AboutDialog:debug-info].
 func (x *AboutDialog) SetDebugInfoFilename(FilenameVar string) {
+	core.LazyRegister(&xAboutDialogSetDebugInfoFilename, "ADW", "adw_about_dialog_set_debug_info_filename", false)
+
 	xAboutDialogSetDebugInfoFilename(x.GoPointer(), FilenameVar)
 }
 
@@ -727,6 +799,8 @@ var xAboutDialogSetDesigners func(uintptr, []string)
 // * [method@AboutDialog.add_credit_section]
 // * [method@AboutDialog.add_acknowledgement_section]
 func (x *AboutDialog) SetDesigners(DesignersVar []string) {
+	core.LazyRegister(&xAboutDialogSetDesigners, "ADW", "adw_about_dialog_set_designers", false)
+
 	xAboutDialogSetDesigners(x.GoPointer(), DesignersVar)
 }
 
@@ -741,6 +815,8 @@ var xAboutDialogSetDeveloperName func(uintptr, string)
 // "The AppName project", and the individual contributors can be listed on the
 // Credits page, with [property@AboutDialog:developers] and related properties.
 func (x *AboutDialog) SetDeveloperName(DeveloperNameVar string) {
+	core.LazyRegister(&xAboutDialogSetDeveloperName, "ADW", "adw_about_dialog_set_developer_name", false)
+
 	xAboutDialogSetDeveloperName(x.GoPointer(), DeveloperNameVar)
 }
 
@@ -762,6 +838,8 @@ var xAboutDialogSetDevelopers func(uintptr, []string)
 // * [method@AboutDialog.add_credit_section]
 // * [method@AboutDialog.add_acknowledgement_section]
 func (x *AboutDialog) SetDevelopers(DevelopersVar []string) {
+	core.LazyRegister(&xAboutDialogSetDevelopers, "ADW", "adw_about_dialog_set_developers", false)
+
 	xAboutDialogSetDevelopers(x.GoPointer(), DevelopersVar)
 }
 
@@ -783,6 +861,8 @@ var xAboutDialogSetDocumenters func(uintptr, []string)
 // * [method@AboutDialog.add_credit_section]
 // * [method@AboutDialog.add_acknowledgement_section]
 func (x *AboutDialog) SetDocumenters(DocumentersVar []string) {
+	core.LazyRegister(&xAboutDialogSetDocumenters, "ADW", "adw_about_dialog_set_documenters", false)
+
 	xAboutDialogSetDocumenters(x.GoPointer(), DocumentersVar)
 }
 
@@ -792,6 +872,8 @@ var xAboutDialogSetIssueUrl func(uintptr, string)
 //
 // The issue tracker link is displayed on the main page.
 func (x *AboutDialog) SetIssueUrl(IssueUrlVar string) {
+	core.LazyRegister(&xAboutDialogSetIssueUrl, "ADW", "adw_about_dialog_set_issue_url", false)
+
 	xAboutDialogSetIssueUrl(x.GoPointer(), IssueUrlVar)
 }
 
@@ -813,6 +895,8 @@ var xAboutDialogSetLicense func(uintptr, string)
 // [method@AboutDialog.add_legal_section] can be used to add license information
 // for the application dependencies or other components.
 func (x *AboutDialog) SetLicense(LicenseVar string) {
+	core.LazyRegister(&xAboutDialogSetLicense, "ADW", "adw_about_dialog_set_license", false)
+
 	xAboutDialogSetLicense(x.GoPointer(), LicenseVar)
 }
 
@@ -836,6 +920,8 @@ var xAboutDialogSetLicenseType func(uintptr, gtk.License)
 // [method@AboutDialog.add_legal_section] can be used to add license information
 // for the application dependencies or other components.
 func (x *AboutDialog) SetLicenseType(LicenseTypeVar gtk.License) {
+	core.LazyRegister(&xAboutDialogSetLicenseType, "ADW", "adw_about_dialog_set_license_type", false)
+
 	xAboutDialogSetLicenseType(x.GoPointer(), LicenseTypeVar)
 }
 
@@ -866,6 +952,8 @@ var xAboutDialogSetReleaseNotes func(uintptr, string)
 // [property@AboutDialog:release-notes-version] of the property will be used
 // as the version; otherwise, [property@AboutDialog:version] is used.
 func (x *AboutDialog) SetReleaseNotes(ReleaseNotesVar string) {
+	core.LazyRegister(&xAboutDialogSetReleaseNotes, "ADW", "adw_about_dialog_set_release_notes", false)
+
 	xAboutDialogSetReleaseNotes(x.GoPointer(), ReleaseNotesVar)
 }
 
@@ -884,6 +972,8 @@ var xAboutDialogSetReleaseNotesVersion func(uintptr, string)
 //
 // See [property@AboutDialog:release-notes].
 func (x *AboutDialog) SetReleaseNotesVersion(VersionVar string) {
+	core.LazyRegister(&xAboutDialogSetReleaseNotesVersion, "ADW", "adw_about_dialog_set_release_notes_version", false)
+
 	xAboutDialogSetReleaseNotesVersion(x.GoPointer(), VersionVar)
 }
 
@@ -893,6 +983,8 @@ var xAboutDialogSetSupportUrl func(uintptr, string)
 //
 // The support page link is displayed on the main page.
 func (x *AboutDialog) SetSupportUrl(SupportUrlVar string) {
+	core.LazyRegister(&xAboutDialogSetSupportUrl, "ADW", "adw_about_dialog_set_support_url", false)
+
 	xAboutDialogSetSupportUrl(x.GoPointer(), SupportUrlVar)
 }
 
@@ -918,6 +1010,8 @@ var xAboutDialogSetTranslatorCredits func(uintptr, string)
 // * [method@AboutDialog.add_credit_section]
 // * [method@AboutDialog.add_acknowledgement_section]
 func (x *AboutDialog) SetTranslatorCredits(TranslatorCreditsVar string) {
+	core.LazyRegister(&xAboutDialogSetTranslatorCredits, "ADW", "adw_about_dialog_set_translator_credits", false)
+
 	xAboutDialogSetTranslatorCredits(x.GoPointer(), TranslatorCreditsVar)
 }
 
@@ -930,6 +1024,8 @@ var xAboutDialogSetVersion func(uintptr, string)
 // If [property@AboutDialog:release-notes-version] is not set, the version will
 // also be displayed above the release notes on the What's New page.
 func (x *AboutDialog) SetVersion(VersionVar string) {
+	core.LazyRegister(&xAboutDialogSetVersion, "ADW", "adw_about_dialog_set_version", false)
+
 	xAboutDialogSetVersion(x.GoPointer(), VersionVar)
 }
 
@@ -942,6 +1038,8 @@ var xAboutDialogSetWebsite func(uintptr, string)
 //
 // Applications can add other links below, see [method@AboutDialog.add_link].
 func (x *AboutDialog) SetWebsite(WebsiteVar string) {
+	core.LazyRegister(&xAboutDialogSetWebsite, "ADW", "adw_about_dialog_set_website", false)
+
 	xAboutDialogSetWebsite(x.GoPointer(), WebsiteVar)
 }
 
@@ -1955,67 +2053,4 @@ func (x *AboutDialog) GetBuildableId() string {
 func init() {
 	core.SetPackageName("ADW", "libadwaita-1")
 	core.SetSharedLibraries("ADW", []string{"libadwaita-1.so.0", "libadwaita-1.0.dylib"})
-	var libs []uintptr
-	for _, libPath := range core.GetPaths("ADW") {
-		lib, err := purego.Dlopen(libPath, purego.RTLD_NOW|purego.RTLD_GLOBAL)
-		if err != nil {
-			panic(err)
-		}
-		libs = append(libs, lib)
-	}
-
-	core.PuregoSafeRegister(&xShowAboutDialog, libs, "adw_show_about_dialog")
-	core.PuregoSafeRegister(&xShowAboutDialogFromAppdata, libs, "adw_show_about_dialog_from_appdata")
-
-	core.PuregoSafeRegister(&xAboutDialogGLibType, libs, "adw_about_dialog_get_type")
-
-	core.PuregoSafeRegister(&xNewAboutDialog, libs, "adw_about_dialog_new")
-	core.PuregoSafeRegister(&xNewAboutDialogFromAppdata, libs, "adw_about_dialog_new_from_appdata")
-
-	core.PuregoSafeRegister(&xAboutDialogAddAcknowledgementSection, libs, "adw_about_dialog_add_acknowledgement_section")
-	core.PuregoSafeRegister(&xAboutDialogAddCreditSection, libs, "adw_about_dialog_add_credit_section")
-	core.PuregoSafeRegister(&xAboutDialogAddLegalSection, libs, "adw_about_dialog_add_legal_section")
-	core.PuregoSafeRegister(&xAboutDialogAddLink, libs, "adw_about_dialog_add_link")
-	core.PuregoSafeRegister(&xAboutDialogAddOtherApp, libs, "adw_about_dialog_add_other_app")
-	core.PuregoSafeRegister(&xAboutDialogGetAppdataResourcePath, libs, "adw_about_dialog_get_appdata_resource_path")
-	core.PuregoSafeRegister(&xAboutDialogGetApplicationIcon, libs, "adw_about_dialog_get_application_icon")
-	core.PuregoSafeRegister(&xAboutDialogGetApplicationName, libs, "adw_about_dialog_get_application_name")
-	core.PuregoSafeRegister(&xAboutDialogGetArtists, libs, "adw_about_dialog_get_artists")
-	core.PuregoSafeRegister(&xAboutDialogGetComments, libs, "adw_about_dialog_get_comments")
-	core.PuregoSafeRegister(&xAboutDialogGetCopyright, libs, "adw_about_dialog_get_copyright")
-	core.PuregoSafeRegister(&xAboutDialogGetDebugInfo, libs, "adw_about_dialog_get_debug_info")
-	core.PuregoSafeRegister(&xAboutDialogGetDebugInfoFilename, libs, "adw_about_dialog_get_debug_info_filename")
-	core.PuregoSafeRegister(&xAboutDialogGetDesigners, libs, "adw_about_dialog_get_designers")
-	core.PuregoSafeRegister(&xAboutDialogGetDeveloperName, libs, "adw_about_dialog_get_developer_name")
-	core.PuregoSafeRegister(&xAboutDialogGetDevelopers, libs, "adw_about_dialog_get_developers")
-	core.PuregoSafeRegister(&xAboutDialogGetDocumenters, libs, "adw_about_dialog_get_documenters")
-	core.PuregoSafeRegister(&xAboutDialogGetIssueUrl, libs, "adw_about_dialog_get_issue_url")
-	core.PuregoSafeRegister(&xAboutDialogGetLicense, libs, "adw_about_dialog_get_license")
-	core.PuregoSafeRegister(&xAboutDialogGetLicenseType, libs, "adw_about_dialog_get_license_type")
-	core.PuregoSafeRegister(&xAboutDialogGetReleaseNotes, libs, "adw_about_dialog_get_release_notes")
-	core.PuregoSafeRegister(&xAboutDialogGetReleaseNotesVersion, libs, "adw_about_dialog_get_release_notes_version")
-	core.PuregoSafeRegister(&xAboutDialogGetSupportUrl, libs, "adw_about_dialog_get_support_url")
-	core.PuregoSafeRegister(&xAboutDialogGetTranslatorCredits, libs, "adw_about_dialog_get_translator_credits")
-	core.PuregoSafeRegister(&xAboutDialogGetVersion, libs, "adw_about_dialog_get_version")
-	core.PuregoSafeRegister(&xAboutDialogGetWebsite, libs, "adw_about_dialog_get_website")
-	core.PuregoSafeRegister(&xAboutDialogSetApplicationIcon, libs, "adw_about_dialog_set_application_icon")
-	core.PuregoSafeRegister(&xAboutDialogSetApplicationName, libs, "adw_about_dialog_set_application_name")
-	core.PuregoSafeRegister(&xAboutDialogSetArtists, libs, "adw_about_dialog_set_artists")
-	core.PuregoSafeRegister(&xAboutDialogSetComments, libs, "adw_about_dialog_set_comments")
-	core.PuregoSafeRegister(&xAboutDialogSetCopyright, libs, "adw_about_dialog_set_copyright")
-	core.PuregoSafeRegister(&xAboutDialogSetDebugInfo, libs, "adw_about_dialog_set_debug_info")
-	core.PuregoSafeRegister(&xAboutDialogSetDebugInfoFilename, libs, "adw_about_dialog_set_debug_info_filename")
-	core.PuregoSafeRegister(&xAboutDialogSetDesigners, libs, "adw_about_dialog_set_designers")
-	core.PuregoSafeRegister(&xAboutDialogSetDeveloperName, libs, "adw_about_dialog_set_developer_name")
-	core.PuregoSafeRegister(&xAboutDialogSetDevelopers, libs, "adw_about_dialog_set_developers")
-	core.PuregoSafeRegister(&xAboutDialogSetDocumenters, libs, "adw_about_dialog_set_documenters")
-	core.PuregoSafeRegister(&xAboutDialogSetIssueUrl, libs, "adw_about_dialog_set_issue_url")
-	core.PuregoSafeRegister(&xAboutDialogSetLicense, libs, "adw_about_dialog_set_license")
-	core.PuregoSafeRegister(&xAboutDialogSetLicenseType, libs, "adw_about_dialog_set_license_type")
-	core.PuregoSafeRegister(&xAboutDialogSetReleaseNotes, libs, "adw_about_dialog_set_release_notes")
-	core.PuregoSafeRegister(&xAboutDialogSetReleaseNotesVersion, libs, "adw_about_dialog_set_release_notes_version")
-	core.PuregoSafeRegister(&xAboutDialogSetSupportUrl, libs, "adw_about_dialog_set_support_url")
-	core.PuregoSafeRegister(&xAboutDialogSetTranslatorCredits, libs, "adw_about_dialog_set_translator_credits")
-	core.PuregoSafeRegister(&xAboutDialogSetVersion, libs, "adw_about_dialog_set_version")
-	core.PuregoSafeRegister(&xAboutDialogSetWebsite, libs, "adw_about_dialog_set_website")
 }

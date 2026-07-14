@@ -5,7 +5,6 @@ import (
 	"structs"
 	"unsafe"
 
-	"github.com/bnema/purego"
 	"github.com/bnema/puregotk/pkg/core"
 	"github.com/bnema/puregotk/v4/gobject/types"
 )
@@ -27,6 +26,7 @@ type SecurityOrigin struct {
 var xSecurityOriginGLibType func() types.GType
 
 func SecurityOriginGLibType() types.GType {
+	core.LazyRegister(&xSecurityOriginGLibType, "WEBKIT", "webkit_security_origin_get_type", false)
 	return xSecurityOriginGLibType()
 }
 
@@ -47,6 +47,8 @@ var xNewSecurityOrigin func(string, string, uint16) uintptr
 // Create a new security origin from the provided protocol, host and
 // port.
 func NewSecurityOrigin(ProtocolVar string, HostVar string, PortVar uint16) *SecurityOrigin {
+	core.LazyRegister(&xNewSecurityOrigin, "WEBKIT", "webkit_security_origin_new", false)
+
 	cret := xNewSecurityOrigin(ProtocolVar, HostVar, PortVar)
 	if cret == 0 {
 		return nil
@@ -62,6 +64,8 @@ var xNewSecurityOriginForUri func(string) uintptr
 // @uri other than protocol, host, and port do not affect the created
 // #WebKitSecurityOrigin.
 func NewSecurityOriginForUri(UriVar string) *SecurityOrigin {
+	core.LazyRegister(&xNewSecurityOriginForUri, "WEBKIT", "webkit_security_origin_new_for_uri", false)
+
 	cret := xNewSecurityOriginForUri(UriVar)
 	if cret == 0 {
 		return nil
@@ -76,6 +80,8 @@ var xSecurityOriginGetHost func(uintptr) string
 // It is reasonable for this to be %NULL
 // if its protocol does not require a host component.
 func (x *SecurityOrigin) GetHost() string {
+	core.LazyRegister(&xSecurityOriginGetHost, "WEBKIT", "webkit_security_origin_get_host", false)
+
 	cret := xSecurityOriginGetHost(x.GoPointer())
 	return cret
 }
@@ -90,6 +96,8 @@ var xSecurityOriginGetPort func(uintptr) uint16
 // http://example.com:80, and this function will return 0 for a
 // #WebKitSecurityOrigin constructed from either URI.
 func (x *SecurityOrigin) GetPort() uint16 {
+	core.LazyRegister(&xSecurityOriginGetPort, "WEBKIT", "webkit_security_origin_get_port", false)
+
 	cret := xSecurityOriginGetPort(x.GoPointer())
 	return cret
 }
@@ -98,6 +106,8 @@ var xSecurityOriginGetProtocol func(uintptr) string
 
 // Gets the protocol of @origin.
 func (x *SecurityOrigin) GetProtocol() string {
+	core.LazyRegister(&xSecurityOriginGetProtocol, "WEBKIT", "webkit_security_origin_get_protocol", false)
+
 	cret := xSecurityOriginGetProtocol(x.GoPointer())
 	return cret
 }
@@ -108,6 +118,8 @@ var xSecurityOriginRef func(uintptr) uintptr
 //
 // This function is MT-safe and may be called from any thread.
 func (x *SecurityOrigin) Ref() *SecurityOrigin {
+	core.LazyRegister(&xSecurityOriginRef, "WEBKIT", "webkit_security_origin_ref", false)
+
 	cret := xSecurityOriginRef(x.GoPointer())
 	if cret == 0 {
 		return nil
@@ -123,6 +135,8 @@ var xSecurityOriginToString func(uintptr) string
 // is a valid URI with only protocol, host, and port components, or
 // %NULL.
 func (x *SecurityOrigin) ToString() string {
+	core.LazyRegister(&xSecurityOriginToString, "WEBKIT", "webkit_security_origin_to_string", false)
+
 	cret := xSecurityOriginToString(x.GoPointer())
 	return cret
 }
@@ -135,30 +149,15 @@ var xSecurityOriginUnref func(uintptr)
 // #WebKitSecurityOrigin is released. This function is MT-safe and may be
 // called from any thread.
 func (x *SecurityOrigin) Unref() {
+	core.LazyRegister(&xSecurityOriginUnref, "WEBKIT", "webkit_security_origin_unref", false)
+
 	xSecurityOriginUnref(x.GoPointer())
 }
 
 func init() {
 	core.SetPackageName("WEBKIT", "webkitgtk-6.0")
 	core.SetSharedLibraries("WEBKIT", []string{"libwebkitgtk-6.0.so.4", "libjavascriptcoregtk-6.0.so.1", "libwebkitgtk-6.0.4.dylib", "libjavascriptcoregtk-6.0.1.dylib"})
-	var libs []uintptr
-	for _, libPath := range core.GetPaths("WEBKIT") {
-		lib, err := purego.Dlopen(libPath, purego.RTLD_NOW|purego.RTLD_GLOBAL)
-		if err != nil {
-			panic(err)
-		}
-		libs = append(libs, lib)
-	}
 
-	core.PuregoSafeRegister(&xSecurityOriginGLibType, libs, "webkit_security_origin_get_type")
-
-	core.PuregoSafeRegister(&xNewSecurityOrigin, libs, "webkit_security_origin_new")
-	core.PuregoSafeRegister(&xNewSecurityOriginForUri, libs, "webkit_security_origin_new_for_uri")
-
-	core.PuregoSafeRegister(&xSecurityOriginGetHost, libs, "webkit_security_origin_get_host")
-	core.PuregoSafeRegister(&xSecurityOriginGetPort, libs, "webkit_security_origin_get_port")
-	core.PuregoSafeRegister(&xSecurityOriginGetProtocol, libs, "webkit_security_origin_get_protocol")
-	core.PuregoSafeRegister(&xSecurityOriginRef, libs, "webkit_security_origin_ref")
-	core.PuregoSafeRegister(&xSecurityOriginToString, libs, "webkit_security_origin_to_string")
-	core.PuregoSafeRegister(&xSecurityOriginUnref, libs, "webkit_security_origin_unref")
+	// Manually register types since they aren't automatically registered when
+	// WebKit is loaded. See https://bugs.webkit.org/show_bug.cgi?id=175937.
 }

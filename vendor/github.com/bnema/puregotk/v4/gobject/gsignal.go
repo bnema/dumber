@@ -5,7 +5,6 @@ import (
 	"structs"
 	"unsafe"
 
-	"github.com/bnema/purego"
 	"github.com/bnema/puregotk/pkg/core"
 	"github.com/bnema/puregotk/v4/glib"
 	"github.com/bnema/puregotk/v4/gobject/types"
@@ -199,6 +198,8 @@ var xClearSignalHandler func(uint, uintptr)
 // There is also a macro version of this function so that the code
 // will be inlined.
 func ClearSignalHandler(HandlerIdPtrVar uint, InstanceVar *Object) {
+	core.LazyRegister(&xClearSignalHandler, "GOBJECT", "g_clear_signal_handler", false)
+
 	xClearSignalHandler(HandlerIdPtrVar, InstanceVar.GoPointer())
 }
 
@@ -215,6 +216,8 @@ var xSignalAccumulatorFirstWins func(*SignalInvocationHint, *Value, *Value, uint
 // handler that is run as the return value for the signal and not run
 // any further handlers (ie: the first handler "wins").
 func SignalAccumulatorFirstWins(IhintVar *SignalInvocationHint, ReturnAccuVar *Value, HandlerReturnVar *Value, DummyVar uintptr) bool {
+	core.LazyRegister(&xSignalAccumulatorFirstWins, "GOBJECT", "g_signal_accumulator_first_wins", false)
+
 	cret := xSignalAccumulatorFirstWins(IhintVar, ReturnAccuVar, HandlerReturnVar, DummyVar)
 	return cret
 }
@@ -229,6 +232,8 @@ var xSignalAccumulatorTrueHandled func(*SignalInvocationHint, *Value, *Value, ui
 // indicates that the callback handled the signal, and no further
 // handling is needed.
 func SignalAccumulatorTrueHandled(IhintVar *SignalInvocationHint, ReturnAccuVar *Value, HandlerReturnVar *Value, DummyVar uintptr) bool {
+	core.LazyRegister(&xSignalAccumulatorTrueHandled, "GOBJECT", "g_signal_accumulator_true_handled", false)
+
 	cret := xSignalAccumulatorTrueHandled(IhintVar, ReturnAccuVar, HandlerReturnVar, DummyVar)
 	return cret
 }
@@ -239,6 +244,8 @@ var xSignalAddEmissionHook func(uint, glib.Quark, uintptr, uintptr, uintptr) uin
 // of that signal, independent of the instance. This is possible only
 // for signals which don't have %G_SIGNAL_NO_HOOKS flag set.
 func SignalAddEmissionHook(SignalIdVar uint, DetailVar glib.Quark, HookFuncVar *SignalEmissionHook, HookDataVar uintptr, DataDestroyVar *glib.DestroyNotify) uint {
+	core.LazyRegister(&xSignalAddEmissionHook, "GOBJECT", "g_signal_add_emission_hook", false)
+
 	cret := xSignalAddEmissionHook(SignalIdVar, DetailVar, glib.NewCallback(HookFuncVar), HookDataVar, glib.NewCallbackNullable(DataDestroyVar))
 	return cret
 }
@@ -250,6 +257,8 @@ var xSignalChainFromOverridden func([]Value, *Value)
 // g_signal_override_class_closure() and
 // g_signal_override_class_handler().
 func SignalChainFromOverridden(InstanceAndParamsVar []Value, ReturnValueVar *Value) {
+	core.LazyRegister(&xSignalChainFromOverridden, "GOBJECT", "g_signal_chain_from_overridden", false)
+
 	xSignalChainFromOverridden(InstanceAndParamsVar, ReturnValueVar)
 }
 
@@ -260,6 +269,8 @@ var xSignalChainFromOverriddenHandler func(*TypeInstance, ...interface{})
 // g_signal_override_class_closure() and
 // g_signal_override_class_handler().
 func SignalChainFromOverriddenHandler(InstanceVar *TypeInstance, varArgs ...interface{}) {
+	core.LazyRegister(&xSignalChainFromOverriddenHandler, "GOBJECT", "g_signal_chain_from_overridden_handler", false)
+
 	xSignalChainFromOverriddenHandler(InstanceVar, varArgs...)
 }
 
@@ -278,6 +289,8 @@ var xSignalConnectClosure func(uintptr, string, *Closure, bool) uint
 // Refer to the [signals documentation](signals.html) for more
 // details.
 func SignalConnectClosure(InstanceVar *Object, DetailedSignalVar string, ClosureVar *Closure, AfterVar bool) uint {
+	core.LazyRegister(&xSignalConnectClosure, "GOBJECT", "g_signal_connect_closure", false)
+
 	cret := xSignalConnectClosure(InstanceVar.GoPointer(), DetailedSignalVar, ClosureVar, AfterVar)
 	return cret
 }
@@ -297,6 +310,8 @@ var xSignalConnectClosureById func(uintptr, uint, glib.Quark, *Closure, bool) ui
 // Refer to the [signals documentation](signals.html) for more
 // details.
 func SignalConnectClosureById(InstanceVar *Object, SignalIdVar uint, DetailVar glib.Quark, ClosureVar *Closure, AfterVar bool) uint {
+	core.LazyRegister(&xSignalConnectClosureById, "GOBJECT", "g_signal_connect_closure_by_id", false)
+
 	cret := xSignalConnectClosureById(InstanceVar.GoPointer(), SignalIdVar, DetailVar, ClosureVar, AfterVar)
 	return cret
 }
@@ -317,6 +332,8 @@ var xSignalConnectData func(uintptr, string, uintptr, uintptr, uintptr, ConnectF
 // Refer to the [signals documentation](signals.html) for more
 // details.
 func SignalConnectData(InstanceVar *Object, DetailedSignalVar string, CHandlerVar *Callback, DataVar uintptr, DestroyDataVar *ClosureNotify, ConnectFlagsVar ConnectFlags) uint {
+	core.LazyRegister(&xSignalConnectData, "GOBJECT", "g_signal_connect_data", false)
+
 	cret := xSignalConnectData(InstanceVar.GoPointer(), DetailedSignalVar, glib.NewCallback(CHandlerVar), DataVar, glib.NewCallbackNullable(DestroyDataVar), ConnectFlagsVar)
 	return cret
 }
@@ -329,6 +346,8 @@ var xSignalEmit func(uintptr, uint, glib.Quark, ...interface{})
 // Note that g_signal_emit() resets the return value to the default
 // if no handlers are connected, in contrast to g_signal_emitv().
 func SignalEmit(InstanceVar *Object, SignalIdVar uint, DetailVar glib.Quark, varArgs ...interface{}) {
+	core.LazyRegister(&xSignalEmit, "GOBJECT", "g_signal_emit", false)
+
 	xSignalEmit(InstanceVar.GoPointer(), SignalIdVar, DetailVar, varArgs...)
 }
 
@@ -340,6 +359,8 @@ var xSignalEmitByName func(uintptr, string, ...interface{})
 // Note that g_signal_emit_by_name() resets the return value to the default
 // if no handlers are connected, in contrast to g_signal_emitv().
 func SignalEmitByName(InstanceVar *Object, DetailedSignalVar string, varArgs ...interface{}) {
+	core.LazyRegister(&xSignalEmitByName, "GOBJECT", "g_signal_emit_by_name", false)
+
 	xSignalEmitByName(InstanceVar.GoPointer(), DetailedSignalVar, varArgs...)
 }
 
@@ -351,6 +372,8 @@ var xSignalEmitValist func(*TypeInstance, uint, glib.Quark, []interface{})
 // Note that g_signal_emit_valist() resets the return value to the default
 // if no handlers are connected, in contrast to g_signal_emitv().
 func SignalEmitValist(InstanceVar *TypeInstance, SignalIdVar uint, DetailVar glib.Quark, VarArgsVar []interface{}) {
+	core.LazyRegister(&xSignalEmitValist, "GOBJECT", "g_signal_emit_valist", false)
+
 	xSignalEmitValist(InstanceVar, SignalIdVar, DetailVar, VarArgsVar)
 }
 
@@ -362,6 +385,8 @@ var xSignalEmitv func([]Value, uint, glib.Quark, *Value)
 // Note that g_signal_emitv() doesn't change @return_value if no handlers are
 // connected, in contrast to g_signal_emit() and g_signal_emit_valist().
 func SignalEmitv(InstanceAndParamsVar []Value, SignalIdVar uint, DetailVar glib.Quark, ReturnValueVar *Value) {
+	core.LazyRegister(&xSignalEmitv, "GOBJECT", "g_signal_emitv", false)
+
 	xSignalEmitv(InstanceAndParamsVar, SignalIdVar, DetailVar, ReturnValueVar)
 }
 
@@ -369,6 +394,8 @@ var xSignalGetInvocationHint func(uintptr) uintptr
 
 // Returns the invocation hint of the innermost signal emission of instance.
 func SignalGetInvocationHint(InstanceVar *Object) *SignalInvocationHint {
+	core.LazyRegister(&xSignalGetInvocationHint, "GOBJECT", "g_signal_get_invocation_hint", false)
+
 	cret := xSignalGetInvocationHint(InstanceVar.GoPointer())
 	if cret == 0 {
 		return nil
@@ -387,6 +414,8 @@ var xSignalHandlerBlock func(uintptr, uint)
 // The @handler_id has to be a valid signal handler id, connected to a
 // signal of @instance.
 func SignalHandlerBlock(InstanceVar *Object, HandlerIdVar uint) {
+	core.LazyRegister(&xSignalHandlerBlock, "GOBJECT", "g_signal_handler_block", false)
+
 	xSignalHandlerBlock(InstanceVar.GoPointer(), HandlerIdVar)
 }
 
@@ -399,6 +428,7 @@ var xSignalHandlerDisconnect func(uintptr, uint)
 // The @handler_id has to be a valid signal handler id, connected to a
 // signal of @instance.
 func SignalHandlerDisconnect(InstanceVar *Object, HandlerIdVar uint) {
+	core.LazyRegister(&xSignalHandlerDisconnect, "GOBJECT", "g_signal_handler_disconnect", false)
 	xSignalHandlerDisconnect(InstanceVar.GoPointer(), HandlerIdVar)
 	glib.RemoveCallbackByHandler(HandlerIdVar)
 }
@@ -411,6 +441,8 @@ var xSignalHandlerFind func(uintptr, SignalMatchType, uint, glib.Quark, *Closure
 // The match @mask has to be non-0 for successful matches.
 // If no handler was found, 0 is returned.
 func SignalHandlerFind(InstanceVar *Object, MaskVar SignalMatchType, SignalIdVar uint, DetailVar glib.Quark, ClosureVar *Closure, FuncVar uintptr, DataVar uintptr) uint {
+	core.LazyRegister(&xSignalHandlerFind, "GOBJECT", "g_signal_handler_find", false)
+
 	cret := xSignalHandlerFind(InstanceVar.GoPointer(), MaskVar, SignalIdVar, DetailVar, ClosureVar, FuncVar, DataVar)
 	return cret
 }
@@ -419,6 +451,8 @@ var xSignalHandlerIsConnected func(uintptr, uint) bool
 
 // Returns whether @handler_id is the ID of a handler connected to @instance.
 func SignalHandlerIsConnected(InstanceVar *Object, HandlerIdVar uint) bool {
+	core.LazyRegister(&xSignalHandlerIsConnected, "GOBJECT", "g_signal_handler_is_connected", false)
+
 	cret := xSignalHandlerIsConnected(InstanceVar.GoPointer(), HandlerIdVar)
 	return cret
 }
@@ -439,6 +473,8 @@ var xSignalHandlerUnblock func(uintptr, uint)
 // The @handler_id has to be a valid id of a signal handler that is
 // connected to a signal of @instance and is currently blocked.
 func SignalHandlerUnblock(InstanceVar *Object, HandlerIdVar uint) {
+	core.LazyRegister(&xSignalHandlerUnblock, "GOBJECT", "g_signal_handler_unblock", false)
+
 	xSignalHandlerUnblock(InstanceVar.GoPointer(), HandlerIdVar)
 }
 
@@ -458,6 +494,8 @@ var xSignalHandlersBlockMatched func(uintptr, SignalMatchType, uint, glib.Quark,
 //
 // Support for %G_SIGNAL_MATCH_ID was added in GLib 2.78.
 func SignalHandlersBlockMatched(InstanceVar *Object, MaskVar SignalMatchType, SignalIdVar uint, DetailVar glib.Quark, ClosureVar *Closure, FuncVar uintptr, DataVar uintptr) uint {
+	core.LazyRegister(&xSignalHandlersBlockMatched, "GOBJECT", "g_signal_handlers_block_matched", false)
+
 	cret := xSignalHandlersBlockMatched(InstanceVar.GoPointer(), MaskVar, SignalIdVar, DetailVar, ClosureVar, FuncVar, DataVar)
 	return cret
 }
@@ -468,6 +506,8 @@ var xSignalHandlersDestroy func(uintptr)
 // an implementation detail of the #GObject dispose implementation,
 // and should not be used outside of the type system.
 func SignalHandlersDestroy(InstanceVar *Object) {
+	core.LazyRegister(&xSignalHandlersDestroy, "GOBJECT", "g_signal_handlers_destroy", false)
+
 	xSignalHandlersDestroy(InstanceVar.GoPointer())
 }
 
@@ -488,6 +528,8 @@ var xSignalHandlersDisconnectMatched func(uintptr, SignalMatchType, uint, glib.Q
 //
 // Support for %G_SIGNAL_MATCH_ID was added in GLib 2.78.
 func SignalHandlersDisconnectMatched(InstanceVar *Object, MaskVar SignalMatchType, SignalIdVar uint, DetailVar glib.Quark, ClosureVar *Closure, FuncVar uintptr, DataVar uintptr) uint {
+	core.LazyRegister(&xSignalHandlersDisconnectMatched, "GOBJECT", "g_signal_handlers_disconnect_matched", false)
+
 	cret := xSignalHandlersDisconnectMatched(InstanceVar.GoPointer(), MaskVar, SignalIdVar, DetailVar, ClosureVar, FuncVar, DataVar)
 	return cret
 }
@@ -510,6 +552,8 @@ var xSignalHandlersUnblockMatched func(uintptr, SignalMatchType, uint, glib.Quar
 //
 // Support for %G_SIGNAL_MATCH_ID was added in GLib 2.78.
 func SignalHandlersUnblockMatched(InstanceVar *Object, MaskVar SignalMatchType, SignalIdVar uint, DetailVar glib.Quark, ClosureVar *Closure, FuncVar uintptr, DataVar uintptr) uint {
+	core.LazyRegister(&xSignalHandlersUnblockMatched, "GOBJECT", "g_signal_handlers_unblock_matched", false)
+
 	cret := xSignalHandlersUnblockMatched(InstanceVar.GoPointer(), MaskVar, SignalIdVar, DetailVar, ClosureVar, FuncVar, DataVar)
 	return cret
 }
@@ -533,6 +577,8 @@ var xSignalHasHandlerPending func(uintptr, uint, glib.Quark, bool) bool
 // emit the signal if no one is attached anyway, thus saving the cost
 // of building the arguments.
 func SignalHasHandlerPending(InstanceVar *Object, SignalIdVar uint, DetailVar glib.Quark, MayBeBlockedVar bool) bool {
+	core.LazyRegister(&xSignalHasHandlerPending, "GOBJECT", "g_signal_has_handler_pending", false)
+
 	cret := xSignalHasHandlerPending(InstanceVar.GoPointer(), SignalIdVar, DetailVar, MayBeBlockedVar)
 	return cret
 }
@@ -545,6 +591,8 @@ var xSignalIsValidName func(string) bool
 // See [func@GObject.signal_new] for details of the rules for valid names.
 // The rules for signal names are the same as those for property names.
 func SignalIsValidName(NameVar string) bool {
+	core.LazyRegister(&xSignalIsValidName, "GOBJECT", "g_signal_is_valid_name", false)
+
 	cret := xSignalIsValidName(NameVar)
 	return cret
 }
@@ -555,6 +603,8 @@ var xSignalListIds func(types.GType, *uint) uintptr
 // created. Further information about the signals can be acquired through
 // g_signal_query().
 func SignalListIds(ItypeVar types.GType, NIdsVar *uint) uintptr {
+	core.LazyRegister(&xSignalListIds, "GOBJECT", "g_signal_list_ids", false)
+
 	cret := xSignalListIds(ItypeVar, NIdsVar)
 	return cret
 }
@@ -573,6 +623,8 @@ var xSignalLookup func(string, types.GType) uint
 //
 // See g_signal_new() for details on allowed signal names.
 func SignalLookup(NameVar string, ItypeVar types.GType) uint {
+	core.LazyRegister(&xSignalLookup, "GOBJECT", "g_signal_lookup", false)
+
 	cret := xSignalLookup(NameVar, ItypeVar)
 	return cret
 }
@@ -583,6 +635,8 @@ var xSignalName func(uint) string
 //
 // Two different signals may have the same name, if they have differing types.
 func SignalName(SignalIdVar uint) string {
+	core.LazyRegister(&xSignalName, "GOBJECT", "g_signal_name", false)
+
 	cret := xSignalName(SignalIdVar)
 	return cret
 }
@@ -614,6 +668,8 @@ var xSignalNew func(string, types.GType, SignalFlags, uint, uintptr, uintptr, ui
 // using g_signal_set_va_marshaller() or the generic va_marshaller will
 // be used.
 func SignalNew(SignalNameVar string, ItypeVar types.GType, SignalFlagsVar SignalFlags, ClassOffsetVar uint, AccumulatorVar *SignalAccumulator, AccuDataVar uintptr, CMarshallerVar *SignalCMarshaller, ReturnTypeVar types.GType, NParamsVar uint, varArgs ...interface{}) uint {
+	core.LazyRegister(&xSignalNew, "GOBJECT", "g_signal_new", false)
+
 	cret := xSignalNew(SignalNameVar, ItypeVar, SignalFlagsVar, ClassOffsetVar, glib.NewCallbackNullable(AccumulatorVar), AccuDataVar, glib.NewCallbackNullable(CMarshallerVar), ReturnTypeVar, NParamsVar, varArgs...)
 	return cret
 }
@@ -637,6 +693,8 @@ var xSignalNewClassHandler func(string, types.GType, SignalFlags, uintptr, uintp
 // If c_marshaller is %NULL, g_cclosure_marshal_generic() will be used as
 // the marshaller for this signal.
 func SignalNewClassHandler(SignalNameVar string, ItypeVar types.GType, SignalFlagsVar SignalFlags, ClassHandlerVar *Callback, AccumulatorVar *SignalAccumulator, AccuDataVar uintptr, CMarshallerVar *SignalCMarshaller, ReturnTypeVar types.GType, NParamsVar uint, varArgs ...interface{}) uint {
+	core.LazyRegister(&xSignalNewClassHandler, "GOBJECT", "g_signal_new_class_handler", false)
+
 	cret := xSignalNewClassHandler(SignalNameVar, ItypeVar, SignalFlagsVar, glib.NewCallbackNullable(ClassHandlerVar), glib.NewCallbackNullable(AccumulatorVar), AccuDataVar, glib.NewCallbackNullable(CMarshallerVar), ReturnTypeVar, NParamsVar, varArgs...)
 	return cret
 }
@@ -650,6 +708,8 @@ var xSignalNewValist func(string, types.GType, SignalFlags, *Closure, uintptr, u
 // If c_marshaller is %NULL, g_cclosure_marshal_generic() will be used as
 // the marshaller for this signal.
 func SignalNewValist(SignalNameVar string, ItypeVar types.GType, SignalFlagsVar SignalFlags, ClassClosureVar *Closure, AccumulatorVar *SignalAccumulator, AccuDataVar uintptr, CMarshallerVar *SignalCMarshaller, ReturnTypeVar types.GType, NParamsVar uint, ArgsVar []interface{}) uint {
+	core.LazyRegister(&xSignalNewValist, "GOBJECT", "g_signal_new_valist", false)
+
 	cret := xSignalNewValist(SignalNameVar, ItypeVar, SignalFlagsVar, ClassClosureVar, glib.NewCallbackNullable(AccumulatorVar), AccuDataVar, glib.NewCallbackNullable(CMarshallerVar), ReturnTypeVar, NParamsVar, ArgsVar)
 	return cret
 }
@@ -663,6 +723,8 @@ var xSignalNewv func(string, types.GType, SignalFlags, *Closure, uintptr, uintpt
 // If c_marshaller is %NULL, g_cclosure_marshal_generic() will be used as
 // the marshaller for this signal.
 func SignalNewv(SignalNameVar string, ItypeVar types.GType, SignalFlagsVar SignalFlags, ClassClosureVar *Closure, AccumulatorVar *SignalAccumulator, AccuDataVar uintptr, CMarshallerVar *SignalCMarshaller, ReturnTypeVar types.GType, NParamsVar uint, ParamTypesVar []types.GType) uint {
+	core.LazyRegister(&xSignalNewv, "GOBJECT", "g_signal_newv", false)
+
 	cret := xSignalNewv(SignalNameVar, ItypeVar, SignalFlagsVar, ClassClosureVar, glib.NewCallbackNullable(AccumulatorVar), AccuDataVar, glib.NewCallbackNullable(CMarshallerVar), ReturnTypeVar, NParamsVar, ParamTypesVar)
 	return cret
 }
@@ -677,6 +739,8 @@ var xSignalOverrideClassClosure func(uint, types.GType, *Closure)
 // g_signal_chain_from_overridden_handler() for how to chain up to the
 // parent class closure from inside the overridden one.
 func SignalOverrideClassClosure(SignalIdVar uint, InstanceTypeVar types.GType, ClassClosureVar *Closure) {
+	core.LazyRegister(&xSignalOverrideClassClosure, "GOBJECT", "g_signal_override_class_closure", false)
+
 	xSignalOverrideClassClosure(SignalIdVar, InstanceTypeVar, ClassClosureVar)
 }
 
@@ -691,6 +755,8 @@ var xSignalOverrideClassHandler func(string, types.GType, uintptr)
 // g_signal_chain_from_overridden_handler() for how to chain up to the
 // parent class closure from inside the overridden one.
 func SignalOverrideClassHandler(SignalNameVar string, InstanceTypeVar types.GType, ClassHandlerVar *Callback) {
+	core.LazyRegister(&xSignalOverrideClassHandler, "GOBJECT", "g_signal_override_class_handler", false)
+
 	xSignalOverrideClassHandler(SignalNameVar, InstanceTypeVar, glib.NewCallback(ClassHandlerVar))
 }
 
@@ -699,6 +765,8 @@ var xSignalParseName func(string, types.GType, *uint, *glib.Quark, bool) bool
 // Internal function to parse a signal name into its @signal_id
 // and @detail quark.
 func SignalParseName(DetailedSignalVar string, ItypeVar types.GType, SignalIdPVar *uint, DetailPVar *glib.Quark, ForceDetailQuarkVar bool) bool {
+	core.LazyRegister(&xSignalParseName, "GOBJECT", "g_signal_parse_name", false)
+
 	cret := xSignalParseName(DetailedSignalVar, ItypeVar, SignalIdPVar, DetailPVar, ForceDetailQuarkVar)
 	return cret
 }
@@ -712,6 +780,8 @@ var xNewSignalQuery func(uint, *SignalQuery)
 // is 0. All members filled into the #GSignalQuery structure should
 // be considered constant and have to be left untouched.
 func NewSignalQuery(SignalIdVar uint, QueryVar *SignalQuery) {
+	core.LazyRegister(&xNewSignalQuery, "GOBJECT", "g_signal_query", false)
+
 	xNewSignalQuery(SignalIdVar, QueryVar)
 }
 
@@ -719,6 +789,8 @@ var xSignalRemoveEmissionHook func(uint, uint)
 
 // Deletes an emission hook.
 func SignalRemoveEmissionHook(SignalIdVar uint, HookIdVar uint) {
+	core.LazyRegister(&xSignalRemoveEmissionHook, "GOBJECT", "g_signal_remove_emission_hook", false)
+
 	xSignalRemoveEmissionHook(SignalIdVar, HookIdVar)
 }
 
@@ -729,6 +801,8 @@ var xSignalSetVaMarshaller func(uint, types.GType, uintptr)
 // common case of a single connected signal handler and avoids the
 // overhead of #GValue.  Its use is optional.
 func SignalSetVaMarshaller(SignalIdVar uint, InstanceTypeVar types.GType, VaMarshallerVar *SignalCVaMarshaller) {
+	core.LazyRegister(&xSignalSetVaMarshaller, "GOBJECT", "g_signal_set_va_marshaller", false)
+
 	xSignalSetVaMarshaller(SignalIdVar, InstanceTypeVar, glib.NewCallback(VaMarshallerVar))
 }
 
@@ -742,6 +816,8 @@ var xSignalStopEmission func(uintptr, uint, glib.Quark)
 //
 // Prints a warning if used on a signal which isn't being emitted.
 func SignalStopEmission(InstanceVar *Object, SignalIdVar uint, DetailVar glib.Quark) {
+	core.LazyRegister(&xSignalStopEmission, "GOBJECT", "g_signal_stop_emission", false)
+
 	xSignalStopEmission(InstanceVar.GoPointer(), SignalIdVar, DetailVar)
 }
 
@@ -752,59 +828,12 @@ var xSignalStopEmissionByName func(uintptr, string)
 // This is just like g_signal_stop_emission() except it will look up the
 // signal id for you.
 func SignalStopEmissionByName(InstanceVar *Object, DetailedSignalVar string) {
+	core.LazyRegister(&xSignalStopEmissionByName, "GOBJECT", "g_signal_stop_emission_by_name", false)
+
 	xSignalStopEmissionByName(InstanceVar.GoPointer(), DetailedSignalVar)
 }
 
 func init() {
 	core.SetPackageName("GOBJECT", "gobject-2.0")
 	core.SetSharedLibraries("GOBJECT", []string{"libgobject-2.0.so.0", "libgobject-2.0.0.dylib"})
-	var libs []uintptr
-	for _, libPath := range core.GetPaths("GOBJECT") {
-		lib, err := purego.Dlopen(libPath, purego.RTLD_NOW|purego.RTLD_GLOBAL)
-		if err != nil {
-			panic(err)
-		}
-		libs = append(libs, lib)
-	}
-
-	core.PuregoSafeRegister(&xClearSignalHandler, libs, "g_clear_signal_handler")
-	core.PuregoSafeRegister(&xSignalAccumulatorFirstWins, libs, "g_signal_accumulator_first_wins")
-	core.PuregoSafeRegister(&xSignalAccumulatorTrueHandled, libs, "g_signal_accumulator_true_handled")
-	core.PuregoSafeRegister(&xSignalAddEmissionHook, libs, "g_signal_add_emission_hook")
-	core.PuregoSafeRegister(&xSignalChainFromOverridden, libs, "g_signal_chain_from_overridden")
-	core.PuregoSafeRegister(&xSignalChainFromOverriddenHandler, libs, "g_signal_chain_from_overridden_handler")
-	core.PuregoSafeRegister(&xSignalConnectClosure, libs, "g_signal_connect_closure")
-	core.PuregoSafeRegister(&xSignalConnectClosureById, libs, "g_signal_connect_closure_by_id")
-	core.PuregoSafeRegister(&xSignalConnectData, libs, "g_signal_connect_data")
-	core.PuregoSafeRegister(&xSignalEmit, libs, "g_signal_emit")
-	core.PuregoSafeRegister(&xSignalEmitByName, libs, "g_signal_emit_by_name")
-	core.PuregoSafeRegister(&xSignalEmitValist, libs, "g_signal_emit_valist")
-	core.PuregoSafeRegister(&xSignalEmitv, libs, "g_signal_emitv")
-	core.PuregoSafeRegister(&xSignalGetInvocationHint, libs, "g_signal_get_invocation_hint")
-	core.PuregoSafeRegister(&xSignalHandlerBlock, libs, "g_signal_handler_block")
-	core.PuregoSafeRegister(&xSignalHandlerDisconnect, libs, "g_signal_handler_disconnect")
-	core.PuregoSafeRegister(&xSignalHandlerFind, libs, "g_signal_handler_find")
-	core.PuregoSafeRegister(&xSignalHandlerIsConnected, libs, "g_signal_handler_is_connected")
-	core.PuregoSafeRegister(&xSignalHandlerUnblock, libs, "g_signal_handler_unblock")
-	core.PuregoSafeRegister(&xSignalHandlersBlockMatched, libs, "g_signal_handlers_block_matched")
-	core.PuregoSafeRegister(&xSignalHandlersDestroy, libs, "g_signal_handlers_destroy")
-	core.PuregoSafeRegister(&xSignalHandlersDisconnectMatched, libs, "g_signal_handlers_disconnect_matched")
-	core.PuregoSafeRegister(&xSignalHandlersUnblockMatched, libs, "g_signal_handlers_unblock_matched")
-	core.PuregoSafeRegister(&xSignalHasHandlerPending, libs, "g_signal_has_handler_pending")
-	core.PuregoSafeRegister(&xSignalIsValidName, libs, "g_signal_is_valid_name")
-	core.PuregoSafeRegister(&xSignalListIds, libs, "g_signal_list_ids")
-	core.PuregoSafeRegister(&xSignalLookup, libs, "g_signal_lookup")
-	core.PuregoSafeRegister(&xSignalName, libs, "g_signal_name")
-	core.PuregoSafeRegister(&xSignalNew, libs, "g_signal_new")
-	core.PuregoSafeRegister(&xSignalNewClassHandler, libs, "g_signal_new_class_handler")
-	core.PuregoSafeRegister(&xSignalNewValist, libs, "g_signal_new_valist")
-	core.PuregoSafeRegister(&xSignalNewv, libs, "g_signal_newv")
-	core.PuregoSafeRegister(&xSignalOverrideClassClosure, libs, "g_signal_override_class_closure")
-	core.PuregoSafeRegister(&xSignalOverrideClassHandler, libs, "g_signal_override_class_handler")
-	core.PuregoSafeRegister(&xSignalParseName, libs, "g_signal_parse_name")
-	core.PuregoSafeRegister(&xNewSignalQuery, libs, "g_signal_query")
-	core.PuregoSafeRegister(&xSignalRemoveEmissionHook, libs, "g_signal_remove_emission_hook")
-	core.PuregoSafeRegister(&xSignalSetVaMarshaller, libs, "g_signal_set_va_marshaller")
-	core.PuregoSafeRegister(&xSignalStopEmission, libs, "g_signal_stop_emission")
-	core.PuregoSafeRegister(&xSignalStopEmissionByName, libs, "g_signal_stop_emission_by_name")
 }

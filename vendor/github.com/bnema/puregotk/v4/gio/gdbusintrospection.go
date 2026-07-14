@@ -5,7 +5,6 @@ import (
 	"structs"
 	"unsafe"
 
-	"github.com/bnema/purego"
 	"github.com/bnema/puregotk/pkg/core"
 	"github.com/bnema/puregotk/v4/glib"
 	"github.com/bnema/puregotk/v4/gobject/types"
@@ -27,6 +26,7 @@ type DBusAnnotationInfo struct {
 var xDBusAnnotationInfoGLibType func() types.GType
 
 func DBusAnnotationInfoGLibType() types.GType {
+	core.LazyRegister(&xDBusAnnotationInfoGLibType, "GIO", "g_dbus_annotation_info_get_type", false)
 	return xDBusAnnotationInfoGLibType()
 }
 
@@ -47,6 +47,8 @@ var xDBusAnnotationInfoRef func(uintptr) uintptr
 // If @info is statically allocated does nothing. Otherwise increases
 // the reference count.
 func (x *DBusAnnotationInfo) Ref() *DBusAnnotationInfo {
+	core.LazyRegister(&xDBusAnnotationInfoRef, "GIO", "g_dbus_annotation_info_ref", false)
+
 	cret := xDBusAnnotationInfoRef(x.GoPointer())
 	if cret == 0 {
 		return nil
@@ -60,6 +62,8 @@ var xDBusAnnotationInfoUnref func(uintptr)
 // the reference count of @info. When its reference count drops to 0,
 // the memory used is freed.
 func (x *DBusAnnotationInfo) Unref() {
+	core.LazyRegister(&xDBusAnnotationInfoUnref, "GIO", "g_dbus_annotation_info_unref", false)
+
 	xDBusAnnotationInfoUnref(x.GoPointer())
 }
 
@@ -79,6 +83,7 @@ type DBusArgInfo struct {
 var xDBusArgInfoGLibType func() types.GType
 
 func DBusArgInfoGLibType() types.GType {
+	core.LazyRegister(&xDBusArgInfoGLibType, "GIO", "g_dbus_arg_info_get_type", false)
 	return xDBusArgInfoGLibType()
 }
 
@@ -99,6 +104,8 @@ var xDBusArgInfoRef func(uintptr) uintptr
 // If @info is statically allocated does nothing. Otherwise increases
 // the reference count.
 func (x *DBusArgInfo) Ref() *DBusArgInfo {
+	core.LazyRegister(&xDBusArgInfoRef, "GIO", "g_dbus_arg_info_ref", false)
+
 	cret := xDBusArgInfoRef(x.GoPointer())
 	if cret == 0 {
 		return nil
@@ -112,6 +119,8 @@ var xDBusArgInfoUnref func(uintptr)
 // the reference count of @info. When its reference count drops to 0,
 // the memory used is freed.
 func (x *DBusArgInfo) Unref() {
+	core.LazyRegister(&xDBusArgInfoUnref, "GIO", "g_dbus_arg_info_unref", false)
+
 	xDBusArgInfoUnref(x.GoPointer())
 }
 
@@ -135,6 +144,7 @@ type DBusInterfaceInfo struct {
 var xDBusInterfaceInfoGLibType func() types.GType
 
 func DBusInterfaceInfoGLibType() types.GType {
+	core.LazyRegister(&xDBusInterfaceInfoGLibType, "GIO", "g_dbus_interface_info_get_type", false)
 	return xDBusInterfaceInfoGLibType()
 }
 
@@ -163,6 +173,8 @@ var xDBusInterfaceInfoCacheBuild func(uintptr)
 // Note that @info cannot be modified until
 // g_dbus_interface_info_cache_release() is called.
 func (x *DBusInterfaceInfo) CacheBuild() {
+	core.LazyRegister(&xDBusInterfaceInfoCacheBuild, "GIO", "g_dbus_interface_info_cache_build", false)
+
 	xDBusInterfaceInfoCacheBuild(x.GoPointer())
 }
 
@@ -172,6 +184,8 @@ var xDBusInterfaceInfoCacheRelease func(uintptr)
 // g_dbus_interface_info_cache_build() (if any) and frees the
 // resources used by the cache if the usage count drops to zero.
 func (x *DBusInterfaceInfo) CacheRelease() {
+	core.LazyRegister(&xDBusInterfaceInfoCacheRelease, "GIO", "g_dbus_interface_info_cache_release", false)
+
 	xDBusInterfaceInfoCacheRelease(x.GoPointer())
 }
 
@@ -184,6 +198,8 @@ var xDBusInterfaceInfoGenerateXml func(uintptr, uint, *glib.String)
 // `org.freedesktop.DBus.Introspectable.Introspect`
 // method.
 func (x *DBusInterfaceInfo) GenerateXml(IndentVar uint, StringBuilderVar *glib.String) {
+	core.LazyRegister(&xDBusInterfaceInfoGenerateXml, "GIO", "g_dbus_interface_info_generate_xml", false)
+
 	xDBusInterfaceInfoGenerateXml(x.GoPointer(), IndentVar, StringBuilderVar)
 }
 
@@ -194,6 +210,8 @@ var xDBusInterfaceInfoLookupMethod func(uintptr, string) uintptr
 // The cost of this function is O(n) in number of methods unless
 // g_dbus_interface_info_cache_build() has been used on @info.
 func (x *DBusInterfaceInfo) LookupMethod(NameVar string) *DBusMethodInfo {
+	core.LazyRegister(&xDBusInterfaceInfoLookupMethod, "GIO", "g_dbus_interface_info_lookup_method", false)
+
 	cret := xDBusInterfaceInfoLookupMethod(x.GoPointer(), NameVar)
 	if cret == 0 {
 		return nil
@@ -208,6 +226,8 @@ var xDBusInterfaceInfoLookupProperty func(uintptr, string) uintptr
 // The cost of this function is O(n) in number of properties unless
 // g_dbus_interface_info_cache_build() has been used on @info.
 func (x *DBusInterfaceInfo) LookupProperty(NameVar string) *DBusPropertyInfo {
+	core.LazyRegister(&xDBusInterfaceInfoLookupProperty, "GIO", "g_dbus_interface_info_lookup_property", false)
+
 	cret := xDBusInterfaceInfoLookupProperty(x.GoPointer(), NameVar)
 	if cret == 0 {
 		return nil
@@ -222,6 +242,8 @@ var xDBusInterfaceInfoLookupSignal func(uintptr, string) uintptr
 // The cost of this function is O(n) in number of signals unless
 // g_dbus_interface_info_cache_build() has been used on @info.
 func (x *DBusInterfaceInfo) LookupSignal(NameVar string) *DBusSignalInfo {
+	core.LazyRegister(&xDBusInterfaceInfoLookupSignal, "GIO", "g_dbus_interface_info_lookup_signal", false)
+
 	cret := xDBusInterfaceInfoLookupSignal(x.GoPointer(), NameVar)
 	if cret == 0 {
 		return nil
@@ -234,6 +256,8 @@ var xDBusInterfaceInfoRef func(uintptr) uintptr
 // If @info is statically allocated does nothing. Otherwise increases
 // the reference count.
 func (x *DBusInterfaceInfo) Ref() *DBusInterfaceInfo {
+	core.LazyRegister(&xDBusInterfaceInfoRef, "GIO", "g_dbus_interface_info_ref", false)
+
 	cret := xDBusInterfaceInfoRef(x.GoPointer())
 	if cret == 0 {
 		return nil
@@ -247,6 +271,8 @@ var xDBusInterfaceInfoUnref func(uintptr)
 // the reference count of @info. When its reference count drops to 0,
 // the memory used is freed.
 func (x *DBusInterfaceInfo) Unref() {
+	core.LazyRegister(&xDBusInterfaceInfoUnref, "GIO", "g_dbus_interface_info_unref", false)
+
 	xDBusInterfaceInfoUnref(x.GoPointer())
 }
 
@@ -268,6 +294,7 @@ type DBusMethodInfo struct {
 var xDBusMethodInfoGLibType func() types.GType
 
 func DBusMethodInfoGLibType() types.GType {
+	core.LazyRegister(&xDBusMethodInfoGLibType, "GIO", "g_dbus_method_info_get_type", false)
 	return xDBusMethodInfoGLibType()
 }
 
@@ -288,6 +315,8 @@ var xDBusMethodInfoRef func(uintptr) uintptr
 // If @info is statically allocated does nothing. Otherwise increases
 // the reference count.
 func (x *DBusMethodInfo) Ref() *DBusMethodInfo {
+	core.LazyRegister(&xDBusMethodInfoRef, "GIO", "g_dbus_method_info_ref", false)
+
 	cret := xDBusMethodInfoRef(x.GoPointer())
 	if cret == 0 {
 		return nil
@@ -301,6 +330,8 @@ var xDBusMethodInfoUnref func(uintptr)
 // the reference count of @info. When its reference count drops to 0,
 // the memory used is freed.
 func (x *DBusMethodInfo) Unref() {
+	core.LazyRegister(&xDBusMethodInfoUnref, "GIO", "g_dbus_method_info_unref", false)
+
 	xDBusMethodInfoUnref(x.GoPointer())
 }
 
@@ -322,6 +353,7 @@ type DBusNodeInfo struct {
 var xDBusNodeInfoGLibType func() types.GType
 
 func DBusNodeInfoGLibType() types.GType {
+	core.LazyRegister(&xDBusNodeInfoGLibType, "GIO", "g_dbus_node_info_get_type", false)
 	return xDBusNodeInfoGLibType()
 }
 
@@ -348,6 +380,7 @@ var xNewDBusNodeInfoForXml func(string, **glib.Error) uintptr
 // [GMarkup](../glib/markup.html)-based
 // parser that only accepts a subset of valid XML documents.
 func NewDBusNodeInfoForXml(XmlDataVar string) (*DBusNodeInfo, error) {
+	core.LazyRegister(&xNewDBusNodeInfoForXml, "GIO", "g_dbus_node_info_new_for_xml", false)
 	var cerr *glib.Error
 
 	cret := xNewDBusNodeInfoForXml(XmlDataVar, &cerr)
@@ -367,6 +400,8 @@ var xDBusNodeInfoGenerateXml func(uintptr, uint, *glib.String)
 // This function is typically used for generating introspection XML documents at run-time for
 // handling the `org.freedesktop.DBus.Introspectable.Introspect`  method.
 func (x *DBusNodeInfo) GenerateXml(IndentVar uint, StringBuilderVar *glib.String) {
+	core.LazyRegister(&xDBusNodeInfoGenerateXml, "GIO", "g_dbus_node_info_generate_xml", false)
+
 	xDBusNodeInfoGenerateXml(x.GoPointer(), IndentVar, StringBuilderVar)
 }
 
@@ -376,6 +411,8 @@ var xDBusNodeInfoLookupInterface func(uintptr, string) uintptr
 //
 // The cost of this function is O(n) in number of interfaces.
 func (x *DBusNodeInfo) LookupInterface(NameVar string) *DBusInterfaceInfo {
+	core.LazyRegister(&xDBusNodeInfoLookupInterface, "GIO", "g_dbus_node_info_lookup_interface", false)
+
 	cret := xDBusNodeInfoLookupInterface(x.GoPointer(), NameVar)
 	if cret == 0 {
 		return nil
@@ -388,6 +425,8 @@ var xDBusNodeInfoRef func(uintptr) uintptr
 // If @info is statically allocated does nothing. Otherwise increases
 // the reference count.
 func (x *DBusNodeInfo) Ref() *DBusNodeInfo {
+	core.LazyRegister(&xDBusNodeInfoRef, "GIO", "g_dbus_node_info_ref", false)
+
 	cret := xDBusNodeInfoRef(x.GoPointer())
 	if cret == 0 {
 		return nil
@@ -401,6 +440,8 @@ var xDBusNodeInfoUnref func(uintptr)
 // the reference count of @info. When its reference count drops to 0,
 // the memory used is freed.
 func (x *DBusNodeInfo) Unref() {
+	core.LazyRegister(&xDBusNodeInfoUnref, "GIO", "g_dbus_node_info_unref", false)
+
 	xDBusNodeInfoUnref(x.GoPointer())
 }
 
@@ -422,6 +463,7 @@ type DBusPropertyInfo struct {
 var xDBusPropertyInfoGLibType func() types.GType
 
 func DBusPropertyInfoGLibType() types.GType {
+	core.LazyRegister(&xDBusPropertyInfoGLibType, "GIO", "g_dbus_property_info_get_type", false)
 	return xDBusPropertyInfoGLibType()
 }
 
@@ -442,6 +484,8 @@ var xDBusPropertyInfoRef func(uintptr) uintptr
 // If @info is statically allocated does nothing. Otherwise increases
 // the reference count.
 func (x *DBusPropertyInfo) Ref() *DBusPropertyInfo {
+	core.LazyRegister(&xDBusPropertyInfoRef, "GIO", "g_dbus_property_info_ref", false)
+
 	cret := xDBusPropertyInfoRef(x.GoPointer())
 	if cret == 0 {
 		return nil
@@ -455,6 +499,8 @@ var xDBusPropertyInfoUnref func(uintptr)
 // the reference count of @info. When its reference count drops to 0,
 // the memory used is freed.
 func (x *DBusPropertyInfo) Unref() {
+	core.LazyRegister(&xDBusPropertyInfoUnref, "GIO", "g_dbus_property_info_unref", false)
+
 	xDBusPropertyInfoUnref(x.GoPointer())
 }
 
@@ -474,6 +520,7 @@ type DBusSignalInfo struct {
 var xDBusSignalInfoGLibType func() types.GType
 
 func DBusSignalInfoGLibType() types.GType {
+	core.LazyRegister(&xDBusSignalInfoGLibType, "GIO", "g_dbus_signal_info_get_type", false)
 	return xDBusSignalInfoGLibType()
 }
 
@@ -494,6 +541,8 @@ var xDBusSignalInfoRef func(uintptr) uintptr
 // If @info is statically allocated does nothing. Otherwise increases
 // the reference count.
 func (x *DBusSignalInfo) Ref() *DBusSignalInfo {
+	core.LazyRegister(&xDBusSignalInfoRef, "GIO", "g_dbus_signal_info_ref", false)
+
 	cret := xDBusSignalInfoRef(x.GoPointer())
 	if cret == 0 {
 		return nil
@@ -507,6 +556,8 @@ var xDBusSignalInfoUnref func(uintptr)
 // the reference count of @info. When its reference count drops to 0,
 // the memory used is freed.
 func (x *DBusSignalInfo) Unref() {
+	core.LazyRegister(&xDBusSignalInfoUnref, "GIO", "g_dbus_signal_info_unref", false)
+
 	xDBusSignalInfoUnref(x.GoPointer())
 }
 
@@ -516,6 +567,8 @@ var xDbusAnnotationInfoLookup func(uintptr, string) string
 //
 // The cost of this function is O(n) in number of annotations.
 func DbusAnnotationInfoLookup(AnnotationsVar uintptr, NameVar string) string {
+	core.LazyRegister(&xDbusAnnotationInfoLookup, "GIO", "g_dbus_annotation_info_lookup", false)
+
 	cret := xDbusAnnotationInfoLookup(AnnotationsVar, NameVar)
 	return cret
 }
@@ -523,59 +576,4 @@ func DbusAnnotationInfoLookup(AnnotationsVar uintptr, NameVar string) string {
 func init() {
 	core.SetPackageName("GIO", "gio-2.0")
 	core.SetSharedLibraries("GIO", []string{"libgio-2.0.so.0", "libgio-2.0.0.dylib"})
-	var libs []uintptr
-	for _, libPath := range core.GetPaths("GIO") {
-		lib, err := purego.Dlopen(libPath, purego.RTLD_NOW|purego.RTLD_GLOBAL)
-		if err != nil {
-			panic(err)
-		}
-		libs = append(libs, lib)
-	}
-
-	core.PuregoSafeRegister(&xDbusAnnotationInfoLookup, libs, "g_dbus_annotation_info_lookup")
-
-	core.PuregoSafeRegister(&xDBusAnnotationInfoGLibType, libs, "g_dbus_annotation_info_get_type")
-
-	core.PuregoSafeRegister(&xDBusAnnotationInfoRef, libs, "g_dbus_annotation_info_ref")
-	core.PuregoSafeRegister(&xDBusAnnotationInfoUnref, libs, "g_dbus_annotation_info_unref")
-
-	core.PuregoSafeRegister(&xDBusArgInfoGLibType, libs, "g_dbus_arg_info_get_type")
-
-	core.PuregoSafeRegister(&xDBusArgInfoRef, libs, "g_dbus_arg_info_ref")
-	core.PuregoSafeRegister(&xDBusArgInfoUnref, libs, "g_dbus_arg_info_unref")
-
-	core.PuregoSafeRegister(&xDBusInterfaceInfoGLibType, libs, "g_dbus_interface_info_get_type")
-
-	core.PuregoSafeRegister(&xDBusInterfaceInfoCacheBuild, libs, "g_dbus_interface_info_cache_build")
-	core.PuregoSafeRegister(&xDBusInterfaceInfoCacheRelease, libs, "g_dbus_interface_info_cache_release")
-	core.PuregoSafeRegister(&xDBusInterfaceInfoGenerateXml, libs, "g_dbus_interface_info_generate_xml")
-	core.PuregoSafeRegister(&xDBusInterfaceInfoLookupMethod, libs, "g_dbus_interface_info_lookup_method")
-	core.PuregoSafeRegister(&xDBusInterfaceInfoLookupProperty, libs, "g_dbus_interface_info_lookup_property")
-	core.PuregoSafeRegister(&xDBusInterfaceInfoLookupSignal, libs, "g_dbus_interface_info_lookup_signal")
-	core.PuregoSafeRegister(&xDBusInterfaceInfoRef, libs, "g_dbus_interface_info_ref")
-	core.PuregoSafeRegister(&xDBusInterfaceInfoUnref, libs, "g_dbus_interface_info_unref")
-
-	core.PuregoSafeRegister(&xDBusMethodInfoGLibType, libs, "g_dbus_method_info_get_type")
-
-	core.PuregoSafeRegister(&xDBusMethodInfoRef, libs, "g_dbus_method_info_ref")
-	core.PuregoSafeRegister(&xDBusMethodInfoUnref, libs, "g_dbus_method_info_unref")
-
-	core.PuregoSafeRegister(&xDBusNodeInfoGLibType, libs, "g_dbus_node_info_get_type")
-
-	core.PuregoSafeRegister(&xNewDBusNodeInfoForXml, libs, "g_dbus_node_info_new_for_xml")
-
-	core.PuregoSafeRegister(&xDBusNodeInfoGenerateXml, libs, "g_dbus_node_info_generate_xml")
-	core.PuregoSafeRegister(&xDBusNodeInfoLookupInterface, libs, "g_dbus_node_info_lookup_interface")
-	core.PuregoSafeRegister(&xDBusNodeInfoRef, libs, "g_dbus_node_info_ref")
-	core.PuregoSafeRegister(&xDBusNodeInfoUnref, libs, "g_dbus_node_info_unref")
-
-	core.PuregoSafeRegister(&xDBusPropertyInfoGLibType, libs, "g_dbus_property_info_get_type")
-
-	core.PuregoSafeRegister(&xDBusPropertyInfoRef, libs, "g_dbus_property_info_ref")
-	core.PuregoSafeRegister(&xDBusPropertyInfoUnref, libs, "g_dbus_property_info_unref")
-
-	core.PuregoSafeRegister(&xDBusSignalInfoGLibType, libs, "g_dbus_signal_info_get_type")
-
-	core.PuregoSafeRegister(&xDBusSignalInfoRef, libs, "g_dbus_signal_info_ref")
-	core.PuregoSafeRegister(&xDBusSignalInfoUnref, libs, "g_dbus_signal_info_unref")
 }

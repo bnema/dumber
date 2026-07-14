@@ -5,7 +5,6 @@ import (
 	"structs"
 	"unsafe"
 
-	"github.com/bnema/purego"
 	"github.com/bnema/puregotk/pkg/core"
 	"github.com/bnema/puregotk/v4/gdk"
 	"github.com/bnema/puregotk/v4/glib"
@@ -69,6 +68,7 @@ type DropTargetAsync struct {
 var xDropTargetAsyncGLibType func() types.GType
 
 func DropTargetAsyncGLibType() types.GType {
+	core.LazyRegister(&xDropTargetAsyncGLibType, "GTK", "gtk_drop_target_async_get_type", false)
 	return xDropTargetAsyncGLibType()
 }
 
@@ -82,6 +82,7 @@ var xNewDropTargetAsync func(*gdk.ContentFormats, gdk.DragAction) uintptr
 
 // Creates a new `GtkDropTargetAsync` object.
 func NewDropTargetAsync(FormatsVar *gdk.ContentFormats, ActionsVar gdk.DragAction) *DropTargetAsync {
+	core.LazyRegister(&xNewDropTargetAsync, "GTK", "gtk_drop_target_async_new", false)
 	var cls *DropTargetAsync
 
 	cret := xNewDropTargetAsync(FormatsVar, ActionsVar)
@@ -98,6 +99,8 @@ var xDropTargetAsyncGetActions func(uintptr) gdk.DragAction
 
 // Gets the actions that this drop target supports.
 func (x *DropTargetAsync) GetActions() gdk.DragAction {
+	core.LazyRegister(&xDropTargetAsyncGetActions, "GTK", "gtk_drop_target_async_get_actions", false)
+
 	cret := xDropTargetAsyncGetActions(x.GoPointer())
 	return cret
 }
@@ -108,6 +111,8 @@ var xDropTargetAsyncGetFormats func(uintptr) uintptr
 //
 // If the result is %NULL, all formats are expected to be supported.
 func (x *DropTargetAsync) GetFormats() *gdk.ContentFormats {
+	core.LazyRegister(&xDropTargetAsyncGetFormats, "GTK", "gtk_drop_target_async_get_formats", false)
+
 	cret := xDropTargetAsyncGetFormats(x.GoPointer())
 	if cret == 0 {
 		return nil
@@ -123,6 +128,8 @@ var xDropTargetAsyncRejectDrop func(uintptr, uintptr)
 // on whether to accept a drag or not until after reading
 // the data.
 func (x *DropTargetAsync) RejectDrop(DropVar *gdk.Drop) {
+	core.LazyRegister(&xDropTargetAsyncRejectDrop, "GTK", "gtk_drop_target_async_reject_drop", false)
+
 	xDropTargetAsyncRejectDrop(x.GoPointer(), DropVar.GoPointer())
 }
 
@@ -130,6 +137,8 @@ var xDropTargetAsyncSetActions func(uintptr, gdk.DragAction)
 
 // Sets the actions that this drop target supports.
 func (x *DropTargetAsync) SetActions(ActionsVar gdk.DragAction) {
+	core.LazyRegister(&xDropTargetAsyncSetActions, "GTK", "gtk_drop_target_async_set_actions", false)
+
 	xDropTargetAsyncSetActions(x.GoPointer(), ActionsVar)
 }
 
@@ -137,6 +146,8 @@ var xDropTargetAsyncSetFormats func(uintptr, *gdk.ContentFormats)
 
 // Sets the data formats that this drop target will accept.
 func (x *DropTargetAsync) SetFormats(FormatsVar *gdk.ContentFormats) {
+	core.LazyRegister(&xDropTargetAsyncSetFormats, "GTK", "gtk_drop_target_async_set_formats", false)
+
 	xDropTargetAsyncSetFormats(x.GoPointer(), FormatsVar)
 }
 
@@ -326,22 +337,4 @@ func (x *DropTargetAsync) ConnectDrop(cb *func(DropTargetAsync, uintptr, float64
 func init() {
 	core.SetPackageName("GTK", "gtk4")
 	core.SetSharedLibraries("GTK", []string{"libgtk-4.so.1", "libgtk-4.1.dylib"})
-	var libs []uintptr
-	for _, libPath := range core.GetPaths("GTK") {
-		lib, err := purego.Dlopen(libPath, purego.RTLD_NOW|purego.RTLD_GLOBAL)
-		if err != nil {
-			panic(err)
-		}
-		libs = append(libs, lib)
-	}
-
-	core.PuregoSafeRegister(&xDropTargetAsyncGLibType, libs, "gtk_drop_target_async_get_type")
-
-	core.PuregoSafeRegister(&xNewDropTargetAsync, libs, "gtk_drop_target_async_new")
-
-	core.PuregoSafeRegister(&xDropTargetAsyncGetActions, libs, "gtk_drop_target_async_get_actions")
-	core.PuregoSafeRegister(&xDropTargetAsyncGetFormats, libs, "gtk_drop_target_async_get_formats")
-	core.PuregoSafeRegister(&xDropTargetAsyncRejectDrop, libs, "gtk_drop_target_async_reject_drop")
-	core.PuregoSafeRegister(&xDropTargetAsyncSetActions, libs, "gtk_drop_target_async_set_actions")
-	core.PuregoSafeRegister(&xDropTargetAsyncSetFormats, libs, "gtk_drop_target_async_set_formats")
 }

@@ -88,6 +88,7 @@ type ScaleButton struct {
 var xScaleButtonGLibType func() types.GType
 
 func ScaleButtonGLibType() types.GType {
+	core.LazyRegister(&xScaleButtonGLibType, "GTK", "gtk_scale_button_get_type", false)
 	return xScaleButtonGLibType()
 }
 
@@ -104,6 +105,7 @@ var xNewScaleButton func(float64, float64, float64, []string) uintptr
 // The new scale button has a range between @min and @max,
 // with a stepping of @step.
 func NewScaleButton(MinVar float64, MaxVar float64, StepVar float64, IconsVar []string) *ScaleButton {
+	core.LazyRegister(&xNewScaleButton, "GTK", "gtk_scale_button_new", false)
 	var cls *ScaleButton
 
 	cret := xNewScaleButton(MinVar, MaxVar, StepVar, IconsVar)
@@ -124,6 +126,8 @@ var xScaleButtonGetActive func(uintptr) bool
 // Returns %TRUE if the scale button is pressed in and %FALSE
 // if it is raised.
 func (x *ScaleButton) GetActive() bool {
+	core.LazyRegister(&xScaleButtonGetActive, "GTK", "gtk_scale_button_get_active", false)
+
 	cret := xScaleButtonGetActive(x.GoPointer())
 	return cret
 }
@@ -134,6 +138,7 @@ var xScaleButtonGetAdjustment func(uintptr) uintptr
 //
 // See [method@Gtk.Range.get_adjustment] for details.
 func (x *ScaleButton) GetAdjustment() *Adjustment {
+	core.LazyRegister(&xScaleButtonGetAdjustment, "GTK", "gtk_scale_button_get_adjustment", false)
 	var cls *Adjustment
 
 	cret := xScaleButtonGetAdjustment(x.GoPointer())
@@ -151,6 +156,8 @@ var xScaleButtonGetHasFrame func(uintptr) bool
 
 // Returns whether the button has a frame.
 func (x *ScaleButton) GetHasFrame() bool {
+	core.LazyRegister(&xScaleButtonGetHasFrame, "GTK", "gtk_scale_button_get_has_frame", false)
+
 	cret := xScaleButtonGetHasFrame(x.GoPointer())
 	return cret
 }
@@ -159,6 +166,7 @@ var xScaleButtonGetMinusButton func(uintptr) uintptr
 
 // Retrieves the minus button of the `GtkScaleButton`.
 func (x *ScaleButton) GetMinusButton() *Button {
+	core.LazyRegister(&xScaleButtonGetMinusButton, "GTK", "gtk_scale_button_get_minus_button", false)
 	var cls *Button
 
 	cret := xScaleButtonGetMinusButton(x.GoPointer())
@@ -176,6 +184,7 @@ var xScaleButtonGetPlusButton func(uintptr) uintptr
 
 // Retrieves the plus button of the `GtkScaleButton.`
 func (x *ScaleButton) GetPlusButton() *Button {
+	core.LazyRegister(&xScaleButtonGetPlusButton, "GTK", "gtk_scale_button_get_plus_button", false)
 	var cls *Button
 
 	cret := xScaleButtonGetPlusButton(x.GoPointer())
@@ -193,6 +202,7 @@ var xScaleButtonGetPopup func(uintptr) uintptr
 
 // Retrieves the popup of the `GtkScaleButton`.
 func (x *ScaleButton) GetPopup() *Widget {
+	core.LazyRegister(&xScaleButtonGetPopup, "GTK", "gtk_scale_button_get_popup", false)
 	var cls *Widget
 
 	cret := xScaleButtonGetPopup(x.GoPointer())
@@ -210,6 +220,8 @@ var xScaleButtonGetValue func(uintptr) float64
 
 // Gets the current value of the scale button.
 func (x *ScaleButton) GetValue() float64 {
+	core.LazyRegister(&xScaleButtonGetValue, "GTK", "gtk_scale_button_get_value", false)
+
 	cret := xScaleButtonGetValue(x.GoPointer())
 	return cret
 }
@@ -221,6 +233,8 @@ var xScaleButtonSetAdjustment func(uintptr, uintptr)
 //
 // See [method@Gtk.Range.set_adjustment] for details.
 func (x *ScaleButton) SetAdjustment(AdjustmentVar *Adjustment) {
+	core.LazyRegister(&xScaleButtonSetAdjustment, "GTK", "gtk_scale_button_set_adjustment", false)
+
 	xScaleButtonSetAdjustment(x.GoPointer(), AdjustmentVar.GoPointer())
 }
 
@@ -228,6 +242,8 @@ var xScaleButtonSetHasFrame func(uintptr, bool)
 
 // Sets the style of the button.
 func (x *ScaleButton) SetHasFrame(HasFrameVar bool) {
+	core.LazyRegister(&xScaleButtonSetHasFrame, "GTK", "gtk_scale_button_set_has_frame", false)
+
 	xScaleButtonSetHasFrame(x.GoPointer(), HasFrameVar)
 }
 
@@ -235,6 +251,8 @@ var xScaleButtonSetIcons func(uintptr, []string)
 
 // Sets the icons to be used by the scale button.
 func (x *ScaleButton) SetIcons(IconsVar []string) {
+	core.LazyRegister(&xScaleButtonSetIcons, "GTK", "gtk_scale_button_set_icons", false)
+
 	xScaleButtonSetIcons(x.GoPointer(), IconsVar)
 }
 
@@ -248,6 +266,8 @@ var xScaleButtonSetValue func(uintptr, float64)
 // The scale button emits the [signal@Gtk.ScaleButton::value-changed]
 // signal if the value changes.
 func (x *ScaleButton) SetValue(ValueVar float64) {
+	core.LazyRegister(&xScaleButtonSetValue, "GTK", "gtk_scale_button_set_value", false)
+
 	xScaleButtonSetValue(x.GoPointer(), ValueVar)
 }
 
@@ -703,28 +723,4 @@ func (x *ScaleButton) SetOrientation(OrientationVar Orientation) {
 func init() {
 	core.SetPackageName("GTK", "gtk4")
 	core.SetSharedLibraries("GTK", []string{"libgtk-4.so.1", "libgtk-4.1.dylib"})
-	var libs []uintptr
-	for _, libPath := range core.GetPaths("GTK") {
-		lib, err := purego.Dlopen(libPath, purego.RTLD_NOW|purego.RTLD_GLOBAL)
-		if err != nil {
-			panic(err)
-		}
-		libs = append(libs, lib)
-	}
-
-	core.PuregoSafeRegister(&xScaleButtonGLibType, libs, "gtk_scale_button_get_type")
-
-	core.PuregoSafeRegister(&xNewScaleButton, libs, "gtk_scale_button_new")
-
-	core.PuregoSafeRegister(&xScaleButtonGetActive, libs, "gtk_scale_button_get_active")
-	core.PuregoSafeRegister(&xScaleButtonGetAdjustment, libs, "gtk_scale_button_get_adjustment")
-	core.PuregoSafeRegister(&xScaleButtonGetHasFrame, libs, "gtk_scale_button_get_has_frame")
-	core.PuregoSafeRegister(&xScaleButtonGetMinusButton, libs, "gtk_scale_button_get_minus_button")
-	core.PuregoSafeRegister(&xScaleButtonGetPlusButton, libs, "gtk_scale_button_get_plus_button")
-	core.PuregoSafeRegister(&xScaleButtonGetPopup, libs, "gtk_scale_button_get_popup")
-	core.PuregoSafeRegister(&xScaleButtonGetValue, libs, "gtk_scale_button_get_value")
-	core.PuregoSafeRegister(&xScaleButtonSetAdjustment, libs, "gtk_scale_button_set_adjustment")
-	core.PuregoSafeRegister(&xScaleButtonSetHasFrame, libs, "gtk_scale_button_set_has_frame")
-	core.PuregoSafeRegister(&xScaleButtonSetIcons, libs, "gtk_scale_button_set_icons")
-	core.PuregoSafeRegister(&xScaleButtonSetValue, libs, "gtk_scale_button_set_value")
 }

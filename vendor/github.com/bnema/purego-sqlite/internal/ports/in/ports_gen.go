@@ -6,6 +6,8 @@ type DB interface {
 	Prepare(sql string) (Stmt, error)
 	Exec(sql string, args ...any) (Result, error)
 	Query(sql string, args ...any) (Rows, error)
+	// Interrupt interrupts the currently executing SQLite operation.
+	Interrupt()
 	Close() error
 }
 
@@ -22,6 +24,7 @@ type Rows interface {
 	Next() bool
 	Scan(dest ...any) error
 	Columns() ([]string, error)
+	ColumnDeclTypes() ([]string, error)
 	Err() error
 	Close() error
 }

@@ -4,7 +4,6 @@ package gsk
 import (
 	"unsafe"
 
-	"github.com/bnema/purego"
 	"github.com/bnema/puregotk/pkg/core"
 	"github.com/bnema/puregotk/v4/gobject"
 	"github.com/bnema/puregotk/v4/gobject/types"
@@ -19,6 +18,7 @@ type ClipNode struct {
 var xClipNodeGLibType func() types.GType
 
 func ClipNodeGLibType() types.GType {
+	core.LazyRegister(&xClipNodeGLibType, "GSK", "gsk_clip_node_get_type", false)
 	return xClipNodeGLibType()
 }
 
@@ -33,6 +33,7 @@ var xNewClipNode func(uintptr, *graphene.Rect) uintptr
 // Creates a `GskRenderNode` that will clip the @child to the area
 // given by @clip.
 func NewClipNode(ChildVar *RenderNode, ClipVar *graphene.Rect) *ClipNode {
+	core.LazyRegister(&xNewClipNode, "GSK", "gsk_clip_node_new", false)
 	var cls *ClipNode
 
 	cret := xNewClipNode(ChildVar.GoPointer(), ClipVar)
@@ -49,6 +50,7 @@ var xClipNodeGetChild func(uintptr) uintptr
 
 // Gets the child node that is getting clipped by the given @node.
 func (x *ClipNode) GetChild() *RenderNode {
+	core.LazyRegister(&xClipNodeGetChild, "GSK", "gsk_clip_node_get_child", false)
 	var cls *RenderNode
 
 	cret := xClipNodeGetChild(x.GoPointer())
@@ -66,6 +68,8 @@ var xClipNodeGetClip func(uintptr) uintptr
 
 // Retrieves the clip rectangle for @node.
 func (x *ClipNode) GetClip() *graphene.Rect {
+	core.LazyRegister(&xClipNodeGetClip, "GSK", "gsk_clip_node_get_clip", false)
+
 	cret := xClipNodeGetClip(x.GoPointer())
 	if cret == 0 {
 		return nil
@@ -87,19 +91,4 @@ func (c *ClipNode) SetGoPointer(ptr uintptr) {
 func init() {
 	core.SetPackageName("GSK", "gtk4")
 	core.SetSharedLibraries("GSK", []string{"libgtk-4.so.1", "libgtk-4.1.dylib"})
-	var libs []uintptr
-	for _, libPath := range core.GetPaths("GSK") {
-		lib, err := purego.Dlopen(libPath, purego.RTLD_NOW|purego.RTLD_GLOBAL)
-		if err != nil {
-			panic(err)
-		}
-		libs = append(libs, lib)
-	}
-
-	core.PuregoSafeRegister(&xClipNodeGLibType, libs, "gsk_clip_node_get_type")
-
-	core.PuregoSafeRegister(&xNewClipNode, libs, "gsk_clip_node_new")
-
-	core.PuregoSafeRegister(&xClipNodeGetChild, libs, "gsk_clip_node_get_child")
-	core.PuregoSafeRegister(&xClipNodeGetClip, libs, "gsk_clip_node_get_clip")
 }

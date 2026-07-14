@@ -5,7 +5,6 @@ import (
 	"structs"
 	"unsafe"
 
-	"github.com/bnema/purego"
 	"github.com/bnema/puregotk/pkg/core"
 	"github.com/bnema/puregotk/v4/gobject/types"
 )
@@ -32,6 +31,7 @@ type WebsiteData struct {
 var xWebsiteDataGLibType func() types.GType
 
 func WebsiteDataGLibType() types.GType {
+	core.LazyRegister(&xWebsiteDataGLibType, "WEBKIT", "webkit_website_data_get_type", false)
 	return xWebsiteDataGLibType()
 }
 
@@ -55,6 +55,8 @@ var xWebsiteDataGetName func(uintptr) string
 // a domain or host name. All local documents are grouped in the same #WebKitWebsiteData using
 // the name "Local files".
 func (x *WebsiteData) GetName() string {
+	core.LazyRegister(&xWebsiteDataGetName, "WEBKIT", "webkit_website_data_get_name", false)
+
 	cret := xWebsiteDataGetName(x.GoPointer())
 	return cret
 }
@@ -66,6 +68,8 @@ var xWebsiteDataGetSize func(uintptr, WebsiteDataTypes) uint64
 // Note that currently the data size is only known for %WEBKIT_WEBSITE_DATA_DISK_CACHE data type
 // so for all other types 0 will be returned.
 func (x *WebsiteData) GetSize(TypesVar WebsiteDataTypes) uint64 {
+	core.LazyRegister(&xWebsiteDataGetSize, "WEBKIT", "webkit_website_data_get_size", false)
+
 	cret := xWebsiteDataGetSize(x.GoPointer(), TypesVar)
 	return cret
 }
@@ -77,6 +81,8 @@ var xWebsiteDataGetTypes func(uintptr) WebsiteDataTypes
 // These are the
 // types actually present, not the types queried with webkit_website_data_manager_fetch().
 func (x *WebsiteData) GetTypes() WebsiteDataTypes {
+	core.LazyRegister(&xWebsiteDataGetTypes, "WEBKIT", "webkit_website_data_get_types", false)
+
 	cret := xWebsiteDataGetTypes(x.GoPointer())
 	return cret
 }
@@ -87,6 +93,8 @@ var xWebsiteDataRef func(uintptr) uintptr
 //
 // This function is MT-safe and may be called from any thread.
 func (x *WebsiteData) Ref() *WebsiteData {
+	core.LazyRegister(&xWebsiteDataRef, "WEBKIT", "webkit_website_data_ref", false)
+
 	cret := xWebsiteDataRef(x.GoPointer())
 	if cret == 0 {
 		return nil
@@ -102,26 +110,15 @@ var xWebsiteDataUnref func(uintptr)
 // #WebKitWebsiteData is released. This function is MT-safe and may be
 // called from any thread.
 func (x *WebsiteData) Unref() {
+	core.LazyRegister(&xWebsiteDataUnref, "WEBKIT", "webkit_website_data_unref", false)
+
 	xWebsiteDataUnref(x.GoPointer())
 }
 
 func init() {
 	core.SetPackageName("WEBKIT", "webkitgtk-6.0")
 	core.SetSharedLibraries("WEBKIT", []string{"libwebkitgtk-6.0.so.4", "libjavascriptcoregtk-6.0.so.1", "libwebkitgtk-6.0.4.dylib", "libjavascriptcoregtk-6.0.1.dylib"})
-	var libs []uintptr
-	for _, libPath := range core.GetPaths("WEBKIT") {
-		lib, err := purego.Dlopen(libPath, purego.RTLD_NOW|purego.RTLD_GLOBAL)
-		if err != nil {
-			panic(err)
-		}
-		libs = append(libs, lib)
-	}
 
-	core.PuregoSafeRegister(&xWebsiteDataGLibType, libs, "webkit_website_data_get_type")
-
-	core.PuregoSafeRegister(&xWebsiteDataGetName, libs, "webkit_website_data_get_name")
-	core.PuregoSafeRegister(&xWebsiteDataGetSize, libs, "webkit_website_data_get_size")
-	core.PuregoSafeRegister(&xWebsiteDataGetTypes, libs, "webkit_website_data_get_types")
-	core.PuregoSafeRegister(&xWebsiteDataRef, libs, "webkit_website_data_ref")
-	core.PuregoSafeRegister(&xWebsiteDataUnref, libs, "webkit_website_data_unref")
+	// Manually register types since they aren't automatically registered when
+	// WebKit is loaded. See https://bugs.webkit.org/show_bug.cgi?id=175937.
 }

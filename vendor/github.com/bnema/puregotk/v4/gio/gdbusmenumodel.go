@@ -2,7 +2,6 @@
 package gio
 
 import (
-	"github.com/bnema/purego"
 	"github.com/bnema/puregotk/pkg/core"
 	"github.com/bnema/puregotk/v4/gobject/types"
 )
@@ -17,6 +16,7 @@ type DBusMenuModel struct {
 var xDBusMenuModelGLibType func() types.GType
 
 func DBusMenuModelGLibType() types.GType {
+	core.LazyRegister(&xDBusMenuModelGLibType, "GIO", "g_dbus_menu_model_get_type", false)
 	return xDBusMenuModelGLibType()
 }
 
@@ -48,6 +48,7 @@ var xDBusMenuModelGet func(uintptr, uintptr, string) uintptr
 // (and linked models) must also originate from this same context, with
 // the thread default main context unchanged.
 func DBusMenuModelGet(ConnectionVar *DBusConnection, BusNameVar *string, ObjectPathVar string) *DBusMenuModel {
+	core.LazyRegister(&xDBusMenuModelGet, "GIO", "g_dbus_menu_model_get", false)
 	var cls *DBusMenuModel
 
 	BusNameVarPtr := core.GStrdupNullable(BusNameVar)
@@ -66,16 +67,4 @@ func DBusMenuModelGet(ConnectionVar *DBusConnection, BusNameVar *string, ObjectP
 func init() {
 	core.SetPackageName("GIO", "gio-2.0")
 	core.SetSharedLibraries("GIO", []string{"libgio-2.0.so.0", "libgio-2.0.0.dylib"})
-	var libs []uintptr
-	for _, libPath := range core.GetPaths("GIO") {
-		lib, err := purego.Dlopen(libPath, purego.RTLD_NOW|purego.RTLD_GLOBAL)
-		if err != nil {
-			panic(err)
-		}
-		libs = append(libs, lib)
-	}
-
-	core.PuregoSafeRegister(&xDBusMenuModelGLibType, libs, "g_dbus_menu_model_get_type")
-
-	core.PuregoSafeRegister(&xDBusMenuModelGet, libs, "g_dbus_menu_model_get")
 }

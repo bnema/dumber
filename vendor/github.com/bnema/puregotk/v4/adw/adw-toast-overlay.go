@@ -5,7 +5,6 @@ import (
 	"structs"
 	"unsafe"
 
-	"github.com/bnema/purego"
 	"github.com/bnema/puregotk/pkg/core"
 	"github.com/bnema/puregotk/v4/gobject"
 	"github.com/bnema/puregotk/v4/gobject/types"
@@ -83,6 +82,7 @@ type ToastOverlay struct {
 var xToastOverlayGLibType func() types.GType
 
 func ToastOverlayGLibType() types.GType {
+	core.LazyRegister(&xToastOverlayGLibType, "ADW", "adw_toast_overlay_get_type", false)
 	return xToastOverlayGLibType()
 }
 
@@ -96,6 +96,7 @@ var xNewToastOverlay func() uintptr
 
 // Creates a new `AdwToastOverlay`.
 func NewToastOverlay() *ToastOverlay {
+	core.LazyRegister(&xNewToastOverlay, "ADW", "adw_toast_overlay_new", false)
 	var cls *ToastOverlay
 
 	cret := xNewToastOverlay()
@@ -122,6 +123,8 @@ var xToastOverlayAddToast func(uintptr, uintptr)
 // If called on a toast currently in the queue, the toast will be bumped
 // forward to be shown as soon as possible.
 func (x *ToastOverlay) AddToast(ToastVar *Toast) {
+	core.LazyRegister(&xToastOverlayAddToast, "ADW", "adw_toast_overlay_add_toast", false)
+
 	xToastOverlayAddToast(x.GoPointer(), ToastVar.GoPointer())
 }
 
@@ -131,6 +134,8 @@ var xToastOverlayDismissAll func(uintptr)
 //
 // Use [method@Toast.dismiss] to dismiss a single toast.
 func (x *ToastOverlay) DismissAll() {
+	core.LazyRegister(&xToastOverlayDismissAll, "ADW", "adw_toast_overlay_dismiss_all", false)
+
 	xToastOverlayDismissAll(x.GoPointer())
 }
 
@@ -138,6 +143,7 @@ var xToastOverlayGetChild func(uintptr) uintptr
 
 // Gets the child widget of @self.
 func (x *ToastOverlay) GetChild() *gtk.Widget {
+	core.LazyRegister(&xToastOverlayGetChild, "ADW", "adw_toast_overlay_get_child", false)
 	var cls *gtk.Widget
 
 	cret := xToastOverlayGetChild(x.GoPointer())
@@ -155,6 +161,8 @@ var xToastOverlaySetChild func(uintptr, uintptr)
 
 // Sets the child widget of @self.
 func (x *ToastOverlay) SetChild(ChildVar *gtk.Widget) {
+	core.LazyRegister(&xToastOverlaySetChild, "ADW", "adw_toast_overlay_set_child", false)
+
 	xToastOverlaySetChild(x.GoPointer(), ChildVar.GoPointer())
 }
 
@@ -432,21 +440,4 @@ func (x *ToastOverlay) GetBuildableId() string {
 func init() {
 	core.SetPackageName("ADW", "libadwaita-1")
 	core.SetSharedLibraries("ADW", []string{"libadwaita-1.so.0", "libadwaita-1.0.dylib"})
-	var libs []uintptr
-	for _, libPath := range core.GetPaths("ADW") {
-		lib, err := purego.Dlopen(libPath, purego.RTLD_NOW|purego.RTLD_GLOBAL)
-		if err != nil {
-			panic(err)
-		}
-		libs = append(libs, lib)
-	}
-
-	core.PuregoSafeRegister(&xToastOverlayGLibType, libs, "adw_toast_overlay_get_type")
-
-	core.PuregoSafeRegister(&xNewToastOverlay, libs, "adw_toast_overlay_new")
-
-	core.PuregoSafeRegister(&xToastOverlayAddToast, libs, "adw_toast_overlay_add_toast")
-	core.PuregoSafeRegister(&xToastOverlayDismissAll, libs, "adw_toast_overlay_dismiss_all")
-	core.PuregoSafeRegister(&xToastOverlayGetChild, libs, "adw_toast_overlay_get_child")
-	core.PuregoSafeRegister(&xToastOverlaySetChild, libs, "adw_toast_overlay_set_child")
 }

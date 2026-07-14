@@ -4,7 +4,6 @@ package gtk
 import (
 	"unsafe"
 
-	"github.com/bnema/purego"
 	"github.com/bnema/puregotk/pkg/core"
 	"github.com/bnema/puregotk/v4/glib"
 	"github.com/bnema/puregotk/v4/gobject"
@@ -36,6 +35,7 @@ type FontChooserWidget struct {
 var xFontChooserWidgetGLibType func() types.GType
 
 func FontChooserWidgetGLibType() types.GType {
+	core.LazyRegister(&xFontChooserWidgetGLibType, "GTK", "gtk_font_chooser_widget_get_type", false)
 	return xFontChooserWidgetGLibType()
 }
 
@@ -49,6 +49,7 @@ var xNewFontChooserWidget func() uintptr
 
 // Creates a new `GtkFontChooserWidget`.
 func NewFontChooserWidget() *FontChooserWidget {
+	core.LazyRegister(&xNewFontChooserWidget, "GTK", "gtk_font_chooser_widget_new", false)
 	var cls *FontChooserWidget
 
 	cret := xNewFontChooserWidget()
@@ -528,16 +529,4 @@ func (x *FontChooserWidget) SetShowPreviewEntry(ShowPreviewEntryVar bool) {
 func init() {
 	core.SetPackageName("GTK", "gtk4")
 	core.SetSharedLibraries("GTK", []string{"libgtk-4.so.1", "libgtk-4.1.dylib"})
-	var libs []uintptr
-	for _, libPath := range core.GetPaths("GTK") {
-		lib, err := purego.Dlopen(libPath, purego.RTLD_NOW|purego.RTLD_GLOBAL)
-		if err != nil {
-			panic(err)
-		}
-		libs = append(libs, lib)
-	}
-
-	core.PuregoSafeRegister(&xFontChooserWidgetGLibType, libs, "gtk_font_chooser_widget_get_type")
-
-	core.PuregoSafeRegister(&xNewFontChooserWidget, libs, "gtk_font_chooser_widget_new")
 }

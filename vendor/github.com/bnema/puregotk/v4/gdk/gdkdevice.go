@@ -5,7 +5,6 @@ import (
 	"structs"
 	"unsafe"
 
-	"github.com/bnema/purego"
 	"github.com/bnema/puregotk/pkg/core"
 	"github.com/bnema/puregotk/v4/glib"
 	"github.com/bnema/puregotk/v4/gobject"
@@ -47,6 +46,7 @@ type InputSource int
 var xInputSourceGLibType func() types.GType
 
 func InputSourceGLibType() types.GType {
+	core.LazyRegister(&xInputSourceGLibType, "GDK", "gdk_input_source_get_type", false)
 	return xInputSourceGLibType()
 }
 
@@ -83,6 +83,7 @@ type Device struct {
 var xDeviceGLibType func() types.GType
 
 func DeviceGLibType() types.GType {
+	core.LazyRegister(&xDeviceGLibType, "GDK", "gdk_device_get_type", false)
 	return xDeviceGLibType()
 }
 
@@ -101,6 +102,8 @@ var xDeviceGetActiveLayoutIndex func(uintptr) int
 //
 // This is only relevant for keyboard devices.
 func (x *Device) GetActiveLayoutIndex() int {
+	core.LazyRegister(&xDeviceGetActiveLayoutIndex, "GDK", "gdk_device_get_active_layout_index", false)
+
 	cret := xDeviceGetActiveLayoutIndex(x.GoPointer())
 	return cret
 }
@@ -111,6 +114,8 @@ var xDeviceGetCapsLockState func(uintptr) bool
 //
 // This is only relevant for keyboard devices.
 func (x *Device) GetCapsLockState() bool {
+	core.LazyRegister(&xDeviceGetCapsLockState, "GDK", "gdk_device_get_caps_lock_state", false)
+
 	cret := xDeviceGetCapsLockState(x.GoPointer())
 	return cret
 }
@@ -119,6 +124,7 @@ var xDeviceGetDeviceTool func(uintptr) uintptr
 
 // Retrieves the current tool for @device.
 func (x *Device) GetDeviceTool() *DeviceTool {
+	core.LazyRegister(&xDeviceGetDeviceTool, "GDK", "gdk_device_get_device_tool", false)
 	var cls *DeviceTool
 
 	cret := xDeviceGetDeviceTool(x.GoPointer())
@@ -141,6 +147,8 @@ var xDeviceGetDirection func(uintptr) pango.Direction
 // The direction of a layout is the direction of the majority
 // of its symbols. See [func@Pango.unichar_direction].
 func (x *Device) GetDirection() pango.Direction {
+	core.LazyRegister(&xDeviceGetDirection, "GDK", "gdk_device_get_direction", false)
+
 	cret := xDeviceGetDirection(x.GoPointer())
 	return cret
 }
@@ -149,6 +157,7 @@ var xDeviceGetDisplay func(uintptr) uintptr
 
 // Returns the `GdkDisplay` to which @device pertains.
 func (x *Device) GetDisplay() *Display {
+	core.LazyRegister(&xDeviceGetDisplay, "GDK", "gdk_device_get_display", false)
 	var cls *Display
 
 	cret := xDeviceGetDisplay(x.GoPointer())
@@ -169,6 +178,8 @@ var xDeviceGetHasCursor func(uintptr) bool
 // This is not meaningful for keyboard devices, which
 // don't have a pointer.
 func (x *Device) GetHasCursor() bool {
+	core.LazyRegister(&xDeviceGetHasCursor, "GDK", "gdk_device_get_has_cursor", false)
+
 	cret := xDeviceGetHasCursor(x.GoPointer())
 	return cret
 }
@@ -179,6 +190,8 @@ var xDeviceGetLayoutNames func(uintptr) []string
 //
 // This is only relevant for keyboard devices.
 func (x *Device) GetLayoutNames() []string {
+	core.LazyRegister(&xDeviceGetLayoutNames, "GDK", "gdk_device_get_layout_names", false)
+
 	cret := xDeviceGetLayoutNames(x.GoPointer())
 	return cret
 }
@@ -189,6 +202,8 @@ var xDeviceGetModifierState func(uintptr) ModifierType
 //
 // This is only relevant for keyboard devices.
 func (x *Device) GetModifierState() ModifierType {
+	core.LazyRegister(&xDeviceGetModifierState, "GDK", "gdk_device_get_modifier_state", false)
+
 	cret := xDeviceGetModifierState(x.GoPointer())
 	return cret
 }
@@ -197,6 +212,8 @@ var xDeviceGetName func(uintptr) string
 
 // The name of the device, suitable for showing in a user interface.
 func (x *Device) GetName() string {
+	core.LazyRegister(&xDeviceGetName, "GDK", "gdk_device_get_name", false)
+
 	cret := xDeviceGetName(x.GoPointer())
 	return cret
 }
@@ -207,6 +224,8 @@ var xDeviceGetNumLockState func(uintptr) bool
 //
 // This is only relevant for keyboard devices.
 func (x *Device) GetNumLockState() bool {
+	core.LazyRegister(&xDeviceGetNumLockState, "GDK", "gdk_device_get_num_lock_state", false)
+
 	cret := xDeviceGetNumLockState(x.GoPointer())
 	return cret
 }
@@ -215,6 +234,8 @@ var xDeviceGetNumTouches func(uintptr) uint
 
 // Retrieves the number of touch points associated to @device.
 func (x *Device) GetNumTouches() uint {
+	core.LazyRegister(&xDeviceGetNumTouches, "GDK", "gdk_device_get_num_touches", false)
+
 	cret := xDeviceGetNumTouches(x.GoPointer())
 	return cret
 }
@@ -226,6 +247,8 @@ var xDeviceGetProductId func(uintptr) string
 // This ID is retrieved from the device, and does not change.
 // See [method@Gdk.Device.get_vendor_id] for more information.
 func (x *Device) GetProductId() string {
+	core.LazyRegister(&xDeviceGetProductId, "GDK", "gdk_device_get_product_id", false)
+
 	cret := xDeviceGetProductId(x.GoPointer())
 	return cret
 }
@@ -236,6 +259,8 @@ var xDeviceGetScrollLockState func(uintptr) bool
 //
 // This is only relevant for keyboard devices.
 func (x *Device) GetScrollLockState() bool {
+	core.LazyRegister(&xDeviceGetScrollLockState, "GDK", "gdk_device_get_scroll_lock_state", false)
+
 	cret := xDeviceGetScrollLockState(x.GoPointer())
 	return cret
 }
@@ -244,6 +269,7 @@ var xDeviceGetSeat func(uintptr) uintptr
 
 // Returns the `GdkSeat` the device belongs to.
 func (x *Device) GetSeat() *Seat {
+	core.LazyRegister(&xDeviceGetSeat, "GDK", "gdk_device_get_seat", false)
 	var cls *Seat
 
 	cret := xDeviceGetSeat(x.GoPointer())
@@ -261,6 +287,8 @@ var xDeviceGetSource func(uintptr) InputSource
 
 // Determines the type of the device.
 func (x *Device) GetSource() InputSource {
+	core.LazyRegister(&xDeviceGetSource, "GDK", "gdk_device_get_source", false)
+
 	cret := xDeviceGetSource(x.GoPointer())
 	return cret
 }
@@ -273,6 +301,7 @@ var xDeviceGetSurfaceAtPosition func(uintptr, *float64, *float64) uintptr
 // Returns %NULL if the surface tree under @device is not known to GDK
 // (for example, belongs to another application).
 func (x *Device) GetSurfaceAtPosition(WinXVar *float64, WinYVar *float64) *Surface {
+	core.LazyRegister(&xDeviceGetSurfaceAtPosition, "GDK", "gdk_device_get_surface_at_position", false)
 	var cls *Surface
 
 	cret := xDeviceGetSurfaceAtPosition(x.GoPointer(), WinXVar, WinYVar)
@@ -295,6 +324,8 @@ var xDeviceGetTimestamp func(uintptr) uint32
 // events for a device that are not received from the OS, and will not
 // update the timestamp).
 func (x *Device) GetTimestamp() uint32 {
+	core.LazyRegister(&xDeviceGetTimestamp, "GDK", "gdk_device_get_timestamp", false)
+
 	cret := xDeviceGetTimestamp(x.GoPointer())
 	return cret
 }
@@ -331,6 +362,8 @@ var xDeviceGetVendorId func(uintptr) string
 //
 // ```
 func (x *Device) GetVendorId() string {
+	core.LazyRegister(&xDeviceGetVendorId, "GDK", "gdk_device_get_vendor_id", false)
+
 	cret := xDeviceGetVendorId(x.GoPointer())
 	return cret
 }
@@ -342,6 +375,8 @@ var xDeviceHasBidiLayouts func(uintptr) bool
 //
 // This is only relevant for keyboard devices.
 func (x *Device) HasBidiLayouts() bool {
+	core.LazyRegister(&xDeviceHasBidiLayouts, "GDK", "gdk_device_has_bidi_layouts", false)
+
 	cret := xDeviceHasBidiLayouts(x.GoPointer())
 	return cret
 }
@@ -581,36 +616,4 @@ func (x *Device) ConnectToolChanged(cb *func(Device, uintptr)) uint {
 func init() {
 	core.SetPackageName("GDK", "gtk4")
 	core.SetSharedLibraries("GDK", []string{"libgtk-4.so.1", "libgtk-4.1.dylib"})
-	var libs []uintptr
-	for _, libPath := range core.GetPaths("GDK") {
-		lib, err := purego.Dlopen(libPath, purego.RTLD_NOW|purego.RTLD_GLOBAL)
-		if err != nil {
-			panic(err)
-		}
-		libs = append(libs, lib)
-	}
-
-	core.PuregoSafeRegister(&xInputSourceGLibType, libs, "gdk_input_source_get_type")
-
-	core.PuregoSafeRegister(&xDeviceGLibType, libs, "gdk_device_get_type")
-
-	core.PuregoSafeRegister(&xDeviceGetActiveLayoutIndex, libs, "gdk_device_get_active_layout_index")
-	core.PuregoSafeRegister(&xDeviceGetCapsLockState, libs, "gdk_device_get_caps_lock_state")
-	core.PuregoSafeRegister(&xDeviceGetDeviceTool, libs, "gdk_device_get_device_tool")
-	core.PuregoSafeRegister(&xDeviceGetDirection, libs, "gdk_device_get_direction")
-	core.PuregoSafeRegister(&xDeviceGetDisplay, libs, "gdk_device_get_display")
-	core.PuregoSafeRegister(&xDeviceGetHasCursor, libs, "gdk_device_get_has_cursor")
-	core.PuregoSafeRegister(&xDeviceGetLayoutNames, libs, "gdk_device_get_layout_names")
-	core.PuregoSafeRegister(&xDeviceGetModifierState, libs, "gdk_device_get_modifier_state")
-	core.PuregoSafeRegister(&xDeviceGetName, libs, "gdk_device_get_name")
-	core.PuregoSafeRegister(&xDeviceGetNumLockState, libs, "gdk_device_get_num_lock_state")
-	core.PuregoSafeRegister(&xDeviceGetNumTouches, libs, "gdk_device_get_num_touches")
-	core.PuregoSafeRegister(&xDeviceGetProductId, libs, "gdk_device_get_product_id")
-	core.PuregoSafeRegister(&xDeviceGetScrollLockState, libs, "gdk_device_get_scroll_lock_state")
-	core.PuregoSafeRegister(&xDeviceGetSeat, libs, "gdk_device_get_seat")
-	core.PuregoSafeRegister(&xDeviceGetSource, libs, "gdk_device_get_source")
-	core.PuregoSafeRegister(&xDeviceGetSurfaceAtPosition, libs, "gdk_device_get_surface_at_position")
-	core.PuregoSafeRegister(&xDeviceGetTimestamp, libs, "gdk_device_get_timestamp")
-	core.PuregoSafeRegister(&xDeviceGetVendorId, libs, "gdk_device_get_vendor_id")
-	core.PuregoSafeRegister(&xDeviceHasBidiLayouts, libs, "gdk_device_has_bidi_layouts")
 }

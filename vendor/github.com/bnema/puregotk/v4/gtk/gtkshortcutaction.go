@@ -5,7 +5,6 @@ import (
 	"structs"
 	"unsafe"
 
-	"github.com/bnema/purego"
 	"github.com/bnema/puregotk/pkg/core"
 	"github.com/bnema/puregotk/v4/glib"
 	"github.com/bnema/puregotk/v4/gobject"
@@ -135,6 +134,7 @@ type ShortcutActionFlags int
 var xShortcutActionFlagsGLibType func() types.GType
 
 func ShortcutActionFlagsGLibType() types.GType {
+	core.LazyRegister(&xShortcutActionFlagsGLibType, "GTK", "gtk_shortcut_action_flags_get_type", false)
 	return xShortcutActionFlagsGLibType()
 }
 
@@ -156,6 +156,7 @@ type ActivateAction struct {
 var xActivateActionGLibType func() types.GType
 
 func ActivateActionGLibType() types.GType {
+	core.LazyRegister(&xActivateActionGLibType, "GTK", "gtk_activate_action_get_type", false)
 	return xActivateActionGLibType()
 }
 
@@ -183,6 +184,7 @@ var xActivateActionGet func() uintptr
 // This is an action that calls gtk_widget_activate()
 // on the given widget upon activation.
 func ActivateActionGet() *ActivateAction {
+	core.LazyRegister(&xActivateActionGet, "GTK", "gtk_activate_action_get", false)
 	var cls *ActivateAction
 
 	cret := xActivateActionGet()
@@ -204,6 +206,7 @@ type CallbackAction struct {
 var xCallbackActionGLibType func() types.GType
 
 func CallbackActionGLibType() types.GType {
+	core.LazyRegister(&xCallbackActionGLibType, "GTK", "gtk_callback_action_get_type", false)
 	return xCallbackActionGLibType()
 }
 
@@ -218,6 +221,7 @@ var xNewCallbackAction func(uintptr, uintptr, uintptr) uintptr
 // Create a custom action that calls the given @callback when
 // activated.
 func NewCallbackAction(CallbackVar *ShortcutFunc, DataVar uintptr, DestroyVar *glib.DestroyNotify) *CallbackAction {
+	core.LazyRegister(&xNewCallbackAction, "GTK", "gtk_callback_action_new", false)
 	var cls *CallbackAction
 
 	cret := xNewCallbackAction(glib.NewCallback(CallbackVar), DataVar, glib.NewCallbackNullable(DestroyVar))
@@ -251,6 +255,7 @@ type MnemonicAction struct {
 var xMnemonicActionGLibType func() types.GType
 
 func MnemonicActionGLibType() types.GType {
+	core.LazyRegister(&xMnemonicActionGLibType, "GTK", "gtk_mnemonic_action_get_type", false)
 	return xMnemonicActionGLibType()
 }
 
@@ -278,6 +283,7 @@ var xMnemonicActionGet func() uintptr
 // This is an action that calls gtk_widget_mnemonic_activate()
 // on the given widget upon activation.
 func MnemonicActionGet() *MnemonicAction {
+	core.LazyRegister(&xMnemonicActionGet, "GTK", "gtk_mnemonic_action_get", false)
 	var cls *MnemonicAction
 
 	cret := xMnemonicActionGet()
@@ -303,6 +309,7 @@ type NamedAction struct {
 var xNamedActionGLibType func() types.GType
 
 func NamedActionGLibType() types.GType {
+	core.LazyRegister(&xNamedActionGLibType, "GTK", "gtk_named_action_get_type", false)
 	return xNamedActionGLibType()
 }
 
@@ -322,6 +329,7 @@ var xNewNamedAction func(string) uintptr
 // See [method@Gtk.Widget.insert_action_group] for
 // how to add actions to widgets.
 func NewNamedAction(NameVar string) *NamedAction {
+	core.LazyRegister(&xNewNamedAction, "GTK", "gtk_named_action_new", false)
 	var cls *NamedAction
 
 	cret := xNewNamedAction(NameVar)
@@ -338,6 +346,8 @@ var xNamedActionGetActionName func(uintptr) string
 
 // Returns the name of the action that will be activated.
 func (x *NamedAction) GetActionName() string {
+	core.LazyRegister(&xNamedActionGetActionName, "GTK", "gtk_named_action_get_action_name", false)
+
 	cret := xNamedActionGetActionName(x.GoPointer())
 	return cret
 }
@@ -378,6 +388,7 @@ type NothingAction struct {
 var xNothingActionGLibType func() types.GType
 
 func NothingActionGLibType() types.GType {
+	core.LazyRegister(&xNothingActionGLibType, "GTK", "gtk_nothing_action_get_type", false)
 	return xNothingActionGLibType()
 }
 
@@ -405,6 +416,7 @@ var xNothingActionGet func() uintptr
 // This is an action that does nothing and where
 // activating it always fails.
 func NothingActionGet() *NothingAction {
+	core.LazyRegister(&xNothingActionGet, "GTK", "gtk_nothing_action_get", false)
 	var cls *NothingAction
 
 	cret := xNothingActionGet()
@@ -451,6 +463,7 @@ type ShortcutAction struct {
 var xShortcutActionGLibType func() types.GType
 
 func ShortcutActionGLibType() types.GType {
+	core.LazyRegister(&xShortcutActionGLibType, "GTK", "gtk_shortcut_action_get_type", false)
 	return xShortcutActionGLibType()
 }
 
@@ -475,6 +488,7 @@ var xShortcutActionParseString func(string) uintptr
 // - `action(NAME)`, for a `GtkNamedAction` for the action named `NAME`
 // - `signal(NAME)`, for a `GtkSignalAction` for the signal `NAME`
 func ShortcutActionParseString(StringVar string) *ShortcutAction {
+	core.LazyRegister(&xShortcutActionParseString, "GTK", "gtk_shortcut_action_parse_string", false)
 	var cls *ShortcutAction
 
 	cret := xShortcutActionParseString(StringVar)
@@ -497,6 +511,8 @@ var xShortcutActionActivate func(uintptr, ShortcutActionFlags, uintptr, *glib.Va
 // is not supported by the @widget, if the @args don't match the action
 // or if the activation otherwise had no effect, %FALSE will be returned.
 func (x *ShortcutAction) Activate(FlagsVar ShortcutActionFlags, WidgetVar *Widget, ArgsVar *glib.Variant) bool {
+	core.LazyRegister(&xShortcutActionActivate, "GTK", "gtk_shortcut_action_activate", false)
+
 	cret := xShortcutActionActivate(x.GoPointer(), FlagsVar, WidgetVar.GoPointer(), ArgsVar)
 	return cret
 }
@@ -510,6 +526,8 @@ var xShortcutActionPrint func(uintptr, *glib.String)
 // The form of the representation may change at any time and is
 // not guaranteed to stay identical.
 func (x *ShortcutAction) Print(StringVar *glib.String) {
+	core.LazyRegister(&xShortcutActionPrint, "GTK", "gtk_shortcut_action_print", false)
+
 	xShortcutActionPrint(x.GoPointer(), StringVar)
 }
 
@@ -520,6 +538,8 @@ var xShortcutActionToString func(uintptr) string
 // This is a small wrapper around [method@Gtk.ShortcutAction.print]
 // to help when debugging.
 func (x *ShortcutAction) ToString() string {
+	core.LazyRegister(&xShortcutActionToString, "GTK", "gtk_shortcut_action_to_string", false)
+
 	cret := xShortcutActionToString(x.GoPointer())
 	return cret
 }
@@ -546,6 +566,7 @@ type SignalAction struct {
 var xSignalActionGLibType func() types.GType
 
 func SignalActionGLibType() types.GType {
+	core.LazyRegister(&xSignalActionGLibType, "GTK", "gtk_signal_action_get_type", false)
 	return xSignalActionGLibType()
 }
 
@@ -562,6 +583,7 @@ var xNewSignalAction func(string) uintptr
 //
 // It will also unpack the args into arguments passed to the signal.
 func NewSignalAction(SignalNameVar string) *SignalAction {
+	core.LazyRegister(&xNewSignalAction, "GTK", "gtk_signal_action_new", false)
 	var cls *SignalAction
 
 	cret := xNewSignalAction(SignalNameVar)
@@ -578,6 +600,8 @@ var xSignalActionGetSignalName func(uintptr) string
 
 // Returns the name of the signal that will be emitted.
 func (x *SignalAction) GetSignalName() string {
+	core.LazyRegister(&xSignalActionGetSignalName, "GTK", "gtk_signal_action_get_signal_name", false)
+
 	cret := xSignalActionGetSignalName(x.GoPointer())
 	return cret
 }
@@ -613,50 +637,4 @@ func (x *SignalAction) GetPropertySignalName() string {
 func init() {
 	core.SetPackageName("GTK", "gtk4")
 	core.SetSharedLibraries("GTK", []string{"libgtk-4.so.1", "libgtk-4.1.dylib"})
-	var libs []uintptr
-	for _, libPath := range core.GetPaths("GTK") {
-		lib, err := purego.Dlopen(libPath, purego.RTLD_NOW|purego.RTLD_GLOBAL)
-		if err != nil {
-			panic(err)
-		}
-		libs = append(libs, lib)
-	}
-
-	core.PuregoSafeRegister(&xShortcutActionFlagsGLibType, libs, "gtk_shortcut_action_flags_get_type")
-
-	core.PuregoSafeRegister(&xActivateActionGLibType, libs, "gtk_activate_action_get_type")
-
-	core.PuregoSafeRegister(&xActivateActionGet, libs, "gtk_activate_action_get")
-
-	core.PuregoSafeRegister(&xCallbackActionGLibType, libs, "gtk_callback_action_get_type")
-
-	core.PuregoSafeRegister(&xNewCallbackAction, libs, "gtk_callback_action_new")
-
-	core.PuregoSafeRegister(&xMnemonicActionGLibType, libs, "gtk_mnemonic_action_get_type")
-
-	core.PuregoSafeRegister(&xMnemonicActionGet, libs, "gtk_mnemonic_action_get")
-
-	core.PuregoSafeRegister(&xNamedActionGLibType, libs, "gtk_named_action_get_type")
-
-	core.PuregoSafeRegister(&xNewNamedAction, libs, "gtk_named_action_new")
-
-	core.PuregoSafeRegister(&xNamedActionGetActionName, libs, "gtk_named_action_get_action_name")
-
-	core.PuregoSafeRegister(&xNothingActionGLibType, libs, "gtk_nothing_action_get_type")
-
-	core.PuregoSafeRegister(&xNothingActionGet, libs, "gtk_nothing_action_get")
-
-	core.PuregoSafeRegister(&xShortcutActionGLibType, libs, "gtk_shortcut_action_get_type")
-
-	core.PuregoSafeRegister(&xShortcutActionParseString, libs, "gtk_shortcut_action_parse_string")
-
-	core.PuregoSafeRegister(&xShortcutActionActivate, libs, "gtk_shortcut_action_activate")
-	core.PuregoSafeRegister(&xShortcutActionPrint, libs, "gtk_shortcut_action_print")
-	core.PuregoSafeRegister(&xShortcutActionToString, libs, "gtk_shortcut_action_to_string")
-
-	core.PuregoSafeRegister(&xSignalActionGLibType, libs, "gtk_signal_action_get_type")
-
-	core.PuregoSafeRegister(&xNewSignalAction, libs, "gtk_signal_action_new")
-
-	core.PuregoSafeRegister(&xSignalActionGetSignalName, libs, "gtk_signal_action_get_signal_name")
 }

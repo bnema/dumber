@@ -76,6 +76,7 @@ type TlsClientConnection interface {
 var xTlsClientConnectionGLibType func() types.GType
 
 func TlsClientConnectionGLibType() types.GType {
+	core.LazyRegister(&xTlsClientConnectionGLibType, "GIO", "g_tls_client_connection_get_type", false)
 	return xTlsClientConnectionGLibType()
 }
 
@@ -229,16 +230,61 @@ func (x *TlsClientConnectionBase) GetPropertyUseSsl3() bool {
 	return v.GetBoolean()
 }
 
+var XGTlsClientConnectionCopySessionState func(uintptr, uintptr) = func(instance uintptr, SourceVarp uintptr) {
+	core.LazyRegister(&xXGTlsClientConnectionCopySessionState, "GIO", "g_tls_client_connection_copy_session_state", false)
+	xXGTlsClientConnectionCopySessionState(instance, SourceVarp)
+}
+
 var (
-	XGTlsClientConnectionCopySessionState   func(uintptr, uintptr)
-	XGTlsClientConnectionGetAcceptedCas     func(uintptr) uintptr
-	XGTlsClientConnectionGetServerIdentity  func(uintptr) uintptr
-	XGTlsClientConnectionGetUseSsl3         func(uintptr) bool
-	XGTlsClientConnectionGetValidationFlags func(uintptr) TlsCertificateFlags
-	XGTlsClientConnectionSetServerIdentity  func(uintptr, uintptr)
-	XGTlsClientConnectionSetUseSsl3         func(uintptr, bool)
-	XGTlsClientConnectionSetValidationFlags func(uintptr, TlsCertificateFlags)
+	xXGTlsClientConnectionCopySessionState func(uintptr, uintptr)
+	XGTlsClientConnectionGetAcceptedCas    func(uintptr) uintptr = func(instance uintptr) uintptr {
+		core.LazyRegister(&xXGTlsClientConnectionGetAcceptedCas, "GIO", "g_tls_client_connection_get_accepted_cas", false)
+		return xXGTlsClientConnectionGetAcceptedCas(instance)
+	}
 )
+var (
+	xXGTlsClientConnectionGetAcceptedCas   func(uintptr) uintptr
+	XGTlsClientConnectionGetServerIdentity func(uintptr) uintptr = func(instance uintptr) uintptr {
+		core.LazyRegister(&xXGTlsClientConnectionGetServerIdentity, "GIO", "g_tls_client_connection_get_server_identity", false)
+		return xXGTlsClientConnectionGetServerIdentity(instance)
+	}
+)
+var (
+	xXGTlsClientConnectionGetServerIdentity func(uintptr) uintptr
+	XGTlsClientConnectionGetUseSsl3         func(uintptr) bool = func(instance uintptr) bool {
+		core.LazyRegister(&xXGTlsClientConnectionGetUseSsl3, "GIO", "g_tls_client_connection_get_use_ssl3", false)
+		return xXGTlsClientConnectionGetUseSsl3(instance)
+	}
+)
+var (
+	xXGTlsClientConnectionGetUseSsl3        func(uintptr) bool
+	XGTlsClientConnectionGetValidationFlags func(uintptr) TlsCertificateFlags = func(instance uintptr) TlsCertificateFlags {
+		core.LazyRegister(&xXGTlsClientConnectionGetValidationFlags, "GIO", "g_tls_client_connection_get_validation_flags", false)
+		return xXGTlsClientConnectionGetValidationFlags(instance)
+	}
+)
+var (
+	xXGTlsClientConnectionGetValidationFlags func(uintptr) TlsCertificateFlags
+	XGTlsClientConnectionSetServerIdentity   func(uintptr, uintptr) = func(instance uintptr, IdentityVarp uintptr) {
+		core.LazyRegister(&xXGTlsClientConnectionSetServerIdentity, "GIO", "g_tls_client_connection_set_server_identity", false)
+		xXGTlsClientConnectionSetServerIdentity(instance, IdentityVarp)
+	}
+)
+var (
+	xXGTlsClientConnectionSetServerIdentity func(uintptr, uintptr)
+	XGTlsClientConnectionSetUseSsl3         func(uintptr, bool) = func(instance uintptr, UseSsl3Varp bool) {
+		core.LazyRegister(&xXGTlsClientConnectionSetUseSsl3, "GIO", "g_tls_client_connection_set_use_ssl3", false)
+		xXGTlsClientConnectionSetUseSsl3(instance, UseSsl3Varp)
+	}
+)
+var (
+	xXGTlsClientConnectionSetUseSsl3        func(uintptr, bool)
+	XGTlsClientConnectionSetValidationFlags func(uintptr, TlsCertificateFlags) = func(instance uintptr, FlagsVarp TlsCertificateFlags) {
+		core.LazyRegister(&xXGTlsClientConnectionSetValidationFlags, "GIO", "g_tls_client_connection_set_validation_flags", false)
+		xXGTlsClientConnectionSetValidationFlags(instance, FlagsVarp)
+	}
+)
+var xXGTlsClientConnectionSetValidationFlags func(uintptr, TlsCertificateFlags)
 
 var xTlsClientConnectionNew func(uintptr, uintptr, **glib.Error) uintptr
 
@@ -250,6 +296,7 @@ var xTlsClientConnectionNew func(uintptr, uintptr, **glib.Error) uintptr
 // on when application code can run operations on the @base_io_stream after
 // this function has returned.
 func TlsClientConnectionNew(BaseIoStreamVar *IOStream, ServerIdentityVar SocketConnectable) (*TlsClientConnectionBase, error) {
+	core.LazyRegister(&xTlsClientConnectionNew, "GIO", "g_tls_client_connection_new", false)
 	var cls *TlsClientConnectionBase
 	var cerr *glib.Error
 
@@ -269,25 +316,4 @@ func TlsClientConnectionNew(BaseIoStreamVar *IOStream, ServerIdentityVar SocketC
 func init() {
 	core.SetPackageName("GIO", "gio-2.0")
 	core.SetSharedLibraries("GIO", []string{"libgio-2.0.so.0", "libgio-2.0.0.dylib"})
-	var libs []uintptr
-	for _, libPath := range core.GetPaths("GIO") {
-		lib, err := purego.Dlopen(libPath, purego.RTLD_NOW|purego.RTLD_GLOBAL)
-		if err != nil {
-			panic(err)
-		}
-		libs = append(libs, lib)
-	}
-
-	core.PuregoSafeRegister(&xTlsClientConnectionNew, libs, "g_tls_client_connection_new")
-
-	core.PuregoSafeRegister(&xTlsClientConnectionGLibType, libs, "g_tls_client_connection_get_type")
-
-	core.PuregoSafeRegister(&XGTlsClientConnectionCopySessionState, libs, "g_tls_client_connection_copy_session_state")
-	core.PuregoSafeRegister(&XGTlsClientConnectionGetAcceptedCas, libs, "g_tls_client_connection_get_accepted_cas")
-	core.PuregoSafeRegister(&XGTlsClientConnectionGetServerIdentity, libs, "g_tls_client_connection_get_server_identity")
-	core.PuregoSafeRegister(&XGTlsClientConnectionGetUseSsl3, libs, "g_tls_client_connection_get_use_ssl3")
-	core.PuregoSafeRegister(&XGTlsClientConnectionGetValidationFlags, libs, "g_tls_client_connection_get_validation_flags")
-	core.PuregoSafeRegister(&XGTlsClientConnectionSetServerIdentity, libs, "g_tls_client_connection_set_server_identity")
-	core.PuregoSafeRegister(&XGTlsClientConnectionSetUseSsl3, libs, "g_tls_client_connection_set_use_ssl3")
-	core.PuregoSafeRegister(&XGTlsClientConnectionSetValidationFlags, libs, "g_tls_client_connection_set_validation_flags")
 }

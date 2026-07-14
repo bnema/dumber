@@ -5,7 +5,6 @@ import (
 	"structs"
 	"unsafe"
 
-	"github.com/bnema/purego"
 	"github.com/bnema/puregotk/pkg/core"
 	"github.com/bnema/puregotk/v4/glib"
 	"github.com/bnema/puregotk/v4/gobject"
@@ -39,6 +38,7 @@ type EventControllerLegacy struct {
 var xEventControllerLegacyGLibType func() types.GType
 
 func EventControllerLegacyGLibType() types.GType {
+	core.LazyRegister(&xEventControllerLegacyGLibType, "GTK", "gtk_event_controller_legacy_get_type", false)
 	return xEventControllerLegacyGLibType()
 }
 
@@ -52,6 +52,7 @@ var xNewEventControllerLegacy func() uintptr
 
 // Creates a new legacy event controller.
 func NewEventControllerLegacy() *EventControllerLegacy {
+	core.LazyRegister(&xNewEventControllerLegacy, "GTK", "gtk_event_controller_legacy_new", false)
 	var cls *EventControllerLegacy
 
 	cret := xNewEventControllerLegacy()
@@ -103,16 +104,4 @@ func (x *EventControllerLegacy) ConnectEvent(cb *func(EventControllerLegacy, uin
 func init() {
 	core.SetPackageName("GTK", "gtk4")
 	core.SetSharedLibraries("GTK", []string{"libgtk-4.so.1", "libgtk-4.1.dylib"})
-	var libs []uintptr
-	for _, libPath := range core.GetPaths("GTK") {
-		lib, err := purego.Dlopen(libPath, purego.RTLD_NOW|purego.RTLD_GLOBAL)
-		if err != nil {
-			panic(err)
-		}
-		libs = append(libs, lib)
-	}
-
-	core.PuregoSafeRegister(&xEventControllerLegacyGLibType, libs, "gtk_event_controller_legacy_get_type")
-
-	core.PuregoSafeRegister(&xNewEventControllerLegacy, libs, "gtk_event_controller_legacy_new")
 }

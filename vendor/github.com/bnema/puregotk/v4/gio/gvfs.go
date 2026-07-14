@@ -268,7 +268,7 @@ func (x *VfsClass) OverrideLocalFileSetAttributes(cb func(*Vfs, string, *FileInf
 	if cb == nil {
 		x.xLocalFileSetAttributes = 0
 	} else {
-		x.xLocalFileSetAttributes = purego.NewCallback(func(VfsVarp uintptr, FilenameVarp string, InfoVarp uintptr, FlagsVarp FileQueryInfoFlags, CancellableVarp uintptr) bool {
+		x.xLocalFileSetAttributes = purego.NewCallback(func(VfsVarp uintptr, FilenameVarp string, InfoVarp uintptr, FlagsVarp FileQueryInfoFlags, CancellableVarp uintptr, cerrp **glib.Error) bool {
 			return cb(VfsNewFromInternalPtr(VfsVarp), FilenameVarp, FileInfoNewFromInternalPtr(InfoVarp), FlagsVarp, CancellableNewFromInternalPtr(CancellableVarp))
 		})
 	}
@@ -279,10 +279,11 @@ func (x *VfsClass) GetLocalFileSetAttributes() func(*Vfs, string, *FileInfo, Fil
 	if x.xLocalFileSetAttributes == 0 {
 		return nil
 	}
-	var rawCallback func(VfsVarp uintptr, FilenameVarp string, InfoVarp uintptr, FlagsVarp FileQueryInfoFlags, CancellableVarp uintptr) bool
+	var rawCallback func(VfsVarp uintptr, FilenameVarp string, InfoVarp uintptr, FlagsVarp FileQueryInfoFlags, CancellableVarp uintptr, cerrp **glib.Error) bool
 	purego.RegisterFunc(&rawCallback, x.xLocalFileSetAttributes)
 	return func(VfsVar *Vfs, FilenameVar string, InfoVar *FileInfo, FlagsVar FileQueryInfoFlags, CancellableVar *Cancellable) bool {
-		return rawCallback(VfsVar.GoPointer(), FilenameVar, InfoVar.GoPointer(), FlagsVar, CancellableVar.GoPointer())
+		var cerr *glib.Error
+		return rawCallback(VfsVar.GoPointer(), FilenameVar, InfoVar.GoPointer(), FlagsVar, CancellableVar.GoPointer(), &cerr)
 	}
 }
 
@@ -517,6 +518,7 @@ type Vfs struct {
 var xVfsGLibType func() types.GType
 
 func VfsGLibType() types.GType {
+	core.LazyRegister(&xVfsGLibType, "GIO", "g_vfs_get_type", false)
 	return xVfsGLibType()
 }
 
@@ -530,6 +532,7 @@ var xVfsGetFileForPath func(uintptr, string) uintptr
 
 // Gets a #GFile for @path.
 func (x *Vfs) GetFileForPath(PathVar string) *FileBase {
+	core.LazyRegister(&xVfsGetFileForPath, "GIO", "g_vfs_get_file_for_path", false)
 	var cls *FileBase
 
 	cret := xVfsGetFileForPath(x.GoPointer(), PathVar)
@@ -550,6 +553,7 @@ var xVfsGetFileForUri func(uintptr, string) uintptr
 // might not support any I/O operation if the URI
 // is malformed or if the URI scheme is not supported.
 func (x *Vfs) GetFileForUri(UriVar string) *FileBase {
+	core.LazyRegister(&xVfsGetFileForUri, "GIO", "g_vfs_get_file_for_uri", false)
 	var cls *FileBase
 
 	cret := xVfsGetFileForUri(x.GoPointer(), UriVar)
@@ -566,6 +570,8 @@ var xVfsGetSupportedUriSchemes func(uintptr) []string
 
 // Gets a list of URI schemes supported by @vfs.
 func (x *Vfs) GetSupportedUriSchemes() []string {
+	core.LazyRegister(&xVfsGetSupportedUriSchemes, "GIO", "g_vfs_get_supported_uri_schemes", false)
+
 	cret := xVfsGetSupportedUriSchemes(x.GoPointer())
 	return cret
 }
@@ -574,6 +580,8 @@ var xVfsIsActive func(uintptr) bool
 
 // Checks if the VFS is active.
 func (x *Vfs) IsActive() bool {
+	core.LazyRegister(&xVfsIsActive, "GIO", "g_vfs_is_active", false)
+
 	cret := xVfsIsActive(x.GoPointer())
 	return cret
 }
@@ -584,6 +592,7 @@ var xVfsParseName func(uintptr, string) uintptr
 // not support any I/O operations if the @parse_name cannot
 // be parsed by the #GVfs module.
 func (x *Vfs) ParseName(ParseNameVar string) *FileBase {
+	core.LazyRegister(&xVfsParseName, "GIO", "g_vfs_parse_name", false)
 	var cls *FileBase
 
 	cret := xVfsParseName(x.GoPointer(), ParseNameVar)
@@ -619,6 +628,8 @@ var xVfsRegisterUriScheme func(uintptr, string, uintptr, uintptr, uintptr, uintp
 // It's an error to call this function twice with the same scheme. To unregister
 // a custom URI scheme, use g_vfs_unregister_uri_scheme().
 func (x *Vfs) RegisterUriScheme(SchemeVar string, UriFuncVar *VfsFileLookupFunc, UriDataVar uintptr, UriDestroyVar *glib.DestroyNotify, ParseNameFuncVar *VfsFileLookupFunc, ParseNameDataVar uintptr, ParseNameDestroyVar *glib.DestroyNotify) bool {
+	core.LazyRegister(&xVfsRegisterUriScheme, "GIO", "g_vfs_register_uri_scheme", false)
+
 	cret := xVfsRegisterUriScheme(x.GoPointer(), SchemeVar, glib.NewCallbackNullable(UriFuncVar), UriDataVar, glib.NewCallbackNullable(UriDestroyVar), glib.NewCallbackNullable(ParseNameFuncVar), ParseNameDataVar, glib.NewCallbackNullable(ParseNameDestroyVar))
 	return cret
 }
@@ -628,6 +639,8 @@ var xVfsUnregisterUriScheme func(uintptr, string) bool
 // Unregisters the URI handler for @scheme previously registered with
 // g_vfs_register_uri_scheme().
 func (x *Vfs) UnregisterUriScheme(SchemeVar string) bool {
+	core.LazyRegister(&xVfsUnregisterUriScheme, "GIO", "g_vfs_unregister_uri_scheme", false)
+
 	cret := xVfsUnregisterUriScheme(x.GoPointer(), SchemeVar)
 	return cret
 }
@@ -647,6 +660,7 @@ var xVfsGetDefault func() uintptr
 
 // Gets the default #GVfs for the system.
 func VfsGetDefault() *Vfs {
+	core.LazyRegister(&xVfsGetDefault, "GIO", "g_vfs_get_default", false)
 	var cls *Vfs
 
 	cret := xVfsGetDefault()
@@ -664,6 +678,7 @@ var xVfsGetLocal func() uintptr
 
 // Gets the local #GVfs for the system.
 func VfsGetLocal() *Vfs {
+	core.LazyRegister(&xVfsGetLocal, "GIO", "g_vfs_get_local", false)
 	var cls *Vfs
 
 	cret := xVfsGetLocal()
@@ -680,25 +695,4 @@ func VfsGetLocal() *Vfs {
 func init() {
 	core.SetPackageName("GIO", "gio-2.0")
 	core.SetSharedLibraries("GIO", []string{"libgio-2.0.so.0", "libgio-2.0.0.dylib"})
-	var libs []uintptr
-	for _, libPath := range core.GetPaths("GIO") {
-		lib, err := purego.Dlopen(libPath, purego.RTLD_NOW|purego.RTLD_GLOBAL)
-		if err != nil {
-			panic(err)
-		}
-		libs = append(libs, lib)
-	}
-
-	core.PuregoSafeRegister(&xVfsGLibType, libs, "g_vfs_get_type")
-
-	core.PuregoSafeRegister(&xVfsGetFileForPath, libs, "g_vfs_get_file_for_path")
-	core.PuregoSafeRegister(&xVfsGetFileForUri, libs, "g_vfs_get_file_for_uri")
-	core.PuregoSafeRegister(&xVfsGetSupportedUriSchemes, libs, "g_vfs_get_supported_uri_schemes")
-	core.PuregoSafeRegister(&xVfsIsActive, libs, "g_vfs_is_active")
-	core.PuregoSafeRegister(&xVfsParseName, libs, "g_vfs_parse_name")
-	core.PuregoSafeRegister(&xVfsRegisterUriScheme, libs, "g_vfs_register_uri_scheme")
-	core.PuregoSafeRegister(&xVfsUnregisterUriScheme, libs, "g_vfs_unregister_uri_scheme")
-
-	core.PuregoSafeRegister(&xVfsGetDefault, libs, "g_vfs_get_default")
-	core.PuregoSafeRegister(&xVfsGetLocal, libs, "g_vfs_get_local")
 }

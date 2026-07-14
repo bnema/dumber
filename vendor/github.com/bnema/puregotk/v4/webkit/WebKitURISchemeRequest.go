@@ -5,7 +5,6 @@ import (
 	"structs"
 	"unsafe"
 
-	"github.com/bnema/purego"
 	"github.com/bnema/puregotk/pkg/core"
 	"github.com/bnema/puregotk/v4/gio"
 	"github.com/bnema/puregotk/v4/glib"
@@ -49,6 +48,7 @@ type URISchemeRequest struct {
 var xURISchemeRequestGLibType func() types.GType
 
 func URISchemeRequestGLibType() types.GType {
+	core.LazyRegister(&xURISchemeRequestGLibType, "WEBKIT", "webkit_uri_scheme_request_get_type", false)
 	return xURISchemeRequestGLibType()
 }
 
@@ -62,6 +62,8 @@ var xURISchemeRequestFinish func(uintptr, uintptr, int64, uintptr)
 
 // Finish a #WebKitURISchemeRequest by setting the contents of the request and its mime type.
 func (x *URISchemeRequest) Finish(StreamVar *gio.InputStream, StreamLengthVar int64, ContentTypeVar *string) {
+	core.LazyRegister(&xURISchemeRequestFinish, "WEBKIT", "webkit_uri_scheme_request_finish", false)
+
 	ContentTypeVarPtr := core.GStrdupNullable(ContentTypeVar)
 	defer core.GFreeNullable(ContentTypeVarPtr)
 
@@ -72,6 +74,8 @@ var xURISchemeRequestFinishError func(uintptr, *glib.Error)
 
 // Finish a #WebKitURISchemeRequest with a #GError.
 func (x *URISchemeRequest) FinishError(ErrorVar *glib.Error) {
+	core.LazyRegister(&xURISchemeRequestFinishError, "WEBKIT", "webkit_uri_scheme_request_finish_error", false)
+
 	xURISchemeRequestFinishError(x.GoPointer(), ErrorVar)
 }
 
@@ -79,6 +83,8 @@ var xURISchemeRequestFinishWithResponse func(uintptr, uintptr)
 
 // Finish a #WebKitURISchemeRequest by returning a #WebKitURISchemeResponse
 func (x *URISchemeRequest) FinishWithResponse(ResponseVar *URISchemeResponse) {
+	core.LazyRegister(&xURISchemeRequestFinishWithResponse, "WEBKIT", "webkit_uri_scheme_request_finish_with_response", false)
+
 	xURISchemeRequestFinishWithResponse(x.GoPointer(), ResponseVar.GoPointer())
 }
 
@@ -86,6 +92,7 @@ var xURISchemeRequestGetHttpBody func(uintptr) uintptr
 
 // Get the request body.
 func (x *URISchemeRequest) GetHttpBody() *gio.InputStream {
+	core.LazyRegister(&xURISchemeRequestGetHttpBody, "WEBKIT", "webkit_uri_scheme_request_get_http_body", false)
 	var cls *gio.InputStream
 
 	cret := xURISchemeRequestGetHttpBody(x.GoPointer())
@@ -102,6 +109,8 @@ var xURISchemeRequestGetHttpHeaders func(uintptr) uintptr
 
 // Get the #SoupMessageHeaders of the request.
 func (x *URISchemeRequest) GetHttpHeaders() *soup.MessageHeaders {
+	core.LazyRegister(&xURISchemeRequestGetHttpHeaders, "WEBKIT", "webkit_uri_scheme_request_get_http_headers", false)
+
 	cret := xURISchemeRequestGetHttpHeaders(x.GoPointer())
 	if cret == 0 {
 		return nil
@@ -113,6 +122,8 @@ var xURISchemeRequestGetHttpMethod func(uintptr) string
 
 // Get the HTTP method of the @request.
 func (x *URISchemeRequest) GetHttpMethod() string {
+	core.LazyRegister(&xURISchemeRequestGetHttpMethod, "WEBKIT", "webkit_uri_scheme_request_get_http_method", false)
+
 	cret := xURISchemeRequestGetHttpMethod(x.GoPointer())
 	return cret
 }
@@ -121,6 +132,8 @@ var xURISchemeRequestGetPath func(uintptr) string
 
 // Get the URI path of @request.
 func (x *URISchemeRequest) GetPath() string {
+	core.LazyRegister(&xURISchemeRequestGetPath, "WEBKIT", "webkit_uri_scheme_request_get_path", false)
+
 	cret := xURISchemeRequestGetPath(x.GoPointer())
 	return cret
 }
@@ -129,6 +142,8 @@ var xURISchemeRequestGetScheme func(uintptr) string
 
 // Get the URI scheme of @request.
 func (x *URISchemeRequest) GetScheme() string {
+	core.LazyRegister(&xURISchemeRequestGetScheme, "WEBKIT", "webkit_uri_scheme_request_get_scheme", false)
+
 	cret := xURISchemeRequestGetScheme(x.GoPointer())
 	return cret
 }
@@ -137,6 +152,8 @@ var xURISchemeRequestGetUri func(uintptr) string
 
 // Get the URI of @request.
 func (x *URISchemeRequest) GetUri() string {
+	core.LazyRegister(&xURISchemeRequestGetUri, "WEBKIT", "webkit_uri_scheme_request_get_uri", false)
+
 	cret := xURISchemeRequestGetUri(x.GoPointer())
 	return cret
 }
@@ -145,6 +162,7 @@ var xURISchemeRequestGetWebView func(uintptr) uintptr
 
 // Get the #WebKitWebView that initiated the request.
 func (x *URISchemeRequest) GetWebView() *WebView {
+	core.LazyRegister(&xURISchemeRequestGetWebView, "WEBKIT", "webkit_uri_scheme_request_get_web_view", false)
 	var cls *WebView
 
 	cret := xURISchemeRequestGetWebView(x.GoPointer())
@@ -172,30 +190,8 @@ func (c *URISchemeRequest) SetGoPointer(ptr uintptr) {
 func init() {
 	core.SetPackageName("WEBKIT", "webkitgtk-6.0")
 	core.SetSharedLibraries("WEBKIT", []string{"libwebkitgtk-6.0.so.4", "libjavascriptcoregtk-6.0.so.1", "libwebkitgtk-6.0.4.dylib", "libjavascriptcoregtk-6.0.1.dylib"})
-	var libs []uintptr
-	for _, libPath := range core.GetPaths("WEBKIT") {
-		lib, err := purego.Dlopen(libPath, purego.RTLD_NOW|purego.RTLD_GLOBAL)
-		if err != nil {
-			panic(err)
-		}
-		libs = append(libs, lib)
-	}
 
-	core.PuregoSafeRegister(&xURISchemeRequestGLibType, libs, "webkit_uri_scheme_request_get_type")
-
-	core.PuregoSafeRegister(&xURISchemeRequestFinish, libs, "webkit_uri_scheme_request_finish")
-	core.PuregoSafeRegister(&xURISchemeRequestFinishError, libs, "webkit_uri_scheme_request_finish_error")
-	core.PuregoSafeRegister(&xURISchemeRequestFinishWithResponse, libs, "webkit_uri_scheme_request_finish_with_response")
-	core.PuregoSafeRegister(&xURISchemeRequestGetHttpBody, libs, "webkit_uri_scheme_request_get_http_body")
-	core.PuregoSafeRegister(&xURISchemeRequestGetHttpHeaders, libs, "webkit_uri_scheme_request_get_http_headers")
-	core.PuregoSafeRegister(&xURISchemeRequestGetHttpMethod, libs, "webkit_uri_scheme_request_get_http_method")
-	core.PuregoSafeRegister(&xURISchemeRequestGetPath, libs, "webkit_uri_scheme_request_get_path")
-	core.PuregoSafeRegister(&xURISchemeRequestGetScheme, libs, "webkit_uri_scheme_request_get_scheme")
-	core.PuregoSafeRegister(&xURISchemeRequestGetUri, libs, "webkit_uri_scheme_request_get_uri")
-	core.PuregoSafeRegister(&xURISchemeRequestGetWebView, libs, "webkit_uri_scheme_request_get_web_view")
-
-	// Manually register types since they aren't being automatically registered when
-	// the library is loaded
-	// See https://bugs.webkit.org/show_bug.cgi?id=175937
+	// Manually register types since they aren't automatically registered when
+	// WebKit is loaded. See https://bugs.webkit.org/show_bug.cgi?id=175937.
 	URISchemeRequestGLibType()
 }

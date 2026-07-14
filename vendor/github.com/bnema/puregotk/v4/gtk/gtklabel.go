@@ -4,7 +4,6 @@ package gtk
 import (
 	"unsafe"
 
-	"github.com/bnema/purego"
 	"github.com/bnema/puregotk/pkg/core"
 	"github.com/bnema/puregotk/v4/gio"
 	"github.com/bnema/puregotk/v4/glib"
@@ -240,6 +239,7 @@ type Label struct {
 var xLabelGLibType func() types.GType
 
 func LabelGLibType() types.GType {
+	core.LazyRegister(&xLabelGLibType, "GTK", "gtk_label_get_type", false)
 	return xLabelGLibType()
 }
 
@@ -255,6 +255,7 @@ var xNewLabel func(uintptr) uintptr
 //
 // You can pass `NULL` to get an empty label widget.
 func NewLabel(StrVar *string) *Label {
+	core.LazyRegister(&xNewLabel, "GTK", "gtk_label_new", false)
 	var cls *Label
 
 	StrVarPtr := core.GStrdupNullable(StrVar)
@@ -288,6 +289,7 @@ var xNewLabelWithMnemonic func(uintptr) uintptr
 // the button or menu item will automatically become the mnemonic widget
 // and be activated by the mnemonic.
 func NewLabelWithMnemonic(StrVar *string) *Label {
+	core.LazyRegister(&xNewLabelWithMnemonic, "GTK", "gtk_label_new_with_mnemonic", false)
 	var cls *Label
 
 	StrVarPtr := core.GStrdupNullable(StrVar)
@@ -315,6 +317,8 @@ var xLabelGetAttributes func(uintptr) uintptr
 // attributes for the label, use
 // `pango_layout_get_attributes (gtk_label_get_layout (self))`.
 func (x *Label) GetAttributes() *pango.AttrList {
+	core.LazyRegister(&xLabelGetAttributes, "GTK", "gtk_label_get_attributes", false)
+
 	cret := xLabelGetAttributes(x.GoPointer())
 	if cret == 0 {
 		return nil
@@ -333,6 +337,8 @@ var xLabelGetCurrentUri func(uintptr) string
 // This function is intended for use in a [signal@Gtk.Label::activate-link]
 // handler or for use in a [signal@Gtk.Widget::query-tooltip] handler.
 func (x *Label) GetCurrentUri() string {
+	core.LazyRegister(&xLabelGetCurrentUri, "GTK", "gtk_label_get_current_uri", false)
+
 	cret := xLabelGetCurrentUri(x.GoPointer())
 	return cret
 }
@@ -343,6 +349,8 @@ var xLabelGetEllipsize func(uintptr) pango.EllipsizeMode
 //
 // See [method@Gtk.Label.set_ellipsize].
 func (x *Label) GetEllipsize() pango.EllipsizeMode {
+	core.LazyRegister(&xLabelGetEllipsize, "GTK", "gtk_label_get_ellipsize", false)
+
 	cret := xLabelGetEllipsize(x.GoPointer())
 	return cret
 }
@@ -353,6 +361,7 @@ var xLabelGetExtraMenu func(uintptr) uintptr
 //
 // See [method@Gtk.Label.set_extra_menu].
 func (x *Label) GetExtraMenu() *gio.MenuModel {
+	core.LazyRegister(&xLabelGetExtraMenu, "GTK", "gtk_label_get_extra_menu", false)
 	var cls *gio.MenuModel
 
 	cret := xLabelGetExtraMenu(x.GoPointer())
@@ -372,6 +381,8 @@ var xLabelGetJustify func(uintptr) Justification
 //
 // See [method@Gtk.Label.set_justify].
 func (x *Label) GetJustify() Justification {
+	core.LazyRegister(&xLabelGetJustify, "GTK", "gtk_label_get_justify", false)
+
 	cret := xLabelGetJustify(x.GoPointer())
 	return cret
 }
@@ -383,6 +394,8 @@ var xLabelGetLabel func(uintptr) string
 // The returned text includes any embedded underlines indicating
 // mnemonics and Pango markup. (See [method@Gtk.Label.get_text]).
 func (x *Label) GetLabel() string {
+	core.LazyRegister(&xLabelGetLabel, "GTK", "gtk_label_get_label", false)
+
 	cret := xLabelGetLabel(x.GoPointer())
 	return cret
 }
@@ -397,6 +410,7 @@ var xLabelGetLayout func(uintptr) uintptr
 // freed by the caller. The @label is free to recreate its layout
 // at any time, so it should be considered read-only.
 func (x *Label) GetLayout() *pango.Layout {
+	core.LazyRegister(&xLabelGetLayout, "GTK", "gtk_label_get_layout", false)
 	var cls *pango.Layout
 
 	cret := xLabelGetLayout(x.GoPointer())
@@ -420,6 +434,8 @@ var xLabelGetLayoutOffsets func(uintptr, *int, *int)
 // functions you need to convert to and from pixels using `PANGO_PIXELS()`
 // or [const@Pango.SCALE].
 func (x *Label) GetLayoutOffsets(XVar *int, YVar *int) {
+	core.LazyRegister(&xLabelGetLayoutOffsets, "GTK", "gtk_label_get_layout_offsets", false)
+
 	xLabelGetLayoutOffsets(x.GoPointer(), XVar, YVar)
 }
 
@@ -430,6 +446,8 @@ var xLabelGetLines func(uintptr) int
 //
 // See [method@Gtk.Label.set_lines].
 func (x *Label) GetLines() int {
+	core.LazyRegister(&xLabelGetLines, "GTK", "gtk_label_get_lines", false)
+
 	cret := xLabelGetLines(x.GoPointer())
 	return cret
 }
@@ -440,6 +458,8 @@ var xLabelGetMaxWidthChars func(uintptr) int
 //
 // See [method@Gtk.Label.set_width_chars].
 func (x *Label) GetMaxWidthChars() int {
+	core.LazyRegister(&xLabelGetMaxWidthChars, "GTK", "gtk_label_get_max_width_chars", false)
+
 	cret := xLabelGetMaxWidthChars(x.GoPointer())
 	return cret
 }
@@ -452,6 +472,8 @@ var xLabelGetMnemonicKeyval func(uintptr) uint
 // returns the keyval used for the mnemonic accelerator. If there is no
 // mnemonic set up it returns `GDK_KEY_VoidSymbol`.
 func (x *Label) GetMnemonicKeyval() uint {
+	core.LazyRegister(&xLabelGetMnemonicKeyval, "GTK", "gtk_label_get_mnemonic_keyval", false)
+
 	cret := xLabelGetMnemonicKeyval(x.GoPointer())
 	return cret
 }
@@ -462,6 +484,7 @@ var xLabelGetMnemonicWidget func(uintptr) uintptr
 //
 // See [method@Gtk.Label.set_mnemonic_widget].
 func (x *Label) GetMnemonicWidget() *Widget {
+	core.LazyRegister(&xLabelGetMnemonicWidget, "GTK", "gtk_label_get_mnemonic_widget", false)
 	var cls *Widget
 
 	cret := xLabelGetMnemonicWidget(x.GoPointer())
@@ -481,6 +504,8 @@ var xLabelGetNaturalWrapMode func(uintptr) NaturalWrapMode
 //
 // See [method@Gtk.Label.set_natural_wrap_mode].
 func (x *Label) GetNaturalWrapMode() NaturalWrapMode {
+	core.LazyRegister(&xLabelGetNaturalWrapMode, "GTK", "gtk_label_get_natural_wrap_mode", false)
+
 	cret := xLabelGetNaturalWrapMode(x.GoPointer())
 	return cret
 }
@@ -489,6 +514,8 @@ var xLabelGetSelectable func(uintptr) bool
 
 // Returns whether the label is selectable.
 func (x *Label) GetSelectable() bool {
+	core.LazyRegister(&xLabelGetSelectable, "GTK", "gtk_label_get_selectable", false)
+
 	cret := xLabelGetSelectable(x.GoPointer())
 	return cret
 }
@@ -499,6 +526,8 @@ var xLabelGetSelectionBounds func(uintptr, *int, *int) bool
 //
 // The returned @start and @end positions are in characters.
 func (x *Label) GetSelectionBounds(StartVar *int, EndVar *int) bool {
+	core.LazyRegister(&xLabelGetSelectionBounds, "GTK", "gtk_label_get_selection_bounds", false)
+
 	cret := xLabelGetSelectionBounds(x.GoPointer(), StartVar, EndVar)
 	return cret
 }
@@ -507,6 +536,8 @@ var xLabelGetSingleLineMode func(uintptr) bool
 
 // Returns whether the label is in single line mode.
 func (x *Label) GetSingleLineMode() bool {
+	core.LazyRegister(&xLabelGetSingleLineMode, "GTK", "gtk_label_get_single_line_mode", false)
+
 	cret := xLabelGetSingleLineMode(x.GoPointer())
 	return cret
 }
@@ -517,6 +548,8 @@ var xLabelGetTabs func(uintptr) uintptr
 //
 // The returned array will be `NULL` if “standard” (8-space) tabs are used.
 func (x *Label) GetTabs() *pango.TabArray {
+	core.LazyRegister(&xLabelGetTabs, "GTK", "gtk_label_get_tabs", false)
+
 	cret := xLabelGetTabs(x.GoPointer())
 	if cret == 0 {
 		return nil
@@ -532,6 +565,8 @@ var xLabelGetText func(uintptr) string
 // any embedded underlines indicating mnemonics or Pango markup. (See
 // [method@Gtk.Label.get_label])
 func (x *Label) GetText() string {
+	core.LazyRegister(&xLabelGetText, "GTK", "gtk_label_get_text", false)
+
 	cret := xLabelGetText(x.GoPointer())
 	return cret
 }
@@ -542,6 +577,8 @@ var xLabelGetUseMarkup func(uintptr) bool
 //
 // See [method@Gtk.Label.set_use_markup].
 func (x *Label) GetUseMarkup() bool {
+	core.LazyRegister(&xLabelGetUseMarkup, "GTK", "gtk_label_get_use_markup", false)
+
 	cret := xLabelGetUseMarkup(x.GoPointer())
 	return cret
 }
@@ -552,6 +589,8 @@ var xLabelGetUseUnderline func(uintptr) bool
 //
 // See [method@Gtk.Label.set_use_underline].
 func (x *Label) GetUseUnderline() bool {
+	core.LazyRegister(&xLabelGetUseUnderline, "GTK", "gtk_label_get_use_underline", false)
+
 	cret := xLabelGetUseUnderline(x.GoPointer())
 	return cret
 }
@@ -562,6 +601,8 @@ var xLabelGetWidthChars func(uintptr) int
 //
 // See [method@Gtk.Label.set_width_chars].
 func (x *Label) GetWidthChars() int {
+	core.LazyRegister(&xLabelGetWidthChars, "GTK", "gtk_label_get_width_chars", false)
+
 	cret := xLabelGetWidthChars(x.GoPointer())
 	return cret
 }
@@ -572,6 +613,8 @@ var xLabelGetWrap func(uintptr) bool
 //
 // See [method@Gtk.Label.set_wrap].
 func (x *Label) GetWrap() bool {
+	core.LazyRegister(&xLabelGetWrap, "GTK", "gtk_label_get_wrap", false)
+
 	cret := xLabelGetWrap(x.GoPointer())
 	return cret
 }
@@ -582,6 +625,8 @@ var xLabelGetWrapMode func(uintptr) pango.WrapMode
 //
 // See [method@Gtk.Label.set_wrap_mode].
 func (x *Label) GetWrapMode() pango.WrapMode {
+	core.LazyRegister(&xLabelGetWrapMode, "GTK", "gtk_label_get_wrap_mode", false)
+
 	cret := xLabelGetWrapMode(x.GoPointer())
 	return cret
 }
@@ -592,6 +637,8 @@ var xLabelGetXalign func(uintptr) float32
 //
 // See the [property@Gtk.Label:xalign] property.
 func (x *Label) GetXalign() float32 {
+	core.LazyRegister(&xLabelGetXalign, "GTK", "gtk_label_get_xalign", false)
+
 	cret := xLabelGetXalign(x.GoPointer())
 	return cret
 }
@@ -602,6 +649,8 @@ var xLabelGetYalign func(uintptr) float32
 //
 // See the [property@Gtk.Label:yalign] property.
 func (x *Label) GetYalign() float32 {
+	core.LazyRegister(&xLabelGetYalign, "GTK", "gtk_label_get_yalign", false)
+
 	cret := xLabelGetYalign(x.GoPointer())
 	return cret
 }
@@ -614,6 +663,8 @@ var xLabelSelectRegion func(uintptr, int, int)
 // this function has no effect. If @start_offset or
 // @end_offset are -1, then the end of the label will be substituted.
 func (x *Label) SelectRegion(StartOffsetVar int, EndOffsetVar int) {
+	core.LazyRegister(&xLabelSelectRegion, "GTK", "gtk_label_select_region", false)
+
 	xLabelSelectRegion(x.GoPointer(), StartOffsetVar, EndOffsetVar)
 }
 
@@ -630,6 +681,8 @@ var xLabelSetAttributes func(uintptr, *pango.AttrList)
 // attributes, if you must; know that the attributes will be applied
 // to the label after the markup string is parsed.
 func (x *Label) SetAttributes(AttrsVar *pango.AttrList) {
+	core.LazyRegister(&xLabelSetAttributes, "GTK", "gtk_label_set_attributes", false)
+
 	xLabelSetAttributes(x.GoPointer(), AttrsVar)
 }
 
@@ -640,6 +693,8 @@ var xLabelSetEllipsize func(uintptr, pango.EllipsizeMode)
 // The text will be ellipsized if there is not
 // enough space to render the entire string.
 func (x *Label) SetEllipsize(ModeVar pango.EllipsizeMode) {
+	core.LazyRegister(&xLabelSetEllipsize, "GTK", "gtk_label_set_ellipsize", false)
+
 	xLabelSetEllipsize(x.GoPointer(), ModeVar)
 }
 
@@ -647,6 +702,8 @@ var xLabelSetExtraMenu func(uintptr, uintptr)
 
 // Sets a menu model to add to the context menu of the label.
 func (x *Label) SetExtraMenu(ModelVar *gio.MenuModel) {
+	core.LazyRegister(&xLabelSetExtraMenu, "GTK", "gtk_label_set_extra_menu", false)
+
 	xLabelSetExtraMenu(x.GoPointer(), ModelVar.GoPointer())
 }
 
@@ -662,6 +719,8 @@ var xLabelSetJustify func(uintptr, Justification)
 // If you instead want to set the alignment of the label as a whole,
 // use [method@Gtk.Widget.set_halign] instead.
 func (x *Label) SetJustify(JtypeVar Justification) {
+	core.LazyRegister(&xLabelSetJustify, "GTK", "gtk_label_set_justify", false)
+
 	xLabelSetJustify(x.GoPointer(), JtypeVar)
 }
 
@@ -673,6 +732,8 @@ var xLabelSetLabel func(uintptr, string)
 // markup depending on the values of the [property@Gtk.Label:use-underline]
 // and [property@Gtk.Label:use-markup] properties.
 func (x *Label) SetLabel(StrVar string) {
+	core.LazyRegister(&xLabelSetLabel, "GTK", "gtk_label_set_label", false)
+
 	xLabelSetLabel(x.GoPointer(), StrVar)
 }
 
@@ -684,6 +745,8 @@ var xLabelSetLines func(uintptr, int)
 // This has no effect if the label is not wrapping or ellipsized.
 // Set this to -1 if you don’t want to limit the number of lines.
 func (x *Label) SetLines(LinesVar int) {
+	core.LazyRegister(&xLabelSetLines, "GTK", "gtk_label_set_lines", false)
+
 	xLabelSetLines(x.GoPointer(), LinesVar)
 }
 
@@ -713,6 +776,8 @@ var xLabelSetMarkup func(uintptr, string)
 //
 // Also see [method@Gtk.Label.set_text].
 func (x *Label) SetMarkup(StrVar string) {
+	core.LazyRegister(&xLabelSetMarkup, "GTK", "gtk_label_set_markup", false)
+
 	xLabelSetMarkup(x.GoPointer(), StrVar)
 }
 
@@ -728,6 +793,8 @@ var xLabelSetMarkupWithMnemonic func(uintptr, string)
 // The mnemonic key can be used to activate another widget, chosen
 // automatically, or explicitly using [method@Gtk.Label.set_mnemonic_widget].
 func (x *Label) SetMarkupWithMnemonic(StrVar string) {
+	core.LazyRegister(&xLabelSetMarkupWithMnemonic, "GTK", "gtk_label_set_markup_with_mnemonic", false)
+
 	xLabelSetMarkupWithMnemonic(x.GoPointer(), StrVar)
 }
 
@@ -735,6 +802,8 @@ var xLabelSetMaxWidthChars func(uintptr, int)
 
 // Sets the maximum width of the label in characters.
 func (x *Label) SetMaxWidthChars(NCharsVar int) {
+	core.LazyRegister(&xLabelSetMaxWidthChars, "GTK", "gtk_label_set_max_width_chars", false)
+
 	xLabelSetMaxWidthChars(x.GoPointer(), NCharsVar)
 }
 
@@ -758,6 +827,8 @@ var xLabelSetMnemonicWidget func(uintptr, uintptr)
 // for this signal will activate the widget if there are no mnemonic
 // collisions and toggle focus between the colliding widgets otherwise.
 func (x *Label) SetMnemonicWidget(WidgetVar *Widget) {
+	core.LazyRegister(&xLabelSetMnemonicWidget, "GTK", "gtk_label_set_mnemonic_widget", false)
+
 	xLabelSetMnemonicWidget(x.GoPointer(), WidgetVar.GoPointer())
 }
 
@@ -768,6 +839,8 @@ var xLabelSetNaturalWrapMode func(uintptr, NaturalWrapMode)
 // This only affects the natural size requested, for the actual wrapping used,
 // see the [property@Gtk.Label:wrap-mode] property.
 func (x *Label) SetNaturalWrapMode(WrapModeVar NaturalWrapMode) {
+	core.LazyRegister(&xLabelSetNaturalWrapMode, "GTK", "gtk_label_set_natural_wrap_mode", false)
+
 	xLabelSetNaturalWrapMode(x.GoPointer(), WrapModeVar)
 }
 
@@ -778,6 +851,8 @@ var xLabelSetSelectable func(uintptr, bool)
 // Selectable labels allow the user to select text from the label,
 // for copy-and-paste.
 func (x *Label) SetSelectable(SettingVar bool) {
+	core.LazyRegister(&xLabelSetSelectable, "GTK", "gtk_label_set_selectable", false)
+
 	xLabelSetSelectable(x.GoPointer(), SettingVar)
 }
 
@@ -785,6 +860,8 @@ var xLabelSetSingleLineMode func(uintptr, bool)
 
 // Sets whether the label is in single line mode.
 func (x *Label) SetSingleLineMode(SingleLineModeVar bool) {
+	core.LazyRegister(&xLabelSetSingleLineMode, "GTK", "gtk_label_set_single_line_mode", false)
+
 	xLabelSetSingleLineMode(x.GoPointer(), SingleLineModeVar)
 }
 
@@ -792,6 +869,8 @@ var xLabelSetTabs func(uintptr, *pango.TabArray)
 
 // Sets tab stops for the label.
 func (x *Label) SetTabs(TabsVar *pango.TabArray) {
+	core.LazyRegister(&xLabelSetTabs, "GTK", "gtk_label_set_tabs", false)
+
 	xLabelSetTabs(x.GoPointer(), TabsVar)
 }
 
@@ -806,6 +885,8 @@ var xLabelSetText func(uintptr, string)
 //
 // Also see [method@Gtk.Label.set_markup].
 func (x *Label) SetText(StrVar string) {
+	core.LazyRegister(&xLabelSetText, "GTK", "gtk_label_set_text", false)
+
 	xLabelSetText(x.GoPointer(), StrVar)
 }
 
@@ -818,6 +899,8 @@ var xLabelSetTextWithMnemonic func(uintptr, string)
 // The mnemonic key can be used to activate another widget, chosen
 // automatically, or explicitly using [method@Gtk.Label.set_mnemonic_widget].
 func (x *Label) SetTextWithMnemonic(StrVar string) {
+	core.LazyRegister(&xLabelSetTextWithMnemonic, "GTK", "gtk_label_set_text_with_mnemonic", false)
+
 	xLabelSetTextWithMnemonic(x.GoPointer(), StrVar)
 }
 
@@ -827,6 +910,8 @@ var xLabelSetUseMarkup func(uintptr, bool)
 //
 // See [method@Gtk.Label.set_markup].
 func (x *Label) SetUseMarkup(SettingVar bool) {
+	core.LazyRegister(&xLabelSetUseMarkup, "GTK", "gtk_label_set_use_markup", false)
+
 	xLabelSetUseMarkup(x.GoPointer(), SettingVar)
 }
 
@@ -834,6 +919,8 @@ var xLabelSetUseUnderline func(uintptr, bool)
 
 // Sets whether underlines in the text indicate mnemonics.
 func (x *Label) SetUseUnderline(SettingVar bool) {
+	core.LazyRegister(&xLabelSetUseUnderline, "GTK", "gtk_label_set_use_underline", false)
+
 	xLabelSetUseUnderline(x.GoPointer(), SettingVar)
 }
 
@@ -841,6 +928,8 @@ var xLabelSetWidthChars func(uintptr, int)
 
 // Sets the desired width in characters of the label.
 func (x *Label) SetWidthChars(NCharsVar int) {
+	core.LazyRegister(&xLabelSetWidthChars, "GTK", "gtk_label_set_width_chars", false)
+
 	xLabelSetWidthChars(x.GoPointer(), NCharsVar)
 }
 
@@ -858,6 +947,8 @@ var xLabelSetWrap func(uintptr, bool)
 // For a label that wraps at a specific position, set the label’s width
 // using [method@Gtk.Widget.set_size_request].
 func (x *Label) SetWrap(WrapVar bool) {
+	core.LazyRegister(&xLabelSetWrap, "GTK", "gtk_label_set_wrap", false)
+
 	xLabelSetWrap(x.GoPointer(), WrapVar)
 }
 
@@ -874,6 +965,8 @@ var xLabelSetWrapMode func(uintptr, pango.WrapMode)
 // For sizing behavior, also consider the
 // [property@Gtk.Label:natural-wrap-mode] property.
 func (x *Label) SetWrapMode(WrapModeVar pango.WrapMode) {
+	core.LazyRegister(&xLabelSetWrapMode, "GTK", "gtk_label_set_wrap_mode", false)
+
 	xLabelSetWrapMode(x.GoPointer(), WrapModeVar)
 }
 
@@ -883,6 +976,8 @@ var xLabelSetXalign func(uintptr, float32)
 //
 // See the [property@Gtk.Label:xalign] property.
 func (x *Label) SetXalign(XalignVar float32) {
+	core.LazyRegister(&xLabelSetXalign, "GTK", "gtk_label_set_xalign", false)
+
 	xLabelSetXalign(x.GoPointer(), XalignVar)
 }
 
@@ -892,6 +987,8 @@ var xLabelSetYalign func(uintptr, float32)
 //
 // See the [property@Gtk.Label:yalign] property.
 func (x *Label) SetYalign(YalignVar float32) {
+	core.LazyRegister(&xLabelSetYalign, "GTK", "gtk_label_set_yalign", false)
+
 	xLabelSetYalign(x.GoPointer(), YalignVar)
 }
 
@@ -1659,67 +1756,4 @@ func (x *Label) GetBuildableId() string {
 func init() {
 	core.SetPackageName("GTK", "gtk4")
 	core.SetSharedLibraries("GTK", []string{"libgtk-4.so.1", "libgtk-4.1.dylib"})
-	var libs []uintptr
-	for _, libPath := range core.GetPaths("GTK") {
-		lib, err := purego.Dlopen(libPath, purego.RTLD_NOW|purego.RTLD_GLOBAL)
-		if err != nil {
-			panic(err)
-		}
-		libs = append(libs, lib)
-	}
-
-	core.PuregoSafeRegister(&xLabelGLibType, libs, "gtk_label_get_type")
-
-	core.PuregoSafeRegister(&xNewLabel, libs, "gtk_label_new")
-	core.PuregoSafeRegister(&xNewLabelWithMnemonic, libs, "gtk_label_new_with_mnemonic")
-
-	core.PuregoSafeRegister(&xLabelGetAttributes, libs, "gtk_label_get_attributes")
-	core.PuregoSafeRegister(&xLabelGetCurrentUri, libs, "gtk_label_get_current_uri")
-	core.PuregoSafeRegister(&xLabelGetEllipsize, libs, "gtk_label_get_ellipsize")
-	core.PuregoSafeRegister(&xLabelGetExtraMenu, libs, "gtk_label_get_extra_menu")
-	core.PuregoSafeRegister(&xLabelGetJustify, libs, "gtk_label_get_justify")
-	core.PuregoSafeRegister(&xLabelGetLabel, libs, "gtk_label_get_label")
-	core.PuregoSafeRegister(&xLabelGetLayout, libs, "gtk_label_get_layout")
-	core.PuregoSafeRegister(&xLabelGetLayoutOffsets, libs, "gtk_label_get_layout_offsets")
-	core.PuregoSafeRegister(&xLabelGetLines, libs, "gtk_label_get_lines")
-	core.PuregoSafeRegister(&xLabelGetMaxWidthChars, libs, "gtk_label_get_max_width_chars")
-	core.PuregoSafeRegister(&xLabelGetMnemonicKeyval, libs, "gtk_label_get_mnemonic_keyval")
-	core.PuregoSafeRegister(&xLabelGetMnemonicWidget, libs, "gtk_label_get_mnemonic_widget")
-	core.PuregoSafeRegister(&xLabelGetNaturalWrapMode, libs, "gtk_label_get_natural_wrap_mode")
-	core.PuregoSafeRegister(&xLabelGetSelectable, libs, "gtk_label_get_selectable")
-	core.PuregoSafeRegister(&xLabelGetSelectionBounds, libs, "gtk_label_get_selection_bounds")
-	core.PuregoSafeRegister(&xLabelGetSingleLineMode, libs, "gtk_label_get_single_line_mode")
-	core.PuregoSafeRegister(&xLabelGetTabs, libs, "gtk_label_get_tabs")
-	core.PuregoSafeRegister(&xLabelGetText, libs, "gtk_label_get_text")
-	core.PuregoSafeRegister(&xLabelGetUseMarkup, libs, "gtk_label_get_use_markup")
-	core.PuregoSafeRegister(&xLabelGetUseUnderline, libs, "gtk_label_get_use_underline")
-	core.PuregoSafeRegister(&xLabelGetWidthChars, libs, "gtk_label_get_width_chars")
-	core.PuregoSafeRegister(&xLabelGetWrap, libs, "gtk_label_get_wrap")
-	core.PuregoSafeRegister(&xLabelGetWrapMode, libs, "gtk_label_get_wrap_mode")
-	core.PuregoSafeRegister(&xLabelGetXalign, libs, "gtk_label_get_xalign")
-	core.PuregoSafeRegister(&xLabelGetYalign, libs, "gtk_label_get_yalign")
-	core.PuregoSafeRegister(&xLabelSelectRegion, libs, "gtk_label_select_region")
-	core.PuregoSafeRegister(&xLabelSetAttributes, libs, "gtk_label_set_attributes")
-	core.PuregoSafeRegister(&xLabelSetEllipsize, libs, "gtk_label_set_ellipsize")
-	core.PuregoSafeRegister(&xLabelSetExtraMenu, libs, "gtk_label_set_extra_menu")
-	core.PuregoSafeRegister(&xLabelSetJustify, libs, "gtk_label_set_justify")
-	core.PuregoSafeRegister(&xLabelSetLabel, libs, "gtk_label_set_label")
-	core.PuregoSafeRegister(&xLabelSetLines, libs, "gtk_label_set_lines")
-	core.PuregoSafeRegister(&xLabelSetMarkup, libs, "gtk_label_set_markup")
-	core.PuregoSafeRegister(&xLabelSetMarkupWithMnemonic, libs, "gtk_label_set_markup_with_mnemonic")
-	core.PuregoSafeRegister(&xLabelSetMaxWidthChars, libs, "gtk_label_set_max_width_chars")
-	core.PuregoSafeRegister(&xLabelSetMnemonicWidget, libs, "gtk_label_set_mnemonic_widget")
-	core.PuregoSafeRegister(&xLabelSetNaturalWrapMode, libs, "gtk_label_set_natural_wrap_mode")
-	core.PuregoSafeRegister(&xLabelSetSelectable, libs, "gtk_label_set_selectable")
-	core.PuregoSafeRegister(&xLabelSetSingleLineMode, libs, "gtk_label_set_single_line_mode")
-	core.PuregoSafeRegister(&xLabelSetTabs, libs, "gtk_label_set_tabs")
-	core.PuregoSafeRegister(&xLabelSetText, libs, "gtk_label_set_text")
-	core.PuregoSafeRegister(&xLabelSetTextWithMnemonic, libs, "gtk_label_set_text_with_mnemonic")
-	core.PuregoSafeRegister(&xLabelSetUseMarkup, libs, "gtk_label_set_use_markup")
-	core.PuregoSafeRegister(&xLabelSetUseUnderline, libs, "gtk_label_set_use_underline")
-	core.PuregoSafeRegister(&xLabelSetWidthChars, libs, "gtk_label_set_width_chars")
-	core.PuregoSafeRegister(&xLabelSetWrap, libs, "gtk_label_set_wrap")
-	core.PuregoSafeRegister(&xLabelSetWrapMode, libs, "gtk_label_set_wrap_mode")
-	core.PuregoSafeRegister(&xLabelSetXalign, libs, "gtk_label_set_xalign")
-	core.PuregoSafeRegister(&xLabelSetYalign, libs, "gtk_label_set_yalign")
 }

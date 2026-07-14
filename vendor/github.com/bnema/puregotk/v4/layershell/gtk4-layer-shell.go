@@ -4,7 +4,6 @@
 package layershell
 
 import (
-	"github.com/bnema/purego"
 	"github.com/bnema/puregotk/pkg/core"
 	"github.com/bnema/puregotk/v4/gdk"
 	"github.com/bnema/puregotk/v4/gobject"
@@ -61,12 +60,16 @@ var xAutoExclusiveZoneEnable func(uintptr)
 // NOTE: you can control the auto exclusive zone by changing the margin on the non-anchored
 // edge. This behavior is specific to gtk4-layer-shell and not part of the underlying protocol
 func AutoExclusiveZoneEnable(WindowVar *gtk.Window) {
+	core.LazyRegister(&xAutoExclusiveZoneEnable, "LAYERSHELL", "gtk_layer_auto_exclusive_zone_enable", true)
+
 	xAutoExclusiveZoneEnable(WindowVar.GoPointer())
 }
 
 var xAutoExclusiveZoneIsEnabled func(uintptr) bool
 
 func AutoExclusiveZoneIsEnabled(WindowVar *gtk.Window) bool {
+	core.LazyRegister(&xAutoExclusiveZoneIsEnabled, "LAYERSHELL", "gtk_layer_auto_exclusive_zone_is_enabled", true)
+
 	cret := xAutoExclusiveZoneIsEnabled(WindowVar.GoPointer())
 	return cret
 }
@@ -74,6 +77,8 @@ func AutoExclusiveZoneIsEnabled(WindowVar *gtk.Window) bool {
 var xGetAnchor func(uintptr, Edge) bool
 
 func GetAnchor(WindowVar *gtk.Window, EdgeVar Edge) bool {
+	core.LazyRegister(&xGetAnchor, "LAYERSHELL", "gtk_layer_get_anchor", true)
+
 	cret := xGetAnchor(WindowVar.GoPointer(), EdgeVar)
 	return cret
 }
@@ -81,6 +86,8 @@ func GetAnchor(WindowVar *gtk.Window, EdgeVar Edge) bool {
 var xGetExclusiveZone func(uintptr) int
 
 func GetExclusiveZone(WindowVar *gtk.Window) int {
+	core.LazyRegister(&xGetExclusiveZone, "LAYERSHELL", "gtk_layer_get_exclusive_zone", true)
+
 	cret := xGetExclusiveZone(WindowVar.GoPointer())
 	return cret
 }
@@ -88,6 +95,8 @@ func GetExclusiveZone(WindowVar *gtk.Window) int {
 var xGetKeyboardMode func(uintptr) KeyboardMode
 
 func GetKeyboardMode(WindowVar *gtk.Window) KeyboardMode {
+	core.LazyRegister(&xGetKeyboardMode, "LAYERSHELL", "gtk_layer_get_keyboard_mode", true)
+
 	cret := xGetKeyboardMode(WindowVar.GoPointer())
 	return cret
 }
@@ -95,6 +104,8 @@ func GetKeyboardMode(WindowVar *gtk.Window) KeyboardMode {
 var xGetLayer func(uintptr) Layer
 
 func GetLayer(WindowVar *gtk.Window) Layer {
+	core.LazyRegister(&xGetLayer, "LAYERSHELL", "gtk_layer_get_layer", true)
+
 	cret := xGetLayer(WindowVar.GoPointer())
 	return cret
 }
@@ -102,6 +113,8 @@ func GetLayer(WindowVar *gtk.Window) Layer {
 var xGetMajorVersion func() uint
 
 func GetMajorVersion() uint {
+	core.LazyRegister(&xGetMajorVersion, "LAYERSHELL", "gtk_layer_get_major_version", true)
+
 	cret := xGetMajorVersion()
 	return cret
 }
@@ -109,6 +122,8 @@ func GetMajorVersion() uint {
 var xGetMargin func(uintptr, Edge) int
 
 func GetMargin(WindowVar *gtk.Window, EdgeVar Edge) int {
+	core.LazyRegister(&xGetMargin, "LAYERSHELL", "gtk_layer_get_margin", true)
+
 	cret := xGetMargin(WindowVar.GoPointer(), EdgeVar)
 	return cret
 }
@@ -116,6 +131,8 @@ func GetMargin(WindowVar *gtk.Window, EdgeVar Edge) int {
 var xGetMicroVersion func() uint
 
 func GetMicroVersion() uint {
+	core.LazyRegister(&xGetMicroVersion, "LAYERSHELL", "gtk_layer_get_micro_version", true)
+
 	cret := xGetMicroVersion()
 	return cret
 }
@@ -123,6 +140,8 @@ func GetMicroVersion() uint {
 var xGetMinorVersion func() uint
 
 func GetMinorVersion() uint {
+	core.LazyRegister(&xGetMinorVersion, "LAYERSHELL", "gtk_layer_get_minor_version", true)
+
 	cret := xGetMinorVersion()
 	return cret
 }
@@ -132,6 +151,7 @@ var xGetMonitor func(uintptr) uintptr
 // NOTE: To get which monitor the surface is actually on, use
 // gdk_display_get_monitor_at_surface().
 func GetMonitor(WindowVar *gtk.Window) *gdk.Monitor {
+	core.LazyRegister(&xGetMonitor, "LAYERSHELL", "gtk_layer_get_monitor", true)
 	var cls *gdk.Monitor
 
 	cret := xGetMonitor(WindowVar.GoPointer())
@@ -150,6 +170,8 @@ var xGetNamespace func(uintptr) string
 // NOTE: this function does not return ownership of the string. Do not free the returned string.
 // Future calls into the library may invalidate the returned string.
 func GetNamespace(WindowVar *gtk.Window) string {
+	core.LazyRegister(&xGetNamespace, "LAYERSHELL", "gtk_layer_get_namespace", true)
+
 	cret := xGetNamespace(WindowVar.GoPointer())
 	return cret
 }
@@ -158,6 +180,8 @@ var xGetProtocolVersion func() uint
 
 // May block for a Wayland roundtrip the first time it's called.
 func GetProtocolVersion() uint {
+	core.LazyRegister(&xGetProtocolVersion, "LAYERSHELL", "gtk_layer_get_protocol_version", true)
+
 	cret := xGetProtocolVersion()
 	return cret
 }
@@ -165,6 +189,8 @@ func GetProtocolVersion() uint {
 var xGetRespectClose func(uintptr) bool
 
 func GetRespectClose(WindowVar *gtk.Window) bool {
+	core.LazyRegister(&xGetRespectClose, "LAYERSHELL", "gtk_layer_get_respect_close", true)
+
 	cret := xGetRespectClose(WindowVar.GoPointer())
 	return cret
 }
@@ -172,6 +198,8 @@ func GetRespectClose(WindowVar *gtk.Window) bool {
 var xGetZwlrLayerSurfaceV1 func(uintptr) uintptr
 
 func GetZwlrLayerSurfaceV1(WindowVar *gtk.Window) uintptr {
+	core.LazyRegister(&xGetZwlrLayerSurfaceV1, "LAYERSHELL", "gtk_layer_get_zwlr_layer_surface_v1", true)
+
 	cret := xGetZwlrLayerSurfaceV1(WindowVar.GoPointer())
 	return cret
 }
@@ -181,12 +209,16 @@ var xInitForWindow func(uintptr)
 // Set the @window up to be a layer surface once it is mapped. this must be called before
 // the @window is realized.
 func InitForWindow(WindowVar *gtk.Window) {
+	core.LazyRegister(&xInitForWindow, "LAYERSHELL", "gtk_layer_init_for_window", true)
+
 	xInitForWindow(WindowVar.GoPointer())
 }
 
 var xIsLayerWindow func(uintptr) bool
 
 func IsLayerWindow(WindowVar *gtk.Window) bool {
+	core.LazyRegister(&xIsLayerWindow, "LAYERSHELL", "gtk_layer_is_layer_window", true)
+
 	cret := xIsLayerWindow(WindowVar.GoPointer())
 	return cret
 }
@@ -195,6 +227,8 @@ var xIsSupported func() bool
 
 // May block for a Wayland roundtrip the first time it's called.
 func IsSupported() bool {
+	core.LazyRegister(&xIsSupported, "LAYERSHELL", "gtk_layer_is_supported", true)
+
 	cret := xIsSupported()
 	return cret
 }
@@ -207,6 +241,8 @@ var xSetAnchor func(uintptr, Edge, bool)
 //
 // Default is %FALSE for each #GtkLayerShellEdge
 func SetAnchor(WindowVar *gtk.Window, EdgeVar Edge, AnchorToEdgeVar bool) {
+	core.LazyRegister(&xSetAnchor, "LAYERSHELL", "gtk_layer_set_anchor", true)
+
 	xSetAnchor(WindowVar.GoPointer(), EdgeVar, AnchorToEdgeVar)
 }
 
@@ -219,6 +255,8 @@ var xSetExclusiveZone func(uintptr, int)
 //
 // Default is 0
 func SetExclusiveZone(WindowVar *gtk.Window, ExclusiveZoneVar int) {
+	core.LazyRegister(&xSetExclusiveZone, "LAYERSHELL", "gtk_layer_set_exclusive_zone", true)
+
 	xSetExclusiveZone(WindowVar.GoPointer(), ExclusiveZoneVar)
 }
 
@@ -230,6 +268,8 @@ var xSetKeyboardMode func(uintptr, KeyboardMode)
 //
 // Default is %GTK_LAYER_SHELL_KEYBOARD_MODE_NONE
 func SetKeyboardMode(WindowVar *gtk.Window, ModeVar KeyboardMode) {
+	core.LazyRegister(&xSetKeyboardMode, "LAYERSHELL", "gtk_layer_set_keyboard_mode", true)
+
 	xSetKeyboardMode(WindowVar.GoPointer(), ModeVar)
 }
 
@@ -241,6 +281,8 @@ var xSetLayer func(uintptr, Layer)
 //
 // Default is %GTK_LAYER_SHELL_LAYER_TOP
 func SetLayer(WindowVar *gtk.Window, LayerVar Layer) {
+	core.LazyRegister(&xSetLayer, "LAYERSHELL", "gtk_layer_set_layer", true)
+
 	xSetLayer(WindowVar.GoPointer(), LayerVar)
 }
 
@@ -251,6 +293,8 @@ var xSetMargin func(uintptr, Edge, int)
 //
 // Default is 0 for each #GtkLayerShellEdge
 func SetMargin(WindowVar *gtk.Window, EdgeVar Edge, MarginSizeVar int) {
+	core.LazyRegister(&xSetMargin, "LAYERSHELL", "gtk_layer_set_margin", true)
+
 	xSetMargin(WindowVar.GoPointer(), EdgeVar, MarginSizeVar)
 }
 
@@ -261,6 +305,8 @@ var xSetMonitor func(uintptr, uintptr)
 //
 // Default is %NULL
 func SetMonitor(WindowVar *gtk.Window, MonitorVar *gdk.Monitor) {
+	core.LazyRegister(&xSetMonitor, "LAYERSHELL", "gtk_layer_set_monitor", true)
+
 	xSetMonitor(WindowVar.GoPointer(), MonitorVar.GoPointer())
 }
 
@@ -275,6 +321,8 @@ var xSetNamespace func(uintptr, uintptr)
 //
 // Default is "gtk4-layer-shell" (which will be used if set to %NULL)
 func SetNamespace(WindowVar *gtk.Window, NameSpaceVar *string) {
+	core.LazyRegister(&xSetNamespace, "LAYERSHELL", "gtk_layer_set_namespace", true)
+
 	NameSpaceVarPtr := core.GStrdupNullable(NameSpaceVar)
 	defer core.GFreeNullable(NameSpaceVarPtr)
 
@@ -290,51 +338,17 @@ var xSetRespectClose func(uintptr, bool)
 // function with %TRUE. To handle the `.closed` event without destroying your window
 // turn respect_close on and connect a `close-request` listener that returns %TRUE.
 func SetRespectClose(WindowVar *gtk.Window, RespectCloseVar bool) {
+	core.LazyRegister(&xSetRespectClose, "LAYERSHELL", "gtk_layer_set_respect_close", true)
+
 	xSetRespectClose(WindowVar.GoPointer(), RespectCloseVar)
 }
 
-var libs []uintptr
-
 // Available reports whether the shared library was loaded successfully.
 func Available() bool {
-	return len(libs) > 0
+	return core.LibraryAvailable("LAYERSHELL")
 }
 
 func init() {
 	core.SetPackageName("LAYERSHELL", "gtk4-layer-shell-0")
 	core.SetSharedLibraries("LAYERSHELL", []string{"libgtk4-layer-shell.so.0", "libgtk4-layer-shell.0.dylib"})
-	for _, libPath := range core.TryGetPaths("LAYERSHELL") {
-		lib, err := purego.Dlopen(libPath, purego.RTLD_NOW|purego.RTLD_GLOBAL)
-		if err != nil {
-			continue
-		}
-		libs = append(libs, lib)
-	}
-
-	core.PuregoSafeRegister(&xAutoExclusiveZoneEnable, libs, "gtk_layer_auto_exclusive_zone_enable")
-	core.PuregoSafeRegister(&xAutoExclusiveZoneIsEnabled, libs, "gtk_layer_auto_exclusive_zone_is_enabled")
-	core.PuregoSafeRegister(&xGetAnchor, libs, "gtk_layer_get_anchor")
-	core.PuregoSafeRegister(&xGetExclusiveZone, libs, "gtk_layer_get_exclusive_zone")
-	core.PuregoSafeRegister(&xGetKeyboardMode, libs, "gtk_layer_get_keyboard_mode")
-	core.PuregoSafeRegister(&xGetLayer, libs, "gtk_layer_get_layer")
-	core.PuregoSafeRegister(&xGetMajorVersion, libs, "gtk_layer_get_major_version")
-	core.PuregoSafeRegister(&xGetMargin, libs, "gtk_layer_get_margin")
-	core.PuregoSafeRegister(&xGetMicroVersion, libs, "gtk_layer_get_micro_version")
-	core.PuregoSafeRegister(&xGetMinorVersion, libs, "gtk_layer_get_minor_version")
-	core.PuregoSafeRegister(&xGetMonitor, libs, "gtk_layer_get_monitor")
-	core.PuregoSafeRegister(&xGetNamespace, libs, "gtk_layer_get_namespace")
-	core.PuregoSafeRegister(&xGetProtocolVersion, libs, "gtk_layer_get_protocol_version")
-	core.PuregoSafeRegister(&xGetRespectClose, libs, "gtk_layer_get_respect_close")
-	core.PuregoSafeRegister(&xGetZwlrLayerSurfaceV1, libs, "gtk_layer_get_zwlr_layer_surface_v1")
-	core.PuregoSafeRegister(&xInitForWindow, libs, "gtk_layer_init_for_window")
-	core.PuregoSafeRegister(&xIsLayerWindow, libs, "gtk_layer_is_layer_window")
-	core.PuregoSafeRegister(&xIsSupported, libs, "gtk_layer_is_supported")
-	core.PuregoSafeRegister(&xSetAnchor, libs, "gtk_layer_set_anchor")
-	core.PuregoSafeRegister(&xSetExclusiveZone, libs, "gtk_layer_set_exclusive_zone")
-	core.PuregoSafeRegister(&xSetKeyboardMode, libs, "gtk_layer_set_keyboard_mode")
-	core.PuregoSafeRegister(&xSetLayer, libs, "gtk_layer_set_layer")
-	core.PuregoSafeRegister(&xSetMargin, libs, "gtk_layer_set_margin")
-	core.PuregoSafeRegister(&xSetMonitor, libs, "gtk_layer_set_monitor")
-	core.PuregoSafeRegister(&xSetNamespace, libs, "gtk_layer_set_namespace")
-	core.PuregoSafeRegister(&xSetRespectClose, libs, "gtk_layer_set_respect_close")
 }

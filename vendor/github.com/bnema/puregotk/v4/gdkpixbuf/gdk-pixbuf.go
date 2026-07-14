@@ -4,7 +4,6 @@ package gdkpixbuf
 import (
 	"unsafe"
 
-	"github.com/bnema/purego"
 	"github.com/bnema/puregotk/pkg/core"
 	"github.com/bnema/puregotk/v4/gio"
 	"github.com/bnema/puregotk/v4/glib"
@@ -154,6 +153,7 @@ type Pixbuf struct {
 var xPixbufGLibType func() types.GType
 
 func PixbufGLibType() types.GType {
+	core.LazyRegister(&xPixbufGLibType, "GDKPIXBUF", "gdk_pixbuf_get_type", false)
 	return xPixbufGLibType()
 }
 
@@ -172,6 +172,7 @@ var xNewPixbuf func(Colorspace, bool, int, int, int) uintptr
 // The buffer has an optimal rowstride. Note that the buffer is not cleared;
 // you will have to fill it completely yourself.
 func NewPixbuf(ColorspaceVar Colorspace, HasAlphaVar bool, BitsPerSampleVar int, WidthVar int, HeightVar int) *Pixbuf {
+	core.LazyRegister(&xNewPixbuf, "GDKPIXBUF", "gdk_pixbuf_new", false)
 	var cls *Pixbuf
 
 	cret := xNewPixbuf(ColorspaceVar, HasAlphaVar, BitsPerSampleVar, WidthVar, HeightVar)
@@ -193,6 +194,7 @@ var xNewPixbufFromBytes func(*glib.Bytes, Colorspace, bool, int, int, int, int) 
 // This is the `GBytes` variant of gdk_pixbuf_new_from_data(), useful
 // for language bindings.
 func NewPixbufFromBytes(DataVar *glib.Bytes, ColorspaceVar Colorspace, HasAlphaVar bool, BitsPerSampleVar int, WidthVar int, HeightVar int, RowstrideVar int) *Pixbuf {
+	core.LazyRegister(&xNewPixbufFromBytes, "GDKPIXBUF", "gdk_pixbuf_new_from_bytes", false)
 	var cls *Pixbuf
 
 	cret := xNewPixbufFromBytes(DataVar, ColorspaceVar, HasAlphaVar, BitsPerSampleVar, WidthVar, HeightVar, RowstrideVar)
@@ -219,6 +221,7 @@ var xNewPixbufFromData func([]byte, Colorspace, bool, int, int, int, int, uintpt
 //
 // See also: [ctor@GdkPixbuf.Pixbuf.new_from_bytes]
 func NewPixbufFromData(DataVar []byte, ColorspaceVar Colorspace, HasAlphaVar bool, BitsPerSampleVar int, WidthVar int, HeightVar int, RowstrideVar int, DestroyFnVar *PixbufDestroyNotify, DestroyFnDataVar uintptr) *Pixbuf {
+	core.LazyRegister(&xNewPixbufFromData, "GDKPIXBUF", "gdk_pixbuf_new_from_data", false)
 	var cls *Pixbuf
 
 	cret := xNewPixbufFromData(DataVar, ColorspaceVar, HasAlphaVar, BitsPerSampleVar, WidthVar, HeightVar, RowstrideVar, glib.NewCallbackNullable(DestroyFnVar), DestroyFnDataVar)
@@ -246,6 +249,7 @@ var xNewPixbufFromFile func(string, **glib.Error) uintptr
 //
 // The error domains are `GDK_PIXBUF_ERROR` and `G_FILE_ERROR`.
 func NewPixbufFromFile(FilenameVar string) (*Pixbuf, error) {
+	core.LazyRegister(&xNewPixbufFromFile, "GDKPIXBUF", "gdk_pixbuf_new_from_file", false)
 	var cls *Pixbuf
 	var cerr *glib.Error
 
@@ -287,6 +291,7 @@ var xNewPixbufFromFileAtScale func(string, int, int, bool, **glib.Error) uintptr
 // at all in that dimension. Negative values for `width` and `height` are
 // allowed since 2.8.
 func NewPixbufFromFileAtScale(FilenameVar string, WidthVar int, HeightVar int, PreserveAspectRatioVar bool) (*Pixbuf, error) {
+	core.LazyRegister(&xNewPixbufFromFileAtScale, "GDKPIXBUF", "gdk_pixbuf_new_from_file_at_scale", false)
 	var cls *Pixbuf
 	var cerr *glib.Error
 
@@ -324,6 +329,7 @@ var xNewPixbufFromFileAtSize func(string, int, int, **glib.Error) uintptr
 // and image at the requested size, regardless of aspect ratio, use
 // [ctor@GdkPixbuf.Pixbuf.new_from_file_at_scale].
 func NewPixbufFromFileAtSize(FilenameVar string, WidthVar int, HeightVar int) (*Pixbuf, error) {
+	core.LazyRegister(&xNewPixbufFromFileAtSize, "GDKPIXBUF", "gdk_pixbuf_new_from_file_at_size", false)
 	var cls *Pixbuf
 	var cerr *glib.Error
 
@@ -376,6 +382,7 @@ var xNewPixbufFromInline func(int, []byte, bool, **glib.Error) uintptr
 // inline data located at runtime, you could have corrupt inline data in
 // addition.
 func NewPixbufFromInline(DataLengthVar int, DataVar []byte, CopyPixelsVar bool) (*Pixbuf, error) {
+	core.LazyRegister(&xNewPixbufFromInline, "GDKPIXBUF", "gdk_pixbuf_new_from_inline", false)
 	var cls *Pixbuf
 	var cerr *glib.Error
 
@@ -399,6 +406,7 @@ var xNewPixbufFromResource func(string, **glib.Error) uintptr
 // The file format is detected automatically. If `NULL` is returned, then
 // @error will be set.
 func NewPixbufFromResource(ResourcePathVar string) (*Pixbuf, error) {
+	core.LazyRegister(&xNewPixbufFromResource, "GDKPIXBUF", "gdk_pixbuf_new_from_resource", false)
 	var cls *Pixbuf
 	var cerr *glib.Error
 
@@ -431,6 +439,7 @@ var xNewPixbufFromResourceAtScale func(string, int, int, bool, **glib.Error) uin
 //
 // The stream is not closed.
 func NewPixbufFromResourceAtScale(ResourcePathVar string, WidthVar int, HeightVar int, PreserveAspectRatioVar bool) (*Pixbuf, error) {
+	core.LazyRegister(&xNewPixbufFromResourceAtScale, "GDKPIXBUF", "gdk_pixbuf_new_from_resource_at_scale", false)
 	var cls *Pixbuf
 	var cerr *glib.Error
 
@@ -462,6 +471,7 @@ var xNewPixbufFromStream func(uintptr, uintptr, **glib.Error) uintptr
 //
 // The stream is not closed.
 func NewPixbufFromStream(StreamVar *gio.InputStream, CancellableVar *gio.Cancellable) (*Pixbuf, error) {
+	core.LazyRegister(&xNewPixbufFromStream, "GDKPIXBUF", "gdk_pixbuf_new_from_stream", false)
 	var cls *Pixbuf
 	var cerr *glib.Error
 
@@ -502,6 +512,7 @@ var xNewPixbufFromStreamAtScale func(uintptr, int, int, bool, uintptr, **glib.Er
 //
 // The stream is not closed.
 func NewPixbufFromStreamAtScale(StreamVar *gio.InputStream, WidthVar int, HeightVar int, PreserveAspectRatioVar bool, CancellableVar *gio.Cancellable) (*Pixbuf, error) {
+	core.LazyRegister(&xNewPixbufFromStreamAtScale, "GDKPIXBUF", "gdk_pixbuf_new_from_stream_at_scale", false)
 	var cls *Pixbuf
 	var cerr *glib.Error
 
@@ -523,6 +534,7 @@ var xNewPixbufFromStreamFinish func(uintptr, **glib.Error) uintptr
 // Finishes an asynchronous pixbuf creation operation started with
 // gdk_pixbuf_new_from_stream_async().
 func NewPixbufFromStreamFinish(AsyncResultVar gio.AsyncResult) (*Pixbuf, error) {
+	core.LazyRegister(&xNewPixbufFromStreamFinish, "GDKPIXBUF", "gdk_pixbuf_new_from_stream_finish", false)
 	var cls *Pixbuf
 	var cerr *glib.Error
 
@@ -546,6 +558,7 @@ var xNewPixbufFromXpmData func([]string) uintptr
 // This data is commonly the result of including an XPM file into a
 // program's C source.
 func NewPixbufFromXpmData(DataVar []string) *Pixbuf {
+	core.LazyRegister(&xNewPixbufFromXpmData, "GDKPIXBUF", "gdk_pixbuf_new_from_xpm_data", false)
 	var cls *Pixbuf
 
 	cret := xNewPixbufFromXpmData(DataVar)
@@ -574,6 +587,7 @@ var xPixbufAddAlpha func(uintptr, bool, byte, byte, byte) uintptr
 // If `substitute_color` is `FALSE`, then the (`r`, `g`, `b`) arguments
 // will be ignored.
 func (x *Pixbuf) AddAlpha(SubstituteColorVar bool, RVar byte, GVar byte, BVar byte) *Pixbuf {
+	core.LazyRegister(&xPixbufAddAlpha, "GDKPIXBUF", "gdk_pixbuf_add_alpha", false)
 	var cls *Pixbuf
 
 	cret := xPixbufAddAlpha(x.GoPointer(), SubstituteColorVar, RVar, GVar, BVar)
@@ -599,6 +613,7 @@ var xPixbufApplyEmbeddedOrientation func(uintptr) uintptr
 // If an orientation option/tag is present, the appropriate transform
 // will be performed so that the pixbuf is oriented correctly.
 func (x *Pixbuf) ApplyEmbeddedOrientation() *Pixbuf {
+	core.LazyRegister(&xPixbufApplyEmbeddedOrientation, "GDKPIXBUF", "gdk_pixbuf_apply_embedded_orientation", false)
 	var cls *Pixbuf
 
 	cret := xPixbufApplyEmbeddedOrientation(x.GoPointer())
@@ -627,6 +642,8 @@ var xPixbufComposite func(uintptr, uintptr, int, int, int, int, float64, float64
 //
 // ![](composite.png)
 func (x *Pixbuf) Composite(DestVar *Pixbuf, DestXVar int, DestYVar int, DestWidthVar int, DestHeightVar int, OffsetXVar float64, OffsetYVar float64, ScaleXVar float64, ScaleYVar float64, InterpTypeVar InterpType, OverallAlphaVar int) {
+	core.LazyRegister(&xPixbufComposite, "GDKPIXBUF", "gdk_pixbuf_composite", false)
+
 	xPixbufComposite(x.GoPointer(), DestVar.GoPointer(), DestXVar, DestYVar, DestWidthVar, DestHeightVar, OffsetXVar, OffsetYVar, ScaleXVar, ScaleYVar, InterpTypeVar, OverallAlphaVar)
 }
 
@@ -645,6 +662,8 @@ var xPixbufCompositeColor func(uintptr, uintptr, int, int, int, int, float64, fl
 // See gdk_pixbuf_composite_color_simple() for a simpler variant of this
 // function suitable for many tasks.
 func (x *Pixbuf) CompositeColor(DestVar *Pixbuf, DestXVar int, DestYVar int, DestWidthVar int, DestHeightVar int, OffsetXVar float64, OffsetYVar float64, ScaleXVar float64, ScaleYVar float64, InterpTypeVar InterpType, OverallAlphaVar int, CheckXVar int, CheckYVar int, CheckSizeVar int, Color1Var uint32, Color2Var uint32) {
+	core.LazyRegister(&xPixbufCompositeColor, "GDKPIXBUF", "gdk_pixbuf_composite_color", false)
+
 	xPixbufCompositeColor(x.GoPointer(), DestVar.GoPointer(), DestXVar, DestYVar, DestWidthVar, DestHeightVar, OffsetXVar, OffsetYVar, ScaleXVar, ScaleYVar, InterpTypeVar, OverallAlphaVar, CheckXVar, CheckYVar, CheckSizeVar, Color1Var, Color2Var)
 }
 
@@ -654,6 +673,7 @@ var xPixbufCompositeColorSimple func(uintptr, int, int, InterpType, int, int, ui
 // and alpha blending the result with a checkboard of colors `color1`
 // and `color2`.
 func (x *Pixbuf) CompositeColorSimple(DestWidthVar int, DestHeightVar int, InterpTypeVar InterpType, OverallAlphaVar int, CheckSizeVar int, Color1Var uint32, Color2Var uint32) *Pixbuf {
+	core.LazyRegister(&xPixbufCompositeColorSimple, "GDKPIXBUF", "gdk_pixbuf_composite_color_simple", false)
 	var cls *Pixbuf
 
 	cret := xPixbufCompositeColorSimple(x.GoPointer(), DestWidthVar, DestHeightVar, InterpTypeVar, OverallAlphaVar, CheckSizeVar, Color1Var, Color2Var)
@@ -674,6 +694,7 @@ var xPixbufCopy func(uintptr) uintptr
 // Note that this does not copy the options set on the original `GdkPixbuf`,
 // use gdk_pixbuf_copy_options() for this.
 func (x *Pixbuf) Copy() *Pixbuf {
+	core.LazyRegister(&xPixbufCopy, "GDKPIXBUF", "gdk_pixbuf_copy", false)
 	var cls *Pixbuf
 
 	cret := xPixbufCopy(x.GoPointer())
@@ -696,6 +717,8 @@ var xPixbufCopyArea func(uintptr, int, int, int, int, uintptr, int, int)
 // same pixbuf, it will be overwritten during the copy operation.
 // Therefore, you can not use this function to scroll a pixbuf.
 func (x *Pixbuf) CopyArea(SrcXVar int, SrcYVar int, WidthVar int, HeightVar int, DestPixbufVar *Pixbuf, DestXVar int, DestYVar int) {
+	core.LazyRegister(&xPixbufCopyArea, "GDKPIXBUF", "gdk_pixbuf_copy_area", false)
+
 	xPixbufCopyArea(x.GoPointer(), SrcXVar, SrcYVar, WidthVar, HeightVar, DestPixbufVar.GoPointer(), DestXVar, DestYVar)
 }
 
@@ -708,6 +731,8 @@ var xPixbufCopyOptions func(uintptr, uintptr) bool
 // a file. However be careful to remove metadata which you've already
 // applied, such as the "orientation" option after rotating the image.
 func (x *Pixbuf) CopyOptions(DestPixbufVar *Pixbuf) bool {
+	core.LazyRegister(&xPixbufCopyOptions, "GDKPIXBUF", "gdk_pixbuf_copy_options", false)
+
 	cret := xPixbufCopyOptions(x.GoPointer(), DestPixbufVar.GoPointer())
 	return cret
 }
@@ -720,6 +745,8 @@ var xPixbufFill func(uintptr, uint32)
 // The alpha component will be ignored if the pixbuf doesn't have an alpha
 // channel.
 func (x *Pixbuf) Fill(PixelVar uint32) {
+	core.LazyRegister(&xPixbufFill, "GDKPIXBUF", "gdk_pixbuf_fill", false)
+
 	xPixbufFill(x.GoPointer(), PixelVar)
 }
 
@@ -728,6 +755,7 @@ var xPixbufFlip func(uintptr, bool) uintptr
 // Flips a pixbuf horizontally or vertically and returns the
 // result in a new pixbuf.
 func (x *Pixbuf) Flip(HorizontalVar bool) *Pixbuf {
+	core.LazyRegister(&xPixbufFlip, "GDKPIXBUF", "gdk_pixbuf_flip", false)
 	var cls *Pixbuf
 
 	cret := xPixbufFlip(x.GoPointer(), HorizontalVar)
@@ -744,6 +772,8 @@ var xPixbufGetBitsPerSample func(uintptr) int
 
 // Queries the number of bits per color sample in a pixbuf.
 func (x *Pixbuf) GetBitsPerSample() int {
+	core.LazyRegister(&xPixbufGetBitsPerSample, "GDKPIXBUF", "gdk_pixbuf_get_bits_per_sample", false)
+
 	cret := xPixbufGetBitsPerSample(x.GoPointer())
 	return cret
 }
@@ -752,6 +782,8 @@ var xPixbufGetByteLength func(uintptr) uint
 
 // Returns the length of the pixel data, in bytes.
 func (x *Pixbuf) GetByteLength() uint {
+	core.LazyRegister(&xPixbufGetByteLength, "GDKPIXBUF", "gdk_pixbuf_get_byte_length", false)
+
 	cret := xPixbufGetByteLength(x.GoPointer())
 	return cret
 }
@@ -760,6 +792,8 @@ var xPixbufGetColorspace func(uintptr) Colorspace
 
 // Queries the color space of a pixbuf.
 func (x *Pixbuf) GetColorspace() Colorspace {
+	core.LazyRegister(&xPixbufGetColorspace, "GDKPIXBUF", "gdk_pixbuf_get_colorspace", false)
+
 	cret := xPixbufGetColorspace(x.GoPointer())
 	return cret
 }
@@ -768,6 +802,8 @@ var xPixbufGetHasAlpha func(uintptr) bool
 
 // Queries whether a pixbuf has an alpha channel (opacity information).
 func (x *Pixbuf) GetHasAlpha() bool {
+	core.LazyRegister(&xPixbufGetHasAlpha, "GDKPIXBUF", "gdk_pixbuf_get_has_alpha", false)
+
 	cret := xPixbufGetHasAlpha(x.GoPointer())
 	return cret
 }
@@ -776,6 +812,8 @@ var xPixbufGetHeight func(uintptr) int
 
 // Queries the height of a pixbuf.
 func (x *Pixbuf) GetHeight() int {
+	core.LazyRegister(&xPixbufGetHeight, "GDKPIXBUF", "gdk_pixbuf_get_height", false)
+
 	cret := xPixbufGetHeight(x.GoPointer())
 	return cret
 }
@@ -784,6 +822,8 @@ var xPixbufGetNChannels func(uintptr) int
 
 // Queries the number of channels of a pixbuf.
 func (x *Pixbuf) GetNChannels() int {
+	core.LazyRegister(&xPixbufGetNChannels, "GDKPIXBUF", "gdk_pixbuf_get_n_channels", false)
+
 	cret := xPixbufGetNChannels(x.GoPointer())
 	return cret
 }
@@ -806,6 +846,8 @@ var xPixbufGetOption func(uintptr, string) string
 // Since 2.36.6, the JPEG loader sets the "comment" option with the comment
 // EXIF tag.
 func (x *Pixbuf) GetOption(KeyVar string) string {
+	core.LazyRegister(&xPixbufGetOption, "GDKPIXBUF", "gdk_pixbuf_get_option", false)
+
 	cret := xPixbufGetOption(x.GoPointer(), KeyVar)
 	return cret
 }
@@ -816,6 +858,8 @@ var xPixbufGetOptions func(uintptr) uintptr
 // attached to the `pixbuf` when it was loaded, or that may have been
 // attached by another function using [method@GdkPixbuf.Pixbuf.set_option].
 func (x *Pixbuf) GetOptions() *glib.HashTable {
+	core.LazyRegister(&xPixbufGetOptions, "GDKPIXBUF", "gdk_pixbuf_get_options", false)
+
 	cret := xPixbufGetOptions(x.GoPointer())
 	if cret == 0 {
 		return nil
@@ -833,6 +877,8 @@ var xPixbufGetPixels func(uintptr) uintptr
 // Please see the section on [image data](class.Pixbuf.html#image-data) for information
 // about how the pixel data is stored in memory.
 func (x *Pixbuf) GetPixels() uintptr {
+	core.LazyRegister(&xPixbufGetPixels, "GDKPIXBUF", "gdk_pixbuf_get_pixels", false)
+
 	cret := xPixbufGetPixels(x.GoPointer())
 	return cret
 }
@@ -847,6 +893,8 @@ var xPixbufGetPixelsWithLength func(uintptr, *uint) uintptr
 // Please see the section on [image data](class.Pixbuf.html#image-data) for information
 // about how the pixel data is stored in memory.
 func (x *Pixbuf) GetPixelsWithLength(LengthVar *uint) uintptr {
+	core.LazyRegister(&xPixbufGetPixelsWithLength, "GDKPIXBUF", "gdk_pixbuf_get_pixels_with_length", false)
+
 	cret := xPixbufGetPixelsWithLength(x.GoPointer(), LengthVar)
 	return cret
 }
@@ -856,6 +904,8 @@ var xPixbufGetRowstride func(uintptr) int
 // Queries the rowstride of a pixbuf, which is the number of bytes between
 // the start of a row and the start of the next row.
 func (x *Pixbuf) GetRowstride() int {
+	core.LazyRegister(&xPixbufGetRowstride, "GDKPIXBUF", "gdk_pixbuf_get_rowstride", false)
+
 	cret := xPixbufGetRowstride(x.GoPointer())
 	return cret
 }
@@ -864,6 +914,8 @@ var xPixbufGetWidth func(uintptr) int
 
 // Queries the width of a pixbuf.
 func (x *Pixbuf) GetWidth() int {
+	core.LazyRegister(&xPixbufGetWidth, "GDKPIXBUF", "gdk_pixbuf_get_width", false)
+
 	cret := xPixbufGetWidth(x.GoPointer())
 	return cret
 }
@@ -880,6 +932,7 @@ var xPixbufNewSubpixbuf func(uintptr, int, int, int, int) uintptr
 // Note that if `src_pixbuf` is read-only, this function will force it
 // to be mutable.
 func (x *Pixbuf) NewSubpixbuf(SrcXVar int, SrcYVar int, WidthVar int, HeightVar int) *Pixbuf {
+	core.LazyRegister(&xPixbufNewSubpixbuf, "GDKPIXBUF", "gdk_pixbuf_new_subpixbuf", false)
 	var cls *Pixbuf
 
 	cret := xPixbufNewSubpixbuf(x.GoPointer(), SrcXVar, SrcYVar, WidthVar, HeightVar)
@@ -900,6 +953,8 @@ var xPixbufReadPixelBytes func(uintptr) uintptr
 // This function allows skipping the implicit copy that must be made
 // if gdk_pixbuf_get_pixels() is called on a read-only pixbuf.
 func (x *Pixbuf) ReadPixelBytes() *glib.Bytes {
+	core.LazyRegister(&xPixbufReadPixelBytes, "GDKPIXBUF", "gdk_pixbuf_read_pixel_bytes", false)
+
 	cret := xPixbufReadPixelBytes(x.GoPointer())
 	if cret == 0 {
 		return nil
@@ -914,6 +969,8 @@ var xPixbufReadPixels func(uintptr) byte
 // This function allows skipping the implicit copy that must be made
 // if gdk_pixbuf_get_pixels() is called on a read-only pixbuf.
 func (x *Pixbuf) ReadPixels() byte {
+	core.LazyRegister(&xPixbufReadPixels, "GDKPIXBUF", "gdk_pixbuf_read_pixels", false)
+
 	cret := xPixbufReadPixels(x.GoPointer())
 	return cret
 }
@@ -922,6 +979,7 @@ var xPixbufRef func(uintptr) uintptr
 
 // Adds a reference to a pixbuf.
 func (x *Pixbuf) Ref() *Pixbuf {
+	core.LazyRegister(&xPixbufRef, "GDKPIXBUF", "gdk_pixbuf_ref", false)
 	var cls *Pixbuf
 
 	cret := xPixbufRef(x.GoPointer())
@@ -938,6 +996,8 @@ var xPixbufRemoveOption func(uintptr, string) bool
 
 // Removes the key/value pair option attached to a `GdkPixbuf`.
 func (x *Pixbuf) RemoveOption(KeyVar string) bool {
+	core.LazyRegister(&xPixbufRemoveOption, "GDKPIXBUF", "gdk_pixbuf_remove_option", false)
+
 	cret := xPixbufRemoveOption(x.GoPointer(), KeyVar)
 	return cret
 }
@@ -949,6 +1009,7 @@ var xPixbufRotateSimple func(uintptr, PixbufRotation) uintptr
 //
 // If `angle` is 0, this function will return a copy of `src`.
 func (x *Pixbuf) RotateSimple(AngleVar PixbufRotation) *Pixbuf {
+	core.LazyRegister(&xPixbufRotateSimple, "GDKPIXBUF", "gdk_pixbuf_rotate_simple", false)
 	var cls *Pixbuf
 
 	cret := xPixbufRotateSimple(x.GoPointer(), AngleVar)
@@ -978,6 +1039,8 @@ var xPixbufSaturateAndPixelate func(uintptr, uintptr, float32, bool)
 // If `pixelate` is `TRUE`, then pixels are faded in a checkerboard pattern to
 // create a pixelated image.
 func (x *Pixbuf) SaturateAndPixelate(DestVar *Pixbuf, SaturationVar float32, PixelateVar bool) {
+	core.LazyRegister(&xPixbufSaturateAndPixelate, "GDKPIXBUF", "gdk_pixbuf_saturate_and_pixelate", false)
+
 	xPixbufSaturateAndPixelate(x.GoPointer(), DestVar.GoPointer(), SaturationVar, PixelateVar)
 }
 
@@ -1056,6 +1119,8 @@ var xPixbufSave func(uintptr, string, string, **glib.Error, ...interface{}) bool
 // parameter. When the ICO saver is given "x_hot" and "y_hot" parameters,
 // it produces a CUR instead of an ICO.
 func (x *Pixbuf) Save(FilenameVar string, TypeVar string, ErrorVar **glib.Error, varArgs ...interface{}) bool {
+	core.LazyRegister(&xPixbufSave, "GDKPIXBUF", "gdk_pixbuf_save", false)
+
 	cret := xPixbufSave(x.GoPointer(), FilenameVar, TypeVar, ErrorVar, varArgs...)
 	return cret
 }
@@ -1077,6 +1142,8 @@ var xPixbufSaveToBuffer func(uintptr, *[]byte, *uint, string, **glib.Error, ...i
 //
 // See `gdk_pixbuf_save()` for more details.
 func (x *Pixbuf) SaveToBuffer(BufferVar *[]byte, BufferSizeVar *uint, TypeVar string, ErrorVar **glib.Error, varArgs ...interface{}) bool {
+	core.LazyRegister(&xPixbufSaveToBuffer, "GDKPIXBUF", "gdk_pixbuf_save_to_buffer", false)
+
 	cret := xPixbufSaveToBuffer(x.GoPointer(), BufferVar, BufferSizeVar, TypeVar, ErrorVar, varArgs...)
 	return cret
 }
@@ -1090,6 +1157,7 @@ var xPixbufSaveToBufferv func(uintptr, *[]byte, *uint, string, []string, []strin
 //
 // See [method@GdkPixbuf.Pixbuf.save_to_buffer] for more details.
 func (x *Pixbuf) SaveToBufferv(BufferVar *[]byte, BufferSizeVar *uint, TypeVar string, OptionKeysVar []string, OptionValuesVar []string) (bool, error) {
+	core.LazyRegister(&xPixbufSaveToBufferv, "GDKPIXBUF", "gdk_pixbuf_save_to_bufferv", false)
 	var cerr *glib.Error
 
 	cret := xPixbufSaveToBufferv(x.GoPointer(), BufferVar, BufferSizeVar, TypeVar, OptionKeysVar, OptionValuesVar, &cerr)
@@ -1113,6 +1181,8 @@ var xPixbufSaveToCallback func(uintptr, uintptr, uintptr, string, **glib.Error, 
 //
 // See [method@GdkPixbuf.Pixbuf.save] for more details.
 func (x *Pixbuf) SaveToCallback(SaveFuncVar *PixbufSaveFunc, UserDataVar uintptr, TypeVar string, ErrorVar **glib.Error, varArgs ...interface{}) bool {
+	core.LazyRegister(&xPixbufSaveToCallback, "GDKPIXBUF", "gdk_pixbuf_save_to_callback", false)
+
 	cret := xPixbufSaveToCallback(x.GoPointer(), glib.NewCallback(SaveFuncVar), UserDataVar, TypeVar, ErrorVar, varArgs...)
 	return cret
 }
@@ -1128,6 +1198,7 @@ var xPixbufSaveToCallbackv func(uintptr, uintptr, uintptr, string, []string, []s
 //
 // See [method@GdkPixbuf.Pixbuf.save_to_callback] for more details.
 func (x *Pixbuf) SaveToCallbackv(SaveFuncVar *PixbufSaveFunc, UserDataVar uintptr, TypeVar string, OptionKeysVar []string, OptionValuesVar []string) (bool, error) {
+	core.LazyRegister(&xPixbufSaveToCallbackv, "GDKPIXBUF", "gdk_pixbuf_save_to_callbackv", false)
 	var cerr *glib.Error
 
 	cret := xPixbufSaveToCallbackv(x.GoPointer(), glib.NewCallback(SaveFuncVar), UserDataVar, TypeVar, OptionKeysVar, OptionValuesVar, &cerr)
@@ -1151,6 +1222,8 @@ var xPixbufSaveToStream func(uintptr, uintptr, string, uintptr, **glib.Error, ..
 //
 // The stream is not closed at the end of this call.
 func (x *Pixbuf) SaveToStream(StreamVar *gio.OutputStream, TypeVar string, CancellableVar *gio.Cancellable, ErrorVar **glib.Error, varArgs ...interface{}) bool {
+	core.LazyRegister(&xPixbufSaveToStream, "GDKPIXBUF", "gdk_pixbuf_save_to_stream", false)
+
 	cret := xPixbufSaveToStream(x.GoPointer(), StreamVar.GoPointer(), TypeVar, CancellableVar.GoPointer(), ErrorVar, varArgs...)
 	return cret
 }
@@ -1167,6 +1240,8 @@ var xPixbufSaveToStreamAsync func(uintptr, uintptr, string, uintptr, uintptr, ui
 // You can then call gdk_pixbuf_save_to_stream_finish() to get the result of
 // the operation.
 func (x *Pixbuf) SaveToStreamAsync(StreamVar *gio.OutputStream, TypeVar string, CancellableVar *gio.Cancellable, CallbackVar *gio.AsyncReadyCallback, UserDataVar uintptr, varArgs ...interface{}) {
+	core.LazyRegister(&xPixbufSaveToStreamAsync, "GDKPIXBUF", "gdk_pixbuf_save_to_stream_async", false)
+
 	xPixbufSaveToStreamAsync(x.GoPointer(), StreamVar.GoPointer(), TypeVar, CancellableVar.GoPointer(), glib.NewCallbackNullable(CallbackVar), UserDataVar, varArgs...)
 }
 
@@ -1179,6 +1254,7 @@ var xPixbufSaveToStreamv func(uintptr, uintptr, string, []string, []string, uint
 //
 // See [method@GdkPixbuf.Pixbuf.save_to_stream] for more details.
 func (x *Pixbuf) SaveToStreamv(StreamVar *gio.OutputStream, TypeVar string, OptionKeysVar []string, OptionValuesVar []string, CancellableVar *gio.Cancellable) (bool, error) {
+	core.LazyRegister(&xPixbufSaveToStreamv, "GDKPIXBUF", "gdk_pixbuf_save_to_streamv", false)
 	var cerr *glib.Error
 
 	cret := xPixbufSaveToStreamv(x.GoPointer(), StreamVar.GoPointer(), TypeVar, OptionKeysVar, OptionValuesVar, CancellableVar.GoPointer(), &cerr)
@@ -1200,6 +1276,8 @@ var xPixbufSaveToStreamvAsync func(uintptr, uintptr, string, []string, []string,
 // You can then call gdk_pixbuf_save_to_stream_finish() to get the result of
 // the operation.
 func (x *Pixbuf) SaveToStreamvAsync(StreamVar *gio.OutputStream, TypeVar string, OptionKeysVar []string, OptionValuesVar []string, CancellableVar *gio.Cancellable, CallbackVar *gio.AsyncReadyCallback, UserDataVar uintptr) {
+	core.LazyRegister(&xPixbufSaveToStreamvAsync, "GDKPIXBUF", "gdk_pixbuf_save_to_streamv_async", false)
+
 	xPixbufSaveToStreamvAsync(x.GoPointer(), StreamVar.GoPointer(), TypeVar, OptionKeysVar, OptionValuesVar, CancellableVar.GoPointer(), glib.NewCallbackNullable(CallbackVar), UserDataVar)
 }
 
@@ -1213,6 +1291,7 @@ var xPixbufSavev func(uintptr, string, string, []string, []string, **glib.Error)
 //
 // See [method@GdkPixbuf.Pixbuf.save] for more details.
 func (x *Pixbuf) Savev(FilenameVar string, TypeVar string, OptionKeysVar []string, OptionValuesVar []string) (bool, error) {
+	core.LazyRegister(&xPixbufSavev, "GDKPIXBUF", "gdk_pixbuf_savev", false)
 	var cerr *glib.Error
 
 	cret := xPixbufSavev(x.GoPointer(), FilenameVar, TypeVar, OptionKeysVar, OptionValuesVar, &cerr)
@@ -1238,6 +1317,8 @@ var xPixbufScale func(uintptr, uintptr, int, int, int, int, float64, float64, fl
 // same pixbuf, it will be overwritten during the scaling which
 // results in rendering artifacts.
 func (x *Pixbuf) Scale(DestVar *Pixbuf, DestXVar int, DestYVar int, DestWidthVar int, DestHeightVar int, OffsetXVar float64, OffsetYVar float64, ScaleXVar float64, ScaleYVar float64, InterpTypeVar InterpType) {
+	core.LazyRegister(&xPixbufScale, "GDKPIXBUF", "gdk_pixbuf_scale", false)
+
 	xPixbufScale(x.GoPointer(), DestVar.GoPointer(), DestXVar, DestYVar, DestWidthVar, DestHeightVar, OffsetXVar, OffsetYVar, ScaleXVar, ScaleYVar, InterpTypeVar)
 }
 
@@ -1262,6 +1343,7 @@ var xPixbufScaleSimple func(uintptr, int, int, InterpType) uintptr
 // For more complicated scaling/alpha blending see [method@GdkPixbuf.Pixbuf.scale]
 // and [method@GdkPixbuf.Pixbuf.composite].
 func (x *Pixbuf) ScaleSimple(DestWidthVar int, DestHeightVar int, InterpTypeVar InterpType) *Pixbuf {
+	core.LazyRegister(&xPixbufScaleSimple, "GDKPIXBUF", "gdk_pixbuf_scale_simple", false)
 	var cls *Pixbuf
 
 	cret := xPixbufScaleSimple(x.GoPointer(), DestWidthVar, DestHeightVar, InterpTypeVar)
@@ -1281,6 +1363,8 @@ var xPixbufSetOption func(uintptr, string, string) bool
 // If `key` already exists in the list of options attached to the `pixbuf`,
 // the new value is ignored and `FALSE` is returned.
 func (x *Pixbuf) SetOption(KeyVar string, ValueVar string) bool {
+	core.LazyRegister(&xPixbufSetOption, "GDKPIXBUF", "gdk_pixbuf_set_option", false)
+
 	cret := xPixbufSetOption(x.GoPointer(), KeyVar, ValueVar)
 	return cret
 }
@@ -1289,6 +1373,8 @@ var xPixbufUnref func(uintptr)
 
 // Removes a reference from a pixbuf.
 func (x *Pixbuf) Unref() {
+	core.LazyRegister(&xPixbufUnref, "GDKPIXBUF", "gdk_pixbuf_unref", false)
+
 	xPixbufUnref(x.GoPointer())
 }
 
@@ -1551,6 +1637,8 @@ var xPixbufCalculateRowstride func(Colorspace, bool, int, int, int) int
 // This function is useful for front-ends and backends that want to check
 // image values without needing to create a `GdkPixbuf`.
 func PixbufCalculateRowstride(ColorspaceVar Colorspace, HasAlphaVar bool, BitsPerSampleVar int, WidthVar int, HeightVar int) int {
+	core.LazyRegister(&xPixbufCalculateRowstride, "GDKPIXBUF", "gdk_pixbuf_calculate_rowstride", false)
+
 	cret := xPixbufCalculateRowstride(ColorspaceVar, HasAlphaVar, BitsPerSampleVar, WidthVar, HeightVar)
 	return cret
 }
@@ -1559,6 +1647,8 @@ var xPixbufGetFileInfo func(string, *int, *int) uintptr
 
 // Parses an image file far enough to determine its format and size.
 func PixbufGetFileInfo(FilenameVar string, WidthVar *int, HeightVar *int) *PixbufFormat {
+	core.LazyRegister(&xPixbufGetFileInfo, "GDKPIXBUF", "gdk_pixbuf_get_file_info", false)
+
 	cret := xPixbufGetFileInfo(FilenameVar, WidthVar, HeightVar)
 	if cret == 0 {
 		return nil
@@ -1578,6 +1668,8 @@ var xPixbufGetFileInfoAsync func(string, uintptr, uintptr, uintptr)
 // main thread. You can then call gdk_pixbuf_get_file_info_finish() to
 // get the result of the operation.
 func PixbufGetFileInfoAsync(FilenameVar string, CancellableVar *gio.Cancellable, CallbackVar *gio.AsyncReadyCallback, UserDataVar uintptr) {
+	core.LazyRegister(&xPixbufGetFileInfoAsync, "GDKPIXBUF", "gdk_pixbuf_get_file_info_async", false)
+
 	xPixbufGetFileInfoAsync(FilenameVar, CancellableVar.GoPointer(), glib.NewCallbackNullable(CallbackVar), UserDataVar)
 }
 
@@ -1586,6 +1678,7 @@ var xPixbufGetFileInfoFinish func(uintptr, *int, *int, **glib.Error) uintptr
 // Finishes an asynchronous pixbuf parsing operation started with
 // gdk_pixbuf_get_file_info_async().
 func PixbufGetFileInfoFinish(AsyncResultVar gio.AsyncResult, WidthVar *int, HeightVar *int) (*PixbufFormat, error) {
+	core.LazyRegister(&xPixbufGetFileInfoFinish, "GDKPIXBUF", "gdk_pixbuf_get_file_info_finish", false)
 	var cerr *glib.Error
 
 	cret := xPixbufGetFileInfoFinish(AsyncResultVar.GoPointer(), WidthVar, HeightVar, &cerr)
@@ -1603,6 +1696,8 @@ var xPixbufGetFormats func() uintptr
 // Obtains the available information about the image formats supported
 // by GdkPixbuf.
 func PixbufGetFormats() *glib.SList {
+	core.LazyRegister(&xPixbufGetFormats, "GDKPIXBUF", "gdk_pixbuf_get_formats", false)
+
 	cret := xPixbufGetFormats()
 	if cret == 0 {
 		return nil
@@ -1626,6 +1721,7 @@ var xPixbufInitModules func(string, **glib.Error) bool
 // with the application in a separate directory from the OS or runtime-
 // provided modules.
 func PixbufInitModules(PathVar string) (bool, error) {
+	core.LazyRegister(&xPixbufInitModules, "GDKPIXBUF", "gdk_pixbuf_init_modules", false)
 	var cerr *glib.Error
 
 	cret := xPixbufInitModules(PathVar, &cerr)
@@ -1646,6 +1742,8 @@ var xPixbufNewFromStreamAsync func(uintptr, uintptr, uintptr, uintptr)
 // You can then call gdk_pixbuf_new_from_stream_finish() to get the result of
 // the operation.
 func PixbufNewFromStreamAsync(StreamVar *gio.InputStream, CancellableVar *gio.Cancellable, CallbackVar *gio.AsyncReadyCallback, UserDataVar uintptr) {
+	core.LazyRegister(&xPixbufNewFromStreamAsync, "GDKPIXBUF", "gdk_pixbuf_new_from_stream_async", false)
+
 	xPixbufNewFromStreamAsync(StreamVar.GoPointer(), CancellableVar.GoPointer(), glib.NewCallbackNullable(CallbackVar), UserDataVar)
 }
 
@@ -1659,6 +1757,8 @@ var xPixbufNewFromStreamAtScaleAsync func(uintptr, int, int, bool, uintptr, uint
 // When the operation is finished, @callback will be called in the main thread.
 // You can then call gdk_pixbuf_new_from_stream_finish() to get the result of the operation.
 func PixbufNewFromStreamAtScaleAsync(StreamVar *gio.InputStream, WidthVar int, HeightVar int, PreserveAspectRatioVar bool, CancellableVar *gio.Cancellable, CallbackVar *gio.AsyncReadyCallback, UserDataVar uintptr) {
+	core.LazyRegister(&xPixbufNewFromStreamAtScaleAsync, "GDKPIXBUF", "gdk_pixbuf_new_from_stream_at_scale_async", false)
+
 	xPixbufNewFromStreamAtScaleAsync(StreamVar.GoPointer(), WidthVar, HeightVar, PreserveAspectRatioVar, CancellableVar.GoPointer(), glib.NewCallbackNullable(CallbackVar), UserDataVar)
 }
 
@@ -1667,6 +1767,7 @@ var xPixbufSaveToStreamFinish func(uintptr, **glib.Error) bool
 // Finishes an asynchronous pixbuf save operation started with
 // gdk_pixbuf_save_to_stream_async().
 func PixbufSaveToStreamFinish(AsyncResultVar gio.AsyncResult) (bool, error) {
+	core.LazyRegister(&xPixbufSaveToStreamFinish, "GDKPIXBUF", "gdk_pixbuf_save_to_stream_finish", false)
 	var cerr *glib.Error
 
 	cret := xPixbufSaveToStreamFinish(AsyncResultVar.GoPointer(), &cerr)
@@ -1679,82 +1780,4 @@ func PixbufSaveToStreamFinish(AsyncResultVar gio.AsyncResult) (bool, error) {
 func init() {
 	core.SetPackageName("GDKPIXBUF", "gdk-pixbuf-2.0")
 	core.SetSharedLibraries("GDKPIXBUF", []string{"libgdk_pixbuf-2.0.so.0", "libgdk_pixbuf-2.0.0.dylib"})
-	var libs []uintptr
-	for _, libPath := range core.GetPaths("GDKPIXBUF") {
-		lib, err := purego.Dlopen(libPath, purego.RTLD_NOW|purego.RTLD_GLOBAL)
-		if err != nil {
-			panic(err)
-		}
-		libs = append(libs, lib)
-	}
-
-	core.PuregoSafeRegister(&xPixbufGLibType, libs, "gdk_pixbuf_get_type")
-
-	core.PuregoSafeRegister(&xNewPixbuf, libs, "gdk_pixbuf_new")
-	core.PuregoSafeRegister(&xNewPixbufFromBytes, libs, "gdk_pixbuf_new_from_bytes")
-	core.PuregoSafeRegister(&xNewPixbufFromData, libs, "gdk_pixbuf_new_from_data")
-	core.PuregoSafeRegister(&xNewPixbufFromFile, libs, "gdk_pixbuf_new_from_file")
-	core.PuregoSafeRegister(&xNewPixbufFromFileAtScale, libs, "gdk_pixbuf_new_from_file_at_scale")
-	core.PuregoSafeRegister(&xNewPixbufFromFileAtSize, libs, "gdk_pixbuf_new_from_file_at_size")
-	core.PuregoSafeRegister(&xNewPixbufFromInline, libs, "gdk_pixbuf_new_from_inline")
-	core.PuregoSafeRegister(&xNewPixbufFromResource, libs, "gdk_pixbuf_new_from_resource")
-	core.PuregoSafeRegister(&xNewPixbufFromResourceAtScale, libs, "gdk_pixbuf_new_from_resource_at_scale")
-	core.PuregoSafeRegister(&xNewPixbufFromStream, libs, "gdk_pixbuf_new_from_stream")
-	core.PuregoSafeRegister(&xNewPixbufFromStreamAtScale, libs, "gdk_pixbuf_new_from_stream_at_scale")
-	core.PuregoSafeRegister(&xNewPixbufFromStreamFinish, libs, "gdk_pixbuf_new_from_stream_finish")
-	core.PuregoSafeRegister(&xNewPixbufFromXpmData, libs, "gdk_pixbuf_new_from_xpm_data")
-
-	core.PuregoSafeRegister(&xPixbufAddAlpha, libs, "gdk_pixbuf_add_alpha")
-	core.PuregoSafeRegister(&xPixbufApplyEmbeddedOrientation, libs, "gdk_pixbuf_apply_embedded_orientation")
-	core.PuregoSafeRegister(&xPixbufComposite, libs, "gdk_pixbuf_composite")
-	core.PuregoSafeRegister(&xPixbufCompositeColor, libs, "gdk_pixbuf_composite_color")
-	core.PuregoSafeRegister(&xPixbufCompositeColorSimple, libs, "gdk_pixbuf_composite_color_simple")
-	core.PuregoSafeRegister(&xPixbufCopy, libs, "gdk_pixbuf_copy")
-	core.PuregoSafeRegister(&xPixbufCopyArea, libs, "gdk_pixbuf_copy_area")
-	core.PuregoSafeRegister(&xPixbufCopyOptions, libs, "gdk_pixbuf_copy_options")
-	core.PuregoSafeRegister(&xPixbufFill, libs, "gdk_pixbuf_fill")
-	core.PuregoSafeRegister(&xPixbufFlip, libs, "gdk_pixbuf_flip")
-	core.PuregoSafeRegister(&xPixbufGetBitsPerSample, libs, "gdk_pixbuf_get_bits_per_sample")
-	core.PuregoSafeRegister(&xPixbufGetByteLength, libs, "gdk_pixbuf_get_byte_length")
-	core.PuregoSafeRegister(&xPixbufGetColorspace, libs, "gdk_pixbuf_get_colorspace")
-	core.PuregoSafeRegister(&xPixbufGetHasAlpha, libs, "gdk_pixbuf_get_has_alpha")
-	core.PuregoSafeRegister(&xPixbufGetHeight, libs, "gdk_pixbuf_get_height")
-	core.PuregoSafeRegister(&xPixbufGetNChannels, libs, "gdk_pixbuf_get_n_channels")
-	core.PuregoSafeRegister(&xPixbufGetOption, libs, "gdk_pixbuf_get_option")
-	core.PuregoSafeRegister(&xPixbufGetOptions, libs, "gdk_pixbuf_get_options")
-	core.PuregoSafeRegister(&xPixbufGetPixels, libs, "gdk_pixbuf_get_pixels")
-	core.PuregoSafeRegister(&xPixbufGetPixelsWithLength, libs, "gdk_pixbuf_get_pixels_with_length")
-	core.PuregoSafeRegister(&xPixbufGetRowstride, libs, "gdk_pixbuf_get_rowstride")
-	core.PuregoSafeRegister(&xPixbufGetWidth, libs, "gdk_pixbuf_get_width")
-	core.PuregoSafeRegister(&xPixbufNewSubpixbuf, libs, "gdk_pixbuf_new_subpixbuf")
-	core.PuregoSafeRegister(&xPixbufReadPixelBytes, libs, "gdk_pixbuf_read_pixel_bytes")
-	core.PuregoSafeRegister(&xPixbufReadPixels, libs, "gdk_pixbuf_read_pixels")
-	core.PuregoSafeRegister(&xPixbufRef, libs, "gdk_pixbuf_ref")
-	core.PuregoSafeRegister(&xPixbufRemoveOption, libs, "gdk_pixbuf_remove_option")
-	core.PuregoSafeRegister(&xPixbufRotateSimple, libs, "gdk_pixbuf_rotate_simple")
-	core.PuregoSafeRegister(&xPixbufSaturateAndPixelate, libs, "gdk_pixbuf_saturate_and_pixelate")
-	core.PuregoSafeRegister(&xPixbufSave, libs, "gdk_pixbuf_save")
-	core.PuregoSafeRegister(&xPixbufSaveToBuffer, libs, "gdk_pixbuf_save_to_buffer")
-	core.PuregoSafeRegister(&xPixbufSaveToBufferv, libs, "gdk_pixbuf_save_to_bufferv")
-	core.PuregoSafeRegister(&xPixbufSaveToCallback, libs, "gdk_pixbuf_save_to_callback")
-	core.PuregoSafeRegister(&xPixbufSaveToCallbackv, libs, "gdk_pixbuf_save_to_callbackv")
-	core.PuregoSafeRegister(&xPixbufSaveToStream, libs, "gdk_pixbuf_save_to_stream")
-	core.PuregoSafeRegister(&xPixbufSaveToStreamAsync, libs, "gdk_pixbuf_save_to_stream_async")
-	core.PuregoSafeRegister(&xPixbufSaveToStreamv, libs, "gdk_pixbuf_save_to_streamv")
-	core.PuregoSafeRegister(&xPixbufSaveToStreamvAsync, libs, "gdk_pixbuf_save_to_streamv_async")
-	core.PuregoSafeRegister(&xPixbufSavev, libs, "gdk_pixbuf_savev")
-	core.PuregoSafeRegister(&xPixbufScale, libs, "gdk_pixbuf_scale")
-	core.PuregoSafeRegister(&xPixbufScaleSimple, libs, "gdk_pixbuf_scale_simple")
-	core.PuregoSafeRegister(&xPixbufSetOption, libs, "gdk_pixbuf_set_option")
-	core.PuregoSafeRegister(&xPixbufUnref, libs, "gdk_pixbuf_unref")
-
-	core.PuregoSafeRegister(&xPixbufCalculateRowstride, libs, "gdk_pixbuf_calculate_rowstride")
-	core.PuregoSafeRegister(&xPixbufGetFileInfo, libs, "gdk_pixbuf_get_file_info")
-	core.PuregoSafeRegister(&xPixbufGetFileInfoAsync, libs, "gdk_pixbuf_get_file_info_async")
-	core.PuregoSafeRegister(&xPixbufGetFileInfoFinish, libs, "gdk_pixbuf_get_file_info_finish")
-	core.PuregoSafeRegister(&xPixbufGetFormats, libs, "gdk_pixbuf_get_formats")
-	core.PuregoSafeRegister(&xPixbufInitModules, libs, "gdk_pixbuf_init_modules")
-	core.PuregoSafeRegister(&xPixbufNewFromStreamAsync, libs, "gdk_pixbuf_new_from_stream_async")
-	core.PuregoSafeRegister(&xPixbufNewFromStreamAtScaleAsync, libs, "gdk_pixbuf_new_from_stream_at_scale_async")
-	core.PuregoSafeRegister(&xPixbufSaveToStreamFinish, libs, "gdk_pixbuf_save_to_stream_finish")
 }

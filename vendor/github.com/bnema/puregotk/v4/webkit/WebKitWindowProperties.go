@@ -5,7 +5,6 @@ import (
 	"structs"
 	"unsafe"
 
-	"github.com/bnema/purego"
 	"github.com/bnema/puregotk/pkg/core"
 	"github.com/bnema/puregotk/v4/gdk"
 	"github.com/bnema/puregotk/v4/gobject"
@@ -93,6 +92,7 @@ type WindowProperties struct {
 var xWindowPropertiesGLibType func() types.GType
 
 func WindowPropertiesGLibType() types.GType {
+	core.LazyRegister(&xWindowPropertiesGLibType, "WEBKIT", "webkit_window_properties_get_type", false)
 	return xWindowPropertiesGLibType()
 }
 
@@ -106,6 +106,8 @@ var xWindowPropertiesGetFullscreen func(uintptr) bool
 
 // Get whether the window should be shown in fullscreen state or not.
 func (x *WindowProperties) GetFullscreen() bool {
+	core.LazyRegister(&xWindowPropertiesGetFullscreen, "WEBKIT", "webkit_window_properties_get_fullscreen", false)
+
 	cret := xWindowPropertiesGetFullscreen(x.GoPointer())
 	return cret
 }
@@ -114,6 +116,8 @@ var xWindowPropertiesGetGeometry func(uintptr, *gdk.Rectangle)
 
 // Get the geometry the window should have on the screen when shown.
 func (x *WindowProperties) GetGeometry(GeometryVar *gdk.Rectangle) {
+	core.LazyRegister(&xWindowPropertiesGetGeometry, "WEBKIT", "webkit_window_properties_get_geometry", false)
+
 	xWindowPropertiesGetGeometry(x.GoPointer(), GeometryVar)
 }
 
@@ -121,6 +125,8 @@ var xWindowPropertiesGetLocationbarVisible func(uintptr) bool
 
 // Get whether the window should have the locationbar visible or not.
 func (x *WindowProperties) GetLocationbarVisible() bool {
+	core.LazyRegister(&xWindowPropertiesGetLocationbarVisible, "WEBKIT", "webkit_window_properties_get_locationbar_visible", false)
+
 	cret := xWindowPropertiesGetLocationbarVisible(x.GoPointer())
 	return cret
 }
@@ -129,6 +135,8 @@ var xWindowPropertiesGetMenubarVisible func(uintptr) bool
 
 // Get whether the window should have the menubar visible or not.
 func (x *WindowProperties) GetMenubarVisible() bool {
+	core.LazyRegister(&xWindowPropertiesGetMenubarVisible, "WEBKIT", "webkit_window_properties_get_menubar_visible", false)
+
 	cret := xWindowPropertiesGetMenubarVisible(x.GoPointer())
 	return cret
 }
@@ -137,6 +145,8 @@ var xWindowPropertiesGetResizable func(uintptr) bool
 
 // Get whether the window should be resizable by the user or not.
 func (x *WindowProperties) GetResizable() bool {
+	core.LazyRegister(&xWindowPropertiesGetResizable, "WEBKIT", "webkit_window_properties_get_resizable", false)
+
 	cret := xWindowPropertiesGetResizable(x.GoPointer())
 	return cret
 }
@@ -145,6 +155,8 @@ var xWindowPropertiesGetScrollbarsVisible func(uintptr) bool
 
 // Get whether the window should have the scrollbars visible or not.
 func (x *WindowProperties) GetScrollbarsVisible() bool {
+	core.LazyRegister(&xWindowPropertiesGetScrollbarsVisible, "WEBKIT", "webkit_window_properties_get_scrollbars_visible", false)
+
 	cret := xWindowPropertiesGetScrollbarsVisible(x.GoPointer())
 	return cret
 }
@@ -153,6 +165,8 @@ var xWindowPropertiesGetStatusbarVisible func(uintptr) bool
 
 // Get whether the window should have the statusbar visible or not.
 func (x *WindowProperties) GetStatusbarVisible() bool {
+	core.LazyRegister(&xWindowPropertiesGetStatusbarVisible, "WEBKIT", "webkit_window_properties_get_statusbar_visible", false)
+
 	cret := xWindowPropertiesGetStatusbarVisible(x.GoPointer())
 	return cret
 }
@@ -161,6 +175,8 @@ var xWindowPropertiesGetToolbarVisible func(uintptr) bool
 
 // Get whether the window should have the toolbar visible or not.
 func (x *WindowProperties) GetToolbarVisible() bool {
+	core.LazyRegister(&xWindowPropertiesGetToolbarVisible, "WEBKIT", "webkit_window_properties_get_toolbar_visible", false)
+
 	cret := xWindowPropertiesGetToolbarVisible(x.GoPointer())
 	return cret
 }
@@ -315,28 +331,8 @@ func (x *WindowProperties) GetPropertyToolbarVisible() bool {
 func init() {
 	core.SetPackageName("WEBKIT", "webkitgtk-6.0")
 	core.SetSharedLibraries("WEBKIT", []string{"libwebkitgtk-6.0.so.4", "libjavascriptcoregtk-6.0.so.1", "libwebkitgtk-6.0.4.dylib", "libjavascriptcoregtk-6.0.1.dylib"})
-	var libs []uintptr
-	for _, libPath := range core.GetPaths("WEBKIT") {
-		lib, err := purego.Dlopen(libPath, purego.RTLD_NOW|purego.RTLD_GLOBAL)
-		if err != nil {
-			panic(err)
-		}
-		libs = append(libs, lib)
-	}
 
-	core.PuregoSafeRegister(&xWindowPropertiesGLibType, libs, "webkit_window_properties_get_type")
-
-	core.PuregoSafeRegister(&xWindowPropertiesGetFullscreen, libs, "webkit_window_properties_get_fullscreen")
-	core.PuregoSafeRegister(&xWindowPropertiesGetGeometry, libs, "webkit_window_properties_get_geometry")
-	core.PuregoSafeRegister(&xWindowPropertiesGetLocationbarVisible, libs, "webkit_window_properties_get_locationbar_visible")
-	core.PuregoSafeRegister(&xWindowPropertiesGetMenubarVisible, libs, "webkit_window_properties_get_menubar_visible")
-	core.PuregoSafeRegister(&xWindowPropertiesGetResizable, libs, "webkit_window_properties_get_resizable")
-	core.PuregoSafeRegister(&xWindowPropertiesGetScrollbarsVisible, libs, "webkit_window_properties_get_scrollbars_visible")
-	core.PuregoSafeRegister(&xWindowPropertiesGetStatusbarVisible, libs, "webkit_window_properties_get_statusbar_visible")
-	core.PuregoSafeRegister(&xWindowPropertiesGetToolbarVisible, libs, "webkit_window_properties_get_toolbar_visible")
-
-	// Manually register types since they aren't being automatically registered when
-	// the library is loaded
-	// See https://bugs.webkit.org/show_bug.cgi?id=175937
+	// Manually register types since they aren't automatically registered when
+	// WebKit is loaded. See https://bugs.webkit.org/show_bug.cgi?id=175937.
 	WindowPropertiesGLibType()
 }

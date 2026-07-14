@@ -2,7 +2,6 @@
 package gdk
 
 import (
-	"github.com/bnema/purego"
 	"github.com/bnema/puregotk/pkg/core"
 	"github.com/bnema/puregotk/v4/gio"
 	"github.com/bnema/puregotk/v4/gobject"
@@ -36,6 +35,7 @@ type AppLaunchContext struct {
 var xAppLaunchContextGLibType func() types.GType
 
 func AppLaunchContextGLibType() types.GType {
+	core.LazyRegister(&xAppLaunchContextGLibType, "GDK", "gdk_app_launch_context_get_type", false)
 	return xAppLaunchContextGLibType()
 }
 
@@ -49,6 +49,7 @@ var xAppLaunchContextGetDisplay func(uintptr) uintptr
 
 // Gets the `GdkDisplay` that @context is for.
 func (x *AppLaunchContext) GetDisplay() *Display {
+	core.LazyRegister(&xAppLaunchContextGetDisplay, "GDK", "gdk_app_launch_context_get_display", false)
 	var cls *Display
 
 	cret := xAppLaunchContextGetDisplay(x.GoPointer())
@@ -78,6 +79,8 @@ var xAppLaunchContextSetDesktop func(uintptr, int)
 // it is up to the window manager to pick one, typically it will
 // be the current workspace.
 func (x *AppLaunchContext) SetDesktop(DesktopVar int) {
+	core.LazyRegister(&xAppLaunchContextSetDesktop, "GDK", "gdk_app_launch_context_set_desktop", false)
+
 	xAppLaunchContextSetDesktop(x.GoPointer(), DesktopVar)
 }
 
@@ -91,6 +94,8 @@ var xAppLaunchContextSetIcon func(uintptr, uintptr)
 //
 // See also [method@Gdk.AppLaunchContext.set_icon_name].
 func (x *AppLaunchContext) SetIcon(IconVar gio.Icon) {
+	core.LazyRegister(&xAppLaunchContextSetIcon, "GDK", "gdk_app_launch_context_set_icon", false)
+
 	xAppLaunchContextSetIcon(x.GoPointer(), IconVar.GoPointer())
 }
 
@@ -106,6 +111,8 @@ var xAppLaunchContextSetIconName func(uintptr, uintptr)
 // the file that is passed to launched application or from the `GAppInfo`
 // for the launched application itself.
 func (x *AppLaunchContext) SetIconName(IconNameVar *string) {
+	core.LazyRegister(&xAppLaunchContextSetIconName, "GDK", "gdk_app_launch_context_set_icon_name", false)
+
 	IconNameVarPtr := core.GStrdupNullable(IconNameVar)
 	defer core.GFreeNullable(IconNameVarPtr)
 
@@ -124,6 +131,8 @@ var xAppLaunchContextSetTimestamp func(uintptr, uint32)
 // typing in another window. This is also known as 'focus stealing
 // prevention'.
 func (x *AppLaunchContext) SetTimestamp(TimestampVar uint32) {
+	core.LazyRegister(&xAppLaunchContextSetTimestamp, "GDK", "gdk_app_launch_context_set_timestamp", false)
+
 	xAppLaunchContextSetTimestamp(x.GoPointer(), TimestampVar)
 }
 
@@ -141,20 +150,4 @@ func (c *AppLaunchContext) SetGoPointer(ptr uintptr) {
 func init() {
 	core.SetPackageName("GDK", "gtk4")
 	core.SetSharedLibraries("GDK", []string{"libgtk-4.so.1", "libgtk-4.1.dylib"})
-	var libs []uintptr
-	for _, libPath := range core.GetPaths("GDK") {
-		lib, err := purego.Dlopen(libPath, purego.RTLD_NOW|purego.RTLD_GLOBAL)
-		if err != nil {
-			panic(err)
-		}
-		libs = append(libs, lib)
-	}
-
-	core.PuregoSafeRegister(&xAppLaunchContextGLibType, libs, "gdk_app_launch_context_get_type")
-
-	core.PuregoSafeRegister(&xAppLaunchContextGetDisplay, libs, "gdk_app_launch_context_get_display")
-	core.PuregoSafeRegister(&xAppLaunchContextSetDesktop, libs, "gdk_app_launch_context_set_desktop")
-	core.PuregoSafeRegister(&xAppLaunchContextSetIcon, libs, "gdk_app_launch_context_set_icon")
-	core.PuregoSafeRegister(&xAppLaunchContextSetIconName, libs, "gdk_app_launch_context_set_icon_name")
-	core.PuregoSafeRegister(&xAppLaunchContextSetTimestamp, libs, "gdk_app_launch_context_set_timestamp")
 }

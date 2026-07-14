@@ -5,7 +5,6 @@ import (
 	"structs"
 	"unsafe"
 
-	"github.com/bnema/purego"
 	"github.com/bnema/puregotk/pkg/core"
 	"github.com/bnema/puregotk/v4/glib"
 	"github.com/bnema/puregotk/v4/gobject"
@@ -611,6 +610,7 @@ type Task struct {
 var xTaskGLibType func() types.GType
 
 func TaskGLibType() types.GType {
+	core.LazyRegister(&xTaskGLibType, "GIO", "g_task_get_type", false)
 	return xTaskGLibType()
 }
 
@@ -639,6 +639,7 @@ var xNewTask func(uintptr, uintptr, uintptr, uintptr) uintptr
 // do not want this behavior, you can use
 // g_task_set_check_cancellable() to change it.
 func NewTask(SourceObjectVar *gobject.Object, CancellableVar *Cancellable, CallbackVar *AsyncReadyCallback, CallbackDataVar uintptr) *Task {
+	core.LazyRegister(&xNewTask, "GIO", "g_task_new", false)
 	var cls *Task
 
 	cret := xNewTask(SourceObjectVar.GoPointer(), CancellableVar.GoPointer(), glib.NewCallbackNullable(CallbackVar), CallbackDataVar)
@@ -665,6 +666,8 @@ var xTaskAttachSource func(uintptr, *glib.Source, uintptr)
 //
 // This takes a reference on @task until @source is destroyed.
 func (x *Task) AttachSource(SourceVar *glib.Source, CallbackVar *glib.SourceFunc) {
+	core.LazyRegister(&xTaskAttachSource, "GIO", "g_task_attach_source", false)
+
 	xTaskAttachSource(x.GoPointer(), SourceVar, glib.NewCallback(CallbackVar))
 }
 
@@ -672,6 +675,7 @@ var xTaskGetCancellable func(uintptr) uintptr
 
 // Gets @task's #GCancellable
 func (x *Task) GetCancellable() *Cancellable {
+	core.LazyRegister(&xTaskGetCancellable, "GIO", "g_task_get_cancellable", false)
 	var cls *Cancellable
 
 	cret := xTaskGetCancellable(x.GoPointer())
@@ -690,6 +694,8 @@ var xTaskGetCheckCancellable func(uintptr) bool
 // Gets @task's check-cancellable flag. See
 // g_task_set_check_cancellable() for more details.
 func (x *Task) GetCheckCancellable() bool {
+	core.LazyRegister(&xTaskGetCheckCancellable, "GIO", "g_task_get_check_cancellable", false)
+
 	cret := xTaskGetCheckCancellable(x.GoPointer())
 	return cret
 }
@@ -700,6 +706,8 @@ var xTaskGetCompleted func(uintptr) bool
 // the task’s callback is invoked, and will return %FALSE if called from inside
 // the callback.
 func (x *Task) GetCompleted() bool {
+	core.LazyRegister(&xTaskGetCompleted, "GIO", "g_task_get_completed", false)
+
 	cret := xTaskGetCompleted(x.GoPointer())
 	return cret
 }
@@ -714,6 +722,8 @@ var xTaskGetContext func(uintptr) uintptr
 // This will always return a non-%NULL value, even if the task's
 // context is the default #GMainContext.
 func (x *Task) GetContext() *glib.MainContext {
+	core.LazyRegister(&xTaskGetContext, "GIO", "g_task_get_context", false)
+
 	cret := xTaskGetContext(x.GoPointer())
 	if cret == 0 {
 		return nil
@@ -725,6 +735,8 @@ var xTaskGetName func(uintptr) string
 
 // Gets @task’s name. See g_task_set_name().
 func (x *Task) GetName() string {
+	core.LazyRegister(&xTaskGetName, "GIO", "g_task_get_name", false)
+
 	cret := xTaskGetName(x.GoPointer())
 	return cret
 }
@@ -733,6 +745,8 @@ var xTaskGetPriority func(uintptr) int
 
 // Gets @task's priority
 func (x *Task) GetPriority() int {
+	core.LazyRegister(&xTaskGetPriority, "GIO", "g_task_get_priority", false)
+
 	cret := xTaskGetPriority(x.GoPointer())
 	return cret
 }
@@ -742,6 +756,8 @@ var xTaskGetReturnOnCancel func(uintptr) bool
 // Gets @task's return-on-cancel flag. See
 // g_task_set_return_on_cancel() for more details.
 func (x *Task) GetReturnOnCancel() bool {
+	core.LazyRegister(&xTaskGetReturnOnCancel, "GIO", "g_task_get_return_on_cancel", false)
+
 	cret := xTaskGetReturnOnCancel(x.GoPointer())
 	return cret
 }
@@ -751,6 +767,7 @@ var xTaskGetSourceObject func(uintptr) uintptr
 // Gets the source object from @task. Like
 // g_async_result_get_source_object(), but does not ref the object.
 func (x *Task) GetSourceObject() *gobject.Object {
+	core.LazyRegister(&xTaskGetSourceObject, "GIO", "g_task_get_source_object", false)
 	var cls *gobject.Object
 
 	cret := xTaskGetSourceObject(x.GoPointer())
@@ -768,6 +785,8 @@ var xTaskGetSourceTag func(uintptr) uintptr
 
 // Gets @task's source tag. See g_task_set_source_tag().
 func (x *Task) GetSourceTag() uintptr {
+	core.LazyRegister(&xTaskGetSourceTag, "GIO", "g_task_get_source_tag", false)
+
 	cret := xTaskGetSourceTag(x.GoPointer())
 	return cret
 }
@@ -776,6 +795,8 @@ var xTaskGetTaskData func(uintptr) uintptr
 
 // Gets @task's `task_data`.
 func (x *Task) GetTaskData() uintptr {
+	core.LazyRegister(&xTaskGetTaskData, "GIO", "g_task_get_task_data", false)
+
 	cret := xTaskGetTaskData(x.GoPointer())
 	return cret
 }
@@ -784,6 +805,8 @@ var xTaskHadError func(uintptr) bool
 
 // Tests if @task resulted in an error.
 func (x *Task) HadError() bool {
+	core.LazyRegister(&xTaskHadError, "GIO", "g_task_had_error", false)
+
 	cret := xTaskHadError(x.GoPointer())
 	return cret
 }
@@ -798,6 +821,7 @@ var xTaskPropagateBoolean func(uintptr, **glib.Error) bool
 // Since this method transfers ownership of the return value (or
 // error) to the caller, you may only call it once.
 func (x *Task) PropagateBoolean() (bool, error) {
+	core.LazyRegister(&xTaskPropagateBoolean, "GIO", "g_task_propagate_boolean", false)
 	var cerr *glib.Error
 
 	cret := xTaskPropagateBoolean(x.GoPointer(), &cerr)
@@ -817,6 +841,7 @@ var xTaskPropagateInt func(uintptr, **glib.Error) int
 // Since this method transfers ownership of the return value (or
 // error) to the caller, you may only call it once.
 func (x *Task) PropagateInt() (int, error) {
+	core.LazyRegister(&xTaskPropagateInt, "GIO", "g_task_propagate_int", false)
 	var cerr *glib.Error
 
 	cret := xTaskPropagateInt(x.GoPointer(), &cerr)
@@ -837,6 +862,7 @@ var xTaskPropagatePointer func(uintptr, **glib.Error) uintptr
 // Since this method transfers ownership of the return value (or
 // error) to the caller, you may only call it once.
 func (x *Task) PropagatePointer() (uintptr, error) {
+	core.LazyRegister(&xTaskPropagatePointer, "GIO", "g_task_propagate_pointer", false)
 	var cerr *glib.Error
 
 	cret := xTaskPropagatePointer(x.GoPointer(), &cerr)
@@ -859,6 +885,7 @@ var xTaskPropagateValue func(uintptr, *gobject.Value, **glib.Error) bool
 // Since this method transfers ownership of the return value (or
 // error) to the caller, you may only call it once.
 func (x *Task) PropagateValue(ValueVar *gobject.Value) (bool, error) {
+	core.LazyRegister(&xTaskPropagateValue, "GIO", "g_task_propagate_value", false)
 	var cerr *glib.Error
 
 	cret := xTaskPropagateValue(x.GoPointer(), ValueVar, &cerr)
@@ -874,6 +901,8 @@ var xTaskReturnBoolean func(uintptr, bool)
 // g_task_return_pointer() for more discussion of exactly what this
 // means).
 func (x *Task) ReturnBoolean(ResultVar bool) {
+	core.LazyRegister(&xTaskReturnBoolean, "GIO", "g_task_return_boolean", false)
+
 	xTaskReturnBoolean(x.GoPointer(), ResultVar)
 }
 
@@ -892,6 +921,8 @@ var xTaskReturnError func(uintptr, *glib.Error)
 // See also [method@Gio.Task.return_new_error],
 // [method@Gio.Task.return_new_error_literal].
 func (x *Task) ReturnError(ErrorVar *glib.Error) {
+	core.LazyRegister(&xTaskReturnError, "GIO", "g_task_return_error", false)
+
 	xTaskReturnError(x.GoPointer(), ErrorVar)
 }
 
@@ -902,6 +933,8 @@ var xTaskReturnErrorIfCancelled func(uintptr) bool
 // g_task_return_pointer() for more discussion of exactly what this
 // means).
 func (x *Task) ReturnErrorIfCancelled() bool {
+	core.LazyRegister(&xTaskReturnErrorIfCancelled, "GIO", "g_task_return_error_if_cancelled", false)
+
 	cret := xTaskReturnErrorIfCancelled(x.GoPointer())
 	return cret
 }
@@ -912,6 +945,8 @@ var xTaskReturnInt func(uintptr, int)
 // g_task_return_pointer() for more discussion of exactly what this
 // means).
 func (x *Task) ReturnInt(ResultVar int) {
+	core.LazyRegister(&xTaskReturnInt, "GIO", "g_task_return_int", false)
+
 	xTaskReturnInt(x.GoPointer(), ResultVar)
 }
 
@@ -924,6 +959,8 @@ var xTaskReturnNewError func(uintptr, glib.Quark, int, string, ...interface{})
 //
 // See also g_task_return_error().
 func (x *Task) ReturnNewError(DomainVar glib.Quark, CodeVar int, FormatVar string, varArgs ...interface{}) {
+	core.LazyRegister(&xTaskReturnNewError, "GIO", "g_task_return_new_error", false)
+
 	xTaskReturnNewError(x.GoPointer(), DomainVar, CodeVar, FormatVar, varArgs...)
 }
 
@@ -937,6 +974,8 @@ var xTaskReturnNewErrorLiteral func(uintptr, glib.Quark, int, string)
 //
 // See also [method@Gio.Task.return_new_error].
 func (x *Task) ReturnNewErrorLiteral(DomainVar glib.Quark, CodeVar int, MessageVar string) {
+	core.LazyRegister(&xTaskReturnNewErrorLiteral, "GIO", "g_task_return_new_error_literal", false)
+
 	xTaskReturnNewErrorLiteral(x.GoPointer(), DomainVar, CodeVar, MessageVar)
 }
 
@@ -961,6 +1000,8 @@ var xTaskReturnPointer func(uintptr, uintptr, uintptr)
 // valid after calling this, unless you are still holding another
 // reference on it.
 func (x *Task) ReturnPointer(ResultVar uintptr, ResultDestroyVar *glib.DestroyNotify) {
+	core.LazyRegister(&xTaskReturnPointer, "GIO", "g_task_return_pointer", false)
+
 	xTaskReturnPointer(x.GoPointer(), ResultVar, glib.NewCallbackNullable(ResultDestroyVar))
 }
 
@@ -979,6 +1020,8 @@ var xTaskReturnPrefixedError func(uintptr, *glib.Error, string, ...interface{})
 //
 // See also g_task_return_error(), g_prefix_error().
 func (x *Task) ReturnPrefixedError(ErrorVar *glib.Error, FormatVar string, varArgs ...interface{}) {
+	core.LazyRegister(&xTaskReturnPrefixedError, "GIO", "g_task_return_prefixed_error", false)
+
 	xTaskReturnPrefixedError(x.GoPointer(), ErrorVar, FormatVar, varArgs...)
 }
 
@@ -993,6 +1036,8 @@ var xTaskReturnValue func(uintptr, *gobject.Value)
 // by language bindings; for C code, g_task_return_pointer() and the
 // like will normally be much easier to use.
 func (x *Task) ReturnValue(ResultVar *gobject.Value) {
+	core.LazyRegister(&xTaskReturnValue, "GIO", "g_task_return_value", false)
+
 	xTaskReturnValue(x.GoPointer(), ResultVar)
 }
 
@@ -1018,6 +1063,8 @@ var xTaskRunInThread func(uintptr, uintptr)
 // separate worker thread or thread pool explicitly, rather than using
 // g_task_run_in_thread().
 func (x *Task) RunInThread(TaskFuncVar *TaskThreadFunc) {
+	core.LazyRegister(&xTaskRunInThread, "GIO", "g_task_run_in_thread", false)
+
 	xTaskRunInThread(x.GoPointer(), glib.NewCallback(TaskFuncVar))
 }
 
@@ -1040,6 +1087,8 @@ var xTaskRunInThreadSync func(uintptr, uintptr)
 // but don't want them to all run at once, you should only queue a
 // limited number of them at a time.
 func (x *Task) RunInThreadSync(TaskFuncVar *TaskThreadFunc) {
+	core.LazyRegister(&xTaskRunInThreadSync, "GIO", "g_task_run_in_thread_sync", false)
+
 	xTaskRunInThreadSync(x.GoPointer(), glib.NewCallback(TaskFuncVar))
 }
 
@@ -1060,6 +1109,8 @@ var xTaskSetCheckCancellable func(uintptr, bool)
 // If you are using g_task_set_return_on_cancel() as well, then
 // you must leave check-cancellable set %TRUE.
 func (x *Task) SetCheckCancellable(CheckCancellableVar bool) {
+	core.LazyRegister(&xTaskSetCheckCancellable, "GIO", "g_task_set_check_cancellable", false)
+
 	xTaskSetCheckCancellable(x.GoPointer(), CheckCancellableVar)
 }
 
@@ -1075,6 +1126,8 @@ var xTaskSetName func(uintptr, uintptr)
 // This function may only be called before the @task is first used in a thread
 // other than the one it was constructed in.
 func (x *Task) SetName(NameVar *string) {
+	core.LazyRegister(&xTaskSetName, "GIO", "g_task_set_name", false)
+
 	NameVarPtr := core.GStrdupNullable(NameVar)
 	defer core.GFreeNullable(NameVarPtr)
 
@@ -1091,6 +1144,8 @@ var xTaskSetPriority func(uintptr, int)
 // and can also be explicitly retrieved later via
 // g_task_get_priority().
 func (x *Task) SetPriority(PriorityVar int) {
+	core.LazyRegister(&xTaskSetPriority, "GIO", "g_task_set_priority", false)
+
 	xTaskSetPriority(x.GoPointer(), PriorityVar)
 }
 
@@ -1125,6 +1180,8 @@ var xTaskSetReturnOnCancel func(uintptr, bool) bool
 // #GTaskThreadFunc will still be run (for consistency), but the task
 // will also be completed right away.
 func (x *Task) SetReturnOnCancel(ReturnOnCancelVar bool) bool {
+	core.LazyRegister(&xTaskSetReturnOnCancel, "GIO", "g_task_set_return_on_cancel", false)
+
 	cret := xTaskSetReturnOnCancel(x.GoPointer(), ReturnOnCancelVar)
 	return cret
 }
@@ -1144,6 +1201,8 @@ var xTaskSetSourceTag func(uintptr, uintptr)
 // task’s name to the string form of @source_tag if it’s not already
 // set, for convenience.
 func (x *Task) SetSourceTag(SourceTagVar uintptr) {
+	core.LazyRegister(&xTaskSetSourceTag, "GIO", "g_task_set_source_tag", false)
+
 	xTaskSetSourceTag(x.GoPointer(), SourceTagVar)
 }
 
@@ -1156,6 +1215,8 @@ var xTaskSetStaticName func(uintptr, uintptr)
 // This function is called automatically by [method@Gio.Task.set_source_tag]
 // unless a name is set.
 func (x *Task) SetStaticName(NameVar *string) {
+	core.LazyRegister(&xTaskSetStaticName, "GIO", "g_task_set_static_name", false)
+
 	NameVarPtr := core.GStrdupNullable(NameVar)
 	defer core.GFreeNullable(NameVarPtr)
 
@@ -1166,6 +1227,8 @@ var xTaskSetTaskData func(uintptr, uintptr, uintptr)
 
 // Sets @task's task data (freeing the existing task data, if any).
 func (x *Task) SetTaskData(TaskDataVar uintptr, TaskDataDestroyVar *glib.DestroyNotify) {
+	core.LazyRegister(&xTaskSetTaskData, "GIO", "g_task_set_task_data", false)
+
 	xTaskSetTaskData(x.GoPointer(), TaskDataVar, glib.NewCallbackNullable(TaskDataDestroyVar))
 }
 
@@ -1244,6 +1307,8 @@ var xTaskIsValid func(uintptr, uintptr) bool
 // source object (or that @source_object is %NULL and @result has no
 // source object). This can be used in g_return_if_fail() checks.
 func TaskIsValid(ResultVar AsyncResult, SourceObjectVar *gobject.Object) bool {
+	core.LazyRegister(&xTaskIsValid, "GIO", "g_task_is_valid", false)
+
 	cret := xTaskIsValid(ResultVar.GoPointer(), SourceObjectVar.GoPointer())
 	return cret
 }
@@ -1259,6 +1324,8 @@ var xTaskReportError func(uintptr, uintptr, uintptr, uintptr, *glib.Error)
 //
 // See also g_task_report_new_error().
 func TaskReportError(SourceObjectVar *gobject.Object, CallbackVar *AsyncReadyCallback, CallbackDataVar uintptr, SourceTagVar uintptr, ErrorVar *glib.Error) {
+	core.LazyRegister(&xTaskReportError, "GIO", "g_task_report_error", false)
+
 	xTaskReportError(SourceObjectVar.GoPointer(), glib.NewCallbackNullable(CallbackVar), CallbackDataVar, SourceTagVar, ErrorVar)
 }
 
@@ -1274,61 +1341,12 @@ var xTaskReportNewError func(uintptr, uintptr, uintptr, uintptr, glib.Quark, int
 //
 // See also g_task_report_error().
 func TaskReportNewError(SourceObjectVar *gobject.Object, CallbackVar *AsyncReadyCallback, CallbackDataVar uintptr, SourceTagVar uintptr, DomainVar glib.Quark, CodeVar int, FormatVar string, varArgs ...interface{}) {
+	core.LazyRegister(&xTaskReportNewError, "GIO", "g_task_report_new_error", false)
+
 	xTaskReportNewError(SourceObjectVar.GoPointer(), glib.NewCallbackNullable(CallbackVar), CallbackDataVar, SourceTagVar, DomainVar, CodeVar, FormatVar, varArgs...)
 }
 
 func init() {
 	core.SetPackageName("GIO", "gio-2.0")
 	core.SetSharedLibraries("GIO", []string{"libgio-2.0.so.0", "libgio-2.0.0.dylib"})
-	var libs []uintptr
-	for _, libPath := range core.GetPaths("GIO") {
-		lib, err := purego.Dlopen(libPath, purego.RTLD_NOW|purego.RTLD_GLOBAL)
-		if err != nil {
-			panic(err)
-		}
-		libs = append(libs, lib)
-	}
-
-	core.PuregoSafeRegister(&xTaskGLibType, libs, "g_task_get_type")
-
-	core.PuregoSafeRegister(&xNewTask, libs, "g_task_new")
-
-	core.PuregoSafeRegister(&xTaskAttachSource, libs, "g_task_attach_source")
-	core.PuregoSafeRegister(&xTaskGetCancellable, libs, "g_task_get_cancellable")
-	core.PuregoSafeRegister(&xTaskGetCheckCancellable, libs, "g_task_get_check_cancellable")
-	core.PuregoSafeRegister(&xTaskGetCompleted, libs, "g_task_get_completed")
-	core.PuregoSafeRegister(&xTaskGetContext, libs, "g_task_get_context")
-	core.PuregoSafeRegister(&xTaskGetName, libs, "g_task_get_name")
-	core.PuregoSafeRegister(&xTaskGetPriority, libs, "g_task_get_priority")
-	core.PuregoSafeRegister(&xTaskGetReturnOnCancel, libs, "g_task_get_return_on_cancel")
-	core.PuregoSafeRegister(&xTaskGetSourceObject, libs, "g_task_get_source_object")
-	core.PuregoSafeRegister(&xTaskGetSourceTag, libs, "g_task_get_source_tag")
-	core.PuregoSafeRegister(&xTaskGetTaskData, libs, "g_task_get_task_data")
-	core.PuregoSafeRegister(&xTaskHadError, libs, "g_task_had_error")
-	core.PuregoSafeRegister(&xTaskPropagateBoolean, libs, "g_task_propagate_boolean")
-	core.PuregoSafeRegister(&xTaskPropagateInt, libs, "g_task_propagate_int")
-	core.PuregoSafeRegister(&xTaskPropagatePointer, libs, "g_task_propagate_pointer")
-	core.PuregoSafeRegister(&xTaskPropagateValue, libs, "g_task_propagate_value")
-	core.PuregoSafeRegister(&xTaskReturnBoolean, libs, "g_task_return_boolean")
-	core.PuregoSafeRegister(&xTaskReturnError, libs, "g_task_return_error")
-	core.PuregoSafeRegister(&xTaskReturnErrorIfCancelled, libs, "g_task_return_error_if_cancelled")
-	core.PuregoSafeRegister(&xTaskReturnInt, libs, "g_task_return_int")
-	core.PuregoSafeRegister(&xTaskReturnNewError, libs, "g_task_return_new_error")
-	core.PuregoSafeRegister(&xTaskReturnNewErrorLiteral, libs, "g_task_return_new_error_literal")
-	core.PuregoSafeRegister(&xTaskReturnPointer, libs, "g_task_return_pointer")
-	core.PuregoSafeRegister(&xTaskReturnPrefixedError, libs, "g_task_return_prefixed_error")
-	core.PuregoSafeRegister(&xTaskReturnValue, libs, "g_task_return_value")
-	core.PuregoSafeRegister(&xTaskRunInThread, libs, "g_task_run_in_thread")
-	core.PuregoSafeRegister(&xTaskRunInThreadSync, libs, "g_task_run_in_thread_sync")
-	core.PuregoSafeRegister(&xTaskSetCheckCancellable, libs, "g_task_set_check_cancellable")
-	core.PuregoSafeRegister(&xTaskSetName, libs, "g_task_set_name")
-	core.PuregoSafeRegister(&xTaskSetPriority, libs, "g_task_set_priority")
-	core.PuregoSafeRegister(&xTaskSetReturnOnCancel, libs, "g_task_set_return_on_cancel")
-	core.PuregoSafeRegister(&xTaskSetSourceTag, libs, "g_task_set_source_tag")
-	core.PuregoSafeRegister(&xTaskSetStaticName, libs, "g_task_set_static_name")
-	core.PuregoSafeRegister(&xTaskSetTaskData, libs, "g_task_set_task_data")
-
-	core.PuregoSafeRegister(&xTaskIsValid, libs, "g_task_is_valid")
-	core.PuregoSafeRegister(&xTaskReportError, libs, "g_task_report_error")
-	core.PuregoSafeRegister(&xTaskReportNewError, libs, "g_task_report_new_error")
 }

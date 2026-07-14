@@ -133,6 +133,19 @@ func (r *rows) Columns() ([]string, error) {
 	return names, nil
 }
 
+// ColumnDeclTypes returns the declared types for result-set columns. SQLite
+// returns an empty string for expressions and columns without a declared type.
+func (r *rows) ColumnDeclTypes() ([]string, error) {
+	capi := r.stmt.db.capi
+	stmtPtr := r.stmt.ptr
+	ncols := int(capi.Sqlite3ColumnCount(stmtPtr))
+	types := make([]string, ncols)
+	for i := 0; i < ncols; i++ {
+		types[i] = capi.Sqlite3ColumnDecltype(stmtPtr, uintptr(i))
+	}
+	return types, nil
+}
+
 // Close resets the statement (and finalizes it if rows owns it).
 func (r *rows) Close() error {
 	if r.stmt == nil {

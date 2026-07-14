@@ -5,7 +5,6 @@ import (
 	"structs"
 	"unsafe"
 
-	"github.com/bnema/purego"
 	"github.com/bnema/puregotk/pkg/core"
 	"github.com/bnema/puregotk/v4/gobject"
 	"github.com/bnema/puregotk/v4/gobject/types"
@@ -42,6 +41,7 @@ type URIRequest struct {
 var xURIRequestGLibType func() types.GType
 
 func URIRequestGLibType() types.GType {
+	core.LazyRegister(&xURIRequestGLibType, "WEBKIT", "webkit_uri_request_get_type", false)
 	return xURIRequestGLibType()
 }
 
@@ -55,6 +55,7 @@ var xNewURIRequest func(string) uintptr
 
 // Creates a new #WebKitURIRequest for the given URI.
 func NewURIRequest(UriVar string) *URIRequest {
+	core.LazyRegister(&xNewURIRequest, "WEBKIT", "webkit_uri_request_new", false)
 	var cls *URIRequest
 
 	cret := xNewURIRequest(UriVar)
@@ -71,6 +72,8 @@ var xURIRequestGetHttpHeaders func(uintptr) uintptr
 
 // Get the HTTP headers of a #WebKitURIRequest as a #SoupMessageHeaders.
 func (x *URIRequest) GetHttpHeaders() *soup.MessageHeaders {
+	core.LazyRegister(&xURIRequestGetHttpHeaders, "WEBKIT", "webkit_uri_request_get_http_headers", false)
+
 	cret := xURIRequestGetHttpHeaders(x.GoPointer())
 	if cret == 0 {
 		return nil
@@ -82,6 +85,8 @@ var xURIRequestGetHttpMethod func(uintptr) string
 
 // Get the HTTP method of the #WebKitURIRequest.
 func (x *URIRequest) GetHttpMethod() string {
+	core.LazyRegister(&xURIRequestGetHttpMethod, "WEBKIT", "webkit_uri_request_get_http_method", false)
+
 	cret := xURIRequestGetHttpMethod(x.GoPointer())
 	return cret
 }
@@ -90,6 +95,8 @@ var xURIRequestGetUri func(uintptr) string
 
 // Obtains the request URI.
 func (x *URIRequest) GetUri() string {
+	core.LazyRegister(&xURIRequestGetUri, "WEBKIT", "webkit_uri_request_get_uri", false)
+
 	cret := xURIRequestGetUri(x.GoPointer())
 	return cret
 }
@@ -98,6 +105,8 @@ var xURIRequestSetUri func(uintptr, string)
 
 // Set the URI of @request
 func (x *URIRequest) SetUri(UriVar string) {
+	core.LazyRegister(&xURIRequestSetUri, "WEBKIT", "webkit_uri_request_set_uri", false)
+
 	xURIRequestSetUri(x.GoPointer(), UriVar)
 }
 
@@ -132,26 +141,8 @@ func (x *URIRequest) GetPropertyUri() string {
 func init() {
 	core.SetPackageName("WEBKIT", "webkitgtk-6.0")
 	core.SetSharedLibraries("WEBKIT", []string{"libwebkitgtk-6.0.so.4", "libjavascriptcoregtk-6.0.so.1", "libwebkitgtk-6.0.4.dylib", "libjavascriptcoregtk-6.0.1.dylib"})
-	var libs []uintptr
-	for _, libPath := range core.GetPaths("WEBKIT") {
-		lib, err := purego.Dlopen(libPath, purego.RTLD_NOW|purego.RTLD_GLOBAL)
-		if err != nil {
-			panic(err)
-		}
-		libs = append(libs, lib)
-	}
 
-	core.PuregoSafeRegister(&xURIRequestGLibType, libs, "webkit_uri_request_get_type")
-
-	core.PuregoSafeRegister(&xNewURIRequest, libs, "webkit_uri_request_new")
-
-	core.PuregoSafeRegister(&xURIRequestGetHttpHeaders, libs, "webkit_uri_request_get_http_headers")
-	core.PuregoSafeRegister(&xURIRequestGetHttpMethod, libs, "webkit_uri_request_get_http_method")
-	core.PuregoSafeRegister(&xURIRequestGetUri, libs, "webkit_uri_request_get_uri")
-	core.PuregoSafeRegister(&xURIRequestSetUri, libs, "webkit_uri_request_set_uri")
-
-	// Manually register types since they aren't being automatically registered when
-	// the library is loaded
-	// See https://bugs.webkit.org/show_bug.cgi?id=175937
+	// Manually register types since they aren't automatically registered when
+	// WebKit is loaded. See https://bugs.webkit.org/show_bug.cgi?id=175937.
 	URIRequestGLibType()
 }

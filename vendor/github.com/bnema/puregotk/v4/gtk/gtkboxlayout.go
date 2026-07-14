@@ -5,7 +5,6 @@ import (
 	"structs"
 	"unsafe"
 
-	"github.com/bnema/purego"
 	"github.com/bnema/puregotk/pkg/core"
 	"github.com/bnema/puregotk/v4/gobject"
 	"github.com/bnema/puregotk/v4/gobject/types"
@@ -49,6 +48,7 @@ type BoxLayout struct {
 var xBoxLayoutGLibType func() types.GType
 
 func BoxLayoutGLibType() types.GType {
+	core.LazyRegister(&xBoxLayoutGLibType, "GTK", "gtk_box_layout_get_type", false)
 	return xBoxLayoutGLibType()
 }
 
@@ -62,6 +62,7 @@ var xNewBoxLayout func(Orientation) uintptr
 
 // Creates a new `GtkBoxLayout`.
 func NewBoxLayout(OrientationVar Orientation) *BoxLayout {
+	core.LazyRegister(&xNewBoxLayout, "GTK", "gtk_box_layout_new", false)
 	var cls *BoxLayout
 
 	cret := xNewBoxLayout(OrientationVar)
@@ -78,6 +79,8 @@ var xBoxLayoutGetBaselineChild func(uintptr) int
 
 // Gets the value set by gtk_box_layout_set_baseline_child().
 func (x *BoxLayout) GetBaselineChild() int {
+	core.LazyRegister(&xBoxLayoutGetBaselineChild, "GTK", "gtk_box_layout_get_baseline_child", false)
+
 	cret := xBoxLayoutGetBaselineChild(x.GoPointer())
 	return cret
 }
@@ -86,6 +89,8 @@ var xBoxLayoutGetBaselinePosition func(uintptr) BaselinePosition
 
 // Gets the value set by gtk_box_layout_set_baseline_position().
 func (x *BoxLayout) GetBaselinePosition() BaselinePosition {
+	core.LazyRegister(&xBoxLayoutGetBaselinePosition, "GTK", "gtk_box_layout_get_baseline_position", false)
+
 	cret := xBoxLayoutGetBaselinePosition(x.GoPointer())
 	return cret
 }
@@ -94,6 +99,8 @@ var xBoxLayoutGetHomogeneous func(uintptr) bool
 
 // Returns whether the layout is set to be homogeneous.
 func (x *BoxLayout) GetHomogeneous() bool {
+	core.LazyRegister(&xBoxLayoutGetHomogeneous, "GTK", "gtk_box_layout_get_homogeneous", false)
+
 	cret := xBoxLayoutGetHomogeneous(x.GoPointer())
 	return cret
 }
@@ -102,6 +109,8 @@ var xBoxLayoutGetSpacing func(uintptr) uint
 
 // Returns the space that @box_layout puts between children.
 func (x *BoxLayout) GetSpacing() uint {
+	core.LazyRegister(&xBoxLayoutGetSpacing, "GTK", "gtk_box_layout_get_spacing", false)
+
 	cret := xBoxLayoutGetSpacing(x.GoPointer())
 	return cret
 }
@@ -111,6 +120,8 @@ var xBoxLayoutSetBaselineChild func(uintptr, int)
 // Sets the index of the child that determines the baseline
 // in vertical layout.
 func (x *BoxLayout) SetBaselineChild(ChildVar int) {
+	core.LazyRegister(&xBoxLayoutSetBaselineChild, "GTK", "gtk_box_layout_set_baseline_child", false)
+
 	xBoxLayoutSetBaselineChild(x.GoPointer(), ChildVar)
 }
 
@@ -124,6 +135,8 @@ var xBoxLayoutSetBaselinePosition func(uintptr, BaselinePosition)
 // given @position is used to allocate the baseline within the extra
 // space available.
 func (x *BoxLayout) SetBaselinePosition(PositionVar BaselinePosition) {
+	core.LazyRegister(&xBoxLayoutSetBaselinePosition, "GTK", "gtk_box_layout_set_baseline_position", false)
+
 	xBoxLayoutSetBaselinePosition(x.GoPointer(), PositionVar)
 }
 
@@ -132,6 +145,8 @@ var xBoxLayoutSetHomogeneous func(uintptr, bool)
 // Sets whether the box layout will allocate the same
 // size to all children.
 func (x *BoxLayout) SetHomogeneous(HomogeneousVar bool) {
+	core.LazyRegister(&xBoxLayoutSetHomogeneous, "GTK", "gtk_box_layout_set_homogeneous", false)
+
 	xBoxLayoutSetHomogeneous(x.GoPointer(), HomogeneousVar)
 }
 
@@ -139,6 +154,8 @@ var xBoxLayoutSetSpacing func(uintptr, uint)
 
 // Sets how much spacing to put between children.
 func (x *BoxLayout) SetSpacing(SpacingVar uint) {
+	core.LazyRegister(&xBoxLayoutSetSpacing, "GTK", "gtk_box_layout_set_spacing", false)
+
 	xBoxLayoutSetSpacing(x.GoPointer(), SpacingVar)
 }
 
@@ -230,25 +247,4 @@ func (x *BoxLayout) SetOrientation(OrientationVar Orientation) {
 func init() {
 	core.SetPackageName("GTK", "gtk4")
 	core.SetSharedLibraries("GTK", []string{"libgtk-4.so.1", "libgtk-4.1.dylib"})
-	var libs []uintptr
-	for _, libPath := range core.GetPaths("GTK") {
-		lib, err := purego.Dlopen(libPath, purego.RTLD_NOW|purego.RTLD_GLOBAL)
-		if err != nil {
-			panic(err)
-		}
-		libs = append(libs, lib)
-	}
-
-	core.PuregoSafeRegister(&xBoxLayoutGLibType, libs, "gtk_box_layout_get_type")
-
-	core.PuregoSafeRegister(&xNewBoxLayout, libs, "gtk_box_layout_new")
-
-	core.PuregoSafeRegister(&xBoxLayoutGetBaselineChild, libs, "gtk_box_layout_get_baseline_child")
-	core.PuregoSafeRegister(&xBoxLayoutGetBaselinePosition, libs, "gtk_box_layout_get_baseline_position")
-	core.PuregoSafeRegister(&xBoxLayoutGetHomogeneous, libs, "gtk_box_layout_get_homogeneous")
-	core.PuregoSafeRegister(&xBoxLayoutGetSpacing, libs, "gtk_box_layout_get_spacing")
-	core.PuregoSafeRegister(&xBoxLayoutSetBaselineChild, libs, "gtk_box_layout_set_baseline_child")
-	core.PuregoSafeRegister(&xBoxLayoutSetBaselinePosition, libs, "gtk_box_layout_set_baseline_position")
-	core.PuregoSafeRegister(&xBoxLayoutSetHomogeneous, libs, "gtk_box_layout_set_homogeneous")
-	core.PuregoSafeRegister(&xBoxLayoutSetSpacing, libs, "gtk_box_layout_set_spacing")
 }

@@ -5,7 +5,6 @@ import (
 	"structs"
 	"unsafe"
 
-	"github.com/bnema/purego"
 	"github.com/bnema/puregotk/pkg/core"
 	"github.com/bnema/puregotk/v4/glib"
 	"github.com/bnema/puregotk/v4/gobject/types"
@@ -51,6 +50,7 @@ type ValueArray struct {
 var xValueArrayGLibType func() types.GType
 
 func ValueArrayGLibType() types.GType {
+	core.LazyRegister(&xValueArrayGLibType, "GOBJECT", "g_value_array_get_type", false)
 	return xValueArrayGLibType()
 }
 
@@ -72,6 +72,8 @@ var xNewValueArray func(uint) uintptr
 // for @n_prealloced elements. New arrays always contain 0 elements,
 // regardless of the value of @n_prealloced.
 func NewValueArray(NPreallocedVar uint) *ValueArray {
+	core.LazyRegister(&xNewValueArray, "GOBJECT", "g_value_array_new", false)
+
 	cret := xNewValueArray(NPreallocedVar)
 	if cret == 0 {
 		return nil
@@ -84,6 +86,8 @@ var xValueArrayAppend func(uintptr, *Value) uintptr
 // Insert a copy of @value as last element of @value_array. If @value is
 // %NULL, an uninitialized value is appended.
 func (x *ValueArray) Append(ValueVar *Value) *ValueArray {
+	core.LazyRegister(&xValueArrayAppend, "GOBJECT", "g_value_array_append", false)
+
 	cret := xValueArrayAppend(x.GoPointer(), ValueVar)
 	if cret == 0 {
 		return nil
@@ -96,6 +100,8 @@ var xValueArrayCopy func(uintptr) uintptr
 // Construct an exact copy of a #GValueArray by duplicating all its
 // contents.
 func (x *ValueArray) Copy() *ValueArray {
+	core.LazyRegister(&xValueArrayCopy, "GOBJECT", "g_value_array_copy", false)
+
 	cret := xValueArrayCopy(x.GoPointer())
 	if cret == 0 {
 		return nil
@@ -107,6 +113,8 @@ var xValueArrayFree func(uintptr)
 
 // Free a #GValueArray including its contents.
 func (x *ValueArray) Free() {
+	core.LazyRegister(&xValueArrayFree, "GOBJECT", "g_value_array_free", false)
+
 	xValueArrayFree(x.GoPointer())
 }
 
@@ -114,6 +122,8 @@ var xValueArrayGetNth func(uintptr, uint) uintptr
 
 // Return a pointer to the value at @index_ contained in @value_array.
 func (x *ValueArray) GetNth(IndexVar uint) *Value {
+	core.LazyRegister(&xValueArrayGetNth, "GOBJECT", "g_value_array_get_nth", false)
+
 	cret := xValueArrayGetNth(x.GoPointer(), IndexVar)
 	if cret == 0 {
 		return nil
@@ -126,6 +136,8 @@ var xValueArrayInsert func(uintptr, uint, *Value) uintptr
 // Insert a copy of @value at specified position into @value_array. If @value
 // is %NULL, an uninitialized value is inserted.
 func (x *ValueArray) Insert(IndexVar uint, ValueVar *Value) *ValueArray {
+	core.LazyRegister(&xValueArrayInsert, "GOBJECT", "g_value_array_insert", false)
+
 	cret := xValueArrayInsert(x.GoPointer(), IndexVar, ValueVar)
 	if cret == 0 {
 		return nil
@@ -138,6 +150,8 @@ var xValueArrayPrepend func(uintptr, *Value) uintptr
 // Insert a copy of @value as first element of @value_array. If @value is
 // %NULL, an uninitialized value is prepended.
 func (x *ValueArray) Prepend(ValueVar *Value) *ValueArray {
+	core.LazyRegister(&xValueArrayPrepend, "GOBJECT", "g_value_array_prepend", false)
+
 	cret := xValueArrayPrepend(x.GoPointer(), ValueVar)
 	if cret == 0 {
 		return nil
@@ -149,6 +163,8 @@ var xValueArrayRemove func(uintptr, uint) uintptr
 
 // Remove the value at position @index_ from @value_array.
 func (x *ValueArray) Remove(IndexVar uint) *ValueArray {
+	core.LazyRegister(&xValueArrayRemove, "GOBJECT", "g_value_array_remove", false)
+
 	cret := xValueArrayRemove(x.GoPointer(), IndexVar)
 	if cret == 0 {
 		return nil
@@ -164,6 +180,8 @@ var xValueArraySort func(uintptr, uintptr) uintptr
 // The current implementation uses the same sorting algorithm as standard
 // C qsort() function.
 func (x *ValueArray) Sort(CompareFuncVar *glib.CompareFunc) *ValueArray {
+	core.LazyRegister(&xValueArraySort, "GOBJECT", "g_value_array_sort", false)
+
 	cret := xValueArraySort(x.GoPointer(), glib.NewCallback(CompareFuncVar))
 	if cret == 0 {
 		return nil
@@ -179,6 +197,8 @@ var xValueArraySortWithData func(uintptr, uintptr, uintptr) uintptr
 // The current implementation uses the same sorting algorithm as standard
 // C qsort() function.
 func (x *ValueArray) SortWithData(CompareFuncVar *glib.CompareDataFunc, UserDataVar uintptr) *ValueArray {
+	core.LazyRegister(&xValueArraySortWithData, "GOBJECT", "g_value_array_sort_with_data", false)
+
 	cret := xValueArraySortWithData(x.GoPointer(), glib.NewCallback(CompareFuncVar), UserDataVar)
 	if cret == 0 {
 		return nil
@@ -189,26 +209,4 @@ func (x *ValueArray) SortWithData(CompareFuncVar *glib.CompareDataFunc, UserData
 func init() {
 	core.SetPackageName("GOBJECT", "gobject-2.0")
 	core.SetSharedLibraries("GOBJECT", []string{"libgobject-2.0.so.0", "libgobject-2.0.0.dylib"})
-	var libs []uintptr
-	for _, libPath := range core.GetPaths("GOBJECT") {
-		lib, err := purego.Dlopen(libPath, purego.RTLD_NOW|purego.RTLD_GLOBAL)
-		if err != nil {
-			panic(err)
-		}
-		libs = append(libs, lib)
-	}
-
-	core.PuregoSafeRegister(&xValueArrayGLibType, libs, "g_value_array_get_type")
-
-	core.PuregoSafeRegister(&xNewValueArray, libs, "g_value_array_new")
-
-	core.PuregoSafeRegister(&xValueArrayAppend, libs, "g_value_array_append")
-	core.PuregoSafeRegister(&xValueArrayCopy, libs, "g_value_array_copy")
-	core.PuregoSafeRegister(&xValueArrayFree, libs, "g_value_array_free")
-	core.PuregoSafeRegister(&xValueArrayGetNth, libs, "g_value_array_get_nth")
-	core.PuregoSafeRegister(&xValueArrayInsert, libs, "g_value_array_insert")
-	core.PuregoSafeRegister(&xValueArrayPrepend, libs, "g_value_array_prepend")
-	core.PuregoSafeRegister(&xValueArrayRemove, libs, "g_value_array_remove")
-	core.PuregoSafeRegister(&xValueArraySort, libs, "g_value_array_sort")
-	core.PuregoSafeRegister(&xValueArraySortWithData, libs, "g_value_array_sort_with_data")
 }

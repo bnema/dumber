@@ -5,7 +5,6 @@ import (
 	"structs"
 	"unsafe"
 
-	"github.com/bnema/purego"
 	"github.com/bnema/puregotk/pkg/core"
 	"github.com/bnema/puregotk/v4/cairo"
 	"github.com/bnema/puregotk/v4/glib"
@@ -45,6 +44,7 @@ type Surface struct {
 var xSurfaceGLibType func() types.GType
 
 func SurfaceGLibType() types.GType {
+	core.LazyRegister(&xSurfaceGLibType, "GDK", "gdk_surface_get_type", false)
 	return xSurfaceGLibType()
 }
 
@@ -61,6 +61,7 @@ var xNewSurfacePopup func(uintptr, bool) uintptr
 // The surface will be attached to @parent and can be positioned
 // relative to it using [method@Gdk.Popup.present].
 func NewSurfacePopup(ParentVar *Surface, AutohideVar bool) *Surface {
+	core.LazyRegister(&xNewSurfacePopup, "GDK", "gdk_surface_new_popup", false)
 	var cls *Surface
 
 	cret := xNewSurfacePopup(ParentVar.GoPointer(), AutohideVar)
@@ -77,6 +78,7 @@ var xNewSurfaceToplevel func(uintptr) uintptr
 
 // Creates a new toplevel surface.
 func NewSurfaceToplevel(DisplayVar *Display) *Surface {
+	core.LazyRegister(&xNewSurfaceToplevel, "GDK", "gdk_surface_new_toplevel", false)
 	var cls *Surface
 
 	cret := xNewSurfaceToplevel(DisplayVar.GoPointer())
@@ -96,6 +98,8 @@ var xSurfaceBeep func(uintptr)
 // If the display of @surface does not support per-surface beeps,
 // emits a short beep on the display just as [method@Gdk.Display.beep].
 func (x *Surface) Beep() {
+	core.LazyRegister(&xSurfaceBeep, "GDK", "gdk_surface_beep", false)
+
 	xSurfaceBeep(x.GoPointer())
 }
 
@@ -103,6 +107,7 @@ var xSurfaceCreateCairoContext func(uintptr) uintptr
 
 // Creates a new `GdkCairoContext` for rendering on @surface.
 func (x *Surface) CreateCairoContext() *CairoContext {
+	core.LazyRegister(&xSurfaceCreateCairoContext, "GDK", "gdk_surface_create_cairo_context", false)
 	var cls *CairoContext
 
 	cret := xSurfaceCreateCairoContext(x.GoPointer())
@@ -124,6 +129,7 @@ var xSurfaceCreateGlContext func(uintptr, **glib.Error) uintptr
 // Before using the returned `GdkGLContext`, you will need to
 // call [method@Gdk.GLContext.make_current] or [method@Gdk.GLContext.realize].
 func (x *Surface) CreateGlContext() (*GLContext, error) {
+	core.LazyRegister(&xSurfaceCreateGlContext, "GDK", "gdk_surface_create_gl_context", false)
 	var cls *GLContext
 	var cerr *glib.Error
 
@@ -158,6 +164,8 @@ var xSurfaceCreateSimilarSurface func(uintptr, cairo.Content, int, int) uintptr
 // pointer to a “nil” surface if @other is already in an error state
 // or any other error occurs.
 func (x *Surface) CreateSimilarSurface(ContentVar cairo.Content, WidthVar int, HeightVar int) *cairo.Surface {
+	core.LazyRegister(&xSurfaceCreateSimilarSurface, "GDK", "gdk_surface_create_similar_surface", false)
+
 	cret := xSurfaceCreateSimilarSurface(x.GoPointer(), ContentVar, WidthVar, HeightVar)
 	if cret == 0 {
 		return nil
@@ -169,6 +177,7 @@ var xSurfaceCreateVulkanContext func(uintptr, **glib.Error) uintptr
 
 // Sets an error and returns %NULL.
 func (x *Surface) CreateVulkanContext() (*VulkanContext, error) {
+	core.LazyRegister(&xSurfaceCreateVulkanContext, "GDK", "gdk_surface_create_vulkan_context", false)
 	var cls *VulkanContext
 	var cerr *glib.Error
 
@@ -197,6 +206,8 @@ var xSurfaceDestroy func(uintptr)
 // reference count reaches zero. You must call this function yourself
 // before that happens.
 func (x *Surface) Destroy() {
+	core.LazyRegister(&xSurfaceDestroy, "GDK", "gdk_surface_destroy", false)
+
 	xSurfaceDestroy(x.GoPointer())
 }
 
@@ -210,6 +221,7 @@ var xSurfaceGetCursor func(uintptr) uintptr
 //
 // Use [method@Gdk.Surface.set_cursor] to unset the cursor of the surface.
 func (x *Surface) GetCursor() *Cursor {
+	core.LazyRegister(&xSurfaceGetCursor, "GDK", "gdk_surface_get_cursor", false)
 	var cls *Cursor
 
 	cret := xSurfaceGetCursor(x.GoPointer())
@@ -233,6 +245,7 @@ var xSurfaceGetDeviceCursor func(uintptr, uintptr) uintptr
 //
 // Use [method@Gdk.Surface.set_cursor] to unset the cursor of the surface.
 func (x *Surface) GetDeviceCursor(DeviceVar *Device) *Cursor {
+	core.LazyRegister(&xSurfaceGetDeviceCursor, "GDK", "gdk_surface_get_device_cursor", false)
 	var cls *Cursor
 
 	cret := xSurfaceGetDeviceCursor(x.GoPointer(), DeviceVar.GoPointer())
@@ -253,6 +266,8 @@ var xSurfaceGetDevicePosition func(uintptr, uintptr, *float64, *float64, *Modifi
 // The position is given in coordinates relative to the upper
 // left corner of @surface.
 func (x *Surface) GetDevicePosition(DeviceVar *Device, XVar *float64, YVar *float64, MaskVar *ModifierType) bool {
+	core.LazyRegister(&xSurfaceGetDevicePosition, "GDK", "gdk_surface_get_device_position", false)
+
 	cret := xSurfaceGetDevicePosition(x.GoPointer(), DeviceVar.GoPointer(), XVar, YVar, MaskVar)
 	return cret
 }
@@ -261,6 +276,7 @@ var xSurfaceGetDisplay func(uintptr) uintptr
 
 // Gets the `GdkDisplay` associated with a `GdkSurface`.
 func (x *Surface) GetDisplay() *Display {
+	core.LazyRegister(&xSurfaceGetDisplay, "GDK", "gdk_surface_get_display", false)
 	var cls *Display
 
 	cret := xSurfaceGetDisplay(x.GoPointer())
@@ -281,6 +297,7 @@ var xSurfaceGetFrameClock func(uintptr) uintptr
 // The frame clock for a surface never changes unless the surface is
 // reparented to a new toplevel surface.
 func (x *Surface) GetFrameClock() *FrameClock {
+	core.LazyRegister(&xSurfaceGetFrameClock, "GDK", "gdk_surface_get_frame_clock", false)
 	var cls *FrameClock
 
 	cret := xSurfaceGetFrameClock(x.GoPointer())
@@ -301,6 +318,8 @@ var xSurfaceGetHeight func(uintptr) int
 // Surface size is reported in ”application pixels”, not
 // ”device pixels” (see [method@Gdk.Surface.get_scale_factor]).
 func (x *Surface) GetHeight() int {
+	core.LazyRegister(&xSurfaceGetHeight, "GDK", "gdk_surface_get_height", false)
+
 	cret := xSurfaceGetHeight(x.GoPointer())
 	return cret
 }
@@ -312,6 +331,8 @@ var xSurfaceGetMapped func(uintptr) bool
 // A surface is mapped with [method@Gdk.Toplevel.present]
 // or [method@Gdk.Popup.present].
 func (x *Surface) GetMapped() bool {
+	core.LazyRegister(&xSurfaceGetMapped, "GDK", "gdk_surface_get_mapped", false)
+
 	cret := xSurfaceGetMapped(x.GoPointer())
 	return cret
 }
@@ -330,6 +351,8 @@ var xSurfaceGetScale func(uintptr) float64
 //
 // The scale may change during the lifetime of the surface.
 func (x *Surface) GetScale() float64 {
+	core.LazyRegister(&xSurfaceGetScale, "GDK", "gdk_surface_get_scale", false)
+
 	cret := xSurfaceGetScale(x.GoPointer())
 	return cret
 }
@@ -348,6 +371,8 @@ var xSurfaceGetScaleFactor func(uintptr) int
 //
 // The scale factor may change during the lifetime of the surface.
 func (x *Surface) GetScaleFactor() int {
+	core.LazyRegister(&xSurfaceGetScaleFactor, "GDK", "gdk_surface_get_scale_factor", false)
+
 	cret := xSurfaceGetScaleFactor(x.GoPointer())
 	return cret
 }
@@ -359,6 +384,8 @@ var xSurfaceGetWidth func(uintptr) int
 // Surface size is reported in ”application pixels”, not
 // ”device pixels” (see [method@Gdk.Surface.get_scale_factor]).
 func (x *Surface) GetWidth() int {
+	core.LazyRegister(&xSurfaceGetWidth, "GDK", "gdk_surface_get_width", false)
+
 	cret := xSurfaceGetWidth(x.GoPointer())
 	return cret
 }
@@ -372,6 +399,8 @@ var xSurfaceHide func(uintptr)
 // they won’t be displayed. Normally done automatically as
 // part of [gtk_widget_hide()](../gtk4/method.Widget.hide.html).
 func (x *Surface) Hide() {
+	core.LazyRegister(&xSurfaceHide, "GDK", "gdk_surface_hide", false)
+
 	xSurfaceHide(x.GoPointer())
 }
 
@@ -379,6 +408,8 @@ var xSurfaceIsDestroyed func(uintptr) bool
 
 // Check to see if a surface is destroyed.
 func (x *Surface) IsDestroyed() bool {
+	core.LazyRegister(&xSurfaceIsDestroyed, "GDK", "gdk_surface_is_destroyed", false)
+
 	cret := xSurfaceIsDestroyed(x.GoPointer())
 	return cret
 }
@@ -391,6 +422,8 @@ var xSurfaceQueueRender func(uintptr)
 // This function is useful for implementations that track invalid
 // regions on their own.
 func (x *Surface) QueueRender() {
+	core.LazyRegister(&xSurfaceQueueRender, "GDK", "gdk_surface_queue_render", false)
+
 	xSurfaceQueueRender(x.GoPointer())
 }
 
@@ -400,6 +433,8 @@ var xSurfaceRequestLayout func(uintptr)
 //
 // See [method@Gdk.FrameClock.request_phase].
 func (x *Surface) RequestLayout() {
+	core.LazyRegister(&xSurfaceRequestLayout, "GDK", "gdk_surface_request_layout", false)
+
 	xSurfaceRequestLayout(x.GoPointer())
 }
 
@@ -414,6 +449,8 @@ var xSurfaceSetCursor func(uintptr, uintptr)
 // Use [ctor@Gdk.Cursor.new_from_name] or [ctor@Gdk.Cursor.new_from_texture]
 // to create the cursor. To make the cursor invisible, use %GDK_BLANK_CURSOR.
 func (x *Surface) SetCursor(CursorVar *Cursor) {
+	core.LazyRegister(&xSurfaceSetCursor, "GDK", "gdk_surface_set_cursor", false)
+
 	xSurfaceSetCursor(x.GoPointer(), CursorVar.GoPointer())
 }
 
@@ -427,6 +464,8 @@ var xSurfaceSetDeviceCursor func(uintptr, uintptr, uintptr)
 // Use [ctor@Gdk.Cursor.new_from_name] or [ctor@Gdk.Cursor.new_from_texture]
 // to create the cursor. To make the cursor invisible, use %GDK_BLANK_CURSOR.
 func (x *Surface) SetDeviceCursor(DeviceVar *Device, CursorVar *Cursor) {
+	core.LazyRegister(&xSurfaceSetDeviceCursor, "GDK", "gdk_surface_set_device_cursor", false)
+
 	xSurfaceSetDeviceCursor(x.GoPointer(), DeviceVar.GoPointer(), CursorVar.GoPointer())
 }
 
@@ -447,6 +486,8 @@ var xSurfaceSetInputRegion func(uintptr, *cairo.Region)
 // Use [method@Gdk.Display.supports_input_shapes] to find out if
 // a particular backend supports input regions.
 func (x *Surface) SetInputRegion(RegionVar *cairo.Region) {
+	core.LazyRegister(&xSurfaceSetInputRegion, "GDK", "gdk_surface_set_input_region", false)
+
 	xSurfaceSetInputRegion(x.GoPointer(), RegionVar)
 }
 
@@ -468,6 +509,8 @@ var xSurfaceSetOpaqueRegion func(uintptr, *cairo.Region)
 // background is not opaque, please update this property in your
 // [GtkWidgetClass.css_changed](../gtk4/vfunc.Widget.css_changed.html) handler.
 func (x *Surface) SetOpaqueRegion(RegionVar *cairo.Region) {
+	core.LazyRegister(&xSurfaceSetOpaqueRegion, "GDK", "gdk_surface_set_opaque_region", false)
+
 	xSurfaceSetOpaqueRegion(x.GoPointer(), RegionVar)
 }
 
@@ -478,6 +521,8 @@ var xSurfaceTranslateCoordinates func(uintptr, uintptr, *float64, *float64) bool
 // Note that this only works if @to and @from are popups or
 // transient-for to the same toplevel (directly or indirectly).
 func (x *Surface) TranslateCoordinates(ToVar *Surface, XVar *float64, YVar *float64) bool {
+	core.LazyRegister(&xSurfaceTranslateCoordinates, "GDK", "gdk_surface_translate_coordinates", false)
+
 	cret := xSurfaceTranslateCoordinates(x.GoPointer(), ToVar.GoPointer(), XVar, YVar)
 	return cret
 }
@@ -662,43 +707,4 @@ func (x *Surface) ConnectRender(cb *func(Surface, uintptr) bool) uint {
 func init() {
 	core.SetPackageName("GDK", "gtk4")
 	core.SetSharedLibraries("GDK", []string{"libgtk-4.so.1", "libgtk-4.1.dylib"})
-	var libs []uintptr
-	for _, libPath := range core.GetPaths("GDK") {
-		lib, err := purego.Dlopen(libPath, purego.RTLD_NOW|purego.RTLD_GLOBAL)
-		if err != nil {
-			panic(err)
-		}
-		libs = append(libs, lib)
-	}
-
-	core.PuregoSafeRegister(&xSurfaceGLibType, libs, "gdk_surface_get_type")
-
-	core.PuregoSafeRegister(&xNewSurfacePopup, libs, "gdk_surface_new_popup")
-	core.PuregoSafeRegister(&xNewSurfaceToplevel, libs, "gdk_surface_new_toplevel")
-
-	core.PuregoSafeRegister(&xSurfaceBeep, libs, "gdk_surface_beep")
-	core.PuregoSafeRegister(&xSurfaceCreateCairoContext, libs, "gdk_surface_create_cairo_context")
-	core.PuregoSafeRegister(&xSurfaceCreateGlContext, libs, "gdk_surface_create_gl_context")
-	core.PuregoSafeRegister(&xSurfaceCreateSimilarSurface, libs, "gdk_surface_create_similar_surface")
-	core.PuregoSafeRegister(&xSurfaceCreateVulkanContext, libs, "gdk_surface_create_vulkan_context")
-	core.PuregoSafeRegister(&xSurfaceDestroy, libs, "gdk_surface_destroy")
-	core.PuregoSafeRegister(&xSurfaceGetCursor, libs, "gdk_surface_get_cursor")
-	core.PuregoSafeRegister(&xSurfaceGetDeviceCursor, libs, "gdk_surface_get_device_cursor")
-	core.PuregoSafeRegister(&xSurfaceGetDevicePosition, libs, "gdk_surface_get_device_position")
-	core.PuregoSafeRegister(&xSurfaceGetDisplay, libs, "gdk_surface_get_display")
-	core.PuregoSafeRegister(&xSurfaceGetFrameClock, libs, "gdk_surface_get_frame_clock")
-	core.PuregoSafeRegister(&xSurfaceGetHeight, libs, "gdk_surface_get_height")
-	core.PuregoSafeRegister(&xSurfaceGetMapped, libs, "gdk_surface_get_mapped")
-	core.PuregoSafeRegister(&xSurfaceGetScale, libs, "gdk_surface_get_scale")
-	core.PuregoSafeRegister(&xSurfaceGetScaleFactor, libs, "gdk_surface_get_scale_factor")
-	core.PuregoSafeRegister(&xSurfaceGetWidth, libs, "gdk_surface_get_width")
-	core.PuregoSafeRegister(&xSurfaceHide, libs, "gdk_surface_hide")
-	core.PuregoSafeRegister(&xSurfaceIsDestroyed, libs, "gdk_surface_is_destroyed")
-	core.PuregoSafeRegister(&xSurfaceQueueRender, libs, "gdk_surface_queue_render")
-	core.PuregoSafeRegister(&xSurfaceRequestLayout, libs, "gdk_surface_request_layout")
-	core.PuregoSafeRegister(&xSurfaceSetCursor, libs, "gdk_surface_set_cursor")
-	core.PuregoSafeRegister(&xSurfaceSetDeviceCursor, libs, "gdk_surface_set_device_cursor")
-	core.PuregoSafeRegister(&xSurfaceSetInputRegion, libs, "gdk_surface_set_input_region")
-	core.PuregoSafeRegister(&xSurfaceSetOpaqueRegion, libs, "gdk_surface_set_opaque_region")
-	core.PuregoSafeRegister(&xSurfaceTranslateCoordinates, libs, "gdk_surface_translate_coordinates")
 }

@@ -5,7 +5,6 @@ import (
 	"structs"
 	"unsafe"
 
-	"github.com/bnema/purego"
 	"github.com/bnema/puregotk/pkg/core"
 	"github.com/bnema/puregotk/v4/gobject/types"
 )
@@ -33,6 +32,7 @@ type Checksum struct {
 var xChecksumGLibType func() types.GType
 
 func ChecksumGLibType() types.GType {
+	core.LazyRegister(&xChecksumGLibType, "GLIB", "g_checksum_get_type", false)
 	return xChecksumGLibType()
 }
 
@@ -64,6 +64,8 @@ var xNewChecksum func(ChecksumType) uintptr
 // will be closed and it won't be possible to call g_checksum_update()
 // on it anymore.
 func NewChecksum(ChecksumTypeVar ChecksumType) *Checksum {
+	core.LazyRegister(&xNewChecksum, "GLIB", "g_checksum_new", false)
+
 	cret := xNewChecksum(ChecksumTypeVar)
 	if cret == 0 {
 		return nil
@@ -77,6 +79,8 @@ var xChecksumCopy func(uintptr) uintptr
 // g_checksum_get_string() or g_checksum_get_digest(), the copied
 // checksum will be closed as well.
 func (x *Checksum) Copy() *Checksum {
+	core.LazyRegister(&xChecksumCopy, "GLIB", "g_checksum_copy", false)
+
 	cret := xChecksumCopy(x.GoPointer())
 	if cret == 0 {
 		return nil
@@ -88,6 +92,8 @@ var xChecksumFree func(uintptr)
 
 // Frees the memory allocated for @checksum.
 func (x *Checksum) Free() {
+	core.LazyRegister(&xChecksumFree, "GLIB", "g_checksum_free", false)
+
 	xChecksumFree(x.GoPointer())
 }
 
@@ -99,6 +105,8 @@ var xChecksumGetDigest func(uintptr, []byte, *uint)
 // Once this function has been called, the #GChecksum is closed and can
 // no longer be updated with g_checksum_update().
 func (x *Checksum) GetDigest(BufferVar []byte, DigestLenVar *uint) {
+	core.LazyRegister(&xChecksumGetDigest, "GLIB", "g_checksum_get_digest", false)
+
 	xChecksumGetDigest(x.GoPointer(), BufferVar, DigestLenVar)
 }
 
@@ -111,6 +119,8 @@ var xChecksumGetString func(uintptr) string
 //
 // The hexadecimal characters will be lower case.
 func (x *Checksum) GetString() string {
+	core.LazyRegister(&xChecksumGetString, "GLIB", "g_checksum_get_string", false)
+
 	cret := xChecksumGetString(x.GoPointer())
 	return cret
 }
@@ -119,6 +129,8 @@ var xChecksumReset func(uintptr)
 
 // Resets the state of the @checksum back to its initial state.
 func (x *Checksum) Reset() {
+	core.LazyRegister(&xChecksumReset, "GLIB", "g_checksum_reset", false)
+
 	xChecksumReset(x.GoPointer())
 }
 
@@ -128,6 +140,8 @@ var xChecksumUpdate func(uintptr, []byte, int)
 // open, that is g_checksum_get_string() or g_checksum_get_digest() must
 // not have been called on @checksum.
 func (x *Checksum) Update(DataVar []byte, LengthVar int) {
+	core.LazyRegister(&xChecksumUpdate, "GLIB", "g_checksum_update", false)
+
 	xChecksumUpdate(x.GoPointer(), DataVar, LengthVar)
 }
 
@@ -156,6 +170,8 @@ var xChecksumTypeGetLength func(ChecksumType) int
 
 // Gets the length in bytes of digests of type @checksum_type
 func ChecksumTypeGetLength(ChecksumTypeVar ChecksumType) int {
+	core.LazyRegister(&xChecksumTypeGetLength, "GLIB", "g_checksum_type_get_length", false)
+
 	cret := xChecksumTypeGetLength(ChecksumTypeVar)
 	return cret
 }
@@ -168,6 +184,8 @@ var xComputeChecksumForBytes func(ChecksumType, *Bytes) string
 //
 // The hexadecimal string returned will be in lower case.
 func ComputeChecksumForBytes(ChecksumTypeVar ChecksumType, DataVar *Bytes) string {
+	core.LazyRegister(&xComputeChecksumForBytes, "GLIB", "g_compute_checksum_for_bytes", false)
+
 	cret := xComputeChecksumForBytes(ChecksumTypeVar, DataVar)
 	return cret
 }
@@ -180,6 +198,8 @@ var xComputeChecksumForData func(ChecksumType, []byte, uint) string
 //
 // The hexadecimal string returned will be in lower case.
 func ComputeChecksumForData(ChecksumTypeVar ChecksumType, DataVar []byte, LengthVar uint) string {
+	core.LazyRegister(&xComputeChecksumForData, "GLIB", "g_compute_checksum_for_data", false)
+
 	cret := xComputeChecksumForData(ChecksumTypeVar, DataVar, LengthVar)
 	return cret
 }
@@ -190,6 +210,8 @@ var xComputeChecksumForString func(ChecksumType, string, int) string
 //
 // The hexadecimal string returned will be in lower case.
 func ComputeChecksumForString(ChecksumTypeVar ChecksumType, StrVar string, LengthVar int) string {
+	core.LazyRegister(&xComputeChecksumForString, "GLIB", "g_compute_checksum_for_string", false)
+
 	cret := xComputeChecksumForString(ChecksumTypeVar, StrVar, LengthVar)
 	return cret
 }
@@ -197,28 +219,4 @@ func ComputeChecksumForString(ChecksumTypeVar ChecksumType, StrVar string, Lengt
 func init() {
 	core.SetPackageName("GLIB", "glib-2.0")
 	core.SetSharedLibraries("GLIB", []string{"libgobject-2.0.so.0", "libglib-2.0.so.0", "libgobject-2.0.0.dylib", "libglib-2.0.0.dylib"})
-	var libs []uintptr
-	for _, libPath := range core.GetPaths("GLIB") {
-		lib, err := purego.Dlopen(libPath, purego.RTLD_NOW|purego.RTLD_GLOBAL)
-		if err != nil {
-			panic(err)
-		}
-		libs = append(libs, lib)
-	}
-
-	core.PuregoSafeRegister(&xChecksumTypeGetLength, libs, "g_checksum_type_get_length")
-	core.PuregoSafeRegister(&xComputeChecksumForBytes, libs, "g_compute_checksum_for_bytes")
-	core.PuregoSafeRegister(&xComputeChecksumForData, libs, "g_compute_checksum_for_data")
-	core.PuregoSafeRegister(&xComputeChecksumForString, libs, "g_compute_checksum_for_string")
-
-	core.PuregoSafeRegister(&xChecksumGLibType, libs, "g_checksum_get_type")
-
-	core.PuregoSafeRegister(&xNewChecksum, libs, "g_checksum_new")
-
-	core.PuregoSafeRegister(&xChecksumCopy, libs, "g_checksum_copy")
-	core.PuregoSafeRegister(&xChecksumFree, libs, "g_checksum_free")
-	core.PuregoSafeRegister(&xChecksumGetDigest, libs, "g_checksum_get_digest")
-	core.PuregoSafeRegister(&xChecksumGetString, libs, "g_checksum_get_string")
-	core.PuregoSafeRegister(&xChecksumReset, libs, "g_checksum_reset")
-	core.PuregoSafeRegister(&xChecksumUpdate, libs, "g_checksum_update")
 }

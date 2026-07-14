@@ -2,7 +2,6 @@
 package gtk
 
 import (
-	"github.com/bnema/purego"
 	"github.com/bnema/puregotk/pkg/core"
 	"github.com/bnema/puregotk/v4/gdk"
 	"github.com/bnema/puregotk/v4/gio"
@@ -141,6 +140,7 @@ type PopoverMenu struct {
 var xPopoverMenuGLibType func() types.GType
 
 func PopoverMenuGLibType() types.GType {
+	core.LazyRegister(&xPopoverMenuGLibType, "GTK", "gtk_popover_menu_get_type", false)
 	return xPopoverMenuGLibType()
 }
 
@@ -166,6 +166,7 @@ var xNewPopoverMenuFromModel func(uintptr) uintptr
 // See [ctor@Gtk.PopoverMenu.new_from_model_full] for a way
 // to control this.
 func NewPopoverMenuFromModel(ModelVar *gio.MenuModel) *PopoverMenu {
+	core.LazyRegister(&xNewPopoverMenuFromModel, "GTK", "gtk_popover_menu_new_from_model", false)
 	var cls *PopoverMenu
 
 	cret := xNewPopoverMenuFromModel(ModelVar.GoPointer())
@@ -189,6 +190,7 @@ var xNewPopoverMenuFromModelFull func(uintptr, PopoverMenuFlags) uintptr
 // belongs. Actions can also be added using [method@Gtk.Widget.insert_action_group]
 // on the parent widget or on any of its parent widgets.
 func NewPopoverMenuFromModelFull(ModelVar *gio.MenuModel, FlagsVar PopoverMenuFlags) *PopoverMenu {
+	core.LazyRegister(&xNewPopoverMenuFromModelFull, "GTK", "gtk_popover_menu_new_from_model_full", false)
 	var cls *PopoverMenu
 
 	cret := xNewPopoverMenuFromModelFull(ModelVar.GoPointer(), FlagsVar)
@@ -209,6 +211,8 @@ var xPopoverMenuAddChild func(uintptr, uintptr, string) bool
 // For this to work, the menu model of @popover must have
 // an item with a `custom` attribute that matches @id.
 func (x *PopoverMenu) AddChild(ChildVar *Widget, IdVar string) bool {
+	core.LazyRegister(&xPopoverMenuAddChild, "GTK", "gtk_popover_menu_add_child", false)
+
 	cret := xPopoverMenuAddChild(x.GoPointer(), ChildVar.GoPointer(), IdVar)
 	return cret
 }
@@ -217,6 +221,8 @@ var xPopoverMenuGetFlags func(uintptr) PopoverMenuFlags
 
 // Returns the flags that @popover uses to create/display a menu from its model.
 func (x *PopoverMenu) GetFlags() PopoverMenuFlags {
+	core.LazyRegister(&xPopoverMenuGetFlags, "GTK", "gtk_popover_menu_get_flags", false)
+
 	cret := xPopoverMenuGetFlags(x.GoPointer())
 	return cret
 }
@@ -225,6 +231,7 @@ var xPopoverMenuGetMenuModel func(uintptr) uintptr
 
 // Returns the menu model used to populate the popover.
 func (x *PopoverMenu) GetMenuModel() *gio.MenuModel {
+	core.LazyRegister(&xPopoverMenuGetMenuModel, "GTK", "gtk_popover_menu_get_menu_model", false)
 	var cls *gio.MenuModel
 
 	cret := xPopoverMenuGetMenuModel(x.GoPointer())
@@ -243,6 +250,8 @@ var xPopoverMenuRemoveChild func(uintptr, uintptr) bool
 // Removes a widget that has previously been added with
 // [method@Gtk.PopoverMenu.add_child]
 func (x *PopoverMenu) RemoveChild(ChildVar *Widget) bool {
+	core.LazyRegister(&xPopoverMenuRemoveChild, "GTK", "gtk_popover_menu_remove_child", false)
+
 	cret := xPopoverMenuRemoveChild(x.GoPointer(), ChildVar.GoPointer())
 	return cret
 }
@@ -254,6 +263,8 @@ var xPopoverMenuSetFlags func(uintptr, PopoverMenuFlags)
 // If a model is set and the flags change, contents are rebuilt, so if setting
 // properties individually, set flags before model to avoid a redundant rebuild.
 func (x *PopoverMenu) SetFlags(FlagsVar PopoverMenuFlags) {
+	core.LazyRegister(&xPopoverMenuSetFlags, "GTK", "gtk_popover_menu_set_flags", false)
+
 	xPopoverMenuSetFlags(x.GoPointer(), FlagsVar)
 }
 
@@ -265,6 +276,8 @@ var xPopoverMenuSetMenuModel func(uintptr, uintptr)
 // the @popover is populated with new contents according
 // to @model.
 func (x *PopoverMenu) SetMenuModel(ModelVar *gio.MenuModel) {
+	core.LazyRegister(&xPopoverMenuSetMenuModel, "GTK", "gtk_popover_menu_set_menu_model", false)
+
 	xPopoverMenuSetMenuModel(x.GoPointer(), ModelVar.GoPointer())
 }
 
@@ -611,24 +624,4 @@ func (x *PopoverMenu) Unrealize() {
 func init() {
 	core.SetPackageName("GTK", "gtk4")
 	core.SetSharedLibraries("GTK", []string{"libgtk-4.so.1", "libgtk-4.1.dylib"})
-	var libs []uintptr
-	for _, libPath := range core.GetPaths("GTK") {
-		lib, err := purego.Dlopen(libPath, purego.RTLD_NOW|purego.RTLD_GLOBAL)
-		if err != nil {
-			panic(err)
-		}
-		libs = append(libs, lib)
-	}
-
-	core.PuregoSafeRegister(&xPopoverMenuGLibType, libs, "gtk_popover_menu_get_type")
-
-	core.PuregoSafeRegister(&xNewPopoverMenuFromModel, libs, "gtk_popover_menu_new_from_model")
-	core.PuregoSafeRegister(&xNewPopoverMenuFromModelFull, libs, "gtk_popover_menu_new_from_model_full")
-
-	core.PuregoSafeRegister(&xPopoverMenuAddChild, libs, "gtk_popover_menu_add_child")
-	core.PuregoSafeRegister(&xPopoverMenuGetFlags, libs, "gtk_popover_menu_get_flags")
-	core.PuregoSafeRegister(&xPopoverMenuGetMenuModel, libs, "gtk_popover_menu_get_menu_model")
-	core.PuregoSafeRegister(&xPopoverMenuRemoveChild, libs, "gtk_popover_menu_remove_child")
-	core.PuregoSafeRegister(&xPopoverMenuSetFlags, libs, "gtk_popover_menu_set_flags")
-	core.PuregoSafeRegister(&xPopoverMenuSetMenuModel, libs, "gtk_popover_menu_set_menu_model")
 }

@@ -140,6 +140,7 @@ type FilenameCompleter struct {
 var xFilenameCompleterGLibType func() types.GType
 
 func FilenameCompleterGLibType() types.GType {
+	core.LazyRegister(&xFilenameCompleterGLibType, "GIO", "g_filename_completer_get_type", false)
 	return xFilenameCompleterGLibType()
 }
 
@@ -153,6 +154,7 @@ var xNewFilenameCompleter func() uintptr
 
 // Creates a new filename completer.
 func NewFilenameCompleter() *FilenameCompleter {
+	core.LazyRegister(&xNewFilenameCompleter, "GIO", "g_filename_completer_new", false)
 	var cls *FilenameCompleter
 
 	cret := xNewFilenameCompleter()
@@ -172,6 +174,8 @@ var xFilenameCompleterGetCompletionSuffix func(uintptr, string) string
 // Suffix will be an empty string if there's no shared suffix among matching
 // completions. If there's no matching completions anyway, `NULL` is returned.
 func (x *FilenameCompleter) GetCompletionSuffix(InitialTextVar string) string {
+	core.LazyRegister(&xFilenameCompleterGetCompletionSuffix, "GIO", "g_filename_completer_get_completion_suffix", false)
+
 	cret := xFilenameCompleterGetCompletionSuffix(x.GoPointer(), InitialTextVar)
 	return cret
 }
@@ -180,6 +184,8 @@ var xFilenameCompleterGetCompletions func(uintptr, string) []string
 
 // Gets an array of completion strings for a given initial text.
 func (x *FilenameCompleter) GetCompletions(InitialTextVar string) []string {
+	core.LazyRegister(&xFilenameCompleterGetCompletions, "GIO", "g_filename_completer_get_completions", false)
+
 	cret := xFilenameCompleterGetCompletions(x.GoPointer(), InitialTextVar)
 	return cret
 }
@@ -192,6 +198,8 @@ var xFilenameCompleterSetDirsOnly func(uintptr, bool)
 // This function needs to be called before waiting for results from the
 // completer to be populated.
 func (x *FilenameCompleter) SetDirsOnly(DirsOnlyVar bool) {
+	core.LazyRegister(&xFilenameCompleterSetDirsOnly, "GIO", "g_filename_completer_set_dirs_only", false)
+
 	xFilenameCompleterSetDirsOnly(x.GoPointer(), DirsOnlyVar)
 }
 
@@ -232,20 +240,4 @@ func (x *FilenameCompleter) ConnectGotCompletionData(cb *func(FilenameCompleter)
 func init() {
 	core.SetPackageName("GIO", "gio-2.0")
 	core.SetSharedLibraries("GIO", []string{"libgio-2.0.so.0", "libgio-2.0.0.dylib"})
-	var libs []uintptr
-	for _, libPath := range core.GetPaths("GIO") {
-		lib, err := purego.Dlopen(libPath, purego.RTLD_NOW|purego.RTLD_GLOBAL)
-		if err != nil {
-			panic(err)
-		}
-		libs = append(libs, lib)
-	}
-
-	core.PuregoSafeRegister(&xFilenameCompleterGLibType, libs, "g_filename_completer_get_type")
-
-	core.PuregoSafeRegister(&xNewFilenameCompleter, libs, "g_filename_completer_new")
-
-	core.PuregoSafeRegister(&xFilenameCompleterGetCompletionSuffix, libs, "g_filename_completer_get_completion_suffix")
-	core.PuregoSafeRegister(&xFilenameCompleterGetCompletions, libs, "g_filename_completer_get_completions")
-	core.PuregoSafeRegister(&xFilenameCompleterSetDirsOnly, libs, "g_filename_completer_set_dirs_only")
 }

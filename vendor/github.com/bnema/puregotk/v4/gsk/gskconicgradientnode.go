@@ -4,7 +4,6 @@ package gsk
 import (
 	"unsafe"
 
-	"github.com/bnema/purego"
 	"github.com/bnema/puregotk/pkg/core"
 	"github.com/bnema/puregotk/v4/gobject/types"
 	"github.com/bnema/puregotk/v4/graphene"
@@ -18,6 +17,7 @@ type ConicGradientNode struct {
 var xConicGradientNodeGLibType func() types.GType
 
 func ConicGradientNodeGLibType() types.GType {
+	core.LazyRegister(&xConicGradientNodeGLibType, "GSK", "gsk_conic_gradient_node_get_type", false)
 	return xConicGradientNodeGLibType()
 }
 
@@ -35,6 +35,7 @@ var xNewConicGradientNode func(*graphene.Rect, *graphene.Point, float32, []Color
 // starts around @center in the direction of @rotation. A rotation of 0 means
 // that the gradient points up. Color stops are then added clockwise.
 func NewConicGradientNode(BoundsVar *graphene.Rect, CenterVar *graphene.Point, RotationVar float32, ColorStopsVar []ColorStop, NColorStopsVar uint) *ConicGradientNode {
+	core.LazyRegister(&xNewConicGradientNode, "GSK", "gsk_conic_gradient_node_new", false)
 	var cls *ConicGradientNode
 
 	cret := xNewConicGradientNode(BoundsVar, CenterVar, RotationVar, ColorStopsVar, NColorStopsVar)
@@ -56,6 +57,8 @@ var xConicGradientNodeGetAngle func(uintptr) float32
 //
 //	angle = 90 - gsk_conic_gradient_node_get_rotation()
 func (x *ConicGradientNode) GetAngle() float32 {
+	core.LazyRegister(&xConicGradientNodeGetAngle, "GSK", "gsk_conic_gradient_node_get_angle", false)
+
 	cret := xConicGradientNodeGetAngle(x.GoPointer())
 	return cret
 }
@@ -64,6 +67,8 @@ var xConicGradientNodeGetCenter func(uintptr) uintptr
 
 // Retrieves the center pointer for the gradient.
 func (x *ConicGradientNode) GetCenter() *graphene.Point {
+	core.LazyRegister(&xConicGradientNodeGetCenter, "GSK", "gsk_conic_gradient_node_get_center", false)
+
 	cret := xConicGradientNodeGetCenter(x.GoPointer())
 	if cret == 0 {
 		return nil
@@ -75,6 +80,8 @@ var xConicGradientNodeGetColorStops func(uintptr, *uint) uintptr
 
 // Retrieves the color stops in the gradient.
 func (x *ConicGradientNode) GetColorStops(NStopsVar *uint) uintptr {
+	core.LazyRegister(&xConicGradientNodeGetColorStops, "GSK", "gsk_conic_gradient_node_get_color_stops", false)
+
 	cret := xConicGradientNodeGetColorStops(x.GoPointer(), NStopsVar)
 	return cret
 }
@@ -83,6 +90,8 @@ var xConicGradientNodeGetNColorStops func(uintptr) uint
 
 // Retrieves the number of color stops in the gradient.
 func (x *ConicGradientNode) GetNColorStops() uint {
+	core.LazyRegister(&xConicGradientNodeGetNColorStops, "GSK", "gsk_conic_gradient_node_get_n_color_stops", false)
+
 	cret := xConicGradientNodeGetNColorStops(x.GoPointer())
 	return cret
 }
@@ -91,6 +100,8 @@ var xConicGradientNodeGetRotation func(uintptr) float32
 
 // Retrieves the rotation for the gradient in degrees.
 func (x *ConicGradientNode) GetRotation() float32 {
+	core.LazyRegister(&xConicGradientNodeGetRotation, "GSK", "gsk_conic_gradient_node_get_rotation", false)
+
 	cret := xConicGradientNodeGetRotation(x.GoPointer())
 	return cret
 }
@@ -109,22 +120,4 @@ func (c *ConicGradientNode) SetGoPointer(ptr uintptr) {
 func init() {
 	core.SetPackageName("GSK", "gtk4")
 	core.SetSharedLibraries("GSK", []string{"libgtk-4.so.1", "libgtk-4.1.dylib"})
-	var libs []uintptr
-	for _, libPath := range core.GetPaths("GSK") {
-		lib, err := purego.Dlopen(libPath, purego.RTLD_NOW|purego.RTLD_GLOBAL)
-		if err != nil {
-			panic(err)
-		}
-		libs = append(libs, lib)
-	}
-
-	core.PuregoSafeRegister(&xConicGradientNodeGLibType, libs, "gsk_conic_gradient_node_get_type")
-
-	core.PuregoSafeRegister(&xNewConicGradientNode, libs, "gsk_conic_gradient_node_new")
-
-	core.PuregoSafeRegister(&xConicGradientNodeGetAngle, libs, "gsk_conic_gradient_node_get_angle")
-	core.PuregoSafeRegister(&xConicGradientNodeGetCenter, libs, "gsk_conic_gradient_node_get_center")
-	core.PuregoSafeRegister(&xConicGradientNodeGetColorStops, libs, "gsk_conic_gradient_node_get_color_stops")
-	core.PuregoSafeRegister(&xConicGradientNodeGetNColorStops, libs, "gsk_conic_gradient_node_get_n_color_stops")
-	core.PuregoSafeRegister(&xConicGradientNodeGetRotation, libs, "gsk_conic_gradient_node_get_rotation")
 }

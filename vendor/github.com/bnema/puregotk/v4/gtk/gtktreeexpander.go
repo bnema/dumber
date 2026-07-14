@@ -5,7 +5,6 @@ import (
 	"structs"
 	"unsafe"
 
-	"github.com/bnema/purego"
 	"github.com/bnema/puregotk/pkg/core"
 	"github.com/bnema/puregotk/v4/gobject"
 	"github.com/bnema/puregotk/v4/gobject/types"
@@ -112,6 +111,7 @@ type TreeExpander struct {
 var xTreeExpanderGLibType func() types.GType
 
 func TreeExpanderGLibType() types.GType {
+	core.LazyRegister(&xTreeExpanderGLibType, "GTK", "gtk_tree_expander_get_type", false)
 	return xTreeExpanderGLibType()
 }
 
@@ -125,6 +125,7 @@ var xNewTreeExpander func() uintptr
 
 // Creates a new `GtkTreeExpander`
 func NewTreeExpander() *TreeExpander {
+	core.LazyRegister(&xNewTreeExpander, "GTK", "gtk_tree_expander_new", false)
 	var cls *TreeExpander
 
 	cret := xNewTreeExpander()
@@ -142,6 +143,7 @@ var xTreeExpanderGetChild func(uintptr) uintptr
 
 // Gets the child widget displayed by @self.
 func (x *TreeExpander) GetChild() *Widget {
+	core.LazyRegister(&xTreeExpanderGetChild, "GTK", "gtk_tree_expander_get_child", false)
 	var cls *Widget
 
 	cret := xTreeExpanderGetChild(x.GoPointer())
@@ -159,6 +161,8 @@ var xTreeExpanderGetHideExpander func(uintptr) bool
 
 // Gets whether the TreeExpander should be hidden in a GtkTreeListRow.
 func (x *TreeExpander) GetHideExpander() bool {
+	core.LazyRegister(&xTreeExpanderGetHideExpander, "GTK", "gtk_tree_expander_get_hide_expander", false)
+
 	cret := xTreeExpanderGetHideExpander(x.GoPointer())
 	return cret
 }
@@ -167,6 +171,8 @@ var xTreeExpanderGetIndentForDepth func(uintptr) bool
 
 // TreeExpander indents each level of depth with an additional indent.
 func (x *TreeExpander) GetIndentForDepth() bool {
+	core.LazyRegister(&xTreeExpanderGetIndentForDepth, "GTK", "gtk_tree_expander_get_indent_for_depth", false)
+
 	cret := xTreeExpanderGetIndentForDepth(x.GoPointer())
 	return cret
 }
@@ -175,6 +181,8 @@ var xTreeExpanderGetIndentForIcon func(uintptr) bool
 
 // TreeExpander indents the child by the width of an expander-icon if it is not expandable.
 func (x *TreeExpander) GetIndentForIcon() bool {
+	core.LazyRegister(&xTreeExpanderGetIndentForIcon, "GTK", "gtk_tree_expander_get_indent_for_icon", false)
+
 	cret := xTreeExpanderGetIndentForIcon(x.GoPointer())
 	return cret
 }
@@ -189,6 +197,7 @@ var xTreeExpanderGetItem func(uintptr) uintptr
 // gtk_tree_list_row_get_item (gtk_tree_expander_get_list_row (@self));
 // ```
 func (x *TreeExpander) GetItem() *gobject.Object {
+	core.LazyRegister(&xTreeExpanderGetItem, "GTK", "gtk_tree_expander_get_item", false)
 	var cls *gobject.Object
 
 	cret := xTreeExpanderGetItem(x.GoPointer())
@@ -205,6 +214,7 @@ var xTreeExpanderGetListRow func(uintptr) uintptr
 
 // Gets the list row managed by @self.
 func (x *TreeExpander) GetListRow() *TreeListRow {
+	core.LazyRegister(&xTreeExpanderGetListRow, "GTK", "gtk_tree_expander_get_list_row", false)
 	var cls *TreeListRow
 
 	cret := xTreeExpanderGetListRow(x.GoPointer())
@@ -222,6 +232,8 @@ var xTreeExpanderSetChild func(uintptr, uintptr)
 
 // Sets the content widget to display.
 func (x *TreeExpander) SetChild(ChildVar *Widget) {
+	core.LazyRegister(&xTreeExpanderSetChild, "GTK", "gtk_tree_expander_set_child", false)
+
 	xTreeExpanderSetChild(x.GoPointer(), ChildVar.GoPointer())
 }
 
@@ -229,6 +241,8 @@ var xTreeExpanderSetHideExpander func(uintptr, bool)
 
 // Sets whether the expander icon should be visible in a GtkTreeListRow.
 func (x *TreeExpander) SetHideExpander(HideExpanderVar bool) {
+	core.LazyRegister(&xTreeExpanderSetHideExpander, "GTK", "gtk_tree_expander_set_hide_expander", false)
+
 	xTreeExpanderSetHideExpander(x.GoPointer(), HideExpanderVar)
 }
 
@@ -236,6 +250,8 @@ var xTreeExpanderSetIndentForDepth func(uintptr, bool)
 
 // Sets if the TreeExpander should indent the child according to its depth.
 func (x *TreeExpander) SetIndentForDepth(IndentForDepthVar bool) {
+	core.LazyRegister(&xTreeExpanderSetIndentForDepth, "GTK", "gtk_tree_expander_set_indent_for_depth", false)
+
 	xTreeExpanderSetIndentForDepth(x.GoPointer(), IndentForDepthVar)
 }
 
@@ -243,6 +259,8 @@ var xTreeExpanderSetIndentForIcon func(uintptr, bool)
 
 // Sets if the TreeExpander should indent the child by the width of an expander-icon when it is not expandable.
 func (x *TreeExpander) SetIndentForIcon(IndentForIconVar bool) {
+	core.LazyRegister(&xTreeExpanderSetIndentForIcon, "GTK", "gtk_tree_expander_set_indent_for_icon", false)
+
 	xTreeExpanderSetIndentForIcon(x.GoPointer(), IndentForIconVar)
 }
 
@@ -250,6 +268,8 @@ var xTreeExpanderSetListRow func(uintptr, uintptr)
 
 // Sets the tree list row that this expander should manage.
 func (x *TreeExpander) SetListRow(ListRowVar *TreeListRow) {
+	core.LazyRegister(&xTreeExpanderSetListRow, "GTK", "gtk_tree_expander_set_list_row", false)
+
 	xTreeExpanderSetListRow(x.GoPointer(), ListRowVar.GoPointer())
 }
 
@@ -588,28 +608,4 @@ func (x *TreeExpander) GetBuildableId() string {
 func init() {
 	core.SetPackageName("GTK", "gtk4")
 	core.SetSharedLibraries("GTK", []string{"libgtk-4.so.1", "libgtk-4.1.dylib"})
-	var libs []uintptr
-	for _, libPath := range core.GetPaths("GTK") {
-		lib, err := purego.Dlopen(libPath, purego.RTLD_NOW|purego.RTLD_GLOBAL)
-		if err != nil {
-			panic(err)
-		}
-		libs = append(libs, lib)
-	}
-
-	core.PuregoSafeRegister(&xTreeExpanderGLibType, libs, "gtk_tree_expander_get_type")
-
-	core.PuregoSafeRegister(&xNewTreeExpander, libs, "gtk_tree_expander_new")
-
-	core.PuregoSafeRegister(&xTreeExpanderGetChild, libs, "gtk_tree_expander_get_child")
-	core.PuregoSafeRegister(&xTreeExpanderGetHideExpander, libs, "gtk_tree_expander_get_hide_expander")
-	core.PuregoSafeRegister(&xTreeExpanderGetIndentForDepth, libs, "gtk_tree_expander_get_indent_for_depth")
-	core.PuregoSafeRegister(&xTreeExpanderGetIndentForIcon, libs, "gtk_tree_expander_get_indent_for_icon")
-	core.PuregoSafeRegister(&xTreeExpanderGetItem, libs, "gtk_tree_expander_get_item")
-	core.PuregoSafeRegister(&xTreeExpanderGetListRow, libs, "gtk_tree_expander_get_list_row")
-	core.PuregoSafeRegister(&xTreeExpanderSetChild, libs, "gtk_tree_expander_set_child")
-	core.PuregoSafeRegister(&xTreeExpanderSetHideExpander, libs, "gtk_tree_expander_set_hide_expander")
-	core.PuregoSafeRegister(&xTreeExpanderSetIndentForDepth, libs, "gtk_tree_expander_set_indent_for_depth")
-	core.PuregoSafeRegister(&xTreeExpanderSetIndentForIcon, libs, "gtk_tree_expander_set_indent_for_icon")
-	core.PuregoSafeRegister(&xTreeExpanderSetListRow, libs, "gtk_tree_expander_set_list_row")
 }

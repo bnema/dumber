@@ -5,7 +5,6 @@ import (
 	"structs"
 	"unsafe"
 
-	"github.com/bnema/purego"
 	"github.com/bnema/puregotk/pkg/core"
 	"github.com/bnema/puregotk/v4/gobject"
 	"github.com/bnema/puregotk/v4/gobject/types"
@@ -19,6 +18,7 @@ type EventSequence struct {
 var xEventSequenceGLibType func() types.GType
 
 func EventSequenceGLibType() types.GType {
+	core.LazyRegister(&xEventSequenceGLibType, "GDK", "gdk_event_sequence_get_type", false)
 	return xEventSequenceGLibType()
 }
 
@@ -60,6 +60,7 @@ type CrossingMode int
 var xCrossingModeGLibType func() types.GType
 
 func CrossingModeGLibType() types.GType {
+	core.LazyRegister(&xCrossingModeGLibType, "GDK", "gdk_crossing_mode_get_type", false)
 	return xCrossingModeGLibType()
 }
 
@@ -96,6 +97,7 @@ type EventType int
 var xEventTypeGLibType func() types.GType
 
 func EventTypeGLibType() types.GType {
+	core.LazyRegister(&xEventTypeGLibType, "GDK", "gdk_event_type_get_type", false)
 	return xEventTypeGLibType()
 }
 
@@ -181,6 +183,7 @@ type KeyMatch int
 var xKeyMatchGLibType func() types.GType
 
 func KeyMatchGLibType() types.GType {
+	core.LazyRegister(&xKeyMatchGLibType, "GDK", "gdk_key_match_get_type", false)
 	return xKeyMatchGLibType()
 }
 
@@ -204,6 +207,7 @@ type NotifyType int
 var xNotifyTypeGLibType func() types.GType
 
 func NotifyTypeGLibType() types.GType {
+	core.LazyRegister(&xNotifyTypeGLibType, "GDK", "gdk_notify_type_get_type", false)
 	return xNotifyTypeGLibType()
 }
 
@@ -236,6 +240,7 @@ type ScrollDirection int
 var xScrollDirectionGLibType func() types.GType
 
 func ScrollDirectionGLibType() types.GType {
+	core.LazyRegister(&xScrollDirectionGLibType, "GDK", "gdk_scroll_direction_get_type", false)
 	return xScrollDirectionGLibType()
 }
 
@@ -275,6 +280,7 @@ type ScrollUnit int
 var xScrollUnitGLibType func() types.GType
 
 func ScrollUnitGLibType() types.GType {
+	core.LazyRegister(&xScrollUnitGLibType, "GDK", "gdk_scroll_unit_get_type", false)
 	return xScrollUnitGLibType()
 }
 
@@ -310,6 +316,7 @@ type TouchpadGesturePhase int
 var xTouchpadGesturePhaseGLibType func() types.GType
 
 func TouchpadGesturePhaseGLibType() types.GType {
+	core.LazyRegister(&xTouchpadGesturePhaseGLibType, "GDK", "gdk_touchpad_gesture_phase_get_type", false)
 	return xTouchpadGesturePhaseGLibType()
 }
 
@@ -338,6 +345,8 @@ var xEventsGetAngle func(uintptr, uintptr, *float64) bool
 // This assumes that both events have X/Y information.
 // If not, this function returns %FALSE.
 func EventsGetAngle(Event1Var *Event, Event2Var *Event, AngleVar *float64) bool {
+	core.LazyRegister(&xEventsGetAngle, "GDK", "gdk_events_get_angle", false)
+
 	cret := xEventsGetAngle(Event1Var.GoPointer(), Event2Var.GoPointer(), AngleVar)
 	return cret
 }
@@ -349,6 +358,8 @@ var xEventsGetCenter func(uintptr, uintptr, *float64, *float64) bool
 // This assumes that both events have X/Y information.
 // If not, this function returns %FALSE.
 func EventsGetCenter(Event1Var *Event, Event2Var *Event, XVar *float64, YVar *float64) bool {
+	core.LazyRegister(&xEventsGetCenter, "GDK", "gdk_events_get_center", false)
+
 	cret := xEventsGetCenter(Event1Var.GoPointer(), Event2Var.GoPointer(), XVar, YVar)
 	return cret
 }
@@ -360,6 +371,8 @@ var xEventsGetDistance func(uintptr, uintptr, *float64) bool
 // This assumes that both events have X/Y information.
 // If not, this function returns %FALSE.
 func EventsGetDistance(Event1Var *Event, Event2Var *Event, DistanceVar *float64) bool {
+	core.LazyRegister(&xEventsGetDistance, "GDK", "gdk_events_get_distance", false)
+
 	cret := xEventsGetDistance(Event1Var.GoPointer(), Event2Var.GoPointer(), DistanceVar)
 	return cret
 }
@@ -372,6 +385,7 @@ type ButtonEvent struct {
 var xButtonEventGLibType func() types.GType
 
 func ButtonEventGLibType() types.GType {
+	core.LazyRegister(&xButtonEventGLibType, "GDK", "gdk_button_event_get_type", false)
 	return xButtonEventGLibType()
 }
 
@@ -385,6 +399,8 @@ var xButtonEventGetButton func(uintptr) uint
 
 // Extract the button number from a button event.
 func (x *ButtonEvent) GetButton() uint {
+	core.LazyRegister(&xButtonEventGetButton, "GDK", "gdk_button_event_get_button", false)
+
 	cret := xButtonEventGetButton(x.GoPointer())
 	return cret
 }
@@ -408,6 +424,7 @@ type CrossingEvent struct {
 var xCrossingEventGLibType func() types.GType
 
 func CrossingEventGLibType() types.GType {
+	core.LazyRegister(&xCrossingEventGLibType, "GDK", "gdk_crossing_event_get_type", false)
 	return xCrossingEventGLibType()
 }
 
@@ -421,6 +438,8 @@ var xCrossingEventGetDetail func(uintptr) NotifyType
 
 // Extracts the notify detail from a crossing event.
 func (x *CrossingEvent) GetDetail() NotifyType {
+	core.LazyRegister(&xCrossingEventGetDetail, "GDK", "gdk_crossing_event_get_detail", false)
+
 	cret := xCrossingEventGetDetail(x.GoPointer())
 	return cret
 }
@@ -429,6 +448,8 @@ var xCrossingEventGetFocus func(uintptr) bool
 
 // Checks if the @event surface is the focus surface.
 func (x *CrossingEvent) GetFocus() bool {
+	core.LazyRegister(&xCrossingEventGetFocus, "GDK", "gdk_crossing_event_get_focus", false)
+
 	cret := xCrossingEventGetFocus(x.GoPointer())
 	return cret
 }
@@ -437,6 +458,8 @@ var xCrossingEventGetMode func(uintptr) CrossingMode
 
 // Extracts the crossing mode from a crossing event.
 func (x *CrossingEvent) GetMode() CrossingMode {
+	core.LazyRegister(&xCrossingEventGetMode, "GDK", "gdk_crossing_event_get_mode", false)
+
 	cret := xCrossingEventGetMode(x.GoPointer())
 	return cret
 }
@@ -460,6 +483,7 @@ type DNDEvent struct {
 var xDNDEventGLibType func() types.GType
 
 func DNDEventGLibType() types.GType {
+	core.LazyRegister(&xDNDEventGLibType, "GDK", "gdk_dnd_event_get_type", false)
 	return xDNDEventGLibType()
 }
 
@@ -473,6 +497,7 @@ var xDNDEventGetDrop func(uintptr) uintptr
 
 // Gets the `GdkDrop` object from a DND event.
 func (x *DNDEvent) GetDrop() *Drop {
+	core.LazyRegister(&xDNDEventGetDrop, "GDK", "gdk_dnd_event_get_drop", false)
 	var cls *Drop
 
 	cret := xDNDEventGetDrop(x.GoPointer())
@@ -505,6 +530,7 @@ type DeleteEvent struct {
 var xDeleteEventGLibType func() types.GType
 
 func DeleteEventGLibType() types.GType {
+	core.LazyRegister(&xDeleteEventGLibType, "GDK", "gdk_delete_event_get_type", false)
 	return xDeleteEventGLibType()
 }
 
@@ -539,6 +565,7 @@ type Event struct {
 var xEventGLibType func() types.GType
 
 func EventGLibType() types.GType {
+	core.LazyRegister(&xEventGLibType, "GDK", "gdk_event_get_type", false)
 	return xEventGLibType()
 }
 
@@ -559,6 +586,8 @@ var xEventGetAngle func(uintptr, uintptr, *float64) bool
 // This assumes that both events have X/Y information.
 // If not, this function returns %FALSE.
 func (x *Event) GetAngle(Event2Var *Event, AngleVar *float64) bool {
+	core.LazyRegister(&xEventGetAngle, "GDK", "gdk_events_get_angle", false)
+
 	cret := xEventGetAngle(x.GoPointer(), Event2Var.GoPointer(), AngleVar)
 	return cret
 }
@@ -570,6 +599,8 @@ var xEventGetCenter func(uintptr, uintptr, *float64, *float64) bool
 // This assumes that both events have X/Y information.
 // If not, this function returns %FALSE.
 func (x *Event) GetCenter(Event2Var *Event, XVar *float64, YVar *float64) bool {
+	core.LazyRegister(&xEventGetCenter, "GDK", "gdk_events_get_center", false)
+
 	cret := xEventGetCenter(x.GoPointer(), Event2Var.GoPointer(), XVar, YVar)
 	return cret
 }
@@ -581,6 +612,8 @@ var xEventGetDistance func(uintptr, uintptr, *float64) bool
 // This assumes that both events have X/Y information.
 // If not, this function returns %FALSE.
 func (x *Event) GetDistance(Event2Var *Event, DistanceVar *float64) bool {
+	core.LazyRegister(&xEventGetDistance, "GDK", "gdk_events_get_distance", false)
+
 	cret := xEventGetDistance(x.GoPointer(), Event2Var.GoPointer(), DistanceVar)
 	return cret
 }
@@ -592,6 +625,8 @@ var xEventGetAxes func(uintptr, *[]float64, *uint) bool
 // To find out which axes are used, use [method@Gdk.DeviceTool.get_axes]
 // on the device tool returned by [method@Gdk.Event.get_device_tool].
 func (x *Event) GetAxes(AxesVar *[]float64, NAxesVar *uint) bool {
+	core.LazyRegister(&xEventGetAxes, "GDK", "gdk_event_get_axes", false)
+
 	cret := xEventGetAxes(x.GoPointer(), AxesVar, NAxesVar)
 	return cret
 }
@@ -604,6 +639,8 @@ var xEventGetAxis func(uintptr, AxisUse, *float64) bool
 // To find out which axes are used, use [method@Gdk.DeviceTool.get_axes]
 // on the device tool returned by [method@Gdk.Event.get_device_tool].
 func (x *Event) GetAxis(AxisUseVar AxisUse, ValueVar *float64) bool {
+	core.LazyRegister(&xEventGetAxis, "GDK", "gdk_event_get_axis", false)
+
 	cret := xEventGetAxis(x.GoPointer(), AxisUseVar, ValueVar)
 	return cret
 }
@@ -612,6 +649,7 @@ var xEventGetDevice func(uintptr) uintptr
 
 // Returns the device of an event.
 func (x *Event) GetDevice() *Device {
+	core.LazyRegister(&xEventGetDevice, "GDK", "gdk_event_get_device", false)
 	var cls *Device
 
 	cret := xEventGetDevice(x.GoPointer())
@@ -638,6 +676,7 @@ var xEventGetDeviceTool func(uintptr) uintptr
 // the application lifetime, if settings must be stored
 // persistently across runs, see [method@Gdk.DeviceTool.get_serial].
 func (x *Event) GetDeviceTool() *DeviceTool {
+	core.LazyRegister(&xEventGetDeviceTool, "GDK", "gdk_event_get_device_tool", false)
 	var cls *DeviceTool
 
 	cret := xEventGetDeviceTool(x.GoPointer())
@@ -655,6 +694,7 @@ var xEventGetDisplay func(uintptr) uintptr
 
 // Retrieves the display associated to the @event.
 func (x *Event) GetDisplay() *Display {
+	core.LazyRegister(&xEventGetDisplay, "GDK", "gdk_event_get_display", false)
 	var cls *Display
 
 	cret := xEventGetDisplay(x.GoPointer())
@@ -675,6 +715,8 @@ var xEventGetEventSequence func(uintptr) uintptr
 // Related touch events are connected in a sequence. Other
 // events typically don't have event sequence information.
 func (x *Event) GetEventSequence() *EventSequence {
+	core.LazyRegister(&xEventGetEventSequence, "GDK", "gdk_event_get_event_sequence", false)
+
 	cret := xEventGetEventSequence(x.GoPointer())
 	if cret == 0 {
 		return nil
@@ -686,6 +728,8 @@ var xEventGetEventType func(uintptr) EventType
 
 // Retrieves the type of the event.
 func (x *Event) GetEventType() EventType {
+	core.LazyRegister(&xEventGetEventType, "GDK", "gdk_event_get_event_type", false)
+
 	cret := xEventGetEventType(x.GoPointer())
 	return cret
 }
@@ -702,6 +746,8 @@ var xEventGetHistory func(uintptr, *uint) uintptr
 // events do it only if one of the mouse buttons is down, or the device
 // has a tool.
 func (x *Event) GetHistory(OutNCoordsVar *uint) uintptr {
+	core.LazyRegister(&xEventGetHistory, "GDK", "gdk_event_get_history", false)
+
 	cret := xEventGetHistory(x.GoPointer(), OutNCoordsVar)
 	return cret
 }
@@ -710,6 +756,8 @@ var xEventGetModifierState func(uintptr) ModifierType
 
 // Returns the modifier state field of an event.
 func (x *Event) GetModifierState() ModifierType {
+	core.LazyRegister(&xEventGetModifierState, "GDK", "gdk_event_get_modifier_state", false)
+
 	cret := xEventGetModifierState(x.GoPointer())
 	return cret
 }
@@ -720,6 +768,8 @@ var xEventGetPointerEmulated func(uintptr) bool
 //
 // Emulated pointer events typically originate from a touch events.
 func (x *Event) GetPointerEmulated() bool {
+	core.LazyRegister(&xEventGetPointerEmulated, "GDK", "gdk_event_get_pointer_emulated", false)
+
 	cret := xEventGetPointerEmulated(x.GoPointer())
 	return cret
 }
@@ -730,6 +780,8 @@ var xEventGetPosition func(uintptr, *float64, *float64) bool
 //
 // This position is in [surface coordinates](coordinates.html).
 func (x *Event) GetPosition(XVar *float64, YVar *float64) bool {
+	core.LazyRegister(&xEventGetPosition, "GDK", "gdk_event_get_position", false)
+
 	cret := xEventGetPosition(x.GoPointer(), XVar, YVar)
 	return cret
 }
@@ -738,6 +790,7 @@ var xEventGetSeat func(uintptr) uintptr
 
 // Returns the seat that originated the event.
 func (x *Event) GetSeat() *Seat {
+	core.LazyRegister(&xEventGetSeat, "GDK", "gdk_event_get_seat", false)
 	var cls *Seat
 
 	cret := xEventGetSeat(x.GoPointer())
@@ -755,6 +808,7 @@ var xEventGetSurface func(uintptr) uintptr
 
 // Extracts the surface associated with an event.
 func (x *Event) GetSurface() *Surface {
+	core.LazyRegister(&xEventGetSurface, "GDK", "gdk_event_get_surface", false)
 	var cls *Surface
 
 	cret := xEventGetSurface(x.GoPointer())
@@ -775,6 +829,8 @@ var xEventGetTime func(uintptr) uint32
 // Not all events have timestamps. In that case, this function
 // returns %GDK_CURRENT_TIME.
 func (x *Event) GetTime() uint32 {
+	core.LazyRegister(&xEventGetTime, "GDK", "gdk_event_get_time", false)
+
 	cret := xEventGetTime(x.GoPointer())
 	return cret
 }
@@ -783,6 +839,7 @@ var xEventRef func(uintptr) uintptr
 
 // Increase the ref count of @event.
 func (x *Event) Ref() *Event {
+	core.LazyRegister(&xEventRef, "GDK", "gdk_event_ref", false)
 	var cls *Event
 
 	cret := xEventRef(x.GoPointer())
@@ -809,6 +866,8 @@ var xEventTriggersContextMenu func(uintptr) bool
 // event-&gt;button == GDK_BUTTON_SECONDARY
 // ```
 func (x *Event) TriggersContextMenu() bool {
+	core.LazyRegister(&xEventTriggersContextMenu, "GDK", "gdk_event_triggers_context_menu", false)
+
 	cret := xEventTriggersContextMenu(x.GoPointer())
 	return cret
 }
@@ -819,6 +878,8 @@ var xEventUnref func(uintptr)
 //
 // If the last reference is dropped, the structure is freed.
 func (x *Event) Unref() {
+	core.LazyRegister(&xEventUnref, "GDK", "gdk_event_unref", false)
+
 	xEventUnref(x.GoPointer())
 }
 
@@ -841,6 +902,7 @@ type FocusEvent struct {
 var xFocusEventGLibType func() types.GType
 
 func FocusEventGLibType() types.GType {
+	core.LazyRegister(&xFocusEventGLibType, "GDK", "gdk_focus_event_get_type", false)
 	return xFocusEventGLibType()
 }
 
@@ -855,6 +917,8 @@ var xFocusEventGetIn func(uintptr) bool
 // Extracts whether this event is about focus entering or
 // leaving the surface.
 func (x *FocusEvent) GetIn() bool {
+	core.LazyRegister(&xFocusEventGetIn, "GDK", "gdk_focus_event_get_in", false)
+
 	cret := xFocusEventGetIn(x.GoPointer())
 	return cret
 }
@@ -878,6 +942,7 @@ type GrabBrokenEvent struct {
 var xGrabBrokenEventGLibType func() types.GType
 
 func GrabBrokenEventGLibType() types.GType {
+	core.LazyRegister(&xGrabBrokenEventGLibType, "GDK", "gdk_grab_broken_event_get_type", false)
 	return xGrabBrokenEventGLibType()
 }
 
@@ -891,6 +956,7 @@ var xGrabBrokenEventGetGrabSurface func(uintptr) uintptr
 
 // Extracts the grab surface from a grab broken event.
 func (x *GrabBrokenEvent) GetGrabSurface() *Surface {
+	core.LazyRegister(&xGrabBrokenEventGetGrabSurface, "GDK", "gdk_grab_broken_event_get_grab_surface", false)
 	var cls *Surface
 
 	cret := xGrabBrokenEventGetGrabSurface(x.GoPointer())
@@ -908,6 +974,8 @@ var xGrabBrokenEventGetImplicit func(uintptr) bool
 
 // Checks whether the grab broken event is for an implicit grab.
 func (x *GrabBrokenEvent) GetImplicit() bool {
+	core.LazyRegister(&xGrabBrokenEventGetImplicit, "GDK", "gdk_grab_broken_event_get_implicit", false)
+
 	cret := xGrabBrokenEventGetImplicit(x.GoPointer())
 	return cret
 }
@@ -931,6 +999,7 @@ type KeyEvent struct {
 var xKeyEventGLibType func() types.GType
 
 func KeyEventGLibType() types.GType {
+	core.LazyRegister(&xKeyEventGLibType, "GDK", "gdk_key_event_get_type", false)
 	return xKeyEventGLibType()
 }
 
@@ -944,6 +1013,8 @@ var xKeyEventGetConsumedModifiers func(uintptr) ModifierType
 
 // Extracts the consumed modifiers from a key event.
 func (x *KeyEvent) GetConsumedModifiers() ModifierType {
+	core.LazyRegister(&xKeyEventGetConsumedModifiers, "GDK", "gdk_key_event_get_consumed_modifiers", false)
+
 	cret := xKeyEventGetConsumedModifiers(x.GoPointer())
 	return cret
 }
@@ -952,6 +1023,8 @@ var xKeyEventGetKeycode func(uintptr) uint
 
 // Extracts the keycode from a key event.
 func (x *KeyEvent) GetKeycode() uint {
+	core.LazyRegister(&xKeyEventGetKeycode, "GDK", "gdk_key_event_get_keycode", false)
+
 	cret := xKeyEventGetKeycode(x.GoPointer())
 	return cret
 }
@@ -960,6 +1033,8 @@ var xKeyEventGetKeyval func(uintptr) uint
 
 // Extracts the keyval from a key event.
 func (x *KeyEvent) GetKeyval() uint {
+	core.LazyRegister(&xKeyEventGetKeyval, "GDK", "gdk_key_event_get_keyval", false)
+
 	cret := xKeyEventGetKeyval(x.GoPointer())
 	return cret
 }
@@ -968,6 +1043,8 @@ var xKeyEventGetLayout func(uintptr) uint
 
 // Extracts the layout from a key event.
 func (x *KeyEvent) GetLayout() uint {
+	core.LazyRegister(&xKeyEventGetLayout, "GDK", "gdk_key_event_get_layout", false)
+
 	cret := xKeyEventGetLayout(x.GoPointer())
 	return cret
 }
@@ -976,6 +1053,8 @@ var xKeyEventGetLevel func(uintptr) uint
 
 // Extracts the shift level from a key event.
 func (x *KeyEvent) GetLevel() uint {
+	core.LazyRegister(&xKeyEventGetLevel, "GDK", "gdk_key_event_get_level", false)
+
 	cret := xKeyEventGetLevel(x.GoPointer())
 	return cret
 }
@@ -987,6 +1066,8 @@ var xKeyEventGetMatch func(uintptr, *uint, *ModifierType) bool
 //
 // See [method@Gdk.KeyEvent.matches].
 func (x *KeyEvent) GetMatch(KeyvalVar *uint, ModifiersVar *ModifierType) bool {
+	core.LazyRegister(&xKeyEventGetMatch, "GDK", "gdk_key_event_get_match", false)
+
 	cret := xKeyEventGetMatch(x.GoPointer(), KeyvalVar, ModifiersVar)
 	return cret
 }
@@ -995,6 +1076,8 @@ var xKeyEventIsModifier func(uintptr) bool
 
 // Extracts whether the key event is for a modifier key.
 func (x *KeyEvent) IsModifier() bool {
+	core.LazyRegister(&xKeyEventIsModifier, "GDK", "gdk_key_event_is_modifier", false)
+
 	cret := xKeyEventIsModifier(x.GoPointer())
 	return cret
 }
@@ -1010,6 +1093,8 @@ var xKeyEventMatches func(uintptr, uint, ModifierType) KeyMatch
 //
 // Note that we ignore Caps Lock for matching.
 func (x *KeyEvent) Matches(KeyvalVar uint, ModifiersVar ModifierType) KeyMatch {
+	core.LazyRegister(&xKeyEventMatches, "GDK", "gdk_key_event_matches", false)
+
 	cret := xKeyEventMatches(x.GoPointer(), KeyvalVar, ModifiersVar)
 	return cret
 }
@@ -1033,6 +1118,7 @@ type MotionEvent struct {
 var xMotionEventGLibType func() types.GType
 
 func MotionEventGLibType() types.GType {
+	core.LazyRegister(&xMotionEventGLibType, "GDK", "gdk_motion_event_get_type", false)
 	return xMotionEventGLibType()
 }
 
@@ -1061,6 +1147,7 @@ type PadEvent struct {
 var xPadEventGLibType func() types.GType
 
 func PadEventGLibType() types.GType {
+	core.LazyRegister(&xPadEventGLibType, "GDK", "gdk_pad_event_get_type", false)
 	return xPadEventGLibType()
 }
 
@@ -1074,6 +1161,8 @@ var xPadEventGetAxisValue func(uintptr, *uint, *float64)
 
 // Extracts the information from a pad strip or ring event.
 func (x *PadEvent) GetAxisValue(IndexVar *uint, ValueVar *float64) {
+	core.LazyRegister(&xPadEventGetAxisValue, "GDK", "gdk_pad_event_get_axis_value", false)
+
 	xPadEventGetAxisValue(x.GoPointer(), IndexVar, ValueVar)
 }
 
@@ -1082,6 +1171,8 @@ var xPadEventGetButton func(uintptr) uint
 // Extracts information about the pressed button from
 // a pad event.
 func (x *PadEvent) GetButton() uint {
+	core.LazyRegister(&xPadEventGetButton, "GDK", "gdk_pad_event_get_button", false)
+
 	cret := xPadEventGetButton(x.GoPointer())
 	return cret
 }
@@ -1090,6 +1181,8 @@ var xPadEventGetGroupMode func(uintptr, *uint, *uint)
 
 // Extracts group and mode information from a pad event.
 func (x *PadEvent) GetGroupMode(GroupVar *uint, ModeVar *uint) {
+	core.LazyRegister(&xPadEventGetGroupMode, "GDK", "gdk_pad_event_get_group_mode", false)
+
 	xPadEventGetGroupMode(x.GoPointer(), GroupVar, ModeVar)
 }
 
@@ -1112,6 +1205,7 @@ type ProximityEvent struct {
 var xProximityEventGLibType func() types.GType
 
 func ProximityEventGLibType() types.GType {
+	core.LazyRegister(&xProximityEventGLibType, "GDK", "gdk_proximity_event_get_type", false)
 	return xProximityEventGLibType()
 }
 
@@ -1140,6 +1234,7 @@ type ScrollEvent struct {
 var xScrollEventGLibType func() types.GType
 
 func ScrollEventGLibType() types.GType {
+	core.LazyRegister(&xScrollEventGLibType, "GDK", "gdk_scroll_event_get_type", false)
 	return xScrollEventGLibType()
 }
 
@@ -1159,6 +1254,8 @@ var xScrollEventGetDeltas func(uintptr, *float64, *float64)
 // For the representation unit of these deltas, see
 // [method@Gdk.ScrollEvent.get_unit].
 func (x *ScrollEvent) GetDeltas(DeltaXVar *float64, DeltaYVar *float64) {
+	core.LazyRegister(&xScrollEventGetDeltas, "GDK", "gdk_scroll_event_get_deltas", false)
+
 	xScrollEventGetDeltas(x.GoPointer(), DeltaXVar, DeltaYVar)
 }
 
@@ -1166,6 +1263,8 @@ var xScrollEventGetDirection func(uintptr) ScrollDirection
 
 // Extracts the direction of a scroll event.
 func (x *ScrollEvent) GetDirection() ScrollDirection {
+	core.LazyRegister(&xScrollEventGetDirection, "GDK", "gdk_scroll_event_get_direction", false)
+
 	cret := xScrollEventGetDirection(x.GoPointer())
 	return cret
 }
@@ -1174,6 +1273,8 @@ var xScrollEventGetRelativeDirection func(uintptr) ScrollRelativeDirection
 
 // Extracts the scroll direction relative to the physical motion.
 func (x *ScrollEvent) GetRelativeDirection() ScrollRelativeDirection {
+	core.LazyRegister(&xScrollEventGetRelativeDirection, "GDK", "gdk_scroll_event_get_relative_direction", false)
+
 	cret := xScrollEventGetRelativeDirection(x.GoPointer())
 	return cret
 }
@@ -1185,6 +1286,8 @@ var xScrollEventGetUnit func(uintptr) ScrollUnit
 // The unit will always be %GDK_SCROLL_UNIT_WHEEL if the scroll direction is not
 // %GDK_SCROLL_SMOOTH.
 func (x *ScrollEvent) GetUnit() ScrollUnit {
+	core.LazyRegister(&xScrollEventGetUnit, "GDK", "gdk_scroll_event_get_unit", false)
+
 	cret := xScrollEventGetUnit(x.GoPointer())
 	return cret
 }
@@ -1201,6 +1304,8 @@ var xScrollEventIsStop func(uintptr) bool
 //
 // Stop scroll events always have a delta of 0/0.
 func (x *ScrollEvent) IsStop() bool {
+	core.LazyRegister(&xScrollEventIsStop, "GDK", "gdk_scroll_event_is_stop", false)
+
 	cret := xScrollEventIsStop(x.GoPointer())
 	return cret
 }
@@ -1224,6 +1329,7 @@ type TouchEvent struct {
 var xTouchEventGLibType func() types.GType
 
 func TouchEventGLibType() types.GType {
+	core.LazyRegister(&xTouchEventGLibType, "GDK", "gdk_touch_event_get_type", false)
 	return xTouchEventGLibType()
 }
 
@@ -1237,6 +1343,8 @@ var xTouchEventGetEmulatingPointer func(uintptr) bool
 
 // Extracts whether a touch event is emulating a pointer event.
 func (x *TouchEvent) GetEmulatingPointer() bool {
+	core.LazyRegister(&xTouchEventGetEmulatingPointer, "GDK", "gdk_touch_event_get_emulating_pointer", false)
+
 	cret := xTouchEventGetEmulatingPointer(x.GoPointer())
 	return cret
 }
@@ -1265,6 +1373,7 @@ type TouchpadEvent struct {
 var xTouchpadEventGLibType func() types.GType
 
 func TouchpadEventGLibType() types.GType {
+	core.LazyRegister(&xTouchpadEventGLibType, "GDK", "gdk_touchpad_event_get_type", false)
 	return xTouchpadEventGLibType()
 }
 
@@ -1278,6 +1387,8 @@ var xTouchpadEventGetDeltas func(uintptr, *float64, *float64)
 
 // Extracts delta information from a touchpad event.
 func (x *TouchpadEvent) GetDeltas(DxVar *float64, DyVar *float64) {
+	core.LazyRegister(&xTouchpadEventGetDeltas, "GDK", "gdk_touchpad_event_get_deltas", false)
+
 	xTouchpadEventGetDeltas(x.GoPointer(), DxVar, DyVar)
 }
 
@@ -1285,6 +1396,8 @@ var xTouchpadEventGetGesturePhase func(uintptr) TouchpadGesturePhase
 
 // Extracts the touchpad gesture phase from a touchpad event.
 func (x *TouchpadEvent) GetGesturePhase() TouchpadGesturePhase {
+	core.LazyRegister(&xTouchpadEventGetGesturePhase, "GDK", "gdk_touchpad_event_get_gesture_phase", false)
+
 	cret := xTouchpadEventGetGesturePhase(x.GoPointer())
 	return cret
 }
@@ -1293,6 +1406,8 @@ var xTouchpadEventGetNFingers func(uintptr) uint
 
 // Extracts the number of fingers from a touchpad event.
 func (x *TouchpadEvent) GetNFingers() uint {
+	core.LazyRegister(&xTouchpadEventGetNFingers, "GDK", "gdk_touchpad_event_get_n_fingers", false)
+
 	cret := xTouchpadEventGetNFingers(x.GoPointer())
 	return cret
 }
@@ -1301,6 +1416,8 @@ var xTouchpadEventGetPinchAngleDelta func(uintptr) float64
 
 // Extracts the angle delta from a touchpad pinch event.
 func (x *TouchpadEvent) GetPinchAngleDelta() float64 {
+	core.LazyRegister(&xTouchpadEventGetPinchAngleDelta, "GDK", "gdk_touchpad_event_get_pinch_angle_delta", false)
+
 	cret := xTouchpadEventGetPinchAngleDelta(x.GoPointer())
 	return cret
 }
@@ -1309,6 +1426,8 @@ var xTouchpadEventGetPinchScale func(uintptr) float64
 
 // Extracts the scale from a touchpad pinch event.
 func (x *TouchpadEvent) GetPinchScale() float64 {
+	core.LazyRegister(&xTouchpadEventGetPinchScale, "GDK", "gdk_touchpad_event_get_pinch_scale", false)
+
 	cret := xTouchpadEventGetPinchScale(x.GoPointer())
 	return cret
 }
@@ -1327,121 +1446,4 @@ func (c *TouchpadEvent) SetGoPointer(ptr uintptr) {
 func init() {
 	core.SetPackageName("GDK", "gtk4")
 	core.SetSharedLibraries("GDK", []string{"libgtk-4.so.1", "libgtk-4.1.dylib"})
-	var libs []uintptr
-	for _, libPath := range core.GetPaths("GDK") {
-		lib, err := purego.Dlopen(libPath, purego.RTLD_NOW|purego.RTLD_GLOBAL)
-		if err != nil {
-			panic(err)
-		}
-		libs = append(libs, lib)
-	}
-
-	core.PuregoSafeRegister(&xCrossingModeGLibType, libs, "gdk_crossing_mode_get_type")
-
-	core.PuregoSafeRegister(&xEventTypeGLibType, libs, "gdk_event_type_get_type")
-
-	core.PuregoSafeRegister(&xKeyMatchGLibType, libs, "gdk_key_match_get_type")
-
-	core.PuregoSafeRegister(&xNotifyTypeGLibType, libs, "gdk_notify_type_get_type")
-
-	core.PuregoSafeRegister(&xScrollDirectionGLibType, libs, "gdk_scroll_direction_get_type")
-
-	core.PuregoSafeRegister(&xScrollUnitGLibType, libs, "gdk_scroll_unit_get_type")
-
-	core.PuregoSafeRegister(&xTouchpadGesturePhaseGLibType, libs, "gdk_touchpad_gesture_phase_get_type")
-
-	core.PuregoSafeRegister(&xEventsGetAngle, libs, "gdk_events_get_angle")
-	core.PuregoSafeRegister(&xEventsGetCenter, libs, "gdk_events_get_center")
-	core.PuregoSafeRegister(&xEventsGetDistance, libs, "gdk_events_get_distance")
-
-	core.PuregoSafeRegister(&xEventSequenceGLibType, libs, "gdk_event_sequence_get_type")
-
-	core.PuregoSafeRegister(&xButtonEventGLibType, libs, "gdk_button_event_get_type")
-
-	core.PuregoSafeRegister(&xButtonEventGetButton, libs, "gdk_button_event_get_button")
-
-	core.PuregoSafeRegister(&xCrossingEventGLibType, libs, "gdk_crossing_event_get_type")
-
-	core.PuregoSafeRegister(&xCrossingEventGetDetail, libs, "gdk_crossing_event_get_detail")
-	core.PuregoSafeRegister(&xCrossingEventGetFocus, libs, "gdk_crossing_event_get_focus")
-	core.PuregoSafeRegister(&xCrossingEventGetMode, libs, "gdk_crossing_event_get_mode")
-
-	core.PuregoSafeRegister(&xDNDEventGLibType, libs, "gdk_dnd_event_get_type")
-
-	core.PuregoSafeRegister(&xDNDEventGetDrop, libs, "gdk_dnd_event_get_drop")
-
-	core.PuregoSafeRegister(&xDeleteEventGLibType, libs, "gdk_delete_event_get_type")
-
-	core.PuregoSafeRegister(&xEventGLibType, libs, "gdk_event_get_type")
-
-	core.PuregoSafeRegister(&xEventGetAngle, libs, "gdk_events_get_angle")
-	core.PuregoSafeRegister(&xEventGetCenter, libs, "gdk_events_get_center")
-	core.PuregoSafeRegister(&xEventGetDistance, libs, "gdk_events_get_distance")
-	core.PuregoSafeRegister(&xEventGetAxes, libs, "gdk_event_get_axes")
-	core.PuregoSafeRegister(&xEventGetAxis, libs, "gdk_event_get_axis")
-	core.PuregoSafeRegister(&xEventGetDevice, libs, "gdk_event_get_device")
-	core.PuregoSafeRegister(&xEventGetDeviceTool, libs, "gdk_event_get_device_tool")
-	core.PuregoSafeRegister(&xEventGetDisplay, libs, "gdk_event_get_display")
-	core.PuregoSafeRegister(&xEventGetEventSequence, libs, "gdk_event_get_event_sequence")
-	core.PuregoSafeRegister(&xEventGetEventType, libs, "gdk_event_get_event_type")
-	core.PuregoSafeRegister(&xEventGetHistory, libs, "gdk_event_get_history")
-	core.PuregoSafeRegister(&xEventGetModifierState, libs, "gdk_event_get_modifier_state")
-	core.PuregoSafeRegister(&xEventGetPointerEmulated, libs, "gdk_event_get_pointer_emulated")
-	core.PuregoSafeRegister(&xEventGetPosition, libs, "gdk_event_get_position")
-	core.PuregoSafeRegister(&xEventGetSeat, libs, "gdk_event_get_seat")
-	core.PuregoSafeRegister(&xEventGetSurface, libs, "gdk_event_get_surface")
-	core.PuregoSafeRegister(&xEventGetTime, libs, "gdk_event_get_time")
-	core.PuregoSafeRegister(&xEventRef, libs, "gdk_event_ref")
-	core.PuregoSafeRegister(&xEventTriggersContextMenu, libs, "gdk_event_triggers_context_menu")
-	core.PuregoSafeRegister(&xEventUnref, libs, "gdk_event_unref")
-
-	core.PuregoSafeRegister(&xFocusEventGLibType, libs, "gdk_focus_event_get_type")
-
-	core.PuregoSafeRegister(&xFocusEventGetIn, libs, "gdk_focus_event_get_in")
-
-	core.PuregoSafeRegister(&xGrabBrokenEventGLibType, libs, "gdk_grab_broken_event_get_type")
-
-	core.PuregoSafeRegister(&xGrabBrokenEventGetGrabSurface, libs, "gdk_grab_broken_event_get_grab_surface")
-	core.PuregoSafeRegister(&xGrabBrokenEventGetImplicit, libs, "gdk_grab_broken_event_get_implicit")
-
-	core.PuregoSafeRegister(&xKeyEventGLibType, libs, "gdk_key_event_get_type")
-
-	core.PuregoSafeRegister(&xKeyEventGetConsumedModifiers, libs, "gdk_key_event_get_consumed_modifiers")
-	core.PuregoSafeRegister(&xKeyEventGetKeycode, libs, "gdk_key_event_get_keycode")
-	core.PuregoSafeRegister(&xKeyEventGetKeyval, libs, "gdk_key_event_get_keyval")
-	core.PuregoSafeRegister(&xKeyEventGetLayout, libs, "gdk_key_event_get_layout")
-	core.PuregoSafeRegister(&xKeyEventGetLevel, libs, "gdk_key_event_get_level")
-	core.PuregoSafeRegister(&xKeyEventGetMatch, libs, "gdk_key_event_get_match")
-	core.PuregoSafeRegister(&xKeyEventIsModifier, libs, "gdk_key_event_is_modifier")
-	core.PuregoSafeRegister(&xKeyEventMatches, libs, "gdk_key_event_matches")
-
-	core.PuregoSafeRegister(&xMotionEventGLibType, libs, "gdk_motion_event_get_type")
-
-	core.PuregoSafeRegister(&xPadEventGLibType, libs, "gdk_pad_event_get_type")
-
-	core.PuregoSafeRegister(&xPadEventGetAxisValue, libs, "gdk_pad_event_get_axis_value")
-	core.PuregoSafeRegister(&xPadEventGetButton, libs, "gdk_pad_event_get_button")
-	core.PuregoSafeRegister(&xPadEventGetGroupMode, libs, "gdk_pad_event_get_group_mode")
-
-	core.PuregoSafeRegister(&xProximityEventGLibType, libs, "gdk_proximity_event_get_type")
-
-	core.PuregoSafeRegister(&xScrollEventGLibType, libs, "gdk_scroll_event_get_type")
-
-	core.PuregoSafeRegister(&xScrollEventGetDeltas, libs, "gdk_scroll_event_get_deltas")
-	core.PuregoSafeRegister(&xScrollEventGetDirection, libs, "gdk_scroll_event_get_direction")
-	core.PuregoSafeRegister(&xScrollEventGetRelativeDirection, libs, "gdk_scroll_event_get_relative_direction")
-	core.PuregoSafeRegister(&xScrollEventGetUnit, libs, "gdk_scroll_event_get_unit")
-	core.PuregoSafeRegister(&xScrollEventIsStop, libs, "gdk_scroll_event_is_stop")
-
-	core.PuregoSafeRegister(&xTouchEventGLibType, libs, "gdk_touch_event_get_type")
-
-	core.PuregoSafeRegister(&xTouchEventGetEmulatingPointer, libs, "gdk_touch_event_get_emulating_pointer")
-
-	core.PuregoSafeRegister(&xTouchpadEventGLibType, libs, "gdk_touchpad_event_get_type")
-
-	core.PuregoSafeRegister(&xTouchpadEventGetDeltas, libs, "gdk_touchpad_event_get_deltas")
-	core.PuregoSafeRegister(&xTouchpadEventGetGesturePhase, libs, "gdk_touchpad_event_get_gesture_phase")
-	core.PuregoSafeRegister(&xTouchpadEventGetNFingers, libs, "gdk_touchpad_event_get_n_fingers")
-	core.PuregoSafeRegister(&xTouchpadEventGetPinchAngleDelta, libs, "gdk_touchpad_event_get_pinch_angle_delta")
-	core.PuregoSafeRegister(&xTouchpadEventGetPinchScale, libs, "gdk_touchpad_event_get_pinch_scale")
 }

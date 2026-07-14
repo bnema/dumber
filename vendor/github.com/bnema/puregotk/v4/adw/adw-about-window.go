@@ -5,7 +5,6 @@ import (
 	"structs"
 	"unsafe"
 
-	"github.com/bnema/purego"
 	"github.com/bnema/puregotk/pkg/core"
 	"github.com/bnema/puregotk/v4/gdk"
 	"github.com/bnema/puregotk/v4/glib"
@@ -37,6 +36,8 @@ var xShowAboutWindow func(uintptr, string, ...interface{})
 
 // A convenience function for showing an application’s about window.
 func ShowAboutWindow(ParentVar *gtk.Window, FirstPropertyNameVar string, varArgs ...interface{}) {
+	core.LazyRegister(&xShowAboutWindow, "ADW", "adw_show_about_window", false)
+
 	xShowAboutWindow(ParentVar.GoPointer(), FirstPropertyNameVar, varArgs...)
 }
 
@@ -47,6 +48,8 @@ var xShowAboutWindowFromAppdata func(uintptr, string, uintptr, string, ...interf
 //
 // See [ctor@AboutWindow.new_from_appdata] for details.
 func ShowAboutWindowFromAppdata(ParentVar *gtk.Window, ResourcePathVar string, ReleaseNotesVersionVar *string, FirstPropertyNameVar string, varArgs ...interface{}) {
+	core.LazyRegister(&xShowAboutWindowFromAppdata, "ADW", "adw_show_about_window_from_appdata", false)
+
 	ReleaseNotesVersionVarPtr := core.GStrdupNullable(ReleaseNotesVersionVar)
 	defer core.GFreeNullable(ReleaseNotesVersionVarPtr)
 
@@ -231,6 +234,7 @@ type AboutWindow struct {
 var xAboutWindowGLibType func() types.GType
 
 func AboutWindowGLibType() types.GType {
+	core.LazyRegister(&xAboutWindowGLibType, "ADW", "adw_about_window_get_type", false)
 	return xAboutWindowGLibType()
 }
 
@@ -244,6 +248,7 @@ var xNewAboutWindow func() uintptr
 
 // Creates a new `AdwAboutWindow`.
 func NewAboutWindow() *AboutWindow {
+	core.LazyRegister(&xNewAboutWindow, "ADW", "adw_about_window_new", false)
 	var cls *AboutWindow
 
 	cret := xNewAboutWindow()
@@ -281,6 +286,7 @@ var xNewAboutWindowFromAppdata func(string, uintptr) uintptr
 // [property@AboutWindow:release-notes] is set from the AppStream release
 // description for that version.
 func NewAboutWindowFromAppdata(ResourcePathVar string, ReleaseNotesVersionVar *string) *AboutWindow {
+	core.LazyRegister(&xNewAboutWindowFromAppdata, "ADW", "adw_about_window_new_from_appdata", false)
 	var cls *AboutWindow
 
 	ReleaseNotesVersionVarPtr := core.GStrdupNullable(ReleaseNotesVersionVar)
@@ -317,6 +323,8 @@ var xAboutWindowAddAcknowledgementSection func(uintptr, uintptr, []string)
 // * [property@AboutWindow:translator-credits]
 // * [method@AboutWindow.add_credit_section]
 func (x *AboutWindow) AddAcknowledgementSection(NameVar *string, PeopleVar []string) {
+	core.LazyRegister(&xAboutWindowAddAcknowledgementSection, "ADW", "adw_about_window_add_acknowledgement_section", false)
+
 	NameVarPtr := core.GStrdupNullable(NameVar)
 	defer core.GFreeNullable(NameVarPtr)
 
@@ -341,6 +349,8 @@ var xAboutWindowAddCreditSection func(uintptr, uintptr, []string)
 // * [property@AboutWindow:translator-credits]
 // * [method@AboutWindow.add_acknowledgement_section]
 func (x *AboutWindow) AddCreditSection(NameVar *string, PeopleVar []string) {
+	core.LazyRegister(&xAboutWindowAddCreditSection, "ADW", "adw_about_window_add_credit_section", false)
+
 	NameVarPtr := core.GStrdupNullable(NameVar)
 	defer core.GFreeNullable(NameVarPtr)
 
@@ -395,6 +405,8 @@ var xAboutWindowAddLegalSection func(uintptr, string, uintptr, gtk.License, uint
 //
 // ```
 func (x *AboutWindow) AddLegalSection(TitleVar string, CopyrightVar *string, LicenseTypeVar gtk.License, LicenseVar *string) {
+	core.LazyRegister(&xAboutWindowAddLegalSection, "ADW", "adw_about_window_add_legal_section", false)
+
 	CopyrightVarPtr := core.GStrdupNullable(CopyrightVar)
 	defer core.GFreeNullable(CopyrightVarPtr)
 
@@ -414,6 +426,8 @@ var xAboutWindowAddLink func(uintptr, string, string)
 //
 // See [property@AboutWindow:website].
 func (x *AboutWindow) AddLink(TitleVar string, UrlVar string) {
+	core.LazyRegister(&xAboutWindowAddLink, "ADW", "adw_about_window_add_link", false)
+
 	xAboutWindowAddLink(x.GoPointer(), TitleVar, UrlVar)
 }
 
@@ -421,6 +435,8 @@ var xAboutWindowGetApplicationIcon func(uintptr) string
 
 // Gets the name of the application icon for @self.
 func (x *AboutWindow) GetApplicationIcon() string {
+	core.LazyRegister(&xAboutWindowGetApplicationIcon, "ADW", "adw_about_window_get_application_icon", false)
+
 	cret := xAboutWindowGetApplicationIcon(x.GoPointer())
 	return cret
 }
@@ -429,6 +445,8 @@ var xAboutWindowGetApplicationName func(uintptr) string
 
 // Gets the application name for @self.
 func (x *AboutWindow) GetApplicationName() string {
+	core.LazyRegister(&xAboutWindowGetApplicationName, "ADW", "adw_about_window_get_application_name", false)
+
 	cret := xAboutWindowGetApplicationName(x.GoPointer())
 	return cret
 }
@@ -437,6 +455,8 @@ var xAboutWindowGetArtists func(uintptr) []string
 
 // Gets the list of artists of the application.
 func (x *AboutWindow) GetArtists() []string {
+	core.LazyRegister(&xAboutWindowGetArtists, "ADW", "adw_about_window_get_artists", false)
+
 	cret := xAboutWindowGetArtists(x.GoPointer())
 	return cret
 }
@@ -445,6 +465,8 @@ var xAboutWindowGetComments func(uintptr) string
 
 // Gets the comments about the application.
 func (x *AboutWindow) GetComments() string {
+	core.LazyRegister(&xAboutWindowGetComments, "ADW", "adw_about_window_get_comments", false)
+
 	cret := xAboutWindowGetComments(x.GoPointer())
 	return cret
 }
@@ -453,6 +475,8 @@ var xAboutWindowGetCopyright func(uintptr) string
 
 // Gets the copyright information for @self.
 func (x *AboutWindow) GetCopyright() string {
+	core.LazyRegister(&xAboutWindowGetCopyright, "ADW", "adw_about_window_get_copyright", false)
+
 	cret := xAboutWindowGetCopyright(x.GoPointer())
 	return cret
 }
@@ -461,6 +485,8 @@ var xAboutWindowGetDebugInfo func(uintptr) string
 
 // Gets the debug information for @self.
 func (x *AboutWindow) GetDebugInfo() string {
+	core.LazyRegister(&xAboutWindowGetDebugInfo, "ADW", "adw_about_window_get_debug_info", false)
+
 	cret := xAboutWindowGetDebugInfo(x.GoPointer())
 	return cret
 }
@@ -469,6 +495,8 @@ var xAboutWindowGetDebugInfoFilename func(uintptr) string
 
 // Gets the debug information filename for @self.
 func (x *AboutWindow) GetDebugInfoFilename() string {
+	core.LazyRegister(&xAboutWindowGetDebugInfoFilename, "ADW", "adw_about_window_get_debug_info_filename", false)
+
 	cret := xAboutWindowGetDebugInfoFilename(x.GoPointer())
 	return cret
 }
@@ -477,6 +505,8 @@ var xAboutWindowGetDesigners func(uintptr) []string
 
 // Gets the list of designers of the application.
 func (x *AboutWindow) GetDesigners() []string {
+	core.LazyRegister(&xAboutWindowGetDesigners, "ADW", "adw_about_window_get_designers", false)
+
 	cret := xAboutWindowGetDesigners(x.GoPointer())
 	return cret
 }
@@ -485,6 +515,8 @@ var xAboutWindowGetDeveloperName func(uintptr) string
 
 // Gets the developer name for @self.
 func (x *AboutWindow) GetDeveloperName() string {
+	core.LazyRegister(&xAboutWindowGetDeveloperName, "ADW", "adw_about_window_get_developer_name", false)
+
 	cret := xAboutWindowGetDeveloperName(x.GoPointer())
 	return cret
 }
@@ -493,6 +525,8 @@ var xAboutWindowGetDevelopers func(uintptr) []string
 
 // Gets the list of developers of the application.
 func (x *AboutWindow) GetDevelopers() []string {
+	core.LazyRegister(&xAboutWindowGetDevelopers, "ADW", "adw_about_window_get_developers", false)
+
 	cret := xAboutWindowGetDevelopers(x.GoPointer())
 	return cret
 }
@@ -501,6 +535,8 @@ var xAboutWindowGetDocumenters func(uintptr) []string
 
 // Gets the list of documenters of the application.
 func (x *AboutWindow) GetDocumenters() []string {
+	core.LazyRegister(&xAboutWindowGetDocumenters, "ADW", "adw_about_window_get_documenters", false)
+
 	cret := xAboutWindowGetDocumenters(x.GoPointer())
 	return cret
 }
@@ -509,6 +545,8 @@ var xAboutWindowGetIssueUrl func(uintptr) string
 
 // Gets the issue tracker URL for @self.
 func (x *AboutWindow) GetIssueUrl() string {
+	core.LazyRegister(&xAboutWindowGetIssueUrl, "ADW", "adw_about_window_get_issue_url", false)
+
 	cret := xAboutWindowGetIssueUrl(x.GoPointer())
 	return cret
 }
@@ -517,6 +555,8 @@ var xAboutWindowGetLicense func(uintptr) string
 
 // Gets the license for @self.
 func (x *AboutWindow) GetLicense() string {
+	core.LazyRegister(&xAboutWindowGetLicense, "ADW", "adw_about_window_get_license", false)
+
 	cret := xAboutWindowGetLicense(x.GoPointer())
 	return cret
 }
@@ -525,6 +565,8 @@ var xAboutWindowGetLicenseType func(uintptr) gtk.License
 
 // Gets the license type for @self.
 func (x *AboutWindow) GetLicenseType() gtk.License {
+	core.LazyRegister(&xAboutWindowGetLicenseType, "ADW", "adw_about_window_get_license_type", false)
+
 	cret := xAboutWindowGetLicenseType(x.GoPointer())
 	return cret
 }
@@ -533,6 +575,8 @@ var xAboutWindowGetReleaseNotes func(uintptr) string
 
 // Gets the release notes for @self.
 func (x *AboutWindow) GetReleaseNotes() string {
+	core.LazyRegister(&xAboutWindowGetReleaseNotes, "ADW", "adw_about_window_get_release_notes", false)
+
 	cret := xAboutWindowGetReleaseNotes(x.GoPointer())
 	return cret
 }
@@ -541,6 +585,8 @@ var xAboutWindowGetReleaseNotesVersion func(uintptr) string
 
 // Gets the version described by the application's release notes.
 func (x *AboutWindow) GetReleaseNotesVersion() string {
+	core.LazyRegister(&xAboutWindowGetReleaseNotesVersion, "ADW", "adw_about_window_get_release_notes_version", false)
+
 	cret := xAboutWindowGetReleaseNotesVersion(x.GoPointer())
 	return cret
 }
@@ -549,6 +595,8 @@ var xAboutWindowGetSupportUrl func(uintptr) string
 
 // Gets the URL of the support page for @self.
 func (x *AboutWindow) GetSupportUrl() string {
+	core.LazyRegister(&xAboutWindowGetSupportUrl, "ADW", "adw_about_window_get_support_url", false)
+
 	cret := xAboutWindowGetSupportUrl(x.GoPointer())
 	return cret
 }
@@ -557,6 +605,8 @@ var xAboutWindowGetTranslatorCredits func(uintptr) string
 
 // Gets the translator credits string.
 func (x *AboutWindow) GetTranslatorCredits() string {
+	core.LazyRegister(&xAboutWindowGetTranslatorCredits, "ADW", "adw_about_window_get_translator_credits", false)
+
 	cret := xAboutWindowGetTranslatorCredits(x.GoPointer())
 	return cret
 }
@@ -565,6 +615,8 @@ var xAboutWindowGetVersion func(uintptr) string
 
 // Gets the version for @self.
 func (x *AboutWindow) GetVersion() string {
+	core.LazyRegister(&xAboutWindowGetVersion, "ADW", "adw_about_window_get_version", false)
+
 	cret := xAboutWindowGetVersion(x.GoPointer())
 	return cret
 }
@@ -573,6 +625,8 @@ var xAboutWindowGetWebsite func(uintptr) string
 
 // Gets the application website URL for @self.
 func (x *AboutWindow) GetWebsite() string {
+	core.LazyRegister(&xAboutWindowGetWebsite, "ADW", "adw_about_window_get_website", false)
+
 	cret := xAboutWindowGetWebsite(x.GoPointer())
 	return cret
 }
@@ -583,6 +637,8 @@ var xAboutWindowSetApplicationIcon func(uintptr, string)
 //
 // The icon is displayed at the top of the main page.
 func (x *AboutWindow) SetApplicationIcon(ApplicationIconVar string) {
+	core.LazyRegister(&xAboutWindowSetApplicationIcon, "ADW", "adw_about_window_set_application_icon", false)
+
 	xAboutWindowSetApplicationIcon(x.GoPointer(), ApplicationIconVar)
 }
 
@@ -592,6 +648,8 @@ var xAboutWindowSetApplicationName func(uintptr, string)
 //
 // The name is displayed at the top of the main page.
 func (x *AboutWindow) SetApplicationName(ApplicationNameVar string) {
+	core.LazyRegister(&xAboutWindowSetApplicationName, "ADW", "adw_about_window_set_application_name", false)
+
 	xAboutWindowSetApplicationName(x.GoPointer(), ApplicationNameVar)
 }
 
@@ -613,6 +671,8 @@ var xAboutWindowSetArtists func(uintptr, []string)
 // * [method@AboutWindow.add_credit_section]
 // * [method@AboutWindow.add_acknowledgement_section]
 func (x *AboutWindow) SetArtists(ArtistsVar []string) {
+	core.LazyRegister(&xAboutWindowSetArtists, "ADW", "adw_about_window_set_artists", false)
+
 	xAboutWindowSetArtists(x.GoPointer(), ArtistsVar)
 }
 
@@ -625,6 +685,8 @@ var xAboutWindowSetComments func(uintptr, string)
 // Unlike [property@Gtk.AboutDialog:comments], this string can be long and
 // detailed. It can also contain links and Pango markup.
 func (x *AboutWindow) SetComments(CommentsVar string) {
+	core.LazyRegister(&xAboutWindowSetComments, "ADW", "adw_about_window_set_comments", false)
+
 	xAboutWindowSetComments(x.GoPointer(), CommentsVar)
 }
 
@@ -641,6 +703,8 @@ var xAboutWindowSetCopyright func(uintptr, string)
 // [method@AboutWindow.add_legal_section] can be used to add copyright
 // information for the application dependencies or other components.
 func (x *AboutWindow) SetCopyright(CopyrightVar string) {
+	core.LazyRegister(&xAboutWindowSetCopyright, "ADW", "adw_about_window_set_copyright", false)
+
 	xAboutWindowSetCopyright(x.GoPointer(), CopyrightVar)
 }
 
@@ -658,6 +722,8 @@ var xAboutWindowSetDebugInfo func(uintptr, string)
 //
 // Debug information cannot contain markup or links.
 func (x *AboutWindow) SetDebugInfo(DebugInfoVar string) {
+	core.LazyRegister(&xAboutWindowSetDebugInfo, "ADW", "adw_about_window_set_debug_info", false)
+
 	xAboutWindowSetDebugInfo(x.GoPointer(), DebugInfoVar)
 }
 
@@ -670,6 +736,8 @@ var xAboutWindowSetDebugInfoFilename func(uintptr, string)
 //
 // See [property@AboutWindow:debug-info].
 func (x *AboutWindow) SetDebugInfoFilename(FilenameVar string) {
+	core.LazyRegister(&xAboutWindowSetDebugInfoFilename, "ADW", "adw_about_window_set_debug_info_filename", false)
+
 	xAboutWindowSetDebugInfoFilename(x.GoPointer(), FilenameVar)
 }
 
@@ -691,6 +759,8 @@ var xAboutWindowSetDesigners func(uintptr, []string)
 // * [method@AboutWindow.add_credit_section]
 // * [method@AboutWindow.add_acknowledgement_section]
 func (x *AboutWindow) SetDesigners(DesignersVar []string) {
+	core.LazyRegister(&xAboutWindowSetDesigners, "ADW", "adw_about_window_set_designers", false)
+
 	xAboutWindowSetDesigners(x.GoPointer(), DesignersVar)
 }
 
@@ -705,6 +775,8 @@ var xAboutWindowSetDeveloperName func(uintptr, string)
 // "The AppName project", and the individual contributors can be listed on the
 // Credits page, with [property@AboutWindow:developers] and related properties.
 func (x *AboutWindow) SetDeveloperName(DeveloperNameVar string) {
+	core.LazyRegister(&xAboutWindowSetDeveloperName, "ADW", "adw_about_window_set_developer_name", false)
+
 	xAboutWindowSetDeveloperName(x.GoPointer(), DeveloperNameVar)
 }
 
@@ -726,6 +798,8 @@ var xAboutWindowSetDevelopers func(uintptr, []string)
 // * [method@AboutWindow.add_credit_section]
 // * [method@AboutWindow.add_acknowledgement_section]
 func (x *AboutWindow) SetDevelopers(DevelopersVar []string) {
+	core.LazyRegister(&xAboutWindowSetDevelopers, "ADW", "adw_about_window_set_developers", false)
+
 	xAboutWindowSetDevelopers(x.GoPointer(), DevelopersVar)
 }
 
@@ -747,6 +821,8 @@ var xAboutWindowSetDocumenters func(uintptr, []string)
 // * [method@AboutWindow.add_credit_section]
 // * [method@AboutWindow.add_acknowledgement_section]
 func (x *AboutWindow) SetDocumenters(DocumentersVar []string) {
+	core.LazyRegister(&xAboutWindowSetDocumenters, "ADW", "adw_about_window_set_documenters", false)
+
 	xAboutWindowSetDocumenters(x.GoPointer(), DocumentersVar)
 }
 
@@ -756,6 +832,8 @@ var xAboutWindowSetIssueUrl func(uintptr, string)
 //
 // The issue tracker link is displayed on the main page.
 func (x *AboutWindow) SetIssueUrl(IssueUrlVar string) {
+	core.LazyRegister(&xAboutWindowSetIssueUrl, "ADW", "adw_about_window_set_issue_url", false)
+
 	xAboutWindowSetIssueUrl(x.GoPointer(), IssueUrlVar)
 }
 
@@ -777,6 +855,8 @@ var xAboutWindowSetLicense func(uintptr, string)
 // [method@AboutWindow.add_legal_section] can be used to add license information
 // for the application dependencies or other components.
 func (x *AboutWindow) SetLicense(LicenseVar string) {
+	core.LazyRegister(&xAboutWindowSetLicense, "ADW", "adw_about_window_set_license", false)
+
 	xAboutWindowSetLicense(x.GoPointer(), LicenseVar)
 }
 
@@ -799,6 +879,8 @@ var xAboutWindowSetLicenseType func(uintptr, gtk.License)
 // [method@AboutWindow.add_legal_section] can be used to add license information
 // for the application dependencies or other components.
 func (x *AboutWindow) SetLicenseType(LicenseTypeVar gtk.License) {
+	core.LazyRegister(&xAboutWindowSetLicenseType, "ADW", "adw_about_window_set_license_type", false)
+
 	xAboutWindowSetLicenseType(x.GoPointer(), LicenseTypeVar)
 }
 
@@ -829,6 +911,8 @@ var xAboutWindowSetReleaseNotes func(uintptr, string)
 // [property@AboutWindow:release-notes-version] of the property will be used
 // as the version; otherwise, [property@AboutWindow:version] is used.
 func (x *AboutWindow) SetReleaseNotes(ReleaseNotesVar string) {
+	core.LazyRegister(&xAboutWindowSetReleaseNotes, "ADW", "adw_about_window_set_release_notes", false)
+
 	xAboutWindowSetReleaseNotes(x.GoPointer(), ReleaseNotesVar)
 }
 
@@ -847,6 +931,8 @@ var xAboutWindowSetReleaseNotesVersion func(uintptr, string)
 //
 // See [property@AboutWindow:release-notes].
 func (x *AboutWindow) SetReleaseNotesVersion(VersionVar string) {
+	core.LazyRegister(&xAboutWindowSetReleaseNotesVersion, "ADW", "adw_about_window_set_release_notes_version", false)
+
 	xAboutWindowSetReleaseNotesVersion(x.GoPointer(), VersionVar)
 }
 
@@ -856,6 +942,8 @@ var xAboutWindowSetSupportUrl func(uintptr, string)
 //
 // The support page link is displayed on the main page.
 func (x *AboutWindow) SetSupportUrl(SupportUrlVar string) {
+	core.LazyRegister(&xAboutWindowSetSupportUrl, "ADW", "adw_about_window_set_support_url", false)
+
 	xAboutWindowSetSupportUrl(x.GoPointer(), SupportUrlVar)
 }
 
@@ -881,6 +969,8 @@ var xAboutWindowSetTranslatorCredits func(uintptr, string)
 // * [method@AboutWindow.add_credit_section]
 // * [method@AboutWindow.add_acknowledgement_section]
 func (x *AboutWindow) SetTranslatorCredits(TranslatorCreditsVar string) {
+	core.LazyRegister(&xAboutWindowSetTranslatorCredits, "ADW", "adw_about_window_set_translator_credits", false)
+
 	xAboutWindowSetTranslatorCredits(x.GoPointer(), TranslatorCreditsVar)
 }
 
@@ -893,6 +983,8 @@ var xAboutWindowSetVersion func(uintptr, string)
 // If [property@AboutWindow:release-notes-version] is not set, the version will
 // also be displayed above the release notes on the What's New page.
 func (x *AboutWindow) SetVersion(VersionVar string) {
+	core.LazyRegister(&xAboutWindowSetVersion, "ADW", "adw_about_window_set_version", false)
+
 	xAboutWindowSetVersion(x.GoPointer(), VersionVar)
 }
 
@@ -905,6 +997,8 @@ var xAboutWindowSetWebsite func(uintptr, string)
 //
 // Applications can add other links below, see [method@AboutWindow.add_link].
 func (x *AboutWindow) SetWebsite(WebsiteVar string) {
+	core.LazyRegister(&xAboutWindowSetWebsite, "ADW", "adw_about_window_set_website", false)
+
 	xAboutWindowSetWebsite(x.GoPointer(), WebsiteVar)
 }
 
@@ -1986,65 +2080,4 @@ func (x *AboutWindow) SetFocus(FocusVar *gtk.Widget) {
 func init() {
 	core.SetPackageName("ADW", "libadwaita-1")
 	core.SetSharedLibraries("ADW", []string{"libadwaita-1.so.0", "libadwaita-1.0.dylib"})
-	var libs []uintptr
-	for _, libPath := range core.GetPaths("ADW") {
-		lib, err := purego.Dlopen(libPath, purego.RTLD_NOW|purego.RTLD_GLOBAL)
-		if err != nil {
-			panic(err)
-		}
-		libs = append(libs, lib)
-	}
-
-	core.PuregoSafeRegister(&xShowAboutWindow, libs, "adw_show_about_window")
-	core.PuregoSafeRegister(&xShowAboutWindowFromAppdata, libs, "adw_show_about_window_from_appdata")
-
-	core.PuregoSafeRegister(&xAboutWindowGLibType, libs, "adw_about_window_get_type")
-
-	core.PuregoSafeRegister(&xNewAboutWindow, libs, "adw_about_window_new")
-	core.PuregoSafeRegister(&xNewAboutWindowFromAppdata, libs, "adw_about_window_new_from_appdata")
-
-	core.PuregoSafeRegister(&xAboutWindowAddAcknowledgementSection, libs, "adw_about_window_add_acknowledgement_section")
-	core.PuregoSafeRegister(&xAboutWindowAddCreditSection, libs, "adw_about_window_add_credit_section")
-	core.PuregoSafeRegister(&xAboutWindowAddLegalSection, libs, "adw_about_window_add_legal_section")
-	core.PuregoSafeRegister(&xAboutWindowAddLink, libs, "adw_about_window_add_link")
-	core.PuregoSafeRegister(&xAboutWindowGetApplicationIcon, libs, "adw_about_window_get_application_icon")
-	core.PuregoSafeRegister(&xAboutWindowGetApplicationName, libs, "adw_about_window_get_application_name")
-	core.PuregoSafeRegister(&xAboutWindowGetArtists, libs, "adw_about_window_get_artists")
-	core.PuregoSafeRegister(&xAboutWindowGetComments, libs, "adw_about_window_get_comments")
-	core.PuregoSafeRegister(&xAboutWindowGetCopyright, libs, "adw_about_window_get_copyright")
-	core.PuregoSafeRegister(&xAboutWindowGetDebugInfo, libs, "adw_about_window_get_debug_info")
-	core.PuregoSafeRegister(&xAboutWindowGetDebugInfoFilename, libs, "adw_about_window_get_debug_info_filename")
-	core.PuregoSafeRegister(&xAboutWindowGetDesigners, libs, "adw_about_window_get_designers")
-	core.PuregoSafeRegister(&xAboutWindowGetDeveloperName, libs, "adw_about_window_get_developer_name")
-	core.PuregoSafeRegister(&xAboutWindowGetDevelopers, libs, "adw_about_window_get_developers")
-	core.PuregoSafeRegister(&xAboutWindowGetDocumenters, libs, "adw_about_window_get_documenters")
-	core.PuregoSafeRegister(&xAboutWindowGetIssueUrl, libs, "adw_about_window_get_issue_url")
-	core.PuregoSafeRegister(&xAboutWindowGetLicense, libs, "adw_about_window_get_license")
-	core.PuregoSafeRegister(&xAboutWindowGetLicenseType, libs, "adw_about_window_get_license_type")
-	core.PuregoSafeRegister(&xAboutWindowGetReleaseNotes, libs, "adw_about_window_get_release_notes")
-	core.PuregoSafeRegister(&xAboutWindowGetReleaseNotesVersion, libs, "adw_about_window_get_release_notes_version")
-	core.PuregoSafeRegister(&xAboutWindowGetSupportUrl, libs, "adw_about_window_get_support_url")
-	core.PuregoSafeRegister(&xAboutWindowGetTranslatorCredits, libs, "adw_about_window_get_translator_credits")
-	core.PuregoSafeRegister(&xAboutWindowGetVersion, libs, "adw_about_window_get_version")
-	core.PuregoSafeRegister(&xAboutWindowGetWebsite, libs, "adw_about_window_get_website")
-	core.PuregoSafeRegister(&xAboutWindowSetApplicationIcon, libs, "adw_about_window_set_application_icon")
-	core.PuregoSafeRegister(&xAboutWindowSetApplicationName, libs, "adw_about_window_set_application_name")
-	core.PuregoSafeRegister(&xAboutWindowSetArtists, libs, "adw_about_window_set_artists")
-	core.PuregoSafeRegister(&xAboutWindowSetComments, libs, "adw_about_window_set_comments")
-	core.PuregoSafeRegister(&xAboutWindowSetCopyright, libs, "adw_about_window_set_copyright")
-	core.PuregoSafeRegister(&xAboutWindowSetDebugInfo, libs, "adw_about_window_set_debug_info")
-	core.PuregoSafeRegister(&xAboutWindowSetDebugInfoFilename, libs, "adw_about_window_set_debug_info_filename")
-	core.PuregoSafeRegister(&xAboutWindowSetDesigners, libs, "adw_about_window_set_designers")
-	core.PuregoSafeRegister(&xAboutWindowSetDeveloperName, libs, "adw_about_window_set_developer_name")
-	core.PuregoSafeRegister(&xAboutWindowSetDevelopers, libs, "adw_about_window_set_developers")
-	core.PuregoSafeRegister(&xAboutWindowSetDocumenters, libs, "adw_about_window_set_documenters")
-	core.PuregoSafeRegister(&xAboutWindowSetIssueUrl, libs, "adw_about_window_set_issue_url")
-	core.PuregoSafeRegister(&xAboutWindowSetLicense, libs, "adw_about_window_set_license")
-	core.PuregoSafeRegister(&xAboutWindowSetLicenseType, libs, "adw_about_window_set_license_type")
-	core.PuregoSafeRegister(&xAboutWindowSetReleaseNotes, libs, "adw_about_window_set_release_notes")
-	core.PuregoSafeRegister(&xAboutWindowSetReleaseNotesVersion, libs, "adw_about_window_set_release_notes_version")
-	core.PuregoSafeRegister(&xAboutWindowSetSupportUrl, libs, "adw_about_window_set_support_url")
-	core.PuregoSafeRegister(&xAboutWindowSetTranslatorCredits, libs, "adw_about_window_set_translator_credits")
-	core.PuregoSafeRegister(&xAboutWindowSetVersion, libs, "adw_about_window_set_version")
-	core.PuregoSafeRegister(&xAboutWindowSetWebsite, libs, "adw_about_window_set_website")
 }

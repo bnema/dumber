@@ -2,7 +2,6 @@
 package gtk
 
 import (
-	"github.com/bnema/purego"
 	"github.com/bnema/puregotk/pkg/core"
 	"github.com/bnema/puregotk/v4/gobject"
 	"github.com/bnema/puregotk/v4/gobject/types"
@@ -29,6 +28,7 @@ type CellRendererPixbuf struct {
 var xCellRendererPixbufGLibType func() types.GType
 
 func CellRendererPixbufGLibType() types.GType {
+	core.LazyRegister(&xCellRendererPixbufGLibType, "GTK", "gtk_cell_renderer_pixbuf_get_type", false)
 	return xCellRendererPixbufGLibType()
 }
 
@@ -48,6 +48,7 @@ var xNewCellRendererPixbuf func() uintptr
 // in the model, thus rendering a different image in each row of the
 // `GtkTreeView`.
 func NewCellRendererPixbuf() *CellRendererPixbuf {
+	core.LazyRegister(&xNewCellRendererPixbuf, "GTK", "gtk_cell_renderer_pixbuf_new", false)
 	var cls *CellRendererPixbuf
 
 	cret := xNewCellRendererPixbuf()
@@ -94,16 +95,4 @@ func (x *CellRendererPixbuf) GetPropertyIconName() string {
 func init() {
 	core.SetPackageName("GTK", "gtk4")
 	core.SetSharedLibraries("GTK", []string{"libgtk-4.so.1", "libgtk-4.1.dylib"})
-	var libs []uintptr
-	for _, libPath := range core.GetPaths("GTK") {
-		lib, err := purego.Dlopen(libPath, purego.RTLD_NOW|purego.RTLD_GLOBAL)
-		if err != nil {
-			panic(err)
-		}
-		libs = append(libs, lib)
-	}
-
-	core.PuregoSafeRegister(&xCellRendererPixbufGLibType, libs, "gtk_cell_renderer_pixbuf_get_type")
-
-	core.PuregoSafeRegister(&xNewCellRendererPixbuf, libs, "gtk_cell_renderer_pixbuf_new")
 }

@@ -96,6 +96,7 @@ type PermissionRequest interface {
 var xPermissionRequestGLibType func() types.GType
 
 func PermissionRequestGLibType() types.GType {
+	core.LazyRegister(&xPermissionRequestGLibType, "WEBKIT", "webkit_permission_request_get_type", false)
 	return xPermissionRequestGLibType()
 }
 
@@ -124,30 +125,25 @@ func (x *PermissionRequestBase) Deny() {
 	XWebkitPermissionRequestDeny(x.GoPointer())
 }
 
+var XWebkitPermissionRequestAllow func(uintptr) = func(instance uintptr) {
+	core.LazyRegister(&xXWebkitPermissionRequestAllow, "WEBKIT", "webkit_permission_request_allow", false)
+	xXWebkitPermissionRequestAllow(instance)
+}
+
 var (
-	XWebkitPermissionRequestAllow func(uintptr)
-	XWebkitPermissionRequestDeny  func(uintptr)
+	xXWebkitPermissionRequestAllow func(uintptr)
+	XWebkitPermissionRequestDeny   func(uintptr) = func(instance uintptr) {
+		core.LazyRegister(&xXWebkitPermissionRequestDeny, "WEBKIT", "webkit_permission_request_deny", false)
+		xXWebkitPermissionRequestDeny(instance)
+	}
 )
+var xXWebkitPermissionRequestDeny func(uintptr)
 
 func init() {
 	core.SetPackageName("WEBKIT", "webkitgtk-6.0")
 	core.SetSharedLibraries("WEBKIT", []string{"libwebkitgtk-6.0.so.4", "libjavascriptcoregtk-6.0.so.1", "libwebkitgtk-6.0.4.dylib", "libjavascriptcoregtk-6.0.1.dylib"})
-	var libs []uintptr
-	for _, libPath := range core.GetPaths("WEBKIT") {
-		lib, err := purego.Dlopen(libPath, purego.RTLD_NOW|purego.RTLD_GLOBAL)
-		if err != nil {
-			panic(err)
-		}
-		libs = append(libs, lib)
-	}
 
-	core.PuregoSafeRegister(&xPermissionRequestGLibType, libs, "webkit_permission_request_get_type")
-
-	core.PuregoSafeRegister(&XWebkitPermissionRequestAllow, libs, "webkit_permission_request_allow")
-	core.PuregoSafeRegister(&XWebkitPermissionRequestDeny, libs, "webkit_permission_request_deny")
-
-	// Manually register types since they aren't being automatically registered when
-	// the library is loaded
-	// See https://bugs.webkit.org/show_bug.cgi?id=175937
+	// Manually register types since they aren't automatically registered when
+	// WebKit is loaded. See https://bugs.webkit.org/show_bug.cgi?id=175937.
 	PermissionRequestGLibType()
 }

@@ -5,7 +5,6 @@ import (
 	"structs"
 	"unsafe"
 
-	"github.com/bnema/purego"
 	"github.com/bnema/puregotk/pkg/core"
 	"github.com/bnema/puregotk/v4/gobject/types"
 )
@@ -42,6 +41,7 @@ type DateTime struct {
 var xDateTimeGLibType func() types.GType
 
 func DateTimeGLibType() types.GType {
+	core.LazyRegister(&xDateTimeGLibType, "GLIB", "g_date_time_get_type", false)
 	return xDateTimeGLibType()
 }
 
@@ -88,6 +88,8 @@ var xNewDateTime func(*TimeZone, int, int, int, int, int, float64) uintptr
 // You should release the return value by calling g_date_time_unref()
 // when you are done with it.
 func NewDateTime(TzVar *TimeZone, YearVar int, MonthVar int, DayVar int, HourVar int, MinuteVar int, SecondsVar float64) *DateTime {
+	core.LazyRegister(&xNewDateTime, "GLIB", "g_date_time_new", false)
+
 	cret := xNewDateTime(TzVar, YearVar, MonthVar, DayVar, HourVar, MinuteVar, SecondsVar)
 	if cret == 0 {
 		return nil
@@ -141,6 +143,8 @@ var xNewDateTimeFromIso8601 func(string, *TimeZone) uintptr
 // You should release the return value by calling g_date_time_unref()
 // when you are done with it.
 func NewDateTimeFromIso8601(TextVar string, DefaultTzVar *TimeZone) *DateTime {
+	core.LazyRegister(&xNewDateTimeFromIso8601, "GLIB", "g_date_time_new_from_iso8601", false)
+
 	cret := xNewDateTimeFromIso8601(TextVar, DefaultTzVar)
 	if cret == 0 {
 		return nil
@@ -163,6 +167,8 @@ var xNewDateTimeFromTimevalLocal func(*TimeVal) uintptr
 // You should release the return value by calling g_date_time_unref()
 // when you are done with it.
 func NewDateTimeFromTimevalLocal(TvVar *TimeVal) *DateTime {
+	core.LazyRegister(&xNewDateTimeFromTimevalLocal, "GLIB", "g_date_time_new_from_timeval_local", false)
+
 	cret := xNewDateTimeFromTimevalLocal(TvVar)
 	if cret == 0 {
 		return nil
@@ -183,6 +189,8 @@ var xNewDateTimeFromTimevalUtc func(*TimeVal) uintptr
 // You should release the return value by calling g_date_time_unref()
 // when you are done with it.
 func NewDateTimeFromTimevalUtc(TvVar *TimeVal) *DateTime {
+	core.LazyRegister(&xNewDateTimeFromTimevalUtc, "GLIB", "g_date_time_new_from_timeval_utc", false)
+
 	cret := xNewDateTimeFromTimevalUtc(TvVar)
 	if cret == 0 {
 		return nil
@@ -204,6 +212,8 @@ var xNewDateTimeFromUnixLocal func(int64) uintptr
 // You should release the return value by calling g_date_time_unref()
 // when you are done with it.
 func NewDateTimeFromUnixLocal(TVar int64) *DateTime {
+	core.LazyRegister(&xNewDateTimeFromUnixLocal, "GLIB", "g_date_time_new_from_unix_local", false)
+
 	cret := xNewDateTimeFromUnixLocal(TVar)
 	if cret == 0 {
 		return nil
@@ -225,6 +235,8 @@ var xNewDateTimeFromUnixLocalUsec func(int64) uintptr
 // You should release the return value by calling [method@GLib.DateTime.unref]
 // when you are done with it.
 func NewDateTimeFromUnixLocalUsec(UsecsVar int64) *DateTime {
+	core.LazyRegister(&xNewDateTimeFromUnixLocalUsec, "GLIB", "g_date_time_new_from_unix_local_usec", false)
+
 	cret := xNewDateTimeFromUnixLocalUsec(UsecsVar)
 	if cret == 0 {
 		return nil
@@ -245,6 +257,8 @@ var xNewDateTimeFromUnixUtc func(int64) uintptr
 // You should release the return value by calling g_date_time_unref()
 // when you are done with it.
 func NewDateTimeFromUnixUtc(TVar int64) *DateTime {
+	core.LazyRegister(&xNewDateTimeFromUnixUtc, "GLIB", "g_date_time_new_from_unix_utc", false)
+
 	cret := xNewDateTimeFromUnixUtc(TVar)
 	if cret == 0 {
 		return nil
@@ -265,6 +279,8 @@ var xNewDateTimeFromUnixUtcUsec func(int64) uintptr
 // You should release the return value by calling [method@GLib.DateTime.unref]
 // when you are done with it.
 func NewDateTimeFromUnixUtcUsec(UsecsVar int64) *DateTime {
+	core.LazyRegister(&xNewDateTimeFromUnixUtcUsec, "GLIB", "g_date_time_new_from_unix_utc_usec", false)
+
 	cret := xNewDateTimeFromUnixUtcUsec(UsecsVar)
 	if cret == 0 {
 		return nil
@@ -280,6 +296,8 @@ var xNewDateTimeLocal func(int, int, int, int, int, float64) uintptr
 // This call is equivalent to calling g_date_time_new() with the time
 // zone returned by g_time_zone_new_local().
 func NewDateTimeLocal(YearVar int, MonthVar int, DayVar int, HourVar int, MinuteVar int, SecondsVar float64) *DateTime {
+	core.LazyRegister(&xNewDateTimeLocal, "GLIB", "g_date_time_new_local", false)
+
 	cret := xNewDateTimeLocal(YearVar, MonthVar, DayVar, HourVar, MinuteVar, SecondsVar)
 	if cret == 0 {
 		return nil
@@ -299,6 +317,8 @@ var xNewDateTimeNow func(*TimeZone) uintptr
 // You should release the return value by calling g_date_time_unref()
 // when you are done with it.
 func NewDateTimeNow(TzVar *TimeZone) *DateTime {
+	core.LazyRegister(&xNewDateTimeNow, "GLIB", "g_date_time_new_now", false)
+
 	cret := xNewDateTimeNow(TzVar)
 	if cret == 0 {
 		return nil
@@ -314,6 +334,8 @@ var xNewDateTimeNowLocal func() uintptr
 // This is equivalent to calling g_date_time_new_now() with the time
 // zone returned by g_time_zone_new_local().
 func NewDateTimeNowLocal() *DateTime {
+	core.LazyRegister(&xNewDateTimeNowLocal, "GLIB", "g_date_time_new_now_local", false)
+
 	cret := xNewDateTimeNowLocal()
 	if cret == 0 {
 		return nil
@@ -328,6 +350,8 @@ var xNewDateTimeNowUtc func() uintptr
 // This is equivalent to calling g_date_time_new_now() with the time
 // zone returned by g_time_zone_new_utc().
 func NewDateTimeNowUtc() *DateTime {
+	core.LazyRegister(&xNewDateTimeNowUtc, "GLIB", "g_date_time_new_now_utc", false)
+
 	cret := xNewDateTimeNowUtc()
 	if cret == 0 {
 		return nil
@@ -343,6 +367,8 @@ var xNewDateTimeUtc func(int, int, int, int, int, float64) uintptr
 // This call is equivalent to calling g_date_time_new() with the time
 // zone returned by g_time_zone_new_utc().
 func NewDateTimeUtc(YearVar int, MonthVar int, DayVar int, HourVar int, MinuteVar int, SecondsVar float64) *DateTime {
+	core.LazyRegister(&xNewDateTimeUtc, "GLIB", "g_date_time_new_utc", false)
+
 	cret := xNewDateTimeUtc(YearVar, MonthVar, DayVar, HourVar, MinuteVar, SecondsVar)
 	if cret == 0 {
 		return nil
@@ -354,6 +380,8 @@ var xDateTimeAdd func(uintptr, TimeSpan) uintptr
 
 // Creates a copy of @datetime and adds the specified timespan to the copy.
 func (x *DateTime) Add(TimespanVar TimeSpan) *DateTime {
+	core.LazyRegister(&xDateTimeAdd, "GLIB", "g_date_time_add", false)
+
 	cret := xDateTimeAdd(x.GoPointer(), TimespanVar)
 	if cret == 0 {
 		return nil
@@ -366,6 +394,8 @@ var xDateTimeAddDays func(uintptr, int) uintptr
 // Creates a copy of @datetime and adds the specified number of days to the
 // copy. Add negative values to subtract days.
 func (x *DateTime) AddDays(DaysVar int) *DateTime {
+	core.LazyRegister(&xDateTimeAddDays, "GLIB", "g_date_time_add_days", false)
+
 	cret := xDateTimeAddDays(x.GoPointer(), DaysVar)
 	if cret == 0 {
 		return nil
@@ -378,6 +408,8 @@ var xDateTimeAddFull func(uintptr, int, int, int, int, int, float64) uintptr
 // Creates a new #GDateTime adding the specified values to the current date and
 // time in @datetime. Add negative values to subtract.
 func (x *DateTime) AddFull(YearsVar int, MonthsVar int, DaysVar int, HoursVar int, MinutesVar int, SecondsVar float64) *DateTime {
+	core.LazyRegister(&xDateTimeAddFull, "GLIB", "g_date_time_add_full", false)
+
 	cret := xDateTimeAddFull(x.GoPointer(), YearsVar, MonthsVar, DaysVar, HoursVar, MinutesVar, SecondsVar)
 	if cret == 0 {
 		return nil
@@ -390,6 +422,8 @@ var xDateTimeAddHours func(uintptr, int) uintptr
 // Creates a copy of @datetime and adds the specified number of hours.
 // Add negative values to subtract hours.
 func (x *DateTime) AddHours(HoursVar int) *DateTime {
+	core.LazyRegister(&xDateTimeAddHours, "GLIB", "g_date_time_add_hours", false)
+
 	cret := xDateTimeAddHours(x.GoPointer(), HoursVar)
 	if cret == 0 {
 		return nil
@@ -402,6 +436,8 @@ var xDateTimeAddMinutes func(uintptr, int) uintptr
 // Creates a copy of @datetime adding the specified number of minutes.
 // Add negative values to subtract minutes.
 func (x *DateTime) AddMinutes(MinutesVar int) *DateTime {
+	core.LazyRegister(&xDateTimeAddMinutes, "GLIB", "g_date_time_add_minutes", false)
+
 	cret := xDateTimeAddMinutes(x.GoPointer(), MinutesVar)
 	if cret == 0 {
 		return nil
@@ -419,6 +455,8 @@ var xDateTimeAddMonths func(uintptr, int) uintptr
 // 31st January 2018, the result would be 28th February 2018. In 2020 (a leap
 // year), the result would be 29th February.
 func (x *DateTime) AddMonths(MonthsVar int) *DateTime {
+	core.LazyRegister(&xDateTimeAddMonths, "GLIB", "g_date_time_add_months", false)
+
 	cret := xDateTimeAddMonths(x.GoPointer(), MonthsVar)
 	if cret == 0 {
 		return nil
@@ -431,6 +469,8 @@ var xDateTimeAddSeconds func(uintptr, float64) uintptr
 // Creates a copy of @datetime and adds the specified number of seconds.
 // Add negative values to subtract seconds.
 func (x *DateTime) AddSeconds(SecondsVar float64) *DateTime {
+	core.LazyRegister(&xDateTimeAddSeconds, "GLIB", "g_date_time_add_seconds", false)
+
 	cret := xDateTimeAddSeconds(x.GoPointer(), SecondsVar)
 	if cret == 0 {
 		return nil
@@ -443,6 +483,8 @@ var xDateTimeAddWeeks func(uintptr, int) uintptr
 // Creates a copy of @datetime and adds the specified number of weeks to the
 // copy. Add negative values to subtract weeks.
 func (x *DateTime) AddWeeks(WeeksVar int) *DateTime {
+	core.LazyRegister(&xDateTimeAddWeeks, "GLIB", "g_date_time_add_weeks", false)
+
 	cret := xDateTimeAddWeeks(x.GoPointer(), WeeksVar)
 	if cret == 0 {
 		return nil
@@ -458,6 +500,8 @@ var xDateTimeAddYears func(uintptr, int) uintptr
 // As with g_date_time_add_months(), if the resulting date would be 29th
 // February on a non-leap year, the day will be clamped to 28th February.
 func (x *DateTime) AddYears(YearsVar int) *DateTime {
+	core.LazyRegister(&xDateTimeAddYears, "GLIB", "g_date_time_add_years", false)
+
 	cret := xDateTimeAddYears(x.GoPointer(), YearsVar)
 	if cret == 0 {
 		return nil
@@ -470,6 +514,8 @@ var xDateTimeCompare func(uintptr, uintptr) int
 // A comparison function for #GDateTimes that is suitable
 // as a #GCompareFunc. Both #GDateTimes must be non-%NULL.
 func (x *DateTime) Compare(Dt2Var uintptr) int {
+	core.LazyRegister(&xDateTimeCompare, "GLIB", "g_date_time_compare", false)
+
 	cret := xDateTimeCompare(x.GoPointer(), Dt2Var)
 	return cret
 }
@@ -480,6 +526,8 @@ var xDateTimeDifference func(uintptr, *DateTime) TimeSpan
 // #GTimeSpan that is returned is effectively @end - @begin (ie:
 // positive if the first parameter is larger).
 func (x *DateTime) Difference(BeginVar *DateTime) TimeSpan {
+	core.LazyRegister(&xDateTimeDifference, "GLIB", "g_date_time_difference", false)
+
 	cret := xDateTimeDifference(x.GoPointer(), BeginVar)
 	return cret
 }
@@ -491,6 +539,8 @@ var xDateTimeEqual func(uintptr, uintptr) bool
 // Equal here means that they represent the same moment after converting
 // them to the same time zone.
 func (x *DateTime) Equal(Dt2Var uintptr) bool {
+	core.LazyRegister(&xDateTimeEqual, "GLIB", "g_date_time_equal", false)
+
 	cret := xDateTimeEqual(x.GoPointer(), Dt2Var)
 	return cret
 }
@@ -622,6 +672,8 @@ var xDateTimeFormat func(uintptr, string) string
 //     specifier
 //   - `%EY`: the full alternative year representation
 func (x *DateTime) Format(FormatVar string) string {
+	core.LazyRegister(&xDateTimeFormat, "GLIB", "g_date_time_format", false)
+
 	cret := xDateTimeFormat(x.GoPointer(), FormatVar)
 	return cret
 }
@@ -634,6 +686,8 @@ var xDateTimeFormatIso8601 func(uintptr) string
 //
 // Since GLib 2.66, this will output to sub-second precision if needed.
 func (x *DateTime) FormatIso8601() string {
+	core.LazyRegister(&xDateTimeFormatIso8601, "GLIB", "g_date_time_format_iso8601", false)
+
 	cret := xDateTimeFormatIso8601(x.GoPointer())
 	return cret
 }
@@ -643,6 +697,8 @@ var xDateTimeGetDayOfMonth func(uintptr) int
 // Retrieves the day of the month represented by @datetime in the gregorian
 // calendar.
 func (x *DateTime) GetDayOfMonth() int {
+	core.LazyRegister(&xDateTimeGetDayOfMonth, "GLIB", "g_date_time_get_day_of_month", false)
+
 	cret := xDateTimeGetDayOfMonth(x.GoPointer())
 	return cret
 }
@@ -652,6 +708,8 @@ var xDateTimeGetDayOfWeek func(uintptr) int
 // Retrieves the ISO 8601 day of the week on which @datetime falls (1 is
 // Monday, 2 is Tuesday... 7 is Sunday).
 func (x *DateTime) GetDayOfWeek() int {
+	core.LazyRegister(&xDateTimeGetDayOfWeek, "GLIB", "g_date_time_get_day_of_week", false)
+
 	cret := xDateTimeGetDayOfWeek(x.GoPointer())
 	return cret
 }
@@ -661,6 +719,8 @@ var xDateTimeGetDayOfYear func(uintptr) int
 // Retrieves the day of the year represented by @datetime in the Gregorian
 // calendar.
 func (x *DateTime) GetDayOfYear() int {
+	core.LazyRegister(&xDateTimeGetDayOfYear, "GLIB", "g_date_time_get_day_of_year", false)
+
 	cret := xDateTimeGetDayOfYear(x.GoPointer())
 	return cret
 }
@@ -669,6 +729,8 @@ var xDateTimeGetHour func(uintptr) int
 
 // Retrieves the hour of the day represented by @datetime
 func (x *DateTime) GetHour() int {
+	core.LazyRegister(&xDateTimeGetHour, "GLIB", "g_date_time_get_hour", false)
+
 	cret := xDateTimeGetHour(x.GoPointer())
 	return cret
 }
@@ -677,6 +739,8 @@ var xDateTimeGetMicrosecond func(uintptr) int
 
 // Retrieves the microsecond of the date represented by @datetime
 func (x *DateTime) GetMicrosecond() int {
+	core.LazyRegister(&xDateTimeGetMicrosecond, "GLIB", "g_date_time_get_microsecond", false)
+
 	cret := xDateTimeGetMicrosecond(x.GoPointer())
 	return cret
 }
@@ -685,6 +749,8 @@ var xDateTimeGetMinute func(uintptr) int
 
 // Retrieves the minute of the hour represented by @datetime
 func (x *DateTime) GetMinute() int {
+	core.LazyRegister(&xDateTimeGetMinute, "GLIB", "g_date_time_get_minute", false)
+
 	cret := xDateTimeGetMinute(x.GoPointer())
 	return cret
 }
@@ -694,6 +760,8 @@ var xDateTimeGetMonth func(uintptr) int
 // Retrieves the month of the year represented by @datetime in the Gregorian
 // calendar.
 func (x *DateTime) GetMonth() int {
+	core.LazyRegister(&xDateTimeGetMonth, "GLIB", "g_date_time_get_month", false)
+
 	cret := xDateTimeGetMonth(x.GoPointer())
 	return cret
 }
@@ -702,6 +770,8 @@ var xDateTimeGetSecond func(uintptr) int
 
 // Retrieves the second of the minute represented by @datetime
 func (x *DateTime) GetSecond() int {
+	core.LazyRegister(&xDateTimeGetSecond, "GLIB", "g_date_time_get_second", false)
+
 	cret := xDateTimeGetSecond(x.GoPointer())
 	return cret
 }
@@ -711,6 +781,8 @@ var xDateTimeGetSeconds func(uintptr) float64
 // Retrieves the number of seconds since the start of the last minute,
 // including the fractional part.
 func (x *DateTime) GetSeconds() float64 {
+	core.LazyRegister(&xDateTimeGetSeconds, "GLIB", "g_date_time_get_seconds", false)
+
 	cret := xDateTimeGetSeconds(x.GoPointer())
 	return cret
 }
@@ -719,6 +791,8 @@ var xDateTimeGetTimezone func(uintptr) uintptr
 
 // Get the time zone for this @datetime.
 func (x *DateTime) GetTimezone() *TimeZone {
+	core.LazyRegister(&xDateTimeGetTimezone, "GLIB", "g_date_time_get_timezone", false)
+
 	cret := xDateTimeGetTimezone(x.GoPointer())
 	if cret == 0 {
 		return nil
@@ -735,6 +809,8 @@ var xDateTimeGetTimezoneAbbreviation func(uintptr) string
 // months and "EDT" during the summer months when daylight savings
 // time is in effect.
 func (x *DateTime) GetTimezoneAbbreviation() string {
+	core.LazyRegister(&xDateTimeGetTimezoneAbbreviation, "GLIB", "g_date_time_get_timezone_abbreviation", false)
+
 	cret := xDateTimeGetTimezoneAbbreviation(x.GoPointer())
 	return cret
 }
@@ -750,6 +826,8 @@ var xDateTimeGetUtcOffset func(uintptr) TimeSpan
 //
 // If @datetime represents UTC time, then the offset is always zero.
 func (x *DateTime) GetUtcOffset() TimeSpan {
+	core.LazyRegister(&xDateTimeGetUtcOffset, "GLIB", "g_date_time_get_utc_offset", false)
+
 	cret := xDateTimeGetUtcOffset(x.GoPointer())
 	return cret
 }
@@ -788,6 +866,8 @@ var xDateTimeGetWeekNumberingYear func(uintptr) int
 // Note that January 1 0001 in the proleptic Gregorian calendar is a
 // Monday, so this function never returns 0.
 func (x *DateTime) GetWeekNumberingYear() int {
+	core.LazyRegister(&xDateTimeGetWeekNumberingYear, "GLIB", "g_date_time_get_week_numbering_year", false)
+
 	cret := xDateTimeGetWeekNumberingYear(x.GoPointer())
 	return cret
 }
@@ -810,6 +890,8 @@ var xDateTimeGetWeekOfYear func(uintptr) int
 // considered as being part of the first ISO 8601 week of the next year
 // if 4 or more days of that week are contained within the new year.
 func (x *DateTime) GetWeekOfYear() int {
+	core.LazyRegister(&xDateTimeGetWeekOfYear, "GLIB", "g_date_time_get_week_of_year", false)
+
 	cret := xDateTimeGetWeekOfYear(x.GoPointer())
 	return cret
 }
@@ -818,6 +900,8 @@ var xDateTimeGetYear func(uintptr) int
 
 // Retrieves the year represented by @datetime in the Gregorian calendar.
 func (x *DateTime) GetYear() int {
+	core.LazyRegister(&xDateTimeGetYear, "GLIB", "g_date_time_get_year", false)
+
 	cret := xDateTimeGetYear(x.GoPointer())
 	return cret
 }
@@ -826,6 +910,8 @@ var xDateTimeGetYmd func(uintptr, *int, *int, *int)
 
 // Retrieves the Gregorian day, month, and year of a given #GDateTime.
 func (x *DateTime) GetYmd(YearVar *int, MonthVar *int, DayVar *int) {
+	core.LazyRegister(&xDateTimeGetYmd, "GLIB", "g_date_time_get_ymd", false)
+
 	xDateTimeGetYmd(x.GoPointer(), YearVar, MonthVar, DayVar)
 }
 
@@ -833,6 +919,8 @@ var xDateTimeHash func(uintptr) uint
 
 // Hashes @datetime into a #guint, suitable for use within #GHashTable.
 func (x *DateTime) Hash() uint {
+	core.LazyRegister(&xDateTimeHash, "GLIB", "g_date_time_hash", false)
+
 	cret := xDateTimeHash(x.GoPointer())
 	return cret
 }
@@ -842,6 +930,8 @@ var xDateTimeIsDaylightSavings func(uintptr) bool
 // Determines if daylight savings time is in effect at the time and in
 // the time zone of @datetime.
 func (x *DateTime) IsDaylightSavings() bool {
+	core.LazyRegister(&xDateTimeIsDaylightSavings, "GLIB", "g_date_time_is_daylight_savings", false)
+
 	cret := xDateTimeIsDaylightSavings(x.GoPointer())
 	return cret
 }
@@ -850,6 +940,8 @@ var xDateTimeRef func(uintptr) uintptr
 
 // Atomically increments the reference count of @datetime by one.
 func (x *DateTime) Ref() *DateTime {
+	core.LazyRegister(&xDateTimeRef, "GLIB", "g_date_time_ref", false)
+
 	cret := xDateTimeRef(x.GoPointer())
 	if cret == 0 {
 		return nil
@@ -865,6 +957,8 @@ var xDateTimeToLocal func(uintptr) uintptr
 // This call is equivalent to calling g_date_time_to_timezone() with the
 // time zone returned by g_time_zone_new_local().
 func (x *DateTime) ToLocal() *DateTime {
+	core.LazyRegister(&xDateTimeToLocal, "GLIB", "g_date_time_to_local", false)
+
 	cret := xDateTimeToLocal(x.GoPointer())
 	if cret == 0 {
 		return nil
@@ -888,6 +982,8 @@ var xDateTimeToTimeval func(uintptr, *TimeVal) bool
 //
 // On systems where 'long' is 64bit, this function never fails.
 func (x *DateTime) ToTimeval(TvVar *TimeVal) bool {
+	core.LazyRegister(&xDateTimeToTimeval, "GLIB", "g_date_time_to_timeval", false)
+
 	cret := xDateTimeToTimeval(x.GoPointer(), TvVar)
 	return cret
 }
@@ -901,6 +997,8 @@ var xDateTimeToTimezone func(uintptr, *TimeZone) uintptr
 // example, converting 0001-01-01 00:00:00 UTC to a time zone west of
 // Greenwich will fail (due to the year 0 being out of range).
 func (x *DateTime) ToTimezone(TzVar *TimeZone) *DateTime {
+	core.LazyRegister(&xDateTimeToTimezone, "GLIB", "g_date_time_to_timezone", false)
+
 	cret := xDateTimeToTimezone(x.GoPointer(), TzVar)
 	if cret == 0 {
 		return nil
@@ -916,6 +1014,8 @@ var xDateTimeToUnix func(uintptr) int64
 // Unix time is the number of seconds that have elapsed since 1970-01-01
 // 00:00:00 UTC, regardless of the time zone associated with @datetime.
 func (x *DateTime) ToUnix() int64 {
+	core.LazyRegister(&xDateTimeToUnix, "GLIB", "g_date_time_to_unix", false)
+
 	cret := xDateTimeToUnix(x.GoPointer())
 	return cret
 }
@@ -927,6 +1027,8 @@ var xDateTimeToUnixUsec func(uintptr) int64
 // Unix time is the number of microseconds that have elapsed since 1970-01-01
 // 00:00:00 UTC, regardless of the time zone associated with @datetime.
 func (x *DateTime) ToUnixUsec() int64 {
+	core.LazyRegister(&xDateTimeToUnixUsec, "GLIB", "g_date_time_to_unix_usec", false)
+
 	cret := xDateTimeToUnixUsec(x.GoPointer())
 	return cret
 }
@@ -939,6 +1041,8 @@ var xDateTimeToUtc func(uintptr) uintptr
 // This call is equivalent to calling g_date_time_to_timezone() with the
 // time zone returned by g_time_zone_new_utc().
 func (x *DateTime) ToUtc() *DateTime {
+	core.LazyRegister(&xDateTimeToUtc, "GLIB", "g_date_time_to_utc", false)
+
 	cret := xDateTimeToUtc(x.GoPointer())
 	if cret == 0 {
 		return nil
@@ -953,6 +1057,8 @@ var xDateTimeUnref func(uintptr)
 // When the reference count reaches zero, the resources allocated by
 // @datetime are freed
 func (x *DateTime) Unref() {
+	core.LazyRegister(&xDateTimeUnref, "GLIB", "g_date_time_unref", false)
+
 	xDateTimeUnref(x.GoPointer())
 }
 
@@ -975,69 +1081,4 @@ const (
 func init() {
 	core.SetPackageName("GLIB", "glib-2.0")
 	core.SetSharedLibraries("GLIB", []string{"libgobject-2.0.so.0", "libglib-2.0.so.0", "libgobject-2.0.0.dylib", "libglib-2.0.0.dylib"})
-	var libs []uintptr
-	for _, libPath := range core.GetPaths("GLIB") {
-		lib, err := purego.Dlopen(libPath, purego.RTLD_NOW|purego.RTLD_GLOBAL)
-		if err != nil {
-			panic(err)
-		}
-		libs = append(libs, lib)
-	}
-
-	core.PuregoSafeRegister(&xDateTimeGLibType, libs, "g_date_time_get_type")
-
-	core.PuregoSafeRegister(&xNewDateTime, libs, "g_date_time_new")
-	core.PuregoSafeRegister(&xNewDateTimeFromIso8601, libs, "g_date_time_new_from_iso8601")
-	core.PuregoSafeRegister(&xNewDateTimeFromTimevalLocal, libs, "g_date_time_new_from_timeval_local")
-	core.PuregoSafeRegister(&xNewDateTimeFromTimevalUtc, libs, "g_date_time_new_from_timeval_utc")
-	core.PuregoSafeRegister(&xNewDateTimeFromUnixLocal, libs, "g_date_time_new_from_unix_local")
-	core.PuregoSafeRegister(&xNewDateTimeFromUnixLocalUsec, libs, "g_date_time_new_from_unix_local_usec")
-	core.PuregoSafeRegister(&xNewDateTimeFromUnixUtc, libs, "g_date_time_new_from_unix_utc")
-	core.PuregoSafeRegister(&xNewDateTimeFromUnixUtcUsec, libs, "g_date_time_new_from_unix_utc_usec")
-	core.PuregoSafeRegister(&xNewDateTimeLocal, libs, "g_date_time_new_local")
-	core.PuregoSafeRegister(&xNewDateTimeNow, libs, "g_date_time_new_now")
-	core.PuregoSafeRegister(&xNewDateTimeNowLocal, libs, "g_date_time_new_now_local")
-	core.PuregoSafeRegister(&xNewDateTimeNowUtc, libs, "g_date_time_new_now_utc")
-	core.PuregoSafeRegister(&xNewDateTimeUtc, libs, "g_date_time_new_utc")
-
-	core.PuregoSafeRegister(&xDateTimeAdd, libs, "g_date_time_add")
-	core.PuregoSafeRegister(&xDateTimeAddDays, libs, "g_date_time_add_days")
-	core.PuregoSafeRegister(&xDateTimeAddFull, libs, "g_date_time_add_full")
-	core.PuregoSafeRegister(&xDateTimeAddHours, libs, "g_date_time_add_hours")
-	core.PuregoSafeRegister(&xDateTimeAddMinutes, libs, "g_date_time_add_minutes")
-	core.PuregoSafeRegister(&xDateTimeAddMonths, libs, "g_date_time_add_months")
-	core.PuregoSafeRegister(&xDateTimeAddSeconds, libs, "g_date_time_add_seconds")
-	core.PuregoSafeRegister(&xDateTimeAddWeeks, libs, "g_date_time_add_weeks")
-	core.PuregoSafeRegister(&xDateTimeAddYears, libs, "g_date_time_add_years")
-	core.PuregoSafeRegister(&xDateTimeCompare, libs, "g_date_time_compare")
-	core.PuregoSafeRegister(&xDateTimeDifference, libs, "g_date_time_difference")
-	core.PuregoSafeRegister(&xDateTimeEqual, libs, "g_date_time_equal")
-	core.PuregoSafeRegister(&xDateTimeFormat, libs, "g_date_time_format")
-	core.PuregoSafeRegister(&xDateTimeFormatIso8601, libs, "g_date_time_format_iso8601")
-	core.PuregoSafeRegister(&xDateTimeGetDayOfMonth, libs, "g_date_time_get_day_of_month")
-	core.PuregoSafeRegister(&xDateTimeGetDayOfWeek, libs, "g_date_time_get_day_of_week")
-	core.PuregoSafeRegister(&xDateTimeGetDayOfYear, libs, "g_date_time_get_day_of_year")
-	core.PuregoSafeRegister(&xDateTimeGetHour, libs, "g_date_time_get_hour")
-	core.PuregoSafeRegister(&xDateTimeGetMicrosecond, libs, "g_date_time_get_microsecond")
-	core.PuregoSafeRegister(&xDateTimeGetMinute, libs, "g_date_time_get_minute")
-	core.PuregoSafeRegister(&xDateTimeGetMonth, libs, "g_date_time_get_month")
-	core.PuregoSafeRegister(&xDateTimeGetSecond, libs, "g_date_time_get_second")
-	core.PuregoSafeRegister(&xDateTimeGetSeconds, libs, "g_date_time_get_seconds")
-	core.PuregoSafeRegister(&xDateTimeGetTimezone, libs, "g_date_time_get_timezone")
-	core.PuregoSafeRegister(&xDateTimeGetTimezoneAbbreviation, libs, "g_date_time_get_timezone_abbreviation")
-	core.PuregoSafeRegister(&xDateTimeGetUtcOffset, libs, "g_date_time_get_utc_offset")
-	core.PuregoSafeRegister(&xDateTimeGetWeekNumberingYear, libs, "g_date_time_get_week_numbering_year")
-	core.PuregoSafeRegister(&xDateTimeGetWeekOfYear, libs, "g_date_time_get_week_of_year")
-	core.PuregoSafeRegister(&xDateTimeGetYear, libs, "g_date_time_get_year")
-	core.PuregoSafeRegister(&xDateTimeGetYmd, libs, "g_date_time_get_ymd")
-	core.PuregoSafeRegister(&xDateTimeHash, libs, "g_date_time_hash")
-	core.PuregoSafeRegister(&xDateTimeIsDaylightSavings, libs, "g_date_time_is_daylight_savings")
-	core.PuregoSafeRegister(&xDateTimeRef, libs, "g_date_time_ref")
-	core.PuregoSafeRegister(&xDateTimeToLocal, libs, "g_date_time_to_local")
-	core.PuregoSafeRegister(&xDateTimeToTimeval, libs, "g_date_time_to_timeval")
-	core.PuregoSafeRegister(&xDateTimeToTimezone, libs, "g_date_time_to_timezone")
-	core.PuregoSafeRegister(&xDateTimeToUnix, libs, "g_date_time_to_unix")
-	core.PuregoSafeRegister(&xDateTimeToUnixUsec, libs, "g_date_time_to_unix_usec")
-	core.PuregoSafeRegister(&xDateTimeToUtc, libs, "g_date_time_to_utc")
-	core.PuregoSafeRegister(&xDateTimeUnref, libs, "g_date_time_unref")
 }

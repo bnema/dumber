@@ -5,7 +5,6 @@ import (
 	"structs"
 	"unsafe"
 
-	"github.com/bnema/purego"
 	"github.com/bnema/puregotk/pkg/core"
 	"github.com/bnema/puregotk/v4/gdk"
 	"github.com/bnema/puregotk/v4/glib"
@@ -73,6 +72,7 @@ type SvgFeatures int
 var xSvgFeaturesGLibType func() types.GType
 
 func SvgFeaturesGLibType() types.GType {
+	core.LazyRegister(&xSvgFeaturesGLibType, "GTK", "gtk_svg_features_get_type", false)
 	return xSvgFeaturesGLibType()
 }
 
@@ -106,6 +106,7 @@ type SvgError int
 var xSvgErrorGLibType func() types.GType
 
 func SvgErrorGLibType() types.GType {
+	core.LazyRegister(&xSvgErrorGLibType, "GTK", "gtk_svg_error_get_type", false)
 	return xSvgErrorGLibType()
 }
 
@@ -150,6 +151,8 @@ var xSvgErrorGetAttribute func(*glib.Error) string
 // Returns context information about what XML attribute
 // the parsing error occurred in.
 func SvgErrorGetAttribute(ErrorVar *glib.Error) string {
+	core.LazyRegister(&xSvgErrorGetAttribute, "GTK", "gtk_svg_error_get_attribute", false)
+
 	cret := xSvgErrorGetAttribute(ErrorVar)
 	return cret
 }
@@ -159,6 +162,8 @@ var xSvgErrorGetElement func(*glib.Error) string
 // Returns context information about what XML element
 // the parsing error occurred in.
 func SvgErrorGetElement(ErrorVar *glib.Error) string {
+	core.LazyRegister(&xSvgErrorGetElement, "GTK", "gtk_svg_error_get_element", false)
+
 	cret := xSvgErrorGetElement(ErrorVar)
 	return cret
 }
@@ -168,6 +173,8 @@ var xSvgErrorGetEnd func(*glib.Error) uintptr
 // Returns context information about the end position
 // in the document where the parsing error occurred.
 func SvgErrorGetEnd(ErrorVar *glib.Error) *SvgLocation {
+	core.LazyRegister(&xSvgErrorGetEnd, "GTK", "gtk_svg_error_get_end", false)
+
 	cret := xSvgErrorGetEnd(ErrorVar)
 	if cret == 0 {
 		return nil
@@ -180,6 +187,8 @@ var xSvgErrorGetStart func(*glib.Error) uintptr
 // Returns context information about the start position
 // in the document where the parsing error occurred.
 func SvgErrorGetStart(ErrorVar *glib.Error) *SvgLocation {
+	core.LazyRegister(&xSvgErrorGetStart, "GTK", "gtk_svg_error_get_start", false)
+
 	cret := xSvgErrorGetStart(ErrorVar)
 	if cret == 0 {
 		return nil
@@ -329,6 +338,7 @@ type Svg struct {
 var xSvgGLibType func() types.GType
 
 func SvgGLibType() types.GType {
+	core.LazyRegister(&xSvgGLibType, "GTK", "gtk_svg_get_type", false)
 	return xSvgGLibType()
 }
 
@@ -342,6 +352,7 @@ var xNewSvg func() uintptr
 
 // Creates a new, empty SVG paintable.
 func NewSvg() *Svg {
+	core.LazyRegister(&xNewSvg, "GTK", "gtk_svg_new", false)
 	var cls *Svg
 
 	cret := xNewSvg()
@@ -358,6 +369,7 @@ var xNewSvgFromBytes func(*glib.Bytes) uintptr
 
 // Parses the SVG data in @bytes and creates a paintable.
 func NewSvgFromBytes(BytesVar *glib.Bytes) *Svg {
+	core.LazyRegister(&xNewSvgFromBytes, "GTK", "gtk_svg_new_from_bytes", false)
 	var cls *Svg
 
 	cret := xNewSvgFromBytes(BytesVar)
@@ -374,6 +386,7 @@ var xNewSvgFromResource func(string) uintptr
 
 // Parses the SVG data in the resource and creates a paintable.
 func NewSvgFromResource(PathVar string) *Svg {
+	core.LazyRegister(&xNewSvgFromResource, "GTK", "gtk_svg_new_from_resource", false)
 	var cls *Svg
 
 	cret := xNewSvgFromResource(PathVar)
@@ -390,6 +403,8 @@ var xSvgGetFeatures func(uintptr) SvgFeatures
 
 // Returns the currently enabled features.
 func (x *Svg) GetFeatures() SvgFeatures {
+	core.LazyRegister(&xSvgGetFeatures, "GTK", "gtk_svg_get_features", false)
+
 	cret := xSvgGetFeatures(x.GoPointer())
 	return cret
 }
@@ -398,6 +413,8 @@ var xSvgGetState func(uintptr) uint
 
 // Gets the current state of the paintable.
 func (x *Svg) GetState() uint {
+	core.LazyRegister(&xSvgGetState, "GTK", "gtk_svg_get_state", false)
+
 	cret := xSvgGetState(x.GoPointer())
 	return cret
 }
@@ -412,6 +429,8 @@ var xSvgGetStateNames func(uintptr, *uint) []string
 // `GtkSvg` is cleared or reloaded, so if you
 // want to keep it around, you should make a copy.
 func (x *Svg) GetStateNames(LengthVar *uint) []string {
+	core.LazyRegister(&xSvgGetStateNames, "GTK", "gtk_svg_get_state_names", false)
+
 	cret := xSvgGetStateNames(x.GoPointer(), LengthVar)
 	return cret
 }
@@ -420,6 +439,8 @@ var xSvgGetWeight func(uintptr) float64
 
 // Gets the value of the weight property.
 func (x *Svg) GetWeight() float64 {
+	core.LazyRegister(&xSvgGetWeight, "GTK", "gtk_svg_get_weight", false)
+
 	cret := xSvgGetWeight(x.GoPointer())
 	return cret
 }
@@ -433,6 +454,8 @@ var xSvgLoadFromBytes func(uintptr, *glib.Bytes)
 //
 // This clears any previously loaded content.
 func (x *Svg) LoadFromBytes(BytesVar *glib.Bytes) {
+	core.LazyRegister(&xSvgLoadFromBytes, "GTK", "gtk_svg_load_from_bytes", false)
+
 	xSvgLoadFromBytes(x.GoPointer(), BytesVar)
 }
 
@@ -445,6 +468,8 @@ var xSvgLoadFromResource func(uintptr, string)
 //
 // This clears any previously loaded content.
 func (x *Svg) LoadFromResource(PathVar string) {
+	core.LazyRegister(&xSvgLoadFromResource, "GTK", "gtk_svg_load_from_resource", false)
+
 	xSvgLoadFromResource(x.GoPointer(), PathVar)
 }
 
@@ -454,6 +479,8 @@ var xSvgPause func(uintptr)
 //
 // Animations can be paused and started repeatedly.
 func (x *Svg) Pause() {
+	core.LazyRegister(&xSvgPause, "GTK", "gtk_svg_pause", false)
+
 	xSvgPause(x.GoPointer())
 }
 
@@ -463,6 +490,8 @@ var xSvgPlay func(uintptr)
 //
 // Animations can be paused and started repeatedly.
 func (x *Svg) Play() {
+	core.LazyRegister(&xSvgPlay, "GTK", "gtk_svg_play", false)
+
 	xSvgPlay(x.GoPointer())
 }
 
@@ -477,6 +506,8 @@ var xSvgSerialize func(uintptr) uintptr
 // of parsing the SVG. It does not reflect the effect
 // of applying animations.
 func (x *Svg) Serialize() *glib.Bytes {
+	core.LazyRegister(&xSvgSerialize, "GTK", "gtk_svg_serialize", false)
+
 	cret := xSvgSerialize(x.GoPointer())
 	if cret == 0 {
 		return nil
@@ -493,6 +524,8 @@ var xSvgSetFeatures func(uintptr, SvgFeatures)
 // Note that this call only has an effect before the
 // SVG is loaded.
 func (x *Svg) SetFeatures(FeaturesVar SvgFeatures) {
+	core.LazyRegister(&xSvgSetFeatures, "GTK", "gtk_svg_set_features", false)
+
 	xSvgSetFeatures(x.GoPointer(), FeaturesVar)
 }
 
@@ -502,6 +535,8 @@ var xSvgSetFrameClock func(uintptr, uintptr)
 //
 // Without a frame clock, GtkSvg will not advance animations.
 func (x *Svg) SetFrameClock(ClockVar *gdk.FrameClock) {
+	core.LazyRegister(&xSvgSetFrameClock, "GTK", "gtk_svg_set_frame_clock", false)
+
 	xSvgSetFrameClock(x.GoPointer(), ClockVar.GoPointer())
 }
 
@@ -514,6 +549,8 @@ var xSvgSetState func(uintptr, uint)
 // the paintable is not playing, the state change will take
 // effect instantaneously.
 func (x *Svg) SetState(StateVar uint) {
+	core.LazyRegister(&xSvgSetState, "GTK", "gtk_svg_set_state", false)
+
 	xSvgSetState(x.GoPointer(), StateVar)
 }
 
@@ -527,6 +564,8 @@ var xSvgSetWeight func(uintptr, float64)
 // The default value of -1 means to use the font weight
 // from CSS.
 func (x *Svg) SetWeight(WeightVar float64) {
+	core.LazyRegister(&xSvgSetWeight, "GTK", "gtk_svg_set_weight", false)
+
 	xSvgSetWeight(x.GoPointer(), WeightVar)
 }
 
@@ -534,6 +573,7 @@ var xSvgWriteToFile func(uintptr, string, **glib.Error) bool
 
 // Serializes the paintable, and saves the result to a file.
 func (x *Svg) WriteToFile(FilenameVar string) (bool, error) {
+	core.LazyRegister(&xSvgWriteToFile, "GTK", "gtk_svg_write_to_file", false)
 	var cerr *glib.Error
 
 	cret := xSvgWriteToFile(x.GoPointer(), FilenameVar, &cerr)
@@ -834,42 +874,4 @@ func (x *Svg) SnapshotWithWeight(SnapshotVar *gdk.Snapshot, WidthVar float64, He
 func init() {
 	core.SetPackageName("GTK", "gtk4")
 	core.SetSharedLibraries("GTK", []string{"libgtk-4.so.1", "libgtk-4.1.dylib"})
-	var libs []uintptr
-	for _, libPath := range core.GetPaths("GTK") {
-		lib, err := purego.Dlopen(libPath, purego.RTLD_NOW|purego.RTLD_GLOBAL)
-		if err != nil {
-			panic(err)
-		}
-		libs = append(libs, lib)
-	}
-
-	core.PuregoSafeRegister(&xSvgFeaturesGLibType, libs, "gtk_svg_features_get_type")
-
-	core.PuregoSafeRegister(&xSvgErrorGLibType, libs, "gtk_svg_error_get_type")
-
-	core.PuregoSafeRegister(&xSvgErrorGetAttribute, libs, "gtk_svg_error_get_attribute")
-	core.PuregoSafeRegister(&xSvgErrorGetElement, libs, "gtk_svg_error_get_element")
-	core.PuregoSafeRegister(&xSvgErrorGetEnd, libs, "gtk_svg_error_get_end")
-	core.PuregoSafeRegister(&xSvgErrorGetStart, libs, "gtk_svg_error_get_start")
-
-	core.PuregoSafeRegister(&xSvgGLibType, libs, "gtk_svg_get_type")
-
-	core.PuregoSafeRegister(&xNewSvg, libs, "gtk_svg_new")
-	core.PuregoSafeRegister(&xNewSvgFromBytes, libs, "gtk_svg_new_from_bytes")
-	core.PuregoSafeRegister(&xNewSvgFromResource, libs, "gtk_svg_new_from_resource")
-
-	core.PuregoSafeRegister(&xSvgGetFeatures, libs, "gtk_svg_get_features")
-	core.PuregoSafeRegister(&xSvgGetState, libs, "gtk_svg_get_state")
-	core.PuregoSafeRegister(&xSvgGetStateNames, libs, "gtk_svg_get_state_names")
-	core.PuregoSafeRegister(&xSvgGetWeight, libs, "gtk_svg_get_weight")
-	core.PuregoSafeRegister(&xSvgLoadFromBytes, libs, "gtk_svg_load_from_bytes")
-	core.PuregoSafeRegister(&xSvgLoadFromResource, libs, "gtk_svg_load_from_resource")
-	core.PuregoSafeRegister(&xSvgPause, libs, "gtk_svg_pause")
-	core.PuregoSafeRegister(&xSvgPlay, libs, "gtk_svg_play")
-	core.PuregoSafeRegister(&xSvgSerialize, libs, "gtk_svg_serialize")
-	core.PuregoSafeRegister(&xSvgSetFeatures, libs, "gtk_svg_set_features")
-	core.PuregoSafeRegister(&xSvgSetFrameClock, libs, "gtk_svg_set_frame_clock")
-	core.PuregoSafeRegister(&xSvgSetState, libs, "gtk_svg_set_state")
-	core.PuregoSafeRegister(&xSvgSetWeight, libs, "gtk_svg_set_weight")
-	core.PuregoSafeRegister(&xSvgWriteToFile, libs, "gtk_svg_write_to_file")
 }

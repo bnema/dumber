@@ -5,7 +5,6 @@ import (
 	"structs"
 	"unsafe"
 
-	"github.com/bnema/purego"
 	"github.com/bnema/puregotk/pkg/core"
 	"github.com/bnema/puregotk/v4/gobject/types"
 )
@@ -28,6 +27,7 @@ type Border struct {
 var xBorderGLibType func() types.GType
 
 func BorderGLibType() types.GType {
+	core.LazyRegister(&xBorderGLibType, "GTK", "gtk_border_get_type", false)
 	return xBorderGLibType()
 }
 
@@ -47,6 +47,8 @@ var xNewBorder func() uintptr
 
 // Allocates a new `GtkBorder` struct and initializes its elements to zero.
 func NewBorder() *Border {
+	core.LazyRegister(&xNewBorder, "GTK", "gtk_border_new", false)
+
 	cret := xNewBorder()
 	if cret == 0 {
 		return nil
@@ -58,6 +60,8 @@ var xBorderCopy func(uintptr) uintptr
 
 // Copies a `GtkBorder`.
 func (x *Border) Copy() *Border {
+	core.LazyRegister(&xBorderCopy, "GTK", "gtk_border_copy", false)
+
 	cret := xBorderCopy(x.GoPointer())
 	if cret == 0 {
 		return nil
@@ -69,25 +73,12 @@ var xBorderFree func(uintptr)
 
 // Frees a `GtkBorder`.
 func (x *Border) Free() {
+	core.LazyRegister(&xBorderFree, "GTK", "gtk_border_free", false)
+
 	xBorderFree(x.GoPointer())
 }
 
 func init() {
 	core.SetPackageName("GTK", "gtk4")
 	core.SetSharedLibraries("GTK", []string{"libgtk-4.so.1", "libgtk-4.1.dylib"})
-	var libs []uintptr
-	for _, libPath := range core.GetPaths("GTK") {
-		lib, err := purego.Dlopen(libPath, purego.RTLD_NOW|purego.RTLD_GLOBAL)
-		if err != nil {
-			panic(err)
-		}
-		libs = append(libs, lib)
-	}
-
-	core.PuregoSafeRegister(&xBorderGLibType, libs, "gtk_border_get_type")
-
-	core.PuregoSafeRegister(&xNewBorder, libs, "gtk_border_new")
-
-	core.PuregoSafeRegister(&xBorderCopy, libs, "gtk_border_copy")
-	core.PuregoSafeRegister(&xBorderFree, libs, "gtk_border_free")
 }

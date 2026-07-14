@@ -22,6 +22,7 @@ type MarkupParseContext struct {
 var xMarkupParseContextGLibType func() types.GType
 
 func MarkupParseContextGLibType() types.GType {
+	core.LazyRegister(&xMarkupParseContextGLibType, "GLIB", "g_markup_parse_context_get_type", false)
 	return xMarkupParseContextGLibType()
 }
 
@@ -45,6 +46,8 @@ var xNewMarkupParseContext func(*MarkupParser, MarkupParseFlags, uintptr, uintpt
 // the parse context can't continue to parse text (you have to
 // free it and create a new parse context).
 func NewMarkupParseContext(ParserVar *MarkupParser, FlagsVar MarkupParseFlags, UserDataVar uintptr, UserDataDnotifyVar *DestroyNotify) *MarkupParseContext {
+	core.LazyRegister(&xNewMarkupParseContext, "GLIB", "g_markup_parse_context_new", false)
+
 	cret := xNewMarkupParseContext(ParserVar, FlagsVar, UserDataVar, NewCallbackNullable(UserDataDnotifyVar))
 	if cret == 0 {
 		return nil
@@ -60,6 +63,7 @@ var xMarkupParseContextEndParse func(uintptr, **Error) bool
 // This function reports an error if the document isn't complete,
 // for example if elements are still open.
 func (x *MarkupParseContext) EndParse() (bool, error) {
+	core.LazyRegister(&xMarkupParseContextEndParse, "GLIB", "g_markup_parse_context_end_parse", false)
 	var cerr *Error
 
 	cret := xMarkupParseContextEndParse(x.GoPointer(), &cerr)
@@ -76,6 +80,8 @@ var xMarkupParseContextFree func(uintptr)
 // This function can't be called from inside one of the
 // #GMarkupParser functions or while a subparser is pushed.
 func (x *MarkupParseContext) Free() {
+	core.LazyRegister(&xMarkupParseContextFree, "GLIB", "g_markup_parse_context_free", false)
+
 	xMarkupParseContextFree(x.GoPointer())
 }
 
@@ -87,6 +93,8 @@ var xMarkupParseContextGetElement func(uintptr) string
 // give the element_name as passed to those functions. For the parent
 // elements, see g_markup_parse_context_get_element_stack().
 func (x *MarkupParseContext) GetElement() string {
+	core.LazyRegister(&xMarkupParseContextGetElement, "GLIB", "g_markup_parse_context_get_element", false)
+
 	cret := xMarkupParseContextGetElement(x.GoPointer())
 	return cret
 }
@@ -105,6 +113,8 @@ var xMarkupParseContextGetElementStack func(uintptr) uintptr
 // would merely return the name of the element that is being
 // processed.
 func (x *MarkupParseContext) GetElementStack() *SList {
+	core.LazyRegister(&xMarkupParseContextGetElementStack, "GLIB", "g_markup_parse_context_get_element_stack", false)
+
 	cret := xMarkupParseContextGetElementStack(x.GoPointer())
 	if cret == 0 {
 		return nil
@@ -121,6 +131,8 @@ var xMarkupParseContextGetOffset func(uintptr) uint
 // [method@GLib.MarkupParseContext.get_position], and comes with the
 // same accuracy guarantees.
 func (x *MarkupParseContext) GetOffset() uint {
+	core.LazyRegister(&xMarkupParseContextGetOffset, "GLIB", "g_markup_parse_context_get_offset", false)
+
 	cret := xMarkupParseContextGetOffset(x.GoPointer())
 	return cret
 }
@@ -132,6 +144,8 @@ var xMarkupParseContextGetPosition func(uintptr, *int, *int)
 // semantics for what constitutes the "current" line number other than
 // "the best number we could come up with for error messages."
 func (x *MarkupParseContext) GetPosition(LineNumberVar *int, CharNumberVar *int) {
+	core.LazyRegister(&xMarkupParseContextGetPosition, "GLIB", "g_markup_parse_context_get_position", false)
+
 	xMarkupParseContextGetPosition(x.GoPointer(), LineNumberVar, CharNumberVar)
 }
 
@@ -151,6 +165,8 @@ var xMarkupParseContextGetTagStart func(uintptr, *uint, *uint, *uint)
 // [method@GLib.MarkupParseContext.get_position], and comes with the
 // same accuracy guarantees.
 func (x *MarkupParseContext) GetTagStart(LineNumberVar *uint, CharNumberVar *uint, OffsetVar *uint) {
+	core.LazyRegister(&xMarkupParseContextGetTagStart, "GLIB", "g_markup_parse_context_get_tag_start", false)
+
 	xMarkupParseContextGetTagStart(x.GoPointer(), LineNumberVar, CharNumberVar, OffsetVar)
 }
 
@@ -162,6 +178,8 @@ var xMarkupParseContextGetUserData func(uintptr) uintptr
 // g_markup_parse_context_new() or to the most recent call
 // of g_markup_parse_context_push().
 func (x *MarkupParseContext) GetUserData() uintptr {
+	core.LazyRegister(&xMarkupParseContextGetUserData, "GLIB", "g_markup_parse_context_get_user_data", false)
+
 	cret := xMarkupParseContextGetUserData(x.GoPointer())
 	return cret
 }
@@ -179,6 +197,7 @@ var xMarkupParseContextParse func(uintptr, string, int, **Error) bool
 // is reported, no further data may be fed to the #GMarkupParseContext;
 // all errors are fatal.
 func (x *MarkupParseContext) Parse(TextVar string, TextLenVar int) (bool, error) {
+	core.LazyRegister(&xMarkupParseContextParse, "GLIB", "g_markup_parse_context_parse", false)
 	var cerr *Error
 
 	cret := xMarkupParseContextParse(x.GoPointer(), TextVar, TextLenVar, &cerr)
@@ -204,6 +223,8 @@ var xMarkupParseContextPop func(uintptr) uintptr
 // be used by the subparsers themselves to implement a higher-level
 // interface.
 func (x *MarkupParseContext) Pop() uintptr {
+	core.LazyRegister(&xMarkupParseContextPop, "GLIB", "g_markup_parse_context_pop", false)
+
 	cret := xMarkupParseContextPop(x.GoPointer())
 	return cret
 }
@@ -338,6 +359,8 @@ var xMarkupParseContextPush func(uintptr, *MarkupParser, uintptr)
 //
 // ]|
 func (x *MarkupParseContext) Push(ParserVar *MarkupParser, UserDataVar uintptr) {
+	core.LazyRegister(&xMarkupParseContextPush, "GLIB", "g_markup_parse_context_push", false)
+
 	xMarkupParseContextPush(x.GoPointer(), ParserVar, UserDataVar)
 }
 
@@ -345,6 +368,8 @@ var xMarkupParseContextRef func(uintptr) uintptr
 
 // Increases the reference count of @context.
 func (x *MarkupParseContext) Ref() *MarkupParseContext {
+	core.LazyRegister(&xMarkupParseContextRef, "GLIB", "g_markup_parse_context_ref", false)
+
 	cret := xMarkupParseContextRef(x.GoPointer())
 	if cret == 0 {
 		return nil
@@ -357,6 +382,8 @@ var xMarkupParseContextUnref func(uintptr)
 // Decreases the reference count of @context.  When its reference count
 // drops to 0, it is freed.
 func (x *MarkupParseContext) Unref() {
+	core.LazyRegister(&xMarkupParseContextUnref, "GLIB", "g_markup_parse_context_unref", false)
+
 	xMarkupParseContextUnref(x.GoPointer())
 }
 
@@ -406,7 +433,7 @@ func (x *MarkupParser) OverrideStartElement(cb func(*MarkupParseContext, string,
 	if cb == nil {
 		x.xStartElement = 0
 	} else {
-		x.xStartElement = purego.NewCallback(func(ContextVarp *MarkupParseContext, ElementNameVarp string, AttributeNamesVarp string, AttributeValuesVarp string, UserDataVarp uintptr) {
+		x.xStartElement = purego.NewCallback(func(ContextVarp *MarkupParseContext, ElementNameVarp string, AttributeNamesVarp string, AttributeValuesVarp string, UserDataVarp uintptr, cerrp **Error) {
 			cb(ContextVarp, ElementNameVarp, AttributeNamesVarp, AttributeValuesVarp, UserDataVarp)
 		})
 	}
@@ -421,10 +448,11 @@ func (x *MarkupParser) GetStartElement() func(*MarkupParseContext, string, strin
 	if x.xStartElement == 0 {
 		return nil
 	}
-	var rawCallback func(ContextVarp *MarkupParseContext, ElementNameVarp string, AttributeNamesVarp string, AttributeValuesVarp string, UserDataVarp uintptr)
+	var rawCallback func(ContextVarp *MarkupParseContext, ElementNameVarp string, AttributeNamesVarp string, AttributeValuesVarp string, UserDataVarp uintptr, cerrp **Error)
 	purego.RegisterFunc(&rawCallback, x.xStartElement)
 	return func(ContextVar *MarkupParseContext, ElementNameVar string, AttributeNamesVar string, AttributeValuesVar string, UserDataVar uintptr) {
-		rawCallback(ContextVar, ElementNameVar, AttributeNamesVar, AttributeValuesVar, UserDataVar)
+		var cerr *Error
+		rawCallback(ContextVar, ElementNameVar, AttributeNamesVar, AttributeValuesVar, UserDataVar, &cerr)
 	}
 }
 
@@ -437,7 +465,7 @@ func (x *MarkupParser) OverrideEndElement(cb func(*MarkupParseContext, string, u
 	if cb == nil {
 		x.xEndElement = 0
 	} else {
-		x.xEndElement = purego.NewCallback(func(ContextVarp *MarkupParseContext, ElementNameVarp string, UserDataVarp uintptr) {
+		x.xEndElement = purego.NewCallback(func(ContextVarp *MarkupParseContext, ElementNameVarp string, UserDataVarp uintptr, cerrp **Error) {
 			cb(ContextVarp, ElementNameVarp, UserDataVarp)
 		})
 	}
@@ -452,10 +480,11 @@ func (x *MarkupParser) GetEndElement() func(*MarkupParseContext, string, uintptr
 	if x.xEndElement == 0 {
 		return nil
 	}
-	var rawCallback func(ContextVarp *MarkupParseContext, ElementNameVarp string, UserDataVarp uintptr)
+	var rawCallback func(ContextVarp *MarkupParseContext, ElementNameVarp string, UserDataVarp uintptr, cerrp **Error)
 	purego.RegisterFunc(&rawCallback, x.xEndElement)
 	return func(ContextVar *MarkupParseContext, ElementNameVar string, UserDataVar uintptr) {
-		rawCallback(ContextVar, ElementNameVar, UserDataVar)
+		var cerr *Error
+		rawCallback(ContextVar, ElementNameVar, UserDataVar, &cerr)
 	}
 }
 
@@ -470,7 +499,7 @@ func (x *MarkupParser) OverrideText(cb func(*MarkupParseContext, string, uint, u
 	if cb == nil {
 		x.xText = 0
 	} else {
-		x.xText = purego.NewCallback(func(ContextVarp *MarkupParseContext, TextVarp string, TextLenVarp uint, UserDataVarp uintptr) {
+		x.xText = purego.NewCallback(func(ContextVarp *MarkupParseContext, TextVarp string, TextLenVarp uint, UserDataVarp uintptr, cerrp **Error) {
 			cb(ContextVarp, TextVarp, TextLenVarp, UserDataVarp)
 		})
 	}
@@ -487,10 +516,11 @@ func (x *MarkupParser) GetText() func(*MarkupParseContext, string, uint, uintptr
 	if x.xText == 0 {
 		return nil
 	}
-	var rawCallback func(ContextVarp *MarkupParseContext, TextVarp string, TextLenVarp uint, UserDataVarp uintptr)
+	var rawCallback func(ContextVarp *MarkupParseContext, TextVarp string, TextLenVarp uint, UserDataVarp uintptr, cerrp **Error)
 	purego.RegisterFunc(&rawCallback, x.xText)
 	return func(ContextVar *MarkupParseContext, TextVar string, TextLenVar uint, UserDataVar uintptr) {
-		rawCallback(ContextVar, TextVar, TextLenVar, UserDataVar)
+		var cerr *Error
+		rawCallback(ContextVar, TextVar, TextLenVar, UserDataVar, &cerr)
 	}
 }
 
@@ -505,7 +535,7 @@ func (x *MarkupParser) OverridePassthrough(cb func(*MarkupParseContext, string, 
 	if cb == nil {
 		x.xPassthrough = 0
 	} else {
-		x.xPassthrough = purego.NewCallback(func(ContextVarp *MarkupParseContext, PassthroughTextVarp string, TextLenVarp uint, UserDataVarp uintptr) {
+		x.xPassthrough = purego.NewCallback(func(ContextVarp *MarkupParseContext, PassthroughTextVarp string, TextLenVarp uint, UserDataVarp uintptr, cerrp **Error) {
 			cb(ContextVarp, PassthroughTextVarp, TextLenVarp, UserDataVarp)
 		})
 	}
@@ -522,10 +552,11 @@ func (x *MarkupParser) GetPassthrough() func(*MarkupParseContext, string, uint, 
 	if x.xPassthrough == 0 {
 		return nil
 	}
-	var rawCallback func(ContextVarp *MarkupParseContext, PassthroughTextVarp string, TextLenVarp uint, UserDataVarp uintptr)
+	var rawCallback func(ContextVarp *MarkupParseContext, PassthroughTextVarp string, TextLenVarp uint, UserDataVarp uintptr, cerrp **Error)
 	purego.RegisterFunc(&rawCallback, x.xPassthrough)
 	return func(ContextVar *MarkupParseContext, PassthroughTextVar string, TextLenVar uint, UserDataVar uintptr) {
-		rawCallback(ContextVar, PassthroughTextVar, TextLenVar, UserDataVar)
+		var cerr *Error
+		rawCallback(ContextVar, PassthroughTextVar, TextLenVar, UserDataVar, &cerr)
 	}
 }
 
@@ -681,6 +712,8 @@ var xMarkupCollectAttributes func(string, string, string, **Error, MarkupCollect
 // %G_MARKUP_ERROR_INVALID_CONTENT). In all of these cases %FALSE
 // will be returned and @error will be set as appropriate.
 func MarkupCollectAttributes(ElementNameVar string, AttributeNamesVar string, AttributeValuesVar string, ErrorVar **Error, FirstTypeVar MarkupCollectType, FirstAttrVar string, varArgs ...interface{}) bool {
+	core.LazyRegister(&xMarkupCollectAttributes, "GLIB", "g_markup_collect_attributes", false)
+
 	cret := xMarkupCollectAttributes(ElementNameVar, AttributeNamesVar, AttributeValuesVar, ErrorVar, FirstTypeVar, FirstAttrVar, varArgs...)
 	return cret
 }
@@ -702,6 +735,8 @@ var xMarkupEscapeText func(string, int) string
 // references in this range are not valid XML 1.0, but they are
 // valid XML 1.1 and will be accepted by the GMarkup parser.
 func MarkupEscapeText(TextVar string, LengthVar int) string {
+	core.LazyRegister(&xMarkupEscapeText, "GLIB", "g_markup_escape_text", false)
+
 	cret := xMarkupEscapeText(TextVar, LengthVar)
 	return cret
 }
@@ -729,6 +764,8 @@ var xMarkupPrintfEscaped func(string, ...interface{}) string
 //
 // ]|
 func MarkupPrintfEscaped(FormatVar string, varArgs ...interface{}) string {
+	core.LazyRegister(&xMarkupPrintfEscaped, "GLIB", "g_markup_printf_escaped", false)
+
 	cret := xMarkupPrintfEscaped(FormatVar, varArgs...)
 	return cret
 }
@@ -739,6 +776,8 @@ var xMarkupVprintfEscaped func(string, []interface{}) string
 // all string and character arguments in the fashion
 // of g_markup_escape_text(). See g_markup_printf_escaped().
 func MarkupVprintfEscaped(FormatVar string, ArgsVar []interface{}) string {
+	core.LazyRegister(&xMarkupVprintfEscaped, "GLIB", "g_markup_vprintf_escaped", false)
+
 	cret := xMarkupVprintfEscaped(FormatVar, ArgsVar)
 	return cret
 }
@@ -746,35 +785,4 @@ func MarkupVprintfEscaped(FormatVar string, ArgsVar []interface{}) string {
 func init() {
 	core.SetPackageName("GLIB", "glib-2.0")
 	core.SetSharedLibraries("GLIB", []string{"libgobject-2.0.so.0", "libglib-2.0.so.0", "libgobject-2.0.0.dylib", "libglib-2.0.0.dylib"})
-	var libs []uintptr
-	for _, libPath := range core.GetPaths("GLIB") {
-		lib, err := purego.Dlopen(libPath, purego.RTLD_NOW|purego.RTLD_GLOBAL)
-		if err != nil {
-			panic(err)
-		}
-		libs = append(libs, lib)
-	}
-
-	core.PuregoSafeRegister(&xMarkupCollectAttributes, libs, "g_markup_collect_attributes")
-	core.PuregoSafeRegister(&xMarkupEscapeText, libs, "g_markup_escape_text")
-	core.PuregoSafeRegister(&xMarkupPrintfEscaped, libs, "g_markup_printf_escaped")
-	core.PuregoSafeRegister(&xMarkupVprintfEscaped, libs, "g_markup_vprintf_escaped")
-
-	core.PuregoSafeRegister(&xMarkupParseContextGLibType, libs, "g_markup_parse_context_get_type")
-
-	core.PuregoSafeRegister(&xNewMarkupParseContext, libs, "g_markup_parse_context_new")
-
-	core.PuregoSafeRegister(&xMarkupParseContextEndParse, libs, "g_markup_parse_context_end_parse")
-	core.PuregoSafeRegister(&xMarkupParseContextFree, libs, "g_markup_parse_context_free")
-	core.PuregoSafeRegister(&xMarkupParseContextGetElement, libs, "g_markup_parse_context_get_element")
-	core.PuregoSafeRegister(&xMarkupParseContextGetElementStack, libs, "g_markup_parse_context_get_element_stack")
-	core.PuregoSafeRegister(&xMarkupParseContextGetOffset, libs, "g_markup_parse_context_get_offset")
-	core.PuregoSafeRegister(&xMarkupParseContextGetPosition, libs, "g_markup_parse_context_get_position")
-	core.PuregoSafeRegister(&xMarkupParseContextGetTagStart, libs, "g_markup_parse_context_get_tag_start")
-	core.PuregoSafeRegister(&xMarkupParseContextGetUserData, libs, "g_markup_parse_context_get_user_data")
-	core.PuregoSafeRegister(&xMarkupParseContextParse, libs, "g_markup_parse_context_parse")
-	core.PuregoSafeRegister(&xMarkupParseContextPop, libs, "g_markup_parse_context_pop")
-	core.PuregoSafeRegister(&xMarkupParseContextPush, libs, "g_markup_parse_context_push")
-	core.PuregoSafeRegister(&xMarkupParseContextRef, libs, "g_markup_parse_context_ref")
-	core.PuregoSafeRegister(&xMarkupParseContextUnref, libs, "g_markup_parse_context_unref")
 }

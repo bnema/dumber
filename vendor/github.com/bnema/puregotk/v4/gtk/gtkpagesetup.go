@@ -4,7 +4,6 @@ package gtk
 import (
 	"unsafe"
 
-	"github.com/bnema/purego"
 	"github.com/bnema/puregotk/pkg/core"
 	"github.com/bnema/puregotk/v4/glib"
 	"github.com/bnema/puregotk/v4/gobject"
@@ -62,6 +61,7 @@ type PageSetup struct {
 var xPageSetupGLibType func() types.GType
 
 func PageSetupGLibType() types.GType {
+	core.LazyRegister(&xPageSetupGLibType, "GTK", "gtk_page_setup_get_type", false)
 	return xPageSetupGLibType()
 }
 
@@ -75,6 +75,7 @@ var xNewPageSetup func() uintptr
 
 // Creates a new `GtkPageSetup`.
 func NewPageSetup() *PageSetup {
+	core.LazyRegister(&xNewPageSetup, "GTK", "gtk_page_setup_new", false)
 	var cls *PageSetup
 
 	cret := xNewPageSetup()
@@ -95,6 +96,7 @@ var xNewPageSetupFromFile func(string, **glib.Error) uintptr
 // page setup, or %NULL if an error occurred.
 // See [method@Gtk.PageSetup.to_file].
 func NewPageSetupFromFile(FileNameVar string) (*PageSetup, error) {
+	core.LazyRegister(&xNewPageSetupFromFile, "GTK", "gtk_page_setup_new_from_file", false)
 	var cls *PageSetup
 	var cerr *glib.Error
 
@@ -118,6 +120,7 @@ var xNewPageSetupFromGvariant func(*glib.Variant) uintptr
 // The variant must be in the format produced by
 // [method@Gtk.PageSetup.to_gvariant].
 func NewPageSetupFromGvariant(VariantVar *glib.Variant) *PageSetup {
+	core.LazyRegister(&xNewPageSetupFromGvariant, "GTK", "gtk_page_setup_new_from_gvariant", false)
 	var cls *PageSetup
 
 	cret := xNewPageSetupFromGvariant(VariantVar)
@@ -138,6 +141,7 @@ var xNewPageSetupFromKeyFile func(*glib.KeyFile, uintptr, **glib.Error) uintptr
 // Returns a new `GtkPageSetup` object with the restored
 // page setup, or %NULL if an error occurred.
 func NewPageSetupFromKeyFile(KeyFileVar *glib.KeyFile, GroupNameVar *string) (*PageSetup, error) {
+	core.LazyRegister(&xNewPageSetupFromKeyFile, "GTK", "gtk_page_setup_new_from_key_file", false)
 	var cls *PageSetup
 	var cerr *glib.Error
 
@@ -161,6 +165,7 @@ var xPageSetupCopy func(uintptr) uintptr
 
 // Copies a `GtkPageSetup`.
 func (x *PageSetup) Copy() *PageSetup {
+	core.LazyRegister(&xPageSetupCopy, "GTK", "gtk_page_setup_copy", false)
 	var cls *PageSetup
 
 	cret := xPageSetupCopy(x.GoPointer())
@@ -177,6 +182,8 @@ var xPageSetupGetBottomMargin func(uintptr, Unit) float64
 
 // Gets the bottom margin in units of @unit.
 func (x *PageSetup) GetBottomMargin(UnitVar Unit) float64 {
+	core.LazyRegister(&xPageSetupGetBottomMargin, "GTK", "gtk_page_setup_get_bottom_margin", false)
+
 	cret := xPageSetupGetBottomMargin(x.GoPointer(), UnitVar)
 	return cret
 }
@@ -185,6 +192,8 @@ var xPageSetupGetLeftMargin func(uintptr, Unit) float64
 
 // Gets the left margin in units of @unit.
 func (x *PageSetup) GetLeftMargin(UnitVar Unit) float64 {
+	core.LazyRegister(&xPageSetupGetLeftMargin, "GTK", "gtk_page_setup_get_left_margin", false)
+
 	cret := xPageSetupGetLeftMargin(x.GoPointer(), UnitVar)
 	return cret
 }
@@ -193,6 +202,8 @@ var xPageSetupGetOrientation func(uintptr) PageOrientation
 
 // Gets the page orientation of the `GtkPageSetup`.
 func (x *PageSetup) GetOrientation() PageOrientation {
+	core.LazyRegister(&xPageSetupGetOrientation, "GTK", "gtk_page_setup_get_orientation", false)
+
 	cret := xPageSetupGetOrientation(x.GoPointer())
 	return cret
 }
@@ -205,6 +216,8 @@ var xPageSetupGetPageHeight func(uintptr, Unit) float64
 // and margins into consideration.
 // See [method@Gtk.PageSetup.get_paper_height].
 func (x *PageSetup) GetPageHeight(UnitVar Unit) float64 {
+	core.LazyRegister(&xPageSetupGetPageHeight, "GTK", "gtk_page_setup_get_page_height", false)
+
 	cret := xPageSetupGetPageHeight(x.GoPointer(), UnitVar)
 	return cret
 }
@@ -217,6 +230,8 @@ var xPageSetupGetPageWidth func(uintptr, Unit) float64
 // and margins into consideration.
 // See [method@Gtk.PageSetup.get_paper_width].
 func (x *PageSetup) GetPageWidth(UnitVar Unit) float64 {
+	core.LazyRegister(&xPageSetupGetPageWidth, "GTK", "gtk_page_setup_get_page_width", false)
+
 	cret := xPageSetupGetPageWidth(x.GoPointer(), UnitVar)
 	return cret
 }
@@ -229,6 +244,8 @@ var xPageSetupGetPaperHeight func(uintptr, Unit) float64
 // but not margins into consideration.
 // See [method@Gtk.PageSetup.get_page_height].
 func (x *PageSetup) GetPaperHeight(UnitVar Unit) float64 {
+	core.LazyRegister(&xPageSetupGetPaperHeight, "GTK", "gtk_page_setup_get_paper_height", false)
+
 	cret := xPageSetupGetPaperHeight(x.GoPointer(), UnitVar)
 	return cret
 }
@@ -237,6 +254,8 @@ var xPageSetupGetPaperSize func(uintptr) uintptr
 
 // Gets the paper size of the `GtkPageSetup`.
 func (x *PageSetup) GetPaperSize() *PaperSize {
+	core.LazyRegister(&xPageSetupGetPaperSize, "GTK", "gtk_page_setup_get_paper_size", false)
+
 	cret := xPageSetupGetPaperSize(x.GoPointer())
 	if cret == 0 {
 		return nil
@@ -252,6 +271,8 @@ var xPageSetupGetPaperWidth func(uintptr, Unit) float64
 // but not margins into consideration.
 // See [method@Gtk.PageSetup.get_page_width].
 func (x *PageSetup) GetPaperWidth(UnitVar Unit) float64 {
+	core.LazyRegister(&xPageSetupGetPaperWidth, "GTK", "gtk_page_setup_get_paper_width", false)
+
 	cret := xPageSetupGetPaperWidth(x.GoPointer(), UnitVar)
 	return cret
 }
@@ -260,6 +281,8 @@ var xPageSetupGetRightMargin func(uintptr, Unit) float64
 
 // Gets the right margin in units of @unit.
 func (x *PageSetup) GetRightMargin(UnitVar Unit) float64 {
+	core.LazyRegister(&xPageSetupGetRightMargin, "GTK", "gtk_page_setup_get_right_margin", false)
+
 	cret := xPageSetupGetRightMargin(x.GoPointer(), UnitVar)
 	return cret
 }
@@ -268,6 +291,8 @@ var xPageSetupGetTopMargin func(uintptr, Unit) float64
 
 // Gets the top margin in units of @unit.
 func (x *PageSetup) GetTopMargin(UnitVar Unit) float64 {
+	core.LazyRegister(&xPageSetupGetTopMargin, "GTK", "gtk_page_setup_get_top_margin", false)
+
 	cret := xPageSetupGetTopMargin(x.GoPointer(), UnitVar)
 	return cret
 }
@@ -278,6 +303,7 @@ var xPageSetupLoadFile func(uintptr, string, **glib.Error) bool
 //
 // See [method@Gtk.PageSetup.to_file].
 func (x *PageSetup) LoadFile(FileNameVar string) (bool, error) {
+	core.LazyRegister(&xPageSetupLoadFile, "GTK", "gtk_page_setup_load_file", false)
 	var cerr *glib.Error
 
 	cret := xPageSetupLoadFile(x.GoPointer(), FileNameVar, &cerr)
@@ -292,6 +318,7 @@ var xPageSetupLoadKeyFile func(uintptr, *glib.KeyFile, uintptr, **glib.Error) bo
 // Reads the page setup from the group @group_name in the key file
 // @key_file.
 func (x *PageSetup) LoadKeyFile(KeyFileVar *glib.KeyFile, GroupNameVar *string) (bool, error) {
+	core.LazyRegister(&xPageSetupLoadKeyFile, "GTK", "gtk_page_setup_load_key_file", false)
 	var cerr *glib.Error
 
 	GroupNameVarPtr := core.GStrdupNullable(GroupNameVar)
@@ -308,6 +335,8 @@ var xPageSetupSetBottomMargin func(uintptr, float64, Unit)
 
 // Sets the bottom margin of the `GtkPageSetup`.
 func (x *PageSetup) SetBottomMargin(MarginVar float64, UnitVar Unit) {
+	core.LazyRegister(&xPageSetupSetBottomMargin, "GTK", "gtk_page_setup_set_bottom_margin", false)
+
 	xPageSetupSetBottomMargin(x.GoPointer(), MarginVar, UnitVar)
 }
 
@@ -315,6 +344,8 @@ var xPageSetupSetLeftMargin func(uintptr, float64, Unit)
 
 // Sets the left margin of the `GtkPageSetup`.
 func (x *PageSetup) SetLeftMargin(MarginVar float64, UnitVar Unit) {
+	core.LazyRegister(&xPageSetupSetLeftMargin, "GTK", "gtk_page_setup_set_left_margin", false)
+
 	xPageSetupSetLeftMargin(x.GoPointer(), MarginVar, UnitVar)
 }
 
@@ -322,6 +353,8 @@ var xPageSetupSetOrientation func(uintptr, PageOrientation)
 
 // Sets the page orientation of the `GtkPageSetup`.
 func (x *PageSetup) SetOrientation(OrientationVar PageOrientation) {
+	core.LazyRegister(&xPageSetupSetOrientation, "GTK", "gtk_page_setup_set_orientation", false)
+
 	xPageSetupSetOrientation(x.GoPointer(), OrientationVar)
 }
 
@@ -332,6 +365,8 @@ var xPageSetupSetPaperSize func(uintptr, *PaperSize)
 //
 // See [method@Gtk.PageSetup.set_paper_size_and_default_margins].
 func (x *PageSetup) SetPaperSize(SizeVar *PaperSize) {
+	core.LazyRegister(&xPageSetupSetPaperSize, "GTK", "gtk_page_setup_set_paper_size", false)
+
 	xPageSetupSetPaperSize(x.GoPointer(), SizeVar)
 }
 
@@ -340,6 +375,8 @@ var xPageSetupSetPaperSizeAndDefaultMargins func(uintptr, *PaperSize)
 // Sets the paper size of the `GtkPageSetup` and modifies
 // the margins according to the new paper size.
 func (x *PageSetup) SetPaperSizeAndDefaultMargins(SizeVar *PaperSize) {
+	core.LazyRegister(&xPageSetupSetPaperSizeAndDefaultMargins, "GTK", "gtk_page_setup_set_paper_size_and_default_margins", false)
+
 	xPageSetupSetPaperSizeAndDefaultMargins(x.GoPointer(), SizeVar)
 }
 
@@ -347,6 +384,8 @@ var xPageSetupSetRightMargin func(uintptr, float64, Unit)
 
 // Sets the right margin of the `GtkPageSetup`.
 func (x *PageSetup) SetRightMargin(MarginVar float64, UnitVar Unit) {
+	core.LazyRegister(&xPageSetupSetRightMargin, "GTK", "gtk_page_setup_set_right_margin", false)
+
 	xPageSetupSetRightMargin(x.GoPointer(), MarginVar, UnitVar)
 }
 
@@ -354,6 +393,8 @@ var xPageSetupSetTopMargin func(uintptr, float64, Unit)
 
 // Sets the top margin of the `GtkPageSetup`.
 func (x *PageSetup) SetTopMargin(MarginVar float64, UnitVar Unit) {
+	core.LazyRegister(&xPageSetupSetTopMargin, "GTK", "gtk_page_setup_set_top_margin", false)
+
 	xPageSetupSetTopMargin(x.GoPointer(), MarginVar, UnitVar)
 }
 
@@ -361,6 +402,7 @@ var xPageSetupToFile func(uintptr, string, **glib.Error) bool
 
 // This function saves the information from @setup to @file_name.
 func (x *PageSetup) ToFile(FileNameVar string) (bool, error) {
+	core.LazyRegister(&xPageSetupToFile, "GTK", "gtk_page_setup_to_file", false)
 	var cerr *glib.Error
 
 	cret := xPageSetupToFile(x.GoPointer(), FileNameVar, &cerr)
@@ -374,6 +416,8 @@ var xPageSetupToGvariant func(uintptr) uintptr
 
 // Serialize page setup to an a{sv} variant.
 func (x *PageSetup) ToGvariant() *glib.Variant {
+	core.LazyRegister(&xPageSetupToGvariant, "GTK", "gtk_page_setup_to_gvariant", false)
+
 	cret := xPageSetupToGvariant(x.GoPointer())
 	if cret == 0 {
 		return nil
@@ -385,6 +429,8 @@ var xPageSetupToKeyFile func(uintptr, *glib.KeyFile, uintptr)
 
 // This function adds the page setup from @setup to @key_file.
 func (x *PageSetup) ToKeyFile(KeyFileVar *glib.KeyFile, GroupNameVar *string) {
+	core.LazyRegister(&xPageSetupToKeyFile, "GTK", "gtk_page_setup_to_key_file", false)
+
 	GroupNameVarPtr := core.GStrdupNullable(GroupNameVar)
 	defer core.GFreeNullable(GroupNameVarPtr)
 
@@ -405,43 +451,4 @@ func (c *PageSetup) SetGoPointer(ptr uintptr) {
 func init() {
 	core.SetPackageName("GTK", "gtk4")
 	core.SetSharedLibraries("GTK", []string{"libgtk-4.so.1", "libgtk-4.1.dylib"})
-	var libs []uintptr
-	for _, libPath := range core.GetPaths("GTK") {
-		lib, err := purego.Dlopen(libPath, purego.RTLD_NOW|purego.RTLD_GLOBAL)
-		if err != nil {
-			panic(err)
-		}
-		libs = append(libs, lib)
-	}
-
-	core.PuregoSafeRegister(&xPageSetupGLibType, libs, "gtk_page_setup_get_type")
-
-	core.PuregoSafeRegister(&xNewPageSetup, libs, "gtk_page_setup_new")
-	core.PuregoSafeRegister(&xNewPageSetupFromFile, libs, "gtk_page_setup_new_from_file")
-	core.PuregoSafeRegister(&xNewPageSetupFromGvariant, libs, "gtk_page_setup_new_from_gvariant")
-	core.PuregoSafeRegister(&xNewPageSetupFromKeyFile, libs, "gtk_page_setup_new_from_key_file")
-
-	core.PuregoSafeRegister(&xPageSetupCopy, libs, "gtk_page_setup_copy")
-	core.PuregoSafeRegister(&xPageSetupGetBottomMargin, libs, "gtk_page_setup_get_bottom_margin")
-	core.PuregoSafeRegister(&xPageSetupGetLeftMargin, libs, "gtk_page_setup_get_left_margin")
-	core.PuregoSafeRegister(&xPageSetupGetOrientation, libs, "gtk_page_setup_get_orientation")
-	core.PuregoSafeRegister(&xPageSetupGetPageHeight, libs, "gtk_page_setup_get_page_height")
-	core.PuregoSafeRegister(&xPageSetupGetPageWidth, libs, "gtk_page_setup_get_page_width")
-	core.PuregoSafeRegister(&xPageSetupGetPaperHeight, libs, "gtk_page_setup_get_paper_height")
-	core.PuregoSafeRegister(&xPageSetupGetPaperSize, libs, "gtk_page_setup_get_paper_size")
-	core.PuregoSafeRegister(&xPageSetupGetPaperWidth, libs, "gtk_page_setup_get_paper_width")
-	core.PuregoSafeRegister(&xPageSetupGetRightMargin, libs, "gtk_page_setup_get_right_margin")
-	core.PuregoSafeRegister(&xPageSetupGetTopMargin, libs, "gtk_page_setup_get_top_margin")
-	core.PuregoSafeRegister(&xPageSetupLoadFile, libs, "gtk_page_setup_load_file")
-	core.PuregoSafeRegister(&xPageSetupLoadKeyFile, libs, "gtk_page_setup_load_key_file")
-	core.PuregoSafeRegister(&xPageSetupSetBottomMargin, libs, "gtk_page_setup_set_bottom_margin")
-	core.PuregoSafeRegister(&xPageSetupSetLeftMargin, libs, "gtk_page_setup_set_left_margin")
-	core.PuregoSafeRegister(&xPageSetupSetOrientation, libs, "gtk_page_setup_set_orientation")
-	core.PuregoSafeRegister(&xPageSetupSetPaperSize, libs, "gtk_page_setup_set_paper_size")
-	core.PuregoSafeRegister(&xPageSetupSetPaperSizeAndDefaultMargins, libs, "gtk_page_setup_set_paper_size_and_default_margins")
-	core.PuregoSafeRegister(&xPageSetupSetRightMargin, libs, "gtk_page_setup_set_right_margin")
-	core.PuregoSafeRegister(&xPageSetupSetTopMargin, libs, "gtk_page_setup_set_top_margin")
-	core.PuregoSafeRegister(&xPageSetupToFile, libs, "gtk_page_setup_to_file")
-	core.PuregoSafeRegister(&xPageSetupToGvariant, libs, "gtk_page_setup_to_gvariant")
-	core.PuregoSafeRegister(&xPageSetupToKeyFile, libs, "gtk_page_setup_to_key_file")
 }

@@ -5,7 +5,6 @@ import (
 	"structs"
 	"unsafe"
 
-	"github.com/bnema/purego"
 	"github.com/bnema/puregotk/pkg/core"
 	"github.com/bnema/puregotk/v4/glib"
 	"github.com/bnema/puregotk/v4/gobject"
@@ -36,6 +35,7 @@ type AutomationBrowsingContextPresentation int
 var xAutomationBrowsingContextPresentationGLibType func() types.GType
 
 func AutomationBrowsingContextPresentationGLibType() types.GType {
+	core.LazyRegister(&xAutomationBrowsingContextPresentationGLibType, "WEBKIT", "webkit_automation_browsing_context_presentation_get_type", false)
 	return xAutomationBrowsingContextPresentationGLibType()
 }
 
@@ -62,6 +62,7 @@ type AutomationSession struct {
 var xAutomationSessionGLibType func() types.GType
 
 func AutomationSessionGLibType() types.GType {
+	core.LazyRegister(&xAutomationSessionGLibType, "WEBKIT", "webkit_automation_session_get_type", false)
 	return xAutomationSessionGLibType()
 }
 
@@ -77,6 +78,8 @@ var xAutomationSessionGetApplicationInfo func(uintptr) uintptr
 //
 // Get the #WebKitAutomationSession previously set with webkit_automation_session_set_application_info().
 func (x *AutomationSession) GetApplicationInfo() *ApplicationInfo {
+	core.LazyRegister(&xAutomationSessionGetApplicationInfo, "WEBKIT", "webkit_automation_session_get_application_info", false)
+
 	cret := xAutomationSessionGetApplicationInfo(x.GoPointer())
 	if cret == 0 {
 		return nil
@@ -88,6 +91,8 @@ var xAutomationSessionGetId func(uintptr) string
 
 // Get the unique identifier of a #WebKitAutomationSession
 func (x *AutomationSession) GetId() string {
+	core.LazyRegister(&xAutomationSessionGetId, "WEBKIT", "webkit_automation_session_get_id", false)
+
 	cret := xAutomationSessionGetId(x.GoPointer())
 	return cret
 }
@@ -103,6 +108,8 @@ var xAutomationSessionSetApplicationInfo func(uintptr, *ApplicationInfo)
 // after the automation session has been fully created, so this must be called in the callback of
 // #WebKitWebContext::automation-started signal.
 func (x *AutomationSession) SetApplicationInfo(InfoVar *ApplicationInfo) {
+	core.LazyRegister(&xAutomationSessionSetApplicationInfo, "WEBKIT", "webkit_automation_session_set_application_info", false)
+
 	xAutomationSessionSetApplicationInfo(x.GoPointer(), InfoVar)
 }
 
@@ -198,25 +205,8 @@ func (x *AutomationSession) ConnectWillClose(cb *func(AutomationSession)) uint {
 func init() {
 	core.SetPackageName("WEBKIT", "webkitgtk-6.0")
 	core.SetSharedLibraries("WEBKIT", []string{"libwebkitgtk-6.0.so.4", "libjavascriptcoregtk-6.0.so.1", "libwebkitgtk-6.0.4.dylib", "libjavascriptcoregtk-6.0.1.dylib"})
-	var libs []uintptr
-	for _, libPath := range core.GetPaths("WEBKIT") {
-		lib, err := purego.Dlopen(libPath, purego.RTLD_NOW|purego.RTLD_GLOBAL)
-		if err != nil {
-			panic(err)
-		}
-		libs = append(libs, lib)
-	}
 
-	core.PuregoSafeRegister(&xAutomationBrowsingContextPresentationGLibType, libs, "webkit_automation_browsing_context_presentation_get_type")
-
-	core.PuregoSafeRegister(&xAutomationSessionGLibType, libs, "webkit_automation_session_get_type")
-
-	core.PuregoSafeRegister(&xAutomationSessionGetApplicationInfo, libs, "webkit_automation_session_get_application_info")
-	core.PuregoSafeRegister(&xAutomationSessionGetId, libs, "webkit_automation_session_get_id")
-	core.PuregoSafeRegister(&xAutomationSessionSetApplicationInfo, libs, "webkit_automation_session_set_application_info")
-
-	// Manually register types since they aren't being automatically registered when
-	// the library is loaded
-	// See https://bugs.webkit.org/show_bug.cgi?id=175937
+	// Manually register types since they aren't automatically registered when
+	// WebKit is loaded. See https://bugs.webkit.org/show_bug.cgi?id=175937.
 	AutomationSessionGLibType()
 }

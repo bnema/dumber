@@ -5,7 +5,6 @@ import (
 	"structs"
 	"unsafe"
 
-	"github.com/bnema/purego"
 	"github.com/bnema/puregotk/pkg/core"
 	"github.com/bnema/puregotk/v4/gio"
 	"github.com/bnema/puregotk/v4/glib"
@@ -49,6 +48,7 @@ type UriLauncher struct {
 var xUriLauncherGLibType func() types.GType
 
 func UriLauncherGLibType() types.GType {
+	core.LazyRegister(&xUriLauncherGLibType, "GTK", "gtk_uri_launcher_get_type", false)
 	return xUriLauncherGLibType()
 }
 
@@ -62,6 +62,7 @@ var xNewUriLauncher func(uintptr) uintptr
 
 // Creates a new `GtkUriLauncher` object.
 func NewUriLauncher(UriVar *string) *UriLauncher {
+	core.LazyRegister(&xNewUriLauncher, "GTK", "gtk_uri_launcher_new", false)
 	var cls *UriLauncher
 
 	UriVarPtr := core.GStrdupNullable(UriVar)
@@ -85,6 +86,8 @@ var xUriLauncherCanLaunch func(uintptr, uintptr) bool
 // This can be used to disable controls that trigger
 // the launcher when they are known not to work.
 func (x *UriLauncher) CanLaunch(ParentVar *Window) bool {
+	core.LazyRegister(&xUriLauncherCanLaunch, "GTK", "gtk_uri_launcher_can_launch", false)
+
 	cret := xUriLauncherCanLaunch(x.GoPointer(), ParentVar.GoPointer())
 	return cret
 }
@@ -93,6 +96,8 @@ var xUriLauncherGetUri func(uintptr) string
 
 // Gets the uri that will be opened.
 func (x *UriLauncher) GetUri() string {
+	core.LazyRegister(&xUriLauncherGetUri, "GTK", "gtk_uri_launcher_get_uri", false)
+
 	cret := xUriLauncherGetUri(x.GoPointer())
 	return cret
 }
@@ -103,6 +108,8 @@ var xUriLauncherLaunch func(uintptr, uintptr, uintptr, uintptr, uintptr)
 //
 // This may present an app chooser dialog to the user.
 func (x *UriLauncher) Launch(ParentVar *Window, CancellableVar *gio.Cancellable, CallbackVar *gio.AsyncReadyCallback, UserDataVar uintptr) {
+	core.LazyRegister(&xUriLauncherLaunch, "GTK", "gtk_uri_launcher_launch", false)
+
 	xUriLauncherLaunch(x.GoPointer(), ParentVar.GoPointer(), CancellableVar.GoPointer(), glib.NewCallbackNullable(CallbackVar), UserDataVar)
 }
 
@@ -111,6 +118,7 @@ var xUriLauncherLaunchFinish func(uintptr, uintptr, **glib.Error) bool
 // Finishes the [method@Gtk.UriLauncher.launch] call and
 // returns the result.
 func (x *UriLauncher) LaunchFinish(ResultVar gio.AsyncResult) (bool, error) {
+	core.LazyRegister(&xUriLauncherLaunchFinish, "GTK", "gtk_uri_launcher_launch_finish", false)
 	var cerr *glib.Error
 
 	cret := xUriLauncherLaunchFinish(x.GoPointer(), ResultVar.GoPointer(), &cerr)
@@ -124,6 +132,8 @@ var xUriLauncherSetUri func(uintptr, uintptr)
 
 // Sets the uri that will be opened.
 func (x *UriLauncher) SetUri(UriVar *string) {
+	core.LazyRegister(&xUriLauncherSetUri, "GTK", "gtk_uri_launcher_set_uri", false)
+
 	UriVarPtr := core.GStrdupNullable(UriVar)
 	defer core.GFreeNullable(UriVarPtr)
 
@@ -161,22 +171,4 @@ func (x *UriLauncher) GetPropertyUri() string {
 func init() {
 	core.SetPackageName("GTK", "gtk4")
 	core.SetSharedLibraries("GTK", []string{"libgtk-4.so.1", "libgtk-4.1.dylib"})
-	var libs []uintptr
-	for _, libPath := range core.GetPaths("GTK") {
-		lib, err := purego.Dlopen(libPath, purego.RTLD_NOW|purego.RTLD_GLOBAL)
-		if err != nil {
-			panic(err)
-		}
-		libs = append(libs, lib)
-	}
-
-	core.PuregoSafeRegister(&xUriLauncherGLibType, libs, "gtk_uri_launcher_get_type")
-
-	core.PuregoSafeRegister(&xNewUriLauncher, libs, "gtk_uri_launcher_new")
-
-	core.PuregoSafeRegister(&xUriLauncherCanLaunch, libs, "gtk_uri_launcher_can_launch")
-	core.PuregoSafeRegister(&xUriLauncherGetUri, libs, "gtk_uri_launcher_get_uri")
-	core.PuregoSafeRegister(&xUriLauncherLaunch, libs, "gtk_uri_launcher_launch")
-	core.PuregoSafeRegister(&xUriLauncherLaunchFinish, libs, "gtk_uri_launcher_launch_finish")
-	core.PuregoSafeRegister(&xUriLauncherSetUri, libs, "gtk_uri_launcher_set_uri")
 }

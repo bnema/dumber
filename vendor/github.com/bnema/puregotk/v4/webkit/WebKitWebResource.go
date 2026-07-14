@@ -5,7 +5,6 @@ import (
 	"structs"
 	"unsafe"
 
-	"github.com/bnema/purego"
 	"github.com/bnema/puregotk/pkg/core"
 	"github.com/bnema/puregotk/v4/gio"
 	"github.com/bnema/puregotk/v4/glib"
@@ -49,6 +48,7 @@ type WebResource struct {
 var xWebResourceGLibType func() types.GType
 
 func WebResourceGLibType() types.GType {
+	core.LazyRegister(&xWebResourceGLibType, "WEBKIT", "webkit_web_resource_get_type", false)
 	return xWebResourceGLibType()
 }
 
@@ -65,6 +65,8 @@ var xWebResourceGetData func(uintptr, uintptr, uintptr, uintptr)
 // When the operation is finished, @callback will be called. You can then call
 // webkit_web_resource_get_data_finish() to get the result of the operation.
 func (x *WebResource) GetData(CancellableVar *gio.Cancellable, CallbackVar *gio.AsyncReadyCallback, UserDataVar uintptr) {
+	core.LazyRegister(&xWebResourceGetData, "WEBKIT", "webkit_web_resource_get_data", false)
+
 	xWebResourceGetData(x.GoPointer(), CancellableVar.GoPointer(), glib.NewCallbackNullable(CallbackVar), UserDataVar)
 }
 
@@ -72,6 +74,7 @@ var xWebResourceGetDataFinish func(uintptr, uintptr, *uint, **glib.Error) uintpt
 
 // Finish an asynchronous operation started with webkit_web_resource_get_data().
 func (x *WebResource) GetDataFinish(ResultVar gio.AsyncResult, LengthVar *uint) (uintptr, error) {
+	core.LazyRegister(&xWebResourceGetDataFinish, "WEBKIT", "webkit_web_resource_get_data_finish", false)
 	var cerr *glib.Error
 
 	cret := xWebResourceGetDataFinish(x.GoPointer(), ResultVar.GoPointer(), LengthVar, &cerr)
@@ -89,6 +92,7 @@ var xWebResourceGetResponse func(uintptr) uintptr
 // is received from the server. You can connect to notify::response
 // signal to be notified when the response is received.
 func (x *WebResource) GetResponse() *URIResponse {
+	core.LazyRegister(&xWebResourceGetResponse, "WEBKIT", "webkit_web_resource_get_response", false)
 	var cls *URIResponse
 
 	cret := xWebResourceGetResponse(x.GoPointer())
@@ -140,6 +144,8 @@ var xWebResourceGetUri func(uintptr) string
 // You can monitor the active URI by connecting to the notify::uri
 // signal of @resource.
 func (x *WebResource) GetUri() string {
+	core.LazyRegister(&xWebResourceGetUri, "WEBKIT", "webkit_web_resource_get_uri", false)
+
 	cret := xWebResourceGetUri(x.GoPointer())
 	return cret
 }
@@ -267,24 +273,8 @@ func (x *WebResource) ConnectSentRequest(cb *func(WebResource, uintptr, uintptr)
 func init() {
 	core.SetPackageName("WEBKIT", "webkitgtk-6.0")
 	core.SetSharedLibraries("WEBKIT", []string{"libwebkitgtk-6.0.so.4", "libjavascriptcoregtk-6.0.so.1", "libwebkitgtk-6.0.4.dylib", "libjavascriptcoregtk-6.0.1.dylib"})
-	var libs []uintptr
-	for _, libPath := range core.GetPaths("WEBKIT") {
-		lib, err := purego.Dlopen(libPath, purego.RTLD_NOW|purego.RTLD_GLOBAL)
-		if err != nil {
-			panic(err)
-		}
-		libs = append(libs, lib)
-	}
 
-	core.PuregoSafeRegister(&xWebResourceGLibType, libs, "webkit_web_resource_get_type")
-
-	core.PuregoSafeRegister(&xWebResourceGetData, libs, "webkit_web_resource_get_data")
-	core.PuregoSafeRegister(&xWebResourceGetDataFinish, libs, "webkit_web_resource_get_data_finish")
-	core.PuregoSafeRegister(&xWebResourceGetResponse, libs, "webkit_web_resource_get_response")
-	core.PuregoSafeRegister(&xWebResourceGetUri, libs, "webkit_web_resource_get_uri")
-
-	// Manually register types since they aren't being automatically registered when
-	// the library is loaded
-	// See https://bugs.webkit.org/show_bug.cgi?id=175937
+	// Manually register types since they aren't automatically registered when
+	// WebKit is loaded. See https://bugs.webkit.org/show_bug.cgi?id=175937.
 	WebResourceGLibType()
 }

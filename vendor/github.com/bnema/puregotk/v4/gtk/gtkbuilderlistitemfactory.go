@@ -5,7 +5,6 @@ import (
 	"structs"
 	"unsafe"
 
-	"github.com/bnema/purego"
 	"github.com/bnema/puregotk/pkg/core"
 	"github.com/bnema/puregotk/v4/glib"
 	"github.com/bnema/puregotk/v4/gobject"
@@ -68,6 +67,7 @@ type BuilderListItemFactory struct {
 var xBuilderListItemFactoryGLibType func() types.GType
 
 func BuilderListItemFactoryGLibType() types.GType {
+	core.LazyRegister(&xBuilderListItemFactoryGLibType, "GTK", "gtk_builder_list_item_factory_get_type", false)
 	return xBuilderListItemFactoryGLibType()
 }
 
@@ -82,6 +82,7 @@ var xNewBuilderListItemFactoryFromBytes func(uintptr, *glib.Bytes) uintptr
 // Creates a new `GtkBuilderListItemFactory` that instantiates widgets
 // using @bytes as the data to pass to `GtkBuilder`.
 func NewBuilderListItemFactoryFromBytes(ScopeVar BuilderScope, BytesVar *glib.Bytes) *BuilderListItemFactory {
+	core.LazyRegister(&xNewBuilderListItemFactoryFromBytes, "GTK", "gtk_builder_list_item_factory_new_from_bytes", false)
 	var cls *BuilderListItemFactory
 
 	cret := xNewBuilderListItemFactoryFromBytes(ScopeVar.GoPointer(), BytesVar)
@@ -99,6 +100,7 @@ var xNewBuilderListItemFactoryFromResource func(uintptr, string) uintptr
 // Creates a new `GtkBuilderListItemFactory` that instantiates widgets
 // using data read from the given @resource_path to pass to `GtkBuilder`.
 func NewBuilderListItemFactoryFromResource(ScopeVar BuilderScope, ResourcePathVar string) *BuilderListItemFactory {
+	core.LazyRegister(&xNewBuilderListItemFactoryFromResource, "GTK", "gtk_builder_list_item_factory_new_from_resource", false)
 	var cls *BuilderListItemFactory
 
 	cret := xNewBuilderListItemFactoryFromResource(ScopeVar.GoPointer(), ResourcePathVar)
@@ -116,6 +118,8 @@ var xBuilderListItemFactoryGetBytes func(uintptr) uintptr
 // Gets the data used as the `GtkBuilder` UI template for constructing
 // listitems.
 func (x *BuilderListItemFactory) GetBytes() *glib.Bytes {
+	core.LazyRegister(&xBuilderListItemFactoryGetBytes, "GTK", "gtk_builder_list_item_factory_get_bytes", false)
+
 	cret := xBuilderListItemFactoryGetBytes(x.GoPointer())
 	if cret == 0 {
 		return nil
@@ -127,6 +131,8 @@ var xBuilderListItemFactoryGetResource func(uintptr) string
 
 // If the data references a resource, gets the path of that resource.
 func (x *BuilderListItemFactory) GetResource() string {
+	core.LazyRegister(&xBuilderListItemFactoryGetResource, "GTK", "gtk_builder_list_item_factory_get_resource", false)
+
 	cret := xBuilderListItemFactoryGetResource(x.GoPointer())
 	return cret
 }
@@ -135,6 +141,7 @@ var xBuilderListItemFactoryGetScope func(uintptr) uintptr
 
 // Gets the scope used when constructing listitems.
 func (x *BuilderListItemFactory) GetScope() *BuilderScopeBase {
+	core.LazyRegister(&xBuilderListItemFactoryGetScope, "GTK", "gtk_builder_list_item_factory_get_scope", false)
 	var cls *BuilderScopeBase
 
 	cret := xBuilderListItemFactoryGetScope(x.GoPointer())
@@ -196,21 +203,4 @@ func (x *BuilderListItemFactory) GetPropertyResource() string {
 func init() {
 	core.SetPackageName("GTK", "gtk4")
 	core.SetSharedLibraries("GTK", []string{"libgtk-4.so.1", "libgtk-4.1.dylib"})
-	var libs []uintptr
-	for _, libPath := range core.GetPaths("GTK") {
-		lib, err := purego.Dlopen(libPath, purego.RTLD_NOW|purego.RTLD_GLOBAL)
-		if err != nil {
-			panic(err)
-		}
-		libs = append(libs, lib)
-	}
-
-	core.PuregoSafeRegister(&xBuilderListItemFactoryGLibType, libs, "gtk_builder_list_item_factory_get_type")
-
-	core.PuregoSafeRegister(&xNewBuilderListItemFactoryFromBytes, libs, "gtk_builder_list_item_factory_new_from_bytes")
-	core.PuregoSafeRegister(&xNewBuilderListItemFactoryFromResource, libs, "gtk_builder_list_item_factory_new_from_resource")
-
-	core.PuregoSafeRegister(&xBuilderListItemFactoryGetBytes, libs, "gtk_builder_list_item_factory_get_bytes")
-	core.PuregoSafeRegister(&xBuilderListItemFactoryGetResource, libs, "gtk_builder_list_item_factory_get_resource")
-	core.PuregoSafeRegister(&xBuilderListItemFactoryGetScope, libs, "gtk_builder_list_item_factory_get_scope")
 }

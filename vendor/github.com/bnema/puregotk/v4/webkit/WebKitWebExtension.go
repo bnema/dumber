@@ -5,7 +5,6 @@ import (
 	"structs"
 	"unsafe"
 
-	"github.com/bnema/purego"
 	"github.com/bnema/puregotk/pkg/core"
 	"github.com/bnema/puregotk/v4/gio"
 	"github.com/bnema/puregotk/v4/glib"
@@ -45,6 +44,7 @@ type WebExtension struct {
 var xWebExtensionGLibType func() types.GType
 
 func WebExtensionGLibType() types.GType {
+	core.LazyRegister(&xWebExtensionGLibType, "WEBKIT", "webkit_web_extension_get_type", false)
 	return xWebExtensionGLibType()
 }
 
@@ -59,6 +59,7 @@ var xNewWebExtension func(string, **glib.Error) uintptr
 // Creates a new WebKitWebExtension from a folder containing the extension contents. The folder must
 // contain a `manifest.json` file. If the manifest is invalid or missing, an error will be returned.
 func NewWebExtension(ExtensionPathVar string) (*WebExtension, error) {
+	core.LazyRegister(&xNewWebExtension, "WEBKIT", "webkit_web_extension_new", false)
 	var cls *WebExtension
 	var cerr *glib.Error
 
@@ -84,6 +85,7 @@ var xWebExtensionGetActionIcon func(uintptr, float64, float64) uintptr
 // The returned image will be the best match for the specified size that is available in the extension's action icon set. If no matching icon is available,
 // the method will fall back to the extension's icon.
 func (x *WebExtension) GetActionIcon(WidthVar float64, HeightVar float64) *gio.IconBase {
+	core.LazyRegister(&xWebExtensionGetActionIcon, "WEBKIT", "webkit_web_extension_get_action_icon", false)
 	var cls *gio.IconBase
 
 	cret := xWebExtensionGetActionIcon(x.GoPointer(), WidthVar, HeightVar)
@@ -102,6 +104,8 @@ var xWebExtensionGetAllRequestedMatchPatterns func(uintptr) uintptr
 // Get the set of websites that the extension requires access to for injected content
 // and for receiving messages from websites.
 func (x *WebExtension) GetAllRequestedMatchPatterns() uintptr {
+	core.LazyRegister(&xWebExtensionGetAllRequestedMatchPatterns, "WEBKIT", "webkit_web_extension_get_all_requested_match_patterns", false)
+
 	cret := xWebExtensionGetAllRequestedMatchPatterns(x.GoPointer())
 	return cret
 }
@@ -110,6 +114,8 @@ var xWebExtensionGetDefaultLocale func(uintptr) string
 
 // Get the default locale for the extension.
 func (x *WebExtension) GetDefaultLocale() string {
+	core.LazyRegister(&xWebExtensionGetDefaultLocale, "WEBKIT", "webkit_web_extension_get_default_locale", false)
+
 	cret := xWebExtensionGetDefaultLocale(x.GoPointer())
 	return cret
 }
@@ -122,6 +128,8 @@ var xWebExtensionGetDisplayActionLabel func(uintptr) string
 // the extension being loaded into an extension context.
 // Once the extension is loaded, use the “actionForTab:“ API to get the tab-specific label.
 func (x *WebExtension) GetDisplayActionLabel() string {
+	core.LazyRegister(&xWebExtensionGetDisplayActionLabel, "WEBKIT", "webkit_web_extension_get_display_action_label", false)
+
 	cret := xWebExtensionGetDisplayActionLabel(x.GoPointer())
 	return cret
 }
@@ -130,6 +138,8 @@ var xWebExtensionGetDisplayDescription func(uintptr) string
 
 // Get the localized display description for the extension.
 func (x *WebExtension) GetDisplayDescription() string {
+	core.LazyRegister(&xWebExtensionGetDisplayDescription, "WEBKIT", "webkit_web_extension_get_display_description", false)
+
 	cret := xWebExtensionGetDisplayDescription(x.GoPointer())
 	return cret
 }
@@ -138,6 +148,8 @@ var xWebExtensionGetDisplayName func(uintptr) string
 
 // Get the localized name for the extension.
 func (x *WebExtension) GetDisplayName() string {
+	core.LazyRegister(&xWebExtensionGetDisplayName, "WEBKIT", "webkit_web_extension_get_display_name", false)
+
 	cret := xWebExtensionGetDisplayName(x.GoPointer())
 	return cret
 }
@@ -146,6 +158,8 @@ var xWebExtensionGetDisplayShortName func(uintptr) string
 
 // Get the localized short name for the extension.
 func (x *WebExtension) GetDisplayShortName() string {
+	core.LazyRegister(&xWebExtensionGetDisplayShortName, "WEBKIT", "webkit_web_extension_get_display_short_name", false)
+
 	cret := xWebExtensionGetDisplayShortName(x.GoPointer())
 	return cret
 }
@@ -154,6 +168,8 @@ var xWebExtensionGetDisplayVersion func(uintptr) string
 
 // Get the localized display version for the extension.
 func (x *WebExtension) GetDisplayVersion() string {
+	core.LazyRegister(&xWebExtensionGetDisplayVersion, "WEBKIT", "webkit_web_extension_get_display_version", false)
+
 	cret := xWebExtensionGetDisplayVersion(x.GoPointer())
 	return cret
 }
@@ -162,6 +178,8 @@ var xWebExtensionGetHasBackgroundContent func(uintptr) bool
 
 // Get whether the extension has background content that can run when needed.
 func (x *WebExtension) GetHasBackgroundContent() bool {
+	core.LazyRegister(&xWebExtensionGetHasBackgroundContent, "WEBKIT", "webkit_web_extension_get_has_background_content", false)
+
 	cret := xWebExtensionGetHasBackgroundContent(x.GoPointer())
 	return cret
 }
@@ -176,6 +194,8 @@ var xWebExtensionGetHasCommands func(uintptr) bool
 // via “commands“ on an extension context, and
 // invoked via “performCommand:“.
 func (x *WebExtension) GetHasCommands() bool {
+	core.LazyRegister(&xWebExtensionGetHasCommands, "WEBKIT", "webkit_web_extension_get_has_commands", false)
+
 	cret := xWebExtensionGetHasCommands(x.GoPointer())
 	return cret
 }
@@ -185,6 +205,8 @@ var xWebExtensionGetHasContentModificationRules func(uintptr) bool
 // Get whether the extension includes rules used for
 // content modification or blocking.
 func (x *WebExtension) GetHasContentModificationRules() bool {
+	core.LazyRegister(&xWebExtensionGetHasContentModificationRules, "WEBKIT", "webkit_web_extension_get_has_content_modification_rules", false)
+
 	cret := xWebExtensionGetHasContentModificationRules(x.GoPointer())
 	return cret
 }
@@ -198,6 +220,8 @@ var xWebExtensionGetHasInjectedContent func(uintptr) bool
 // property on an extension context, as the injectable content
 // can change after the extension is loaded.
 func (x *WebExtension) GetHasInjectedContent() bool {
+	core.LazyRegister(&xWebExtensionGetHasInjectedContent, "WEBKIT", "webkit_web_extension_get_has_injected_content", false)
+
 	cret := xWebExtensionGetHasInjectedContent(x.GoPointer())
 	return cret
 }
@@ -210,6 +234,8 @@ var xWebExtensionGetHasOptionsPage func(uintptr) bool
 // user interface element, which can be accessed via
 // “optionsPageURL“ on an extension context.
 func (x *WebExtension) GetHasOptionsPage() bool {
+	core.LazyRegister(&xWebExtensionGetHasOptionsPage, "WEBKIT", "webkit_web_extension_get_has_options_page", false)
+
 	cret := xWebExtensionGetHasOptionsPage(x.GoPointer())
 	return cret
 }
@@ -224,6 +250,8 @@ var xWebExtensionGetHasOverrideNewTabPage func(uintptr) bool
 // be accessed via “overrideNewTabPageURL“
 // on an extension context.
 func (x *WebExtension) GetHasOverrideNewTabPage() bool {
+	core.LazyRegister(&xWebExtensionGetHasOverrideNewTabPage, "WEBKIT", "webkit_web_extension_get_has_override_new_tab_page", false)
+
 	cret := xWebExtensionGetHasOverrideNewTabPage(x.GoPointer())
 	return cret
 }
@@ -233,6 +261,8 @@ var xWebExtensionGetHasPersistentBackgroundContent func(uintptr) bool
 // Get whether the extension has background content that stays in memory as long
 // as the extension is loaded.
 func (x *WebExtension) GetHasPersistentBackgroundContent() bool {
+	core.LazyRegister(&xWebExtensionGetHasPersistentBackgroundContent, "WEBKIT", "webkit_web_extension_get_has_persistent_background_content", false)
+
 	cret := xWebExtensionGetHasPersistentBackgroundContent(x.GoPointer())
 	return cret
 }
@@ -244,6 +274,7 @@ var xWebExtensionGetIcon func(uintptr, float64, float64) uintptr
 // The returned image will be the best match for the specified size that is available in the extension's
 // icon set. If no matching icon can be found, the method will return %NULL.
 func (x *WebExtension) GetIcon(WidthVar float64, HeightVar float64) *gio.IconBase {
+	core.LazyRegister(&xWebExtensionGetIcon, "WEBKIT", "webkit_web_extension_get_icon", false)
 	var cls *gio.IconBase
 
 	cret := xWebExtensionGetIcon(x.GoPointer(), WidthVar, HeightVar)
@@ -265,6 +296,8 @@ var xWebExtensionGetManifestVersion func(uintptr) float64
 // A [error@WebKit.WebExtensionError.UNSUPPORTED_MANIFEST_VERSION] error will be
 // reported if the manifest version isn't specified.
 func (x *WebExtension) GetManifestVersion() float64 {
+	core.LazyRegister(&xWebExtensionGetManifestVersion, "WEBKIT", "webkit_web_extension_get_manifest_version", false)
+
 	cret := xWebExtensionGetManifestVersion(x.GoPointer())
 	return cret
 }
@@ -274,6 +307,8 @@ var xWebExtensionGetOptionalPermissionMatchPatterns func(uintptr) uintptr
 // Get the set of websites that the extension may need access to for optional functionality.
 // These match patterns can be requested by the extension at a later time.
 func (x *WebExtension) GetOptionalPermissionMatchPatterns() uintptr {
+	core.LazyRegister(&xWebExtensionGetOptionalPermissionMatchPatterns, "WEBKIT", "webkit_web_extension_get_optional_permission_match_patterns", false)
+
 	cret := xWebExtensionGetOptionalPermissionMatchPatterns(x.GoPointer())
 	return cret
 }
@@ -284,6 +319,8 @@ var xWebExtensionGetOptionalPermissions func(uintptr) []string
 // optional functionality. These permissions can be requested
 // by the extension at a later time.
 func (x *WebExtension) GetOptionalPermissions() []string {
+	core.LazyRegister(&xWebExtensionGetOptionalPermissions, "WEBKIT", "webkit_web_extension_get_optional_permissions", false)
+
 	cret := xWebExtensionGetOptionalPermissions(x.GoPointer())
 	return cret
 }
@@ -292,6 +329,8 @@ var xWebExtensionGetPath func(uintptr) string
 
 // Get the path pointing to the folder containing the extension manifest and resources
 func (x *WebExtension) GetPath() string {
+	core.LazyRegister(&xWebExtensionGetPath, "WEBKIT", "webkit_web_extension_get_path", false)
+
 	cret := xWebExtensionGetPath(x.GoPointer())
 	return cret
 }
@@ -300,6 +339,8 @@ var xWebExtensionGetRequestedPermissionMatchPatterns func(uintptr) uintptr
 
 // Get the set of websites that the extension requires access to for its base functionality.
 func (x *WebExtension) GetRequestedPermissionMatchPatterns() uintptr {
+	core.LazyRegister(&xWebExtensionGetRequestedPermissionMatchPatterns, "WEBKIT", "webkit_web_extension_get_requested_permission_match_patterns", false)
+
 	cret := xWebExtensionGetRequestedPermissionMatchPatterns(x.GoPointer())
 	return cret
 }
@@ -309,6 +350,8 @@ var xWebExtensionGetRequestedPermissions func(uintptr) []string
 // Get the set of permissions that the extension requires
 // for its base functionality.
 func (x *WebExtension) GetRequestedPermissions() []string {
+	core.LazyRegister(&xWebExtensionGetRequestedPermissions, "WEBKIT", "webkit_web_extension_get_requested_permissions", false)
+
 	cret := xWebExtensionGetRequestedPermissions(x.GoPointer())
 	return cret
 }
@@ -317,6 +360,8 @@ var xWebExtensionGetVersion func(uintptr) string
 
 // Get the version for the extension.
 func (x *WebExtension) GetVersion() string {
+	core.LazyRegister(&xWebExtensionGetVersion, "WEBKIT", "webkit_web_extension_get_version", false)
+
 	cret := xWebExtensionGetVersion(x.GoPointer())
 	return cret
 }
@@ -325,6 +370,8 @@ var xWebExtensionSupportsManifestVersion func(uintptr, float64) bool
 
 // Checks if a manifest version is supported by the extension.
 func (x *WebExtension) SupportsManifestVersion(ManifestVersionVar float64) bool {
+	core.LazyRegister(&xWebExtensionSupportsManifestVersion, "WEBKIT", "webkit_web_extension_supports_manifest_version", false)
+
 	cret := xWebExtensionSupportsManifestVersion(x.GoPointer(), ManifestVersionVar)
 	return cret
 }
@@ -563,46 +610,8 @@ func (x *WebExtension) Init(CancellableVar *gio.Cancellable) (bool, error) {
 func init() {
 	core.SetPackageName("WEBKIT", "webkitgtk-6.0")
 	core.SetSharedLibraries("WEBKIT", []string{"libwebkitgtk-6.0.so.4", "libjavascriptcoregtk-6.0.so.1", "libwebkitgtk-6.0.4.dylib", "libjavascriptcoregtk-6.0.1.dylib"})
-	var libs []uintptr
-	for _, libPath := range core.GetPaths("WEBKIT") {
-		lib, err := purego.Dlopen(libPath, purego.RTLD_NOW|purego.RTLD_GLOBAL)
-		if err != nil {
-			panic(err)
-		}
-		libs = append(libs, lib)
-	}
 
-	core.PuregoSafeRegister(&xWebExtensionGLibType, libs, "webkit_web_extension_get_type")
-
-	core.PuregoSafeRegister(&xNewWebExtension, libs, "webkit_web_extension_new")
-
-	core.PuregoSafeRegister(&xWebExtensionGetActionIcon, libs, "webkit_web_extension_get_action_icon")
-	core.PuregoSafeRegister(&xWebExtensionGetAllRequestedMatchPatterns, libs, "webkit_web_extension_get_all_requested_match_patterns")
-	core.PuregoSafeRegister(&xWebExtensionGetDefaultLocale, libs, "webkit_web_extension_get_default_locale")
-	core.PuregoSafeRegister(&xWebExtensionGetDisplayActionLabel, libs, "webkit_web_extension_get_display_action_label")
-	core.PuregoSafeRegister(&xWebExtensionGetDisplayDescription, libs, "webkit_web_extension_get_display_description")
-	core.PuregoSafeRegister(&xWebExtensionGetDisplayName, libs, "webkit_web_extension_get_display_name")
-	core.PuregoSafeRegister(&xWebExtensionGetDisplayShortName, libs, "webkit_web_extension_get_display_short_name")
-	core.PuregoSafeRegister(&xWebExtensionGetDisplayVersion, libs, "webkit_web_extension_get_display_version")
-	core.PuregoSafeRegister(&xWebExtensionGetHasBackgroundContent, libs, "webkit_web_extension_get_has_background_content")
-	core.PuregoSafeRegister(&xWebExtensionGetHasCommands, libs, "webkit_web_extension_get_has_commands")
-	core.PuregoSafeRegister(&xWebExtensionGetHasContentModificationRules, libs, "webkit_web_extension_get_has_content_modification_rules")
-	core.PuregoSafeRegister(&xWebExtensionGetHasInjectedContent, libs, "webkit_web_extension_get_has_injected_content")
-	core.PuregoSafeRegister(&xWebExtensionGetHasOptionsPage, libs, "webkit_web_extension_get_has_options_page")
-	core.PuregoSafeRegister(&xWebExtensionGetHasOverrideNewTabPage, libs, "webkit_web_extension_get_has_override_new_tab_page")
-	core.PuregoSafeRegister(&xWebExtensionGetHasPersistentBackgroundContent, libs, "webkit_web_extension_get_has_persistent_background_content")
-	core.PuregoSafeRegister(&xWebExtensionGetIcon, libs, "webkit_web_extension_get_icon")
-	core.PuregoSafeRegister(&xWebExtensionGetManifestVersion, libs, "webkit_web_extension_get_manifest_version")
-	core.PuregoSafeRegister(&xWebExtensionGetOptionalPermissionMatchPatterns, libs, "webkit_web_extension_get_optional_permission_match_patterns")
-	core.PuregoSafeRegister(&xWebExtensionGetOptionalPermissions, libs, "webkit_web_extension_get_optional_permissions")
-	core.PuregoSafeRegister(&xWebExtensionGetPath, libs, "webkit_web_extension_get_path")
-	core.PuregoSafeRegister(&xWebExtensionGetRequestedPermissionMatchPatterns, libs, "webkit_web_extension_get_requested_permission_match_patterns")
-	core.PuregoSafeRegister(&xWebExtensionGetRequestedPermissions, libs, "webkit_web_extension_get_requested_permissions")
-	core.PuregoSafeRegister(&xWebExtensionGetVersion, libs, "webkit_web_extension_get_version")
-	core.PuregoSafeRegister(&xWebExtensionSupportsManifestVersion, libs, "webkit_web_extension_supports_manifest_version")
-
-	// Manually register types since they aren't being automatically registered when
-	// the library is loaded
-	// See https://bugs.webkit.org/show_bug.cgi?id=175937
+	// Manually register types since they aren't automatically registered when
+	// WebKit is loaded. See https://bugs.webkit.org/show_bug.cgi?id=175937.
 	WebExtensionGLibType()
 }

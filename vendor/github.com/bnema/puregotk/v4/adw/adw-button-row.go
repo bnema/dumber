@@ -5,7 +5,6 @@ import (
 	"structs"
 	"unsafe"
 
-	"github.com/bnema/purego"
 	"github.com/bnema/puregotk/pkg/core"
 	"github.com/bnema/puregotk/v4/glib"
 	"github.com/bnema/puregotk/v4/gobject"
@@ -88,6 +87,7 @@ type ButtonRow struct {
 var xButtonRowGLibType func() types.GType
 
 func ButtonRowGLibType() types.GType {
+	core.LazyRegister(&xButtonRowGLibType, "ADW", "adw_button_row_get_type", false)
 	return xButtonRowGLibType()
 }
 
@@ -101,6 +101,7 @@ var xNewButtonRow func() uintptr
 
 // Creates a new `AdwButtonRow`.
 func NewButtonRow() *ButtonRow {
+	core.LazyRegister(&xNewButtonRow, "ADW", "adw_button_row_new", false)
 	var cls *ButtonRow
 
 	cret := xNewButtonRow()
@@ -118,6 +119,8 @@ var xButtonRowGetEndIconName func(uintptr) string
 
 // Gets the end icon name for @self.
 func (x *ButtonRow) GetEndIconName() string {
+	core.LazyRegister(&xButtonRowGetEndIconName, "ADW", "adw_button_row_get_end_icon_name", false)
+
 	cret := xButtonRowGetEndIconName(x.GoPointer())
 	return cret
 }
@@ -126,6 +129,8 @@ var xButtonRowGetStartIconName func(uintptr) string
 
 // Gets the start icon name for @self.
 func (x *ButtonRow) GetStartIconName() string {
+	core.LazyRegister(&xButtonRowGetStartIconName, "ADW", "adw_button_row_get_start_icon_name", false)
+
 	cret := xButtonRowGetStartIconName(x.GoPointer())
 	return cret
 }
@@ -134,6 +139,8 @@ var xButtonRowSetEndIconName func(uintptr, uintptr)
 
 // Sets the end icon name for @self.
 func (x *ButtonRow) SetEndIconName(IconNameVar *string) {
+	core.LazyRegister(&xButtonRowSetEndIconName, "ADW", "adw_button_row_set_end_icon_name", false)
+
 	IconNameVarPtr := core.GStrdupNullable(IconNameVar)
 	defer core.GFreeNullable(IconNameVarPtr)
 
@@ -144,6 +151,8 @@ var xButtonRowSetStartIconName func(uintptr, uintptr)
 
 // Sets the start icon name for @self.
 func (x *ButtonRow) SetStartIconName(IconNameVar *string) {
+	core.LazyRegister(&xButtonRowSetStartIconName, "ADW", "adw_button_row_set_start_icon_name", false)
+
 	IconNameVarPtr := core.GStrdupNullable(IconNameVar)
 	defer core.GFreeNullable(IconNameVarPtr)
 
@@ -560,21 +569,4 @@ func (x *ButtonRow) GetBuildableId() string {
 func init() {
 	core.SetPackageName("ADW", "libadwaita-1")
 	core.SetSharedLibraries("ADW", []string{"libadwaita-1.so.0", "libadwaita-1.0.dylib"})
-	var libs []uintptr
-	for _, libPath := range core.GetPaths("ADW") {
-		lib, err := purego.Dlopen(libPath, purego.RTLD_NOW|purego.RTLD_GLOBAL)
-		if err != nil {
-			panic(err)
-		}
-		libs = append(libs, lib)
-	}
-
-	core.PuregoSafeRegister(&xButtonRowGLibType, libs, "adw_button_row_get_type")
-
-	core.PuregoSafeRegister(&xNewButtonRow, libs, "adw_button_row_new")
-
-	core.PuregoSafeRegister(&xButtonRowGetEndIconName, libs, "adw_button_row_get_end_icon_name")
-	core.PuregoSafeRegister(&xButtonRowGetStartIconName, libs, "adw_button_row_get_start_icon_name")
-	core.PuregoSafeRegister(&xButtonRowSetEndIconName, libs, "adw_button_row_set_end_icon_name")
-	core.PuregoSafeRegister(&xButtonRowSetStartIconName, libs, "adw_button_row_set_start_icon_name")
 }

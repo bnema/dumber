@@ -5,7 +5,6 @@ import (
 	"structs"
 	"unsafe"
 
-	"github.com/bnema/purego"
 	"github.com/bnema/puregotk/pkg/core"
 	"github.com/bnema/puregotk/v4/gio"
 	"github.com/bnema/puregotk/v4/gobject"
@@ -56,6 +55,7 @@ type Video struct {
 var xVideoGLibType func() types.GType
 
 func VideoGLibType() types.GType {
+	core.LazyRegister(&xVideoGLibType, "GTK", "gtk_video_get_type", false)
 	return xVideoGLibType()
 }
 
@@ -69,6 +69,7 @@ var xNewVideo func() uintptr
 
 // Creates a new empty `GtkVideo`.
 func NewVideo() *Video {
+	core.LazyRegister(&xNewVideo, "GTK", "gtk_video_new", false)
 	var cls *Video
 
 	cret := xNewVideo()
@@ -86,6 +87,7 @@ var xNewVideoForFile func(uintptr) uintptr
 
 // Creates a `GtkVideo` to play back the given @file.
 func NewVideoForFile(FileVar gio.File) *Video {
+	core.LazyRegister(&xNewVideoForFile, "GTK", "gtk_video_new_for_file", false)
 	var cls *Video
 
 	cret := xNewVideoForFile(FileVar.GoPointer())
@@ -106,6 +108,7 @@ var xNewVideoForFilename func(uintptr) uintptr
 // This is a utility function that calls [ctor@Gtk.Video.new_for_file],
 // See that function for details.
 func NewVideoForFilename(FilenameVar *string) *Video {
+	core.LazyRegister(&xNewVideoForFilename, "GTK", "gtk_video_new_for_filename", false)
 	var cls *Video
 
 	FilenameVarPtr := core.GStrdupNullable(FilenameVar)
@@ -126,6 +129,7 @@ var xNewVideoForMediaStream func(uintptr) uintptr
 
 // Creates a `GtkVideo` to play back the given @stream.
 func NewVideoForMediaStream(StreamVar *MediaStream) *Video {
+	core.LazyRegister(&xNewVideoForMediaStream, "GTK", "gtk_video_new_for_media_stream", false)
 	var cls *Video
 
 	cret := xNewVideoForMediaStream(StreamVar.GoPointer())
@@ -146,6 +150,7 @@ var xNewVideoForResource func(uintptr) uintptr
 //
 // This is a utility function that calls [ctor@Gtk.Video.new_for_file].
 func NewVideoForResource(ResourcePathVar *string) *Video {
+	core.LazyRegister(&xNewVideoForResource, "GTK", "gtk_video_new_for_resource", false)
 	var cls *Video
 
 	ResourcePathVarPtr := core.GStrdupNullable(ResourcePathVar)
@@ -166,6 +171,8 @@ var xVideoGetAutoplay func(uintptr) bool
 
 // Returns %TRUE if videos have been set to loop.
 func (x *Video) GetAutoplay() bool {
+	core.LazyRegister(&xVideoGetAutoplay, "GTK", "gtk_video_get_autoplay", false)
+
 	cret := xVideoGetAutoplay(x.GoPointer())
 	return cret
 }
@@ -175,6 +182,7 @@ var xVideoGetFile func(uintptr) uintptr
 // Gets the file played by @self or %NULL if not playing back
 // a file.
 func (x *Video) GetFile() *gio.FileBase {
+	core.LazyRegister(&xVideoGetFile, "GTK", "gtk_video_get_file", false)
 	var cls *gio.FileBase
 
 	cret := xVideoGetFile(x.GoPointer())
@@ -194,6 +202,8 @@ var xVideoGetGraphicsOffload func(uintptr) GraphicsOffloadEnabled
 //
 // See [class@Gtk.GraphicsOffload] for more information on graphics offload.
 func (x *Video) GetGraphicsOffload() GraphicsOffloadEnabled {
+	core.LazyRegister(&xVideoGetGraphicsOffload, "GTK", "gtk_video_get_graphics_offload", false)
+
 	cret := xVideoGetGraphicsOffload(x.GoPointer())
 	return cret
 }
@@ -202,6 +212,8 @@ var xVideoGetLoop func(uintptr) bool
 
 // Returns %TRUE if videos have been set to loop.
 func (x *Video) GetLoop() bool {
+	core.LazyRegister(&xVideoGetLoop, "GTK", "gtk_video_get_loop", false)
+
 	cret := xVideoGetLoop(x.GoPointer())
 	return cret
 }
@@ -210,6 +222,7 @@ var xVideoGetMediaStream func(uintptr) uintptr
 
 // Gets the media stream managed by @self or %NULL if none.
 func (x *Video) GetMediaStream() *MediaStream {
+	core.LazyRegister(&xVideoGetMediaStream, "GTK", "gtk_video_get_media_stream", false)
 	var cls *MediaStream
 
 	cret := xVideoGetMediaStream(x.GoPointer())
@@ -228,6 +241,8 @@ var xVideoSetAutoplay func(uintptr, bool)
 // Sets whether @self automatically starts playback when it
 // becomes visible or when a new file gets loaded.
 func (x *Video) SetAutoplay(AutoplayVar bool) {
+	core.LazyRegister(&xVideoSetAutoplay, "GTK", "gtk_video_set_autoplay", false)
+
 	xVideoSetAutoplay(x.GoPointer(), AutoplayVar)
 }
 
@@ -235,6 +250,8 @@ var xVideoSetFile func(uintptr, uintptr)
 
 // Makes @self play the given @file.
 func (x *Video) SetFile(FileVar gio.File) {
+	core.LazyRegister(&xVideoSetFile, "GTK", "gtk_video_set_file", false)
+
 	xVideoSetFile(x.GoPointer(), FileVar.GoPointer())
 }
 
@@ -244,6 +261,8 @@ var xVideoSetFilename func(uintptr, uintptr)
 //
 // This is a utility function that calls gtk_video_set_file(),
 func (x *Video) SetFilename(FilenameVar *string) {
+	core.LazyRegister(&xVideoSetFilename, "GTK", "gtk_video_set_filename", false)
+
 	FilenameVarPtr := core.GStrdupNullable(FilenameVar)
 	defer core.GFreeNullable(FilenameVarPtr)
 
@@ -256,6 +275,8 @@ var xVideoSetGraphicsOffload func(uintptr, GraphicsOffloadEnabled)
 //
 // See [class@Gtk.GraphicsOffload] for more information on graphics offload.
 func (x *Video) SetGraphicsOffload(EnabledVar GraphicsOffloadEnabled) {
+	core.LazyRegister(&xVideoSetGraphicsOffload, "GTK", "gtk_video_set_graphics_offload", false)
+
 	xVideoSetGraphicsOffload(x.GoPointer(), EnabledVar)
 }
 
@@ -263,6 +284,8 @@ var xVideoSetLoop func(uintptr, bool)
 
 // Sets whether new files loaded by @self should be set to loop.
 func (x *Video) SetLoop(LoopVar bool) {
+	core.LazyRegister(&xVideoSetLoop, "GTK", "gtk_video_set_loop", false)
+
 	xVideoSetLoop(x.GoPointer(), LoopVar)
 }
 
@@ -277,6 +300,8 @@ var xVideoSetMediaStream func(uintptr, uintptr)
 // If you want to display a file, consider using [method@Gtk.Video.set_file]
 // instead.
 func (x *Video) SetMediaStream(StreamVar *MediaStream) {
+	core.LazyRegister(&xVideoSetMediaStream, "GTK", "gtk_video_set_media_stream", false)
+
 	xVideoSetMediaStream(x.GoPointer(), StreamVar.GoPointer())
 }
 
@@ -286,6 +311,8 @@ var xVideoSetResource func(uintptr, uintptr)
 //
 // This is a utility function that calls [method@Gtk.Video.set_file].
 func (x *Video) SetResource(ResourcePathVar *string) {
+	core.LazyRegister(&xVideoSetResource, "GTK", "gtk_video_set_resource", false)
+
 	ResourcePathVarPtr := core.GStrdupNullable(ResourcePathVar)
 	defer core.GFreeNullable(ResourcePathVarPtr)
 
@@ -600,33 +627,4 @@ func (x *Video) GetBuildableId() string {
 func init() {
 	core.SetPackageName("GTK", "gtk4")
 	core.SetSharedLibraries("GTK", []string{"libgtk-4.so.1", "libgtk-4.1.dylib"})
-	var libs []uintptr
-	for _, libPath := range core.GetPaths("GTK") {
-		lib, err := purego.Dlopen(libPath, purego.RTLD_NOW|purego.RTLD_GLOBAL)
-		if err != nil {
-			panic(err)
-		}
-		libs = append(libs, lib)
-	}
-
-	core.PuregoSafeRegister(&xVideoGLibType, libs, "gtk_video_get_type")
-
-	core.PuregoSafeRegister(&xNewVideo, libs, "gtk_video_new")
-	core.PuregoSafeRegister(&xNewVideoForFile, libs, "gtk_video_new_for_file")
-	core.PuregoSafeRegister(&xNewVideoForFilename, libs, "gtk_video_new_for_filename")
-	core.PuregoSafeRegister(&xNewVideoForMediaStream, libs, "gtk_video_new_for_media_stream")
-	core.PuregoSafeRegister(&xNewVideoForResource, libs, "gtk_video_new_for_resource")
-
-	core.PuregoSafeRegister(&xVideoGetAutoplay, libs, "gtk_video_get_autoplay")
-	core.PuregoSafeRegister(&xVideoGetFile, libs, "gtk_video_get_file")
-	core.PuregoSafeRegister(&xVideoGetGraphicsOffload, libs, "gtk_video_get_graphics_offload")
-	core.PuregoSafeRegister(&xVideoGetLoop, libs, "gtk_video_get_loop")
-	core.PuregoSafeRegister(&xVideoGetMediaStream, libs, "gtk_video_get_media_stream")
-	core.PuregoSafeRegister(&xVideoSetAutoplay, libs, "gtk_video_set_autoplay")
-	core.PuregoSafeRegister(&xVideoSetFile, libs, "gtk_video_set_file")
-	core.PuregoSafeRegister(&xVideoSetFilename, libs, "gtk_video_set_filename")
-	core.PuregoSafeRegister(&xVideoSetGraphicsOffload, libs, "gtk_video_set_graphics_offload")
-	core.PuregoSafeRegister(&xVideoSetLoop, libs, "gtk_video_set_loop")
-	core.PuregoSafeRegister(&xVideoSetMediaStream, libs, "gtk_video_set_media_stream")
-	core.PuregoSafeRegister(&xVideoSetResource, libs, "gtk_video_set_resource")
 }

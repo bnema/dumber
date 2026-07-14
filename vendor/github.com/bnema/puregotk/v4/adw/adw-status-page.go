@@ -5,7 +5,6 @@ import (
 	"structs"
 	"unsafe"
 
-	"github.com/bnema/purego"
 	"github.com/bnema/puregotk/pkg/core"
 	"github.com/bnema/puregotk/v4/gdk"
 	"github.com/bnema/puregotk/v4/gobject"
@@ -71,6 +70,7 @@ type StatusPage struct {
 var xStatusPageGLibType func() types.GType
 
 func StatusPageGLibType() types.GType {
+	core.LazyRegister(&xStatusPageGLibType, "ADW", "adw_status_page_get_type", false)
 	return xStatusPageGLibType()
 }
 
@@ -84,6 +84,7 @@ var xNewStatusPage func() uintptr
 
 // Creates a new `AdwStatusPage`.
 func NewStatusPage() *StatusPage {
+	core.LazyRegister(&xNewStatusPage, "ADW", "adw_status_page_new", false)
 	var cls *StatusPage
 
 	cret := xNewStatusPage()
@@ -101,6 +102,7 @@ var xStatusPageGetChild func(uintptr) uintptr
 
 // Gets the child widget of @self.
 func (x *StatusPage) GetChild() *gtk.Widget {
+	core.LazyRegister(&xStatusPageGetChild, "ADW", "adw_status_page_get_child", false)
 	var cls *gtk.Widget
 
 	cret := xStatusPageGetChild(x.GoPointer())
@@ -118,6 +120,8 @@ var xStatusPageGetDescription func(uintptr) string
 
 // Gets the description markup for @self.
 func (x *StatusPage) GetDescription() string {
+	core.LazyRegister(&xStatusPageGetDescription, "ADW", "adw_status_page_get_description", false)
+
 	cret := xStatusPageGetDescription(x.GoPointer())
 	return cret
 }
@@ -126,6 +130,8 @@ var xStatusPageGetIconName func(uintptr) string
 
 // Gets the icon name for @self.
 func (x *StatusPage) GetIconName() string {
+	core.LazyRegister(&xStatusPageGetIconName, "ADW", "adw_status_page_get_icon_name", false)
+
 	cret := xStatusPageGetIconName(x.GoPointer())
 	return cret
 }
@@ -134,6 +140,7 @@ var xStatusPageGetPaintable func(uintptr) uintptr
 
 // Gets the paintable for @self.
 func (x *StatusPage) GetPaintable() *gdk.PaintableBase {
+	core.LazyRegister(&xStatusPageGetPaintable, "ADW", "adw_status_page_get_paintable", false)
 	var cls *gdk.PaintableBase
 
 	cret := xStatusPageGetPaintable(x.GoPointer())
@@ -151,6 +158,8 @@ var xStatusPageGetTitle func(uintptr) string
 
 // Gets the title for @self.
 func (x *StatusPage) GetTitle() string {
+	core.LazyRegister(&xStatusPageGetTitle, "ADW", "adw_status_page_get_title", false)
+
 	cret := xStatusPageGetTitle(x.GoPointer())
 	return cret
 }
@@ -159,6 +168,8 @@ var xStatusPageSetChild func(uintptr, uintptr)
 
 // Sets the child widget of @self.
 func (x *StatusPage) SetChild(ChildVar *gtk.Widget) {
+	core.LazyRegister(&xStatusPageSetChild, "ADW", "adw_status_page_set_child", false)
+
 	xStatusPageSetChild(x.GoPointer(), ChildVar.GoPointer())
 }
 
@@ -168,6 +179,8 @@ var xStatusPageSetDescription func(uintptr, uintptr)
 //
 // The description is displayed below the title. It is parsed as Pango markup.
 func (x *StatusPage) SetDescription(DescriptionVar *string) {
+	core.LazyRegister(&xStatusPageSetDescription, "ADW", "adw_status_page_set_description", false)
+
 	DescriptionVarPtr := core.GStrdupNullable(DescriptionVar)
 	defer core.GFreeNullable(DescriptionVarPtr)
 
@@ -180,6 +193,8 @@ var xStatusPageSetIconName func(uintptr, uintptr)
 //
 // Changing this will set [property@StatusPage:paintable] to `NULL`.
 func (x *StatusPage) SetIconName(IconNameVar *string) {
+	core.LazyRegister(&xStatusPageSetIconName, "ADW", "adw_status_page_set_icon_name", false)
+
 	IconNameVarPtr := core.GStrdupNullable(IconNameVar)
 	defer core.GFreeNullable(IconNameVarPtr)
 
@@ -192,6 +207,8 @@ var xStatusPageSetPaintable func(uintptr, uintptr)
 //
 // Changing this will set [property@StatusPage:icon-name] to `NULL`.
 func (x *StatusPage) SetPaintable(PaintableVar gdk.Paintable) {
+	core.LazyRegister(&xStatusPageSetPaintable, "ADW", "adw_status_page_set_paintable", false)
+
 	xStatusPageSetPaintable(x.GoPointer(), PaintableVar.GoPointer())
 }
 
@@ -201,6 +218,8 @@ var xStatusPageSetTitle func(uintptr, string)
 //
 // The title is displayed below the icon. It is not parsed as Pango markup.
 func (x *StatusPage) SetTitle(TitleVar string) {
+	core.LazyRegister(&xStatusPageSetTitle, "ADW", "adw_status_page_set_title", false)
+
 	xStatusPageSetTitle(x.GoPointer(), TitleVar)
 }
 
@@ -537,27 +556,4 @@ func (x *StatusPage) GetBuildableId() string {
 func init() {
 	core.SetPackageName("ADW", "libadwaita-1")
 	core.SetSharedLibraries("ADW", []string{"libadwaita-1.so.0", "libadwaita-1.0.dylib"})
-	var libs []uintptr
-	for _, libPath := range core.GetPaths("ADW") {
-		lib, err := purego.Dlopen(libPath, purego.RTLD_NOW|purego.RTLD_GLOBAL)
-		if err != nil {
-			panic(err)
-		}
-		libs = append(libs, lib)
-	}
-
-	core.PuregoSafeRegister(&xStatusPageGLibType, libs, "adw_status_page_get_type")
-
-	core.PuregoSafeRegister(&xNewStatusPage, libs, "adw_status_page_new")
-
-	core.PuregoSafeRegister(&xStatusPageGetChild, libs, "adw_status_page_get_child")
-	core.PuregoSafeRegister(&xStatusPageGetDescription, libs, "adw_status_page_get_description")
-	core.PuregoSafeRegister(&xStatusPageGetIconName, libs, "adw_status_page_get_icon_name")
-	core.PuregoSafeRegister(&xStatusPageGetPaintable, libs, "adw_status_page_get_paintable")
-	core.PuregoSafeRegister(&xStatusPageGetTitle, libs, "adw_status_page_get_title")
-	core.PuregoSafeRegister(&xStatusPageSetChild, libs, "adw_status_page_set_child")
-	core.PuregoSafeRegister(&xStatusPageSetDescription, libs, "adw_status_page_set_description")
-	core.PuregoSafeRegister(&xStatusPageSetIconName, libs, "adw_status_page_set_icon_name")
-	core.PuregoSafeRegister(&xStatusPageSetPaintable, libs, "adw_status_page_set_paintable")
-	core.PuregoSafeRegister(&xStatusPageSetTitle, libs, "adw_status_page_set_title")
 }

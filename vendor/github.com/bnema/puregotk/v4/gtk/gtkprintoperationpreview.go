@@ -369,6 +369,7 @@ type PrintOperationPreview interface {
 var xPrintOperationPreviewGLibType func() types.GType
 
 func PrintOperationPreviewGLibType() types.GType {
+	core.LazyRegister(&xPrintOperationPreviewGLibType, "GTK", "gtk_print_operation_preview_get_type", false)
 	return xPrintOperationPreviewGLibType()
 }
 
@@ -416,27 +417,28 @@ func (x *PrintOperationPreviewBase) RenderPage(PageNrVar int) {
 	XGtkPrintOperationPreviewRenderPage(x.GoPointer(), PageNrVar)
 }
 
+var XGtkPrintOperationPreviewEndPreview func(uintptr) = func(instance uintptr) {
+	core.LazyRegister(&xXGtkPrintOperationPreviewEndPreview, "GTK", "gtk_print_operation_preview_end_preview", false)
+	xXGtkPrintOperationPreviewEndPreview(instance)
+}
+
 var (
-	XGtkPrintOperationPreviewEndPreview func(uintptr)
-	XGtkPrintOperationPreviewIsSelected func(uintptr, int) bool
-	XGtkPrintOperationPreviewRenderPage func(uintptr, int)
+	xXGtkPrintOperationPreviewEndPreview func(uintptr)
+	XGtkPrintOperationPreviewIsSelected  func(uintptr, int) bool = func(instance uintptr, PageNrVarp int) bool {
+		core.LazyRegister(&xXGtkPrintOperationPreviewIsSelected, "GTK", "gtk_print_operation_preview_is_selected", false)
+		return xXGtkPrintOperationPreviewIsSelected(instance, PageNrVarp)
+	}
 )
+var (
+	xXGtkPrintOperationPreviewIsSelected func(uintptr, int) bool
+	XGtkPrintOperationPreviewRenderPage  func(uintptr, int) = func(instance uintptr, PageNrVarp int) {
+		core.LazyRegister(&xXGtkPrintOperationPreviewRenderPage, "GTK", "gtk_print_operation_preview_render_page", false)
+		xXGtkPrintOperationPreviewRenderPage(instance, PageNrVarp)
+	}
+)
+var xXGtkPrintOperationPreviewRenderPage func(uintptr, int)
 
 func init() {
 	core.SetPackageName("GTK", "gtk4")
 	core.SetSharedLibraries("GTK", []string{"libgtk-4.so.1", "libgtk-4.1.dylib"})
-	var libs []uintptr
-	for _, libPath := range core.GetPaths("GTK") {
-		lib, err := purego.Dlopen(libPath, purego.RTLD_NOW|purego.RTLD_GLOBAL)
-		if err != nil {
-			panic(err)
-		}
-		libs = append(libs, lib)
-	}
-
-	core.PuregoSafeRegister(&xPrintOperationPreviewGLibType, libs, "gtk_print_operation_preview_get_type")
-
-	core.PuregoSafeRegister(&XGtkPrintOperationPreviewEndPreview, libs, "gtk_print_operation_preview_end_preview")
-	core.PuregoSafeRegister(&XGtkPrintOperationPreviewIsSelected, libs, "gtk_print_operation_preview_is_selected")
-	core.PuregoSafeRegister(&XGtkPrintOperationPreviewRenderPage, libs, "gtk_print_operation_preview_render_page")
 }

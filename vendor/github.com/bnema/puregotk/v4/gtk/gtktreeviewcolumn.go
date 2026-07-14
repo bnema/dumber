@@ -4,7 +4,6 @@ package gtk
 import (
 	"unsafe"
 
-	"github.com/bnema/purego"
 	"github.com/bnema/puregotk/pkg/core"
 	"github.com/bnema/puregotk/v4/glib"
 	"github.com/bnema/puregotk/v4/gobject"
@@ -29,6 +28,7 @@ type TreeViewColumnSizing int
 var xTreeViewColumnSizingGLibType func() types.GType
 
 func TreeViewColumnSizingGLibType() types.GType {
+	core.LazyRegister(&xTreeViewColumnSizingGLibType, "GTK", "gtk_tree_view_column_sizing_get_type", false)
 	return xTreeViewColumnSizingGLibType()
 }
 
@@ -59,6 +59,7 @@ type TreeViewColumn struct {
 var xTreeViewColumnGLibType func() types.GType
 
 func TreeViewColumnGLibType() types.GType {
+	core.LazyRegister(&xTreeViewColumnGLibType, "GTK", "gtk_tree_view_column_get_type", false)
 	return xTreeViewColumnGLibType()
 }
 
@@ -72,6 +73,7 @@ var xNewTreeViewColumn func() uintptr
 
 // Creates a new `GtkTreeViewColumn`.
 func NewTreeViewColumn() *TreeViewColumn {
+	core.LazyRegister(&xNewTreeViewColumn, "GTK", "gtk_tree_view_column_new", false)
 	var cls *TreeViewColumn
 
 	cret := xNewTreeViewColumn()
@@ -89,6 +91,7 @@ var xNewTreeViewColumnWithArea func(uintptr) uintptr
 
 // Creates a new `GtkTreeViewColumn` using @area to render its cells.
 func NewTreeViewColumnWithArea(AreaVar *CellArea) *TreeViewColumn {
+	core.LazyRegister(&xNewTreeViewColumnWithArea, "GTK", "gtk_tree_view_column_new_with_area", false)
 	var cls *TreeViewColumn
 
 	cret := xNewTreeViewColumnWithArea(AreaVar.GoPointer())
@@ -128,6 +131,7 @@ var xNewTreeViewColumnWithAttributes func(string, uintptr, ...interface{}) uintp
 //
 // ```
 func NewTreeViewColumnWithAttributes(TitleVar string, CellVar *CellRenderer, varArgs ...interface{}) *TreeViewColumn {
+	core.LazyRegister(&xNewTreeViewColumnWithAttributes, "GTK", "gtk_tree_view_column_new_with_attributes", false)
 	var cls *TreeViewColumn
 
 	cret := xNewTreeViewColumnWithAttributes(TitleVar, CellVar.GoPointer(), varArgs...)
@@ -152,6 +156,8 @@ var xTreeViewColumnAddAttribute func(uintptr, uintptr, string, int)
 // “text” attribute of a `GtkCellRendererText` get its values from
 // column 2.
 func (x *TreeViewColumn) AddAttribute(CellRendererVar *CellRenderer, AttributeVar string, ColumnVar int) {
+	core.LazyRegister(&xTreeViewColumnAddAttribute, "GTK", "gtk_tree_view_column_add_attribute", false)
+
 	xTreeViewColumnAddAttribute(x.GoPointer(), CellRendererVar.GoPointer(), AttributeVar, ColumnVar)
 }
 
@@ -162,6 +168,8 @@ var xTreeViewColumnCellGetPosition func(uintptr, uintptr, *int, *int) bool
 // If the  cell is not found in the column, @start_pos and @width
 // are not changed and %FALSE is returned.
 func (x *TreeViewColumn) CellGetPosition(CellRendererVar *CellRenderer, XOffsetVar *int, WidthVar *int) bool {
+	core.LazyRegister(&xTreeViewColumnCellGetPosition, "GTK", "gtk_tree_view_column_cell_get_position", false)
+
 	cret := xTreeViewColumnCellGetPosition(x.GoPointer(), CellRendererVar.GoPointer(), XOffsetVar, WidthVar)
 	return cret
 }
@@ -171,6 +179,8 @@ var xTreeViewColumnCellGetSize func(uintptr, *int, *int, *int, *int)
 // Obtains the width and height needed to render the column.  This is used
 // primarily by the `GtkTreeView`.
 func (x *TreeViewColumn) CellGetSize(XOffsetVar *int, YOffsetVar *int, WidthVar *int, HeightVar *int) {
+	core.LazyRegister(&xTreeViewColumnCellGetSize, "GTK", "gtk_tree_view_column_cell_get_size", false)
+
 	xTreeViewColumnCellGetSize(x.GoPointer(), XOffsetVar, YOffsetVar, WidthVar, HeightVar)
 }
 
@@ -180,6 +190,8 @@ var xTreeViewColumnCellIsVisible func(uintptr) bool
 // For this to be meaningful, you must first initialize the cells with
 // gtk_tree_view_column_cell_set_cell_data()
 func (x *TreeViewColumn) CellIsVisible() bool {
+	core.LazyRegister(&xTreeViewColumnCellIsVisible, "GTK", "gtk_tree_view_column_cell_is_visible", false)
+
 	cret := xTreeViewColumnCellIsVisible(x.GoPointer())
 	return cret
 }
@@ -191,6 +203,8 @@ var xTreeViewColumnCellSetCellData func(uintptr, uintptr, *TreeIter, bool, bool)
 // column on the @iter, and use that value to set the attribute on the cell
 // renderer.  This is used primarily by the `GtkTreeView`.
 func (x *TreeViewColumn) CellSetCellData(TreeModelVar TreeModel, IterVar *TreeIter, IsExpanderVar bool, IsExpandedVar bool) {
+	core.LazyRegister(&xTreeViewColumnCellSetCellData, "GTK", "gtk_tree_view_column_cell_set_cell_data", false)
+
 	xTreeViewColumnCellSetCellData(x.GoPointer(), TreeModelVar.GoPointer(), IterVar, IsExpanderVar, IsExpandedVar)
 }
 
@@ -198,6 +212,8 @@ var xTreeViewColumnClear func(uintptr)
 
 // Unsets all the mappings on all renderers on the @tree_column.
 func (x *TreeViewColumn) Clear() {
+	core.LazyRegister(&xTreeViewColumnClear, "GTK", "gtk_tree_view_column_clear", false)
+
 	xTreeViewColumnClear(x.GoPointer())
 }
 
@@ -206,6 +222,8 @@ var xTreeViewColumnClearAttributes func(uintptr, uintptr)
 // Clears all existing attributes previously set with
 // gtk_tree_view_column_set_attributes().
 func (x *TreeViewColumn) ClearAttributes(CellRendererVar *CellRenderer) {
+	core.LazyRegister(&xTreeViewColumnClearAttributes, "GTK", "gtk_tree_view_column_clear_attributes", false)
+
 	xTreeViewColumnClearAttributes(x.GoPointer(), CellRendererVar.GoPointer())
 }
 
@@ -214,6 +232,8 @@ var xTreeViewColumnClicked func(uintptr)
 // Emits the “clicked” signal on the column.  This function will only work if
 // @tree_column is clickable.
 func (x *TreeViewColumn) Clicked() {
+	core.LazyRegister(&xTreeViewColumnClicked, "GTK", "gtk_tree_view_column_clicked", false)
+
 	xTreeViewColumnClicked(x.GoPointer())
 }
 
@@ -222,6 +242,8 @@ var xTreeViewColumnFocusCell func(uintptr, uintptr)
 // Sets the current keyboard focus to be at @cell, if the column contains
 // 2 or more editable and activatable cells.
 func (x *TreeViewColumn) FocusCell(CellVar *CellRenderer) {
+	core.LazyRegister(&xTreeViewColumnFocusCell, "GTK", "gtk_tree_view_column_focus_cell", false)
+
 	xTreeViewColumnFocusCell(x.GoPointer(), CellVar.GoPointer())
 }
 
@@ -230,6 +252,8 @@ var xTreeViewColumnGetAlignment func(uintptr) float32
 // Returns the current x alignment of @tree_column.  This value can range
 // between 0.0 and 1.0.
 func (x *TreeViewColumn) GetAlignment() float32 {
+	core.LazyRegister(&xTreeViewColumnGetAlignment, "GTK", "gtk_tree_view_column_get_alignment", false)
+
 	cret := xTreeViewColumnGetAlignment(x.GoPointer())
 	return cret
 }
@@ -238,6 +262,7 @@ var xTreeViewColumnGetButton func(uintptr) uintptr
 
 // Returns the button used in the treeview column header
 func (x *TreeViewColumn) GetButton() *Widget {
+	core.LazyRegister(&xTreeViewColumnGetButton, "GTK", "gtk_tree_view_column_get_button", false)
 	var cls *Widget
 
 	cret := xTreeViewColumnGetButton(x.GoPointer())
@@ -255,6 +280,8 @@ var xTreeViewColumnGetClickable func(uintptr) bool
 
 // Returns %TRUE if the user can click on the header for the column.
 func (x *TreeViewColumn) GetClickable() bool {
+	core.LazyRegister(&xTreeViewColumnGetClickable, "GTK", "gtk_tree_view_column_get_clickable", false)
+
 	cret := xTreeViewColumnGetClickable(x.GoPointer())
 	return cret
 }
@@ -263,6 +290,8 @@ var xTreeViewColumnGetExpand func(uintptr) bool
 
 // Returns %TRUE if the column expands to fill available space.
 func (x *TreeViewColumn) GetExpand() bool {
+	core.LazyRegister(&xTreeViewColumnGetExpand, "GTK", "gtk_tree_view_column_get_expand", false)
+
 	cret := xTreeViewColumnGetExpand(x.GoPointer())
 	return cret
 }
@@ -272,6 +301,8 @@ var xTreeViewColumnGetFixedWidth func(uintptr) int
 // Gets the fixed width of the column.  This may not be the actual displayed
 // width of the column; for that, use gtk_tree_view_column_get_width().
 func (x *TreeViewColumn) GetFixedWidth() int {
+	core.LazyRegister(&xTreeViewColumnGetFixedWidth, "GTK", "gtk_tree_view_column_get_fixed_width", false)
+
 	cret := xTreeViewColumnGetFixedWidth(x.GoPointer())
 	return cret
 }
@@ -281,6 +312,8 @@ var xTreeViewColumnGetMaxWidth func(uintptr) int
 // Returns the maximum width in pixels of the @tree_column, or -1 if no maximum
 // width is set.
 func (x *TreeViewColumn) GetMaxWidth() int {
+	core.LazyRegister(&xTreeViewColumnGetMaxWidth, "GTK", "gtk_tree_view_column_get_max_width", false)
+
 	cret := xTreeViewColumnGetMaxWidth(x.GoPointer())
 	return cret
 }
@@ -290,6 +323,8 @@ var xTreeViewColumnGetMinWidth func(uintptr) int
 // Returns the minimum width in pixels of the @tree_column, or -1 if no minimum
 // width is set.
 func (x *TreeViewColumn) GetMinWidth() int {
+	core.LazyRegister(&xTreeViewColumnGetMinWidth, "GTK", "gtk_tree_view_column_get_min_width", false)
+
 	cret := xTreeViewColumnGetMinWidth(x.GoPointer())
 	return cret
 }
@@ -298,6 +333,8 @@ var xTreeViewColumnGetReorderable func(uintptr) bool
 
 // Returns %TRUE if the @tree_column can be reordered by the user.
 func (x *TreeViewColumn) GetReorderable() bool {
+	core.LazyRegister(&xTreeViewColumnGetReorderable, "GTK", "gtk_tree_view_column_get_reorderable", false)
+
 	cret := xTreeViewColumnGetReorderable(x.GoPointer())
 	return cret
 }
@@ -306,6 +343,8 @@ var xTreeViewColumnGetResizable func(uintptr) bool
 
 // Returns %TRUE if the @tree_column can be resized by the end user.
 func (x *TreeViewColumn) GetResizable() bool {
+	core.LazyRegister(&xTreeViewColumnGetResizable, "GTK", "gtk_tree_view_column_get_resizable", false)
+
 	cret := xTreeViewColumnGetResizable(x.GoPointer())
 	return cret
 }
@@ -314,6 +353,8 @@ var xTreeViewColumnGetSizing func(uintptr) TreeViewColumnSizing
 
 // Returns the current type of @tree_column.
 func (x *TreeViewColumn) GetSizing() TreeViewColumnSizing {
+	core.LazyRegister(&xTreeViewColumnGetSizing, "GTK", "gtk_tree_view_column_get_sizing", false)
+
 	cret := xTreeViewColumnGetSizing(x.GoPointer())
 	return cret
 }
@@ -325,6 +366,8 @@ var xTreeViewColumnGetSortColumnId func(uintptr) int
 //
 // See [method@Gtk.TreeViewColumn.set_sort_column_id].
 func (x *TreeViewColumn) GetSortColumnId() int {
+	core.LazyRegister(&xTreeViewColumnGetSortColumnId, "GTK", "gtk_tree_view_column_get_sort_column_id", false)
+
 	cret := xTreeViewColumnGetSortColumnId(x.GoPointer())
 	return cret
 }
@@ -333,6 +376,8 @@ var xTreeViewColumnGetSortIndicator func(uintptr) bool
 
 // Gets the value set by gtk_tree_view_column_set_sort_indicator().
 func (x *TreeViewColumn) GetSortIndicator() bool {
+	core.LazyRegister(&xTreeViewColumnGetSortIndicator, "GTK", "gtk_tree_view_column_get_sort_indicator", false)
+
 	cret := xTreeViewColumnGetSortIndicator(x.GoPointer())
 	return cret
 }
@@ -341,6 +386,8 @@ var xTreeViewColumnGetSortOrder func(uintptr) SortType
 
 // Gets the value set by gtk_tree_view_column_set_sort_order().
 func (x *TreeViewColumn) GetSortOrder() SortType {
+	core.LazyRegister(&xTreeViewColumnGetSortOrder, "GTK", "gtk_tree_view_column_get_sort_order", false)
+
 	cret := xTreeViewColumnGetSortOrder(x.GoPointer())
 	return cret
 }
@@ -349,6 +396,8 @@ var xTreeViewColumnGetSpacing func(uintptr) int
 
 // Returns the spacing of @tree_column.
 func (x *TreeViewColumn) GetSpacing() int {
+	core.LazyRegister(&xTreeViewColumnGetSpacing, "GTK", "gtk_tree_view_column_get_spacing", false)
+
 	cret := xTreeViewColumnGetSpacing(x.GoPointer())
 	return cret
 }
@@ -357,6 +406,8 @@ var xTreeViewColumnGetTitle func(uintptr) string
 
 // Returns the title of the widget.
 func (x *TreeViewColumn) GetTitle() string {
+	core.LazyRegister(&xTreeViewColumnGetTitle, "GTK", "gtk_tree_view_column_get_title", false)
+
 	cret := xTreeViewColumnGetTitle(x.GoPointer())
 	return cret
 }
@@ -367,6 +418,7 @@ var xTreeViewColumnGetTreeView func(uintptr) uintptr
 // If @column is currently not inserted in any tree view, %NULL is
 // returned.
 func (x *TreeViewColumn) GetTreeView() *Widget {
+	core.LazyRegister(&xTreeViewColumnGetTreeView, "GTK", "gtk_tree_view_column_get_tree_view", false)
 	var cls *Widget
 
 	cret := xTreeViewColumnGetTreeView(x.GoPointer())
@@ -384,6 +436,8 @@ var xTreeViewColumnGetVisible func(uintptr) bool
 
 // Returns %TRUE if @tree_column is visible.
 func (x *TreeViewColumn) GetVisible() bool {
+	core.LazyRegister(&xTreeViewColumnGetVisible, "GTK", "gtk_tree_view_column_get_visible", false)
+
 	cret := xTreeViewColumnGetVisible(x.GoPointer())
 	return cret
 }
@@ -394,6 +448,7 @@ var xTreeViewColumnGetWidget func(uintptr) uintptr
 //
 // If a custom widget has not been set then %NULL is returned.
 func (x *TreeViewColumn) GetWidget() *Widget {
+	core.LazyRegister(&xTreeViewColumnGetWidget, "GTK", "gtk_tree_view_column_get_widget", false)
 	var cls *Widget
 
 	cret := xTreeViewColumnGetWidget(x.GoPointer())
@@ -411,6 +466,8 @@ var xTreeViewColumnGetWidth func(uintptr) int
 
 // Returns the current size of @tree_column in pixels.
 func (x *TreeViewColumn) GetWidth() int {
+	core.LazyRegister(&xTreeViewColumnGetWidth, "GTK", "gtk_tree_view_column_get_width", false)
+
 	cret := xTreeViewColumnGetWidth(x.GoPointer())
 	return cret
 }
@@ -419,6 +476,8 @@ var xTreeViewColumnGetXOffset func(uintptr) int
 
 // Returns the current X offset of @tree_column in pixels.
 func (x *TreeViewColumn) GetXOffset() int {
+	core.LazyRegister(&xTreeViewColumnGetXOffset, "GTK", "gtk_tree_view_column_get_x_offset", false)
+
 	cret := xTreeViewColumnGetXOffset(x.GoPointer())
 	return cret
 }
@@ -429,6 +488,8 @@ var xTreeViewColumnPackEnd func(uintptr, uintptr, bool)
 // is allocated no more space than it needs. Any unused space is divided
 // evenly between cells for which @expand is %TRUE.
 func (x *TreeViewColumn) PackEnd(CellVar *CellRenderer, ExpandVar bool) {
+	core.LazyRegister(&xTreeViewColumnPackEnd, "GTK", "gtk_tree_view_column_pack_end", false)
+
 	xTreeViewColumnPackEnd(x.GoPointer(), CellVar.GoPointer(), ExpandVar)
 }
 
@@ -438,6 +499,8 @@ var xTreeViewColumnPackStart func(uintptr, uintptr, bool)
 // the @cell is allocated no more space than it needs. Any unused space is divided
 // evenly between cells for which @expand is %TRUE.
 func (x *TreeViewColumn) PackStart(CellVar *CellRenderer, ExpandVar bool) {
+	core.LazyRegister(&xTreeViewColumnPackStart, "GTK", "gtk_tree_view_column_pack_start", false)
+
 	xTreeViewColumnPackStart(x.GoPointer(), CellVar.GoPointer(), ExpandVar)
 }
 
@@ -446,6 +509,8 @@ var xTreeViewColumnQueueResize func(uintptr)
 // Flags the column, and the cell renderers added to this column, to have
 // their sizes renegotiated.
 func (x *TreeViewColumn) QueueResize() {
+	core.LazyRegister(&xTreeViewColumnQueueResize, "GTK", "gtk_tree_view_column_queue_resize", false)
+
 	xTreeViewColumnQueueResize(x.GoPointer())
 }
 
@@ -455,6 +520,8 @@ var xTreeViewColumnSetAlignment func(uintptr, float32)
 // The alignment determines its location inside the button -- 0.0 for left, 0.5
 // for center, 1.0 for right.
 func (x *TreeViewColumn) SetAlignment(XalignVar float32) {
+	core.LazyRegister(&xTreeViewColumnSetAlignment, "GTK", "gtk_tree_view_column_set_alignment", false)
+
 	xTreeViewColumnSetAlignment(x.GoPointer(), XalignVar)
 }
 
@@ -466,6 +533,8 @@ var xTreeViewColumnSetAttributes func(uintptr, uintptr, ...interface{})
 // gtk_tree_view_column_add_attribute(). All existing attributes
 // are removed, and replaced with the new attributes.
 func (x *TreeViewColumn) SetAttributes(CellRendererVar *CellRenderer, varArgs ...interface{}) {
+	core.LazyRegister(&xTreeViewColumnSetAttributes, "GTK", "gtk_tree_view_column_set_attributes", false)
+
 	xTreeViewColumnSetAttributes(x.GoPointer(), CellRendererVar.GoPointer(), varArgs...)
 }
 
@@ -479,6 +548,8 @@ var xTreeViewColumnSetCellDataFunc func(uintptr, uintptr, uintptr, uintptr, uint
 // cell renderer as appropriate.  @func may be %NULL to remove an
 // older one.
 func (x *TreeViewColumn) SetCellDataFunc(CellRendererVar *CellRenderer, FuncVar *TreeCellDataFunc, FuncDataVar uintptr, DestroyVar *glib.DestroyNotify) {
+	core.LazyRegister(&xTreeViewColumnSetCellDataFunc, "GTK", "gtk_tree_view_column_set_cell_data_func", false)
+
 	xTreeViewColumnSetCellDataFunc(x.GoPointer(), CellRendererVar.GoPointer(), glib.NewCallbackNullable(FuncVar), FuncDataVar, glib.NewCallbackNullable(DestroyVar))
 }
 
@@ -487,6 +558,8 @@ var xTreeViewColumnSetClickable func(uintptr, bool)
 // Sets the header to be active if @clickable is %TRUE.  When the header is
 // active, then it can take keyboard focus, and can be clicked.
 func (x *TreeViewColumn) SetClickable(ClickableVar bool) {
+	core.LazyRegister(&xTreeViewColumnSetClickable, "GTK", "gtk_tree_view_column_set_clickable", false)
+
 	xTreeViewColumnSetClickable(x.GoPointer(), ClickableVar)
 }
 
@@ -500,6 +573,8 @@ var xTreeViewColumnSetExpand func(uintptr, bool)
 // Along with “fixed-width”, the “expand” property changes when the column is
 // resized by the user.
 func (x *TreeViewColumn) SetExpand(ExpandVar bool) {
+	core.LazyRegister(&xTreeViewColumnSetExpand, "GTK", "gtk_tree_view_column_set_expand", false)
+
 	xTreeViewColumnSetExpand(x.GoPointer(), ExpandVar)
 }
 
@@ -517,6 +592,8 @@ var xTreeViewColumnSetFixedWidth func(uintptr, int)
 // Along with “expand”, the “fixed-width” property changes when the column is
 // resized by the user.
 func (x *TreeViewColumn) SetFixedWidth(FixedWidthVar int) {
+	core.LazyRegister(&xTreeViewColumnSetFixedWidth, "GTK", "gtk_tree_view_column_set_fixed_width", false)
+
 	xTreeViewColumnSetFixedWidth(x.GoPointer(), FixedWidthVar)
 }
 
@@ -527,6 +604,8 @@ var xTreeViewColumnSetMaxWidth func(uintptr, int)
 // width if it’s the last column in a view.  In this case, the column expands to
 // fill any extra space.
 func (x *TreeViewColumn) SetMaxWidth(MaxWidthVar int) {
+	core.LazyRegister(&xTreeViewColumnSetMaxWidth, "GTK", "gtk_tree_view_column_set_max_width", false)
+
 	xTreeViewColumnSetMaxWidth(x.GoPointer(), MaxWidthVar)
 }
 
@@ -535,6 +614,8 @@ var xTreeViewColumnSetMinWidth func(uintptr, int)
 // Sets the minimum width of the @tree_column.  If @min_width is -1, then the
 // minimum width is unset.
 func (x *TreeViewColumn) SetMinWidth(MinWidthVar int) {
+	core.LazyRegister(&xTreeViewColumnSetMinWidth, "GTK", "gtk_tree_view_column_set_min_width", false)
+
 	xTreeViewColumnSetMinWidth(x.GoPointer(), MinWidthVar)
 }
 
@@ -543,6 +624,8 @@ var xTreeViewColumnSetReorderable func(uintptr, bool)
 // If @reorderable is %TRUE, then the column can be reordered by the end user
 // dragging the header.
 func (x *TreeViewColumn) SetReorderable(ReorderableVar bool) {
+	core.LazyRegister(&xTreeViewColumnSetReorderable, "GTK", "gtk_tree_view_column_set_reorderable", false)
+
 	xTreeViewColumnSetReorderable(x.GoPointer(), ReorderableVar)
 }
 
@@ -555,6 +638,8 @@ var xTreeViewColumnSetResizable func(uintptr, bool)
 // sizing mode of the column is %GTK_TREE_VIEW_COLUMN_AUTOSIZE, then the sizing
 // mode is changed to %GTK_TREE_VIEW_COLUMN_GROW_ONLY.
 func (x *TreeViewColumn) SetResizable(ResizableVar bool) {
+	core.LazyRegister(&xTreeViewColumnSetResizable, "GTK", "gtk_tree_view_column_set_resizable", false)
+
 	xTreeViewColumnSetResizable(x.GoPointer(), ResizableVar)
 }
 
@@ -562,6 +647,8 @@ var xTreeViewColumnSetSizing func(uintptr, TreeViewColumnSizing)
 
 // Sets the growth behavior of @tree_column to @type.
 func (x *TreeViewColumn) SetSizing(TypeVar TreeViewColumnSizing) {
+	core.LazyRegister(&xTreeViewColumnSetSizing, "GTK", "gtk_tree_view_column_set_sizing", false)
+
 	xTreeViewColumnSetSizing(x.GoPointer(), TypeVar)
 }
 
@@ -570,6 +657,8 @@ var xTreeViewColumnSetSortColumnId func(uintptr, int)
 // Sets the logical @sort_column_id that this column sorts on when this column
 // is selected for sorting.  Doing so makes the column header clickable.
 func (x *TreeViewColumn) SetSortColumnId(SortColumnIdVar int) {
+	core.LazyRegister(&xTreeViewColumnSetSortColumnId, "GTK", "gtk_tree_view_column_set_sort_column_id", false)
+
 	xTreeViewColumnSetSortColumnId(x.GoPointer(), SortColumnIdVar)
 }
 
@@ -580,6 +669,8 @@ var xTreeViewColumnSetSortIndicator func(uintptr, bool)
 // gtk_tree_view_column_set_sort_order() to change the direction of
 // the arrow.
 func (x *TreeViewColumn) SetSortIndicator(SettingVar bool) {
+	core.LazyRegister(&xTreeViewColumnSetSortIndicator, "GTK", "gtk_tree_view_column_set_sort_indicator", false)
+
 	xTreeViewColumnSetSortIndicator(x.GoPointer(), SettingVar)
 }
 
@@ -597,6 +688,8 @@ var xTreeViewColumnSetSortOrder func(uintptr, SortType)
 // Note that you must have the sort indicator enabled to see anything when
 // calling this function; see gtk_tree_view_column_set_sort_indicator().
 func (x *TreeViewColumn) SetSortOrder(OrderVar SortType) {
+	core.LazyRegister(&xTreeViewColumnSetSortOrder, "GTK", "gtk_tree_view_column_set_sort_order", false)
+
 	xTreeViewColumnSetSortOrder(x.GoPointer(), OrderVar)
 }
 
@@ -605,6 +698,8 @@ var xTreeViewColumnSetSpacing func(uintptr, int)
 // Sets the spacing field of @tree_column, which is the number of pixels to
 // place between cell renderers packed into it.
 func (x *TreeViewColumn) SetSpacing(SpacingVar int) {
+	core.LazyRegister(&xTreeViewColumnSetSpacing, "GTK", "gtk_tree_view_column_set_spacing", false)
+
 	xTreeViewColumnSetSpacing(x.GoPointer(), SpacingVar)
 }
 
@@ -613,6 +708,8 @@ var xTreeViewColumnSetTitle func(uintptr, string)
 // Sets the title of the @tree_column.  If a custom widget has been set, then
 // this value is ignored.
 func (x *TreeViewColumn) SetTitle(TitleVar string) {
+	core.LazyRegister(&xTreeViewColumnSetTitle, "GTK", "gtk_tree_view_column_set_title", false)
+
 	xTreeViewColumnSetTitle(x.GoPointer(), TitleVar)
 }
 
@@ -620,6 +717,8 @@ var xTreeViewColumnSetVisible func(uintptr, bool)
 
 // Sets the visibility of @tree_column.
 func (x *TreeViewColumn) SetVisible(VisibleVar bool) {
+	core.LazyRegister(&xTreeViewColumnSetVisible, "GTK", "gtk_tree_view_column_set_visible", false)
+
 	xTreeViewColumnSetVisible(x.GoPointer(), VisibleVar)
 }
 
@@ -628,6 +727,8 @@ var xTreeViewColumnSetWidget func(uintptr, uintptr)
 // Sets the widget in the header to be @widget.  If widget is %NULL, then the
 // header button is set with a `GtkLabel` set to the title of @tree_column.
 func (x *TreeViewColumn) SetWidget(WidgetVar *Widget) {
+	core.LazyRegister(&xTreeViewColumnSetWidget, "GTK", "gtk_tree_view_column_set_widget", false)
+
 	xTreeViewColumnSetWidget(x.GoPointer(), WidgetVar.GoPointer())
 }
 
@@ -924,71 +1025,4 @@ func (x *TreeViewColumn) Reorder(CellVar *CellRenderer, PositionVar int) {
 func init() {
 	core.SetPackageName("GTK", "gtk4")
 	core.SetSharedLibraries("GTK", []string{"libgtk-4.so.1", "libgtk-4.1.dylib"})
-	var libs []uintptr
-	for _, libPath := range core.GetPaths("GTK") {
-		lib, err := purego.Dlopen(libPath, purego.RTLD_NOW|purego.RTLD_GLOBAL)
-		if err != nil {
-			panic(err)
-		}
-		libs = append(libs, lib)
-	}
-
-	core.PuregoSafeRegister(&xTreeViewColumnSizingGLibType, libs, "gtk_tree_view_column_sizing_get_type")
-
-	core.PuregoSafeRegister(&xTreeViewColumnGLibType, libs, "gtk_tree_view_column_get_type")
-
-	core.PuregoSafeRegister(&xNewTreeViewColumn, libs, "gtk_tree_view_column_new")
-	core.PuregoSafeRegister(&xNewTreeViewColumnWithArea, libs, "gtk_tree_view_column_new_with_area")
-	core.PuregoSafeRegister(&xNewTreeViewColumnWithAttributes, libs, "gtk_tree_view_column_new_with_attributes")
-
-	core.PuregoSafeRegister(&xTreeViewColumnAddAttribute, libs, "gtk_tree_view_column_add_attribute")
-	core.PuregoSafeRegister(&xTreeViewColumnCellGetPosition, libs, "gtk_tree_view_column_cell_get_position")
-	core.PuregoSafeRegister(&xTreeViewColumnCellGetSize, libs, "gtk_tree_view_column_cell_get_size")
-	core.PuregoSafeRegister(&xTreeViewColumnCellIsVisible, libs, "gtk_tree_view_column_cell_is_visible")
-	core.PuregoSafeRegister(&xTreeViewColumnCellSetCellData, libs, "gtk_tree_view_column_cell_set_cell_data")
-	core.PuregoSafeRegister(&xTreeViewColumnClear, libs, "gtk_tree_view_column_clear")
-	core.PuregoSafeRegister(&xTreeViewColumnClearAttributes, libs, "gtk_tree_view_column_clear_attributes")
-	core.PuregoSafeRegister(&xTreeViewColumnClicked, libs, "gtk_tree_view_column_clicked")
-	core.PuregoSafeRegister(&xTreeViewColumnFocusCell, libs, "gtk_tree_view_column_focus_cell")
-	core.PuregoSafeRegister(&xTreeViewColumnGetAlignment, libs, "gtk_tree_view_column_get_alignment")
-	core.PuregoSafeRegister(&xTreeViewColumnGetButton, libs, "gtk_tree_view_column_get_button")
-	core.PuregoSafeRegister(&xTreeViewColumnGetClickable, libs, "gtk_tree_view_column_get_clickable")
-	core.PuregoSafeRegister(&xTreeViewColumnGetExpand, libs, "gtk_tree_view_column_get_expand")
-	core.PuregoSafeRegister(&xTreeViewColumnGetFixedWidth, libs, "gtk_tree_view_column_get_fixed_width")
-	core.PuregoSafeRegister(&xTreeViewColumnGetMaxWidth, libs, "gtk_tree_view_column_get_max_width")
-	core.PuregoSafeRegister(&xTreeViewColumnGetMinWidth, libs, "gtk_tree_view_column_get_min_width")
-	core.PuregoSafeRegister(&xTreeViewColumnGetReorderable, libs, "gtk_tree_view_column_get_reorderable")
-	core.PuregoSafeRegister(&xTreeViewColumnGetResizable, libs, "gtk_tree_view_column_get_resizable")
-	core.PuregoSafeRegister(&xTreeViewColumnGetSizing, libs, "gtk_tree_view_column_get_sizing")
-	core.PuregoSafeRegister(&xTreeViewColumnGetSortColumnId, libs, "gtk_tree_view_column_get_sort_column_id")
-	core.PuregoSafeRegister(&xTreeViewColumnGetSortIndicator, libs, "gtk_tree_view_column_get_sort_indicator")
-	core.PuregoSafeRegister(&xTreeViewColumnGetSortOrder, libs, "gtk_tree_view_column_get_sort_order")
-	core.PuregoSafeRegister(&xTreeViewColumnGetSpacing, libs, "gtk_tree_view_column_get_spacing")
-	core.PuregoSafeRegister(&xTreeViewColumnGetTitle, libs, "gtk_tree_view_column_get_title")
-	core.PuregoSafeRegister(&xTreeViewColumnGetTreeView, libs, "gtk_tree_view_column_get_tree_view")
-	core.PuregoSafeRegister(&xTreeViewColumnGetVisible, libs, "gtk_tree_view_column_get_visible")
-	core.PuregoSafeRegister(&xTreeViewColumnGetWidget, libs, "gtk_tree_view_column_get_widget")
-	core.PuregoSafeRegister(&xTreeViewColumnGetWidth, libs, "gtk_tree_view_column_get_width")
-	core.PuregoSafeRegister(&xTreeViewColumnGetXOffset, libs, "gtk_tree_view_column_get_x_offset")
-	core.PuregoSafeRegister(&xTreeViewColumnPackEnd, libs, "gtk_tree_view_column_pack_end")
-	core.PuregoSafeRegister(&xTreeViewColumnPackStart, libs, "gtk_tree_view_column_pack_start")
-	core.PuregoSafeRegister(&xTreeViewColumnQueueResize, libs, "gtk_tree_view_column_queue_resize")
-	core.PuregoSafeRegister(&xTreeViewColumnSetAlignment, libs, "gtk_tree_view_column_set_alignment")
-	core.PuregoSafeRegister(&xTreeViewColumnSetAttributes, libs, "gtk_tree_view_column_set_attributes")
-	core.PuregoSafeRegister(&xTreeViewColumnSetCellDataFunc, libs, "gtk_tree_view_column_set_cell_data_func")
-	core.PuregoSafeRegister(&xTreeViewColumnSetClickable, libs, "gtk_tree_view_column_set_clickable")
-	core.PuregoSafeRegister(&xTreeViewColumnSetExpand, libs, "gtk_tree_view_column_set_expand")
-	core.PuregoSafeRegister(&xTreeViewColumnSetFixedWidth, libs, "gtk_tree_view_column_set_fixed_width")
-	core.PuregoSafeRegister(&xTreeViewColumnSetMaxWidth, libs, "gtk_tree_view_column_set_max_width")
-	core.PuregoSafeRegister(&xTreeViewColumnSetMinWidth, libs, "gtk_tree_view_column_set_min_width")
-	core.PuregoSafeRegister(&xTreeViewColumnSetReorderable, libs, "gtk_tree_view_column_set_reorderable")
-	core.PuregoSafeRegister(&xTreeViewColumnSetResizable, libs, "gtk_tree_view_column_set_resizable")
-	core.PuregoSafeRegister(&xTreeViewColumnSetSizing, libs, "gtk_tree_view_column_set_sizing")
-	core.PuregoSafeRegister(&xTreeViewColumnSetSortColumnId, libs, "gtk_tree_view_column_set_sort_column_id")
-	core.PuregoSafeRegister(&xTreeViewColumnSetSortIndicator, libs, "gtk_tree_view_column_set_sort_indicator")
-	core.PuregoSafeRegister(&xTreeViewColumnSetSortOrder, libs, "gtk_tree_view_column_set_sort_order")
-	core.PuregoSafeRegister(&xTreeViewColumnSetSpacing, libs, "gtk_tree_view_column_set_spacing")
-	core.PuregoSafeRegister(&xTreeViewColumnSetTitle, libs, "gtk_tree_view_column_set_title")
-	core.PuregoSafeRegister(&xTreeViewColumnSetVisible, libs, "gtk_tree_view_column_set_visible")
-	core.PuregoSafeRegister(&xTreeViewColumnSetWidget, libs, "gtk_tree_view_column_set_widget")
 }

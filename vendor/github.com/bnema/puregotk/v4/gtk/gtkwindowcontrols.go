@@ -5,7 +5,6 @@ import (
 	"structs"
 	"unsafe"
 
-	"github.com/bnema/purego"
 	"github.com/bnema/puregotk/pkg/core"
 	"github.com/bnema/puregotk/v4/gobject"
 	"github.com/bnema/puregotk/v4/gobject/types"
@@ -93,6 +92,7 @@ type WindowControls struct {
 var xWindowControlsGLibType func() types.GType
 
 func WindowControlsGLibType() types.GType {
+	core.LazyRegister(&xWindowControlsGLibType, "GTK", "gtk_window_controls_get_type", false)
 	return xWindowControlsGLibType()
 }
 
@@ -106,6 +106,7 @@ var xNewWindowControls func(PackType) uintptr
 
 // Creates a new `GtkWindowControls`.
 func NewWindowControls(SideVar PackType) *WindowControls {
+	core.LazyRegister(&xNewWindowControls, "GTK", "gtk_window_controls_new", false)
 	var cls *WindowControls
 
 	cret := xNewWindowControls(SideVar)
@@ -123,6 +124,8 @@ var xWindowControlsGetDecorationLayout func(uintptr) string
 
 // Gets the decoration layout of this window controls widget
 func (x *WindowControls) GetDecorationLayout() string {
+	core.LazyRegister(&xWindowControlsGetDecorationLayout, "GTK", "gtk_window_controls_get_decoration_layout", false)
+
 	cret := xWindowControlsGetDecorationLayout(x.GoPointer())
 	return cret
 }
@@ -131,6 +134,8 @@ var xWindowControlsGetEmpty func(uintptr) bool
 
 // Gets whether the widget has any window buttons.
 func (x *WindowControls) GetEmpty() bool {
+	core.LazyRegister(&xWindowControlsGetEmpty, "GTK", "gtk_window_controls_get_empty", false)
+
 	cret := xWindowControlsGetEmpty(x.GoPointer())
 	return cret
 }
@@ -139,6 +144,8 @@ var xWindowControlsGetSide func(uintptr) PackType
 
 // Gets the side to which this window controls widget belongs.
 func (x *WindowControls) GetSide() PackType {
+	core.LazyRegister(&xWindowControlsGetSide, "GTK", "gtk_window_controls_get_side", false)
+
 	cret := xWindowControlsGetSide(x.GoPointer())
 	return cret
 }
@@ -147,6 +154,8 @@ var xWindowControlsGetUseNativeControls func(uintptr) bool
 
 // Returns whether platform native window controls are shown.
 func (x *WindowControls) GetUseNativeControls() bool {
+	core.LazyRegister(&xWindowControlsGetUseNativeControls, "GTK", "gtk_window_controls_get_use_native_controls", false)
+
 	cret := xWindowControlsGetUseNativeControls(x.GoPointer())
 	return cret
 }
@@ -169,6 +178,8 @@ var xWindowControlsSetDecorationLayout func(uintptr, uintptr)
 // If [property@Gtk.WindowControls:side] value is [enum@Gtk.PackType.start],
 // @self will display the part before the colon, otherwise after that.
 func (x *WindowControls) SetDecorationLayout(LayoutVar *string) {
+	core.LazyRegister(&xWindowControlsSetDecorationLayout, "GTK", "gtk_window_controls_set_decoration_layout", false)
+
 	LayoutVarPtr := core.GStrdupNullable(LayoutVar)
 	defer core.GFreeNullable(LayoutVarPtr)
 
@@ -182,6 +193,8 @@ var xWindowControlsSetSide func(uintptr, PackType)
 //
 // See [property@Gtk.WindowControls:decoration-layout].
 func (x *WindowControls) SetSide(SideVar PackType) {
+	core.LazyRegister(&xWindowControlsSetSide, "GTK", "gtk_window_controls_set_side", false)
+
 	xWindowControlsSetSide(x.GoPointer(), SideVar)
 }
 
@@ -194,6 +207,8 @@ var xWindowControlsSetUseNativeControls func(uintptr, bool)
 //
 // See also [Using GTK on Apple macOS](osx.html?native-window-controls).
 func (x *WindowControls) SetUseNativeControls(SettingVar bool) {
+	core.LazyRegister(&xWindowControlsSetUseNativeControls, "GTK", "gtk_window_controls_set_use_native_controls", false)
+
 	xWindowControlsSetUseNativeControls(x.GoPointer(), SettingVar)
 }
 
@@ -533,24 +548,4 @@ func (x *WindowControls) GetBuildableId() string {
 func init() {
 	core.SetPackageName("GTK", "gtk4")
 	core.SetSharedLibraries("GTK", []string{"libgtk-4.so.1", "libgtk-4.1.dylib"})
-	var libs []uintptr
-	for _, libPath := range core.GetPaths("GTK") {
-		lib, err := purego.Dlopen(libPath, purego.RTLD_NOW|purego.RTLD_GLOBAL)
-		if err != nil {
-			panic(err)
-		}
-		libs = append(libs, lib)
-	}
-
-	core.PuregoSafeRegister(&xWindowControlsGLibType, libs, "gtk_window_controls_get_type")
-
-	core.PuregoSafeRegister(&xNewWindowControls, libs, "gtk_window_controls_new")
-
-	core.PuregoSafeRegister(&xWindowControlsGetDecorationLayout, libs, "gtk_window_controls_get_decoration_layout")
-	core.PuregoSafeRegister(&xWindowControlsGetEmpty, libs, "gtk_window_controls_get_empty")
-	core.PuregoSafeRegister(&xWindowControlsGetSide, libs, "gtk_window_controls_get_side")
-	core.PuregoSafeRegister(&xWindowControlsGetUseNativeControls, libs, "gtk_window_controls_get_use_native_controls")
-	core.PuregoSafeRegister(&xWindowControlsSetDecorationLayout, libs, "gtk_window_controls_set_decoration_layout")
-	core.PuregoSafeRegister(&xWindowControlsSetSide, libs, "gtk_window_controls_set_side")
-	core.PuregoSafeRegister(&xWindowControlsSetUseNativeControls, libs, "gtk_window_controls_set_use_native_controls")
 }

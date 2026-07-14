@@ -5,7 +5,6 @@ import (
 	"structs"
 	"unsafe"
 
-	"github.com/bnema/purego"
 	"github.com/bnema/puregotk/pkg/core"
 	"github.com/bnema/puregotk/v4/glib"
 	"github.com/bnema/puregotk/v4/gobject"
@@ -44,6 +43,7 @@ type TlsFileDatabase interface {
 var xTlsFileDatabaseGLibType func() types.GType
 
 func TlsFileDatabaseGLibType() types.GType {
+	core.LazyRegister(&xTlsFileDatabaseGLibType, "GIO", "g_tls_file_database_get_type", false)
 	return xTlsFileDatabaseGLibType()
 }
 
@@ -96,6 +96,7 @@ var xTlsFileDatabaseNew func(string, **glib.Error) uintptr
 //
 // The certificates in @anchors must be PEM encoded.
 func TlsFileDatabaseNew(AnchorsVar string) (*TlsFileDatabaseBase, error) {
+	core.LazyRegister(&xTlsFileDatabaseNew, "GIO", "g_tls_file_database_new", false)
 	var cls *TlsFileDatabaseBase
 	var cerr *glib.Error
 
@@ -115,16 +116,4 @@ func TlsFileDatabaseNew(AnchorsVar string) (*TlsFileDatabaseBase, error) {
 func init() {
 	core.SetPackageName("GIO", "gio-2.0")
 	core.SetSharedLibraries("GIO", []string{"libgio-2.0.so.0", "libgio-2.0.0.dylib"})
-	var libs []uintptr
-	for _, libPath := range core.GetPaths("GIO") {
-		lib, err := purego.Dlopen(libPath, purego.RTLD_NOW|purego.RTLD_GLOBAL)
-		if err != nil {
-			panic(err)
-		}
-		libs = append(libs, lib)
-	}
-
-	core.PuregoSafeRegister(&xTlsFileDatabaseNew, libs, "g_tls_file_database_new")
-
-	core.PuregoSafeRegister(&xTlsFileDatabaseGLibType, libs, "g_tls_file_database_get_type")
 }

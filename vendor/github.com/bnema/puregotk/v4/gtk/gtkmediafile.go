@@ -201,6 +201,7 @@ type MediaFile struct {
 var xMediaFileGLibType func() types.GType
 
 func MediaFileGLibType() types.GType {
+	core.LazyRegister(&xMediaFileGLibType, "GTK", "gtk_media_file_get_type", false)
 	return xMediaFileGLibType()
 }
 
@@ -214,6 +215,7 @@ var xNewMediaFile func() uintptr
 
 // Creates a new empty media file.
 func NewMediaFile() *MediaFile {
+	core.LazyRegister(&xNewMediaFile, "GTK", "gtk_media_file_new", false)
 	var cls *MediaFile
 
 	cret := xNewMediaFile()
@@ -230,6 +232,7 @@ var xNewMediaFileForFile func(uintptr) uintptr
 
 // Creates a new media file to play @file.
 func NewMediaFileForFile(FileVar gio.File) *MediaFile {
+	core.LazyRegister(&xNewMediaFileForFile, "GTK", "gtk_media_file_new_for_file", false)
 	var cls *MediaFile
 
 	cret := xNewMediaFileForFile(FileVar.GoPointer())
@@ -249,6 +252,7 @@ var xNewMediaFileForFilename func(string) uintptr
 // This is a utility function that converts the given @filename
 // to a `GFile` and calls [ctor@Gtk.MediaFile.new_for_file].
 func NewMediaFileForFilename(FilenameVar string) *MediaFile {
+	core.LazyRegister(&xNewMediaFileForFilename, "GTK", "gtk_media_file_new_for_filename", false)
 	var cls *MediaFile
 
 	cret := xNewMediaFileForFilename(FilenameVar)
@@ -268,6 +272,7 @@ var xNewMediaFileForInputStream func(uintptr) uintptr
 // If you want the resulting media to be seekable,
 // the stream should implement the `GSeekable` interface.
 func NewMediaFileForInputStream(StreamVar *gio.InputStream) *MediaFile {
+	core.LazyRegister(&xNewMediaFileForInputStream, "GTK", "gtk_media_file_new_for_input_stream", false)
 	var cls *MediaFile
 
 	cret := xNewMediaFileForInputStream(StreamVar.GoPointer())
@@ -287,6 +292,7 @@ var xNewMediaFileForResource func(string) uintptr
 // This is a utility function that converts the given @resource
 // to a `GFile` and calls [ctor@Gtk.MediaFile.new_for_file].
 func NewMediaFileForResource(ResourcePathVar string) *MediaFile {
+	core.LazyRegister(&xNewMediaFileForResource, "GTK", "gtk_media_file_new_for_resource", false)
 	var cls *MediaFile
 
 	cret := xNewMediaFileForResource(ResourcePathVar)
@@ -303,6 +309,8 @@ var xMediaFileClear func(uintptr)
 
 // Resets the media file to be empty.
 func (x *MediaFile) Clear() {
+	core.LazyRegister(&xMediaFileClear, "GTK", "gtk_media_file_clear", false)
+
 	xMediaFileClear(x.GoPointer())
 }
 
@@ -313,6 +321,7 @@ var xMediaFileGetFile func(uintptr) uintptr
 // When @self is not playing or not playing from a file,
 // %NULL is returned.
 func (x *MediaFile) GetFile() *gio.FileBase {
+	core.LazyRegister(&xMediaFileGetFile, "GTK", "gtk_media_file_get_file", false)
 	var cls *gio.FileBase
 
 	cret := xMediaFileGetFile(x.GoPointer())
@@ -333,6 +342,7 @@ var xMediaFileGetInputStream func(uintptr) uintptr
 // When @self is not playing or not playing from a stream,
 // %NULL is returned.
 func (x *MediaFile) GetInputStream() *gio.InputStream {
+	core.LazyRegister(&xMediaFileGetInputStream, "GTK", "gtk_media_file_get_input_stream", false)
 	var cls *gio.InputStream
 
 	cret := xMediaFileGetInputStream(x.GoPointer())
@@ -352,6 +362,8 @@ var xMediaFileSetFile func(uintptr, uintptr)
 //
 // If any file is still playing, stop playing it.
 func (x *MediaFile) SetFile(FileVar gio.File) {
+	core.LazyRegister(&xMediaFileSetFile, "GTK", "gtk_media_file_set_file", false)
+
 	xMediaFileSetFile(x.GoPointer(), FileVar.GoPointer())
 }
 
@@ -362,6 +374,8 @@ var xMediaFileSetFilename func(uintptr, uintptr)
 // This is a utility function that converts the given @filename
 // to a `GFile` and calls [method@Gtk.MediaFile.set_file].
 func (x *MediaFile) SetFilename(FilenameVar *string) {
+	core.LazyRegister(&xMediaFileSetFilename, "GTK", "gtk_media_file_set_filename", false)
+
 	FilenameVarPtr := core.GStrdupNullable(FilenameVar)
 	defer core.GFreeNullable(FilenameVarPtr)
 
@@ -377,6 +391,8 @@ var xMediaFileSetInputStream func(uintptr, uintptr)
 // Full control about the @stream is assumed for the duration of
 // playback. The stream will not be closed.
 func (x *MediaFile) SetInputStream(StreamVar *gio.InputStream) {
+	core.LazyRegister(&xMediaFileSetInputStream, "GTK", "gtk_media_file_set_input_stream", false)
+
 	xMediaFileSetInputStream(x.GoPointer(), StreamVar.GoPointer())
 }
 
@@ -387,6 +403,8 @@ var xMediaFileSetResource func(uintptr, uintptr)
 // This is a utility function that converts the given @resource_path
 // to a `GFile` and calls [method@Gtk.MediaFile.set_file].
 func (x *MediaFile) SetResource(ResourcePathVar *string) {
+	core.LazyRegister(&xMediaFileSetResource, "GTK", "gtk_media_file_set_resource", false)
+
 	ResourcePathVarPtr := core.GStrdupNullable(ResourcePathVar)
 	defer core.GFreeNullable(ResourcePathVarPtr)
 
@@ -539,28 +557,4 @@ func (x *MediaFile) Snapshot(SnapshotVar *gdk.Snapshot, WidthVar float64, Height
 func init() {
 	core.SetPackageName("GTK", "gtk4")
 	core.SetSharedLibraries("GTK", []string{"libgtk-4.so.1", "libgtk-4.1.dylib"})
-	var libs []uintptr
-	for _, libPath := range core.GetPaths("GTK") {
-		lib, err := purego.Dlopen(libPath, purego.RTLD_NOW|purego.RTLD_GLOBAL)
-		if err != nil {
-			panic(err)
-		}
-		libs = append(libs, lib)
-	}
-
-	core.PuregoSafeRegister(&xMediaFileGLibType, libs, "gtk_media_file_get_type")
-
-	core.PuregoSafeRegister(&xNewMediaFile, libs, "gtk_media_file_new")
-	core.PuregoSafeRegister(&xNewMediaFileForFile, libs, "gtk_media_file_new_for_file")
-	core.PuregoSafeRegister(&xNewMediaFileForFilename, libs, "gtk_media_file_new_for_filename")
-	core.PuregoSafeRegister(&xNewMediaFileForInputStream, libs, "gtk_media_file_new_for_input_stream")
-	core.PuregoSafeRegister(&xNewMediaFileForResource, libs, "gtk_media_file_new_for_resource")
-
-	core.PuregoSafeRegister(&xMediaFileClear, libs, "gtk_media_file_clear")
-	core.PuregoSafeRegister(&xMediaFileGetFile, libs, "gtk_media_file_get_file")
-	core.PuregoSafeRegister(&xMediaFileGetInputStream, libs, "gtk_media_file_get_input_stream")
-	core.PuregoSafeRegister(&xMediaFileSetFile, libs, "gtk_media_file_set_file")
-	core.PuregoSafeRegister(&xMediaFileSetFilename, libs, "gtk_media_file_set_filename")
-	core.PuregoSafeRegister(&xMediaFileSetInputStream, libs, "gtk_media_file_set_input_stream")
-	core.PuregoSafeRegister(&xMediaFileSetResource, libs, "gtk_media_file_set_resource")
 }

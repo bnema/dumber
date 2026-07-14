@@ -2,7 +2,6 @@
 package gtk
 
 import (
-	"github.com/bnema/purego"
 	"github.com/bnema/puregotk/pkg/core"
 	"github.com/bnema/puregotk/v4/glib"
 	"github.com/bnema/puregotk/v4/gobject"
@@ -52,6 +51,7 @@ type Overlay struct {
 var xOverlayGLibType func() types.GType
 
 func OverlayGLibType() types.GType {
+	core.LazyRegister(&xOverlayGLibType, "GTK", "gtk_overlay_get_type", false)
 	return xOverlayGLibType()
 }
 
@@ -65,6 +65,7 @@ var xNewOverlay func() uintptr
 
 // Creates a new `GtkOverlay`.
 func NewOverlay() *Overlay {
+	core.LazyRegister(&xNewOverlay, "GTK", "gtk_overlay_new", false)
 	var cls *Overlay
 
 	cret := xNewOverlay()
@@ -89,6 +90,8 @@ var xOverlayAddOverlay func(uintptr, uintptr)
 // from its [property@Gtk.Widget:halign] and
 // [property@Gtk.Widget:valign] properties.
 func (x *Overlay) AddOverlay(WidgetVar *Widget) {
+	core.LazyRegister(&xOverlayAddOverlay, "GTK", "gtk_overlay_add_overlay", false)
+
 	xOverlayAddOverlay(x.GoPointer(), WidgetVar.GoPointer())
 }
 
@@ -96,6 +99,7 @@ var xOverlayGetChild func(uintptr) uintptr
 
 // Gets the child widget of @overlay.
 func (x *Overlay) GetChild() *Widget {
+	core.LazyRegister(&xOverlayGetChild, "GTK", "gtk_overlay_get_child", false)
 	var cls *Widget
 
 	cret := xOverlayGetChild(x.GoPointer())
@@ -113,6 +117,8 @@ var xOverlayGetClipOverlay func(uintptr, uintptr) bool
 
 // Gets whether @widget should be clipped within the parent.
 func (x *Overlay) GetClipOverlay(WidgetVar *Widget) bool {
+	core.LazyRegister(&xOverlayGetClipOverlay, "GTK", "gtk_overlay_get_clip_overlay", false)
+
 	cret := xOverlayGetClipOverlay(x.GoPointer(), WidgetVar.GoPointer())
 	return cret
 }
@@ -122,6 +128,8 @@ var xOverlayGetMeasureOverlay func(uintptr, uintptr) bool
 // Gets whether @widget's size is included in the measurement of
 // @overlay.
 func (x *Overlay) GetMeasureOverlay(WidgetVar *Widget) bool {
+	core.LazyRegister(&xOverlayGetMeasureOverlay, "GTK", "gtk_overlay_get_measure_overlay", false)
+
 	cret := xOverlayGetMeasureOverlay(x.GoPointer(), WidgetVar.GoPointer())
 	return cret
 }
@@ -130,6 +138,8 @@ var xOverlayRemoveOverlay func(uintptr, uintptr)
 
 // Removes an overlay that was added with gtk_overlay_add_overlay().
 func (x *Overlay) RemoveOverlay(WidgetVar *Widget) {
+	core.LazyRegister(&xOverlayRemoveOverlay, "GTK", "gtk_overlay_remove_overlay", false)
+
 	xOverlayRemoveOverlay(x.GoPointer(), WidgetVar.GoPointer())
 }
 
@@ -137,6 +147,8 @@ var xOverlaySetChild func(uintptr, uintptr)
 
 // Sets the child widget of @overlay.
 func (x *Overlay) SetChild(ChildVar *Widget) {
+	core.LazyRegister(&xOverlaySetChild, "GTK", "gtk_overlay_set_child", false)
+
 	xOverlaySetChild(x.GoPointer(), ChildVar.GoPointer())
 }
 
@@ -144,6 +156,8 @@ var xOverlaySetClipOverlay func(uintptr, uintptr, bool)
 
 // Sets whether @widget should be clipped within the parent.
 func (x *Overlay) SetClipOverlay(WidgetVar *Widget, ClipOverlayVar bool) {
+	core.LazyRegister(&xOverlaySetClipOverlay, "GTK", "gtk_overlay_set_clip_overlay", false)
+
 	xOverlaySetClipOverlay(x.GoPointer(), WidgetVar.GoPointer(), ClipOverlayVar)
 }
 
@@ -155,6 +169,8 @@ var xOverlaySetMeasureOverlay func(uintptr, uintptr, bool)
 // this property set to %TRUE. Children who are not included may
 // be drawn outside of @overlay's allocation if they are too large.
 func (x *Overlay) SetMeasureOverlay(WidgetVar *Widget, MeasureVar bool) {
+	core.LazyRegister(&xOverlaySetMeasureOverlay, "GTK", "gtk_overlay_set_measure_overlay", false)
+
 	xOverlaySetMeasureOverlay(x.GoPointer(), WidgetVar.GoPointer(), MeasureVar)
 }
 
@@ -470,25 +486,4 @@ func (x *Overlay) GetBuildableId() string {
 func init() {
 	core.SetPackageName("GTK", "gtk4")
 	core.SetSharedLibraries("GTK", []string{"libgtk-4.so.1", "libgtk-4.1.dylib"})
-	var libs []uintptr
-	for _, libPath := range core.GetPaths("GTK") {
-		lib, err := purego.Dlopen(libPath, purego.RTLD_NOW|purego.RTLD_GLOBAL)
-		if err != nil {
-			panic(err)
-		}
-		libs = append(libs, lib)
-	}
-
-	core.PuregoSafeRegister(&xOverlayGLibType, libs, "gtk_overlay_get_type")
-
-	core.PuregoSafeRegister(&xNewOverlay, libs, "gtk_overlay_new")
-
-	core.PuregoSafeRegister(&xOverlayAddOverlay, libs, "gtk_overlay_add_overlay")
-	core.PuregoSafeRegister(&xOverlayGetChild, libs, "gtk_overlay_get_child")
-	core.PuregoSafeRegister(&xOverlayGetClipOverlay, libs, "gtk_overlay_get_clip_overlay")
-	core.PuregoSafeRegister(&xOverlayGetMeasureOverlay, libs, "gtk_overlay_get_measure_overlay")
-	core.PuregoSafeRegister(&xOverlayRemoveOverlay, libs, "gtk_overlay_remove_overlay")
-	core.PuregoSafeRegister(&xOverlaySetChild, libs, "gtk_overlay_set_child")
-	core.PuregoSafeRegister(&xOverlaySetClipOverlay, libs, "gtk_overlay_set_clip_overlay")
-	core.PuregoSafeRegister(&xOverlaySetMeasureOverlay, libs, "gtk_overlay_set_measure_overlay")
 }

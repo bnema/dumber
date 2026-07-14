@@ -5,7 +5,6 @@ import (
 	"structs"
 	"unsafe"
 
-	"github.com/bnema/purego"
 	"github.com/bnema/puregotk/pkg/core"
 )
 
@@ -54,6 +53,8 @@ var xStringChunkClear func(uintptr)
 // After calling g_string_chunk_clear() it is not safe to
 // access any of the strings which were contained within it.
 func (x *StringChunk) Clear() {
+	core.LazyRegister(&xStringChunkClear, "GLIB", "g_string_chunk_clear", false)
+
 	xStringChunkClear(x.GoPointer())
 }
 
@@ -63,6 +64,8 @@ var xStringChunkFree func(uintptr)
 // After calling g_string_chunk_free() it is not safe to
 // access any of the strings which were contained within it.
 func (x *StringChunk) Free() {
+	core.LazyRegister(&xStringChunkFree, "GLIB", "g_string_chunk_free", false)
+
 	xStringChunkFree(x.GoPointer())
 }
 
@@ -80,6 +83,8 @@ var xStringChunkInsert func(uintptr, string) string
 // by g_string_chunk_insert_const() when looking for
 // duplicates.
 func (x *StringChunk) Insert(StringVar string) string {
+	core.LazyRegister(&xStringChunkInsert, "GLIB", "g_string_chunk_insert", false)
+
 	cret := xStringChunkInsert(x.GoPointer(), StringVar)
 	return cret
 }
@@ -100,6 +105,8 @@ var xStringChunkInsertConst func(uintptr, string) string
 // pointer to a string added with g_string_chunk_insert(), even
 // if they do match.
 func (x *StringChunk) InsertConst(StringVar string) string {
+	core.LazyRegister(&xStringChunkInsertConst, "GLIB", "g_string_chunk_insert_const", false)
+
 	cret := xStringChunkInsertConst(x.GoPointer(), StringVar)
 	return cret
 }
@@ -116,6 +123,8 @@ var xStringChunkInsertLen func(uintptr, string, int) string
 // The characters in the returned string can be changed, if necessary,
 // though you should not change anything after the end of the string.
 func (x *StringChunk) InsertLen(StringVar string, LenVar int) string {
+	core.LazyRegister(&xStringChunkInsertLen, "GLIB", "g_string_chunk_insert_len", false)
+
 	cret := xStringChunkInsertLen(x.GoPointer(), StringVar, LenVar)
 	return cret
 }
@@ -123,18 +132,4 @@ func (x *StringChunk) InsertLen(StringVar string, LenVar int) string {
 func init() {
 	core.SetPackageName("GLIB", "glib-2.0")
 	core.SetSharedLibraries("GLIB", []string{"libgobject-2.0.so.0", "libglib-2.0.so.0", "libgobject-2.0.0.dylib", "libglib-2.0.0.dylib"})
-	var libs []uintptr
-	for _, libPath := range core.GetPaths("GLIB") {
-		lib, err := purego.Dlopen(libPath, purego.RTLD_NOW|purego.RTLD_GLOBAL)
-		if err != nil {
-			panic(err)
-		}
-		libs = append(libs, lib)
-	}
-
-	core.PuregoSafeRegister(&xStringChunkClear, libs, "g_string_chunk_clear")
-	core.PuregoSafeRegister(&xStringChunkFree, libs, "g_string_chunk_free")
-	core.PuregoSafeRegister(&xStringChunkInsert, libs, "g_string_chunk_insert")
-	core.PuregoSafeRegister(&xStringChunkInsertConst, libs, "g_string_chunk_insert_const")
-	core.PuregoSafeRegister(&xStringChunkInsertLen, libs, "g_string_chunk_insert_len")
 }

@@ -2,7 +2,6 @@
 package gdk
 
 import (
-	"github.com/bnema/purego"
 	"github.com/bnema/puregotk/pkg/core"
 	"github.com/bnema/puregotk/v4/glib"
 	"github.com/bnema/puregotk/v4/gobject"
@@ -64,6 +63,7 @@ type Cursor struct {
 var xCursorGLibType func() types.GType
 
 func CursorGLibType() types.GType {
+	core.LazyRegister(&xCursorGLibType, "GDK", "gdk_cursor_get_type", false)
 	return xCursorGLibType()
 }
 
@@ -80,6 +80,7 @@ var xNewCursorFromCallback func(uintptr, uintptr, uintptr, uintptr) uintptr
 // Cursors of this kind produce textures for the cursor
 // image on demand, when the @callback is called.
 func NewCursorFromCallback(CallbackVar *CursorGetTextureCallback, DataVar uintptr, DestroyVar *glib.DestroyNotify, FallbackVar *Cursor) *Cursor {
+	core.LazyRegister(&xNewCursorFromCallback, "GDK", "gdk_cursor_new_from_callback", false)
 	var cls *Cursor
 
 	cret := xNewCursorFromCallback(glib.NewCallback(CallbackVar), DataVar, glib.NewCallbackNullable(DestroyVar), FallbackVar.GoPointer())
@@ -140,6 +141,7 @@ var xNewCursorFromName func(string, uintptr) uintptr
 // | ![](zoom_in_cursor.png)       | "zoom-in"       | Zoom in |
 // | ![](zoom_out_cursor.png)      | "zoom-out"      | Zoom out |
 func NewCursorFromName(NameVar string, FallbackVar *Cursor) *Cursor {
+	core.LazyRegister(&xNewCursorFromName, "GDK", "gdk_cursor_new_from_name", false)
 	var cls *Cursor
 
 	cret := xNewCursorFromName(NameVar, FallbackVar.GoPointer())
@@ -156,6 +158,7 @@ var xNewCursorFromTexture func(uintptr, int, int, uintptr) uintptr
 
 // Creates a new cursor from a `GdkTexture`.
 func NewCursorFromTexture(TextureVar *Texture, HotspotXVar int, HotspotYVar int, FallbackVar *Cursor) *Cursor {
+	core.LazyRegister(&xNewCursorFromTexture, "GDK", "gdk_cursor_new_from_texture", false)
 	var cls *Cursor
 
 	cret := xNewCursorFromTexture(TextureVar.GoPointer(), HotspotXVar, HotspotYVar, FallbackVar.GoPointer())
@@ -178,6 +181,7 @@ var xCursorGetFallback func(uintptr) uintptr
 // this can happen when the texture is too large or when the `GdkDisplay`
 // it is used on does not support textured cursors.
 func (x *Cursor) GetFallback() *Cursor {
+	core.LazyRegister(&xCursorGetFallback, "GDK", "gdk_cursor_get_fallback", false)
 	var cls *Cursor
 
 	cret := xCursorGetFallback(x.GoPointer())
@@ -201,6 +205,8 @@ var xCursorGetHotspotX func(uintptr) int
 // will only return the hotspot position for cursors created with
 // [ctor@Gdk.Cursor.new_from_texture].
 func (x *Cursor) GetHotspotX() int {
+	core.LazyRegister(&xCursorGetHotspotX, "GDK", "gdk_cursor_get_hotspot_x", false)
+
 	cret := xCursorGetHotspotX(x.GoPointer())
 	return cret
 }
@@ -215,6 +221,8 @@ var xCursorGetHotspotY func(uintptr) int
 // will only return the hotspot position for cursors created with
 // [ctor@Gdk.Cursor.new_from_texture].
 func (x *Cursor) GetHotspotY() int {
+	core.LazyRegister(&xCursorGetHotspotY, "GDK", "gdk_cursor_get_hotspot_y", false)
+
 	cret := xCursorGetHotspotY(x.GoPointer())
 	return cret
 }
@@ -225,6 +233,8 @@ var xCursorGetName func(uintptr) string
 //
 // If the cursor is not a named cursor, %NULL will be returned.
 func (x *Cursor) GetName() string {
+	core.LazyRegister(&xCursorGetName, "GDK", "gdk_cursor_get_name", false)
+
 	cret := xCursorGetName(x.GoPointer())
 	return cret
 }
@@ -235,6 +245,7 @@ var xCursorGetTexture func(uintptr) uintptr
 //
 // If the cursor is a named cursor, %NULL will be returned.
 func (x *Cursor) GetTexture() *Texture {
+	core.LazyRegister(&xCursorGetTexture, "GDK", "gdk_cursor_get_texture", false)
 	var cls *Texture
 
 	cret := xCursorGetTexture(x.GoPointer())
@@ -317,24 +328,4 @@ func (x *Cursor) GetPropertyName() string {
 func init() {
 	core.SetPackageName("GDK", "gtk4")
 	core.SetSharedLibraries("GDK", []string{"libgtk-4.so.1", "libgtk-4.1.dylib"})
-	var libs []uintptr
-	for _, libPath := range core.GetPaths("GDK") {
-		lib, err := purego.Dlopen(libPath, purego.RTLD_NOW|purego.RTLD_GLOBAL)
-		if err != nil {
-			panic(err)
-		}
-		libs = append(libs, lib)
-	}
-
-	core.PuregoSafeRegister(&xCursorGLibType, libs, "gdk_cursor_get_type")
-
-	core.PuregoSafeRegister(&xNewCursorFromCallback, libs, "gdk_cursor_new_from_callback")
-	core.PuregoSafeRegister(&xNewCursorFromName, libs, "gdk_cursor_new_from_name")
-	core.PuregoSafeRegister(&xNewCursorFromTexture, libs, "gdk_cursor_new_from_texture")
-
-	core.PuregoSafeRegister(&xCursorGetFallback, libs, "gdk_cursor_get_fallback")
-	core.PuregoSafeRegister(&xCursorGetHotspotX, libs, "gdk_cursor_get_hotspot_x")
-	core.PuregoSafeRegister(&xCursorGetHotspotY, libs, "gdk_cursor_get_hotspot_y")
-	core.PuregoSafeRegister(&xCursorGetName, libs, "gdk_cursor_get_name")
-	core.PuregoSafeRegister(&xCursorGetTexture, libs, "gdk_cursor_get_texture")
 }

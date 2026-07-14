@@ -5,7 +5,6 @@ import (
 	"structs"
 	"unsafe"
 
-	"github.com/bnema/purego"
 	"github.com/bnema/puregotk/pkg/core"
 	"github.com/bnema/puregotk/v4/gobject/types"
 )
@@ -22,6 +21,7 @@ type Point struct {
 var xPointGLibType func() types.GType
 
 func PointGLibType() types.GType {
+	core.LazyRegister(&xPointGLibType, "GRAPHENE", "graphene_point_get_type", false)
 	return xPointGLibType()
 }
 
@@ -62,6 +62,8 @@ var xPointAlloc func() uintptr
 //
 // ]|
 func PointAlloc() *Point {
+	core.LazyRegister(&xPointAlloc, "GRAPHENE", "graphene_point_alloc", false)
+
 	cret := xPointAlloc()
 	if cret == 0 {
 		return nil
@@ -73,6 +75,8 @@ var xPointDistance func(uintptr, *Point, *float32, *float32) float32
 
 // Computes the distance between @a and @b.
 func (x *Point) Distance(BVar *Point, DXVar *float32, DYVar *float32) float32 {
+	core.LazyRegister(&xPointDistance, "GRAPHENE", "graphene_point_distance", false)
+
 	cret := xPointDistance(x.GoPointer(), BVar, DXVar, DYVar)
 	return cret
 }
@@ -86,6 +90,8 @@ var xPointEqual func(uintptr, *Point) bool
 // you want to control the fuzziness of the match, you can use
 // graphene_point_near() instead.
 func (x *Point) Equal(BVar *Point) bool {
+	core.LazyRegister(&xPointEqual, "GRAPHENE", "graphene_point_equal", false)
+
 	cret := xPointEqual(x.GoPointer(), BVar)
 	return cret
 }
@@ -94,6 +100,8 @@ var xPointFree func(uintptr)
 
 // Frees the resources allocated by graphene_point_alloc().
 func (x *Point) Free() {
+	core.LazyRegister(&xPointFree, "GRAPHENE", "graphene_point_free", false)
+
 	xPointFree(x.GoPointer())
 }
 
@@ -103,6 +111,8 @@ var xPointInit func(uintptr, float32, float32) uintptr
 //
 // It's safe to call this function multiple times.
 func (x *Point) Init(XVar float32, YVar float32) *Point {
+	core.LazyRegister(&xPointInit, "GRAPHENE", "graphene_point_init", false)
+
 	cret := xPointInit(x.GoPointer(), XVar, YVar)
 	if cret == 0 {
 		return nil
@@ -114,6 +124,8 @@ var xPointInitFromPoint func(uintptr, *Point) uintptr
 
 // Initializes @p with the same coordinates of @src.
 func (x *Point) InitFromPoint(SrcVar *Point) *Point {
+	core.LazyRegister(&xPointInitFromPoint, "GRAPHENE", "graphene_point_init_from_point", false)
+
 	cret := xPointInitFromPoint(x.GoPointer(), SrcVar)
 	if cret == 0 {
 		return nil
@@ -125,6 +137,8 @@ var xPointInitFromVec2 func(uintptr, *Vec2) uintptr
 
 // Initializes @p with the coordinates inside the given #graphene_vec2_t.
 func (x *Point) InitFromVec2(SrcVar *Vec2) *Point {
+	core.LazyRegister(&xPointInitFromVec2, "GRAPHENE", "graphene_point_init_from_vec2", false)
+
 	cret := xPointInitFromVec2(x.GoPointer(), SrcVar)
 	if cret == 0 {
 		return nil
@@ -137,6 +151,8 @@ var xPointInterpolate func(uintptr, *Point, float64, *Point)
 // Linearly interpolates the coordinates of @a and @b using the
 // given @factor.
 func (x *Point) Interpolate(BVar *Point, FactorVar float64, ResVar *Point) {
+	core.LazyRegister(&xPointInterpolate, "GRAPHENE", "graphene_point_interpolate", false)
+
 	xPointInterpolate(x.GoPointer(), BVar, FactorVar, ResVar)
 }
 
@@ -145,6 +161,8 @@ var xPointNear func(uintptr, *Point, float32) bool
 // Checks whether the two points @a and @b are within
 // the threshold of @epsilon.
 func (x *Point) Near(BVar *Point, EpsilonVar float32) bool {
+	core.LazyRegister(&xPointNear, "GRAPHENE", "graphene_point_near", false)
+
 	cret := xPointNear(x.GoPointer(), BVar, EpsilonVar)
 	return cret
 }
@@ -154,6 +172,8 @@ var xPointToVec2 func(uintptr, *Vec2)
 // Stores the coordinates of the given #graphene_point_t into a
 // #graphene_vec2_t.
 func (x *Point) ToVec2(VVar *Vec2) {
+	core.LazyRegister(&xPointToVec2, "GRAPHENE", "graphene_point_to_vec2", false)
+
 	xPointToVec2(x.GoPointer(), VVar)
 }
 
@@ -161,6 +181,8 @@ var xPointZero func() uintptr
 
 // Returns a point fixed at (0, 0).
 func PointZero() *Point {
+	core.LazyRegister(&xPointZero, "GRAPHENE", "graphene_point_zero", false)
+
 	cret := xPointZero()
 	if cret == 0 {
 		return nil
@@ -171,28 +193,4 @@ func PointZero() *Point {
 func init() {
 	core.SetPackageName("GRAPHENE", "graphene-gobject-1.0")
 	core.SetSharedLibraries("GRAPHENE", []string{"libgraphene-1.0.so.0", "libgraphene-1.0.0.dylib"})
-	var libs []uintptr
-	for _, libPath := range core.GetPaths("GRAPHENE") {
-		lib, err := purego.Dlopen(libPath, purego.RTLD_NOW|purego.RTLD_GLOBAL)
-		if err != nil {
-			panic(err)
-		}
-		libs = append(libs, lib)
-	}
-
-	core.PuregoSafeRegister(&xPointZero, libs, "graphene_point_zero")
-
-	core.PuregoSafeRegister(&xPointGLibType, libs, "graphene_point_get_type")
-
-	core.PuregoSafeRegister(&xPointAlloc, libs, "graphene_point_alloc")
-
-	core.PuregoSafeRegister(&xPointDistance, libs, "graphene_point_distance")
-	core.PuregoSafeRegister(&xPointEqual, libs, "graphene_point_equal")
-	core.PuregoSafeRegister(&xPointFree, libs, "graphene_point_free")
-	core.PuregoSafeRegister(&xPointInit, libs, "graphene_point_init")
-	core.PuregoSafeRegister(&xPointInitFromPoint, libs, "graphene_point_init_from_point")
-	core.PuregoSafeRegister(&xPointInitFromVec2, libs, "graphene_point_init_from_vec2")
-	core.PuregoSafeRegister(&xPointInterpolate, libs, "graphene_point_interpolate")
-	core.PuregoSafeRegister(&xPointNear, libs, "graphene_point_near")
-	core.PuregoSafeRegister(&xPointToVec2, libs, "graphene_point_to_vec2")
 }

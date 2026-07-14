@@ -5,7 +5,6 @@ import (
 	"structs"
 	"unsafe"
 
-	"github.com/bnema/purego"
 	"github.com/bnema/puregotk/pkg/core"
 	"github.com/bnema/puregotk/v4/gio"
 	"github.com/bnema/puregotk/v4/glib"
@@ -36,6 +35,7 @@ type MemoryTexture struct {
 var xMemoryTextureGLibType func() types.GType
 
 func MemoryTextureGLibType() types.GType {
+	core.LazyRegister(&xMemoryTextureGLibType, "GDK", "gdk_memory_texture_get_type", false)
 	return xMemoryTextureGLibType()
 }
 
@@ -52,6 +52,7 @@ var xNewMemoryTexture func(int, int, MemoryFormat, *glib.Bytes, uint) uintptr
 // The `GBytes` must contain @stride × @height pixels
 // in the given format.
 func NewMemoryTexture(WidthVar int, HeightVar int, FormatVar MemoryFormat, BytesVar *glib.Bytes, StrideVar uint) *MemoryTexture {
+	core.LazyRegister(&xNewMemoryTexture, "GDK", "gdk_memory_texture_new", false)
 	var cls *MemoryTexture
 
 	cret := xNewMemoryTexture(WidthVar, HeightVar, FormatVar, BytesVar, StrideVar)
@@ -300,16 +301,4 @@ func (x *MemoryTexture) LoadFinish(ResVar gio.AsyncResult, TypeVar *string) (*gi
 func init() {
 	core.SetPackageName("GDK", "gtk4")
 	core.SetSharedLibraries("GDK", []string{"libgtk-4.so.1", "libgtk-4.1.dylib"})
-	var libs []uintptr
-	for _, libPath := range core.GetPaths("GDK") {
-		lib, err := purego.Dlopen(libPath, purego.RTLD_NOW|purego.RTLD_GLOBAL)
-		if err != nil {
-			panic(err)
-		}
-		libs = append(libs, lib)
-	}
-
-	core.PuregoSafeRegister(&xMemoryTextureGLibType, libs, "gdk_memory_texture_get_type")
-
-	core.PuregoSafeRegister(&xNewMemoryTexture, libs, "gdk_memory_texture_new")
 }

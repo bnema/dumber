@@ -2,7 +2,6 @@
 package gtk
 
 import (
-	"github.com/bnema/purego"
 	"github.com/bnema/puregotk/pkg/core"
 	"github.com/bnema/puregotk/v4/gobject/types"
 )
@@ -17,6 +16,7 @@ type DebugFlags int
 var xDebugFlagsGLibType func() types.GType
 
 func DebugFlagsGLibType() types.GType {
+	core.LazyRegister(&xDebugFlagsGLibType, "GTK", "gtk_debug_flags_get_type", false)
 	return xDebugFlagsGLibType()
 }
 
@@ -77,6 +77,8 @@ var xGetDebugFlags func() DebugFlags
 // This function is intended for GTK modules that want
 // to adjust their debug output based on GTK debug flags.
 func GetDebugFlags() DebugFlags {
+	core.LazyRegister(&xGetDebugFlags, "GTK", "gtk_get_debug_flags", false)
+
 	cret := xGetDebugFlags()
 	return cret
 }
@@ -85,23 +87,12 @@ var xSetDebugFlags func(DebugFlags)
 
 // Sets the GTK debug flags.
 func SetDebugFlags(FlagsVar DebugFlags) {
+	core.LazyRegister(&xSetDebugFlags, "GTK", "gtk_set_debug_flags", false)
+
 	xSetDebugFlags(FlagsVar)
 }
 
 func init() {
 	core.SetPackageName("GTK", "gtk4")
 	core.SetSharedLibraries("GTK", []string{"libgtk-4.so.1", "libgtk-4.1.dylib"})
-	var libs []uintptr
-	for _, libPath := range core.GetPaths("GTK") {
-		lib, err := purego.Dlopen(libPath, purego.RTLD_NOW|purego.RTLD_GLOBAL)
-		if err != nil {
-			panic(err)
-		}
-		libs = append(libs, lib)
-	}
-
-	core.PuregoSafeRegister(&xDebugFlagsGLibType, libs, "gtk_debug_flags_get_type")
-
-	core.PuregoSafeRegister(&xGetDebugFlags, libs, "gtk_get_debug_flags")
-	core.PuregoSafeRegister(&xSetDebugFlags, libs, "gtk_set_debug_flags")
 }

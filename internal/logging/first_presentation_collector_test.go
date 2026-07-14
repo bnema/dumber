@@ -2,6 +2,7 @@ package logging
 
 import (
 	"encoding/json"
+	"fmt"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -143,8 +144,9 @@ func TestFirstPresentationCollectorSanitizesMachineLocalValues(t *testing.T) {
 	}
 	for _, required := range []string{
 		`"measured_source_revision"`,
+		`"version": "v0.8.4-0.20260714160309-bbd397409ebe"`,
 		`"tag": "v0.8.4"`,
-		`"revision": "f217ece342dea3ef2a3f98671fcd16a39ad0037d"`,
+		`"revision": "bbd397409ebed75a5979c1e4566a2ef319f6a484"`,
 	} {
 		require.Contains(t, artifacts.String(), required)
 	}
@@ -164,6 +166,135 @@ func TestFirstPresentationCollectorSanitizesMachineLocalValues(t *testing.T) {
 	require.NotEmpty(t, metadata.Comparison.Architecture)
 	require.Equal(t, "x11", metadata.Comparison.DisplayProtocol)
 	require.Equal(t, "integrated-gpu", metadata.Comparison.MachineGPUProfile)
+}
+
+func TestFirstPresentationCollectorDerivesSelectedImmutableModuleProvenance(t *testing.T) {
+	repoRoot, err := filepath.Abs(filepath.Join("..", ".."))
+	require.NoError(t, err)
+	temp := t.TempDir()
+	runtime := filepath.Join(temp, "cef-147-runtime")
+	require.NoError(t, os.Mkdir(runtime, 0o755))
+	binary := filepath.Join(temp, "dumber")
+	require.NoError(t, os.WriteFile(binary, collectorTestBinary(validFirstPresentationLog), 0o755))
+
+	// This exact pseudo-version is deliberately newer than the former v0.8.4
+	// hardcode; the collector must report what the selected module says.
+	const version = "v0.8.5-0.20300102030405-bbd397409ebe"
+	const revision = "bbd397409ebed75a5979c1e4566a2ef319f6a484"
+	goBin := collectorProvenanceGo(t, temp, version, revision, "")
+	output := filepath.Join(temp, "artifacts")
+	cmd := exec.Command(filepath.Join(repoRoot, "scripts", "collect_first_presentation.sh"))
+	cmd.Dir = repoRoot
+	cmd.Env = append(os.Environ(),
+		"DISPLAY=:test",
+		"DUMBER_CEF_DIR="+runtime,
+		"DUMBER_FIRST_PRESENTATION_BIN="+binary,
+		"DUMBER_FIRST_PRESENTATION_OUTPUT="+output,
+		"DUMBER_FIRST_PRESENTATION_TIMEOUT_SECONDS=1",
+		"PATH="+filepath.Dir(goBin)+":"+os.Getenv("PATH"),
+	)
+	result, err := cmd.CombinedOutput()
+	require.NoErrorf(t, err, "collector failed: %s", result)
+
+	var metadata struct {
+		Upstream struct {
+			Module   string `json:"module"`
+			Version  string `json:"version"`
+			Tag      string `json:"tag"`
+			Revision string `json:"revision"`
+		} `json:"upstream"`
+	}
+	contents, err := os.ReadFile(filepath.Join(output, "metadata.json"))
+	require.NoError(t, err)
+	require.NoError(t, json.Unmarshal(contents, &metadata))
+	require.Equal(t, "github.com/bnema/purego-cef2gtk", metadata.Upstream.Module)
+	require.Equal(t, version, metadata.Upstream.Version)
+	require.Equal(t, "v0.8.5", metadata.Upstream.Tag)
+	require.Equal(t, revision, metadata.Upstream.Revision)
+
+	script, err := os.ReadFile(filepath.Join(repoRoot, "scripts", "collect_first_presentation.sh"))
+	require.NoError(t, err)
+	require.NotContains(t, string(script), "f217ece342dea3ef2a3f98671fcd16a39ad0037d")
+}
+
+func TestFirstPresentationCollectorRejectsNonImmutableModuleProvenanceWithoutLeaks(t *testing.T) {
+	repoRoot, err := filepath.Abs(filepath.Join("..", ".."))
+	require.NoError(t, err)
+
+	for _, test := range []struct {
+		name, version, revision, ref string
+	}{
+		{name: "branch selector", version: "main", ref: "main"},
+		{name: "missing origin", version: "v0.8.5-0.20300102030405-bbd397409ebe"},
+		{name: "named origin ref", version: "v0.8.5-0.20300102030405-bbd397409ebe", revision: "bbd397409ebed75a5979c1e4566a2ef319f6a484", ref: "main"},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			temp := t.TempDir()
+			runtime := filepath.Join(temp, "cef-147-runtime")
+			require.NoError(t, os.Mkdir(runtime, 0o755))
+			binary := filepath.Join(temp, "dumber")
+			require.NoError(t, os.WriteFile(binary, collectorTestBinary(validFirstPresentationLog), 0o755))
+
+			goBin := collectorProvenanceGo(t, temp, test.version, test.revision, test.ref)
+			output := filepath.Join(temp, "artifacts")
+			cmd := exec.Command(filepath.Join(repoRoot, "scripts", "collect_first_presentation.sh"))
+			cmd.Dir = repoRoot
+			cmd.Env = append(os.Environ(),
+				"DISPLAY=:test",
+				"DUMBER_CEF_DIR="+runtime,
+				"DUMBER_FIRST_PRESENTATION_BIN="+binary,
+				"DUMBER_FIRST_PRESENTATION_OUTPUT="+output,
+				"PATH="+filepath.Dir(goBin)+":"+os.Getenv("PATH"),
+			)
+			result, runErr := cmd.CombinedOutput()
+			require.Errorf(t, runErr, "collector accepted nonimmutable module provenance: %s", result)
+			require.Contains(t, string(result), "immutable module provenance is unavailable")
+			require.NotContains(t, string(result), temp)
+			require.NoFileExists(t, filepath.Join(output, "metadata.json"))
+			for _, name := range runArtifactNames() {
+				require.NoFileExists(t, filepath.Join(output, name))
+			}
+		})
+	}
+}
+
+func collectorProvenanceGo(t *testing.T, temp, version, revision, ref string) string {
+	t.Helper()
+	infoPath := filepath.Join(temp, "module.info")
+	info := map[string]any{"Version": version}
+	if revision != "" {
+		info["Origin"] = map[string]string{
+			"VCS": "git", "URL": "https://github.com/bnema/purego-cef2gtk", "Hash": revision, "Ref": ref,
+		}
+	}
+	infoJSON, err := json.Marshal(info)
+	require.NoError(t, err)
+	require.NoError(t, os.WriteFile(infoPath, infoJSON, 0o600))
+
+	selectedJSON, err := json.Marshal(map[string]string{
+		"Path": "github.com/bnema/purego-cef2gtk", "Version": version,
+	})
+	require.NoError(t, err)
+	downloadedJSON, err := json.Marshal(map[string]string{
+		"Path": "github.com/bnema/purego-cef2gtk", "Version": version, "Info": infoPath,
+	})
+	require.NoError(t, err)
+	binDir := filepath.Join(temp, "bin")
+	require.NoError(t, os.Mkdir(binDir, 0o755))
+	goBin := filepath.Join(binDir, "go")
+	script := fmt.Sprintf(`#!/bin/sh
+if [ "$1" = "list" ] && [ "$2" = "-m" ] && [ "$3" = "-json" ] && [ "$4" = "github.com/bnema/purego-cef2gtk" ]; then
+  printf '%%s\n' '%s'
+  exit 0
+fi
+if [ "$1" = "mod" ] && [ "$2" = "download" ] && [ "$3" = "-json" ] && [ "$4" = "github.com/bnema/purego-cef2gtk@%s" ]; then
+  printf '%%s\n' '%s'
+  exit 0
+fi
+exit 1
+`, selectedJSON, version, downloadedJSON)
+	require.NoError(t, os.WriteFile(goBin, []byte(script), 0o755))
+	return goBin
 }
 
 func TestFirstPresentationCollectorDefaultsToXDGStateEvidenceDirectory(t *testing.T) {

@@ -5,7 +5,6 @@ import (
 	"structs"
 	"unsafe"
 
-	"github.com/bnema/purego"
 	"github.com/bnema/puregotk/pkg/core"
 	"github.com/bnema/puregotk/v4/glib"
 	"github.com/bnema/puregotk/v4/gobject"
@@ -35,6 +34,7 @@ type SubpixelLayout int
 var xSubpixelLayoutGLibType func() types.GType
 
 func SubpixelLayoutGLibType() types.GType {
+	core.LazyRegister(&xSubpixelLayoutGLibType, "GDK", "gdk_subpixel_layout_get_type", false)
 	return xSubpixelLayoutGLibType()
 }
 
@@ -67,6 +67,7 @@ type Monitor struct {
 var xMonitorGLibType func() types.GType
 
 func MonitorGLibType() types.GType {
+	core.LazyRegister(&xMonitorGLibType, "GDK", "gdk_monitor_get_type", false)
 	return xMonitorGLibType()
 }
 
@@ -84,6 +85,8 @@ var xMonitorGetConnector func(uintptr) string
 // on software and hardware configuration, and should not be
 // relied on as stable identifiers of a specific monitor.
 func (x *Monitor) GetConnector() string {
+	core.LazyRegister(&xMonitorGetConnector, "GDK", "gdk_monitor_get_connector", false)
+
 	cret := xMonitorGetConnector(x.GoPointer())
 	return cret
 }
@@ -94,6 +97,8 @@ var xMonitorGetDescription func(uintptr) string
 //
 // This can be used to identify a monitor in the UI.
 func (x *Monitor) GetDescription() string {
+	core.LazyRegister(&xMonitorGetDescription, "GDK", "gdk_monitor_get_description", false)
+
 	cret := xMonitorGetDescription(x.GoPointer())
 	return cret
 }
@@ -102,6 +107,7 @@ var xMonitorGetDisplay func(uintptr) uintptr
 
 // Gets the display that this monitor belongs to.
 func (x *Monitor) GetDisplay() *Display {
+	core.LazyRegister(&xMonitorGetDisplay, "GDK", "gdk_monitor_get_display", false)
 	var cls *Display
 
 	cret := xMonitorGetDisplay(x.GoPointer())
@@ -123,6 +129,8 @@ var xMonitorGetGeometry func(uintptr, *Rectangle)
 // The returned geometry is in  ”application pixels”, not in
 // ”device pixels” (see [method@Gdk.Monitor.get_scale]).
 func (x *Monitor) GetGeometry(GeometryVar *Rectangle) {
+	core.LazyRegister(&xMonitorGetGeometry, "GDK", "gdk_monitor_get_geometry", false)
+
 	xMonitorGetGeometry(x.GoPointer(), GeometryVar)
 }
 
@@ -130,6 +138,8 @@ var xMonitorGetHeightMm func(uintptr) int
 
 // Gets the height in millimeters of the monitor.
 func (x *Monitor) GetHeightMm() int {
+	core.LazyRegister(&xMonitorGetHeightMm, "GDK", "gdk_monitor_get_height_mm", false)
+
 	cret := xMonitorGetHeightMm(x.GoPointer())
 	return cret
 }
@@ -144,6 +154,8 @@ var xMonitorGetManufacturer func(uintptr) string
 // The PNP ID registry is located at
 // [https://uefi.org/pnp_id_list](https://uefi.org/pnp_id_list).
 func (x *Monitor) GetManufacturer() string {
+	core.LazyRegister(&xMonitorGetManufacturer, "GDK", "gdk_monitor_get_manufacturer", false)
+
 	cret := xMonitorGetManufacturer(x.GoPointer())
 	return cret
 }
@@ -152,6 +164,8 @@ var xMonitorGetModel func(uintptr) string
 
 // Gets the string identifying the monitor model, if available.
 func (x *Monitor) GetModel() string {
+	core.LazyRegister(&xMonitorGetModel, "GDK", "gdk_monitor_get_model", false)
+
 	cret := xMonitorGetModel(x.GoPointer())
 	return cret
 }
@@ -163,6 +177,8 @@ var xMonitorGetRefreshRate func(uintptr) int
 // The value is in milli-Hertz, so a refresh rate of 60Hz
 // is returned as 60000.
 func (x *Monitor) GetRefreshRate() int {
+	core.LazyRegister(&xMonitorGetRefreshRate, "GDK", "gdk_monitor_get_refresh_rate", false)
+
 	cret := xMonitorGetRefreshRate(x.GoPointer())
 	return cret
 }
@@ -176,6 +192,8 @@ var xMonitorGetScale func(uintptr) float64
 // particular monitor, but most of the time you’re drawing to a surface
 // where it is better to use [method@Gdk.Surface.get_scale] instead.
 func (x *Monitor) GetScale() float64 {
+	core.LazyRegister(&xMonitorGetScale, "GDK", "gdk_monitor_get_scale", false)
+
 	cret := xMonitorGetScale(x.GoPointer())
 	return cret
 }
@@ -192,6 +210,8 @@ var xMonitorGetScaleFactor func(uintptr) int
 // particular monitor, but most of the time you’re drawing to a surface
 // where it is better to use [method@Gdk.Surface.get_scale_factor] instead.
 func (x *Monitor) GetScaleFactor() int {
+	core.LazyRegister(&xMonitorGetScaleFactor, "GDK", "gdk_monitor_get_scale_factor", false)
+
 	cret := xMonitorGetScaleFactor(x.GoPointer())
 	return cret
 }
@@ -201,6 +221,8 @@ var xMonitorGetSubpixelLayout func(uintptr) SubpixelLayout
 // Gets information about the layout of red, green and blue
 // primaries for pixels.
 func (x *Monitor) GetSubpixelLayout() SubpixelLayout {
+	core.LazyRegister(&xMonitorGetSubpixelLayout, "GDK", "gdk_monitor_get_subpixel_layout", false)
+
 	cret := xMonitorGetSubpixelLayout(x.GoPointer())
 	return cret
 }
@@ -209,6 +231,8 @@ var xMonitorGetWidthMm func(uintptr) int
 
 // Gets the width in millimeters of the monitor.
 func (x *Monitor) GetWidthMm() int {
+	core.LazyRegister(&xMonitorGetWidthMm, "GDK", "gdk_monitor_get_width_mm", false)
+
 	cret := xMonitorGetWidthMm(x.GoPointer())
 	return cret
 }
@@ -221,6 +245,8 @@ var xMonitorIsValid func(uintptr) bool
 // The @monitor becomes invalid when the physical monitor
 // is unplugged or removed.
 func (x *Monitor) IsValid() bool {
+	core.LazyRegister(&xMonitorIsValid, "GDK", "gdk_monitor_is_valid", false)
+
 	cret := xMonitorIsValid(x.GoPointer())
 	return cret
 }
@@ -353,30 +379,4 @@ func (x *Monitor) ConnectInvalidate(cb *func(Monitor)) uint {
 func init() {
 	core.SetPackageName("GDK", "gtk4")
 	core.SetSharedLibraries("GDK", []string{"libgtk-4.so.1", "libgtk-4.1.dylib"})
-	var libs []uintptr
-	for _, libPath := range core.GetPaths("GDK") {
-		lib, err := purego.Dlopen(libPath, purego.RTLD_NOW|purego.RTLD_GLOBAL)
-		if err != nil {
-			panic(err)
-		}
-		libs = append(libs, lib)
-	}
-
-	core.PuregoSafeRegister(&xSubpixelLayoutGLibType, libs, "gdk_subpixel_layout_get_type")
-
-	core.PuregoSafeRegister(&xMonitorGLibType, libs, "gdk_monitor_get_type")
-
-	core.PuregoSafeRegister(&xMonitorGetConnector, libs, "gdk_monitor_get_connector")
-	core.PuregoSafeRegister(&xMonitorGetDescription, libs, "gdk_monitor_get_description")
-	core.PuregoSafeRegister(&xMonitorGetDisplay, libs, "gdk_monitor_get_display")
-	core.PuregoSafeRegister(&xMonitorGetGeometry, libs, "gdk_monitor_get_geometry")
-	core.PuregoSafeRegister(&xMonitorGetHeightMm, libs, "gdk_monitor_get_height_mm")
-	core.PuregoSafeRegister(&xMonitorGetManufacturer, libs, "gdk_monitor_get_manufacturer")
-	core.PuregoSafeRegister(&xMonitorGetModel, libs, "gdk_monitor_get_model")
-	core.PuregoSafeRegister(&xMonitorGetRefreshRate, libs, "gdk_monitor_get_refresh_rate")
-	core.PuregoSafeRegister(&xMonitorGetScale, libs, "gdk_monitor_get_scale")
-	core.PuregoSafeRegister(&xMonitorGetScaleFactor, libs, "gdk_monitor_get_scale_factor")
-	core.PuregoSafeRegister(&xMonitorGetSubpixelLayout, libs, "gdk_monitor_get_subpixel_layout")
-	core.PuregoSafeRegister(&xMonitorGetWidthMm, libs, "gdk_monitor_get_width_mm")
-	core.PuregoSafeRegister(&xMonitorIsValid, libs, "gdk_monitor_is_valid")
 }

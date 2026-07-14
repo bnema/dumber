@@ -5,7 +5,6 @@ import (
 	"structs"
 	"unsafe"
 
-	"github.com/bnema/purego"
 	"github.com/bnema/puregotk/pkg/core"
 	"github.com/bnema/puregotk/v4/gobject"
 	"github.com/bnema/puregotk/v4/gobject/types"
@@ -33,6 +32,8 @@ var xMediaKeySystemPermissionGetName func(uintptr) string
 
 // Get the key system for which access permission is being requested.
 func MediaKeySystemPermissionGetName(RequestVar *MediaKeySystemPermissionRequest) string {
+	core.LazyRegister(&xMediaKeySystemPermissionGetName, "WEBKIT", "webkit_media_key_system_permission_get_name", false)
+
 	cret := xMediaKeySystemPermissionGetName(RequestVar.GoPointer())
 	return cret
 }
@@ -55,6 +56,7 @@ type MediaKeySystemPermissionRequest struct {
 var xMediaKeySystemPermissionRequestGLibType func() types.GType
 
 func MediaKeySystemPermissionRequestGLibType() types.GType {
+	core.LazyRegister(&xMediaKeySystemPermissionRequestGLibType, "WEBKIT", "webkit_media_key_system_permission_request_get_type", false)
 	return xMediaKeySystemPermissionRequestGLibType()
 }
 
@@ -88,21 +90,8 @@ func (x *MediaKeySystemPermissionRequest) Deny() {
 func init() {
 	core.SetPackageName("WEBKIT", "webkitgtk-6.0")
 	core.SetSharedLibraries("WEBKIT", []string{"libwebkitgtk-6.0.so.4", "libjavascriptcoregtk-6.0.so.1", "libwebkitgtk-6.0.4.dylib", "libjavascriptcoregtk-6.0.1.dylib"})
-	var libs []uintptr
-	for _, libPath := range core.GetPaths("WEBKIT") {
-		lib, err := purego.Dlopen(libPath, purego.RTLD_NOW|purego.RTLD_GLOBAL)
-		if err != nil {
-			panic(err)
-		}
-		libs = append(libs, lib)
-	}
 
-	core.PuregoSafeRegister(&xMediaKeySystemPermissionGetName, libs, "webkit_media_key_system_permission_get_name")
-
-	core.PuregoSafeRegister(&xMediaKeySystemPermissionRequestGLibType, libs, "webkit_media_key_system_permission_request_get_type")
-
-	// Manually register types since they aren't being automatically registered when
-	// the library is loaded
-	// See https://bugs.webkit.org/show_bug.cgi?id=175937
+	// Manually register types since they aren't automatically registered when
+	// WebKit is loaded. See https://bugs.webkit.org/show_bug.cgi?id=175937.
 	MediaKeySystemPermissionRequestGLibType()
 }

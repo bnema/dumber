@@ -5,7 +5,6 @@ import (
 	"structs"
 	"unsafe"
 
-	"github.com/bnema/purego"
 	"github.com/bnema/puregotk/pkg/core"
 	"github.com/bnema/puregotk/v4/gdk"
 	"github.com/bnema/puregotk/v4/gobject"
@@ -47,6 +46,7 @@ type EventController struct {
 var xEventControllerGLibType func() types.GType
 
 func EventControllerGLibType() types.GType {
+	core.LazyRegister(&xEventControllerGLibType, "GTK", "gtk_event_controller_get_type", false)
 	return xEventControllerGLibType()
 }
 
@@ -62,6 +62,7 @@ var xEventControllerGetCurrentEvent func(uintptr) uintptr
 //
 // At other times, %NULL is returned.
 func (x *EventController) GetCurrentEvent() *gdk.Event {
+	core.LazyRegister(&xEventControllerGetCurrentEvent, "GTK", "gtk_event_controller_get_current_event", false)
 	var cls *gdk.Event
 
 	cret := xEventControllerGetCurrentEvent(x.GoPointer())
@@ -82,6 +83,7 @@ var xEventControllerGetCurrentEventDevice func(uintptr) uintptr
 //
 // At other times, %NULL is returned.
 func (x *EventController) GetCurrentEventDevice() *gdk.Device {
+	core.LazyRegister(&xEventControllerGetCurrentEventDevice, "GTK", "gtk_event_controller_get_current_event_device", false)
 	var cls *gdk.Device
 
 	cret := xEventControllerGetCurrentEventDevice(x.GoPointer())
@@ -102,6 +104,8 @@ var xEventControllerGetCurrentEventState func(uintptr) gdk.ModifierType
 //
 // At other times, 0 is returned.
 func (x *EventController) GetCurrentEventState() gdk.ModifierType {
+	core.LazyRegister(&xEventControllerGetCurrentEventState, "GTK", "gtk_event_controller_get_current_event_state", false)
+
 	cret := xEventControllerGetCurrentEventState(x.GoPointer())
 	return cret
 }
@@ -113,6 +117,8 @@ var xEventControllerGetCurrentEventTime func(uintptr) uint32
 //
 // At other times, 0 is returned.
 func (x *EventController) GetCurrentEventTime() uint32 {
+	core.LazyRegister(&xEventControllerGetCurrentEventTime, "GTK", "gtk_event_controller_get_current_event_time", false)
+
 	cret := xEventControllerGetCurrentEventTime(x.GoPointer())
 	return cret
 }
@@ -121,6 +127,8 @@ var xEventControllerGetName func(uintptr) string
 
 // Gets the name of @controller.
 func (x *EventController) GetName() string {
+	core.LazyRegister(&xEventControllerGetName, "GTK", "gtk_event_controller_get_name", false)
+
 	cret := xEventControllerGetName(x.GoPointer())
 	return cret
 }
@@ -129,6 +137,8 @@ var xEventControllerGetPropagationLimit func(uintptr) PropagationLimit
 
 // Gets the propagation limit of the event controller.
 func (x *EventController) GetPropagationLimit() PropagationLimit {
+	core.LazyRegister(&xEventControllerGetPropagationLimit, "GTK", "gtk_event_controller_get_propagation_limit", false)
+
 	cret := xEventControllerGetPropagationLimit(x.GoPointer())
 	return cret
 }
@@ -137,6 +147,8 @@ var xEventControllerGetPropagationPhase func(uintptr) PropagationPhase
 
 // Gets the propagation phase at which @controller handles events.
 func (x *EventController) GetPropagationPhase() PropagationPhase {
+	core.LazyRegister(&xEventControllerGetPropagationPhase, "GTK", "gtk_event_controller_get_propagation_phase", false)
+
 	cret := xEventControllerGetPropagationPhase(x.GoPointer())
 	return cret
 }
@@ -145,6 +157,7 @@ var xEventControllerGetWidget func(uintptr) uintptr
 
 // Returns the `GtkWidget` this controller relates to.
 func (x *EventController) GetWidget() *Widget {
+	core.LazyRegister(&xEventControllerGetWidget, "GTK", "gtk_event_controller_get_widget", false)
 	var cls *Widget
 
 	cret := xEventControllerGetWidget(x.GoPointer())
@@ -162,6 +175,8 @@ var xEventControllerReset func(uintptr)
 
 // Resets the @controller to a clean state.
 func (x *EventController) Reset() {
+	core.LazyRegister(&xEventControllerReset, "GTK", "gtk_event_controller_reset", false)
+
 	xEventControllerReset(x.GoPointer())
 }
 
@@ -169,6 +184,8 @@ var xEventControllerSetName func(uintptr, uintptr)
 
 // Sets a name on the controller that can be used for debugging.
 func (x *EventController) SetName(NameVar *string) {
+	core.LazyRegister(&xEventControllerSetName, "GTK", "gtk_event_controller_set_name", false)
+
 	NameVarPtr := core.GStrdupNullable(NameVar)
 	defer core.GFreeNullable(NameVarPtr)
 
@@ -183,6 +200,8 @@ var xEventControllerSetPropagationLimit func(uintptr, PropagationLimit)
 // won't handle events that are targeted at widgets on a different
 // surface, such as popovers.
 func (x *EventController) SetPropagationLimit(LimitVar PropagationLimit) {
+	core.LazyRegister(&xEventControllerSetPropagationLimit, "GTK", "gtk_event_controller_set_propagation_limit", false)
+
 	xEventControllerSetPropagationLimit(x.GoPointer(), LimitVar)
 }
 
@@ -193,6 +212,8 @@ var xEventControllerSetPropagationPhase func(uintptr, PropagationPhase)
 // If @phase is %GTK_PHASE_NONE, no automatic event handling will be
 // performed, but other additional gesture maintenance will.
 func (x *EventController) SetPropagationPhase(PhaseVar PropagationPhase) {
+	core.LazyRegister(&xEventControllerSetPropagationPhase, "GTK", "gtk_event_controller_set_propagation_phase", false)
+
 	xEventControllerSetPropagationPhase(x.GoPointer(), PhaseVar)
 }
 
@@ -200,6 +221,8 @@ var xEventControllerSetStaticName func(uintptr, uintptr)
 
 // Sets a name on the controller that can be used for debugging.
 func (x *EventController) SetStaticName(NameVar *string) {
+	core.LazyRegister(&xEventControllerSetStaticName, "GTK", "gtk_event_controller_set_static_name", false)
+
 	NameVarPtr := core.GStrdupNullable(NameVar)
 	defer core.GFreeNullable(NameVarPtr)
 
@@ -237,28 +260,4 @@ func (x *EventController) GetPropertyName() string {
 func init() {
 	core.SetPackageName("GTK", "gtk4")
 	core.SetSharedLibraries("GTK", []string{"libgtk-4.so.1", "libgtk-4.1.dylib"})
-	var libs []uintptr
-	for _, libPath := range core.GetPaths("GTK") {
-		lib, err := purego.Dlopen(libPath, purego.RTLD_NOW|purego.RTLD_GLOBAL)
-		if err != nil {
-			panic(err)
-		}
-		libs = append(libs, lib)
-	}
-
-	core.PuregoSafeRegister(&xEventControllerGLibType, libs, "gtk_event_controller_get_type")
-
-	core.PuregoSafeRegister(&xEventControllerGetCurrentEvent, libs, "gtk_event_controller_get_current_event")
-	core.PuregoSafeRegister(&xEventControllerGetCurrentEventDevice, libs, "gtk_event_controller_get_current_event_device")
-	core.PuregoSafeRegister(&xEventControllerGetCurrentEventState, libs, "gtk_event_controller_get_current_event_state")
-	core.PuregoSafeRegister(&xEventControllerGetCurrentEventTime, libs, "gtk_event_controller_get_current_event_time")
-	core.PuregoSafeRegister(&xEventControllerGetName, libs, "gtk_event_controller_get_name")
-	core.PuregoSafeRegister(&xEventControllerGetPropagationLimit, libs, "gtk_event_controller_get_propagation_limit")
-	core.PuregoSafeRegister(&xEventControllerGetPropagationPhase, libs, "gtk_event_controller_get_propagation_phase")
-	core.PuregoSafeRegister(&xEventControllerGetWidget, libs, "gtk_event_controller_get_widget")
-	core.PuregoSafeRegister(&xEventControllerReset, libs, "gtk_event_controller_reset")
-	core.PuregoSafeRegister(&xEventControllerSetName, libs, "gtk_event_controller_set_name")
-	core.PuregoSafeRegister(&xEventControllerSetPropagationLimit, libs, "gtk_event_controller_set_propagation_limit")
-	core.PuregoSafeRegister(&xEventControllerSetPropagationPhase, libs, "gtk_event_controller_set_propagation_phase")
-	core.PuregoSafeRegister(&xEventControllerSetStaticName, libs, "gtk_event_controller_set_static_name")
 }

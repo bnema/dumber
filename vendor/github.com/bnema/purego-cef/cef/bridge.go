@@ -563,14 +563,6 @@ func initRefCount(base unsafe.Pointer, size uintptr, owner any) {
 	mustCurrentRefManager().InitRefCount(base, size, owner)
 }
 
-// newCEFCallback creates a per-object callback trampoline and ties its purego
-// slot to the owning CEF object's refcount lifetime.
-func newCEFCallback(base unsafe.Pointer, fn any) uintptr {
-	cb := purego.NewCallback(fn)
-	mustCurrentRefManager().TrackCallback(base, cb)
-	return cb
-}
-
 // sharedCEFCallback creates a process-lifetime callback trampoline once. It is
 // used for generated handler methods that can dispatch by their CEF self
 // pointer instead of capturing per-object Go state in a fresh closure.
@@ -581,6 +573,7 @@ func sharedCEFCallback(once *sync.Once, slot *uintptr, fn any) uintptr {
 	return *slot
 }
 
+//go:nocheckptr
 func cefCallbackOwnerAs[T any](self uintptr) (T, bool) {
 	var zero T
 	if self == 0 {
@@ -588,12 +581,14 @@ func cefCallbackOwnerAs[T any](self uintptr) (T, bool) {
 	}
 	base := unsafe.Pointer(self)
 
+	// Hold the registry read lock through Owner. This keeps a manager visible
+	// for the entire lookup while register/unregister updates the slice. Owner
+	// only reads RefManager's sync.Map; no user callback is invoked under this
+	// lock.
 	refManagerMu.RLock()
-	managers := append([]*core.RefManager(nil), registeredRefManagers...)
-	refManagerMu.RUnlock()
-
-	for i := len(managers) - 1; i >= 0; i-- {
-		owner, ok := managers[i].Owner(base)
+	defer refManagerMu.RUnlock()
+	for i := len(registeredRefManagers) - 1; i >= 0; i-- {
+		owner, ok := registeredRefManagers[i].Owner(base)
 		if !ok {
 			continue
 		}

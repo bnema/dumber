@@ -5,7 +5,6 @@ import (
 	"structs"
 	"unsafe"
 
-	"github.com/bnema/purego"
 	"github.com/bnema/puregotk/pkg/core"
 	"github.com/bnema/puregotk/v4/gobject/types"
 )
@@ -50,6 +49,7 @@ type PopupLayout struct {
 var xPopupLayoutGLibType func() types.GType
 
 func PopupLayoutGLibType() types.GType {
+	core.LazyRegister(&xPopupLayoutGLibType, "GDK", "gdk_popup_layout_get_type", false)
 	return xPopupLayoutGLibType()
 }
 
@@ -80,6 +80,8 @@ var xNewPopupLayout func(*Rectangle, Gravity, Gravity) uintptr
 // [method@Gdk.PopupLayout.set_offset], which is equivalent to offsetting the
 // position of surface.
 func NewPopupLayout(AnchorRectVar *Rectangle, RectAnchorVar Gravity, SurfaceAnchorVar Gravity) *PopupLayout {
+	core.LazyRegister(&xNewPopupLayout, "GDK", "gdk_popup_layout_new", false)
+
 	cret := xNewPopupLayout(AnchorRectVar, RectAnchorVar, SurfaceAnchorVar)
 	if cret == 0 {
 		return nil
@@ -91,6 +93,8 @@ var xPopupLayoutCopy func(uintptr) uintptr
 
 // Makes a copy of @layout.
 func (x *PopupLayout) Copy() *PopupLayout {
+	core.LazyRegister(&xPopupLayoutCopy, "GDK", "gdk_popup_layout_copy", false)
+
 	cret := xPopupLayoutCopy(x.GoPointer())
 	if cret == 0 {
 		return nil
@@ -102,6 +106,8 @@ var xPopupLayoutEqual func(uintptr, *PopupLayout) bool
 
 // Check whether @layout and @other has identical layout properties.
 func (x *PopupLayout) Equal(OtherVar *PopupLayout) bool {
+	core.LazyRegister(&xPopupLayoutEqual, "GDK", "gdk_popup_layout_equal", false)
+
 	cret := xPopupLayoutEqual(x.GoPointer(), OtherVar)
 	return cret
 }
@@ -110,6 +116,8 @@ var xPopupLayoutGetAnchorHints func(uintptr) AnchorHints
 
 // Get the anchor hints.
 func (x *PopupLayout) GetAnchorHints() AnchorHints {
+	core.LazyRegister(&xPopupLayoutGetAnchorHints, "GDK", "gdk_popup_layout_get_anchor_hints", false)
+
 	cret := xPopupLayoutGetAnchorHints(x.GoPointer())
 	return cret
 }
@@ -118,6 +126,8 @@ var xPopupLayoutGetAnchorRect func(uintptr) uintptr
 
 // Get the anchor rectangle.
 func (x *PopupLayout) GetAnchorRect() *Rectangle {
+	core.LazyRegister(&xPopupLayoutGetAnchorRect, "GDK", "gdk_popup_layout_get_anchor_rect", false)
+
 	cret := xPopupLayoutGetAnchorRect(x.GoPointer())
 	if cret == 0 {
 		return nil
@@ -129,6 +139,8 @@ var xPopupLayoutGetOffset func(uintptr, *int, *int)
 
 // Retrieves the offset for the anchor rectangle.
 func (x *PopupLayout) GetOffset(DxVar *int, DyVar *int) {
+	core.LazyRegister(&xPopupLayoutGetOffset, "GDK", "gdk_popup_layout_get_offset", false)
+
 	xPopupLayoutGetOffset(x.GoPointer(), DxVar, DyVar)
 }
 
@@ -136,6 +148,8 @@ var xPopupLayoutGetRectAnchor func(uintptr) Gravity
 
 // Returns the anchor position on the anchor rectangle.
 func (x *PopupLayout) GetRectAnchor() Gravity {
+	core.LazyRegister(&xPopupLayoutGetRectAnchor, "GDK", "gdk_popup_layout_get_rect_anchor", false)
+
 	cret := xPopupLayoutGetRectAnchor(x.GoPointer())
 	return cret
 }
@@ -144,6 +158,8 @@ var xPopupLayoutGetShadowWidth func(uintptr, *int, *int, *int, *int)
 
 // Obtains the shadow widths of this layout.
 func (x *PopupLayout) GetShadowWidth(LeftVar *int, RightVar *int, TopVar *int, BottomVar *int) {
+	core.LazyRegister(&xPopupLayoutGetShadowWidth, "GDK", "gdk_popup_layout_get_shadow_width", false)
+
 	xPopupLayoutGetShadowWidth(x.GoPointer(), LeftVar, RightVar, TopVar, BottomVar)
 }
 
@@ -151,6 +167,8 @@ var xPopupLayoutGetSurfaceAnchor func(uintptr) Gravity
 
 // Returns the anchor position on the popup surface.
 func (x *PopupLayout) GetSurfaceAnchor() Gravity {
+	core.LazyRegister(&xPopupLayoutGetSurfaceAnchor, "GDK", "gdk_popup_layout_get_surface_anchor", false)
+
 	cret := xPopupLayoutGetSurfaceAnchor(x.GoPointer())
 	return cret
 }
@@ -159,6 +177,8 @@ var xPopupLayoutRef func(uintptr) uintptr
 
 // Increases the reference count of @value.
 func (x *PopupLayout) Ref() *PopupLayout {
+	core.LazyRegister(&xPopupLayoutRef, "GDK", "gdk_popup_layout_ref", false)
+
 	cret := xPopupLayoutRef(x.GoPointer())
 	if cret == 0 {
 		return nil
@@ -176,6 +196,8 @@ var xPopupLayoutSetAnchorHints func(uintptr, AnchorHints)
 // `GDK_GRAVITY_NORTH_EAST` and vice versa if @surface extends
 // beyond the left or right edges of the monitor.
 func (x *PopupLayout) SetAnchorHints(AnchorHintsVar AnchorHints) {
+	core.LazyRegister(&xPopupLayoutSetAnchorHints, "GDK", "gdk_popup_layout_set_anchor_hints", false)
+
 	xPopupLayoutSetAnchorHints(x.GoPointer(), AnchorHintsVar)
 }
 
@@ -183,6 +205,8 @@ var xPopupLayoutSetAnchorRect func(uintptr, *Rectangle)
 
 // Set the anchor rectangle.
 func (x *PopupLayout) SetAnchorRect(AnchorRectVar *Rectangle) {
+	core.LazyRegister(&xPopupLayoutSetAnchorRect, "GDK", "gdk_popup_layout_set_anchor_rect", false)
+
 	xPopupLayoutSetAnchorRect(x.GoPointer(), AnchorRectVar)
 }
 
@@ -190,6 +214,8 @@ var xPopupLayoutSetOffset func(uintptr, int, int)
 
 // Offset the position of the anchor rectangle with the given delta.
 func (x *PopupLayout) SetOffset(DxVar int, DyVar int) {
+	core.LazyRegister(&xPopupLayoutSetOffset, "GDK", "gdk_popup_layout_set_offset", false)
+
 	xPopupLayoutSetOffset(x.GoPointer(), DxVar, DyVar)
 }
 
@@ -197,6 +223,8 @@ var xPopupLayoutSetRectAnchor func(uintptr, Gravity)
 
 // Set the anchor on the anchor rectangle.
 func (x *PopupLayout) SetRectAnchor(AnchorVar Gravity) {
+	core.LazyRegister(&xPopupLayoutSetRectAnchor, "GDK", "gdk_popup_layout_set_rect_anchor", false)
+
 	xPopupLayoutSetRectAnchor(x.GoPointer(), AnchorVar)
 }
 
@@ -208,6 +236,8 @@ var xPopupLayoutSetShadowWidth func(uintptr, int, int, int, int)
 // surface size that would consist of the shadow margin
 // surrounding the window, would there be any.
 func (x *PopupLayout) SetShadowWidth(LeftVar int, RightVar int, TopVar int, BottomVar int) {
+	core.LazyRegister(&xPopupLayoutSetShadowWidth, "GDK", "gdk_popup_layout_set_shadow_width", false)
+
 	xPopupLayoutSetShadowWidth(x.GoPointer(), LeftVar, RightVar, TopVar, BottomVar)
 }
 
@@ -215,6 +245,8 @@ var xPopupLayoutSetSurfaceAnchor func(uintptr, Gravity)
 
 // Set the anchor on the popup surface.
 func (x *PopupLayout) SetSurfaceAnchor(AnchorVar Gravity) {
+	core.LazyRegister(&xPopupLayoutSetSurfaceAnchor, "GDK", "gdk_popup_layout_set_surface_anchor", false)
+
 	xPopupLayoutSetSurfaceAnchor(x.GoPointer(), AnchorVar)
 }
 
@@ -222,6 +254,8 @@ var xPopupLayoutUnref func(uintptr)
 
 // Decreases the reference count of @value.
 func (x *PopupLayout) Unref() {
+	core.LazyRegister(&xPopupLayoutUnref, "GDK", "gdk_popup_layout_unref", false)
+
 	xPopupLayoutUnref(x.GoPointer())
 }
 
@@ -245,6 +279,7 @@ type AnchorHints int
 var xAnchorHintsGLibType func() types.GType
 
 func AnchorHintsGLibType() types.GType {
+	core.LazyRegister(&xAnchorHintsGLibType, "GDK", "gdk_anchor_hints_get_type", false)
 	return xAnchorHintsGLibType()
 }
 
@@ -273,35 +308,4 @@ const (
 func init() {
 	core.SetPackageName("GDK", "gtk4")
 	core.SetSharedLibraries("GDK", []string{"libgtk-4.so.1", "libgtk-4.1.dylib"})
-	var libs []uintptr
-	for _, libPath := range core.GetPaths("GDK") {
-		lib, err := purego.Dlopen(libPath, purego.RTLD_NOW|purego.RTLD_GLOBAL)
-		if err != nil {
-			panic(err)
-		}
-		libs = append(libs, lib)
-	}
-
-	core.PuregoSafeRegister(&xAnchorHintsGLibType, libs, "gdk_anchor_hints_get_type")
-
-	core.PuregoSafeRegister(&xPopupLayoutGLibType, libs, "gdk_popup_layout_get_type")
-
-	core.PuregoSafeRegister(&xNewPopupLayout, libs, "gdk_popup_layout_new")
-
-	core.PuregoSafeRegister(&xPopupLayoutCopy, libs, "gdk_popup_layout_copy")
-	core.PuregoSafeRegister(&xPopupLayoutEqual, libs, "gdk_popup_layout_equal")
-	core.PuregoSafeRegister(&xPopupLayoutGetAnchorHints, libs, "gdk_popup_layout_get_anchor_hints")
-	core.PuregoSafeRegister(&xPopupLayoutGetAnchorRect, libs, "gdk_popup_layout_get_anchor_rect")
-	core.PuregoSafeRegister(&xPopupLayoutGetOffset, libs, "gdk_popup_layout_get_offset")
-	core.PuregoSafeRegister(&xPopupLayoutGetRectAnchor, libs, "gdk_popup_layout_get_rect_anchor")
-	core.PuregoSafeRegister(&xPopupLayoutGetShadowWidth, libs, "gdk_popup_layout_get_shadow_width")
-	core.PuregoSafeRegister(&xPopupLayoutGetSurfaceAnchor, libs, "gdk_popup_layout_get_surface_anchor")
-	core.PuregoSafeRegister(&xPopupLayoutRef, libs, "gdk_popup_layout_ref")
-	core.PuregoSafeRegister(&xPopupLayoutSetAnchorHints, libs, "gdk_popup_layout_set_anchor_hints")
-	core.PuregoSafeRegister(&xPopupLayoutSetAnchorRect, libs, "gdk_popup_layout_set_anchor_rect")
-	core.PuregoSafeRegister(&xPopupLayoutSetOffset, libs, "gdk_popup_layout_set_offset")
-	core.PuregoSafeRegister(&xPopupLayoutSetRectAnchor, libs, "gdk_popup_layout_set_rect_anchor")
-	core.PuregoSafeRegister(&xPopupLayoutSetShadowWidth, libs, "gdk_popup_layout_set_shadow_width")
-	core.PuregoSafeRegister(&xPopupLayoutSetSurfaceAnchor, libs, "gdk_popup_layout_set_surface_anchor")
-	core.PuregoSafeRegister(&xPopupLayoutUnref, libs, "gdk_popup_layout_unref")
 }

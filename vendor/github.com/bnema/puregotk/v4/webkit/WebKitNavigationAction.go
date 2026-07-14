@@ -5,7 +5,6 @@ import (
 	"structs"
 	"unsafe"
 
-	"github.com/bnema/purego"
 	"github.com/bnema/puregotk/pkg/core"
 	"github.com/bnema/puregotk/v4/gobject"
 	"github.com/bnema/puregotk/v4/gobject/types"
@@ -19,6 +18,7 @@ type NavigationAction struct {
 var xNavigationActionGLibType func() types.GType
 
 func NavigationActionGLibType() types.GType {
+	core.LazyRegister(&xNavigationActionGLibType, "WEBKIT", "webkit_navigation_action_get_type", false)
 	return xNavigationActionGLibType()
 }
 
@@ -38,6 +38,8 @@ var xNavigationActionCopy func(uintptr) uintptr
 
 // Make a copy of @navigation.
 func (x *NavigationAction) Copy() *NavigationAction {
+	core.LazyRegister(&xNavigationActionCopy, "WEBKIT", "webkit_navigation_action_copy", false)
+
 	cret := xNavigationActionCopy(x.GoPointer())
 	if cret == 0 {
 		return nil
@@ -49,6 +51,8 @@ var xNavigationActionFree func(uintptr)
 
 // Free the #WebKitNavigationAction
 func (x *NavigationAction) Free() {
+	core.LazyRegister(&xNavigationActionFree, "WEBKIT", "webkit_navigation_action_free", false)
+
 	xNavigationActionFree(x.GoPointer())
 }
 
@@ -58,6 +62,8 @@ var xNavigationActionGetFrameName func(uintptr) string
 // link with a target attribute equal to "_blank", this will return the value of that attribute.
 // In all other cases this function will return %NULL.
 func (x *NavigationAction) GetFrameName() string {
+	core.LazyRegister(&xNavigationActionGetFrameName, "WEBKIT", "webkit_navigation_action_get_frame_name", false)
+
 	cret := xNavigationActionGetFrameName(x.GoPointer())
 	return cret
 }
@@ -69,6 +75,8 @@ var xNavigationActionGetModifiers func(uintptr) uint
 // Return a bitmask of #GdkModifierType values describing the modifier keys that were in effect
 // when the navigation was requested
 func (x *NavigationAction) GetModifiers() uint {
+	core.LazyRegister(&xNavigationActionGetModifiers, "WEBKIT", "webkit_navigation_action_get_modifiers", false)
+
 	cret := xNavigationActionGetModifiers(x.GoPointer())
 	return cret
 }
@@ -80,6 +88,8 @@ var xNavigationActionGetMouseButton func(uintptr) uint
 // Return the number of the mouse button that triggered the navigation, or 0 if
 // the navigation was not started by a mouse event.
 func (x *NavigationAction) GetMouseButton() uint {
+	core.LazyRegister(&xNavigationActionGetMouseButton, "WEBKIT", "webkit_navigation_action_get_mouse_button", false)
+
 	cret := xNavigationActionGetMouseButton(x.GoPointer())
 	return cret
 }
@@ -88,6 +98,8 @@ var xNavigationActionGetNavigationType func(uintptr) NavigationType
 
 // Return the type of action that triggered the navigation.
 func (x *NavigationAction) GetNavigationType() NavigationType {
+	core.LazyRegister(&xNavigationActionGetNavigationType, "WEBKIT", "webkit_navigation_action_get_navigation_type", false)
+
 	cret := xNavigationActionGetNavigationType(x.GoPointer())
 	return cret
 }
@@ -102,6 +114,7 @@ var xNavigationActionGetRequest func(uintptr) uintptr
 // not. To modify requests before they are sent over the network the
 // #WebKitPage::send-request signal can be used instead.
 func (x *NavigationAction) GetRequest() *URIRequest {
+	core.LazyRegister(&xNavigationActionGetRequest, "WEBKIT", "webkit_navigation_action_get_request", false)
 	var cls *URIRequest
 
 	cret := xNavigationActionGetRequest(x.GoPointer())
@@ -119,6 +132,8 @@ var xNavigationActionIsRedirect func(uintptr) bool
 
 // Returns whether the @navigation was redirected.
 func (x *NavigationAction) IsRedirect() bool {
+	core.LazyRegister(&xNavigationActionIsRedirect, "WEBKIT", "webkit_navigation_action_is_redirect", false)
+
 	cret := xNavigationActionIsRedirect(x.GoPointer())
 	return cret
 }
@@ -127,6 +142,8 @@ var xNavigationActionIsUserGesture func(uintptr) bool
 
 // Return whether the navigation was triggered by a user gesture like a mouse click.
 func (x *NavigationAction) IsUserGesture() bool {
+	core.LazyRegister(&xNavigationActionIsUserGesture, "WEBKIT", "webkit_navigation_action_is_user_gesture", false)
+
 	cret := xNavigationActionIsUserGesture(x.GoPointer())
 	return cret
 }
@@ -137,6 +154,7 @@ type NavigationType int
 var xNavigationTypeGLibType func() types.GType
 
 func NavigationTypeGLibType() types.GType {
+	core.LazyRegister(&xNavigationTypeGLibType, "WEBKIT", "webkit_navigation_type_get_type", false)
 	return xNavigationTypeGLibType()
 }
 
@@ -159,26 +177,7 @@ const (
 func init() {
 	core.SetPackageName("WEBKIT", "webkitgtk-6.0")
 	core.SetSharedLibraries("WEBKIT", []string{"libwebkitgtk-6.0.so.4", "libjavascriptcoregtk-6.0.so.1", "libwebkitgtk-6.0.4.dylib", "libjavascriptcoregtk-6.0.1.dylib"})
-	var libs []uintptr
-	for _, libPath := range core.GetPaths("WEBKIT") {
-		lib, err := purego.Dlopen(libPath, purego.RTLD_NOW|purego.RTLD_GLOBAL)
-		if err != nil {
-			panic(err)
-		}
-		libs = append(libs, lib)
-	}
 
-	core.PuregoSafeRegister(&xNavigationTypeGLibType, libs, "webkit_navigation_type_get_type")
-
-	core.PuregoSafeRegister(&xNavigationActionGLibType, libs, "webkit_navigation_action_get_type")
-
-	core.PuregoSafeRegister(&xNavigationActionCopy, libs, "webkit_navigation_action_copy")
-	core.PuregoSafeRegister(&xNavigationActionFree, libs, "webkit_navigation_action_free")
-	core.PuregoSafeRegister(&xNavigationActionGetFrameName, libs, "webkit_navigation_action_get_frame_name")
-	core.PuregoSafeRegister(&xNavigationActionGetModifiers, libs, "webkit_navigation_action_get_modifiers")
-	core.PuregoSafeRegister(&xNavigationActionGetMouseButton, libs, "webkit_navigation_action_get_mouse_button")
-	core.PuregoSafeRegister(&xNavigationActionGetNavigationType, libs, "webkit_navigation_action_get_navigation_type")
-	core.PuregoSafeRegister(&xNavigationActionGetRequest, libs, "webkit_navigation_action_get_request")
-	core.PuregoSafeRegister(&xNavigationActionIsRedirect, libs, "webkit_navigation_action_is_redirect")
-	core.PuregoSafeRegister(&xNavigationActionIsUserGesture, libs, "webkit_navigation_action_is_user_gesture")
+	// Manually register types since they aren't automatically registered when
+	// WebKit is loaded. See https://bugs.webkit.org/show_bug.cgi?id=175937.
 }

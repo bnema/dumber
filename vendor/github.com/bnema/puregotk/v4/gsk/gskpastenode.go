@@ -2,7 +2,6 @@
 package gsk
 
 import (
-	"github.com/bnema/purego"
 	"github.com/bnema/puregotk/pkg/core"
 	"github.com/bnema/puregotk/v4/gobject/types"
 	"github.com/bnema/puregotk/v4/graphene"
@@ -16,6 +15,7 @@ type PasteNode struct {
 var xPasteNodeGLibType func() types.GType
 
 func PasteNodeGLibType() types.GType {
+	core.LazyRegister(&xPasteNodeGLibType, "GSK", "gsk_paste_node_get_type", false)
 	return xPasteNodeGLibType()
 }
 
@@ -29,6 +29,7 @@ var xNewPasteNode func(*graphene.Rect, uint) uintptr
 
 // Creates a `GskRenderNode` that will paste copied contents.
 func NewPasteNode(BoundsVar *graphene.Rect, DepthVar uint) *PasteNode {
+	core.LazyRegister(&xNewPasteNode, "GSK", "gsk_paste_node_new", false)
 	var cls *PasteNode
 
 	cret := xNewPasteNode(BoundsVar, DepthVar)
@@ -45,6 +46,8 @@ var xPasteNodeGetDepth func(uintptr) uint
 
 // Retrieves the index of the copy that should be pasted.
 func (x *PasteNode) GetDepth() uint {
+	core.LazyRegister(&xPasteNodeGetDepth, "GSK", "gsk_paste_node_get_depth", false)
+
 	cret := xPasteNodeGetDepth(x.GoPointer())
 	return cret
 }
@@ -63,18 +66,4 @@ func (c *PasteNode) SetGoPointer(ptr uintptr) {
 func init() {
 	core.SetPackageName("GSK", "gtk4")
 	core.SetSharedLibraries("GSK", []string{"libgtk-4.so.1", "libgtk-4.1.dylib"})
-	var libs []uintptr
-	for _, libPath := range core.GetPaths("GSK") {
-		lib, err := purego.Dlopen(libPath, purego.RTLD_NOW|purego.RTLD_GLOBAL)
-		if err != nil {
-			panic(err)
-		}
-		libs = append(libs, lib)
-	}
-
-	core.PuregoSafeRegister(&xPasteNodeGLibType, libs, "gsk_paste_node_get_type")
-
-	core.PuregoSafeRegister(&xNewPasteNode, libs, "gsk_paste_node_new")
-
-	core.PuregoSafeRegister(&xPasteNodeGetDepth, libs, "gsk_paste_node_get_depth")
 }

@@ -129,7 +129,7 @@ func (x *IconIface) OverrideFromTokens(cb func(string, int, int) *IconBase) {
 	if cb == nil {
 		x.xFromTokens = 0
 	} else {
-		x.xFromTokens = purego.NewCallback(func(TokensVarp string, NumTokensVarp int, VersionVarp int) uintptr {
+		x.xFromTokens = purego.NewCallback(func(TokensVarp string, NumTokensVarp int, VersionVarp int, cerrp **glib.Error) uintptr {
 			ret := cb(TokensVarp, NumTokensVarp, VersionVarp)
 			if ret == nil {
 				return 0
@@ -147,10 +147,11 @@ func (x *IconIface) GetFromTokens() func(string, int, int) *IconBase {
 	if x.xFromTokens == 0 {
 		return nil
 	}
-	var rawCallback func(TokensVarp string, NumTokensVarp int, VersionVarp int) uintptr
+	var rawCallback func(TokensVarp string, NumTokensVarp int, VersionVarp int, cerrp **glib.Error) uintptr
 	purego.RegisterFunc(&rawCallback, x.xFromTokens)
 	return func(TokensVar string, NumTokensVar int, VersionVar int) *IconBase {
-		rawRet := rawCallback(TokensVar, NumTokensVar, VersionVar)
+		var cerr *glib.Error
+		rawRet := rawCallback(TokensVar, NumTokensVar, VersionVar, &cerr)
 		if rawRet == 0 {
 			return nil
 		}
@@ -235,6 +236,7 @@ type Icon interface {
 var xIconGLibType func() types.GType
 
 func IconGLibType() types.GType {
+	core.LazyRegister(&xIconGLibType, "GIO", "g_icon_get_type", false)
 	return xIconGLibType()
 }
 
@@ -299,17 +301,39 @@ func (x *IconBase) ToString() string {
 	return cret
 }
 
+var XGIconEqual func(uintptr, uintptr) bool = func(instance uintptr, Icon2Varp uintptr) bool {
+	core.LazyRegister(&xXGIconEqual, "GIO", "g_icon_equal", false)
+	return xXGIconEqual(instance, Icon2Varp)
+}
+
 var (
-	XGIconEqual     func(uintptr, uintptr) bool
-	XGIconHash      func(uintptr) uint
-	XGIconSerialize func(uintptr) uintptr
-	XGIconToString  func(uintptr) string
+	xXGIconEqual func(uintptr, uintptr) bool
+	XGIconHash   func(uintptr) uint = func(instance uintptr) uint {
+		core.LazyRegister(&xXGIconHash, "GIO", "g_icon_hash", false)
+		return xXGIconHash(instance)
+	}
 )
+var (
+	xXGIconHash     func(uintptr) uint
+	XGIconSerialize func(uintptr) uintptr = func(instance uintptr) uintptr {
+		core.LazyRegister(&xXGIconSerialize, "GIO", "g_icon_serialize", false)
+		return xXGIconSerialize(instance)
+	}
+)
+var (
+	xXGIconSerialize func(uintptr) uintptr
+	XGIconToString   func(uintptr) string = func(instance uintptr) string {
+		core.LazyRegister(&xXGIconToString, "GIO", "g_icon_to_string", false)
+		return xXGIconToString(instance)
+	}
+)
+var xXGIconToString func(uintptr) string
 
 var xIconDeserialize func(*glib.Variant) uintptr
 
 // Deserializes a #GIcon previously serialized using g_icon_serialize().
 func IconDeserialize(ValueVar *glib.Variant) *IconBase {
+	core.LazyRegister(&xIconDeserialize, "GIO", "g_icon_deserialize", false)
 	var cls *IconBase
 
 	cret := xIconDeserialize(ValueVar)
@@ -331,6 +355,7 @@ var xIconNewForString func(string, **glib.Error) uintptr
 // implementations you need to ensure that each #GType is registered
 // with the type system prior to calling g_icon_new_for_string().
 func IconNewForString(StrVar string) (*IconBase, error) {
+	core.LazyRegister(&xIconNewForString, "GIO", "g_icon_new_for_string", false)
 	var cls *IconBase
 	var cerr *glib.Error
 
@@ -350,22 +375,4 @@ func IconNewForString(StrVar string) (*IconBase, error) {
 func init() {
 	core.SetPackageName("GIO", "gio-2.0")
 	core.SetSharedLibraries("GIO", []string{"libgio-2.0.so.0", "libgio-2.0.0.dylib"})
-	var libs []uintptr
-	for _, libPath := range core.GetPaths("GIO") {
-		lib, err := purego.Dlopen(libPath, purego.RTLD_NOW|purego.RTLD_GLOBAL)
-		if err != nil {
-			panic(err)
-		}
-		libs = append(libs, lib)
-	}
-
-	core.PuregoSafeRegister(&xIconDeserialize, libs, "g_icon_deserialize")
-	core.PuregoSafeRegister(&xIconNewForString, libs, "g_icon_new_for_string")
-
-	core.PuregoSafeRegister(&xIconGLibType, libs, "g_icon_get_type")
-
-	core.PuregoSafeRegister(&XGIconEqual, libs, "g_icon_equal")
-	core.PuregoSafeRegister(&XGIconHash, libs, "g_icon_hash")
-	core.PuregoSafeRegister(&XGIconSerialize, libs, "g_icon_serialize")
-	core.PuregoSafeRegister(&XGIconToString, libs, "g_icon_to_string")
 }

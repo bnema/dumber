@@ -5,7 +5,6 @@ import (
 	"structs"
 	"unsafe"
 
-	"github.com/bnema/purego"
 	"github.com/bnema/puregotk/pkg/core"
 	"github.com/bnema/puregotk/v4/gio"
 	"github.com/bnema/puregotk/v4/glib"
@@ -52,6 +51,7 @@ type UserContentFilterStore struct {
 var xUserContentFilterStoreGLibType func() types.GType
 
 func UserContentFilterStoreGLibType() types.GType {
+	core.LazyRegister(&xUserContentFilterStoreGLibType, "WEBKIT", "webkit_user_content_filter_store_get_type", false)
 	return xUserContentFilterStoreGLibType()
 }
 
@@ -67,6 +67,7 @@ var xNewUserContentFilterStore func(string) uintptr
 //
 // The path must point to a local filesystem, and will be created if needed.
 func NewUserContentFilterStore(StoragePathVar string) *UserContentFilterStore {
+	core.LazyRegister(&xNewUserContentFilterStore, "WEBKIT", "webkit_user_content_filter_store_new", false)
 	var cls *UserContentFilterStore
 
 	cret := xNewUserContentFilterStore(StoragePathVar)
@@ -87,6 +88,8 @@ var xUserContentFilterStoreFetchIdentifiers func(uintptr, uintptr, uintptr, uint
 // webkit_user_content_filter_store_fetch_identifiers_finish() to obtain the list of
 // filter identifiers.
 func (x *UserContentFilterStore) FetchIdentifiers(CancellableVar *gio.Cancellable, CallbackVar *gio.AsyncReadyCallback, UserDataVar uintptr) {
+	core.LazyRegister(&xUserContentFilterStoreFetchIdentifiers, "WEBKIT", "webkit_user_content_filter_store_fetch_identifiers", false)
+
 	xUserContentFilterStoreFetchIdentifiers(x.GoPointer(), CancellableVar.GoPointer(), glib.NewCallbackNullable(CallbackVar), UserDataVar)
 }
 
@@ -97,6 +100,8 @@ var xUserContentFilterStoreFetchIdentifiersFinish func(uintptr, uintptr) []strin
 // Finishes an asynchronous fetch of the list of identifiers for the stored filters previously
 // started with webkit_user_content_filter_store_fetch_identifiers().
 func (x *UserContentFilterStore) FetchIdentifiersFinish(ResultVar gio.AsyncResult) []string {
+	core.LazyRegister(&xUserContentFilterStoreFetchIdentifiersFinish, "WEBKIT", "webkit_user_content_filter_store_fetch_identifiers_finish", false)
+
 	cret := xUserContentFilterStoreFetchIdentifiersFinish(x.GoPointer(), ResultVar.GoPointer())
 	return cret
 }
@@ -105,6 +110,8 @@ var xUserContentFilterStoreGetPath func(uintptr) string
 
 // Gets the storage path for user content filters.
 func (x *UserContentFilterStore) GetPath() string {
+	core.LazyRegister(&xUserContentFilterStoreGetPath, "WEBKIT", "webkit_user_content_filter_store_get_path", false)
+
 	cret := xUserContentFilterStoreGetPath(x.GoPointer())
 	return cret
 }
@@ -119,6 +126,8 @@ var xUserContentFilterStoreLoad func(uintptr, string, uintptr, uintptr, uintptr)
 // When the operation is finished, @callback will be invoked, which then can use
 // webkit_user_content_filter_store_load_finish() to obtain the resulting filter.
 func (x *UserContentFilterStore) Load(IdentifierVar string, CancellableVar *gio.Cancellable, CallbackVar *gio.AsyncReadyCallback, UserDataVar uintptr) {
+	core.LazyRegister(&xUserContentFilterStoreLoad, "WEBKIT", "webkit_user_content_filter_store_load", false)
+
 	xUserContentFilterStoreLoad(x.GoPointer(), IdentifierVar, CancellableVar.GoPointer(), glib.NewCallbackNullable(CallbackVar), UserDataVar)
 }
 
@@ -127,6 +136,7 @@ var xUserContentFilterStoreLoadFinish func(uintptr, uintptr, **glib.Error) uintp
 // Finishes an asynchronous filter load previously started with
 // webkit_user_content_filter_store_load().
 func (x *UserContentFilterStore) LoadFinish(ResultVar gio.AsyncResult) (*UserContentFilter, error) {
+	core.LazyRegister(&xUserContentFilterStoreLoadFinish, "WEBKIT", "webkit_user_content_filter_store_load_finish", false)
 	var cerr *glib.Error
 
 	cret := xUserContentFilterStoreLoadFinish(x.GoPointer(), ResultVar.GoPointer(), &cerr)
@@ -147,6 +157,8 @@ var xUserContentFilterStoreRemove func(uintptr, string, uintptr, uintptr, uintpt
 // webkit_user_content_filter_store_remove_finish() to check whether the removal was
 // successful.
 func (x *UserContentFilterStore) Remove(IdentifierVar string, CancellableVar *gio.Cancellable, CallbackVar *gio.AsyncReadyCallback, UserDataVar uintptr) {
+	core.LazyRegister(&xUserContentFilterStoreRemove, "WEBKIT", "webkit_user_content_filter_store_remove", false)
+
 	xUserContentFilterStoreRemove(x.GoPointer(), IdentifierVar, CancellableVar.GoPointer(), glib.NewCallbackNullable(CallbackVar), UserDataVar)
 }
 
@@ -155,6 +167,7 @@ var xUserContentFilterStoreRemoveFinish func(uintptr, uintptr, **glib.Error) boo
 // Finishes an asynchronous filter removal previously started with
 // webkit_user_content_filter_store_remove().
 func (x *UserContentFilterStore) RemoveFinish(ResultVar gio.AsyncResult) (bool, error) {
+	core.LazyRegister(&xUserContentFilterStoreRemoveFinish, "WEBKIT", "webkit_user_content_filter_store_remove_finish", false)
 	var cerr *glib.Error
 
 	cret := xUserContentFilterStoreRemoveFinish(x.GoPointer(), ResultVar.GoPointer(), &cerr)
@@ -179,6 +192,8 @@ var xUserContentFilterStoreSave func(uintptr, string, *glib.Bytes, uintptr, uint
 // When the operation is finished, @callback will be invoked, which then can use
 // webkit_user_content_filter_store_save_finish() to obtain the resulting filter.
 func (x *UserContentFilterStore) Save(IdentifierVar string, SourceVar *glib.Bytes, CancellableVar *gio.Cancellable, CallbackVar *gio.AsyncReadyCallback, UserDataVar uintptr) {
+	core.LazyRegister(&xUserContentFilterStoreSave, "WEBKIT", "webkit_user_content_filter_store_save", false)
+
 	xUserContentFilterStoreSave(x.GoPointer(), IdentifierVar, SourceVar, CancellableVar.GoPointer(), glib.NewCallbackNullable(CallbackVar), UserDataVar)
 }
 
@@ -187,6 +202,7 @@ var xUserContentFilterStoreSaveFinish func(uintptr, uintptr, **glib.Error) uintp
 // Finishes an asynchronous filter save previously started with
 // webkit_user_content_filter_store_save().
 func (x *UserContentFilterStore) SaveFinish(ResultVar gio.AsyncResult) (*UserContentFilter, error) {
+	core.LazyRegister(&xUserContentFilterStoreSaveFinish, "WEBKIT", "webkit_user_content_filter_store_save_finish", false)
 	var cerr *glib.Error
 
 	cret := xUserContentFilterStoreSaveFinish(x.GoPointer(), ResultVar.GoPointer(), &cerr)
@@ -210,6 +226,8 @@ var xUserContentFilterStoreSaveFromFile func(uintptr, string, uintptr, uintptr, 
 // When the operation is finished, @callback will be invoked, which then can use
 // webkit_user_content_filter_store_save_finish() to obtain the resulting filter.
 func (x *UserContentFilterStore) SaveFromFile(IdentifierVar string, FileVar gio.File, CancellableVar *gio.Cancellable, CallbackVar *gio.AsyncReadyCallback, UserDataVar uintptr) {
+	core.LazyRegister(&xUserContentFilterStoreSaveFromFile, "WEBKIT", "webkit_user_content_filter_store_save_from_file", false)
+
 	xUserContentFilterStoreSaveFromFile(x.GoPointer(), IdentifierVar, FileVar.GoPointer(), CancellableVar.GoPointer(), glib.NewCallbackNullable(CallbackVar), UserDataVar)
 }
 
@@ -218,6 +236,7 @@ var xUserContentFilterStoreSaveFromFileFinish func(uintptr, uintptr, **glib.Erro
 // Finishes and asynchronous filter save previously started with
 // webkit_user_content_filter_store_save_from_file().
 func (x *UserContentFilterStore) SaveFromFileFinish(ResultVar gio.AsyncResult) (*UserContentFilter, error) {
+	core.LazyRegister(&xUserContentFilterStoreSaveFromFileFinish, "WEBKIT", "webkit_user_content_filter_store_save_from_file_finish", false)
 	var cerr *glib.Error
 
 	cret := xUserContentFilterStoreSaveFromFileFinish(x.GoPointer(), ResultVar.GoPointer(), &cerr)
@@ -263,33 +282,8 @@ func (x *UserContentFilterStore) GetPropertyPath() string {
 func init() {
 	core.SetPackageName("WEBKIT", "webkitgtk-6.0")
 	core.SetSharedLibraries("WEBKIT", []string{"libwebkitgtk-6.0.so.4", "libjavascriptcoregtk-6.0.so.1", "libwebkitgtk-6.0.4.dylib", "libjavascriptcoregtk-6.0.1.dylib"})
-	var libs []uintptr
-	for _, libPath := range core.GetPaths("WEBKIT") {
-		lib, err := purego.Dlopen(libPath, purego.RTLD_NOW|purego.RTLD_GLOBAL)
-		if err != nil {
-			panic(err)
-		}
-		libs = append(libs, lib)
-	}
 
-	core.PuregoSafeRegister(&xUserContentFilterStoreGLibType, libs, "webkit_user_content_filter_store_get_type")
-
-	core.PuregoSafeRegister(&xNewUserContentFilterStore, libs, "webkit_user_content_filter_store_new")
-
-	core.PuregoSafeRegister(&xUserContentFilterStoreFetchIdentifiers, libs, "webkit_user_content_filter_store_fetch_identifiers")
-	core.PuregoSafeRegister(&xUserContentFilterStoreFetchIdentifiersFinish, libs, "webkit_user_content_filter_store_fetch_identifiers_finish")
-	core.PuregoSafeRegister(&xUserContentFilterStoreGetPath, libs, "webkit_user_content_filter_store_get_path")
-	core.PuregoSafeRegister(&xUserContentFilterStoreLoad, libs, "webkit_user_content_filter_store_load")
-	core.PuregoSafeRegister(&xUserContentFilterStoreLoadFinish, libs, "webkit_user_content_filter_store_load_finish")
-	core.PuregoSafeRegister(&xUserContentFilterStoreRemove, libs, "webkit_user_content_filter_store_remove")
-	core.PuregoSafeRegister(&xUserContentFilterStoreRemoveFinish, libs, "webkit_user_content_filter_store_remove_finish")
-	core.PuregoSafeRegister(&xUserContentFilterStoreSave, libs, "webkit_user_content_filter_store_save")
-	core.PuregoSafeRegister(&xUserContentFilterStoreSaveFinish, libs, "webkit_user_content_filter_store_save_finish")
-	core.PuregoSafeRegister(&xUserContentFilterStoreSaveFromFile, libs, "webkit_user_content_filter_store_save_from_file")
-	core.PuregoSafeRegister(&xUserContentFilterStoreSaveFromFileFinish, libs, "webkit_user_content_filter_store_save_from_file_finish")
-
-	// Manually register types since they aren't being automatically registered when
-	// the library is loaded
-	// See https://bugs.webkit.org/show_bug.cgi?id=175937
+	// Manually register types since they aren't automatically registered when
+	// WebKit is loaded. See https://bugs.webkit.org/show_bug.cgi?id=175937.
 	UserContentFilterStoreGLibType()
 }

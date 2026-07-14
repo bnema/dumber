@@ -449,6 +449,7 @@ type MenuAttributeIter struct {
 var xMenuAttributeIterGLibType func() types.GType
 
 func MenuAttributeIterGLibType() types.GType {
+	core.LazyRegister(&xMenuAttributeIterGLibType, "GIO", "g_menu_attribute_iter_get_type", false)
 	return xMenuAttributeIterGLibType()
 }
 
@@ -465,6 +466,8 @@ var xMenuAttributeIterGetName func(uintptr) string
 //
 // The iterator is not advanced.
 func (x *MenuAttributeIter) GetName() string {
+	core.LazyRegister(&xMenuAttributeIterGetName, "GIO", "g_menu_attribute_iter_get_name", false)
+
 	cret := xMenuAttributeIterGetName(x.GoPointer())
 	return cret
 }
@@ -487,6 +490,8 @@ var xMenuAttributeIterGetNext func(uintptr, *string, **glib.Variant) bool
 // remains at the current position.  The value returned in @value must
 // be unreffed using g_variant_unref() when it is no longer in use.
 func (x *MenuAttributeIter) GetNext(OutNameVar *string, ValueVar **glib.Variant) bool {
+	core.LazyRegister(&xMenuAttributeIterGetNext, "GIO", "g_menu_attribute_iter_get_next", false)
+
 	cret := xMenuAttributeIterGetNext(x.GoPointer(), OutNameVar, ValueVar)
 	return cret
 }
@@ -497,6 +502,8 @@ var xMenuAttributeIterGetValue func(uintptr) uintptr
 //
 // The iterator is not advanced.
 func (x *MenuAttributeIter) GetValue() *glib.Variant {
+	core.LazyRegister(&xMenuAttributeIterGetValue, "GIO", "g_menu_attribute_iter_get_value", false)
+
 	cret := xMenuAttributeIterGetValue(x.GoPointer())
 	if cret == 0 {
 		return nil
@@ -516,6 +523,8 @@ var xMenuAttributeIterNext func(uintptr) bool
 // to advance it to the first attribute (and determine if the first
 // attribute exists at all).
 func (x *MenuAttributeIter) Next() bool {
+	core.LazyRegister(&xMenuAttributeIterNext, "GIO", "g_menu_attribute_iter_next", false)
+
 	cret := xMenuAttributeIterNext(x.GoPointer())
 	return cret
 }
@@ -540,6 +549,7 @@ type MenuLinkIter struct {
 var xMenuLinkIterGLibType func() types.GType
 
 func MenuLinkIterGLibType() types.GType {
+	core.LazyRegister(&xMenuLinkIterGLibType, "GIO", "g_menu_link_iter_get_type", false)
 	return xMenuLinkIterGLibType()
 }
 
@@ -555,6 +565,8 @@ var xMenuLinkIterGetName func(uintptr) string
 //
 // The iterator is not advanced.
 func (x *MenuLinkIter) GetName() string {
+	core.LazyRegister(&xMenuLinkIterGetName, "GIO", "g_menu_link_iter_get_name", false)
+
 	cret := xMenuLinkIterGetName(x.GoPointer())
 	return cret
 }
@@ -576,6 +588,8 @@ var xMenuLinkIterGetNext func(uintptr, *string, **MenuModel) bool
 // remains at the current position.  The value returned in @value must
 // be unreffed using g_object_unref() when it is no longer in use.
 func (x *MenuLinkIter) GetNext(OutLinkVar *string, ValueVar **MenuModel) bool {
+	core.LazyRegister(&xMenuLinkIterGetNext, "GIO", "g_menu_link_iter_get_next", false)
+
 	cret := xMenuLinkIterGetNext(x.GoPointer(), OutLinkVar, ValueVar)
 	return cret
 }
@@ -586,6 +600,7 @@ var xMenuLinkIterGetValue func(uintptr) uintptr
 //
 // The iterator is not advanced.
 func (x *MenuLinkIter) GetValue() *MenuModel {
+	core.LazyRegister(&xMenuLinkIterGetValue, "GIO", "g_menu_link_iter_get_value", false)
 	var cls *MenuModel
 
 	cret := xMenuLinkIterGetValue(x.GoPointer())
@@ -609,6 +624,8 @@ var xMenuLinkIterNext func(uintptr) bool
 // advance it to the first link (and determine if the first link exists
 // at all).
 func (x *MenuLinkIter) Next() bool {
+	core.LazyRegister(&xMenuLinkIterNext, "GIO", "g_menu_link_iter_next", false)
+
 	cret := xMenuLinkIterNext(x.GoPointer())
 	return cret
 }
@@ -752,6 +769,7 @@ type MenuModel struct {
 var xMenuModelGLibType func() types.GType
 
 func MenuModelGLibType() types.GType {
+	core.LazyRegister(&xMenuModelGLibType, "GIO", "g_menu_model_get_type", false)
 	return xMenuModelGLibType()
 }
 
@@ -780,6 +798,8 @@ var xMenuModelGetItemAttribute func(uintptr, int, string, string, ...interface{}
 // #GVariant may go away after the call to g_variant_unref()).  In
 // particular, no '&amp;' characters are allowed in @format_string.
 func (x *MenuModel) GetItemAttribute(ItemIndexVar int, AttributeVar string, FormatStringVar string, varArgs ...interface{}) bool {
+	core.LazyRegister(&xMenuModelGetItemAttribute, "GIO", "g_menu_model_get_item_attribute", false)
+
 	cret := xMenuModelGetItemAttribute(x.GoPointer(), ItemIndexVar, AttributeVar, FormatStringVar, varArgs...)
 	return cret
 }
@@ -798,6 +818,8 @@ var xMenuModelGetItemAttributeValue func(uintptr, int, string, *glib.VariantType
 // If the attribute does not exist, or does not match the expected type
 // then %NULL is returned.
 func (x *MenuModel) GetItemAttributeValue(ItemIndexVar int, AttributeVar string, ExpectedTypeVar *glib.VariantType) *glib.Variant {
+	core.LazyRegister(&xMenuModelGetItemAttributeValue, "GIO", "g_menu_model_get_item_attribute_value", false)
+
 	cret := xMenuModelGetItemAttributeValue(x.GoPointer(), ItemIndexVar, AttributeVar, ExpectedTypeVar)
 	if cret == 0 {
 		return nil
@@ -813,6 +835,7 @@ var xMenuModelGetItemLink func(uintptr, int, string) uintptr
 // If the link exists, the linked #GMenuModel is returned.  If the link
 // does not exist, %NULL is returned.
 func (x *MenuModel) GetItemLink(ItemIndexVar int, LinkVar string) *MenuModel {
+	core.LazyRegister(&xMenuModelGetItemLink, "GIO", "g_menu_model_get_item_link", false)
 	var cls *MenuModel
 
 	cret := xMenuModelGetItemLink(x.GoPointer(), ItemIndexVar, LinkVar)
@@ -829,6 +852,8 @@ var xMenuModelGetNItems func(uintptr) int
 
 // Query the number of items in @model.
 func (x *MenuModel) GetNItems() int {
+	core.LazyRegister(&xMenuModelGetNItems, "GIO", "g_menu_model_get_n_items", false)
+
 	cret := xMenuModelGetNItems(x.GoPointer())
 	return cret
 }
@@ -840,6 +865,8 @@ var xMenuModelIsMutable func(uintptr) bool
 // An immutable #GMenuModel will never emit the #GMenuModel::items-changed
 // signal. Consumers of the model may make optimisations accordingly.
 func (x *MenuModel) IsMutable() bool {
+	core.LazyRegister(&xMenuModelIsMutable, "GIO", "g_menu_model_is_mutable", false)
+
 	cret := xMenuModelIsMutable(x.GoPointer())
 	return cret
 }
@@ -862,6 +889,8 @@ var xMenuModelItemsChanged func(uintptr, int, int, int)
 // #GMenuModel API.  Said another way: the menu must not change while
 // user code is running without returning to the mainloop.
 func (x *MenuModel) ItemsChanged(PositionVar int, RemovedVar int, AddedVar int) {
+	core.LazyRegister(&xMenuModelItemsChanged, "GIO", "g_menu_model_items_changed", false)
+
 	xMenuModelItemsChanged(x.GoPointer(), PositionVar, RemovedVar, AddedVar)
 }
 
@@ -872,6 +901,7 @@ var xMenuModelIterateItemAttributes func(uintptr, int) uintptr
 //
 // You must free the iterator with g_object_unref() when you are done.
 func (x *MenuModel) IterateItemAttributes(ItemIndexVar int) *MenuAttributeIter {
+	core.LazyRegister(&xMenuModelIterateItemAttributes, "GIO", "g_menu_model_iterate_item_attributes", false)
 	var cls *MenuAttributeIter
 
 	cret := xMenuModelIterateItemAttributes(x.GoPointer(), ItemIndexVar)
@@ -891,6 +921,7 @@ var xMenuModelIterateItemLinks func(uintptr, int) uintptr
 //
 // You must free the iterator with g_object_unref() when you are done.
 func (x *MenuModel) IterateItemLinks(ItemIndexVar int) *MenuLinkIter {
+	core.LazyRegister(&xMenuModelIterateItemLinks, "GIO", "g_menu_model_iterate_item_links", false)
 	var cls *MenuLinkIter
 
 	cret := xMenuModelIterateItemLinks(x.GoPointer(), ItemIndexVar)
@@ -959,37 +990,4 @@ func (x *MenuModel) ConnectItemsChanged(cb *func(MenuModel, int, int, int)) uint
 func init() {
 	core.SetPackageName("GIO", "gio-2.0")
 	core.SetSharedLibraries("GIO", []string{"libgio-2.0.so.0", "libgio-2.0.0.dylib"})
-	var libs []uintptr
-	for _, libPath := range core.GetPaths("GIO") {
-		lib, err := purego.Dlopen(libPath, purego.RTLD_NOW|purego.RTLD_GLOBAL)
-		if err != nil {
-			panic(err)
-		}
-		libs = append(libs, lib)
-	}
-
-	core.PuregoSafeRegister(&xMenuAttributeIterGLibType, libs, "g_menu_attribute_iter_get_type")
-
-	core.PuregoSafeRegister(&xMenuAttributeIterGetName, libs, "g_menu_attribute_iter_get_name")
-	core.PuregoSafeRegister(&xMenuAttributeIterGetNext, libs, "g_menu_attribute_iter_get_next")
-	core.PuregoSafeRegister(&xMenuAttributeIterGetValue, libs, "g_menu_attribute_iter_get_value")
-	core.PuregoSafeRegister(&xMenuAttributeIterNext, libs, "g_menu_attribute_iter_next")
-
-	core.PuregoSafeRegister(&xMenuLinkIterGLibType, libs, "g_menu_link_iter_get_type")
-
-	core.PuregoSafeRegister(&xMenuLinkIterGetName, libs, "g_menu_link_iter_get_name")
-	core.PuregoSafeRegister(&xMenuLinkIterGetNext, libs, "g_menu_link_iter_get_next")
-	core.PuregoSafeRegister(&xMenuLinkIterGetValue, libs, "g_menu_link_iter_get_value")
-	core.PuregoSafeRegister(&xMenuLinkIterNext, libs, "g_menu_link_iter_next")
-
-	core.PuregoSafeRegister(&xMenuModelGLibType, libs, "g_menu_model_get_type")
-
-	core.PuregoSafeRegister(&xMenuModelGetItemAttribute, libs, "g_menu_model_get_item_attribute")
-	core.PuregoSafeRegister(&xMenuModelGetItemAttributeValue, libs, "g_menu_model_get_item_attribute_value")
-	core.PuregoSafeRegister(&xMenuModelGetItemLink, libs, "g_menu_model_get_item_link")
-	core.PuregoSafeRegister(&xMenuModelGetNItems, libs, "g_menu_model_get_n_items")
-	core.PuregoSafeRegister(&xMenuModelIsMutable, libs, "g_menu_model_is_mutable")
-	core.PuregoSafeRegister(&xMenuModelItemsChanged, libs, "g_menu_model_items_changed")
-	core.PuregoSafeRegister(&xMenuModelIterateItemAttributes, libs, "g_menu_model_iterate_item_attributes")
-	core.PuregoSafeRegister(&xMenuModelIterateItemLinks, libs, "g_menu_model_iterate_item_links")
 }

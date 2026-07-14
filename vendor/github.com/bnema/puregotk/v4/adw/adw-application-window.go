@@ -5,7 +5,6 @@ import (
 	"structs"
 	"unsafe"
 
-	"github.com/bnema/purego"
 	"github.com/bnema/puregotk/pkg/core"
 	"github.com/bnema/puregotk/v4/gdk"
 	"github.com/bnema/puregotk/v4/gio"
@@ -78,6 +77,7 @@ type ApplicationWindow struct {
 var xApplicationWindowGLibType func() types.GType
 
 func ApplicationWindowGLibType() types.GType {
+	core.LazyRegister(&xApplicationWindowGLibType, "ADW", "adw_application_window_get_type", false)
 	return xApplicationWindowGLibType()
 }
 
@@ -91,6 +91,7 @@ var xNewApplicationWindow func(uintptr) uintptr
 
 // Creates a new `AdwApplicationWindow` for @app.
 func NewApplicationWindow(AppVar *gtk.Application) *ApplicationWindow {
+	core.LazyRegister(&xNewApplicationWindow, "ADW", "adw_application_window_new", false)
 	var cls *ApplicationWindow
 
 	cret := xNewApplicationWindow(AppVar.GoPointer())
@@ -108,6 +109,8 @@ var xApplicationWindowAddBreakpoint func(uintptr, uintptr)
 
 // Adds @breakpoint to @self.
 func (x *ApplicationWindow) AddBreakpoint(BreakpointVar *Breakpoint) {
+	core.LazyRegister(&xApplicationWindowAddBreakpoint, "ADW", "adw_application_window_add_breakpoint", false)
+
 	xApplicationWindowAddBreakpoint(x.GoPointer(), BreakpointVar.GoPointer())
 }
 
@@ -115,6 +118,8 @@ var xApplicationWindowGetAdaptivePreview func(uintptr) bool
 
 // Gets whether adaptive preview for @self is currently open.
 func (x *ApplicationWindow) GetAdaptivePreview() bool {
+	core.LazyRegister(&xApplicationWindowGetAdaptivePreview, "ADW", "adw_application_window_get_adaptive_preview", false)
+
 	cret := xApplicationWindowGetAdaptivePreview(x.GoPointer())
 	return cret
 }
@@ -125,6 +130,7 @@ var xApplicationWindowGetContent func(uintptr) uintptr
 //
 // This method should always be used instead of [method@Gtk.Window.get_child].
 func (x *ApplicationWindow) GetContent() *gtk.Widget {
+	core.LazyRegister(&xApplicationWindowGetContent, "ADW", "adw_application_window_get_content", false)
 	var cls *gtk.Widget
 
 	cret := xApplicationWindowGetContent(x.GoPointer())
@@ -142,6 +148,7 @@ var xApplicationWindowGetCurrentBreakpoint func(uintptr) uintptr
 
 // Gets the current breakpoint.
 func (x *ApplicationWindow) GetCurrentBreakpoint() *Breakpoint {
+	core.LazyRegister(&xApplicationWindowGetCurrentBreakpoint, "ADW", "adw_application_window_get_current_breakpoint", false)
 	var cls *Breakpoint
 
 	cret := xApplicationWindowGetCurrentBreakpoint(x.GoPointer())
@@ -161,6 +168,7 @@ var xApplicationWindowGetDialogs func(uintptr) uintptr
 //
 // This can be used to keep an up-to-date view.
 func (x *ApplicationWindow) GetDialogs() *gio.ListModelBase {
+	core.LazyRegister(&xApplicationWindowGetDialogs, "ADW", "adw_application_window_get_dialogs", false)
 	var cls *gio.ListModelBase
 
 	cret := xApplicationWindowGetDialogs(x.GoPointer())
@@ -177,6 +185,7 @@ var xApplicationWindowGetVisibleDialog func(uintptr) uintptr
 
 // Returns the currently visible dialog in @self, if there's one.
 func (x *ApplicationWindow) GetVisibleDialog() *Dialog {
+	core.LazyRegister(&xApplicationWindowGetVisibleDialog, "ADW", "adw_application_window_get_visible_dialog", false)
 	var cls *Dialog
 
 	cret := xApplicationWindowGetVisibleDialog(x.GoPointer())
@@ -202,6 +211,8 @@ var xApplicationWindowSetAdaptivePreview func(uintptr, bool)
 //
 // Most applications should not use this function.
 func (x *ApplicationWindow) SetAdaptivePreview(AdaptivePreviewVar bool) {
+	core.LazyRegister(&xApplicationWindowSetAdaptivePreview, "ADW", "adw_application_window_set_adaptive_preview", false)
+
 	xApplicationWindowSetAdaptivePreview(x.GoPointer(), AdaptivePreviewVar)
 }
 
@@ -211,6 +222,8 @@ var xApplicationWindowSetContent func(uintptr, uintptr)
 //
 // This method should always be used instead of [method@Gtk.Window.set_child].
 func (x *ApplicationWindow) SetContent(ContentVar *gtk.Widget) {
+	core.LazyRegister(&xApplicationWindowSetContent, "ADW", "adw_application_window_set_content", false)
+
 	xApplicationWindowSetContent(x.GoPointer(), ContentVar.GoPointer())
 }
 
@@ -953,25 +966,4 @@ func (x *ApplicationWindow) SetFocus(FocusVar *gtk.Widget) {
 func init() {
 	core.SetPackageName("ADW", "libadwaita-1")
 	core.SetSharedLibraries("ADW", []string{"libadwaita-1.so.0", "libadwaita-1.0.dylib"})
-	var libs []uintptr
-	for _, libPath := range core.GetPaths("ADW") {
-		lib, err := purego.Dlopen(libPath, purego.RTLD_NOW|purego.RTLD_GLOBAL)
-		if err != nil {
-			panic(err)
-		}
-		libs = append(libs, lib)
-	}
-
-	core.PuregoSafeRegister(&xApplicationWindowGLibType, libs, "adw_application_window_get_type")
-
-	core.PuregoSafeRegister(&xNewApplicationWindow, libs, "adw_application_window_new")
-
-	core.PuregoSafeRegister(&xApplicationWindowAddBreakpoint, libs, "adw_application_window_add_breakpoint")
-	core.PuregoSafeRegister(&xApplicationWindowGetAdaptivePreview, libs, "adw_application_window_get_adaptive_preview")
-	core.PuregoSafeRegister(&xApplicationWindowGetContent, libs, "adw_application_window_get_content")
-	core.PuregoSafeRegister(&xApplicationWindowGetCurrentBreakpoint, libs, "adw_application_window_get_current_breakpoint")
-	core.PuregoSafeRegister(&xApplicationWindowGetDialogs, libs, "adw_application_window_get_dialogs")
-	core.PuregoSafeRegister(&xApplicationWindowGetVisibleDialog, libs, "adw_application_window_get_visible_dialog")
-	core.PuregoSafeRegister(&xApplicationWindowSetAdaptivePreview, libs, "adw_application_window_set_adaptive_preview")
-	core.PuregoSafeRegister(&xApplicationWindowSetContent, libs, "adw_application_window_set_content")
 }

@@ -2,7 +2,6 @@
 package gtk
 
 import (
-	"github.com/bnema/purego"
 	"github.com/bnema/puregotk/pkg/core"
 	"github.com/bnema/puregotk/v4/gio"
 	"github.com/bnema/puregotk/v4/glib"
@@ -40,6 +39,7 @@ type AppChooserWidget struct {
 var xAppChooserWidgetGLibType func() types.GType
 
 func AppChooserWidgetGLibType() types.GType {
+	core.LazyRegister(&xAppChooserWidgetGLibType, "GTK", "gtk_app_chooser_widget_get_type", false)
 	return xAppChooserWidgetGLibType()
 }
 
@@ -54,6 +54,7 @@ var xNewAppChooserWidget func(string) uintptr
 // Creates a new `GtkAppChooserWidget` for applications
 // that can handle content of the given type.
 func NewAppChooserWidget(ContentTypeVar string) *AppChooserWidget {
+	core.LazyRegister(&xNewAppChooserWidget, "GTK", "gtk_app_chooser_widget_new", false)
 	var cls *AppChooserWidget
 
 	cret := xNewAppChooserWidget(ContentTypeVar)
@@ -72,6 +73,8 @@ var xAppChooserWidgetGetDefaultText func(uintptr) string
 // Returns the text that is shown if there are not applications
 // that can handle the content type.
 func (x *AppChooserWidget) GetDefaultText() string {
+	core.LazyRegister(&xAppChooserWidgetGetDefaultText, "GTK", "gtk_app_chooser_widget_get_default_text", false)
+
 	cret := xAppChooserWidgetGetDefaultText(x.GoPointer())
 	return cret
 }
@@ -81,6 +84,8 @@ var xAppChooserWidgetGetShowAll func(uintptr) bool
 // Gets whether the app chooser should show all applications
 // in a flat list.
 func (x *AppChooserWidget) GetShowAll() bool {
+	core.LazyRegister(&xAppChooserWidgetGetShowAll, "GTK", "gtk_app_chooser_widget_get_show_all", false)
+
 	cret := xAppChooserWidgetGetShowAll(x.GoPointer())
 	return cret
 }
@@ -90,6 +95,8 @@ var xAppChooserWidgetGetShowDefault func(uintptr) bool
 // Gets whether the app chooser should show the default handler
 // for the content type in a separate section.
 func (x *AppChooserWidget) GetShowDefault() bool {
+	core.LazyRegister(&xAppChooserWidgetGetShowDefault, "GTK", "gtk_app_chooser_widget_get_show_default", false)
+
 	cret := xAppChooserWidgetGetShowDefault(x.GoPointer())
 	return cret
 }
@@ -99,6 +106,8 @@ var xAppChooserWidgetGetShowFallback func(uintptr) bool
 // Gets whether the app chooser should show related applications
 // for the content type in a separate section.
 func (x *AppChooserWidget) GetShowFallback() bool {
+	core.LazyRegister(&xAppChooserWidgetGetShowFallback, "GTK", "gtk_app_chooser_widget_get_show_fallback", false)
+
 	cret := xAppChooserWidgetGetShowFallback(x.GoPointer())
 	return cret
 }
@@ -108,6 +117,8 @@ var xAppChooserWidgetGetShowOther func(uintptr) bool
 // Gets whether the app chooser should show applications
 // which are unrelated to the content type.
 func (x *AppChooserWidget) GetShowOther() bool {
+	core.LazyRegister(&xAppChooserWidgetGetShowOther, "GTK", "gtk_app_chooser_widget_get_show_other", false)
+
 	cret := xAppChooserWidgetGetShowOther(x.GoPointer())
 	return cret
 }
@@ -117,6 +128,8 @@ var xAppChooserWidgetGetShowRecommended func(uintptr) bool
 // Gets whether the app chooser should show recommended applications
 // for the content type in a separate section.
 func (x *AppChooserWidget) GetShowRecommended() bool {
+	core.LazyRegister(&xAppChooserWidgetGetShowRecommended, "GTK", "gtk_app_chooser_widget_get_show_recommended", false)
+
 	cret := xAppChooserWidgetGetShowRecommended(x.GoPointer())
 	return cret
 }
@@ -126,6 +139,8 @@ var xAppChooserWidgetSetDefaultText func(uintptr, string)
 // Sets the text that is shown if there are not applications
 // that can handle the content type.
 func (x *AppChooserWidget) SetDefaultText(TextVar string) {
+	core.LazyRegister(&xAppChooserWidgetSetDefaultText, "GTK", "gtk_app_chooser_widget_set_default_text", false)
+
 	xAppChooserWidgetSetDefaultText(x.GoPointer(), TextVar)
 }
 
@@ -134,6 +149,8 @@ var xAppChooserWidgetSetShowAll func(uintptr, bool)
 // Sets whether the app chooser should show all applications
 // in a flat list.
 func (x *AppChooserWidget) SetShowAll(SettingVar bool) {
+	core.LazyRegister(&xAppChooserWidgetSetShowAll, "GTK", "gtk_app_chooser_widget_set_show_all", false)
+
 	xAppChooserWidgetSetShowAll(x.GoPointer(), SettingVar)
 }
 
@@ -142,6 +159,8 @@ var xAppChooserWidgetSetShowDefault func(uintptr, bool)
 // Sets whether the app chooser should show the default handler
 // for the content type in a separate section.
 func (x *AppChooserWidget) SetShowDefault(SettingVar bool) {
+	core.LazyRegister(&xAppChooserWidgetSetShowDefault, "GTK", "gtk_app_chooser_widget_set_show_default", false)
+
 	xAppChooserWidgetSetShowDefault(x.GoPointer(), SettingVar)
 }
 
@@ -150,6 +169,8 @@ var xAppChooserWidgetSetShowFallback func(uintptr, bool)
 // Sets whether the app chooser should show related applications
 // for the content type in a separate section.
 func (x *AppChooserWidget) SetShowFallback(SettingVar bool) {
+	core.LazyRegister(&xAppChooserWidgetSetShowFallback, "GTK", "gtk_app_chooser_widget_set_show_fallback", false)
+
 	xAppChooserWidgetSetShowFallback(x.GoPointer(), SettingVar)
 }
 
@@ -158,6 +179,8 @@ var xAppChooserWidgetSetShowOther func(uintptr, bool)
 // Sets whether the app chooser should show applications
 // which are unrelated to the content type.
 func (x *AppChooserWidget) SetShowOther(SettingVar bool) {
+	core.LazyRegister(&xAppChooserWidgetSetShowOther, "GTK", "gtk_app_chooser_widget_set_show_other", false)
+
 	xAppChooserWidgetSetShowOther(x.GoPointer(), SettingVar)
 }
 
@@ -166,6 +189,8 @@ var xAppChooserWidgetSetShowRecommended func(uintptr, bool)
 // Sets whether the app chooser should show recommended applications
 // for the content type in a separate section.
 func (x *AppChooserWidget) SetShowRecommended(SettingVar bool) {
+	core.LazyRegister(&xAppChooserWidgetSetShowRecommended, "GTK", "gtk_app_chooser_widget_set_show_recommended", false)
+
 	xAppChooserWidgetSetShowRecommended(x.GoPointer(), SettingVar)
 }
 
@@ -653,29 +678,4 @@ func (x *AppChooserWidget) GetBuildableId() string {
 func init() {
 	core.SetPackageName("GTK", "gtk4")
 	core.SetSharedLibraries("GTK", []string{"libgtk-4.so.1", "libgtk-4.1.dylib"})
-	var libs []uintptr
-	for _, libPath := range core.GetPaths("GTK") {
-		lib, err := purego.Dlopen(libPath, purego.RTLD_NOW|purego.RTLD_GLOBAL)
-		if err != nil {
-			panic(err)
-		}
-		libs = append(libs, lib)
-	}
-
-	core.PuregoSafeRegister(&xAppChooserWidgetGLibType, libs, "gtk_app_chooser_widget_get_type")
-
-	core.PuregoSafeRegister(&xNewAppChooserWidget, libs, "gtk_app_chooser_widget_new")
-
-	core.PuregoSafeRegister(&xAppChooserWidgetGetDefaultText, libs, "gtk_app_chooser_widget_get_default_text")
-	core.PuregoSafeRegister(&xAppChooserWidgetGetShowAll, libs, "gtk_app_chooser_widget_get_show_all")
-	core.PuregoSafeRegister(&xAppChooserWidgetGetShowDefault, libs, "gtk_app_chooser_widget_get_show_default")
-	core.PuregoSafeRegister(&xAppChooserWidgetGetShowFallback, libs, "gtk_app_chooser_widget_get_show_fallback")
-	core.PuregoSafeRegister(&xAppChooserWidgetGetShowOther, libs, "gtk_app_chooser_widget_get_show_other")
-	core.PuregoSafeRegister(&xAppChooserWidgetGetShowRecommended, libs, "gtk_app_chooser_widget_get_show_recommended")
-	core.PuregoSafeRegister(&xAppChooserWidgetSetDefaultText, libs, "gtk_app_chooser_widget_set_default_text")
-	core.PuregoSafeRegister(&xAppChooserWidgetSetShowAll, libs, "gtk_app_chooser_widget_set_show_all")
-	core.PuregoSafeRegister(&xAppChooserWidgetSetShowDefault, libs, "gtk_app_chooser_widget_set_show_default")
-	core.PuregoSafeRegister(&xAppChooserWidgetSetShowFallback, libs, "gtk_app_chooser_widget_set_show_fallback")
-	core.PuregoSafeRegister(&xAppChooserWidgetSetShowOther, libs, "gtk_app_chooser_widget_set_show_other")
-	core.PuregoSafeRegister(&xAppChooserWidgetSetShowRecommended, libs, "gtk_app_chooser_widget_set_show_recommended")
 }

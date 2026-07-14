@@ -5,7 +5,6 @@ import (
 	"structs"
 	"unsafe"
 
-	"github.com/bnema/purego"
 	"github.com/bnema/puregotk/pkg/core"
 	"github.com/bnema/puregotk/v4/gio"
 	"github.com/bnema/puregotk/v4/gobject"
@@ -43,6 +42,7 @@ type SingleSelection struct {
 var xSingleSelectionGLibType func() types.GType
 
 func SingleSelectionGLibType() types.GType {
+	core.LazyRegister(&xSingleSelectionGLibType, "GTK", "gtk_single_selection_get_type", false)
 	return xSingleSelectionGLibType()
 }
 
@@ -56,6 +56,7 @@ var xNewSingleSelection func(uintptr) uintptr
 
 // Creates a new selection to handle @model.
 func NewSingleSelection(ModelVar gio.ListModel) *SingleSelection {
+	core.LazyRegister(&xNewSingleSelection, "GTK", "gtk_single_selection_new", false)
 	var cls *SingleSelection
 
 	cret := xNewSingleSelection(ModelVar.GoPointer())
@@ -73,6 +74,8 @@ var xSingleSelectionGetAutoselect func(uintptr) bool
 // Checks if autoselect has been enabled or disabled via
 // gtk_single_selection_set_autoselect().
 func (x *SingleSelection) GetAutoselect() bool {
+	core.LazyRegister(&xSingleSelectionGetAutoselect, "GTK", "gtk_single_selection_get_autoselect", false)
+
 	cret := xSingleSelectionGetAutoselect(x.GoPointer())
 	return cret
 }
@@ -82,6 +85,8 @@ var xSingleSelectionGetCanUnselect func(uintptr) bool
 // If %TRUE, gtk_selection_model_unselect_item() is supported and allows
 // unselecting the selected item.
 func (x *SingleSelection) GetCanUnselect() bool {
+	core.LazyRegister(&xSingleSelectionGetCanUnselect, "GTK", "gtk_single_selection_get_can_unselect", false)
+
 	cret := xSingleSelectionGetCanUnselect(x.GoPointer())
 	return cret
 }
@@ -90,6 +95,7 @@ var xSingleSelectionGetModel func(uintptr) uintptr
 
 // Gets the model that @self is wrapping.
 func (x *SingleSelection) GetModel() *gio.ListModelBase {
+	core.LazyRegister(&xSingleSelectionGetModel, "GTK", "gtk_single_selection_get_model", false)
 	var cls *gio.ListModelBase
 
 	cret := xSingleSelectionGetModel(x.GoPointer())
@@ -109,6 +115,8 @@ var xSingleSelectionGetSelected func(uintptr) uint
 //
 // If no item is selected, %GTK_INVALID_LIST_POSITION is returned.
 func (x *SingleSelection) GetSelected() uint {
+	core.LazyRegister(&xSingleSelectionGetSelected, "GTK", "gtk_single_selection_get_selected", false)
+
 	cret := xSingleSelectionGetSelected(x.GoPointer())
 	return cret
 }
@@ -119,6 +127,7 @@ var xSingleSelectionGetSelectedItem func(uintptr) uintptr
 //
 // If no item is selected, %NULL is returned.
 func (x *SingleSelection) GetSelectedItem() *gobject.Object {
+	core.LazyRegister(&xSingleSelectionGetSelectedItem, "GTK", "gtk_single_selection_get_selected_item", false)
 	var cls *gobject.Object
 
 	cret := xSingleSelectionGetSelectedItem(x.GoPointer())
@@ -140,6 +149,8 @@ var xSingleSelectionSetAutoselect func(uintptr, bool)
 // selected. It will select a new item when the currently selected
 // item is deleted and it will disallow unselecting the current item.
 func (x *SingleSelection) SetAutoselect(AutoselectVar bool) {
+	core.LazyRegister(&xSingleSelectionSetAutoselect, "GTK", "gtk_single_selection_set_autoselect", false)
+
 	xSingleSelectionSetAutoselect(x.GoPointer(), AutoselectVar)
 }
 
@@ -152,6 +163,8 @@ var xSingleSelectionSetCanUnselect func(uintptr, bool)
 // cause unselecting to not work, so it practically makes no sense
 // to set both at the same time.
 func (x *SingleSelection) SetCanUnselect(CanUnselectVar bool) {
+	core.LazyRegister(&xSingleSelectionSetCanUnselect, "GTK", "gtk_single_selection_set_can_unselect", false)
+
 	xSingleSelectionSetCanUnselect(x.GoPointer(), CanUnselectVar)
 }
 
@@ -161,6 +174,8 @@ var xSingleSelectionSetModel func(uintptr, uintptr)
 //
 // If @model is %NULL, @self will be empty.
 func (x *SingleSelection) SetModel(ModelVar gio.ListModel) {
+	core.LazyRegister(&xSingleSelectionSetModel, "GTK", "gtk_single_selection_set_model", false)
+
 	xSingleSelectionSetModel(x.GoPointer(), ModelVar.GoPointer())
 }
 
@@ -176,6 +191,8 @@ var xSingleSelectionSetSelected func(uintptr, uint)
 // will be selected. This also applies if [property@Gtk.SingleSelection:can-unselect]
 // is set to %FALSE.
 func (x *SingleSelection) SetSelected(PositionVar uint) {
+	core.LazyRegister(&xSingleSelectionSetSelected, "GTK", "gtk_single_selection_set_selected", false)
+
 	xSingleSelectionSetSelected(x.GoPointer(), PositionVar)
 }
 
@@ -485,26 +502,4 @@ func (x *SingleSelection) UnselectRange(PositionVar uint, NItemsVar uint) bool {
 func init() {
 	core.SetPackageName("GTK", "gtk4")
 	core.SetSharedLibraries("GTK", []string{"libgtk-4.so.1", "libgtk-4.1.dylib"})
-	var libs []uintptr
-	for _, libPath := range core.GetPaths("GTK") {
-		lib, err := purego.Dlopen(libPath, purego.RTLD_NOW|purego.RTLD_GLOBAL)
-		if err != nil {
-			panic(err)
-		}
-		libs = append(libs, lib)
-	}
-
-	core.PuregoSafeRegister(&xSingleSelectionGLibType, libs, "gtk_single_selection_get_type")
-
-	core.PuregoSafeRegister(&xNewSingleSelection, libs, "gtk_single_selection_new")
-
-	core.PuregoSafeRegister(&xSingleSelectionGetAutoselect, libs, "gtk_single_selection_get_autoselect")
-	core.PuregoSafeRegister(&xSingleSelectionGetCanUnselect, libs, "gtk_single_selection_get_can_unselect")
-	core.PuregoSafeRegister(&xSingleSelectionGetModel, libs, "gtk_single_selection_get_model")
-	core.PuregoSafeRegister(&xSingleSelectionGetSelected, libs, "gtk_single_selection_get_selected")
-	core.PuregoSafeRegister(&xSingleSelectionGetSelectedItem, libs, "gtk_single_selection_get_selected_item")
-	core.PuregoSafeRegister(&xSingleSelectionSetAutoselect, libs, "gtk_single_selection_set_autoselect")
-	core.PuregoSafeRegister(&xSingleSelectionSetCanUnselect, libs, "gtk_single_selection_set_can_unselect")
-	core.PuregoSafeRegister(&xSingleSelectionSetModel, libs, "gtk_single_selection_set_model")
-	core.PuregoSafeRegister(&xSingleSelectionSetSelected, libs, "gtk_single_selection_set_selected")
 }

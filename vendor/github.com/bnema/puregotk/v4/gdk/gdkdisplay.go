@@ -4,7 +4,6 @@ package gdk
 import (
 	"unsafe"
 
-	"github.com/bnema/purego"
 	"github.com/bnema/puregotk/pkg/core"
 	"github.com/bnema/puregotk/v4/gio"
 	"github.com/bnema/puregotk/v4/glib"
@@ -33,6 +32,7 @@ type Display struct {
 var xDisplayGLibType func() types.GType
 
 func DisplayGLibType() types.GType {
+	core.LazyRegister(&xDisplayGLibType, "GDK", "gdk_display_get_type", false)
 	return xDisplayGLibType()
 }
 
@@ -46,6 +46,8 @@ var xDisplayBeep func(uintptr)
 
 // Emits a short beep on @display
 func (x *Display) Beep() {
+	core.LazyRegister(&xDisplayBeep, "GDK", "gdk_display_beep", false)
+
 	xDisplayBeep(x.GoPointer())
 }
 
@@ -55,6 +57,8 @@ var xDisplayClose func(uintptr)
 //
 // This cleans up associated resources.
 func (x *Display) Close() {
+	core.LazyRegister(&xDisplayClose, "GDK", "gdk_display_close", false)
+
 	xDisplayClose(x.GoPointer())
 }
 
@@ -70,6 +74,7 @@ var xDisplayCreateGlContext func(uintptr, **glib.Error) uintptr
 // Before using the returned `GdkGLContext`, you will need to
 // call [method@Gdk.GLContext.make_current] or [method@Gdk.GLContext.realize].
 func (x *Display) CreateGlContext() (*GLContext, error) {
+	core.LazyRegister(&xDisplayCreateGlContext, "GDK", "gdk_display_create_gl_context", false)
 	var cls *GLContext
 	var cerr *glib.Error
 
@@ -90,6 +95,8 @@ var xDisplayDeviceIsGrabbed func(uintptr, uintptr) bool
 
 // Returns %TRUE if there is an ongoing grab on @device for @display.
 func (x *Display) DeviceIsGrabbed(DeviceVar *Device) bool {
+	core.LazyRegister(&xDisplayDeviceIsGrabbed, "GDK", "gdk_display_device_is_grabbed", false)
+
 	cret := xDisplayDeviceIsGrabbed(x.GoPointer(), DeviceVar.GoPointer())
 	return cret
 }
@@ -107,6 +114,8 @@ var xDisplayFlush func(uintptr)
 // This is most useful for X11. On windowing systems where requests are
 // handled synchronously, this function will do nothing.
 func (x *Display) Flush() {
+	core.LazyRegister(&xDisplayFlush, "GDK", "gdk_display_flush", false)
+
 	xDisplayFlush(x.GoPointer())
 }
 
@@ -115,6 +124,7 @@ var xDisplayGetAppLaunchContext func(uintptr) uintptr
 // Returns a `GdkAppLaunchContext` suitable for launching
 // applications on the given display.
 func (x *Display) GetAppLaunchContext() *AppLaunchContext {
+	core.LazyRegister(&xDisplayGetAppLaunchContext, "GDK", "gdk_display_get_app_launch_context", false)
 	var cls *AppLaunchContext
 
 	cret := xDisplayGetAppLaunchContext(x.GoPointer())
@@ -131,6 +141,7 @@ var xDisplayGetClipboard func(uintptr) uintptr
 
 // Gets the clipboard used for copy/paste operations.
 func (x *Display) GetClipboard() *Clipboard {
+	core.LazyRegister(&xDisplayGetClipboard, "GDK", "gdk_display_get_clipboard", false)
 	var cls *Clipboard
 
 	cret := xDisplayGetClipboard(x.GoPointer())
@@ -151,6 +162,7 @@ var xDisplayGetDefaultSeat func(uintptr) uintptr
 // Note that a display may not have a seat. In this case,
 // this function will return %NULL.
 func (x *Display) GetDefaultSeat() *Seat {
+	core.LazyRegister(&xDisplayGetDefaultSeat, "GDK", "gdk_display_get_default_seat", false)
 	var cls *Seat
 
 	cret := xDisplayGetDefaultSeat(x.GoPointer())
@@ -178,6 +190,8 @@ var xDisplayGetDmabufFormats func(uintptr) uintptr
 //
 // This function is threadsafe. It can be called from any thread.
 func (x *Display) GetDmabufFormats() *DmabufFormats {
+	core.LazyRegister(&xDisplayGetDmabufFormats, "GDK", "gdk_display_get_dmabuf_formats", false)
+
 	cret := xDisplayGetDmabufFormats(x.GoPointer())
 	if cret == 0 {
 		return nil
@@ -190,6 +204,7 @@ var xDisplayGetMonitorAtSurface func(uintptr, uintptr) uintptr
 // Gets the monitor in which the largest area of @surface
 // resides.
 func (x *Display) GetMonitorAtSurface(SurfaceVar *Surface) *Monitor {
+	core.LazyRegister(&xDisplayGetMonitorAtSurface, "GDK", "gdk_display_get_monitor_at_surface", false)
 	var cls *Monitor
 
 	cret := xDisplayGetMonitorAtSurface(x.GoPointer(), SurfaceVar.GoPointer())
@@ -213,6 +228,7 @@ var xDisplayGetMonitors func(uintptr) uintptr
 // You can listen to the GListModel::items-changed signal on
 // this list to monitor changes to the monitor of this display.
 func (x *Display) GetMonitors() *gio.ListModelBase {
+	core.LazyRegister(&xDisplayGetMonitors, "GDK", "gdk_display_get_monitors", false)
 	var cls *gio.ListModelBase
 
 	cret := xDisplayGetMonitors(x.GoPointer())
@@ -230,6 +246,8 @@ var xDisplayGetName func(uintptr) string
 
 // Gets the name of the display.
 func (x *Display) GetName() string {
+	core.LazyRegister(&xDisplayGetName, "GDK", "gdk_display_get_name", false)
+
 	cret := xDisplayGetName(x.GoPointer())
 	return cret
 }
@@ -241,6 +259,7 @@ var xDisplayGetPrimaryClipboard func(uintptr) uintptr
 // On backends where the primary clipboard is not supported natively,
 // GDK emulates this clipboard locally.
 func (x *Display) GetPrimaryClipboard() *Clipboard {
+	core.LazyRegister(&xDisplayGetPrimaryClipboard, "GDK", "gdk_display_get_primary_clipboard", false)
 	var cls *Clipboard
 
 	cret := xDisplayGetPrimaryClipboard(x.GoPointer())
@@ -259,6 +278,8 @@ var xDisplayGetSetting func(uintptr, string, *gobject.Value) bool
 // Retrieves a desktop-wide setting such as double-click time
 // for the @display.
 func (x *Display) GetSetting(NameVar string, ValueVar *gobject.Value) bool {
+	core.LazyRegister(&xDisplayGetSetting, "GDK", "gdk_display_get_setting", false)
+
 	cret := xDisplayGetSetting(x.GoPointer(), NameVar, ValueVar)
 	return cret
 }
@@ -268,6 +289,8 @@ var xDisplayGetStartupNotificationId func(uintptr) string
 // Gets the startup notification ID for a Wayland display, or %NULL
 // if no ID has been defined.
 func (x *Display) GetStartupNotificationId() string {
+	core.LazyRegister(&xDisplayGetStartupNotificationId, "GDK", "gdk_display_get_startup_notification_id", false)
+
 	cret := xDisplayGetStartupNotificationId(x.GoPointer())
 	return cret
 }
@@ -276,6 +299,8 @@ var xDisplayIsClosed func(uintptr) bool
 
 // Finds out if the display has been closed.
 func (x *Display) IsClosed() bool {
+	core.LazyRegister(&xDisplayIsClosed, "GDK", "gdk_display_is_closed", false)
+
 	cret := xDisplayIsClosed(x.GoPointer())
 	return cret
 }
@@ -293,6 +318,8 @@ var xDisplayIsComposited func(uintptr) bool
 //
 // On modern displays, this value is always %TRUE.
 func (x *Display) IsComposited() bool {
+	core.LazyRegister(&xDisplayIsComposited, "GDK", "gdk_display_is_composited", false)
+
 	cret := xDisplayIsComposited(x.GoPointer())
 	return cret
 }
@@ -311,6 +338,8 @@ var xDisplayIsRgba func(uintptr) bool
 //
 // On modern displays, this value is always %TRUE.
 func (x *Display) IsRgba() bool {
+	core.LazyRegister(&xDisplayIsRgba, "GDK", "gdk_display_is_rgba", false)
+
 	cret := xDisplayIsRgba(x.GoPointer())
 	return cret
 }
@@ -319,6 +348,8 @@ var xDisplayListSeats func(uintptr) uintptr
 
 // Returns the list of seats known to @display.
 func (x *Display) ListSeats() *glib.List {
+	core.LazyRegister(&xDisplayListSeats, "GDK", "gdk_display_list_seats", false)
+
 	cret := xDisplayListSeats(x.GoPointer())
 	if cret == 0 {
 		return nil
@@ -338,6 +369,8 @@ var xDisplayMapKeycode func(uintptr, uint, *uintptr, *[]uint, *int) bool
 //
 // Free the returned arrays with g_free().
 func (x *Display) MapKeycode(KeycodeVar uint, KeysVar *uintptr, KeyvalsVar *[]uint, NEntriesVar *int) bool {
+	core.LazyRegister(&xDisplayMapKeycode, "GDK", "gdk_display_map_keycode", false)
+
 	cret := xDisplayMapKeycode(x.GoPointer(), KeycodeVar, KeysVar, KeyvalsVar, NEntriesVar)
 	return cret
 }
@@ -360,6 +393,8 @@ var xDisplayMapKeyval func(uintptr, uint, *uintptr, *int) bool
 //
 // The returned array should be freed with g_free().
 func (x *Display) MapKeyval(KeyvalVar uint, KeysVar *uintptr, NKeysVar *int) bool {
+	core.LazyRegister(&xDisplayMapKeyval, "GDK", "gdk_display_map_keyval", false)
+
 	cret := xDisplayMapKeyval(x.GoPointer(), KeyvalVar, KeysVar, NKeysVar)
 	return cret
 }
@@ -374,6 +409,8 @@ var xDisplayNotifyStartupComplete func(uintptr, string)
 // [gtk_window_set_auto_startup_notification()](../gtk4/method.Window.set_auto_startup_notification.html)
 // is called to disable that feature.
 func (x *Display) NotifyStartupComplete(StartupIdVar string) {
+	core.LazyRegister(&xDisplayNotifyStartupComplete, "GDK", "gdk_display_notify_startup_complete", false)
+
 	xDisplayNotifyStartupComplete(x.GoPointer(), StartupIdVar)
 }
 
@@ -394,6 +431,7 @@ var xDisplayPrepareGl func(uintptr, **glib.Error) bool
 // as needed. But you can use it as a check when setting up code that
 // might make use of OpenGL.
 func (x *Display) PrepareGl() (bool, error) {
+	core.LazyRegister(&xDisplayPrepareGl, "GDK", "gdk_display_prepare_gl", false)
 	var cerr *glib.Error
 
 	cret := xDisplayPrepareGl(x.GoPointer(), &cerr)
@@ -407,6 +445,8 @@ var xDisplayPutEvent func(uintptr, uintptr)
 
 // Adds the given event to the event queue for @display.
 func (x *Display) PutEvent(EventVar *Event) {
+	core.LazyRegister(&xDisplayPutEvent, "GDK", "gdk_display_put_event", false)
+
 	xDisplayPutEvent(x.GoPointer(), EventVar.GoPointer())
 }
 
@@ -419,6 +459,8 @@ var xDisplaySupportsInputShapes func(uintptr) bool
 //
 // On modern displays, this value is always %TRUE.
 func (x *Display) SupportsInputShapes() bool {
+	core.LazyRegister(&xDisplaySupportsInputShapes, "GDK", "gdk_display_supports_input_shapes", false)
+
 	cret := xDisplaySupportsInputShapes(x.GoPointer())
 	return cret
 }
@@ -430,6 +472,8 @@ var xDisplaySupportsShadowWidth func(uintptr) bool
 // If %TRUE is returned the application decides if it wants to draw shadows.
 // If %FALSE is returned, the compositor decides if it wants to draw shadows.
 func (x *Display) SupportsShadowWidth() bool {
+	core.LazyRegister(&xDisplaySupportsShadowWidth, "GDK", "gdk_display_supports_shadow_width", false)
+
 	cret := xDisplaySupportsShadowWidth(x.GoPointer())
 	return cret
 }
@@ -447,6 +491,8 @@ var xDisplaySync func(uintptr)
 // This is most useful for X11. On windowing systems where requests are
 // handled synchronously, this function will do nothing.
 func (x *Display) Sync() {
+	core.LazyRegister(&xDisplaySync, "GDK", "gdk_display_sync", false)
+
 	xDisplaySync(x.GoPointer())
 }
 
@@ -472,6 +518,8 @@ var xDisplayTranslateKey func(uintptr, uint, ModifierType, int, *uint, *int, *in
 // contains the translated keyval. It is exported for the benefit of
 // virtualized test environments.
 func (x *Display) TranslateKey(KeycodeVar uint, StateVar ModifierType, GroupVar int, KeyvalVar *uint, EffectiveGroupVar *int, LevelVar *int, ConsumedVar *ModifierType) bool {
+	core.LazyRegister(&xDisplayTranslateKey, "GDK", "gdk_display_translate_key", false)
+
 	cret := xDisplayTranslateKey(x.GoPointer(), KeycodeVar, StateVar, GroupVar, KeyvalVar, EffectiveGroupVar, LevelVar, ConsumedVar)
 	return cret
 }
@@ -650,6 +698,7 @@ var xDisplayGetDefault func() uintptr
 //
 //	gdk_display_manager_get_default_display (gdk_display_manager_get ())
 func DisplayGetDefault() *Display {
+	core.LazyRegister(&xDisplayGetDefault, "GDK", "gdk_display_get_default", false)
 	var cls *Display
 
 	cret := xDisplayGetDefault()
@@ -669,6 +718,7 @@ var xDisplayOpen func(uintptr) uintptr
 //
 // If opening the display fails, `NULL` is returned.
 func DisplayOpen(DisplayNameVar *string) *Display {
+	core.LazyRegister(&xDisplayOpen, "GDK", "gdk_display_open", false)
 	var cls *Display
 
 	DisplayNameVarPtr := core.GStrdupNullable(DisplayNameVar)
@@ -688,46 +738,4 @@ func DisplayOpen(DisplayNameVar *string) *Display {
 func init() {
 	core.SetPackageName("GDK", "gtk4")
 	core.SetSharedLibraries("GDK", []string{"libgtk-4.so.1", "libgtk-4.1.dylib"})
-	var libs []uintptr
-	for _, libPath := range core.GetPaths("GDK") {
-		lib, err := purego.Dlopen(libPath, purego.RTLD_NOW|purego.RTLD_GLOBAL)
-		if err != nil {
-			panic(err)
-		}
-		libs = append(libs, lib)
-	}
-
-	core.PuregoSafeRegister(&xDisplayGLibType, libs, "gdk_display_get_type")
-
-	core.PuregoSafeRegister(&xDisplayBeep, libs, "gdk_display_beep")
-	core.PuregoSafeRegister(&xDisplayClose, libs, "gdk_display_close")
-	core.PuregoSafeRegister(&xDisplayCreateGlContext, libs, "gdk_display_create_gl_context")
-	core.PuregoSafeRegister(&xDisplayDeviceIsGrabbed, libs, "gdk_display_device_is_grabbed")
-	core.PuregoSafeRegister(&xDisplayFlush, libs, "gdk_display_flush")
-	core.PuregoSafeRegister(&xDisplayGetAppLaunchContext, libs, "gdk_display_get_app_launch_context")
-	core.PuregoSafeRegister(&xDisplayGetClipboard, libs, "gdk_display_get_clipboard")
-	core.PuregoSafeRegister(&xDisplayGetDefaultSeat, libs, "gdk_display_get_default_seat")
-	core.PuregoSafeRegister(&xDisplayGetDmabufFormats, libs, "gdk_display_get_dmabuf_formats")
-	core.PuregoSafeRegister(&xDisplayGetMonitorAtSurface, libs, "gdk_display_get_monitor_at_surface")
-	core.PuregoSafeRegister(&xDisplayGetMonitors, libs, "gdk_display_get_monitors")
-	core.PuregoSafeRegister(&xDisplayGetName, libs, "gdk_display_get_name")
-	core.PuregoSafeRegister(&xDisplayGetPrimaryClipboard, libs, "gdk_display_get_primary_clipboard")
-	core.PuregoSafeRegister(&xDisplayGetSetting, libs, "gdk_display_get_setting")
-	core.PuregoSafeRegister(&xDisplayGetStartupNotificationId, libs, "gdk_display_get_startup_notification_id")
-	core.PuregoSafeRegister(&xDisplayIsClosed, libs, "gdk_display_is_closed")
-	core.PuregoSafeRegister(&xDisplayIsComposited, libs, "gdk_display_is_composited")
-	core.PuregoSafeRegister(&xDisplayIsRgba, libs, "gdk_display_is_rgba")
-	core.PuregoSafeRegister(&xDisplayListSeats, libs, "gdk_display_list_seats")
-	core.PuregoSafeRegister(&xDisplayMapKeycode, libs, "gdk_display_map_keycode")
-	core.PuregoSafeRegister(&xDisplayMapKeyval, libs, "gdk_display_map_keyval")
-	core.PuregoSafeRegister(&xDisplayNotifyStartupComplete, libs, "gdk_display_notify_startup_complete")
-	core.PuregoSafeRegister(&xDisplayPrepareGl, libs, "gdk_display_prepare_gl")
-	core.PuregoSafeRegister(&xDisplayPutEvent, libs, "gdk_display_put_event")
-	core.PuregoSafeRegister(&xDisplaySupportsInputShapes, libs, "gdk_display_supports_input_shapes")
-	core.PuregoSafeRegister(&xDisplaySupportsShadowWidth, libs, "gdk_display_supports_shadow_width")
-	core.PuregoSafeRegister(&xDisplaySync, libs, "gdk_display_sync")
-	core.PuregoSafeRegister(&xDisplayTranslateKey, libs, "gdk_display_translate_key")
-
-	core.PuregoSafeRegister(&xDisplayGetDefault, libs, "gdk_display_get_default")
-	core.PuregoSafeRegister(&xDisplayOpen, libs, "gdk_display_open")
 }

@@ -59,6 +59,20 @@ type BorrowedFrame struct {
 	Planes   []Plane
 }
 
+// SinglePlaneFrame is the allocation-free representation for the only DMABUF
+// layout currently supported by the GDK renderer. Its FD remains owned by CEF.
+type SinglePlaneFrame struct {
+	CodedSize Size
+
+	VisibleRect Rect
+	ContentRect Rect
+	SourceSize  Size
+
+	Format   FourCC
+	Modifier uint64
+	Plane    Plane
+}
+
 // checkedMulUint64 returns a*b and a boolean indicating whether the result is valid
 // (false on overflow). A zero result is always valid.
 func checkedMulUint64(a, b uint64) (uint64, bool) {
@@ -80,16 +94,25 @@ func checkedAddUint64(a, b uint64) (uint64, bool) {
 // plane, one of four RGB formats, positive coded size, non-negative fd, non-zero stride,
 // and overflow-safe plane extent bounds.
 func (f BorrowedFrame) Validate() error {
-	if !f.CodedSize.Valid() {
-		return fmt.Errorf("%w: %dx%d", ErrInvalidCodedSize, f.CodedSize.Width, f.CodedSize.Height)
-	}
-	if !f.Format.Supported() {
-		return fmt.Errorf("%w: %s", ErrUnsupportedFormat, f.Format)
-	}
 	if len(f.Planes) != supportedPlaneCount {
 		return fmt.Errorf("%w: got %d, want %d", ErrUnsupportedPlanes, len(f.Planes), supportedPlaneCount)
 	}
-	plane := f.Planes[0]
+	return validateSinglePlaneFrame(f.CodedSize, f.Format, f.Planes[0])
+}
+
+// Validate applies the same support and bounds checks as BorrowedFrame.Validate
+// without requiring a heap-backed plane slice.
+func (f SinglePlaneFrame) Validate() error {
+	return validateSinglePlaneFrame(f.CodedSize, f.Format, f.Plane)
+}
+
+func validateSinglePlaneFrame(codedSize Size, format FourCC, plane Plane) error {
+	if !codedSize.Valid() {
+		return fmt.Errorf("%w: %dx%d", ErrInvalidCodedSize, codedSize.Width, codedSize.Height)
+	}
+	if !format.Supported() {
+		return fmt.Errorf("%w: %s", ErrUnsupportedFormat, format)
+	}
 	if plane.FD < 0 {
 		return fmt.Errorf("%w: %d", ErrInvalidPlaneFD, plane.FD)
 	}
@@ -97,29 +120,25 @@ func (f BorrowedFrame) Validate() error {
 		return fmt.Errorf("%w: %d", ErrInvalidStride, plane.Stride)
 	}
 
-	// Stride must be wide enough for one coded row at the format's bpp.
-	bpp := uint64(f.Format.BytesPerPixel())
-	minStride, ok := checkedMulUint64(uint64(f.CodedSize.Width), bpp)
+	bpp := uint64(format.BytesPerPixel())
+	minStride, ok := checkedMulUint64(uint64(codedSize.Width), bpp)
 	if !ok {
-		return fmt.Errorf("%w: width %d * %d bytes-per-pixel overflows uint64", ErrPlaneExtentOverflow, f.CodedSize.Width, bpp)
+		return fmt.Errorf("%w: width %d * %d bytes-per-pixel overflows uint64", ErrPlaneExtentOverflow, codedSize.Width, bpp)
 	}
 	if uint64(plane.Stride) < minStride {
-		return fmt.Errorf("%w: stride %d < minimum %d (width %d * %d bytes-per-pixel)", ErrInvalidStride, plane.Stride, minStride, f.CodedSize.Width, bpp)
+		return fmt.Errorf("%w: stride %d < minimum %d (width %d * %d bytes-per-pixel)", ErrInvalidStride, plane.Stride, minStride, codedSize.Width, bpp)
 	}
 
-	// Overflow-safe minimum buffer extent validation.
-	stride := uint64(plane.Stride)
-	height := uint64(f.CodedSize.Height)
-	rowBytes, ok := checkedMulUint64(stride, height)
+	rowBytes, ok := checkedMulUint64(uint64(plane.Stride), uint64(codedSize.Height))
 	if !ok {
-		return fmt.Errorf("%w: stride %d * coded height %d overflows uint64", ErrPlaneExtentOverflow, plane.Stride, f.CodedSize.Height)
+		return fmt.Errorf("%w: stride %d * coded height %d overflows uint64", ErrPlaneExtentOverflow, plane.Stride, codedSize.Height)
 	}
 	requiredExtent, ok := checkedAddUint64(plane.Offset, rowBytes)
 	if !ok {
-		return fmt.Errorf("%w: offset %d + stride*coded height %d overflows uint64", ErrPlaneExtentOverflow, plane.Offset, rowBytes)
+		return fmt.Errorf("%w: offset %d + stride*coded height %d overflows uint64", ErrPlaneExtentOverflow, plane.Offset, codedSize.Height)
 	}
 	if plane.Size > 0 && plane.Size < requiredExtent {
-		return fmt.Errorf("%w: plane size %d < required minimum extent %d (offset %d + stride %d * coded height %d)", ErrPlaneSizeTooSmall, plane.Size, requiredExtent, plane.Offset, plane.Stride, f.CodedSize.Height)
+		return fmt.Errorf("%w: plane size %d < required minimum extent %d (offset %d + stride %d * coded height %d)", ErrPlaneSizeTooSmall, plane.Size, requiredExtent, plane.Offset, plane.Stride, codedSize.Height)
 	}
 	return nil
 }

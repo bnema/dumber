@@ -116,6 +116,7 @@ type BufferedOutputStream struct {
 var xBufferedOutputStreamGLibType func() types.GType
 
 func BufferedOutputStreamGLibType() types.GType {
+	core.LazyRegister(&xBufferedOutputStreamGLibType, "GIO", "g_buffered_output_stream_get_type", false)
 	return xBufferedOutputStreamGLibType()
 }
 
@@ -129,6 +130,7 @@ var xNewBufferedOutputStream func(uintptr) uintptr
 
 // Creates a new buffered output stream for a base stream.
 func NewBufferedOutputStream(BaseStreamVar *OutputStream) *BufferedOutputStream {
+	core.LazyRegister(&xNewBufferedOutputStream, "GIO", "g_buffered_output_stream_new", false)
 	var cls *BufferedOutputStream
 
 	cret := xNewBufferedOutputStream(BaseStreamVar.GoPointer())
@@ -145,6 +147,7 @@ var xNewBufferedOutputStreamSized func(uintptr, uint) uintptr
 
 // Creates a new buffered output stream with a given buffer size.
 func NewBufferedOutputStreamSized(BaseStreamVar *OutputStream, SizeVar uint) *BufferedOutputStream {
+	core.LazyRegister(&xNewBufferedOutputStreamSized, "GIO", "g_buffered_output_stream_new_sized", false)
 	var cls *BufferedOutputStream
 
 	cret := xNewBufferedOutputStreamSized(BaseStreamVar.GoPointer(), SizeVar)
@@ -161,6 +164,8 @@ var xBufferedOutputStreamGetAutoGrow func(uintptr) bool
 
 // Checks if the buffer automatically grows as data is added.
 func (x *BufferedOutputStream) GetAutoGrow() bool {
+	core.LazyRegister(&xBufferedOutputStreamGetAutoGrow, "GIO", "g_buffered_output_stream_get_auto_grow", false)
+
 	cret := xBufferedOutputStreamGetAutoGrow(x.GoPointer())
 	return cret
 }
@@ -169,6 +174,8 @@ var xBufferedOutputStreamGetBufferSize func(uintptr) uint
 
 // Gets the size of the buffer in the @stream.
 func (x *BufferedOutputStream) GetBufferSize() uint {
+	core.LazyRegister(&xBufferedOutputStreamGetBufferSize, "GIO", "g_buffered_output_stream_get_buffer_size", false)
+
 	cret := xBufferedOutputStreamGetBufferSize(x.GoPointer())
 	return cret
 }
@@ -180,6 +187,8 @@ var xBufferedOutputStreamSetAutoGrow func(uintptr, bool)
 // larger, and you must manually flush the buffer to actually write out
 // the data to the underlying stream.
 func (x *BufferedOutputStream) SetAutoGrow(AutoGrowVar bool) {
+	core.LazyRegister(&xBufferedOutputStreamSetAutoGrow, "GIO", "g_buffered_output_stream_set_auto_grow", false)
+
 	xBufferedOutputStreamSetAutoGrow(x.GoPointer(), AutoGrowVar)
 }
 
@@ -187,6 +196,8 @@ var xBufferedOutputStreamSetBufferSize func(uintptr, uint)
 
 // Sets the size of the internal buffer to @size.
 func (x *BufferedOutputStream) SetBufferSize(SizeVar uint) {
+	core.LazyRegister(&xBufferedOutputStreamSetBufferSize, "GIO", "g_buffered_output_stream_set_buffer_size", false)
+
 	xBufferedOutputStreamSetBufferSize(x.GoPointer(), SizeVar)
 }
 
@@ -300,22 +311,4 @@ func (x *BufferedOutputStream) Truncate(OffsetVar int64, CancellableVar *Cancell
 func init() {
 	core.SetPackageName("GIO", "gio-2.0")
 	core.SetSharedLibraries("GIO", []string{"libgio-2.0.so.0", "libgio-2.0.0.dylib"})
-	var libs []uintptr
-	for _, libPath := range core.GetPaths("GIO") {
-		lib, err := purego.Dlopen(libPath, purego.RTLD_NOW|purego.RTLD_GLOBAL)
-		if err != nil {
-			panic(err)
-		}
-		libs = append(libs, lib)
-	}
-
-	core.PuregoSafeRegister(&xBufferedOutputStreamGLibType, libs, "g_buffered_output_stream_get_type")
-
-	core.PuregoSafeRegister(&xNewBufferedOutputStream, libs, "g_buffered_output_stream_new")
-	core.PuregoSafeRegister(&xNewBufferedOutputStreamSized, libs, "g_buffered_output_stream_new_sized")
-
-	core.PuregoSafeRegister(&xBufferedOutputStreamGetAutoGrow, libs, "g_buffered_output_stream_get_auto_grow")
-	core.PuregoSafeRegister(&xBufferedOutputStreamGetBufferSize, libs, "g_buffered_output_stream_get_buffer_size")
-	core.PuregoSafeRegister(&xBufferedOutputStreamSetAutoGrow, libs, "g_buffered_output_stream_set_auto_grow")
-	core.PuregoSafeRegister(&xBufferedOutputStreamSetBufferSize, libs, "g_buffered_output_stream_set_buffer_size")
 }

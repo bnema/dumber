@@ -5,7 +5,6 @@ import (
 	"structs"
 	"unsafe"
 
-	"github.com/bnema/purego"
 	"github.com/bnema/puregotk/pkg/core"
 	"github.com/bnema/puregotk/v4/gobject"
 	"github.com/bnema/puregotk/v4/gobject/types"
@@ -83,6 +82,7 @@ type ToolbarStyle int
 var xToolbarStyleGLibType func() types.GType
 
 func ToolbarStyleGLibType() types.GType {
+	core.LazyRegister(&xToolbarStyleGLibType, "ADW", "adw_toolbar_style_get_type", false)
 	return xToolbarStyleGLibType()
 }
 
@@ -215,6 +215,7 @@ type ToolbarView struct {
 var xToolbarViewGLibType func() types.GType
 
 func ToolbarViewGLibType() types.GType {
+	core.LazyRegister(&xToolbarViewGLibType, "ADW", "adw_toolbar_view_get_type", false)
 	return xToolbarViewGLibType()
 }
 
@@ -228,6 +229,7 @@ var xNewToolbarView func() uintptr
 
 // Creates a new `AdwToolbarView`.
 func NewToolbarView() *ToolbarView {
+	core.LazyRegister(&xNewToolbarView, "ADW", "adw_toolbar_view_new", false)
 	var cls *ToolbarView
 
 	cret := xNewToolbarView()
@@ -245,6 +247,8 @@ var xToolbarViewAddBottomBar func(uintptr, uintptr)
 
 // Adds a bottom bar to @self.
 func (x *ToolbarView) AddBottomBar(WidgetVar *gtk.Widget) {
+	core.LazyRegister(&xToolbarViewAddBottomBar, "ADW", "adw_toolbar_view_add_bottom_bar", false)
+
 	xToolbarViewAddBottomBar(x.GoPointer(), WidgetVar.GoPointer())
 }
 
@@ -252,6 +256,8 @@ var xToolbarViewAddTopBar func(uintptr, uintptr)
 
 // Adds a top bar to @self.
 func (x *ToolbarView) AddTopBar(WidgetVar *gtk.Widget) {
+	core.LazyRegister(&xToolbarViewAddTopBar, "ADW", "adw_toolbar_view_add_top_bar", false)
+
 	xToolbarViewAddTopBar(x.GoPointer(), WidgetVar.GoPointer())
 }
 
@@ -264,6 +270,8 @@ var xToolbarViewGetBottomBarHeight func(uintptr) int
 //
 // See [method@ToolbarView.get_top_bar_height].
 func (x *ToolbarView) GetBottomBarHeight() int {
+	core.LazyRegister(&xToolbarViewGetBottomBarHeight, "ADW", "adw_toolbar_view_get_bottom_bar_height", false)
+
 	cret := xToolbarViewGetBottomBarHeight(x.GoPointer())
 	return cret
 }
@@ -272,6 +280,8 @@ var xToolbarViewGetBottomBarStyle func(uintptr) ToolbarStyle
 
 // Gets appearance of the bottom bars for @self.
 func (x *ToolbarView) GetBottomBarStyle() ToolbarStyle {
+	core.LazyRegister(&xToolbarViewGetBottomBarStyle, "ADW", "adw_toolbar_view_get_bottom_bar_style", false)
+
 	cret := xToolbarViewGetBottomBarStyle(x.GoPointer())
 	return cret
 }
@@ -280,6 +290,7 @@ var xToolbarViewGetContent func(uintptr) uintptr
 
 // Gets the content widget for @self.
 func (x *ToolbarView) GetContent() *gtk.Widget {
+	core.LazyRegister(&xToolbarViewGetContent, "ADW", "adw_toolbar_view_get_content", false)
 	var cls *gtk.Widget
 
 	cret := xToolbarViewGetContent(x.GoPointer())
@@ -297,6 +308,8 @@ var xToolbarViewGetExtendContentToBottomEdge func(uintptr) bool
 
 // Gets whether the content widget can extend behind bottom bars.
 func (x *ToolbarView) GetExtendContentToBottomEdge() bool {
+	core.LazyRegister(&xToolbarViewGetExtendContentToBottomEdge, "ADW", "adw_toolbar_view_get_extend_content_to_bottom_edge", false)
+
 	cret := xToolbarViewGetExtendContentToBottomEdge(x.GoPointer())
 	return cret
 }
@@ -305,6 +318,8 @@ var xToolbarViewGetExtendContentToTopEdge func(uintptr) bool
 
 // Gets whether the content widget can extend behind top bars.
 func (x *ToolbarView) GetExtendContentToTopEdge() bool {
+	core.LazyRegister(&xToolbarViewGetExtendContentToTopEdge, "ADW", "adw_toolbar_view_get_extend_content_to_top_edge", false)
+
 	cret := xToolbarViewGetExtendContentToTopEdge(x.GoPointer())
 	return cret
 }
@@ -313,6 +328,8 @@ var xToolbarViewGetRevealBottomBars func(uintptr) bool
 
 // Gets whether bottom bars are revealed for @self.
 func (x *ToolbarView) GetRevealBottomBars() bool {
+	core.LazyRegister(&xToolbarViewGetRevealBottomBars, "ADW", "adw_toolbar_view_get_reveal_bottom_bars", false)
+
 	cret := xToolbarViewGetRevealBottomBars(x.GoPointer())
 	return cret
 }
@@ -321,6 +338,8 @@ var xToolbarViewGetRevealTopBars func(uintptr) bool
 
 // Gets whether top bars are revealed for @self.
 func (x *ToolbarView) GetRevealTopBars() bool {
+	core.LazyRegister(&xToolbarViewGetRevealTopBars, "ADW", "adw_toolbar_view_get_reveal_top_bars", false)
+
 	cret := xToolbarViewGetRevealTopBars(x.GoPointer())
 	return cret
 }
@@ -334,6 +353,8 @@ var xToolbarViewGetTopBarHeight func(uintptr) int
 //
 // See [method@ToolbarView.get_bottom_bar_height].
 func (x *ToolbarView) GetTopBarHeight() int {
+	core.LazyRegister(&xToolbarViewGetTopBarHeight, "ADW", "adw_toolbar_view_get_top_bar_height", false)
+
 	cret := xToolbarViewGetTopBarHeight(x.GoPointer())
 	return cret
 }
@@ -342,6 +363,8 @@ var xToolbarViewGetTopBarStyle func(uintptr) ToolbarStyle
 
 // Gets appearance of the top bars for @self.
 func (x *ToolbarView) GetTopBarStyle() ToolbarStyle {
+	core.LazyRegister(&xToolbarViewGetTopBarStyle, "ADW", "adw_toolbar_view_get_top_bar_style", false)
+
 	cret := xToolbarViewGetTopBarStyle(x.GoPointer())
 	return cret
 }
@@ -350,6 +373,8 @@ var xToolbarViewRemove func(uintptr, uintptr)
 
 // Removes a child from @self.
 func (x *ToolbarView) Remove(WidgetVar *gtk.Widget) {
+	core.LazyRegister(&xToolbarViewRemove, "ADW", "adw_toolbar_view_remove", false)
+
 	xToolbarViewRemove(x.GoPointer(), WidgetVar.GoPointer())
 }
 
@@ -380,6 +405,8 @@ var xToolbarViewSetBottomBarStyle func(uintptr, ToolbarStyle)
 //
 // See also [method@ToolbarView.set_top_bar_style].
 func (x *ToolbarView) SetBottomBarStyle(StyleVar ToolbarStyle) {
+	core.LazyRegister(&xToolbarViewSetBottomBarStyle, "ADW", "adw_toolbar_view_set_bottom_bar_style", false)
+
 	xToolbarViewSetBottomBarStyle(x.GoPointer(), StyleVar)
 }
 
@@ -387,6 +414,8 @@ var xToolbarViewSetContent func(uintptr, uintptr)
 
 // Sets the content widget for @self.
 func (x *ToolbarView) SetContent(ContentVar *gtk.Widget) {
+	core.LazyRegister(&xToolbarViewSetContent, "ADW", "adw_toolbar_view_set_content", false)
+
 	xToolbarViewSetContent(x.GoPointer(), ContentVar.GoPointer())
 }
 
@@ -399,6 +428,8 @@ var xToolbarViewSetExtendContentToBottomEdge func(uintptr, bool)
 //
 // See [method@ToolbarView.set_extend_content_to_top_edge].
 func (x *ToolbarView) SetExtendContentToBottomEdge(ExtendVar bool) {
+	core.LazyRegister(&xToolbarViewSetExtendContentToBottomEdge, "ADW", "adw_toolbar_view_set_extend_content_to_bottom_edge", false)
+
 	xToolbarViewSetExtendContentToBottomEdge(x.GoPointer(), ExtendVar)
 }
 
@@ -411,6 +442,8 @@ var xToolbarViewSetExtendContentToTopEdge func(uintptr, bool)
 //
 // See [method@ToolbarView.set_extend_content_to_bottom_edge].
 func (x *ToolbarView) SetExtendContentToTopEdge(ExtendVar bool) {
+	core.LazyRegister(&xToolbarViewSetExtendContentToTopEdge, "ADW", "adw_toolbar_view_set_extend_content_to_top_edge", false)
+
 	xToolbarViewSetExtendContentToTopEdge(x.GoPointer(), ExtendVar)
 }
 
@@ -426,6 +459,8 @@ var xToolbarViewSetRevealBottomBars func(uintptr, bool)
 //
 // See [method@ToolbarView.set_reveal_top_bars].
 func (x *ToolbarView) SetRevealBottomBars(RevealVar bool) {
+	core.LazyRegister(&xToolbarViewSetRevealBottomBars, "ADW", "adw_toolbar_view_set_reveal_bottom_bars", false)
+
 	xToolbarViewSetRevealBottomBars(x.GoPointer(), RevealVar)
 }
 
@@ -441,6 +476,8 @@ var xToolbarViewSetRevealTopBars func(uintptr, bool)
 //
 // See [method@ToolbarView.set_reveal_bottom_bars].
 func (x *ToolbarView) SetRevealTopBars(RevealVar bool) {
+	core.LazyRegister(&xToolbarViewSetRevealTopBars, "ADW", "adw_toolbar_view_set_reveal_top_bars", false)
+
 	xToolbarViewSetRevealTopBars(x.GoPointer(), RevealVar)
 }
 
@@ -471,6 +508,8 @@ var xToolbarViewSetTopBarStyle func(uintptr, ToolbarStyle)
 //
 // See also [method@ToolbarView.set_bottom_bar_style].
 func (x *ToolbarView) SetTopBarStyle(StyleVar ToolbarStyle) {
+	core.LazyRegister(&xToolbarViewSetTopBarStyle, "ADW", "adw_toolbar_view_set_top_bar_style", false)
+
 	xToolbarViewSetTopBarStyle(x.GoPointer(), StyleVar)
 }
 
@@ -896,38 +935,4 @@ func (x *ToolbarView) GetBuildableId() string {
 func init() {
 	core.SetPackageName("ADW", "libadwaita-1")
 	core.SetSharedLibraries("ADW", []string{"libadwaita-1.so.0", "libadwaita-1.0.dylib"})
-	var libs []uintptr
-	for _, libPath := range core.GetPaths("ADW") {
-		lib, err := purego.Dlopen(libPath, purego.RTLD_NOW|purego.RTLD_GLOBAL)
-		if err != nil {
-			panic(err)
-		}
-		libs = append(libs, lib)
-	}
-
-	core.PuregoSafeRegister(&xToolbarStyleGLibType, libs, "adw_toolbar_style_get_type")
-
-	core.PuregoSafeRegister(&xToolbarViewGLibType, libs, "adw_toolbar_view_get_type")
-
-	core.PuregoSafeRegister(&xNewToolbarView, libs, "adw_toolbar_view_new")
-
-	core.PuregoSafeRegister(&xToolbarViewAddBottomBar, libs, "adw_toolbar_view_add_bottom_bar")
-	core.PuregoSafeRegister(&xToolbarViewAddTopBar, libs, "adw_toolbar_view_add_top_bar")
-	core.PuregoSafeRegister(&xToolbarViewGetBottomBarHeight, libs, "adw_toolbar_view_get_bottom_bar_height")
-	core.PuregoSafeRegister(&xToolbarViewGetBottomBarStyle, libs, "adw_toolbar_view_get_bottom_bar_style")
-	core.PuregoSafeRegister(&xToolbarViewGetContent, libs, "adw_toolbar_view_get_content")
-	core.PuregoSafeRegister(&xToolbarViewGetExtendContentToBottomEdge, libs, "adw_toolbar_view_get_extend_content_to_bottom_edge")
-	core.PuregoSafeRegister(&xToolbarViewGetExtendContentToTopEdge, libs, "adw_toolbar_view_get_extend_content_to_top_edge")
-	core.PuregoSafeRegister(&xToolbarViewGetRevealBottomBars, libs, "adw_toolbar_view_get_reveal_bottom_bars")
-	core.PuregoSafeRegister(&xToolbarViewGetRevealTopBars, libs, "adw_toolbar_view_get_reveal_top_bars")
-	core.PuregoSafeRegister(&xToolbarViewGetTopBarHeight, libs, "adw_toolbar_view_get_top_bar_height")
-	core.PuregoSafeRegister(&xToolbarViewGetTopBarStyle, libs, "adw_toolbar_view_get_top_bar_style")
-	core.PuregoSafeRegister(&xToolbarViewRemove, libs, "adw_toolbar_view_remove")
-	core.PuregoSafeRegister(&xToolbarViewSetBottomBarStyle, libs, "adw_toolbar_view_set_bottom_bar_style")
-	core.PuregoSafeRegister(&xToolbarViewSetContent, libs, "adw_toolbar_view_set_content")
-	core.PuregoSafeRegister(&xToolbarViewSetExtendContentToBottomEdge, libs, "adw_toolbar_view_set_extend_content_to_bottom_edge")
-	core.PuregoSafeRegister(&xToolbarViewSetExtendContentToTopEdge, libs, "adw_toolbar_view_set_extend_content_to_top_edge")
-	core.PuregoSafeRegister(&xToolbarViewSetRevealBottomBars, libs, "adw_toolbar_view_set_reveal_bottom_bars")
-	core.PuregoSafeRegister(&xToolbarViewSetRevealTopBars, libs, "adw_toolbar_view_set_reveal_top_bars")
-	core.PuregoSafeRegister(&xToolbarViewSetTopBarStyle, libs, "adw_toolbar_view_set_top_bar_style")
 }

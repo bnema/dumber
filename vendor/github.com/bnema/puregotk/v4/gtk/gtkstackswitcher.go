@@ -2,7 +2,6 @@
 package gtk
 
 import (
-	"github.com/bnema/purego"
 	"github.com/bnema/puregotk/pkg/core"
 	"github.com/bnema/puregotk/v4/gobject"
 	"github.com/bnema/puregotk/v4/gobject/types"
@@ -52,6 +51,7 @@ type StackSwitcher struct {
 var xStackSwitcherGLibType func() types.GType
 
 func StackSwitcherGLibType() types.GType {
+	core.LazyRegister(&xStackSwitcherGLibType, "GTK", "gtk_stack_switcher_get_type", false)
 	return xStackSwitcherGLibType()
 }
 
@@ -65,6 +65,7 @@ var xNewStackSwitcher func() uintptr
 
 // Create a new `GtkStackSwitcher`.
 func NewStackSwitcher() *StackSwitcher {
+	core.LazyRegister(&xNewStackSwitcher, "GTK", "gtk_stack_switcher_new", false)
 	var cls *StackSwitcher
 
 	cret := xNewStackSwitcher()
@@ -82,6 +83,7 @@ var xStackSwitcherGetStack func(uintptr) uintptr
 
 // Retrieves the stack.
 func (x *StackSwitcher) GetStack() *Stack {
+	core.LazyRegister(&xStackSwitcherGetStack, "GTK", "gtk_stack_switcher_get_stack", false)
 	var cls *Stack
 
 	cret := xStackSwitcherGetStack(x.GoPointer())
@@ -99,6 +101,8 @@ var xStackSwitcherSetStack func(uintptr, uintptr)
 
 // Sets the stack to control.
 func (x *StackSwitcher) SetStack(StackVar *Stack) {
+	core.LazyRegister(&xStackSwitcherSetStack, "GTK", "gtk_stack_switcher_set_stack", false)
+
 	xStackSwitcherSetStack(x.GoPointer(), StackVar.GoPointer())
 }
 
@@ -387,19 +391,4 @@ func (x *StackSwitcher) SetOrientation(OrientationVar Orientation) {
 func init() {
 	core.SetPackageName("GTK", "gtk4")
 	core.SetSharedLibraries("GTK", []string{"libgtk-4.so.1", "libgtk-4.1.dylib"})
-	var libs []uintptr
-	for _, libPath := range core.GetPaths("GTK") {
-		lib, err := purego.Dlopen(libPath, purego.RTLD_NOW|purego.RTLD_GLOBAL)
-		if err != nil {
-			panic(err)
-		}
-		libs = append(libs, lib)
-	}
-
-	core.PuregoSafeRegister(&xStackSwitcherGLibType, libs, "gtk_stack_switcher_get_type")
-
-	core.PuregoSafeRegister(&xNewStackSwitcher, libs, "gtk_stack_switcher_new")
-
-	core.PuregoSafeRegister(&xStackSwitcherGetStack, libs, "gtk_stack_switcher_get_stack")
-	core.PuregoSafeRegister(&xStackSwitcherSetStack, libs, "gtk_stack_switcher_set_stack")
 }

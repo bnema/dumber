@@ -5,7 +5,6 @@ import (
 	"structs"
 	"unsafe"
 
-	"github.com/bnema/purego"
 	"github.com/bnema/puregotk/pkg/core"
 )
 
@@ -47,6 +46,8 @@ var xTrashStackHeight func(**TrashStack) uint
 // Note that execution of this function is of O(N) complexity
 // where N denotes the number of items on the stack.
 func TrashStackHeight(StackPVar **TrashStack) uint {
+	core.LazyRegister(&xTrashStackHeight, "GLIB", "g_trash_stack_height", false)
+
 	cret := xTrashStackHeight(StackPVar)
 	return cret
 }
@@ -56,6 +57,8 @@ var xTrashStackPeek func(**TrashStack) uintptr
 // Returns the element at the top of a #GTrashStack
 // which may be %NULL.
 func TrashStackPeek(StackPVar **TrashStack) uintptr {
+	core.LazyRegister(&xTrashStackPeek, "GLIB", "g_trash_stack_peek", false)
+
 	cret := xTrashStackPeek(StackPVar)
 	return cret
 }
@@ -64,6 +67,8 @@ var xTrashStackPop func(**TrashStack) uintptr
 
 // Pops a piece of memory off a #GTrashStack.
 func TrashStackPop(StackPVar **TrashStack) uintptr {
+	core.LazyRegister(&xTrashStackPop, "GLIB", "g_trash_stack_pop", false)
+
 	cret := xTrashStackPop(StackPVar)
 	return cret
 }
@@ -72,23 +77,12 @@ var xTrashStackPush func(**TrashStack, uintptr)
 
 // Pushes a piece of memory onto a #GTrashStack.
 func TrashStackPush(StackPVar **TrashStack, DataPVar uintptr) {
+	core.LazyRegister(&xTrashStackPush, "GLIB", "g_trash_stack_push", false)
+
 	xTrashStackPush(StackPVar, DataPVar)
 }
 
 func init() {
 	core.SetPackageName("GLIB", "glib-2.0")
 	core.SetSharedLibraries("GLIB", []string{"libgobject-2.0.so.0", "libglib-2.0.so.0", "libgobject-2.0.0.dylib", "libglib-2.0.0.dylib"})
-	var libs []uintptr
-	for _, libPath := range core.GetPaths("GLIB") {
-		lib, err := purego.Dlopen(libPath, purego.RTLD_NOW|purego.RTLD_GLOBAL)
-		if err != nil {
-			panic(err)
-		}
-		libs = append(libs, lib)
-	}
-
-	core.PuregoSafeRegister(&xTrashStackHeight, libs, "g_trash_stack_height")
-	core.PuregoSafeRegister(&xTrashStackPeek, libs, "g_trash_stack_peek")
-	core.PuregoSafeRegister(&xTrashStackPop, libs, "g_trash_stack_pop")
-	core.PuregoSafeRegister(&xTrashStackPush, libs, "g_trash_stack_push")
 }

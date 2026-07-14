@@ -163,6 +163,9 @@ func (p *player) fail(err error) {
 // queues the buffer back. If any step fails, it routes the error
 // through p.fail.
 func (p *player) onProcess() {
+	// Drop native references before returning from each callback.
+	defer p.pwView.clear()
+
 	ops := p.streamOps
 	if ops == nil {
 		return
@@ -180,24 +183,25 @@ func (p *player) onProcess() {
 
 	queueOnError := true
 	defer func() {
-		if err := ops.QueueBuffer(sp, bufPtr); err != nil && queueOnError {
+		err := ops.QueueBuffer(sp, bufPtr)
+		if err != nil && queueOnError {
+			// Clear before OnError can reenter player methods.
+			p.pwView.clear()
 			p.fail(fmt.Errorf("queue buffer: %w", err))
 		}
 	}()
 
-	frames := p.config.FramesPerBuffer
-	view, err := newPWBufferView(bufPtr, p.config.Channels, frames)
-	if err != nil {
+	if err := p.pwView.refresh(bufPtr); err != nil {
 		queueOnError = false
 		p.fail(fmt.Errorf("buffer view: %w", err))
 		return
 	}
 
-	frames, err = p.processPCM(view.PCM())
+	frames, err := p.processPCM(p.pwView.PCM())
 	if err != nil {
 		queueOnError = false
 		return
 	}
 
-	view.Commit(frames)
+	p.pwView.Commit(frames)
 }

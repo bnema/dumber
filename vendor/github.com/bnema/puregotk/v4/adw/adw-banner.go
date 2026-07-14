@@ -5,7 +5,6 @@ import (
 	"structs"
 	"unsafe"
 
-	"github.com/bnema/purego"
 	"github.com/bnema/puregotk/pkg/core"
 	"github.com/bnema/puregotk/v4/glib"
 	"github.com/bnema/puregotk/v4/gobject"
@@ -41,6 +40,7 @@ type BannerButtonStyle int
 var xBannerButtonStyleGLibType func() types.GType
 
 func BannerButtonStyleGLibType() types.GType {
+	core.LazyRegister(&xBannerButtonStyleGLibType, "ADW", "adw_banner_button_style_get_type", false)
 	return xBannerButtonStyleGLibType()
 }
 
@@ -91,6 +91,7 @@ type Banner struct {
 var xBannerGLibType func() types.GType
 
 func BannerGLibType() types.GType {
+	core.LazyRegister(&xBannerGLibType, "ADW", "adw_banner_get_type", false)
 	return xBannerGLibType()
 }
 
@@ -104,6 +105,7 @@ var xNewBanner func(string) uintptr
 
 // Creates a new `AdwBanner`.
 func NewBanner(TitleVar string) *Banner {
+	core.LazyRegister(&xNewBanner, "ADW", "adw_banner_new", false)
 	var cls *Banner
 
 	cret := xNewBanner(TitleVar)
@@ -121,6 +123,8 @@ var xBannerGetButtonLabel func(uintptr) string
 
 // Gets the button label for @self.
 func (x *Banner) GetButtonLabel() string {
+	core.LazyRegister(&xBannerGetButtonLabel, "ADW", "adw_banner_get_button_label", false)
+
 	cret := xBannerGetButtonLabel(x.GoPointer())
 	return cret
 }
@@ -129,6 +133,8 @@ var xBannerGetButtonStyle func(uintptr) BannerButtonStyle
 
 // Gets the style class in use for the banner button.
 func (x *Banner) GetButtonStyle() BannerButtonStyle {
+	core.LazyRegister(&xBannerGetButtonStyle, "ADW", "adw_banner_get_button_style", false)
+
 	cret := xBannerGetButtonStyle(x.GoPointer())
 	return cret
 }
@@ -137,6 +143,8 @@ var xBannerGetRevealed func(uintptr) bool
 
 // Gets if a banner is revealed
 func (x *Banner) GetRevealed() bool {
+	core.LazyRegister(&xBannerGetRevealed, "ADW", "adw_banner_get_revealed", false)
+
 	cret := xBannerGetRevealed(x.GoPointer())
 	return cret
 }
@@ -145,6 +153,8 @@ var xBannerGetTitle func(uintptr) string
 
 // Gets the title for @self.
 func (x *Banner) GetTitle() string {
+	core.LazyRegister(&xBannerGetTitle, "ADW", "adw_banner_get_title", false)
+
 	cret := xBannerGetTitle(x.GoPointer())
 	return cret
 }
@@ -153,6 +163,8 @@ var xBannerGetUseMarkup func(uintptr) bool
 
 // Gets whether to use Pango markup for the banner title.
 func (x *Banner) GetUseMarkup() bool {
+	core.LazyRegister(&xBannerGetUseMarkup, "ADW", "adw_banner_get_use_markup", false)
+
 	cret := xBannerGetUseMarkup(x.GoPointer())
 	return cret
 }
@@ -166,6 +178,8 @@ var xBannerSetButtonLabel func(uintptr, uintptr)
 // The button can be used with a `GAction`, or with the
 // [signal@Banner::button-clicked] signal.
 func (x *Banner) SetButtonLabel(LabelVar *string) {
+	core.LazyRegister(&xBannerSetButtonLabel, "ADW", "adw_banner_set_button_label", false)
+
 	LabelVarPtr := core.GStrdupNullable(LabelVar)
 	defer core.GFreeNullable(LabelVarPtr)
 
@@ -187,6 +201,8 @@ var xBannerSetButtonStyle func(uintptr, BannerButtonStyle)
 //
 // &lt;/picture&gt;
 func (x *Banner) SetButtonStyle(StyleVar BannerButtonStyle) {
+	core.LazyRegister(&xBannerSetButtonStyle, "ADW", "adw_banner_set_button_style", false)
+
 	xBannerSetButtonStyle(x.GoPointer(), StyleVar)
 }
 
@@ -194,6 +210,8 @@ var xBannerSetRevealed func(uintptr, bool)
 
 // Sets whether a banner should be revealed
 func (x *Banner) SetRevealed(RevealedVar bool) {
+	core.LazyRegister(&xBannerSetRevealed, "ADW", "adw_banner_set_revealed", false)
+
 	xBannerSetRevealed(x.GoPointer(), RevealedVar)
 }
 
@@ -203,6 +221,8 @@ var xBannerSetTitle func(uintptr, string)
 //
 // See also: [property@Banner:use-markup].
 func (x *Banner) SetTitle(TitleVar string) {
+	core.LazyRegister(&xBannerSetTitle, "ADW", "adw_banner_set_title", false)
+
 	xBannerSetTitle(x.GoPointer(), TitleVar)
 }
 
@@ -212,6 +232,8 @@ var xBannerSetUseMarkup func(uintptr, bool)
 //
 // See also [func@Pango.parse_markup].
 func (x *Banner) SetUseMarkup(UseMarkupVar bool) {
+	core.LazyRegister(&xBannerSetUseMarkup, "ADW", "adw_banner_set_use_markup", false)
+
 	xBannerSetUseMarkup(x.GoPointer(), UseMarkupVar)
 }
 
@@ -679,29 +701,4 @@ func (x *Banner) GetBuildableId() string {
 func init() {
 	core.SetPackageName("ADW", "libadwaita-1")
 	core.SetSharedLibraries("ADW", []string{"libadwaita-1.so.0", "libadwaita-1.0.dylib"})
-	var libs []uintptr
-	for _, libPath := range core.GetPaths("ADW") {
-		lib, err := purego.Dlopen(libPath, purego.RTLD_NOW|purego.RTLD_GLOBAL)
-		if err != nil {
-			panic(err)
-		}
-		libs = append(libs, lib)
-	}
-
-	core.PuregoSafeRegister(&xBannerButtonStyleGLibType, libs, "adw_banner_button_style_get_type")
-
-	core.PuregoSafeRegister(&xBannerGLibType, libs, "adw_banner_get_type")
-
-	core.PuregoSafeRegister(&xNewBanner, libs, "adw_banner_new")
-
-	core.PuregoSafeRegister(&xBannerGetButtonLabel, libs, "adw_banner_get_button_label")
-	core.PuregoSafeRegister(&xBannerGetButtonStyle, libs, "adw_banner_get_button_style")
-	core.PuregoSafeRegister(&xBannerGetRevealed, libs, "adw_banner_get_revealed")
-	core.PuregoSafeRegister(&xBannerGetTitle, libs, "adw_banner_get_title")
-	core.PuregoSafeRegister(&xBannerGetUseMarkup, libs, "adw_banner_get_use_markup")
-	core.PuregoSafeRegister(&xBannerSetButtonLabel, libs, "adw_banner_set_button_label")
-	core.PuregoSafeRegister(&xBannerSetButtonStyle, libs, "adw_banner_set_button_style")
-	core.PuregoSafeRegister(&xBannerSetRevealed, libs, "adw_banner_set_revealed")
-	core.PuregoSafeRegister(&xBannerSetTitle, libs, "adw_banner_set_title")
-	core.PuregoSafeRegister(&xBannerSetUseMarkup, libs, "adw_banner_set_use_markup")
 }

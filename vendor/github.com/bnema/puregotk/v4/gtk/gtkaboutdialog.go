@@ -4,7 +4,6 @@ package gtk
 import (
 	"unsafe"
 
-	"github.com/bnema/purego"
 	"github.com/bnema/puregotk/pkg/core"
 	"github.com/bnema/puregotk/v4/gdk"
 	"github.com/bnema/puregotk/v4/glib"
@@ -21,6 +20,7 @@ type License int
 var xLicenseGLibType func() types.GType
 
 func LicenseGLibType() types.GType {
+	core.LazyRegister(&xLicenseGLibType, "GTK", "gtk_license_get_type", false)
 	return xLicenseGLibType()
 }
 
@@ -74,6 +74,8 @@ var xShowAboutDialog func(uintptr, string, ...interface{})
 // The constructed dialog is associated with the parent window and
 // reused for future invocations of this function.
 func ShowAboutDialog(ParentVar *Window, FirstPropertyNameVar string, varArgs ...interface{}) {
+	core.LazyRegister(&xShowAboutDialog, "GTK", "gtk_show_about_dialog", false)
+
 	xShowAboutDialog(ParentVar.GoPointer(), FirstPropertyNameVar, varArgs...)
 }
 
@@ -143,6 +145,7 @@ type AboutDialog struct {
 var xAboutDialogGLibType func() types.GType
 
 func AboutDialogGLibType() types.GType {
+	core.LazyRegister(&xAboutDialogGLibType, "GTK", "gtk_about_dialog_get_type", false)
 	return xAboutDialogGLibType()
 }
 
@@ -156,6 +159,7 @@ var xNewAboutDialog func() uintptr
 
 // Creates a new `GtkAboutDialog`.
 func NewAboutDialog() *AboutDialog {
+	core.LazyRegister(&xNewAboutDialog, "GTK", "gtk_about_dialog_new", false)
 	var cls *AboutDialog
 
 	cret := xNewAboutDialog()
@@ -173,6 +177,8 @@ var xAboutDialogAddCreditSection func(uintptr, string, []string)
 
 // Creates a new section in the "Credits" page.
 func (x *AboutDialog) AddCreditSection(SectionNameVar string, PeopleVar []string) {
+	core.LazyRegister(&xAboutDialogAddCreditSection, "GTK", "gtk_about_dialog_add_credit_section", false)
+
 	xAboutDialogAddCreditSection(x.GoPointer(), SectionNameVar, PeopleVar)
 }
 
@@ -181,6 +187,8 @@ var xAboutDialogGetArtists func(uintptr) []string
 // Returns the names of the artists which are displayed
 // in the credits page.
 func (x *AboutDialog) GetArtists() []string {
+	core.LazyRegister(&xAboutDialogGetArtists, "GTK", "gtk_about_dialog_get_artists", false)
+
 	cret := xAboutDialogGetArtists(x.GoPointer())
 	return cret
 }
@@ -190,6 +198,8 @@ var xAboutDialogGetAuthors func(uintptr) []string
 // Returns the names of the authors which are displayed
 // in the credits page.
 func (x *AboutDialog) GetAuthors() []string {
+	core.LazyRegister(&xAboutDialogGetAuthors, "GTK", "gtk_about_dialog_get_authors", false)
+
 	cret := xAboutDialogGetAuthors(x.GoPointer())
 	return cret
 }
@@ -198,6 +208,8 @@ var xAboutDialogGetComments func(uintptr) string
 
 // Returns the comments string.
 func (x *AboutDialog) GetComments() string {
+	core.LazyRegister(&xAboutDialogGetComments, "GTK", "gtk_about_dialog_get_comments", false)
+
 	cret := xAboutDialogGetComments(x.GoPointer())
 	return cret
 }
@@ -206,6 +218,8 @@ var xAboutDialogGetCopyright func(uintptr) string
 
 // Returns the copyright string.
 func (x *AboutDialog) GetCopyright() string {
+	core.LazyRegister(&xAboutDialogGetCopyright, "GTK", "gtk_about_dialog_get_copyright", false)
+
 	cret := xAboutDialogGetCopyright(x.GoPointer())
 	return cret
 }
@@ -215,6 +229,8 @@ var xAboutDialogGetDocumenters func(uintptr) []string
 // Returns the name of the documenters which are displayed
 // in the credits page.
 func (x *AboutDialog) GetDocumenters() []string {
+	core.LazyRegister(&xAboutDialogGetDocumenters, "GTK", "gtk_about_dialog_get_documenters", false)
+
 	cret := xAboutDialogGetDocumenters(x.GoPointer())
 	return cret
 }
@@ -223,6 +239,8 @@ var xAboutDialogGetLicense func(uintptr) string
 
 // Returns the license information.
 func (x *AboutDialog) GetLicense() string {
+	core.LazyRegister(&xAboutDialogGetLicense, "GTK", "gtk_about_dialog_get_license", false)
+
 	cret := xAboutDialogGetLicense(x.GoPointer())
 	return cret
 }
@@ -231,6 +249,8 @@ var xAboutDialogGetLicenseType func(uintptr) License
 
 // Retrieves the license type.
 func (x *AboutDialog) GetLicenseType() License {
+	core.LazyRegister(&xAboutDialogGetLicenseType, "GTK", "gtk_about_dialog_get_license_type", false)
+
 	cret := xAboutDialogGetLicenseType(x.GoPointer())
 	return cret
 }
@@ -239,6 +259,7 @@ var xAboutDialogGetLogo func(uintptr) uintptr
 
 // Returns the paintable displayed as logo in the about dialog.
 func (x *AboutDialog) GetLogo() *gdk.PaintableBase {
+	core.LazyRegister(&xAboutDialogGetLogo, "GTK", "gtk_about_dialog_get_logo", false)
 	var cls *gdk.PaintableBase
 
 	cret := xAboutDialogGetLogo(x.GoPointer())
@@ -256,6 +277,8 @@ var xAboutDialogGetLogoIconName func(uintptr) string
 
 // Returns the icon name displayed as logo in the about dialog.
 func (x *AboutDialog) GetLogoIconName() string {
+	core.LazyRegister(&xAboutDialogGetLogoIconName, "GTK", "gtk_about_dialog_get_logo_icon_name", false)
+
 	cret := xAboutDialogGetLogoIconName(x.GoPointer())
 	return cret
 }
@@ -264,6 +287,8 @@ var xAboutDialogGetProgramName func(uintptr) string
 
 // Returns the program name displayed in the about dialog.
 func (x *AboutDialog) GetProgramName() string {
+	core.LazyRegister(&xAboutDialogGetProgramName, "GTK", "gtk_about_dialog_get_program_name", false)
+
 	cret := xAboutDialogGetProgramName(x.GoPointer())
 	return cret
 }
@@ -272,6 +297,8 @@ var xAboutDialogGetSystemInformation func(uintptr) string
 
 // Returns the system information that is shown in the about dialog.
 func (x *AboutDialog) GetSystemInformation() string {
+	core.LazyRegister(&xAboutDialogGetSystemInformation, "GTK", "gtk_about_dialog_get_system_information", false)
+
 	cret := xAboutDialogGetSystemInformation(x.GoPointer())
 	return cret
 }
@@ -281,6 +308,8 @@ var xAboutDialogGetTranslatorCredits func(uintptr) string
 // Returns the translator credits string which is displayed
 // in the credits page.
 func (x *AboutDialog) GetTranslatorCredits() string {
+	core.LazyRegister(&xAboutDialogGetTranslatorCredits, "GTK", "gtk_about_dialog_get_translator_credits", false)
+
 	cret := xAboutDialogGetTranslatorCredits(x.GoPointer())
 	return cret
 }
@@ -289,6 +318,8 @@ var xAboutDialogGetVersion func(uintptr) string
 
 // Returns the version string.
 func (x *AboutDialog) GetVersion() string {
+	core.LazyRegister(&xAboutDialogGetVersion, "GTK", "gtk_about_dialog_get_version", false)
+
 	cret := xAboutDialogGetVersion(x.GoPointer())
 	return cret
 }
@@ -297,6 +328,8 @@ var xAboutDialogGetWebsite func(uintptr) string
 
 // Returns the website URL.
 func (x *AboutDialog) GetWebsite() string {
+	core.LazyRegister(&xAboutDialogGetWebsite, "GTK", "gtk_about_dialog_get_website", false)
+
 	cret := xAboutDialogGetWebsite(x.GoPointer())
 	return cret
 }
@@ -305,6 +338,8 @@ var xAboutDialogGetWebsiteLabel func(uintptr) string
 
 // Returns the label used for the website link.
 func (x *AboutDialog) GetWebsiteLabel() string {
+	core.LazyRegister(&xAboutDialogGetWebsiteLabel, "GTK", "gtk_about_dialog_get_website_label", false)
+
 	cret := xAboutDialogGetWebsiteLabel(x.GoPointer())
 	return cret
 }
@@ -314,6 +349,8 @@ var xAboutDialogGetWrapLicense func(uintptr) bool
 // Returns whether the license text in the about dialog is
 // automatically wrapped.
 func (x *AboutDialog) GetWrapLicense() bool {
+	core.LazyRegister(&xAboutDialogGetWrapLicense, "GTK", "gtk_about_dialog_get_wrap_license", false)
+
 	cret := xAboutDialogGetWrapLicense(x.GoPointer())
 	return cret
 }
@@ -323,6 +360,8 @@ var xAboutDialogSetArtists func(uintptr, []string)
 // Sets the names of the artists to be displayed
 // in the "Credits" page.
 func (x *AboutDialog) SetArtists(ArtistsVar []string) {
+	core.LazyRegister(&xAboutDialogSetArtists, "GTK", "gtk_about_dialog_set_artists", false)
+
 	xAboutDialogSetArtists(x.GoPointer(), ArtistsVar)
 }
 
@@ -331,6 +370,8 @@ var xAboutDialogSetAuthors func(uintptr, []string)
 // Sets the names of the authors which are displayed
 // in the "Credits" page of the about dialog.
 func (x *AboutDialog) SetAuthors(AuthorsVar []string) {
+	core.LazyRegister(&xAboutDialogSetAuthors, "GTK", "gtk_about_dialog_set_authors", false)
+
 	xAboutDialogSetAuthors(x.GoPointer(), AuthorsVar)
 }
 
@@ -340,6 +381,8 @@ var xAboutDialogSetComments func(uintptr, uintptr)
 //
 // This should be a short string of one or two lines.
 func (x *AboutDialog) SetComments(CommentsVar *string) {
+	core.LazyRegister(&xAboutDialogSetComments, "GTK", "gtk_about_dialog_set_comments", false)
+
 	CommentsVarPtr := core.GStrdupNullable(CommentsVar)
 	defer core.GFreeNullable(CommentsVarPtr)
 
@@ -352,6 +395,8 @@ var xAboutDialogSetCopyright func(uintptr, uintptr)
 //
 // This should be a short string of one or two lines.
 func (x *AboutDialog) SetCopyright(CopyrightVar *string) {
+	core.LazyRegister(&xAboutDialogSetCopyright, "GTK", "gtk_about_dialog_set_copyright", false)
+
 	CopyrightVarPtr := core.GStrdupNullable(CopyrightVar)
 	defer core.GFreeNullable(CopyrightVarPtr)
 
@@ -363,6 +408,8 @@ var xAboutDialogSetDocumenters func(uintptr, []string)
 // Sets the names of the documenters which are displayed
 // in the "Credits" page.
 func (x *AboutDialog) SetDocumenters(DocumentersVar []string) {
+	core.LazyRegister(&xAboutDialogSetDocumenters, "GTK", "gtk_about_dialog_set_documenters", false)
+
 	xAboutDialogSetDocumenters(x.GoPointer(), DocumentersVar)
 }
 
@@ -373,6 +420,8 @@ var xAboutDialogSetLicense func(uintptr, uintptr)
 //
 // If `license` is `NULL`, the license page is hidden.
 func (x *AboutDialog) SetLicense(LicenseVar *string) {
+	core.LazyRegister(&xAboutDialogSetLicense, "GTK", "gtk_about_dialog_set_license", false)
+
 	LicenseVarPtr := core.GStrdupNullable(LicenseVar)
 	defer core.GFreeNullable(LicenseVarPtr)
 
@@ -387,6 +436,8 @@ var xAboutDialogSetLicenseType func(uintptr, License)
 // This function overrides the license set using
 // [method@Gtk.AboutDialog.set_license].
 func (x *AboutDialog) SetLicenseType(LicenseTypeVar License) {
+	core.LazyRegister(&xAboutDialogSetLicenseType, "GTK", "gtk_about_dialog_set_license_type", false)
+
 	xAboutDialogSetLicenseType(x.GoPointer(), LicenseTypeVar)
 }
 
@@ -394,6 +445,8 @@ var xAboutDialogSetLogo func(uintptr, uintptr)
 
 // Sets the logo in the about dialog.
 func (x *AboutDialog) SetLogo(LogoVar gdk.Paintable) {
+	core.LazyRegister(&xAboutDialogSetLogo, "GTK", "gtk_about_dialog_set_logo", false)
+
 	xAboutDialogSetLogo(x.GoPointer(), LogoVar.GoPointer())
 }
 
@@ -401,6 +454,8 @@ var xAboutDialogSetLogoIconName func(uintptr, uintptr)
 
 // Sets the icon name to be displayed as logo in the about dialog.
 func (x *AboutDialog) SetLogoIconName(IconNameVar *string) {
+	core.LazyRegister(&xAboutDialogSetLogoIconName, "GTK", "gtk_about_dialog_set_logo_icon_name", false)
+
 	IconNameVarPtr := core.GStrdupNullable(IconNameVar)
 	defer core.GFreeNullable(IconNameVarPtr)
 
@@ -414,6 +469,8 @@ var xAboutDialogSetProgramName func(uintptr, uintptr)
 // If `name` is not set, the string returned
 // by `g_get_application_name()` is used.
 func (x *AboutDialog) SetProgramName(NameVar *string) {
+	core.LazyRegister(&xAboutDialogSetProgramName, "GTK", "gtk_about_dialog_set_program_name", false)
+
 	NameVarPtr := core.GStrdupNullable(NameVar)
 	defer core.GFreeNullable(NameVarPtr)
 
@@ -430,6 +487,8 @@ var xAboutDialogSetSystemInformation func(uintptr, uintptr)
 //
 // See [property@Gtk.AboutDialog:system-information].
 func (x *AboutDialog) SetSystemInformation(SystemInformationVar *string) {
+	core.LazyRegister(&xAboutDialogSetSystemInformation, "GTK", "gtk_about_dialog_set_system_information", false)
+
 	SystemInformationVarPtr := core.GStrdupNullable(SystemInformationVar)
 	defer core.GFreeNullable(SystemInformationVarPtr)
 
@@ -459,6 +518,8 @@ var xAboutDialogSetTranslatorCredits func(uintptr, uintptr)
 // that `msgid`, and since `GtkAboutDialog` will detect if “translator-credits”
 // is untranslated and omit translator credits.
 func (x *AboutDialog) SetTranslatorCredits(TranslatorCreditsVar *string) {
+	core.LazyRegister(&xAboutDialogSetTranslatorCredits, "GTK", "gtk_about_dialog_set_translator_credits", false)
+
 	TranslatorCreditsVarPtr := core.GStrdupNullable(TranslatorCreditsVar)
 	defer core.GFreeNullable(TranslatorCreditsVarPtr)
 
@@ -469,6 +530,8 @@ var xAboutDialogSetVersion func(uintptr, uintptr)
 
 // Sets the version string to display in the about dialog.
 func (x *AboutDialog) SetVersion(VersionVar *string) {
+	core.LazyRegister(&xAboutDialogSetVersion, "GTK", "gtk_about_dialog_set_version", false)
+
 	VersionVarPtr := core.GStrdupNullable(VersionVar)
 	defer core.GFreeNullable(VersionVarPtr)
 
@@ -479,6 +542,8 @@ var xAboutDialogSetWebsite func(uintptr, uintptr)
 
 // Sets the URL to use for the website link.
 func (x *AboutDialog) SetWebsite(WebsiteVar *string) {
+	core.LazyRegister(&xAboutDialogSetWebsite, "GTK", "gtk_about_dialog_set_website", false)
+
 	WebsiteVarPtr := core.GStrdupNullable(WebsiteVar)
 	defer core.GFreeNullable(WebsiteVarPtr)
 
@@ -489,6 +554,8 @@ var xAboutDialogSetWebsiteLabel func(uintptr, string)
 
 // Sets the label to be used for the website link.
 func (x *AboutDialog) SetWebsiteLabel(WebsiteLabelVar string) {
+	core.LazyRegister(&xAboutDialogSetWebsiteLabel, "GTK", "gtk_about_dialog_set_website_label", false)
+
 	xAboutDialogSetWebsiteLabel(x.GoPointer(), WebsiteLabelVar)
 }
 
@@ -497,6 +564,8 @@ var xAboutDialogSetWrapLicense func(uintptr, bool)
 // Sets whether the license text in the about dialog should be
 // automatically wrapped.
 func (x *AboutDialog) SetWrapLicense(WrapLicenseVar bool) {
+	core.LazyRegister(&xAboutDialogSetWrapLicense, "GTK", "gtk_about_dialog_set_wrap_license", false)
+
 	xAboutDialogSetWrapLicense(x.GoPointer(), WrapLicenseVar)
 }
 
@@ -1231,54 +1300,4 @@ func (x *AboutDialog) SetFocus(FocusVar *Widget) {
 func init() {
 	core.SetPackageName("GTK", "gtk4")
 	core.SetSharedLibraries("GTK", []string{"libgtk-4.so.1", "libgtk-4.1.dylib"})
-	var libs []uintptr
-	for _, libPath := range core.GetPaths("GTK") {
-		lib, err := purego.Dlopen(libPath, purego.RTLD_NOW|purego.RTLD_GLOBAL)
-		if err != nil {
-			panic(err)
-		}
-		libs = append(libs, lib)
-	}
-
-	core.PuregoSafeRegister(&xLicenseGLibType, libs, "gtk_license_get_type")
-
-	core.PuregoSafeRegister(&xShowAboutDialog, libs, "gtk_show_about_dialog")
-
-	core.PuregoSafeRegister(&xAboutDialogGLibType, libs, "gtk_about_dialog_get_type")
-
-	core.PuregoSafeRegister(&xNewAboutDialog, libs, "gtk_about_dialog_new")
-
-	core.PuregoSafeRegister(&xAboutDialogAddCreditSection, libs, "gtk_about_dialog_add_credit_section")
-	core.PuregoSafeRegister(&xAboutDialogGetArtists, libs, "gtk_about_dialog_get_artists")
-	core.PuregoSafeRegister(&xAboutDialogGetAuthors, libs, "gtk_about_dialog_get_authors")
-	core.PuregoSafeRegister(&xAboutDialogGetComments, libs, "gtk_about_dialog_get_comments")
-	core.PuregoSafeRegister(&xAboutDialogGetCopyright, libs, "gtk_about_dialog_get_copyright")
-	core.PuregoSafeRegister(&xAboutDialogGetDocumenters, libs, "gtk_about_dialog_get_documenters")
-	core.PuregoSafeRegister(&xAboutDialogGetLicense, libs, "gtk_about_dialog_get_license")
-	core.PuregoSafeRegister(&xAboutDialogGetLicenseType, libs, "gtk_about_dialog_get_license_type")
-	core.PuregoSafeRegister(&xAboutDialogGetLogo, libs, "gtk_about_dialog_get_logo")
-	core.PuregoSafeRegister(&xAboutDialogGetLogoIconName, libs, "gtk_about_dialog_get_logo_icon_name")
-	core.PuregoSafeRegister(&xAboutDialogGetProgramName, libs, "gtk_about_dialog_get_program_name")
-	core.PuregoSafeRegister(&xAboutDialogGetSystemInformation, libs, "gtk_about_dialog_get_system_information")
-	core.PuregoSafeRegister(&xAboutDialogGetTranslatorCredits, libs, "gtk_about_dialog_get_translator_credits")
-	core.PuregoSafeRegister(&xAboutDialogGetVersion, libs, "gtk_about_dialog_get_version")
-	core.PuregoSafeRegister(&xAboutDialogGetWebsite, libs, "gtk_about_dialog_get_website")
-	core.PuregoSafeRegister(&xAboutDialogGetWebsiteLabel, libs, "gtk_about_dialog_get_website_label")
-	core.PuregoSafeRegister(&xAboutDialogGetWrapLicense, libs, "gtk_about_dialog_get_wrap_license")
-	core.PuregoSafeRegister(&xAboutDialogSetArtists, libs, "gtk_about_dialog_set_artists")
-	core.PuregoSafeRegister(&xAboutDialogSetAuthors, libs, "gtk_about_dialog_set_authors")
-	core.PuregoSafeRegister(&xAboutDialogSetComments, libs, "gtk_about_dialog_set_comments")
-	core.PuregoSafeRegister(&xAboutDialogSetCopyright, libs, "gtk_about_dialog_set_copyright")
-	core.PuregoSafeRegister(&xAboutDialogSetDocumenters, libs, "gtk_about_dialog_set_documenters")
-	core.PuregoSafeRegister(&xAboutDialogSetLicense, libs, "gtk_about_dialog_set_license")
-	core.PuregoSafeRegister(&xAboutDialogSetLicenseType, libs, "gtk_about_dialog_set_license_type")
-	core.PuregoSafeRegister(&xAboutDialogSetLogo, libs, "gtk_about_dialog_set_logo")
-	core.PuregoSafeRegister(&xAboutDialogSetLogoIconName, libs, "gtk_about_dialog_set_logo_icon_name")
-	core.PuregoSafeRegister(&xAboutDialogSetProgramName, libs, "gtk_about_dialog_set_program_name")
-	core.PuregoSafeRegister(&xAboutDialogSetSystemInformation, libs, "gtk_about_dialog_set_system_information")
-	core.PuregoSafeRegister(&xAboutDialogSetTranslatorCredits, libs, "gtk_about_dialog_set_translator_credits")
-	core.PuregoSafeRegister(&xAboutDialogSetVersion, libs, "gtk_about_dialog_set_version")
-	core.PuregoSafeRegister(&xAboutDialogSetWebsite, libs, "gtk_about_dialog_set_website")
-	core.PuregoSafeRegister(&xAboutDialogSetWebsiteLabel, libs, "gtk_about_dialog_set_website_label")
-	core.PuregoSafeRegister(&xAboutDialogSetWrapLicense, libs, "gtk_about_dialog_set_wrap_license")
 }

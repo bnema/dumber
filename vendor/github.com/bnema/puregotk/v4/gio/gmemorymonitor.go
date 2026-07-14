@@ -119,6 +119,7 @@ type MemoryMonitor interface {
 var xMemoryMonitorGLibType func() types.GType
 
 func MemoryMonitorGLibType() types.GType {
+	core.LazyRegister(&xMemoryMonitorGLibType, "GIO", "g_memory_monitor_get_type", false)
 	return xMemoryMonitorGLibType()
 }
 
@@ -147,6 +148,7 @@ var xMemoryMonitorDupDefault func() uintptr
 
 // Gets a reference to the default #GMemoryMonitor for the system.
 func MemoryMonitorDupDefault() *MemoryMonitorBase {
+	core.LazyRegister(&xMemoryMonitorDupDefault, "GIO", "g_memory_monitor_dup_default", false)
 	var cls *MemoryMonitorBase
 
 	cret := xMemoryMonitorDupDefault()
@@ -162,16 +164,4 @@ func MemoryMonitorDupDefault() *MemoryMonitorBase {
 func init() {
 	core.SetPackageName("GIO", "gio-2.0")
 	core.SetSharedLibraries("GIO", []string{"libgio-2.0.so.0", "libgio-2.0.0.dylib"})
-	var libs []uintptr
-	for _, libPath := range core.GetPaths("GIO") {
-		lib, err := purego.Dlopen(libPath, purego.RTLD_NOW|purego.RTLD_GLOBAL)
-		if err != nil {
-			panic(err)
-		}
-		libs = append(libs, lib)
-	}
-
-	core.PuregoSafeRegister(&xMemoryMonitorDupDefault, libs, "g_memory_monitor_dup_default")
-
-	core.PuregoSafeRegister(&xMemoryMonitorGLibType, libs, "g_memory_monitor_get_type")
 }
