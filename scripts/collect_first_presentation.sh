@@ -9,10 +9,17 @@ readonly timeout_seconds="${DUMBER_FIRST_PRESENTATION_TIMEOUT_SECONDS:-45}"
 readonly runtime="${DUMBER_CEF_DIR:-$HOME/.local/share/cef-147-runtime}"
 readonly binary="${DUMBER_FIRST_PRESENTATION_BIN:-$PWD/dist/dumber}"
 readonly output="${DUMBER_FIRST_PRESENTATION_OUTPUT:-$PWD/phase1/first-presentation}"
+readonly upstream_module="github.com/bnema/purego-cef2gtk"
+readonly upstream_tag="v0.8.4"
+readonly upstream_revision="f217ece342dea3ef2a3f98671fcd16a39ad0037d"
 
 [[ -x "$binary" ]] || { echo "first-presentation: executable not found: $binary" >&2; exit 2; }
 [[ -d "$runtime" ]] || { echo "first-presentation: CEF runtime not found: $runtime" >&2; exit 2; }
 [[ -n "${WAYLAND_DISPLAY:-}${DISPLAY:-}" ]] || { echo "first-presentation: a current Wayland/X11 display is required" >&2; exit 2; }
+[[ "$(go list -m -f '{{.Version}}' "$upstream_module")" == "$upstream_tag" ]] || {
+  echo "first-presentation: expected $upstream_module@$upstream_tag" >&2
+  exit 2
+}
 
 rm -rf "$output"
 mkdir -p "$output"
@@ -20,9 +27,9 @@ mkdir -p "$output"
 # outside the committed artifact directory and always remove them.
 work_root="$(mktemp -d "${TMPDIR:-/tmp}/dumber-first-presentation.XXXXXX")"
 trap 'rm -rf "$work_root"' EXIT
-python3 - "$output/metadata.json" "$binary" "$timeout_seconds" <<'PY'
+python3 - "$output/metadata.json" "$binary" "$timeout_seconds" "$upstream_module" "$upstream_tag" "$upstream_revision" <<'PY'
 import hashlib, json, os, subprocess, sys
-path, binary, timeout = sys.argv[1:]
+path, binary, timeout, upstream_module, upstream_tag, upstream_revision = sys.argv[1:]
 with open(binary, "rb") as candidate:
   binary_sha256 = hashlib.file_digest(candidate, "sha256").hexdigest()
 json.dump({
@@ -30,7 +37,8 @@ json.dump({
   "runtime": {"label": "cef", "version": os.environ.get("DUMBER_CEF_RUNTIME_VERSION", "147")},
   "binary": {"label": "dumber", "sha256": binary_sha256},
   "timeout_seconds": int(timeout),
-  "git_revision": subprocess.check_output(["git", "rev-parse", "HEAD"], text=True).strip(),
+  "measured_source_revision": subprocess.check_output(["git", "rev-parse", "HEAD"], text=True).strip(),
+  "upstream": {"module": upstream_module, "tag": upstream_tag, "revision": upstream_revision},
   "fixed_environment": {"DUMBER_RENDER_STACK": "vulkan-dmabuf", "PUREGO_CEF2GTK_BACKEND": "gdk-dmabuf", "GSK_RENDERER": "vulkan"}
 }, open(path, "w"), indent=2, sort_keys=True)
 PY

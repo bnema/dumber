@@ -52,6 +52,13 @@ func TestFirstPresentationCollectorSanitizesMachineLocalValues(t *testing.T) {
 	for _, forbidden := range []string{"/home/", temp, "alice", "machine_path", `"time"`} {
 		require.NotContainsf(t, artifacts.String(), forbidden, "committed artifact leaked %q", forbidden)
 	}
+	for _, required := range []string{
+		`"measured_source_revision"`,
+		`"tag": "v0.8.4"`,
+		`"revision": "f217ece342dea3ef2a3f98671fcd16a39ad0037d"`,
+	} {
+		require.Contains(t, artifacts.String(), required)
+	}
 }
 
 func TestFirstPresentationCollectorRejectsInconsistentTiming(t *testing.T) {
