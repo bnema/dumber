@@ -53,10 +53,10 @@ modules:
         path: dev.bnema.Dumber.desktop
       # Icons
       - type: file
-        path: assets/logo.svg
+        path: ../assets/logo.svg
         dest-filename: logo.svg
       - type: file
-        path: assets/logo-512.png
+        path: ../assets/logo-512.png
         dest-filename: logo-512.png
       # Metainfo
       - type: file
