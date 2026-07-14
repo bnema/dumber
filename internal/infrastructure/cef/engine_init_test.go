@@ -36,6 +36,22 @@ func TestResolvedStateRoot_UsesProfileDefault(t *testing.T) {
 	require.Equal(t, profile.CEFUserDataDir(), root)
 }
 
+func TestConfigureCEFSubprocessRuntime_PropagatesConfiguredRuntimeBeforeInit(t *testing.T) {
+	t.Setenv("CEF_DIR", "")
+
+	runtime := filepath.Join(t.TempDir(), "cef-147")
+	require.Equal(t, runtime, configureCEFSubprocessRuntime(runtime))
+	require.Equal(t, runtime, os.Getenv("CEF_DIR"))
+}
+
+func TestConfigureCEFSubprocessRuntime_PreservesExplicitEnvironmentOverride(t *testing.T) {
+	explicitRuntime := filepath.Join(t.TempDir(), "cef-env")
+	t.Setenv("CEF_DIR", explicitRuntime)
+
+	require.Equal(t, explicitRuntime, configureCEFSubprocessRuntime(filepath.Join(t.TempDir(), "cef-config")))
+	require.Equal(t, explicitRuntime, os.Getenv("CEF_DIR"))
+}
+
 func TestPrepareCEFSettings_UsesResolvedProfilePaths(t *testing.T) {
 	logger := zerolog.Nop()
 	profile := testCEFDevProfile(t)
