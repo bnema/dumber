@@ -8,20 +8,31 @@ readonly runs=5
 readonly timeout_seconds="${DUMBER_FIRST_PRESENTATION_TIMEOUT_SECONDS:-45}"
 readonly runtime="${DUMBER_CEF_DIR:-$HOME/.local/share/cef-147-runtime}"
 readonly binary="${DUMBER_FIRST_PRESENTATION_BIN:-$PWD/dist/dumber}"
-if [[ -v DUMBER_FIRST_PRESENTATION_OUTPUT ]]; then
-  output="$DUMBER_FIRST_PRESENTATION_OUTPUT"
-else
-  output="$PWD/phase1/first-presentation"
-fi
-readonly output
-readonly upstream_module="github.com/bnema/purego-cef2gtk"
-readonly upstream_tag="v0.8.4"
-readonly upstream_revision="f217ece342dea3ef2a3f98671fcd16a39ad0037d"
 
 fail_unsafe_output() {
   echo "first-presentation: unsafe output path: $1" >&2
   exit 2
 }
+
+if [[ -v DUMBER_FIRST_PRESENTATION_OUTPUT ]]; then
+  output="$DUMBER_FIRST_PRESENTATION_OUTPUT"
+else
+  # Evidence is state, not source: keep the default outside the checkout and
+  # make every invocation a fresh child of the external evidence directory.
+  readonly state_home="${XDG_STATE_HOME:-$HOME/.local/state}"
+  [[ "$state_home" == /* ]] || fail_unsafe_output "XDG_STATE_HOME must be absolute"
+  readonly evidence_root="$state_home/dumber/roadmap-evidence"
+  mkdir -p -- "$evidence_root" || fail_unsafe_output "could not create XDG state directory"
+  canonical_evidence_root="$(realpath -e -- "$evidence_root")" || \
+    fail_unsafe_output "XDG state directory cannot be canonicalized"
+  [[ "$canonical_evidence_root" == "$evidence_root" && ! -L "$evidence_root" ]] || \
+    fail_unsafe_output "XDG state directory must not contain symbolic links"
+  output="$evidence_root/first-presentation-$(date -u +%Y%m%dT%H%M%S)-$$"
+fi
+readonly output
+readonly upstream_module="github.com/bnema/purego-cef2gtk"
+readonly upstream_tag="v0.8.4"
+readonly upstream_revision="f217ece342dea3ef2a3f98671fcd16a39ad0037d"
 
 # The artifact destination is caller-controlled. Never empty or recursively
 # clear it: collection only writes to a newly-created directory whose parent is
@@ -62,25 +73,38 @@ prepare_output
 
 # Raw logs and temporary XDG homes may contain machine-local paths. Keep them
 # outside the committed artifact directory and always remove them.
-readonly work_root="$(mktemp -d "${TMPDIR:-/tmp}/dumber-first-presentation.XXXXXX")"
+work_root="$(mktemp -d "${TMPDIR:-/tmp}/dumber-first-presentation.XXXXXX")"
+readonly work_root
 cleanup_work_root() {
   [[ -n "${work_root:-}" && -d "$work_root" && ! -L "$work_root" ]] || return
   rm -rf -- "$work_root"
 }
 trap cleanup_work_root EXIT
 python3 - "$output/metadata.json" "$binary" "$timeout_seconds" "$upstream_module" "$upstream_tag" "$upstream_revision" <<'PY'
-import hashlib, json, os, subprocess, sys
+import hashlib, json, os, platform, subprocess, sys
 path, binary, timeout, upstream_module, upstream_tag, upstream_revision = sys.argv[1:]
 with open(binary, "rb") as candidate:
   binary_sha256 = hashlib.file_digest(candidate, "sha256").hexdigest()
+
+# These deliberately coarse labels support comparison without exposing a host,
+# device name, driver version, path, or environment dump.
+architecture = {"x86_64": "amd64", "amd64": "amd64", "aarch64": "arm64", "arm64": "arm64"}.get(platform.machine().lower(), "other")
+os_label = {"linux": "linux", "darwin": "darwin", "windows": "windows"}.get(platform.system().lower(), "other")
+display_protocol = "wayland" if os.environ.get("WAYLAND_DISPLAY") else "x11"
+gpu_profile = os.environ.get("DUMBER_MACHINE_GPU_PROFILE", "generic-gpu")
+allowed_gpu_profiles = {"generic-gpu", "integrated-gpu", "discrete-gpu", "hybrid-gpu", "virtual-gpu", "unknown-gpu"}
+if gpu_profile not in allowed_gpu_profiles:
+    raise SystemExit("DUMBER_MACHINE_GPU_PROFILE must be a non-identifying profile label")
+
 json.dump({
   "runs": 5,
-  "runtime": {"label": "cef", "version": os.environ.get("DUMBER_CEF_RUNTIME_VERSION", "147")},
+  "runtime": {"label": "cef", "version": "147"},
   "binary": {"label": "dumber", "sha256": binary_sha256},
   "timeout_seconds": int(timeout),
   "measured_source_revision": subprocess.check_output(["git", "-c", f"safe.directory={os.getcwd()}", "rev-parse", "HEAD"], text=True).strip(),
   "upstream": {"module": upstream_module, "tag": upstream_tag, "revision": upstream_revision},
-  "fixed_environment": {"DUMBER_RENDER_STACK": "vulkan-dmabuf", "PUREGO_CEF2GTK_BACKEND": "gdk-dmabuf", "GSK_RENDERER": "vulkan"}
+  "comparison": {"os": os_label, "architecture": architecture, "display_protocol": display_protocol, "machine_gpu_profile": gpu_profile},
+  "render_configuration": {"backend": "gdk-dmabuf", "buffer_sharing": "dmabuf", "renderer": "vulkan"}
 }, open(path, "w"), indent=2, sort_keys=True)
 PY
 

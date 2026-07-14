@@ -122,10 +122,12 @@ func TestFirstPresentationCollectorSanitizesMachineLocalValues(t *testing.T) {
 	cmd.Dir = repoRoot
 	cmd.Env = append(os.Environ(),
 		"DISPLAY=:test",
+		"WAYLAND_DISPLAY=",
 		"DUMBER_CEF_DIR="+runtime,
 		"DUMBER_FIRST_PRESENTATION_BIN="+binary,
 		"DUMBER_FIRST_PRESENTATION_OUTPUT="+output,
 		"DUMBER_FIRST_PRESENTATION_TIMEOUT_SECONDS=1",
+		"DUMBER_MACHINE_GPU_PROFILE=integrated-gpu",
 	)
 	result, err := cmd.CombinedOutput()
 	require.NoErrorf(t, err, "collector failed: %s", result)
@@ -146,6 +148,66 @@ func TestFirstPresentationCollectorSanitizesMachineLocalValues(t *testing.T) {
 	} {
 		require.Contains(t, artifacts.String(), required)
 	}
+
+	var metadata struct {
+		Comparison struct {
+			OS                string `json:"os"`
+			Architecture      string `json:"architecture"`
+			DisplayProtocol   string `json:"display_protocol"`
+			MachineGPUProfile string `json:"machine_gpu_profile"`
+		} `json:"comparison"`
+	}
+	contents, err := os.ReadFile(filepath.Join(output, "metadata.json"))
+	require.NoError(t, err)
+	require.NoError(t, json.Unmarshal(contents, &metadata))
+	require.NotEmpty(t, metadata.Comparison.OS)
+	require.NotEmpty(t, metadata.Comparison.Architecture)
+	require.Equal(t, "x11", metadata.Comparison.DisplayProtocol)
+	require.Equal(t, "integrated-gpu", metadata.Comparison.MachineGPUProfile)
+}
+
+func TestFirstPresentationCollectorDefaultsToXDGStateEvidenceDirectory(t *testing.T) {
+	repoRoot, err := filepath.Abs(filepath.Join("..", ".."))
+	require.NoError(t, err)
+	temp := t.TempDir()
+	runtime := filepath.Join(temp, "cef-147-runtime")
+	require.NoError(t, os.Mkdir(runtime, 0o755))
+	binary := filepath.Join(temp, "dumber")
+	require.NoError(t, os.WriteFile(binary, collectorTestBinary(validFirstPresentationLog), 0o755))
+	stateHome := filepath.Join(temp, "state")
+
+	cmd := exec.Command(filepath.Join(repoRoot, "scripts", "collect_first_presentation.sh"))
+	cmd.Dir = repoRoot
+	cmd.Env = append(envWithout("DUMBER_FIRST_PRESENTATION_OUTPUT"),
+		"DISPLAY=:test",
+		"WAYLAND_DISPLAY=",
+		"DUMBER_CEF_DIR="+runtime,
+		"DUMBER_FIRST_PRESENTATION_BIN="+binary,
+		"DUMBER_FIRST_PRESENTATION_TIMEOUT_SECONDS=1",
+		"DUMBER_MACHINE_GPU_PROFILE=integrated-gpu",
+		"XDG_STATE_HOME="+stateHome,
+	)
+	result, err := cmd.CombinedOutput()
+	require.NoErrorf(t, err, "collector failed: %s", result)
+
+	evidenceRoot := filepath.Join(stateHome, "dumber", "roadmap-evidence")
+	entries, err := os.ReadDir(evidenceRoot)
+	require.NoError(t, err)
+	require.Len(t, entries, 1)
+	require.True(t, entries[0].IsDir())
+	require.FileExists(t, filepath.Join(evidenceRoot, entries[0].Name(), "metadata.json"))
+	require.NotContains(t, string(result), filepath.Join(repoRoot, "phase1"))
+}
+
+func envWithout(name string) []string {
+	prefix := name + "="
+	var environment []string
+	for _, entry := range os.Environ() {
+		if !strings.HasPrefix(entry, prefix) {
+			environment = append(environment, entry)
+		}
+	}
+	return environment
 }
 
 func TestFirstPresentationCollectorReadsProvenanceWithScopedGitSafeDirectory(t *testing.T) {
