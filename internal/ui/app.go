@@ -171,8 +171,8 @@ type floatingWorkspaceSession struct {
 	// removed. It is cleared exactly once with resizeTickID.
 	resizeTickCallback *gtk.TickCallback
 	resizeTickID       uint
-	appliedWidth        int
-	appliedHeight       int
+	appliedWidth       int
+	appliedHeight      int
 }
 
 type floatingSessionKey struct {
